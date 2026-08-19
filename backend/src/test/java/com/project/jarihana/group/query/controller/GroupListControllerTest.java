@@ -1,9 +1,9 @@
 package com.project.jarihana.group.query.controller;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.hamcrest.Matchers.nullValue;
 
 import com.jayway.jsonpath.JsonPath;
 import com.project.jarihana.group.domain.Group;
@@ -13,9 +13,9 @@ import com.project.jarihana.group.query.repository.GroupMemberJpaRepository;
 import com.project.jarihana.group.query.repository.GroupRecruitmentJpaRepository;
 import com.project.jarihana.group.query.repository.RegistrationJpaRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
+import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
-import com.project.jarihana.member.repository.MemberRepository;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.time.LocalTime;

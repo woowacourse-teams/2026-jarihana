@@ -12,7 +12,7 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class UnauthenticatedEntryPoint implements AuthenticationEntryPoint {
 
-    private static final String MESSAGE = "로그인이 필요합니다.";
+    private static final String MESSAGE = "인증 정보가 필요합니다.";
 
     private final ObjectMapper objectMapper;
 

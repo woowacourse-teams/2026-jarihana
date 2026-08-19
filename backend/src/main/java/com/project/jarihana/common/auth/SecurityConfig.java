@@ -2,6 +2,7 @@ package com.project.jarihana.common.auth;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -13,6 +14,14 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private static final String[] PUBLIC_PATHS = {"/api/oauth/**"};
+    private static final String[] PUBLIC_GET_PATHS = {
+            "/api/groups",
+            "/api/groups/*",
+            "/api/groups/*/members",
+            "/api/groups/*/recruitments",
+            "/api/groups/*/recruitments/*"
+    };
+    private static final String[] PUBLIC_POST_PATHS = {"/api/auth/refresh"};
 
     private final AccessTokenProvider accessTokenProvider;
     private final JwtProperties jwtProperties;
@@ -39,6 +48,8 @@ public class SecurityConfig {
                 .logout(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers(PUBLIC_PATHS).permitAll()
+                        .requestMatchers(HttpMethod.GET, PUBLIC_GET_PATHS).permitAll()
+                        .requestMatchers(HttpMethod.POST, PUBLIC_POST_PATHS).permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(handling -> handling
                         .authenticationEntryPoint(unauthenticatedEntryPoint)

@@ -14,7 +14,7 @@ import org.springframework.web.method.support.ModelAndViewContainer;
 @Component
 public class LoginMemberArgumentResolver implements HandlerMethodArgumentResolver {
 
-    private static final String UNAUTHENTICATED_MESSAGE = "로그인이 필요합니다.";
+    private static final String UNAUTHENTICATED_MESSAGE = "인증 정보가 필요합니다.";
 
     @Override
     public boolean supportsParameter(MethodParameter parameter) {
