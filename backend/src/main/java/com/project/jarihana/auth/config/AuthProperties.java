@@ -1,4 +1,4 @@
-package com.project.jarihana.member.config;
+package com.project.jarihana.auth.config;
 
 import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;

@@ -1,10 +1,13 @@
 package com.project.jarihana.registration.domain;
 
 import com.project.jarihana.common.domain.BaseEntity;
+import com.project.jarihana.common.exception.BusinessException;
+import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.JoinMethod;
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -14,7 +17,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Embedded;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -116,7 +118,7 @@ public class Registration extends BaseEntity {
         validateJoinMethod(recruitment, JoinMethod.AUTO);
         validateRecruitmentOpen(recruitment, registeredAt);
         if (!recruitment.hasCapacity(approvedCount)) {
-            throw new IllegalStateException("모집 정원이 남아 있지 않습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "모집 정원이 남아 있지 않습니다.");
         }
         return new Registration(
                 null,
@@ -135,10 +137,10 @@ public class Registration extends BaseEntity {
         requirePending();
         DecisionActor requiredActor = require(actor, "결정 주체");
         if (requiredActor.getType() != DecisionActorType.MEMBER) {
-            throw new IllegalArgumentException("수동 승인은 회원 결정 주체만 수행할 수 있습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "수동 승인은 회원 결정 주체만 수행할 수 있습니다.");
         }
         if (!recruitment.hasCapacity(approvedCount)) {
-            throw new IllegalStateException("모집 정원이 남아 있지 않습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "모집 정원이 남아 있지 않습니다.");
         }
         return decided(RegistrationStatus.APPROVED, null, require(decidedAt, "결정 시각"), requiredActor);
     }
@@ -147,7 +149,7 @@ public class Registration extends BaseEntity {
         requirePending();
         DecisionActor requiredActor = require(actor, "결정 주체");
         if (requiredActor.getType() != DecisionActorType.MEMBER) {
-            throw new IllegalArgumentException("수동 거절은 회원 결정 주체만 수행할 수 있습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "수동 거절은 회원 결정 주체만 수행할 수 있습니다.");
         }
         return rejected(requiredActor, reason, decidedAt);
     }
@@ -192,14 +194,14 @@ public class Registration extends BaseEntity {
 
     private void requirePending() {
         if (status != RegistrationStatus.PENDING) {
-            throw new IllegalStateException("PENDING 상태의 신청만 결정할 수 있습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "PENDING 상태의 신청만 결정할 수 있습니다.");
         }
     }
 
     private static void validateJoinMethod(GroupRecruitment recruitment, JoinMethod expected) {
         GroupRecruitment requiredRecruitment = require(recruitment, "모집 공고");
         if (requiredRecruitment.getJoinMethod() != expected) {
-            throw new IllegalArgumentException("모집 방식과 신청 생성 경로가 일치하지 않습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "모집 방식과 신청 생성 경로가 일치하지 않습니다.");
         }
     }
 
@@ -209,7 +211,7 @@ public class Registration extends BaseEntity {
     ) {
         LocalDateTime requiredRegisteredAt = require(registeredAt, "신청 시각");
         if (!recruitment.isOpenAt(requiredRegisteredAt)) {
-            throw new IllegalStateException("모집 중인 공고에만 신청할 수 있습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "모집 중인 공고에만 신청할 수 있습니다.");
         }
     }
 
@@ -221,28 +223,28 @@ public class Registration extends BaseEntity {
     ) {
         if (status == RegistrationStatus.PENDING) {
             if (rejectReason != null || decidedAt != null || decidedBy != null) {
-                throw new IllegalArgumentException("대기 신청에는 결정 정보가 있을 수 없습니다.");
+                throw new BusinessException(ErrorCode.INVALID_PARAMETER, "대기 신청에는 결정 정보가 있을 수 없습니다.");
             }
             return;
         }
         if (decidedAt == null || decidedBy == null) {
-            throw new IllegalArgumentException("결정된 신청에는 결정 시각과 주체가 필요합니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "결정된 신청에는 결정 시각과 주체가 필요합니다.");
         }
         if (status == RegistrationStatus.APPROVED && rejectReason != null) {
-            throw new IllegalArgumentException("승인 신청에는 거절 사유가 있을 수 없습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "승인 신청에는 거절 사유가 있을 수 없습니다.");
         }
     }
 
     private static String validateNullableLength(String value, int maxLength, String fieldName) {
         if (value != null && value.length() > maxLength) {
-            throw new IllegalArgumentException(fieldName + "은 " + maxLength + "자 이하여야 합니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 " + maxLength + "자 이하여야 합니다.");
         }
         return value;
     }
 
     private static <T> T require(T value, String fieldName) {
         if (value == null) {
-            throw new IllegalArgumentException(fieldName + "은 필수입니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 필수입니다.");
         }
         return value;
     }

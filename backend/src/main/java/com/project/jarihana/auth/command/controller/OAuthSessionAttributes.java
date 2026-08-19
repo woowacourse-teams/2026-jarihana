@@ -1,4 +1,4 @@
-package com.project.jarihana.member.command.controller;
+package com.project.jarihana.auth.command.controller;
 
 public final class OAuthSessionAttributes {
 

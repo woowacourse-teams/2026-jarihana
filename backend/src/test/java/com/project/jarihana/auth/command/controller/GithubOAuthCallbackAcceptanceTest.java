@@ -1,14 +1,14 @@
-package com.project.jarihana.member.command.controller;
+package com.project.jarihana.auth.command.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.project.jarihana.auth.command.repository.RefreshTokenRepository;
+import com.project.jarihana.auth.domain.RefreshToken;
 import com.project.jarihana.common.auth.AccessTokenProvider;
 import com.project.jarihana.common.auth.JwtProperties;
+import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
-import com.project.jarihana.member.domain.RefreshToken;
-import com.project.jarihana.member.repository.MemberRepository;
-import com.project.jarihana.member.repository.RefreshTokenRepository;
 import com.project.jarihana.support.GithubOAuthClientStub;
 import com.project.jarihana.support.IntegrationTestSupport;
 import io.restassured.RestAssured;

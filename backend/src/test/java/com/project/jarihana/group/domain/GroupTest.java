@@ -3,6 +3,8 @@ package com.project.jarihana.group.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.project.jarihana.common.exception.BusinessException;
+import com.project.jarihana.common.exception.ErrorCode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -41,7 +43,9 @@ class GroupTest {
                 null,
                 null,
                 CREATED_AT
-        )).isInstanceOf(IllegalArgumentException.class);
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("세션은 일회성 일정과 함께 생성한다.")
@@ -71,15 +75,25 @@ class GroupTest {
     void validateNameAndIntroductionLength() {
         // When & Then
         assertThatThrownBy(() -> Group.createClub("", "소개", null, null, null, CREATED_AT))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
         assertThatThrownBy(() -> Group.createClub("이름", " ", null, null, null, CREATED_AT))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
         assertThatThrownBy(() -> Group.createClub("가".repeat(51), "소개", null, null, null, CREATED_AT))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
         assertThatThrownBy(() -> Group.createClub("이름", "가".repeat(101), null, null, null, CREATED_AT))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
         assertThatThrownBy(() -> Group.createClub("이름", "소개", "가".repeat(5001), null, null, CREATED_AT))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("활동 중인 동아리는 같은 유형의 일정 조합으로 수정하고 원본을 유지한다.")
@@ -120,7 +134,9 @@ class GroupTest {
                 null,
                 null,
                 sessionSchedule()
-        )).isInstanceOf(IllegalArgumentException.class);
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("생성 후 정확히 24시간까지는 삭제할 수 있고 종료할 수 없다.")
@@ -162,9 +178,13 @@ class GroupTest {
 
         // When & Then
         assertThatThrownBy(() -> ended.modify("새 이름", "새 소개", null, null, null, null))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
         assertThatThrownBy(() -> ended.endAt(now.plusHours(1)))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     private RecurringGroupSchedule recurringSchedule() {

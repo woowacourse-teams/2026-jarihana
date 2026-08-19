@@ -3,6 +3,8 @@ package com.project.jarihana.registration.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.project.jarihana.common.exception.BusinessException;
+import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
@@ -75,14 +77,18 @@ class RegistrationTest {
                 member(),
                 null,
                 REGISTERED_AT
-        )).isInstanceOf(IllegalArgumentException.class);
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
         assertThatThrownBy(() -> Registration.createAutoApproved(
                 recruitment(JoinMethod.APPROVAL, 3),
                 member(),
                 null,
                 REGISTERED_AT,
                 0
-        )).isInstanceOf(IllegalArgumentException.class);
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("마감된 모집 공고에는 신청할 수 없다.")
@@ -97,7 +103,9 @@ class RegistrationTest {
                 member(),
                 null,
                 ENDS_AT
-        )).isInstanceOf(IllegalStateException.class);
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("자동 모집은 남은 정원이 있을 때만 신청할 수 있다.")
@@ -110,7 +118,9 @@ class RegistrationTest {
                 null,
                 REGISTERED_AT,
                 3
-        )).isInstanceOf(IllegalStateException.class);
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("신청 메시지는 1000자를 초과할 수 없다.")
@@ -122,7 +132,9 @@ class RegistrationTest {
                 member(),
                 "가".repeat(1_001),
                 REGISTERED_AT
-        )).isInstanceOf(IllegalArgumentException.class);
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("대기 신청은 회원 결정 주체가 정원이 남은 경우 승인할 수 있고 원본을 유지한다.")
@@ -152,7 +164,9 @@ class RegistrationTest {
                 DecisionActor.system(),
                 REGISTERED_AT.plusDays(1),
                 0
-        )).isInstanceOf(IllegalArgumentException.class);
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("정원이 남지 않은 모집의 대기 신청은 승인할 수 없다.")
@@ -163,7 +177,9 @@ class RegistrationTest {
                 DecisionActor.member(10L),
                 REGISTERED_AT.plusDays(1),
                 3
-        )).isInstanceOf(IllegalStateException.class);
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("대기 신청은 회원 주체가 수동 거절하고 시스템이 자동 거절할 수 있다.")
@@ -192,7 +208,9 @@ class RegistrationTest {
                 DecisionActor.system(),
                 null,
                 REGISTERED_AT.plusDays(1)
-        )).isInstanceOf(IllegalArgumentException.class);
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("거절 사유는 1000자를 초과할 수 없다.")
@@ -203,7 +221,9 @@ class RegistrationTest {
                 DecisionActor.member(10L),
                 "가".repeat(1_001),
                 REGISTERED_AT.plusDays(1)
-        )).isInstanceOf(IllegalArgumentException.class);
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("이미 결정된 신청은 다시 승인하거나 거절할 수 없다.")
@@ -221,12 +241,16 @@ class RegistrationTest {
                 DecisionActor.member(10L),
                 REGISTERED_AT.plusDays(2),
                 0
-        )).isInstanceOf(IllegalStateException.class);
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
         assertThatThrownBy(() -> approved.reject(
                 DecisionActor.member(10L),
                 "다시 거절",
                 REGISTERED_AT.plusDays(2)
-        )).isInstanceOf(IllegalStateException.class);
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     private Registration pendingRegistration() {

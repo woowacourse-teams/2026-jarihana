@@ -3,6 +3,8 @@ package com.project.jarihana.groupmember.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.project.jarihana.common.exception.BusinessException;
+import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
@@ -46,7 +48,9 @@ class GroupMemberTest {
                 endedGroup,
                 member("바다", "200"),
                 JOINED_AT
-        )).isInstanceOf(IllegalArgumentException.class);
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("일반 구성원만 즉시 그룹에서 나갈 수 있다.")
@@ -92,7 +96,9 @@ class GroupMemberTest {
 
         // When & Then
         assertThatThrownBy(() -> member.transferLeadershipTo(successor))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("다른 그룹의 구성원에게 리더 역할을 위임할 수 없다.")
@@ -112,7 +118,9 @@ class GroupMemberTest {
 
         // When & Then
         assertThatThrownBy(() -> leader.transferLeadershipTo(successor))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("이미 리더인 구성원에게 리더 역할을 위임할 수 없다.")
@@ -125,7 +133,9 @@ class GroupMemberTest {
 
         // When & Then
         assertThatThrownBy(() -> leader.transferLeadershipTo(anotherLeader))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     private Group group(String name) {

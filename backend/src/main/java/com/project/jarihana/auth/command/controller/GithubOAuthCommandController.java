@@ -1,10 +1,10 @@
-package com.project.jarihana.member.command.controller;
+package com.project.jarihana.auth.command.controller;
 
-import com.project.jarihana.member.command.service.GithubOAuthCommandService;
-import com.project.jarihana.member.command.service.dto.GithubLoginCommand;
-import com.project.jarihana.member.command.service.dto.GithubLoginResult;
-import com.project.jarihana.member.command.service.dto.IssuedRefreshToken;
-import com.project.jarihana.member.config.AuthProperties;
+import com.project.jarihana.auth.command.service.GithubOAuthCommandService;
+import com.project.jarihana.auth.command.service.dto.GithubLoginCommand;
+import com.project.jarihana.auth.command.service.dto.GithubLoginResult;
+import com.project.jarihana.auth.command.service.dto.IssuedRefreshToken;
+import com.project.jarihana.auth.config.AuthProperties;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import java.net.URI;

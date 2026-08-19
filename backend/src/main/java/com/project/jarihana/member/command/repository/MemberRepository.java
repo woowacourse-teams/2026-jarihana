@@ -1,4 +1,4 @@
-package com.project.jarihana.member.repository;
+package com.project.jarihana.member.command.repository;
 
 import com.project.jarihana.member.domain.Member;
 import java.util.Optional;
