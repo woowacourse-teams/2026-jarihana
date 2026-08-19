@@ -1,6 +1,7 @@
 package com.project.jarihana.auth.command.service;
 
 import com.project.jarihana.auth.client.GithubOAuthClient;
+import com.project.jarihana.common.auth.AccessTokenProvider;
 import com.project.jarihana.auth.command.service.dto.GithubLoginCommand;
 import com.project.jarihana.auth.command.service.dto.GithubLoginResult;
 import com.project.jarihana.common.exception.BusinessException;
@@ -19,15 +20,18 @@ public class GithubOAuthCommandService {
 
     private final GithubOAuthClient githubOAuthClient;
     private final MemberRepository memberRepository;
+    private final AccessTokenProvider accessTokenProvider;
     private final RefreshTokenIssuer refreshTokenIssuer;
 
     public GithubOAuthCommandService(
             GithubOAuthClient githubOAuthClient,
             MemberRepository memberRepository,
+            AccessTokenProvider accessTokenProvider,
             RefreshTokenIssuer refreshTokenIssuer
     ) {
         this.githubOAuthClient = githubOAuthClient;
         this.memberRepository = memberRepository;
+        this.accessTokenProvider = accessTokenProvider;
         this.refreshTokenIssuer = refreshTokenIssuer;
     }
 
@@ -41,7 +45,11 @@ public class GithubOAuthCommandService {
     }
 
     private GithubLoginResult loggedIn(String githubId, Member member) {
-        return GithubLoginResult.loggedIn(githubId, refreshTokenIssuer.issue(member));
+        return GithubLoginResult.loggedIn(
+                githubId,
+                accessTokenProvider.issue(member.getId()),
+                refreshTokenIssuer.issue(member)
+        );
     }
 
     private void validateCallback(GithubLoginCommand command) {

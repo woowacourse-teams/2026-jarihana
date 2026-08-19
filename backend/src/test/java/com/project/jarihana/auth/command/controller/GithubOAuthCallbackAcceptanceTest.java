@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.project.jarihana.auth.command.repository.RefreshTokenRepository;
 import com.project.jarihana.auth.domain.RefreshToken;
+import com.project.jarihana.common.auth.AccessTokenProvider;
+import com.project.jarihana.common.auth.JwtProperties;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
@@ -44,6 +46,12 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
 
     @Autowired
     private SessionRepository<? extends Session> sessionRepository;
+
+    @Autowired
+    private JwtProperties jwtProperties;
+
+    @Autowired
+    private AccessTokenProvider accessTokenProvider;
 
     @DisplayName("가입하지 않은 GitHub 사용자는 가입 세션에 githubId를 남기고 가입 화면으로 이동한다.")
     @Test
@@ -169,6 +177,39 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.BAD_REQUEST.value());
         assertThat(response.jsonPath().getString("error.code")).isEqualTo("OAUTH_STATE_INVALID");
+    }
+
+    @DisplayName("가입한 회원은 Access Token 쿠키를 함께 받는다.")
+    @Test
+    void issueAccessTokenCookieToRegisteredMember() {
+        // Given
+        Member member = memberRepository.save(Member.create("가온", 8, GITHUB_ID, Course.BACKEND));
+        githubOAuthClient.willReturn(GITHUB_ID);
+        String sessionId = seedSessionWithState(ISSUED_STATE);
+
+        // When
+        ExtractableResponse<Response> response = callback(sessionId, "authorization-code", ISSUED_STATE);
+
+        // Then
+        Cookie accessCookie = response.detailedCookie(jwtProperties.cookieName());
+        assertThat(accessCookie.getValue()).isNotBlank();
+        assertThat(accessCookie.isHttpOnly()).isTrue();
+        assertThat(accessCookie.getPath()).isEqualTo(jwtProperties.cookiePath());
+        assertThat(accessTokenProvider.parseMemberId(accessCookie.getValue())).isEqualTo(member.getId());
+    }
+
+    @DisplayName("가입하지 않은 GitHub 사용자는 Access Token 쿠키를 받지 않는다.")
+    @Test
+    void notIssueAccessTokenCookieToUnregisteredUser() {
+        // Given
+        githubOAuthClient.willReturn(GITHUB_ID);
+        String sessionId = seedSessionWithState(ISSUED_STATE);
+
+        // When
+        ExtractableResponse<Response> response = callback(sessionId, "authorization-code", ISSUED_STATE);
+
+        // Then
+        assertThat(response.cookie(jwtProperties.cookieName())).isNull();
     }
 
     private ExtractableResponse<Response> callback(String sessionId, String code, String state) {
