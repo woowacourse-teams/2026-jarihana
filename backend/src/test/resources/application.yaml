@@ -14,6 +14,7 @@ spring:
 jarihana:
   auth:
     frontend-origin: http://localhost:5173
+    oauth-state-cookie-name: oauthState
     refresh-cookie-name: refreshToken
     refresh-cookie-path: /api/auth
     refresh-token-validity: P14D
