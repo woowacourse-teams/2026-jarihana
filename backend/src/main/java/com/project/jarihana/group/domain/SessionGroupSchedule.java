@@ -1,13 +1,24 @@
 package com.project.jarihana.group.domain;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Embeddable;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
-public final class SessionGroupSchedule {
+@Embeddable
+public class SessionGroupSchedule {
 
-    private final LocalDate sessionDate;
-    private final LocalTime startTime;
-    private final LocalTime endTime;
+    @Column(name = "session_date")
+    private LocalDate sessionDate;
+
+    @Column(name = "start_time")
+    private LocalTime startTime;
+
+    @Column(name = "end_time")
+    private LocalTime endTime;
+
+    protected SessionGroupSchedule() {
+    }
 
     private SessionGroupSchedule(LocalDate sessionDate, LocalTime startTime, LocalTime endTime) {
         this.sessionDate = validateSessionDate(sessionDate);

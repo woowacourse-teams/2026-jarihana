@@ -1,11 +1,23 @@
 package com.project.jarihana.registration.domain;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Embeddable;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import java.util.Objects;
 
-public final class DecisionActor {
+@Embeddable
+public class DecisionActor {
 
-    private final DecisionActorType type;
-    private final Long memberId;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "decided_by_type")
+    private DecisionActorType type;
+
+    @Column(name = "decided_by_member_id")
+    private Long memberId;
+
+    protected DecisionActor() {
+    }
 
     private DecisionActor(DecisionActorType type, Long memberId) {
         this.type = type;
