@@ -2,11 +2,14 @@ package com.project.jarihana.group.query.service;
 
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.group.query.repository.GroupDetailRepository;
+import com.project.jarihana.group.query.repository.GroupListRepository;
+import com.project.jarihana.group.query.repository.dto.GroupDetailProjection;
 import com.project.jarihana.group.query.repository.dto.GroupListMember;
 import com.project.jarihana.group.query.repository.dto.GroupListPage;
 import com.project.jarihana.group.query.repository.dto.GroupListProjection;
 import com.project.jarihana.group.query.repository.dto.GroupListSearchCriteria;
-import com.project.jarihana.group.query.repository.GroupListRepository;
+import com.project.jarihana.group.query.service.dto.GroupDetailResult;
 import com.project.jarihana.group.query.service.dto.GroupListQuery;
 import com.project.jarihana.group.query.service.dto.GroupListResult;
 import com.project.jarihana.group.query.service.dto.GroupListResult.ActiveRecruitment;
@@ -23,29 +26,38 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
-public class GroupListService {
+public class GroupQueryService {
 
     private static final int DEFAULT_SIZE = 20;
     private static final int MAX_SIZE = 100;
 
     private final GroupListRepository groupListRepository;
+    private final GroupDetailRepository groupDetailRepository;
     private final CurrentMemberProvider currentMemberProvider;
     private final Clock clock;
 
     @Autowired
-    public GroupListService(
+    public GroupQueryService(
             GroupListRepository groupListRepository,
+            GroupDetailRepository groupDetailRepository,
             CurrentMemberProvider currentMemberProvider
     ) {
-        this(groupListRepository, currentMemberProvider, Clock.system(ZoneId.of("Asia/Seoul")));
+        this(
+                groupListRepository,
+                groupDetailRepository,
+                currentMemberProvider,
+                Clock.system(ZoneId.of("Asia/Seoul"))
+        );
     }
 
-    public GroupListService(
+    public GroupQueryService(
             GroupListRepository groupListRepository,
+            GroupDetailRepository groupDetailRepository,
             CurrentMemberProvider currentMemberProvider,
             Clock clock
     ) {
         this.groupListRepository = groupListRepository;
+        this.groupDetailRepository = groupDetailRepository;
         this.currentMemberProvider = currentMemberProvider;
         this.clock = clock;
     }
@@ -77,9 +89,27 @@ public class GroupListService {
                 ? encodeCursor(itemProjections.get(itemProjections.size() - 1))
                 : null;
         List<Item> items = itemProjections.stream()
-                .map(GroupListService::toResult)
+                .map(GroupQueryService::toResult)
                 .toList();
         return new GroupListResult(items, nextCursor, page.hasNext());
+    }
+
+    public GroupDetailResult findGroup(Long groupId) {
+        if (groupId == null || groupId < 1) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "요청 파라미터가 올바르지 않습니다.");
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        GroupDetailProjection projection = groupDetailRepository.findById(groupId, now)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.GROUP_NOT_FOUND,
+                        "그룹을 찾을 수 없습니다."
+                ));
+        return new GroupDetailResult(
+                projection.group(),
+                projection.members(),
+                projection.activeRecruitment(),
+                projection.approvedCount()
+        );
     }
 
     private static Item toResult(GroupListProjection projection) {

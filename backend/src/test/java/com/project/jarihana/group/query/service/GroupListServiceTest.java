@@ -10,6 +10,7 @@ import com.project.jarihana.group.domain.GroupStatus;
 import com.project.jarihana.group.domain.GroupType;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.group.query.GroupRelation;
+import com.project.jarihana.group.query.repository.InMemoryGroupDetailRepository;
 import com.project.jarihana.group.query.repository.InMemoryGroupListRepository;
 import com.project.jarihana.group.query.repository.dto.GroupListMember;
 import com.project.jarihana.group.query.repository.dto.GroupListProjection;
@@ -40,15 +41,21 @@ class GroupListServiceTest {
             ZoneId.of("Asia/Seoul")
     );
 
-    private final InMemoryGroupListRepository repository = new InMemoryGroupListRepository();
+    private final InMemoryGroupListRepository listRepository = new InMemoryGroupListRepository();
+    private final InMemoryGroupDetailRepository detailRepository = new InMemoryGroupDetailRepository();
     private final CurrentMemberProvider currentMemberProvider = new TestCurrentMemberProvider();
-    private final GroupListService service = new GroupListService(repository, currentMemberProvider, CLOCK);
+    private final GroupQueryService service = new GroupQueryService(
+            listRepository,
+            detailRepository,
+            currentMemberProvider,
+            CLOCK
+    );
 
     @BeforeEach
     void setUp() {
-        repository.clear();
+        listRepository.clear();
         Group study = study("알고리즘 스터디", "함께 문제를 풉니다.", NOW.minusHours(2));
-        repository.save(GroupListProjection.of(
+        listRepository.save(GroupListProjection.of(
                 1L,
                 study,
                 2,
@@ -62,7 +69,7 @@ class GroupListServiceTest {
                 ),
                 3
         ));
-        repository.save(GroupListProjection.of(
+        listRepository.save(GroupListProjection.of(
                 2L,
                 study("주말 동아리", "취미를 함께 나눠요.", NOW.minusHours(1)),
                 4,

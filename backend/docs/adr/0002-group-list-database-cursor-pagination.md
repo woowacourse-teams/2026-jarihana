@@ -44,7 +44,7 @@
 - `GroupJpaRepository`: 그룹 필터, cursor 조건, 정렬, `Slice<Group>` 조회
 - `JpaGroupListRepository`: 페이지 그룹을 기준으로 관련 데이터를 일괄 조회하고
   `Slice<GroupListProjection>`으로 변환
-- `GroupListService`: 요청 검증, 인증 회원 ID 확인, cursor 인코딩·디코딩, 응답 결과 변환
+- `GroupQueryService`: 요청 검증, 인증 회원 ID 확인, cursor 인코딩·디코딩, 응답 결과 변환
 
 ## 검토한 대안
 

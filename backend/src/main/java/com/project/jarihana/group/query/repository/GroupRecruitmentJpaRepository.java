@@ -20,4 +20,17 @@ public interface GroupRecruitmentJpaRepository extends JpaRepository<GroupRecrui
             @Param("groupIds") List<Long> groupIds,
             @Param("now") LocalDateTime now
     );
+
+    @Query("""
+            select recruitment
+            from GroupRecruitment recruitment
+            where recruitment.group.id = :groupId
+              and recruitment.startsAt <= :now
+              and (recruitment.endsAt is null or recruitment.endsAt > :now)
+            order by recruitment.id desc
+            """)
+    List<GroupRecruitment> findCurrentByGroupId(
+            @Param("groupId") Long groupId,
+            @Param("now") LocalDateTime now
+    );
 }
