@@ -39,7 +39,6 @@
 | 인증·회원 | `POST` | `/api/auth/refresh` | `PUBLIC` | Access Token 재발급 |
 | 인증·회원 | `POST` | `/api/members` | `AUTH` | 회원 가입 완료 |
 | 인증·회원 | `GET` | `/api/members/me` | `AUTH` | 내 정보와 가입 완료 여부 조회 |
-| 인증·회원 | `GET` | `/api/oauth/github/authorization` | `PUBLIC` | GitHub OAuth 인가 시작 |
 | 인증·회원 | `GET` | `/api/oauth/github/callback` | `PUBLIC` | GitHub OAuth 콜백 처리 |
 
 ## 인증·회원
@@ -229,37 +228,14 @@ Location: /api/members/12
 | --- | --- | --- |
 | 가입 세션과 Access Token이 모두 없음 | `UNAUTHENTICATED` | 401 |
 
-### `GET /api/oauth/github/authorization`
+### `GET /api/oauth/github/authorization` (폐기)
 
-- 설명: GitHub OAuth 인가 시작
-- 권한: `PUBLIC`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c81a79897e7755294659b)
+이 엔드포인트는 만들지 않는다. 팀 회의에서 프론트엔드가 GitHub authorize URL로 직접 보내면
+되므로 백엔드에 둘 이유가 없다고 결론지었다. 근거와 그에 따른 `state` 검증 방식은
+[ADR 0003](../../adr/0003-oauth-authorization-ownership.md)에 있다.
 
-#### 공통 계약
-- Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
-- 권한 `PUBLIC`의 자격 증명 규칙을 적용한다.
-- 리다이렉트와 204를 제외한 응답은 `success`, `data`, `error` 봉투를 사용한다.
-- 시간 값은 `Asia/Seoul` 기준이다.
-- 오류 분기는 `error.code`를 기준으로 한다.
-
-#### 요청
-Query Parameter는 없다.
-
-#### 응답
-`302 Found`
-
-```plain text
-Location: https://github.com/login/oauth/authorize?...
-```
-
-#### 부수 효과
-OAuth 위조 방지를 위한 `state`를 생성해 단기 보관한다.
-
-#### 예외
-
-| 상황 | 코드 | HTTP |
-| --- | --- | --- |
-| GitHub OAuth 설정 누락 | `OAUTH_CONFIGURATION_ERROR` | 500 |
+Notion 원본에는 이 페이지가 아직 남아 있다. 다시 동기화할 때 이 항목이 되살아나지 않도록
+주의한다. `OAUTH_CONFIGURATION_ERROR`도 이 엔드포인트에서만 쓰이던 코드이므로 사용하지 않는다.
 
 ### `GET /api/oauth/github/callback`
 
@@ -279,7 +255,7 @@ OAuth 위조 방지를 위한 `state`를 생성해 단기 보관한다.
 | Query | 필수 | 설명 |
 | --- | --- | --- |
 | `code` | O | GitHub 인가 코드 |
-| `state` | O | 인가 시작 시 생성한 검증 값 |
+| `state` | O | 프론트엔드가 인가 시작 시 만들어 쿠키와 이 쿼리 양쪽에 실은 검증 값 |
 
 #### 응답
 `302 Found`
@@ -294,7 +270,11 @@ Location: {frontendOrigin}/oauth/callback?signupRequired=true|false
 #### 부수 효과
 - 미가입 사용자는 `githubId`를 가입 세션에 보관한다.
 - 가입 회원은 Access Token과 Refresh Token을 발급한다.
-**결정 필요**: 리다이렉트 응답에서 Access Token과 Refresh Token을 각각 어떤 저장소와 전달 방식으로 제공할지 보안 계약을 확정해야 한다.
+- 요청의 `state` 쿼리와 프론트엔드가 심은 `state` 쿠키를 대조하고, 대조 후 쿠키를 만료시킨다.
+
+토큰 전달 방식은 [ADR 0002](../../adr/0002-access-token-cookie.md)에서 확정했다. Access Token과
+Refresh Token을 모두 `HttpOnly` 쿠키로 내린다. `state` 검증 방식은
+[ADR 0003](../../adr/0003-oauth-authorization-ownership.md)을 따른다.
 
 #### 예외
 
