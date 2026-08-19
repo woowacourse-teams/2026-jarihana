@@ -1,6 +1,8 @@
 package com.project.jarihana.groupmember.domain;
 
 import com.project.jarihana.common.domain.BaseEntity;
+import com.project.jarihana.common.exception.BusinessException;
+import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.member.domain.Member;
 import jakarta.persistence.Column;
@@ -76,14 +78,14 @@ public class GroupMember extends BaseEntity {
 
     public LeadershipTransfer transferLeadershipTo(GroupMember successor) {
         if (role != GroupMemberRole.LEADER) {
-            throw new IllegalStateException("현재 리더만 역할을 위임할 수 있습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "현재 리더만 역할을 위임할 수 있습니다.");
         }
         GroupMember requiredSuccessor = require(successor, "후임 구성원");
         if (!belongsToSameGroup(requiredSuccessor)) {
-            throw new IllegalArgumentException("같은 그룹의 구성원에게만 역할을 위임할 수 있습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "같은 그룹의 구성원에게만 역할을 위임할 수 있습니다.");
         }
         if (requiredSuccessor.role != GroupMemberRole.MEMBER) {
-            throw new IllegalArgumentException("일반 구성원에게만 역할을 위임할 수 있습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "일반 구성원에게만 역할을 위임할 수 있습니다.");
         }
         return LeadershipTransfer.of(
                 withRole(GroupMemberRole.MEMBER),
@@ -109,14 +111,14 @@ public class GroupMember extends BaseEntity {
     private static Group validateGroup(Group group) {
         Group requiredGroup = require(group, "그룹");
         if (!requiredGroup.isActive()) {
-            throw new IllegalArgumentException("ACTIVE 상태의 그룹에만 구성원을 생성할 수 있습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "ACTIVE 상태의 그룹에만 구성원을 생성할 수 있습니다.");
         }
         return requiredGroup;
     }
 
     private static <T> T require(T value, String fieldName) {
         if (value == null) {
-            throw new IllegalArgumentException(fieldName + "은 필수입니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 필수입니다.");
         }
         return value;
     }

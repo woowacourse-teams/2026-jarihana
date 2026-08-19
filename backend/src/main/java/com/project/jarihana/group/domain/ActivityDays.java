@@ -1,5 +1,7 @@
 package com.project.jarihana.group.domain;
 
+import com.project.jarihana.common.exception.BusinessException;
+import com.project.jarihana.common.exception.ErrorCode;
 import java.time.DayOfWeek;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -20,10 +22,10 @@ public class ActivityDays {
 
     private static Set<DayOfWeek> validate(Set<DayOfWeek> daysOfWeek) {
         if (daysOfWeek == null || daysOfWeek.isEmpty()) {
-            throw new IllegalArgumentException("활동 요일은 하나 이상이어야 합니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "활동 요일은 하나 이상이어야 합니다.");
         }
         if (daysOfWeek.stream().anyMatch(Objects::isNull)) {
-            throw new IllegalArgumentException("활동 요일에는 null이 포함될 수 없습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "활동 요일에는 null이 포함될 수 없습니다.");
         }
         return Collections.unmodifiableSet(EnumSet.copyOf(daysOfWeek));
     }

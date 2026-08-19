@@ -1,5 +1,7 @@
 package com.project.jarihana.registration.domain;
 
+import com.project.jarihana.common.exception.BusinessException;
+import com.project.jarihana.common.exception.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import jakarta.persistence.EnumType;
@@ -30,7 +32,7 @@ public class DecisionActor {
 
     public static DecisionActor member(Long memberId) {
         if (memberId == null) {
-            throw new IllegalArgumentException("회원 결정 주체에는 회원 ID가 필요합니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "회원 결정 주체에는 회원 ID가 필요합니다.");
         }
         return new DecisionActor(DecisionActorType.MEMBER, memberId);
     }

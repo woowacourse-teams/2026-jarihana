@@ -1,6 +1,8 @@
 package com.project.jarihana.recruitment.domain;
 
 import com.project.jarihana.common.domain.BaseEntity;
+import com.project.jarihana.common.exception.BusinessException;
+import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.domain.Group;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -99,7 +101,7 @@ public class GroupRecruitment extends BaseEntity {
     public GroupRecruitment closeAt(LocalDateTime now) {
         LocalDateTime currentTime = require(now, "현재 시각");
         if (phaseAt(currentTime) == RecruitmentPhase.CLOSED) {
-            throw new IllegalStateException("이미 마감된 모집 공고입니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "이미 마감된 모집 공고입니다.");
         }
         LocalDateTime closedStartsAt = startsAt.isAfter(currentTime) ? currentTime : startsAt;
         return new GroupRecruitment(id, group, joinMethod, capacity, closedStartsAt, currentTime);
@@ -115,33 +117,33 @@ public class GroupRecruitment extends BaseEntity {
     private static Group validateGroup(Group group) {
         Group requiredGroup = require(group, "그룹");
         if (!requiredGroup.isActive()) {
-            throw new IllegalArgumentException("ACTIVE 상태의 그룹에만 모집 공고를 생성할 수 있습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "ACTIVE 상태의 그룹에만 모집 공고를 생성할 수 있습니다.");
         }
         return requiredGroup;
     }
 
     private static int validateCapacity(int capacity) {
         if (capacity < 1) {
-            throw new IllegalArgumentException("모집 인원은 1명 이상이어야 합니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "모집 인원은 1명 이상이어야 합니다.");
         }
         return capacity;
     }
 
     private static void validateApprovedCount(int approvedCount) {
         if (approvedCount < 0) {
-            throw new IllegalArgumentException("승인 인원은 음수일 수 없습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "승인 인원은 음수일 수 없습니다.");
         }
     }
 
     private static void validatePeriod(LocalDateTime startsAt, LocalDateTime endsAt) {
         if (endsAt != null && endsAt.isBefore(startsAt)) {
-            throw new IllegalArgumentException("모집 종료 시각은 시작 시각보다 빠를 수 없습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "모집 종료 시각은 시작 시각보다 빠를 수 없습니다.");
         }
     }
 
     private static <T> T require(T value, String fieldName) {
         if (value == null) {
-            throw new IllegalArgumentException(fieldName + "은 필수입니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 필수입니다.");
         }
         return value;
     }

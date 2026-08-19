@@ -3,6 +3,8 @@ package com.project.jarihana.group.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.project.jarihana.common.exception.BusinessException;
+import com.project.jarihana.common.exception.ErrorCode;
 import java.time.DayOfWeek;
 import java.util.EnumSet;
 import java.util.HashSet;
@@ -17,9 +19,13 @@ class ActivityDaysTest {
     void activityDaysCannotBeEmpty() {
         // When & Then
         assertThatThrownBy(() -> ActivityDays.from(Set.of()))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
         assertThatThrownBy(() -> ActivityDays.from(null))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("활동 요일에는 null이 포함될 수 없다.")
@@ -32,7 +38,9 @@ class ActivityDaysTest {
 
         // When & Then
         assertThatThrownBy(() -> ActivityDays.from(daysOfWeek))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("활동 요일은 전달받은 집합의 변경에 영향받지 않는다.")

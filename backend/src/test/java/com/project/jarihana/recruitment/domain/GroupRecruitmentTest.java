@@ -3,6 +3,8 @@ package com.project.jarihana.recruitment.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.project.jarihana.common.exception.BusinessException;
+import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.domain.Group;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
@@ -50,7 +52,9 @@ class GroupRecruitmentTest {
                 3,
                 STARTS_AT,
                 ENDS_AT
-        )).isInstanceOf(IllegalArgumentException.class);
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("모집 인원은 1명 이상이어야 한다.")
@@ -63,7 +67,9 @@ class GroupRecruitmentTest {
                 0,
                 STARTS_AT,
                 ENDS_AT
-        )).isInstanceOf(IllegalArgumentException.class);
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("모집 종료 시각은 시작 시각보다 빠를 수 없다.")
@@ -76,7 +82,9 @@ class GroupRecruitmentTest {
                 3,
                 STARTS_AT,
                 STARTS_AT.minusNanos(1)
-        )).isInstanceOf(IllegalArgumentException.class);
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("현재 시각과 모집 기간으로 모집 단계를 계산한다.")
@@ -114,7 +122,9 @@ class GroupRecruitmentTest {
         assertThat(recruitment.hasCapacity(2)).isTrue();
         assertThat(recruitment.hasCapacity(3)).isFalse();
         assertThatThrownBy(() -> recruitment.hasCapacity(-1))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("모집 시작 전 조기 마감하면 시작과 종료 시각을 현재 시각으로 맞추고 원본을 유지한다.")
@@ -161,7 +171,9 @@ class GroupRecruitmentTest {
 
         // When & Then
         assertThatThrownBy(() -> closed.closeAt(STARTS_AT.plusDays(2)))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     private GroupRecruitment recruitment(JoinMethod joinMethod, int capacity, LocalDateTime endsAt) {
