@@ -1,14 +1,14 @@
-package com.project.jarihana.member.command.service;
+package com.project.jarihana.auth.command.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.project.jarihana.member.command.service.dto.IssuedRefreshToken;
-import com.project.jarihana.member.config.AuthProperties;
+import com.project.jarihana.auth.command.repository.RefreshTokenRepository;
+import com.project.jarihana.auth.command.service.dto.IssuedRefreshToken;
+import com.project.jarihana.auth.config.AuthProperties;
+import com.project.jarihana.auth.domain.RefreshToken;
+import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
-import com.project.jarihana.member.domain.RefreshToken;
-import com.project.jarihana.member.repository.MemberRepository;
-import com.project.jarihana.member.repository.RefreshTokenRepository;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.TestSupportConfig;
 import java.util.List;

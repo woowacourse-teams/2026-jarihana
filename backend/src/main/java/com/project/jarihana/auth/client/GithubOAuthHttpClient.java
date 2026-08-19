@@ -1,5 +1,8 @@
-package com.project.jarihana.member.client;
+package com.project.jarihana.auth.client;
 
+import com.project.jarihana.auth.client.dto.GithubAccessTokenResponse;
+import com.project.jarihana.auth.client.dto.GithubUserResponse;
+import com.project.jarihana.auth.config.GithubOAuthProperties;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import java.time.Duration;

@@ -1,4 +1,4 @@
-package com.project.jarihana.member.domain;
+package com.project.jarihana.auth.domain;
 
 import com.project.jarihana.common.domain.BaseEntity;
 import com.project.jarihana.member.domain.Member;
