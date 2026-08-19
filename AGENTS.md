@@ -4,6 +4,13 @@
 
 자리하나는 우아한테크코스의 동아리와 스터디 정보를 모아 탐색하게 하는 서비스다.
 
+## 저장소 구조
+
+- `backend/`: Spring Boot 백엔드 애플리케이션. Gradle Wrapper와 Docker Compose
+  명령은 이 디렉터리에서 실행한다.
+- `frontend/`: 프론트엔드 애플리케이션을 관리한다.
+- `docs/`: 저장소 공통 팀 컨벤션과 설계 맥락을 관리한다.
+
 ## 필수 로딩
 
 코드 분석, 구현, 리팩터링, 테스트, 리뷰, 설정, 스키마, 브랜치와 커밋 작업을
@@ -58,9 +65,9 @@
 
 이 패키지에는 검증된 애플리케이션 저장소 명령이 없다.
 
-실제 저장소에 배치된 뒤에는 실행 가능한 저장소 파일에서 base package,
-Java/Spring Boot 버전, Gradle Wrapper 작업, 로컬 DB 워크플로, 프로필,
-필수 환경 변수, health endpoint를 확인한다.
+`backend/`의 실행 가능한 저장소 파일에서 base package, Java/Spring Boot 버전,
+Gradle Wrapper 작업, 로컬 DB 워크플로, 프로필, 필수 환경 변수, health endpoint를
+확인한다.
 
-Gradle Wrapper를 우선 사용한다. 확인하지 않은 명령, 버전, 환경 변수, endpoint를
-추측하지 않는다.
+`backend/`에서 `./gradlew`를 우선 사용한다. 확인하지 않은 명령, 버전, 환경 변수,
+endpoint를 추측하지 않는다.

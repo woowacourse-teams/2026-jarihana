@@ -3,6 +3,19 @@
 자리하나는 우아한테크코스 내부에 흩어진 동아리와 스터디 정보를 한곳에서 탐색할 수
 있도록 만드는 서비스입니다.
 
+## 저장소 구조
+
+```text
+2026-jarihana/
+├── backend/     # Spring Boot 백엔드 애플리케이션
+├── frontend/    # 프론트엔드 애플리케이션
+├── docs/        # 팀 컨벤션과 설계 맥락
+├── AGENTS.md
+└── README.md
+```
+
+백엔드의 Gradle 명령과 Docker Compose 명령은 `backend/`에서 실행합니다.
+
 이 문서 묶음은 팀이 합의한 개발 규칙과 AI·자동화 도구가 따라야 할 실행 지침을
 책임별로 분리해 관리합니다.
 
@@ -69,6 +82,7 @@ jarihana-convention/
 Docker Compose와 Spring Profile을 사용해 로컬 PostgreSQL을 실행합니다.
 
 ```bash
+cd backend
 docker compose -f compose-local.yaml up -d
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
