@@ -1,10 +1,10 @@
-package com.project.jarihana.member.command.service;
+package com.project.jarihana.auth.command.service;
 
-import com.project.jarihana.member.command.service.dto.IssuedRefreshToken;
-import com.project.jarihana.member.config.AuthProperties;
+import com.project.jarihana.auth.command.repository.RefreshTokenRepository;
+import com.project.jarihana.auth.command.service.dto.IssuedRefreshToken;
+import com.project.jarihana.auth.config.AuthProperties;
+import com.project.jarihana.auth.domain.RefreshToken;
 import com.project.jarihana.member.domain.Member;
-import com.project.jarihana.member.domain.RefreshToken;
-import com.project.jarihana.member.repository.RefreshTokenRepository;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;

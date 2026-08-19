@@ -1,4 +1,4 @@
-package com.project.jarihana.member.command.service.dto;
+package com.project.jarihana.auth.command.service.dto;
 
 public record GithubLoginResult(boolean signupRequired, String githubId, IssuedRefreshToken refreshToken) {
 

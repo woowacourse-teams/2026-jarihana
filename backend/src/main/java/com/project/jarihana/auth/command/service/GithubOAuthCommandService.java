@@ -1,12 +1,12 @@
-package com.project.jarihana.member.command.service;
+package com.project.jarihana.auth.command.service;
 
+import com.project.jarihana.auth.client.GithubOAuthClient;
+import com.project.jarihana.auth.command.service.dto.GithubLoginCommand;
+import com.project.jarihana.auth.command.service.dto.GithubLoginResult;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
-import com.project.jarihana.member.client.GithubOAuthClient;
-import com.project.jarihana.member.command.service.dto.GithubLoginCommand;
-import com.project.jarihana.member.command.service.dto.GithubLoginResult;
+import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Member;
-import com.project.jarihana.member.repository.MemberRepository;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import org.springframework.stereotype.Service;

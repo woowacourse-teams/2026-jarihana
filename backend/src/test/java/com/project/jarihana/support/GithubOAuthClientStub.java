@@ -1,8 +1,8 @@
 package com.project.jarihana.support;
 
+import com.project.jarihana.auth.client.GithubOAuthClient;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
-import com.project.jarihana.member.client.GithubOAuthClient;
 
 public class GithubOAuthClientStub implements GithubOAuthClient {
 

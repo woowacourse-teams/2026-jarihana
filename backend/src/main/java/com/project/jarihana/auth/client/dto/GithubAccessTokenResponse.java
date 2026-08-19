@@ -1,4 +1,4 @@
-package com.project.jarihana.member.client;
+package com.project.jarihana.auth.client.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 

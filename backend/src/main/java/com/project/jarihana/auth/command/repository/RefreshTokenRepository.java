@@ -1,6 +1,6 @@
-package com.project.jarihana.member.repository;
+package com.project.jarihana.auth.command.repository;
 
-import com.project.jarihana.member.domain.RefreshToken;
+import com.project.jarihana.auth.domain.RefreshToken;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.repository.Repository;
