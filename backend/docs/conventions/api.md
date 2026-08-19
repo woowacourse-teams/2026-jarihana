@@ -38,6 +38,29 @@ public ResponseEntity<ApiResponse<GroupResponse>> findGroup() {
 컨트롤러에서 `ApiResponse<T>`, 서비스 DTO 또는 도메인 객체를 직접 반환하지 않는다.
 이 규칙으로 HTTP 상태 코드 결정과 응답 봉투 변환의 책임을 표현 계층에 고정한다.
 
+## Controller 요청 파라미터 바인딩
+
+조회 API의 Query Parameter는 Controller 메서드에 하나씩 나열하지 않고 계층별
+`controller/dto`의 Request DTO로 묶어 `@ModelAttribute`로 바인딩한다.
+
+```java
+@GetMapping
+public ResponseEntity<ApiResponse<GroupListResponse>> findGroups(
+        @Validated @ModelAttribute GroupListRequest request
+) {
+    // ...
+}
+```
+
+- enum, `Boolean`, `Integer` 등 요청 DTO 필드는 가능한 경우 실제 타입으로 선언한다.
+- `@Validated`와 Bean Validation으로 범위·필수 여부를 검증한다.
+- 생략 가능한 Query Parameter의 기본값은 Request DTO에서 적용하고, Service에는
+  변환이 끝난 `*Query` DTO를 전달한다.
+- enum·boolean·숫자 변환 실패와 Bean Validation 실패는 Controller가 직접 처리하지
+  않고 `GlobalExceptionHandler`에서 `INVALID_PARAMETER` 하나로 통일한다.
+- 필드별 상세 오류 메시지는 현재 제공하지 않는다. 외부 응답은 공통 `code`와
+  `message` 형식을 유지한다.
+
 ## 공통 오류 응답
 
 오류 코드는 `com.project.jarihana.exception.ErrorCode` enum에서 관리한다.

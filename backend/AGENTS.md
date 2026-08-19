@@ -9,32 +9,32 @@
 - 현재 디렉터리: Spring Boot 백엔드 애플리케이션. Gradle Wrapper와 Docker
   Compose 명령은 이 디렉터리에서 실행한다.
 - `../frontend/`: 프론트엔드 애플리케이션을 관리한다.
-- `../docs/`: 저장소 공통 팀 컨벤션과 설계 맥락을 관리한다.
+- `docs/`: 백엔드 공통 팀 컨벤션과 설계 맥락을 관리한다.
 
 ## 필수 로딩
 
 코드 분석, 구현, 리팩터링, 테스트, 리뷰, 설정, 스키마, 브랜치와 커밋 작업을
-시작하기 전에 항상 `../docs/team-convention.md`와
-`../docs/context/README.md` 전체를 먼저 읽는다.
+시작하기 전에 항상 `docs/team-convention.md`와
+`docs/context/README.md` 전체를 먼저 읽는다.
 
 1. 팀 컨벤션 인덱스의 선택 로딩 표에서 필요한 모듈 집합을 결정한다.
 2. 설계 맥락 인덱스에서 작업 범위에 필요한 도메인·API 문서 집합을 결정한다.
 3. 결정한 컨벤션과 설계 맥락을 모두 읽은 뒤 분석·구현·리뷰를 시작한다.
-4. 프로덕션 코드 변경에는 항상 `../docs/conventions/code.md`와
-   `../docs/conventions/testing.md`를 포함한다.
+4. 프로덕션 코드 변경에는 항상 `docs/conventions/code.md`와
+   `docs/conventions/testing.md`를 포함한다.
 5. 여러 행에 해당하면 모듈의 합집합을 읽고, 범위가 불명확하거나 복합적이면
    9개 컨벤션 모듈 전체와 관련 설계 맥락 전체를 읽는다.
 6. 작업 중 변경된 인덱스나 로딩한 문서는 다시 읽는다.
 
-`../docs/review/convention-review.md`는 사용자가 재검토를 명시할 때만 읽는 비구속
+`docs/review/convention-review.md`는 사용자가 재검토를 명시할 때만 읽는 비구속
 보류 문서다. 이 문서를 근거로 구현 규칙을 새로 만들거나 확정 규칙처럼 적용하지
 않는다.
 
 ## 설계 맥락의 책임
 
-- `../docs/context/domain/`은 Notion에서 채택한 도메인 모델, 불변식과 비즈니스
+- `docs/context/domain/`은 Notion에서 채택한 도메인 모델, 불변식과 비즈니스
   정책의 설계 의도를 전달한다.
-- `../docs/context/api/`는 Notion에서 채택한 HTTP API 설계 의도를 전달한다.
+- `docs/context/api/`는 Notion에서 채택한 HTTP API 설계 의도를 전달한다.
 - 설계 맥락은 코드, 테스트 또는 실행 가능한 Swagger/OpenAPI의 현재 상태를
   증명하지 않으며 팀 컨벤션을 대체하지 않는다.
 - 도메인 정책, 팀 컨벤션, 코드·테스트, Swagger/OpenAPI가 충돌하면 한쪽을

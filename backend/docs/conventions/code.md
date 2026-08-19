@@ -89,7 +89,8 @@ boolean existsByName(String name);
 ## DTO와 외부 응답 경계
 
 - Controller 요청 DTO는 `*Request`, 응답 DTO는 `*Response`로 이름을 끝낸다.
-- Service가 파라미터로 받는 DTO는 `*Command`, 반환하는 DTO는 `*Result`로 이름을 끝낸다.
+- 조회 Service가 파라미터로 받는 DTO는 `*Query`, 명령 Service가 파라미터로 받는
+  DTO는 `*Command`, 반환하는 DTO는 `*Result`로 이름을 끝낸다.
 - 위 접미사 규칙은 DTO를 사용할 때 적용한다. `void`, 기본 타입, 값 객체 또는
   도메인 객체를 접미사를 맞추기 위해 불필요하게 DTO로 감싸지 않는다.
 - 단순히 계층이 다르다는 이유로 DTO를 기계적으로 분리하지 않는다. 역할이나 변경
@@ -128,5 +129,9 @@ DTO를 API 응답으로 직접 노출하지 않고, 컨트롤러에서 `*Respons
 - 컬렉션은 방어적으로 복사한다.
 - 비즈니스 규칙이 있는 컬렉션은 일급 컬렉션으로 구현한다.
 - 와일드카드 import를 사용하지 않는다. 예: `import java.util.*;`
+- 다른 패키지의 타입은 FQDN을 코드 본문에 직접 작성하지 않고 명시적인 `import`로
+  참조한다. 중첩 타입도 `OuterType.InnerType`을 import할 수 있다.
+- import한 타입과 현재 파일의 타입명이 충돌하면 FQDN으로 우회하지 않고, 역할이
+  드러나는 이름으로 현재 파일의 타입명을 정한다.
 - 로그에는 비밀번호, 토큰, 개인정보, 전체 요청·응답 본문을 남기지 않는다.
 - 예외 추적과 운영상 의미 있는 이벤트만 기록한다.
