@@ -63,3 +63,29 @@ jarihana-convention/
 4. 현재 저장소의 실행 가능한 코드, 테스트, 설정 파일에서 확인한 증거
 
 충돌이 있으면 작업 범위를 조용히 넓히지 말고 사용자에게 보고합니다.
+
+## 로컬 PostgreSQL 실행
+
+Docker Compose와 Spring Profile을 사용해 로컬 PostgreSQL을 실행합니다.
+
+```bash
+docker compose -f compose-local.yaml up -d
+./gradlew bootRun --args='--spring.profiles.active=local'
+```
+
+로컬 PostgreSQL의 데이터베이스, 사용자, 비밀번호는 `jarihana`로 고정되어 있고
+호스트 포트는 `5432`입니다.
+운영 DB 설정은 `.env.example`을 참고해 환경 변수로 주입합니다.
+
+PostgreSQL 컨테이너 상태는 다음 명령으로 확인할 수 있습니다.
+
+```bash
+docker compose -f compose-local.yaml ps
+```
+
+컨테이너를 종료해도 데이터는 named volume에 유지됩니다. 데이터까지 초기화할 때만
+`docker compose -f compose-local.yaml down -v`를 사용합니다.
+
+운영 환경에서는 `SPRING_PROFILES_ACTIVE=prod`와 `DB_URL`, `DB_USERNAME`,
+`DB_PASSWORD`를 운영 환경 변수로 주입합니다. 운영 프로필은 스키마를 자동 변경하지
+않고 `ddl-auto: validate`로 검증만 수행합니다.
