@@ -16,23 +16,45 @@ Spring 애플리케이션과 하나의 데이터베이스를 사용하며, 쓰�
 group
 ├── command
 │   ├── controller
+│   │   └── dto
 │   └── service
+│       └── dto
 ├── query
 │   ├── controller
+│   │   └── dto
 │   ├── service
+│   │   └── dto
 │   └── repository
+│       └── dto
 ├── domain
 └── repository
 ```
 
-- `command/controller`: 상태를 변경하는 API 요청·응답, 표현 계층 DTO, 요청 검증
-- `command/service`: 상태를 변경하는 유스케이스, 트랜잭션 단위, 서비스 DTO
-- `query/controller`: 상태를 변경하지 않는 API 요청·응답, 표현 계층 DTO, 요청 검증
+- `command/controller`: 상태를 변경하는 API 요청·응답, 표현 계층 Controller와 요청 검증
+- `command/controller/dto`: 명령 API의 `*Request`, `*Response` DTO
+- `command/service`: 상태를 변경하는 유스케이스, 트랜잭션 단위, 서비스 로직
+- `command/service/dto`: 명령 Service의 `*Command`, `*Result` DTO
+- `query/controller`: 상태를 변경하지 않는 API 요청·응답, 표현 계층 Controller와 요청 검증
+- `query/controller/dto`: 조회 API의 `*Request`, `*Response` DTO
 - `query/service`: 조회 조건 조합과 조회 결과 구성
-- `query/repository`: 조회 전용 쿼리와 Projection
+- `query/service/dto`: 조회 Service의 `*Query`, `*Result` DTO
+- `query/repository`: 조회 전용 쿼리와 Repository 인터페이스·구현
+- `query/repository/dto`: 조회 전용 `*Projection`과 Repository 반환용 조회 DTO
 - `domain`: 엔티티, 값 객체, 일급 컬렉션, 도메인 규칙
 - `repository`: 명령 유스케이스에서 엔티티를 조회·저장하는 Repository 인터페이스와
   JPA 기반 구현
+
+각 계층의 역할 클래스와 DTO를 같은 패키지에 섞지 않는다. Controller, Service,
+Repository 구현·인터페이스는 각 상위 패키지에 두고 DTO만 해당 계층의 `dto` 하위
+패키지에 둔다. DTO가 없는 계층에는 빈 `dto` 패키지를 미리 만들지 않는다.
+
+- 도메인 객체, Enum, Provider, Validator 등 DTO가 아닌 클래스는 역할에 맞는 상위
+  패키지에 둔다.
+- Controller DTO는 Repository Projection을 직접 참조하지 않고 Service DTO를 입력으로
+  받아 API 응답 DTO로 변환한다.
+- Service DTO는 API 응답으로 직접 반환하지 않고 Controller DTO를 통해 변환한다.
+- Repository Projection과 조회 DTO는 `query` 밖의 명령이나 도메인 규칙에서 사용하지
+  않는다.
 
 `member`, `group`, `groupmember`, `recruitment`, `registration`처럼 도메인 기능을
 최상위 패키지로 두고, 각 기능 안에서 위 구조를 반복한다. 명령이나 조회 기능이
@@ -126,7 +148,28 @@ group/query/controller/GroupQueryController      # GET
 
 ## 예외 처리
 
-- 예외는 식별 가능한 오류 코드와 사용자에게 전달할 오류 메시지를 가진다.
-- 도메인 또는 서비스에서 발생한 예외는 전역 예외 처리기에서 일관된 API 오류 응답으로 변환한다.
+- 공통 예외 관련 클래스는 기능 패키지 아래에 두지 않고
+  `com.project.jarihana.exception` 패키지에서 관리한다.
+- `ErrorCode` enum은 고정된 오류 코드와 HTTP 상태 코드만 소유한다.
+- `ErrorCode.httpStatus`는 외부 오류 JSON에 포함하지 않는 서버 내부 HTTP 매핑
+  메타데이터다. 외부 `ApiResponse.error`에는 `code`와 `message`만 둔다.
+- 도메인 또는 서비스에서 API 경계로 전달할 예외는
+  `JarihanaException.of(ErrorCode, message)`를 사용한다. 외부 메시지는 enum에
+  보관하지 않고 이 메서드의 문자열 인자로 전달한다.
+- 모든 예외 응답 변환은 `GlobalExceptionHandler` 한 곳에서 담당한다. 이 핸들러가
+  `ErrorCode.httpStatus`를 `ResponseEntity`의 HTTP 상태로 적용하고,
+  예외로 전달된 `message`와 `ErrorCode.code`만 공통 응답 본문에 담는다.
+- 기능 패키지 안에 `*ExceptionHandler` 또는 `@RestControllerAdvice`를 새로 만들지 않는다.
+- 컨트롤러·서비스에서 오류 코드 문자열과 HTTP 상태 코드를 직접 조합하지 않는다.
 - 내부 예외 메시지, 스택 트레이스, 민감한 값은 외부 응답에 노출하지 않는다.
-- 구체적인 오류 응답 JSON 형식과 필드 오류 표현은 추가 합의 후 확정한다.
+- 처리하지 않은 예외는 내부 상세 내용을 숨기고 `INTERNAL_SERVER_ERROR`로 응답한다.
+
+예외 처리 흐름은 다음과 같다.
+
+```text
+도메인·서비스
+    -> JarihanaException.of(ErrorCode, message)
+    -> exception/GlobalExceptionHandler
+    -> HTTP status(ErrorCode.httpStatus)
+    -> ApiResponse<Void>(success=false, data=null, error(code, message))
+```
