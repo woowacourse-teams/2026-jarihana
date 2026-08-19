@@ -16,23 +16,23 @@ Spring 애플리케이션과 하나의 데이터베이스를 사용하며, 쓰�
 group
 ├── command
 │   ├── controller
-│   └── service
+│   ├── service
+│   └── repository
 ├── query
 │   ├── controller
 │   ├── service
 │   └── repository
-├── domain
-└── repository
+└── domain
 ```
 
 - `command/controller`: 상태를 변경하는 API 요청·응답, 표현 계층 DTO, 요청 검증
 - `command/service`: 상태를 변경하는 유스케이스, 트랜잭션 단위, 서비스 DTO
+- `command/repository`: 명령 유스케이스에서 엔티티를 조회·저장하는 Repository
+  인터페이스와 JPA 기반 구현
 - `query/controller`: 상태를 변경하지 않는 API 요청·응답, 표현 계층 DTO, 요청 검증
 - `query/service`: 조회 조건 조합과 조회 결과 구성
 - `query/repository`: 조회 전용 쿼리와 Projection
 - `domain`: 엔티티, 값 객체, 일급 컬렉션, 도메인 규칙
-- `repository`: 명령 유스케이스에서 엔티티를 조회·저장하는 Repository 인터페이스와
-  JPA 기반 구현
 
 `member`, `group`, `groupmember`, `recruitment`, `registration`처럼 도메인 기능을
 최상위 패키지로 두고, 각 기능 안에서 위 구조를 반복한다. 명령이나 조회 기능이
@@ -49,7 +49,8 @@ group
 - 시스템 상태를 변경하는 `POST`, `PUT`, `PATCH`, `DELETE` 유스케이스를 둔다.
 - 상태 변경에 필요한 엔티티 조회는 명령의 일부다. 조회가 포함된다는 이유로 조회
   패키지로 이동하지 않는다.
-- 도메인 엔티티와 `repository`를 사용해 불변식을 검증하고 상태 전이를 저장한다.
+- 도메인 엔티티와 `command/repository`를 사용해 불변식을 검증하고 상태 전이를
+  저장한다.
 - 여러 상태 변경을 하나의 원자적 작업으로 처리해야 하면 명령 Service의 public
   유스케이스 메서드를 트랜잭션 경계로 삼는다.
 - 명령 코드는 `query`의 Service나 Projection에 의존하지 않는다.
@@ -91,8 +92,8 @@ group/query/controller/GroupQueryController      # GET
 
 ## Repository와 응답 모델
 
-- 기능 루트의 `repository`는 명령 유스케이스가 도메인 엔티티를 조회하고 저장하는
-  데 사용한다.
+- `command/repository`는 명령 유스케이스가 도메인 엔티티를 조회하고 저장하는 데
+  사용한다.
 - `query/repository`는 조회 화면이나 API에 필요한 Projection을 반환한다.
 - Projection은 조회 패키지 밖의 명령 또는 도메인 규칙에서 사용하지 않는다.
 - 조회 성능을 위해 도메인 엔티티에 API 전용 필드나 역방향 연관관계를 추가하지
@@ -104,8 +105,8 @@ group/query/controller/GroupQueryController      # GET
 
 ## 협업과 소유권
 
-- 명령 담당자는 도메인 엔티티, 상태 전이, 불변식과 명령 유스케이스를 주로
-  변경한다.
+- 명령 담당자는 Command Controller, Service, Repository와 도메인 엔티티, 상태
+  전이, 불변식을 주로 변경한다.
 - 조회 담당자는 Query Controller, Service, Repository와 Projection을 주로
   변경한다.
 - 조회 응답의 의미, 권한과 비즈니스 상태 해석은 조회 담당자가 단독으로 결정하지
