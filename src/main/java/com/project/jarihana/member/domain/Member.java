@@ -1,18 +1,56 @@
 package com.project.jarihana.member.domain;
 
+import com.project.jarihana.common.domain.BaseEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.regex.Pattern;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
-public final class Member {
+@Getter
+@Entity
+@Table(
+        name = "member",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_member_github_id", columnNames = "github_id"),
+                @UniqueConstraint(name = "uk_member_crew_name_generation", columnNames = {"crew_name", "generation"})
+        }
+)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Member extends BaseEntity {
 
     private static final Pattern CREW_NAME_PATTERN = Pattern.compile("^[가-힣]{2,4}$");
 
-    private final Long id;
-    private final String crewName;
-    private final int generation;
-    private final String githubId;
-    private final Course course;
-    private final LocalDateTime withdrawnAt;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
+
+    @Column(name = "crew_name", nullable = false, length = 4)
+    private String crewName;
+
+    @Column(name = "generation", nullable = false, updatable = false)
+    private int generation;
+
+    @Column(name = "github_id", nullable = false, length = 50)
+    private String githubId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "course", nullable = false, length = 20)
+    private Course course;
+
+    @Column(name = "withdrawn_at")
+    private LocalDateTime withdrawnAt;
 
     private Member(
             Long id,
@@ -62,27 +100,26 @@ public final class Member {
         return course;
     }
 
-    public Long getId() {
-        return id;
+    public LocalDateTime getJoinedAt() {
+        return getCreatedAt();
     }
 
-    public String getCrewName() {
-        return crewName;
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) {
+            return true;
+        }
+        if (!(object instanceof Member other)) {
+            return false;
+        }
+        if (id == null || other.id == null) {
+            return false;
+        }
+        return id.equals(other.id);
     }
 
-    public int getGeneration() {
-        return generation;
-    }
-
-    public String getGithubId() {
-        return githubId;
-    }
-
-    public Course getCourse() {
-        return course;
-    }
-
-    public LocalDateTime getWithdrawnAt() {
-        return withdrawnAt;
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
     }
 }

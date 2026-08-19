@@ -38,6 +38,7 @@ out/
 
 ### Local environment ###
 .env
+*.http
 
 ### macOS ###
 .DS_Store

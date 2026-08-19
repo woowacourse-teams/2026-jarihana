@@ -15,3 +15,7 @@ spring:
   session:
     jdbc:
       initialize-schema: always
+
+jarihana:
+  auth:
+    cookie-secure: false

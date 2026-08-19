@@ -1,0 +1,27 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:jarihana-test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+  session:
+    jdbc:
+      initialize-schema: always
+
+jarihana:
+  auth:
+    frontend-origin: http://localhost:5173
+    refresh-cookie-name: refreshToken
+    refresh-cookie-path: /api/auth
+    refresh-token-validity: P14D
+    cookie-secure: false
+  oauth:
+    github:
+      client-id: test-client-id
+      client-secret: test-client-secret
+      redirect-uri: http://localhost:8080/api/oauth/github/callback
+      token-uri: https://github.com/login/oauth/access_token
+      user-uri: https://api.github.com/user
