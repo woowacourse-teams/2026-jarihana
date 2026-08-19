@@ -3,6 +3,8 @@ package com.project.jarihana.member.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.project.jarihana.common.exception.BusinessException;
+import com.project.jarihana.common.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -35,7 +37,9 @@ class MemberTest {
     void invalidCrewNameCannotCreateMember(String crewName) {
         // When & Then
         assertThatThrownBy(() -> Member.create(crewName, 8, "123456", Course.BACKEND))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("기수는 양수여야 한다.")
@@ -43,7 +47,9 @@ class MemberTest {
     void generationMustBePositive() {
         // When & Then
         assertThatThrownBy(() -> Member.create("우주", 0, "123456", Course.BACKEND))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("GitHub ID는 비어 있을 수 없다.")
@@ -53,7 +59,9 @@ class MemberTest {
     void githubIdIsRequired(String githubId) {
         // When & Then
         assertThatThrownBy(() -> Member.create("우주", 8, githubId, Course.BACKEND))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("코스는 필수다.")
@@ -61,6 +69,8 @@ class MemberTest {
     void courseIsRequired() {
         // When & Then
         assertThatThrownBy(() -> Member.create("우주", 8, "123456", null))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 }

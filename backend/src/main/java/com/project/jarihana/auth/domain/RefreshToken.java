@@ -1,6 +1,8 @@
 package com.project.jarihana.auth.domain;
 
 import com.project.jarihana.common.domain.BaseEntity;
+import com.project.jarihana.common.exception.BusinessException;
+import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.member.domain.Member;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -52,7 +54,7 @@ public class RefreshToken extends BaseEntity {
 
     private static <T> T require(T value, String fieldName) {
         if (value == null) {
-            throw new IllegalArgumentException(fieldName + "은 필수입니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 필수입니다.");
         }
         return value;
     }

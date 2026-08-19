@@ -1,6 +1,8 @@
 package com.project.jarihana.member.domain;
 
 import com.project.jarihana.common.domain.BaseEntity;
+import com.project.jarihana.common.exception.BusinessException;
+import com.project.jarihana.common.exception.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -74,28 +76,28 @@ public class Member extends BaseEntity {
 
     private static String validateCrewName(String crewName) {
         if (crewName == null || !CREW_NAME_PATTERN.matcher(crewName).matches()) {
-            throw new IllegalArgumentException("크루명은 완성형 한글 2자부터 4자까지여야 합니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "크루명은 완성형 한글 2자부터 4자까지여야 합니다.");
         }
         return crewName;
     }
 
     private static int validateGeneration(int generation) {
         if (generation <= 0) {
-            throw new IllegalArgumentException("기수는 양수여야 합니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "기수는 양수여야 합니다.");
         }
         return generation;
     }
 
     private static String validateGithubId(String githubId) {
         if (githubId == null || githubId.isBlank()) {
-            throw new IllegalArgumentException("GitHub ID는 필수입니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "GitHub ID는 필수입니다.");
         }
         return githubId;
     }
 
     private static Course validateCourse(Course course) {
         if (course == null) {
-            throw new IllegalArgumentException("코스는 필수입니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "코스는 필수입니다.");
         }
         return course;
     }
