@@ -38,13 +38,10 @@ SQL을 직접 사용해도 기능 구현은 가능하지만 객체 조회와 저
 
 ### 스키마 설정
 
-- Flyway를 데이터베이스 마이그레이션 도구로 사용한다.
-- 모든 스키마 변경은 버전 관리되는 Flyway 마이그레이션으로 반영한다.
-- 애플리케이션 초기화 과정에서 Flyway 마이그레이션을 먼저 실행하고 그 뒤 Hibernate가 스키마를 검증하도록 한다.
 - 운영 환경: `ddl-auto: validate`
-- 로컬 환경: `ddl-auto: validate`
+- 로컬 환경: `ddl-auto: update`
 
-`ddl-auto: update`와 `create`로 애플리케이션 스키마를 변경하지 않는다.
+운영 환경에서는 `ddl-auto: update`와 `create`로 애플리케이션 스키마를 변경하지 않는다.
 
 ### 엔티티 동일성
 
@@ -69,8 +66,13 @@ SQL을 직접 사용해도 기능 구현은 가능하지만 객체 조회와 저
 
 ## 목록 조회 컨벤션
 
-- 목록 API는 단순 offset 페이지네이션을 사용한다.
-- cursor 페이지네이션은 현재 도입하지 않는다.
+- 목록 API는 무한 스크롤을 지원하기 위해 cursor 기반 페이지네이션을 사용한다.
+- 첫 요청은 `cursor`를 생략하고, 이후 요청은 이전 응답의 `nextCursor`를 전달한다.
+- 요청 `size`의 기본값은 20, 허용 범위는 1 이상 100 이하로 한다.
+- 응답은 `items`, `nextCursor`, `hasNext`를 포함하며, 마지막 페이지의 `nextCursor`는
+  `null`, `hasNext`는 `false`로 한다.
+- 기본 정렬은 `createdAt DESC, id DESC`로 하고, cursor는 정렬 기준 값을 불투명 문자열로
+  인코딩한다.
 
 ## DB 및 삭제 컨벤션
 
