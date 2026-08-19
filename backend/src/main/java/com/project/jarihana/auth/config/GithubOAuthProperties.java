@@ -7,6 +7,7 @@ public record GithubOAuthProperties(
         String clientId,
         String clientSecret,
         String redirectUri,
+        String authorizationUri,
         String tokenUri,
         String userUri
 ) {

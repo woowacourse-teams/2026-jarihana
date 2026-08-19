@@ -16,5 +16,6 @@ jarihana:
       client-id: ${GITHUB_OAUTH_CLIENT_ID:}
       client-secret: ${GITHUB_OAUTH_CLIENT_SECRET:}
       redirect-uri: ${GITHUB_OAUTH_REDIRECT_URI:http://localhost:8080/api/oauth/github/callback}
+      authorization-uri: https://github.com/login/oauth/authorize
       token-uri: https://github.com/login/oauth/access_token
       user-uri: https://api.github.com/user

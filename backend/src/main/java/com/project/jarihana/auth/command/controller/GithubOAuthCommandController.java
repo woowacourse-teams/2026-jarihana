@@ -1,6 +1,8 @@
 package com.project.jarihana.auth.command.controller;
 
+import com.project.jarihana.auth.command.service.GithubAuthorizationStarter;
 import com.project.jarihana.auth.command.service.GithubOAuthCommandService;
+import com.project.jarihana.auth.command.service.dto.GithubAuthorizationResult;
 import com.project.jarihana.auth.command.service.dto.GithubLoginCommand;
 import com.project.jarihana.auth.command.service.dto.GithubLoginResult;
 import com.project.jarihana.auth.command.service.dto.IssuedRefreshToken;
@@ -26,15 +28,27 @@ public class GithubOAuthCommandController {
     private static final String SIGNUP_REQUIRED_PARAMETER = "signupRequired";
     private static final String SAME_SITE_LAX = "Lax";
 
+    private final GithubAuthorizationStarter githubAuthorizationStarter;
     private final GithubOAuthCommandService githubOAuthCommandService;
     private final AuthProperties authProperties;
 
     public GithubOAuthCommandController(
+            GithubAuthorizationStarter githubAuthorizationStarter,
             GithubOAuthCommandService githubOAuthCommandService,
             AuthProperties authProperties
     ) {
+        this.githubAuthorizationStarter = githubAuthorizationStarter;
         this.githubOAuthCommandService = githubOAuthCommandService;
         this.authProperties = authProperties;
+    }
+
+    @GetMapping("/authorization")
+    public ResponseEntity<Void> startGithubAuthorization(HttpServletRequest request) {
+        GithubAuthorizationResult result = githubAuthorizationStarter.start();
+        request.getSession(true).setAttribute(OAuthSessionAttributes.OAUTH_STATE, result.state());
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(URI.create(result.authorizationUri()))
+                .build();
     }
 
     @GetMapping("/callback")

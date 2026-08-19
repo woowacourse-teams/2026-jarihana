@@ -23,5 +23,6 @@ jarihana:
       client-id: test-client-id
       client-secret: test-client-secret
       redirect-uri: http://localhost:8080/api/oauth/github/callback
+      authorization-uri: https://github.com/login/oauth/authorize
       token-uri: https://github.com/login/oauth/access_token
       user-uri: https://api.github.com/user
