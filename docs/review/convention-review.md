@@ -26,9 +26,8 @@
 ## 브랜치와 데이터베이스 마이그레이션
 
 - 긴급 수정 사항을 `main`과 `develop`에 동기화하는 구체적인 절차
-- Flyway 마이그레이션 파일의 세부 이름 규칙과 롤백 정책
 
-브랜치 보호·Squash merge와 Flyway 사용·`ddl-auto: validate`는 이미 확정된 규칙이다.
+브랜치 보호·Squash merge와 `ddl-auto: validate`는 이미 확정된 규칙이다.
 
 ## 트랜잭션과 비동기 처리
 
