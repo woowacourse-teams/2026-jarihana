@@ -1,14 +1,27 @@
 package com.project.jarihana.group.domain;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
+import jakarta.persistence.Embeddable;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.Set;
 
-public final class RecurringGroupSchedule {
+@Embeddable
+public class RecurringGroupSchedule {
 
-    private final ActivityDays activityDays;
-    private final LocalTime startTime;
-    private final LocalTime endTime;
+    @Convert(converter = ActivityDaysConverter.class)
+    @Column(name = "activity_days")
+    private ActivityDays activityDays;
+
+    @Column(name = "start_time")
+    private LocalTime startTime;
+
+    @Column(name = "end_time")
+    private LocalTime endTime;
+
+    protected RecurringGroupSchedule() {
+    }
 
     private RecurringGroupSchedule(Set<DayOfWeek> daysOfWeek, LocalTime startTime, LocalTime endTime) {
         this.activityDays = ActivityDays.from(daysOfWeek);

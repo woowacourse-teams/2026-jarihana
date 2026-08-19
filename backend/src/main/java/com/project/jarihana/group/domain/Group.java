@@ -1,24 +1,76 @@
 package com.project.jarihana.group.domain;
 
+import com.project.jarihana.common.domain.BaseEntity;
+import jakarta.persistence.AttributeOverride;
+import jakarta.persistence.AttributeOverrides;
+import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
+import java.util.Objects;
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
 
-public final class Group {
+@Entity
+@Table(
+        name = "groups",
+        uniqueConstraints = @UniqueConstraint(name = "uk_groups_name", columnNames = "name")
+)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Group extends BaseEntity {
 
     private static final int NAME_MAX_LENGTH = 50;
     private static final int INTRODUCTION_MAX_LENGTH = 100;
     private static final int DESCRIPTION_MAX_LENGTH = 5_000;
     private static final long DELETABLE_HOURS = 24;
 
-    private final Long id;
-    private final GroupType type;
-    private final RecurringGroupSchedule recurringSchedule;
-    private final SessionGroupSchedule sessionSchedule;
-    private final String name;
-    private final String introduction;
-    private final String description;
-    private final String representativeImageKey;
-    private final GroupStatus status;
-    private final LocalDateTime createdAt;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type", nullable = false, length = 20)
+    private GroupType type;
+
+    @Embedded
+    @AttributeOverrides({
+            @AttributeOverride(name = "activityDays", column = @Column(name = "recurring_activity_days")),
+            @AttributeOverride(name = "startTime", column = @Column(name = "recurring_start_time")),
+            @AttributeOverride(name = "endTime", column = @Column(name = "recurring_end_time"))
+    })
+    private RecurringGroupSchedule recurringSchedule;
+
+    @Embedded
+    @AttributeOverrides({
+            @AttributeOverride(name = "sessionDate", column = @Column(name = "session_date")),
+            @AttributeOverride(name = "startTime", column = @Column(name = "session_start_time")),
+            @AttributeOverride(name = "endTime", column = @Column(name = "session_end_time"))
+    })
+    private SessionGroupSchedule sessionSchedule;
+
+    @Column(name = "name", nullable = false, length = NAME_MAX_LENGTH)
+    private String name;
+
+    @Column(name = "introduction", nullable = false, length = INTRODUCTION_MAX_LENGTH)
+    private String introduction;
+
+    @Column(name = "description", length = DESCRIPTION_MAX_LENGTH)
+    private String description;
+
+    @Column(name = "representative_image_key")
+    private String representativeImageKey;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private GroupStatus status;
 
     private Group(
             Long id,
@@ -32,6 +84,7 @@ public final class Group {
             GroupStatus status,
             LocalDateTime createdAt
     ) {
+        super(require(createdAt, "생성 시각"));
         this.id = id;
         this.type = require(type, "그룹 유형");
         validateSchedule(type, recurringSchedule, sessionSchedule);
@@ -42,7 +95,6 @@ public final class Group {
         this.description = validateNullableLength(description, DESCRIPTION_MAX_LENGTH, "상세 소개");
         this.representativeImageKey = representativeImageKey;
         this.status = require(status, "그룹 상태");
-        this.createdAt = require(createdAt, "생성 시각");
     }
 
     public static Group createClub(
@@ -134,12 +186,14 @@ public final class Group {
 
     public boolean canDeleteAt(LocalDateTime now) {
         LocalDateTime currentTime = require(now, "현재 시각");
+        LocalDateTime createdAt = getCreatedAt();
         LocalDateTime deletionDeadline = createdAt.plusHours(DELETABLE_HOURS);
         return isActive() && !currentTime.isBefore(createdAt) && !currentTime.isAfter(deletionDeadline);
     }
 
     public boolean canEndAt(LocalDateTime now) {
         LocalDateTime currentTime = require(now, "현재 시각");
+        LocalDateTime createdAt = getCreatedAt();
         LocalDateTime deletionDeadline = createdAt.plusHours(DELETABLE_HOURS);
         return isActive() && currentTime.isAfter(deletionDeadline);
     }
@@ -163,7 +217,7 @@ public final class Group {
                 description,
                 representativeImageKey,
                 status,
-                createdAt
+                getCreatedAt()
         );
     }
 
@@ -181,7 +235,7 @@ public final class Group {
                 description,
                 representativeImageKey,
                 GroupStatus.ENDED,
-                createdAt
+                getCreatedAt()
         );
     }
 
@@ -265,6 +319,25 @@ public final class Group {
     }
 
     public LocalDateTime getCreatedAt() {
-        return createdAt;
+        return super.getCreatedAt();
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) {
+            return true;
+        }
+        if (!(object instanceof Group other)) {
+            return false;
+        }
+        if (id == null || other.id == null) {
+            return false;
+        }
+        return id.equals(other.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
     }
 }

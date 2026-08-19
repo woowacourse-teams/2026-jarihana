@@ -1,24 +1,65 @@
 package com.project.jarihana.registration.domain;
 
+import com.project.jarihana.common.domain.BaseEntity;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.JoinMethod;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Embedded;
+import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.Objects;
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
 
-public final class Registration {
+@Entity
+@Table(name = "registration")
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Registration extends BaseEntity {
 
     private static final int MESSAGE_MAX_LENGTH = 1_000;
     private static final int REJECT_REASON_MAX_LENGTH = 1_000;
 
-    private final Long id;
-    private final GroupRecruitment recruitment;
-    private final Member member;
-    private final String message;
-    private final RegistrationStatus status;
-    private final String rejectReason;
-    private final LocalDateTime registeredAt;
-    private final LocalDateTime decidedAt;
-    private final DecisionActor decidedBy;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "recruitment_id", nullable = false)
+    private GroupRecruitment recruitment;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "member_id", nullable = false)
+    private Member member;
+
+    @Column(name = "message", length = MESSAGE_MAX_LENGTH)
+    private String message;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private RegistrationStatus status;
+
+    @Column(name = "reject_reason", length = REJECT_REASON_MAX_LENGTH)
+    private String rejectReason;
+
+    @Column(name = "registered_at", nullable = false)
+    private LocalDateTime registeredAt;
+
+    @Column(name = "decided_at")
+    private LocalDateTime decidedAt;
+
+    @Embedded
+    private DecisionActor decidedBy;
 
     private Registration(
             Long id,
@@ -31,6 +72,7 @@ public final class Registration {
             LocalDateTime decidedAt,
             DecisionActor decidedBy
     ) {
+        super(registeredAt);
         this.id = id;
         this.recruitment = require(recruitment, "모집 공고");
         this.member = require(member, "회원");
@@ -239,5 +281,24 @@ public final class Registration {
 
     public DecisionActor getDecidedBy() {
         return decidedBy;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) {
+            return true;
+        }
+        if (!(object instanceof Registration other)) {
+            return false;
+        }
+        if (id == null || other.id == null) {
+            return false;
+        }
+        return id.equals(other.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
     }
 }
