@@ -63,20 +63,21 @@ public ResponseEntity<ApiResponse<GroupListResponse>> findGroups(
 
 ## 공통 오류 응답
 
-오류 코드는 `com.project.jarihana.exception.ErrorCode` enum에서 관리한다.
+오류 코드는 `com.project.jarihana.common.exception.ErrorCode` enum에서 관리한다.
 
-- 새로운 API 오류를 추가할 때 enum에 고정된 코드와 HTTP 상태 코드를 등록한다.
-- 외부 메시지는 오류가 발생하는 지점에서 순수 문자열로 전달한다. 도메인·서비스는
-  오류 코드 문자열을 직접 만들지 않고 다음 형식으로 `JarihanaException`을 발생시킨다.
+- 새로운 API 오류를 추가할 때 enum에 오류 코드와 HTTP 상태 코드를 등록한다.
+- 도메인·서비스는 오류 코드 문자열이나 HTTP 응답을 직접 조합하지 않고
+  `BusinessException`에 `ErrorCode`와 외부에 전달할 메시지를 함께 전달한다.
 
 ```java
-throw JarihanaException.of(
+throw new BusinessException(
         ErrorCode.INVALID_PARAMETER,
         "요청 파라미터가 올바르지 않습니다."
 );
 ```
 
-- `GlobalExceptionHandler`가 예외를 다음 공통 봉투로 변환한다.
+- `com.project.jarihana.common.exception.GlobalExceptionHandler`가 비즈니스 예외와
+  Spring의 바인딩·검증 예외를 다음 공통 봉투로 변환한다.
 
 ```json
 {
@@ -93,16 +94,15 @@ throw JarihanaException.of(
 
 - 외부 JSON의 `error` 객체에는 `code`와 `message`만 포함한다. `httpStatus`를
   JSON 필드로 추가하거나 `ErrorCode` enum 자체를 응답으로 직렬화하지 않는다.
-- `ErrorCode.httpStatus`는 서버 내부의 HTTP 매핑 메타데이터다. 예외의 메시지는
-  `JarihanaException.of(...)`로 전달된 문자열을 사용한다. 응답 변환 시
-  `GlobalExceptionHandler`가 이를 읽어 `ResponseEntity.status(...)`로 HTTP 상태를
-  설정한다.
+- `ErrorCode.status`는 서버 내부의 HTTP 매핑 메타데이터다. 메시지는
+  `BusinessException` 생성자 또는 바인딩 예외 처리 지점에서 순수 문자열로 전달하며,
+  `GlobalExceptionHandler`가 이를 `ApiResponse`에 담는다.
 - 따라서 클라이언트는 HTTP 상태 코드로 전송 수준을 판단하고, 세부 분기는
   `error.code`를 기준으로 한다. 오류 메시지는 표시 가능한 외부 메시지로 관리한다.
 
 ```text
-ErrorCode(code, httpStatus) + JarihanaException.of(errorCode, message)
-    -> GlobalExceptionHandler
+ErrorCode(code, status) + BusinessException(errorCode, message)
+    -> common/exception/GlobalExceptionHandler
     -> HTTP status + ApiResponse.error(code, message)
 ```
 

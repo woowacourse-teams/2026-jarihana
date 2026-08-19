@@ -147,17 +147,20 @@ group/query/controller/GroupQueryController      # GET
 
 ## 예외 처리
 
-- 공통 예외 관련 클래스는 기능 패키지 아래에 두지 않고
-  `com.project.jarihana.exception` 패키지에서 관리한다.
-- `ErrorCode` enum은 고정된 오류 코드와 HTTP 상태 코드만 소유한다.
-- `ErrorCode.httpStatus`는 외부 오류 JSON에 포함하지 않는 서버 내부 HTTP 매핑
+- 공통 예외와 응답 클래스는 기능 패키지 아래에 두지 않고
+  `com.project.jarihana.common.exception`과 `com.project.jarihana.common.response`
+  패키지에서 관리한다.
+- `ErrorCode` enum은 고정된 오류 코드와 HTTP 상태 코드를 소유한다.
+- `ErrorCode.status`는 외부 오류 JSON에 포함하지 않는 서버 내부 HTTP 매핑
   메타데이터다. 외부 `ApiResponse.error`에는 `code`와 `message`만 둔다.
 - 도메인 또는 서비스에서 API 경계로 전달할 예외는
-  `JarihanaException.of(ErrorCode, message)`를 사용한다. 외부 메시지는 enum에
-  보관하지 않고 이 메서드의 문자열 인자로 전달한다.
-- 모든 예외 응답 변환은 `GlobalExceptionHandler` 한 곳에서 담당한다. 이 핸들러가
-  `ErrorCode.httpStatus`를 `ResponseEntity`의 HTTP 상태로 적용하고,
-  예외로 전달된 `message`와 `ErrorCode.code`만 공통 응답 본문에 담는다.
+  `new BusinessException(ErrorCode, message)`를 사용한다. 외부 메시지는
+  `ErrorCode`에 보관하지 않고 예외 생성 시 순수 문자열로 전달한다.
+- 모든 예외 응답 변환은 `common.exception.GlobalExceptionHandler` 한 곳에서
+  담당한다. 이 핸들러가 `ErrorCode.status`를 `ResponseEntity`의 HTTP 상태로
+  적용하고, `ErrorCode.name()`과 예외로 전달된 `message`를 공통 응답 본문에 담는다.
+- enum·boolean·숫자 변환 실패, `@ModelAttribute` 바인딩 실패와 Bean Validation
+  실패는 기능 컨트롤러가 처리하지 않고 `INVALID_PARAMETER`로 통일한다.
 - 기능 패키지 안에 `*ExceptionHandler` 또는 `@RestControllerAdvice`를 새로 만들지 않는다.
 - 컨트롤러·서비스에서 오류 코드 문자열과 HTTP 상태 코드를 직접 조합하지 않는다.
 - 내부 예외 메시지, 스택 트레이스, 민감한 값은 외부 응답에 노출하지 않는다.
@@ -167,8 +170,8 @@ group/query/controller/GroupQueryController      # GET
 
 ```text
 도메인·서비스
-    -> JarihanaException.of(ErrorCode, message)
-    -> exception/GlobalExceptionHandler
-    -> HTTP status(ErrorCode.httpStatus)
+    -> BusinessException(ErrorCode, message)
+    -> common/exception/GlobalExceptionHandler
+    -> HTTP status(ErrorCode.status)
     -> ApiResponse<Void>(success=false, data=null, error(code, message))
 ```
