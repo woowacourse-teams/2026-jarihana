@@ -3,6 +3,8 @@ package com.project.jarihana.group.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.project.jarihana.common.exception.BusinessException;
+import com.project.jarihana.common.exception.ErrorCode;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.EnumSet;
@@ -40,7 +42,9 @@ class RecurringGroupScheduleTest {
                 Set.of(),
                 LocalTime.of(18, 0),
                 LocalTime.of(20, 0)
-        )).isInstanceOf(IllegalArgumentException.class);
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("반복 일정의 시작 시각은 종료 시각보다 빨라야 한다.")
@@ -51,7 +55,9 @@ class RecurringGroupScheduleTest {
                 Set.of(DayOfWeek.MONDAY),
                 LocalTime.of(20, 0),
                 LocalTime.of(20, 0)
-        )).isInstanceOf(IllegalArgumentException.class);
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("반복 일정의 시작 시각과 종료 시각은 필수다.")
@@ -62,11 +68,15 @@ class RecurringGroupScheduleTest {
                 Set.of(DayOfWeek.MONDAY),
                 null,
                 LocalTime.of(20, 0)
-        )).isInstanceOf(IllegalArgumentException.class);
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
         assertThatThrownBy(() -> RecurringGroupSchedule.of(
                 Set.of(DayOfWeek.MONDAY),
                 LocalTime.of(18, 0),
                 null
-        )).isInstanceOf(IllegalArgumentException.class);
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 }

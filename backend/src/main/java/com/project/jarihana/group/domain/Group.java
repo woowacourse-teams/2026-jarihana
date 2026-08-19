@@ -1,6 +1,8 @@
 package com.project.jarihana.group.domain;
 
 import com.project.jarihana.common.domain.BaseEntity;
+import com.project.jarihana.common.exception.BusinessException;
+import com.project.jarihana.common.exception.ErrorCode;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.AttributeOverrides;
 import jakarta.persistence.Column;
@@ -223,7 +225,7 @@ public class Group extends BaseEntity {
 
     public Group endAt(LocalDateTime now) {
         if (!canEndAt(now)) {
-            throw new IllegalStateException("그룹은 생성 후 24시간이 지난 ACTIVE 상태에서만 종료할 수 있습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "그룹은 생성 후 24시간이 지난 ACTIVE 상태에서만 종료할 수 있습니다.");
         }
         return new Group(
                 id,
@@ -241,7 +243,7 @@ public class Group extends BaseEntity {
 
     private void requireActive() {
         if (!isActive()) {
-            throw new IllegalStateException("ACTIVE 상태의 그룹만 변경할 수 있습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "ACTIVE 상태의 그룹만 변경할 수 있습니다.");
         }
     }
 
@@ -252,32 +254,32 @@ public class Group extends BaseEntity {
     ) {
         if (type == GroupType.SESSION) {
             if (recurringSchedule != null || sessionSchedule == null) {
-                throw new IllegalArgumentException("SESSION은 일회성 일정만 가져야 합니다.");
+                throw new BusinessException(ErrorCode.INVALID_PARAMETER, "SESSION은 일회성 일정만 가져야 합니다.");
             }
             return;
         }
         if (sessionSchedule != null) {
-            throw new IllegalArgumentException("CLUB과 STUDY는 일회성 일정을 가질 수 없습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "CLUB과 STUDY는 일회성 일정을 가질 수 없습니다.");
         }
     }
 
     private static String validateRequiredLength(String value, int maxLength, String fieldName) {
         if (value == null || value.isBlank() || value.length() > maxLength) {
-            throw new IllegalArgumentException(fieldName + "은 1자 이상 " + maxLength + "자 이하여야 합니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 1자 이상 " + maxLength + "자 이하여야 합니다.");
         }
         return value;
     }
 
     private static String validateNullableLength(String value, int maxLength, String fieldName) {
         if (value != null && value.length() > maxLength) {
-            throw new IllegalArgumentException(fieldName + "은 " + maxLength + "자 이하여야 합니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 " + maxLength + "자 이하여야 합니다.");
         }
         return value;
     }
 
     private static <T> T require(T value, String fieldName) {
         if (value == null) {
-            throw new IllegalArgumentException(fieldName + "은 필수입니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 필수입니다.");
         }
         return value;
     }

@@ -1,5 +1,7 @@
 package com.project.jarihana.group.domain;
 
+import com.project.jarihana.common.exception.BusinessException;
+import com.project.jarihana.common.exception.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Embeddable;
@@ -40,14 +42,14 @@ public class RecurringGroupSchedule {
 
     private static LocalTime validateTime(LocalTime time, String fieldName) {
         if (time == null) {
-            throw new IllegalArgumentException(fieldName + "은 필수입니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 필수입니다.");
         }
         return time;
     }
 
     private static void validateTimeRange(LocalTime startTime, LocalTime endTime) {
         if (!startTime.isBefore(endTime)) {
-            throw new IllegalArgumentException("시작 시각은 종료 시각보다 빨라야 합니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "시작 시각은 종료 시각보다 빨라야 합니다.");
         }
     }
 
