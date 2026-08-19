@@ -8,8 +8,8 @@ public record ApiResponse<T>(boolean success, T data, ApiError error) {
         return new ApiResponse<>(true, data, null);
     }
 
-    public static ApiResponse<Void> failure(ErrorCode errorCode) {
-        return new ApiResponse<>(false, null, new ApiError(errorCode.name(), errorCode.getMessage()));
+    public static ApiResponse<Void> failure(ErrorCode errorCode, String message) {
+        return new ApiResponse<>(false, null, new ApiError(errorCode.name(), message));
     }
 
     public record ApiError(String code, String message) {

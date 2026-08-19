@@ -10,9 +10,9 @@
 2026-jarihana/
 ├── backend/     # 현재 디렉터리
 │   ├── AGENTS.md
-│   └── README.md
-├── frontend/    # 프론트엔드 애플리케이션
-└── docs/        # 팀 컨벤션과 설계 맥락
+│   ├── README.md
+│   └── docs/     # 팀 컨벤션과 설계 맥락
+└── frontend/    # 프론트엔드 애플리케이션
 ```
 
 백엔드의 Gradle 명령과 Docker Compose 명령은 이 디렉터리에서 실행합니다.
@@ -26,36 +26,37 @@
 2026-jarihana/
 ├── backend/
 │   ├── AGENTS.md
-│   └── README.md
-└── docs/
-    ├── team-convention.md
-    ├── review/
-    │   └── convention-review.md
-    └── conventions/
-        ├── workflow.md
-        ├── api.md
-        ├── architecture.md
-        ├── testing.md
-        ├── code.md
-        ├── persistence.md
-        ├── time.md
-        ├── security.md
-        └── project-operations.md
+│   ├── README.md
+│   └── docs/
+│       ├── team-convention.md
+│       ├── review/
+│       │   └── convention-review.md
+│       └── conventions/
+│           ├── workflow.md
+│           ├── api.md
+│           ├── architecture.md
+│           ├── testing.md
+│           ├── code.md
+│           ├── persistence.md
+│           ├── time.md
+│           ├── security.md
+│           └── project-operations.md
+└── frontend/
 ```
 
 - `backend/AGENTS.md`: 백엔드 AI 로더, 지침 우선순위와 작업 흐름을 소유합니다.
-- `docs/team-convention.md`: 구속력 있는 컨벤션 세트의 인덱스이자 선택 로딩
+- `backend/docs/team-convention.md`: 구속력 있는 컨벤션 세트의 인덱스이자 선택 로딩
   라우터입니다.
-- `docs/conventions/`: 정확히 9개 구속력 있는 모듈이며, 각 파일이 자기 분야의
+- `backend/docs/conventions/`: 정확히 9개 구속력 있는 모듈이며, 각 파일이 자기 분야의
   확정 규칙을 소유합니다.
-- `docs/review/convention-review.md`: 사용자가 명시적으로 재검토할 때만 읽는 비구속 보류
+- `backend/docs/review/convention-review.md`: 사용자가 명시적으로 재검토할 때만 읽는 비구속 보류
   문서입니다.
 
 ## 적용 방법
 
 1. 백엔드 작업은 이 디렉터리의 `AGENTS.md`를 먼저 읽습니다.
-2. 팀 컨벤션과 설계 맥락은 저장소 루트의 `docs/`에서 관리합니다.
-3. AI·자동화 도구는 항상 `../docs/team-convention.md` 전체를 먼저 읽고, 인덱스의
+2. 팀 컨벤션과 설계 맥락은 `backend/docs/`에서 관리합니다.
+3. AI·자동화 도구는 항상 `docs/team-convention.md` 전체를 먼저 읽고, 인덱스의
    라우팅 표에서 작업 분야에 필요한 모듈만 추가로 읽습니다. 범위가 불명확하거나
    복합적이면 9개 모듈 전체를 읽습니다.
 4. 실제 프로젝트에 맞게 실행 가능한 저장소 파일로 확인한 값만 보완합니다. 확인하지
