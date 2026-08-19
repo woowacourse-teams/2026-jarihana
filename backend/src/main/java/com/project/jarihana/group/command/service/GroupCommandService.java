@@ -1,0 +1,124 @@
+package com.project.jarihana.group.command.service;
+
+import com.project.jarihana.common.exception.BusinessException;
+import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.group.command.repository.GroupCommandRepository;
+import com.project.jarihana.group.command.service.dto.CreateGroupCommand;
+import com.project.jarihana.group.command.service.dto.CreateGroupResult;
+import com.project.jarihana.group.domain.Group;
+import com.project.jarihana.group.domain.GroupType;
+import com.project.jarihana.group.domain.RecurringGroupSchedule;
+import com.project.jarihana.group.domain.SessionGroupSchedule;
+import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
+import com.project.jarihana.groupmember.domain.GroupMember;
+import com.project.jarihana.member.command.repository.MemberRepository;
+import com.project.jarihana.member.domain.Member;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class GroupCommandService {
+
+    public static final String DEFAULT_REPRESENTATIVE_IMAGE_KEY = "images/default-group.png";
+
+    private static final String MEMBER_NOT_FOUND_MESSAGE = "회원 정보를 찾을 수 없습니다.";
+    private static final String GROUP_NAME_DUPLICATED_MESSAGE = "이미 사용 중인 그룹 이름입니다.";
+    private static final String SCHEDULE_TYPE_MISMATCH_MESSAGE = "그룹 유형에 맞는 일정만 등록할 수 있습니다.";
+    private static final String SCHEDULE_REQUIRED_MESSAGE = "세션 그룹에는 일회성 일정이 필요합니다.";
+    private static final String SCHEDULE_INVALID_RULE_MESSAGE = "일정 형식이 올바르지 않습니다.";
+
+    private final MemberRepository memberRepository;
+    private final GroupCommandRepository groupCommandRepository;
+    private final GroupMemberCommandRepository groupMemberCommandRepository;
+    private final Clock clock;
+
+    public GroupCommandService(
+            MemberRepository memberRepository,
+            GroupCommandRepository groupCommandRepository,
+            GroupMemberCommandRepository groupMemberCommandRepository,
+            Clock clock
+    ) {
+        this.memberRepository = memberRepository;
+        this.groupCommandRepository = groupCommandRepository;
+        this.groupMemberCommandRepository = groupMemberCommandRepository;
+        this.clock = clock;
+    }
+
+    @Transactional
+    public CreateGroupResult createGroup(Long memberId, CreateGroupCommand command) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, MEMBER_NOT_FOUND_MESSAGE));
+        if (groupCommandRepository.existsByName(command.name())) {
+            throw new BusinessException(ErrorCode.GROUP_NAME_DUPLICATED, GROUP_NAME_DUPLICATED_MESSAGE);
+        }
+
+        LocalDateTime now = LocalDateTime.now(clock);
+        Group group = groupCommandRepository.save(createGroup(command, now));
+        GroupMember leader = GroupMember.createLeader(group, member, now);
+        groupMemberCommandRepository.save(leader);
+        return new CreateGroupResult(group.getId(), group.getStatus());
+    }
+
+    private Group createGroup(CreateGroupCommand command, LocalDateTime createdAt) {
+        GroupType type = command.type();
+        if (type == null) {
+            throw new IllegalArgumentException("그룹 유형은 필수입니다.");
+        }
+        if (type == GroupType.SESSION) {
+            validateSessionSchedule(command);
+            return Group.createSession(
+                    command.name(), command.introduction(), command.description(),
+                    DEFAULT_REPRESENTATIVE_IMAGE_KEY, toSessionSchedule(command), createdAt
+            );
+        }
+        validateRecurringSchedule(command);
+        RecurringGroupSchedule schedule = toRecurringSchedule(command);
+        if (type == GroupType.CLUB) {
+            return Group.createClub(command.name(), command.introduction(), command.description(),
+                    DEFAULT_REPRESENTATIVE_IMAGE_KEY, schedule, createdAt);
+        }
+        return Group.createStudy(command.name(), command.introduction(), command.description(),
+                DEFAULT_REPRESENTATIVE_IMAGE_KEY, schedule, createdAt);
+    }
+
+    private void validateSessionSchedule(CreateGroupCommand command) {
+        if (command.recurringSchedule() != null) {
+            throw new BusinessException(ErrorCode.SCHEDULE_TYPE_MISMATCH, SCHEDULE_TYPE_MISMATCH_MESSAGE);
+        }
+        if (command.sessionSchedule() == null) {
+            throw new BusinessException(ErrorCode.SCHEDULE_REQUIRED, SCHEDULE_REQUIRED_MESSAGE);
+        }
+    }
+
+    private void validateRecurringSchedule(CreateGroupCommand command) {
+        if (command.sessionSchedule() != null) {
+            throw new BusinessException(ErrorCode.SCHEDULE_TYPE_MISMATCH, SCHEDULE_TYPE_MISMATCH_MESSAGE);
+        }
+        if (command.recurringSchedule() == null) {
+            throw new BusinessException(ErrorCode.SCHEDULE_REQUIRED, "정기 일정이 필요합니다.");
+        }
+    }
+
+    private RecurringGroupSchedule toRecurringSchedule(CreateGroupCommand command) {
+        if (command.recurringSchedule() == null) {
+            return null;
+        }
+        CreateGroupCommand.RecurringSchedule schedule = command.recurringSchedule();
+        try {
+            return RecurringGroupSchedule.of(schedule.daysOfWeek(), schedule.startTime(), schedule.endTime());
+        } catch (BusinessException exception) {
+            throw new BusinessException(ErrorCode.SCHEDULE_INVALID_RULE, SCHEDULE_INVALID_RULE_MESSAGE);
+        }
+    }
+
+    private SessionGroupSchedule toSessionSchedule(CreateGroupCommand command) {
+        CreateGroupCommand.SessionSchedule schedule = command.sessionSchedule();
+        try {
+            return SessionGroupSchedule.of(schedule.sessionDate(), schedule.startTime(), schedule.endTime());
+        } catch (BusinessException exception) {
+            throw new BusinessException(ErrorCode.SCHEDULE_INVALID_RULE, SCHEDULE_INVALID_RULE_MESSAGE);
+        }
+    }
+}
