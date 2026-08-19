@@ -27,8 +27,8 @@ class RecurringGroupScheduleTest {
         days.add(DayOfWeek.TUESDAY);
 
         // Then
-        assertThat(schedule.getDaysOfWeek()).containsExactly(DayOfWeek.MONDAY);
-        assertThatThrownBy(() -> schedule.getDaysOfWeek().add(DayOfWeek.WEDNESDAY))
+        assertThat(schedule.getActivityDays().values()).containsExactly(DayOfWeek.MONDAY);
+        assertThatThrownBy(() -> schedule.getActivityDays().values().add(DayOfWeek.WEDNESDAY))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 
