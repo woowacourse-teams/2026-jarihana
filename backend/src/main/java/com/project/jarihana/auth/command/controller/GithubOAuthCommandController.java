@@ -7,6 +7,8 @@ import com.project.jarihana.auth.command.service.dto.GithubLoginCommand;
 import com.project.jarihana.auth.command.service.dto.GithubLoginResult;
 import com.project.jarihana.auth.command.service.dto.IssuedRefreshToken;
 import com.project.jarihana.auth.config.AuthProperties;
+import com.project.jarihana.common.auth.IssuedAccessToken;
+import com.project.jarihana.common.auth.JwtProperties;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import java.net.URI;
@@ -31,15 +33,18 @@ public class GithubOAuthCommandController {
     private final GithubAuthorizationStarter githubAuthorizationStarter;
     private final GithubOAuthCommandService githubOAuthCommandService;
     private final AuthProperties authProperties;
+    private final JwtProperties jwtProperties;
 
     public GithubOAuthCommandController(
             GithubAuthorizationStarter githubAuthorizationStarter,
             GithubOAuthCommandService githubOAuthCommandService,
-            AuthProperties authProperties
+            AuthProperties authProperties,
+            JwtProperties jwtProperties
     ) {
         this.githubAuthorizationStarter = githubAuthorizationStarter;
         this.githubOAuthCommandService = githubOAuthCommandService;
         this.authProperties = authProperties;
+        this.jwtProperties = jwtProperties;
     }
 
     @GetMapping("/authorization")
@@ -64,6 +69,7 @@ public class GithubOAuthCommandController {
             return redirectToFrontend(true).build();
         }
         return redirectToFrontend(false)
+                .header(HttpHeaders.SET_COOKIE, accessTokenCookie(result.accessToken()).toString())
                 .header(HttpHeaders.SET_COOKIE, refreshTokenCookie(result.refreshToken()).toString())
                 .build();
     }
@@ -92,6 +98,16 @@ public class GithubOAuthCommandController {
                 .build()
                 .toUri();
         return ResponseEntity.status(HttpStatus.FOUND).location(location);
+    }
+
+    private ResponseCookie accessTokenCookie(IssuedAccessToken accessToken) {
+        return ResponseCookie.from(jwtProperties.cookieName(), accessToken.value())
+                .httpOnly(true)
+                .secure(authProperties.cookieSecure())
+                .sameSite(SAME_SITE_LAX)
+                .path(jwtProperties.cookiePath())
+                .maxAge(accessToken.validity())
+                .build();
     }
 
     private ResponseCookie refreshTokenCookie(IssuedRefreshToken refreshToken) {
