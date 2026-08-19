@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "jarihana.auth")
 public record AuthProperties(
         String frontendOrigin,
+        String oauthStateCookieName,
         String refreshCookieName,
         String refreshCookiePath,
         Duration refreshTokenValidity,
