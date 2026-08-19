@@ -19,6 +19,7 @@ import org.springframework.web.client.RestClientException;
 public class GithubOAuthHttpClient implements GithubOAuthClient {
 
     private static final Logger log = LoggerFactory.getLogger(GithubOAuthHttpClient.class);
+    private static final String PROVIDER_ERROR_MESSAGE = "GitHub 로그인 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.";
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(3);
     private static final Duration READ_TIMEOUT = Duration.ofSeconds(5);
 
@@ -55,7 +56,7 @@ public class GithubOAuthHttpClient implements GithubOAuthClient {
 
         if (response == null || response.accessToken() == null || response.accessToken().isBlank()) {
             log.warn("GitHub Access Token 발급 응답에 토큰이 없습니다.");
-            throw new BusinessException(ErrorCode.OAUTH_PROVIDER_ERROR);
+            throw new BusinessException(ErrorCode.OAUTH_PROVIDER_ERROR, PROVIDER_ERROR_MESSAGE);
         }
         return response.accessToken();
     }
@@ -70,7 +71,7 @@ public class GithubOAuthHttpClient implements GithubOAuthClient {
 
         if (response == null || response.id() == null) {
             log.warn("GitHub 사용자 응답에 식별자가 없습니다.");
-            throw new BusinessException(ErrorCode.OAUTH_PROVIDER_ERROR);
+            throw new BusinessException(ErrorCode.OAUTH_PROVIDER_ERROR, PROVIDER_ERROR_MESSAGE);
         }
         return String.valueOf(response.id());
     }
@@ -80,7 +81,7 @@ public class GithubOAuthHttpClient implements GithubOAuthClient {
             return call.get();
         } catch (RestClientException exception) {
             log.warn("GitHub OAuth 요청에 실패했습니다. type={}", exception.getClass().getSimpleName());
-            throw new BusinessException(ErrorCode.OAUTH_PROVIDER_ERROR, exception);
+            throw new BusinessException(ErrorCode.OAUTH_PROVIDER_ERROR, PROVIDER_ERROR_MESSAGE, exception);
         }
     }
 
