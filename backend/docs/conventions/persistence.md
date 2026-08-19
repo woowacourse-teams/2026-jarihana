@@ -53,6 +53,32 @@ SQL을 직접 사용해도 기능 구현은 가능하지만 객체 조회와 저
 - ID 할당 전후 `hashCode`가 바뀔 수 있으므로 미영속 엔티티를 `HashSet` 원소 또는 `HashMap` 키로 사용하지 않는다.
 - Hibernate 프록시와 실제 클래스의 비교를 위한 별도 처리는 현재 적용하지 않는다. 실제 문제가 생기면 다시 결정한다.
 
+### 그룹 목록 조회의 JPA 구성
+
+- `group.domain.Group`, `groupmember.domain.GroupMember`,
+  `recruitment.domain.GroupRecruitment`, `registration.domain.Registration`은
+  도메인 규칙을 가진 JPA 엔티티로 사용한다.
+- `RecurringGroupSchedule`과 `SessionGroupSchedule`은 그룹 테이블에 임베드하는
+  `@Embeddable` 값 객체다. 반복 활동 요일 집합은
+  `ActivityDaysConverter`로 하나의 컬럼에 저장한다.
+- 그룹 목록 조회의 운영 Repository는 `JpaGroupListRepository`다. 이 어댑터는
+  Spring Data JPA의 `GroupJpaRepository`, `GroupMemberJpaRepository`,
+  `GroupRecruitmentJpaRepository`, `RegistrationJpaRepository`를 조합해
+  그룹·구성원·활성 모집·승인 신청 집계를 가져와 `GroupListProjection`을 만든다.
+- 메서드 이름으로 표현할 수 있는 정렬·연관 조회는 Spring Data 파생 쿼리를 사용하고,
+  활성 모집과 승인 신청 집계처럼 조건이나 집계가 필요한 조회는 각 Repository의
+  `@Query`로 선언한다. 조회 어댑터에서 `EntityManager`를 직접 호출하지 않는다.
+- 구성원별 Repository 호출을 반복하지 않고 `@EntityGraph`와 일괄 조회를 사용해
+  N+1 조회를 만들지 않는다.
+- 그룹 목록의 필터링과 cursor 조건은 DB 쿼리에 포함한다. 애플리케이션에서 전체
+  목록을 가져온 뒤 메모리에서 페이지네이션하지 않는다.
+- 무한 스크롤 목록은 `Page` 대신 Spring Data JPA `Slice`를 사용한다. `Pageable`은
+  DB의 limit 적용에 사용하고, offset 대신 `createdAt DESC, id DESC` 기준의 cursor
+  조건으로 다음 페이지를 조회한다. 상세 결정은
+  [ADR 0002](../adr/0002-group-list-database-cursor-pagination.md)를 따른다.
+- `InMemoryGroupListRepository`는 Service 단위 테스트의 대역으로만 사용하므로
+  `src/test/java` 아래에 두고, Spring Repository Bean으로 등록하지 않는다.
+
 ## 트랜잭션 컨벤션
 
 - 데이터 변경이나 여러 작업의 원자성이 필요한 Service public 유스케이스 메서드를 트랜잭션 경계로 삼는다.

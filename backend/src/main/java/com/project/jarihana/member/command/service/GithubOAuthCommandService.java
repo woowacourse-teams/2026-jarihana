@@ -43,13 +43,19 @@ public class GithubOAuthCommandService {
 
     private void validateCallback(GithubLoginCommand command) {
         if (isBlank(command.authorizationCode()) || isBlank(command.state())) {
-            throw new BusinessException(ErrorCode.OAUTH_INVALID_CALLBACK);
+            throw new BusinessException(
+                    ErrorCode.OAUTH_INVALID_CALLBACK,
+                    "OAuth 콜백 파라미터가 올바르지 않습니다."
+            );
         }
     }
 
     private void validateState(GithubLoginCommand command) {
         if (isBlank(command.issuedState()) || !matches(command.issuedState(), command.state())) {
-            throw new BusinessException(ErrorCode.OAUTH_STATE_INVALID);
+            throw new BusinessException(
+                    ErrorCode.OAUTH_STATE_INVALID,
+                    "OAuth state가 유효하지 않습니다."
+            );
         }
     }
 

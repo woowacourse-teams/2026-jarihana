@@ -21,7 +21,10 @@ public class GithubOAuthClientStub implements GithubOAuthClient {
     @Override
     public String getGithubId(String authorizationCode) {
         if (failing) {
-            throw new BusinessException(ErrorCode.OAUTH_PROVIDER_ERROR);
+            throw new BusinessException(
+                    ErrorCode.OAUTH_PROVIDER_ERROR,
+                    "OAuth 제공자 요청에 실패했습니다."
+            );
         }
         return githubId;
     }
