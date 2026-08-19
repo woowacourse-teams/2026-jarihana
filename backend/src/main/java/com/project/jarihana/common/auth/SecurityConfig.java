@@ -23,6 +23,12 @@ public class SecurityConfig {
     };
     private static final String[] PUBLIC_POST_PATHS = {"/api/auth/refresh"};
 
+    /**
+     * 가입 세션과 Access Token 중 하나만 있어도 되는 경로다. 필터는 Access Token만 이해하므로
+     * 여기서 통과시키고, 자격 증명이 하나도 없을 때 거부하는 판단은 각 Service가 한다.
+     */
+    private static final String[] SESSION_OR_TOKEN_GET_PATHS = {"/api/members/me"};
+
     private final AccessTokenProvider accessTokenProvider;
     private final JwtProperties jwtProperties;
     private final UnauthenticatedEntryPoint unauthenticatedEntryPoint;
@@ -50,6 +56,7 @@ public class SecurityConfig {
                         .requestMatchers(PUBLIC_PATHS).permitAll()
                         .requestMatchers(HttpMethod.GET, PUBLIC_GET_PATHS).permitAll()
                         .requestMatchers(HttpMethod.POST, PUBLIC_POST_PATHS).permitAll()
+                        .requestMatchers(HttpMethod.GET, SESSION_OR_TOKEN_GET_PATHS).permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(handling -> handling
                         .authenticationEntryPoint(unauthenticatedEntryPoint)

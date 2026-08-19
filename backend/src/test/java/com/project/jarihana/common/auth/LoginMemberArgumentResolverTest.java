@@ -19,7 +19,7 @@ class LoginMemberArgumentResolverTest {
 
     private static final Long MEMBER_ID = 12L;
 
-    private final LoginMemberArgumentResolver resolver = new LoginMemberArgumentResolver();
+    private final LoginMemberArgumentResolver resolver = new LoginMemberArgumentResolver(new LoginMemberReader());
 
     @AfterEach
     void clearSecurityContext() {
