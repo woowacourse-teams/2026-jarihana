@@ -1,16 +1,49 @@
 package com.project.jarihana.recruitment.domain;
 
+import com.project.jarihana.common.domain.BaseEntity;
 import com.project.jarihana.group.domain.Group;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.Objects;
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
 
-public final class GroupRecruitment {
+@Entity
+@Table(name = "group_recruitment")
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class GroupRecruitment extends BaseEntity {
 
-    private final Long id;
-    private final Group group;
-    private final JoinMethod joinMethod;
-    private final int capacity;
-    private final LocalDateTime startsAt;
-    private final LocalDateTime endsAt;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "group_id", nullable = false)
+    private Group group;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "join_method", nullable = false, length = 20)
+    private JoinMethod joinMethod;
+
+    @Column(name = "capacity", nullable = false)
+    private int capacity;
+
+    @Column(name = "starts_at", nullable = false)
+    private LocalDateTime startsAt;
+
+    @Column(name = "ends_at")
+    private LocalDateTime endsAt;
 
     private GroupRecruitment(
             Long id,
@@ -135,5 +168,24 @@ public final class GroupRecruitment {
 
     public LocalDateTime getEndsAt() {
         return endsAt;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) {
+            return true;
+        }
+        if (!(object instanceof GroupRecruitment other)) {
+            return false;
+        }
+        if (id == null || other.id == null) {
+            return false;
+        }
+        return id.equals(other.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
     }
 }

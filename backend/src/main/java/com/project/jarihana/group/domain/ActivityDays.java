@@ -6,7 +6,7 @@ import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
 
-public final class ActivityDays {
+public class ActivityDays {
 
     private final Set<DayOfWeek> values;
 
