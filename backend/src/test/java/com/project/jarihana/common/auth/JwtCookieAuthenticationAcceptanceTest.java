@@ -32,6 +32,9 @@ class JwtCookieAuthenticationAcceptanceTest extends IntegrationTestSupport {
     private JwtProperties jwtProperties;
 
     @Autowired
+    private AuthCookieProperties authCookieProperties;
+
+    @Autowired
     private Clock clock;
 
     @DisplayName("자격 증명이 없는 요청은 401 공통 오류 봉투로 거부한다.")
@@ -102,7 +105,7 @@ class JwtCookieAuthenticationAcceptanceTest extends IntegrationTestSupport {
 
         // When
         ExtractableResponse<Response> response = RestAssured.given()
-                .cookie(jwtProperties.cookieName(), accessToken)
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
                 .when()
                 .post(PROTECTED_PATH)
                 .then()
@@ -136,7 +139,7 @@ class JwtCookieAuthenticationAcceptanceTest extends IntegrationTestSupport {
 
     private ExtractableResponse<Response> getProtectedPathWithAccessToken(String accessToken) {
         return RestAssured.given()
-                .cookie(jwtProperties.cookieName(), accessToken)
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
                 .when()
                 .get(PROTECTED_PATH)
                 .then()
@@ -148,12 +151,7 @@ class JwtCookieAuthenticationAcceptanceTest extends IntegrationTestSupport {
     }
 
     private JwtProperties propertiesWithSecret(String secret) {
-        return new JwtProperties(
-                secret,
-                jwtProperties.validity(),
-                jwtProperties.cookieName(),
-                jwtProperties.cookiePath()
-        );
+        return new JwtProperties(secret, jwtProperties.validity());
     }
 
     private Clock expiredClock() {

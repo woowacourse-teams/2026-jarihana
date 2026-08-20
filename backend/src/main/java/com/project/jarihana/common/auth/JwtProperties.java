@@ -6,8 +6,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "jarihana.auth.jwt")
 public record JwtProperties(
         String secret,
-        Duration validity,
-        String cookieName,
-        String cookiePath
+        Duration validity
 ) {
 }

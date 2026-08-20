@@ -24,11 +24,14 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
 
     private final AccessTokenProvider accessTokenProvider;
-    private final JwtProperties jwtProperties;
+    private final AuthCookieProperties authCookieProperties;
 
-    public JwtCookieAuthenticationFilter(AccessTokenProvider accessTokenProvider, JwtProperties jwtProperties) {
+    public JwtCookieAuthenticationFilter(
+            AccessTokenProvider accessTokenProvider,
+            AuthCookieProperties authCookieProperties
+    ) {
         this.accessTokenProvider = accessTokenProvider;
-        this.jwtProperties = jwtProperties;
+        this.authCookieProperties = authCookieProperties;
     }
 
     @Override
@@ -47,7 +50,7 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
             return Optional.empty();
         }
         return Arrays.stream(cookies)
-                .filter(cookie -> jwtProperties.cookieName().equals(cookie.getName()))
+                .filter(cookie -> authCookieProperties.accessTokenName().equals(cookie.getName()))
                 .map(Cookie::getValue)
                 .filter(value -> value != null && !value.isBlank())
                 .findFirst();

@@ -38,4 +38,16 @@ Delete로 처리한다.
 - 엔드포인트 원본: [엔드포인트 명세](https://app.notion.com/p/0a438efca7fd4228bcbe8e0dfb10f75b)
 - 마지막 동기화: 2026-08-15
 
+### 원본과 어긋난 항목
+
+팀 회의나 ADR로 확정된 결정이 Notion 원본보다 앞서는 경우가 있다. 이 스냅샷은 그런 항목을 원본
+그대로 두지 않고 결정에 맞춰 고치되, 어긋난 사실을 여기에 남긴다. 다시 동기화할 때 되살아나지
+않도록 확인한다.
+
+| 항목 | 원본 | 확정된 결정 |
+| --- | --- | --- |
+| `GET /api/oauth/github/authorization` | 엔드포인트로 존재 | 만들지 않는다. [ADR 0003](../adr/0003-oauth-authorization-ownership.md) |
+| 콜백의 `state` 보관 | 서버 세션 | 프론트엔드가 만든 쿠키와 대조. [ADR 0003](../adr/0003-oauth-authorization-ownership.md) |
+| 콜백의 토큰 전달 방식 | 결정 필요 | Access Token과 Refresh Token 모두 쿠키. [ADR 0002](../adr/0002-access-token-cookie.md) |
+
 Notion의 아카이브, 기술 구현 결정, 인프라 설정, 역할 분담 문서는 이 스냅샷에 포함하지 않는다.

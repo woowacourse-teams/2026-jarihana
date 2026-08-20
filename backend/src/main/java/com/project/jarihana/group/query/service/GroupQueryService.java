@@ -36,20 +36,16 @@ public class GroupQueryService {
     private final CurrentMemberProvider currentMemberProvider;
     private final Clock clock;
 
-    @Autowired
     public GroupQueryService(
             GroupListRepository groupListRepository,
             GroupDetailRepository groupDetailRepository,
             CurrentMemberProvider currentMemberProvider
     ) {
-        this(
-                groupListRepository,
-                groupDetailRepository,
-                currentMemberProvider,
-                Clock.system(ZoneId.of("Asia/Seoul"))
-        );
+        this(groupListRepository, groupDetailRepository, currentMemberProvider,
+                Clock.system(ZoneId.of("Asia/Seoul")));
     }
 
+    @Autowired
     public GroupQueryService(
             GroupListRepository groupListRepository,
             GroupDetailRepository groupDetailRepository,
