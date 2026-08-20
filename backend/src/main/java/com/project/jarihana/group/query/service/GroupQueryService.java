@@ -1,5 +1,6 @@
 package com.project.jarihana.group.query.service;
 
+import com.project.jarihana.common.auth.LoginMemberReader;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.query.repository.GroupDetailRepository;
@@ -33,15 +34,15 @@ public class GroupQueryService {
 
     private final GroupListRepository groupListRepository;
     private final GroupDetailRepository groupDetailRepository;
-    private final CurrentMemberProvider currentMemberProvider;
+    private final LoginMemberReader loginMemberReader;
     private final Clock clock;
 
     public GroupQueryService(
             GroupListRepository groupListRepository,
             GroupDetailRepository groupDetailRepository,
-            CurrentMemberProvider currentMemberProvider
+            LoginMemberReader loginMemberReader
     ) {
-        this(groupListRepository, groupDetailRepository, currentMemberProvider,
+        this(groupListRepository, groupDetailRepository, loginMemberReader,
                 Clock.system(ZoneId.of("Asia/Seoul")));
     }
 
@@ -49,12 +50,12 @@ public class GroupQueryService {
     public GroupQueryService(
             GroupListRepository groupListRepository,
             GroupDetailRepository groupDetailRepository,
-            CurrentMemberProvider currentMemberProvider,
+            LoginMemberReader loginMemberReader,
             Clock clock
     ) {
         this.groupListRepository = groupListRepository;
         this.groupDetailRepository = groupDetailRepository;
-        this.currentMemberProvider = currentMemberProvider;
+        this.loginMemberReader = loginMemberReader;
         this.clock = clock;
     }
 
@@ -151,7 +152,7 @@ public class GroupQueryService {
         if (query.relation() == null) {
             return null;
         }
-        return currentMemberProvider.currentMemberId()
+        return loginMemberReader.currentMemberId()
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHENTICATED, "인증 정보가 필요합니다."));
     }
 

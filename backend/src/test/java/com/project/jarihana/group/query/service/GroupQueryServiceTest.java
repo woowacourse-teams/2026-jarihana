@@ -3,6 +3,7 @@ package com.project.jarihana.group.query.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.project.jarihana.common.auth.LoginMemberReader;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.domain.Group;
@@ -47,11 +48,11 @@ class GroupQueryServiceTest {
 
     private final InMemoryGroupListRepository listRepository = new InMemoryGroupListRepository();
     private final InMemoryGroupDetailRepository detailRepository = new InMemoryGroupDetailRepository();
-    private final CurrentMemberProvider currentMemberProvider = new TestCurrentMemberProvider();
+    private final LoginMemberReader loginMemberReader = new TestLoginMemberReader();
     private final GroupQueryService service = new GroupQueryService(
             listRepository,
             detailRepository,
-            currentMemberProvider,
+            loginMemberReader,
             CLOCK
     );
 
@@ -222,7 +223,7 @@ class GroupQueryServiceTest {
         return Member.create(crewName, 8, "github-" + crewName, Course.BACKEND);
     }
 
-    private static class TestCurrentMemberProvider extends CurrentMemberProvider {
+    private static class TestLoginMemberReader extends LoginMemberReader {
 
         @Override
         public Optional<Long> currentMemberId() {
