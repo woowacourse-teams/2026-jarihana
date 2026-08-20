@@ -13,6 +13,9 @@ import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
+import com.project.jarihana.recruitment.command.repository.GroupRecruitmentCommandRepository;
+import com.project.jarihana.recruitment.domain.GroupRecruitment;
+import com.project.jarihana.recruitment.domain.JoinMethod;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.TestSupportConfig;
 import io.restassured.specification.RequestSpecification;
@@ -29,6 +32,9 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
 
     @Autowired
     private GroupMemberJpaRepository groupMemberRepository;
+
+    @Autowired
+    private GroupRecruitmentCommandRepository recruitmentRepository;
 
     @Autowired
     private MemberRepository memberRepository;
@@ -73,6 +79,144 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
                 .body("data.endsAt", equalTo("2026-08-31T23:59:59"))
                 .body("data.recruitingStatus", equalTo("SCHEDULED"))
                 .body("error", nullValue());
+    }
+
+    @DisplayName("모임장이 모집 공고를 조기 마감하면 200과 마감 상태를 반환한다.")
+    @Test
+    void closesRecruitment() {
+        // Given
+        Member leaderMember = saveMember("모아", "recruitment-close-controller-leader");
+        Group group = saveActiveGroup("모집 공고 조기 마감 API 그룹");
+        groupMemberRepository.save(GroupMember.createLeader(group, leaderMember, TestSupportConfig.FIXED_NOW));
+        GroupRecruitment recruitment = saveOpenRecruitment(group);
+        String accessToken = accessTokenProvider.issue(leaderMember.getId()).value();
+        String csrfToken = csrfToken(group.getId());
+
+        // When / Then
+        authenticatedRequest(accessToken, csrfToken)
+                .body("""
+                        {
+                          "recruitingStatus": "CLOSED"
+                        }
+                        """)
+                .when()
+                .patch("/api/groups/{groupId}/recruitments/{recruitmentId}", group.getId(), recruitment.getId())
+                .then()
+                .statusCode(200)
+                .body("success", equalTo(true))
+                .body("data.id", equalTo(recruitment.getId().intValue()))
+                .body("data.endsAt", equalTo("2026-08-19T10:00:00"))
+                .body("data.recruitingStatus", equalTo("CLOSED"))
+                .body("error", nullValue());
+    }
+
+    @DisplayName("CLOSED 이외의 모집 상태로 조기 마감을 요청하면 400을 반환한다.")
+    @Test
+    void rejectsNonClosedRecruitingStatus() {
+        // Given
+        Member leaderMember = saveMember("하람", "recruitment-close-controller-status-leader");
+        Group group = saveActiveGroup("조기 마감 상태 오류 그룹");
+        groupMemberRepository.save(GroupMember.createLeader(group, leaderMember, TestSupportConfig.FIXED_NOW));
+        GroupRecruitment recruitment = saveOpenRecruitment(group);
+        String accessToken = accessTokenProvider.issue(leaderMember.getId()).value();
+        String csrfToken = csrfToken(group.getId());
+
+        // When / Then
+        authenticatedRequest(accessToken, csrfToken)
+                .body("""
+                        {
+                          "recruitingStatus": "OPEN"
+                        }
+                        """)
+                .when()
+                .patch("/api/groups/{groupId}/recruitments/{recruitmentId}", group.getId(), recruitment.getId())
+                .then()
+                .statusCode(400)
+                .body("success", equalTo(false))
+                .body("error.code", equalTo("INVALID_PARAMETER"));
+    }
+
+    @DisplayName("현재 모임장이 아니면 모집 공고 조기 마감을 403으로 거부한다.")
+    @Test
+    void rejectsRecruitmentCloseFromNonLeader() {
+        // Given
+        Member leaderMember = saveMember("해솔", "recruitment-close-controller-owner");
+        Member requesterMember = saveMember("누리", "recruitment-close-controller-non-leader");
+        Group group = saveActiveGroup("비리더 조기 마감 API 그룹");
+        groupMemberRepository.save(GroupMember.createLeader(group, leaderMember, TestSupportConfig.FIXED_NOW));
+        groupMemberRepository.save(GroupMember.createMember(group, requesterMember, TestSupportConfig.FIXED_NOW));
+        GroupRecruitment recruitment = saveOpenRecruitment(group);
+        String accessToken = accessTokenProvider.issue(requesterMember.getId()).value();
+        String csrfToken = csrfToken(group.getId());
+
+        // When / Then
+        authenticatedRequest(accessToken, csrfToken)
+                .body(closeBody())
+                .when()
+                .patch("/api/groups/{groupId}/recruitments/{recruitmentId}", group.getId(), recruitment.getId())
+                .then()
+                .statusCode(403)
+                .body("success", equalTo(false))
+                .body("error.code", equalTo("RECRUITMENT_ACCESS_DENIED"));
+    }
+
+    @DisplayName("해당 그룹에 속하지 않은 모집 공고의 조기 마감을 404로 거부한다.")
+    @Test
+    void rejectsRecruitmentCloseForDifferentGroup() {
+        // Given
+        Member leaderMember = saveMember("가온", "recruitment-close-different-group-leader");
+        Group requestedGroup = saveActiveGroup("조기 마감 요청 API 그룹");
+        Group otherGroup = saveActiveGroup("다른 모집 공고 API 그룹");
+        groupMemberRepository.save(GroupMember.createLeader(
+                requestedGroup,
+                leaderMember,
+                TestSupportConfig.FIXED_NOW
+        ));
+        GroupRecruitment otherRecruitment = saveOpenRecruitment(otherGroup);
+        String accessToken = accessTokenProvider.issue(leaderMember.getId()).value();
+        String csrfToken = csrfToken(requestedGroup.getId());
+
+        // When / Then
+        authenticatedRequest(accessToken, csrfToken)
+                .body(closeBody())
+                .when()
+                .patch(
+                        "/api/groups/{groupId}/recruitments/{recruitmentId}",
+                        requestedGroup.getId(),
+                        otherRecruitment.getId()
+                )
+                .then()
+                .statusCode(404)
+                .body("success", equalTo(false))
+                .body("error.code", equalTo("RECRUITMENT_NOT_FOUND"));
+    }
+
+    @DisplayName("이미 마감된 모집 공고의 조기 마감을 409로 거부한다.")
+    @Test
+    void rejectsAlreadyClosedRecruitment() {
+        // Given
+        Member leaderMember = saveMember("다인", "recruitment-close-controller-closed-leader");
+        Group group = saveActiveGroup("이미 마감된 모집 공고 API 그룹");
+        groupMemberRepository.save(GroupMember.createLeader(group, leaderMember, TestSupportConfig.FIXED_NOW));
+        GroupRecruitment recruitment = recruitmentRepository.save(GroupRecruitment.create(
+                group,
+                JoinMethod.APPROVAL,
+                3,
+                TestSupportConfig.FIXED_NOW.minusDays(7),
+                TestSupportConfig.FIXED_NOW.minusDays(1)
+        ));
+        String accessToken = accessTokenProvider.issue(leaderMember.getId()).value();
+        String csrfToken = csrfToken(group.getId());
+
+        // When / Then
+        authenticatedRequest(accessToken, csrfToken)
+                .body(closeBody())
+                .when()
+                .patch("/api/groups/{groupId}/recruitments/{recruitmentId}", group.getId(), recruitment.getId())
+                .then()
+                .statusCode(409)
+                .body("success", equalTo(false))
+                .body("error.code", equalTo("RECRUITMENT_ALREADY_CLOSED"));
     }
 
     @DisplayName("모집 인원이 1보다 작으면 400을 반환한다.")
@@ -214,6 +358,24 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
                   "endsAt": null
                 }
                 """;
+    }
+
+    private String closeBody() {
+        return """
+                {
+                  "recruitingStatus": "CLOSED"
+                }
+                """;
+    }
+
+    private GroupRecruitment saveOpenRecruitment(Group group) {
+        return recruitmentRepository.save(GroupRecruitment.create(
+                group,
+                JoinMethod.APPROVAL,
+                3,
+                TestSupportConfig.FIXED_NOW.minusDays(1),
+                TestSupportConfig.FIXED_NOW.plusDays(7)
+        ));
     }
 
     private Member saveMember(String crewName, String githubId) {

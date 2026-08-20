@@ -2,14 +2,18 @@ package com.project.jarihana.recruitment.command.controller;
 
 import com.project.jarihana.common.auth.LoginMember;
 import com.project.jarihana.common.response.ApiResponse;
+import com.project.jarihana.recruitment.command.controller.dto.CloseRecruitmentRequest;
+import com.project.jarihana.recruitment.command.controller.dto.CloseRecruitmentResponse;
 import com.project.jarihana.recruitment.command.controller.dto.CreateRecruitmentRequest;
 import com.project.jarihana.recruitment.command.controller.dto.CreateRecruitmentResponse;
 import com.project.jarihana.recruitment.command.service.RecruitmentCommandService;
+import com.project.jarihana.recruitment.command.service.dto.CloseRecruitmentResult;
 import com.project.jarihana.recruitment.command.service.dto.CreateRecruitmentResult;
 import jakarta.validation.Valid;
 import java.net.URI;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,6 +26,21 @@ import org.springframework.web.bind.annotation.RestController;
 public class RecruitmentCommandController {
 
     private final RecruitmentCommandService recruitmentCommandService;
+
+    @PatchMapping("/{groupId}/recruitments/{recruitmentId}")
+    public ResponseEntity<ApiResponse<CloseRecruitmentResponse>> closeRecruitment(
+            @LoginMember long memberId,
+            @PathVariable long groupId,
+            @PathVariable long recruitmentId,
+            @Valid @RequestBody CloseRecruitmentRequest request
+    ) {
+        CloseRecruitmentResult result = recruitmentCommandService.closeRecruitment(
+                memberId,
+                groupId,
+                recruitmentId
+        );
+        return ResponseEntity.ok(ApiResponse.success(CloseRecruitmentResponse.from(result)));
+    }
 
     @PostMapping("/{groupId}/recruitments")
     public ResponseEntity<ApiResponse<CreateRecruitmentResponse>> createRecruitment(
