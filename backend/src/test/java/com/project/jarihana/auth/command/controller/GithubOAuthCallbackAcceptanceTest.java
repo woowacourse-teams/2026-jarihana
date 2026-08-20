@@ -7,6 +7,7 @@ import com.project.jarihana.auth.config.AuthProperties;
 import com.project.jarihana.auth.domain.RefreshToken;
 import com.project.jarihana.common.auth.AccessTokenProvider;
 import com.project.jarihana.common.auth.JwtProperties;
+import com.project.jarihana.common.auth.SignupSession;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
@@ -248,6 +249,6 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
         if (session == null) {
             return null;
         }
-        return session.getAttribute(OAuthSessionAttributes.SIGNUP_GITHUB_ID);
+        return session.getAttribute(SignupSession.githubIdAttribute());
     }
 }

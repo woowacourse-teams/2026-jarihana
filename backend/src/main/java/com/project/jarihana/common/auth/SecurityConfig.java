@@ -8,6 +8,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 
 @Configuration
 @EnableWebSecurity
@@ -28,6 +30,7 @@ public class SecurityConfig {
      * 여기서 통과시키고, 자격 증명이 하나도 없을 때 거부하는 판단은 각 Service가 한다.
      */
     private static final String[] SESSION_OR_TOKEN_GET_PATHS = {"/api/members/me"};
+    private static final String[] SESSION_OR_TOKEN_POST_PATHS = {"/api/members"};
 
     private final AccessTokenProvider accessTokenProvider;
     private final JwtProperties jwtProperties;
@@ -49,6 +52,9 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .csrfTokenRequestHandler(csrfTokenRequestHandler()))
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
@@ -57,6 +63,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, PUBLIC_GET_PATHS).permitAll()
                         .requestMatchers(HttpMethod.POST, PUBLIC_POST_PATHS).permitAll()
                         .requestMatchers(HttpMethod.GET, SESSION_OR_TOKEN_GET_PATHS).permitAll()
+                        .requestMatchers(HttpMethod.POST, SESSION_OR_TOKEN_POST_PATHS).permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(handling -> handling
                         .authenticationEntryPoint(unauthenticatedEntryPoint)
@@ -65,5 +72,17 @@ public class SecurityConfig {
                         new JwtCookieAuthenticationFilter(accessTokenProvider, jwtProperties),
                         UsernamePasswordAuthenticationFilter.class)
                 .build();
+    }
+
+    /**
+     * CSRF 토큰을 지연 생성하지 않고 매 응답에 쿠키로 내린다.
+     *
+     * <p>기본 설정은 토큰을 읽는 쪽이 있을 때만 발급하는데, JSON API에는 그 지점이 없어
+     * 프론트엔드가 토큰을 얻을 방법이 없다.
+     */
+    private CsrfTokenRequestAttributeHandler csrfTokenRequestHandler() {
+        CsrfTokenRequestAttributeHandler handler = new CsrfTokenRequestAttributeHandler();
+        handler.setCsrfRequestAttributeName(null);
+        return handler;
     }
 }

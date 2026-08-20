@@ -2,9 +2,9 @@ package com.project.jarihana.member.query.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.project.jarihana.auth.command.controller.OAuthSessionAttributes;
 import com.project.jarihana.common.auth.AccessTokenProvider;
 import com.project.jarihana.common.auth.JwtProperties;
+import com.project.jarihana.common.auth.SignupSession;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
@@ -178,7 +178,7 @@ class MemberMyProfileAcceptanceTest extends IntegrationTestSupport {
 
     private <S extends Session> String storeSignupGithubId(SessionRepository<S> repository, String githubId) {
         S session = repository.createSession();
-        session.setAttribute(OAuthSessionAttributes.SIGNUP_GITHUB_ID, githubId);
+        session.setAttribute(SignupSession.githubIdAttribute(), githubId);
         repository.save(session);
         return session.getId();
     }

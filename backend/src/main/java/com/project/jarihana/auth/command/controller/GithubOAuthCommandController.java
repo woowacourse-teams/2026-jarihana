@@ -3,10 +3,9 @@ package com.project.jarihana.auth.command.controller;
 import com.project.jarihana.auth.command.service.GithubOAuthCommandService;
 import com.project.jarihana.auth.command.service.dto.GithubLoginCommand;
 import com.project.jarihana.auth.command.service.dto.GithubLoginResult;
-import com.project.jarihana.auth.command.service.dto.IssuedRefreshToken;
 import com.project.jarihana.auth.config.AuthProperties;
-import com.project.jarihana.common.auth.IssuedAccessToken;
-import com.project.jarihana.common.auth.JwtProperties;
+import com.project.jarihana.common.auth.AuthCookieFactory;
+import com.project.jarihana.common.auth.SignupSession;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -29,21 +28,23 @@ public class GithubOAuthCommandController {
 
     private static final String FRONTEND_CALLBACK_PATH = "/oauth/callback";
     private static final String SIGNUP_REQUIRED_PARAMETER = "signupRequired";
-    private static final String SAME_SITE_LAX = "Lax";
     private static final String STATE_COOKIE_PATH = "/";
 
     private final GithubOAuthCommandService githubOAuthCommandService;
     private final AuthProperties authProperties;
-    private final JwtProperties jwtProperties;
+    private final AuthCookieFactory authCookieFactory;
+    private final SignupSession signupSession;
 
     public GithubOAuthCommandController(
             GithubOAuthCommandService githubOAuthCommandService,
             AuthProperties authProperties,
-            JwtProperties jwtProperties
+            AuthCookieFactory authCookieFactory,
+            SignupSession signupSession
     ) {
         this.githubOAuthCommandService = githubOAuthCommandService;
         this.authProperties = authProperties;
-        this.jwtProperties = jwtProperties;
+        this.authCookieFactory = authCookieFactory;
+        this.signupSession = signupSession;
     }
 
     @GetMapping("/callback")
@@ -57,12 +58,12 @@ public class GithubOAuthCommandController {
                 new GithubLoginCommand(code, state, consumeIssuedState(request, response));
         GithubLoginResult result = githubOAuthCommandService.login(command);
         if (result.signupRequired()) {
-            storeSignupGithubId(request, result.githubId());
+            signupSession.store(request, result.githubId());
             return redirectToFrontend(true).build();
         }
         return redirectToFrontend(false)
-                .header(HttpHeaders.SET_COOKIE, accessTokenCookie(result.accessToken()).toString())
-                .header(HttpHeaders.SET_COOKIE, refreshTokenCookie(result.refreshToken()).toString())
+                .header(HttpHeaders.SET_COOKIE, accessTokenCookie(result))
+                .header(HttpHeaders.SET_COOKIE, refreshTokenCookie(result))
                 .build();
     }
 
@@ -97,10 +98,6 @@ public class GithubOAuthCommandController {
                 .build();
     }
 
-    private void storeSignupGithubId(HttpServletRequest request, String githubId) {
-        request.getSession(true).setAttribute(OAuthSessionAttributes.SIGNUP_GITHUB_ID, githubId);
-    }
-
     private ResponseEntity.BodyBuilder redirectToFrontend(boolean signupRequired) {
         URI location = UriComponentsBuilder.fromUriString(authProperties.frontendOrigin())
                 .path(FRONTEND_CALLBACK_PATH)
@@ -110,23 +107,15 @@ public class GithubOAuthCommandController {
         return ResponseEntity.status(HttpStatus.FOUND).location(location);
     }
 
-    private ResponseCookie accessTokenCookie(IssuedAccessToken accessToken) {
-        return ResponseCookie.from(jwtProperties.cookieName(), accessToken.value())
-                .httpOnly(true)
-                .secure(authProperties.cookieSecure())
-                .sameSite(SAME_SITE_LAX)
-                .path(jwtProperties.cookiePath())
-                .maxAge(accessToken.validity())
-                .build();
+    private String accessTokenCookie(GithubLoginResult result) {
+        return authCookieFactory
+                .accessToken(result.accessToken().value(), result.accessToken().validity())
+                .toString();
     }
 
-    private ResponseCookie refreshTokenCookie(IssuedRefreshToken refreshToken) {
-        return ResponseCookie.from(authProperties.refreshCookieName(), refreshToken.value())
-                .httpOnly(true)
-                .secure(authProperties.cookieSecure())
-                .sameSite(SAME_SITE_LAX)
-                .path(authProperties.refreshCookiePath())
-                .maxAge(refreshToken.validity())
-                .build();
+    private String refreshTokenCookie(GithubLoginResult result) {
+        return authCookieFactory
+                .refreshToken(result.refreshToken().value(), result.refreshToken().validity())
+                .toString();
     }
 }
