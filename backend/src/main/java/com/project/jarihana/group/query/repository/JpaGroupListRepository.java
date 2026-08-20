@@ -8,6 +8,7 @@ import com.project.jarihana.group.query.repository.dto.GroupListProjection;
 import com.project.jarihana.group.query.repository.dto.GroupListSearchCriteria;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
+import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
 import com.project.jarihana.registration.domain.RegistrationStatus;
 import java.time.LocalDateTime;
 import java.util.HashMap;
