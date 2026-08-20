@@ -2,6 +2,7 @@ package com.project.jarihana.group.command.controller;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.nullValue;
 
 import com.project.jarihana.common.auth.AccessTokenProvider;
@@ -170,6 +171,37 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                 .statusCode(400)
                 .body("success", equalTo(false))
                 .body("error.code", equalTo("INVALID_PARAMETER"));
+    }
+
+    @DisplayName("모임장은 동아리 반복 일정을 등록하거나 교체한 결과를 받는다.")
+    @Test
+    void replacesRecurringSchedule() {
+        Member leader = memberRepository.save(Member.create("가온", 10, "github-controller-schedule", Course.BACKEND));
+        Group group = createGroup(leader, "컨트롤러 반복 일정 그룹");
+        String accessToken = accessTokenProvider.issue(leader.getId()).value();
+        String csrfToken = csrfToken(group.getId());
+
+        given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .cookie("XSRF-TOKEN", csrfToken)
+                .header("X-XSRF-TOKEN", csrfToken)
+                .contentType("application/json")
+                .body("""
+                        {
+                          "daysOfWeek": ["TUESDAY", "THURSDAY"],
+                          "startTime": "19:30:00",
+                          "endTime": "21:30:00"
+                        }
+                        """)
+                .when()
+                .put("/api/groups/{groupId}/recurring-schedule", group.getId())
+                .then()
+                .statusCode(200)
+                .body("success", equalTo(true))
+                .body("data.daysOfWeek", hasItems("TUESDAY", "THURSDAY"))
+                .body("data.startTime", equalTo("19:30:00"))
+                .body("data.endTime", equalTo("21:30:00"))
+                .body("error", nullValue());
     }
 
     private Group createGroup(Member leader, String name) {
