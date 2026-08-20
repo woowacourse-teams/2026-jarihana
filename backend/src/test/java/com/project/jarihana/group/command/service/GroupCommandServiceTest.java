@@ -11,10 +11,13 @@ import com.project.jarihana.group.command.service.dto.CreateGroupResult;
 import com.project.jarihana.group.command.service.dto.ModifyGroupCommand;
 import com.project.jarihana.group.command.service.dto.TerminateGroupCommand;
 import com.project.jarihana.group.command.service.dto.TerminateGroupResult;
+import com.project.jarihana.group.command.service.dto.ReplaceRecurringScheduleCommand;
+import com.project.jarihana.group.command.service.dto.ReplaceRecurringScheduleResult;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.GroupStatus;
 import com.project.jarihana.group.domain.GroupType;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
+import com.project.jarihana.group.domain.SessionGroupSchedule;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
@@ -422,6 +425,104 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_PARAMETER);
+    }
+
+    @DisplayName("동아리 모임장은 반복 일정을 등록하거나 교체할 수 있다.")
+    @Test
+    void replaceRecurringSchedule() {
+        Member leader = saveMember("github-schedule-replace");
+        Group group = createGroup(leader, "반복 일정 교체 그룹");
+
+        ReplaceRecurringScheduleResult result = groupCommandService.replaceRecurringSchedule(
+                leader.getId(), group.getId(), new ReplaceRecurringScheduleCommand(
+                        Set.of(DayOfWeek.TUESDAY, DayOfWeek.THURSDAY),
+                        LocalTime.of(19, 30), LocalTime.of(21, 30)));
+
+        assertThat(result.daysOfWeek()).containsExactly(DayOfWeek.TUESDAY, DayOfWeek.THURSDAY);
+        assertThat(result.startTime()).isEqualTo(LocalTime.of(19, 30));
+        assertThat(result.endTime()).isEqualTo(LocalTime.of(21, 30));
+    }
+
+    @DisplayName("세션 그룹에는 반복 일정을 등록할 수 없다.")
+    @Test
+    void replaceRecurringScheduleFailsForSessionGroup() {
+        Member leader = saveMember("github-schedule-session");
+        Group group = groupJpaRepository.save(Group.createSession(
+                "세션 반복 일정 그룹", "소개", null, GroupCommandService.DEFAULT_REPRESENTATIVE_IMAGE_KEY,
+                SessionGroupSchedule.of(LocalDate.now().plusDays(1), LocalTime.of(10, 0), LocalTime.of(11, 0)),
+                TestSupportConfig.FIXED_NOW));
+        groupMemberCommandRepository.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
+
+        assertThatThrownBy(() -> groupCommandService.replaceRecurringSchedule(
+                leader.getId(), group.getId(), new ReplaceRecurringScheduleCommand(
+                        Set.of(DayOfWeek.MONDAY), LocalTime.of(19, 0), LocalTime.of(21, 0))))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.SCHEDULE_TYPE_MISMATCH);
+    }
+
+    @DisplayName("시작 시각이 종료 시각보다 늦으면 반복 일정을 교체할 수 없다.")
+    @Test
+    void replaceRecurringScheduleFailsForInvalidTimeRange() {
+        Member leader = saveMember("github-schedule-invalid");
+        Group group = createGroup(leader, "잘못된 반복 일정 그룹");
+
+        assertThatThrownBy(() -> groupCommandService.replaceRecurringSchedule(
+                leader.getId(), group.getId(), new ReplaceRecurringScheduleCommand(
+                        Set.of(DayOfWeek.MONDAY), LocalTime.of(21, 0), LocalTime.of(19, 0))))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.SCHEDULE_INVALID_RULE);
+    }
+
+    @DisplayName("종료된 그룹의 반복 일정은 교체할 수 없다.")
+    @Test
+    void replaceRecurringScheduleFailsForEndedGroup() {
+        Member leader = saveMember("github-schedule-ended");
+        LocalDateTime createdAt = TestSupportConfig.FIXED_NOW.minusHours(25);
+        Group group = groupJpaRepository.save(Group.createStudy(
+                "종료 반복 일정 그룹", "소개", null, GroupCommandService.DEFAULT_REPRESENTATIVE_IMAGE_KEY,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.of(19, 0), LocalTime.of(21, 0)), createdAt));
+        groupMemberCommandRepository.save(GroupMember.createLeader(group, leader, createdAt));
+        jdbcTemplate.update("UPDATE groups SET created_at = ?, updated_at = ? WHERE id = ?", createdAt, createdAt, group.getId());
+        entityManager.clear();
+        group = groupCommandRepository.findById(group.getId()).orElseThrow();
+        groupCommandRepository.save(group.endAt(TestSupportConfig.FIXED_NOW));
+        Long endedGroupId = group.getId();
+
+        assertThatThrownBy(() -> groupCommandService.replaceRecurringSchedule(
+                leader.getId(), endedGroupId, new ReplaceRecurringScheduleCommand(
+                        Set.of(DayOfWeek.MONDAY), LocalTime.of(19, 0), LocalTime.of(21, 0))))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_ENDED);
+    }
+
+    @DisplayName("동아리 모임장은 반복 일정을 삭제해 유동적 일정으로 변경할 수 있다.")
+    @Test
+    void removeRecurringSchedule() {
+        Member leader = saveMember("github-schedule-remove");
+        Group group = createGroup(leader, "반복 일정 삭제 그룹");
+
+        groupCommandService.removeRecurringSchedule(leader.getId(), group.getId());
+
+        assertThat(groupCommandRepository.findById(group.getId()).orElseThrow().getRecurringSchedule())
+                .isNull();
+    }
+
+    @DisplayName("반복 일정이 없는 그룹은 반복 일정을 삭제할 수 없다.")
+    @Test
+    void removeRecurringScheduleFailsWhenScheduleDoesNotExist() {
+        Member leader = saveMember("github-schedule-remove-missing");
+        Group group = groupJpaRepository.save(Group.createStudy(
+                "반복 일정 없는 그룹", "소개", null, GroupCommandService.DEFAULT_REPRESENTATIVE_IMAGE_KEY,
+                null, TestSupportConfig.FIXED_NOW));
+        groupMemberCommandRepository.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
+
+        assertThatThrownBy(() -> groupCommandService.removeRecurringSchedule(leader.getId(), group.getId()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.RECURRING_SCHEDULE_NOT_FOUND);
     }
 
     private Member saveMember(String githubId) {
