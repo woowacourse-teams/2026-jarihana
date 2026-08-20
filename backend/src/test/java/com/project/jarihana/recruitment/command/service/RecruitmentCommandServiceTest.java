@@ -151,6 +151,271 @@ class RecruitmentCommandServiceTest extends IntegrationTestSupport {
                 .isEqualTo(RegistrationStatus.PENDING);
     }
 
+    @DisplayName("모임장이 모집 시작 전 공고를 조기 마감하면 시작과 종료 시각을 현재 시각으로 맞춘다.")
+    @Test
+    void closesUpcomingRecruitment() {
+        // Given
+        Member leaderMember = saveMember("모아", "close-upcoming-recruitment-leader");
+        Group group = saveActiveGroup("모집 전 조기 마감 그룹");
+        groupMemberRepository.save(GroupMember.createLeader(group, leaderMember, TestSupportConfig.FIXED_NOW));
+        GroupRecruitment recruitment = recruitmentRepository.save(GroupRecruitment.create(
+                group,
+                JoinMethod.APPROVAL,
+                3,
+                TestSupportConfig.FIXED_NOW.plusDays(1),
+                TestSupportConfig.FIXED_NOW.plusDays(7)
+        ));
+
+        // When
+        var result = recruitmentCommandService.closeRecruitment(
+                leaderMember.getId(),
+                group.getId(),
+                recruitment.getId()
+        );
+
+        // Then
+        assertThat(result.id()).isEqualTo(recruitment.getId());
+        assertThat(result.endsAt()).isEqualTo(TestSupportConfig.FIXED_NOW);
+        assertThat(result.phase()).isEqualTo(RecruitmentPhase.CLOSED);
+        assertThat(recruitmentRepository.findAllByGroupId(group.getId()))
+                .singleElement()
+                .satisfies(closed -> {
+                    assertThat(closed.getStartsAt()).isEqualTo(TestSupportConfig.FIXED_NOW);
+                    assertThat(closed.getEndsAt()).isEqualTo(TestSupportConfig.FIXED_NOW);
+                });
+    }
+
+    @DisplayName("모집 중인 공고를 조기 마감하면 시작 시각은 유지하고 종료 시각만 현재 시각으로 바꾼다.")
+    @Test
+    void closesOpenRecruitment() {
+        // Given
+        Member leaderMember = saveMember("하람", "close-open-recruitment-leader");
+        Group group = saveActiveGroup("모집 중 조기 마감 그룹");
+        groupMemberRepository.save(GroupMember.createLeader(group, leaderMember, TestSupportConfig.FIXED_NOW));
+        LocalDateTime startsAt = TestSupportConfig.FIXED_NOW.minusDays(2);
+        GroupRecruitment recruitment = recruitmentRepository.save(GroupRecruitment.create(
+                group,
+                JoinMethod.APPROVAL,
+                3,
+                startsAt,
+                TestSupportConfig.FIXED_NOW.plusDays(7)
+        ));
+
+        // When
+        recruitmentCommandService.closeRecruitment(leaderMember.getId(), group.getId(), recruitment.getId());
+
+        // Then
+        assertThat(recruitmentRepository.findAllByGroupId(group.getId()))
+                .singleElement()
+                .satisfies(closed -> {
+                    assertThat(closed.getStartsAt()).isEqualTo(startsAt);
+                    assertThat(closed.getEndsAt()).isEqualTo(TestSupportConfig.FIXED_NOW);
+                });
+    }
+
+    @DisplayName("모집 공고를 수동 조기 마감해도 대기 신청은 유지한다.")
+    @Test
+    void keepsPendingRegistrationWhenClosingRecruitment() {
+        // Given
+        Member leaderMember = saveMember("해솔", "close-recruitment-pending-leader");
+        Member applicant = saveMember("누리", "close-recruitment-pending-applicant");
+        Group group = saveActiveGroup("대기 신청 유지 그룹");
+        groupMemberRepository.save(GroupMember.createLeader(group, leaderMember, TestSupportConfig.FIXED_NOW));
+        GroupRecruitment recruitment = recruitmentRepository.save(GroupRecruitment.create(
+                group,
+                JoinMethod.APPROVAL,
+                3,
+                TestSupportConfig.FIXED_NOW.minusDays(2),
+                TestSupportConfig.FIXED_NOW.plusDays(7)
+        ));
+        Registration pendingRegistration = registrationRepository.save(Registration.createPending(
+                recruitment,
+                applicant,
+                "가입하고 싶습니다.",
+                TestSupportConfig.FIXED_NOW.minusDays(1)
+        ));
+
+        // When
+        recruitmentCommandService.closeRecruitment(leaderMember.getId(), group.getId(), recruitment.getId());
+
+        // Then
+        assertThat(registrationListRepository.findById(pendingRegistration.getId()).orElseThrow().getStatus())
+                .isEqualTo(RegistrationStatus.PENDING);
+    }
+
+    @DisplayName("현재 모임장이 아닌 구성원은 모집 공고를 조기 마감할 수 없다.")
+    @Test
+    void rejectsRecruitmentCloseFromNonLeader() {
+        // Given
+        Member leaderMember = saveMember("이든", "close-recruitment-owner");
+        Member requesterMember = saveMember("여울", "close-recruitment-non-leader");
+        Group group = saveActiveGroup("비리더 조기 마감 그룹");
+        groupMemberRepository.save(GroupMember.createLeader(group, leaderMember, TestSupportConfig.FIXED_NOW));
+        groupMemberRepository.save(GroupMember.createMember(group, requesterMember, TestSupportConfig.FIXED_NOW));
+        GroupRecruitment recruitment = recruitmentRepository.save(GroupRecruitment.create(
+                group,
+                JoinMethod.APPROVAL,
+                3,
+                TestSupportConfig.FIXED_NOW.minusDays(1),
+                TestSupportConfig.FIXED_NOW.plusDays(7)
+        ));
+
+        // When / Then
+        assertThatThrownBy(() -> recruitmentCommandService.closeRecruitment(
+                requesterMember.getId(),
+                group.getId(),
+                recruitment.getId()
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.RECRUITMENT_ACCESS_DENIED);
+    }
+
+    @DisplayName("존재하지 않는 그룹의 모집 공고는 조기 마감할 수 없다.")
+    @Test
+    void rejectsRecruitmentCloseForUnknownGroup() {
+        // Given
+        Member member = saveMember("가온", "close-recruitment-unknown-group");
+
+        // When / Then
+        assertThatThrownBy(() -> recruitmentCommandService.closeRecruitment(
+                member.getId(),
+                999_999L,
+                999_999L
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_NOT_FOUND);
+    }
+
+    @DisplayName("해당 그룹에 속하지 않은 모집 공고는 조기 마감할 수 없다.")
+    @Test
+    void rejectsRecruitmentCloseForDifferentGroup() {
+        // Given
+        Member leaderMember = saveMember("다인", "close-recruitment-different-group-leader");
+        Group requestedGroup = saveActiveGroup("조기 마감 요청 그룹");
+        Group otherGroup = saveActiveGroup("다른 모집 공고 그룹");
+        groupMemberRepository.save(GroupMember.createLeader(
+                requestedGroup,
+                leaderMember,
+                TestSupportConfig.FIXED_NOW
+        ));
+        GroupRecruitment otherRecruitment = recruitmentRepository.save(GroupRecruitment.create(
+                otherGroup,
+                JoinMethod.APPROVAL,
+                3,
+                TestSupportConfig.FIXED_NOW.minusDays(1),
+                TestSupportConfig.FIXED_NOW.plusDays(7)
+        ));
+
+        // When / Then
+        assertThatThrownBy(() -> recruitmentCommandService.closeRecruitment(
+                leaderMember.getId(),
+                requestedGroup.getId(),
+                otherRecruitment.getId()
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.RECRUITMENT_NOT_FOUND);
+    }
+
+    @DisplayName("종료된 그룹의 모집 공고는 조기 마감할 수 없다.")
+    @Test
+    void rejectsRecruitmentCloseForEndedGroup() {
+        // Given
+        Member leaderMember = saveMember("라임", "close-recruitment-ended-group-leader");
+        Group group = saveActiveGroup("종료된 그룹 조기 마감");
+        groupMemberRepository.save(GroupMember.createLeader(group, leaderMember, TestSupportConfig.FIXED_NOW));
+        GroupRecruitment recruitment = recruitmentRepository.save(GroupRecruitment.create(
+                group,
+                JoinMethod.APPROVAL,
+                3,
+                TestSupportConfig.FIXED_NOW.minusDays(1),
+                TestSupportConfig.FIXED_NOW.plusDays(7)
+        ));
+        groupRepository.save(group.endAt(LocalDateTime.now().plusDays(2)));
+
+        // When / Then
+        assertThatThrownBy(() -> recruitmentCommandService.closeRecruitment(
+                leaderMember.getId(),
+                group.getId(),
+                recruitment.getId()
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_ENDED);
+    }
+
+    @DisplayName("이미 마감된 모집 공고는 다시 조기 마감할 수 없다.")
+    @Test
+    void rejectsAlreadyClosedRecruitment() {
+        // Given
+        Member leaderMember = saveMember("소담", "close-recruitment-already-closed-leader");
+        Group group = saveActiveGroup("이미 마감된 모집 공고 그룹");
+        groupMemberRepository.save(GroupMember.createLeader(group, leaderMember, TestSupportConfig.FIXED_NOW));
+        GroupRecruitment recruitment = recruitmentRepository.save(GroupRecruitment.create(
+                group,
+                JoinMethod.APPROVAL,
+                3,
+                TestSupportConfig.FIXED_NOW.minusDays(7),
+                TestSupportConfig.FIXED_NOW.minusDays(1)
+        ));
+
+        // When / Then
+        assertThatThrownBy(() -> recruitmentCommandService.closeRecruitment(
+                leaderMember.getId(),
+                group.getId(),
+                recruitment.getId()
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode().name())
+                .isEqualTo("RECRUITMENT_ALREADY_CLOSED");
+    }
+
+    @DisplayName("같은 모집 공고를 동시에 조기 마감하면 한 요청만 성공한다.")
+    @Test
+    void serializesConcurrentRecruitmentClose() throws Exception {
+        // Given
+        Member leaderMember = saveMember("초롱", "close-recruitment-concurrent-leader");
+        Group group = saveActiveGroup("동시 조기 마감 그룹");
+        groupMemberRepository.save(GroupMember.createLeader(group, leaderMember, TestSupportConfig.FIXED_NOW));
+        GroupRecruitment recruitment = recruitmentRepository.save(GroupRecruitment.create(
+                group,
+                JoinMethod.APPROVAL,
+                3,
+                TestSupportConfig.FIXED_NOW.minusDays(1),
+                TestSupportConfig.FIXED_NOW.plusDays(7)
+        ));
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        try {
+            Future<Object> first = executor.submit(() -> closeWhenReleased(
+                    start,
+                    leaderMember.getId(),
+                    group.getId(),
+                    recruitment.getId()
+            ));
+            Future<Object> second = executor.submit(() -> closeWhenReleased(
+                    start,
+                    leaderMember.getId(),
+                    group.getId(),
+                    recruitment.getId()
+            ));
+
+            // When
+            start.countDown();
+            List<Object> outcomes = List.of(
+                    first.get(5, TimeUnit.SECONDS),
+                    second.get(5, TimeUnit.SECONDS)
+            );
+
+            // Then
+            assertThat(outcomes).filteredOn(outcome -> !(outcome instanceof ErrorCode)).hasSize(1);
+            assertThat(outcomes)
+                    .filteredOn(ErrorCode.class::isInstance)
+                    .extracting(outcome -> ((ErrorCode) outcome).name())
+                    .containsExactly("RECRUITMENT_ALREADY_CLOSED");
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
     @DisplayName("현재 모임장이 아닌 구성원은 새 모집 공고를 등록할 수 없다.")
     @Test
     void rejectsRecruitmentCreationFromNonLeader() {
@@ -244,6 +509,25 @@ class RecruitmentCommandServiceTest extends IntegrationTestSupport {
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("동시 모집 공고 등록 테스트가 중단되었습니다.", exception);
+        }
+    }
+
+    private Object closeWhenReleased(
+            CountDownLatch start,
+            long memberId,
+            long groupId,
+            long recruitmentId
+    ) {
+        try {
+            if (!start.await(3, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("동시 모집 공고 조기 마감 시작 대기 시간이 초과되었습니다.");
+            }
+            return recruitmentCommandService.closeRecruitment(memberId, groupId, recruitmentId);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("동시 모집 공고 조기 마감 테스트가 중단되었습니다.", exception);
+        } catch (BusinessException exception) {
+            return exception.getErrorCode();
         }
     }
 

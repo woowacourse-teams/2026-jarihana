@@ -19,6 +19,9 @@ public interface GroupRecruitmentCommandRepository extends Repository<GroupRecru
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<GroupRecruitment> findWithLockById(long id);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<GroupRecruitment> findWithLockByIdAndGroupId(long id, long groupId);
+
     @Query("""
             select recruitment
             from GroupRecruitment recruitment

@@ -8,9 +8,11 @@ import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRep
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.recruitment.command.repository.GroupRecruitmentCommandRepository;
+import com.project.jarihana.recruitment.command.service.dto.CloseRecruitmentResult;
 import com.project.jarihana.recruitment.command.service.dto.CreateRecruitmentCommand;
 import com.project.jarihana.recruitment.command.service.dto.CreateRecruitmentResult;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
+import com.project.jarihana.recruitment.domain.RecruitmentPhase;
 import com.project.jarihana.registration.command.repository.RegistrationCommandRepository;
 import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.registration.domain.RegistrationStatus;
@@ -30,6 +32,37 @@ public class RecruitmentCommandService {
     private final GroupRecruitmentCommandRepository recruitmentRepository;
     private final RegistrationCommandRepository registrationRepository;
     private final Clock clock;
+
+    @Transactional
+    public CloseRecruitmentResult closeRecruitment(long memberId, long groupId, long recruitmentId) {
+        Group group = groupCommandRepository.findWithLockById(groupId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND, "그룹을 찾을 수 없습니다."));
+        GroupMember requester = groupMemberCommandRepository.findByGroupIdAndMemberId(groupId, memberId)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.RECRUITMENT_ACCESS_DENIED,
+                        "현재 모임장만 모집 공고를 조기 마감할 수 있습니다."
+                ));
+        if (requester.getRole() != GroupMemberRole.LEADER) {
+            throw new BusinessException(
+                    ErrorCode.RECRUITMENT_ACCESS_DENIED,
+                    "현재 모임장만 모집 공고를 조기 마감할 수 있습니다."
+            );
+        }
+        if (!group.isActive()) {
+            throw new BusinessException(ErrorCode.GROUP_ENDED, "종료된 그룹의 모집 공고는 조기 마감할 수 없습니다.");
+        }
+        GroupRecruitment recruitment = recruitmentRepository.findWithLockByIdAndGroupId(recruitmentId, groupId)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.RECRUITMENT_NOT_FOUND,
+                        "모집 공고를 찾을 수 없습니다."
+                ));
+        LocalDateTime now = LocalDateTime.now(clock);
+        if (recruitment.phaseAt(now) == RecruitmentPhase.CLOSED) {
+            throw new BusinessException(ErrorCode.RECRUITMENT_ALREADY_CLOSED, "이미 마감된 모집 공고입니다.");
+        }
+        GroupRecruitment closed = recruitmentRepository.save(recruitment.closeAt(now));
+        return CloseRecruitmentResult.of(closed, now);
+    }
 
     @Transactional
     public CreateRecruitmentResult createRecruitment(
