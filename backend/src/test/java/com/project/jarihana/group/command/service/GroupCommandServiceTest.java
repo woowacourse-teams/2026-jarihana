@@ -498,6 +498,33 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
                 .isEqualTo(ErrorCode.GROUP_ENDED);
     }
 
+    @DisplayName("동아리 모임장은 반복 일정을 삭제해 유동적 일정으로 변경할 수 있다.")
+    @Test
+    void removeRecurringSchedule() {
+        Member leader = saveMember("github-schedule-remove");
+        Group group = createGroup(leader, "반복 일정 삭제 그룹");
+
+        groupCommandService.removeRecurringSchedule(leader.getId(), group.getId());
+
+        assertThat(groupCommandRepository.findById(group.getId()).orElseThrow().getRecurringSchedule())
+                .isNull();
+    }
+
+    @DisplayName("반복 일정이 없는 그룹은 반복 일정을 삭제할 수 없다.")
+    @Test
+    void removeRecurringScheduleFailsWhenScheduleDoesNotExist() {
+        Member leader = saveMember("github-schedule-remove-missing");
+        Group group = groupJpaRepository.save(Group.createStudy(
+                "반복 일정 없는 그룹", "소개", null, GroupCommandService.DEFAULT_REPRESENTATIVE_IMAGE_KEY,
+                null, TestSupportConfig.FIXED_NOW));
+        groupMemberCommandRepository.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
+
+        assertThatThrownBy(() -> groupCommandService.removeRecurringSchedule(leader.getId(), group.getId()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.RECURRING_SCHEDULE_NOT_FOUND);
+    }
+
     private Member saveMember(String githubId) {
         return memberRepository.save(Member.create("가온", 8, githubId, Course.BACKEND));
     }

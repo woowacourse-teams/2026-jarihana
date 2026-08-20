@@ -204,6 +204,32 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                 .body("error", nullValue());
     }
 
+    @DisplayName("모임장의 반복 일정 삭제 요청은 204를 반환하고 일정을 제거한다.")
+    @Test
+    void removesRecurringSchedule() {
+        Member leader = memberRepository.save(Member.create("가온", 11, "github-controller-schedule-remove", Course.BACKEND));
+        Group group = createGroup(leader, "컨트롤러 반복 일정 삭제 그룹");
+        String accessToken = accessTokenProvider.issue(leader.getId()).value();
+        String csrfToken = csrfToken(group.getId());
+
+        given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .cookie("XSRF-TOKEN", csrfToken)
+                .header("X-XSRF-TOKEN", csrfToken)
+                .when()
+                .delete("/api/groups/{groupId}/recurring-schedule", group.getId())
+                .then()
+                .statusCode(204)
+                .body(equalTo(""));
+
+        given()
+                .when()
+                .get("/api/groups/{groupId}", group.getId())
+                .then()
+                .statusCode(200)
+                .body("data.recurringSchedule", nullValue());
+    }
+
     private Group createGroup(Member leader, String name) {
         Group group = groupRepository.save(Group.createStudy(
                 name,
