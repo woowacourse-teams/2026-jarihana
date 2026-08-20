@@ -17,8 +17,9 @@ group
 ├── command
 │   ├── controller
 │   │   └── dto
-│   └── service
-│       └── dto
+│   ├── service
+│   │   └── dto
+│   └── repository
 ├── query
 │   ├── controller
 │   │   └── dto
@@ -26,20 +27,27 @@ group
 │   │   └── dto
 │   └── repository
 │       └── dto
-├── domain
-└── repository
+├── client
+│   └── dto
+├── config
+└── domain
 ```
 
 - `command/controller`: 상태를 변경하는 API 요청·응답, 표현 계층 Controller와 요청 검증
 - `command/controller/dto`: 명령 API의 `*Request`, `*Response` DTO
 - `command/service`: 상태를 변경하는 유스케이스, 트랜잭션 단위, 서비스 로직
 - `command/service/dto`: 명령 Service의 `*Command`, `*Result` DTO
+- `command/repository`: 명령 유스케이스가 도메인 엔티티를 조회하고 저장하는
+  Repository 인터페이스와 구현
 - `query/controller`: 상태를 변경하지 않는 API 요청·응답, 표현 계층 Controller와 요청 검증
 - `query/controller/dto`: 조회 API의 `*Request`, `*Response` DTO
 - `query/service`: 조회 조건 조합과 조회 결과 구성
 - `query/service/dto`: 조회 Service의 `*Query`, `*Result` DTO
 - `query/repository`: 조회 전용 쿼리와 Repository 인터페이스·구현
 - `query/repository/dto`: 조회 전용 `*Projection`과 Repository 반환용 조회 DTO
+- `client`: 외부 시스템을 호출하는 어댑터의 인터페이스와 구현
+- `client/dto`: 외부 시스템에 보내는 요청과 받은 응답 DTO
+- `config`: 해당 기능이 소유하는 `@ConfigurationProperties`와 Spring 설정 클래스
 - `domain`: 엔티티, 값 객체, 일급 컬렉션, 도메인 규칙
 
 각 계층의 역할 클래스와 DTO를 같은 패키지에 섞지 않는다. Controller, Service,
@@ -54,13 +62,27 @@ Repository 구현·인터페이스는 각 상위 패키지에 두고 DTO만 해�
 - Repository Projection과 조회 DTO는 `query` 밖의 명령이나 도메인 규칙에서 사용하지
   않는다.
 
-`member`, `group`, `groupmember`, `recruitment`, `registration`처럼 도메인 기능을
-최상위 패키지로 두고, 각 기능 안에서 위 구조를 반복한다. 명령이나 조회 기능이
-없는 패키지는 비어 있는 디렉터리를 미리 만들지 않는다.
+`member`, `auth`, `group`, `groupmember`, `recruitment`, `registration`처럼 도메인
+기능을 최상위 패키지로 두고, 각 기능 안에서 위 구조를 반복한다. 명령이나 조회
+기능이 없는 패키지는 비어 있는 디렉터리를 미리 만들지 않는다.
 
 표현 계층과 Repository 구현이 비즈니스 계층을 참조한다. 비즈니스 계층은 API
 형식이나 구체적인 데이터 접근 기술에 의존하지 않는다. 별도 `persistence`
 패키지는 두지 않는다.
+
+## 공통 패키지
+
+하나의 기능이 소유할 수 없고 모든 기능이 함께 쓰는 클래스만 `common` 아래에 둔다.
+기능이 소유할 수 있는 클래스는 `common`으로 올리지 않는다.
+
+- `common/exception`: `ErrorCode`, `BusinessException`, `GlobalExceptionHandler`
+- `common/response`: `ApiResponse` 등 공통 응답 봉투
+- `common/domain`: `BaseEntity` 등 모든 엔티티가 상속하는 공통 매핑
+- `common/config`: 특정 기능에 속하지 않는 애플리케이션 전역 Spring 설정
+- `common/auth`: 모든 보호 경로가 공유하는 인증 필터, 토큰 Provider, 인증된 회원을
+  Controller로 전달하는 어노테이션과 ArgumentResolver, 그리고 그 설정
+
+`common`에는 도메인 엔티티, 유스케이스 Service, 기능별 Repository를 두지 않는다.
 
 ## 명령과 조회의 경계
 
@@ -96,6 +118,8 @@ Repository 구현·인터페이스는 각 상위 패키지에 두고 DTO만 해�
 - URL이 중첩되어 있어도 모든 상위 리소스의 패키지를 반복하지 않는다.
 - 여러 도메인을 조합하는 조회도 응답의 주 리소스가 명확하면 그 기능의 `query`에
   둔다. 주 리소스를 정하기 어렵다면 구현 전에 팀이 소유 패키지를 합의한다.
+- 로그인, 토큰 발급과 재발급, 로그아웃 유스케이스와 Refresh Token 같은 인증 자원은
+  `member`가 아니라 `auth` 기능이 소유한다. `member`는 회원 프로필을 소유한다.
 
 예를 들어 같은 `/api/groups` 경로를 사용하더라도 상태 변경과 조회 Controller를
 분리한다.
@@ -164,7 +188,7 @@ group/query/controller/GroupQueryController      # GET
 - 기능 패키지 안에 `*ExceptionHandler` 또는 `@RestControllerAdvice`를 새로 만들지 않는다.
 - 컨트롤러·서비스에서 오류 코드 문자열과 HTTP 상태 코드를 직접 조합하지 않는다.
 - 내부 예외 메시지, 스택 트레이스, 민감한 값은 외부 응답에 노출하지 않는다.
-- 처리하지 않은 예외는 내부 상세 내용을 숨기고 `INTERNAL_SERVER_ERROR`로 응답한다.
+- 처리하지 않은 예외는 내부 상세 내용을 숨기고 `INTERNAL_ERROR`로 응답한다.
 
 예외 처리 흐름은 다음과 같다.
 

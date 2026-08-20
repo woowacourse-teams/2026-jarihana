@@ -1,6 +1,6 @@
 package com.project.jarihana.group.command.controller;
 
-import com.project.jarihana.auth.annotation.LoginMember;
+import com.project.jarihana.common.auth.LoginMember;
 import com.project.jarihana.common.response.ApiResponse;
 import com.project.jarihana.group.command.controller.dto.CreateGroupRequest;
 import com.project.jarihana.group.command.controller.dto.CreateGroupResponse;

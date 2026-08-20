@@ -3,6 +3,8 @@
 - 상태: 채택
 - 날짜: 2026-08-19
 - 관련 문서: [API 엔드포인트 설계](../context/api/endpoints.md), [보안과 개인정보](../conventions/security.md), [영속성 컨벤션](../conventions/persistence.md)
+- 결정 4의 Access Token 전달 방식은 [ADR 0002](0002-access-token-cookie.md)로 대체되었다.
+- 결정 2의 `state` 보관 방식은 [ADR 0003](0003-oauth-authorization-ownership.md)으로 대체되었다.
 
 ## 배경
 

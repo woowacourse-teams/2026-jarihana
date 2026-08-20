@@ -3,7 +3,11 @@ package com.project.jarihana.auth.command.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.project.jarihana.auth.command.repository.RefreshTokenRepository;
+import com.project.jarihana.auth.config.AuthProperties;
 import com.project.jarihana.auth.domain.RefreshToken;
+import com.project.jarihana.common.auth.AccessTokenProvider;
+import com.project.jarihana.common.auth.JwtProperties;
+import com.project.jarihana.common.auth.SignupSession;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
@@ -25,6 +29,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.session.Session;
 import org.springframework.session.SessionRepository;
 
+/**
+ * 콜백은 프론트엔드가 심은 state 쿠키와 GitHub이 되돌려준 state 쿼리를 대조한다(ADR 0003).
+ * 인가 시작은 프론트엔드가 소유하므로 이 테스트는 그 역할을 대신해 쿠키를 직접 보낸다.
+ */
 class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
 
     private static final String CALLBACK_PATH = "/api/oauth/github/callback";
@@ -45,22 +53,30 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
     @Autowired
     private SessionRepository<? extends Session> sessionRepository;
 
+    @Autowired
+    private AuthProperties authProperties;
+
+    @Autowired
+    private JwtProperties jwtProperties;
+
+    @Autowired
+    private AccessTokenProvider accessTokenProvider;
+
     @DisplayName("가입하지 않은 GitHub 사용자는 가입 세션에 githubId를 남기고 가입 화면으로 이동한다.")
     @Test
     void redirectUnregisteredUserToSignup() {
         // Given
         githubOAuthClient.willReturn(GITHUB_ID);
-        String sessionId = seedSessionWithState(ISSUED_STATE);
 
         // When
-        ExtractableResponse<Response> response = callback(sessionId, "authorization-code", ISSUED_STATE);
+        ExtractableResponse<Response> response = callback(ISSUED_STATE, "authorization-code", ISSUED_STATE);
 
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.FOUND.value());
         assertThat(response.header(HttpHeaders.LOCATION))
                 .isEqualTo("http://localhost:5173/oauth/callback?signupRequired=true");
         assertThat(response.cookie(REFRESH_COOKIE_NAME)).isNull();
-        assertThat(sessionAttribute(sessionId, OAuthSessionAttributes.SIGNUP_GITHUB_ID)).isEqualTo(GITHUB_ID);
+        assertThat(signupGithubIdOf(response)).isEqualTo(GITHUB_ID);
         assertThat(refreshTokenRepository.findAll()).isEmpty();
     }
 
@@ -70,10 +86,9 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
         // Given
         memberRepository.save(Member.create("가온", 8, GITHUB_ID, Course.BACKEND));
         githubOAuthClient.willReturn(GITHUB_ID);
-        String sessionId = seedSessionWithState(ISSUED_STATE);
 
         // When
-        ExtractableResponse<Response> response = callback(sessionId, "authorization-code", ISSUED_STATE);
+        ExtractableResponse<Response> response = callback(ISSUED_STATE, "authorization-code", ISSUED_STATE);
 
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.FOUND.value());
@@ -83,7 +98,6 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
         assertThat(refreshCookie.getValue()).isNotBlank();
         assertThat(refreshCookie.isHttpOnly()).isTrue();
         assertThat(refreshCookie.getPath()).isEqualTo("/api/auth");
-        assertThat(sessionAttribute(sessionId, OAuthSessionAttributes.SIGNUP_GITHUB_ID)).isNull();
         List<RefreshToken> refreshTokens = refreshTokenRepository.findAll();
         assertThat(refreshTokens).hasSize(1);
         assertThat(refreshTokens.get(0).getTokenHash()).isNotEqualTo(refreshCookie.getValue());
@@ -93,10 +107,9 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
     @Test
     void rejectCallbackWithoutAuthorizationCode() {
         // Given
-        String sessionId = seedSessionWithState(ISSUED_STATE);
 
         // When
-        ExtractableResponse<Response> response = callback(sessionId, null, ISSUED_STATE);
+        ExtractableResponse<Response> response = callback(ISSUED_STATE, null, ISSUED_STATE);
 
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.BAD_REQUEST.value());
@@ -104,24 +117,23 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
         assertThat(response.jsonPath().getString("error.code")).isEqualTo("OAUTH_INVALID_CALLBACK");
     }
 
-    @DisplayName("발급한 state와 다른 값으로 돌아온 콜백 요청을 거부한다.")
+    @DisplayName("쿠키의 state와 다른 값으로 돌아온 콜백 요청을 거부한다.")
     @Test
     void rejectCallbackWithMismatchedState() {
         // Given
         githubOAuthClient.willReturn(GITHUB_ID);
-        String sessionId = seedSessionWithState(ISSUED_STATE);
 
         // When
-        ExtractableResponse<Response> response = callback(sessionId, "authorization-code", "forged-state");
+        ExtractableResponse<Response> response = callback(ISSUED_STATE, "authorization-code", "forged-state");
 
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.BAD_REQUEST.value());
         assertThat(response.jsonPath().getString("error.code")).isEqualTo("OAUTH_STATE_INVALID");
     }
 
-    @DisplayName("발급한 state가 없는 요청은 거부한다.")
+    @DisplayName("state 쿠키가 없는 요청은 거부한다.")
     @Test
-    void rejectCallbackWithoutIssuedState() {
+    void rejectCallbackWithoutStateCookie() {
         // Given
         githubOAuthClient.willReturn(GITHUB_ID);
 
@@ -145,36 +157,79 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
     void respondBadGatewayWhenGithubLookupFails() {
         // Given
         githubOAuthClient.willFail();
-        String sessionId = seedSessionWithState(ISSUED_STATE);
 
         // When
-        ExtractableResponse<Response> response = callback(sessionId, "authorization-code", ISSUED_STATE);
+        ExtractableResponse<Response> response = callback(ISSUED_STATE, "authorization-code", ISSUED_STATE);
 
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.BAD_GATEWAY.value());
         assertThat(response.jsonPath().getString("error.code")).isEqualTo("OAUTH_PROVIDER_ERROR");
     }
 
-    @DisplayName("한 번 사용한 state로는 다시 콜백을 처리할 수 없다.")
+    @DisplayName("처리에 성공하면 state 쿠키를 만료시켜 한 번만 쓰이게 한다.")
     @Test
-    void rejectReusedState() {
+    void expireStateCookieAfterSuccess() {
         // Given
         githubOAuthClient.willReturn(GITHUB_ID);
-        String sessionId = seedSessionWithState(ISSUED_STATE);
-        callback(sessionId, "authorization-code", ISSUED_STATE);
 
         // When
-        ExtractableResponse<Response> response = callback(sessionId, "authorization-code", ISSUED_STATE);
+        ExtractableResponse<Response> response = callback(ISSUED_STATE, "authorization-code", ISSUED_STATE);
 
         // Then
-        assertThat(response.statusCode()).isEqualTo(HttpStatus.BAD_REQUEST.value());
-        assertThat(response.jsonPath().getString("error.code")).isEqualTo("OAUTH_STATE_INVALID");
+        Cookie stateCookie = response.detailedCookie(authProperties.oauthStateCookieName());
+        assertThat(stateCookie.getMaxAge()).isZero();
+        assertThat(stateCookie.getValue()).isEmpty();
     }
 
-    private ExtractableResponse<Response> callback(String sessionId, String code, String state) {
+    @DisplayName("state가 일치하지 않아도 state 쿠키를 만료시킨다.")
+    @Test
+    void expireStateCookieAfterFailure() {
+        // Given
+        githubOAuthClient.willReturn(GITHUB_ID);
+
+        // When
+        ExtractableResponse<Response> response = callback(ISSUED_STATE, "authorization-code", "forged-state");
+
+        // Then
+        Cookie stateCookie = response.detailedCookie(authProperties.oauthStateCookieName());
+        assertThat(stateCookie.getMaxAge()).isZero();
+    }
+
+    @DisplayName("가입한 회원은 Access Token 쿠키를 함께 받는다.")
+    @Test
+    void issueAccessTokenCookieToRegisteredMember() {
+        // Given
+        Member member = memberRepository.save(Member.create("가온", 8, GITHUB_ID, Course.BACKEND));
+        githubOAuthClient.willReturn(GITHUB_ID);
+
+        // When
+        ExtractableResponse<Response> response = callback(ISSUED_STATE, "authorization-code", ISSUED_STATE);
+
+        // Then
+        Cookie accessCookie = response.detailedCookie(jwtProperties.cookieName());
+        assertThat(accessCookie.getValue()).isNotBlank();
+        assertThat(accessCookie.isHttpOnly()).isTrue();
+        assertThat(accessCookie.getPath()).isEqualTo(jwtProperties.cookiePath());
+        assertThat(accessTokenProvider.parseMemberId(accessCookie.getValue())).isEqualTo(member.getId());
+    }
+
+    @DisplayName("가입하지 않은 GitHub 사용자는 Access Token 쿠키를 받지 않는다.")
+    @Test
+    void notIssueAccessTokenCookieToUnregisteredUser() {
+        // Given
+        githubOAuthClient.willReturn(GITHUB_ID);
+
+        // When
+        ExtractableResponse<Response> response = callback(ISSUED_STATE, "authorization-code", ISSUED_STATE);
+
+        // Then
+        assertThat(response.cookie(jwtProperties.cookieName())).isNull();
+    }
+
+    private ExtractableResponse<Response> callback(String stateCookie, String code, String state) {
         RequestSpecification request = RestAssured.given()
                 .redirects().follow(false)
-                .cookie(SESSION_COOKIE_NAME, encodeSessionCookie(sessionId))
+                .cookie(authProperties.oauthStateCookieName(), stateCookie)
                 .queryParam("state", state);
         if (code != null) {
             request = request.queryParam("code", code);
@@ -185,26 +240,15 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
                 .extract();
     }
 
-    private String seedSessionWithState(String state) {
-        return createSession(sessionRepository, state);
-    }
-
-    private <S extends Session> String createSession(SessionRepository<S> repository, String state) {
-        S session = repository.createSession();
-        session.setAttribute(OAuthSessionAttributes.OAUTH_STATE, state);
-        repository.save(session);
-        return session.getId();
-    }
-
-    private String sessionAttribute(String sessionId, String attributeName) {
+    private String signupGithubIdOf(ExtractableResponse<Response> response) {
+        String sessionId = new String(
+                Base64.getDecoder().decode(response.cookie(SESSION_COOKIE_NAME)),
+                StandardCharsets.UTF_8
+        );
         Session session = sessionRepository.findById(sessionId);
         if (session == null) {
             return null;
         }
-        return session.getAttribute(attributeName);
-    }
-
-    private String encodeSessionCookie(String sessionId) {
-        return Base64.getEncoder().encodeToString(sessionId.getBytes(StandardCharsets.UTF_8));
+        return session.getAttribute(SignupSession.githubIdAttribute());
     }
 }
