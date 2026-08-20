@@ -5,7 +5,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 
 import com.project.jarihana.common.auth.AccessTokenProvider;
-import com.project.jarihana.common.auth.JwtProperties;
+import com.project.jarihana.common.auth.AuthCookieProperties;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
@@ -40,7 +40,7 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
     private AccessTokenProvider accessTokenProvider;
 
     @Autowired
-    private JwtProperties jwtProperties;
+    private AuthCookieProperties authCookieProperties;
 
     @DisplayName("모임장은 그룹 기본 정보 전체 교체 결과를 상세 응답으로 받는다.")
     @Test
@@ -53,7 +53,7 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
 
         // When / Then
         given()
-                .cookie(jwtProperties.cookieName(), accessToken)
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
                 .cookie("XSRF-TOKEN", csrfToken)
                 .header("X-XSRF-TOKEN", csrfToken)
                 .contentType("application/json")
@@ -91,7 +91,7 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
 
         // When
         ExtractableResponse<Response> response = given()
-                .cookie(jwtProperties.cookieName(), accessToken)
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
                 .cookie("XSRF-TOKEN", csrfToken)
                 .header("X-XSRF-TOKEN", csrfToken)
                 .contentType("application/json")
