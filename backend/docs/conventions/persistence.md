@@ -102,8 +102,18 @@ SQL을 직접 사용해도 기능 구현은 가능하지만 객체 조회와 저
 
 ## DB 및 삭제 컨벤션
 
-- 삭제는 soft delete로 처리한다.
+- 도메인별 삭제 정책은 `docs/context/domain/`과 `docs/context/api/`에 기록된 최종 결정을 우선 적용한다.
+- 도메인별 정책이 별도로 정해지지 않은 삭제는 soft delete로 처리한다.
 - 삭제 시각은 nullable `LocalDateTime deletedAt`으로 기록한다.
 - `deletedAt == null`이면 활성 데이터이고 값이 있으면 삭제된 데이터다.
 - 일반 조회에서는 `deletedAt`이 `null`인 데이터만 반환한다.
 - PK 이외의 unique 제약이 필요해지면 soft delete 데이터와의 충돌 정책을 구현하기 전에 팀에 다시 알리고 결정한다.
+
+### Hard Delete 확정 대상
+
+- `Group`: 생성 후 24시간 이내의 `ACTIVE` 그룹 삭제 시 그룹과 연관된 모집 공고, 신청,
+  구성원과 일정을 물리적으로 삭제한다.
+- `GroupMember`: 구성원이 그룹에서 이탈할 때 소속 관계를 물리적으로 삭제한다.
+  `deletedAt`을 두지 않으며, 삭제된 관계는 그룹 조회와 그룹 구성원 조회에 포함하지 않는다.
+- `Registration`: `PENDING` 신청 철회 시 신청을 물리적으로 삭제한다.
+- 반복 일정 제거: `RecurringGroupSchedule` 값을 물리적으로 제거하고 그룹은 유지한다.

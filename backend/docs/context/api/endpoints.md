@@ -923,7 +923,7 @@ endsAt <= now              CLOSED
 ```
 
 ```plain text
-Location: /api/recruitments/45
+Location: /api/groups/12/recruitments/45
 ```
 
 #### 부수 효과
