@@ -9,9 +9,11 @@ import com.project.jarihana.common.auth.AuthCookieFactory;
 import com.project.jarihana.common.auth.AuthCookieProperties;
 import com.project.jarihana.common.auth.LoginMemberReader;
 import com.project.jarihana.common.auth.SignupSession;
+import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.response.ApiResponse;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.Arrays;
 import java.util.Optional;
 import org.springframework.http.HttpHeaders;
@@ -49,12 +51,35 @@ public class AuthCommandController {
      * 다시 내리지 않는다.
      */
     @PostMapping("/refresh")
-    public ResponseEntity<ApiResponse<RefreshResponse>> refresh(HttpServletRequest request) {
+    public ResponseEntity<ApiResponse<RefreshResponse>> refresh(
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) {
         RefreshCommand command = new RefreshCommand(readRefreshToken(request).orElse(null));
-        RefreshResult result = authCommandService.refresh(command);
+        RefreshResult result = refreshOrExpireCredentials(command, response);
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, accessTokenCookie(result))
                 .body(ApiResponse.success(RefreshResponse.from(result)));
+    }
+
+    /**
+     * 재발급이 실패하면 세션이 끝난 것이므로 자격 증명 쿠키를 거둔다.
+     *
+     * <p>되돌아갈 경로가 없는데 브라우저가 쓸모없는 쿠키를 들고 있으면 프론트엔드가 로그인 화면으로
+     * 보낼 근거가 없다. 이 규칙은 재발급 실패에만 적용한다. 다른 경로의 401까지 쿠키를 거두면
+     * Access Token 만료로 401을 받은 순간 Refresh Token까지 사라져 재발급 경로 자체가 끊긴다.
+     *
+     * <p>응답 본문은 GlobalExceptionHandler가 만들므로 예외를 그대로 다시 던지고, 쿠키 헤더만
+     * 원본 응답에 미리 써 둔다.
+     */
+    private RefreshResult refreshOrExpireCredentials(RefreshCommand command, HttpServletResponse response) {
+        try {
+            return authCommandService.refresh(command);
+        } catch (BusinessException exception) {
+            response.addHeader(HttpHeaders.SET_COOKIE, authCookieFactory.expiredAccessToken().toString());
+            response.addHeader(HttpHeaders.SET_COOKIE, authCookieFactory.expiredRefreshToken().toString());
+            throw exception;
+        }
     }
 
     private String accessTokenCookie(RefreshResult result) {

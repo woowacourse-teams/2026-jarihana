@@ -31,6 +31,9 @@ import org.springframework.http.HttpStatus;
  * 본문에는 프론트엔드가 다음 재발급 시점을 잡을 수 있도록 남은 유효 기간만 둔다.
  *
  * <p>회전은 아직 도입하지 않는다. 재발급해도 Refresh Token은 그대로 남는다.
+ *
+ * <p>재발급이 실패하면 세션이 끝난 것이므로 자격 증명 쿠키를 거둔다. 되돌아갈 경로가 없는데
+ * 브라우저가 쓸모없는 쿠키를 들고 있으면 프론트엔드가 로그인 화면으로 보낼 근거가 없다.
  */
 class AuthRefreshAcceptanceTest extends IntegrationTestSupport {
 
@@ -175,6 +178,75 @@ class AuthRefreshAcceptanceTest extends IntegrationTestSupport {
         assertThat(response.statusCode()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
         assertThat(response.jsonPath().getString("error.code")).isEqualTo("REFRESH_TOKEN_INVALID");
         assertThat(refreshTokenRepository.findAll()).hasSize(1);
+    }
+
+    @DisplayName("만료된 Refresh Token으로 실패하면 자격 증명 쿠키를 거둔다.")
+    @Test
+    void expireCredentialCookiesWhenRefreshTokenExpired() {
+        // Given
+        Member member = memberRepository.save(Member.create("가온", 8, GITHUB_ID, Course.BACKEND));
+        String expiredToken = "expired-refresh-token";
+        refreshTokenRepository.save(RefreshToken.issue(
+                member,
+                refreshTokenHasher.hash(expiredToken),
+                TestSupportConfig.FIXED_NOW.minusSeconds(1)
+        ));
+
+        // When
+        ExtractableResponse<Response> response = refresh(request -> request
+                .cookie(authCookieProperties.refreshTokenName(), expiredToken));
+
+        // Then
+        assertThat(response.detailedCookie(authCookieProperties.accessTokenName()).getMaxAge()).isZero();
+        assertThat(response.detailedCookie(authCookieProperties.refreshTokenName()).getMaxAge()).isZero();
+    }
+
+    @DisplayName("Refresh Token이 없어 실패해도 자격 증명 쿠키를 거둔다.")
+    @Test
+    void expireCredentialCookiesWhenRefreshTokenMissing() {
+        // Given
+
+        // When
+        ExtractableResponse<Response> response = refresh(request -> request);
+
+        // Then
+        assertThat(response.detailedCookie(authCookieProperties.accessTokenName()).getMaxAge()).isZero();
+        assertThat(response.detailedCookie(authCookieProperties.refreshTokenName()).getMaxAge()).isZero();
+    }
+
+    @DisplayName("재발급에 성공하면 Refresh Token 쿠키를 거두지 않는다.")
+    @Test
+    void keepRefreshTokenCookieOnSuccess() {
+        // Given
+        Member member = memberRepository.save(Member.create("가온", 8, GITHUB_ID, Course.BACKEND));
+        String refreshToken = refreshTokenIssuer.issue(member).value();
+
+        // When
+        ExtractableResponse<Response> response = refresh(request -> request
+                .cookie(authCookieProperties.refreshTokenName(), refreshToken));
+
+        // Then
+        assertThat(response.cookie(authCookieProperties.refreshTokenName())).isNull();
+        assertThat(response.detailedCookie(authCookieProperties.accessTokenName()).getMaxAge()).isPositive();
+    }
+
+    @DisplayName("내 정보 조회가 401을 줄 때는 자격 증명 쿠키를 거두지 않는다.")
+    @Test
+    void keepCredentialCookiesWhenOtherEndpointRejects() {
+        // Given
+
+        // When
+        ExtractableResponse<Response> response = RestAssured.given()
+                .cookie(authCookieProperties.accessTokenName(), "not-a-json-web-token")
+                .when()
+                .get(MY_PROFILE_PATH)
+                .then()
+                .extract();
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
+        assertThat(response.cookie(authCookieProperties.accessTokenName())).isNull();
+        assertThat(response.cookie(authCookieProperties.refreshTokenName())).isNull();
     }
 
     @DisplayName("CSRF 토큰이 없는 재발급 요청은 거부한다.")
