@@ -9,6 +9,8 @@ import com.project.jarihana.group.command.repository.GroupCommandRepository;
 import com.project.jarihana.group.command.service.dto.CreateGroupCommand;
 import com.project.jarihana.group.command.service.dto.CreateGroupResult;
 import com.project.jarihana.group.command.service.dto.ModifyGroupCommand;
+import com.project.jarihana.group.command.service.dto.TerminateGroupCommand;
+import com.project.jarihana.group.command.service.dto.TerminateGroupResult;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.GroupStatus;
 import com.project.jarihana.group.domain.GroupType;
@@ -23,6 +25,7 @@ import com.project.jarihana.group.query.repository.RegistrationJpaRepository;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.JoinMethod;
 import com.project.jarihana.registration.domain.Registration;
+import com.project.jarihana.registration.domain.RegistrationStatus;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
@@ -340,6 +343,85 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.GROUP_NOT_FOUND);
+    }
+
+    @DisplayName("생성 후 24시간이 지난 그룹을 종료하고 열린 모집과 대기 신청을 정리한다.")
+    @Test
+    void terminateGroupClosesOpenRecruitmentsAndRejectsPendingRegistrations() {
+        Member leader = saveMember("github-terminate-leader");
+        Member applicant = memberRepository.save(Member.create("누리", 9, "github-terminate-applicant", Course.BACKEND));
+        LocalDateTime createdAt = TestSupportConfig.FIXED_NOW.minusHours(24).minusMinutes(1);
+        Group group = groupJpaRepository.save(Group.createStudy(
+                "종료 대상 그룹", "소개", null, GroupCommandService.DEFAULT_REPRESENTATIVE_IMAGE_KEY,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.of(19, 0), LocalTime.of(21, 0)),
+                createdAt));
+        groupMemberCommandRepository.save(GroupMember.createLeader(group, leader, createdAt));
+        jdbcTemplate.update("UPDATE groups SET created_at = ?, updated_at = ? WHERE id = ?", createdAt, createdAt, group.getId());
+        entityManager.clear();
+        group = groupCommandRepository.findById(group.getId()).orElseThrow();
+        GroupRecruitment recruitment = groupRecruitmentJpaRepository.save(GroupRecruitment.create(
+                group, JoinMethod.APPROVAL, 3, TestSupportConfig.FIXED_NOW.minusHours(1), null));
+        Registration registration = registrationJpaRepository.save(Registration.createPending(
+                recruitment, applicant, "신청", TestSupportConfig.FIXED_NOW));
+
+        TerminateGroupResult result = groupCommandService.terminateGroup(
+                leader.getId(), group.getId(), new TerminateGroupCommand(GroupStatus.ENDED));
+
+        assertThat(result.status()).isEqualTo(GroupStatus.ENDED);
+        assertThat(groupCommandRepository.findById(group.getId()).orElseThrow().getStatus())
+                .isEqualTo(GroupStatus.ENDED);
+        assertThat(groupRecruitmentJpaRepository.findById(recruitment.getId()).orElseThrow().getEndsAt())
+                .isEqualTo(TestSupportConfig.FIXED_NOW);
+        assertThat(registrationJpaRepository.findById(registration.getId()).orElseThrow().getStatus())
+                .isEqualTo(RegistrationStatus.REJECTED);
+    }
+
+    @DisplayName("생성 후 24시간 이내 그룹은 종료할 수 없다.")
+    @Test
+    void terminateGroupFailsBeforeTerminationWindow() {
+        Member leader = saveMember("github-terminate-too-early");
+        Group group = createGroup(leader, "조기 종료 그룹");
+
+        assertThatThrownBy(() -> groupCommandService.terminateGroup(
+                leader.getId(), group.getId(), new TerminateGroupCommand(GroupStatus.ENDED)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_TERMINATION_NOT_AVAILABLE);
+    }
+
+    @DisplayName("이미 종료된 그룹은 다시 종료할 수 없다.")
+    @Test
+    void terminateGroupFailsForAlreadyEndedGroup() {
+        Member leader = saveMember("github-terminate-ended");
+        LocalDateTime createdAt = TestSupportConfig.FIXED_NOW.minusHours(25);
+        Group group = groupJpaRepository.save(Group.createStudy(
+                "이미 종료 그룹", "소개", null, GroupCommandService.DEFAULT_REPRESENTATIVE_IMAGE_KEY,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.of(19, 0), LocalTime.of(21, 0)), createdAt));
+        groupMemberCommandRepository.save(GroupMember.createLeader(group, leader, createdAt));
+        jdbcTemplate.update("UPDATE groups SET created_at = ?, updated_at = ? WHERE id = ?", createdAt, createdAt, group.getId());
+        entityManager.clear();
+        group = groupCommandRepository.findById(group.getId()).orElseThrow();
+        groupCommandRepository.save(group.endAt(TestSupportConfig.FIXED_NOW));
+        Long endedGroupId = group.getId();
+
+        assertThatThrownBy(() -> groupCommandService.terminateGroup(
+                leader.getId(), endedGroupId, new TerminateGroupCommand(GroupStatus.ENDED)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_ALREADY_ENDED);
+    }
+
+    @DisplayName("종료 요청 상태가 ENDED가 아니면 종료할 수 없다.")
+    @Test
+    void terminateGroupFailsForInvalidStatus() {
+        Member leader = saveMember("github-terminate-invalid-status");
+        Group group = createGroup(leader, "잘못된 종료 상태 그룹");
+
+        assertThatThrownBy(() -> groupCommandService.terminateGroup(
+                leader.getId(), group.getId(), new TerminateGroupCommand(GroupStatus.ACTIVE)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     private Member saveMember(String githubId) {

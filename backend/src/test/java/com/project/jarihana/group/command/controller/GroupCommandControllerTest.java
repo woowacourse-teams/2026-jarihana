@@ -150,6 +150,28 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                 .body("error.code", equalTo("GROUP_NOT_FOUND"));
     }
 
+    @DisplayName("종료 요청 상태가 ENDED가 아니면 400을 반환한다.")
+    @Test
+    void rejectsTerminationWithInvalidStatus() {
+        Member leader = memberRepository.save(Member.create("가온", 9, "github-controller-terminate-invalid", Course.BACKEND));
+        Group group = createGroup(leader, "컨트롤러 잘못된 종료 상태 그룹");
+        String accessToken = accessTokenProvider.issue(leader.getId()).value();
+        String csrfToken = csrfToken(group.getId());
+
+        given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .cookie("XSRF-TOKEN", csrfToken)
+                .header("X-XSRF-TOKEN", csrfToken)
+                .contentType("application/json")
+                .body("{\"status\":\"ACTIVE\"}")
+                .when()
+                .patch("/api/groups/{groupId}", group.getId())
+                .then()
+                .statusCode(400)
+                .body("success", equalTo(false))
+                .body("error.code", equalTo("INVALID_PARAMETER"));
+    }
+
     private Group createGroup(Member leader, String name) {
         Group group = groupRepository.save(Group.createStudy(
                 name,
