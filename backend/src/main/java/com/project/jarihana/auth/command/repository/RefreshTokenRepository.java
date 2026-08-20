@@ -11,5 +11,7 @@ public interface RefreshTokenRepository extends Repository<RefreshToken, Long> {
 
     Optional<RefreshToken> findByTokenHash(String tokenHash);
 
+    void delete(RefreshToken refreshToken);
+
     List<RefreshToken> findAll();
 }

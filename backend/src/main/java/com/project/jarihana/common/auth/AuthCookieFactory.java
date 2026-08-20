@@ -30,6 +30,18 @@ public class AuthCookieFactory {
                 .build();
     }
 
+    /**
+     * 로그아웃처럼 자격 증명을 거둬들일 때 쓴다. 발급할 때와 같은 이름과 경로여야 브라우저가
+     * 기존 쿠키를 지운다.
+     */
+    public ResponseCookie expiredAccessToken() {
+        return accessToken("", Duration.ZERO);
+    }
+
+    public ResponseCookie expiredRefreshToken() {
+        return refreshToken("", Duration.ZERO);
+    }
+
     public ResponseCookie refreshToken(String value, Duration validity) {
         return ResponseCookie.from(authCookieProperties.refreshTokenName(), value)
                 .httpOnly(true)
