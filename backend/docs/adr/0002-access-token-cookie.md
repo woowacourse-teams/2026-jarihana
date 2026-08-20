@@ -93,7 +93,7 @@ Service, 도메인                 이 리소스에 권한이 있나  실패 시
 
 - CORS 허용 오리진과 운영 환경의 쿠키 `SameSite`, `Secure`, 도메인 값을 배포 구성과
   함께 확정한다.
-- CSRF 토큰 저장소와 프론트엔드 전달 방식을 정한다.
+- CSRF 토큰 저장소와 프론트엔드 전달 방식은 [ADR 0004](0004-csrf-token-delivery.md)에서 정했다.
 - `POST /api/auth/refresh`와 `POST /api/auth/logout`이 이 쿠키를 갱신하고 제거하는
   방식을 구현한다.
 - 서명 비밀키의 주입 경로와 교체 절차를 정한다.
