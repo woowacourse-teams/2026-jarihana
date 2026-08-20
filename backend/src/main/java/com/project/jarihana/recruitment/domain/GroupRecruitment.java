@@ -137,7 +137,10 @@ public class GroupRecruitment extends BaseEntity {
 
     private static void validatePeriod(LocalDateTime startsAt, LocalDateTime endsAt) {
         if (endsAt != null && endsAt.isBefore(startsAt)) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "모집 종료 시각은 시작 시각보다 빠를 수 없습니다.");
+            throw new BusinessException(
+                    ErrorCode.RECRUITMENT_INVALID_PERIOD,
+                    "모집 종료 시각은 시작 시각보다 빠를 수 없습니다."
+            );
         }
     }
 

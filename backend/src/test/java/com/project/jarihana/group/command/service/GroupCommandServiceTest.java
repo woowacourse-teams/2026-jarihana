@@ -280,7 +280,7 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
         assertThat(groupJpaRepository.findById(group.getId())).isEmpty();
         assertThat(groupRecruitmentJpaRepository.findById(recruitment.getId())).isEmpty();
         assertThat(registrationJpaRepository.findById(registration.getId())).isEmpty();
-        assertThat(groupMemberJpaRepository.findAllByGroup_IdInOrderById(List.of(group.getId()))).isEmpty();
+        assertThat(groupMemberJpaRepository.findAllByGroupIdInOrderById(List.of(group.getId()))).isEmpty();
     }
 
     @DisplayName("생성 후 24시간이 지난 그룹은 삭제할 수 없다.")

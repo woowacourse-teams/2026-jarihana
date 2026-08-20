@@ -132,9 +132,9 @@ public class GroupCommandService {
                     GROUP_DELETE_WINDOW_EXPIRED_MESSAGE
             );
         }
-        registrationCommandRepository.deleteAllByRecruitment_Group_Id(groupId);
-        groupRecruitmentCommandRepository.deleteAllByGroup_Id(groupId);
-        groupMemberCommandRepository.deleteAllByGroup_Id(groupId);
+        registrationCommandRepository.deleteAllByRecruitmentGroupId(groupId);
+        groupRecruitmentCommandRepository.deleteAllByGroupId(groupId);
+        groupMemberCommandRepository.deleteAllByGroupId(groupId);
         groupCommandRepository.delete(group);
     }
 
@@ -163,13 +163,13 @@ public class GroupCommandService {
             );
         }
 
-        for (GroupRecruitment recruitment : groupRecruitmentCommandRepository.findAllByGroup_Id(groupId)) {
+        for (GroupRecruitment recruitment : groupRecruitmentCommandRepository.findAllByGroupId(groupId)) {
             if (!recruitment.isOpenAt(now)) {
                 continue;
             }
             groupRecruitmentCommandRepository.save(recruitment.closeAt(now));
             for (Registration registration : registrationCommandRepository
-                    .findAllByRecruitment_Group_IdAndStatus(groupId, RegistrationStatus.PENDING)) {
+                    .findAllByRecruitmentGroupIdAndStatus(groupId, RegistrationStatus.PENDING)) {
                 if (registration.getRecruitment().equals(recruitment)) {
                     registrationCommandRepository.save(registration.rejectBySystem("그룹 종료", now));
                 }

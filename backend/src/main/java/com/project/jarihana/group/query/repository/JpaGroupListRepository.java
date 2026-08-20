@@ -77,7 +77,7 @@ public class JpaGroupListRepository implements GroupListRepository {
     }
 
     private Map<Long, List<GroupMember>> findMembers(List<Long> groupIds) {
-        return groupMemberRepository.findAllByGroup_IdInOrderById(groupIds)
+        return groupMemberRepository.findAllByGroupIdInOrderById(groupIds)
                 .stream()
                 .collect(Collectors.groupingBy(member -> member.getGroup().getId()));
     }

@@ -40,7 +40,7 @@ public class JpaGroupDetailRepository implements GroupDetailRepository {
         }
 
         List<GroupDetailMember> members = groupMemberRepository
-                .findAllByGroup_IdInOrderById(List.of(groupId))
+                .findAllByGroupIdInOrderById(List.of(groupId))
                 .stream()
                 .map(JpaGroupDetailRepository::toMember)
                 .toList();

@@ -207,7 +207,7 @@ class GroupMemberCommandServiceTest extends IntegrationTestSupport {
 
             // Then
             assertThat(outcomes).containsExactlyInAnyOrder(TransferOutcome.SUCCESS, TransferOutcome.ACCESS_DENIED);
-            assertThat(groupMemberJpaRepository.findAllByGroup_IdInOrderById(List.of(group.getId())))
+            assertThat(groupMemberJpaRepository.findAllByGroupIdInOrderById(List.of(group.getId())))
                     .filteredOn(groupMember -> groupMember.getRole() == GroupMemberRole.LEADER)
                     .hasSize(1);
         } finally {
