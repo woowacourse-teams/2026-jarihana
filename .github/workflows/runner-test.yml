@@ -1,0 +1,23 @@
+name: Self-hosted Runner Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  runner-test:
+    runs-on: self-hosted
+
+    steps:
+      - name: Runner 정보 확인
+        run: |
+          echo "=== USER ==="
+          whoami
+
+          echo "=== HOST ==="
+          hostname
+
+          echo "=== WORK DIRECTORY ==="
+          pwd
+
+          echo "=== OS ==="
+          uname -a
