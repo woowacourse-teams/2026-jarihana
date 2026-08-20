@@ -9,6 +9,7 @@ import com.project.jarihana.common.auth.AccessTokenProvider;
 import com.project.jarihana.common.auth.AuthCookieProperties;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
+import com.project.jarihana.group.domain.SessionGroupSchedule;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.group.query.repository.GroupMemberJpaRepository;
@@ -23,6 +24,7 @@ import com.project.jarihana.support.TestSupportConfig;
 import io.restassured.response.ExtractableResponse;
 import io.restassured.response.Response;
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
@@ -228,6 +230,41 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                 .then()
                 .statusCode(200)
                 .body("data.recurringSchedule", nullValue());
+    }
+
+    @DisplayName("세션 그룹 모임장은 세션 일정 교체 결과를 받는다.")
+    @Test
+    void replacesSessionSchedule() {
+        Member leader = memberRepository.save(Member.create("가온", 12, "github-controller-session-schedule", Course.BACKEND));
+        Group group = groupRepository.save(Group.createSession(
+                "컨트롤러 세션 일정 그룹", "소개", null, "images/default-group.png",
+                SessionGroupSchedule.of(LocalDate.of(2026, 8, 25), LocalTime.of(10, 0), LocalTime.of(11, 0)),
+                TestSupportConfig.FIXED_NOW));
+        groupMemberRepository.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
+        String accessToken = accessTokenProvider.issue(leader.getId()).value();
+        String csrfToken = csrfToken(group.getId());
+
+        given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .cookie("XSRF-TOKEN", csrfToken)
+                .header("X-XSRF-TOKEN", csrfToken)
+                .contentType("application/json")
+                .body("""
+                        {
+                          "sessionDate": "2026-09-01",
+                          "startTime": "13:00:00",
+                          "endTime": "15:00:00"
+                        }
+                        """)
+                .when()
+                .put("/api/groups/{groupId}/session-schedule", group.getId())
+                .then()
+                .statusCode(200)
+                .body("success", equalTo(true))
+                .body("data.sessionDate", equalTo("2026-09-01"))
+                .body("data.startTime", equalTo("13:00:00"))
+                .body("data.endTime", equalTo("15:00:00"))
+                .body("error", nullValue());
     }
 
     private Group createGroup(Member leader, String name) {
