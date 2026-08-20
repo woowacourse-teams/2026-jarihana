@@ -286,6 +286,9 @@ Refresh Token을 모두 `HttpOnly` 쿠키로 내린다. `state` 검증 방식은
 
 ## 그룹
 
+MVP에서는 이미지 저장소 연동 전까지 그룹 목록·상세 조회의
+`representativeImageUrl`을 `images/default-group.png`로 통일한다.
+
 ### `GET /api/groups`
 
 - 설명: 그룹 목록 조회 — 관계·상태·유형 필터 지원
@@ -332,7 +335,7 @@ Refresh Token을 모두 `HttpOnly` 쿠키로 내린다. `state` 검증 방식은
       "status": "ACTIVE",
       "name": "알고리즘 스터디",
       "introduction": "매주 함께 문제를 풉니다.",
-      "representativeImageUrl": "https://cdn.example.com/groups/12.webp",
+      "representativeImageUrl": "images/default-group.png",
       "leader": {"memberId": 3, "crewName": "크루A", "generation": 8},
       "memberCount": 6,
       "activeRecruitment": {
@@ -503,7 +506,7 @@ Request Body는 없다.
     "name": "알고리즘 스터디",
     "introduction": "매주 함께 문제를 풉니다.",
     "description": "문제 풀이와 코드 리뷰를 진행합니다.",
-    "representativeImageUrl": "https://cdn.example.com/groups/12.webp",
+    "representativeImageUrl": "images/default-group.png",
     "recurringSchedule": {
       "daysOfWeek": ["MONDAY", "WEDNESDAY"],
       "startTime": "19:00:00",
