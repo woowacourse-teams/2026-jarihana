@@ -11,4 +11,6 @@ public interface GroupMemberCommandRepository extends Repository<GroupMember, Lo
     GroupMember save(GroupMember groupMember);
 
     Optional<GroupMember> findByGroupAndMember(Group group, Member member);
+
+    void deleteAllByGroup_Id(Long groupId);
 }

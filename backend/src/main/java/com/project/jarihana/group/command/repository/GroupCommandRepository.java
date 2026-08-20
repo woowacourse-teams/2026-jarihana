@@ -13,4 +13,6 @@ public interface GroupCommandRepository extends Repository<Group, Long> {
     boolean existsByName(String name);
 
     boolean existsByNameAndIdNot(String name, Long id);
+
+    void delete(Group group);
 }
