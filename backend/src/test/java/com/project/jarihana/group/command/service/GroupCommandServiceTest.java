@@ -313,6 +313,35 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
                 .isEqualTo(ErrorCode.GROUP_ENDED);
     }
 
+    @DisplayName("모임장이 아닌 구성원은 그룹을 삭제할 수 없다.")
+    @Test
+    void deleteGroupFailsForNonLeader() {
+        // Given
+        Member leader = saveMember("github-delete-owner");
+        Member member = memberRepository.save(Member.create("누리", 8, "github-delete-member", Course.BACKEND));
+        Group group = createGroup(leader, "삭제 권한 그룹");
+        groupMemberCommandRepository.save(GroupMember.createMember(group, member, TestSupportConfig.FIXED_NOW));
+
+        // When / Then
+        assertThatThrownBy(() -> groupCommandService.deleteGroup(member.getId(), group.getId()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_ACCESS_DENIED);
+    }
+
+    @DisplayName("존재하지 않는 그룹은 삭제할 수 없다.")
+    @Test
+    void deleteGroupFailsForUnknownGroup() {
+        // Given
+        Member leader = saveMember("github-delete-unknown");
+
+        // When / Then
+        assertThatThrownBy(() -> groupCommandService.deleteGroup(leader.getId(), 999_999L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_NOT_FOUND);
+    }
+
     private Member saveMember(String githubId) {
         return memberRepository.save(Member.create("가온", 8, githubId, Course.BACKEND));
     }
