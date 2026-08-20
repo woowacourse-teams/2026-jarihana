@@ -4,6 +4,9 @@ import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
 import com.project.jarihana.registration.domain.Registration;
+import com.project.jarihana.registration.query.repository.dto.MyRegistrationListPage;
+import com.project.jarihana.registration.query.repository.dto.MyRegistrationListProjection;
+import com.project.jarihana.registration.query.repository.dto.MyRegistrationListSearchCriteria;
 import com.project.jarihana.registration.query.repository.dto.RegistrationListPage;
 import com.project.jarihana.registration.query.repository.dto.RegistrationListProjection;
 import com.project.jarihana.registration.query.repository.dto.RegistrationListSearchCriteria;
@@ -61,6 +64,21 @@ public class JpaRegistrationListRepository implements RegistrationListRepository
         return new RegistrationListPage(projections, registrations.hasNext());
     }
 
+    @Override
+    public MyRegistrationListPage findMyPage(MyRegistrationListSearchCriteria criteria, int size) {
+        Slice<Registration> registrations = registrationRepository.findMyPage(
+                criteria.memberId(),
+                criteria.status(),
+                criteria.cursorRegisteredAt(),
+                criteria.cursorId(),
+                Pageable.ofSize(size)
+        );
+        List<MyRegistrationListProjection> projections = registrations.getContent().stream()
+                .map(JpaRegistrationListRepository::toMyProjection)
+                .toList();
+        return new MyRegistrationListPage(projections, registrations.hasNext());
+    }
+
     private static RegistrationListProjection toProjection(Registration registration) {
         return new RegistrationListProjection(
                 registration.getId(),
@@ -68,6 +86,22 @@ public class JpaRegistrationListRepository implements RegistrationListRepository
                 registration.getMember().getCrewName(),
                 registration.getMember().getGeneration(),
                 registration.getMember().getCourse(),
+                registration.getMessage(),
+                registration.getStatus(),
+                registration.getRegisteredAt(),
+                registration.getRejectReason(),
+                registration.getDecidedAt(),
+                registration.getDecidedBy() == null ? null : registration.getDecidedBy().getType(),
+                registration.getDecidedBy() == null ? null : registration.getDecidedBy().getMemberId()
+        );
+    }
+
+    private static MyRegistrationListProjection toMyProjection(Registration registration) {
+        return new MyRegistrationListProjection(
+                registration.getId(),
+                registration.getRecruitment().getGroup().getId(),
+                registration.getRecruitment().getGroup().getName(),
+                registration.getRecruitment().getId(),
                 registration.getMessage(),
                 registration.getStatus(),
                 registration.getRegisteredAt(),

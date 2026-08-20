@@ -32,4 +32,25 @@ public interface RegistrationListJpaRepository extends JpaRepository<Registratio
             @Param("cursorId") Long cursorId,
             Pageable pageable
     );
+
+    @EntityGraph(attributePaths = {"recruitment", "recruitment.group"})
+    @Query("""
+            select registration
+            from Registration registration
+            where registration.member.id = :memberId
+              and (:status is null or registration.status = :status)
+              and (
+                  :cursorRegisteredAt is null
+                  or registration.registeredAt < :cursorRegisteredAt
+                  or (registration.registeredAt = :cursorRegisteredAt and registration.id < :cursorId)
+              )
+            order by registration.registeredAt desc, registration.id desc
+            """)
+    Slice<Registration> findMyPage(
+            @Param("memberId") Long memberId,
+            @Param("status") RegistrationStatus status,
+            @Param("cursorRegisteredAt") LocalDateTime cursorRegisteredAt,
+            @Param("cursorId") Long cursorId,
+            Pageable pageable
+    );
 }

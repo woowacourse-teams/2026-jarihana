@@ -18,6 +18,9 @@ import com.project.jarihana.registration.domain.DecisionActor;
 import com.project.jarihana.registration.domain.DecisionActorType;
 import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.registration.domain.RegistrationStatus;
+import com.project.jarihana.registration.query.repository.dto.MyRegistrationListPage;
+import com.project.jarihana.registration.query.repository.dto.MyRegistrationListProjection;
+import com.project.jarihana.registration.query.repository.dto.MyRegistrationListSearchCriteria;
 import com.project.jarihana.registration.query.repository.dto.RegistrationListPage;
 import com.project.jarihana.registration.query.repository.dto.RegistrationListProjection;
 import com.project.jarihana.registration.query.repository.dto.RegistrationListSearchCriteria;
@@ -146,6 +149,74 @@ class JpaRegistrationListRepositoryTest {
                 .isTrue();
         assertThat(repository.existsLeaderByGroupIdAndMemberId(group.getId(), member.getId()))
                 .isFalse();
+    }
+
+    @DisplayName("회원 ID와 상태를 기준으로 여러 모집 공고의 신청을 커서 조회한다.")
+    @Test
+    void findsMyRegistrationsWithMemberStatusAndCursor() {
+        // Given
+        Member applicant = saveMember("내신청자", Course.BACKEND, "my-registration-repository-applicant");
+        Member otherApplicant = saveMember("타신청", Course.FRONTEND, "my-registration-repository-other");
+        Group firstGroup = saveGroup("my-registration-repository-group-1");
+        Group secondGroup = saveGroup("my-registration-repository-group-2");
+        GroupRecruitment firstRecruitment = saveRecruitment(firstGroup);
+        GroupRecruitment secondRecruitment = saveRecruitment(secondGroup);
+        Registration latest = savePending(firstRecruitment, applicant, NOW);
+        Registration older = savePending(secondRecruitment, applicant, NOW.minusHours(1));
+        savePending(firstRecruitment, otherApplicant, NOW.plusMinutes(1));
+
+        // When
+        MyRegistrationListPage firstPage = repository.findMyPage(
+                new MyRegistrationListSearchCriteria(applicant.getId(), null, null, null),
+                1
+        );
+        MyRegistrationListProjection cursorItem = firstPage.items().get(0);
+        MyRegistrationListPage secondPage = repository.findMyPage(
+                new MyRegistrationListSearchCriteria(
+                        applicant.getId(),
+                        RegistrationStatus.PENDING,
+                        cursorItem.registeredAt(),
+                        cursorItem.id()
+                ),
+                20
+        );
+
+        // Then
+        assertThat(firstPage.items())
+                .extracting(MyRegistrationListProjection::id)
+                .containsExactly(latest.getId());
+        assertThat(firstPage.items().get(0).groupId()).isEqualTo(firstGroup.getId());
+        assertThat(firstPage.items().get(0).groupName()).isEqualTo("my-registration-repository-group-1");
+        assertThat(firstPage.items().get(0).recruitmentId()).isEqualTo(firstRecruitment.getId());
+        assertThat(firstPage.hasNext()).isTrue();
+        assertThat(secondPage.items())
+                .extracting(MyRegistrationListProjection::id)
+                .containsExactly(older.getId());
+        assertThat(secondPage.items().get(0).groupId()).isEqualTo(secondGroup.getId());
+        assertThat(secondPage.items().get(0).groupName()).isEqualTo("my-registration-repository-group-2");
+    }
+
+    private Registration savePending(
+            GroupRecruitment recruitment,
+            Member applicant,
+            LocalDateTime registeredAt
+    ) {
+        return registrationCommandRepository.save(Registration.createPending(
+                recruitment,
+                applicant,
+                null,
+                registeredAt
+        ));
+    }
+
+    private GroupRecruitment saveRecruitment(Group group) {
+        return recruitmentRepository.save(GroupRecruitment.create(
+                group,
+                JoinMethod.APPROVAL,
+                3,
+                NOW.minusDays(1),
+                NOW.plusDays(1)
+        ));
     }
 
     private Member saveMember(String crewName, Course course, String githubId) {
