@@ -9,6 +9,8 @@ import com.project.jarihana.group.command.controller.dto.TerminateGroupRequest;
 import com.project.jarihana.group.command.controller.dto.TerminateGroupResponse;
 import com.project.jarihana.group.command.controller.dto.ReplaceRecurringScheduleRequest;
 import com.project.jarihana.group.command.controller.dto.ReplaceRecurringScheduleResponse;
+import com.project.jarihana.group.command.controller.dto.ReplaceSessionScheduleRequest;
+import com.project.jarihana.group.command.controller.dto.ReplaceSessionScheduleResponse;
 import com.project.jarihana.group.command.service.GroupCommandService;
 import com.project.jarihana.group.query.controller.dto.GroupDetailResponse;
 import com.project.jarihana.group.query.service.GroupQueryService;
@@ -100,5 +102,17 @@ public class GroupCommandController {
     ) {
         groupCommandService.removeRecurringSchedule(memberId, groupId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{groupId}/session-schedule")
+    public ResponseEntity<ApiResponse<ReplaceSessionScheduleResponse>> replaceSessionSchedule(
+            @LoginMember Long memberId,
+            @PathVariable Long groupId,
+            @Valid @RequestBody ReplaceSessionScheduleRequest request
+    ) {
+        ReplaceSessionScheduleResponse response = ReplaceSessionScheduleResponse.from(
+                groupCommandService.replaceSessionSchedule(memberId, groupId, request.toCommand())
+        );
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 }
