@@ -29,6 +29,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class GroupQueryService {
 
+    private static final String DEFAULT_REPRESENTATIVE_IMAGE_URL = "images/default-group.png";
     private static final int DEFAULT_SIZE = 20;
     private static final int MAX_SIZE = 100;
 
@@ -103,6 +104,7 @@ public class GroupQueryService {
                 ));
         return new GroupDetailResult(
                 projection.group(),
+                DEFAULT_REPRESENTATIVE_IMAGE_URL,
                 projection.members(),
                 projection.activeRecruitment(),
                 projection.approvedCount()
@@ -117,7 +119,7 @@ public class GroupQueryService {
                 projection.group().getStatus().name(),
                 projection.group().getName(),
                 projection.group().getIntroduction(),
-                projection.group().getRepresentativeImageKey(),
+                DEFAULT_REPRESENTATIVE_IMAGE_URL,
                 leader == null
                         ? null
                         : new Leader(
