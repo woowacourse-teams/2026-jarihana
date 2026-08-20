@@ -7,6 +7,8 @@ import com.project.jarihana.group.command.controller.dto.CreateGroupResponse;
 import com.project.jarihana.group.command.controller.dto.ModifyGroupRequest;
 import com.project.jarihana.group.command.controller.dto.TerminateGroupRequest;
 import com.project.jarihana.group.command.controller.dto.TerminateGroupResponse;
+import com.project.jarihana.group.command.controller.dto.ReplaceRecurringScheduleRequest;
+import com.project.jarihana.group.command.controller.dto.ReplaceRecurringScheduleResponse;
 import com.project.jarihana.group.command.service.GroupCommandService;
 import com.project.jarihana.group.query.controller.dto.GroupDetailResponse;
 import com.project.jarihana.group.query.service.GroupQueryService;
@@ -75,6 +77,18 @@ public class GroupCommandController {
     ) {
         TerminateGroupResponse response = TerminateGroupResponse.from(
                 groupCommandService.terminateGroup(memberId, groupId, request.toCommand())
+        );
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PutMapping("/{groupId}/recurring-schedule")
+    public ResponseEntity<ApiResponse<ReplaceRecurringScheduleResponse>> replaceRecurringSchedule(
+            @LoginMember Long memberId,
+            @PathVariable Long groupId,
+            @Valid @RequestBody ReplaceRecurringScheduleRequest request
+    ) {
+        ReplaceRecurringScheduleResponse response = ReplaceRecurringScheduleResponse.from(
+                groupCommandService.replaceRecurringSchedule(memberId, groupId, request.toCommand())
         );
         return ResponseEntity.ok(ApiResponse.success(response));
     }
