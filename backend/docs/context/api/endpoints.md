@@ -643,7 +643,8 @@ Request Body는 없다.
 }
 ```
 
-대상은 같은 그룹에서 `MEMBER` 역할을 가진 `GroupMember`여야 한다.
+`groupMemberId`는 필수 양의 정수이며, 대상은 같은 그룹에서 `MEMBER` 역할을 가진
+`GroupMember`여야 한다.
 
 #### 응답 200
 
@@ -668,9 +669,9 @@ Request Body는 없다.
 | --- | --- | --- |
 | 현재 모임장이 아님 | `GROUP_ACCESS_DENIED` | 403 |
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
-| ENDED 그룹 | `GROUP_ENDED` | 409 |
+| ENDED 그룹 | `LEADER_DELEGATION_NOT_ALLOWED_FOR_ENDED_GROUP` | 422 |
 | 대상 GroupMember 없음 | `GROUP_MEMBER_NOT_FOUND` | 404 |
-| 자기 자신 또는 이미 LEADER인 대상 | `LEADER_DELEGATION_INVALID` | 400 |
+| 자기 자신 또는 이미 LEADER인 대상 | `GROUP_MEMBER_ALREADY_LEADER` | 422 |
 
 ### `DELETE /api/groups/{groupId}/recurring-schedule`
 

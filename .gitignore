@@ -40,5 +40,8 @@ out/
 .env
 *.http
 
+### Local agent session artifacts ###
+/backend/docs/superpowers/
+
 ### macOS ###
 .DS_Store
