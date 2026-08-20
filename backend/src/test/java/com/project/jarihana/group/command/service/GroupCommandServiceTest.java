@@ -8,15 +8,19 @@ import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.command.repository.GroupCommandRepository;
 import com.project.jarihana.group.command.service.dto.CreateGroupCommand;
 import com.project.jarihana.group.command.service.dto.CreateGroupResult;
+import com.project.jarihana.group.command.service.dto.ModifyGroupCommand;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.GroupStatus;
 import com.project.jarihana.group.domain.GroupType;
+import com.project.jarihana.group.domain.RecurringGroupSchedule;
+import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.support.IntegrationTestSupport;
+import com.project.jarihana.support.TestSupportConfig;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -145,8 +149,87 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
                 .isEqualTo(ErrorCode.SCHEDULE_REQUIRED);
     }
 
+    @DisplayName("모임장은 그룹 기본 정보를 전체 교체하고 일정은 유지한다.")
+    @Test
+    void modifyGroupReplacesBasicInformation() {
+        // Given
+        Member leader = saveMember("github-modify-leader");
+        Group group = createGroup(leader, "서비스 기존 그룹");
+        ModifyGroupCommand command = new ModifyGroupCommand(
+                "새 그룹", "새 한 줄 소개", null);
+
+        // When
+        groupCommandService.modifyGroup(leader.getId(), group.getId(), command);
+
+        // Then
+        Group modified = groupCommandRepository.findById(group.getId()).orElseThrow();
+        assertThat(modified.getName()).isEqualTo("새 그룹");
+        assertThat(modified.getIntroduction()).isEqualTo("새 한 줄 소개");
+        assertThat(modified.getDescription()).isNull();
+        assertThat(modified.getRepresentativeImageKey())
+                .isEqualTo(GroupCommandService.DEFAULT_REPRESENTATIVE_IMAGE_KEY);
+        assertThat(modified.getRecurringSchedule()).isNotNull();
+    }
+
+    @DisplayName("모임장이 아닌 구성원은 그룹 기본 정보를 교체할 수 없다.")
+    @Test
+    void modifyGroupFailsForNonLeader() {
+        // Given
+        Member leader = saveMember("github-modify-owner");
+        Member member = memberRepository.save(Member.create("누리", 8, "github-modify-member", Course.BACKEND));
+        Group group = createGroup(leader, "권한 그룹");
+        groupMemberCommandRepository.save(GroupMember.createMember(group, member, TestSupportConfig.FIXED_NOW));
+
+        // When / Then
+        assertThatThrownBy(() -> groupCommandService.modifyGroup(
+                member.getId(), group.getId(), new ModifyGroupCommand("변경", "소개", null)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_ACCESS_DENIED);
+    }
+
+    @DisplayName("종료된 그룹은 기본 정보를 교체할 수 없다.")
+    @Test
+    void modifyGroupFailsForEndedGroup() {
+        // Given
+        Member leader = saveMember("github-modify-ended");
+        Group group = createGroup(leader, "종료 그룹");
+        groupCommandRepository.save(group.endAt(TestSupportConfig.FIXED_NOW.plusDays(1).plusMinutes(1)));
+
+        // When / Then
+        assertThatThrownBy(() -> groupCommandService.modifyGroup(
+                leader.getId(), group.getId(), new ModifyGroupCommand("변경", "소개", null)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_ENDED);
+    }
+
+    @DisplayName("다른 그룹이 사용 중인 이름으로 기본 정보를 교체할 수 없다.")
+    @Test
+    void modifyGroupFailsForDuplicatedName() {
+        // Given
+        Member leader = saveMember("github-modify-duplicate");
+        Group group = createGroup(leader, "내 그룹");
+        Group another = groupCommandRepository.save(Group.createStudy(
+                "다른 그룹", "소개", null, null,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.of(19, 0), LocalTime.of(21, 0)),
+                TestSupportConfig.FIXED_NOW));
+
+        // When / Then
+        assertThatThrownBy(() -> groupCommandService.modifyGroup(
+                leader.getId(), group.getId(), new ModifyGroupCommand(another.getName(), "소개", null)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_NAME_DUPLICATED);
+    }
+
     private Member saveMember(String githubId) {
         return memberRepository.save(Member.create("가온", 8, githubId, Course.BACKEND));
+    }
+
+    private Group createGroup(Member leader, String name) {
+        CreateGroupResult result = groupCommandService.createGroup(leader.getId(), recurringCommand(name));
+        return groupCommandRepository.findById(result.id()).orElseThrow();
     }
 
     private CreateGroupCommand recurringCommand(String name) {
