@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: jarihana-db-postgres
+
+    environment:
+      POSTGRES_DB: jarihana
+      POSTGRES_USER: jarihana
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
