@@ -7,6 +7,8 @@ import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 
+import com.project.jarihana.common.auth.AccessTokenProvider;
+import com.project.jarihana.common.auth.AuthCookieProperties;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.group.domain.SessionGroupSchedule;
@@ -21,11 +23,11 @@ import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.JoinMethod;
 import com.project.jarihana.support.IntegrationTestSupport;
+import com.project.jarihana.support.TestSupportConfig;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.ZoneId;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -50,6 +52,12 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
 
     @Autowired
     private MemberRepository memberRepository;
+
+    @Autowired
+    private AccessTokenProvider accessTokenProvider;
+
+    @Autowired
+    private AuthCookieProperties authCookieProperties;
 
     @BeforeEach
     void setUp() {
@@ -142,6 +150,37 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
                 .body("error.message", equalTo("인증 정보가 필요합니다."));
     }
 
+    @DisplayName("인증된 회원을 기준으로 관계와 역할 필터를 적용한다.")
+    @Test
+    void filtersGroupsByAuthenticatedMemberRelationAndRole() {
+        // Given
+        Group leaderGroup = groupRepository.save(
+                study("내가 모임장인 스터디", "함께 공부합니다.", CREATED_AT)
+        );
+        Group memberGroup = groupRepository.save(
+                study("내가 참여한 스터디", "함께 복습합니다.", CREATED_AT.minusHours(1))
+        );
+        groupRepository.save(study("참여하지 않은 스터디", "새로운 모임입니다.", CREATED_AT.minusHours(2)));
+        Member currentMember = memberRepository.save(Member.create("가온", 8, "github-current", Course.BACKEND));
+        groupMemberRepository.save(GroupMember.createLeader(leaderGroup, currentMember, CREATED_AT));
+        groupMemberRepository.save(GroupMember.createMember(memberGroup, currentMember, CREATED_AT));
+        String accessToken = accessTokenProvider.issue(currentMember.getId()).value();
+
+        // When / Then
+        given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .queryParam("relation", "joined")
+                .queryParam("role", "LEADER")
+                .when()
+                .get("/api/groups")
+                .then()
+                .statusCode(200)
+                .body("success", equalTo(true))
+                .body("data.items.size()", equalTo(1))
+                .body("data.items[0].name", equalTo("내가 모임장인 스터디"))
+                .body("error", nullValue());
+    }
+
     @DisplayName("반복 일정 그룹의 상세 정보를 조회한다.")
     @Test
     void findsRecurringGroupDetail() {
@@ -160,7 +199,7 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
         ));
         Member leader = memberRepository.save(Member.create("가온", 8, "github-1", Course.BACKEND));
         groupMemberRepository.save(GroupMember.createLeader(group, leader, CREATED_AT));
-        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+        LocalDateTime now = TestSupportConfig.FIXED_NOW;
         recruitmentRepository.save(GroupRecruitment.create(
                 group,
                 JoinMethod.APPROVAL,
