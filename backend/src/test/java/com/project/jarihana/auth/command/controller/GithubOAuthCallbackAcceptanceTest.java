@@ -6,7 +6,7 @@ import com.project.jarihana.auth.command.repository.RefreshTokenRepository;
 import com.project.jarihana.auth.config.AuthProperties;
 import com.project.jarihana.auth.domain.RefreshToken;
 import com.project.jarihana.common.auth.AccessTokenProvider;
-import com.project.jarihana.common.auth.JwtProperties;
+import com.project.jarihana.common.auth.AuthCookieProperties;
 import com.project.jarihana.common.auth.SignupSession;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
@@ -57,7 +57,7 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
     private AuthProperties authProperties;
 
     @Autowired
-    private JwtProperties jwtProperties;
+    private AuthCookieProperties authCookieProperties;
 
     @Autowired
     private AccessTokenProvider accessTokenProvider;
@@ -206,10 +206,10 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
         ExtractableResponse<Response> response = callback(ISSUED_STATE, "authorization-code", ISSUED_STATE);
 
         // Then
-        Cookie accessCookie = response.detailedCookie(jwtProperties.cookieName());
+        Cookie accessCookie = response.detailedCookie(authCookieProperties.accessTokenName());
         assertThat(accessCookie.getValue()).isNotBlank();
         assertThat(accessCookie.isHttpOnly()).isTrue();
-        assertThat(accessCookie.getPath()).isEqualTo(jwtProperties.cookiePath());
+        assertThat(accessCookie.getPath()).isEqualTo(authCookieProperties.accessTokenPath());
         assertThat(accessTokenProvider.parseMemberId(accessCookie.getValue())).isEqualTo(member.getId());
     }
 
@@ -223,7 +223,7 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
         ExtractableResponse<Response> response = callback(ISSUED_STATE, "authorization-code", ISSUED_STATE);
 
         // Then
-        assertThat(response.cookie(jwtProperties.cookieName())).isNull();
+        assertThat(response.cookie(authCookieProperties.accessTokenName())).isNull();
     }
 
     private ExtractableResponse<Response> callback(String stateCookie, String code, String state) {

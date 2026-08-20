@@ -15,15 +15,16 @@ jarihana:
   auth:
     frontend-origin: http://localhost:5173
     oauth-state-cookie-name: oauthState
-    refresh-cookie-name: refreshToken
-    refresh-cookie-path: /api/auth
     refresh-token-validity: P14D
-    cookie-secure: false
+    cookie:
+      secure: false
+      access-token-name: accessToken
+      access-token-path: /
+      refresh-token-name: refreshToken
+      refresh-token-path: /api/auth
     jwt:
       secret: test-access-token-secret-key-for-hmac-sha256-0001
       validity: PT1H
-      cookie-name: accessToken
-      cookie-path: /
   oauth:
     github:
       client-id: test-client-id

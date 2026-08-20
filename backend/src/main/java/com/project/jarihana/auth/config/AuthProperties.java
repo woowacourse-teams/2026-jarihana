@@ -7,9 +7,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record AuthProperties(
         String frontendOrigin,
         String oauthStateCookieName,
-        String refreshCookieName,
-        String refreshCookiePath,
-        Duration refreshTokenValidity,
-        boolean cookieSecure
+        Duration refreshTokenValidity
 ) {
 }
