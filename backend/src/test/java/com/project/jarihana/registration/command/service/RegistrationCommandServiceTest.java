@@ -19,6 +19,11 @@ import com.project.jarihana.recruitment.domain.JoinMethod;
 import com.project.jarihana.registration.command.repository.RegistrationCommandRepository;
 import com.project.jarihana.registration.command.service.dto.CreateRegistrationCommand;
 import com.project.jarihana.registration.command.service.dto.CreateRegistrationResult;
+import com.project.jarihana.registration.command.service.dto.DecideRegistrationCommand;
+import com.project.jarihana.registration.command.service.dto.DecideRegistrationResult;
+import com.project.jarihana.registration.command.service.dto.RegistrationDecision;
+import com.project.jarihana.registration.domain.DecisionActor;
+import com.project.jarihana.registration.domain.DecisionActorType;
 import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.registration.domain.RegistrationStatus;
 import com.project.jarihana.support.IntegrationTestSupport;
@@ -56,6 +61,380 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
 
     @Autowired
     private MemberRepository memberRepository;
+
+    @DisplayName("모임장이 대기 신청을 승인하면 신청을 승인하고 신청자를 구성원으로 등록한다.")
+    @Test
+    void approvesPendingRegistration() {
+        // Given
+        Member leader = saveMember("가온", "registration-service-decision-leader");
+        Member applicant = saveMember("가람", "registration-service-decision-applicant");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 2);
+        groupMemberRepository.save(GroupMember.createLeader(
+                recruitment.getGroup(),
+                leader,
+                TestSupportConfig.FIXED_NOW.minusDays(1)
+        ));
+        Registration registration = registrationRepository.save(Registration.createPending(
+                recruitment,
+                applicant,
+                "함께하고 싶습니다.",
+                TestSupportConfig.FIXED_NOW.minusHours(1)
+        ));
+
+        // When
+        DecideRegistrationResult result = registrationCommandService.decideRegistration(
+                leader.getId(),
+                recruitment.getId(),
+                registration.getId(),
+                new DecideRegistrationCommand(RegistrationDecision.APPROVED, null)
+        );
+
+        // Then
+        assertThat(result.id()).isEqualTo(registration.getId());
+        assertThat(result.status()).isEqualTo(RegistrationStatus.APPROVED);
+        assertThat(result.decisionReason()).isNull();
+        assertThat(result.decidedAt()).isEqualTo(TestSupportConfig.FIXED_NOW);
+        assertThat(result.decidedByType()).isEqualTo(DecisionActorType.MEMBER);
+        assertThat(result.decidedByMemberId()).isEqualTo(leader.getId());
+        assertThat(groupMemberRepository.findByGroupIdAndMemberId(
+                recruitment.getGroup().getId(),
+                applicant.getId()
+        )).isPresent();
+    }
+
+    @DisplayName("모임장이 대기 신청을 거절하면 사유와 결정 주체를 기록하고 구성원을 만들지 않는다.")
+    @Test
+    void rejectsPendingRegistration() {
+        // Given
+        Member leader = saveMember("나래", "registration-service-rejection-leader");
+        Member applicant = saveMember("누리", "registration-service-rejection-applicant");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 2);
+        groupMemberRepository.save(GroupMember.createLeader(
+                recruitment.getGroup(),
+                leader,
+                TestSupportConfig.FIXED_NOW.minusDays(1)
+        ));
+        Registration registration = registrationRepository.save(Registration.createPending(
+                recruitment,
+                applicant,
+                null,
+                TestSupportConfig.FIXED_NOW.minusHours(1)
+        ));
+
+        // When
+        DecideRegistrationResult result = registrationCommandService.decideRegistration(
+                leader.getId(),
+                recruitment.getId(),
+                registration.getId(),
+                new DecideRegistrationCommand(RegistrationDecision.REJECTED, "모집 방향과 맞지 않습니다.")
+        );
+
+        // Then
+        assertThat(result.status()).isEqualTo(RegistrationStatus.REJECTED);
+        assertThat(result.decisionReason()).isEqualTo("모집 방향과 맞지 않습니다.");
+        assertThat(result.decidedAt()).isEqualTo(TestSupportConfig.FIXED_NOW);
+        assertThat(result.decidedByType()).isEqualTo(DecisionActorType.MEMBER);
+        assertThat(result.decidedByMemberId()).isEqualTo(leader.getId());
+        assertThat(groupMemberRepository.findByGroupIdAndMemberId(
+                recruitment.getGroup().getId(),
+                applicant.getId()
+        )).isEmpty();
+    }
+
+    @DisplayName("승인으로 정원이 차면 모집을 현재 시각에 마감하고 나머지 대기 신청을 시스템 거절한다.")
+    @Test
+    void closesRecruitmentAndRejectsPendingRegistrationsWhenCapacityIsReached() {
+        // Given
+        Member leader = saveMember("다온", "registration-service-full-decision-leader");
+        Member approvedApplicant = saveMember("라온", "registration-service-full-approved-applicant");
+        Member pendingApplicant = saveMember("마루", "registration-service-full-pending-applicant");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 1);
+        groupMemberRepository.save(GroupMember.createLeader(
+                recruitment.getGroup(),
+                leader,
+                TestSupportConfig.FIXED_NOW.minusDays(1)
+        ));
+        Registration approvedTarget = registrationRepository.save(Registration.createPending(
+                recruitment,
+                approvedApplicant,
+                null,
+                TestSupportConfig.FIXED_NOW.minusHours(2)
+        ));
+        registrationRepository.save(Registration.createPending(
+                recruitment,
+                pendingApplicant,
+                null,
+                TestSupportConfig.FIXED_NOW.minusHours(1)
+        ));
+
+        // When
+        registrationCommandService.decideRegistration(
+                leader.getId(),
+                recruitment.getId(),
+                approvedTarget.getId(),
+                new DecideRegistrationCommand(RegistrationDecision.APPROVED, null)
+        );
+
+        // Then
+        assertThat(recruitmentRepository.findAllByGroupId(recruitment.getGroup().getId()))
+                .singleElement()
+                .extracting(GroupRecruitment::getEndsAt)
+                .isEqualTo(TestSupportConfig.FIXED_NOW);
+        assertThat(registrationRepository.countByRecruitmentIdAndStatus(
+                recruitment.getId(),
+                RegistrationStatus.APPROVED
+        )).isEqualTo(1);
+        assertThat(registrationRepository.countByRecruitmentIdAndStatus(
+                recruitment.getId(),
+                RegistrationStatus.PENDING
+        )).isZero();
+        assertThat(registrationRepository.countByRecruitmentIdAndStatus(
+                recruitment.getId(),
+                RegistrationStatus.REJECTED
+        )).isEqualTo(1);
+    }
+
+    @DisplayName("이미 수동 마감된 모집도 대기 신청을 승인할 수 있고 정원 도달 시 기존 마감 시각을 유지한다.")
+    @Test
+    void preservesClosedRecruitmentEndTimeWhenApprovalReachesCapacity() {
+        // Given
+        Member leader = saveMember("보라", "registration-service-closed-decision-leader");
+        Member approvedApplicant = saveMember("새봄", "registration-service-closed-approved-applicant");
+        Member pendingApplicant = saveMember("아라", "registration-service-closed-pending-applicant");
+        LocalDateTime closedAt = TestSupportConfig.FIXED_NOW.minusHours(1);
+        GroupRecruitment recruitment = saveRecruitment(
+                JoinMethod.APPROVAL,
+                1,
+                TestSupportConfig.FIXED_NOW.minusDays(2),
+                closedAt
+        );
+        groupMemberRepository.save(GroupMember.createLeader(
+                recruitment.getGroup(),
+                leader,
+                TestSupportConfig.FIXED_NOW.minusDays(1)
+        ));
+        Registration approvedTarget = registrationRepository.save(Registration.createPending(
+                recruitment,
+                approvedApplicant,
+                null,
+                closedAt.minusHours(2)
+        ));
+        registrationRepository.save(Registration.createPending(
+                recruitment,
+                pendingApplicant,
+                null,
+                closedAt.minusHours(1)
+        ));
+
+        // When
+        registrationCommandService.decideRegistration(
+                leader.getId(),
+                recruitment.getId(),
+                approvedTarget.getId(),
+                new DecideRegistrationCommand(RegistrationDecision.APPROVED, null)
+        );
+
+        // Then
+        assertThat(recruitmentRepository.findAllByGroupId(recruitment.getGroup().getId()))
+                .singleElement()
+                .extracting(GroupRecruitment::getEndsAt)
+                .isEqualTo(closedAt);
+        assertThat(registrationRepository.countByRecruitmentIdAndStatus(
+                recruitment.getId(),
+                RegistrationStatus.REJECTED
+        )).isEqualTo(1);
+    }
+
+    @DisplayName("해당 그룹의 모임장이 아니면 가입 신청을 처리할 수 없다.")
+    @Test
+    void rejectsDecisionByNonLeader() {
+        // Given
+        Member leader = saveMember("윤슬", "registration-service-access-leader");
+        Member requester = saveMember("이든", "registration-service-access-requester");
+        Member applicant = saveMember("하람", "registration-service-access-applicant");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 2);
+        saveLeader(recruitment, leader);
+        Registration registration = savePendingRegistration(recruitment, applicant);
+
+        // When / Then
+        assertBusinessError(
+                () -> decideRegistration(requester, recruitment, registration, RegistrationDecision.APPROVED),
+                ErrorCode.REGISTRATION_ACCESS_DENIED
+        );
+    }
+
+    @DisplayName("가입 신청이 요청한 모집 공고에 속하지 않으면 찾을 수 없는 신청으로 처리한다.")
+    @Test
+    void rejectsDecisionForRegistrationFromAnotherRecruitment() {
+        // Given
+        Member leader = saveMember("해솔", "registration-service-not-found-leader");
+        Member applicant = saveMember("한결", "registration-service-not-found-applicant");
+        GroupRecruitment requestedRecruitment = saveRecruitment(
+                saveActiveGroup("가입 신청 판정 대상 그룹"),
+                JoinMethod.APPROVAL,
+                2,
+                TestSupportConfig.FIXED_NOW.minusDays(1),
+                TestSupportConfig.FIXED_NOW.plusDays(7)
+        );
+        GroupRecruitment anotherRecruitment = saveRecruitment(
+                saveActiveGroup("가입 신청 판정 다른 그룹"),
+                JoinMethod.APPROVAL,
+                2,
+                TestSupportConfig.FIXED_NOW.minusDays(1),
+                TestSupportConfig.FIXED_NOW.plusDays(7)
+        );
+        saveLeader(requestedRecruitment, leader);
+        Registration registration = savePendingRegistration(anotherRecruitment, applicant);
+
+        // When / Then
+        assertBusinessError(
+                () -> decideRegistration(leader, requestedRecruitment, registration, RegistrationDecision.APPROVED),
+                ErrorCode.REGISTRATION_NOT_FOUND
+        );
+    }
+
+    @DisplayName("이미 처리된 가입 신청은 다시 승인하거나 거절할 수 없다.")
+    @Test
+    void rejectsAlreadyDecidedRegistration() {
+        // Given
+        Member leader = saveMember("가람", "registration-service-decided-leader");
+        Member applicant = saveMember("가온", "registration-service-decided-applicant");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 2);
+        saveLeader(recruitment, leader);
+        Registration registration = savePendingRegistration(recruitment, applicant);
+        decideRegistration(leader, recruitment, registration, RegistrationDecision.APPROVED);
+
+        // When / Then
+        assertBusinessError(
+                () -> decideRegistration(leader, recruitment, registration, RegistrationDecision.REJECTED),
+                ErrorCode.REGISTRATION_ALREADY_DECIDED
+        );
+    }
+
+    @DisplayName("승인된 인원이 정원에 도달했으면 대기 신청을 승인할 수 없다.")
+    @Test
+    void rejectsApprovalWhenCapacityIsFull() {
+        // Given
+        Member leader = saveMember("나래", "registration-service-capacity-leader");
+        Member approvedMember = saveMember("누리", "registration-service-capacity-approved-member");
+        Member applicant = saveMember("다온", "registration-service-capacity-applicant");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 1);
+        saveLeader(recruitment, leader);
+        Registration approvedRegistration = Registration.createPending(
+                        recruitment,
+                        approvedMember,
+                        null,
+                        TestSupportConfig.FIXED_NOW.minusHours(2)
+                )
+                .approve(
+                        DecisionActor.member(leader.getId()),
+                        TestSupportConfig.FIXED_NOW.minusHours(1),
+                        0
+                );
+        registrationRepository.save(approvedRegistration);
+        groupMemberRepository.save(GroupMember.createMember(
+                recruitment.getGroup(),
+                approvedMember,
+                TestSupportConfig.FIXED_NOW.minusHours(1)
+        ));
+        Registration registration = savePendingRegistration(recruitment, applicant);
+
+        // When / Then
+        assertBusinessError(
+                () -> decideRegistration(leader, recruitment, registration, RegistrationDecision.APPROVED),
+                ErrorCode.RECRUITMENT_CAPACITY_EXCEEDED
+        );
+    }
+
+    @DisplayName("신청자가 이미 그룹 구성원이면 가입 신청을 승인할 수 없다.")
+    @Test
+    void rejectsApprovalForExistingGroupMember() {
+        // Given
+        Member leader = saveMember("라온", "registration-service-existing-leader");
+        Member applicant = saveMember("마루", "registration-service-existing-applicant");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 2);
+        saveLeader(recruitment, leader);
+        Registration registration = savePendingRegistration(recruitment, applicant);
+        groupMemberRepository.save(GroupMember.createMember(
+                recruitment.getGroup(),
+                applicant,
+                TestSupportConfig.FIXED_NOW.minusMinutes(30)
+        ));
+
+        // When / Then
+        assertBusinessError(
+                () -> decideRegistration(leader, recruitment, registration, RegistrationDecision.APPROVED),
+                ErrorCode.GROUP_MEMBER_ALREADY_EXISTS
+        );
+    }
+
+    @DisplayName("종료된 그룹의 가입 신청은 승인하거나 거절할 수 없다.")
+    @Test
+    void rejectsDecisionForEndedGroup() {
+        // Given
+        Member leader = saveMember("보라", "registration-service-ended-decision-leader");
+        Member applicant = saveMember("새봄", "registration-service-ended-decision-applicant");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 2);
+        saveLeader(recruitment, leader);
+        Registration registration = savePendingRegistration(recruitment, applicant);
+        groupRepository.save(recruitment.getGroup().endAt(TestSupportConfig.FIXED_NOW.plusDays(2)));
+
+        // When / Then
+        assertBusinessError(
+                () -> decideRegistration(leader, recruitment, registration, RegistrationDecision.REJECTED),
+                ErrorCode.GROUP_ENDED
+        );
+    }
+
+    @DisplayName("정원이 1명인 승인제 모집의 대기 신청을 동시에 승인해도 한 명만 승인한다.")
+    @Test
+    void serializesConcurrentRegistrationApprovals() throws Exception {
+        // Given
+        Member leader = saveMember("아라", "registration-service-concurrent-decision-leader");
+        Member firstApplicant = saveMember("윤슬", "registration-service-concurrent-decision-first");
+        Member secondApplicant = saveMember("이든", "registration-service-concurrent-decision-second");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 1);
+        saveLeader(recruitment, leader);
+        Registration firstRegistration = savePendingRegistration(recruitment, firstApplicant);
+        Registration secondRegistration = savePendingRegistration(recruitment, secondApplicant);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        try {
+            Future<DecisionAttempt> first = executor.submit(
+                    () -> decideWhenReleased(start, leader.getId(), recruitment.getId(), firstRegistration.getId())
+            );
+            Future<DecisionAttempt> second = executor.submit(
+                    () -> decideWhenReleased(start, leader.getId(), recruitment.getId(), secondRegistration.getId())
+            );
+
+            // When
+            start.countDown();
+            List<DecisionAttempt> attempts = List.of(
+                    first.get(5, TimeUnit.SECONDS),
+                    second.get(5, TimeUnit.SECONDS)
+            );
+
+            // Then
+            assertThat(attempts).filteredOn(DecisionAttempt::succeeded).hasSize(1);
+            assertThat(attempts)
+                    .filteredOn(attempt -> attempt.errorCode() == ErrorCode.REGISTRATION_ALREADY_DECIDED)
+                    .hasSize(1);
+            assertThat(registrationRepository.countByRecruitmentIdAndStatus(
+                    recruitment.getId(),
+                    RegistrationStatus.APPROVED
+            )).isEqualTo(1);
+            assertThat(registrationRepository.countByRecruitmentIdAndStatus(
+                    recruitment.getId(),
+                    RegistrationStatus.REJECTED
+            )).isEqualTo(1);
+            assertThat(groupMemberJpaRepository.findAllByGroupIdInOrderById(
+                    List.of(recruitment.getGroup().getId())
+            )).hasSize(2);
+        } finally {
+            executor.shutdownNow();
+        }
+    }
 
     @DisplayName("종료된 그룹의 모집 공고에는 가입 신청할 수 없다.")
     @Test
@@ -320,6 +699,37 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
         );
     }
 
+    private DecideRegistrationResult decideRegistration(
+            Member member,
+            GroupRecruitment recruitment,
+            Registration registration,
+            RegistrationDecision decision
+    ) {
+        return registrationCommandService.decideRegistration(
+                member.getId(),
+                recruitment.getId(),
+                registration.getId(),
+                new DecideRegistrationCommand(decision, null)
+        );
+    }
+
+    private GroupMember saveLeader(GroupRecruitment recruitment, Member leader) {
+        return groupMemberRepository.save(GroupMember.createLeader(
+                recruitment.getGroup(),
+                leader,
+                TestSupportConfig.FIXED_NOW.minusDays(1)
+        ));
+    }
+
+    private Registration savePendingRegistration(GroupRecruitment recruitment, Member applicant) {
+        return registrationRepository.save(Registration.createPending(
+                recruitment,
+                applicant,
+                null,
+                TestSupportConfig.FIXED_NOW.minusHours(1)
+        ));
+    }
+
     private RegistrationAttempt createWhenReleased(CountDownLatch start, long memberId, long recruitmentId) {
         try {
             if (!start.await(3, TimeUnit.SECONDS)) {
@@ -336,6 +746,31 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("동시 가입 신청 테스트가 중단되었습니다.", exception);
+        }
+    }
+
+    private DecisionAttempt decideWhenReleased(
+            CountDownLatch start,
+            long memberId,
+            long recruitmentId,
+            long registrationId
+    ) {
+        try {
+            if (!start.await(3, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("동시 가입 신청 처리 시작 대기 시간이 초과되었습니다.");
+            }
+            registrationCommandService.decideRegistration(
+                    memberId,
+                    recruitmentId,
+                    registrationId,
+                    new DecideRegistrationCommand(RegistrationDecision.APPROVED, null)
+            );
+            return DecisionAttempt.success();
+        } catch (BusinessException exception) {
+            return DecisionAttempt.failure(exception.getErrorCode());
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("동시 가입 신청 처리 테스트가 중단되었습니다.", exception);
         }
     }
 
@@ -410,6 +845,17 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
 
         private static RegistrationAttempt failed(ErrorCode errorCode) {
             return new RegistrationAttempt(null, errorCode);
+        }
+    }
+
+    private record DecisionAttempt(boolean succeeded, ErrorCode errorCode) {
+
+        private static DecisionAttempt success() {
+            return new DecisionAttempt(true, null);
+        }
+
+        private static DecisionAttempt failure(ErrorCode errorCode) {
+            return new DecisionAttempt(false, errorCode);
         }
     }
 }

@@ -3,16 +3,22 @@ package com.project.jarihana.registration.command.service;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.command.repository.GroupCommandRepository;
+import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
+import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.recruitment.command.repository.GroupRecruitmentCommandRepository;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.JoinMethod;
+import com.project.jarihana.recruitment.domain.RecruitmentPhase;
 import com.project.jarihana.registration.command.repository.RegistrationCommandRepository;
 import com.project.jarihana.registration.command.service.dto.CreateRegistrationCommand;
 import com.project.jarihana.registration.command.service.dto.CreateRegistrationResult;
+import com.project.jarihana.registration.command.service.dto.DecideRegistrationCommand;
+import com.project.jarihana.registration.command.service.dto.DecideRegistrationResult;
+import com.project.jarihana.registration.domain.DecisionActor;
 import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.registration.domain.RegistrationStatus;
 import java.time.Clock;
@@ -62,6 +68,86 @@ public class RegistrationCommandService {
         };
         registration = registrationRepository.save(registration);
         return CreateRegistrationResult.from(registration);
+    }
+
+    @Transactional
+    public DecideRegistrationResult decideRegistration(
+            long memberId,
+            long recruitmentId,
+            long registrationId,
+            DecideRegistrationCommand command
+    ) {
+        Group group = groupRepository.findWithLockByRecruitmentId(recruitmentId)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.REGISTRATION_NOT_FOUND,
+                        "가입 신청을 찾을 수 없습니다."
+                ));
+        GroupRecruitment recruitment = recruitmentRepository.findWithLockById(recruitmentId)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.REGISTRATION_NOT_FOUND,
+                        "가입 신청을 찾을 수 없습니다."
+                ));
+        validateDecisionAuthority(group, memberId);
+        Registration registration = registrationRepository.findWithLockByIdAndRecruitmentId(
+                        registrationId,
+                        recruitmentId
+                )
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.REGISTRATION_NOT_FOUND,
+                        "가입 신청을 찾을 수 없습니다."
+                ));
+        if (registration.getStatus() != RegistrationStatus.PENDING) {
+            throw new BusinessException(ErrorCode.REGISTRATION_ALREADY_DECIDED, "이미 처리된 가입 신청입니다.");
+        }
+
+        Registration decidedRegistration = switch (command.status()) {
+            case APPROVED -> approveRegistration(registration, recruitment, memberId);
+            case REJECTED -> registrationRepository.save(
+                    registration.reject(
+                            DecisionActor.member(memberId),
+                            command.decisionReason(),
+                            LocalDateTime.now(clock)
+                    )
+            );
+        };
+        return DecideRegistrationResult.from(decidedRegistration);
+    }
+
+    private void validateDecisionAuthority(Group group, long memberId) {
+        GroupMember leader = groupMemberRepository.findByGroupIdAndMemberId(group.getId(), memberId)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.REGISTRATION_ACCESS_DENIED,
+                        "가입 신청을 처리할 권한이 없습니다."
+                ));
+        if (leader.getRole() != GroupMemberRole.LEADER) {
+            throw new BusinessException(ErrorCode.REGISTRATION_ACCESS_DENIED, "가입 신청을 처리할 권한이 없습니다.");
+        }
+        if (!group.isActive()) {
+            throw new BusinessException(ErrorCode.GROUP_ENDED, "종료된 그룹의 가입 신청은 처리할 수 없습니다.");
+        }
+    }
+
+    private Registration approveRegistration(
+            Registration registration,
+            GroupRecruitment recruitment,
+            long memberId
+    ) {
+        long groupId = recruitment.getGroup().getId();
+        Member applicant = registration.getMember();
+        if (groupMemberRepository.findByGroupIdAndMemberId(groupId, applicant.getId()).isPresent()) {
+            throw new BusinessException(ErrorCode.GROUP_MEMBER_ALREADY_EXISTS, "이미 가입한 그룹입니다.");
+        }
+        int approvedCount = approvedCount(recruitment.getId());
+        if (!recruitment.hasCapacity(approvedCount)) {
+            throw new BusinessException(ErrorCode.RECRUITMENT_CAPACITY_EXCEEDED, "모집 정원이 모두 찼습니다.");
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        Registration approvedRegistration = registrationRepository.save(
+                registration.approve(DecisionActor.member(memberId), now, approvedCount)
+        );
+        groupMemberRepository.save(GroupMember.createMember(recruitment.getGroup(), applicant, now));
+        closeRecruitmentIfFull(recruitment, approvedCount + 1, now);
+        return approvedRegistration;
     }
 
     private int validateRegistration(GroupRecruitment recruitment, long memberId, LocalDateTime now) {
@@ -132,7 +218,9 @@ public class RegistrationCommandService {
         if (recruitment.hasCapacity(approvedCount)) {
             return;
         }
-        recruitmentRepository.save(recruitment.closeAt(now));
+        if (recruitment.phaseAt(now) != RecruitmentPhase.CLOSED) {
+            recruitmentRepository.save(recruitment.closeAt(now));
+        }
         registrationRepository.findAllByRecruitmentIdInAndStatus(
                         List.of(recruitment.getId()),
                         RegistrationStatus.PENDING
