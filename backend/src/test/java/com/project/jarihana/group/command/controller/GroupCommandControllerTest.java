@@ -11,9 +11,12 @@ import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.group.query.repository.GroupMemberJpaRepository;
+import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
+import com.project.jarihana.recruitment.domain.GroupRecruitment;
+import com.project.jarihana.recruitment.domain.JoinMethod;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.TestSupportConfig;
 import io.restassured.response.ExtractableResponse;
@@ -34,6 +37,9 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
     private GroupMemberJpaRepository groupMemberRepository;
 
     @Autowired
+    private GroupRecruitmentJpaRepository recruitmentRepository;
+
+    @Autowired
     private MemberRepository memberRepository;
 
     @Autowired
@@ -47,7 +53,7 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
     void replacesGroupBasicInformation() {
         // Given
         Member leader = memberRepository.save(Member.create("가온", 8, "github-controller-leader", Course.BACKEND));
-        Group group = createGroup(leader);
+        Group group = createGroup(leader, "컨트롤러 수정 그룹");
         String accessToken = accessTokenProvider.issue(leader.getId()).value();
         String csrfToken = csrfToken(group.getId());
 
@@ -84,7 +90,7 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
         // Given
         Member leader = memberRepository.save(Member.create("가온", 8, "github-controller-owner", Course.BACKEND));
         Member member = memberRepository.save(Member.create("누리", 8, "github-controller-member", Course.BACKEND));
-        Group group = createGroup(leader);
+        Group group = createGroup(leader, "컨트롤러 권한 그룹");
         groupMemberRepository.save(GroupMember.createMember(group, member, TestSupportConfig.FIXED_NOW));
         String accessToken = accessTokenProvider.issue(member.getId()).value();
         String csrfToken = csrfToken(group.getId());
@@ -113,9 +119,40 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                 .isEqualTo("GROUP_ACCESS_DENIED");
     }
 
-    private Group createGroup(Member leader) {
+    @DisplayName("생성 후 24시간 이내 모임장의 삭제 요청은 204를 반환하고 그룹을 제거한다.")
+    @Test
+    void deletesGroupWithinDeleteWindow() {
+        // Given
+        Member leader = memberRepository.save(Member.create("가온", 8, "github-controller-delete", Course.BACKEND));
+        Group group = createGroup(leader, "컨트롤러 삭제 그룹");
+        recruitmentRepository.save(GroupRecruitment.create(
+                group, JoinMethod.APPROVAL, 3,
+                TestSupportConfig.FIXED_NOW.minusHours(1), TestSupportConfig.FIXED_NOW.plusHours(1)));
+        String accessToken = accessTokenProvider.issue(leader.getId()).value();
+        String csrfToken = csrfToken(group.getId());
+
+        // When / Then
+        given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .cookie("XSRF-TOKEN", csrfToken)
+                .header("X-XSRF-TOKEN", csrfToken)
+                .when()
+                .delete("/api/groups/{groupId}", group.getId())
+                .then()
+                .statusCode(204)
+                .body(equalTo(""));
+
+        given()
+                .when()
+                .get("/api/groups/{groupId}", group.getId())
+                .then()
+                .statusCode(404)
+                .body("error.code", equalTo("GROUP_NOT_FOUND"));
+    }
+
+    private Group createGroup(Member leader, String name) {
         Group group = groupRepository.save(Group.createStudy(
-                "컨트롤러 기존 그룹",
+                name,
                 "기존 소개",
                 "기존 설명",
                 "groups/original.webp",

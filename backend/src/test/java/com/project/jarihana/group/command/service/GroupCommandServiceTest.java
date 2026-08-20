@@ -16,6 +16,13 @@ import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
+import com.project.jarihana.group.query.repository.GroupJpaRepository;
+import com.project.jarihana.group.query.repository.GroupMemberJpaRepository;
+import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
+import com.project.jarihana.group.query.repository.RegistrationJpaRepository;
+import com.project.jarihana.recruitment.domain.GroupRecruitment;
+import com.project.jarihana.recruitment.domain.JoinMethod;
+import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
@@ -24,9 +31,13 @@ import com.project.jarihana.support.TestSupportConfig;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import jakarta.persistence.EntityManager;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 
 class GroupCommandServiceTest extends IntegrationTestSupport {
@@ -41,7 +52,25 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
     private GroupMemberCommandRepository groupMemberCommandRepository;
 
     @Autowired
+    private GroupJpaRepository groupJpaRepository;
+
+    @Autowired
+    private GroupMemberJpaRepository groupMemberJpaRepository;
+
+    @Autowired
+    private GroupRecruitmentJpaRepository groupRecruitmentJpaRepository;
+
+    @Autowired
+    private RegistrationJpaRepository registrationJpaRepository;
+
+    @Autowired
     private MemberRepository memberRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private EntityManager entityManager;
 
     @DisplayName("가입 완료 회원은 기본 이미지가 설정된 그룹과 모임장 역할을 함께 생성한다.")
     @Test
@@ -221,6 +250,67 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.GROUP_NAME_DUPLICATED);
+    }
+
+    @DisplayName("생성 후 24시간 이내 그룹은 연관 데이터와 함께 완전히 삭제한다.")
+    @Test
+    void deleteGroupHardDeletesGroupAndRelations() {
+        // Given
+        Member leader = saveMember("github-delete-leader");
+        Member applicant = memberRepository.save(Member.create("누리", 8, "github-delete-applicant", Course.BACKEND));
+        Group group = createGroup(leader, "삭제 대상 그룹");
+        GroupRecruitment recruitment = groupRecruitmentJpaRepository.save(GroupRecruitment.create(
+                group, JoinMethod.APPROVAL, 3,
+                TestSupportConfig.FIXED_NOW.minusHours(1), TestSupportConfig.FIXED_NOW.plusHours(1)));
+        Registration registration = registrationJpaRepository.save(Registration.createPending(
+                recruitment, applicant, "참여하고 싶습니다.", TestSupportConfig.FIXED_NOW));
+
+        // When
+        groupCommandService.deleteGroup(leader.getId(), group.getId());
+
+        // Then
+        assertThat(groupJpaRepository.findById(group.getId())).isEmpty();
+        assertThat(groupRecruitmentJpaRepository.findById(recruitment.getId())).isEmpty();
+        assertThat(registrationJpaRepository.findById(registration.getId())).isEmpty();
+        assertThat(groupMemberJpaRepository.findAllByGroup_IdInOrderById(List.of(group.getId()))).isEmpty();
+    }
+
+    @DisplayName("생성 후 24시간이 지난 그룹은 삭제할 수 없다.")
+    @Test
+    void deleteGroupFailsAfterDeleteWindow() {
+        // Given
+        Member leader = saveMember("github-delete-expired");
+        LocalDateTime createdAt = TestSupportConfig.FIXED_NOW.minusHours(24).minusMinutes(1);
+        Group group = groupJpaRepository.save(Group.createStudy(
+                "삭제 기간 만료 그룹", "소개", null, GroupCommandService.DEFAULT_REPRESENTATIVE_IMAGE_KEY,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.of(19, 0), LocalTime.of(21, 0)),
+                createdAt));
+        groupMemberCommandRepository.save(GroupMember.createLeader(group, leader, createdAt));
+        jdbcTemplate.update(
+                "UPDATE groups SET created_at = ?, updated_at = ? WHERE id = ?",
+                createdAt, createdAt, group.getId());
+        entityManager.clear();
+
+        // When / Then
+        assertThatThrownBy(() -> groupCommandService.deleteGroup(leader.getId(), group.getId()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_DELETE_WINDOW_EXPIRED);
+    }
+
+    @DisplayName("종료된 그룹은 삭제할 수 없다.")
+    @Test
+    void deleteGroupFailsForEndedGroup() {
+        // Given
+        Member leader = saveMember("github-delete-ended");
+        Group group = createGroup(leader, "종료된 삭제 그룹");
+        groupJpaRepository.save(group.endAt(LocalDateTime.now().plusDays(2)));
+
+        // When / Then
+        assertThatThrownBy(() -> groupCommandService.deleteGroup(leader.getId(), group.getId()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_ENDED);
     }
 
     private Member saveMember(String githubId) {
