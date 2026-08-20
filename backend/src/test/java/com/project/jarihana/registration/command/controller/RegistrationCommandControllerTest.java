@@ -12,6 +12,7 @@ import com.project.jarihana.common.auth.AuthCookieProperties;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
+import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
@@ -51,6 +52,262 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
 
     @Autowired
     private AuthCookieProperties authCookieProperties;
+
+    @DisplayName("모임장이 대기 신청을 승인하면 결정 정보와 함께 응답하고 신청자를 구성원으로 등록한다.")
+    @Test
+    void approvesRegistration() {
+        // Given
+        Member leader = saveMember("가온", "registration-controller-decision-leader");
+        Member applicant = saveMember("가람", "registration-controller-decision-applicant");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 2);
+        groupMemberRepository.save(GroupMember.createLeader(
+                recruitment.getGroup(),
+                leader,
+                TestSupportConfig.FIXED_NOW.minusDays(1)
+        ));
+        Registration registration = registrationRepository.save(Registration.createPending(
+                recruitment,
+                applicant,
+                "함께하고 싶습니다.",
+                TestSupportConfig.FIXED_NOW.minusHours(1)
+        ));
+        String accessToken = accessTokenProvider.issue(leader.getId()).value();
+        String csrfToken = csrfToken(recruitment.getGroup().getId());
+
+        // When / Then
+        authenticatedRequest(accessToken, csrfToken)
+                .body("""
+                        {
+                          "status": "APPROVED"
+                        }
+                        """)
+                .when()
+                .patch(
+                        "/api/recruitments/{recruitmentId}/registrations/{registrationId}",
+                        recruitment.getId(),
+                        registration.getId()
+                )
+                .then()
+                .statusCode(200)
+                .body("success", equalTo(true))
+                .body("data.id", equalTo(1))
+                .body("data.status", equalTo("APPROVED"))
+                .body("data.decisionReason", nullValue())
+                .body("data.decidedAt", equalTo("2026-08-19T10:00:00"))
+                .body("data.decidedBy.type", equalTo("MEMBER"))
+                .body("data.decidedBy.memberId", equalTo(leader.getId().intValue()))
+                .body("error", nullValue());
+
+        assertThat(groupMemberRepository.findByGroupIdAndMemberId(
+                recruitment.getGroup().getId(),
+                applicant.getId()
+        )).isPresent();
+    }
+
+    @DisplayName("모임장이 대기 신청을 거절하면 사유와 결정 주체를 응답하고 구성원을 만들지 않는다.")
+    @Test
+    void rejectsRegistration() {
+        // Given
+        Member leader = saveMember("나래", "registration-controller-rejection-leader");
+        Member applicant = saveMember("누리", "registration-controller-rejection-applicant");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 2);
+        groupMemberRepository.save(GroupMember.createLeader(
+                recruitment.getGroup(),
+                leader,
+                TestSupportConfig.FIXED_NOW.minusDays(1)
+        ));
+        Registration registration = registrationRepository.save(Registration.createPending(
+                recruitment,
+                applicant,
+                null,
+                TestSupportConfig.FIXED_NOW.minusHours(1)
+        ));
+        String accessToken = accessTokenProvider.issue(leader.getId()).value();
+        String csrfToken = csrfToken(recruitment.getGroup().getId());
+
+        // When / Then
+        authenticatedRequest(accessToken, csrfToken)
+                .body("""
+                        {
+                          "status": "REJECTED",
+                          "decisionReason": "모집 방향과 맞지 않습니다."
+                        }
+                        """)
+                .when()
+                .patch(
+                        "/api/recruitments/{recruitmentId}/registrations/{registrationId}",
+                        recruitment.getId(),
+                        registration.getId()
+                )
+                .then()
+                .statusCode(200)
+                .body("success", equalTo(true))
+                .body("data.status", equalTo("REJECTED"))
+                .body("data.decisionReason", equalTo("모집 방향과 맞지 않습니다."))
+                .body("data.decidedAt", equalTo("2026-08-19T10:00:00"))
+                .body("data.decidedBy.type", equalTo("MEMBER"))
+                .body("data.decidedBy.memberId", equalTo(leader.getId().intValue()))
+                .body("error", nullValue());
+
+        assertThat(groupMemberRepository.findByGroupIdAndMemberId(
+                recruitment.getGroup().getId(),
+                applicant.getId()
+        )).isEmpty();
+    }
+
+    @DisplayName("승인 요청에 거절 사유를 함께 보내면 잘못된 요청으로 응답한다.")
+    @Test
+    void rejectsApprovalWithDecisionReason() {
+        // Given
+        Member leader = saveMember("다온", "registration-controller-invalid-approval-leader");
+        Member applicant = saveMember("라온", "registration-controller-invalid-approval-applicant");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 2);
+        groupMemberRepository.save(GroupMember.createLeader(
+                recruitment.getGroup(),
+                leader,
+                TestSupportConfig.FIXED_NOW.minusDays(1)
+        ));
+        Registration registration = registrationRepository.save(Registration.createPending(
+                recruitment,
+                applicant,
+                null,
+                TestSupportConfig.FIXED_NOW.minusHours(1)
+        ));
+        String accessToken = accessTokenProvider.issue(leader.getId()).value();
+        String csrfToken = csrfToken(recruitment.getGroup().getId());
+
+        // When / Then
+        authenticatedRequest(accessToken, csrfToken)
+                .body("""
+                        {
+                          "status": "APPROVED",
+                          "decisionReason": "승인에는 사유를 보낼 수 없습니다."
+                        }
+                        """)
+                .when()
+                .patch(
+                        "/api/recruitments/{recruitmentId}/registrations/{registrationId}",
+                        recruitment.getId(),
+                        registration.getId()
+                )
+                .then()
+                .statusCode(400)
+                .body("success", equalTo(false))
+                .body("data", nullValue())
+                .body("error.code", equalTo("INVALID_PARAMETER"));
+    }
+
+    @DisplayName("지원하지 않는 신청 처리 상태면 잘못된 요청으로 응답한다.")
+    @Test
+    void rejectsUnsupportedDecisionStatus() {
+        // Given
+        Member leader = saveMember("마루", "registration-controller-invalid-status-leader");
+        Member applicant = saveMember("보라", "registration-controller-invalid-status-applicant");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 2);
+        groupMemberRepository.save(GroupMember.createLeader(
+                recruitment.getGroup(),
+                leader,
+                TestSupportConfig.FIXED_NOW.minusDays(1)
+        ));
+        Registration registration = registrationRepository.save(Registration.createPending(
+                recruitment,
+                applicant,
+                null,
+                TestSupportConfig.FIXED_NOW.minusHours(1)
+        ));
+        String accessToken = accessTokenProvider.issue(leader.getId()).value();
+        String csrfToken = csrfToken(recruitment.getGroup().getId());
+
+        // When / Then
+        authenticatedRequest(accessToken, csrfToken)
+                .body("{\"status\":\"PENDING\"}")
+                .when()
+                .patch(
+                        "/api/recruitments/{recruitmentId}/registrations/{registrationId}",
+                        recruitment.getId(),
+                        registration.getId()
+                )
+                .then()
+                .statusCode(400)
+                .body("success", equalTo(false))
+                .body("data", nullValue())
+                .body("error.code", equalTo("INVALID_PARAMETER"));
+    }
+
+    @DisplayName("가입 신청 결정 사유가 1000자를 초과하면 잘못된 요청으로 응답한다.")
+    @Test
+    void rejectsTooLongDecisionReason() {
+        // Given
+        Member leader = saveMember("새봄", "registration-controller-long-reason-leader");
+        Member applicant = saveMember("아라", "registration-controller-long-reason-applicant");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 2);
+        groupMemberRepository.save(GroupMember.createLeader(
+                recruitment.getGroup(),
+                leader,
+                TestSupportConfig.FIXED_NOW.minusDays(1)
+        ));
+        Registration registration = registrationRepository.save(Registration.createPending(
+                recruitment,
+                applicant,
+                null,
+                TestSupportConfig.FIXED_NOW.minusHours(1)
+        ));
+        String accessToken = accessTokenProvider.issue(leader.getId()).value();
+        String csrfToken = csrfToken(recruitment.getGroup().getId());
+
+        // When / Then
+        authenticatedRequest(accessToken, csrfToken)
+                .body("{\"status\":\"REJECTED\",\"decisionReason\":\"" + "가".repeat(1_001) + "\"}")
+                .when()
+                .patch(
+                        "/api/recruitments/{recruitmentId}/registrations/{registrationId}",
+                        recruitment.getId(),
+                        registration.getId()
+                )
+                .then()
+                .statusCode(400)
+                .body("success", equalTo(false))
+                .body("data", nullValue())
+                .body("error.code", equalTo("INVALID_PARAMETER"));
+    }
+
+    @DisplayName("모임장이 아니면 가입 신청 처리 요청을 거부한다.")
+    @Test
+    void rejectsDecisionByNonLeader() {
+        // Given
+        Member leader = saveMember("윤슬", "registration-controller-access-leader");
+        Member requester = saveMember("이든", "registration-controller-access-requester");
+        Member applicant = saveMember("하람", "registration-controller-access-applicant");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 2);
+        groupMemberRepository.save(GroupMember.createLeader(
+                recruitment.getGroup(),
+                leader,
+                TestSupportConfig.FIXED_NOW.minusDays(1)
+        ));
+        Registration registration = registrationRepository.save(Registration.createPending(
+                recruitment,
+                applicant,
+                null,
+                TestSupportConfig.FIXED_NOW.minusHours(1)
+        ));
+        String accessToken = accessTokenProvider.issue(requester.getId()).value();
+        String csrfToken = csrfToken(recruitment.getGroup().getId());
+
+        // When / Then
+        authenticatedRequest(accessToken, csrfToken)
+                .body("{\"status\":\"APPROVED\"}")
+                .when()
+                .patch(
+                        "/api/recruitments/{recruitmentId}/registrations/{registrationId}",
+                        recruitment.getId(),
+                        registration.getId()
+                )
+                .then()
+                .statusCode(403)
+                .body("success", equalTo(false))
+                .body("data", nullValue())
+                .body("error.code", equalTo("REGISTRATION_ACCESS_DENIED"));
+    }
 
     @DisplayName("승인제 모집은 정원보다 많은 대기 신청을 생성할 수 있다.")
     @Test
