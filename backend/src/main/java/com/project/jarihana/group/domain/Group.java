@@ -264,6 +264,25 @@ public class Group extends BaseEntity {
         );
     }
 
+    public Group replaceSessionSchedule(SessionGroupSchedule schedule) {
+        requireActive();
+        if (type != GroupType.SESSION) {
+            throw new BusinessException(ErrorCode.SCHEDULE_TYPE_MISMATCH, "CLUB과 STUDY 그룹에는 세션 일정을 등록할 수 없습니다.");
+        }
+        return new Group(
+                id,
+                type,
+                null,
+                require(schedule, "세션 일정"),
+                name,
+                introduction,
+                description,
+                representativeImageKey,
+                status,
+                getCreatedAt()
+        );
+    }
+
     public Group endAt(LocalDateTime now) {
         if (!canEndAt(now)) {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "그룹은 생성 후 24시간이 지난 ACTIVE 상태에서만 종료할 수 있습니다.");
