@@ -7,9 +7,14 @@ import org.springframework.data.repository.Repository;
 
 public interface RegistrationCommandRepository extends Repository<Registration, Long> {
 
-    void deleteAllByRecruitment_Group_Id(Long groupId);
+    void deleteAllByRecruitmentGroupId(long groupId);
 
-    List<Registration> findAllByRecruitment_Group_IdAndStatus(Long groupId, RegistrationStatus status);
+    List<Registration> findAllByRecruitmentGroupIdAndStatus(long groupId, RegistrationStatus status);
+
+    List<Registration> findAllByRecruitmentIdInAndStatus(
+            List<Long> recruitmentIds,
+            RegistrationStatus status
+    );
 
     Registration save(Registration registration);
 }

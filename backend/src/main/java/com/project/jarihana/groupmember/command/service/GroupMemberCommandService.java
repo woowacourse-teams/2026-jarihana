@@ -26,7 +26,7 @@ public class GroupMemberCommandService {
         Group group = groupCommandRepository.findWithLockById(groupId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND, "그룹을 찾을 수 없습니다."));
         GroupMember currentLeader = groupMemberCommandRepository
-                .findByGroup_IdAndMember_Id(groupId, memberId)
+                .findByGroupIdAndMemberId(groupId, memberId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.GROUP_ACCESS_DENIED,
                         "현재 모임장만 역할을 위임할 수 있습니다."
@@ -41,7 +41,7 @@ public class GroupMemberCommandService {
             );
         }
         GroupMember successor = groupMemberCommandRepository
-                .findByIdAndGroup_Id(command.groupMemberId(), groupId)
+                .findByIdAndGroupId(command.groupMemberId(), groupId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.GROUP_MEMBER_NOT_FOUND,
                         "위임할 그룹 구성원을 찾을 수 없습니다."
