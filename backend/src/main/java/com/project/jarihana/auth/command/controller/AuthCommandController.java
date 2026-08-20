@@ -1,11 +1,15 @@
 package com.project.jarihana.auth.command.controller;
 
 import com.project.jarihana.auth.command.service.AuthCommandService;
+import com.project.jarihana.auth.command.controller.dto.RefreshResponse;
 import com.project.jarihana.auth.command.service.dto.LogoutCommand;
+import com.project.jarihana.auth.command.service.dto.RefreshCommand;
+import com.project.jarihana.auth.command.service.dto.RefreshResult;
 import com.project.jarihana.common.auth.AuthCookieFactory;
 import com.project.jarihana.common.auth.AuthCookieProperties;
 import com.project.jarihana.common.auth.LoginMemberReader;
 import com.project.jarihana.common.auth.SignupSession;
+import com.project.jarihana.common.response.ApiResponse;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
@@ -38,6 +42,25 @@ public class AuthCommandController {
         this.authCookieFactory = authCookieFactory;
         this.loginMemberReader = loginMemberReader;
         this.signupSession = signupSession;
+    }
+
+    /**
+     * Access Token은 응답 본문이 아니라 쿠키로 내린다(ADR 0002). Refresh Token은 회전하지 않으므로
+     * 다시 내리지 않는다.
+     */
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<RefreshResponse>> refresh(HttpServletRequest request) {
+        RefreshCommand command = new RefreshCommand(readRefreshToken(request).orElse(null));
+        RefreshResult result = authCommandService.refresh(command);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, accessTokenCookie(result))
+                .body(ApiResponse.success(RefreshResponse.from(result)));
+    }
+
+    private String accessTokenCookie(RefreshResult result) {
+        return authCookieFactory
+                .accessToken(result.accessToken().value(), result.accessToken().validity())
+                .toString();
     }
 
     /**

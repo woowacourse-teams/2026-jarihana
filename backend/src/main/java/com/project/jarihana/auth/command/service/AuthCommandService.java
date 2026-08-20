@@ -2,8 +2,14 @@ package com.project.jarihana.auth.command.service;
 
 import com.project.jarihana.auth.command.repository.RefreshTokenRepository;
 import com.project.jarihana.auth.command.service.dto.LogoutCommand;
+import com.project.jarihana.auth.command.service.dto.RefreshCommand;
+import com.project.jarihana.auth.command.service.dto.RefreshResult;
+import com.project.jarihana.auth.domain.RefreshToken;
+import com.project.jarihana.common.auth.AccessTokenProvider;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,16 +17,24 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthCommandService {
 
     private static final String UNAUTHENTICATED_MESSAGE = "인증 정보가 필요합니다.";
+    private static final String REFRESH_REQUIRED_MESSAGE = "로그인이 필요합니다.";
+    private static final String REFRESH_INVALID_MESSAGE = "다시 로그인해 주세요.";
 
     private final RefreshTokenRepository refreshTokenRepository;
     private final RefreshTokenHasher refreshTokenHasher;
+    private final AccessTokenProvider accessTokenProvider;
+    private final Clock clock;
 
     public AuthCommandService(
             RefreshTokenRepository refreshTokenRepository,
-            RefreshTokenHasher refreshTokenHasher
+            RefreshTokenHasher refreshTokenHasher,
+            AccessTokenProvider accessTokenProvider,
+            Clock clock
     ) {
         this.refreshTokenRepository = refreshTokenRepository;
         this.refreshTokenHasher = refreshTokenHasher;
+        this.accessTokenProvider = accessTokenProvider;
+        this.clock = clock;
     }
 
     /**
@@ -37,6 +51,35 @@ public class AuthCommandService {
         if (!discarded && command.memberId() == null && command.signupGithubId() == null) {
             throw new BusinessException(ErrorCode.UNAUTHENTICATED, UNAUTHENTICATED_MESSAGE);
         }
+    }
+
+    /**
+     * Refresh Token으로 Access Token만 새로 발급한다.
+     *
+     * <p>회전은 도입하지 않는다. 재발급해도 기존 Refresh Token을 그대로 두므로 같은 값으로 여러 번
+     * 재발급할 수 있다. 회전과 재사용 감지는 별도 결정으로 남긴다.
+     *
+     * <p>유효 기간이 지난 토큰은 거부만 하고 지우지 않는다. 실패 응답과 함께 삭제하려면 예외로
+     * 트랜잭션이 되돌아가는 것을 우회해야 하는데, 만료된 토큰은 더 이상 인증에 쓰이지 못하므로
+     * 급하지 않다. 정리 방법은 ADR 0001의 후속 작업으로 남아 있다.
+     */
+    @Transactional
+    public RefreshResult refresh(RefreshCommand command) {
+        String refreshTokenValue = requireRefreshToken(command.refreshTokenValue());
+        RefreshToken refreshToken = refreshTokenRepository
+                .findByTokenHash(refreshTokenHasher.hash(refreshTokenValue))
+                .orElseThrow(() -> new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID, REFRESH_INVALID_MESSAGE));
+        if (refreshToken.isExpired(LocalDateTime.now(clock))) {
+            throw new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID, REFRESH_INVALID_MESSAGE);
+        }
+        return new RefreshResult(accessTokenProvider.issue(refreshToken.getMember().getId()));
+    }
+
+    private String requireRefreshToken(String refreshTokenValue) {
+        if (refreshTokenValue == null || refreshTokenValue.isBlank()) {
+            throw new BusinessException(ErrorCode.REFRESH_TOKEN_REQUIRED, REFRESH_REQUIRED_MESSAGE);
+        }
+        return refreshTokenValue;
     }
 
     private boolean discardRefreshToken(String refreshTokenValue) {
