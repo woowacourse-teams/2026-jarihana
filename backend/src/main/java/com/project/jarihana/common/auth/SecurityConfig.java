@@ -30,7 +30,7 @@ public class SecurityConfig {
      * 여기서 통과시키고, 자격 증명이 하나도 없을 때 거부하는 판단은 각 Service가 한다.
      */
     private static final String[] SESSION_OR_TOKEN_GET_PATHS = {"/api/members/me"};
-    private static final String[] SESSION_OR_TOKEN_POST_PATHS = {"/api/members"};
+    private static final String[] SESSION_OR_TOKEN_POST_PATHS = {"/api/members", "/api/auth/logout"};
 
     private final AccessTokenProvider accessTokenProvider;
     private final AuthCookieProperties authCookieProperties;
