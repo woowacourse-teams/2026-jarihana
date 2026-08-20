@@ -75,6 +75,9 @@ public class Club {
 - `get...`: 결과가 반드시 있어야 하는 조회. 없으면 명시적인 예외를 발생시킨다.
 - `exists...`: 존재 여부를 `boolean`으로 반환한다. `exist...`는 사용하지 않는다.
 - Repository 기본 동사는 `save`, `find`/`get`, `remove`를 사용한다.
+- Spring Data Repository 파생 쿼리 메서드명은 underscore(`_`) 없이 camelCase로 작성한다.
+  연관 경로가 포함되어 메서드명이 모호해지면 underscore로 구분하지 않고 `@Query`로
+  JPQL을 명시한다.
 - Service 메서드는 Repository의 CRUD 이름을 그대로 복사하지 않고 유스케이스를
   표현한다. 예: `modifyUserInfo()`
 - Controller 메서드명은 동사를 먼저 쓰고 그 뒤에 도메인명을 조합한다. 예:
