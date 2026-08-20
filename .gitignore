@@ -35,3 +35,10 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Local environment ###
+.env
+*.http
+
+### macOS ###
+.DS_Store

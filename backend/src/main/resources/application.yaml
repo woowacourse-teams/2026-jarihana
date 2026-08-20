@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: jarihana
+  jpa:
+    open-in-view: false
+
+jarihana:
+  auth:
+    frontend-origin: ${FRONTEND_ORIGIN:http://localhost:5173}
+    oauth-state-cookie-name: oauthState
+    refresh-token-validity: P14D
+    cookie:
+      secure: true
+      access-token-name: accessToken
+      access-token-path: /
+      refresh-token-name: refreshToken
+      refresh-token-path: /api/auth
+    jwt:
+      secret: ${ACCESS_TOKEN_SECRET:}
+      validity: PT1H
+  oauth:
+    github:
+      client-id: ${GITHUB_OAUTH_CLIENT_ID:}
+      client-secret: ${GITHUB_OAUTH_CLIENT_SECRET:}
+      redirect-uri: ${GITHUB_OAUTH_REDIRECT_URI:http://localhost:8080/api/oauth/github/callback}
+      token-uri: https://github.com/login/oauth/access_token
+      user-uri: https://api.github.com/user

@@ -1,0 +1,22 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/jarihana
+    username: jarihana
+    password: jarihana
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  session:
+    jdbc:
+      initialize-schema: always
+
+jarihana:
+  auth:
+    cookie:
+      secure: false

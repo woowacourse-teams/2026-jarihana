@@ -1,0 +1,37 @@
+package com.project.jarihana.group.query.service.dto;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+public record GroupListResult(List<Item> items, String nextCursor, boolean hasNext) {
+
+    public GroupListResult {
+        items = List.copyOf(items);
+    }
+
+    public record Item(
+            Long id,
+            String type,
+            String status,
+            String name,
+            String introduction,
+            String representativeImageUrl,
+            Leader leader,
+            int memberCount,
+            ActiveRecruitment activeRecruitment
+    ) {
+    }
+
+    public record Leader(Long memberId, String crewName, int generation) {
+    }
+
+    public record ActiveRecruitment(
+            Long id,
+            String joinMethod,
+            int capacity,
+            int approvedCount,
+            LocalDateTime startsAt,
+            LocalDateTime endsAt
+    ) {
+    }
+}
