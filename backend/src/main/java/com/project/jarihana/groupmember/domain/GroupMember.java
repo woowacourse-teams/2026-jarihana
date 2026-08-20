@@ -85,7 +85,10 @@ public class GroupMember extends BaseEntity {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "같은 그룹의 구성원에게만 역할을 위임할 수 있습니다.");
         }
         if (requiredSuccessor.role != GroupMemberRole.MEMBER) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "일반 구성원에게만 역할을 위임할 수 있습니다.");
+            throw new BusinessException(
+                    ErrorCode.GROUP_MEMBER_ALREADY_LEADER,
+                    "이미 모임장인 구성원에게는 역할을 위임할 수 없습니다."
+            );
         }
         return LeadershipTransfer.of(
                 withRole(GroupMemberRole.MEMBER),

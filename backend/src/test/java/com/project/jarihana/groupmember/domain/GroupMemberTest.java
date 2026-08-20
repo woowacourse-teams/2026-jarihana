@@ -135,7 +135,7 @@ class GroupMemberTest {
         assertThatThrownBy(() -> leader.transferLeadershipTo(anotherLeader))
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
-                .isEqualTo(ErrorCode.INVALID_PARAMETER);
+                .isEqualTo(ErrorCode.GROUP_MEMBER_ALREADY_LEADER);
     }
 
     private Group group(String name) {
