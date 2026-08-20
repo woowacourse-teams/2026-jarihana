@@ -52,6 +52,10 @@ public class RefreshToken extends BaseEntity {
         return new RefreshToken(member, tokenHash, expiresAt);
     }
 
+    public boolean isExpired(LocalDateTime now) {
+        return !now.isBefore(expiresAt);
+    }
+
     private static <T> T require(T value, String fieldName) {
         if (value == null) {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 필수입니다.");
