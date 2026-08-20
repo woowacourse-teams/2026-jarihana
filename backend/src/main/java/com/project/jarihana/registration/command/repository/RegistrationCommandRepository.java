@@ -16,5 +16,15 @@ public interface RegistrationCommandRepository extends Repository<Registration, 
             RegistrationStatus status
     );
 
+    long countByRecruitmentIdAndStatus(long recruitmentId, RegistrationStatus status);
+
+    boolean existsByRecruitmentIdAndMemberId(long recruitmentId, long memberId);
+
+    boolean existsByRecruitmentGroupIdAndMemberIdAndStatus(
+            long groupId,
+            long memberId,
+            RegistrationStatus status
+    );
+
     Registration save(Registration registration);
 }
