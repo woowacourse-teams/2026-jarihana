@@ -11,7 +11,10 @@ import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.JoinMethod;
 import com.project.jarihana.recruitment.domain.RecruitmentPhase;
 import com.project.jarihana.recruitment.query.repository.RecruitmentDetailRepository;
+import com.project.jarihana.recruitment.query.repository.RecruitmentListRepository;
 import com.project.jarihana.recruitment.query.repository.dto.RecruitmentDetailProjection;
+import com.project.jarihana.recruitment.query.repository.dto.RecruitmentListPage;
+import com.project.jarihana.recruitment.query.repository.dto.RecruitmentListSearchCriteria;
 import com.project.jarihana.recruitment.query.service.dto.RecruitmentDetailResult;
 import java.time.Clock;
 import java.time.DayOfWeek;
@@ -19,6 +22,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
@@ -47,6 +51,7 @@ class RecruitmentQueryServiceTest {
         RecruitmentDetailProjection projection = RecruitmentDetailProjection.of(group, recruitment, 2);
         RecruitmentQueryService service = new RecruitmentQueryService(
                 new StubRecruitmentDetailRepository(group, projection),
+                new UnusedRecruitmentListRepository(),
                 CLOCK
         );
 
@@ -67,6 +72,7 @@ class RecruitmentQueryServiceTest {
         // Given
         RecruitmentQueryService service = new RecruitmentQueryService(
                 new StubRecruitmentDetailRepository(null, null),
+                new UnusedRecruitmentListRepository(),
                 CLOCK
         );
 
@@ -87,6 +93,7 @@ class RecruitmentQueryServiceTest {
         Group group = study("소속검증스터디");
         RecruitmentQueryService service = new RecruitmentQueryService(
                 new StubRecruitmentDetailRepository(group, null),
+                new UnusedRecruitmentListRepository(),
                 CLOCK
         );
 
@@ -131,6 +138,19 @@ class RecruitmentQueryServiceTest {
                 Long recruitmentId
         ) {
             return Optional.ofNullable(projection);
+        }
+    }
+
+    private static final class UnusedRecruitmentListRepository implements RecruitmentListRepository {
+
+        @Override
+        public boolean existsGroupById(Long groupId) {
+            return false;
+        }
+
+        @Override
+        public RecruitmentListPage findPage(RecruitmentListSearchCriteria criteria, int size) {
+            return new RecruitmentListPage(List.of(), false);
         }
     }
 }
