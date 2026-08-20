@@ -18,4 +18,5 @@ spring:
 
 jarihana:
   auth:
-    cookie-secure: false
+    cookie:
+      secure: false

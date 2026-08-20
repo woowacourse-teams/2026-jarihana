@@ -19,8 +19,6 @@ class AccessTokenProviderTest {
     private static final Duration VALIDITY = Duration.ofHours(1);
     private static final String SECRET = "access-token-secret-key-for-hmac-sha256-0001";
     private static final String OTHER_SECRET = "access-token-secret-key-for-hmac-sha256-0002";
-    private static final String COOKIE_NAME = "accessToken";
-    private static final String COOKIE_PATH = "/";
     private static final Long MEMBER_ID = 12L;
 
     private final AccessTokenProvider accessTokenProvider = providerOf(SECRET, NOW);
@@ -126,7 +124,7 @@ class AccessTokenProviderTest {
     }
 
     private AccessTokenProvider providerOf(String secret, LocalDateTime now) {
-        JwtProperties properties = new JwtProperties(secret, VALIDITY, COOKIE_NAME, COOKIE_PATH);
+        JwtProperties properties = new JwtProperties(secret, VALIDITY);
         return new AccessTokenProvider(properties, Clock.fixed(now.atZone(ZONE).toInstant(), ZONE));
     }
 }

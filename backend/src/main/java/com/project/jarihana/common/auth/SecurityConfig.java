@@ -33,18 +33,18 @@ public class SecurityConfig {
     private static final String[] SESSION_OR_TOKEN_POST_PATHS = {"/api/members"};
 
     private final AccessTokenProvider accessTokenProvider;
-    private final JwtProperties jwtProperties;
+    private final AuthCookieProperties authCookieProperties;
     private final UnauthenticatedEntryPoint unauthenticatedEntryPoint;
     private final AccessDeniedResponder accessDeniedResponder;
 
     public SecurityConfig(
             AccessTokenProvider accessTokenProvider,
-            JwtProperties jwtProperties,
+            AuthCookieProperties authCookieProperties,
             UnauthenticatedEntryPoint unauthenticatedEntryPoint,
             AccessDeniedResponder accessDeniedResponder
     ) {
         this.accessTokenProvider = accessTokenProvider;
-        this.jwtProperties = jwtProperties;
+        this.authCookieProperties = authCookieProperties;
         this.unauthenticatedEntryPoint = unauthenticatedEntryPoint;
         this.accessDeniedResponder = accessDeniedResponder;
     }
@@ -69,7 +69,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint(unauthenticatedEntryPoint)
                         .accessDeniedHandler(accessDeniedResponder))
                 .addFilterBefore(
-                        new JwtCookieAuthenticationFilter(accessTokenProvider, jwtProperties),
+                        new JwtCookieAuthenticationFilter(accessTokenProvider, authCookieProperties),
                         UsernamePasswordAuthenticationFilter.class)
                 .build();
     }

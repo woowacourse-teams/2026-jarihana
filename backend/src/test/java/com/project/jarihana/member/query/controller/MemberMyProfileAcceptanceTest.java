@@ -3,7 +3,7 @@ package com.project.jarihana.member.query.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.project.jarihana.common.auth.AccessTokenProvider;
-import com.project.jarihana.common.auth.JwtProperties;
+import com.project.jarihana.common.auth.AuthCookieProperties;
 import com.project.jarihana.common.auth.SignupSession;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
@@ -40,7 +40,7 @@ class MemberMyProfileAcceptanceTest extends IntegrationTestSupport {
     private SessionRepository<? extends Session> sessionRepository;
 
     @Autowired
-    private JwtProperties jwtProperties;
+    private AuthCookieProperties authCookieProperties;
 
     @Autowired
     private AccessTokenProvider accessTokenProvider;
@@ -53,7 +53,7 @@ class MemberMyProfileAcceptanceTest extends IntegrationTestSupport {
 
         // When
         ExtractableResponse<Response> response = RestAssured.given()
-                .cookie(jwtProperties.cookieName(), accessTokenOf(member))
+                .cookie(authCookieProperties.accessTokenName(), accessTokenOf(member))
                 .when()
                 .get(MY_PROFILE_PATH)
                 .then()
@@ -101,7 +101,7 @@ class MemberMyProfileAcceptanceTest extends IntegrationTestSupport {
 
         // When
         ExtractableResponse<Response> response = RestAssured.given()
-                .cookie(jwtProperties.cookieName(), accessTokenOf(member))
+                .cookie(authCookieProperties.accessTokenName(), accessTokenOf(member))
                 .cookie(SESSION_COOKIE_NAME, encodeSessionCookie(sessionId))
                 .when()
                 .get(MY_PROFILE_PATH)
@@ -138,7 +138,7 @@ class MemberMyProfileAcceptanceTest extends IntegrationTestSupport {
 
         // When
         ExtractableResponse<Response> response = RestAssured.given()
-                .cookie(jwtProperties.cookieName(), "not-a-json-web-token")
+                .cookie(authCookieProperties.accessTokenName(), "not-a-json-web-token")
                 .when()
                 .get(MY_PROFILE_PATH)
                 .then()
@@ -157,7 +157,7 @@ class MemberMyProfileAcceptanceTest extends IntegrationTestSupport {
 
         // When
         ExtractableResponse<Response> response = RestAssured.given()
-                .cookie(jwtProperties.cookieName(), accessToken)
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
                 .when()
                 .get(MY_PROFILE_PATH)
                 .then()

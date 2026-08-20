@@ -1,6 +1,5 @@
 package com.project.jarihana.common.auth;
 
-import com.project.jarihana.auth.config.AuthProperties;
 import java.time.Duration;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
@@ -15,30 +14,28 @@ public class AuthCookieFactory {
 
     private static final String SAME_SITE_LAX = "Lax";
 
-    private final AuthProperties authProperties;
-    private final JwtProperties jwtProperties;
+    private final AuthCookieProperties authCookieProperties;
 
-    public AuthCookieFactory(AuthProperties authProperties, JwtProperties jwtProperties) {
-        this.authProperties = authProperties;
-        this.jwtProperties = jwtProperties;
+    public AuthCookieFactory(AuthCookieProperties authCookieProperties) {
+        this.authCookieProperties = authCookieProperties;
     }
 
     public ResponseCookie accessToken(String value, Duration validity) {
-        return ResponseCookie.from(jwtProperties.cookieName(), value)
+        return ResponseCookie.from(authCookieProperties.accessTokenName(), value)
                 .httpOnly(true)
-                .secure(authProperties.cookieSecure())
+                .secure(authCookieProperties.secure())
                 .sameSite(SAME_SITE_LAX)
-                .path(jwtProperties.cookiePath())
+                .path(authCookieProperties.accessTokenPath())
                 .maxAge(validity)
                 .build();
     }
 
     public ResponseCookie refreshToken(String value, Duration validity) {
-        return ResponseCookie.from(authProperties.refreshCookieName(), value)
+        return ResponseCookie.from(authCookieProperties.refreshTokenName(), value)
                 .httpOnly(true)
-                .secure(authProperties.cookieSecure())
+                .secure(authCookieProperties.secure())
                 .sameSite(SAME_SITE_LAX)
-                .path(authProperties.refreshCookiePath())
+                .path(authCookieProperties.refreshTokenPath())
                 .maxAge(validity)
                 .build();
     }

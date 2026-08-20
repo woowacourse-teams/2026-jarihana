@@ -2,9 +2,8 @@ package com.project.jarihana.member.command.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.project.jarihana.auth.config.AuthProperties;
 import com.project.jarihana.common.auth.AccessTokenProvider;
-import com.project.jarihana.common.auth.JwtProperties;
+import com.project.jarihana.common.auth.AuthCookieProperties;
 import com.project.jarihana.common.auth.SignupSession;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
@@ -49,10 +48,7 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
     private SessionRepository<? extends Session> sessionRepository;
 
     @Autowired
-    private AuthProperties authProperties;
-
-    @Autowired
-    private JwtProperties jwtProperties;
+    private AuthCookieProperties authCookieProperties;
 
     @Autowired
     private AccessTokenProvider accessTokenProvider;
@@ -88,14 +84,14 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
         ExtractableResponse<Response> response = signup(sessionId, body("가온", 8, "BACKEND"));
 
         // Then
-        Cookie accessCookie = response.detailedCookie(jwtProperties.cookieName());
-        Cookie refreshCookie = response.detailedCookie(authProperties.refreshCookieName());
+        Cookie accessCookie = response.detailedCookie(authCookieProperties.accessTokenName());
+        Cookie refreshCookie = response.detailedCookie(authCookieProperties.refreshTokenName());
         assertThat(accessCookie.isHttpOnly()).isTrue();
         assertThat(accessTokenProvider.parseMemberId(accessCookie.getValue()))
                 .isEqualTo(response.jsonPath().getLong("data.id"));
         assertThat(refreshCookie.getValue()).isNotBlank();
         assertThat(refreshCookie.isHttpOnly()).isTrue();
-        assertThat(refreshCookie.getPath()).isEqualTo(authProperties.refreshCookiePath());
+        assertThat(refreshCookie.getPath()).isEqualTo(authCookieProperties.refreshTokenPath());
     }
 
     @DisplayName("가입을 마치면 발급받은 Access Token으로 내 정보를 조회할 수 있다.")
@@ -107,7 +103,7 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
 
         // When
         ExtractableResponse<Response> myProfile = RestAssured.given()
-                .cookie(jwtProperties.cookieName(), signup.cookie(jwtProperties.cookieName()))
+                .cookie(authCookieProperties.accessTokenName(), signup.cookie(authCookieProperties.accessTokenName()))
                 .when()
                 .get(MY_PROFILE_PATH)
                 .then()
