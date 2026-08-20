@@ -92,4 +92,13 @@ public class GroupCommandController {
         );
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+    @DeleteMapping("/{groupId}/recurring-schedule")
+    public ResponseEntity<Void> removeRecurringSchedule(
+            @LoginMember Long memberId,
+            @PathVariable Long groupId
+    ) {
+        groupCommandService.removeRecurringSchedule(memberId, groupId);
+        return ResponseEntity.noContent().build();
+    }
 }
