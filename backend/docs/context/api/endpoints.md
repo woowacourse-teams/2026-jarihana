@@ -854,7 +854,7 @@ endsAt <= now              CLOSED
 | --- | --- | --- |
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
 | size 범위 위반 | `INVALID_PARAMETER` | 400 |
-| 잘못되거나 만료된 cursor | `INVALID_CURSOR` | 400 |
+| 잘못되거나 만료된 cursor | `INVALID_PARAMETER` | 400 |
 
 ### `POST /api/groups/{groupId}/recruitments`
 
