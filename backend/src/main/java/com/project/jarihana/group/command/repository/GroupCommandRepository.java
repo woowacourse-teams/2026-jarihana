@@ -11,4 +11,6 @@ public interface GroupCommandRepository extends Repository<Group, Long> {
     Optional<Group> findById(Long id);
 
     boolean existsByName(String name);
+
+    boolean existsByNameAndIdNot(String name, Long id);
 }

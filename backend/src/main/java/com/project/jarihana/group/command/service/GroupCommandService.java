@@ -5,12 +5,14 @@ import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.command.repository.GroupCommandRepository;
 import com.project.jarihana.group.command.service.dto.CreateGroupCommand;
 import com.project.jarihana.group.command.service.dto.CreateGroupResult;
+import com.project.jarihana.group.command.service.dto.ModifyGroupCommand;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.GroupType;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.group.domain.SessionGroupSchedule;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
+import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Member;
 import java.time.Clock;
@@ -25,6 +27,9 @@ public class GroupCommandService {
 
     private static final String MEMBER_NOT_FOUND_MESSAGE = "회원 정보를 찾을 수 없습니다.";
     private static final String GROUP_NAME_DUPLICATED_MESSAGE = "이미 사용 중인 그룹 이름입니다.";
+    private static final String GROUP_NOT_FOUND_MESSAGE = "그룹을 찾을 수 없습니다.";
+    private static final String GROUP_ACCESS_DENIED_MESSAGE = "그룹 모임장만 수정할 수 있습니다.";
+    private static final String GROUP_ENDED_MESSAGE = "종료된 그룹은 수정할 수 없습니다.";
     private static final String SCHEDULE_TYPE_MISMATCH_MESSAGE = "그룹 유형에 맞는 일정만 등록할 수 있습니다.";
     private static final String SCHEDULE_REQUIRED_MESSAGE = "세션 그룹에는 일회성 일정이 필요합니다.";
     private static final String SCHEDULE_INVALID_RULE_MESSAGE = "일정 형식이 올바르지 않습니다.";
@@ -59,6 +64,33 @@ public class GroupCommandService {
         GroupMember leader = GroupMember.createLeader(group, member, now);
         groupMemberCommandRepository.save(leader);
         return new CreateGroupResult(group.getId(), group.getStatus());
+    }
+
+    @Transactional
+    public void modifyGroup(Long memberId, Long groupId, ModifyGroupCommand command) {
+        Group group = groupCommandRepository.findById(groupId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND, GROUP_NOT_FOUND_MESSAGE));
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, MEMBER_NOT_FOUND_MESSAGE));
+        GroupMember groupMember = groupMemberCommandRepository.findByGroupAndMember(group, member)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_ACCESS_DENIED, GROUP_ACCESS_DENIED_MESSAGE));
+        if (groupMember.getRole() != GroupMemberRole.LEADER) {
+            throw new BusinessException(ErrorCode.GROUP_ACCESS_DENIED, GROUP_ACCESS_DENIED_MESSAGE);
+        }
+        if (!group.isActive()) {
+            throw new BusinessException(ErrorCode.GROUP_ENDED, GROUP_ENDED_MESSAGE);
+        }
+        if (groupCommandRepository.existsByNameAndIdNot(command.name(), groupId)) {
+            throw new BusinessException(ErrorCode.GROUP_NAME_DUPLICATED, GROUP_NAME_DUPLICATED_MESSAGE);
+        }
+        groupCommandRepository.save(group.modify(
+                command.name(),
+                command.introduction(),
+                command.description(),
+                DEFAULT_REPRESENTATIVE_IMAGE_KEY,
+                group.getRecurringSchedule(),
+                group.getSessionSchedule()
+        ));
     }
 
     private Group createGroup(CreateGroupCommand command, LocalDateTime createdAt) {
