@@ -2,23 +2,29 @@ package com.project.jarihana.group.command.controller;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.nullValue;
 
 import com.project.jarihana.common.auth.AccessTokenProvider;
 import com.project.jarihana.common.auth.AuthCookieProperties;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
+import com.project.jarihana.group.domain.SessionGroupSchedule;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.group.query.repository.GroupMemberJpaRepository;
+import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
+import com.project.jarihana.recruitment.domain.GroupRecruitment;
+import com.project.jarihana.recruitment.domain.JoinMethod;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.TestSupportConfig;
 import io.restassured.response.ExtractableResponse;
 import io.restassured.response.Response;
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
@@ -34,6 +40,9 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
     private GroupMemberJpaRepository groupMemberRepository;
 
     @Autowired
+    private GroupRecruitmentJpaRepository recruitmentRepository;
+
+    @Autowired
     private MemberRepository memberRepository;
 
     @Autowired
@@ -47,7 +56,7 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
     void replacesGroupBasicInformation() {
         // Given
         Member leader = memberRepository.save(Member.create("가온", 8, "github-controller-leader", Course.BACKEND));
-        Group group = createGroup(leader);
+        Group group = createGroup(leader, "컨트롤러 수정 그룹");
         String accessToken = accessTokenProvider.issue(leader.getId()).value();
         String csrfToken = csrfToken(group.getId());
 
@@ -84,7 +93,7 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
         // Given
         Member leader = memberRepository.save(Member.create("가온", 8, "github-controller-owner", Course.BACKEND));
         Member member = memberRepository.save(Member.create("누리", 8, "github-controller-member", Course.BACKEND));
-        Group group = createGroup(leader);
+        Group group = createGroup(leader, "컨트롤러 권한 그룹");
         groupMemberRepository.save(GroupMember.createMember(group, member, TestSupportConfig.FIXED_NOW));
         String accessToken = accessTokenProvider.issue(member.getId()).value();
         String csrfToken = csrfToken(group.getId());
@@ -113,9 +122,154 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                 .isEqualTo("GROUP_ACCESS_DENIED");
     }
 
-    private Group createGroup(Member leader) {
+    @DisplayName("생성 후 24시간 이내 모임장의 삭제 요청은 204를 반환하고 그룹을 제거한다.")
+    @Test
+    void deletesGroupWithinDeleteWindow() {
+        // Given
+        Member leader = memberRepository.save(Member.create("가온", 8, "github-controller-delete", Course.BACKEND));
+        Group group = createGroup(leader, "컨트롤러 삭제 그룹");
+        recruitmentRepository.save(GroupRecruitment.create(
+                group, JoinMethod.APPROVAL, 3,
+                TestSupportConfig.FIXED_NOW.minusHours(1), TestSupportConfig.FIXED_NOW.plusHours(1)));
+        String accessToken = accessTokenProvider.issue(leader.getId()).value();
+        String csrfToken = csrfToken(group.getId());
+
+        // When / Then
+        given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .cookie("XSRF-TOKEN", csrfToken)
+                .header("X-XSRF-TOKEN", csrfToken)
+                .when()
+                .delete("/api/groups/{groupId}", group.getId())
+                .then()
+                .statusCode(204)
+                .body(equalTo(""));
+
+        given()
+                .when()
+                .get("/api/groups/{groupId}", group.getId())
+                .then()
+                .statusCode(404)
+                .body("error.code", equalTo("GROUP_NOT_FOUND"));
+    }
+
+    @DisplayName("종료 요청 상태가 ENDED가 아니면 400을 반환한다.")
+    @Test
+    void rejectsTerminationWithInvalidStatus() {
+        Member leader = memberRepository.save(Member.create("가온", 9, "github-controller-terminate-invalid", Course.BACKEND));
+        Group group = createGroup(leader, "컨트롤러 잘못된 종료 상태 그룹");
+        String accessToken = accessTokenProvider.issue(leader.getId()).value();
+        String csrfToken = csrfToken(group.getId());
+
+        given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .cookie("XSRF-TOKEN", csrfToken)
+                .header("X-XSRF-TOKEN", csrfToken)
+                .contentType("application/json")
+                .body("{\"status\":\"ACTIVE\"}")
+                .when()
+                .patch("/api/groups/{groupId}", group.getId())
+                .then()
+                .statusCode(400)
+                .body("success", equalTo(false))
+                .body("error.code", equalTo("INVALID_PARAMETER"));
+    }
+
+    @DisplayName("모임장은 동아리 반복 일정을 등록하거나 교체한 결과를 받는다.")
+    @Test
+    void replacesRecurringSchedule() {
+        Member leader = memberRepository.save(Member.create("가온", 10, "github-controller-schedule", Course.BACKEND));
+        Group group = createGroup(leader, "컨트롤러 반복 일정 그룹");
+        String accessToken = accessTokenProvider.issue(leader.getId()).value();
+        String csrfToken = csrfToken(group.getId());
+
+        given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .cookie("XSRF-TOKEN", csrfToken)
+                .header("X-XSRF-TOKEN", csrfToken)
+                .contentType("application/json")
+                .body("""
+                        {
+                          "daysOfWeek": ["TUESDAY", "THURSDAY"],
+                          "startTime": "19:30:00",
+                          "endTime": "21:30:00"
+                        }
+                        """)
+                .when()
+                .put("/api/groups/{groupId}/recurring-schedule", group.getId())
+                .then()
+                .statusCode(200)
+                .body("success", equalTo(true))
+                .body("data.daysOfWeek", hasItems("TUESDAY", "THURSDAY"))
+                .body("data.startTime", equalTo("19:30:00"))
+                .body("data.endTime", equalTo("21:30:00"))
+                .body("error", nullValue());
+    }
+
+    @DisplayName("모임장의 반복 일정 삭제 요청은 204를 반환하고 일정을 제거한다.")
+    @Test
+    void removesRecurringSchedule() {
+        Member leader = memberRepository.save(Member.create("가온", 11, "github-controller-schedule-remove", Course.BACKEND));
+        Group group = createGroup(leader, "컨트롤러 반복 일정 삭제 그룹");
+        String accessToken = accessTokenProvider.issue(leader.getId()).value();
+        String csrfToken = csrfToken(group.getId());
+
+        given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .cookie("XSRF-TOKEN", csrfToken)
+                .header("X-XSRF-TOKEN", csrfToken)
+                .when()
+                .delete("/api/groups/{groupId}/recurring-schedule", group.getId())
+                .then()
+                .statusCode(204)
+                .body(equalTo(""));
+
+        given()
+                .when()
+                .get("/api/groups/{groupId}", group.getId())
+                .then()
+                .statusCode(200)
+                .body("data.recurringSchedule", nullValue());
+    }
+
+    @DisplayName("세션 그룹 모임장은 세션 일정 교체 결과를 받는다.")
+    @Test
+    void replacesSessionSchedule() {
+        Member leader = memberRepository.save(Member.create("가온", 12, "github-controller-session-schedule", Course.BACKEND));
+        Group group = groupRepository.save(Group.createSession(
+                "컨트롤러 세션 일정 그룹", "소개", null, "images/default-group.png",
+                SessionGroupSchedule.of(LocalDate.of(2026, 8, 25), LocalTime.of(10, 0), LocalTime.of(11, 0)),
+                TestSupportConfig.FIXED_NOW));
+        groupMemberRepository.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
+        String accessToken = accessTokenProvider.issue(leader.getId()).value();
+        String csrfToken = csrfToken(group.getId());
+
+        given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .cookie("XSRF-TOKEN", csrfToken)
+                .header("X-XSRF-TOKEN", csrfToken)
+                .contentType("application/json")
+                .body("""
+                        {
+                          "sessionDate": "2026-09-01",
+                          "startTime": "13:00:00",
+                          "endTime": "15:00:00"
+                        }
+                        """)
+                .when()
+                .put("/api/groups/{groupId}/session-schedule", group.getId())
+                .then()
+                .statusCode(200)
+                .body("success", equalTo(true))
+                .body("data.sessionDate", equalTo("2026-09-01"))
+                .body("data.startTime", equalTo("13:00:00"))
+                .body("data.endTime", equalTo("15:00:00"))
+                .body("error", nullValue());
+    }
+
+    private Group createGroup(Member leader, String name) {
         Group group = groupRepository.save(Group.createStudy(
-                "컨트롤러 기존 그룹",
+                name,
                 "기존 소개",
                 "기존 설명",
                 "groups/original.webp",

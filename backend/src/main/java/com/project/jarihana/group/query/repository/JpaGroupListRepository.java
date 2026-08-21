@@ -8,6 +8,7 @@ import com.project.jarihana.group.query.repository.dto.GroupListProjection;
 import com.project.jarihana.group.query.repository.dto.GroupListSearchCriteria;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
+import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
 import com.project.jarihana.registration.domain.RegistrationStatus;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -76,7 +77,7 @@ public class JpaGroupListRepository implements GroupListRepository {
     }
 
     private Map<Long, List<GroupMember>> findMembers(List<Long> groupIds) {
-        return groupMemberRepository.findAllByGroup_IdInOrderById(groupIds)
+        return groupMemberRepository.findAllByGroupIdInOrderById(groupIds)
                 .stream()
                 .collect(Collectors.groupingBy(member -> member.getGroup().getId()));
     }

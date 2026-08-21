@@ -286,6 +286,9 @@ Refresh Token을 모두 `HttpOnly` 쿠키로 내린다. `state` 검증 방식은
 
 ## 그룹
 
+MVP에서는 이미지 저장소 연동 전까지 그룹 목록·상세 조회의
+`representativeImageUrl`을 `images/default-group.png`로 통일한다.
+
 ### `GET /api/groups`
 
 - 설명: 그룹 목록 조회 — 관계·상태·유형 필터 지원
@@ -332,7 +335,7 @@ Refresh Token을 모두 `HttpOnly` 쿠키로 내린다. `state` 검증 방식은
       "status": "ACTIVE",
       "name": "알고리즘 스터디",
       "introduction": "매주 함께 문제를 풉니다.",
-      "representativeImageUrl": "https://cdn.example.com/groups/12.webp",
+      "representativeImageUrl": "images/default-group.png",
       "leader": {"memberId": 3, "crewName": "크루A", "generation": 8},
       "memberCount": 6,
       "activeRecruitment": {
@@ -503,7 +506,7 @@ Request Body는 없다.
     "name": "알고리즘 스터디",
     "introduction": "매주 함께 문제를 풉니다.",
     "description": "문제 풀이와 코드 리뷰를 진행합니다.",
-    "representativeImageUrl": "https://cdn.example.com/groups/12.webp",
+    "representativeImageUrl": "images/default-group.png",
     "recurringSchedule": {
       "daysOfWeek": ["MONDAY", "WEDNESDAY"],
       "startTime": "19:00:00",
@@ -643,7 +646,8 @@ Request Body는 없다.
 }
 ```
 
-대상은 같은 그룹에서 `MEMBER` 역할을 가진 `GroupMember`여야 한다.
+`groupMemberId`는 필수 양의 정수이며, 대상은 같은 그룹에서 `MEMBER` 역할을 가진
+`GroupMember`여야 한다.
 
 #### 응답 200
 
@@ -668,9 +672,9 @@ Request Body는 없다.
 | --- | --- | --- |
 | 현재 모임장이 아님 | `GROUP_ACCESS_DENIED` | 403 |
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
-| ENDED 그룹 | `GROUP_ENDED` | 409 |
+| ENDED 그룹 | `LEADER_DELEGATION_NOT_ALLOWED_FOR_ENDED_GROUP` | 422 |
 | 대상 GroupMember 없음 | `GROUP_MEMBER_NOT_FOUND` | 404 |
-| 자기 자신 또는 이미 LEADER인 대상 | `LEADER_DELEGATION_INVALID` | 400 |
+| 자기 자신 또는 이미 LEADER인 대상 | `GROUP_MEMBER_ALREADY_LEADER` | 422 |
 
 ### `DELETE /api/groups/{groupId}/recurring-schedule`
 
@@ -854,7 +858,7 @@ endsAt <= now              CLOSED
 | --- | --- | --- |
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
 | size 범위 위반 | `INVALID_PARAMETER` | 400 |
-| 잘못되거나 만료된 cursor | `INVALID_CURSOR` | 400 |
+| 잘못되거나 만료된 cursor | `INVALID_PARAMETER` | 400 |
 
 ### `POST /api/groups/{groupId}/recruitments`
 

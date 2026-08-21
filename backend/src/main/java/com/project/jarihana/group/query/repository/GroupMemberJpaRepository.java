@@ -8,5 +8,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface GroupMemberJpaRepository extends JpaRepository<GroupMember, Long> {
 
     @EntityGraph(attributePaths = "member")
-    List<GroupMember> findAllByGroup_IdInOrderById(List<Long> groupIds);
+    List<GroupMember> findAllByGroupIdInOrderById(List<Long> groupIds);
 }

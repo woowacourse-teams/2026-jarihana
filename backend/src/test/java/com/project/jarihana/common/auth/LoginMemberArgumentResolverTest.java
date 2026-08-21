@@ -17,7 +17,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 class LoginMemberArgumentResolverTest {
 
-    private static final Long MEMBER_ID = 12L;
+    private static final long MEMBER_ID = 12L;
 
     private final LoginMemberArgumentResolver resolver = new LoginMemberArgumentResolver(new LoginMemberReader());
 
@@ -31,6 +31,19 @@ class LoginMemberArgumentResolverTest {
     void supportAnnotatedLongParameter() {
         // Given
         MethodParameter parameter = parameterOf("annotated");
+
+        // When
+        boolean supported = resolver.supportsParameter(parameter);
+
+        // Then
+        assertThat(supported).isTrue();
+    }
+
+    @DisplayName("@LoginMember가 붙은 long 파라미터를 지원한다.")
+    @Test
+    void supportAnnotatedPrimitiveLongParameter() {
+        // Given
+        MethodParameter parameter = parameterOf("annotatedPrimitiveLong");
 
         // When
         boolean supported = resolver.supportsParameter(parameter);
@@ -106,6 +119,9 @@ class LoginMemberArgumentResolverTest {
     private static final class Handler {
 
         void annotated(@LoginMember Long memberId) {
+        }
+
+        void annotatedPrimitiveLong(@LoginMember long memberId) {
         }
 
         void notAnnotated(Long memberId) {

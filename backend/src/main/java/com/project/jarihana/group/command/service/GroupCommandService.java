@@ -6,15 +6,27 @@ import com.project.jarihana.group.command.repository.GroupCommandRepository;
 import com.project.jarihana.group.command.service.dto.CreateGroupCommand;
 import com.project.jarihana.group.command.service.dto.CreateGroupResult;
 import com.project.jarihana.group.command.service.dto.ModifyGroupCommand;
+import com.project.jarihana.group.command.service.dto.TerminateGroupCommand;
+import com.project.jarihana.group.command.service.dto.TerminateGroupResult;
+import com.project.jarihana.group.command.service.dto.ReplaceRecurringScheduleCommand;
+import com.project.jarihana.group.command.service.dto.ReplaceRecurringScheduleResult;
+import com.project.jarihana.group.command.service.dto.ReplaceSessionScheduleCommand;
+import com.project.jarihana.group.command.service.dto.ReplaceSessionScheduleResult;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.GroupType;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.group.domain.SessionGroupSchedule;
+import com.project.jarihana.group.domain.GroupStatus;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Member;
+import com.project.jarihana.registration.command.repository.RegistrationCommandRepository;
+import com.project.jarihana.registration.domain.Registration;
+import com.project.jarihana.registration.domain.RegistrationStatus;
+import com.project.jarihana.recruitment.domain.GroupRecruitment;
+import com.project.jarihana.recruitment.command.repository.GroupRecruitmentCommandRepository;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
@@ -30,6 +42,7 @@ public class GroupCommandService {
     private static final String GROUP_NOT_FOUND_MESSAGE = "그룹을 찾을 수 없습니다.";
     private static final String GROUP_ACCESS_DENIED_MESSAGE = "그룹 모임장만 수정할 수 있습니다.";
     private static final String GROUP_ENDED_MESSAGE = "종료된 그룹은 수정할 수 없습니다.";
+    private static final String GROUP_DELETE_WINDOW_EXPIRED_MESSAGE = "그룹 생성 후 24시간 이내에만 삭제할 수 있습니다.";
     private static final String SCHEDULE_TYPE_MISMATCH_MESSAGE = "그룹 유형에 맞는 일정만 등록할 수 있습니다.";
     private static final String SCHEDULE_REQUIRED_MESSAGE = "세션 그룹에는 일회성 일정이 필요합니다.";
     private static final String SCHEDULE_INVALID_RULE_MESSAGE = "일정 형식이 올바르지 않습니다.";
@@ -37,17 +50,23 @@ public class GroupCommandService {
     private final MemberRepository memberRepository;
     private final GroupCommandRepository groupCommandRepository;
     private final GroupMemberCommandRepository groupMemberCommandRepository;
+    private final GroupRecruitmentCommandRepository groupRecruitmentCommandRepository;
+    private final RegistrationCommandRepository registrationCommandRepository;
     private final Clock clock;
 
     public GroupCommandService(
             MemberRepository memberRepository,
             GroupCommandRepository groupCommandRepository,
             GroupMemberCommandRepository groupMemberCommandRepository,
+            GroupRecruitmentCommandRepository groupRecruitmentCommandRepository,
+            RegistrationCommandRepository registrationCommandRepository,
             Clock clock
     ) {
         this.memberRepository = memberRepository;
         this.groupCommandRepository = groupCommandRepository;
         this.groupMemberCommandRepository = groupMemberCommandRepository;
+        this.groupRecruitmentCommandRepository = groupRecruitmentCommandRepository;
+        this.registrationCommandRepository = registrationCommandRepository;
         this.clock = clock;
     }
 
@@ -91,6 +110,165 @@ public class GroupCommandService {
                 group.getRecurringSchedule(),
                 group.getSessionSchedule()
         ));
+    }
+
+    @Transactional
+    public void deleteGroup(Long memberId, Long groupId) {
+        Group group = groupCommandRepository.findById(groupId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND, GROUP_NOT_FOUND_MESSAGE));
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, MEMBER_NOT_FOUND_MESSAGE));
+        GroupMember groupMember = groupMemberCommandRepository.findByGroupAndMember(group, member)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_ACCESS_DENIED, GROUP_ACCESS_DENIED_MESSAGE));
+        if (groupMember.getRole() != GroupMemberRole.LEADER) {
+            throw new BusinessException(ErrorCode.GROUP_ACCESS_DENIED, GROUP_ACCESS_DENIED_MESSAGE);
+        }
+        if (!group.isActive()) {
+            throw new BusinessException(ErrorCode.GROUP_ENDED, GROUP_ENDED_MESSAGE);
+        }
+        if (!group.canDeleteAt(LocalDateTime.now(clock))) {
+            throw new BusinessException(
+                    ErrorCode.GROUP_DELETE_WINDOW_EXPIRED,
+                    GROUP_DELETE_WINDOW_EXPIRED_MESSAGE
+            );
+        }
+        registrationCommandRepository.deleteAllByRecruitmentGroupId(groupId);
+        groupRecruitmentCommandRepository.deleteAllByGroupId(groupId);
+        groupMemberCommandRepository.deleteAllByGroupId(groupId);
+        groupCommandRepository.delete(group);
+    }
+
+    @Transactional
+    public TerminateGroupResult terminateGroup(Long memberId, Long groupId, TerminateGroupCommand command) {
+        Group group = groupCommandRepository.findById(groupId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND, GROUP_NOT_FOUND_MESSAGE));
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, MEMBER_NOT_FOUND_MESSAGE));
+        GroupMember groupMember = groupMemberCommandRepository.findByGroupAndMember(group, member)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_ACCESS_DENIED, GROUP_ACCESS_DENIED_MESSAGE));
+        if (groupMember.getRole() != GroupMemberRole.LEADER) {
+            throw new BusinessException(ErrorCode.GROUP_ACCESS_DENIED, GROUP_ACCESS_DENIED_MESSAGE);
+        }
+        if (command.status() != GroupStatus.ENDED) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "종료 시 상태는 ENDED여야 합니다.");
+        }
+        if (!group.isActive()) {
+            throw new BusinessException(ErrorCode.GROUP_ALREADY_ENDED, "이미 종료된 그룹입니다.");
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        if (!group.canEndAt(now)) {
+            throw new BusinessException(
+                    ErrorCode.GROUP_TERMINATION_NOT_AVAILABLE,
+                    "그룹 생성 후 24시간이 지나야 종료할 수 있습니다."
+            );
+        }
+
+        for (GroupRecruitment recruitment : groupRecruitmentCommandRepository.findAllByGroupId(groupId)) {
+            if (!recruitment.isOpenAt(now)) {
+                continue;
+            }
+            groupRecruitmentCommandRepository.save(recruitment.closeAt(now));
+            for (Registration registration : registrationCommandRepository
+                    .findAllByRecruitmentGroupIdAndStatus(groupId, RegistrationStatus.PENDING)) {
+                if (registration.getRecruitment().equals(recruitment)) {
+                    registrationCommandRepository.save(registration.rejectBySystem("그룹 종료", now));
+                }
+            }
+        }
+        groupCommandRepository.save(group.endAt(now));
+        return new TerminateGroupResult(groupId, GroupStatus.ENDED, now);
+    }
+
+    @Transactional
+    public ReplaceRecurringScheduleResult replaceRecurringSchedule(
+            Long memberId,
+            Long groupId,
+            ReplaceRecurringScheduleCommand command
+    ) {
+        Group group = groupCommandRepository.findById(groupId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND, GROUP_NOT_FOUND_MESSAGE));
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, MEMBER_NOT_FOUND_MESSAGE));
+        GroupMember groupMember = groupMemberCommandRepository.findByGroupAndMember(group, member)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_ACCESS_DENIED, GROUP_ACCESS_DENIED_MESSAGE));
+        if (groupMember.getRole() != GroupMemberRole.LEADER) {
+            throw new BusinessException(ErrorCode.GROUP_ACCESS_DENIED, GROUP_ACCESS_DENIED_MESSAGE);
+        }
+        if (group.getType() == GroupType.SESSION) {
+            throw new BusinessException(ErrorCode.SCHEDULE_TYPE_MISMATCH, "SESSION 그룹에는 반복 일정을 등록할 수 없습니다.");
+        }
+        if (!group.isActive()) {
+            throw new BusinessException(ErrorCode.GROUP_ENDED, GROUP_ENDED_MESSAGE);
+        }
+
+        RecurringGroupSchedule schedule;
+        try {
+            schedule = RecurringGroupSchedule.of(command.daysOfWeek(), command.startTime(), command.endTime());
+        } catch (BusinessException exception) {
+            throw new BusinessException(ErrorCode.SCHEDULE_INVALID_RULE, exception.getMessage());
+        }
+        Group saved = groupCommandRepository.save(group.replaceRecurringSchedule(schedule));
+        return new ReplaceRecurringScheduleResult(
+                saved.getRecurringSchedule().getActivityDays().values(),
+                saved.getRecurringSchedule().getStartTime(),
+                saved.getRecurringSchedule().getEndTime()
+        );
+    }
+
+    @Transactional
+    public void removeRecurringSchedule(Long memberId, Long groupId) {
+        Group group = groupCommandRepository.findById(groupId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND, GROUP_NOT_FOUND_MESSAGE));
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, MEMBER_NOT_FOUND_MESSAGE));
+        GroupMember groupMember = groupMemberCommandRepository.findByGroupAndMember(group, member)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_ACCESS_DENIED, GROUP_ACCESS_DENIED_MESSAGE));
+        if (groupMember.getRole() != GroupMemberRole.LEADER) {
+            throw new BusinessException(ErrorCode.GROUP_ACCESS_DENIED, GROUP_ACCESS_DENIED_MESSAGE);
+        }
+        if (group.getType() == GroupType.SESSION) {
+            throw new BusinessException(ErrorCode.SCHEDULE_TYPE_MISMATCH, "SESSION 그룹에는 반복 일정이 없습니다.");
+        }
+        if (!group.isActive()) {
+            throw new BusinessException(ErrorCode.GROUP_ENDED, GROUP_ENDED_MESSAGE);
+        }
+        groupCommandRepository.save(group.removeRecurringSchedule());
+    }
+
+    @Transactional
+    public ReplaceSessionScheduleResult replaceSessionSchedule(
+            Long memberId,
+            Long groupId,
+            ReplaceSessionScheduleCommand command
+    ) {
+        Group group = groupCommandRepository.findById(groupId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND, GROUP_NOT_FOUND_MESSAGE));
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, MEMBER_NOT_FOUND_MESSAGE));
+        GroupMember groupMember = groupMemberCommandRepository.findByGroupAndMember(group, member)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_ACCESS_DENIED, GROUP_ACCESS_DENIED_MESSAGE));
+        if (groupMember.getRole() != GroupMemberRole.LEADER) {
+            throw new BusinessException(ErrorCode.GROUP_ACCESS_DENIED, GROUP_ACCESS_DENIED_MESSAGE);
+        }
+        if (group.getType() != GroupType.SESSION) {
+            throw new BusinessException(ErrorCode.SCHEDULE_TYPE_MISMATCH, "CLUB과 STUDY 그룹에는 세션 일정을 등록할 수 없습니다.");
+        }
+        if (!group.isActive()) {
+            throw new BusinessException(ErrorCode.GROUP_ENDED, GROUP_ENDED_MESSAGE);
+        }
+
+        SessionGroupSchedule schedule;
+        try {
+            schedule = SessionGroupSchedule.of(command.sessionDate(), command.startTime(), command.endTime());
+        } catch (BusinessException exception) {
+            throw new BusinessException(ErrorCode.SCHEDULE_INVALID_RULE, exception.getMessage());
+        }
+        Group saved = groupCommandRepository.save(group.replaceSessionSchedule(schedule));
+        return new ReplaceSessionScheduleResult(
+                saved.getSessionSchedule().getSessionDate(),
+                saved.getSessionSchedule().getStartTime(),
+                saved.getSessionSchedule().getEndTime()
+        );
     }
 
     private Group createGroup(CreateGroupCommand command, LocalDateTime createdAt) {

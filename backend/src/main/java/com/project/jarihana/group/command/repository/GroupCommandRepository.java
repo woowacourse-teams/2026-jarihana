@@ -1,8 +1,12 @@
 package com.project.jarihana.group.command.repository;
 
 import com.project.jarihana.group.domain.Group;
+import jakarta.persistence.LockModeType;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
+import org.springframework.data.repository.query.Param;
 
 public interface GroupCommandRepository extends Repository<Group, Long> {
 
@@ -10,7 +14,20 @@ public interface GroupCommandRepository extends Repository<Group, Long> {
 
     Optional<Group> findById(Long id);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Group> findWithLockById(long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select recruitment.group
+            from GroupRecruitment recruitment
+            where recruitment.id = :recruitmentId
+            """)
+    Optional<Group> findWithLockByRecruitmentId(@Param("recruitmentId") long recruitmentId);
+
     boolean existsByName(String name);
 
     boolean existsByNameAndIdNot(String name, Long id);
+
+    void delete(Group group);
 }

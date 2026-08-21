@@ -1,0 +1,27 @@
+name: Backend Docker Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker 확인
+        run: |
+          whoami
+          docker version
+
+      - name: Backend 이미지 빌드
+        run: |
+          docker build \
+            -t jarihana-backend:${{ github.sha }} \
+            ./backend
+
+      - name: 이미지 확인
+        run: |
+          docker images jarihana-backend

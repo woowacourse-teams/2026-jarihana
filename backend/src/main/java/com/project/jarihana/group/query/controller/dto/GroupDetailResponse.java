@@ -36,7 +36,7 @@ public record GroupDetailResponse(
                 group.getName(),
                 group.getIntroduction(),
                 group.getDescription(),
-                group.getRepresentativeImageKey(),
+                result.representativeImageUrl(),
                 RecurringSchedule.from(group.getRecurringSchedule()),
                 SessionSchedule.from(group.getSessionSchedule()),
                 GroupLeader.from(result.leader()),

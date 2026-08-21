@@ -69,20 +69,43 @@ public class Club {
 인스턴스 메서드를 사용할 수 없다는 점은 주된 근거로 삼지 않는다. 정적 검증
 메서드를 생성자 인자로 전달하거나 주 생성자에서 검증할 수 있기 때문이다.
 
+## Lombok과 생성자 주입
+
+- Spring Bean의 필수 의존성은 `final` 필드로 선언하고 Lombok의
+  `@RequiredArgsConstructor`로 생성자 주입한다.
+- 단순히 필드를 대입하는 생성자를 직접 작성하지 않는다.
+- 생성자 자체에 검증·정규화·오버로드 조정 같은 의미가 있거나 JPA·프레임워크
+  제약이 있을 때만 명시적 생성자를 유지한다.
+
+## 기본 타입과 래퍼 타입
+
+- `null`이 도메인과 호출 규약상 허용되지 않는 값은 기본 타입을 사용한다.
+- 래퍼 타입은 `null`이 아직 정해지지 않음, 부재 같은 실제 의미를 갖거나
+  프레임워크·제네릭 API가 요구하는 경우에만 사용한다.
+- API 경로 변수, 인증된 회원 식별자, 필수 요청 값, Service·Repository 메서드의
+  필수 식별자는 `long`, `int`, `boolean` 등의 기본 타입을 사용한다.
+- JSON 필수 숫자를 기본 타입으로 받으면 필드 누락이 `0`으로 역직렬화될 수 있으므로
+  `@Positive` 등의 Bean Validation으로 누락과 유효하지 않은 값을 동시에 거부한다.
+- JPA 엔티티의 식별자는 영속화 전 `null`을 가질 수 있으므로 `Long`을 유지한다.
+  `Repository<Entity, Long>` 같은 제네릭 타입 인자도 래퍼 타입을 사용한다.
+
 ## 메서드 이름
 
 - `find...`: 결과가 없을 수 있는 조회. `Optional` 등으로 부재를 표현한다.
 - `get...`: 결과가 반드시 있어야 하는 조회. 없으면 명시적인 예외를 발생시킨다.
 - `exists...`: 존재 여부를 `boolean`으로 반환한다. `exist...`는 사용하지 않는다.
 - Repository 기본 동사는 `save`, `find`/`get`, `remove`를 사용한다.
+- Spring Data Repository 파생 쿼리 메서드명은 underscore(`_`) 없이 camelCase로 작성한다.
+  연관 경로가 포함되어 메서드명이 모호해지면 underscore로 구분하지 않고 `@Query`로
+  JPQL을 명시한다.
 - Service 메서드는 Repository의 CRUD 이름을 그대로 복사하지 않고 유스케이스를
   표현한다. 예: `modifyUserInfo()`
 - Controller 메서드명은 동사를 먼저 쓰고 그 뒤에 도메인명을 조합한다. 예:
   `createClub`, `findClubs`, `modifyClub`, `removeClub`
 
 ```java
-Optional<Club> findById(Long id);
-Club getById(Long id);
+Optional<Club> findById(long id);
+Club getById(long id);
 boolean existsByName(String name);
 ```
 
@@ -135,3 +158,10 @@ DTO를 API 응답으로 직접 노출하지 않고, 컨트롤러에서 `*Respons
   드러나는 이름으로 현재 파일의 타입명을 정한다.
 - 로그에는 비밀번호, 토큰, 개인정보, 전체 요청·응답 본문을 남기지 않는다.
 - 예외 추적과 운영상 의미 있는 이벤트만 기록한다.
+
+## 예외 메시지
+
+- 예외 메시지는 사용 횟수와 관계없이 예외 생성 지점에 문자열로 직접 작성한다.
+- 동일한 메시지가 반복되더라도 `private static final String`, 공용 상수 클래스,
+  enum 등으로 상수화하지 않는다.
+- `ErrorCode`와 클라이언트 계약은 예외 메시지 상수화와 별개로 관리한다.

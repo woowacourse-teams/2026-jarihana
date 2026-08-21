@@ -39,6 +39,10 @@ out/
 ### Local environment ###
 .env
 *.http
+https/
+
+### Local agent session artifacts ###
+/backend/docs/superpowers/
 
 ### macOS ###
 .DS_Store

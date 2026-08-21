@@ -83,8 +83,8 @@ class GroupRecruitmentTest {
                 STARTS_AT,
                 STARTS_AT.minusNanos(1)
         )).isInstanceOf(BusinessException.class)
-                .extracting(exception -> ((BusinessException) exception).getErrorCode())
-                .isEqualTo(ErrorCode.INVALID_PARAMETER);
+                .extracting(exception -> ((BusinessException) exception).getErrorCode().name())
+                .isEqualTo("RECRUITMENT_INVALID_PERIOD");
     }
 
     @DisplayName("현재 시각과 모집 기간으로 모집 단계를 계산한다.")

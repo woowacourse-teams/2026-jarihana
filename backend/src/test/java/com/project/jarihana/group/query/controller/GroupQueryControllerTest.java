@@ -14,7 +14,7 @@ import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.group.domain.SessionGroupSchedule;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
 import com.project.jarihana.group.query.repository.GroupMemberJpaRepository;
-import com.project.jarihana.group.query.repository.GroupRecruitmentJpaRepository;
+import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
 import com.project.jarihana.group.query.repository.RegistrationJpaRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.member.command.repository.MemberRepository;
@@ -81,6 +81,7 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
                 .body("data.items.size()", equalTo(1))
                 .body("data.items[0].status", equalTo("ACTIVE"))
                 .body("data.items[0].name", equalTo("알고리즘 스터디"))
+                .body("data.items[0].representativeImageUrl", equalTo("images/default-group.png"))
                 .body("data.items[0].memberCount", equalTo(1))
                 .body("data.items[0].leader.crewName", equalTo("가온"))
                 .body("data.hasNext", equalTo(true))
@@ -148,6 +149,18 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
                 .body("success", equalTo(false))
                 .body("error.code", equalTo("UNAUTHENTICATED"))
                 .body("error.message", equalTo("인증 정보가 필요합니다."));
+    }
+
+    @DisplayName("기본 그룹 이미지를 공개 정적 리소스로 제공한다.")
+    @Test
+    void servesDefaultGroupImage() {
+        // Given / When / Then
+        given()
+                .when()
+                .get("/images/default-group.png")
+                .then()
+                .statusCode(200)
+                .contentType("image/png");
     }
 
     @DisplayName("인증된 회원을 기준으로 관계와 역할 필터를 적용한다.")
@@ -220,7 +233,7 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
                 .body("data.status", equalTo("ACTIVE"))
                 .body("data.name", equalTo("알고리즘 스터디"))
                 .body("data.description", equalTo("문제 풀이와 코드 리뷰를 진행합니다."))
-                .body("data.representativeImageUrl", equalTo("groups/1.webp"))
+                .body("data.representativeImageUrl", equalTo("images/default-group.png"))
                 .body("data.recurringSchedule.daysOfWeek", hasItems("MONDAY", "WEDNESDAY"))
                 .body("data.recurringSchedule.startTime", equalTo("19:00:00"))
                 .body("data.sessionSchedule", nullValue())
@@ -322,7 +335,7 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
                 name,
                 introduction,
                 null,
-                null,
+                "groups/1.webp",
                 RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.NOON, LocalTime.of(13, 0)),
                 createdAt
         );

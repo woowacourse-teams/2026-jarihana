@@ -5,6 +5,7 @@ import com.project.jarihana.group.query.repository.dto.GroupDetailMember;
 import com.project.jarihana.group.query.repository.dto.GroupDetailProjection;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
+import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
 import com.project.jarihana.registration.domain.RegistrationStatus;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -39,7 +40,7 @@ public class JpaGroupDetailRepository implements GroupDetailRepository {
         }
 
         List<GroupDetailMember> members = groupMemberRepository
-                .findAllByGroup_IdInOrderById(List.of(groupId))
+                .findAllByGroupIdInOrderById(List.of(groupId))
                 .stream()
                 .map(JpaGroupDetailRepository::toMember)
                 .toList();

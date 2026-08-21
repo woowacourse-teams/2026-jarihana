@@ -9,13 +9,28 @@ import com.project.jarihana.group.command.repository.GroupCommandRepository;
 import com.project.jarihana.group.command.service.dto.CreateGroupCommand;
 import com.project.jarihana.group.command.service.dto.CreateGroupResult;
 import com.project.jarihana.group.command.service.dto.ModifyGroupCommand;
+import com.project.jarihana.group.command.service.dto.TerminateGroupCommand;
+import com.project.jarihana.group.command.service.dto.TerminateGroupResult;
+import com.project.jarihana.group.command.service.dto.ReplaceRecurringScheduleCommand;
+import com.project.jarihana.group.command.service.dto.ReplaceRecurringScheduleResult;
+import com.project.jarihana.group.command.service.dto.ReplaceSessionScheduleCommand;
+import com.project.jarihana.group.command.service.dto.ReplaceSessionScheduleResult;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.GroupStatus;
 import com.project.jarihana.group.domain.GroupType;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
+import com.project.jarihana.group.domain.SessionGroupSchedule;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
+import com.project.jarihana.group.query.repository.GroupJpaRepository;
+import com.project.jarihana.group.query.repository.GroupMemberJpaRepository;
+import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
+import com.project.jarihana.group.query.repository.RegistrationJpaRepository;
+import com.project.jarihana.recruitment.domain.GroupRecruitment;
+import com.project.jarihana.recruitment.domain.JoinMethod;
+import com.project.jarihana.registration.domain.Registration;
+import com.project.jarihana.registration.domain.RegistrationStatus;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
@@ -24,9 +39,13 @@ import com.project.jarihana.support.TestSupportConfig;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import jakarta.persistence.EntityManager;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 
 class GroupCommandServiceTest extends IntegrationTestSupport {
@@ -41,7 +60,25 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
     private GroupMemberCommandRepository groupMemberCommandRepository;
 
     @Autowired
+    private GroupJpaRepository groupJpaRepository;
+
+    @Autowired
+    private GroupMemberJpaRepository groupMemberJpaRepository;
+
+    @Autowired
+    private GroupRecruitmentJpaRepository groupRecruitmentJpaRepository;
+
+    @Autowired
+    private RegistrationJpaRepository registrationJpaRepository;
+
+    @Autowired
     private MemberRepository memberRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private EntityManager entityManager;
 
     @DisplayName("가입 완료 회원은 기본 이미지가 설정된 그룹과 모임장 역할을 함께 생성한다.")
     @Test
@@ -221,6 +258,398 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.GROUP_NAME_DUPLICATED);
+    }
+
+    @DisplayName("생성 후 24시간 이내 그룹은 연관 데이터와 함께 완전히 삭제한다.")
+    @Test
+    void deleteGroupHardDeletesGroupAndRelations() {
+        // Given
+        Member leader = saveMember("github-delete-leader");
+        Member applicant = memberRepository.save(Member.create("누리", 8, "github-delete-applicant", Course.BACKEND));
+        Group group = createGroup(leader, "삭제 대상 그룹");
+        GroupRecruitment recruitment = groupRecruitmentJpaRepository.save(GroupRecruitment.create(
+                group, JoinMethod.APPROVAL, 3,
+                TestSupportConfig.FIXED_NOW.minusHours(1), TestSupportConfig.FIXED_NOW.plusHours(1)));
+        Registration registration = registrationJpaRepository.save(Registration.createPending(
+                recruitment, applicant, "참여하고 싶습니다.", TestSupportConfig.FIXED_NOW));
+
+        // When
+        groupCommandService.deleteGroup(leader.getId(), group.getId());
+
+        // Then
+        assertThat(groupJpaRepository.findById(group.getId())).isEmpty();
+        assertThat(groupRecruitmentJpaRepository.findById(recruitment.getId())).isEmpty();
+        assertThat(registrationJpaRepository.findById(registration.getId())).isEmpty();
+        assertThat(groupMemberJpaRepository.findAllByGroupIdInOrderById(List.of(group.getId()))).isEmpty();
+    }
+
+    @DisplayName("생성 후 24시간이 지난 그룹은 삭제할 수 없다.")
+    @Test
+    void deleteGroupFailsAfterDeleteWindow() {
+        // Given
+        Member leader = saveMember("github-delete-expired");
+        LocalDateTime createdAt = TestSupportConfig.FIXED_NOW.minusHours(24).minusMinutes(1);
+        Group group = groupJpaRepository.save(Group.createStudy(
+                "삭제 기간 만료 그룹", "소개", null, GroupCommandService.DEFAULT_REPRESENTATIVE_IMAGE_KEY,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.of(19, 0), LocalTime.of(21, 0)),
+                createdAt));
+        groupMemberCommandRepository.save(GroupMember.createLeader(group, leader, createdAt));
+        jdbcTemplate.update(
+                "UPDATE groups SET created_at = ?, updated_at = ? WHERE id = ?",
+                createdAt, createdAt, group.getId());
+        entityManager.clear();
+
+        // When / Then
+        assertThatThrownBy(() -> groupCommandService.deleteGroup(leader.getId(), group.getId()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_DELETE_WINDOW_EXPIRED);
+    }
+
+    @DisplayName("종료된 그룹은 삭제할 수 없다.")
+    @Test
+    void deleteGroupFailsForEndedGroup() {
+        // Given
+        Member leader = saveMember("github-delete-ended");
+        Group group = createGroup(leader, "종료된 삭제 그룹");
+        groupJpaRepository.save(group.endAt(LocalDateTime.now().plusDays(2)));
+
+        // When / Then
+        assertThatThrownBy(() -> groupCommandService.deleteGroup(leader.getId(), group.getId()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_ENDED);
+    }
+
+    @DisplayName("모임장이 아닌 구성원은 그룹을 삭제할 수 없다.")
+    @Test
+    void deleteGroupFailsForNonLeader() {
+        // Given
+        Member leader = saveMember("github-delete-owner");
+        Member member = memberRepository.save(Member.create("누리", 8, "github-delete-member", Course.BACKEND));
+        Group group = createGroup(leader, "삭제 권한 그룹");
+        groupMemberCommandRepository.save(GroupMember.createMember(group, member, TestSupportConfig.FIXED_NOW));
+
+        // When / Then
+        assertThatThrownBy(() -> groupCommandService.deleteGroup(member.getId(), group.getId()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_ACCESS_DENIED);
+    }
+
+    @DisplayName("존재하지 않는 그룹은 삭제할 수 없다.")
+    @Test
+    void deleteGroupFailsForUnknownGroup() {
+        // Given
+        Member leader = saveMember("github-delete-unknown");
+
+        // When / Then
+        assertThatThrownBy(() -> groupCommandService.deleteGroup(leader.getId(), 999_999L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_NOT_FOUND);
+    }
+
+    @DisplayName("생성 후 24시간이 지난 그룹을 종료하고 열린 모집과 대기 신청을 정리한다.")
+    @Test
+    void terminateGroupClosesOpenRecruitmentsAndRejectsPendingRegistrations() {
+        Member leader = saveMember("github-terminate-leader");
+        Member applicant = memberRepository.save(Member.create("누리", 9, "github-terminate-applicant", Course.BACKEND));
+        LocalDateTime createdAt = TestSupportConfig.FIXED_NOW.minusHours(24).minusMinutes(1);
+        Group group = groupJpaRepository.save(Group.createStudy(
+                "종료 대상 그룹", "소개", null, GroupCommandService.DEFAULT_REPRESENTATIVE_IMAGE_KEY,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.of(19, 0), LocalTime.of(21, 0)),
+                createdAt));
+        groupMemberCommandRepository.save(GroupMember.createLeader(group, leader, createdAt));
+        jdbcTemplate.update("UPDATE groups SET created_at = ?, updated_at = ? WHERE id = ?", createdAt, createdAt, group.getId());
+        entityManager.clear();
+        group = groupCommandRepository.findById(group.getId()).orElseThrow();
+        GroupRecruitment recruitment = groupRecruitmentJpaRepository.save(GroupRecruitment.create(
+                group, JoinMethod.APPROVAL, 3, TestSupportConfig.FIXED_NOW.minusHours(1), null));
+        Registration registration = registrationJpaRepository.save(Registration.createPending(
+                recruitment, applicant, "신청", TestSupportConfig.FIXED_NOW));
+
+        TerminateGroupResult result = groupCommandService.terminateGroup(
+                leader.getId(), group.getId(), new TerminateGroupCommand(GroupStatus.ENDED));
+
+        assertThat(result.status()).isEqualTo(GroupStatus.ENDED);
+        assertThat(groupCommandRepository.findById(group.getId()).orElseThrow().getStatus())
+                .isEqualTo(GroupStatus.ENDED);
+        assertThat(groupRecruitmentJpaRepository.findById(recruitment.getId()).orElseThrow().getEndsAt())
+                .isEqualTo(TestSupportConfig.FIXED_NOW);
+        assertThat(registrationJpaRepository.findById(registration.getId()).orElseThrow().getStatus())
+                .isEqualTo(RegistrationStatus.REJECTED);
+    }
+
+    @DisplayName("생성 후 24시간 이내 그룹은 종료할 수 없다.")
+    @Test
+    void terminateGroupFailsBeforeTerminationWindow() {
+        Member leader = saveMember("github-terminate-too-early");
+        Group group = createGroup(leader, "조기 종료 그룹");
+
+        assertThatThrownBy(() -> groupCommandService.terminateGroup(
+                leader.getId(), group.getId(), new TerminateGroupCommand(GroupStatus.ENDED)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_TERMINATION_NOT_AVAILABLE);
+    }
+
+    @DisplayName("이미 종료된 그룹은 다시 종료할 수 없다.")
+    @Test
+    void terminateGroupFailsForAlreadyEndedGroup() {
+        Member leader = saveMember("github-terminate-ended");
+        LocalDateTime createdAt = TestSupportConfig.FIXED_NOW.minusHours(25);
+        Group group = groupJpaRepository.save(Group.createStudy(
+                "이미 종료 그룹", "소개", null, GroupCommandService.DEFAULT_REPRESENTATIVE_IMAGE_KEY,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.of(19, 0), LocalTime.of(21, 0)), createdAt));
+        groupMemberCommandRepository.save(GroupMember.createLeader(group, leader, createdAt));
+        jdbcTemplate.update("UPDATE groups SET created_at = ?, updated_at = ? WHERE id = ?", createdAt, createdAt, group.getId());
+        entityManager.clear();
+        group = groupCommandRepository.findById(group.getId()).orElseThrow();
+        groupCommandRepository.save(group.endAt(TestSupportConfig.FIXED_NOW));
+        Long endedGroupId = group.getId();
+
+        assertThatThrownBy(() -> groupCommandService.terminateGroup(
+                leader.getId(), endedGroupId, new TerminateGroupCommand(GroupStatus.ENDED)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_ALREADY_ENDED);
+    }
+
+    @DisplayName("종료 요청 상태가 ENDED가 아니면 종료할 수 없다.")
+    @Test
+    void terminateGroupFailsForInvalidStatus() {
+        Member leader = saveMember("github-terminate-invalid-status");
+        Group group = createGroup(leader, "잘못된 종료 상태 그룹");
+
+        assertThatThrownBy(() -> groupCommandService.terminateGroup(
+                leader.getId(), group.getId(), new TerminateGroupCommand(GroupStatus.ACTIVE)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
+    }
+
+    @DisplayName("동아리 모임장은 반복 일정을 등록하거나 교체할 수 있다.")
+    @Test
+    void replaceRecurringSchedule() {
+        Member leader = saveMember("github-schedule-replace");
+        Group group = createGroup(leader, "반복 일정 교체 그룹");
+
+        ReplaceRecurringScheduleResult result = groupCommandService.replaceRecurringSchedule(
+                leader.getId(), group.getId(), new ReplaceRecurringScheduleCommand(
+                        Set.of(DayOfWeek.TUESDAY, DayOfWeek.THURSDAY),
+                        LocalTime.of(19, 30), LocalTime.of(21, 30)));
+
+        assertThat(result.daysOfWeek()).containsExactly(DayOfWeek.TUESDAY, DayOfWeek.THURSDAY);
+        assertThat(result.startTime()).isEqualTo(LocalTime.of(19, 30));
+        assertThat(result.endTime()).isEqualTo(LocalTime.of(21, 30));
+    }
+
+    @DisplayName("세션 그룹에는 반복 일정을 등록할 수 없다.")
+    @Test
+    void replaceRecurringScheduleFailsForSessionGroup() {
+        Member leader = saveMember("github-schedule-session");
+        Group group = groupJpaRepository.save(Group.createSession(
+                "세션 반복 일정 그룹", "소개", null, GroupCommandService.DEFAULT_REPRESENTATIVE_IMAGE_KEY,
+                SessionGroupSchedule.of(LocalDate.now().plusDays(1), LocalTime.of(10, 0), LocalTime.of(11, 0)),
+                TestSupportConfig.FIXED_NOW));
+        groupMemberCommandRepository.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
+
+        assertThatThrownBy(() -> groupCommandService.replaceRecurringSchedule(
+                leader.getId(), group.getId(), new ReplaceRecurringScheduleCommand(
+                        Set.of(DayOfWeek.MONDAY), LocalTime.of(19, 0), LocalTime.of(21, 0))))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.SCHEDULE_TYPE_MISMATCH);
+    }
+
+    @DisplayName("시작 시각이 종료 시각보다 늦으면 반복 일정을 교체할 수 없다.")
+    @Test
+    void replaceRecurringScheduleFailsForInvalidTimeRange() {
+        Member leader = saveMember("github-schedule-invalid");
+        Group group = createGroup(leader, "잘못된 반복 일정 그룹");
+
+        assertThatThrownBy(() -> groupCommandService.replaceRecurringSchedule(
+                leader.getId(), group.getId(), new ReplaceRecurringScheduleCommand(
+                        Set.of(DayOfWeek.MONDAY), LocalTime.of(21, 0), LocalTime.of(19, 0))))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.SCHEDULE_INVALID_RULE);
+    }
+
+    @DisplayName("종료된 그룹의 반복 일정은 교체할 수 없다.")
+    @Test
+    void replaceRecurringScheduleFailsForEndedGroup() {
+        Member leader = saveMember("github-schedule-ended");
+        LocalDateTime createdAt = TestSupportConfig.FIXED_NOW.minusHours(25);
+        Group group = groupJpaRepository.save(Group.createStudy(
+                "종료 반복 일정 그룹", "소개", null, GroupCommandService.DEFAULT_REPRESENTATIVE_IMAGE_KEY,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.of(19, 0), LocalTime.of(21, 0)), createdAt));
+        groupMemberCommandRepository.save(GroupMember.createLeader(group, leader, createdAt));
+        jdbcTemplate.update("UPDATE groups SET created_at = ?, updated_at = ? WHERE id = ?", createdAt, createdAt, group.getId());
+        entityManager.clear();
+        group = groupCommandRepository.findById(group.getId()).orElseThrow();
+        groupCommandRepository.save(group.endAt(TestSupportConfig.FIXED_NOW));
+        Long endedGroupId = group.getId();
+
+        assertThatThrownBy(() -> groupCommandService.replaceRecurringSchedule(
+                leader.getId(), endedGroupId, new ReplaceRecurringScheduleCommand(
+                        Set.of(DayOfWeek.MONDAY), LocalTime.of(19, 0), LocalTime.of(21, 0))))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_ENDED);
+    }
+
+    @DisplayName("동아리 모임장은 반복 일정을 삭제해 유동적 일정으로 변경할 수 있다.")
+    @Test
+    void removeRecurringSchedule() {
+        Member leader = saveMember("github-schedule-remove");
+        Group group = createGroup(leader, "반복 일정 삭제 그룹");
+
+        groupCommandService.removeRecurringSchedule(leader.getId(), group.getId());
+
+        assertThat(groupCommandRepository.findById(group.getId()).orElseThrow().getRecurringSchedule())
+                .isNull();
+    }
+
+    @DisplayName("반복 일정이 없는 그룹은 반복 일정을 삭제할 수 없다.")
+    @Test
+    void removeRecurringScheduleFailsWhenScheduleDoesNotExist() {
+        Member leader = saveMember("github-schedule-remove-missing");
+        Group group = groupJpaRepository.save(Group.createStudy(
+                "반복 일정 없는 그룹", "소개", null, GroupCommandService.DEFAULT_REPRESENTATIVE_IMAGE_KEY,
+                null, TestSupportConfig.FIXED_NOW));
+        groupMemberCommandRepository.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
+
+        assertThatThrownBy(() -> groupCommandService.removeRecurringSchedule(leader.getId(), group.getId()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.RECURRING_SCHEDULE_NOT_FOUND);
+    }
+
+    @DisplayName("세션 그룹 모임장은 세션 일정을 교체할 수 있다.")
+    @Test
+    void replaceSessionSchedule() {
+        Member leader = saveMember("github-session-schedule-replace");
+        Group group = groupJpaRepository.save(Group.createSession(
+                "세션 일정 교체 그룹", "소개", null, GroupCommandService.DEFAULT_REPRESENTATIVE_IMAGE_KEY,
+                SessionGroupSchedule.of(LocalDate.now().plusDays(1), LocalTime.of(10, 0), LocalTime.of(11, 0)),
+                TestSupportConfig.FIXED_NOW));
+        groupMemberCommandRepository.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
+
+        ReplaceSessionScheduleResult result = groupCommandService.replaceSessionSchedule(
+                leader.getId(), group.getId(), new ReplaceSessionScheduleCommand(
+                        LocalDate.of(2026, 9, 1), LocalTime.of(13, 0), LocalTime.of(15, 0)));
+
+        assertThat(result.sessionDate()).isEqualTo(LocalDate.of(2026, 9, 1));
+        assertThat(result.startTime()).isEqualTo(LocalTime.of(13, 0));
+        assertThat(result.endTime()).isEqualTo(LocalTime.of(15, 0));
+    }
+
+    @DisplayName("동아리 그룹에는 세션 일정을 등록할 수 없다.")
+    @Test
+    void replaceSessionScheduleFailsForRecurringGroup() {
+        Member leader = saveMember("github-session-schedule-club");
+        Group group = createGroup(leader, "동아리 세션 일정 그룹");
+
+        assertThatThrownBy(() -> groupCommandService.replaceSessionSchedule(
+                leader.getId(), group.getId(), new ReplaceSessionScheduleCommand(
+                        LocalDate.of(2026, 9, 1), LocalTime.of(13, 0), LocalTime.of(15, 0))))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.SCHEDULE_TYPE_MISMATCH);
+    }
+
+    @DisplayName("세션 일정의 시작 시각이 종료 시각보다 늦으면 교체할 수 없다.")
+    @Test
+    void replaceSessionScheduleFailsForInvalidTimeRange() {
+        Member leader = saveMember("github-session-schedule-invalid");
+        Group group = groupJpaRepository.save(Group.createSession(
+                "잘못된 세션 일정 그룹", "소개", null, GroupCommandService.DEFAULT_REPRESENTATIVE_IMAGE_KEY,
+                SessionGroupSchedule.of(LocalDate.now().plusDays(1), LocalTime.of(10, 0), LocalTime.of(11, 0)),
+                TestSupportConfig.FIXED_NOW));
+        groupMemberCommandRepository.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
+
+        assertThatThrownBy(() -> groupCommandService.replaceSessionSchedule(
+                leader.getId(), group.getId(), new ReplaceSessionScheduleCommand(
+                        LocalDate.of(2026, 9, 1), LocalTime.of(15, 0), LocalTime.of(13, 0))))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.SCHEDULE_INVALID_RULE);
+    }
+
+    @DisplayName("모임장이 아닌 회원은 세션 일정을 교체할 수 없다.")
+    @Test
+    void replaceSessionScheduleFailsForNonLeader() {
+        Member leader = saveMember("github-session-schedule-owner");
+        Member member = memberRepository.save(Member.create("누리", 13, "github-session-schedule-member", Course.BACKEND));
+        Group group = groupJpaRepository.save(Group.createSession(
+                "세션 일정 권한 그룹", "소개", null, GroupCommandService.DEFAULT_REPRESENTATIVE_IMAGE_KEY,
+                SessionGroupSchedule.of(LocalDate.of(2026, 8, 25), LocalTime.of(10, 0), LocalTime.of(11, 0)),
+                TestSupportConfig.FIXED_NOW));
+        groupMemberCommandRepository.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
+        groupMemberCommandRepository.save(GroupMember.createMember(group, member, TestSupportConfig.FIXED_NOW));
+
+        assertThatThrownBy(() -> groupCommandService.replaceSessionSchedule(
+                member.getId(), group.getId(), new ReplaceSessionScheduleCommand(
+                        LocalDate.of(2026, 9, 1), LocalTime.of(13, 0), LocalTime.of(15, 0))))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_ACCESS_DENIED);
+    }
+
+    @DisplayName("존재하지 않는 그룹의 세션 일정은 교체할 수 없다.")
+    @Test
+    void replaceSessionScheduleFailsForUnknownGroup() {
+        Member leader = saveMember("github-session-schedule-unknown");
+
+        assertThatThrownBy(() -> groupCommandService.replaceSessionSchedule(
+                leader.getId(), 999_999L, new ReplaceSessionScheduleCommand(
+                        LocalDate.of(2026, 9, 1), LocalTime.of(13, 0), LocalTime.of(15, 0))))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_NOT_FOUND);
+    }
+
+    @DisplayName("세션 일정 날짜가 없으면 교체할 수 없다.")
+    @Test
+    void replaceSessionScheduleFailsWhenDateIsMissing() {
+        Member leader = saveMember("github-session-schedule-no-date");
+        Group group = groupJpaRepository.save(Group.createSession(
+                "세션 날짜 누락 그룹", "소개", null, GroupCommandService.DEFAULT_REPRESENTATIVE_IMAGE_KEY,
+                SessionGroupSchedule.of(LocalDate.of(2026, 8, 25), LocalTime.of(10, 0), LocalTime.of(11, 0)),
+                TestSupportConfig.FIXED_NOW));
+        groupMemberCommandRepository.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
+
+        assertThatThrownBy(() -> groupCommandService.replaceSessionSchedule(
+                leader.getId(), group.getId(), new ReplaceSessionScheduleCommand(
+                        null, LocalTime.of(13, 0), LocalTime.of(15, 0))))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.SCHEDULE_INVALID_RULE);
+    }
+
+    @DisplayName("종료된 그룹의 세션 일정은 교체할 수 없다.")
+    @Test
+    void replaceSessionScheduleFailsForEndedGroup() {
+        Member leader = saveMember("github-session-schedule-ended");
+        LocalDateTime createdAt = TestSupportConfig.FIXED_NOW.minusHours(25);
+        Group group = groupJpaRepository.save(Group.createSession(
+                "종료 세션 일정 그룹", "소개", null, GroupCommandService.DEFAULT_REPRESENTATIVE_IMAGE_KEY,
+                SessionGroupSchedule.of(LocalDate.of(2026, 8, 25), LocalTime.of(10, 0), LocalTime.of(11, 0)), createdAt));
+        groupMemberCommandRepository.save(GroupMember.createLeader(group, leader, createdAt));
+        jdbcTemplate.update("UPDATE groups SET created_at = ?, updated_at = ? WHERE id = ?", createdAt, createdAt, group.getId());
+        entityManager.clear();
+        group = groupCommandRepository.findById(group.getId()).orElseThrow();
+        groupCommandRepository.save(group.endAt(TestSupportConfig.FIXED_NOW));
+        Long endedGroupId = group.getId();
+
+        assertThatThrownBy(() -> groupCommandService.replaceSessionSchedule(
+                leader.getId(), endedGroupId, new ReplaceSessionScheduleCommand(
+                        LocalDate.of(2026, 9, 1), LocalTime.of(13, 0), LocalTime.of(15, 0))))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_ENDED);
     }
 
     private Member saveMember(String githubId) {

@@ -8,6 +8,7 @@ import java.util.List;
 
 public record GroupDetailResult(
         Group group,
+        String representativeImageUrl,
         List<GroupDetailMember> members,
         GroupRecruitment activeRecruitment,
         int approvedCount

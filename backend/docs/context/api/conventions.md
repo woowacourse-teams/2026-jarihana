@@ -41,6 +41,7 @@ URL에 버전 경로를 붙이지 않는다.
 | 응답 | `items`, `nextCursor`, `hasNext` | 마지막 페이지는 `nextCursor = null`, `hasNext = false` |
 
 기본 정렬은 `createdAt DESC, id DESC`이며, 커서는 정렬 기준 값을 불투명 문자열로 인코딩한다.
+잘못되거나 만료된 `cursor`와 허용 범위를 벗어난 `size`는 `INVALID_PARAMETER`로 응답한다.
 
 ## 응답 형식
 `204 No Content`를 제외한 성공과 실패 응답은 동일한 봉투를 사용한다.
