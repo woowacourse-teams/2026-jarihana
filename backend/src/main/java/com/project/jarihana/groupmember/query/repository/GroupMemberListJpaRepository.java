@@ -17,7 +17,7 @@ public interface GroupMemberListJpaRepository extends JpaRepository<GroupMember,
             from GroupMember groupMember
             where groupMember.group.id = :groupId
               and (
-                  :cursorJoinedAt is null
+                  cast(:cursorJoinedAt as LocalDateTime) is null
                   or groupMember.joinedAt < :cursorJoinedAt
                   or (groupMember.joinedAt = :cursorJoinedAt and groupMember.id < :cursorId)
               )
