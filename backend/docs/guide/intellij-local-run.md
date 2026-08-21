@@ -8,44 +8,37 @@ IntelliJ의 Spring Boot 실행 구성은 `backend/.env`를 자동으로 읽지 �
 
 ## 사전 준비: 로컬 PostgreSQL
 
-`local` 프로파일의 datasource는 `application-local.yaml`에 고정되어 있습니다.
+DB 접속 정보는 `application.yaml`에서 환경 변수로 주입됩니다. 프로파일과 무관하게 공통으로
+적용됩니다.
 
-```text
-url:      jdbc:postgresql://localhost:5432/jarihana
-username: jarihana
-password: jarihana
+```yaml
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
 ```
 
-이 주소로 응답하는 PostgreSQL만 있으면 되고, 그것이 컨테이너인지 로컬 설치본인지는
-상관없습니다. 다만 **둘 중 하나만 5432를 점유할 수 있으므로 한 방식을 골라야 합니다.**
+기본값이 없으므로 세 값은 로컬 실행에서도 반드시 채워야 합니다. 즉 **어떤 DB에 붙을지는
+`.env`가 결정합니다.** 아래에서 DB를 준비한 뒤, 그 접속 정보를 1단계에서 `.env`에 적습니다.
+
+`local` 프로파일은 datasource가 아니라 `ddl-auto: update`, `show-sql`, 쿠키의
+`secure: false` 같은 개발 편의 설정을 담당합니다. 그래서 프로파일과 `.env` 둘 다 필요합니다.
+
+DB는 컨테이너와 로컬 설치본 중 하나로 준비하면 되고, 앱 입장에서는 구분되지 않습니다.
+다만 **둘 중 하나만 5432를 점유할 수 있으므로 한 방식을 골라야 합니다.**
 
 ### 방식 A: 로컬에 설치된 PostgreSQL 사용
 
-Docker를 실행할 필요가 없습니다. 최초 1회만 롤과 DB를 만들어 두면 됩니다.
+Docker를 실행할 필요가 없습니다. 최초 1회만 DB를 만들어 두면 됩니다.
 
 **1) 서버가 실행 중인지 확인합니다**
 
-Windows에서 설치 프로그램으로 설치했다면 서비스로 상시 실행 중입니다.
-
-```bash
-powershell -Command "Get-Service *postgresql*"
-```
-
-macOS에서 Homebrew로 설치한 경우입니다.
-
-```bash
-brew services list | grep postgresql
-```
-
-멈춰 있으면 `brew services start postgresql@17`로 시작합니다.
-
-Linux에서 패키지로 설치한 경우입니다.
-
-```bash
-systemctl status postgresql
-```
-
-멈춰 있으면 `sudo systemctl start postgresql`로 시작합니다.
+| OS | 확인 명령 | 시작 명령 |
+| --- | --- | --- |
+| Windows | `powershell -Command "Get-Service *postgresql*"` | 서비스로 자동 실행됩니다 |
+| macOS (Homebrew) | `brew services list \| grep postgresql` | `brew services start postgresql@17` |
+| Linux (패키지) | `systemctl status postgresql` | `sudo systemctl start postgresql` |
 
 **2) 슈퍼유저로 접속합니다**
 
@@ -57,34 +50,46 @@ systemctl status postgresql
 | macOS Homebrew | `psql -d postgres` | OS 사용자 이름으로 슈퍼유저가 만들어지며, `postgres` 롤은 없을 수 있습니다 |
 | Linux 패키지 | `sudo -u postgres psql` | peer 인증이라 비밀번호가 필요 없습니다 |
 
-**3) 롤과 DB를 만듭니다**
+**3) DB를 만듭니다**
 
 접속 방식과 무관하게 SQL은 동일합니다.
 
 ```sql
-CREATE ROLE jarihana LOGIN PASSWORD 'jarihana';
-CREATE DATABASE jarihana OWNER jarihana;
+CREATE DATABASE jarihana;
 ```
+
+이 경우 `.env`의 `DB_USERNAME`과 `DB_PASSWORD`에는 방금 접속한 슈퍼유저 계정을 적습니다.
 
 **4) 확인합니다**
 
+`.env`에 적을 계정으로 실제 접속되는지 봅니다.
+
 ```bash
-psql -h 127.0.0.1 -U jarihana -d jarihana -c "\conninfo"
+psql -h 127.0.0.1 -U <DB_USERNAME> -d jarihana -c "\conninfo"
 ```
 
 ### 방식 B: Docker Compose 사용
 
-로컬에 PostgreSQL을 설치하지 않았다면 컨테이너로 띄웁니다. 롤과 DB는
-`compose-local.yaml`이 자동으로 만들어 줍니다.
+로컬에 PostgreSQL을 설치하지 않았다면 컨테이너로 띄웁니다.
 
 ```bash
 docker compose -f compose-local.yaml up -d
 ```
 
+`compose-local.yaml`이 DB, 계정, 비밀번호를 모두 `jarihana`로 만들어 주므로 `.env`도 여기에
+맞춰야 합니다.
+
+```bash
+DB_URL=jdbc:postgresql://localhost:5432/jarihana
+DB_USERNAME=jarihana
+DB_PASSWORD=jarihana
+```
+
 설치본 서비스가 실행 중이면 5432 충돌로 컨테이너가 뜨지 않습니다. 이때는 서비스를 먼저
 중지하거나 방식 A를 씁니다.
 
-두 방식 모두 `ddl-auto`가 `update`이므로 테이블은 첫 실행 때 자동 생성됩니다.
+두 방식 모두 `local` 프로파일의 `ddl-auto`가 `update`이므로 테이블은 첫 실행 때 자동
+생성됩니다. DB만 만들어 두면 됩니다.
 
 ## 1. `.env` 정보 입력
 
@@ -96,17 +101,14 @@ cp backend/.env.example backend/.env
 
 `.env`는 `.gitignore` 대상이라 커밋되지 않습니다. 로컬 실행에 맞게 값을 채웁니다.
 
-| 키 | 로컬 실행 시 값 | 설명 |
+| 키 | 로컬 실행 시 값 | 필수 여부 |
 | --- | --- | --- |
-| `SPRING_PROFILES_ACTIVE` | `local` | `.env.example`에는 `prod`로 되어 있으니 반드시 바꿉니다 |
-| `ACCESS_TOKEN_SECRET` | 32자 이상 문자열 | **필수.** 비어 있으면 기동에 실패합니다 |
-| `DB_URL` | 그대로 두어도 됩니다 | `prod` 프로파일 전용 |
-| `DB_USERNAME` | 그대로 두어도 됩니다 | `prod` 프로파일 전용 |
-| `DB_PASSWORD` | 그대로 두어도 됩니다 | `prod` 프로파일 전용 |
+| `SPRING_PROFILES_ACTIVE` | `local` | 필수. `.env.example`에는 `prod`로 되어 있으니 반드시 바꿉니다 |
+| `DB_URL` | `jdbc:postgresql://localhost:5432/jarihana` | 필수. 기본값이 없습니다 |
+| `DB_USERNAME` | 사전 준비에서 정한 계정 | 필수 |
+| `DB_PASSWORD` | 해당 계정의 비밀번호 | 필수 |
+| `ACCESS_TOKEN_SECRET` | 32자 이상 문자열 | 필수 |
 | `REFRESH_TOKEN_SECRET` | 그대로 두어도 됩니다 | 현재 설정에서 참조하지 않습니다 |
-
-`local` 프로파일은 datasource를 `application-local.yaml`에서 직접 읽으므로 `DB_URL`,
-`DB_USERNAME`, `DB_PASSWORD`를 고쳐도 로컬 실행에는 반영되지 않습니다.
 
 `ACCESS_TOKEN_SECRET`은 HMAC-SHA256 서명 키로 쓰이며 32자(256비트) 이상이어야 합니다.
 `JwtProperties`에 `@NotBlank`, `@Size(min = 32)`가 걸려 있어 조건을 어기면 어떤 값이
@@ -167,8 +169,7 @@ Database JDBC URL [jdbc:postgresql://localhost:5432/jarihana]
 Started JarihanaApplication in 7.492 seconds
 ```
 
-JDBC URL이 `jdbc:h2:mem:...`으로 찍히면 프로파일이 적용되지 않은 것입니다. 아래 문제 해결을
-참고합니다.
+JDBC URL이 `.env`의 `DB_URL`과 같은지 봅니다.
 
 ## 문제 해결
 
@@ -177,11 +178,10 @@ JDBC URL이 `jdbc:h2:mem:...`으로 찍히면 프로파일이 적용되지 않�
 `ACCESS_TOKEN_SECRET`이 전달되지 않았거나 32자 미만입니다. 실행 구성에 `.env`가 연결되었는지,
 값이 32자 이상인지 확인합니다. 메시지에 위반한 프로퍼티와 실제 값이 함께 표시됩니다.
 
-### JDBC URL이 `jdbc:h2:mem:...`으로 뜬다
+### `'url' must start with "jdbc"`
 
-Active profiles에 `local`이 지정되지 않은 경우입니다. 이때는 에러 없이 정상 기동하지만
-PostgreSQL 대신 인메모리 H2에 붙기 때문에 재시작할 때마다 데이터가 사라집니다. 로그의
-JDBC URL을 반드시 확인합니다.
+`DB_URL`이 전달되지 않았습니다. `${DB_URL}`에는 기본값이 없어서 빈 문자열로 바인딩된
+결과입니다. 실행 구성에 `.env`가 연결되었는지 확인합니다.
 
 ### `Port 8080 was already in use`
 
@@ -194,10 +194,10 @@ JDBC URL을 반드시 확인합니다.
 
 ### `password 인증을 실패했습니다`
 
-`jarihana` 롤이 없거나 비밀번호가 다릅니다. 사전 준비의 롤과 DB 생성을 확인합니다.
+`.env`의 `DB_USERNAME`, `DB_PASSWORD`가 준비한 DB의 계정과 다릅니다.
 
 이때 5432에 실제로 어떤 PostgreSQL이 응답하고 있는지부터 확인하는 것이 빠릅니다. 설치본
-서비스와 컨테이너 중 어느 쪽에 롤을 만들었는지 착각하기 쉽습니다.
+서비스와 컨테이너 중 어느 쪽에 DB를 만들었는지 착각하기 쉽습니다.
 
 Windows에서는 다음과 같이 확인합니다.
 
@@ -214,4 +214,9 @@ docker ps --filter "name=jarihana"
 ```
 
 컨테이너 목록이 비어 있는데 5432가 열려 있다면 로컬 설치본이 응답하고 있는 것이므로,
-롤과 DB도 그쪽에 만들어야 합니다.
+DB도 그쪽에 만들어야 합니다.
+
+### 테이블이 생성되지 않는다
+
+Active profiles에 `local`이 지정되지 않은 경우입니다. `ddl-auto: update`는 `local`
+프로파일에만 있어서, 프로파일 없이 실행하면 스키마가 자동 생성되지 않습니다.
