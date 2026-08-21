@@ -1,11 +1,13 @@
-name: Backend Docker Build
+name: Backend Docker Deploy
 
 on:
   workflow_dispatch:
 
 jobs:
-  build:
+  deploy:
     runs-on: self-hosted
+    env:
+      BACKEND_TAG: ${{ github.sha }}
 
     steps:
       - name: Checkout
@@ -19,9 +21,25 @@ jobs:
       - name: Backend 이미지 빌드
         run: |
           docker build \
-            -t jarihana-backend:${{ github.sha }} \
+            -t jarihana-backend:${BACKEND_TAG} \
             ./backend
 
-      - name: 이미지 확인
+      - name: Compose로 Backend 배포
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          FRONTEND_ORIGIN: ${{ secrets.FRONTEND_ORIGIN }}
+          ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
+          GITHUB_OAUTH_CLIENT_ID: ${{ secrets.GITHUB_OAUTH_CLIENT_ID }}
+          GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.GITHUB_OAUTH_CLIENT_SECRET }}
+          GITHUB_OAUTH_REDIRECT_URI: ${{ secrets.GITHUB_OAUTH_REDIRECT_URI }}
         run: |
-          docker images jarihana-backend
+          docker compose \
+            -f infra/docker-compose.yml \
+            up -d --no-build backend
+
+      - name: Backend 컨테이너 상태 확인
+        run: |
+          container_id="$(docker ps -q --filter 'name=^/jarihana-backend$')"
+          test -n "${container_id}"
+          test "$(docker inspect -f '{{.State.Status}}' "${container_id}")" = "running"
+          docker ps --filter 'name=^/jarihana-backend$'
