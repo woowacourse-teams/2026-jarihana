@@ -1,0 +1,45 @@
+import { z } from "zod";
+
+import { cursorPageSchema, entityIdSchema, localDateTimeSchema } from "../common/schemas.js";
+import { groupRoleSchema } from "../group/index.js";
+
+export const courseSchema = z.enum(["BACKEND", "FRONTEND", "ANDROID"]);
+
+export const memberSchema = z.object({
+  id: entityIdSchema,
+  crewName: z.string(),
+  generation: z.number().int().positive(),
+  course: courseSchema,
+  avatarUrl: z.string()
+});
+
+export const memberProfileSchema = z.discriminatedUnion("signupCompleted", [
+  z.object({ signupCompleted: z.literal(false), member: z.null() }),
+  z.object({ signupCompleted: z.literal(true), member: memberSchema })
+]);
+
+export const memberSignupResponseSchema = z.object({
+  id: entityIdSchema,
+  crewName: z.string(),
+  generation: z.number().int().positive(),
+  course: courseSchema,
+  joinedAt: localDateTimeSchema
+});
+
+export const groupMemberSchema = z.object({
+  groupMemberId: entityIdSchema,
+  memberId: entityIdSchema,
+  crewName: z.string(),
+  generation: z.number().int().positive(),
+  course: courseSchema,
+  role: groupRoleSchema,
+  joinedAt: localDateTimeSchema
+});
+
+export const groupMemberPageSchema = cursorPageSchema(groupMemberSchema);
+
+export const transferLeaderResponseSchema = z.object({
+  groupId: entityIdSchema,
+  previousLeaderGroupMemberId: entityIdSchema,
+  leaderGroupMemberId: entityIdSchema
+});

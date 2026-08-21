@@ -4,7 +4,11 @@ import com.project.jarihana.group.query.service.dto.GroupListResult;
 import com.project.jarihana.group.query.service.dto.GroupListResult.ActiveRecruitment;
 import com.project.jarihana.group.query.service.dto.GroupListResult.Item;
 import com.project.jarihana.group.query.service.dto.GroupListResult.Leader;
+import com.project.jarihana.group.query.service.dto.GroupListResult.RecurringSchedule;
+import com.project.jarihana.group.query.service.dto.GroupListResult.SessionSchedule;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 public record GroupListResponse(List<GroupItem> items, String nextCursor, boolean hasNext) {
@@ -28,6 +32,8 @@ public record GroupListResponse(List<GroupItem> items, String nextCursor, boolea
             String name,
             String introduction,
             String representativeImageUrl,
+            RecurringScheduleResponse recurringSchedule,
+            SessionScheduleResponse sessionSchedule,
             GroupLeader leader,
             int memberCount,
             GroupActiveRecruitment activeRecruitment
@@ -41,12 +47,40 @@ public record GroupListResponse(List<GroupItem> items, String nextCursor, boolea
                     item.name(),
                     item.introduction(),
                     item.representativeImageUrl(),
+                    RecurringScheduleResponse.from(item.recurringSchedule()),
+                    SessionScheduleResponse.from(item.sessionSchedule()),
                     item.leader() == null ? null : GroupLeader.from(item.leader()),
                     item.memberCount(),
                     item.activeRecruitment() == null
                             ? null
                             : GroupActiveRecruitment.from(item.activeRecruitment())
             );
+        }
+    }
+
+    public record RecurringScheduleResponse(
+            List<String> daysOfWeek,
+            LocalTime startTime,
+            LocalTime endTime
+    ) {
+
+        private static RecurringScheduleResponse from(RecurringSchedule schedule) {
+            return schedule == null
+                    ? null
+                    : new RecurringScheduleResponse(schedule.daysOfWeek(), schedule.startTime(), schedule.endTime());
+        }
+    }
+
+    public record SessionScheduleResponse(
+            LocalDate sessionDate,
+            LocalTime startTime,
+            LocalTime endTime
+    ) {
+
+        private static SessionScheduleResponse from(SessionSchedule schedule) {
+            return schedule == null
+                    ? null
+                    : new SessionScheduleResponse(schedule.sessionDate(), schedule.startTime(), schedule.endTime());
         }
     }
 

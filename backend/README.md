@@ -97,6 +97,11 @@ docker compose -f docker-compose-local.yaml up -d
 호스트 포트는 `5432`입니다.
 운영 배포 환경 변수는 GitHub Actions Secrets에서 `infra/docker-compose.yml`로 주입합니다.
 
+`local` 프로필은 프론트엔드의 명시적인 개발 로그인 선택에 한해 loopback 요청을 회원 ID 1로
+인증합니다. 실제 서비스·도메인 권한과 CSRF 검사는 그대로 적용됩니다. 다른 로컬 회원을 사용하려면
+`--jarihana.auth.local-development.member-id=<id>`로 바꾸며, non-local 프로필에서는 이 필터가
+설정값과 무관하게 설치되지 않습니다.
+
 PostgreSQL 컨테이너 상태는 다음 명령으로 확인할 수 있습니다.
 
 ```bash

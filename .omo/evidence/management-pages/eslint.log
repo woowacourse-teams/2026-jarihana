@@ -1,0 +1,3 @@
+Invocation: npx eslint src/pages/manage tests/pages/manage --max-warnings=0 --format json --output-file ../.omo/evidence/management-pages/eslint.json
+Exit status: 0
+Observable: eslint.json contains six audited files; every errorCount, fatalErrorCount, and warningCount is 0.

@@ -55,6 +55,12 @@ public interface GroupJpaRepository extends JpaRepository<Group, Long> {
                       where recruitment.group = g
                         and recruitment.startsAt <= :now
                         and (recruitment.endsAt is null or recruitment.endsAt > :now)
+                        and (
+                            select count(registration.id)
+                            from Registration registration
+                            where registration.recruitment = recruitment
+                              and registration.status = com.project.jarihana.registration.domain.RegistrationStatus.APPROVED
+                        ) < recruitment.capacity
                   )
               )
             order by g.createdAt desc, g.id desc

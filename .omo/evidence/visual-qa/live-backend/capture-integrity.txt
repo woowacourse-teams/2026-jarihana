@@ -1,0 +1,16 @@
+Capture integrity checks (read-only): `file` + `stat -f`.
+
+groups-1440.png: PNG image data, 1440 x 1759, 8-bit/color RGB, non-interlaced; bytes=563360; mtime=1787283639
+groups-360.png: PNG image data, 360 x 3556, 8-bit/color RGB, non-interlaced; bytes=563871; mtime=1787283639
+group-detail-1440.png: PNG image data, 1440 x 1083, 8-bit/color RGB, non-interlaced; bytes=108594; mtime=1787283639
+group-detail-360.png: PNG image data, 360 x 1769, 8-bit/color RGB, non-interlaced; bytes=100694; mtime=1787283639
+
+Latest frontend/src mtime observed before capture: 1787283213
+Clean viewport captures (canonical):
+groups-1440-clean.png: PNG image data, 1440 x 1000, 8-bit/color RGB, non-interlaced; bytes=203268; mtime=1787286701
+groups-360-clean.png: PNG image data, 360 x 1000, 8-bit/color RGB, non-interlaced; bytes=84470; mtime=1787286711
+group-detail-1440-clean.png: PNG image data, 1440 x 1000, 8-bit/color RGB, non-interlaced; bytes=73226; mtime=1787286707
+group-detail-360-clean.png: PNG image data, 360 x 1000, 8-bit/color RGB, non-interlaced; bytes=40554; mtime=1787286712
+
+Latest frontend/src mtime before current-source rerun: 1787286384
+Result: all canonical captures match `.png`, dimensions are exact 1440x1000 or 360x1000 viewport sizes, files are non-empty, and each mtime is newer than latest frontend/src mtime. Earlier full-page captures are retained as supplementary evidence; canonical files avoid full-page compositor repetition.

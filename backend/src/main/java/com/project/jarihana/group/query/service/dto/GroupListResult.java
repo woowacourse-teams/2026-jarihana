@@ -1,6 +1,8 @@
 package com.project.jarihana.group.query.service.dto;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 public record GroupListResult(List<Item> items, String nextCursor, boolean hasNext) {
@@ -16,9 +18,25 @@ public record GroupListResult(List<Item> items, String nextCursor, boolean hasNe
             String name,
             String introduction,
             String representativeImageUrl,
+            RecurringSchedule recurringSchedule,
+            SessionSchedule sessionSchedule,
             Leader leader,
             int memberCount,
             ActiveRecruitment activeRecruitment
+    ) {
+    }
+
+    public record RecurringSchedule(
+            List<String> daysOfWeek,
+            LocalTime startTime,
+            LocalTime endTime
+    ) {
+    }
+
+    public record SessionSchedule(
+            LocalDate sessionDate,
+            LocalTime startTime,
+            LocalTime endTime
     ) {
     }
 
