@@ -92,7 +92,8 @@ openssl rand -hex 32
 
 `GITHUB_OAUTH_CLIENT_ID`와 `GITHUB_OAUTH_CLIENT_SECRET`은 GitHub 로그인을 실제로
 테스트할 때만 채웁니다. 운영값은 `.env.example`에 기록하지 않고 GitHub Actions Secrets로
-관리합니다.
+관리합니다. 운영 저장소에 등록하는 시크릿 이름은
+[백엔드 README의 운영 배포 시크릿](../../README.md#운영-배포-시크릿)에서 확인합니다.
 
 ## 2. IntelliJ 환경 변수, 프로필 설정
 

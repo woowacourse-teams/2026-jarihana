@@ -109,3 +109,22 @@ docker compose -f docker-compose-local.yaml ps
 운영 환경에서는 `infra/docker-compose.yml`이 `SPRING_PROFILES_ACTIVE=prod`, DB 접속값,
 인증·OAuth 설정을 GitHub Actions Secrets와 함께 주입합니다. 운영 프로필은 스키마를 자동
 변경하지 않고 `ddl-auto: validate`로 검증만 수행합니다.
+
+### 운영 배포 시크릿
+
+저장소의 `Settings > Secrets and variables > Actions`에 다음 이름으로 시크릿을 등록합니다.
+GitHub은 `GITHUB_`로 시작하는 시크릿 이름을 허용하지 않으므로, OAuth 시크릿은
+`OAUTH_GITHUB_*` 이름으로 저장한 뒤 배포 워크플로에서 애플리케이션 환경 변수
+`GITHUB_OAUTH_*`로 매핑합니다.
+
+| 애플리케이션·Compose 환경 변수 | GitHub Actions 시크릿 |
+| --- | --- |
+| `POSTGRES_PASSWORD` | `POSTGRES_PASSWORD` |
+| `FRONTEND_ORIGIN` | `FRONTEND_ORIGIN` |
+| `ACCESS_TOKEN_SECRET` | `ACCESS_TOKEN_SECRET` |
+| `GITHUB_OAUTH_CLIENT_ID` | `OAUTH_GITHUB_CLIENT_ID` |
+| `GITHUB_OAUTH_CLIENT_SECRET` | `OAUTH_GITHUB_CLIENT_SECRET` |
+| `GITHUB_OAUTH_REDIRECT_URI` | `OAUTH_GITHUB_REDIRECT_URI` |
+
+실제 값은 저장소에 커밋하지 않습니다. `backend/.env.example`은 로컬 실행용 키 목록과
+예시만 제공하며 운영값의 저장소가 아닙니다.
