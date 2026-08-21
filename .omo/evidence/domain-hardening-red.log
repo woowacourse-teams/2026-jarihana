@@ -1,0 +1,264 @@
+^D
+> jarihana-frontend@1.0.0 test
+> jest --runInBand --no-watchman tests/domain
+
+FAIL tests/domain/hooks-contracts.test.js
+  ● infinite query cursor guards › stops groups when the backend repeats a cursor
+
+    expect(received).toBeUndefined()
+
+    Received: "same"
+
+      42 |
+      43 |     // Then
+    > 44 |     expect(nextCursor).toBeUndefined();
+         |                        ^
+      45 |   });
+      46 | });
+      47 |
+
+      at tests/domain/hooks-contracts.test.js:44:24
+
+  ● infinite query cursor guards › stops members when the backend repeats a cursor
+
+    expect(received).toBeUndefined()
+
+    Received: "same"
+
+      42 |
+      43 |     // Then
+    > 44 |     expect(nextCursor).toBeUndefined();
+         |                        ^
+      45 |   });
+      46 | });
+      47 |
+
+      at tests/domain/hooks-contracts.test.js:44:24
+
+  ● infinite query cursor guards › stops recruitments when the backend repeats a cursor
+
+    expect(received).toBeUndefined()
+
+    Received: "same"
+
+      42 |
+      43 |     // Then
+    > 44 |     expect(nextCursor).toBeUndefined();
+         |                        ^
+      45 |   });
+      46 | });
+      47 |
+
+      at tests/domain/hooks-contracts.test.js:44:24
+
+  ● infinite query cursor guards › stops registrations when the backend repeats a cursor
+
+    expect(received).toBeUndefined()
+
+    Received: "same"
+
+      42 |
+      43 |     // Then
+    > 44 |     expect(nextCursor).toBeUndefined();
+         |                        ^
+      45 |   });
+      46 | });
+      47 |
+
+      at tests/domain/hooks-contracts.test.js:44:24
+
+  ● infinite query cursor guards › stops my registrations when the backend repeats a cursor
+
+    expect(received).toBeUndefined()
+
+    Received: "same"
+
+      42 |
+      43 |     // Then
+    > 44 |     expect(nextCursor).toBeUndefined();
+         |                        ^
+      45 |   });
+      46 | });
+      47 |
+
+      at tests/domain/hooks-contracts.test.js:44:24
+
+  ● identifier query guards › disables the group query for a falsey identifier
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: false
+    Received: true
+
+      67 |
+      68 |     // Then
+    > 69 |     expect(options.enabled).toBe(expectedEnabled);
+         |                             ^
+      70 |   });
+      71 | });
+      72 |
+
+      at tests/domain/hooks-contracts.test.js:69:29
+
+  ● identifier query guards › disables the members query for a falsey identifier
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: false
+    Received: true
+
+      67 |
+      68 |     // Then
+    > 69 |     expect(options.enabled).toBe(expectedEnabled);
+         |                             ^
+      70 |   });
+      71 | });
+      72 |
+
+      at tests/domain/hooks-contracts.test.js:69:29
+
+  ● identifier query guards › disables the recruitment group query for a falsey identifier
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: false
+    Received: true
+
+      67 |
+      68 |     // Then
+    > 69 |     expect(options.enabled).toBe(expectedEnabled);
+         |                             ^
+      70 |   });
+      71 | });
+      72 |
+
+      at tests/domain/hooks-contracts.test.js:69:29
+
+  ● identifier query guards › disables the recruitment query for a falsey identifier
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: false
+    Received: true
+
+      67 |
+      68 |     // Then
+    > 69 |     expect(options.enabled).toBe(expectedEnabled);
+         |                             ^
+      70 |   });
+      71 | });
+      72 |
+
+      at tests/domain/hooks-contracts.test.js:69:29
+
+  ● identifier query guards › disables the recruitment list query for a falsey identifier
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: false
+    Received: true
+
+      67 |
+      68 |     // Then
+    > 69 |     expect(options.enabled).toBe(expectedEnabled);
+         |                             ^
+      70 |   });
+      71 | });
+      72 |
+
+      at tests/domain/hooks-contracts.test.js:69:29
+
+  ● identifier query guards › disables the registration list query for a falsey identifier
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: false
+    Received: true
+
+      67 |
+      68 |     // Then
+    > 69 |     expect(options.enabled).toBe(expectedEnabled);
+         |                             ^
+      70 |   });
+      71 | });
+      72 |
+
+      at tests/domain/hooks-contracts.test.js:69:29
+
+FAIL tests/domain/query-and-cursor.test.js
+  ● cursor page merging › returns a new next cursor when pagination can advance
+
+    TypeError: (0 , _index.getSafeNextCursor) is not a function
+
+      59 |
+      60 |     // When
+    > 61 |     const result = getSafeNextCursor(pages[1], pages);
+         |                                     ^
+      62 |
+      63 |     // Then
+      64 |     expect(result).toBe("cursor-2");
+
+      at Object.<anonymous> (tests/domain/query-and-cursor.test.js:61:37)
+
+  ● cursor page merging › returns no next cursor when the backend repeats one
+
+    TypeError: (0 , _index.getSafeNextCursor) is not a function
+
+      73 |
+      74 |     // When
+    > 75 |     const result = getSafeNextCursor(pages[1], pages);
+         |                                     ^
+      76 |
+      77 |     // Then
+      78 |     expect(result).toBeUndefined();
+
+      at Object.<anonymous> (tests/domain/query-and-cursor.test.js:75:37)
+
+FAIL tests/domain/api-contracts.test.js
+  ● domain API adapters › rejects an invalid crew name before member signup reaches HTTP
+
+    expect(received).toThrow()
+
+    Received function did not throw
+
+       97 |
+       98 |     // Then
+    >  99 |     expect(signup).toThrow();
+          |                    ^
+      100 |     expect(apiRequest).not.toHaveBeenCalled();
+      101 |   });
+      102 |
+
+      at Object.<anonymous> (tests/domain/api-contracts.test.js:99:20)
+
+FAIL tests/domain/domain-contracts.test.js
+  ● backend DTO schemas › preserves a null representative image for the UI fallback
+
+    ZodError: [
+      {
+        "expected": "string",
+        "code": "invalid_type",
+        "path": [
+          "items",
+          0,
+          "representativeImageUrl"
+        ],
+        "message": "Invalid input: expected string, received null"
+      }
+    ]
+
+      87 |
+      88 |     // When
+    > 89 |     const result = groupListPageSchema.parse(payload);
+         |                                        ^
+      90 |
+      91 |     // Then
+      92 |     expect(result.items[0].representativeImageUrl).toBeNull();
+
+      at Object.<anonymous> (tests/domain/domain-contracts.test.js:89:40)
+
+[999D[KTest Suites: 4 failed, 1 passed, 5 total
+Tests:       15 failed, 35 passed, 50 total
+Snapshots:   0 total
+Time:        1.111 s
+Ran all test suites matching tests/domain.

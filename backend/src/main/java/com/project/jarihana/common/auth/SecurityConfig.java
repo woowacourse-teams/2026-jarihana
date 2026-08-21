@@ -1,7 +1,10 @@
 package com.project.jarihana.common.auth;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -40,22 +43,34 @@ public class SecurityConfig {
     private final AuthCookieProperties authCookieProperties;
     private final UnauthenticatedEntryPoint unauthenticatedEntryPoint;
     private final AccessDeniedResponder accessDeniedResponder;
+    private final Environment environment;
+    private final boolean localDevelopmentAuthenticationEnabled;
+    private final long localDevelopmentMemberId;
 
     public SecurityConfig(
             AccessTokenProvider accessTokenProvider,
             AuthCookieProperties authCookieProperties,
             UnauthenticatedEntryPoint unauthenticatedEntryPoint,
-            AccessDeniedResponder accessDeniedResponder
+            AccessDeniedResponder accessDeniedResponder,
+            Environment environment,
+            @Value("${jarihana.auth.local-development.enabled:false}")
+            boolean localDevelopmentAuthenticationEnabled,
+            @Value("${jarihana.auth.local-development.member-id:1}") long localDevelopmentMemberId
     ) {
         this.accessTokenProvider = accessTokenProvider;
         this.authCookieProperties = authCookieProperties;
         this.unauthenticatedEntryPoint = unauthenticatedEntryPoint;
         this.accessDeniedResponder = accessDeniedResponder;
+        this.environment = environment;
+        this.localDevelopmentAuthenticationEnabled = localDevelopmentAuthenticationEnabled;
+        this.localDevelopmentMemberId = localDevelopmentMemberId;
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        return http
+        JwtCookieAuthenticationFilter jwtAuthenticationFilter =
+                new JwtCookieAuthenticationFilter(accessTokenProvider, authCookieProperties);
+        http
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .csrfTokenRequestHandler(csrfTokenRequestHandler()))
@@ -72,10 +87,20 @@ public class SecurityConfig {
                 .exceptionHandling(handling -> handling
                         .authenticationEntryPoint(unauthenticatedEntryPoint)
                         .accessDeniedHandler(accessDeniedResponder))
-                .addFilterBefore(
-                        new JwtCookieAuthenticationFilter(accessTokenProvider, authCookieProperties),
-                        UsernamePasswordAuthenticationFilter.class)
-                .build();
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+        if (isLocalDevelopmentAuthenticationEnabled()) {
+            http.addFilterAfter(
+                    new LocalDevelopmentAuthenticationFilter(localDevelopmentMemberId),
+                    JwtCookieAuthenticationFilter.class
+            );
+        }
+        return http.build();
+    }
+
+    private boolean isLocalDevelopmentAuthenticationEnabled() {
+        return localDevelopmentAuthenticationEnabled
+                && environment.acceptsProfiles(Profiles.of("local"));
     }
 
     /**

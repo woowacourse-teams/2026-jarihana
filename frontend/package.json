@@ -1,0 +1,98 @@
+{
+  "name": "jarihana-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "자리하나 React frontend",
+  "engines": {
+    "node": ">=24 <25",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "dev": "webpack serve --mode development --port 5173",
+    "build": "webpack --mode production",
+    "preview": "webpack serve --mode production --port 4173",
+    "lint": "eslint .",
+    "typecheck": "npm run lint -- --max-warnings=0",
+    "test": "jest --runInBand --no-watchman",
+    "test:coverage": "jest --runInBand --no-watchman --coverage",
+    "test:e2e": "playwright test",
+    "react-doctor": "react-doctor --json"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "5.9.1",
+    "@tanstack/react-query": "5.101.4",
+    "ky": "2.0.2",
+    "lucide-react": "1.33.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-hook-form": "7.85.0",
+    "react-router": "8.3.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@babel/core": "8.0.1",
+    "@babel/preset-env": "8.0.2",
+    "@babel/preset-react": "8.0.1",
+    "@eslint/js": "9.39.1",
+    "@tailwindcss/postcss": "4.3.3",
+    "@testing-library/dom": "10.4.1",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.2",
+    "@testing-library/user-event": "14.6.5",
+    "ajv": "8.20.0",
+    "babel-jest": "30.4.1",
+    "babel-loader": "10.1.1",
+    "copy-webpack-plugin": "14.0.0",
+    "css-loader": "7.1.4",
+    "dotenv": "17.2.3",
+    "eslint": "9.39.1",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-jsx-a11y": "6.10.2",
+    "eslint-plugin-react": "7.37.5",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.11.0",
+    "html-webpack-plugin": "5.6.8",
+    "identity-obj-proxy": "3.0.0",
+    "jest": "30.4.2",
+    "jest-environment-jsdom": "30.4.1",
+    "playwright": "1.62.1",
+    "postcss": "8.5.26",
+    "postcss-loader": "8.2.1",
+    "prettier": "3.9.6",
+    "react-doctor": "0.9.12",
+    "react-grab": "0.2.0",
+    "react-scan": "0.5.7",
+    "style-loader": "4.0.0",
+    "tailwindcss": "4.3.3",
+    "webpack": "5.109.2",
+    "webpack-cli": "7.2.2",
+    "webpack-dev-server": "6.0.0"
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup.js"
+    ],
+    "testMatch": [
+      "<rootDir>/src/**/*.test.js",
+      "<rootDir>/src/**/*.test.jsx",
+      "<rootDir>/tests/**/*.test.js",
+      "<rootDir>/tests/**/*.test.jsx"
+    ],
+    "transform": {
+      "^.+\\.[jt]sx?$": "babel-jest"
+    },
+    "moduleNameMapper": {
+      "\\.(css|less|scss)$": "identity-obj-proxy",
+      "\\.(avif|gif|jpe?g|png|svg|webp)$": "<rootDir>/scripts/styleMock.js"
+    },
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(ky|react-router|cookie-es)/)"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.{js,jsx}",
+      "!src/index.jsx"
+    ]
+  }
+}

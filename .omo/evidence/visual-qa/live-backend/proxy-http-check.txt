@@ -1,0 +1,20 @@
+Exact invocation (read-only):
+  curl -sS --max-time 10 -D <headers> -o <body> -w status/content-type/bytes http://127.0.0.1:4175/api/groups?size=12
+  curl -sS --max-time 10 -D <headers> -o <body> -w status/content-type/bytes http://127.0.0.1:4175/images/default-group.png
+
+Observed through production preview proxy:
+GROUPS_STATUS=200
+GROUPS_CONTENT_TYPE=application/json
+GROUPS_BYTES=3288
+GROUPS_ITEM_COUNT=8
+IMAGE_STATUS=200
+IMAGE_CONTENT_TYPE=image/png
+IMAGE_BYTES=17761
+IMAGE_SIGNATURE=PNG; 335 x 293; 8-bit/color RGBA; non-interlaced
+DETAIL_STATUS=200
+DETAIL_CONTENT_TYPE=application/json
+DETAIL_BYTES=676
+DETAIL_GROUP_ID=1
+DETAIL_GROUP_NAME=로컬 테스트 그룹 01
+
+No cookie/header values are recorded here.

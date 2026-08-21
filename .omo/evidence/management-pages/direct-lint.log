@@ -1,0 +1,4 @@
+
+> jarihana-frontend@1.0.0 lint
+> eslint . --no-warn-ignored src/pages/manage tests/pages/manage
+

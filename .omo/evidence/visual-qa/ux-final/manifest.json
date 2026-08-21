@@ -1,0 +1,320 @@
+{
+  "capturedAt": "2026-08-21T07:19:59.308Z",
+  "records": [
+    {
+      "name": "01-groups-new-top",
+      "file": "/Users/ohjonghyuk0717/Desktop/jarihana/.omo/evidence/visual-qa/ux-final/01-groups-new-top-360.png",
+      "activeHeader": [
+        "모임 만들기"
+      ],
+      "scrollWidth": 360,
+      "scrollY": 0,
+      "selectedTab": "소개",
+      "url": "http://localhost:5173/groups/new",
+      "viewport": {
+        "height": 800,
+        "width": 360
+      }
+    },
+    {
+      "name": "02-groups-new-markdown",
+      "file": "/Users/ohjonghyuk0717/Desktop/jarihana/.omo/evidence/visual-qa/ux-final/02-groups-new-markdown-360.png",
+      "activeHeader": [
+        "모임 만들기"
+      ],
+      "scrollWidth": 360,
+      "scrollY": 1530,
+      "selectedTab": "소개",
+      "url": "http://localhost:5173/groups/new",
+      "viewport": {
+        "height": 800,
+        "width": 360
+      }
+    },
+    {
+      "name": "03-groups-new-members",
+      "file": "/Users/ohjonghyuk0717/Desktop/jarihana/.omo/evidence/visual-qa/ux-final/03-groups-new-members-360.png",
+      "activeHeader": [
+        "모임 만들기"
+      ],
+      "scrollWidth": 360,
+      "scrollY": 1391.5,
+      "selectedTab": "멤버",
+      "url": "http://localhost:5173/groups/new",
+      "viewport": {
+        "height": 800,
+        "width": 360
+      }
+    },
+    {
+      "name": "04-group-manage-members",
+      "file": "/Users/ohjonghyuk0717/Desktop/jarihana/.omo/evidence/visual-qa/ux-final/04-group-manage-members-360.png",
+      "activeHeader": [
+        "모임 관리"
+      ],
+      "scrollWidth": 360,
+      "scrollY": 1106,
+      "selectedTab": "멤버",
+      "url": "http://localhost:5173/groups/1/manage",
+      "viewport": {
+        "height": 800,
+        "width": 360
+      }
+    },
+    {
+      "name": "05-my-top",
+      "file": "/Users/ohjonghyuk0717/Desktop/jarihana/.omo/evidence/visual-qa/ux-final/05-my-top-360.png",
+      "activeHeader": [
+        "마이페이지"
+      ],
+      "scrollWidth": 360,
+      "scrollY": 0,
+      "selectedTab": null,
+      "url": "http://localhost:5173/my",
+      "viewport": {
+        "height": 800,
+        "width": 360
+      }
+    },
+    {
+      "name": "06-my-activity",
+      "file": "/Users/ohjonghyuk0717/Desktop/jarihana/.omo/evidence/visual-qa/ux-final/06-my-activity-360.png",
+      "activeHeader": [
+        "마이페이지"
+      ],
+      "scrollWidth": 360,
+      "scrollY": 797.5,
+      "selectedTab": null,
+      "url": "http://localhost:5173/my",
+      "viewport": {
+        "height": 800,
+        "width": 360
+      }
+    },
+    {
+      "name": "07-my-groups",
+      "file": "/Users/ohjonghyuk0717/Desktop/jarihana/.omo/evidence/visual-qa/ux-final/07-my-groups-360.png",
+      "activeHeader": [
+        "모임 관리"
+      ],
+      "scrollWidth": 360,
+      "scrollY": 0,
+      "selectedTab": null,
+      "url": "http://localhost:5173/my/groups?role=LEADER",
+      "viewport": {
+        "height": 800,
+        "width": 360
+      }
+    },
+    {
+      "name": "01-groups-new-top",
+      "file": "/Users/ohjonghyuk0717/Desktop/jarihana/.omo/evidence/visual-qa/ux-final/01-groups-new-top-768.png",
+      "activeHeader": [
+        "모임 만들기"
+      ],
+      "scrollWidth": 768,
+      "scrollY": 0,
+      "selectedTab": "소개",
+      "url": "http://localhost:5173/groups/new",
+      "viewport": {
+        "height": 900,
+        "width": 768
+      }
+    },
+    {
+      "name": "02-groups-new-markdown",
+      "file": "/Users/ohjonghyuk0717/Desktop/jarihana/.omo/evidence/visual-qa/ux-final/02-groups-new-markdown-768.png",
+      "activeHeader": [
+        "모임 만들기"
+      ],
+      "scrollWidth": 768,
+      "scrollY": 1194,
+      "selectedTab": "소개",
+      "url": "http://localhost:5173/groups/new",
+      "viewport": {
+        "height": 900,
+        "width": 768
+      }
+    },
+    {
+      "name": "03-groups-new-members",
+      "file": "/Users/ohjonghyuk0717/Desktop/jarihana/.omo/evidence/visual-qa/ux-final/03-groups-new-members-768.png",
+      "activeHeader": [
+        "모임 만들기"
+      ],
+      "scrollWidth": 768,
+      "scrollY": 1019.5,
+      "selectedTab": "멤버",
+      "url": "http://localhost:5173/groups/new",
+      "viewport": {
+        "height": 900,
+        "width": 768
+      }
+    },
+    {
+      "name": "04-group-manage-members",
+      "file": "/Users/ohjonghyuk0717/Desktop/jarihana/.omo/evidence/visual-qa/ux-final/04-group-manage-members-768.png",
+      "activeHeader": [
+        "모임 관리"
+      ],
+      "scrollWidth": 768,
+      "scrollY": 1039.5,
+      "selectedTab": "멤버",
+      "url": "http://localhost:5173/groups/1/manage",
+      "viewport": {
+        "height": 900,
+        "width": 768
+      }
+    },
+    {
+      "name": "05-my-top",
+      "file": "/Users/ohjonghyuk0717/Desktop/jarihana/.omo/evidence/visual-qa/ux-final/05-my-top-768.png",
+      "activeHeader": [
+        "마이페이지"
+      ],
+      "scrollWidth": 768,
+      "scrollY": 0,
+      "selectedTab": null,
+      "url": "http://localhost:5173/my",
+      "viewport": {
+        "height": 900,
+        "width": 768
+      }
+    },
+    {
+      "name": "06-my-activity",
+      "file": "/Users/ohjonghyuk0717/Desktop/jarihana/.omo/evidence/visual-qa/ux-final/06-my-activity-768.png",
+      "activeHeader": [
+        "마이페이지"
+      ],
+      "scrollWidth": 768,
+      "scrollY": 91,
+      "selectedTab": null,
+      "url": "http://localhost:5173/my",
+      "viewport": {
+        "height": 900,
+        "width": 768
+      }
+    },
+    {
+      "name": "07-my-groups",
+      "file": "/Users/ohjonghyuk0717/Desktop/jarihana/.omo/evidence/visual-qa/ux-final/07-my-groups-768.png",
+      "activeHeader": [
+        "모임 관리"
+      ],
+      "scrollWidth": 768,
+      "scrollY": 0,
+      "selectedTab": null,
+      "url": "http://localhost:5173/my/groups?role=LEADER",
+      "viewport": {
+        "height": 900,
+        "width": 768
+      }
+    },
+    {
+      "name": "01-groups-new-top",
+      "file": "/Users/ohjonghyuk0717/Desktop/jarihana/.omo/evidence/visual-qa/ux-final/01-groups-new-top-1440.png",
+      "activeHeader": [
+        "모임 만들기"
+      ],
+      "scrollWidth": 1440,
+      "scrollY": 0,
+      "selectedTab": "소개",
+      "url": "http://localhost:5173/groups/new",
+      "viewport": {
+        "height": 900,
+        "width": 1440
+      }
+    },
+    {
+      "name": "02-groups-new-markdown",
+      "file": "/Users/ohjonghyuk0717/Desktop/jarihana/.omo/evidence/visual-qa/ux-final/02-groups-new-markdown-1440.png",
+      "activeHeader": [
+        "모임 만들기"
+      ],
+      "scrollWidth": 1440,
+      "scrollY": 783.5,
+      "selectedTab": "소개",
+      "url": "http://localhost:5173/groups/new",
+      "viewport": {
+        "height": 900,
+        "width": 1440
+      }
+    },
+    {
+      "name": "03-groups-new-members",
+      "file": "/Users/ohjonghyuk0717/Desktop/jarihana/.omo/evidence/visual-qa/ux-final/03-groups-new-members-1440.png",
+      "activeHeader": [
+        "모임 만들기"
+      ],
+      "scrollWidth": 1440,
+      "scrollY": 608.5,
+      "selectedTab": "멤버",
+      "url": "http://localhost:5173/groups/new",
+      "viewport": {
+        "height": 900,
+        "width": 1440
+      }
+    },
+    {
+      "name": "04-group-manage-members",
+      "file": "/Users/ohjonghyuk0717/Desktop/jarihana/.omo/evidence/visual-qa/ux-final/04-group-manage-members-1440.png",
+      "activeHeader": [
+        "모임 관리"
+      ],
+      "scrollWidth": 1440,
+      "scrollY": 680.5,
+      "selectedTab": "멤버",
+      "url": "http://localhost:5173/groups/1/manage",
+      "viewport": {
+        "height": 900,
+        "width": 1440
+      }
+    },
+    {
+      "name": "05-my-top",
+      "file": "/Users/ohjonghyuk0717/Desktop/jarihana/.omo/evidence/visual-qa/ux-final/05-my-top-1440.png",
+      "activeHeader": [
+        "마이페이지"
+      ],
+      "scrollWidth": 1440,
+      "scrollY": 0,
+      "selectedTab": null,
+      "url": "http://localhost:5173/my",
+      "viewport": {
+        "height": 900,
+        "width": 1440
+      }
+    },
+    {
+      "name": "06-my-activity",
+      "file": "/Users/ohjonghyuk0717/Desktop/jarihana/.omo/evidence/visual-qa/ux-final/06-my-activity-1440.png",
+      "activeHeader": [
+        "마이페이지"
+      ],
+      "scrollWidth": 1440,
+      "scrollY": 0,
+      "selectedTab": null,
+      "url": "http://localhost:5173/my",
+      "viewport": {
+        "height": 900,
+        "width": 1440
+      }
+    },
+    {
+      "name": "07-my-groups",
+      "file": "/Users/ohjonghyuk0717/Desktop/jarihana/.omo/evidence/visual-qa/ux-final/07-my-groups-1440.png",
+      "activeHeader": [
+        "모임 관리"
+      ],
+      "scrollWidth": 1440,
+      "scrollY": 0,
+      "selectedTab": null,
+      "url": "http://localhost:5173/my/groups?role=LEADER",
+      "viewport": {
+        "height": 900,
+        "width": 1440
+      }
+    }
+  ]
+}

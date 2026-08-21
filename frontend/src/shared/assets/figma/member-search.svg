@@ -1,0 +1,6 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Members/Search/Icon">
+<circle id="Search/Ring" cx="7" cy="7" r="5.25" stroke="#E0E0E0" stroke-width="1.5"/>
+<rect id="Search/Handle" x="12" y="13" width="8" height="2" rx="1" transform="rotate(-45 12 13)" fill="#E0E0E0"/>
+</g>
+</svg>

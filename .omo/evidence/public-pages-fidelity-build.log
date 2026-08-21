@@ -1,0 +1,36 @@
+^D
+> jarihana-frontend@1.0.0 build
+> webpack --mode production
+
+assets by status 1.12 MiB [cached] 34 assets
+assets by path . 752 bytes
+  asset index.html 565 bytes [compared for emit]
+  asset manifest.webmanifest 187 bytes [compared for emit] [from: public/manifest.webmanifest] [copied]
+orphan modules 1.41 MiB [orphan] 258 modules
+runtime modules 7.81 KiB 11 modules
+cacheable modules 1.75 MiB (javascript) 523 KiB (asset)
+  javascript modules 1.75 MiB
+    modules by path ./node_modules/ 1.36 MiB 55 modules
+    modules by path ./src/ 402 KiB 24 modules
+    react-grab (ignored) 15 bytes [built] [code generated]
+    react-scan/lite (ignored) 15 bytes [built] [code generated]
+  asset modules 523 KiB (asset) 924 bytes (javascript)
+    modules by path ./src/shared/assets/figma/*.svg 13.1 KiB (asset) 798 bytes (javascript)
+      ./src/shared/assets/figma/create-image.svg 752 bytes (asset) 42 bytes (javascript) [built] [code generated]
+      + 18 modules
+    modules by path ./src/shared/assets/figma/*.png 510 KiB (asset) 126 bytes (javascript)
+      ./src/shared/assets/figma/my-profile-illustration.png 388 KiB (asset) 42 bytes (javascript) [built] [code generated]
+      + 2 modules
+
+WARNING in asset size limit: The following asset(s) exceed the recommended size limit (244 KiB).
+This can impact web performance.
+Assets: 
+  assets/my-profile-illustration.f6b76bae.png (388 KiB)
+  assets/main.366f60b4.js (419 KiB)
+
+WARNING in entrypoint size limit: The following entrypoint(s) combined asset size exceeds the recommended limit (244 KiB). This can impact web performance.
+Entrypoints:
+  main (419 KiB)
+      assets/main.366f60b4.js
+
+webpack 5.109.2 compiled with 2 warnings in 4046 ms

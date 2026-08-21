@@ -1,0 +1,10 @@
+
+> jarihana-frontend@1.0.0 test
+> jest --runInBand --no-watchman --runInBand tests/pages/manage/manage-pages.test.jsx tests/pages/manage/manage-css.test.js
+
+
+Test Suites: 2 passed, 2 total
+Tests:       18 passed, 18 total
+Snapshots:   0 total
+Time:        1.346 s
+Ran all test suites matching tests/pages/manage/manage-pages.test.jsx|tests/pages/manage/manage-css.test.js.

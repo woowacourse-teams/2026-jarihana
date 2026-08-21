@@ -1,0 +1,1435 @@
+
+> jarihana-frontend@1.0.0 test
+> jest --runInBand --no-watchman --runInBand tests/pages/manage/manage-pages.test.jsx tests/pages/manage/manage-css.test.js
+
+FAIL tests/pages/manage/manage-pages.test.jsx
+  ● ManageRegistrationsPage › Given a filter selection, When changed, Then the server hook receives the exact status
+
+    TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "거절"
+
+    Here are the accessible roles:
+
+      banner:
+
+      Name "":
+      [36m<header[39m
+        [33mclass[39m=[32m"manage-context"[39m
+      [36m/>[39m
+
+      --------------------------------------------------
+      heading:
+
+      Name "프론트엔드 성능 튜닝 챌린지":
+      [36m<h1 />[39m
+
+      Name "신청 관리":
+      [36m<h2 />[39m
+
+      Name "신청자 목록":
+      [36m<h3[39m
+        [33mid[39m=[32m"applicant-list-title"[39m
+      [36m/>[39m
+
+      Name "개발자재키":
+      [36m<h3 />[39m
+
+      Name "모임 멤버 1명":
+      [36m<h3[39m
+        [33mid[39m=[32m"member-snapshot-title"[39m
+      [36m/>[39m
+
+      Name "모집 상태":
+      [36m<h3[39m
+        [33mid[39m=[32m"recruitment-snapshot-title"[39m
+      [36m/>[39m
+
+      --------------------------------------------------
+      navigation:
+
+      Name "모임 관리 메뉴":
+      [36m<nav[39m
+        [33maria-label[39m=[32m"모임 관리 메뉴"[39m
+        [33mclass[39m=[32m"manage-context__nav"[39m
+      [36m/>[39m
+
+      --------------------------------------------------
+      link:
+
+      Name "모임 수정":
+      [36m<a[39m
+        [33mclass[39m=[32m"manage-context__link"[39m
+        [33mhref[39m=[32m"/groups/7/manage"[39m
+      [36m/>[39m
+
+      Name "멤버 관리":
+      [36m<a[39m
+        [33mclass[39m=[32m"manage-context__link"[39m
+        [33mhref[39m=[32m"/groups/7/manage/members"[39m
+      [36m/>[39m
+
+      Name "신청 관리":
+      [36m<a[39m
+        [33maria-current[39m=[32m"page"[39m
+        [33mclass[39m=[32m"manage-context__link manage-context__link--active"[39m
+        [33mhref[39m=[32m"/groups/7/manage/recruitments/81/registrations"[39m
+      [36m/>[39m
+
+      Name "모집 설정":
+      [36m<a[39m
+        [33mclass[39m=[32m"manage-context__link"[39m
+        [33mhref[39m=[32m"/groups/7/manage/recruitments"[39m
+      [36m/>[39m
+
+      Name "모집 목록으로":
+      [36m<a[39m
+        [33mclass[39m=[32m"manage-back-link"[39m
+        [33mhref[39m=[32m"/groups/7/manage/recruitments"[39m
+      [36m/>[39m
+
+      --------------------------------------------------
+      paragraph:
+
+      Name "":
+      [36m<p />[39m
+
+      Name "":
+      [36m<p />[39m
+
+      Name "":
+      [36m<p />[39m
+
+      --------------------------------------------------
+      strong:
+
+      Name "":
+      [36m<strong />[39m
+
+      Name "":
+      [36m<strong />[39m
+
+      Name "":
+      [36m<strong />[39m
+
+      --------------------------------------------------
+      region:
+
+      Name "신청자 목록":
+      [36m<section[39m
+        [33maria-labelledby[39m=[32m"applicant-list-title"[39m
+        [33mclass[39m=[32m"manage-applicant-panel"[39m
+      [36m/>[39m
+
+      Name "모임 멤버 1명":
+      [36m<section[39m
+        [33maria-labelledby[39m=[32m"member-snapshot-title"[39m
+        [33mclass[39m=[32m"manage-rail-panel"[39m
+      [36m/>[39m
+
+      Name "모집 상태":
+      [36m<section[39m
+        [33maria-labelledby[39m=[32m"recruitment-snapshot-title"[39m
+        [33mclass[39m=[32m"manage-rail-panel"[39m
+      [36m/>[39m
+
+      --------------------------------------------------
+      combobox:
+
+      Name "신청 상태":
+      [36m<select />[39m
+
+      --------------------------------------------------
+      option:
+
+      Name "전체":
+      [36m<option[39m
+        [33mvalue[39m=[32m""[39m
+      [36m/>[39m
+
+      Name "대기":
+      [36m<option[39m
+        [33mvalue[39m=[32m"PENDING"[39m
+      [36m/>[39m
+
+      Name "승인":
+      [36m<option[39m
+        [33mvalue[39m=[32m"APPROVED"[39m
+      [36m/>[39m
+
+      Name "거절":
+      [36m<option[39m
+        [33mvalue[39m=[32m"REJECTED"[39m
+      [36m/>[39m
+
+      --------------------------------------------------
+      list:
+
+      Name "":
+      [36m<ul[39m
+        [33mclass[39m=[32m"ui-cursor-list__items"[39m
+      [36m/>[39m
+
+      Name "":
+      [36m<ul[39m
+        [33mclass[39m=[32m"manage-rail-members"[39m
+      [36m/>[39m
+
+      --------------------------------------------------
+      listitem:
+
+      Name "":
+      [36m<li[39m
+        [33mclass[39m=[32m"manage-registration-card"[39m
+      [36m/>[39m
+
+      Name "":
+      [36m<li />[39m
+
+      --------------------------------------------------
+      button:
+
+      Name "개발자재키 승인":
+      [36m<button[39m
+        [33mclass[39m=[32m"ui-button ui-button--primary ui-button--md"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m/>[39m
+
+      Name "개발자재키 거절":
+      [36m<button[39m
+        [33mclass[39m=[32m"ui-button ui-button--secondary ui-button--md"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m/>[39m
+
+      --------------------------------------------------
+      complementary:
+
+      Name "운영 현황":
+      [36m<aside[39m
+        [33maria-label[39m=[32m"운영 현황"[39m
+        [33mclass[39m=[32m"manage-side-rail"[39m
+      [36m/>[39m
+
+      --------------------------------------------------
+
+    Ignored nodes: comments, script, style
+    [36m<body[39m
+      [33mstyle[39m=[32m""[39m
+    [36m>[39m
+      [36m<div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"manage-page"[39m
+        [36m>[39m
+          [36m<header[39m
+            [33mclass[39m=[32m"manage-context"[39m
+          [36m>[39m
+            [36m<h1>[39m
+              [0m프론트엔드 성능 튜닝 챌린지[0m
+            [36m</h1>[39m
+            [36m<nav[39m
+              [33maria-label[39m=[32m"모임 관리 메뉴"[39m
+              [33mclass[39m=[32m"manage-context__nav"[39m
+            [36m>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"manage-context__link"[39m
+                [33mhref[39m=[32m"/groups/7/manage"[39m
+              [36m>[39m
+                [0m모임 수정[0m
+              [36m</a>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"manage-context__link"[39m
+                [33mhref[39m=[32m"/groups/7/manage/members"[39m
+              [36m>[39m
+                [0m멤버 관리[0m
+              [36m</a>[39m
+              [36m<a[39m
+                [33maria-current[39m=[32m"page"[39m
+                [33mclass[39m=[32m"manage-context__link manage-context__link--active"[39m
+                [33mhref[39m=[32m"/groups/7/manage/recruitments/81/registrations"[39m
+              [36m>[39m
+                [0m신청 관리[0m
+              [36m</a>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"manage-context__link"[39m
+                [33mhref[39m=[32m"/groups/7/manage/recruitments"[39m
+              [36m>[39m
+                [0m모집 설정[0m
+              [36m</a>[39m
+            [36m</nav>[39m
+          [36m</header>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"manage-heading"[39m
+          [36m>[39m
+            [36m<div>[39m
+              [36m<h2>[39m
+                [0m신청 관리[0m
+              [36m</h2>[39m
+              [36m<p>[39m
+                [0m모집 #81 지원자의 정보와 메시지를 확인하고 승인 또는 거절해요.[0m
+              [36m</p>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33maria-label[39m=[32m"현재 신청자 1명"[39m
+              [33mclass[39m=[32m"manage-stat"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0m현재 신청자[0m
+              [36m</span>[39m
+              [36m<strong>[39m
+                [0m1명[0m
+              [36m</strong>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"manage-registration-layout"[39m
+          [36m>[39m
+            [36m<section[39m
+              [33maria-labelledby[39m=[32m"applicant-list-title"[39m
+              [33mclass[39m=[32m"manage-applicant-panel"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"manage-toolbar"[39m
+              [36m>[39m
+                [36m<div>[39m
+                  [36m<h3[39m
+                    [33mid[39m=[32m"applicant-list-title"[39m
+                  [36m>[39m
+                    [0m신청자 목록[0m
+                  [36m</h3>[39m
+                  [36m<p>[39m
+                    [0m상태별로 지원자를 확인하고 처리할 수 있어요.[0m
+                  [36m</p>[39m
+                [36m</div>[39m
+                [36m<label[39m
+                  [33mclass[39m=[32m"manage-field"[39m
+                [36m>[39m
+                  [0m신청 상태[0m
+                  [36m<select>[39m
+                    [36m<option[39m
+                      [33mvalue[39m=[32m""[39m
+                    [36m>[39m
+                      [0m전체[0m
+                    [36m</option>[39m
+                    [36m<option[39m
+                      [33mvalue[39m=[32m"PENDING"[39m
+                    [36m>[39m
+                      [0m대기[0m
+                    [36m</option>[39m
+                    [36m<option[39m
+                      [33mvalue[39m=[32m"APPROVED"[39m
+                    [36m>[39m
+                      [0m승인[0m
+                    [36m</option>[39m
+                    [36m<option[39m
+                      [33mvalue[39m=[32m"REJECTED"[39m
+                    [36m>[39m
+                      [0m거절[0m
+                    [36m</option>[39m
+                  [36m</select>[39m
+                [36m</label>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"manage-back-link"[39m
+                  [33mhref[39m=[32m"/groups/7/manage/recruitments"[39m
+                [36m>[39m
+                  [0m모집 목록으로[0m
+                [36m</a>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-cursor-list"[39m
+              [36m>[39m
+                [36m<ul[39m
+                  [33mclass[39m=[32m"ui-cursor-list__items"[39m
+                [36m>[39m
+                  [36m<li[39m
+                    [33mclass[39m=[32m"manage-registration-card"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"manage-card-main"[39m
+                    [36m>[39m
+                      [36m<div>[39m
+                        [36m<span[39m
+                          [33mclass[39m=[32m"ui-badge ui-badge--warning"[39m
+                        [36m>[39m
+                          [0m대기[0m
+                        [36m</span>[39m
+                      [36m</div>[39m
+                      [36m<h3>[39m
+                        [0m개발자재키[0m
+                      [36m</h3>[39m
+                      [36m<div[39m
+                        [33mclass[39m=[32m"manage-card-meta"[39m
+                      [36m>[39m
+                        [36m<span>[39m
+                          [0m8[0m
+                          [0m기[0m
+                        [36m</span>[39m
+                        [36m<span>[39m
+                          [0m프론트엔드[0m
+                        [36m</span>[39m
+                        [36m<span>[39m
+                          [0m신청 [0m
+                          [0m2026. 8. 21. 오전 11:00[0m
+                        [36m</span>[39m
+                      [36m</div>[39m
+                      [36m<p>[39m
+                        [0m프론트 성능을 깊이 보고 싶어요.[0m
+                      [36m</p>[39m
+                    [36m</div>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"manage-card-actions"[39m
+                    [36m>[39m
+                      [36m<button[39m
+                        [33mclass[39m=[32m"ui-button ui-button--primary ui-button--md"[39m
+                        [33mtype[39m=[32m"button"[39m
+                      [36m>[39m
+                        [36m<span>[39m
+                          [0m개발자재키[0m
+                          [0m 승인[0m
+                        [36m</span>[39m
+                      [36m</button>[39m
+                      [36m<button[39m
+                        [33mclass[39m=[32m"ui-button ui-button--secondary ui-button--md"[39m
+                        [33mtype[39m=[32m"button"[39m
+                      [36m>[39m
+                        [36m<span>[39m
+                          [0m개발자재키[0m
+                          [0m 거절[0m
+                        [36m</span>[39m
+                      [36m</button>[39m
+                    [36m</div>[39m
+                  [36m</li>[39m
+                [36m</ul>[39m
+              [36m</div>[39m
+            [36m</section>[39m
+            [36m<aside[39m
+              [33maria-label[39m=[32m"운영 현황"[39m
+              [33mclass[39m=[32m"manage-side-rail"[39m
+            [36m>[39m
+              [36m<section[39m
+                [33maria-labelledby[39m=[32m"member-snapshot-title"[39m
+                [33mclass[39m=[32m"manage-rail-panel"[39m
+              [36m>[39m
+                [36m<h3[39m
+                  [33mid[39m=[32m"member-snapshot-title"[39m
+                [36m>[39m
+                  [0m모임 멤버 [0m
+                  [0m1명[0m
+                [36m</h3>[39m
+                [36m<ul[39m
+                  [33mclass[39m=[32m"manage-rail-members"[39m
+                [36m>[39m
+                  [36m<li>[39m
+                    [36m<span[39m
+                      [33maria-hidden[39m=[32m"true"[39m
+                      [33mclass[39m=[32m"manage-avatar"[39m
+                    [36m>[39m
+                      [0m링[0m
+                    [36m</span>[39m
+                    [36m<span>[39m
+                      [36m<strong>[39m
+                        [0m링크로[0m
+                      [36m</strong>[39m
+                      [36m<small>[39m
+                        [0m멤버[0m
+                      [36m</small>[39m
+                    [36m</span>[39m
+                  [36m</li>[39m
+                [36m</ul>[39m
+              [36m</section>[39m
+              [36m<section[39m
+                [33maria-labelledby[39m=[32m"recruitment-snapshot-title"[39m
+                [33mclass[39m=[32m"manage-rail-panel"[39m
+              [36m>[39m
+                [36m<h3[39m
+                  [33mid[39m=[32m"recruitment-snapshot-title"[39m
+                [36m>[39m
+                  [0m모집 상태[0m
+                [36m</h3>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"manage-recruitment-snapshot"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"ui-badge ui-badge--brand"[39m
+                  [36m>[39m
+                    [0m모집 중[0m
+                  [36m</span>[39m
+                  [36m<strong>[39m
+                    [0m승인 [0m
+                    [0m4[0m
+                    [0m / 정원 [0m
+                    [0m10[0m
+                    [0m명[0m
+                  [36m</strong>[39m
+                  [36m<span>[39m
+                    [0m모임장 승인[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+              [36m</section>[39m
+            [36m</aside>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</body>[39m
+
+      266 |     render(<ManageRegistrationsPage />);
+      267 |
+    > 268 |     await user.click(screen.getByRole("button", { name: "거절" }));
+          |                             ^
+      269 |
+      270 |     expect(useInfiniteRegistrations).toHaveBeenLastCalledWith("81", { status: "REJECTED" });
+      271 |   });
+
+      at Object.getElementError (node_modules/@testing-library/dom/dist/config.js:37:19)
+      at node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+      at node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+      at node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+      at Object.<anonymous> (tests/pages/manage/manage-pages.test.jsx:268:29)
+
+  ● ManageRegistrationsPage › Given the final2 operational dashboard, When rendered, Then it uses compact filters and no redundant stat card
+
+    TestingLibraryElementError: Unable to find an accessible element with the role "region" and name "신청 관리 대시보드"
+
+    Here are the accessible roles:
+
+      banner:
+
+      Name "":
+      [36m<header[39m
+        [33mclass[39m=[32m"manage-context"[39m
+      [36m/>[39m
+
+      --------------------------------------------------
+      heading:
+
+      Name "프론트엔드 성능 튜닝 챌린지":
+      [36m<h1 />[39m
+
+      Name "신청 관리":
+      [36m<h2 />[39m
+
+      Name "신청자 목록":
+      [36m<h3[39m
+        [33mid[39m=[32m"applicant-list-title"[39m
+      [36m/>[39m
+
+      Name "개발자재키":
+      [36m<h3 />[39m
+
+      Name "모임 멤버 1명":
+      [36m<h3[39m
+        [33mid[39m=[32m"member-snapshot-title"[39m
+      [36m/>[39m
+
+      Name "모집 상태":
+      [36m<h3[39m
+        [33mid[39m=[32m"recruitment-snapshot-title"[39m
+      [36m/>[39m
+
+      --------------------------------------------------
+      navigation:
+
+      Name "모임 관리 메뉴":
+      [36m<nav[39m
+        [33maria-label[39m=[32m"모임 관리 메뉴"[39m
+        [33mclass[39m=[32m"manage-context__nav"[39m
+      [36m/>[39m
+
+      --------------------------------------------------
+      link:
+
+      Name "모임 수정":
+      [36m<a[39m
+        [33mclass[39m=[32m"manage-context__link"[39m
+        [33mhref[39m=[32m"/groups/7/manage"[39m
+      [36m/>[39m
+
+      Name "멤버 관리":
+      [36m<a[39m
+        [33mclass[39m=[32m"manage-context__link"[39m
+        [33mhref[39m=[32m"/groups/7/manage/members"[39m
+      [36m/>[39m
+
+      Name "신청 관리":
+      [36m<a[39m
+        [33maria-current[39m=[32m"page"[39m
+        [33mclass[39m=[32m"manage-context__link manage-context__link--active"[39m
+        [33mhref[39m=[32m"/groups/7/manage/recruitments/81/registrations"[39m
+      [36m/>[39m
+
+      Name "모집 설정":
+      [36m<a[39m
+        [33mclass[39m=[32m"manage-context__link"[39m
+        [33mhref[39m=[32m"/groups/7/manage/recruitments"[39m
+      [36m/>[39m
+
+      Name "모집 목록으로":
+      [36m<a[39m
+        [33mclass[39m=[32m"manage-back-link"[39m
+        [33mhref[39m=[32m"/groups/7/manage/recruitments"[39m
+      [36m/>[39m
+
+      --------------------------------------------------
+      paragraph:
+
+      Name "":
+      [36m<p />[39m
+
+      Name "":
+      [36m<p />[39m
+
+      Name "":
+      [36m<p />[39m
+
+      --------------------------------------------------
+      strong:
+
+      Name "":
+      [36m<strong />[39m
+
+      Name "":
+      [36m<strong />[39m
+
+      Name "":
+      [36m<strong />[39m
+
+      --------------------------------------------------
+      region:
+
+      Name "신청자 목록":
+      [36m<section[39m
+        [33maria-labelledby[39m=[32m"applicant-list-title"[39m
+        [33mclass[39m=[32m"manage-applicant-panel"[39m
+      [36m/>[39m
+
+      Name "모임 멤버 1명":
+      [36m<section[39m
+        [33maria-labelledby[39m=[32m"member-snapshot-title"[39m
+        [33mclass[39m=[32m"manage-rail-panel"[39m
+      [36m/>[39m
+
+      Name "모집 상태":
+      [36m<section[39m
+        [33maria-labelledby[39m=[32m"recruitment-snapshot-title"[39m
+        [33mclass[39m=[32m"manage-rail-panel"[39m
+      [36m/>[39m
+
+      --------------------------------------------------
+      combobox:
+
+      Name "신청 상태":
+      [36m<select />[39m
+
+      --------------------------------------------------
+      option:
+
+      Name "전체":
+      [36m<option[39m
+        [33mvalue[39m=[32m""[39m
+      [36m/>[39m
+
+      Name "대기":
+      [36m<option[39m
+        [33mvalue[39m=[32m"PENDING"[39m
+      [36m/>[39m
+
+      Name "승인":
+      [36m<option[39m
+        [33mvalue[39m=[32m"APPROVED"[39m
+      [36m/>[39m
+
+      Name "거절":
+      [36m<option[39m
+        [33mvalue[39m=[32m"REJECTED"[39m
+      [36m/>[39m
+
+      --------------------------------------------------
+      list:
+
+      Name "":
+      [36m<ul[39m
+        [33mclass[39m=[32m"ui-cursor-list__items"[39m
+      [36m/>[39m
+
+      Name "":
+      [36m<ul[39m
+        [33mclass[39m=[32m"manage-rail-members"[39m
+      [36m/>[39m
+
+      --------------------------------------------------
+      listitem:
+
+      Name "":
+      [36m<li[39m
+        [33mclass[39m=[32m"manage-registration-card"[39m
+      [36m/>[39m
+
+      Name "":
+      [36m<li />[39m
+
+      --------------------------------------------------
+      button:
+
+      Name "개발자재키 승인":
+      [36m<button[39m
+        [33mclass[39m=[32m"ui-button ui-button--primary ui-button--md"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m/>[39m
+
+      Name "개발자재키 거절":
+      [36m<button[39m
+        [33mclass[39m=[32m"ui-button ui-button--secondary ui-button--md"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m/>[39m
+
+      --------------------------------------------------
+      complementary:
+
+      Name "운영 현황":
+      [36m<aside[39m
+        [33maria-label[39m=[32m"운영 현황"[39m
+        [33mclass[39m=[32m"manage-side-rail"[39m
+      [36m/>[39m
+
+      --------------------------------------------------
+
+    Ignored nodes: comments, script, style
+    [36m<body[39m
+      [33mstyle[39m=[32m""[39m
+    [36m>[39m
+      [36m<div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"manage-page"[39m
+        [36m>[39m
+          [36m<header[39m
+            [33mclass[39m=[32m"manage-context"[39m
+          [36m>[39m
+            [36m<h1>[39m
+              [0m프론트엔드 성능 튜닝 챌린지[0m
+            [36m</h1>[39m
+            [36m<nav[39m
+              [33maria-label[39m=[32m"모임 관리 메뉴"[39m
+              [33mclass[39m=[32m"manage-context__nav"[39m
+            [36m>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"manage-context__link"[39m
+                [33mhref[39m=[32m"/groups/7/manage"[39m
+              [36m>[39m
+                [0m모임 수정[0m
+              [36m</a>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"manage-context__link"[39m
+                [33mhref[39m=[32m"/groups/7/manage/members"[39m
+              [36m>[39m
+                [0m멤버 관리[0m
+              [36m</a>[39m
+              [36m<a[39m
+                [33maria-current[39m=[32m"page"[39m
+                [33mclass[39m=[32m"manage-context__link manage-context__link--active"[39m
+                [33mhref[39m=[32m"/groups/7/manage/recruitments/81/registrations"[39m
+              [36m>[39m
+                [0m신청 관리[0m
+              [36m</a>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"manage-context__link"[39m
+                [33mhref[39m=[32m"/groups/7/manage/recruitments"[39m
+              [36m>[39m
+                [0m모집 설정[0m
+              [36m</a>[39m
+            [36m</nav>[39m
+          [36m</header>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"manage-heading"[39m
+          [36m>[39m
+            [36m<div>[39m
+              [36m<h2>[39m
+                [0m신청 관리[0m
+              [36m</h2>[39m
+              [36m<p>[39m
+                [0m모집 #81 지원자의 정보와 메시지를 확인하고 승인 또는 거절해요.[0m
+              [36m</p>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33maria-label[39m=[32m"현재 신청자 1명"[39m
+              [33mclass[39m=[32m"manage-stat"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0m현재 신청자[0m
+              [36m</span>[39m
+              [36m<strong>[39m
+                [0m1명[0m
+              [36m</strong>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"manage-registration-layout"[39m
+          [36m>[39m
+            [36m<section[39m
+              [33maria-labelledby[39m=[32m"applicant-list-title"[39m
+              [33mclass[39m=[32m"manage-applicant-panel"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"manage-toolbar"[39m
+              [36m>[39m
+                [36m<div>[39m
+                  [36m<h3[39m
+                    [33mid[39m=[32m"applicant-list-title"[39m
+                  [36m>[39m
+                    [0m신청자 목록[0m
+                  [36m</h3>[39m
+                  [36m<p>[39m
+                    [0m상태별로 지원자를 확인하고 처리할 수 있어요.[0m
+                  [36m</p>[39m
+                [36m</div>[39m
+                [36m<label[39m
+                  [33mclass[39m=[32m"manage-field"[39m
+                [36m>[39m
+                  [0m신청 상태[0m
+                  [36m<select>[39m
+                    [36m<option[39m
+                      [33mvalue[39m=[32m""[39m
+                    [36m>[39m
+                      [0m전체[0m
+                    [36m</option>[39m
+                    [36m<option[39m
+                      [33mvalue[39m=[32m"PENDING"[39m
+                    [36m>[39m
+                      [0m대기[0m
+                    [36m</option>[39m
+                    [36m<option[39m
+                      [33mvalue[39m=[32m"APPROVED"[39m
+                    [36m>[39m
+                      [0m승인[0m
+                    [36m</option>[39m
+                    [36m<option[39m
+                      [33mvalue[39m=[32m"REJECTED"[39m
+                    [36m>[39m
+                      [0m거절[0m
+                    [36m</option>[39m
+                  [36m</select>[39m
+                [36m</label>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"manage-back-link"[39m
+                  [33mhref[39m=[32m"/groups/7/manage/recruitments"[39m
+                [36m>[39m
+                  [0m모집 목록으로[0m
+                [36m</a>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-cursor-list"[39m
+              [36m>[39m
+                [36m<ul[39m
+                  [33mclass[39m=[32m"ui-cursor-list__items"[39m
+                [36m>[39m
+                  [36m<li[39m
+                    [33mclass[39m=[32m"manage-registration-card"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"manage-card-main"[39m
+                    [36m>[39m
+                      [36m<div>[39m
+                        [36m<span[39m
+                          [33mclass[39m=[32m"ui-badge ui-badge--warning"[39m
+                        [36m>[39m
+                          [0m대기[0m
+                        [36m</span>[39m
+                      [36m</div>[39m
+                      [36m<h3>[39m
+                        [0m개발자재키[0m
+                      [36m</h3>[39m
+                      [36m<div[39m
+                        [33mclass[39m=[32m"manage-card-meta"[39m
+                      [36m>[39m
+                        [36m<span>[39m
+                          [0m8[0m
+                          [0m기[0m
+                        [36m</span>[39m
+                        [36m<span>[39m
+                          [0m프론트엔드[0m
+                        [36m</span>[39m
+                        [36m<span>[39m
+                          [0m신청 [0m
+                          [0m2026. 8. 21. 오전 11:00[0m
+                        [36m</span>[39m
+                      [36m</div>[39m
+                      [36m<p>[39m
+                        [0m프론트 성능을 깊이 보고 싶어요.[0m
+                      [36m</p>[39m
+                    [36m</div>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"manage-card-actions"[39m
+                    [36m>[39m
+                      [36m<button[39m
+                        [33mclass[39m=[32m"ui-button ui-button--primary ui-button--md"[39m
+                        [33mtype[39m=[32m"button"[39m
+                      [36m>[39m
+                        [36m<span>[39m
+                          [0m개발자재키[0m
+                          [0m 승인[0m
+                        [36m</span>[39m
+                      [36m</button>[39m
+                      [36m<button[39m
+                        [33mclass[39m=[32m"ui-button ui-button--secondary ui-button--md"[39m
+                        [33mtype[39m=[32m"button"[39m
+                      [36m>[39m
+                        [36m<span>[39m
+                          [0m개발자재키[0m
+                          [0m 거절[0m
+                        [36m</span>[39m
+                      [36m</button>[39m
+                    [36m</div>[39m
+                  [36m</li>[39m
+                [36m</ul>[39m
+              [36m</div>[39m
+            [36m</section>[39m
+            [36m<aside[39m
+              [33maria-label[39m=[32m"운영 현황"[39m
+              [33mclass[39m=[32m"manage-side-rail"[39m
+            [36m>[39m
+              [36m<section[39m
+                [33maria-labelledby[39m=[32m"member-snapshot-title"[39m
+                [33mclass[39m=[32m"manage-rail-panel"[39m
+              [36m>[39m
+                [36m<h3[39m
+                  [33mid[39m=[32m"member-snapshot-title"[39m
+                [36m>[39m
+                  [0m모임 멤버 [0m
+                  [0m1명[0m
+                [36m</h3>[39m
+                [36m<ul[39m
+                  [33mclass[39m=[32m"manage-rail-members"[39m
+                [36m>[39m
+                  [36m<li>[39m
+                    [36m<span[39m
+                      [33maria-hidden[39m=[32m"true"[39m
+                      [33mclass[39m=[32m"manage-avatar"[39m
+                    [36m>[39m
+                      [0m링[0m
+                    [36m</span>[39m
+                    [36m<span>[39m
+                      [36m<strong>[39m
+                        [0m링크로[0m
+                      [36m</strong>[39m
+                      [36m<small>[39m
+                        [0m멤버[0m
+                      [36m</small>[39m
+                    [36m</span>[39m
+                  [36m</li>[39m
+                [36m</ul>[39m
+              [36m</section>[39m
+              [36m<section[39m
+                [33maria-labelledby[39m=[32m"recruitment-snapshot-title"[39m
+                [33mclass[39m=[32m"manage-rail-panel"[39m
+              [36m>[39m
+                [36m<h3[39m
+                  [33mid[39m=[32m"recruitment-snapshot-title"[39m
+                [36m>[39m
+                  [0m모집 상태[0m
+                [36m</h3>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"manage-recruitment-snapshot"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"ui-badge ui-badge--brand"[39m
+                  [36m>[39m
+                    [0m모집 중[0m
+                  [36m</span>[39m
+                  [36m<strong>[39m
+                    [0m승인 [0m
+                    [0m4[0m
+                    [0m / 정원 [0m
+                    [0m10[0m
+                    [0m명[0m
+                  [36m</strong>[39m
+                  [36m<span>[39m
+                    [0m모임장 승인[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+              [36m</section>[39m
+            [36m</aside>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</body>[39m
+
+      301 |     render(<ManageRegistrationsPage />);
+      302 |
+    > 303 |     expect(screen.getByRole("region", { name: "신청 관리 대시보드" })).toHaveClass(
+          |                   ^
+      304 |       "manage-registration-layout"
+      305 |     );
+      306 |     const filters = screen.getByRole("group", { name: "신청 상태" });
+
+      at Object.getElementError (node_modules/@testing-library/dom/dist/config.js:37:19)
+      at node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+      at node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+      at node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+      at Object.<anonymous> (tests/pages/manage/manage-pages.test.jsx:303:19)
+
+FAIL tests/pages/manage/manage-css.test.js
+  ● management text color tokens › uses the final2 operational density and reflows before tablet labels become narrow
+
+    expect(received).toContain(expected) // indexOf
+
+    Expected substring: ".manage-page--dashboard"
+    Received string:    ".manage-page {
+      max-width: calc(var(--container-shell) - var(--space-8));
+      margin: 0 auto;
+      padding: var(--space-8) var(--space-6) var(--space-16);
+      color: var(--color-ink);
+      word-break: keep-all;
+    }·
+    .manage-context {
+      margin-bottom: var(--space-8);
+      border-bottom: var(--border-thin) solid var(--color-line);
+    }·
+    .manage-context h1 {
+      margin: 0 0 var(--space-6);
+      font-size: var(--text-h1);
+      line-height: 1.3;
+    }·
+    .manage-context__nav {
+      display: flex;
+      gap: var(--space-8);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }·
+    .manage-context__nav::-webkit-scrollbar {
+      display: none;
+    }·
+    .manage-context__link {
+      position: relative;
+      display: inline-flex;
+      min-height: var(--touch-target);
+      align-items: center;
+      flex: 0 0 auto;
+      color: var(--color-muted-ink);
+      font-size: var(--text-label);
+      font-weight: 700;
+      text-decoration: none;
+      white-space: nowrap;
+    }·
+    .manage-context__link--active {
+      color: var(--color-ink);
+    }·
+    .manage-context__link--active::after {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      height: calc(var(--border-thin) * 3);
+      border-radius: var(--radius-pill);
+      background: var(--color-brand);
+      content: \"\";
+    }·
+    .manage-heading {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: var(--space-6);
+      margin-bottom: var(--space-6);
+    }·
+    .manage-heading h2 {
+      margin: 0 0 var(--space-2);
+      font-size: var(--text-h2);
+      line-height: 1.4;
+    }·
+    .manage-heading p {
+      max-width: 720px;
+      margin: 0;
+      color: var(--color-muted-ink);
+    }·
+    .manage-stat {
+      min-width: 160px;
+      padding: var(--space-3) var(--space-5);
+      border: var(--border-thin) solid var(--color-line);
+      border-radius: var(--radius-md);
+      background: var(--color-surface);
+    }·
+    .manage-stat span {
+      display: block;
+      margin-bottom: var(--space-1);
+      color: var(--color-muted-ink);
+      font-size: var(--text-caption);
+    }·
+    .manage-stat strong {
+      color: var(--color-brand-ink);
+      font-size: var(--text-h3);
+    }·
+    .manage-inline-error {
+      display: grid;
+      gap: var(--space-1);
+      margin-bottom: var(--space-5);
+      padding: var(--space-4);
+      border-radius: var(--radius-sm);
+      background: var(--color-danger-soft);
+      color: var(--color-danger);
+    }·
+    .manage-table-panel,
+    .manage-panel,
+    .manage-applicant-panel {
+      border: var(--border-thin) solid var(--color-line);
+      border-radius: var(--radius-lg);
+      background: var(--color-surface);
+    }·
+    .manage-table-panel {
+      overflow: hidden;
+    }·
+    .manage-member-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }·
+    .manage-member-table th,
+    .manage-member-table td {
+      padding: var(--space-4) var(--space-5);
+      border-bottom: var(--border-thin) solid var(--color-line);
+      text-align: left;
+      vertical-align: middle;
+    }·
+    .manage-member-table th {
+      background: var(--color-canvas);
+      color: var(--color-muted-ink);
+      font-size: var(--text-caption);
+      font-weight: 700;
+    }·
+    .manage-member-table th:first-child {
+      width: 22%;
+    }·
+    .manage-member-table th:last-child {
+      width: 25%;
+    }·
+    .manage-member-table tbody tr:last-child td {
+      border-bottom: 0;
+    }·
+    .manage-member-table td:first-child {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }·
+    .manage-avatar {
+      display: grid;
+      flex: 0 0 var(--space-10);
+      width: var(--space-10);
+      height: var(--space-10);
+      place-items: center;
+      border-radius: var(--radius-pill);
+      background: var(--color-brand-soft);
+      color: var(--color-ink);
+      font-weight: 700;
+    }·
+    .manage-muted-copy {
+      color: var(--color-muted-ink);
+      font-size: var(--text-caption);
+    }·
+    .manage-pagination {
+      display: flex;
+      justify-content: center;
+      padding: var(--space-4);
+      border-top: var(--border-thin) solid var(--color-line);
+    }·
+    .manage-grid {
+      display: grid;
+      grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+      gap: var(--space-6);
+      align-items: start;
+    }·
+    .manage-panel {
+      padding: var(--space-6);
+    }·
+    .manage-panel h2 {
+      margin: 0 0 var(--space-5);
+      font-size: var(--text-h2);
+    }·
+    .manage-form {
+      display: grid;
+      gap: var(--space-4);
+    }·
+    .manage-field {
+      display: grid;
+      gap: var(--space-2);
+      font-weight: 600;
+    }·
+    .manage-field input,
+    .manage-field select,
+    .manage-field textarea {
+      min-height: var(--touch-target);
+      padding: var(--space-3) var(--space-4);
+      border: var(--border-thin) solid var(--color-line);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface);
+      color: var(--color-ink);
+      font: inherit;
+    }·
+    .manage-field textarea {
+      min-height: 120px;
+      resize: vertical;
+    }·
+    .manage-field small {
+      color: var(--color-danger);
+    }·
+    .manage-card-list {
+      display: grid;
+      gap: var(--space-3);
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }·
+    .manage-recruitment-card,
+    .manage-registration-card {
+      display: flex;
+      align-items: stretch;
+      justify-content: space-between;
+      gap: var(--space-5);
+      padding: var(--space-5);
+      border: var(--border-thin) solid var(--color-line);
+      border-radius: var(--radius-md);
+      background: var(--color-surface);
+    }·
+    .manage-card-main {
+      display: grid;
+      min-width: 0;
+      gap: var(--space-3);
+    }·
+    .manage-card-main h3,
+    .manage-card-main p {
+      margin: 0;
+    }·
+    .manage-card-main h3 {
+      font-size: var(--text-h3);
+    }·
+    .manage-card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-3);
+      color: var(--color-muted-ink);
+      font-size: var(--text-caption);
+    }·
+    .manage-card-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }·
+    .manage-applicant-panel {
+      padding: var(--space-5);
+    }·
+    .manage-registration-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(280px, 0.9fr);
+      gap: var(--space-6);
+      align-items: start;
+    }·
+    .manage-side-rail {
+      display: grid;
+      gap: var(--space-6);
+    }·
+    .manage-rail-panel {
+      padding: var(--space-5);
+      border: var(--border-thin) solid var(--color-line);
+      border-radius: var(--radius-lg);
+      background: var(--color-surface);
+    }·
+    .manage-rail-panel h3 {
+      margin: 0 0 var(--space-4);
+      font-size: var(--text-h3);
+    }·
+    .manage-rail-members {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }·
+    .manage-rail-members li {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) 0;
+      border-bottom: var(--border-thin) solid var(--color-line);
+    }·
+    .manage-rail-members li:first-child {
+      padding-top: 0;
+    }·
+    .manage-rail-members li:last-child {
+      padding-bottom: 0;
+      border-bottom: 0;
+    }·
+    .manage-rail-members li > span:last-child {
+      display: grid;
+      min-width: 0;
+      gap: var(--space-1);
+    }·
+    .manage-rail-members small,
+    .manage-recruitment-snapshot span,
+    .manage-rail-empty {
+      color: var(--color-muted-ink);
+      font-size: var(--text-caption);
+    }·
+    .manage-rail-error,
+    .manage-rail-empty {
+      margin: 0;
+    }·
+    .manage-rail-error {
+      color: var(--color-danger);
+    }·
+    .manage-recruitment-snapshot {
+      display: grid;
+      justify-items: start;
+      gap: var(--space-3);
+    }·
+    .manage-toolbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 180px auto;
+      align-items: end;
+      gap: var(--space-4);
+      margin-bottom: var(--space-5);
+      padding-bottom: var(--space-5);
+      border-bottom: var(--border-thin) solid var(--color-line);
+    }·
+    .manage-toolbar h3,
+    .manage-toolbar p {
+      margin: 0;
+    }·
+    .manage-toolbar p {
+      margin-top: var(--space-1);
+      color: var(--color-muted-ink);
+      font-size: var(--text-caption);
+    }·
+    .manage-back-link {
+      display: inline-flex;
+      min-height: var(--touch-target);
+      align-items: center;
+      color: var(--color-brand-ink);
+      font-weight: 700;
+      text-decoration: none;
+      white-space: nowrap;
+    }·
+    .manage-decision-note {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-3);
+      color: var(--color-muted-ink);
+      font-size: var(--text-caption);
+    }·
+    .manage-character-count {
+      justify-self: end;
+      color: var(--color-muted-ink);
+      font-size: var(--text-caption);
+      font-weight: 400;
+    }·
+    .manage-visually-hidden {
+      position: absolute;
+      width: var(--border-thin);
+      height: var(--border-thin);
+      padding: 0;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+      border: 0;
+    }·
+    @media (max-width: 47.9375rem) {
+      .manage-page {
+        padding: var(--space-6) var(--space-5) var(--space-12);
+      }·
+      .manage-context {
+        margin-bottom: var(--space-6);
+      }·
+      .manage-context h1 {
+        margin-bottom: var(--space-4);
+        font-size: var(--text-h2);
+      }·
+      .manage-context__nav {
+        gap: var(--space-6);
+      }·
+      .manage-heading,
+      .manage-recruitment-card,
+      .manage-registration-card {
+        flex-direction: column;
+      }·
+      .manage-stat {
+        min-width: 0;
+      }·
+      .manage-grid {
+        grid-template-columns: 1fr;
+      }·
+      .manage-registration-layout {
+        grid-template-columns: 1fr;
+      }·
+      .manage-table-panel {
+        overflow: visible;
+        border: 0;
+        background: transparent;
+      }·
+      .manage-member-table,
+      .manage-member-table tbody {
+        display: block;
+      }·
+      .manage-member-table thead {
+        display: none;
+      }·
+      .manage-member-table tr {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--space-4);
+        margin-bottom: var(--space-3);
+        padding: var(--space-5);
+        border: var(--border-thin) solid var(--color-line);
+        border-radius: var(--radius-md);
+        background: var(--color-surface);
+      }·
+      .manage-member-table td,
+      .manage-member-table td:first-child {
+        display: grid;
+        align-items: start;
+        gap: var(--space-1);
+        padding: 0;
+        border: 0;
+      }·
+      .manage-member-table td::before {
+        color: var(--color-muted-ink);
+        content: attr(data-label);
+        font-size: var(--text-caption);
+        font-weight: 600;
+      }·
+      .manage-member-table td:first-child {
+        grid-column: 1 / -1;
+        grid-template-columns: var(--space-10) minmax(0, 1fr);
+      }·
+      .manage-member-table td:first-child::before {
+        grid-column: 1 / -1;
+      }·
+      .manage-member-table td:last-child {
+        grid-column: 1 / -1;
+      }·
+      .manage-member-table td:last-child > * {
+        width: 100%;
+      }·
+      .manage-pagination {
+        border: 0;
+      }·
+      .manage-card-actions {
+        width: 100%;
+      }·
+      .manage-card-actions > * {
+        flex: 1;
+      }·
+      .manage-applicant-panel {
+        padding: var(--space-4);
+      }·
+      .manage-toolbar {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+      }
+    }
+    "
+
+      23 |
+      24 |   it("uses the final2 operational density and reflows before tablet labels become narrow", () => {
+    > 25 |     expect(manageCss).toContain(".manage-page--dashboard");
+         |                       ^
+      26 |     expect(manageCss).toContain(".manage-status-filters");
+      27 |     expect(manageCss).toContain(".manage-registration-card");
+      28 |     expect(manageCss).toContain("background: transparent");
+
+      at Object.<anonymous> (tests/pages/manage/manage-css.test.js:25:23)
+
+Test Suites: 2 failed, 2 total
+Tests:       3 failed, 15 passed, 18 total
+Snapshots:   0 total
+Time:        1.288 s
+Ran all test suites matching tests/pages/manage/manage-pages.test.jsx|tests/pages/manage/manage-css.test.js.
