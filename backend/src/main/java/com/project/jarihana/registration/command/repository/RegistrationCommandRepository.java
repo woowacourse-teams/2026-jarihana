@@ -32,5 +32,7 @@ public interface RegistrationCommandRepository extends Repository<Registration, 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Registration> findWithLockByIdAndRecruitmentId(long id, long recruitmentId);
 
+    void delete(Registration registration);
+
     Registration save(Registration registration);
 }

@@ -20,6 +20,7 @@ import com.project.jarihana.recruitment.command.repository.GroupRecruitmentComma
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.JoinMethod;
 import com.project.jarihana.registration.command.repository.RegistrationCommandRepository;
+import com.project.jarihana.registration.domain.DecisionActor;
 import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.TestSupportConfig;
@@ -52,6 +53,146 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
 
     @Autowired
     private AuthCookieProperties authCookieProperties;
+
+    @DisplayName("신청자가 자신의 대기 신청을 철회하면 본문 없이 응답하고 신청을 삭제한다.")
+    @Test
+    void withdrawsOwnPendingRegistration() {
+        // Given
+        Member applicant = saveMember("가온", "registration-controller-withdrawal-applicant");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 2);
+        Registration registration = registrationRepository.save(Registration.createPending(
+                recruitment,
+                applicant,
+                null,
+                TestSupportConfig.FIXED_NOW.minusHours(1)
+        ));
+        String accessToken = accessTokenProvider.issue(applicant.getId()).value();
+        String csrfToken = csrfToken(recruitment.getGroup().getId());
+
+        // When / Then
+        authenticatedRequest(accessToken, csrfToken)
+                .when()
+                .delete(
+                        "/api/recruitments/{recruitmentId}/registrations/{registrationId}",
+                        recruitment.getId(),
+                        registration.getId()
+                )
+                .then()
+                .statusCode(204)
+                .body(equalTo(""));
+        assertThat(registrationRepository.existsByRecruitmentIdAndMemberId(
+                recruitment.getId(),
+                applicant.getId()
+        )).isFalse();
+    }
+
+    @DisplayName("다른 회원의 가입 신청을 철회하면 접근 거부로 응답한다.")
+    @Test
+    void rejectsWithdrawalOfAnotherMembersRegistration() {
+        // Given
+        Member applicant = saveMember("가람", "withdrawal-api-owner");
+        Member requester = saveMember("나래", "withdrawal-api-requester");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 2);
+        Registration registration = registrationRepository.save(Registration.createPending(
+                recruitment,
+                applicant,
+                null,
+                TestSupportConfig.FIXED_NOW.minusHours(1)
+        ));
+        String accessToken = accessTokenProvider.issue(requester.getId()).value();
+        String csrfToken = csrfToken(recruitment.getGroup().getId());
+
+        // When / Then
+        authenticatedRequest(accessToken, csrfToken)
+                .when()
+                .delete(
+                        "/api/recruitments/{recruitmentId}/registrations/{registrationId}",
+                        recruitment.getId(),
+                        registration.getId()
+                )
+                .then()
+                .statusCode(403)
+                .body("success", equalTo(false))
+                .body("data", nullValue())
+                .body("error.code", equalTo("REGISTRATION_ACCESS_DENIED"));
+        assertThat(registrationRepository.existsByRecruitmentIdAndMemberId(
+                recruitment.getId(),
+                applicant.getId()
+        )).isTrue();
+    }
+
+    @DisplayName("가입 신청이 요청한 모집 공고에 속하지 않으면 찾을 수 없는 신청으로 응답한다.")
+    @Test
+    void rejectsWithdrawalForRegistrationFromAnotherRecruitment() {
+        // Given
+        Member applicant = saveMember("라온", "withdrawal-api-another-recruitment");
+        GroupRecruitment requestedRecruitment = saveRecruitment(
+                "가입 신청 철회 대상 공고 그룹",
+                JoinMethod.APPROVAL,
+                2
+        );
+        GroupRecruitment anotherRecruitment = saveRecruitment(
+                "가입 신청 철회 다른 공고 그룹",
+                JoinMethod.APPROVAL,
+                3
+        );
+        Registration registration = registrationRepository.save(Registration.createPending(
+                anotherRecruitment,
+                applicant,
+                null,
+                TestSupportConfig.FIXED_NOW.minusHours(1)
+        ));
+        String accessToken = accessTokenProvider.issue(applicant.getId()).value();
+        String csrfToken = csrfToken(requestedRecruitment.getGroup().getId());
+
+        // When / Then
+        authenticatedRequest(accessToken, csrfToken)
+                .when()
+                .delete(
+                        "/api/recruitments/{recruitmentId}/registrations/{registrationId}",
+                        requestedRecruitment.getId(),
+                        registration.getId()
+                )
+                .then()
+                .statusCode(404)
+                .body("success", equalTo(false))
+                .body("data", nullValue())
+                .body("error.code", equalTo("REGISTRATION_NOT_FOUND"));
+    }
+
+    @DisplayName("이미 결정된 가입 신청을 철회하면 상태 충돌로 응답한다.")
+    @Test
+    void rejectsWithdrawalOfDecidedRegistration() {
+        // Given
+        Member applicant = saveMember("마루", "withdrawal-api-decided-applicant");
+        Member decider = saveMember("보라", "withdrawal-api-decider");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 2);
+        Registration registration = registrationRepository.save(
+                Registration.createPending(
+                                recruitment,
+                                applicant,
+                                null,
+                                TestSupportConfig.FIXED_NOW.minusHours(1)
+                        )
+                        .approve(DecisionActor.member(decider.getId()), TestSupportConfig.FIXED_NOW, 0)
+        );
+        String accessToken = accessTokenProvider.issue(applicant.getId()).value();
+        String csrfToken = csrfToken(recruitment.getGroup().getId());
+
+        // When / Then
+        authenticatedRequest(accessToken, csrfToken)
+                .when()
+                .delete(
+                        "/api/recruitments/{recruitmentId}/registrations/{registrationId}",
+                        recruitment.getId(),
+                        registration.getId()
+                )
+                .then()
+                .statusCode(409)
+                .body("success", equalTo(false))
+                .body("data", nullValue())
+                .body("error.code", equalTo("REGISTRATION_ALREADY_DECIDED"));
+    }
 
     @DisplayName("모임장이 대기 신청을 승인하면 결정 정보와 함께 응답하고 신청자를 구성원으로 등록한다.")
     @Test
@@ -414,8 +555,12 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
     }
 
     private GroupRecruitment saveRecruitment(JoinMethod joinMethod, int capacity) {
+        return saveRecruitment("가입 신청 API 그룹 " + joinMethod, joinMethod, capacity);
+    }
+
+    private GroupRecruitment saveRecruitment(String groupName, JoinMethod joinMethod, int capacity) {
         Group group = groupRepository.save(Group.createClub(
-                "가입 신청 API 그룹 " + joinMethod,
+                groupName,
                 "함께 활동해요",
                 null,
                 null,

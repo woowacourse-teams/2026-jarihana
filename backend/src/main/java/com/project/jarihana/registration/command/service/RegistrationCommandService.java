@@ -71,6 +71,25 @@ public class RegistrationCommandService {
     }
 
     @Transactional
+    public void withdrawRegistration(long memberId, long recruitmentId, long registrationId) {
+        Registration registration = registrationRepository.findWithLockByIdAndRecruitmentId(
+                        registrationId,
+                        recruitmentId
+                )
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.REGISTRATION_NOT_FOUND,
+                        "가입 신청을 찾을 수 없습니다."
+                ));
+        if (registration.getMember().getId() != memberId) {
+            throw new BusinessException(ErrorCode.REGISTRATION_ACCESS_DENIED, "본인의 가입 신청만 철회할 수 있습니다.");
+        }
+        if (!registration.canWithdraw()) {
+            throw new BusinessException(ErrorCode.REGISTRATION_ALREADY_DECIDED, "이미 처리된 가입 신청은 철회할 수 없습니다.");
+        }
+        registrationRepository.delete(registration);
+    }
+
+    @Transactional
     public DecideRegistrationResult decideRegistration(
             long memberId,
             long recruitmentId,

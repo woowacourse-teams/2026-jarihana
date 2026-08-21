@@ -13,6 +13,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,6 +27,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class RegistrationCommandController {
 
     private final RegistrationCommandService registrationCommandService;
+
+    @DeleteMapping("/{recruitmentId}/registrations/{registrationId}")
+    public ResponseEntity<Void> withdrawRegistration(
+            @LoginMember long memberId,
+            @PathVariable long recruitmentId,
+            @PathVariable long registrationId
+    ) {
+        registrationCommandService.withdrawRegistration(memberId, recruitmentId, registrationId);
+        return ResponseEntity.noContent().build();
+    }
 
     @PostMapping("/{recruitmentId}/registrations")
     public ResponseEntity<ApiResponse<CreateRegistrationResponse>> createRegistration(
