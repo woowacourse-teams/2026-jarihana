@@ -88,22 +88,22 @@ IntelliJ 환경이라면 [IntelliJ 로컬 실행 가이드](./docs/guide/intelli
 Docker Compose와 Spring Profile을 사용해 로컬 PostgreSQL을 실행합니다.
 
 ```bash
-docker compose -f compose-local.yaml up -d
+docker compose -f docker-compose-local.yaml up -d
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
 로컬 PostgreSQL의 데이터베이스, 사용자, 비밀번호는 `jarihana`로 고정되어 있고
 호스트 포트는 `5432`입니다.
-운영 DB 설정은 `.env.example`을 참고해 환경 변수로 주입합니다.
+운영 배포 환경 변수는 GitHub Actions Secrets에서 `infra/docker-compose.yml`로 주입합니다.
 
 PostgreSQL 컨테이너 상태는 다음 명령으로 확인할 수 있습니다.
 
 ```bash
-docker compose -f compose-local.yaml ps
+docker compose -f docker-compose-local.yaml ps
 ```
 
 컨테이너를 종료해도 데이터는 named volume에 유지됩니다. 데이터까지 초기화할 때만
-`docker compose -f compose-local.yaml down -v`를 사용합니다.
+`docker compose -f docker-compose-local.yaml down -v`를 사용합니다.
 
 운영 환경에서는 `SPRING_PROFILES_ACTIVE=prod`와 `DB_URL`, `DB_USERNAME`,
 `DB_PASSWORD`를 운영 환경 변수로 주입합니다. 운영 프로필은 스키마를 자동 변경하지

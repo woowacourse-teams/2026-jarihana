@@ -31,10 +31,10 @@ DB는 컨테이너와 로컬 설치본 중 하나로 준비하면 되고, 앱 �
 ### Postgre 컨테이너 띄우기
 
 ```bash
-docker compose -f compose-local.yaml up -d
+docker compose -f docker-compose-local.yaml up -d
 ```
 
-`compose-local.yaml`이 DB, 계정, 비밀번호를 모두 `jarihana`로 만들어 주므로 `.env`도 여기에
+`docker-compose-local.yaml`이 DB, 계정, 비밀번호를 모두 `jarihana`로 만들어 주므로 `.env`도 여기에
 맞춰야 합니다.
 
 ```bash
