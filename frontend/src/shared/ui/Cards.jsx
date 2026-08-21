@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
 
-const defaultGroupImage = "/images/default-group.png";
+export const DEFAULT_GROUP_IMAGE = "/images/default-group.png";
 
 function classes(...values) {
   return values.filter(Boolean).join(" ");
@@ -49,6 +49,25 @@ function scheduleFrequencyText(group) {
   return null;
 }
 
+export function groupImageUrl(group) {
+  return group?.representativeImageUrl || DEFAULT_GROUP_IMAGE;
+}
+
+export function GroupImage({ alt = "", className, group, ...properties }) {
+  return (
+    <img
+      {...properties}
+      alt={alt}
+      className={className}
+      onError={(event) => {
+        event.currentTarget.onerror = null;
+        event.currentTarget.src = DEFAULT_GROUP_IMAGE;
+      }}
+      src={groupImageUrl(group)}
+    />
+  );
+}
+
 function cardScheduleMeta(group) {
   const frequency = scheduleFrequencyText(group);
   const recruitment = group.activeRecruitment;
@@ -72,12 +91,12 @@ export function GroupCard({
   const destination = LinkComponent === "a" ? { href } : { to: href };
   return (
     <Card {...destination} as={LinkComponent} className="ui-group-card" interactive>
-      <img
+      <GroupImage
         alt=""
         className="ui-group-card__image"
+        group={group}
         height="288"
         loading="lazy"
-        src={group.representativeImageUrl || defaultGroupImage}
         width="512"
       />
       <div className="ui-group-card__body">
