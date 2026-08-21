@@ -52,6 +52,10 @@ export function formatLocalDateTime(value) {
   return `${date.replaceAll("-", ".")} ${time.slice(0, 5)}`.trim();
 }
 
+export function formatLocalDate(value) {
+  return formatLocalDateTime(value).split(" ")[0];
+}
+
 export function scheduleText(group) {
   if (group.recurringSchedule) {
     const days = group.recurringSchedule.daysOfWeek.map((day) => dayLabels[day] ?? day).join("·");
