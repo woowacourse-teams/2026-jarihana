@@ -29,7 +29,7 @@ import org.springframework.session.SessionRepository;
  */
 class MemberMyProfileAcceptanceTest extends IntegrationTestSupport {
 
-    private static final String MY_PROFILE_PATH = "/api/members/me";
+    private static final String MY_PROFILE_PATH = "/members/me";
     private static final String SESSION_COOKIE_NAME = "SESSION";
     private static final String GITHUB_ID = "123456";
 

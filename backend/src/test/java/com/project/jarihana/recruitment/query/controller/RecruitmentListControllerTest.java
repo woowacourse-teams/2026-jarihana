@@ -75,7 +75,7 @@ class RecruitmentListControllerTest extends IntegrationTestSupport {
         Response firstPage = given()
                 .queryParam("size", 2)
                 .when()
-                .get("/api/groups/{groupId}/recruitments", group.getId());
+                .get("/groups/{groupId}/recruitments", group.getId());
 
         // Then
         firstPage.then()
@@ -101,7 +101,7 @@ class RecruitmentListControllerTest extends IntegrationTestSupport {
                 .queryParam("cursor", nextCursor)
                 .queryParam("size", 2)
                 .when()
-                .get("/api/groups/{groupId}/recruitments", group.getId())
+                .get("/groups/{groupId}/recruitments", group.getId())
                 .then()
                 .statusCode(200)
                 .body("data.items.size()", equalTo(1))
@@ -117,7 +117,7 @@ class RecruitmentListControllerTest extends IntegrationTestSupport {
         // Given / When / Then
         given()
                 .when()
-                .get("/api/groups/{groupId}/recruitments", 999L)
+                .get("/groups/{groupId}/recruitments", 999L)
                 .then()
                 .statusCode(404)
                 .body("success", equalTo(false))
@@ -134,7 +134,7 @@ class RecruitmentListControllerTest extends IntegrationTestSupport {
         given()
                 .queryParam("size", 101)
                 .when()
-                .get("/api/groups/{groupId}/recruitments", group.getId())
+                .get("/groups/{groupId}/recruitments", group.getId())
                 .then()
                 .statusCode(400)
                 .body("success", equalTo(false))
@@ -151,7 +151,7 @@ class RecruitmentListControllerTest extends IntegrationTestSupport {
         given()
                 .queryParam("cursor", "invalid-cursor")
                 .when()
-                .get("/api/groups/{groupId}/recruitments", group.getId())
+                .get("/groups/{groupId}/recruitments", group.getId())
                 .then()
                 .statusCode(400)
                 .body("success", equalTo(false))

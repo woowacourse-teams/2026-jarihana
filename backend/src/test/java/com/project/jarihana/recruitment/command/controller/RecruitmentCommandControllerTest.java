@@ -66,10 +66,10 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
                         }
                         """)
                 .when()
-                .post("/api/groups/{groupId}/recruitments", group.getId())
+                .post("/groups/{groupId}/recruitments", group.getId())
                 .then()
                 .statusCode(201)
-                .header("Location", equalTo("/api/groups/%d/recruitments/1".formatted(group.getId())))
+                .header("Location", equalTo("/groups/%d/recruitments/1".formatted(group.getId())))
                 .body("success", equalTo(true))
                 .body("data.id", equalTo(1))
                 .body("data.groupId", equalTo(group.getId().intValue()))
@@ -100,7 +100,7 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
                         }
                         """)
                 .when()
-                .patch("/api/groups/{groupId}/recruitments/{recruitmentId}", group.getId(), recruitment.getId())
+                .patch("/groups/{groupId}/recruitments/{recruitmentId}", group.getId(), recruitment.getId())
                 .then()
                 .statusCode(200)
                 .body("success", equalTo(true))
@@ -129,7 +129,7 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
                         }
                         """)
                 .when()
-                .patch("/api/groups/{groupId}/recruitments/{recruitmentId}", group.getId(), recruitment.getId())
+                .patch("/groups/{groupId}/recruitments/{recruitmentId}", group.getId(), recruitment.getId())
                 .then()
                 .statusCode(400)
                 .body("success", equalTo(false))
@@ -153,7 +153,7 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
         authenticatedRequest(accessToken, csrfToken)
                 .body(closeBody())
                 .when()
-                .patch("/api/groups/{groupId}/recruitments/{recruitmentId}", group.getId(), recruitment.getId())
+                .patch("/groups/{groupId}/recruitments/{recruitmentId}", group.getId(), recruitment.getId())
                 .then()
                 .statusCode(403)
                 .body("success", equalTo(false))
@@ -181,7 +181,7 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
                 .body(closeBody())
                 .when()
                 .patch(
-                        "/api/groups/{groupId}/recruitments/{recruitmentId}",
+                        "/groups/{groupId}/recruitments/{recruitmentId}",
                         requestedGroup.getId(),
                         otherRecruitment.getId()
                 )
@@ -212,7 +212,7 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
         authenticatedRequest(accessToken, csrfToken)
                 .body(closeBody())
                 .when()
-                .patch("/api/groups/{groupId}/recruitments/{recruitmentId}", group.getId(), recruitment.getId())
+                .patch("/groups/{groupId}/recruitments/{recruitmentId}", group.getId(), recruitment.getId())
                 .then()
                 .statusCode(409)
                 .body("success", equalTo(false))
@@ -240,7 +240,7 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
                         }
                         """)
                 .when()
-                .post("/api/groups/{groupId}/recruitments", group.getId())
+                .post("/groups/{groupId}/recruitments", group.getId())
                 .then()
                 .statusCode(400)
                 .body("success", equalTo(false))
@@ -268,7 +268,7 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
                         }
                         """)
                 .when()
-                .post("/api/groups/{groupId}/recruitments", group.getId())
+                .post("/groups/{groupId}/recruitments", group.getId())
                 .then()
                 .statusCode(400)
                 .body("success", equalTo(false))
@@ -291,7 +291,7 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
         authenticatedRequest(accessToken, csrfToken)
                 .body(validBody())
                 .when()
-                .post("/api/groups/{groupId}/recruitments", group.getId())
+                .post("/groups/{groupId}/recruitments", group.getId())
                 .then()
                 .statusCode(403)
                 .body("success", equalTo(false))
@@ -313,7 +313,7 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
         authenticatedRequest(accessToken, csrfToken)
                 .body(validBody())
                 .when()
-                .post("/api/groups/{groupId}/recruitments", group.getId())
+                .post("/groups/{groupId}/recruitments", group.getId())
                 .then()
                 .statusCode(409)
                 .body("success", equalTo(false))
@@ -334,7 +334,7 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
         authenticatedRequest(accessToken, csrfToken)
                 .body(validBody())
                 .when()
-                .post("/api/groups/{groupId}/recruitments", 999_999L)
+                .post("/groups/{groupId}/recruitments", 999_999L)
                 .then()
                 .statusCode(404)
                 .body("success", equalTo(false))
@@ -396,7 +396,7 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
     private String csrfToken(long groupId) {
         ExtractableResponse<Response> response = given()
                 .when()
-                .get("/api/groups/{groupId}", groupId)
+                .get("/groups/{groupId}", groupId)
                 .then()
                 .extract();
         return response.cookie("XSRF-TOKEN");

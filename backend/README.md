@@ -84,6 +84,7 @@
 ## 로컬 PostgreSQL 실행
 
 IntelliJ 환경이라면 [IntelliJ 로컬 실행 가이드](./docs/guide/intellij-local-run.md) 문서를 확인하십시오.
+`backend/.env.example`은 로컬 실행용 템플릿이며, 복사한 `backend/.env`에 개인별 값을 입력합니다.
 
 Docker Compose와 Spring Profile을 사용해 로컬 PostgreSQL을 실행합니다.
 
@@ -105,6 +106,28 @@ docker compose -f docker-compose-local.yaml ps
 컨테이너를 종료해도 데이터는 named volume에 유지됩니다. 데이터까지 초기화할 때만
 `docker compose -f docker-compose-local.yaml down -v`를 사용합니다.
 
-운영 환경에서는 `SPRING_PROFILES_ACTIVE=prod`와 `DB_URL`, `DB_USERNAME`,
-`DB_PASSWORD`를 운영 환경 변수로 주입합니다. 운영 프로필은 스키마를 자동 변경하지
-않고 `ddl-auto: validate`로 검증만 수행합니다.
+운영 환경에서는 `infra/docker-compose.yml`이 `SPRING_PROFILES_ACTIVE=prod`, DB 접속값,
+인증·OAuth 설정을 GitHub Actions Secrets와 함께 주입합니다. 운영 프로필은 스키마를 자동
+변경하지 않고 `ddl-auto: validate`로 검증만 수행합니다.
+
+### 운영 배포 시크릿
+
+`main` 브랜치에 반영된 커밋에 `backend/**` 변경이 포함되면 백엔드 배포 워크플로가
+자동으로 실행됩니다. 필요할 때는 GitHub Actions에서 수동으로도 실행할 수 있습니다.
+
+저장소의 `Settings > Secrets and variables > Actions`에 다음 이름으로 시크릿을 등록합니다.
+GitHub은 `GITHUB_`로 시작하는 시크릿 이름을 허용하지 않으므로, OAuth 시크릿은
+`OAUTH_GITHUB_*` 이름으로 저장한 뒤 배포 워크플로에서 애플리케이션 환경 변수
+`GITHUB_OAUTH_*`로 매핑합니다.
+
+| 애플리케이션·Compose 환경 변수 | GitHub Actions 시크릿 |
+| --- | --- |
+| `POSTGRES_PASSWORD` | `POSTGRES_PASSWORD` |
+| `FRONTEND_ORIGIN` | `FRONTEND_ORIGIN` |
+| `ACCESS_TOKEN_SECRET` | `ACCESS_TOKEN_SECRET` |
+| `GITHUB_OAUTH_CLIENT_ID` | `OAUTH_GITHUB_CLIENT_ID` |
+| `GITHUB_OAUTH_CLIENT_SECRET` | `OAUTH_GITHUB_CLIENT_SECRET` |
+| `GITHUB_OAUTH_REDIRECT_URI` | `OAUTH_GITHUB_REDIRECT_URI` |
+
+실제 값은 저장소에 커밋하지 않습니다. `backend/.env.example`은 로컬 실행용 키 목록과
+예시만 제공하며 운영값의 저장소가 아닙니다.

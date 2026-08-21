@@ -1,6 +1,11 @@
 name: Backend Docker Deploy
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
   workflow_dispatch:
 
 jobs:
@@ -29,9 +34,9 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           FRONTEND_ORIGIN: ${{ secrets.FRONTEND_ORIGIN }}
           ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
-          GITHUB_OAUTH_CLIENT_ID: ${{ secrets.GITHUB_OAUTH_CLIENT_ID }}
-          GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.GITHUB_OAUTH_CLIENT_SECRET }}
-          GITHUB_OAUTH_REDIRECT_URI: ${{ secrets.GITHUB_OAUTH_REDIRECT_URI }}
+          GITHUB_OAUTH_CLIENT_ID: ${{ secrets.OAUTH_GITHUB_CLIENT_ID }}
+          GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
+          GITHUB_OAUTH_REDIRECT_URI: ${{ secrets.OAUTH_GITHUB_REDIRECT_URI }}
         run: |
           docker compose \
             -f infra/docker-compose.yml \
