@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/groups/{groupId}/recruitments")
+@RequestMapping("/groups/{groupId}/recruitments")
 public class RecruitmentQueryController {
 
     private final RecruitmentQueryService recruitmentQueryService;

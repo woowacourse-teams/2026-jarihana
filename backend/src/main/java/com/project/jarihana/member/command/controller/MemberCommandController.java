@@ -19,10 +19,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/members")
+@RequestMapping("/members")
 public class MemberCommandController {
 
-    private static final String MEMBER_LOCATION_PREFIX = "/api/members/";
+    private static final String MEMBER_LOCATION_PREFIX = "/members/";
 
     private final MemberCommandService memberCommandService;
     private final SignupSession signupSession;

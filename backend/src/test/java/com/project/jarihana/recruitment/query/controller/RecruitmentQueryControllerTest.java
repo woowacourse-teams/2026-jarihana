@@ -72,7 +72,7 @@ class RecruitmentQueryControllerTest extends IntegrationTestSupport {
         // When / Then
         given()
                 .when()
-                .get("/api/groups/{groupId}/recruitments/{recruitmentId}", group.getId(), recruitment.getId())
+                .get("/groups/{groupId}/recruitments/{recruitmentId}", group.getId(), recruitment.getId())
                 .then()
                 .statusCode(200)
                 .body("success", equalTo(true))
@@ -97,7 +97,7 @@ class RecruitmentQueryControllerTest extends IntegrationTestSupport {
         // Given / When / Then
         given()
                 .when()
-                .get("/api/groups/{groupId}/recruitments/{recruitmentId}", 999L, 1L)
+                .get("/groups/{groupId}/recruitments/{recruitmentId}", 999L, 1L)
                 .then()
                 .statusCode(404)
                 .body("success", equalTo(false))
@@ -122,7 +122,7 @@ class RecruitmentQueryControllerTest extends IntegrationTestSupport {
         // When / Then
         given()
                 .when()
-                .get("/api/groups/{groupId}/recruitments/{recruitmentId}", secondGroup.getId(), recruitment.getId())
+                .get("/groups/{groupId}/recruitments/{recruitmentId}", secondGroup.getId(), recruitment.getId())
                 .then()
                 .statusCode(404)
                 .body("success", equalTo(false))

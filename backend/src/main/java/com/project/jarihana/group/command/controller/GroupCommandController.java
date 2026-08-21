@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/groups")
+@RequestMapping("/groups")
 public class GroupCommandController {
 
     private final GroupCommandService groupCommandService;
@@ -46,7 +46,7 @@ public class GroupCommandController {
         CreateGroupResponse response = CreateGroupResponse.from(
                 groupCommandService.createGroup(memberId, request.toCommand())
         );
-        return ResponseEntity.created(URI.create("/api/groups/" + response.id()))
+        return ResponseEntity.created(URI.create("/groups/" + response.id()))
                 .body(ApiResponse.success(response));
     }
 

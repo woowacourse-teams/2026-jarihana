@@ -15,23 +15,26 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    private static final String[] PUBLIC_PATHS = {"/api/oauth/**"};
+    private static final String[] PUBLIC_PATHS = {"/oauth/**"};
     private static final String[] PUBLIC_GET_PATHS = {
-            "/api/groups",
-            "/api/groups/*",
-            "/api/groups/*/members",
-            "/api/groups/*/recruitments",
-            "/api/groups/*/recruitments/*",
+            "/groups",
+            "/groups/*",
+            "/groups/*/members",
+            "/groups/*/recruitments",
+            "/groups/*/recruitments/*",
             "/images/**"
     };
-    private static final String[] PUBLIC_POST_PATHS = {"/api/auth/refresh"};
+    private static final String[] PUBLIC_POST_PATHS = {"/auth/refresh"};
 
     /**
      * 가입 세션과 Access Token 중 하나만 있어도 되는 경로다. 필터는 Access Token만 이해하므로
      * 여기서 통과시키고, 자격 증명이 하나도 없을 때 거부하는 판단은 각 Service가 한다.
      */
-    private static final String[] SESSION_OR_TOKEN_GET_PATHS = {"/api/members/me"};
-    private static final String[] SESSION_OR_TOKEN_POST_PATHS = {"/api/members", "/api/auth/logout"};
+    private static final String[] SESSION_OR_TOKEN_GET_PATHS = {"/members/me"};
+    private static final String[] SESSION_OR_TOKEN_POST_PATHS = {
+            "/members",
+            "/auth/logout"
+    };
 
     private final AccessTokenProvider accessTokenProvider;
     private final AuthCookieProperties authCookieProperties;

@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/groups")
+@RequestMapping("/groups")
 @RequiredArgsConstructor
 public class RecruitmentCommandController {
 
@@ -54,7 +54,7 @@ public class RecruitmentCommandController {
                 request.toCommand()
         );
         CreateRecruitmentResponse response = CreateRecruitmentResponse.from(result);
-        URI location = URI.create("/api/groups/%d/recruitments/%d".formatted(response.groupId(), response.id()));
+        URI location = URI.create("/groups/%d/recruitments/%d".formatted(response.groupId(), response.id()));
         return ResponseEntity.created(location).body(ApiResponse.success(response));
     }
 }

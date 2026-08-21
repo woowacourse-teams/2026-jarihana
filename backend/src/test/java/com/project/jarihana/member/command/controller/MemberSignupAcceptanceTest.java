@@ -34,8 +34,8 @@ import org.springframework.session.SessionRepository;
  */
 class MemberSignupAcceptanceTest extends IntegrationTestSupport {
 
-    private static final String SIGNUP_PATH = "/api/members";
-    private static final String MY_PROFILE_PATH = "/api/members/me";
+    private static final String SIGNUP_PATH = "/members";
+    private static final String MY_PROFILE_PATH = "/members/me";
     private static final String SESSION_COOKIE_NAME = "SESSION";
     private static final String CSRF_COOKIE_NAME = "XSRF-TOKEN";
     private static final String CSRF_HEADER_NAME = "X-XSRF-TOKEN";
@@ -66,7 +66,7 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
         assertThat(response.statusCode()).isEqualTo(HttpStatus.CREATED.value());
         assertThat(response.jsonPath().getBoolean("success")).isTrue();
         Long id = response.jsonPath().getLong("data.id");
-        assertThat(response.header(HttpHeaders.LOCATION)).endsWith("/api/members/" + id);
+        assertThat(response.header(HttpHeaders.LOCATION)).endsWith("/members/" + id);
         assertThat(response.jsonPath().getString("data.crewName")).isEqualTo("가온");
         assertThat(response.jsonPath().getInt("data.generation")).isEqualTo(8);
         assertThat(response.jsonPath().getString("data.course")).isEqualTo("BACKEND");
