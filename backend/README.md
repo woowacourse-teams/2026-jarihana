@@ -83,6 +83,8 @@
 
 ## 로컬 PostgreSQL 실행
 
+IntelliJ 환경이라면 [IntelliJ 로컬 실행 가이드](./docs/guide/intellij-local-run.md) 문서를 확인하십시오.
+
 Docker Compose와 Spring Profile을 사용해 로컬 PostgreSQL을 실행합니다.
 
 ```bash
