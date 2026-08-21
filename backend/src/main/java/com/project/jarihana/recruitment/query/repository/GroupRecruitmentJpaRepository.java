@@ -18,7 +18,7 @@ public interface GroupRecruitmentJpaRepository extends JpaRepository<GroupRecrui
             from GroupRecruitment recruitment
             where recruitment.group.id = :groupId
               and (
-                  :cursorCreatedAt is null
+                  cast(:cursorCreatedAt as LocalDateTime) is null
                   or recruitment.createdAt < :cursorCreatedAt
                   or (recruitment.createdAt = :cursorCreatedAt and recruitment.id < :cursorId)
               )

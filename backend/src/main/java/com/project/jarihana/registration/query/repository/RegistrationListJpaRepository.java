@@ -17,9 +17,9 @@ public interface RegistrationListJpaRepository extends JpaRepository<Registratio
             select registration
             from Registration registration
             where registration.recruitment.id = :recruitmentId
-              and (:status is null or registration.status = :status)
+              and (cast(:status as String) is null or registration.status = :status)
               and (
-                  :cursorRegisteredAt is null
+                  cast(:cursorRegisteredAt as LocalDateTime) is null
                   or registration.registeredAt < :cursorRegisteredAt
                   or (registration.registeredAt = :cursorRegisteredAt and registration.id < :cursorId)
               )
@@ -38,9 +38,9 @@ public interface RegistrationListJpaRepository extends JpaRepository<Registratio
             select registration
             from Registration registration
             where registration.member.id = :memberId
-              and (:status is null or registration.status = :status)
+              and (cast(:status as String) is null or registration.status = :status)
               and (
-                  :cursorRegisteredAt is null
+                  cast(:cursorRegisteredAt as LocalDateTime) is null
                   or registration.registeredAt < :cursorRegisteredAt
                   or (registration.registeredAt = :cursorRegisteredAt and registration.id < :cursorId)
               )

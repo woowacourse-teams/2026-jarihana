@@ -17,14 +17,14 @@ public interface GroupJpaRepository extends JpaRepository<Group, Long> {
             select g
             from Group g
             where g.status = :status
-              and (:type is null or g.type = :type)
+              and (cast(:type as String) is null or g.type = :type)
               and (
-                  :keyword is null
-                  or lower(g.name) like lower(concat('%', :keyword, '%'))
-                  or lower(g.introduction) like lower(concat('%', :keyword, '%'))
+                  cast(:keyword as String) is null
+                  or lower(g.name) like lower(concat('%', cast(:keyword as String), '%'))
+                  or lower(g.introduction) like lower(concat('%', cast(:keyword as String), '%'))
               )
               and (
-                  :cursorCreatedAt is null
+                  cast(:cursorCreatedAt as LocalDateTime) is null
                   or g.createdAt < :cursorCreatedAt
                   or (g.createdAt = :cursorCreatedAt and g.id < :cursorId)
               )
@@ -38,7 +38,7 @@ public interface GroupJpaRepository extends JpaRepository<Group, Long> {
                   )
               )
               and (
-                  :role is null
+                  cast(:role as String) is null
                   or exists (
                       select member.id
                       from GroupMember member
