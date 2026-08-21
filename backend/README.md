@@ -84,6 +84,7 @@
 ## 로컬 PostgreSQL 실행
 
 IntelliJ 환경이라면 [IntelliJ 로컬 실행 가이드](./docs/guide/intellij-local-run.md) 문서를 확인하십시오.
+`backend/.env.example`은 로컬 실행용 템플릿이며, 복사한 `backend/.env`에 개인별 값을 입력합니다.
 
 Docker Compose와 Spring Profile을 사용해 로컬 PostgreSQL을 실행합니다.
 
@@ -105,6 +106,6 @@ docker compose -f docker-compose-local.yaml ps
 컨테이너를 종료해도 데이터는 named volume에 유지됩니다. 데이터까지 초기화할 때만
 `docker compose -f docker-compose-local.yaml down -v`를 사용합니다.
 
-운영 환경에서는 `SPRING_PROFILES_ACTIVE=prod`와 `DB_URL`, `DB_USERNAME`,
-`DB_PASSWORD`를 운영 환경 변수로 주입합니다. 운영 프로필은 스키마를 자동 변경하지
-않고 `ddl-auto: validate`로 검증만 수행합니다.
+운영 환경에서는 `infra/docker-compose.yml`이 `SPRING_PROFILES_ACTIVE=prod`, DB 접속값,
+인증·OAuth 설정을 GitHub Actions Secrets와 함께 주입합니다. 운영 프로필은 스키마를 자동
+변경하지 않고 `ddl-auto: validate`로 검증만 수행합니다.
