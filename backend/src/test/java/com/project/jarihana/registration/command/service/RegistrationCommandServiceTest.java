@@ -37,6 +37,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 
 class RegistrationCommandServiceTest extends IntegrationTestSupport {
@@ -61,6 +63,115 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
 
     @Autowired
     private MemberRepository memberRepository;
+
+    @DisplayName("신청자가 자신의 대기 신청을 철회하면 신청을 삭제한다.")
+    @Test
+    void withdrawsOwnPendingRegistration() {
+        // Given
+        Member applicant = saveMember("가온", "registration-service-withdrawal-applicant");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 2);
+        Registration registration = savePendingRegistration(recruitment, applicant);
+
+        // When
+        registrationCommandService.withdrawRegistration(
+                applicant.getId(),
+                recruitment.getId(),
+                registration.getId()
+        );
+
+        // Then
+        assertThat(registrationRepository.existsByRecruitmentIdAndMemberId(
+                recruitment.getId(),
+                applicant.getId()
+        )).isFalse();
+    }
+
+    @DisplayName("다른 회원의 가입 신청은 철회할 수 없다.")
+    @Test
+    void rejectsWithdrawalOfAnotherMembersRegistration() {
+        // Given
+        Member applicant = saveMember("가람", "registration-service-withdrawal-owner");
+        Member requester = saveMember("나래", "registration-service-withdrawal-requester");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 2);
+        Registration registration = savePendingRegistration(recruitment, applicant);
+
+        // When / Then
+        assertBusinessError(
+                () -> registrationCommandService.withdrawRegistration(
+                        requester.getId(),
+                        recruitment.getId(),
+                        registration.getId()
+                ),
+                ErrorCode.REGISTRATION_ACCESS_DENIED
+        );
+        assertThat(registrationRepository.existsByRecruitmentIdAndMemberId(
+                recruitment.getId(),
+                applicant.getId()
+        )).isTrue();
+    }
+
+    @DisplayName("가입 신청이 요청한 모집 공고에 속하지 않으면 철회할 신청을 찾을 수 없다.")
+    @Test
+    void rejectsWithdrawalForRegistrationFromAnotherRecruitment() {
+        // Given
+        Member applicant = saveMember("라온", "withdrawal-another-recruitment-applicant");
+        GroupRecruitment requestedRecruitment = saveRecruitment(JoinMethod.APPROVAL, 2);
+        GroupRecruitment anotherRecruitment = saveRecruitment(JoinMethod.APPROVAL, 3);
+        Registration registration = savePendingRegistration(anotherRecruitment, applicant);
+
+        // When / Then
+        assertBusinessError(
+                () -> registrationCommandService.withdrawRegistration(
+                        applicant.getId(),
+                        requestedRecruitment.getId(),
+                        registration.getId()
+                ),
+                ErrorCode.REGISTRATION_NOT_FOUND
+        );
+    }
+
+    @DisplayName("승인되거나 거절된 가입 신청은 철회할 수 없다.")
+    @ParameterizedTest
+    @EnumSource(value = RegistrationStatus.class, names = {"APPROVED", "REJECTED"})
+    void rejectsWithdrawalOfDecidedRegistration(RegistrationStatus status) {
+        // Given
+        Member applicant = saveMember("누리", "withdrawal-applicant-" + status);
+        Member decider = saveMember("다온", "withdrawal-decider-" + status);
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 2);
+        Registration pendingRegistration = Registration.createPending(
+                recruitment,
+                applicant,
+                null,
+                TestSupportConfig.FIXED_NOW.minusHours(1)
+        );
+        Registration decidedRegistration = registrationRepository.save(switch (status) {
+            case APPROVED -> pendingRegistration.approve(
+                    DecisionActor.member(decider.getId()),
+                    TestSupportConfig.FIXED_NOW,
+                    0
+            );
+            case REJECTED -> pendingRegistration.reject(
+                    DecisionActor.member(decider.getId()),
+                    "모집 방향과 맞지 않습니다.",
+                    TestSupportConfig.FIXED_NOW
+            );
+            case PENDING -> throw new IllegalArgumentException("결정되지 않은 상태입니다.");
+        });
+
+        // When / Then
+        assertBusinessError(
+                () -> registrationCommandService.withdrawRegistration(
+                        applicant.getId(),
+                        recruitment.getId(),
+                        decidedRegistration.getId()
+                ),
+                ErrorCode.REGISTRATION_ALREADY_DECIDED
+        );
+        assertThat(registrationRepository.existsByRecruitmentIdAndMemberId(
+                recruitment.getId(),
+                applicant.getId()
+        )).isTrue();
+    }
 
     @DisplayName("모임장이 대기 신청을 승인하면 신청을 승인하고 신청자를 구성원으로 등록한다.")
     @Test
@@ -436,6 +547,59 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
         }
     }
 
+    @DisplayName("같은 대기 신청을 승인하고 철회해도 둘 중 하나만 반영한다.")
+    @Test
+    void serializesConcurrentDecisionAndWithdrawal() throws Exception {
+        // Given
+        Member leader = saveMember("윤슬", "withdrawal-race-leader");
+        Member applicant = saveMember("이든", "withdrawal-race-applicant");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 2);
+        saveLeader(recruitment, leader);
+        Registration registration = savePendingRegistration(recruitment, applicant);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        try {
+            Future<DecisionAttempt> decision = executor.submit(
+                    () -> decideWhenReleased(start, leader.getId(), recruitment.getId(), registration.getId())
+            );
+            Future<WithdrawalAttempt> withdrawal = executor.submit(
+                    () -> withdrawWhenReleased(start, applicant.getId(), recruitment.getId(), registration.getId())
+            );
+
+            // When
+            start.countDown();
+            DecisionAttempt decisionAttempt = decision.get(5, TimeUnit.SECONDS);
+            WithdrawalAttempt withdrawalAttempt = withdrawal.get(5, TimeUnit.SECONDS);
+
+            // Then
+            assertThat(decisionAttempt.succeeded()).isNotEqualTo(withdrawalAttempt.succeeded());
+            if (decisionAttempt.succeeded()) {
+                assertThat(withdrawalAttempt.errorCode()).isEqualTo(ErrorCode.REGISTRATION_ALREADY_DECIDED);
+                assertThat(registrationRepository.countByRecruitmentIdAndStatus(
+                        recruitment.getId(),
+                        RegistrationStatus.APPROVED
+                )).isEqualTo(1);
+                assertThat(groupMemberRepository.findByGroupIdAndMemberId(
+                        recruitment.getGroup().getId(),
+                        applicant.getId()
+                )).isPresent();
+                return;
+            }
+            assertThat(decisionAttempt.errorCode()).isEqualTo(ErrorCode.REGISTRATION_NOT_FOUND);
+            assertThat(registrationRepository.existsByRecruitmentIdAndMemberId(
+                    recruitment.getId(),
+                    applicant.getId()
+            )).isFalse();
+            assertThat(groupMemberRepository.findByGroupIdAndMemberId(
+                    recruitment.getGroup().getId(),
+                    applicant.getId()
+            )).isEmpty();
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
     @DisplayName("종료된 그룹의 모집 공고에는 가입 신청할 수 없다.")
     @Test
     void rejectsRegistrationForEndedGroup() {
@@ -774,6 +938,26 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
         }
     }
 
+    private WithdrawalAttempt withdrawWhenReleased(
+            CountDownLatch start,
+            long memberId,
+            long recruitmentId,
+            long registrationId
+    ) {
+        try {
+            if (!start.await(3, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("동시 가입 신청 철회 시작 대기 시간이 초과되었습니다.");
+            }
+            registrationCommandService.withdrawRegistration(memberId, recruitmentId, registrationId);
+            return WithdrawalAttempt.success();
+        } catch (BusinessException exception) {
+            return WithdrawalAttempt.failure(exception.getErrorCode());
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("동시 가입 신청 철회 테스트가 중단되었습니다.", exception);
+        }
+    }
+
     private void assertBusinessError(Runnable action, ErrorCode errorCode) {
         assertThatThrownBy(action::run)
                 .isInstanceOf(BusinessException.class)
@@ -856,6 +1040,17 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
 
         private static DecisionAttempt failure(ErrorCode errorCode) {
             return new DecisionAttempt(false, errorCode);
+        }
+    }
+
+    private record WithdrawalAttempt(boolean succeeded, ErrorCode errorCode) {
+
+        private static WithdrawalAttempt success() {
+            return new WithdrawalAttempt(true, null);
+        }
+
+        private static WithdrawalAttempt failure(ErrorCode errorCode) {
+            return new WithdrawalAttempt(false, errorCode);
         }
     }
 }
