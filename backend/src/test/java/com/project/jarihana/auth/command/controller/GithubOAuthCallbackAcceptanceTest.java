@@ -35,7 +35,7 @@ import org.springframework.session.SessionRepository;
  */
 class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
 
-    private static final String CALLBACK_PATH = "/api/oauth/github/callback";
+    private static final String CALLBACK_PATH = "/oauth/github/callback";
     private static final String SESSION_COOKIE_NAME = "SESSION";
     private static final String REFRESH_COOKIE_NAME = "refreshToken";
     private static final String ISSUED_STATE = "issued-state-value";

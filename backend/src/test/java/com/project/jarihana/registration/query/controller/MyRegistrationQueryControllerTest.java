@@ -95,7 +95,7 @@ class MyRegistrationQueryControllerTest extends IntegrationTestSupport {
                 .queryParam("applicant", "me")
                 .queryParam("size", 2)
                 .when()
-                .get("/api/registrations");
+                .get("/registrations");
 
         // Then
         firstPage.then()
@@ -123,7 +123,7 @@ class MyRegistrationQueryControllerTest extends IntegrationTestSupport {
                 .queryParam("cursor", nextCursor)
                 .queryParam("size", 2)
                 .when()
-                .get("/api/registrations")
+                .get("/registrations")
                 .then()
                 .statusCode(200)
                 .body("data.items.size()", equalTo(1))
@@ -138,7 +138,7 @@ class MyRegistrationQueryControllerTest extends IntegrationTestSupport {
                 .queryParam("applicant", "me")
                 .queryParam("status", "PENDING")
                 .when()
-                .get("/api/registrations")
+                .get("/registrations")
                 .then()
                 .statusCode(200)
                 .body("data.items.size()", equalTo(1))
@@ -156,7 +156,7 @@ class MyRegistrationQueryControllerTest extends IntegrationTestSupport {
         given()
                 .cookie(authCookieProperties.accessTokenName(), accessToken)
                 .when()
-                .get("/api/registrations")
+                .get("/registrations")
                 .then()
                 .statusCode(400)
                 .body("success", equalTo(false))
@@ -166,7 +166,7 @@ class MyRegistrationQueryControllerTest extends IntegrationTestSupport {
                 .cookie(authCookieProperties.accessTokenName(), accessToken)
                 .queryParam("applicant", "other")
                 .when()
-                .get("/api/registrations")
+                .get("/registrations")
                 .then()
                 .statusCode(400)
                 .body("success", equalTo(false))
@@ -180,7 +180,7 @@ class MyRegistrationQueryControllerTest extends IntegrationTestSupport {
         given()
                 .queryParam("applicant", "me")
                 .when()
-                .get("/api/registrations")
+                .get("/registrations")
                 .then()
                 .statusCode(401)
                 .body("success", equalTo(false))

@@ -16,6 +16,8 @@ import com.project.jarihana.group.query.service.dto.GroupListResult;
 import com.project.jarihana.group.query.service.dto.GroupListResult.ActiveRecruitment;
 import com.project.jarihana.group.query.service.dto.GroupListResult.Item;
 import com.project.jarihana.group.query.service.dto.GroupListResult.Leader;
+import com.project.jarihana.group.query.service.dto.GroupListResult.RecurringSchedule;
+import com.project.jarihana.group.query.service.dto.GroupListResult.SessionSchedule;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -120,6 +122,22 @@ public class GroupQueryService {
                 projection.group().getName(),
                 projection.group().getIntroduction(),
                 DEFAULT_REPRESENTATIVE_IMAGE_URL,
+                projection.group().getRecurringSchedule() == null
+                        ? null
+                        : new RecurringSchedule(
+                                projection.group().getRecurringSchedule().getActivityDays().values().stream()
+                                        .map(Enum::name)
+                                        .toList(),
+                                projection.group().getRecurringSchedule().getStartTime(),
+                                projection.group().getRecurringSchedule().getEndTime()
+                        ),
+                projection.group().getSessionSchedule() == null
+                        ? null
+                        : new SessionSchedule(
+                                projection.group().getSessionSchedule().getSessionDate(),
+                                projection.group().getSessionSchedule().getStartTime(),
+                                projection.group().getSessionSchedule().getEndTime()
+                        ),
                 leader == null
                         ? null
                         : new Leader(

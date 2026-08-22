@@ -35,6 +35,7 @@ public interface GroupRecruitmentJpaRepository extends JpaRepository<GroupRecrui
             select recruitment
             from GroupRecruitment recruitment
             where recruitment.group.id in :groupIds
+              and recruitment.startsAt <= :now
               and (recruitment.endsAt is null or recruitment.endsAt > :now)
             order by recruitment.id desc
             """)

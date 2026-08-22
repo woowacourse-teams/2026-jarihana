@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/groups/{groupId}/members")
+@RequestMapping("/groups/{groupId}/members")
 public class GroupMemberQueryController {
 
     private final GroupMemberQueryService groupMemberQueryService;

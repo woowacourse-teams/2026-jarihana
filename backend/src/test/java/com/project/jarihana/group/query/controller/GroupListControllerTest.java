@@ -71,7 +71,7 @@ class GroupListControllerTest {
 
     @Test
     void findsActiveGroupsWithCursorPagination() throws Exception {
-        MvcResult firstPage = mockMvc.perform(get("/api/groups").param("size", "1"))
+        MvcResult firstPage = mockMvc.perform(get("/groups").param("size", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.items").isArray())
@@ -91,7 +91,7 @@ class GroupListControllerTest {
                 firstPage.getResponse().getContentAsString(),
                 "$.data.nextCursor"
         );
-        mockMvc.perform(get("/api/groups").queryParam("cursor", nextCursor).queryParam("size", "1"))
+        mockMvc.perform(get("/groups").queryParam("cursor", nextCursor).queryParam("size", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items[0].name").value("오래된 스터디"))
                 .andExpect(jsonPath("$.data.hasNext").value(false))
@@ -102,7 +102,7 @@ class GroupListControllerTest {
     void rejectsInvalidSize() throws Exception {
         // Given
         // When / Then
-        mockMvc.perform(get("/api/groups").param("size", "101"))
+        mockMvc.perform(get("/groups").param("size", "101"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.data").value(nullValue()))
@@ -114,7 +114,7 @@ class GroupListControllerTest {
     void rejectsInvalidEnumAndBooleanParametersWithCommonError() throws Exception {
         // Given
         // When / Then
-        mockMvc.perform(get("/api/groups")
+        mockMvc.perform(get("/groups")
                         .param("type", "INVALID")
                         .param("recruiting", "not-boolean"))
                 .andExpect(status().isBadRequest())
@@ -128,7 +128,7 @@ class GroupListControllerTest {
     void requiresAuthenticationForRelationFilter() throws Exception {
         // Given
         // When / Then
-        mockMvc.perform(get("/api/groups").param("relation", "joined"))
+        mockMvc.perform(get("/groups").param("relation", "joined"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"))

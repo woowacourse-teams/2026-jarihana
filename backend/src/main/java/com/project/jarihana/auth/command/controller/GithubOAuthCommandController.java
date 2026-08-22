@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
 @RestController
-@RequestMapping("/api/oauth/github")
+@RequestMapping("/oauth/github")
 public class GithubOAuthCommandController {
 
     private static final String FRONTEND_CALLBACK_PATH = "/oauth/callback";

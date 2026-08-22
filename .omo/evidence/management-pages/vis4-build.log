@@ -1,0 +1,40 @@
+
+> jarihana-frontend@1.0.0 build
+> webpack --mode production
+
+assets by status 678 KiB [cached] 24 assets
+assets by path . 455 KiB
+  assets by path assets/*.js 455 KiB
+    asset assets/main.fa7f2ed1.js 419 KiB [emitted] [immutable] [minimized] [big] (name: main) 1 related asset
+    asset assets/9.13b8151e.js 35.8 KiB [emitted] [immutable] [minimized] 1 related asset
+  assets by status 752 bytes [compared for emit]
+    asset index.html 565 bytes [emitted] [compared for emit]
+    asset manifest.webmanifest 187 bytes [compared for emit] [from: public/manifest.webmanifest] [copied]
+orphan modules 1.41 MiB [orphan] 258 modules
+runtime modules 7.81 KiB 11 modules
+cacheable modules 1.74 MiB (javascript) 511 KiB (asset)
+  javascript modules 1.74 MiB
+    modules by path ./node_modules/ 1.36 MiB 55 modules
+    modules by path ./src/ 396 KiB 24 modules
+    react-grab (ignored) 15 bytes [built] [code generated]
+    react-scan/lite (ignored) 15 bytes [built] [code generated]
+  asset modules 511 KiB (asset) 588 bytes (javascript)
+    modules by path ./src/shared/assets/figma/*.svg 10.8 KiB (asset) 504 bytes (javascript)
+      ./src/shared/assets/figma/create-image.svg 752 bytes (asset) 42 bytes (javascript) [built] [code generated]
+      + 11 modules
+    modules by path ./src/shared/assets/figma/*.png 500 KiB (asset) 84 bytes (javascript)
+      ./src/shared/assets/figma/my-profile-illustration.png 388 KiB (asset) 42 bytes (javascript) [built] [code generated]
+      ./src/shared/assets/figma/my-companion-illustration.png 113 KiB (asset) 42 bytes (javascript) [built] [code generated]
+
+WARNING in asset size limit: The following asset(s) exceed the recommended size limit (244 KiB).
+This can impact web performance.
+Assets: 
+  assets/my-profile-illustration.f6b76bae.png (388 KiB)
+  assets/main.fa7f2ed1.js (419 KiB)
+
+WARNING in entrypoint size limit: The following entrypoint(s) combined asset size exceeds the recommended limit (244 KiB). This can impact web performance.
+Entrypoints:
+  main (419 KiB)
+      assets/main.fa7f2ed1.js
+
+webpack 5.109.2 compiled with 2 warnings in 3770 ms

@@ -73,7 +73,7 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
         authenticatedRequest(accessToken, csrfToken)
                 .when()
                 .delete(
-                        "/api/recruitments/{recruitmentId}/registrations/{registrationId}",
+                        "/recruitments/{recruitmentId}/registrations/{registrationId}",
                         recruitment.getId(),
                         registration.getId()
                 )
@@ -106,7 +106,7 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
         authenticatedRequest(accessToken, csrfToken)
                 .when()
                 .delete(
-                        "/api/recruitments/{recruitmentId}/registrations/{registrationId}",
+                        "/recruitments/{recruitmentId}/registrations/{registrationId}",
                         recruitment.getId(),
                         registration.getId()
                 )
@@ -149,7 +149,7 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
         authenticatedRequest(accessToken, csrfToken)
                 .when()
                 .delete(
-                        "/api/recruitments/{recruitmentId}/registrations/{registrationId}",
+                        "/recruitments/{recruitmentId}/registrations/{registrationId}",
                         requestedRecruitment.getId(),
                         registration.getId()
                 )
@@ -183,7 +183,7 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
         authenticatedRequest(accessToken, csrfToken)
                 .when()
                 .delete(
-                        "/api/recruitments/{recruitmentId}/registrations/{registrationId}",
+                        "/recruitments/{recruitmentId}/registrations/{registrationId}",
                         recruitment.getId(),
                         registration.getId()
                 )
@@ -224,7 +224,7 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
                         """)
                 .when()
                 .patch(
-                        "/api/recruitments/{recruitmentId}/registrations/{registrationId}",
+                        "/recruitments/{recruitmentId}/registrations/{registrationId}",
                         recruitment.getId(),
                         registration.getId()
                 )
@@ -276,7 +276,7 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
                         """)
                 .when()
                 .patch(
-                        "/api/recruitments/{recruitmentId}/registrations/{registrationId}",
+                        "/recruitments/{recruitmentId}/registrations/{registrationId}",
                         recruitment.getId(),
                         registration.getId()
                 )
@@ -327,7 +327,7 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
                         """)
                 .when()
                 .patch(
-                        "/api/recruitments/{recruitmentId}/registrations/{registrationId}",
+                        "/recruitments/{recruitmentId}/registrations/{registrationId}",
                         recruitment.getId(),
                         registration.getId()
                 )
@@ -364,7 +364,7 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
                 .body("{\"status\":\"PENDING\"}")
                 .when()
                 .patch(
-                        "/api/recruitments/{recruitmentId}/registrations/{registrationId}",
+                        "/recruitments/{recruitmentId}/registrations/{registrationId}",
                         recruitment.getId(),
                         registration.getId()
                 )
@@ -401,7 +401,7 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
                 .body("{\"status\":\"REJECTED\",\"decisionReason\":\"" + "가".repeat(1_001) + "\"}")
                 .when()
                 .patch(
-                        "/api/recruitments/{recruitmentId}/registrations/{registrationId}",
+                        "/recruitments/{recruitmentId}/registrations/{registrationId}",
                         recruitment.getId(),
                         registration.getId()
                 )
@@ -439,7 +439,7 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
                 .body("{\"status\":\"APPROVED\"}")
                 .when()
                 .patch(
-                        "/api/recruitments/{recruitmentId}/registrations/{registrationId}",
+                        "/recruitments/{recruitmentId}/registrations/{registrationId}",
                         recruitment.getId(),
                         registration.getId()
                 )
@@ -474,7 +474,7 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
                         }
                         """)
                 .when()
-                .post("/api/recruitments/{recruitmentId}/registrations", recruitment.getId())
+                .post("/recruitments/{recruitmentId}/registrations", recruitment.getId())
                 .then()
                 .statusCode(201)
                 .body("success", equalTo(true))
@@ -499,7 +499,7 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
         authenticatedRequest(accessToken, csrfToken)
                 .body("{}")
                 .when()
-                .post("/api/recruitments/{recruitmentId}/registrations", recruitment.getId())
+                .post("/recruitments/{recruitmentId}/registrations", recruitment.getId())
                 .then()
                 .statusCode(201)
                 .body("success", equalTo(true))
@@ -534,7 +534,7 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
         authenticatedRequest(accessToken, csrfToken)
                 .body("{\"message\":\"" + "가".repeat(1_001) + "\"}")
                 .when()
-                .post("/api/recruitments/{recruitmentId}/registrations", recruitment.getId())
+                .post("/recruitments/{recruitmentId}/registrations", recruitment.getId())
                 .then()
                 .statusCode(400)
                 .body("success", equalTo(false))
@@ -579,7 +579,7 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
     private String csrfToken(long groupId) {
         ExtractableResponse<Response> response = given()
                 .when()
-                .get("/api/groups/{groupId}", groupId)
+                .get("/groups/{groupId}", groupId)
                 .then()
                 .extract();
         return response.cookie("XSRF-TOKEN");

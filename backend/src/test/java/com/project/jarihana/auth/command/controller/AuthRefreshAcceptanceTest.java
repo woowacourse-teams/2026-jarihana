@@ -37,8 +37,8 @@ import org.springframework.http.HttpStatus;
  */
 class AuthRefreshAcceptanceTest extends IntegrationTestSupport {
 
-    private static final String REFRESH_PATH = "/api/auth/refresh";
-    private static final String MY_PROFILE_PATH = "/api/members/me";
+    private static final String REFRESH_PATH = "/auth/refresh";
+    private static final String MY_PROFILE_PATH = "/members/me";
     private static final String CSRF_COOKIE_NAME = "XSRF-TOKEN";
     private static final String CSRF_HEADER_NAME = "X-XSRF-TOKEN";
     private static final String GITHUB_ID = "123456";

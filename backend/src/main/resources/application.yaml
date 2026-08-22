@@ -7,6 +7,9 @@ spring:
     password: ${DB_PASSWORD}
   jpa:
     open-in-view: false
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
 
 jarihana:
   auth:

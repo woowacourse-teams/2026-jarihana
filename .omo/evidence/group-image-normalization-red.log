@@ -1,0 +1,27 @@
+^D
+> jarihana-frontend@1.0.0 test
+> jest --runInBand --no-watchman tests/domain/domain-contracts.test.js
+
+FAIL tests/domain/domain-contracts.test.js
+  ● backend DTO schemas › normalizes a representative image boundary value images/default-group.png
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "/images/default-group.png"
+    Received: "images/default-group.png"
+
+      123 |
+      124 |     // Then
+    > 125 |     expect(result.items[0].representativeImageUrl).toBe(expected);
+          |                                                    ^
+      126 |   });
+      127 |
+      128 |   it("parses both mapped and raw upcoming recruitment close statuses", () => {
+
+      at tests/domain/domain-contracts.test.js:125:52
+
+[999D[KTest Suites: 1 failed, 1 total
+Tests:       1 failed, 12 passed, 13 total
+Snapshots:   0 total
+Time:        0.908 s, estimated 1 s
+Ran all test suites matching tests/domain/domain-contracts.test.js.

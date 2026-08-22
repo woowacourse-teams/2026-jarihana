@@ -33,8 +33,8 @@ import org.springframework.session.SessionRepository;
  */
 class AuthLogoutAcceptanceTest extends IntegrationTestSupport {
 
-    private static final String LOGOUT_PATH = "/api/auth/logout";
-    private static final String MY_PROFILE_PATH = "/api/members/me";
+    private static final String LOGOUT_PATH = "/auth/logout";
+    private static final String MY_PROFILE_PATH = "/members/me";
     private static final String SESSION_COOKIE_NAME = "SESSION";
     private static final String CSRF_COOKIE_NAME = "XSRF-TOKEN";
     private static final String CSRF_HEADER_NAME = "X-XSRF-TOKEN";

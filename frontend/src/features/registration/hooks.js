@@ -1,0 +1,77 @@
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
+import { getSafeNextCursor } from "../../entities/cursor/index.js";
+import { groupKeys } from "../group/index.js";
+import { recruitmentKeys } from "../recruitment/index.js";
+import {
+  createRegistration,
+  decideRegistration,
+  fetchMyRegistrations,
+  fetchRegistrations,
+  withdrawRegistration
+} from "./api.js";
+
+export const registrationKeys = {
+  all: ["registrations"],
+  applicantLists: () => ["registrations", "applicants"],
+  applicants: (recruitmentId, filters) => ["registrations", "applicants", recruitmentId, filters],
+  myLists: () => ["registrations", "my"],
+  mine: (filters) => ["registrations", "my", filters]
+};
+
+export function useInfiniteRegistrations(recruitmentId, filters = {}) {
+  return useInfiniteQuery({
+    queryKey: registrationKeys.applicants(recruitmentId, filters),
+    initialPageParam: null,
+    queryFn: ({ pageParam }) =>
+      fetchRegistrations(recruitmentId, { ...filters, cursor: pageParam }),
+    getNextPageParam: getSafeNextCursor,
+    enabled: Boolean(recruitmentId)
+  });
+}
+
+export function useInfiniteMyRegistrations(filters = {}) {
+  return useInfiniteQuery({
+    queryKey: registrationKeys.mine(filters),
+    initialPageParam: null,
+    queryFn: ({ pageParam }) => fetchMyRegistrations({ ...filters, cursor: pageParam }),
+    getNextPageParam: getSafeNextCursor
+  });
+}
+
+function invalidateRegistrationViews(queryClient) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: registrationKeys.applicantLists() }),
+    queryClient.invalidateQueries({ queryKey: registrationKeys.myLists() }),
+    queryClient.invalidateQueries({ queryKey: recruitmentKeys.all }),
+    queryClient.invalidateQueries({ queryKey: groupKeys.all })
+  ]);
+}
+
+export function useCreateRegistration(recruitmentId) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (values) => createRegistration(recruitmentId, values),
+    onSuccess: () => invalidateRegistrationViews(queryClient)
+  });
+}
+
+export function useWithdrawRegistration(recruitmentId) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (registrationId) => withdrawRegistration(recruitmentId, registrationId),
+    onSuccess: () => invalidateRegistrationViews(queryClient)
+  });
+}
+
+export function useDecideRegistration(recruitmentId) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ registrationId, status, decisionReason }) =>
+      decideRegistration(recruitmentId, registrationId, {
+        status,
+        ...(decisionReason ? { decisionReason } : {})
+      }),
+    onSuccess: () => invalidateRegistrationViews(queryClient)
+  });
+}

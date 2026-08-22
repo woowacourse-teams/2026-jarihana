@@ -1,0 +1,101 @@
+:root {
+  --color-brand: #2ac1bc;
+  --color-brand-strong: #21aaa5;
+  --color-brand-soft: #dff8f3;
+  --color-brand-ink: #08736f;
+  --color-ink: #1d1d1f;
+  --color-muted: #7a7a7a;
+  --color-muted-ink: #666666;
+  --color-line: #e0e0e0;
+  --color-surface: #ffffff;
+  --color-canvas: #f5f5f7;
+  --color-nav: #000000;
+  --color-header-muted: #b8b8b8;
+  --color-header-line: #2f2f2f;
+  --color-danger: #c7352a;
+  --color-danger-soft: #fff0ee;
+  --color-success: #247a45;
+  --color-success-soft: #eaf8ef;
+  --color-warning: #8a5b00;
+  --color-warning-soft: #fff6df;
+  --color-cohort-1: #2ac1bc;
+  --color-cohort-2: #ed6a5a;
+  --color-cohort-3: #63bd7c;
+  --color-cohort-4: #8d80d9;
+  --color-cohort-5: #d4a62a;
+  --color-overlay: rgb(0 0 0 / 58%);
+  --color-shadow: rgb(29 29 31 / 10%);
+  --color-text-brand: var(--color-brand-ink);
+  --color-text-muted: var(--color-muted-ink);
+
+  --font-sans: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --text-caption: 0.8125rem;
+  --text-label: 0.875rem;
+  --text-body: 0.9375rem;
+  --text-body-lg: 1.0625rem;
+  --text-h3: 1.125rem;
+  --text-h2: 1.5rem;
+  --text-h1: 2rem;
+  --text-display: 2.5rem;
+  --text-brand: 1.375rem;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  --tracking-brand: -0.04em;
+  --font-size-caption: var(--text-caption);
+  --font-size-label: var(--text-label);
+  --font-size-h3: var(--text-h3);
+
+  --space-0: 0;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-7: 1.75rem;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.25rem;
+  --radius-pill: 999px;
+  --border-thin: 0.0625rem;
+  --border-strong: 0.125rem;
+  --touch-target: 2.75rem;
+  --touch-target-lg: 3rem;
+  --header-auth-placeholder-width: 6.75rem;
+  --header-active-line-width: 0.1875rem;
+  --showcase-skeleton-height: 14rem;
+  --shadow-float: 0 0.75rem 2.125rem var(--color-shadow);
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-deliberate: 240ms;
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --z-overlay: 40;
+  --z-dialog: 50;
+  --z-toast: 60;
+  --z-header: 20;
+  --container-shell: 85rem;
+  --page-gutter: 1.25rem;
+  --header-height: 4.5rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+}
+
+@media (min-width: 48rem) {
+  :root {
+    --page-gutter: 2rem;
+  }
+}
+
+@media (max-width: 47.9375rem) {
+  :root {
+    --text-h2: 1.3125rem;
+    --text-h1: 1.625rem;
+    --text-display: 1.875rem;
+  }
+}

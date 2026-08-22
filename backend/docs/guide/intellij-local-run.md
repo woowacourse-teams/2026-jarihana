@@ -28,55 +28,13 @@ spring:
 DB는 컨테이너와 로컬 설치본 중 하나로 준비하면 되고, 앱 입장에서는 구분되지 않습니다.
 다만 **둘 중 하나만 5432를 점유할 수 있으므로 한 방식을 골라야 합니다.**
 
-### 방식 A: 로컬에 설치된 PostgreSQL 사용
-
-Docker를 실행할 필요가 없습니다. 최초 1회만 DB를 만들어 두면 됩니다.
-
-**1) 서버가 실행 중인지 확인합니다**
-
-| OS | 확인 명령 | 시작 명령 |
-| --- | --- | --- |
-| Windows | `powershell -Command "Get-Service *postgresql*"` | 서비스로 자동 실행됩니다 |
-| macOS (Homebrew) | `brew services list \| grep postgresql` | `brew services start postgresql@17` |
-| Linux (패키지) | `systemctl status postgresql` | `sudo systemctl start postgresql` |
-
-**2) 슈퍼유저로 접속합니다**
-
-접속 계정은 설치 방식마다 다릅니다.
-
-| 환경 | 접속 명령 | 비고 |
-| --- | --- | --- |
-| Windows 설치 프로그램 | `psql -U postgres` | 설치할 때 정한 비밀번호를 사용합니다 |
-| macOS Homebrew | `psql -d postgres` | OS 사용자 이름으로 슈퍼유저가 만들어지며, `postgres` 롤은 없을 수 있습니다 |
-| Linux 패키지 | `sudo -u postgres psql` | peer 인증이라 비밀번호가 필요 없습니다 |
-
-**3) DB를 만듭니다**
-
-접속 방식과 무관하게 SQL은 동일합니다.
-
-```sql
-CREATE DATABASE jarihana;
-```
-
-이 경우 `.env`의 `DB_USERNAME`과 `DB_PASSWORD`에는 방금 접속한 슈퍼유저 계정을 적습니다.
-
-**4) 확인합니다**
-
-`.env`에 적을 계정으로 실제 접속되는지 봅니다.
+### Postgre 컨테이너 띄우기
 
 ```bash
-psql -h 127.0.0.1 -U <DB_USERNAME> -d jarihana -c "\conninfo"
+docker compose -f docker-compose-local.yaml up -d
 ```
 
-### 방식 B: Docker Compose 사용
-
-로컬에 PostgreSQL을 설치하지 않았다면 컨테이너로 띄웁니다.
-
-```bash
-docker compose -f compose-local.yaml up -d
-```
-
-`compose-local.yaml`이 DB, 계정, 비밀번호를 모두 `jarihana`로 만들어 주므로 `.env`도 여기에
+`docker-compose-local.yaml`이 DB, 계정, 비밀번호를 모두 `jarihana`로 만들어 주므로 `.env`도 여기에
 맞춰야 합니다.
 
 ```bash
@@ -99,22 +57,27 @@ DB_PASSWORD=jarihana
 cp backend/.env.example backend/.env
 ```
 
-`.env`는 `.gitignore` 대상이라 커밋되지 않습니다. 로컬 실행에 맞게 값을 채웁니다.
+`.env`는 `.gitignore` 대상이라 커밋되지 않습니다. 템플릿은 로컬 Compose 기본값에 맞춰져
+있으므로 GitHub 로그인을 테스트하지 않는다면 그대로 시작할 수 있습니다.
 
 | 키 | 로컬 실행 시 값 | 필수 여부 |
 | --- | --- | --- |
-| `SPRING_PROFILES_ACTIVE` | `local` | 필수. `.env.example`에는 `prod`로 되어 있으니 반드시 바꿉니다 |
+| `SPRING_PROFILES_ACTIVE` | `local` | 필수 |
 | `DB_URL` | `jdbc:postgresql://localhost:5432/jarihana` | 필수. 기본값이 없습니다 |
 | `DB_USERNAME` | 사전 준비에서 정한 계정 | 필수 |
 | `DB_PASSWORD` | 해당 계정의 비밀번호 | 필수 |
+| `POSTGRES_PASSWORD` | `jarihana` | 운영 Compose와 GitHub Actions에서 사용하며 로컬 DB 비밀번호와 맞춥니다 |
+| `FRONTEND_ORIGIN` | `http://localhost:5173` | 로컬 프론트엔드 Origin |
 | `ACCESS_TOKEN_SECRET` | 32자 이상 문자열 | 필수 |
-| `REFRESH_TOKEN_SECRET` | 그대로 두어도 됩니다 | 현재 설정에서 참조하지 않습니다 |
+| `GITHUB_OAUTH_CLIENT_ID` | 빈 값 | GitHub 로그인 테스트 시 입력 |
+| `GITHUB_OAUTH_CLIENT_SECRET` | 빈 값 | GitHub 로그인 테스트 시 입력 |
+| `GITHUB_OAUTH_REDIRECT_URI` | `http://localhost:8080/api/oauth/github/callback` | GitHub OAuth callback 주소 |
 
-`ACCESS_TOKEN_SECRET`은 HMAC-SHA256 서명 키로 쓰이며 32자(256비트) 이상이어야 합니다.
+`ACCESS_TOKEN_SECRET`은 HMAC-SHA256 서명 키로 쓰이며 **32자(256비트) 이상이어야 합니다.**
 `JwtProperties`에 `@NotBlank`, `@Size(min = 32)`가 걸려 있어 조건을 어기면 어떤 값이
 문제인지 알려주며 기동이 중단됩니다.
 
-```text
+```
 Binding to target com.project.jarihana.common.auth.JwtProperties failed:
     Property: jarihana.auth.jwt.secret
     Value: "tooshort1234"
@@ -127,9 +90,10 @@ Binding to target com.project.jarihana.common.auth.JwtProperties failed:
 openssl rand -hex 32
 ```
 
-이 밖에 `FRONTEND_ORIGIN`, `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`,
-`GITHUB_OAUTH_REDIRECT_URI`도 설정에서 참조하지만 모두 기본값이 있어 로컬 기동에는
-필수가 아닙니다. GitHub 로그인을 실제로 테스트할 때만 채웁니다.
+`GITHUB_OAUTH_CLIENT_ID`와 `GITHUB_OAUTH_CLIENT_SECRET`은 GitHub 로그인을 실제로
+테스트할 때만 채웁니다. 운영값은 `.env.example`에 기록하지 않고 GitHub Actions Secrets로
+관리합니다. 운영 저장소에 등록하는 시크릿 이름은
+[백엔드 README의 운영 배포 시크릿](../../README.md#운영-배포-시크릿)에서 확인합니다.
 
 ## 2. IntelliJ 환경 변수, 프로필 설정
 
@@ -164,7 +128,7 @@ openssl rand -hex 32
 
 실행 후 로그에서 두 줄을 확인합니다.
 
-```text
+```
 Database JDBC URL [jdbc:postgresql://localhost:5432/jarihana]
 Started JarihanaApplication in 7.492 seconds
 ```

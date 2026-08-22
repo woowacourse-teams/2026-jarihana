@@ -74,7 +74,7 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                         }
                         """)
                 .when()
-                .put("/api/groups/{groupId}", group.getId())
+                .put("/groups/{groupId}", group.getId())
                 .then()
                 .statusCode(200)
                 .body("success", equalTo(true))
@@ -112,7 +112,7 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                         }
                         """)
                 .when()
-                .put("/api/groups/{groupId}", group.getId())
+                .put("/groups/{groupId}", group.getId())
                 .then()
                 .extract();
 
@@ -140,14 +140,14 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                 .cookie("XSRF-TOKEN", csrfToken)
                 .header("X-XSRF-TOKEN", csrfToken)
                 .when()
-                .delete("/api/groups/{groupId}", group.getId())
+                .delete("/groups/{groupId}", group.getId())
                 .then()
                 .statusCode(204)
                 .body(equalTo(""));
 
         given()
                 .when()
-                .get("/api/groups/{groupId}", group.getId())
+                .get("/groups/{groupId}", group.getId())
                 .then()
                 .statusCode(404)
                 .body("error.code", equalTo("GROUP_NOT_FOUND"));
@@ -168,7 +168,7 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                 .contentType("application/json")
                 .body("{\"status\":\"ACTIVE\"}")
                 .when()
-                .patch("/api/groups/{groupId}", group.getId())
+                .patch("/groups/{groupId}", group.getId())
                 .then()
                 .statusCode(400)
                 .body("success", equalTo(false))
@@ -196,7 +196,7 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                         }
                         """)
                 .when()
-                .put("/api/groups/{groupId}/recurring-schedule", group.getId())
+                .put("/groups/{groupId}/recurring-schedule", group.getId())
                 .then()
                 .statusCode(200)
                 .body("success", equalTo(true))
@@ -219,14 +219,14 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                 .cookie("XSRF-TOKEN", csrfToken)
                 .header("X-XSRF-TOKEN", csrfToken)
                 .when()
-                .delete("/api/groups/{groupId}/recurring-schedule", group.getId())
+                .delete("/groups/{groupId}/recurring-schedule", group.getId())
                 .then()
                 .statusCode(204)
                 .body(equalTo(""));
 
         given()
                 .when()
-                .get("/api/groups/{groupId}", group.getId())
+                .get("/groups/{groupId}", group.getId())
                 .then()
                 .statusCode(200)
                 .body("data.recurringSchedule", nullValue());
@@ -257,7 +257,7 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                         }
                         """)
                 .when()
-                .put("/api/groups/{groupId}/session-schedule", group.getId())
+                .put("/groups/{groupId}/session-schedule", group.getId())
                 .then()
                 .statusCode(200)
                 .body("success", equalTo(true))
@@ -284,7 +284,7 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
     private String csrfToken(Long groupId) {
         ExtractableResponse<Response> response = given()
                 .when()
-                .get("/api/groups/{groupId}", groupId)
+                .get("/groups/{groupId}", groupId)
                 .then()
                 .extract();
         return response.cookie("XSRF-TOKEN");

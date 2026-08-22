@@ -1,0 +1,1 @@
+export { getOAuthConfig } from "./env";
