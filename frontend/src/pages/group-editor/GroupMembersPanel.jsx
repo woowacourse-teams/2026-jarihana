@@ -1,5 +1,5 @@
 import { UsersRound } from "lucide-react";
-import { useId } from "react";
+import { useId, useState } from "react";
 
 import { useInfiniteGroupMembers } from "../../features/member/index.js";
 import { Button, EmptyState, ErrorState, Skeleton, StatusBadge } from "../../shared/ui/index.js";
@@ -24,7 +24,12 @@ function cohortItems(members) {
     counts.set(member.generation, (counts.get(member.generation) ?? 0) + 1);
   return [...counts.entries()]
     .sort(([left], [right]) => left - right)
-    .map(([generation, count], index) => ({ count, generation, tone: (index % 5) + 1 }));
+    .map(([generation, count], index) => ({
+      count,
+      generation,
+      label: String(generation) + "기",
+      tone: (index % 5) + 1
+    }));
 }
 
 function PendingMembersPanel() {
@@ -50,8 +55,7 @@ function MemberInsights({ members }) {
     <section className="group-members-panel" aria-labelledby="group-members-title">
       <div className="group-members-panel__heading">
         <div>
-          <p>실제 가입 데이터</p>
-          <h2 id="group-members-title">멤버</h2>
+          <p id="group-members-title">실제 가입 데이터</p>
         </div>
         <StatusBadge tone="brand">현재 {members.length}명</StatusBadge>
       </div>
@@ -65,16 +69,22 @@ function MemberInsights({ members }) {
             >
               {member.crewName.slice(0, 1)}
             </span>
-            <span>
-              <strong>{member.crewName}</strong>
-              <small>
-                {member.generation}기 · {COURSE_LABEL[member.course] ?? member.course}
-              </small>
-            </span>
-            {member.role === "LEADER" ? <StatusBadge tone="neutral">모임장</StatusBadge> : null}
-          </div>
+                <span className="group-members-panel__copy">
+                  <span className="group-members-panel__name-row">
+                    <strong>{member.crewName}</strong>
+                    {member.role === "LEADER" ? (
+                      <StatusBadge tone="neutral">모임장</StatusBadge>
+                    ) : null}
+                  </span>
+                  <small>
+                    {member.generation}기 · {COURSE_LABEL[member.course] ?? member.course}
+                  </small>
+                </span>
+              </div>
         ))}
       </div>
+
+      <CohortDonut cohorts={cohorts} total={members.length} />
 
       <div className="group-members-panel__cohorts">
         <div className="group-members-panel__cohort-heading">
@@ -110,6 +120,108 @@ function MemberInsights({ members }) {
             </span>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+function CohortDonut({ cohorts, total }) {
+  const [hoveredCohort, setHoveredCohort] = useState(null);
+  const [selectedCohort, setSelectedCohort] = useState(null);
+  const activeCohort = selectedCohort ?? hoveredCohort;
+  const circumference = 2 * Math.PI * 42;
+  const chartSegments = cohorts.reduce(
+    ({ segments, offset }, cohort) => {
+      const length = (cohort.count / total) * circumference;
+      return {
+        offset: offset + length,
+        segments: [...segments, { cohort, length, offset }]
+      };
+    },
+    { offset: 0, segments: [] }
+  ).segments;
+
+  function toggleCohort(cohort) {
+    setSelectedCohort((current) => (current?.generation === cohort.generation ? null : cohort));
+  }
+
+  return (
+    <section
+      aria-labelledby="group-editor-cohort-title"
+      className="group-members-panel__cohort-chart"
+    >
+      <div className="group-members-panel__cohort-heading">
+        <h3 id="group-editor-cohort-title">기수 구성</h3>
+        <span>총 {total}명</span>
+      </div>
+      <div className="group-members-panel__chart-wrap">
+        <div
+          aria-label={"기수 구성 총 " + total + "명"}
+          className="group-members-panel__donut"
+          role="group"
+        >
+          <svg className="group-members-panel__donut-svg" viewBox="0 0 120 120">
+            <circle
+              aria-hidden="true"
+              className="group-members-panel__donut-track"
+              cx="60"
+              cy="60"
+              r="42"
+            />
+            {chartSegments.map(({ cohort, length, offset }) => (
+              <circle
+                aria-label={cohort.label + " · " + cohort.count + "명"}
+                className={
+                  "group-members-panel__donut-segment" +
+                  (activeCohort?.generation === cohort.generation ? " is-active" : "")
+                }
+                cx="60"
+                cy="60"
+                key={cohort.generation}
+                onFocus={() => setHoveredCohort(cohort)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    toggleCohort(cohort);
+                  }
+                }}
+                onMouseEnter={() => setHoveredCohort(cohort)}
+                onMouseLeave={() => setHoveredCohort(null)}
+                onPointerDown={() => toggleCohort(cohort)}
+                onBlur={() => setHoveredCohort(null)}
+                r="42"
+                role="button"
+                tabIndex="0"
+                style={{
+                  "--cohort-color": "var(--color-cohort-" + cohort.tone + ")",
+                  strokeDasharray: length + " " + (circumference - length),
+                  strokeDashoffset: -offset
+                }}
+              />
+            ))}
+          </svg>
+          <div className="group-members-panel__donut-label">
+            <strong>{total}명</strong>
+            <span>전체 멤버</span>
+          </div>
+          {activeCohort ? (
+            <div className="group-members-panel__donut-tooltip" role="status">
+              {activeCohort.label} · {activeCohort.count}명
+            </div>
+          ) : null}
+        </div>
+        <ul className="group-members-panel__legend">
+          {cohorts.map((cohort) => (
+            <li key={cohort.generation}>
+              <i
+                aria-hidden="true"
+                className={"is-tone-" + cohort.tone}
+                style={{ "--cohort-color": "var(--color-cohort-" + cohort.tone + ")" }}
+              />
+              <span>{cohort.label}</span>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );
