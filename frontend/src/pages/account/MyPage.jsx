@@ -8,6 +8,32 @@ import { AccountLayout } from "./AccountLayout.jsx";
 import { MyActivityBoard } from "./MyActivityBoard.jsx";
 import { COURSE_LABELS, flattenPages } from "./accountUtils.js";
 
+function mergeGroupQueries(activeQuery, archivedQuery) {
+  const groups = new Map();
+  [...flattenPages(activeQuery.data), ...flattenPages(archivedQuery.data)].forEach((group) => {
+    groups.set(group.id, group);
+  });
+  const pageCount = Math.max(
+    activeQuery.data?.pages.length ?? 0,
+    archivedQuery.data?.pages.length ?? 0,
+    1
+  );
+
+  return {
+    data: { pages: Array.from({ length: pageCount }, () => ({})) },
+    fetchNextPage: () =>
+      Promise.all([
+        activeQuery.hasNextPage ? activeQuery.fetchNextPage() : null,
+        archivedQuery.hasNextPage ? archivedQuery.fetchNextPage() : null
+      ]),
+    hasNextPage: Boolean(activeQuery.hasNextPage || archivedQuery.hasNextPage),
+    isError: activeQuery.isError || archivedQuery.isError,
+    isFetchingNextPage: activeQuery.isFetchingNextPage || archivedQuery.isFetchingNextPage,
+    isLoading: activeQuery.isLoading || archivedQuery.isLoading,
+    items: [...groups.values()]
+  };
+}
+
 function ProfileAvatar({ member }) {
   const [imageFailed, setImageFailed] = useState(false);
 
@@ -37,10 +63,16 @@ export function MyPage() {
   const { member } = useAuth();
   const [activeGroupTab, setActiveGroupTab] = useState("joined");
   const joinedQuery = useInfiniteGroups({ relation: "JOINED" });
-  const ledQuery = useInfiniteGroups({ relation: "JOINED", role: "LEADER" });
+  const ledActiveQuery = useInfiniteGroups({ relation: "JOINED", role: "LEADER" });
+  const ledArchivedQuery = useInfiniteGroups({
+    relation: "JOINED",
+    role: "LEADER",
+    status: "ENDED"
+  });
   const registrationQuery = useInfiniteMyRegistrations({ applicant: "me" });
   const joined = flattenPages(joinedQuery.data);
-  const led = flattenPages(ledQuery.data);
+  const ledQuery = mergeGroupQueries(ledActiveQuery, ledArchivedQuery);
+  const led = ledQuery.items;
   const registrations = flattenPages(registrationQuery.data);
   const joinedCount = `${joined.length}${joinedQuery.hasNextPage ? "+" : ""}`;
   const ledCount = `${led.length}${ledQuery.hasNextPage ? "+" : ""}`;

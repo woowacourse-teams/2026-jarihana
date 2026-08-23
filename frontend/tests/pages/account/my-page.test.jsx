@@ -48,6 +48,12 @@ const MORE_JOINED_GROUPS = [
 ];
 
 const LED_GROUP = { ...JOINED_GROUP, id: 34, name: "운영 중인 접근성 모임" };
+const ENDED_LED_GROUP = {
+  ...LED_GROUP,
+  id: 35,
+  name: "종료된 접근성 모임",
+  status: "ENDED"
+};
 
 const REGISTRATION = {
   id: 51,
@@ -66,11 +72,16 @@ describe("MyPage", () => {
     // Given
     const fetchNextPage = jest.fn();
     useAuth.mockReturnValue({ status: "authenticated", member: MEMBER });
-    useInfiniteGroups.mockImplementation(({ role }) => ({
+    useInfiniteGroups.mockImplementation(({ role, status }) => ({
       data: {
         pages: [
           {
-            items: role === "LEADER" ? [LED_GROUP] : MORE_JOINED_GROUPS,
+            items:
+              role !== "LEADER"
+                ? MORE_JOINED_GROUPS
+                : status === "ENDED"
+                  ? [ENDED_LED_GROUP]
+                  : [LED_GROUP],
             nextCursor: role === "LEADER" ? null : "more",
             hasNext: role !== "LEADER"
           }
@@ -108,6 +119,11 @@ describe("MyPage", () => {
       "href",
       "/groups/31"
     );
+    expect(screen.getByRole("link", { name: /React 깊게 보기 상세보기/ })).toHaveAttribute(
+      "href",
+      "/groups/31"
+    );
+    expect(screen.queryByRole("link", { name: /React 깊게 보기 모임 관리/ })).not.toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /React 깊게 보기/ }).querySelector(".activity-row__arrow")
     ).toBeInTheDocument();
@@ -126,10 +142,27 @@ describe("MyPage", () => {
       "href",
       "/groups/44"
     );
+    expect(screen.queryByRole("link", { name: /접근성 연구회 모임 관리/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /React 깊게 보기/ })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: /운영하는 모임/ }));
-    expect(screen.getByRole("link", { name: /운영 중인 접근성 모임/ })).toBeVisible();
+    expect(screen.getByRole("link", { name: /운영 중인 접근성 모임 상세보기/ })).toHaveAttribute(
+      "href",
+      "/groups/34"
+    );
+    expect(screen.getByRole("link", { name: /운영 중인 접근성 모임 모임 관리/ })).toHaveAttribute(
+      "href",
+      "/groups/34/manage"
+    );
+    expect(screen.getByRole("link", { name: /종료된 접근성 모임 상세보기/ })).toHaveAttribute(
+      "href",
+      "/groups/35"
+    );
+    expect(screen.getByText("모임 종료")).toBeVisible();
+    expect(screen.getByRole("link", { name: /종료된 접근성 모임 모임 관리/ })).toHaveAttribute(
+      "href",
+      "/groups/35/manage"
+    );
     expect(screen.queryByRole("link", { name: /접근성 연구회/ })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: /가입한 모임/ }));
