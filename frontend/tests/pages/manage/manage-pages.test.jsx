@@ -97,7 +97,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   useParams.mockReturnValue({ groupId: "7", recruitmentId: "81" });
   useGroup.mockReturnValue({
-    data: { id: 7, memberCount: 1, name: "프론트엔드 성능 튜닝 챌린지" }
+    data: { id: 7, memberCount: 1, name: "프론트엔드 성능 튜닝 챌린지", status: "ACTIVE" }
   });
   useInfiniteGroupMembers.mockReturnValue(queryResult([memberFixture]));
   useTransferLeader.mockReturnValue({ isPending: false, mutateAsync: jest.fn() });
@@ -138,7 +138,7 @@ describe("ManageMembersPage", () => {
       within(navigation)
         .getAllByRole("link")
         .map((link) => link.textContent)
-    ).toEqual(["모임 수정", "모집 관리", "멤버 관리"]);
+    ).toEqual(["모임 수정", "모집 관리", "신청 관리", "멤버 관리"]);
     expect(within(navigation).getByRole("link", { name: "멤버 관리" })).toHaveAttribute(
       "aria-current",
       "page"
@@ -162,6 +162,36 @@ describe("ManageMembersPage", () => {
 });
 
 describe("ManageRecruitmentsPage", () => {
+  it("Given an archived group, When the recruitment tab is rendered, Then history remains visible and creation is disabled", () => {
+    const mutateAsync = jest.fn();
+    useGroup.mockReturnValue({
+      data: {
+        id: 7,
+        memberCount: 1,
+        name: "프론트엔드 성능 튜닝 챌린지",
+        status: "ENDED"
+      }
+    });
+    useCreateRecruitment.mockReturnValue({ isPending: false, mutateAsync });
+
+    render(<ManageRecruitmentsPage />);
+
+    const navigation = screen.getByRole("navigation", { name: "모임 관리 메뉴" });
+    expect(within(navigation).getByRole("link", { name: "모집 관리" })).toHaveAttribute(
+      "aria-current",
+      "page"
+    );
+    expect(screen.queryByRole("region", { name: "모집 현황 요약" })).not.toBeInTheDocument();
+    expect(screen.getByText("아카이빙된 모임은 새 모집을 만들 수 없어요.")).toBeVisible();
+    expect(screen.getByLabelText("모집 시작")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "모집 조건 저장" })).toBeDisabled();
+    expect(screen.getByRole("heading", { name: "81번 모집" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "81번 모집 마감하기" })).not.toBeInTheDocument();
+
+    fireEvent.submit(screen.getByRole("form", { name: "새 모집 만들기" }));
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
   it("Given valid local date-time values, When a recruitment is created, Then it sends the exact backend payload", async () => {
     const user = userEvent.setup();
     const mutateAsync = jest.fn().mockResolvedValue({ id: 83 });
