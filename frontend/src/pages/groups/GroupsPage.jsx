@@ -24,12 +24,14 @@ export function GroupsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const keyword = searchParams.get("keyword")?.trim() ?? "";
   const type = searchParams.get("type") ?? "";
-  const recruitingOnly = searchParams.get("recruiting") === "true";
+  const archivedOnly = searchParams.get("status") === "ENDED";
+  const recruitingOnly = !archivedOnly && searchParams.get("recruiting") === "true";
   const [searchDraft, setSearchDraft] = useState({ source: keyword, value: keyword });
   const searchValue = searchDraft.source === keyword ? searchDraft.value : keyword;
   const query = useInfiniteGroups({
     keyword: keyword || undefined,
     type: type || undefined,
+    status: archivedOnly ? "ENDED" : undefined,
     recruiting: recruitingOnly || undefined,
     size: 12
   });
@@ -49,6 +51,13 @@ export function GroupsPage() {
   function submitSearch(event) {
     event.preventDefault();
     updateQuery({ keyword: searchValue.trim() });
+  }
+
+  function updateStatusFilter(value) {
+    updateQuery({
+      recruiting: value === "recruiting" ? "true" : "",
+      status: value === "archived" ? "ENDED" : ""
+    });
   }
 
   return (
@@ -86,28 +95,42 @@ export function GroupsPage() {
               </button>
             </div>
           </form>
-          <div className="groups-filter" role="group" aria-label="모임 유형">
-            {filters.map((filter) => (
-              <button
-                className={type === filter.value ? "is-active" : ""}
-                type="button"
-                aria-pressed={type === filter.value}
-                onClick={() => updateQuery({ type: filter.value })}
-                key={filter.label}
-              >
-                {filter.label}
-              </button>
-            ))}
-            <label className={`groups-filter__recruiting${recruitingOnly ? " is-checked" : ""}`}>
-              <input
-                type="checkbox"
-                checked={recruitingOnly}
-                onChange={(event) =>
-                  updateQuery({ recruiting: event.target.checked ? "true" : "" })
-                }
-              />
-              <span>모집중만 보기</span>
-            </label>
+          <div className="groups-filter" role="group" aria-label="모임 필터">
+            <div className="groups-filter__group" role="group" aria-label="모임 유형">
+              {filters.map((filter) => (
+                <button
+                  className={type === filter.value ? "is-active" : ""}
+                  type="button"
+                  aria-pressed={type === filter.value}
+                  onClick={() => updateQuery({ type: filter.value })}
+                  key={filter.label}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+            <div className="groups-filter__group groups-filter__group--status" role="group" aria-label="모임 상태">
+              <label className={`groups-filter__status${recruitingOnly ? " is-checked" : ""}`}>
+                <input
+                  type="checkbox"
+                  checked={recruitingOnly}
+                  onChange={(event) =>
+                    updateStatusFilter(event.target.checked ? "recruiting" : "")
+                  }
+                />
+                <span>모집중만 보기</span>
+              </label>
+              <label className={`groups-filter__status${archivedOnly ? " is-checked" : ""}`}>
+                <input
+                  type="checkbox"
+                  checked={archivedOnly}
+                  onChange={(event) =>
+                    updateStatusFilter(event.target.checked ? "archived" : "")
+                  }
+                />
+                <span>아카이빙만 보기</span>
+              </label>
+            </div>
           </div>
         </div>
 
