@@ -892,6 +892,18 @@
   font-size: var(--text-label);
 }
 
+.manage-page--editor .group-editor__type-tag--locked {
+  border-color: var(--color-line);
+  background: var(--color-canvas);
+  color: var(--color-muted-ink);
+  cursor: not-allowed;
+}
+
+.manage-page--editor .group-editor__type-tag--locked img {
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+
 .manage-page--editor .group-editor__type-tag img {
   block-size: 1rem;
   inline-size: 1rem;

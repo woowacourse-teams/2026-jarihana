@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
-import { Link, useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import { z } from "zod";
 
 import {
@@ -30,6 +30,7 @@ import {
 import { GroupMembersPanel } from "./GroupMembersPanel.jsx";
 import { RepresentativeImage } from "./RepresentativeImage.jsx";
 import { useSubmissionLock } from "./useSubmissionLock.js";
+import { ManagementContext } from "../manage/ManagementContext.jsx";
 import "../manage/manage.css";
 
 const overviewSchema = z.object({
@@ -61,7 +62,7 @@ const sessionSchema = z
   });
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const GROUP_TYPE_LABEL = { CLUB: "동아리", SESSION: "일회성 세션", STUDY: "스터디" };
+const GROUP_TYPE_LABEL = { CLUB: "동아리", SESSION: "세션", STUDY: "스터디" };
 const RECURRING_DEFAULTS = { daysOfWeek: [], startTime: "19:00", endTime: "21:00" };
 const SESSION_DEFAULTS = { sessionDate: "", startTime: "19:00", endTime: "21:00" };
 const DAY_LABEL = {
@@ -335,14 +336,16 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
 
   return (
     <div className="manage-page manage-page--editor">
-      <Link className="group-editor__back" to="/my/groups?role=LEADER">
-        모임 관리로
-      </Link>
+      <ManagementContext active="overview" groupId={groupId} />
       <div className="group-editor group-editor--embedded">
         <form className="group-editor__overview-form" onSubmit={saveOverview} noValidate>
           <section className="group-editor__hero" aria-label="모임 기본 정보">
             <div className="group-editor__hero-fields">
-              <div className="group-editor__type-tag">
+              <div
+                aria-disabled="true"
+                className="group-editor__type-tag group-editor__type-tag--locked"
+                title="생성된 모임의 종류는 변경할 수 없어요."
+              >
                 <img alt="" aria-hidden="true" src={kindIcon} />
                 <span>{GROUP_TYPE_LABEL[group.type]}</span>
               </div>
