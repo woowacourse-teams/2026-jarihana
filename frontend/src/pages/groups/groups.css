@@ -1200,6 +1200,22 @@
   min-inline-size: 0;
 }
 
+.group-profile__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.group-profile__manage {
+  flex: none;
+  min-height: 2.5rem;
+  padding-inline: var(--space-4);
+  font-size: var(--text-label);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
 .group-profile__type-tag {
   margin-block: 0 var(--space-2);
 }

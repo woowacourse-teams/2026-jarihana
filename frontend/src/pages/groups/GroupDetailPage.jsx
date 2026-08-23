@@ -62,6 +62,9 @@ export function GroupDetailPage() {
   const group = groupQuery.data;
   const currentMember = auth.member ?? auth.user;
   const isLeader = currentMember?.id === group?.leader?.memberId;
+  const isApprovedMember =
+    group?.currentMemberRole === "MEMBER" || group?.currentMemberRole === "LEADER";
+  const isArchived = group?.status === "ENDED";
   const isSession = group?.type === "SESSION";
   const hasSessionSchedule = isSession && Boolean(group?.sessionSchedule);
 
@@ -103,9 +106,19 @@ export function GroupDetailPage() {
         <div>
           <section className="group-profile" aria-labelledby="group-title">
             <div className="group-profile__copy">
-              <p className="groups-eyebrow group-profile__type-tag">
-                <span>{typeLabel(group.type)}</span>
-              </p>
+              <div className="group-profile__header">
+                <p className="groups-eyebrow group-profile__type-tag">
+                  <span>{typeLabel(group.type)}</span>
+                </p>
+                {isLeader ? (
+                  <Link
+                    className="group-profile__manage ui-button ui-button--secondary ui-button--md"
+                    to={`/groups/${groupId}/manage`}
+                  >
+                    모임 관리
+                  </Link>
+                ) : null}
+              </div>
               <h1 id="group-title">{group.name}</h1>
               <p>{group.introduction}</p>
               <div className="group-info">
@@ -132,7 +145,7 @@ export function GroupDetailPage() {
                   <DetailFact icon={placeIcon} label="장소" unavailable value="API 미지원" />
                   <DetailFact
                     icon={memberIcon}
-                    label={isSession ? "현재 승인 인원" : "현재 멤버 수"}
+                    label="현재 멤버 수"
                     value={`${group.memberCount}명`}
                   />
                 </dl>
@@ -178,6 +191,8 @@ export function GroupDetailPage() {
             group={group}
             leader={group.leader}
             createRecruitmentHref={isLeader ? `/groups/${groupId}/manage/recruitments` : null}
+            isApprovedMember={isApprovedMember}
+            isArchived={isArchived}
             isLeader={isLeader}
           />
         </aside>
@@ -199,7 +214,15 @@ function ActivityTab() {
   return <p className="group-tab-placeholder">추후 기능이 추가됩니다.</p>;
 }
 
-function RecruitmentSummary({ auth, createRecruitmentHref, group, isLeader, leader }) {
+function RecruitmentSummary({
+  auth,
+  createRecruitmentHref,
+  group,
+  isApprovedMember,
+  isArchived,
+  isLeader,
+  leader
+}) {
   const recruitment = group.activeRecruitment;
   const registration = useCreateRegistration(recruitment?.id);
   const [applicationOpen, setApplicationOpen] = useState(false);
@@ -210,6 +233,17 @@ function RecruitmentSummary({ auth, createRecruitmentHref, group, isLeader, lead
     ? Math.max(recruitment.capacity - recruitment.approvedCount, 0)
     : 0;
   const isOpen = Boolean(recruitment && remainingSeats > 0);
+
+  if (isArchived) {
+    return (
+      <section className="group-recruitment-summary group-rail-card">
+        <div className="group-recruitment-empty">
+          <h3>아카이빙된 모임입니다</h3>
+        </div>
+        <LeaderSummary leader={leader} />
+      </section>
+    );
+  }
 
   function openApplication() {
     registration.reset();
@@ -228,6 +262,13 @@ function RecruitmentSummary({ auth, createRecruitmentHref, group, isLeader, lead
       return (
         <Button disabled variant="secondary">
           운영자
+        </Button>
+      );
+    }
+    if (isApprovedMember) {
+      return (
+        <Button disabled variant="secondary">
+          가입 완료!
         </Button>
       );
     }
@@ -283,14 +324,14 @@ function RecruitmentSummary({ auth, createRecruitmentHref, group, isLeader, lead
           </dd>
         </div>
         <div>
-          <dt>지원 현황</dt>
+          <dt>모집 인원</dt>
           <dd>
-            현재 {recruitment.approvedCount}명/최대 {recruitment.capacity}명
+            승인 {recruitment.approvedCount}명 / 정원 {recruitment.capacity}명
           </dd>
         </div>
       </dl>
       <div
-        aria-label={`승인 인원 ${recruitment.approvedCount}명, 모집 정원 ${recruitment.capacity}명`}
+        aria-label={`승인 ${recruitment.approvedCount}명, 정원 ${recruitment.capacity}명`}
         aria-valuemax={recruitment.capacity}
         aria-valuemin="0"
         aria-valuenow={Math.min(recruitment.approvedCount, recruitment.capacity)}
