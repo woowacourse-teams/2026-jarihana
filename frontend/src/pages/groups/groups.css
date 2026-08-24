@@ -723,23 +723,20 @@
   font-size: var(--text-caption);
 }
 
-.group-leader--card {
-  padding: var(--space-5);
-  border: var(--border-thin) solid var(--color-line);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-}
-
 .group-leader--hero {
-  display: none;
+  position: relative;
+  z-index: 2;
+  display: inline-grid;
   inline-size: fit-content;
   max-inline-size: 100%;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
+  justify-self: start;
   padding: var(--space-2) var(--space-3);
   border: var(--border-thin) solid color-mix(in srgb, var(--color-surface) 32%, transparent);
   border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--color-nav) 68%, transparent);
+  background: color-mix(in srgb, var(--color-nav) 82%, transparent);
+  backdrop-filter: blur(var(--space-3));
 }
 
 .group-leader--hero .group-leader__label {
@@ -1302,11 +1299,11 @@
   }
 }
 
-/* Keep the detail page's main column aligned with the group editor Hero. */
+/* Keep the detail page's content and support rail inside one wide composition. */
 .group-detail-page {
   --group-detail-content-width: 100rem;
-  --group-detail-hero-min-height: 23.5rem;
-  --group-detail-hero-art-height: 20.5rem;
+  --group-detail-hero-min-height: 27.5rem;
+  --group-detail-hero-art-height: 24.5rem;
   max-width: var(--group-detail-content-width);
 }
 
@@ -1315,8 +1312,13 @@
   gap: var(--space-5);
 }
 
-.group-detail-grid > :first-child {
+.group-detail-grid > .group-profile {
+  grid-column: 1 / -1;
   inline-size: 100%;
+}
+
+.group-detail-tabs {
+  min-inline-size: 0;
 }
 
 .group-detail-page .group-rail {
@@ -1351,7 +1353,7 @@
 .group-profile {
   grid-template-columns: minmax(0, 1fr);
   min-block-size: var(--group-detail-hero-min-height);
-  padding: var(--space-5);
+  padding: var(--space-8);
   border-radius: var(--radius-lg);
 }
 
@@ -1360,7 +1362,7 @@
   z-index: 2;
   min-inline-size: 0;
   inline-size: min(100%, calc(var(--space-16) * 10));
-  padding-block-start: calc(var(--touch-target) + var(--space-2));
+  padding-block: calc(var(--touch-target) + var(--space-2)) var(--space-4);
 }
 
 .group-profile > .group-back--hero {
@@ -1489,6 +1491,41 @@
   min-height: 0;
 }
 
+@media (min-width: 90rem) {
+  .group-profile {
+    grid-template-columns: minmax(0, 1fr) var(--group-detail-rail-width);
+    column-gap: var(--space-8);
+  }
+
+  .group-profile > .group-leader--hero {
+    inline-size: auto;
+    max-inline-size: none;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: center;
+    align-items: start;
+    align-self: stretch;
+    justify-self: stretch;
+    margin-block: calc(0rem - var(--space-8));
+    margin-inline-end: calc(0rem - var(--space-8));
+    padding: var(--space-8);
+    padding-inline-start: var(--space-10);
+    border: 0;
+    border-inline-start: var(--border-thin) solid
+      color-mix(in srgb, var(--color-surface) 24%, transparent);
+    border-radius: 0;
+    background: linear-gradient(
+      100deg,
+      color-mix(in srgb, var(--color-nav) 78%, transparent) 0%,
+      color-mix(in srgb, var(--color-nav) 88%, var(--color-brand)) 18%,
+      color-mix(in srgb, var(--color-nav) 94%, var(--color-brand)) 48%,
+      var(--color-nav) 100%
+    );
+    box-shadow: calc(0rem - var(--space-8)) 0 var(--space-10)
+      color-mix(in srgb, var(--color-nav) 64%, transparent);
+    backdrop-filter: blur(var(--space-10)) saturate(0.7);
+  }
+}
+
 @media (max-width: 89.9375rem) {
   .group-detail-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -1502,9 +1539,8 @@
     display: block;
   }
 
-  .group-profile__copy > .group-leader--hero {
-    display: inline-grid;
-    margin-block-start: var(--space-5);
+  .group-profile > .group-leader--hero {
+    margin-block-start: var(--space-6);
   }
 
   .group-recruitment-fab {
@@ -1557,7 +1593,7 @@
 
   .group-profile {
     grid-template-columns: minmax(0, 1fr);
-    padding: var(--space-5);
+    padding: var(--space-6);
     border-radius: 0;
   }
 
