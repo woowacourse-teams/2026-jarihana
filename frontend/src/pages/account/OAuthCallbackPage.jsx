@@ -8,19 +8,16 @@ import { AccountLayout } from "./AccountLayout.jsx";
 export function OAuthCallbackPage() {
   const { status, login, reload } = useAuth();
   const navigate = useNavigate();
-  const reloaded = useRef(false);
+  const verificationPromise = useRef(null);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    if (reloaded.current) return;
-    reloaded.current = true;
     let active = true;
 
-    reload()
-      .catch(() => undefined)
-      .finally(() => {
-        if (active) setChecking(false);
-      });
+    verificationPromise.current ??= reload().catch(() => undefined);
+    void verificationPromise.current.then(() => {
+      if (active) setChecking(false);
+    });
 
     return () => {
       active = false;
