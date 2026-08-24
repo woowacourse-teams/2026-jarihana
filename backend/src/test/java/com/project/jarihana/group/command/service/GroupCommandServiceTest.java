@@ -79,6 +79,8 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
                 "알고리즘 스터디",
                 "매주 함께 문제를 풉니다.",
                 "문제 풀이와 코드 리뷰를 진행합니다.",
+                MeetingType.OFFLINE,
+                "서울 캠퍼스",
                 new CreateGroupCommand.RecurringSchedule(
                         Set.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY),
                         LocalTime.of(19, 0),
@@ -94,6 +96,8 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
         Group group = groupCommandRepository.findById(result.id()).orElseThrow();
         assertThat(result.status()).isEqualTo(GroupStatus.ACTIVE);
         assertThat(group.getRepresentativeImageKey()).isEqualTo("images/default-group.png");
+        assertThat(group.getMeetingType()).isEqualTo(MeetingType.OFFLINE);
+        assertThat(group.getLocation()).isEqualTo("서울 캠퍼스");
         assertThat(groupMemberCommandRepository.findByGroupAndMember(group, member))
                 .hasValueSatisfying(groupMember -> assertThat(groupMember.getRole()).isEqualTo(GroupMemberRole.LEADER));
     }
@@ -193,7 +197,7 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
         Member leader = saveMember("github-modify-leader");
         Group group = createGroup(leader, "서비스 기존 그룹");
         ModifyGroupCommand command = new ModifyGroupCommand(
-                "새 그룹", "새 한 줄 소개", null);
+                "새 그룹", "새 한 줄 소개", null, MeetingType.ONLINE, null);
 
         // When
         groupCommandService.modifyGroup(leader.getId(), group.getId(), command);
@@ -203,6 +207,8 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
         assertThat(modified.getName()).isEqualTo("새 그룹");
         assertThat(modified.getIntroduction()).isEqualTo("새 한 줄 소개");
         assertThat(modified.getDescription()).isNull();
+        assertThat(modified.getMeetingType()).isEqualTo(MeetingType.ONLINE);
+        assertThat(modified.getLocation()).isNull();
         assertThat(modified.getRepresentativeImageKey())
                 .isEqualTo(GroupCommandService.DEFAULT_REPRESENTATIVE_IMAGE_KEY);
         assertThat(modified.getRecurringSchedule()).isNotNull();

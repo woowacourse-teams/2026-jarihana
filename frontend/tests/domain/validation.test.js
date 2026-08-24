@@ -35,6 +35,8 @@ describe("group form validation", () => {
     // Given
     const values = {
       type: "STUDY",
+      meetingType: "FLEXIBLE",
+      location: null,
       name: "프론트엔드 스터디",
       introduction: "매주 함께 공부해요",
       description: "",
@@ -53,6 +55,8 @@ describe("group form validation", () => {
     // Given
     const values = {
       type: "SESSION",
+      meetingType: "FLEXIBLE",
+      location: null,
       name: "일일 세션",
       introduction: "한 번 만나 깊게 이야기해요",
       description: "",
@@ -71,6 +75,8 @@ describe("group form validation", () => {
     // Given
     const values = {
       type: "CLUB",
+      meetingType: "FLEXIBLE",
+      location: null,
       name: "리액트 모임",
       introduction: "매주 함께 만나요",
       description: "",
@@ -91,7 +97,13 @@ describe("group form validation", () => {
 
   it("enforces backend group text limits", () => {
     // Given
-    const values = { name: "가".repeat(51), introduction: "소개", description: "" };
+    const values = {
+      name: "가".repeat(51),
+      introduction: "소개",
+      description: "",
+      meetingType: "FLEXIBLE",
+      location: null
+    };
 
     // When
     const result = groupModifyFormSchema.safeParse(values);

@@ -18,11 +18,6 @@ import java.util.Objects;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Group extends BaseEntity {
 
-    private static final int NAME_MAX_LENGTH = 50;
-    private static final int INTRODUCTION_MAX_LENGTH = 100;
-    private static final int DESCRIPTION_MAX_LENGTH = 5_000;
-    private static final long DELETABLE_HOURS = 24;
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
@@ -31,6 +26,13 @@ public class Group extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 20)
     private GroupType type;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "meeting_type", nullable = false, length = 20)
+    private MeetingType meetingType;
+
+    @Column(name = "location", length = 255)
+    private String location;
 
     @Embedded
     @AttributeOverrides({
@@ -48,13 +50,13 @@ public class Group extends BaseEntity {
     })
     private SessionGroupSchedule sessionSchedule;
 
-    @Column(name = "name", nullable = false, length = NAME_MAX_LENGTH)
+    @Column(name = "name", nullable = false, length = 50)
     private String name;
 
-    @Column(name = "introduction", nullable = false, length = INTRODUCTION_MAX_LENGTH)
+    @Column(name = "introduction", nullable = false, length = 100)
     private String introduction;
 
-    @Column(name = "description", length = DESCRIPTION_MAX_LENGTH)
+    @Column(name = "description", length = 5_000)
     private String description;
 
     @Column(name = "representative_image_key")
@@ -67,6 +69,8 @@ public class Group extends BaseEntity {
     private Group(
             Long id,
             GroupType type,
+            MeetingType meetingType,
+            String location,
             RecurringGroupSchedule recurringSchedule,
             SessionGroupSchedule sessionSchedule,
             String name,
@@ -79,12 +83,14 @@ public class Group extends BaseEntity {
         super(require(createdAt, "생성 시각"));
         this.id = id;
         this.type = require(type, "그룹 유형");
+        this.meetingType = require(meetingType, "모임 방식");
+        this.location = validateNullableLength(location, 255, "장소");
         validateSchedule(type, recurringSchedule, sessionSchedule);
         this.recurringSchedule = recurringSchedule;
         this.sessionSchedule = sessionSchedule;
-        this.name = validateRequiredLength(name, NAME_MAX_LENGTH, "그룹 이름");
-        this.introduction = validateRequiredLength(introduction, INTRODUCTION_MAX_LENGTH, "한 줄 소개");
-        this.description = validateNullableLength(description, DESCRIPTION_MAX_LENGTH, "상세 소개");
+        this.name = validateRequiredLength(name, 50, "그룹 이름");
+        this.introduction = validateRequiredLength(introduction, 100, "한 줄 소개");
+        this.description = validateNullableLength(description, 5_000, "상세 소개");
         this.representativeImageKey = representativeImageKey;
         this.status = require(status, "그룹 상태");
     }
@@ -134,12 +140,36 @@ public class Group extends BaseEntity {
             RecurringGroupSchedule recurringSchedule,
             LocalDateTime createdAt
     ) {
+        return createClub(
+                name,
+                introduction,
+                description,
+                representativeImageKey,
+                MeetingType.FLEXIBLE,
+                null,
+                recurringSchedule,
+                createdAt
+        );
+    }
+
+    public static Group createClub(
+            String name,
+            String introduction,
+            String description,
+            String representativeImageKey,
+            MeetingType meetingType,
+            String location,
+            RecurringGroupSchedule recurringSchedule,
+            LocalDateTime createdAt
+    ) {
         return createRecurringGroup(
                 GroupType.CLUB,
                 name,
                 introduction,
                 description,
                 representativeImageKey,
+                meetingType,
+                location,
                 recurringSchedule,
                 createdAt
         );
@@ -151,12 +181,16 @@ public class Group extends BaseEntity {
             String introduction,
             String description,
             String representativeImageKey,
+            MeetingType meetingType,
+            String location,
             RecurringGroupSchedule recurringSchedule,
             LocalDateTime createdAt
     ) {
         return new Group(
                 null,
                 type,
+                meetingType,
+                location,
                 recurringSchedule,
                 null,
                 name,
@@ -176,12 +210,36 @@ public class Group extends BaseEntity {
             RecurringGroupSchedule recurringSchedule,
             LocalDateTime createdAt
     ) {
+        return createStudy(
+                name,
+                introduction,
+                description,
+                representativeImageKey,
+                MeetingType.FLEXIBLE,
+                null,
+                recurringSchedule,
+                createdAt
+        );
+    }
+
+    public static Group createStudy(
+            String name,
+            String introduction,
+            String description,
+            String representativeImageKey,
+            MeetingType meetingType,
+            String location,
+            RecurringGroupSchedule recurringSchedule,
+            LocalDateTime createdAt
+    ) {
         return createRecurringGroup(
                 GroupType.STUDY,
                 name,
                 introduction,
                 description,
                 representativeImageKey,
+                meetingType,
+                location,
                 recurringSchedule,
                 createdAt
         );
@@ -195,9 +253,33 @@ public class Group extends BaseEntity {
             SessionGroupSchedule sessionSchedule,
             LocalDateTime createdAt
     ) {
+        return createSession(
+                name,
+                introduction,
+                description,
+                representativeImageKey,
+                MeetingType.FLEXIBLE,
+                null,
+                sessionSchedule,
+                createdAt
+        );
+    }
+
+    public static Group createSession(
+            String name,
+            String introduction,
+            String description,
+            String representativeImageKey,
+            MeetingType meetingType,
+            String location,
+            SessionGroupSchedule sessionSchedule,
+            LocalDateTime createdAt
+    ) {
         return new Group(
                 null,
                 GroupType.SESSION,
+                meetingType,
+                location,
                 null,
                 sessionSchedule,
                 name,
@@ -212,7 +294,7 @@ public class Group extends BaseEntity {
     public boolean canDeleteAt(LocalDateTime now) {
         LocalDateTime currentTime = require(now, "현재 시각");
         LocalDateTime createdAt = getCreatedAt();
-        LocalDateTime deletionDeadline = createdAt.plusHours(DELETABLE_HOURS);
+        LocalDateTime deletionDeadline = createdAt.plusHours(24);
         return isActive() && !currentTime.isBefore(createdAt) && !currentTime.isAfter(deletionDeadline);
     }
 
@@ -232,10 +314,34 @@ public class Group extends BaseEntity {
             RecurringGroupSchedule recurringSchedule,
             SessionGroupSchedule sessionSchedule
     ) {
+        return modify(
+                name,
+                introduction,
+                description,
+                representativeImageKey,
+                this.meetingType,
+                this.location,
+                recurringSchedule,
+                sessionSchedule
+        );
+    }
+
+    public Group modify(
+            String name,
+            String introduction,
+            String description,
+            String representativeImageKey,
+            MeetingType meetingType,
+            String location,
+            RecurringGroupSchedule recurringSchedule,
+            SessionGroupSchedule sessionSchedule
+    ) {
         requireActive();
         return new Group(
                 id,
                 type,
+                meetingType,
+                location,
                 recurringSchedule,
                 sessionSchedule,
                 name,
@@ -261,6 +367,8 @@ public class Group extends BaseEntity {
         return new Group(
                 id,
                 type,
+                meetingType,
+                location,
                 require(schedule, "반복 일정"),
                 null,
                 name,
@@ -283,6 +391,8 @@ public class Group extends BaseEntity {
         return new Group(
                 id,
                 type,
+                meetingType,
+                location,
                 null,
                 null,
                 name,
@@ -302,6 +412,8 @@ public class Group extends BaseEntity {
         return new Group(
                 id,
                 type,
+                meetingType,
+                location,
                 null,
                 require(schedule, "세션 일정"),
                 name,
@@ -320,6 +432,8 @@ public class Group extends BaseEntity {
         return new Group(
                 id,
                 type,
+                meetingType,
+                location,
                 recurringSchedule,
                 sessionSchedule,
                 name,
@@ -334,7 +448,7 @@ public class Group extends BaseEntity {
     public boolean canEndAt(LocalDateTime now) {
         LocalDateTime currentTime = require(now, "현재 시각");
         LocalDateTime createdAt = getCreatedAt();
-        LocalDateTime deletionDeadline = createdAt.plusHours(DELETABLE_HOURS);
+        LocalDateTime deletionDeadline = createdAt.plusHours(24);
         return isActive() && currentTime.isAfter(deletionDeadline);
     }
 
@@ -344,6 +458,14 @@ public class Group extends BaseEntity {
 
     public GroupType getType() {
         return type;
+    }
+
+    public MeetingType getMeetingType() {
+        return meetingType;
+    }
+
+    public String getLocation() {
+        return location;
     }
 
     public RecurringGroupSchedule getRecurringSchedule() {

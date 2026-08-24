@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-import { dayOfWeekSchema, groupTypeSchema } from "../../entities/group/index.js";
+import {
+  dayOfWeekSchema,
+  groupMeetingTypeSchema,
+  groupTypeSchema
+} from "../../entities/group/index.js";
 
 const localTimeInputSchema = z.string().regex(/^\d{2}:\d{2}$/);
 
@@ -29,7 +33,9 @@ export const sessionScheduleFormSchema = z
 export const groupModifyFormSchema = z.object({
   name: z.string().trim().min(1, "모임 이름을 입력해 주세요.").max(50),
   introduction: z.string().trim().min(1, "한 줄 소개를 입력해 주세요.").max(100),
-  description: z.string().max(5_000).nullable().optional()
+  description: z.string().max(5_000).nullable().optional(),
+  meetingType: groupMeetingTypeSchema,
+  location: z.string().max(255).nullable()
 });
 
 export const groupCreateFormSchema = groupModifyFormSchema

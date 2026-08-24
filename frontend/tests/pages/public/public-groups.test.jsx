@@ -51,6 +51,8 @@ jest.mock("../../../src/features/auth/index.js", () => ({ useAuth: jest.fn() }))
 const group = {
   id: 41,
   type: "STUDY",
+  meetingType: "FLEXIBLE",
+  location: null,
   status: "ACTIVE",
   name: "우아한 JDBC 탐구생활",
   introduction: "JDBC 내부 동작을 이해하고, 더 좋은 설계를 고민해요.",
@@ -402,14 +404,29 @@ it("Given a group, when detail renders, then API-backed information and leader s
   const { container } = renderAt("/groups/41", <GroupDetailPage />);
 
   expect(screen.getByRole("heading", { name: "모임 정보" })).toBeInTheDocument();
+  expect(screen.getByText("유동적")).toBeInTheDocument();
   const profile = container.querySelector(".group-profile");
   expect(
     within(profile)
       .getAllByRole("term")
       .map((term) => term.textContent)
-  ).toEqual(["모임 일정", "현재 멤버 수"]);
+  ).toEqual(["모임 방식", "모임 일정", "장소", "현재 멤버 수"]);
   const rail = container.querySelector(".group-rail-card");
   expect(rail).toContainElement(screen.getByText("모집 시작"));
   expect(within(rail).getByText("써니")).toBeInTheDocument();
   expect(container.querySelectorAll(".group-profile__figure > span")).toHaveLength(4);
+});
+
+it("Given meeting details, when the detail page renders, then the information card shows API values", () => {
+  groupHooks.useGroup.mockReturnValue({
+    data: { ...group, meetingType: "OFFLINE", location: "서울 캠퍼스" },
+    isLoading: false,
+    isError: false
+  });
+
+  renderAt("/groups/41", <GroupDetailPage />);
+
+  expect(screen.getByText("오프라인")).toBeInTheDocument();
+  expect(screen.getByText("서울 캠퍼스")).toBeInTheDocument();
+  expect(screen.queryByText("API 미지원")).not.toBeInTheDocument();
 });

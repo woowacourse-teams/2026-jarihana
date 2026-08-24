@@ -27,6 +27,7 @@ import {
 import {
   flattenPages,
   formatLocalDate,
+  meetingTypeLabel,
   publicErrorCopy,
   scheduleText,
   typeLabel
@@ -124,7 +125,11 @@ export function GroupDetailPage() {
               <div className="group-info">
                 <h2 className="group-info-title">모임 정보</h2>
                 <dl className="group-facts">
-                  <DetailFact icon={kindIcon} label="모임 방식" unavailable value="API 미지원" />
+                  <DetailFact
+                    icon={kindIcon}
+                    label="모임 방식"
+                    value={meetingTypeLabel(group.meetingType)}
+                  />
                   <DetailFact
                     icon={scheduleIcon}
                     label="모임 일정"
@@ -142,7 +147,11 @@ export function GroupDetailPage() {
                       )
                     }
                   />
-                  <DetailFact icon={placeIcon} label="장소" unavailable value="API 미지원" />
+                  <DetailFact
+                    icon={placeIcon}
+                    label="장소"
+                    value={group.location || "장소 미정"}
+                  />
                   <DetailFact
                     icon={memberIcon}
                     label="현재 멤버 수"

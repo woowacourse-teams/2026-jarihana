@@ -375,6 +375,8 @@ MVP에서는 이미지 저장소 연동 전까지 그룹 목록·상세 조회�
 - 204를 제외한 응답은 `success`, `data`, `error` 봉투를 사용한다.
 - 시간 값은 `Asia/Seoul` 기준이다.
 - 오류 분기는 `error.code`를 기준으로 한다.
+- `meetingType`은 필수이며 `ONLINE`, `OFFLINE`, `FLEXIBLE` 중 하나를 사용한다. `FLEXIBLE`은 고정된 온라인·오프라인 방식 없이 유동적으로 정하는 경우다.
+- `location`은 최대 255자의 nullable 문자열이다. 오프라인 장소 또는 온라인 접속 정보를 저장할 수 있다.
 
 #### 요청 — CLUB 또는 STUDY
 
@@ -384,6 +386,8 @@ MVP에서는 이미지 저장소 연동 전까지 그룹 목록·상세 조회�
   "name": "알고리즘 스터디",
   "introduction": "매주 함께 문제를 풉니다.",
   "description": "문제 풀이와 코드 리뷰를 진행합니다.",
+  "meetingType": "OFFLINE",
+  "location": "서울 캠퍼스",
   "representativeImageKey": "groups/tmp/sample.webp",
   "recurringSchedule": {
     "daysOfWeek": ["MONDAY", "WEDNESDAY"],
@@ -403,6 +407,8 @@ MVP에서는 이미지 저장소 연동 전까지 그룹 목록·상세 조회�
   "name": "동시성 세션",
   "introduction": "한 번 진행하는 기술 세션입니다.",
   "description": null,
+  "meetingType": "ONLINE",
+  "location": "Zoom",
   "representativeImageKey": null,
   "sessionSchedule": {
     "sessionDate": "2026-08-20",
@@ -502,6 +508,8 @@ Request Body는 없다.
   "data": {
     "id": 12,
     "type": "STUDY",
+    "meetingType": "OFFLINE",
+    "location": "서울 캠퍼스",
     "status": "ACTIVE",
     "name": "알고리즘 스터디",
     "introduction": "매주 함께 문제를 풉니다.",
@@ -605,6 +613,8 @@ Request Body는 없다.
   "name": "새 그룹 이름",
   "introduction": "수정된 한 줄 소개",
   "description": "수정된 상세 소개",
+  "meetingType": "ONLINE",
+  "location": "Zoom",
   "representativeImageKey": "groups/tmp/new.webp"
 }
 ```
@@ -612,6 +622,7 @@ Request Body는 없다.
 - 수정 가능한 기본 정보의 전체 표현을 전달한다. 전달하지 않은 필드를 기존 값으로 보존하는 부분 수정은 지원하지 않는다.
 - `description`, `representativeImageKey`를 비우려면 각각 `null`을 명시한다.
 - `type`, `status`, 일정은 이 API에서 수정하지 않는다.
+- `meetingType`과 `location`은 그룹의 모임 방식과 장소를 전체 교체한다. `meetingType`은 필수이며 `ONLINE`, `OFFLINE`, `FLEXIBLE` 중 하나를 보낸다. 장소를 비우려면 `null`을 명시한다.
 
 #### 응답 200
 수정된 그룹 상세 응답을 반환한다.
