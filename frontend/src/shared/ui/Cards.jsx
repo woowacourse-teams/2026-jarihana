@@ -35,16 +35,13 @@ export function Avatar({ alt = "", fallback = "?", size = "md", src }) {
 }
 
 function readableType(type) {
-  return { CLUB: "동아리", SESSION: "단기 모임", STUDY: "스터디" }[type] || type || "모임";
+  return { CLUB: "동아리", SESSION: "세션", STUDY: "스터디" }[type] || type || "모임";
 }
 
 function scheduleFrequencyText(group) {
   const daysOfWeek = group.recurringSchedule?.daysOfWeek;
   if (Array.isArray(daysOfWeek) && daysOfWeek.length > 0) {
     return `주 ${daysOfWeek.length}회`;
-  }
-  if (group.sessionSchedule?.sessionDate) {
-    return "일회성";
   }
   return null;
 }

@@ -202,6 +202,7 @@ class GroupQueryServiceTest {
         assertThat(result.group()).isSameAs(group);
         assertThat(result.members()).hasSize(1);
         assertThat(result.leader().memberId()).isEqualTo(10L);
+        assertThat(result.currentMemberRole()).isEqualTo(GroupMemberRole.LEADER);
     }
 
     @DisplayName("존재하지 않는 그룹 상세 조회 시 예외가 발생한다.")

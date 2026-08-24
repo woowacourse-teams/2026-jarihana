@@ -87,6 +87,27 @@ public class GroupQueryService {
         return new GroupListResult(items, nextCursor, page.hasNext());
     }
 
+    public GroupDetailResult findGroup(Long groupId) {
+        if (groupId == null || groupId < 1) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "요청 파라미터가 올바르지 않습니다.");
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        GroupDetailProjection projection = groupDetailRepository.findById(groupId, now)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.GROUP_NOT_FOUND,
+                        "그룹을 찾을 수 없습니다."
+                ));
+        Long currentMemberId = loginMemberReader.currentMemberId().orElse(null);
+        return new GroupDetailResult(
+                projection.group(),
+                DEFAULT_REPRESENTATIVE_IMAGE_URL,
+                projection.members(),
+                projection.activeRecruitment(),
+                projection.approvedCount(),
+                projection.roleOf(currentMemberId)
+        );
+    }
+
     private static Item toResult(GroupListProjection projection) {
         GroupListMember leader = projection.leader();
         return new Item(
@@ -169,25 +190,6 @@ public class GroupQueryService {
         } catch (IllegalArgumentException | DateTimeParseException exception) {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "요청 파라미터가 올바르지 않습니다.");
         }
-    }
-
-    public GroupDetailResult findGroup(Long groupId) {
-        if (groupId == null || groupId < 1) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "요청 파라미터가 올바르지 않습니다.");
-        }
-        LocalDateTime now = LocalDateTime.now(clock);
-        GroupDetailProjection projection = groupDetailRepository.findById(groupId, now)
-                .orElseThrow(() -> new BusinessException(
-                        ErrorCode.GROUP_NOT_FOUND,
-                        "그룹을 찾을 수 없습니다."
-                ));
-        return new GroupDetailResult(
-                projection.group(),
-                DEFAULT_REPRESENTATIVE_IMAGE_URL,
-                projection.members(),
-                projection.activeRecruitment(),
-                projection.approvedCount()
-        );
     }
 
     private record Cursor(LocalDateTime createdAt, long id) {

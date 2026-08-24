@@ -516,6 +516,7 @@ Request Body는 없다.
     "leader": {"memberId": 3, "crewName": "가온", "generation": 8},
     "memberCount": 6,
     "activeRecruitment": null,
+    "currentMemberRole": null,
     "createdAt": "2026-08-13T10:00:00"
   },
   "error": null
@@ -523,6 +524,7 @@ Request Body는 없다.
 ```
 
 유동적 CLUB·STUDY는 두 일정이 모두 `null`이다. SESSION은 `sessionSchedule`만 반환한다. ENDED 그룹도 직접 조회할 수 있다.
+인증된 요청이면 `currentMemberRole`에 현재 사용자의 승인된 그룹 역할(`LEADER` 또는 `MEMBER`)을 반환하고, 비로그인 사용자나 미가입 사용자는 `null`을 반환한다.
 
 #### 예외
 

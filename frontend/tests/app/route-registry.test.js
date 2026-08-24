@@ -16,6 +16,7 @@ it("registers every public, member, leader, showcase, and fallback route", () =>
     "/groups/:groupId/manage",
     "/groups/:groupId/manage/members",
     "/groups/:groupId/manage/recruitments",
+    "/groups/:groupId/manage/registrations",
     "/groups/:groupId/manage/recruitments/:recruitmentId/registrations",
     "/__showcase",
     "*"

@@ -21,6 +21,24 @@ public record GroupDetailProjection(
         members = List.copyOf(members);
     }
 
+    public GroupDetailMember leader() {
+        return members.stream()
+                .filter(member -> member.role() == GroupMemberRole.LEADER)
+                .findFirst()
+                .orElse(null);
+    }
+
+    public GroupMemberRole roleOf(Long memberId) {
+        if (memberId == null) {
+            return null;
+        }
+        return members.stream()
+                .filter(member -> member.memberId().equals(memberId))
+                .map(GroupDetailMember::role)
+                .findFirst()
+                .orElse(null);
+    }
+
     public static GroupDetailProjection of(
             Long id,
             Group group,
@@ -29,12 +47,5 @@ public record GroupDetailProjection(
             int approvedCount
     ) {
         return new GroupDetailProjection(id, group, members, activeRecruitment, approvedCount);
-    }
-
-    public GroupDetailMember leader() {
-        return members.stream()
-                .filter(member -> member.role() == GroupMemberRole.LEADER)
-                .findFirst()
-                .orElse(null);
     }
 }

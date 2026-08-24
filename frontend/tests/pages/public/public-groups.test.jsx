@@ -58,6 +58,7 @@ const group = {
   representativeImageUrl: "/images/default-group.png",
   leader: { memberId: 7, crewName: "써니", generation: 11 },
   memberCount: 6,
+  currentMemberRole: null,
   recurringSchedule: {
     daysOfWeek: ["MONDAY"],
     startTime: "19:00:00",
@@ -237,6 +238,31 @@ it("Given an authenticated member, when an application is confirmed, then the or
   ).toBeInTheDocument();
 });
 
+it("Given an approved group member, when the detail page renders, then application is disabled", async () => {
+  const user = userEvent.setup();
+  groupHooks.useGroup.mockReturnValue({
+    data: { ...group, currentMemberRole: "MEMBER" },
+    isLoading: false,
+    isError: false
+  });
+  const mutateAsync = jest.fn();
+  registrationHooks.useCreateRegistration.mockReturnValue({
+    mutateAsync,
+    isPending: false,
+    isSuccess: false,
+    error: null,
+    reset: jest.fn()
+  });
+
+  renderAt("/groups/41", <GroupDetailPage />);
+
+  const button = screen.getByRole("button", { name: "가입 완료!" });
+  expect(button).toBeDisabled();
+  await user.click(button);
+  expect(mutateAsync).not.toHaveBeenCalled();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
 it("Given a closed recruitment, when opened, then no application control is exposed", () => {
   recruitmentHooks.useRecruitment.mockReturnValue({
     data: { ...recruitment, recruitingStatus: "CLOSED" },
@@ -273,6 +299,23 @@ it("Given the introduction tab, when detail renders, then downstream lists stay 
   expect(memberHooks.useInfiniteGroupMembers).not.toHaveBeenCalled();
   expect(recruitmentHooks.useInfiniteRecruitments).not.toHaveBeenCalled();
   expect(screen.queryByRole("heading", { name: "활동 방식" })).not.toBeInTheDocument();
+});
+
+it("Given an archived group, when detail renders, then the recruitment sidebar is hidden", () => {
+  groupHooks.useGroup.mockReturnValue({
+    data: { ...group, status: "ENDED", activeRecruitment: null },
+    isLoading: false,
+    isError: false
+  });
+
+  renderAt("/groups/41", <GroupDetailPage />);
+
+  expect(screen.getByRole("complementary", { name: "모집과 운영자 정보" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "아카이빙된 모임입니다" })).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "새 모집 만들기" })).not.toBeInTheDocument();
+  expect(screen.queryByText("모집 중")).not.toBeInTheDocument();
+  expect(screen.queryByText("모집 인원")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /가입 신청|모집 마감|운영자/ })).not.toBeInTheDocument();
 });
 
 it("Given a group failure, when detail renders, then no downstream request executes", () => {

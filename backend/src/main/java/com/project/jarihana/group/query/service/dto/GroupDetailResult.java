@@ -12,7 +12,8 @@ public record GroupDetailResult(
         String representativeImageUrl,
         List<GroupDetailMember> members,
         GroupRecruitment activeRecruitment,
-        int approvedCount
+        int approvedCount,
+        GroupMemberRole currentMemberRole
 ) {
 
     public GroupDetailResult {
