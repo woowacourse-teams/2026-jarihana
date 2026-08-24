@@ -129,7 +129,7 @@ export function OverviewFields({
         <Select label="모임 종류" error={errors.type?.message} {...register("type")}>
           <option value="STUDY">스터디</option>
           <option value="CLUB">동아리</option>
-          <option value="SESSION">일회성 세션</option>
+          <option value="SESSION">세션</option>
         </Select>
       ) : null}
       <TextField

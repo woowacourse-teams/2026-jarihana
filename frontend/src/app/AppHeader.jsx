@@ -19,13 +19,6 @@ const MEMBER_LINKS = [
     label: "모임 만들기",
     requiresAuth: true,
     to: "/groups/new"
-  },
-  {
-    isActive: (pathname) =>
-      pathname === "/my/groups" || /^\/groups\/[^/]+\/manage(?:\/|$)/.test(pathname),
-    label: "모임 관리",
-    requiresAuth: true,
-    to: "/my/groups?role=LEADER"
   }
 ];
 
@@ -56,7 +49,8 @@ function HeaderLinks({ onNavigate, onProtectedNavigate, status }) {
 
 function MyPageLink({ onNavigate }) {
   const { pathname } = useLocation();
-  const isActive = pathname === "/my" || pathname === "/my/registrations";
+  const isActive =
+    pathname === "/my" || pathname === "/my/groups" || pathname === "/my/registrations";
 
   return (
     <Link

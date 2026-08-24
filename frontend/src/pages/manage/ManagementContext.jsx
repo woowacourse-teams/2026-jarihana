@@ -12,15 +12,13 @@ export function ManagementContext({ active, groupId, recruitmentId }) {
       label: "모집 관리",
       to: `/groups/${groupId}/manage/recruitments`
     },
-    ...(recruitmentId
-      ? [
-          {
-            key: "registrations",
-            label: "신청 관리",
-            to: `/groups/${groupId}/manage/recruitments/${recruitmentId}/registrations`
-          }
-        ]
-      : []),
+    {
+      key: "registrations",
+      label: "신청 관리",
+      to: recruitmentId
+        ? `/groups/${groupId}/manage/recruitments/${recruitmentId}/registrations`
+        : `/groups/${groupId}/manage/registrations`
+    },
     { key: "members", label: "멤버 관리", to: `/groups/${groupId}/manage/members` }
   ];
 

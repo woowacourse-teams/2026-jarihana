@@ -65,9 +65,7 @@ beforeEach(() => {
 it.each([
   ["/groups", "탐색"],
   ["/groups/1", "탐색"],
-  ["/groups/new", "모임 만들기"],
-  ["/my/groups", "모임 관리"],
-  ["/groups/1/manage/members", "모임 관리"]
+  ["/groups/new", "모임 만들기"]
 ])("marks exactly one header menu for %s", (pathname, expectedLabel) => {
   mockPathname = pathname;
   renderShell({ login: jest.fn(), logout: jest.fn(), status: "authenticated" });
@@ -80,6 +78,22 @@ it.each([
   expect(currentLinks).toHaveLength(1);
   expect(currentLinks[0]).toHaveTextContent(expectedLabel);
 });
+
+it.each(["/my/groups", "/groups/1/manage/members"])(
+  "does not expose or activate the removed management header menu for %s",
+  (pathname) => {
+    mockPathname = pathname;
+    renderShell({ login: jest.fn(), logout: jest.fn(), status: "authenticated" });
+
+    const navigation = screen.getByRole("navigation", { name: "주요 메뉴" });
+    expect(within(navigation).queryByRole("link", { name: "모임 관리" })).not.toBeInTheDocument();
+    expect(
+      within(navigation)
+        .queryAllByRole("link")
+        .filter((link) => link.getAttribute("aria-current") === "page")
+    ).toHaveLength(0);
+  }
+);
 
 it("provides skip navigation, global navigation, and a main landmark", () => {
   // Given
@@ -101,13 +115,10 @@ it("provides skip navigation, global navigation, and a main landmark", () => {
     within(navigation)
       .getAllByRole("link")
       .map((link) => link.textContent)
-  ).toEqual(["탐색", "모임 만들기", "모임 관리"]);
+  ).toEqual(["탐색", "모임 만들기"]);
   expect(screen.getByRole("link", { name: "모임 만들기" })).toHaveAttribute("href", "/groups/new");
   expect(screen.queryByRole("link", { name: "마이페이지" })).not.toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "모임 관리" })).toHaveAttribute(
-    "href",
-    "/my/groups?role=LEADER"
-  );
+  expect(screen.queryByRole("link", { name: "모임 관리" })).not.toBeInTheDocument();
   expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
 });
 
@@ -138,10 +149,7 @@ it("offers the local development account instead of GitHub in a development buil
   expect(screen.queryByRole("button", { name: "GitHub로 로그인" })).not.toBeInTheDocument();
 });
 
-it.each([
-  ["모임 만들기", "/groups/new"],
-  ["모임 관리", "/my/groups?role=LEADER"]
-])(
+it.each([["모임 만들기", "/groups/new"]])(
   "explains that %s requires login instead of silently returning to the current page",
   (label, target) => {
     // Given
@@ -179,7 +187,7 @@ it("shows member navigation and logs out an authenticated member", () => {
     within(screen.getByRole("navigation", { name: "주요 메뉴" }))
       .getAllByRole("link")
       .map((link) => link.textContent)
-  ).toEqual(["탐색", "모임 만들기", "모임 관리"]);
+  ).toEqual(["탐색", "모임 만들기"]);
   expect(screen.getByRole("link", { name: "모임 만들기" })).toHaveAttribute("href", "/groups/new");
   expect(screen.getByRole("link", { name: "마이페이지" })).toHaveAttribute("href", "/my");
   expect(logout).toHaveBeenCalledTimes(1);

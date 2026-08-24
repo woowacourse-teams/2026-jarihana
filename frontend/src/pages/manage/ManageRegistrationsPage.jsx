@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { useInfiniteGroupMembers } from "../../features/member/index.js";
-import { useRecruitment } from "../../features/recruitment/index.js";
+import { useInfiniteRecruitments, useRecruitment } from "../../features/recruitment/index.js";
 import {
   useDecideRegistration,
   useInfiniteRegistrations
@@ -36,7 +36,12 @@ const filterOptions = [
 ];
 
 export function ManageRegistrationsPage() {
-  const { groupId, recruitmentId } = useParams();
+  const { groupId, recruitmentId: routeRecruitmentId } = useParams();
+  const recruitmentsQuery = useInfiniteRecruitments(groupId);
+  const currentRecruitment = flattenPages(recruitmentsQuery.data).find(
+    (recruitment) => recruitment.recruitingStatus !== "CLOSED"
+  );
+  const recruitmentId = routeRecruitmentId ?? currentRecruitment?.id;
   const [status, setStatus] = useState("");
   const registrationsQuery = useInfiniteRegistrations(recruitmentId, {
     ...(status ? { status } : {})
@@ -48,6 +53,36 @@ export function ManageRegistrationsPage() {
   const reasonRef = useRef(null);
   const [mutationError, setMutationError] = useState(null);
   const registrations = flattenPages(registrationsQuery.data);
+
+  if (!routeRecruitmentId && recruitmentsQuery.isPending) {
+    return <ManageLoading title="신청 관리" />;
+  }
+
+  if (!routeRecruitmentId && recruitmentsQuery.isError) {
+    const view = errorView(recruitmentsQuery.error);
+    return (
+      <div className="manage-page manage-page--dashboard">
+        <ManagementContext active="registrations" groupId={groupId} />
+        <ErrorState
+          action={<Button onClick={() => recruitmentsQuery.refetch()}>다시 시도</Button>}
+          description={view.description}
+          title={view.title}
+        />
+      </div>
+    );
+  }
+
+  if (!recruitmentId) {
+    return (
+      <div className="manage-page manage-page--dashboard">
+        <ManagementContext active="registrations" groupId={groupId} />
+        <EmptyState
+          description="모집 관리에서 새로운 모집을 만들면 신청을 확인할 수 있어요."
+          title="현재 진행 중인 모집이 없습니다"
+        />
+      </div>
+    );
+  }
 
   async function confirmDecision() {
     if (!decision) return;
@@ -293,6 +328,15 @@ function OperationsRail({ membersQuery, recruitmentQuery }) {
         ) : null}
       </section>
     </aside>
+  );
+}
+
+function ManageLoading({ title }) {
+  return (
+    <div aria-busy="true" className="manage-page">
+      <h1>{title}</h1>
+      <Skeleton count={4} />
+    </div>
   );
 }
 

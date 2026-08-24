@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ChevronDown, Search } from "lucide-react";
 import { useParams } from "react-router";
 import { useInfiniteGroupMembers, useTransferLeader } from "../../features/member/index.js";
 import {
@@ -69,17 +70,21 @@ export function ManageMembersPage() {
     <div className="manage-page">
       <ManagementContext active="members" groupId={groupId} />
       <ManagementPageHeading
-        description="승인된 크루의 역할과 가입 정보를 확인하고 모임장을 위임해요. 검색은 현재 불러온 멤버를 기준으로 동작해요."
-        statLabel="전체 멤버"
-        statValue={`${members.length}명`}
+        description="승인된 크루와 역할, 가입일을 확인하고 멤버를 관리해요."
         title="멤버 관리"
       />
 
       {mutationError ? <InlineError error={mutationError} /> : null}
-      <div className="manage-member-controls">
+      <section aria-label="전체 멤버 요약" className="manage-member-summary">
+        <span>전체 멤버</span>
+        <strong>{members.length}명</strong>
+      </section>
+      <div className="manage-member-controls manage-member-controls--figma">
         <label className="manage-member-search">
           <span className="manage-visually-hidden">멤버 검색</span>
+          <Search aria-hidden="true" className="manage-member-search__icon" size={20} />
           <input
+            aria-label="멤버 검색"
             onChange={(event) => setSearch(event.target.value)}
             placeholder="닉네임, 과정, 기수 검색"
             type="search"
@@ -103,7 +108,10 @@ export function ManageMembersPage() {
             </button>
           ))}
         </div>
-        <span className="manage-member-sort">최근 가입순</span>
+        <span aria-label="정렬 기준: 최근 가입순" className="manage-member-sort">
+          최근 가입순
+          <ChevronDown aria-hidden="true" size={18} />
+        </span>
       </div>
 
       {members.length === 0 ? (
@@ -116,6 +124,14 @@ export function ManageMembersPage() {
             모임 멤버
           </h3>
           <table aria-label="모임 멤버" className="manage-member-table">
+            <colgroup>
+              <col className="manage-member-table__col--crew" />
+              <col className="manage-member-table__col--course" />
+              <col className="manage-member-table__col--generation" />
+              <col className="manage-member-table__col--role" />
+              <col className="manage-member-table__col--joined" />
+              <col className="manage-member-table__col--actions" />
+            </colgroup>
             <thead>
               <tr>
                 <th>크루</th>
@@ -130,10 +146,12 @@ export function ManageMembersPage() {
               {visibleMembers.map((member) => (
                 <tr aria-label={`${member.crewName} 멤버`} key={member.groupMemberId}>
                   <td data-label="크루">
-                    <span className="manage-avatar" aria-hidden="true">
-                      {member.crewName.slice(0, 1)}
-                    </span>
-                    <strong>{member.crewName}</strong>
+                    <div className="manage-member-identity">
+                      <span className="manage-avatar" aria-hidden="true">
+                        {member.crewName.slice(0, 1)}
+                      </span>
+                      <strong>{member.crewName}</strong>
+                    </div>
                   </td>
                   <td data-label="과정">{courseLabel(member.course)}</td>
                   <td data-label="기수">{member.generation}기</td>
@@ -145,11 +163,26 @@ export function ManageMembersPage() {
                   <td data-label="가입일">{formatDate(member.joinedAt)}</td>
                   <td data-label="관리">
                     {member.role !== "LEADER" ? (
-                      <Button onClick={() => setCandidate(member)} variant="secondary">
-                        {member.crewName}에게 모임장 넘기기
-                      </Button>
+                      <div className="manage-member-actions">
+                        <Button
+                          className="manage-member-transfer"
+                          onClick={() => setCandidate(member)}
+                          size="sm"
+                          variant="secondary"
+                        >
+                          {member.crewName}에게 모임장 넘기기
+                        </Button>
+                        <span
+                          className="manage-member-action manage-member-action--unavailable"
+                          title="멤버 내보내기 API가 아직 지원되지 않아요."
+                        >
+                          내보내기
+                        </span>
+                      </div>
                     ) : (
-                      <span className="manage-muted-copy">현재 모임장</span>
+                      <span className="manage-member-action manage-member-action--leader">
+                        모임장
+                      </span>
                     )}
                   </td>
                 </tr>
@@ -175,7 +208,7 @@ export function ManageMembersPage() {
         confirmLabel="모임장 넘기기"
         description={
           candidate
-            ? `${candidate.crewName}님에게 모임장 권한을 넘겨요. 이 작업은 즉시 반영돼요.`
+            ? `모임장 권한이 ${candidate.crewName}님에게 이전되고, 현재 모임장 권한은 해제돼요. 이 작업은 즉시 반영돼요.`
             : ""
         }
         onClose={() => setCandidate(null)}

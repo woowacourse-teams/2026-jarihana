@@ -1,5 +1,6 @@
 import { Link, useSearchParams } from "react-router";
 
+import { useAuth } from "../../features/auth/index.js";
 import { useInfiniteGroups } from "../../features/group/index.js";
 import {
   Button,
@@ -17,6 +18,8 @@ export function MyGroupsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedRole = searchParams.get("role");
   const role = requestedRole === "LEADER" || requestedRole === "MEMBER" ? requestedRole : "";
+  const auth = useAuth();
+  const currentMemberId = (auth.member ?? auth.user)?.id;
   const query = useInfiniteGroups({ relation: "JOINED", ...(role ? { role } : {}) });
   const groups = flattenPages(query.data);
 
@@ -71,8 +74,24 @@ export function MyGroupsPage() {
           pending={query.isFetchingNextPage}
         >
           {groups.map((group) => (
-            <li key={group.id}>
+            <li
+              className={
+                currentMemberId != null && group.leader?.memberId === currentMemberId
+                  ? "account-group-item account-group-item--leader"
+                  : "account-group-item"
+              }
+              key={group.id}
+            >
               <GroupSummaryCard group={group} />
+              {currentMemberId != null && group.leader?.memberId === currentMemberId ? (
+                <Link
+                  aria-label={`${group.name} 모임 관리`}
+                  className="account-group-item__manage ui-button ui-button--secondary ui-button--md"
+                  to={`/groups/${group.id}/manage`}
+                >
+                  모임 관리
+                </Link>
+              ) : null}
             </li>
           ))}
         </CursorList>

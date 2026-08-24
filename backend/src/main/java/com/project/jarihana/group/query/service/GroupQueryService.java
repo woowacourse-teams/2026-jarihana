@@ -104,12 +104,14 @@ public class GroupQueryService {
                         ErrorCode.GROUP_NOT_FOUND,
                         "그룹을 찾을 수 없습니다."
                 ));
+        Long currentMemberId = loginMemberReader.currentMemberId().orElse(null);
         return new GroupDetailResult(
                 projection.group(),
                 DEFAULT_REPRESENTATIVE_IMAGE_URL,
                 projection.members(),
                 projection.activeRecruitment(),
-                projection.approvedCount()
+                projection.approvedCount(),
+                projection.roleOf(currentMemberId)
         );
     }
 
