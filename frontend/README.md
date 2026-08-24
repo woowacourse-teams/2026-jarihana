@@ -65,7 +65,7 @@ DB 비밀번호는 이 파일이나 프론트엔드 번들에 절대 넣지 않�
 | 변수                      | 로컬 기본값/예시                                  | 용도                                                                                              |
 | ------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | `APP_GITHUB_CLIENT_ID`    | GitHub OAuth 앱의 client ID                       | GitHub authorize URL의 `client_id`                                                                |
-| `APP_GITHUB_REDIRECT_URI` | `http://localhost:8080/api/oauth/github/callback` | GitHub가 돌아올 백엔드 callback. 백엔드 `GITHUB_OAUTH_REDIRECT_URI` 및 GitHub 앱 설정과 같아야 함 |
+| `APP_GITHUB_REDIRECT_URI` | `http://localhost:5173/api/oauth/github/callback` | GitHub가 돌아올 백엔드 callback. 백엔드 `GITHUB_OAUTH_REDIRECT_URI` 및 GitHub 앱 설정과 같아야 함 |
 | `APP_OAUTH_COOKIE_NAME`   | `oauthState`                                      | OAuth state를 잠시 저장하는 브라우저 쿠키 이름                                                    |
 | `APP_OAUTH_COOKIE_DOMAIN` | 비움                                              | 운영에서 합의된 공유 상위 도메인이 있을 때만 설정                                                 |
 | `DISABLE_REACT_DEVTOOLS`  | `0`                                               | 개발용 React 진단 overlay를 끄려면 `1`                                                            |
