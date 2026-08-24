@@ -4,17 +4,13 @@ import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
 import com.project.jarihana.registration.domain.Registration;
-import com.project.jarihana.registration.query.repository.dto.MyRegistrationListPage;
-import com.project.jarihana.registration.query.repository.dto.MyRegistrationListProjection;
-import com.project.jarihana.registration.query.repository.dto.MyRegistrationListSearchCriteria;
-import com.project.jarihana.registration.query.repository.dto.RegistrationListPage;
-import com.project.jarihana.registration.query.repository.dto.RegistrationListProjection;
-import com.project.jarihana.registration.query.repository.dto.RegistrationListSearchCriteria;
-import java.util.List;
-import java.util.Optional;
+import com.project.jarihana.registration.query.repository.dto.*;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
 
 @Repository
 public class JpaRegistrationListRepository implements RegistrationListRepository {
@@ -79,13 +75,12 @@ public class JpaRegistrationListRepository implements RegistrationListRepository
         return new MyRegistrationListPage(projections, registrations.hasNext());
     }
 
-    private static RegistrationListProjection toProjection(Registration registration) {
-        return new RegistrationListProjection(
+    private static MyRegistrationListProjection toMyProjection(Registration registration) {
+        return new MyRegistrationListProjection(
                 registration.getId(),
-                registration.getMember().getId(),
-                registration.getMember().getCrewName(),
-                registration.getMember().getGeneration(),
-                registration.getMember().getCourse(),
+                registration.getRecruitment().getGroup().getId(),
+                registration.getRecruitment().getGroup().getName(),
+                registration.getRecruitment().getId(),
                 registration.getMessage(),
                 registration.getStatus(),
                 registration.getRegisteredAt(),
@@ -96,12 +91,13 @@ public class JpaRegistrationListRepository implements RegistrationListRepository
         );
     }
 
-    private static MyRegistrationListProjection toMyProjection(Registration registration) {
-        return new MyRegistrationListProjection(
+    private static RegistrationListProjection toProjection(Registration registration) {
+        return new RegistrationListProjection(
                 registration.getId(),
-                registration.getRecruitment().getGroup().getId(),
-                registration.getRecruitment().getGroup().getName(),
-                registration.getRecruitment().getId(),
+                registration.getMember().getId(),
+                registration.getMember().getCrewName(),
+                registration.getMember().getGeneration(),
+                registration.getMember().getCourse(),
                 registration.getMessage(),
                 registration.getStatus(),
                 registration.getRegisteredAt(),

@@ -8,12 +8,13 @@ import com.project.jarihana.groupmember.query.repository.dto.GroupMemberListProj
 import com.project.jarihana.groupmember.query.repository.dto.GroupMemberListSearchCriteria;
 import com.project.jarihana.groupmember.query.service.dto.GroupMemberListQuery;
 import com.project.jarihana.groupmember.query.service.dto.GroupMemberListResult;
+import org.springframework.stereotype.Service;
+
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.Base64;
 import java.util.List;
-import org.springframework.stereotype.Service;
 
 @Service
 public class GroupMemberQueryService {
@@ -70,6 +71,10 @@ public class GroupMemberQueryService {
         }
     }
 
+    private static BusinessException invalidParameter() {
+        return new BusinessException(ErrorCode.INVALID_PARAMETER, "요청 파라미터가 올바르지 않습니다.");
+    }
+
     private static String encodeCursor(GroupMemberListProjection projection) {
         String value = projection.joinedAt() + "|" + projection.groupMemberId();
         return Base64.getUrlEncoder()
@@ -95,10 +100,6 @@ public class GroupMemberQueryService {
         } catch (IllegalArgumentException | DateTimeParseException exception) {
             throw invalidParameter();
         }
-    }
-
-    private static BusinessException invalidParameter() {
-        return new BusinessException(ErrorCode.INVALID_PARAMETER, "요청 파라미터가 올바르지 않습니다.");
     }
 
     private record Cursor(LocalDateTime joinedAt, long id) {

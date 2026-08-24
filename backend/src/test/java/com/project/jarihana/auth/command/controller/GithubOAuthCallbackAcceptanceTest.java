@@ -1,7 +1,5 @@
 package com.project.jarihana.auth.command.controller;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.project.jarihana.auth.command.repository.RefreshTokenRepository;
 import com.project.jarihana.auth.config.AuthProperties;
 import com.project.jarihana.auth.domain.RefreshToken;
@@ -18,9 +16,6 @@ import io.restassured.http.Cookie;
 import io.restassured.response.ExtractableResponse;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +23,12 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.session.Session;
 import org.springframework.session.SessionRepository;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * 콜백은 프론트엔드가 심은 state 쿠키와 GitHub이 되돌려준 state 쿼리를 대조한다(ADR 0003).
@@ -78,6 +79,32 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
         assertThat(response.cookie(REFRESH_COOKIE_NAME)).isNull();
         assertThat(signupGithubIdOf(response)).isEqualTo(GITHUB_ID);
         assertThat(refreshTokenRepository.findAll()).isEmpty();
+    }
+
+    private ExtractableResponse<Response> callback(String stateCookie, String code, String state) {
+        RequestSpecification request = RestAssured.given()
+                .redirects().follow(false)
+                .cookie(authProperties.oauthStateCookieName(), stateCookie)
+                .queryParam("state", state);
+        if (code != null) {
+            request = request.queryParam("code", code);
+        }
+        return request.when()
+                .get(CALLBACK_PATH)
+                .then()
+                .extract();
+    }
+
+    private String signupGithubIdOf(ExtractableResponse<Response> response) {
+        String sessionId = new String(
+                Base64.getDecoder().decode(response.cookie(SESSION_COOKIE_NAME)),
+                StandardCharsets.UTF_8
+        );
+        Session session = sessionRepository.findById(sessionId);
+        if (session == null) {
+            return null;
+        }
+        return session.getAttribute(SignupSession.githubIdAttribute());
     }
 
     @DisplayName("가입한 회원은 Refresh Token 쿠키를 받고 서비스 화면으로 이동한다.")
@@ -224,31 +251,5 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
 
         // Then
         assertThat(response.cookie(authCookieProperties.accessTokenName())).isNull();
-    }
-
-    private ExtractableResponse<Response> callback(String stateCookie, String code, String state) {
-        RequestSpecification request = RestAssured.given()
-                .redirects().follow(false)
-                .cookie(authProperties.oauthStateCookieName(), stateCookie)
-                .queryParam("state", state);
-        if (code != null) {
-            request = request.queryParam("code", code);
-        }
-        return request.when()
-                .get(CALLBACK_PATH)
-                .then()
-                .extract();
-    }
-
-    private String signupGithubIdOf(ExtractableResponse<Response> response) {
-        String sessionId = new String(
-                Base64.getDecoder().decode(response.cookie(SESSION_COOKIE_NAME)),
-                StandardCharsets.UTF_8
-        );
-        Session session = sessionRepository.findById(sessionId);
-        if (session == null) {
-            return null;
-        }
-        return session.getAttribute(SignupSession.githubIdAttribute());
     }
 }

@@ -1,8 +1,5 @@
 package com.project.jarihana.group.query.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.project.jarihana.common.auth.LoginMemberReader;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
@@ -25,18 +22,17 @@ import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.JoinMethod;
-import java.time.Clock;
-import java.time.DayOfWeek;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.ZoneId;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import java.time.*;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class GroupQueryServiceTest {
 
@@ -83,6 +79,47 @@ class GroupQueryServiceTest {
 
         // Then
         assertThat(result.items()).extracting(projection -> projection.id()).containsExactly(1L);
+    }
+
+    private void saveGroupListFixtures() {
+        Group study = study("알고리즘 스터디", "함께 문제를 풉니다.", NOW.minusHours(2));
+        listRepository.save(GroupListProjection.of(
+                1L,
+                study,
+                2,
+                List.of(GroupListMember.of(10L, member("가온"), GroupMemberRole.LEADER)),
+                GroupRecruitment.create(
+                        study,
+                        JoinMethod.APPROVAL,
+                        8,
+                        NOW.minusDays(1),
+                        NOW.plusDays(1)
+                ),
+                3
+        ));
+        listRepository.save(GroupListProjection.of(
+                2L,
+                study("주말 동아리", "취미를 함께 나눠요.", NOW.minusHours(1)),
+                4,
+                List.of(GroupListMember.of(20L, member("바다"), GroupMemberRole.MEMBER)),
+                null,
+                0
+        ));
+    }
+
+    private static Group study(String name, String introduction, LocalDateTime createdAt) {
+        return Group.createStudy(
+                name,
+                introduction,
+                null,
+                null,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.NOON, LocalTime.of(13, 0)),
+                createdAt
+        );
+    }
+
+    private static Member member(String crewName) {
+        return Member.create(crewName, 8, "github-" + crewName, Course.BACKEND);
     }
 
     @DisplayName("가입한 그룹 중 리더이며 모집 중인 그룹만 조회한다.")
@@ -181,47 +218,6 @@ class GroupQueryServiceTest {
                         Throwable::getMessage
                 )
                 .containsExactly(ErrorCode.GROUP_NOT_FOUND, "그룹을 찾을 수 없습니다.");
-    }
-
-    private void saveGroupListFixtures() {
-        Group study = study("알고리즘 스터디", "함께 문제를 풉니다.", NOW.minusHours(2));
-        listRepository.save(GroupListProjection.of(
-                1L,
-                study,
-                2,
-                List.of(GroupListMember.of(10L, member("가온"), GroupMemberRole.LEADER)),
-                GroupRecruitment.create(
-                        study,
-                        JoinMethod.APPROVAL,
-                        8,
-                        NOW.minusDays(1),
-                        NOW.plusDays(1)
-                ),
-                3
-        ));
-        listRepository.save(GroupListProjection.of(
-                2L,
-                study("주말 동아리", "취미를 함께 나눠요.", NOW.minusHours(1)),
-                4,
-                List.of(GroupListMember.of(20L, member("바다"), GroupMemberRole.MEMBER)),
-                null,
-                0
-        ));
-    }
-
-    private static Group study(String name, String introduction, LocalDateTime createdAt) {
-        return Group.createStudy(
-                name,
-                introduction,
-                null,
-                null,
-                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.NOON, LocalTime.of(13, 0)),
-                createdAt
-        );
-    }
-
-    private static Member member(String crewName) {
-        return Member.create(crewName, 8, "github-" + crewName, Course.BACKEND);
     }
 
     private static class TestLoginMemberReader extends LoginMemberReader {

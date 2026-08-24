@@ -1,7 +1,5 @@
 package com.project.jarihana.auth.command.controller;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.project.jarihana.auth.command.repository.RefreshTokenRepository;
 import com.project.jarihana.auth.command.service.RefreshTokenHasher;
 import com.project.jarihana.auth.command.service.RefreshTokenIssuer;
@@ -23,6 +21,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * 재발급은 Refresh Token 쿠키만으로 새 Access Token을 내려준다.
@@ -82,6 +82,27 @@ class AuthRefreshAcceptanceTest extends IntegrationTestSupport {
         Cookie accessCookie = response.detailedCookie(authCookieProperties.accessTokenName());
         assertThat(accessCookie.isHttpOnly()).isTrue();
         assertThat(accessTokenProvider.parseMemberId(accessCookie.getValue())).isEqualTo(member.getId());
+    }
+
+    private ExtractableResponse<Response> refresh(CredentialSpec credentials) {
+        String csrfToken = issueCsrfToken();
+        RequestSpecification request = RestAssured.given()
+                .cookie(CSRF_COOKIE_NAME, csrfToken)
+                .header(CSRF_HEADER_NAME, csrfToken);
+        return credentials.apply(request)
+                .when()
+                .post(REFRESH_PATH)
+                .then()
+                .extract();
+    }
+
+    private String issueCsrfToken() {
+        return RestAssured.given()
+                .when()
+                .get(MY_PROFILE_PATH)
+                .then()
+                .extract()
+                .cookie(CSRF_COOKIE_NAME);
     }
 
     @DisplayName("응답 본문에 Access Token 값을 담지 않는다.")
@@ -269,30 +290,9 @@ class AuthRefreshAcceptanceTest extends IntegrationTestSupport {
         assertThat(response.jsonPath().getString("error.code")).isEqualTo("ACCESS_DENIED");
     }
 
-    private ExtractableResponse<Response> refresh(CredentialSpec credentials) {
-        String csrfToken = issueCsrfToken();
-        RequestSpecification request = RestAssured.given()
-                .cookie(CSRF_COOKIE_NAME, csrfToken)
-                .header(CSRF_HEADER_NAME, csrfToken);
-        return credentials.apply(request)
-                .when()
-                .post(REFRESH_PATH)
-                .then()
-                .extract();
-    }
-
     @FunctionalInterface
     private interface CredentialSpec {
 
         RequestSpecification apply(RequestSpecification request);
-    }
-
-    private String issueCsrfToken() {
-        return RestAssured.given()
-                .when()
-                .get(MY_PROFILE_PATH)
-                .then()
-                .extract()
-                .cookie(CSRF_COOKIE_NAME);
     }
 }

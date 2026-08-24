@@ -1,7 +1,8 @@
 package com.project.jarihana.auth.config;
 
-import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+
+import java.time.Duration;
 
 @ConfigurationProperties(prefix = "jarihana.auth")
 public record AuthProperties(

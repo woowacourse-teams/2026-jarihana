@@ -1,8 +1,5 @@
 package com.project.jarihana.registration.domain;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.domain.Group;
@@ -10,9 +7,13 @@ import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.JoinMethod;
-import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import java.time.LocalDateTime;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class RegistrationTest {
 
@@ -44,6 +45,18 @@ class RegistrationTest {
         assertThat(registration.getDecidedAt()).isNull();
         assertThat(registration.getDecidedBy()).isNull();
         assertThat(registration.canWithdraw()).isTrue();
+    }
+
+    private GroupRecruitment recruitment(JoinMethod joinMethod, int capacity) {
+        return GroupRecruitment.create(activeGroup(), joinMethod, capacity, STARTS_AT, ENDS_AT);
+    }
+
+    private Group activeGroup() {
+        return Group.createClub("러닝크루", "함께 달려요", null, null, null, GROUP_CREATED_AT);
+    }
+
+    private Member member() {
+        return Member.create("우주", 8, "123456", Course.BACKEND);
     }
 
     @DisplayName("자동 모집 신청은 즉시 시스템 승인 상태로 생성한다.")
@@ -156,6 +169,15 @@ class RegistrationTest {
         assertThat(original.getDecidedAt()).isNull();
     }
 
+    private Registration pendingRegistration() {
+        return Registration.createPending(
+                recruitment(JoinMethod.APPROVAL, 3),
+                member(),
+                null,
+                REGISTERED_AT
+        );
+    }
+
     @DisplayName("시스템은 대기 신청을 수동 승인할 수 없다.")
     @Test
     void systemCannotManuallyApprove() {
@@ -251,26 +273,5 @@ class RegistrationTest {
         )).isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_PARAMETER);
-    }
-
-    private Registration pendingRegistration() {
-        return Registration.createPending(
-                recruitment(JoinMethod.APPROVAL, 3),
-                member(),
-                null,
-                REGISTERED_AT
-        );
-    }
-
-    private GroupRecruitment recruitment(JoinMethod joinMethod, int capacity) {
-        return GroupRecruitment.create(activeGroup(), joinMethod, capacity, STARTS_AT, ENDS_AT);
-    }
-
-    private Group activeGroup() {
-        return Group.createClub("러닝크루", "함께 달려요", null, null, null, GROUP_CREATED_AT);
-    }
-
-    private Member member() {
-        return Member.create("우주", 8, "123456", Course.BACKEND);
     }
 }

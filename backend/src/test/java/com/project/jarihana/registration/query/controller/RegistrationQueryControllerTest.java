@@ -1,10 +1,5 @@
 package com.project.jarihana.registration.query.controller;
 
-import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.nullValue;
-
 import com.project.jarihana.common.auth.AccessTokenProvider;
 import com.project.jarihana.common.auth.AuthCookieProperties;
 import com.project.jarihana.group.domain.Group;
@@ -24,13 +19,17 @@ import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.TestSupportConfig;
 import io.restassured.response.Response;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Set;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.*;
 
 class RegistrationQueryControllerTest extends IntegrationTestSupport {
 
@@ -163,6 +162,30 @@ class RegistrationQueryControllerTest extends IntegrationTestSupport {
                 .body("data.items[0].status", equalTo("PENDING"));
     }
 
+    private Registration savePendingRegistration(
+            GroupRecruitment recruitment,
+            Member applicant,
+            String message,
+            LocalDateTime registeredAt
+    ) {
+        return registrationRepository.save(Registration.createPending(recruitment, applicant, message, registeredAt));
+    }
+
+    private Member saveMember(String crewName, Course course, String githubId) {
+        return memberRepository.save(Member.create(crewName, 8, githubId, course));
+    }
+
+    private Group saveGroup(String name) {
+        return groupRepository.save(Group.createStudy(
+                name,
+                "함께 학습합니다.",
+                null,
+                null,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.of(19, 0), LocalTime.of(21, 0)),
+                NOW
+        ));
+    }
+
     @DisplayName("모임장이 아닌 회원의 신청자 목록 조회를 거부한다.")
     @Test
     void rejectsRegistrationListRequestFromNonLeader() {
@@ -257,29 +280,5 @@ class RegistrationQueryControllerTest extends IntegrationTestSupport {
                 .statusCode(400)
                 .body("success", equalTo(false))
                 .body("error.code", equalTo("INVALID_PARAMETER"));
-    }
-
-    private Registration savePendingRegistration(
-            GroupRecruitment recruitment,
-            Member applicant,
-            String message,
-            LocalDateTime registeredAt
-    ) {
-        return registrationRepository.save(Registration.createPending(recruitment, applicant, message, registeredAt));
-    }
-
-    private Member saveMember(String crewName, Course course, String githubId) {
-        return memberRepository.save(Member.create(crewName, 8, githubId, course));
-    }
-
-    private Group saveGroup(String name) {
-        return groupRepository.save(Group.createStudy(
-                name,
-                "함께 학습합니다.",
-                null,
-                null,
-                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.of(19, 0), LocalTime.of(21, 0)),
-                NOW
-        ));
     }
 }

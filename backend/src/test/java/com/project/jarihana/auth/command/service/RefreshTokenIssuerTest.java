@@ -1,7 +1,5 @@
 package com.project.jarihana.auth.command.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.project.jarihana.auth.command.repository.RefreshTokenRepository;
 import com.project.jarihana.auth.command.service.dto.IssuedRefreshToken;
 import com.project.jarihana.auth.config.AuthProperties;
@@ -11,10 +9,13 @@ import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.TestSupportConfig;
-import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 class RefreshTokenIssuerTest extends IntegrationTestSupport {
 

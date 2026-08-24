@@ -21,17 +21,17 @@ public record GroupListRequest(
 
     public GroupListRequest {
         status = status == null ? GroupStatus.ACTIVE : status;
-        recruiting = recruiting == null ? false : recruiting;
+        recruiting = recruiting != null && recruiting;
         keyword = normalize(keyword);
         cursor = normalize(cursor);
         size = size == null ? 20 : size;
     }
 
-    public GroupListQuery toQuery() {
-        return new GroupListQuery(status, relation, role, type, recruiting, keyword, cursor, size);
-    }
-
     private static String normalize(String value) {
         return value == null || value.isBlank() ? null : value;
+    }
+
+    public GroupListQuery toQuery() {
+        return new GroupListQuery(status, relation, role, type, recruiting, keyword, cursor, size);
     }
 }

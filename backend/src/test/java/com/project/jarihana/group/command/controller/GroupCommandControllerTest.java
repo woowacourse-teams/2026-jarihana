@@ -1,35 +1,34 @@
 package com.project.jarihana.group.command.controller;
 
-import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasItems;
-import static org.hamcrest.Matchers.nullValue;
-
 import com.project.jarihana.common.auth.AccessTokenProvider;
 import com.project.jarihana.common.auth.AuthCookieProperties;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.group.domain.SessionGroupSchedule;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
-import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.group.query.repository.GroupMemberJpaRepository;
-import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
+import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.JoinMethod;
+import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.TestSupportConfig;
 import io.restassured.response.ExtractableResponse;
 import io.restassured.response.Response;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Set;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.*;
 
 class GroupCommandControllerTest extends IntegrationTestSupport {
 
@@ -85,6 +84,29 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                 .body("data.representativeImageUrl", equalTo("images/default-group.png"))
                 .body("data.recurringSchedule.startTime", equalTo("19:00:00"))
                 .body("error", nullValue());
+    }
+
+    private Group createGroup(Member leader, String name) {
+        Group group = groupRepository.save(Group.createStudy(
+                name,
+                "기존 소개",
+                "기존 설명",
+                "groups/original.webp",
+                RecurringGroupSchedule.of(
+                        Set.of(DayOfWeek.MONDAY), LocalTime.of(19, 0), LocalTime.of(21, 0)),
+                TestSupportConfig.FIXED_NOW
+        ));
+        groupMemberRepository.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
+        return group;
+    }
+
+    private String csrfToken(Long groupId) {
+        ExtractableResponse<Response> response = given()
+                .when()
+                .get("/groups/{groupId}", groupId)
+                .then()
+                .extract();
+        return response.cookie("XSRF-TOKEN");
     }
 
     @DisplayName("모임장이 아닌 회원의 그룹 기본 정보 교체 요청은 거부한다.")
@@ -265,28 +287,5 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                 .body("data.startTime", equalTo("13:00:00"))
                 .body("data.endTime", equalTo("15:00:00"))
                 .body("error", nullValue());
-    }
-
-    private Group createGroup(Member leader, String name) {
-        Group group = groupRepository.save(Group.createStudy(
-                name,
-                "기존 소개",
-                "기존 설명",
-                "groups/original.webp",
-                RecurringGroupSchedule.of(
-                        Set.of(DayOfWeek.MONDAY), LocalTime.of(19, 0), LocalTime.of(21, 0)),
-                TestSupportConfig.FIXED_NOW
-        ));
-        groupMemberRepository.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
-        return group;
-    }
-
-    private String csrfToken(Long groupId) {
-        ExtractableResponse<Response> response = given()
-                .when()
-                .get("/groups/{groupId}", groupId)
-                .then()
-                .extract();
-        return response.cookie("XSRF-TOKEN");
     }
 }

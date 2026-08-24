@@ -3,22 +3,12 @@ package com.project.jarihana.group.domain;
 import com.project.jarihana.common.domain.BaseEntity;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
-import jakarta.persistence.AttributeOverride;
-import jakarta.persistence.AttributeOverrides;
-import jakarta.persistence.Column;
-import jakarta.persistence.Embedded;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
-import java.time.LocalDateTime;
-import java.util.Objects;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Entity
 @Table(
@@ -99,6 +89,43 @@ public class Group extends BaseEntity {
         this.status = require(status, "그룹 상태");
     }
 
+    private static void validateSchedule(
+            GroupType type,
+            RecurringGroupSchedule recurringSchedule,
+            SessionGroupSchedule sessionSchedule
+    ) {
+        if (type == GroupType.SESSION) {
+            if (recurringSchedule != null || sessionSchedule == null) {
+                throw new BusinessException(ErrorCode.INVALID_PARAMETER, "SESSION은 일회성 일정만 가져야 합니다.");
+            }
+            return;
+        }
+        if (sessionSchedule != null) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "CLUB과 STUDY는 일회성 일정을 가질 수 없습니다.");
+        }
+    }
+
+    private static String validateRequiredLength(String value, int maxLength, String fieldName) {
+        if (value == null || value.isBlank() || value.length() > maxLength) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 1자 이상 " + maxLength + "자 이하여야 합니다.");
+        }
+        return value;
+    }
+
+    private static String validateNullableLength(String value, int maxLength, String fieldName) {
+        if (value != null && value.length() > maxLength) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 " + maxLength + "자 이하여야 합니다.");
+        }
+        return value;
+    }
+
+    private static <T> T require(T value, String fieldName) {
+        if (value == null) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 필수입니다.");
+        }
+        return value;
+    }
+
     public static Group createClub(
             String name,
             String introduction,
@@ -114,6 +141,29 @@ public class Group extends BaseEntity {
                 description,
                 representativeImageKey,
                 recurringSchedule,
+                createdAt
+        );
+    }
+
+    private static Group createRecurringGroup(
+            GroupType type,
+            String name,
+            String introduction,
+            String description,
+            String representativeImageKey,
+            RecurringGroupSchedule recurringSchedule,
+            LocalDateTime createdAt
+    ) {
+        return new Group(
+                null,
+                type,
+                recurringSchedule,
+                null,
+                name,
+                introduction,
+                description,
+                representativeImageKey,
+                GroupStatus.ACTIVE,
                 createdAt
         );
     }
@@ -159,33 +209,6 @@ public class Group extends BaseEntity {
         );
     }
 
-    private static Group createRecurringGroup(
-            GroupType type,
-            String name,
-            String introduction,
-            String description,
-            String representativeImageKey,
-            RecurringGroupSchedule recurringSchedule,
-            LocalDateTime createdAt
-    ) {
-        return new Group(
-                null,
-                type,
-                recurringSchedule,
-                null,
-                name,
-                introduction,
-                description,
-                representativeImageKey,
-                GroupStatus.ACTIVE,
-                createdAt
-        );
-    }
-
-    public boolean isActive() {
-        return status == GroupStatus.ACTIVE;
-    }
-
     public boolean canDeleteAt(LocalDateTime now) {
         LocalDateTime currentTime = require(now, "현재 시각");
         LocalDateTime createdAt = getCreatedAt();
@@ -193,11 +216,12 @@ public class Group extends BaseEntity {
         return isActive() && !currentTime.isBefore(createdAt) && !currentTime.isAfter(deletionDeadline);
     }
 
-    public boolean canEndAt(LocalDateTime now) {
-        LocalDateTime currentTime = require(now, "현재 시각");
-        LocalDateTime createdAt = getCreatedAt();
-        LocalDateTime deletionDeadline = createdAt.plusHours(DELETABLE_HOURS);
-        return isActive() && currentTime.isAfter(deletionDeadline);
+    public boolean isActive() {
+        return status == GroupStatus.ACTIVE;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return super.getCreatedAt();
     }
 
     public Group modify(
@@ -221,6 +245,12 @@ public class Group extends BaseEntity {
                 status,
                 getCreatedAt()
         );
+    }
+
+    private void requireActive() {
+        if (!isActive()) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "ACTIVE 상태의 그룹만 변경할 수 있습니다.");
+        }
     }
 
     public Group replaceRecurringSchedule(RecurringGroupSchedule schedule) {
@@ -301,47 +331,11 @@ public class Group extends BaseEntity {
         );
     }
 
-    private void requireActive() {
-        if (!isActive()) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "ACTIVE 상태의 그룹만 변경할 수 있습니다.");
-        }
-    }
-
-    private static void validateSchedule(
-            GroupType type,
-            RecurringGroupSchedule recurringSchedule,
-            SessionGroupSchedule sessionSchedule
-    ) {
-        if (type == GroupType.SESSION) {
-            if (recurringSchedule != null || sessionSchedule == null) {
-                throw new BusinessException(ErrorCode.INVALID_PARAMETER, "SESSION은 일회성 일정만 가져야 합니다.");
-            }
-            return;
-        }
-        if (sessionSchedule != null) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "CLUB과 STUDY는 일회성 일정을 가질 수 없습니다.");
-        }
-    }
-
-    private static String validateRequiredLength(String value, int maxLength, String fieldName) {
-        if (value == null || value.isBlank() || value.length() > maxLength) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 1자 이상 " + maxLength + "자 이하여야 합니다.");
-        }
-        return value;
-    }
-
-    private static String validateNullableLength(String value, int maxLength, String fieldName) {
-        if (value != null && value.length() > maxLength) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 " + maxLength + "자 이하여야 합니다.");
-        }
-        return value;
-    }
-
-    private static <T> T require(T value, String fieldName) {
-        if (value == null) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 필수입니다.");
-        }
-        return value;
+    public boolean canEndAt(LocalDateTime now) {
+        LocalDateTime currentTime = require(now, "현재 시각");
+        LocalDateTime createdAt = getCreatedAt();
+        LocalDateTime deletionDeadline = createdAt.plusHours(DELETABLE_HOURS);
+        return isActive() && currentTime.isAfter(deletionDeadline);
     }
 
     public Long getId() {
@@ -380,8 +374,9 @@ public class Group extends BaseEntity {
         return status;
     }
 
-    public LocalDateTime getCreatedAt() {
-        return super.getCreatedAt();
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
     }
 
     @Override
@@ -396,10 +391,5 @@ public class Group extends BaseEntity {
             return false;
         }
         return id.equals(other.id);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(id);
     }
 }

@@ -1,12 +1,5 @@
 package com.project.jarihana.registration.command.controller;
 
-import static io.restassured.RestAssured.given;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasKey;
-import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.nullValue;
-
 import com.project.jarihana.common.auth.AccessTokenProvider;
 import com.project.jarihana.common.auth.AuthCookieProperties;
 import com.project.jarihana.group.domain.Group;
@@ -30,6 +23,10 @@ import io.restassured.specification.RequestSpecification;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+
+import static io.restassured.RestAssured.given;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.*;
 
 class RegistrationCommandControllerTest extends IntegrationTestSupport {
 
@@ -84,6 +81,49 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
                 recruitment.getId(),
                 applicant.getId()
         )).isFalse();
+    }
+
+    private RequestSpecification authenticatedRequest(String accessToken, String csrfToken) {
+        return given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .cookie("XSRF-TOKEN", csrfToken)
+                .header("X-XSRF-TOKEN", csrfToken)
+                .contentType("application/json");
+    }
+
+    private Member saveMember(String crewName, String githubId) {
+        return memberRepository.save(Member.create(crewName, 8, githubId, Course.BACKEND));
+    }
+
+    private GroupRecruitment saveRecruitment(JoinMethod joinMethod, int capacity) {
+        return saveRecruitment("가입 신청 API 그룹 " + joinMethod, joinMethod, capacity);
+    }
+
+    private GroupRecruitment saveRecruitment(String groupName, JoinMethod joinMethod, int capacity) {
+        Group group = groupRepository.save(Group.createClub(
+                groupName,
+                "함께 활동해요",
+                null,
+                null,
+                null,
+                TestSupportConfig.FIXED_NOW.minusDays(10)
+        ));
+        return recruitmentRepository.save(GroupRecruitment.create(
+                group,
+                joinMethod,
+                capacity,
+                TestSupportConfig.FIXED_NOW.minusDays(1),
+                TestSupportConfig.FIXED_NOW.plusDays(7)
+        ));
+    }
+
+    private String csrfToken(long groupId) {
+        ExtractableResponse<Response> response = given()
+                .when()
+                .get("/groups/{groupId}", groupId)
+                .then()
+                .extract();
+        return response.cookie("XSRF-TOKEN");
     }
 
     @DisplayName("다른 회원의 가입 신청을 철회하면 접근 거부로 응답한다.")
@@ -540,48 +580,5 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
                 .body("success", equalTo(false))
                 .body("data", nullValue())
                 .body("error.code", equalTo("INVALID_PARAMETER"));
-    }
-
-    private RequestSpecification authenticatedRequest(String accessToken, String csrfToken) {
-        return given()
-                .cookie(authCookieProperties.accessTokenName(), accessToken)
-                .cookie("XSRF-TOKEN", csrfToken)
-                .header("X-XSRF-TOKEN", csrfToken)
-                .contentType("application/json");
-    }
-
-    private Member saveMember(String crewName, String githubId) {
-        return memberRepository.save(Member.create(crewName, 8, githubId, Course.BACKEND));
-    }
-
-    private GroupRecruitment saveRecruitment(JoinMethod joinMethod, int capacity) {
-        return saveRecruitment("가입 신청 API 그룹 " + joinMethod, joinMethod, capacity);
-    }
-
-    private GroupRecruitment saveRecruitment(String groupName, JoinMethod joinMethod, int capacity) {
-        Group group = groupRepository.save(Group.createClub(
-                groupName,
-                "함께 활동해요",
-                null,
-                null,
-                null,
-                TestSupportConfig.FIXED_NOW.minusDays(10)
-        ));
-        return recruitmentRepository.save(GroupRecruitment.create(
-                group,
-                joinMethod,
-                capacity,
-                TestSupportConfig.FIXED_NOW.minusDays(1),
-                TestSupportConfig.FIXED_NOW.plusDays(7)
-        ));
-    }
-
-    private String csrfToken(long groupId) {
-        ExtractableResponse<Response> response = given()
-                .when()
-                .get("/groups/{groupId}", groupId)
-                .then()
-                .extract();
-        return response.cookie("XSRF-TOKEN");
     }
 }

@@ -21,12 +21,13 @@ import com.project.jarihana.registration.command.service.dto.DecideRegistrationR
 import com.project.jarihana.registration.domain.DecisionActor;
 import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.registration.domain.RegistrationStatus;
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -68,6 +69,85 @@ public class RegistrationCommandService {
         };
         registration = registrationRepository.save(registration);
         return CreateRegistrationResult.from(registration);
+    }
+
+    private int validateRegistration(GroupRecruitment recruitment, long memberId, LocalDateTime now) {
+        long groupId = recruitment.getGroup().getId();
+        if (!recruitment.getGroup().isActive()) {
+            throw new BusinessException(ErrorCode.GROUP_ENDED, "종료된 그룹에는 가입 신청할 수 없습니다.");
+        }
+        if (groupMemberRepository.findByGroupIdAndMemberId(groupId, memberId).isPresent()) {
+            throw new BusinessException(ErrorCode.GROUP_MEMBER_ALREADY_EXISTS, "이미 가입한 그룹입니다.");
+        }
+        if (registrationRepository.existsByRecruitmentIdAndMemberId(recruitment.getId(), memberId)) {
+            throw new BusinessException(ErrorCode.REGISTRATION_ALREADY_EXISTS, "이미 해당 모집 공고에 신청했습니다.");
+        }
+        if (registrationRepository.existsByRecruitmentGroupIdAndMemberIdAndStatus(
+                groupId,
+                memberId,
+                RegistrationStatus.PENDING
+        )) {
+            throw new BusinessException(
+                    ErrorCode.GROUP_PENDING_REGISTRATION_EXISTS,
+                    "같은 그룹의 다른 모집 공고에 대기 중인 신청이 있습니다."
+            );
+        }
+        int approvedCount = 0;
+        if (recruitment.getJoinMethod() == JoinMethod.AUTO) {
+            approvedCount = approvedCount(recruitment.getId());
+            if (!recruitment.hasCapacity(approvedCount)) {
+                throw new BusinessException(ErrorCode.RECRUITMENT_CAPACITY_EXCEEDED, "모집 정원이 모두 찼습니다.");
+            }
+        }
+        if (!recruitment.isOpenAt(now)) {
+            throw new BusinessException(ErrorCode.RECRUITMENT_NOT_OPEN, "현재 모집 중인 공고가 아닙니다.");
+        }
+        return approvedCount;
+    }
+
+    private int approvedCount(long recruitmentId) {
+        return Math.toIntExact(registrationRepository.countByRecruitmentIdAndStatus(
+                recruitmentId,
+                RegistrationStatus.APPROVED
+        ));
+    }
+
+    private Registration createAutoApprovedRegistration(
+            GroupRecruitment recruitment,
+            Member member,
+            String message,
+            LocalDateTime now,
+            int approvedCount
+    ) {
+        Registration registration = Registration.createAutoApproved(
+                recruitment,
+                member,
+                message,
+                now,
+                approvedCount
+        );
+        groupMemberRepository.save(GroupMember.createMember(recruitment.getGroup(), member, now));
+        closeRecruitmentIfFull(recruitment, approvedCount + 1, now);
+        return registration;
+    }
+
+    private void closeRecruitmentIfFull(
+            GroupRecruitment recruitment,
+            int approvedCount,
+            LocalDateTime now
+    ) {
+        if (recruitment.hasCapacity(approvedCount)) {
+            return;
+        }
+        if (recruitment.phaseAt(now) != RecruitmentPhase.CLOSED) {
+            recruitmentRepository.save(recruitment.closeAt(now));
+        }
+        registrationRepository.findAllByRecruitmentIdInAndStatus(
+                        List.of(recruitment.getId()),
+                        RegistrationStatus.PENDING
+                ).stream()
+                .map(registration -> registration.rejectBySystem("모집 정원 마감", now))
+                .forEach(registrationRepository::save);
     }
 
     @Transactional
@@ -167,84 +247,5 @@ public class RegistrationCommandService {
         groupMemberRepository.save(GroupMember.createMember(recruitment.getGroup(), applicant, now));
         closeRecruitmentIfFull(recruitment, approvedCount + 1, now);
         return approvedRegistration;
-    }
-
-    private int validateRegistration(GroupRecruitment recruitment, long memberId, LocalDateTime now) {
-        long groupId = recruitment.getGroup().getId();
-        if (!recruitment.getGroup().isActive()) {
-            throw new BusinessException(ErrorCode.GROUP_ENDED, "종료된 그룹에는 가입 신청할 수 없습니다.");
-        }
-        if (groupMemberRepository.findByGroupIdAndMemberId(groupId, memberId).isPresent()) {
-            throw new BusinessException(ErrorCode.GROUP_MEMBER_ALREADY_EXISTS, "이미 가입한 그룹입니다.");
-        }
-        if (registrationRepository.existsByRecruitmentIdAndMemberId(recruitment.getId(), memberId)) {
-            throw new BusinessException(ErrorCode.REGISTRATION_ALREADY_EXISTS, "이미 해당 모집 공고에 신청했습니다.");
-        }
-        if (registrationRepository.existsByRecruitmentGroupIdAndMemberIdAndStatus(
-                groupId,
-                memberId,
-                RegistrationStatus.PENDING
-        )) {
-            throw new BusinessException(
-                    ErrorCode.GROUP_PENDING_REGISTRATION_EXISTS,
-                    "같은 그룹의 다른 모집 공고에 대기 중인 신청이 있습니다."
-            );
-        }
-        int approvedCount = 0;
-        if (recruitment.getJoinMethod() == JoinMethod.AUTO) {
-            approvedCount = approvedCount(recruitment.getId());
-            if (!recruitment.hasCapacity(approvedCount)) {
-                throw new BusinessException(ErrorCode.RECRUITMENT_CAPACITY_EXCEEDED, "모집 정원이 모두 찼습니다.");
-            }
-        }
-        if (!recruitment.isOpenAt(now)) {
-            throw new BusinessException(ErrorCode.RECRUITMENT_NOT_OPEN, "현재 모집 중인 공고가 아닙니다.");
-        }
-        return approvedCount;
-    }
-
-    private Registration createAutoApprovedRegistration(
-            GroupRecruitment recruitment,
-            Member member,
-            String message,
-            LocalDateTime now,
-            int approvedCount
-    ) {
-        Registration registration = Registration.createAutoApproved(
-                recruitment,
-                member,
-                message,
-                now,
-                approvedCount
-        );
-        groupMemberRepository.save(GroupMember.createMember(recruitment.getGroup(), member, now));
-        closeRecruitmentIfFull(recruitment, approvedCount + 1, now);
-        return registration;
-    }
-
-    private int approvedCount(long recruitmentId) {
-        return Math.toIntExact(registrationRepository.countByRecruitmentIdAndStatus(
-                recruitmentId,
-                RegistrationStatus.APPROVED
-        ));
-    }
-
-    private void closeRecruitmentIfFull(
-            GroupRecruitment recruitment,
-            int approvedCount,
-            LocalDateTime now
-    ) {
-        if (recruitment.hasCapacity(approvedCount)) {
-            return;
-        }
-        if (recruitment.phaseAt(now) != RecruitmentPhase.CLOSED) {
-            recruitmentRepository.save(recruitment.closeAt(now));
-        }
-        registrationRepository.findAllByRecruitmentIdInAndStatus(
-                        List.of(recruitment.getId()),
-                        RegistrationStatus.PENDING
-                ).stream()
-                .map(registration -> registration.rejectBySystem("모집 정원 마감", now))
-                .forEach(registrationRepository::save);
     }
 }

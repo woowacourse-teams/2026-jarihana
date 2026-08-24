@@ -1,7 +1,5 @@
 package com.project.jarihana.member.command.controller;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.project.jarihana.common.auth.AccessTokenProvider;
 import com.project.jarihana.common.auth.AuthCookieProperties;
 import com.project.jarihana.common.auth.SignupSession;
@@ -15,9 +13,6 @@ import io.restassured.http.Cookie;
 import io.restassured.response.ExtractableResponse;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +20,12 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.session.Session;
 import org.springframework.session.SessionRepository;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * 가입 완료는 Request Body가 아니라 가입 세션의 githubId로 회원을 만든다.
@@ -72,6 +73,50 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
         assertThat(response.jsonPath().getString("data.course")).isEqualTo("BACKEND");
         assertThat(response.jsonPath().getString("data.joinedAt")).isNotBlank();
         assertThat(memberRepository.findByGithubId(GITHUB_ID)).isPresent();
+    }
+
+    private Map<String, Object> body(String crewName, int generation, String course) {
+        return Map.of("crewName", crewName, "generation", generation, "course", course);
+    }
+
+    private ExtractableResponse<Response> signup(String sessionId, Map<String, Object> body) {
+        String csrfToken = issueCsrfToken();
+        RequestSpecification request = RestAssured.given()
+                .contentType(ContentType.JSON)
+                .cookie(CSRF_COOKIE_NAME, csrfToken)
+                .header(CSRF_HEADER_NAME, csrfToken)
+                .body(body);
+        if (sessionId != null) {
+            request = request.cookie(SESSION_COOKIE_NAME, encodeSessionCookie(sessionId));
+        }
+        return request.when()
+                .post(SIGNUP_PATH)
+                .then()
+                .extract();
+    }
+
+    private String issueCsrfToken() {
+        return RestAssured.given()
+                .when()
+                .get(MY_PROFILE_PATH)
+                .then()
+                .extract()
+                .cookie(CSRF_COOKIE_NAME);
+    }
+
+    private String encodeSessionCookie(String sessionId) {
+        return Base64.getEncoder().encodeToString(sessionId.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private String createSignupSession(String githubId) {
+        return storeSignupGithubId(sessionRepository, githubId);
+    }
+
+    private <S extends Session> String storeSignupGithubId(SessionRepository<S> repository, String githubId) {
+        S session = repository.createSession();
+        session.setAttribute(SignupSession.githubIdAttribute(), githubId);
+        repository.save(session);
+        return session.getId();
     }
 
     @DisplayName("가입을 마치면 이후 API에서 쓸 토큰 쿠키를 받는다.")
@@ -205,49 +250,5 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.FORBIDDEN.value());
         assertThat(response.jsonPath().getString("error.code")).isEqualTo("ACCESS_DENIED");
-    }
-
-    private Map<String, Object> body(String crewName, int generation, String course) {
-        return Map.of("crewName", crewName, "generation", generation, "course", course);
-    }
-
-    private ExtractableResponse<Response> signup(String sessionId, Map<String, Object> body) {
-        String csrfToken = issueCsrfToken();
-        RequestSpecification request = RestAssured.given()
-                .contentType(ContentType.JSON)
-                .cookie(CSRF_COOKIE_NAME, csrfToken)
-                .header(CSRF_HEADER_NAME, csrfToken)
-                .body(body);
-        if (sessionId != null) {
-            request = request.cookie(SESSION_COOKIE_NAME, encodeSessionCookie(sessionId));
-        }
-        return request.when()
-                .post(SIGNUP_PATH)
-                .then()
-                .extract();
-    }
-
-    private String issueCsrfToken() {
-        return RestAssured.given()
-                .when()
-                .get(MY_PROFILE_PATH)
-                .then()
-                .extract()
-                .cookie(CSRF_COOKIE_NAME);
-    }
-
-    private String createSignupSession(String githubId) {
-        return storeSignupGithubId(sessionRepository, githubId);
-    }
-
-    private <S extends Session> String storeSignupGithubId(SessionRepository<S> repository, String githubId) {
-        S session = repository.createSession();
-        session.setAttribute(SignupSession.githubIdAttribute(), githubId);
-        repository.save(session);
-        return session.getId();
-    }
-
-    private String encodeSessionCookie(String sessionId) {
-        return Base64.getEncoder().encodeToString(sessionId.getBytes(StandardCharsets.UTF_8));
     }
 }

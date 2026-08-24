@@ -3,6 +3,7 @@ package com.project.jarihana.registration.query.repository.dto;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.registration.domain.DecisionActorType;
 import com.project.jarihana.registration.domain.RegistrationStatus;
+
 import java.time.LocalDateTime;
 
 public record RegistrationListProjection(

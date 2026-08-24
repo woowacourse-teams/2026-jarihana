@@ -1,17 +1,18 @@
 package com.project.jarihana.common.auth;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.TestSupportConfig;
 import io.restassured.RestAssured;
 import io.restassured.response.ExtractableResponse;
 import io.restassured.response.Response;
-import java.time.Clock;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+
+import java.time.Clock;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Access Token 쿠키 기반 인증 필터의 계약을 검증한다.
@@ -69,6 +70,30 @@ class JwtCookieAuthenticationAcceptanceTest extends IntegrationTestSupport {
         assertThat(response.jsonPath().getString("error.code")).isEqualTo("UNAUTHENTICATED");
     }
 
+    private ExtractableResponse<Response> getProtectedPathWithAccessToken(String accessToken) {
+        return RestAssured.given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .when()
+                .get(PROTECTED_PATH)
+                .then()
+                .extract();
+    }
+
+    private AccessTokenProvider providerAt(JwtProperties properties, Clock issuedAt) {
+        return new AccessTokenProvider(properties, issuedAt);
+    }
+
+    private Clock expiredClock() {
+        return Clock.fixed(
+                TestSupportConfig.FIXED_NOW
+                        .minus(jwtProperties.validity())
+                        .minusSeconds(1)
+                        .atZone(TestSupportConfig.ZONE)
+                        .toInstant(),
+                TestSupportConfig.ZONE
+        );
+    }
+
     @DisplayName("다른 비밀키로 서명한 Access Token 쿠키는 거부한다.")
     @Test
     void rejectForgedAccessTokenCookie() {
@@ -81,6 +106,10 @@ class JwtCookieAuthenticationAcceptanceTest extends IntegrationTestSupport {
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
         assertThat(response.jsonPath().getString("error.code")).isEqualTo("UNAUTHENTICATED");
+    }
+
+    private JwtProperties propertiesWithSecret(String secret) {
+        return new JwtProperties(secret, jwtProperties.validity());
     }
 
     @DisplayName("JWT 형식이 아닌 Access Token 쿠키는 거부한다.")
@@ -135,33 +164,5 @@ class JwtCookieAuthenticationAcceptanceTest extends IntegrationTestSupport {
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.BAD_REQUEST.value());
         assertThat(response.jsonPath().getString("error.code")).isEqualTo("OAUTH_STATE_INVALID");
-    }
-
-    private ExtractableResponse<Response> getProtectedPathWithAccessToken(String accessToken) {
-        return RestAssured.given()
-                .cookie(authCookieProperties.accessTokenName(), accessToken)
-                .when()
-                .get(PROTECTED_PATH)
-                .then()
-                .extract();
-    }
-
-    private AccessTokenProvider providerAt(JwtProperties properties, Clock issuedAt) {
-        return new AccessTokenProvider(properties, issuedAt);
-    }
-
-    private JwtProperties propertiesWithSecret(String secret) {
-        return new JwtProperties(secret, jwtProperties.validity());
-    }
-
-    private Clock expiredClock() {
-        return Clock.fixed(
-                TestSupportConfig.FIXED_NOW
-                        .minus(jwtProperties.validity())
-                        .minusSeconds(1)
-                        .atZone(TestSupportConfig.ZONE)
-                        .toInstant(),
-                TestSupportConfig.ZONE
-        );
     }
 }

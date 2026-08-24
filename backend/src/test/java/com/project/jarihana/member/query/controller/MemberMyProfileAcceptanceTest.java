@@ -1,7 +1,5 @@
 package com.project.jarihana.member.query.controller;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.project.jarihana.common.auth.AccessTokenProvider;
 import com.project.jarihana.common.auth.AuthCookieProperties;
 import com.project.jarihana.common.auth.SignupSession;
@@ -12,14 +10,17 @@ import com.project.jarihana.support.IntegrationTestSupport;
 import io.restassured.RestAssured;
 import io.restassured.response.ExtractableResponse;
 import io.restassured.response.Response;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.session.Session;
 import org.springframework.session.SessionRepository;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * 내 정보 조회는 자격 증명 경로가 두 개다.
@@ -72,6 +73,10 @@ class MemberMyProfileAcceptanceTest extends IntegrationTestSupport {
         assertThat((Object) response.jsonPath().get("error")).isNull();
     }
 
+    private String accessTokenOf(Member member) {
+        return accessTokenProvider.issue(member.getId()).value();
+    }
+
     @DisplayName("가입 세션만 있는 사용자는 가입 전 상태로 응답한다.")
     @Test
     void respondSignupRequiredToSessionOnlyUser() {
@@ -90,6 +95,21 @@ class MemberMyProfileAcceptanceTest extends IntegrationTestSupport {
         assertThat(response.statusCode()).isEqualTo(HttpStatus.OK.value());
         assertThat(response.jsonPath().getBoolean("data.signupCompleted")).isFalse();
         assertThat((Object) response.jsonPath().get("data.member")).isNull();
+    }
+
+    private String createSignupSession(String githubId) {
+        return storeSignupGithubId(sessionRepository, githubId);
+    }
+
+    private <S extends Session> String storeSignupGithubId(SessionRepository<S> repository, String githubId) {
+        S session = repository.createSession();
+        session.setAttribute(SignupSession.githubIdAttribute(), githubId);
+        repository.save(session);
+        return session.getId();
+    }
+
+    private String encodeSessionCookie(String sessionId) {
+        return Base64.getEncoder().encodeToString(sessionId.getBytes(StandardCharsets.UTF_8));
     }
 
     @DisplayName("가입 세션이 있어도 가입을 마쳤다면 회원 정보를 준다.")
@@ -166,24 +186,5 @@ class MemberMyProfileAcceptanceTest extends IntegrationTestSupport {
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
         assertThat(response.jsonPath().getString("error.code")).isEqualTo("UNAUTHENTICATED");
-    }
-
-    private String accessTokenOf(Member member) {
-        return accessTokenProvider.issue(member.getId()).value();
-    }
-
-    private String createSignupSession(String githubId) {
-        return storeSignupGithubId(sessionRepository, githubId);
-    }
-
-    private <S extends Session> String storeSignupGithubId(SessionRepository<S> repository, String githubId) {
-        S session = repository.createSession();
-        session.setAttribute(SignupSession.githubIdAttribute(), githubId);
-        repository.save(session);
-        return session.getId();
-    }
-
-    private String encodeSessionCookie(String sessionId) {
-        return Base64.getEncoder().encodeToString(sessionId.getBytes(StandardCharsets.UTF_8));
     }
 }

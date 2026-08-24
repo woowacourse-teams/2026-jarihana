@@ -8,8 +8,8 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 @ConfigurationPropertiesScan
 public class JarihanaApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(JarihanaApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(JarihanaApplication.class, args);
+    }
 
 }

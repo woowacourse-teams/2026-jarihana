@@ -1,8 +1,5 @@
 package com.project.jarihana.groupmember.query.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
@@ -13,17 +10,21 @@ import com.project.jarihana.groupmember.query.repository.dto.GroupMemberListSear
 import com.project.jarihana.groupmember.query.service.dto.GroupMemberListQuery;
 import com.project.jarihana.groupmember.query.service.dto.GroupMemberListResult;
 import com.project.jarihana.member.domain.Course;
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
-import java.util.Base64;
-import java.util.List;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.util.Base64;
+import java.util.List;
+import java.util.stream.Stream;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class GroupMemberQueryServiceTest {
 
@@ -32,6 +33,21 @@ class GroupMemberQueryServiceTest {
 
     private final FakeGroupMemberListRepository repository = new FakeGroupMemberListRepository();
     private final GroupMemberQueryService service = new GroupMemberQueryService(repository);
+
+    private static Stream<String> invalidCursors() {
+        return Stream.of(
+                "invalid-cursor",
+                encodeCursor("invalid"),
+                encodeCursor("not-a-date|1"),
+                encodeCursor("2026-08-19T10:00|0")
+        );
+    }
+
+    private static String encodeCursor(String value) {
+        return Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(value.getBytes(StandardCharsets.UTF_8));
+    }
 
     @DisplayName("그룹 구성원 목록을 조회하고 다음 커서를 생성한다.")
     @Test
@@ -75,6 +91,29 @@ class GroupMemberQueryServiceTest {
         assertThat(result.hasNext()).isTrue();
     }
 
+    private static GroupMemberListProjection projection(
+            Long groupMemberId,
+            Long memberId,
+            String crewName,
+            Course course,
+            GroupMemberRole role,
+            LocalDateTime joinedAt
+    ) {
+        return new GroupMemberListProjection(
+                groupMemberId,
+                memberId,
+                crewName,
+                8,
+                course,
+                role,
+                joinedAt
+        );
+    }
+
+    private static String decodeCursor(String cursor) {
+        return new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8);
+    }
+
     @DisplayName("커서를 해석해 다음 그룹 구성원 페이지를 조회한다.")
     @Test
     void findsNextPageWithDecodedCursor() {
@@ -108,6 +147,16 @@ class GroupMemberQueryServiceTest {
 
         // When / Then
         assertInvalidParameter(() -> service.findGroupMembers(groupId, query));
+    }
+
+    private static void assertInvalidParameter(Runnable invocation) {
+        assertThatThrownBy(invocation::run)
+                .isInstanceOf(BusinessException.class)
+                .extracting(
+                        exception -> ((BusinessException) exception).getErrorCode(),
+                        Throwable::getMessage
+                )
+                .containsExactly(ErrorCode.INVALID_PARAMETER, "요청 파라미터가 올바르지 않습니다.");
     }
 
     @DisplayName("조회 조건이 없으면 예외가 발생한다.")
@@ -154,54 +203,6 @@ class GroupMemberQueryServiceTest {
                 )
                 .containsExactly(ErrorCode.GROUP_NOT_FOUND, "그룹을 찾을 수 없습니다.");
         assertThat(repository.findPageCallCount()).isZero();
-    }
-
-    private static Stream<String> invalidCursors() {
-        return Stream.of(
-                "invalid-cursor",
-                encodeCursor("invalid"),
-                encodeCursor("not-a-date|1"),
-                encodeCursor("2026-08-19T10:00|0")
-        );
-    }
-
-    private static GroupMemberListProjection projection(
-            Long groupMemberId,
-            Long memberId,
-            String crewName,
-            Course course,
-            GroupMemberRole role,
-            LocalDateTime joinedAt
-    ) {
-        return new GroupMemberListProjection(
-                groupMemberId,
-                memberId,
-                crewName,
-                8,
-                course,
-                role,
-                joinedAt
-        );
-    }
-
-    private static String encodeCursor(String value) {
-        return Base64.getUrlEncoder()
-                .withoutPadding()
-                .encodeToString(value.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private static String decodeCursor(String cursor) {
-        return new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8);
-    }
-
-    private static void assertInvalidParameter(Runnable invocation) {
-        assertThatThrownBy(invocation::run)
-                .isInstanceOf(BusinessException.class)
-                .extracting(
-                        exception -> ((BusinessException) exception).getErrorCode(),
-                        Throwable::getMessage
-                )
-                .containsExactly(ErrorCode.INVALID_PARAMETER, "요청 파라미터가 올바르지 않습니다.");
     }
 
     private static class FakeGroupMemberListRepository implements GroupMemberListRepository {

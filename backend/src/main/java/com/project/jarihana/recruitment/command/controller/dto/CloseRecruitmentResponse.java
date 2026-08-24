@@ -1,6 +1,7 @@
 package com.project.jarihana.recruitment.command.controller.dto;
 
 import com.project.jarihana.recruitment.command.service.dto.CloseRecruitmentResult;
+
 import java.time.LocalDateTime;
 
 public record CloseRecruitmentResponse(

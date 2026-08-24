@@ -5,22 +5,12 @@ import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.member.domain.Member;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
-import java.time.LocalDateTime;
-import java.util.Objects;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Entity
 @Table(
@@ -68,6 +58,21 @@ public class GroupMember extends BaseEntity {
         this.joinedAt = require(joinedAt, "가입 시각");
     }
 
+    private static Group validateGroup(Group group) {
+        Group requiredGroup = require(group, "그룹");
+        if (!requiredGroup.isActive()) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "ACTIVE 상태의 그룹에만 구성원을 생성할 수 있습니다.");
+        }
+        return requiredGroup;
+    }
+
+    private static <T> T require(T value, String fieldName) {
+        if (value == null) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 필수입니다.");
+        }
+        return value;
+    }
+
     public static GroupMember createLeader(Group group, Member member, LocalDateTime joinedAt) {
         return new GroupMember(null, group, member, GroupMemberRole.LEADER, joinedAt);
     }
@@ -96,10 +101,6 @@ public class GroupMember extends BaseEntity {
         );
     }
 
-    public boolean canLeave() {
-        return role == GroupMemberRole.MEMBER;
-    }
-
     private boolean belongsToSameGroup(GroupMember other) {
         if (group == other.group) {
             return true;
@@ -111,19 +112,8 @@ public class GroupMember extends BaseEntity {
         return new GroupMember(id, group, member, changedRole, joinedAt);
     }
 
-    private static Group validateGroup(Group group) {
-        Group requiredGroup = require(group, "그룹");
-        if (!requiredGroup.isActive()) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "ACTIVE 상태의 그룹에만 구성원을 생성할 수 있습니다.");
-        }
-        return requiredGroup;
-    }
-
-    private static <T> T require(T value, String fieldName) {
-        if (value == null) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 필수입니다.");
-        }
-        return value;
+    public boolean canLeave() {
+        return role == GroupMemberRole.MEMBER;
     }
 
     public Long getId() {
@@ -147,6 +137,11 @@ public class GroupMember extends BaseEntity {
     }
 
     @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
+    }
+
+    @Override
     public boolean equals(Object object) {
         if (this == object) {
             return true;
@@ -158,10 +153,5 @@ public class GroupMember extends BaseEntity {
             return false;
         }
         return id.equals(other.id);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(id);
     }
 }
