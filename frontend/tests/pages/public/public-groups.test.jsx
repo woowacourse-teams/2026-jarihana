@@ -347,7 +347,7 @@ it("Given an archived group, when detail renders, then the recruitment sidebar i
 
   renderAt("/groups/41", <GroupDetailPage />);
 
-  expect(screen.getByRole("complementary", { name: "모집 정보" })).toBeInTheDocument();
+  expect(screen.getByRole("complementary", { name: "모집과 운영자 정보" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "아카이빙된 모임입니다" })).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "새 모집 만들기" })).not.toBeInTheDocument();
   expect(screen.queryByText("모집 중")).not.toBeInTheDocument();
@@ -462,24 +462,19 @@ it("Given a group detail, when the page renders, then list navigation is integra
   scrollTo.mockRestore();
 });
 
-it("Given a group leader, when detail renders, then the full-width hero separates leader context from recruitment", () => {
+it("Given a group leader, when detail renders, then leader context is separate from recruitment", () => {
   const scrollTo = jest.spyOn(window, "scrollTo").mockImplementation(() => {});
   const { container } = renderAt("/groups/41", <GroupDetailPage />);
 
-  const layout = container.querySelector(".group-detail-grid");
-  const layoutChildren = [...layout.children];
-
-  expect(layoutChildren).toHaveLength(3);
-
-  const [profile, tabs, desktopRail] = layoutChildren;
+  const desktopRail = container.querySelector(".group-rail--desktop");
+  const leaderCard = desktopRail.querySelector(".group-leader--card");
   const recruitmentCard = desktopRail.querySelector(".group-recruitment-summary");
-  const heroLeader = profile.querySelector(".group-leader--hero");
+  const heroLeader = container.querySelector(".group-profile .group-leader--hero");
 
-  expect(profile).toHaveClass("group-profile");
-  expect(tabs).toHaveClass("group-detail-tabs");
-  expect(desktopRail).toHaveClass("group-rail--desktop");
-  expect(heroLeader).toHaveTextContent("써니");
+  expect(leaderCard).toHaveTextContent("써니");
+  expect(leaderCard.nextElementSibling).toBe(recruitmentCard);
   expect(recruitmentCard.querySelector(".group-leader")).not.toBeInTheDocument();
+  expect(heroLeader).toHaveTextContent("써니");
   scrollTo.mockRestore();
 });
 

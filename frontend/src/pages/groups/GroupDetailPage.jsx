@@ -110,102 +110,105 @@ export function GroupDetailPage() {
   return (
     <PageContainer className="group-detail-page">
       <div className="group-detail-grid">
-        <section
-          className={`group-profile${usesDefaultImage ? " group-profile--default-image" : ""}`}
-          aria-labelledby="group-title"
-        >
-          <Link className="group-back group-back--hero" to="/groups">
-            <ChevronLeft aria-hidden="true" size={18} strokeWidth={2.25} />
-            <span>목록으로</span>
-          </Link>
-          <div className="group-profile__copy">
-            <p className="groups-eyebrow group-profile__type-tag">
-              <span>{typeLabel(group.type)}</span>
-            </p>
-            <h1 id="group-title">{group.name}</h1>
-            <p>{group.introduction}</p>
-            <div className="group-info">
-              <h2 className="group-info-title">모임 정보</h2>
-              <dl className="group-facts">
-                <DetailFact
-                  icon={kindIcon}
-                  label="모임 방식"
-                  value={meetingTypeLabel(group.meetingType)}
-                />
-                <DetailFact
-                  icon={scheduleIcon}
-                  label="모임 일정"
-                  value={
-                    <span className="group-facts__schedule">
-                      {scheduleLines(group).map((line) => (
-                        <span key={line}>{line}</span>
-                      ))}
-                    </span>
-                  }
-                />
-                <DetailFact
-                  icon={placeIcon}
-                  label="장소"
-                  value={group.location || "장소 미정"}
-                />
-                <DetailFact
-                  icon={memberIcon}
-                  label="현재 멤버 수"
-                  value={`${group.memberCount}명`}
-                />
-              </dl>
+        <div>
+          <section
+            className={`group-profile${usesDefaultImage ? " group-profile--default-image" : ""}`}
+            aria-labelledby="group-title"
+          >
+            <Link className="group-back group-back--hero" to="/groups">
+              <ChevronLeft aria-hidden="true" size={18} strokeWidth={2.25} />
+              <span>목록으로</span>
+            </Link>
+            <div className="group-profile__copy">
+              <p className="groups-eyebrow group-profile__type-tag">
+                <span>{typeLabel(group.type)}</span>
+              </p>
+              <h1 id="group-title">{group.name}</h1>
+              <p>{group.introduction}</p>
+              <LeaderSummary leader={group.leader} variant="hero" />
+              <div className="group-info">
+                <h2 className="group-info-title">모임 정보</h2>
+                <dl className="group-facts">
+                  <DetailFact
+                    icon={kindIcon}
+                    label="모임 방식"
+                    value={meetingTypeLabel(group.meetingType)}
+                  />
+                  <DetailFact
+                    icon={scheduleIcon}
+                    label="모임 일정"
+                    value={
+                      <span className="group-facts__schedule">
+                        {scheduleLines(group).map((line) => (
+                          <span key={line}>{line}</span>
+                        ))}
+                      </span>
+                    }
+                  />
+                  <DetailFact
+                    icon={placeIcon}
+                    label="장소"
+                    value={group.location || "장소 미정"}
+                  />
+                  <DetailFact
+                    icon={memberIcon}
+                    label="현재 멤버 수"
+                    value={`${group.memberCount}명`}
+                  />
+                </dl>
+              </div>
             </div>
-          </div>
-          <LeaderSummary leader={group.leader} variant="hero" />
-          <div className="group-profile__art">
-            <GroupImage
-              alt={`${group.name} 대표 이미지`}
-              className="group-profile__image"
-              group={group}
+            <div className="group-profile__art">
+              <GroupImage
+                alt={`${group.name} 대표 이미지`}
+                className="group-profile__image"
+                group={group}
+              />
+            </div>
+            {isLeader ? (
+              <Link
+                aria-label="모임 수정"
+                className="group-profile__edit ui-button ui-icon-button"
+                title="모임 수정"
+                to={`/groups/${groupId}/manage`}
+              >
+                <Pencil aria-hidden="true" size={20} strokeWidth={2.25} />
+              </Link>
+            ) : null}
+          </section>
+
+          <div className="group-detail-tabs">
+            <Tabs
+              animated
+              value={selectedTab}
+              onValueChange={(value) => {
+                const nextSearchParams = new URLSearchParams(searchParams);
+                nextSearchParams.set("tab", value);
+                setSearchParams(nextSearchParams, { replace: true });
+              }}
+              items={[
+                {
+                  label: tabs[0].label,
+                  value: tabs[0].value,
+                  content: <Introduction group={group} />
+                },
+                {
+                  label: tabs[1].label,
+                  value: tabs[1].value,
+                  content: <ActivityTab />
+                },
+                {
+                  label: tabs[2].label,
+                  value: tabs[2].value,
+                  content: selectedTab === "members" ? <MemberTab groupId={groupId} /> : null
+                }
+              ]}
             />
           </div>
-          {isLeader ? (
-            <Link
-              aria-label="모임 수정"
-              className="group-profile__edit ui-button ui-icon-button"
-              title="모임 수정"
-              to={`/groups/${groupId}/manage`}
-            >
-              <Pencil aria-hidden="true" size={20} strokeWidth={2.25} />
-            </Link>
-          ) : null}
-        </section>
-
-        <div className="group-detail-tabs">
-          <Tabs
-            animated
-            value={selectedTab}
-            onValueChange={(value) => {
-              const nextSearchParams = new URLSearchParams(searchParams);
-              nextSearchParams.set("tab", value);
-              setSearchParams(nextSearchParams, { replace: true });
-            }}
-            items={[
-              {
-                label: tabs[0].label,
-                value: tabs[0].value,
-                content: <Introduction group={group} />
-              },
-              {
-                label: tabs[1].label,
-                value: tabs[1].value,
-                content: <ActivityTab />
-              },
-              {
-                label: tabs[2].label,
-                value: tabs[2].value,
-                content: selectedTab === "members" ? <MemberTab groupId={groupId} /> : null
-              }
-            ]}
-          />
         </div>
 
-        <aside className="group-rail group-rail--desktop" aria-label="모집 정보">
+        <aside className="group-rail group-rail--desktop" aria-label="운영자와 모집 정보">
+          <LeaderSummary leader={group.leader} variant="card" />
           <RecruitmentSummary
             auth={auth}
             group={group}
