@@ -472,8 +472,27 @@
 
 .group-profile--default-image .group-profile__art {
   background:
-    radial-gradient(circle at 82% 50%, rgb(49 191 182 / 28%), transparent 38%),
-    var(--color-nav);
+    radial-gradient(
+      circle at 82% 50%,
+      color-mix(in srgb, var(--color-brand) 42%, transparent),
+      transparent 44%
+    ),
+    color-mix(in srgb, var(--color-brand) 30%, var(--color-nav));
+}
+
+.group-profile--default-image::after {
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-nav) 62%, transparent) 0%,
+      color-mix(in srgb, var(--color-nav) 32%, transparent) 60%,
+      color-mix(in srgb, var(--color-nav) 12%, transparent) 100%
+    ),
+    linear-gradient(
+      180deg,
+      transparent 0%,
+      color-mix(in srgb, var(--color-nav) 22%, transparent) 100%
+    );
 }
 
 .group-profile--default-image .group-profile__image {
@@ -1471,6 +1490,14 @@
       180deg,
       color-mix(in srgb, var(--color-nav) 48%, transparent) 0%,
       color-mix(in srgb, var(--color-nav) 68%, transparent) 100%
+    );
+  }
+
+  .group-profile--default-image::after {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-nav) 28%, transparent) 0%,
+      color-mix(in srgb, var(--color-nav) 54%, transparent) 100%
     );
   }
 
