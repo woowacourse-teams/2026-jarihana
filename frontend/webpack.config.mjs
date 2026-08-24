@@ -97,7 +97,6 @@ export default (_, arguments_) => {
         {
           changeOrigin: true,
           context: ["/api", "/images"],
-          pathRewrite: { "^/api": "" },
           target: "http://localhost:8080"
         }
       ],
