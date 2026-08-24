@@ -4,13 +4,11 @@ import { Link } from "react-router";
 import { Button, EmptyState, ErrorState, Skeleton, StatusBadge } from "../../shared/ui/index.js";
 import { GROUP_TYPE_LABELS, REGISTRATION_STATUS_LABELS, formatKoreanDate } from "./accountUtils.js";
 
-function GroupActivityRow({ group, label }) {
+function GroupActivityRow({ group, isLeader, label }) {
+  const isArchived = isLeader && group.status === "ENDED";
+
   return (
-    <Link
-      aria-label={`${group.name} 모임 상세 보기`}
-      className="activity-row activity-row--interactive"
-      to={`/groups/${group.id}`}
-    >
+    <article className="activity-row activity-row--interactive">
       <img
         alt=""
         className="activity-row__visual"
@@ -18,22 +16,42 @@ function GroupActivityRow({ group, label }) {
       />
       <div className="activity-row__body">
         <div className="activity-row__meta">
-          <StatusBadge tone="brand">{label}</StatusBadge>
+          <StatusBadge tone={isArchived ? "neutral" : "brand"}>
+            {isArchived ? "모임 종료" : label}
+          </StatusBadge>
           <span>
             <UsersRound aria-hidden="true" size={14} /> {group.memberCount}명
           </span>
         </div>
         <h3>{group.name}</h3>
         <p>{group.introduction}</p>
-        <span className="activity-row__detail">
-          <span>
-            {GROUP_TYPE_LABELS[group.type] ?? group.type} ·{" "}
-            {group.leader?.crewName ?? "리더 정보 없음"}
-          </span>
-          <ArrowRight aria-hidden="true" className="activity-row__arrow" size={17} />
-        </span>
+        <div className="activity-row__actions">
+          <Link
+            aria-label={`${group.name} 상세보기`}
+            className="activity-row__detail"
+            to={`/groups/${group.id}`}
+          >
+            <span className="activity-row__detail-copy">
+              <span className="activity-row__detail-meta">
+                {GROUP_TYPE_LABELS[group.type] ?? group.type} ·{" "}
+                {group.leader?.crewName ?? "리더 정보 없음"}
+              </span>
+              <span className="activity-row__detail-action">상세보기</span>
+            </span>
+            <ArrowRight aria-hidden="true" className="activity-row__arrow" size={17} />
+          </Link>
+          {isLeader ? (
+            <Link
+              aria-label={`${group.name} 모임 관리`}
+              className="activity-row__manage ui-button ui-button--tertiary ui-button--sm"
+              to={`/groups/${group.id}/manage`}
+            >
+              모임 관리
+            </Link>
+          ) : null}
+        </div>
       </div>
-    </Link>
+    </article>
   );
 }
 
@@ -46,11 +64,7 @@ function RegistrationActivityRow({ registration }) {
         : "warning";
 
   return (
-    <Link
-      aria-label={`${registration.group.name} 신청 모임 상세 보기`}
-      className="activity-row activity-row--interactive"
-      to={`/groups/${registration.group.id}`}
-    >
+    <article className="activity-row activity-row--interactive">
       <div aria-hidden="true" className="activity-row__visual activity-row__visual--registration">
         <CalendarDays size={32} />
       </div>
@@ -63,12 +77,21 @@ function RegistrationActivityRow({ registration }) {
         </div>
         <h3>{registration.group.name}</h3>
         <p>{registration.message || "남긴 신청 메시지가 없어요."}</p>
-        <span className="activity-row__detail">
-          <span>가입 신청</span>
-          <ArrowRight aria-hidden="true" className="activity-row__arrow" size={17} />
-        </span>
+        <div className="activity-row__actions">
+          <Link
+            aria-label={`${registration.group.name} 상세보기`}
+            className="activity-row__detail"
+            to={`/groups/${registration.group.id}`}
+          >
+            <span className="activity-row__detail-copy">
+              <span className="activity-row__detail-meta">가입 신청</span>
+              <span className="activity-row__detail-action">상세보기</span>
+            </span>
+            <ArrowRight aria-hidden="true" className="activity-row__arrow" size={17} />
+          </Link>
+        </div>
       </div>
-    </Link>
+    </article>
   );
 }
 
@@ -112,6 +135,7 @@ export function MyActivityBoard({ items, kind, query }) {
             ) : (
               <GroupActivityRow
                 group={activity.group}
+                isLeader={kind === "led"}
                 key={activity.key}
                 label={kind === "led" ? "운영 중" : "가입 완료"}
               />

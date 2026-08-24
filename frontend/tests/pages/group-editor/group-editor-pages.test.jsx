@@ -257,6 +257,10 @@ describe("GroupManagePage", () => {
       within(descriptionPanel).getByRole("textbox", { name: /^모임 소개/ })
     ).toBeInTheDocument();
     expect(within(overviewHero).getByText("스터디")).toBeInTheDocument();
+    const typeTag = within(overviewHero).getByText("스터디").closest(".group-editor__type-tag");
+    expect(typeTag).toHaveAttribute("aria-disabled", "true");
+    expect(typeTag).toHaveAttribute("title", "생성된 모임의 종류는 변경할 수 없어요.");
+    expect(within(typeTag).queryByText("변경 불가")).not.toBeInTheDocument();
     expect(
       within(overviewHero).queryByRole("combobox", { name: "모임 종류" })
     ).not.toBeInTheDocument();

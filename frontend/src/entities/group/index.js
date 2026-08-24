@@ -71,7 +71,8 @@ export const groupListItemSchema = z.object({
   sessionSchedule: sessionScheduleSchema.nullable().optional(),
   leader: leaderSchema.nullable(),
   memberCount: z.number().int().nonnegative(),
-  activeRecruitment: activeRecruitmentSchema.nullable()
+  activeRecruitment: activeRecruitmentSchema.nullable(),
+  currentMemberRole: groupRoleSchema.nullable().optional()
 });
 
 export const groupListPageSchema = cursorPageSchema(groupListItemSchema);

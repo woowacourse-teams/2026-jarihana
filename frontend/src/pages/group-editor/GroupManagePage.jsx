@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
-import { Link, useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import { z } from "zod";
 
 import {
@@ -13,7 +13,11 @@ import {
   useReplaceSessionSchedule,
   useTerminateGroup
 } from "../../features/group/index.js";
-import { Button, ConfirmDialog, ErrorState, Skeleton, useToast } from "../../shared/ui/index.js";
+import scheduleIcon from "../../shared/assets/figma/edit-05.svg";
+import placeIcon from "../../shared/assets/figma/edit-06.svg";
+import memberIcon from "../../shared/assets/figma/edit-09.svg";
+import kindIcon from "../../shared/assets/figma/edit-04.svg";
+import { Button, ConfirmDialog, ErrorState, Modal, Skeleton, useToast } from "../../shared/ui/index.js";
 import {
   DescriptionField,
   GroupContentTabs,
@@ -58,7 +62,9 @@ const sessionSchema = z
   });
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const GROUP_TYPE_LABEL = { CLUB: "동아리", SESSION: "일회성 세션", STUDY: "스터디" };
+const GROUP_TYPE_LABEL = { CLUB: "동아리", SESSION: "세션", STUDY: "스터디" };
+const RECURRING_DEFAULTS = { daysOfWeek: [], startTime: "19:00", endTime: "21:00" };
+const SESSION_DEFAULTS = { sessionDate: "", startTime: "19:00", endTime: "21:00" };
 const DAY_LABEL = {
   MONDAY: "월",
   TUESDAY: "화",
@@ -69,17 +75,55 @@ const DAY_LABEL = {
   SUNDAY: "일"
 };
 
+function timeLabel(value) {
+  return value?.slice(0, 5) ?? value;
+}
+
 function scheduleLabel(group) {
   if (group.sessionSchedule) {
     const schedule = group.sessionSchedule;
-    return `${schedule.sessionDate} ${schedule.startTime}–${schedule.endTime}`;
+    return `${schedule.sessionDate} ${timeLabel(schedule.startTime)}–${timeLabel(schedule.endTime)}`;
   }
   if (group.recurringSchedule) {
     const schedule = group.recurringSchedule;
     const days = schedule.daysOfWeek.map((day) => DAY_LABEL[day] ?? day).join("·");
-    return `매주 ${days} ${schedule.startTime}–${schedule.endTime}`;
+    return `매주 ${days} ${timeLabel(schedule.startTime)}–${timeLabel(schedule.endTime)}`;
   }
   return "등록된 일정 없음";
+}
+
+function HeroFact({ icon, label, onClick, unavailable = false, value }) {
+  const interactive = Boolean(onClick);
+  const handleKeyDown = (event) => {
+    if (!interactive || !["Enter", " "].includes(event.key)) return;
+    event.preventDefault();
+    onClick();
+  };
+
+  return (
+    <div
+      aria-label={interactive ? `${label} 수정` : undefined}
+      className={
+        [
+          "group-editor__fact",
+          unavailable && "group-editor__fact--unavailable",
+          interactive && "group-editor__fact--interactive"
+        ]
+          .filter(Boolean)
+          .join(" ")
+      }
+      onClick={interactive ? onClick : undefined}
+      onKeyDown={interactive ? handleKeyDown : undefined}
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+    >
+      <img alt="" aria-hidden="true" src={icon} />
+      <div>
+        <dt>{label}</dt>
+        <dd>{value}</dd>
+      </div>
+    </div>
+  );
 }
 
 function errorDescription(error) {
@@ -148,17 +192,19 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const scheduleLock = useSubmissionLock();
   const [preview, setPreview] = useState(false);
   const [contentTab, setContentTab] = useState("intro");
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [scheduleError, setScheduleError] = useState("");
   const overview = useForm({
     resolver: zodResolver(overviewSchema),
     defaultValues: { name: "", introduction: "", description: "" }
   });
   const recurring = useForm({
     resolver: zodResolver(recurringSchema),
-    defaultValues: { daysOfWeek: [], startTime: "19:00", endTime: "21:00" }
+    defaultValues: RECURRING_DEFAULTS
   });
   const session = useForm({
     resolver: zodResolver(sessionSchema),
-    defaultValues: { sessionDate: "", startTime: "19:00", endTime: "21:00" }
+    defaultValues: SESSION_DEFAULTS
   });
   const description = useWatch({ control: overview.control, name: "description" }) ?? "";
   const resetOverview = overview.reset;
@@ -173,8 +219,8 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
       introduction: group.introduction,
       description: group.description ?? ""
     });
-    if (group.recurringSchedule) resetRecurring(group.recurringSchedule);
-    if (group.sessionSchedule) resetSession(group.sessionSchedule);
+    resetRecurring(group.recurringSchedule ?? RECURRING_DEFAULTS);
+    resetSession(group.sessionSchedule ?? SESSION_DEFAULTS);
   }, [groupQuery.data, resetOverview, resetRecurring, resetSession]);
 
   function insertMarkdown(snippet) {
@@ -207,6 +253,28 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const group = groupQuery.data;
   const age = now.getTime() - new Date(group.createdAt).getTime();
   const canDelete = age >= 0 && age <= DAY_MS;
+
+  function openScheduleDialog() {
+    setScheduleError("");
+    if (group.type === "SESSION") {
+      resetSession(group.sessionSchedule ?? SESSION_DEFAULTS);
+    } else {
+      resetRecurring(group.recurringSchedule ?? RECURRING_DEFAULTS);
+    }
+    setScheduleDialogOpen(true);
+  }
+
+  function closeScheduleDialog() {
+    if (scheduleLock.pending) return;
+    setScheduleError("");
+    if (group.type === "SESSION") {
+      resetSession(group.sessionSchedule ?? SESSION_DEFAULTS);
+    } else {
+      resetRecurring(group.recurringSchedule ?? RECURRING_DEFAULTS);
+    }
+    setScheduleDialogOpen(false);
+  }
+
   const saveOverview = overview.handleSubmit(async (values) => {
     await overviewLock.run(async () => {
       try {
@@ -231,13 +299,11 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
           await scheduleLock.run(async () => {
             try {
               await sessionMutation.mutateAsync(values);
+              setScheduleError("");
+              setScheduleDialogOpen(false);
               toast.show({ title: "일정을 저장했어요.", tone: "success" });
             } catch (error) {
-              toast.show({
-                title: "일정을 저장하지 못했어요.",
-                description: errorDescription(error),
-                tone: "danger"
-              });
+              setScheduleError(errorDescription(error));
             }
           });
         })
@@ -245,28 +311,44 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
           await scheduleLock.run(async () => {
             try {
               await recurringMutation.mutateAsync(values);
+              setScheduleError("");
+              setScheduleDialogOpen(false);
               toast.show({ title: "일정을 저장했어요.", tone: "success" });
             } catch (error) {
-              toast.show({
-                title: "일정을 저장하지 못했어요.",
-                description: errorDescription(error),
-                tone: "danger"
-              });
+              setScheduleError(errorDescription(error));
             }
           });
         });
 
+  async function removeRecurringSchedule() {
+    await scheduleLock.run(async () => {
+      try {
+        await removeRecurringMutation.mutateAsync();
+        setScheduleError("");
+        setScheduleDialogOpen(false);
+        toast.show({ title: "정기 일정을 삭제했어요.", tone: "success" });
+      } catch (error) {
+        setScheduleError(errorDescription(error));
+        throw error;
+      }
+    });
+  }
+
   return (
     <div className="manage-page manage-page--editor">
-      <Link className="group-editor__back" to="/my/groups?role=LEADER">
-        모임 관리로
-      </Link>
       <ManagementContext active="overview" groupId={groupId} />
       <div className="group-editor group-editor--embedded">
         <form className="group-editor__overview-form" onSubmit={saveOverview} noValidate>
           <section className="group-editor__hero" aria-label="모임 기본 정보">
             <div className="group-editor__hero-fields">
-              <span className="group-editor__type-tag">{GROUP_TYPE_LABEL[group.type]}</span>
+              <div
+                aria-disabled="true"
+                className="group-editor__type-tag group-editor__type-tag--locked"
+                title="생성된 모임의 종류는 변경할 수 없어요."
+              >
+                <img alt="" aria-hidden="true" src={kindIcon} />
+                <span>{GROUP_TYPE_LABEL[group.type]}</span>
+              </div>
               <h2 className="group-editor__visually-hidden">기본 정보 수정</h2>
               <OverviewFields
                 className="group-editor__overview-fields--hero"
@@ -275,16 +357,19 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
                 showDescription={false}
               />
               <dl className="group-editor__facts">
-                <div>
-                  <dt>모임 일정</dt>
-                  <dd>{scheduleLabel(group)}</dd>
-                </div>
-                <div>
-                  <dt>현재 멤버 수</dt>
-                  <dd>
-                    {Number.isInteger(group.memberCount) ? `${group.memberCount}명` : "확인 중"}
-                  </dd>
-                </div>
+                <HeroFact icon={kindIcon} label="모임 방식" unavailable value="API 미지원" />
+                <HeroFact
+                  icon={scheduleIcon}
+                  label="모임 일정"
+                  onClick={openScheduleDialog}
+                  value={scheduleLabel(group)}
+                />
+                <HeroFact icon={placeIcon} label="장소" unavailable value="API 미지원" />
+                <HeroFact
+                  icon={memberIcon}
+                  label="현재 멤버 수"
+                  value={Number.isInteger(group.memberCount) ? `${group.memberCount}명` : "확인 중"}
+                />
               </dl>
             </div>
             <RepresentativeImage group={group} />
@@ -318,12 +403,12 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
                   </button>
                 </div>
               </div>
-              <MarkdownToolbar onInsert={insertMarkdown} />
+              {!preview ? <MarkdownToolbar onInsert={insertMarkdown} /> : null}
               {preview ? (
                 <MarkdownPreview value={description} />
               ) : (
                 <DescriptionField
-                  description="제목 · 목록 · 인용 · 링크 문법을 사용할 수 있어요."
+                  description=""
                   error={overview.formState.errors.description?.message}
                   label="모임 소개"
                   register={overview.register}
@@ -331,7 +416,10 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
                 />
               )}
               <div className="group-editor__editor-footer">
-                <span>{description.length.toLocaleString()} / 5,000자</span>
+                <div className="group-editor__editor-help">
+                  <span>제목 · 목록 · 인용 · 링크 문법을 사용할 수 있어요.</span>
+                  <span>{description.length.toLocaleString()} / 5,000자</span>
+                </div>
                 <Button
                   type="submit"
                   size="sm"
@@ -348,64 +436,48 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
           )}
         </form>
 
-        <form
-          className="group-editor__panel group-editor__schedule-panel"
-          onSubmit={saveSchedule}
-          noValidate
+        <Modal
+          description="모임 유형에 맞는 일정 정보를 입력해 주세요."
+          onClose={closeScheduleDialog}
+          open={scheduleDialogOpen}
+          title="활동 일정 수정"
         >
-          <div className="group-editor__section-title">
-            <div>
-              <span>실제 API 연동</span>
-              <h2>활동 일정</h2>
-            </div>
-          </div>
-          {group.type === "SESSION" ? (
-            <SessionScheduleFields errors={session.formState.errors} register={session.register} />
-          ) : (
-            <RecurringScheduleFields
-              errors={recurring.formState.errors}
-              register={recurring.register}
-              compact
-            />
-          )}
-          <div className="group-editor__actions group-editor__actions--inside">
-            {group.recurringSchedule ? (
-              <ConfirmDialog
-                trigger={
-                  <Button type="button" variant="secondary">
-                    정기 일정 삭제
-                  </Button>
-                }
-                title="정기 일정을 삭제할까요?"
-                confirmLabel="삭제 확인"
-                danger
-                pending={removeRecurringMutation.isPending || scheduleLock.pending}
-                onConfirm={async () => {
-                  await scheduleLock.run(async () => {
-                    try {
-                      await removeRecurringMutation.mutateAsync();
-                      toast.show({ title: "정기 일정을 삭제했어요.", tone: "success" });
-                    } catch (error) {
-                      toast.show({
-                        title: "정기 일정을 삭제하지 못했어요.",
-                        description: errorDescription(error),
-                        tone: "danger"
-                      });
-                    }
-                  });
-                }}
-              />
+          <form className="group-editor__schedule-dialog" onSubmit={saveSchedule} noValidate>
+            {scheduleError ? (
+              <p className="group-editor__schedule-dialog-error" role="alert">
+                {scheduleError}
+              </p>
             ) : null}
-            <Button
-              type="submit"
-              pending={
-                recurringMutation.isPending || sessionMutation.isPending || scheduleLock.pending
-              }
-            >
-              일정 저장
-            </Button>
-          </div>
-        </form>
+            {group.type === "SESSION" ? (
+              <SessionScheduleFields errors={session.formState.errors} register={session.register} />
+            ) : (
+              <RecurringScheduleFields
+                errors={recurring.formState.errors}
+                register={recurring.register}
+                compact
+              />
+            )}
+            <div className="group-editor__schedule-dialog-actions">
+              {group.type !== "SESSION" && group.recurringSchedule ? (
+                <ConfirmDialog
+                  trigger={
+                    <Button type="button" variant="danger">
+                      기존 일정 삭제
+                    </Button>
+                  }
+                  title="정기 일정을 삭제할까요?"
+                  confirmLabel="삭제 확인"
+                  danger
+                  pending={removeRecurringMutation.isPending || scheduleLock.pending}
+                  onConfirm={removeRecurringSchedule}
+                />
+              ) : null}
+              <Button type="submit" pending={scheduleLock.pending}>
+                일정 저장
+              </Button>
+            </div>
+          </form>
+        </Modal>
 
         {group.status === "ACTIVE" ? (
           <LifecyclePanel
