@@ -26,3 +26,19 @@ test("Given a production webpack mode, when configuring Babel, then it selects t
     }
   });
 });
+
+test("Given the development API proxy, when forwarding an API request, then it strips the /api prefix for the backend", () => {
+  const configPath = path.resolve(__dirname, "../../webpack.config.mjs");
+  const result = execFileSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "--eval",
+      `import createWebpackConfig from ${JSON.stringify(configPath)};\nconst config = createWebpackConfig({}, { mode: "development" });\nconst proxy = config.devServer.proxy.find((candidate) => candidate.context.includes("/api"));\nconsole.log(JSON.stringify(proxy));`
+    ],
+    { encoding: "utf8" }
+  );
+  const apiProxy = JSON.parse(result);
+
+  expect(apiProxy.pathRewrite).toEqual({ "^/api": "" });
+});
