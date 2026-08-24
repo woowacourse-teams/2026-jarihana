@@ -1,10 +1,5 @@
 package com.project.jarihana.registration.query.controller;
 
-import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.nullValue;
-
 import com.project.jarihana.common.auth.AccessTokenProvider;
 import com.project.jarihana.common.auth.AuthCookieProperties;
 import com.project.jarihana.group.domain.Group;
@@ -21,13 +16,17 @@ import com.project.jarihana.registration.domain.DecisionActor;
 import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.TestSupportConfig;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Set;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.*;
 
 class MyRegistrationQueryControllerTest extends IntegrationTestSupport {
 
@@ -145,48 +144,6 @@ class MyRegistrationQueryControllerTest extends IntegrationTestSupport {
                 .body("data.items[0].id", equalTo(pending.getId().intValue()));
     }
 
-    @DisplayName("신청자 식별자가 없거나 me가 아니면 거부한다.")
-    @Test
-    void rejectsInvalidApplicantParameter() {
-        // Given
-        Member applicant = saveMember("회원", Course.BACKEND, "my-registration-invalid-applicant");
-        String accessToken = accessTokenProvider.issue(applicant.getId()).value();
-
-        // When / Then
-        given()
-                .cookie(authCookieProperties.accessTokenName(), accessToken)
-                .when()
-                .get("/registrations")
-                .then()
-                .statusCode(400)
-                .body("success", equalTo(false))
-                .body("error.code", equalTo("INVALID_PARAMETER"));
-
-        given()
-                .cookie(authCookieProperties.accessTokenName(), accessToken)
-                .queryParam("applicant", "other")
-                .when()
-                .get("/registrations")
-                .then()
-                .statusCode(400)
-                .body("success", equalTo(false))
-                .body("error.code", equalTo("INVALID_PARAMETER"));
-    }
-
-    @DisplayName("인증 없이 자신의 신청 목록을 조회할 수 없다.")
-    @Test
-    void rejectsUnauthenticatedRequest() {
-        // Given / When / Then
-        given()
-                .queryParam("applicant", "me")
-                .when()
-                .get("/registrations")
-                .then()
-                .statusCode(401)
-                .body("success", equalTo(false))
-                .body("error.code", equalTo("UNAUTHENTICATED"));
-    }
-
     private Registration savePending(
             GroupRecruitment recruitment,
             Member applicant,
@@ -228,5 +185,47 @@ class MyRegistrationQueryControllerTest extends IntegrationTestSupport {
                 ),
                 NOW
         ));
+    }
+
+    @DisplayName("신청자 식별자가 없거나 me가 아니면 거부한다.")
+    @Test
+    void rejectsInvalidApplicantParameter() {
+        // Given
+        Member applicant = saveMember("회원", Course.BACKEND, "my-registration-invalid-applicant");
+        String accessToken = accessTokenProvider.issue(applicant.getId()).value();
+
+        // When / Then
+        given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .when()
+                .get("/registrations")
+                .then()
+                .statusCode(400)
+                .body("success", equalTo(false))
+                .body("error.code", equalTo("INVALID_PARAMETER"));
+
+        given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .queryParam("applicant", "other")
+                .when()
+                .get("/registrations")
+                .then()
+                .statusCode(400)
+                .body("success", equalTo(false))
+                .body("error.code", equalTo("INVALID_PARAMETER"));
+    }
+
+    @DisplayName("인증 없이 자신의 신청 목록을 조회할 수 없다.")
+    @Test
+    void rejectsUnauthenticatedRequest() {
+        // Given / When / Then
+        given()
+                .queryParam("applicant", "me")
+                .when()
+                .get("/registrations")
+                .then()
+                .statusCode(401)
+                .body("success", equalTo(false))
+                .body("error.code", equalTo("UNAUTHENTICATED"));
     }
 }

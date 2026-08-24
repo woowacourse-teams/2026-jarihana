@@ -6,11 +6,7 @@ import com.project.jarihana.groupmember.query.controller.dto.GroupMemberListResp
 import com.project.jarihana.groupmember.query.service.GroupMemberQueryService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/groups/{groupId}/members")

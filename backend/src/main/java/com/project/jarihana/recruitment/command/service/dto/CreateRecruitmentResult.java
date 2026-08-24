@@ -3,6 +3,7 @@ package com.project.jarihana.recruitment.command.service.dto;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.JoinMethod;
 import com.project.jarihana.recruitment.domain.RecruitmentPhase;
+
 import java.time.LocalDateTime;
 
 public record CreateRecruitmentResult(

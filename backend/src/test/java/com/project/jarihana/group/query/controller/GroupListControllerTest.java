@@ -1,25 +1,16 @@
 package com.project.jarihana.group.query.controller;
 
-import static org.hamcrest.Matchers.nullValue;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 import com.jayway.jsonpath.JsonPath;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
 import com.project.jarihana.group.query.repository.GroupMemberJpaRepository;
-import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
 import com.project.jarihana.group.query.repository.RegistrationJpaRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
-import java.time.DayOfWeek;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.Set;
+import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +19,16 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.DayOfWeek;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.Set;
+
+import static org.hamcrest.Matchers.nullValue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
@@ -67,6 +68,24 @@ class GroupListControllerTest {
         Group savedFirstGroup = groupRepository.save(firstGroup);
         Member savedLeader = memberRepository.save(leader);
         groupMemberRepository.save(GroupMember.createLeader(savedFirstGroup, savedLeader, CREATED_AT));
+    }
+
+    private static Group study(String name, String introduction, LocalDateTime createdAt) {
+        return Group.createStudy(
+                name,
+                introduction,
+                null,
+                null,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.NOON, LocalTime.of(13, 0)),
+                createdAt
+        );
+    }
+
+    private void clearGroups() {
+        registrationRepository.deleteAllInBatch();
+        recruitmentRepository.deleteAllInBatch();
+        groupMemberRepository.deleteAllInBatch();
+        groupRepository.deleteAllInBatch();
     }
 
     @Test
@@ -133,23 +152,5 @@ class GroupListControllerTest {
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"))
                 .andExpect(jsonPath("$.error.message").value("인증 정보가 필요합니다."));
-    }
-
-    private static Group study(String name, String introduction, LocalDateTime createdAt) {
-        return Group.createStudy(
-                name,
-                introduction,
-                null,
-                null,
-                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.NOON, LocalTime.of(13, 0)),
-                createdAt
-        );
-    }
-
-    private void clearGroups() {
-        registrationRepository.deleteAllInBatch();
-        recruitmentRepository.deleteAllInBatch();
-        groupMemberRepository.deleteAllInBatch();
-        groupRepository.deleteAllInBatch();
     }
 }

@@ -4,6 +4,7 @@ import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.query.repository.dto.GroupDetailMember;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
+
 import java.util.List;
 
 public record GroupDetailResult(

@@ -4,6 +4,7 @@ import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.RecruitmentPhase;
 import com.project.jarihana.recruitment.query.service.dto.RecruitmentDetailResult;
+
 import java.time.LocalDateTime;
 
 public record RecruitmentDetailResponse(

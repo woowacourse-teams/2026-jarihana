@@ -1,8 +1,9 @@
 package com.project.jarihana.common.auth;
 
-import java.time.Duration;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
+
+import java.time.Duration;
 
 /**
  * 자격 증명 쿠키의 보안 속성을 한곳에서 정한다.
@@ -20,6 +21,14 @@ public class AuthCookieFactory {
         this.authCookieProperties = authCookieProperties;
     }
 
+    /**
+     * 로그아웃처럼 자격 증명을 거둬들일 때 쓴다. 발급할 때와 같은 이름과 경로여야 브라우저가
+     * 기존 쿠키를 지운다.
+     */
+    public ResponseCookie expiredAccessToken() {
+        return accessToken("", Duration.ZERO);
+    }
+
     public ResponseCookie accessToken(String value, Duration validity) {
         return ResponseCookie.from(authCookieProperties.accessTokenName(), value)
                 .httpOnly(true)
@@ -28,14 +37,6 @@ public class AuthCookieFactory {
                 .path(authCookieProperties.accessTokenPath())
                 .maxAge(validity)
                 .build();
-    }
-
-    /**
-     * 로그아웃처럼 자격 증명을 거둬들일 때 쓴다. 발급할 때와 같은 이름과 경로여야 브라우저가
-     * 기존 쿠키를 지운다.
-     */
-    public ResponseCookie expiredAccessToken() {
-        return accessToken("", Duration.ZERO);
     }
 
     public ResponseCookie expiredRefreshToken() {

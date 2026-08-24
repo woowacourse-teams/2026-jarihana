@@ -1,9 +1,10 @@
 package com.project.jarihana.group.query.controller;
 
 import com.project.jarihana.group.query.GroupRelation;
-import java.util.Locale;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.stereotype.Component;
+
+import java.util.Locale;
 
 @Component
 public class GroupRelationConverter implements Converter<String, GroupRelation> {

@@ -1,31 +1,31 @@
 package com.project.jarihana.recruitment.query.repository;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
-import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
 import com.project.jarihana.group.query.repository.RegistrationJpaRepository;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
-import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.JoinMethod;
 import com.project.jarihana.recruitment.query.repository.dto.RecruitmentDetailProjection;
+import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.support.TestSupportConfig;
-import java.time.DayOfWeek;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.Optional;
-import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.DayOfWeek;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.Optional;
+import java.util.Set;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @Import(TestSupportConfig.class)
@@ -89,6 +89,21 @@ class JpaRecruitmentDetailRepositoryTest {
         assertThat(projection.approvedCount()).isEqualTo(2);
     }
 
+    private Group saveGroup(String name) {
+        return groupRepository.save(Group.createStudy(
+                name,
+                "함께 학습합니다.",
+                null,
+                null,
+                RecurringGroupSchedule.of(
+                        Set.of(DayOfWeek.MONDAY),
+                        LocalTime.NOON,
+                        LocalTime.of(13, 0)
+                ),
+                NOW
+        ));
+    }
+
     @DisplayName("다른 그룹의 모집 공고는 조회하지 않는다.")
     @Test
     void excludesRecruitmentFromAnotherGroup() {
@@ -109,20 +124,5 @@ class JpaRecruitmentDetailRepositoryTest {
 
         // Then
         assertThat(projection).isEmpty();
-    }
-
-    private Group saveGroup(String name) {
-        return groupRepository.save(Group.createStudy(
-                name,
-                "함께 학습합니다.",
-                null,
-                null,
-                RecurringGroupSchedule.of(
-                        Set.of(DayOfWeek.MONDAY),
-                        LocalTime.NOON,
-                        LocalTime.of(13, 0)
-                ),
-                NOW
-        ));
     }
 }

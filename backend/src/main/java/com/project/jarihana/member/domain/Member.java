@@ -3,21 +3,14 @@ package com.project.jarihana.member.domain;
 import com.project.jarihana.common.domain.BaseEntity;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
-import java.time.LocalDateTime;
-import java.util.Objects;
-import java.util.regex.Pattern;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
+import java.util.regex.Pattern;
 
 @Getter
 @Entity
@@ -70,10 +63,6 @@ public class Member extends BaseEntity {
         this.withdrawnAt = withdrawnAt;
     }
 
-    public static Member create(String crewName, int generation, String githubId, Course course) {
-        return new Member(null, crewName, generation, githubId, course, null);
-    }
-
     private static String validateCrewName(String crewName) {
         if (crewName == null || !CREW_NAME_PATTERN.matcher(crewName).matches()) {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "크루명은 완성형 한글 2자부터 4자까지여야 합니다.");
@@ -102,8 +91,17 @@ public class Member extends BaseEntity {
         return course;
     }
 
+    public static Member create(String crewName, int generation, String githubId, Course course) {
+        return new Member(null, crewName, generation, githubId, course, null);
+    }
+
     public LocalDateTime getJoinedAt() {
         return getCreatedAt();
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
     }
 
     @Override
@@ -118,10 +116,5 @@ public class Member extends BaseEntity {
             return false;
         }
         return id.equals(other.id);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(id);
     }
 }

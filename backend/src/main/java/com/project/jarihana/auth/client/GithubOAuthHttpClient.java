@@ -5,8 +5,6 @@ import com.project.jarihana.auth.client.dto.GithubUserResponse;
 import com.project.jarihana.auth.config.GithubOAuthProperties;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
-import java.time.Duration;
-import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -17,6 +15,9 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+
+import java.time.Duration;
+import java.util.function.Supplier;
 
 @Component
 public class GithubOAuthHttpClient implements GithubOAuthClient {
@@ -34,6 +35,13 @@ public class GithubOAuthHttpClient implements GithubOAuthClient {
                 .requestFactory(createRequestFactory())
                 .build();
         this.githubOAuthProperties = githubOAuthProperties;
+    }
+
+    private SimpleClientHttpRequestFactory createRequestFactory() {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(CONNECT_TIMEOUT);
+        requestFactory.setReadTimeout(READ_TIMEOUT);
+        return requestFactory;
     }
 
     @Override
@@ -64,6 +72,15 @@ public class GithubOAuthHttpClient implements GithubOAuthClient {
         return response.accessToken();
     }
 
+    private <T> T request(Supplier<T> call) {
+        try {
+            return call.get();
+        } catch (RestClientException exception) {
+            log.warn("GitHub OAuth 요청에 실패했습니다. type={}", exception.getClass().getSimpleName());
+            throw new BusinessException(ErrorCode.OAUTH_PROVIDER_ERROR, PROVIDER_ERROR_MESSAGE, exception);
+        }
+    }
+
     private String requestGithubId(String accessToken) {
         GithubUserResponse response = request(() -> restClient.get()
                 .uri(githubOAuthProperties.userUri())
@@ -77,21 +94,5 @@ public class GithubOAuthHttpClient implements GithubOAuthClient {
             throw new BusinessException(ErrorCode.OAUTH_PROVIDER_ERROR, PROVIDER_ERROR_MESSAGE);
         }
         return String.valueOf(response.id());
-    }
-
-    private <T> T request(Supplier<T> call) {
-        try {
-            return call.get();
-        } catch (RestClientException exception) {
-            log.warn("GitHub OAuth 요청에 실패했습니다. type={}", exception.getClass().getSimpleName());
-            throw new BusinessException(ErrorCode.OAUTH_PROVIDER_ERROR, PROVIDER_ERROR_MESSAGE, exception);
-        }
-    }
-
-    private SimpleClientHttpRequestFactory createRequestFactory() {
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(CONNECT_TIMEOUT);
-        requestFactory.setReadTimeout(READ_TIMEOUT);
-        return requestFactory;
     }
 }

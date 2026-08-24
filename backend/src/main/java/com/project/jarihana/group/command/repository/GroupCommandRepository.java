@@ -2,11 +2,12 @@ package com.project.jarihana.group.command.repository;
 
 import com.project.jarihana.group.domain.Group;
 import jakarta.persistence.LockModeType;
-import java.util.Optional;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
+
+import java.util.Optional;
 
 public interface GroupCommandRepository extends Repository<Group, Long> {
 

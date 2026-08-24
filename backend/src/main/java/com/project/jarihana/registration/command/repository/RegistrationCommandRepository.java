@@ -3,10 +3,11 @@ package com.project.jarihana.registration.command.repository;
 import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.registration.domain.RegistrationStatus;
 import jakarta.persistence.LockModeType;
-import java.util.List;
-import java.util.Optional;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.repository.Repository;
+
+import java.util.List;
+import java.util.Optional;
 
 public interface RegistrationCommandRepository extends Repository<Registration, Long> {
 

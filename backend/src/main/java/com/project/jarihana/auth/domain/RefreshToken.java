@@ -4,20 +4,12 @@ import com.project.jarihana.common.domain.BaseEntity;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.member.domain.Member;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
-import java.time.LocalDateTime;
-import java.util.Objects;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Entity
 @Table(
@@ -48,19 +40,19 @@ public class RefreshToken extends BaseEntity {
         this.expiresAt = require(expiresAt, "만료 시각");
     }
 
+    private static <T> T require(T value, String fieldName) {
+        if (value == null) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 필수입니다.");
+        }
+        return value;
+    }
+
     public static RefreshToken issue(Member member, String tokenHash, LocalDateTime expiresAt) {
         return new RefreshToken(member, tokenHash, expiresAt);
     }
 
     public boolean isExpired(LocalDateTime now) {
         return !now.isBefore(expiresAt);
-    }
-
-    private static <T> T require(T value, String fieldName) {
-        if (value == null) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 필수입니다.");
-        }
-        return value;
     }
 
     public Long getId() {
@@ -80,6 +72,11 @@ public class RefreshToken extends BaseEntity {
     }
 
     @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
+    }
+
+    @Override
     public boolean equals(Object object) {
         if (this == object) {
             return true;
@@ -91,10 +88,5 @@ public class RefreshToken extends BaseEntity {
             return false;
         }
         return id.equals(other.id);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(id);
     }
 }

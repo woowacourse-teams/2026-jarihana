@@ -2,10 +2,11 @@ package com.project.jarihana.group.query.repository;
 
 import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.registration.domain.RegistrationStatus;
-import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import java.util.List;
 
 public interface RegistrationJpaRepository extends JpaRepository<Registration, Long> {
 

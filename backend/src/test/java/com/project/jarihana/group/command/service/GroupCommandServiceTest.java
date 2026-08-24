@@ -1,52 +1,41 @@
 package com.project.jarihana.group.command.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.command.repository.GroupCommandRepository;
-import com.project.jarihana.group.command.service.dto.CreateGroupCommand;
-import com.project.jarihana.group.command.service.dto.CreateGroupResult;
-import com.project.jarihana.group.command.service.dto.ModifyGroupCommand;
-import com.project.jarihana.group.command.service.dto.TerminateGroupCommand;
-import com.project.jarihana.group.command.service.dto.TerminateGroupResult;
-import com.project.jarihana.group.command.service.dto.ReplaceRecurringScheduleCommand;
-import com.project.jarihana.group.command.service.dto.ReplaceRecurringScheduleResult;
-import com.project.jarihana.group.command.service.dto.ReplaceSessionScheduleCommand;
-import com.project.jarihana.group.command.service.dto.ReplaceSessionScheduleResult;
-import com.project.jarihana.group.domain.Group;
-import com.project.jarihana.group.domain.GroupStatus;
-import com.project.jarihana.group.domain.GroupType;
-import com.project.jarihana.group.domain.RecurringGroupSchedule;
-import com.project.jarihana.group.domain.SessionGroupSchedule;
-import com.project.jarihana.groupmember.domain.GroupMember;
-import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
-import com.project.jarihana.groupmember.domain.GroupMemberRole;
+import com.project.jarihana.group.command.service.dto.*;
+import com.project.jarihana.group.domain.*;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
 import com.project.jarihana.group.query.repository.GroupMemberJpaRepository;
-import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
 import com.project.jarihana.group.query.repository.RegistrationJpaRepository;
-import com.project.jarihana.recruitment.domain.GroupRecruitment;
-import com.project.jarihana.recruitment.domain.JoinMethod;
-import com.project.jarihana.registration.domain.Registration;
-import com.project.jarihana.registration.domain.RegistrationStatus;
+import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
+import com.project.jarihana.groupmember.domain.GroupMember;
+import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
+import com.project.jarihana.recruitment.domain.GroupRecruitment;
+import com.project.jarihana.recruitment.domain.JoinMethod;
+import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
+import com.project.jarihana.registration.domain.Registration;
+import com.project.jarihana.registration.domain.RegistrationStatus;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.TestSupportConfig;
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Set;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import jakarta.persistence.EntityManager;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
+import java.util.Set;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class GroupCommandServiceTest extends IntegrationTestSupport {
 
@@ -118,6 +107,13 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
                 .isEqualTo(ErrorCode.MEMBER_NOT_FOUND);
     }
 
+    private CreateGroupCommand recurringCommand(String name) {
+        return new CreateGroupCommand(
+                GroupType.STUDY, name, "소개", "설명",
+                new CreateGroupCommand.RecurringSchedule(
+                        Set.of(DayOfWeek.MONDAY), LocalTime.of(19, 0), LocalTime.of(21, 0)), null);
+    }
+
     @DisplayName("이미 사용 중인 이름으로 그룹을 개설할 수 없다.")
     @Test
     void createGroupFailsWhenNameIsDuplicated() {
@@ -128,6 +124,10 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.GROUP_NAME_DUPLICATED);
+    }
+
+    private Member saveMember(String githubId) {
+        return memberRepository.save(Member.create("가온", 8, githubId, Course.BACKEND));
     }
 
     @DisplayName("세션 그룹에 일회성 일정이 없으면 개설할 수 없다.")
@@ -150,7 +150,7 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
         CreateGroupCommand command = new CreateGroupCommand(
                 GroupType.STUDY, "일정 불일치 그룹", "소개", "설명",
                 null, new CreateGroupCommand.SessionSchedule(
-                        LocalDate.now().plusDays(1), LocalTime.of(10, 0), LocalTime.of(11, 0)));
+                LocalDate.now().plusDays(1), LocalTime.of(10, 0), LocalTime.of(11, 0)));
 
         assertThatThrownBy(() -> groupCommandService.createGroup(member.getId(), command))
                 .isInstanceOf(BusinessException.class)
@@ -206,6 +206,11 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
         assertThat(modified.getRepresentativeImageKey())
                 .isEqualTo(GroupCommandService.DEFAULT_REPRESENTATIVE_IMAGE_KEY);
         assertThat(modified.getRecurringSchedule()).isNotNull();
+    }
+
+    private Group createGroup(Member leader, String name) {
+        CreateGroupResult result = groupCommandService.createGroup(leader.getId(), recurringCommand(name));
+        return groupCommandRepository.findById(result.id()).orElseThrow();
     }
 
     @DisplayName("모임장이 아닌 구성원은 그룹 기본 정보를 교체할 수 없다.")
@@ -650,21 +655,5 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.GROUP_ENDED);
-    }
-
-    private Member saveMember(String githubId) {
-        return memberRepository.save(Member.create("가온", 8, githubId, Course.BACKEND));
-    }
-
-    private Group createGroup(Member leader, String name) {
-        CreateGroupResult result = groupCommandService.createGroup(leader.getId(), recurringCommand(name));
-        return groupCommandRepository.findById(result.id()).orElseThrow();
-    }
-
-    private CreateGroupCommand recurringCommand(String name) {
-        return new CreateGroupCommand(
-                GroupType.STUDY, name, "소개", "설명",
-                new CreateGroupCommand.RecurringSchedule(
-                        Set.of(DayOfWeek.MONDAY), LocalTime.of(19, 0), LocalTime.of(21, 0)), null);
     }
 }

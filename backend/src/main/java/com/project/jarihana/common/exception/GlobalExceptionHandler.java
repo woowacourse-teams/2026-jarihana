@@ -24,6 +24,11 @@ public class GlobalExceptionHandler {
         return toResponse(errorCode, exception.getMessage());
     }
 
+    private ResponseEntity<ApiResponse<Void>> toResponse(ErrorCode errorCode, String message) {
+        return ResponseEntity.status(errorCode.getStatus())
+                .body(ApiResponse.failure(errorCode, message));
+    }
+
     @ExceptionHandler({
             BindException.class,
             HttpMessageNotReadableException.class,
@@ -41,10 +46,5 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleUnexpectedException(Exception exception) {
         log.error("처리하지 못한 예외가 발생했습니다.", exception);
         return toResponse(ErrorCode.INTERNAL_ERROR, "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.");
-    }
-
-    private ResponseEntity<ApiResponse<Void>> toResponse(ErrorCode errorCode, String message) {
-        return ResponseEntity.status(errorCode.getStatus())
-                .body(ApiResponse.failure(errorCode, message));
     }
 }
