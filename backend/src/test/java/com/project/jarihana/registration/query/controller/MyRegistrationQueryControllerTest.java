@@ -26,7 +26,9 @@ import java.time.LocalTime;
 import java.util.Set;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.*;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 
 class MyRegistrationQueryControllerTest extends IntegrationTestSupport {
 

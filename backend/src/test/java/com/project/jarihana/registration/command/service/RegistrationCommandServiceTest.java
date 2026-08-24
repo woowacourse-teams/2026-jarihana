@@ -14,7 +14,11 @@ import com.project.jarihana.recruitment.command.repository.GroupRecruitmentComma
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.JoinMethod;
 import com.project.jarihana.registration.command.repository.RegistrationCommandRepository;
-import com.project.jarihana.registration.command.service.dto.*;
+import com.project.jarihana.registration.command.service.dto.CreateRegistrationCommand;
+import com.project.jarihana.registration.command.service.dto.CreateRegistrationResult;
+import com.project.jarihana.registration.command.service.dto.DecideRegistrationCommand;
+import com.project.jarihana.registration.command.service.dto.DecideRegistrationResult;
+import com.project.jarihana.registration.command.service.dto.RegistrationDecision;
 import com.project.jarihana.registration.domain.DecisionActor;
 import com.project.jarihana.registration.domain.DecisionActorType;
 import com.project.jarihana.registration.domain.Registration;
@@ -29,7 +33,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

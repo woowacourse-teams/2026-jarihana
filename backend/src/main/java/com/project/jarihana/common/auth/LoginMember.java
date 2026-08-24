@@ -1,6 +1,10 @@
 package com.project.jarihana.common.auth;
 
-import java.lang.annotation.*;
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
  * 인증된 회원의 식별자를 Controller 파라미터로 받는다.

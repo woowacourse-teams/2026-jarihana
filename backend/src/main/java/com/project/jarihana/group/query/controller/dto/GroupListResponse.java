@@ -1,7 +1,11 @@
 package com.project.jarihana.group.query.controller.dto;
 
 import com.project.jarihana.group.query.service.dto.GroupListResult;
-import com.project.jarihana.group.query.service.dto.GroupListResult.*;
+import com.project.jarihana.group.query.service.dto.GroupListResult.ActiveRecruitment;
+import com.project.jarihana.group.query.service.dto.GroupListResult.Item;
+import com.project.jarihana.group.query.service.dto.GroupListResult.Leader;
+import com.project.jarihana.group.query.service.dto.GroupListResult.RecurringSchedule;
+import com.project.jarihana.group.query.service.dto.GroupListResult.SessionSchedule;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
