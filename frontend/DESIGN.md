@@ -82,7 +82,8 @@ semantic text alias다. 밝은 brand fill은 CTA surface로, 더 어두운 alias
 - Radius: small `8`, medium `14`, large `20`, pill `999`.
 - Container: 구현 token `--container-shell`은 `1360px`이다. `PageContainer`는 360px에서는
   `20px`, 768px 이상에서는 `32px` gutter를 사용한다. form 화면은 각 페이지가 별도로
-  좁은 읽기 폭을 둔다.
+  좁은 읽기 폭을 둔다. group detail은 대표 이미지와 모집 rail을 함께 보여 주는 넓은 화면에서만
+  `1600px` 상한을 사용해 기본 shell보다 여유 있게 펼치되 viewport 끝까지 늘어나지는 않는다.
 - Border: `--border-thin`(1px)과 `--border-strong`(2px)을 사용한다. 기본 surface 경계는
   thin, 탐색 입력의 강조 하단선 같은 의도적 emphasis만 strong을 사용한다.
 - Touch: `--touch-target`은 44px, `--touch-target-lg`는 48px이다. button, navigation,
@@ -124,8 +125,9 @@ semantic text alias다. 밝은 brand fill은 CTA surface로, 더 어두운 alias
   tool row, result heading, card grid는 `PageContainer`의 동일한 좌우 rail을 공유한다. 탐색 hero의
   display copy는 `크루와` / `함께할 자리를` / `찾아보세요` 세 줄을 모든 viewport에서 유지하되,
   접근성 이름은 한 문장으로 제공한다.
-- `DetailLayout`: group detail은 desktop 본문 + sticky recruitment rail, tablet 이하에서는
-  순차 single column이다. detail tabs는 content section을 바꾸지만 URL route는 detail에 남긴다.
+- `DetailLayout`: group detail은 desktop 본문 + sticky recruitment rail이며 전체 폭은 `1600px`를
+  넘지 않는다. tablet 이하에서는 순차 single column이다. detail tabs는 content section을 바꾸지만
+  URL route는 detail에 남긴다.
 - `FormLayout`: group editor는 `1100px` content target 안에 mint hero, white form panels,
   step title/illustration과 하단 action bar를 둔다. 1024px 미만에서는 hero의 text/visual을
   세로로 쌓고, mobile day picker는 2 columns로 줄인다.
