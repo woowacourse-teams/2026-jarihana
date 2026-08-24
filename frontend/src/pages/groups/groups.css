@@ -1274,20 +1274,18 @@
 
 /* Keep the detail page's main column aligned with the group editor Hero. */
 .group-detail-page {
-  --group-detail-content-width: 90rem;
-  --group-detail-main-width: 67rem;
   --group-detail-hero-min-height: 23.5rem;
   --group-detail-hero-art-height: 20.5rem;
-  max-width: var(--group-detail-content-width);
+  max-width: none;
 }
 
 .group-detail-grid {
-  grid-template-columns: minmax(0, var(--group-detail-main-width)) var(--group-detail-rail-width);
+  grid-template-columns: minmax(0, 1fr) var(--group-detail-rail-width);
   gap: var(--space-5);
 }
 
 .group-detail-grid > :first-child {
-  inline-size: min(100%, var(--group-detail-main-width));
+  inline-size: 100%;
 }
 
 .group-detail-page .group-rail {
@@ -1331,6 +1329,24 @@
   z-index: 2;
   min-inline-size: 0;
   inline-size: min(100%, calc(var(--space-16) * 10));
+  padding-block-start: calc(var(--touch-target) + var(--space-2));
+}
+
+.group-profile > .group-back--hero {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: var(--space-4);
+  inset-inline-start: var(--space-4);
+  margin: 0;
+  padding-inline: 0;
+  background: transparent;
+  color: var(--color-surface);
+  filter: drop-shadow(0 var(--border-thin) var(--space-1) var(--color-nav));
+}
+
+.group-profile > .group-back--hero:hover {
+  background: transparent;
+  color: var(--color-brand);
 }
 
 .group-profile__edit {
@@ -1475,7 +1491,7 @@
 
   .group-detail-grid > :first-child,
   .group-detail-page .group-rail {
-    inline-size: min(100%, var(--group-detail-main-width));
+    inline-size: 100%;
   }
 
   .group-rail,

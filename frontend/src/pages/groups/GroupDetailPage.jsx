@@ -109,16 +109,16 @@ export function GroupDetailPage() {
 
   return (
     <PageContainer className="group-detail-page">
-      <Link className="group-back" to="/groups">
-        <ChevronLeft aria-hidden="true" size={18} strokeWidth={2.25} />
-        <span>목록으로</span>
-      </Link>
       <div className="group-detail-grid">
         <div>
           <section
             className={`group-profile${usesDefaultImage ? " group-profile--default-image" : ""}`}
             aria-labelledby="group-title"
           >
+            <Link className="group-back group-back--hero" to="/groups">
+              <ChevronLeft aria-hidden="true" size={18} strokeWidth={2.25} />
+              <span>목록으로</span>
+            </Link>
             <div className="group-profile__copy">
               <p className="groups-eyebrow group-profile__type-tag">
                 <span>{typeLabel(group.type)}</span>

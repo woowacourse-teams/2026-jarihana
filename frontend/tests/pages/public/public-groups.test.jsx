@@ -452,6 +452,17 @@ it("Given a group, when detail renders, then API-backed information and leader s
   expect(container.querySelectorAll(".group-profile__figure > span")).toHaveLength(4);
 });
 
+it("Given a group detail, when the page renders, then list navigation is integrated into the hero", () => {
+  const scrollTo = jest.spyOn(window, "scrollTo").mockImplementation(() => {});
+  const { container } = renderAt("/groups/41", <GroupDetailPage />);
+
+  const profile = container.querySelector(".group-profile");
+  const backLink = screen.getByRole("link", { name: "목록으로" });
+  expect(profile).toContainElement(backLink);
+  expect(backLink).toHaveAttribute("href", "/groups");
+  scrollTo.mockRestore();
+});
+
 it("Given a retained list scroll, when group detail opens, then the page starts at the top", () => {
   const scrollTo = jest.spyOn(window, "scrollTo").mockImplementation(() => {});
 
