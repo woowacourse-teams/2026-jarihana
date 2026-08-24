@@ -127,8 +127,10 @@ semantic text alias다. 밝은 brand fill은 CTA surface로, 더 어두운 alias
   접근성 이름은 한 문장으로 제공한다.
 - `DetailLayout`: group detail은 desktop 본문 + sticky support rail이며 전체 폭은 `1600px`를
   넘지 않는다. support rail은 운영자 프로필 카드 다음에 모집 정보 카드를 배치한다. rail이 숨는
-  tablet/mobile에서는 운영자 프로필을 hero 안의 compact chip으로 옮기고 모집 정보만 floating
-  modal로 제공한다. detail tabs는 content section을 바꾸지만 URL route는 detail에 남긴다.
+  tablet/mobile에서는 운영자 프로필을 hero 안의 프레임 없는 byline으로 옮긴다. 민트 ring의
+  compact avatar와 `운영자 · N기 크루` caption, 이름을 한 덩어리로 묶되 별도의 card·chip·배경은
+  만들지 않고 hero 자체 overlay 위에 직접 배치한다. 모집 정보만 floating modal로 제공하며 detail
+  tabs는 content section을 바꾸지만 URL route는 detail에 남긴다.
 - `FormLayout`: group editor는 `1100px` content target 안에 mint hero, white form panels,
   step title/illustration과 하단 action bar를 둔다. 1024px 미만에서는 hero의 text/visual을
   세로로 쌓고, mobile day picker는 2 columns로 줄인다.

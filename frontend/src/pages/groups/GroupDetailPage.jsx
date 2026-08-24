@@ -473,18 +473,26 @@ function ApplicationForm({ onSuccess, registration }) {
 
 function LeaderSummary({ leader, variant }) {
   if (!leader) return null;
+  const isHero = variant === "hero";
+
   return (
     <div className={`group-leader group-leader--${variant}`}>
-      <span className="group-leader__label">운영자</span>
+      {isHero ? null : <span className="group-leader__label">운영자</span>}
       <div className="group-leader__identity">
         <Avatar
           alt={`${leader.crewName} 프로필`}
           fallback={leader.crewName.slice(0, 1)}
+          size={isHero ? "sm" : "md"}
           src={leader.avatarUrl}
         />
         <div>
+          {isHero ? (
+            <span className="group-leader__byline">
+              운영자 <span aria-hidden="true">·</span> {leader.generation}기 크루
+            </span>
+          ) : null}
           <strong>{leader.crewName}</strong>
-          <span>{leader.generation}기 크루</span>
+          {isHero ? null : <span>{leader.generation}기 크루</span>}
         </div>
       </div>
     </div>

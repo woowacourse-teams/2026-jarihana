@@ -473,8 +473,11 @@ it("Given a group leader, when detail renders, then leader context is separate f
 
   expect(leaderCard).toHaveTextContent("써니");
   expect(leaderCard.nextElementSibling).toBe(recruitmentCard);
+  expect(leaderCard.querySelector(".ui-avatar")).toHaveClass("ui-avatar--md");
   expect(recruitmentCard.querySelector(".group-leader")).not.toBeInTheDocument();
   expect(heroLeader).toHaveTextContent("써니");
+  expect(heroLeader).toHaveTextContent("운영자 · 11기 크루");
+  expect(heroLeader.querySelector(".ui-avatar")).toHaveClass("ui-avatar--sm");
   scrollTo.mockRestore();
 });
 
