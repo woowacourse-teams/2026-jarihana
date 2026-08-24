@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ChevronLeft } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router";
 
 import { useAuth } from "../../features/auth/index.js";
@@ -99,7 +100,8 @@ export function GroupDetailPage() {
   return (
     <PageContainer className="group-detail-page">
       <Link className="group-back" to="/groups">
-        ← 목록으로
+        <ChevronLeft aria-hidden="true" size={18} strokeWidth={2.25} />
+        <span>목록으로</span>
       </Link>
       <div className="group-detail-grid">
         <div>

@@ -370,8 +370,26 @@
   display: inline-flex;
   min-height: var(--touch-target);
   align-items: center;
+  gap: var(--space-1);
+  margin-block-end: var(--space-2);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-sm);
   color: var(--color-muted-ink);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-semibold);
   text-decoration: none;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.group-back:hover {
+  background: var(--color-brand-soft);
+  color: var(--color-brand-ink);
+}
+
+.group-back svg {
+  flex: 0 0 auto;
 }
 
 .group-detail-grid,
