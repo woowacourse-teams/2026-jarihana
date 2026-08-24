@@ -64,6 +64,7 @@ export function scheduleText(group) {
   if (group.sessionSchedule) {
     return `${group.sessionSchedule.sessionDate.replaceAll("-", ".")} ${group.sessionSchedule.startTime.slice(0, 5)} – ${group.sessionSchedule.endTime.slice(0, 5)}`;
   }
+  if (group.type === "CLUB" || group.type === "STUDY") return "유동적";
   return "일정 협의";
 }
 

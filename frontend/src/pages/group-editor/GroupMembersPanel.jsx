@@ -53,22 +53,23 @@ function MemberInsights({ members }) {
 
   return (
     <section className="group-members-panel" aria-labelledby="group-members-title">
-      <div className="group-members-panel__heading">
-        <div>
-          <p id="group-members-title">실제 가입 데이터</p>
+      <div className="group-members-panel__member-column">
+        <div className="group-members-panel__heading">
+          <div>
+            <p id="group-members-title">실제 가입 데이터</p>
+          </div>
+          <StatusBadge tone="brand">현재 {members.length}명</StatusBadge>
         </div>
-        <StatusBadge tone="brand">현재 {members.length}명</StatusBadge>
-      </div>
 
-      <div aria-label="현재 멤버" className="group-members-panel__people" role="list">
-        {members.map((member, index) => (
-          <div className="group-members-panel__person" key={member.groupMemberId} role="listitem">
-            <span
-              aria-hidden="true"
-              className={`group-members-panel__avatar is-tone-${(index % 5) + 1}`}
-            >
-              {member.crewName.slice(0, 1)}
-            </span>
+        <div aria-label="현재 멤버" className="group-members-panel__people" role="list">
+          {members.map((member, index) => (
+            <div className="group-members-panel__person" key={member.groupMemberId} role="listitem">
+              <span
+                aria-hidden="true"
+                className={`group-members-panel__avatar is-tone-${(index % 5) + 1}`}
+              >
+                {member.crewName.slice(0, 1)}
+              </span>
                 <span className="group-members-panel__copy">
                   <span className="group-members-panel__name-row">
                     <strong>{member.crewName}</strong>
@@ -80,8 +81,9 @@ function MemberInsights({ members }) {
                     {member.generation}기 · {COURSE_LABEL[member.course] ?? member.course}
                   </small>
                 </span>
-              </div>
-        ))}
+            </div>
+          ))}
+        </div>
       </div>
 
       <CohortDonut cohorts={cohorts} total={members.length} />
