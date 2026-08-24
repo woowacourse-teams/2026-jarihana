@@ -6,6 +6,7 @@ import {
   useCreateRecruitment,
   useInfiniteRecruitments
 } from "../../features/recruitment/index.js";
+import { useInfiniteRegistrations } from "../../features/registration/index.js";
 import {
   Button,
   ConfirmDialog,
@@ -15,7 +16,14 @@ import {
   StatusBadge
 } from "../../shared/ui/index.js";
 import myProfileIllustration from "../../shared/assets/figma/my-profile-illustration.png";
-import { errorView, flattenPages, formatDateTime, statusLabel, statusTone } from "./manageUtils.js";
+import {
+  courseLabel,
+  errorView,
+  flattenPages,
+  formatDateTime,
+  statusLabel,
+  statusTone
+} from "./manageUtils.js";
 import { ManagementContext, ManagementPageHeading } from "./ManagementContext.jsx";
 import "./manage.css";
 
@@ -133,6 +141,9 @@ export function ManageRecruitmentsPage() {
     createdRecruitment && isCurrentRecruitment(createdRecruitment)
       ? { ...createdRecruitment, ...refreshedCreatedRecruitment }
       : queriedCurrentRecruitment;
+  const approvedRegistrationsQuery = useInfiniteRegistrations(currentRecruitment?.id, {
+    status: "APPROVED"
+  });
   const latestClosedRecruitment = selectClosedRecruitment(
     recruitments
       .filter(isClosedRecruitment)
@@ -309,7 +320,8 @@ export function ManageRecruitmentsPage() {
       {isActiveGroup ? (
         <div
           className={
-            screen === "create" || hasRecentClosedRecruitment
+            screen === "create" || hasRecentClosedRecruitment ||
+            (screen === "current" && Boolean(currentRecruitment))
               ? "manage-recruitment-focus-layout"
               : undefined
           }
@@ -423,6 +435,10 @@ export function ManageRecruitmentsPage() {
               </>
             )}
           </section>
+
+          {screen === "current" && currentRecruitment ? (
+            <ApprovedMembersSnapshot query={approvedRegistrationsQuery} />
+          ) : null}
 
           {hasRecentClosedRecruitment ? (
             <section
@@ -563,6 +579,52 @@ function RecruitmentInformation({
       </div>
       {action ? <div className="manage-recruitment-information__actions">{action}</div> : null}
     </div>
+  );
+}
+
+function ApprovedMembersSnapshot({ query }) {
+  const registrations = flattenPages(query.data);
+  const memberCount = query.hasNextPage
+    ? `${registrations.length}명 이상`
+    : `${registrations.length}명`;
+
+  return (
+    <aside
+      aria-labelledby="approved-members-snapshot-title"
+      className="manage-recruitment-approved-members"
+    >
+      <h3 id="approved-members-snapshot-title">이번 모집 승인 멤버 {memberCount}</h3>
+      {query.isPending ? <Skeleton count={3} /> : null}
+      {query.isError ? (
+        <p className="manage-recruitment-approved-members__error" role="status">
+          승인 멤버를 불러오지 못했어요.
+        </p>
+      ) : null}
+      {!query.isPending && !query.isError
+        ? registrations.length > 0 && (
+            <ul className="manage-recruitment-approved-members__list">
+              {registrations.slice(0, 4).map((registration) => (
+                <li key={registration.id}>
+                  <span className="manage-avatar" aria-hidden="true">
+                    {registration.member.crewName.slice(0, 1)}
+                  </span>
+                  <span>
+                    <strong>{registration.member.crewName}</strong>
+                    <small>
+                      {registration.member.generation}기 · {courseLabel(registration.member.course)}
+                    </small>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )
+        : null}
+      {!query.isPending && !query.isError && registrations.length === 0 ? (
+        <p className="manage-recruitment-approved-members__empty">
+          이번 모집의 승인 멤버가 없어요.
+        </p>
+      ) : null}
+    </aside>
   );
 }
 

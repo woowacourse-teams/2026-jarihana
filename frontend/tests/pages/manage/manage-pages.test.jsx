@@ -25,7 +25,9 @@ jest.mock("react-router", () => ({
       {children}
     </a>
   ),
-  useParams: jest.fn()
+  useParams: jest.fn(),
+  useNavigate: jest.fn(() => jest.fn()),
+  useBeforeUnload: jest.fn()
 }));
 
 jest.mock("../../../src/features/member/index.js", () => ({
@@ -61,6 +63,11 @@ const queryResult = (items) => ({
   refetch: jest.fn()
 });
 
+function getApplicantAction(name) {
+  const applicantPanel = screen.getByRole("region", { name: "신청자 목록" });
+  return within(applicantPanel).getAllByRole("button", { name, exact: true }).at(-1);
+}
+
 const memberFixture = {
   course: "FRONTEND",
   crewName: "링크로",
@@ -93,6 +100,13 @@ const registrationFixture = {
   status: "PENDING"
 };
 
+const approvedRegistrationFixture = {
+  ...registrationFixture,
+  id: 73,
+  member: { course: "FRONTEND", crewName: "링크로", generation: 8, id: 99 },
+  status: "APPROVED"
+};
+
 beforeEach(() => {
   jest.clearAllMocks();
   useParams.mockReturnValue({ groupId: "7", recruitmentId: "81" });
@@ -111,7 +125,9 @@ beforeEach(() => {
   });
   useCreateRecruitment.mockReturnValue({ isPending: false, mutateAsync: jest.fn() });
   useCloseRecruitment.mockReturnValue({ isPending: false, mutateAsync: jest.fn() });
-  useInfiniteRegistrations.mockReturnValue(queryResult([registrationFixture]));
+  useInfiniteRegistrations.mockImplementation((recruitmentId, filters = {}) =>
+    queryResult([filters.status === "APPROVED" ? approvedRegistrationFixture : registrationFixture])
+  );
   useDecideRegistration.mockReturnValue({ isPending: false, mutateAsync: jest.fn() });
 });
 
@@ -223,12 +239,18 @@ describe("ManageRecruitmentsPage", () => {
     useCloseRecruitment.mockReturnValue({ isPending: false, mutateAsync });
     render(<ManageRecruitmentsPage />);
 
-    await user.click(screen.getByRole("button", { name: "81번 모집 마감하기" }));
+    expect(useInfiniteRegistrations).toHaveBeenCalledWith(81, { status: "APPROVED" });
+    expect(screen.getByRole("heading", { name: "이번 모집 승인 멤버 1명" })).toBeVisible();
+    expect(screen.getByText("링크로")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "모집 마감하기" }));
+    await user.click(
+      within(screen.getByRole("dialog", { name: "모집을 마감할까요?" })).getByRole("button", {
+        name: "예"
+      })
+    );
 
     expect(mutateAsync).toHaveBeenCalledWith({
-      recruitmentId: 81,
-      recruitingStatus: "CLOSED"
+      recruitmentId: 81
     });
   });
 
@@ -264,7 +286,7 @@ describe("ManageRegistrationsPage", () => {
     useDecideRegistration.mockReturnValue({ isPending: false, mutateAsync });
     render(<ManageRegistrationsPage />);
 
-    await user.click(screen.getByRole("button", { name: "개발자재키 승인" }));
+    await user.click(getApplicantAction("승인"));
     await user.click(screen.getByRole("button", { name: "신청 승인하기" }));
 
     expect(mutateAsync).toHaveBeenCalledWith({
@@ -279,7 +301,7 @@ describe("ManageRegistrationsPage", () => {
     useDecideRegistration.mockReturnValue({ isPending: false, mutateAsync });
     render(<ManageRegistrationsPage />);
 
-    await user.click(screen.getByRole("button", { name: "개발자재키 거절" }));
+    await user.click(getApplicantAction("거절"));
     await user.type(
       screen.getByRole("textbox", { name: "거절 사유 (선택)" }),
       "이번 정원이 마감됐어요."
@@ -297,20 +319,16 @@ describe("ManageRegistrationsPage", () => {
     const user = userEvent.setup();
     render(<ManageRegistrationsPage />);
 
-    await user.click(screen.getByRole("button", { name: "거절" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "신청 상태" }), "REJECTED");
 
-    expect(useInfiniteRegistrations).toHaveBeenLastCalledWith("81", { status: "REJECTED" });
+    expect(useInfiniteRegistrations).toHaveBeenCalledWith("81", { status: "REJECTED" });
   });
 
-  it("Given router params, When rendered, Then it uses the router identifiers and a client-side management link", () => {
+  it("Given router params, When rendered, Then it uses the router recruitment identifier", () => {
     useParams.mockReturnValue({ groupId: "29", recruitmentId: "93" });
     render(<ManageRegistrationsPage />);
 
     expect(useInfiniteRegistrations).toHaveBeenCalledWith("93", {});
-    expect(screen.getByRole("link", { name: "모집 목록으로" })).toHaveAttribute(
-      "href",
-      "/groups/29/manage/recruitments"
-    );
   });
 
   it("Given an active recruitment, When rendered, Then the applicant panel is directly identifiable in the management chrome", () => {
@@ -335,33 +353,22 @@ describe("ManageRegistrationsPage", () => {
     expect(screen.getByRole("region", { name: "신청 관리 대시보드" })).toHaveClass(
       "manage-registration-layout"
     );
-    const filters = screen.getByRole("group", { name: "신청 상태" });
-    expect(within(filters).getByRole("button", { name: "전체" })).toHaveAttribute(
-      "aria-pressed",
-      "true"
-    );
-    expect(within(filters).getAllByRole("button")).toHaveLength(4);
+    expect(screen.getByRole("combobox", { name: "신청 상태" })).toHaveValue("");
     expect(screen.queryByLabelText("현재 신청자 1명")).not.toBeInTheDocument();
   });
 
-  it("Given real member and recruitment queries, When rendered, Then the Figma side rail shows their live snapshot", () => {
+  it("Given a recruitment query, When rendered, Then the side rail shows only the current recruitment snapshot", () => {
     render(<ManageRegistrationsPage />);
 
-    expect(useInfiniteGroupMembers).toHaveBeenCalledWith("7");
     expect(useRecruitment).toHaveBeenCalledWith("7", "81");
     const rail = screen.getByRole("complementary", { name: "운영 현황" });
-    expect(within(rail).getByRole("heading", { name: "모임 멤버 1명" })).toBeVisible();
-    expect(within(rail).getByText("링크로")).toBeVisible();
     expect(within(rail).getByText("모집 중")).toBeVisible();
     expect(within(rail).getByText("승인 4 / 정원 10명")).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "이번 모집 승인 멤버 1명" })).not.toBeInTheDocument();
   });
 
-  it("Given side-rail query errors, When applicants load, Then safe independent rail errors do not block decisions", () => {
-    useInfiniteGroupMembers.mockReturnValue({
-      ...queryResult([]),
-      error: { message: "member sql leak" },
-      isError: true
-    });
+  it("Given a recruitment query error, When applicants load, Then the safe rail error does not block decisions", () => {
+    useInfiniteRegistrations.mockReturnValue(queryResult([registrationFixture]));
     useRecruitment.mockReturnValue({
       data: undefined,
       error: { message: "recruitment sql leak" },
@@ -373,8 +380,7 @@ describe("ManageRegistrationsPage", () => {
     render(<ManageRegistrationsPage />);
 
     expect(screen.getByRole("region", { name: "신청자 목록" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "개발자재키 승인" })).toBeEnabled();
-    expect(screen.getByText("멤버 현황을 불러오지 못했어요.")).toBeVisible();
+    expect(getApplicantAction("승인")).toBeEnabled();
     expect(screen.getByText("모집 현황을 불러오지 못했어요.")).toBeVisible();
     expect(screen.queryByText(/sql leak/)).not.toBeInTheDocument();
   });
@@ -388,7 +394,7 @@ describe("ManageRegistrationsPage", () => {
     useDecideRegistration.mockReturnValue({ isPending: false, mutateAsync });
     render(<ManageRegistrationsPage />);
 
-    await user.click(screen.getByRole("button", { name: "개발자재키 승인" }));
+    await user.click(getApplicantAction("승인"));
     await user.click(screen.getByRole("button", { name: "신청 승인하기" }));
 
     expect(screen.getByRole("dialog", { name: "이 신청을 승인할까요?" })).toBeVisible();
