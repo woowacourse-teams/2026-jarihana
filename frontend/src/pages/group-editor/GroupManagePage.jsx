@@ -22,7 +22,6 @@ import {
   DescriptionField,
   GroupContentTabs,
   MarkdownPreview,
-  MarkdownToolbar,
   OverviewFields,
   RecurringScheduleFields,
   SessionScheduleFields
@@ -89,6 +88,7 @@ function scheduleLabel(group) {
     const days = schedule.daysOfWeek.map((day) => DAY_LABEL[day] ?? day).join("·");
     return `매주 ${days} ${timeLabel(schedule.startTime)}–${timeLabel(schedule.endTime)}`;
   }
+  if (group.type === "CLUB" || group.type === "STUDY") return "유동적";
   return "등록된 일정 없음";
 }
 
@@ -132,7 +132,15 @@ function errorDescription(error) {
     : "잠시 뒤 다시 시도해 주세요.";
 }
 
-function LifecyclePanel({ canDelete, deleteMutation, onDone, onError, terminateMutation }) {
+function LifecyclePanel({
+  canDelete,
+  deleteMutation,
+  formId,
+  onDone,
+  onError,
+  savePending,
+  terminateMutation
+}) {
   const lock = useSubmissionLock();
   const isPending = deleteMutation.isPending || terminateMutation.isPending;
   const action = canDelete ? deleteMutation : terminateMutation;
@@ -150,28 +158,37 @@ function LifecyclePanel({ canDelete, deleteMutation, onDone, onError, terminateM
   }
 
   return (
-    <section className="group-editor__danger" aria-label={`모임 ${verb} 설정`}>
-      <div>
-        <h2>모임 {verb}</h2>
-        <p>
-          {canDelete
-            ? "생성 후 24시간 안에는 모임을 완전히 삭제할 수 있어요. 되돌릴 수 없습니다."
-            : "24시간이 지난 모임은 기록을 보존한 채 종료할 수 있어요."}
-        </p>
+    <section className="group-editor__lifecycle-actions" aria-label="모임 관리 액션">
+      <div className="group-editor__danger-actions">
+        <ConfirmDialog
+          trigger={
+            <Button type="button" variant="danger">
+              모임 {verb}하기
+            </Button>
+          }
+          title={`모임을 ${verb}할까요?`}
+          description={
+            canDelete
+              ? (
+                  <>
+                    생성 후 24시간 안에는 모임을 완전히 삭제할 수 있어요.
+                    <br />
+                    되돌릴 수 없습니다.
+                    <br />
+                    정말 삭제하시겠습니까?
+                  </>
+                )
+              : "이 작업은 되돌릴 수 없어요. 서버에서 마지막으로 가능 여부를 확인합니다."
+          }
+          confirmLabel={canDelete ? "삭제" : `${verb} 확인`}
+          danger
+          pending={isPending || lock.pending}
+          onConfirm={confirm}
+        />
+        <Button form={formId} pending={savePending} size="sm" type="submit">
+          변경 정보 저장하기
+        </Button>
       </div>
-      <ConfirmDialog
-        trigger={
-          <Button type="button" variant="danger">
-            모임 {verb}하기
-          </Button>
-        }
-        title={`모임을 ${verb}할까요?`}
-        description="이 작업은 되돌릴 수 없어요. 서버에서 마지막으로 가능 여부를 확인합니다."
-        confirmLabel={`${verb} 확인`}
-        danger
-        pending={isPending || lock.pending}
-        onConfirm={confirm}
-      />
     </section>
   );
 }
@@ -194,6 +211,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const [contentTab, setContentTab] = useState("intro");
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [scheduleError, setScheduleError] = useState("");
+  const [recurringMode, setRecurringMode] = useState("regular");
   const overview = useForm({
     resolver: zodResolver(overviewSchema),
     defaultValues: { name: "", introduction: "", description: "" }
@@ -207,6 +225,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
     defaultValues: SESSION_DEFAULTS
   });
   const description = useWatch({ control: overview.control, name: "description" }) ?? "";
+  const recurringDays = useWatch({ control: recurring.control, name: "daysOfWeek" }) ?? [];
   const resetOverview = overview.reset;
   const resetRecurring = recurring.reset;
   const resetSession = session.reset;
@@ -222,16 +241,6 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
     resetRecurring(group.recurringSchedule ?? RECURRING_DEFAULTS);
     resetSession(group.sessionSchedule ?? SESSION_DEFAULTS);
   }, [groupQuery.data, resetOverview, resetRecurring, resetSession]);
-
-  function insertMarkdown(snippet) {
-    const current = overview.getValues("description") ?? "";
-    overview.setValue("description", `${current}${snippet}`.slice(0, 5000), {
-      shouldDirty: true,
-      shouldValidate: true
-    });
-    setPreview(false);
-    overview.setFocus("description");
-  }
 
   if (groupQuery.isLoading)
     return (
@@ -260,6 +269,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
       resetSession(group.sessionSchedule ?? SESSION_DEFAULTS);
     } else {
       resetRecurring(group.recurringSchedule ?? RECURRING_DEFAULTS);
+      setRecurringMode(group.recurringSchedule ? "regular" : "flexible");
     }
     setScheduleDialogOpen(true);
   }
@@ -271,8 +281,26 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
       resetSession(group.sessionSchedule ?? SESSION_DEFAULTS);
     } else {
       resetRecurring(group.recurringSchedule ?? RECURRING_DEFAULTS);
+      setRecurringMode(group.recurringSchedule ? "regular" : "flexible");
     }
     setScheduleDialogOpen(false);
+  }
+
+  function selectRecurringMode(mode) {
+    setRecurringMode(mode);
+    if (mode === "flexible") {
+      resetRecurring(RECURRING_DEFAULTS);
+      return;
+    }
+    resetRecurring(group.recurringSchedule ?? RECURRING_DEFAULTS);
+  }
+
+  function selectQuickDays(daysOfWeek) {
+    recurring.setValue("daysOfWeek", daysOfWeek, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true
+    });
   }
 
   const saveOverview = overview.handleSubmit(async (values) => {
@@ -284,6 +312,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
           introduction: values.introduction.trim()
         });
         toast.show({ title: "모임 정보를 저장했어요.", tone: "success" });
+        navigate(`/groups/${groupId}`, { replace: true });
       } catch (error) {
         toast.show({
           title: "모임 정보를 저장하지 못했어요.",
@@ -293,6 +322,33 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
       }
     });
   });
+  const saveRecurringSchedule = recurring.handleSubmit(async (values) => {
+    await scheduleLock.run(async () => {
+      try {
+        await recurringMutation.mutateAsync(values);
+        setScheduleError("");
+        setScheduleDialogOpen(false);
+        toast.show({ title: "일정을 저장했어요.", tone: "success" });
+      } catch (error) {
+        setScheduleError(errorDescription(error));
+      }
+    });
+  });
+
+  async function saveFlexibleSchedule(event) {
+    event.preventDefault();
+    await scheduleLock.run(async () => {
+      try {
+        await removeRecurringMutation.mutateAsync();
+        setScheduleError("");
+        setScheduleDialogOpen(false);
+        toast.show({ title: "일정을 유동적으로 설정했어요.", tone: "success" });
+      } catch (error) {
+        setScheduleError(errorDescription(error));
+      }
+    });
+  }
+
   const saveSchedule =
     group.type === "SESSION"
       ? session.handleSubmit(async (values) => {
@@ -307,38 +363,20 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
             }
           });
         })
-      : recurring.handleSubmit(async (values) => {
-          await scheduleLock.run(async () => {
-            try {
-              await recurringMutation.mutateAsync(values);
-              setScheduleError("");
-              setScheduleDialogOpen(false);
-              toast.show({ title: "일정을 저장했어요.", tone: "success" });
-            } catch (error) {
-              setScheduleError(errorDescription(error));
-            }
-          });
-        });
-
-  async function removeRecurringSchedule() {
-    await scheduleLock.run(async () => {
-      try {
-        await removeRecurringMutation.mutateAsync();
-        setScheduleError("");
-        setScheduleDialogOpen(false);
-        toast.show({ title: "정기 일정을 삭제했어요.", tone: "success" });
-      } catch (error) {
-        setScheduleError(errorDescription(error));
-        throw error;
-      }
-    });
-  }
+      : recurringMode === "flexible"
+        ? saveFlexibleSchedule
+        : saveRecurringSchedule;
 
   return (
     <div className="manage-page manage-page--editor">
       <ManagementContext active="overview" groupId={groupId} />
       <div className="group-editor group-editor--embedded">
-        <form className="group-editor__overview-form" onSubmit={saveOverview} noValidate>
+        <form
+          className="group-editor__overview-form"
+          id="group-overview-form"
+          onSubmit={saveOverview}
+          noValidate
+        >
           <section className="group-editor__hero" aria-label="모임 기본 정보">
             <div className="group-editor__hero-fields">
               <div
@@ -383,7 +421,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
               aria-label="모임 상세 소개"
             >
               <div className="group-editor__description-heading">
-                <h2>모임 소개 · Markdown</h2>
+                <h2>모임 소개</h2>
                 <div className="group-editor__description-tools">
                   <button
                     aria-pressed={!preview}
@@ -403,7 +441,6 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
                   </button>
                 </div>
               </div>
-              {!preview ? <MarkdownToolbar onInsert={insertMarkdown} /> : null}
               {preview ? (
                 <MarkdownPreview value={description} />
               ) : (
@@ -417,16 +454,9 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
               )}
               <div className="group-editor__editor-footer">
                 <div className="group-editor__editor-help">
-                  <span>제목 · 목록 · 인용 · 링크 문법을 사용할 수 있어요.</span>
+                  <span>Markdown 문법을 사용할 수 있어요.</span>
                   <span>{description.length.toLocaleString()} / 5,000자</span>
                 </div>
-                <Button
-                  type="submit"
-                  size="sm"
-                  pending={modifyMutation.isPending || overviewLock.pending}
-                >
-                  기본 정보 저장
-                </Button>
               </div>
             </section>
           ) : (
@@ -453,25 +483,16 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
             ) : (
               <RecurringScheduleFields
                 errors={recurring.formState.errors}
+                mode={recurringMode}
+                onModeChange={selectRecurringMode}
+                onQuickSelect={selectQuickDays}
                 register={recurring.register}
+                selectedDays={recurringDays}
+                showModeSelector
                 compact
               />
             )}
             <div className="group-editor__schedule-dialog-actions">
-              {group.type !== "SESSION" && group.recurringSchedule ? (
-                <ConfirmDialog
-                  trigger={
-                    <Button type="button" variant="danger">
-                      기존 일정 삭제
-                    </Button>
-                  }
-                  title="정기 일정을 삭제할까요?"
-                  confirmLabel="삭제 확인"
-                  danger
-                  pending={removeRecurringMutation.isPending || scheduleLock.pending}
-                  onConfirm={removeRecurringSchedule}
-                />
-              ) : null}
               <Button type="submit" pending={scheduleLock.pending}>
                 일정 저장
               </Button>
@@ -483,10 +504,12 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
           <LifecyclePanel
             canDelete={canDelete}
             deleteMutation={deleteMutation}
+            formId="group-overview-form"
             terminateMutation={terminateMutation}
+            savePending={modifyMutation.isPending || overviewLock.pending}
             onDone={(verb) => {
               toast.show({ title: `모임을 ${verb}했어요.`, tone: "success" });
-              navigate("/my/groups");
+              navigate("/my?tab=led", { replace: true });
             }}
             onError={(verb, error) => {
               toast.show({

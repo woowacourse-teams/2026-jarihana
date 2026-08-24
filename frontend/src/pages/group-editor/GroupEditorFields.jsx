@@ -1,4 +1,11 @@
-import { Checkbox, MarkdownContent, Select, Textarea, TextField } from "../../shared/ui/index.js";
+import {
+  Checkbox,
+  MarkdownContent,
+  Radio,
+  Select,
+  Textarea,
+  TextField
+} from "../../shared/ui/index.js";
 
 export const DAYS = [
   ["MONDAY", "월요일"],
@@ -152,36 +159,105 @@ export function OverviewFields({
   );
 }
 
-export function RecurringScheduleFields({ errors, register, compact = false }) {
+const WEEKDAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"];
+const WEEKENDS = ["SATURDAY", "SUNDAY"];
+
+function sameDays(selectedDays, targetDays) {
   return (
-    <fieldset className="group-editor__schedule-fields">
-      <legend>{compact ? "정기 일정" : "매주 만나는 일정"}</legend>
-      <p className="group-editor__field-note">활동 요일을 모두 선택해 주세요.</p>
-      <div className="group-editor__day-grid">
-        {DAYS.map(([value, label]) => (
-          <Checkbox key={value} label={label} value={value} {...register("daysOfWeek")} />
-        ))}
-      </div>
-      {errors.daysOfWeek?.message ? (
-        <p className="group-editor__error" role="alert">
-          {errors.daysOfWeek.message}
-        </p>
+    selectedDays.length === targetDays.length &&
+    targetDays.every((day) => selectedDays.includes(day))
+  );
+}
+
+export function RecurringScheduleFields({
+  errors,
+  mode = "regular",
+  onModeChange,
+  onQuickSelect,
+  register,
+  selectedDays = [],
+  showModeSelector = false,
+  compact = false
+}) {
+  return (
+    <div className="group-editor__schedule-fields-wrap">
+      {showModeSelector ? (
+        <fieldset className="group-editor__schedule-type">
+          <legend>일정 유형</legend>
+          <div className="group-editor__schedule-type-options">
+            <Radio
+              checked={mode === "regular"}
+              label="정기 일정"
+              name="recurring-schedule-type"
+              onChange={() => onModeChange?.("regular")}
+              value="regular"
+            />
+            <Radio
+              checked={mode === "flexible"}
+              label="유동적"
+              name="recurring-schedule-type"
+              onChange={() => onModeChange?.("flexible")}
+              value="flexible"
+            />
+          </div>
+        </fieldset>
       ) : null}
-      <div className="group-editor__time-grid">
-        <TextField
-          label="시작 시간"
-          type="time"
-          error={errors.startTime?.message}
-          {...register("startTime")}
-        />
-        <TextField
-          label="종료 시간"
-          type="time"
-          error={errors.endTime?.message}
-          {...register("endTime")}
-        />
-      </div>
-    </fieldset>
+
+      {mode === "regular" || !showModeSelector ? (
+        <fieldset className="group-editor__schedule-fields">
+          <legend>{compact ? "정기 일정" : "매주 만나는 일정"}</legend>
+          <p className="group-editor__field-note">활동 요일을 모두 선택해 주세요.</p>
+          {showModeSelector ? (
+            <div className="group-editor__quick-days" aria-label="요일 빠른 선택">
+              <button
+                aria-pressed={sameDays(selectedDays, WEEKDAYS)}
+                className={sameDays(selectedDays, WEEKDAYS) ? "is-active" : ""}
+                onClick={() => onQuickSelect?.(WEEKDAYS)}
+                type="button"
+              >
+                평일
+              </button>
+              <button
+                aria-pressed={sameDays(selectedDays, WEEKENDS)}
+                className={sameDays(selectedDays, WEEKENDS) ? "is-active" : ""}
+                onClick={() => onQuickSelect?.(WEEKENDS)}
+                type="button"
+              >
+                주말
+              </button>
+            </div>
+          ) : null}
+          <div className="group-editor__day-grid">
+            {DAYS.map(([value, label]) => (
+              <Checkbox key={value} label={label} value={value} {...register("daysOfWeek")} />
+            ))}
+          </div>
+          {errors.daysOfWeek?.message ? (
+            <p className="group-editor__error" role="alert">
+              {errors.daysOfWeek.message}
+            </p>
+          ) : null}
+          <div className="group-editor__time-grid">
+            <TextField
+              label="시작 시간"
+              type="time"
+              error={errors.startTime?.message}
+              {...register("startTime")}
+            />
+            <TextField
+              label="종료 시간"
+              type="time"
+              error={errors.endTime?.message}
+              {...register("endTime")}
+            />
+          </div>
+        </fieldset>
+      ) : (
+        <p className="group-editor__schedule-flexible-note">
+          정해진 요일과 시간이 없는 일정이에요.
+        </p>
+      )}
+    </div>
   );
 }
 

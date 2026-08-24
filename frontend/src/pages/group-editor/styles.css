@@ -255,8 +255,7 @@
 }
 
 .group-editor__section-title h2,
-.group-editor__schedule-fields legend,
-.group-editor__danger h2 {
+.group-editor__schedule-fields legend {
     font-size: var(--text-h2);
     font-weight: 700;
     margin: 0;
@@ -308,8 +307,7 @@
 }
 
 .group-editor__image-panel p,
-.group-editor__field-note,
-.group-editor__danger p {
+.group-editor__field-note {
     color: var(--color-muted-ink);
     font-size: var(--text-body);
     line-height: 1.65;
@@ -729,15 +727,17 @@
     padding-block-start: var(--space-6);
 }
 
-.group-editor__danger {
+.group-editor__lifecycle-actions {
+    margin-block: 0 var(--space-8);
+}
+
+.group-editor__danger-actions {
+    inline-size: 100%;
     align-items: center;
-    background: var(--color-danger-soft);
-    border: var(--border-thin) solid color-mix(in srgb, var(--color-danger) 30%, var(--color-line));
-    border-radius: var(--radius-md);
     display: flex;
-    gap: var(--space-6);
-    justify-content: space-between;
-    padding: var(--space-6);
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    justify-content: flex-end;
 }
 
 @media (max-width: 63.9375rem) {
@@ -797,9 +797,12 @@
     }
 
     .group-editor__actions,
-    .group-editor__danger,
     .group-editor__editor-footer {
         align-items: stretch;
+        flex-direction: column;
+    }
+
+    .group-editor__danger-actions {
         flex-direction: column;
     }
 
@@ -825,7 +828,7 @@
     }
 
     .group-editor__actions > *,
-    .group-editor__danger button {
+    .group-editor__danger-actions > * {
         inline-size: 100%;
     }
 
@@ -1077,7 +1080,7 @@
   font: inherit;
   font-size: var(--text-caption);
   font-weight: 700;
-  cursor: not-allowed;
+  cursor: pointer;
 }
 
 .manage-page--editor .group-editor__image-change img {
@@ -1215,6 +1218,75 @@
   gap: var(--space-3);
 }
 
+.group-editor__schedule-fields-wrap {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.group-editor__schedule-type {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.group-editor__schedule-type legend {
+  margin-block-end: 0;
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-bold);
+}
+
+.group-editor__schedule-type-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.group-editor__schedule-type-options .ui-check {
+  min-block-size: 2.75rem;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.group-editor__quick-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-block-end: calc(var(--space-2) * -1);
+}
+
+.group-editor__quick-days button {
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-muted-ink);
+  font: inherit;
+  font-size: var(--text-caption);
+  cursor: pointer;
+}
+
+.group-editor__quick-days button.is-active,
+.group-editor__quick-days button:hover {
+  border-color: var(--color-brand);
+  background: var(--color-brand-soft);
+  color: var(--color-brand-ink);
+}
+
+.group-editor__schedule-flexible-note {
+  margin: 0;
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--color-canvas);
+  color: var(--color-muted-ink);
+  font-size: var(--text-body);
+  text-align: center;
+}
+
 .group-editor__schedule-dialog .group-editor__schedule-fields legend {
   margin-block-end: 0;
   font-size: var(--text-h3);
@@ -1236,9 +1308,17 @@
   gap: var(--space-4) var(--space-8);
 }
 
+.manage-page--editor .group-members-panel__member-column {
+  display: grid;
+  grid-column: 1;
+  align-content: start;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
 .manage-page--editor .group-members-panel__heading,
 .manage-page--editor .group-members-panel__people {
-  grid-column: 1;
+  grid-column: auto;
 }
 
 .manage-page--editor .group-members-panel__cohorts {
@@ -1249,7 +1329,7 @@
   --group-members-donut-size: 12rem;
   display: grid;
   grid-column: 2;
-  grid-row: 1 / span 2;
+  grid-row: auto;
   min-width: 0;
   align-content: start;
   gap: var(--space-5);
@@ -1471,6 +1551,10 @@
 }
 
 @media (max-width: 47.9375rem) {
+  .group-editor__schedule-type-options {
+    grid-template-columns: 1fr;
+  }
+
   .group-editor__schedule-dialog .group-editor__day-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-1);

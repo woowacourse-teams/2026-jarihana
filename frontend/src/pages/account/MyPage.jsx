@@ -61,7 +61,10 @@ function ProfileAvatar({ member }) {
 
 export function MyPage() {
   const { member } = useAuth();
-  const [activeGroupTab, setActiveGroupTab] = useState("joined");
+  const initialGroupTab = new URLSearchParams(window.location.search).get("tab");
+  const [activeGroupTab, setActiveGroupTab] = useState(
+    ["joined", "registrations", "led"].includes(initialGroupTab) ? initialGroupTab : "joined"
+  );
   const joinedQuery = useInfiniteGroups({ relation: "JOINED" });
   const ledActiveQuery = useInfiniteGroups({ relation: "JOINED", role: "LEADER" });
   const ledArchivedQuery = useInfiniteGroups({
