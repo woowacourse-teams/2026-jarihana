@@ -1294,7 +1294,7 @@
   inline-size: 100%;
 }
 
-.group-mobile-recruitment {
+.group-floating-recruitment {
   display: none;
 }
 
@@ -1451,6 +1451,32 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .group-rail--desktop {
+    display: none;
+  }
+
+  .group-floating-recruitment {
+    display: block;
+  }
+
+  .group-recruitment-fab {
+    position: fixed;
+    z-index: calc(var(--z-overlay) - 1);
+    inset-inline-end: var(--space-4);
+    inset-block-end: calc(var(--space-4) + env(safe-area-inset-bottom));
+    box-shadow: var(--shadow-float);
+  }
+
+  .group-recruitment-fab > span {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .group-recruitment-modal .group-recruitment-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .group-detail-grid > :first-child,
   .group-detail-page .group-rail {
     inline-size: min(100%, var(--group-detail-main-width));
@@ -1522,29 +1548,11 @@
     padding-inline: var(--space-5);
   }
 
-  .group-rail--desktop {
-    display: none;
-  }
-
-  .group-mobile-recruitment {
-    display: block;
-  }
-
-  .group-recruitment-fab {
-    position: fixed;
-    z-index: calc(var(--z-overlay) - 1);
-    inset-inline-end: var(--space-4);
-    inset-block-end: calc(var(--space-4) + env(safe-area-inset-bottom));
-    box-shadow: var(--shadow-float);
-  }
-
-  .group-recruitment-fab > span {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-  }
-
   .group-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .group-recruitment-modal .group-recruitment-meta {
     grid-template-columns: minmax(0, 1fr);
   }
 

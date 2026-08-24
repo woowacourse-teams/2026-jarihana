@@ -218,7 +218,7 @@ export function GroupDetailPage() {
         </aside>
       </div>
 
-      <div className="group-mobile-recruitment">
+      <div className="group-floating-recruitment">
         <Modal
           title="모집 정보"
           trigger={
