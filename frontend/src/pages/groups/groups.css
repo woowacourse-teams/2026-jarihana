@@ -428,14 +428,14 @@
   background:
     linear-gradient(
       90deg,
-      color-mix(in srgb, var(--color-nav) 84%, transparent) 0%,
-      var(--color-overlay) 58%,
-      color-mix(in srgb, var(--color-nav) 34%, transparent) 100%
+      color-mix(in srgb, var(--color-nav) 68%, transparent) 0%,
+      color-mix(in srgb, var(--color-nav) 38%, transparent) 58%,
+      color-mix(in srgb, var(--color-nav) 16%, transparent) 100%
     ),
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--color-nav) 12%, transparent) 0%,
-      color-mix(in srgb, var(--color-nav) 48%, transparent) 100%
+      color-mix(in srgb, var(--color-nav) 4%, transparent) 0%,
+      color-mix(in srgb, var(--color-nav) 30%, transparent) 100%
     );
   pointer-events: none;
 }
@@ -1275,6 +1275,25 @@
   inline-size: 100%;
 }
 
+.group-mobile-recruitment {
+  display: none;
+}
+
+.group-recruitment-modal .group-rail-card {
+  min-block-size: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.group-recruitment-modal .group-recruitment-hero {
+  min-block-size: 0;
+}
+
+.group-recruitment-modal .group-recruitment-hero__image {
+  inline-size: min(100%, calc(var(--space-16) * 4));
+}
+
 .group-profile {
   grid-template-columns: minmax(0, 1fr);
   min-block-size: var(--group-detail-hero-min-height);
@@ -1433,24 +1452,63 @@
 }
 
 @media (max-width: 47.9375rem) {
+  .group-detail-page {
+    padding-inline: var(--space-0);
+  }
+
+  .group-back {
+    margin-inline: var(--space-4);
+  }
+
   .group-profile {
     grid-template-columns: minmax(0, 1fr);
     padding: var(--space-5);
+    border-radius: 0;
   }
 
   .group-profile::after {
     background: linear-gradient(
       180deg,
-      color-mix(in srgb, var(--color-nav) 64%, transparent) 0%,
-      color-mix(in srgb, var(--color-nav) 86%, transparent) 100%
+      color-mix(in srgb, var(--color-nav) 48%, transparent) 0%,
+      color-mix(in srgb, var(--color-nav) 68%, transparent) 100%
     );
   }
 
   .group-profile--default-image .group-profile__image {
     padding: var(--space-8) var(--space-3) var(--space-3);
     object-position: center bottom;
-    opacity: 0.16;
+    opacity: 0.22;
     transform: none;
+  }
+
+  .group-detail-tabs .ui-tabs__list {
+    padding-inline: var(--space-4);
+  }
+
+  .group-detail-tabs .ui-tabs__panel {
+    padding-inline: var(--space-5);
+  }
+
+  .group-rail--desktop {
+    display: none;
+  }
+
+  .group-mobile-recruitment {
+    display: block;
+  }
+
+  .group-recruitment-fab {
+    position: fixed;
+    z-index: calc(var(--z-overlay) - 1);
+    inset-inline-end: var(--space-4);
+    inset-block-end: calc(var(--space-4) + env(safe-area-inset-bottom));
+    box-shadow: var(--shadow-float);
+  }
+
+  .group-recruitment-fab > span {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
   }
 
   .group-facts {

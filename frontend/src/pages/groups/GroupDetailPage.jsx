@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChevronLeft, Pencil } from "lucide-react";
+import { Armchair, ChevronLeft, Pencil } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router";
 
 import { useAuth } from "../../features/auth/index.js";
@@ -205,7 +205,7 @@ export function GroupDetailPage() {
           </div>
         </div>
 
-        <aside className="group-rail" aria-label="모집과 운영자 정보">
+        <aside className="group-rail group-rail--desktop" aria-label="모집과 운영자 정보">
           <RecruitmentSummary
             auth={auth}
             group={group}
@@ -216,6 +216,30 @@ export function GroupDetailPage() {
             isLeader={isLeader}
           />
         </aside>
+      </div>
+
+      <div className="group-mobile-recruitment">
+        <Modal
+          title="모집 정보"
+          trigger={
+            <Button aria-label="모집 정보 보기" className="group-recruitment-fab">
+              <Armchair aria-hidden="true" size={18} strokeWidth={2.25} />
+              자리 확인
+            </Button>
+          }
+        >
+          <div className="group-recruitment-modal">
+            <RecruitmentSummary
+              auth={auth}
+              group={group}
+              leader={group.leader}
+              createRecruitmentHref={isLeader ? `/groups/${groupId}/manage/recruitments` : null}
+              isApprovedMember={isApprovedMember}
+              isArchived={isArchived}
+              isLeader={isLeader}
+            />
+          </div>
+        </Modal>
       </div>
     </PageContainer>
   );

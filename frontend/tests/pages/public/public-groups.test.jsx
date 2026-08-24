@@ -272,6 +272,20 @@ it("Given an active recruitment, when group detail renders, then the invitation 
   expect(container.querySelector(".group-recruitment-hero--open img")).toBeInTheDocument();
 });
 
+it("Given a group detail, when the mobile recruitment action opens, then recruitment information appears in a dialog", async () => {
+  const user = userEvent.setup();
+  renderAt("/groups/41", <GroupDetailPage />);
+
+  const trigger = screen.getByRole("button", { name: "모집 정보 보기" });
+  expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
+
+  await user.click(trigger);
+
+  const dialog = screen.getByRole("dialog", { name: "모집 정보" });
+  expect(within(dialog).getByRole("heading", { name: "자리하나?" })).toBeInTheDocument();
+  expect(trigger).toHaveAttribute("aria-expanded", "true");
+});
+
 it("Given no active recruitment, when group detail renders, then the fallen-chair empty state is concise", () => {
   groupHooks.useGroup.mockReturnValue({
     data: { ...group, activeRecruitment: null },
