@@ -8,11 +8,6 @@ import {
   useState
 } from "react";
 import { apiClient, ApiError } from "../../shared/api";
-import {
-  disableDevelopmentLogin,
-  enableDevelopmentLogin,
-  isDevelopmentLoginAvailable
-} from "../../shared/api/developmentAuth";
 import { bootstrapAuth } from "./bootstrap";
 import { logout as logoutRequest } from "./api";
 import { createGithubAuthorizationUrl } from "./oauth";
@@ -51,7 +46,6 @@ export const AuthProvider = ({ children }) => {
     }
     bootstrapStarted.current = true;
     apiClient.setSessionExpiredHandler(() => {
-      disableDevelopmentLogin();
       setState({ error: null, member: null, status: "anonymous" });
     });
     queueMicrotask(() => {
@@ -60,18 +54,10 @@ export const AuthProvider = ({ children }) => {
   }, [reload]);
 
   const login = useCallback(() => {
-    if (enableDevelopmentLogin()) {
-      void reload().catch(() => undefined);
-      return;
-    }
     window.location.assign(createGithubAuthorizationUrl());
-  }, [reload]);
+  }, []);
 
   const logout = useCallback(async () => {
-    if (disableDevelopmentLogin()) {
-      setState({ error: null, member: null, status: "anonymous" });
-      return;
-    }
     await logoutRequest();
     setState({ error: null, member: null, status: "anonymous" });
   }, []);
@@ -79,7 +65,6 @@ export const AuthProvider = ({ children }) => {
   const value = useMemo(
     () => ({
       ...state,
-      developmentLoginAvailable: isDevelopmentLoginAvailable(),
       login,
       logout,
       reload,
