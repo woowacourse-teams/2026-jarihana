@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router";
 
 import { storeReturnTarget, useAuth } from "../features/auth";
 import { Drawer, useToast } from "../shared/ui";
+import logoMark from "../shared/assets/brand/jarihana-favicon.png";
 
 const MEMBER_LINKS = [
   {
@@ -128,7 +129,8 @@ export function AppHeader({ action = null, title = "" }) {
       <header className="app-header">
         <div className="app-header__inner">
           <Link aria-label="자리하나 홈" className="app-header__brand" to="/groups">
-            자리 하나<span aria-hidden="true">?</span>
+            <img alt="" aria-hidden="true" className="app-header__brand-mark" src={logoMark} />
+            <span className="app-header__brand-text">자리 하나?</span>
           </Link>
 
           <nav aria-label="주요 메뉴" className="app-header__desktop-nav">

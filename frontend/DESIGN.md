@@ -8,7 +8,7 @@
 - 기능 기준: 현재 `backend/`의 Controller, DTO, Security, domain service, acceptance test.
 - 생성/관리 초안은 실제 backend API가 지원하는 동작만 남기고 제품 화면으로 구현했다.
 - 자산: Figma export 원본을 `src/shared/assets/figma/`에 저장했다. 화면 screenshot 자체를 UI로
-  사용하지 않는다.
+  사용하지 않는다. 교체 가능한 브랜드 이미지는 `src/shared/assets/brand/`에 둔다.
 - 글꼴: Figma의 Noto Sans KR를 Google Fonts CSS로 불러오고, 로딩 실패/전에는
   `Apple SD Gothic Neo`, `Malgun Gothic`, sans-serif fallback을 둔다.
 - breakpoint는 Figma에 desktop만 명시되어 있어 360/768/1440 검증 요구와 콘텐츠 우선순위로
@@ -43,6 +43,7 @@
 | `--color-muted-ink`    | `#666666`        | 작은 text의 대비 보강                      |
 | `--color-line`         | `#e0e0e0`        | 구분선과 field border                      |
 | `--color-surface`      | `#ffffff`        | 카드와 입력 surface                        |
+| `--color-section-soft` | `#fcfcfc`        | 탐색 결과 section을 hero와 분리하는 surface |
 | `--color-canvas`       | `#f5f5f7`        | 앱 배경                                    |
 | `--color-nav`          | `#000000`        | global header                              |
 | `--color-danger`       | `#c7352a`        | 오류/파괴 액션, AA 대비용 파생 token       |
@@ -64,6 +65,7 @@ semantic text alias다. 밝은 brand fill은 CTA surface로, 더 어두운 alias
 
 - Family: `Noto Sans KR`, `Apple SD Gothic Neo`, `Malgun Gothic`, sans-serif.
 - Hero: 48/1.18, 800. 모바일 34/1.22.
+- Hero body: desktop 20px, mobile 18px, 1.65 line-height.
 - Display: 40/1.2, 800. 모바일 30/1.25.
 - H1: 32/1.3, 700. 모바일 26/1.35.
 - H2: 24/1.4, 700. 모바일 21/1.4.
@@ -81,14 +83,22 @@ semantic text alias다. 밝은 brand fill은 CTA surface로, 더 어두운 alias
 - Spacing: `0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64`.
 - Radius: small `8`, medium `14`, large `20`, pill `999`.
 - Container: 구현 token `--container-shell`은 `1360px`이다. `PageContainer`는 360px에서는
-  `20px`, 768px 이상에서는 `32px` gutter를 사용한다. form 화면은 각 페이지가 별도로
-  좁은 읽기 폭을 둔다.
+  `20px`, 768px 이상에서는 `32px` gutter를 사용한다. 탐색 페이지의 1024px 이상 desktop rail은
+  카드 grid의 좌우 변을 기준으로 `--groups-page-shell`과 `--groups-page-rail-gutter`를 공유한다.
+  form 화면은 각 페이지가 별도로 좁은 읽기 폭을 둔다.
 - Border: `--border-thin`(1px)과 `--border-strong`(2px)을 사용한다. 기본 surface 경계는
   thin, 탐색 입력의 강조 하단선 같은 의도적 emphasis만 strong을 사용한다.
 - Touch: `--touch-target`은 44px, `--touch-target-lg`는 48px이다. button, navigation,
   filter, form control은 이 최소 높이를 공유한다.
 - Header: `--header-height` 72px, active line 3px, loading auth placeholder 108px로
   geometry를 token화한다.
+- 탐색 hero는 header 아래에 `--space-12` 기본 여백에 추가 `--space-16`과 `--space-4`를 더해,
+  상단 콘텐츠가 충분히 내려온 상태로 시작한다.
+- 탐색 페이지의 hero와 discovery는 desktop에서 `--space-16` 외부 간격과 `--space-10` 내부 상단
+  여백으로 넉넉하게 분리하고, discovery에는 `--color-section-soft`를 적용해 별도 정보 영역임을
+  드러낸다. 결과 제목과
+  모임 수/정렬 메타는 같은 baseline에서 바로 이어지며, 검색·필터와 카드 grid는 동일 rail을
+  유지한다.
 - Shadow: 카드 hover와 modal만 `0 12px 34px rgb(29 29 31 / 10%)`; 일반 정보 그룹은 border/tonal
   surface로 깊이를 표현한다.
 - Z layers: header `20`, sticky `25`, overlay `40`, dialog `50`, toast `60`.
@@ -121,9 +131,14 @@ semantic text alias다. 밝은 brand fill은 CTA surface로, 더 어두운 alias
   `/groups` 탐색 링크를 동시에 활성화하거나, `/my/groups`에서 `/my`를 동시에 활성화하지 않는다.
 - `PageContainer`: 모든 route의 좌우 gutter와 최대 폭을 통일한다.
 - `ListLayout`: PageHeader → search/filter → result meta → cards → cursor action. 한 화면 안의 hero,
-  tool row, result heading, card grid는 `PageContainer`의 동일한 좌우 rail을 공유한다. 탐색 hero의
-  display copy는 `크루와` / `함께할 자리를` / `찾아보세요` 세 줄을 모든 viewport에서 유지하되,
-  접근성 이름은 한 문장으로 제공한다.
+  tool row, result heading, card grid는 카드 grid의 좌우 변을 기준으로 동일한 desktop rail을 공유한다.
+  탐색 discovery는 hero와 분리된 soft surface 안에 배치하며, result meta는 `자리 둘러보기`
+  제목 바로 오른쪽에 둔다. 검색과 필터는 하나의 control panel로 묶고, `모임 유형`과
+  `모집 상태`라는 추상화된 native select 두 개로 노출한다.
+  탐색 hero의 display copy는 `크루와` / `함께할 자리를` / `찾아보세요` 세 줄을 모든 viewport에서
+  유지하되, 접근성 이름은 한 문장으로 제공한다.
+- 탐색 hero는 `src/shared/assets/brand/jarihana-signature.png`를 교체 가능한 signature art로
+  사용하며, 헤더 mark는 `src/shared/assets/brand/jarihana-favicon.png`를 교체 지점으로 사용한다.
 - `DetailLayout`: group detail은 desktop 본문 + sticky recruitment rail, tablet 이하에서는
   순차 single column이다. detail tabs는 content section을 바꾸지만 URL route는 detail에 남긴다.
 - `FormLayout`: group editor는 `1100px` content target 안에 mint hero, white form panels,
@@ -135,7 +150,8 @@ semantic text alias다. 밝은 brand fill은 CTA surface로, 더 어두운 alias
   `모집 관리`, 조건부 `신청 관리`, `멤버 관리`)를 모든 leader page가 공유한다. 멤버는 table,
   모집은 summary + condition form + public-state rail, 신청은 applicant panel + operations rail로
   표현하고 mobile에서는 모두 single column으로 재배치한다.
-- Page title은 route당 하나의 `h1`, section은 순차 `h2`, card title은 `h3`를 사용한다.
+- 일반 route는 page title 하나의 `h1`, section은 순차 `h2`, card title은 `h3`를 사용한다.
+  탐색 route의 hero와 `자리 둘러보기`는 현재 제품 요구에 따라 각각 `h1`으로 노출한다.
 
 ## 4. Component visual grammar
 

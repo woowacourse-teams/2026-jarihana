@@ -40,7 +40,10 @@
 }
 
 .app-header__brand {
+    display: inline-flex;
     flex: none;
+    align-items: center;
+    gap: var(--space-2);
     inline-size: fit-content;
     justify-self: start;
     color: inherit;
@@ -50,8 +53,17 @@
     text-decoration: none;
 }
 
-.app-header__brand span {
-    color: var(--color-brand);
+.app-header__brand-mark {
+    display: block;
+    flex: 0 0 2rem;
+    width: 2rem;
+    height: 2rem;
+    object-fit: contain;
+    transform: translateY(0.125rem);
+}
+
+.app-header__brand-text {
+    color: inherit;
 }
 
 .app-header__desktop-nav {
@@ -212,6 +224,13 @@
         grid-column: 3;
         justify-self: end;
         margin-left: 0;
+    }
+}
+
+@media (min-width: 64rem) {
+    .app-shell:has(.groups-page) .app-header__inner {
+        max-width: var(--groups-page-shell);
+        padding-inline: var(--groups-page-rail-gutter);
     }
 }
 
