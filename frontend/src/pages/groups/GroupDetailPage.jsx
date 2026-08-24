@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Pencil } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router";
 
 import { useAuth } from "../../features/auth/index.js";
@@ -68,7 +68,12 @@ export function GroupDetailPage() {
   const groupQuery = useGroup(groupId);
   const group = groupQuery.data;
   const currentMember = auth.member ?? auth.user;
-  const isLeader = currentMember?.id === group?.leader?.memberId;
+  const isLeaderPreview =
+    process.env.NODE_ENV === "development" && searchParams.get("previewRole") === "leader";
+  const isLeader = isLeaderPreview || currentMember?.id === group?.leader?.memberId;
+  const usesDefaultImage =
+    !group?.representativeImageUrl ||
+    group.representativeImageUrl.endsWith("images/default-group.png");
   const isApprovedMember =
     group?.currentMemberRole === "MEMBER" || group?.currentMemberRole === "LEADER";
   const isArchived = group?.status === "ENDED";
@@ -110,21 +115,14 @@ export function GroupDetailPage() {
       </Link>
       <div className="group-detail-grid">
         <div>
-          <section className="group-profile" aria-labelledby="group-title">
+          <section
+            className={`group-profile${usesDefaultImage ? " group-profile--default-image" : ""}`}
+            aria-labelledby="group-title"
+          >
             <div className="group-profile__copy">
-              <div className="group-profile__header">
-                <p className="groups-eyebrow group-profile__type-tag">
-                  <span>{typeLabel(group.type)}</span>
-                </p>
-                {isLeader ? (
-                  <Link
-                    className="group-profile__manage ui-button ui-button--secondary ui-button--md"
-                    to={`/groups/${groupId}/manage`}
-                  >
-                    모임 관리
-                  </Link>
-                ) : null}
-              </div>
+              <p className="groups-eyebrow group-profile__type-tag">
+                <span>{typeLabel(group.type)}</span>
+              </p>
               <h1 id="group-title">{group.name}</h1>
               <p>{group.introduction}</p>
               <div className="group-info">
@@ -166,12 +164,26 @@ export function GroupDetailPage() {
                 group={group}
               />
             </div>
+            {isLeader ? (
+              <Link
+                aria-label="모임 수정"
+                className="group-profile__edit ui-button ui-icon-button"
+                title="모임 수정"
+                to={`/groups/${groupId}/manage`}
+              >
+                <Pencil aria-hidden="true" size={20} strokeWidth={2.25} />
+              </Link>
+            ) : null}
           </section>
 
           <div className="group-detail-tabs">
             <Tabs
               value={selectedTab}
-              onValueChange={(value) => setSearchParams({ tab: value }, { replace: true })}
+              onValueChange={(value) => {
+                const nextSearchParams = new URLSearchParams(searchParams);
+                nextSearchParams.set("tab", value);
+                setSearchParams(nextSearchParams, { replace: true });
+              }}
               items={[
                 {
                   label: tabs[0].label,

@@ -408,36 +408,56 @@
 }
 
 .group-profile {
+  position: relative;
+  isolation: isolate;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.0208fr);
-  gap: var(--space-8);
+  grid-template-columns: minmax(0, 1fr);
   min-height: var(--group-detail-hero-min-height);
   padding: var(--space-7);
   border-radius: var(--radius-lg);
-  background: var(--color-brand-soft);
+  background: var(--color-nav);
   box-shadow: 0 var(--space-1) var(--space-1) var(--color-shadow);
+  overflow: hidden;
+}
+
+.group-profile::after {
+  position: absolute;
+  z-index: 1;
+  content: "";
+  inset: 0;
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-nav) 84%, transparent) 0%,
+      var(--color-overlay) 58%,
+      color-mix(in srgb, var(--color-nav) 34%, transparent) 100%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-nav) 12%, transparent) 0%,
+      color-mix(in srgb, var(--color-nav) 48%, transparent) 100%
+    );
+  pointer-events: none;
 }
 
 .group-profile h1 {
   margin: 0 0 var(--space-2);
+  color: var(--color-surface);
   font-size: clamp(1.9rem, 4vw, 2.5rem);
   overflow-wrap: break-word;
   word-break: keep-all;
 }
 
 .group-profile__copy > p:not(.groups-eyebrow) {
-  color: var(--color-muted-ink);
+  color: var(--color-header-muted);
 }
 
 .group-profile__art {
-  min-width: 0;
-  width: 100%;
-  height: var(--group-detail-hero-art-height);
-  min-height: 0;
-  align-self: start;
-  justify-self: end;
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface);
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  border-radius: inherit;
+  background-color: var(--color-nav);
   overflow: hidden;
 }
 
@@ -445,10 +465,24 @@
   display: block;
   width: 100%;
   height: 100%;
-  min-height: 0;
   border-radius: inherit;
   object-fit: cover;
   object-position: center;
+}
+
+.group-profile--default-image .group-profile__art {
+  background:
+    radial-gradient(circle at 82% 50%, rgb(49 191 182 / 28%), transparent 38%),
+    var(--color-nav);
+}
+
+.group-profile--default-image .group-profile__image {
+  padding: var(--space-7);
+  object-fit: contain;
+  object-position: right center;
+  opacity: 0.28;
+  filter: invert(1);
+  transform: translateX(6%);
 }
 
 .group-info-title {
@@ -1242,35 +1276,41 @@
 }
 
 .group-profile {
-  grid-template-columns: minmax(0, 0.81fr) minmax(0, 1fr);
-  gap: var(--space-5);
+  grid-template-columns: minmax(0, 1fr);
   min-block-size: var(--group-detail-hero-min-height);
   padding: var(--space-5);
   border-radius: var(--radius-lg);
 }
 
 .group-profile__copy {
+  position: relative;
+  z-index: 2;
   min-inline-size: 0;
+  inline-size: min(100%, calc(var(--space-16) * 10));
 }
 
-.group-profile__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.group-profile__manage {
-  flex: none;
-  min-height: 2.5rem;
-  padding-inline: var(--space-4);
-  font-size: var(--text-label);
+.group-profile__edit {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: var(--space-4);
+  inset-inline-end: var(--space-4);
+  border-color: transparent;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-surface);
   text-decoration: none;
-  white-space: nowrap;
+  filter: drop-shadow(0 var(--border-thin) var(--space-1) var(--color-nav));
+}
+
+.group-profile__edit:hover {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-surface) 14%, transparent);
+  color: var(--color-surface);
 }
 
 .group-profile__type-tag {
   margin-block: 0 var(--space-2);
+  color: var(--color-brand);
 }
 
 .group-profile h1 {
@@ -1293,6 +1333,7 @@
 
 .group-info-title {
   margin: 0 0 var(--space-2);
+  color: var(--color-surface);
   font-size: var(--text-h3);
 }
 
@@ -1320,15 +1361,17 @@
   block-size: 1rem;
   inline-size: 1rem;
   margin-block-start: 0.125rem;
+  filter: brightness(0) invert(1);
 }
 
 .group-facts .group-fact dt {
-  color: var(--color-muted-ink);
+  color: var(--color-header-muted);
   font-size: var(--text-caption);
   line-height: 1.35;
 }
 
 .group-facts .group-fact dd {
+  color: var(--color-surface);
   margin-block-start: var(--space-1);
   font-size: var(--text-label);
   line-height: 1.4;
@@ -1336,19 +1379,18 @@
 }
 
 .group-facts .group-fact--unavailable dd {
-  color: var(--color-muted-ink);
+  color: var(--color-header-muted);
   font-size: var(--text-caption);
   font-weight: 600;
 }
 
 .group-profile__art {
-  height: var(--group-detail-hero-art-height);
-  align-self: center;
-  background-image: linear-gradient(110deg, #e6f7f3 0%, #ffffff 72%);
+  height: 100%;
+  align-self: stretch;
 }
 
 .group-profile__image {
-  object-fit: contain;
+  object-fit: cover;
 }
 
 .group-detail-page .group-rail-card {
@@ -1396,12 +1438,23 @@
     padding: var(--space-5);
   }
 
-  .group-facts {
-    grid-template-columns: minmax(0, 1fr);
+  .group-profile::after {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-nav) 64%, transparent) 0%,
+      color-mix(in srgb, var(--color-nav) 86%, transparent) 100%
+    );
   }
 
-  .group-profile__art {
-    height: clamp(220px, 62vw, 328px);
+  .group-profile--default-image .group-profile__image {
+    padding: var(--space-8) var(--space-3) var(--space-3);
+    object-position: center bottom;
+    opacity: 0.16;
+    transform: none;
+  }
+
+  .group-facts {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .group-recruitment-hero {
