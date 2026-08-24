@@ -83,17 +83,18 @@ public class GroupCommandService {
             validateSessionSchedule(command);
             return Group.createSession(
                     command.name(), command.introduction(), command.description(),
-                    DEFAULT_REPRESENTATIVE_IMAGE_KEY, toSessionSchedule(command), createdAt
+                    DEFAULT_REPRESENTATIVE_IMAGE_KEY, command.meetingType(), command.location(),
+                    toSessionSchedule(command), createdAt
             );
         }
         validateRecurringSchedule(command);
         RecurringGroupSchedule schedule = toRecurringSchedule(command);
         if (type == GroupType.CLUB) {
             return Group.createClub(command.name(), command.introduction(), command.description(),
-                    DEFAULT_REPRESENTATIVE_IMAGE_KEY, schedule, createdAt);
+                    DEFAULT_REPRESENTATIVE_IMAGE_KEY, command.meetingType(), command.location(), schedule, createdAt);
         }
         return Group.createStudy(command.name(), command.introduction(), command.description(),
-                DEFAULT_REPRESENTATIVE_IMAGE_KEY, schedule, createdAt);
+                DEFAULT_REPRESENTATIVE_IMAGE_KEY, command.meetingType(), command.location(), schedule, createdAt);
     }
 
     private void validateSessionSchedule(CreateGroupCommand command) {
@@ -157,6 +158,8 @@ public class GroupCommandService {
                 command.introduction(),
                 command.description(),
                 DEFAULT_REPRESENTATIVE_IMAGE_KEY,
+                command.meetingType(),
+                command.location(),
                 group.getRecurringSchedule(),
                 group.getSessionSchedule()
         ));

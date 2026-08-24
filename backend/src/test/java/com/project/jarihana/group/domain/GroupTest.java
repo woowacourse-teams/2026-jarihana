@@ -28,9 +28,29 @@ class GroupTest {
         // Then
         assertThat(club.getType()).isEqualTo(GroupType.CLUB);
         assertThat(study.getType()).isEqualTo(GroupType.STUDY);
+        assertThat(club.getMeetingType().name()).isEqualTo("FLEXIBLE");
+        assertThat(study.getMeetingType().name()).isEqualTo("FLEXIBLE");
         assertThat(club.getRecurringSchedule()).isNull();
         assertThat(study.getRecurringSchedule()).isNull();
         assertThat(club.getStatus()).isEqualTo(GroupStatus.ACTIVE);
+    }
+
+    @DisplayName("모임 방식은 null일 수 없다.")
+    @Test
+    void meetingTypeIsRequired() {
+        // When & Then
+        assertThatThrownBy(() -> Group.createClub(
+                "러닝크루",
+                "함께 달려요",
+                null,
+                null,
+                null,
+                null,
+                recurringSchedule(),
+                CREATED_AT
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("세션은 일회성 일정이 반드시 필요하다.")

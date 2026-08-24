@@ -2,6 +2,7 @@ package com.project.jarihana.group.command.controller.dto;
 
 import com.project.jarihana.group.command.service.dto.CreateGroupCommand;
 import com.project.jarihana.group.domain.GroupType;
+import com.project.jarihana.group.domain.MeetingType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -17,6 +18,8 @@ public record CreateGroupRequest(
         @NotBlank @Size(max = 50) String name,
         @NotBlank @Size(max = 100) String introduction,
         @Size(max = 5_000) String description,
+        @NotNull MeetingType meetingType,
+        @Size(max = 255) String location,
         @Valid RecurringScheduleRequest recurringSchedule,
         @Valid SessionScheduleRequest sessionSchedule
 ) {
@@ -27,6 +30,8 @@ public record CreateGroupRequest(
                 name,
                 introduction,
                 description,
+                meetingType,
+                location,
                 recurringSchedule == null ? null : recurringSchedule.toCommand(),
                 sessionSchedule == null ? null : sessionSchedule.toCommand()
         );

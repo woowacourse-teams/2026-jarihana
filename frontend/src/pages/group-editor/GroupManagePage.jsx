@@ -30,6 +30,7 @@ import { GroupMembersPanel } from "./GroupMembersPanel.jsx";
 import { RepresentativeImage } from "./RepresentativeImage.jsx";
 import { useSubmissionLock } from "./useSubmissionLock.js";
 import { ManagementContext } from "../manage/ManagementContext.jsx";
+import { meetingTypeLabel } from "../groups/pageUtils.js";
 import "../manage/manage.css";
 
 const overviewSchema = z.object({
@@ -308,6 +309,8 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
       try {
         await modifyMutation.mutateAsync({
           ...values,
+          meetingType: group.meetingType ?? "FLEXIBLE",
+          location: group.location ?? null,
           name: values.name.trim(),
           introduction: values.introduction.trim()
         });
@@ -395,14 +398,14 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
                 showDescription={false}
               />
               <dl className="group-editor__facts">
-                <HeroFact icon={kindIcon} label="모임 방식" unavailable value="API 미지원" />
+                <HeroFact icon={kindIcon} label="모임 방식" value={meetingTypeLabel(group.meetingType)} />
                 <HeroFact
                   icon={scheduleIcon}
                   label="모임 일정"
                   onClick={openScheduleDialog}
                   value={scheduleLabel(group)}
                 />
-                <HeroFact icon={placeIcon} label="장소" unavailable value="API 미지원" />
+                <HeroFact icon={placeIcon} label="장소" value={group.location || "장소 미정"} />
                 <HeroFact
                   icon={memberIcon}
                   label="현재 멤버 수"

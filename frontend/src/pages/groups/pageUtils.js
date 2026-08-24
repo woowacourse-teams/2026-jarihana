@@ -6,6 +6,12 @@ const typeLabels = {
   SESSION: "세션"
 };
 
+const meetingTypeLabels = {
+  FLEXIBLE: "유동적",
+  OFFLINE: "오프라인",
+  ONLINE: "온라인"
+};
+
 const dayLabels = {
   MONDAY: "월",
   TUESDAY: "화",
@@ -34,6 +40,10 @@ export function getLastPage(data) {
 
 export function typeLabel(type) {
   return typeLabels[type] ?? type;
+}
+
+export function meetingTypeLabel(meetingType) {
+  return meetingTypeLabels[meetingType] ?? "유동적";
 }
 
 export function recruitmentStatusLabel(status) {
