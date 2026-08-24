@@ -79,8 +79,8 @@ GitHub 앱에는 callback URL을 여러 개 등록할 수 있습니다. 현재 �
 
 | 등록된 주소 | 비고 |
 | --- | --- |
-| `http://localhost:5173/api/oauth/github/callback` | 로컬 개발에서 이 값을 씁니다 |
-| `http://localhost:8080/api/oauth/github/callback` | 등록만 되어 있습니다 |
+| `http://localhost:5173/api/oauth/github/callback` | 로컬 개발 기본값. 프론트엔드 개발 서버를 거칩니다 |
+| `http://localhost:8080/api/oauth/github/callback` | 백엔드만 띄우고 확인할 때 |
 | `https://jarihana.com/api/oauth/github/callback` | 운영 |
 
 `ACCESS_TOKEN_SECRET`은 HMAC-SHA256 서명 키로 쓰이며 **32자(256비트) 이상이어야 합니다.**
