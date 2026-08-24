@@ -1,7 +1,6 @@
 import ky from "ky";
 import { z } from "zod";
 import { getCookieValue } from "./cookies";
-import { isDevelopmentLoginEnabled } from "./developmentAuth";
 import { ApiError } from "./errors";
 import { apiEnvelopeSchema } from "./schemas";
 
@@ -53,7 +52,6 @@ const joinUrl = (baseUrl, path) => `${baseUrl.replace(/\/$/, "")}/${path.replace
 export const createApiClient = ({
   baseUrl = "/api/",
   cookieSource = () => (typeof document === "undefined" ? "" : document.cookie),
-  developmentLoginSource = isDevelopmentLoginEnabled,
   fetch: fetcher,
   onSessionExpired = () => {}
 } = {}) => {
@@ -69,9 +67,6 @@ export const createApiClient = ({
   const send = async (path, options = {}) => {
     const method = (options.method ?? "GET").toUpperCase();
     const headers = new Headers(options.headers);
-    if (developmentLoginSource()) {
-      headers.set("X-Jarihana-Development-Auth", "enabled");
-    }
     if (mutationMethods.has(method)) {
       const csrfToken = getCookieValue(cookieSource(), "XSRF-TOKEN");
       if (csrfToken) {

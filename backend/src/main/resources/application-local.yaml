@@ -15,6 +15,3 @@ jarihana:
   auth:
     cookie:
       secure: false
-    local-development:
-      enabled: true
-      member-id: 1

@@ -65,7 +65,7 @@ function MyPageLink({ onNavigate }) {
 }
 
 function AuthAction({ onNavigate, status }) {
-  const { developmentLoginAvailable, login, logout } = useAuth();
+  const { login, logout } = useAuth();
 
   if (status === "authenticated") {
     return (
@@ -105,7 +105,7 @@ function AuthAction({ onNavigate, status }) {
       }}
       type="button"
     >
-      {developmentLoginAvailable ? "개발 계정으로 시작" : "GitHub로 로그인"}
+      GitHub로 로그인
     </button>
   );
 }
