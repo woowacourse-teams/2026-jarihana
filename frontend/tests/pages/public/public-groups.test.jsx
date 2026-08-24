@@ -435,7 +435,7 @@ it("Given the backend default image, when a result renders, then the card displa
   expect(frame).not.toHaveClass("groups-card-frame--fallback");
 });
 
-it("Given a group, when detail renders, then API-backed information and leader share the Figma hierarchy", () => {
+it("Given a group, when detail renders, then API-backed information follows the Figma hierarchy", () => {
   const { container } = renderAt("/groups/41", <GroupDetailPage />);
 
   expect(screen.getByRole("heading", { name: "모임 정보" })).toBeInTheDocument();
@@ -448,7 +448,6 @@ it("Given a group, when detail renders, then API-backed information and leader s
   ).toEqual(["모임 방식", "모임 일정", "장소", "현재 멤버 수"]);
   const rail = container.querySelector(".group-rail-card");
   expect(rail).toContainElement(screen.getByText("모집 시작"));
-  expect(within(rail).getByText("써니")).toBeInTheDocument();
   expect(container.querySelectorAll(".group-profile__figure > span")).toHaveLength(4);
 });
 
@@ -460,6 +459,22 @@ it("Given a group detail, when the page renders, then list navigation is integra
   const backLink = screen.getByRole("link", { name: "목록으로" });
   expect(profile).toContainElement(backLink);
   expect(backLink).toHaveAttribute("href", "/groups");
+  scrollTo.mockRestore();
+});
+
+it("Given a group leader, when detail renders, then leader context is separate from recruitment", () => {
+  const scrollTo = jest.spyOn(window, "scrollTo").mockImplementation(() => {});
+  const { container } = renderAt("/groups/41", <GroupDetailPage />);
+
+  const desktopRail = container.querySelector(".group-rail--desktop");
+  const leaderCard = desktopRail.querySelector(".group-leader--card");
+  const recruitmentCard = desktopRail.querySelector(".group-recruitment-summary");
+  const heroLeader = container.querySelector(".group-profile .group-leader--hero");
+
+  expect(leaderCard).toHaveTextContent("써니");
+  expect(leaderCard.nextElementSibling).toBe(recruitmentCard);
+  expect(recruitmentCard.querySelector(".group-leader")).not.toBeInTheDocument();
+  expect(heroLeader).toHaveTextContent("써니");
   scrollTo.mockRestore();
 });
 

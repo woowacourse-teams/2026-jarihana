@@ -125,6 +125,7 @@ export function GroupDetailPage() {
               </p>
               <h1 id="group-title">{group.name}</h1>
               <p>{group.introduction}</p>
+              <LeaderSummary leader={group.leader} variant="hero" />
               <div className="group-info">
                 <h2 className="group-info-title">모임 정보</h2>
                 <dl className="group-facts">
@@ -178,6 +179,7 @@ export function GroupDetailPage() {
 
           <div className="group-detail-tabs">
             <Tabs
+              animated
               value={selectedTab}
               onValueChange={(value) => {
                 const nextSearchParams = new URLSearchParams(searchParams);
@@ -205,11 +207,11 @@ export function GroupDetailPage() {
           </div>
         </div>
 
-        <aside className="group-rail group-rail--desktop" aria-label="모집과 운영자 정보">
+        <aside className="group-rail group-rail--desktop" aria-label="운영자와 모집 정보">
+          <LeaderSummary leader={group.leader} variant="card" />
           <RecruitmentSummary
             auth={auth}
             group={group}
-            leader={group.leader}
             createRecruitmentHref={isLeader ? `/groups/${groupId}/manage/recruitments` : null}
             isApprovedMember={isApprovedMember}
             isArchived={isArchived}
@@ -232,7 +234,6 @@ export function GroupDetailPage() {
             <RecruitmentSummary
               auth={auth}
               group={group}
-              leader={group.leader}
               createRecruitmentHref={isLeader ? `/groups/${groupId}/manage/recruitments` : null}
               isApprovedMember={isApprovedMember}
               isArchived={isArchived}
@@ -264,8 +265,7 @@ function RecruitmentSummary({
   group,
   isApprovedMember,
   isArchived,
-  isLeader,
-  leader
+  isLeader
 }) {
   const recruitment = group.activeRecruitment;
   const registration = useCreateRegistration(recruitment?.id);
@@ -284,7 +284,6 @@ function RecruitmentSummary({
         <div className="group-recruitment-empty">
           <h3>아카이빙된 모임입니다</h3>
         </div>
-        <LeaderSummary leader={leader} />
       </section>
     );
   }
@@ -351,7 +350,6 @@ function RecruitmentSummary({
             </Link>
           </div>
         ) : null}
-        <LeaderSummary leader={leader} />
       </section>
     );
   }
@@ -390,7 +388,6 @@ function RecruitmentSummary({
         />
       </div>
       <div className="group-recruitment-action">{applicationAction()}</div>
-      <LeaderSummary leader={leader} />
       <Modal
         description="운영자에게 전달할 가입 신청 메시지를 작성해 주세요."
         onClose={() => {
@@ -474,11 +471,11 @@ function ApplicationForm({ onSuccess, registration }) {
   );
 }
 
-function LeaderSummary({ leader }) {
+function LeaderSummary({ leader, variant }) {
   if (!leader) return null;
   return (
-    <div className="group-leader">
-      <p>운영자</p>
+    <div className={`group-leader group-leader--${variant}`}>
+      <span className="group-leader__label">운영자</span>
       <div className="group-leader__identity">
         <Avatar
           alt={`${leader.crewName} 프로필`}

@@ -712,17 +712,47 @@
 
 .group-leader {
   display: grid;
-  gap: var(--space-1);
-  margin-top: auto;
-  padding-top: var(--space-6);
-  border-top: var(--border-thin) solid var(--color-line);
+  min-inline-size: 0;
+  gap: var(--space-3);
 }
 
-.group-leader p,
-.group-leader span {
+.group-leader__label,
+.group-leader__identity span {
   margin: 0;
   color: var(--color-muted-ink);
   font-size: var(--text-caption);
+}
+
+.group-leader--card {
+  padding: var(--space-5);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.group-leader--hero {
+  display: none;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-thin) solid color-mix(in srgb, var(--color-surface) 32%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-nav) 68%, transparent);
+}
+
+.group-leader--hero .group-leader__label {
+  color: var(--color-brand);
+  font-weight: 700;
+}
+
+.group-leader--hero .group-leader__identity strong {
+  color: var(--color-surface);
+}
+
+.group-leader--hero .group-leader__identity span {
+  color: var(--color-header-muted);
 }
 
 .group-leader__identity {
@@ -1459,10 +1489,6 @@
   min-height: 0;
 }
 
-.group-detail-page .group-leader {
-  margin-block-start: var(--space-8);
-}
-
 @media (max-width: 89.9375rem) {
   .group-detail-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -1474,6 +1500,11 @@
 
   .group-floating-recruitment {
     display: block;
+  }
+
+  .group-profile__copy > .group-leader--hero {
+    display: inline-grid;
+    margin-block-start: var(--space-5);
   }
 
   .group-recruitment-fab {

@@ -125,9 +125,10 @@ semantic text alias다. 밝은 brand fill은 CTA surface로, 더 어두운 alias
   tool row, result heading, card grid는 `PageContainer`의 동일한 좌우 rail을 공유한다. 탐색 hero의
   display copy는 `크루와` / `함께할 자리를` / `찾아보세요` 세 줄을 모든 viewport에서 유지하되,
   접근성 이름은 한 문장으로 제공한다.
-- `DetailLayout`: group detail은 desktop 본문 + sticky recruitment rail이며 전체 폭은 `1600px`를
-  넘지 않는다. tablet 이하에서는 순차 single column이다. detail tabs는 content section을 바꾸지만
-  URL route는 detail에 남긴다.
+- `DetailLayout`: group detail은 desktop 본문 + sticky support rail이며 전체 폭은 `1600px`를
+  넘지 않는다. support rail은 운영자 프로필 카드 다음에 모집 정보 카드를 배치한다. rail이 숨는
+  tablet/mobile에서는 운영자 프로필을 hero 안의 compact chip으로 옮기고 모집 정보만 floating
+  modal로 제공한다. detail tabs는 content section을 바꾸지만 URL route는 detail에 남긴다.
 - `FormLayout`: group editor는 `1100px` content target 안에 mint hero, white form panels,
   step title/illustration과 하단 action bar를 둔다. 1024px 미만에서는 hero의 text/visual을
   세로로 쌓고, mobile day picker는 2 columns로 줄인다.
@@ -160,7 +161,9 @@ semantic text alias다. 밝은 brand fill은 CTA surface로, 더 어두운 alias
   인원 chip을 구성한다. rail segment는 hover와 keyboard focus에서 `N기 · M명` preview를 제공한다.
   생성 전 화면은 아직 groupId가 없으므로 멤버를 꾸며내지 않고 생성 후 확인 가능 상태를 표시한다.
 - Badges: 상태색의 soft surface + 고대비 text, pill shape.
-- Tabs: route 또는 상태와 연결된 semantic tablist. 모바일은 가로 scroll하되 page 자체 overflow는 막는다.
+- Tabs: route 또는 상태와 연결된 semantic tablist. 선택 underline 하나가 새 tab 위치로 이동하고
+  panel은 짧게 fade/translate되어 공간 연속성을 전달한다. 모바일은 가로 scroll하되 page 자체
+  overflow는 막는다.
 - Modal/Dialog: 중앙 dialog 또는 오른쪽 drawer를 사용한다. focus trap, Escape, focus restore를
   공통 동작으로 제공한다.
 - Toast: 성공/오류를 `aria-live`, 최대 3개 stack으로 알리고 focus/hover 중에는 자동 닫힘을
@@ -183,7 +186,8 @@ long Korean copy, empty/skeleton을 검수한다. production navigation에는 �
 ## 6. Interaction and motion
 
 - Fast `120ms`, base `180ms`, deliberate `240ms`; easing `cubic-bezier(.2,.8,.2,1)`.
-- Button은 색/1px translate 변화만, 카드 hover는 2px 이내 상승, tabs는 color와 underline 전환.
+- Button은 색/1px translate 변화만, 카드 hover는 2px 이내 상승한다. tabs의 단일 underline은
+  `180ms` transform으로 새 위치에 이동하고 panel은 opacity + 8px translate로 진입한다.
 - Header와 route/content tabs의 underline은 현재 목적지/패널 하나에만 표시한다. Select chevron은
   열 수 있는 control임을 상시 알리며, 기수 rail preview는 hover와 focus에서 같은 정보를 제공한다.
 - Dialog는 opacity + 8px scale/translate, drawer는 transform을 사용한다.
