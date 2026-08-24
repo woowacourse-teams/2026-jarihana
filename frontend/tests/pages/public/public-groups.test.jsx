@@ -430,3 +430,42 @@ it("Given meeting details, when the detail page renders, then the information ca
   expect(screen.getByText("서울 캠퍼스")).toBeInTheDocument();
   expect(screen.queryByText("API 미지원")).not.toBeInTheDocument();
 });
+
+it.each([
+  [
+    "a recurring schedule",
+    group,
+    ["매주 월", "19:00 – 21:00"]
+  ],
+  [
+    "a session schedule",
+    {
+      ...group,
+      type: "SESSION",
+      recurringSchedule: null,
+      sessionSchedule: {
+        sessionDate: "2026-09-01",
+        startTime: "14:00:00",
+        endTime: "16:00:00"
+      }
+    },
+    ["2026.09.01", "14:00 – 16:00"]
+  ]
+])(
+  "Given %s, when the detail page renders, then the schedule and time use separate lines",
+  (_, scheduledGroup, expectedLines) => {
+    groupHooks.useGroup.mockReturnValue({
+      data: scheduledGroup,
+      isLoading: false,
+      isError: false
+    });
+
+    renderAt("/groups/41", <GroupDetailPage />);
+
+    const scheduleValue = screen.getByRole("term", { name: "모임 일정" }).nextElementSibling;
+    const lineContainer = scheduleValue.firstElementChild;
+
+    expect(lineContainer).toHaveClass("group-facts__schedule");
+    expect(Array.from(lineContainer.children, (line) => line.textContent)).toEqual(expectedLines);
+  }
+);

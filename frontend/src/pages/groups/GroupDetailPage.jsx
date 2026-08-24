@@ -29,7 +29,7 @@ import {
   formatLocalDate,
   meetingTypeLabel,
   publicErrorCopy,
-  scheduleText,
+  scheduleLines,
   typeLabel
 } from "./pageUtils.js";
 import "./groups.css";
@@ -66,8 +66,6 @@ export function GroupDetailPage() {
   const isApprovedMember =
     group?.currentMemberRole === "MEMBER" || group?.currentMemberRole === "LEADER";
   const isArchived = group?.status === "ENDED";
-  const isSession = group?.type === "SESSION";
-  const hasSessionSchedule = isSession && Boolean(group?.sessionSchedule);
 
   if (groupQuery.isLoading) {
     return (
@@ -134,17 +132,11 @@ export function GroupDetailPage() {
                     icon={scheduleIcon}
                     label="모임 일정"
                     value={
-                      hasSessionSchedule ? (
-                        <span className="group-facts__session-schedule">
-                          <span>{formatLocalDate(group.sessionSchedule.sessionDate)}</span>
-                          <span>
-                            {group.sessionSchedule.startTime.slice(0, 5)} – {" "}
-                            {group.sessionSchedule.endTime.slice(0, 5)}
-                          </span>
-                        </span>
-                      ) : (
-                        scheduleText(group)
-                      )
+                      <span className="group-facts__schedule">
+                        {scheduleLines(group).map((line) => (
+                          <span key={line}>{line}</span>
+                        ))}
+                      </span>
                     }
                   />
                   <DetailFact

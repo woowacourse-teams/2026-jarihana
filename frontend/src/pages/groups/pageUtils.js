@@ -66,16 +66,26 @@ export function formatLocalDate(value) {
   return formatLocalDateTime(value).split(" ")[0];
 }
 
-export function scheduleText(group) {
+export function scheduleLines(group) {
   if (group.recurringSchedule) {
     const days = group.recurringSchedule.daysOfWeek.map((day) => dayLabels[day] ?? day).join("·");
-    return `매주 ${days} ${group.recurringSchedule.startTime.slice(0, 5)} – ${group.recurringSchedule.endTime.slice(0, 5)}`;
+    return [
+      `매주 ${days}`,
+      `${group.recurringSchedule.startTime.slice(0, 5)} – ${group.recurringSchedule.endTime.slice(0, 5)}`
+    ];
   }
   if (group.sessionSchedule) {
-    return `${group.sessionSchedule.sessionDate.replaceAll("-", ".")} ${group.sessionSchedule.startTime.slice(0, 5)} – ${group.sessionSchedule.endTime.slice(0, 5)}`;
+    return [
+      group.sessionSchedule.sessionDate.replaceAll("-", "."),
+      `${group.sessionSchedule.startTime.slice(0, 5)} – ${group.sessionSchedule.endTime.slice(0, 5)}`
+    ];
   }
-  if (group.type === "CLUB" || group.type === "STUDY") return "유동적";
-  return "일정 협의";
+  if (group.type === "CLUB" || group.type === "STUDY") return ["유동적"];
+  return ["일정 협의"];
+}
+
+export function scheduleText(group) {
+  return scheduleLines(group).join(" ");
 }
 
 export function courseLabel(course) {

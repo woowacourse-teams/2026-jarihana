@@ -468,7 +468,7 @@
   font-weight: 700;
 }
 
-.group-facts__session-schedule {
+.group-facts__schedule {
   display: grid;
   gap: var(--space-1);
 }
