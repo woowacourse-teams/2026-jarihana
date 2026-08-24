@@ -478,6 +478,7 @@
   gap: var(--space-10);
   margin-top: var(--space-5);
   border-bottom: var(--border-thin) solid var(--color-line);
+  overflow-y: hidden;
 }
 
 .group-detail-tabs .ui-tabs__tab {
