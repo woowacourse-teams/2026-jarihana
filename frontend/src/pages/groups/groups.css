@@ -1313,6 +1313,12 @@
   inline-size: min(100%, calc(var(--space-16) * 4));
 }
 
+.group-recruitment-modal
+  .group-recruitment-hero--empty
+  .group-recruitment-hero__image {
+  justify-self: center;
+}
+
 .group-profile {
   grid-template-columns: minmax(0, 1fr);
   min-block-size: var(--group-detail-hero-min-height);
