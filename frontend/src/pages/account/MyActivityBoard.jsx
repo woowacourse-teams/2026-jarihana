@@ -2,7 +2,7 @@ import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight, UsersRound } from 
 import { Link } from "react-router";
 
 import { Button, EmptyState, ErrorState, Skeleton, StatusBadge } from "../../shared/ui/index.js";
-import { GROUP_TYPE_LABELS, REGISTRATION_STATUS_LABELS, formatKoreanDate } from "./accountUtils.js";
+import { formatKoreanDate, GROUP_TYPE_LABELS, REGISTRATION_STATUS_LABELS } from "./accountUtils.js";
 
 function GroupActivityRow({ group, label }) {
   return (

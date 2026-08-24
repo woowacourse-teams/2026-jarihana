@@ -1,6 +1,11 @@
-<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g id="Edit/Hero/Icon/Place">
-<path id="Edit/Hero/Icon/Place/Path01" d="M8 14C8 14 12 10.3 12 7C12 5.93913 11.5786 4.92172 10.8284 4.17157C10.0783 3.42143 9.06087 3 8 3C6.93913 3 5.92172 3.42143 5.17157 4.17157C4.42143 4.92172 4 5.93913 4 7C4 10.3 8 14 8 14Z" stroke="#7A7A7A" stroke-width="1.4"/>
-<path id="Edit/Hero/Icon/Place/Path02" d="M8 8.3C8.71797 8.3 9.3 7.71797 9.3 7C9.3 6.28203 8.71797 5.7 8 5.7C7.28203 5.7 6.7 6.28203 6.7 7C6.7 7.71797 7.28203 8.3 8 8.3Z" fill="#7A7A7A"/>
-</g>
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="16" height="16" viewBox="0 0 16 16"
+     fill="none" xmlns="http://www.w3.org/2000/svg">
+    <g id="Edit/Hero/Icon/Place">
+        <path id="Edit/Hero/Icon/Place/Path01"
+              d="M8 14C8 14 12 10.3 12 7C12 5.93913 11.5786 4.92172 10.8284 4.17157C10.0783 3.42143 9.06087 3 8 3C6.93913 3 5.92172 3.42143 5.17157 4.17157C4.42143 4.92172 4 5.93913 4 7C4 10.3 8 14 8 14Z"
+              stroke="#7A7A7A" stroke-width="1.4"/>
+        <path id="Edit/Hero/Icon/Place/Path02"
+              d="M8 8.3C8.71797 8.3 9.3 7.71797 9.3 7C9.3 6.28203 8.71797 5.7 8 5.7C7.28203 5.7 6.7 6.28203 6.7 7C6.7 7.71797 7.28203 8.3 8 8.3Z"
+              fill="#7A7A7A"/>
+    </g>
 </svg>

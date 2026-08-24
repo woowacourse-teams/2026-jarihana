@@ -1,6 +1,9 @@
-<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="128.928" height="71.8373" viewBox="0 0 128.928 71.8373" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g id="Vector">
-<path d="M1.46159 71.5C10.4616 32.5 26.4616 1.5 64.4616 1.5C104.462 1.5 119.462 34.5 127.462 71.5" fill="white" fill-opacity="0.7"/>
-<path d="M1.46159 71.5C10.4616 32.5 26.4616 1.5 64.4616 1.5C104.462 1.5 119.462 34.5 127.462 71.5" stroke="#111111" stroke-width="3"/>
-</g>
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="128.928" height="71.8373"
+     viewBox="0 0 128.928 71.8373" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <g id="Vector">
+        <path d="M1.46159 71.5C10.4616 32.5 26.4616 1.5 64.4616 1.5C104.462 1.5 119.462 34.5 127.462 71.5" fill="white"
+              fill-opacity="0.7"/>
+        <path d="M1.46159 71.5C10.4616 32.5 26.4616 1.5 64.4616 1.5C104.462 1.5 119.462 34.5 127.462 71.5"
+              stroke="#111111" stroke-width="3"/>
+    </g>
 </svg>

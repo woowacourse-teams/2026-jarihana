@@ -1,3 +1,5 @@
-<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="172.085" height="42.6833" viewBox="0 0 172.085 42.6833" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path id="Vector" d="M0 15H31M14 0V31M153 9L158 19L169 21L161 29L163 40L153 35L143 40L145 29L137 21L148 19L153 9Z" stroke="#111111" stroke-width="3"/>
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="172.085" height="42.6833"
+     viewBox="0 0 172.085 42.6833" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path id="Vector" d="M0 15H31M14 0V31M153 9L158 19L169 21L161 29L163 40L153 35L143 40L145 29L137 21L148 19L153 9Z"
+          stroke="#111111" stroke-width="3"/>
 </svg>

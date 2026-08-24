@@ -1,4 +1,4 @@
-import { Checkbox, MarkdownContent, Select, TextField, Textarea } from "../../shared/ui/index.js";
+import { Checkbox, MarkdownContent, Select, Textarea, TextField } from "../../shared/ui/index.js";
 
 export const DAYS = [
   ["MONDAY", "월요일"],
