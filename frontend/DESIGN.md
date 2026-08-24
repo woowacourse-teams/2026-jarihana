@@ -121,7 +121,8 @@ semantic text alias다. 밝은 brand fill은 CTA surface로, 더 어두운 alias
 - `AppShell`: 전체 background는 white canvas다. 검은 GlobalHeader 배경은 모든 viewport에서
   top full-bleed로 렌더하고, header 내부 콘텐츠만 `--container-shell`과 `--page-gutter`에 맞춰
   중앙 정렬한다. skip link, main landmark, mobile drawer와 동일한 auth action을 모든 route에
-  제공한다. 현재 공통 footer는 없다.
+  제공한다. 공통 footer는 검은 full-bleed surface 안에 브랜드 소개·자리 유래·외부 GitHub 링크를
+  두고, 모바일에서는 콘텐츠 아래로 외부 링크를 쌓는다.
 - Header composition: desktop은 `1fr / auto / 1fr` grid로 wordmark, centered navigation,
   우측 auth action을 고정한다. anonymous도 탐색·모임 만들기·모임 관리 진입점을 보고, guard가
   인증이 필요한 destination을 처리한다. anonymous가 보호 메뉴를 누르면 해당 경로를 로그인 후
@@ -133,8 +134,8 @@ semantic text alias다. 밝은 brand fill은 CTA surface로, 더 어두운 alias
 - `ListLayout`: PageHeader → search/filter → result meta → cards → cursor action. 한 화면 안의 hero,
   tool row, result heading, card grid는 카드 grid의 좌우 변을 기준으로 동일한 desktop rail을 공유한다.
   탐색 discovery는 hero와 분리된 soft surface 안에 배치하며, result meta는 `자리 둘러보기`
-  제목 바로 오른쪽에 둔다. 검색과 필터는 하나의 control panel로 묶고, `모임 유형`과
-  `모집 상태`라는 추상화된 native select 두 개로 노출한다.
+  제목 바로 오른쪽에 둔다. 검색과 필터는 하나의 control panel로 묶고, `모임 유형`,
+  `모임 상태`, `모집 상태`라는 추상화된 native select 세 개로 노출한다.
   탐색 hero의 display copy는 `크루와` / `함께할 자리를` / `찾아보세요` 세 줄을 모든 viewport에서
   유지하되, 접근성 이름은 한 문장으로 제공한다.
 - 탐색 hero는 `src/shared/assets/brand/jarihana-signature.png`를 교체 가능한 signature art로
@@ -157,14 +158,20 @@ semantic text alias다. 밝은 brand fill은 CTA surface로, 더 어두운 alias
 
 - Buttons: primary mint/black text, secondary white/line, tertiary text, danger red. 모든 variant는
   default/hover/active/focus/disabled/pending 상태를 갖는다.
+- Footer: 프로토타입의 `64px 24px` desktop / `48px 24px` mobile padding, 좌측 소개 영역과
+  우측 40px 원형 외부 링크를 사용한다. 탐색 페이지에서는 카드 grid rail을 그대로 상속해
+  내부 좌우 끝점을 맞춘다. 인스타그램은 노출하지 않고 GitHub 저장소 링크 하나만 둔다.
 - Fields: label, optional description, control, inline error를 같은 field group으로 묶는다. 검색은 input과
   submit icon을 하나의 thin-border/small-radius control surface로 묶는다.
 - Select: native keyboard/assistive-tech 동작을 유지하면서 오른쪽 chevron, 넉넉한 우측 padding,
   pointer cursor를 제공해 일반 input과 시각적으로 구분한다.
-- Cards: 14–20px radius, `--border-thin` line, 20–24px padding. 클릭 가능한 카드 전체에
+- Cards: 14–20px radius, `--border-thin` line, 20–24px padding. 탐색 카드의 visual은 `8 / 5`
+  비율로 이미지 비중을 확보하고, 본문 상단 여백을 `--space-1`로 두어 하단 gradient fade와
+  텍스트가 4px 간격으로 이어지도록 한다. 클릭 가능한 카드 전체에
   focus-visible을 둔다. 상태 badge는 이미지 위에 걸치지 않고 카드 본문 첫 metadata row 안에 둔다.
-  GroupCard 이미지는 backend의 `representativeImageUrl`을 그대로 사용하며, 서버 기본 이미지 경로도
-  별도 일러스트로 치환하지 않는다.
+  GroupCard 이미지는 backend의 `representativeImageUrl`을 그대로 사용하며, 이미지 하단은 surface로
+  부드럽게 fade되어 본문과 하나의 카드 surface처럼 이어진다. 서버 기본 이미지 경로도 별도
+  일러스트로 치환하지 않는다.
 - Account activity/group cards: 상세 목적지가 하나인 카드는 제목만이 아니라 카드 전체가 하나의
   semantic link다. 내부 mutation button이 있는 신청 카드는 중첩 interactive element를 피하기 위해
   제목 링크와 action을 분리한다.
@@ -177,10 +184,11 @@ semantic text alias다. 밝은 brand fill은 CTA surface로, 더 어두운 alias
 - Tabs: route 또는 상태와 연결된 semantic tablist. 모바일은 가로 scroll하되 page 자체 overflow는 막는다.
 - Modal/Dialog: 중앙 dialog 또는 오른쪽 drawer를 사용한다. focus trap, Escape, focus restore를
   공통 동작으로 제공한다.
-- Toast: 성공/오류를 `aria-live`, 최대 3개 stack으로 알리고 focus/hover 중에는 자동 닫힘을
-  일시 정지한다.
+- Toast: 성공/오류를 `aria-live`, 최대 3개 stack으로 알리고 2,000ms 후 자동 닫힘과 수동 닫기
+  버튼을 제공한다.
 - Skeleton: 실제 content geometry를 닮고 background refetch에서는 기존 content를 지우지 않는다.
 - Empty/Error/Forbidden/NotFound: 상태명, 다음 행동 하나, 필요 시 재시도 링크를 제공한다.
+  탐색의 `자리 없음!`은 숫자 마크 없이 시그니처 visual과 직접 자리 만들기 action을 제공한다.
 
 ## 5. Primitive inventory and states
 
@@ -188,7 +196,7 @@ semantic text alias다. 밝은 brand fill은 CTA surface로, 더 어두운 alias
 
 `Button`, `IconButton`, `TextField`, `Textarea`, `Select`, `Checkbox`, `Radio`, `SearchField`,
 `FilterBar`, `Card`, `GroupCard`, `RecruitmentCard`, `StatusBadge`, `Avatar`, `Tabs`, `Modal`,
-`ConfirmDialog`, `Drawer`, `Toast`, `Skeleton`, `EmptyState`, `ErrorState`, `ForbiddenState`,
+`ConfirmDialog`, `Drawer`, `Toast`, `Footer`, `Skeleton`, `EmptyState`, `ErrorState`, `ForbiddenState`,
 `NotFoundState`, `CursorList`.
 
 개발용 `/__showcase` route에서 light canvas 위 모든 variant, keyboard focus, error, disabled, pending,
@@ -200,6 +208,8 @@ long Korean copy, empty/skeleton을 검수한다. production navigation에는 �
 - Button은 색/1px translate 변화만, 카드 hover는 2px 이내 상승, tabs는 color와 underline 전환.
 - Header와 route/content tabs의 underline은 현재 목적지/패널 하나에만 표시한다. Select chevron은
   열 수 있는 control임을 상시 알리며, 기수 rail preview는 hover와 focus에서 같은 정보를 제공한다.
+- Toast는 2,000ms 후 180ms 동안 opacity와 transform으로 부드럽게 퇴장한 뒤 제거되며, 사용자가
+  직접 닫을 수 있는 닫기 버튼을 함께 제공한다.
 - Dialog는 opacity + 8px scale/translate, drawer는 transform을 사용한다.
 - loading은 레이아웃 이동 없이 skeleton 또는 버튼 내부 spinner로 표현한다.
 - `prefers-reduced-motion: reduce`에서는 transition/animation을 사실상 제거하고 정보는 유지한다.

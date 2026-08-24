@@ -1,6 +1,7 @@
 import { Outlet } from "react-router";
 
 import { AppHeader } from "./AppHeader";
+import { AppFooter } from "./AppFooter";
 import "./AppShell.css";
 
 export function AppShell({ children, headerAction = null, headerTitle = "" }) {
@@ -14,6 +15,8 @@ export function AppShell({ children, headerAction = null, headerTitle = "" }) {
       <main id="main-content" tabIndex="-1">
         {children ?? <Outlet />}
       </main>
+
+      <AppFooter />
     </div>
   );
 }

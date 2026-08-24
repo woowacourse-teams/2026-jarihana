@@ -1,14 +1,17 @@
 import { useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 
+import { storeReturnTarget, useAuth } from "../../features/auth/index.js";
 import { useInfiniteGroups } from "../../features/group/index.js";
+import signatureImage from "../../shared/assets/brand/jarihana-signature.png";
 import {
   Button,
   EmptyState,
   ErrorState,
   GroupCard,
   PageContainer,
-  Skeleton
+  Skeleton,
+  useToast
 } from "../../shared/ui/index.js";
 import { flattenPages, getLastPage, publicErrorCopy } from "./pageUtils.js";
 import "./groups.css";
@@ -20,21 +23,41 @@ const filters = [
   { label: "세션", value: "SESSION" }
 ];
 
+function isGroupRecruiting(group) {
+  const recruitment = group.activeRecruitment;
+  return recruitment !== null && recruitment !== undefined && recruitment.approvedCount < recruitment.capacity;
+}
+
 export function GroupsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { status } = useAuth();
+  const toast = useToast();
   const keyword = searchParams.get("keyword")?.trim() ?? "";
   const type = searchParams.get("type") ?? "";
   const groupStatus = searchParams.get("status");
   const statusFilter = groupStatus === "ENDED" ? "ENDED" : "ACTIVE";
+  const requestedRecruitmentFilter = searchParams.get("recruiting");
+  const recruitmentFilter =
+    requestedRecruitmentFilter === "true" || requestedRecruitmentFilter === "false"
+      ? requestedRecruitmentFilter
+      : "";
+  const recruiting = recruitmentFilter === "" ? undefined : recruitmentFilter === "true";
   const [searchDraft, setSearchDraft] = useState({ source: keyword, value: keyword });
   const searchValue = searchDraft.source === keyword ? searchDraft.value : keyword;
   const query = useInfiniteGroups({
     keyword: keyword || undefined,
     type: type || undefined,
     status: statusFilter || undefined,
+    recruiting,
     size: 12
   });
   const groups = flattenPages(query.data);
+  const visibleGroups = groups.filter((group) => {
+    if (recruitmentFilter === "true") return isGroupRecruiting(group);
+    if (recruitmentFilter === "false") return !isGroupRecruiting(group);
+    return true;
+  });
   const lastPage = getLastPage(query.data);
   const errorCopy = publicErrorCopy(query.error, "모임 목록");
 
@@ -53,10 +76,20 @@ export function GroupsPage() {
   }
 
   function updateStatusFilter(value) {
-    updateQuery({
-      recruiting: "",
-      status: value
-    });
+    updateQuery({ status: value });
+  }
+
+  function handleCreateGroup() {
+    const target = "/groups/new";
+    if (status === "anonymous") {
+      storeReturnTarget(target);
+      toast.danger({
+        description: "로그인한 뒤 모임을 만들 수 있어요.",
+        title: "로그인이 필요한 기능이에요"
+      });
+      return;
+    }
+    navigate(target);
   }
 
   return (
@@ -77,7 +110,7 @@ export function GroupsPage() {
         <div className="groups-result-heading">
           <h1 id="recommended-groups">자리 둘러보기</h1>
           <div className="groups-result-meta">
-            {!query.isLoading && <span aria-live="polite">{groups.length}개 자리하는 중</span>}
+            {!query.isLoading && <span aria-live="polite">{visibleGroups.length}개 자리하는 중</span>}
           </div>
         </div>
 
@@ -90,7 +123,9 @@ export function GroupsPage() {
                   id="group-search"
                   type="search"
                   value={searchValue}
-                  onChange={(event) => setSearchDraft({ source: keyword, value: event.target.value })}
+                  onChange={(event) =>
+                    setSearchDraft({ source: keyword, value: event.target.value })
+                  }
                   placeholder="모임명으로 검색하기"
                 />
                 <button className="groups-search__submit" type="submit" aria-label="검색">
@@ -105,7 +140,10 @@ export function GroupsPage() {
               <label className="groups-filter__field">
                 <span className="groups-filter__label">모임 유형</span>
                 <div className="groups-filter__select">
-                  <select value={type} onChange={(event) => updateQuery({ type: event.target.value })}>
+                  <select
+                    value={type}
+                    onChange={(event) => updateQuery({ type: event.target.value })}
+                  >
                     {filters.map((filter) => (
                       <option key={filter.label} value={filter.value}>
                         {filter.label}
@@ -117,9 +155,25 @@ export function GroupsPage() {
               <label className="groups-filter__field">
                 <span className="groups-filter__label">모임 상태</span>
                 <div className="groups-filter__select">
-                  <select value={statusFilter} onChange={(event) => updateStatusFilter(event.target.value)}>
+                  <select
+                    value={statusFilter}
+                    onChange={(event) => updateStatusFilter(event.target.value)}
+                  >
                     <option value="ACTIVE">활동 중</option>
                     <option value="ENDED">활동 종료</option>
+                  </select>
+                </div>
+              </label>
+              <label className="groups-filter__field">
+                <span className="groups-filter__label">모집 상태</span>
+                <div className="groups-filter__select">
+                  <select
+                    value={recruitmentFilter}
+                    onChange={(event) => updateQuery({ recruiting: event.target.value })}
+                  >
+                    <option value="">전체</option>
+                    <option value="true">모집 중</option>
+                    <option value="false">모집 마감</option>
                   </select>
                 </div>
               </label>
@@ -149,30 +203,31 @@ export function GroupsPage() {
             }
           />
         )}
-        {!query.isLoading && !query.isError && groups.length === 0 && (
-          <EmptyState
-            title="조건에 맞는 모임이 아직 없어요"
-            description="검색어를 줄이거나 다른 유형을 선택해보세요."
-            action={
-              <Button variant="secondary" onClick={() => setSearchParams({})}>
-                필터 초기화
-              </Button>
-            }
-          />
+        {!query.isLoading && !query.isError && visibleGroups.length === 0 && (
+          <div className="groups-empty-state">
+            <EmptyState
+              title="자리 없음!"
+              description="직접 자리를 만들어보세요."
+              showMark={false}
+              visual={<img alt="" src={signatureImage} />}
+              action={
+                <Button onClick={handleCreateGroup}>
+                  자리 만들기
+                </Button>
+              }
+            />
+          </div>
         )}
-        {groups.length > 0 && (
+        {visibleGroups.length > 0 && (
           <div className="groups-grid" aria-busy={query.isFetching && !query.isFetchingNextPage}>
-            {groups.map((group) => (
+            {visibleGroups.map((group) => (
               <article className="groups-card-frame" key={group.id}>
                 <GroupCard
                   as={Link}
                   href={`/groups/${group.id}`}
                   group={{
                     ...group,
-                    recruiting:
-                      group.activeRecruitment !== null &&
-                      group.activeRecruitment !== undefined &&
-                      group.activeRecruitment.approvedCount < group.activeRecruitment.capacity
+                    recruiting: isGroupRecruiting(group)
                   }}
                   showScheduleMeta
                 />
