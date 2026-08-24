@@ -567,40 +567,42 @@
 
 .group-recruitment-hero {
   position: relative;
-  isolation: isolate;
-  min-block-size: calc(var(--space-16) + var(--space-16) + var(--space-12));
+  display: grid;
+  min-block-size: calc(
+    var(--space-16) + var(--space-16) + var(--space-16) + var(--space-8)
+  );
+  align-content: start;
+  justify-items: end;
+  gap: var(--space-3);
   overflow: hidden;
 }
 
-.group-recruitment-hero__copy {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  max-inline-size: calc(var(--space-16) + var(--space-12) + var(--space-8));
-  align-content: start;
-  justify-items: start;
-  gap: var(--space-3);
-  padding-block-start: var(--space-2);
-}
-
-.group-recruitment-hero .group-recruitment-hero__copy h2 {
-  margin: 0;
-  line-height: 1.35;
-  word-break: keep-all;
+.group-recruitment-hero .group-recruitment-hero__heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .group-recruitment-hero__image {
-  position: absolute;
-  z-index: 0;
-  inset-block: 0;
-  inset-inline-end: 0;
   display: block;
-  inline-size: calc(var(--space-16) + var(--space-16) + var(--space-6));
-  block-size: 100%;
+  inline-size: calc(
+    var(--space-16) + var(--space-16) + var(--space-16) + var(--space-8)
+  );
+  block-size: auto;
+  aspect-ratio: 1;
   object-fit: contain;
-  object-position: right bottom;
   pointer-events: none;
   user-select: none;
+}
+
+.group-recruitment-hero__status {
+  justify-self: start;
 }
 
 .group-rail-card {
@@ -1375,26 +1377,15 @@
 
   .group-recruitment-hero {
     min-block-size: calc(
-      var(--space-16) + var(--space-16) + var(--space-16) + var(--space-16)
+      var(--space-16) + var(--space-16) + var(--space-16) + var(--space-16) +
+        var(--space-16)
     );
-  }
-
-  .group-recruitment-hero__copy {
-    max-inline-size: calc(
-      var(--space-16) + var(--space-16) + var(--space-16) + var(--space-8)
-    );
-    padding-block-start: var(--space-5);
-  }
-
-  .group-recruitment-hero .group-recruitment-hero__copy h2 {
-    font-size: var(--text-h1);
   }
 
   .group-recruitment-hero__image {
-    inset-inline-end: var(--space-5);
     inline-size: calc(
       var(--space-16) + var(--space-16) + var(--space-16) + var(--space-16) +
-        var(--space-16) + var(--space-16)
+        var(--space-16)
     );
   }
 }
@@ -1414,20 +1405,14 @@
   }
 
   .group-recruitment-hero {
-    min-block-size: calc(var(--space-16) + var(--space-16) + var(--space-12));
-  }
-
-  .group-recruitment-hero__copy {
-    max-inline-size: calc(var(--space-16) + var(--space-12) + var(--space-8));
-    padding-block-start: var(--space-2);
-  }
-
-  .group-recruitment-hero .group-recruitment-hero__copy h2 {
-    font-size: var(--text-h3);
+    min-block-size: calc(
+      var(--space-16) + var(--space-16) + var(--space-16) + var(--space-12)
+    );
   }
 
   .group-recruitment-hero__image {
-    inset-inline-end: 0;
-    inline-size: calc(var(--space-16) + var(--space-16) + var(--space-6));
+    inline-size: calc(
+      var(--space-16) + var(--space-16) + var(--space-16) + var(--space-12)
+    );
   }
 }

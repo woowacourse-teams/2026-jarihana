@@ -268,7 +268,7 @@ it("Given an approved group member, when the detail page renders, then applicati
 it("Given an active recruitment, when group detail renders, then the invitation illustration frames the summary", () => {
   const { container } = renderAt("/groups/41", <GroupDetailPage />);
 
-  expect(screen.getByRole("heading", { name: "이 모임에 자리 하나?" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "자리하나?" })).toBeInTheDocument();
   expect(container.querySelector(".group-recruitment-hero--open img")).toBeInTheDocument();
 });
 
@@ -281,7 +281,7 @@ it("Given no active recruitment, when group detail renders, then the fallen-chai
 
   const { container } = renderAt("/groups/41", <GroupDetailPage />);
 
-  expect(screen.getByRole("heading", { name: "자리없다.." })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "자리없음" })).toBeInTheDocument();
   expect(screen.queryByText("현재 진행 중인 모집이 없어요")).not.toBeInTheDocument();
   expect(container.querySelector(".group-recruitment-hero--empty img")).toBeInTheDocument();
 });

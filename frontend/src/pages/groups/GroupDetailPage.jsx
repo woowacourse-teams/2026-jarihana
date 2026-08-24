@@ -377,24 +377,27 @@ function RecruitmentSummary({
 
 function RecruitmentHero({ empty = false }) {
   const illustration = empty ? recruitmentEmptyIllustration : recruitmentOpenIllustration;
+  const title = empty ? "자리없음" : "자리하나?";
 
   return (
     <div
       className={`group-recruitment-hero group-recruitment-hero--${empty ? "empty" : "open"}`}
     >
-      <div className="group-recruitment-hero__copy">
-        <h2>{empty ? "자리없다.." : "이 모임에 자리 하나?"}</h2>
-        {empty ? null : <StatusBadge tone="brand">모집 중</StatusBadge>}
-      </div>
+      <h2 className="group-recruitment-hero__heading">{title}</h2>
       <img
         alt=""
         aria-hidden="true"
         className="group-recruitment-hero__image"
         decoding="async"
-        height={empty ? 562 : 720}
+        height={720}
         src={illustration}
-        width={empty ? 720 : 658}
+        width={720}
       />
+      {empty ? null : (
+        <div className="group-recruitment-hero__status">
+          <StatusBadge tone="brand">모집 중</StatusBadge>
+        </div>
+      )}
     </div>
   );
 }
