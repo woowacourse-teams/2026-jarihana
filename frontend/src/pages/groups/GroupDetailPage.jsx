@@ -11,6 +11,8 @@ import scheduleIcon from "../../shared/assets/figma/edit-05.svg";
 import placeIcon from "../../shared/assets/figma/edit-06.svg";
 import memberIcon from "../../shared/assets/figma/edit-09.svg";
 import kindIcon from "../../shared/assets/figma/edit-04.svg";
+import recruitmentEmptyIllustration from "../../shared/assets/illustrations/group-recruitment-empty.webp";
+import recruitmentOpenIllustration from "../../shared/assets/illustrations/group-recruitment-open.webp";
 import {
   Avatar,
   Button,
@@ -302,26 +304,24 @@ function RecruitmentSummary({
   if (!recruitment) {
     return (
       <section className="group-recruitment-summary group-rail-card">
-        <h2>이 모임에 자리 하나?</h2>
-        <div className="group-recruitment-empty">
-          <h3>현재 진행 중인 모집이 없어요</h3>
-          {createRecruitmentHref ? (
+        <RecruitmentHero empty />
+        {createRecruitmentHref ? (
+          <div className="group-recruitment-empty">
             <Link
               className="group-recruitment-empty__action ui-button ui-button--primary ui-button--md"
               to={createRecruitmentHref}
             >
               새 모집 만들기
             </Link>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
         <LeaderSummary leader={leader} />
       </section>
     );
   }
   return (
     <section className="group-recruitment-summary group-rail-card">
-      <h2>이 모임에 자리 하나?</h2>
-      <StatusBadge tone="brand">모집 중</StatusBadge>
+      <RecruitmentHero />
       <dl className="group-recruitment-meta">
         <div>
           <dt>모집일정</dt>
@@ -372,6 +372,30 @@ function RecruitmentSummary({
         />
       </Modal>
     </section>
+  );
+}
+
+function RecruitmentHero({ empty = false }) {
+  const illustration = empty ? recruitmentEmptyIllustration : recruitmentOpenIllustration;
+
+  return (
+    <div
+      className={`group-recruitment-hero group-recruitment-hero--${empty ? "empty" : "open"}`}
+    >
+      <div className="group-recruitment-hero__copy">
+        <h2>{empty ? "자리없다.." : "이 모임에 자리 하나?"}</h2>
+        {empty ? null : <StatusBadge tone="brand">모집 중</StatusBadge>}
+      </div>
+      <img
+        alt=""
+        aria-hidden="true"
+        className="group-recruitment-hero__image"
+        decoding="async"
+        height={empty ? 562 : 720}
+        src={illustration}
+        width={empty ? 720 : 658}
+      />
+    </div>
   );
 }
 

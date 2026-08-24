@@ -265,6 +265,27 @@ it("Given an approved group member, when the detail page renders, then applicati
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 
+it("Given an active recruitment, when group detail renders, then the invitation illustration frames the summary", () => {
+  const { container } = renderAt("/groups/41", <GroupDetailPage />);
+
+  expect(screen.getByRole("heading", { name: "이 모임에 자리 하나?" })).toBeInTheDocument();
+  expect(container.querySelector(".group-recruitment-hero--open img")).toBeInTheDocument();
+});
+
+it("Given no active recruitment, when group detail renders, then the fallen-chair empty state is concise", () => {
+  groupHooks.useGroup.mockReturnValue({
+    data: { ...group, activeRecruitment: null },
+    isLoading: false,
+    isError: false
+  });
+
+  const { container } = renderAt("/groups/41", <GroupDetailPage />);
+
+  expect(screen.getByRole("heading", { name: "자리없다.." })).toBeInTheDocument();
+  expect(screen.queryByText("현재 진행 중인 모집이 없어요")).not.toBeInTheDocument();
+  expect(container.querySelector(".group-recruitment-hero--empty img")).toBeInTheDocument();
+});
+
 it("Given a closed recruitment, when opened, then no application control is exposed", () => {
   recruitmentHooks.useRecruitment.mockReturnValue({
     data: { ...recruitment, recruitingStatus: "CLOSED" },

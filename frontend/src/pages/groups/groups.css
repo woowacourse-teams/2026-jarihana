@@ -565,6 +565,44 @@
   font-size: var(--text-h3);
 }
 
+.group-recruitment-hero {
+  position: relative;
+  isolation: isolate;
+  min-block-size: calc(var(--space-16) + var(--space-16) + var(--space-12));
+  overflow: hidden;
+}
+
+.group-recruitment-hero__copy {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  max-inline-size: calc(var(--space-16) + var(--space-12) + var(--space-8));
+  align-content: start;
+  justify-items: start;
+  gap: var(--space-3);
+  padding-block-start: var(--space-2);
+}
+
+.group-recruitment-hero .group-recruitment-hero__copy h2 {
+  margin: 0;
+  line-height: 1.35;
+  word-break: keep-all;
+}
+
+.group-recruitment-hero__image {
+  position: absolute;
+  z-index: 0;
+  inset-block: 0;
+  inset-inline-end: 0;
+  display: block;
+  inline-size: calc(var(--space-16) + var(--space-16) + var(--space-6));
+  block-size: 100%;
+  object-fit: contain;
+  object-position: right bottom;
+  pointer-events: none;
+  user-select: none;
+}
+
 .group-rail-card {
   display: flex;
   min-height: var(--group-detail-rail-min-height);
@@ -608,15 +646,9 @@
 
 .group-recruitment-empty {
   display: grid;
-  justify-items: center;
-  gap: var(--space-5);
-  padding-block: var(--space-8);
+  justify-items: stretch;
+  padding-block: var(--space-2) 0;
   text-align: center;
-}
-
-.group-recruitment-empty h3 {
-  margin: 0;
-  font-size: var(--text-h4);
 }
 
 .group-recruitment-empty__action {
@@ -1340,6 +1372,31 @@
   .group-detail-page .group-rail {
     position: static;
   }
+
+  .group-recruitment-hero {
+    min-block-size: calc(
+      var(--space-16) + var(--space-16) + var(--space-16) + var(--space-16)
+    );
+  }
+
+  .group-recruitment-hero__copy {
+    max-inline-size: calc(
+      var(--space-16) + var(--space-16) + var(--space-16) + var(--space-8)
+    );
+    padding-block-start: var(--space-5);
+  }
+
+  .group-recruitment-hero .group-recruitment-hero__copy h2 {
+    font-size: var(--text-h1);
+  }
+
+  .group-recruitment-hero__image {
+    inset-inline-end: var(--space-5);
+    inline-size: calc(
+      var(--space-16) + var(--space-16) + var(--space-16) + var(--space-16) +
+        var(--space-16) + var(--space-16)
+    );
+  }
 }
 
 @media (max-width: 47.9375rem) {
@@ -1354,5 +1411,23 @@
 
   .group-profile__art {
     height: clamp(220px, 62vw, 328px);
+  }
+
+  .group-recruitment-hero {
+    min-block-size: calc(var(--space-16) + var(--space-16) + var(--space-12));
+  }
+
+  .group-recruitment-hero__copy {
+    max-inline-size: calc(var(--space-16) + var(--space-12) + var(--space-8));
+    padding-block-start: var(--space-2);
+  }
+
+  .group-recruitment-hero .group-recruitment-hero__copy h2 {
+    font-size: var(--text-h3);
+  }
+
+  .group-recruitment-hero__image {
+    inset-inline-end: 0;
+    inline-size: calc(var(--space-16) + var(--space-16) + var(--space-6));
   }
 }
