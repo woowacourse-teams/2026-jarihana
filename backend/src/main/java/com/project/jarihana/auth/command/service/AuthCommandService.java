@@ -8,10 +8,11 @@ import com.project.jarihana.auth.domain.RefreshToken;
 import com.project.jarihana.common.auth.AccessTokenProvider;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
-import java.time.Clock;
-import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Clock;
+import java.time.LocalDateTime;
 
 @Service
 public class AuthCommandService {
@@ -53,6 +54,18 @@ public class AuthCommandService {
         }
     }
 
+    private boolean discardRefreshToken(String refreshTokenValue) {
+        if (refreshTokenValue == null || refreshTokenValue.isBlank()) {
+            return false;
+        }
+        return refreshTokenRepository.findByTokenHash(refreshTokenHasher.hash(refreshTokenValue))
+                .map(refreshToken -> {
+                    refreshTokenRepository.delete(refreshToken);
+                    return true;
+                })
+                .orElse(false);
+    }
+
     /**
      * Refresh Token으로 Access Token만 새로 발급한다.
      *
@@ -80,17 +93,5 @@ public class AuthCommandService {
             throw new BusinessException(ErrorCode.REFRESH_TOKEN_REQUIRED, REFRESH_REQUIRED_MESSAGE);
         }
         return refreshTokenValue;
-    }
-
-    private boolean discardRefreshToken(String refreshTokenValue) {
-        if (refreshTokenValue == null || refreshTokenValue.isBlank()) {
-            return false;
-        }
-        return refreshTokenRepository.findByTokenHash(refreshTokenHasher.hash(refreshTokenValue))
-                .map(refreshToken -> {
-                    refreshTokenRepository.delete(refreshToken);
-                    return true;
-                })
-                .orElse(false);
     }
 }

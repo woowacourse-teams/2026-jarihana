@@ -1,14 +1,15 @@
 package com.project.jarihana.recruitment.domain;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.domain.Group;
-import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import java.time.LocalDateTime;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class GroupRecruitmentTest {
 
@@ -37,6 +38,10 @@ class GroupRecruitmentTest {
         assertThat(recruitment.getCapacity()).isEqualTo(3);
         assertThat(recruitment.getStartsAt()).isEqualTo(STARTS_AT);
         assertThat(recruitment.getEndsAt()).isEqualTo(ENDS_AT);
+    }
+
+    private Group activeGroup() {
+        return Group.createClub("러닝크루", "함께 달려요", null, null, null, GROUP_CREATED_AT);
     }
 
     @DisplayName("종료된 그룹에는 모집 공고를 만들 수 없다.")
@@ -98,6 +103,10 @@ class GroupRecruitmentTest {
         assertThat(recruitment.phaseAt(STARTS_AT)).isEqualTo(RecruitmentPhase.OPEN);
         assertThat(recruitment.phaseAt(ENDS_AT.minusNanos(1))).isEqualTo(RecruitmentPhase.OPEN);
         assertThat(recruitment.phaseAt(ENDS_AT)).isEqualTo(RecruitmentPhase.CLOSED);
+    }
+
+    private GroupRecruitment recruitment(JoinMethod joinMethod, int capacity, LocalDateTime endsAt) {
+        return GroupRecruitment.create(activeGroup(), joinMethod, capacity, STARTS_AT, endsAt);
     }
 
     @DisplayName("종료 시각이 없는 공고는 시작 전에는 예정이고 시작 후에는 상시 모집이다.")
@@ -174,13 +183,5 @@ class GroupRecruitmentTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_PARAMETER);
-    }
-
-    private GroupRecruitment recruitment(JoinMethod joinMethod, int capacity, LocalDateTime endsAt) {
-        return GroupRecruitment.create(activeGroup(), joinMethod, capacity, STARTS_AT, endsAt);
-    }
-
-    private Group activeGroup() {
-        return Group.createClub("러닝크루", "함께 달려요", null, null, null, GROUP_CREATED_AT);
     }
 }

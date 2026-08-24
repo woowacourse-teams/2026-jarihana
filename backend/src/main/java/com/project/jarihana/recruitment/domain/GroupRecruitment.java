@@ -4,21 +4,12 @@ import com.project.jarihana.common.domain.BaseEntity;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.domain.Group;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import java.time.LocalDateTime;
-import java.util.Objects;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Entity
 @Table(name = "group_recruitment")
@@ -64,6 +55,37 @@ public class GroupRecruitment extends BaseEntity {
         validatePeriod(this.startsAt, this.endsAt);
     }
 
+    private static Group validateGroup(Group group) {
+        Group requiredGroup = require(group, "그룹");
+        if (!requiredGroup.isActive()) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "ACTIVE 상태의 그룹에만 모집 공고를 생성할 수 있습니다.");
+        }
+        return requiredGroup;
+    }
+
+    private static <T> T require(T value, String fieldName) {
+        if (value == null) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 필수입니다.");
+        }
+        return value;
+    }
+
+    private static int validateCapacity(int capacity) {
+        if (capacity < 1) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "모집 인원은 1명 이상이어야 합니다.");
+        }
+        return capacity;
+    }
+
+    private static void validatePeriod(LocalDateTime startsAt, LocalDateTime endsAt) {
+        if (endsAt != null && endsAt.isBefore(startsAt)) {
+            throw new BusinessException(
+                    ErrorCode.RECRUITMENT_INVALID_PERIOD,
+                    "모집 종료 시각은 시작 시각보다 빠를 수 없습니다."
+            );
+        }
+    }
+
     public static GroupRecruitment create(
             Group group,
             JoinMethod joinMethod,
@@ -72,6 +94,11 @@ public class GroupRecruitment extends BaseEntity {
             LocalDateTime endsAt
     ) {
         return new GroupRecruitment(null, group, joinMethod, capacity, startsAt, endsAt);
+    }
+
+    public boolean isOpenAt(LocalDateTime now) {
+        RecruitmentPhase phase = phaseAt(now);
+        return phase == RecruitmentPhase.OPEN || phase == RecruitmentPhase.ALWAYS_OPEN;
     }
 
     public RecruitmentPhase phaseAt(LocalDateTime now) {
@@ -88,14 +115,22 @@ public class GroupRecruitment extends BaseEntity {
         return RecruitmentPhase.CLOSED;
     }
 
-    public boolean isOpenAt(LocalDateTime now) {
-        RecruitmentPhase phase = phaseAt(now);
-        return phase == RecruitmentPhase.OPEN || phase == RecruitmentPhase.ALWAYS_OPEN;
+    public GroupRecruitment closeIfFull(int approvedCount, LocalDateTime now) {
+        if (hasCapacity(approvedCount)) {
+            return this;
+        }
+        return closeAt(now);
     }
 
     public boolean hasCapacity(int approvedCount) {
         validateApprovedCount(approvedCount);
         return approvedCount < capacity;
+    }
+
+    private static void validateApprovedCount(int approvedCount) {
+        if (approvedCount < 0) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "승인 인원은 음수일 수 없습니다.");
+        }
     }
 
     public GroupRecruitment closeAt(LocalDateTime now) {
@@ -105,50 +140,6 @@ public class GroupRecruitment extends BaseEntity {
         }
         LocalDateTime closedStartsAt = startsAt.isAfter(currentTime) ? currentTime : startsAt;
         return new GroupRecruitment(id, group, joinMethod, capacity, closedStartsAt, currentTime);
-    }
-
-    public GroupRecruitment closeIfFull(int approvedCount, LocalDateTime now) {
-        if (hasCapacity(approvedCount)) {
-            return this;
-        }
-        return closeAt(now);
-    }
-
-    private static Group validateGroup(Group group) {
-        Group requiredGroup = require(group, "그룹");
-        if (!requiredGroup.isActive()) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "ACTIVE 상태의 그룹에만 모집 공고를 생성할 수 있습니다.");
-        }
-        return requiredGroup;
-    }
-
-    private static int validateCapacity(int capacity) {
-        if (capacity < 1) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "모집 인원은 1명 이상이어야 합니다.");
-        }
-        return capacity;
-    }
-
-    private static void validateApprovedCount(int approvedCount) {
-        if (approvedCount < 0) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "승인 인원은 음수일 수 없습니다.");
-        }
-    }
-
-    private static void validatePeriod(LocalDateTime startsAt, LocalDateTime endsAt) {
-        if (endsAt != null && endsAt.isBefore(startsAt)) {
-            throw new BusinessException(
-                    ErrorCode.RECRUITMENT_INVALID_PERIOD,
-                    "모집 종료 시각은 시작 시각보다 빠를 수 없습니다."
-            );
-        }
-    }
-
-    private static <T> T require(T value, String fieldName) {
-        if (value == null) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 필수입니다.");
-        }
-        return value;
     }
 
     public Long getId() {
@@ -176,6 +167,11 @@ public class GroupRecruitment extends BaseEntity {
     }
 
     @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
+    }
+
+    @Override
     public boolean equals(Object object) {
         if (this == object) {
             return true;
@@ -187,10 +183,5 @@ public class GroupRecruitment extends BaseEntity {
             return false;
         }
         return id.equals(other.id);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(id);
     }
 }

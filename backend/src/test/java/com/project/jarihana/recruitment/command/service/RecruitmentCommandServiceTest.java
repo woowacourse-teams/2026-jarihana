@@ -1,8 +1,5 @@
 package com.project.jarihana.recruitment.command.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.domain.Group;
@@ -25,16 +22,16 @@ import com.project.jarihana.registration.domain.RegistrationStatus;
 import com.project.jarihana.registration.query.repository.RegistrationListJpaRepository;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.TestSupportConfig;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.concurrent.*;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class RecruitmentCommandServiceTest extends IntegrationTestSupport {
 
@@ -117,6 +114,10 @@ class RecruitmentCommandServiceTest extends IntegrationTestSupport {
                 });
     }
 
+    private Member saveMember(String crewName, String githubId) {
+        return memberRepository.save(Member.create(crewName, 8, githubId, Course.BACKEND));
+    }
+
     @DisplayName("이미 기간이 만료된 공고의 대기 신청은 새 공고 등록 시 거절하지 않는다.")
     @Test
     void keepsPendingRegistrationOfExpiredRecruitment() {
@@ -149,6 +150,26 @@ class RecruitmentCommandServiceTest extends IntegrationTestSupport {
         // Then
         assertThat(registrationListRepository.findById(pendingRegistration.getId()).orElseThrow().getStatus())
                 .isEqualTo(RegistrationStatus.PENDING);
+    }
+
+    private CreateRecruitmentCommand command(JoinMethod joinMethod) {
+        return new CreateRecruitmentCommand(
+                joinMethod,
+                5,
+                TestSupportConfig.FIXED_NOW,
+                TestSupportConfig.FIXED_NOW.plusDays(7)
+        );
+    }
+
+    private Group saveActiveGroup(String name) {
+        return groupRepository.save(Group.createClub(
+                name,
+                "함께 활동해요",
+                null,
+                null,
+                null,
+                TestSupportConfig.FIXED_NOW.minusDays(10)
+        ));
     }
 
     @DisplayName("모임장이 모집 시작 전 공고를 조기 마감하면 시작과 종료 시각을 현재 시각으로 맞춘다.")
@@ -416,6 +437,25 @@ class RecruitmentCommandServiceTest extends IntegrationTestSupport {
         }
     }
 
+    private Object closeWhenReleased(
+            CountDownLatch start,
+            long memberId,
+            long groupId,
+            long recruitmentId
+    ) {
+        try {
+            if (!start.await(3, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("동시 모집 공고 조기 마감 시작 대기 시간이 초과되었습니다.");
+            }
+            return recruitmentCommandService.closeRecruitment(memberId, groupId, recruitmentId);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("동시 모집 공고 조기 마감 테스트가 중단되었습니다.", exception);
+        } catch (BusinessException exception) {
+            return exception.getErrorCode();
+        }
+    }
+
     @DisplayName("현재 모임장이 아닌 구성원은 새 모집 공고를 등록할 수 없다.")
     @Test
     void rejectsRecruitmentCreationFromNonLeader() {
@@ -510,48 +550,5 @@ class RecruitmentCommandServiceTest extends IntegrationTestSupport {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("동시 모집 공고 등록 테스트가 중단되었습니다.", exception);
         }
-    }
-
-    private Object closeWhenReleased(
-            CountDownLatch start,
-            long memberId,
-            long groupId,
-            long recruitmentId
-    ) {
-        try {
-            if (!start.await(3, TimeUnit.SECONDS)) {
-                throw new IllegalStateException("동시 모집 공고 조기 마감 시작 대기 시간이 초과되었습니다.");
-            }
-            return recruitmentCommandService.closeRecruitment(memberId, groupId, recruitmentId);
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("동시 모집 공고 조기 마감 테스트가 중단되었습니다.", exception);
-        } catch (BusinessException exception) {
-            return exception.getErrorCode();
-        }
-    }
-
-    private CreateRecruitmentCommand command(JoinMethod joinMethod) {
-        return new CreateRecruitmentCommand(
-                joinMethod,
-                5,
-                TestSupportConfig.FIXED_NOW,
-                TestSupportConfig.FIXED_NOW.plusDays(7)
-        );
-    }
-
-    private Group saveActiveGroup(String name) {
-        return groupRepository.save(Group.createClub(
-                name,
-                "함께 활동해요",
-                null,
-                null,
-                null,
-                TestSupportConfig.FIXED_NOW.minusDays(10)
-        ));
-    }
-
-    private Member saveMember(String crewName, String githubId) {
-        return memberRepository.save(Member.create(crewName, 8, githubId, Course.BACKEND));
     }
 }

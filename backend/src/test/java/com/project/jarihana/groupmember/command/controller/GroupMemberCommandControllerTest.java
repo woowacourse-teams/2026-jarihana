@@ -1,10 +1,5 @@
 package com.project.jarihana.groupmember.command.controller;
 
-import static io.restassured.RestAssured.given;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.nullValue;
-
 import com.project.jarihana.common.auth.AccessTokenProvider;
 import com.project.jarihana.common.auth.AuthCookieProperties;
 import com.project.jarihana.group.domain.Group;
@@ -20,12 +15,18 @@ import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.TestSupportConfig;
 import io.restassured.response.ExtractableResponse;
 import io.restassured.response.Response;
-import java.time.DayOfWeek;
-import java.time.LocalTime;
-import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+
+import java.time.DayOfWeek;
+import java.time.LocalTime;
+import java.util.Set;
+
+import static io.restassured.RestAssured.given;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.nullValue;
 
 class GroupMemberCommandControllerTest extends IntegrationTestSupport {
 
@@ -83,6 +84,34 @@ class GroupMemberCommandControllerTest extends IntegrationTestSupport {
                 .isEqualTo(GroupMemberRole.MEMBER);
         assertThat(groupMemberRepository.findById(successor.getId()).orElseThrow().getRole())
                 .isEqualTo(GroupMemberRole.LEADER);
+    }
+
+    private Member saveMember(String crewName, String githubId) {
+        return memberRepository.save(Member.create(crewName, 8, githubId, Course.BACKEND));
+    }
+
+    private Group saveActiveGroup(String name) {
+        return groupRepository.save(Group.createStudy(
+                name,
+                "함께 활동해요",
+                null,
+                null,
+                RecurringGroupSchedule.of(
+                        Set.of(DayOfWeek.MONDAY),
+                        LocalTime.of(19, 0),
+                        LocalTime.of(21, 0)
+                ),
+                TestSupportConfig.FIXED_NOW
+        ));
+    }
+
+    private String csrfToken(long groupId) {
+        ExtractableResponse<Response> response = given()
+                .when()
+                .get("/groups/{groupId}", groupId)
+                .then()
+                .extract();
+        return response.cookie("XSRF-TOKEN");
     }
 
     @DisplayName("인증 정보가 없으면 모임장 역할 위임 요청을 거부한다.")
@@ -274,33 +303,5 @@ class GroupMemberCommandControllerTest extends IntegrationTestSupport {
                 .statusCode(422)
                 .body("success", equalTo(false))
                 .body("error.code", equalTo("GROUP_MEMBER_ALREADY_LEADER"));
-    }
-
-    private Member saveMember(String crewName, String githubId) {
-        return memberRepository.save(Member.create(crewName, 8, githubId, Course.BACKEND));
-    }
-
-    private Group saveActiveGroup(String name) {
-        return groupRepository.save(Group.createStudy(
-                name,
-                "함께 활동해요",
-                null,
-                null,
-                RecurringGroupSchedule.of(
-                        Set.of(DayOfWeek.MONDAY),
-                        LocalTime.of(19, 0),
-                        LocalTime.of(21, 0)
-                ),
-                TestSupportConfig.FIXED_NOW
-        ));
-    }
-
-    private String csrfToken(long groupId) {
-        ExtractableResponse<Response> response = given()
-                .when()
-                .get("/groups/{groupId}", groupId)
-                .then()
-                .extract();
-        return response.cookie("XSRF-TOKEN");
     }
 }

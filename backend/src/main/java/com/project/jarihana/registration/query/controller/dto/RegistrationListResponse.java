@@ -1,6 +1,7 @@
 package com.project.jarihana.registration.query.controller.dto;
 
 import com.project.jarihana.registration.query.service.dto.RegistrationListResult;
+
 import java.time.LocalDateTime;
 import java.util.List;
 

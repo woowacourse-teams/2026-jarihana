@@ -1,9 +1,5 @@
 package com.project.jarihana.groupmember.query.controller;
 
-import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.nullValue;
-
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
@@ -13,14 +9,19 @@ import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.support.IntegrationTestSupport;
-import java.time.DayOfWeek;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+
+import java.time.DayOfWeek;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.Set;
+
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.nullValue;
 
 class GroupMemberQueryControllerTest extends IntegrationTestSupport {
 
@@ -105,6 +106,10 @@ class GroupMemberQueryControllerTest extends IntegrationTestSupport {
                 .body("data.hasNext", equalTo(false));
     }
 
+    private Member saveMember(String crewName, Course course, String githubId) {
+        return memberRepository.save(Member.create(crewName, 8, githubId, course));
+    }
+
     @DisplayName("Hard Delete된 그룹 구성원은 목록에서 제외한다.")
     @Test
     void excludesHardDeletedGroupMember() {
@@ -170,9 +175,5 @@ class GroupMemberQueryControllerTest extends IntegrationTestSupport {
                 .statusCode(400)
                 .body("success", equalTo(false))
                 .body("error.code", equalTo("INVALID_PARAMETER"));
-    }
-
-    private Member saveMember(String crewName, Course course, String githubId) {
-        return memberRepository.save(Member.create(crewName, 8, githubId, course));
     }
 }

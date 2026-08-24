@@ -4,6 +4,7 @@ import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
+
 import java.time.LocalDate;
 import java.time.LocalTime;
 
@@ -29,10 +30,6 @@ public class SessionGroupSchedule {
         validateTimeRange(this.startTime, this.endTime);
     }
 
-    public static SessionGroupSchedule of(LocalDate sessionDate, LocalTime startTime, LocalTime endTime) {
-        return new SessionGroupSchedule(sessionDate, startTime, endTime);
-    }
-
     private static LocalDate validateSessionDate(LocalDate sessionDate) {
         if (sessionDate == null) {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "세션 날짜는 필수입니다.");
@@ -51,6 +48,10 @@ public class SessionGroupSchedule {
         if (!startTime.isBefore(endTime)) {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "시작 시각은 종료 시각보다 빨라야 합니다.");
         }
+    }
+
+    public static SessionGroupSchedule of(LocalDate sessionDate, LocalTime startTime, LocalTime endTime) {
+        return new SessionGroupSchedule(sessionDate, startTime, endTime);
     }
 
     public LocalDate getSessionDate() {

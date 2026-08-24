@@ -8,12 +8,13 @@ import com.project.jarihana.recruitment.query.repository.dto.RecruitmentListPage
 import com.project.jarihana.recruitment.query.repository.dto.RecruitmentListProjection;
 import com.project.jarihana.recruitment.query.repository.dto.RecruitmentListSearchCriteria;
 import com.project.jarihana.registration.domain.RegistrationStatus;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Repository
 public class JpaRecruitmentListRepository implements RecruitmentListRepository {

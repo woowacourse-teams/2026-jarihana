@@ -1,8 +1,5 @@
 package com.project.jarihana.recruitment.query.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.domain.Group;
@@ -16,17 +13,16 @@ import com.project.jarihana.recruitment.query.repository.dto.RecruitmentDetailPr
 import com.project.jarihana.recruitment.query.repository.dto.RecruitmentListPage;
 import com.project.jarihana.recruitment.query.repository.dto.RecruitmentListSearchCriteria;
 import com.project.jarihana.recruitment.query.service.dto.RecruitmentDetailResult;
-import java.time.Clock;
-import java.time.DayOfWeek;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.ZoneId;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.time.*;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class RecruitmentQueryServiceTest {
 
@@ -64,6 +60,21 @@ class RecruitmentQueryServiceTest {
         assertThat(result.approvedCount()).isEqualTo(2);
         assertThat(result.remainingSeats()).isEqualTo(1);
         assertThat(result.phase()).isEqualTo(RecruitmentPhase.OPEN);
+    }
+
+    private static Group study(String name) {
+        return Group.createStudy(
+                name,
+                "함께 학습합니다.",
+                null,
+                null,
+                RecurringGroupSchedule.of(
+                        Set.of(DayOfWeek.MONDAY),
+                        LocalTime.NOON,
+                        LocalTime.of(13, 0)
+                ),
+                NOW
+        );
     }
 
     @DisplayName("존재하지 않는 그룹을 조회하면 그룹 없음 예외를 반환한다.")
@@ -105,21 +116,6 @@ class RecruitmentQueryServiceTest {
                         Throwable::getMessage
                 )
                 .containsExactly(ErrorCode.RECRUITMENT_NOT_FOUND, "모집 공고를 찾을 수 없습니다.");
-    }
-
-    private static Group study(String name) {
-        return Group.createStudy(
-                name,
-                "함께 학습합니다.",
-                null,
-                null,
-                RecurringGroupSchedule.of(
-                        Set.of(DayOfWeek.MONDAY),
-                        LocalTime.NOON,
-                        LocalTime.of(13, 0)
-                ),
-                NOW
-        );
     }
 
     private record StubRecruitmentDetailRepository(

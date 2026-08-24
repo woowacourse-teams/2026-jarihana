@@ -1,19 +1,20 @@
 package com.project.jarihana.common.auth;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
-import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class LoginMemberArgumentResolverTest {
 
@@ -37,6 +38,14 @@ class LoginMemberArgumentResolverTest {
 
         // Then
         assertThat(supported).isTrue();
+    }
+
+    private MethodParameter parameterOf(String methodName) {
+        Method method = Arrays.stream(Handler.class.getDeclaredMethods())
+                .filter(candidate -> candidate.getName().equals(methodName))
+                .findFirst()
+                .orElseThrow();
+        return new MethodParameter(method, 0);
     }
 
     @DisplayName("@LoginMember가 붙은 long 파라미터를 지원한다.")
@@ -105,14 +114,6 @@ class LoginMemberArgumentResolverTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.UNAUTHENTICATED);
-    }
-
-    private MethodParameter parameterOf(String methodName) {
-        Method method = Arrays.stream(Handler.class.getDeclaredMethods())
-                .filter(candidate -> candidate.getName().equals(methodName))
-                .findFirst()
-                .orElseThrow();
-        return new MethodParameter(method, 0);
     }
 
     @SuppressWarnings("unused")

@@ -6,6 +6,7 @@ import com.project.jarihana.group.domain.SessionGroupSchedule;
 import com.project.jarihana.group.query.repository.dto.GroupDetailMember;
 import com.project.jarihana.group.query.service.dto.GroupDetailResult;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;

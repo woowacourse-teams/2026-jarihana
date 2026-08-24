@@ -1,9 +1,5 @@
 package com.project.jarihana.recruitment.command.controller;
 
-import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.nullValue;
-
 import com.project.jarihana.common.auth.AccessTokenProvider;
 import com.project.jarihana.common.auth.AuthCookieProperties;
 import com.project.jarihana.group.domain.Group;
@@ -18,12 +14,16 @@ import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.JoinMethod;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.TestSupportConfig;
-import io.restassured.specification.RequestSpecification;
 import io.restassured.response.ExtractableResponse;
 import io.restassured.response.Response;
+import io.restassured.specification.RequestSpecification;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.nullValue;
 
 class RecruitmentCommandControllerTest extends IntegrationTestSupport {
 
@@ -81,6 +81,38 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
                 .body("error", nullValue());
     }
 
+    private RequestSpecification authenticatedRequest(String accessToken, String csrfToken) {
+        return given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .cookie("XSRF-TOKEN", csrfToken)
+                .header("X-XSRF-TOKEN", csrfToken)
+                .contentType("application/json");
+    }
+
+    private Member saveMember(String crewName, String githubId) {
+        return memberRepository.save(Member.create(crewName, 8, githubId, Course.BACKEND));
+    }
+
+    private Group saveActiveGroup(String name) {
+        return groupRepository.save(Group.createClub(
+                name,
+                "함께 활동해요",
+                null,
+                null,
+                null,
+                TestSupportConfig.FIXED_NOW.minusDays(10)
+        ));
+    }
+
+    private String csrfToken(long groupId) {
+        ExtractableResponse<Response> response = given()
+                .when()
+                .get("/groups/{groupId}", groupId)
+                .then()
+                .extract();
+        return response.cookie("XSRF-TOKEN");
+    }
+
     @DisplayName("모임장이 모집 공고를 조기 마감하면 200과 마감 상태를 반환한다.")
     @Test
     void closesRecruitment() {
@@ -108,6 +140,16 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
                 .body("data.endsAt", equalTo("2026-08-19T10:00:00"))
                 .body("data.recruitingStatus", equalTo("CLOSED"))
                 .body("error", nullValue());
+    }
+
+    private GroupRecruitment saveOpenRecruitment(Group group) {
+        return recruitmentRepository.save(GroupRecruitment.create(
+                group,
+                JoinMethod.APPROVAL,
+                3,
+                TestSupportConfig.FIXED_NOW.minusDays(1),
+                TestSupportConfig.FIXED_NOW.plusDays(7)
+        ));
     }
 
     @DisplayName("CLOSED 이외의 모집 상태로 조기 마감을 요청하면 400을 반환한다.")
@@ -158,6 +200,14 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
                 .statusCode(403)
                 .body("success", equalTo(false))
                 .body("error.code", equalTo("RECRUITMENT_ACCESS_DENIED"));
+    }
+
+    private String closeBody() {
+        return """
+                {
+                  "recruitingStatus": "CLOSED"
+                }
+                """;
     }
 
     @DisplayName("해당 그룹에 속하지 않은 모집 공고의 조기 마감을 404로 거부한다.")
@@ -298,6 +348,17 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
                 .body("error.code", equalTo("GROUP_ACCESS_DENIED"));
     }
 
+    private String validBody() {
+        return """
+                {
+                  "joinMethod": "APPROVAL",
+                  "capacity": 8,
+                  "startsAt": "2026-08-20T00:00:00",
+                  "endsAt": null
+                }
+                """;
+    }
+
     @DisplayName("종료된 그룹의 새 모집 공고 등록을 409로 거부한다.")
     @Test
     void rejectsRecruitmentCreationForEndedGroup() {
@@ -339,66 +400,5 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
                 .statusCode(404)
                 .body("success", equalTo(false))
                 .body("error.code", equalTo("GROUP_NOT_FOUND"));
-    }
-
-    private RequestSpecification authenticatedRequest(String accessToken, String csrfToken) {
-        return given()
-                .cookie(authCookieProperties.accessTokenName(), accessToken)
-                .cookie("XSRF-TOKEN", csrfToken)
-                .header("X-XSRF-TOKEN", csrfToken)
-                .contentType("application/json");
-    }
-
-    private String validBody() {
-        return """
-                {
-                  "joinMethod": "APPROVAL",
-                  "capacity": 8,
-                  "startsAt": "2026-08-20T00:00:00",
-                  "endsAt": null
-                }
-                """;
-    }
-
-    private String closeBody() {
-        return """
-                {
-                  "recruitingStatus": "CLOSED"
-                }
-                """;
-    }
-
-    private GroupRecruitment saveOpenRecruitment(Group group) {
-        return recruitmentRepository.save(GroupRecruitment.create(
-                group,
-                JoinMethod.APPROVAL,
-                3,
-                TestSupportConfig.FIXED_NOW.minusDays(1),
-                TestSupportConfig.FIXED_NOW.plusDays(7)
-        ));
-    }
-
-    private Member saveMember(String crewName, String githubId) {
-        return memberRepository.save(Member.create(crewName, 8, githubId, Course.BACKEND));
-    }
-
-    private Group saveActiveGroup(String name) {
-        return groupRepository.save(Group.createClub(
-                name,
-                "함께 활동해요",
-                null,
-                null,
-                null,
-                TestSupportConfig.FIXED_NOW.minusDays(10)
-        ));
-    }
-
-    private String csrfToken(long groupId) {
-        ExtractableResponse<Response> response = given()
-                .when()
-                .get("/groups/{groupId}", groupId)
-                .then()
-                .extract();
-        return response.cookie("XSRF-TOKEN");
     }
 }

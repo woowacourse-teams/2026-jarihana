@@ -1,7 +1,5 @@
 package com.project.jarihana.groupmember.query.repository;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
@@ -13,16 +11,19 @@ import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.support.TestSupportConfig;
-import java.time.DayOfWeek;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.DayOfWeek;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.Set;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @Import(TestSupportConfig.class)
@@ -92,6 +93,36 @@ class JpaGroupMemberListRepositoryTest {
         assertThat(secondPage.hasNext()).isFalse();
     }
 
+    private Group saveGroup(String name) {
+        return groupRepository.save(Group.createStudy(
+                name,
+                "함께 학습합니다.",
+                null,
+                null,
+                RecurringGroupSchedule.of(
+                        Set.of(DayOfWeek.MONDAY),
+                        LocalTime.of(19, 0),
+                        LocalTime.of(21, 0)
+                ),
+                JOINED_AT.minusDays(1)
+        ));
+    }
+
+    private GroupMember saveGroupMember(
+            Group group,
+            String crewName,
+            String githubId,
+            Course course,
+            boolean leader,
+            LocalDateTime joinedAt
+    ) {
+        Member member = memberRepository.save(Member.create(crewName, 8, githubId, course));
+        GroupMember groupMember = leader
+                ? GroupMember.createLeader(group, member, joinedAt)
+                : GroupMember.createMember(group, member, joinedAt);
+        return groupMemberJpaRepository.save(groupMember);
+    }
+
     @DisplayName("Hard Delete된 그룹 구성원은 목록 조회에서 제외한다.")
     @Test
     void excludesHardDeletedGroupMember() {
@@ -121,35 +152,5 @@ class JpaGroupMemberListRepositoryTest {
                 .extracting(GroupMemberListProjection::groupMemberId)
                 .containsExactly(leader.getId());
         assertThat(page.hasNext()).isFalse();
-    }
-
-    private Group saveGroup(String name) {
-        return groupRepository.save(Group.createStudy(
-                name,
-                "함께 학습합니다.",
-                null,
-                null,
-                RecurringGroupSchedule.of(
-                        Set.of(DayOfWeek.MONDAY),
-                        LocalTime.of(19, 0),
-                        LocalTime.of(21, 0)
-                ),
-                JOINED_AT.minusDays(1)
-        ));
-    }
-
-    private GroupMember saveGroupMember(
-            Group group,
-            String crewName,
-            String githubId,
-            Course course,
-            boolean leader,
-            LocalDateTime joinedAt
-    ) {
-        Member member = memberRepository.save(Member.create(crewName, 8, githubId, course));
-        GroupMember groupMember = leader
-                ? GroupMember.createLeader(group, member, joinedAt)
-                : GroupMember.createMember(group, member, joinedAt);
-        return groupMemberJpaRepository.save(groupMember);
     }
 }

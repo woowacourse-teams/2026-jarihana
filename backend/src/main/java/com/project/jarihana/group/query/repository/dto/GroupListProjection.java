@@ -3,6 +3,7 @@ package com.project.jarihana.group.query.repository.dto;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
+
 import java.util.List;
 
 public record GroupListProjection(
@@ -21,6 +22,17 @@ public record GroupListProjection(
         members = List.copyOf(members);
     }
 
+    public static GroupListProjection of(
+            Long id,
+            Group group,
+            int memberCount,
+            List<GroupListMember> members,
+            GroupRecruitment activeRecruitment,
+            int approvedCount
+    ) {
+        return new GroupListProjection(id, group, memberCount, members, activeRecruitment, approvedCount);
+    }
+
     public GroupListMember leader() {
         return members.stream()
                 .filter(member -> member.role() == GroupMemberRole.LEADER)
@@ -36,16 +48,5 @@ public record GroupListProjection(
         return members.stream()
                 .anyMatch(member -> member.memberId().equals(memberId)
                         && member.role() == role);
-    }
-
-    public static GroupListProjection of(
-            Long id,
-            Group group,
-            int memberCount,
-            List<GroupListMember> members,
-            GroupRecruitment activeRecruitment,
-            int approvedCount
-    ) {
-        return new GroupListProjection(id, group, memberCount, members, activeRecruitment, approvedCount);
     }
 }

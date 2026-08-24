@@ -12,13 +12,14 @@ import com.project.jarihana.recruitment.query.service.dto.RecruitmentDetailResul
 import com.project.jarihana.recruitment.query.service.dto.RecruitmentListQuery;
 import com.project.jarihana.recruitment.query.service.dto.RecruitmentListResult;
 import com.project.jarihana.recruitment.query.service.dto.RecruitmentListResult.Item;
+import org.springframework.stereotype.Service;
+
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.Base64;
 import java.util.List;
-import org.springframework.stereotype.Service;
 
 @Service
 public class RecruitmentQueryService {
@@ -70,28 +71,6 @@ public class RecruitmentQueryService {
         return new RecruitmentListResult(items, nextCursor, page.hasNext());
     }
 
-    public RecruitmentDetailResult findRecruitment(Long groupId, Long recruitmentId) {
-        validateId(groupId);
-        validateId(recruitmentId);
-        recruitmentDetailRepository.findGroupById(groupId)
-                .orElseThrow(() -> new BusinessException(
-                        ErrorCode.GROUP_NOT_FOUND,
-                        "그룹을 찾을 수 없습니다."
-                ));
-        RecruitmentDetailProjection projection = recruitmentDetailRepository
-                .findByGroupIdAndRecruitmentId(groupId, recruitmentId)
-                .orElseThrow(() -> new BusinessException(
-                        ErrorCode.RECRUITMENT_NOT_FOUND,
-                        "모집 공고를 찾을 수 없습니다."
-                ));
-        return RecruitmentDetailResult.of(
-                projection.group(),
-                projection.recruitment(),
-                projection.approvedCount(),
-                LocalDateTime.now(clock)
-        );
-    }
-
     private static void validateId(Long id) {
         if (id == null || id < 1) {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "요청 파라미터가 올바르지 않습니다.");
@@ -137,6 +116,28 @@ public class RecruitmentQueryService {
 
     private static BusinessException invalidCursor() {
         return new BusinessException(ErrorCode.INVALID_PARAMETER, "요청 파라미터가 올바르지 않습니다.");
+    }
+
+    public RecruitmentDetailResult findRecruitment(Long groupId, Long recruitmentId) {
+        validateId(groupId);
+        validateId(recruitmentId);
+        recruitmentDetailRepository.findGroupById(groupId)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.GROUP_NOT_FOUND,
+                        "그룹을 찾을 수 없습니다."
+                ));
+        RecruitmentDetailProjection projection = recruitmentDetailRepository
+                .findByGroupIdAndRecruitmentId(groupId, recruitmentId)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.RECRUITMENT_NOT_FOUND,
+                        "모집 공고를 찾을 수 없습니다."
+                ));
+        return RecruitmentDetailResult.of(
+                projection.group(),
+                projection.recruitment(),
+                projection.approvedCount(),
+                LocalDateTime.now(clock)
+        );
     }
 
     private record Cursor(LocalDateTime createdAt, long id) {

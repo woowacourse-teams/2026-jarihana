@@ -1,9 +1,5 @@
 package com.project.jarihana.groupmember.command.service;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.domain.Group;
@@ -20,6 +16,10 @@ import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.TestSupportConfig;
 import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.List;
@@ -28,9 +28,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class GroupMemberCommandServiceTest extends IntegrationTestSupport {
 
@@ -75,6 +76,25 @@ class GroupMemberCommandServiceTest extends IntegrationTestSupport {
                 .isEqualTo(GroupMemberRole.MEMBER);
         assertThat(groupMemberJpaRepository.findById(successor.getId()).orElseThrow().getRole())
                 .isEqualTo(GroupMemberRole.LEADER);
+    }
+
+    private Member saveMember(String crewName, String githubId) {
+        return memberRepository.save(Member.create(crewName, 8, githubId, Course.BACKEND));
+    }
+
+    private Group saveActiveGroup(String name) {
+        return groupJpaRepository.save(Group.createStudy(
+                name,
+                "함께 활동해요",
+                null,
+                null,
+                RecurringGroupSchedule.of(
+                        Set.of(DayOfWeek.MONDAY),
+                        LocalTime.of(19, 0),
+                        LocalTime.of(21, 0)
+                ),
+                TestSupportConfig.FIXED_NOW
+        ));
     }
 
     @DisplayName("존재하지 않는 그룹에는 모임장 역할을 위임할 수 없다.")
@@ -213,25 +233,6 @@ class GroupMemberCommandServiceTest extends IntegrationTestSupport {
         } finally {
             executor.shutdownNow();
         }
-    }
-
-    private Member saveMember(String crewName, String githubId) {
-        return memberRepository.save(Member.create(crewName, 8, githubId, Course.BACKEND));
-    }
-
-    private Group saveActiveGroup(String name) {
-        return groupJpaRepository.save(Group.createStudy(
-                name,
-                "함께 활동해요",
-                null,
-                null,
-                RecurringGroupSchedule.of(
-                        Set.of(DayOfWeek.MONDAY),
-                        LocalTime.of(19, 0),
-                        LocalTime.of(21, 0)
-                ),
-                TestSupportConfig.FIXED_NOW
-        ));
     }
 
     private TransferOutcome transferWhenReleased(

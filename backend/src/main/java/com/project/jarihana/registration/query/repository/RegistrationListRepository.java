@@ -4,6 +4,7 @@ import com.project.jarihana.registration.query.repository.dto.MyRegistrationList
 import com.project.jarihana.registration.query.repository.dto.MyRegistrationListSearchCriteria;
 import com.project.jarihana.registration.query.repository.dto.RegistrationListPage;
 import com.project.jarihana.registration.query.repository.dto.RegistrationListSearchCriteria;
+
 import java.util.Optional;
 
 public interface RegistrationListRepository {

@@ -4,6 +4,7 @@ import com.project.jarihana.registration.domain.DecisionActor;
 import com.project.jarihana.registration.domain.DecisionActorType;
 import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.registration.domain.RegistrationStatus;
+
 import java.time.LocalDateTime;
 
 public record DecideRegistrationResult(

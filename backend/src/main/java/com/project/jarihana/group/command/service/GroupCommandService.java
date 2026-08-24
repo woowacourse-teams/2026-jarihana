@@ -3,34 +3,23 @@ package com.project.jarihana.group.command.service;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.command.repository.GroupCommandRepository;
-import com.project.jarihana.group.command.service.dto.CreateGroupCommand;
-import com.project.jarihana.group.command.service.dto.CreateGroupResult;
-import com.project.jarihana.group.command.service.dto.ModifyGroupCommand;
-import com.project.jarihana.group.command.service.dto.TerminateGroupCommand;
-import com.project.jarihana.group.command.service.dto.TerminateGroupResult;
-import com.project.jarihana.group.command.service.dto.ReplaceRecurringScheduleCommand;
-import com.project.jarihana.group.command.service.dto.ReplaceRecurringScheduleResult;
-import com.project.jarihana.group.command.service.dto.ReplaceSessionScheduleCommand;
-import com.project.jarihana.group.command.service.dto.ReplaceSessionScheduleResult;
-import com.project.jarihana.group.domain.Group;
-import com.project.jarihana.group.domain.GroupType;
-import com.project.jarihana.group.domain.RecurringGroupSchedule;
-import com.project.jarihana.group.domain.SessionGroupSchedule;
-import com.project.jarihana.group.domain.GroupStatus;
+import com.project.jarihana.group.command.service.dto.*;
+import com.project.jarihana.group.domain.*;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Member;
+import com.project.jarihana.recruitment.command.repository.GroupRecruitmentCommandRepository;
+import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.registration.command.repository.RegistrationCommandRepository;
 import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.registration.domain.RegistrationStatus;
-import com.project.jarihana.recruitment.domain.GroupRecruitment;
-import com.project.jarihana.recruitment.command.repository.GroupRecruitmentCommandRepository;
-import java.time.Clock;
-import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Clock;
+import java.time.LocalDateTime;
 
 @Service
 public class GroupCommandService {
@@ -83,6 +72,67 @@ public class GroupCommandService {
         GroupMember leader = GroupMember.createLeader(group, member, now);
         groupMemberCommandRepository.save(leader);
         return new CreateGroupResult(group.getId(), group.getStatus());
+    }
+
+    private Group createGroup(CreateGroupCommand command, LocalDateTime createdAt) {
+        GroupType type = command.type();
+        if (type == null) {
+            throw new IllegalArgumentException("그룹 유형은 필수입니다.");
+        }
+        if (type == GroupType.SESSION) {
+            validateSessionSchedule(command);
+            return Group.createSession(
+                    command.name(), command.introduction(), command.description(),
+                    DEFAULT_REPRESENTATIVE_IMAGE_KEY, toSessionSchedule(command), createdAt
+            );
+        }
+        validateRecurringSchedule(command);
+        RecurringGroupSchedule schedule = toRecurringSchedule(command);
+        if (type == GroupType.CLUB) {
+            return Group.createClub(command.name(), command.introduction(), command.description(),
+                    DEFAULT_REPRESENTATIVE_IMAGE_KEY, schedule, createdAt);
+        }
+        return Group.createStudy(command.name(), command.introduction(), command.description(),
+                DEFAULT_REPRESENTATIVE_IMAGE_KEY, schedule, createdAt);
+    }
+
+    private void validateSessionSchedule(CreateGroupCommand command) {
+        if (command.recurringSchedule() != null) {
+            throw new BusinessException(ErrorCode.SCHEDULE_TYPE_MISMATCH, SCHEDULE_TYPE_MISMATCH_MESSAGE);
+        }
+        if (command.sessionSchedule() == null) {
+            throw new BusinessException(ErrorCode.SCHEDULE_REQUIRED, SCHEDULE_REQUIRED_MESSAGE);
+        }
+    }
+
+    private void validateRecurringSchedule(CreateGroupCommand command) {
+        if (command.sessionSchedule() != null) {
+            throw new BusinessException(ErrorCode.SCHEDULE_TYPE_MISMATCH, SCHEDULE_TYPE_MISMATCH_MESSAGE);
+        }
+        if (command.recurringSchedule() == null) {
+            throw new BusinessException(ErrorCode.SCHEDULE_REQUIRED, "정기 일정이 필요합니다.");
+        }
+    }
+
+    private RecurringGroupSchedule toRecurringSchedule(CreateGroupCommand command) {
+        if (command.recurringSchedule() == null) {
+            return null;
+        }
+        CreateGroupCommand.RecurringSchedule schedule = command.recurringSchedule();
+        try {
+            return RecurringGroupSchedule.of(schedule.daysOfWeek(), schedule.startTime(), schedule.endTime());
+        } catch (BusinessException exception) {
+            throw new BusinessException(ErrorCode.SCHEDULE_INVALID_RULE, SCHEDULE_INVALID_RULE_MESSAGE);
+        }
+    }
+
+    private SessionGroupSchedule toSessionSchedule(CreateGroupCommand command) {
+        CreateGroupCommand.SessionSchedule schedule = command.sessionSchedule();
+        try {
+            return SessionGroupSchedule.of(schedule.sessionDate(), schedule.startTime(), schedule.endTime());
+        } catch (BusinessException exception) {
+            throw new BusinessException(ErrorCode.SCHEDULE_INVALID_RULE, SCHEDULE_INVALID_RULE_MESSAGE);
+        }
     }
 
     @Transactional
@@ -269,66 +319,5 @@ public class GroupCommandService {
                 saved.getSessionSchedule().getStartTime(),
                 saved.getSessionSchedule().getEndTime()
         );
-    }
-
-    private Group createGroup(CreateGroupCommand command, LocalDateTime createdAt) {
-        GroupType type = command.type();
-        if (type == null) {
-            throw new IllegalArgumentException("그룹 유형은 필수입니다.");
-        }
-        if (type == GroupType.SESSION) {
-            validateSessionSchedule(command);
-            return Group.createSession(
-                    command.name(), command.introduction(), command.description(),
-                    DEFAULT_REPRESENTATIVE_IMAGE_KEY, toSessionSchedule(command), createdAt
-            );
-        }
-        validateRecurringSchedule(command);
-        RecurringGroupSchedule schedule = toRecurringSchedule(command);
-        if (type == GroupType.CLUB) {
-            return Group.createClub(command.name(), command.introduction(), command.description(),
-                    DEFAULT_REPRESENTATIVE_IMAGE_KEY, schedule, createdAt);
-        }
-        return Group.createStudy(command.name(), command.introduction(), command.description(),
-                DEFAULT_REPRESENTATIVE_IMAGE_KEY, schedule, createdAt);
-    }
-
-    private void validateSessionSchedule(CreateGroupCommand command) {
-        if (command.recurringSchedule() != null) {
-            throw new BusinessException(ErrorCode.SCHEDULE_TYPE_MISMATCH, SCHEDULE_TYPE_MISMATCH_MESSAGE);
-        }
-        if (command.sessionSchedule() == null) {
-            throw new BusinessException(ErrorCode.SCHEDULE_REQUIRED, SCHEDULE_REQUIRED_MESSAGE);
-        }
-    }
-
-    private void validateRecurringSchedule(CreateGroupCommand command) {
-        if (command.sessionSchedule() != null) {
-            throw new BusinessException(ErrorCode.SCHEDULE_TYPE_MISMATCH, SCHEDULE_TYPE_MISMATCH_MESSAGE);
-        }
-        if (command.recurringSchedule() == null) {
-            throw new BusinessException(ErrorCode.SCHEDULE_REQUIRED, "정기 일정이 필요합니다.");
-        }
-    }
-
-    private RecurringGroupSchedule toRecurringSchedule(CreateGroupCommand command) {
-        if (command.recurringSchedule() == null) {
-            return null;
-        }
-        CreateGroupCommand.RecurringSchedule schedule = command.recurringSchedule();
-        try {
-            return RecurringGroupSchedule.of(schedule.daysOfWeek(), schedule.startTime(), schedule.endTime());
-        } catch (BusinessException exception) {
-            throw new BusinessException(ErrorCode.SCHEDULE_INVALID_RULE, SCHEDULE_INVALID_RULE_MESSAGE);
-        }
-    }
-
-    private SessionGroupSchedule toSessionSchedule(CreateGroupCommand command) {
-        CreateGroupCommand.SessionSchedule schedule = command.sessionSchedule();
-        try {
-            return SessionGroupSchedule.of(schedule.sessionDate(), schedule.startTime(), schedule.endTime());
-        } catch (BusinessException exception) {
-            throw new BusinessException(ErrorCode.SCHEDULE_INVALID_RULE, SCHEDULE_INVALID_RULE_MESSAGE);
-        }
     }
 }
