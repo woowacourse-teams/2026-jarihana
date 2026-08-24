@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronLeft } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router";
 
@@ -55,6 +55,9 @@ function DetailFact({ icon, label, unavailable = false, value }) {
 
 export function GroupDetailPage() {
   const { groupId } = useParams();
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+  }, [groupId]);
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedTab = tabs.some((tab) => tab.value === searchParams.get("tab"))
     ? searchParams.get("tab")

@@ -417,6 +417,15 @@ it("Given a group, when detail renders, then API-backed information and leader s
   expect(container.querySelectorAll(".group-profile__figure > span")).toHaveLength(4);
 });
 
+it("Given a retained list scroll, when group detail opens, then the page starts at the top", () => {
+  const scrollTo = jest.spyOn(window, "scrollTo").mockImplementation(() => {});
+
+  renderAt("/groups/41", <GroupDetailPage />);
+
+  expect(scrollTo).toHaveBeenCalledWith(0, 0);
+  scrollTo.mockRestore();
+});
+
 it("Given meeting details, when the detail page renders, then the information card shows API values", () => {
   groupHooks.useGroup.mockReturnValue({
     data: { ...group, meetingType: "OFFLINE", location: "서울 캠퍼스" },
