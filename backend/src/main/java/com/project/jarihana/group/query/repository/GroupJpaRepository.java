@@ -49,8 +49,8 @@ public interface GroupJpaRepository extends JpaRepository<Group, Long> {
                   )
               )
               and (
-                  :recruiting = false
-                  or exists (
+                  cast(:recruiting as Boolean) is null
+                  or (:recruiting = true and exists (
                       select recruitment.id
                       from GroupRecruitment recruitment
                       where recruitment.group = g
@@ -62,7 +62,20 @@ public interface GroupJpaRepository extends JpaRepository<Group, Long> {
                             where registration.recruitment = recruitment
                               and registration.status = com.project.jarihana.registration.domain.RegistrationStatus.APPROVED
                         ) < recruitment.capacity
-                  )
+                  ))
+                  or (:recruiting = false and not exists (
+                      select recruitment.id
+                      from GroupRecruitment recruitment
+                      where recruitment.group = g
+                        and recruitment.startsAt <= :now
+                        and (recruitment.endsAt is null or recruitment.endsAt > :now)
+                        and (
+                            select count(registration.id)
+                            from Registration registration
+                            where registration.recruitment = recruitment
+                              and registration.status = com.project.jarihana.registration.domain.RegistrationStatus.APPROVED
+                        ) < recruitment.capacity
+                  ))
               )
             order by g.createdAt desc, g.id desc
             """)
@@ -75,7 +88,7 @@ public interface GroupJpaRepository extends JpaRepository<Group, Long> {
             @Param("joinedOnly") boolean joinedOnly,
             @Param("role") GroupMemberRole role,
             @Param("currentMemberId") Long currentMemberId,
-            @Param("recruiting") boolean recruiting,
+            @Param("recruiting") Boolean recruiting,
             @Param("now") LocalDateTime now,
             Pageable pageable
     );

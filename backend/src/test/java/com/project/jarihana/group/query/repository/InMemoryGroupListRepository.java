@@ -28,9 +28,8 @@ public class InMemoryGroupListRepository implements GroupListRepository {
                         || projection.hasMember(criteria.currentMemberId()))
                 .filter(projection -> criteria.role() == null
                         || projection.hasRole(criteria.currentMemberId(), criteria.role()))
-                .filter(projection -> !criteria.recruiting()
-                        || projection.activeRecruitment() != null
-                        && projection.activeRecruitment().isOpenAt(criteria.now()))
+                .filter(projection -> criteria.recruiting() == null
+                        || criteria.recruiting() == isRecruiting(projection, criteria.now()))
                 .filter(projection -> criteria.cursorCreatedAt() == null
                         || projection.group().getCreatedAt().isBefore(criteria.cursorCreatedAt())
                         || projection.group().getCreatedAt().equals(criteria.cursorCreatedAt())
@@ -54,5 +53,11 @@ public class InMemoryGroupListRepository implements GroupListRepository {
 
     public void clear() {
         groups.clear();
+    }
+
+    private static boolean isRecruiting(GroupListProjection projection, java.time.LocalDateTime now) {
+        return projection.activeRecruitment() != null
+                && projection.activeRecruitment().isOpenAt(now)
+                && projection.approvedCount() < projection.activeRecruitment().getCapacity();
     }
 }
