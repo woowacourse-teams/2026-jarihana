@@ -546,8 +546,9 @@ function RecruitmentInformation({
         ) : null}
         <div>
           <dt>모집 기간</dt>
-          <dd>
-            {dateCopy(recruitment.startsAt)} - {dateCopy(recruitment.endsAt)}
+          <dd className="manage-recruitment-period">
+            <span>{dateCopy(recruitment.startsAt)}</span>
+            <span>~ {dateCopy(recruitment.endsAt)}</span>
           </dd>
         </div>
         <div>
@@ -640,8 +641,9 @@ function RecruitmentPreview({ form, memberCount }) {
       <dl className="manage-preview-list">
         <div>
           <dt>모집 기간</dt>
-          <dd>
-            {dateCopy(form.startsAt)} - {dateCopy(form.endsAt)}
+          <dd className="manage-preview-period">
+            <span>{dateCopy(form.startsAt)}</span>
+            <span>~ {dateCopy(form.endsAt)}</span>
           </dd>
         </div>
         <div>

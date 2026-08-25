@@ -194,9 +194,6 @@ export function ManageRegistrationsPage() {
                           {registration.decisionReason ? (
                             <span>사유: {registration.decisionReason}</span>
                           ) : null}
-                          {registration.decidedBy ? (
-                            <span>처리자 #{registration.decidedBy.memberId}</span>
-                          ) : null}
                         </div>
                       ) : null}
                     </div>
