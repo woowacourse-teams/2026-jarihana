@@ -29,7 +29,7 @@ export function courseLabel(course) {
 }
 
 export function roleLabel(role) {
-  return role === "LEADER" ? "모임장" : "멤버";
+  return role === "LEADER" ? "모임장" : "모임원";
 }
 
 export function statusLabel(status) {
