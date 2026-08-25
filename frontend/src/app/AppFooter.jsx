@@ -4,7 +4,7 @@ export function AppFooter() {
   return (
     <footer aria-labelledby="footer-origin-title" className="app-footer">
       <div className="app-footer__copy">
-        <a aria-label="자리하나 홈" className="app-footer__brand" href="/">
+        <a className="app-footer__brand" href="/">
           <img alt="" className="app-footer__brand-mark" src={faviconImage} />
           <h2 className="app-footer__brand-title">자리 하나?</h2>
         </a>

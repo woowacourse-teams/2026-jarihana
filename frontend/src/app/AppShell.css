@@ -24,6 +24,45 @@
     transform: translateY(0);
 }
 
+.app-scroll-top {
+    position: fixed;
+    z-index: var(--z-overlay);
+    right: var(--space-5);
+    bottom: var(--space-5);
+    display: inline-grid;
+    width: var(--touch-target-lg);
+    height: var(--touch-target-lg);
+    padding: 0;
+    border: var(--border-thin) solid var(--color-line);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    cursor: pointer;
+    place-items: center;
+    box-shadow: var(--shadow-float);
+    transition: background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+}
+
+.app-scroll-top:hover {
+    border-color: var(--color-brand);
+    background: var(--color-brand-soft);
+    color: var(--color-brand-ink);
+    transform: translateY(calc(var(--border-thin) * -1));
+}
+
+.app-scroll-top svg {
+    width: var(--space-5);
+    height: var(--space-5);
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: var(--border-strong);
+}
+
 .app-header {
     position: relative;
     z-index: var(--z-header);

@@ -106,10 +106,7 @@
 
 .groups-tools-panel {
   margin-block: 0 var(--space-10);
-  padding: var(--space-5);
-  border: var(--border-thin) solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
+  padding: 0;
 }
 
 .groups-tools {
@@ -140,15 +137,16 @@
   width: 100%;
   height: var(--touch-target);
   gap: var(--space-2);
-  padding-inline: var(--space-4) var(--space-1);
-  border: var(--border-thin) solid var(--color-line);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
+  padding-inline: 0 var(--space-1);
+  border: 0;
+  border-bottom: var(--border-strong) solid var(--color-line);
+  border-radius: 0;
+  background: transparent;
   transition: border-color var(--duration-fast) var(--ease-standard);
 }
 
 .groups-search__control:focus-within {
-  border-color: var(--color-brand);
+  border-bottom-color: var(--color-brand);
 }
 
 .groups-search input {
@@ -161,6 +159,10 @@
   background: transparent;
   color: var(--color-ink);
   font: inherit;
+}
+
+.groups-search input:focus-visible {
+  outline: 0;
 }
 
 .groups-search__submit {
@@ -180,6 +182,66 @@
 
 .groups-search__submit:hover {
   background: var(--color-brand-soft);
+}
+
+.groups-page.groups-page--landing {
+  padding-block-start: 0;
+}
+
+.groups-page--landing .groups-hero {
+  position: relative;
+  min-block-size: calc(100dvh - var(--header-height));
+  align-content: center;
+  padding-block: var(--space-8) calc(var(--space-16) + var(--space-8));
+}
+
+.groups-hero__scroll-button {
+  position: absolute;
+  right: 50%;
+  bottom: var(--space-6);
+  display: inline-flex;
+  min-height: var(--touch-target);
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-muted-ink);
+  font: inherit;
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transform: translateX(50%);
+  transition: background-color var(--duration-fast) var(--ease-standard),
+  color var(--duration-fast) var(--ease-standard);
+}
+
+.groups-hero__scroll-button:hover {
+  background: var(--color-brand-soft);
+  color: var(--color-brand-ink);
+}
+
+.groups-hero__scroll-arrow {
+  width: var(--space-5);
+  height: var(--space-5);
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: var(--border-strong);
+  animation: groups-scroll-indicator 1.8s var(--ease-standard) infinite;
+}
+
+@keyframes groups-scroll-indicator {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(var(--space-1));
+  }
 }
 
 .groups-search__submit svg {

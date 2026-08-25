@@ -95,8 +95,9 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   filter, form control은 이 최소 높이를 공유한다.
 - Header: `--header-height` 72px, active line 3px, loading auth placeholder 108px로
   geometry를 token화한다.
-- 탐색 hero는 header 아래에 `--space-12` 기본 여백에 추가 `--space-16`과 `--space-4`를 더해,
-  상단 콘텐츠가 충분히 내려온 상태로 시작한다.
+- 탐색 랜딩(`/`) hero는 header 아래 `calc(100dvh - --header-height)` 높이로 첫 화면을 채우고,
+  하단의 `자리 둘러보기` 화살표 CTA가 discovery section으로 부드럽게 이동시킨다. `/groups`의
+  목록 화면은 기존의 콘텐츠 중심 여백을 유지한다.
 - 탐색 페이지의 hero와 discovery는 desktop에서 `--space-16` 외부 간격과 `--space-10` 내부 상단
   여백으로 넉넉하게 분리하고, discovery에는 `--color-section-soft`를 적용해 별도 정보 영역임을
   드러낸다. 결과 제목과
@@ -143,7 +144,8 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
    세 개로 노출한다.
    
    탐색 hero의 display copy는 `크루와` / `함께할 자리를` / `찾아보세요` 세 줄을 모든
-   viewport에서 유지하되, 접근성 이름은 한 문장으로 제공한다.
+   viewport에서 유지하되, 접근성 이름은 한 문장으로 제공한다. 랜딩에는 하단 스크롤 CTA를
+   둔다.
 - 탐색 hero는 `src/shared/assets/brand/jarihana-signature.png`를 교체 가능한 signature art로
   사용하며, 헤더 mark는 `src/shared/assets/brand/jarihana-favicon.png`를 교체 지점으로 사용한다.
 - `DetailLayout`: group detail은 desktop에서 본문 + sticky support rail 구조를 사용하며
@@ -179,8 +181,9 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   데스크톱에서는 Contact us와 저장소 링크를 같은 왼쪽 기준선에 맞추고, 태블릿 이하에서는 저장소
   링크를 Contact us 아래로 쌓는다. 탐색 페이지에서는 카드 grid rail을 그대로 상속해 내부 좌우
   끝점을 맞춘다. 인스타그램은 노출하지 않고 저장소 링크 하나만 둔다.
-- Fields: label, optional description, control, inline error를 같은 field group으로 묶는다. 검색은 input과
-  submit icon을 하나의 thin-border/small-radius control surface로 묶는다.
+- Fields: label, optional description, control, inline error를 같은 field group으로 묶는다. 탐색
+  검색은 주변 박스 테두리를 제거하고 얇은 underline과 focus 시 brand line으로 입력 상태를
+  표현한다.
 - Select: native keyboard/assistive-tech 동작을 유지하면서 오른쪽 chevron, 넉넉한 우측 padding,
   pointer cursor를 제공해 일반 input과 시각적으로 구분한다.
 - Cards: 14–20px radius, `--border-thin` line, 20–24px padding. 탐색 카드의 visual은 `8 / 5`
@@ -216,8 +219,8 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 
 `Button`, `IconButton`, `TextField`, `Textarea`, `Select`, `Checkbox`, `Radio`, `SearchField`,
 `FilterBar`, `Card`, `GroupCard`, `RecruitmentCard`, `StatusBadge`, `Avatar`, `Tabs`, `Modal`,
-`ConfirmDialog`, `Drawer`, `Toast`, `Footer`, `Skeleton`, `EmptyState`, `ErrorState`, `ForbiddenState`,
-`NotFoundState`, `CursorList`.
+`ConfirmDialog`, `Drawer`, `Toast`, `Footer`, `ScrollToTopButton`, `HeroScrollButton`, `Skeleton`,
+`EmptyState`, `ErrorState`, `ForbiddenState`, `NotFoundState`, `CursorList`.
 
 개발용 `/__showcase` route에서 light canvas 위 모든 variant, keyboard focus, error, disabled, pending,
 long Korean copy, empty/skeleton을 검수한다. production navigation에는 노출하지 않는다.
@@ -232,6 +235,9 @@ long Korean copy, empty/skeleton을 검수한다. production navigation에는 �
 - Toast는 2,000ms 후 180ms 동안 opacity와 transform으로 부드럽게 퇴장한 뒤 제거되며, 사용자가
   직접 닫을 수 있는 닫기 버튼을 함께 제공한다.
 - Dialog는 opacity + 8px scale/translate, drawer는 transform을 사용한다.
+- `HeroScrollButton`은 실제 discovery section으로 smooth scroll하고, `ScrollToTopButton`은
+  viewport 우측 하단에 fixed로 유지되어 페이지 최상단으로 smooth scroll한다. 두 동작 모두
+  `prefers-reduced-motion: reduce`에서는 즉시 이동한다.
 - loading은 레이아웃 이동 없이 skeleton 또는 버튼 내부 spinner로 표현한다.
 - `prefers-reduced-motion: reduce`에서는 transition/animation을 사실상 제거하고 정보는 유지한다.
 - destructive mutation은 확인 → pending lock → success toast/route update 순서로 진행한다.

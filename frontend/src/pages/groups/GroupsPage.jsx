@@ -33,6 +33,7 @@ export function GroupsPage() {
   const navigate = useNavigate();
   const { status } = useAuth();
   const toast = useToast();
+  const isLanding = window.location.pathname === "/";
   const keyword = searchParams.get("keyword")?.trim() ?? "";
   const type = searchParams.get("type") ?? "";
   const groupStatus = searchParams.get("status");
@@ -79,6 +80,18 @@ export function GroupsPage() {
     updateQuery({ status: value });
   }
 
+  function scrollToDiscovery() {
+    const discovery = document.getElementById("groups-discovery");
+    if (!discovery) return;
+
+    discovery.scrollIntoView({
+      behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
+        ? "auto"
+        : "smooth",
+      block: "start"
+    });
+  }
+
   function handleCreateGroup() {
     const target = "/groups/new";
     if (status === "anonymous") {
@@ -93,7 +106,7 @@ export function GroupsPage() {
   }
 
   return (
-    <PageContainer className="groups-page">
+    <PageContainer className={`groups-page${isLanding ? " groups-page--landing" : ""}`}>
       <section className="groups-hero" aria-labelledby="groups-title">
         <div className="groups-hero__copy">
           <h1 id="groups-title" aria-label="크루와 함께할 자리를 찾아보세요">
@@ -106,9 +119,23 @@ export function GroupsPage() {
           <p>관심사와 맞는 모임을 발견해보세요.</p>
         </div>
         <div className="groups-hero__art" role="img" aria-label="함께 탐험하는 크루 일러스트"></div>
+        {isLanding && (
+          <button
+            aria-controls="groups-discovery"
+            aria-label="자리 둘러보기로 이동"
+            className="groups-hero__scroll-button"
+            onClick={scrollToDiscovery}
+            type="button"
+          >
+            <span>자리 둘러보기</span>
+            <svg aria-hidden="true" className="groups-hero__scroll-arrow" viewBox="0 0 24 24">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+        )}
       </section>
 
-      <section className="groups-discovery" aria-labelledby="recommended-groups">
+      <section className="groups-discovery" id="groups-discovery" aria-labelledby="recommended-groups">
         <div className="groups-result-heading">
           <h1 id="recommended-groups">자리 둘러보기</h1>
           <div className="groups-result-meta">
