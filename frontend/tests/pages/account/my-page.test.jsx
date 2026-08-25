@@ -165,13 +165,6 @@ describe("MyPage", () => {
     await user.click(screen.getByRole("tab", { name: /가입한 모임/ }));
     expect(screen.queryByRole("button", { name: "다음 활동 불러오기" })).not.toBeInTheDocument();
 
-    // 목록은 페이지가 아니라 탭 패널 안에서 스크롤한다
-    const scroller = screen.getByRole("tabpanel", { name: /가입한 모임/ });
-    expect(scroller).toHaveClass("activity-board__scroller");
-    expect(scroller).toHaveAttribute("tabindex", "0");
-    expect(scroller.querySelector(".activity-board__grid")).toBeInTheDocument();
-    expect(scroller.querySelector(".activity-board__more")).toBeInTheDocument();
-
     // 목록 끝이 화면에 들어오면 다음 페이지를 스스로 불러온다
     act(() => global.triggerIntersection());
     expect(fetchNextPage).toHaveBeenCalledTimes(1);

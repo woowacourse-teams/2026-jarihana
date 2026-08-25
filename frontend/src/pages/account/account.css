@@ -261,35 +261,13 @@ img.profile-card__avatar {
   word-break: keep-all;
 }
 
-/*
- * 한 번에 6칸(2열 x 3행)만 보이고 나머지는 이 목록 안에서 스크롤한다.
- * 행 높이를 고정해야 보이는 칸 수를 계산할 수 있어 grid-auto-rows로 못박는다.
- */
 .activity-board {
-  --activity-row-height: 12.75rem;
-  --activity-visible-rows: 3;
-
-  margin-top: var(--space-6);
-}
-
-.activity-board__scroller {
-  max-height: calc(
-    var(--activity-row-height) * var(--activity-visible-rows) + var(--space-4) *
-      (var(--activity-visible-rows) - 1)
-  );
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.activity-board__scroller:focus-visible {
-  outline: var(--border-strong) solid var(--color-brand-ink);
-  outline-offset: var(--space-1);
+  padding-top: var(--space-6);
 }
 
 .activity-board__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-auto-rows: var(--activity-row-height);
   gap: var(--space-4);
 }
 
@@ -297,7 +275,6 @@ img.profile-card__avatar {
   position: relative;
   display: grid;
   grid-template-columns: 6.5rem minmax(0, 1fr);
-  height: 100%;
   overflow: hidden;
   background: var(--color-surface);
   border: var(--account-border);
@@ -348,7 +325,8 @@ img.profile-card__avatar {
   align-content: center;
   gap: var(--space-2);
   min-width: 0;
-  padding: var(--space-5);
+  padding: var(--space-3);
+  padding-bottom: var(--space-1);
 }
 
 .activity-row__badges {
@@ -631,11 +609,6 @@ img.profile-card__avatar {
 
   .activity-board__grid {
     grid-template-columns: 1fr;
-  }
-
-  /* 한 열로 접히면 3행짜리 상자가 화면을 거의 다 덮어 두 겹 스크롤이 된다 */
-  .activity-board {
-    --activity-visible-rows: 2;
   }
 
   .activity-row {

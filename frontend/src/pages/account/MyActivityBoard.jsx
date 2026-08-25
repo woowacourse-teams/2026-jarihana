@@ -1,4 +1,3 @@
-import { useRef } from "react";
 import { CalendarDays, Crown, UsersRound } from "lucide-react";
 import { Link } from "react-router";
 
@@ -111,12 +110,10 @@ const EMPTY_STATES = {
 
 export function MyActivityBoard({ currentMemberId, items, kind, query }) {
   const emptyState = EMPTY_STATES[kind] ?? EMPTY_STATES.joined;
-  const scrollerRef = useRef(null);
   const sentinelRef = useInfiniteScroll({
     hasNext: Boolean(query.hasNextPage),
     onLoadMore: () => query.fetchNextPage(),
-    pending: Boolean(query.isFetchingNextPage),
-    rootRef: scrollerRef
+    pending: Boolean(query.isFetchingNextPage)
   });
   const activities = items.map((item) =>
     kind === "registrations"
@@ -125,13 +122,11 @@ export function MyActivityBoard({ currentMemberId, items, kind, query }) {
   );
 
   return (
-    <div
+    <section
       aria-labelledby={`my-groups-tab-${kind}`}
-      className="activity-board activity-board__scroller"
+      className="activity-board"
       id="my-groups-panel"
-      ref={scrollerRef}
       role="tabpanel"
-      tabIndex={0}
     >
       {query.isLoading ? (
         <div aria-label="내 활동 불러오는 중" className="activity-board__grid" role="status">
@@ -145,29 +140,24 @@ export function MyActivityBoard({ currentMemberId, items, kind, query }) {
         <ErrorState title="내 모임을 불러오지 못했어요" />
       ) : null}
       {!query.isLoading && !query.isError && activities.length ? (
-        <>
-          <div className="activity-board__grid">
-            {activities.map((activity) =>
-              kind === "registrations" ? (
-                <RegistrationActivityRow key={activity.key} registration={activity.registration} />
-              ) : (
-                <GroupActivityRow
-                  group={activity.group}
-                  isLeader={
-                    currentMemberId != null && activity.group.leader?.memberId === currentMemberId
-                  }
-                  key={activity.key}
-                />
-              )
-            )}
-            {query.isFetchingNextPage ? (
-              <Skeleton aria-label="모임 더 불러오는 중" count={2} role="status" />
-            ) : null}
-          </div>
-          <div className="activity-board__more" ref={sentinelRef}>
-            {query.hasNextPage ? null : <span>모든 모임을 불러왔어요.</span>}
-          </div>
-        </>
+        <div className="activity-board__grid">
+          {activities.map((activity) =>
+            kind === "registrations" ? (
+              <RegistrationActivityRow key={activity.key} registration={activity.registration} />
+            ) : (
+              <GroupActivityRow
+                group={activity.group}
+                isLeader={
+                  currentMemberId != null && activity.group.leader?.memberId === currentMemberId
+                }
+                key={activity.key}
+              />
+            )
+          )}
+          {query.isFetchingNextPage ? (
+            <Skeleton aria-label="모임 더 불러오는 중" count={2} role="status" />
+          ) : null}
+        </div>
       ) : null}
       {!query.isLoading && !query.isError && activities.length === 0 ? (
         <EmptyState
@@ -176,6 +166,11 @@ export function MyActivityBoard({ currentMemberId, items, kind, query }) {
           title={emptyState.title}
         />
       ) : null}
-    </div>
+      {!query.isLoading && !query.isError && activities.length ? (
+        <div className="activity-board__more" ref={sentinelRef}>
+          {query.hasNextPage ? null : <span>모든 모임을 불러왔어요.</span>}
+        </div>
+      ) : null}
+    </section>
   );
 }
