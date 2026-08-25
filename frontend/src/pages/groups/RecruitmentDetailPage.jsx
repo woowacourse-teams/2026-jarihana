@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ChevronLeft } from "lucide-react";
 import { Link, useParams } from "react-router";
 
 import { useAuth } from "../../features/auth/index.js";
@@ -75,7 +76,8 @@ export function RecruitmentDetailPage() {
   return (
     <PageContainer className="recruitment-detail-page">
       <Link className="group-back" to={`/groups/${groupId}`}>
-        ← 모임으로 돌아가기
+        <ChevronLeft aria-hidden="true" size={18} strokeWidth={2.25} />
+        <span>모임으로 돌아가기</span>
       </Link>
       <div className="recruitment-detail-grid">
         <div>

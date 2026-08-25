@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Armchair, ChevronLeft, Pencil } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router";
 
 import { useAuth } from "../../features/auth/index.js";
@@ -10,6 +11,8 @@ import scheduleIcon from "../../shared/assets/figma/edit-05.svg";
 import placeIcon from "../../shared/assets/figma/edit-06.svg";
 import memberIcon from "../../shared/assets/figma/edit-09.svg";
 import kindIcon from "../../shared/assets/figma/edit-04.svg";
+import recruitmentEmptyIllustration from "../../shared/assets/illustrations/group-recruitment-empty.webp";
+import recruitmentOpenIllustration from "../../shared/assets/illustrations/group-recruitment-open.webp";
 import {
   Avatar,
   Button,
@@ -26,10 +29,11 @@ import {
 } from "../../shared/ui/index.js";
 import {
   flattenPages,
-  formatLocalDate,
+  formatCompactLocalDateTime,
   meetingTypeLabel,
   publicErrorCopy,
-  scheduleText,
+  recruitmentCountdownLabel,
+  scheduleLines,
   typeLabel
 } from "./pageUtils.js";
 import "./groups.css";
@@ -54,6 +58,9 @@ function DetailFact({ icon, label, unavailable = false, value }) {
 
 export function GroupDetailPage() {
   const { groupId } = useParams();
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+  }, [groupId]);
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedTab = tabs.some((tab) => tab.value === searchParams.get("tab"))
     ? searchParams.get("tab")
@@ -63,11 +70,12 @@ export function GroupDetailPage() {
   const group = groupQuery.data;
   const currentMember = auth.member ?? auth.user;
   const isLeader = currentMember?.id === group?.leader?.memberId;
+  const usesDefaultImage =
+    !group?.representativeImageUrl ||
+    group.representativeImageUrl.endsWith("images/default-group.png");
   const isApprovedMember =
     group?.currentMemberRole === "MEMBER" || group?.currentMemberRole === "LEADER";
   const isArchived = group?.status === "ENDED";
-  const isSession = group?.type === "SESSION";
-  const hasSessionSchedule = isSession && Boolean(group?.sessionSchedule);
 
   if (groupQuery.isLoading) {
     return (
@@ -100,28 +108,23 @@ export function GroupDetailPage() {
 
   return (
     <PageContainer className="group-detail-page">
-      <Link className="group-back" to="/groups">
-        ← 목록으로
-      </Link>
       <div className="group-detail-grid">
         <div>
-          <section className="group-profile" aria-labelledby="group-title">
+          <section
+            className={`group-profile${usesDefaultImage ? " group-profile--default-image" : ""}`}
+            aria-labelledby="group-title"
+          >
+            <Link className="group-back group-back--hero" to="/groups">
+              <ChevronLeft aria-hidden="true" size={18} strokeWidth={2.25} />
+              <span>목록으로</span>
+            </Link>
             <div className="group-profile__copy">
-              <div className="group-profile__header">
-                <p className="groups-eyebrow group-profile__type-tag">
-                  <span>{typeLabel(group.type)}</span>
-                </p>
-                {isLeader ? (
-                  <Link
-                    className="group-profile__manage ui-button ui-button--secondary ui-button--md"
-                    to={`/groups/${groupId}/manage`}
-                  >
-                    모임 관리
-                  </Link>
-                ) : null}
-              </div>
+              <p className="groups-eyebrow group-profile__type-tag">
+                <span>{typeLabel(group.type)}</span>
+              </p>
               <h1 id="group-title">{group.name}</h1>
               <p>{group.introduction}</p>
+              <LeaderSummary leader={group.leader} variant="hero" />
               <div className="group-info">
                 <h2 className="group-info-title">모임 정보</h2>
                 <dl className="group-facts">
@@ -134,17 +137,11 @@ export function GroupDetailPage() {
                     icon={scheduleIcon}
                     label="모임 일정"
                     value={
-                      hasSessionSchedule ? (
-                        <span className="group-facts__session-schedule">
-                          <span>{formatLocalDate(group.sessionSchedule.sessionDate)}</span>
-                          <span>
-                            {group.sessionSchedule.startTime.slice(0, 5)} – {" "}
-                            {group.sessionSchedule.endTime.slice(0, 5)}
-                          </span>
-                        </span>
-                      ) : (
-                        scheduleText(group)
-                      )
+                      <span className="group-facts__schedule">
+                        {scheduleLines(group).map((line) => (
+                          <span key={line}>{line}</span>
+                        ))}
+                      </span>
                     }
                   />
                   <DetailFact
@@ -167,12 +164,27 @@ export function GroupDetailPage() {
                 group={group}
               />
             </div>
+            {isLeader ? (
+              <Link
+                aria-label="모임 수정"
+                className="group-profile__edit ui-button ui-icon-button"
+                title="모임 수정"
+                to={`/groups/${groupId}/manage`}
+              >
+                <Pencil aria-hidden="true" size={20} strokeWidth={2.25} />
+              </Link>
+            ) : null}
           </section>
 
           <div className="group-detail-tabs">
             <Tabs
+              animated
               value={selectedTab}
-              onValueChange={(value) => setSearchParams({ tab: value }, { replace: true })}
+              onValueChange={(value) => {
+                const nextSearchParams = new URLSearchParams(searchParams);
+                nextSearchParams.set("tab", value);
+                setSearchParams(nextSearchParams, { replace: true });
+              }}
               items={[
                 {
                   label: tabs[0].label,
@@ -194,17 +206,40 @@ export function GroupDetailPage() {
           </div>
         </div>
 
-        <aside className="group-rail" aria-label="모집과 운영자 정보">
+        <aside className="group-rail group-rail--desktop" aria-label="운영자와 모집 정보">
+          <LeaderSummary leader={group.leader} variant="card" />
           <RecruitmentSummary
             auth={auth}
             group={group}
-            leader={group.leader}
             createRecruitmentHref={isLeader ? `/groups/${groupId}/manage/recruitments` : null}
             isApprovedMember={isApprovedMember}
             isArchived={isArchived}
             isLeader={isLeader}
           />
         </aside>
+      </div>
+
+      <div className="group-floating-recruitment">
+        <Modal
+          title="모집 정보"
+          trigger={
+            <Button aria-label="모집 정보 보기" className="group-recruitment-fab">
+              <Armchair aria-hidden="true" size={18} strokeWidth={2.25} />
+              자리 확인
+            </Button>
+          }
+        >
+          <div className="group-recruitment-modal">
+            <RecruitmentSummary
+              auth={auth}
+              group={group}
+              createRecruitmentHref={isLeader ? `/groups/${groupId}/manage/recruitments` : null}
+              isApprovedMember={isApprovedMember}
+              isArchived={isArchived}
+              isLeader={isLeader}
+            />
+          </div>
+        </Modal>
       </div>
     </PageContainer>
   );
@@ -229,8 +264,7 @@ function RecruitmentSummary({
   group,
   isApprovedMember,
   isArchived,
-  isLeader,
-  leader
+  isLeader
 }) {
   const recruitment = group.activeRecruitment;
   const registration = useCreateRegistration(recruitment?.id);
@@ -249,7 +283,6 @@ function RecruitmentSummary({
         <div className="group-recruitment-empty">
           <h3>아카이빙된 모임입니다</h3>
         </div>
-        <LeaderSummary leader={leader} />
       </section>
     );
   }
@@ -305,31 +338,43 @@ function RecruitmentSummary({
   if (!recruitment) {
     return (
       <section className="group-recruitment-summary group-rail-card">
-        <h2>이 모임에 자리 하나?</h2>
-        <div className="group-recruitment-empty">
-          <h3>현재 진행 중인 모집이 없어요</h3>
-          {createRecruitmentHref ? (
+        <RecruitmentHero empty />
+        {createRecruitmentHref ? (
+          <div className="group-recruitment-empty">
             <Link
               className="group-recruitment-empty__action ui-button ui-button--primary ui-button--md"
               to={createRecruitmentHref}
             >
               새 모집 만들기
             </Link>
-          ) : null}
-        </div>
-        <LeaderSummary leader={leader} />
+          </div>
+        ) : null}
       </section>
     );
   }
   return (
     <section className="group-recruitment-summary group-rail-card">
-      <h2>이 모임에 자리 하나?</h2>
-      <StatusBadge tone="brand">모집 중</StatusBadge>
+      <RecruitmentHero />
       <dl className="group-recruitment-meta">
         <div>
           <dt>모집일정</dt>
-          <dd>
-            {formatLocalDate(recruitment.startsAt)} ~ {formatLocalDate(recruitment.endsAt)}
+          <dd className="group-recruitment-schedule">
+            <strong className="group-recruitment-countdown">
+              {recruitmentCountdownLabel(recruitment.startsAt, recruitment.endsAt)}
+            </strong>
+            <details className="group-recruitment-details">
+              <summary>일정 자세히</summary>
+              <span className="group-recruitment-period">
+                <span>
+                  <span className="group-recruitment-period__label">시작</span>
+                  <strong>{formatCompactLocalDateTime(recruitment.startsAt)}</strong>
+                </span>
+                <span>
+                  <span className="group-recruitment-period__label">마감</span>
+                  <strong>{formatCompactLocalDateTime(recruitment.endsAt)}</strong>
+                </span>
+              </span>
+            </details>
           </dd>
         </div>
         <div>
@@ -357,7 +402,6 @@ function RecruitmentSummary({
         />
       </div>
       <div className="group-recruitment-action">{applicationAction()}</div>
-      <LeaderSummary leader={leader} />
       <Modal
         description="운영자에게 전달할 가입 신청 메시지를 작성해 주세요."
         onClose={() => {
@@ -375,6 +419,33 @@ function RecruitmentSummary({
         />
       </Modal>
     </section>
+  );
+}
+
+function RecruitmentHero({ empty = false }) {
+  const illustration = empty ? recruitmentEmptyIllustration : recruitmentOpenIllustration;
+  const title = empty ? "자리없음" : "자리하나?";
+
+  return (
+    <div
+      className={`group-recruitment-hero group-recruitment-hero--${empty ? "empty" : "open"}`}
+    >
+      <h2 className="group-recruitment-hero__heading">{title}</h2>
+      <img
+        alt=""
+        aria-hidden="true"
+        className="group-recruitment-hero__image"
+        decoding="async"
+        height={720}
+        src={illustration}
+        width={720}
+      />
+      {empty ? null : (
+        <div className="group-recruitment-hero__status">
+          <StatusBadge tone="brand">모집 중</StatusBadge>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -414,20 +485,28 @@ function ApplicationForm({ onSuccess, registration }) {
   );
 }
 
-function LeaderSummary({ leader }) {
+function LeaderSummary({ leader, variant }) {
   if (!leader) return null;
+  const isHero = variant === "hero";
+
   return (
-    <div className="group-leader">
-      <p>운영자</p>
+    <div className={`group-leader group-leader--${variant}`}>
+      {isHero ? null : <span className="group-leader__label">운영자</span>}
       <div className="group-leader__identity">
         <Avatar
           alt={`${leader.crewName} 프로필`}
           fallback={leader.crewName.slice(0, 1)}
+          size={isHero ? "sm" : "md"}
           src={leader.avatarUrl}
         />
         <div>
+          {isHero ? (
+            <span className="group-leader__byline">
+              운영자 <span aria-hidden="true">·</span> {leader.generation}기 크루
+            </span>
+          ) : null}
           <strong>{leader.crewName}</strong>
-          <span>{leader.generation}기 크루</span>
+          {isHero ? null : <span>{leader.generation}기 크루</span>}
         </div>
       </div>
     </div>

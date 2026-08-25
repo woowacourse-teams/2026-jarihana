@@ -495,6 +495,7 @@ textarea {
     display: flex;
     gap: var(--space-1);
     overflow-x: auto;
+    position: relative;
     scrollbar-width: thin;
 }
 
@@ -526,6 +527,24 @@ textarea {
     animation: ui-tab-in var(--duration-base) var(--ease-standard);
 }
 
+.ui-tabs--animated .ui-tabs__tab[aria-selected="true"]::after {
+    content: none;
+}
+
+.ui-tabs__indicator {
+    background: var(--color-brand);
+    bottom: calc(var(--border-thin) * -1);
+    height: 0.1875rem;
+    left: 0;
+    pointer-events: none;
+    position: absolute;
+    transform: translateX(var(--ui-tabs-indicator-x, 0))
+        scaleX(var(--ui-tabs-indicator-scale, 0));
+    transform-origin: left center;
+    transition: transform var(--duration-base) var(--ease-standard);
+    width: var(--border-thin);
+}
+
 @keyframes ui-tab-in {
     from {
         opacity: 0;
@@ -539,6 +558,31 @@ textarea {
 
 .ui-tabs__panel {
     padding-top: var(--space-6);
+}
+
+.ui-tabs__panel--animated:not([hidden]) {
+    animation: ui-tab-panel-in var(--duration-base) var(--ease-standard);
+}
+
+@keyframes ui-tab-panel-in {
+    from {
+        opacity: 0;
+        transform: translateY(var(--space-2));
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ui-tabs__indicator {
+        transition-duration: 1ms;
+    }
+
+    .ui-tabs__panel--animated:not([hidden]) {
+        animation: none;
+    }
 }
 
 .ui-overlay {

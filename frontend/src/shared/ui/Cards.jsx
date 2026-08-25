@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
 
-export const DEFAULT_GROUP_IMAGE = "/images/default-group.png";
+export const DEFAULT_GROUP_IMAGE = "/api/images/default-group.png";
 
 function classes(...values) {
   return values.filter(Boolean).join(" ");
@@ -47,7 +47,11 @@ function scheduleFrequencyText(group) {
 }
 
 export function groupImageUrl(group) {
-  return group?.representativeImageUrl || DEFAULT_GROUP_IMAGE;
+  const imageUrl = group?.representativeImageUrl;
+  if (!imageUrl) return DEFAULT_GROUP_IMAGE;
+  if (imageUrl.startsWith("images/")) return `/api/${imageUrl}`;
+  if (imageUrl.startsWith("/images/")) return `/api${imageUrl}`;
+  return imageUrl;
 }
 
 export function GroupImage({ alt = "", className, group, ...properties }) {
