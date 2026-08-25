@@ -41,13 +41,20 @@ const JOINED_GROUP = {
   activeRecruitment: null
 };
 
-const MORE_JOINED_GROUPS = [
+const LED_GROUP = {
+  ...JOINED_GROUP,
+  id: 34,
+  name: "운영 중인 접근성 모임",
+  leader: { memberId: MEMBER.id, crewName: MEMBER.crewName, generation: MEMBER.generation }
+};
+
+const ACTIVE_GROUPS = [
   JOINED_GROUP,
   { ...JOINED_GROUP, id: 32, name: "웹 성능 연구회" },
-  { ...JOINED_GROUP, id: 33, name: "디자인 시스템 모임" }
+  { ...JOINED_GROUP, id: 33, name: "디자인 시스템 모임" },
+  LED_GROUP
 ];
 
-const LED_GROUP = { ...JOINED_GROUP, id: 34, name: "운영 중인 접근성 모임" };
 const ENDED_LED_GROUP = {
   ...LED_GROUP,
   id: 35,
@@ -68,28 +75,23 @@ const REGISTRATION = {
 };
 
 describe("MyPage", () => {
-  it("Given a completed member with activity, When My renders, Then real activity fills a dense board with cursor-backed paging", async () => {
+  it("Given a completed member with activity, When My renders, Then joined and led groups share one board with cursor-backed paging", async () => {
     // Given
     const fetchNextPage = jest.fn();
     useAuth.mockReturnValue({ status: "authenticated", member: MEMBER });
-    useInfiniteGroups.mockImplementation(({ role, status }) => ({
+    useInfiniteGroups.mockImplementation(({ status }) => ({
       data: {
         pages: [
           {
-            items:
-              role !== "LEADER"
-                ? MORE_JOINED_GROUPS
-                : status === "ENDED"
-                  ? [ENDED_LED_GROUP]
-                  : [LED_GROUP],
-            nextCursor: role === "LEADER" ? null : "more",
-            hasNext: role !== "LEADER"
+            items: status === "ENDED" ? [ENDED_LED_GROUP] : ACTIVE_GROUPS,
+            nextCursor: status === "ENDED" ? null : "more",
+            hasNext: status !== "ENDED"
           }
         ]
       },
       isLoading: false,
       isError: false,
-      hasNextPage: role !== "LEADER",
+      hasNextPage: status !== "ENDED",
       fetchNextPage
     }));
     useInfiniteMyRegistrations.mockReturnValue({
@@ -113,57 +115,50 @@ describe("MyPage", () => {
     fireEvent.error(screen.getByRole("img", { name: "자리 프로필" }));
     expect(screen.getByRole("img", { name: "자리 기본 프로필" })).toHaveTextContent("자");
     expect(screen.queryByRole("navigation", { name: "내 자리 메뉴" })).not.toBeInTheDocument();
-    expect(screen.getByText("3기 · 프론트엔드")).toBeVisible();
+    expect(screen.getByText("3기 / 프론트엔드")).toBeVisible();
+    expect(screen.queryByText(/읽기 전용/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /수정/ })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /React 깊게 보기/ })).toHaveAttribute(
       "href",
       "/groups/31"
     );
-    expect(screen.getByRole("link", { name: /React 깊게 보기 상세보기/ })).toHaveAttribute(
-      "href",
-      "/groups/31"
-    );
-    expect(screen.queryByRole("link", { name: /React 깊게 보기 모임 관리/ })).not.toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /React 깊게 보기/ }).querySelector(".activity-row__arrow")
     ).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /접근성 연구회/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /3\+.*가입한 모임/ })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: /5\+.*가입한 모임/ })).toHaveAttribute(
       "aria-selected",
       "true"
     );
-    expect(screen.getByRole("link", { name: /디자인 시스템 모임/ })).toBeVisible();
     expect(screen.getByRole("tabpanel", { name: /가입한 모임/ })).toBeVisible();
     expect(screen.getByText("가입한 모임")).toHaveClass("dashboard-counts__label");
-    expect(screen.getByText("운영하는 모임")).toHaveClass("dashboard-counts__label");
+    expect(screen.getByText("신청한 모임")).toHaveClass("dashboard-counts__label");
+    expect(screen.queryByRole("tab", { name: /운영하는 모임/ })).not.toBeInTheDocument();
+
+    // 모임장인 모임만 뱃지와 관리 진입점을 갖는다
+    expect(screen.getAllByText("모임장")).toHaveLength(2);
+    expect(screen.getByRole("link", { name: /운영 중인 접근성 모임 모임 관리/ })).toHaveAttribute(
+      "href",
+      "/groups/34/manage"
+    );
+    expect(
+      screen.queryByRole("link", { name: /React 깊게 보기 모임 관리/ })
+    ).not.toBeInTheDocument();
+
+    // 종료된 모임도 같은 목록에 함께 보인다
+    expect(screen.getByRole("link", { name: /종료된 접근성 모임 상세보기/ })).toHaveAttribute(
+      "href",
+      "/groups/35"
+    );
+    expect(screen.getByText("모임 종료")).toBeVisible();
+    expect(screen.getAllByText("활동 중")).toHaveLength(4);
 
     await user.click(screen.getByRole("tab", { name: /신청한 모임/ }));
     expect(screen.getByRole("link", { name: /접근성 연구회/ })).toHaveAttribute(
       "href",
       "/groups/44"
     );
-    expect(screen.queryByRole("link", { name: /접근성 연구회 모임 관리/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /React 깊게 보기/ })).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("tab", { name: /운영하는 모임/ }));
-    expect(screen.getByRole("link", { name: /운영 중인 접근성 모임 상세보기/ })).toHaveAttribute(
-      "href",
-      "/groups/34"
-    );
-    expect(screen.getByRole("link", { name: /운영 중인 접근성 모임 모임 관리/ })).toHaveAttribute(
-      "href",
-      "/groups/34/manage"
-    );
-    expect(screen.getByRole("link", { name: /종료된 접근성 모임 상세보기/ })).toHaveAttribute(
-      "href",
-      "/groups/35"
-    );
-    expect(screen.getByText("모임 종료")).toBeVisible();
-    expect(screen.getByRole("link", { name: /종료된 접근성 모임 모임 관리/ })).toHaveAttribute(
-      "href",
-      "/groups/35/manage"
-    );
-    expect(screen.queryByRole("link", { name: /접근성 연구회/ })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: /가입한 모임/ }));
     await user.click(screen.getByRole("button", { name: "다음 활동 불러오기" }));
@@ -195,9 +190,8 @@ describe("MyPage", () => {
     );
 
     expect(screen.getByText("가입한 모임이 없습니다.")).toBeVisible();
+    expect(screen.getByRole("link", { name: "모임 둘러보기" })).toHaveAttribute("href", "/groups");
     await user.click(screen.getByRole("tab", { name: /신청한 모임/ }));
     expect(screen.getByText("신청한 모임이 없습니다.")).toBeVisible();
-    await user.click(screen.getByRole("tab", { name: /운영하는 모임/ }));
-    expect(screen.getByText("운영하는 모임이 없습니다.")).toBeVisible();
   });
 });

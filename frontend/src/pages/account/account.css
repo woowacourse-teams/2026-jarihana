@@ -166,12 +166,6 @@ img.profile-card__avatar {
   font-size: var(--text-caption);
 }
 
-.profile-card .profile-card__note {
-  margin-top: var(--space-5);
-  padding-top: var(--space-4);
-  border-top: var(--account-border);
-}
-
 .profile-companion {
   min-height: 330px;
   background: url("../../shared/assets/figma/my-profile-illustration.png") center top / contain
@@ -189,7 +183,7 @@ img.profile-card__avatar {
 
 .dashboard-counts {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   margin-top: var(--space-2);
   border-bottom: var(--account-border);
 }
@@ -322,6 +316,25 @@ img.profile-card__avatar {
   gap: var(--space-2);
   color: var(--color-text-muted);
   font-size: var(--text-caption);
+}
+
+.activity-row__badges {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.activity-row__badges .ui-badge {
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+
+/* neutral 뱃지 배경이 카드 배경과 같아 종료 표시가 묻히는 것을 막는다 */
+.activity-row__badges .ui-badge--neutral {
+  color: var(--color-ink);
+  background: var(--color-line);
 }
 
 .activity-row__meta > span:last-child {
@@ -585,10 +598,6 @@ img.profile-card__avatar {
 
   .dashboard-counts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .dashboard-counts button:last-child {
-    grid-column: 1 / -1;
   }
 
   .activity-board__grid {

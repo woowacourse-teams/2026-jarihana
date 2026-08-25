@@ -1,11 +1,18 @@
-import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight, UsersRound } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Crown,
+  UsersRound
+} from "lucide-react";
 import { Link } from "react-router";
 
 import { Button, EmptyState, ErrorState, Skeleton, StatusBadge } from "../../shared/ui/index.js";
 import { formatKoreanDate, GROUP_TYPE_LABELS, REGISTRATION_STATUS_LABELS } from "./accountUtils.js";
 
-function GroupActivityRow({ group, isLeader, label }) {
-  const isArchived = isLeader && group.status === "ENDED";
+function GroupActivityRow({ group, isLeader }) {
+  const isEnded = group.status === "ENDED";
 
   return (
     <article className="activity-row activity-row--interactive">
@@ -16,9 +23,16 @@ function GroupActivityRow({ group, isLeader, label }) {
       />
       <div className="activity-row__body">
         <div className="activity-row__meta">
-          <StatusBadge tone={isArchived ? "neutral" : "brand"}>
-            {isArchived ? "모임 종료" : label}
-          </StatusBadge>
+          <span className="activity-row__badges">
+            {isLeader ? (
+              <StatusBadge tone="brand">
+                <Crown aria-hidden="true" size={13} /> 모임장
+              </StatusBadge>
+            ) : null}
+            <StatusBadge tone={isEnded ? "neutral" : "success"}>
+              {isEnded ? "모임 종료" : "활동 중"}
+            </StatusBadge>
+          </span>
           <span>
             <UsersRound aria-hidden="true" size={14} /> {group.memberCount}명
           </span>
@@ -33,7 +47,7 @@ function GroupActivityRow({ group, isLeader, label }) {
           >
             <span className="activity-row__detail-copy">
               <span className="activity-row__detail-meta">
-                {GROUP_TYPE_LABELS[group.type] ?? group.type} ·{" "}
+                {GROUP_TYPE_LABELS[group.type] ?? group.type} /{" "}
                 {group.leader?.crewName ?? "리더 정보 없음"}
               </span>
               <span className="activity-row__detail-action">상세보기</span>
@@ -70,9 +84,11 @@ function RegistrationActivityRow({ registration }) {
       </div>
       <div className="activity-row__body">
         <div className="activity-row__meta">
-          <StatusBadge tone={tone}>
-            {REGISTRATION_STATUS_LABELS[registration.status] ?? registration.status}
-          </StatusBadge>
+          <span className="activity-row__badges">
+            <StatusBadge tone={tone}>
+              {REGISTRATION_STATUS_LABELS[registration.status] ?? registration.status}
+            </StatusBadge>
+          </span>
           <span>{formatKoreanDate(registration.registeredAt)}</span>
         </div>
         <h3>{registration.group.name}</h3>
@@ -95,14 +111,22 @@ function RegistrationActivityRow({ registration }) {
   );
 }
 
-const EMPTY_TITLES = {
-  joined: "가입한 모임이 없습니다.",
-  registrations: "신청한 모임이 없습니다.",
-  led: "운영하는 모임이 없습니다."
+const EMPTY_STATES = {
+  joined: {
+    title: "가입한 모임이 없습니다.",
+    description: "관심 있는 모임에 가입하면 이곳에 모여요.",
+    action: <Link to="/groups">모임 둘러보기</Link>
+  },
+  registrations: {
+    title: "신청한 모임이 없습니다.",
+    description: "가입을 신청하면 검토 상태를 여기에서 확인할 수 있어요.",
+    action: <Link to="/groups">모임 둘러보기</Link>
+  }
 };
 
-export function MyActivityBoard({ items, kind, query }) {
+export function MyActivityBoard({ currentMemberId, items, kind, query }) {
   const page = query.data?.pages.length ?? 1;
+  const emptyState = EMPTY_STATES[kind] ?? EMPTY_STATES.joined;
   const activities = items.map((item) =>
     kind === "registrations"
       ? { key: `registration-${item.id}`, registration: item }
@@ -135,16 +159,21 @@ export function MyActivityBoard({ items, kind, query }) {
             ) : (
               <GroupActivityRow
                 group={activity.group}
-                isLeader={kind === "led"}
+                isLeader={
+                  currentMemberId != null && activity.group.leader?.memberId === currentMemberId
+                }
                 key={activity.key}
-                label={kind === "led" ? "운영 중" : "가입 완료"}
               />
             )
           )}
         </div>
       ) : null}
       {!query.isLoading && !query.isError && activities.length === 0 ? (
-        <EmptyState title={EMPTY_TITLES[kind]} />
+        <EmptyState
+          action={emptyState.action}
+          description={emptyState.description}
+          title={emptyState.title}
+        />
       ) : null}
       <nav aria-label="내 활동 페이지" className="activity-board__pagination">
         <Button aria-label="이전 활동 페이지" disabled size="sm" variant="tertiary">
