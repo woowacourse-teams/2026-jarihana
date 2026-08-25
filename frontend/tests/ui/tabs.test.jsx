@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Tabs } from "../../src/shared/ui/index.js";
 
@@ -46,5 +46,38 @@ describe("Tabs", () => {
     await user.click(screen.getByRole("tab", { name: "모집 중" }));
     expect(onValueChange).toHaveBeenCalledWith("open");
     expect(screen.getByRole("tab", { name: "전체" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("Given animated tabs, When selection changes, Then one indicator moves to the selected tab", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <Tabs
+        animated
+        defaultValue="overview"
+        items={[
+          { label: "소개", value: "overview", content: <p>소개 내용</p> },
+          { label: "활동 기록", value: "activity", content: <p>활동 내용</p> }
+        ]}
+      />
+    );
+
+    const activity = screen.getByRole("tab", { name: "활동 기록" });
+    Object.defineProperties(activity, {
+      offsetLeft: { configurable: true, value: 112 },
+      offsetWidth: { configurable: true, value: 88 }
+    });
+
+    await user.click(activity);
+
+    const indicator = container.querySelector(".ui-tabs__indicator");
+    expect(indicator).toBeInTheDocument();
+    expect(container.querySelectorAll(".ui-tabs__indicator")).toHaveLength(1);
+    await waitFor(() => {
+      expect(indicator).toHaveStyle("--ui-tabs-indicator-x: 112px");
+      expect(indicator).toHaveStyle("--ui-tabs-indicator-scale: 88");
+    });
+    expect(screen.getByRole("tabpanel", { name: "활동 기록" })).toHaveClass(
+      "ui-tabs__panel--animated"
+    );
   });
 });

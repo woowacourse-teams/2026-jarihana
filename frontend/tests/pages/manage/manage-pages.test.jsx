@@ -25,7 +25,9 @@ jest.mock("react-router", () => ({
       {children}
     </a>
   ),
-  useParams: jest.fn()
+  useParams: jest.fn(),
+  useNavigate: jest.fn(() => jest.fn()),
+  useBeforeUnload: jest.fn()
 }));
 
 jest.mock("../../../src/features/member/index.js", () => ({
@@ -61,6 +63,11 @@ const queryResult = (items) => ({
   refetch: jest.fn()
 });
 
+function getApplicantAction(name) {
+  const applicantPanel = screen.getByRole("region", { name: "신청자 목록" });
+  return within(applicantPanel).getAllByRole("button", { name, exact: true }).at(-1);
+}
+
 const memberFixture = {
   course: "FRONTEND",
   crewName: "링크로",
@@ -70,6 +77,13 @@ const memberFixture = {
   memberId: 99,
   role: "MEMBER"
 };
+
+const mockShowToast = jest.fn();
+
+jest.mock("../../../src/shared/ui/index.js", () => ({
+  ...jest.requireActual("../../../src/shared/ui/index.js"),
+  useToast: () => ({ show: mockShowToast })
+}));
 
 const recruitmentFixture = {
   approvedCount: 4,
@@ -93,6 +107,13 @@ const registrationFixture = {
   status: "PENDING"
 };
 
+const approvedRegistrationFixture = {
+  ...registrationFixture,
+  id: 73,
+  member: { course: "FRONTEND", crewName: "링크로", generation: 8, id: 99 },
+  status: "APPROVED"
+};
+
 beforeEach(() => {
   jest.clearAllMocks();
   useParams.mockReturnValue({ groupId: "7", recruitmentId: "81" });
@@ -111,20 +132,70 @@ beforeEach(() => {
   });
   useCreateRecruitment.mockReturnValue({ isPending: false, mutateAsync: jest.fn() });
   useCloseRecruitment.mockReturnValue({ isPending: false, mutateAsync: jest.fn() });
-  useInfiniteRegistrations.mockReturnValue(queryResult([registrationFixture]));
+  useInfiniteRegistrations.mockImplementation((recruitmentId, filters = {}) =>
+    queryResult([filters.status === "APPROVED" ? approvedRegistrationFixture : registrationFixture])
+  );
   useDecideRegistration.mockReturnValue({ isPending: false, mutateAsync: jest.fn() });
 });
 
 describe("ManageMembersPage", () => {
-  it("Given the full member DTO, When rendered, Then it exposes every server-owned member field and no expulsion action", () => {
+  it("Given members, When rendered and sorted by nickname, Then it shows an inline count and sorted rows", async () => {
+    const user = userEvent.setup();
+    useInfiniteGroupMembers.mockReturnValue(
+      queryResult([
+        { ...memberFixture, crewName: "하나", groupMemberId: 1, joinedAt: "2026-08-02T10:00:00" },
+        { ...memberFixture, crewName: "김하나", groupMemberId: 2, joinedAt: "2026-08-01T10:00:00" }
+      ])
+    );
+
+    render(<ManageMembersPage />);
+
+    expect(screen.getByLabelText("2명")).toBeVisible();
+    expect(screen.queryByLabelText("전체 멤버 요약")).not.toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole("row")
+        .slice(1)
+        .map((row) => row.querySelector("td:first-child strong")?.textContent)
+    ).toEqual(["하나", "김하나"]);
+    await user.selectOptions(screen.getByRole("combobox", { name: "정렬 기준" }), "NICKNAME");
+
+    expect(
+      screen
+        .getAllByRole("row")
+        .slice(1)
+        .map((row) => row.querySelector("td:first-child strong")?.textContent)
+    ).toEqual(["김하나", "하나"]);
+    expect(screen.getByRole("combobox", { name: "정렬 기준" })).toHaveValue("NICKNAME");
+  });
+
+  it("Given the full member DTO, When rendered, Then it exposes every server-owned member field and the member action menu", () => {
+    useInfiniteGroupMembers.mockReturnValue(
+      queryResult([
+        memberFixture,
+        { ...memberFixture, crewName: "하나", groupMemberId: 43, role: "LEADER" }
+      ])
+    );
     render(<ManageMembersPage />);
 
     const row = screen.getByRole("row", { name: "링크로 멤버" });
     expect(within(row).getByText("프론트엔드")).toBeVisible();
     expect(within(row).getByText("8기")).toBeVisible();
-    expect(within(row).getByText("멤버")).toBeVisible();
+    expect(within(row).getByText("모임원")).toBeVisible();
     expect(within(row).getByText("2026. 8. 1.")).toBeVisible();
-    expect(screen.queryByRole("button", { name: /내보내기/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "모임 멤버" })).not.toHaveTextContent("관리");
+    expect(screen.getByRole("button", { name: "링크로 관리 메뉴" })).toBeVisible();
+    expect(within(screen.getByRole("row", { name: "하나 멤버" })).queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("Given an unavailable expulsion action, When clicked, Then it shows a support notice", async () => {
+    const user = userEvent.setup();
+    render(<ManageMembersPage />);
+
+    await user.click(screen.getByRole("button", { name: "링크로 관리 메뉴" }));
+    await user.click(screen.getByRole("menuitem", { name: "내보내기" }));
+
+    expect(mockShowToast).toHaveBeenCalledWith({ title: "아직 지원되지 않는 기능입니다." });
   });
 
   it("Given group context, When rendered, Then it exposes the Figma management header, local tabs, and dense member table", () => {
@@ -153,9 +224,11 @@ describe("ManageMembersPage", () => {
     useTransferLeader.mockReturnValue({ isPending: false, mutateAsync });
     render(<ManageMembersPage />);
 
-    await user.click(screen.getByRole("button", { name: "링크로에게 모임장 넘기기" }));
-    expect(screen.getByRole("dialog", { name: "모임장을 넘길까요?" })).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "모임장 넘기기" }));
+    await user.click(screen.getByRole("button", { name: "링크로 관리 메뉴" }));
+    await user.click(screen.getByRole("menuitem", { name: "모임장 넘기기" }));
+    const dialog = screen.getByRole("dialog", { name: "모임장을 넘길까요?" });
+    expect(dialog).toBeVisible();
+    await user.click(within(dialog).getByRole("button", { name: "모임장 넘기기" }));
 
     expect(mutateAsync).toHaveBeenCalledWith({ groupMemberId: 42 });
   });
@@ -181,14 +254,9 @@ describe("ManageRecruitmentsPage", () => {
       "aria-current",
       "page"
     );
-    expect(screen.queryByRole("region", { name: "모집 현황 요약" })).not.toBeInTheDocument();
     expect(screen.getByText("아카이빙된 모임은 새 모집을 만들 수 없어요.")).toBeVisible();
-    expect(screen.getByLabelText("모집 시작")).toBeDisabled();
-    expect(screen.getByRole("button", { name: "모집 조건 저장" })).toBeDisabled();
-    expect(screen.getByRole("heading", { name: "81번 모집" })).toBeVisible();
-    expect(screen.queryByRole("button", { name: "81번 모집 마감하기" })).not.toBeInTheDocument();
-
-    fireEvent.submit(screen.getByRole("form", { name: "새 모집 만들기" }));
+    expect(screen.getByRole("button", { name: "새 모집 만들기" })).toBeDisabled();
+    expect(screen.queryByLabelText("모집 시작일")).not.toBeInTheDocument();
     expect(mutateAsync).not.toHaveBeenCalled();
   });
 
@@ -196,14 +264,16 @@ describe("ManageRecruitmentsPage", () => {
     const user = userEvent.setup();
     const mutateAsync = jest.fn().mockResolvedValue({ id: 83 });
     useCreateRecruitment.mockReturnValue({ isPending: false, mutateAsync });
+    useInfiniteRecruitments.mockReturnValue(queryResult([]));
     render(<ManageRecruitmentsPage />);
 
+    await user.click(screen.getByRole("button", { name: "새 모집 만들기" }));
     await user.selectOptions(screen.getByRole("combobox", { name: "가입 방식" }), "APPROVAL");
     await user.clear(screen.getByRole("spinbutton", { name: "모집 정원" }));
     await user.type(screen.getByRole("spinbutton", { name: "모집 정원" }), "12");
-    await user.type(screen.getByLabelText("모집 시작"), "2026-09-01T10:00");
-    await user.type(screen.getByLabelText("모집 마감 (선택)"), "2026-09-10T23:59");
-    await user.click(screen.getByRole("button", { name: "모집 조건 저장" }));
+    await user.type(screen.getByLabelText("모집 시작일"), "2026-09-01T10:00");
+    await user.type(screen.getByLabelText("모집 마감일 (선택)"), "2026-09-10T23:59");
+    await user.click(screen.getByRole("button", { name: "모집 생성" }));
 
     expect(mutateAsync).toHaveBeenCalledWith({
       capacity: 12,
@@ -223,12 +293,18 @@ describe("ManageRecruitmentsPage", () => {
     useCloseRecruitment.mockReturnValue({ isPending: false, mutateAsync });
     render(<ManageRecruitmentsPage />);
 
-    await user.click(screen.getByRole("button", { name: "81번 모집 마감하기" }));
+    expect(useInfiniteRegistrations).toHaveBeenCalledWith(81, { status: "APPROVED" });
+    expect(screen.getByRole("heading", { name: "이번 모집 승인 멤버 1명" })).toBeVisible();
+    expect(screen.getByText("링크로")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "모집 마감하기" }));
+    await user.click(
+      within(screen.getByRole("dialog", { name: "모집을 마감할까요?" })).getByRole("button", {
+        name: "예"
+      })
+    );
 
     expect(mutateAsync).toHaveBeenCalledWith({
-      recruitmentId: 81,
-      recruitingStatus: "CLOSED"
+      recruitmentId: 81
     });
   });
 
@@ -241,30 +317,52 @@ describe("ManageRecruitmentsPage", () => {
         })
     );
     useCreateRecruitment.mockReturnValue({ isPending: false, mutateAsync });
+    useInfiniteRecruitments.mockReturnValue(queryResult([]));
     render(<ManageRecruitmentsPage />);
 
-    fireEvent.change(screen.getByLabelText("모집 시작"), {
+    fireEvent.click(screen.getByRole("button", { name: "새 모집 만들기" }));
+    fireEvent.change(screen.getByLabelText("모집 시작일"), {
       target: { value: "2026-09-01T10:00" }
     });
-    const submit = screen.getByRole("button", { name: "모집 조건 저장" });
+    const submit = screen.getByRole("button", { name: "모집 생성" });
     fireEvent.click(submit);
     fireEvent.click(submit);
 
     expect(mutateAsync).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("button", { name: "모집 조건 저장 처리 중" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "모집 생성 처리 중" })).toBeDisabled();
 
     await act(async () => resolveMutation({ id: 83 }));
   });
 });
 
 describe("ManageRegistrationsPage", () => {
+  it("Given a decided registration, When rendered, Then it hides the processor identifier", () => {
+    useInfiniteRegistrations.mockReturnValue(
+      queryResult([
+        {
+          ...registrationFixture,
+          decidedAt: "2026-08-21T12:00:00",
+          decidedBy: { memberId: 1, type: "MEMBER" },
+          decisionReason: "모집 방향과 맞지 않아요.",
+          status: "REJECTED"
+        }
+      ])
+    );
+
+    render(<ManageRegistrationsPage />);
+
+    expect(screen.getByText("사유: 모집 방향과 맞지 않아요.")).toBeVisible();
+    expect(screen.getByText("처리 2026. 8. 21. 오후 12:00")).toBeVisible();
+    expect(screen.queryByText("처리자 #1")).not.toBeInTheDocument();
+  });
+
   it("Given a pending applicant, When approved, Then it sends APPROVED and omits the decision reason", async () => {
     const user = userEvent.setup();
     const mutateAsync = jest.fn().mockResolvedValue({ id: 72, status: "APPROVED" });
     useDecideRegistration.mockReturnValue({ isPending: false, mutateAsync });
     render(<ManageRegistrationsPage />);
 
-    await user.click(screen.getByRole("button", { name: "개발자재키 승인" }));
+    await user.click(getApplicantAction("승인"));
     await user.click(screen.getByRole("button", { name: "신청 승인하기" }));
 
     expect(mutateAsync).toHaveBeenCalledWith({
@@ -279,7 +377,7 @@ describe("ManageRegistrationsPage", () => {
     useDecideRegistration.mockReturnValue({ isPending: false, mutateAsync });
     render(<ManageRegistrationsPage />);
 
-    await user.click(screen.getByRole("button", { name: "개발자재키 거절" }));
+    await user.click(getApplicantAction("거절"));
     await user.type(
       screen.getByRole("textbox", { name: "거절 사유 (선택)" }),
       "이번 정원이 마감됐어요."
@@ -297,20 +395,16 @@ describe("ManageRegistrationsPage", () => {
     const user = userEvent.setup();
     render(<ManageRegistrationsPage />);
 
-    await user.click(screen.getByRole("button", { name: "거절" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "신청 상태" }), "REJECTED");
 
-    expect(useInfiniteRegistrations).toHaveBeenLastCalledWith("81", { status: "REJECTED" });
+    expect(useInfiniteRegistrations).toHaveBeenCalledWith("81", { status: "REJECTED" });
   });
 
-  it("Given router params, When rendered, Then it uses the router identifiers and a client-side management link", () => {
+  it("Given router params, When rendered, Then it uses the router recruitment identifier", () => {
     useParams.mockReturnValue({ groupId: "29", recruitmentId: "93" });
     render(<ManageRegistrationsPage />);
 
     expect(useInfiniteRegistrations).toHaveBeenCalledWith("93", {});
-    expect(screen.getByRole("link", { name: "모집 목록으로" })).toHaveAttribute(
-      "href",
-      "/groups/29/manage/recruitments"
-    );
   });
 
   it("Given an active recruitment, When rendered, Then the applicant panel is directly identifiable in the management chrome", () => {
@@ -335,33 +429,22 @@ describe("ManageRegistrationsPage", () => {
     expect(screen.getByRole("region", { name: "신청 관리 대시보드" })).toHaveClass(
       "manage-registration-layout"
     );
-    const filters = screen.getByRole("group", { name: "신청 상태" });
-    expect(within(filters).getByRole("button", { name: "전체" })).toHaveAttribute(
-      "aria-pressed",
-      "true"
-    );
-    expect(within(filters).getAllByRole("button")).toHaveLength(4);
+    expect(screen.getByRole("combobox", { name: "신청 상태" })).toHaveValue("");
     expect(screen.queryByLabelText("현재 신청자 1명")).not.toBeInTheDocument();
   });
 
-  it("Given real member and recruitment queries, When rendered, Then the Figma side rail shows their live snapshot", () => {
+  it("Given a recruitment query, When rendered, Then the side rail shows only the current recruitment snapshot", () => {
     render(<ManageRegistrationsPage />);
 
-    expect(useInfiniteGroupMembers).toHaveBeenCalledWith("7");
     expect(useRecruitment).toHaveBeenCalledWith("7", "81");
     const rail = screen.getByRole("complementary", { name: "운영 현황" });
-    expect(within(rail).getByRole("heading", { name: "모임 멤버 1명" })).toBeVisible();
-    expect(within(rail).getByText("링크로")).toBeVisible();
     expect(within(rail).getByText("모집 중")).toBeVisible();
     expect(within(rail).getByText("승인 4 / 정원 10명")).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "이번 모집 승인 멤버 1명" })).not.toBeInTheDocument();
   });
 
-  it("Given side-rail query errors, When applicants load, Then safe independent rail errors do not block decisions", () => {
-    useInfiniteGroupMembers.mockReturnValue({
-      ...queryResult([]),
-      error: { message: "member sql leak" },
-      isError: true
-    });
+  it("Given a recruitment query error, When applicants load, Then the safe rail error does not block decisions", () => {
+    useInfiniteRegistrations.mockReturnValue(queryResult([registrationFixture]));
     useRecruitment.mockReturnValue({
       data: undefined,
       error: { message: "recruitment sql leak" },
@@ -373,8 +456,7 @@ describe("ManageRegistrationsPage", () => {
     render(<ManageRegistrationsPage />);
 
     expect(screen.getByRole("region", { name: "신청자 목록" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "개발자재키 승인" })).toBeEnabled();
-    expect(screen.getByText("멤버 현황을 불러오지 못했어요.")).toBeVisible();
+    expect(getApplicantAction("승인")).toBeEnabled();
     expect(screen.getByText("모집 현황을 불러오지 못했어요.")).toBeVisible();
     expect(screen.queryByText(/sql leak/)).not.toBeInTheDocument();
   });
@@ -388,7 +470,7 @@ describe("ManageRegistrationsPage", () => {
     useDecideRegistration.mockReturnValue({ isPending: false, mutateAsync });
     render(<ManageRegistrationsPage />);
 
-    await user.click(screen.getByRole("button", { name: "개발자재키 승인" }));
+    await user.click(getApplicantAction("승인"));
     await user.click(screen.getByRole("button", { name: "신청 승인하기" }));
 
     expect(screen.getByRole("dialog", { name: "이 신청을 승인할까요?" })).toBeVisible();

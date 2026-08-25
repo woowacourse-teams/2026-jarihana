@@ -265,6 +265,41 @@ it("Given an approved group member, when the detail page renders, then applicati
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 
+it("Given an active recruitment, when group detail renders, then the invitation illustration frames the summary", () => {
+  const { container } = renderAt("/groups/41", <GroupDetailPage />);
+
+  expect(screen.getByRole("heading", { name: "자리하나?" })).toBeInTheDocument();
+  expect(container.querySelector(".group-recruitment-hero--open img")).toBeInTheDocument();
+});
+
+it("Given a group detail, when the mobile recruitment action opens, then recruitment information appears in a dialog", async () => {
+  const user = userEvent.setup();
+  renderAt("/groups/41", <GroupDetailPage />);
+
+  const trigger = screen.getByRole("button", { name: "모집 정보 보기" });
+  expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
+
+  await user.click(trigger);
+
+  const dialog = screen.getByRole("dialog", { name: "모집 정보" });
+  expect(within(dialog).getByRole("heading", { name: "자리하나?" })).toBeInTheDocument();
+  expect(trigger).toHaveAttribute("aria-expanded", "true");
+});
+
+it("Given no active recruitment, when group detail renders, then the fallen-chair empty state is concise", () => {
+  groupHooks.useGroup.mockReturnValue({
+    data: { ...group, activeRecruitment: null },
+    isLoading: false,
+    isError: false
+  });
+
+  const { container } = renderAt("/groups/41", <GroupDetailPage />);
+
+  expect(screen.getByRole("heading", { name: "자리없음" })).toBeInTheDocument();
+  expect(screen.queryByText("현재 진행 중인 모집이 없어요")).not.toBeInTheDocument();
+  expect(container.querySelector(".group-recruitment-hero--empty img")).toBeInTheDocument();
+});
+
 it("Given a closed recruitment, when opened, then no application control is exposed", () => {
   recruitmentHooks.useRecruitment.mockReturnValue({
     data: { ...recruitment, recruitingStatus: "CLOSED" },
@@ -400,7 +435,7 @@ it("Given the backend default image, when a result renders, then the card displa
   expect(frame).not.toHaveClass("groups-card-frame--fallback");
 });
 
-it("Given a group, when detail renders, then API-backed information and leader share the Figma hierarchy", () => {
+it("Given a group, when detail renders, then API-backed information follows the Figma hierarchy", () => {
   const { container } = renderAt("/groups/41", <GroupDetailPage />);
 
   expect(screen.getByRole("heading", { name: "모임 정보" })).toBeInTheDocument();
@@ -413,8 +448,72 @@ it("Given a group, when detail renders, then API-backed information and leader s
   ).toEqual(["모임 방식", "모임 일정", "장소", "현재 멤버 수"]);
   const rail = container.querySelector(".group-rail-card");
   expect(rail).toContainElement(screen.getByText("모집 시작"));
-  expect(within(rail).getByText("써니")).toBeInTheDocument();
   expect(container.querySelectorAll(".group-profile__figure > span")).toHaveLength(4);
+});
+
+it("Given a group detail, when the page renders, then list navigation is integrated into the hero", () => {
+  const scrollTo = jest.spyOn(window, "scrollTo").mockImplementation(() => {});
+  const { container } = renderAt("/groups/41", <GroupDetailPage />);
+
+  const profile = container.querySelector(".group-profile");
+  const backLink = screen.getByRole("link", { name: "목록으로" });
+  expect(profile).toContainElement(backLink);
+  expect(backLink).toHaveAttribute("href", "/groups");
+  scrollTo.mockRestore();
+});
+
+it("Given a group leader, when detail renders, then leader context is separate from recruitment", () => {
+  const scrollTo = jest.spyOn(window, "scrollTo").mockImplementation(() => {});
+  const { container } = renderAt("/groups/41", <GroupDetailPage />);
+
+  const desktopRail = container.querySelector(".group-rail--desktop");
+  const leaderCard = desktopRail.querySelector(".group-leader--card");
+  const recruitmentCard = desktopRail.querySelector(".group-recruitment-summary");
+  const heroLeader = container.querySelector(".group-profile .group-leader--hero");
+
+  expect(leaderCard).toHaveTextContent("써니");
+  expect(leaderCard.nextElementSibling).toBe(recruitmentCard);
+  expect(leaderCard.querySelector(".ui-avatar")).toHaveClass("ui-avatar--md");
+  expect(recruitmentCard.querySelector(".group-leader")).not.toBeInTheDocument();
+  expect(heroLeader).toHaveTextContent("써니");
+  expect(heroLeader).toHaveTextContent("운영자 · 11기 크루");
+  expect(heroLeader.querySelector(".ui-avatar")).toHaveClass("ui-avatar--sm");
+  scrollTo.mockRestore();
+});
+
+it("Given a recruitment period, when detail renders, then countdown and details are concise", () => {
+  const scrollTo = jest.spyOn(window, "scrollTo").mockImplementation(() => {});
+  jest.useFakeTimers();
+  jest.setSystemTime(new Date("2026-08-20T12:00:00"));
+
+  try {
+    const { container } = renderAt("/groups/41", <GroupDetailPage />);
+    const desktopRail = container.querySelector(".group-rail--desktop");
+    const period = desktopRail.querySelector(".group-recruitment-period");
+
+    expect(desktopRail.querySelector(".group-recruitment-countdown")).toHaveTextContent(
+      "모집 마감까지 2일"
+    );
+    expect(desktopRail.querySelector(".group-recruitment-details")).toHaveTextContent(
+      "일정 자세히"
+    );
+    expect(within(period).getByText("시작")).toBeInTheDocument();
+    expect(within(period).getByText("2026년 8월 10일 09:00")).toBeInTheDocument();
+    expect(within(period).getByText("마감")).toBeInTheDocument();
+    expect(within(period).getByText("2026년 8월 21일 23:59")).toBeInTheDocument();
+  } finally {
+    jest.useRealTimers();
+    scrollTo.mockRestore();
+  }
+});
+
+it("Given a retained list scroll, when group detail opens, then the page starts at the top", () => {
+  const scrollTo = jest.spyOn(window, "scrollTo").mockImplementation(() => {});
+
+  renderAt("/groups/41", <GroupDetailPage />);
+
+  expect(scrollTo).toHaveBeenCalledWith(0, 0);
+  scrollTo.mockRestore();
 });
 
 it("Given meeting details, when the detail page renders, then the information card shows API values", () => {
@@ -430,3 +529,42 @@ it("Given meeting details, when the detail page renders, then the information ca
   expect(screen.getByText("서울 캠퍼스")).toBeInTheDocument();
   expect(screen.queryByText("API 미지원")).not.toBeInTheDocument();
 });
+
+it.each([
+  [
+    "a recurring schedule",
+    group,
+    ["매주 월", "19:00 – 21:00"]
+  ],
+  [
+    "a session schedule",
+    {
+      ...group,
+      type: "SESSION",
+      recurringSchedule: null,
+      sessionSchedule: {
+        sessionDate: "2026-09-01",
+        startTime: "14:00:00",
+        endTime: "16:00:00"
+      }
+    },
+    ["2026.09.01", "14:00 – 16:00"]
+  ]
+])(
+  "Given %s, when the detail page renders, then the schedule and time use separate lines",
+  (_, scheduledGroup, expectedLines) => {
+    groupHooks.useGroup.mockReturnValue({
+      data: scheduledGroup,
+      isLoading: false,
+      isError: false
+    });
+
+    renderAt("/groups/41", <GroupDetailPage />);
+
+    const scheduleValue = screen.getByRole("term", { name: "모임 일정" }).nextElementSibling;
+    const lineContainer = scheduleValue.firstElementChild;
+
+    expect(lineContainer).toHaveClass("group-facts__schedule");
+    expect(Array.from(lineContainer.children, (line) => line.textContent)).toEqual(expectedLines);
+  }
+);

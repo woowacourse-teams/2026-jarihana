@@ -65,7 +65,7 @@ DB 비밀번호는 이 파일이나 프론트엔드 번들에 절대 넣지 않�
 | 변수                      | 로컬 기본값/예시                                  | 용도                                                                                              |
 | ------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | `APP_GITHUB_CLIENT_ID`    | GitHub OAuth 앱의 client ID                       | GitHub authorize URL의 `client_id`                                                                |
-| `APP_GITHUB_REDIRECT_URI` | `http://localhost:8080/api/oauth/github/callback` | GitHub가 돌아올 백엔드 callback. 백엔드 `GITHUB_OAUTH_REDIRECT_URI` 및 GitHub 앱 설정과 같아야 함 |
+| `APP_GITHUB_REDIRECT_URI` | `http://localhost:5173/api/oauth/github/callback` | GitHub가 돌아올 백엔드 callback. 백엔드 `GITHUB_OAUTH_REDIRECT_URI` 및 GitHub 앱 설정과 같아야 함 |
 | `APP_OAUTH_COOKIE_NAME`   | `oauthState`                                      | OAuth state를 잠시 저장하는 브라우저 쿠키 이름                                                    |
 | `APP_OAUTH_COOKIE_DOMAIN` | 비움                                              | 운영에서 합의된 공유 상위 도메인이 있을 때만 설정                                                 |
 | `DISABLE_REACT_DEVTOOLS`  | `0`                                               | 개발용 React 진단 overlay를 끄려면 `1`                                                            |
@@ -82,9 +82,9 @@ cd frontend
 npm run dev
 ```
 
-브라우저에서 `http://localhost:5173`을 엽니다. Webpack 개발 서버는 `/api`와 `/images`를
-`http://localhost:8080`으로 proxy하므로, 화면의 API 코드는 언제나 상대 경로 `/api/...`만
-사용합니다. React Router deep link도 개발 서버의 history fallback으로 새로고침됩니다. 보호
+브라우저에서 `http://localhost:5173`을 엽니다. Webpack 개발 서버는 `/api`를
+`http://localhost:8080`으로 proxy하고 `/images`는 프론트엔드 정적 파일로 제공합니다.
+화면의 API 코드는 언제나 상대 경로 `/api/...`만 사용합니다. React Router deep link도 개발 서버의 history fallback으로 새로고침됩니다. 보호
 화면을 점검하려면 `개발 계정으로 시작`을 누른 다음 `모임 만들기`, `모임 관리`로 이동합니다.
 
 ## 스크립트

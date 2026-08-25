@@ -93,19 +93,6 @@ describe("API client boundary", () => {
     expect(wire.requests[0].headers.get("X-XSRF-TOKEN")).toBe("token+value");
   });
 
-  test("Given local development login is enabled, when sending a request, then it adds the opt-in header", async () => {
-    const wire = createWire(() => new Response(null, { status: 204 }));
-    const client = createApiClient({
-      baseUrl: "https://app.test/api/",
-      developmentLoginSource: () => true,
-      fetch: wire.fetch
-    });
-
-    await client.request("auth/logout", { method: "POST" });
-
-    expect(wire.requests[0].headers.get("X-Jarihana-Development-Auth")).toBe("enabled");
-  });
-
   test("Given an unauthenticated 401, when requesting data, then it refreshes and retries once", async () => {
     // Given
     const wire = createWire((request, count) => {
