@@ -146,7 +146,6 @@
     display: inline-flex;
     font-size: var(--text-label);
     font-weight: 700;
-    margin-block-end: var(--space-4);
     padding: var(--space-2) var(--space-3);
 }
 
@@ -1060,6 +1059,17 @@
 
 .group-editor__type-field {
     justify-self: start;
+    margin-block-end: var(--space-6);
+}
+
+/* 히어로의 다른 입력 라벨(.ui-field__label)과 같은 톤으로 맞춘다. */
+.group-editor__field-label {
+    display: block;
+    margin-block-end: var(--space-2);
+    color: var(--color-ink);
+    font-size: var(--text-label);
+    font-weight: 600;
+    line-height: 1.45;
 }
 
 .group-editor__type-seg {
@@ -1091,7 +1101,7 @@
 
 .group-editor__type-option span {
     display: flex;
-    min-block-size: var(--touch-target);
+    min-block-size: 2.25rem;
     align-items: center;
     justify-content: center;
     padding-inline: var(--space-3);

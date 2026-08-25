@@ -227,6 +227,29 @@ describe("NewGroupPage", () => {
     });
   });
 
+  it("gives the group type control a visible label", () => {
+    // Given
+    renderPage(<NewGroupPage />);
+
+    // Then
+    expect(screen.getByRole("radiogroup", { name: "모임 종류" })).toBeInTheDocument();
+    expect(screen.getByText("모임 종류")).toBeVisible();
+  });
+
+  it("drops the description counter when the members tab is open", async () => {
+    // Given
+    const user = userEvent.setup();
+    renderPage(<NewGroupPage />);
+    expect(screen.getByText(/\/ 5,000/)).toBeInTheDocument();
+
+    // When
+    await user.click(screen.getByRole("tab", { name: "멤버" }));
+
+    // Then
+    expect(screen.queryByText(/\/ 5,000/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/5,000자/)).not.toBeInTheDocument();
+  });
+
   it("never exposes a fake upload control", () => {
     // Given
     renderPage(<NewGroupPage />);

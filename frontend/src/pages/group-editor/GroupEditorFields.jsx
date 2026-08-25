@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 import { Select, TextField } from "../../shared/ui/index.js";
 
 export const DAYS = [
@@ -109,21 +111,32 @@ export function GroupContentTabs({ onSelect, value }) {
  * locked tag because the API does not allow changing it after creation.
  */
 export function GroupTypeField({ error, lockedLabel, register }) {
+  const labelId = useId();
+
   if (lockedLabel) {
     return (
-      <div
-        aria-disabled="true"
-        className="group-editor__type-tag group-editor__type-tag--locked"
-        title="생성된 모임의 종류는 변경할 수 없어요."
-      >
-        <span>{lockedLabel}</span>
+      <div className="group-editor__type-field">
+        <span className="group-editor__field-label" id={labelId}>
+          모임 종류
+        </span>
+        <div
+          aria-disabled="true"
+          aria-labelledby={labelId}
+          className="group-editor__type-tag group-editor__type-tag--locked"
+          title="생성된 모임의 종류는 변경할 수 없어요."
+        >
+          <span>{lockedLabel}</span>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="group-editor__type-field">
-      <div aria-label="모임 종류" className="group-editor__type-seg" role="radiogroup">
+      <span className="group-editor__field-label" id={labelId}>
+        모임 종류
+      </span>
+      <div aria-labelledby={labelId} className="group-editor__type-seg" role="radiogroup">
         {GROUP_TYPES.map(([value, label]) => (
           <label className="group-editor__type-option" key={value}>
             <input type="radio" value={value} {...register("type")} />
