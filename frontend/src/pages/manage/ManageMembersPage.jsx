@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ChevronDown, Search, UsersRound } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronDown, EllipsisVertical, Search, UsersRound } from "lucide-react";
 import { useParams } from "react-router";
 import { useInfiniteGroupMembers, useTransferLeader } from "../../features/member/index.js";
 import {
@@ -7,6 +7,7 @@ import {
   ConfirmDialog,
   EmptyState,
   ErrorState,
+  IconButton,
   Skeleton,
   StatusBadge,
   useToast
@@ -37,6 +38,7 @@ export function ManageMembersPage() {
   const [search, setSearch] = useState("");
   const [course, setCourse] = useState("");
   const [sort, setSort] = useState("RECENT");
+  const [openMenuMemberId, setOpenMenuMemberId] = useState(null);
   const members = flattenPages(membersQuery.data);
   const normalizedSearch = search.trim().toLocaleLowerCase("ko-KR");
   const visibleMembers = members.filter((member) => {
@@ -51,6 +53,31 @@ export function ManageMembersPage() {
 
     return joinedAtTimestamp(second.joinedAt) - joinedAtTimestamp(first.joinedAt);
   });
+
+  useEffect(() => {
+    if (openMenuMemberId === null) return undefined;
+
+    function closeOnOutsideClick(event) {
+      if (!event.target.closest?.(".manage-member-menu")) setOpenMenuMemberId(null);
+    }
+
+    function closeOnEscape(event) {
+      if (event.key === "Escape") setOpenMenuMemberId(null);
+    }
+
+    document.addEventListener("click", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("click", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [openMenuMemberId]);
+
+  function handleMemberAction(member, action) {
+    setOpenMenuMemberId(null);
+    if (action === "TRANSFER") setCandidate(member);
+    if (action === "REMOVE") toast.show({ title: "아직 지원되지 않는 기능입니다." });
+  }
 
   async function confirmTransfer() {
     if (!candidate) return;
@@ -156,7 +183,7 @@ export function ManageMembersPage() {
                 <th>기수</th>
                 <th>역할</th>
                 <th>가입일</th>
-                <th>관리</th>
+                <th aria-label="관리 메뉴" />
               </tr>
             </thead>
             <tbody>
@@ -178,32 +205,47 @@ export function ManageMembersPage() {
                     </StatusBadge>
                   </td>
                   <td data-label="가입일">{formatDate(member.joinedAt)}</td>
-                  <td data-label="관리">
+                  <td>
                     {member.role !== "LEADER" ? (
                       <div className="manage-member-actions">
-                        <Button
-                          className="manage-member-transfer"
-                          onClick={() => setCandidate(member)}
-                          size="sm"
-                          variant="secondary"
-                        >
-                          모임장 넘기기
-                        </Button>
-                        <button
-                          onClick={() =>
-                            toast.show({ title: "아직 지원되지 않는 기능입니다." })
-                          }
-                          className="manage-member-action manage-member-action--unavailable"
-                          type="button"
-                        >
-                          내보내기
-                        </button>
+                        <div className="manage-member-menu">
+                          <IconButton
+                            aria-expanded={openMenuMemberId === member.groupMemberId}
+                            aria-haspopup="menu"
+                            className="manage-member-menu__trigger"
+                            label={`${member.crewName} 관리 메뉴`}
+                            onClick={() =>
+                              setOpenMenuMemberId((current) =>
+                                current === member.groupMemberId ? null : member.groupMemberId
+                              )
+                            }
+                            variant="tertiary"
+                          >
+                            <EllipsisVertical aria-hidden="true" size={20} />
+                          </IconButton>
+                          {openMenuMemberId === member.groupMemberId ? (
+                            <div className="manage-member-menu__popover" role="menu">
+                              <button
+                                className="manage-member-menu__item"
+                                onClick={() => handleMemberAction(member, "TRANSFER")}
+                                role="menuitem"
+                                type="button"
+                              >
+                                모임장 넘기기
+                              </button>
+                              <button
+                                className="manage-member-menu__item manage-member-menu__item--danger"
+                                onClick={() => handleMemberAction(member, "REMOVE")}
+                                role="menuitem"
+                                type="button"
+                              >
+                                내보내기
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
-                    ) : (
-                      <span className="manage-member-action manage-member-action--leader">
-                        모임장
-                      </span>
-                    )}
+                    ) : null}
                   </td>
                 </tr>
               ))}

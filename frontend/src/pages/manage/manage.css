@@ -494,13 +494,17 @@
 }
 
 .manage-table-panel {
-  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+  margin-inline: 0;
+  overflow-x: auto;
 }
 
 .manage-member-table {
   width: 100%;
+  min-width: max-content;
   border-collapse: collapse;
-  table-layout: fixed;
+  table-layout: auto;
 }
 
 .manage-member-table th,
@@ -509,6 +513,7 @@
   border-bottom: var(--border-thin) solid var(--color-line);
   text-align: left;
   vertical-align: middle;
+  white-space: nowrap;
 }
 
 .manage-member-table th {
@@ -518,40 +523,8 @@
   font-weight: 700;
 }
 
-.manage-member-table th:first-child {
-  width: auto;
-}
-
-.manage-member-table th:last-child {
-  width: auto;
-}
-
 .manage-member-table tbody tr:last-child td {
   border-bottom: 0;
-}
-
-.manage-member-table__col--crew {
-  width: 26%;
-}
-
-.manage-member-table__col--course {
-  width: 14%;
-}
-
-.manage-member-table__col--generation {
-  width: 10%;
-}
-
-.manage-member-table__col--role {
-  width: 12%;
-}
-
-.manage-member-table__col--joined {
-  width: 14%;
-}
-
-.manage-member-table__col--actions {
-  width: 24%;
 }
 
 .manage-member-identity {
@@ -564,6 +537,10 @@
 .manage-member-identity strong {
   min-inline-size: 0;
   overflow-wrap: anywhere;
+}
+
+.manage-member-table td[data-label="가입일"] {
+  white-space: nowrap;
 }
 
 .manage-avatar {
@@ -915,39 +892,58 @@
 
 .manage-member-actions {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
+  justify-content: flex-start;
+  inline-size: fit-content;
 }
 
-.manage-member-transfer {
-  white-space: nowrap;
+.manage-member-menu {
+  position: relative;
 }
 
-.manage-member-action {
-  display: inline-flex;
-  min-block-size: var(--touch-target);
-  align-items: center;
-  justify-content: center;
-  padding-inline: var(--space-3);
+.manage-member-menu__trigger {
+  color: var(--color-muted-ink);
+}
+
+.manage-member-menu__trigger:hover:not(:disabled) {
+  background: transparent;
+  transform: none;
+}
+
+.manage-member-menu__popover {
+  position: absolute;
+  z-index: 2;
+  inset-block-start: calc(100% + var(--space-1));
+  inset-inline-end: 0;
+  min-inline-size: 9rem;
+  padding-block: var(--space-1);
   border: var(--border-thin) solid var(--color-line);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-float);
+}
+
+.manage-member-menu__item {
+  display: block;
+  inline-size: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
   font-size: var(--text-caption);
-  font-weight: 700;
+  text-align: left;
   white-space: nowrap;
+  cursor: pointer;
 }
 
-.manage-member-action--leader {
-  background: var(--color-brand-soft);
-  color: var(--color-brand-ink);
+.manage-member-menu__item:hover,
+.manage-member-menu__item:focus-visible {
+  background: var(--color-canvas);
+  outline: 0;
 }
 
-.manage-member-action--unavailable {
-  border-color: var(--color-danger);
-  background: var(--color-danger-soft);
+.manage-member-menu__item--danger {
   color: var(--color-danger);
-  cursor: not-allowed;
-  opacity: 0.52;
 }
 
 .manage-field {
@@ -1393,69 +1389,6 @@
 
   .manage-side-rail {
     grid-template-columns: 1fr;
-  }
-
-  .manage-table-panel {
-    overflow: visible;
-    border: 0;
-    background: transparent;
-  }
-
-  .manage-member-table,
-  .manage-member-table tbody {
-    display: block;
-  }
-
-  .manage-member-table thead {
-    display: none;
-  }
-
-  .manage-member-table tr {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-4);
-    margin-bottom: var(--space-3);
-    padding: var(--space-5);
-    border: var(--border-thin) solid var(--color-line);
-    border-radius: var(--radius-md);
-    background: var(--color-surface);
-  }
-
-  .manage-member-table td,
-  .manage-member-table td:first-child {
-    display: grid;
-    align-items: start;
-    gap: var(--space-1);
-    padding: 0;
-    border: 0;
-  }
-
-  .manage-member-table td::before {
-    color: var(--color-muted-ink);
-    content: attr(data-label);
-    font-size: var(--text-caption);
-    font-weight: 600;
-  }
-
-  .manage-member-table td:first-child {
-    grid-column: 1 / -1;
-    grid-template-columns: 1fr;
-  }
-
-  .manage-member-table td:first-child::before {
-    grid-column: 1 / -1;
-  }
-
-  .manage-member-identity {
-    grid-column: 1 / -1;
-  }
-
-  .manage-member-table td:last-child {
-    grid-column: 1 / -1;
-  }
-
-  .manage-member-table td:last-child > * {
-    width: 100%;
   }
 
   .manage-pagination {

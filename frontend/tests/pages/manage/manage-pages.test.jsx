@@ -169,22 +169,31 @@ describe("ManageMembersPage", () => {
     expect(screen.getByRole("combobox", { name: "정렬 기준" })).toHaveValue("NICKNAME");
   });
 
-  it("Given the full member DTO, When rendered, Then it exposes every server-owned member field and the unavailable expulsion action", () => {
+  it("Given the full member DTO, When rendered, Then it exposes every server-owned member field and the member action menu", () => {
+    useInfiniteGroupMembers.mockReturnValue(
+      queryResult([
+        memberFixture,
+        { ...memberFixture, crewName: "하나", groupMemberId: 43, role: "LEADER" }
+      ])
+    );
     render(<ManageMembersPage />);
 
     const row = screen.getByRole("row", { name: "링크로 멤버" });
     expect(within(row).getByText("프론트엔드")).toBeVisible();
     expect(within(row).getByText("8기")).toBeVisible();
-    expect(within(row).getByText("멤버")).toBeVisible();
+    expect(within(row).getByText("모임원")).toBeVisible();
     expect(within(row).getByText("2026. 8. 1.")).toBeVisible();
-    expect(screen.getByRole("button", { name: "내보내기" })).toBeVisible();
+    expect(screen.getByRole("table", { name: "모임 멤버" })).not.toHaveTextContent("관리");
+    expect(screen.getByRole("button", { name: "링크로 관리 메뉴" })).toBeVisible();
+    expect(within(screen.getByRole("row", { name: "하나 멤버" })).queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("Given an unavailable expulsion action, When clicked, Then it shows a support notice", async () => {
     const user = userEvent.setup();
     render(<ManageMembersPage />);
 
-    await user.click(screen.getByRole("button", { name: "내보내기" }));
+    await user.click(screen.getByRole("button", { name: "링크로 관리 메뉴" }));
+    await user.click(screen.getByRole("menuitem", { name: "내보내기" }));
 
     expect(mockShowToast).toHaveBeenCalledWith({ title: "아직 지원되지 않는 기능입니다." });
   });
@@ -215,7 +224,8 @@ describe("ManageMembersPage", () => {
     useTransferLeader.mockReturnValue({ isPending: false, mutateAsync });
     render(<ManageMembersPage />);
 
-    await user.click(screen.getByRole("button", { name: "모임장 넘기기" }));
+    await user.click(screen.getByRole("button", { name: "링크로 관리 메뉴" }));
+    await user.click(screen.getByRole("menuitem", { name: "모임장 넘기기" }));
     const dialog = screen.getByRole("dialog", { name: "모임장을 넘길까요?" });
     expect(dialog).toBeVisible();
     await user.click(within(dialog).getByRole("button", { name: "모임장 넘기기" }));
