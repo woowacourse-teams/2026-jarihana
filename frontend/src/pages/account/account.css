@@ -123,7 +123,7 @@
 .my-dashboard {
   margin: calc(var(--space-5) * -1);
   padding: var(--space-5);
-  background: var(--account-sunken);
+  background: var(--color-surface);
   border-radius: var(--radius-lg);
   display: grid;
   grid-template-columns: 270px minmax(0, 1fr);
