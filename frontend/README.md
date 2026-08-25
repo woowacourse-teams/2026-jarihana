@@ -82,9 +82,9 @@ cd frontend
 npm run dev
 ```
 
-브라우저에서 `http://localhost:5173`을 엽니다. Webpack 개발 서버는 `/api`와 `/images`를
-`http://localhost:8080`으로 proxy하므로, 화면의 API 코드는 언제나 상대 경로 `/api/...`만
-사용합니다. React Router deep link도 개발 서버의 history fallback으로 새로고침됩니다. 보호
+브라우저에서 `http://localhost:5173`을 엽니다. Webpack 개발 서버는 `/api`를
+`http://localhost:8080`으로 proxy하고 `/images`는 프론트엔드 정적 파일로 제공합니다.
+화면의 API 코드는 언제나 상대 경로 `/api/...`만 사용합니다. React Router deep link도 개발 서버의 history fallback으로 새로고침됩니다. 보호
 화면을 점검하려면 `개발 계정으로 시작`을 누른 다음 `모임 만들기`, `모임 관리`로 이동합니다.
 
 ## 스크립트

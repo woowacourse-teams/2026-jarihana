@@ -143,7 +143,8 @@ header 구현으로 확대하지 않았다.
 
 - production runtime에 mock/fallback 성공 데이터를 넣지 않는다.
 - Playwright와 단위 테스트의 network fixture만 허용한다.
-- `/api`와 `/images`는 Webpack dev server에서 `http://localhost:8080`으로 proxy한다.
+- `/api`는 Webpack dev server에서 `http://localhost:8080`으로 proxy한다.
+- `/images`는 프론트엔드 정적 파일로 제공한다.
 - 운영은 same-origin reverse proxy 또는 cookie가 유효한 same-site 배포를 전제로 한다.
 - GitHub client secret은 어떤 프론트엔드 설정이나 bundle에도 포함하지 않는다.
 - 실제 OAuth 완료는 GitHub OAuth 앱의 public client ID, backend client secret, callback URL,
