@@ -3,6 +3,7 @@ package com.project.jarihana.group.command.controller;
 import com.project.jarihana.common.auth.AccessTokenProvider;
 import com.project.jarihana.common.auth.AuthCookieProperties;
 import com.project.jarihana.group.domain.Group;
+import com.project.jarihana.group.domain.MeetingType;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.group.domain.SessionGroupSchedule;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
@@ -29,6 +30,7 @@ import java.util.Set;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class GroupCommandControllerTest extends IntegrationTestSupport {
 
@@ -50,6 +52,49 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
     @Autowired
     private AuthCookieProperties authCookieProperties;
 
+    @DisplayName("회원이 그룹을 개설하면 모임 방식과 장소를 저장한다.")
+    @Test
+    void createsGroupWithMeetingInformation() {
+        // Given
+        Member member = memberRepository.save(Member.create("가온", 8, "github-controller-create", Course.BACKEND));
+        String accessToken = accessTokenProvider.issue(member.getId()).value();
+        String csrfToken = csrfToken();
+
+        // When
+        ExtractableResponse<Response> response = given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .cookie("XSRF-TOKEN", csrfToken)
+                .header("X-XSRF-TOKEN", csrfToken)
+                .contentType("application/json")
+                .body("""
+                        {
+                          "type": "STUDY",
+                          "name": "컨트롤러 생성 그룹",
+                          "introduction": "생성 API를 확인합니다.",
+                          "description": null,
+                          "meetingType": "OFFLINE",
+                          "location": "서울 캠퍼스",
+                          "recurringSchedule": {
+                            "daysOfWeek": ["MONDAY"],
+                            "startTime": "19:00:00",
+                            "endTime": "21:00:00"
+                          },
+                          "sessionSchedule": null
+                        }
+                        """)
+                .when()
+                .post("/groups")
+                .then()
+                .extract();
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(201);
+        long groupId = ((Number) response.path("data.id")).longValue();
+        Group group = groupRepository.findById(groupId).orElseThrow();
+        assertThat(group.getMeetingType()).isEqualTo(MeetingType.OFFLINE);
+        assertThat(group.getLocation()).isEqualTo("서울 캠퍼스");
+    }
+
     @DisplayName("모임장은 그룹 기본 정보 전체 교체 결과를 상세 응답으로 받는다.")
     @Test
     void replacesGroupBasicInformation() {
@@ -69,7 +114,9 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                         {
                           "name": "변경된 그룹",
                           "introduction": "변경된 소개",
-                          "description": null
+                          "description": null,
+                          "meetingType": "OFFLINE",
+                          "location": "서울 캠퍼스"
                         }
                         """)
                 .when()
@@ -81,6 +128,8 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                 .body("data.name", equalTo("변경된 그룹"))
                 .body("data.introduction", equalTo("변경된 소개"))
                 .body("data.description", nullValue())
+                .body("data.meetingType", equalTo("OFFLINE"))
+                .body("data.location", equalTo("서울 캠퍼스"))
                 .body("data.representativeImageUrl", equalTo("images/default-group.png"))
                 .body("data.recurringSchedule.startTime", equalTo("19:00:00"))
                 .body("error", nullValue());
@@ -109,6 +158,15 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
         return response.cookie("XSRF-TOKEN");
     }
 
+    private String csrfToken() {
+        ExtractableResponse<Response> response = given()
+                .when()
+                .get("/groups")
+                .then()
+                .extract();
+        return response.cookie("XSRF-TOKEN");
+    }
+
     @DisplayName("모임장이 아닌 회원의 그룹 기본 정보 교체 요청은 거부한다.")
     @Test
     void rejectsModifyRequestFromNonLeader() {
@@ -130,7 +188,9 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                         {
                           "name": "변경 시도",
                           "introduction": "소개",
-                          "description": null
+                          "description": null,
+                          "meetingType": "FLEXIBLE",
+                          "location": null
                         }
                         """)
                 .when()

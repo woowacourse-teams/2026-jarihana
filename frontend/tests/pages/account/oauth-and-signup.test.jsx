@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useNavigate } from "react-router";
 
@@ -38,6 +39,41 @@ beforeEach(() => {
 });
 
 describe("OAuthCallbackPage", () => {
+  it("Given StrictMode and a signup session, When verification completes, Then it enters signup after one reload", async () => {
+    // Given
+    let status = "loading";
+    let resolveReload;
+    const reload = jest.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveReload = resolve;
+        })
+    );
+    const navigate = jest.fn();
+    useNavigate.mockReturnValue(navigate);
+    useAuth.mockImplementation(() => ({
+      status,
+      member: null,
+      login: jest.fn(),
+      logout: jest.fn(),
+      reload
+    }));
+
+    // When
+    renderRoute(
+      "/oauth/callback?signupRequired=true",
+      <StrictMode>
+        <OAuthCallbackPage />
+      </StrictMode>
+    );
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+    status = "signup-required";
+    resolveReload();
+
+    // Then
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/signup", { replace: true }));
+  });
+
   it("Given a misleading signup query and an authenticated session, When the callback reloads auth, Then it enters My instead of trusting the query", async () => {
     // Given
     const reload = jest.fn().mockResolvedValue(undefined);

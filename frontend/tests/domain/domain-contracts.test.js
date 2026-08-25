@@ -19,6 +19,8 @@ describe("backend DTO schemas", () => {
       name: "리액트 스터디",
       introduction: "함께 공부해요",
       description: null,
+      meetingType: "FLEXIBLE",
+      location: null,
       representativeImageUrl: "/images/default-group.png",
       recurringSchedule: null,
       sessionSchedule: null,
@@ -57,6 +59,33 @@ describe("backend DTO schemas", () => {
 
     // When
     const result = groupListPageSchema.safeParse(payload);
+
+    // Then
+    expect(result.success).toBe(false);
+  });
+
+  it("requires meeting type in group detail responses", () => {
+    // Given
+    const payload = {
+      id: 1,
+      type: "STUDY",
+      status: "ACTIVE",
+      name: "유동적 스터디",
+      introduction: "모임 방식을 반드시 표시해요",
+      description: null,
+      meetingType: null,
+      location: null,
+      representativeImageUrl: "/images/default-group.png",
+      recurringSchedule: null,
+      sessionSchedule: null,
+      leader: null,
+      memberCount: 0,
+      activeRecruitment: null,
+      createdAt: "2026-08-21T10:30:00"
+    };
+
+    // When
+    const result = groupDetailSchema.safeParse(payload);
 
     // Then
     expect(result.success).toBe(false);

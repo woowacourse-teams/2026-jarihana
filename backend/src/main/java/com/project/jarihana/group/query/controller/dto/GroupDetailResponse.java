@@ -16,6 +16,8 @@ import java.util.List;
 public record GroupDetailResponse(
         Long id,
         String type,
+        String meetingType,
+        String location,
         String status,
         String name,
         String introduction,
@@ -35,6 +37,8 @@ public record GroupDetailResponse(
         return new GroupDetailResponse(
                 group.getId(),
                 group.getType().name(),
+                group.getMeetingType().name(),
+                group.getLocation(),
                 group.getStatus().name(),
                 group.getName(),
                 group.getIntroduction(),

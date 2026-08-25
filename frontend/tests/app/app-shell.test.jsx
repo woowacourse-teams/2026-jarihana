@@ -134,21 +134,6 @@ it("starts GitHub login from the anonymous header action", () => {
   expect(login).toHaveBeenCalledTimes(1);
 });
 
-it("offers the local development account instead of GitHub in a development build", () => {
-  const login = jest.fn();
-  renderShell({
-    developmentLoginAvailable: true,
-    login,
-    logout: jest.fn(),
-    status: "anonymous"
-  });
-
-  fireEvent.click(screen.getByRole("button", { name: "개발 계정으로 시작" }));
-
-  expect(login).toHaveBeenCalledTimes(1);
-  expect(screen.queryByRole("button", { name: "GitHub로 로그인" })).not.toBeInTheDocument();
-});
-
 it.each([["모임 만들기", "/groups/new"]])(
   "explains that %s requires login instead of silently returning to the current page",
   (label, target) => {

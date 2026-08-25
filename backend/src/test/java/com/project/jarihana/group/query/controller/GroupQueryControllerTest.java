@@ -3,6 +3,7 @@ package com.project.jarihana.group.query.controller;
 import com.project.jarihana.common.auth.AccessTokenProvider;
 import com.project.jarihana.common.auth.AuthCookieProperties;
 import com.project.jarihana.group.domain.Group;
+import com.project.jarihana.group.domain.MeetingType;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.group.domain.SessionGroupSchedule;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
@@ -231,6 +232,8 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
                 "매주 함께 문제를 풉니다.",
                 "문제 풀이와 코드 리뷰를 진행합니다.",
                 "groups/1.webp",
+                MeetingType.OFFLINE,
+                "서울 캠퍼스",
                 RecurringGroupSchedule.of(
                         Set.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY),
                         LocalTime.of(19, 0),
@@ -258,6 +261,8 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
                 .body("success", equalTo(true))
                 .body("data.id", equalTo(group.getId().intValue()))
                 .body("data.type", equalTo("STUDY"))
+                .body("data.meetingType", equalTo("OFFLINE"))
+                .body("data.location", equalTo("서울 캠퍼스"))
                 .body("data.status", equalTo("ACTIVE"))
                 .body("data.name", equalTo("알고리즘 스터디"))
                 .body("data.description", equalTo("문제 풀이와 코드 리뷰를 진행합니다."))

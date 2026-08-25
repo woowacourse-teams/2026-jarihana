@@ -134,6 +134,8 @@ describe("NewGroupPage", () => {
         name: "성능 튜닝 세션",
         introduction: "한 번에 깊게 파고들어요",
         description: "실전 예제로 함께 학습합니다.",
+        meetingType: "FLEXIBLE",
+        location: null,
         recurringSchedule: null,
         sessionSchedule: {
           sessionDate: "2026-09-12",
@@ -199,6 +201,8 @@ describe("GroupManagePage", () => {
     mockGroupFixture = {
       id: 17,
       type: "STUDY",
+      meetingType: "FLEXIBLE",
+      location: null,
       status: "ACTIVE",
       name: "우아한 JDBC 탐구생활",
       introduction: "더 좋은 설계를 고민해요.",
@@ -233,7 +237,9 @@ describe("GroupManagePage", () => {
       expect(mockModifyGroup).toHaveBeenCalledWith({
         name: "우아한 SQL 탐구생활",
         introduction: "더 좋은 설계를 고민해요.",
-        description: "JDBC 내부 동작을 함께 탐구합니다."
+        description: "JDBC 내부 동작을 함께 탐구합니다.",
+        meetingType: "FLEXIBLE",
+        location: null
       })
     );
     expect(

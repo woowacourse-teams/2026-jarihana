@@ -96,9 +96,8 @@ export default (_, arguments_) => {
       proxy: [
         {
           changeOrigin: true,
-          pathFilter: ["/api/**", "/images/**"],
-          pathRewrite: (requestPath) => requestPath.replace(/^\/api/, ""),
-          target: "http://127.0.0.1:8080"
+          context: ["/api", "/images"],
+          target: "http://localhost:8080"
         }
       ],
       static: {

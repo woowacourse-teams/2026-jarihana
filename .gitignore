@@ -43,6 +43,7 @@ https/
 
 ### Local agent session artifacts ###
 /backend/docs/superpowers/
+/.omo/
 
 ### macOS ###
 .DS_Store

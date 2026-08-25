@@ -69,7 +69,9 @@ function toCreateBody(values) {
     type: values.type,
     name: values.name.trim(),
     introduction: values.introduction.trim(),
-    description: values.description
+    description: values.description,
+    meetingType: "FLEXIBLE",
+    location: null
   };
   if (values.type === "SESSION") {
     return {
