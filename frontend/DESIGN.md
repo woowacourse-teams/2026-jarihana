@@ -185,7 +185,8 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   검색은 주변 박스 테두리를 제거하고 얇은 underline과 focus 시 brand line으로 입력 상태를
   표현한다.
 - Select: native keyboard/assistive-tech 동작을 유지하면서 오른쪽 chevron, 넉넉한 우측 padding,
-  pointer cursor를 제공해 일반 input과 시각적으로 구분한다.
+  pointer cursor를 제공한다. 탐색 필터는 검색과 같은 underline control surface를 사용하고,
+  focus 시 하단선을 brand color로 강조한다.
 - Cards: 14–20px radius, `--border-thin` line, 20–24px padding. 탐색 카드의 visual은 `8 / 5`
   비율로 이미지 비중을 확보하고, 본문 상단 여백을 `--space-1`로 두어 하단 gradient fade와
   텍스트가 4px 간격으로 이어지도록 한다. 클릭 가능한 카드 전체에

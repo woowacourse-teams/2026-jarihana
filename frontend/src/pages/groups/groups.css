@@ -271,6 +271,12 @@
 
 .groups-filter__select {
   position: relative;
+  border-bottom: var(--border-strong) solid var(--color-line);
+  transition: border-color var(--duration-fast) var(--ease-standard);
+}
+
+.groups-filter__select:focus-within {
+  border-bottom-color: var(--color-brand);
 }
 
 .groups-filter__select::after {
@@ -290,9 +296,9 @@
   width: 100%;
   min-height: var(--touch-target);
   padding-inline: var(--space-3) calc(var(--space-8) + var(--space-4));
-  border: var(--border-thin) solid var(--color-line);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--color-ink);
   font: inherit;
   font-size: var(--text-body);
@@ -302,8 +308,7 @@
 }
 
 .groups-filter__field select:focus-visible {
-  outline: var(--border-strong) solid var(--color-brand);
-  outline-offset: 2px;
+  outline: 0;
 }
 
 .groups-result-heading {
