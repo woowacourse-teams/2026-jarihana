@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ChevronDown, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronDown, EllipsisVertical, Search, UsersRound } from "lucide-react";
 import { useParams } from "react-router";
 import { useInfiniteGroupMembers, useTransferLeader } from "../../features/member/index.js";
 import {
@@ -7,8 +7,10 @@ import {
   ConfirmDialog,
   EmptyState,
   ErrorState,
+  IconButton,
   Skeleton,
-  StatusBadge
+  StatusBadge,
+  useToast
 } from "../../shared/ui/index.js";
 import {
   courseLabel,
@@ -21,14 +23,22 @@ import {
 import { ManagementContext, ManagementPageHeading } from "./ManagementContext.jsx";
 import "./manage.css";
 
+function joinedAtTimestamp(value) {
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
 export function ManageMembersPage() {
   const { groupId } = useParams();
   const membersQuery = useInfiniteGroupMembers(groupId);
   const transferLeader = useTransferLeader(groupId);
+  const toast = useToast();
   const [candidate, setCandidate] = useState(null);
   const [mutationError, setMutationError] = useState(null);
   const [search, setSearch] = useState("");
   const [course, setCourse] = useState("");
+  const [sort, setSort] = useState("RECENT");
+  const [openMenuMemberId, setOpenMenuMemberId] = useState(null);
   const members = flattenPages(membersQuery.data);
   const normalizedSearch = search.trim().toLocaleLowerCase("ko-KR");
   const visibleMembers = members.filter((member) => {
@@ -36,6 +46,38 @@ export function ManageMembersPage() {
     const searchable = `${member.crewName} ${member.generation} ${courseLabel(member.course)}`;
     return matchesCourse && searchable.toLocaleLowerCase("ko-KR").includes(normalizedSearch);
   });
+  const sortedMembers = [...visibleMembers].sort((first, second) => {
+    if (sort === "NICKNAME") {
+      return first.crewName.localeCompare(second.crewName, "ko-KR");
+    }
+
+    return joinedAtTimestamp(second.joinedAt) - joinedAtTimestamp(first.joinedAt);
+  });
+
+  useEffect(() => {
+    if (openMenuMemberId === null) return undefined;
+
+    function closeOnOutsideClick(event) {
+      if (!event.target.closest?.(".manage-member-menu")) setOpenMenuMemberId(null);
+    }
+
+    function closeOnEscape(event) {
+      if (event.key === "Escape") setOpenMenuMemberId(null);
+    }
+
+    document.addEventListener("click", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("click", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [openMenuMemberId]);
+
+  function handleMemberAction(member, action) {
+    setOpenMenuMemberId(null);
+    if (action === "TRANSFER") setCandidate(member);
+    if (action === "REMOVE") toast.show({ title: "아직 지원되지 않는 기능입니다." });
+  }
 
   async function confirmTransfer() {
     if (!candidate) return;
@@ -71,14 +113,12 @@ export function ManageMembersPage() {
       <ManagementContext active="members" groupId={groupId} />
       <ManagementPageHeading
         description="승인된 크루와 역할, 가입일을 확인하고 멤버를 관리해요."
+        statIcon={<UsersRound aria-hidden="true" size={20} />}
+        statValue={`${members.length}명`}
         title="멤버 관리"
       />
 
       {mutationError ? <InlineError error={mutationError} /> : null}
-      <section aria-label="전체 멤버 요약" className="manage-member-summary">
-        <span>전체 멤버</span>
-        <strong>{members.length}명</strong>
-      </section>
       <div className="manage-member-controls manage-member-controls--figma">
         <label className="manage-member-search">
           <span className="manage-visually-hidden">멤버 검색</span>
@@ -108,15 +148,19 @@ export function ManageMembersPage() {
             </button>
           ))}
         </div>
-        <span aria-label="정렬 기준: 최근 가입순" className="manage-member-sort">
-          최근 가입순
-          <ChevronDown aria-hidden="true" size={18} />
-        </span>
+        <label className="manage-member-sort">
+          <span className="manage-visually-hidden">정렬 기준</span>
+          <select aria-label="정렬 기준" onChange={(event) => setSort(event.target.value)} value={sort}>
+            <option value="RECENT">최근 가입순</option>
+            <option value="NICKNAME">닉네임 순</option>
+          </select>
+          <ChevronDown aria-hidden="true" className="manage-member-sort__icon" size={18} />
+        </label>
       </div>
 
       {members.length === 0 ? (
         <EmptyState title="아직 함께하는 멤버가 없어요" />
-      ) : visibleMembers.length === 0 ? (
+      ) : sortedMembers.length === 0 ? (
         <EmptyState title="검색 조건에 맞는 멤버가 없어요" />
       ) : (
         <section className="manage-table-panel" aria-labelledby="member-table-title">
@@ -139,11 +183,11 @@ export function ManageMembersPage() {
                 <th>기수</th>
                 <th>역할</th>
                 <th>가입일</th>
-                <th>관리</th>
+                <th aria-label="관리 메뉴" />
               </tr>
             </thead>
             <tbody>
-              {visibleMembers.map((member) => (
+              {sortedMembers.map((member) => (
                 <tr aria-label={`${member.crewName} 멤버`} key={member.groupMemberId}>
                   <td data-label="크루">
                     <div className="manage-member-identity">
@@ -161,29 +205,47 @@ export function ManageMembersPage() {
                     </StatusBadge>
                   </td>
                   <td data-label="가입일">{formatDate(member.joinedAt)}</td>
-                  <td data-label="관리">
+                  <td>
                     {member.role !== "LEADER" ? (
                       <div className="manage-member-actions">
-                        <Button
-                          className="manage-member-transfer"
-                          onClick={() => setCandidate(member)}
-                          size="sm"
-                          variant="secondary"
-                        >
-                          {member.crewName}에게 모임장 넘기기
-                        </Button>
-                        <span
-                          className="manage-member-action manage-member-action--unavailable"
-                          title="멤버 내보내기 API가 아직 지원되지 않아요."
-                        >
-                          내보내기
-                        </span>
+                        <div className="manage-member-menu">
+                          <IconButton
+                            aria-expanded={openMenuMemberId === member.groupMemberId}
+                            aria-haspopup="menu"
+                            className="manage-member-menu__trigger"
+                            label={`${member.crewName} 관리 메뉴`}
+                            onClick={() =>
+                              setOpenMenuMemberId((current) =>
+                                current === member.groupMemberId ? null : member.groupMemberId
+                              )
+                            }
+                            variant="tertiary"
+                          >
+                            <EllipsisVertical aria-hidden="true" size={20} />
+                          </IconButton>
+                          {openMenuMemberId === member.groupMemberId ? (
+                            <div className="manage-member-menu__popover" role="menu">
+                              <button
+                                className="manage-member-menu__item"
+                                onClick={() => handleMemberAction(member, "TRANSFER")}
+                                role="menuitem"
+                                type="button"
+                              >
+                                모임장 넘기기
+                              </button>
+                              <button
+                                className="manage-member-menu__item manage-member-menu__item--danger"
+                                onClick={() => handleMemberAction(member, "REMOVE")}
+                                role="menuitem"
+                                type="button"
+                              >
+                                내보내기
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
-                    ) : (
-                      <span className="manage-member-action manage-member-action--leader">
-                        모임장
-                      </span>
-                    )}
+                    ) : null}
                   </td>
                 </tr>
               ))}
