@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, UsersRound } from "lucide-react";
+import { ChevronDown, Search, UsersRound } from "lucide-react";
 import { useParams } from "react-router";
 import { useInfiniteGroupMembers, useTransferLeader } from "../../features/member/index.js";
 import {
@@ -127,6 +127,7 @@ export function ManageMembersPage() {
             <option value="RECENT">최근 가입순</option>
             <option value="NICKNAME">닉네임 순</option>
           </select>
+          <ChevronDown aria-hidden="true" className="manage-member-sort__icon" size={18} />
         </label>
       </div>
 
