@@ -1,15 +1,9 @@
-import {
-  ArrowRight,
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-  Crown,
-  UsersRound
-} from "lucide-react";
+import { ArrowRight, CalendarDays, Crown, UsersRound } from "lucide-react";
 import { Link } from "react-router";
 
-import { Button, EmptyState, ErrorState, Skeleton, StatusBadge } from "../../shared/ui/index.js";
+import { EmptyState, ErrorState, Skeleton, StatusBadge } from "../../shared/ui/index.js";
 import { formatKoreanDate, GROUP_TYPE_LABELS, REGISTRATION_STATUS_LABELS } from "./accountUtils.js";
+import { useInfiniteScroll } from "./useInfiniteScroll.js";
 
 function GroupActivityRow({ group, isLeader }) {
   const isEnded = group.status === "ENDED";
@@ -125,8 +119,12 @@ const EMPTY_STATES = {
 };
 
 export function MyActivityBoard({ currentMemberId, items, kind, query }) {
-  const page = query.data?.pages.length ?? 1;
   const emptyState = EMPTY_STATES[kind] ?? EMPTY_STATES.joined;
+  const sentinelRef = useInfiniteScroll({
+    hasNext: Boolean(query.hasNextPage),
+    onLoadMore: () => query.fetchNextPage(),
+    pending: Boolean(query.isFetchingNextPage)
+  });
   const activities = items.map((item) =>
     kind === "registrations"
       ? { key: `registration-${item.id}`, registration: item }
@@ -166,6 +164,9 @@ export function MyActivityBoard({ currentMemberId, items, kind, query }) {
               />
             )
           )}
+          {query.isFetchingNextPage ? (
+            <Skeleton aria-label="모임 더 불러오는 중" count={2} role="status" />
+          ) : null}
         </div>
       ) : null}
       {!query.isLoading && !query.isError && activities.length === 0 ? (
@@ -175,22 +176,11 @@ export function MyActivityBoard({ currentMemberId, items, kind, query }) {
           title={emptyState.title}
         />
       ) : null}
-      <nav aria-label="내 활동 페이지" className="activity-board__pagination">
-        <Button aria-label="이전 활동 페이지" disabled size="sm" variant="tertiary">
-          <ChevronLeft aria-hidden="true" size={18} />
-        </Button>
-        <span aria-current="page">{page}</span>
-        <Button
-          aria-label="다음 활동 불러오기"
-          disabled={!query.hasNextPage}
-          onClick={() => query.fetchNextPage()}
-          pending={query.isFetchingNextPage}
-          size="sm"
-          variant="tertiary"
-        >
-          <ChevronRight aria-hidden="true" size={18} />
-        </Button>
-      </nav>
+      {!query.isLoading && !query.isError && activities.length ? (
+        <div className="activity-board__more" ref={sentinelRef}>
+          {query.hasNextPage ? null : <span>모든 모임을 불러왔어요.</span>}
+        </div>
+      ) : null}
     </section>
   );
 }

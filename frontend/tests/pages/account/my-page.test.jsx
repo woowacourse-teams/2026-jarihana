@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 
@@ -161,8 +161,43 @@ describe("MyPage", () => {
     expect(screen.queryByRole("link", { name: /React 깊게 보기/ })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: /가입한 모임/ }));
-    await user.click(screen.getByRole("button", { name: "다음 활동 불러오기" }));
+    expect(screen.queryByRole("button", { name: "다음 활동 불러오기" })).not.toBeInTheDocument();
+
+    // 목록 끝이 화면에 들어오면 다음 페이지를 스스로 불러온다
+    act(() => global.triggerIntersection());
     expect(fetchNextPage).toHaveBeenCalledTimes(1);
+  });
+
+  it("Given no further pages, When the list end appears, Then it stops fetching and says so", () => {
+    // Given
+    const fetchNextPage = jest.fn();
+    useAuth.mockReturnValue({ status: "authenticated", member: MEMBER });
+    useInfiniteGroups.mockReturnValue({
+      data: { pages: [{ items: ACTIVE_GROUPS, nextCursor: null, hasNext: false }] },
+      isLoading: false,
+      isError: false,
+      hasNextPage: false,
+      fetchNextPage
+    });
+    useInfiniteMyRegistrations.mockReturnValue({
+      data: { pages: [{ items: [], nextCursor: null, hasNext: false }] },
+      isLoading: false,
+      isError: false,
+      hasNextPage: false,
+      fetchNextPage: jest.fn()
+    });
+
+    // When
+    render(
+      <MemoryRouter>
+        <MyPage />
+      </MemoryRouter>
+    );
+    act(() => global.triggerIntersection());
+
+    // Then
+    expect(fetchNextPage).not.toHaveBeenCalled();
+    expect(screen.getByText("모든 모임을 불러왔어요.")).toBeVisible();
   });
 
   it("shows a distinct empty state for each local group tab", async () => {
