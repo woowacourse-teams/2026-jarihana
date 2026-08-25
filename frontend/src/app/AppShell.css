@@ -216,6 +216,10 @@
 }
 
 .app-footer__copy {
+    padding: var(--space-6);
+    border: var(--border-thin) solid var(--color-header-line);
+    border-inline-start: var(--border-strong) solid var(--color-brand);
+    border-radius: var(--radius-md);
     max-width: 42.5rem;
     min-width: 0;
 }
@@ -260,6 +264,8 @@
     margin: var(--space-5) 0 0;
     color: var(--color-header-muted);
     font-size: var(--text-label);
+    overflow-wrap: break-word;
+    word-break: keep-all;
 }
 
 .app-footer__origin {
@@ -280,6 +286,8 @@
     color: var(--color-header-muted);
     font-size: var(--text-label);
     line-height: 1.7;
+    overflow-wrap: break-word;
+    word-break: keep-all;
 }
 
 .app-footer__origin p:last-child {
@@ -287,10 +295,7 @@
 }
 
 .app-footer__contact {
-    padding: var(--space-5) var(--space-6);
-    border: var(--border-thin) solid var(--color-header-line);
-    border-inline-start: var(--border-strong) solid var(--color-brand);
-    border-radius: var(--radius-md);
+    padding-block: var(--space-2);
 }
 
 .app-footer__contact h2 {
@@ -323,18 +328,46 @@
     flex: none;
     align-items: center;
     gap: var(--space-4);
-    align-self: flex-end;
+    align-self: flex-start;
 }
 
 .app-footer__social-link {
-    display: grid;
-    width: 2.5rem;
-    height: 2.5rem;
-    place-items: center;
-    border-radius: 50%;
-    background: var(--color-surface);
-    color: var(--color-nav);
+    display: inline-flex;
+    min-height: var(--touch-target);
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) 0;
+    color: var(--color-header-muted);
+    font-size: var(--text-label);
+    font-weight: var(--font-weight-semibold);
     cursor: pointer;
+    text-decoration: none;
+    transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.app-footer__social-link:hover {
+    color: var(--color-surface);
+}
+
+.app-footer__social-link:focus-visible {
+    outline: var(--border-strong) solid var(--color-brand);
+    outline-offset: var(--space-1);
+}
+
+.app-footer__repository-icon,
+.app-footer__repository-arrow {
+    width: var(--space-5);
+    height: var(--space-5);
+    flex: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: var(--border-strong);
+}
+
+.app-footer__repository-arrow {
+    width: var(--space-4);
+    height: var(--space-4);
 }
 
 @media (min-width: 64rem) {
@@ -369,13 +402,14 @@
     }
 
     .app-footer__actions {
+        flex: 0 1 auto;
         width: 100%;
         max-width: none;
         margin-left: 0;
     }
 
     .app-footer__social-links {
-        align-self: flex-end;
+        align-self: flex-start;
     }
 }
 
@@ -385,19 +419,21 @@
     }
 
     .app-footer__actions {
+        flex: 0 1 auto;
         width: 100%;
         max-width: none;
-        flex-direction: row;
+        flex-direction: column;
         align-items: flex-start;
         margin-left: 0;
     }
 
     .app-footer__contact {
-        flex: 0 1 var(--footer-contact-max-width);
+        flex: 0 1 auto;
     }
 
     .app-footer__social-links {
-        margin-left: auto;
+        margin-left: 0;
+        align-self: flex-start;
     }
 }
 

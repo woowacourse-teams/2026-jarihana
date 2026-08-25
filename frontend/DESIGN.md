@@ -162,13 +162,15 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 
 - Buttons: primary mint/black text, secondary white/line, tertiary text, danger red. 모든 variant는
   default/hover/active/focus/disabled/pending 상태를 갖는다.
-- Footer: 프로토타입의 `64px 24px` desktop / `48px 24px` mobile padding, 좌측 소개 영역과
-  우측 Contact us 안내 블록·40px 원형 외부 링크를 사용한다. Contact us는 22px 흰색 heading과
-  14px muted body copy, 민트색 시작선으로 피드백 창구를 먼저 인지시키고, 링크가 없는 안내 문구는 클릭
-  가능한 요소로 오해되지 않게 한다. 문구는 `피드백이나 궁금한 점은 이삭, 에덴, 파도, 요크에게
-  슬랙 DM 주세요!`로 유지한다.
-  탐색 페이지에서는 카드 grid rail을 그대로 상속해 내부 좌우 끝점을 맞춘다. 인스타그램은 노출하지
-  않고 GitHub 저장소 링크 하나만 둔다.
+- Footer: 프로토타입의 `64px 24px` desktop / `48px 24px` mobile padding, 좌측 서비스 설명 박스와
+  우측 Contact us 안내·코드 아이콘이 있는 저장소 링크를 사용한다. 서비스 설명 박스는 민트색 시작선과
+  얇은 경계로 별도 정보 영역임을 드러내고, Contact us는 22px 흰색 heading과 14px muted body copy로
+  링크가 없는 안내 문구를 클릭 가능한 요소로 오해되지 않게 한다. 문구는 `피드백이나 궁금한 점은
+  이삭, 에덴, 파도, 요크에게 슬랙 DM 주세요!`로 유지한다. 저장소 링크의 accessible name과 visible
+  label은 `레포지토리로 이동`으로 통일한다.
+  데스크톱에서는 Contact us와 저장소 링크를 같은 왼쪽 기준선에 맞추고, 태블릿 이하에서는 저장소
+  링크를 Contact us 아래로 쌓는다. 탐색 페이지에서는 카드 grid rail을 그대로 상속해 내부 좌우
+  끝점을 맞춘다. 인스타그램은 노출하지 않고 저장소 링크 하나만 둔다.
 - Fields: label, optional description, control, inline error를 같은 field group으로 묶는다. 검색은 input과
   submit icon을 하나의 thin-border/small-radius control surface로 묶는다.
 - Select: native keyboard/assistive-tech 동작을 유지하면서 오른쪽 chevron, 넉넉한 우측 padding,
