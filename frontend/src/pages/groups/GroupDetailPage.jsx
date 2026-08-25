@@ -29,7 +29,7 @@ import {
 } from "../../shared/ui/index.js";
 import {
   flattenPages,
-  formatLocalDate,
+  formatLocalDateTime,
   meetingTypeLabel,
   publicErrorCopy,
   scheduleLines,
@@ -358,7 +358,8 @@ function RecruitmentSummary({
         <div>
           <dt>모집일정</dt>
           <dd>
-            {formatLocalDate(recruitment.startsAt)} ~ {formatLocalDate(recruitment.endsAt)}
+            {formatLocalDateTime(recruitment.startsAt)} ~{" "}
+            {formatLocalDateTime(recruitment.endsAt)}
           </dd>
         </div>
         <div>

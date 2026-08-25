@@ -1311,7 +1311,7 @@
 /* Keep the detail page's main column aligned with the group editor Hero. */
 .group-detail-page {
   --group-detail-content-width: 100rem;
-  --group-detail-hero-min-height: 23.5rem;
+  --group-detail-hero-min-height: 24.5rem;
   --group-detail-hero-art-height: 20.5rem;
   max-width: var(--group-detail-content-width);
 }
@@ -1357,7 +1357,7 @@
 .group-profile {
   grid-template-columns: minmax(0, 1fr);
   min-block-size: var(--group-detail-hero-min-height);
-  padding: var(--space-5);
+  padding: var(--space-7);
   border-radius: var(--radius-lg);
 }
 
@@ -1563,7 +1563,7 @@
 
   .group-profile {
     grid-template-columns: minmax(0, 1fr);
-    padding: var(--space-5);
+    padding: var(--space-6);
     border-radius: 0;
   }
 
