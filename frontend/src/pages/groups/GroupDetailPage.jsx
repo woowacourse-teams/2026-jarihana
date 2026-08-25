@@ -68,9 +68,7 @@ export function GroupDetailPage() {
   const groupQuery = useGroup(groupId);
   const group = groupQuery.data;
   const currentMember = auth.member ?? auth.user;
-  const isLeaderPreview =
-    process.env.NODE_ENV === "development" && searchParams.get("previewRole") === "leader";
-  const isLeader = isLeaderPreview || currentMember?.id === group?.leader?.memberId;
+  const isLeader = currentMember?.id === group?.leader?.memberId;
   const usesDefaultImage =
     !group?.representativeImageUrl ||
     group.representativeImageUrl.endsWith("images/default-group.png");
