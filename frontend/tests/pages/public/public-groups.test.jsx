@@ -481,6 +481,32 @@ it("Given a group leader, when detail renders, then leader context is separate f
   scrollTo.mockRestore();
 });
 
+it("Given a recruitment period, when detail renders, then countdown and details are concise", () => {
+  const scrollTo = jest.spyOn(window, "scrollTo").mockImplementation(() => {});
+  jest.useFakeTimers();
+  jest.setSystemTime(new Date("2026-08-20T12:00:00"));
+
+  try {
+    const { container } = renderAt("/groups/41", <GroupDetailPage />);
+    const desktopRail = container.querySelector(".group-rail--desktop");
+    const period = desktopRail.querySelector(".group-recruitment-period");
+
+    expect(desktopRail.querySelector(".group-recruitment-countdown")).toHaveTextContent(
+      "모집 마감까지 2일"
+    );
+    expect(desktopRail.querySelector(".group-recruitment-details")).toHaveTextContent(
+      "일정 자세히"
+    );
+    expect(within(period).getByText("시작")).toBeInTheDocument();
+    expect(within(period).getByText("2026년 8월 10일 09:00")).toBeInTheDocument();
+    expect(within(period).getByText("마감")).toBeInTheDocument();
+    expect(within(period).getByText("2026년 8월 21일 23:59")).toBeInTheDocument();
+  } finally {
+    jest.useRealTimers();
+    scrollTo.mockRestore();
+  }
+});
+
 it("Given a retained list scroll, when group detail opens, then the page starts at the top", () => {
   const scrollTo = jest.spyOn(window, "scrollTo").mockImplementation(() => {});
 

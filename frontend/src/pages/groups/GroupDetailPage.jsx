@@ -29,9 +29,10 @@ import {
 } from "../../shared/ui/index.js";
 import {
   flattenPages,
-  formatLocalDateTime,
+  formatCompactLocalDateTime,
   meetingTypeLabel,
   publicErrorCopy,
+  recruitmentCountdownLabel,
   scheduleLines,
   typeLabel
 } from "./pageUtils.js";
@@ -357,9 +358,23 @@ function RecruitmentSummary({
       <dl className="group-recruitment-meta">
         <div>
           <dt>모집일정</dt>
-          <dd>
-            {formatLocalDateTime(recruitment.startsAt)} ~{" "}
-            {formatLocalDateTime(recruitment.endsAt)}
+          <dd className="group-recruitment-schedule">
+            <strong className="group-recruitment-countdown">
+              {recruitmentCountdownLabel(recruitment.startsAt, recruitment.endsAt)}
+            </strong>
+            <details className="group-recruitment-details">
+              <summary>일정 자세히</summary>
+              <span className="group-recruitment-period">
+                <span>
+                  <span className="group-recruitment-period__label">시작</span>
+                  <strong>{formatCompactLocalDateTime(recruitment.startsAt)}</strong>
+                </span>
+                <span>
+                  <span className="group-recruitment-period__label">마감</span>
+                  <strong>{formatCompactLocalDateTime(recruitment.endsAt)}</strong>
+                </span>
+              </span>
+            </details>
           </dd>
         </div>
         <div>

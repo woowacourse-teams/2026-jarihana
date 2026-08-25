@@ -674,6 +674,73 @@
   word-break: keep-all;
 }
 
+.group-recruitment-schedule {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.group-recruitment-countdown {
+  color: var(--color-brand-ink);
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-bold);
+}
+
+.group-recruitment-details {
+  border-top: var(--border-thin) solid var(--color-line);
+}
+
+.group-recruitment-details summary {
+  display: flex;
+  min-height: var(--touch-target);
+  align-items: center;
+  justify-content: space-between;
+  color: var(--color-muted-ink);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  list-style: none;
+}
+
+.group-recruitment-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.group-recruitment-details summary::after {
+  content: "+";
+  color: var(--color-brand-ink);
+  font-size: var(--text-body);
+}
+
+.group-recruitment-details[open] summary::after {
+  content: "−";
+}
+
+.group-recruitment-period {
+  display: grid;
+  gap: var(--space-1);
+  padding-bottom: var(--space-2);
+}
+
+.group-recruitment-period > span {
+  display: grid;
+  grid-template-columns: var(--space-10) minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.group-recruitment-period__label {
+  color: var(--color-muted-ink);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-semibold);
+}
+
+.group-recruitment-period strong {
+  color: var(--color-ink);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.45;
+}
+
 .group-recruitment-progress {
   height: var(--space-2);
   margin-block: var(--space-4) var(--space-6);
