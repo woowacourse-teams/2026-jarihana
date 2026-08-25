@@ -62,7 +62,7 @@ jest.mock(
     });
 
     return {
-      Button: ({ children, pending, ...props }) => (
+      Button: ({ children, pending, variant: _variant, ...props }) => (
         <button disabled={pending} {...props}>
           {children}
         </button>
@@ -83,6 +83,14 @@ jest.mock(
         </div>
       ),
       ErrorState: ({ title }) => <div role="alert">{title}</div>,
+      MarkdownContent: ({ value, emptyText }) => <div>{value || emptyText}</div>,
+      Modal: ({ children, description, open, title }) =>
+        open ? (
+          <div role="dialog" aria-label={title}>
+            <p>{description}</p>
+            {children}
+          </div>
+        ) : null,
       Select: React.forwardRef(function Select(props, ref) {
         return <Field ref={ref} as="select" {...props} />;
       }),
@@ -103,6 +111,10 @@ import { GroupManagePage, NewGroupPage } from "../../../src/pages/group-editor/i
 
 const renderPage = (node) => render(node);
 
+/* The save button sits outside the form and is wired with the form attribute. */
+const submitForm = (formId) =>
+  fireEvent.submit(document.getElementById(formId));
+
 describe("NewGroupPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -115,7 +127,7 @@ describe("NewGroupPage", () => {
     renderPage(<NewGroupPage />);
 
     // When
-    await user.selectOptions(screen.getByLabelText("모임 종류"), "SESSION");
+    await user.click(screen.getByLabelText("세션"));
     await user.type(screen.getByLabelText("모임 이름"), "성능 튜닝 세션");
     await user.type(screen.getByLabelText("한 줄 소개"), "한 번에 깊게 파고들어요");
     await user.type(
@@ -125,7 +137,7 @@ describe("NewGroupPage", () => {
     fireEvent.change(screen.getByLabelText("진행 날짜"), { target: { value: "2026-09-12" } });
     fireEvent.change(screen.getByLabelText("시작 시간"), { target: { value: "19:00" } });
     fireEvent.change(screen.getByLabelText("종료 시간"), { target: { value: "21:00" } });
-    await user.click(screen.getByRole("button", { name: "모임 만들기" }));
+    submitForm("group-create-form");
 
     // Then
     await waitFor(() =>
@@ -146,7 +158,7 @@ describe("NewGroupPage", () => {
     );
   });
 
-  it("requires an activity day for recurring groups and never exposes a fake upload", async () => {
+  it("creates a flexible group when no activity day is chosen", async () => {
     // Given
     const user = userEvent.setup();
     renderPage(<NewGroupPage />);
@@ -154,17 +166,74 @@ describe("NewGroupPage", () => {
     // When
     await user.type(screen.getByLabelText("모임 이름"), "리액트 스터디");
     await user.type(screen.getByLabelText("한 줄 소개"), "매주 함께 공부해요");
-    fireEvent.change(screen.getByLabelText("시작 시간"), { target: { value: "19:00" } });
-    fireEvent.change(screen.getByLabelText("종료 시간"), { target: { value: "21:00" } });
-    await user.click(screen.getByRole("button", { name: "모임 만들기" }));
+    submitForm("group-create-form");
 
     // Then
-    expect(await screen.findByRole("alert", { name: "" })).toHaveTextContent(
-      "활동 요일을 하나 이상 선택해 주세요."
-    );
-    expect(mockCreateGroup).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockCreateGroup).toHaveBeenCalledTimes(1));
+    expect(mockCreateGroup.mock.calls[0][0]).toMatchObject({
+      type: "STUDY",
+      recurringSchedule: null,
+      sessionSchedule: null
+    });
+  });
+
+  it("fills every weekday from the 평일 preset and clears it on a second press", async () => {
+    // Given
+    const user = userEvent.setup();
+    renderPage(<NewGroupPage />);
+    const weekday = screen.getByRole("button", { name: "평일" });
+
+    // When
+    await user.click(weekday);
+
+    // Then
+    expect(weekday).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText("월요일")).toBeChecked();
+    expect(screen.getByLabelText("금요일")).toBeChecked();
+    expect(screen.getByLabelText("토요일")).not.toBeChecked();
+
+    // When
+    await user.click(weekday);
+
+    // Then
+    expect(weekday).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByLabelText("월요일")).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "유동적" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("sends the meeting type and location chosen in the hero", async () => {
+    // Given
+    const user = userEvent.setup();
+    renderPage(<NewGroupPage />);
+
+    // When
+    await user.type(screen.getByLabelText("모임 이름"), "오프라인 스터디");
+    await user.type(screen.getByLabelText("한 줄 소개"), "만나서 공부해요");
+    await user.selectOptions(screen.getByLabelText("모임 방식"), "OFFLINE");
+    await user.type(screen.getByLabelText("장소"), "선릉 캠퍼스 3층");
+    await user.click(screen.getByLabelText("수요일"));
+    submitForm("group-create-form");
+
+    // Then
+    await waitFor(() => expect(mockCreateGroup).toHaveBeenCalledTimes(1));
+    expect(mockCreateGroup.mock.calls[0][0]).toMatchObject({
+      meetingType: "OFFLINE",
+      location: "선릉 캠퍼스 3층",
+      recurringSchedule: {
+        daysOfWeek: ["WEDNESDAY"],
+        startTime: "19:00",
+        endTime: "21:00"
+      }
+    });
+  });
+
+  it("never exposes a fake upload control", () => {
+    // Given
+    renderPage(<NewGroupPage />);
+
+    // Then
     expect(screen.queryByLabelText(/이미지 업로드/)).not.toBeInTheDocument();
-    expect(screen.getByText(/생성 시 서버 기본 이미지가 적용돼요/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /대표 이미지 변경/ })).toBeInTheDocument();
   });
 
   it("locks a valid create form after the first submission", async () => {
@@ -177,21 +246,85 @@ describe("NewGroupPage", () => {
       })
     );
     renderPage(<NewGroupPage />);
-    await user.selectOptions(screen.getByLabelText("모임 종류"), "SESSION");
+    await user.click(screen.getByLabelText("세션"));
     await user.type(screen.getByLabelText("모임 이름"), "중복 방지 세션");
     await user.type(screen.getByLabelText("한 줄 소개"), "한 번만 생성돼요");
     fireEvent.change(screen.getByLabelText("진행 날짜"), { target: { value: "2026-09-12" } });
 
     // When
-    const submit = screen.getByRole("button", { name: "모임 만들기" });
-    await user.click(submit);
-    await user.click(submit);
+    submitForm("group-create-form");
+    submitForm("group-create-form");
 
     // Then
-    expect(mockCreateGroup).toHaveBeenCalledTimes(1);
-    expect(submit).toBeDisabled();
+    await waitFor(() => expect(mockCreateGroup).toHaveBeenCalledTimes(1));
     await act(async () => finishRequest({ id: 73, status: "ACTIVE" }));
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith("/groups/73/manage"));
+  });
+});
+
+describe("MarkdownEditor", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCreateGroup.mockResolvedValue({ id: 73, status: "ACTIVE" });
+  });
+
+  it("wraps the selected text instead of appending to the end", async () => {
+    // Given
+    const user = userEvent.setup();
+    renderPage(<NewGroupPage />);
+    const editor = screen.getByRole("textbox", { name: /^모임 소개/ });
+    await user.type(editor, "굵게 만들 부분 그리고 꼬리말");
+
+    // When
+    editor.setSelectionRange(0, 8);
+    await user.click(screen.getByRole("button", { name: "굵게" }));
+
+    // Then
+    expect(editor).toHaveValue("**굵게 만들 부분** 그리고 꼬리말");
+  });
+
+  it("keeps whitespace outside the markers so the emphasis still parses", async () => {
+    // Given
+    const user = userEvent.setup();
+    renderPage(<NewGroupPage />);
+    const editor = screen.getByRole("textbox", { name: /^모임 소개/ });
+    await user.type(editor, "굵게 만들 부분 그리고 꼬리말");
+
+    // When the selection accidentally catches the trailing space
+    editor.setSelectionRange(0, 9);
+    await user.click(screen.getByRole("button", { name: "굵게" }));
+
+    // Then
+    expect(editor).toHaveValue("**굵게 만들 부분** 그리고 꼬리말");
+  });
+
+  it("inserts a code fence and keeps the placeholder selected", async () => {
+    // Given
+    const user = userEvent.setup();
+    renderPage(<NewGroupPage />);
+    const editor = screen.getByRole("textbox", { name: /^모임 소개/ });
+
+    // When
+    await user.click(screen.getByRole("button", { name: "코드 블럭" }));
+
+    // Then
+    expect(editor.value).toContain("```");
+    expect(editor.value.slice(editor.selectionStart, editor.selectionEnd)).toBe(
+      "코드를 붙여 넣어요"
+    );
+  });
+
+  it("disables the toolbar while previewing rather than forcing the editor back", async () => {
+    // Given
+    const user = userEvent.setup();
+    renderPage(<NewGroupPage />);
+
+    // When
+    await user.click(screen.getByRole("button", { name: "미리보기" }));
+
+    // Then
+    expect(screen.getByRole("button", { name: "굵게" })).toBeDisabled();
+    expect(screen.queryByRole("textbox", { name: /^모임 소개/ })).not.toBeInTheDocument();
   });
 });
 
@@ -219,9 +352,34 @@ describe("GroupManagePage", () => {
     mockDeleteGroup.mockResolvedValue(undefined);
     mockTerminateGroup.mockResolvedValue({ id: 17, status: "ENDED" });
     mockReplaceRecurringSchedule.mockResolvedValue(mockGroupFixture.recurringSchedule);
+    mockRemoveRecurringSchedule.mockResolvedValue(undefined);
   });
 
-  it("edits only the backend-supported overview fields", async () => {
+  it("labels the primary action as an edit rather than a create", () => {
+    // Given
+    renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
+
+    // Then
+    expect(screen.getByRole("button", { name: "모임 수정하기" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "모임 만들기" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the group type locked while editing", () => {
+    // Given
+    renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
+
+    // When
+    const overviewHero = screen.getByRole("region", { name: "모임 기본 정보" });
+    const typeTag = within(overviewHero).getByText("스터디").closest(".group-editor__type-tag");
+
+    // Then
+    expect(typeTag).toHaveAttribute("aria-disabled", "true");
+    expect(
+      within(overviewHero).queryByRole("radiogroup", { name: "모임 종류" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("saves the overview without a schedule request when the schedule is untouched", async () => {
     // Given
     const user = userEvent.setup();
     renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
@@ -230,7 +388,7 @@ describe("GroupManagePage", () => {
     const name = screen.getByLabelText("모임 이름");
     await user.clear(name);
     await user.type(name, "우아한 SQL 탐구생활");
-    await user.click(screen.getByRole("button", { name: "기본 정보 저장" }));
+    submitForm("group-overview-form");
 
     // Then
     await waitFor(() =>
@@ -242,52 +400,60 @@ describe("GroupManagePage", () => {
         location: null
       })
     );
-    expect(
-      screen.getByText("대표 이미지는 서버에서 제공하는 이미지를 사용해요.")
-    ).toBeInTheDocument();
+    expect(mockReplaceRecurringSchedule).not.toHaveBeenCalled();
+    expect(mockRemoveRecurringSchedule).not.toHaveBeenCalled();
   });
 
-  it("separates the compact overview hero from the long description editor", () => {
+  it("saves the overview and the changed schedule from one submission", async () => {
     // Given
+    const user = userEvent.setup();
     renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
 
     // When
-    const overviewHero = screen.getByRole("region", { name: "모임 기본 정보" });
-    const descriptionPanel = screen.getByRole("region", { name: "모임 상세 소개" });
+    await user.click(screen.getByLabelText("수요일"));
+    submitForm("group-overview-form");
 
     // Then
-    expect(
-      within(overviewHero).queryByRole("textbox", { name: /^모임 소개/ })
-    ).not.toBeInTheDocument();
-    expect(
-      within(descriptionPanel).getByRole("textbox", { name: /^모임 소개/ })
-    ).toBeInTheDocument();
-    expect(within(overviewHero).getByText("스터디")).toBeInTheDocument();
-    const typeTag = within(overviewHero).getByText("스터디").closest(".group-editor__type-tag");
-    expect(typeTag).toHaveAttribute("aria-disabled", "true");
-    expect(typeTag).toHaveAttribute("title", "생성된 모임의 종류는 변경할 수 없어요.");
-    expect(within(typeTag).queryByText("변경 불가")).not.toBeInTheDocument();
-    expect(
-      within(overviewHero).queryByRole("combobox", { name: "모임 종류" })
-    ).not.toBeInTheDocument();
-  });
-
-  it("uses the in-place edit hierarchy without numbered cards or an upload action", () => {
-    // Given
-    renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
-
-    // When
-    const overviewHero = screen.getByRole("region", { name: "모임 기본 정보" });
-    const representativeImage = within(overviewHero).getByLabelText("읽기 전용 대표 이미지");
-    const descriptionPanel = screen.getByRole("region", { name: "모임 상세 소개" });
-
-    // Then
-    expect(screen.queryByText(/^(01|02|03)$/)).not.toBeInTheDocument();
-    expect(within(representativeImage).queryByRole("button")).not.toBeInTheDocument();
-    expect(within(descriptionPanel).getByRole("textbox", { name: /^모임 소개/ })).toHaveAttribute(
-      "rows",
-      "7"
+    await waitFor(() =>
+      expect(mockReplaceRecurringSchedule).toHaveBeenCalledWith({
+        daysOfWeek: ["MONDAY", "WEDNESDAY"],
+        startTime: "19:00",
+        endTime: "21:00"
+      })
     );
+    expect(mockModifyGroup).toHaveBeenCalledTimes(1);
+  });
+
+  it("turns the group flexible when every day is cleared", async () => {
+    // Given
+    const user = userEvent.setup();
+    renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
+
+    // When
+    await user.click(screen.getByRole("button", { name: "유동적" }));
+    submitForm("group-overview-form");
+
+    // Then
+    await waitFor(() => expect(mockRemoveRecurringSchedule).toHaveBeenCalled());
+    expect(mockReplaceRecurringSchedule).not.toHaveBeenCalled();
+  });
+
+  it("edits the meeting type and location alongside the overview", async () => {
+    // Given
+    const user = userEvent.setup();
+    renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
+
+    // When
+    await user.selectOptions(screen.getByLabelText("모임 방식"), "ONLINE");
+    await user.type(screen.getByLabelText("장소"), "https://meet.example.com/jdbc");
+    submitForm("group-overview-form");
+
+    // Then
+    await waitFor(() => expect(mockModifyGroup).toHaveBeenCalledTimes(1));
+    expect(mockModifyGroup.mock.calls[0][0]).toMatchObject({
+      meetingType: "ONLINE",
+      location: "https://meet.example.com/jdbc"
+    });
   });
 
   it("uses termination after the 24-hour deletion window", async () => {
@@ -304,37 +470,27 @@ describe("GroupManagePage", () => {
     expect(mockDeleteGroup).not.toHaveBeenCalled();
   });
 
-  it("deletes within 24 hours and replaces a recurring schedule exactly", async () => {
+  it("deletes within the 24-hour window", async () => {
     // Given
     const user = userEvent.setup();
     renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:59:59")} />);
 
     // When
-    await user.click(screen.getByLabelText("수요일"));
-    await user.click(screen.getByRole("button", { name: "일정 저장" }));
     const dangerZone = screen.getByRole("region", { name: "모임 삭제 설정" });
     await user.click(within(dangerZone).getByRole("button", { name: "모임 삭제하기" }));
 
     // Then
-    await waitFor(() =>
-      expect(mockReplaceRecurringSchedule).toHaveBeenCalledWith({
-        daysOfWeek: ["MONDAY", "WEDNESDAY"],
-        startTime: "19:00",
-        endTime: "21:00"
-      })
-    );
     await waitFor(() => expect(mockDeleteGroup).toHaveBeenCalledWith(undefined));
     expect(mockTerminateGroup).not.toHaveBeenCalled();
   });
 
   it("surfaces a safe mutation failure without navigating away", async () => {
     // Given
-    const user = userEvent.setup();
     mockModifyGroup.mockRejectedValue({ userMessage: "같은 이름의 모임이 이미 있어요." });
     renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
 
     // When
-    await user.click(screen.getByRole("button", { name: "기본 정보 저장" }));
+    submitForm("group-overview-form");
 
     // Then
     await waitFor(() =>
@@ -347,7 +503,7 @@ describe("GroupManagePage", () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it("uses the route-backed leader management tabs from the Figma draft", () => {
+  it("uses the route-backed leader management tabs", () => {
     // Given
     renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
 

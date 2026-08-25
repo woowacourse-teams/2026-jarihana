@@ -31,7 +31,7 @@ describe("member form validation", () => {
 });
 
 describe("group form validation", () => {
-  it("requires recurring schedule only for CLUB and STUDY", () => {
+  it("accepts a CLUB or STUDY without a recurring schedule as a flexible group", () => {
     // Given
     const values = {
       type: "STUDY",
@@ -48,7 +48,7 @@ describe("group form validation", () => {
     const result = groupCreateFormSchema.safeParse(values);
 
     // Then
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it("requires a session schedule only for SESSION", () => {

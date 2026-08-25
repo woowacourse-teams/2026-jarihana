@@ -263,14 +263,55 @@ textarea {
     font-size: var(--text-h2);
 }
 
+.ui-markdown h3 {
+    margin-block: var(--space-5) var(--space-2);
+    font-size: var(--text-h3);
+}
+
 .ui-markdown p,
 .ui-markdown ul,
+.ui-markdown ol,
+.ui-markdown pre,
 .ui-markdown blockquote {
     margin-block: var(--space-3);
 }
 
-.ui-markdown ul {
+.ui-markdown ul,
+.ui-markdown ol {
     padding-inline-start: var(--space-6);
+}
+
+.ui-markdown hr {
+    margin-block: var(--space-6);
+    border: 0;
+    border-block-start: var(--border-thin) solid var(--color-line);
+}
+
+.ui-markdown code {
+    padding: 0.1em 0.4em;
+    border-radius: var(--radius-sm);
+    background: var(--color-brand-soft);
+    color: var(--color-brand-ink);
+    font-family: ui-monospace, "SFMono-Regular", "Consolas", monospace;
+    font-size: 0.9em;
+}
+
+.ui-markdown pre {
+    overflow-x: auto;
+    padding: var(--space-4);
+    border: var(--border-thin) solid var(--color-line);
+    border-radius: var(--radius-sm);
+    background: var(--color-canvas);
+}
+
+.ui-markdown pre code {
+    display: block;
+    padding: 0;
+    border-radius: 0;
+    background: none;
+    color: var(--color-ink);
+    line-height: 1.6;
+    white-space: pre;
 }
 
 .ui-markdown li + li {

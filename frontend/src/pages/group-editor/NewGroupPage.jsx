@@ -7,15 +7,17 @@ import { z } from "zod";
 import { useCreateGroup } from "../../features/group/index.js";
 import { Button, ErrorState, useToast } from "../../shared/ui/index.js";
 import {
-  DescriptionField,
   GroupContentTabs,
-  MarkdownPreview,
-  MarkdownToolbar,
+  GroupTypeField,
+  MeetingFields,
   OverviewFields,
+  ReadOnlyFact,
   RecurringScheduleFields,
   SessionScheduleFields
 } from "./GroupEditorFields.jsx";
 import { GroupMembersPanel } from "./GroupMembersPanel.jsx";
+import { MarkdownEditor } from "./MarkdownEditor.jsx";
+import { RepresentativeImage } from "./RepresentativeImage.jsx";
 import { useSubmissionLock } from "./useSubmissionLock.js";
 
 const timeSchema = z.string().regex(/^\d{2}:\d{2}$/, "시간을 입력해 주세요.");
@@ -32,6 +34,8 @@ const baseSchema = z.object({
     .min(1, "한 줄 소개를 입력해 주세요.")
     .max(100, "100자 이하로 입력해 주세요."),
   description: z.string().max(5000, "5,000자 이하로 입력해 주세요."),
+  meetingType: z.enum(["ONLINE", "OFFLINE", "FLEXIBLE"]),
+  location: z.string().max(255, "255자 이하로 입력해 주세요."),
   daysOfWeek: z.array(
     z.enum(["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"])
   ),
@@ -48,13 +52,11 @@ export const newGroupSchema = baseSchema.superRefine((values, context) => {
       path: ["endTime"]
     });
   }
-  if (values.type !== "SESSION" && values.daysOfWeek.length === 0) {
-    context.addIssue({
-      code: "custom",
-      message: "활동 요일을 하나 이상 선택해 주세요.",
-      path: ["daysOfWeek"]
-    });
-  }
+  /*
+   * CLUB and STUDY may be created without any day: the domain treats a missing
+   * recurringSchedule as a flexible schedule, so an empty selection is a valid
+   * choice rather than a mistake.
+   */
   if (values.type === "SESSION" && !/^\d{4}-\d{2}-\d{2}$/.test(values.sessionDate)) {
     context.addIssue({
       code: "custom",
@@ -65,13 +67,14 @@ export const newGroupSchema = baseSchema.superRefine((values, context) => {
 });
 
 function toCreateBody(values) {
+  const location = values.location.trim();
   const common = {
     type: values.type,
     name: values.name.trim(),
     introduction: values.introduction.trim(),
     description: values.description,
-    meetingType: "FLEXIBLE",
-    location: null
+    meetingType: values.meetingType,
+    location: location || null
   };
   if (values.type === "SESSION") {
     return {
@@ -86,11 +89,13 @@ function toCreateBody(values) {
   }
   return {
     ...common,
-    recurringSchedule: {
-      daysOfWeek: values.daysOfWeek,
-      startTime: values.startTime,
-      endTime: values.endTime
-    },
+    recurringSchedule: values.daysOfWeek.length
+      ? {
+          daysOfWeek: values.daysOfWeek,
+          startTime: values.startTime,
+          endTime: values.endTime
+        }
+      : null,
     sessionSchedule: null
   };
 }
@@ -108,10 +113,8 @@ export function NewGroupPage() {
   const toast = useToast();
   const {
     control,
-    getValues,
     register,
     handleSubmit,
-    setFocus,
     setValue,
     formState: { errors }
   } = useForm({
@@ -121,6 +124,8 @@ export function NewGroupPage() {
       name: "",
       introduction: "",
       description: "",
+      meetingType: "FLEXIBLE",
+      location: "",
       daysOfWeek: [],
       sessionDate: "",
       startTime: "19:00",
@@ -128,18 +133,17 @@ export function NewGroupPage() {
     }
   });
   const type = useWatch({ control, name: "type" });
+  const meetingType = useWatch({ control, name: "meetingType" });
   const description = useWatch({ control, name: "description" }) ?? "";
-  const [preview, setPreview] = useState(false);
+  const daysOfWeek = useWatch({ control, name: "daysOfWeek" }) ?? [];
   const [contentTab, setContentTab] = useState("intro");
 
-  function insertMarkdown(snippet) {
-    const current = getValues("description") ?? "";
-    setValue("description", `${current}${snippet}`.slice(0, 5000), {
+  function selectQuickDays(days) {
+    setValue("daysOfWeek", days, {
       shouldDirty: true,
+      shouldTouch: true,
       shouldValidate: true
     });
-    setPreview(false);
-    setFocus("description");
   }
 
   const submit = handleSubmit(async (values) => {
@@ -162,12 +166,9 @@ export function NewGroupPage() {
     <div className="group-editor group-editor--create page-container">
       <header className="group-editor__heading">
         <h1>신규 모임 생성</h1>
-        <nav aria-label="모임 생성 단계" className="group-editor__route-tabs">
-          <span aria-current="page">모임 생성</span>
-          <span aria-disabled="true" title="모임을 만든 뒤 모집을 설정할 수 있어요.">
-            모집 관리
-          </span>
-        </nav>
+        <p className="group-editor__heading-note">
+          모집 설정, 신청 관리, 멤버 관리는 모임을 만든 뒤 관리 화면에서 이어서 할 수 있어요.
+        </p>
       </header>
       {createMutation.error ? (
         <ErrorState
@@ -175,40 +176,35 @@ export function NewGroupPage() {
           description={createMutation.error.userMessage}
         />
       ) : null}
-      <form className="group-editor__create-form" onSubmit={submit} noValidate>
-        <section
-          className="group-editor__hero group-editor__hero--draft"
-          aria-labelledby="new-group-overview"
-        >
+      <form className="group-editor__create-form" id="group-create-form" onSubmit={submit} noValidate>
+        <section className="group-editor__hero" aria-label="모임 기본 정보">
           <div className="group-editor__hero-fields">
-            <h2 className="group-editor__visually-hidden" id="new-group-overview">
-              모임 기본 정보
-            </h2>
+            <GroupTypeField error={errors.type?.message} register={register} />
             <OverviewFields
               className="group-editor__overview-fields--hero"
               errors={errors}
               register={register}
-              showDescription={false}
-              showType
             />
-            <div className="group-editor__hero-schedule">
-              <h3>활동 일정</h3>
-              {type === "SESSION" ? (
-                <SessionScheduleFields errors={errors} register={register} />
-              ) : (
-                <RecurringScheduleFields errors={errors} register={register} compact />
-              )}
+            <div className="group-editor__facts">
+              <MeetingFields errors={errors} meetingType={meetingType} register={register} />
+              <div className="group-editor__fact group-editor__fact--schedule">
+                <span className="group-editor__fact-label">모임 일정</span>
+                {type === "SESSION" ? (
+                  <SessionScheduleFields errors={errors} register={register} />
+                ) : (
+                  <RecurringScheduleFields
+                    errors={errors}
+                    onQuickSelect={selectQuickDays}
+                    register={register}
+                    selectedDays={daysOfWeek}
+                  />
+                )}
+              </div>
+              <ReadOnlyFact label="현재 멤버 수" value="개설자 1명" />
+              <ReadOnlyFact label="개설일" value="저장하면 기록돼요" />
             </div>
           </div>
-          <aside className="group-editor__image-panel">
-            <img
-              className="group-editor__representative-image group-editor__representative-image--draft"
-              src="/images/default-group.png"
-              alt="서버 기본 모임 대표"
-            />
-            <strong>서버 기본 대표 이미지</strong>
-            <p>현재 API는 이미지 업로드를 지원하지 않아 생성 시 서버 기본 이미지가 적용돼요.</p>
-          </aside>
+          <RepresentativeImage />
         </section>
 
         <GroupContentTabs onSelect={setContentTab} value={contentTab} />
@@ -216,73 +212,38 @@ export function NewGroupPage() {
         {contentTab === "intro" ? (
           <section
             className="group-editor__panel group-editor__description-panel"
-            aria-labelledby="new-group-description"
+            aria-label="모임 상세 소개"
           >
-            <div className="group-editor__description-heading">
-              <h2 id="new-group-description">모임 소개 · Markdown</h2>
-              <div className="group-editor__description-tools">
-                <button
-                  aria-pressed={!preview}
-                  className={!preview ? "is-active" : ""}
-                  onClick={() => setPreview(false)}
-                  type="button"
-                >
-                  작성
-                </button>
-                <button
-                  aria-pressed={preview}
-                  className={preview ? "is-active" : ""}
-                  onClick={() => setPreview(true)}
-                  type="button"
-                >
-                  미리보기
-                </button>
-              </div>
-            </div>
-            <MarkdownToolbar onInsert={insertMarkdown} />
-            {preview ? (
-              <MarkdownPreview value={description} />
-            ) : (
-              <DescriptionField
-                description="제목 · 목록 · 인용 · 링크 문법을 사용할 수 있어요."
-                error={errors.description?.message}
-                label="모임 소개"
-                register={register}
-                rows={8}
-              />
-            )}
-            <CreateFooter
-              descriptionLength={description.length}
-              onCancel={() => navigate("/groups")}
-              pending={createMutation.isPending || createLock.pending}
+            <MarkdownEditor
+              description="제목, 목록, 인용, 링크, 코드 블럭 문법을 사용할 수 있어요."
+              error={errors.description?.message}
+              register={register}
+              rows={8}
+              setValue={setValue}
+              value={description}
             />
           </section>
         ) : (
           <section className="group-editor__panel group-editor__members-tab">
             <GroupMembersPanel />
-            <CreateFooter
-              descriptionLength={description.length}
-              onCancel={() => navigate("/groups")}
-              pending={createMutation.isPending || createLock.pending}
-            />
           </section>
         )}
       </form>
-    </div>
-  );
-}
 
-function CreateFooter({ descriptionLength, onCancel, pending }) {
-  return (
-    <div className="group-editor__editor-footer">
-      <span>{descriptionLength.toLocaleString()} / 5,000자</span>
-      <div className="group-editor__actions">
-        <Button type="button" variant="secondary" onClick={onCancel}>
-          취소
-        </Button>
-        <Button type="submit" variant="primary" pending={pending}>
-          모임 만들기
-        </Button>
+      <div className="group-editor__editor-footer">
+        <div className="group-editor__actions">
+          <Button type="button" variant="secondary" onClick={() => navigate("/groups")}>
+            취소
+          </Button>
+          <Button
+            form="group-create-form"
+            type="submit"
+            variant="primary"
+            pending={createMutation.isPending || createLock.pending}
+          >
+            모임 만들기
+          </Button>
+        </div>
       </div>
     </div>
   );

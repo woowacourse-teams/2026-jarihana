@@ -45,14 +45,11 @@ export const groupCreateFormSchema = groupModifyFormSchema
     sessionSchedule: sessionScheduleFormSchema.nullable()
   })
   .superRefine((values, context) => {
-    const recurringType = values.type === "CLUB" || values.type === "STUDY";
-    if (recurringType && values.recurringSchedule === null) {
-      context.addIssue({
-        code: "custom",
-        message: "정기 모임 일정을 입력해 주세요.",
-        path: ["recurringSchedule"]
-      });
-    }
+    /*
+     * CLUB and STUDY may omit recurringSchedule: the domain reads a missing
+     * schedule as a flexible one, so requiring it here would block a state the
+     * backend supports on create.
+     */
     if (values.type === "SESSION" && values.sessionSchedule === null) {
       context.addIssue({
         code: "custom",

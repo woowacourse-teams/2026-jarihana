@@ -1,29 +1,49 @@
-import {
-  Checkbox,
-  MarkdownContent,
-  Radio,
-  Select,
-  Textarea,
-  TextField
-} from "../../shared/ui/index.js";
+import { Select, TextField } from "../../shared/ui/index.js";
 
 export const DAYS = [
-  ["MONDAY", "월요일"],
-  ["TUESDAY", "화요일"],
-  ["WEDNESDAY", "수요일"],
-  ["THURSDAY", "목요일"],
-  ["FRIDAY", "금요일"],
-  ["SATURDAY", "토요일"],
-  ["SUNDAY", "일요일"]
+  ["MONDAY", "월요일", "월"],
+  ["TUESDAY", "화요일", "화"],
+  ["WEDNESDAY", "수요일", "수"],
+  ["THURSDAY", "목요일", "목"],
+  ["FRIDAY", "금요일", "금"],
+  ["SATURDAY", "토요일", "토"],
+  ["SUNDAY", "일요일", "일"]
 ];
 
-export const MARKDOWN_TOOLS = [
-  ["H2", "\n## 소제목\n"],
-  ["B", " **강조할 내용** "],
-  ["• 목록", "\n- 항목\n"],
-  ["“ 인용", "\n> 인용문\n"],
-  ["⌁ 링크", " [링크 이름](https://) "]
+export const GROUP_TYPES = [
+  ["STUDY", "스터디"],
+  ["CLUB", "동아리"],
+  ["SESSION", "세션"]
 ];
+
+export const MEETING_TYPES = [
+  ["OFFLINE", "오프라인"],
+  ["ONLINE", "온라인"],
+  ["FLEXIBLE", "유동적"]
+];
+
+const WEEKDAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"];
+const WEEKENDS = ["SATURDAY", "SUNDAY"];
+const EVERY_DAY = [...WEEKDAYS, ...WEEKENDS];
+
+const QUICK_PRESETS = [
+  ["평일", WEEKDAYS],
+  ["주말", WEEKENDS],
+  ["매일", EVERY_DAY]
+];
+
+const LOCATION_PLACEHOLDER = {
+  FLEXIBLE: "정해지면 입력해요",
+  OFFLINE: "선릉 캠퍼스 3층",
+  ONLINE: "접속 링크나 참여 방법"
+};
+
+function sameDays(selectedDays, targetDays) {
+  return (
+    selectedDays.length === targetDays.length &&
+    targetDays.every((day) => selectedDays.includes(day))
+  );
+}
 
 export function GroupContentTabs({ onSelect, value }) {
   const selectAdjacentTab = (event) => {
@@ -84,61 +104,45 @@ export function GroupContentTabs({ onSelect, value }) {
   );
 }
 
-export function MarkdownToolbar({ onInsert }) {
+/*
+ * The create screen picks a type; the manage screen shows the same slot as a
+ * locked tag because the API does not allow changing it after creation.
+ */
+export function GroupTypeField({ error, lockedLabel, register }) {
+  if (lockedLabel) {
+    return (
+      <div
+        aria-disabled="true"
+        className="group-editor__type-tag group-editor__type-tag--locked"
+        title="생성된 모임의 종류는 변경할 수 없어요."
+      >
+        <span>{lockedLabel}</span>
+      </div>
+    );
+  }
+
   return (
-    <div className="group-editor__markdown-toolbar" aria-label="Markdown 서식" role="toolbar">
-      {MARKDOWN_TOOLS.map(([label, snippet]) => (
-        <button key={label} onClick={() => onInsert(snippet)} type="button">
-          {label}
-        </button>
-      ))}
+    <div className="group-editor__type-field">
+      <div aria-label="모임 종류" className="group-editor__type-seg" role="radiogroup">
+        {GROUP_TYPES.map(([value, label]) => (
+          <label className="group-editor__type-option" key={value}>
+            <input type="radio" value={value} {...register("type")} />
+            <span>{label}</span>
+          </label>
+        ))}
+      </div>
+      {error ? (
+        <p className="group-editor__error" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
 
-export function MarkdownPreview({ value }) {
-  return (
-    <div className="group-editor__markdown-preview" aria-label="모임 소개 미리보기">
-      <MarkdownContent value={value} emptyText="작성한 소개가 여기에 표시돼요." />
-    </div>
-  );
-}
-
-export function DescriptionField({
-  description = "모임의 목표와 진행 방식을 알려 주세요. 최대 5,000자",
-  error,
-  label = "상세 소개",
-  register,
-  rows = 9
-}) {
-  return (
-    <Textarea
-      label={label}
-      description={description}
-      rows={rows}
-      maxLength={5000}
-      error={error}
-      {...register("description")}
-    />
-  );
-}
-
-export function OverviewFields({
-  className = "",
-  errors,
-  register,
-  showDescription = true,
-  showType = false
-}) {
+export function OverviewFields({ className = "", errors, register }) {
   return (
     <div className={`group-editor__overview-fields ${className}`.trim()}>
-      {showType ? (
-        <Select label="모임 종류" error={errors.type?.message} {...register("type")}>
-          <option value="STUDY">스터디</option>
-          <option value="CLUB">동아리</option>
-          <option value="SESSION">세션</option>
-        </Select>
-      ) : null}
       <TextField
         label="모임 이름"
         maxLength={50}
@@ -152,119 +156,135 @@ export function OverviewFields({
         error={errors.introduction?.message}
         {...register("introduction")}
       />
-      {showDescription ? (
-        <DescriptionField error={errors.description?.message} register={register} />
-      ) : null}
     </div>
   );
 }
 
-const WEEKDAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"];
-const WEEKENDS = ["SATURDAY", "SUNDAY"];
-
-function sameDays(selectedDays, targetDays) {
+/* Both screens edit these in the hero, so a group reads the same way everywhere. */
+export function MeetingFields({ errors, meetingType, register }) {
   return (
-    selectedDays.length === targetDays.length &&
-    targetDays.every((day) => selectedDays.includes(day))
+    <>
+      <div className="group-editor__fact">
+        <Select label="모임 방식" error={errors.meetingType?.message} {...register("meetingType")}>
+          {MEETING_TYPES.map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div className="group-editor__fact">
+        <TextField
+          label="장소"
+          maxLength={255}
+          autoComplete="off"
+          placeholder={LOCATION_PLACEHOLDER[meetingType] ?? LOCATION_PLACEHOLDER.FLEXIBLE}
+          error={errors.location?.message}
+          {...register("location")}
+        />
+      </div>
+    </>
+  );
+}
+
+export function ReadOnlyFact({ label, value }) {
+  return (
+    <div className="group-editor__fact group-editor__fact--readonly">
+      <span className="group-editor__fact-label">{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function DayChip({ day, label, register, short }) {
+  const tone = day === "SATURDAY" ? " is-saturday" : day === "SUNDAY" ? " is-sunday" : "";
+  return (
+    <label className={`group-editor__day-chip${tone}`}>
+      {/* The chip shows 월 but must announce 월요일, so the name lives on the input. */}
+      <input aria-label={label} type="checkbox" value={day} {...register("daysOfWeek")} />
+      <span aria-hidden="true">{short}</span>
+    </label>
   );
 }
 
 export function RecurringScheduleFields({
   errors,
-  mode = "regular",
-  onModeChange,
   onQuickSelect,
   register,
-  selectedDays = [],
-  showModeSelector = false,
-  compact = false
+  selectedDays = []
 }) {
+  const flexible = selectedDays.length === 0;
+
   return (
-    <div className="group-editor__schedule-fields-wrap">
-      {showModeSelector ? (
-        <fieldset className="group-editor__schedule-type">
-          <legend>일정 유형</legend>
-          <div className="group-editor__schedule-type-options">
-            <Radio
-              checked={mode === "regular"}
-              label="정기 일정"
-              name="recurring-schedule-type"
-              onChange={() => onModeChange?.("regular")}
-              value="regular"
-            />
-            <Radio
-              checked={mode === "flexible"}
-              label="유동적"
-              name="recurring-schedule-type"
-              onChange={() => onModeChange?.("flexible")}
-              value="flexible"
-            />
-          </div>
-        </fieldset>
+    <fieldset className="group-editor__schedule-fields">
+      <legend className="group-editor__visually-hidden">활동 일정</legend>
+
+      <div className="group-editor__quick-days" aria-label="요일 빠른 선택" role="group">
+        {QUICK_PRESETS.map(([label, days]) => {
+          const active = sameDays(selectedDays, days);
+          return (
+            <button
+              aria-pressed={active}
+              className={active ? "is-active" : ""}
+              key={label}
+              onClick={() => onQuickSelect(active ? [] : days)}
+              type="button"
+            >
+              {label}
+            </button>
+          );
+        })}
+        <span className="group-editor__quick-divide" aria-hidden="true" />
+        <button
+          aria-pressed={flexible}
+          className={`group-editor__quick-flexible${flexible ? " is-active" : ""}`}
+          onClick={() => onQuickSelect([])}
+          type="button"
+        >
+          유동적
+        </button>
+      </div>
+
+      <div className="group-editor__day-grid" aria-label="활동 요일" role="group">
+        {DAYS.map(([day, label, short]) => (
+          <DayChip day={day} key={day} label={label} register={register} short={short} />
+        ))}
+      </div>
+
+      {flexible ? (
+        <p className="group-editor__schedule-flexible-note">
+          요일을 고르지 않으면 <strong>유동적 일정</strong>으로 저장돼요. 시간은 사용하지 않아요.
+        </p>
       ) : null}
 
-      {mode === "regular" || !showModeSelector ? (
-        <fieldset className="group-editor__schedule-fields">
-          <legend>{compact ? "정기 일정" : "매주 만나는 일정"}</legend>
-          <p className="group-editor__field-note">활동 요일을 모두 선택해 주세요.</p>
-          {showModeSelector ? (
-            <div className="group-editor__quick-days" aria-label="요일 빠른 선택">
-              <button
-                aria-pressed={sameDays(selectedDays, WEEKDAYS)}
-                className={sameDays(selectedDays, WEEKDAYS) ? "is-active" : ""}
-                onClick={() => onQuickSelect?.(WEEKDAYS)}
-                type="button"
-              >
-                평일
-              </button>
-              <button
-                aria-pressed={sameDays(selectedDays, WEEKENDS)}
-                className={sameDays(selectedDays, WEEKENDS) ? "is-active" : ""}
-                onClick={() => onQuickSelect?.(WEEKENDS)}
-                type="button"
-              >
-                주말
-              </button>
-            </div>
-          ) : null}
-          <div className="group-editor__day-grid">
-            {DAYS.map(([value, label]) => (
-              <Checkbox key={value} label={label} value={value} {...register("daysOfWeek")} />
-            ))}
-          </div>
-          {errors.daysOfWeek?.message ? (
-            <p className="group-editor__error" role="alert">
-              {errors.daysOfWeek.message}
-            </p>
-          ) : null}
-          <div className="group-editor__time-grid">
-            <TextField
-              label="시작 시간"
-              type="time"
-              error={errors.startTime?.message}
-              {...register("startTime")}
-            />
-            <TextField
-              label="종료 시간"
-              type="time"
-              error={errors.endTime?.message}
-              {...register("endTime")}
-            />
-          </div>
-        </fieldset>
-      ) : (
-        <p className="group-editor__schedule-flexible-note">
-          정해진 요일과 시간이 없는 일정이에요.
+      {errors.daysOfWeek?.message ? (
+        <p className="group-editor__error" role="alert">
+          {errors.daysOfWeek.message}
         </p>
-      )}
-    </div>
+      ) : null}
+
+      <div className="group-editor__time-grid">
+        <TextField
+          label="시작 시간"
+          type="time"
+          error={errors.startTime?.message}
+          {...register("startTime")}
+        />
+        <TextField
+          label="종료 시간"
+          type="time"
+          error={errors.endTime?.message}
+          {...register("endTime")}
+        />
+      </div>
+    </fieldset>
   );
 }
 
 export function SessionScheduleFields({ errors, register }) {
   return (
     <fieldset className="group-editor__schedule-fields">
-      <legend>한 번 만나는 일정</legend>
+      <legend className="group-editor__visually-hidden">한 번 만나는 일정</legend>
       <TextField
         label="진행 날짜"
         type="date"
