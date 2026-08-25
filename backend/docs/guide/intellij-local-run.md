@@ -71,7 +71,17 @@ cp backend/.env.example backend/.env
 | `ACCESS_TOKEN_SECRET` | 32자 이상 문자열 | 필수 |
 | `GITHUB_OAUTH_CLIENT_ID` | 빈 값 | GitHub 로그인 테스트 시 입력 |
 | `GITHUB_OAUTH_CLIENT_SECRET` | 빈 값 | GitHub 로그인 테스트 시 입력 |
-| `GITHUB_OAUTH_REDIRECT_URI` | `http://localhost:8080/api/oauth/github/callback` | GitHub OAuth callback 주소 |
+| `GITHUB_OAUTH_REDIRECT_URI` | `http://localhost:5173/api/oauth/github/callback` | GitHub OAuth callback 주소 |
+
+GitHub 앱에는 callback URL을 여러 개 등록할 수 있습니다. 현재 등록된 값은 다음과 같습니다.
+`GITHUB_OAUTH_REDIRECT_URI`와 프론트엔드의 `APP_GITHUB_REDIRECT_URI`는 이 중 하나와 글자까지
+같아야 하고, 두 값이 서로 달라도 GitHub이 `redirect_uri_mismatch`로 거절합니다.
+
+| 등록된 주소 | 대상 |
+| --- | --- |
+| `http://localhost:5173/api/oauth/github/callback` | 로컬 프론트엔드 개발 서버 |
+| `http://localhost:8080/api/oauth/github/callback` | 로컬 백엔드 |
+| `https://jarihana.com/api/oauth/github/callback` | 운영 |
 
 `ACCESS_TOKEN_SECRET`은 HMAC-SHA256 서명 키로 쓰이며 **32자(256비트) 이상이어야 합니다.**
 `JwtProperties`에 `@NotBlank`, `@Size(min = 32)`가 걸려 있어 조건을 어기면 어떤 값이

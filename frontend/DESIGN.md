@@ -86,9 +86,9 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - Radius: small `8`, medium `14`, large `20`, pill `999`.
 - Footer Contact us block: `--footer-contact-max-width` `22rem` max width on desktop/tablet.
 - Container: 구현 token `--container-shell`은 `1360px`이다. `PageContainer`는 360px에서는
-  `20px`, 768px 이상에서는 `32px` gutter를 사용한다. 탐색 페이지의 1024px 이상 desktop rail은
-  카드 grid의 좌우 변을 기준으로 `--groups-page-shell`과 `--groups-page-rail-gutter`를 공유한다.
-  form 화면은 각 페이지가 별도로 좁은 읽기 폭을 둔다.
+  20px, 768px 이상에서는 32px gutter를 사용한다. 탐색 페이지의 1024px 이상 desktop rail은 카드 grid의 좌우 변을 
+  기준으로 --groups-page-shell과 --groups-page-rail-gutter를 공유한다. form 화면은 각 페이지가 별도로 좁은 읽기 폭을 둔다. 
+  group detail은 대표 이미지와 모집 rail을 함께 보여 주는 넓은 화면에서만 1600px 상한을 사용해 기본 shell보다 여유 있게 펼치되, viewport 끝까지 늘어나지는 않는다.
 - Border: `--border-thin`(1px)과 `--border-strong`(2px)을 사용한다. 기본 surface 경계는
   thin, 탐색 입력의 강조 하단선 같은 의도적 emphasis만 strong을 사용한다.
 - Touch: `--touch-target`은 44px, `--touch-target-lg`는 48px이다. button, navigation,
@@ -136,16 +136,24 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   `/groups` 탐색 링크를 동시에 활성화하거나, `/my/groups`에서 `/my`를 동시에 활성화하지 않는다.
 - `PageContainer`: 모든 route의 좌우 gutter와 최대 폭을 통일한다.
 - `ListLayout`: PageHeader → search/filter → result meta → cards → cursor action. 한 화면 안의 hero,
-  tool row, result heading, card grid는 카드 grid의 좌우 변을 기준으로 동일한 desktop rail을 공유한다.
-  탐색 discovery는 hero와 분리된 soft surface 안에 배치하며, result meta는 `자리 둘러보기`
-  제목 바로 오른쪽에 둔다. 검색과 필터는 하나의 control panel로 묶고, `모임 유형`,
-  `모임 상태`, `모집 상태`라는 추상화된 native select 세 개로 노출한다.
-  탐색 hero의 display copy는 `크루와` / `함께할 자리를` / `찾아보세요` 세 줄을 모든 viewport에서
-  유지하되, 접근성 이름은 한 문장으로 제공한다.
+   tool row, result heading, card grid는 `PageContainer`의 동일한 좌우 rail을 공유하며,
+   카드 grid의 좌우 변을 기준으로 정렬한다. 탐색 discovery는 hero와 분리된 soft surface 안에
+   배치하며, result meta는 `자리 둘러보기` 제목 바로 오른쪽에 둔다. 검색과 필터는 하나의
+   control panel로 묶고, `모임 유형`, `모임 상태`, `모집 상태`라는 추상화된 native select
+   세 개로 노출한다.
+   
+   탐색 hero의 display copy는 `크루와` / `함께할 자리를` / `찾아보세요` 세 줄을 모든
+   viewport에서 유지하되, 접근성 이름은 한 문장으로 제공한다.
 - 탐색 hero는 `src/shared/assets/brand/jarihana-signature.png`를 교체 가능한 signature art로
   사용하며, 헤더 mark는 `src/shared/assets/brand/jarihana-favicon.png`를 교체 지점으로 사용한다.
-- `DetailLayout`: group detail은 desktop 본문 + sticky recruitment rail, tablet 이하에서는
-  순차 single column이다. detail tabs는 content section을 바꾸지만 URL route는 detail에 남긴다.
+- `DetailLayout`: group detail은 desktop에서 본문 + sticky support rail 구조를 사용하며
+  전체 폭은 `1600px`를 넘지 않는다. support rail은 운영자 프로필 카드 다음에 모집 정보 카드를
+  배치한다. tablet 이하에서는 순차 single column으로 전환한다.
+- rail이 숨는 tablet/mobile에서는 운영자 프로필을 hero 안의 프레임 없는 byline으로 옮긴다.
+  민트 ring의 compact avatar와 `운영자 · N기 크루` caption, 이름을 한 덩어리로 묶되 별도의
+  card·chip·배경은 만들지 않고 hero 자체 overlay 위에 직접 배치한다.
+- 모집 정보만 floating modal로 제공하며, detail tabs는 content section을 바꾸지만
+  URL route는 detail에 남긴다.
 - `FormLayout`: group editor는 `1100px` content target 안에 mint hero, white form panels,
   step title/illustration과 하단 action bar를 둔다. 1024px 미만에서는 hero의 text/visual을
   세로로 쌓고, mobile day picker는 2 columns로 줄인다.
@@ -191,7 +199,9 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   인원 chip을 구성한다. rail segment는 hover와 keyboard focus에서 `N기 · M명` preview를 제공한다.
   생성 전 화면은 아직 groupId가 없으므로 멤버를 꾸며내지 않고 생성 후 확인 가능 상태를 표시한다.
 - Badges: 상태색의 soft surface + 고대비 text, pill shape.
-- Tabs: route 또는 상태와 연결된 semantic tablist. 모바일은 가로 scroll하되 page 자체 overflow는 막는다.
+- Tabs: route 또는 상태와 연결된 semantic tablist. 선택 underline 하나가 새 tab 위치로 이동하고
+  panel은 짧게 fade/translate되어 공간 연속성을 전달한다. 모바일은 가로 scroll하되 page 자체
+  overflow는 막는다.
 - Modal/Dialog: 중앙 dialog 또는 오른쪽 drawer를 사용한다. focus trap, Escape, focus restore를
   공통 동작으로 제공한다.
 - Toast: 성공/오류를 `aria-live`, 최대 3개 stack으로 알리고 2,000ms 후 자동 닫힘과 수동 닫기
@@ -215,7 +225,8 @@ long Korean copy, empty/skeleton을 검수한다. production navigation에는 �
 ## 6. Interaction and motion
 
 - Fast `120ms`, base `180ms`, deliberate `240ms`; easing `cubic-bezier(.2,.8,.2,1)`.
-- Button은 색/1px translate 변화만, 카드 hover는 2px 이내 상승, tabs는 color와 underline 전환.
+- Button은 색/1px translate 변화만, 카드 hover는 2px 이내 상승한다. tabs의 단일 underline은
+  `180ms` transform으로 새 위치에 이동하고 panel은 opacity + 8px translate로 진입한다.
 - Header와 route/content tabs의 underline은 현재 목적지/패널 하나에만 표시한다. Select chevron은
   열 수 있는 control임을 상시 알리며, 기수 rail preview는 hover와 focus에서 같은 정보를 제공한다.
 - Toast는 2,000ms 후 180ms 동안 opacity와 transform으로 부드럽게 퇴장한 뒤 제거되며, 사용자가

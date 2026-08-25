@@ -79,6 +79,10 @@ export default (_, arguments_) => {
           {
             from: path.resolve(directory, "public/manifest.webmanifest"),
             to: "manifest.webmanifest"
+          },
+          {
+            from: path.resolve(directory, "public/images"),
+            to: "images"
           }
         ]
       }),
@@ -100,8 +104,7 @@ export default (_, arguments_) => {
       proxy: [
         {
           changeOrigin: true,
-          context: ["/api", "/images"],
-          pathRewrite: { "^/api": "" },
+          context: ["/api"],
           target: "http://localhost:8080"
         }
       ],

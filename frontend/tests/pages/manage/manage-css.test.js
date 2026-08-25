@@ -24,7 +24,10 @@ describe("management text color tokens", () => {
   it("uses the final2 operational density and reflows before tablet labels become narrow", () => {
     expect(manageCss).toContain(".manage-page--dashboard");
     expect(manageCss).toContain(".manage-status-filters");
+    expect(manageCss).toContain(".manage-status-select");
     expect(manageCss).toContain(".manage-registration-card");
+    expect(manageCss).toContain(".manage-recruitment-approved-members");
+    expect(manageCss).toContain(".manage-page--registrations .ui-state--neutral .ui-state__mark");
     expect(manageCss).toContain("background: transparent");
     expect(manageCss).toContain("@media (max-width: 64rem)");
     expect(manageCss).toContain("--manage-rail-min");
