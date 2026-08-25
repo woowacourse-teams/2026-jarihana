@@ -13,22 +13,24 @@ import {
   useReplaceSessionSchedule,
   useTerminateGroup
 } from "../../features/group/index.js";
-import { Button, ConfirmDialog, ErrorState, Skeleton, useToast } from "../../shared/ui/index.js";
 import {
-  GroupContentTabs,
-  GroupTypeField,
-  MeetingFields,
-  OverviewFields,
-  ReadOnlyFact,
-  RecurringScheduleFields,
-  SessionScheduleFields
-} from "./GroupEditorFields.jsx";
+  Button,
+  ConfirmDialog,
+  ErrorState,
+  GroupImage,
+  Skeleton,
+  Tabs,
+  useToast
+} from "../../shared/ui/index.js";
+import { scheduleLines, typeLabel } from "../groups/pageUtils.js";
+import { ReadOnlyFact, ScheduleFact, UnderlineField, UnderlineSelect } from "./EditorFields.jsx";
 import { GroupMembersPanel } from "./GroupMembersPanel.jsx";
 import { MarkdownEditor } from "./MarkdownEditor.jsx";
-import { RepresentativeImage } from "./RepresentativeImage.jsx";
+import { ScheduleDialog } from "./ScheduleDialog.jsx";
 import { useSubmissionLock } from "./useSubmissionLock.js";
 import { ManagementContext } from "../manage/ManagementContext.jsx";
 import "../manage/manage.css";
+import "../groups/groups.css";
 
 const timeSchema = z.string().regex(/^\d{2}:\d{2}$/, "시간을 입력해 주세요.");
 
@@ -65,7 +67,6 @@ const manageSchema = z
   });
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const GROUP_TYPE_LABEL = { CLUB: "동아리", SESSION: "세션", STUDY: "스터디" };
 const DEFAULT_TIMES = { endTime: "21:00", startTime: "19:00" };
 
 function timeValue(value) {
@@ -96,7 +97,6 @@ function sameSchedule(before, after) {
   return JSON.stringify(before) === JSON.stringify(after);
 }
 
-/* The saved schedule, in the shape the schedule endpoints expect. */
 function currentRecurring(group) {
   const recurring = group.recurringSchedule;
   if (!recurring) return null;
@@ -138,13 +138,16 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const saveLock = useSubmissionLock();
   const lifecycleLock = useSubmissionLock();
   const [contentTab, setContentTab] = useState("intro");
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+
   const {
     control,
+    formState: { errors },
     handleSubmit,
     register,
     reset,
     setValue,
-    formState: { errors }
+    trigger
   } = useForm({
     resolver: zodResolver(manageSchema),
     defaultValues: {
@@ -159,9 +162,10 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
       ...DEFAULT_TIMES
     }
   });
-  const description = useWatch({ control, name: "description" }) ?? "";
-  const meetingType = useWatch({ control, name: "meetingType" });
-  const daysOfWeek = useWatch({ control, name: "daysOfWeek" }) ?? [];
+
+  const values = useWatch({ control });
+  const description = values.description ?? "";
+  const daysOfWeek = values.daysOfWeek ?? [];
   const group = groupQuery.data;
 
   useEffect(() => {
@@ -186,44 +190,43 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
     );
   }
 
+  const isSession = group.type === "SESSION";
   const age = now.getTime() - new Date(group.createdAt).getTime();
   const canDelete = age >= 0 && age <= DAY_MS;
   const lifecycleVerb = canDelete ? "삭제" : "종료";
   const savePending = saveLock.pending || modifyMutation.isPending;
 
-  function selectQuickDays(days) {
-    setValue("daysOfWeek", days, {
-      shouldDirty: true,
-      shouldTouch: true,
-      shouldValidate: true
-    });
+  function selectPreset(days) {
+    setValue("daysOfWeek", days, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
   }
 
-  /*
-   * Overview and schedule live on separate endpoints, so one save may need two
-   * requests. The schedule call is skipped when nothing about it changed.
-   */
-  async function saveSchedule(values) {
-    if (group.type === "SESSION") {
+  async function confirmSchedule(event) {
+    event.preventDefault();
+    const fields = isSession ? ["sessionDate", "startTime", "endTime"] : ["startTime", "endTime"];
+    if (!(await trigger(fields))) return;
+    setScheduleOpen(false);
+  }
+
+  /* 저장은 한 번이지만 일정은 별도 엔드포인트라, 바뀌었을 때만 두 번째 요청이 나간다. */
+  async function saveSchedule(formValues) {
+    if (isSession) {
       const next = {
-        sessionDate: values.sessionDate,
-        startTime: values.startTime,
-        endTime: values.endTime
+        sessionDate: formValues.sessionDate,
+        startTime: formValues.startTime,
+        endTime: formValues.endTime
       };
       if (sameSchedule(currentSession(group), next)) return;
       await sessionMutation.mutateAsync(next);
       return;
     }
-
-    const next = values.daysOfWeek.length
+    const next = formValues.daysOfWeek.length
       ? {
-          daysOfWeek: values.daysOfWeek,
-          startTime: values.startTime,
-          endTime: values.endTime
+          daysOfWeek: formValues.daysOfWeek,
+          startTime: formValues.startTime,
+          endTime: formValues.endTime
         }
       : null;
-    const before = currentRecurring(group);
-    if (sameSchedule(before, next)) return;
+    if (sameSchedule(currentRecurring(group), next)) return;
     if (next) {
       await recurringMutation.mutateAsync(next);
       return;
@@ -231,17 +234,17 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
     await removeRecurringMutation.mutateAsync();
   }
 
-  const save = handleSubmit(async (values) => {
+  const save = handleSubmit(async (formValues) => {
     await saveLock.run(async () => {
       try {
         await modifyMutation.mutateAsync({
-          name: values.name.trim(),
-          introduction: values.introduction.trim(),
-          description: values.description,
-          meetingType: values.meetingType,
-          location: values.location.trim() || null
+          name: formValues.name.trim(),
+          introduction: formValues.introduction.trim(),
+          description: formValues.description,
+          meetingType: formValues.meetingType,
+          location: formValues.location.trim() || null
         });
-        await saveSchedule(values);
+        await saveSchedule(formValues);
         toast.show({ title: "모임 정보를 저장했어요.", tone: "success" });
         navigate(`/groups/${groupId}`, { replace: true });
       } catch (error) {
@@ -271,108 +274,168 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
     });
   }
 
+  const summary = scheduleLines({
+    type: group.type,
+    recurringSchedule: daysOfWeek.length
+      ? { daysOfWeek, startTime: values.startTime, endTime: values.endTime }
+      : null,
+    sessionSchedule: isSession
+      ? {
+          sessionDate: values.sessionDate,
+          startTime: values.startTime,
+          endTime: values.endTime
+        }
+      : null
+  });
+
   return (
     <div className="manage-page manage-page--editor">
       <ManagementContext active="overview" groupId={groupId} />
       <div className="group-editor group-editor--embedded">
-        <form className="group-editor__overview-form" id="group-overview-form" onSubmit={save} noValidate>
-          <section className="group-editor__hero" aria-label="모임 기본 정보">
-            <div className="group-editor__hero-fields">
-              <GroupTypeField lockedLabel={GROUP_TYPE_LABEL[group.type]} register={register} />
-              <OverviewFields
-                className="group-editor__overview-fields--hero"
-                errors={errors}
-                register={register}
+        <form id="group-overview-form" onSubmit={save} noValidate>
+          <section aria-label="모임 기본 정보" className="group-profile group-editor__profile">
+            <div className="group-profile__copy">
+              <p className="groups-eyebrow group-profile__type-tag group-editor__type-static">
+                <span>{typeLabel(group.type)}</span>
+              </p>
+
+              <UnderlineField
+                className="group-editor__field--title"
+                error={errors.name?.message}
+                label="모임 이름"
+                labelHidden
+                maxLength={50}
+                registration={register("name")}
               />
-              <div className="group-editor__facts">
-                <MeetingFields errors={errors} meetingType={meetingType} register={register} />
-                <div className="group-editor__fact group-editor__fact--schedule">
-                  <span className="group-editor__fact-label">모임 일정</span>
-                  {group.type === "SESSION" ? (
-                    <SessionScheduleFields errors={errors} register={register} />
-                  ) : (
-                    <RecurringScheduleFields
-                      errors={errors}
-                      onQuickSelect={selectQuickDays}
-                      register={register}
-                      selectedDays={daysOfWeek}
-                    />
-                  )}
-                </div>
-                <ReadOnlyFact
-                  label="현재 멤버 수"
-                  value={Number.isInteger(group.memberCount) ? `${group.memberCount}명` : "확인 중"}
-                />
-                <ReadOnlyFact label="개설일" value={group.createdAt?.slice(0, 10) ?? "확인 중"} />
+              <UnderlineField
+                className="group-editor__field--intro"
+                error={errors.introduction?.message}
+                label="한 줄 소개"
+                labelHidden
+                maxLength={100}
+                registration={register("introduction")}
+              />
+
+              <div className="group-info">
+                <h2 className="group-info-title">모임 정보</h2>
+                <dl className="group-facts">
+                  <div className="group-fact group-fact--field">
+                    <div>
+                      <UnderlineSelect
+                        error={errors.meetingType?.message}
+                        label="모임 방식"
+                        registration={register("meetingType")}
+                      >
+                        <option value="OFFLINE">오프라인</option>
+                        <option value="ONLINE">온라인</option>
+                        <option value="FLEXIBLE">유동적</option>
+                      </UnderlineSelect>
+                    </div>
+                  </div>
+                  <ScheduleFact lines={summary} onEdit={() => setScheduleOpen(true)} />
+                  <div className="group-fact group-fact--field">
+                    <div>
+                      <UnderlineField
+                        error={errors.location?.message}
+                        label="장소"
+                        maxLength={255}
+                        placeholder="정해지면 입력해요"
+                        registration={register("location")}
+                      />
+                    </div>
+                  </div>
+                  <ReadOnlyFact
+                    label="현재 멤버 수"
+                    value={Number.isInteger(group.memberCount) ? `${group.memberCount}명` : "확인 중"}
+                  />
+                </dl>
               </div>
             </div>
-            <RepresentativeImage group={group} />
+            <div className="group-profile__art">
+              <GroupImage alt="" className="group-profile__image" group={group} />
+            </div>
           </section>
 
-          <GroupContentTabs onSelect={setContentTab} value={contentTab} />
-
-          {contentTab === "intro" ? (
-            <section
-              className="group-editor__panel group-editor__description-panel"
-              aria-label="모임 상세 소개"
-            >
-              <MarkdownEditor
-                description="제목, 목록, 인용, 링크, 코드 블럭 문법을 사용할 수 있어요."
-                error={errors.description?.message}
-                register={register}
-                rows={7}
-                setValue={setValue}
-                value={description}
-              />
-            </section>
-          ) : (
-            <section className="group-editor__panel group-editor__members-tab">
-              <GroupMembersPanel groupId={groupId} />
-            </section>
-          )}
+          <div className="group-detail-tabs group-editor__tabs">
+            <Tabs
+              animated
+              onValueChange={setContentTab}
+              value={contentTab}
+              items={[
+                {
+                  label: "소개",
+                  value: "intro",
+                  content: (
+                    <MarkdownEditor
+                      description="제목, 목록, 인용, 링크, 코드 블럭 문법을 사용할 수 있어요."
+                      error={errors.description?.message}
+                      register={register}
+                      rows={7}
+                      setValue={setValue}
+                      value={description}
+                    />
+                  )
+                },
+                {
+                  label: "멤버",
+                  value: "members",
+                  content: <GroupMembersPanel groupId={groupId} />
+                }
+              ]}
+            />
+          </div>
         </form>
 
         {group.status === "ACTIVE" ? (
-          <section
-            className="group-editor__editor-footer"
-            aria-label={`모임 ${lifecycleVerb} 설정`}
-          >
-            <div className="group-editor__actions">
-              <ConfirmDialog
-                trigger={
-                  <Button type="button" variant="danger">
-                    모임 {lifecycleVerb}하기
-                  </Button>
-                }
-                title={`모임을 ${lifecycleVerb}할까요?`}
-                description={
-                  canDelete
-                    ? (
-                        <>
-                          생성 후 24시간 안에는 모임을 완전히 삭제할 수 있어요.
-                          <br />
-                          되돌릴 수 없습니다.
-                          <br />
-                          정말 삭제하시겠습니까?
-                        </>
-                      )
-                    : "이 작업은 되돌릴 수 없어요. 서버에서 마지막으로 가능 여부를 확인합니다."
-                }
-                confirmLabel={canDelete ? "삭제" : `${lifecycleVerb} 확인`}
-                danger
-                pending={
-                  lifecycleLock.pending ||
-                  deleteMutation.isPending ||
-                  terminateMutation.isPending
-                }
-                onConfirm={confirmLifecycle}
-              />
-              <Button form="group-overview-form" pending={savePending} type="submit" variant="primary">
-                모임 수정하기
-              </Button>
-            </div>
+          <section aria-label={`모임 ${lifecycleVerb} 설정`} className="group-editor__actions">
+            <ConfirmDialog
+              trigger={
+                <Button type="button" variant="danger">
+                  모임 {lifecycleVerb}하기
+                </Button>
+              }
+              title={`모임을 ${lifecycleVerb}할까요?`}
+              description={
+                canDelete
+                  ? (
+                      <>
+                        생성 후 24시간 안에는 모임을 완전히 삭제할 수 있어요.
+                        <br />
+                        되돌릴 수 없습니다.
+                        <br />
+                        정말 삭제하시겠습니까?
+                      </>
+                    )
+                  : "이 작업은 되돌릴 수 없어요. 서버에서 마지막으로 가능 여부를 확인합니다."
+              }
+              confirmLabel={canDelete ? "삭제" : `${lifecycleVerb} 확인`}
+              danger
+              pending={
+                lifecycleLock.pending || deleteMutation.isPending || terminateMutation.isPending
+              }
+              onConfirm={confirmLifecycle}
+            />
+            <Button
+              form="group-overview-form"
+              pending={savePending}
+              type="submit"
+              variant="primary"
+            >
+              모임 수정하기
+            </Button>
           </section>
         ) : null}
+
+        <ScheduleDialog
+          errors={errors}
+          isSession={isSession}
+          onClose={() => setScheduleOpen(false)}
+          onPresetSelect={selectPreset}
+          onSubmit={confirmSchedule}
+          open={scheduleOpen}
+          register={register}
+          selectedDays={daysOfWeek}
+        />
       </div>
     </div>
   );

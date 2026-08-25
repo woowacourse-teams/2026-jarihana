@@ -1,28 +1,19 @@
+/*
+ * 모임 생성/수정 화면.
+ * 상세 페이지(groups.css)의 .group-profile / .group-facts 위에 입력만 얹는 구조라,
+ * 여기에는 그 위에 덧대는 규칙만 둔다. 히어로와 정보 배치는 상세 페이지 것을 그대로 쓴다.
+ */
+
 .group-editor {
-    --group-editor-icon-size: 3.5rem;
-    --group-editor-visual-width: 17.5rem;
-    --group-editor-hero-visual-height: 19.5rem;
-    --group-editor-day-min-width: 4.75rem;
     --group-editor-content-width: 68.75rem;
+    --group-editor-day-size: 2.75rem;
+    /* 주말은 빨강/파랑 대신 브랜드 계열에서 채도만 낮춰 구분한다. */
+    --group-editor-weekend: color-mix(in srgb, var(--color-brand-ink) 55%, var(--color-muted-ink));
     color: var(--color-ink);
     inline-size: min(100%, calc(var(--group-editor-content-width) + var(--space-16)));
     margin-inline: auto;
     padding-inline: var(--page-gutter);
     padding-block: var(--space-10) var(--space-16);
-}
-
-.group-editor--create {
-    position: relative;
-    isolation: isolate;
-}
-
-.group-editor--create::before {
-    position: absolute;
-    z-index: -1;
-    inset-block: 0;
-    inset-inline: calc(50% - 50vw);
-    background: var(--color-canvas);
-    content: "";
 }
 
 .group-editor--embedded {
@@ -35,167 +26,396 @@
     margin-block-end: var(--space-8);
 }
 
-.group-editor__heading p {
-    color: var(--color-brand-ink);
-    font-size: var(--text-label);
-    font-weight: 700;
-    margin: 0 0 var(--space-2);
-}
-
 .group-editor__heading h1 {
-    font-size: var(--text-h1);
     margin: 0;
+    font-size: var(--text-h1);
     overflow-wrap: break-word;
     word-break: keep-all;
 }
 
-.group-editor__content-tabs {
-    display: flex;
-    align-items: stretch;
-    gap: var(--space-8);
+.group-editor__heading-note {
+    margin: var(--space-2) 0 0;
+    padding-block-end: var(--space-5);
     border-block-end: var(--border-thin) solid var(--color-line);
+    color: var(--color-muted-ink);
+    font-size: var(--text-label);
 }
 
-.group-editor__content-tabs > * {
+.group-editor__visually-hidden,
+.group-editor__field-label.is-hidden {
+    position: absolute;
+    overflow: hidden;
+    clip-path: inset(50%);
+    inline-size: 1px;
+    block-size: 1px;
+    white-space: nowrap;
+}
+
+.group-editor__error {
+    margin: var(--space-2) 0 0;
+    color: var(--color-danger);
+    font-size: var(--text-caption);
+}
+
+/* ── 언더라인 입력 (#119 패턴) ─────────────────────────────
+ * 밑줄은 래퍼가 갖고 컨트롤은 래퍼 폭을 채운다. 밑줄을 컨트롤에 직접 걸면
+ * 밑줄이 글자 폭에서 끊기고 셀렉트 화살표 옆을 눌러도 열리지 않는다.
+ */
+
+.group-editor__field {
+    min-inline-size: 0;
+}
+
+.group-editor__field-label {
+    display: block;
+    margin-block-end: var(--space-1);
+    color: var(--color-header-muted);
+    font-size: var(--text-caption);
+    line-height: 1.35;
+}
+
+.group-editor__ul {
     position: relative;
-    display: inline-flex;
+    display: block;
+    border-block-end: var(--border-strong) solid
+        color-mix(in srgb, var(--color-surface) 32%, transparent);
+    transition: border-color var(--duration-fast) var(--ease-standard);
+}
+
+.group-editor__ul:focus-within {
+    border-block-end-color: var(--color-brand);
+}
+
+.group-editor__ul > input,
+.group-editor__ul > select {
+    inline-size: 100%;
     min-block-size: var(--touch-target);
+    padding: var(--space-2) var(--space-1);
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--color-surface);
+    font: inherit;
+    font-family: var(--font-sans);
+}
+
+.group-editor__ul > input:focus,
+.group-editor__ul > select:focus {
+    outline: 0;
+}
+
+.group-editor__ul > input::placeholder {
+    color: color-mix(in srgb, var(--color-surface) 48%, transparent);
+}
+
+.group-editor__ul--select > select {
+    appearance: none;
+    padding-inline-end: var(--space-8);
+    cursor: pointer;
+}
+
+/*
+ * 열린 목록은 OS가 흰 배경으로 그리므로 option이 select의 흰 글자색을 물려받으면
+ * 항목이 보이지 않는다. 닫힌 상태와 열린 목록의 색을 따로 지정한다.
+ */
+.group-editor__ul > select option {
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+}
+
+.group-editor__ul--select::after {
+    position: absolute;
+    inset-inline-end: var(--space-3);
+    inset-block-start: 44%;
+    inline-size: var(--space-2);
+    block-size: var(--space-2);
+    border-inline-end: var(--border-strong) solid var(--color-header-muted);
+    border-block-end: var(--border-strong) solid var(--color-header-muted);
+    transform: translateY(-50%) rotate(45deg);
+    pointer-events: none;
+    content: "";
+}
+
+.group-editor__field--title > .group-editor__ul > input {
+    font-size: clamp(1.75rem, 3vw, 2.25rem);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.2;
+}
+
+.group-editor__field--intro > .group-editor__ul > input {
+    color: var(--color-header-muted);
+    font-size: var(--text-body-lg);
+}
+
+.group-editor__type-field {
+    inline-size: fit-content;
+    min-inline-size: 8rem;
+    margin-block-end: var(--space-2);
+}
+
+.group-editor__type-field .group-editor__ul > select {
+    color: var(--color-brand);
+    font-size: var(--text-label);
+    font-weight: var(--font-weight-bold);
+}
+
+/* 수정 화면의 종류는 상세 페이지와 같은 텍스트. 밑줄이 없으니 못 고치는 값임이 읽힌다. */
+.group-editor__type-static {
+    margin-block-end: var(--space-2);
+}
+
+/* ── 히어로 위 모임 정보 ──────────────────────────────── */
+
+.group-editor__profile .group-facts {
+    align-items: start;
+    gap: var(--space-4) var(--space-5);
+}
+
+.group-editor__profile .group-fact--field,
+.group-editor__profile .group-fact--schedule,
+.group-editor__profile .group-fact--readonly {
+    display: block;
+}
+
+.group-editor__profile .group-fact--field > div,
+.group-editor__profile .group-fact--schedule > div,
+.group-editor__profile .group-fact--readonly > div {
+    min-inline-size: 0;
+}
+
+.group-editor__schedule-row {
+    display: flex;
+    inline-size: 100%;
     align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-1);
+    border: 0;
+    border-block-end: var(--border-strong) solid
+        color-mix(in srgb, var(--color-surface) 32%, transparent);
+    background: transparent;
+    color: var(--color-surface);
+    font: inherit;
+    font-size: var(--text-label);
+    text-align: start;
+    cursor: pointer;
+    transition: border-color var(--duration-fast) var(--ease-standard);
+}
+
+.group-editor__schedule-row:hover,
+.group-editor__schedule-row:focus-visible {
+    border-block-end-color: var(--color-brand);
+    outline: 0;
+}
+
+.group-editor__schedule-summary {
+    display: grid;
+    min-inline-size: 0;
+    gap: var(--space-1);
+}
+
+.group-editor__schedule-edit {
+    flex: 0 0 auto;
+    color: var(--color-brand);
+    font-size: var(--text-caption);
+    font-weight: var(--font-weight-bold);
+}
+
+.group-editor__tabs {
+    margin-block-start: var(--space-8);
+}
+
+.group-editor__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--space-3);
+    margin-block-start: var(--space-8);
+}
+
+/* ── 일정 모달 ──────────────────────────────────────── */
+
+.group-editor__schedule-dialog {
+    display: grid;
+    gap: var(--space-5);
+}
+
+.group-editor__schedule-fields {
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+/* 네 값은 서로 배타적인 하나의 선택이라 버튼 넷이 아니라 4칸 세그먼트 하나로 묶는다. */
+.group-editor__preset-seg {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow: hidden;
+    margin-block-end: var(--space-5);
+    border: var(--border-thin) solid var(--color-line);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+}
+
+.group-editor__preset-seg button {
+    min-block-size: var(--touch-target);
+    padding-inline: var(--space-2);
     border: 0;
     background: transparent;
     color: var(--color-muted-ink);
     font: inherit;
     font-size: var(--text-label);
-    font-weight: 700;
+    font-weight: var(--font-weight-bold);
+    cursor: pointer;
+    transition: background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
 }
 
-.group-editor__content-tabs button[aria-selected="true"] {
+.group-editor__preset-seg button + button {
+    border-inline-start: var(--border-thin) solid var(--color-line);
+}
+
+.group-editor__preset-seg button:hover:not([aria-pressed="true"]) {
+    background: var(--color-brand-soft);
     color: var(--color-brand-ink);
 }
 
-.group-editor__content-tabs button[aria-selected="true"]::after {
-    position: absolute;
-    inset-inline: 0;
-    inset-block-end: 0;
-    block-size: calc(var(--border-thin) * 3);
-    border-radius: var(--radius-pill);
-    background: var(--color-brand);
-    content: "";
+.group-editor__preset-seg button[aria-pressed="true"] {
+    background: var(--color-brand-ink);
+    color: var(--color-surface);
 }
 
-.group-editor__content-tabs button[disabled] {
-    cursor: not-allowed;
-    opacity: 0.72;
+.group-editor__schedule-dialog .group-editor__field-label {
+    margin-block-end: var(--space-2);
+    color: var(--color-muted-ink);
 }
 
-.group-editor__content-tabs {
-    margin-block: var(--space-6) var(--space-5);
+.group-editor__day-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
 }
 
-.group-editor__content-tabs button {
+.group-editor__day-chip {
+    position: relative;
+    display: block;
     cursor: pointer;
 }
 
-.group-editor__content-tabs button[disabled] {
-    cursor: not-allowed;
-}
-
-.group-editor__visually-hidden {
-    block-size: var(--border-thin);
-    clip-path: inset(50%);
-    inline-size: var(--border-thin);
-    overflow: hidden;
+.group-editor__day-chip input {
     position: absolute;
-    white-space: nowrap;
+    inline-size: 1px;
+    block-size: 1px;
+    opacity: 0;
+    pointer-events: none;
 }
 
-.group-editor__hero,
-.group-editor__panel {
-    background: var(--color-surface);
-    border: var(--border-thin) solid var(--color-line);
-    border-radius: var(--radius-lg);
-    margin-block-end: var(--space-8);
-    padding: var(--space-8);
-}
-
-.group-editor__hero {
-    background: var(--color-brand-soft);
+.group-editor__day-chip > span {
     display: grid;
-    gap: var(--space-8);
-    grid-template-columns: minmax(0, 0.9fr) minmax(var(--group-editor-visual-width), 1.1fr);
-}
-
-.group-editor__overview-form {
-    margin: 0;
-}
-
-.group-editor__overview-form .group-editor__hero {
-    margin-block-end: var(--space-4);
-}
-
-.group-editor__hero-fields {
-    align-self: center;
-    min-inline-size: 0;
-}
-
-.group-editor__type-tag {
-    background: var(--color-surface);
-    border: var(--border-thin) solid var(--color-line);
-    border-radius: var(--radius-sm);
-    color: var(--color-brand-ink);
-    display: inline-flex;
-    font-size: var(--text-label);
-    font-weight: 700;
-    padding: var(--space-2) var(--space-3);
-}
-
-.group-editor__schedule-fields legend {
-    font-size: var(--text-h2);
-    font-weight: 700;
-    margin: 0;
-}
-
-.group-editor__overview-fields {
-    display: grid;
-    gap: var(--space-4);
-    min-inline-size: 0;
-}
-
-.group-editor__overview-fields > label:last-child {
-    margin-block-start: var(--space-2);
-}
-
-.group-editor__overview-fields--hero input[name="name"] {
-    font-size: var(--text-h1);
-    font-weight: 700;
-}
-
-.group-editor__image-panel {
-    align-items: center;
-    background: color-mix(in srgb, var(--color-surface) 82%, transparent);
-    border-radius: var(--radius-md);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    min-block-size: var(--group-editor-hero-visual-height);
-    overflow: hidden;
-    padding: var(--space-4) var(--space-6);
-    text-align: center;
-}
-
-.group-editor__representative-image {
-    block-size: 15rem;
-    border-radius: var(--radius-md);
-    inline-size: 100%;
-    object-fit: contain;
-    background: var(--color-surface);
-}
-
-.group-editor__schedule-fields {
-    border: 0;
-    margin: 0;
+    inline-size: var(--group-editor-day-size);
+    block-size: var(--group-editor-day-size);
+    place-items: center;
     padding: 0;
+    border: var(--border-thin) solid var(--color-line);
+    border-radius: 50%;
+    background: var(--color-surface);
+    color: var(--color-muted-ink);
+    font-size: var(--text-label);
+    font-weight: var(--font-weight-bold);
+    line-height: 1;
+    transition: background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
 }
+
+.group-editor__day-chip:hover > span {
+    border-color: var(--color-brand-ink);
+}
+
+/* 흰 글자를 쓰려면 채움이 진해야 한다. 브랜드 teal 위 흰 글자는 2.2:1로 미달이다. */
+.group-editor__day-chip input:checked + span {
+    border-color: var(--color-brand-ink);
+    background: var(--color-brand-ink);
+    color: var(--color-surface);
+}
+
+.group-editor__day-chip.is-weekend > span {
+    color: var(--group-editor-weekend);
+}
+
+.group-editor__day-chip.is-weekend:hover > span,
+.group-editor__day-chip.is-weekend input:checked + span {
+    border-color: var(--group-editor-weekend);
+}
+
+.group-editor__day-chip.is-weekend input:checked + span {
+    background: var(--group-editor-weekend);
+    color: var(--color-surface);
+}
+
+/*
+ * 프리셋이 켜져 있을 때 선택되지 않은 요일은 흐리게만 둔다. 잠그면
+ * 평일 + 토요일 같은 조합에 도달할 수 없어서, 지름길이 제약이 되어 버린다.
+ */
+.group-editor__day-chip.is-dimmed > span {
+    opacity: 0.4;
+}
+
+.group-editor__day-chip input:focus-visible + span {
+    outline: var(--border-strong) solid var(--color-brand);
+    outline-offset: var(--space-1);
+}
+
+.group-editor__schedule-note {
+    margin-block: var(--space-3) 0;
+    color: var(--color-muted-ink);
+    font-size: var(--text-caption);
+}
+
+.group-editor__schedule-dialog .group-editor__ul {
+    border-block-end-color: var(--color-line);
+}
+
+.group-editor__schedule-dialog .group-editor__ul > input,
+.group-editor__schedule-dialog .group-editor__ul > select {
+    color: var(--color-ink);
+}
+
+.group-editor__time-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-4);
+    margin-block-start: var(--space-5);
+}
+
+.group-editor__schedule-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+@media (max-width: 47.9375rem) {
+    .group-editor {
+        padding-block: var(--space-8) var(--space-12);
+    }
+
+    .group-editor__time-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .group-editor__actions {
+        flex-direction: column-reverse;
+    }
+
+    .group-editor__actions > * {
+        inline-size: 100%;
+    }
+}
+
+/* ── 멤버 패널과 마크다운 에디터 (기존 규칙 보존) ─────────── */
+
+
+/* ── 멤버 패널과 마크다운 에디터 (기존 규칙 보존) ─────────── */
 
 .group-editor__description-heading {
     align-items: center;
@@ -260,10 +480,6 @@
 
 .group-editor__markdown-preview .ui-markdown {
     min-block-size: inherit;
-}
-
-.group-editor__members-tab {
-    min-inline-size: 0;
 }
 
 .group-members-panel {
@@ -517,73 +733,7 @@
     --cohort-color: var(--color-cohort-5);
 }
 
-.group-editor__editor-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-4);
-    margin-block-start: var(--space-3);
-    color: var(--color-muted-ink);
-    font-size: var(--text-caption);
-}
-
-.group-editor__editor-footer .group-editor__actions {
-    margin-inline-start: auto;
-}
-
-.group-editor__schedule-fields legend {
-    margin-block-end: var(--space-2);
-}
-
-.group-editor__time-grid {
-    display: grid;
-    gap: var(--space-4);
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin-block-start: var(--space-4);
-}
-
-.group-editor__error {
-    color: var(--color-danger);
-    font-size: var(--text-caption);
-    margin-block: calc(var(--space-4) * -1) var(--space-4);
-}
-
-.group-editor__actions {
-    display: flex;
-    gap: var(--space-3);
-    justify-content: flex-end;
-}
-
-@media (max-width: 63.9375rem) {
-    .group-editor__hero {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .group-editor__image-panel {
-        min-block-size: calc(var(--group-editor-hero-visual-height) - var(--space-16));
-    }
-
-}
-
 @media (max-width: 47.9375rem) {
-    .group-editor {
-        padding-block: var(--space-8) var(--space-12);
-    }
-
-    .group-editor__hero,
-    .group-editor__panel {
-        border-radius: var(--radius-md);
-        padding: var(--space-5);
-    }
-
-    .group-editor__content-tabs {
-        gap: var(--space-6);
-        overflow-x: auto;
-    }
-
-    .group-editor__time-grid {
-        grid-template-columns: minmax(0, 1fr);
-    }
 
     .group-editor__heading,
     .group-editor__description-heading,
@@ -591,12 +741,6 @@
     .group-editor__actions button {
         overflow-wrap: break-word;
         word-break: keep-all;
-    }
-
-    .group-editor__actions,
-    .group-editor__editor-footer {
-        align-items: stretch;
-        flex-direction: column;
     }
 
     .group-members-panel--pending {
@@ -615,15 +759,6 @@
         grid-template-columns: minmax(0, 1fr);
     }
 
-    .group-editor__editor-footer .group-editor__actions {
-        inline-size: 100%;
-        margin-inline-start: 0;
-    }
-
-    .group-editor__actions > * {
-        inline-size: 100%;
-    }
-
     .group-editor__description-heading {
         align-items: flex-start;
         gap: var(--space-4);
@@ -632,118 +767,6 @@
     .group-editor__description-tools {
         flex-direction: column;
     }
-}
-
-/* Figma-aligned layout for the existing group management editor only. */
-.manage-page--editor {
-    --group-editor-content-width: 67rem;
-    max-width: calc(var(--container-shell) - var(--space-8));
-}
-
-.manage-page--editor .group-editor--embedded {
-    inline-size: min(100%, var(--group-editor-content-width));
-    margin-inline: auto;
-}
-
-.manage-page--editor .group-editor__hero {
-    min-block-size: 23.5rem;
-    grid-template-columns: minmax(0, 0.81fr) minmax(0, 1fr);
-    gap: var(--space-5);
-    padding: var(--space-5);
-    border: 0;
-    border-radius: var(--radius-lg);
-    background: var(--color-brand-soft);
-    box-shadow: 0 0.25rem 0.375rem rgb(29 29 31 / 14%);
-}
-
-.manage-page--editor .group-editor__hero-fields {
-    align-self: stretch;
-    display: flex;
-    min-inline-size: 0;
-    flex-direction: column;
-    justify-content: flex-start;
-}
-
-.manage-page--editor .group-editor__type-tag--locked {
-    border-color: var(--color-line);
-    background: var(--color-canvas);
-    color: var(--color-muted-ink);
-    cursor: not-allowed;
-}
-
-.manage-page--editor .group-editor__image-panel {
-    min-block-size: 20.5rem;
-    align-items: stretch;
-    justify-content: space-between;
-    padding: var(--space-4) var(--space-5);
-    border-radius: var(--radius-md);
-    background: linear-gradient(110deg, #e6f7f3 0%, #ffffff 72%);
-    text-align: start;
-}
-
-.manage-page--editor .group-editor__image-art {
-    display: grid;
-    min-block-size: 0;
-    flex: 1;
-    place-items: center;
-}
-
-.manage-page--editor .group-editor__representative-image {
-    display: block;
-    block-size: 100%;
-    max-block-size: 15.5rem;
-    inline-size: 100%;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    object-fit: contain;
-}
-
-.manage-page--editor .group-editor__image-footer {
-    display: flex;
-    align-items: end;
-    justify-content: space-between;
-    gap: var(--space-3);
-    margin-block-start: var(--space-2);
-}
-
-.manage-page--editor .group-editor__image-panel strong {
-    margin: 0;
-    font-size: var(--text-h3);
-    line-height: 1.3;
-    overflow-wrap: anywhere;
-}
-
-.manage-page--editor .group-editor__image-change {
-    display: inline-flex;
-    min-block-size: 2.25rem;
-    align-items: center;
-    gap: var(--space-2);
-    flex: 0 0 auto;
-    padding: var(--space-2) var(--space-3);
-    border: var(--border-thin) solid var(--color-line);
-    border-radius: var(--radius-pill);
-    background: var(--color-surface);
-    color: var(--color-muted-ink);
-    font: inherit;
-    font-size: var(--text-caption);
-    font-weight: 700;
-    cursor: pointer;
-}
-
-.manage-page--editor .group-editor__image-change img {
-    block-size: 1rem;
-    inline-size: 1rem;
-    opacity: 0.6;
-}
-
-.manage-page--editor .group-editor__image-panel p {
-    margin-block-start: var(--space-2);
-    font-size: var(--text-caption);
-    line-height: 1.4;
-}
-
-.manage-page--editor .group-editor__content-tabs {
-    margin-block: var(--space-6) var(--space-5);
 }
 
 .manage-page--editor .group-editor__description-panel {
@@ -771,11 +794,6 @@
     overflow: hidden;
 }
 
-.manage-page--editor .group-editor__editor-footer {
-    align-items: end;
-    margin-block-start: var(--space-3);
-}
-
 .manage-page--editor .group-editor__markdown-preview {
     min-block-size: 10.25rem;
     padding: var(--space-4);
@@ -785,38 +803,13 @@
     background: transparent;
 }
 
-@media (max-width: 63.9375rem) {
-    .manage-page--editor .group-editor__hero {
-        min-block-size: auto;
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .manage-page--editor .group-editor__image-panel {
-        min-block-size: 18rem;
-    }
-}
-
 @media (max-width: 47.9375rem) {
-    .manage-page--editor .group-editor__hero {
-        gap: var(--space-4);
-        padding: var(--space-4);
-    }
-
-    .manage-page--editor .group-editor__image-footer {
-        align-items: stretch;
-        flex-direction: column;
-    }
-
-    .manage-page--editor .group-editor__image-change {
-        justify-content: center;
-    }
 
     .manage-page--editor .group-editor__description-panel {
         padding: var(--space-4);
     }
 }
 
-/* Match the detail page's member list and cohort donut arrangement. */
 .manage-page--editor .group-members-panel {
     grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr);
     gap: var(--space-4) var(--space-8);
@@ -1041,296 +1034,6 @@
     }
 }
 
-/* ── 히어로 편집 필드 ─────────────────────────────────────── */
-
-.group-editor {
-    /* 토요일 파랑은 요일 칩 전용이라 전역 토큰 대신 여기에 둔다. */
-    --group-editor-saturday: #2a6db8;
-    --group-editor-day-size: 2.625rem;
-}
-
-.group-editor__heading-note {
-    margin: var(--space-2) 0 0;
-    padding-block-end: var(--space-5);
-    border-block-end: var(--border-thin) solid var(--color-line);
-    color: var(--color-muted-ink);
-    font-size: var(--text-label);
-}
-
-.group-editor__type-field {
-    justify-self: start;
-    margin-block-end: var(--space-6);
-}
-
-/* 히어로의 다른 입력 라벨(.ui-field__label)과 같은 톤으로 맞춘다. */
-.group-editor__field-label {
-    display: block;
-    margin-block-end: var(--space-2);
-    color: var(--color-ink);
-    font-size: var(--text-label);
-    font-weight: 600;
-    line-height: 1.45;
-}
-
-.group-editor__type-seg {
-    display: inline-grid;
-    grid-template-columns: repeat(3, minmax(4.75rem, 1fr));
-    inline-size: fit-content;
-    overflow: hidden;
-    border: var(--border-thin) solid var(--color-line);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
-}
-
-.group-editor__type-option {
-    display: block;
-    cursor: pointer;
-}
-
-.group-editor__type-option + .group-editor__type-option {
-    border-inline-start: var(--border-thin) solid var(--color-line);
-}
-
-.group-editor__type-option input {
-    position: absolute;
-    inline-size: 1px;
-    block-size: 1px;
-    opacity: 0;
-    pointer-events: none;
-}
-
-.group-editor__type-option span {
-    display: flex;
-    min-block-size: 2.25rem;
-    align-items: center;
-    justify-content: center;
-    padding-inline: var(--space-3);
-    color: var(--color-muted-ink);
-    font-size: var(--text-label);
-    font-weight: var(--font-weight-bold);
-    text-align: center;
-}
-
-.group-editor__type-option input:checked + span {
-    background: var(--color-brand-ink);
-    color: var(--color-surface);
-}
-
-.group-editor__type-option input:focus-visible + span {
-    outline: var(--border-strong) solid var(--color-brand);
-    outline-offset: -2px;
-}
-
-.group-editor__facts {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-3);
-    margin-block-start: var(--space-5);
-}
-
-/*
- * 편집 가능한 칸은 배경을 두지 않는다. 흰 입력창을 흰 카드가 감싸면 히어로 위에
- * 흰 면이 두 겹으로 겹쳐서, 카드 없이 놓이는 모임 이름·한 줄 소개와 어긋난다.
- * 카드 모양은 입력창이 없는 읽기 전용 칸에만 쓴다.
- */
-.group-editor__fact {
-    min-inline-size: 0;
-}
-
-.group-editor__fact--readonly {
-    padding: var(--space-3) var(--space-4);
-    border: var(--border-thin) solid color-mix(in srgb, var(--color-brand-ink) 24%, var(--color-line));
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--color-surface) 92%, transparent);
-}
-
-.group-editor__fact--schedule {
-    grid-column: 1 / -1;
-}
-
-.group-editor__fact--schedule > .group-editor__fact-label {
-    margin-block-end: var(--space-4);
-}
-
-.group-editor__fact-label {
-    display: block;
-    margin-block-end: var(--space-2);
-    color: var(--color-muted-ink);
-    font-size: var(--text-caption);
-}
-
-.group-editor__fact--readonly {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-
-.group-editor__fact--readonly .group-editor__fact-label {
-    margin-block-end: var(--space-1);
-}
-
-.group-editor__fact--readonly strong {
-    font-size: var(--text-label);
-    line-height: 1.4;
-    overflow-wrap: anywhere;
-}
-
-.group-editor__fact .ui-field {
-    margin: 0;
-}
-
-/* ── 요일 선택 ────────────────────────────────────────────── */
-
-.group-editor__quick-days {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-2);
-    margin-block-end: var(--space-5);
-}
-
-/*
- * 히어로가 brand-soft 민트라서, 채움도 민트 계열이면 배경과 같은 색이 되어 묻힌다.
- * 선택 상태는 요일 칩과 같은 brand-ink 채움 + 흰 글자로 두고(민트 대비 5.1:1),
- * 비선택은 흰 채움 대신 테두리만 남겨 선택된 쪽이 확실히 드러나게 한다.
- */
-.group-editor__quick-days button {
-    padding: var(--space-1) var(--space-3);
-    border: var(--border-thin) solid color-mix(in srgb, var(--color-brand-ink) 30%, var(--color-line));
-    border-radius: var(--radius-pill);
-    background: var(--color-surface);
-    color: var(--color-muted-ink);
-    font: inherit;
-    font-size: var(--text-caption);
-    font-weight: var(--font-weight-bold);
-    cursor: pointer;
-}
-
-.group-editor__quick-days button:hover:not(.is-active) {
-    border-color: var(--color-brand-ink);
-    background-color: color-mix(in srgb, var(--color-brand-soft) 60%, var(--color-surface));
-    color: var(--color-brand-ink);
-}
-
-.group-editor__quick-days button.is-active {
-    border-color: var(--color-brand-ink);
-    background: var(--color-brand-ink);
-    color: var(--color-surface);
-}
-
-.group-editor__quick-divide {
-    inline-size: var(--border-thin);
-    block-size: var(--space-4);
-    background: var(--color-line);
-}
-
-.group-editor__quick-flexible {
-    border-style: dashed;
-}
-
-.group-editor__day-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-}
-
-.group-editor__day-chip {
-    position: relative;
-    display: block;
-    cursor: pointer;
-}
-
-.group-editor__day-chip input {
-    position: absolute;
-    inline-size: 1px;
-    block-size: 1px;
-    opacity: 0;
-    pointer-events: none;
-}
-
-.group-editor__day-chip > span[aria-hidden="true"] {
-    display: flex;
-    inline-size: var(--group-editor-day-size);
-    block-size: var(--group-editor-day-size);
-    align-items: center;
-    justify-content: center;
-    /* 민트 히어로 위에서는 --color-line 회색 테두리가 흐려 보여 빠른 선택과 톤을 맞춘다. */
-    border: var(--border-thin) solid color-mix(in srgb, var(--color-brand-ink) 30%, var(--color-line));
-    border-radius: 50%;
-    background: var(--color-surface);
-    color: var(--color-muted-ink);
-    font-size: var(--text-label);
-    font-weight: var(--font-weight-bold);
-}
-
-.group-editor__day-chip:hover > span[aria-hidden="true"] {
-    border-color: var(--color-brand-ink);
-}
-
-/*
- * 흰 글자를 쓰려면 채움이 진해야 한다. 브랜드 teal 위 흰 글자는 2.2:1로 미달이라
- * brand-ink 5.7:1, 토요일 파랑 5.3:1, danger 5.3:1로 맞췄다.
- */
-.group-editor__day-chip input:checked + span[aria-hidden="true"] {
-    border-color: var(--color-brand-ink);
-    background: var(--color-brand-ink);
-    color: var(--color-surface);
-}
-
-.group-editor__day-chip.is-saturday > span[aria-hidden="true"] {
-    color: var(--group-editor-saturday);
-}
-
-.group-editor__day-chip.is-saturday:hover > span[aria-hidden="true"],
-.group-editor__day-chip.is-saturday input:checked + span[aria-hidden="true"] {
-    border-color: var(--group-editor-saturday);
-}
-
-.group-editor__day-chip.is-saturday input:checked + span[aria-hidden="true"] {
-    background: var(--group-editor-saturday);
-    color: var(--color-surface);
-}
-
-.group-editor__day-chip.is-sunday > span[aria-hidden="true"] {
-    color: var(--color-danger);
-}
-
-.group-editor__day-chip.is-sunday:hover > span[aria-hidden="true"],
-.group-editor__day-chip.is-sunday input:checked + span[aria-hidden="true"] {
-    border-color: var(--color-danger);
-}
-
-.group-editor__day-chip.is-sunday input:checked + span[aria-hidden="true"] {
-    background: var(--color-danger);
-    color: var(--color-surface);
-}
-
-.group-editor__day-chip input:focus-visible + span[aria-hidden="true"] {
-    outline: var(--border-strong) solid var(--color-brand);
-    outline-offset: 2px;
-}
-
-.group-editor__schedule-flexible-note {
-    margin-block: var(--space-3) 0;
-    color: var(--color-muted-ink);
-    font-size: var(--text-caption);
-}
-
-.group-editor__schedule-fields {
-    margin: 0;
-    padding: 0;
-    border: 0;
-}
-
-.group-editor__time-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-3);
-    margin-block-start: var(--space-4);
-}
-
-/* ── 마크다운 에디터 ──────────────────────────────────────── */
-
 .group-editor__markdown-toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -1381,7 +1084,6 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* 툴바와 입력창이 하나의 덩어리로 보이도록 맞닿는 모서리를 없앤다. */
 .group-editor__markdown-editor .ui-field__label {
     position: absolute;
     overflow: hidden;
@@ -1405,18 +1107,4 @@
     border-end-start-radius: var(--radius-sm);
     border-end-end-radius: var(--radius-sm);
     background: var(--color-surface);
-}
-
-@media (max-width: 47.9375rem) {
-    .group-editor__facts {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .group-editor__type-seg {
-        inline-size: 100%;
-    }
-
-    .group-editor__time-grid {
-        grid-template-columns: minmax(0, 1fr);
-    }
 }
