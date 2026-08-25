@@ -1,6 +1,0 @@
-Command: npx eslint src/index.jsx src/app src/pages/index.js tests/app
-Exit code: 0
-Observable: ESLint emitted no findings for the owned source and test paths.
-Token audit: every AppShell.css var() alias resolves in tokens.css or the file's :root component tokens;
-no raw color literals remain. Shared candidates for later promotion are --app-touch-target and
---app-header-border-width.
