@@ -24,25 +24,37 @@ export function AppFooter() {
         </section>
       </div>
 
-      <nav aria-label="외부 링크" className="app-footer__social-links">
-        <a
-          aria-label="GitHub 저장소 열기"
-          className="app-footer__social-link"
-          href="https://github.com/woowacourse-teams/2026-jarihana.git"
-          rel="noreferrer"
-          target="_blank"
-        >
-          <svg
-            aria-hidden="true"
-            fill="currentColor"
-            height="26"
-            viewBox="0 0 24 24"
-            width="26"
+      <div className="app-footer__actions">
+        <section aria-labelledby="footer-contact-title" className="app-footer__contact">
+          <h2 id="footer-contact-title">Contact us</h2>
+          <p>
+            <span className="app-footer__contact-intro">피드백이나 궁금한 점은</span>
+            <span className="app-footer__contact-message">
+              이삭, 에덴, 파도, 요크에게 슬랙 DM 주세요!
+            </span>
+          </p>
+        </section>
+
+        <nav aria-label="외부 링크" className="app-footer__social-links">
+          <a
+            aria-label="GitHub 저장소 열기"
+            className="app-footer__social-link"
+            href="https://github.com/woowacourse-teams/2026-jarihana.git"
+            rel="noreferrer"
+            target="_blank"
           >
-            <path d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.05c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.74.08-.74 1.2.09 1.83 1.23 1.83 1.23 1.07 1.83 2.8 1.3 3.49.99.11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.34-5.47-5.95 0-1.31.47-2.38 1.23-3.22-.12-.3-.53-1.52.12-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.3-1.55 3.3-1.23 3.3-1.23.65 1.66.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.62-2.8 5.64-5.48 5.94.43.37.81 1.1.81 2.22v3.29c0 .32.22.69.83.57A12 12 0 0 0 12 .5Z" />
-          </svg>
-        </a>
-      </nav>
+            <svg
+              aria-hidden="true"
+              fill="currentColor"
+              height="26"
+              viewBox="0 0 24 24"
+              width="26"
+            >
+              <path d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.05c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.74.08-.74 1.2.09 1.83 1.23 1.83 1.23 1.07 1.83 2.8 1.3 3.49.99.11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.34-5.47-5.95 0-1.31.47-2.38 1.23-3.22-.12-.3-.53-1.52.12-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.3-1.55 3.3-1.23 3.3-1.23.65 1.66.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.62-2.8 5.64-5.48 5.94.43.37.81 1.1.81 2.22v3.29c0 .32.22.69.83.57A12 12 0 0 0 12 .5Z" />
+            </svg>
+          </a>
+        </nav>
+      </div>
     </footer>
   );
 }

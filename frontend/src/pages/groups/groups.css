@@ -62,6 +62,11 @@
   display: block;
 }
 
+.groups-hero h1 .groups-hero__accent {
+  display: inline;
+  color: var(--color-brand-display);
+}
+
 .groups-hero__copy > p:last-child {
   max-width: none;
   margin: 0;

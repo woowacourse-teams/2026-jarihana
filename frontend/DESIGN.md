@@ -36,6 +36,7 @@
 | ---------------------- | ---------------- | ------------------------------------------ |
 | `--color-brand`        | `#2ac1bc`        | 주요 CTA, 선택 상태, 브랜드 포인트         |
 | `--color-brand-strong` | `#21aaa5`        | hover/pressed, 강조 텍스트                 |
+| `--color-brand-display`| `#1d9893`        | 밝은 canvas 위 큰 display text용 민트       |
 | `--color-brand-ink`    | `#08736f`        | 밝은 mint 위에서도 읽히는 브랜드 text      |
 | `--color-brand-soft`   | `#dff8f3`        | hero와 선택 배경                           |
 | `--color-ink`          | `#1d1d1f`        | 본문과 제목                                |
@@ -55,8 +56,8 @@
 | `--color-cohort-1..5`  | categorical ramp | 멤버 기수 분포의 비텍스트 구간·아바타 배경 |
 
 `--color-text-brand`와 `--color-text-muted`는 각각 `brand-ink`, `muted-ink`를 가리키는
-semantic text alias다. 밝은 brand fill은 CTA surface로, 더 어두운 alias는 text로 분리해
-대비와 의미를 함께 유지한다.
+semantic text alias다. 밝은 brand fill은 CTA surface로, `brand-display`와 더 어두운 alias는
+light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한다.
 
 상태색은 Figma의 밝은 accent를 그대로 본문색으로 쓰지 않고 WCAG 2.2 AA 대비를 확보한 파생
 색을 사용한다. raw hex는 `tokens.css` 외부에서 사용하지 않는다.
@@ -70,6 +71,7 @@ semantic text alias다. 밝은 brand fill은 CTA surface로, 더 어두운 alias
 - H1: 32/1.3, 700. 모바일 26/1.35.
 - H2: 24/1.4, 700. 모바일 21/1.4.
 - H3: 18/1.45, 700.
+- Footer Contact us heading: `--text-footer-contact` 22/1.4, 700.
 - Body large: 17/1.65, 400.
 - Body: 15/1.65, 400.
 - Label: Figma 기준 14/20, 500.
@@ -82,6 +84,7 @@ semantic text alias다. 밝은 brand fill은 CTA surface로, 더 어두운 alias
 
 - Spacing: `0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64`.
 - Radius: small `8`, medium `14`, large `20`, pill `999`.
+- Footer Contact us block: `--footer-contact-max-width` `22rem` max width on desktop/tablet.
 - Container: 구현 token `--container-shell`은 `1360px`이다. `PageContainer`는 360px에서는
   `20px`, 768px 이상에서는 `32px` gutter를 사용한다. 탐색 페이지의 1024px 이상 desktop rail은
   카드 grid의 좌우 변을 기준으로 `--groups-page-shell`과 `--groups-page-rail-gutter`를 공유한다.
@@ -121,10 +124,11 @@ semantic text alias다. 밝은 brand fill은 CTA surface로, 더 어두운 alias
 - `AppShell`: 전체 background는 white canvas다. 검은 GlobalHeader 배경은 모든 viewport에서
   top full-bleed로 렌더하고, header 내부 콘텐츠만 `--container-shell`과 `--page-gutter`에 맞춰
   중앙 정렬한다. skip link, main landmark, mobile drawer와 동일한 auth action을 모든 route에
-  제공한다. 공통 footer는 검은 full-bleed surface 안에 브랜드 소개·자리 유래·외부 GitHub 링크를
-  두고, 모바일에서는 콘텐츠 아래로 외부 링크를 쌓는다.
-- Header composition: desktop은 `1fr / auto / 1fr` grid로 wordmark, centered navigation,
-  우측 auth action을 고정한다. anonymous도 탐색·모임 만들기·모임 관리 진입점을 보고, guard가
+  제공한다. 공통 footer는 검은 full-bleed surface 안에 브랜드 소개·자리 유래·Contact us 안내·외부
+  GitHub 링크를 두고, 모바일에서는 안내와 외부 링크를 콘텐츠 아래로 쌓는다. route lazy loading 또는
+  guard 확인 중에는 footer를 노출하지 않아 loading surface가 콘텐츠보다 먼저 보이지 않게 한다.
+- Header composition: desktop은 `auto / 1fr / auto` grid로 wordmark와 주요 navigation을 왼쪽
+  클러스터로 묶고, 우측 auth action을 고정한다. anonymous도 탐색·모임 만들기·모임 관리 진입점을 보고, guard가
   인증이 필요한 destination을 처리한다. anonymous가 보호 메뉴를 누르면 해당 경로를 로그인 후
   복귀 대상으로 저장하고, 현재 화면에서 로그인 필요 toast를 즉시 제공한다. authenticated 상태에만
   `마이` link와 logout action을 더한다.
@@ -159,8 +163,12 @@ semantic text alias다. 밝은 brand fill은 CTA surface로, 더 어두운 alias
 - Buttons: primary mint/black text, secondary white/line, tertiary text, danger red. 모든 variant는
   default/hover/active/focus/disabled/pending 상태를 갖는다.
 - Footer: 프로토타입의 `64px 24px` desktop / `48px 24px` mobile padding, 좌측 소개 영역과
-  우측 40px 원형 외부 링크를 사용한다. 탐색 페이지에서는 카드 grid rail을 그대로 상속해
-  내부 좌우 끝점을 맞춘다. 인스타그램은 노출하지 않고 GitHub 저장소 링크 하나만 둔다.
+  우측 Contact us 안내 블록·40px 원형 외부 링크를 사용한다. Contact us는 22px 흰색 heading과
+  14px muted body copy, 민트색 시작선으로 피드백 창구를 먼저 인지시키고, 링크가 없는 안내 문구는 클릭
+  가능한 요소로 오해되지 않게 한다. 문구는 `피드백이나 궁금한 점은 이삭, 에덴, 파도, 요크에게
+  슬랙 DM 주세요!`로 유지한다.
+  탐색 페이지에서는 카드 grid rail을 그대로 상속해 내부 좌우 끝점을 맞춘다. 인스타그램은 노출하지
+  않고 GitHub 저장소 링크 하나만 둔다.
 - Fields: label, optional description, control, inline error를 같은 field group으로 묶는다. 검색은 input과
   submit icon을 하나의 thin-border/small-radius control surface로 묶는다.
 - Select: native keyboard/assistive-tech 동작을 유지하면서 오른쪽 chevron, 넉넉한 우측 padding,

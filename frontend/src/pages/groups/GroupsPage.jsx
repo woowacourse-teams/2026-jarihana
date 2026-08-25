@@ -98,7 +98,9 @@ export function GroupsPage() {
         <div className="groups-hero__copy">
           <h1 id="groups-title" aria-label="크루와 함께할 자리를 찾아보세요">
             <span aria-hidden="true">크루와</span>
-            <span aria-hidden="true">함께할 자리를</span>
+            <span aria-hidden="true">
+              함께할 <span className="groups-hero__accent">자리</span>를
+            </span>
             <span aria-hidden="true">찾아보세요</span>
           </h1>
           <p>관심사와 맞는 모임을 발견해보세요.</p>

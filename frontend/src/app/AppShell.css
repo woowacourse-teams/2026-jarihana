@@ -4,6 +4,10 @@
     color: var(--color-ink);
 }
 
+.app-shell:has(.route-loading) .app-footer {
+    display: none;
+}
+
 .skip-link {
     position: fixed;
     z-index: var(--z-toast);
@@ -216,6 +220,16 @@
     min-width: 0;
 }
 
+.app-footer__actions {
+    display: flex;
+    flex: 0 1 var(--footer-contact-max-width);
+    max-width: var(--footer-contact-max-width);
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-6);
+    margin-left: auto;
+}
+
 .app-footer__brand {
     display: inline-flex;
     align-items: center;
@@ -272,12 +286,44 @@
     margin-bottom: 0;
 }
 
+.app-footer__contact {
+    padding: var(--space-5) var(--space-6);
+    border: var(--border-thin) solid var(--color-header-line);
+    border-inline-start: var(--border-strong) solid var(--color-brand);
+    border-radius: var(--radius-md);
+}
+
+.app-footer__contact h2 {
+    margin: 0 0 var(--space-2);
+    color: var(--color-surface);
+    font-size: var(--text-footer-contact);
+    line-height: 1.4;
+    font-weight: var(--font-weight-bold);
+}
+
+.app-footer__contact p {
+    margin: 0;
+    color: var(--color-header-muted);
+    font-size: var(--text-label);
+    line-height: 1.65;
+}
+
+.app-footer__contact-intro,
+.app-footer__contact-message {
+    display: block;
+}
+
+.app-footer__contact-message {
+    margin-top: var(--space-1);
+    white-space: nowrap;
+}
+
 .app-footer__social-links {
     display: flex;
     flex: none;
     align-items: center;
     gap: var(--space-4);
-    margin-left: auto;
+    align-self: flex-end;
 }
 
 .app-footer__social-link {
@@ -289,6 +335,12 @@
     background: var(--color-surface);
     color: var(--color-nav);
     cursor: pointer;
+}
+
+@media (min-width: 64rem) {
+    .app-footer__actions {
+        align-self: center;
+    }
 }
 
 @media (max-width: 47.9375rem) {
