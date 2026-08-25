@@ -57,8 +57,13 @@ export function GroupImage({ alt = "", className, group, ...properties }) {
       alt={alt}
       className={className}
       onError={(event) => {
-        event.currentTarget.onerror = null;
-        event.currentTarget.src = DEFAULT_GROUP_IMAGE;
+        const image = event.currentTarget;
+        const fallbackUrl = new URL(DEFAULT_GROUP_IMAGE, window.location.origin).href;
+
+        if (image.src === fallbackUrl) {
+          return;
+        }
+        image.src = fallbackUrl;
       }}
       src={groupImageUrl(group)}
     />
