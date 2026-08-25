@@ -1,9 +1,18 @@
-import { ArrowRight, CalendarDays, Crown, UsersRound } from "lucide-react";
+import { CalendarDays, Crown, UsersRound } from "lucide-react";
 import { Link } from "react-router";
 
 import { EmptyState, ErrorState, Skeleton, StatusBadge } from "../../shared/ui/index.js";
 import { formatKoreanDate, GROUP_TYPE_LABELS, REGISTRATION_STATUS_LABELS } from "./accountUtils.js";
 import { useInfiniteScroll } from "./useInfiniteScroll.js";
+
+/** 모임 종류를 노션 속성 태그처럼 값마다 다른 색으로 보여 준다. */
+function GroupTypeTag({ type }) {
+  return (
+    <span className={`activity-tag activity-tag--${String(type).toLowerCase()}`}>
+      {GROUP_TYPE_LABELS[type] ?? type}
+    </span>
+  );
+}
 
 function GroupActivityRow({ group, isLeader }) {
   const isEnded = group.status === "ENDED";
@@ -16,38 +25,25 @@ function GroupActivityRow({ group, isLeader }) {
         src={group.representativeImageUrl || "/images/default-group.png"}
       />
       <div className="activity-row__body">
-        <div className="activity-row__meta">
-          <span className="activity-row__badges">
-            {isLeader ? (
-              <StatusBadge tone="brand">
-                <Crown aria-hidden="true" size={13} /> 모임장
-              </StatusBadge>
-            ) : null}
-            <StatusBadge tone={isEnded ? "neutral" : "success"}>
-              {isEnded ? "모임 종료" : "활동 중"}
+        <div className="activity-row__badges">
+          <GroupTypeTag type={group.type} />
+          {isLeader ? (
+            <StatusBadge tone="brand">
+              <Crown aria-hidden="true" size={13} /> 모임장
             </StatusBadge>
-          </span>
-          <span>
+          ) : null}
+          {isEnded ? <StatusBadge tone="neutral">모임 종료</StatusBadge> : null}
+        </div>
+        <h3>
+          <Link className="activity-row__link" to={`/groups/${group.id}`}>
+            {group.name}
+          </Link>
+        </h3>
+        <p>{group.introduction}</p>
+        <div className="activity-row__foot">
+          <span className="activity-row__members">
             <UsersRound aria-hidden="true" size={14} /> {group.memberCount}명
           </span>
-        </div>
-        <h3>{group.name}</h3>
-        <p>{group.introduction}</p>
-        <div className="activity-row__actions">
-          <Link
-            aria-label={`${group.name} 상세보기`}
-            className="activity-row__detail"
-            to={`/groups/${group.id}`}
-          >
-            <span className="activity-row__detail-copy">
-              <span className="activity-row__detail-meta">
-                {GROUP_TYPE_LABELS[group.type] ?? group.type} /{" "}
-                {group.leader?.crewName ?? "리더 정보 없음"}
-              </span>
-              <span className="activity-row__detail-action">상세보기</span>
-            </span>
-            <ArrowRight aria-hidden="true" className="activity-row__arrow" size={17} />
-          </Link>
           {isLeader ? (
             <Link
               aria-label={`${group.name} 모임 관리`}
@@ -77,28 +73,22 @@ function RegistrationActivityRow({ registration }) {
         <CalendarDays size={32} />
       </div>
       <div className="activity-row__body">
-        <div className="activity-row__meta">
-          <span className="activity-row__badges">
-            <StatusBadge tone={tone}>
-              {REGISTRATION_STATUS_LABELS[registration.status] ?? registration.status}
-            </StatusBadge>
-          </span>
-          <span>{formatKoreanDate(registration.registeredAt)}</span>
+        <div className="activity-row__badges">
+          <StatusBadge tone={tone}>
+            {REGISTRATION_STATUS_LABELS[registration.status] ?? registration.status}
+          </StatusBadge>
         </div>
-        <h3>{registration.group.name}</h3>
-        <p>{registration.message || "남긴 신청 메시지가 없어요."}</p>
-        <div className="activity-row__actions">
-          <Link
-            aria-label={`${registration.group.name} 상세보기`}
-            className="activity-row__detail"
-            to={`/groups/${registration.group.id}`}
-          >
-            <span className="activity-row__detail-copy">
-              <span className="activity-row__detail-meta">가입 신청</span>
-              <span className="activity-row__detail-action">상세보기</span>
-            </span>
-            <ArrowRight aria-hidden="true" className="activity-row__arrow" size={17} />
+        <h3>
+          <Link className="activity-row__link" to={`/groups/${registration.group.id}`}>
+            {registration.group.name}
           </Link>
+        </h3>
+        <p>{registration.message || "남긴 신청 메시지가 없어요."}</p>
+        <div className="activity-row__foot">
+          <span className="activity-row__members">
+            <CalendarDays aria-hidden="true" size={14} />{" "}
+            {formatKoreanDate(registration.registeredAt)} 신청
+          </span>
         </div>
       </div>
     </article>

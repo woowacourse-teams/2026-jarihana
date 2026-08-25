@@ -122,9 +122,12 @@ describe("MyPage", () => {
       "href",
       "/groups/31"
     );
-    expect(
-      screen.getByRole("link", { name: /React 깊게 보기/ }).querySelector(".activity-row__arrow")
-    ).toBeInTheDocument();
+    // 카드 정보를 덜어냈다: 상세보기 문구와 리더 이름 줄이 사라졌다
+    expect(screen.queryByText("상세보기")).not.toBeInTheDocument();
+    expect(screen.queryByText(/스터디 \/ 하나/)).not.toBeInTheDocument();
+    expect(screen.queryByText("활동 중")).not.toBeInTheDocument();
+    // 모임 종류는 노션 속성 태그처럼 값마다 다른 색 칩으로 남는다
+    expect(screen.getAllByText("스터디")[0]).toHaveClass("activity-tag", "activity-tag--study");
     expect(screen.queryByRole("link", { name: /접근성 연구회/ })).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /5\+.*가입한 모임/ })).toHaveAttribute(
       "aria-selected",
@@ -146,12 +149,11 @@ describe("MyPage", () => {
     ).not.toBeInTheDocument();
 
     // 종료된 모임도 같은 목록에 함께 보인다
-    expect(screen.getByRole("link", { name: /종료된 접근성 모임 상세보기/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "종료된 접근성 모임" })).toHaveAttribute(
       "href",
       "/groups/35"
     );
     expect(screen.getByText("모임 종료")).toBeVisible();
-    expect(screen.getAllByText("활동 중")).toHaveLength(4);
 
     await user.click(screen.getByRole("tab", { name: /신청한 모임/ }));
     expect(screen.getByRole("link", { name: /접근성 연구회/ })).toHaveAttribute(

@@ -1,5 +1,12 @@
+/*
+ * 마이페이지는 카드가 겹겹이 쌓인 화면인데 페이지 배경(--color-canvas)과
+ * 카드 배경(--color-surface)이 둘 다 흰색이라 카드가 카드로 읽히지 않았다.
+ * 전역 토큰을 바꾸면 모든 화면이 따라오므로 이 페이지 안에서만 바닥을 내린다.
+ */
 .account-page {
-  --account-border: var(--border-thin) solid var(--color-line);
+  --account-sunken: #f4f5f7;
+  --account-line: #d8dade;
+  --account-border: var(--border-thin) solid var(--account-line);
 
   width: min(calc(100% - (var(--page-gutter) * 2)), var(--container-shell));
   margin: var(--space-0) auto;
@@ -112,7 +119,12 @@
   margin: var(--space-0) auto;
 }
 
+/* 대시보드가 놓인 바닥만 내려 두 카드가 떠 보이게 한다 */
 .my-dashboard {
+  margin: calc(var(--space-5) * -1);
+  padding: var(--space-5);
+  background: var(--account-sunken);
+  border-radius: var(--radius-lg);
   display: grid;
   grid-template-columns: 270px minmax(0, 1fr);
   gap: var(--space-7);
@@ -127,14 +139,16 @@
 .profile-card {
   padding: var(--space-6) var(--space-5);
   text-align: center;
+  border-color: var(--account-line);
 }
 
+/* 아바타 테두리가 카드 테두리보다 진해 위계가 뒤집혀 있었다 */
 .profile-card__avatar {
-  width: 192px;
-  height: 192px;
-  margin: var(--space-4) auto var(--space-5);
+  width: 120px;
+  height: 120px;
+  margin: var(--space-4) auto;
   background: var(--color-canvas);
-  border: var(--border-strong) solid var(--color-ink);
+  border: var(--border-thin) solid var(--account-line);
   border-radius: var(--radius-pill);
 }
 
@@ -174,6 +188,7 @@ img.profile-card__avatar {
 
 .dashboard-panel {
   padding: var(--space-6);
+  border-color: var(--account-line);
 }
 
 .dashboard-panel > h2 {
@@ -257,11 +272,12 @@ img.profile-card__avatar {
 }
 
 .activity-row {
+  position: relative;
   display: grid;
-  grid-template-columns: 7.5rem minmax(0, 1fr);
-  min-height: 8.5rem;
+  grid-template-columns: 6.5rem minmax(0, 1fr);
   overflow: hidden;
-  background: var(--color-canvas);
+  background: var(--color-surface);
+  border: var(--account-border);
   border-radius: var(--radius-md);
   color: inherit;
   text-decoration: none;
@@ -269,11 +285,13 @@ img.profile-card__avatar {
 
 .activity-row--interactive {
   transition:
+    border-color var(--duration-base) var(--ease-standard),
     box-shadow var(--duration-base) var(--ease-standard),
     transform var(--duration-base) var(--ease-standard);
 }
 
 .activity-row--interactive:hover {
+  border-color: var(--color-brand);
   box-shadow: var(--shadow-float);
   transform: translateY(calc(var(--border-thin) * -2));
 }
@@ -303,27 +321,46 @@ img.profile-card__avatar {
 }
 
 .activity-row__body {
-  display: flex;
-  min-width: 0;
-  padding: var(--space-4);
-  flex-direction: column;
-}
-
-.activity-row__meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  align-content: center;
   gap: var(--space-2);
-  color: var(--color-text-muted);
-  font-size: var(--text-caption);
+  min-width: 0;
+  padding: var(--space-5);
 }
 
 .activity-row__badges {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
   flex-wrap: wrap;
+}
+
+/* 노션 속성 태그처럼 값마다 색이 다른 칩이다 */
+.activity-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-caption);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.activity-tag--study {
+  color: #24457f;
+  background: #e7eefc;
+}
+
+.activity-tag--club {
+  color: #453a95;
+  background: #ece9fb;
+}
+
+.activity-tag--session {
+  color: #7a5405;
+  background: #fdf0da;
 }
 
 .activity-row__badges .ui-badge {
@@ -337,24 +374,26 @@ img.profile-card__avatar {
   background: var(--color-line);
 }
 
-.activity-row__meta > span:last-child {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  white-space: nowrap;
-}
-
 .activity-row h3 {
-  margin: var(--space-3) var(--space-0) var(--space-1);
+  margin: var(--space-0);
+  min-width: 0;
   overflow: hidden;
-  font-size: var(--text-label);
+  font-size: var(--text-h3);
+  letter-spacing: -0.02em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.activity-row h3 a {
+/* 제목 링크가 카드 전체를 덮어 어디를 눌러도 상세로 간다 */
+.activity-row__link {
   color: var(--color-ink);
   text-decoration: none;
+}
+
+.activity-row__link::after {
+  position: absolute;
+  inset: var(--space-0);
+  content: "";
 }
 
 .activity-row p {
@@ -362,67 +401,38 @@ img.profile-card__avatar {
   margin: var(--space-0);
   overflow: hidden;
   color: var(--color-text-muted);
-  font-size: var(--text-caption);
+  font-size: var(--text-label);
   word-break: keep-all;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: 2;
 }
 
-.activity-row__actions {
+/* 관리 버튼이 있는 카드와 없는 카드의 발치 높이를 맞춘다 */
+.activity-row__foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
-  margin-top: auto;
-  padding-top: var(--space-2);
-  border-top: var(--account-border);
-}
-
-.activity-row__detail {
-  display: inline-flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
+  gap: var(--space-3);
+  min-height: var(--touch-target);
   color: var(--color-text-muted);
   font-size: var(--text-caption);
-  text-decoration: none;
 }
 
-.activity-row__detail-copy {
-  display: grid;
-  min-width: 0;
+.activity-row__members {
+  display: inline-flex;
+  align-items: center;
   gap: var(--space-1);
+  min-width: 0;
 }
 
-.activity-row__detail-meta {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.activity-row__detail-action {
-  color: var(--color-brand-ink);
-  font-weight: 700;
-}
-
+/* 카드를 덮은 제목 링크 위로 올려 따로 눌리게 한다 */
 .activity-row__manage {
+  position: relative;
+  z-index: 1;
   flex: none;
   text-decoration: none;
 }
 
-.activity-row__arrow {
-  flex: none;
-  color: var(--color-brand-ink);
-  transition: transform var(--duration-fast) var(--ease-standard);
-}
-
-.activity-row--interactive:hover .activity-row__arrow,
-.activity-row--interactive:focus-within .activity-row__arrow {
-  transform: translateX(var(--space-1));
-}
-
-/* 목록 끝을 감시해 다음 페이지를 당겨 오는 자리다. 높이가 0이면 관찰되지 않는다 */
 .activity-board__more {
   display: flex;
   align-items: center;
@@ -601,7 +611,11 @@ img.profile-card__avatar {
   }
 
   .activity-row {
-    grid-template-columns: 5.5rem minmax(0, 1fr);
+    grid-template-columns: 5rem minmax(0, 1fr);
+  }
+
+  .activity-row__body {
+    padding: var(--space-4);
   }
 
   .account-list-grid,
