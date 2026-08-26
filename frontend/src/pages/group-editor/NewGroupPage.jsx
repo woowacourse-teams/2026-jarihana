@@ -49,19 +49,7 @@ export const newGroupSchema = baseSchema.superRefine((values, context) => {
       path: ["endTime"]
     });
   }
-  /*
-   * 문서상으로는 요일 없이 만들면 유동적 일정이 되지만, 실제 백엔드는 생성 시
-   * 정기 일정을 요구한다(GroupCommandService.validateRecurringSchedule).
-   * 서버가 거부할 요청을 보내는 대신 여기서 먼저 막고, 만든 뒤에 유동적으로
-   * 바꿀 수 있다는 것을 알려 준다.
-   */
-  if (values.type !== "SESSION" && values.daysOfWeek.length === 0) {
-    context.addIssue({
-      code: "custom",
-      message: "활동 요일을 하나 이상 골라 주세요. 만든 뒤에 유동적으로 바꿀 수 있어요.",
-      path: ["daysOfWeek"]
-    });
-  }
+  /* CLUB과 STUDY는 요일이 없어도 된다. 도메인상 그것이 곧 유동적 일정이다. */
   if (values.type === "SESSION" && !/^\d{4}-\d{2}-\d{2}$/.test(values.sessionDate)) {
     context.addIssue({
       code: "custom",
@@ -346,7 +334,6 @@ export function NewGroupPage() {
         onClose={() => setScheduleOpen(false)}
         onPresetSelect={selectPreset}
         onSubmit={confirmSchedule}
-        allowFlexible={false}
         open={scheduleOpen}
         register={register}
         selectedDays={daysOfWeek}

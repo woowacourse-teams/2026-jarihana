@@ -43,15 +43,7 @@ function DayChip({ day, dimmed, label, register, short }) {
   );
 }
 
-export function RecurringScheduleFields({
-  allowFlexible = true,
-  errors,
-  onPresetSelect,
-  register,
-  selectedDays = []
-}) {
-  /* 생성 시에는 백엔드가 정기 일정을 요구하므로 유동적을 고를 수 없다. */
-  const presets = allowFlexible ? PRESETS : PRESETS.filter(([key]) => key !== "flexible");
+export function RecurringScheduleFields({ errors, onPresetSelect, register, selectedDays = [] }) {
   const preset = activePreset(selectedDays);
   /*
    * 프리셋이 켜져 있으면 선택되지 않은 요일을 흐리게 둔다. 잠그지는 않는다.
@@ -63,13 +55,8 @@ export function RecurringScheduleFields({
     <fieldset className="group-editor__schedule-fields">
       <legend className="group-editor__visually-hidden">활동 일정</legend>
 
-      <div
-        aria-label="요일 일괄 선택"
-        className="group-editor__preset-seg"
-        role="group"
-        style={{ gridTemplateColumns: `repeat(${presets.length}, minmax(0, 1fr))` }}
-      >
-        {presets.map(([key, label, days]) => (
+      <div aria-label="요일 일괄 선택" className="group-editor__preset-seg" role="group">
+        {PRESETS.map(([key, label, days]) => (
           <button
             aria-pressed={preset === key}
             key={key}
@@ -97,13 +84,7 @@ export function RecurringScheduleFields({
 
       {selectedDays.length === 0 ? (
         <p className="group-editor__schedule-note">
-          {allowFlexible ? (
-            <>
-              요일을 고르지 않으면 <strong>유동적 일정</strong>으로 저장돼요.
-            </>
-          ) : (
-            "요일을 하나 이상 골라 주세요. 만든 뒤에 유동적으로 바꿀 수 있어요."
-          )}
+          요일을 고르지 않으면 <strong>유동적 일정</strong>으로 저장돼요.
         </p>
       ) : null}
 
@@ -155,7 +136,6 @@ export function SessionScheduleFields({ errors, register }) {
 }
 
 export function ScheduleDialog({
-  allowFlexible = true,
   errors,
   isSession,
   onClose,
@@ -188,7 +168,6 @@ export function ScheduleDialog({
           <SessionScheduleFields errors={errors} register={register} />
         ) : (
           <RecurringScheduleFields
-            allowFlexible={allowFlexible}
             errors={errors}
             onPresetSelect={onPresetSelect}
             register={register}
