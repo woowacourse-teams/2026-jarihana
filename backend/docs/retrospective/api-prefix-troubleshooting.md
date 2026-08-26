@@ -1,6 +1,6 @@
 # `/api` 접두사는 누가 떼는가
 
-2026-08-24에 GitHub 로그인이 동작하지 않아 하루 동안 여러 방법을 시도했습니다. 대부분 실패했고,
+2026-08-24에 GitHub 로그인이 동작하지 않아 하루 동안 여러 방법을 시도했습니다. 대부분 실패했고
 실패한 이유가 전부 같은 뿌리에서 나왔습니다. 이 문서는 그 시도들을 순서대로 놓고 각각이 어디서
 막혔는지 정리합니다.
 
@@ -110,7 +110,7 @@ GitHub 인증을 마치면 브라우저가 이 주소로 돌아옵니다. 그런
 뜹니다.
 
 **왜 안 되나.** 이 주소는 포트 8080, 즉 **백엔드로 직행**합니다. 5173의 webpack 프록시를 거치지
-않습니다. 프록시가 없으니 `/api`를 떼는 주체도 없고, 백엔드는 모르는 경로를 받습니다.
+않습니다. 프록시가 없으니 `/api`를 떼는 주체도 없고 백엔드는 모르는 경로를 받습니다.
 
 ```
 $ curl -s http://localhost:8080/oauth/github/callback
@@ -121,7 +121,7 @@ $ curl -s http://localhost:8080/api/oauth/github/callback
 ```
 
 **교훈.** OAuth 콜백은 **브라우저가 직접 이동하는 주소**입니다. XHR이 아니라 top-level
-navigation이라, 프론트엔드 코드가 무엇을 하든 상관없이 GitHub이 지정한 주소로 갑니다. 그 주소가
+navigation이라 프론트엔드 코드가 무엇을 하든 상관없이 GitHub이 지정한 주소로 갑니다. 그 주소가
 프록시를 거치는 주소인지 아닌지를 반드시 따져야 합니다.
 
 ### 시도 2. 로컬에서 OAuth 테스트가 안 되니 개발 계정으로 우회한다
@@ -139,13 +139,13 @@ navigation이라, 프론트엔드 코드가 무엇을 하든 상관없이 GitHub
 세션 쿠키 + 개발 헤더  401  UNAUTHENTICATED
 ```
 
-필터가 존재하지 않는 회원으로 인증시키고, `MemberQueryService.findMyProfile`이 `memberId` 분기를
+필터가 존재하지 않는 회원으로 인증시키고 `MemberQueryService.findMyProfile`이 `memberId` 분기를
 먼저 타서 정상 가입 세션까지 가려버립니다. GitHub 인증을 정상적으로 마치고 돌아온 사용자가
 "로그인을 마치지 못했어요" 화면을 보게 된 원인이 이것이었습니다.
 
 **교훈.** "X가 안 되니 우회로를 만들자"를 결정하기 전에 **X가 정말 안 되는지 측정**해야 합니다.
 그리고 우회로가 정상 경로를 가리지 않는지 확인해야 합니다. 여기서는 우회로가 정상 경로를
-망가뜨렸고, 그 때문에 "로컬 OAuth가 안 된다"는 관찰이 더 굳어졌습니다. 인과가 반대로 돌았습니다.
+망가뜨렸고 그 때문에 "로컬 OAuth가 안 된다"는 관찰이 더 굳어졌습니다. 인과가 반대로 돌았습니다.
 
 ### 시도 3. 프록시가 `/api`를 자르니 해결됐다
 
@@ -163,7 +163,7 @@ $ curl -s -o /dev/null -w "%{http_code}" https://jarihana.com/api/zzz-nonexisten
 ```
 
 `GET /groups`는 `SecurityConfig`의 `PUBLIC_GET_PATHS`에 있어 인증 없이 200이어야 합니다. 그런데
-**존재하지도 않는 경로와 응답이 똑같습니다.** 백엔드가 `/api/groups`를 그대로 받았고, 매처가
+**존재하지도 않는 경로와 응답이 똑같습니다.** 백엔드가 `/api/groups`를 그대로 받았고 매처가
 안 맞아 마지막 `anyRequest().authenticated()`에 걸렸다는 뜻입니다.
 
 ```
@@ -183,7 +183,7 @@ $ curl -s -o /dev/null -w "%{http_code}" https://jarihana.com/api/zzz-nonexisten
 
 첫째, **그 프록시는 운영에 존재하지 않습니다.** 1절에서 본 대로 배포된 프론트엔드는 정적 파일
 28개입니다. 설정을 아무리 고쳐도 운영 사용자는 누구의 dev server도 거치지 않습니다. 이건 로컬
-개발 서버가 어디를 바라볼지를 정하는 설정이지, 운영 동작을 바꾸는 설정이 아닙니다.
+개발 서버가 어디를 바라볼지를 정하는 설정이지 운영 동작을 바꾸는 설정이 아닙니다.
 
 둘째, 그렇게 해도 동작하지 않습니다. `/api`를 떼고 `https://jarihana.com/groups`로 보내면
 CloudFront의 기본 동작이 그것을 S3의 SPA로 보냅니다.
@@ -234,7 +234,7 @@ backend/src/main/resources/static/images/default-group.png    유일한 파일
 MultipartFile 사용처                                          없음
 ```
 
-즉 백엔드가 UI 자산 한 장을 위해 정적 서버 노릇을 하고 있었습니다. 옳은 해법은 접두사를 붙이는
+백엔드가 UI 자산 한 장을 위해 정적 서버 노릇을 하고 있었습니다. 옳은 해법은 접두사를 붙이는
 것이 아니라 **파일을 프론트엔드로 옮기는 것**입니다. 그러면 프론트엔드 코드는 한 줄도 안
 바뀝니다.
 
@@ -250,7 +250,7 @@ normalizeRepresentativeImageUrl("images/default-group.png")  ->  /images/default
 ## 4. 곁가지: redirect_uri는 세 곳이 같아야 한다
 
 경로 문제와 별개로 오늘 시간을 많이 쓴 지점입니다. GitHub OAuth는 `redirect_uri`를 **두 번**
-확인하고, 그 값은 **미리 등록**되어 있어야 합니다.
+확인하고 그 값은 **미리 등록**되어 있어야 합니다.
 
 ```
 1. 프론트엔드가 authorize URL을 만들 때   APP_GITHUB_REDIRECT_URI
@@ -306,7 +306,7 @@ curl -s -X POST https://github.com/login/oauth/access_token \
 매처 "/groups"  vs  도착 "/api/groups"  -> 안 맞음   -> anyRequest().authenticated() -> 401
 ```
 
-여기서 **매핑이 없을 때 404가 아니라 401이 나온다**는 점이 진단을 어렵게 만듭니다. Spring
+여기서 **매핑이 없을 때 404가 아니라 401이 나온다**는 점이 진단을 어렵게 합니다. Spring
 Security가 컨트롤러 탐색보다 먼저 인가 판단을 하기 때문입니다. 401을 보고 "인증 문제"라고
 넘겨짚으면 경로 문제를 영영 못 찾습니다.
 
@@ -352,7 +352,7 @@ A를 고를 때 주의할 점은 **같은 규칙이 두 기술에 상주한다**
 
 B를 고를 때 주의할 점은 **백엔드가 `/api` 밖 경로를 받을 수 없게 된다**는 것입니다. 외부가
 경로를 정해주는 웹훅이나 헬스체크(`/actuator/health`)가 생기면 걸립니다. 현재 이 프로젝트에는
-actuator도 swagger도 없어 해당 사항이 없지만, 나중에 생기면 비용이 발생합니다.
+actuator도 swagger도 없어 해당 사항이 없지만 나중에 생기면 비용이 발생합니다.
 
 ---
 
