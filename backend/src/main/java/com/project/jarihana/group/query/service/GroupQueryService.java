@@ -3,6 +3,7 @@ package com.project.jarihana.group.query.service;
 import com.project.jarihana.common.auth.LoginMemberReader;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.image.config.ImageProperties;
 import com.project.jarihana.group.query.repository.GroupDetailRepository;
 import com.project.jarihana.group.query.repository.GroupListRepository;
 import com.project.jarihana.group.query.repository.dto.*;
@@ -32,6 +33,7 @@ public class GroupQueryService {
     private final GroupDetailRepository groupDetailRepository;
     private final LoginMemberReader loginMemberReader;
     private final Clock clock;
+    private final String publicBaseUrl;
 
     public GroupQueryService(
             GroupListRepository groupListRepository,
@@ -42,17 +44,38 @@ public class GroupQueryService {
                 Clock.system(ZoneId.of("Asia/Seoul")));
     }
 
-    @Autowired
     public GroupQueryService(
             GroupListRepository groupListRepository,
             GroupDetailRepository groupDetailRepository,
             LoginMemberReader loginMemberReader,
             Clock clock
     ) {
+        this(groupListRepository, groupDetailRepository, loginMemberReader, clock, "");
+    }
+
+    @Autowired
+    public GroupQueryService(
+            GroupListRepository groupListRepository,
+            GroupDetailRepository groupDetailRepository,
+            LoginMemberReader loginMemberReader,
+            Clock clock,
+            ImageProperties imageProperties
+    ) {
+        this(groupListRepository, groupDetailRepository, loginMemberReader, clock, imageProperties.publicBaseUrl());
+    }
+
+    GroupQueryService(
+            GroupListRepository groupListRepository,
+            GroupDetailRepository groupDetailRepository,
+            LoginMemberReader loginMemberReader,
+            Clock clock,
+            String publicBaseUrl
+    ) {
         this.groupListRepository = groupListRepository;
         this.groupDetailRepository = groupDetailRepository;
         this.loginMemberReader = loginMemberReader;
         this.clock = clock;
+        this.publicBaseUrl = publicBaseUrl == null ? "" : publicBaseUrl;
     }
 
     public GroupListResult findGroups(GroupListQuery query) {
@@ -82,12 +105,12 @@ public class GroupQueryService {
                 ? encodeCursor(itemProjections.get(itemProjections.size() - 1))
                 : null;
         List<Item> items = itemProjections.stream()
-                .map(GroupQueryService::toResult)
+                .map(this::toResult)
                 .toList();
         return new GroupListResult(items, nextCursor, page.hasNext());
     }
 
-    private static Item toResult(GroupListProjection projection) {
+    private Item toResult(GroupListProjection projection) {
         GroupListMember leader = projection.leader();
         return new Item(
                 projection.id(),
@@ -95,7 +118,7 @@ public class GroupQueryService {
                 projection.group().getStatus().name(),
                 projection.group().getName(),
                 projection.group().getIntroduction(),
-                DEFAULT_REPRESENTATIVE_IMAGE_URL,
+                toRepresentativeImageUrl(projection.group().getRepresentativeImageKey()),
                 projection.group().getRecurringSchedule() == null
                         ? null
                         : new RecurringSchedule(
@@ -184,12 +207,22 @@ public class GroupQueryService {
         Long currentMemberId = loginMemberReader.currentMemberId().orElse(null);
         return new GroupDetailResult(
                 projection.group(),
-                DEFAULT_REPRESENTATIVE_IMAGE_URL,
+                toRepresentativeImageUrl(projection.group().getRepresentativeImageKey()),
                 projection.members(),
                 projection.activeRecruitment(),
                 projection.approvedCount(),
                 projection.roleOf(currentMemberId)
         );
+    }
+
+    private String toRepresentativeImageUrl(String imageKey) {
+        if (imageKey == null || DEFAULT_REPRESENTATIVE_IMAGE_URL.equals(imageKey)) {
+            return DEFAULT_REPRESENTATIVE_IMAGE_URL;
+        }
+        if (publicBaseUrl.isBlank()) {
+            return imageKey;
+        }
+        return publicBaseUrl.replaceAll("/+$", "") + "/" + imageKey.replaceFirst("^/+", "");
     }
 
     private record Cursor(LocalDateTime createdAt, long id) {

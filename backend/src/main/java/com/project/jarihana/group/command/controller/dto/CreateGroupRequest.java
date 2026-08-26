@@ -20,6 +20,7 @@ public record CreateGroupRequest(
         @Size(max = 5_000) String description,
         @NotNull MeetingType meetingType,
         @Size(max = 255) String location,
+        @Size(max = 255) String representativeImageKey,
         @Valid RecurringScheduleRequest recurringSchedule,
         @Valid SessionScheduleRequest sessionSchedule
 ) {
@@ -32,6 +33,7 @@ public record CreateGroupRequest(
                 description,
                 meetingType,
                 location,
+                representativeImageKey,
                 recurringSchedule == null ? null : recurringSchedule.toCommand(),
                 sessionSchedule == null ? null : sessionSchedule.toCommand()
         );
