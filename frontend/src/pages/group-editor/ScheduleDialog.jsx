@@ -68,24 +68,29 @@ export function RecurringScheduleFields({ errors, onPresetSelect, register, sele
         ))}
       </div>
 
-      <p className="group-editor__field-label">활동 요일</p>
-      <div aria-label="활동 요일" className="group-editor__day-grid" role="group">
-        {DAYS.map(([day, label, short]) => (
-          <DayChip
-            day={day}
-            dimmed={dimUnselected && !selectedDays.includes(day)}
-            key={day}
-            label={label}
-            register={register}
-            short={short}
-          />
-        ))}
-      </div>
-
       {/*
-        * 유동적 일정은 recurringSchedule을 null로 보내므로 시간이 쓰이지 않는다.
-        * 받아 놓고 버리면 저장된 줄 알게 되므로 아예 감춘다.
+        * 유동적 일정은 recurringSchedule을 null로 보내므로 요일도 시간도 쓰이지 않는다.
+        * 받아 놓고 버리면 저장된 줄 알게 되므로 둘 다 감춘다. 다시 정기 일정으로
+        * 돌아가려면 위의 평일, 주말, 매일 중 하나를 고르면 된다.
         */}
+      {selectedDays.length > 0 ? (
+        <>
+          <p className="group-editor__field-label">활동 요일</p>
+          <div aria-label="활동 요일" className="group-editor__day-grid" role="group">
+            {DAYS.map(([day, label, short]) => (
+              <DayChip
+                day={day}
+                dimmed={dimUnselected && !selectedDays.includes(day)}
+                key={day}
+                label={label}
+                register={register}
+                short={short}
+              />
+            ))}
+          </div>
+        </>
+      ) : null}
+
       {selectedDays.length === 0 ? (
         <p className="group-editor__schedule-note">
           요일을 고르지 않으면 <strong>유동적 일정</strong>이에요. 정해진 요일과 시간 없이 그때그때

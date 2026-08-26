@@ -219,6 +219,23 @@ describe("NewGroupPage", () => {
     });
   });
 
+  it("유동적일 때는 요일도 두지 않는다", async () => {
+    // Given
+    const user = userEvent.setup();
+    renderPage(<NewGroupPage />);
+    await openSchedule(user, "모임 일정 설정");
+    const dialog = scheduleDialog();
+    await user.click(within(dialog).getByRole("button", { name: "평일" }));
+    expect(within(dialog).getByLabelText("월요일")).toBeInTheDocument();
+
+    // When
+    await user.click(within(dialog).getByRole("button", { name: "유동적" }));
+
+    // Then 쓰이지 않는 값이므로 요일도 함께 감춘다.
+    expect(within(dialog).queryByLabelText("월요일")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("활동 요일")).not.toBeInTheDocument();
+  });
+
   it("유동적일 때는 시간 입력을 두지 않는다", async () => {
     // Given
     const user = userEvent.setup();
@@ -283,15 +300,22 @@ describe("NewGroupPage", () => {
     const user = userEvent.setup();
     renderPage(<NewGroupPage />);
 
-    // Then
+    // Then 히어로에는 요일이 없다.
     expect(screen.queryByRole("dialog", { name: "활동 일정 수정" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("월요일")).not.toBeInTheDocument();
 
     // When
     await openSchedule(user, "모임 일정 설정");
+    const dialog = scheduleDialog();
+
+    // Then 유동적으로 시작하므로 요일도 아직 없다.
+    expect(within(dialog).queryByLabelText("월요일")).not.toBeInTheDocument();
+
+    // When 프리셋을 고르면 요일이 나타난다.
+    await user.click(within(dialog).getByRole("button", { name: "평일" }));
 
     // Then
-    expect(within(scheduleDialog()).getByLabelText("월요일")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("월요일")).toBeInTheDocument();
   });
 
   it("applies a preset from the four-column toggle and leaves other days usable", async () => {
@@ -338,7 +362,11 @@ describe("NewGroupPage", () => {
     await user.type(screen.getByLabelText("장소"), "선릉 캠퍼스 3층");
     await openSchedule(user, "모임 일정 설정");
     const dialog = scheduleDialog();
-    await user.click(within(dialog).getByLabelText("수요일"));
+    // 유동적 상태에서는 요일이 없으므로 프리셋으로 정기 일정을 연 뒤 조정한다.
+    await user.click(within(dialog).getByRole("button", { name: "매일" }));
+    for (const day of ["월요일", "화요일", "목요일", "금요일", "토요일", "일요일"]) {
+      await user.click(within(dialog).getByLabelText(day));
+    }
     await user.click(within(dialog).getByRole("button", { name: "일정 저장" }));
     submitForm("group-create-form");
 
