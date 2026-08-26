@@ -21,7 +21,6 @@ public record GroupListRequest(
 
     public GroupListRequest {
         status = status == null ? GroupStatus.ACTIVE : status;
-        recruiting = recruiting != null && recruiting;
         keyword = normalize(keyword);
         cursor = normalize(cursor);
         size = size == null ? 20 : size;

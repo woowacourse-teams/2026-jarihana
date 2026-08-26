@@ -97,14 +97,16 @@ export function GroupCard({
   const destination = LinkComponent === "a" ? { href } : { to: href };
   return (
     <Card {...destination} as={LinkComponent} className="ui-group-card" interactive>
-      <GroupImage
-        alt=""
-        className="ui-group-card__image"
-        group={group}
-        height="288"
-        loading="lazy"
-        width="512"
-      />
+      <div className="ui-group-card__visual">
+        <GroupImage
+          alt=""
+          className="ui-group-card__image"
+          group={group}
+          height="288"
+          loading="lazy"
+          width="512"
+        />
+      </div>
       <div className="ui-group-card__body">
         <div className="ui-card__meta">
           <span>{readableType(group.type)}</span>

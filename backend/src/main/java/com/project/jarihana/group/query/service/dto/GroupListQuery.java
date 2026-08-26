@@ -10,7 +10,7 @@ public record GroupListQuery(
         GroupRelation relation,
         GroupMemberRole role,
         GroupType type,
-        boolean recruiting,
+        Boolean recruiting,
         String keyword,
         String cursor,
         int size

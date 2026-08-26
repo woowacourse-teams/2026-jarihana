@@ -20,12 +20,15 @@ export function Skeleton({
   ));
 }
 
-function State({ action, description, mark, title, tone = "neutral" }) {
+function State({ action, description, mark, showMark = true, title, tone = "neutral", visual }) {
   return (
     <section className={`ui-state ui-state--${tone}`}>
-      <span aria-hidden="true" className="ui-state__mark">
-        {mark}
-      </span>
+      {visual ? <div className="ui-state__visual">{visual}</div> : null}
+      {showMark ? (
+        <span aria-hidden="true" className="ui-state__mark">
+          {mark}
+        </span>
+      ) : null}
       <h2 className="ui-state__title">{title}</h2>
       {description ? <p className="ui-state__description">{description}</p> : null}
       {action ? <div>{action}</div> : null}
@@ -36,9 +39,20 @@ function State({ action, description, mark, title, tone = "neutral" }) {
 export function EmptyState({
   action,
   description = "조건을 바꾸거나 새 항목을 만들어 보세요.",
-  title = "아직 내용이 없어요"
+  showMark = true,
+  title = "아직 내용이 없어요",
+  visual
 }) {
-  return <State action={action} description={description} mark="0" title={title} />;
+  return (
+    <State
+      action={action}
+      description={description}
+      mark="0"
+      showMark={showMark}
+      title={title}
+      visual={visual}
+    />
+  );
 }
 
 export function ErrorState({

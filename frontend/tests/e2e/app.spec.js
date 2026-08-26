@@ -227,6 +227,91 @@ test.describe("visual evidence", () => {
   }
 });
 
+test("does not show the persistent footer while a lazy route is resolving", async ({ page }) => {
+  let lazyChunkRequested = false;
+  let releaseLazyChunk;
+  const lazyChunkReleased = new Promise((resolve) => {
+    releaseLazyChunk = resolve;
+  });
+
+  await page.route("**/assets/**", async (route) => {
+    const response = await route.fetch();
+    const body = await response.body();
+    if (!body.toString().includes("groups-hero")) {
+      await route.fulfill({ body, response });
+      return;
+    }
+
+    lazyChunkRequested = true;
+    await lazyChunkReleased;
+    await route.fulfill({ body, response });
+  });
+
+  const state = await installApiFixture(page);
+  await page.goto("/", { waitUntil: "commit" });
+  await expect.poll(() => lazyChunkRequested).toBe(true);
+  await expect(page.locator(".route-loading")).toHaveCount(1);
+  await expect(page.locator("footer")).toBeHidden();
+
+  releaseLazyChunk();
+  await expect(page.getByRole("heading", { name: "크루와 함께할 자리를 찾아보세요" })).toBeVisible();
+  expect(state.unexpectedResponses).toEqual([]);
+});
+
+test("keeps the desktop footer contact hierarchy muted and vertically centered", async ({ page }) => {
+  await page.setViewportSize({ height: 831, width: 1190 });
+  const state = await installApiFixture(page);
+
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "크루와 함께할 자리를 찾아보세요" })).toBeVisible();
+
+  const styles = await page.evaluate(() => {
+    const footer = document.querySelector(".app-footer");
+    const actions = document.querySelector(".app-footer__actions");
+    const heading = document.querySelector(".app-footer__contact h2");
+    const copy = document.querySelector(".app-footer__contact p");
+    const center = (rect) => rect.top + rect.height / 2;
+    return {
+      actionsCenter: center(actions.getBoundingClientRect()),
+      copyColor: getComputedStyle(copy).color,
+      copyFontSize: getComputedStyle(copy).fontSize,
+      footerCenter: center(footer.getBoundingClientRect()),
+      headingColor: getComputedStyle(heading).color
+    };
+  });
+
+  expect(styles.copyColor).toBe("rgb(184, 184, 184)");
+  expect(styles.copyFontSize).toBe("14px");
+  expect(styles.headingColor).toBe("rgb(255, 255, 255)");
+  expect(Math.abs(styles.actionsCenter - styles.footerCenter)).toBeLessThan(2);
+  expect(state.unexpectedResponses).toEqual([]);
+});
+
+test("places the desktop primary navigation beside the brand", async ({ page }) => {
+  await page.setViewportSize({ height: 831, width: 1190 });
+  const state = await installApiFixture(page);
+
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "크루와 함께할 자리를 찾아보세요" })).toBeVisible();
+
+  const layout = await page.evaluate(() => {
+    const brand = document.querySelector(".app-header__brand").getBoundingClientRect();
+    const nav = document.querySelector(".app-header__desktop-nav").getBoundingClientRect();
+    const action = document.querySelector(".app-header__desktop-action").getBoundingClientRect();
+    return {
+      actionLeft: action.left,
+      brandRight: brand.right,
+      navLeft: nav.left,
+      navRight: nav.right
+    };
+  });
+
+  expect(layout.navLeft).toBeGreaterThanOrEqual(layout.brandRight);
+  expect(layout.navLeft - layout.brandRight).toBeLessThanOrEqual(32);
+  expect(layout.navRight).toBeLessThan(layout.actionLeft);
+  expect(state.unexpectedResponses).toEqual([]);
+});
+
 test("anonymous deep link preserves continuation and stubs GitHub OAuth", async ({ page }) => {
   const browserFailures = watchBrowserFailures(page, [
     { path: "/api/members/me", status: 401 },

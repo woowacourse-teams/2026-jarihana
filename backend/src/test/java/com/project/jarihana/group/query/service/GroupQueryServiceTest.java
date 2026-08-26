@@ -68,7 +68,7 @@ class GroupQueryServiceTest {
                 null,
                 null,
                 GroupType.STUDY,
-                false,
+                null,
                 "알고리즘",
                 null,
                 20

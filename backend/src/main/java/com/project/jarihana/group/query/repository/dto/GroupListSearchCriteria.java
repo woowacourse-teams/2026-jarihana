@@ -11,7 +11,7 @@ public record GroupListSearchCriteria(
         GroupType type,
         GroupMemberRole role,
         boolean joinedOnly,
-        boolean recruiting,
+        Boolean recruiting,
         String keyword,
         Long currentMemberId,
         LocalDateTime now,

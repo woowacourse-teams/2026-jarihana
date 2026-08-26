@@ -151,9 +151,7 @@ public class GroupCommandService {
         if (command.sessionSchedule() != null) {
             throw new BusinessException(ErrorCode.SCHEDULE_TYPE_MISMATCH, SCHEDULE_TYPE_MISMATCH_MESSAGE);
         }
-        if (command.recurringSchedule() == null) {
-            throw new BusinessException(ErrorCode.SCHEDULE_REQUIRED, "정기 일정이 필요합니다.");
-        }
+        // 정기 일정은 선택이다. 없으면 유동적 일정으로 개설한다.
     }
 
     private RecurringGroupSchedule toRecurringSchedule(CreateGroupCommand command) {
