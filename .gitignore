@@ -40,6 +40,7 @@ out/
 .env
 *.http
 https/
+_workspace/
 
 ### Local agent session artifacts ###
 /backend/docs/superpowers/

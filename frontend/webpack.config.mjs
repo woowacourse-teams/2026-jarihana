@@ -25,6 +25,7 @@ export default (_, arguments_) => {
   const isProduction = mode === "production";
 
   return {
+    devtool: isProduction ? "source-map" : "eval-source-map",
     entry: path.resolve(directory, "src/index.jsx"),
     output: {
       clean: true,
