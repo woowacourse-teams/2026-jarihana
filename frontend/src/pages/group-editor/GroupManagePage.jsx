@@ -13,6 +13,12 @@ import {
   useReplaceSessionSchedule,
   useTerminateGroup
 } from "../../features/group/index.js";
+import {
+  DEFAULT_GROUP_IMAGE_URL,
+  isDefaultGroupImageUrl,
+  representativeImageKeyFromUrl,
+  useImageUpload
+} from "../../features/image-upload/index.js";
 import scheduleIcon from "../../shared/assets/figma/edit-05.svg";
 import placeIcon from "../../shared/assets/figma/edit-06.svg";
 import memberIcon from "../../shared/assets/figma/edit-09.svg";
@@ -206,6 +212,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const recurringMutation = useReplaceRecurringSchedule(groupId);
   const removeRecurringMutation = useRemoveRecurringSchedule(groupId);
   const sessionMutation = useReplaceSessionSchedule(groupId);
+  const imageUpload = useImageUpload();
   const overviewLock = useSubmissionLock();
   const scheduleLock = useSubmissionLock();
   const [preview, setPreview] = useState(false);
@@ -213,6 +220,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [scheduleError, setScheduleError] = useState("");
   const [recurringMode, setRecurringMode] = useState("regular");
+  const [representativeImageDraft, setRepresentativeImageDraft] = useState(null);
   const overview = useForm({
     resolver: zodResolver(overviewSchema),
     defaultValues: { name: "", introduction: "", description: "" }
@@ -261,6 +269,17 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   }
 
   const group = groupQuery.data;
+  const persistedRepresentativeImageKey = Object.prototype.hasOwnProperty.call(
+    group,
+    "representativeImageKey"
+  )
+    ? group.representativeImageKey
+    : representativeImageKeyFromUrl(group.representativeImageUrl);
+  const hasRepresentativeImageDraft = representativeImageDraft?.groupId === group.id;
+  const representativeImageKey = hasRepresentativeImageDraft
+    ? representativeImageDraft.key
+    : persistedRepresentativeImageKey;
+  const representativeImageChanged = hasRepresentativeImageDraft && representativeImageDraft.changed;
   const age = now.getTime() - new Date(group.createdAt).getTime();
   const canDelete = age >= 0 && age <= DAY_MS;
 
@@ -305,12 +324,27 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   }
 
   const saveOverview = overview.handleSubmit(async (values) => {
+    if (imageUpload.isPending) return;
+    // The group PUT is a full replacement. Never clear a custom image just because
+    // an older response omitted its storage key and we could not derive it.
+    const existingImageIsCustom =
+      Boolean(group.representativeImageUrl) &&
+      !isDefaultGroupImageUrl(group.representativeImageUrl);
+    if (existingImageIsCustom && !representativeImageKey && !representativeImageChanged) {
+      toast.show({
+        title: "대표 이미지 정보를 확인하지 못했어요.",
+        description: "대표 이미지를 다시 선택한 뒤 저장해 주세요.",
+        tone: "danger"
+      });
+      return;
+    }
     await overviewLock.run(async () => {
       try {
         await modifyMutation.mutateAsync({
           ...values,
           meetingType: group.meetingType ?? "FLEXIBLE",
           location: group.location ?? null,
+          representativeImageKey: representativeImageKey ?? null,
           name: values.name.trim(),
           introduction: values.introduction.trim()
         });
@@ -413,7 +447,21 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
                 />
               </dl>
             </div>
-            <RepresentativeImage group={group} />
+            <RepresentativeImage
+              key={`representative-image-${group.id}-${group.representativeImageUrl ?? ""}`}
+              imageKey={representativeImageKey}
+              imageUrl={group.representativeImageUrl || DEFAULT_GROUP_IMAGE_URL}
+              onImageKeyChange={(nextImageKey) => {
+                setRepresentativeImageDraft({
+                  changed: true,
+                  groupId: group.id,
+                  key: nextImageKey
+                });
+              }}
+              onUpload={imageUpload.mutateAsync}
+              uploadError={imageUpload.error}
+              uploadPending={imageUpload.isPending}
+            />
           </section>
 
           <GroupContentTabs onSelect={setContentTab} value={contentTab} />
@@ -509,7 +557,9 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
             deleteMutation={deleteMutation}
             formId="group-overview-form"
             terminateMutation={terminateMutation}
-            savePending={modifyMutation.isPending || overviewLock.pending}
+            savePending={
+              modifyMutation.isPending || overviewLock.pending || imageUpload.isPending
+            }
             onDone={(verb) => {
               toast.show({ title: `모임을 ${verb}했어요.`, tone: "success" });
               navigate("/my?tab=joined", { replace: true });

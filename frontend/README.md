@@ -129,8 +129,8 @@ E2E는 production API에 mock 성공 데이터를 넣지 않습니다. 테스트
 | `/my`                                                               | 완료 회원             | 프로필과 내 모임·신청 요약                                |
 | `/my/groups`                                                        | 완료 회원             | 참여/운영 모임 목록                                       |
 | `/my/registrations`                                                 | 완료 회원             | 내 신청 상태와 철회                                       |
-| `/groups/new`                                                       | 완료 회원             | 그룹 생성과 유형별 일정 입력                              |
-| `/groups/:groupId/manage`                                           | 해당 그룹 리더        | 그룹 수정, 일정, 종료 또는 삭제                           |
+| `/groups/new`                                                       | 완료 회원             | 그룹 생성, 대표 이미지 업로드와 유형별 일정 입력          |
+| `/groups/:groupId/manage`                                           | 해당 그룹 리더        | 그룹 수정, 대표 이미지 업로드, 일정, 종료 또는 삭제       |
 | `/groups/:groupId/manage/members`                                   | 해당 그룹 리더        | 멤버 목록과 리더 위임                                     |
 | `/groups/:groupId/manage/recruitments`                              | 해당 그룹 리더        | 모집 생성·마감                                            |
 | `/groups/:groupId/manage/recruitments/:recruitmentId/registrations` | 해당 그룹 리더        | 신청 승인·거절                                            |
@@ -184,14 +184,15 @@ API client는 `src/shared/api/`에 있고, 페이지는 직접 `fetch`하지 않
 
 ## 실제 API 범위와 의도적으로 없는 기능
 
-연동 범위는 그룹 생성·수정·일정·종료/삭제, 멤버 조회·리더 위임, 모집 조회·생성·마감,
+연동 범위는 이미지 업로드, 그룹 생성·수정·일정·종료/삭제, 멤버 조회·리더 위임, 모집 조회·생성·마감,
 가입 신청 생성·철회·결정, 내 프로필 조회·가입·refresh·logout입니다. 세부 endpoint와 상태는
 [구현 매핑](docs/IMPLEMENTATION_MAP.md)을 따릅니다.
 
 현재 backend contract에 없는 기능은 성공한 것처럼 보이게 만들지 않습니다.
 
-- 이미지 업로드 endpoint가 없으므로 대표 이미지는 API의 읽기 전용 값 또는
-  `/images/default-group.png` fallback만 표시합니다.
+- 대표 이미지는 `POST /api/image-uploads`로 업로드 리소스를 발급한 뒤 presigned URL에
+  `PUT`하고, 생성·수정 요청에는 반환된 `representativeImageKey`를 전달합니다. JPG·PNG·WEBP,
+  최대 5MB만 허용하며, 이미지가 없으면 `/images/default-group.png`을 사용합니다.
 - 프로필/아바타 수정 endpoint가 없습니다.
 - 멤버 강제 퇴장 endpoint가 없습니다.
 - 그룹에 직접 가입하는 endpoint가 없습니다. 모집 registration 흐름만 사용합니다.

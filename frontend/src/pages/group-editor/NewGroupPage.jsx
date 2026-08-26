@@ -5,6 +5,10 @@ import { useNavigate } from "react-router";
 import { z } from "zod";
 
 import { useCreateGroup } from "../../features/group/index.js";
+import {
+  DEFAULT_GROUP_IMAGE_URL,
+  useImageUpload
+} from "../../features/image-upload/index.js";
 import { Button, ErrorState, useToast } from "../../shared/ui/index.js";
 import {
   DescriptionField,
@@ -16,6 +20,7 @@ import {
   SessionScheduleFields
 } from "./GroupEditorFields.jsx";
 import { GroupMembersPanel } from "./GroupMembersPanel.jsx";
+import { RepresentativeImage } from "./RepresentativeImage.jsx";
 import { useSubmissionLock } from "./useSubmissionLock.js";
 
 const timeSchema = z.string().regex(/^\d{2}:\d{2}$/, "시간을 입력해 주세요.");
@@ -64,14 +69,15 @@ export const newGroupSchema = baseSchema.superRefine((values, context) => {
   }
 });
 
-function toCreateBody(values) {
+function toCreateBody(values, representativeImageKey = null) {
   const common = {
     type: values.type,
     name: values.name.trim(),
     introduction: values.introduction.trim(),
     description: values.description,
     meetingType: "FLEXIBLE",
-    location: null
+    location: null,
+    representativeImageKey
   };
   if (values.type === "SESSION") {
     return {
@@ -104,6 +110,7 @@ function safeErrorDescription(error) {
 export function NewGroupPage() {
   const navigate = useNavigate();
   const createMutation = useCreateGroup();
+  const imageUpload = useImageUpload();
   const createLock = useSubmissionLock();
   const toast = useToast();
   const {
@@ -131,6 +138,7 @@ export function NewGroupPage() {
   const description = useWatch({ control, name: "description" }) ?? "";
   const [preview, setPreview] = useState(false);
   const [contentTab, setContentTab] = useState("intro");
+  const [representativeImageKey, setRepresentativeImageKey] = useState(null);
 
   function insertMarkdown(snippet) {
     const current = getValues("description") ?? "";
@@ -143,9 +151,12 @@ export function NewGroupPage() {
   }
 
   const submit = handleSubmit(async (values) => {
+    if (imageUpload.isPending) return;
     await createLock.run(async () => {
       try {
-        const result = await createMutation.mutateAsync(toCreateBody(values));
+        const result = await createMutation.mutateAsync(
+          toCreateBody(values, representativeImageKey)
+        );
         toast.show({ title: "모임을 만들었어요.", tone: "success" });
         navigate(`/groups/${result.id}/manage`);
       } catch (error) {
@@ -200,15 +211,15 @@ export function NewGroupPage() {
               )}
             </div>
           </div>
-          <aside className="group-editor__image-panel">
-            <img
-              className="group-editor__representative-image group-editor__representative-image--draft"
-              src="/images/default-group.png"
-              alt="서버 기본 모임 대표"
-            />
-            <strong>서버 기본 대표 이미지</strong>
-            <p>현재 API는 이미지 업로드를 지원하지 않아 생성 시 서버 기본 이미지가 적용돼요.</p>
-          </aside>
+          <RepresentativeImage
+            draft
+            imageKey={representativeImageKey}
+            imageUrl={DEFAULT_GROUP_IMAGE_URL}
+            onImageKeyChange={setRepresentativeImageKey}
+            onUpload={imageUpload.mutateAsync}
+            uploadError={imageUpload.error}
+            uploadPending={imageUpload.isPending}
+          />
         </section>
 
         <GroupContentTabs onSelect={setContentTab} value={contentTab} />
@@ -254,7 +265,7 @@ export function NewGroupPage() {
             <CreateFooter
               descriptionLength={description.length}
               onCancel={() => navigate("/groups")}
-              pending={createMutation.isPending || createLock.pending}
+              pending={createMutation.isPending || createLock.pending || imageUpload.isPending}
             />
           </section>
         ) : (
@@ -263,7 +274,7 @@ export function NewGroupPage() {
             <CreateFooter
               descriptionLength={description.length}
               onCancel={() => navigate("/groups")}
-              pending={createMutation.isPending || createLock.pending}
+              pending={createMutation.isPending || createLock.pending || imageUpload.isPending}
             />
           </section>
         )}

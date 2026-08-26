@@ -35,7 +35,8 @@ export const groupModifyFormSchema = z.object({
   introduction: z.string().trim().min(1, "한 줄 소개를 입력해 주세요.").max(100),
   description: z.string().max(5_000).nullable().optional(),
   meetingType: groupMeetingTypeSchema,
-  location: z.string().max(255).nullable()
+  location: z.string().max(255).nullable(),
+  representativeImageKey: z.string().max(255).nullable().optional()
 });
 
 export const groupCreateFormSchema = groupModifyFormSchema

@@ -320,6 +320,70 @@
     word-break: keep-all;
 }
 
+.group-editor__image-footer {
+    display: flex;
+    inline-size: 100%;
+    align-items: end;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-block-start: var(--space-3);
+}
+
+.group-editor__image-footer strong {
+    display: block;
+    margin: 0;
+    font-size: var(--text-label);
+}
+
+.group-editor__image-footer p {
+    margin-block-start: var(--space-1);
+    font-size: var(--text-caption);
+}
+
+.group-editor__image-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: end;
+    gap: var(--space-2);
+}
+
+.group-editor__image-change,
+.group-editor__image-clear {
+    display: inline-flex;
+    min-block-size: var(--touch-target);
+    align-items: center;
+    gap: var(--space-2);
+    white-space: nowrap;
+}
+
+.group-editor__image-change img {
+    block-size: 1rem;
+    inline-size: 1rem;
+    opacity: 0.7;
+}
+
+.group-editor__image-input {
+    block-size: 1px;
+    clip-path: inset(50%);
+    inline-size: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap;
+}
+
+.group-editor__image-error {
+    color: var(--color-danger, #a52a2a);
+    font-size: var(--text-caption);
+    font-weight: 700;
+    margin-block-start: var(--space-2);
+}
+
+.group-editor__image-panel--draft .group-editor__image-footer {
+    align-items: center;
+    flex-direction: column;
+    text-align: center;
+}
+
 .group-editor__schedule-fields {
     border: 0;
     margin: 0;
@@ -1059,6 +1123,10 @@
   margin-block-start: var(--space-2);
 }
 
+.manage-page--editor .group-editor__image-actions {
+  align-items: center;
+}
+
 .manage-page--editor .group-editor__image-panel strong {
   margin: 0;
   font-size: var(--text-h3);
@@ -1093,6 +1161,10 @@
   margin-block-start: var(--space-2);
   font-size: var(--text-caption);
   line-height: 1.4;
+}
+
+.manage-page--editor .group-editor__image-error {
+  margin-block-start: var(--space-2);
 }
 
 .manage-page--editor .group-editor__content-tabs {
@@ -1196,6 +1268,10 @@
 
   .manage-page--editor .group-editor__image-footer {
     align-items: stretch;
+    flex-direction: column;
+  }
+
+  .manage-page--editor .group-editor__image-actions {
     flex-direction: column;
   }
 
