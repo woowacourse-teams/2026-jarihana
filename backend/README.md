@@ -133,6 +133,12 @@ GitHub은 `GITHUB_`로 시작하는 시크릿 이름을 허용하지 않으므�
 | `GITHUB_OAUTH_CLIENT_ID` | `OAUTH_GITHUB_CLIENT_ID` |
 | `GITHUB_OAUTH_CLIENT_SECRET` | `OAUTH_GITHUB_CLIENT_SECRET` |
 | `GITHUB_OAUTH_REDIRECT_URI` | `OAUTH_GITHUB_REDIRECT_URI` |
+| `IMAGE_S3_BUCKET` | `IMAGE_S3_BUCKET` |
+| `IMAGE_S3_REGION` | `IMAGE_S3_REGION` |
+| `IMAGE_S3_KEY_PREFIX` | `IMAGE_S3_KEY_PREFIX` (`jarihana/images`) |
+| `IMAGE_S3_PUBLIC_BASE_URL` | `IMAGE_S3_PUBLIC_BASE_URL` (`https://d1znkkaqfyz08f.cloudfront.net/images`) |
 
 실제 값은 저장소에 커밋하지 않습니다. `backend/.env.example`은 로컬 실행용 키 목록과
-예시만 제공하며 운영값의 저장소가 아닙니다.
+예시만 제공하며 운영값의 저장소가 아닙니다. S3 자격 증명은 애플리케이션에서 별도로
+주입하지 않고 AWS SDK 기본 자격 증명 체인을 사용하므로, 운영 EC2에서는 연결된 IAM Role이
+필요합니다.

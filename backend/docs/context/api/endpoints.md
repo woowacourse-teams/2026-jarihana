@@ -286,8 +286,11 @@ Refresh Token을 모두 `HttpOnly` 쿠키로 내린다. `state` 검증 방식은
 
 ## 그룹
 
-MVP에서는 이미지 저장소 연동 전까지 그룹 목록·상세 조회의
-`representativeImageUrl`을 `images/default-group.png`로 통일한다.
+그룹 목록·상세 조회는 대표 이미지 키가 없거나 기본 이미지 키인 경우
+`images/default-group.png`를 반환한다. 업로드된 이미지 키가 연결된 경우에는
+설정된 공개 이미지 Base URL과 스토리지 키를 조합한 URL을 반환한다.
+현재 운영 버킷의 이미지 객체 prefix는 `jarihana/images`이며, 공개 Base URL은
+해당 prefix를 제외한 CloudFront 경로(예: `https://d1znkkaqfyz08f.cloudfront.net/images`)다.
 
 ### `GET /api/groups`
 
@@ -377,6 +380,7 @@ MVP에서는 이미지 저장소 연동 전까지 그룹 목록·상세 조회�
 - 오류 분기는 `error.code`를 기준으로 한다.
 - `meetingType`은 필수이며 `ONLINE`, `OFFLINE`, `FLEXIBLE` 중 하나를 사용한다. `FLEXIBLE`은 고정된 온라인·오프라인 방식 없이 유동적으로 정하는 경우다.
 - `location`은 최대 255자의 nullable 문자열이다. 오프라인 장소 또는 온라인 접속 정보를 저장할 수 있다.
+- `representativeImageKey`는 nullable 스토리지 키이며, `null`이면 기본 대표 이미지를 사용한다.
 
 #### 요청 — CLUB 또는 STUDY
 
@@ -620,7 +624,7 @@ Request Body는 없다.
 ```
 
 - 수정 가능한 기본 정보의 전체 표현을 전달한다. 전달하지 않은 필드를 기존 값으로 보존하는 부분 수정은 지원하지 않는다.
-- `description`, `representativeImageKey`를 비우려면 각각 `null`을 명시한다.
+- `description`, `location`, `representativeImageKey`는 nullable 필드지만 요청에 반드시 포함해야 하며, 비우려면 각각 `null`을 명시한다.
 - `type`, `status`, 일정은 이 API에서 수정하지 않는다.
 - `meetingType`과 `location`은 그룹의 모임 방식과 장소를 전체 교체한다. `meetingType`은 필수이며 `ONLINE`, `OFFLINE`, `FLEXIBLE` 중 하나를 보낸다. 장소를 비우려면 `null`을 명시한다.
 
@@ -1428,10 +1432,11 @@ Request Body는 없다.
 ```
 
 - 클라이언트는 제한된 시간과 객체 키에만 유효한 Presigned URL로 스토리지에 이미지 바이트를 직접 업로드한다.
-- 그룹 생성·수정 API에는 URL이 아니라 `imageKey`를 전달한다.
+- 그룹 생성·수정 API에는 URL이 아니라 `representativeImageKey`를 전달한다.
+- 그룹 생성·수정 요청의 `representativeImageKey`는 아직 만료되지 않은 업로드 기록과 실제 스토리지 객체가 모두 존재해야 한다.
 
 #### 생명주기
-- 그룹에 연결된 `imageKey`만 대표 이미지로 확정한다.
+- 그룹에 연결된 `representativeImageKey`만 대표 이미지로 확정한다.
 - 만료 시점까지 그룹에 연결되지 않은 임시 객체와 ImageUpload 기록은 정리 작업으로 삭제한다.
 - Presigned URL은 스토리지 키나 장기 자격 증명을 노출하지 않는다.
 

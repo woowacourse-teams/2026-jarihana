@@ -16,6 +16,14 @@ spring:
       - org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
 
 jarihana:
+  image:
+    bucket: ${IMAGE_S3_BUCKET:techcourse-project-2026}
+    region: ${IMAGE_S3_REGION:ap-northeast-2}
+    key-prefix: ${IMAGE_S3_KEY_PREFIX:jarihana/images}
+    public-base-url: ${IMAGE_S3_PUBLIC_BASE_URL:}
+    presigned-url-expiration: ${IMAGE_S3_PRESIGNED_URL_EXPIRATION:PT10M}
+    max-file-size: ${IMAGE_MAX_FILE_SIZE:5242880}
+    allowed-content-types: ${IMAGE_ALLOWED_CONTENT_TYPES:image/jpeg,image/png,image/webp}
   auth:
     frontend-origin: ${FRONTEND_ORIGIN:http://localhost:5173}
     oauth-state-cookie-name: oauthState

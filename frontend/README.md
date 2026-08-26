@@ -184,14 +184,16 @@ API client는 `src/shared/api/`에 있고, 페이지는 직접 `fetch`하지 않
 
 ## 실제 API 범위와 의도적으로 없는 기능
 
-연동 범위는 그룹 생성·수정·일정·종료/삭제, 멤버 조회·리더 위임, 모집 조회·생성·마감,
-가입 신청 생성·철회·결정, 내 프로필 조회·가입·refresh·logout입니다. 세부 endpoint와 상태는
-[구현 매핑](docs/IMPLEMENTATION_MAP.md)을 따릅니다.
+연동 범위는 그룹 생성·수정·일정·종료/삭제, 대표 이미지 업로드, 멤버 조회·리더 위임,
+모집 조회·생성·마감, 가입 신청 생성·철회·결정, 내 프로필 조회·가입·refresh·logout입니다.
+세부 endpoint와 상태는 [구현 매핑](docs/IMPLEMENTATION_MAP.md)을 따릅니다.
 
 현재 backend contract에 없는 기능은 성공한 것처럼 보이게 만들지 않습니다.
 
-- 이미지 업로드 endpoint가 없으므로 대표 이미지는 API의 읽기 전용 값 또는
-  `/images/default-group.png` fallback만 표시합니다.
+- 백엔드는 `POST /api/image-uploads`로 Presigned URL을 발급하고, 업로드가 끝난 뒤
+  그룹 생성·수정 요청에 `representativeImageKey`를 전달하는 흐름을 지원합니다.
+  프론트엔드 업로드 UI 연결은 아직 남아 있으므로 현재 화면에서는 API가 반환한
+  `representativeImageUrl` 또는 `/images/default-group.png` fallback을 표시합니다.
 - 프로필/아바타 수정 endpoint가 없습니다.
 - 멤버 강제 퇴장 endpoint가 없습니다.
 - 그룹에 직접 가입하는 endpoint가 없습니다. 모집 registration 흐름만 사용합니다.

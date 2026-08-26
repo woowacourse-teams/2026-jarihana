@@ -1,28 +1,16 @@
+/*
+ * 모임 생성/수정 화면.
+ * 상세 페이지(groups.css)의 .group-profile / .group-facts 위에 입력만 얹는 구조라,
+ * 여기에는 그 위에 덧대는 규칙만 둔다. 히어로와 정보 배치는 상세 페이지 것을 그대로 쓴다.
+ */
+
 .group-editor {
-    --group-editor-icon-size: 3.5rem;
-    --group-editor-visual-width: 17.5rem;
-    --group-editor-hero-visual-height: 19.5rem;
-    --group-editor-day-min-width: 4.75rem;
     --group-editor-content-width: 68.75rem;
     color: var(--color-ink);
     inline-size: min(100%, calc(var(--group-editor-content-width) + var(--space-16)));
     margin-inline: auto;
     padding-inline: var(--page-gutter);
     padding-block: var(--space-10) var(--space-16);
-}
-
-.group-editor--create {
-    position: relative;
-    isolation: isolate;
-}
-
-.group-editor--create::before {
-    position: absolute;
-    z-index: -1;
-    inset-block: 0;
-    inset-inline: calc(50% - 50vw);
-    background: var(--color-canvas);
-    content: "";
 }
 
 .group-editor--embedded {
@@ -35,296 +23,522 @@
     margin-block-end: var(--space-8);
 }
 
-.group-editor__heading p {
-    color: var(--color-brand-ink);
-    font-size: var(--text-label);
-    font-weight: 700;
-    margin: 0 0 var(--space-2);
-}
-
 .group-editor__heading h1 {
-    font-size: var(--text-h1);
     margin: 0;
+    font-size: var(--text-h1);
     overflow-wrap: break-word;
     word-break: keep-all;
 }
 
-.group-editor__route-tabs,
-.group-editor__content-tabs {
-    display: flex;
-    align-items: stretch;
-    gap: var(--space-8);
+.group-editor__heading-note {
+    margin: var(--space-2) 0 0;
+    padding-block-end: var(--space-5);
     border-block-end: var(--border-thin) solid var(--color-line);
+    color: var(--color-muted-ink);
+    font-size: var(--text-label);
 }
 
-.group-editor__route-tabs {
-    margin-block-start: var(--space-6);
+.group-editor__visually-hidden,
+.group-editor__field-label.is-hidden {
+    position: absolute;
+    overflow: hidden;
+    clip-path: inset(50%);
+    inline-size: 1px;
+    block-size: 1px;
+    white-space: nowrap;
 }
 
-.group-editor__route-tabs span,
-.group-editor__content-tabs > * {
+.group-editor__error {
+    margin: var(--space-2) 0 0;
+    color: var(--color-danger);
+    font-size: var(--text-caption);
+}
+
+/*
+ * 어두운 히어로 위에서는 --color-danger가 1.99:1까지 떨어져 읽히지 않는다.
+ * 제출이 막힌 이유를 못 읽으면 그냥 등록이 안 되는 것처럼 보이므로,
+ * 히어로 안에서만 밝은 산호색으로 올린다(밝은 쪽 5.27:1, 어두운 쪽 8.70:1).
+ */
+.group-editor__profile .group-editor__error {
+    color: #ff9d94;
+    font-weight: var(--font-weight-semibold);
+}
+
+/* ── 언더라인 입력 (#119 패턴) ─────────────────────────────
+ * 밑줄은 래퍼가 갖고 컨트롤은 래퍼 폭을 채운다. 밑줄을 컨트롤에 직접 걸면
+ * 밑줄이 글자 폭에서 끊기고 셀렉트 화살표 옆을 눌러도 열리지 않는다.
+ */
+
+.group-editor__field {
+    min-inline-size: 0;
+}
+
+.group-editor__field-label {
+    display: block;
+    margin-block-end: var(--space-1);
+    color: var(--color-header-muted);
+    font-size: var(--text-caption);
+    line-height: 1.35;
+}
+
+.group-editor__ul {
     position: relative;
+    display: block;
+    border-block-end: var(--border-strong) solid
+        color-mix(in srgb, var(--color-surface) 32%, transparent);
+    transition: border-color var(--duration-fast) var(--ease-standard);
+}
+
+.group-editor__ul:focus-within {
+    border-block-end-color: var(--color-brand);
+}
+
+.group-editor__ul > input,
+.group-editor__ul > select {
+    inline-size: 100%;
+    min-block-size: var(--touch-target);
+    padding: var(--space-2) var(--space-1);
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--color-surface);
+    font: inherit;
+    font-family: var(--font-sans);
+}
+
+.group-editor__ul > input:focus,
+.group-editor__ul > select:focus {
+    outline: 0;
+}
+
+.group-editor__ul > input::placeholder {
+    color: color-mix(in srgb, var(--color-surface) 48%, transparent);
+}
+
+.group-editor__ul--select > select {
+    appearance: none;
+    padding-inline-end: var(--space-8);
+    cursor: pointer;
+}
+
+/*
+ * 열린 목록은 OS가 흰 배경으로 그리므로 option이 select의 흰 글자색을 물려받으면
+ * 항목이 보이지 않는다. 닫힌 상태와 열린 목록의 색을 따로 지정한다.
+ */
+.group-editor__ul > select option {
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+}
+
+.group-editor__ul--select::after {
+    position: absolute;
+    inset-inline-end: var(--space-3);
+    inset-block-start: 44%;
+    inline-size: var(--space-2);
+    block-size: var(--space-2);
+    border-inline-end: var(--border-strong) solid var(--color-header-muted);
+    border-block-end: var(--border-strong) solid var(--color-header-muted);
+    transform: translateY(-50%) rotate(45deg);
+    pointer-events: none;
+    content: "";
+}
+
+.group-editor__field--title > .group-editor__ul > input {
+    font-size: clamp(1.75rem, 3vw, 2.25rem);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.2;
+}
+
+.group-editor__field--intro > .group-editor__ul > input {
+    color: var(--color-header-muted);
+    font-size: var(--text-body-lg);
+}
+
+.group-editor__type-field {
+    inline-size: fit-content;
+    min-inline-size: 8rem;
+    margin-block-end: var(--space-2);
+}
+
+.group-editor__type-field .group-editor__ul > select {
+    color: var(--color-brand);
+    font-size: var(--text-label);
+    font-weight: var(--font-weight-bold);
+}
+
+/* 수정 화면의 종류는 상세 페이지와 같은 텍스트. 밑줄이 없으니 못 고치는 값임이 읽힌다. */
+.group-editor__type-static {
+    margin-block-end: var(--space-2);
+}
+
+
+/*
+ * 히어로에 입력이 올라가는데 대표 이미지가 어떤 색일지 알 수 없다.
+ * 이미지를 어둡게 깔고 그 위에 고른 scrim을 덮어, 순백 이미지가 올라와도
+ * 흰 글자 10.5:1, 브랜드 4.7:1, muted 5.3:1로 모두 AA를 넘게 만든다.
+ * 기본 일러스트는 이미 opacity로 눌러 두었으므로 건드리지 않는다.
+ */
+.group-profile.group-editor__profile:not(.group-profile--default-image) .group-profile__image {
+    filter: brightness(0.45);
+}
+
+.group-profile.group-editor__profile::after {
+    background:
+        linear-gradient(
+            90deg,
+            color-mix(in srgb, var(--color-nav) 56%, transparent) 0%,
+            color-mix(in srgb, var(--color-nav) 45%, transparent) 100%
+        );
+}
+
+/*
+ * 상세 페이지의 히어로는 좌측 상단 '목록으로' 버튼 자리를 비워 두려고 위쪽에
+ * touch-target 만큼 여백을 준다. 편집 화면에는 그 버튼이 없어 그만큼이 빈 공간이다.
+ * 우측 상단 대표 이미지 버튼과는 375px에서도 겹치지 않는다. 버튼이 차지하는
+ * 세로 구간보다 본문 첫 줄이 아래에서 시작하기 때문이다.
+ */
+.group-editor__profile .group-profile__copy {
+    padding-block-start: var(--space-2);
+}
+
+/* ── 히어로 위 모임 정보 ──────────────────────────────── */
+
+.group-editor__profile .group-facts {
+    /* 칸이 같은 높이로 늘어나야 컨트롤을 바닥에 붙일 수 있다. */
+    align-items: stretch;
+    gap: var(--space-4) var(--space-5);
+}
+
+/*
+ * 상세 페이지의 .group-fact는 아이콘과 내용을 나누는 auto minmax(0,1fr) 2열이다.
+ * 편집 화면에는 아이콘이 없어 내용이 auto 열에 들어가고, 그러면 입력과 일정
+ * 버튼의 폭이 글자 길이를 따라 들쭉날쭉해진다. 한 열로 되돌려 폭을 고정한다.
+ * groups.css가 뒤에 로드되므로 선택자를 한 단계 높여 이긴다.
+ */
+/*
+ * align-items를 반드시 다시 지정한다. 상세 페이지의 .group-facts > .group-fact가
+ * align-items: start를 걸어 두는데, 열 방향 flex에서 그 값은 자식을 늘리지 않고
+ * 내용 폭으로 줄인다. 그래서 모임 방식 밑줄만 셀렉트 글자만큼 짧아졌었다.
+ */
+.group-profile.group-editor__profile .group-fact,
+.group-profile.group-editor__profile .group-fact > div,
+.group-profile.group-editor__profile .group-fact .group-editor__field {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    min-inline-size: 0;
+}
+
+.group-profile.group-editor__profile .group-fact > div,
+.group-profile.group-editor__profile .group-fact .group-editor__field {
+    flex: 1;
+}
+
+/*
+ * 모임 방식은 높이가 고정된 select이고 모임 일정은 요약 줄 수에 따라 늘어나는
+ * 버튼이라 그대로 두면 밑줄 높이가 어긋난다. 칸을 같은 높이로 늘린 뒤
+ * 컨트롤을 바닥으로 밀어 밑줄을 한 줄에 맞춘다.
+ */
+.group-profile.group-editor__profile .group-fact .group-editor__ul,
+.group-profile.group-editor__profile .group-fact dd {
+    margin-block-start: auto;
+}
+
+/* dd의 브라우저 기본 들여쓰기가 남아 있어 칸마다 시작점이 어긋난다. */
+.group-profile.group-editor__profile .group-fact dd {
+    margin-inline-start: 0;
+}
+
+.group-editor__schedule-row {
+    display: flex;
+    inline-size: 100%;
+    min-block-size: var(--touch-target);
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-1);
+    border: 0;
+    border-block-end: var(--border-strong) solid
+        color-mix(in srgb, var(--color-surface) 32%, transparent);
+    background: transparent;
+    color: var(--color-surface);
+    font: inherit;
+    font-size: var(--text-label);
+    text-align: start;
+    cursor: pointer;
+    transition: border-color var(--duration-fast) var(--ease-standard);
+}
+
+.group-editor__schedule-row:hover,
+.group-editor__schedule-row:focus-visible {
+    border-block-end-color: var(--color-brand);
+    outline: 0;
+}
+
+.group-editor__schedule-summary {
+    display: grid;
+    min-inline-size: 0;
+    gap: var(--space-1);
+}
+
+.group-editor__schedule-edit {
+    flex: 0 0 auto;
+    color: var(--color-brand);
+    font-size: var(--text-caption);
+    font-weight: var(--font-weight-bold);
+}
+
+.group-editor__tabs {
+    margin-block-start: var(--space-8);
+}
+
+.group-editor__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--space-3);
+    margin-block-start: var(--space-8);
+}
+
+
+/* 대표 이미지 자리. 상세 페이지의 수정 아이콘과 같은 우측 상단에 둔다. */
+.group-editor__image-button {
+    position: absolute;
+    z-index: 3;
+    inset-block-start: var(--space-4);
+    inset-inline-end: var(--space-4);
     display: inline-flex;
     min-block-size: var(--touch-target);
     align-items: center;
+    gap: var(--space-2);
+    padding-inline: var(--space-4);
+    border: var(--border-thin) solid color-mix(in srgb, var(--color-surface) 38%, transparent);
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--color-nav) 42%, transparent);
+    color: var(--color-surface);
+    font: inherit;
+    font-size: var(--text-label);
+    font-weight: var(--font-weight-bold);
+    cursor: pointer;
+    transition: background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+.group-editor__image-button:hover {
+    border-color: var(--color-brand);
+    background: color-mix(in srgb, var(--color-nav) 62%, transparent);
+}
+
+.group-editor__image-badge {
+    padding: 0 var(--space-2);
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--color-surface) 22%, transparent);
+    color: var(--color-surface);
+    font-size: var(--text-caption);
+    font-weight: var(--font-weight-semibold);
+}
+
+@media (max-width: 47.9375rem) {
+    .group-editor__image-button span:not(.group-editor__image-badge) {
+        position: absolute;
+        overflow: hidden;
+        clip-path: inset(50%);
+        inline-size: 1px;
+        block-size: 1px;
+        white-space: nowrap;
+    }
+}
+
+/* ── 일정 모달 ──────────────────────────────────────── */
+
+/*
+ * Modal은 createPortal로 .group-editor 바깥에 렌더된다. 요일 칩이 쓰는 값을
+ * .group-editor에 두면 여기까지 닿지 않아 크기와 배경이 통째로 무효가 된다.
+ */
+.group-editor__schedule-dialog {
+    --group-editor-day-size: 2.75rem;
+    /* 주말은 빨강/파랑 대신 브랜드 계열에서 채도만 낮춰 구분한다. */
+    --group-editor-weekend: color-mix(in srgb, var(--color-brand-ink) 30%, var(--color-muted-ink));
+    display: grid;
+    gap: var(--space-5);
+}
+
+.group-editor__schedule-fields {
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+/* 네 값은 서로 배타적인 하나의 선택이라 버튼 넷이 아니라 4칸 세그먼트 하나로 묶는다. */
+.group-editor__preset-seg {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow: hidden;
+    margin-block-end: var(--space-5);
+    border: var(--border-thin) solid var(--color-line);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+}
+
+.group-editor__preset-seg button {
+    min-block-size: var(--touch-target);
+    padding-inline: var(--space-2);
     border: 0;
     background: transparent;
     color: var(--color-muted-ink);
     font: inherit;
     font-size: var(--text-label);
-    font-weight: 700;
+    font-weight: var(--font-weight-bold);
+    cursor: pointer;
+    transition: background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
 }
 
-.group-editor__route-tabs span[aria-current="page"],
-.group-editor__content-tabs button[aria-selected="true"] {
+.group-editor__preset-seg button + button {
+    border-inline-start: var(--border-thin) solid var(--color-line);
+}
+
+.group-editor__preset-seg button:hover:not([aria-pressed="true"]) {
+    background: var(--color-brand-soft);
     color: var(--color-brand-ink);
 }
 
-.group-editor__route-tabs span[aria-current="page"]::after,
-.group-editor__content-tabs button[aria-selected="true"]::after {
-    position: absolute;
-    inset-inline: 0;
-    inset-block-end: 0;
-    block-size: calc(var(--border-thin) * 3);
-    border-radius: var(--radius-pill);
-    background: var(--color-brand);
-    content: "";
+.group-editor__preset-seg button[aria-pressed="true"] {
+    background: var(--color-brand-ink);
+    color: var(--color-surface);
 }
 
-.group-editor__route-tabs span[aria-disabled="true"],
-.group-editor__content-tabs button[disabled] {
-    cursor: not-allowed;
-    opacity: 0.72;
-}
-
-.group-editor__content-tabs {
-    margin-block: var(--space-6) var(--space-5);
-}
-
-.group-editor__content-tabs button {
-    cursor: pointer;
-}
-
-.group-editor__content-tabs button[disabled] {
-    cursor: not-allowed;
-}
-
-.group-editor__heading--compact {
+.group-editor__schedule-dialog .group-editor__field-label {
     margin-block-end: var(--space-2);
-}
-
-.group-editor__visually-hidden {
-    block-size: var(--border-thin);
-    clip-path: inset(50%);
-    inline-size: var(--border-thin);
-    overflow: hidden;
-    position: absolute;
-    white-space: nowrap;
-}
-
-.group-editor__back {
-    display: inline-flex;
-    align-items: center;
-    background: none;
-    border: 0;
     color: var(--color-muted-ink);
+}
+
+.group-editor__day-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.group-editor__day-chip {
+    position: relative;
+    display: block;
     cursor: pointer;
-    margin-block-end: var(--space-6);
-    min-block-size: var(--touch-target);
-    padding: 0;
-    text-decoration: none;
 }
 
-.group-editor__back::before {
-    content: "← ";
+.group-editor__day-chip input {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    opacity: 0;
+    pointer-events: none;
 }
 
-.group-editor__hero,
-.group-editor__panel {
-    background: var(--color-surface);
-    border: var(--border-thin) solid var(--color-line);
-    border-radius: var(--radius-lg);
-    margin-block-end: var(--space-8);
-    padding: var(--space-8);
-}
-
-.group-editor__hero {
-    background: var(--color-brand-soft);
+.group-editor__day-chip > span {
     display: grid;
-    gap: var(--space-8);
-    grid-template-columns: minmax(0, 0.9fr) minmax(var(--group-editor-visual-width), 1.1fr);
-}
-
-.group-editor__hero--draft {
-    align-items: stretch;
-    box-shadow: 0 var(--space-1) var(--space-1) color-mix(in srgb, var(--color-ink) 16%, transparent);
-}
-
-.group-editor__overview-form {
-    margin: 0;
-}
-
-.group-editor__overview-form .group-editor__hero {
-    margin-block-end: var(--space-4);
-}
-
-.group-editor__hero-fields {
-    align-self: center;
-    min-inline-size: 0;
-}
-
-.group-editor__hero-schedule {
-    margin-block-start: var(--space-6);
-    padding-block-start: var(--space-5);
-    border-block-start: var(--border-thin) solid color-mix(in srgb, var(--color-brand-ink) 24%, transparent);
-}
-
-.group-editor__hero-schedule h3 {
-    margin: 0 0 var(--space-3);
-    font-size: var(--text-h3);
-}
-
-.group-editor__hero-schedule .group-editor__schedule-fields legend {
+    inline-size: var(--group-editor-day-size);
+    block-size: var(--group-editor-day-size);
+    place-items: center;
+    padding: 0;
+    border: var(--border-thin) solid var(--color-line);
+    border-radius: 50%;
+    background: var(--color-surface);
+    color: var(--color-muted-ink);
     font-size: var(--text-label);
+    font-weight: var(--font-weight-bold);
+    line-height: 1;
+    transition: background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
 }
 
-.group-editor__hero-schedule .group-editor__field-note {
+.group-editor__day-chip:hover > span {
+    border-color: var(--color-brand-ink);
+}
+
+/* 흰 글자를 쓰려면 채움이 진해야 한다. 브랜드 teal 위 흰 글자는 2.2:1로 미달이다. */
+.group-editor__day-chip input:checked + span {
+    border-color: var(--color-brand-ink);
+    background: var(--color-brand-ink);
+    color: var(--color-surface);
+}
+
+.group-editor__day-chip.is-weekend > span {
+    color: var(--group-editor-weekend);
+}
+
+.group-editor__day-chip.is-weekend:hover > span,
+.group-editor__day-chip.is-weekend input:checked + span {
+    border-color: var(--group-editor-weekend);
+}
+
+.group-editor__day-chip.is-weekend input:checked + span {
+    background: var(--group-editor-weekend);
+    color: var(--color-surface);
+}
+
+/*
+ * 프리셋이 켜져 있을 때 선택되지 않은 요일은 흐리게만 둔다. 잠그면
+ * 평일 + 토요일 같은 조합에 도달할 수 없어서, 지름길이 제약이 되어 버린다.
+ */
+.group-editor__day-chip.is-dimmed > span {
+    opacity: 0.4;
+}
+
+.group-editor__day-chip input:focus-visible + span {
+    outline: var(--border-strong) solid var(--color-brand);
+    outline-offset: var(--space-1);
+}
+
+.group-editor__schedule-note {
+    margin-block: var(--space-3) 0;
+    color: var(--color-muted-ink);
     font-size: var(--text-caption);
 }
 
-.group-editor__hero-schedule .group-editor__day-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+.group-editor__schedule-dialog .group-editor__ul {
+    border-block-end-color: var(--color-line);
 }
 
-.group-editor__facts {
+.group-editor__schedule-dialog .group-editor__ul > input,
+.group-editor__schedule-dialog .group-editor__ul > select {
+    color: var(--color-ink);
+}
+
+.group-editor__time-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-3);
-    margin: var(--space-5) 0 0;
-}
-
-.group-editor__facts div {
-    min-width: 0;
-    padding: var(--space-3) var(--space-4);
-    border: var(--border-thin) solid color-mix(in srgb, var(--color-brand-ink) 24%, var(--color-line));
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--color-surface) 88%, transparent);
-}
-
-.group-editor__facts dt {
-    color: var(--color-muted-ink);
-    font-size: var(--text-caption);
-}
-
-.group-editor__facts dd {
-    margin: var(--space-1) 0 0;
-    font-size: var(--text-label);
-    font-weight: 700;
-    overflow-wrap: anywhere;
-}
-
-.group-editor__type-tag {
-    background: var(--color-surface);
-    border: var(--border-thin) solid var(--color-line);
-    border-radius: var(--radius-sm);
-    color: var(--color-brand-ink);
-    display: inline-flex;
-    font-size: var(--text-label);
-    font-weight: 700;
-    margin-block-end: var(--space-4);
-    padding: var(--space-2) var(--space-3);
-}
-
-.group-editor__section-title {
-    align-items: center;
-    display: flex;
     gap: var(--space-4);
-    margin-block-end: var(--space-6);
+    margin-block-start: var(--space-5);
 }
 
-.group-editor__section-title img {
-    block-size: var(--group-editor-icon-size);
-    inline-size: var(--group-editor-icon-size);
-}
-
-.group-editor__section-title span {
-    color: var(--color-brand-ink);
-    display: block;
-    font-size: var(--text-caption);
-    font-weight: 700;
-}
-
-.group-editor__section-title h2,
-.group-editor__schedule-fields legend {
-    font-size: var(--text-h2);
-    font-weight: 700;
-    margin: 0;
-}
-
-.group-editor__overview-fields {
-    display: grid;
-    gap: var(--space-4);
-    min-inline-size: 0;
-}
-
-.group-editor__overview-fields > label:last-child {
-    margin-block-start: var(--space-2);
-}
-
-.group-editor__overview-fields--hero input[name="name"] {
-    font-size: var(--text-h1);
-    font-weight: 700;
-}
-
-.group-editor__image-panel {
-    align-items: center;
-    background: color-mix(in srgb, var(--color-surface) 82%, transparent);
-    border-radius: var(--radius-md);
+.group-editor__schedule-dialog-actions {
     display: flex;
-    flex-direction: column;
-    justify-content: center;
-    min-block-size: var(--group-editor-hero-visual-height);
-    overflow: hidden;
-    padding: var(--space-4) var(--space-6);
-    text-align: center;
+    justify-content: flex-end;
 }
 
-.group-editor__representative-image {
-    block-size: 15rem;
-    border-radius: var(--radius-md);
-    inline-size: 100%;
-    object-fit: contain;
-    background: var(--color-surface);
+@media (max-width: 47.9375rem) {
+    .group-editor {
+        padding-block: var(--space-8) var(--space-12);
+    }
+
+    .group-editor__time-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .group-editor__actions {
+        flex-direction: column-reverse;
+    }
+
+    .group-editor__actions > * {
+        inline-size: 100%;
+    }
 }
 
-.group-editor__representative-image--draft {
-    block-size: 17rem;
-}
+/* ── 멤버 패널과 마크다운 에디터 (기존 규칙 보존) ─────────── */
 
-.group-editor__image-panel strong {
-    font-size: var(--text-h3);
-    margin-block-start: var(--space-4);
-}
 
-.group-editor__image-panel p,
-.group-editor__field-note {
-    color: var(--color-muted-ink);
-    font-size: var(--text-body);
-    line-height: 1.65;
-    margin-block: var(--space-2) 0;
-}
-
-.group-editor__image-panel p {
-    overflow-wrap: normal;
-    text-wrap: pretty;
-    word-break: keep-all;
-}
-
-.group-editor__schedule-fields {
-    border: 0;
-    margin: 0;
-    padding: 0;
-}
+/* ── 멤버 패널과 마크다운 에디터 (기존 규칙 보존) ─────────── */
 
 .group-editor__description-heading {
     align-items: center;
@@ -379,29 +593,6 @@
     padding: var(--space-6);
 }
 
-.group-editor__markdown-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-    margin-block-end: var(--space-3);
-    padding: var(--space-2);
-    border: var(--border-thin) solid var(--color-line);
-    border-radius: var(--radius-sm);
-    background: var(--color-canvas);
-}
-
-.group-editor__markdown-toolbar button {
-    min-block-size: calc(var(--touch-target) - var(--space-4));
-    padding-inline: var(--space-3);
-    border: var(--border-thin) solid var(--color-line);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
-    color: var(--color-ink);
-    font: inherit;
-    font-size: var(--text-caption);
-    cursor: pointer;
-}
-
 .group-editor__markdown-preview {
     min-block-size: 12rem;
     padding: var(--space-4);
@@ -412,10 +603,6 @@
 
 .group-editor__markdown-preview .ui-markdown {
     min-block-size: inherit;
-}
-
-.group-editor__members-tab {
-    min-inline-size: 0;
 }
 
 .group-members-panel {
@@ -669,141 +856,14 @@
     --cohort-color: var(--color-cohort-5);
 }
 
-.group-editor__editor-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-4);
-    margin-block-start: var(--space-3);
-    color: var(--color-muted-ink);
-    font-size: var(--text-caption);
-}
-
-.group-editor__editor-footer .group-editor__actions {
-    margin-inline-start: auto;
-}
-
-.group-editor__schedule-panel {
-    margin-block-start: var(--space-8);
-}
-
-.group-editor__schedule-fields legend {
-    margin-block-end: var(--space-2);
-}
-
-.group-editor__day-grid {
-    display: grid;
-    gap: var(--space-2);
-    grid-template-columns: repeat(7, minmax(var(--group-editor-day-min-width), 1fr));
-    margin-block: var(--space-4) var(--space-6);
-}
-
-.group-editor__day-grid .ui-field__label {
-    white-space: nowrap;
-}
-
-.group-editor__time-grid {
-    display: grid;
-    gap: var(--space-4);
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin-block-start: var(--space-4);
-}
-
-.group-editor__error {
-    color: var(--color-danger);
-    font-size: var(--text-caption);
-    margin-block: calc(var(--space-4) * -1) var(--space-4);
-}
-
-.group-editor__actions {
-    display: flex;
-    gap: var(--space-3);
-    justify-content: flex-end;
-}
-
-.group-editor__actions--inside {
-    border-block-start: var(--border-thin) solid var(--color-line);
-    margin-block-start: var(--space-8);
-    padding-block-start: var(--space-6);
-}
-
-.group-editor__lifecycle-actions {
-    margin-block: 0 var(--space-8);
-}
-
-.group-editor__danger-actions {
-    inline-size: 100%;
-    align-items: center;
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-3);
-    justify-content: flex-end;
-}
-
-@media (max-width: 63.9375rem) {
-    .group-editor__hero {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .group-editor__image-panel {
-        min-block-size: calc(var(--group-editor-hero-visual-height) - var(--space-16));
-    }
-
-    .group-editor__day-grid {
-        grid-template-columns: repeat(4, minmax(var(--group-editor-day-min-width), 1fr));
-    }
-}
-
 @media (max-width: 47.9375rem) {
-    .group-editor {
-        padding-block: var(--space-8) var(--space-12);
-    }
-
-    .group-editor__hero,
-    .group-editor__panel {
-        border-radius: var(--radius-md);
-        padding: var(--space-5);
-    }
-
-    .group-editor__day-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .group-editor__hero-schedule .group-editor__day-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .group-editor__route-tabs,
-    .group-editor__content-tabs {
-        gap: var(--space-6);
-        overflow-x: auto;
-    }
-
-    .group-editor__facts {
-        grid-template-columns: 1fr;
-    }
-
-    .group-editor__time-grid {
-        grid-template-columns: minmax(0, 1fr);
-    }
 
     .group-editor__heading,
-    .group-editor__section-title,
     .group-editor__description-heading,
     .group-editor__image-panel strong,
     .group-editor__actions button {
         overflow-wrap: break-word;
         word-break: keep-all;
-    }
-
-    .group-editor__actions,
-    .group-editor__editor-footer {
-        align-items: stretch;
-        flex-direction: column;
-    }
-
-    .group-editor__danger-actions {
-        flex-direction: column;
     }
 
     .group-members-panel--pending {
@@ -822,16 +882,6 @@
         grid-template-columns: minmax(0, 1fr);
     }
 
-    .group-editor__editor-footer .group-editor__actions {
-        inline-size: 100%;
-        margin-inline-start: 0;
-    }
-
-    .group-editor__actions > *,
-    .group-editor__danger-actions > * {
-        inline-size: 100%;
-    }
-
     .group-editor__description-heading {
         align-items: flex-start;
         gap: var(--space-4);
@@ -842,730 +892,342 @@
     }
 }
 
-/* Figma-aligned layout for the existing group management editor only. */
-.manage-page--editor {
-  --group-editor-content-width: 67rem;
-  max-width: calc(var(--container-shell) - var(--space-8));
-}
-
-.manage-page--editor .group-editor--embedded {
-  inline-size: min(100%, var(--group-editor-content-width));
-  margin-inline: auto;
-}
-
-.manage-page--editor .group-editor__back {
-  display: flex;
-  inline-size: min(100%, var(--group-editor-content-width));
-  margin-inline: auto;
-  margin-block-end: var(--space-5);
-  font-size: var(--text-body-lg);
-}
-
-.manage-page--editor .group-editor__hero {
-  min-block-size: 23.5rem;
-  grid-template-columns: minmax(0, 0.81fr) minmax(0, 1fr);
-  gap: var(--space-5);
-  padding: var(--space-5);
-  border: 0;
-  border-radius: var(--radius-lg);
-  background: var(--color-brand-soft);
-  box-shadow: 0 0.25rem 0.375rem rgb(29 29 31 / 14%);
-}
-
-.manage-page--editor .group-editor__hero-fields {
-  align-self: stretch;
-  display: flex;
-  min-inline-size: 0;
-  flex-direction: column;
-  justify-content: flex-start;
-}
-
-.manage-page--editor .group-editor__type-tag {
-  min-block-size: 2.25rem;
-  align-items: center;
-  align-self: flex-start;
-  gap: var(--space-2);
-  margin-block-end: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border-color: #d8c3a6;
-  border-radius: 0.75rem;
-  background: #fffdf8;
-  font-size: var(--text-label);
-}
-
-.manage-page--editor .group-editor__type-tag--locked {
-  border-color: var(--color-line);
-  background: var(--color-canvas);
-  color: var(--color-muted-ink);
-  cursor: not-allowed;
-}
-
-.manage-page--editor .group-editor__type-tag--locked img {
-  filter: grayscale(1);
-  opacity: 0.6;
-}
-
-.manage-page--editor .group-editor__type-tag img {
-  block-size: 1rem;
-  inline-size: 1rem;
-}
-
-.manage-page--editor .group-editor__overview-fields--hero {
-  gap: var(--space-2);
-}
-
-.manage-page--editor .group-editor__overview-fields--hero .ui-field {
-  position: relative;
-}
-
-.manage-page--editor .group-editor__overview-fields--hero .ui-field__label {
-  position: absolute;
-  block-size: 1px;
-  clip-path: inset(50%);
-  inline-size: 1px;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.manage-page--editor .group-editor__overview-fields--hero .ui-field__control {
-  min-block-size: 3.75rem;
-  padding: var(--space-3) var(--space-4);
-  border: var(--border-thin) solid #d8c3a6;
-  border-radius: 0.75rem;
-  background: #fffdf8;
-}
-
-.manage-page--editor .group-editor__overview-fields--hero input[name="name"] {
-  min-block-size: 3.75rem;
-  font-size: clamp(1.75rem, 3vw, 2.25rem);
-  line-height: 1.2;
-}
-
-.manage-page--editor .group-editor__overview-fields--hero input[name="introduction"] {
-  min-block-size: 3.25rem;
-  color: var(--color-muted-ink);
-  font-size: var(--text-body-lg);
-}
-
-.manage-page--editor .group-editor__facts {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-2);
-  margin-block-start: var(--space-4);
-}
-
-.manage-page--editor .group-editor__fact {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  min-block-size: 4rem;
-  align-items: start;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: var(--border-thin) solid #d8c3a6;
-  border-radius: 0.75rem;
-  background: #fffdf8;
-}
-
-.manage-page--editor .group-editor__fact--unavailable {
-  background: #f7f7f8;
-}
-
-.manage-page--editor .group-editor__fact--interactive {
-  cursor: pointer;
-  transition:
-    border-color var(--duration-fast) var(--ease-standard),
-    box-shadow var(--duration-fast) var(--ease-standard),
-    transform var(--duration-fast) var(--ease-standard);
-}
-
-.manage-page--editor .group-editor__fact--interactive:hover {
-  border-color: var(--color-brand-strong);
-  box-shadow: 0 0 0 0.1875rem var(--color-brand-soft);
-  transform: translateY(-1px);
-}
-
-.manage-page--editor .group-editor__fact--interactive:focus-visible {
-  border-color: var(--color-brand-strong);
-  box-shadow: 0 0 0 0.1875rem var(--color-brand-soft);
-  outline: 0;
-}
-
-.manage-page--editor .group-editor__fact > div {
-  min-inline-size: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
-.manage-page--editor .group-editor__fact > img {
-  block-size: 1rem;
-  inline-size: 1rem;
-  margin-block-start: 0.125rem;
-}
-
-.manage-page--editor .group-editor__fact dt {
-  color: var(--color-muted-ink);
-  font-size: var(--text-caption);
-  line-height: 1.35;
-}
-
-.manage-page--editor .group-editor__fact dd {
-  margin-block-start: var(--space-1);
-  color: var(--color-ink);
-  font-size: var(--text-label);
-  font-weight: 700;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-
-.manage-page--editor .group-editor__fact--unavailable dd {
-  color: var(--color-muted-ink);
-  font-size: var(--text-caption);
-  font-weight: 600;
-}
-
-.manage-page--editor .group-editor__image-panel {
-  min-block-size: 20.5rem;
-  align-items: stretch;
-  justify-content: space-between;
-  padding: var(--space-4) var(--space-5);
-  border-radius: var(--radius-md);
-  background: linear-gradient(110deg, #e6f7f3 0%, #ffffff 72%);
-  text-align: start;
-}
-
-.manage-page--editor .group-editor__image-art {
-  display: grid;
-  min-block-size: 0;
-  flex: 1;
-  place-items: center;
-}
-
-.manage-page--editor .group-editor__representative-image {
-  display: block;
-  block-size: 100%;
-  max-block-size: 15.5rem;
-  inline-size: 100%;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  object-fit: contain;
-}
-
-.manage-page--editor .group-editor__image-footer {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-block-start: var(--space-2);
-}
-
-.manage-page--editor .group-editor__image-panel strong {
-  margin: 0;
-  font-size: var(--text-h3);
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-}
-
-.manage-page--editor .group-editor__image-change {
-  display: inline-flex;
-  min-block-size: 2.25rem;
-  align-items: center;
-  gap: var(--space-2);
-  flex: 0 0 auto;
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-thin) solid var(--color-line);
-  border-radius: var(--radius-pill);
-  background: var(--color-surface);
-  color: var(--color-muted-ink);
-  font: inherit;
-  font-size: var(--text-caption);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.manage-page--editor .group-editor__image-change img {
-  block-size: 1rem;
-  inline-size: 1rem;
-  opacity: 0.6;
-}
-
-.manage-page--editor .group-editor__image-panel p {
-  margin-block-start: var(--space-2);
-  font-size: var(--text-caption);
-  line-height: 1.4;
-}
-
-.manage-page--editor .group-editor__content-tabs {
-  margin-block: var(--space-6) var(--space-5);
-}
-
 .manage-page--editor .group-editor__description-panel {
-  padding: var(--space-5);
-  border-radius: var(--radius-md);
+    padding: var(--space-5);
+    border-radius: var(--radius-md);
 }
 
 .manage-page--editor .group-editor__description-heading {
-  margin-block-end: var(--space-4);
+    margin-block-end: var(--space-4);
 }
 
 .manage-page--editor .group-editor__description-heading h2 {
-  font-size: var(--text-h2);
-}
-
-.manage-page--editor .group-editor__markdown-toolbar {
-  min-block-size: 2.5rem;
-  align-items: center;
-  margin-block-end: var(--space-2);
-  padding: var(--space-2);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: var(--color-canvas);
-}
-
-.manage-page--editor .group-editor__markdown-toolbar button {
-  min-block-size: 2rem;
-  border: 0;
-  background: transparent;
+    font-size: var(--text-h2);
 }
 
 .manage-page--editor .group-editor__description-panel .ui-field {
-  gap: var(--space-2);
+    gap: var(--space-2);
 }
 
 .manage-page--editor .group-editor__description-panel .ui-field__label {
-  position: absolute;
-  block-size: 1px;
-  clip-path: inset(50%);
-  inline-size: 1px;
-  overflow: hidden;
-}
-
-.manage-page--editor .group-editor__description-panel .ui-field__textarea {
-  min-block-size: 10.25rem;
-  padding: var(--space-4);
-  border: var(--border-strong) solid var(--color-brand);
-  border-radius: var(--radius-sm);
-  background: #fffdf8;
-}
-
-.manage-page--editor .group-editor__editor-footer {
-  align-items: end;
-  margin-block-start: var(--space-3);
-}
-
-.manage-page--editor .group-editor__editor-help {
-  display: grid;
-  gap: var(--space-1);
-  color: var(--color-muted-ink);
-  font-size: var(--text-caption);
+    position: absolute;
+    block-size: 1px;
+    clip-path: inset(50%);
+    inline-size: 1px;
+    overflow: hidden;
 }
 
 .manage-page--editor .group-editor__markdown-preview {
-  min-block-size: 10.25rem;
-  padding: var(--space-4);
-  border: 0;
-  border-block-start: var(--border-thin) solid var(--color-line);
-  border-radius: 0;
-  background: transparent;
-}
-
-.manage-page--editor .group-editor__schedule-panel {
-  margin-block-start: var(--space-6);
-}
-
-@media (max-width: 63.9375rem) {
-  .manage-page--editor .group-editor__hero {
-    min-block-size: auto;
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .manage-page--editor .group-editor__image-panel {
-    min-block-size: 18rem;
-  }
+    min-block-size: 10.25rem;
+    padding: var(--space-4);
+    border: 0;
+    border-block-start: var(--border-thin) solid var(--color-line);
+    border-radius: 0;
+    background: transparent;
 }
 
 @media (max-width: 47.9375rem) {
-  .manage-page--editor .group-editor__hero {
-    gap: var(--space-4);
-    padding: var(--space-4);
-  }
 
-  .manage-page--editor .group-editor__facts {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .manage-page--editor .group-editor__image-footer {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .manage-page--editor .group-editor__image-change {
-    justify-content: center;
-  }
-
-  .manage-page--editor .group-editor__description-panel {
-    padding: var(--space-4);
-  }
+    .manage-page--editor .group-editor__description-panel {
+        padding: var(--space-4);
+    }
 }
 
-.group-editor__schedule-dialog {
-  display: grid;
-  gap: var(--space-5);
-}
-
-.group-editor__schedule-dialog .group-editor__schedule-fields {
-  display: grid;
-  gap: var(--space-3);
-}
-
-.group-editor__schedule-fields-wrap {
-  display: grid;
-  gap: var(--space-5);
-}
-
-.group-editor__schedule-type {
-  display: grid;
-  gap: var(--space-3);
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.group-editor__schedule-type legend {
-  margin-block-end: 0;
-  font-size: var(--text-label);
-  font-weight: var(--font-weight-bold);
-}
-
-.group-editor__schedule-type-options {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-2);
-}
-
-.group-editor__schedule-type-options .ui-check {
-  min-block-size: 2.75rem;
-  align-items: center;
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-thin) solid var(--color-line);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-}
-
-.group-editor__quick-days {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-block-end: calc(var(--space-2) * -1);
-}
-
-.group-editor__quick-days button {
-  padding: var(--space-1) var(--space-3);
-  border: var(--border-thin) solid var(--color-line);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-muted-ink);
-  font: inherit;
-  font-size: var(--text-caption);
-  cursor: pointer;
-}
-
-.group-editor__quick-days button.is-active,
-.group-editor__quick-days button:hover {
-  border-color: var(--color-brand);
-  background: var(--color-brand-soft);
-  color: var(--color-brand-ink);
-}
-
-.group-editor__schedule-flexible-note {
-  margin: 0;
-  padding: var(--space-4);
-  border-radius: var(--radius-sm);
-  background: var(--color-canvas);
-  color: var(--color-muted-ink);
-  font-size: var(--text-body);
-  text-align: center;
-}
-
-.group-editor__schedule-dialog .group-editor__schedule-fields legend {
-  margin-block-end: 0;
-  font-size: var(--text-h3);
-}
-
-.group-editor__schedule-dialog .group-editor__field-note {
-  margin-block: 0;
-  font-size: var(--text-caption);
-}
-
-.group-editor__schedule-dialog .group-editor__day-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-block: 0;
-}
-
-/* Match the detail page's member list and cohort donut arrangement. */
 .manage-page--editor .group-members-panel {
-  grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr);
-  gap: var(--space-4) var(--space-8);
+    grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr);
+    gap: var(--space-4) var(--space-8);
 }
 
 .manage-page--editor .group-members-panel__member-column {
-  display: grid;
-  grid-column: 1;
-  align-content: start;
-  gap: var(--space-5);
-  min-width: 0;
+    display: grid;
+    grid-column: 1;
+    align-content: start;
+    gap: var(--space-5);
+    min-width: 0;
 }
 
 .manage-page--editor .group-members-panel__heading,
 .manage-page--editor .group-members-panel__people {
-  grid-column: auto;
+    grid-column: auto;
 }
 
 .manage-page--editor .group-members-panel__cohorts {
-  display: none;
+    display: none;
 }
 
 .manage-page--editor .group-members-panel__cohort-chart {
-  --group-members-donut-size: 12rem;
-  display: grid;
-  grid-column: 2;
-  grid-row: auto;
-  min-width: 0;
-  align-content: start;
-  gap: var(--space-5);
-  padding-inline-start: var(--space-6);
-  border-inline-start: var(--border-thin) solid var(--color-line);
+    --group-members-donut-size: 12rem;
+    display: grid;
+    grid-column: 2;
+    grid-row: auto;
+    min-width: 0;
+    align-content: start;
+    gap: var(--space-5);
+    padding-inline-start: var(--space-6);
+    border-inline-start: var(--border-thin) solid var(--color-line);
 }
 
 .manage-page--editor .group-members-panel__cohort-heading {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
 }
 
 .manage-page--editor .group-members-panel__cohort-heading h3 {
-  margin: 0;
-  font-size: var(--text-h3);
-  line-height: 1.45;
+    margin: 0;
+    font-size: var(--text-h3);
+    line-height: 1.45;
 }
 
 .manage-page--editor .group-members-panel__cohort-heading > span {
-  color: var(--color-muted-ink);
-  font-size: var(--text-caption);
-  white-space: nowrap;
+    color: var(--color-muted-ink);
+    font-size: var(--text-caption);
+    white-space: nowrap;
 }
 
 .manage-page--editor .group-members-panel__chart-wrap {
-  display: grid;
-  grid-template-columns: var(--group-members-donut-size) minmax(0, 1fr);
-  gap: var(--space-5);
-  align-items: center;
+    display: grid;
+    grid-template-columns: var(--group-members-donut-size) minmax(0, 1fr);
+    gap: var(--space-5);
+    align-items: center;
 }
 
 .manage-page--editor .group-members-panel__donut {
-  position: relative;
-  inline-size: var(--group-members-donut-size);
-  block-size: var(--group-members-donut-size);
+    position: relative;
+    inline-size: var(--group-members-donut-size);
+    block-size: var(--group-members-donut-size);
 }
 
 .manage-page--editor .group-members-panel__donut-svg {
-  display: block;
-  inline-size: 100%;
-  block-size: 100%;
+    display: block;
+    inline-size: 100%;
+    block-size: 100%;
 }
 
 .manage-page--editor .group-members-panel__donut-track,
 .manage-page--editor .group-members-panel__donut-segment {
-  fill: none;
-  stroke-width: 22;
+    fill: none;
+    stroke-width: 22;
 }
 
 .manage-page--editor .group-members-panel__donut-track {
-  stroke: var(--color-canvas);
+    stroke: var(--color-canvas);
 }
 
 .manage-page--editor .group-members-panel__donut-segment {
-  stroke: var(--cohort-color);
-  transform: rotate(-90deg);
-  transform-origin: center;
-  cursor: pointer;
-  transition:
-    stroke-width var(--duration-fast) var(--ease-standard),
+    stroke: var(--cohort-color);
+    transform: rotate(-90deg);
+    transform-origin: center;
+    cursor: pointer;
+    transition: stroke-width var(--duration-fast) var(--ease-standard),
     opacity var(--duration-fast) var(--ease-standard);
 }
 
 .manage-page--editor .group-members-panel__donut-segment:hover,
 .manage-page--editor .group-members-panel__donut-segment:focus-visible,
 .manage-page--editor .group-members-panel__donut-segment.is-active {
-  stroke-width: 26;
-  opacity: 0.85;
+    stroke-width: 26;
+    opacity: 0.85;
 }
 
 .manage-page--editor .group-members-panel__donut-label {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-content: center;
-  gap: var(--space-1);
-  text-align: center;
-  pointer-events: none;
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    gap: var(--space-1);
+    text-align: center;
+    pointer-events: none;
 }
 
 .manage-page--editor .group-members-panel__donut-label strong {
-  font-size: var(--text-h3);
+    font-size: var(--text-h3);
 }
 
 .manage-page--editor .group-members-panel__donut-label span {
-  color: var(--color-muted-ink);
-  font-size: var(--text-caption);
+    color: var(--color-muted-ink);
+    font-size: var(--text-caption);
 }
 
 .manage-page--editor .group-members-panel__donut-tooltip {
-  position: absolute;
-  z-index: 2;
-  inset-block-start: calc(var(--space-2) * -1);
-  inset-inline-start: 50%;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  background: var(--color-ink);
-  color: var(--color-surface);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-bold);
-  white-space: nowrap;
-  transform: translate(-50%, -100%);
+    position: absolute;
+    z-index: 2;
+    inset-block-start: calc(var(--space-2) * -1);
+    inset-inline-start: 50%;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    background: var(--color-ink);
+    color: var(--color-surface);
+    font-size: var(--text-caption);
+    font-weight: var(--font-weight-bold);
+    white-space: nowrap;
+    transform: translate(-50%, -100%);
 }
 
 .manage-page--editor .group-members-panel__legend {
-  display: grid;
-  gap: var(--space-2);
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+    display: grid;
+    gap: var(--space-2);
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
 .manage-page--editor .group-members-panel__legend li {
-  display: grid;
-  grid-template-columns: var(--space-3) minmax(0, 1fr);
-  gap: var(--space-2);
-  align-items: center;
-  min-width: 0;
-  color: var(--color-muted-ink);
-  font-size: var(--text-caption);
+    display: grid;
+    grid-template-columns: var(--space-3) minmax(0, 1fr);
+    gap: var(--space-2);
+    align-items: center;
+    min-width: 0;
+    color: var(--color-muted-ink);
+    font-size: var(--text-caption);
 }
 
 .manage-page--editor .group-members-panel__legend i {
-  inline-size: var(--space-3);
-  block-size: var(--space-3);
-  border-radius: 50%;
-  background: var(--cohort-color);
+    inline-size: var(--space-3);
+    block-size: var(--space-3);
+    border-radius: 50%;
+    background: var(--cohort-color);
 }
 
 .manage-page--editor .group-members-panel__legend span {
-  display: block;
-  min-inline-size: 0;
-  color: var(--color-muted-ink);
-  overflow-wrap: anywhere;
-  white-space: nowrap;
+    display: block;
+    min-inline-size: 0;
+    color: var(--color-muted-ink);
+    overflow-wrap: anywhere;
+    white-space: nowrap;
 }
 
 .manage-page--editor .group-members-panel__copy {
-  display: grid;
-  min-inline-size: 0;
-  gap: var(--space-1);
+    display: grid;
+    min-inline-size: 0;
+    gap: var(--space-1);
 }
 
 .manage-page--editor .group-members-panel__name-row {
-  display: flex;
-  min-inline-size: 0;
-  align-items: center;
-  gap: var(--space-2);
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    gap: var(--space-2);
 }
 
 .manage-page--editor .group-members-panel__name-row strong {
-  min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .manage-page--editor .group-members-panel__name-row .ui-badge {
-  flex: 0 0 auto;
-  grid-column: auto;
-  justify-self: auto;
+    flex: 0 0 auto;
+    grid-column: auto;
+    justify-self: auto;
 }
 
 @media (max-width: 63.9375rem) {
-  .manage-page--editor .group-members-panel {
-    grid-template-columns: minmax(0, 1fr);
-  }
+    .manage-page--editor .group-members-panel {
+        grid-template-columns: minmax(0, 1fr);
+    }
 
-  .manage-page--editor .group-members-panel__heading,
-  .manage-page--editor .group-members-panel__people,
-  .manage-page--editor .group-members-panel__cohort-chart {
-    grid-column: 1;
-    grid-row: auto;
-  }
+    .manage-page--editor .group-members-panel__heading,
+    .manage-page--editor .group-members-panel__people,
+    .manage-page--editor .group-members-panel__cohort-chart {
+        grid-column: 1;
+        grid-row: auto;
+    }
 
-  .manage-page--editor .group-members-panel__cohort-chart {
-    padding-block-start: var(--space-6);
-    padding-inline-start: 0;
-    border-block-start: var(--border-thin) solid var(--color-line);
-    border-inline-start: 0;
-  }
+    .manage-page--editor .group-members-panel__cohort-chart {
+        padding-block-start: var(--space-6);
+        padding-inline-start: 0;
+        border-block-start: var(--border-thin) solid var(--color-line);
+        border-inline-start: 0;
+    }
 }
 
 @media (max-width: 47.9375rem) {
-  .manage-page--editor .group-members-panel__chart-wrap {
-    grid-template-columns: minmax(0, 1fr);
-    justify-items: center;
-  }
+    .manage-page--editor .group-members-panel__chart-wrap {
+        grid-template-columns: minmax(0, 1fr);
+        justify-items: center;
+    }
 
-  .manage-page--editor .group-members-panel__legend {
-    inline-size: 100%;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+    .manage-page--editor .group-members-panel__legend {
+        inline-size: 100%;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
-.group-editor__schedule-dialog .group-editor__time-grid {
-  margin-block-start: var(--space-2);
-}
-
-.group-editor__schedule-dialog-error {
-  margin: 0;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-sm);
-  background: var(--color-danger-soft);
-  color: var(--color-danger);
-  font-size: var(--text-caption);
-  line-height: 1.5;
-}
-
-.group-editor__schedule-dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-3);
-  padding-block-start: var(--space-5);
-  border-block-start: var(--border-thin) solid var(--color-line);
-}
-
-@media (max-width: 47.9375rem) {
-  .group-editor__schedule-type-options {
-    grid-template-columns: 1fr;
-  }
-
-  .group-editor__schedule-dialog .group-editor__day-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+.group-editor__markdown-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     gap: var(--space-1);
-  }
+    padding: var(--space-2);
+    border: var(--border-thin) solid var(--color-line);
+    border-block-end: 0;
+    border-start-start-radius: var(--radius-sm);
+    border-start-end-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--color-canvas) 60%, var(--color-brand-soft));
+}
 
-  .group-editor__schedule-dialog-actions {
-    align-items: stretch;
-    flex-direction: column-reverse;
-  }
+.group-editor__markdown-toolbar button {
+    display: grid;
+    min-inline-size: var(--space-8);
+    block-size: var(--space-8);
+    place-items: center;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-muted-ink);
+    cursor: pointer;
+}
 
-  .group-editor__schedule-dialog-actions > * {
-    inline-size: 100%;
-  }
+.group-editor__markdown-toolbar button:hover:not(:disabled) {
+    background: var(--color-brand-soft);
+    color: var(--color-brand-ink);
+}
+
+.group-editor__markdown-toolbar button:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
+.group-editor__toolbar-divide {
+    inline-size: var(--border-thin);
+    block-size: var(--space-4);
+    margin-inline: var(--space-1);
+    background: var(--color-line);
+}
+
+.group-editor__toolbar-count {
+    margin-inline-start: auto;
+    padding-inline-end: var(--space-2);
+    color: var(--color-muted-ink);
+    font-size: var(--text-caption);
+    font-variant-numeric: tabular-nums;
+}
+
+.group-editor__markdown-editor .ui-field__label {
+    position: absolute;
+    overflow: hidden;
+    clip-path: inset(50%);
+    inline-size: 1px;
+    block-size: 1px;
+    white-space: nowrap;
+}
+
+.group-editor__markdown-editor .ui-field__textarea {
+    border-start-start-radius: 0;
+    border-start-end-radius: 0;
+}
+
+.group-editor__markdown-preview {
+    min-block-size: 12rem;
+    padding: var(--space-4);
+    border: var(--border-thin) solid var(--color-line);
+    border-start-start-radius: 0;
+    border-start-end-radius: 0;
+    border-end-start-radius: var(--radius-sm);
+    border-end-end-radius: var(--radius-sm);
+    background: var(--color-surface);
 }
