@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
-import { Link, useParams } from "react-router";
-import { useInfiniteGroupMembers } from "../../features/member/index.js";
+import { useParams } from "react-router";
 import { useInfiniteRecruitments, useRecruitment } from "../../features/recruitment/index.js";
 import {
   useDecideRegistration,
@@ -21,7 +20,6 @@ import {
   errorView,
   flattenPages,
   formatDateTime,
-  roleLabel,
   statusLabel,
   statusTone
 } from "./manageUtils.js";
@@ -47,7 +45,6 @@ export function ManageRegistrationsPage() {
     ...(status ? { status } : {})
   });
   const decideRegistration = useDecideRegistration(recruitmentId);
-  const membersQuery = useInfiniteGroupMembers(groupId);
   const recruitmentQuery = useRecruitment(groupId, recruitmentId);
   const [decision, setDecision] = useState(null);
   const reasonRef = useRef(null);
@@ -61,7 +58,7 @@ export function ManageRegistrationsPage() {
   if (!routeRecruitmentId && recruitmentsQuery.isError) {
     const view = errorView(recruitmentsQuery.error);
     return (
-      <div className="manage-page manage-page--dashboard">
+      <div className="manage-page manage-page--dashboard manage-page--registrations">
         <ManagementContext active="registrations" groupId={groupId} />
         <ErrorState
           action={<Button onClick={() => recruitmentsQuery.refetch()}>다시 시도</Button>}
@@ -74,7 +71,7 @@ export function ManageRegistrationsPage() {
 
   if (!recruitmentId) {
     return (
-      <div className="manage-page manage-page--dashboard">
+      <div className="manage-page manage-page--dashboard manage-page--registrations">
         <ManagementContext active="registrations" groupId={groupId} />
         <EmptyState
           description="모집 관리에서 새로운 모집을 만들면 신청을 확인할 수 있어요."
@@ -87,12 +84,13 @@ export function ManageRegistrationsPage() {
   async function confirmDecision() {
     if (!decision) return;
     setMutationError(null);
+    const decisionReason =
+      decision.status === "REJECTED" ? reasonRef.current?.value.trim() : undefined;
+
     const payload = {
       registrationId: decision.registration.id,
       status: decision.status,
-      ...(decision.status === "REJECTED" && reasonRef.current?.value.trim()
-        ? { decisionReason: reasonRef.current.value.trim() }
-        : {})
+      ...(decisionReason ? { decisionReason } : {})
     };
     try {
       await decideRegistration.mutateAsync(payload);
@@ -133,7 +131,7 @@ export function ManageRegistrationsPage() {
   }
 
   return (
-    <div className="manage-page manage-page--dashboard">
+    <div className="manage-page manage-page--dashboard manage-page--registrations">
       <ManagementContext active="registrations" groupId={groupId} recruitmentId={recruitmentId} />
 
       {mutationError ? <InlineError error={mutationError} /> : null}
@@ -142,24 +140,23 @@ export function ManageRegistrationsPage() {
           <div className="manage-toolbar">
             <div>
               <h2 id="applicant-list-title">신청자 목록</h2>
-              <p>모집 #{recruitmentId} 지원자의 정보와 메시지를 확인하고 처리해요.</p>
             </div>
-            <Link className="manage-back-link" to={`/groups/${groupId}/manage/recruitments`}>
-              모집 목록으로
-            </Link>
-          </div>
-          <div aria-label="신청 상태" className="manage-status-filters" role="group">
-            {filterOptions.map(([value, label]) => (
-              <button
-                aria-pressed={status === value}
-                className="manage-status-filter"
-                key={value || "all"}
-                onClick={() => setStatus(value)}
-                type="button"
-              >
-                {label}
-              </button>
-            ))}
+            <div className="manage-status-filters">
+              <label className="manage-status-select">
+                <span className="manage-visually-hidden">신청 상태</span>
+                <select
+                  aria-label="신청 상태"
+                  onChange={(event) => setStatus(event.target.value)}
+                  value={status}
+                >
+                  {filterOptions.map(([value, label]) => (
+                    <option key={value || "all"} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
 
           {registrations.length === 0 ? (
@@ -197,9 +194,6 @@ export function ManageRegistrationsPage() {
                           {registration.decisionReason ? (
                             <span>사유: {registration.decisionReason}</span>
                           ) : null}
-                          {registration.decidedBy ? (
-                            <span>처리자 #{registration.decidedBy.memberId}</span>
-                          ) : null}
                         </div>
                       ) : null}
                     </div>
@@ -207,13 +201,13 @@ export function ManageRegistrationsPage() {
                   {registration.status === "PENDING" ? (
                     <div className="manage-card-actions">
                       <Button onClick={() => setDecision({ registration, status: "APPROVED" })}>
-                        {registration.member.crewName} 승인
+                        승인
                       </Button>
                       <Button
                         onClick={() => setDecision({ registration, status: "REJECTED" })}
                         variant="secondary"
                       >
-                        {registration.member.crewName} 거절
+                        거절
                       </Button>
                     </div>
                   ) : null}
@@ -223,7 +217,7 @@ export function ManageRegistrationsPage() {
           )}
         </section>
 
-        <OperationsRail membersQuery={membersQuery} recruitmentQuery={recruitmentQuery} />
+        <OperationsRail recruitmentQuery={recruitmentQuery} />
       </div>
 
       <ConfirmDialog
@@ -271,44 +265,20 @@ export function ManageRegistrationsPage() {
   );
 }
 
-function OperationsRail({ membersQuery, recruitmentQuery }) {
-  const members = flattenPages(membersQuery.data);
-  const memberCount = membersQuery.hasNextPage ? `${members.length}명 이상` : `${members.length}명`;
+function OperationsRail({ recruitmentQuery }) {
   const recruitment = recruitmentQuery.data;
 
   return (
     <aside aria-label="운영 현황" className="manage-side-rail">
-      <section className="manage-rail-panel" aria-labelledby="member-snapshot-title">
-        <h3 id="member-snapshot-title">모임 멤버 {memberCount}</h3>
-        {membersQuery.isPending ? <Skeleton count={3} /> : null}
-        {membersQuery.isError ? (
-          <p className="manage-rail-error" role="status">
-            멤버 현황을 불러오지 못했어요.
-          </p>
-        ) : null}
-        {!membersQuery.isPending && !membersQuery.isError ? (
-          members.length ? (
-            <ul className="manage-rail-members">
-              {members.slice(0, 4).map((member) => (
-                <li key={member.groupMemberId}>
-                  <span className="manage-avatar" aria-hidden="true">
-                    {member.crewName.slice(0, 1)}
-                  </span>
-                  <span>
-                    <strong>{member.crewName}</strong>
-                    <small>{roleLabel(member.role)}</small>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="manage-rail-empty">표시할 멤버가 없어요.</p>
-          )
-        ) : null}
-      </section>
-
       <section className="manage-rail-panel" aria-labelledby="recruitment-snapshot-title">
-        <h3 id="recruitment-snapshot-title">모집 상태</h3>
+        <div className="manage-rail-panel__heading">
+          <h3 id="recruitment-snapshot-title">모집 상태</h3>
+          {recruitment && !recruitmentQuery.isError ? (
+            <StatusBadge tone={statusTone(recruitment.recruitingStatus)}>
+              {statusLabel(recruitment.recruitingStatus)}
+            </StatusBadge>
+          ) : null}
+        </div>
         {recruitmentQuery.isPending ? <Skeleton count={2} /> : null}
         {recruitmentQuery.isError ? (
           <p className="manage-rail-error" role="status">
@@ -317,9 +287,6 @@ function OperationsRail({ membersQuery, recruitmentQuery }) {
         ) : null}
         {recruitment && !recruitmentQuery.isError ? (
           <div className="manage-recruitment-snapshot">
-            <StatusBadge tone={statusTone(recruitment.recruitingStatus)}>
-              {statusLabel(recruitment.recruitingStatus)}
-            </StatusBadge>
             <strong>
               승인 {recruitment.approvedCount} / 정원 {recruitment.capacity}명
             </strong>

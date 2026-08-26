@@ -27,6 +27,7 @@ import {
   ToastProvider,
   useToast
 } from "../shared/ui/index.js";
+import signatureImage from "../shared/assets/brand/jarihana-signature.png";
 
 const longCopy =
   "처음 참여하는 분도 부담 없이 자기 속도로 이야기를 나누고, 서로의 배움을 안전하게 이어 갈 수 있는 모임입니다.";
@@ -45,13 +46,13 @@ function ToastControls() {
       <Button
         onClick={() =>
           toast.danger({
-            title: "저장하지 못했어요",
-            description: "연결을 확인하고 다시 시도해 주세요."
+            title: "로그인이 필요한 기능이에요",
+            description: "로그인한 뒤 모임을 만들 수 있어요."
           })
         }
         variant="danger"
       >
-        오류 알림
+        로그인 필요 알림
       </Button>
     </div>
   );
@@ -69,7 +70,7 @@ function ShowcaseContent() {
       <section className="ui-showcase__section">
         <SectionHeader description="44px 이상 target과 모든 상호작용 상태" title="버튼과 상태" />
         <div className="ui-showcase__row">
-          <Button>모임 둘러보기</Button>
+          <Button>자리 만들기</Button>
           <Button variant="secondary">나중에 하기</Button>
           <Button variant="tertiary">자세히 보기</Button>
           <Button variant="danger">모임 삭제</Button>
@@ -116,18 +117,45 @@ function ShowcaseContent() {
           <Select label="모임 유형" name="type" defaultValue="STUDY">
             <option value="CLUB">동아리</option>
             <option value="STUDY">스터디</option>
-            <option value="SESSION">단기 모임</option>
+            <option value="SESSION">세션</option>
           </Select>
           <SearchField
             label="모임 검색"
             name="keyword"
-            placeholder="관심 있는 주제를 검색해 보세요"
+            placeholder="모임명으로 검색하기"
           />
           <FilterBar label="모집 방식">
             <Radio defaultChecked label="자동 승인" name="joinMethod" value="AUTO" />
             <Radio label="모임장 승인" name="joinMethod" value="APPROVAL" />
             <Checkbox label="모집 중인 모임만 보기" name="recruiting" />
           </FilterBar>
+        </div>
+      </section>
+
+      <section className="ui-showcase__section">
+        <SectionHeader
+          description="현재 탐색 페이지의 검색·필터 control panel"
+          title="모임 탐색 필터"
+        />
+        <div className="ui-showcase__surface ui-showcase__discovery-tools">
+          <SearchField label="모임 검색" name="groupSearch" placeholder="모임명으로 검색하기" />
+          <div className="ui-showcase__discovery-filters">
+            <Select label="모임 유형" name="groupType" defaultValue="">
+              <option value="">전체</option>
+              <option value="CLUB">동아리</option>
+              <option value="STUDY">스터디</option>
+              <option value="SESSION">세션</option>
+            </Select>
+            <Select label="모임 상태" name="groupStatus" defaultValue="ACTIVE">
+              <option value="ACTIVE">활동 중</option>
+              <option value="ENDED">활동 종료</option>
+            </Select>
+            <Select label="모집 상태" name="recruitmentStatus" defaultValue="">
+              <option value="">전체</option>
+              <option value="true">모집 중</option>
+              <option value="false">모집 마감</option>
+            </Select>
+          </div>
         </div>
       </section>
 
@@ -185,7 +213,7 @@ function ShowcaseContent() {
 
       <section className="ui-showcase__section">
         <SectionHeader
-          description="focus trap, Escape, scroll lock, focus restore"
+          description="focus trap, Escape, 수동 닫기, 2초 자동 닫힘"
           title="오버레이와 알림"
         />
         <div className="ui-showcase__row">
@@ -219,7 +247,13 @@ function ShowcaseContent() {
           <div className="ui-showcase__surface">
             <Skeleton aria-label="모임 카드 불러오는 중" className="ui-showcase__skeleton" />
           </div>
-          <EmptyState action={<Button>모임 만들기</Button>} />
+          <EmptyState
+            action={<Button>자리 만들기</Button>}
+            description="직접 자리를 만들어보세요."
+            showMark={false}
+            title="자리 없음!"
+            visual={<img alt="" src={signatureImage} />}
+          />
           <ErrorState action={<Button variant="secondary">다시 시도</Button>} />
           <ForbiddenState action={<a href="/groups">모임으로 돌아가기</a>} />
           <NotFoundState action={<a href="/">홈으로 돌아가기</a>} />

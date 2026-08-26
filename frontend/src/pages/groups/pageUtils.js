@@ -29,6 +29,8 @@ const statusLabels = {
   SCHEDULED: "모집 예정"
 };
 
+const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
+
 export function flattenPages(data, getId) {
   const pages = data?.pages ?? (data?.items ? [data] : []);
   return mergeCursorPages(pages, getId).items;
@@ -62,20 +64,56 @@ export function formatLocalDateTime(value) {
   return `${date.replaceAll("-", ".")} ${time.slice(0, 5)}`.trim();
 }
 
+export function formatCompactLocalDateTime(value) {
+  if (!value) return "상시";
+  const [date, time = ""] = value.split("T");
+  const [year, month, day] = date.split("-").map(Number);
+  return `${year}년 ${month}월 ${day}일 ${time.slice(0, 5)}`.trim();
+}
+
+export function recruitmentCountdownLabel(startsAt, endsAt, referenceDate = new Date()) {
+  const startDate = startsAt ? new Date(startsAt) : null;
+  const endDate = endsAt ? new Date(endsAt) : null;
+
+  if (startDate && startDate > referenceDate) {
+    const days = Math.ceil((startDate - referenceDate) / DAY_IN_MILLISECONDS);
+    return startDate.toDateString() === referenceDate.toDateString()
+      ? "오늘 모집 시작"
+      : `모집 시작까지 ${days}일`;
+  }
+  if (!endDate) return "상시 모집";
+  if (endDate <= referenceDate) return "모집이 마감됐어요";
+
+  const days = Math.ceil((endDate - referenceDate) / DAY_IN_MILLISECONDS);
+  return endDate.toDateString() === referenceDate.toDateString()
+    ? "오늘 모집 마감"
+    : `모집 마감까지 ${days}일`;
+}
+
 export function formatLocalDate(value) {
   return formatLocalDateTime(value).split(" ")[0];
 }
 
-export function scheduleText(group) {
+export function scheduleLines(group) {
   if (group.recurringSchedule) {
     const days = group.recurringSchedule.daysOfWeek.map((day) => dayLabels[day] ?? day).join("·");
-    return `매주 ${days} ${group.recurringSchedule.startTime.slice(0, 5)} – ${group.recurringSchedule.endTime.slice(0, 5)}`;
+    return [
+      `매주 ${days}`,
+      `${group.recurringSchedule.startTime.slice(0, 5)} – ${group.recurringSchedule.endTime.slice(0, 5)}`
+    ];
   }
   if (group.sessionSchedule) {
-    return `${group.sessionSchedule.sessionDate.replaceAll("-", ".")} ${group.sessionSchedule.startTime.slice(0, 5)} – ${group.sessionSchedule.endTime.slice(0, 5)}`;
+    return [
+      group.sessionSchedule.sessionDate.replaceAll("-", "."),
+      `${group.sessionSchedule.startTime.slice(0, 5)} – ${group.sessionSchedule.endTime.slice(0, 5)}`
+    ];
   }
-  if (group.type === "CLUB" || group.type === "STUDY") return "유동적";
-  return "일정 협의";
+  if (group.type === "CLUB" || group.type === "STUDY") return ["유동적"];
+  return ["일정 협의"];
+}
+
+export function scheduleText(group) {
+  return scheduleLines(group).join(" ");
 }
 
 export function courseLabel(course) {

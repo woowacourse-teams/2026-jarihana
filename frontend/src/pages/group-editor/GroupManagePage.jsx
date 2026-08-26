@@ -512,7 +512,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
             savePending={modifyMutation.isPending || overviewLock.pending}
             onDone={(verb) => {
               toast.show({ title: `모임을 ${verb}했어요.`, tone: "success" });
-              navigate("/my?tab=led", { replace: true });
+              navigate("/my?tab=joined", { replace: true });
             }}
             onError={(verb, error) => {
               toast.show({
