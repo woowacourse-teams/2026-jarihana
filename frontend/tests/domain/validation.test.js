@@ -31,7 +31,7 @@ describe("member form validation", () => {
 });
 
 describe("group form validation", () => {
-  it("accepts a CLUB or STUDY without a recurring schedule as a flexible group", () => {
+  it("requires a recurring schedule when creating a CLUB or STUDY", () => {
     // Given
     const values = {
       type: "STUDY",
@@ -47,8 +47,8 @@ describe("group form validation", () => {
     // When
     const result = groupCreateFormSchema.safeParse(values);
 
-    // Then
-    expect(result.success).toBe(true);
+    // Then 백엔드가 SCHEDULE_REQUIRED로 거부하므로 여기서 먼저 막는다.
+    expect(result.success).toBe(false);
   });
 
   it("requires a session schedule only for SESSION", () => {

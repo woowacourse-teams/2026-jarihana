@@ -46,10 +46,18 @@ export const groupCreateFormSchema = groupModifyFormSchema
   })
   .superRefine((values, context) => {
     /*
-     * CLUB and STUDY may omit recurringSchedule: the domain reads a missing
-     * schedule as a flexible one, so requiring it here would block a state the
-     * backend supports on create.
+     * 생성 시에는 정기 일정이 필요하다. 문서에는 생략하면 유동적 일정이 된다고
+     * 적혀 있지만 실제 백엔드는 SCHEDULE_REQUIRED로 거부한다. 유동적으로 바꾸는
+     * 것은 생성 후 DELETE /groups/{id}/recurring-schedule 로만 가능하다.
      */
+    const recurringType = values.type === "CLUB" || values.type === "STUDY";
+    if (recurringType && values.recurringSchedule === null) {
+      context.addIssue({
+        code: "custom",
+        message: "정기 모임 일정을 입력해 주세요.",
+        path: ["recurringSchedule"]
+      });
+    }
     if (values.type === "SESSION" && values.sessionSchedule === null) {
       context.addIssue({
         code: "custom",

@@ -202,6 +202,13 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const lifecycleVerb = canDelete ? "삭제" : "종료";
   const savePending = saveLock.pending || modifyMutation.isPending;
 
+  /* 일정 오류는 모달 안에만 두면 닫는 순간 사라지므로 히어로에도 함께 보여준다. */
+  const scheduleError =
+    errors.sessionDate?.message ??
+    errors.daysOfWeek?.message ??
+    errors.startTime?.message ??
+    errors.endTime?.message;
+
   function selectPreset(days) {
     setValue("daysOfWeek", days, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
   }
@@ -338,7 +345,11 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
                       </UnderlineSelect>
                     </div>
                   </div>
-                  <ScheduleFact lines={summary} onEdit={() => setScheduleOpen(true)} />
+                  <ScheduleFact
+                    error={scheduleError}
+                    lines={summary}
+                    onEdit={() => setScheduleOpen(true)}
+                  />
                   <div className="group-fact group-fact--field">
                     <div>
                       <UnderlineField

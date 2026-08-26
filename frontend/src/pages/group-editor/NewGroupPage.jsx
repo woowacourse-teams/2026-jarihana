@@ -5,7 +5,7 @@ import { useNavigate } from "react-router";
 import { z } from "zod";
 
 import { useCreateGroup } from "../../features/group/index.js";
-import { Button, ErrorState, GroupImage, Tabs, useToast } from "../../shared/ui/index.js";
+import { Button, GroupImage, Tabs, useToast } from "../../shared/ui/index.js";
 import { scheduleLines } from "../groups/pageUtils.js";
 import {
   ReadOnlyFact,
@@ -49,7 +49,19 @@ export const newGroupSchema = baseSchema.superRefine((values, context) => {
       path: ["endTime"]
     });
   }
-  /* CLUB과 STUDY는 요일이 없어도 된다. 도메인상 그것이 곧 유동적 일정이다. */
+  /*
+   * 문서상으로는 요일 없이 만들면 유동적 일정이 되지만, 실제 백엔드는 생성 시
+   * 정기 일정을 요구한다(GroupCommandService.validateRecurringSchedule).
+   * 서버가 거부할 요청을 보내는 대신 여기서 먼저 막고, 만든 뒤에 유동적으로
+   * 바꿀 수 있다는 것을 알려 준다.
+   */
+  if (values.type !== "SESSION" && values.daysOfWeek.length === 0) {
+    context.addIssue({
+      code: "custom",
+      message: "활동 요일을 하나 이상 골라 주세요. 만든 뒤에 유동적으로 바꿀 수 있어요.",
+      path: ["daysOfWeek"]
+    });
+  }
   if (values.type === "SESSION" && !/^\d{4}-\d{2}-\d{2}$/.test(values.sessionDate)) {
     context.addIssue({
       code: "custom",
@@ -161,6 +173,13 @@ export function NewGroupPage() {
   const description = values.description ?? "";
   const daysOfWeek = values.daysOfWeek ?? [];
 
+  /* 일정 오류는 모달 안에만 두면 닫는 순간 사라지므로 히어로에도 함께 보여준다. */
+  const scheduleError =
+    errors.sessionDate?.message ??
+    errors.daysOfWeek?.message ??
+    errors.startTime?.message ??
+    errors.endTime?.message;
+
   function selectPreset(days) {
     setValue("daysOfWeek", days, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
   }
@@ -196,13 +215,6 @@ export function NewGroupPage() {
           모집 설정, 신청 관리, 멤버 관리는 모임을 만든 뒤 관리 화면에서 이어서 할 수 있어요.
         </p>
       </header>
-
-      {createMutation.error ? (
-        <ErrorState
-          title="모임을 만들지 못했어요."
-          description={createMutation.error.userMessage}
-        />
-      ) : null}
 
       <form id="group-create-form" onSubmit={submit} noValidate>
         <section
@@ -259,6 +271,7 @@ export function NewGroupPage() {
                 </div>
                 <ScheduleFact
                   actionLabel="설정"
+                  error={scheduleError}
                   lines={draftSummary({ ...values, daysOfWeek, type })}
                   onEdit={() => setScheduleOpen(true)}
                 />
@@ -333,6 +346,7 @@ export function NewGroupPage() {
         onClose={() => setScheduleOpen(false)}
         onPresetSelect={selectPreset}
         onSubmit={confirmSchedule}
+        allowFlexible={false}
         open={scheduleOpen}
         register={register}
         selectedDays={daysOfWeek}

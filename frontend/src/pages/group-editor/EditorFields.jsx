@@ -108,7 +108,11 @@ export function ReadOnlyFact({ label, value }) {
 }
 
 /* 일정은 모달에서 고친다. 히어로에는 상세 페이지와 같은 요약만 남는다. */
-export function ScheduleFact({ actionLabel = "수정", lines, onEdit }) {
+/*
+ * 일정은 모달에서 고치므로, 일정 오류를 모달 안에서만 보여주면 모달을 닫는 순간
+ * 사라진다. 제출이 막히는데 이유가 화면에 없으니 여기에도 함께 드러낸다.
+ */
+export function ScheduleFact({ actionLabel = "수정", error, lines, onEdit }) {
   return (
     <div className="group-fact group-fact--schedule">
       <div>
@@ -127,6 +131,11 @@ export function ScheduleFact({ actionLabel = "수정", lines, onEdit }) {
             </span>
             <span className="group-editor__schedule-edit">{actionLabel}</span>
           </button>
+          {error ? (
+            <p className="group-editor__error" role="alert">
+              {error}
+            </p>
+          ) : null}
         </dd>
       </div>
     </div>

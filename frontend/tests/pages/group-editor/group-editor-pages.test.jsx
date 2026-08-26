@@ -184,23 +184,53 @@ describe("NewGroupPage", () => {
     );
   });
 
-  it("creates a flexible group when no activity day is chosen", async () => {
+  it("제출이 막히면 그 이유를 화면에 남긴다", async () => {
+    // Given 필수값을 비운 채로
+    renderPage(<NewGroupPage />);
+
+    // When
+    submitForm("group-create-form");
+
+    // Then 등록은 막히되 이유가 보여야 한다.
+    // not.toHaveBeenCalled()는 이미 참이라 waitFor가 즉시 통과한다. 오류 자체를 기다린다.
+    await waitFor(() =>
+      expect(screen.getByText("모임 이름을 입력해 주세요.")).toBeVisible()
+    );
+    expect(screen.getByText("한 줄 소개를 입력해 주세요.")).toBeVisible();
+    expect(mockCreateGroup).not.toHaveBeenCalled();
+  });
+
+  it("생성 시에는 요일 없이 만들 수 없고 이유를 화면에 남긴다", async () => {
+    // Given 백엔드가 생성 시 정기 일정을 요구한다.
+    const user = userEvent.setup();
+    renderPage(<NewGroupPage />);
+    await user.type(screen.getByLabelText("모임 이름"), "리액트 스터디");
+    await user.type(screen.getByLabelText("한 줄 소개"), "매주 함께 공부해요");
+
+    // When
+    submitForm("group-create-form");
+
+    // Then 서버에 보내지 않고, 막힌 이유가 히어로에 남는다.
+    await waitFor(() =>
+      expect(
+        screen.getByText("활동 요일을 하나 이상 골라 주세요. 만든 뒤에 유동적으로 바꿀 수 있어요.")
+      ).toBeVisible()
+    );
+    expect(mockCreateGroup).not.toHaveBeenCalled();
+  });
+
+  it("생성 화면에는 유동적 프리셋을 두지 않는다", async () => {
     // Given
     const user = userEvent.setup();
     renderPage(<NewGroupPage />);
 
     // When
-    await user.type(screen.getByLabelText("모임 이름"), "리액트 스터디");
-    await user.type(screen.getByLabelText("한 줄 소개"), "매주 함께 공부해요");
-    submitForm("group-create-form");
+    await openSchedule(user, "모임 일정 설정");
 
     // Then
-    await waitFor(() => expect(mockCreateGroup).toHaveBeenCalledTimes(1));
-    expect(mockCreateGroup.mock.calls[0][0]).toMatchObject({
-      type: "STUDY",
-      recurringSchedule: null,
-      sessionSchedule: null
-    });
+    const dialog = scheduleDialog();
+    expect(within(dialog).getByRole("button", { name: "평일" })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "유동적" })).not.toBeInTheDocument();
   });
 
   it("edits the schedule in a dialog rather than in the hero", async () => {
@@ -248,25 +278,6 @@ describe("NewGroupPage", () => {
     expect(within(dialog).getByRole("button", { name: "평일" })).toHaveAttribute(
       "aria-pressed",
       "false"
-    );
-  });
-
-  it("turns the group flexible from the 유동적 toggle", async () => {
-    // Given
-    const user = userEvent.setup();
-    renderPage(<NewGroupPage />);
-    await openSchedule(user, "모임 일정 설정");
-    const dialog = scheduleDialog();
-    await user.click(within(dialog).getByRole("button", { name: "매일" }));
-
-    // When
-    await user.click(within(dialog).getByRole("button", { name: "유동적" }));
-
-    // Then
-    expect(within(dialog).getByLabelText("일요일")).not.toBeChecked();
-    expect(within(dialog).getByRole("button", { name: "유동적" })).toHaveAttribute(
-      "aria-pressed",
-      "true"
     );
   });
 
@@ -342,6 +353,9 @@ describe("NewGroupPage", () => {
     renderPage(<NewGroupPage />);
     await user.type(screen.getByLabelText("모임 이름"), "중복 방지 스터디");
     await user.type(screen.getByLabelText("한 줄 소개"), "한 번만 생성돼요");
+    await openSchedule(user, "모임 일정 설정");
+    await user.click(within(scheduleDialog()).getByRole("button", { name: "평일" }));
+    await user.click(within(scheduleDialog()).getByRole("button", { name: "일정 저장" }));
 
     // When
     submitForm("group-create-form");
