@@ -11,6 +11,8 @@ import com.project.jarihana.group.query.repository.RegistrationJpaRepository;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
+import com.project.jarihana.image.command.repository.ImageUploadCommandRepository;
+import com.project.jarihana.image.domain.ImageUpload;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
@@ -20,6 +22,7 @@ import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepo
 import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.registration.domain.RegistrationStatus;
 import com.project.jarihana.support.IntegrationTestSupport;
+import com.project.jarihana.support.ImageStorageStub;
 import com.project.jarihana.support.TestSupportConfig;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.DisplayName;
@@ -33,6 +36,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -67,6 +71,12 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
+    private ImageUploadCommandRepository imageUploadCommandRepository;
+
+    @Autowired
+    private ImageStorageStub imageStorageStub;
+
+    @Autowired
     private EntityManager entityManager;
 
     @DisplayName("가입 완료 회원은 기본 이미지가 설정된 그룹과 모임장 역할을 함께 생성한다.")
@@ -81,6 +91,7 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
                 "문제 풀이와 코드 리뷰를 진행합니다.",
                 MeetingType.OFFLINE,
                 "서울 캠퍼스",
+                null,
                 new CreateGroupCommand.RecurringSchedule(
                         Set.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY),
                         LocalTime.of(19, 0),
@@ -102,6 +113,63 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
                 .hasValueSatisfying(groupMember -> assertThat(groupMember.getRole()).isEqualTo(GroupMemberRole.LEADER));
     }
 
+    @DisplayName("이미지 키가 있으면 그룹에 대표 이미지 키를 저장한다.")
+    @Test
+    void createsGroupWithRepresentativeImageKey() {
+        // Given
+        Member member = saveMember("github-image-key");
+        String imageKey = "groups/tmp/uploaded-image.webp";
+        saveImageUpload(imageKey, TestSupportConfig.FIXED_NOW.plusMinutes(10));
+        CreateGroupCommand command = new CreateGroupCommand(
+                GroupType.STUDY,
+                "이미지 그룹",
+                "이미지가 있는 그룹입니다.",
+                null,
+                MeetingType.ONLINE,
+                null,
+                imageKey,
+                new CreateGroupCommand.RecurringSchedule(
+                        Set.of(DayOfWeek.MONDAY),
+                        LocalTime.of(19, 0),
+                        LocalTime.of(21, 0)
+                ),
+                null
+        );
+
+        // When
+        CreateGroupResult result = groupCommandService.createGroup(member.getId(), command);
+
+        // Then
+        Group group = groupCommandRepository.findById(result.id()).orElseThrow();
+        assertThat(group.getRepresentativeImageKey()).isEqualTo(imageKey);
+    }
+
+    @DisplayName("존재하지 않는 이미지 키로 그룹을 개설할 수 없다.")
+    @Test
+    void createGroupFailsWhenRepresentativeImageKeyDoesNotExist() {
+        Member member = saveMember("github-image-not-found");
+        CreateGroupCommand command = new CreateGroupCommand(
+                GroupType.STUDY,
+                "이미지 없음 그룹",
+                "이미지가 없는 그룹입니다.",
+                null,
+                MeetingType.ONLINE,
+                null,
+                "groups/tmp/not-found.webp",
+                new CreateGroupCommand.RecurringSchedule(
+                        Set.of(DayOfWeek.MONDAY),
+                        LocalTime.of(19, 0),
+                        LocalTime.of(21, 0)
+                ),
+                null
+        );
+
+        assertThatThrownBy(() -> groupCommandService.createGroup(member.getId(), command))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.IMAGE_NOT_FOUND);
+    }
+
     @DisplayName("존재하지 않는 회원은 그룹을 개설할 수 없다.")
     @Test
     void createGroupFailsWhenMemberDoesNotExist() {
@@ -114,6 +182,7 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
     private CreateGroupCommand recurringCommand(String name) {
         return new CreateGroupCommand(
                 GroupType.STUDY, name, "소개", "설명",
+                MeetingType.FLEXIBLE, null, null,
                 new CreateGroupCommand.RecurringSchedule(
                         Set.of(DayOfWeek.MONDAY), LocalTime.of(19, 0), LocalTime.of(21, 0)), null);
     }
@@ -134,12 +203,25 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
         return memberRepository.save(Member.create("가온", 8, githubId, Course.BACKEND));
     }
 
+    private ImageUpload saveImageUpload(String imageKey, LocalDateTime expiresAt) {
+        return imageUploadCommandRepository.save(ImageUpload.create(
+                UUID.randomUUID(),
+                "group.webp",
+                "image/webp",
+                1024,
+                imageKey,
+                expiresAt,
+                TestSupportConfig.FIXED_NOW
+        ));
+    }
+
     @DisplayName("세션 그룹에 일회성 일정이 없으면 개설할 수 없다.")
     @Test
     void createSessionGroupFailsWhenScheduleIsMissing() {
         Member member = saveMember("github-session-missing");
         CreateGroupCommand command = new CreateGroupCommand(
-                GroupType.SESSION, "세션 그룹", "소개", "설명", null, null);
+                GroupType.SESSION, "세션 그룹", "소개", "설명",
+                MeetingType.FLEXIBLE, null, null, null, null);
 
         assertThatThrownBy(() -> groupCommandService.createGroup(member.getId(), command))
                 .isInstanceOf(BusinessException.class)
@@ -153,7 +235,7 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
         Member member = saveMember("github-schedule-mismatch");
         CreateGroupCommand command = new CreateGroupCommand(
                 GroupType.STUDY, "일정 불일치 그룹", "소개", "설명",
-                null, new CreateGroupCommand.SessionSchedule(
+                MeetingType.FLEXIBLE, null, null, null, new CreateGroupCommand.SessionSchedule(
                 LocalDate.now().plusDays(1), LocalTime.of(10, 0), LocalTime.of(11, 0)));
 
         assertThatThrownBy(() -> groupCommandService.createGroup(member.getId(), command))
@@ -168,6 +250,7 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
         Member member = saveMember("github-invalid-schedule");
         CreateGroupCommand command = new CreateGroupCommand(
                 GroupType.STUDY, "잘못된 일정 그룹", "소개", "설명",
+                MeetingType.FLEXIBLE, null, null,
                 new CreateGroupCommand.RecurringSchedule(
                         Set.of(DayOfWeek.MONDAY), LocalTime.of(21, 0), LocalTime.of(19, 0)), null);
 
@@ -182,7 +265,8 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
     void createRecurringGroupFailsWhenScheduleIsMissing() {
         Member member = saveMember("github-recurring-missing");
         CreateGroupCommand command = new CreateGroupCommand(
-                GroupType.CLUB, "정기 일정 누락 그룹", "소개", "설명", null, null);
+                GroupType.CLUB, "정기 일정 누락 그룹", "소개", "설명",
+                MeetingType.FLEXIBLE, null, null, null, null);
 
         assertThatThrownBy(() -> groupCommandService.createGroup(member.getId(), command))
                 .isInstanceOf(BusinessException.class)
@@ -197,7 +281,7 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
         Member leader = saveMember("github-modify-leader");
         Group group = createGroup(leader, "서비스 기존 그룹");
         ModifyGroupCommand command = new ModifyGroupCommand(
-                "새 그룹", "새 한 줄 소개", null, MeetingType.ONLINE, null);
+                "새 그룹", "새 한 줄 소개", null, MeetingType.ONLINE, null, null);
 
         // When
         groupCommandService.modifyGroup(leader.getId(), group.getId(), command);
@@ -209,9 +293,53 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
         assertThat(modified.getDescription()).isNull();
         assertThat(modified.getMeetingType()).isEqualTo(MeetingType.ONLINE);
         assertThat(modified.getLocation()).isNull();
-        assertThat(modified.getRepresentativeImageKey())
-                .isEqualTo(GroupCommandService.DEFAULT_REPRESENTATIVE_IMAGE_KEY);
+        assertThat(modified.getRepresentativeImageKey()).isNull();
         assertThat(modified.getRecurringSchedule()).isNotNull();
+    }
+
+    @DisplayName("모임장은 유효한 이미지 키로 그룹 대표 이미지를 교체한다.")
+    @Test
+    void modifyGroupReplacesRepresentativeImage() {
+        Member leader = saveMember("github-modify-image");
+        Group group = createGroup(leader, "이미지 교체 그룹");
+        String imageKey = "groups/tmp/modified-image.webp";
+        saveImageUpload(imageKey, TestSupportConfig.FIXED_NOW.plusMinutes(10));
+
+        groupCommandService.modifyGroup(leader.getId(), group.getId(), new ModifyGroupCommand(
+                "이미지 교체 그룹", "소개", null, MeetingType.FLEXIBLE, null, imageKey));
+
+        Group modified = groupCommandRepository.findById(group.getId()).orElseThrow();
+        assertThat(modified.getRepresentativeImageKey()).isEqualTo(imageKey);
+    }
+
+    @DisplayName("존재하지 않는 이미지 키로 그룹 대표 이미지를 교체할 수 없다.")
+    @Test
+    void modifyGroupFailsWhenRepresentativeImageKeyDoesNotExist() {
+        Member leader = saveMember("github-modify-image-not-found");
+        Group group = createGroup(leader, "이미지 없는 교체 그룹");
+
+        assertThatThrownBy(() -> groupCommandService.modifyGroup(leader.getId(), group.getId(), new ModifyGroupCommand(
+                "이미지 없는 교체 그룹", "소개", null, MeetingType.FLEXIBLE, null,
+                "groups/tmp/not-found.webp")))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.IMAGE_NOT_FOUND);
+    }
+
+    @DisplayName("스토리지에 없는 이미지 키로 그룹 대표 이미지를 교체할 수 없다.")
+    @Test
+    void modifyGroupFailsWhenRepresentativeImageObjectDoesNotExist() {
+        Member leader = saveMember("github-modify-image-object-not-found");
+        Group group = createGroup(leader, "스토리지 이미지 없는 그룹");
+        String imageKey = "groups/tmp/missing-image.webp";
+        saveImageUpload(imageKey, TestSupportConfig.FIXED_NOW.plusMinutes(10));
+        imageStorageStub.markMissing(imageKey);
+
+        assertThatThrownBy(() -> groupCommandService.modifyGroup(leader.getId(), group.getId(), new ModifyGroupCommand(
+                "스토리지 이미지 없는 그룹", "소개", null, MeetingType.FLEXIBLE, null, imageKey)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.IMAGE_NOT_FOUND);
     }
 
     private Group createGroup(Member leader, String name) {
@@ -230,7 +358,8 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
 
         // When / Then
         assertThatThrownBy(() -> groupCommandService.modifyGroup(
-                member.getId(), group.getId(), new ModifyGroupCommand("변경", "소개", null)))
+                member.getId(), group.getId(), new ModifyGroupCommand(
+                        "변경", "소개", null, MeetingType.FLEXIBLE, null, null)))
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.GROUP_ACCESS_DENIED);
@@ -246,7 +375,8 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
 
         // When / Then
         assertThatThrownBy(() -> groupCommandService.modifyGroup(
-                leader.getId(), group.getId(), new ModifyGroupCommand("변경", "소개", null)))
+                leader.getId(), group.getId(), new ModifyGroupCommand(
+                        "변경", "소개", null, MeetingType.FLEXIBLE, null, null)))
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.GROUP_ENDED);
@@ -265,7 +395,8 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
 
         // When / Then
         assertThatThrownBy(() -> groupCommandService.modifyGroup(
-                leader.getId(), group.getId(), new ModifyGroupCommand(another.getName(), "소개", null)))
+                leader.getId(), group.getId(), new ModifyGroupCommand(
+                        another.getName(), "소개", null, MeetingType.FLEXIBLE, null, null)))
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.GROUP_NAME_DUPLICATED);

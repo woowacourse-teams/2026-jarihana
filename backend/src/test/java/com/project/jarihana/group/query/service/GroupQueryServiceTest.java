@@ -200,9 +200,44 @@ class GroupQueryServiceTest {
 
         // Then
         assertThat(result.group()).isSameAs(group);
+        assertThat(result.representativeImageUrl())
+                .isEqualTo("groups/1.webp");
         assertThat(result.members()).hasSize(1);
         assertThat(result.leader().memberId()).isEqualTo(10L);
         assertThat(result.currentMemberRole()).isEqualTo(GroupMemberRole.LEADER);
+    }
+
+    @DisplayName("대표 이미지 키를 CloudFront 이미지 URL로 변환한다.")
+    @Test
+    void convertsRepresentativeImageKeyToPublicUrl() {
+        // Given
+        GroupQueryService cloudFrontService = new GroupQueryService(
+                listRepository,
+                detailRepository,
+                loginMemberReader,
+                CLOCK,
+                "https://cdn.example.test/images"
+        );
+        Group group = Group.createStudy(
+                "이미지 그룹",
+                "이미지를 조회합니다.",
+                null,
+                "groups/tmp/uploaded-image.webp",
+                RecurringGroupSchedule.of(
+                        Set.of(DayOfWeek.MONDAY),
+                        LocalTime.of(19, 0),
+                        LocalTime.of(21, 0)
+                ),
+                NOW
+        );
+        detailRepository.save(GroupDetailProjection.of(1L, group, List.of(), null, 0));
+
+        // When
+        GroupDetailResult result = cloudFrontService.findGroup(1L);
+
+        // Then
+        assertThat(result.representativeImageUrl())
+                .isEqualTo("https://cdn.example.test/images/groups/tmp/uploaded-image.webp");
     }
 
     @DisplayName("존재하지 않는 그룹 상세 조회 시 예외가 발생한다.")
