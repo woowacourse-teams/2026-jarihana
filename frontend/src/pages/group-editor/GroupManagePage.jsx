@@ -23,7 +23,13 @@ import {
   useToast
 } from "../../shared/ui/index.js";
 import { scheduleLines, typeLabel } from "../groups/pageUtils.js";
-import { ReadOnlyFact, ScheduleFact, UnderlineField, UnderlineSelect } from "./EditorFields.jsx";
+import {
+  ReadOnlyFact,
+  RepresentativeImageNotice,
+  ScheduleFact,
+  UnderlineField,
+  UnderlineSelect
+} from "./EditorFields.jsx";
 import { GroupMembersPanel } from "./GroupMembersPanel.jsx";
 import { MarkdownEditor } from "./MarkdownEditor.jsx";
 import { ScheduleDialog } from "./ScheduleDialog.jsx";
@@ -351,7 +357,8 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
                 </dl>
               </div>
             </div>
-            <div className="group-profile__art">
+            <RepresentativeImageNotice />
+          <div className="group-profile__art">
               <GroupImage alt="" className="group-profile__image" group={group} />
             </div>
           </section>

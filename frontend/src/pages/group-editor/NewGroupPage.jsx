@@ -7,7 +7,13 @@ import { z } from "zod";
 import { useCreateGroup } from "../../features/group/index.js";
 import { Button, ErrorState, GroupImage, Tabs, useToast } from "../../shared/ui/index.js";
 import { scheduleLines } from "../groups/pageUtils.js";
-import { ReadOnlyFact, ScheduleFact, UnderlineField, UnderlineSelect } from "./EditorFields.jsx";
+import {
+  ReadOnlyFact,
+  RepresentativeImageNotice,
+  ScheduleFact,
+  UnderlineField,
+  UnderlineSelect
+} from "./EditorFields.jsx";
 import { GroupMembersPanel } from "./GroupMembersPanel.jsx";
 import { MarkdownEditor } from "./MarkdownEditor.jsx";
 import { ScheduleDialog } from "./ScheduleDialog.jsx";
@@ -271,6 +277,7 @@ export function NewGroupPage() {
               </dl>
             </div>
           </div>
+          <RepresentativeImageNotice />
           <div className="group-profile__art">
             <GroupImage alt="" className="group-profile__image" group={{}} />
           </div>
