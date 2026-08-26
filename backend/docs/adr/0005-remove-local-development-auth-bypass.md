@@ -32,8 +32,13 @@ redirect_uri=http://localhost:5173/oauth/github/callback      ->  redirect_uri_m
 ```
 
 `bad_verification_code`는 우리가 넣은 가짜 코드 때문에 나는 것으로, redirect_uri 검증은 이미
-통과했다는 뜻이다. 개발 서버 프록시가 `/api` 접두사를 떼고 콜백을 컨트롤러까지 넘기는 것도
-확인했다. 실제 브라우저 로그인이 가입 세션(`signup.githubId`)을 만드는 데까지 성공했다.
+통과했다는 뜻이다. 콜백이 컨트롤러까지 도달하는 것도 확인했다. 실제 브라우저 로그인이 가입
+세션(`signup.githubId`)을 만드는 데까지 성공했다.
+
+> 이 검증 시점에는 개발 서버 프록시가 `pathRewrite`로 `/api` 접두사를 떼서 컨트롤러에 넘겼다.
+> 같은 날 이후 백엔드가 `context-path: /api`로 접두사를 직접 받게 바뀌어 프록시는 경로를 그대로
+> 전달한다. 콜백이 컨트롤러에 도달한다는 결론은 그대로지만 도달 방식이 다르다. 경위는
+> [ADR 0006](0006-api-prefix-backend-context-path.md)에 있다.
 
 ### 2. GitHub App이라 callback URL을 여러 개 둘 수 있다
 
@@ -137,6 +142,8 @@ frontend/src/app/AppHeader.jsx                                               라
 - `MemberQueryService.findMyProfile`의 분기 순서를 검토한다. 우회로가 사라져 "memberId가 있으면 그
   회원이 존재한다"는 전제가 다시 성립하지만, 회원 조회 실패 시 401을 던지는 대신 가입 세션으로
   폴백하는 편이 방어적이다. 이 ADR의 범위 밖이므로 별도로 다룬다.
-- `.env.example`과 `frontend/README.md`, `backend/docs/guide/intellij-local-run.md`의 redirect URI가
-  아직 `localhost:8080/api/...`를 가리킨다. 현재 동작하는 값으로 맞춘다.
-- GitHub App에 등록된 callback URL 목록을 문서에 남겨 다음 사람이 추측하지 않게 한다.
+- ~~`.env.example`과 `frontend/README.md`, `backend/docs/guide/intellij-local-run.md`의 redirect URI가
+  아직 `localhost:8080/api/...`를 가리킨다. 현재 동작하는 값으로 맞춘다.~~ 완료. 셋 다
+  `http://localhost:5173/api/oauth/github/callback`로 통일했다.
+- ~~GitHub App에 등록된 callback URL 목록을 문서에 남겨 다음 사람이 추측하지 않게 한다.~~ 완료.
+  [IntelliJ 로컬 실행 가이드](../guide/intellij-local-run.md)에 표로 남겼다.
