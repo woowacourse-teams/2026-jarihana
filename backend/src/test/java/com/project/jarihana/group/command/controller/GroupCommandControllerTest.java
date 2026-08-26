@@ -9,6 +9,8 @@ import com.project.jarihana.group.domain.SessionGroupSchedule;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
 import com.project.jarihana.group.query.repository.GroupMemberJpaRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
+import com.project.jarihana.image.command.repository.ImageUploadCommandRepository;
+import com.project.jarihana.image.domain.ImageUpload;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
@@ -27,6 +29,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Set;
+import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
@@ -47,6 +50,9 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
     private MemberRepository memberRepository;
 
     @Autowired
+    private ImageUploadCommandRepository imageUploadCommandRepository;
+
+    @Autowired
     private AccessTokenProvider accessTokenProvider;
 
     @Autowired
@@ -57,6 +63,15 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
     void createsGroupWithMeetingInformation() {
         // Given
         Member member = memberRepository.save(Member.create("가온", 8, "github-controller-create", Course.BACKEND));
+        imageUploadCommandRepository.save(ImageUpload.create(
+                UUID.randomUUID(),
+                "group.webp",
+                "image/webp",
+                1024,
+                "groups/tmp/controller.webp",
+                TestSupportConfig.FIXED_NOW.plusMinutes(10),
+                TestSupportConfig.FIXED_NOW
+        ));
         String accessToken = accessTokenProvider.issue(member.getId()).value();
         String csrfToken = csrfToken();
 
@@ -74,6 +89,7 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                           "description": null,
                           "meetingType": "OFFLINE",
                           "location": "서울 캠퍼스",
+                          "representativeImageKey": "groups/tmp/controller.webp",
                           "recurringSchedule": {
                             "daysOfWeek": ["MONDAY"],
                             "startTime": "19:00:00",
@@ -93,6 +109,48 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
         Group group = groupRepository.findById(groupId).orElseThrow();
         assertThat(group.getMeetingType()).isEqualTo(MeetingType.OFFLINE);
         assertThat(group.getLocation()).isEqualTo("서울 캠퍼스");
+        assertThat(group.getRepresentativeImageKey()).isEqualTo("groups/tmp/controller.webp");
+    }
+
+    @DisplayName("업로드되지 않은 대표 이미지 키로 그룹을 개설할 수 없다.")
+    @Test
+    void rejectsCreateWithUnknownRepresentativeImageKey() {
+        // Given
+        Member member = memberRepository.save(Member.create("가온", 8, "github-controller-image-not-found", Course.BACKEND));
+        String accessToken = accessTokenProvider.issue(member.getId()).value();
+        String csrfToken = csrfToken();
+
+        // When
+        ExtractableResponse<Response> response = given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .cookie("XSRF-TOKEN", csrfToken)
+                .header("X-XSRF-TOKEN", csrfToken)
+                .contentType("application/json")
+                .body("""
+                        {
+                          "type": "STUDY",
+                          "name": "이미지 검증 그룹",
+                          "introduction": "이미지 검증을 확인합니다.",
+                          "description": null,
+                          "meetingType": "ONLINE",
+                          "location": null,
+                          "representativeImageKey": "groups/tmp/not-found.webp",
+                          "recurringSchedule": {
+                            "daysOfWeek": ["MONDAY"],
+                            "startTime": "19:00:00",
+                            "endTime": "21:00:00"
+                          },
+                          "sessionSchedule": null
+                        }
+                        """)
+                .when()
+                .post("/groups")
+                .then()
+                .extract();
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(response.jsonPath().getString("error.code")).isEqualTo("IMAGE_NOT_FOUND");
     }
 
     @DisplayName("모임장은 그룹 기본 정보 전체 교체 결과를 상세 응답으로 받는다.")
@@ -116,7 +174,8 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                           "introduction": "변경된 소개",
                           "description": null,
                           "meetingType": "OFFLINE",
-                          "location": "서울 캠퍼스"
+                          "location": "서울 캠퍼스",
+                          "representativeImageKey": null
                         }
                         """)
                 .when()
@@ -133,6 +192,42 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                 .body("data.representativeImageUrl", equalTo("images/default-group.png"))
                 .body("data.recurringSchedule.startTime", equalTo("19:00:00"))
                 .body("error", nullValue());
+
+        assertThat(groupRepository.findById(group.getId()).orElseThrow().getRepresentativeImageKey()).isNull();
+    }
+
+    @DisplayName("그룹 기본 정보 전체 교체 요청에서 대표 이미지 키가 누락되면 거부한다.")
+    @Test
+    void rejectsModifyRequestWhenRepresentativeImageKeyIsOmitted() {
+        // Given
+        Member leader = memberRepository.save(Member.create("가온", 8, "github-controller-image-required", Course.BACKEND));
+        Group group = createGroup(leader, "대표 이미지 필수 그룹");
+        String accessToken = accessTokenProvider.issue(leader.getId()).value();
+        String csrfToken = csrfToken(group.getId());
+
+        // When
+        ExtractableResponse<Response> response = given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .cookie("XSRF-TOKEN", csrfToken)
+                .header("X-XSRF-TOKEN", csrfToken)
+                .contentType("application/json")
+                .body("""
+                        {
+                          "name": "변경된 그룹",
+                          "introduction": "변경된 소개",
+                          "description": null,
+                          "meetingType": "OFFLINE",
+                          "location": "서울 캠퍼스"
+                        }
+                        """)
+                .when()
+                .put("/groups/{groupId}", group.getId())
+                .then()
+                .extract();
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(response.jsonPath().getString("error.code")).isEqualTo("INVALID_PARAMETER");
     }
 
     private Group createGroup(Member leader, String name) {
@@ -190,7 +285,8 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                           "introduction": "소개",
                           "description": null,
                           "meetingType": "FLEXIBLE",
-                          "location": null
+                          "location": null,
+                          "representativeImageKey": null
                         }
                         """)
                 .when()

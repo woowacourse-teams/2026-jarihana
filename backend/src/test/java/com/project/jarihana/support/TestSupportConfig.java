@@ -25,4 +25,10 @@ public class TestSupportConfig {
     public GithubOAuthClientStub githubOAuthClientStub() {
         return new GithubOAuthClientStub();
     }
+
+    @Bean
+    @Primary
+    public ImageStorageStub imageStorageStub() {
+        return new ImageStorageStub();
+    }
 }

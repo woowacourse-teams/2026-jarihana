@@ -184,9 +184,9 @@ API client는 `src/shared/api/`에 있고, 페이지는 직접 `fetch`하지 않
 
 ## 실제 API 범위와 의도적으로 없는 기능
 
-연동 범위는 이미지 업로드, 그룹 생성·수정·일정·종료/삭제, 멤버 조회·리더 위임, 모집 조회·생성·마감,
-가입 신청 생성·철회·결정, 내 프로필 조회·가입·refresh·logout입니다. 세부 endpoint와 상태는
-[구현 매핑](docs/IMPLEMENTATION_MAP.md)을 따릅니다.
+연동 범위는 그룹 생성·수정·일정·종료/삭제, 대표 이미지 업로드, 멤버 조회·리더 위임,
+모집 조회·생성·마감, 가입 신청 생성·철회·결정, 내 프로필 조회·가입·refresh·logout입니다.
+세부 endpoint와 상태는 [구현 매핑](docs/IMPLEMENTATION_MAP.md)을 따릅니다.
 
 현재 backend contract에 없는 기능은 성공한 것처럼 보이게 만들지 않습니다.
 

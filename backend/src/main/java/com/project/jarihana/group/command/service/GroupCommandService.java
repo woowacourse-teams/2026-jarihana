@@ -8,6 +8,10 @@ import com.project.jarihana.group.domain.*;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
+import com.project.jarihana.image.client.ImageStorage;
+import com.project.jarihana.image.client.ImageStorageException;
+import com.project.jarihana.image.command.repository.ImageUploadCommandRepository;
+import com.project.jarihana.image.domain.ImageUpload;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.recruitment.command.repository.GroupRecruitmentCommandRepository;
@@ -41,6 +45,8 @@ public class GroupCommandService {
     private final GroupMemberCommandRepository groupMemberCommandRepository;
     private final GroupRecruitmentCommandRepository groupRecruitmentCommandRepository;
     private final RegistrationCommandRepository registrationCommandRepository;
+    private final ImageUploadCommandRepository imageUploadCommandRepository;
+    private final ImageStorage imageStorage;
     private final Clock clock;
 
     public GroupCommandService(
@@ -49,6 +55,8 @@ public class GroupCommandService {
             GroupMemberCommandRepository groupMemberCommandRepository,
             GroupRecruitmentCommandRepository groupRecruitmentCommandRepository,
             RegistrationCommandRepository registrationCommandRepository,
+            ImageUploadCommandRepository imageUploadCommandRepository,
+            ImageStorage imageStorage,
             Clock clock
     ) {
         this.memberRepository = memberRepository;
@@ -56,6 +64,8 @@ public class GroupCommandService {
         this.groupMemberCommandRepository = groupMemberCommandRepository;
         this.groupRecruitmentCommandRepository = groupRecruitmentCommandRepository;
         this.registrationCommandRepository = registrationCommandRepository;
+        this.imageUploadCommandRepository = imageUploadCommandRepository;
+        this.imageStorage = imageStorage;
         this.clock = clock;
     }
 
@@ -68,6 +78,7 @@ public class GroupCommandService {
         }
 
         LocalDateTime now = LocalDateTime.now(clock);
+        validateRepresentativeImageKey(command.representativeImageKey(), now);
         Group group = groupCommandRepository.save(createGroup(command, now));
         GroupMember leader = GroupMember.createLeader(group, member, now);
         groupMemberCommandRepository.save(leader);
@@ -83,7 +94,7 @@ public class GroupCommandService {
             validateSessionSchedule(command);
             return Group.createSession(
                     command.name(), command.introduction(), command.description(),
-                    DEFAULT_REPRESENTATIVE_IMAGE_KEY, command.meetingType(), command.location(),
+                    representativeImageKey(command.representativeImageKey()), command.meetingType(), command.location(),
                     toSessionSchedule(command), createdAt
             );
         }
@@ -91,10 +102,40 @@ public class GroupCommandService {
         RecurringGroupSchedule schedule = toRecurringSchedule(command);
         if (type == GroupType.CLUB) {
             return Group.createClub(command.name(), command.introduction(), command.description(),
-                    DEFAULT_REPRESENTATIVE_IMAGE_KEY, command.meetingType(), command.location(), schedule, createdAt);
+                    representativeImageKey(command.representativeImageKey()), command.meetingType(), command.location(),
+                    schedule, createdAt);
         }
         return Group.createStudy(command.name(), command.introduction(), command.description(),
-                DEFAULT_REPRESENTATIVE_IMAGE_KEY, command.meetingType(), command.location(), schedule, createdAt);
+                representativeImageKey(command.representativeImageKey()), command.meetingType(), command.location(),
+                schedule, createdAt);
+    }
+
+    private String representativeImageKey(String representativeImageKey) {
+        return representativeImageKey == null ? DEFAULT_REPRESENTATIVE_IMAGE_KEY : representativeImageKey;
+    }
+
+    private void validateRepresentativeImageKey(String representativeImageKey, LocalDateTime now) {
+        if (representativeImageKey == null || DEFAULT_REPRESENTATIVE_IMAGE_KEY.equals(representativeImageKey)) {
+            return;
+        }
+        if (representativeImageKey.isBlank()) {
+            throw new BusinessException(ErrorCode.IMAGE_NOT_FOUND, "대표 이미지를 찾을 수 없습니다.");
+        }
+
+        ImageUpload imageUpload = imageUploadCommandRepository.findByImageKey(representativeImageKey)
+                .filter(upload -> !upload.isExpiredAt(now))
+                .orElseThrow(() -> new BusinessException(ErrorCode.IMAGE_NOT_FOUND, "대표 이미지를 찾을 수 없습니다."));
+        try {
+            if (!imageStorage.exists(imageUpload.getImageKey())) {
+                throw new BusinessException(ErrorCode.IMAGE_NOT_FOUND, "대표 이미지를 찾을 수 없습니다.");
+            }
+        } catch (ImageStorageException exception) {
+            throw new BusinessException(
+                    ErrorCode.IMAGE_NOT_FOUND,
+                    "대표 이미지를 확인할 수 없습니다.",
+                    exception
+            );
+        }
     }
 
     private void validateSessionSchedule(CreateGroupCommand command) {
@@ -151,11 +192,12 @@ public class GroupCommandService {
         if (groupCommandRepository.existsByNameAndIdNot(command.name(), groupId)) {
             throw new BusinessException(ErrorCode.GROUP_NAME_DUPLICATED, GROUP_NAME_DUPLICATED_MESSAGE);
         }
+        validateRepresentativeImageKey(command.representativeImageKey(), LocalDateTime.now(clock));
         groupCommandRepository.save(group.modify(
                 command.name(),
                 command.introduction(),
                 command.description(),
-                DEFAULT_REPRESENTATIVE_IMAGE_KEY,
+                command.representativeImageKey(),
                 command.meetingType(),
                 command.location(),
                 group.getRecurringSchedule(),
