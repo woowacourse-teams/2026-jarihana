@@ -6,9 +6,6 @@
 
 .group-editor {
     --group-editor-content-width: 68.75rem;
-    --group-editor-day-size: 2.75rem;
-    /* 주말은 빨강/파랑 대신 브랜드 계열에서 채도만 낮춰 구분한다. */
-    --group-editor-weekend: color-mix(in srgb, var(--color-brand-ink) 55%, var(--color-muted-ink));
     color: var(--color-ink);
     inline-size: min(100%, calc(var(--group-editor-content-width) + var(--space-16)));
     margin-inline: auto;
@@ -236,7 +233,14 @@
 
 /* ── 일정 모달 ──────────────────────────────────────── */
 
+/*
+ * Modal은 createPortal로 .group-editor 바깥에 렌더된다. 요일 칩이 쓰는 값을
+ * .group-editor에 두면 여기까지 닿지 않아 크기와 배경이 통째로 무효가 된다.
+ */
 .group-editor__schedule-dialog {
+    --group-editor-day-size: 2.75rem;
+    /* 주말은 빨강/파랑 대신 브랜드 계열에서 채도만 낮춰 구분한다. */
+    --group-editor-weekend: color-mix(in srgb, var(--color-brand-ink) 55%, var(--color-muted-ink));
     display: grid;
     gap: var(--space-5);
 }
