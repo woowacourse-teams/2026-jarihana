@@ -177,17 +177,18 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
                 .isEqualTo(ErrorCode.SCHEDULE_INVALID_RULE);
     }
 
-    @DisplayName("정기 그룹에 일정이 없으면 개설할 수 없다.")
+    @DisplayName("정기 그룹은 일정 없이 개설하면 유동적 일정이 된다.")
     @Test
-    void createRecurringGroupFailsWhenScheduleIsMissing() {
+    void createRecurringGroupWithoutScheduleBecomesFlexible() {
         Member member = saveMember("github-recurring-missing");
         CreateGroupCommand command = new CreateGroupCommand(
-                GroupType.CLUB, "정기 일정 누락 그룹", "소개", "설명", null, null);
+                GroupType.CLUB, "유동적 그룹", "소개", "설명", null, null);
 
-        assertThatThrownBy(() -> groupCommandService.createGroup(member.getId(), command))
-                .isInstanceOf(BusinessException.class)
-                .extracting(exception -> ((BusinessException) exception).getErrorCode())
-                .isEqualTo(ErrorCode.SCHEDULE_REQUIRED);
+        CreateGroupResult result = groupCommandService.createGroup(member.getId(), command);
+
+        Group group = groupCommandRepository.findById(result.id()).orElseThrow();
+        assertThat(group.getRecurringSchedule()).isNull();
+        assertThat(group.getSessionSchedule()).isNull();
     }
 
     @DisplayName("모임장은 그룹 기본 정보를 전체 교체하고 일정은 유지한다.")
