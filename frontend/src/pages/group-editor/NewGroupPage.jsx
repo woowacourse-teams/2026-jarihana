@@ -5,17 +5,21 @@ import { useNavigate } from "react-router";
 import { z } from "zod";
 
 import { useCreateGroup } from "../../features/group/index.js";
-import { Button, GroupImage, Tabs, useToast } from "../../shared/ui/index.js";
+import {
+  DEFAULT_GROUP_IMAGE_URL,
+  useImageUpload
+} from "../../features/image-upload/index.js";
+import { Button, Tabs, useToast } from "../../shared/ui/index.js";
 import { scheduleLines } from "../groups/pageUtils.js";
 import {
   ReadOnlyFact,
-  RepresentativeImageNotice,
   ScheduleFact,
   UnderlineField,
   UnderlineSelect
 } from "./EditorFields.jsx";
 import { GroupMembersPanel } from "./GroupMembersPanel.jsx";
 import { MarkdownEditor } from "./MarkdownEditor.jsx";
+import { RepresentativeImage } from "./RepresentativeImage.jsx";
 import { ScheduleDialog } from "./ScheduleDialog.jsx";
 import { useSubmissionLock } from "./useSubmissionLock.js";
 import "../groups/groups.css";
@@ -68,7 +72,7 @@ export const newGroupSchema = baseSchema.superRefine((values, context) => {
  * 종류를 바꿔도 폼의 일정 값은 그대로 둔다. 저장할 때만 종류에 맞는 쪽을 보내므로,
  * 실수로 종류를 바꿨다 되돌려도 다시 입력할 필요가 없다.
  */
-function toCreateBody(values) {
+function toCreateBody(values, representativeImageKey = null) {
   const location = values.location.trim();
   const common = {
     type: values.type,
@@ -76,7 +80,8 @@ function toCreateBody(values) {
     introduction: values.introduction.trim(),
     description: values.description,
     meetingType: values.meetingType,
-    location: location || null
+    location: location || null,
+    representativeImageKey
   };
   if (values.type === "SESSION") {
     return {
@@ -133,10 +138,12 @@ function draftSummary(values) {
 export function NewGroupPage() {
   const navigate = useNavigate();
   const createMutation = useCreateGroup();
+  const imageUpload = useImageUpload();
   const createLock = useSubmissionLock();
   const toast = useToast();
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [contentTab, setContentTab] = useState("intro");
+  const [representativeImageKey, setRepresentativeImageKey] = useState(null);
 
   const {
     control,
@@ -179,15 +186,19 @@ export function NewGroupPage() {
 
   async function confirmSchedule(event) {
     event.preventDefault();
-    const fields = type === "SESSION" ? ["sessionDate", "startTime", "endTime"] : ["startTime", "endTime"];
+    const fields =
+      type === "SESSION" ? ["sessionDate", "startTime", "endTime"] : ["startTime", "endTime"];
     if (!(await trigger(fields))) return;
     setScheduleOpen(false);
   }
 
   const submit = handleSubmit(async (formValues) => {
+    if (imageUpload.isPending) return;
     await createLock.run(async () => {
       try {
-        const result = await createMutation.mutateAsync(toCreateBody(formValues));
+        const result = await createMutation.mutateAsync(
+          toCreateBody(formValues, representativeImageKey)
+        );
         toast.show({ title: "모임을 만들었어요.", tone: "success" });
         navigate(`/groups/${result.id}`);
       } catch (error) {
@@ -199,6 +210,8 @@ export function NewGroupPage() {
       }
     });
   });
+
+  const submitPending = createMutation.isPending || createLock.pending || imageUpload.isPending;
 
   return (
     <div className="group-editor group-editor--create page-container">
@@ -283,10 +296,15 @@ export function NewGroupPage() {
               </dl>
             </div>
           </div>
-          <RepresentativeImageNotice />
-          <div className="group-profile__art">
-            <GroupImage alt="" className="group-profile__image" group={{}} />
-          </div>
+          <RepresentativeImage
+            draft
+            imageKey={representativeImageKey}
+            imageUrl={DEFAULT_GROUP_IMAGE_URL}
+            onImageKeyChange={setRepresentativeImageKey}
+            onUpload={imageUpload.mutateAsync}
+            uploadError={imageUpload.error}
+            uploadPending={imageUpload.isPending}
+          />
         </section>
 
         <div className="group-detail-tabs group-editor__tabs">
@@ -323,12 +341,7 @@ export function NewGroupPage() {
         <Button onClick={() => navigate("/groups")} type="button" variant="secondary">
           취소
         </Button>
-        <Button
-          form="group-create-form"
-          pending={createMutation.isPending || createLock.pending}
-          type="submit"
-          variant="primary"
-        >
+        <Button form="group-create-form" pending={submitPending} type="submit" variant="primary">
           모임 만들기
         </Button>
       </div>

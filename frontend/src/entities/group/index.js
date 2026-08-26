@@ -82,6 +82,7 @@ export const groupDetailSchema = groupListItemSchema.extend({
   description: z.string().nullable(),
   meetingType: groupMeetingTypeSchema,
   location: z.string().max(255).nullable(),
+  representativeImageKey: z.string().max(255).nullable().optional(),
   recurringSchedule: recurringScheduleSchema.nullable(),
   sessionSchedule: sessionScheduleSchema.nullable(),
   createdAt: localDateTimeSchema
