@@ -166,7 +166,7 @@ export function ScheduleDialog({
       }
       onClose={onClose}
       open={open}
-      title="활동 일정 수정"
+      title="활동 일정"
     >
       <form className="group-editor__schedule-dialog" onSubmit={onSubmit} noValidate>
         {requestError ? (
