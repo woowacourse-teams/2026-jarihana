@@ -171,7 +171,7 @@ export function NewGroupPage() {
       try {
         const result = await createMutation.mutateAsync(toCreateBody(formValues));
         toast.show({ title: "모임을 만들었어요.", tone: "success" });
-        navigate(`/groups/${result.id}/manage`);
+        navigate(`/groups/${result.id}`);
       } catch (error) {
         toast.show({
           title: "모임을 만들지 못했어요.",

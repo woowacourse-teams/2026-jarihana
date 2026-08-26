@@ -162,6 +162,26 @@
     margin-block-end: var(--space-2);
 }
 
+
+/*
+ * 히어로에 입력이 올라가는데 대표 이미지가 어떤 색일지 알 수 없다.
+ * 이미지를 어둡게 깔고 그 위에 고른 scrim을 덮어, 순백 이미지가 올라와도
+ * 흰 글자 10.5:1, 브랜드 4.7:1, muted 5.3:1로 모두 AA를 넘게 만든다.
+ * 기본 일러스트는 이미 opacity로 눌러 두었으므로 건드리지 않는다.
+ */
+.group-profile.group-editor__profile:not(.group-profile--default-image) .group-profile__image {
+    filter: brightness(0.45);
+}
+
+.group-profile.group-editor__profile::after {
+    background:
+        linear-gradient(
+            90deg,
+            color-mix(in srgb, var(--color-nav) 56%, transparent) 0%,
+            color-mix(in srgb, var(--color-nav) 45%, transparent) 100%
+        );
+}
+
 /* ── 히어로 위 모임 정보 ──────────────────────────────── */
 
 .group-editor__profile .group-facts {

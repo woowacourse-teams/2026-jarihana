@@ -350,7 +350,7 @@ describe("NewGroupPage", () => {
     // Then
     await waitFor(() => expect(mockCreateGroup).toHaveBeenCalledTimes(1));
     await act(async () => finishRequest({ id: 73, status: "ACTIVE" }));
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith("/groups/73/manage"));
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith("/groups/73"));
   });
 });
 
