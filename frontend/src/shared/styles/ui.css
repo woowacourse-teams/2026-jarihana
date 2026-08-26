@@ -288,7 +288,7 @@ textarea {
 }
 
 .ui-markdown code {
-    padding: 0.1em 0.4em;
+    padding: 0.2em 0.4em;
     border-radius: var(--radius-sm);
     background: var(--color-brand-soft);
     color: var(--color-brand-ink);
