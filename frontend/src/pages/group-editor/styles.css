@@ -199,16 +199,24 @@
     gap: var(--space-4) var(--space-5);
 }
 
-.group-editor__profile .group-fact--field,
-.group-editor__profile .group-fact--schedule,
-.group-editor__profile .group-fact--readonly {
+/*
+ * 상세 페이지의 .group-fact는 아이콘과 내용을 나누는 auto minmax(0,1fr) 2열이다.
+ * 편집 화면에는 아이콘이 없어 내용이 auto 열에 들어가고, 그러면 입력과 일정
+ * 버튼의 폭이 글자 길이를 따라 들쭉날쭉해진다. 한 열로 되돌려 폭을 고정한다.
+ * groups.css가 뒤에 로드되므로 선택자를 한 단계 높여 이긴다.
+ */
+.group-profile.group-editor__profile .group-fact {
     display: block;
+    min-inline-size: 0;
 }
 
-.group-editor__profile .group-fact--field > div,
-.group-editor__profile .group-fact--schedule > div,
-.group-editor__profile .group-fact--readonly > div {
+.group-profile.group-editor__profile .group-fact > div {
     min-inline-size: 0;
+}
+
+/* dd의 브라우저 기본 들여쓰기가 남아 있어 칸마다 시작점이 어긋난다. */
+.group-profile.group-editor__profile .group-fact dd {
+    margin-inline-start: 0;
 }
 
 .group-editor__schedule-row {

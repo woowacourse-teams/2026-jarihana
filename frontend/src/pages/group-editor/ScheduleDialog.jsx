@@ -82,26 +82,31 @@ export function RecurringScheduleFields({ errors, onPresetSelect, register, sele
         ))}
       </div>
 
+      {/*
+        * 유동적 일정은 recurringSchedule을 null로 보내므로 시간이 쓰이지 않는다.
+        * 받아 놓고 버리면 저장된 줄 알게 되므로 아예 감춘다.
+        */}
       {selectedDays.length === 0 ? (
         <p className="group-editor__schedule-note">
-          요일을 고르지 않으면 <strong>유동적 일정</strong>으로 저장돼요.
+          요일을 고르지 않으면 <strong>유동적 일정</strong>이에요. 정해진 요일과 시간 없이 그때그때
+          정하는 모임입니다.
         </p>
-      ) : null}
-
-      <div className="group-editor__time-grid">
-        <UnderlineField
-          error={errors.startTime?.message}
-          label="시작 시간"
-          registration={register("startTime")}
-          type="time"
-        />
-        <UnderlineField
-          error={errors.endTime?.message}
-          label="종료 시간"
-          registration={register("endTime")}
-          type="time"
-        />
-      </div>
+      ) : (
+        <div className="group-editor__time-grid">
+          <UnderlineField
+            error={errors.startTime?.message}
+            label="시작 시간"
+            registration={register("startTime")}
+            type="time"
+          />
+          <UnderlineField
+            error={errors.endTime?.message}
+            label="종료 시간"
+            registration={register("endTime")}
+            type="time"
+          />
+        </div>
+      )}
     </fieldset>
   );
 }

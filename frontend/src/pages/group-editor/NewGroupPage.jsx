@@ -42,7 +42,12 @@ const baseSchema = z.object({
 });
 
 export const newGroupSchema = baseSchema.superRefine((values, context) => {
-  if (values.endTime <= values.startTime) {
+  /*
+   * 유동적 일정은 시간을 보내지 않으므로 비교하지 않는다. 비교하면 시간을 뒤집어
+   * 둔 채 유동적으로 바꿨을 때, 숨은 필드의 오류가 제출을 막고 이유는 보이지 않는다.
+   */
+  const usesTime = values.type === "SESSION" || values.daysOfWeek.length > 0;
+  if (usesTime && values.endTime <= values.startTime) {
     context.addIssue({
       code: "custom",
       message: "종료 시간은 시작 시간보다 늦어야 해요.",

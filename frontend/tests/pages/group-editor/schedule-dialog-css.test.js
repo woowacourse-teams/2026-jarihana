@@ -1,10 +1,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const css = readFileSync(
-  join(process.cwd(), "src/pages/group-editor/styles.css"),
-  "utf8"
-);
+const raw = readFileSync(join(process.cwd(), "src/pages/group-editor/styles.css"), "utf8");
+
+/*
+ * 주석을 먼저 걷어낸다. 주석 안의 쉼표나 중괄호가 남으면 선택자를 쪼갤 때
+ * 엉뚱한 조각이 섞여 규칙을 못 찾는다.
+ */
+const css = raw.replace(/\/\*[\s\S]*?\*\//g, "");
 
 /*
  * 한 선택자에 걸리는 선언을 모두 모은다. 같은 선택자가 여러 규칙에 나뉘어
@@ -68,5 +71,23 @@ describe("활동 일정 모달 스타일", () => {
     // 배경만 빠지면 흰 글자가 흰 모달 위에 남아 보이지 않는다.
     expect(body).toContain("background: var(--group-editor-weekend)");
     expect(body).toContain("color: var(--color-surface)");
+  });
+});
+
+describe("히어로 모임 정보 배치", () => {
+  /*
+   * 상세 페이지의 .group-fact는 아이콘 + 내용 2열이다. 편집 화면에는 아이콘이
+   * 없어 그대로 두면 내용이 auto 열에 들어가 폭이 글자 길이를 따라 변한다.
+   */
+  it("편집 화면의 fact는 한 열이라 폭이 글자에 흔들리지 않는다", () => {
+    const body = declarationsFor(".group-profile.group-editor__profile .group-fact");
+
+    expect(body).toContain("display: block");
+  });
+
+  it("dd의 기본 들여쓰기를 지워 칸마다 시작점이 같다", () => {
+    const body = declarationsFor(".group-profile.group-editor__profile .group-fact dd");
+
+    expect(body).toContain("margin-inline-start: 0");
   });
 });

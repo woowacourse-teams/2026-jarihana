@@ -56,7 +56,9 @@ const manageSchema = z
     endTime: timeSchema
   })
   .superRefine((values, context) => {
-    if (values.endTime <= values.startTime) {
+    /* 유동적 일정은 시간을 보내지 않으므로 비교하지 않는다. */
+    const usesTime = values.isSession || values.daysOfWeek.length > 0;
+    if (usesTime && values.endTime <= values.startTime) {
       context.addIssue({
         code: "custom",
         message: "종료 시간은 시작 시간보다 늦어야 해요.",

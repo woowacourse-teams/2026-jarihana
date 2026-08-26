@@ -219,6 +219,45 @@ describe("NewGroupPage", () => {
     });
   });
 
+  it("유동적일 때는 시간 입력을 두지 않는다", async () => {
+    // Given
+    const user = userEvent.setup();
+    renderPage(<NewGroupPage />);
+    await openSchedule(user, "모임 일정 설정");
+    const dialog = scheduleDialog();
+
+    // Then 요일이 없으면 시간은 쓰이지 않으므로 보이지 않는다.
+    expect(within(dialog).queryByLabelText("시작 시간")).not.toBeInTheDocument();
+
+    // When 요일을 고르면 시간이 필요해진다.
+    await user.click(within(dialog).getByRole("button", { name: "평일" }));
+
+    // Then
+    expect(within(dialog).getByLabelText("시작 시간")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("종료 시간")).toBeInTheDocument();
+  });
+
+  it("시간을 뒤집어 둔 뒤 유동적으로 바꿔도 등록이 막히지 않는다", async () => {
+    // Given 종료가 시작보다 이른 상태를 만들고
+    const user = userEvent.setup();
+    renderPage(<NewGroupPage />);
+    await user.type(screen.getByLabelText("모임 이름"), "유동적 스터디");
+    await user.type(screen.getByLabelText("한 줄 소개"), "요일 없이 모여요");
+    await openSchedule(user, "모임 일정 설정");
+    let dialog = scheduleDialog();
+    await user.click(within(dialog).getByRole("button", { name: "평일" }));
+    fireEvent.change(within(dialog).getByLabelText("종료 시간"), { target: { value: "18:00" } });
+
+    // When 유동적으로 바꾼다. 시간은 더 이상 쓰이지 않는다.
+    await user.click(within(dialog).getByRole("button", { name: "유동적" }));
+    await user.click(within(dialog).getByRole("button", { name: "일정 저장" }));
+    submitForm("group-create-form");
+
+    // Then 숨은 시간 오류가 제출을 막지 않는다.
+    await waitFor(() => expect(mockCreateGroup).toHaveBeenCalledTimes(1));
+    expect(mockCreateGroup.mock.calls[0][0]).toMatchObject({ recurringSchedule: null });
+  });
+
   it("생성 화면에서도 유동적을 고를 수 있다", async () => {
     // Given
     const user = userEvent.setup();
