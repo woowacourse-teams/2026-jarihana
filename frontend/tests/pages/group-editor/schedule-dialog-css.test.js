@@ -116,3 +116,23 @@ describe("히어로 입력 밑줄 정렬", () => {
     expect(control).toContain("min-block-size: var(--touch-target)");
   });
 });
+
+describe("히어로 입력 폭", () => {
+  /*
+   * 상세 페이지의 .group-facts > .group-fact는 align-items: start를 건다.
+   * 열 방향 flex에서 그 값은 자식을 늘리지 않고 내용 폭으로 줄인다. 브라우저에서
+   * 재 보니 셀은 280px인데 모임 방식 밑줄만 81px이었다. 반드시 다시 지정해야 한다.
+   */
+  it("fact와 그 자식이 칸 폭을 채우도록 align-items를 다시 지정한다", () => {
+    const body = declarationsFor(".group-profile.group-editor__profile .group-fact");
+
+    expect(body).toContain("align-items: stretch");
+  });
+
+  it("칸이 같은 높이로 늘어나야 밑줄을 바닥에 맞출 수 있다", () => {
+    const body = declarationsFor(".group-editor__profile .group-facts");
+
+    expect(body).toContain("align-items: stretch");
+    expect(body).not.toContain("align-items: start");
+  });
+});

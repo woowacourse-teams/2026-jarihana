@@ -195,7 +195,8 @@
 /* ── 히어로 위 모임 정보 ──────────────────────────────── */
 
 .group-editor__profile .group-facts {
-    align-items: start;
+    /* 칸이 같은 높이로 늘어나야 컨트롤을 바닥에 붙일 수 있다. */
+    align-items: stretch;
     gap: var(--space-4) var(--space-5);
 }
 
@@ -205,11 +206,17 @@
  * 버튼의 폭이 글자 길이를 따라 들쭉날쭉해진다. 한 열로 되돌려 폭을 고정한다.
  * groups.css가 뒤에 로드되므로 선택자를 한 단계 높여 이긴다.
  */
+/*
+ * align-items를 반드시 다시 지정한다. 상세 페이지의 .group-facts > .group-fact가
+ * align-items: start를 걸어 두는데, 열 방향 flex에서 그 값은 자식을 늘리지 않고
+ * 내용 폭으로 줄인다. 그래서 모임 방식 밑줄만 셀렉트 글자만큼 짧아졌었다.
+ */
 .group-profile.group-editor__profile .group-fact,
 .group-profile.group-editor__profile .group-fact > div,
 .group-profile.group-editor__profile .group-fact .group-editor__field {
     display: flex;
     flex-direction: column;
+    align-items: stretch;
     min-inline-size: 0;
 }
 
