@@ -192,6 +192,18 @@
         );
 }
 
+/*
+ * 상세 페이지의 히어로는 좌측 상단 '목록으로' 버튼 자리를 비워 두려고 위쪽에
+ * touch-target 만큼 여백을 준다. 편집 화면에는 그 버튼이 없어 그만큼이 빈 공간이다.
+ * 다만 좁은 화면에서는 우측 상단 대표 이미지 버튼과 세로로 겹칠 수 있어,
+ * 본문이 버튼까지 닿지 않는 넓은 화면에서만 줄인다.
+ */
+@media (min-width: 64rem) {
+    .group-editor__profile .group-profile__copy {
+        padding-block-start: var(--space-2);
+    }
+}
+
 /* ── 히어로 위 모임 정보 ──────────────────────────────── */
 
 .group-editor__profile .group-facts {
