@@ -14,10 +14,15 @@ import {
   useTerminateGroup
 } from "../../features/group/index.js";
 import {
+  DEFAULT_GROUP_IMAGE_URL,
+  isDefaultGroupImageUrl,
+  representativeImageKeyFromUrl,
+  useImageUpload
+} from "../../features/image-upload/index.js";
+import {
   Button,
   ConfirmDialog,
   ErrorState,
-  GroupImage,
   Skeleton,
   Tabs,
   useToast
@@ -25,13 +30,13 @@ import {
 import { scheduleLines, typeLabel } from "../groups/pageUtils.js";
 import {
   ReadOnlyFact,
-  RepresentativeImageNotice,
   ScheduleFact,
   UnderlineField,
   UnderlineSelect
 } from "./EditorFields.jsx";
 import { GroupMembersPanel } from "./GroupMembersPanel.jsx";
 import { MarkdownEditor } from "./MarkdownEditor.jsx";
+import { RepresentativeImage } from "./RepresentativeImage.jsx";
 import { ScheduleDialog } from "./ScheduleDialog.jsx";
 import { useSubmissionLock } from "./useSubmissionLock.js";
 import { ManagementContext } from "../manage/ManagementContext.jsx";
@@ -143,10 +148,12 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const recurringMutation = useReplaceRecurringSchedule(groupId);
   const removeRecurringMutation = useRemoveRecurringSchedule(groupId);
   const sessionMutation = useReplaceSessionSchedule(groupId);
+  const imageUpload = useImageUpload();
   const saveLock = useSubmissionLock();
   const lifecycleLock = useSubmissionLock();
   const [contentTab, setContentTab] = useState("intro");
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [representativeImageDraft, setRepresentativeImageDraft] = useState(null);
 
   const {
     control,
@@ -199,10 +206,21 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   }
 
   const isSession = group.type === "SESSION";
+  const persistedRepresentativeImageKey = Object.prototype.hasOwnProperty.call(
+    group,
+    "representativeImageKey"
+  )
+    ? group.representativeImageKey
+    : representativeImageKeyFromUrl(group.representativeImageUrl);
+  const hasRepresentativeImageDraft = representativeImageDraft?.groupId === group.id;
+  const representativeImageKey = hasRepresentativeImageDraft
+    ? representativeImageDraft.key
+    : persistedRepresentativeImageKey;
+  const representativeImageChanged = hasRepresentativeImageDraft && representativeImageDraft.changed;
   const age = now.getTime() - new Date(group.createdAt).getTime();
   const canDelete = age >= 0 && age <= DAY_MS;
   const lifecycleVerb = canDelete ? "삭제" : "종료";
-  const savePending = saveLock.pending || modifyMutation.isPending;
+  const savePending = saveLock.pending || modifyMutation.isPending || imageUpload.isPending;
 
   /* 일정 오류는 모달 안에만 두면 닫는 순간 사라지므로 히어로에도 함께 보여준다. */
   const scheduleError =
@@ -250,6 +268,18 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   }
 
   const save = handleSubmit(async (formValues) => {
+    if (imageUpload.isPending) return;
+    const existingImageIsCustom =
+      Boolean(group.representativeImageUrl) &&
+      !isDefaultGroupImageUrl(group.representativeImageUrl);
+    if (existingImageIsCustom && !representativeImageKey && !representativeImageChanged) {
+      toast.show({
+        title: "대표 이미지 정보를 확인하지 못했어요.",
+        description: "대표 이미지를 다시 선택한 뒤 저장해 주세요.",
+        tone: "danger"
+      });
+      return;
+    }
     await saveLock.run(async () => {
       try {
         await modifyMutation.mutateAsync({
@@ -257,7 +287,8 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
           introduction: formValues.introduction.trim(),
           description: formValues.description,
           meetingType: formValues.meetingType,
-          location: formValues.location.trim() || null
+          location: formValues.location.trim() || null,
+          representativeImageKey: representativeImageKey ?? null
         });
         await saveSchedule(formValues);
         toast.show({ title: "모임 정보를 저장했어요.", tone: "success" });
@@ -370,10 +401,21 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
                 </dl>
               </div>
             </div>
-            <RepresentativeImageNotice />
-          <div className="group-profile__art">
-              <GroupImage alt="" className="group-profile__image" group={group} />
-            </div>
+            <RepresentativeImage
+              key={`representative-image-${group.id}-${group.representativeImageUrl ?? ""}`}
+              imageKey={representativeImageKey}
+              imageUrl={group.representativeImageUrl || DEFAULT_GROUP_IMAGE_URL}
+              onImageKeyChange={(nextImageKey) => {
+                setRepresentativeImageDraft({
+                  changed: true,
+                  groupId: group.id,
+                  key: nextImageKey
+                });
+              }}
+              onUpload={imageUpload.mutateAsync}
+              uploadError={imageUpload.error}
+              uploadPending={imageUpload.isPending}
+            />
           </section>
 
           <div className="group-detail-tabs group-editor__tabs">
@@ -416,17 +458,17 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
               }
               title={`모임을 ${lifecycleVerb}할까요?`}
               description={
-                canDelete
-                  ? (
-                      <>
-                        생성 후 24시간 안에는 모임을 완전히 삭제할 수 있어요.
-                        <br />
-                        되돌릴 수 없습니다.
-                        <br />
-                        정말 삭제하시겠습니까?
-                      </>
-                    )
-                  : "이 작업은 되돌릴 수 없어요. 서버에서 마지막으로 가능 여부를 확인합니다."
+                canDelete ? (
+                  <>
+                    생성 후 24시간 안에는 모임을 완전히 삭제할 수 있어요.
+                    <br />
+                    되돌릴 수 없습니다.
+                    <br />
+                    정말 삭제하시겠습니까?
+                  </>
+                ) : (
+                  "이 작업은 되돌릴 수 없어요. 서버에서 마지막으로 가능 여부를 확인합니다."
+                )
               }
               confirmLabel={canDelete ? "삭제" : `${lifecycleVerb} 확인`}
               danger

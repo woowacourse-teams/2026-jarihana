@@ -262,7 +262,7 @@ long Korean copy, empty/skeleton을 검수한다. production navigation에는 �
 | Figma header의 frame 간 위치 불일치            | 화면별 복제 대신 common shell을 유지               | accepted            |
 | 모든 viewport의 full-bleed header 배경         | 사용자 피드백과 공통 shell 정렬을 반영             | accepted            |
 | header 내부 콘텐츠의 shell/gutter 정렬         | 본문 section 시작·끝 rail과 일관성 유지            | accepted            |
-| 이미지 업로드 UI 제거                          | backend에 실제 endpoint/DTO 없음                   | accepted            |
+| 대표 이미지 picker/업로드                      | presigned 업로드 API와 그룹 image key 계약 반영      | implemented         |
 | 프로필 수정·멤버 제거 액션 제거                | backend에 실제 mutation 없음                       | accepted            |
 | production runtime fallback 성공 데이터 금지   | API에 없는 기능·데이터를 성공처럼 보이지 않게 함   | accepted            |
 | 생성 전 멤버 탭의 안내 상태                    | groupId가 생기기 전 실제 멤버 API를 호출할 수 없음 | accepted            |

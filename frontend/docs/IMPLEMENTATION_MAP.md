@@ -57,8 +57,8 @@ header 구현으로 확대하지 않았다.
 | `/my`                                                               | 회원                   | 내 정보, 내 그룹, 내 신청                | MyPageLayout, ProfileCard, SummaryCard                               | bootstrap loading, partial empty, 401, network                                   |
 | `/my/groups`                                                        | 회원                   | `GET /api/groups?relation=JOINED`        | ListLayout, GroupCard, CursorList                                    | loading, empty, cursor, 401, network                                             |
 | `/my/registrations`                                                 | 회원                   | 내 신청 목록, 신청 철회                  | ListLayout, StatusBadge, ConfirmDialog                               | loading, empty, cursor, 401/403/404/409, mutation states                         |
-| `/groups/new`                                                       | 회원                   | 그룹 생성                                | FormLayout, schedule fields                                          | conditional schedule validation, 401/409, mutation states                        |
-| `/groups/:groupId/manage`                                           | 해당 그룹 리더         | 그룹/멤버/모집 조회, 그룹 수정/종료/삭제 | ManageLayout, ManageNav, Stats, ConfirmDialog                        | loading, 403, 404, lifecycle conflict, mutation states                           |
+| `/groups/new`                                                       | 회원                   | 이미지 업로드·그룹 생성                  | FormLayout, ImagePicker, schedule fields                             | image validation/upload, conditional schedule validation, 401/409, mutation states |
+| `/groups/:groupId/manage`                                           | 해당 그룹 리더         | 그룹/멤버/모집 조회, 이미지 업로드, 그룹 수정/종료/삭제 | ManageLayout, ManageNav, ImagePicker, Stats, ConfirmDialog | image preservation/replace, loading, 403, 404, lifecycle conflict, mutation states |
 | `/groups/:groupId/manage/members`                                   | 해당 그룹 리더         | 멤버 목록, 리더 위임                     | ManageLayout, PersonRow, ConfirmDialog                               | loading, empty, 403/404/409/422, mutation states                                 |
 | `/groups/:groupId/manage/recruitments`                              | 해당 그룹 리더         | 모집 목록/생성/마감                      | ManageLayout, RecruitmentCard, Modal                                 | loading, empty, validation, 403/404/409, mutation states                         |
 | `/groups/:groupId/manage/recruitments/:recruitmentId/registrations` | 해당 그룹 리더         | 신청자 목록, 승인/거절                   | ManageLayout, ApplicantRow, DecisionDialog, CursorList               | loading, empty, filter, cursor, 403/404/409, mutation states                     |
@@ -71,7 +71,7 @@ header 구현으로 확대하지 않았다.
 | 공개 탐색      | mint hero, 검색·필터, 카드 우선순위             | 1440px 3-column, 768px 2-column, mobile 1-column; search는 strong bottom border와 48px touch target                      |
 | 그룹 상세/모집 | profile banner, 모임 정보(방식·일정·장소·멤버), content tabs, 참여 CTA | desktop content + sticky recruitment rail, 1024px 미만 rail을 본문 뒤로 이동                                             |
 | 계정           | profile illustration, activity count, 요약 카드 | desktop profile/content split, tablet/mobile은 순서 보존 single column; `?role=LEADER` deep link로 운영 모임 filter 유지 |
-| 그룹 생성/수정 | 단계 tab, mint editor hero, Markdown 소개       | 서버 이미지 읽기 전용, type별 일정 form, 1024px 미만 hero stack, mobile day/time grid 축소                               |
+| 그룹 생성/수정 | 단계 tab, mint editor hero, Markdown 소개       | 대표 이미지 picker와 업로드 상태, type별 일정 form, 1024px 미만 hero stack, mobile day/time grid 축소             |
 | 리더 관리      | 관리 맥락, 현황, 멤버/모집/신청 작업            | 모집은 실제 create/close, 멤버는 실제 leader transfer만 제공; desktop rail과 mobile stacked layout                       |
 
 모든 cursor 목록은 첫 요청에서 cursor를 생략하고 다음 요청은 응답의 `nextCursor`만 사용한다.
@@ -138,7 +138,7 @@ header 구현으로 확대하지 않았다.
 
 | Figma 또는 초안 표현                  | 실제 계약                                     | 구현 결정                                                                        |
 | ------------------------------------- | --------------------------------------------- | -------------------------------------------------------------------------------- |
-| 대표 이미지 업로드                    | `POST /api/image-uploads`, 그룹 create/modify의 `representativeImageKey` | 백엔드 계약은 구현됨. 프론트 업로드 UI 연결은 후속 작업으로 남겨 둠          |
+| 대표 이미지 업로드                    | presigned URL 발급 후 스토리지 직접 업로드      | `POST /api/image-uploads` → presigned `PUT` → `representativeImageKey` 연결       |
 | 멤버 “내보내기”                       | 멤버 제거 endpoint 없음                       | 액션 제거. 리더 위임만 제공                                                      |
 | 프로필/아바타 수정                    | member update endpoint 없음                   | 정보 조회만 제공                                                                 |
 | 그룹 즉시 가입                        | 직접 가입 endpoint 없음                       | recruitment registration 흐름으로만 가입                                         |
@@ -152,7 +152,7 @@ header 구현으로 확대하지 않았다.
 - production runtime에 mock/fallback 성공 데이터를 넣지 않는다.
 - Playwright와 단위 테스트의 network fixture만 허용한다.
 - `/api`는 Webpack dev server에서 `http://localhost:8080`으로 proxy한다.
-- `/images`는 프론트엔드 정적 파일로 제공한다.
+- `/images`는 운영에서 이미지 CDN 경로로, 개발에서는 기본 이미지 정적 경로로 제공한다.
 - 운영은 same-origin reverse proxy 또는 cookie가 유효한 same-site 배포를 전제로 한다.
 - GitHub client secret은 어떤 프론트엔드 설정이나 bundle에도 포함하지 않는다.
 - 실제 OAuth 완료는 GitHub OAuth 앱의 public client ID, backend client secret, callback URL,
