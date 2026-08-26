@@ -108,12 +108,23 @@ CloudFront의 Origin Path도 검토했으나 해당하지 않는다. Origin Path
   대해 확보한 성질을 경로 계층에서도 확보한다.
 - CloudFront는 `/api/*`를 백엔드로, 나머지를 S3로 보내는 분기만 유지한다. 새 함수가 필요 없다.
 - 프론트엔드는 `/api/`를 하드코딩한다. 환경별 분기가 없다.
+- **경로를 명시하지 않은 쿠키가 `/api`로 좁혀진다.** context-path는 서블릿 경로만 바꾸는 것이
+  아니라 경로를 지정하지 않은 쿠키의 기본 `Path`가 된다. 이 결정을 적용한 다음 날 CSRF 쿠키가
+  `Path=/api`로 내려가 루트에서 뜨는 SPA가 토큰을 읽지 못했고, 모든 변경 요청이 403으로 막혔다.
+  [ADR 0004](0004-csrf-token-delivery.md)에 결정 6으로 쿠키 경로를 `/`로 명시해 닫았다.
+  Access Token 쿠키는 [ADR 0002](0002-access-token-cookie.md)가 처음부터 경로를 `/`로 정해
+  두어 영향을 받지 않았다. **앞으로 추가하는 쿠키는 경로를 반드시 명시한다.**
 
 ## 후속 작업
 
 - **기본 그룹 이미지의 자리를 정한다.** context-path 때문에 백엔드 정적 이미지가 `/api` 아래로
   딸려 들어갔고, 현재 `frontend/public/images/default-group.png`와
   `backend/src/main/resources/static/images/default-group.png`가 둘 다 존재한다. 프론트엔드의
-  `groupImageUrl`은 여전히 `/api`를 붙여 백엔드 쪽을 가리킨다. 백엔드에는 업로드 기능이 없고 이
-  플레이스홀더 한 장뿐이므로, 파일을 프론트엔드로 넘기고 `/api` 접두사를 떼는 방향으로 정리한다.
+  `groupImageUrl`은 여전히 `/api`를 붙여 백엔드 쪽을 가리킨다. 파일을 프론트엔드로 넘기고
+  `/api` 접두사를 떼는 방향으로 정리한다.
+  **갱신(2026-08-27).** "백엔드에는 업로드 기능이 없고 이 플레이스홀더 한 장뿐"이라는 전제는
+  더 이상 맞지 않는다. [ADR 0011](0011-image-upload-s3-presigned-url.md)이 S3 업로드를 도입해
+  사용자 이미지는 CloudFront 공개 URL로 나간다. 다만 기본 이미지
+  `images/default-group.png`는 여전히 백엔드 정적 리소스이고 두 벌로 남아 있다. 정리 방향은
+  그대로 유효하다.
 - actuator나 웹훅을 도입할 때 이 결정을 재검토한다. 그때는 대안 A의 비용을 다시 계산한다.

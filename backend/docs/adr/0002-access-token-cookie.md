@@ -4,6 +4,9 @@
 - 날짜: 2026-08-19
 - 관련 문서: [ADR 0001](0001-github-oauth-authentication.md), [보안과 개인정보](../conventions/security.md), [아키텍처 컨벤션](../conventions/architecture.md)
 - 이 문서는 ADR 0001의 "일반 API는 `Authorization: Bearer` 헤더를 쓴다"는 결정을 대체한다.
+- 개정: 2026-08-27. 후속 작업의 CORS와 쿠키 `SameSite`, `Secure`, 도메인 항목은
+  [ADR 0008](0008-aws-deployment-topology.md)이 단일 오리진 구성을 확정하면서 닫혔다.
+  결과 항목의 "오리진이 달라 cross-site"라는 전제도 함께 바로잡는다.
 
 ## 배경
 
@@ -82,17 +85,25 @@ Service, 도메인                 이 리소스에 권한이 있나  실패 시
   이후 별도 호출 없이 보호 API를 호출할 수 있다.
 - `Authorization` 헤더를 읽는 코드는 만들지 않는다.
 - 상태를 변경하는 요청에 CSRF 토큰이 필요하다. 프론트엔드가 함께 보내야 한다.
-- 프론트엔드(`localhost:5173`)와 백엔드(`localhost:8080`)의 오리진이 달라 SPA의
+- ~~프론트엔드(`localhost:5173`)와 백엔드(`localhost:8080`)의 오리진이 달라 SPA의
   XHR은 cross-site다. `SameSite=Lax`로는 쿠키가 실리지 않으므로 CORS 허용과
   `credentials: 'include'`, 쿠키의 `SameSite`와 `Secure` 값을 배포 구성과 함께
-  정해야 한다.
+  정해야 한다.~~
+- **정정(2026-08-27).** 위 전제는 성립하지 않는다. 로컬은 개발 서버 프록시가 `/api`를
+  `localhost:8080`으로 넘기므로 브라우저가 보는 오리진은 `localhost:5173` 하나뿐이고,
+  운영은 CloudFront가 정적 파일과 `/api/*`를 같은 오리진에서 제공한다([ADR 0008](0008-aws-deployment-topology.md)).
+  두 환경 모두 same-site이므로 `SameSite=Lax`로 쿠키가 실리고 CORS 구성이 필요 없다.
+  프론트엔드는 `credentials: "include"`만 사용한다. 실제 적용값은 `SameSite=Lax`,
+  도메인 미지정(host-only), `Secure`는 운영 `true`, 로컬 `false`다.
 - 토큰 자체로는 즉시 폐기할 수 없다. 로그아웃은 쿠키 제거와 Refresh Token 폐기로
   처리하며, 남은 유효 기간(최대 1시간) 동안 기존 Access Token은 유효하다.
 
 ## 후속 작업
 
-- CORS 허용 오리진과 운영 환경의 쿠키 `SameSite`, `Secure`, 도메인 값을 배포 구성과
-  함께 확정한다.
+- ~~CORS 허용 오리진과 운영 환경의 쿠키 `SameSite`, `Secure`, 도메인 값을 배포 구성과
+  함께 확정한다.~~ **닫힘(2026-08-27).** [ADR 0008](0008-aws-deployment-topology.md)의
+  단일 오리진 구성으로 CORS는 두지 않기로 확정했다. 쿠키는 `SameSite=Lax`, 도메인 미지정,
+  `Secure`는 운영 `true`, 로컬 `false`로 적용되어 있다. 위 결과의 정정 항목 참조.
 - CSRF 토큰 저장소와 프론트엔드 전달 방식은 [ADR 0004](0004-csrf-token-delivery.md)에서 정했다.
 - `POST /api/auth/refresh`와 `POST /api/auth/logout`이 이 쿠키를 갱신하고 제거하는
   방식을 구현한다.
