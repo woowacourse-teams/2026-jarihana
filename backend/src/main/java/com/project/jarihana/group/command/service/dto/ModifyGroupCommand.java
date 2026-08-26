@@ -7,10 +7,7 @@ public record ModifyGroupCommand(
         String introduction,
         String description,
         MeetingType meetingType,
-        String location
+        String location,
+        String representativeImageKey
 ) {
-
-    public ModifyGroupCommand(String name, String introduction, String description) {
-        this(name, introduction, description, MeetingType.FLEXIBLE, null);
-    }
 }

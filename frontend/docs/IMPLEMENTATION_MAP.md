@@ -94,6 +94,13 @@ header 구현으로 확대하지 않았다.
 - 모집 방식: `AUTO | APPROVAL`, 조회 상태: `SCHEDULED | OPEN | ALWAYS_OPEN | CLOSED`.
 - 신청 상태: `PENDING | APPROVED | REJECTED`.
 - `CLUB`/`STUDY`는 반복 일정, `SESSION`은 단일 세션 일정을 입력한다.
+- 이미지 업로드는 `POST /api/image-uploads`로 Presigned URL을 발급한 뒤 스토리지에
+  직접 전송하고, 응답의 `imageKey`를 그룹 생성·수정 요청의 `representativeImageKey`로
+  전달한다. 업로드 URL은 제한 시간 동안만 유효하다.
+- 그룹 생성의 `representativeImageKey`는 nullable이며 `null`이면 기본 이미지를 사용한다.
+  그룹 수정은 `name`, `introduction`, `description`, `meetingType`, `location`,
+  `representativeImageKey` 전체를 보내야 하며, nullable 필드를 비우려면 명시적으로 `null`을
+  보낸다. 업로드 기록이 없거나 만료된 키는 거부된다.
 - 그룹 이름 50자, 소개 100자, 설명 5000자, 신청 메시지와 결정 사유 1000자 제한을
   클라이언트와 서버 양쪽에서 검증한다.
 
@@ -115,6 +122,7 @@ header 구현으로 확대하지 않았다.
 | 멤버           | `GET /api/groups/{groupId}/members`, `PUT /api/groups/{groupId}/leader`                                                                                                            | 멤버 목록과 리더 위임                                                          |
 | 모집           | `GET/POST /api/groups/{groupId}/recruitments`, `GET/PATCH /api/groups/{groupId}/recruitments/{recruitmentId}`                                                                      | 모집 이력·상세·생성·마감                                                       |
 | 신청           | `GET/POST /api/recruitments/{recruitmentId}/registrations`, `PATCH/DELETE /api/recruitments/{recruitmentId}/registrations/{registrationId}`, `GET /api/registrations?applicant=me` | 신청 생성·철회·승인/거절·내 신청                                               |
+| 이미지         | `POST /api/image-uploads`                                                                                                                                                           | Presigned URL 발급 후 이미지 업로드. 그룹 생성·수정 시 `representativeImageKey` 전달 |
 | 인증/회원      | `GET /api/members/me`, `POST /api/members`, `POST /api/auth/refresh`, `POST /api/auth/logout`                                                                                      | bootstrap·가입·refresh·logout                                                  |
 | OAuth callback | `GET /api/oauth/github/callback`                                                                                                                                                   | GitHub에서 받은 code/state를 backend가 처리하고 frontend callback으로 redirect |
 
@@ -130,7 +138,7 @@ header 구현으로 확대하지 않았다.
 
 | Figma 또는 초안 표현                  | 실제 계약                                     | 구현 결정                                                                        |
 | ------------------------------------- | --------------------------------------------- | -------------------------------------------------------------------------------- |
-| 대표 이미지 업로드                    | 업로드 Controller와 create/modify 필드가 없음 | 읽기 전용 이미지와 기본 이미지 사용. 업로드 성공 UI를 만들지 않음                |
+| 대표 이미지 업로드                    | `POST /api/image-uploads`, 그룹 create/modify의 `representativeImageKey` | 백엔드 계약은 구현됨. 프론트 업로드 UI 연결은 후속 작업으로 남겨 둠          |
 | 멤버 “내보내기”                       | 멤버 제거 endpoint 없음                       | 액션 제거. 리더 위임만 제공                                                      |
 | 프로필/아바타 수정                    | member update endpoint 없음                   | 정보 조회만 제공                                                                 |
 | 그룹 즉시 가입                        | 직접 가입 endpoint 없음                       | recruitment registration 흐름으로만 가입                                         |

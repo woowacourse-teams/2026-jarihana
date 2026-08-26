@@ -15,20 +15,10 @@ public record CreateGroupCommand(
         String description,
         MeetingType meetingType,
         String location,
+        String representativeImageKey,
         RecurringSchedule recurringSchedule,
         SessionSchedule sessionSchedule
 ) {
-
-    public CreateGroupCommand(
-            GroupType type,
-            String name,
-            String introduction,
-            String description,
-            RecurringSchedule recurringSchedule,
-            SessionSchedule sessionSchedule
-    ) {
-        this(type, name, introduction, description, MeetingType.FLEXIBLE, null, recurringSchedule, sessionSchedule);
-    }
 
     public record RecurringSchedule(
             Set<DayOfWeek> daysOfWeek,
