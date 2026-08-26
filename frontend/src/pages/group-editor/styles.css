@@ -205,13 +205,27 @@
  * 버튼의 폭이 글자 길이를 따라 들쭉날쭉해진다. 한 열로 되돌려 폭을 고정한다.
  * groups.css가 뒤에 로드되므로 선택자를 한 단계 높여 이긴다.
  */
-.group-profile.group-editor__profile .group-fact {
-    display: block;
+.group-profile.group-editor__profile .group-fact,
+.group-profile.group-editor__profile .group-fact > div,
+.group-profile.group-editor__profile .group-fact .group-editor__field {
+    display: flex;
+    flex-direction: column;
     min-inline-size: 0;
 }
 
-.group-profile.group-editor__profile .group-fact > div {
-    min-inline-size: 0;
+.group-profile.group-editor__profile .group-fact > div,
+.group-profile.group-editor__profile .group-fact .group-editor__field {
+    flex: 1;
+}
+
+/*
+ * 모임 방식은 높이가 고정된 select이고 모임 일정은 요약 줄 수에 따라 늘어나는
+ * 버튼이라 그대로 두면 밑줄 높이가 어긋난다. 칸을 같은 높이로 늘린 뒤
+ * 컨트롤을 바닥으로 밀어 밑줄을 한 줄에 맞춘다.
+ */
+.group-profile.group-editor__profile .group-fact .group-editor__ul,
+.group-profile.group-editor__profile .group-fact dd {
+    margin-block-start: auto;
 }
 
 /* dd의 브라우저 기본 들여쓰기가 남아 있어 칸마다 시작점이 어긋난다. */
@@ -222,6 +236,7 @@
 .group-editor__schedule-row {
     display: flex;
     inline-size: 100%;
+    min-block-size: var(--touch-target);
     align-items: center;
     justify-content: space-between;
     gap: var(--space-3);

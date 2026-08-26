@@ -82,12 +82,37 @@ describe("히어로 모임 정보 배치", () => {
   it("편집 화면의 fact는 한 열이라 폭이 글자에 흔들리지 않는다", () => {
     const body = declarationsFor(".group-profile.group-editor__profile .group-fact");
 
-    expect(body).toContain("display: block");
+    // 상세 페이지의 auto 열을 물려받으면 폭이 글자 길이를 따라간다.
+    expect(body).not.toContain("grid-template-columns");
+    expect(body).toMatch(/display: (block|flex)/);
+    expect(body).toContain("min-inline-size: 0");
   });
 
   it("dd의 기본 들여쓰기를 지워 칸마다 시작점이 같다", () => {
     const body = declarationsFor(".group-profile.group-editor__profile .group-fact dd");
 
     expect(body).toContain("margin-inline-start: 0");
+  });
+});
+
+describe("히어로 입력 밑줄 정렬", () => {
+  /*
+   * 모임 방식은 높이가 고정된 select, 모임 일정은 요약 줄 수에 따라 늘어나는
+   * 버튼이다. 칸을 같은 높이로 늘리고 컨트롤을 바닥에 붙여야 밑줄이 맞는다.
+   */
+  it("컨트롤을 칸 바닥으로 밀어 밑줄 높이를 맞춘다", () => {
+    const body = declarationsFor(
+      ".group-profile.group-editor__profile .group-fact .group-editor__ul"
+    );
+
+    expect(body).toContain("margin-block-start: auto");
+  });
+
+  it("일정 버튼도 입력과 같은 최소 높이를 갖는다", () => {
+    const body = declarationsFor(".group-editor__schedule-row");
+    const control = declarationsFor(".group-editor__ul > input");
+
+    expect(body).toContain("min-block-size: var(--touch-target)");
+    expect(control).toContain("min-block-size: var(--touch-target)");
   });
 });
