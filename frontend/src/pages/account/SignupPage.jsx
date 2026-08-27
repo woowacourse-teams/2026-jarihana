@@ -90,9 +90,6 @@ export function SignupPage() {
         <Button pending={isSubmitting || signupMutation.isPending} size="large" type="submit">
           가입 완료하기
         </Button>
-        <p className="signup-form__note">
-          프로필 수정 API가 제공되기 전까지 이 정보는 읽기 전용으로 표시돼요.
-        </p>
       </form>
     </AccountLayout>
   );
