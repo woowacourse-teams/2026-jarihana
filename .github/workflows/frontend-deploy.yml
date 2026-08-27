@@ -1,0 +1,88 @@
+name: Frontend S3 Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-production-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    # S3 prefix 접근 점검이 끝날 때까지 실제 배포를 실행하지 않는다.
+    if: ${{ false }}
+    runs-on:
+      - self-hosted
+      - Linux
+      - ARM64
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+        working-directory: frontend
+    env:
+      AWS_REGION: ap-northeast-2
+      AWS_DEFAULT_REGION: ap-northeast-2
+      AWS_PAGER: ""
+      S3_DESTINATION: s3://techcourse-project-2026/jarihana/frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.node-version
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: AWS 배포 대상 확인
+        run: |
+          set -euo pipefail
+          aws --version
+          aws sts get-caller-identity
+          aws s3api head-bucket \
+            --bucket techcourse-project-2026 \
+            --region "${AWS_REGION}"
+
+      - name: 의존성 설치
+        run: npm ci
+
+      - name: 정적 검사
+        run: |
+          npm run lint
+          npm run typecheck
+
+      - name: 운영 환경 변수 확인
+        env:
+          APP_GITHUB_CLIENT_ID: ${{ secrets.OAUTH_GITHUB_CLIENT_ID }}
+          APP_GITHUB_REDIRECT_URI: ${{ secrets.OAUTH_GITHUB_REDIRECT_URI }}
+        run: |
+          set -euo pipefail
+          test -n "${APP_GITHUB_CLIENT_ID}"
+          test -n "${APP_GITHUB_REDIRECT_URI}"
+
+      - name: 프론트엔드 빌드
+        env:
+          APP_GITHUB_CLIENT_ID: ${{ secrets.OAUTH_GITHUB_CLIENT_ID }}
+          APP_GITHUB_REDIRECT_URI: ${{ secrets.OAUTH_GITHUB_REDIRECT_URI }}
+          APP_OAUTH_COOKIE_NAME: oauthState
+          DISABLE_REACT_DEVTOOLS: "1"
+        run: |
+          set -euo pipefail
+          npm run build
+          test -f dist/index.html
+          test -d dist/assets
+
+      - name: S3 배포
+        run: aws s3 sync dist "${S3_DESTINATION}" --delete --region "${AWS_REGION}" --only-show-errors
