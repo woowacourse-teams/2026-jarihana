@@ -233,6 +233,8 @@
 }
 
 .app-header__mobile-nav .app-header__link {
+    inline-size: fit-content;
+    justify-self: start;
     padding: var(--space-3) 0;
     color: var(--color-ink);
     font-size: var(--text-body-lg);
@@ -240,6 +242,10 @@
 
 .app-header__mobile-nav .app-header__auth {
     margin-top: var(--space-4);
+}
+
+.app-header__mobile-nav .app-header__auth--secondary {
+    color: var(--color-ink);
 }
 
 .app-footer {
