@@ -23,8 +23,14 @@
   width: 100%;
 }
 
+.account-page--compact .account-heading {
+  max-width: 42.5rem;
+  margin-inline: auto;
+}
+
 .account-page__content--compact {
   max-width: 42.5rem;
+  margin-inline: auto;
 }
 
 .account-heading {
