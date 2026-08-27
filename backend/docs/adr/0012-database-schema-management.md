@@ -2,11 +2,12 @@
 
 - 상태: 제안
 - 날짜: 2026-08-27
-- 관련 문서: [ADR 0009](0009-postgresql-rdbms-selection.md), [ADR 0011](0011-image-upload-s3-presigned-url.md),
-  [ADR 0008](0008-aws-deployment-topology.md),
+- 관련 문서: [ADR 0009](0009-postgresql-rdbms-selection.md), [ADR 0008](0008-aws-deployment-topology.md),
   [영속성 컨벤션](../conventions/persistence.md), [프로젝트 운영 컨벤션](../conventions/project-operations.md)
 - **이 문서는 아직 채택되지 않았다.** 현행 스키마 관리 방식과 그 비용을 기록하고, 도구 선택을
   팀 결정 안건으로 올린다. 결정이 나면 상태를 갱신한다.
+- 개정: 2026-08-27. 팀이 자동화 테스트를 PostgreSQL로 옮기기로 정했다. 최초 작성본은 이 항목을
+  결정에서 빼고 후속 작업으로 미뤄 두었으나, 결정 6으로 편입한다.
 
 ## 배경
 
@@ -22,11 +23,13 @@ DBMS 선택을 정했다. 뒤쪽 절반인 **스키마를 누가 만들고 어�
 | 로컬 | PostgreSQL 17 | `ddl-auto: update`. 엔티티 변경분을 Hibernate가 따라 붙인다 |
 | 운영 | PostgreSQL 17 | `ddl-auto: validate`. **아무것도 만들지 않는다** |
 
+세 환경의 스키마 출처가 셋 다 다르고, 테스트만 DBMS까지 다르다.
+
 운영만 `validate`다. 스키마가 이미 있어야 애플리케이션이 뜨는데, 그 스키마를 만드는 파일이
 저장소에 없다. `backend/src/main` 아래 SQL 파일은 한 개도 없고 Flyway나 Liquibase 의존성도 없다.
 
-빈틈은 실제로 드러났다. 이미지 업로드([ADR 0011](0011-image-upload-s3-presigned-url.md))를 배포할 때
-새 테이블이 필요했고, 그 DDL은 저장소가 아니라 **Pull Request 본문**에 실렸다.
+빈틈은 실제로 드러났다. 이미지 업로드 기능을 배포할 때 새 테이블이 필요했고, 그 DDL은 저장소가
+아니라 **Pull Request 본문**에 실렸다.
 
 ```sql
 -- PR #133 본문에서 발췌
@@ -59,10 +62,12 @@ CREATE TABLE IF NOT EXISTS image_upload (
   성립하는 구성"이 스키마 계층에는 그대로 남아 있다.
 
 여기에 테스트가 다른 DBMS라는 점이 겹친다. ADR 0009도 이를 감수 비용으로 적었다. 테스트는 H2에
-`create-drop`으로 스키마를 만들므로 운영 스키마와 대조되지 않는다.
-[`truncate.sql`](../../src/test/resources/sql/truncate.sql)이 H2 전용 구문(`SET REFERENTIAL_INTEGRITY FALSE`)을
-쓰고 있어, 테스트를 PostgreSQL로 옮기려면 이 파일부터 다시 써야 한다. 실제로 이 격차는
-`nullable` 파라미터 CAST 문제로 한 번 운영 오류를 냈다(PR #93).
+`create-drop`으로 스키마를 만들므로 운영 스키마와 대조되지 않는다. 실제로 이 격차는 `nullable`
+파라미터 CAST 문제로 한 번 운영 오류를 냈다(PR #93). H2에서는 통과하던 조회가 PostgreSQL에서
+깨졌고, 테스트를 다 통과한 코드가 운영에서 실패했다.
+
+팀은 2026-08-27에 자동화 테스트를 PostgreSQL로 옮기기로 정했다. 그러면 마이그레이션 파일이
+테스트에서 실행되므로 스키마 관리와 테스트 DBMS가 한 결정으로 묶인다.
 
 ## 제안하는 결정
 
@@ -75,11 +80,16 @@ CREATE TABLE IF NOT EXISTS image_upload (
 4. **도구는 Flyway를 사용한다.** 아래 대안 비교 참조. 이 항목이 팀 확정이 필요한 부분이다.
 5. **첫 마이그레이션은 현재 운영 스키마를 그대로 옮겨 적은 baseline이다.** 지금 운영에 존재하는
    테이블을 `V1__baseline.sql`로 덤프하고, 그 시점 이후의 변경만 새 버전으로 쌓는다.
+6. **자동화 테스트도 PostgreSQL에서 돌린다**(2026-08-27 팀 결정). H2와 `ddl-auto: create-drop`을
+   걷어내고, 테스트도 같은 마이그레이션 파일로 스키마를 얻는다. 그러면 세 환경의 DBMS와 스키마
+   출처가 모두 하나가 되고, 마이그레이션 파일 자체가 매 테스트에서 검증된다.
 
-테스트를 H2에서 PostgreSQL로 옮길지는 **이 결정에 포함하지 않는다.** 두 문제는 얽혀 있지만 비용이
-다르다. 스키마 소유권은 파일을 추가하는 일이고, 테스트 DBMS 교체는 실행 시간과
-[`truncate.sql`](../../src/test/resources/sql/truncate.sql)을 포함한 테스트 기반을 건드리는 일이다.
-후속 작업으로 분리한다.
+결정 6은 결정 1을 실질적으로 만드는 장치다. 테스트가 마이그레이션을 실행하지 않으면 마이그레이션
+파일이 틀려도 배포 전까지 아무도 모른다. 반대로 테스트가 그 파일로 스키마를 만들면, 엔티티와
+마이그레이션이 어긋나는 순간 CI가 막는다.
+
+PostgreSQL 실행 수단은 Testcontainers와 로컬 Docker Compose 재사용 중에서 고른다. CI에서 컨테이너를
+띄울 수 있는지 확인한 뒤 정한다.
 
 ## 검토한 대안
 
@@ -98,6 +108,13 @@ CREATE TABLE IF NOT EXISTS image_upload (
   현재 스키마를 덤프하려면 EC2 안에서 컨테이너에 직접 접속해야 한다.
 - 마이그레이션은 백엔드 컨테이너 기동 시점에 실행된다. 배포와 스키마 변경이 같은 순간에 일어나므로,
   기존 컬럼을 지우는 변경은 배포 순서를 나눠야 한다.
+- [`truncate.sql`](../../src/test/resources/sql/truncate.sql)이 H2 전용 구문
+  (`SET REFERENTIAL_INTEGRITY FALSE`)을 쓴다. 결정 6을 적용하려면 이 파일을 PostgreSQL 구문으로
+  다시 써야 한다. `TRUNCATE ... RESTART IDENTITY CASCADE`로 바꾸거나 외래 키를 잠시 미루는
+  방식 중에서 고른다.
+- 테스트에서 PostgreSQL을 띄우려면 CI 실행 환경에 Docker가 있어야 한다. 현재 백엔드 배포는 운영
+  EC2의 self-hosted Runner가 수행하므로([ADR 0008](0008-aws-deployment-topology.md)), 테스트를
+  어느 Runner에서 돌릴지와 그 Runner에서 컨테이너를 띄울 수 있는지를 먼저 확인해야 한다.
 
 ## 결과
 
@@ -106,13 +123,19 @@ CREATE TABLE IF NOT EXISTS image_upload (
 - 저장소만으로 운영 DB를 처음부터 만들 수 있다.
 - DDL이 코드 리뷰를 거친다.
 - 무엇이 언제 적용됐는지 이력이 DB에 남는다.
-- 로컬과 운영의 스키마 출처가 하나가 된다.
+- 테스트, 로컬, 운영의 스키마 출처가 하나가 된다.
+- 테스트가 운영과 같은 DBMS에서 돌아, PostgreSQL 고유 동작이 배포 전에 검증된다. PR #93 같은
+  실패를 CI가 잡는다. ADR 0009가 감수 비용으로 적어 둔 "H2 테스트만으로는 PostgreSQL 동작을
+  검증할 수 없다"도 함께 해소된다.
+- 마이그레이션 파일이 매 테스트에서 실행되므로 파일 자체가 검증 대상이 된다.
 
 ### 감수하는 비용
 
 - 엔티티를 고칠 때마다 마이그레이션 파일을 함께 써야 한다. 지금은 로컬에서 저절로 되던 일이다.
 - baseline을 잘못 뜨면 첫 적용이 운영에서 실패한다. 그 한 번은 신중하게 해야 한다.
-- 테스트는 여전히 H2 `create-drop`이라 마이그레이션 파일 자체가 검증되지 않는다. 아래 후속 작업 참조.
+- 테스트 실행 시간이 늘어난다. 인메모리 H2 대신 컨테이너를 띄우고 그 위에서 마이그레이션까지
+  실행하기 때문이다. 컨테이너를 테스트마다 새로 만들지 않고 재사용하는 방식으로 줄인다.
+- 테스트 실행에 Docker 의존성이 생긴다. Docker가 없는 환경에서는 백엔드 테스트를 돌릴 수 없다.
 
 ## 후속 작업
 
@@ -120,7 +143,11 @@ CREATE TABLE IF NOT EXISTS image_upload (
 - 운영 스키마를 덤프해 baseline 마이그레이션을 만든다. Spring Session JDBC의 세션 테이블도 함께
   포함한다.
 - 로컬 프로필에서 `ddl-auto: update`를 걷어낸다.
-- 테스트를 PostgreSQL로 옮길지 별도로 판단한다. 옮긴다면 마이그레이션 파일이 테스트에서
-  실행되므로 스키마 자체가 검증 대상이 되고, ADR 0009가 남긴 "PostgreSQL 고유 기능을 H2로 검증할
-  수 없다"는 비용도 함께 해소된다. 실행 시간 증가가 대가다.
+- 테스트의 PostgreSQL 실행 수단을 확정한다(Testcontainers 또는 로컬 Compose 재사용). CI Runner에서
+  컨테이너를 띄울 수 있는지 확인하는 것이 선행 조건이다.
+- 테스트 프로필에서 H2 의존성과 `ddl-auto: create-drop`을 걷어내고
+  [`truncate.sql`](../../src/test/resources/sql/truncate.sql)을 PostgreSQL 구문으로 다시 쓴다.
+- [ADR 0009](0009-postgresql-rdbms-selection.md)를 개정한다. 감수 비용의 "테스트 환경은 H2를
+  사용하므로 PostgreSQL 고유 기능과 쿼리의 동작을 H2 테스트만으로 검증할 수 없다"와 그에 딸린
+  후속 작업이 결정 6으로 닫힌다.
 - 운영 DB 백업 절차를 정한다. 마이그레이션이 실패했을 때 되돌릴 지점이 필요하다.
