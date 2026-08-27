@@ -23,6 +23,7 @@ import {
   Button,
   ConfirmDialog,
   ErrorState,
+  GroupImage,
   Skeleton,
   Tabs,
   useToast
@@ -30,13 +31,13 @@ import {
 import { scheduleLines, typeLabel } from "../groups/pageUtils.js";
 import {
   ReadOnlyFact,
+  RepresentativeImageNotice,
   ScheduleFact,
   UnderlineField,
   UnderlineSelect
 } from "./EditorFields.jsx";
 import { GroupMembersPanel } from "./GroupMembersPanel.jsx";
 import { MarkdownEditor } from "./MarkdownEditor.jsx";
-import { RepresentativeImage } from "./RepresentativeImage.jsx";
 import { ScheduleDialog } from "./ScheduleDialog.jsx";
 import { useSubmissionLock } from "./useSubmissionLock.js";
 import { ManagementContext } from "../manage/ManagementContext.jsx";
@@ -183,6 +184,15 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const daysOfWeek = values.daysOfWeek ?? [];
   const group = groupQuery.data;
 
+  useEffect(
+    () => () => {
+      if (representativeImageDraft?.previewUrl) {
+        URL.revokeObjectURL(representativeImageDraft.previewUrl);
+      }
+    },
+    [representativeImageDraft?.previewUrl]
+  );
+
   useEffect(() => {
     if (!group) return;
     reset(toFormValues(group));
@@ -216,6 +226,9 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const representativeImageKey = hasRepresentativeImageDraft
     ? representativeImageDraft.key
     : persistedRepresentativeImageKey;
+  const representativeImageUrl = hasRepresentativeImageDraft
+    ? representativeImageDraft.previewUrl || group.representativeImageUrl || DEFAULT_GROUP_IMAGE_URL
+    : group.representativeImageUrl || DEFAULT_GROUP_IMAGE_URL;
   const representativeImageChanged = hasRepresentativeImageDraft && representativeImageDraft.changed;
   const age = now.getTime() - new Date(group.createdAt).getTime();
   const canDelete = age >= 0 && age <= DAY_MS;
@@ -401,21 +414,39 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
                 </dl>
               </div>
             </div>
-            <RepresentativeImage
-              key={`representative-image-${group.id}-${group.representativeImageUrl ?? ""}`}
-              imageKey={representativeImageKey}
-              imageUrl={group.representativeImageUrl || DEFAULT_GROUP_IMAGE_URL}
+            <RepresentativeImageNotice
+              hasCustomImage={
+                Boolean(representativeImageKey) &&
+                !isDefaultGroupImageUrl(representativeImageUrl)
+              }
               onImageKeyChange={(nextImageKey) => {
                 setRepresentativeImageDraft({
                   changed: true,
                   groupId: group.id,
-                  key: nextImageKey
+                  key: nextImageKey,
+                  previewUrl: representativeImageDraft?.previewUrl || null
                 });
+              }}
+              onPreviewChange={(file) => {
+                const previewUrl = URL.createObjectURL(file);
+                setRepresentativeImageDraft((previous) => ({
+                  changed: true,
+                  groupId: group.id,
+                  key: previous?.key || representativeImageKey,
+                  previewUrl
+                }));
               }}
               onUpload={imageUpload.mutateAsync}
               uploadError={imageUpload.error}
               uploadPending={imageUpload.isPending}
             />
+            <div className="group-profile__art">
+              <GroupImage
+                alt=""
+                className="group-profile__image"
+                group={{ ...group, representativeImageUrl }}
+              />
+            </div>
           </section>
 
           <div className="group-detail-tabs group-editor__tabs">
@@ -458,17 +489,17 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
               }
               title={`모임을 ${lifecycleVerb}할까요?`}
               description={
-                canDelete ? (
-                  <>
-                    생성 후 24시간 안에는 모임을 완전히 삭제할 수 있어요.
-                    <br />
-                    되돌릴 수 없습니다.
-                    <br />
-                    정말 삭제하시겠습니까?
-                  </>
-                ) : (
-                  "이 작업은 되돌릴 수 없어요. 서버에서 마지막으로 가능 여부를 확인합니다."
-                )
+                canDelete
+                  ? (
+                      <>
+                        생성 후 24시간 안에는 모임을 완전히 삭제할 수 있어요.
+                        <br />
+                        되돌릴 수 없습니다.
+                        <br />
+                        정말 삭제하시겠습니까?
+                      </>
+                    )
+                  : "이 작업은 되돌릴 수 없어요. 서버에서 마지막으로 가능 여부를 확인합니다."
               }
               confirmLabel={canDelete ? "삭제" : `${lifecycleVerb} 확인`}
               danger
