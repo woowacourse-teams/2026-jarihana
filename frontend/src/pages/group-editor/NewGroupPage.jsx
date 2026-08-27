@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { useNavigate } from "react-router";
 import { z } from "zod";
@@ -9,17 +9,17 @@ import {
   DEFAULT_GROUP_IMAGE_URL,
   useImageUpload
 } from "../../features/image-upload/index.js";
-import { Button, Tabs, useToast } from "../../shared/ui/index.js";
+import { Button, GroupImage, Tabs, useToast } from "../../shared/ui/index.js";
 import { scheduleLines } from "../groups/pageUtils.js";
 import {
   ReadOnlyFact,
+  RepresentativeImageNotice,
   ScheduleFact,
   UnderlineField,
   UnderlineSelect
 } from "./EditorFields.jsx";
 import { GroupMembersPanel } from "./GroupMembersPanel.jsx";
 import { MarkdownEditor } from "./MarkdownEditor.jsx";
-import { RepresentativeImage } from "./RepresentativeImage.jsx";
 import { ScheduleDialog } from "./ScheduleDialog.jsx";
 import { useSubmissionLock } from "./useSubmissionLock.js";
 import "../groups/groups.css";
@@ -144,6 +144,14 @@ export function NewGroupPage() {
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [contentTab, setContentTab] = useState("intro");
   const [representativeImageKey, setRepresentativeImageKey] = useState(null);
+  const [representativeImagePreview, setRepresentativeImagePreview] = useState(null);
+
+  useEffect(
+    () => () => {
+      if (representativeImagePreview) URL.revokeObjectURL(representativeImagePreview);
+    },
+    [representativeImagePreview]
+  );
 
   const {
     control,
@@ -186,8 +194,7 @@ export function NewGroupPage() {
 
   async function confirmSchedule(event) {
     event.preventDefault();
-    const fields =
-      type === "SESSION" ? ["sessionDate", "startTime", "endTime"] : ["startTime", "endTime"];
+    const fields = type === "SESSION" ? ["sessionDate", "startTime", "endTime"] : ["startTime", "endTime"];
     if (!(await trigger(fields))) return;
     setScheduleOpen(false);
   }
@@ -210,8 +217,6 @@ export function NewGroupPage() {
       }
     });
   });
-
-  const submitPending = createMutation.isPending || createLock.pending || imageUpload.isPending;
 
   return (
     <div className="group-editor group-editor--create page-container">
@@ -296,15 +301,23 @@ export function NewGroupPage() {
               </dl>
             </div>
           </div>
-          <RepresentativeImage
-            draft
-            imageKey={representativeImageKey}
-            imageUrl={DEFAULT_GROUP_IMAGE_URL}
+          <RepresentativeImageNotice
+            hasCustomImage={Boolean(representativeImageKey || representativeImagePreview)}
             onImageKeyChange={setRepresentativeImageKey}
+            onPreviewChange={(file) => {
+              setRepresentativeImagePreview(URL.createObjectURL(file));
+            }}
             onUpload={imageUpload.mutateAsync}
             uploadError={imageUpload.error}
             uploadPending={imageUpload.isPending}
           />
+          <div className="group-profile__art">
+            <GroupImage
+              alt=""
+              className="group-profile__image"
+              group={{ representativeImageUrl: representativeImagePreview || DEFAULT_GROUP_IMAGE_URL }}
+            />
+          </div>
         </section>
 
         <div className="group-detail-tabs group-editor__tabs">
@@ -341,7 +354,12 @@ export function NewGroupPage() {
         <Button onClick={() => navigate("/groups")} type="button" variant="secondary">
           취소
         </Button>
-        <Button form="group-create-form" pending={submitPending} type="submit" variant="primary">
+        <Button
+          form="group-create-form"
+          pending={createMutation.isPending || createLock.pending || imageUpload.isPending}
+          type="submit"
+          variant="primary"
+        >
           모임 만들기
         </Button>
       </div>

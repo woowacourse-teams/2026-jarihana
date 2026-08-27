@@ -1,7 +1,5 @@
 import { ImagePlus } from "lucide-react";
-import { useId, useState } from "react";
-
-import { Button, Modal } from "../../shared/ui/index.js";
+import { useId, useRef, useState } from "react";
 
 /*
  * 상세 페이지(.group-profile) 위에 얹는 입력들.
@@ -142,36 +140,63 @@ export function ScheduleFact({ actionLabel = "수정", error, lines, onEdit }) {
   );
 }
 
-/*
- * 대표 이미지 자리는 남겨 두되 아직 올릴 수 없다는 것을 분명히 한다.
- * 백엔드에 업로드 경로가 없다: ImageUpload 컨트롤러가 없고 생성/수정 요청에도
- * representativeImageKey 필드가 없다. 파일 선택창을 띄우면 저장되지 않는 것을
- * 저장한 것처럼 보이게 되므로, 누르면 준비 중임을 알리는 것까지만 한다.
- */
-export function RepresentativeImageNotice() {
-  const [noticeOpen, setNoticeOpen] = useState(false);
+/* 상세 페이지의 대표 이미지 버튼 디자인을 유지하면서 파일 업로드를 연결한다. */
+export function RepresentativeImageNotice({
+  hasCustomImage = false,
+  onImageKeyChange,
+  onPreviewChange,
+  onUpload,
+  uploadError,
+  uploadPending = false
+}) {
+  const inputReference = useRef(null);
+  const [localError, setLocalError] = useState("");
+
+  async function handleFileChange(event) {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!file || !onUpload) return;
+
+    setLocalError("");
+    try {
+      const result = await onUpload(file);
+      onImageKeyChange?.(result.imageKey);
+      onPreviewChange?.(file);
+    } catch (error) {
+      setLocalError(error?.userMessage || "이미지를 업로드하지 못했어요.");
+    }
+  }
+
+  const errorMessage = localError || uploadError?.userMessage;
 
   return (
     <>
       <button
         className="group-editor__image-button"
-        onClick={() => setNoticeOpen(true)}
+        disabled={uploadPending}
+        onClick={() => inputReference.current?.click()}
         type="button"
       >
         <ImagePlus aria-hidden="true" size={18} strokeWidth={2.25} />
         <span>대표 이미지</span>
-        <span className="group-editor__image-badge">준비 중</span>
+        <span className="group-editor__image-badge">
+          {hasCustomImage ? "변경" : "추가"}
+        </span>
       </button>
-      <Modal
-        description="대표 이미지 업로드는 아직 준비 중이에요. 기능이 열리기 전까지는 서버 기본 이미지가 적용돼요."
-        onClose={() => setNoticeOpen(false)}
-        open={noticeOpen}
-        title="대표 이미지는 곧 바꿀 수 있어요"
-      >
-        <div className="ui-dialog__actions">
-          <Button onClick={() => setNoticeOpen(false)}>확인</Button>
-        </div>
-      </Modal>
+      <input
+        ref={inputReference}
+        accept="image/jpeg,image/png,image/webp"
+        aria-label="대표 이미지 파일"
+        disabled={uploadPending}
+        onChange={handleFileChange}
+        style={{ display: "none" }}
+        type="file"
+      />
+      {errorMessage ? (
+        <p className="group-editor__error" role="alert">
+          {errorMessage}
+        </p>
+      ) : null}
     </>
   );
 }
