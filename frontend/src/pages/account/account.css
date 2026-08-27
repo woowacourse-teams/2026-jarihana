@@ -80,14 +80,6 @@
   border-radius: var(--radius-lg);
 }
 
-.signup-form__note,
-.profile-hero__note,
-.muted-copy {
-  margin: var(--space-0);
-  color: var(--color-text-muted);
-  font-size: var(--text-label);
-}
-
 .form-alert {
   margin: var(--space-0);
   padding: var(--space-3) var(--space-4);
