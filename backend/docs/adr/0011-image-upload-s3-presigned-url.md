@@ -6,6 +6,9 @@
   [ADR 0006](0006-api-prefix-backend-context-path.md),
   [보안과 개인정보](../conventions/security.md), [API 엔드포인트 설계](../context/api/endpoints.md)
 - 이 문서는 2026-08-26에 병합된 이미지 업로드 구현의 결정을 사후에 기록한다.
+- 개정: 2026-08-27. 최초 작성본을 백엔드와 프론트엔드 구현에 대조했다. 결정 1부터 7까지는
+  구현과 일치했고, 기록되지 않은 파급 세 가지(조회와 쓰기의 표현 불일치, 키 컬럼이 담는 값의
+  종류, 실제 S3를 거치지 않는 테스트)를 제약과 결과에 추가한다.
 
 ## 배경
 
@@ -27,11 +30,11 @@
 
 이미지 업로드를 두 단계로 나누고, 바이트는 백엔드를 지나지 않게 한다.
 
-```text
-1) POST /api/image-uploads      백엔드가 presigned PUT URL과 imageKey를 발급
-2) PUT  <uploadUrl>             브라우저가 S3로 직접 업로드 (백엔드 경유 없음)
-3) POST/PUT /api/groups         imageKey를 representativeImageKey로 전달
-```
+1) `POST /api/image-uploads` - 백엔드가 presigned PUT URL과 imageKey를 발급
+2) `PUT  <uploadUrl>` -  브라우저가 S3로 직접 업로드 (백엔드 경유 없음)
+3) `POST/PUT /api/groups` - imageKey를 representativeImageKey로 전달
+
+<br/>
 
 1. `POST /api/image-uploads`는 presigned PUT URL과 `imageKey`를 발급한다. 이미지 바이트는
    백엔드를 통과하지 않는다.
@@ -87,6 +90,29 @@ C는 기각이 아니라 **보류**에 가깝다. 파일 크기를 서버가 실
   `<public-base-url>/groups/tmp/<uuid>.<확장자>`다. 두 경로가 맞아떨어지는 이유는 CloudFront
   배포가 `/images/*`를 그 prefix로 매핑하고 있기 때문이고, 그 설정은 저장소에 없다. 한쪽만
   바꾸면 조회가 조용히 404가 된다.
+- **조회는 URL을 주고 쓰기는 키를 받는다. 그 간격을 프론트엔드가 문자열 파싱으로 메운다.**
+  그룹 조회 응답 필드는 `representativeImageUrl`(공개 URL)인데 생성과 수정 요청 필드는
+  `representativeImageKey`(스토리지 키)다. 그룹 수정이 전체 교체(PUT)라 기존 이미지를 그대로
+  두려면 클라이언트가 키를 다시 실어 보내야 하는데, 클라이언트가 가진 값은 URL뿐이다. 그래서
+  프론트엔드가 URL에서 키를 역산한다.
+
+  ```js
+  // frontend/src/features/image-upload/api.js
+  const imagesIndex = path.indexOf("images/");
+  const candidate = imagesIndex >= 0 ? path.slice(imagesIndex + "images/".length) : path;
+  ```
+
+  이 역산은 공개 URL에 `images/`가 들어 있고 키가 `groups/`로 시작한다는 두 가지에 기댄다.
+  위 항목의 CloudFront 매핑이나 `key-prefix`가 바뀌면 함께 깨지는데, 깨져도 예외가 아니라
+  `null`이 나오므로 대표 이미지가 조용히 사라지는 형태로 드러난다. 결합 지점이 저장소 밖
+  CloudFront 설정, 백엔드 `key-prefix`, 프론트엔드 파싱까지 세 곳이라는 뜻이다. 프론트엔드
+  코드의 주석도 이를 임시 변환으로 표시하고 응답 필드 추가를 대안으로 남겨 두었다.
+- **`representative_image_key` 컬럼이 세 종류 값을 담는다.** 실제 S3 키(`groups/tmp/...`),
+  기본 이미지 자리표시자(`images/default-group.png`), 그리고 `null`이다. 가운데 값은 S3 객체가
+  아니라 프론트엔드 정적 파일 경로이므로 이 ADR의 결정 3이 말하는 prefix 규칙 밖에 있다.
+  조회 시 `toRepresentativeImageUrl`이 그 값만 특수 분기로 그대로 돌려준다. 또한 그룹 생성은
+  `null`을 자리표시자로 치환해 저장하고 그룹 수정은 `null`을 그대로 저장하므로, 화면에는 같게
+  보이는 상태가 DB에 두 가지 모양으로 남는다.
 - **서버가 파일 크기를 실측하지 않는다.** 5MB 검증은 클라이언트가 요청 본문에 적어 보낸
   `fileSize` 값으로만 한다. presigned PUT URL은 버킷, 키와 `Content-Type`을 서명에 묶지만 본문
   길이는 묶지 않는다. 작은 값을 신고하고 큰 파일을 올리는 것을 지금 구조에서는 막지 못한다.
@@ -94,6 +120,9 @@ C는 기각이 아니라 **보류**에 가깝다. 파일 크기를 서버가 실
   로컬도 같은 버킷과 AWS 자격 증명을 요구한다. 자격 증명이 없는 팀원은 이미지 업로드 경로를
   로컬에서 실행할 수 없다.
 - **IAM Role과 CloudFront 동작은 수동 관리한다.** ADR 0008과 같은 전제다.
+- **자동화 테스트는 실제 S3를 거치지 않는다.** 테스트는 `ImageStorageStub`으로 `ImageStorage`를
+  갈아끼우므로 presigned URL 서명과 `HeadObject` 호출은 한 번도 실행되지 않는다. 결정 1과
+  결정 6이 의존하는 AWS 쪽 동작은 배포 후에야 확인된다.
 - **`image_upload` 테이블을 배포 전에 사람이 만들어야 했다.** 운영 프로필이 `ddl-auto: validate`
   이고 마이그레이션 도구가 없기 때문이다. 이 문제는 [ADR 0012](0012-database-schema-management.md)에서 따로 다룬다.
 
@@ -115,6 +144,9 @@ C는 기각이 아니라 **보류**에 가깝다. 파일 크기를 서버가 실
 - **모든 이미지가 `groups/tmp/` 경로에 영구히 있다.** 키 이름은 임시 자리를 뜻하는데 그룹에
   연결된 뒤 옮기는 단계가 없다. 이름과 실제가 어긋난 채로 남는다.
 - **파일 크기 상한이 신고값 기준이다.** 위 제약 참조.
+- **대표 이미지를 유지하려면 클라이언트가 URL을 키로 되돌려야 한다.** 조회와 쓰기가 서로 다른
+  표현을 쓰는 대가이고, 그 변환이 프론트엔드 문자열 파싱에 놓여 있다. 위 제약 참조.
+- **결정 1과 결정 6의 AWS 쪽 동작을 테스트가 잡지 못한다.** 위 제약 참조.
 - **AWS 자격 증명이 없으면 로컬에서 이 기능을 못 돌린다.** [ADR 0005](0005-remove-local-development-auth-bypass.md)가
   "로컬에서 안 된다"를 근거로 우회로를 만들지 말라고 정했는데, 그 판단이 필요한 지점이 하나 새로
   생겼다. 지금은 우회로를 만들지 않고 제약으로 남겨 둔다.
@@ -133,3 +165,11 @@ C는 기각이 아니라 **보류**에 가깝다. 파일 크기를 서버가 실
   기준에 따라 "로컬에서 정말 안 되는지"를 먼저 측정한다.
 - CloudFront의 `/images/*` 매핑과 `jarihana.image.key-prefix`가 같은 사실을 가리킨다는 점을
   인프라 문서에 적는다.
+- 그룹 조회 응답에 `representativeImageKey`를 함께 내려 프론트엔드의 URL 역산을 없앨지 정한다.
+  API 계약 변경이라 팀 확인이 필요하다. 그때까지는 CloudFront 경로나 `key-prefix`를 바꾸는
+  작업에 프론트엔드 파싱 수정이 함께 따라온다는 사실을 변경 절차에 적어 둔다.
+- `representative_image_key`가 담는 값을 한 종류로 좁힐지 정한다. 기본 이미지를 컬럼에 넣지 않고
+  `null`로 통일한 뒤 조회 시점에만 기본 URL을 채우는 방향이 후보다. 그룹 생성과 수정의 `null`
+  처리 차이도 이때 함께 없앤다.
+- 실제 S3를 거치는 검증 수단을 정한다. LocalStack이나 Testcontainers로 통합 테스트를 두는 방법과,
+  배포 후 수동 점검 절차를 문서로 남기는 방법을 비교한다.
