@@ -95,9 +95,10 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   filter, form control은 이 최소 높이를 공유한다.
 - Header: `--header-height` 72px, active line 3px, loading auth placeholder 108px로
   geometry를 token화한다.
-- 탐색 랜딩(`/`) hero는 header 아래 `calc(100dvh - --header-height)` 높이로 첫 화면을 채우고,
-  하단의 `자리 둘러보기` 화살표 CTA가 discovery section으로 부드럽게 이동시킨다. `/groups`의
-  목록 화면은 기존의 콘텐츠 중심 여백을 유지한다.
+- 탐색 랜딩(`/`)과 호환 진입점(`/groups`)의 hero는 header 아래
+  `calc(100dvh - --header-height)` 높이로 첫 화면을 채우고, 하단의 `자리 둘러보기` 화살표 CTA가
+  discovery section으로 부드럽게 이동시킨다. `/groups`는 기존 링크와 북마크를 보존하는 동일
+  랜딩 경로로 유지한다.
 - 탐색 페이지의 hero와 discovery는 desktop에서 `--space-16` 외부 간격과 `--space-10` 내부 상단
   여백으로 넉넉하게 분리하고, discovery에는 `--color-section-soft`를 적용해 별도 정보 영역임을
   드러낸다. 결과 제목과
