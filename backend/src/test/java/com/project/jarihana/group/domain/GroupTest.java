@@ -1,17 +1,18 @@
 package com.project.jarihana.group.domain;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Set;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class GroupTest {
 
@@ -27,9 +28,29 @@ class GroupTest {
         // Then
         assertThat(club.getType()).isEqualTo(GroupType.CLUB);
         assertThat(study.getType()).isEqualTo(GroupType.STUDY);
+        assertThat(club.getMeetingType().name()).isEqualTo("FLEXIBLE");
+        assertThat(study.getMeetingType().name()).isEqualTo("FLEXIBLE");
         assertThat(club.getRecurringSchedule()).isNull();
         assertThat(study.getRecurringSchedule()).isNull();
         assertThat(club.getStatus()).isEqualTo(GroupStatus.ACTIVE);
+    }
+
+    @DisplayName("모임 방식은 null일 수 없다.")
+    @Test
+    void meetingTypeIsRequired() {
+        // When & Then
+        assertThatThrownBy(() -> Group.createClub(
+                "러닝크루",
+                "함께 달려요",
+                null,
+                null,
+                null,
+                null,
+                recurringSchedule(),
+                CREATED_AT
+        )).isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
     @DisplayName("세션은 일회성 일정이 반드시 필요하다.")
@@ -68,6 +89,14 @@ class GroupTest {
         assertThat(group.getType()).isEqualTo(GroupType.SESSION);
         assertThat(group.getSessionSchedule()).isEqualTo(schedule);
         assertThat(group.getRecurringSchedule()).isNull();
+    }
+
+    private SessionGroupSchedule sessionSchedule() {
+        return SessionGroupSchedule.of(
+                LocalDate.of(2026, 8, 30),
+                LocalTime.of(14, 0),
+                LocalTime.of(16, 0)
+        );
     }
 
     @DisplayName("그룹 이름과 소개의 길이를 검증한다.")
@@ -118,6 +147,14 @@ class GroupTest {
         assertThat(modified.getRecurringSchedule()).isEqualTo(schedule);
         assertThat(original.getName()).isEqualTo("러닝크루");
         assertThat(original.getRecurringSchedule()).isNull();
+    }
+
+    private RecurringGroupSchedule recurringSchedule() {
+        return RecurringGroupSchedule.of(
+                Set.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY),
+                LocalTime.of(18, 0),
+                LocalTime.of(20, 0)
+        );
     }
 
     @DisplayName("동아리는 일회성 일정으로 수정할 수 없다.")
@@ -185,21 +222,5 @@ class GroupTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_PARAMETER);
-    }
-
-    private RecurringGroupSchedule recurringSchedule() {
-        return RecurringGroupSchedule.of(
-                Set.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY),
-                LocalTime.of(18, 0),
-                LocalTime.of(20, 0)
-        );
-    }
-
-    private SessionGroupSchedule sessionSchedule() {
-        return SessionGroupSchedule.of(
-                LocalDate.of(2026, 8, 30),
-                LocalTime.of(14, 0),
-                LocalTime.of(16, 0)
-        );
     }
 }

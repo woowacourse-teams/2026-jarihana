@@ -1,39 +1,61 @@
-import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight, UsersRound } from "lucide-react";
+import { CalendarDays, Crown, UsersRound } from "lucide-react";
 import { Link } from "react-router";
 
-import { Button, EmptyState, ErrorState, Skeleton, StatusBadge } from "../../shared/ui/index.js";
-import { GROUP_TYPE_LABELS, REGISTRATION_STATUS_LABELS, formatKoreanDate } from "./accountUtils.js";
+import { EmptyState, ErrorState, Skeleton, StatusBadge } from "../../shared/ui/index.js";
+import { formatKoreanDate, GROUP_TYPE_LABELS, REGISTRATION_STATUS_LABELS } from "./accountUtils.js";
+import { useInfiniteScroll } from "./useInfiniteScroll.js";
 
-function GroupActivityRow({ group, label }) {
+/** 모임 종류를 노션 속성 태그처럼 값마다 다른 색으로 보여 준다. */
+function GroupTypeTag({ type }) {
   return (
-    <Link
-      aria-label={`${group.name} 모임 상세 보기`}
-      className="activity-row activity-row--interactive"
-      to={`/groups/${group.id}`}
-    >
+    <span className={`activity-tag activity-tag--${String(type).toLowerCase()}`}>
+      {GROUP_TYPE_LABELS[type] ?? type}
+    </span>
+  );
+}
+
+function GroupActivityRow({ group, isLeader }) {
+  const isEnded = group.status === "ENDED";
+
+  return (
+    <article className="activity-row activity-row--interactive">
       <img
         alt=""
         className="activity-row__visual"
         src={group.representativeImageUrl || "/images/default-group.png"}
       />
       <div className="activity-row__body">
-        <div className="activity-row__meta">
-          <StatusBadge tone="brand">{label}</StatusBadge>
-          <span>
+        <div className="activity-row__badges">
+          <GroupTypeTag type={group.type} />
+          {isLeader ? (
+            <StatusBadge tone="brand">
+              <Crown aria-hidden="true" size={13} /> 모임장
+            </StatusBadge>
+          ) : null}
+          {isEnded ? <StatusBadge tone="neutral">모임 종료</StatusBadge> : null}
+        </div>
+        <h3>
+          <Link className="activity-row__link" to={`/groups/${group.id}`}>
+            {group.name}
+          </Link>
+        </h3>
+        <p>{group.introduction}</p>
+        <div className="activity-row__foot">
+          <span className="activity-row__members">
             <UsersRound aria-hidden="true" size={14} /> {group.memberCount}명
           </span>
+          {isLeader ? (
+            <Link
+              aria-label={`${group.name} 모임 관리`}
+              className="activity-row__manage ui-button ui-button--tertiary ui-button--sm"
+              to={`/groups/${group.id}/manage`}
+            >
+              모임 관리
+            </Link>
+          ) : null}
         </div>
-        <h3>{group.name}</h3>
-        <p>{group.introduction}</p>
-        <span className="activity-row__detail">
-          <span>
-            {GROUP_TYPE_LABELS[group.type] ?? group.type} ·{" "}
-            {group.leader?.crewName ?? "리더 정보 없음"}
-          </span>
-          <ArrowRight aria-hidden="true" className="activity-row__arrow" size={17} />
-        </span>
       </div>
-    </Link>
+    </article>
   );
 }
 
@@ -46,40 +68,53 @@ function RegistrationActivityRow({ registration }) {
         : "warning";
 
   return (
-    <Link
-      aria-label={`${registration.group.name} 신청 모임 상세 보기`}
-      className="activity-row activity-row--interactive"
-      to={`/groups/${registration.group.id}`}
-    >
+    <article className="activity-row activity-row--interactive">
       <div aria-hidden="true" className="activity-row__visual activity-row__visual--registration">
         <CalendarDays size={32} />
       </div>
       <div className="activity-row__body">
-        <div className="activity-row__meta">
+        <div className="activity-row__badges">
           <StatusBadge tone={tone}>
             {REGISTRATION_STATUS_LABELS[registration.status] ?? registration.status}
           </StatusBadge>
-          <span>{formatKoreanDate(registration.registeredAt)}</span>
         </div>
-        <h3>{registration.group.name}</h3>
+        <h3>
+          <Link className="activity-row__link" to={`/groups/${registration.group.id}`}>
+            {registration.group.name}
+          </Link>
+        </h3>
         <p>{registration.message || "남긴 신청 메시지가 없어요."}</p>
-        <span className="activity-row__detail">
-          <span>가입 신청</span>
-          <ArrowRight aria-hidden="true" className="activity-row__arrow" size={17} />
-        </span>
+        <div className="activity-row__foot">
+          <span className="activity-row__members">
+            <CalendarDays aria-hidden="true" size={14} />{" "}
+            {formatKoreanDate(registration.registeredAt)} 신청
+          </span>
+        </div>
       </div>
-    </Link>
+    </article>
   );
 }
 
-const EMPTY_TITLES = {
-  joined: "가입한 모임이 없습니다.",
-  registrations: "신청한 모임이 없습니다.",
-  led: "운영하는 모임이 없습니다."
+const EMPTY_STATES = {
+  joined: {
+    title: "가입한 모임이 없습니다.",
+    description: "관심 있는 모임에 가입하면 이곳에 모여요.",
+    action: <Link to="/groups">모임 둘러보기</Link>
+  },
+  registrations: {
+    title: "신청한 모임이 없습니다.",
+    description: "가입을 신청하면 검토 상태를 여기에서 확인할 수 있어요.",
+    action: <Link to="/groups">모임 둘러보기</Link>
+  }
 };
 
-export function MyActivityBoard({ items, kind, query }) {
-  const page = query.data?.pages.length ?? 1;
+export function MyActivityBoard({ currentMemberId, items, kind, query }) {
+  const emptyState = EMPTY_STATES[kind] ?? EMPTY_STATES.joined;
+  const sentinelRef = useInfiniteScroll({
+    hasNext: Boolean(query.hasNextPage),
+    onLoadMore: () => query.fetchNextPage(),
+    pending: Boolean(query.isFetchingNextPage)
+  });
   const activities = items.map((item) =>
     kind === "registrations"
       ? { key: `registration-${item.id}`, registration: item }
@@ -112,32 +147,30 @@ export function MyActivityBoard({ items, kind, query }) {
             ) : (
               <GroupActivityRow
                 group={activity.group}
+                isLeader={
+                  currentMemberId != null && activity.group.leader?.memberId === currentMemberId
+                }
                 key={activity.key}
-                label={kind === "led" ? "운영 중" : "가입 완료"}
               />
             )
           )}
+          {query.isFetchingNextPage ? (
+            <Skeleton aria-label="모임 더 불러오는 중" count={2} role="status" />
+          ) : null}
         </div>
       ) : null}
       {!query.isLoading && !query.isError && activities.length === 0 ? (
-        <EmptyState title={EMPTY_TITLES[kind]} />
+        <EmptyState
+          action={emptyState.action}
+          description={emptyState.description}
+          title={emptyState.title}
+        />
       ) : null}
-      <nav aria-label="내 활동 페이지" className="activity-board__pagination">
-        <Button aria-label="이전 활동 페이지" disabled size="sm" variant="tertiary">
-          <ChevronLeft aria-hidden="true" size={18} />
-        </Button>
-        <span aria-current="page">{page}</span>
-        <Button
-          aria-label="다음 활동 불러오기"
-          disabled={!query.hasNextPage}
-          onClick={() => query.fetchNextPage()}
-          pending={query.isFetchingNextPage}
-          size="sm"
-          variant="tertiary"
-        >
-          <ChevronRight aria-hidden="true" size={18} />
-        </Button>
-      </nav>
+      {!query.isLoading && !query.isError && activities.length ? (
+        <div className="activity-board__more" ref={sentinelRef}>
+          {query.hasNextPage ? null : <span>모든 모임을 불러왔어요.</span>}
+        </div>
+      ) : null}
     </section>
   );
 }

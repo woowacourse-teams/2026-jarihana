@@ -31,10 +31,12 @@ describe("member form validation", () => {
 });
 
 describe("group form validation", () => {
-  it("requires recurring schedule only for CLUB and STUDY", () => {
+  it("accepts a CLUB or STUDY without a recurring schedule as a flexible group", () => {
     // Given
     const values = {
       type: "STUDY",
+      meetingType: "FLEXIBLE",
+      location: null,
       name: "프론트엔드 스터디",
       introduction: "매주 함께 공부해요",
       description: "",
@@ -45,14 +47,16 @@ describe("group form validation", () => {
     // When
     const result = groupCreateFormSchema.safeParse(values);
 
-    // Then
-    expect(result.success).toBe(false);
+    // Then 일정이 없으면 유동적 일정이다.
+    expect(result.success).toBe(true);
   });
 
   it("requires a session schedule only for SESSION", () => {
     // Given
     const values = {
       type: "SESSION",
+      meetingType: "FLEXIBLE",
+      location: null,
       name: "일일 세션",
       introduction: "한 번 만나 깊게 이야기해요",
       description: "",
@@ -71,6 +75,8 @@ describe("group form validation", () => {
     // Given
     const values = {
       type: "CLUB",
+      meetingType: "FLEXIBLE",
+      location: null,
       name: "리액트 모임",
       introduction: "매주 함께 만나요",
       description: "",
@@ -91,7 +97,13 @@ describe("group form validation", () => {
 
   it("enforces backend group text limits", () => {
     // Given
-    const values = { name: "가".repeat(51), introduction: "소개", description: "" };
+    const values = {
+      name: "가".repeat(51),
+      introduction: "소개",
+      description: "",
+      meetingType: "FLEXIBLE",
+      location: null
+    };
 
     // When
     const result = groupModifyFormSchema.safeParse(values);

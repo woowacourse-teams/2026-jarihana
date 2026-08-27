@@ -11,15 +11,20 @@ import { IconButton } from "./Button.jsx";
 
 const ToastContext = createContext(null);
 let nextToastId = 0;
+const DEFAULT_TOAST_DURATION = 2000;
+const TOAST_EXIT_DURATION = 180;
 
-export function ToastProvider({ children, duration = 4500, limit = 3 }) {
+export function ToastProvider({ children, duration = DEFAULT_TOAST_DURATION, limit = 3 }) {
   const [toasts, setToasts] = useState([]);
   const timers = useRef(new Map());
+  const exitTimers = useRef(new Map());
 
   useEffect(
     () => () => {
       for (const timer of timers.current.values()) window.clearTimeout(timer);
       timers.current.clear();
+      for (const timer of exitTimers.current.values()) window.clearTimeout(timer);
+      exitTimers.current.clear();
     },
     []
   );
@@ -32,12 +37,31 @@ export function ToastProvider({ children, duration = 4500, limit = 3 }) {
         timers.current.delete(id);
       }
     }
+    for (const [id, timer] of exitTimers.current) {
+      if (!activeIds.has(id)) {
+        window.clearTimeout(timer);
+        exitTimers.current.delete(id);
+      }
+    }
   }, [toasts]);
 
   const dismiss = useCallback((id) => {
     window.clearTimeout(timers.current.get(id));
     timers.current.delete(id);
-    setToasts((current) => current.filter((toast) => toast.id !== id));
+    if (exitTimers.current.has(id)) return;
+
+    setToasts((current) =>
+      current.map((toast) =>
+        toast.id === id ? { ...toast, isDismissing: true } : toast
+      )
+    );
+    exitTimers.current.set(
+      id,
+      window.setTimeout(() => {
+        exitTimers.current.delete(id);
+        setToasts((current) => current.filter((toast) => toast.id !== id));
+      }, TOAST_EXIT_DURATION)
+    );
   }, []);
 
   const startTimer = useCallback(
@@ -54,7 +78,12 @@ export function ToastProvider({ children, duration = 4500, limit = 3 }) {
 
   const show = useCallback(
     (input) => {
-      const toast = { duration, tone: "neutral", ...input, id: `toast-${(nextToastId += 1)}` };
+      const toast = {
+        tone: "neutral",
+        ...input,
+        duration,
+        id: `toast-${(nextToastId += 1)}`
+      };
       setToasts((current) => [...current, toast].slice(-limit));
       startTimer(toast, toast.duration);
       return toast.id;
@@ -79,15 +108,8 @@ export function ToastProvider({ children, duration = 4500, limit = 3 }) {
       <ol aria-atomic="false" aria-live="polite" className="ui-toasts" role="status">
         {toasts.map((toast) => (
           <li
-            className={`ui-toast ui-toast--${toast.tone}`}
+            className={`ui-toast ui-toast--${toast.tone}${toast.isDismissing ? " ui-toast--dismissing" : ""}`}
             key={toast.id}
-            onBlur={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget))
-                startTimer(toast, toast.duration);
-            }}
-            onFocus={() => window.clearTimeout(timers.current.get(toast.id))}
-            onMouseEnter={() => window.clearTimeout(timers.current.get(toast.id))}
-            onMouseLeave={() => startTimer(toast, toast.duration)}
           >
             <div className="ui-toast__body">
               <p className="ui-toast__title">{toast.title}</p>

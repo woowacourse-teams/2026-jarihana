@@ -1,7 +1,5 @@
 package com.project.jarihana.registration.query.repository;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
@@ -18,17 +16,8 @@ import com.project.jarihana.registration.domain.DecisionActor;
 import com.project.jarihana.registration.domain.DecisionActorType;
 import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.registration.domain.RegistrationStatus;
-import com.project.jarihana.registration.query.repository.dto.MyRegistrationListPage;
-import com.project.jarihana.registration.query.repository.dto.MyRegistrationListProjection;
-import com.project.jarihana.registration.query.repository.dto.MyRegistrationListSearchCriteria;
-import com.project.jarihana.registration.query.repository.dto.RegistrationListPage;
-import com.project.jarihana.registration.query.repository.dto.RegistrationListProjection;
-import com.project.jarihana.registration.query.repository.dto.RegistrationListSearchCriteria;
+import com.project.jarihana.registration.query.repository.dto.*;
 import com.project.jarihana.support.TestSupportConfig;
-import java.time.DayOfWeek;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +25,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.DayOfWeek;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.Set;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @Import(TestSupportConfig.class)
@@ -130,6 +126,25 @@ class JpaRegistrationListRepositoryTest {
         assertThat(approvedPage.items().get(0).decidedByMemberId()).isEqualTo(leader.getId());
     }
 
+    private Member saveMember(String crewName, Course course, String githubId) {
+        return memberRepository.save(Member.create(crewName, 8, githubId, course));
+    }
+
+    private Group saveGroup(String name) {
+        return groupRepository.save(Group.createStudy(
+                name,
+                "함께 학습합니다.",
+                null,
+                null,
+                RecurringGroupSchedule.of(
+                        Set.of(DayOfWeek.MONDAY),
+                        LocalTime.of(19, 0),
+                        LocalTime.of(21, 0)
+                ),
+                NOW
+        ));
+    }
+
     @DisplayName("모집 공고의 그룹과 현재 모임장 권한을 조회한다.")
     @Test
     void findsRecruitmentGroupAndLeaderAccess() {
@@ -216,25 +231,6 @@ class JpaRegistrationListRepositoryTest {
                 3,
                 NOW.minusDays(1),
                 NOW.plusDays(1)
-        ));
-    }
-
-    private Member saveMember(String crewName, Course course, String githubId) {
-        return memberRepository.save(Member.create(crewName, 8, githubId, course));
-    }
-
-    private Group saveGroup(String name) {
-        return groupRepository.save(Group.createStudy(
-                name,
-                "함께 학습합니다.",
-                null,
-                null,
-                RecurringGroupSchedule.of(
-                        Set.of(DayOfWeek.MONDAY),
-                        LocalTime.of(19, 0),
-                        LocalTime.of(21, 0)
-                ),
-                NOW
         ));
     }
 }

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useSearchParams } from "react-router";
 import { ToastProvider } from "../../../src/shared/ui/index.js";
 
+import { useAuth } from "../../../src/features/auth/index.js";
 import { useInfiniteGroups } from "../../../src/features/group/index.js";
 import {
   useInfiniteMyRegistrations,
@@ -19,6 +20,7 @@ jest.mock("react-router", () => ({
   ),
   useSearchParams: jest.fn()
 }));
+jest.mock("../../../src/features/auth/index.js", () => ({ useAuth: jest.fn() }));
 jest.mock("../../../src/features/group/index.js", () => ({ useInfiniteGroups: jest.fn() }));
 jest.mock("../../../src/features/registration/index.js", () => ({
   useInfiniteMyRegistrations: jest.fn(),
@@ -63,6 +65,7 @@ function renderPage(page) {
 
 describe("MyGroupsPage", () => {
   beforeEach(() => {
+    useAuth.mockReturnValue({ member: { id: 7 }, user: null });
     useSearchParams.mockReturnValue([new URLSearchParams(), jest.fn()]);
   });
 
@@ -88,6 +91,10 @@ describe("MyGroupsPage", () => {
     expect(screen.getByRole("link", { name: "React 깊게 보기 모임 상세 보기" })).toHaveAttribute(
       "href",
       "/groups/31"
+    );
+    expect(screen.getByRole("link", { name: "React 깊게 보기 모임 관리" })).toHaveAttribute(
+      "href",
+      "/groups/31/manage"
     );
   });
 

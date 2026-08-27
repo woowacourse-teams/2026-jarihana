@@ -3,6 +3,7 @@ package com.project.jarihana.registration.command.controller.dto;
 import com.project.jarihana.registration.command.service.dto.DecideRegistrationResult;
 import com.project.jarihana.registration.domain.DecisionActorType;
 import com.project.jarihana.registration.domain.RegistrationStatus;
+
 import java.time.LocalDateTime;
 
 public record DecideRegistrationResponse(

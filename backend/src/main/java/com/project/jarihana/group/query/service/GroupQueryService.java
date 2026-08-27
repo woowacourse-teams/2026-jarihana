@@ -3,30 +3,24 @@ package com.project.jarihana.group.query.service;
 import com.project.jarihana.common.auth.LoginMemberReader;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.image.config.ImageProperties;
 import com.project.jarihana.group.query.repository.GroupDetailRepository;
 import com.project.jarihana.group.query.repository.GroupListRepository;
-import com.project.jarihana.group.query.repository.dto.GroupDetailProjection;
-import com.project.jarihana.group.query.repository.dto.GroupListMember;
-import com.project.jarihana.group.query.repository.dto.GroupListPage;
-import com.project.jarihana.group.query.repository.dto.GroupListProjection;
-import com.project.jarihana.group.query.repository.dto.GroupListSearchCriteria;
+import com.project.jarihana.group.query.repository.dto.*;
 import com.project.jarihana.group.query.service.dto.GroupDetailResult;
 import com.project.jarihana.group.query.service.dto.GroupListQuery;
 import com.project.jarihana.group.query.service.dto.GroupListResult;
-import com.project.jarihana.group.query.service.dto.GroupListResult.ActiveRecruitment;
-import com.project.jarihana.group.query.service.dto.GroupListResult.Item;
-import com.project.jarihana.group.query.service.dto.GroupListResult.Leader;
-import com.project.jarihana.group.query.service.dto.GroupListResult.RecurringSchedule;
-import com.project.jarihana.group.query.service.dto.GroupListResult.SessionSchedule;
+import com.project.jarihana.group.query.service.dto.GroupListResult.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.Base64;
 import java.util.List;
-import java.time.ZoneId;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 
 @Service
 public class GroupQueryService {
@@ -39,6 +33,7 @@ public class GroupQueryService {
     private final GroupDetailRepository groupDetailRepository;
     private final LoginMemberReader loginMemberReader;
     private final Clock clock;
+    private final String publicBaseUrl;
 
     public GroupQueryService(
             GroupListRepository groupListRepository,
@@ -49,17 +44,38 @@ public class GroupQueryService {
                 Clock.system(ZoneId.of("Asia/Seoul")));
     }
 
-    @Autowired
     public GroupQueryService(
             GroupListRepository groupListRepository,
             GroupDetailRepository groupDetailRepository,
             LoginMemberReader loginMemberReader,
             Clock clock
     ) {
+        this(groupListRepository, groupDetailRepository, loginMemberReader, clock, "");
+    }
+
+    @Autowired
+    public GroupQueryService(
+            GroupListRepository groupListRepository,
+            GroupDetailRepository groupDetailRepository,
+            LoginMemberReader loginMemberReader,
+            Clock clock,
+            ImageProperties imageProperties
+    ) {
+        this(groupListRepository, groupDetailRepository, loginMemberReader, clock, imageProperties.publicBaseUrl());
+    }
+
+    GroupQueryService(
+            GroupListRepository groupListRepository,
+            GroupDetailRepository groupDetailRepository,
+            LoginMemberReader loginMemberReader,
+            Clock clock,
+            String publicBaseUrl
+    ) {
         this.groupListRepository = groupListRepository;
         this.groupDetailRepository = groupDetailRepository;
         this.loginMemberReader = loginMemberReader;
         this.clock = clock;
+        this.publicBaseUrl = publicBaseUrl == null ? "" : publicBaseUrl;
     }
 
     public GroupListResult findGroups(GroupListQuery query) {
@@ -89,31 +105,12 @@ public class GroupQueryService {
                 ? encodeCursor(itemProjections.get(itemProjections.size() - 1))
                 : null;
         List<Item> items = itemProjections.stream()
-                .map(GroupQueryService::toResult)
+                .map(this::toResult)
                 .toList();
         return new GroupListResult(items, nextCursor, page.hasNext());
     }
 
-    public GroupDetailResult findGroup(Long groupId) {
-        if (groupId == null || groupId < 1) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "요청 파라미터가 올바르지 않습니다.");
-        }
-        LocalDateTime now = LocalDateTime.now(clock);
-        GroupDetailProjection projection = groupDetailRepository.findById(groupId, now)
-                .orElseThrow(() -> new BusinessException(
-                        ErrorCode.GROUP_NOT_FOUND,
-                        "그룹을 찾을 수 없습니다."
-                ));
-        return new GroupDetailResult(
-                projection.group(),
-                DEFAULT_REPRESENTATIVE_IMAGE_URL,
-                projection.members(),
-                projection.activeRecruitment(),
-                projection.approvedCount()
-        );
-    }
-
-    private static Item toResult(GroupListProjection projection) {
+    private Item toResult(GroupListProjection projection) {
         GroupListMember leader = projection.leader();
         return new Item(
                 projection.id(),
@@ -121,41 +118,41 @@ public class GroupQueryService {
                 projection.group().getStatus().name(),
                 projection.group().getName(),
                 projection.group().getIntroduction(),
-                DEFAULT_REPRESENTATIVE_IMAGE_URL,
+                toRepresentativeImageUrl(projection.group().getRepresentativeImageKey()),
                 projection.group().getRecurringSchedule() == null
                         ? null
                         : new RecurringSchedule(
-                                projection.group().getRecurringSchedule().getActivityDays().values().stream()
-                                        .map(Enum::name)
-                                        .toList(),
-                                projection.group().getRecurringSchedule().getStartTime(),
-                                projection.group().getRecurringSchedule().getEndTime()
-                        ),
+                        projection.group().getRecurringSchedule().getActivityDays().values().stream()
+                                .map(Enum::name)
+                                .toList(),
+                        projection.group().getRecurringSchedule().getStartTime(),
+                        projection.group().getRecurringSchedule().getEndTime()
+                ),
                 projection.group().getSessionSchedule() == null
                         ? null
                         : new SessionSchedule(
-                                projection.group().getSessionSchedule().getSessionDate(),
-                                projection.group().getSessionSchedule().getStartTime(),
-                                projection.group().getSessionSchedule().getEndTime()
-                        ),
+                        projection.group().getSessionSchedule().getSessionDate(),
+                        projection.group().getSessionSchedule().getStartTime(),
+                        projection.group().getSessionSchedule().getEndTime()
+                ),
                 leader == null
                         ? null
                         : new Leader(
-                                leader.memberId(),
-                                leader.member().getCrewName(),
-                                leader.member().getGeneration()
-                        ),
+                        leader.memberId(),
+                        leader.member().getCrewName(),
+                        leader.member().getGeneration()
+                ),
                 projection.memberCount(),
                 projection.activeRecruitment() == null
                         ? null
                         : new ActiveRecruitment(
-                                projection.activeRecruitment().getId(),
-                                projection.activeRecruitment().getJoinMethod().name(),
-                                projection.activeRecruitment().getCapacity(),
-                                projection.approvedCount(),
-                                projection.activeRecruitment().getStartsAt(),
-                                projection.activeRecruitment().getEndsAt()
-                        )
+                        projection.activeRecruitment().getId(),
+                        projection.activeRecruitment().getJoinMethod().name(),
+                        projection.activeRecruitment().getCapacity(),
+                        projection.approvedCount(),
+                        projection.activeRecruitment().getStartsAt(),
+                        projection.activeRecruitment().getEndsAt()
+                )
         );
     }
 
@@ -195,6 +192,37 @@ public class GroupQueryService {
         } catch (IllegalArgumentException | DateTimeParseException exception) {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "요청 파라미터가 올바르지 않습니다.");
         }
+    }
+
+    public GroupDetailResult findGroup(Long groupId) {
+        if (groupId == null || groupId < 1) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "요청 파라미터가 올바르지 않습니다.");
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        GroupDetailProjection projection = groupDetailRepository.findById(groupId, now)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.GROUP_NOT_FOUND,
+                        "그룹을 찾을 수 없습니다."
+                ));
+        Long currentMemberId = loginMemberReader.currentMemberId().orElse(null);
+        return new GroupDetailResult(
+                projection.group(),
+                toRepresentativeImageUrl(projection.group().getRepresentativeImageKey()),
+                projection.members(),
+                projection.activeRecruitment(),
+                projection.approvedCount(),
+                projection.roleOf(currentMemberId)
+        );
+    }
+
+    private String toRepresentativeImageUrl(String imageKey) {
+        if (imageKey == null || DEFAULT_REPRESENTATIVE_IMAGE_URL.equals(imageKey)) {
+            return DEFAULT_REPRESENTATIVE_IMAGE_URL;
+        }
+        if (publicBaseUrl.isBlank()) {
+            return imageKey;
+        }
+        return publicBaseUrl.replaceAll("/+$", "") + "/" + imageKey.replaceFirst("^/+", "");
     }
 
     private record Cursor(LocalDateTime createdAt, long id) {

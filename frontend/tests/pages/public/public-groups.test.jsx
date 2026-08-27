@@ -11,6 +11,7 @@ import {
   GroupsPage,
   RecruitmentDetailPage
 } from "../../../src/pages/groups/index.js";
+import { ToastProvider } from "../../../src/shared/ui/Toast.jsx";
 
 let mockRouteParams = {};
 let mockSearchParams = new URLSearchParams();
@@ -26,6 +27,7 @@ jest.mock(
         {children}
       </a>
     ),
+    useNavigate: () => jest.fn(),
     useParams: () => mockRouteParams,
     useSearchParams: () => [mockSearchParams, mockSetSearchParams]
   }),
@@ -51,6 +53,8 @@ jest.mock("../../../src/features/auth/index.js", () => ({ useAuth: jest.fn() }))
 const group = {
   id: 41,
   type: "STUDY",
+  meetingType: "FLEXIBLE",
+  location: null,
   status: "ACTIVE",
   name: "우아한 JDBC 탐구생활",
   introduction: "JDBC 내부 동작을 이해하고, 더 좋은 설계를 고민해요.",
@@ -58,6 +62,7 @@ const group = {
   representativeImageUrl: "/images/default-group.png",
   leader: { memberId: 7, crewName: "써니", generation: 11 },
   memberCount: 6,
+  currentMemberRole: null,
   recurringSchedule: {
     daysOfWeek: ["MONDAY"],
     startTime: "19:00:00",
@@ -106,7 +111,7 @@ function renderAt(path, page) {
     groupId: segments[1],
     recruitmentId: segments[3]
   };
-  return render(page);
+  return render(page, { wrapper: ToastProvider });
 }
 
 beforeEach(() => {
@@ -161,6 +166,12 @@ it("Given group results, when the explorer loads, then cards and result state ar
   expect(screen.getByText("1개의 모임")).toBeInTheDocument();
   expect(screen.getByText("최신순")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "더 많은 모임 보기" })).toBeEnabled();
+});
+
+it("Given the legacy groups URL, when the explorer loads, then the current landing affordance is visible", () => {
+  renderAt("/groups", <GroupsPage />);
+
+  expect(screen.getByRole("button", { name: "자리 둘러보기로 이동" })).toBeInTheDocument();
 });
 
 it("Given filters, when search is submitted, then the URL-backed query reaches the hook", async () => {
@@ -237,6 +248,66 @@ it("Given an authenticated member, when an application is confirmed, then the or
   ).toBeInTheDocument();
 });
 
+it("Given an approved group member, when the detail page renders, then application is disabled", async () => {
+  const user = userEvent.setup();
+  groupHooks.useGroup.mockReturnValue({
+    data: { ...group, currentMemberRole: "MEMBER" },
+    isLoading: false,
+    isError: false
+  });
+  const mutateAsync = jest.fn();
+  registrationHooks.useCreateRegistration.mockReturnValue({
+    mutateAsync,
+    isPending: false,
+    isSuccess: false,
+    error: null,
+    reset: jest.fn()
+  });
+
+  renderAt("/groups/41", <GroupDetailPage />);
+
+  const button = screen.getByRole("button", { name: "가입 완료!" });
+  expect(button).toBeDisabled();
+  await user.click(button);
+  expect(mutateAsync).not.toHaveBeenCalled();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
+it("Given an active recruitment, when group detail renders, then the invitation illustration frames the summary", () => {
+  const { container } = renderAt("/groups/41", <GroupDetailPage />);
+
+  expect(screen.getByRole("heading", { name: "자리하나?" })).toBeInTheDocument();
+  expect(container.querySelector(".group-recruitment-hero--open img")).toBeInTheDocument();
+});
+
+it("Given a group detail, when the mobile recruitment action opens, then recruitment information appears in a dialog", async () => {
+  const user = userEvent.setup();
+  renderAt("/groups/41", <GroupDetailPage />);
+
+  const trigger = screen.getByRole("button", { name: "모집 정보 보기" });
+  expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
+
+  await user.click(trigger);
+
+  const dialog = screen.getByRole("dialog", { name: "모집 정보" });
+  expect(within(dialog).getByRole("heading", { name: "자리하나?" })).toBeInTheDocument();
+  expect(trigger).toHaveAttribute("aria-expanded", "true");
+});
+
+it("Given no active recruitment, when group detail renders, then the fallen-chair empty state is concise", () => {
+  groupHooks.useGroup.mockReturnValue({
+    data: { ...group, activeRecruitment: null },
+    isLoading: false,
+    isError: false
+  });
+
+  const { container } = renderAt("/groups/41", <GroupDetailPage />);
+
+  expect(screen.getByRole("heading", { name: "자리없음" })).toBeInTheDocument();
+  expect(screen.queryByText("현재 진행 중인 모집이 없어요")).not.toBeInTheDocument();
+  expect(container.querySelector(".group-recruitment-hero--empty img")).toBeInTheDocument();
+});
+
 it("Given a closed recruitment, when opened, then no application control is exposed", () => {
   recruitmentHooks.useRecruitment.mockReturnValue({
     data: { ...recruitment, recruitingStatus: "CLOSED" },
@@ -273,6 +344,23 @@ it("Given the introduction tab, when detail renders, then downstream lists stay 
   expect(memberHooks.useInfiniteGroupMembers).not.toHaveBeenCalled();
   expect(recruitmentHooks.useInfiniteRecruitments).not.toHaveBeenCalled();
   expect(screen.queryByRole("heading", { name: "활동 방식" })).not.toBeInTheDocument();
+});
+
+it("Given an archived group, when detail renders, then the recruitment sidebar is hidden", () => {
+  groupHooks.useGroup.mockReturnValue({
+    data: { ...group, status: "ENDED", activeRecruitment: null },
+    isLoading: false,
+    isError: false
+  });
+
+  renderAt("/groups/41", <GroupDetailPage />);
+
+  expect(screen.getByRole("complementary", { name: "모집과 운영자 정보" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "아카이빙된 모임입니다" })).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "새 모집 만들기" })).not.toBeInTheDocument();
+  expect(screen.queryByText("모집 중")).not.toBeInTheDocument();
+  expect(screen.queryByText("모집 인원")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /가입 신청|모집 마감|운영자/ })).not.toBeInTheDocument();
 });
 
 it("Given a group failure, when detail renders, then no downstream request executes", () => {
@@ -355,18 +443,136 @@ it("Given the backend default image, when a result renders, then the card displa
   expect(frame).not.toHaveClass("groups-card-frame--fallback");
 });
 
-it("Given a group, when detail renders, then API-backed information and leader share the Figma hierarchy", () => {
+it("Given a group, when detail renders, then API-backed information follows the Figma hierarchy", () => {
   const { container } = renderAt("/groups/41", <GroupDetailPage />);
 
   expect(screen.getByRole("heading", { name: "모임 정보" })).toBeInTheDocument();
+  expect(screen.getByText("유동적")).toBeInTheDocument();
   const profile = container.querySelector(".group-profile");
   expect(
     within(profile)
       .getAllByRole("term")
       .map((term) => term.textContent)
-  ).toEqual(["모임 일정", "현재 멤버 수"]);
+  ).toEqual(["모임 방식", "모임 일정", "장소", "현재 멤버 수"]);
   const rail = container.querySelector(".group-rail-card");
   expect(rail).toContainElement(screen.getByText("모집 시작"));
-  expect(within(rail).getByText("써니")).toBeInTheDocument();
   expect(container.querySelectorAll(".group-profile__figure > span")).toHaveLength(4);
 });
+
+it("Given a group detail, when the page renders, then list navigation is integrated into the hero", () => {
+  const scrollTo = jest.spyOn(window, "scrollTo").mockImplementation(() => {});
+  const { container } = renderAt("/groups/41", <GroupDetailPage />);
+
+  const profile = container.querySelector(".group-profile");
+  const backLink = screen.getByRole("link", { name: "목록으로" });
+  expect(profile).toContainElement(backLink);
+  expect(backLink).toHaveAttribute("href", "/groups");
+  scrollTo.mockRestore();
+});
+
+it("Given a group leader, when detail renders, then leader context is separate from recruitment", () => {
+  const scrollTo = jest.spyOn(window, "scrollTo").mockImplementation(() => {});
+  const { container } = renderAt("/groups/41", <GroupDetailPage />);
+
+  const desktopRail = container.querySelector(".group-rail--desktop");
+  const leaderCard = desktopRail.querySelector(".group-leader--card");
+  const recruitmentCard = desktopRail.querySelector(".group-recruitment-summary");
+  const heroLeader = container.querySelector(".group-profile .group-leader--hero");
+
+  expect(leaderCard).toHaveTextContent("써니");
+  expect(leaderCard.nextElementSibling).toBe(recruitmentCard);
+  expect(leaderCard.querySelector(".ui-avatar")).toHaveClass("ui-avatar--md");
+  expect(recruitmentCard.querySelector(".group-leader")).not.toBeInTheDocument();
+  expect(heroLeader).toHaveTextContent("써니");
+  expect(heroLeader).toHaveTextContent("운영자 · 11기 크루");
+  expect(heroLeader.querySelector(".ui-avatar")).toHaveClass("ui-avatar--sm");
+  scrollTo.mockRestore();
+});
+
+it("Given a recruitment period, when detail renders, then countdown and details are concise", () => {
+  const scrollTo = jest.spyOn(window, "scrollTo").mockImplementation(() => {});
+  jest.useFakeTimers();
+  jest.setSystemTime(new Date("2026-08-20T12:00:00"));
+
+  try {
+    const { container } = renderAt("/groups/41", <GroupDetailPage />);
+    const desktopRail = container.querySelector(".group-rail--desktop");
+    const period = desktopRail.querySelector(".group-recruitment-period");
+
+    expect(desktopRail.querySelector(".group-recruitment-countdown")).toHaveTextContent(
+      "모집 마감까지 2일"
+    );
+    expect(desktopRail.querySelector(".group-recruitment-details")).toHaveTextContent(
+      "일정 자세히"
+    );
+    expect(within(period).getByText("시작")).toBeInTheDocument();
+    expect(within(period).getByText("2026년 8월 10일 09:00")).toBeInTheDocument();
+    expect(within(period).getByText("마감")).toBeInTheDocument();
+    expect(within(period).getByText("2026년 8월 21일 23:59")).toBeInTheDocument();
+  } finally {
+    jest.useRealTimers();
+    scrollTo.mockRestore();
+  }
+});
+
+it("Given a retained list scroll, when group detail opens, then the page starts at the top", () => {
+  const scrollTo = jest.spyOn(window, "scrollTo").mockImplementation(() => {});
+
+  renderAt("/groups/41", <GroupDetailPage />);
+
+  expect(scrollTo).toHaveBeenCalledWith(0, 0);
+  scrollTo.mockRestore();
+});
+
+it("Given meeting details, when the detail page renders, then the information card shows API values", () => {
+  groupHooks.useGroup.mockReturnValue({
+    data: { ...group, meetingType: "OFFLINE", location: "서울 캠퍼스" },
+    isLoading: false,
+    isError: false
+  });
+
+  renderAt("/groups/41", <GroupDetailPage />);
+
+  expect(screen.getByText("오프라인")).toBeInTheDocument();
+  expect(screen.getByText("서울 캠퍼스")).toBeInTheDocument();
+  expect(screen.queryByText("API 미지원")).not.toBeInTheDocument();
+});
+
+it.each([
+  [
+    "a recurring schedule",
+    group,
+    ["매주 월", "19:00 – 21:00"]
+  ],
+  [
+    "a session schedule",
+    {
+      ...group,
+      type: "SESSION",
+      recurringSchedule: null,
+      sessionSchedule: {
+        sessionDate: "2026-09-01",
+        startTime: "14:00:00",
+        endTime: "16:00:00"
+      }
+    },
+    ["2026.09.01", "14:00 – 16:00"]
+  ]
+])(
+  "Given %s, when the detail page renders, then the schedule and time use separate lines",
+  (_, scheduledGroup, expectedLines) => {
+    groupHooks.useGroup.mockReturnValue({
+      data: scheduledGroup,
+      isLoading: false,
+      isError: false
+    });
+
+    renderAt("/groups/41", <GroupDetailPage />);
+
+    const scheduleValue = screen.getByRole("term", { name: "모임 일정" }).nextElementSibling;
+    const lineContainer = scheduleValue.firstElementChild;
+
+    expect(lineContainer).toHaveClass("group-facts__schedule");
+    expect(Array.from(lineContainer.children, (line) => line.textContent)).toEqual(expectedLines);
+  }
+);

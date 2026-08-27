@@ -1,32 +1,28 @@
 package com.project.jarihana.registration.query.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.registration.domain.DecisionActorType;
 import com.project.jarihana.registration.domain.RegistrationStatus;
 import com.project.jarihana.registration.query.repository.RegistrationListRepository;
-import com.project.jarihana.registration.query.repository.dto.MyRegistrationListPage;
-import com.project.jarihana.registration.query.repository.dto.MyRegistrationListProjection;
-import com.project.jarihana.registration.query.repository.dto.MyRegistrationListSearchCriteria;
-import com.project.jarihana.registration.query.repository.dto.RegistrationListPage;
-import com.project.jarihana.registration.query.repository.dto.RegistrationListProjection;
-import com.project.jarihana.registration.query.repository.dto.RegistrationListSearchCriteria;
+import com.project.jarihana.registration.query.repository.dto.*;
 import com.project.jarihana.registration.query.service.dto.MyRegistrationListResult;
 import com.project.jarihana.registration.query.service.dto.RegistrationListQuery;
 import com.project.jarihana.registration.query.service.dto.RegistrationListResult;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class RegistrationQueryServiceTest {
 
@@ -84,6 +80,10 @@ class RegistrationQueryServiceTest {
                 new MyRegistrationListSearchCriteria(MEMBER_ID, null, null, null)
         );
         assertThat(repository.lastMySize()).isEqualTo(20);
+    }
+
+    private static String decodeCursor(String cursor) {
+        return new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8);
     }
 
     @DisplayName("리더용 신청자 목록을 조회하고 결과를 변환한다.")
@@ -155,6 +155,12 @@ class RegistrationQueryServiceTest {
         assertThat(repository.lastMySize()).isEqualTo(10);
     }
 
+    private static String encodeCursor(String value) {
+        return Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(value.getBytes(StandardCharsets.UTF_8));
+    }
+
     @DisplayName("내 신청 목록의 페이지 크기가 범위를 벗어나면 거부한다.")
     @ValueSource(ints = {0, 101})
     @ParameterizedTest
@@ -164,26 +170,6 @@ class RegistrationQueryServiceTest {
 
         // When / Then
         assertInvalidParameter(() -> service.findMyRegistrations(MEMBER_ID, query));
-    }
-
-    @DisplayName("내 신청 목록의 커서 형식이 잘못되면 거부한다.")
-    @Test
-    void rejectsInvalidMyCursor() {
-        // Given
-        RegistrationListQuery query = new RegistrationListQuery(null, "invalid-cursor", 20);
-
-        // When / Then
-        assertInvalidParameter(() -> service.findMyRegistrations(MEMBER_ID, query));
-    }
-
-    private static String encodeCursor(String value) {
-        return Base64.getUrlEncoder()
-                .withoutPadding()
-                .encodeToString(value.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private static String decodeCursor(String cursor) {
-        return new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8);
     }
 
     private static void assertInvalidParameter(Runnable invocation) {
@@ -196,9 +182,19 @@ class RegistrationQueryServiceTest {
                 .containsExactly(ErrorCode.INVALID_PARAMETER, "요청 파라미터가 올바르지 않습니다.");
     }
 
+    @DisplayName("내 신청 목록의 커서 형식이 잘못되면 거부한다.")
+    @Test
+    void rejectsInvalidMyCursor() {
+        // Given
+        RegistrationListQuery query = new RegistrationListQuery(null, "invalid-cursor", 20);
+
+        // When / Then
+        assertInvalidParameter(() -> service.findMyRegistrations(MEMBER_ID, query));
+    }
+
     private static final class FakeRegistrationListRepository implements RegistrationListRepository {
 
-        private Optional<Long> groupId = Optional.of(12L);
+        private final Optional<Long> groupId = Optional.of(12L);
         private boolean leaderAccess;
         private RegistrationListPage page = new RegistrationListPage(List.of(), false);
         private MyRegistrationListPage myPage = new MyRegistrationListPage(List.of(), false);

@@ -5,7 +5,9 @@ import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.group.domain.SessionGroupSchedule;
 import com.project.jarihana.group.query.repository.dto.GroupDetailMember;
 import com.project.jarihana.group.query.service.dto.GroupDetailResult;
+import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -14,6 +16,8 @@ import java.util.List;
 public record GroupDetailResponse(
         Long id,
         String type,
+        String meetingType,
+        String location,
         String status,
         String name,
         String introduction,
@@ -24,6 +28,7 @@ public record GroupDetailResponse(
         GroupLeader leader,
         int memberCount,
         ActiveRecruitment activeRecruitment,
+        GroupMemberRole currentMemberRole,
         LocalDateTime createdAt
 ) {
 
@@ -32,6 +37,8 @@ public record GroupDetailResponse(
         return new GroupDetailResponse(
                 group.getId(),
                 group.getType().name(),
+                group.getMeetingType().name(),
+                group.getLocation(),
                 group.getStatus().name(),
                 group.getName(),
                 group.getIntroduction(),
@@ -42,6 +49,7 @@ public record GroupDetailResponse(
                 GroupLeader.from(result.leader()),
                 result.members().size(),
                 ActiveRecruitment.from(result.activeRecruitment(), result.approvedCount()),
+                result.currentMemberRole(),
                 group.getCreatedAt()
         );
     }

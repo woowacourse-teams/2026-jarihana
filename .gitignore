@@ -40,10 +40,12 @@ out/
 .env
 *.http
 https/
+_workspace/
 
 ### Local agent session artifacts ###
 /backend/docs/superpowers/
 /.omo/
+/frontend/.omo/
 
 ### macOS ###
 .DS_Store

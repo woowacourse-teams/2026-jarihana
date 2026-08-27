@@ -1,8 +1,5 @@
 package com.project.jarihana.group.query.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.project.jarihana.common.auth.LoginMemberReader;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
@@ -25,18 +22,17 @@ import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.JoinMethod;
-import java.time.Clock;
-import java.time.DayOfWeek;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.ZoneId;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import java.time.*;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class GroupQueryServiceTest {
 
@@ -72,7 +68,7 @@ class GroupQueryServiceTest {
                 null,
                 null,
                 GroupType.STUDY,
-                false,
+                null,
                 "알고리즘",
                 null,
                 20
@@ -83,6 +79,47 @@ class GroupQueryServiceTest {
 
         // Then
         assertThat(result.items()).extracting(projection -> projection.id()).containsExactly(1L);
+    }
+
+    private void saveGroupListFixtures() {
+        Group study = study("알고리즘 스터디", "함께 문제를 풉니다.", NOW.minusHours(2));
+        listRepository.save(GroupListProjection.of(
+                1L,
+                study,
+                2,
+                List.of(GroupListMember.of(10L, member("가온"), GroupMemberRole.LEADER)),
+                GroupRecruitment.create(
+                        study,
+                        JoinMethod.APPROVAL,
+                        8,
+                        NOW.minusDays(1),
+                        NOW.plusDays(1)
+                ),
+                3
+        ));
+        listRepository.save(GroupListProjection.of(
+                2L,
+                study("주말 동아리", "취미를 함께 나눠요.", NOW.minusHours(1)),
+                4,
+                List.of(GroupListMember.of(20L, member("바다"), GroupMemberRole.MEMBER)),
+                null,
+                0
+        ));
+    }
+
+    private static Group study(String name, String introduction, LocalDateTime createdAt) {
+        return Group.createStudy(
+                name,
+                introduction,
+                null,
+                null,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.NOON, LocalTime.of(13, 0)),
+                createdAt
+        );
+    }
+
+    private static Member member(String crewName) {
+        return Member.create(crewName, 8, "github-" + crewName, Course.BACKEND);
     }
 
     @DisplayName("가입한 그룹 중 리더이며 모집 중인 그룹만 조회한다.")
@@ -163,8 +200,44 @@ class GroupQueryServiceTest {
 
         // Then
         assertThat(result.group()).isSameAs(group);
+        assertThat(result.representativeImageUrl())
+                .isEqualTo("groups/1.webp");
         assertThat(result.members()).hasSize(1);
         assertThat(result.leader().memberId()).isEqualTo(10L);
+        assertThat(result.currentMemberRole()).isEqualTo(GroupMemberRole.LEADER);
+    }
+
+    @DisplayName("대표 이미지 키를 CloudFront 이미지 URL로 변환한다.")
+    @Test
+    void convertsRepresentativeImageKeyToPublicUrl() {
+        // Given
+        GroupQueryService cloudFrontService = new GroupQueryService(
+                listRepository,
+                detailRepository,
+                loginMemberReader,
+                CLOCK,
+                "https://cdn.example.test/images"
+        );
+        Group group = Group.createStudy(
+                "이미지 그룹",
+                "이미지를 조회합니다.",
+                null,
+                "groups/tmp/uploaded-image.webp",
+                RecurringGroupSchedule.of(
+                        Set.of(DayOfWeek.MONDAY),
+                        LocalTime.of(19, 0),
+                        LocalTime.of(21, 0)
+                ),
+                NOW
+        );
+        detailRepository.save(GroupDetailProjection.of(1L, group, List.of(), null, 0));
+
+        // When
+        GroupDetailResult result = cloudFrontService.findGroup(1L);
+
+        // Then
+        assertThat(result.representativeImageUrl())
+                .isEqualTo("https://cdn.example.test/images/groups/tmp/uploaded-image.webp");
     }
 
     @DisplayName("존재하지 않는 그룹 상세 조회 시 예외가 발생한다.")
@@ -180,47 +253,6 @@ class GroupQueryServiceTest {
                         Throwable::getMessage
                 )
                 .containsExactly(ErrorCode.GROUP_NOT_FOUND, "그룹을 찾을 수 없습니다.");
-    }
-
-    private void saveGroupListFixtures() {
-        Group study = study("알고리즘 스터디", "함께 문제를 풉니다.", NOW.minusHours(2));
-        listRepository.save(GroupListProjection.of(
-                1L,
-                study,
-                2,
-                List.of(GroupListMember.of(10L, member("가온"), GroupMemberRole.LEADER)),
-                GroupRecruitment.create(
-                        study,
-                        JoinMethod.APPROVAL,
-                        8,
-                        NOW.minusDays(1),
-                        NOW.plusDays(1)
-                ),
-                3
-        ));
-        listRepository.save(GroupListProjection.of(
-                2L,
-                study("주말 동아리", "취미를 함께 나눠요.", NOW.minusHours(1)),
-                4,
-                List.of(GroupListMember.of(20L, member("바다"), GroupMemberRole.MEMBER)),
-                null,
-                0
-        ));
-    }
-
-    private static Group study(String name, String introduction, LocalDateTime createdAt) {
-        return Group.createStudy(
-                name,
-                introduction,
-                null,
-                null,
-                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.NOON, LocalTime.of(13, 0)),
-                createdAt
-        );
-    }
-
-    private static Member member(String crewName) {
-        return Member.create(crewName, 8, "github-" + crewName, Course.BACKEND);
     }
 
     private static class TestLoginMemberReader extends LoginMemberReader {

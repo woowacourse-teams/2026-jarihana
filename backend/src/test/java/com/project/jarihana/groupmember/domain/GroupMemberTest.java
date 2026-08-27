@@ -1,16 +1,17 @@
 package com.project.jarihana.groupmember.domain;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
-import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import java.time.LocalDateTime;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class GroupMemberTest {
 
@@ -35,6 +36,14 @@ class GroupMemberTest {
         assertThat(leader.getRole()).isEqualTo(GroupMemberRole.LEADER);
         assertThat(member.getRole()).isEqualTo(GroupMemberRole.MEMBER);
         assertThat(leader.getJoinedAt()).isEqualTo(JOINED_AT);
+    }
+
+    private Group group(String name) {
+        return Group.createClub(name, "함께 활동해요", null, null, null, GROUP_CREATED_AT);
+    }
+
+    private Member member(String crewName, String githubId) {
+        return Member.create(crewName, 8, githubId, Course.BACKEND);
     }
 
     @DisplayName("종료된 그룹에는 구성원을 생성할 수 없다.")
@@ -136,13 +145,5 @@ class GroupMemberTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.GROUP_MEMBER_ALREADY_LEADER);
-    }
-
-    private Group group(String name) {
-        return Group.createClub(name, "함께 활동해요", null, null, null, GROUP_CREATED_AT);
-    }
-
-    private Member member(String crewName, String githubId) {
-        return Member.create(crewName, 8, githubId, Course.BACKEND);
     }
 }

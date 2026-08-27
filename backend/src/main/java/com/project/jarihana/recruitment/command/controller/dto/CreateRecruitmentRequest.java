@@ -4,6 +4,7 @@ import com.project.jarihana.recruitment.command.service.dto.CreateRecruitmentCom
 import com.project.jarihana.recruitment.domain.JoinMethod;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+
 import java.time.LocalDateTime;
 
 public record CreateRecruitmentRequest(

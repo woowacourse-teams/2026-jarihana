@@ -1,6 +1,8 @@
 package com.project.jarihana.group.command.service.dto;
 
 import com.project.jarihana.group.domain.GroupType;
+import com.project.jarihana.group.domain.MeetingType;
+
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -11,6 +13,9 @@ public record CreateGroupCommand(
         String name,
         String introduction,
         String description,
+        MeetingType meetingType,
+        String location,
+        String representativeImageKey,
         RecurringSchedule recurringSchedule,
         SessionSchedule sessionSchedule
 ) {

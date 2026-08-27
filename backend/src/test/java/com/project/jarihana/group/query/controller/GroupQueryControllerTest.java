@@ -1,20 +1,13 @@
 package com.project.jarihana.group.query.controller;
 
-import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.emptyOrNullString;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasItems;
-import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.nullValue;
-
 import com.project.jarihana.common.auth.AccessTokenProvider;
 import com.project.jarihana.common.auth.AuthCookieProperties;
 import com.project.jarihana.group.domain.Group;
+import com.project.jarihana.group.domain.MeetingType;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.group.domain.SessionGroupSchedule;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
 import com.project.jarihana.group.query.repository.GroupMemberJpaRepository;
-import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
 import com.project.jarihana.group.query.repository.RegistrationJpaRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.member.command.repository.MemberRepository;
@@ -22,17 +15,22 @@ import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.JoinMethod;
+import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.TestSupportConfig;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Set;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.*;
 
 class GroupQueryControllerTest extends IntegrationTestSupport {
 
@@ -64,6 +62,13 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
         clearGroups();
     }
 
+    private void clearGroups() {
+        registrationRepository.deleteAllInBatch();
+        recruitmentRepository.deleteAllInBatch();
+        groupMemberRepository.deleteAllInBatch();
+        groupRepository.deleteAllInBatch();
+    }
+
     @DisplayName("활성 그룹을 커서 페이지로 조회한다.")
     @Test
     void findsActiveGroupsWithCursorPagination() {
@@ -81,7 +86,8 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
                 .body("data.items.size()", equalTo(1))
                 .body("data.items[0].status", equalTo("ACTIVE"))
                 .body("data.items[0].name", equalTo("알고리즘 스터디"))
-                .body("data.items[0].representativeImageUrl", equalTo("images/default-group.png"))
+                .body("data.items[0].representativeImageUrl",
+                        equalTo("https://cdn.example.test/images/groups/1.webp"))
                 .body("data.items[0].memberCount", equalTo(1))
                 .body("data.items[0].leader.crewName", equalTo("가온"))
                 .body("data.hasNext", equalTo(true))
@@ -101,6 +107,30 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
                 .body("data.items[0].name", equalTo("오래된 스터디"))
                 .body("data.hasNext", equalTo(false))
                 .body("data.nextCursor", nullValue());
+    }
+
+    private void saveGroupListFixtures() {
+        Group firstGroup = study("알고리즘 스터디", "함께 문제를 풉니다.", CREATED_AT);
+        Group endedGroup = study("종료된 스터디", "지난 활동입니다.", CREATED_AT.minusDays(1));
+        Group oldGroup = study("오래된 스터디", "문제를 복습합니다.", CREATED_AT.minusHours(1));
+        Member leader = Member.create("가온", 8, "github-3", Course.BACKEND);
+
+        groupRepository.save(oldGroup);
+        groupRepository.save(endedGroup.endAt(CREATED_AT.plusMinutes(1)));
+        Group savedFirstGroup = groupRepository.save(firstGroup);
+        Member savedLeader = memberRepository.save(leader);
+        groupMemberRepository.save(GroupMember.createLeader(savedFirstGroup, savedLeader, CREATED_AT));
+    }
+
+    private static Group study(String name, String introduction, LocalDateTime createdAt) {
+        return Group.createStudy(
+                name,
+                introduction,
+                null,
+                "groups/1.webp",
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.NOON, LocalTime.of(13, 0)),
+                createdAt
+        );
     }
 
     @DisplayName("범위를 벗어난 그룹 목록 크기는 400을 반환한다.")
@@ -203,6 +233,8 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
                 "매주 함께 문제를 풉니다.",
                 "문제 풀이와 코드 리뷰를 진행합니다.",
                 "groups/1.webp",
+                MeetingType.OFFLINE,
+                "서울 캠퍼스",
                 RecurringGroupSchedule.of(
                         Set.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY),
                         LocalTime.of(19, 0),
@@ -230,10 +262,13 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
                 .body("success", equalTo(true))
                 .body("data.id", equalTo(group.getId().intValue()))
                 .body("data.type", equalTo("STUDY"))
+                .body("data.meetingType", equalTo("OFFLINE"))
+                .body("data.location", equalTo("서울 캠퍼스"))
                 .body("data.status", equalTo("ACTIVE"))
                 .body("data.name", equalTo("알고리즘 스터디"))
                 .body("data.description", equalTo("문제 풀이와 코드 리뷰를 진행합니다."))
-                .body("data.representativeImageUrl", equalTo("images/default-group.png"))
+                .body("data.representativeImageUrl",
+                        equalTo("https://cdn.example.test/images/groups/1.webp"))
                 .body("data.recurringSchedule.daysOfWeek", hasItems("MONDAY", "WEDNESDAY"))
                 .body("data.recurringSchedule.startTime", equalTo("19:00:00"))
                 .body("data.sessionSchedule", nullValue())
@@ -315,36 +350,5 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
                 .body("data", nullValue())
                 .body("error.code", equalTo("GROUP_NOT_FOUND"))
                 .body("error.message", equalTo("그룹을 찾을 수 없습니다."));
-    }
-
-    private void saveGroupListFixtures() {
-        Group firstGroup = study("알고리즘 스터디", "함께 문제를 풉니다.", CREATED_AT);
-        Group endedGroup = study("종료된 스터디", "지난 활동입니다.", CREATED_AT.minusDays(1));
-        Group oldGroup = study("오래된 스터디", "문제를 복습합니다.", CREATED_AT.minusHours(1));
-        Member leader = Member.create("가온", 8, "github-3", Course.BACKEND);
-
-        groupRepository.save(oldGroup);
-        groupRepository.save(endedGroup.endAt(CREATED_AT.plusMinutes(1)));
-        Group savedFirstGroup = groupRepository.save(firstGroup);
-        Member savedLeader = memberRepository.save(leader);
-        groupMemberRepository.save(GroupMember.createLeader(savedFirstGroup, savedLeader, CREATED_AT));
-    }
-
-    private static Group study(String name, String introduction, LocalDateTime createdAt) {
-        return Group.createStudy(
-                name,
-                introduction,
-                null,
-                "groups/1.webp",
-                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.NOON, LocalTime.of(13, 0)),
-                createdAt
-        );
-    }
-
-    private void clearGroups() {
-        registrationRepository.deleteAllInBatch();
-        recruitmentRepository.deleteAllInBatch();
-        groupMemberRepository.deleteAllInBatch();
-        groupRepository.deleteAllInBatch();
     }
 }

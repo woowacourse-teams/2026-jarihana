@@ -103,32 +103,311 @@
   color: var(--color-muted-ink);
 }
 
-.manage-summary-grid {
+.manage-recruitment-summary {
+  display: grid;
+  gap: var(--space-5);
+  margin-block-end: var(--space-6);
+  padding: var(--space-6);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.manage-recruitment-summary__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.manage-recruitment-summary__heading h2 {
+  margin: 0;
+  font-size: var(--text-h3);
+}
+
+.manage-recruitment-summary__list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border-block: var(--border-thin) solid var(--color-line);
+}
+
+.manage-recruitment-summary__list > div {
+  display: grid;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  padding: var(--space-4) var(--space-5);
+}
+
+.manage-recruitment-summary__list > div + div {
+  border-inline-start: var(--border-thin) solid var(--color-line);
+}
+
+.manage-recruitment-summary__list dt {
+  color: var(--color-muted-ink);
+  font-size: var(--text-caption);
+}
+
+.manage-recruitment-summary__list dd {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: var(--text-h3);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.manage-recruitment-overview {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-4);
   margin-block-end: var(--space-6);
 }
 
-.manage-summary-card {
+.manage-recruitment-overview__card {
   display: grid;
-  gap: var(--space-2);
-  min-block-size: 6.5rem;
+  min-width: 0;
+  min-block-size: 7.5rem;
   align-content: center;
+  gap: var(--space-2);
   padding: var(--space-5);
   border: var(--border-thin) solid var(--color-line);
   border-radius: var(--radius-md);
   background: var(--color-surface);
 }
 
-.manage-summary-card span {
+.manage-recruitment-overview__card span {
   color: var(--color-muted-ink);
   font-size: var(--text-caption);
 }
 
-.manage-summary-card strong {
-  color: var(--color-ink);
+.manage-recruitment-overview__card strong {
+  min-width: 0;
   font-size: var(--text-h3);
+  overflow-wrap: anywhere;
+}
+
+.manage-recruitment-overview__card strong.is-brand {
+  color: var(--color-brand-ink);
+}
+
+.manage-recruitment-focus-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(18.75rem, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.manage-recruitment-focus {
+  min-width: 0;
+}
+
+.manage-recruitment-empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-4) var(--space-6);
+  text-align: center;
+}
+
+.manage-recruitment-empty img {
+  display: block;
+  width: min(100%, 14rem);
+  max-height: 13rem;
+  object-fit: contain;
+}
+
+.manage-recruitment-empty h3,
+.manage-recruitment-empty p {
+  margin: 0;
+}
+
+.manage-recruitment-empty h3 {
+  font-size: var(--text-h3);
+}
+
+.manage-recruitment-empty p {
+  color: var(--color-muted-ink);
+  font-size: var(--text-body);
+}
+
+.manage-recruitment-empty__action {
+  margin-block-start: var(--space-2);
+}
+
+.manage-recruitment-information {
+  margin-block-start: var(--space-6);
+}
+
+.manage-recruitment-approved-members {
+  align-self: start;
+  padding: var(--space-6);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.manage-recruitment-approved-members h3 {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-h3);
+}
+
+.manage-recruitment-approved-members__list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.manage-recruitment-approved-members__list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: var(--border-thin) solid var(--color-line);
+}
+
+.manage-recruitment-approved-members__list li:first-child {
+  padding-top: 0;
+}
+
+.manage-recruitment-approved-members__list li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.manage-recruitment-approved-members__list li > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+}
+
+.manage-recruitment-approved-members__list small,
+.manage-recruitment-approved-members__empty,
+.manage-recruitment-approved-members__error {
+  color: var(--color-muted-ink);
+  font-size: var(--text-caption);
+}
+
+.manage-recruitment-approved-members__empty,
+.manage-recruitment-approved-members__error {
+  margin: 0;
+}
+
+.manage-recruitment-approved-members__error {
+  color: var(--color-danger);
+}
+
+.manage-recruitment-information__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-block-start: var(--space-6);
+}
+
+.manage-recruitment-recently-closed {
+  margin-block-start: 0;
+}
+
+.manage-recruitment-recently-closed .manage-recruitment-focus__heading {
+  margin-block-end: 0;
+}
+
+.manage-recruitment-archive {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  margin-block-start: var(--space-6);
+}
+
+.manage-recruitment-archive h2,
+.manage-recruitment-archive p {
+  margin: 0;
+}
+
+.manage-recruitment-archive p {
+  margin-block-start: var(--space-2);
+  color: var(--color-muted-ink);
+}
+
+.manage-recruitment-focus__heading,
+.manage-recruitment-public-status__heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.manage-recruitment-focus__heading h2,
+.manage-recruitment-public-status__heading h2 {
+  margin: 0;
+  font-size: var(--text-h3);
+}
+
+.manage-recruitment-focus__heading p {
+  margin: var(--space-1) 0 0;
+  color: var(--color-muted-ink);
+  font-size: var(--text-caption);
+}
+
+.manage-recruitment-form-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-block: var(--space-4);
+  border-block: var(--border-thin) solid var(--color-line);
+  color: var(--color-muted-ink);
+  font-size: var(--text-caption);
+  font-weight: 700;
+}
+
+.manage-recruitment-form-status strong {
+  color: var(--color-brand-ink);
+  font-size: var(--text-body);
+}
+
+.manage-recruitment-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5) var(--space-6);
+  margin: var(--space-6) 0 0;
+}
+
+.manage-recruitment-facts > div {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-2);
+}
+
+.manage-recruitment-facts dt {
+  color: var(--color-muted-ink);
+  font-size: var(--text-caption);
+}
+
+.manage-recruitment-facts dd {
+  min-width: 0;
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.manage-recruitment-public-status {
+  min-width: 0;
+  padding: var(--space-6);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.manage-recruitment-public-status .manage-preview-list {
+  margin-block: var(--space-5);
+}
+
+.manage-recruitment-period,
+.manage-preview-period {
+  display: grid;
+  gap: var(--space-1);
 }
 
 .manage-stat {
@@ -151,6 +430,28 @@
   font-size: var(--text-h3);
 }
 
+.manage-stat--inline {
+  display: inline-flex;
+  min-width: 0;
+  min-block-size: auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.manage-stat--inline .manage-stat__icon {
+  display: inline-flex;
+  margin: 0;
+  color: var(--color-muted-ink);
+}
+
+.manage-stat--inline strong {
+  color: var(--color-ink);
+  font-size: var(--text-body);
+}
+
 .manage-inline-error {
   display: grid;
   gap: var(--space-1);
@@ -161,6 +462,30 @@
   color: var(--color-danger);
 }
 
+.manage-member-summary {
+  display: grid;
+  gap: var(--space-2);
+  inline-size: min(100%, 27rem);
+  min-block-size: 6.5rem;
+  align-content: center;
+  margin-block-end: var(--space-6);
+  padding: var(--space-5);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.manage-member-summary span {
+  color: var(--color-muted-ink);
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+
+.manage-member-summary strong {
+  color: var(--color-brand-ink);
+  font-size: var(--text-h3);
+}
+
 .manage-table-panel,
 .manage-panel {
   border: var(--border-thin) solid var(--color-line);
@@ -169,21 +494,26 @@
 }
 
 .manage-table-panel {
-  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+  margin-inline: 0;
+  overflow-x: auto;
 }
 
 .manage-member-table {
   width: 100%;
+  min-width: max-content;
   border-collapse: collapse;
-  table-layout: fixed;
+  table-layout: auto;
 }
 
 .manage-member-table th,
 .manage-member-table td {
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-5);
   border-bottom: var(--border-thin) solid var(--color-line);
   text-align: left;
   vertical-align: middle;
+  white-space: nowrap;
 }
 
 .manage-member-table th {
@@ -193,29 +523,31 @@
   font-weight: 700;
 }
 
-.manage-member-table th:first-child {
-  width: 22%;
-}
-
-.manage-member-table th:last-child {
-  width: 25%;
-}
-
 .manage-member-table tbody tr:last-child td {
   border-bottom: 0;
 }
 
-.manage-member-table td:first-child {
+.manage-member-identity {
   display: flex;
+  min-inline-size: 0;
   align-items: center;
   gap: var(--space-3);
 }
 
+.manage-member-identity strong {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.manage-member-table td[data-label="가입일"] {
+  white-space: nowrap;
+}
+
 .manage-avatar {
   display: grid;
-  flex: 0 0 var(--space-10);
-  width: var(--space-10);
-  height: var(--space-10);
+  flex: 0 0 var(--space-12);
+  width: var(--space-12);
+  height: var(--space-12);
   place-items: center;
   border-radius: var(--radius-pill);
   background: var(--color-brand-soft);
@@ -277,30 +609,33 @@
   gap: var(--space-4);
 }
 
+.manage-form-fieldset {
+  display: grid;
+  min-inline-size: 0;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.manage-form-fieldset:disabled {
+  opacity: 0.58;
+}
+
+.manage-archive-note {
+  margin: 0;
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--color-canvas);
+  color: var(--color-muted-ink);
+  font-size: var(--text-caption);
+  font-weight: 700;
+}
+
 .manage-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4);
-}
-
-.manage-api-note {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border-radius: var(--radius-sm);
-  background: var(--color-brand-soft);
-  color: var(--color-brand-ink);
-  font-size: var(--text-caption);
-}
-
-.manage-api-note strong {
-  display: grid;
-  flex: 0 0 var(--space-6);
-  block-size: var(--space-6);
-  place-items: center;
-  border-radius: var(--radius-pill);
-  background: var(--color-surface);
 }
 
 .manage-form-actions {
@@ -314,6 +649,10 @@
   grid-template-columns: minmax(0, 1.65fr) minmax(var(--manage-rail-min), 0.85fr);
   gap: var(--space-6);
   align-items: start;
+}
+
+.manage-recruitment-workspace--archived {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .manage-recruitment-form-panel {
@@ -393,7 +732,65 @@
 }
 
 .manage-recruitment-history {
+  display: grid;
+  gap: var(--space-4);
   margin-block-start: var(--space-6);
+}
+
+.manage-recruitment-history > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.manage-recruitment-history > summary::-webkit-details-marker {
+  display: none;
+}
+
+.manage-recruitment-history > summary::after {
+  color: var(--color-muted-ink);
+  content: "＋";
+  font-size: var(--text-h3);
+  line-height: 1;
+}
+
+.manage-recruitment-history[open] > summary::after {
+  content: "－";
+}
+
+.manage-recruitment-history__heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-6);
+  margin-block-end: var(--space-5);
+}
+
+.manage-recruitment-history__heading h2 {
+  margin: 0;
+}
+
+.manage-recruitment-create-action {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-inline-size: 18rem;
+  text-align: end;
+}
+
+.manage-recruitment-create-action .manage-archive-note {
+  margin: 0;
 }
 
 .manage-member-controls {
@@ -404,12 +801,31 @@
   margin-block-end: var(--space-5);
 }
 
+.manage-member-controls--figma {
+  grid-template-columns: minmax(18rem, 26.25rem) minmax(0, 1fr) 12.375rem;
+  gap: var(--space-3);
+}
+
+.manage-member-search {
+  position: relative;
+  display: block;
+}
+
+.manage-member-search__icon {
+  position: absolute;
+  top: 50%;
+  left: var(--space-4);
+  color: var(--color-muted-ink);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
 .manage-member-search input {
   inline-size: 100%;
   min-block-size: var(--touch-target);
-  padding-inline: var(--space-4);
+  padding: 0 var(--space-4) 0 var(--space-10);
   border: var(--border-thin) solid var(--color-line);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-ink);
   font: inherit;
@@ -441,10 +857,93 @@
 }
 
 .manage-member-sort {
+  position: relative;
+  display: inline-flex;
+  inline-size: 10rem;
+  min-block-size: var(--touch-target);
+  align-items: center;
+  justify-self: end;
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.manage-member-sort select {
+  inline-size: 100%;
+  min-block-size: var(--touch-target);
+  padding: 0 var(--space-8) 0 var(--space-4);
+  border: 0;
+  border-radius: inherit;
+  outline: 0;
+  background: transparent;
   color: var(--color-muted-ink);
+  font: inherit;
   font-size: var(--text-caption);
   font-weight: 700;
+  appearance: none;
+}
+
+.manage-member-sort__icon {
+  position: absolute;
+  right: var(--space-3);
+  color: var(--color-muted-ink);
+  pointer-events: none;
+}
+
+.manage-member-actions {
+  display: flex;
+  justify-content: flex-start;
+  inline-size: fit-content;
+}
+
+.manage-member-menu {
+  position: relative;
+}
+
+.manage-member-menu__trigger {
+  color: var(--color-muted-ink);
+}
+
+.manage-member-menu__trigger:hover:not(:disabled) {
+  background: transparent;
+  transform: none;
+}
+
+.manage-member-menu__popover {
+  position: absolute;
+  z-index: 2;
+  inset-block-start: calc(100% + var(--space-1));
+  inset-inline-end: 0;
+  min-inline-size: 9rem;
+  padding-block: var(--space-1);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-float);
+}
+
+.manage-member-menu__item {
+  display: block;
+  inline-size: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--text-caption);
+  text-align: left;
   white-space: nowrap;
+  cursor: pointer;
+}
+
+.manage-member-menu__item:hover,
+.manage-member-menu__item:focus-visible {
+  background: var(--color-canvas);
+  outline: 0;
+}
+
+.manage-member-menu__item--danger {
+  color: var(--color-danger);
 }
 
 .manage-field {
@@ -494,6 +993,25 @@
   background: var(--color-surface);
 }
 
+.manage-recruitment-card__trigger {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: var(--space-3);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.manage-recruitment-card__trigger:focus-visible {
+  outline: calc(var(--border-thin) * 3) solid var(--color-brand);
+  outline-offset: calc(var(--border-thin) * 2);
+}
+
 .manage-card-main {
   display: grid;
   min-width: 0;
@@ -527,8 +1045,46 @@
   white-space: nowrap;
 }
 
+.manage-recruitment-detail {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.manage-recruitment-detail__list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  border-block: var(--border-thin) solid var(--color-line);
+}
+
+.manage-recruitment-detail__list > div {
+  display: grid;
+  grid-template-columns: minmax(7rem, 0.8fr) minmax(0, 1.2fr);
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+}
+
+.manage-recruitment-detail__list > div + div {
+  border-block-start: var(--border-thin) solid var(--color-line);
+}
+
+.manage-recruitment-detail__list dt {
+  color: var(--color-muted-ink);
+  font-size: var(--text-caption);
+}
+
+.manage-recruitment-detail__list dd {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
 .manage-applicant-panel {
   min-width: 0;
+}
+
+.manage-page--registrations .ui-state--neutral .ui-state__mark {
+  display: none;
 }
 
 .manage-registration-layout {
@@ -572,6 +1128,18 @@
 .manage-rail-panel h3 {
   margin: 0 0 var(--space-4);
   font-size: var(--text-h3);
+}
+
+.manage-rail-panel__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.manage-rail-panel__heading h3 {
+  margin: 0;
 }
 
 .manage-rail-members {
@@ -631,8 +1199,6 @@
   align-items: end;
   gap: var(--space-4);
   margin-bottom: var(--space-5);
-  padding-bottom: var(--space-5);
-  border-bottom: var(--border-thin) solid var(--color-line);
 }
 
 .manage-toolbar h2,
@@ -652,28 +1218,25 @@
 
 .manage-status-filters {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
+  justify-content: flex-end;
 }
 
-.manage-status-filter {
-  min-width: var(--manage-filter-pill-min);
+.manage-status-select {
+  display: inline-flex;
   min-height: var(--touch-target);
-  padding: var(--space-2) var(--space-5);
+  align-items: center;
+}
+
+.manage-status-select select {
+  min-width: 8rem;
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-8) var(--space-2) var(--space-4);
   border: var(--border-thin) solid var(--color-line);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background: var(--color-surface);
-  color: var(--color-muted-ink);
+  color: var(--color-ink);
   font: inherit;
   font-weight: 600;
-  cursor: pointer;
-}
-
-.manage-status-filter[aria-pressed="true"] {
-  border-color: transparent;
-  background: var(--color-brand-soft);
-  color: var(--color-brand-ink);
 }
 
 .manage-back-link {
@@ -690,6 +1253,11 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
+  margin-block-start: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: transparent;
   color: var(--color-muted-ink);
   font-size: var(--text-caption);
 }
@@ -715,12 +1283,9 @@
 @media (max-width: 64rem) {
   .manage-grid,
   .manage-registration-layout,
-  .manage-recruitment-workspace {
+  .manage-recruitment-workspace,
+  .manage-recruitment-focus-layout {
     grid-template-columns: 1fr;
-  }
-
-  .manage-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .manage-member-controls {
@@ -751,9 +1316,22 @@
   }
 
   .manage-heading,
+  .manage-recruitment-focus__heading,
+  .manage-recruitment-history__heading,
   .manage-recruitment-card,
-  .manage-registration-card {
+  .manage-registration-card,
+  .manage-recruitment-archive {
     flex-direction: column;
+  }
+
+  .manage-recruitment-archive {
+    align-items: stretch;
+  }
+
+  .manage-recruitment-create-action {
+    align-items: stretch;
+    max-inline-size: none;
+    text-align: start;
   }
 
   .manage-stat {
@@ -764,9 +1342,28 @@
     grid-template-columns: 1fr;
   }
 
-  .manage-summary-grid,
   .manage-form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .manage-recruitment-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .manage-recruitment-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .manage-recruitment-summary__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .manage-recruitment-summary__list > div:nth-child(odd) {
+    border-inline-start: 0;
+  }
+
+  .manage-recruitment-summary__list > div:nth-child(n + 3) {
+    border-block-start: var(--border-thin) solid var(--color-line);
   }
 
   .manage-form-actions {
@@ -794,72 +1391,17 @@
     grid-template-columns: 1fr;
   }
 
-  .manage-table-panel {
-    overflow: visible;
-    border: 0;
-    background: transparent;
-  }
-
-  .manage-member-table,
-  .manage-member-table tbody {
-    display: block;
-  }
-
-  .manage-member-table thead {
-    display: none;
-  }
-
-  .manage-member-table tr {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-4);
-    margin-bottom: var(--space-3);
-    padding: var(--space-5);
-    border: var(--border-thin) solid var(--color-line);
-    border-radius: var(--radius-md);
-    background: var(--color-surface);
-  }
-
-  .manage-member-table td,
-  .manage-member-table td:first-child {
-    display: grid;
-    align-items: start;
-    gap: var(--space-1);
-    padding: 0;
-    border: 0;
-  }
-
-  .manage-member-table td::before {
-    color: var(--color-muted-ink);
-    content: attr(data-label);
-    font-size: var(--text-caption);
-    font-weight: 600;
-  }
-
-  .manage-member-table td:first-child {
-    grid-column: 1 / -1;
-    grid-template-columns: var(--space-10) minmax(0, 1fr);
-  }
-
-  .manage-member-table td:first-child::before {
-    grid-column: 1 / -1;
-  }
-
-  .manage-member-table td:last-child {
-    grid-column: 1 / -1;
-  }
-
-  .manage-member-table td:last-child > * {
-    width: 100%;
-  }
-
   .manage-pagination {
     border: 0;
   }
 
-  .manage-card-actions {
-    width: 100%;
-  }
+      .manage-card-actions {
+        width: 100%;
+      }
+
+      .manage-recruitment-card__trigger {
+        width: 100%;
+      }
 
   .manage-card-actions > * {
     flex: 1;
@@ -867,11 +1409,6 @@
 
   .manage-applicant-panel {
     padding: 0;
-  }
-
-  .manage-status-filter {
-    min-width: 0;
-    flex: 1 1 40%;
   }
 
   .manage-registration-card {
@@ -883,7 +1420,7 @@
   }
 
   .manage-toolbar {
-    grid-template-columns: 1fr;
-    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
   }
 }

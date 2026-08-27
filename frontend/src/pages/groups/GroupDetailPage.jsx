@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Armchair, ChevronLeft, Pencil } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router";
 
 import { useAuth } from "../../features/auth/index.js";
@@ -6,6 +7,12 @@ import { useGroup } from "../../features/group/index.js";
 import { useInfiniteGroupMembers } from "../../features/member/index.js";
 import { useCreateRegistration } from "../../features/registration/index.js";
 import { toUserMessage } from "../../shared/api/index.js";
+import scheduleIcon from "../../shared/assets/figma/edit-05.svg";
+import placeIcon from "../../shared/assets/figma/edit-06.svg";
+import memberIcon from "../../shared/assets/figma/edit-09.svg";
+import kindIcon from "../../shared/assets/figma/edit-04.svg";
+import recruitmentEmptyIllustration from "../../shared/assets/illustrations/group-recruitment-empty.webp";
+import recruitmentOpenIllustration from "../../shared/assets/illustrations/group-recruitment-open.webp";
 import {
   Avatar,
   Button,
@@ -22,9 +29,11 @@ import {
 } from "../../shared/ui/index.js";
 import {
   flattenPages,
-  formatLocalDate,
+  formatCompactLocalDateTime,
+  meetingTypeLabel,
   publicErrorCopy,
-  scheduleText,
+  recruitmentCountdownLabel,
+  scheduleLines,
   typeLabel
 } from "./pageUtils.js";
 import "./groups.css";
@@ -35,8 +44,23 @@ const tabs = [
   { label: "멤버", value: "members" }
 ];
 
+function DetailFact({ icon, label, unavailable = false, value }) {
+  return (
+    <div className={unavailable ? "group-fact group-fact--unavailable" : "group-fact"}>
+      <img alt="" aria-hidden="true" src={icon} />
+      <div>
+        <dt>{label}</dt>
+        <dd>{value}</dd>
+      </div>
+    </div>
+  );
+}
+
 export function GroupDetailPage() {
   const { groupId } = useParams();
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+  }, [groupId]);
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedTab = tabs.some((tab) => tab.value === searchParams.get("tab"))
     ? searchParams.get("tab")
@@ -46,6 +70,12 @@ export function GroupDetailPage() {
   const group = groupQuery.data;
   const currentMember = auth.member ?? auth.user;
   const isLeader = currentMember?.id === group?.leader?.memberId;
+  const usesDefaultImage =
+    !group?.representativeImageUrl ||
+    group.representativeImageUrl.endsWith("images/default-group.png");
+  const isApprovedMember =
+    group?.currentMemberRole === "MEMBER" || group?.currentMemberRole === "LEADER";
+  const isArchived = group?.status === "ENDED";
 
   if (groupQuery.isLoading) {
     return (
@@ -78,27 +108,54 @@ export function GroupDetailPage() {
 
   return (
     <PageContainer className="group-detail-page">
-      <Link className="group-back" to="/groups">
-        ← 목록으로
-      </Link>
       <div className="group-detail-grid">
         <div>
-          <section className="group-profile" aria-labelledby="group-title">
+          <section
+            className={`group-profile${usesDefaultImage ? " group-profile--default-image" : ""}`}
+            aria-labelledby="group-title"
+          >
+            <Link className="group-back group-back--hero" to="/groups">
+              <ChevronLeft aria-hidden="true" size={18} strokeWidth={2.25} />
+              <span>목록으로</span>
+            </Link>
             <div className="group-profile__copy">
-              <p className="groups-eyebrow">{typeLabel(group.type)}</p>
+              <p className="groups-eyebrow group-profile__type-tag">
+                <span>{typeLabel(group.type)}</span>
+              </p>
               <h1 id="group-title">{group.name}</h1>
               <p>{group.introduction}</p>
-              <h2 className="group-info-title">모임 정보</h2>
-              <dl className="group-facts">
-                <div>
-                  <dt>모임 일정</dt>
-                  <dd>{scheduleText(group)}</dd>
-                </div>
-                <div>
-                  <dt>현재 멤버 수</dt>
-                  <dd>{group.memberCount}명</dd>
-                </div>
-              </dl>
+              <LeaderSummary leader={group.leader} variant="hero" />
+              <div className="group-info">
+                <h2 className="group-info-title">모임 정보</h2>
+                <dl className="group-facts">
+                  <DetailFact
+                    icon={kindIcon}
+                    label="모임 방식"
+                    value={meetingTypeLabel(group.meetingType)}
+                  />
+                  <DetailFact
+                    icon={scheduleIcon}
+                    label="모임 일정"
+                    value={
+                      <span className="group-facts__schedule">
+                        {scheduleLines(group).map((line) => (
+                          <span key={line}>{line}</span>
+                        ))}
+                      </span>
+                    }
+                  />
+                  <DetailFact
+                    icon={placeIcon}
+                    label="장소"
+                    value={group.location || "장소 미정"}
+                  />
+                  <DetailFact
+                    icon={memberIcon}
+                    label="현재 멤버 수"
+                    value={`${group.memberCount}명`}
+                  />
+                </dl>
+              </div>
             </div>
             <div className="group-profile__art">
               <GroupImage
@@ -107,12 +164,27 @@ export function GroupDetailPage() {
                 group={group}
               />
             </div>
+            {isLeader ? (
+              <Link
+                aria-label="모임 수정"
+                className="group-profile__edit ui-button ui-icon-button"
+                title="모임 수정"
+                to={`/groups/${groupId}/manage`}
+              >
+                <Pencil aria-hidden="true" size={20} strokeWidth={2.25} />
+              </Link>
+            ) : null}
           </section>
 
           <div className="group-detail-tabs">
             <Tabs
+              animated
               value={selectedTab}
-              onValueChange={(value) => setSearchParams({ tab: value }, { replace: true })}
+              onValueChange={(value) => {
+                const nextSearchParams = new URLSearchParams(searchParams);
+                nextSearchParams.set("tab", value);
+                setSearchParams(nextSearchParams, { replace: true });
+              }}
               items={[
                 {
                   label: tabs[0].label,
@@ -134,15 +206,40 @@ export function GroupDetailPage() {
           </div>
         </div>
 
-        <aside className="group-rail" aria-label="모집과 운영자 정보">
+        <aside className="group-rail group-rail--desktop" aria-label="운영자와 모집 정보">
+          <LeaderSummary leader={group.leader} variant="card" />
           <RecruitmentSummary
             auth={auth}
             group={group}
-            leader={group.leader}
-            manageHref={isLeader ? `/groups/${groupId}/manage` : null}
+            createRecruitmentHref={isLeader ? `/groups/${groupId}/manage/recruitments` : null}
+            isApprovedMember={isApprovedMember}
+            isArchived={isArchived}
             isLeader={isLeader}
           />
         </aside>
+      </div>
+
+      <div className="group-floating-recruitment">
+        <Modal
+          title="모집 정보"
+          trigger={
+            <Button aria-label="모집 정보 보기" className="group-recruitment-fab">
+              <Armchair aria-hidden="true" size={18} strokeWidth={2.25} />
+              자리 확인
+            </Button>
+          }
+        >
+          <div className="group-recruitment-modal">
+            <RecruitmentSummary
+              auth={auth}
+              group={group}
+              createRecruitmentHref={isLeader ? `/groups/${groupId}/manage/recruitments` : null}
+              isApprovedMember={isApprovedMember}
+              isArchived={isArchived}
+              isLeader={isLeader}
+            />
+          </div>
+        </Modal>
       </div>
     </PageContainer>
   );
@@ -161,10 +258,16 @@ function ActivityTab() {
   return <p className="group-tab-placeholder">추후 기능이 추가됩니다.</p>;
 }
 
-function RecruitmentSummary({ auth, group, isLeader, leader, manageHref }) {
+function RecruitmentSummary({
+  auth,
+  createRecruitmentHref,
+  group,
+  isApprovedMember,
+  isArchived,
+  isLeader
+}) {
   const recruitment = group.activeRecruitment;
   const registration = useCreateRegistration(recruitment?.id);
-  const [message, setMessage] = useState("");
   const [applicationOpen, setApplicationOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -174,17 +277,19 @@ function RecruitmentSummary({ auth, group, isLeader, leader, manageHref }) {
     : 0;
   const isOpen = Boolean(recruitment && remainingSeats > 0);
 
-  function openApplication() {
-    registration.reset();
-    setMessage("");
-    setApplicationOpen(true);
+  if (isArchived) {
+    return (
+      <section className="group-recruitment-summary group-rail-card">
+        <div className="group-recruitment-empty">
+          <h3>아카이빙된 모임입니다</h3>
+        </div>
+      </section>
+    );
   }
 
-  async function submitApplication(event) {
-    event.preventDefault();
-    await registration.mutateAsync({ message: message.trim() || null });
-    setApplicationOpen(false);
-    setSubmitted(true);
+  function openApplication() {
+    registration.reset();
+    setApplicationOpen(true);
   }
 
   function applicationAction() {
@@ -199,6 +304,13 @@ function RecruitmentSummary({ auth, group, isLeader, leader, manageHref }) {
       return (
         <Button disabled variant="secondary">
           운영자
+        </Button>
+      );
+    }
+    if (isApprovedMember) {
+      return (
+        <Button disabled variant="secondary">
+          가입 완료!
         </Button>
       );
     }
@@ -226,34 +338,54 @@ function RecruitmentSummary({ auth, group, isLeader, leader, manageHref }) {
   if (!recruitment) {
     return (
       <section className="group-recruitment-summary group-rail-card">
-        <h2>이 모임에 자리 하나?</h2>
-        <ManageLink href={manageHref} />
-        <EmptyState title="현재 진행 중인 모집이 없어요" />
-        <LeaderSummary leader={leader} />
+        <RecruitmentHero empty />
+        {createRecruitmentHref ? (
+          <div className="group-recruitment-empty">
+            <Link
+              className="group-recruitment-empty__action ui-button ui-button--primary ui-button--md"
+              to={createRecruitmentHref}
+            >
+              새 모집 만들기
+            </Link>
+          </div>
+        ) : null}
       </section>
     );
   }
   return (
     <section className="group-recruitment-summary group-rail-card">
-      <h2>이 모임에 자리 하나?</h2>
-      <ManageLink href={manageHref} />
-      <StatusBadge tone="brand">모집 중</StatusBadge>
+      <RecruitmentHero />
       <dl className="group-recruitment-meta">
         <div>
           <dt>모집일정</dt>
-          <dd>
-            {formatLocalDate(recruitment.startsAt)} ~ {formatLocalDate(recruitment.endsAt)}
+          <dd className="group-recruitment-schedule">
+            <strong className="group-recruitment-countdown">
+              {recruitmentCountdownLabel(recruitment.startsAt, recruitment.endsAt)}
+            </strong>
+            <details className="group-recruitment-details">
+              <summary>일정 자세히</summary>
+              <span className="group-recruitment-period">
+                <span>
+                  <span className="group-recruitment-period__label">시작</span>
+                  <strong>{formatCompactLocalDateTime(recruitment.startsAt)}</strong>
+                </span>
+                <span>
+                  <span className="group-recruitment-period__label">마감</span>
+                  <strong>{formatCompactLocalDateTime(recruitment.endsAt)}</strong>
+                </span>
+              </span>
+            </details>
           </dd>
         </div>
         <div>
-          <dt>지원 현황</dt>
+          <dt>모집 인원</dt>
           <dd>
-            현재 {recruitment.approvedCount}명/최대 {recruitment.capacity}명
+            승인 {recruitment.approvedCount}명 / 정원 {recruitment.capacity}명
           </dd>
         </div>
       </dl>
       <div
-        aria-label={`승인 인원 ${recruitment.approvedCount}명, 모집 정원 ${recruitment.capacity}명`}
+        aria-label={`승인 ${recruitment.approvedCount}명, 정원 ${recruitment.capacity}명`}
         aria-valuemax={recruitment.capacity}
         aria-valuemin="0"
         aria-valuenow={Math.min(recruitment.approvedCount, recruitment.capacity)}
@@ -270,7 +402,6 @@ function RecruitmentSummary({ auth, group, isLeader, leader, manageHref }) {
         />
       </div>
       <div className="group-recruitment-action">{applicationAction()}</div>
-      <LeaderSummary leader={leader} />
       <Modal
         description="운영자에게 전달할 가입 신청 메시지를 작성해 주세요."
         onClose={() => {
@@ -279,54 +410,103 @@ function RecruitmentSummary({ auth, group, isLeader, leader, manageHref }) {
         open={applicationOpen}
         title="가입 신청"
       >
-        <form className="group-application-form" onSubmit={submitApplication}>
-          <Textarea
-            description={`${message.length}/1000자 · 운영자에게 전하고 싶은 내용을 적어주세요.`}
-            label="가입 신청 메시지"
-            maxLength={1000}
-            onChange={(event) => setMessage(event.target.value)}
-            rows={7}
-            value={message}
-          />
-          {registration.error ? (
-            <p className="application-error" role="alert">
-              {registration.error.code
-                ? toUserMessage(registration.error.code)
-                : "신청을 보내지 못했어요. 다시 시도해주세요."}
-            </p>
-          ) : null}
-          <Button pending={registration.isPending} type="submit" variant="primary">
-            가입 신청하기
-          </Button>
-        </form>
+        <ApplicationForm
+          onSuccess={() => {
+            setApplicationOpen(false);
+            setSubmitted(true);
+          }}
+          registration={registration}
+        />
       </Modal>
     </section>
   );
 }
 
-function ManageLink({ href }) {
-  if (!href) return null;
+function RecruitmentHero({ empty = false }) {
+  const illustration = empty ? recruitmentEmptyIllustration : recruitmentOpenIllustration;
+  const title = empty ? "자리없음" : "자리하나?";
+
   return (
-    <Link className="group-manage-link ui-button ui-button--secondary ui-button--md" to={href}>
-      <span>모임 관리</span>
-    </Link>
+    <div
+      className={`group-recruitment-hero group-recruitment-hero--${empty ? "empty" : "open"}`}
+    >
+      <h2 className="group-recruitment-hero__heading">{title}</h2>
+      <img
+        alt=""
+        aria-hidden="true"
+        className="group-recruitment-hero__image"
+        decoding="async"
+        height={720}
+        src={illustration}
+        width={720}
+      />
+      {empty ? null : (
+        <div className="group-recruitment-hero__status">
+          <StatusBadge tone="brand">모집 중</StatusBadge>
+        </div>
+      )}
+    </div>
   );
 }
 
-function LeaderSummary({ leader }) {
-  if (!leader) return null;
+function ApplicationForm({ onSuccess, registration }) {
+  const messageReference = useRef(null);
+  const [messageLength, setMessageLength] = useState(0);
+
+  async function submit(event) {
+    event.preventDefault();
+    const message = messageReference.current?.value ?? "";
+    await registration.mutateAsync({ message: message.trim() || null });
+    onSuccess();
+  }
+
   return (
-    <div className="group-leader">
-      <p>운영자</p>
+    <form className="group-application-form" onSubmit={submit}>
+      <Textarea
+        defaultValue=""
+        description={`${messageLength}/1000자 · 운영자에게 전하고 싶은 내용을 적어주세요.`}
+        label="가입 신청 메시지"
+        maxLength={1000}
+        onInput={(event) => setMessageLength(event.currentTarget.value.length)}
+        ref={messageReference}
+        rows={7}
+      />
+      {registration.error ? (
+        <p className="application-error" role="alert">
+          {registration.error.code
+            ? toUserMessage(registration.error.code)
+            : "신청을 보내지 못했어요. 다시 시도해주세요."}
+        </p>
+      ) : null}
+      <Button pending={registration.isPending} type="submit" variant="primary">
+        가입 신청하기
+      </Button>
+    </form>
+  );
+}
+
+function LeaderSummary({ leader, variant }) {
+  if (!leader) return null;
+  const isHero = variant === "hero";
+
+  return (
+    <div className={`group-leader group-leader--${variant}`}>
+      {isHero ? null : <span className="group-leader__label">운영자</span>}
       <div className="group-leader__identity">
         <Avatar
           alt={`${leader.crewName} 프로필`}
           fallback={leader.crewName.slice(0, 1)}
+          size={isHero ? "sm" : "md"}
           src={leader.avatarUrl}
         />
         <div>
+          {isHero ? (
+            <span className="group-leader__byline">
+              운영자 <span aria-hidden="true">·</span> {leader.generation}기 크루
+            </span>
+          ) : null}
           <strong>{leader.crewName}</strong>
-          <span>{leader.generation}기 크루</span>
+          {isHero ? null : <span>{leader.generation}기 크루</span>}
         </div>
       </div>
     </div>
@@ -402,11 +582,13 @@ function MemberList({ items, query }) {
               <div className="group-member-card__copy">
                 <div className="group-member-card__name-row">
                   <strong>{member.crewName}</strong>
+                </div>
+                <div className="group-member-card__meta">
+                  <span>{generationLabel(member.generation)}</span>
                   {member.role === "LEADER" ? (
                     <span className="group-member-card__role">운영자</span>
                   ) : null}
                 </div>
-                <span>{generationLabel(member.generation)}</span>
               </div>
             </li>
           ))}

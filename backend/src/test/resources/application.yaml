@@ -1,3 +1,7 @@
+server:
+  servlet:
+    context-path: /api
+
 spring:
   datasource:
     url: jdbc:h2:mem:jarihana-test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
@@ -12,6 +16,8 @@ spring:
       initialize-schema: always
 
 jarihana:
+  image:
+    public-base-url: https://cdn.example.test/images
   auth:
     frontend-origin: http://localhost:5173
     oauth-state-cookie-name: oauthState

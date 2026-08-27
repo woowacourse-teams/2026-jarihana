@@ -2,14 +2,14 @@ package com.project.jarihana.recruitment.query.repository;
 
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
-import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
 import com.project.jarihana.group.query.repository.RegistrationJpaRepository;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.query.repository.dto.RecruitmentDetailProjection;
 import com.project.jarihana.registration.domain.RegistrationStatus;
+import org.springframework.stereotype.Repository;
+
 import java.util.List;
 import java.util.Optional;
-import org.springframework.stereotype.Repository;
 
 @Repository
 public class JpaRecruitmentDetailRepository implements RecruitmentDetailRepository {

@@ -1,16 +1,17 @@
 package com.project.jarihana.auth.command.service;
 
 import com.project.jarihana.auth.client.GithubOAuthClient;
-import com.project.jarihana.common.auth.AccessTokenProvider;
 import com.project.jarihana.auth.command.service.dto.GithubLoginCommand;
 import com.project.jarihana.auth.command.service.dto.GithubLoginResult;
+import com.project.jarihana.common.auth.AccessTokenProvider;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Member;
+import org.springframework.stereotype.Service;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import org.springframework.stereotype.Service;
 
 @Service
 public class GithubOAuthCommandService {
@@ -58,6 +59,10 @@ public class GithubOAuthCommandService {
         }
     }
 
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
     private void validateState(GithubLoginCommand command) {
         if (isBlank(command.issuedState()) || !matches(command.issuedState(), command.state())) {
             throw new BusinessException(ErrorCode.OAUTH_STATE_INVALID, STATE_INVALID_MESSAGE);
@@ -69,9 +74,5 @@ public class GithubOAuthCommandService {
                 issuedState.getBytes(StandardCharsets.UTF_8),
                 state.getBytes(StandardCharsets.UTF_8)
         );
-    }
-
-    private boolean isBlank(String value) {
-        return value == null || value.isBlank();
     }
 }

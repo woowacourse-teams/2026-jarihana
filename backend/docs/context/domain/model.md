@@ -135,6 +135,8 @@ erDiagram
 | --- | --- | --- | --- |
 | `id` | Long | PK | 그룹 식별자 |
 | `type` | Enum | NOT NULL | `CLUB`, `STUDY`, `SESSION` |
+| `meetingType` | Enum (`MeetingType`) | NOT NULL | 모임 진행 방식. `ONLINE`, `OFFLINE`, `FLEXIBLE` |
+| `location` | String | nullable, 최대 255자 | 오프라인 모임 장소 또는 온라인 접속 정보 |
 | `recurringSchedule` | RecurringGroupSchedule | `CLUB`, `STUDY` 전용, nullable | 매주 반복되는 고정 활동 요일·시간. 값이 없으면 유동적 일정 |
 | `sessionSchedule` | SessionGroupSchedule | `SESSION`일 때 필수, 그 외 `null` | 한 번만 진행되는 세션의 활동 날짜·시간 |
 | `name` | String | NOT NULL, UNIQUE, 1–50자 | 그룹 이름 |
@@ -151,6 +153,23 @@ erDiagram
 CLUB     친목·취미 중심 동아리
 STUDY    학습 중심 스터디
 SESSION  한 번 진행하는 일회성 모임
+```
+
+#### MeetingType
+
+```javascript
+ONLINE   온라인으로 진행하는 모임
+OFFLINE  오프라인으로 진행하는 모임
+FLEXIBLE 고정된 온라인·오프라인 방식 없이 유동적으로 정하는 모임
+```
+
+`type`은 그룹 종류를, `meetingType`은 모임 진행 방식을 표현한다. 두 값은 서로 다른 의미를 가지며 `meetingType`이 `ONLINE`인 경우에도 `location`에는 접속 정보 등을 저장할 수 있다.
+
+`meetingType`은 생성·수정 요청과 그룹 상세 응답에서 항상 포함한다. 기존 데이터에 `NULL`이 있다면 운영 반영 전에 `FLEXIBLE`로 보정한 뒤 `NOT NULL` 제약을 적용해야 한다.
+
+```sql
+UPDATE groups SET meeting_type = 'FLEXIBLE' WHERE meeting_type IS NULL;
+ALTER TABLE groups ALTER COLUMN meeting_type SET NOT NULL;
 ```
 
 #### GroupStatus

@@ -1,7 +1,5 @@
 package com.project.jarihana.auth.command.controller;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.project.jarihana.auth.command.repository.RefreshTokenRepository;
 import com.project.jarihana.auth.command.service.RefreshTokenIssuer;
 import com.project.jarihana.common.auth.AccessTokenProvider;
@@ -16,14 +14,17 @@ import io.restassured.http.Cookie;
 import io.restassured.response.ExtractableResponse;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.session.Session;
 import org.springframework.session.SessionRepository;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * 로그아웃은 자격 증명 종류에 따라 무효화 대상이 다르다.
@@ -73,6 +74,31 @@ class AuthLogoutAcceptanceTest extends IntegrationTestSupport {
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.NO_CONTENT.value());
         assertThat(refreshTokenRepository.findAll()).isEmpty();
+    }
+
+    private ExtractableResponse<Response> logout(CredentialSpec credentials) {
+        String csrfToken = issueCsrfToken();
+        RequestSpecification request = RestAssured.given()
+                .cookie(CSRF_COOKIE_NAME, csrfToken)
+                .header(CSRF_HEADER_NAME, csrfToken);
+        return credentials.apply(request)
+                .when()
+                .post(LOGOUT_PATH)
+                .then()
+                .extract();
+    }
+
+    private String issueCsrfToken() {
+        return RestAssured.given()
+                .when()
+                .get(MY_PROFILE_PATH)
+                .then()
+                .extract()
+                .cookie(CSRF_COOKIE_NAME);
+    }
+
+    private String accessTokenOf(Member member) {
+        return accessTokenProvider.issue(member.getId()).value();
     }
 
     @DisplayName("로그아웃 응답은 자격 증명 쿠키를 만료시킨다.")
@@ -130,6 +156,21 @@ class AuthLogoutAcceptanceTest extends IntegrationTestSupport {
         assertThat(sessionRepository.findById(sessionId)).isNull();
     }
 
+    private String createSignupSession(String githubId) {
+        return storeSignupGithubId(sessionRepository, githubId);
+    }
+
+    private <S extends Session> String storeSignupGithubId(SessionRepository<S> repository, String githubId) {
+        S session = repository.createSession();
+        session.setAttribute(SignupSession.githubIdAttribute(), githubId);
+        repository.save(session);
+        return session.getId();
+    }
+
+    private String encodeSessionCookie(String sessionId) {
+        return Base64.getEncoder().encodeToString(sessionId.getBytes(StandardCharsets.UTF_8));
+    }
+
     @DisplayName("자격 증명이 없으면 거부한다.")
     @Test
     void rejectLogoutWithoutCredentials() {
@@ -176,49 +217,9 @@ class AuthLogoutAcceptanceTest extends IntegrationTestSupport {
         assertThat(response.jsonPath().getString("error.code")).isEqualTo("ACCESS_DENIED");
     }
 
-    private ExtractableResponse<Response> logout(CredentialSpec credentials) {
-        String csrfToken = issueCsrfToken();
-        RequestSpecification request = RestAssured.given()
-                .cookie(CSRF_COOKIE_NAME, csrfToken)
-                .header(CSRF_HEADER_NAME, csrfToken);
-        return credentials.apply(request)
-                .when()
-                .post(LOGOUT_PATH)
-                .then()
-                .extract();
-    }
-
     @FunctionalInterface
     private interface CredentialSpec {
 
         RequestSpecification apply(RequestSpecification request);
-    }
-
-    private String issueCsrfToken() {
-        return RestAssured.given()
-                .when()
-                .get(MY_PROFILE_PATH)
-                .then()
-                .extract()
-                .cookie(CSRF_COOKIE_NAME);
-    }
-
-    private String accessTokenOf(Member member) {
-        return accessTokenProvider.issue(member.getId()).value();
-    }
-
-    private String createSignupSession(String githubId) {
-        return storeSignupGithubId(sessionRepository, githubId);
-    }
-
-    private <S extends Session> String storeSignupGithubId(SessionRepository<S> repository, String githubId) {
-        S session = repository.createSession();
-        session.setAttribute(SignupSession.githubIdAttribute(), githubId);
-        repository.save(session);
-        return session.getId();
-    }
-
-    private String encodeSessionCookie(String sessionId) {
-        return Base64.getEncoder().encodeToString(sessionId.getBytes(StandardCharsets.UTF_8));
     }
 }

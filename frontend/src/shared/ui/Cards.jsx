@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
 
-export const DEFAULT_GROUP_IMAGE = "/images/default-group.png";
+export const DEFAULT_GROUP_IMAGE = "/api/images/default-group.png";
 
 function classes(...values) {
   return values.filter(Boolean).join(" ");
@@ -35,7 +35,7 @@ export function Avatar({ alt = "", fallback = "?", size = "md", src }) {
 }
 
 function readableType(type) {
-  return { CLUB: "동아리", SESSION: "단기 모임", STUDY: "스터디" }[type] || type || "모임";
+  return { CLUB: "동아리", SESSION: "세션", STUDY: "스터디" }[type] || type || "모임";
 }
 
 function scheduleFrequencyText(group) {
@@ -43,14 +43,15 @@ function scheduleFrequencyText(group) {
   if (Array.isArray(daysOfWeek) && daysOfWeek.length > 0) {
     return `주 ${daysOfWeek.length}회`;
   }
-  if (group.sessionSchedule?.sessionDate) {
-    return "일회성";
-  }
   return null;
 }
 
 export function groupImageUrl(group) {
-  return group?.representativeImageUrl || DEFAULT_GROUP_IMAGE;
+  const imageUrl = group?.representativeImageUrl;
+  if (!imageUrl) return DEFAULT_GROUP_IMAGE;
+  if (imageUrl.startsWith("images/")) return `/api/${imageUrl}`;
+  if (imageUrl.startsWith("/images/")) return `/api${imageUrl}`;
+  return imageUrl;
 }
 
 export function GroupImage({ alt = "", className, group, ...properties }) {
@@ -60,8 +61,13 @@ export function GroupImage({ alt = "", className, group, ...properties }) {
       alt={alt}
       className={className}
       onError={(event) => {
-        event.currentTarget.onerror = null;
-        event.currentTarget.src = DEFAULT_GROUP_IMAGE;
+        const image = event.currentTarget;
+        const fallbackUrl = new URL(DEFAULT_GROUP_IMAGE, window.location.origin).href;
+
+        if (image.src === fallbackUrl) {
+          return;
+        }
+        image.src = fallbackUrl;
       }}
       src={groupImageUrl(group)}
     />
@@ -91,14 +97,16 @@ export function GroupCard({
   const destination = LinkComponent === "a" ? { href } : { to: href };
   return (
     <Card {...destination} as={LinkComponent} className="ui-group-card" interactive>
-      <GroupImage
-        alt=""
-        className="ui-group-card__image"
-        group={group}
-        height="288"
-        loading="lazy"
-        width="512"
-      />
+      <div className="ui-group-card__visual">
+        <GroupImage
+          alt=""
+          className="ui-group-card__image"
+          group={group}
+          height="288"
+          loading="lazy"
+          width="512"
+        />
+      </div>
       <div className="ui-group-card__body">
         <div className="ui-card__meta">
           <span>{readableType(group.type)}</span>

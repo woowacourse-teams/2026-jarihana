@@ -25,6 +25,7 @@ export default (_, arguments_) => {
   const isProduction = mode === "production";
 
   return {
+    devtool: isProduction ? "source-map" : "eval-source-map",
     entry: path.resolve(directory, "src/index.jsx"),
     output: {
       clean: true,
@@ -73,8 +74,16 @@ export default (_, arguments_) => {
       new CopyWebpackPlugin({
         patterns: [
           {
+            from: path.resolve(directory, "src/shared/assets/brand/jarihana-favicon.png"),
+            to: "favicon.png"
+          },
+          {
             from: path.resolve(directory, "public/manifest.webmanifest"),
             to: "manifest.webmanifest"
+          },
+          {
+            from: path.resolve(directory, "public/images"),
+            to: "images"
           }
         ]
       }),
@@ -96,7 +105,7 @@ export default (_, arguments_) => {
       proxy: [
         {
           changeOrigin: true,
-          context: ["/api", "/images"],
+          context: ["/api"],
           target: "http://localhost:8080"
         }
       ],

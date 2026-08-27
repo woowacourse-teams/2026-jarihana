@@ -1,7 +1,7 @@
 package com.project.jarihana.auth.command.controller;
 
-import com.project.jarihana.auth.command.service.AuthCommandService;
 import com.project.jarihana.auth.command.controller.dto.RefreshResponse;
+import com.project.jarihana.auth.command.service.AuthCommandService;
 import com.project.jarihana.auth.command.service.dto.LogoutCommand;
 import com.project.jarihana.auth.command.service.dto.RefreshCommand;
 import com.project.jarihana.auth.command.service.dto.RefreshResult;
@@ -14,13 +14,14 @@ import com.project.jarihana.common.response.ApiResponse;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.util.Arrays;
-import java.util.Optional;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Arrays;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/auth")
@@ -88,6 +89,18 @@ public class AuthCommandController {
                 .toString();
     }
 
+    private Optional<String> readRefreshToken(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            return Optional.empty();
+        }
+        return Arrays.stream(cookies)
+                .filter(cookie -> authCookieProperties.refreshTokenName().equals(cookie.getName()))
+                .map(Cookie::getValue)
+                .filter(value -> value != null && !value.isBlank())
+                .findFirst();
+    }
+
     /**
      * 자격 증명이 Access Token, Refresh Token, 가입 세션 세 갈래여서 LoginMember 어노테이션을
      * 쓰지 않는다. 어느 쪽도 없을 때 거부하는 판단은 Service가 한다.
@@ -106,17 +119,5 @@ public class AuthCommandController {
                 .header(HttpHeaders.SET_COOKIE, authCookieFactory.expiredAccessToken().toString())
                 .header(HttpHeaders.SET_COOKIE, authCookieFactory.expiredRefreshToken().toString())
                 .build();
-    }
-
-    private Optional<String> readRefreshToken(HttpServletRequest request) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies == null) {
-            return Optional.empty();
-        }
-        return Arrays.stream(cookies)
-                .filter(cookie -> authCookieProperties.refreshTokenName().equals(cookie.getName()))
-                .map(Cookie::getValue)
-                .filter(value -> value != null && !value.isBlank())
-                .findFirst();
     }
 }

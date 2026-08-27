@@ -59,7 +59,10 @@ it("uses a full-width header background with shell-aligned inner content", () =>
     /max-width:\s*var\(--container-shell\)[\s\S]*margin:\s*0 auto[\s\S]*padding:\s*0 var\(--page-gutter\)/
   );
   expect(appShellCss).toMatch(
-    /@media \(min-width: 48rem\)[\s\S]*\.app-header__inner\s*\{[\s\S]*grid-template-columns:\s*1fr auto 1fr/
+    /@media \(min-width: 48rem\)[\s\S]*\.app-header__inner\s*\{[\s\S]*grid-template-columns:\s*auto 1fr auto/
+  );
+  expect(appShellCss).toMatch(
+    /\.app-header__desktop-nav\s*\{[\s\S]*justify-self:\s*start/
   );
   promotedTokens.forEach((token) => expect(tokensCss).toContain(token));
   expect(appShellCss).toContain("font-size: var(--text-brand)");

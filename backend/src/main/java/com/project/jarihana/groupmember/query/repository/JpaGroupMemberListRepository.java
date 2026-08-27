@@ -4,10 +4,11 @@ import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.groupmember.query.repository.dto.GroupMemberListPage;
 import com.project.jarihana.groupmember.query.repository.dto.GroupMemberListProjection;
 import com.project.jarihana.groupmember.query.repository.dto.GroupMemberListSearchCriteria;
-import java.util.List;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Repository;
+
+import java.util.List;
 
 @Repository
 public class JpaGroupMemberListRepository implements GroupMemberListRepository {

@@ -12,15 +12,13 @@ export function ManagementContext({ active, groupId, recruitmentId }) {
       label: "모집 관리",
       to: `/groups/${groupId}/manage/recruitments`
     },
-    ...(recruitmentId
-      ? [
-          {
-            key: "registrations",
-            label: "신청 관리",
-            to: `/groups/${groupId}/manage/recruitments/${recruitmentId}/registrations`
-          }
-        ]
-      : []),
+    {
+      key: "registrations",
+      label: "신청 관리",
+      to: recruitmentId
+        ? `/groups/${groupId}/manage/recruitments/${recruitmentId}/registrations`
+        : `/groups/${groupId}/manage/registrations`
+    },
     { key: "members", label: "멤버 관리", to: `/groups/${groupId}/manage/members` }
   ];
 
@@ -47,16 +45,23 @@ export function ManagementContext({ active, groupId, recruitmentId }) {
   );
 }
 
-export function ManagementPageHeading({ description, statLabel, statValue, title }) {
+export function ManagementPageHeading({ description, statIcon, statLabel, statValue, title }) {
+  const hasStat = statValue !== undefined && statValue !== null;
+  const statAriaLabel = [statLabel, statValue].filter(Boolean).join(" ");
+
   return (
     <div className="manage-heading">
       <div>
         <h2>{title}</h2>
         <p>{description}</p>
       </div>
-      {statLabel && statValue ? (
-        <div className="manage-stat" aria-label={`${statLabel} ${statValue}`}>
-          <span>{statLabel}</span>
+      {hasStat ? (
+        <div
+          aria-label={statAriaLabel || undefined}
+          className={statIcon ? "manage-stat manage-stat--inline" : "manage-stat"}
+        >
+          {statIcon ? <span className="manage-stat__icon">{statIcon}</span> : null}
+          {statLabel ? <span>{statLabel}</span> : null}
           <strong>{statValue}</strong>
         </div>
       ) : null}

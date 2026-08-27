@@ -2,7 +2,7 @@ import { ArrowRight, CalendarDays, UsersRound } from "lucide-react";
 import { Link } from "react-router";
 
 import { Card, StatusBadge } from "../../shared/ui/index.js";
-import { GROUP_TYPE_LABELS, REGISTRATION_STATUS_LABELS, formatKoreanDate } from "./accountUtils.js";
+import { formatKoreanDate, GROUP_TYPE_LABELS, REGISTRATION_STATUS_LABELS } from "./accountUtils.js";
 
 export function GroupSummaryCard({ group }) {
   return (

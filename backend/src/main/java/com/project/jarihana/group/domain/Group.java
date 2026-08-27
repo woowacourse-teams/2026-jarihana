@@ -3,22 +3,12 @@ package com.project.jarihana.group.domain;
 import com.project.jarihana.common.domain.BaseEntity;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
-import jakarta.persistence.AttributeOverride;
-import jakarta.persistence.AttributeOverrides;
-import jakarta.persistence.Column;
-import jakarta.persistence.Embedded;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
-import java.time.LocalDateTime;
-import java.util.Objects;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Entity
 @Table(
@@ -28,11 +18,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Group extends BaseEntity {
 
-    private static final int NAME_MAX_LENGTH = 50;
-    private static final int INTRODUCTION_MAX_LENGTH = 100;
-    private static final int DESCRIPTION_MAX_LENGTH = 5_000;
-    private static final long DELETABLE_HOURS = 24;
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
@@ -41,6 +26,13 @@ public class Group extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 20)
     private GroupType type;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "meeting_type", nullable = false, length = 20)
+    private MeetingType meetingType;
+
+    @Column(name = "location", length = 255)
+    private String location;
 
     @Embedded
     @AttributeOverrides({
@@ -58,13 +50,13 @@ public class Group extends BaseEntity {
     })
     private SessionGroupSchedule sessionSchedule;
 
-    @Column(name = "name", nullable = false, length = NAME_MAX_LENGTH)
+    @Column(name = "name", nullable = false, length = 50)
     private String name;
 
-    @Column(name = "introduction", nullable = false, length = INTRODUCTION_MAX_LENGTH)
+    @Column(name = "introduction", nullable = false, length = 100)
     private String introduction;
 
-    @Column(name = "description", length = DESCRIPTION_MAX_LENGTH)
+    @Column(name = "description", length = 5_000)
     private String description;
 
     @Column(name = "representative_image_key")
@@ -77,6 +69,8 @@ public class Group extends BaseEntity {
     private Group(
             Long id,
             GroupType type,
+            MeetingType meetingType,
+            String location,
             RecurringGroupSchedule recurringSchedule,
             SessionGroupSchedule sessionSchedule,
             String name,
@@ -89,222 +83,16 @@ public class Group extends BaseEntity {
         super(require(createdAt, "생성 시각"));
         this.id = id;
         this.type = require(type, "그룹 유형");
+        this.meetingType = require(meetingType, "모임 방식");
+        this.location = validateNullableLength(location, 255, "장소");
         validateSchedule(type, recurringSchedule, sessionSchedule);
         this.recurringSchedule = recurringSchedule;
         this.sessionSchedule = sessionSchedule;
-        this.name = validateRequiredLength(name, NAME_MAX_LENGTH, "그룹 이름");
-        this.introduction = validateRequiredLength(introduction, INTRODUCTION_MAX_LENGTH, "한 줄 소개");
-        this.description = validateNullableLength(description, DESCRIPTION_MAX_LENGTH, "상세 소개");
+        this.name = validateRequiredLength(name, 50, "그룹 이름");
+        this.introduction = validateRequiredLength(introduction, 100, "한 줄 소개");
+        this.description = validateNullableLength(description, 5_000, "상세 소개");
         this.representativeImageKey = representativeImageKey;
         this.status = require(status, "그룹 상태");
-    }
-
-    public static Group createClub(
-            String name,
-            String introduction,
-            String description,
-            String representativeImageKey,
-            RecurringGroupSchedule recurringSchedule,
-            LocalDateTime createdAt
-    ) {
-        return createRecurringGroup(
-                GroupType.CLUB,
-                name,
-                introduction,
-                description,
-                representativeImageKey,
-                recurringSchedule,
-                createdAt
-        );
-    }
-
-    public static Group createStudy(
-            String name,
-            String introduction,
-            String description,
-            String representativeImageKey,
-            RecurringGroupSchedule recurringSchedule,
-            LocalDateTime createdAt
-    ) {
-        return createRecurringGroup(
-                GroupType.STUDY,
-                name,
-                introduction,
-                description,
-                representativeImageKey,
-                recurringSchedule,
-                createdAt
-        );
-    }
-
-    public static Group createSession(
-            String name,
-            String introduction,
-            String description,
-            String representativeImageKey,
-            SessionGroupSchedule sessionSchedule,
-            LocalDateTime createdAt
-    ) {
-        return new Group(
-                null,
-                GroupType.SESSION,
-                null,
-                sessionSchedule,
-                name,
-                introduction,
-                description,
-                representativeImageKey,
-                GroupStatus.ACTIVE,
-                createdAt
-        );
-    }
-
-    private static Group createRecurringGroup(
-            GroupType type,
-            String name,
-            String introduction,
-            String description,
-            String representativeImageKey,
-            RecurringGroupSchedule recurringSchedule,
-            LocalDateTime createdAt
-    ) {
-        return new Group(
-                null,
-                type,
-                recurringSchedule,
-                null,
-                name,
-                introduction,
-                description,
-                representativeImageKey,
-                GroupStatus.ACTIVE,
-                createdAt
-        );
-    }
-
-    public boolean isActive() {
-        return status == GroupStatus.ACTIVE;
-    }
-
-    public boolean canDeleteAt(LocalDateTime now) {
-        LocalDateTime currentTime = require(now, "현재 시각");
-        LocalDateTime createdAt = getCreatedAt();
-        LocalDateTime deletionDeadline = createdAt.plusHours(DELETABLE_HOURS);
-        return isActive() && !currentTime.isBefore(createdAt) && !currentTime.isAfter(deletionDeadline);
-    }
-
-    public boolean canEndAt(LocalDateTime now) {
-        LocalDateTime currentTime = require(now, "현재 시각");
-        LocalDateTime createdAt = getCreatedAt();
-        LocalDateTime deletionDeadline = createdAt.plusHours(DELETABLE_HOURS);
-        return isActive() && currentTime.isAfter(deletionDeadline);
-    }
-
-    public Group modify(
-            String name,
-            String introduction,
-            String description,
-            String representativeImageKey,
-            RecurringGroupSchedule recurringSchedule,
-            SessionGroupSchedule sessionSchedule
-    ) {
-        requireActive();
-        return new Group(
-                id,
-                type,
-                recurringSchedule,
-                sessionSchedule,
-                name,
-                introduction,
-                description,
-                representativeImageKey,
-                status,
-                getCreatedAt()
-        );
-    }
-
-    public Group replaceRecurringSchedule(RecurringGroupSchedule schedule) {
-        requireActive();
-        if (type == GroupType.SESSION) {
-            throw new BusinessException(ErrorCode.SCHEDULE_TYPE_MISMATCH, "SESSION 그룹에는 반복 일정을 등록할 수 없습니다.");
-        }
-        return new Group(
-                id,
-                type,
-                require(schedule, "반복 일정"),
-                null,
-                name,
-                introduction,
-                description,
-                representativeImageKey,
-                status,
-                getCreatedAt()
-        );
-    }
-
-    public Group removeRecurringSchedule() {
-        requireActive();
-        if (type == GroupType.SESSION) {
-            throw new BusinessException(ErrorCode.SCHEDULE_TYPE_MISMATCH, "SESSION 그룹에는 반복 일정이 없습니다.");
-        }
-        if (recurringSchedule == null) {
-            throw new BusinessException(ErrorCode.RECURRING_SCHEDULE_NOT_FOUND, "등록된 반복 일정이 없습니다.");
-        }
-        return new Group(
-                id,
-                type,
-                null,
-                null,
-                name,
-                introduction,
-                description,
-                representativeImageKey,
-                status,
-                getCreatedAt()
-        );
-    }
-
-    public Group replaceSessionSchedule(SessionGroupSchedule schedule) {
-        requireActive();
-        if (type != GroupType.SESSION) {
-            throw new BusinessException(ErrorCode.SCHEDULE_TYPE_MISMATCH, "CLUB과 STUDY 그룹에는 세션 일정을 등록할 수 없습니다.");
-        }
-        return new Group(
-                id,
-                type,
-                null,
-                require(schedule, "세션 일정"),
-                name,
-                introduction,
-                description,
-                representativeImageKey,
-                status,
-                getCreatedAt()
-        );
-    }
-
-    public Group endAt(LocalDateTime now) {
-        if (!canEndAt(now)) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "그룹은 생성 후 24시간이 지난 ACTIVE 상태에서만 종료할 수 있습니다.");
-        }
-        return new Group(
-                id,
-                type,
-                recurringSchedule,
-                sessionSchedule,
-                name,
-                introduction,
-                description,
-                representativeImageKey,
-                GroupStatus.ENDED,
-                getCreatedAt()
-        );
-    }
-
-    private void requireActive() {
-        if (!isActive()) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "ACTIVE 상태의 그룹만 변경할 수 있습니다.");
-        }
     }
 
     private static void validateSchedule(
@@ -344,12 +132,340 @@ public class Group extends BaseEntity {
         return value;
     }
 
+    public static Group createClub(
+            String name,
+            String introduction,
+            String description,
+            String representativeImageKey,
+            RecurringGroupSchedule recurringSchedule,
+            LocalDateTime createdAt
+    ) {
+        return createClub(
+                name,
+                introduction,
+                description,
+                representativeImageKey,
+                MeetingType.FLEXIBLE,
+                null,
+                recurringSchedule,
+                createdAt
+        );
+    }
+
+    public static Group createClub(
+            String name,
+            String introduction,
+            String description,
+            String representativeImageKey,
+            MeetingType meetingType,
+            String location,
+            RecurringGroupSchedule recurringSchedule,
+            LocalDateTime createdAt
+    ) {
+        return createRecurringGroup(
+                GroupType.CLUB,
+                name,
+                introduction,
+                description,
+                representativeImageKey,
+                meetingType,
+                location,
+                recurringSchedule,
+                createdAt
+        );
+    }
+
+    private static Group createRecurringGroup(
+            GroupType type,
+            String name,
+            String introduction,
+            String description,
+            String representativeImageKey,
+            MeetingType meetingType,
+            String location,
+            RecurringGroupSchedule recurringSchedule,
+            LocalDateTime createdAt
+    ) {
+        return new Group(
+                null,
+                type,
+                meetingType,
+                location,
+                recurringSchedule,
+                null,
+                name,
+                introduction,
+                description,
+                representativeImageKey,
+                GroupStatus.ACTIVE,
+                createdAt
+        );
+    }
+
+    public static Group createStudy(
+            String name,
+            String introduction,
+            String description,
+            String representativeImageKey,
+            RecurringGroupSchedule recurringSchedule,
+            LocalDateTime createdAt
+    ) {
+        return createStudy(
+                name,
+                introduction,
+                description,
+                representativeImageKey,
+                MeetingType.FLEXIBLE,
+                null,
+                recurringSchedule,
+                createdAt
+        );
+    }
+
+    public static Group createStudy(
+            String name,
+            String introduction,
+            String description,
+            String representativeImageKey,
+            MeetingType meetingType,
+            String location,
+            RecurringGroupSchedule recurringSchedule,
+            LocalDateTime createdAt
+    ) {
+        return createRecurringGroup(
+                GroupType.STUDY,
+                name,
+                introduction,
+                description,
+                representativeImageKey,
+                meetingType,
+                location,
+                recurringSchedule,
+                createdAt
+        );
+    }
+
+    public static Group createSession(
+            String name,
+            String introduction,
+            String description,
+            String representativeImageKey,
+            SessionGroupSchedule sessionSchedule,
+            LocalDateTime createdAt
+    ) {
+        return createSession(
+                name,
+                introduction,
+                description,
+                representativeImageKey,
+                MeetingType.FLEXIBLE,
+                null,
+                sessionSchedule,
+                createdAt
+        );
+    }
+
+    public static Group createSession(
+            String name,
+            String introduction,
+            String description,
+            String representativeImageKey,
+            MeetingType meetingType,
+            String location,
+            SessionGroupSchedule sessionSchedule,
+            LocalDateTime createdAt
+    ) {
+        return new Group(
+                null,
+                GroupType.SESSION,
+                meetingType,
+                location,
+                null,
+                sessionSchedule,
+                name,
+                introduction,
+                description,
+                representativeImageKey,
+                GroupStatus.ACTIVE,
+                createdAt
+        );
+    }
+
+    public boolean canDeleteAt(LocalDateTime now) {
+        LocalDateTime currentTime = require(now, "현재 시각");
+        LocalDateTime createdAt = getCreatedAt();
+        LocalDateTime deletionDeadline = createdAt.plusHours(24);
+        return isActive() && !currentTime.isBefore(createdAt) && !currentTime.isAfter(deletionDeadline);
+    }
+
+    public boolean isActive() {
+        return status == GroupStatus.ACTIVE;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return super.getCreatedAt();
+    }
+
+    public Group modify(
+            String name,
+            String introduction,
+            String description,
+            String representativeImageKey,
+            RecurringGroupSchedule recurringSchedule,
+            SessionGroupSchedule sessionSchedule
+    ) {
+        return modify(
+                name,
+                introduction,
+                description,
+                representativeImageKey,
+                this.meetingType,
+                this.location,
+                recurringSchedule,
+                sessionSchedule
+        );
+    }
+
+    public Group modify(
+            String name,
+            String introduction,
+            String description,
+            String representativeImageKey,
+            MeetingType meetingType,
+            String location,
+            RecurringGroupSchedule recurringSchedule,
+            SessionGroupSchedule sessionSchedule
+    ) {
+        requireActive();
+        return new Group(
+                id,
+                type,
+                meetingType,
+                location,
+                recurringSchedule,
+                sessionSchedule,
+                name,
+                introduction,
+                description,
+                representativeImageKey,
+                status,
+                getCreatedAt()
+        );
+    }
+
+    private void requireActive() {
+        if (!isActive()) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "ACTIVE 상태의 그룹만 변경할 수 있습니다.");
+        }
+    }
+
+    public Group replaceRecurringSchedule(RecurringGroupSchedule schedule) {
+        requireActive();
+        if (type == GroupType.SESSION) {
+            throw new BusinessException(ErrorCode.SCHEDULE_TYPE_MISMATCH, "SESSION 그룹에는 반복 일정을 등록할 수 없습니다.");
+        }
+        return new Group(
+                id,
+                type,
+                meetingType,
+                location,
+                require(schedule, "반복 일정"),
+                null,
+                name,
+                introduction,
+                description,
+                representativeImageKey,
+                status,
+                getCreatedAt()
+        );
+    }
+
+    public Group removeRecurringSchedule() {
+        requireActive();
+        if (type == GroupType.SESSION) {
+            throw new BusinessException(ErrorCode.SCHEDULE_TYPE_MISMATCH, "SESSION 그룹에는 반복 일정이 없습니다.");
+        }
+        if (recurringSchedule == null) {
+            throw new BusinessException(ErrorCode.RECURRING_SCHEDULE_NOT_FOUND, "등록된 반복 일정이 없습니다.");
+        }
+        return new Group(
+                id,
+                type,
+                meetingType,
+                location,
+                null,
+                null,
+                name,
+                introduction,
+                description,
+                representativeImageKey,
+                status,
+                getCreatedAt()
+        );
+    }
+
+    public Group replaceSessionSchedule(SessionGroupSchedule schedule) {
+        requireActive();
+        if (type != GroupType.SESSION) {
+            throw new BusinessException(ErrorCode.SCHEDULE_TYPE_MISMATCH, "CLUB과 STUDY 그룹에는 세션 일정을 등록할 수 없습니다.");
+        }
+        return new Group(
+                id,
+                type,
+                meetingType,
+                location,
+                null,
+                require(schedule, "세션 일정"),
+                name,
+                introduction,
+                description,
+                representativeImageKey,
+                status,
+                getCreatedAt()
+        );
+    }
+
+    public Group endAt(LocalDateTime now) {
+        if (!canEndAt(now)) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "그룹은 생성 후 24시간이 지난 ACTIVE 상태에서만 종료할 수 있습니다.");
+        }
+        return new Group(
+                id,
+                type,
+                meetingType,
+                location,
+                recurringSchedule,
+                sessionSchedule,
+                name,
+                introduction,
+                description,
+                representativeImageKey,
+                GroupStatus.ENDED,
+                getCreatedAt()
+        );
+    }
+
+    public boolean canEndAt(LocalDateTime now) {
+        LocalDateTime currentTime = require(now, "현재 시각");
+        LocalDateTime createdAt = getCreatedAt();
+        LocalDateTime deletionDeadline = createdAt.plusHours(24);
+        return isActive() && currentTime.isAfter(deletionDeadline);
+    }
+
     public Long getId() {
         return id;
     }
 
     public GroupType getType() {
         return type;
+    }
+
+    public MeetingType getMeetingType() {
+        return meetingType;
+    }
+
+    public String getLocation() {
+        return location;
     }
 
     public RecurringGroupSchedule getRecurringSchedule() {
@@ -380,8 +496,9 @@ public class Group extends BaseEntity {
         return status;
     }
 
-    public LocalDateTime getCreatedAt() {
-        return super.getCreatedAt();
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
     }
 
     @Override
@@ -396,10 +513,5 @@ public class Group extends BaseEntity {
             return false;
         }
         return id.equals(other.id);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(id);
     }
 }

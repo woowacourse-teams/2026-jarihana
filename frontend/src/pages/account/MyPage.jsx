@@ -8,6 +8,41 @@ import { AccountLayout } from "./AccountLayout.jsx";
 import { MyActivityBoard } from "./MyActivityBoard.jsx";
 import { COURSE_LABELS, flattenPages } from "./accountUtils.js";
 
+const GROUP_TAB_IDS = ["joined", "registrations"];
+const LEGACY_GROUP_TAB_IDS = { led: "joined" };
+
+function readInitialGroupTab() {
+  const requested = new URLSearchParams(window.location.search).get("tab");
+  const resolved = LEGACY_GROUP_TAB_IDS[requested] ?? requested;
+  return GROUP_TAB_IDS.includes(resolved) ? resolved : "joined";
+}
+
+function mergeGroupQueries(activeQuery, archivedQuery) {
+  const groups = new Map();
+  [...flattenPages(activeQuery.data), ...flattenPages(archivedQuery.data)].forEach((group) => {
+    groups.set(group.id, group);
+  });
+  const pageCount = Math.max(
+    activeQuery.data?.pages.length ?? 0,
+    archivedQuery.data?.pages.length ?? 0,
+    1
+  );
+
+  return {
+    data: { pages: Array.from({ length: pageCount }, () => ({})) },
+    fetchNextPage: () =>
+      Promise.all([
+        activeQuery.hasNextPage ? activeQuery.fetchNextPage() : null,
+        archivedQuery.hasNextPage ? archivedQuery.fetchNextPage() : null
+      ]),
+    hasNextPage: Boolean(activeQuery.hasNextPage || archivedQuery.hasNextPage),
+    isError: activeQuery.isError || archivedQuery.isError,
+    isFetchingNextPage: activeQuery.isFetchingNextPage || archivedQuery.isFetchingNextPage,
+    isLoading: activeQuery.isLoading || archivedQuery.isLoading,
+    items: [...groups.values()]
+  };
+}
+
 function ProfileAvatar({ member }) {
   const [imageFailed, setImageFailed] = useState(false);
 
@@ -35,15 +70,14 @@ function ProfileAvatar({ member }) {
 
 export function MyPage() {
   const { member } = useAuth();
-  const [activeGroupTab, setActiveGroupTab] = useState("joined");
-  const joinedQuery = useInfiniteGroups({ relation: "JOINED" });
-  const ledQuery = useInfiniteGroups({ relation: "JOINED", role: "LEADER" });
+  const [activeGroupTab, setActiveGroupTab] = useState(readInitialGroupTab);
+  const joinedActiveQuery = useInfiniteGroups({ relation: "JOINED" });
+  const joinedEndedQuery = useInfiniteGroups({ relation: "JOINED", status: "ENDED" });
   const registrationQuery = useInfiniteMyRegistrations({ applicant: "me" });
-  const joined = flattenPages(joinedQuery.data);
-  const led = flattenPages(ledQuery.data);
+  const joinedQuery = mergeGroupQueries(joinedActiveQuery, joinedEndedQuery);
+  const joined = joinedQuery.items;
   const registrations = flattenPages(registrationQuery.data);
   const joinedCount = `${joined.length}${joinedQuery.hasNextPage ? "+" : ""}`;
-  const ledCount = `${led.length}${ledQuery.hasNextPage ? "+" : ""}`;
   const registrationCount = `${registrations.length}${registrationQuery.hasNextPage ? "+" : ""}`;
   const groupTabs = [
     {
@@ -59,13 +93,6 @@ export function MyPage() {
       count: registrationCount,
       items: registrations,
       query: registrationQuery
-    },
-    {
-      id: "led",
-      label: "운영하는 모임",
-      count: ledCount,
-      items: led,
-      query: ledQuery
     }
   ];
   const activeGroup = groupTabs.find((tab) => tab.id === activeGroupTab) ?? groupTabs[0];
@@ -81,7 +108,7 @@ export function MyPage() {
   return (
     <AccountLayout
       title="마이페이지"
-      description="신청 · 가입 · 운영 중인 모임과 내가 남긴 활동 흔적을 확인하세요."
+      description="가입한 모임과 신청한 모임을 한곳에서 확인하세요."
     >
       <div className="my-dashboard">
         <aside className="profile-column">
@@ -90,9 +117,8 @@ export function MyPage() {
             <ProfileAvatar member={member} />
             <h2>{member.crewName}</h2>
             <p>
-              {member.generation}기 · {COURSE_LABELS[member.course] ?? member.course}
+              {member.generation}기 / {COURSE_LABELS[member.course] ?? member.course}
             </p>
-            <p className="profile-card__note">현재 프로필은 읽기 전용이에요.</p>
           </Card>
           <div aria-hidden="true" className="profile-companion" />
         </aside>
@@ -115,6 +141,7 @@ export function MyPage() {
             ))}
           </div>
           <MyActivityBoard
+            currentMemberId={member.id}
             items={activeGroup.items}
             kind={activeGroup.id}
             query={activeGroup.query}

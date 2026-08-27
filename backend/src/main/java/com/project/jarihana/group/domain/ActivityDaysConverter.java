@@ -2,6 +2,7 @@ package com.project.jarihana.group.domain;
 
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
+
 import java.time.DayOfWeek;
 import java.util.Arrays;
 import java.util.Set;

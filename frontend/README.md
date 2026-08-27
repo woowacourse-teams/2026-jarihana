@@ -65,7 +65,7 @@ DB 비밀번호는 이 파일이나 프론트엔드 번들에 절대 넣지 않�
 | 변수                      | 로컬 기본값/예시                                  | 용도                                                                                              |
 | ------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | `APP_GITHUB_CLIENT_ID`    | GitHub OAuth 앱의 client ID                       | GitHub authorize URL의 `client_id`                                                                |
-| `APP_GITHUB_REDIRECT_URI` | `http://localhost:8080/api/oauth/github/callback` | GitHub가 돌아올 백엔드 callback. 백엔드 `GITHUB_OAUTH_REDIRECT_URI` 및 GitHub 앱 설정과 같아야 함 |
+| `APP_GITHUB_REDIRECT_URI` | `http://localhost:5173/api/oauth/github/callback` | GitHub가 돌아올 백엔드 callback. 백엔드 `GITHUB_OAUTH_REDIRECT_URI` 및 GitHub 앱 설정과 같아야 함 |
 | `APP_OAUTH_COOKIE_NAME`   | `oauthState`                                      | OAuth state를 잠시 저장하는 브라우저 쿠키 이름                                                    |
 | `APP_OAUTH_COOKIE_DOMAIN` | 비움                                              | 운영에서 합의된 공유 상위 도메인이 있을 때만 설정                                                 |
 | `DISABLE_REACT_DEVTOOLS`  | `0`                                               | 개발용 React 진단 overlay를 끄려면 `1`                                                            |
@@ -82,9 +82,9 @@ cd frontend
 npm run dev
 ```
 
-브라우저에서 `http://localhost:5173`을 엽니다. Webpack 개발 서버는 `/api`와 `/images`를
-`http://localhost:8080`으로 proxy하므로, 화면의 API 코드는 언제나 상대 경로 `/api/...`만
-사용합니다. React Router deep link도 개발 서버의 history fallback으로 새로고침됩니다. 보호
+브라우저에서 `http://localhost:5173`을 엽니다. Webpack 개발 서버는 `/api`를
+`http://localhost:8080`으로 proxy하고 `/images`는 프론트엔드 정적 파일로 제공합니다.
+화면의 API 코드는 언제나 상대 경로 `/api/...`만 사용합니다. React Router deep link도 개발 서버의 history fallback으로 새로고침됩니다. 보호
 화면을 점검하려면 `개발 계정으로 시작`을 누른 다음 `모임 만들기`, `모임 관리`로 이동합니다.
 
 ## 스크립트
@@ -129,8 +129,8 @@ E2E는 production API에 mock 성공 데이터를 넣지 않습니다. 테스트
 | `/my`                                                               | 완료 회원             | 프로필과 내 모임·신청 요약                                |
 | `/my/groups`                                                        | 완료 회원             | 참여/운영 모임 목록                                       |
 | `/my/registrations`                                                 | 완료 회원             | 내 신청 상태와 철회                                       |
-| `/groups/new`                                                       | 완료 회원             | 그룹 생성과 유형별 일정 입력                              |
-| `/groups/:groupId/manage`                                           | 해당 그룹 리더        | 그룹 수정, 일정, 종료 또는 삭제                           |
+| `/groups/new`                                                       | 완료 회원             | 그룹 생성, 대표 이미지 업로드와 유형별 일정 입력          |
+| `/groups/:groupId/manage`                                           | 해당 그룹 리더        | 그룹 수정, 대표 이미지 업로드, 일정, 종료 또는 삭제       |
 | `/groups/:groupId/manage/members`                                   | 해당 그룹 리더        | 멤버 목록과 리더 위임                                     |
 | `/groups/:groupId/manage/recruitments`                              | 해당 그룹 리더        | 모집 생성·마감                                            |
 | `/groups/:groupId/manage/recruitments/:recruitmentId/registrations` | 해당 그룹 리더        | 신청 승인·거절                                            |
@@ -184,14 +184,15 @@ API client는 `src/shared/api/`에 있고, 페이지는 직접 `fetch`하지 않
 
 ## 실제 API 범위와 의도적으로 없는 기능
 
-연동 범위는 그룹 생성·수정·일정·종료/삭제, 멤버 조회·리더 위임, 모집 조회·생성·마감,
-가입 신청 생성·철회·결정, 내 프로필 조회·가입·refresh·logout입니다. 세부 endpoint와 상태는
-[구현 매핑](docs/IMPLEMENTATION_MAP.md)을 따릅니다.
+연동 범위는 그룹 생성·수정·일정·종료/삭제, 대표 이미지 업로드, 멤버 조회·리더 위임,
+모집 조회·생성·마감, 가입 신청 생성·철회·결정, 내 프로필 조회·가입·refresh·logout입니다.
+세부 endpoint와 상태는 [구현 매핑](docs/IMPLEMENTATION_MAP.md)을 따릅니다.
 
 현재 backend contract에 없는 기능은 성공한 것처럼 보이게 만들지 않습니다.
 
-- 이미지 업로드 endpoint가 없으므로 대표 이미지는 API의 읽기 전용 값 또는
-  `/images/default-group.png` fallback만 표시합니다.
+- 대표 이미지는 `POST /api/image-uploads`로 업로드 리소스를 발급한 뒤 presigned URL에
+  `PUT`하고, 생성·수정 요청에는 반환된 `representativeImageKey`를 전달합니다. JPG·PNG·WEBP,
+  최대 5MB만 허용하며, 이미지가 없으면 `/images/default-group.png`을 사용합니다.
 - 프로필/아바타 수정 endpoint가 없습니다.
 - 멤버 강제 퇴장 endpoint가 없습니다.
 - 그룹에 직접 가입하는 endpoint가 없습니다. 모집 registration 흐름만 사용합니다.

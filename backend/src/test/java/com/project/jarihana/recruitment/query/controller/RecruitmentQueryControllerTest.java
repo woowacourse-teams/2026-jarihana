@@ -1,29 +1,30 @@
 package com.project.jarihana.recruitment.query.controller;
 
-import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.nullValue;
-
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
-import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
 import com.project.jarihana.group.query.repository.RegistrationJpaRepository;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
-import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.JoinMethod;
+import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
+import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.TestSupportConfig;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Set;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.nullValue;
 
 class RecruitmentQueryControllerTest extends IntegrationTestSupport {
 
@@ -91,6 +92,21 @@ class RecruitmentQueryControllerTest extends IntegrationTestSupport {
                 .body("error", nullValue());
     }
 
+    private static Group study(String name) {
+        return Group.createStudy(
+                name,
+                "함께 학습합니다.",
+                null,
+                null,
+                RecurringGroupSchedule.of(
+                        Set.of(DayOfWeek.MONDAY),
+                        LocalTime.NOON,
+                        LocalTime.of(13, 0)
+                ),
+                TestSupportConfig.FIXED_NOW
+        );
+    }
+
     @DisplayName("존재하지 않는 그룹은 그룹 없음 오류를 반환한다.")
     @Test
     void rejectsUnknownGroup() {
@@ -127,20 +143,5 @@ class RecruitmentQueryControllerTest extends IntegrationTestSupport {
                 .statusCode(404)
                 .body("success", equalTo(false))
                 .body("error.code", equalTo("RECRUITMENT_NOT_FOUND"));
-    }
-
-    private static Group study(String name) {
-        return Group.createStudy(
-                name,
-                "함께 학습합니다.",
-                null,
-                null,
-                RecurringGroupSchedule.of(
-                        Set.of(DayOfWeek.MONDAY),
-                        LocalTime.NOON,
-                        LocalTime.of(13, 0)
-                ),
-                TestSupportConfig.FIXED_NOW
-        );
     }
 }

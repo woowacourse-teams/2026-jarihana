@@ -1,16 +1,17 @@
 package com.project.jarihana.common.auth;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AccessTokenProviderTest {
 
@@ -63,6 +64,11 @@ class AccessTokenProviderTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.UNAUTHENTICATED);
+    }
+
+    private AccessTokenProvider providerOf(String secret, LocalDateTime now) {
+        JwtProperties properties = new JwtProperties(secret, VALIDITY);
+        return new AccessTokenProvider(properties, Clock.fixed(now.atZone(ZONE).toInstant(), ZONE));
     }
 
     @DisplayName("유효 기간이 남아 있는 Access Token은 그대로 사용할 수 있다.")
@@ -121,10 +127,5 @@ class AccessTokenProviderTest {
 
         // Then
         assertThat(first).isNotEqualTo(second);
-    }
-
-    private AccessTokenProvider providerOf(String secret, LocalDateTime now) {
-        JwtProperties properties = new JwtProperties(secret, VALIDITY);
-        return new AccessTokenProvider(properties, Clock.fixed(now.atZone(ZONE).toInstant(), ZONE));
     }
 }

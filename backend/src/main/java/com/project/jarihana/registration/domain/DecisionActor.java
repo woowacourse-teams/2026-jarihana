@@ -6,6 +6,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+
 import java.util.Objects;
 
 @Embeddable
@@ -46,6 +47,11 @@ public class DecisionActor {
     }
 
     @Override
+    public int hashCode() {
+        return Objects.hash(type, memberId);
+    }
+
+    @Override
     public boolean equals(Object object) {
         if (this == object) {
             return true;
@@ -54,10 +60,5 @@ public class DecisionActor {
             return false;
         }
         return type == that.type && Objects.equals(memberId, that.memberId);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(type, memberId);
     }
 }

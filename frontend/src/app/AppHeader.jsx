@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router";
 
 import { storeReturnTarget, useAuth } from "../features/auth";
 import { Drawer, useToast } from "../shared/ui";
+import logoMark from "../shared/assets/brand/jarihana-favicon.png";
 
 const MEMBER_LINKS = [
   {
@@ -19,13 +20,6 @@ const MEMBER_LINKS = [
     label: "모임 만들기",
     requiresAuth: true,
     to: "/groups/new"
-  },
-  {
-    isActive: (pathname) =>
-      pathname === "/my/groups" || /^\/groups\/[^/]+\/manage(?:\/|$)/.test(pathname),
-    label: "모임 관리",
-    requiresAuth: true,
-    to: "/my/groups?role=LEADER"
   }
 ];
 
@@ -56,7 +50,8 @@ function HeaderLinks({ onNavigate, onProtectedNavigate, status }) {
 
 function MyPageLink({ onNavigate }) {
   const { pathname } = useLocation();
-  const isActive = pathname === "/my" || pathname === "/my/registrations";
+  const isActive =
+    pathname === "/my" || pathname === "/my/groups" || pathname === "/my/registrations";
 
   return (
     <Link
@@ -71,7 +66,7 @@ function MyPageLink({ onNavigate }) {
 }
 
 function AuthAction({ onNavigate, status }) {
-  const { developmentLoginAvailable, login, logout } = useAuth();
+  const { login, logout } = useAuth();
 
   if (status === "authenticated") {
     return (
@@ -111,7 +106,7 @@ function AuthAction({ onNavigate, status }) {
       }}
       type="button"
     >
-      {developmentLoginAvailable ? "개발 계정으로 시작" : "GitHub로 로그인"}
+      GitHub로 로그인
     </button>
   );
 }
@@ -134,7 +129,8 @@ export function AppHeader({ action = null, title = "" }) {
       <header className="app-header">
         <div className="app-header__inner">
           <Link aria-label="자리하나 홈" className="app-header__brand" to="/groups">
-            자리 하나<span aria-hidden="true">?</span>
+            <img alt="" aria-hidden="true" className="app-header__brand-mark" src={logoMark} />
+            <span className="app-header__brand-text">자리 하나?</span>
           </Link>
 
           <nav aria-label="주요 메뉴" className="app-header__desktop-nav">

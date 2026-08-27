@@ -9,6 +9,7 @@ import {
 } from "../common/schemas.js";
 
 export const groupTypeSchema = z.enum(["CLUB", "STUDY", "SESSION"]);
+export const groupMeetingTypeSchema = z.enum(["ONLINE", "OFFLINE", "FLEXIBLE"]);
 export const groupStatusSchema = z.enum(["ACTIVE", "ENDED"]);
 export const groupRoleSchema = z.enum(["LEADER", "MEMBER"]);
 export const groupRelationSchema = z.literal("JOINED");
@@ -71,13 +72,17 @@ export const groupListItemSchema = z.object({
   sessionSchedule: sessionScheduleSchema.nullable().optional(),
   leader: leaderSchema.nullable(),
   memberCount: z.number().int().nonnegative(),
-  activeRecruitment: activeRecruitmentSchema.nullable()
+  activeRecruitment: activeRecruitmentSchema.nullable(),
+  currentMemberRole: groupRoleSchema.nullable().optional()
 });
 
 export const groupListPageSchema = cursorPageSchema(groupListItemSchema);
 
 export const groupDetailSchema = groupListItemSchema.extend({
   description: z.string().nullable(),
+  meetingType: groupMeetingTypeSchema,
+  location: z.string().max(255).nullable(),
+  representativeImageKey: z.string().max(255).nullable().optional(),
   recurringSchedule: recurringScheduleSchema.nullable(),
   sessionSchedule: sessionScheduleSchema.nullable(),
   createdAt: localDateTimeSchema

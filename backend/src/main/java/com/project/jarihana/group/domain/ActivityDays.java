@@ -2,6 +2,7 @@ package com.project.jarihana.group.domain;
 
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+
 import java.time.DayOfWeek;
 import java.util.Collections;
 import java.util.EnumSet;

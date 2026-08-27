@@ -3,6 +3,7 @@ package com.project.jarihana.member.command.service.dto;
 import com.project.jarihana.auth.command.service.dto.IssuedRefreshToken;
 import com.project.jarihana.common.auth.IssuedAccessToken;
 import com.project.jarihana.member.domain.Course;
+
 import java.time.LocalDateTime;
 
 public record MemberSignupResult(
