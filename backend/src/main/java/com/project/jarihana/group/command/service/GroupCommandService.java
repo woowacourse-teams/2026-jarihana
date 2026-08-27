@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Service
 public class GroupCommandService {
@@ -192,7 +193,9 @@ public class GroupCommandService {
         if (groupCommandRepository.existsByNameAndIdNot(command.name(), groupId)) {
             throw new BusinessException(ErrorCode.GROUP_NAME_DUPLICATED, GROUP_NAME_DUPLICATED_MESSAGE);
         }
-        validateRepresentativeImageKey(command.representativeImageKey(), LocalDateTime.now(clock));
+        if (!Objects.equals(group.getRepresentativeImageKey(), command.representativeImageKey())) {
+            validateRepresentativeImageKey(command.representativeImageKey(), LocalDateTime.now(clock));
+        }
         groupCommandRepository.save(group.modify(
                 command.name(),
                 command.introduction(),
