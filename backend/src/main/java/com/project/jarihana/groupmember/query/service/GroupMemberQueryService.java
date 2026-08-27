@@ -2,6 +2,7 @@ package com.project.jarihana.groupmember.query.service;
 
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.common.github.GithubAvatarUrl;
 import com.project.jarihana.groupmember.query.repository.GroupMemberListRepository;
 import com.project.jarihana.groupmember.query.repository.dto.GroupMemberListPage;
 import com.project.jarihana.groupmember.query.repository.dto.GroupMemberListProjection;
@@ -59,6 +60,7 @@ public class GroupMemberQueryService {
                 projection.memberId(),
                 projection.crewName(),
                 projection.generation(),
+                GithubAvatarUrl.from(projection.githubId()),
                 projection.course().name(),
                 projection.role().name(),
                 projection.joinedAt()

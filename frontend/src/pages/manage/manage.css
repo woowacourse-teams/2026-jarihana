@@ -6,9 +6,9 @@
   --manage-filter-pill-min: 6.25rem;
   --manage-textarea-min: 7.5rem;
   --manage-rail-min: 20rem;
-  max-width: calc(var(--container-shell) - var(--space-8));
+  max-width: var(--container-shell);
   margin: 0 auto;
-  padding: var(--space-8) var(--space-6) var(--space-16);
+  padding: var(--space-8) var(--page-gutter) var(--space-16);
   position: relative;
   isolation: isolate;
   background: var(--color-canvas);
@@ -1299,7 +1299,7 @@
 
 @media (max-width: 47.9375rem) {
   .manage-page {
-    padding: var(--space-6) var(--space-5) var(--space-12);
+    padding-block: var(--space-6) var(--space-12);
   }
 
   .manage-context {
@@ -1395,13 +1395,13 @@
     border: 0;
   }
 
-      .manage-card-actions {
-        width: 100%;
-      }
+  .manage-card-actions {
+    width: 100%;
+  }
 
-      .manage-recruitment-card__trigger {
-        width: 100%;
-      }
+  .manage-recruitment-card__trigger {
+    width: 100%;
+  }
 
   .manage-card-actions > * {
     flex: 1;
@@ -1417,6 +1417,76 @@
     border: var(--border-thin) solid var(--color-line);
     border-radius: var(--radius-md);
     background: var(--color-surface);
+  }
+
+  .manage-table-panel {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    overflow: hidden;
+  }
+
+  .manage-member-table,
+  .manage-member-table tbody {
+    display: grid;
+    gap: var(--space-3);
+    min-width: 0;
+    width: 100%;
+  }
+
+  .manage-member-table thead {
+    display: none;
+  }
+
+  .manage-member-table tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3) var(--space-4);
+    padding: var(--space-4);
+    border: var(--border-thin) solid var(--color-line);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+  }
+
+  .manage-member-table td {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    min-width: 0;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0;
+    border: 0;
+    white-space: normal;
+  }
+
+  .manage-member-table td::before {
+    color: var(--color-muted-ink);
+    content: attr(data-label);
+    font-size: var(--text-caption);
+    font-weight: 600;
+  }
+
+  .manage-member-table td[data-label="크루"],
+  .manage-member-table td:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .manage-member-table td:last-child {
+    justify-content: end;
+    justify-items: end;
+    min-height: var(--touch-target);
+  }
+
+  .manage-member-table td:last-child::before {
+    content: none;
+  }
+
+  .manage-member-table td[data-label="가입일"] {
+    white-space: normal;
+  }
+
+  .manage-member-identity {
+    gap: var(--space-3);
   }
 
   .manage-toolbar {

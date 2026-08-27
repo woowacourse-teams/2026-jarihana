@@ -8,9 +8,10 @@
   --account-line: #d8dade;
   --account-border: var(--border-thin) solid var(--account-line);
 
-  width: min(calc(100% - (var(--page-gutter) * 2)), var(--container-shell));
+  width: 100%;
+  max-width: var(--container-shell);
   margin: var(--space-0) auto;
-  padding: var(--space-8) var(--space-0) var(--space-16);
+  padding: var(--space-8) var(--page-gutter) var(--space-16);
 }
 
 .account-page :where(h1, h2, h3, p) {
@@ -19,7 +20,11 @@
 }
 
 .account-page--compact {
-  width: min(calc(100% - (var(--page-gutter) * 2)), 42.5rem);
+  width: 100%;
+}
+
+.account-page__content--compact {
+  max-width: 42.5rem;
 }
 
 .account-heading {
@@ -579,8 +584,7 @@ img.profile-card__avatar {
 
 @media (max-width: 47.9375rem) {
   .account-page {
-    width: calc(100% - (var(--page-gutter) * 2));
-    padding: var(--space-8) var(--space-0) var(--space-16);
+    padding-block: var(--space-8) var(--space-16);
   }
 
   .signup-form {

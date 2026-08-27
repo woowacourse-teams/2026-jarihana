@@ -532,6 +532,10 @@ textarea {
     overflow: hidden;
 }
 
+img.ui-avatar {
+    background: transparent;
+}
+
 .ui-avatar--sm {
     height: var(--touch-target);
     width: var(--touch-target);
@@ -921,8 +925,8 @@ textarea {
 
 .ui-page-container {
     margin-inline: auto;
-    max-width: 85rem;
-    padding-inline: var(--space-5);
+    max-width: var(--container-shell);
+    padding-inline: var(--page-gutter);
     width: 100%;
 }
 
@@ -1031,12 +1035,6 @@ textarea {
 
 .ui-showcase__skeleton {
     height: var(--showcase-skeleton-height);
-}
-
-@media (min-width: 48rem) {
-    .ui-page-container {
-        padding-inline: var(--space-8);
-    }
 }
 
 @media (max-width: 47.9375rem) {

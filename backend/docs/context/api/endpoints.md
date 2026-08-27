@@ -339,7 +339,7 @@ Refresh Token을 모두 `HttpOnly` 쿠키로 내린다. `state` 검증 방식은
       "name": "알고리즘 스터디",
       "introduction": "매주 함께 문제를 풉니다.",
       "representativeImageUrl": "images/default-group.png",
-      "leader": {"memberId": 3, "crewName": "크루A", "generation": 8},
+      "leader": {"memberId": 3, "crewName": "크루A", "generation": 8, "avatarUrl": "https://avatars.githubusercontent.com/u/3"},
       "memberCount": 6,
       "activeRecruitment": {
         "id": 45,
@@ -525,7 +525,7 @@ Request Body는 없다.
       "endTime": "21:00:00"
     },
     "sessionSchedule": null,
-    "leader": {"memberId": 3, "crewName": "가온", "generation": 8},
+    "leader": {"memberId": 3, "crewName": "가온", "generation": 8, "avatarUrl": "https://avatars.githubusercontent.com/u/3"},
     "memberCount": 6,
     "activeRecruitment": null,
     "currentMemberRole": null,
@@ -1371,6 +1371,7 @@ Request Body는 없다.
       "memberId": 3,
       "crewName": "가온",
       "generation": 8,
+      "avatarUrl": "https://avatars.githubusercontent.com/u/3",
       "course": "BACKEND",
       "role": "LEADER",
       "joinedAt": "2026-08-13T10:00:00"

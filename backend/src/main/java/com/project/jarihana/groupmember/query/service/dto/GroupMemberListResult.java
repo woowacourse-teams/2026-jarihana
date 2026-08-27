@@ -18,6 +18,7 @@ public record GroupMemberListResult(
             Long memberId,
             String crewName,
             int generation,
+            String avatarUrl,
             String course,
             String role,
             LocalDateTime joinedAt

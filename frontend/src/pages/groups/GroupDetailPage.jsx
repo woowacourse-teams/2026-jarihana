@@ -568,17 +568,13 @@ function MemberList({ items, query }) {
         >
           {items.map((member) => (
             <li data-member-card key={member.groupMemberId}>
-              {member.avatarUrl ? (
-                <img
-                  alt={`${member.crewName} 프로필`}
-                  className="group-member-avatar"
-                  src={member.avatarUrl}
-                />
-              ) : (
-                <span className="group-member-avatar" aria-hidden="true">
-                  {member.crewName.slice(0, 1)}
-                </span>
-              )}
+              <Avatar
+                alt={`${member.crewName} 프로필`}
+                className="group-member-avatar"
+                fallback={member.crewName.slice(0, 1)}
+                size="md"
+                src={member.avatarUrl}
+              />
               <div className="group-member-card__copy">
                 <div className="group-member-card__name-row">
                   <strong>{member.crewName}</strong>

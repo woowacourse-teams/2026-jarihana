@@ -85,10 +85,11 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - Spacing: `0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64`.
 - Radius: small `8`, medium `14`, large `20`, pill `999`.
 - Footer Contact us block: `--footer-contact-max-width` `22rem` max width on desktop/tablet.
-- Container: 구현 token `--container-shell`은 `1360px`이다. `PageContainer`는 360px에서는
-  20px, 768px 이상에서는 32px gutter를 사용한다. 탐색 페이지의 1024px 이상 desktop rail은 카드 grid의 좌우 변을 
-  기준으로 --groups-page-shell과 --groups-page-rail-gutter를 공유한다. form 화면은 각 페이지가 별도로 좁은 읽기 폭을 둔다. 
-  group detail은 대표 이미지와 모집 rail을 함께 보여 주는 넓은 화면에서만 1600px 상한을 사용해 기본 shell보다 여유 있게 펼치되, viewport 끝까지 늘어나지는 않는다.
+- Container: 구현 token `--container-shell`은 `1216px`(`76rem`)이다. `/`의 content rail을
+  기준으로 모든 route의 페이지 shell과 section 외곽선을 통일한다. gutter는 360–767px에서
+  20px, 768–1023px에서 32px, 1024px 이상에서 80px(`--groups-page-rail-gutter`)를 사용한다.
+  account, management, group editor, group detail도 같은 shell을 공유하고, 좁은 form 읽기 폭은
+  shell 안쪽 content에만 적용한다.
 - Border: `--border-thin`(1px)과 `--border-strong`(2px)을 사용한다. 기본 surface 경계는
   thin, 탐색 입력의 강조 하단선 같은 의도적 emphasis만 strong을 사용한다.
 - Touch: `--touch-target`은 44px, `--touch-target-lg`는 48px이다. button, navigation,
@@ -119,7 +120,7 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - `1024–1439`: desktop shell과 3-column 탐색 카드, group detail/registration의 side rail,
   group editor 2-column hero, management grid/table을 사용한다. 고정 폭 action은 충분한
   공간이 없으면 줄바꿈한다.
-- `1440+`: Figma desktop 비율과 1360px shell 상한을 중앙 정렬한다.
+- `1440+`: Figma desktop 비율과 1216px shell 상한을 중앙 정렬한다.
 
 ## 3. Layout system
 
@@ -150,7 +151,7 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - 탐색 hero는 `src/shared/assets/brand/jarihana-signature.png`를 교체 가능한 signature art로
   사용하며, 헤더 mark는 `src/shared/assets/brand/jarihana-favicon.png`를 교체 지점으로 사용한다.
 - `DetailLayout`: group detail은 desktop에서 본문 + sticky support rail 구조를 사용하며
-  전체 폭은 `1600px`를 넘지 않는다. support rail은 운영자 프로필 카드 다음에 모집 정보 카드를
+  전체 폭은 공통 `--container-shell`을 따른다. support rail은 운영자 프로필 카드 다음에 모집 정보 카드를
   배치한다. tablet 이하에서는 순차 single column으로 전환한다.
 - rail이 숨는 tablet/mobile에서는 운영자 프로필을 hero 안의 프레임 없는 byline으로 옮긴다.
   민트 ring의 compact avatar와 `운영자 · N기 크루` caption, 이름을 한 덩어리로 묶되 별도의

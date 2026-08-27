@@ -7,7 +7,8 @@
 .group-editor {
     --group-editor-content-width: 68.75rem;
     color: var(--color-ink);
-    inline-size: min(100%, calc(var(--group-editor-content-width) + var(--space-16)));
+    inline-size: 100%;
+    max-inline-size: var(--container-shell);
     margin-inline: auto;
     padding-inline: var(--page-gutter);
     padding-block: var(--space-10) var(--space-16);

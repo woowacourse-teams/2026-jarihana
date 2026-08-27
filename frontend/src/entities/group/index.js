@@ -38,7 +38,8 @@ export const sessionScheduleSchema = z.object({
 const leaderSchema = z.object({
   memberId: entityIdSchema,
   crewName: z.string(),
-  generation: z.number().int().positive()
+  generation: z.number().int().positive(),
+  avatarUrl: z.string().url().optional()
 });
 
 const activeRecruitmentSchema = z.object({

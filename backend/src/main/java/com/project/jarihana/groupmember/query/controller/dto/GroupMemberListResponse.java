@@ -28,6 +28,7 @@ public record GroupMemberListResponse(
             Long memberId,
             String crewName,
             int generation,
+            String avatarUrl,
             String course,
             String role,
             LocalDateTime joinedAt
@@ -39,6 +40,7 @@ public record GroupMemberListResponse(
                     item.memberId(),
                     item.crewName(),
                     item.generation(),
+                    item.avatarUrl(),
                     item.course(),
                     item.role(),
                     item.joinedAt()

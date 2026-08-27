@@ -7,6 +7,7 @@ import {
   ConfirmDialog,
   EmptyState,
   ErrorState,
+  Avatar,
   IconButton,
   Skeleton,
   StatusBadge,
@@ -191,9 +192,13 @@ export function ManageMembersPage() {
                 <tr aria-label={`${member.crewName} 멤버`} key={member.groupMemberId}>
                   <td data-label="크루">
                     <div className="manage-member-identity">
-                      <span className="manage-avatar" aria-hidden="true">
-                        {member.crewName.slice(0, 1)}
-                      </span>
+                      <Avatar
+                        alt={`${member.crewName} 프로필`}
+                        className="manage-avatar"
+                        fallback={member.crewName.slice(0, 1)}
+                        size="sm"
+                        src={member.avatarUrl}
+                      />
                       <strong>{member.crewName}</strong>
                     </div>
                   </td>

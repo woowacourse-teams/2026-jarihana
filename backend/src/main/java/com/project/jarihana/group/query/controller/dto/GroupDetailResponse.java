@@ -6,6 +6,7 @@ import com.project.jarihana.group.domain.SessionGroupSchedule;
 import com.project.jarihana.group.query.repository.dto.GroupDetailMember;
 import com.project.jarihana.group.query.service.dto.GroupDetailResult;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
+import com.project.jarihana.common.github.GithubAvatarUrl;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 
 import java.time.LocalDate;
@@ -90,7 +91,7 @@ public record GroupDetailResponse(
         }
     }
 
-    public record GroupLeader(Long memberId, String crewName, int generation) {
+    public record GroupLeader(Long memberId, String crewName, int generation, String avatarUrl) {
 
         private static GroupLeader from(GroupDetailMember member) {
             if (member == null) {
@@ -99,7 +100,8 @@ public record GroupDetailResponse(
             return new GroupLeader(
                     member.memberId(),
                     member.member().getCrewName(),
-                    member.member().getGeneration()
+                    member.member().getGeneration(),
+                    GithubAvatarUrl.from(member.member().getGithubId())
             );
         }
     }

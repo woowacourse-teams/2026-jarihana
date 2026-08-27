@@ -1,4 +1,4 @@
-import { forwardRef } from "react";
+import { forwardRef, useState } from "react";
 
 export const DEFAULT_GROUP_IMAGE = "/api/images/default-group.png";
 
@@ -23,12 +23,22 @@ export function StatusBadge({ children, tone = "neutral" }) {
   return <span className={`ui-badge ui-badge--${tone}`}>{children}</span>;
 }
 
-export function Avatar({ alt = "", fallback = "?", size = "md", src }) {
-  if (src) {
-    return <img alt={alt} className={`ui-avatar ui-avatar--${size}`} src={src} />;
+export function Avatar({ alt = "", className, fallback = "?", size = "md", src }) {
+  const [failedSource, setFailedSource] = useState(null);
+  const classNames = classes(`ui-avatar ui-avatar--${size}`, className);
+
+  if (src && failedSource !== src) {
+    return (
+      <img
+        alt={alt}
+        className={classNames}
+        onError={() => setFailedSource(src)}
+        src={src}
+      />
+    );
   }
   return (
-    <span aria-label={alt || undefined} className={`ui-avatar ui-avatar--${size}`}>
+    <span aria-label={alt || undefined} className={classNames}>
       {fallback}
     </span>
   );

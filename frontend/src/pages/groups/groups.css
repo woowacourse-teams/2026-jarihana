@@ -7,10 +7,10 @@
 .groups-page {
   --groups-card-art-ratio: 8 / 5;
   --groups-card-min-height: 21.75rem;
-  --groups-page-shell-width: var(--groups-page-shell);
+  --groups-page-shell-width: var(--container-shell);
   --groups-search-width: 35rem;
 
-  max-width: var(--groups-page-shell-width);
+  max-width: var(--container-shell);
   padding-block-start: calc(var(--space-12) + var(--space-16) + var(--space-4));
   padding-block-end: 0;
 }
@@ -21,7 +21,7 @@
 }
 
 .group-detail-page {
-  --group-detail-content-width: 85rem;
+  --group-detail-content-width: var(--container-shell);
   --group-detail-hero-min-height: 22.75rem;
   --group-detail-hero-art-height: calc(var(--group-detail-hero-min-height) - (var(--space-7) * 2));
   --group-detail-rail-min-height: 41rem;
@@ -367,7 +367,7 @@
   }
 
   .groups-page {
-    padding-inline: var(--groups-page-rail-gutter);
+    padding-inline: var(--page-gutter);
   }
 
   .groups-discovery {
@@ -513,8 +513,8 @@
 
 @media (min-width: 64rem) {
   .group-detail-page {
-    max-width: var(--group-detail-content-width);
-    padding-inline: var(--space-8);
+    max-width: var(--container-shell);
+    padding-inline: var(--page-gutter);
   }
 }
 
@@ -1472,10 +1472,10 @@
 
 /* Keep the detail page's main column aligned with the group editor Hero. */
 .group-detail-page {
-  --group-detail-content-width: 100rem;
+  --group-detail-content-width: var(--container-shell);
   --group-detail-hero-min-height: 24.5rem;
   --group-detail-hero-art-height: 20.5rem;
-  max-width: var(--group-detail-content-width);
+  max-width: var(--container-shell);
 }
 
 .group-detail-grid {
@@ -1597,8 +1597,11 @@
 }
 
 .group-facts {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: max-content max-content;
+  inline-size: fit-content;
+  max-inline-size: 100%;
   gap: var(--space-2);
+  column-gap: calc(var(--space-16) + var(--space-12));
   margin-block: 0;
 }
 
@@ -1678,7 +1681,7 @@
   .group-recruitment-fab {
     position: fixed;
     z-index: calc(var(--z-overlay) - 1);
-    inset-inline-end: var(--space-4);
+    inset-inline-end: var(--page-gutter);
     inset-block-end: calc(var(--space-4) + env(safe-area-inset-bottom));
     box-shadow: var(--shadow-float);
   }
@@ -1716,17 +1719,23 @@
 
 @media (max-width: 47.9375rem) {
   .group-detail-page {
-    padding-inline: var(--space-0);
+    padding-inline: var(--page-gutter);
   }
 
   .group-back {
-    margin-inline: var(--space-4);
+    margin-inline: var(--space-0);
   }
 
   .group-profile {
     grid-template-columns: minmax(0, 1fr);
     padding: var(--space-6);
-    border-radius: 0;
+    border-radius: var(--radius-lg);
+  }
+
+  .group-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    inline-size: 100%;
+    column-gap: var(--space-2);
   }
 
   .group-profile::after {

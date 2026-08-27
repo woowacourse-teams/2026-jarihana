@@ -73,6 +73,7 @@ class GroupMemberQueryServiceTest {
                         202L,
                         "마루",
                         8,
+                        "https://avatars.githubusercontent.com/u/github-202",
                         "FRONTEND",
                         "MEMBER",
                         JOINED_AT.plusHours(1)
@@ -82,6 +83,7 @@ class GroupMemberQueryServiceTest {
                         201L,
                         "가온",
                         8,
+                        "https://avatars.githubusercontent.com/u/github-201",
                         "BACKEND",
                         "LEADER",
                         JOINED_AT
@@ -104,6 +106,7 @@ class GroupMemberQueryServiceTest {
                 memberId,
                 crewName,
                 8,
+                "github-" + memberId,
                 course,
                 role,
                 joinedAt

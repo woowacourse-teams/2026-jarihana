@@ -3,6 +3,7 @@ package com.project.jarihana.group.query.service;
 import com.project.jarihana.common.auth.LoginMemberReader;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.common.github.GithubAvatarUrl;
 import com.project.jarihana.image.config.ImageProperties;
 import com.project.jarihana.group.query.repository.GroupDetailRepository;
 import com.project.jarihana.group.query.repository.GroupListRepository;
@@ -140,7 +141,8 @@ public class GroupQueryService {
                         : new Leader(
                         leader.memberId(),
                         leader.member().getCrewName(),
-                        leader.member().getGeneration()
+                        leader.member().getGeneration(),
+                        GithubAvatarUrl.from(leader.member().getGithubId())
                 ),
                 projection.memberCount(),
                 projection.activeRecruitment() == null

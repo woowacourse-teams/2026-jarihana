@@ -63,6 +63,16 @@
     stroke-width: var(--border-strong);
 }
 
+@media (max-width: 89.9375rem) {
+    .app-shell:has(.group-floating-recruitment) .app-scroll-top {
+        right: var(--page-gutter);
+        bottom: calc(
+            var(--space-4) + env(safe-area-inset-bottom) + var(--touch-target-lg) +
+                var(--space-3)
+        );
+    }
+}
+
 .app-header {
     position: relative;
     z-index: var(--z-header);
@@ -253,7 +263,8 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: var(--space-8);
-    padding: var(--space-16) max(var(--space-6), calc(50% - 35rem));
+    padding: var(--space-16)
+        max(var(--page-gutter), calc((100% - var(--container-shell)) / 2 + var(--page-gutter)));
     border-top: var(--border-thin) solid var(--color-header-line);
     background: var(--color-nav);
     color: var(--color-surface);
@@ -502,14 +513,14 @@
 
 @media (min-width: 64rem) {
     .app-shell:has(.groups-page) .app-header__inner {
-        max-width: var(--groups-page-shell);
-        padding-inline: var(--groups-page-rail-gutter);
+        max-width: var(--container-shell);
+        padding-inline: var(--page-gutter);
     }
 
     .app-shell:has(.groups-page) .app-footer {
         padding-inline: max(
-            var(--groups-page-rail-gutter),
-            calc((100% - var(--groups-page-shell)) / 2 + var(--groups-page-rail-gutter))
+            var(--page-gutter),
+            calc((100% - var(--container-shell)) / 2 + var(--page-gutter))
         );
     }
 }

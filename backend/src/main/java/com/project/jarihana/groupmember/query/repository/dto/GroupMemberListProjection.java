@@ -10,6 +10,7 @@ public record GroupMemberListProjection(
         Long memberId,
         String crewName,
         int generation,
+        String githubId,
         Course course,
         GroupMemberRole role,
         LocalDateTime joinedAt

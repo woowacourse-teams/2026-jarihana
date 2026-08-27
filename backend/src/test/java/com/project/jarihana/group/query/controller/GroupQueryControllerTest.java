@@ -274,6 +274,7 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
                 .body("data.sessionSchedule", nullValue())
                 .body("data.leader.memberId", equalTo(leader.getId().intValue()))
                 .body("data.leader.crewName", equalTo("가온"))
+                .body("data.leader.avatarUrl", equalTo("https://avatars.githubusercontent.com/u/github-1"))
                 .body("data.memberCount", equalTo(1))
                 .body("data.activeRecruitment.joinMethod", equalTo("APPROVAL"))
                 .body("data.activeRecruitment.capacity", equalTo(8))
