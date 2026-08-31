@@ -169,7 +169,7 @@ export function ScheduleDialog({
       description={
         isSession
           ? "한 번만 만나는 세션이라 날짜와 시간을 정합니다."
-          : "매주 반복되는 요일과 시간을 정합니다. 시간은 유동적으로 둘 수 있어요."
+          : "매주 반복되는 요일과 시간을 정합니다."
       }
       onClose={onClose}
       open={open}
