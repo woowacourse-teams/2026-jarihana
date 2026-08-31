@@ -9,6 +9,7 @@ public record MyRegistrationListProjection(
         Long id,
         Long groupId,
         String groupName,
+        String groupRepresentativeImageKey,
         Long recruitmentId,
         String message,
         RegistrationStatus status,

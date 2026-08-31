@@ -56,7 +56,7 @@ export function normalizeRepresentativeImageUrl(imageUrl) {
   return imageUrl.startsWith("/") || absoluteUrl ? imageUrl : `/${imageUrl}`;
 }
 
-const representativeImageUrlSchema = z
+export const representativeImageUrlSchema = z
   .string()
   .min(1)
   .transform(normalizeRepresentativeImageUrl)

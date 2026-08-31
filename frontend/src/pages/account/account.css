@@ -310,13 +310,6 @@ img.profile-card__avatar {
   background: var(--color-ink);
 }
 
-.activity-row__visual--registration {
-  display: grid;
-  color: var(--color-text-brand);
-  background: var(--color-brand-soft);
-  place-items: center;
-}
-
 .activity-row__body {
   display: grid;
   align-content: center;

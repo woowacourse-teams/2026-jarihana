@@ -38,7 +38,11 @@ public record MyRegistrationListResponse(
         private static MyRegistrationItem from(MyRegistrationListResult.Item item) {
             return new MyRegistrationItem(
                     item.id(),
-                    new GroupResponse(item.groupId(), item.groupName()),
+                    new GroupResponse(
+                            item.groupId(),
+                            item.groupName(),
+                            item.groupRepresentativeImageUrl()
+                    ),
                     item.recruitmentId(),
                     item.message(),
                     item.status(),
@@ -52,7 +56,7 @@ public record MyRegistrationListResponse(
         }
     }
 
-    public record GroupResponse(Long id, String name) {
+    public record GroupResponse(Long id, String name, String representativeImageUrl) {
     }
 
     public record DecisionActorResponse(String type, Long memberId) {
