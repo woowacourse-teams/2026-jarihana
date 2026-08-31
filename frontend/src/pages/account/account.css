@@ -313,7 +313,7 @@ img.profile-card__avatar {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  background: var(--color-ink);
+  background: var(--color-brand-soft);
 }
 
 .activity-row__visual--registration {
