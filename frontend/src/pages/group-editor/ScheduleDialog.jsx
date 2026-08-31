@@ -100,47 +100,53 @@ export function RecurringScheduleFields({
         ))}
       </div>
 
+      {/*
+        * 요일이 없으면 일정 자체가 유동적이라 시간이 쓰이지 않는다. 요일 칩은 남겨
+        * 개별 요일부터 다시 고를 수 있게 하되, 시간 칸은 통째로 내린다.
+        */}
       {selectedDays.length === 0 ? (
         <p className="group-editor__schedule-note">
           요일을 고르지 않으면 <strong>유동적 일정</strong>이에요. 정해진 요일과 시간 없이 그때그때
-          정하는 모임이라 아래 시간은 저장되지 않아요.
+          정하는 모임입니다.
         </p>
-      ) : null}
+      ) : (
+        <>
+          <p className="group-editor__field-label">활동 시간</p>
+          <div aria-label="활동 시간 선택" className="group-editor__preset-seg" role="group">
+            {TIME_MODES.map(([key, label]) => (
+              <button
+                aria-pressed={flexibleTime === (key === "flexible")}
+                key={key}
+                onClick={() => onFlexibleTimeChange?.(key === "flexible")}
+                type="button"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
-      <p className="group-editor__field-label">활동 시간</p>
-      <div aria-label="활동 시간 선택" className="group-editor__preset-seg" role="group">
-        {TIME_MODES.map(([key, label]) => (
-          <button
-            aria-pressed={flexibleTime === (key === "flexible")}
-            key={key}
-            onClick={() => onFlexibleTimeChange?.(key === "flexible")}
-            type="button"
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/*
-        * 시간이 유동적이면 두 시각을 비워 보낸다. 입력은 자리를 지키되 잠가서
-        * 고쳐 둔 값이 저장되는 것처럼 보이지 않게 한다.
-        */}
-      <div className="group-editor__time-grid">
-        <UnderlineField
-          disabled={flexibleTime}
-          error={errors.startTime?.message}
-          label="시작 시간"
-          registration={register("startTime")}
-          type="time"
-        />
-        <UnderlineField
-          disabled={flexibleTime}
-          error={errors.endTime?.message}
-          label="종료 시간"
-          registration={register("endTime")}
-          type="time"
-        />
-      </div>
+          {/*
+            * 시간만 유동적이면 두 시각을 비워 보낸다. 입력은 자리를 지키되 잠가서
+            * 고쳐 둔 값이 저장되는 것처럼 보이지 않게 한다.
+            */}
+          <div className="group-editor__time-grid">
+            <UnderlineField
+              disabled={flexibleTime}
+              error={errors.startTime?.message}
+              label="시작 시간"
+              registration={register("startTime")}
+              type="time"
+            />
+            <UnderlineField
+              disabled={flexibleTime}
+              error={errors.endTime?.message}
+              label="종료 시간"
+              registration={register("endTime")}
+              type="time"
+            />
+          </div>
+        </>
+      )}
     </fieldset>
   );
 }

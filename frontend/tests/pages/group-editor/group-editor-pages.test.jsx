@@ -247,24 +247,31 @@ describe("NewGroupPage", () => {
     expect(within(dialog).getByText("활동 요일")).toBeInTheDocument();
   });
 
-  it("유동적을 골라도 시간 입력은 남는다", async () => {
+  it("요일이 유동적이면 시간 칸을 아예 두지 않는다", async () => {
     // Given
     const user = userEvent.setup();
     renderPage(<NewGroupPage />);
     await openSchedule(user, "모임 일정 설정");
     const dialog = scheduleDialog();
 
-    // Then 요일을 고르기 전에도 시간을 먼저 정할 수 있다.
-    expect(within(dialog).getByLabelText("시작 시간")).toBeInTheDocument();
-    expect(within(dialog).getByLabelText("종료 시간")).toBeInTheDocument();
+    // Then 요일이 없으면 시간도 쓰이지 않으므로 시간 칸을 두지 않는다.
+    expect(within(dialog).queryByLabelText("시작 시간")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("활동 시간")).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "시간 유동적" })).not.toBeInTheDocument();
 
-    // When
+    // When 요일을 고르면 시간이 쓰이기 시작한다.
     await user.click(within(dialog).getByRole("button", { name: "평일" }));
-    await user.click(within(dialog).getByRole("button", { name: "유동적" }));
 
     // Then
     expect(within(dialog).getByLabelText("시작 시간")).toBeInTheDocument();
     expect(within(dialog).getByLabelText("종료 시간")).toBeInTheDocument();
+
+    // When 다시 유동적으로 되돌리면 요일만 남는다.
+    await user.click(within(dialog).getByRole("button", { name: "유동적" }));
+
+    // Then 요일 칩은 남아 개별 요일부터 다시 고를 수 있다.
+    expect(within(dialog).getByLabelText("월요일")).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("시작 시간")).not.toBeInTheDocument();
   });
 
   it("시간을 뒤집어 둔 뒤 유동적으로 바꿔도 등록이 막히지 않는다", async () => {

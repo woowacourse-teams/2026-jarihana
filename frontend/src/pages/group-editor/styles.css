@@ -420,8 +420,7 @@
 }
 
 /* 요일 묶음 다음에 시간 묶음이 이어지므로 둘 사이를 띄운다. */
-.group-editor__day-grid + .group-editor__field-label,
-.group-editor__schedule-note + .group-editor__field-label {
+.group-editor__day-grid + .group-editor__field-label {
     margin-block-start: var(--space-5);
 }
 
