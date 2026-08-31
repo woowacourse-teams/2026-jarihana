@@ -273,6 +273,31 @@ it("Given an approved group member, when the detail page renders, then applicati
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 
+it("Given a pending application, when the detail page renders, then application is disabled", async () => {
+  const user = userEvent.setup();
+  groupHooks.useGroup.mockReturnValue({
+    data: { ...group, currentMemberRegistrationStatus: "PENDING" },
+    isLoading: false,
+    isError: false
+  });
+  const mutateAsync = jest.fn();
+  registrationHooks.useCreateRegistration.mockReturnValue({
+    mutateAsync,
+    isPending: false,
+    isSuccess: false,
+    error: null,
+    reset: jest.fn()
+  });
+
+  renderAt("/groups/41", <GroupDetailPage />);
+
+  const button = screen.getByRole("button", { name: "신청 완료" });
+  expect(button).toBeDisabled();
+  await user.click(button);
+  expect(mutateAsync).not.toHaveBeenCalled();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
 it("Given an active recruitment, when group detail renders, then the invitation illustration frames the summary", () => {
   const { container } = renderAt("/groups/41", <GroupDetailPage />);
 

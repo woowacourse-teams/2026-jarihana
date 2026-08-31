@@ -12,6 +12,7 @@ export const groupTypeSchema = z.enum(["CLUB", "STUDY", "SESSION"]);
 export const groupMeetingTypeSchema = z.enum(["ONLINE", "OFFLINE", "FLEXIBLE"]);
 export const groupStatusSchema = z.enum(["ACTIVE", "ENDED"]);
 export const groupRoleSchema = z.enum(["LEADER", "MEMBER"]);
+export const groupRegistrationStatusSchema = z.enum(["PENDING", "APPROVED", "REJECTED"]);
 export const groupRelationSchema = z.literal("JOINED");
 export const dayOfWeekSchema = z.enum([
   "MONDAY",
@@ -87,6 +88,7 @@ export const groupDetailSchema = groupListItemSchema.extend({
   representativeImageKey: z.string().max(255).nullable().optional(),
   recurringSchedule: recurringScheduleSchema.nullable(),
   sessionSchedule: sessionScheduleSchema.nullable(),
+  currentMemberRegistrationStatus: groupRegistrationStatusSchema.nullable().optional(),
   createdAt: localDateTimeSchema
 });
 
