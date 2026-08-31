@@ -452,6 +452,7 @@
 .groups-grid .ui-group-card__intro {
   color: var(--color-muted-ink);
   display: block;
+  font-size: var(--text-label);
   line-height: 1.5;
   max-width: none;
   overflow: visible;
