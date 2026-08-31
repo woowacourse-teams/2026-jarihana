@@ -83,11 +83,12 @@ export function GroupsPage() {
     const discovery = document.getElementById("groups-discovery");
     if (!discovery) return;
 
-    discovery.scrollIntoView({
+    const heading = discovery.querySelector(".groups-result-heading") ?? discovery;
+    heading.scrollIntoView({
+      block: "start",
       behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
         ? "auto"
-        : "smooth",
-      block: "start"
+        : "smooth"
     });
   }
 

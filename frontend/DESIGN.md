@@ -45,7 +45,7 @@
 | `--color-line`         | `#e0e0e0`        | 구분선과 field border                      |
 | `--color-surface`      | `#ffffff`        | 카드와 입력 surface                        |
 | `--color-section-soft` | `#fcfcfc`        | 탐색 결과 section을 hero와 분리하는 surface |
-| `--color-canvas`       | `#f5f5f7`        | 앱 배경                                    |
+| `--color-canvas`       | `#ffffff`        | 앱 배경                                    |
 | `--color-nav`          | `#000000`        | global header                              |
 | `--color-danger`       | `#c7352a`        | 오류/파괴 액션, AA 대비용 파생 token       |
 | `--color-danger-soft`  | `#fff0ee`        | 오류 배경                                  |
@@ -65,18 +65,21 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 ### Typography
 
 - Family: `Noto Sans KR`, `Apple SD Gothic Neo`, `Malgun Gothic`, sans-serif.
-- Hero: 48/1.18, 800. 모바일 34/1.22.
+- Hero: 56/1.22, 800. 모바일 40/1.22.
 - Hero body: desktop 20px, mobile 18px, 1.65 line-height.
 - Display: 40/1.2, 800. 모바일 30/1.25.
 - H1: 32/1.3, 700. 모바일 26/1.35.
 - H2: 24/1.4, 700. 모바일 21/1.4.
 - H3: 18/1.45, 700.
+- Discovery card title: `--groups-card-title-size` 20/1.45, 700; mobile 16/1.45.
 - Footer Contact us heading: `--text-footer-contact` 22/1.4, 700.
 - Body large: 17/1.65, 400.
 - Body: 15/1.65, 400.
 - Label: Figma 기준 14/20, 500.
 - Caption: 13/1.5, 400.
 - Brand: `--text-brand` 22px/800. Header wordmark에만 쓰며 본문 scale을 대체하지 않는다.
+- Letter spacing: 전역 기본값과 브랜드 `--tracking-brand`는 0이다. 마이페이지 제목, eyebrow,
+  활동 제목에도 별도의 음수/과한 양수 자간을 적용하지 않고 글꼴의 기본 간격을 유지한다.
 - `--font-size-caption`, `--font-size-label`, `--font-size-h3`는 기존 page CSS가 동일한
   type scale을 참조하도록 둔 compatibility alias다.
 
@@ -98,13 +101,20 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   geometry를 token화한다.
 - 탐색 랜딩(`/`)과 호환 진입점(`/groups`)의 hero는 header 아래
   `calc(100dvh - --header-height)` 높이로 첫 화면을 채우고, 하단의 `자리 둘러보기` 화살표 CTA가
-  discovery section으로 부드럽게 이동시킨다. `/groups`는 기존 링크와 북마크를 보존하는 동일
+  검색·필터가 가려지지 않도록 discovery section의 `자리 둘러보기` 제목으로 부드럽게 이동시킨다. `/groups`는 기존 링크와 북마크를 보존하는 동일
   랜딩 경로로 유지한다.
+- Hero의 desktop 열은 `minmax(26rem, .75fr) minmax(0, 1.25fr)`와 32px gap으로 나눈다.
+  문구는 내용 너비로 첫 번째 열의 오른쪽에 정렬해 이미지 내부 흰 여백을 고려한 바깥 좌우
+  균형을 맞춘다. tablet/mobile에서는 문구의 가운데 정렬을 유지하고 이미지만 화면 양 끝까지
+  넓히고 텍스트와 목록의 기존 gutter는 유지한다. 이미지는 원본 비율과 `contain`을 유지해
+  확대 후에도 상하좌우를 자르지 않는다.
 - 탐색 페이지의 hero와 discovery는 desktop에서 `--space-16` 외부 간격과 `--space-10` 내부 상단
   여백으로 넉넉하게 분리하고, discovery에는 `--color-section-soft`를 적용해 별도 정보 영역임을
   드러낸다. 결과 제목과
   모임 수/정렬 메타는 같은 baseline에서 바로 이어지며, 검색·필터와 카드 grid는 동일 rail을
   유지한다.
+- 탐색 랜딩의 full-bleed 배경은 `main`의 가로 경계에서만 잘라 세로 스크롤바가 있는
+  환경에서도 페이지에 가로 스크롤이 생기지 않게 한다. 세로 스크롤과 제목 기준 이동은 유지한다.
 - Shadow: 카드 hover와 modal만 `0 12px 34px rgb(29 29 31 / 10%)`; 일반 정보 그룹은 border/tonal
   surface로 깊이를 표현한다.
 - Z layers: header `20`, sticky `25`, overlay `40`, dialog `50`, toast `60`.
@@ -121,9 +131,13 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   group editor 2-column hero, management grid/table을 사용한다. 고정 폭 action은 충분한
   공간이 없으면 줄바꿈한다.
 - `1440+`: 1440px shell 상한을 중앙 정렬하고 탐색 카드 4 columns를 유지한다.
-- 탐색 카드 간격은 desktop/tablet 24px, mobile 12px이다. 모바일 카드 본문은 좌우 12px
-  여백과 15px 제목을 사용하고, 고정 최소 높이 없이 내용에 맞춰 늘어난다. 같은 행의 카드는
-  높이를 맞추되 이미지의 `8 / 5` 비율과 배지·제목·소개·일정 정보 순서를 유지한다.
+- 탐색 카드 간격은 축소 전 값으로 유지한다. 가로 간격은 desktop/tablet 24px, mobile 12px이며,
+  세로 간격은 desktop 40px, tablet 24px, mobile 12px이다. 모바일 카드 본문은 좌우 12px
+  여백과 16px 제목(`--groups-card-title-size`), 13px 소개(`--text-caption`, line-height 1.6),
+  12px 하단 metadata(`--groups-card-meta-size`)를 사용한다. 모임 종류와 모집 상태는 공통
+  caption 크기인 13px를 유지한다. 고정 최소 높이 없이
+  내용에 맞춰 늘어나며 같은 행의 카드는
+  높이를 맞추고, 사진 높이는 `8 / 5` 기준 높이에 본문에서 옮긴 metadata 줄 28px과 간격 8px을 더한다.
 
 ## 3. Layout system
 
@@ -195,12 +209,26 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - Select: native keyboard/assistive-tech 동작을 유지하면서 오른쪽 chevron, 넉넉한 우측 padding,
   pointer cursor를 제공한다. 탐색 필터는 검색과 같은 underline control surface를 사용하고,
   focus 시 하단선을 brand color로 강조한다.
-- Cards: 14–20px radius, `--border-thin` line, 20–24px padding. 탐색 카드의 visual은 `8 / 5`
-  비율로 이미지 비중을 확보하고, 본문 상단 여백을 `--space-1`로 두어 하단 gradient fade와
-  텍스트가 4px 간격으로 이어지도록 한다. 클릭 가능한 카드 전체에
-  focus-visible을 둔다. 상태 badge는 이미지 위에 걸치지 않고 카드 본문 첫 metadata row 안에 둔다.
-  GroupCard 이미지는 backend의 `representativeImageUrl`을 그대로 사용하며, 이미지 하단은 surface로
-  부드럽게 fade되어 본문과 하나의 카드 surface처럼 이어진다. 서버 기본 이미지 경로도 별도
+  모바일에서도 세 가지 필터를 같은 행에 두며 간격은 `--space-2`(8px)이다. 검색 입력창은 별도
+  전체 너비 행을 유지한다. 모바일 select는 `--text-caption`(13px), 좌우 padding 8px/24px와
+  오른쪽 8px chevron을 사용해 긴 선택값도 잘리지 않게 한다. 최소 터치 높이는 유지한다.
+- Cards: 14–20px radius, `--border-thin` line, 20–24px padding. 탐색 카드의 visual 높이는
+  `너비 / (8 / 5) + --groups-card-meta-height + --space-2`로 정한다.
+  `--groups-card-meta-height`는 기존 metadata 줄 높이인 `--space-7`(28px)이며,
+  본문 상하 여백은 `--space-4`(16px)로 맞춰 사진과 모임 종류·모집 상태 사이에 공간을 확보한다.
+  좌우 여백은 desktop/tablet `--space-5`(20px), mobile `--space-3`(12px)이다. 탐색 카드에서는
+  하단 gradient fade를 제거해 사진과 흰색 본문의 경계를 또렷하게 구분한다. 클릭 가능한 카드 전체에
+  focus-visible을 둔다. 기본 배치는 모임 종류와 상태 badge를 사진 아래 흰색 정보 영역의
+  첫 줄 좌우에 두고, 모임명과 소개를 차례로 배치한다. metadata는 normal flow를 사용해
+  본문 padding을 지키며 필요한 만큼 카드 높이가 늘어난다. 모임명은 desktop/tablet 20px,
+  mobile 16px의 `--groups-card-title-size`와 line-height 1.45를 사용한다.
+  모임 종류는 공통 `.ui-card__meta`의 배경 없는 `--color-text-muted` 텍스트를 사용한다.
+  모집 상태는 공통 `.ui-badge`의 28px 최소 높이, 13px/700 글자, 좌우 12px padding과 pill
+  radius를 사용한다. 모집 중은 `--color-brand-soft` 배경과 `--color-text-brand` 글자,
+  모집 마감은 `--color-canvas` 배경과 `--color-text-muted` 글자로 표시한다.
+  좁은 공간에서는 공통 metadata 줄바꿈 동작을 유지한다. 사진에 확보한 추가 높이 36px는 유지한다.
+  GroupCard 이미지는 backend의 `representativeImageUrl`을 그대로 사용하며, 탐색 이외의 기본
+  GroupCard는 기존 surface와 하단 fade를 유지한다. 서버 기본 이미지 경로도 별도
   일러스트로 치환하지 않는다.
 - Account activity/group cards: 상세 목적지가 하나인 카드는 제목만이 아니라 카드 전체가 하나의
   semantic link다. 내부 mutation button이 있는 신청 카드는 중첩 interactive element를 피하기 위해
@@ -244,7 +272,10 @@ long Korean copy, empty/skeleton을 검수한다. production navigation에는 �
 - Toast는 2,000ms 후 180ms 동안 opacity와 transform으로 부드럽게 퇴장한 뒤 제거되며, 사용자가
   직접 닫을 수 있는 닫기 버튼을 함께 제공한다.
 - Dialog는 opacity + 8px scale/translate, drawer는 transform을 사용한다.
-- `HeroScrollButton`은 실제 discovery section으로 smooth scroll하고, `ScrollToTopButton`은
+- `HeroScrollButton`은 카드 수나 화면 높이에 관계없이 목록의 `자리 둘러보기` 제목에 맞춰
+  smooth scroll한다. 제목 위의 화면 여백은 `--space-4`(16px)이며, 제목 아래 검색·필터를
+  먼저 보여준다. 카드가 없는 상태에서도 같은 기준을 유지한다.
+  `ScrollToTopButton`은
   viewport 우측 하단에 fixed로 유지되어 페이지 최상단으로 smooth scroll한다. 두 동작 모두
   `prefers-reduced-motion: reduce`에서는 즉시 이동한다.
 - loading은 레이아웃 이동 없이 skeleton 또는 버튼 내부 spinner로 표현한다.

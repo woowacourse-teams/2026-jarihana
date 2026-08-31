@@ -38,7 +38,7 @@
   --text-h3: 1.125rem;
   --text-h2: 1.5rem;
   --text-h1: 2rem;
-  --text-hero: 3rem;
+  --text-hero: 3.5rem;
   --text-hero-body: 1.25rem;
   --text-display: 2.5rem;
   --text-brand: 1.375rem;
@@ -46,7 +46,7 @@
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
   --font-weight-extrabold: 800;
-  --tracking-brand: -0.04em;
+  --tracking-brand: 0;
   --font-size-caption: var(--text-caption);
   --font-size-label: var(--text-label);
   --font-size-h3: var(--text-h3);
@@ -110,7 +110,7 @@
   :root {
     --text-h2: 1.3125rem;
     --text-h1: 1.625rem;
-    --text-hero: 2.125rem;
+    --text-hero: 2.5rem;
     --text-hero-body: 1.125rem;
     --text-display: 1.875rem;
   }

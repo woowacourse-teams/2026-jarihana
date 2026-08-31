@@ -10,6 +10,7 @@
 html {
     color: var(--color-ink);
     font-family: var(--font-sans);
+    letter-spacing: 0;
 }
 
 body {

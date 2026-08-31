@@ -396,7 +396,7 @@ test("anonymous protected navigation gives login feedback without a silent round
   expect(state.unexpectedResponses).toEqual([]);
 });
 
-test("group discovery aligns its sections and keeps status badges inside card bodies", async ({
+test("group discovery aligns its sections and places status badges inside the card body", async ({
   page
 }) => {
   await page.setViewportSize({ height: 806, width: 1159 });
@@ -417,21 +417,24 @@ test("group discovery aligns its sections and keeps status badges inside card bo
       grid: bounds(".groups-grid"),
       hero: bounds(".groups-hero"),
       image: bounds(".groups-grid .ui-group-card__image"),
+      meta: bounds(".groups-grid .ui-group-card__body > .ui-card__meta:first-child"),
       searchBorderRadius: Number.parseFloat(searchStyle.borderRadius),
-      searchBorderStyle: searchStyle.borderStyle,
+      searchBorderStyle: searchStyle.borderBottomStyle,
+      title: bounds(".groups-grid .ui-group-card__title"),
       tools: bounds(".groups-tools")
     };
   });
 
   expect(geometry.searchBorderStyle).toBe("solid");
-  expect(geometry.searchBorderRadius).toBeGreaterThan(0);
+  expect(geometry.searchBorderRadius).toBe(0);
   expect(geometry.hero.left).toBeCloseTo(geometry.tools.left, 0);
   expect(geometry.hero.right).toBeCloseTo(geometry.tools.right, 0);
   expect(geometry.hero.left).toBeCloseTo(geometry.grid.left, 0);
   expect(geometry.hero.right).toBeCloseTo(geometry.grid.right, 0);
+  expect(geometry.body.top).toBeCloseTo(geometry.image.bottom, 0);
+  expect(geometry.meta.top).toBeGreaterThanOrEqual(geometry.body.top);
   expect(geometry.badge.top).toBeGreaterThanOrEqual(geometry.body.top);
-  expect(geometry.badge.bottom).toBeLessThanOrEqual(geometry.body.bottom);
-  expect(geometry.badge.top).toBeGreaterThanOrEqual(geometry.image.bottom);
+  expect(geometry.badge.bottom).toBeLessThanOrEqual(geometry.title.top);
   await assertSurface(page, state, { axe: true });
 });
 
