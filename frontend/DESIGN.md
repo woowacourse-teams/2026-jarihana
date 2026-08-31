@@ -71,7 +71,8 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - H1: 32/1.3, 700. 모바일 26/1.35.
 - H2: 24/1.4, 700. 모바일 21/1.4.
 - H3: 18/1.45, 700.
-- Discovery card title: `--groups-card-title-size` 20/1.45, 700; mobile 16/1.45.
+- Discovery card title: `--groups-card-title-size` 20/1.45, 700; mobile은 `--text-label`
+  크기인 14px와 1.45 line-height를 사용한다.
 - Footer Contact us heading: `--text-footer-contact` 22/1.4, 700.
 - Body large: 17/1.65, 400.
 - Body: 15/1.65, 400.
@@ -133,11 +134,11 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - `1440+`: 1440px shell 상한을 중앙 정렬하고 탐색 카드 4 columns를 유지한다.
 - 탐색 카드 간격은 축소 전 값으로 유지한다. 가로 간격은 desktop/tablet 24px, mobile 12px이며,
   세로 간격은 desktop 40px, tablet 24px, mobile 12px이다. 모바일 카드 본문은 좌우 12px
-  여백과 16px 제목(`--groups-card-title-size`), 13px 소개(`--text-caption`, line-height 1.6),
-  12px 하단 metadata(`--groups-card-meta-size`)를 사용한다. 모임 종류와 모집 상태는 공통
-  caption 크기인 13px를 유지한다. 고정 최소 높이 없이
-  내용에 맞춰 늘어나며 같은 행의 카드는
-  높이를 맞추고, 사진 높이는 `8 / 5` 기준 높이에 본문에서 옮긴 metadata 줄 28px과 간격 8px을 더한다.
+  여백과 14px 제목(`--groups-card-title-size`, `--text-label` 크기), 12px 소개(line-height 1.6),
+  12px 하단 metadata(`--groups-card-meta-size`)를 사용한다. 모임 종류와 모집 상태도
+  `--groups-card-meta-size`를 사용해 12px로 맞추며, badge는 desktop/tablet 13px, mobile
+  12px 글자를 사용한다. 고정 최소 높이 없이 내용에 맞춰 늘어나며 같은 행의 카드는
+  높이를 맞추고, 사진은 추가 높이 없이 정확히 `8 / 5` aspect ratio를 유지한다.
 
 ## 3. Layout system
 
@@ -212,21 +213,23 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   모바일에서도 세 가지 필터를 같은 행에 두며 간격은 `--space-2`(8px)이다. 검색 입력창은 별도
   전체 너비 행을 유지한다. 모바일 select는 `--text-caption`(13px), 좌우 padding 8px/24px와
   오른쪽 8px chevron을 사용해 긴 선택값도 잘리지 않게 한다. 최소 터치 높이는 유지한다.
-- Cards: 14–20px radius, `--border-thin` line, 20–24px padding. 탐색 카드의 visual 높이는
-  `너비 / (8 / 5) + --groups-card-meta-height + --space-2`로 정한다.
-  `--groups-card-meta-height`는 기존 metadata 줄 높이인 `--space-7`(28px)이며,
-  본문 상하 여백은 `--space-4`(16px)로 맞춰 사진과 모임 종류·모집 상태 사이에 공간을 확보한다.
+- Cards: 14–20px radius, `--border-thin` line, 20–24px padding. 탐색 카드 사진은 정확히
+  `8 / 5` aspect ratio를 사용한다. 본문 상하 여백은 `--space-4`(16px)로 맞춰 사진과
+  모임 종류·모집 상태 사이에 공간을 확보한다.
   좌우 여백은 desktop/tablet `--space-5`(20px), mobile `--space-3`(12px)이다. 탐색 카드에서는
   하단 gradient fade를 제거해 사진과 흰색 본문의 경계를 또렷하게 구분한다. 클릭 가능한 카드 전체에
   focus-visible을 둔다. 기본 배치는 모임 종류와 상태 badge를 사진 아래 흰색 정보 영역의
   첫 줄 좌우에 두고, 모임명과 소개를 차례로 배치한다. metadata는 normal flow를 사용해
   본문 padding을 지키며 필요한 만큼 카드 높이가 늘어난다. 모임명은 desktop/tablet 20px,
-  mobile 16px의 `--groups-card-title-size`와 line-height 1.45를 사용한다.
+  mobile 14px의 `--groups-card-title-size`와 line-height 1.45를 사용한다. 소개는
+  desktop/tablet 14px와 line-height 1.5, mobile 12px와 line-height 1.6을 사용한다.
   모임 종류는 공통 `.ui-card__meta`의 배경 없는 `--color-text-muted` 텍스트를 사용한다.
-  모집 상태는 공통 `.ui-badge`의 28px 최소 높이, 13px/700 글자, 좌우 12px padding과 pill
-  radius를 사용한다. 모집 중은 `--color-brand-soft` 배경과 `--color-text-brand` 글자,
+  모임 종류, 모집 상태, metadata는 mobile에서 `--groups-card-meta-size`인 12px를 사용한다.
+  모집 상태는 공통 `.ui-badge`의 28px 최소 높이, desktop/tablet 13px/700 및 mobile
+  12px/700 글자, 좌우 12px padding과 pill radius를 사용한다. 모집 중은 `--color-brand-soft`
+  배경과 `--color-text-brand` 글자,
   모집 마감은 `--color-canvas` 배경과 `--color-text-muted` 글자로 표시한다.
-  좁은 공간에서는 공통 metadata 줄바꿈 동작을 유지한다. 사진에 확보한 추가 높이 36px는 유지한다.
+  좁은 공간에서는 공통 metadata 줄바꿈 동작을 유지한다.
   GroupCard 이미지는 backend의 `representativeImageUrl`을 그대로 사용하며, 탐색 이외의 기본
   GroupCard는 기존 surface와 하단 fade를 유지한다. 서버 기본 이미지 경로도 별도
   일러스트로 치환하지 않는다.

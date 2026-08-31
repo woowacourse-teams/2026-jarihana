@@ -405,13 +405,11 @@ for (const viewport of discoveryViewports) {
       for (const card of layout.cards) {
         expect(card.bodyBackgroundColor).toBe("rgb(255, 255, 255)");
         expect(card.bodyPaddingTop).toBe(16);
-        expect(card.titleFontSize).toBe(viewport.width >= 768 ? 20 : 16);
-        if (viewport.width < 768) {
-          expect(card.introFontSize).toBe(13);
-          expect(card.statusFontSize).toBe(13);
-        }
+        expect(card.titleFontSize).toBe(viewport.width >= 768 ? 20 : 14);
+        expect(card.introFontSize).toBe(viewport.width >= 768 ? 14 : 12);
+        expect(card.statusFontSize).toBe(viewport.width >= 768 ? 13 : 12);
         expect(card.body.top).toBeCloseTo(card.image.bottom, 0);
-        expect(Math.abs(card.image.height - (card.image.width * 0.625 + 36))).toBeLessThanOrEqual(
+        expect(Math.abs(card.image.height - card.image.width * 0.625)).toBeLessThanOrEqual(
           1
         );
         expect(card.visual.height).toBeCloseTo(card.image.height, 1);

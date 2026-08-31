@@ -6,7 +6,6 @@
 
 .groups-page {
   --groups-card-art-ratio: 8 / 5;
-  --groups-card-meta-height: var(--space-7);
   --groups-card-meta-size: 0.75rem;
   --groups-card-title-size: 1.25rem;
   --groups-hero-art-ratio: 1672 / 941;
@@ -414,9 +413,7 @@
 }
 
 .groups-grid .ui-group-card__visual {
-  aspect-ratio: auto;
-  height: 0;
-  padding-top: calc(100% / (var(--groups-card-art-ratio)) + var(--groups-card-meta-height) + var(--space-2));
+  aspect-ratio: var(--groups-card-art-ratio);
 }
 
 .groups-grid .ui-group-card__visual::after {
@@ -1445,7 +1442,7 @@
 
   .groups-grid {
     --groups-card-min-height: 0;
-    --groups-card-title-size: 1rem;
+    --groups-card-title-size: var(--text-label);
 
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-3);
@@ -1456,11 +1453,12 @@
   }
 
   .groups-grid .ui-group-card__intro {
-    font-size: var(--text-caption);
+    font-size: var(--groups-card-meta-size);
     line-height: 1.6;
   }
 
-  .groups-grid .ui-group-card__body > .ui-card__meta:last-child {
+  .groups-grid .ui-group-card__body > .ui-card__meta,
+  .groups-grid .ui-group-card__body .ui-badge {
     font-size: var(--groups-card-meta-size);
   }
 
