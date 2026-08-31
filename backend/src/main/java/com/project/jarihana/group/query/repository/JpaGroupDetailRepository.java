@@ -34,7 +34,7 @@ public class JpaGroupDetailRepository implements GroupDetailRepository {
     }
 
     @Override
-    public Optional<GroupDetailProjection> findById(Long groupId, LocalDateTime now) {
+    public Optional<GroupDetailProjection> findById(Long groupId, LocalDateTime now, Long currentMemberId) {
         Optional<Group> group = groupRepository.findById(groupId);
         if (group.isEmpty()) {
             return Optional.empty();
@@ -50,13 +50,32 @@ public class JpaGroupDetailRepository implements GroupDetailRepository {
                 .findFirst()
                 .orElse(null);
         int approvedCount = findApprovedCount(activeRecruitment);
+        RegistrationStatus currentMemberRegistrationStatus = findCurrentMemberRegistrationStatus(
+                activeRecruitment,
+                currentMemberId
+        );
         return Optional.of(GroupDetailProjection.of(
                 groupId,
                 group.get(),
                 members,
                 activeRecruitment,
-                approvedCount
+                approvedCount,
+                currentMemberRegistrationStatus
         ));
+    }
+
+    private RegistrationStatus findCurrentMemberRegistrationStatus(
+            GroupRecruitment recruitment,
+            Long currentMemberId
+    ) {
+        if (recruitment == null || currentMemberId == null) {
+            return null;
+        }
+        return registrationRepository.findStatusByRecruitmentIdAndMemberId(
+                        recruitment.getId(),
+                        currentMemberId
+                )
+                .orElse(null);
     }
 
     private int findApprovedCount(GroupRecruitment recruitment) {

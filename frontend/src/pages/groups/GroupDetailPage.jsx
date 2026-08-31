@@ -75,6 +75,7 @@ export function GroupDetailPage() {
     group.representativeImageUrl.endsWith("images/default-group.png");
   const isApprovedMember =
     group?.currentMemberRole === "MEMBER" || group?.currentMemberRole === "LEADER";
+  const hasExistingRegistration = group?.currentMemberRegistrationStatus != null;
   const isArchived = group?.status === "ENDED";
 
   if (groupQuery.isLoading) {
@@ -212,6 +213,7 @@ export function GroupDetailPage() {
             auth={auth}
             group={group}
             createRecruitmentHref={isLeader ? `/groups/${groupId}/manage/recruitments` : null}
+            hasExistingRegistration={hasExistingRegistration}
             isApprovedMember={isApprovedMember}
             isArchived={isArchived}
             isLeader={isLeader}
@@ -234,6 +236,7 @@ export function GroupDetailPage() {
               auth={auth}
               group={group}
               createRecruitmentHref={isLeader ? `/groups/${groupId}/manage/recruitments` : null}
+              hasExistingRegistration={hasExistingRegistration}
               isApprovedMember={isApprovedMember}
               isArchived={isArchived}
               isLeader={isLeader}
@@ -262,6 +265,7 @@ function RecruitmentSummary({
   auth,
   createRecruitmentHref,
   group,
+  hasExistingRegistration,
   isApprovedMember,
   isArchived,
   isLeader
@@ -311,6 +315,13 @@ function RecruitmentSummary({
       return (
         <Button disabled variant="secondary">
           가입 완료!
+        </Button>
+      );
+    }
+    if (hasExistingRegistration) {
+      return (
+        <Button disabled variant="secondary">
+          신청 완료
         </Button>
       );
     }

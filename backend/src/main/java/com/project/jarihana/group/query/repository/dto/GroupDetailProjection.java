@@ -3,6 +3,7 @@ package com.project.jarihana.group.query.repository.dto;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
+import com.project.jarihana.registration.domain.RegistrationStatus;
 
 import java.util.List;
 
@@ -11,7 +12,8 @@ public record GroupDetailProjection(
         Group group,
         List<GroupDetailMember> members,
         GroupRecruitment activeRecruitment,
-        int approvedCount
+        int approvedCount,
+        RegistrationStatus currentMemberRegistrationStatus
 ) {
 
     public GroupDetailProjection {
@@ -28,7 +30,25 @@ public record GroupDetailProjection(
             GroupRecruitment activeRecruitment,
             int approvedCount
     ) {
-        return new GroupDetailProjection(id, group, members, activeRecruitment, approvedCount);
+        return of(id, group, members, activeRecruitment, approvedCount, null);
+    }
+
+    public static GroupDetailProjection of(
+            Long id,
+            Group group,
+            List<GroupDetailMember> members,
+            GroupRecruitment activeRecruitment,
+            int approvedCount,
+            RegistrationStatus currentMemberRegistrationStatus
+    ) {
+        return new GroupDetailProjection(
+                id,
+                group,
+                members,
+                activeRecruitment,
+                approvedCount,
+                currentMemberRegistrationStatus
+        );
     }
 
     public GroupDetailMember leader() {
