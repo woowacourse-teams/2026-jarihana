@@ -611,7 +611,6 @@
   object-fit: contain;
   object-position: right center;
   opacity: 0.28;
-  filter: invert(1);
   transform: translateX(6%);
 }
 
