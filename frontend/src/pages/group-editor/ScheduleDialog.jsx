@@ -69,49 +69,45 @@ export function RecurringScheduleFields({ errors, onPresetSelect, register, sele
       </div>
 
       {/*
-        * 유동적 일정은 recurringSchedule을 null로 보내므로 요일도 시간도 쓰이지 않는다.
-        * 받아 놓고 버리면 저장된 줄 알게 되므로 둘 다 감춘다. 다시 정기 일정으로
-        * 돌아가려면 위의 평일, 주말, 매일 중 하나를 고르면 된다.
+        * 유동적을 골라도 요일과 시간은 그대로 둔다. 감춰 보니 개별 요일부터 다시
+        * 고를 길이 사라져, 평일, 주말, 매일을 거치지 않으면 정기 일정으로 돌아올 수
+        * 없었다. 대신 저장되지 않는다는 사실을 아래 안내로 알린다.
         */}
-      {selectedDays.length > 0 ? (
-        <>
-          <p className="group-editor__field-label">활동 요일</p>
-          <div aria-label="활동 요일" className="group-editor__day-grid" role="group">
-            {DAYS.map(([day, label, short]) => (
-              <DayChip
-                day={day}
-                dimmed={dimUnselected && !selectedDays.includes(day)}
-                key={day}
-                label={label}
-                register={register}
-                short={short}
-              />
-            ))}
-          </div>
-        </>
-      ) : null}
+      <p className="group-editor__field-label">활동 요일</p>
+      <div aria-label="활동 요일" className="group-editor__day-grid" role="group">
+        {DAYS.map(([day, label, short]) => (
+          <DayChip
+            day={day}
+            dimmed={dimUnselected && !selectedDays.includes(day)}
+            key={day}
+            label={label}
+            register={register}
+            short={short}
+          />
+        ))}
+      </div>
 
       {selectedDays.length === 0 ? (
         <p className="group-editor__schedule-note">
           요일을 고르지 않으면 <strong>유동적 일정</strong>이에요. 정해진 요일과 시간 없이 그때그때
-          정하는 모임입니다.
+          정하는 모임이라 아래 시간은 저장되지 않아요.
         </p>
-      ) : (
-        <div className="group-editor__time-grid">
-          <UnderlineField
-            error={errors.startTime?.message}
-            label="시작 시간"
-            registration={register("startTime")}
-            type="time"
-          />
-          <UnderlineField
-            error={errors.endTime?.message}
-            label="종료 시간"
-            registration={register("endTime")}
-            type="time"
-          />
-        </div>
-      )}
+      ) : null}
+
+      <div className="group-editor__time-grid">
+        <UnderlineField
+          error={errors.startTime?.message}
+          label="시작 시간"
+          registration={register("startTime")}
+          type="time"
+        />
+        <UnderlineField
+          error={errors.endTime?.message}
+          label="종료 시간"
+          registration={register("endTime")}
+          type="time"
+        />
+      </div>
     </fieldset>
   );
 }

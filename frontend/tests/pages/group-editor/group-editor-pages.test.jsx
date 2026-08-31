@@ -230,35 +230,37 @@ describe("NewGroupPage", () => {
     });
   });
 
-  it("유동적일 때는 요일도 두지 않는다", async () => {
+  it("유동적을 골라도 요일 버튼은 남는다", async () => {
     // Given
     const user = userEvent.setup();
     renderPage(<NewGroupPage />);
     await openSchedule(user, "모임 일정 설정");
     const dialog = scheduleDialog();
     await user.click(within(dialog).getByRole("button", { name: "평일" }));
-    expect(within(dialog).getByLabelText("월요일")).toBeInTheDocument();
 
     // When
     await user.click(within(dialog).getByRole("button", { name: "유동적" }));
 
-    // Then 쓰이지 않는 값이므로 요일도 함께 감춘다.
-    expect(within(dialog).queryByLabelText("월요일")).not.toBeInTheDocument();
-    expect(within(dialog).queryByText("활동 요일")).not.toBeInTheDocument();
+    // Then 개별 요일부터 다시 고를 수 있어야 한다.
+    expect(within(dialog).getByLabelText("월요일")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("월요일")).not.toBeChecked();
+    expect(within(dialog).getByText("활동 요일")).toBeInTheDocument();
   });
 
-  it("유동적일 때는 시간 입력을 두지 않는다", async () => {
+  it("유동적을 골라도 시간 입력은 남는다", async () => {
     // Given
     const user = userEvent.setup();
     renderPage(<NewGroupPage />);
     await openSchedule(user, "모임 일정 설정");
     const dialog = scheduleDialog();
 
-    // Then 요일이 없으면 시간은 쓰이지 않으므로 보이지 않는다.
-    expect(within(dialog).queryByLabelText("시작 시간")).not.toBeInTheDocument();
+    // Then 요일을 고르기 전에도 시간을 먼저 정할 수 있다.
+    expect(within(dialog).getByLabelText("시작 시간")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("종료 시간")).toBeInTheDocument();
 
-    // When 요일을 고르면 시간이 필요해진다.
+    // When
     await user.click(within(dialog).getByRole("button", { name: "평일" }));
+    await user.click(within(dialog).getByRole("button", { name: "유동적" }));
 
     // Then
     expect(within(dialog).getByLabelText("시작 시간")).toBeInTheDocument();
@@ -319,14 +321,14 @@ describe("NewGroupPage", () => {
     await openSchedule(user, "모임 일정 설정");
     const dialog = scheduleDialog();
 
-    // Then 유동적으로 시작하므로 요일도 아직 없다.
-    expect(within(dialog).queryByLabelText("월요일")).not.toBeInTheDocument();
+    // Then 요일은 모달 안에만 있고, 유동적으로 시작하므로 아직 아무것도 켜져 있지 않다.
+    expect(within(dialog).getByLabelText("월요일")).not.toBeChecked();
 
-    // When 프리셋을 고르면 요일이 나타난다.
+    // When 프리셋을 고르면 요일이 켜진다.
     await user.click(within(dialog).getByRole("button", { name: "평일" }));
 
     // Then
-    expect(within(dialog).getByLabelText("월요일")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("월요일")).toBeChecked();
   });
 
   it("applies a preset from the four-column toggle and leaves other days usable", async () => {
