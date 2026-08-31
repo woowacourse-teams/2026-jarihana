@@ -15,33 +15,21 @@ const WEEKDAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"];
 const WEEKENDS = ["SATURDAY", "SUNDAY"];
 const EVERY_DAY = [...WEEKDAYS, ...WEEKENDS];
 
-const PRESETS = [
+/*
+ * 요일을 대신 눌러 주는 액션이다. 상태를 가진 선택지가 아니므로 aria-pressed를 두지
+ * 않는다. 지금 무엇이 골라져 있는지는 아래 요일 칩만 말한다.
+ */
+const BULK_SELECTIONS = [
   ["weekday", "평일", WEEKDAYS],
   ["weekend", "주말", WEEKENDS],
   ["everyday", "매일", EVERY_DAY],
-  ["flexible", "유동적", []]
+  ["clear", "모두 지우기", []]
 ];
 
-/* 요일 프리셋과 이름이 겹치지 않도록 "시간"을 붙인다. 요일과 시간은 따로 유동적일 수 있다. */
-const TIME_MODES = [
-  ["fixed", "시간 지정"],
-  ["flexible", "시간 유동적"]
-];
-
-function sameDays(selected, target) {
-  return selected.length === target.length && target.every((day) => selected.includes(day));
-}
-
-/* 어떤 프리셋과도 맞지 않으면 null. 네 칸이 모두 꺼진 직접 선택 상태다. */
-function activePreset(selected) {
-  const match = PRESETS.find(([, , days]) => sameDays(selected, days));
-  return match ? match[0] : null;
-}
-
-function DayChip({ day, dimmed, label, register, short }) {
+function DayChip({ day, label, register, short }) {
   const tone = day === "SATURDAY" || day === "SUNDAY" ? " is-weekend" : "";
   return (
-    <label className={`group-editor__day-chip${tone}${dimmed ? " is-dimmed" : ""}`}>
+    <label className={`group-editor__day-chip${tone}`}>
       {/* 칩은 월을 보여주지만 월요일이라고 읽혀야 하므로 이름은 input이 갖는다. */}
       <input aria-label={label} type="checkbox" value={day} {...register("daysOfWeek")} />
       <span aria-hidden="true">{short}</span>
@@ -57,46 +45,32 @@ export function RecurringScheduleFields({
   register,
   selectedDays = []
 }) {
-  const preset = activePreset(selectedDays);
-  /*
-   * 프리셋이 켜져 있으면 선택되지 않은 요일을 흐리게 둔다. 잠그지는 않는다.
-   * 잠그면 평일 + 토요일 같은 조합에 아예 도달할 수 없기 때문이다.
-   */
-  const dimUnselected = preset !== null && preset !== "flexible";
-
   return (
     <fieldset className="group-editor__schedule-fields">
       <legend className="group-editor__visually-hidden">활동 일정</legend>
 
-      <div aria-label="요일 일괄 선택" className="group-editor__preset-seg" role="group">
-        {PRESETS.map(([key, label, days]) => (
+      {/*
+        * 요일이 먼저고 일괄 선택은 그 아래 도구다. 위에 세그먼트로 두면 요일과
+        * 시간을 거느리는 상위 분류처럼 읽힌다.
+        */}
+      <p className="group-editor__field-label">활동 요일</p>
+      <div aria-label="활동 요일" className="group-editor__day-grid" role="group">
+        {DAYS.map(([day, label, short]) => (
+          <DayChip day={day} key={day} label={label} register={register} short={short} />
+        ))}
+      </div>
+
+      <div aria-label="요일 일괄 선택" className="group-editor__bulk" role="group">
+        <span className="group-editor__bulk-label">한 번에</span>
+        {BULK_SELECTIONS.map(([key, label, days]) => (
           <button
-            aria-pressed={preset === key}
+            className={key === "clear" ? "is-quiet" : undefined}
             key={key}
             onClick={() => onPresetSelect(days)}
             type="button"
           >
             {label}
           </button>
-        ))}
-      </div>
-
-      {/*
-        * 유동적을 골라도 요일과 시간은 그대로 둔다. 감춰 보니 개별 요일부터 다시
-        * 고를 길이 사라져, 평일, 주말, 매일을 거치지 않으면 정기 일정으로 돌아올 수
-        * 없었다. 대신 저장되지 않는다는 사실을 아래 안내로 알린다.
-        */}
-      <p className="group-editor__field-label">활동 요일</p>
-      <div aria-label="활동 요일" className="group-editor__day-grid" role="group">
-        {DAYS.map(([day, label, short]) => (
-          <DayChip
-            day={day}
-            dimmed={dimUnselected && !selectedDays.includes(day)}
-            key={day}
-            label={label}
-            register={register}
-            short={short}
-          />
         ))}
       </div>
 
@@ -112,18 +86,14 @@ export function RecurringScheduleFields({
       ) : (
         <>
           <p className="group-editor__field-label">활동 시간</p>
-          <div aria-label="활동 시간 선택" className="group-editor__preset-seg" role="group">
-            {TIME_MODES.map(([key, label]) => (
-              <button
-                aria-pressed={flexibleTime === (key === "flexible")}
-                key={key}
-                onClick={() => onFlexibleTimeChange?.(key === "flexible")}
-                type="button"
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <label className="group-editor__time-check">
+            <input
+              checked={flexibleTime}
+              onChange={(event) => onFlexibleTimeChange?.(event.currentTarget.checked)}
+              type="checkbox"
+            />
+            시간은 그때그때 정해요
+          </label>
 
           {/*
             * 시간만 유동적이면 두 시각을 비워 보낸다. 입력은 자리를 지키되 잠가서

@@ -58,14 +58,13 @@ describe("활동 일정 모달 스타일", () => {
   );
 
   /*
-   * 요일 세그먼트는 버튼 넷, 시간 세그먼트는 둘이다. 칸 수를 넷으로 못 박으면
-   * 시간 세그먼트가 모달 왼쪽 절반에만 그려진다.
+   * 일괄 선택은 요일을 채워 주는 도구라 요일 칩 아래에 둔다. 붙어 있으면 칩의
+   * 연장선처럼 읽혀 무엇이 선택 상태인지 헷갈린다.
    */
-  it("세그먼트는 버튼 수에 맞춰 칸을 고르게 나눈다", () => {
-    const body = declarationsFor(".group-editor__preset-seg");
+  it("일괄 선택 줄은 요일 칩과 뚜렷이 떨어져 있다", () => {
+    const body = declarationsFor(".group-editor__bulk");
 
-    expect(body).toContain("grid-auto-columns: minmax(0, 1fr)");
-    expect(body).not.toContain("repeat(4");
+    expect(body).toContain("margin-block-start: var(--space-6)");
   });
 
   /*
