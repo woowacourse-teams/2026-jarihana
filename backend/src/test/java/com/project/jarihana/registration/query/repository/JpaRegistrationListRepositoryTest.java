@@ -131,11 +131,15 @@ class JpaRegistrationListRepositoryTest {
     }
 
     private Group saveGroup(String name) {
+        return saveGroup(name, null);
+    }
+
+    private Group saveGroup(String name, String representativeImageKey) {
         return groupRepository.save(Group.createStudy(
                 name,
                 "함께 학습합니다.",
                 null,
-                null,
+                representativeImageKey,
                 RecurringGroupSchedule.of(
                         Set.of(DayOfWeek.MONDAY),
                         LocalTime.of(19, 0),
@@ -172,7 +176,10 @@ class JpaRegistrationListRepositoryTest {
         // Given
         Member applicant = saveMember("내신청자", Course.BACKEND, "my-registration-repository-applicant");
         Member otherApplicant = saveMember("타신청", Course.FRONTEND, "my-registration-repository-other");
-        Group firstGroup = saveGroup("my-registration-repository-group-1");
+        Group firstGroup = saveGroup(
+                "my-registration-repository-group-1",
+                "groups/my-registration-repository.webp"
+        );
         Group secondGroup = saveGroup("my-registration-repository-group-2");
         GroupRecruitment firstRecruitment = saveRecruitment(firstGroup);
         GroupRecruitment secondRecruitment = saveRecruitment(secondGroup);
@@ -202,6 +209,8 @@ class JpaRegistrationListRepositoryTest {
                 .containsExactly(latest.getId());
         assertThat(firstPage.items().get(0).groupId()).isEqualTo(firstGroup.getId());
         assertThat(firstPage.items().get(0).groupName()).isEqualTo("my-registration-repository-group-1");
+        assertThat(firstPage.items().get(0).groupRepresentativeImageKey())
+                .isEqualTo("groups/my-registration-repository.webp");
         assertThat(firstPage.items().get(0).recruitmentId()).isEqualTo(firstRecruitment.getId());
         assertThat(firstPage.hasNext()).isTrue();
         assertThat(secondPage.items())

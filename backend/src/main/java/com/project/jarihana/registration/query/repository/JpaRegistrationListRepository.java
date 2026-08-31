@@ -80,6 +80,7 @@ public class JpaRegistrationListRepository implements RegistrationListRepository
                 registration.getId(),
                 registration.getRecruitment().getGroup().getId(),
                 registration.getRecruitment().getGroup().getName(),
+                registration.getRecruitment().getGroup().getRepresentativeImageKey(),
                 registration.getRecruitment().getId(),
                 registration.getMessage(),
                 registration.getStatus(),

@@ -1,7 +1,7 @@
 import { CalendarDays, Crown, UsersRound } from "lucide-react";
 import { Link } from "react-router";
 
-import { EmptyState, ErrorState, Skeleton, StatusBadge } from "../../shared/ui/index.js";
+import { EmptyState, ErrorState, GroupImage, Skeleton, StatusBadge } from "../../shared/ui/index.js";
 import { formatKoreanDate, GROUP_TYPE_LABELS, REGISTRATION_STATUS_LABELS } from "./accountUtils.js";
 import { useInfiniteScroll } from "./useInfiniteScroll.js";
 
@@ -19,11 +19,7 @@ function GroupActivityRow({ group, isLeader }) {
 
   return (
     <article className="activity-row activity-row--interactive">
-      <img
-        alt=""
-        className="activity-row__visual"
-        src={group.representativeImageUrl || "/images/default-group.png"}
-      />
+      <GroupImage className="activity-row__visual" group={group} />
       <div className="activity-row__body">
         <div className="activity-row__badges">
           <GroupTypeTag type={group.type} />
@@ -69,9 +65,7 @@ function RegistrationActivityRow({ registration }) {
 
   return (
     <article className="activity-row activity-row--interactive">
-      <div aria-hidden="true" className="activity-row__visual activity-row__visual--registration">
-        <CalendarDays size={32} />
-      </div>
+      <GroupImage className="activity-row__visual" group={registration.group} />
       <div className="activity-row__body">
         <div className="activity-row__badges">
           <StatusBadge tone={tone}>

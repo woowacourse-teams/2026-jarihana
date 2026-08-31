@@ -378,6 +378,10 @@ function RecruitmentSummary({
           </dd>
         </div>
         <div>
+          <dt>가입 방식</dt>
+          <dd>{recruitment.joinMethod === "AUTO" ? "선착순" : "승인제"}</dd>
+        </div>
+        <div>
           <dt>모집 인원</dt>
           <dd>
             승인 {recruitment.approvedCount}명 / 정원 {recruitment.capacity}명
