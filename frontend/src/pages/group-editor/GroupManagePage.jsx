@@ -50,7 +50,7 @@ const manageSchema = z
   .object({
     name: z.string().trim().min(1, "모임 이름을 입력해 주세요.").max(50),
     introduction: z.string().trim().min(1, "한 줄 소개를 입력해 주세요.").max(100),
-    description: z.string().max(5000, "5,000자 이하로 입력해 주세요."),
+    description: z.string().max(10_000, "10,000자 이하로 입력해 주세요."),
     meetingType: z.enum(["ONLINE", "OFFLINE", "FLEXIBLE"]),
     location: z.string().max(255, "255자 이하로 입력해 주세요."),
     isSession: z.boolean(),

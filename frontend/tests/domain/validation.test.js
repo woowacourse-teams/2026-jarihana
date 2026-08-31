@@ -111,6 +111,28 @@ describe("group form validation", () => {
     // Then
     expect(result.success).toBe(false);
   });
+
+  it("allows a group description up to 10,000 characters", () => {
+    // Given
+    const values = {
+      name: "모임",
+      introduction: "소개",
+      description: "가".repeat(10_000),
+      meetingType: "FLEXIBLE",
+      location: null
+    };
+
+    // When
+    const accepted = groupModifyFormSchema.safeParse(values);
+    const rejected = groupModifyFormSchema.safeParse({
+      ...values,
+      description: "가".repeat(10_001)
+    });
+
+    // Then
+    expect(accepted.success).toBe(true);
+    expect(rejected.success).toBe(false);
+  });
 });
 
 describe("recruitment and registration validation", () => {
