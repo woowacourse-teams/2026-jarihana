@@ -17,7 +17,7 @@ public record CreateGroupRequest(
         @NotNull GroupType type,
         @NotBlank @Size(max = 50) String name,
         @NotBlank @Size(max = 100) String introduction,
-        @Size(max = 5_000) String description,
+        @Size(max = 10_000) String description,
         @NotNull MeetingType meetingType,
         @Size(max = 255) String location,
         @Size(max = 255) String representativeImageKey,

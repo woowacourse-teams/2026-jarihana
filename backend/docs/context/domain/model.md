@@ -141,7 +141,7 @@ erDiagram
 | `sessionSchedule` | SessionGroupSchedule | `SESSION`일 때 필수, 그 외 `null` | 한 번만 진행되는 세션의 활동 날짜·시간 |
 | `name` | String | NOT NULL, UNIQUE, 1–50자 | 그룹 이름 |
 | `introduction` | String | NOT NULL, 1–100자 | 카드에 표시하는 한 줄 소개 |
-| `description` | String | nullable, 최대 5000자 | 상세 소개 |
+| `description` | String | nullable, 최대 10000자 | 상세 소개 |
 | `representativeImageKey` | String | nullable | 이미지 URL이 아닌 스토리지 키 |
 | `status` | Enum (`GroupStatus`) | NOT NULL, 기본값 `ACTIVE` | 그룹의 활동 상태. `ACTIVE`는 활동 중인 모임, `ENDED`는 종료된 모임 |
 | `createdAt` | LocalDateTime | NOT NULL | 그룹 삭제 가능 여부와 종료 가능 여부를 판단하는 24시간 기준 |

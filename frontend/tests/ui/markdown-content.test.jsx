@@ -28,13 +28,13 @@ describe("MarkdownContent", () => {
     expect(screen.getByRole("link", { name: "자리하나 보기" })).toHaveAttribute("href", "/groups");
   });
 
-  it("keeps HTML and unsafe link schemes inert", () => {
+  it("drops HTML and unsafe link schemes", () => {
     const { container } = render(
       <MarkdownContent value={'<script>alert("x")</script>\n\n[위험](javascript:evil)'} />
     );
 
     expect(container.querySelector("script")).toBeNull();
-    expect(screen.getByText('<script>alert("x")</script>')).toBeVisible();
+    expect(screen.queryByText('<script>alert("x")</script>')).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "위험" })).not.toBeInTheDocument();
     expect(screen.getByText("위험")).toBeVisible();
   });
@@ -71,6 +71,52 @@ describe("MarkdownContent", () => {
     expect(container.querySelector("hr")).toBeVisible();
     expect(container.querySelector("ol")).toBeVisible();
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
+  });
+
+  it("renders GitHub Flavored Markdown extensions", () => {
+    render(
+      <MarkdownContent
+        value={[
+          "| 항목 | 상태 |",
+          "| --- | --- |",
+          "| 문서 | 완료 |",
+          "",
+          "- [x] 표와 체크박스",
+          "- ~~예전 문법~~"
+        ].join("\n")}
+      />
+    );
+
+    expect(screen.getByRole("table")).toBeVisible();
+    expect(screen.getByRole("checkbox")).toBeChecked();
+    expect(screen.getByText("예전 문법").tagName).toBe("DEL");
+  });
+
+  it("renders Markdown images", () => {
+    render(<MarkdownContent value="![대표 이미지](https://example.com/group.png)" />);
+
+    expect(screen.getByRole("img", { name: "대표 이미지" })).toHaveAttribute(
+      "src",
+      "https://example.com/group.png"
+    );
+  });
+
+  it("renders safe disclosure HTML from GitHub READMEs", () => {
+    const { container } = render(
+      <MarkdownContent
+        value={[
+          "<details open>",
+          "<summary>발표 자료 업로드 순서 보기</summary>",
+          "",
+          "업로드 순서입니다.",
+          "</details>"
+        ].join("\n")}
+      />
+    );
+
+    expect(container.querySelector("details")).toHaveAttribute("open");
+    expect(container.querySelector("summary")).toHaveTextContent("발표 자료 업로드 순서 보기");
+    expect(screen.getByText("업로드 순서입니다.")).toBeVisible();
   });
 
   it("keeps fenced code literal instead of parsing it as Markdown", () => {
