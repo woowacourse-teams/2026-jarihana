@@ -10,6 +10,7 @@ const mockRemoveRecurringSchedule = jest.fn();
 const mockReplaceSessionSchedule = jest.fn();
 const mockShowToast = jest.fn();
 const mockNavigate = jest.fn();
+const mockUploadImage = jest.fn();
 
 let mockGroupFixture;
 
@@ -28,6 +29,15 @@ jest.mock("../../../src/features/group/index.js", () => ({
   }),
   useReplaceSessionSchedule: () => ({ mutateAsync: mockReplaceSessionSchedule, isPending: false }),
   useTerminateGroup: () => ({ mutateAsync: mockTerminateGroup, isPending: false })
+}));
+
+/*
+ * 이미지 업로드 훅은 QueryClientProvider를 요구한다. 편집 화면 테스트는 프로바이더
+ * 없이 페이지만 그리므로, 그룹 기능과 같은 방식으로 훅만 대역으로 바꾼다.
+ */
+jest.mock("../../../src/features/image-upload/index.js", () => ({
+  ...jest.requireActual("../../../src/features/image-upload/api.js"),
+  useImageUpload: () => ({ mutateAsync: mockUploadImage, error: null, isPending: false })
 }));
 
 jest.mock("react-router", () => ({
@@ -136,7 +146,7 @@ const submitForm = (formId) => fireEvent.submit(document.getElementById(formId))
 const openSchedule = async (user, name) =>
   user.click(screen.getByRole("button", { name }));
 
-const scheduleDialog = () => screen.getByRole("dialog", { name: "활동 일정 수정" });
+const scheduleDialog = () => screen.getByRole("dialog", { name: "활동 일정" });
 
 describe("NewGroupPage", () => {
   beforeEach(() => {
@@ -174,6 +184,7 @@ describe("NewGroupPage", () => {
         description: "실전 예제로 함께 학습합니다.",
         meetingType: "FLEXIBLE",
         location: null,
+        representativeImageKey: null,
         recurringSchedule: null,
         sessionSchedule: {
           sessionDate: "2026-09-12",
@@ -301,7 +312,7 @@ describe("NewGroupPage", () => {
     renderPage(<NewGroupPage />);
 
     // Then 히어로에는 요일이 없다.
-    expect(screen.queryByRole("dialog", { name: "활동 일정 수정" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "활동 일정" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("월요일")).not.toBeInTheDocument();
 
     // When
@@ -579,7 +590,8 @@ describe("GroupManagePage", () => {
         introduction: "더 좋은 설계를 고민해요.",
         description: "JDBC 내부 동작을 함께 탐구합니다.",
         meetingType: "FLEXIBLE",
-        location: null
+        location: null,
+        representativeImageKey: null
       })
     );
     expect(mockReplaceRecurringSchedule).not.toHaveBeenCalled();
