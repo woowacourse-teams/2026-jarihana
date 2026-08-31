@@ -80,8 +80,8 @@ export function RecurringScheduleFields({
         */}
       {selectedDays.length === 0 ? (
         <p className="group-editor__schedule-note">
-          요일을 비우면 시간과 관계없이 <strong>유동적 일정</strong>이고, 요일만 정하면{" "}
-          <strong>시간만 유동적</strong>인 일정이 돼요.
+          <strong>유동적</strong>은 미리 정하지 않고 그때그때 맞춘다는 뜻이에요. 요일을 비우면 시간과
+          관계없이 일정 전체가, 요일만 정하면 <strong>시간만</strong> 유동적이 돼요.
         </p>
       ) : (
         <>
