@@ -272,6 +272,7 @@ textarea {
 .ui-markdown ul,
 .ui-markdown ol,
 .ui-markdown pre,
+.ui-markdown table,
 .ui-markdown blockquote {
     margin-block: var(--space-3);
 }
@@ -312,6 +313,18 @@ textarea {
     color: var(--color-ink);
     line-height: 1.6;
     white-space: pre;
+}
+
+.ui-markdown table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.ui-markdown th,
+.ui-markdown td {
+    padding: var(--space-2) var(--space-3);
+    border: var(--border-thin) solid var(--color-line);
+    text-align: start;
 }
 
 .ui-markdown li + li {
