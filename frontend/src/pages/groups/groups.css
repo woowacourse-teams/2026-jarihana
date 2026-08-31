@@ -885,6 +885,7 @@
 }
 
 .group-recruitment-empty__action {
+  text-decoration: none;
   width: 100%;
 }
 
