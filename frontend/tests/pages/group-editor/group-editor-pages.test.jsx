@@ -405,13 +405,13 @@ describe("NewGroupPage", () => {
     // Given
     const user = userEvent.setup();
     renderPage(<NewGroupPage />);
-    expect(screen.getByText(/\/ 5,000/)).toBeInTheDocument();
+    expect(screen.getByText(/\/ 10,000/)).toBeInTheDocument();
 
     // When
     await user.click(screen.getByRole("tab", { name: "멤버" }));
 
     // Then
-    expect(screen.queryByText(/\/ 5,000/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\/ 10,000/)).not.toBeInTheDocument();
   });
 
   it("locks a valid create form after the first submission", async () => {

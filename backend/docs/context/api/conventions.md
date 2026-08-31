@@ -91,7 +91,7 @@ URL에 버전 경로를 붙이지 않는다.
 | --- | --- |
 | `Group.name` | 1~50자, 전역 중복 불가 |
 | `Group.introduction` | 1~100자 |
-| `Group.description` | 최대 5000자, 생략 가능 |
+| `Group.description` | 최대 10000자, 생략 가능 |
 | `Member.crewName` | 완성형 한글 2~4자, 공백·특수문자 불가 |
 | `Registration.message` | 최대 1000자, 생략 가능 |
 | `Registration.decisionReason` | 최대 1000자, 생략 가능 |
