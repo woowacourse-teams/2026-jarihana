@@ -611,8 +611,21 @@
   object-fit: contain;
   object-position: right center;
   opacity: 0.28;
-  filter: invert(1);
   transform: translateX(6%);
+}
+
+.group-detail-page .group-profile--default-image .group-profile__image {
+  padding: 0;
+  object-fit: cover;
+  object-position: center;
+  transform: none;
+}
+
+.group-editor__profile.group-profile--default-image .group-profile__image {
+  padding: 0;
+  object-fit: cover;
+  object-position: center;
+  transform: none;
 }
 
 .group-info-title {
