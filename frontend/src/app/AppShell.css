@@ -63,7 +63,7 @@
     stroke-width: var(--border-strong);
 }
 
-@media (max-width: 89.9375rem) {
+@media (max-width: 89.9375rem), (max-height: 40rem) {
     .app-shell:has(.group-floating-recruitment) .app-scroll-top {
         right: var(--page-gutter);
         bottom: calc(
