@@ -70,7 +70,7 @@ public class MemberCommandService {
         }
     }
 
-    private void validateCrewNameAvailable(String crewName, int generation) {
+    private void validateCrewNameAvailable(String crewName, Integer generation) {
         if (memberRepository.existsByCrewNameAndGeneration(crewName, generation)) {
             throw new BusinessException(ErrorCode.MEMBER_CREW_DUPLICATED, CREW_DUPLICATED_MESSAGE);
         }

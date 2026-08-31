@@ -112,21 +112,21 @@ erDiagram
 | --- | --- | --- | --- |
 | `id` | Long | PK | 회원 식별자 |
 | `crewName` | String | NOT NULL, 한글 2–4자, 공백·특수문자 불가 | 우테코 크루 닉네임 |
-| `generation` | Integer | NOT NULL, 수정 불가 | 기수 |
+| `generation` | Integer | nullable, 수정 불가. `COACH`는 null | 기수 |
 | `githubId` | String | NOT NULL, UNIQUE | 변경되지 않는 GitHub 사용자 숫자 ID |
-| `course` | Enum | NOT NULL | `BACKEND`, `FRONTEND`, `ANDROID` |
+| `course` | Enum | NOT NULL | `BACKEND`, `FRONTEND`, `ANDROID`, `COACH` |
 | `withdrawnAt` | LocalDateTime | nullable | 탈퇴 시각. MVP에는 탈퇴 기능이 없어 현재 사용하지 않음 |
 | `joinedAt` | LocalDateTime | NOT NULL | 서비스 가입 시각 |
 | `updatedAt` | LocalDateTime | NOT NULL | 최종 수정 시각 |
 
 #### Member 정책과 검토 사항
-- `crewName + generation` 조합은 유일하다.
+- 기수가 있는 회원의 `crewName + generation` 조합은 유일하다. `COACH` 회원은 기수를 저장하지 않는다.
 - `crewName`은 완성형 한글 2–4자만 허용하며 공백과 특수문자는 허용하지 않는다.
-- `generation`은 사용자가 수정할 수 없다. 잘못 입력한 경우 관리자 문의로 처리한다.
+- `generation`은 사용자가 수정할 수 없다. 일반 회원은 양수 기수가 필수이고, `COACH` 회원은 기수를 저장하지 않는다.
 - 별도 `OauthAccount` 엔티티를 두지 않는다. GitHub 인증 정보 중 사용자 식별에 필요한 `githubId`를 `Member`가 직접 보유한다.
-- GitHub 인증만 완료한 단계에는 `Member`를 만들지 않고, 크루명과 기수를 입력한 뒤 생성한다. 따라서 프로필이 비어 있는 `Member`는 존재하지 않는다.
+- GitHub 인증만 완료한 단계에는 `Member`를 만들지 않고, 크루명·과정과 일반 회원의 경우 기수를 입력한 뒤 생성한다. 따라서 프로필이 비어 있는 `Member`는 존재하지 않는다.
 - GitHub 프로필 이미지는 저장하지 않고 `githubId`로 아바타 URL을 구성한다.
-- `course`는 MVP에 포함하며 `BACKEND`, `FRONTEND`, `ANDROID` 중 하나를 필수로 저장한다.
+- `course`는 MVP에 포함하며 `BACKEND`, `FRONTEND`, `ANDROID`, `COACH` 중 하나를 필수로 저장한다.
 - 탈퇴 시 닉네임 익명화와 재가입 정책은 추후 결정한다.
 
 ### Group

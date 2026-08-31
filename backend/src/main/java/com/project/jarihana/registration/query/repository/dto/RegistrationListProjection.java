@@ -10,7 +10,7 @@ public record RegistrationListProjection(
         Long id,
         Long memberId,
         String crewName,
-        int generation,
+        Integer generation,
         Course course,
         String message,
         RegistrationStatus status,

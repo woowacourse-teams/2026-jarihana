@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Positive;
 
 public record MemberSignupRequest(
         @NotBlank String crewName,
-        @Positive int generation,
+        @Positive Integer generation,
         @NotNull Course course
 ) {
 }

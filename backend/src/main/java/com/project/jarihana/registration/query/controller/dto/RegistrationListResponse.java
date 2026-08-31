@@ -58,7 +58,7 @@ public record RegistrationListResponse(
     public record MemberResponse(
             Long id,
             String crewName,
-            int generation,
+            Integer generation,
             String course
     ) {
     }

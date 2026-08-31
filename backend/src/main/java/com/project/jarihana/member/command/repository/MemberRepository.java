@@ -15,5 +15,5 @@ public interface MemberRepository extends Repository<Member, Long> {
 
     boolean existsByGithubId(String githubId);
 
-    boolean existsByCrewNameAndGeneration(String crewName, int generation);
+    boolean existsByCrewNameAndGeneration(String crewName, Integer generation);
 }

@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 public record MemberSignupResponse(
         Long id,
         String crewName,
-        int generation,
+        Integer generation,
         Course course,
         LocalDateTime joinedAt
 ) {

@@ -17,7 +17,7 @@ public record MyProfileResponse(boolean signupCompleted, MemberResponse member) 
     public record MemberResponse(
             Long id,
             String crewName,
-            int generation,
+            Integer generation,
             Course course,
             String avatarUrl
     ) {

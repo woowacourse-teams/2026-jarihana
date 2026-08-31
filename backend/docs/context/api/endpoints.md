@@ -136,7 +136,8 @@ Refresh Token 회전 정책을 적용하는 경우 기존 토큰을 폐기하고
 ```
 
 - `githubId`는 Request Body가 아니라 가입 세션에서 읽는다.
-- `course`는 `BACKEND`, `FRONTEND`, `ANDROID` 중 하나다.
+- `course`는 `BACKEND`, `FRONTEND`, `ANDROID`, `COACH` 중 하나다.
+- `generation`은 일반 과정에서 필수인 양수이며, `COACH`일 때는 생략한다.
 
 #### 응답 201
 

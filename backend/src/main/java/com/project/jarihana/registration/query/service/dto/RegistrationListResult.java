@@ -17,7 +17,7 @@ public record RegistrationListResult(
             Long id,
             Long memberId,
             String crewName,
-            int generation,
+            Integer generation,
             String course,
             String message,
             String status,

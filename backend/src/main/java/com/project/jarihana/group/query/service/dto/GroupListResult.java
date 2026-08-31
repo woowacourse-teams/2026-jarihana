@@ -40,7 +40,7 @@ public record GroupListResult(List<Item> items, String nextCursor, boolean hasNe
     ) {
     }
 
-    public record Leader(Long memberId, String crewName, int generation, String avatarUrl) {
+    public record Leader(Long memberId, String crewName, Integer generation, String avatarUrl) {
     }
 
     public record ActiveRecruitment(

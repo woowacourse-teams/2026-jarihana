@@ -5,7 +5,7 @@ import com.project.jarihana.member.domain.Course;
 public record MemberProfileResult(
         Long id,
         String crewName,
-        int generation,
+        Integer generation,
         Course course,
         String githubId
 ) {

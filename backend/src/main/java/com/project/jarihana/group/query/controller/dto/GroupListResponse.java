@@ -81,7 +81,7 @@ public record GroupListResponse(List<GroupItem> items, String nextCursor, boolea
         }
     }
 
-    public record GroupLeader(Long memberId, String crewName, int generation, String avatarUrl) {
+    public record GroupLeader(Long memberId, String crewName, Integer generation, String avatarUrl) {
 
         private static GroupLeader from(Leader leader) {
             return new GroupLeader(

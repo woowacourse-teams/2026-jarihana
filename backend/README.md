@@ -115,6 +115,13 @@ docker compose -f docker-compose-local.yaml ps
 인증·OAuth 설정을 GitHub Actions Secrets와 함께 주입합니다. 운영 프로필은 스키마를 자동
 변경하지 않고 `ddl-auto: validate`로 검증만 수행합니다.
 
+코치 회원은 기수를 저장하지 않으므로 배포 전에 운영 DB의 기존 `member.generation`
+NOT NULL 제약을 해제해야 합니다.
+
+```sql
+ALTER TABLE member ALTER COLUMN generation DROP NOT NULL;
+```
+
 ### 운영 배포 시크릿
 
 `main` 브랜치에 반영된 커밋에 `backend/**` 변경이 포함되면 백엔드 배포 워크플로가

@@ -27,7 +27,7 @@ public record GroupMemberListResponse(
             Long groupMemberId,
             Long memberId,
             String crewName,
-            int generation,
+            Integer generation,
             String avatarUrl,
             String course,
             String role,

@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 public record MemberSignupResult(
         Long id,
         String crewName,
-        int generation,
+        Integer generation,
         Course course,
         LocalDateTime joinedAt,
         IssuedAccessToken accessToken,

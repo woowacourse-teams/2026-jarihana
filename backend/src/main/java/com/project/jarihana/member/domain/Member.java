@@ -34,8 +34,8 @@ public class Member extends BaseEntity {
     @Column(name = "crew_name", nullable = false, length = 4)
     private String crewName;
 
-    @Column(name = "generation", nullable = false, updatable = false)
-    private int generation;
+    @Column(name = "generation", updatable = false)
+    private Integer generation;
 
     @Column(name = "github_id", nullable = false, length = 50)
     private String githubId;
@@ -50,16 +50,16 @@ public class Member extends BaseEntity {
     private Member(
             Long id,
             String crewName,
-            int generation,
+            Integer generation,
             String githubId,
             Course course,
             LocalDateTime withdrawnAt
     ) {
         this.id = id;
         this.crewName = validateCrewName(crewName);
-        this.generation = validateGeneration(generation);
-        this.githubId = validateGithubId(githubId);
         this.course = validateCourse(course);
+        this.generation = validateGeneration(generation, this.course);
+        this.githubId = validateGithubId(githubId);
         this.withdrawnAt = withdrawnAt;
     }
 
@@ -70,8 +70,11 @@ public class Member extends BaseEntity {
         return crewName;
     }
 
-    private static int validateGeneration(int generation) {
-        if (generation <= 0) {
+    private static Integer validateGeneration(Integer generation, Course course) {
+        if (course == Course.COACH && generation != null) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "코치는 기수를 입력하지 않습니다.");
+        }
+        if (course != Course.COACH && (generation == null || generation <= 0)) {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "기수는 양수여야 합니다.");
         }
         return generation;
@@ -91,7 +94,7 @@ public class Member extends BaseEntity {
         return course;
     }
 
-    public static Member create(String crewName, int generation, String githubId, Course course) {
+    public static Member create(String crewName, Integer generation, String githubId, Course course) {
         return new Member(null, crewName, generation, githubId, course, null);
     }
 

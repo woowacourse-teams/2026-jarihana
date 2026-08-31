@@ -75,6 +75,25 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
         assertThat(memberRepository.findByGithubId(GITHUB_ID)).isPresent();
     }
 
+    @DisplayName("코치는 기수 없이 가입할 수 있다.")
+    @Test
+    void completeCoachSignupWithoutGeneration() {
+        // Given
+        String sessionId = createSignupSession(GITHUB_ID);
+
+        // When
+        ExtractableResponse<Response> response = signup(
+                sessionId,
+                Map.of("crewName", "코치", "course", "COACH")
+        );
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.CREATED.value());
+        assertThat(response.jsonPath().getString("data.course")).isEqualTo("COACH");
+        assertThat((Object) response.jsonPath().get("data.generation")).isNull();
+        assertThat(memberRepository.findByGithubId(GITHUB_ID)).get().extracting(Member::getGeneration).isNull();
+    }
+
     private Map<String, Object> body(String crewName, int generation, String course) {
         return Map.of("crewName", crewName, "generation", generation, "course", course);
     }

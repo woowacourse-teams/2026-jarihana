@@ -9,7 +9,7 @@ public record GroupMemberListProjection(
         Long groupMemberId,
         Long memberId,
         String crewName,
-        int generation,
+        Integer generation,
         String githubId,
         Course course,
         GroupMemberRole role,
