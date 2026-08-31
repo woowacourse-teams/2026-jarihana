@@ -23,10 +23,11 @@ export const dayOfWeekSchema = z.enum([
   "SUNDAY"
 ]);
 
+/* 요일만 고정하고 시간은 그때그때 정하는 일정은 두 시각이 비어서 온다. */
 export const recurringScheduleSchema = z.object({
   daysOfWeek: z.array(dayOfWeekSchema),
-  startTime: localTimeSchema,
-  endTime: localTimeSchema
+  startTime: localTimeSchema.nullable(),
+  endTime: localTimeSchema.nullable()
 });
 
 export const sessionScheduleSchema = z.object({

@@ -57,6 +57,28 @@ describe("활동 일정 모달 스타일", () => {
     }
   );
 
+  /*
+   * 일괄 선택은 요일을 채워 주는 도구라 요일 칩 아래에 둔다. 붙어 있으면 칩의
+   * 연장선처럼 읽혀 무엇이 선택 상태인지 헷갈린다.
+   */
+  it("일괄 선택 줄은 요일 칩과 뚜렷이 떨어져 있다", () => {
+    const body = declarationsFor(".group-editor__bulk");
+
+    expect(body).toContain("margin-block-start: var(--space-6)");
+  });
+
+  /*
+   * 시간을 유동적으로 두면 시간 입력을 잠근다. 잠긴 티가 나지 않으면 그대로 보이는
+   * 19:00이 저장되는 값처럼 읽힌다.
+   */
+  it("잠긴 시간 입력은 흐리게 그려진다", () => {
+    const body = declarationsFor(".group-editor__schedule-dialog .group-editor__ul > input:disabled");
+
+    expect(body).toContain("color: var(--color-muted-ink)");
+    expect(body).toContain("cursor: not-allowed");
+    expect(body).toContain("opacity");
+  });
+
   it("요일 칩은 글자 크기가 아니라 지정된 지름으로 그려진다", () => {
     const body = declarationsFor(".group-editor__day-chip > span");
 

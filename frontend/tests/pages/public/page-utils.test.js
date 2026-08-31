@@ -1,6 +1,7 @@
 import {
   formatCompactLocalDateTime,
-  recruitmentCountdownLabel
+  recruitmentCountdownLabel,
+  scheduleLines
 } from "../../../src/pages/groups/pageUtils.js";
 
 describe("formatCompactLocalDateTime", () => {
@@ -59,5 +60,31 @@ describe("recruitmentCountdownLabel", () => {
         referenceDate
       )
     ).toBe("모집이 마감됐어요");
+  });
+});
+
+describe("scheduleLines", () => {
+  it("요일과 시간이 모두 고정된 반복 일정은 두 줄로 읽힌다", () => {
+    expect(
+      scheduleLines({
+        type: "STUDY",
+        recurringSchedule: {
+          daysOfWeek: ["MONDAY", "WEDNESDAY"],
+          startTime: "19:00:00",
+          endTime: "21:00:00"
+        },
+        sessionSchedule: null
+      })
+    ).toEqual(["매주 월·수", "19:00 – 21:00"]);
+  });
+
+  it("시간을 비운 반복 일정은 요일만 고정된 것으로 읽힌다", () => {
+    expect(
+      scheduleLines({
+        type: "STUDY",
+        recurringSchedule: { daysOfWeek: ["MONDAY"], startTime: null, endTime: null },
+        sessionSchedule: null
+      })
+    ).toEqual(["매주 월", "시간 유동적"]);
   });
 });

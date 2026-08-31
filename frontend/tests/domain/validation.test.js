@@ -71,6 +71,54 @@ describe("group form validation", () => {
     expect(result.success).toBe(false);
   });
 
+  it("accepts a recurring schedule that fixes days but leaves the time open", () => {
+    // Given
+    const values = {
+      type: "CLUB",
+      meetingType: "FLEXIBLE",
+      location: null,
+      name: "리액트 모임",
+      introduction: "요일만 정하고 시간은 그때그때 정해요",
+      description: "",
+      recurringSchedule: {
+        daysOfWeek: ["MONDAY"],
+        startTime: null,
+        endTime: null
+      },
+      sessionSchedule: null
+    };
+
+    // When
+    const result = groupCreateFormSchema.safeParse(values);
+
+    // Then
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a recurring schedule that keeps only one of the two times", () => {
+    // Given
+    const values = {
+      type: "CLUB",
+      meetingType: "FLEXIBLE",
+      location: null,
+      name: "리액트 모임",
+      introduction: "매주 함께 만나요",
+      description: "",
+      recurringSchedule: {
+        daysOfWeek: ["MONDAY"],
+        startTime: "19:00",
+        endTime: null
+      },
+      sessionSchedule: null
+    };
+
+    // When
+    const result = groupCreateFormSchema.safeParse(values);
+
+    // Then
+    expect(result.success).toBe(false);
+  });
+
   it("rejects a recurring schedule whose end is not after its start", () => {
     // Given
     const values = {

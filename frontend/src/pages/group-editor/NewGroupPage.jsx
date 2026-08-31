@@ -42,15 +42,18 @@ const baseSchema = z.object({
   ),
   sessionDate: z.string(),
   startTime: timeSchema,
-  endTime: timeSchema
+  endTime: timeSchema,
+  flexibleTime: z.boolean()
 });
 
 export const newGroupSchema = baseSchema.superRefine((values, context) => {
   /*
-   * 유동적 일정은 시간을 보내지 않으므로 비교하지 않는다. 비교하면 시간을 뒤집어
-   * 둔 채 유동적으로 바꿨을 때, 숨은 필드의 오류가 제출을 막고 이유는 보이지 않는다.
+   * 유동적 일정과 유동적 시간은 시간을 보내지 않으므로 비교하지 않는다. 비교하면
+   * 시간을 뒤집어 둔 채 유동적으로 바꿨을 때, 잠긴 필드의 오류가 제출을 막고
+   * 이유는 보이지 않는다.
    */
-  const usesTime = values.type === "SESSION" || values.daysOfWeek.length > 0;
+  const usesTime =
+    values.type === "SESSION" || (values.daysOfWeek.length > 0 && !values.flexibleTime);
   if (usesTime && values.endTime <= values.startTime) {
     context.addIssue({
       code: "custom",
@@ -94,10 +97,15 @@ function toCreateBody(values, representativeImageKey = null) {
       }
     };
   }
+  /* 요일이 없으면 일정 자체가 유동적이고, 시간만 유동적이면 요일은 남기고 시각만 비운다. */
   return {
     ...common,
     recurringSchedule: values.daysOfWeek.length
-      ? { daysOfWeek: values.daysOfWeek, startTime: values.startTime, endTime: values.endTime }
+      ? {
+          daysOfWeek: values.daysOfWeek,
+          startTime: values.flexibleTime ? null : values.startTime,
+          endTime: values.flexibleTime ? null : values.endTime
+        }
       : null,
     sessionSchedule: null
   };
@@ -128,8 +136,8 @@ function draftSummary(values) {
     type: values.type,
     recurringSchedule: {
       daysOfWeek: values.daysOfWeek,
-      startTime: values.startTime,
-      endTime: values.endTime
+      startTime: values.flexibleTime ? null : values.startTime,
+      endTime: values.flexibleTime ? null : values.endTime
     },
     sessionSchedule: null
   });
@@ -172,7 +180,8 @@ export function NewGroupPage() {
       daysOfWeek: [],
       sessionDate: "",
       startTime: "19:00",
-      endTime: "21:00"
+      endTime: "21:00",
+      flexibleTime: false
     }
   });
 
@@ -180,6 +189,7 @@ export function NewGroupPage() {
   const type = values.type ?? "STUDY";
   const description = values.description ?? "";
   const daysOfWeek = values.daysOfWeek ?? [];
+  const flexibleTime = values.flexibleTime ?? false;
 
   /* 일정 오류는 모달 안에만 두면 닫는 순간 사라지므로 히어로에도 함께 보여준다. */
   const scheduleError =
@@ -190,6 +200,10 @@ export function NewGroupPage() {
 
   function selectPreset(days) {
     setValue("daysOfWeek", days, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+  }
+
+  function selectFlexibleTime(next) {
+    setValue("flexibleTime", next, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
   }
 
   async function confirmSchedule(event) {
@@ -283,7 +297,7 @@ export function NewGroupPage() {
                 <ScheduleFact
                   actionLabel="설정"
                   error={scheduleError}
-                  lines={draftSummary({ ...values, daysOfWeek, type })}
+                  lines={draftSummary({ ...values, daysOfWeek, flexibleTime, type })}
                   onEdit={() => setScheduleOpen(true)}
                 />
                 <div className="group-fact group-fact--field">
@@ -366,8 +380,10 @@ export function NewGroupPage() {
 
       <ScheduleDialog
         errors={errors}
+        flexibleTime={flexibleTime}
         isSession={type === "SESSION"}
         onClose={() => setScheduleOpen(false)}
+        onFlexibleTimeChange={selectFlexibleTime}
         onPresetSelect={selectPreset}
         onSubmit={confirmSchedule}
         open={scheduleOpen}

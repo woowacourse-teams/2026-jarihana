@@ -371,48 +371,78 @@
     border: 0;
 }
 
-/* 네 값은 서로 배타적인 하나의 선택이라 버튼 넷이 아니라 4칸 세그먼트 하나로 묶는다. */
-.group-editor__preset-seg {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    overflow: hidden;
-    margin-block-end: var(--space-5);
-    border: var(--border-thin) solid var(--color-line);
-    border-radius: var(--radius-md);
-    background: var(--color-surface);
+/*
+ * 일괄 선택은 요일을 고르는 또 하나의 선택지가 아니라 요일 칩을 대신 눌러 주는
+ * 도구다. 그래서 칩 위가 아니라 아래에 두고, 칩과 뚜렷이 떨어뜨려 칩의 연장선처럼
+ * 읽히지 않게 한다.
+ */
+.group-editor__bulk {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    align-items: center;
+    margin-block-start: var(--space-6);
 }
 
-.group-editor__preset-seg button {
-    min-block-size: var(--touch-target);
-    padding-inline: var(--space-2);
-    border: 0;
-    background: transparent;
+.group-editor__bulk-label {
     color: var(--color-muted-ink);
+    font-size: var(--text-caption);
+}
+
+.group-editor__bulk button {
+    min-block-size: var(--space-8);
+    padding-inline: var(--space-3);
+    border: var(--border-thin) solid var(--color-line);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-ink);
     font: inherit;
-    font-size: var(--text-label);
+    font-size: var(--text-caption);
     font-weight: var(--font-weight-bold);
     cursor: pointer;
     transition: background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
     color var(--duration-fast) var(--ease-standard);
 }
 
-.group-editor__preset-seg button + button {
-    border-inline-start: var(--border-thin) solid var(--color-line);
-}
-
-.group-editor__preset-seg button:hover:not([aria-pressed="true"]) {
+.group-editor__bulk button:hover {
+    border-color: var(--color-brand);
     background: var(--color-brand-soft);
     color: var(--color-brand-ink);
 }
 
-.group-editor__preset-seg button[aria-pressed="true"] {
-    background: var(--color-brand-ink);
-    color: var(--color-surface);
+/* 지우는 쪽은 채우는 쪽과 성격이 다르므로 테두리를 빼서 한 단계 낮춘다. */
+.group-editor__bulk button.is-quiet {
+    border-color: transparent;
+    color: var(--color-muted-ink);
+    text-decoration: underline;
+}
+
+/* 시간을 그때그때 정하는지는 켜고 끄는 하나의 스위치라 체크박스로 둔다. */
+.group-editor__time-check {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    color: var(--color-ink);
+    font-size: var(--text-body);
+    cursor: pointer;
+}
+
+.group-editor__time-check input {
+    inline-size: var(--space-4);
+    block-size: var(--space-4);
+    accent-color: var(--color-brand-ink);
+    cursor: pointer;
 }
 
 .group-editor__schedule-dialog .group-editor__field-label {
     margin-block-end: var(--space-2);
     color: var(--color-muted-ink);
+}
+
+/* 요일 묶음 다음에 시간 묶음이 이어지므로 둘 사이를 띄운다. */
+.group-editor__bulk + .group-editor__field-label {
+    margin-block-start: var(--space-6);
 }
 
 .group-editor__day-grid {
@@ -478,17 +508,15 @@
     color: var(--color-surface);
 }
 
-/*
- * 프리셋이 켜져 있을 때 선택되지 않은 요일은 흐리게만 둔다. 잠그면
- * 평일 + 토요일 같은 조합에 도달할 수 없어서, 지름길이 제약이 되어 버린다.
- */
-.group-editor__day-chip.is-dimmed > span {
-    opacity: 0.4;
-}
 
 .group-editor__day-chip input:focus-visible + span {
     outline: var(--border-strong) solid var(--color-brand);
     outline-offset: var(--space-1);
+}
+
+/* 안내 문구도 일괄 선택 줄 바로 뒤에 오므로 라벨과 같은 간격으로 띄운다. */
+.group-editor__bulk + .group-editor__schedule-note {
+    margin-block-start: var(--space-6);
 }
 
 .group-editor__schedule-note {
@@ -504,6 +532,20 @@
 .group-editor__schedule-dialog .group-editor__ul > input,
 .group-editor__schedule-dialog .group-editor__ul > select {
     color: var(--color-ink);
+}
+
+/*
+ * 시간이 유동적이면 시간 입력을 잠근다. 잠긴 티가 없으면 그대로 남아 있는 19:00이
+ * 저장되는 값처럼 읽히므로, 글자를 흐리게 하고 밑줄도 점선으로 바꾼다.
+ */
+.group-editor__schedule-dialog .group-editor__ul > input:disabled {
+    color: var(--color-muted-ink);
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.group-editor__schedule-dialog .group-editor__ul:has(> input:disabled) {
+    border-block-end-style: dashed;
 }
 
 .group-editor__time-grid {
