@@ -57,6 +57,29 @@ describe("활동 일정 모달 스타일", () => {
     }
   );
 
+  /*
+   * 요일 세그먼트는 버튼 넷, 시간 세그먼트는 둘이다. 칸 수를 넷으로 못 박으면
+   * 시간 세그먼트가 모달 왼쪽 절반에만 그려진다.
+   */
+  it("세그먼트는 버튼 수에 맞춰 칸을 고르게 나눈다", () => {
+    const body = declarationsFor(".group-editor__preset-seg");
+
+    expect(body).toContain("grid-auto-columns: minmax(0, 1fr)");
+    expect(body).not.toContain("repeat(4");
+  });
+
+  /*
+   * 시간을 유동적으로 두면 시간 입력을 잠근다. 잠긴 티가 나지 않으면 그대로 보이는
+   * 19:00이 저장되는 값처럼 읽힌다.
+   */
+  it("잠긴 시간 입력은 흐리게 그려진다", () => {
+    const body = declarationsFor(".group-editor__schedule-dialog .group-editor__ul > input:disabled");
+
+    expect(body).toContain("color: var(--color-muted-ink)");
+    expect(body).toContain("cursor: not-allowed");
+    expect(body).toContain("opacity");
+  });
+
   it("요일 칩은 글자 크기가 아니라 지정된 지름으로 그려진다", () => {
     const body = declarationsFor(".group-editor__day-chip > span");
 

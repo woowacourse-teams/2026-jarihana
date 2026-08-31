@@ -22,6 +22,12 @@ const PRESETS = [
   ["flexible", "유동적", []]
 ];
 
+/* 요일 프리셋과 이름이 겹치지 않도록 "시간"을 붙인다. 요일과 시간은 따로 유동적일 수 있다. */
+const TIME_MODES = [
+  ["fixed", "시간 지정"],
+  ["flexible", "시간 유동적"]
+];
+
 function sameDays(selected, target) {
   return selected.length === target.length && target.every((day) => selected.includes(day));
 }
@@ -43,7 +49,14 @@ function DayChip({ day, dimmed, label, register, short }) {
   );
 }
 
-export function RecurringScheduleFields({ errors, onPresetSelect, register, selectedDays = [] }) {
+export function RecurringScheduleFields({
+  errors,
+  flexibleTime = false,
+  onFlexibleTimeChange,
+  onPresetSelect,
+  register,
+  selectedDays = []
+}) {
   const preset = activePreset(selectedDays);
   /*
    * 프리셋이 켜져 있으면 선택되지 않은 요일을 흐리게 둔다. 잠그지는 않는다.
@@ -94,14 +107,34 @@ export function RecurringScheduleFields({ errors, onPresetSelect, register, sele
         </p>
       ) : null}
 
+      <p className="group-editor__field-label">활동 시간</p>
+      <div aria-label="활동 시간 선택" className="group-editor__preset-seg" role="group">
+        {TIME_MODES.map(([key, label]) => (
+          <button
+            aria-pressed={flexibleTime === (key === "flexible")}
+            key={key}
+            onClick={() => onFlexibleTimeChange?.(key === "flexible")}
+            type="button"
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/*
+        * 시간이 유동적이면 두 시각을 비워 보낸다. 입력은 자리를 지키되 잠가서
+        * 고쳐 둔 값이 저장되는 것처럼 보이지 않게 한다.
+        */}
       <div className="group-editor__time-grid">
         <UnderlineField
+          disabled={flexibleTime}
           error={errors.startTime?.message}
           label="시작 시간"
           registration={register("startTime")}
           type="time"
         />
         <UnderlineField
+          disabled={flexibleTime}
           error={errors.endTime?.message}
           label="종료 시간"
           registration={register("endTime")}
@@ -143,8 +176,10 @@ export function SessionScheduleFields({ errors, register }) {
 
 export function ScheduleDialog({
   errors,
+  flexibleTime,
   isSession,
   onClose,
+  onFlexibleTimeChange,
   onPresetSelect,
   onSubmit,
   open,
@@ -158,7 +193,7 @@ export function ScheduleDialog({
       description={
         isSession
           ? "한 번만 만나는 세션이라 날짜와 시간을 정합니다."
-          : "매주 반복되는 요일과 시간을 정합니다."
+          : "매주 반복되는 요일과 시간을 정합니다. 시간은 유동적으로 둘 수 있어요."
       }
       onClose={onClose}
       open={open}
@@ -175,6 +210,8 @@ export function ScheduleDialog({
         ) : (
           <RecurringScheduleFields
             errors={errors}
+            flexibleTime={flexibleTime}
+            onFlexibleTimeChange={onFlexibleTimeChange}
             onPresetSelect={onPresetSelect}
             register={register}
             selectedDays={selectedDays}

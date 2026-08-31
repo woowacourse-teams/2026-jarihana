@@ -288,6 +288,51 @@ describe("NewGroupPage", () => {
     expect(mockCreateGroup.mock.calls[0][0]).toMatchObject({ recurringSchedule: null });
   });
 
+  it("요일만 고정하고 시간은 유동적으로 등록할 수 있다", async () => {
+    // Given
+    const user = userEvent.setup();
+    renderPage(<NewGroupPage />);
+    await user.type(screen.getByLabelText("모임 이름"), "리액트 스터디");
+    await user.type(screen.getByLabelText("한 줄 소개"), "요일만 정하고 시간은 그때그때 정해요");
+
+    // When
+    await openSchedule(user, "모임 일정 설정");
+    const dialog = scheduleDialog();
+    await user.click(within(dialog).getByRole("button", { name: "평일" }));
+    await user.click(within(dialog).getByRole("button", { name: "시간 유동적" }));
+
+    // Then 시간 입력은 자리를 지키되 더 이상 고칠 수 없다.
+    expect(within(dialog).getByLabelText("시작 시간")).toBeDisabled();
+
+    // When
+    await user.click(within(dialog).getByRole("button", { name: "일정 저장" }));
+    submitForm("group-create-form");
+
+    // Then 요일은 보내고 시간만 비운다.
+    await waitFor(() => expect(mockCreateGroup).toHaveBeenCalledTimes(1));
+    const body = mockCreateGroup.mock.calls[0][0];
+    expect(body.recurringSchedule).toMatchObject({ startTime: null, endTime: null });
+    expect(body.recurringSchedule.daysOfWeek).toEqual(
+      expect.arrayContaining(["MONDAY", "FRIDAY"])
+    );
+  });
+
+  it("시간을 유동적으로 두면 히어로 요약도 그렇게 읽힌다", async () => {
+    // Given
+    const user = userEvent.setup();
+    renderPage(<NewGroupPage />);
+
+    // When
+    await openSchedule(user, "모임 일정 설정");
+    const dialog = scheduleDialog();
+    await user.click(within(dialog).getByRole("button", { name: "평일" }));
+    await user.click(within(dialog).getByRole("button", { name: "시간 유동적" }));
+    await user.click(within(dialog).getByRole("button", { name: "일정 저장" }));
+
+    // Then
+    expect(screen.getByText("시간 유동적")).toBeInTheDocument();
+  });
+
   it("생성 화면에서도 유동적을 고를 수 있다", async () => {
     // Given
     const user = userEvent.setup();
@@ -621,6 +666,29 @@ describe("GroupManagePage", () => {
       })
     );
     expect(mockModifyGroup).toHaveBeenCalledTimes(1);
+  });
+
+  it("요일은 그대로 두고 시간만 유동적으로 바꿀 수 있다", async () => {
+    // Given
+    const user = userEvent.setup();
+    renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
+
+    // When
+    await openSchedule(user, "모임 일정 수정");
+    const dialog = scheduleDialog();
+    await user.click(within(dialog).getByRole("button", { name: "시간 유동적" }));
+    await user.click(within(dialog).getByRole("button", { name: "일정 저장" }));
+    submitForm("group-overview-form");
+
+    // Then 일정을 지우지 않고 시간만 비운 채 교체한다.
+    await waitFor(() =>
+      expect(mockReplaceRecurringSchedule).toHaveBeenCalledWith({
+        daysOfWeek: ["MONDAY"],
+        startTime: null,
+        endTime: null
+      })
+    );
+    expect(mockRemoveRecurringSchedule).not.toHaveBeenCalled();
   });
 
   it("turns the group flexible when every day is cleared", async () => {

@@ -371,10 +371,14 @@
     border: 0;
 }
 
-/* 네 값은 서로 배타적인 하나의 선택이라 버튼 넷이 아니라 4칸 세그먼트 하나로 묶는다. */
+/*
+ * 서로 배타적인 선택이라 낱개 버튼이 아니라 세그먼트 하나로 묶는다. 요일은 넷,
+ * 시간은 둘이므로 칸 수를 못 박지 않고 버튼 수에 맞춰 고르게 나눈다.
+ */
 .group-editor__preset-seg {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
     overflow: hidden;
     margin-block-end: var(--space-5);
     border: var(--border-thin) solid var(--color-line);
@@ -413,6 +417,12 @@
 .group-editor__schedule-dialog .group-editor__field-label {
     margin-block-end: var(--space-2);
     color: var(--color-muted-ink);
+}
+
+/* 요일 묶음 다음에 시간 묶음이 이어지므로 둘 사이를 띄운다. */
+.group-editor__day-grid + .group-editor__field-label,
+.group-editor__schedule-note + .group-editor__field-label {
+    margin-block-start: var(--space-5);
 }
 
 .group-editor__day-grid {
@@ -504,6 +514,20 @@
 .group-editor__schedule-dialog .group-editor__ul > input,
 .group-editor__schedule-dialog .group-editor__ul > select {
     color: var(--color-ink);
+}
+
+/*
+ * 시간이 유동적이면 시간 입력을 잠근다. 잠긴 티가 없으면 그대로 남아 있는 19:00이
+ * 저장되는 값처럼 읽히므로, 글자를 흐리게 하고 밑줄도 점선으로 바꾼다.
+ */
+.group-editor__schedule-dialog .group-editor__ul > input:disabled {
+    color: var(--color-muted-ink);
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.group-editor__schedule-dialog .group-editor__ul:has(> input:disabled) {
+    border-block-end-style: dashed;
 }
 
 .group-editor__time-grid {
