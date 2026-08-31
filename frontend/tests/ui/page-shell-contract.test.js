@@ -11,7 +11,7 @@ const editorCss = readFileSync(resolve(root, "src/pages/group-editor/styles.css"
 
 describe("page shell spacing contract", () => {
   it("uses the root page gutter at every responsive breakpoint", () => {
-    expect(tokensCss).toMatch(/--container-shell:\s*76rem/);
+    expect(tokensCss).toMatch(/--container-shell:\s*90rem/);
     expect(tokensCss).toMatch(/@media \(min-width: 64rem\)[\s\S]*--page-gutter:\s*var\(--groups-page-rail-gutter\)/);
   });
 

@@ -63,8 +63,8 @@
   --space-12: 3rem;
   --space-16: 4rem;
   --space-7: 1.75rem;
-  --groups-page-shell: 76rem;
-  --groups-page-rail-gutter: calc(var(--space-8) + var(--space-12));
+  --groups-page-shell: var(--container-shell);
+  --groups-page-rail-gutter: var(--space-8);
   --footer-contact-max-width: 22rem;
 
   --radius-sm: 0.5rem;
@@ -87,8 +87,8 @@
   --z-dialog: 50;
   --z-toast: 60;
   --z-header: 20;
-  --container-shell: 76rem;
-  --page-gutter: 1.25rem;
+  --container-shell: 90rem;
+  --page-gutter: var(--space-4);
   --header-height: 4.5rem;
   --breakpoint-md: 48rem;
   --breakpoint-lg: 64rem;
@@ -96,7 +96,7 @@
 
 @media (min-width: 48rem) {
   :root {
-    --page-gutter: 2rem;
+    --page-gutter: var(--space-6);
   }
 }
 

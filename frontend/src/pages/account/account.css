@@ -124,8 +124,10 @@
 
 /* 대시보드가 놓인 바닥만 내려 두 카드가 떠 보이게 한다 */
 .my-dashboard {
-  margin: calc(var(--space-5) * -1);
-  padding: var(--space-5);
+  margin-block: calc(var(--space-5) * -1);
+  margin-inline: calc(min(var(--space-5), var(--page-gutter)) * -1);
+  padding-block: var(--space-5);
+  padding-inline: min(var(--space-5), var(--page-gutter));
   background: var(--color-surface);
   border-radius: var(--radius-lg);
   display: grid;

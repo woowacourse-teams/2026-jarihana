@@ -6,6 +6,7 @@
 
 .groups-page {
   --groups-card-art-ratio: 8 / 5;
+  --groups-hero-art-ratio: 1672 / 941;
   --groups-card-min-height: 21.75rem;
   --groups-page-shell-width: var(--container-shell);
   --groups-search-width: 35rem;
@@ -76,6 +77,9 @@
 }
 
 .groups-hero__art {
+  aspect-ratio: var(--groups-hero-art-ratio);
+  width: 100%;
+  min-width: 0;
   min-height: 248px;
   overflow: hidden;
   border-radius: var(--radius-lg);
@@ -83,7 +87,7 @@
   background-image: url("../../shared/assets/brand/jarihana-signature.png");
   background-repeat: no-repeat;
   background-position: center;
-  background-size: 120% auto;
+  background-size: contain;
 }
 
 .groups-discovery {
@@ -351,8 +355,8 @@
 
 .groups-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-8);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-6);
 }
 
 @media (min-width: 64rem) {
@@ -405,6 +409,7 @@
 
 .groups-grid .ui-group-card {
   position: relative;
+  grid-template-rows: auto 1fr;
   gap: var(--space-0);
 }
 
@@ -1372,7 +1377,7 @@
   }
 
   .groups-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .groups-tools {
@@ -1411,10 +1416,23 @@
 
   .groups-hero__art {
     min-height: 190px;
-    background-position: 57% center;
   }
 
-  .groups-grid,
+  .groups-grid {
+    --groups-card-min-height: 0;
+
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  .groups-grid .ui-group-card__body {
+    padding-inline: var(--space-3);
+  }
+
+  .groups-grid .ui-group-card__title {
+    font-size: var(--text-body);
+  }
+
   .group-profile,
   .group-facts,
   .recruitment-information dl {

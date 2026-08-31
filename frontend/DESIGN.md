@@ -85,9 +85,9 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - Spacing: `0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64`.
 - Radius: small `8`, medium `14`, large `20`, pill `999`.
 - Footer Contact us block: `--footer-contact-max-width` `22rem` max width on desktop/tablet.
-- Container: 구현 token `--container-shell`은 `1216px`(`76rem`)이다. `/`의 content rail을
+- Container: 구현 token `--container-shell`은 `1440px`(`90rem`)이다. `/`의 content rail을
   기준으로 모든 route의 페이지 shell과 section 외곽선을 통일한다. gutter는 360–767px에서
-  20px, 768–1023px에서 32px, 1024px 이상에서 80px(`--groups-page-rail-gutter`)를 사용한다.
+  16px, 768–1023px에서 24px, 1024px 이상에서 32px(`--groups-page-rail-gutter`)를 사용한다.
   account, management, group editor, group detail도 같은 shell을 공유하고, 좁은 form 읽기 폭은
   shell 안쪽 content에만 적용한다.
 - Border: `--border-thin`(1px)과 `--border-strong`(2px)을 사용한다. 기본 surface 경계는
@@ -112,15 +112,18 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 ### Responsive breakpoints
 
 - token metadata: `--breakpoint-md` 48rem(768px), `--breakpoint-lg` 64rem(1024px).
-- `360–767`: full-bleed header, 20px page gutter, single column, mobile drawer. 그룹
+- `360–767`: full-bleed header, 16px page gutter, 탐색 카드 2 columns, mobile drawer. 그룹
   detail rail과 운영 side rail은 본문 아래로 이동하고, management table은 labelled card rows로
   바뀐다.
-- `768–1023`: full-bleed header 배경과 32px content gutter. 탐색 card는 2 columns, account는 좁은
+- `768–1023`: full-bleed header 배경과 24px content gutter. 탐색 card는 3 columns, account는 좁은
   profile/content split, group editor hero는 single column으로 전환한다.
-- `1024–1439`: desktop shell과 3-column 탐색 카드, group detail/registration의 side rail,
+- `1024–1439`: 32px content gutter와 4-column 탐색 카드, group detail/registration의 side rail,
   group editor 2-column hero, management grid/table을 사용한다. 고정 폭 action은 충분한
   공간이 없으면 줄바꿈한다.
-- `1440+`: Figma desktop 비율과 1216px shell 상한을 중앙 정렬한다.
+- `1440+`: 1440px shell 상한을 중앙 정렬하고 탐색 카드 4 columns를 유지한다.
+- 탐색 카드 간격은 desktop/tablet 24px, mobile 12px이다. 모바일 카드 본문은 좌우 12px
+  여백과 15px 제목을 사용하고, 고정 최소 높이 없이 내용에 맞춰 늘어난다. 같은 행의 카드는
+  높이를 맞추되 이미지의 `8 / 5` 비율과 배지·제목·소개·일정 정보 순서를 유지한다.
 
 ## 3. Layout system
 
@@ -149,7 +152,9 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
    viewport에서 유지하되, 접근성 이름은 한 문장으로 제공한다. 랜딩에는 하단 스크롤 CTA를
    둔다.
 - 탐색 hero는 `src/shared/assets/brand/jarihana-signature.png`를 교체 가능한 signature art로
-  사용하며, 헤더 mark는 `src/shared/assets/brand/jarihana-favicon.png`를 교체 지점으로 사용한다.
+  사용한다. 표시 영역은 원본의 `1672 / 941` 비율을 따르고, 중앙 정렬과 `contain`으로
+  상하좌우를 자르지 않는다.
+  헤더 mark는 `src/shared/assets/brand/jarihana-favicon.png`를 교체 지점으로 사용한다.
 - `DetailLayout`: group detail은 desktop에서 본문 + sticky support rail 구조를 사용하며
   전체 폭은 공통 `--container-shell`을 따른다. support rail은 운영자 프로필 카드 다음에 모집 정보 카드를
   배치한다. tablet 이하에서는 순차 single column으로 전환한다.
@@ -163,6 +168,7 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   세로로 쌓고, mobile day picker는 2 columns로 줄인다.
 - `MyPageLayout`: profile column + activity panel의 desktop split, 3개 count link, 2-column
   summary cards를 사용한다. tablet/mobile에서는 각 grid를 정보 순서대로 한 column으로 접는다.
+  dashboard surface의 좌우 확장과 내부 여백은 page gutter 이하로 제한해 모바일 가로 넘침을 막는다.
 - `ManageLayout`: group name context header와 horizontal route-backed tabs(`모임 수정`,
   `모집 관리`, 조건부 `신청 관리`, `멤버 관리`)를 모든 leader page가 공유한다. 멤버는 table,
   모집은 summary + condition form + public-state rail, 신청은 applicant panel + operations rail로
