@@ -336,6 +336,30 @@ describe("ManageRecruitmentsPage", () => {
     await act(async () => resolveMutation({ id: 83 }));
   });
 
+  it("Given a start date in the future, When the recruitment is created, Then it stays on the screen as 모집 예정", async () => {
+    const user = userEvent.setup();
+    const mutateAsync = jest.fn().mockResolvedValue({
+      capacity: 10,
+      endsAt: null,
+      groupId: 7,
+      id: 84,
+      joinMethod: "AUTO",
+      recruitingStatus: "SCHEDULED",
+      startsAt: "2026-10-01T10:00"
+    });
+    useCreateRecruitment.mockReturnValue({ isPending: false, mutateAsync });
+    useInfiniteRecruitments.mockReturnValue(queryResult([]));
+    render(<ManageRecruitmentsPage />);
+
+    await user.click(screen.getByRole("button", { name: "새 모집 만들기" }));
+    await user.type(screen.getByLabelText("모집 시작일"), "2026-10-01T10:00");
+    await user.click(screen.getByRole("button", { name: "모집 생성" }));
+
+    expect(mutateAsync).toHaveBeenCalled();
+    expect(screen.queryByText("현재 진행 중인 모집이 없어요")).not.toBeInTheDocument();
+    expect(screen.getByText("모집 예정")).toBeVisible();
+  });
+
   it("Given a create intent carried from the group creation flow, When the page opens, Then the create form is already open", () => {
     useLocation.mockReturnValue({
       pathname: "/groups/7/manage/recruitments",

@@ -28,7 +28,11 @@ import { ManagementContext, ManagementPageHeading } from "./ManagementContext.js
 import "./manage.css";
 
 const initialForm = { capacity: 10, endsAt: "", joinMethod: "AUTO", startsAt: "" };
-const currentRecruitmentStatuses = new Set(["OPEN", "ALWAYS_OPEN"]);
+/*
+ * 시작일을 앞으로 잡으면 백엔드는 SCHEDULED로 돌려준다. 이것을 현재 모집에서 빼면
+ * 마감도 아니어서 어느 목록에도 걸리지 않고, 방금 만든 모집이 사라진 것처럼 보인다.
+ */
+const currentRecruitmentStatuses = new Set(["SCHEDULED", "OPEN", "ALWAYS_OPEN"]);
 
 function dateCopy(value) {
   return value ? formatDateTime(value) : "미정";
