@@ -401,7 +401,21 @@ Refresh Token을 모두 `HttpOnly` 쿠키로 내린다. `state` 검증 방식은
 }
 ```
 
-`recurringSchedule`을 생략하면 유동적 일정으로 생성한다.
+`recurringSchedule`을 생략하면 요일과 시간을 모두 정하지 않은 유동적 일정으로 생성한다.
+
+`recurringSchedule`을 보내되 `startTime`과 `endTime`을 함께 `null`로 두면 요일만 고정하고 시간은 정하지 않은 시간 유동적 일정으로 생성한다. 한쪽만 `null`인 요청은 `SCHEDULE_INVALID_RULE`로 거절한다.
+
+```json
+{
+  "recurringSchedule": {
+    "daysOfWeek": ["MONDAY", "WEDNESDAY"],
+    "startTime": null,
+    "endTime": null
+  }
+}
+```
+
+`sessionSchedule`의 `startTime`과 `endTime`은 여전히 필수다.
 
 #### 요청 — SESSION
 
@@ -746,6 +760,18 @@ Request Body는 없다.
 }
 ```
 
+`startTime`과 `endTime`은 함께 정하거나 함께 `null`로 둔다. 두 값을 함께 비우면 요일만 고정하고 시간은 정하지 않은 시간 유동적 일정이 된다. `daysOfWeek`는 이때도 하나 이상이어야 한다.
+
+```json
+{
+  "daysOfWeek": ["TUESDAY", "THURSDAY"],
+  "startTime": null,
+  "endTime": null
+}
+```
+
+한쪽만 `null`인 요청은 `SCHEDULE_INVALID_RULE`로 거절한다. 반복 일정을 통째로 없애 요일까지 유동적으로 두려면 이 엔드포인트가 아니라 `DELETE /api/groups/{groupId}/recurring-schedule`을 사용한다.
+
 #### 응답 200
 
 ```json
@@ -760,6 +786,20 @@ Request Body는 없다.
 }
 ```
 
+시간 유동적 일정으로 저장하면 `startTime`과 `endTime`을 `null`로 응답한다. 그룹 상세 조회의 `recurringSchedule`도 같은 형태다.
+
+```json
+{
+  "success": true,
+  "data": {
+    "daysOfWeek": ["TUESDAY", "THURSDAY"],
+    "startTime": null,
+    "endTime": null
+  },
+  "error": null
+}
+```
+
 #### 예외
 
 | 상황 | 코드 | HTTP |
@@ -768,7 +808,7 @@ Request Body는 없다.
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
 | SESSION 그룹 | `SCHEDULE_TYPE_MISMATCH` | 409 |
 | ENDED 그룹 | `GROUP_ENDED` | 409 |
-| 요일 비어 있음 또는 시간 역전 | `SCHEDULE_INVALID_RULE` | 400 |
+| 요일 비어 있음, 시간 역전 또는 두 시각 중 한쪽만 지정 | `SCHEDULE_INVALID_RULE` | 400 |
 
 ### `PUT /api/groups/{groupId}/session-schedule`
 

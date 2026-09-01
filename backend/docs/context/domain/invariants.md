@@ -29,7 +29,7 @@
 | 13 | 활동 중인 그룹에는 `LEADER`가 정확히 한 명 존재한다. |
 | 14 | 모집 기간은 `startsAt <= endsAt`을 만족한다. `endsAt`이 없으면 상시 모집이다. |
 | 15 | 신청 상태 전이는 `PENDING`에서 `APPROVED` 또는 `REJECTED`로만 일어난다. |
-| 16 | `CLUB`, `STUDY`는 `RecurringGroupSchedule`만 가질 수 있고 `SessionGroupSchedule`은 가질 수 없다. 반복 일정이 없으면 유동적 일정이다. |
+| 16 | `CLUB`, `STUDY`는 `RecurringGroupSchedule`만 가질 수 있고 `SessionGroupSchedule`은 가질 수 없다. 반복 일정이 없으면 요일과 시간을 모두 정하지 않은 유동적 일정이다. 반복 일정이 있으면서 두 시각이 비어 있으면 요일만 고정한 시간 유동적 일정이다. |
 | 17 | `SESSION`은 정확히 하나의 `SessionGroupSchedule`을 가져야 하고 `RecurringGroupSchedule`은 가질 수 없다. 두 일정 클래스 사이에는 상속 관계가 없다. |
 | 18 | 그룹 삭제와 그룹 종료는 서로 다른 도메인 명령이며, 삭제 요청이 종료 요청으로 자동 전환되거나 그 반대로 전환되지 않는다. |
 | 19 | 생성 후 24시간 이내의 `ACTIVE` 그룹은 삭제만 가능하며 종료할 수 없다. |
@@ -40,3 +40,5 @@
 | 24 | 새 공고 생성 또는 승인 인원의 `capacity` 도달로 공고가 마감되면 기존 `PENDING` 신청을 `SYSTEM` 주체로 즉시 `REJECTED` 처리한다. 정원 미달 상태에서 공고 기간이 만료되거나 운영자가 수동 조기 마감한 경우에는 즉시 거절하지 않고, 마감 후 2주 동안 처리되지 않은 신청만 `SYSTEM` 주체로 자동 거절한다. 그룹 종료는 즉시 거절한다. |
 | 25 | 승인 인원이 `capacity`에 도달하면 해당 모집 공고는 자동 마감한다. |
 | 26 | `PENDING` 신청 철회는 상태 변경이 아니라 신청의 Hard Delete다. 이미 승인 또는 거절된 신청은 철회할 수 없다. |
+| 27 | `RecurringGroupSchedule`의 `startTime`과 `endTime`은 함께 존재하거나 함께 비어 있다. 한쪽만 존재하는 상태는 허용하지 않는다. 두 값이 존재하면 `startTime < endTime`을 만족한다. |
+| 28 | `RecurringGroupSchedule`은 시각이 비어 있어도 하나 이상의 활동 요일을 가진다. |
