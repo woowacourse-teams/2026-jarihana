@@ -221,7 +221,8 @@ export function NewGroupPage() {
           toCreateBody(formValues, representativeImageKey)
         );
         toast.show({ title: "모임을 만들었어요.", tone: "success" });
-        navigate(`/groups/${result.id}`);
+        /* 모집을 시작할지는 상세 화면이 자리를 잡은 뒤에 묻는다. 방금 만들었다는 사실만 넘긴다. */
+        navigate(`/groups/${result.id}`, { state: { justCreated: true } });
       } catch (error) {
         toast.show({
           title: "모임을 만들지 못했어요.",

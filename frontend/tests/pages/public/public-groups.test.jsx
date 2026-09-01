@@ -27,6 +27,7 @@ jest.mock(
         {children}
       </a>
     ),
+    useLocation: () => ({ pathname: "/groups/41", search: "", state: null }),
     useNavigate: () => jest.fn(),
     useParams: () => mockRouteParams,
     useSearchParams: () => [mockSearchParams, mockSetSearchParams]
