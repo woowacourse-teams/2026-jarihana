@@ -202,19 +202,20 @@ public class GroupQueryService {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "요청 파라미터가 올바르지 않습니다.");
         }
         LocalDateTime now = LocalDateTime.now(clock);
-        GroupDetailProjection projection = groupDetailRepository.findById(groupId, now)
+        Long currentMemberId = loginMemberReader.currentMemberId().orElse(null);
+        GroupDetailProjection projection = groupDetailRepository.findById(groupId, now, currentMemberId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.GROUP_NOT_FOUND,
                         "그룹을 찾을 수 없습니다."
                 ));
-        Long currentMemberId = loginMemberReader.currentMemberId().orElse(null);
         return new GroupDetailResult(
                 projection.group(),
                 toRepresentativeImageUrl(projection.group().getRepresentativeImageKey()),
                 projection.members(),
                 projection.activeRecruitment(),
                 projection.approvedCount(),
-                projection.roleOf(currentMemberId)
+                projection.roleOf(currentMemberId),
+                projection.currentMemberRegistrationStatus()
         );
     }
 

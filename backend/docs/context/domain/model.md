@@ -50,7 +50,7 @@ flowchart TD
 - `CLUB`, `STUDY`는 `recurringSchedule`만 사용할 수 있다. 값이 없으면 활동 요일과 시간이 고정되지 않은 **유동적 일정**이다.
 - `SESSION`은 `sessionSchedule`을 반드시 가지며 `recurringSchedule`은 가질 수 없다.
 - 두 일정이 동시에 존재할 수 없다.
-- `RecurringGroupSchedule`은 선택한 여러 활동 요일과 하나의 시작·종료 시간을 매주 동일하게 적용한다.
+- `RecurringGroupSchedule`은 선택한 여러 활동 요일과 하나의 시작, 종료 시간을 매주 동일하게 적용한다. 두 시각을 함께 비우면 요일만 고정하고 시간은 그때그때 정하는 **시간 유동적** 일정이다.
 - `SessionGroupSchedule`은 하나의 활동 날짜와 시작·종료 시간을 가진다.
 이 분리를 통해 같은 그룹이 시기별로 여러 번 모집하거나, 모집이 끝난 뒤에도 활동을 계속하거나, 모집 공고 없이 과거 활동을 보존하는 구조를 표현할 수 있다.
 
@@ -259,8 +259,10 @@ classDiagram
 | 필드 | 타입 | 제약 | 설명 |
 | --- | --- | --- | --- |
 | `daysOfWeek` | `Set<DayOfWeek>` | NOT NULL, 1개 이상 | 매주 활동하는 요일 |
-| `startTime` | LocalTime | NOT NULL | 활동 시작 시각 |
-| `endTime` | LocalTime | NOT NULL, `startTime < endTime` | 활동 종료 시각 |
+| `startTime` | LocalTime | nullable, `endTime`과 함께 정하거나 함께 비운다 | 활동 시작 시각. 비어 있으면 시간 유동적 |
+| `endTime` | LocalTime | nullable, 값이 있으면 `startTime < endTime` | 활동 종료 시각. 비어 있으면 시간 유동적 |
+
+두 시각을 함께 비운 반복 일정은 요일만 고정하고 시간은 매번 따로 정하는 **시간 유동적** 일정이다. 한쪽만 비운 요청은 도메인에서 거절한다. 반복 일정 자체가 없는 **유동적 일정**과는 다르다. 유동적 일정은 요일도 정하지 않은 상태다.
 
 ### SessionGroupSchedule
 
@@ -278,8 +280,11 @@ classDiagram
 - `CLUB`, `STUDY`는 `recurringSchedule`만 사용할 수 있다. 값이 없으면 유동적 일정이다.
 - `SESSION`은 `sessionSchedule`을 반드시 가져야 한다.
 - 두 일정은 동시에 존재할 수 없다.
-- 두 일정 모두 `startTime < endTime`을 만족해야 한다.
-- `RecurringGroupSchedule.daysOfWeek`는 하나 이상의 요일을 가져야 한다.
+- `SessionGroupSchedule`은 `startTime`과 `endTime`이 모두 필수이며 `startTime < endTime`을 만족해야 한다.
+- `RecurringGroupSchedule`의 `startTime`과 `endTime`은 함께 정하거나 함께 비워야 한다. 한쪽만 비운 요청은 거절한다.
+- 두 시각을 함께 비운 반복 일정은 요일만 고정하고 시간은 정하지 않은 시간 유동적 일정이다.
+- 시각을 정한 반복 일정은 `startTime < endTime`을 만족해야 한다.
+- `RecurringGroupSchedule.daysOfWeek`는 시간을 비운 경우에도 하나 이상의 요일을 가져야 한다.
 
 ### Registration
 

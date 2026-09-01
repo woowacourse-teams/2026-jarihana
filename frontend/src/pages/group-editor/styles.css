@@ -98,13 +98,13 @@
 .group-editor__ul > select {
     inline-size: 100%;
     min-block-size: var(--touch-target);
-    padding: var(--space-2) var(--space-1);
+    padding: var(--space-2) 0;
     border: 0;
     border-radius: 0;
     background: transparent;
     color: var(--color-surface);
     font: inherit;
-    font-family: var(--font-sans);
+    font-family: var(--font-sans), serif;
 }
 
 .group-editor__ul > input:focus,
