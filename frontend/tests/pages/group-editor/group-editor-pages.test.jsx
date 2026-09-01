@@ -493,48 +493,26 @@ describe("NewGroupPage", () => {
     await waitFor(() => expect(mockCreateGroup).toHaveBeenCalledTimes(1));
     await act(async () => finishRequest({ id: 73, status: "ACTIVE" }));
     await waitFor(() =>
-      expect(screen.getByRole("dialog", { name: "모임을 만들었어요" })).toBeVisible()
+      expect(mockNavigate).toHaveBeenCalledWith("/groups/73", { state: { justCreated: true } })
     );
-    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it("만들고 나면 모집을 시작할지 묻는다", async () => {
+  it("만들고 나면 방금 만들었다는 사실과 함께 상세로 보낸다", async () => {
     // Given
     const user = userEvent.setup();
     renderPage(<NewGroupPage />);
     await user.type(screen.getByLabelText("모임 이름"), "모집 안내 스터디");
-    await user.type(screen.getByLabelText("한 줄 소개"), "모집은 따로 시작해요");
+    await user.type(screen.getByLabelText("한 줄 소개"), "모집은 상세에서 이어서 물어요");
 
     // When
     submitForm("group-create-form");
 
-    // Then
-    const dialog = await screen.findByRole("dialog", { name: "모임을 만들었어요" });
-    expect(
-      within(dialog).getByText(
-        "아직 모집 전이라 다른 사람은 신청할 수 없어요. 이어서 모집을 시작할까요?"
-      )
-    ).toBeVisible();
-    await user.click(within(dialog).getByRole("button", { name: "나중에 하기" }));
-    expect(mockNavigate).toHaveBeenCalledWith("/groups/73");
-  });
-
-  it("모집 시작하기를 고르면 모집 생성 화면으로 바로 보낸다", async () => {
-    // Given
-    const user = userEvent.setup();
-    renderPage(<NewGroupPage />);
-    await user.type(screen.getByLabelText("모임 이름"), "모집 안내 스터디");
-    await user.type(screen.getByLabelText("한 줄 소개"), "만들면서 모집까지 열어요");
-
-    // When
-    submitForm("group-create-form");
-    const dialog = await screen.findByRole("dialog", { name: "모임을 만들었어요" });
-    await user.click(within(dialog).getByRole("button", { name: "모집 시작하기" }));
-
-    // Then
-    expect(mockNavigate).toHaveBeenCalledWith("/groups/73/manage/recruitments", {
-      state: { screen: "create" }
-    });
+    // Then 모집 여부는 상세 화면이 묻는다. 이 화면은 완료만 알리고 표식을 넘긴다.
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith("/groups/73", { state: { justCreated: true } })
+    );
+    expect(mockShowToast).toHaveBeenCalledWith({ title: "모임을 만들었어요.", tone: "success" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
 

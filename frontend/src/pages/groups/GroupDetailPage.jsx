@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronLeft, Pencil } from "lucide-react";
-import { Link, useParams, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { useAuth } from "../../features/auth/index.js";
 import { useGroup } from "../../features/group/index.js";
@@ -44,6 +44,9 @@ const tabs = [
   { label: "활동 기록", value: "recruitments" },
   { label: "멤버", value: "members" }
 ];
+
+/* 도착한 화면을 먼저 보여 준 뒤 묻는 정도의 짧은 간격이다. */
+const RECRUITMENT_PROMPT_DELAY = 500;
 
 function DetailFact({ icon, label, unavailable = false, value }) {
   return (
@@ -92,6 +95,10 @@ export function GroupDetailPage() {
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
   }, [groupId]);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const justCreatedReference = useRef(location.state?.justCreated === true);
+  const [recruitmentPromptOpen, setRecruitmentPromptOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedTab = tabs.some((tab) => tab.value === searchParams.get("tab"))
     ? searchParams.get("tab")
@@ -108,6 +115,20 @@ export function GroupDetailPage() {
     group?.currentMemberRole === "MEMBER" || group?.currentMemberRole === "LEADER";
   const hasExistingRegistration = group?.currentMemberRegistrationStatus != null;
   const isArchived = group?.status === "ENDED";
+
+  /*
+   * 모임을 만들자마자 모집도 시작된 줄 아는 오해가 있어, 방금 만든 모임장에게만 모집을
+   * 시작할지 묻는다. 만들기 버튼 바로 옆에서 물으면 급하게 느껴지므로 상세 화면이
+   * 자리를 잡은 뒤에 띄운다. state는 history에 남아 새로고침해도 살아 있어 한 번 쓰고 지운다.
+   */
+  useEffect(() => {
+    if (!justCreatedReference.current || !group || !currentMember) return;
+    justCreatedReference.current = false;
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+    if (!isLeader || group.activeRecruitment) return;
+    const timer = setTimeout(() => setRecruitmentPromptOpen(true), RECRUITMENT_PROMPT_DELAY);
+    return () => clearTimeout(timer);
+  }, [currentMember, group, isLeader, location.pathname, location.search, navigate]);
 
   if (groupQuery.isLoading) {
     return (
@@ -286,6 +307,27 @@ export function GroupDetailPage() {
           </div>
         </Modal>
       </div>
+
+      <Modal
+        description="모집을 시작해야 다른 사람이 이 모임에 신청할 수 있어요."
+        onClose={() => setRecruitmentPromptOpen(false)}
+        open={recruitmentPromptOpen}
+        title="모집을 시작할까요?"
+      >
+        <div className="ui-dialog__actions">
+          <Button onClick={() => setRecruitmentPromptOpen(false)} variant="secondary">
+            나중에 하기
+          </Button>
+          <Button
+            onClick={() =>
+              navigate(`/groups/${groupId}/manage/recruitments`, { state: { screen: "create" } })
+            }
+            variant="primary"
+          >
+            모집 시작하기
+          </Button>
+        </div>
+      </Modal>
     </PageContainer>
   );
 }
