@@ -3,7 +3,8 @@ import { useParams } from "react-router";
 import { useInfiniteRecruitments, useRecruitment } from "../../features/recruitment/index.js";
 import {
   useDecideRegistration,
-  useInfiniteRegistrations
+  useInfiniteRegistrations,
+  useRegistrationSummary
 } from "../../features/registration/index.js";
 import {
   Button,
@@ -35,11 +36,13 @@ const filterOptions = [
 
 export function ManageRegistrationsPage() {
   const { groupId, recruitmentId: routeRecruitmentId } = useParams();
+  const registrationSummaryQuery = useRegistrationSummary(groupId);
+  const targetRecruitmentId = registrationSummaryQuery.data?.targetRecruitmentId;
   const recruitmentsQuery = useInfiniteRecruitments(groupId);
   const currentRecruitment = flattenPages(recruitmentsQuery.data).find(
     (recruitment) => recruitment.recruitingStatus !== "CLOSED"
   );
-  const recruitmentId = routeRecruitmentId ?? currentRecruitment?.id;
+  const recruitmentId = routeRecruitmentId ?? targetRecruitmentId ?? currentRecruitment?.id;
   const [status, setStatus] = useState("");
   const registrationsQuery = useInfiniteRegistrations(recruitmentId, {
     ...(status ? { status } : {})
@@ -51,11 +54,11 @@ export function ManageRegistrationsPage() {
   const [mutationError, setMutationError] = useState(null);
   const registrations = flattenPages(registrationsQuery.data);
 
-  if (!routeRecruitmentId && recruitmentsQuery.isPending) {
+  if (!routeRecruitmentId && !targetRecruitmentId && recruitmentsQuery.isPending) {
     return <ManageLoading title="신청 관리" />;
   }
 
-  if (!routeRecruitmentId && recruitmentsQuery.isError) {
+  if (!routeRecruitmentId && !targetRecruitmentId && recruitmentsQuery.isError) {
     const view = errorView(recruitmentsQuery.error);
     return (
       <div className="manage-page manage-page--dashboard manage-page--registrations">

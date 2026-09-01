@@ -192,9 +192,12 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - `MyPageLayout`: profile column + activity panel의 desktop split, 3개 count link, 2-column
   summary cards를 사용한다. tablet/mobile에서는 각 grid를 정보 순서대로 한 column으로 접는다.
 - `ManageLayout`: group name context header와 horizontal route-backed tabs(`모임 수정`,
-  `모집 관리`, 조건부 `신청 관리`, `멤버 관리`)를 모든 leader page가 공유한다. 멤버는 table,
-  모집은 summary + condition form + public-state rail, 신청은 applicant panel + operations rail로
-  표현하고 mobile에서는 모두 single column으로 재배치한다.
+  `모집 관리`, 조건부 `신청 관리`, `멤버 관리`)를 모든 leader page가 공유한다. `신청 관리`는 처리 대기
+  신청 수가 1건 이상일 때만 label 뒤에 inline danger count badge를 표시하며, 1~99는 실제 숫자,
+  100건 이상은 화면에 `99+`로 줄이고 숨은 텍스트는 실제 전체 수를 한국어로 전달한다. badge는
+  `--color-danger`, surface/text token만 사용하고 active underline과 모바일 horizontal scroll을
+  방해하지 않는다. 멤버는 table, 모집은 summary + condition form + public-state rail, 신청은
+  applicant panel + operations rail로 표현하고 mobile에서는 모두 single column으로 재배치한다.
 - 일반 route는 page title 하나의 `h1`, section은 순차 `h2`, card title은 `h3`를 사용한다.
   탐색 route의 hero와 `자리 둘러보기`는 현재 제품 요구에 따라 각각 `h1`으로 노출한다.
 

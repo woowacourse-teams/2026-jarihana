@@ -1,6 +1,7 @@
 package com.project.jarihana.registration.query.repository;
 
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
+import com.project.jarihana.group.query.repository.GroupJpaRepository;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
 import com.project.jarihana.registration.domain.Registration;
@@ -18,15 +19,18 @@ public class JpaRegistrationListRepository implements RegistrationListRepository
     private final GroupRecruitmentJpaRepository recruitmentRepository;
     private final RegistrationAccessJpaRepository accessRepository;
     private final RegistrationListJpaRepository registrationRepository;
+    private final GroupJpaRepository groupRepository;
 
     public JpaRegistrationListRepository(
             GroupRecruitmentJpaRepository recruitmentRepository,
             RegistrationAccessJpaRepository accessRepository,
-            RegistrationListJpaRepository registrationRepository
+            RegistrationListJpaRepository registrationRepository,
+            GroupJpaRepository groupRepository
     ) {
         this.recruitmentRepository = recruitmentRepository;
         this.accessRepository = accessRepository;
         this.registrationRepository = registrationRepository;
+        this.groupRepository = groupRepository;
     }
 
     @Override
@@ -43,6 +47,11 @@ public class JpaRegistrationListRepository implements RegistrationListRepository
                 memberId,
                 GroupMemberRole.LEADER
         );
+    }
+
+    @Override
+    public boolean existsGroupById(Long groupId) {
+        return groupRepository.existsById(groupId);
     }
 
     @Override
@@ -73,6 +82,19 @@ public class JpaRegistrationListRepository implements RegistrationListRepository
                 .map(JpaRegistrationListRepository::toMyProjection)
                 .toList();
         return new MyRegistrationListPage(projections, registrations.hasNext());
+    }
+
+    @Override
+    public RegistrationSummaryProjection findSummaryByGroupId(Long groupId) {
+        long pendingCount = registrationRepository.countPendingByGroupId(groupId);
+        Long targetRecruitmentId = registrationRepository.findPendingRecruitmentIdsByGroupId(
+                        groupId,
+                        Pageable.ofSize(1)
+                )
+                .stream()
+                .findFirst()
+                .orElse(null);
+        return new RegistrationSummaryProjection(pendingCount, targetRecruitmentId);
     }
 
     private static MyRegistrationListProjection toMyProjection(Registration registration) {

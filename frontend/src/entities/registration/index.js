@@ -45,6 +45,11 @@ export const registrationSchema = z.object({
 
 export const registrationPageSchema = cursorPageSchema(registrationSchema);
 
+export const registrationSummarySchema = z.object({
+  pendingCount: z.number().int().nonnegative(),
+  targetRecruitmentId: entityIdSchema.nullable()
+});
+
 export const myRegistrationSchema = registrationSchema.omit({ member: true }).extend({
   group: z.object({
     id: entityIdSchema,

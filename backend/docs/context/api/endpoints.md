@@ -8,12 +8,13 @@
 >
 > 구현·테스트·Swagger/OpenAPI와 충돌하면 임의로 해석하지 않고 차이를 보고한다.
 
-이 문서는 Notion의 활성 엔드포인트 27개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청·응답·오류는 구현 시 Swagger/OpenAPI와 RestAssured 인수 테스트로 검증한다.
+이 문서는 Notion의 활성 엔드포인트 28개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청·응답·오류는 구현 시 Swagger/OpenAPI와 RestAssured 인수 테스트로 검증한다.
 
 ## 전체 목록
 
 | 분류 | Method | Endpoint | 권한 | 설명 |
 | --- | --- | --- | --- | --- |
+| 가입 신청 | `GET` | `/api/groups/{groupId}/registrations/summary` | `LEADER` | 그룹의 처리 대기 신청 요약 조회 |
 | 가입 신청 | `GET` | `/api/recruitments/{recruitmentId}/registrations` | `LEADER` | 모집 공고 신청자 목록 조회 |
 | 가입 신청 | `POST` | `/api/recruitments/{recruitmentId}/registrations` | `MEMBER` | 모집 공고에 가입 신청 |
 | 가입 신청 | `DELETE` | `/api/recruitments/{recruitmentId}/registrations/{registrationId}` | `MEMBER` | 내 대기 중 가입 신청 철회 |
@@ -1087,6 +1088,49 @@ Location: /api/groups/12/recruitments/45
 | CLOSED 이외의 상태 요청 | `INVALID_PARAMETER` | 400 |
 
 ## 가입 신청
+
+### `GET /api/groups/{groupId}/registrations/summary`
+
+- 설명: 그룹의 처리 대기 신청 요약 조회
+- 권한: `LEADER`
+- 원본: 프런트엔드 모임 관리 탭 배지 요구로 추가된 저장소 계약
+
+#### 공통 계약
+- Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
+- 권한 `LEADER`의 자격 증명 규칙을 적용한다.
+- 204를 제외한 응답은 `success`, `data`, `error` 봉투를 사용한다.
+- 해당 그룹에 속한 모든 모집 공고의 `PENDING` 신청만 집계한다.
+- 마감된 모집 공고에 남아 있는 `PENDING` 신청도 집계에 포함한다.
+- `APPROVED`, `REJECTED` 신청과 다른 그룹의 신청은 제외한다.
+
+#### Path Parameters
+- `groupId`: 대기 신청 요약을 조회할 그룹 식별자
+
+#### 요청
+Request Body는 없다.
+
+#### 응답 200
+
+```json
+{
+  "success": true,
+  "data": {
+    "pendingCount": 3,
+    "targetRecruitmentId": 45
+  },
+  "error": null
+}
+```
+
+`targetRecruitmentId`는 해당 그룹의 `PENDING` 신청 중 가장 최근 신청(`registeredAt DESC, id DESC`)이 속한 모집 공고 식별자다. `pendingCount`가 0이면 `targetRecruitmentId`는 `null`이다.
+
+#### 예외
+
+| 상황 | 코드 | HTTP |
+| --- | --- | --- |
+| 인증 정보 없음·만료 | `UNAUTHENTICATED` | 401 |
+| 해당 그룹의 모임장이 아님 | `GROUP_ACCESS_DENIED` | 403 |
+| 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
 
 ### `GET /api/recruitments/{recruitmentId}/registrations`
 

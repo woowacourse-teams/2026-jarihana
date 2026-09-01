@@ -388,6 +388,15 @@ export async function installApiFixture(pageInstance, options = {}) {
         success({ groupId: group.id, leaderGroupMemberId: 102, previousLeaderGroupMemberId: 101 })
       );
     }
+    if (match(path, "/groups/:groupId/registrations/summary") && method === "GET") {
+      return json(
+        route,
+        success({
+          pendingCount: state.registrationPresent ? 1 : 0,
+          targetRecruitmentId: state.registrationPresent ? recruitment.id : null
+        })
+      );
+    }
     if (match(path, "/groups/:groupId/recruitments") && method === "GET") {
       return json(route, success(page(recruitmentItems)));
     }

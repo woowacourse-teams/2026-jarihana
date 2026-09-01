@@ -1,18 +1,23 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 
 import { useGroup, useInfiniteGroups } from "../../src/features/group/index.js";
 import { useInfiniteGroupMembers } from "../../src/features/member/index.js";
 import { useInfiniteRecruitments, useRecruitment } from "../../src/features/recruitment/index.js";
 import {
+  registrationKeys,
+  useDecideRegistration,
   useInfiniteMyRegistrations,
-  useInfiniteRegistrations
+  useInfiniteRegistrations,
+  useRegistrationSummary
 } from "../../src/features/registration/index.js";
+
+const mockInvalidateQueries = jest.fn();
 
 jest.mock("@tanstack/react-query", () => ({
   useInfiniteQuery: jest.fn((options) => options),
   useMutation: jest.fn((options) => options),
   useQuery: jest.fn((options) => options),
-  useQueryClient: jest.fn(() => ({ invalidateQueries: jest.fn() }))
+  useQueryClient: jest.fn(() => ({ invalidateQueries: mockInvalidateQueries }))
 }));
 
 describe("infinite query cursor guards", () => {
@@ -46,6 +51,8 @@ describe("identifier query guards", () => {
   beforeEach(() => {
     useInfiniteQuery.mockClear();
     useQuery.mockClear();
+    useMutation.mockClear();
+    mockInvalidateQueries.mockClear();
   });
 
   it.each([
@@ -64,5 +71,37 @@ describe("identifier query guards", () => {
 
     // Then
     expect(options.enabled).toBe(expectedEnabled);
+  });
+
+  it("uses focused polling only for the registration summary query", () => {
+    // Given
+    const groupId = "17";
+
+    // When
+    const options = useRegistrationSummary(groupId);
+
+    // Then
+    expect(options).toEqual(
+      expect.objectContaining({
+        enabled: true,
+        queryKey: registrationKeys.groupSummary(groupId),
+        refetchInterval: 30000,
+        refetchIntervalInBackground: false,
+        refetchOnWindowFocus: true
+      })
+    );
+  });
+
+  it("invalidates registration summaries after a leader decision", async () => {
+    // Given
+    const options = useDecideRegistration("23");
+
+    // When
+    await options.onSuccess();
+
+    // Then
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: registrationKeys.groupSummaries()
+    });
   });
 });
