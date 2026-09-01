@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { ChevronLeft } from "lucide-react";
 import { useGroup } from "../../features/group/index.js";
 import "./manage.css";
 
@@ -24,7 +25,17 @@ export function ManagementContext({ active, groupId, recruitmentId }) {
 
   return (
     <header className="manage-context">
-      <h1>{groupName}</h1>
+      <div className="manage-context__title-row">
+        <Link
+          aria-label="모임 상세로 이동"
+          className="manage-context__back"
+          title="모임 상세로 이동"
+          to={`/groups/${groupId}`}
+        >
+          <ChevronLeft aria-hidden="true" size={24} strokeWidth={2.25} />
+        </Link>
+        <h1>{groupName}</h1>
+      </div>
       <nav aria-label="모임 관리 메뉴" className="manage-context__nav">
         {links.map((link) => (
           <Link
