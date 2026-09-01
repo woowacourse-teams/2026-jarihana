@@ -253,6 +253,62 @@ test("mobile discovery uses the My Page activity row with a left thumbnail", asy
   expect(state.unexpectedResponses).toEqual([]);
 });
 
+for (const viewport of [
+  { height: 980, label: "tablet-768", width: 768 },
+  { height: 1000, label: "desktop-1280", width: 1280 }
+]) {
+  test(`discovery keeps long group names to one line at ${viewport.label}`, async ({ page }) => {
+    await page.setViewportSize({ height: viewport.height, width: viewport.width });
+    const state = await installResponsiveDiscoveryFixture(page);
+
+    await page.goto("/groups");
+    const longTitle = page.locator(".ui-group-card__title", {
+      hasText: "긴 이름도 들어가는 타입스크립트 모임"
+    });
+    const regularTitle = page.locator(".ui-group-card__title").first();
+    await expect(longTitle).toBeVisible();
+
+    const metrics = await longTitle.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return {
+        clientWidth: element.clientWidth,
+        height: rect.height,
+        lineHeight: Number.parseFloat(style.lineHeight),
+        overflowX: style.overflowX,
+        scrollWidth: element.scrollWidth,
+        textOverflow: style.textOverflow,
+        whiteSpace: style.whiteSpace
+      };
+    });
+    const regularTitleHeight = await regularTitle.evaluate(
+      (element) => element.getBoundingClientRect().height
+    );
+
+    expect(metrics).toEqual(
+      expect.objectContaining({
+        overflowX: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap"
+      })
+    );
+    expect(metrics.scrollWidth).toBeGreaterThan(metrics.clientWidth);
+    expect(metrics.height).toBeCloseTo(metrics.lineHeight, 0);
+    expect(metrics.height).toBeCloseTo(regularTitleHeight, 0);
+    expect(state.unexpectedResponses).toEqual([]);
+
+    mkdirSync(resolve(process.cwd(), evidenceDirectory), { recursive: true });
+    await page
+      .locator(".groups-card-frame", {
+        hasText: "긴 이름도 들어가는 타입스크립트 모임"
+      })
+      .screenshot({
+        animations: "disabled",
+        path: `${evidenceDirectory}/groups-long-title-${viewport.label}.png`
+      });
+  });
+}
+
 function countFirstRowColumns(cards) {
   const firstTop = cards[0]?.top;
   if (firstTop === undefined) return 0;

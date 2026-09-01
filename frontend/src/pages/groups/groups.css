@@ -499,7 +499,10 @@
   font-size: var(--groups-card-title-size);
   line-height: 1.45;
   min-width: 0;
+  overflow: hidden;
   overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   word-break: keep-all;
 }
 
