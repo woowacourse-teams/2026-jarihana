@@ -1744,7 +1744,7 @@
   min-height: 0;
 }
 
-@media (max-width: 89.9375rem), (max-height: 40rem) {
+@media (max-width: 89.9375rem) {
   .group-detail-page {
     padding-block-end: calc(
       var(--touch-target-lg) + var(--space-6) + env(safe-area-inset-bottom)

@@ -168,8 +168,8 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   `--space-5`와 `100dvh - rail 높이 - --space-4 - safe area` 중 작은 값으로 정한다.
   카드가 창보다 높아도 페이지 스크롤로 신청 action까지 도달할 수 있으며, 모집 일정 펼치기나
   글꼴·화면 크기 변경에도 위치를 다시 맞춘다. 스크롤과 함께 사라지는 header 높이는 차감하지 않는다.
-  가로 `89.9375rem` 이하 또는 세로 `40rem` 이하에서는 기존 `자리 확인` 버튼과 모집 정보
-  모달을 사용한다. CSS viewport 크기로 전환하며 DPI나 devicePixelRatio는 사용하지 않는다.
+  가로 `89.9375rem` 이하에서는 기존 `자리 확인` 버튼과 모집 정보 모달을 사용한다.
+  세로 viewport 높이나 DPI, devicePixelRatio는 전환 조건으로 사용하지 않는다.
 - 모집 정보 플로팅 버튼은 텍스트 없이 기존 `jarihana-favicon.png` 의자 로고만 담은 원형 버튼으로
   표시한다. 지름은 `맨 위로 이동` 버튼과 같은 `--touch-target-lg`(48px), 안쪽 여백은
   `--space-2`(8px)이며 secondary 표면을
