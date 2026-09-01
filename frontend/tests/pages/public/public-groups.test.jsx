@@ -27,6 +27,7 @@ jest.mock(
         {children}
       </a>
     ),
+    useLocation: () => ({ pathname: "/groups/41", search: "", state: null }),
     useNavigate: () => jest.fn(),
     useParams: () => mockRouteParams,
     useSearchParams: () => [mockSearchParams, mockSetSearchParams]
@@ -450,7 +451,7 @@ it("Given the explorer, when desktop controls render, then search and filters sh
   expect(submit.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
 });
 
-it("Given the backend default image, when a result renders, then the card displays that server asset", () => {
+it("Given the default image, when a result renders, then the card displays the frontend static asset", () => {
   groupHooks.useInfiniteGroups.mockReturnValue({
     ...idleInfinite,
     data: { pages: [{ items: [group], nextCursor: null, hasNext: false }] }

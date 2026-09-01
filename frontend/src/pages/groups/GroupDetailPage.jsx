@@ -1,12 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Armchair, ChevronLeft, Pencil } from "lucide-react";
-import { Link, useParams, useSearchParams } from "react-router";
+import { ChevronLeft, Pencil } from "lucide-react";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { useAuth } from "../../features/auth/index.js";
 import { useGroup } from "../../features/group/index.js";
 import { useInfiniteGroupMembers } from "../../features/member/index.js";
 import { useCreateRegistration } from "../../features/registration/index.js";
 import { toUserMessage } from "../../shared/api/index.js";
+import logoMark from "../../shared/assets/brand/jarihana-favicon.png";
 import scheduleIcon from "../../shared/assets/figma/edit-05.svg";
 import placeIcon from "../../shared/assets/figma/edit-06.svg";
 import memberIcon from "../../shared/assets/figma/edit-09.svg";
@@ -45,6 +46,9 @@ const tabs = [
   { label: "멤버", value: "members" }
 ];
 
+/* 도착한 화면을 먼저 보여 준 뒤 묻는 정도의 짧은 간격이다. */
+const RECRUITMENT_PROMPT_DELAY = 500;
+
 function DetailFact({ icon, label, unavailable = false, value }) {
   return (
     <div className={unavailable ? "group-fact group-fact--unavailable" : "group-fact"}>
@@ -57,11 +61,45 @@ function DetailFact({ icon, label, unavailable = false, value }) {
   );
 }
 
+function GroupDetailRail({ children }) {
+  const railReference = useRef(null);
+
+  useLayoutEffect(() => {
+    const rail = railReference.current;
+
+    function updateHeight() {
+      rail.style.setProperty(
+        "--group-rail-height",
+        `${Math.ceil(rail.getBoundingClientRect().height)}px`
+      );
+    }
+
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(rail, { box: "border-box" });
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <aside
+      aria-label="운영자와 모집 정보"
+      className="group-rail group-rail--desktop"
+      ref={railReference}
+    >
+      {children}
+    </aside>
+  );
+}
+
 export function GroupDetailPage() {
   const { groupId } = useParams();
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
   }, [groupId]);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const justCreatedReference = useRef(location.state?.justCreated === true);
+  const [recruitmentPromptOpen, setRecruitmentPromptOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedTab = tabs.some((tab) => tab.value === searchParams.get("tab"))
     ? searchParams.get("tab")
@@ -78,6 +116,20 @@ export function GroupDetailPage() {
     group?.currentMemberRole === "MEMBER" || group?.currentMemberRole === "LEADER";
   const hasExistingRegistration = group?.currentMemberRegistrationStatus != null;
   const isArchived = group?.status === "ENDED";
+
+  /*
+   * 모임을 만들자마자 모집도 시작된 줄 아는 오해가 있어, 방금 만든 모임장에게만 모집을
+   * 시작할지 묻는다. 만들기 버튼 바로 옆에서 물으면 급하게 느껴지므로 상세 화면이
+   * 자리를 잡은 뒤에 띄운다. state는 history에 남아 새로고침해도 살아 있어 한 번 쓰고 지운다.
+   */
+  useEffect(() => {
+    if (!justCreatedReference.current || !group || !currentMember) return;
+    justCreatedReference.current = false;
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+    if (!isLeader || group.activeRecruitment) return;
+    const timer = setTimeout(() => setRecruitmentPromptOpen(true), RECRUITMENT_PROMPT_DELAY);
+    return () => clearTimeout(timer);
+  }, [currentMember, group, isLeader, location.pathname, location.search, navigate]);
 
   if (groupQuery.isLoading) {
     return (
@@ -208,7 +260,7 @@ export function GroupDetailPage() {
           </div>
         </div>
 
-        <aside className="group-rail group-rail--desktop" aria-label="운영자와 모집 정보">
+        <GroupDetailRail>
           <LeaderSummary leader={group.leader} variant="card" />
           <RecruitmentSummary
             auth={auth}
@@ -219,16 +271,27 @@ export function GroupDetailPage() {
             isArchived={isArchived}
             isLeader={isLeader}
           />
-        </aside>
+        </GroupDetailRail>
       </div>
 
       <div className="group-floating-recruitment">
         <Modal
           title="모집 정보"
           trigger={
-            <Button aria-label="모집 정보 보기" className="group-recruitment-fab">
-              <Armchair aria-hidden="true" size={18} strokeWidth={2.25} />
-              자리 확인
+            <Button
+              aria-label="모집 정보 보기"
+              className="group-recruitment-fab"
+              title="자리 확인"
+              variant="secondary"
+            >
+              <img
+                alt=""
+                aria-hidden="true"
+                className="group-recruitment-fab__image"
+                height={32}
+                src={logoMark}
+                width={32}
+              />
             </Button>
           }
         >
@@ -245,6 +308,27 @@ export function GroupDetailPage() {
           </div>
         </Modal>
       </div>
+
+      <Modal
+        description="모집을 시작해야 다른 사람이 이 모임에 신청할 수 있어요."
+        onClose={() => setRecruitmentPromptOpen(false)}
+        open={recruitmentPromptOpen}
+        title="모집을 시작할까요?"
+      >
+        <div className="ui-dialog__actions">
+          <Button onClick={() => setRecruitmentPromptOpen(false)} variant="secondary">
+            나중에 하기
+          </Button>
+          <Button
+            onClick={() =>
+              navigate(`/groups/${groupId}/manage/recruitments`, { state: { screen: "create" } })
+            }
+            variant="primary"
+          >
+            모집 시작하기
+          </Button>
+        </div>
+      </Modal>
     </PageContainer>
   );
 }
@@ -335,13 +419,13 @@ function RecruitmentSummary({
     }
     if (!isAuthenticated) {
       return (
-        <Button onClick={() => auth.login?.()} variant="primary">
+        <Button className="group-apply-button" onClick={() => auth.login?.()} variant="primary">
           가입 신청하기
         </Button>
       );
     }
     return (
-      <Button onClick={openApplication} variant="primary">
+      <Button className="group-apply-button" onClick={openApplication} variant="primary">
         가입 신청하기
       </Button>
     );
@@ -350,9 +434,11 @@ function RecruitmentSummary({
   if (!recruitment) {
     return (
       <section className="group-recruitment-summary group-rail-card">
-        <RecruitmentHero empty />
+        <div className="group-recruitment-info">
+          <RecruitmentHero empty />
+        </div>
         {createRecruitmentHref ? (
-          <div className="group-recruitment-empty">
+          <div className="group-recruitment-empty group-recruitment-action">
             <Link
               className="group-recruitment-empty__action ui-button ui-button--primary ui-button--md"
               to={createRecruitmentHref}
@@ -366,56 +452,63 @@ function RecruitmentSummary({
   }
   return (
     <section className="group-recruitment-summary group-rail-card">
-      <RecruitmentHero />
-      <dl className="group-recruitment-meta">
-        <div>
-          <dt>모집일정</dt>
-          <dd className="group-recruitment-schedule">
-            <strong className="group-recruitment-countdown">
-              {recruitmentCountdownLabel(recruitment.startsAt, recruitment.endsAt)}
-            </strong>
-            <details className="group-recruitment-details">
-              <summary>일정 자세히</summary>
-              <span className="group-recruitment-period">
-                <span>
-                  <span className="group-recruitment-period__label">시작</span>
-                  <strong>{formatCompactLocalDateTime(recruitment.startsAt)}</strong>
-                </span>
-                <span>
-                  <span className="group-recruitment-period__label">마감</span>
-                  <strong>{formatCompactLocalDateTime(recruitment.endsAt)}</strong>
-                </span>
-              </span>
-            </details>
-          </dd>
-        </div>
-        <div>
-          <dt>가입 방식</dt>
-          <dd>{recruitment.joinMethod === "AUTO" ? "선착순" : "승인제"}</dd>
-        </div>
-        <div>
-          <dt>모집 인원</dt>
-          <dd>
-            승인 {recruitment.approvedCount}명 / 정원 {recruitment.capacity}명
-          </dd>
-        </div>
-      </dl>
       <div
-        aria-label={`승인 ${recruitment.approvedCount}명, 정원 ${recruitment.capacity}명`}
-        aria-valuemax={recruitment.capacity}
-        aria-valuemin="0"
-        aria-valuenow={Math.min(recruitment.approvedCount, recruitment.capacity)}
-        className="group-recruitment-progress"
-        role="progressbar"
+        aria-label="모집 상세 정보"
+        className="group-recruitment-info"
+        role="region"
+        tabIndex={0}
       >
-        <span
-          style={{
-            "--progress-width": `${Math.min(
-              100,
-              (recruitment.approvedCount / recruitment.capacity) * 100
-            )}%`
-          }}
-        />
+        <RecruitmentHero />
+        <dl className="group-recruitment-meta">
+          <div>
+            <dt>모집일정</dt>
+            <dd className="group-recruitment-schedule">
+              <strong className="group-recruitment-countdown">
+                {recruitmentCountdownLabel(recruitment.startsAt, recruitment.endsAt)}
+              </strong>
+              <details className="group-recruitment-details">
+                <summary>일정 자세히</summary>
+                <span className="group-recruitment-period">
+                  <span>
+                    <span className="group-recruitment-period__label">시작</span>
+                    <strong>{formatCompactLocalDateTime(recruitment.startsAt)}</strong>
+                  </span>
+                  <span>
+                    <span className="group-recruitment-period__label">마감</span>
+                    <strong>{formatCompactLocalDateTime(recruitment.endsAt)}</strong>
+                  </span>
+                </span>
+              </details>
+            </dd>
+          </div>
+          <div>
+            <dt>가입 방식</dt>
+            <dd>{recruitment.joinMethod === "AUTO" ? "선착순" : "승인제"}</dd>
+          </div>
+          <div>
+            <dt>모집 인원</dt>
+            <dd>
+              승인 {recruitment.approvedCount}명 / 정원 {recruitment.capacity}명
+            </dd>
+          </div>
+        </dl>
+        <div
+          aria-label={`승인 ${recruitment.approvedCount}명, 정원 ${recruitment.capacity}명`}
+          aria-valuemax={recruitment.capacity}
+          aria-valuemin="0"
+          aria-valuenow={Math.min(recruitment.approvedCount, recruitment.capacity)}
+          className="group-recruitment-progress"
+          role="progressbar"
+        >
+          <span
+            style={{
+              "--progress-width": `${Math.min(
+                100,
+                (recruitment.approvedCount / recruitment.capacity) * 100
+              )}%`
+            }}
+          />
+        </div>
       </div>
       <div className="group-recruitment-action">{applicationAction()}</div>
       <Modal
