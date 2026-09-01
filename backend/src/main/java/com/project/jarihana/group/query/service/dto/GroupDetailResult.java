@@ -4,6 +4,7 @@ import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.query.repository.dto.GroupDetailMember;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
+import com.project.jarihana.registration.domain.RegistrationStatus;
 
 import java.util.List;
 
@@ -13,7 +14,8 @@ public record GroupDetailResult(
         List<GroupDetailMember> members,
         GroupRecruitment activeRecruitment,
         int approvedCount,
-        GroupMemberRole currentMemberRole
+        GroupMemberRole currentMemberRole,
+        RegistrationStatus currentMemberRegistrationStatus
 ) {
 
     public GroupDetailResult {

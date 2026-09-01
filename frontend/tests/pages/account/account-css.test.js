@@ -78,4 +78,10 @@ describe("account Korean text wrapping", () => {
     expect(profilePanelDeclarations).toContain("grid-row: 1");
     expect(profilePanelDeclarations).toContain("align-self: end");
   });
+
+  it("uses the shared mint background behind transparent group thumbnails", () => {
+    expect(declarationsFor(".activity-row__visual")).toContain(
+      "background: var(--color-brand-soft)"
+    );
+  });
 });
