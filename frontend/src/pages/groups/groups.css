@@ -1535,10 +1535,7 @@
 .group-detail-page .group-rail {
   inline-size: 100%;
   top: min(
-    max(
-      var(--space-5),
-      calc((100dvh - var(--group-rail-height, 0px) - env(safe-area-inset-bottom)) / 2)
-    ),
+    var(--space-5),
     calc(100dvh - var(--group-rail-height, 0px) - var(--space-4) - env(safe-area-inset-bottom))
   );
 }

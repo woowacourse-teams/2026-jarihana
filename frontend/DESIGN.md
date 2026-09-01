@@ -164,10 +164,10 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - 모집 정보만 floating modal로 제공하며, detail tabs는 content section을 바꾸지만
   URL route는 detail에 남긴다.
 - desktop 모집 rail은 내용의 자연 높이를 유지하고 내부 스크롤을 만들지 않는다. rail의 실제
-  높이를 `ResizeObserver`로 측정해 `--group-rail-height`에 반영한다. 카드가 viewport 안에 들어오면
-  화면 세로 가운데에 sticky로 배치하고, 카드가 창보다 길면 하단 여백을 기준으로 상단 위치를
-  보정해 페이지 스크롤로 신청 action까지 도달할 수 있게 한다. 모집 일정 펼치기나 글꼴·화면 크기
-  변경에도 위치를 다시 맞춘다. 스크롤과 함께 사라지는 header 높이는 차감하지 않는다.
+  높이를 `ResizeObserver`로 측정해 `--group-rail-height`에 반영한다. sticky 상단 위치는
+  `--space-5`와 `100dvh - rail 높이 - --space-4 - safe area` 중 작은 값으로 정한다.
+  카드가 창보다 높아도 페이지 스크롤로 신청 action까지 도달할 수 있으며, 모집 일정 펼치기나
+  글꼴·화면 크기 변경에도 위치를 다시 맞춘다. 스크롤과 함께 사라지는 header 높이는 차감하지 않는다.
   가로 `89.9375rem` 이하에서는 기존 `자리 확인` 버튼과 모집 정보 모달을 사용한다.
   세로 viewport 높이나 DPI, devicePixelRatio는 전환 조건으로 사용하지 않는다.
 - 모집 정보 플로팅 버튼은 텍스트 없이 기존 `jarihana-favicon.png` 의자 로고만 담은 원형 버튼으로
