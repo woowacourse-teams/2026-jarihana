@@ -17,7 +17,7 @@ import {
   useDecideRegistration,
   useInfiniteRegistrations
 } from "../../../src/features/registration/index.js";
-import { useParams } from "react-router";
+import { useLocation, useParams } from "react-router";
 
 jest.mock("react-router", () => ({
   Link: ({ children, to, ...properties }) => (
@@ -25,6 +25,7 @@ jest.mock("react-router", () => ({
       {children}
     </a>
   ),
+  useLocation: jest.fn(),
   useParams: jest.fn(),
   useNavigate: jest.fn(() => jest.fn()),
   useBeforeUnload: jest.fn()
@@ -117,6 +118,7 @@ const approvedRegistrationFixture = {
 beforeEach(() => {
   jest.clearAllMocks();
   useParams.mockReturnValue({ groupId: "7", recruitmentId: "81" });
+  useLocation.mockReturnValue({ pathname: "/groups/7/manage/recruitments", state: null });
   useGroup.mockReturnValue({
     data: { id: 7, memberCount: 1, name: "프론트엔드 성능 튜닝 챌린지", status: "ACTIVE" }
   });
@@ -332,6 +334,40 @@ describe("ManageRecruitmentsPage", () => {
     expect(screen.getByRole("button", { name: "모집 생성 처리 중" })).toBeDisabled();
 
     await act(async () => resolveMutation({ id: 83 }));
+  });
+
+  it("Given a create intent carried from the group creation flow, When the page opens, Then the create form is already open", () => {
+    useLocation.mockReturnValue({
+      pathname: "/groups/7/manage/recruitments",
+      state: { screen: "create" }
+    });
+    useInfiniteRecruitments.mockReturnValue(queryResult([]));
+
+    render(<ManageRecruitmentsPage />);
+
+    expect(screen.getByRole("heading", { name: "새 모집 생성" })).toBeVisible();
+    expect(screen.getByLabelText("모집 시작일")).toBeVisible();
+  });
+
+  it("Given an archived group carrying the same intent, When the page opens, Then it stays on the current screen", () => {
+    useLocation.mockReturnValue({
+      pathname: "/groups/7/manage/recruitments",
+      state: { screen: "create" }
+    });
+    useGroup.mockReturnValue({
+      data: {
+        id: 7,
+        memberCount: 1,
+        name: "프론트엔드 성능 튜닝 챌린지",
+        status: "ENDED"
+      }
+    });
+    useInfiniteRecruitments.mockReturnValue(queryResult([]));
+
+    render(<ManageRecruitmentsPage />);
+
+    expect(screen.queryByLabelText("모집 시작일")).not.toBeInTheDocument();
+    expect(screen.getByText("아카이빙된 모임은 새 모집을 만들 수 없어요.")).toBeVisible();
   });
 });
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useBeforeUnload, useNavigate, useParams } from "react-router";
+import { useBeforeUnload, useLocation, useNavigate, useParams } from "react-router";
 import { useGroup } from "../../features/group/index.js";
 import {
   useCloseRecruitment,
@@ -102,6 +102,7 @@ function RecruitmentEmptyState({ action, title }) {
 export function ManageRecruitmentsPage() {
   const { groupId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const recruitmentsQuery = useInfiniteRecruitments(groupId);
   const groupQuery = useGroup(groupId);
   const createRecruitment = useCreateRecruitment(groupId);
@@ -119,6 +120,8 @@ export function ManageRecruitmentsPage() {
   const [discardRequested, setDiscardRequested] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState(null);
   const [mutationError, setMutationError] = useState(null);
+  /* 모임을 만든 직후 "모집 시작하기"로 들어온 첫 진입에서만 생성 화면을 연다. */
+  const createIntentRef = useRef(location.state?.screen === "create");
 
   useEffect(() => {
     if (!recruitmentsQuery.isSuccess || !hasNextPage || isFetchingNextPage) return;
@@ -167,13 +170,20 @@ export function ManageRecruitmentsPage() {
     await Promise.all([recruitmentsQuery.refetch(), groupQuery.refetch()]);
   }
 
-  function openCreateScreen() {
+  const openCreateScreen = useCallback(() => {
     if (!isActiveGroup) return;
     setForm(initialForm);
     setFormError("");
     setCreateError(null);
     setScreen("create");
-  }
+  }, [isActiveGroup]);
+
+  /* 모임 정보를 받아 오기 전에는 아카이빙 여부를 모르므로, 활성 모임임이 확인된 뒤에 연다. */
+  useEffect(() => {
+    if (!createIntentRef.current || !isActiveGroup) return;
+    createIntentRef.current = false;
+    openCreateScreen();
+  }, [isActiveGroup, openCreateScreen]);
 
   function resetCreateState() {
     setForm(initialForm);

@@ -9,7 +9,7 @@ import {
   DEFAULT_GROUP_IMAGE_URL,
   useImageUpload
 } from "../../features/image-upload/index.js";
-import { Button, GroupImage, Tabs, useToast } from "../../shared/ui/index.js";
+import { Button, GroupImage, Modal, Tabs, useToast } from "../../shared/ui/index.js";
 import { scheduleLines } from "../groups/pageUtils.js";
 import {
   ReadOnlyFact,
@@ -150,6 +150,7 @@ export function NewGroupPage() {
   const createLock = useSubmissionLock();
   const toast = useToast();
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [createdGroupId, setCreatedGroupId] = useState(null);
   const [contentTab, setContentTab] = useState("intro");
   const [representativeImageKey, setRepresentativeImageKey] = useState(null);
   const [representativeImagePreview, setRepresentativeImagePreview] = useState(null);
@@ -213,6 +214,18 @@ export function NewGroupPage() {
     setScheduleOpen(false);
   }
 
+  /*
+   * 만들자마자 모집이 열린 줄 아는 오해가 있어, 완료를 알리는 자리에서 모집을 시작할지
+   * 함께 묻는다. 같은 말을 토스트로 또 하지 않고 이 물음이 완료 안내를 겸한다.
+   */
+  function goToGroup() {
+    navigate(`/groups/${createdGroupId}`);
+  }
+
+  function goToRecruitmentCreate() {
+    navigate(`/groups/${createdGroupId}/manage/recruitments`, { state: { screen: "create" } });
+  }
+
   const submit = handleSubmit(async (formValues) => {
     if (imageUpload.isPending) return;
     await createLock.run(async () => {
@@ -220,8 +233,7 @@ export function NewGroupPage() {
         const result = await createMutation.mutateAsync(
           toCreateBody(formValues, representativeImageKey)
         );
-        toast.show({ title: "모임을 만들었어요.", tone: "success" });
-        navigate(`/groups/${result.id}`);
+        setCreatedGroupId(result.id);
       } catch (error) {
         toast.show({
           title: "모임을 만들지 못했어요.",
@@ -390,6 +402,22 @@ export function NewGroupPage() {
         register={register}
         selectedDays={daysOfWeek}
       />
+
+      <Modal
+        description="아직 모집 전이라 다른 사람은 신청할 수 없어요. 이어서 모집을 시작할까요?"
+        onClose={goToGroup}
+        open={Boolean(createdGroupId)}
+        title="모임을 만들었어요"
+      >
+        <div className="ui-dialog__actions">
+          <Button onClick={goToGroup} variant="secondary">
+            나중에 하기
+          </Button>
+          <Button onClick={goToRecruitmentCreate} variant="primary">
+            모집 시작하기
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }
