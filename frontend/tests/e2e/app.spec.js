@@ -344,16 +344,107 @@ test("signup-required continuation submits exact member payload", async ({ page 
   );
 
   await page.goto("/signup");
-  await page.getByLabel("크루 이름").fill("자리");
-  await page.getByLabel("기수").fill("8");
-  await page.getByLabel("과정").selectOption("FRONTEND");
-  await page.getByRole("button", { name: "가입 완료하기" }).click();
+  const crewOption = page.getByRole("radio", { name: "크루" });
+  const coachOption = page.getByRole("radio", { name: "코치" });
+  await expect(crewOption).toBeVisible();
+  await expect(coachOption).toBeVisible();
+  await expect(page.getByText("안녕하세요. 크루인가요? 코치인가요?")).toBeVisible();
 
-  await expect(page).toHaveURL(/\/my\/registrations$/);
+  const initialSignupState = await page.evaluate(() => {
+    const form = document.querySelector(".signup-form");
+    const image = document.querySelector(".signup-type-option__image");
+    const layout = document.querySelector(".signup-form__layout");
+    const prompt = document.querySelector(".signup-form__prompt");
+    return {
+      borderStyle: getComputedStyle(form).borderStyle,
+      imageTransform: getComputedStyle(image).transform,
+      imageWidth: image.getBoundingClientRect().width,
+      layoutTop: layout.getBoundingClientRect().top,
+      promptBottom: prompt.getBoundingClientRect().bottom
+    };
+  });
+
+  expect(initialSignupState.borderStyle).toBe("none");
+  expect(initialSignupState.imageTransform).toBe("matrix(2, 0, 0, 2, 0, 0)");
+  expect(initialSignupState.imageWidth).toBeGreaterThan(0);
+  expect(initialSignupState.promptBottom).toBeLessThanOrEqual(initialSignupState.layoutTop);
+
+  await coachOption.click();
+  await expect(page.locator(".signup-form__profile-panel")).toBeVisible();
+  await expect(page.getByText("안녕하세요 코치님 프로필을 입력해주세요")).toBeVisible();
+  await page.waitForTimeout(250);
+  const coachSignupLayout = await page.evaluate(() => {
+    const selectedOption = document.querySelector('.signup-type-option[aria-checked="true"]');
+    const panel = document.querySelector(".signup-form__profile-panel");
+    const heading = document.querySelector(".signup-form__profile-heading");
+    const avatar = document.querySelector(".signup-form__avatar");
+    const name = document.querySelector(".signup-form__name-input");
+    return {
+      panelRight: panel.getBoundingClientRect().right,
+      selectedOptionLeft: selectedOption.getBoundingClientRect().left,
+      headingTop: heading.getBoundingClientRect().top,
+      avatarTop: avatar.getBoundingClientRect().top,
+      nameTop: name.getBoundingClientRect().top
+    };
+  });
+
+  expect(coachSignupLayout.panelRight).toBeGreaterThan(coachSignupLayout.selectedOptionLeft);
+
+  await page.getByRole("button", { name: "유형 변경" }).click();
+  await expect(crewOption).toBeVisible();
+  await crewOption.click();
+  await expect(page.locator(".signup-form__profile-panel")).toBeVisible();
+  await expect(page.getByText("안녕하세요 크루님 프로필을 작성해주세요")).toBeVisible();
+  await page.waitForTimeout(250);
+  await expect
+    .poll(() => page.evaluate(() => getComputedStyle(document.querySelector(".signup-type-step")).transform))
+    .toBe("matrix(1, 0, 0, 1, 8, 0)");
+  const selectedSignupLayout = await page.evaluate(() => {
+    const selectedOption = document.querySelector('.signup-type-option[aria-checked="true"]');
+    const panel = document.querySelector(".signup-form__profile-panel");
+    const actions = document.querySelector(".signup-form__profile-actions");
+    const layout = document.querySelector(".signup-form__layout");
+    return {
+      panelRight: panel.getBoundingClientRect().right,
+      selectedOptionLeft: selectedOption.getBoundingClientRect().left,
+      panelBottom: panel.getBoundingClientRect().bottom,
+      layout: layout.getBoundingClientRect().toJSON(),
+      heading: document.querySelector(".signup-form__profile-heading").getBoundingClientRect().toJSON(),
+      avatar: document.querySelector(".signup-form__avatar").getBoundingClientRect().toJSON(),
+      selectedOption: selectedOption.getBoundingClientRect().toJSON(),
+      actions: actions.getBoundingClientRect().toJSON(),
+      selectsBottom: document.querySelector(".signup-form__selects").getBoundingClientRect().bottom
+    };
+  });
+
+  expect(selectedSignupLayout.panelRight).toBeLessThan(selectedSignupLayout.selectedOptionLeft);
+  expect(Math.abs(coachSignupLayout.headingTop - selectedSignupLayout.heading.top)).toBeLessThan(4);
+  expect(Math.abs(coachSignupLayout.avatarTop - selectedSignupLayout.avatar.top)).toBeLessThan(4);
+  expect(Math.abs(selectedSignupLayout.selectsBottom - selectedSignupLayout.selectedOption.bottom)).toBeLessThan(2);
+  expect(selectedSignupLayout.actions.top).toBeGreaterThan(selectedSignupLayout.selectedOption.bottom);
+  expect(
+    Math.abs(
+      (selectedSignupLayout.actions.left + selectedSignupLayout.actions.width / 2) -
+        (selectedSignupLayout.layout.left + selectedSignupLayout.layout.width / 2)
+    )
+  ).toBeLessThan(1);
+
+  await page.getByLabel("크루 이름").fill("자리");
+  await page.getByLabel("과정").selectOption("FRONTEND");
+  await page.getByLabel("기수").selectOption("8");
+  await page.getByRole("button", { name: "가입 완료하기" }).click();
+  await page.getByRole("button", { name: "확인" }).click();
+
+  await expect(page).toHaveURL(/\/my$/);
   const signupRequest = state.requests.find(
     (request) => request.method === "POST" && request.path === "/members"
   );
-  expect(signupRequest?.postData).toEqual({ course: "FRONTEND", crewName: "자리", generation: 8 });
+  expect(signupRequest?.postData).toEqual({
+    course: "FRONTEND",
+    crewName: "자리",
+    generation: 8,
+    memberType: "CREW"
+  });
   expect(browserFailures).toEqual([]);
   expect(state.unexpectedResponses).toEqual([]);
 });

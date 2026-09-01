@@ -340,7 +340,8 @@ export async function installApiFixture(pageInstance, options = {}) {
           crewName: leader.crewName,
           generation: leader.generation,
           id: leader.id,
-          joinedAt: now
+          joinedAt: now,
+          memberType: "CREW"
         })
       );
     }

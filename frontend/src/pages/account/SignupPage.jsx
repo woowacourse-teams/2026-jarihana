@@ -11,6 +11,26 @@ import { AccountLayout } from "./AccountLayout.jsx";
 const FIRST_COHORT_YEAR = 2018;
 const currentGeneration = Math.max(new Date().getFullYear() - FIRST_COHORT_YEAR, 1);
 const generationOptions = Array.from({ length: currentGeneration }, (_, index) => index + 1);
+const SIGNUP_TYPE_OPTIONS = [
+  {
+    imageUrl:
+      "https://techcourse-project-2026.s3.ap-northeast-2.amazonaws.com/jarihana/images/signup/signup_crew.png",
+    label: "크루",
+    value: "CREW"
+  },
+  {
+    imageUrl:
+      "https://techcourse-project-2026.s3.ap-northeast-2.amazonaws.com/jarihana/images/signup/signup_coach.png",
+    label: "코치",
+    value: "COACH"
+  }
+];
+
+const SIGNUP_PROMPTS = {
+  DEFAULT: "안녕하세요. 크루인가요? 코치인가요?",
+  CREW: "안녕하세요 크루님 프로필을 작성해주세요",
+  COACH: "안녕하세요 코치님 프로필을 입력해주세요"
+};
 
 export function SignupPage() {
   const { avatarUrl, login, status } = useAuth();
@@ -96,100 +116,127 @@ export function SignupPage() {
     );
   }
 
+  const signupPrompt = selectedMemberType ? SIGNUP_PROMPTS[selectedMemberType] : SIGNUP_PROMPTS.DEFAULT;
+
   return (
-    <AccountLayout compact title={selectedMemberType ? "프로필 입력" : "가입 유형 선택"}>
-      <form className="signup-form" noValidate onSubmit={onSubmit}>
-        {!selectedMemberType ? (
+    <AccountLayout compact title={selectedMemberType ? "프로필 입력" : null}>
+      <form
+        className={`signup-form${selectedMemberType ? " signup-form--profile" : ""}${
+          selectedMemberType === "CREW" ? " signup-form--crew" : ""
+        }`}
+        noValidate
+        onSubmit={onSubmit}
+      >
+        <p aria-live="polite" className="signup-form__prompt">
+          {signupPrompt}
+        </p>
+        <div className="signup-form__layout">
           <fieldset aria-label="가입 유형" className="signup-type-step">
             <div aria-label="가입 유형" className="signup-type-options" role="radiogroup">
-              <button
-                aria-checked={selectedMemberType === "CREW"}
-                className="signup-type-option"
-                onClick={() => selectMemberType("CREW")}
-                role="radio"
-                type="button"
-              >
-                크루
-              </button>
-              <button
-                aria-checked={selectedMemberType === "COACH"}
-                className="signup-type-option"
-                onClick={() => selectMemberType("COACH")}
-                role="radio"
-                type="button"
-              >
-                코치
-              </button>
+              {SIGNUP_TYPE_OPTIONS.map(({ imageUrl, label, value }) => (
+                <button
+                  aria-checked={selectedMemberType === value}
+                  className="signup-type-option"
+                  key={value}
+                  onClick={() => selectMemberType(value)}
+                  role="radio"
+                  type="button"
+                >
+                  <span className="signup-type-option__image-frame">
+                    <img
+                      alt=""
+                      aria-hidden="true"
+                      className="signup-type-option__image"
+                      decoding="async"
+                      height="128"
+                      src={imageUrl}
+                      width="128"
+                    />
+                  </span>
+                  <span className="signup-type-option__label">{label}</span>
+                </button>
+              ))}
             </div>
             {errors.memberType?.message ? <p className="ui-field__error">{errors.memberType.message}</p> : null}
           </fieldset>
-        ) : null}
-        {selectedMemberType ? (
-          <>
-            <div className="signup-form__profile-heading">
-              <p className="account-eyebrow">나의 프로필</p>
-            </div>
-            <img
-              alt="GitHub 프로필 이미지"
-              className="signup-form__avatar"
-              onError={() => setAvatarLoadFailed(true)}
-              src={avatarLoadFailed ? profileAvatar : avatarUrl || profileAvatar}
-            />
-            {submitError ? (
-              <p className="form-alert" role="alert" tabIndex="-1">
-                {submitError}
-              </p>
-            ) : null}
-            <TextField
-              aria-label="크루 이름"
-              autoComplete="nickname"
-              className="signup-form__name-input"
-              error={errors.crewName?.message}
-              label={null}
-              placeholder="닉네임 2~4글자"
-              {...register("crewName")}
-            />
-            {selectedMemberType === "CREW" ? (
-              <div className="signup-form__selects">
-                <Select aria-label="과정" error={errors.course?.message} label={null} required {...register("course")}>
-                  <option disabled value="">
-                    과정
-                  </option>
-                  <option value="FRONTEND">프론트엔드</option>
-                  <option value="BACKEND">백엔드</option>
-                  <option value="ANDROID">안드로이드</option>
-                </Select>
-                <Select
-                  aria-label="기수"
-                  error={errors.generation?.message}
-                  label={null}
-                  required
-                  {...register("generation")}
-                >
-                  <option disabled value="">
-                    기수
-                  </option>
-                  {generationOptions.map((generation) => (
-                    <option key={generation} value={generation}>
-                      {generation}기
-                    </option>
-                  ))}
-                </Select>
+
+          {selectedMemberType ? (
+            <div className="signup-form__profile-panel">
+              <div className="signup-form__profile-heading">
+                <p className="account-eyebrow">나의 프로필</p>
               </div>
-            ) : null}
-            <Button
-              className="signup-form__submit"
-              pending={isSubmitting || signupMutation.isPending}
-              size="sm"
-              type="submit"
-            >
-              가입 완료하기
-            </Button>
-            <Button className="signup-form__change-type" onClick={changeMemberType} size="sm" type="button" variant="tertiary">
-              유형 변경
-            </Button>
-          </>
-        ) : null}
+              <img
+                alt="GitHub 프로필 이미지"
+                className="signup-form__avatar"
+                onError={() => setAvatarLoadFailed(true)}
+                src={avatarLoadFailed ? profileAvatar : avatarUrl || profileAvatar}
+              />
+              {submitError ? (
+                <p className="form-alert" role="alert" tabIndex="-1">
+                  {submitError}
+                </p>
+              ) : null}
+              <TextField
+                aria-label="크루 이름"
+                autoComplete="nickname"
+                className="signup-form__name-input"
+                error={errors.crewName?.message}
+                label={null}
+                placeholder="닉네임 2~4글자"
+                {...register("crewName")}
+              />
+              {selectedMemberType === "CREW" ? (
+                <div className="signup-form__selects">
+                  <Select aria-label="과정" error={errors.course?.message} label={null} required {...register("course")}>
+                    <option disabled value="">
+                      과정
+                    </option>
+                    <option value="FRONTEND">프론트엔드</option>
+                    <option value="BACKEND">백엔드</option>
+                    <option value="ANDROID">안드로이드</option>
+                  </Select>
+                  <Select
+                    aria-label="기수"
+                    error={errors.generation?.message}
+                    label={null}
+                    required
+                    {...register("generation")}
+                  >
+                    <option disabled value="">
+                      기수
+                    </option>
+                    {generationOptions.map((generation) => (
+                      <option key={generation} value={generation}>
+                        {generation}기
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {selectedMemberType ? (
+            <div className="signup-form__profile-actions">
+              <Button
+                className="signup-form__submit"
+                pending={isSubmitting || signupMutation.isPending}
+                size="sm"
+                type="submit"
+              >
+                가입 완료하기
+              </Button>
+              <Button
+                className="signup-form__change-type"
+                onClick={changeMemberType}
+                size="sm"
+                type="button"
+                variant="tertiary"
+              >
+                유형 변경
+              </Button>
+            </div>
+          ) : null}
+        </div>
       </form>
       <Modal
         description={

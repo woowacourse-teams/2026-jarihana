@@ -4,8 +4,8 @@
  * 전역 토큰을 바꾸면 모든 화면이 따라오므로 이 페이지 안에서만 바닥을 내린다.
  */
 .account-page {
-  --account-sunken: #f4f5f7;
-  --account-line: #d8dade;
+  --account-sunken: var(--color-surface-sunken);
+  --account-line: var(--color-line-strong);
   --account-border: var(--border-thin) solid var(--account-line);
 
   width: 100%;
@@ -32,6 +32,7 @@
 
 .account-page--compact:has(.signup-form) .account-heading {
   max-width: 32rem;
+  display: none;
 }
 
 .account-page__content--compact {
@@ -98,24 +99,49 @@
 .signup-form {
   display: grid;
   aspect-ratio: 1;
-  width: min(100%, 32rem);
+  width: min(100%, 36rem);
   margin-inline: auto;
   margin-bottom: var(--space-5);
   align-content: center;
   gap: var(--space-2);
   padding: var(--space-4);
   background: var(--color-surface);
-  border: var(--account-border);
+  border: 0;
   border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.signup-form__prompt {
+  max-width: min(100%, 24rem);
+  margin: var(--space-0) auto;
+  color: var(--color-ink);
+  font-size: var(--text-h2);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.5;
+  text-align: center;
+  text-wrap: balance;
+  transform: translateY(calc(var(--space-8) * -1));
+}
+
+.signup-form__layout {
+  display: grid;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
 }
 
 .signup-type-step {
   display: grid;
+  min-width: 0;
+  grid-column: 1 / -1;
   gap: var(--space-4);
   margin: var(--space-0);
   padding: var(--space-0);
   border: 0;
   text-align: center;
+  transition: transform var(--duration-smooth) var(--ease-standard);
 }
 
 .signup-type-step > p {
@@ -126,18 +152,22 @@
 
 .signup-type-options {
   display: grid;
-  width: min(100%, 17rem);
+  width: 100%;
   margin-inline: auto;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
+  gap: var(--space-10);
 }
 
 .signup-type-option {
-  display: inline-flex;
+  display: grid;
   align-items: center;
   justify-content: center;
+  justify-items: center;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  gap: var(--space-3);
   min-height: var(--touch-target-lg);
-  padding: var(--space-3) var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-3);
   border: 0;
   border-bottom: var(--border-strong) solid var(--color-line);
   background: transparent;
@@ -151,6 +181,36 @@
     transform var(--duration-fast) var(--ease-standard);
 }
 
+.signup-type-option__image {
+  display: block;
+  width: min(50%, var(--signup-type-image-base-size));
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+  transform: scale(2);
+  transform-origin: center;
+}
+
+.signup-type-option__image-frame {
+  display: grid;
+  width: min(100%, var(--signup-type-image-size));
+  aspect-ratio: 1;
+  align-items: center;
+  justify-items: center;
+  margin-inline: auto;
+}
+
+.signup-type-option__image-frame + .signup-type-option__label {
+  display: block;
+  line-height: 1.4;
+}
+
+.signup-type-option__label {
+  display: block;
+  line-height: 1.4;
+}
+
 .signup-type-option:hover {
   border-bottom-color: var(--color-brand);
   background: var(--color-brand-soft);
@@ -159,8 +219,8 @@
 
 .signup-type-option[aria-checked="true"] {
   border-bottom-color: var(--color-brand);
-  background: var(--color-brand-soft);
-  color: var(--color-brand-ink);
+  background: transparent;
+  color: var(--color-ink);
 }
 
 .signup-type-option:active {
@@ -172,6 +232,85 @@
   outline-offset: var(--border-thin);
 }
 
+.signup-form--profile .signup-form__layout {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.signup-form--profile .signup-type-step {
+  grid-column: 2;
+  transform: translateX(var(--space-2));
+}
+
+.signup-form--crew .signup-type-step {
+  grid-column: 1;
+  transform: translateX(calc(var(--space-2) * -1));
+}
+
+.signup-form--profile .signup-type-options {
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+
+.signup-form--profile .signup-type-option:not([aria-checked="true"]) {
+  display: none;
+}
+
+.signup-form__profile-panel {
+  display: grid;
+  align-content: center;
+  min-width: 0;
+  grid-column: 1;
+  grid-row: 1;
+  align-self: end;
+  gap: var(--space-2);
+  opacity: 0;
+  transform: translateX(var(--space-6));
+  transform-origin: right center;
+  animation: signup-profile-panel-enter-from-right var(--duration-smooth) var(--ease-standard) both;
+  will-change: transform, opacity;
+}
+
+.signup-form--crew .signup-form__profile-panel {
+  grid-column: 2;
+  transform-origin: left center;
+  animation-name: signup-profile-panel-enter-from-left;
+}
+
+@keyframes signup-profile-panel-enter-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(100%) scaleX(0.84);
+  }
+
+  70% {
+    opacity: 1;
+    transform: translateX(var(--space-1)) scaleX(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(var(--space-0)) scaleX(1);
+  }
+}
+
+@keyframes signup-profile-panel-enter-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-100%) scaleX(0.84);
+  }
+
+  70% {
+    opacity: 1;
+    transform: translateX(calc(var(--space-1) * -1)) scaleX(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(var(--space-0)) scaleX(1);
+  }
+}
+
 .signup-form__profile-heading {
   position: relative;
   display: grid;
@@ -181,6 +320,10 @@
 
 .signup-form__profile-heading .account-eyebrow {
   margin: var(--space-0);
+}
+
+.signup-form__profile-panel .signup-form__profile-heading {
+  transform: none;
 }
 
 .signup-form__change-type {
@@ -211,8 +354,22 @@
 }
 
 .signup-form > .ui-field,
+.signup-form__profile-panel > .ui-field,
 .signup-form__selects .ui-field {
   text-align: center;
+}
+
+.signup-form__profile-actions {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  width: min(100%, calc((100% - var(--space-4)) / 2));
+  align-content: start;
+  justify-items: center;
+  justify-self: center;
+  min-width: 0;
+  gap: var(--space-2);
+  transform: translateY(var(--space-6));
 }
 
 .signup-form__avatar {
@@ -225,6 +382,16 @@
   border-radius: var(--radius-pill);
   object-fit: contain;
   transform: translateY(calc(var(--space-3) * -2 + var(--border-strong) * 2));
+}
+
+.signup-form__profile-panel .signup-form__avatar {
+  width: min(100%, 6rem);
+  transform: none;
+}
+
+.signup-form--profile:not(.signup-form--crew) .signup-form__profile-heading,
+.signup-form--profile:not(.signup-form--crew) .signup-form__avatar {
+  transform: translateY(calc(var(--space-16) * -1 + var(--space-2) - var(--border-thin)));
 }
 
 .signup-form__name-input {
@@ -264,6 +431,16 @@
   transform: translateY(var(--border-strong));
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-5);
+}
+
+.signup-form__profile-panel .signup-form__name-input,
+.signup-form__profile-panel .signup-form__selects {
+  width: 100%;
+}
+
+.signup-form__profile-panel .signup-form__selects {
+  transform: none;
+  gap: var(--space-2);
 }
 
 .signup-form__selects--coach {
@@ -310,6 +487,31 @@
 
 .signup-form .signup-form__submit:active:not(:disabled) {
   transform: translateY(calc(var(--space-3) * 2 + var(--border-thin)));
+}
+
+.signup-form__profile-actions .signup-form__submit,
+.signup-form__profile-actions .signup-form__submit:hover:not(:disabled),
+.signup-form__profile-actions .signup-form__submit:active:not(:disabled) {
+  width: 100%;
+  margin-top: var(--space-0);
+  transform: none;
+}
+
+.signup-form__profile-actions .signup-form__change-type {
+  margin-top: var(--space-0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .signup-form__profile-panel {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+
+  .signup-type-step {
+    animation: none;
+    transition: none;
+  }
 }
 
 .ui-dialog .signup-confirm-actions {
@@ -807,7 +1009,54 @@ img.profile-card__avatar {
   }
 
   .signup-form {
+    aspect-ratio: auto;
+    align-content: start;
+    gap: var(--space-4);
+    overflow: visible;
     padding: var(--space-4);
+  }
+
+  .signup-form__prompt {
+    max-width: 100%;
+    margin-bottom: var(--space-2);
+    font-size: var(--text-h3);
+    transform: translateY(calc(var(--space-8) * -1));
+  }
+
+  .signup-form__layout,
+  .signup-form--profile .signup-form__layout {
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+  }
+
+  .signup-form--profile .signup-type-step,
+  .signup-form--crew .signup-type-step {
+    grid-column: 1;
+    grid-row: 1;
+    transform: none;
+  }
+
+  .signup-form--profile .signup-type-step {
+    display: none;
+  }
+
+  .signup-form--profile .signup-form__profile-panel,
+  .signup-form--crew .signup-form__profile-panel {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: stretch;
+  }
+
+  .signup-form--profile .signup-form__profile-actions {
+    grid-column: 1;
+    grid-row: 2;
+    width: 100%;
+    transform: none;
+  }
+
+  .signup-form--profile:not(.signup-form--crew) .signup-form__profile-heading,
+  .signup-form--profile:not(.signup-form--crew) .signup-form__avatar {
+    transform: none;
   }
 
   .my-dashboard {
