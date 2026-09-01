@@ -71,8 +71,6 @@ export function groupImageUrl(group) {
   const imageUrl = group?.representativeImageUrl;
   if (!imageUrl) return DEFAULT_GROUP_IMAGE;
   if (isDefaultGroupImage(imageUrl)) return DEFAULT_GROUP_IMAGE;
-  if (imageUrl.startsWith("images/")) return `/api/${imageUrl}`;
-  if (imageUrl.startsWith("/images/")) return `/api${imageUrl}`;
   return imageUrl;
 }
 
