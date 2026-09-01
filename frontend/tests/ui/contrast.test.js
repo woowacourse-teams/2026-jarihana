@@ -43,3 +43,35 @@ describe("text role color tokens", () => {
     }
   );
 });
+
+describe("activity type color tokens", () => {
+  const activityTypes = ["study", "club", "session"];
+
+  it.each(activityTypes)(
+    "Given the %s activity type, When its shared chip colors are used, Then the text remains readable",
+    (type) => {
+      const source = fs.readFileSync(
+        path.join(process.cwd(), "src/shared/styles/tokens.css"),
+        "utf8"
+      );
+      const foreground = token(source, `--color-activity-${type}-ink`);
+      const background = token(source, `--color-activity-${type}-soft`);
+
+      expect(foreground).toBeDefined();
+      expect(background).toBeDefined();
+      expect(contrast(foreground, background)).toBeGreaterThanOrEqual(4.5);
+    }
+  );
+
+  it.each([
+    ["account activity rows", "src/pages/account/account.css"],
+    ["discovery group cards", "src/pages/groups/groups.css"]
+  ])("%s consume the shared activity type tokens", (_surface, relativePath) => {
+    const source = fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
+
+    activityTypes.forEach((type) => {
+      expect(source).toContain(`color: var(--color-activity-${type}-ink)`);
+      expect(source).toContain(`background: var(--color-activity-${type}-soft)`);
+    });
+  });
+});

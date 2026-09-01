@@ -470,6 +470,10 @@ textarea {
     -webkit-line-clamp: 2;
 }
 
+.ui-group-card__activity-members {
+    display: none;
+}
+
 .ui-card__meta {
     align-items: center;
     color: var(--color-text-muted);

@@ -446,6 +446,31 @@
   justify-content: space-between;
 }
 
+.groups-grid .ui-group-card__type {
+  align-items: center;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  font-weight: 700;
+  min-height: 1.75rem;
+  padding-inline: var(--space-3);
+  width: fit-content;
+}
+
+.groups-grid .ui-group-card__type--study {
+  color: var(--color-activity-study-ink);
+  background: var(--color-activity-study-soft);
+}
+
+.groups-grid .ui-group-card__type--club {
+  color: var(--color-activity-club-ink);
+  background: var(--color-activity-club-soft);
+}
+
+.groups-grid .ui-group-card__type--session {
+  color: var(--color-activity-session-ink);
+  background: var(--color-activity-session-soft);
+}
+
 .groups-grid .ui-group-card__intro {
   color: var(--color-muted-ink);
   display: block;
@@ -458,7 +483,7 @@
   word-break: keep-all;
 }
 
-.groups-grid .ui-group-card__body > .ui-card__meta:last-child {
+.groups-grid .ui-group-card__detail-meta {
   align-self: flex-end;
   margin-top: auto;
   max-width: 100%;
@@ -479,7 +504,7 @@
 }
 
 @media (min-width: 64rem) {
-  .groups-grid .ui-group-card__body > .ui-card__meta:last-child {
+  .groups-grid .ui-group-card__detail-meta {
     max-width: 70%;
   }
 }
@@ -1444,7 +1469,7 @@
     --groups-card-min-height: 0;
     --groups-card-title-size: var(--text-label);
 
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-3);
   }
 
@@ -1460,6 +1485,69 @@
   .groups-grid .ui-group-card__body > .ui-card__meta,
   .groups-grid .ui-group-card__body .ui-badge {
     font-size: var(--groups-card-meta-size);
+  }
+
+  .groups-grid .ui-group-card--mobile-activity {
+    display: grid;
+    grid-template-columns: 9rem minmax(0, 1fr);
+    height: auto;
+  }
+
+  .groups-grid .ui-group-card--mobile-activity .ui-group-card__visual {
+    aspect-ratio: auto;
+    height: 100%;
+  }
+
+  .groups-grid .ui-group-card--mobile-activity .ui-group-card__image {
+    position: static;
+  }
+
+  .groups-grid .ui-group-card--mobile-activity .ui-group-card__body {
+    display: grid;
+    align-content: center;
+    gap: var(--space-2);
+    padding: var(--space-4);
+  }
+
+  .groups-grid .ui-group-card--mobile-activity .ui-group-card__top-meta {
+    justify-content: space-between;
+    gap: var(--space-2);
+    font-size: var(--text-caption);
+  }
+
+  .groups-grid .ui-group-card--mobile-activity .ui-badge {
+    font-size: var(--text-caption);
+  }
+
+  .groups-grid .ui-group-card--mobile-activity .ui-group-card__detail-meta {
+    display: none;
+  }
+
+  .groups-grid .ui-group-card--mobile-activity .ui-group-card__activity-members {
+    align-items: center;
+    color: var(--color-text-muted);
+    display: inline-flex;
+    font-size: var(--text-caption);
+    gap: var(--space-1);
+    min-height: var(--touch-target);
+  }
+
+  .groups-grid .ui-group-card--mobile-activity .ui-group-card__title {
+    font-size: var(--text-h3);
+    line-height: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .groups-grid .ui-group-card--mobile-activity .ui-group-card__intro {
+    display: -webkit-box;
+    font-size: var(--text-label);
+    line-height: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
   .group-profile,

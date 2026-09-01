@@ -8,9 +8,9 @@ const defaultGroupImagePath = resolve(process.cwd(), "public/images/default-grou
 const evidenceDirectory = "../.omo/evidence/responsive-grid";
 
 const discoveryViewports = [
-  { columns: 2, height: 900, label: "mobile-360", width: 360 },
-  { columns: 2, height: 900, label: "mobile-375", width: 375 },
-  { columns: 2, height: 900, label: "mobile-767", width: 767 },
+  { columns: 1, height: 900, label: "mobile-360", width: 360 },
+  { columns: 1, height: 900, label: "mobile-375", width: 375 },
+  { columns: 1, height: 900, label: "mobile-767", width: 767 },
   { columns: 3, height: 980, label: "tablet-768", width: 768 },
   { columns: 3, height: 980, label: "tablet-1023", width: 1023 },
   { columns: 4, height: 1000, label: "desktop-1024", width: 1024 },
@@ -120,6 +120,139 @@ async function installResponsiveDiscoveryFixture(page) {
   return state;
 }
 
+test("mobile discovery uses the My Page activity row with a left thumbnail", async ({ page }) => {
+  await page.setViewportSize({ height: 900, width: 375 });
+  const state = await installResponsiveDiscoveryFixture(page);
+
+  await page.goto("/my");
+  const myPageRow = page.locator(".activity-row").first();
+  await expect(myPageRow).toBeVisible();
+  const myPageGeometry = await myPageRow.evaluate((element) => {
+    const thumbnail = element.querySelector(".activity-row__visual");
+    if (!(thumbnail instanceof HTMLElement)) throw new Error("Missing My Page thumbnail");
+    return {
+      rowWidth: element.getBoundingClientRect().width,
+      thumbnailWidth: thumbnail.getBoundingClientRect().width
+    };
+  });
+  mkdirSync(resolve(process.cwd(), evidenceDirectory), { recursive: true });
+  await myPageRow.screenshot({
+    animations: "disabled",
+    path: `${evidenceDirectory}/my-activity-row-mobile-375.png`
+  });
+
+  await page.goto("/groups");
+
+  const cards = page.locator(".groups-grid .ui-group-card--mobile-activity");
+  await expect(cards).toHaveCount(groupNames.length);
+  await expect(cards.first().locator(".ui-group-card__visual")).toBeVisible();
+  await expect(cards.first().locator(".ui-group-card__image")).toBeVisible();
+  await expect(cards.first().locator(".ui-group-card__activity-members")).toContainText("2명");
+
+  const mobileBounds = await cards.evaluateAll((elements) =>
+    elements.map((element) => {
+      const rect = element.getBoundingClientRect();
+      return { left: rect.left, top: rect.top };
+    })
+  );
+  expect(countFirstRowColumns(mobileBounds)).toBe(1);
+
+  const mobileCard = await cards.first().evaluate((element) => {
+    const bounds = (selector) => {
+      const target = element.querySelector(selector);
+      if (!(target instanceof HTMLElement)) throw new Error(`Missing ${selector}`);
+      const rect = target.getBoundingClientRect();
+      return {
+        bottom: rect.bottom,
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height
+      };
+    };
+    const rect = element.getBoundingClientRect();
+    return {
+      body: bounds(".ui-group-card__body"),
+      bottom: rect.bottom,
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      visual: bounds(".ui-group-card__visual")
+    };
+  });
+  expect(mobileCard.visual.width).toBeCloseTo(144, 0);
+  expect(mobileCard.visual.left - mobileCard.left).toBeLessThanOrEqual(1);
+  expect(mobileCard.visual.right).toBeCloseTo(mobileCard.body.left, 0);
+  expect(mobileCard.visual.top - mobileCard.top).toBeLessThanOrEqual(1);
+  expect(mobileCard.bottom - mobileCard.visual.bottom).toBeLessThanOrEqual(1);
+  expect(
+    mobileCard.visual.width / mobileCard.width -
+      myPageGeometry.thumbnailWidth / myPageGeometry.rowWidth
+  ).toBeGreaterThanOrEqual(0.13);
+
+  const longCard = cards.filter({ hasText: "긴 이름도 들어가는 타입스크립트 모임" });
+  const longCardTruncation = await longCard.evaluate((element) => {
+    const title = element.querySelector(".ui-group-card__title");
+    const introduction = element.querySelector(".ui-group-card__intro");
+    if (!(title instanceof HTMLElement) || !(introduction instanceof HTMLElement)) {
+      throw new Error("Missing long card copy");
+    }
+    const titleStyle = getComputedStyle(title);
+    const introductionStyle = getComputedStyle(introduction);
+    return {
+      introductionClamped: introduction.scrollHeight > introduction.clientHeight,
+      introductionLineClamp: introductionStyle.webkitLineClamp,
+      introductionTextOverflow: introductionStyle.textOverflow,
+      titleClamped: title.scrollWidth > title.clientWidth,
+      titleTextOverflow: titleStyle.textOverflow
+    };
+  });
+  expect(longCardTruncation).toEqual(
+    expect.objectContaining({
+      introductionClamped: true,
+      introductionLineClamp: "2",
+      introductionTextOverflow: "ellipsis",
+      titleClamped: true,
+      titleTextOverflow: "ellipsis"
+    })
+  );
+  await longCard.screenshot({
+    animations: "disabled",
+    path: `${evidenceDirectory}/groups-activity-row-long-copy-mobile-375.png`
+  });
+  await cards.first().screenshot({
+    animations: "disabled",
+    path: `${evidenceDirectory}/groups-activity-row-mobile-375.png`
+  });
+
+  await page.setViewportSize({ height: 1000, width: 1024 });
+  await expect(cards.first().locator(".ui-group-card__visual")).toBeVisible();
+  await expect(cards.first().locator(".ui-group-card__activity-members")).toBeHidden();
+
+  const desktopCard = await cards.first().evaluate((element) => {
+    const visual = element.querySelector(".ui-group-card__visual");
+    const body = element.querySelector(".ui-group-card__body");
+    if (!(visual instanceof HTMLElement) || !(body instanceof HTMLElement)) {
+      throw new Error("Missing desktop card regions");
+    }
+    return {
+      bodyTop: body.getBoundingClientRect().top,
+      visualBottom: visual.getBoundingClientRect().bottom
+    };
+  });
+  expect(desktopCard.bodyTop).toBeCloseTo(desktopCard.visualBottom, 0);
+
+  const desktopBounds = await cards.evaluateAll((elements) =>
+    elements.map((element) => {
+      const rect = element.getBoundingClientRect();
+      return { left: rect.left, top: rect.top };
+    })
+  );
+  expect(countFirstRowColumns(desktopBounds)).toBe(4);
+  expect(state.unexpectedResponses).toEqual([]);
+});
+
 function countFirstRowColumns(cards) {
   const firstTop = cards[0]?.top;
   if (firstTop === undefined) return 0;
@@ -191,6 +324,11 @@ const compactLabelViewports = [
   { height: 980, label: "tablet-768", width: 768 },
   { height: 1000, label: "desktop-1280", width: 1280 }
 ];
+const groupTypeColors = {
+  동아리: { background: "rgb(236, 233, 251)", text: "rgb(69, 58, 149)" },
+  세션: { background: "rgb(253, 240, 218)", text: "rgb(122, 84, 5)" },
+  스터디: { background: "rgb(231, 238, 252)", text: "rgb(36, 69, 127)" }
+};
 
 async function readBodyLabels(page) {
   return page.evaluate(() =>
@@ -203,10 +341,8 @@ async function readBodyLabels(page) {
           { element: status, kind: "status" }
         ];
       })
+      .filter(({ element }) => element instanceof HTMLElement)
       .map(({ element, kind }) => {
-        if (!(element instanceof HTMLElement)) {
-          throw new Error(`Missing body ${kind} label`);
-        }
         const rect = element.getBoundingClientRect();
         const style = getComputedStyle(element);
         return {
@@ -228,7 +364,7 @@ async function readBodyLabels(page) {
 }
 
 for (const viewport of compactLabelViewports) {
-  test(`body category and recruitment labels use compact accessible badges at ${viewport.label}`, async ({
+  test(`group types and open recruitment use compact accessible badges at ${viewport.label}`, async ({
     page
   }) => {
     await page.setViewportSize({ height: viewport.height, width: viewport.width });
@@ -240,29 +376,34 @@ for (const viewport of compactLabelViewports) {
     ).toBeVisible();
 
     const labels = await readBodyLabels(page);
-    expect(labels).toHaveLength(groupNames.length * 2);
+    expect(labels).toHaveLength(groupNames.length + 5);
     expect(new Set(labels.map((label) => label.text))).toEqual(
-      new Set(["스터디", "동아리", "세션", "모집 중", "모집 마감"])
+      new Set(["스터디", "동아리", "세션", "모집 중"])
     );
+    await expect(page.locator(".groups-grid")).not.toContainText("모집 마감");
 
     for (const label of labels.filter((item) => item.kind === "category")) {
-      expect(label.backgroundColor).toBe("rgba(0, 0, 0, 0)");
-      expect(label.color).toBe("rgb(102, 102, 102)");
+      const expectedColors = groupTypeColors[label.text];
       expect(label.fontSize).toBe(13);
-      expect(label.paddingLeft).toBe(0);
-      expect(label.paddingRight).toBe(0);
-      expect(contrastRatio(label.color, "rgb(255, 255, 255)")).toBeGreaterThanOrEqual(4.5);
+      expect(label.height).toBeCloseTo(28, 0);
+      expect(Number.parseInt(label.fontWeight, 10)).toBe(700);
+      expect(label.paddingLeft).toBe(12);
+      expect(label.paddingRight).toBe(12);
+      expect(label.borderRadius).toBeGreaterThanOrEqual(14);
+      expect(label.backgroundColor).toBe(expectedColors.background);
+      expect(label.color).toBe(expectedColors.text);
+      expect(contrastRatio(label.color, label.backgroundColor)).toBeGreaterThanOrEqual(4.5);
     }
     for (const label of labels.filter((item) => item.kind === "status")) {
-      const isRecruiting = label.text === "모집 중";
+      expect(label.text).toBe("모집 중");
       expect(label.height).toBeCloseTo(28, 0);
       expect(label.fontSize).toBe(13);
       expect(Number.parseInt(label.fontWeight, 10)).toBe(700);
       expect(label.paddingLeft).toBe(12);
       expect(label.paddingRight).toBe(12);
       expect(label.borderRadius).toBeGreaterThanOrEqual(14);
-      expect(label.backgroundColor).toBe(isRecruiting ? "rgb(223, 248, 243)" : "rgb(255, 255, 255)");
-      expect(label.color).toBe(isRecruiting ? "rgb(8, 115, 111)" : "rgb(102, 102, 102)");
+      expect(label.backgroundColor).toBe("rgb(223, 248, 243)");
+      expect(label.color).toBe("rgb(8, 115, 111)");
       expect(contrastRatio(label.color, label.backgroundColor)).toBeGreaterThanOrEqual(4.5);
     }
     expect(state.unexpectedResponses).toEqual([]);
@@ -293,7 +434,12 @@ async function readDiscoveryLayout(page) {
       )
     ].filter((element) => element instanceof HTMLElement);
     const overflowingText = textTargets
-      .filter((element) => element.scrollWidth - element.clientWidth > 1)
+      .filter((element) => {
+        const style = getComputedStyle(element);
+        const intentionallyTruncated =
+          style.textOverflow === "ellipsis" && style.overflowX === "hidden";
+        return !intentionallyTruncated && element.scrollWidth - element.clientWidth > 1;
+      })
       .map((element) => ({
         className: element.className,
         text: element.textContent.trim()
@@ -321,7 +467,6 @@ async function readDiscoveryLayout(page) {
           !(body instanceof HTMLElement) ||
           !(topMeta instanceof HTMLElement) ||
           !(category instanceof HTMLElement) ||
-          !(status instanceof HTMLElement) ||
           !(title instanceof HTMLElement)
         ) {
           throw new Error("Missing group card image, body, or top metadata");
@@ -340,8 +485,12 @@ async function readDiscoveryLayout(page) {
           introFontSize: Number.parseFloat(getComputedStyle(element.querySelector(".ui-group-card__intro")).fontSize),
           left: round(rect.left),
           right: round(rect.right),
-          status: elementBounds(status, "group card recruiting status"),
-          statusFontSize: Number.parseFloat(getComputedStyle(status).fontSize),
+          status:
+            status instanceof HTMLElement
+              ? elementBounds(status, "group card recruiting status")
+              : null,
+          statusFontSize:
+            status instanceof HTMLElement ? Number.parseFloat(getComputedStyle(status).fontSize) : null,
           titleFontSize: Number.parseFloat(getComputedStyle(element.querySelector(".ui-group-card__title")).fontSize),
           title: elementBounds(title, "group card title"),
           topMeta: elementBounds(topMeta, "group card top metadata"),
@@ -389,6 +538,7 @@ for (const viewport of discoveryViewports) {
       const layout = await readDiscoveryLayout(page);
       const expectedRail = expectedContentRail(viewport.width);
       const expectedGaps = expectedDiscoveryGaps(viewport.width);
+      const usesMobileActivityRow = viewport.width < 768;
       expect(layout.cards).toHaveLength(groupNames.length);
       expect(countFirstRowColumns(layout.cards)).toBe(viewport.columns);
       expect(layout.filters).toHaveLength(3);
@@ -402,17 +552,26 @@ for (const viewport of discoveryViewports) {
       for (const rowGap of gaps.rowGaps) {
         expect(rowGap).toBeCloseTo(expectedGaps.row, 0);
       }
-      for (const card of layout.cards) {
+      for (const [index, card] of layout.cards.entries()) {
+        const isRecruiting = index % 3 !== 1;
         expect(card.bodyBackgroundColor).toBe("rgb(255, 255, 255)");
         expect(card.bodyPaddingTop).toBe(16);
-        expect(card.titleFontSize).toBe(viewport.width >= 768 ? 20 : 14);
-        expect(card.introFontSize).toBe(viewport.width >= 768 ? 14 : 12);
-        expect(card.statusFontSize).toBe(viewport.width >= 768 ? 13 : 12);
-        expect(card.body.top).toBeCloseTo(card.image.bottom, 0);
-        expect(Math.abs(card.image.height - card.image.width * 0.625)).toBeLessThanOrEqual(
-          1
-        );
-        expect(card.visual.height).toBeCloseTo(card.image.height, 1);
+        expect(card.titleFontSize).toBe(usesMobileActivityRow ? 18 : 20);
+        expect(card.introFontSize).toBe(14);
+        expect(card.statusFontSize).toBe(isRecruiting ? 13 : null);
+        if (usesMobileActivityRow) {
+          expect(card.visual.width).toBeCloseTo(144, 0);
+          expect(card.visual.left - card.left).toBeLessThanOrEqual(1);
+          expect(card.visual.right).toBeCloseTo(card.body.left, 0);
+          expect(card.visual.top).toBeCloseTo(card.body.top, 0);
+          expect(card.image.width).toBeCloseTo(card.visual.width, 1);
+          expect(card.image.height).toBeCloseTo(card.visual.height, 1);
+          expect(card.bottom - card.visual.bottom).toBeLessThanOrEqual(1);
+        } else {
+          expect(card.body.top).toBeCloseTo(card.image.bottom, 0);
+          expect(Math.abs(card.image.height - card.image.width * 0.625)).toBeLessThanOrEqual(1);
+          expect(card.visual.height).toBeCloseTo(card.image.height, 1);
+        }
         expect(card.imageFadeDisplay).toBe("none");
         expect(card.imageFilter).toBe("none");
         expect(card.imageMask).toBe("none");
@@ -423,10 +582,14 @@ for (const viewport of discoveryViewports) {
         expect(card.category.left).toBeCloseTo(card.topMeta.left, 0);
         expect(card.category.top).toBeGreaterThanOrEqual(card.topMeta.top - 1);
         expect(card.category.bottom).toBeLessThanOrEqual(card.topMeta.bottom + 1);
-        expect(card.status.right).toBeCloseTo(card.topMeta.right, 0);
-        expect(card.status.top).toBeGreaterThanOrEqual(card.topMeta.top - 1);
-        expect(card.status.bottom).toBeLessThanOrEqual(card.topMeta.bottom + 1);
-        expect(card.category.right).toBeLessThanOrEqual(card.status.left);
+        if (isRecruiting) {
+          expect(card.status.right).toBeCloseTo(card.topMeta.right, 0);
+          expect(card.status.top).toBeGreaterThanOrEqual(card.topMeta.top - 1);
+          expect(card.status.bottom).toBeLessThanOrEqual(card.topMeta.bottom + 1);
+          expect(card.category.right).toBeLessThanOrEqual(card.status.left);
+        } else {
+          expect(card.status).toBeNull();
+        }
       }
       expect(layout.documentOverflow).toBe(0);
       expect(layout.grid.left).toBeCloseTo(expectedRail.left, 0);

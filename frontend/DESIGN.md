@@ -53,6 +53,12 @@
 | `--color-success-soft` | `#eaf8ef`        | 성공 배경                                  |
 | `--color-warning`      | `#8a5b00`        | 경고/대기 상태, AA 대비용 파생 token       |
 | `--color-warning-soft` | `#fff6df`        | 경고 배경                                  |
+| `--color-activity-study-ink` | `#24457f` | 스터디 유형 chip text                     |
+| `--color-activity-study-soft` | `#e7eefc` | 스터디 유형 chip surface                  |
+| `--color-activity-club-ink` | `#453a95`  | 동아리 유형 chip text                     |
+| `--color-activity-club-soft` | `#ece9fb` | 동아리 유형 chip surface                  |
+| `--color-activity-session-ink` | `#7a5405` | 세션 유형 chip text                     |
+| `--color-activity-session-soft` | `#fdf0da` | 세션 유형 chip surface                  |
 | `--color-cohort-1..5`  | categorical ramp | 멤버 기수 분포의 비텍스트 구간·아바타 배경 |
 
 `--color-text-brand`와 `--color-text-muted`는 각각 `brand-ink`, `muted-ink`를 가리키는
@@ -123,9 +129,9 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 ### Responsive breakpoints
 
 - token metadata: `--breakpoint-md` 48rem(768px), `--breakpoint-lg` 64rem(1024px).
-- `360–767`: full-bleed header, 16px page gutter, 탐색 카드 2 columns, mobile drawer. 그룹
-  detail rail과 운영 side rail은 본문 아래로 이동하고, management table은 labelled card rows로
-  바뀐다.
+- `360–767`: full-bleed header, 16px page gutter, 탐색 모임은 마이페이지 activity row를 따른
+  왼쪽 썸네일의 1-column 목록, mobile drawer를 사용한다. 그룹 detail rail과 운영 side rail은
+  본문 아래로 이동하고, management table은 labelled card rows로 바뀐다.
 - `768–1023`: full-bleed header 배경과 24px content gutter. 탐색 card는 3 columns, account는 좁은
   profile/content split, group editor hero는 single column으로 전환한다.
 - `1024–1439`: 32px content gutter와 4-column 탐색 카드, group detail/registration의 side rail,
@@ -133,12 +139,10 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   공간이 없으면 줄바꿈한다.
 - `1440+`: 1440px shell 상한을 중앙 정렬하고 탐색 카드 4 columns를 유지한다.
 - 탐색 카드 간격은 축소 전 값으로 유지한다. 가로 간격은 desktop/tablet 24px, mobile 12px이며,
-  세로 간격은 desktop 40px, tablet 24px, mobile 12px이다. 모바일 카드 본문은 좌우 12px
-  여백과 14px 제목(`--groups-card-title-size`, `--text-label` 크기), 12px 소개(line-height 1.6),
-  12px 하단 metadata(`--groups-card-meta-size`)를 사용한다. 모임 종류와 모집 상태도
-  `--groups-card-meta-size`를 사용해 12px로 맞추며, badge는 desktop/tablet 13px, mobile
-  12px 글자를 사용한다. 고정 최소 높이 없이 내용에 맞춰 늘어나며 같은 행의 카드는
-  높이를 맞추고, 사진은 추가 높이 없이 정확히 `8 / 5` aspect ratio를 유지한다.
+  세로 간격은 desktop 40px, tablet 24px, mobile 12px이다. tablet/desktop 카드는 사진이 위에 있는
+  기존 grid와 정확한 `8 / 5` 비율을 유지한다. 모바일 행은 9rem 왼쪽 썸네일과 나머지 본문 열을
+  사용하며, 이미지는 고정 aspect ratio 없이 행 높이를 `object-fit: cover`로 채운다. 제목은 한 줄,
+  소개는 두 줄에서 말줄임하고, 모임 종류·멤버 수와 모집 중인 경우의 상태 badge를 함께 표시한다.
 
 ## 3. Layout system
 
@@ -213,23 +217,12 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   모바일에서도 세 가지 필터를 같은 행에 두며 간격은 `--space-2`(8px)이다. 검색 입력창은 별도
   전체 너비 행을 유지한다. 모바일 select는 `--text-caption`(13px), 좌우 padding 8px/24px와
   오른쪽 8px chevron을 사용해 긴 선택값도 잘리지 않게 한다. 최소 터치 높이는 유지한다.
-- Cards: 14–20px radius, `--border-thin` line, 20–24px padding. 탐색 카드 사진은 정확히
-  `8 / 5` aspect ratio를 사용한다. 본문 상하 여백은 `--space-4`(16px)로 맞춰 사진과
-  모임 종류·모집 상태 사이에 공간을 확보한다.
-  좌우 여백은 desktop/tablet `--space-5`(20px), mobile `--space-3`(12px)이다. 탐색 카드에서는
-  하단 gradient fade를 제거해 사진과 흰색 본문의 경계를 또렷하게 구분한다. 클릭 가능한 카드 전체에
-  focus-visible을 둔다. 기본 배치는 모임 종류와 상태 badge를 사진 아래 흰색 정보 영역의
-  첫 줄 좌우에 두고, 모임명과 소개를 차례로 배치한다. metadata는 normal flow를 사용해
-  본문 padding을 지키며 필요한 만큼 카드 높이가 늘어난다. 모임명은 desktop/tablet 20px,
-  mobile 14px의 `--groups-card-title-size`와 line-height 1.45를 사용한다. 소개는
-  desktop/tablet 14px와 line-height 1.5, mobile 12px와 line-height 1.6을 사용한다.
-  모임 종류는 공통 `.ui-card__meta`의 배경 없는 `--color-text-muted` 텍스트를 사용한다.
-  모임 종류, 모집 상태, metadata는 mobile에서 `--groups-card-meta-size`인 12px를 사용한다.
-  모집 상태는 공통 `.ui-badge`의 28px 최소 높이, desktop/tablet 13px/700 및 mobile
-  12px/700 글자, 좌우 12px padding과 pill radius를 사용한다. 모집 중은 `--color-brand-soft`
-  배경과 `--color-text-brand` 글자,
-  모집 마감은 `--color-canvas` 배경과 `--color-text-muted` 글자로 표시한다.
-  좁은 공간에서는 공통 metadata 줄바꿈 동작을 유지한다.
+- Cards: 14–20px radius, `--border-thin` line, 20–24px padding. tablet/desktop 탐색 카드는 사진이
+  위에 있는 기존 구조와 정확한 `8 / 5` 비율을 유지한다. 모바일 탐색 카드는 마이페이지 activity row
+  문법을 사용해 `9rem minmax(0, 1fr)` 두 열로 배치한다. 왼쪽 이미지는 행 전체 높이를 채우고,
+  오른쪽 본문은 16px padding과 8px gap을 사용한다. 제목은 한 줄, 소개는 두 줄에서 말줄임표로
+  마감하며, 상세 일정 대신 멤버 수를 하단에 표시한다. 모임 종류는 모든 breakpoint에서 마이페이지와
+  같은 유형별 tag 색상을 사용한다. 모집 상태 badge는 `모집 중`일 때만 표시하고 마감 상태는 생략한다.
   GroupCard 이미지는 backend의 `representativeImageUrl`을 그대로 사용하며, 탐색 이외의 기본
   GroupCard는 기존 surface와 하단 fade를 유지한다. 서버 기본 이미지 경로도 별도
   일러스트로 치환하지 않는다.

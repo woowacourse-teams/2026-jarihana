@@ -38,6 +38,62 @@ describe("GroupCard", () => {
     await user.click(screen.getByRole("link", { name: /프론트엔드 스터디/ }));
     expect(mockNavigate).toHaveBeenCalledWith("/groups/17");
   });
+
+  it("Given the mobile activity appearance, When the card renders, Then it keeps the image and member metadata in one link", () => {
+    render(
+      <GroupCard
+        group={{
+          id: 18,
+          introduction: "함께 공부해요.",
+          memberCount: 6,
+          name: "리액트 스터디",
+          recruiting: true,
+          representativeImageUrl: "/images/react-study.png",
+          type: "STUDY"
+        }}
+        mobileAppearance="activity"
+      />
+    );
+
+    const card = screen.getByRole("link", { name: /리액트 스터디/ });
+    expect(card).toHaveClass("ui-group-card--mobile-activity");
+    expect(card.querySelector(".ui-group-card__image")).toHaveAttribute(
+      "src",
+      "/api/images/react-study.png"
+    );
+    expect(card.querySelector(".ui-group-card__activity-members")).toHaveTextContent("6명");
+  });
+
+  it.each([
+    ["without an active recruitment", null],
+    [
+      "with a full active recruitment",
+      { approvedCount: 8, capacity: 8, id: 91 }
+    ]
+  ])(
+    "Given a group %s, When the discovery card renders, Then it omits recruitment closure copy",
+    (_state, activeRecruitment) => {
+      render(
+        <GroupCard
+          group={{
+            activeRecruitment,
+            id: 19,
+            introduction: "함께 공부해요.",
+            name: "마감된 스터디",
+            recruiting: false,
+            recurringSchedule: { daysOfWeek: ["MONDAY"] },
+            type: "STUDY"
+          }}
+          showScheduleMeta
+        />
+      );
+
+      const card = screen.getByRole("link", { name: /마감된 스터디/ });
+      expect(card).toHaveTextContent("주 1회");
+      expect(card).not.toHaveTextContent("모집 마감");
+      expect(card.querySelector(".ui-group-card__recruitment")).not.toBeInTheDocument();
+    }
+  );
 });
 
 describe("Avatar", () => {

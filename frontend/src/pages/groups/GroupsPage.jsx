@@ -256,6 +256,7 @@ export function GroupsPage() {
                     ...group,
                     recruiting: isGroupRecruiting(group)
                   }}
+                  mobileAppearance="activity"
                   showScheduleMeta
                 />
               </article>

@@ -353,18 +353,18 @@ img.profile-card__avatar {
 }
 
 .activity-tag--study {
-  color: #24457f;
-  background: #e7eefc;
+  color: var(--color-activity-study-ink);
+  background: var(--color-activity-study-soft);
 }
 
 .activity-tag--club {
-  color: #453a95;
-  background: #ece9fb;
+  color: var(--color-activity-club-ink);
+  background: var(--color-activity-club-soft);
 }
 
 .activity-tag--session {
-  color: #7a5405;
-  background: #fdf0da;
+  color: var(--color-activity-session-ink);
+  background: var(--color-activity-session-soft);
 }
 
 .activity-row__badges .ui-badge {
