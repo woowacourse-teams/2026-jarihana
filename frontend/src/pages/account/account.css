@@ -21,11 +21,17 @@
 
 .account-page--compact {
   width: 100%;
+  padding-top: var(--space-5);
 }
 
 .account-page--compact .account-heading {
   max-width: 42.5rem;
   margin-inline: auto;
+  margin-bottom: var(--space-5);
+}
+
+.account-page--compact:has(.signup-form) .account-heading {
+  max-width: 32rem;
 }
 
 .account-page__content--compact {
@@ -91,11 +97,229 @@
 
 .signup-form {
   display: grid;
-  gap: var(--space-5);
-  padding: var(--space-8);
+  aspect-ratio: 1;
+  width: min(100%, 32rem);
+  margin-inline: auto;
+  margin-bottom: var(--space-5);
+  align-content: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
   background: var(--color-surface);
   border: var(--account-border);
   border-radius: var(--radius-lg);
+}
+
+.signup-type-step {
+  display: grid;
+  gap: var(--space-4);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  border: 0;
+  text-align: center;
+}
+
+.signup-type-step > p {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--text-body);
+}
+
+.signup-type-options {
+  display: grid;
+  width: min(100%, 17rem);
+  margin-inline: auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.signup-type-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target-lg);
+  padding: var(--space-3) var(--space-2);
+  border: 0;
+  border-bottom: var(--border-strong) solid var(--color-line);
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+  font: inherit;
+  font-weight: var(--font-weight-bold);
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+}
+
+.signup-type-option:hover {
+  border-bottom-color: var(--color-brand);
+  background: var(--color-brand-soft);
+  color: var(--color-brand-ink);
+}
+
+.signup-type-option[aria-checked="true"] {
+  border-bottom-color: var(--color-brand);
+  background: var(--color-brand-soft);
+  color: var(--color-brand-ink);
+}
+
+.signup-type-option:active {
+  transform: translateY(var(--border-thin));
+}
+
+.signup-type-option:focus-visible {
+  outline: var(--border-strong) solid var(--color-brand);
+  outline-offset: var(--border-thin);
+}
+
+.signup-form__profile-heading {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  transform: translateY(calc(var(--space-3) * -2 + var(--border-strong) * 2));
+}
+
+.signup-form__profile-heading .account-eyebrow {
+  margin: var(--space-0);
+}
+
+.signup-form__change-type {
+  justify-self: center;
+  min-height: 0;
+  margin-top: var(--space-7);
+  padding: var(--space-0);
+  border: 0;
+  border-radius: var(--space-0);
+  background: transparent;
+  color: var(--color-muted-ink);
+  font-size: var(--text-caption);
+  line-height: 1.5;
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+  transform: none;
+}
+
+.signup-form__change-type:hover:not(:disabled) {
+  background: transparent;
+  color: var(--color-brand-ink);
+  transform: none;
+}
+
+.signup-form__change-type:active:not(:disabled) {
+  background: transparent;
+  transform: none;
+}
+
+.signup-form > .ui-field,
+.signup-form__selects .ui-field {
+  text-align: center;
+}
+
+.signup-form__avatar {
+  width: min(100%, 8rem);
+  aspect-ratio: 1;
+  margin: var(--space-0) auto;
+  padding: var(--space-2);
+  background: var(--color-canvas);
+  border: var(--border-thin) solid var(--account-line);
+  border-radius: var(--radius-pill);
+  object-fit: contain;
+  transform: translateY(calc(var(--space-3) * -2 + var(--border-strong) * 2));
+}
+
+.signup-form__name-input {
+  width: min(100%, 13rem);
+  margin-inline: auto;
+  border: 0;
+  border-bottom: var(--border-strong) solid var(--color-line);
+  border-radius: 0;
+  background: transparent;
+  text-align: center;
+  font-size: var(--text-body-lg);
+  font-weight: var(--font-weight-bold);
+}
+
+.signup-form__name-input:hover:not(:disabled) {
+  border-bottom-color: var(--color-muted);
+}
+
+.signup-form__name-input::placeholder {
+  font-size: var(--text-body);
+  font-weight: 400;
+}
+
+.signup-form .signup-form__name-input:focus {
+  border-bottom-color: var(--color-brand);
+  box-shadow: none;
+}
+
+.signup-form__name-input[aria-invalid="true"] {
+  border-bottom-color: var(--color-danger);
+}
+
+.signup-form__selects {
+  display: grid;
+  width: min(100%, 17rem);
+  margin-inline: auto;
+  transform: translateY(var(--border-strong));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+}
+
+.signup-form__selects--coach {
+  grid-template-columns: 1fr;
+}
+
+.signup-form__selects .ui-select {
+  border-bottom: var(--border-strong) solid var(--color-line);
+  transition: border-color var(--duration-fast) var(--ease-standard);
+}
+
+.signup-form__selects .ui-select:focus-within {
+  border-bottom-color: var(--color-brand);
+}
+
+.signup-form__selects .ui-field__control {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding-inline: var(--space-2) var(--space-8);
+  text-align: center;
+  text-align-last: center;
+}
+
+.signup-form__selects .ui-field__control:focus {
+  border: 0;
+  box-shadow: none;
+  outline: 0;
+}
+
+.signup-form__submit {
+  width: min(100%, 14rem);
+  margin-top: var(--space-3);
+  align-self: center;
+  justify-self: center;
+  font-size: 1rem;
+  transform: translateY(calc(var(--space-3) * 2));
+}
+
+.signup-form .signup-form__submit:hover:not(:disabled) {
+  transform: translateY(calc(var(--space-3) * 2 - var(--border-thin)));
+}
+
+.signup-form .signup-form__submit:active:not(:disabled) {
+  transform: translateY(calc(var(--space-3) * 2 + var(--border-thin)));
+}
+
+.ui-dialog .signup-confirm-actions {
+  align-items: center;
+  flex-direction: row;
+  justify-content: flex-end;
+}
+
+.ui-dialog .signup-confirm-actions .ui-button {
+  width: auto;
 }
 
 .form-alert {
@@ -578,8 +802,12 @@ img.profile-card__avatar {
     padding-block: var(--space-8) var(--space-16);
   }
 
+  .account-page--compact {
+    padding-top: var(--space-5);
+  }
+
   .signup-form {
-    padding: var(--space-6);
+    padding: var(--space-4);
   }
 
   .my-dashboard {

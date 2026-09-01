@@ -21,6 +21,8 @@ import {
   errorView,
   flattenPages,
   formatDateTime,
+  generationLabel,
+  memberTypeLabel,
   statusLabel,
   statusTone
 } from "./manageUtils.js";
@@ -612,7 +614,9 @@ function ApprovedMembersSnapshot({ query }) {
                   <span>
                     <strong>{registration.member.crewName}</strong>
                     <small>
-                      {registration.member.generation}기 · {courseLabel(registration.member.course)}
+                      {registration.member.memberType === "COACH"
+                        ? memberTypeLabel(registration.member.memberType)
+                        : `${generationLabel(registration.member.generation)} · ${courseLabel(registration.member.course)}`}
                     </small>
                   </span>
                 </li>

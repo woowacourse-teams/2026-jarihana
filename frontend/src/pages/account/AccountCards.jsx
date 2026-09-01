@@ -2,7 +2,12 @@ import { ArrowRight, CalendarDays, UsersRound } from "lucide-react";
 import { Link } from "react-router";
 
 import { Card, StatusBadge } from "../../shared/ui/index.js";
-import { formatKoreanDate, GROUP_TYPE_LABELS, REGISTRATION_STATUS_LABELS } from "./accountUtils.js";
+import {
+  formatKoreanDate,
+  GROUP_TYPE_LABELS,
+  memberMetaLabel,
+  REGISTRATION_STATUS_LABELS
+} from "./accountUtils.js";
 
 export function GroupSummaryCard({ group }) {
   return (
@@ -24,7 +29,7 @@ export function GroupSummaryCard({ group }) {
       <div className="account-card__footer">
         <span>
           {group.leader
-            ? `${group.leader.crewName} · ${group.leader.generation}기`
+            ? `${group.leader.crewName} · ${memberMetaLabel(group.leader)}`
             : "리더 정보 없음"}
         </span>
         <ArrowRight aria-hidden="true" size={18} />

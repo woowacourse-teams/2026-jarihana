@@ -30,6 +30,7 @@ import {
 import {
   flattenPages,
   formatCompactLocalDateTime,
+  memberMetaLabel,
   meetingTypeLabel,
   publicErrorCopy,
   recruitmentCountdownLabel,
@@ -506,11 +507,11 @@ function LeaderSummary({ leader, variant }) {
         <div>
           {isHero ? (
             <span className="group-leader__byline">
-              운영자 <span aria-hidden="true">·</span> {leader.generation}기 크루
+              운영자 <span aria-hidden="true">·</span> {memberMetaLabel(leader)}
             </span>
           ) : null}
           <strong>{leader.crewName}</strong>
-          {isHero ? null : <span>{leader.generation}기 크루</span>}
+          {isHero ? null : <span>{memberMetaLabel(leader)}</span>}
         </div>
       </div>
     </div>
@@ -584,7 +585,7 @@ function MemberList({ items, query }) {
                   <strong>{member.crewName}</strong>
                 </div>
                 <div className="group-member-card__meta">
-                  <span>{generationLabel(member.generation)}</span>
+                  <span>{member.memberType === "COACH" ? "코치" : generationLabel(member.generation)}</span>
                   {member.role === "LEADER" ? (
                     <span className="group-member-card__role">운영자</span>
                   ) : null}
