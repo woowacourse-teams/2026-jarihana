@@ -58,7 +58,12 @@ function scheduleFrequencyText(group) {
 
 const DEFAULT_GROUP_IMAGE_PATH = /(^|\/)images\/default-group\.png$/;
 
-/** The default image is a frontend static asset, so it never goes through the API. */
+/**
+ * The default image is a frontend static asset, so it never goes through the API.
+ * `new URL` rejects every relative input, leading slash or not, so the base is a
+ * throwaway that only makes `images/...` and `/images/...` parseable. Absolute
+ * CloudFront URLs discard it, and reading `pathname` drops any query string.
+ */
 function isDefaultGroupImage(imageUrl) {
   try {
     return DEFAULT_GROUP_IMAGE_PATH.test(new URL(imageUrl, "http://localhost").pathname);
