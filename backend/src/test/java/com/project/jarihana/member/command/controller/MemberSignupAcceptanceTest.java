@@ -6,6 +6,7 @@ import com.project.jarihana.common.auth.SignupSession;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
+import com.project.jarihana.member.domain.MemberType;
 import com.project.jarihana.support.IntegrationTestSupport;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
@@ -69,6 +70,7 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
         Long id = response.jsonPath().getLong("data.id");
         assertThat(response.header(HttpHeaders.LOCATION)).endsWith("/members/" + id);
         assertThat(response.jsonPath().getString("data.crewName")).isEqualTo("가온");
+        assertThat(response.jsonPath().getString("data.memberType")).isEqualTo("CREW");
         assertThat(response.jsonPath().getInt("data.generation")).isEqualTo(8);
         assertThat(response.jsonPath().getString("data.course")).isEqualTo("BACKEND");
         assertThat(response.jsonPath().getString("data.joinedAt")).isNotBlank();
@@ -84,18 +86,78 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
         // When
         ExtractableResponse<Response> response = signup(
                 sessionId,
-                Map.of("crewName", "코치", "course", "COACH")
+                Map.of("crewName", "코치", "memberType", "COACH")
         );
 
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.CREATED.value());
-        assertThat(response.jsonPath().getString("data.course")).isEqualTo("COACH");
+        assertThat(response.jsonPath().getString("data.memberType")).isEqualTo("COACH");
+        assertThat((Object) response.jsonPath().get("data.course")).isNull();
         assertThat((Object) response.jsonPath().get("data.generation")).isNull();
         assertThat(memberRepository.findByGithubId(GITHUB_ID)).get().extracting(Member::getGeneration).isNull();
     }
 
+    @DisplayName("코치끼리 같은 이름을 사용할 수 없다.")
+    @Test
+    void rejectDuplicatedCoachName() {
+        // Given
+        memberRepository.save(Member.create("코치", null, "other-github-id", MemberType.COACH, null));
+        String sessionId = createSignupSession(GITHUB_ID);
+
+        // When
+        ExtractableResponse<Response> response = signup(
+                sessionId,
+                Map.of("crewName", "코치", "memberType", "COACH")
+        );
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.CONFLICT.value());
+        assertThat(response.jsonPath().getString("error.code")).isEqualTo("MEMBER_CREW_DUPLICATED");
+    }
+
+    @DisplayName("코치 이름은 크루 이름과 중복될 수 없다.")
+    @Test
+    void rejectCoachNameDuplicatedWithCrewName() {
+        // Given
+        memberRepository.save(Member.create("코치", 8, "other-github-id", Course.FRONTEND));
+        String sessionId = createSignupSession(GITHUB_ID);
+
+        // When
+        ExtractableResponse<Response> response = signup(
+                sessionId,
+                Map.of("crewName", "코치", "memberType", "COACH")
+        );
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.CONFLICT.value());
+        assertThat(response.jsonPath().getString("error.code")).isEqualTo("MEMBER_CREW_DUPLICATED");
+    }
+
+    @DisplayName("크루 이름은 코치 이름과 중복될 수 없다.")
+    @Test
+    void rejectCrewNameDuplicatedWithCoachName() {
+        // Given
+        memberRepository.save(Member.create("코치", null, "other-github-id", MemberType.COACH, null));
+        String sessionId = createSignupSession(GITHUB_ID);
+
+        // When
+        ExtractableResponse<Response> response = signup(
+                sessionId,
+                body("코치", 8, "BACKEND")
+        );
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.CONFLICT.value());
+        assertThat(response.jsonPath().getString("error.code")).isEqualTo("MEMBER_CREW_DUPLICATED");
+    }
+
     private Map<String, Object> body(String crewName, int generation, String course) {
-        return Map.of("crewName", crewName, "generation", generation, "course", course);
+        return Map.of(
+                "crewName", crewName,
+                "generation", generation,
+                "course", course,
+                "memberType", "CREW"
+        );
     }
 
     private ExtractableResponse<Response> signup(String sessionId, Map<String, Object> body) {
@@ -220,6 +282,20 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.CONFLICT.value());
         assertThat(response.jsonPath().getString("error.code")).isEqualTo("MEMBER_CREW_DUPLICATED");
+    }
+
+    @DisplayName("다른 기수에서는 같은 크루명을 사용할 수 있다.")
+    @Test
+    void allowDuplicatedCrewNameInDifferentGeneration() {
+        // Given
+        memberRepository.save(Member.create("가온", 7, "other-github-id", Course.FRONTEND));
+        String sessionId = createSignupSession(GITHUB_ID);
+
+        // When
+        ExtractableResponse<Response> response = signup(sessionId, body("가온", 8, "BACKEND"));
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.CREATED.value());
     }
 
     @DisplayName("크루명 형식이 올바르지 않으면 거부한다.")

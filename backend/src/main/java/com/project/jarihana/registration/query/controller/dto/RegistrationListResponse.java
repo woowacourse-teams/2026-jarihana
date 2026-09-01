@@ -41,6 +41,7 @@ public record RegistrationListResponse(
                             item.memberId(),
                             item.crewName(),
                             item.generation(),
+                            item.memberType(),
                             item.course()
                     ),
                     item.message(),
@@ -59,6 +60,7 @@ public record RegistrationListResponse(
             Long id,
             String crewName,
             Integer generation,
+            String memberType,
             String course
     ) {
     }
