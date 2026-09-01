@@ -272,6 +272,7 @@ textarea {
 .ui-markdown ul,
 .ui-markdown ol,
 .ui-markdown pre,
+.ui-markdown table,
 .ui-markdown blockquote {
     margin-block: var(--space-3);
 }
@@ -314,16 +315,38 @@ textarea {
     white-space: pre;
 }
 
+.ui-markdown table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.ui-markdown th,
+.ui-markdown td {
+    padding: var(--space-2) var(--space-3);
+    border: var(--border-thin) solid var(--color-line);
+    text-align: start;
+}
+
 .ui-markdown li + li {
     margin-block-start: var(--space-2);
 }
 
 .ui-markdown blockquote {
-    padding: var(--space-3) var(--space-4);
+    margin-inline: 0;
+    margin-block: var(--space-1);
+    padding-block: 0.05em;
+    padding-inline-end: 0;
+    padding-inline-start: var(--space-3);
     border-inline-start: calc(var(--border-thin) * 4) solid var(--color-brand);
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-    background: var(--color-brand-soft);
+    border-block: 0;
+    border-inline-end: 0;
+    border-radius: 0;
+    background: transparent;
     color: var(--color-muted-ink);
+}
+
+.ui-markdown blockquote > p {
+    margin-block: 0;
 }
 
 .ui-markdown a {
@@ -530,6 +553,10 @@ textarea {
     justify-content: center;
     object-fit: cover;
     overflow: hidden;
+}
+
+img.ui-avatar {
+    background: transparent;
 }
 
 .ui-avatar--sm {
@@ -921,8 +948,8 @@ textarea {
 
 .ui-page-container {
     margin-inline: auto;
-    max-width: 85rem;
-    padding-inline: var(--space-5);
+    max-width: var(--container-shell);
+    padding-inline: var(--page-gutter);
     width: 100%;
 }
 
@@ -1031,12 +1058,6 @@ textarea {
 
 .ui-showcase__skeleton {
     height: var(--showcase-skeleton-height);
-}
-
-@media (min-width: 48rem) {
-    .ui-page-container {
-        padding-inline: var(--space-8);
-    }
 }
 
 @media (max-width: 47.9375rem) {

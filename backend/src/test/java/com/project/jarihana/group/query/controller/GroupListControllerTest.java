@@ -101,6 +101,8 @@ class GroupListControllerTest {
                 .andExpect(jsonPath("$.data.items[0].memberCount").value(1))
                 .andExpect(jsonPath("$.data.items[0].leader.memberId").isNumber())
                 .andExpect(jsonPath("$.data.items[0].leader.crewName").value("가온"))
+                .andExpect(jsonPath("$.data.items[0].leader.avatarUrl")
+                        .value("https://avatars.githubusercontent.com/u/github-3"))
                 .andExpect(jsonPath("$.data.hasNext").value(true))
                 .andExpect(jsonPath("$.data.nextCursor").isNotEmpty())
                 .andExpect(jsonPath("$.error").value(nullValue()))

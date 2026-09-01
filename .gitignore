@@ -41,6 +41,7 @@ out/
 *.http
 https/
 _workspace/
+.claude/
 
 ### Local agent session artifacts ###
 /backend/docs/superpowers/

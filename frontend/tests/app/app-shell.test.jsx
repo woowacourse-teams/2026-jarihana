@@ -188,7 +188,9 @@ it("opens and closes the mobile navigation drawer", () => {
 
   // Then
   expect(menuButton).toHaveAttribute("aria-expanded", "true");
-  expect(screen.getByRole("dialog", { name: "전체 메뉴" })).toBeInTheDocument();
+  const dialog = screen.getByRole("dialog", { name: "전체 메뉴" });
+  expect(dialog).toBeInTheDocument();
+  expect(within(dialog).getByRole("button", { name: "로그아웃" })).toBeInTheDocument();
 
   // When
   fireEvent.click(screen.getByRole("button", { name: "닫기" }));

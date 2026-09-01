@@ -119,7 +119,16 @@ class GroupTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_PARAMETER);
-        assertThatThrownBy(() -> Group.createClub("이름", "소개", "가".repeat(5001), null, null, CREATED_AT))
+        Group groupWithMaximumDescription = Group.createClub(
+                "이름",
+                "소개",
+                "가".repeat(10_000),
+                null,
+                null,
+                CREATED_AT
+        );
+        assertThat(groupWithMaximumDescription.getDescription()).hasSize(10_000);
+        assertThatThrownBy(() -> Group.createClub("이름", "소개", "가".repeat(10_001), null, null, CREATED_AT))
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_PARAMETER);

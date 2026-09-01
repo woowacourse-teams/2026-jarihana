@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Outlet } from "react-router";
 
 import { AppHeader } from "./AppHeader";
@@ -9,6 +10,20 @@ function scrollBehavior() {
 }
 
 function ScrollToTopButton() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    function updateVisibility() {
+      setVisible(window.scrollY > 0);
+    }
+
+    updateVisibility();
+    window.addEventListener("scroll", updateVisibility, { passive: true });
+    return () => window.removeEventListener("scroll", updateVisibility);
+  }, []);
+
+  if (!visible) return null;
+
   function handleScrollToTop() {
     window.scrollTo({ behavior: scrollBehavior(), top: 0 });
   }

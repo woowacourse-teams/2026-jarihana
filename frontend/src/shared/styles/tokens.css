@@ -87,7 +87,7 @@
   --z-dialog: 50;
   --z-toast: 60;
   --z-header: 20;
-  --container-shell: 85rem;
+  --container-shell: 76rem;
   --page-gutter: 1.25rem;
   --header-height: 4.5rem;
   --breakpoint-md: 48rem;
@@ -97,6 +97,12 @@
 @media (min-width: 48rem) {
   :root {
     --page-gutter: 2rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  :root {
+    --page-gutter: var(--groups-page-rail-gutter);
   }
 }
 

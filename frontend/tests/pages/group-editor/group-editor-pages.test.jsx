@@ -10,6 +10,7 @@ const mockRemoveRecurringSchedule = jest.fn();
 const mockReplaceSessionSchedule = jest.fn();
 const mockShowToast = jest.fn();
 const mockNavigate = jest.fn();
+const mockUploadImage = jest.fn();
 
 let mockGroupFixture;
 
@@ -28,6 +29,15 @@ jest.mock("../../../src/features/group/index.js", () => ({
   }),
   useReplaceSessionSchedule: () => ({ mutateAsync: mockReplaceSessionSchedule, isPending: false }),
   useTerminateGroup: () => ({ mutateAsync: mockTerminateGroup, isPending: false })
+}));
+
+/*
+ * 이미지 업로드 훅은 QueryClientProvider를 요구한다. 편집 화면 테스트는 프로바이더
+ * 없이 페이지만 그리므로, 그룹 기능과 같은 방식으로 훅만 대역으로 바꾼다.
+ */
+jest.mock("../../../src/features/image-upload/index.js", () => ({
+  ...jest.requireActual("../../../src/features/image-upload/api.js"),
+  useImageUpload: () => ({ mutateAsync: mockUploadImage, error: null, isPending: false })
 }));
 
 jest.mock("react-router", () => ({
@@ -136,7 +146,7 @@ const submitForm = (formId) => fireEvent.submit(document.getElementById(formId))
 const openSchedule = async (user, name) =>
   user.click(screen.getByRole("button", { name }));
 
-const scheduleDialog = () => screen.getByRole("dialog", { name: "활동 일정 수정" });
+const scheduleDialog = () => screen.getByRole("dialog", { name: "활동 일정" });
 
 describe("NewGroupPage", () => {
   beforeEach(() => {
@@ -174,6 +184,7 @@ describe("NewGroupPage", () => {
         description: "실전 예제로 함께 학습합니다.",
         meetingType: "FLEXIBLE",
         location: null,
+        representativeImageKey: null,
         recurringSchedule: null,
         sessionSchedule: {
           sessionDate: "2026-09-12",
@@ -219,39 +230,48 @@ describe("NewGroupPage", () => {
     });
   });
 
-  it("유동적일 때는 요일도 두지 않는다", async () => {
+  it("모두 지우기를 눌러도 요일 버튼은 남는다", async () => {
     // Given
     const user = userEvent.setup();
     renderPage(<NewGroupPage />);
     await openSchedule(user, "모임 일정 설정");
     const dialog = scheduleDialog();
     await user.click(within(dialog).getByRole("button", { name: "평일" }));
-    expect(within(dialog).getByLabelText("월요일")).toBeInTheDocument();
 
     // When
-    await user.click(within(dialog).getByRole("button", { name: "유동적" }));
+    await user.click(within(dialog).getByRole("button", { name: "모두 지우기" }));
 
-    // Then 쓰이지 않는 값이므로 요일도 함께 감춘다.
-    expect(within(dialog).queryByLabelText("월요일")).not.toBeInTheDocument();
-    expect(within(dialog).queryByText("활동 요일")).not.toBeInTheDocument();
+    // Then 개별 요일부터 다시 고를 수 있어야 한다.
+    expect(within(dialog).getByLabelText("월요일")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("월요일")).not.toBeChecked();
+    expect(within(dialog).getByText("활동 요일")).toBeInTheDocument();
   });
 
-  it("유동적일 때는 시간 입력을 두지 않는다", async () => {
+  it("요일이 유동적이면 시간 칸을 아예 두지 않는다", async () => {
     // Given
     const user = userEvent.setup();
     renderPage(<NewGroupPage />);
     await openSchedule(user, "모임 일정 설정");
     const dialog = scheduleDialog();
 
-    // Then 요일이 없으면 시간은 쓰이지 않으므로 보이지 않는다.
+    // Then 요일이 없으면 시간도 쓰이지 않으므로 시간 칸을 두지 않는다.
     expect(within(dialog).queryByLabelText("시작 시간")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("활동 시간")).not.toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("시간은 그때그때 정해요")).not.toBeInTheDocument();
 
-    // When 요일을 고르면 시간이 필요해진다.
+    // When 요일을 고르면 시간이 쓰이기 시작한다.
     await user.click(within(dialog).getByRole("button", { name: "평일" }));
 
     // Then
     expect(within(dialog).getByLabelText("시작 시간")).toBeInTheDocument();
     expect(within(dialog).getByLabelText("종료 시간")).toBeInTheDocument();
+
+    // When 다시 유동적으로 되돌리면 요일만 남는다.
+    await user.click(within(dialog).getByRole("button", { name: "모두 지우기" }));
+
+    // Then 요일 칩은 남아 개별 요일부터 다시 고를 수 있다.
+    expect(within(dialog).getByLabelText("월요일")).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("시작 시간")).not.toBeInTheDocument();
   });
 
   it("시간을 뒤집어 둔 뒤 유동적으로 바꿔도 등록이 막히지 않는다", async () => {
@@ -266,13 +286,58 @@ describe("NewGroupPage", () => {
     fireEvent.change(within(dialog).getByLabelText("종료 시간"), { target: { value: "18:00" } });
 
     // When 유동적으로 바꾼다. 시간은 더 이상 쓰이지 않는다.
-    await user.click(within(dialog).getByRole("button", { name: "유동적" }));
+    await user.click(within(dialog).getByRole("button", { name: "모두 지우기" }));
     await user.click(within(dialog).getByRole("button", { name: "일정 저장" }));
     submitForm("group-create-form");
 
     // Then 숨은 시간 오류가 제출을 막지 않는다.
     await waitFor(() => expect(mockCreateGroup).toHaveBeenCalledTimes(1));
     expect(mockCreateGroup.mock.calls[0][0]).toMatchObject({ recurringSchedule: null });
+  });
+
+  it("요일만 고정하고 시간은 유동적으로 등록할 수 있다", async () => {
+    // Given
+    const user = userEvent.setup();
+    renderPage(<NewGroupPage />);
+    await user.type(screen.getByLabelText("모임 이름"), "리액트 스터디");
+    await user.type(screen.getByLabelText("한 줄 소개"), "요일만 정하고 시간은 그때그때 정해요");
+
+    // When
+    await openSchedule(user, "모임 일정 설정");
+    const dialog = scheduleDialog();
+    await user.click(within(dialog).getByRole("button", { name: "평일" }));
+    await user.click(within(dialog).getByLabelText("시간은 그때그때 정해요"));
+
+    // Then 시간 입력은 자리를 지키되 더 이상 고칠 수 없다.
+    expect(within(dialog).getByLabelText("시작 시간")).toBeDisabled();
+
+    // When
+    await user.click(within(dialog).getByRole("button", { name: "일정 저장" }));
+    submitForm("group-create-form");
+
+    // Then 요일은 보내고 시간만 비운다.
+    await waitFor(() => expect(mockCreateGroup).toHaveBeenCalledTimes(1));
+    const body = mockCreateGroup.mock.calls[0][0];
+    expect(body.recurringSchedule).toMatchObject({ startTime: null, endTime: null });
+    expect(body.recurringSchedule.daysOfWeek).toEqual(
+      expect.arrayContaining(["MONDAY", "FRIDAY"])
+    );
+  });
+
+  it("시간을 유동적으로 두면 히어로 요약도 그렇게 읽힌다", async () => {
+    // Given
+    const user = userEvent.setup();
+    renderPage(<NewGroupPage />);
+
+    // When
+    await openSchedule(user, "모임 일정 설정");
+    const dialog = scheduleDialog();
+    await user.click(within(dialog).getByRole("button", { name: "평일" }));
+    await user.click(within(dialog).getByLabelText("시간은 그때그때 정해요"));
+    await user.click(within(dialog).getByRole("button", { name: "일정 저장" }));
+
+    // Then
+    expect(screen.getByText("시간 유동적")).toBeInTheDocument();
   });
 
   it("생성 화면에서도 유동적을 고를 수 있다", async () => {
@@ -286,7 +351,7 @@ describe("NewGroupPage", () => {
     await openSchedule(user, "모임 일정 설정");
     const dialog = scheduleDialog();
     await user.click(within(dialog).getByRole("button", { name: "매일" }));
-    await user.click(within(dialog).getByRole("button", { name: "유동적" }));
+    await user.click(within(dialog).getByRole("button", { name: "모두 지우기" }));
     await user.click(within(dialog).getByRole("button", { name: "일정 저장" }));
     submitForm("group-create-form");
 
@@ -301,24 +366,24 @@ describe("NewGroupPage", () => {
     renderPage(<NewGroupPage />);
 
     // Then 히어로에는 요일이 없다.
-    expect(screen.queryByRole("dialog", { name: "활동 일정 수정" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "활동 일정" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("월요일")).not.toBeInTheDocument();
 
     // When
     await openSchedule(user, "모임 일정 설정");
     const dialog = scheduleDialog();
 
-    // Then 유동적으로 시작하므로 요일도 아직 없다.
-    expect(within(dialog).queryByLabelText("월요일")).not.toBeInTheDocument();
+    // Then 요일은 모달 안에만 있고, 유동적으로 시작하므로 아직 아무것도 켜져 있지 않다.
+    expect(within(dialog).getByLabelText("월요일")).not.toBeChecked();
 
-    // When 프리셋을 고르면 요일이 나타난다.
+    // When 프리셋을 고르면 요일이 켜진다.
     await user.click(within(dialog).getByRole("button", { name: "평일" }));
 
     // Then
-    expect(within(dialog).getByLabelText("월요일")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("월요일")).toBeChecked();
   });
 
-  it("applies a preset from the four-column toggle and leaves other days usable", async () => {
+  it("일괄 선택은 요일을 채워 줄 뿐 그다음 손질을 막지 않는다", async () => {
     // Given
     const user = userEvent.setup();
     renderPage(<NewGroupPage />);
@@ -328,26 +393,19 @@ describe("NewGroupPage", () => {
     // When
     await user.click(within(dialog).getByRole("button", { name: "평일" }));
 
-    // Then
-    expect(within(dialog).getByRole("button", { name: "평일" })).toHaveAttribute(
-      "aria-pressed",
-      "true"
-    );
+    // Then 고른 상태는 버튼이 아니라 요일 칩이 말한다.
     expect(within(dialog).getByLabelText("월요일")).toBeChecked();
     expect(within(dialog).getByLabelText("토요일")).not.toBeChecked();
-    // 잠그지 않으므로 평일 + 토요일 조합에 계속 도달할 수 있다.
-    expect(within(dialog).getByLabelText("토요일")).toBeEnabled();
+    expect(within(dialog).getByRole("button", { name: "평일" })).not.toHaveAttribute(
+      "aria-pressed"
+    );
 
-    // When
+    // When 평일 + 토요일 조합에 계속 도달할 수 있어야 한다.
     await user.click(within(dialog).getByLabelText("토요일"));
 
     // Then
     expect(within(dialog).getByLabelText("토요일")).toBeChecked();
     expect(within(dialog).getByLabelText("월요일")).toBeChecked();
-    expect(within(dialog).getByRole("button", { name: "평일" })).toHaveAttribute(
-      "aria-pressed",
-      "false"
-    );
   });
 
   it("sends the meeting type and location chosen in the hero", async () => {
@@ -405,13 +463,13 @@ describe("NewGroupPage", () => {
     // Given
     const user = userEvent.setup();
     renderPage(<NewGroupPage />);
-    expect(screen.getByText(/\/ 5,000/)).toBeInTheDocument();
+    expect(screen.getByText(/\/ 10,000/)).toBeInTheDocument();
 
     // When
     await user.click(screen.getByRole("tab", { name: "멤버" }));
 
     // Then
-    expect(screen.queryByText(/\/ 5,000/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\/ 10,000/)).not.toBeInTheDocument();
   });
 
   it("locks a valid create form after the first submission", async () => {
@@ -434,7 +492,27 @@ describe("NewGroupPage", () => {
     // Then
     await waitFor(() => expect(mockCreateGroup).toHaveBeenCalledTimes(1));
     await act(async () => finishRequest({ id: 73, status: "ACTIVE" }));
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith("/groups/73"));
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith("/groups/73", { state: { justCreated: true } })
+    );
+  });
+
+  it("만들고 나면 방금 만들었다는 사실과 함께 상세로 보낸다", async () => {
+    // Given
+    const user = userEvent.setup();
+    renderPage(<NewGroupPage />);
+    await user.type(screen.getByLabelText("모임 이름"), "모집 안내 스터디");
+    await user.type(screen.getByLabelText("한 줄 소개"), "모집은 상세에서 이어서 물어요");
+
+    // When
+    submitForm("group-create-form");
+
+    // Then 모집 여부는 상세 화면이 묻는다. 이 화면은 완료만 알리고 표식을 넘긴다.
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith("/groups/73", { state: { justCreated: true } })
+    );
+    expect(mockShowToast).toHaveBeenCalledWith({ title: "모임을 만들었어요.", tone: "success" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
 
@@ -579,7 +657,8 @@ describe("GroupManagePage", () => {
         introduction: "더 좋은 설계를 고민해요.",
         description: "JDBC 내부 동작을 함께 탐구합니다.",
         meetingType: "FLEXIBLE",
-        location: null
+        location: null,
+        representativeImageKey: null
       })
     );
     expect(mockReplaceRecurringSchedule).not.toHaveBeenCalled();
@@ -609,6 +688,29 @@ describe("GroupManagePage", () => {
     expect(mockModifyGroup).toHaveBeenCalledTimes(1);
   });
 
+  it("요일은 그대로 두고 시간만 유동적으로 바꿀 수 있다", async () => {
+    // Given
+    const user = userEvent.setup();
+    renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
+
+    // When
+    await openSchedule(user, "모임 일정 수정");
+    const dialog = scheduleDialog();
+    await user.click(within(dialog).getByLabelText("시간은 그때그때 정해요"));
+    await user.click(within(dialog).getByRole("button", { name: "일정 저장" }));
+    submitForm("group-overview-form");
+
+    // Then 일정을 지우지 않고 시간만 비운 채 교체한다.
+    await waitFor(() =>
+      expect(mockReplaceRecurringSchedule).toHaveBeenCalledWith({
+        daysOfWeek: ["MONDAY"],
+        startTime: null,
+        endTime: null
+      })
+    );
+    expect(mockRemoveRecurringSchedule).not.toHaveBeenCalled();
+  });
+
   it("turns the group flexible when every day is cleared", async () => {
     // Given
     const user = userEvent.setup();
@@ -617,7 +719,7 @@ describe("GroupManagePage", () => {
     // When
     await openSchedule(user, "모임 일정 수정");
     const dialog = scheduleDialog();
-    await user.click(within(dialog).getByRole("button", { name: "유동적" }));
+    await user.click(within(dialog).getByRole("button", { name: "모두 지우기" }));
     await user.click(within(dialog).getByRole("button", { name: "일정 저장" }));
     submitForm("group-overview-form");
 

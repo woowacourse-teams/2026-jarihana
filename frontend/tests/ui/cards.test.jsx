@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { GroupCard } from "../../src/shared/ui/index.js";
+import { Avatar, GroupCard } from "../../src/shared/ui/index.js";
 
 const mockNavigate = jest.fn();
 
@@ -37,5 +37,25 @@ describe("GroupCard", () => {
 
     await user.click(screen.getByRole("link", { name: /프론트엔드 스터디/ }));
     expect(mockNavigate).toHaveBeenCalledWith("/groups/17");
+  });
+});
+
+describe("Avatar", () => {
+  it("Given a GitHub avatar URL, When the image fails to load, Then it falls back to the member initial", () => {
+    render(
+      <Avatar
+        alt="이삭 프로필"
+        fallback="이"
+        src="https://avatars.githubusercontent.com/u/123?v=4"
+      />
+    );
+
+    const image = screen.getByRole("img", { name: "이삭 프로필" });
+    expect(image).toHaveAttribute("src", "https://avatars.githubusercontent.com/u/123?v=4");
+
+    fireEvent.error(image);
+
+    expect(screen.queryByRole("img", { name: "이삭 프로필" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("이삭 프로필")).toHaveTextContent("이");
   });
 });

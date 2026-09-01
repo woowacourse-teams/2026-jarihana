@@ -83,6 +83,7 @@ class GroupMemberQueryControllerTest extends IntegrationTestSupport {
                 .body("data.items[0].memberId", equalTo(secondMember.getId().intValue()))
                 .body("data.items[0].crewName", equalTo("해음"))
                 .body("data.items[0].generation", equalTo(8))
+                .body("data.items[0].avatarUrl", equalTo("https://avatars.githubusercontent.com/u/github-3"))
                 .body("data.items[0].course", equalTo("ANDROID"))
                 .body("data.items[0].role", equalTo("MEMBER"))
                 .body("data.items[0].joinedAt", equalTo("2026-08-19T11:00:00"))

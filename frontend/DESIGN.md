@@ -85,19 +85,21 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - Spacing: `0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64`.
 - Radius: small `8`, medium `14`, large `20`, pill `999`.
 - Footer Contact us block: `--footer-contact-max-width` `22rem` max width on desktop/tablet.
-- Container: 구현 token `--container-shell`은 `1360px`이다. `PageContainer`는 360px에서는
-  20px, 768px 이상에서는 32px gutter를 사용한다. 탐색 페이지의 1024px 이상 desktop rail은 카드 grid의 좌우 변을 
-  기준으로 --groups-page-shell과 --groups-page-rail-gutter를 공유한다. form 화면은 각 페이지가 별도로 좁은 읽기 폭을 둔다. 
-  group detail은 대표 이미지와 모집 rail을 함께 보여 주는 넓은 화면에서만 1600px 상한을 사용해 기본 shell보다 여유 있게 펼치되, viewport 끝까지 늘어나지는 않는다.
+- Container: 구현 token `--container-shell`은 `1216px`(`76rem`)이다. `/`의 content rail을
+  기준으로 모든 route의 페이지 shell과 section 외곽선을 통일한다. gutter는 360–767px에서
+  20px, 768–1023px에서 32px, 1024px 이상에서 80px(`--groups-page-rail-gutter`)를 사용한다.
+  account, management, group editor, group detail도 같은 shell을 공유하고, 좁은 form 읽기 폭은
+  shell 안쪽 content에만 적용한다.
 - Border: `--border-thin`(1px)과 `--border-strong`(2px)을 사용한다. 기본 surface 경계는
   thin, 탐색 입력의 강조 하단선 같은 의도적 emphasis만 strong을 사용한다.
 - Touch: `--touch-target`은 44px, `--touch-target-lg`는 48px이다. button, navigation,
   filter, form control은 이 최소 높이를 공유한다.
 - Header: `--header-height` 72px, active line 3px, loading auth placeholder 108px로
   geometry를 token화한다.
-- 탐색 랜딩(`/`) hero는 header 아래 `calc(100dvh - --header-height)` 높이로 첫 화면을 채우고,
-  하단의 `자리 둘러보기` 화살표 CTA가 discovery section으로 부드럽게 이동시킨다. `/groups`의
-  목록 화면은 기존의 콘텐츠 중심 여백을 유지한다.
+- 탐색 랜딩(`/`)과 호환 진입점(`/groups`)의 hero는 header 아래
+  `calc(100dvh - --header-height)` 높이로 첫 화면을 채우고, 하단의 `자리 둘러보기` 화살표 CTA가
+  discovery section으로 부드럽게 이동시킨다. `/groups`는 기존 링크와 북마크를 보존하는 동일
+  랜딩 경로로 유지한다.
 - 탐색 페이지의 hero와 discovery는 desktop에서 `--space-16` 외부 간격과 `--space-10` 내부 상단
   여백으로 넉넉하게 분리하고, discovery에는 `--color-section-soft`를 적용해 별도 정보 영역임을
   드러낸다. 결과 제목과
@@ -118,7 +120,7 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - `1024–1439`: desktop shell과 3-column 탐색 카드, group detail/registration의 side rail,
   group editor 2-column hero, management grid/table을 사용한다. 고정 폭 action은 충분한
   공간이 없으면 줄바꿈한다.
-- `1440+`: Figma desktop 비율과 1360px shell 상한을 중앙 정렬한다.
+- `1440+`: Figma desktop 비율과 1216px shell 상한을 중앙 정렬한다.
 
 ## 3. Layout system
 
@@ -149,13 +151,41 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - 탐색 hero는 `src/shared/assets/brand/jarihana-signature.png`를 교체 가능한 signature art로
   사용하며, 헤더 mark는 `src/shared/assets/brand/jarihana-favicon.png`를 교체 지점으로 사용한다.
 - `DetailLayout`: group detail은 desktop에서 본문 + sticky support rail 구조를 사용하며
-  전체 폭은 `1600px`를 넘지 않는다. support rail은 운영자 프로필 카드 다음에 모집 정보 카드를
+  전체 폭은 공통 `--container-shell`을 따른다. support rail은 운영자 프로필 카드 다음에 모집 정보 카드를
   배치한다. tablet 이하에서는 순차 single column으로 전환한다.
+  mobile(`47.9375rem` 이하)에서는 헤더와 상세 hero 사이 간격을 두지 않는다.
+  상세 페이지의 좌우 바깥 여백은 없애고, hero·탭 본문 안쪽 여백은 유지한다.
+  모바일 상세 hero는 둥근 모서리 없이 화면 가장자리와 맞닿게 배치한다.
+  모바일에서는 `목록으로` 버튼과 그 버튼용 상단 빈 공간을 없앤다. 운영자에게 보이는 수정 버튼은
+  유지하고, 모임 유형과 제목의 오른쪽에 버튼 공간을 확보해 겹치지 않게 한다.
 - rail이 숨는 tablet/mobile에서는 운영자 프로필을 hero 안의 프레임 없는 byline으로 옮긴다.
   민트 ring의 compact avatar와 `운영자 · N기 크루` caption, 이름을 한 덩어리로 묶되 별도의
   card·chip·배경은 만들지 않고 hero 자체 overlay 위에 직접 배치한다.
 - 모집 정보만 floating modal로 제공하며, detail tabs는 content section을 바꾸지만
   URL route는 detail에 남긴다.
+- desktop 모집 rail은 내용의 자연 높이를 유지하고 내부 스크롤을 만들지 않는다. rail의 실제
+  높이를 `ResizeObserver`로 측정해 `--group-rail-height`에 반영한다. sticky 상단 위치는
+  `--space-5`와 `100dvh - rail 높이 - --space-4 - safe area` 중 작은 값으로 정한다.
+  카드가 창보다 높아도 페이지 스크롤로 신청 action까지 도달할 수 있으며, 모집 일정 펼치기나
+  글꼴·화면 크기 변경에도 위치를 다시 맞춘다. 스크롤과 함께 사라지는 header 높이는 차감하지 않는다.
+  가로 `89.9375rem` 이하에서는 기존 `자리 확인` 버튼과 모집 정보 모달을 사용한다.
+  세로 viewport 높이나 DPI, devicePixelRatio는 전환 조건으로 사용하지 않는다.
+- 모집 정보 플로팅 버튼은 텍스트 없이 기존 `jarihana-favicon.png` 의자 로고만 담은 원형 버튼으로
+  표시한다. 지름은 `맨 위로 이동` 버튼과 같은 `--touch-target-lg`(48px), 안쪽 여백은
+  `--space-2`(8px)이며 secondary 표면을
+  사용한다. 이미지 전체를 `object-fit: contain`으로 표시하고, 버튼의 접근성 이름은
+  `모집 정보 보기`로 유지한다. 이미지에는 빈 alt와 `aria-hidden`을 적용한다.
+  본문 끝에는 버튼 영역만큼 여백을 두고, `맨 위로 이동` 버튼은 이 원형 버튼 위에
+  `--space-3`(12px) 간격으로 배치하고 오른쪽 끝을 맞춘다.
+  모집 정보 일러스트는 desktop과 모달에서 같은 가운데 정렬 규칙을 사용한다. desktop rail에서는
+  가용 가로 폭 안에 원본 비율로 맞추고 세로 viewport 높이에 따라 축소하지 않는다. 모달에서는
+  가용 폭과 viewport 높이 안에 맞춘다. 이미지 자체보다 큰 최소 높이를 별도로 예약하지 않는다.
+- desktop과 모바일 모집 정보 모달의 `가입 신청하기` 버튼은 흰 surface와 line 테두리를 사용하고,
+  문구 왼쪽에 기존 의자 로고를 `--space-8`(32px) 크기의 장식 이미지로 표시한다.
+  모집 마감·운영자·가입 완료 등의 상태별 버튼은 기존 표현을 유지한다.
+- 모달의 모집 정보 스크롤바는 투명 track과 얇고 둥근 thumb를 사용하며 스크롤바 공간을 상시 예약하지
+  않는다. 모달은 둥근 외곽 안쪽의 모집 정보 한 곳에서만 세로 스크롤하고 제목·닫기 버튼·신청
+  action은 고정한다. 내부 flex/grid 요소는 가용 폭까지 줄어들며 가로 스크롤을 만들지 않는다.
 - `FormLayout`: group editor는 `1100px` content target 안에 mint hero, white form panels,
   step title/illustration과 하단 action bar를 둔다. 1024px 미만에서는 hero의 text/visual을
   세로로 쌓고, mobile day picker는 2 columns로 줄인다.

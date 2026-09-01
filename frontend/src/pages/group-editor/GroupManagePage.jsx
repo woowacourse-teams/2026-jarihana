@@ -23,6 +23,7 @@ import {
   Button,
   ConfirmDialog,
   ErrorState,
+  GroupImage,
   Skeleton,
   Tabs,
   useToast
@@ -30,13 +31,13 @@ import {
 import { scheduleLines, typeLabel } from "../groups/pageUtils.js";
 import {
   ReadOnlyFact,
+  RepresentativeImageNotice,
   ScheduleFact,
   UnderlineField,
   UnderlineSelect
 } from "./EditorFields.jsx";
 import { GroupMembersPanel } from "./GroupMembersPanel.jsx";
 import { MarkdownEditor } from "./MarkdownEditor.jsx";
-import { RepresentativeImage } from "./RepresentativeImage.jsx";
 import { ScheduleDialog } from "./ScheduleDialog.jsx";
 import { useSubmissionLock } from "./useSubmissionLock.js";
 import { ManagementContext } from "../manage/ManagementContext.jsx";
@@ -49,7 +50,7 @@ const manageSchema = z
   .object({
     name: z.string().trim().min(1, "모임 이름을 입력해 주세요.").max(50),
     introduction: z.string().trim().min(1, "한 줄 소개를 입력해 주세요.").max(100),
-    description: z.string().max(5000, "5,000자 이하로 입력해 주세요."),
+    description: z.string().max(10_000, "10,000자 이하로 입력해 주세요."),
     meetingType: z.enum(["ONLINE", "OFFLINE", "FLEXIBLE"]),
     location: z.string().max(255, "255자 이하로 입력해 주세요."),
     isSession: z.boolean(),
@@ -58,11 +59,13 @@ const manageSchema = z
     ),
     sessionDate: z.string(),
     startTime: timeSchema,
-    endTime: timeSchema
+    endTime: timeSchema,
+    flexibleTime: z.boolean()
   })
   .superRefine((values, context) => {
-    /* 유동적 일정은 시간을 보내지 않으므로 비교하지 않는다. */
-    const usesTime = values.isSession || values.daysOfWeek.length > 0;
+    /* 유동적 일정과 유동적 시간은 시간을 보내지 않으므로 비교하지 않는다. */
+    const usesTime =
+      values.isSession || (values.daysOfWeek.length > 0 && !values.flexibleTime);
     if (usesTime && values.endTime <= values.startTime) {
       context.addIssue({
         code: "custom",
@@ -100,7 +103,9 @@ function toFormValues(group) {
     daysOfWeek: recurring?.daysOfWeek ?? [],
     sessionDate: session?.sessionDate ?? "",
     startTime: timeValue(schedule?.startTime) || DEFAULT_TIMES.startTime,
-    endTime: timeValue(schedule?.endTime) || DEFAULT_TIMES.endTime
+    endTime: timeValue(schedule?.endTime) || DEFAULT_TIMES.endTime,
+    /* 요일은 있는데 시각이 비어 있으면 시간을 유동적으로 둔 일정이다. */
+    flexibleTime: Boolean(recurring) && !recurring.startTime
   };
 }
 
@@ -115,8 +120,8 @@ function currentRecurring(group) {
   if (!recurring) return null;
   return {
     daysOfWeek: [...recurring.daysOfWeek],
-    startTime: timeValue(recurring.startTime),
-    endTime: timeValue(recurring.endTime)
+    startTime: recurring.startTime ? timeValue(recurring.startTime) : null,
+    endTime: recurring.endTime ? timeValue(recurring.endTime) : null
   };
 }
 
@@ -174,6 +179,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
       isSession: false,
       daysOfWeek: [],
       sessionDate: "",
+      flexibleTime: false,
       ...DEFAULT_TIMES
     }
   });
@@ -181,7 +187,17 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const values = useWatch({ control });
   const description = values.description ?? "";
   const daysOfWeek = values.daysOfWeek ?? [];
+  const flexibleTime = values.flexibleTime ?? false;
   const group = groupQuery.data;
+
+  useEffect(
+    () => () => {
+      if (representativeImageDraft?.previewUrl) {
+        URL.revokeObjectURL(representativeImageDraft.previewUrl);
+      }
+    },
+    [representativeImageDraft?.previewUrl]
+  );
 
   useEffect(() => {
     if (!group) return;
@@ -216,6 +232,9 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const representativeImageKey = hasRepresentativeImageDraft
     ? representativeImageDraft.key
     : persistedRepresentativeImageKey;
+  const representativeImageUrl = hasRepresentativeImageDraft
+    ? representativeImageDraft.previewUrl || group.representativeImageUrl || DEFAULT_GROUP_IMAGE_URL
+    : group.representativeImageUrl || DEFAULT_GROUP_IMAGE_URL;
   const representativeImageChanged = hasRepresentativeImageDraft && representativeImageDraft.changed;
   const age = now.getTime() - new Date(group.createdAt).getTime();
   const canDelete = age >= 0 && age <= DAY_MS;
@@ -231,6 +250,10 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
 
   function selectPreset(days) {
     setValue("daysOfWeek", days, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+  }
+
+  function selectFlexibleTime(next) {
+    setValue("flexibleTime", next, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
   }
 
   async function confirmSchedule(event) {
@@ -252,11 +275,12 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
       await sessionMutation.mutateAsync(next);
       return;
     }
+    /* 요일이 없으면 일정을 지우고, 시간만 유동적이면 요일은 남긴 채 시각만 비운다. */
     const next = formValues.daysOfWeek.length
       ? {
           daysOfWeek: formValues.daysOfWeek,
-          startTime: formValues.startTime,
-          endTime: formValues.endTime
+          startTime: formValues.flexibleTime ? null : formValues.startTime,
+          endTime: formValues.flexibleTime ? null : formValues.endTime
         }
       : null;
     if (sameSchedule(currentRecurring(group), next)) return;
@@ -323,7 +347,11 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const summary = scheduleLines({
     type: group.type,
     recurringSchedule: daysOfWeek.length
-      ? { daysOfWeek, startTime: values.startTime, endTime: values.endTime }
+      ? {
+          daysOfWeek,
+          startTime: flexibleTime ? null : values.startTime,
+          endTime: flexibleTime ? null : values.endTime
+        }
       : null,
     sessionSchedule: isSession
       ? {
@@ -401,21 +429,39 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
                 </dl>
               </div>
             </div>
-            <RepresentativeImage
-              key={`representative-image-${group.id}-${group.representativeImageUrl ?? ""}`}
-              imageKey={representativeImageKey}
-              imageUrl={group.representativeImageUrl || DEFAULT_GROUP_IMAGE_URL}
+            <RepresentativeImageNotice
+              hasCustomImage={
+                Boolean(representativeImageKey) &&
+                !isDefaultGroupImageUrl(representativeImageUrl)
+              }
               onImageKeyChange={(nextImageKey) => {
                 setRepresentativeImageDraft({
                   changed: true,
                   groupId: group.id,
-                  key: nextImageKey
+                  key: nextImageKey,
+                  previewUrl: representativeImageDraft?.previewUrl || null
                 });
+              }}
+              onPreviewChange={(file) => {
+                const previewUrl = URL.createObjectURL(file);
+                setRepresentativeImageDraft((previous) => ({
+                  changed: true,
+                  groupId: group.id,
+                  key: previous?.key || representativeImageKey,
+                  previewUrl
+                }));
               }}
               onUpload={imageUpload.mutateAsync}
               uploadError={imageUpload.error}
               uploadPending={imageUpload.isPending}
             />
+            <div className="group-profile__art">
+              <GroupImage
+                alt=""
+                className="group-profile__image"
+                group={{ ...group, representativeImageUrl }}
+              />
+            </div>
           </section>
 
           <div className="group-detail-tabs group-editor__tabs">
@@ -458,17 +504,17 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
               }
               title={`모임을 ${lifecycleVerb}할까요?`}
               description={
-                canDelete ? (
-                  <>
-                    생성 후 24시간 안에는 모임을 완전히 삭제할 수 있어요.
-                    <br />
-                    되돌릴 수 없습니다.
-                    <br />
-                    정말 삭제하시겠습니까?
-                  </>
-                ) : (
-                  "이 작업은 되돌릴 수 없어요. 서버에서 마지막으로 가능 여부를 확인합니다."
-                )
+                canDelete
+                  ? (
+                      <>
+                        생성 후 24시간 안에는 모임을 완전히 삭제할 수 있어요.
+                        <br />
+                        되돌릴 수 없습니다.
+                        <br />
+                        정말 삭제하시겠습니까?
+                      </>
+                    )
+                  : "이 작업은 되돌릴 수 없어요. 서버에서 마지막으로 가능 여부를 확인합니다."
               }
               confirmLabel={canDelete ? "삭제" : `${lifecycleVerb} 확인`}
               danger
@@ -490,8 +536,10 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
 
         <ScheduleDialog
           errors={errors}
+          flexibleTime={flexibleTime}
           isSession={isSession}
           onClose={() => setScheduleOpen(false)}
+          onFlexibleTimeChange={selectFlexibleTime}
           onPresetSelect={selectPreset}
           onSubmit={confirmSchedule}
           open={scheduleOpen}

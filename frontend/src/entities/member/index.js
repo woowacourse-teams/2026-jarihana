@@ -32,6 +32,7 @@ export const groupMemberSchema = z.object({
   crewName: z.string(),
   generation: z.number().int().positive(),
   course: courseSchema,
+  avatarUrl: z.string().url().optional(),
   role: groupRoleSchema,
   joinedAt: localDateTimeSchema
 });

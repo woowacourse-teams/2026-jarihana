@@ -45,7 +45,12 @@ const members = [
   }
 ];
 
-const leaderSummary = { crewName: leader.crewName, generation: leader.generation, memberId: 1 };
+const leaderSummary = {
+  avatarUrl: leader.avatarUrl,
+  crewName: leader.crewName,
+  generation: leader.generation,
+  memberId: 1
+};
 
 export const group = {
   activeRecruitment: {
@@ -62,7 +67,9 @@ export const group = {
   introduction: "천천히 깊게 배우는 프론트엔드 스터디",
   leader: leaderSummary,
   memberCount: 2,
+  meetingType: "OFFLINE",
   name: "프론트엔드 한 자리",
+  location: "강남역",
   recurringSchedule: {
     daysOfWeek: ["THURSDAY"],
     endTime: "21:00",
@@ -166,6 +173,7 @@ const registrations = [
 ];
 
 const groupMember = (value, role, groupMemberId) => ({
+  avatarUrl: value.avatarUrl,
   course: value.course,
   crewName: value.crewName,
   generation: value.generation,
@@ -277,12 +285,26 @@ export async function installApiFixture(pageInstance, options = {}) {
     })
   );
 
+  await pageInstance.route("https://avatars.githubusercontent.com/**", (route) =>
+    route.fulfill({
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><circle cx="48" cy="48" r="48" fill="#18b6b1"/><circle cx="48" cy="40" r="16" fill="#062321"/><path d="M20 82c4-18 18-28 28-28s24 10 28 28" fill="#062321"/></svg>',
+      contentType: "image/svg+xml"
+    })
+  );
+
   await pageInstance.route("**/api/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname.slice(4);
     const method = request.method();
     state.requests.push({ method, path, postData: request.postDataJSON?.() });
+
+    if (path.startsWith("/images/") && method === "GET") {
+      return route.fulfill({
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="#dff8f3"/></svg>',
+        contentType: "image/svg+xml"
+      });
+    }
 
     if (state.errorPath === url.pathname) {
       if (state.errorStatus === 0) return route.abort("connectionfailed");

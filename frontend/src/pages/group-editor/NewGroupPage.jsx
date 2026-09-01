@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { useNavigate } from "react-router";
 import { z } from "zod";
@@ -9,17 +9,17 @@ import {
   DEFAULT_GROUP_IMAGE_URL,
   useImageUpload
 } from "../../features/image-upload/index.js";
-import { Button, Tabs, useToast } from "../../shared/ui/index.js";
+import { Button, GroupImage, Tabs, useToast } from "../../shared/ui/index.js";
 import { scheduleLines } from "../groups/pageUtils.js";
 import {
   ReadOnlyFact,
+  RepresentativeImageNotice,
   ScheduleFact,
   UnderlineField,
   UnderlineSelect
 } from "./EditorFields.jsx";
 import { GroupMembersPanel } from "./GroupMembersPanel.jsx";
 import { MarkdownEditor } from "./MarkdownEditor.jsx";
-import { RepresentativeImage } from "./RepresentativeImage.jsx";
 import { ScheduleDialog } from "./ScheduleDialog.jsx";
 import { useSubmissionLock } from "./useSubmissionLock.js";
 import "../groups/groups.css";
@@ -34,7 +34,7 @@ const baseSchema = z.object({
     .trim()
     .min(1, "한 줄 소개를 입력해 주세요.")
     .max(100, "100자 이하로 입력해 주세요."),
-  description: z.string().max(5000, "5,000자 이하로 입력해 주세요."),
+  description: z.string().max(10_000, "10,000자 이하로 입력해 주세요."),
   meetingType: z.enum(["ONLINE", "OFFLINE", "FLEXIBLE"]),
   location: z.string().max(255, "255자 이하로 입력해 주세요."),
   daysOfWeek: z.array(
@@ -42,15 +42,18 @@ const baseSchema = z.object({
   ),
   sessionDate: z.string(),
   startTime: timeSchema,
-  endTime: timeSchema
+  endTime: timeSchema,
+  flexibleTime: z.boolean()
 });
 
 export const newGroupSchema = baseSchema.superRefine((values, context) => {
   /*
-   * 유동적 일정은 시간을 보내지 않으므로 비교하지 않는다. 비교하면 시간을 뒤집어
-   * 둔 채 유동적으로 바꿨을 때, 숨은 필드의 오류가 제출을 막고 이유는 보이지 않는다.
+   * 유동적 일정과 유동적 시간은 시간을 보내지 않으므로 비교하지 않는다. 비교하면
+   * 시간을 뒤집어 둔 채 유동적으로 바꿨을 때, 잠긴 필드의 오류가 제출을 막고
+   * 이유는 보이지 않는다.
    */
-  const usesTime = values.type === "SESSION" || values.daysOfWeek.length > 0;
+  const usesTime =
+    values.type === "SESSION" || (values.daysOfWeek.length > 0 && !values.flexibleTime);
   if (usesTime && values.endTime <= values.startTime) {
     context.addIssue({
       code: "custom",
@@ -94,10 +97,15 @@ function toCreateBody(values, representativeImageKey = null) {
       }
     };
   }
+  /* 요일이 없으면 일정 자체가 유동적이고, 시간만 유동적이면 요일은 남기고 시각만 비운다. */
   return {
     ...common,
     recurringSchedule: values.daysOfWeek.length
-      ? { daysOfWeek: values.daysOfWeek, startTime: values.startTime, endTime: values.endTime }
+      ? {
+          daysOfWeek: values.daysOfWeek,
+          startTime: values.flexibleTime ? null : values.startTime,
+          endTime: values.flexibleTime ? null : values.endTime
+        }
       : null,
     sessionSchedule: null
   };
@@ -128,8 +136,8 @@ function draftSummary(values) {
     type: values.type,
     recurringSchedule: {
       daysOfWeek: values.daysOfWeek,
-      startTime: values.startTime,
-      endTime: values.endTime
+      startTime: values.flexibleTime ? null : values.startTime,
+      endTime: values.flexibleTime ? null : values.endTime
     },
     sessionSchedule: null
   });
@@ -144,6 +152,14 @@ export function NewGroupPage() {
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [contentTab, setContentTab] = useState("intro");
   const [representativeImageKey, setRepresentativeImageKey] = useState(null);
+  const [representativeImagePreview, setRepresentativeImagePreview] = useState(null);
+
+  useEffect(
+    () => () => {
+      if (representativeImagePreview) URL.revokeObjectURL(representativeImagePreview);
+    },
+    [representativeImagePreview]
+  );
 
   const {
     control,
@@ -164,7 +180,8 @@ export function NewGroupPage() {
       daysOfWeek: [],
       sessionDate: "",
       startTime: "19:00",
-      endTime: "21:00"
+      endTime: "21:00",
+      flexibleTime: false
     }
   });
 
@@ -172,6 +189,7 @@ export function NewGroupPage() {
   const type = values.type ?? "STUDY";
   const description = values.description ?? "";
   const daysOfWeek = values.daysOfWeek ?? [];
+  const flexibleTime = values.flexibleTime ?? false;
 
   /* 일정 오류는 모달 안에만 두면 닫는 순간 사라지므로 히어로에도 함께 보여준다. */
   const scheduleError =
@@ -184,10 +202,13 @@ export function NewGroupPage() {
     setValue("daysOfWeek", days, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
   }
 
+  function selectFlexibleTime(next) {
+    setValue("flexibleTime", next, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+  }
+
   async function confirmSchedule(event) {
     event.preventDefault();
-    const fields =
-      type === "SESSION" ? ["sessionDate", "startTime", "endTime"] : ["startTime", "endTime"];
+    const fields = type === "SESSION" ? ["sessionDate", "startTime", "endTime"] : ["startTime", "endTime"];
     if (!(await trigger(fields))) return;
     setScheduleOpen(false);
   }
@@ -200,7 +221,8 @@ export function NewGroupPage() {
           toCreateBody(formValues, representativeImageKey)
         );
         toast.show({ title: "모임을 만들었어요.", tone: "success" });
-        navigate(`/groups/${result.id}`);
+        /* 모집을 시작할지는 상세 화면이 자리를 잡은 뒤에 묻는다. 방금 만들었다는 사실만 넘긴다. */
+        navigate(`/groups/${result.id}`, { state: { justCreated: true } });
       } catch (error) {
         toast.show({
           title: "모임을 만들지 못했어요.",
@@ -210,8 +232,6 @@ export function NewGroupPage() {
       }
     });
   });
-
-  const submitPending = createMutation.isPending || createLock.pending || imageUpload.isPending;
 
   return (
     <div className="group-editor group-editor--create page-container">
@@ -278,7 +298,7 @@ export function NewGroupPage() {
                 <ScheduleFact
                   actionLabel="설정"
                   error={scheduleError}
-                  lines={draftSummary({ ...values, daysOfWeek, type })}
+                  lines={draftSummary({ ...values, daysOfWeek, flexibleTime, type })}
                   onEdit={() => setScheduleOpen(true)}
                 />
                 <div className="group-fact group-fact--field">
@@ -296,15 +316,23 @@ export function NewGroupPage() {
               </dl>
             </div>
           </div>
-          <RepresentativeImage
-            draft
-            imageKey={representativeImageKey}
-            imageUrl={DEFAULT_GROUP_IMAGE_URL}
+          <RepresentativeImageNotice
+            hasCustomImage={Boolean(representativeImageKey || representativeImagePreview)}
             onImageKeyChange={setRepresentativeImageKey}
+            onPreviewChange={(file) => {
+              setRepresentativeImagePreview(URL.createObjectURL(file));
+            }}
             onUpload={imageUpload.mutateAsync}
             uploadError={imageUpload.error}
             uploadPending={imageUpload.isPending}
           />
+          <div className="group-profile__art">
+            <GroupImage
+              alt=""
+              className="group-profile__image"
+              group={{ representativeImageUrl: representativeImagePreview || DEFAULT_GROUP_IMAGE_URL }}
+            />
+          </div>
         </section>
 
         <div className="group-detail-tabs group-editor__tabs">
@@ -341,15 +369,22 @@ export function NewGroupPage() {
         <Button onClick={() => navigate("/groups")} type="button" variant="secondary">
           취소
         </Button>
-        <Button form="group-create-form" pending={submitPending} type="submit" variant="primary">
+        <Button
+          form="group-create-form"
+          pending={createMutation.isPending || createLock.pending || imageUpload.isPending}
+          type="submit"
+          variant="primary"
+        >
           모임 만들기
         </Button>
       </div>
 
       <ScheduleDialog
         errors={errors}
+        flexibleTime={flexibleTime}
         isSession={type === "SESSION"}
         onClose={() => setScheduleOpen(false)}
+        onFlexibleTimeChange={selectFlexibleTime}
         onPresetSelect={selectPreset}
         onSubmit={confirmSchedule}
         open={scheduleOpen}

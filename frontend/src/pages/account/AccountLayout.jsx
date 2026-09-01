@@ -8,7 +8,9 @@ export function AccountLayout({ eyebrow, title, description, children, compact =
         <h1 className="account-heading__title">{title}</h1>
         {description ? <p>{description}</p> : null}
       </header>
-      {children}
+      <div className={compact ? "account-page__content account-page__content--compact" : "account-page__content"}>
+        {children}
+      </div>
     </div>
   );
 }

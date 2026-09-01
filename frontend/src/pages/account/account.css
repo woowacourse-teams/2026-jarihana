@@ -8,9 +8,10 @@
   --account-line: #d8dade;
   --account-border: var(--border-thin) solid var(--account-line);
 
-  width: min(calc(100% - (var(--page-gutter) * 2)), var(--container-shell));
+  width: 100%;
+  max-width: var(--container-shell);
   margin: var(--space-0) auto;
-  padding: var(--space-8) var(--space-0) var(--space-16);
+  padding: var(--space-8) var(--page-gutter) var(--space-16);
 }
 
 .account-page :where(h1, h2, h3, p) {
@@ -19,7 +20,17 @@
 }
 
 .account-page--compact {
-  width: min(calc(100% - (var(--page-gutter) * 2)), 42.5rem);
+  width: 100%;
+}
+
+.account-page--compact .account-heading {
+  max-width: 42.5rem;
+  margin-inline: auto;
+}
+
+.account-page__content--compact {
+  max-width: 42.5rem;
+  margin-inline: auto;
 }
 
 .account-heading {
@@ -85,14 +96,6 @@
   background: var(--color-surface);
   border: var(--account-border);
   border-radius: var(--radius-lg);
-}
-
-.signup-form__note,
-.profile-hero__note,
-.muted-copy {
-  margin: var(--space-0);
-  color: var(--color-text-muted);
-  font-size: var(--text-label);
 }
 
 .form-alert {
@@ -310,14 +313,7 @@ img.profile-card__avatar {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  background: var(--color-ink);
-}
-
-.activity-row__visual--registration {
-  display: grid;
-  color: var(--color-text-brand);
   background: var(--color-brand-soft);
-  place-items: center;
 }
 
 .activity-row__body {
@@ -579,8 +575,7 @@ img.profile-card__avatar {
 
 @media (max-width: 47.9375rem) {
   .account-page {
-    width: calc(100% - (var(--page-gutter) * 2));
-    padding: var(--space-8) var(--space-0) var(--space-16);
+    padding-block: var(--space-8) var(--space-16);
   }
 
   .signup-form {

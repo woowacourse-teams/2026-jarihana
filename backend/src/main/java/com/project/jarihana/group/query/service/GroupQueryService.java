@@ -3,6 +3,7 @@ package com.project.jarihana.group.query.service;
 import com.project.jarihana.common.auth.LoginMemberReader;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.common.github.GithubAvatarUrl;
 import com.project.jarihana.image.config.ImageProperties;
 import com.project.jarihana.group.query.repository.GroupDetailRepository;
 import com.project.jarihana.group.query.repository.GroupListRepository;
@@ -140,7 +141,8 @@ public class GroupQueryService {
                         : new Leader(
                         leader.memberId(),
                         leader.member().getCrewName(),
-                        leader.member().getGeneration()
+                        leader.member().getGeneration(),
+                        GithubAvatarUrl.from(leader.member().getGithubId())
                 ),
                 projection.memberCount(),
                 projection.activeRecruitment() == null
@@ -199,19 +201,20 @@ public class GroupQueryService {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "요청 파라미터가 올바르지 않습니다.");
         }
         LocalDateTime now = LocalDateTime.now(clock);
-        GroupDetailProjection projection = groupDetailRepository.findById(groupId, now)
+        Long currentMemberId = loginMemberReader.currentMemberId().orElse(null);
+        GroupDetailProjection projection = groupDetailRepository.findById(groupId, now, currentMemberId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.GROUP_NOT_FOUND,
                         "그룹을 찾을 수 없습니다."
                 ));
-        Long currentMemberId = loginMemberReader.currentMemberId().orElse(null);
         return new GroupDetailResult(
                 projection.group(),
                 toRepresentativeImageUrl(projection.group().getRepresentativeImageKey()),
                 projection.members(),
                 projection.activeRecruitment(),
                 projection.approvedCount(),
-                projection.roleOf(currentMemberId)
+                projection.roleOf(currentMemberId),
+                projection.currentMemberRegistrationStatus()
         );
     }
 

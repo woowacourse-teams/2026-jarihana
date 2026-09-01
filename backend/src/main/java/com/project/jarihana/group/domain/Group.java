@@ -56,7 +56,7 @@ public class Group extends BaseEntity {
     @Column(name = "introduction", nullable = false, length = 100)
     private String introduction;
 
-    @Column(name = "description", length = 5_000)
+    @Column(name = "description", length = 10_000)
     private String description;
 
     @Column(name = "representative_image_key")
@@ -90,7 +90,7 @@ public class Group extends BaseEntity {
         this.sessionSchedule = sessionSchedule;
         this.name = validateRequiredLength(name, 50, "그룹 이름");
         this.introduction = validateRequiredLength(introduction, 100, "한 줄 소개");
-        this.description = validateNullableLength(description, 5_000, "상세 소개");
+        this.description = validateNullableLength(description, 10_000, "상세 소개");
         this.representativeImageKey = representativeImageKey;
         this.status = require(status, "그룹 상태");
     }

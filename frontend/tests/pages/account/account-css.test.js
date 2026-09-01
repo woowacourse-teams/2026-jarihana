@@ -27,4 +27,10 @@ describe("account Korean text wrapping", () => {
     expect(headingDeclarations).toContain("text-wrap: balance");
     expect(headingDeclarations).toContain("word-break: keep-all");
   });
+
+  it("uses the shared mint background behind transparent group thumbnails", () => {
+    expect(declarationsFor(".activity-row__visual")).toContain(
+      "background: var(--color-brand-soft)"
+    );
+  });
 });

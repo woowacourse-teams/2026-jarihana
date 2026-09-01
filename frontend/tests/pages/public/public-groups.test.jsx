@@ -11,6 +11,7 @@ import {
   GroupsPage,
   RecruitmentDetailPage
 } from "../../../src/pages/groups/index.js";
+import { ToastProvider } from "../../../src/shared/ui/Toast.jsx";
 
 let mockRouteParams = {};
 let mockSearchParams = new URLSearchParams();
@@ -26,6 +27,8 @@ jest.mock(
         {children}
       </a>
     ),
+    useLocation: () => ({ pathname: "/groups/41", search: "", state: null }),
+    useNavigate: () => jest.fn(),
     useParams: () => mockRouteParams,
     useSearchParams: () => [mockSearchParams, mockSetSearchParams]
   }),
@@ -109,7 +112,7 @@ function renderAt(path, page) {
     groupId: segments[1],
     recruitmentId: segments[3]
   };
-  return render(page);
+  return render(page, { wrapper: ToastProvider });
 }
 
 beforeEach(() => {
@@ -164,6 +167,12 @@ it("Given group results, when the explorer loads, then cards and result state ar
   expect(screen.getByText("1개의 모임")).toBeInTheDocument();
   expect(screen.getByText("최신순")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "더 많은 모임 보기" })).toBeEnabled();
+});
+
+it("Given the legacy groups URL, when the explorer loads, then the current landing affordance is visible", () => {
+  renderAt("/groups", <GroupsPage />);
+
+  expect(screen.getByRole("button", { name: "자리 둘러보기로 이동" })).toBeInTheDocument();
 });
 
 it("Given filters, when search is submitted, then the URL-backed query reaches the hook", async () => {
@@ -259,6 +268,31 @@ it("Given an approved group member, when the detail page renders, then applicati
   renderAt("/groups/41", <GroupDetailPage />);
 
   const button = screen.getByRole("button", { name: "가입 완료!" });
+  expect(button).toBeDisabled();
+  await user.click(button);
+  expect(mutateAsync).not.toHaveBeenCalled();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
+it("Given a pending application, when the detail page renders, then application is disabled", async () => {
+  const user = userEvent.setup();
+  groupHooks.useGroup.mockReturnValue({
+    data: { ...group, currentMemberRegistrationStatus: "PENDING" },
+    isLoading: false,
+    isError: false
+  });
+  const mutateAsync = jest.fn();
+  registrationHooks.useCreateRegistration.mockReturnValue({
+    mutateAsync,
+    isPending: false,
+    isSuccess: false,
+    error: null,
+    reset: jest.fn()
+  });
+
+  renderAt("/groups/41", <GroupDetailPage />);
+
+  const button = screen.getByRole("button", { name: "신청 완료" });
   expect(button).toBeDisabled();
   await user.click(button);
   expect(mutateAsync).not.toHaveBeenCalled();
@@ -417,7 +451,7 @@ it("Given the explorer, when desktop controls render, then search and filters sh
   expect(submit.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
 });
 
-it("Given the backend default image, when a result renders, then the card displays that server asset", () => {
+it("Given the default image, when a result renders, then the card displays the frontend static asset", () => {
   groupHooks.useInfiniteGroups.mockReturnValue({
     ...idleInfinite,
     data: { pages: [{ items: [group], nextCursor: null, hasNext: false }] }

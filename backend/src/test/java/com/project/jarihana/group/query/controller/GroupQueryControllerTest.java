@@ -15,6 +15,7 @@ import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.JoinMethod;
+import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.TestSupportConfig;
@@ -274,11 +275,51 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
                 .body("data.sessionSchedule", nullValue())
                 .body("data.leader.memberId", equalTo(leader.getId().intValue()))
                 .body("data.leader.crewName", equalTo("가온"))
+                .body("data.leader.avatarUrl", equalTo("https://avatars.githubusercontent.com/u/github-1"))
                 .body("data.memberCount", equalTo(1))
                 .body("data.activeRecruitment.joinMethod", equalTo("APPROVAL"))
                 .body("data.activeRecruitment.capacity", equalTo(8))
                 .body("data.activeRecruitment.approvedCount", equalTo(0))
                 .body("error", nullValue());
+    }
+
+    @DisplayName("인증된 회원의 모집 신청 상태를 그룹 상세 정보에 포함한다.")
+    @Test
+    void includesCurrentMemberRegistrationStatus() {
+        // Given
+        Group group = groupRepository.save(study(
+                "신청 상태 확인 스터디",
+                "가입 신청 상태를 확인합니다.",
+                CREATED_AT
+        ));
+        Member leader = memberRepository.save(Member.create("가온", 8, "github-registration-leader", Course.BACKEND));
+        Member applicant = memberRepository.save(
+                Member.create("나래", 8, "github-registration-applicant", Course.FRONTEND)
+        );
+        groupMemberRepository.save(GroupMember.createLeader(group, leader, CREATED_AT));
+        GroupRecruitment recruitment = recruitmentRepository.save(GroupRecruitment.create(
+                group,
+                JoinMethod.APPROVAL,
+                8,
+                TestSupportConfig.FIXED_NOW.minusHours(1),
+                TestSupportConfig.FIXED_NOW.plusDays(1)
+        ));
+        registrationRepository.save(Registration.createPending(
+                recruitment,
+                applicant,
+                "잘 부탁드립니다.",
+                TestSupportConfig.FIXED_NOW
+        ));
+        String accessToken = accessTokenProvider.issue(applicant.getId()).value();
+
+        // When / Then
+        given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .when()
+                .get("/groups/{groupId}", group.getId())
+                .then()
+                .statusCode(200)
+                .body("data.currentMemberRegistrationStatus", equalTo("PENDING"));
     }
 
     @DisplayName("Hard Delete된 구성원은 그룹 상세 인원 수에서 제외한다.")

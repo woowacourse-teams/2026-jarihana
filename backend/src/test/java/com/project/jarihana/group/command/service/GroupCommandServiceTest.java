@@ -313,6 +313,27 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
         assertThat(modified.getRepresentativeImageKey()).isEqualTo(imageKey);
     }
 
+    @DisplayName("만료된 기존 대표 이미지를 유지한 채 그룹 기본 정보를 수정할 수 있다.")
+    @Test
+    void modifyGroupKeepsExpiredExistingRepresentativeImage() {
+        Member leader = saveMember("github-modify-expired-existing-image");
+        String imageKey = "groups/tmp/expired-existing-image.webp";
+        saveImageUpload(imageKey, TestSupportConfig.FIXED_NOW.minusMinutes(1));
+        Group group = groupCommandRepository.save(Group.createStudy(
+                "기존 이미지 그룹", "소개", null, imageKey,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.of(19, 0), LocalTime.of(21, 0)),
+                TestSupportConfig.FIXED_NOW));
+        groupMemberCommandRepository.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
+
+        groupCommandService.modifyGroup(leader.getId(), group.getId(), new ModifyGroupCommand(
+                "수정된 그룹", "수정된 소개", null, MeetingType.FLEXIBLE, null, imageKey));
+
+        Group modified = groupCommandRepository.findById(group.getId()).orElseThrow();
+        assertThat(modified.getName()).isEqualTo("수정된 그룹");
+        assertThat(modified.getIntroduction()).isEqualTo("수정된 소개");
+        assertThat(modified.getRepresentativeImageKey()).isEqualTo(imageKey);
+    }
+
     @DisplayName("존재하지 않는 이미지 키로 그룹 대표 이미지를 교체할 수 없다.")
     @Test
     void modifyGroupFailsWhenRepresentativeImageKeyDoesNotExist() {
