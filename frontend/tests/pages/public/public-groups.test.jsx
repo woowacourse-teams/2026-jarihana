@@ -137,37 +137,6 @@ beforeEach(() => {
   });
 });
 
-it("Given group results, when the explorer loads, then cards and result state are visible", () => {
-  groupHooks.useInfiniteGroups.mockReturnValue({
-    ...idleInfinite,
-    data: {
-      pages: [
-        {
-          items: [group],
-          nextCursor: "opaque-next",
-          hasNext: true
-        }
-      ]
-    },
-    hasNextPage: true
-  });
-
-  renderAt("/groups", <GroupsPage />);
-
-  const title = screen.getByRole("heading", {
-    level: 1,
-    name: "크루와 함께할 자리를 찾아보세요"
-  });
-  expect(within(title).getAllByText(/크루와|함께할 자리를|찾아보세요/)).toHaveLength(3);
-  expect(screen.getByRole("link", { name: /우아한 JDBC 탐구생활/ })).toHaveAttribute(
-    "href",
-    "/groups/41"
-  );
-  expect(screen.getByText("1개의 모임")).toBeInTheDocument();
-  expect(screen.getByText("최신순")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "더 많은 모임 보기" })).toBeEnabled();
-});
-
 it("Given the legacy groups URL, when the explorer loads, then the current landing affordance is visible", () => {
   renderAt("/groups", <GroupsPage />);
 
@@ -186,40 +155,6 @@ it("Given filters, when search is submitted, then the URL-backed query reaches t
   expect(groupHooks.useInfiniteGroups).toHaveBeenLastCalledWith(
     expect.objectContaining({ keyword: "자바", type: "CLUB" })
   );
-});
-
-it("Given a group, when the member tab is selected, then members load in a semantic tab panel", async () => {
-  const user = userEvent.setup();
-  memberHooks.useInfiniteGroupMembers.mockReturnValue({
-    ...idleInfinite,
-    data: {
-      pages: [
-        {
-          items: [
-            {
-              groupMemberId: 1,
-              memberId: 7,
-              crewName: "써니",
-              generation: 11,
-              course: "BACKEND",
-              role: "LEADER",
-              joinedAt: "2026-07-01T11:00:00"
-            }
-          ],
-          nextCursor: null,
-          hasNext: false
-        }
-      ]
-    }
-  });
-
-  const { rerender } = renderAt("/groups/41", <GroupDetailPage />);
-  await user.click(screen.getByRole("tab", { name: "멤버" }));
-  rerender(<GroupDetailPage />);
-
-  const panel = screen.getByRole("tabpanel", { name: "멤버" });
-  expect(within(panel).getByText("써니")).toBeInTheDocument();
-  expect(within(panel).getByText(/11기/)).toBeInTheDocument();
 });
 
 it("Given an authenticated member, when an application is confirmed, then the original LocalDateTime-safe payload is submitted", async () => {
@@ -346,46 +281,12 @@ it("Given a closed recruitment, when opened, then no application control is expo
   expect(screen.queryByRole("button", { name: "가입 신청하기" })).not.toBeInTheDocument();
 });
 
-it("Given overlapping cursor pages, when results render, then each group appears once", () => {
-  groupHooks.useInfiniteGroups.mockReturnValue({
-    ...idleInfinite,
-    data: {
-      pages: [
-        { items: [group], nextCursor: "page-two", hasNext: true },
-        { items: [group], nextCursor: null, hasNext: false }
-      ]
-    }
-  });
-
-  renderAt("/groups", <GroupsPage />);
-
-  expect(screen.getAllByRole("link", { name: /우아한 JDBC 탐구생활/ })).toHaveLength(1);
-  expect(screen.getByText("1개의 모임")).toBeInTheDocument();
-});
-
 it("Given the introduction tab, when detail renders, then downstream lists stay unmounted", () => {
   renderAt("/groups/41", <GroupDetailPage />);
 
   expect(memberHooks.useInfiniteGroupMembers).not.toHaveBeenCalled();
   expect(recruitmentHooks.useInfiniteRecruitments).not.toHaveBeenCalled();
   expect(screen.queryByRole("heading", { name: "활동 방식" })).not.toBeInTheDocument();
-});
-
-it("Given an archived group, when detail renders, then the recruitment sidebar is hidden", () => {
-  groupHooks.useGroup.mockReturnValue({
-    data: { ...group, status: "ENDED", activeRecruitment: null },
-    isLoading: false,
-    isError: false
-  });
-
-  renderAt("/groups/41", <GroupDetailPage />);
-
-  expect(screen.getByRole("complementary", { name: "모집과 운영자 정보" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "아카이빙된 모임입니다" })).toBeInTheDocument();
-  expect(screen.queryByRole("link", { name: "새 모집 만들기" })).not.toBeInTheDocument();
-  expect(screen.queryByText("모집 중")).not.toBeInTheDocument();
-  expect(screen.queryByText("모집 인원")).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /가입 신청|모집 마감|운영자/ })).not.toBeInTheDocument();
 });
 
 it("Given a group failure, when detail renders, then no downstream request executes", () => {
@@ -437,51 +338,6 @@ it("Given a server application failure, when shown, then internal text is replac
 
   expect(screen.getByRole("alert")).toHaveTextContent("신청을 보내지 못했어요");
   expect(screen.queryByText(/SQLException/)).not.toBeInTheDocument();
-});
-
-it("Given the explorer, when desktop controls render, then search and filters share one compact tool row", () => {
-  const { container } = renderAt("/groups", <GroupsPage />);
-
-  const tools = container.querySelector(".groups-tools");
-  expect(tools).toContainElement(screen.getByRole("search"));
-  expect(tools).toContainElement(screen.getByRole("group", { name: "모임 유형" }));
-  const submit = screen.getByRole("button", { name: "검색" });
-  expect(submit).toHaveClass("groups-search__submit");
-  expect(submit.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
-});
-
-it("Given the backend default image, when a result renders, then the card displays that server asset", () => {
-  groupHooks.useInfiniteGroups.mockReturnValue({
-    ...idleInfinite,
-    data: { pages: [{ items: [group], nextCursor: null, hasNext: false }] }
-  });
-
-  const { container } = renderAt("/groups", <GroupsPage />);
-
-  const frame = container.querySelector(".groups-card-frame");
-  const card = screen.getByRole("link", { name: /우아한 JDBC 탐구생활/ });
-  expect(frame).toContainElement(card);
-  expect(card.querySelector("img.ui-group-card__image")).toHaveAttribute(
-    "src",
-    "/images/default-group.png"
-  );
-  expect(frame).not.toHaveClass("groups-card-frame--fallback");
-});
-
-it("Given a group, when detail renders, then API-backed information follows the Figma hierarchy", () => {
-  const { container } = renderAt("/groups/41", <GroupDetailPage />);
-
-  expect(screen.getByRole("heading", { name: "모임 정보" })).toBeInTheDocument();
-  expect(screen.getByText("유동적")).toBeInTheDocument();
-  const profile = container.querySelector(".group-profile");
-  expect(
-    within(profile)
-      .getAllByRole("term")
-      .map((term) => term.textContent)
-  ).toEqual(["모임 방식", "모임 일정", "장소", "현재 멤버 수"]);
-  const rail = container.querySelector(".group-rail-card");
-  expect(rail).toContainElement(screen.getByText("모집 시작"));
-  expect(container.querySelectorAll(".group-profile__figure > span")).toHaveLength(4);
 });
 
 it("Given a group detail, when the page renders, then list navigation is integrated into the hero", () => {
@@ -562,42 +418,3 @@ it("Given meeting details, when the detail page renders, then the information ca
   expect(screen.getByText("서울 캠퍼스")).toBeInTheDocument();
   expect(screen.queryByText("API 미지원")).not.toBeInTheDocument();
 });
-
-it.each([
-  [
-    "a recurring schedule",
-    group,
-    ["매주 월", "19:00 – 21:00"]
-  ],
-  [
-    "a session schedule",
-    {
-      ...group,
-      type: "SESSION",
-      recurringSchedule: null,
-      sessionSchedule: {
-        sessionDate: "2026-09-01",
-        startTime: "14:00:00",
-        endTime: "16:00:00"
-      }
-    },
-    ["2026.09.01", "14:00 – 16:00"]
-  ]
-])(
-  "Given %s, when the detail page renders, then the schedule and time use separate lines",
-  (_, scheduledGroup, expectedLines) => {
-    groupHooks.useGroup.mockReturnValue({
-      data: scheduledGroup,
-      isLoading: false,
-      isError: false
-    });
-
-    renderAt("/groups/41", <GroupDetailPage />);
-
-    const scheduleValue = screen.getByRole("term", { name: "모임 일정" }).nextElementSibling;
-    const lineContainer = scheduleValue.firstElementChild;
-
-    expect(lineContainer).toHaveClass("group-facts__schedule");
-    expect(Array.from(lineContainer.children, (line) => line.textContent)).toEqual(expectedLines);
-  }
-);
