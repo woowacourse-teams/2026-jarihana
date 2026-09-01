@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Armchair, ChevronLeft, Pencil } from "lucide-react";
+import { ChevronLeft, Pencil } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router";
 
 import { useAuth } from "../../features/auth/index.js";
@@ -7,6 +7,7 @@ import { useGroup } from "../../features/group/index.js";
 import { useInfiniteGroupMembers } from "../../features/member/index.js";
 import { useCreateRegistration } from "../../features/registration/index.js";
 import { toUserMessage } from "../../shared/api/index.js";
+import logoMark from "../../shared/assets/brand/jarihana-favicon.png";
 import scheduleIcon from "../../shared/assets/figma/edit-05.svg";
 import placeIcon from "../../shared/assets/figma/edit-06.svg";
 import memberIcon from "../../shared/assets/figma/edit-09.svg";
@@ -54,6 +55,36 @@ function DetailFact({ icon, label, unavailable = false, value }) {
         <dd>{value}</dd>
       </div>
     </div>
+  );
+}
+
+function GroupDetailRail({ children }) {
+  const railReference = useRef(null);
+
+  useLayoutEffect(() => {
+    const rail = railReference.current;
+
+    function updateHeight() {
+      rail.style.setProperty(
+        "--group-rail-height",
+        `${Math.ceil(rail.getBoundingClientRect().height)}px`
+      );
+    }
+
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(rail, { box: "border-box" });
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <aside
+      aria-label="운영자와 모집 정보"
+      className="group-rail group-rail--desktop"
+      ref={railReference}
+    >
+      {children}
+    </aside>
   );
 }
 
@@ -208,7 +239,7 @@ export function GroupDetailPage() {
           </div>
         </div>
 
-        <aside className="group-rail group-rail--desktop" aria-label="운영자와 모집 정보">
+        <GroupDetailRail>
           <LeaderSummary leader={group.leader} variant="card" />
           <RecruitmentSummary
             auth={auth}
@@ -219,16 +250,27 @@ export function GroupDetailPage() {
             isArchived={isArchived}
             isLeader={isLeader}
           />
-        </aside>
+        </GroupDetailRail>
       </div>
 
       <div className="group-floating-recruitment">
         <Modal
           title="모집 정보"
           trigger={
-            <Button aria-label="모집 정보 보기" className="group-recruitment-fab">
-              <Armchair aria-hidden="true" size={18} strokeWidth={2.25} />
-              자리 확인
+            <Button
+              aria-label="모집 정보 보기"
+              className="group-recruitment-fab"
+              title="자리 확인"
+              variant="secondary"
+            >
+              <img
+                alt=""
+                aria-hidden="true"
+                className="group-recruitment-fab__image"
+                height={32}
+                src={logoMark}
+                width={32}
+              />
             </Button>
           }
         >
@@ -335,13 +377,13 @@ function RecruitmentSummary({
     }
     if (!isAuthenticated) {
       return (
-        <Button onClick={() => auth.login?.()} variant="primary">
+        <Button className="group-apply-button" onClick={() => auth.login?.()} variant="primary">
           가입 신청하기
         </Button>
       );
     }
     return (
-      <Button onClick={openApplication} variant="primary">
+      <Button className="group-apply-button" onClick={openApplication} variant="primary">
         가입 신청하기
       </Button>
     );
@@ -350,9 +392,11 @@ function RecruitmentSummary({
   if (!recruitment) {
     return (
       <section className="group-recruitment-summary group-rail-card">
-        <RecruitmentHero empty />
+        <div className="group-recruitment-info">
+          <RecruitmentHero empty />
+        </div>
         {createRecruitmentHref ? (
-          <div className="group-recruitment-empty">
+          <div className="group-recruitment-empty group-recruitment-action">
             <Link
               className="group-recruitment-empty__action ui-button ui-button--primary ui-button--md"
               to={createRecruitmentHref}
@@ -366,56 +410,63 @@ function RecruitmentSummary({
   }
   return (
     <section className="group-recruitment-summary group-rail-card">
-      <RecruitmentHero />
-      <dl className="group-recruitment-meta">
-        <div>
-          <dt>모집일정</dt>
-          <dd className="group-recruitment-schedule">
-            <strong className="group-recruitment-countdown">
-              {recruitmentCountdownLabel(recruitment.startsAt, recruitment.endsAt)}
-            </strong>
-            <details className="group-recruitment-details">
-              <summary>일정 자세히</summary>
-              <span className="group-recruitment-period">
-                <span>
-                  <span className="group-recruitment-period__label">시작</span>
-                  <strong>{formatCompactLocalDateTime(recruitment.startsAt)}</strong>
-                </span>
-                <span>
-                  <span className="group-recruitment-period__label">마감</span>
-                  <strong>{formatCompactLocalDateTime(recruitment.endsAt)}</strong>
-                </span>
-              </span>
-            </details>
-          </dd>
-        </div>
-        <div>
-          <dt>가입 방식</dt>
-          <dd>{recruitment.joinMethod === "AUTO" ? "선착순" : "승인제"}</dd>
-        </div>
-        <div>
-          <dt>모집 인원</dt>
-          <dd>
-            승인 {recruitment.approvedCount}명 / 정원 {recruitment.capacity}명
-          </dd>
-        </div>
-      </dl>
       <div
-        aria-label={`승인 ${recruitment.approvedCount}명, 정원 ${recruitment.capacity}명`}
-        aria-valuemax={recruitment.capacity}
-        aria-valuemin="0"
-        aria-valuenow={Math.min(recruitment.approvedCount, recruitment.capacity)}
-        className="group-recruitment-progress"
-        role="progressbar"
+        aria-label="모집 상세 정보"
+        className="group-recruitment-info"
+        role="region"
+        tabIndex={0}
       >
-        <span
-          style={{
-            "--progress-width": `${Math.min(
-              100,
-              (recruitment.approvedCount / recruitment.capacity) * 100
-            )}%`
-          }}
-        />
+        <RecruitmentHero />
+        <dl className="group-recruitment-meta">
+          <div>
+            <dt>모집일정</dt>
+            <dd className="group-recruitment-schedule">
+              <strong className="group-recruitment-countdown">
+                {recruitmentCountdownLabel(recruitment.startsAt, recruitment.endsAt)}
+              </strong>
+              <details className="group-recruitment-details">
+                <summary>일정 자세히</summary>
+                <span className="group-recruitment-period">
+                  <span>
+                    <span className="group-recruitment-period__label">시작</span>
+                    <strong>{formatCompactLocalDateTime(recruitment.startsAt)}</strong>
+                  </span>
+                  <span>
+                    <span className="group-recruitment-period__label">마감</span>
+                    <strong>{formatCompactLocalDateTime(recruitment.endsAt)}</strong>
+                  </span>
+                </span>
+              </details>
+            </dd>
+          </div>
+          <div>
+            <dt>가입 방식</dt>
+            <dd>{recruitment.joinMethod === "AUTO" ? "선착순" : "승인제"}</dd>
+          </div>
+          <div>
+            <dt>모집 인원</dt>
+            <dd>
+              승인 {recruitment.approvedCount}명 / 정원 {recruitment.capacity}명
+            </dd>
+          </div>
+        </dl>
+        <div
+          aria-label={`승인 ${recruitment.approvedCount}명, 정원 ${recruitment.capacity}명`}
+          aria-valuemax={recruitment.capacity}
+          aria-valuemin="0"
+          aria-valuenow={Math.min(recruitment.approvedCount, recruitment.capacity)}
+          className="group-recruitment-progress"
+          role="progressbar"
+        >
+          <span
+            style={{
+              "--progress-width": `${Math.min(
+                100,
+                (recruitment.approvedCount / recruitment.capacity) * 100
+              )}%`
+            }}
+          />
+        </div>
       </div>
       <div className="group-recruitment-action">{applicationAction()}</div>
       <Modal
