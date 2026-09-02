@@ -104,7 +104,7 @@ public class GithubOAuthCommandController {
 
     private String refreshTokenCookie(GithubLoginResult result) {
         return authCookieFactory
-                .refreshToken(result.refreshToken().value(), result.refreshToken().validity())
+                .refreshToken(result.refreshToken())
                 .toString();
     }
 }

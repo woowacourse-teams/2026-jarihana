@@ -71,7 +71,7 @@ public class MemberCommandController {
 
     private String refreshTokenCookie(MemberSignupResult result) {
         return authCookieFactory
-                .refreshToken(result.refreshToken().value(), result.refreshToken().validity())
+                .refreshToken(result.refreshToken())
                 .toString();
     }
 }
