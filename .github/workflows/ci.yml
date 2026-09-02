@@ -32,9 +32,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Java 설정
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
-          distribution: temurin
+          distribution: corretto
           java-version: "21"
           cache: gradle
           cache-dependency-path: backend/**/*.gradle*
@@ -77,7 +77,7 @@ jobs:
       - name: 빌드
         env:
           APP_GITHUB_CLIENT_ID: ci-client
-          APP_GITHUB_REDIRECT_URI: http://127.0.0.1:5173/oauth/callback
+          APP_GITHUB_REDIRECT_URI: http://127.0.0.1:5173/api/oauth/github/callback
           APP_OAUTH_COOKIE_NAME: oauthState
           DISABLE_REACT_DEVTOOLS: "1"
         run: npm run build
