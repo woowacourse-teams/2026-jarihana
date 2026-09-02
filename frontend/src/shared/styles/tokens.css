@@ -22,6 +22,12 @@
   --color-success-soft: #eaf8ef;
   --color-warning: #8a5b00;
   --color-warning-soft: #fff6df;
+  --color-activity-study-ink: #24457f;
+  --color-activity-study-soft: #e7eefc;
+  --color-activity-club-ink: #453a95;
+  --color-activity-club-soft: #ece9fb;
+  --color-activity-session-ink: #7a5405;
+  --color-activity-session-soft: #fdf0da;
   --color-cohort-1: #2ac1bc;
   --color-cohort-2: #ed6a5a;
   --color-cohort-3: #63bd7c;
@@ -40,7 +46,7 @@
   --text-h3: 1.125rem;
   --text-h2: 1.5rem;
   --text-h1: 2rem;
-  --text-hero: 3rem;
+  --text-hero: 3.5rem;
   --text-hero-body: 1.25rem;
   --text-display: 2.5rem;
   --text-brand: 1.375rem;
@@ -48,7 +54,7 @@
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
   --font-weight-extrabold: 800;
-  --tracking-brand: -0.04em;
+  --tracking-brand: 0;
   --font-size-caption: var(--text-caption);
   --font-size-label: var(--text-label);
   --font-size-h3: var(--text-h3);
@@ -65,8 +71,8 @@
   --space-12: 3rem;
   --space-16: 4rem;
   --space-7: 1.75rem;
-  --groups-page-shell: 76rem;
-  --groups-page-rail-gutter: calc(var(--space-8) + var(--space-12));
+  --groups-page-shell: var(--container-shell);
+  --groups-page-rail-gutter: var(--space-8);
   --footer-contact-max-width: 22rem;
 
   --radius-sm: 0.5rem;
@@ -92,8 +98,8 @@
   --z-dialog: 50;
   --z-toast: 60;
   --z-header: 20;
-  --container-shell: 76rem;
-  --page-gutter: 1.25rem;
+  --container-shell: 90rem;
+  --page-gutter: var(--space-4);
   --header-height: 4.5rem;
   --breakpoint-md: 48rem;
   --breakpoint-lg: 64rem;
@@ -101,7 +107,7 @@
 
 @media (min-width: 48rem) {
   :root {
-    --page-gutter: 2rem;
+    --page-gutter: var(--space-6);
   }
 }
 
@@ -115,7 +121,7 @@
   :root {
     --text-h2: 1.3125rem;
     --text-h1: 1.625rem;
-    --text-hero: 2.125rem;
+    --text-hero: 2.5rem;
     --text-hero-body: 1.125rem;
     --text-display: 1.875rem;
   }

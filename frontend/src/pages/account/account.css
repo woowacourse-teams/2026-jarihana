@@ -50,7 +50,6 @@
   color: var(--color-ink);
   font-size: var(--text-h1);
   line-height: 1.3;
-  letter-spacing: -0.04em;
   overflow-wrap: anywhere;
   text-wrap: balance;
   word-break: keep-all;
@@ -67,7 +66,6 @@
   color: var(--color-text-brand);
   font-size: var(--text-caption);
   font-weight: 800;
-  letter-spacing: 0.12em;
 }
 
 .account-tabs {
@@ -550,8 +548,10 @@
 
 /* 대시보드가 놓인 바닥만 내려 두 카드가 떠 보이게 한다 */
 .my-dashboard {
-  margin: calc(var(--space-5) * -1);
-  padding: var(--space-5);
+  margin-block: calc(var(--space-5) * -1);
+  margin-inline: calc(min(var(--space-5), var(--page-gutter)) * -1);
+  padding-block: var(--space-5);
+  padding-inline: min(var(--space-5), var(--page-gutter));
   background: var(--color-surface);
   border-radius: var(--radius-lg);
   display: grid;
@@ -772,18 +772,18 @@ img.profile-card__avatar {
 }
 
 .activity-tag--study {
-  color: #24457f;
-  background: #e7eefc;
+  color: var(--color-activity-study-ink);
+  background: var(--color-activity-study-soft);
 }
 
 .activity-tag--club {
-  color: #453a95;
-  background: #ece9fb;
+  color: var(--color-activity-club-ink);
+  background: var(--color-activity-club-soft);
 }
 
 .activity-tag--session {
-  color: #7a5405;
-  background: #fdf0da;
+  color: var(--color-activity-session-ink);
+  background: var(--color-activity-session-soft);
 }
 
 .activity-row__badges .ui-badge {
@@ -802,7 +802,6 @@ img.profile-card__avatar {
   min-width: 0;
   overflow: hidden;
   font-size: var(--text-h3);
-  letter-spacing: -0.02em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

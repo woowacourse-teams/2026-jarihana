@@ -68,7 +68,7 @@ header 구현으로 확대하지 않았다.
 
 | 화면군         | Figma에서 유지한 정보 계층                      | 구현상 통일/반응형 결정                                                                                                  |
 | -------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| 공개 탐색      | mint hero, 검색·필터, 카드 우선순위             | 1440px 3-column, 768px 2-column, mobile 1-column; search는 strong bottom border와 48px touch target                      |
+| 공개 탐색      | mint hero, 검색·필터, 카드 우선순위             | 1024px 이상 4-column, 768–1023px 3-column, mobile 2-column; 공통 shell 1440px, gutter 32/24/16px; search는 strong bottom border와 48px touch target |
 | 그룹 상세/모집 | profile banner, 모임 정보(방식·일정·장소·멤버), content tabs, 참여 CTA | desktop content + sticky recruitment rail, 1024px 미만 rail을 본문 뒤로 이동                                             |
 | 계정           | profile illustration, activity count, 요약 카드 | desktop profile/content split, tablet/mobile은 순서 보존 single column; `?role=LEADER` deep link로 운영 모임 filter 유지 |
 | 그룹 생성/수정 | 단계 tab, mint editor hero, Markdown 소개       | 대표 이미지 picker와 업로드 상태, type별 일정 form, 1024px 미만 hero stack, mobile day/time grid 축소             |
