@@ -5,8 +5,8 @@ import com.project.jarihana.auth.command.service.dto.GithubLoginCommand;
 import com.project.jarihana.auth.command.service.dto.GithubLoginResult;
 import com.project.jarihana.auth.config.AuthProperties;
 import com.project.jarihana.auth.cookie.AuthCookieFactory;
+import com.project.jarihana.auth.cookie.AuthCookieReader;
 import com.project.jarihana.auth.session.SignupSession;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
@@ -20,8 +20,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
-import java.util.Arrays;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/oauth/github")
@@ -75,21 +73,11 @@ public class GithubOAuthCommandController {
      * 대조는 Service가 수행한다. 검증 성공 여부와 무관하게 만료시켜 한 번만 쓰이게 한다.
      */
     private String consumeIssuedState(HttpServletRequest request, HttpServletResponse response) {
-        String issuedState = readStateCookie(request).orElse(null);
+        String issuedState = AuthCookieReader
+                .read(request, authProperties.oauthStateCookieName())
+                .orElse(null);
         response.addHeader(HttpHeaders.SET_COOKIE, expiredStateCookie().toString());
         return issuedState;
-    }
-
-    private Optional<String> readStateCookie(HttpServletRequest request) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies == null) {
-            return Optional.empty();
-        }
-        return Arrays.stream(cookies)
-                .filter(cookie -> authProperties.oauthStateCookieName().equals(cookie.getName()))
-                .map(Cookie::getValue)
-                .filter(value -> value != null && !value.isBlank())
-                .findFirst();
     }
 
     private ResponseCookie expiredStateCookie() {

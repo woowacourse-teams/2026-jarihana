@@ -7,11 +7,11 @@ import com.project.jarihana.auth.command.service.dto.RefreshCommand;
 import com.project.jarihana.auth.command.service.dto.RefreshResult;
 import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.cookie.AuthCookieFactory;
+import com.project.jarihana.auth.cookie.AuthCookieReader;
 import com.project.jarihana.auth.session.SignupSession;
 import com.project.jarihana.common.auth.LoginMemberReader;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.response.ApiResponse;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Arrays;
 import java.util.Optional;
 
 @RestController
@@ -63,6 +62,8 @@ public class AuthCommandController {
                 .body(ApiResponse.success(RefreshResponse.from(result)));
     }
 
+
+
     /**
      * 재발급이 실패하면 세션이 끝난 것이므로 자격 증명 쿠키를 거둔다.
      *
@@ -90,15 +91,7 @@ public class AuthCommandController {
     }
 
     private Optional<String> readRefreshToken(HttpServletRequest request) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies == null) {
-            return Optional.empty();
-        }
-        return Arrays.stream(cookies)
-                .filter(cookie -> authCookieProperties.refreshTokenName().equals(cookie.getName()))
-                .map(Cookie::getValue)
-                .filter(value -> value != null && !value.isBlank())
-                .findFirst();
+        return AuthCookieReader.read(request, authCookieProperties.refreshTokenName());
     }
 
     /**
