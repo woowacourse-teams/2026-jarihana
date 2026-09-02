@@ -100,7 +100,7 @@ export function MarkdownEditor({
   description = "",
   error,
   label = "모임 소개",
-  maxLength = 5000,
+  maxLength = 10_000,
   name = "description",
   register,
   rows = 8,

@@ -31,7 +31,10 @@ class RegistrationQueryServiceTest {
     private static final LocalDateTime REGISTERED_AT = LocalDateTime.of(2026, 8, 19, 10, 0);
 
     private final FakeRegistrationListRepository repository = new FakeRegistrationListRepository();
-    private final RegistrationQueryService service = new RegistrationQueryService(repository);
+    private final RegistrationQueryService service = new RegistrationQueryService(
+            repository,
+            "https://cdn.example.test/images"
+    );
 
     @DisplayName("내 신청 목록을 조회하고 다음 커서를 생성한다.")
     @Test
@@ -42,6 +45,7 @@ class RegistrationQueryServiceTest {
                         88L,
                         12L,
                         "알고리즘 스터디",
+                        "groups/algorithm.webp",
                         RECRUITMENT_ID,
                         "함께 활동하고 싶습니다.",
                         RegistrationStatus.PENDING,
@@ -65,6 +69,7 @@ class RegistrationQueryServiceTest {
                 88L,
                 12L,
                 "알고리즘 스터디",
+                "https://cdn.example.test/images/groups/algorithm.webp",
                 RECRUITMENT_ID,
                 "함께 활동하고 싶습니다.",
                 "PENDING",

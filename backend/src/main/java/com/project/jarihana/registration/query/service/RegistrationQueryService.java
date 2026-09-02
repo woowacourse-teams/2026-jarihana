@@ -2,11 +2,13 @@ package com.project.jarihana.registration.query.service;
 
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.image.config.ImageProperties;
 import com.project.jarihana.registration.query.repository.RegistrationListRepository;
 import com.project.jarihana.registration.query.repository.dto.*;
 import com.project.jarihana.registration.query.service.dto.MyRegistrationListResult;
 import com.project.jarihana.registration.query.service.dto.RegistrationListQuery;
 import com.project.jarihana.registration.query.service.dto.RegistrationListResult;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -18,12 +20,27 @@ import java.util.List;
 @Service
 public class RegistrationQueryService {
 
+    private static final String DEFAULT_REPRESENTATIVE_IMAGE_URL = "images/default-group.png";
     private static final int MAX_SIZE = 100;
 
     private final RegistrationListRepository registrationListRepository;
+    private final String publicBaseUrl;
 
     public RegistrationQueryService(RegistrationListRepository registrationListRepository) {
+        this(registrationListRepository, "");
+    }
+
+    @Autowired
+    public RegistrationQueryService(
+            RegistrationListRepository registrationListRepository,
+            ImageProperties imageProperties
+    ) {
+        this(registrationListRepository, imageProperties.publicBaseUrl());
+    }
+
+    RegistrationQueryService(RegistrationListRepository registrationListRepository, String publicBaseUrl) {
         this.registrationListRepository = registrationListRepository;
+        this.publicBaseUrl = publicBaseUrl == null ? "" : publicBaseUrl;
     }
 
     public RegistrationListResult findRegistrations(
@@ -158,17 +175,18 @@ public class RegistrationQueryService {
                 ? null
                 : encodeCursor(cursorItem.registeredAt(), cursorItem.id());
         return new MyRegistrationListResult(
-                projections.stream().map(RegistrationQueryService::toMyResult).toList(),
+                projections.stream().map(this::toMyResult).toList(),
                 nextCursor,
                 page.hasNext()
         );
     }
 
-    private static MyRegistrationListResult.Item toMyResult(MyRegistrationListProjection projection) {
+    private MyRegistrationListResult.Item toMyResult(MyRegistrationListProjection projection) {
         return new MyRegistrationListResult.Item(
                 projection.id(),
                 projection.groupId(),
                 projection.groupName(),
+                toRepresentativeImageUrl(projection.groupRepresentativeImageKey()),
                 projection.recruitmentId(),
                 projection.message(),
                 projection.status().name(),
@@ -178,6 +196,16 @@ public class RegistrationQueryService {
                 projection.decidedByType() == null ? null : projection.decidedByType().name(),
                 projection.decidedByMemberId()
         );
+    }
+
+    private String toRepresentativeImageUrl(String imageKey) {
+        if (imageKey == null || DEFAULT_REPRESENTATIVE_IMAGE_URL.equals(imageKey)) {
+            return DEFAULT_REPRESENTATIVE_IMAGE_URL;
+        }
+        if (publicBaseUrl.isBlank()) {
+            return imageKey;
+        }
+        return publicBaseUrl.replaceAll("/+$", "") + "/" + imageKey.replaceFirst("^/+", "");
     }
 
     private static void validateMyRequest(Long memberId, RegistrationListQuery query) {

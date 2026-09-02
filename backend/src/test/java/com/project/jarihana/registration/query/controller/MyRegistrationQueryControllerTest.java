@@ -57,7 +57,7 @@ class MyRegistrationQueryControllerTest extends IntegrationTestSupport {
         Member applicant = saveMember("신청자", Course.BACKEND, "my-registration-applicant");
         Member decisionMaker = saveMember("모임장", Course.FRONTEND, "my-registration-decision-maker");
         Member otherApplicant = saveMember("타회원", Course.ANDROID, "my-registration-other");
-        Group firstGroup = saveGroup("my-registration-group-1");
+        Group firstGroup = saveGroup("my-registration-group-1", "groups/my-registration.webp");
         Group secondGroup = saveGroup("my-registration-group-2");
         GroupRecruitment firstRecruitment = saveRecruitment(firstGroup);
         GroupRecruitment secondRecruitment = saveRecruitment(secondGroup);
@@ -104,6 +104,8 @@ class MyRegistrationQueryControllerTest extends IntegrationTestSupport {
                 .body("data.items[0].id", equalTo(pending.getId().intValue()))
                 .body("data.items[0].group.id", equalTo(firstGroup.getId().intValue()))
                 .body("data.items[0].group.name", equalTo("my-registration-group-1"))
+                .body("data.items[0].group.representativeImageUrl",
+                        equalTo("https://cdn.example.test/images/groups/my-registration.webp"))
                 .body("data.items[0].recruitmentId", equalTo(firstRecruitment.getId().intValue()))
                 .body("data.items[0].message", equalTo("대기 메시지"))
                 .body("data.items[0].status", equalTo("PENDING"))
@@ -173,11 +175,15 @@ class MyRegistrationQueryControllerTest extends IntegrationTestSupport {
     }
 
     private Group saveGroup(String name) {
+        return saveGroup(name, null);
+    }
+
+    private Group saveGroup(String name, String representativeImageKey) {
         return groupRepository.save(Group.createStudy(
                 name,
                 "함께 학습합니다.",
                 null,
-                null,
+                representativeImageKey,
                 RecurringGroupSchedule.of(
                         Set.of(DayOfWeek.MONDAY),
                         LocalTime.of(19, 0),
