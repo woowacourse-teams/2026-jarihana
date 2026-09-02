@@ -122,10 +122,12 @@ PostgreSQL 실행 수단은 **로컬 Docker Compose 재사용**이다(팀 결정
   ([`ci.yml`](../../../.github/workflows/ci.yml)). self-hosted Runner는 배포
   ([`backend-build.yml`](../../../.github/workflows/backend-build.yml))에만 쓴다. 호스팅 Runner에는
   Docker가 있으므로 컨테이너를 띄울 수 있는지는 걸림돌이 아니다.
-- **테스트가 개발 데이터베이스를 지운다.** `docker-compose-local.yaml`은 데이터베이스를 `jarihana`
-  하나만 만들고 볼륨이 영속이다. 테스트가 이 데이터베이스에 그대로 붙으면
+- **결정 6을 그대로 적용하면 테스트가 개발 데이터베이스를 지운다.** 지금은 테스트가 H2
+  인메모리(`jdbc:h2:mem:jarihana-test`)라 로컬 PostgreSQL을 건드리지 않는다. 그런데
+  `docker-compose-local.yaml`은 데이터베이스를 `jarihana` 하나만 만들고 볼륨이 영속이라,
+  테스트를 이 데이터베이스로 옮기는 순간
   [`truncate.sql`](../../src/test/resources/sql/truncate.sql)이 매 테스트마다 개발 데이터를
-  비운다. 테스트용 데이터베이스를 따로 두어야 한다. 아래 후속 작업 참조.
+  비우게 된다. 테스트용 데이터베이스를 따로 두어야 한다. 아래 후속 작업 참조.
 - 테스트를 돌리기 전에 컨테이너를 띄우는 일이 사람 몫이 된다. `./gradlew test` 한 줄로 끝나지
   않는다. Testcontainers를 쓰지 않기로 한 대가다.
 
