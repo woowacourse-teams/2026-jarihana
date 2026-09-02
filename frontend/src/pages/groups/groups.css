@@ -6,6 +6,9 @@
 
 .groups-page {
   --groups-card-art-ratio: 8 / 5;
+  --groups-card-meta-size: 0.75rem;
+  --groups-card-title-size: 1.25rem;
+  --groups-hero-art-ratio: 1672 / 941;
   --groups-card-min-height: 21.75rem;
   --groups-page-shell-width: var(--container-shell);
   --groups-search-width: 35rem;
@@ -32,8 +35,8 @@
 
 .groups-hero {
   display: grid;
-  grid-template-columns: minmax(31.375rem, 0.65fr) minmax(0, 1fr);
-  gap: var(--space-16);
+  grid-template-columns: minmax(26rem, 0.75fr) minmax(0, 1.25fr);
+  gap: var(--space-8);
   align-items: stretch;
   padding-block: var(--space-8) var(--space-10);
 }
@@ -53,7 +56,7 @@
   max-width: 10ch;
   margin: 0 0 var(--space-3);
   font-size: var(--text-hero);
-  line-height: 1.18;
+  line-height: 1.22;
   overflow-wrap: break-word;
   word-break: keep-all;
 }
@@ -76,6 +79,9 @@
 }
 
 .groups-hero__art {
+  aspect-ratio: var(--groups-hero-art-ratio);
+  width: 100%;
+  min-width: 0;
   min-height: 248px;
   overflow: hidden;
   border-radius: var(--radius-lg);
@@ -83,7 +89,7 @@
   background-image: url("../../shared/assets/brand/jarihana-signature.png");
   background-repeat: no-repeat;
   background-position: center;
-  background-size: 120% auto;
+  background-size: contain;
 }
 
 .groups-discovery {
@@ -186,6 +192,10 @@
 
 .groups-page.groups-page--landing {
   padding-block-start: 0;
+}
+
+#main-content:has(.groups-page--landing) {
+  overflow-x: clip;
 }
 
 .groups-page--landing .groups-hero {
@@ -313,6 +323,7 @@
 
 .groups-result-heading {
   display: flex;
+  scroll-margin-top: var(--space-4);
   align-items: baseline;
   flex-wrap: wrap;
   justify-content: flex-start;
@@ -351,14 +362,20 @@
 
 .groups-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-8);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-6);
 }
 
 @media (min-width: 64rem) {
   .groups-search {
     align-self: start;
     padding-block-start: calc(var(--text-caption) * 1.5 + var(--space-2) - var(--border-thin));
+  }
+
+  .groups-hero__copy {
+    justify-self: end;
+    width: max-content;
+    max-width: 100%;
   }
 
   .groups-hero__copy > p:last-child {
@@ -399,22 +416,29 @@
   aspect-ratio: var(--groups-card-art-ratio);
 }
 
+.groups-grid .ui-group-card__visual::after {
+  display: none;
+}
+
 .groups-grid .ui-group-card__image {
+  position: absolute;
+  inset: 0;
   height: 100%;
 }
 
 .groups-grid .ui-group-card {
   position: relative;
+  grid-template-rows: auto 1fr;
   gap: var(--space-0);
 }
 
 .groups-grid .ui-group-card__body {
   display: flex;
   flex-direction: column;
-  position: relative;
+  position: static;
   z-index: 3;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-5) var(--space-4);
+  padding: var(--space-4) var(--space-5);
   background: var(--color-surface);
 }
 
@@ -422,9 +446,35 @@
   justify-content: space-between;
 }
 
+.groups-grid .ui-group-card__type {
+  align-items: center;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  font-weight: 700;
+  min-height: 1.75rem;
+  padding-inline: var(--space-3);
+  width: fit-content;
+}
+
+.groups-grid .ui-group-card__type--study {
+  color: var(--color-activity-study-ink);
+  background: var(--color-activity-study-soft);
+}
+
+.groups-grid .ui-group-card__type--club {
+  color: var(--color-activity-club-ink);
+  background: var(--color-activity-club-soft);
+}
+
+.groups-grid .ui-group-card__type--session {
+  color: var(--color-activity-session-ink);
+  background: var(--color-activity-session-soft);
+}
+
 .groups-grid .ui-group-card__intro {
   color: var(--color-muted-ink);
   display: block;
+  font-size: var(--text-label);
   line-height: 1.5;
   max-width: none;
   overflow: visible;
@@ -433,7 +483,7 @@
   word-break: keep-all;
 }
 
-.groups-grid .ui-group-card__body > .ui-card__meta:last-child {
+.groups-grid .ui-group-card__detail-meta {
   align-self: flex-end;
   margin-top: auto;
   max-width: 100%;
@@ -446,18 +496,18 @@
 }
 
 .groups-grid .ui-group-card__title {
+  font-size: var(--groups-card-title-size);
   line-height: 1.45;
   min-width: 0;
+  overflow: hidden;
   overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   word-break: keep-all;
 }
 
 @media (min-width: 64rem) {
-  .groups-grid .ui-group-card__body {
-    padding: var(--space-1) var(--space-5) var(--space-4);
-  }
-
-  .groups-grid .ui-group-card__body > .ui-card__meta:last-child {
+  .groups-grid .ui-group-card__detail-meta {
     max-width: 70%;
   }
 }
@@ -1417,8 +1467,13 @@
     text-align: center;
   }
 
+  .groups-hero__art {
+    width: calc(100% + var(--page-gutter) * 2);
+    margin-inline: calc(var(--page-gutter) * -1);
+  }
+
   .groups-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .groups-tools {
@@ -1456,10 +1511,84 @@
 
   .groups-hero__art {
     min-height: 190px;
-    background-position: 57% center;
   }
 
-  .groups-grid,
+  .groups-grid {
+    --groups-card-min-height: 0;
+    --groups-card-title-size: var(--text-label);
+
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+
+  .groups-grid .ui-group-card__body {
+    padding-inline: var(--space-3);
+  }
+
+  .groups-grid .ui-group-card__intro {
+    font-size: var(--groups-card-meta-size);
+    line-height: 1.6;
+  }
+
+  .groups-grid .ui-group-card__body > .ui-card__meta,
+  .groups-grid .ui-group-card__body .ui-badge {
+    font-size: var(--groups-card-meta-size);
+  }
+
+  .groups-grid .ui-group-card--mobile-activity {
+    display: grid;
+    grid-template-columns: 9rem minmax(0, 1fr);
+    height: auto;
+  }
+
+  .groups-grid .ui-group-card--mobile-activity .ui-group-card__visual {
+    aspect-ratio: auto;
+    height: 100%;
+  }
+
+  .groups-grid .ui-group-card--mobile-activity .ui-group-card__image {
+    position: static;
+  }
+
+  .groups-grid .ui-group-card--mobile-activity .ui-group-card__body {
+    display: grid;
+    align-content: center;
+    gap: var(--space-2);
+    padding: var(--space-4);
+  }
+
+  .groups-grid .ui-group-card--mobile-activity .ui-group-card__top-meta {
+    justify-content: space-between;
+    gap: var(--space-2);
+    font-size: var(--text-caption);
+  }
+
+  .groups-grid .ui-group-card--mobile-activity .ui-badge {
+    font-size: var(--text-caption);
+  }
+
+  .groups-grid .ui-group-card--mobile-activity .ui-group-card__detail-meta {
+    justify-self: end;
+  }
+
+  .groups-grid .ui-group-card--mobile-activity .ui-group-card__title {
+    font-size: var(--text-h3);
+    line-height: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .groups-grid .ui-group-card--mobile-activity .ui-group-card__intro {
+    display: -webkit-box;
+    font-size: var(--text-label);
+    line-height: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
   .group-profile,
   .group-facts,
   .recruitment-information dl {
@@ -1467,7 +1596,17 @@
   }
 
   .groups-filter {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+
+  .groups-filter__field select {
+    padding-inline: var(--space-2) var(--space-6);
+    font-size: var(--text-caption);
+  }
+
+  .groups-filter__select::after {
+    right: var(--space-2);
   }
 
   .group-profile {
