@@ -21,7 +21,7 @@ export default defineConfig({
   },
   webServer: {
     command:
-      "NODE_ENV=production BABEL_ENV=production APP_GITHUB_CLIENT_ID=e2e-client APP_GITHUB_REDIRECT_URI=http://127.0.0.1:4174/oauth/callback DISABLE_REACT_DEVTOOLS=1 npm run build && node scripts/e2e-preview.js",
+      "NODE_ENV=production BABEL_ENV=production APP_GITHUB_CLIENT_ID=e2e-client APP_GITHUB_REDIRECT_URI=http://127.0.0.1:4174/api/oauth/github/callback DISABLE_REACT_DEVTOOLS=1 npm run build && node scripts/e2e-preview.js",
     url: "http://127.0.0.1:4174/groups",
     reuseExistingServer: false,
     timeout: 120_000

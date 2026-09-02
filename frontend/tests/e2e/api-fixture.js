@@ -185,7 +185,7 @@ const groupMember = (value, role, groupMemberId) => ({
 
 const myRegistration = {
   ...pendingRegistration,
-  group: { id: group.id, name: group.name },
+  group: { id: group.id, name: group.name, representativeImageUrl: group.representativeImageUrl },
   recruitmentId: recruitment.id
 };
 delete myRegistration.member;

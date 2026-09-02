@@ -455,7 +455,6 @@ function RecruitmentSummary({
         aria-label="모집 상세 정보"
         className="group-recruitment-info"
         role="region"
-        tabIndex={0}
       >
         <RecruitmentHero />
         <dl className="group-recruitment-meta">
