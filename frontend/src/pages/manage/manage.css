@@ -304,14 +304,6 @@
   margin-block-start: var(--space-6);
 }
 
-.manage-recruitment-recently-closed {
-  margin-block-start: 0;
-}
-
-.manage-recruitment-recently-closed .manage-recruitment-focus__heading {
-  margin-block-end: 0;
-}
-
 .manage-recruitment-archive {
   display: flex;
   align-items: center;
@@ -500,7 +492,8 @@
   overflow-x: auto;
 }
 
-.manage-member-table {
+.manage-member-table,
+.manage-history-table {
   width: 100%;
   min-width: max-content;
   border-collapse: collapse;
@@ -508,7 +501,9 @@
 }
 
 .manage-member-table th,
-.manage-member-table td {
+.manage-member-table td,
+.manage-history-table th,
+.manage-history-table td {
   padding: var(--space-5);
   border-bottom: var(--border-thin) solid var(--color-line);
   text-align: left;
@@ -516,14 +511,16 @@
   white-space: nowrap;
 }
 
-.manage-member-table th {
+.manage-member-table th,
+.manage-history-table th {
   background: var(--color-canvas);
   color: var(--color-muted-ink);
   font-size: var(--text-caption);
   font-weight: 700;
 }
 
-.manage-member-table tbody tr:last-child td {
+.manage-member-table tbody tr:last-child td,
+.manage-history-table tbody tr:last-child td {
   border-bottom: 0;
 }
 
@@ -541,6 +538,80 @@
 
 .manage-member-table td[data-label="가입일"] {
   white-space: nowrap;
+}
+
+.manage-member-controls.manage-history-controls {
+  grid-template-columns: 1fr;
+  margin-block-end: var(--space-2);
+}
+
+.manage-history-stat {
+  display: flex;
+  justify-content: flex-end;
+  margin-block-end: var(--space-6);
+}
+
+@media (min-width: 48rem) {
+  .manage-history-stat {
+    margin-block-start: calc(var(--space-6) * -1);
+  }
+}
+
+@media (max-width: 48rem) {
+  .manage-history-stat {
+    margin-block-start: calc(var(--space-2) * -1);
+    margin-block-end: var(--space-4);
+  }
+}
+
+.manage-history-table {
+  table-layout: fixed;
+}
+
+@media (min-width: 48rem) {
+  .manage-history-table td[data-label="상태"] .ui-badge {
+    margin-inline-start: calc(var(--space-3) * -1);
+  }
+}
+
+.manage-history-table__col--status {
+  width: 7rem;
+}
+
+.manage-history-table__col--period {
+  width: 28%;
+}
+
+.manage-history-table__col--capacity,
+.manage-history-table__col--approved {
+  width: 10rem;
+}
+
+.manage-history-table__col--method {
+  width: 10rem;
+}
+
+.manage-history-table__col--created {
+  width: 8rem;
+}
+
+.manage-history-period {
+  display: grid;
+  gap: var(--space-1);
+  white-space: normal;
+}
+
+.manage-history-period__row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-5);
+  min-inline-size: 0;
+}
+
+.manage-history-period__label {
+  flex: 0 0 auto;
+  color: var(--color-muted-ink);
+  font-weight: 600;
 }
 
 .manage-avatar {
@@ -1334,6 +1405,10 @@
     flex-direction: column;
   }
 
+  .manage-heading {
+    align-items: start;
+  }
+
   .manage-recruitment-archive {
     align-items: stretch;
   }
@@ -1437,18 +1512,22 @@
   }
 
   .manage-member-table,
-  .manage-member-table tbody {
+  .manage-member-table tbody,
+  .manage-history-table,
+  .manage-history-table tbody {
     display: grid;
     gap: var(--space-3);
     min-width: 0;
     width: 100%;
   }
 
-  .manage-member-table thead {
+  .manage-member-table thead,
+  .manage-history-table thead {
     display: none;
   }
 
-  .manage-member-table tr {
+  .manage-member-table tr,
+  .manage-history-table tr {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-3) var(--space-4);
@@ -1458,7 +1537,8 @@
     background: var(--color-surface);
   }
 
-  .manage-member-table td {
+  .manage-member-table td,
+  .manage-history-table td {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     min-width: 0;
@@ -1469,7 +1549,8 @@
     white-space: normal;
   }
 
-  .manage-member-table td::before {
+  .manage-member-table td::before,
+  .manage-history-table td::before {
     color: var(--color-muted-ink);
     content: attr(data-label);
     font-size: var(--text-caption);
@@ -1477,7 +1558,8 @@
   }
 
   .manage-member-table td[data-label="크루"],
-  .manage-member-table td:last-child {
+  .manage-member-table td:last-child,
+  .manage-history-table td[data-label="상태"] {
     grid-column: 1 / -1;
   }
 
@@ -1491,8 +1573,24 @@
     content: none;
   }
 
+  .manage-history-table td[data-label="상태"] {
+    justify-content: space-between;
+  }
+
+  .manage-history-table td[data-label="모집 기간"] {
+    grid-column: 1 / -1;
+  }
+
+  .manage-history-table td[data-label="모집 기간"]::before {
+    align-self: start;
+  }
+
   .manage-member-table td[data-label="가입일"] {
     white-space: normal;
+  }
+
+  .manage-history-table {
+    table-layout: auto;
   }
 
   .manage-member-identity {

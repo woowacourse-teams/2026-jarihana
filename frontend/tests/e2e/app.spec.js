@@ -45,6 +45,11 @@ const routes = [
   { expected: "멤버 관리", name: "members-manage", path: "/groups/10/manage/members" },
   { expected: "모집 관리", name: "recruitments-manage", path: "/groups/10/manage/recruitments" },
   {
+    expected: "모집 이력",
+    name: "recruitment-history-manage",
+    path: "/groups/10/manage/recruitments/history"
+  },
+  {
     expected: "프론트엔드 한 자리",
     name: "registrations-manage",
     path: "/groups/10/manage/recruitments/20/registrations"
@@ -321,6 +326,24 @@ test("places the desktop primary navigation beside the brand", async ({ page }) 
   expect(layout.navLeft).toBeGreaterThanOrEqual(layout.brandRight);
   expect(layout.navLeft - layout.brandRight).toBeLessThanOrEqual(32);
   expect(layout.navRight).toBeLessThan(layout.actionLeft);
+  expect(state.unexpectedResponses).toEqual([]);
+});
+
+test("opens recruitment history from the recruitment management tab", async ({ page }) => {
+  await page.setViewportSize({ height: 831, width: 1280 });
+  const state = await installApiFixture(page);
+
+  await page.goto("/groups/10/manage/recruitments");
+  await expect(page.getByRole("heading", { name: "모집 관리", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "모집 이력" }).click();
+
+  await expect(page).toHaveURL(/\/groups\/10\/manage\/recruitments\/history$/);
+  await expect(page.getByRole("heading", { name: "모집 이력", exact: true })).toBeVisible();
+  await expect(page.getByRole("table", { name: "모집 이력" })).toBeVisible();
+  expect(await page.getByRole("row").count()).toBe(2);
+  expect(
+    state.requests.some(({ method, path }) => method === "GET" && path === "/groups/10/recruitments")
+  ).toBe(true);
   expect(state.unexpectedResponses).toEqual([]);
 });
 
