@@ -206,7 +206,7 @@ describe("ManageMembersPage", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "프론트엔드 성능 튜닝 챌린지" })
     ).toBeVisible();
-    expect(screen.getByRole("link", { name: "모임 상세로 이동" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "모임 상세 보기" })).toHaveAttribute(
       "href",
       "/groups/7"
     );
