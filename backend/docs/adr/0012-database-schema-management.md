@@ -9,6 +9,9 @@
   팀 결정 안건으로 올린다. 결정이 나면 상태를 갱신한다.
 - 개정: 2026-08-27. 팀이 자동화 테스트를 PostgreSQL로 옮기기로 정했다. 최초 작성본은 이 항목을
   결정에서 빼고 후속 작업으로 미뤄 두었으나, 결정 6으로 편입한다.
+- 개정: 2026-09-02. PostgreSQL 실행 수단을 로컬 Docker Compose 재사용으로 못박는다. 팀이 이미
+  정한 사항인데 이 문서가 아직 미정으로 적고 있었다. CI Runner 관련 서술도 사실과 달라 바로잡고,
+  대신 드러난 테스트 데이터베이스 격리 문제를 제약으로 옮긴다.
 
 ## 배경
 
@@ -89,8 +92,10 @@ CREATE TABLE IF NOT EXISTS image_upload (
 파일이 틀려도 배포 전까지 아무도 모른다. 반대로 테스트가 그 파일로 스키마를 만들면, 엔티티와
 마이그레이션이 어긋나는 순간 CI가 막는다.
 
-PostgreSQL 실행 수단은 Testcontainers와 로컬 Docker Compose 재사용 중에서 고른다. CI에서 컨테이너를
-띄울 수 있는지 확인한 뒤 정한다.
+PostgreSQL 실행 수단은 **로컬 Docker Compose 재사용**이다(팀 결정). Testcontainers는 쓰지 않는다.
+로컬은 [`docker-compose-local.yaml`](../../docker-compose-local.yaml)을 그대로 띄우고, CI도 같은
+파일을 띄운다. 테스트 코드가 컨테이너 수명을 관리하지 않으므로 테스트를 돌리기 전에 컨테이너가
+떠 있어야 한다.
 
 ## 검토한 대안
 
@@ -113,9 +118,16 @@ PostgreSQL 실행 수단은 Testcontainers와 로컬 Docker Compose 재사용 �
   (`SET REFERENTIAL_INTEGRITY FALSE`)을 쓴다. 결정 6을 적용하려면 이 파일을 PostgreSQL 구문으로
   다시 써야 한다. `TRUNCATE ... RESTART IDENTITY CASCADE`로 바꾸거나 외래 키를 잠시 미루는
   방식 중에서 고른다.
-- 테스트에서 PostgreSQL을 띄우려면 CI 실행 환경에 Docker가 있어야 한다. 현재 백엔드 배포는 운영
-  EC2의 self-hosted Runner가 수행하므로([ADR 0008](0008-aws-deployment-topology.md)), 테스트를
-  어느 Runner에서 돌릴지와 그 Runner에서 컨테이너를 띄울 수 있는지를 먼저 확인해야 한다.
+- 테스트는 이미 GitHub 호스팅 Runner(`ubuntu-latest`)에서 돈다
+  ([`ci.yml`](../../../.github/workflows/ci.yml)). self-hosted Runner는 배포
+  ([`backend-build.yml`](../../../.github/workflows/backend-build.yml))에만 쓴다. 호스팅 Runner에는
+  Docker가 있으므로 컨테이너를 띄울 수 있는지는 걸림돌이 아니다.
+- **테스트가 개발 데이터베이스를 지운다.** `docker-compose-local.yaml`은 데이터베이스를 `jarihana`
+  하나만 만들고 볼륨이 영속이다. 테스트가 이 데이터베이스에 그대로 붙으면
+  [`truncate.sql`](../../src/test/resources/sql/truncate.sql)이 매 테스트마다 개발 데이터를
+  비운다. 테스트용 데이터베이스를 따로 두어야 한다. 아래 후속 작업 참조.
+- 테스트를 돌리기 전에 컨테이너를 띄우는 일이 사람 몫이 된다. `./gradlew test` 한 줄로 끝나지
+  않는다. Testcontainers를 쓰지 않기로 한 대가다.
 
 ## 결과
 
@@ -144,8 +156,11 @@ PostgreSQL 실행 수단은 Testcontainers와 로컬 Docker Compose 재사용 �
 - 운영 스키마를 덤프해 baseline 마이그레이션을 만든다. Spring Session JDBC의 세션 테이블도 함께
   포함한다.
 - 로컬 프로필에서 `ddl-auto: update`를 걷어낸다.
-- 테스트의 PostgreSQL 실행 수단을 확정한다(Testcontainers 또는 로컬 Compose 재사용). CI Runner에서
-  컨테이너를 띄울 수 있는지 확인하는 것이 선행 조건이다.
+- **테스트용 데이터베이스를 분리한다.** `docker-compose-local.yaml`에 `jarihana_test`를 만들거나
+  테스트 전용 서비스를 하나 더 둔다. 이걸 정하기 전에는 결정 6을 적용할 수 없다.
+- CI에서 컨테이너를 띄우는 단계를 `ci.yml`에 넣는다. 로컬과 같은 compose 파일을 쓰는지, GitHub
+  Actions의 `services:` 블록을 쓰는지 정한다. 후자를 고르면 로컬과 CI가 다시 갈리므로
+  [ADR 0006](0006-api-prefix-backend-context-path.md)이 없앤 종류의 격차가 생긴다.
 - 테스트 프로필에서 H2 의존성과 `ddl-auto: create-drop`을 걷어내고
   [`truncate.sql`](../../src/test/resources/sql/truncate.sql)을 PostgreSQL 구문으로 다시 쓴다.
 - [ADR 0009](0009-postgresql-rdbms-selection.md)를 개정한다. 감수 비용의 "테스트 환경은 H2를
