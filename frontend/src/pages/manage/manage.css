@@ -60,6 +60,7 @@
   display: inline-flex;
   min-height: var(--touch-target);
   align-items: center;
+  gap: var(--space-2);
   flex: 0 0 auto;
   color: var(--color-muted-ink);
   font-size: var(--text-label);
@@ -81,6 +82,23 @@
   border-radius: var(--radius-pill);
   background: var(--color-brand);
   content: "";
+}
+
+.manage-context__pending-badge {
+  box-sizing: border-box;
+  display: inline-grid;
+  min-inline-size: var(--space-5);
+  block-size: var(--space-5);
+  place-items: center;
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--color-danger);
+  color: var(--color-surface);
+  font-size: var(--text-badge);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-align: center;
 }
 
 .manage-heading {

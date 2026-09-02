@@ -165,12 +165,7 @@ FLEXIBLE 고정된 온라인·오프라인 방식 없이 유동적으로 정하�
 
 `type`은 그룹 종류를, `meetingType`은 모임 진행 방식을 표현한다. 두 값은 서로 다른 의미를 가지며 `meetingType`이 `ONLINE`인 경우에도 `location`에는 접속 정보 등을 저장할 수 있다.
 
-`meetingType`은 생성·수정 요청과 그룹 상세 응답에서 항상 포함한다. 기존 데이터에 `NULL`이 있다면 운영 반영 전에 `FLEXIBLE`로 보정한 뒤 `NOT NULL` 제약을 적용해야 한다.
-
-```sql
-UPDATE groups SET meeting_type = 'FLEXIBLE' WHERE meeting_type IS NULL;
-ALTER TABLE groups ALTER COLUMN meeting_type SET NOT NULL;
-```
+`meetingType`은 생성·수정 요청과 그룹 상세 응답에서 항상 포함한다.
 
 #### GroupStatus
 
@@ -296,6 +291,7 @@ classDiagram
 | `registeredAt` | LocalDateTime | NOT NULL | 신청 시각 |
 | `decidedAt` | LocalDateTime | nullable | 승인 또는 거절 시각 |
 | `decidedBy` | DecisionActor | `PENDING`이면 nullable, 결정 후 NOT NULL | 수동 결정은 `MEMBER(memberId)`, 자동 거절은 `SYSTEM` |
+| `leaderViewedAt` | LocalDateTime | nullable | 현재 모임장이 신청 관리 목록에서 신청을 처음 확인한 시각. `null`이면 미확인 |
 
 ### Registration 모델 규칙
 
@@ -306,6 +302,8 @@ classDiagram
 - 이미 상태가 정해진 경우(거절 또는 승인) 사용자는 철회할 수 없다.
 - 수동 승인·거절의 `decidedBy`는 실제 결정을 수행한 `MEMBER(memberId)`로 기록한다.
 - 마감 후 2주 경과에 따른 자동 거절 상황과 그룹의 `status = ENDED` 전환 시 대기 상태인 신청은 거절 처리한다. 그때 `decidedBy = SYSTEM`으로 기록하고 UI에는 `System`으로 표시한다.
+- `leaderViewedAt`은 신청 상태와 독립적으로 관리한다. `AUTO`의 즉시 승인 신청과 `APPROVAL`의 대기 신청 모두 생성 시 `null`이다.
+- 승인·거절 상태 전이는 기존 `leaderViewedAt`을 유지한다. 신청 관리 목록을 실제로 불러온 뒤에만 현재 모집에서 확인한 마지막 신청 ID까지 동일한 확인 시각을 기록한다.
 
 ### GroupMember
 

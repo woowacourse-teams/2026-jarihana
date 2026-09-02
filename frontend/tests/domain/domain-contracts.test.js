@@ -6,7 +6,8 @@ import {
 } from "../../src/entities/recruitment/index.js";
 import {
   registrationDecisionResponseSchema,
-  registrationPageSchema
+  registrationPageSchema,
+  registrationSummarySchema
 } from "../../src/entities/registration/index.js";
 
 describe("backend DTO schemas", () => {
@@ -227,6 +228,22 @@ describe("backend DTO schemas", () => {
 
     // Then
     expect(result.success).toBe(false);
+  });
+
+  it("accepts the group registration summary contract with a nullable target", () => {
+    // Given
+    const payload = {
+      unreadCount: 7,
+      pendingCount: 123,
+      targetRecruitmentId: null,
+      latestRegistrationId: 91
+    };
+
+    // When
+    const result = registrationSummarySchema.parse(payload);
+
+    // Then
+    expect(result).toEqual(payload);
   });
 
   it("distinguishes signup session from a completed member profile", () => {

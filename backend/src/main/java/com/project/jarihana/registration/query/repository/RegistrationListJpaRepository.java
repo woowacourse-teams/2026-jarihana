@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public interface RegistrationListJpaRepository extends JpaRepository<Registration, Long> {
 
@@ -54,4 +55,47 @@ public interface RegistrationListJpaRepository extends JpaRepository<Registratio
             @Param("cursorId") Long cursorId,
             Pageable pageable
     );
+
+    @Query("""
+            select count(registration)
+            from Registration registration
+            where registration.recruitment.group.id = :groupId
+              and registration.status = com.project.jarihana.registration.domain.RegistrationStatus.PENDING
+            """)
+    long countPendingByGroupId(@Param("groupId") Long groupId);
+
+    @Query("""
+            select count(registration)
+            from Registration registration
+            where registration.recruitment.group.id = :groupId
+              and registration.leaderViewedAt is null
+            """)
+    long countUnreadByGroupId(@Param("groupId") Long groupId);
+
+    @Query("""
+            select registration.id
+            from Registration registration
+            where registration.recruitment.group.id = :groupId
+              and registration.leaderViewedAt is null
+            order by registration.registeredAt desc, registration.id desc
+            """)
+    List<Long> findUnreadRegistrationIdsByGroupId(@Param("groupId") Long groupId, Pageable pageable);
+
+    @Query("""
+            select registration.recruitment.id
+            from Registration registration
+            where registration.recruitment.group.id = :groupId
+              and registration.leaderViewedAt is null
+            order by registration.registeredAt desc, registration.id desc
+            """)
+    List<Long> findUnreadRecruitmentIdsByGroupId(@Param("groupId") Long groupId, Pageable pageable);
+
+    @Query("""
+            select registration.recruitment.id
+            from Registration registration
+            where registration.recruitment.group.id = :groupId
+              and registration.status = com.project.jarihana.registration.domain.RegistrationStatus.PENDING
+            order by registration.registeredAt desc, registration.id desc
+            """)
+    List<Long> findPendingRecruitmentIdsByGroupId(@Param("groupId") Long groupId, Pageable pageable);
 }

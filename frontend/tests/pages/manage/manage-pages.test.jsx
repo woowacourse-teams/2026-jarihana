@@ -15,7 +15,9 @@ import {
 } from "../../../src/features/recruitment/index.js";
 import {
   useDecideRegistration,
-  useInfiniteRegistrations
+  useInfiniteRegistrations,
+  useMarkRegistrationsRead,
+  useRegistrationSummary
 } from "../../../src/features/registration/index.js";
 import { useLocation, useParams } from "react-router";
 
@@ -49,7 +51,9 @@ jest.mock("../../../src/features/recruitment/index.js", () => ({
 
 jest.mock("../../../src/features/registration/index.js", () => ({
   useDecideRegistration: jest.fn(),
-  useInfiniteRegistrations: jest.fn()
+  useInfiniteRegistrations: jest.fn(),
+  useMarkRegistrationsRead: jest.fn(),
+  useRegistrationSummary: jest.fn()
 }));
 
 const queryResult = (items) => ({
@@ -61,6 +65,7 @@ const queryResult = (items) => ({
   isFetching: false,
   isFetchingNextPage: false,
   isPending: false,
+  isSuccess: true,
   refetch: jest.fn()
 });
 
@@ -137,6 +142,19 @@ beforeEach(() => {
   useInfiniteRegistrations.mockImplementation((recruitmentId, filters = {}) =>
     queryResult([filters.status === "APPROVED" ? approvedRegistrationFixture : registrationFixture])
   );
+  useRegistrationSummary.mockReturnValue({
+    data: {
+      unreadCount: 0,
+      pendingCount: 0,
+      targetRecruitmentId: null,
+      latestRegistrationId: null
+    },
+    error: null,
+    isError: false,
+    isPending: false,
+    refetch: jest.fn()
+  });
+  useMarkRegistrationsRead.mockReturnValue({ isPending: false, mutate: jest.fn() });
   useDecideRegistration.mockReturnValue({ isPending: false, mutateAsync: jest.fn() });
 });
 
@@ -218,6 +236,97 @@ describe("ManageMembersPage", () => {
     );
     expect(screen.queryByText("모임장 관리")).not.toBeInTheDocument();
     expect(screen.getByRole("table", { name: "모임 멤버" })).toBeVisible();
+  });
+
+  it("Given no pending applications, When rendered, Then the registration tab has no count badge", () => {
+    render(<ManageMembersPage />);
+
+    const navigation = screen.getByRole("navigation", { name: "모임 관리 메뉴" });
+    expect(within(navigation).getByRole("link", { name: "신청 관리" })).toBeVisible();
+    expect(within(navigation).queryByText("0")).not.toBeInTheDocument();
+  });
+
+  it("Given unread auto-approved applications, When rendered, Then the registration tab shows an inline count badge", () => {
+    useRegistrationSummary.mockReturnValue({
+      data: {
+        unreadCount: 7,
+        pendingCount: 0,
+        targetRecruitmentId: 81,
+        latestRegistrationId: 90
+      },
+      error: null,
+      isError: false,
+      isPending: false,
+      refetch: jest.fn()
+    });
+
+    render(<ManageMembersPage />);
+
+    const navigation = screen.getByRole("navigation", { name: "모임 관리 메뉴" });
+    expect(within(navigation).getByText("7")).toHaveClass("manage-context__pending-badge");
+    expect(
+      within(navigation).getByRole("link", { name: "신청 관리 확인하지 않은 신청 7건" })
+    ).toHaveAttribute("href", "/groups/7/manage/recruitments/81/registrations");
+  });
+
+  it("Given at least 100 pending applications, When rendered, Then the badge truncates visually but keeps the full accessible count", () => {
+    useRegistrationSummary.mockReturnValue({
+      data: {
+        unreadCount: 123,
+        pendingCount: 123,
+        targetRecruitmentId: 82,
+        latestRegistrationId: 190
+      },
+      error: null,
+      isError: false,
+      isPending: false,
+      refetch: jest.fn()
+    });
+
+    render(<ManageMembersPage />);
+
+    const navigation = screen.getByRole("navigation", { name: "모임 관리 메뉴" });
+    expect(within(navigation).getByText("99+")).toHaveClass("manage-context__pending-badge");
+    expect(
+      within(navigation).getByRole("link", { name: "신청 관리 확인하지 않은 신청 123건" })
+    ).toHaveAttribute("href", "/groups/7/manage/recruitments/82/registrations");
+  });
+
+  it("Given the registration summary fails, When rendered, Then navigation remains available without a badge", () => {
+    useRegistrationSummary.mockReturnValue({
+      data: undefined,
+      error: { message: "summary unavailable" },
+      isError: true,
+      isPending: false,
+      refetch: jest.fn()
+    });
+
+    render(<ManageMembersPage />);
+
+    const navigation = screen.getByRole("navigation", { name: "모임 관리 메뉴" });
+    expect(within(navigation).getByRole("link", { name: "신청 관리" })).toHaveAttribute(
+      "href",
+      "/groups/7/manage/registrations"
+    );
+    expect(within(navigation).queryByText("99+")).not.toBeInTheDocument();
+  });
+
+  it("Given only the current recruitment, When rendered, Then the registration tab keeps the scoped fallback route", () => {
+    useRegistrationSummary.mockReturnValue({
+      data: { pendingCount: 0, targetRecruitmentId: null },
+      error: null,
+      isError: false,
+      isPending: false,
+      refetch: jest.fn()
+    });
+
+    render(<ManageRegistrationsPage />);
+
+    const navigation = screen.getByRole("navigation", { name: "모임 관리 메뉴" });
+    expect(within(navigation).getByRole("link", { name: "신청 관리" })).toHaveAttribute(
+      "href",
+      "/groups/7/manage/recruitments/81/registrations"
+    );
   });
 
   it("Given a member, When leader transfer is confirmed, Then it sends only the group-member identifier", async () => {
@@ -465,6 +574,43 @@ describe("ManageRegistrationsPage", () => {
     render(<ManageRegistrationsPage />);
 
     expect(useInfiniteRegistrations).toHaveBeenCalledWith("93", {});
+  });
+
+  it("Given a summary target and no route recruitment, When rendered, Then it selects the target recruitment", () => {
+    useParams.mockReturnValue({ groupId: "7" });
+    useRegistrationSummary.mockReturnValue({
+      data: { pendingCount: 4, targetRecruitmentId: 82 },
+      error: null,
+      isError: false,
+      isPending: false,
+      refetch: jest.fn()
+    });
+
+    render(<ManageRegistrationsPage />);
+
+    expect(useInfiniteRegistrations).toHaveBeenCalledWith(82, {});
+    expect(useRecruitment).toHaveBeenCalledWith("7", 82);
+  });
+
+  it("Given an unread summary snapshot, When the applicant list loads, Then it marks that snapshot read", () => {
+    const mutate = jest.fn();
+    useMarkRegistrationsRead.mockReturnValue({ isPending: false, mutate });
+    useRegistrationSummary.mockReturnValue({
+      data: {
+        unreadCount: 2,
+        pendingCount: 1,
+        targetRecruitmentId: 81,
+        latestRegistrationId: 90
+      },
+      error: null,
+      isError: false,
+      isPending: false,
+      refetch: jest.fn()
+    });
+
+    render(<ManageRegistrationsPage />);
+
+    expect(mutate).toHaveBeenCalledWith(90);
   });
 
   it("Given an active recruitment, When rendered, Then the applicant panel is directly identifiable in the management chrome", () => {

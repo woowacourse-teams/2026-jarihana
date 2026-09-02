@@ -3,7 +3,9 @@ import { closeRecruitment, createRecruitment } from "../../src/features/recruitm
 import {
   createRegistration,
   decideRegistration,
-  fetchMyRegistrations
+  fetchRegistrationSummary,
+  fetchMyRegistrations,
+  markRegistrationsRead
 } from "../../src/features/registration/index.js";
 import {
   fetchGroups,
@@ -174,5 +176,34 @@ describe("domain API adapters", () => {
       "recruitments/23/registrations",
       expect.objectContaining({ method: "post", json: values })
     );
+  });
+
+  it("uses the group-scoped registration summary path", async () => {
+    // Given
+    const groupId = 17;
+
+    // When
+    await fetchRegistrationSummary(groupId);
+
+    // Then
+    expect(apiRequest).toHaveBeenCalledWith(
+      "groups/17/registrations/summary",
+      expect.objectContaining({ schema: expect.any(Object) })
+    );
+  });
+
+  it("marks registrations read only through the summary snapshot", async () => {
+    // Given
+    const groupId = 17;
+    const throughRegistrationId = 29;
+
+    // When
+    await markRegistrationsRead(groupId, throughRegistrationId);
+
+    // Then
+    expect(apiRequest).toHaveBeenCalledWith("recruitments/17/registrations/read", {
+      method: "patch",
+      json: { throughRegistrationId: 29 }
+    });
   });
 });

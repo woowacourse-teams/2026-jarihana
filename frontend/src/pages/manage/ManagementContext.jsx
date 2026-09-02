@@ -1,9 +1,35 @@
 import { Link } from "react-router";
 import { useGroup } from "../../features/group/index.js";
+import { useRegistrationSummary } from "../../features/registration/index.js";
 import "./manage.css";
+
+function registrationManagementPath(groupId, summary, fallbackRecruitmentId) {
+  const targetRecruitmentId = summary?.targetRecruitmentId ?? fallbackRecruitmentId;
+
+  return targetRecruitmentId
+    ? `/groups/${groupId}/manage/recruitments/${targetRecruitmentId}/registrations`
+    : `/groups/${groupId}/manage/registrations`;
+}
+
+function RegistrationUnreadBadge({ count }) {
+  if (!count || count < 1) return null;
+
+  const visibleCount = count > 99 ? "99+" : String(count);
+
+  return (
+    <>
+      <span aria-hidden="true" className="manage-context__pending-badge">
+        {visibleCount}
+      </span>
+      <span className="manage-visually-hidden">확인하지 않은 신청 {count}건</span>
+    </>
+  );
+}
 
 export function ManagementContext({ active, groupId, recruitmentId }) {
   const groupQuery = useGroup(groupId);
+  const registrationSummaryQuery = useRegistrationSummary(groupId);
+  const registrationSummary = registrationSummaryQuery.data;
   const groupName = groupQuery.data?.name ?? `모임 #${groupId}`;
   const links = [
     { key: "overview", label: "모임 수정", to: `/groups/${groupId}/manage` },
@@ -15,9 +41,8 @@ export function ManagementContext({ active, groupId, recruitmentId }) {
     {
       key: "registrations",
       label: "신청 관리",
-      to: recruitmentId
-        ? `/groups/${groupId}/manage/recruitments/${recruitmentId}/registrations`
-        : `/groups/${groupId}/manage/registrations`
+      unreadCount: registrationSummary?.unreadCount ?? 0,
+      to: registrationManagementPath(groupId, registrationSummary, recruitmentId)
     },
     { key: "members", label: "멤버 관리", to: `/groups/${groupId}/manage/members` }
   ];
@@ -37,7 +62,10 @@ export function ManagementContext({ active, groupId, recruitmentId }) {
             key={link.key}
             to={link.to}
           >
-            {link.label}
+            <span>{link.label}</span>
+            {link.key === "registrations" ? (
+              <RegistrationUnreadBadge count={link.unreadCount} />
+            ) : null}
           </Link>
         ))}
       </nav>

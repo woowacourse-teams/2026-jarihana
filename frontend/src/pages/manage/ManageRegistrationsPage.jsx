@@ -1,9 +1,11 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { useInfiniteRecruitments, useRecruitment } from "../../features/recruitment/index.js";
 import {
   useDecideRegistration,
-  useInfiniteRegistrations
+  useInfiniteRegistrations,
+  useMarkRegistrationsRead,
+  useRegistrationSummary
 } from "../../features/registration/index.js";
 import {
   Button,
@@ -35,15 +37,19 @@ const filterOptions = [
 
 export function ManageRegistrationsPage() {
   const { groupId, recruitmentId: routeRecruitmentId } = useParams();
+  const registrationSummaryQuery = useRegistrationSummary(groupId);
+  const targetRecruitmentId = registrationSummaryQuery.data?.targetRecruitmentId;
   const recruitmentsQuery = useInfiniteRecruitments(groupId);
   const currentRecruitment = flattenPages(recruitmentsQuery.data).find(
     (recruitment) => recruitment.recruitingStatus !== "CLOSED"
   );
-  const recruitmentId = routeRecruitmentId ?? currentRecruitment?.id;
+  const recruitmentId = routeRecruitmentId ?? targetRecruitmentId ?? currentRecruitment?.id;
   const [status, setStatus] = useState("");
   const registrationsQuery = useInfiniteRegistrations(recruitmentId, {
     ...(status ? { status } : {})
   });
+  const { mutate: markRegistrationsRead } = useMarkRegistrationsRead(recruitmentId);
+  const markedRecruitmentRef = useRef(null);
   const decideRegistration = useDecideRegistration(recruitmentId);
   const recruitmentQuery = useRecruitment(groupId, recruitmentId);
   const [decision, setDecision] = useState(null);
@@ -51,11 +57,29 @@ export function ManageRegistrationsPage() {
   const [mutationError, setMutationError] = useState(null);
   const registrations = flattenPages(registrationsQuery.data);
 
-  if (!routeRecruitmentId && recruitmentsQuery.isPending) {
+  useEffect(() => {
+    const latestRegistrationId = registrationSummaryQuery.data?.latestRegistrationId;
+    const summaryRecruitmentId = registrationSummaryQuery.data?.targetRecruitmentId;
+    const showsUnreadTarget =
+      summaryRecruitmentId != null && String(summaryRecruitmentId) === String(recruitmentId);
+    if (
+      String(markedRecruitmentRef.current) === String(recruitmentId) ||
+      !registrationsQuery.isSuccess ||
+      !latestRegistrationId ||
+      !showsUnreadTarget
+    ) {
+      return;
+    }
+
+    markedRecruitmentRef.current = recruitmentId;
+    markRegistrationsRead(latestRegistrationId);
+  }, [markRegistrationsRead, recruitmentId, registrationSummaryQuery.data, registrationsQuery.isSuccess]);
+
+  if (!routeRecruitmentId && !targetRecruitmentId && recruitmentsQuery.isPending) {
     return <ManageLoading title="신청 관리" />;
   }
 
-  if (!routeRecruitmentId && recruitmentsQuery.isError) {
+  if (!routeRecruitmentId && !targetRecruitmentId && recruitmentsQuery.isError) {
     const view = errorView(recruitmentsQuery.error);
     return (
       <div className="manage-page manage-page--dashboard manage-page--registrations">

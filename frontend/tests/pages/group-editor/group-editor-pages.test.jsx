@@ -32,6 +32,15 @@ jest.mock("../../../src/features/group/index.js", () => ({
   useTerminateGroup: () => ({ mutateAsync: mockTerminateGroup, isPending: false })
 }));
 
+jest.mock("../../../src/features/registration/index.js", () => ({
+  useRegistrationSummary: () => ({
+    data: { pendingCount: 0, targetRecruitmentId: null },
+    error: null,
+    isError: false,
+    isPending: false
+  })
+}));
+
 /*
  * 이미지 업로드 훅은 QueryClientProvider를 요구한다. 편집 화면 테스트는 프로바이더
  * 없이 페이지만 그리므로, 그룹 기능과 같은 방식으로 훅만 대역으로 바꾼다.

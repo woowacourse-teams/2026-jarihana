@@ -126,6 +126,42 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
         return response.cookie("XSRF-TOKEN");
     }
 
+    @DisplayName("모임장이 신청 관리 화면에서 확인한 마지막 신청까지 읽음 처리한다.")
+    @Test
+    void marksRegistrationsRead() {
+        // Given
+        Member leader = saveMember("확인리더", "registration-read-controller-leader");
+        Member applicant = saveMember("확인자", "registration-read-controller-applicant");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 3);
+        groupMemberRepository.save(GroupMember.createLeader(
+                recruitment.getGroup(),
+                leader,
+                TestSupportConfig.FIXED_NOW.minusDays(1)
+        ));
+        Registration registration = registrationRepository.save(Registration.createPending(
+                recruitment,
+                applicant,
+                null,
+                TestSupportConfig.FIXED_NOW.minusHours(1)
+        ));
+        String accessToken = accessTokenProvider.issue(leader.getId()).value();
+        String csrfToken = csrfToken(recruitment.getGroup().getId());
+
+        // When / Then
+        authenticatedRequest(accessToken, csrfToken)
+                .body("{\"throughRegistrationId\":" + registration.getId() + "}")
+                .when()
+                .patch("/recruitments/{recruitmentId}/registrations/read", recruitment.getId())
+                .then()
+                .statusCode(204)
+                .body(equalTo(""));
+
+        assertThat(registrationRepository.findById(registration.getId()))
+                .get()
+                .extracting(Registration::getLeaderViewedAt)
+                .isEqualTo(TestSupportConfig.FIXED_NOW);
+    }
+
     @DisplayName("다른 회원의 가입 신청을 철회하면 접근 거부로 응답한다.")
     @Test
     void rejectsWithdrawalOfAnotherMembersRegistration() {

@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getSafeNextCursor } from "../../entities/cursor/index.js";
 import { groupKeys } from "../group/index.js";
@@ -7,7 +7,9 @@ import {
   createRegistration,
   decideRegistration,
   fetchMyRegistrations,
+  fetchRegistrationSummary,
   fetchRegistrations,
+  markRegistrationsRead,
   withdrawRegistration
 } from "./api.js";
 
@@ -15,6 +17,8 @@ export const registrationKeys = {
   all: ["registrations"],
   applicantLists: () => ["registrations", "applicants"],
   applicants: (recruitmentId, filters) => ["registrations", "applicants", recruitmentId, filters],
+  groupSummaries: () => ["registrations", "summary"],
+  groupSummary: (groupId) => ["registrations", "summary", groupId],
   myLists: () => ["registrations", "my"],
   mine: (filters) => ["registrations", "my", filters]
 };
@@ -39,9 +43,31 @@ export function useInfiniteMyRegistrations(filters = {}) {
   });
 }
 
+export function useRegistrationSummary(groupId) {
+  return useQuery({
+    queryKey: registrationKeys.groupSummary(groupId),
+    queryFn: () => fetchRegistrationSummary(groupId),
+    enabled: Boolean(groupId),
+    refetchOnWindowFocus: true,
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false
+  });
+}
+
+export function useMarkRegistrationsRead(recruitmentId) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (throughRegistrationId) =>
+      markRegistrationsRead(recruitmentId, throughRegistrationId),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: registrationKeys.groupSummaries() })
+  });
+}
+
 function invalidateRegistrationViews(queryClient) {
   return Promise.all([
     queryClient.invalidateQueries({ queryKey: registrationKeys.applicantLists() }),
+    queryClient.invalidateQueries({ queryKey: registrationKeys.groupSummaries() }),
     queryClient.invalidateQueries({ queryKey: registrationKeys.myLists() }),
     queryClient.invalidateQueries({ queryKey: recruitmentKeys.all }),
     queryClient.invalidateQueries({ queryKey: groupKeys.all })
