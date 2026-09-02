@@ -18,6 +18,8 @@ import {
   errorView,
   flattenPages,
   formatDate,
+  generationLabel,
+  memberTypeLabel,
   roleLabel,
   statusTone
 } from "./manageUtils.js";
@@ -43,8 +45,8 @@ export function ManageMembersPage() {
   const members = flattenPages(membersQuery.data);
   const normalizedSearch = search.trim().toLocaleLowerCase("ko-KR");
   const visibleMembers = members.filter((member) => {
-    const matchesCourse = !course || member.course === course;
-    const searchable = `${member.crewName} ${member.generation} ${courseLabel(member.course)}`;
+    const matchesCourse = !course || (course === "COACH" ? member.memberType === "COACH" : member.course === course);
+    const searchable = `${member.crewName} ${generationLabel(member.generation)} ${memberTypeLabel(member.memberType)} ${courseLabel(member.course) ?? ""}`;
     return matchesCourse && searchable.toLocaleLowerCase("ko-KR").includes(normalizedSearch);
   });
   const sortedMembers = [...visibleMembers].sort((first, second) => {
@@ -132,12 +134,13 @@ export function ManageMembersPage() {
             value={search}
           />
         </label>
-        <div aria-label="과정 필터" className="manage-course-filters" role="group">
+        <div aria-label="과정 및 회원 유형 필터" className="manage-course-filters" role="group">
           {[
             ["", "전체"],
             ["BACKEND", "백엔드"],
             ["FRONTEND", "프론트엔드"],
-            ["ANDROID", "안드로이드"]
+            ["ANDROID", "안드로이드"],
+            ["COACH", "코치"]
           ].map(([value, label]) => (
             <button
               aria-pressed={course === value}
@@ -202,8 +205,10 @@ export function ManageMembersPage() {
                       <strong>{member.crewName}</strong>
                     </div>
                   </td>
-                  <td data-label="과정">{courseLabel(member.course)}</td>
-                  <td data-label="기수">{member.generation}기</td>
+                  <td data-label="과정">
+                    {member.memberType === "COACH" ? memberTypeLabel(member.memberType) : courseLabel(member.course)}
+                  </td>
+                  <td data-label="기수">{generationLabel(member.generation)}</td>
                   <td data-label="역할">
                     <StatusBadge tone={statusTone(member.role)}>
                       {roleLabel(member.role)}

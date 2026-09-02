@@ -8,6 +8,8 @@ import {
   localTimeSchema
 } from "../common/schemas.js";
 
+const memberTypeSchema = z.enum(["CREW", "COACH"]);
+
 export const groupTypeSchema = z.enum(["CLUB", "STUDY", "SESSION"]);
 export const groupMeetingTypeSchema = z.enum(["ONLINE", "OFFLINE", "FLEXIBLE"]);
 export const groupStatusSchema = z.enum(["ACTIVE", "ENDED"]);
@@ -40,7 +42,8 @@ export const sessionScheduleSchema = z.object({
 const leaderSchema = z.object({
   memberId: entityIdSchema,
   crewName: z.string(),
-  generation: z.number().int().positive(),
+  memberType: memberTypeSchema,
+  generation: z.number().int().positive().nullable(),
   avatarUrl: z.string().url().optional()
 });
 

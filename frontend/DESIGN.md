@@ -43,7 +43,9 @@
 | `--color-muted`        | `#7a7a7a`        | 보조 정보                                  |
 | `--color-muted-ink`    | `#666666`        | 작은 text의 대비 보강                      |
 | `--color-line`         | `#e0e0e0`        | 구분선과 field border                      |
+| `--color-line-strong`  | `#d8dade`        | 계정 카드처럼 선명한 surface 경계          |
 | `--color-surface`      | `#ffffff`        | 카드와 입력 surface                        |
+| `--color-surface-sunken`| `#f4f5f7`       | 카드 안쪽의 낮은 깊이 surface               |
 | `--color-section-soft` | `#fcfcfc`        | 탐색 결과 section을 hero와 분리하는 surface |
 | `--color-canvas`       | `#ffffff`        | 앱 배경                                    |
 | `--color-nav`          | `#000000`        | global header                              |
@@ -93,6 +95,8 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 ### Spacing and geometry
 
 - Spacing: `0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64`.
+- Signup character image: the visual size is capped at `--signup-type-image-size` (`15rem`),
+  with a `--signup-type-image-base-size` (`7.5rem`) layout box rendered at fixed `scale(2)`.
 - Radius: small `8`, medium `14`, large `20`, pill `999`.
 - Footer Contact us block: `--footer-contact-max-width` `22rem` max width on desktop/tablet.
 - Container: 구현 token `--container-shell`은 `1440px`(`90rem`)이다. `/`의 content rail을
@@ -288,12 +292,38 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 개발용 `/__showcase` route에서 light canvas 위 모든 variant, keyboard focus, error, disabled, pending,
 long Korean copy, empty/skeleton을 검수한다. production navigation에는 노출하지 않는다.
 
+`SignupTypeOption`은 `/signup`의 가입 유형 선택에만 사용하는 radio pattern이다. `button[role="radio"]`
+안에 1:1 character image와 text label을 쌓아 폼 내부 2열 중 한 열을 채우고,
+default/hover/active/focus/selected 상태를 제공한다.
+이미지는 장식적 보조 정보로 `alt=""`와 `aria-hidden`을 사용하며, 선택 의미는 라벨과
+`aria-checked`로 전달한다. 간격은 기존 `--space-*` 토큰을 사용하고, 이미지는
+`--signup-type-image-base-size`를 기준으로 `scale(2)`를 고정해 hover/selected 상태에서도
+크기를 바꾸지 않는다. 이미지 프레임이 확대된 이미지의 실제 영역을 차지하므로 라벨과
+언더라인이 이미지 아래에 놓인다. hover는 옅은 민트 surface를 사용하지만 selected 상태는
+브랜드 언더라인과 기본 text 색만 사용한다.
+프로필 입력 상태에서도 코치는 선택한 캐릭터 이미지와 선택 영역을 오른쪽, `SignupProfilePanel`을
+왼쪽에 두고, 크루는 캐릭터를 왼쪽, `SignupProfilePanel`을 오른쪽에 둔다. 캐릭터가
+프로필 사진을 등지지 않도록 선택 전의 캐릭터 위치를 유지하고, 프로필 입력 패널만
+캐릭터 반대편에서 펼쳐진다. 프로필 입력은
+선택 영역의 언더라인과 수직 기준을 맞추도록 위로 정렬한다. 가입 완료와 유형 변경 액션은
+전체 프로필 입력 영역의 중앙 아래에 배치한다. `유형 변경`으로 다시 두 유형을 선택할 수 있다.
+폼 상단의 안내 문구는 선택 전 `안녕하세요. 크루인가요? 코치인가요?`를 보여주고,
+선택 후에는 크루·코치 상태에 맞는 문구로 갱신한다. 상태 변경은 `aria-live="polite"`로
+전달하며 문구는 검정색의 h2 크기로 폼 상단 중앙에 배치한다. 초기 선택 화면에서는
+중복되는 `가입 유형 선택`·`프로필 입력` 헤더를 숨긴다. 문구는 `--space-8`만큼 위로
+시각 이동하고, 모바일에서는 정사각형 고정과 2열을 해제해 선택 캐릭터·프로필 입력·액션이
+세로로 이어지는 콘텐츠 기반 흐름을 사용한다. 모바일에서 유형을 선택한 뒤에는 선택 영역을
+숨기고 프로필 입력과 액션만 남겨 정보 입력에 집중할 수 있게 한다.
+
 ## 6. Interaction and motion
 
-- Fast `120ms`, base `180ms`, deliberate `240ms`; easing `cubic-bezier(.2,.8,.2,1)`.
+- Fast `120ms`, base `180ms`, deliberate `240ms`, smooth `420ms`; easing `cubic-bezier(.2,.8,.2,1)`.
 - Button은 색/1px translate 변화만, 카드 hover는 2px 이내 상승한다. tabs의 단일 underline은
   `180ms` transform으로 새 위치에 이동하고 panel은 opacity + 8px translate로 진입한다.
-- Header와 route/content tabs의 underline은 현재 목적지/패널 하나에만 표시한다. Select chevron은
+- Signup의 크루·코치 전환은 선택 전 캐릭터 위치를 유지한다. 캐릭터 반대편의 프로필 패널은
+  `scaleX`와 `translateX`를 함께 사용해 중앙에서 바깥쪽으로 살짝 펼쳐지며, 양쪽 방향 모두
+  `smooth` duration을 사용한다. `prefers-reduced-motion`에서는 이동을 제거한다.
+  Header와 route/content tabs의 underline은 현재 목적지/패널 하나에만 표시한다. Select chevron은
   열 수 있는 control임을 상시 알리며, 기수 rail preview는 hover와 focus에서 같은 정보를 제공한다.
 - Toast는 2,000ms 후 180ms 동안 opacity와 transform으로 부드럽게 퇴장한 뒤 제거되며, 사용자가
   직접 닫을 수 있는 닫기 버튼을 함께 제공한다.

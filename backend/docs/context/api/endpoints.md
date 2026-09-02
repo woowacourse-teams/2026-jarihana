@@ -129,6 +129,7 @@ Refresh Token 회전 정책을 적용하는 경우 기존 토큰을 폐기하고
 
 ```json
 {
+  "memberType": "CREW",
   "crewName": "가온",
   "generation": 8,
   "course": "BACKEND"
@@ -136,7 +137,9 @@ Refresh Token 회전 정책을 적용하는 경우 기존 토큰을 폐기하고
 ```
 
 - `githubId`는 Request Body가 아니라 가입 세션에서 읽는다.
-- `course`는 `BACKEND`, `FRONTEND`, `ANDROID` 중 하나다.
+- `memberType`은 `CREW` 또는 `COACH` 중 하나다.
+- `memberType = CREW`이면 `course`는 `BACKEND`, `FRONTEND`, `ANDROID` 중 하나이고 `generation`은 양수 필수다.
+- `memberType = COACH`이면 `course`와 `generation`을 생략한다.
 
 #### 응답 201
 
@@ -146,6 +149,7 @@ Refresh Token 회전 정책을 적용하는 경우 기존 토큰을 폐기하고
   "data": {
     "id": 12,
     "crewName": "가온",
+    "memberType": "CREW",
     "generation": 8,
     "course": "BACKEND",
     "joinedAt": "2026-08-13T10:00:00"
@@ -169,8 +173,8 @@ Location: /api/members/12
 | 가입 세션 없음·만료 | `SIGNUP_SESSION_REQUIRED` | 401 |
 | 이미 가입한 GitHub 사용자 | `MEMBER_ALREADY_EXISTS` | 409 |
 | crewName 형식 오류 | `INVALID_PARAMETER` | 400 |
-| crewName + generation 중복 | `MEMBER_CREW_DUPLICATED` | 409 |
-| 지원하지 않는 course | `INVALID_PARAMETER` | 400 |
+| 같은 기수의 크루명 중복 또는 코치명·크루명 충돌 | `MEMBER_CREW_DUPLICATED` | 409 |
+| memberType/course/generation 조합 오류 | `INVALID_PARAMETER` | 400 |
 
 ### `GET /api/members/me`
 
@@ -195,6 +199,7 @@ Location: /api/members/12
   "success": true,
   "data": {
     "signupCompleted": false,
+    "avatarUrl": "https://avatars.githubusercontent.com/u/123456",
     "member": null
   },
   "error": null
@@ -211,6 +216,7 @@ Location: /api/members/12
     "member": {
       "id": 12,
       "crewName": "가온",
+      "memberType": "CREW",
       "generation": 8,
       "course": "BACKEND",
       "avatarUrl": "https://avatars.githubusercontent.com/u/123456"
@@ -221,6 +227,8 @@ Location: /api/members/12
 ```
 
 프로필 이미지 URL은 저장하지 않고 `githubId`로 구성한다.
+
+`memberType = COACH`인 회원은 `generation`과 `course`가 `null`이다.
 
 #### 예외
 
@@ -339,7 +347,7 @@ Refresh Token을 모두 `HttpOnly` 쿠키로 내린다. `state` 검증 방식은
       "name": "알고리즘 스터디",
       "introduction": "매주 함께 문제를 풉니다.",
       "representativeImageUrl": "images/default-group.png",
-      "leader": {"memberId": 3, "crewName": "크루A", "generation": 8, "avatarUrl": "https://avatars.githubusercontent.com/u/3"},
+      "leader": {"memberId": 3, "crewName": "크루A", "generation": 8, "memberType": "CREW", "avatarUrl": "https://avatars.githubusercontent.com/u/3"},
       "memberCount": 6,
       "activeRecruitment": {
         "id": 45,
@@ -539,7 +547,7 @@ Request Body는 없다.
       "endTime": "21:00:00"
     },
     "sessionSchedule": null,
-    "leader": {"memberId": 3, "crewName": "가온", "generation": 8, "avatarUrl": "https://avatars.githubusercontent.com/u/3"},
+    "leader": {"memberId": 3, "crewName": "가온", "generation": 8, "memberType": "CREW", "avatarUrl": "https://avatars.githubusercontent.com/u/3"},
     "memberCount": 6,
     "activeRecruitment": null,
     "currentMemberRole": null,
@@ -1120,6 +1128,7 @@ Location: /api/groups/12/recruitments/45
       "member": {
         "id": 21,
         "crewName": "마루",
+        "memberType": "CREW",
         "generation": 8,
         "course": "FRONTEND"
       },
@@ -1415,6 +1424,7 @@ Request Body는 없다.
       "groupMemberId": 31,
       "memberId": 3,
       "crewName": "가온",
+      "memberType": "CREW",
       "generation": 8,
       "avatarUrl": "https://avatars.githubusercontent.com/u/3",
       "course": "BACKEND",

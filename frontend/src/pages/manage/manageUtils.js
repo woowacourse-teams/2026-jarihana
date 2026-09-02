@@ -28,6 +28,14 @@ export function courseLabel(course) {
   );
 }
 
+export function memberTypeLabel(memberType) {
+  return { COACH: "코치", CREW: "크루" }[memberType] ?? memberType;
+}
+
+export function generationLabel(generation) {
+  return Number.isInteger(generation) && generation > 0 ? `${generation}기` : "기수 미정";
+}
+
 export function roleLabel(role) {
   return role === "LEADER" ? "모임장" : "모임원";
 }
