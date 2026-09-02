@@ -53,6 +53,9 @@ public class Registration extends BaseEntity {
     @Embedded
     private DecisionActor decidedBy;
 
+    @Column(name = "leader_viewed_at")
+    private LocalDateTime leaderViewedAt;
+
     private Registration(
             Long id,
             GroupRecruitment recruitment,
@@ -62,7 +65,8 @@ public class Registration extends BaseEntity {
             String rejectReason,
             LocalDateTime registeredAt,
             LocalDateTime decidedAt,
-            DecisionActor decidedBy
+            DecisionActor decidedBy,
+            LocalDateTime leaderViewedAt
     ) {
         super(registeredAt);
         this.id = id;
@@ -74,6 +78,7 @@ public class Registration extends BaseEntity {
         this.registeredAt = require(registeredAt, "신청 시각");
         this.decidedAt = decidedAt;
         this.decidedBy = decidedBy;
+        this.leaderViewedAt = leaderViewedAt;
         validateDecisionState(status, rejectReason, decidedAt, decidedBy);
     }
 
@@ -128,6 +133,7 @@ public class Registration extends BaseEntity {
                 null,
                 registeredAt,
                 null,
+                null,
                 null
         );
     }
@@ -170,7 +176,8 @@ public class Registration extends BaseEntity {
                 null,
                 registeredAt,
                 registeredAt,
-                DecisionActor.system()
+                DecisionActor.system(),
+                null
         );
     }
 
@@ -201,7 +208,23 @@ public class Registration extends BaseEntity {
                 rejectReason,
                 registeredAt,
                 decidedAt,
-                decidedBy
+                decidedBy,
+                leaderViewedAt
+        );
+    }
+
+    public Registration viewByLeader(LocalDateTime viewedAt) {
+        return new Registration(
+                id,
+                recruitment,
+                member,
+                message,
+                status,
+                rejectReason,
+                registeredAt,
+                decidedAt,
+                decidedBy,
+                require(viewedAt, "모임장 확인 시각")
         );
     }
 
@@ -273,6 +296,10 @@ public class Registration extends BaseEntity {
 
     public DecisionActor getDecidedBy() {
         return decidedBy;
+    }
+
+    public LocalDateTime getLeaderViewedAt() {
+        return leaderViewedAt;
     }
 
     @Override

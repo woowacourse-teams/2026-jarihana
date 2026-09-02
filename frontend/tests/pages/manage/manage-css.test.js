@@ -38,5 +38,6 @@ describe("management text color tokens", () => {
     expect(manageCss).toContain("min-inline-size: var(--space-5)");
     expect(manageCss).toContain("min-block-size: var(--space-5)");
     expect(manageCss).toContain("padding-inline: var(--space-1)");
+    expect(manageCss).toContain("font-size: var(--text-badge)");
   });
 });

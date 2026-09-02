@@ -329,7 +329,9 @@ class RegistrationQueryControllerTest extends IntegrationTestSupport {
                 null,
                 NOW.plusMinutes(1)
         );
-        registrationRepository.save(approved.approve(DecisionActor.member(leader.getId()), NOW.plusMinutes(2), 0));
+        Registration latestUnread = registrationRepository.save(
+                approved.approve(DecisionActor.member(leader.getId()), NOW.plusMinutes(2), 0)
+        );
         recruitmentRepository.save(closedRecruitment.closeAt(NOW.plusMinutes(3)));
         savePendingRegistration(
                 otherRecruitment,
@@ -347,8 +349,10 @@ class RegistrationQueryControllerTest extends IntegrationTestSupport {
                 .then()
                 .statusCode(200)
                 .body("success", equalTo(true))
+                .body("data.unreadCount", equalTo(3))
                 .body("data.pendingCount", equalTo(2))
                 .body("data.targetRecruitmentId", equalTo(latest.getRecruitment().getId().intValue()))
+                .body("data.latestRegistrationId", equalTo(latestUnread.getId().intValue()))
                 .body("error", nullValue());
     }
 
@@ -375,8 +379,10 @@ class RegistrationQueryControllerTest extends IntegrationTestSupport {
                 .then()
                 .statusCode(200)
                 .body("success", equalTo(true))
+                .body("data.unreadCount", equalTo(0))
                 .body("data.pendingCount", equalTo(0))
                 .body("data.targetRecruitmentId", nullValue())
+                .body("data.latestRegistrationId", nullValue())
                 .body("error", nullValue());
     }
 

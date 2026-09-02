@@ -31,6 +31,7 @@
   --color-text-muted: var(--color-muted-ink);
 
   --font-sans: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --text-badge: 0.75rem;
   --text-caption: 0.8125rem;
   --text-label: 0.875rem;
   --text-body: 0.9375rem;

@@ -204,14 +204,16 @@ class RegistrationQueryServiceTest {
         // Given
         repository.givenGroupExists(true);
         repository.givenLeaderAccess(true);
-        repository.givenSummary(new RegistrationSummaryProjection(3, 45L));
+        repository.givenSummary(new RegistrationSummaryProjection(5, 3, 45L, 81L));
 
         // When
         RegistrationSummaryResult result = service.findRegistrationSummary(MEMBER_ID, 12L);
 
         // Then
+        assertThat(result.unreadCount()).isEqualTo(5);
         assertThat(result.pendingCount()).isEqualTo(3);
         assertThat(result.targetRecruitmentId()).isEqualTo(45L);
+        assertThat(result.latestRegistrationId()).isEqualTo(81L);
     }
 
     @DisplayName("존재하지 않는 그룹의 대기 신청 요약 조회를 거부한다.")
@@ -254,7 +256,7 @@ class RegistrationQueryServiceTest {
         private boolean leaderAccess;
         private RegistrationListPage page = new RegistrationListPage(List.of(), false);
         private MyRegistrationListPage myPage = new MyRegistrationListPage(List.of(), false);
-        private RegistrationSummaryProjection summary = new RegistrationSummaryProjection(0, null);
+        private RegistrationSummaryProjection summary = new RegistrationSummaryProjection(0, 0, null, null);
         private MyRegistrationListSearchCriteria lastMyCriteria;
         private int lastMySize;
 

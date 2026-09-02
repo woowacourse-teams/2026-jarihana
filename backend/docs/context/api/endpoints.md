@@ -14,8 +14,9 @@
 
 | 분류 | Method | Endpoint | 권한 | 설명 |
 | --- | --- | --- | --- | --- |
-| 가입 신청 | `GET` | `/api/groups/{groupId}/registrations/summary` | `LEADER` | 그룹의 처리 대기 신청 요약 조회 |
+| 가입 신청 | `GET` | `/api/groups/{groupId}/registrations/summary` | `LEADER` | 그룹의 미확인·처리 대기 신청 요약 조회 |
 | 가입 신청 | `GET` | `/api/recruitments/{recruitmentId}/registrations` | `LEADER` | 모집 공고 신청자 목록 조회 |
+| 가입 신청 | `PATCH` | `/api/recruitments/{recruitmentId}/registrations/read` | `LEADER` | 확인한 마지막 신청까지 읽음 처리 |
 | 가입 신청 | `POST` | `/api/recruitments/{recruitmentId}/registrations` | `MEMBER` | 모집 공고에 가입 신청 |
 | 가입 신청 | `DELETE` | `/api/recruitments/{recruitmentId}/registrations/{registrationId}` | `MEMBER` | 내 대기 중 가입 신청 철회 |
 | 가입 신청 | `PATCH` | `/api/recruitments/{recruitmentId}/registrations/{registrationId}` | `LEADER` | 가입 신청 승인·거절 |
@@ -1091,7 +1092,7 @@ Location: /api/groups/12/recruitments/45
 
 ### `GET /api/groups/{groupId}/registrations/summary`
 
-- 설명: 그룹의 처리 대기 신청 요약 조회
+- 설명: 그룹의 미확인 신청과 처리 대기 신청 요약 조회
 - 권한: `LEADER`
 - 원본: 프런트엔드 모임 관리 탭 배지 요구로 추가된 저장소 계약
 
@@ -1099,9 +1100,10 @@ Location: /api/groups/12/recruitments/45
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
 - 권한 `LEADER`의 자격 증명 규칙을 적용한다.
 - 204를 제외한 응답은 `success`, `data`, `error` 봉투를 사용한다.
-- 해당 그룹에 속한 모든 모집 공고의 `PENDING` 신청만 집계한다.
-- 마감된 모집 공고에 남아 있는 `PENDING` 신청도 집계에 포함한다.
-- `APPROVED`, `REJECTED` 신청과 다른 그룹의 신청은 제외한다.
+- `unreadCount`는 해당 그룹에 속한 모든 모집 공고에서 `leaderViewedAt = null`인 신청을 상태와 관계없이 집계한다.
+- `pendingCount`는 해당 그룹에 속한 모든 모집 공고의 `PENDING` 신청을 집계한다.
+- 마감된 모집 공고의 신청도 두 집계에 포함한다.
+- 다른 그룹의 신청은 제외한다.
 
 #### Path Parameters
 - `groupId`: 대기 신청 요약을 조회할 그룹 식별자
@@ -1115,14 +1117,16 @@ Request Body는 없다.
 {
   "success": true,
   "data": {
+    "unreadCount": 4,
     "pendingCount": 3,
-    "targetRecruitmentId": 45
+    "targetRecruitmentId": 45,
+    "latestRegistrationId": 91
   },
   "error": null
 }
 ```
 
-`targetRecruitmentId`는 해당 그룹의 `PENDING` 신청 중 가장 최근 신청(`registeredAt DESC, id DESC`)이 속한 모집 공고 식별자다. `pendingCount`가 0이면 `targetRecruitmentId`는 `null`이다.
+`targetRecruitmentId`는 해당 그룹의 미확인 신청 중 가장 최근 신청(`registeredAt DESC, id DESC`)이 속한 모집 공고 식별자다. 미확인 신청이 없으면 가장 최근 `PENDING` 신청의 모집 공고를 반환하고, 둘 다 없으면 `null`이다. `latestRegistrationId`는 가장 최근 미확인 신청 ID이며 미확인 신청이 없으면 `null`이다.
 
 #### 예외
 
@@ -1131,6 +1135,38 @@ Request Body는 없다.
 | 인증 정보 없음·만료 | `UNAUTHENTICATED` | 401 |
 | 해당 그룹의 모임장이 아님 | `GROUP_ACCESS_DENIED` | 403 |
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
+
+### `PATCH /api/recruitments/{recruitmentId}/registrations/read`
+
+- 설명: 신청 관리 목록에서 확인한 마지막 신청까지 읽음 처리
+- 권한: `LEADER`
+- 원본: 프런트엔드 모임 관리 탭 배지 요구로 추가된 저장소 계약
+
+#### 요청
+
+```json
+{
+  "throughRegistrationId": 91
+}
+```
+
+- `throughRegistrationId`는 직전에 받은 신청 요약의 `latestRegistrationId`를 사용한다.
+- 요청한 모집에서 ID가 `throughRegistrationId` 이하이고 `leaderViewedAt`이 `null`인 신청만 현재 시각으로 갱신한다.
+- 다른 모집의 신청과 요청 처리 중 새로 생성되어 더 큰 ID를 받은 신청은 갱신하지 않는다.
+
+#### 응답 204 No Content
+
+본문이 없다.
+
+#### 예외
+
+| 상황 | 코드 | HTTP |
+| --- | --- | --- |
+| 인증 정보 없음·만료 | `UNAUTHENTICATED` | 401 |
+| 해당 그룹의 모임장이 아님 | `GROUP_ACCESS_DENIED` | 403 |
+| 모집 공고 없음 | `RECRUITMENT_NOT_FOUND` | 404 |
+| 종료된 그룹 | `GROUP_ENDED` | 409 |
+| `throughRegistrationId`가 양수가 아님 | `INVALID_PARAMETER` | 400 |
 
 ### `GET /api/recruitments/{recruitmentId}/registrations`
 

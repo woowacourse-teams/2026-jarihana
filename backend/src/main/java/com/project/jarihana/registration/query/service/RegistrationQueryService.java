@@ -92,7 +92,12 @@ public class RegistrationQueryService {
             throw new BusinessException(ErrorCode.GROUP_ACCESS_DENIED, "현재 모임장만 신청 요약을 조회할 수 있습니다.");
         }
         RegistrationSummaryProjection summary = registrationListRepository.findSummaryByGroupId(groupId);
-        return new RegistrationSummaryResult(summary.pendingCount(), summary.targetRecruitmentId());
+        return new RegistrationSummaryResult(
+                summary.unreadCount(),
+                summary.pendingCount(),
+                summary.targetRecruitmentId(),
+                summary.latestRegistrationId()
+        );
     }
 
     private static void validateSummaryRequest(Long memberId, Long groupId) {

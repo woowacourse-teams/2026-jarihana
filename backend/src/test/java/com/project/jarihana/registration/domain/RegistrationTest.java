@@ -44,6 +44,7 @@ class RegistrationTest {
         assertThat(registration.getRejectReason()).isNull();
         assertThat(registration.getDecidedAt()).isNull();
         assertThat(registration.getDecidedBy()).isNull();
+        assertThat(registration.getLeaderViewedAt()).isNull();
         assertThat(registration.canWithdraw()).isTrue();
     }
 
@@ -78,7 +79,24 @@ class RegistrationTest {
         assertThat(registration.getStatus()).isEqualTo(RegistrationStatus.APPROVED);
         assertThat(registration.getDecidedAt()).isEqualTo(REGISTERED_AT);
         assertThat(registration.getDecidedBy()).isEqualTo(DecisionActor.system());
+        assertThat(registration.getLeaderViewedAt()).isNull();
         assertThat(registration.canWithdraw()).isFalse();
+    }
+
+    @DisplayName("모임장이 신청을 확인하면 원본을 유지하며 확인 시각을 기록한다.")
+    @Test
+    void viewRegistrationByLeaderImmutably() {
+        // Given
+        Registration original = pendingRegistration();
+        LocalDateTime viewedAt = REGISTERED_AT.plusHours(1);
+
+        // When
+        Registration viewed = original.viewByLeader(viewedAt);
+
+        // Then
+        assertThat(viewed.getLeaderViewedAt()).isEqualTo(viewedAt);
+        assertThat(viewed.getStatus()).isEqualTo(RegistrationStatus.PENDING);
+        assertThat(original.getLeaderViewedAt()).isNull();
     }
 
     @DisplayName("모집 방식과 다른 신청 생성 경로는 사용할 수 없다.")
@@ -165,6 +183,7 @@ class RegistrationTest {
         assertThat(approved.getStatus()).isEqualTo(RegistrationStatus.APPROVED);
         assertThat(approved.getDecidedAt()).isEqualTo(decidedAt);
         assertThat(approved.getDecidedBy()).isEqualTo(actor);
+        assertThat(approved.getLeaderViewedAt()).isEqualTo(original.getLeaderViewedAt());
         assertThat(original.getStatus()).isEqualTo(RegistrationStatus.PENDING);
         assertThat(original.getDecidedAt()).isNull();
     }

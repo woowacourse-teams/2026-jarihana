@@ -220,15 +220,16 @@ class JpaRegistrationListRepositoryTest {
         assertThat(secondPage.items().get(0).groupName()).isEqualTo("my-registration-repository-group-2");
     }
 
-    @DisplayName("그룹의 모든 모집 공고에서 대기 신청 수와 가장 최근 대기 신청의 모집 공고를 조회한다.")
+    @DisplayName("그룹의 모든 모집 공고에서 자동 승인까지 포함한 미확인 신청과 대기 신청을 조회한다.")
     @Test
-    void findsPendingSummaryByGroup() {
+    void findsUnreadSummaryByGroup() {
         // Given
         Member leader = saveMember("요약리더", Course.BACKEND, "registration-summary-repository-leader");
         Member latestApplicant = saveMember("요약가온", Course.BACKEND, "registration-summary-repository-latest");
         Member sameTimeApplicant = saveMember("요약나래", Course.FRONTEND, "registration-summary-repository-same-time");
         Member olderApplicant = saveMember("요약다온", Course.ANDROID, "registration-summary-repository-older");
         Member approvedApplicant = saveMember("요약라온", Course.BACKEND, "registration-summary-repository-approved");
+        Member autoApplicant = saveMember("요약하람", Course.BACKEND, "registration-summary-repository-auto");
         Member otherApplicant = saveMember("요약마루", Course.FRONTEND, "registration-summary-repository-other");
         Group group = saveGroup("신청 요약 저장소 스터디");
         Group otherGroup = saveGroup("다른 신청 요약 저장소 스터디");
@@ -242,11 +243,25 @@ class JpaRegistrationListRepositoryTest {
                 NOW.plusDays(1)
         ));
         GroupRecruitment otherRecruitment = saveRecruitment(otherGroup);
+        GroupRecruitment autoRecruitment = recruitmentRepository.save(GroupRecruitment.create(
+                group,
+                JoinMethod.AUTO,
+                3,
+                NOW.minusDays(1),
+                NOW.plusDays(1)
+        ));
         savePending(openRecruitment, olderApplicant, NOW.minusHours(1));
         savePending(openRecruitment, sameTimeApplicant, NOW);
         Registration latest = savePending(closedRecruitment, latestApplicant, NOW);
         Registration approved = savePending(closedRecruitment, approvedApplicant, NOW.plusMinutes(1));
         registrationCommandRepository.save(approved.approve(DecisionActor.member(leader.getId()), NOW.plusMinutes(2), 0));
+        Registration autoApproved = registrationCommandRepository.save(Registration.createAutoApproved(
+                autoRecruitment,
+                autoApplicant,
+                null,
+                NOW.plusMinutes(2),
+                0
+        ));
         recruitmentRepository.save(closedRecruitment.closeAt(NOW.plusMinutes(3)));
         savePending(otherRecruitment, otherApplicant, NOW.plusHours(3));
 
@@ -254,8 +269,10 @@ class JpaRegistrationListRepositoryTest {
         RegistrationSummaryProjection summary = repository.findSummaryByGroupId(group.getId());
 
         // Then
+        assertThat(summary.unreadCount()).isEqualTo(5);
         assertThat(summary.pendingCount()).isEqualTo(3);
-        assertThat(summary.targetRecruitmentId()).isEqualTo(latest.getRecruitment().getId());
+        assertThat(summary.targetRecruitmentId()).isEqualTo(autoRecruitment.getId());
+        assertThat(summary.latestRegistrationId()).isEqualTo(autoApproved.getId());
     }
 
     @DisplayName("그룹에 대기 신청이 없으면 대기 신청 수 0과 대상 모집 공고 없음으로 조회한다.")
@@ -269,8 +286,10 @@ class JpaRegistrationListRepositoryTest {
         RegistrationSummaryProjection summary = repository.findSummaryByGroupId(group.getId());
 
         // Then
+        assertThat(summary.unreadCount()).isZero();
         assertThat(summary.pendingCount()).isZero();
         assertThat(summary.targetRecruitmentId()).isNull();
+        assertThat(summary.latestRegistrationId()).isNull();
     }
 
     private Registration savePending(

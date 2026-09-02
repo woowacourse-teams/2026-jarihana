@@ -37,6 +37,13 @@ export function fetchRegistrationSummary(groupId) {
   });
 }
 
+export function markRegistrationsRead(recruitmentId, throughRegistrationId) {
+  return apiRequest(`recruitments/${recruitmentId}/registrations/read`, {
+    method: "patch",
+    json: { throughRegistrationId }
+  });
+}
+
 export function createRegistration(recruitmentId, values) {
   return apiRequest(`recruitments/${recruitmentId}/registrations`, {
     method: "post",

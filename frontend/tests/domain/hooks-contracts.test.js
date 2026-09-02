@@ -8,6 +8,7 @@ import {
   useDecideRegistration,
   useInfiniteMyRegistrations,
   useInfiniteRegistrations,
+  useMarkRegistrationsRead,
   useRegistrationSummary
 } from "../../src/features/registration/index.js";
 
@@ -98,6 +99,19 @@ describe("identifier query guards", () => {
 
     // When
     await options.onSuccess();
+
+    // Then
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: registrationKeys.groupSummaries()
+    });
+  });
+
+  it("refreshes the group summary after registrations are marked read", async () => {
+    // Given
+    const options = useMarkRegistrationsRead("17");
+
+    // When
+    options.onSuccess(undefined, 29);
 
     // Then
     expect(mockInvalidateQueries).toHaveBeenCalledWith({

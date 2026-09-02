@@ -86,15 +86,34 @@ public class JpaRegistrationListRepository implements RegistrationListRepository
 
     @Override
     public RegistrationSummaryProjection findSummaryByGroupId(Long groupId) {
+        long unreadCount = registrationRepository.countUnreadByGroupId(groupId);
         long pendingCount = registrationRepository.countPendingByGroupId(groupId);
-        Long targetRecruitmentId = registrationRepository.findPendingRecruitmentIdsByGroupId(
+        Long unreadRecruitmentId = registrationRepository.findUnreadRecruitmentIdsByGroupId(
                         groupId,
                         Pageable.ofSize(1)
                 )
                 .stream()
                 .findFirst()
                 .orElse(null);
-        return new RegistrationSummaryProjection(pendingCount, targetRecruitmentId);
+        Long targetRecruitmentId = unreadRecruitmentId == null
+                ? registrationRepository.findPendingRecruitmentIdsByGroupId(groupId, Pageable.ofSize(1))
+                .stream()
+                .findFirst()
+                .orElse(null)
+                : unreadRecruitmentId;
+        Long latestRegistrationId = registrationRepository.findUnreadRegistrationIdsByGroupId(
+                        groupId,
+                        Pageable.ofSize(1)
+                )
+                .stream()
+                .findFirst()
+                .orElse(null);
+        return new RegistrationSummaryProjection(
+                unreadCount,
+                pendingCount,
+                targetRecruitmentId,
+                latestRegistrationId
+        );
     }
 
     private static MyRegistrationListProjection toMyProjection(Registration registration) {

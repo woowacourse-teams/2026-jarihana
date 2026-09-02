@@ -11,7 +11,7 @@ function registrationManagementPath(groupId, summary, fallbackRecruitmentId) {
     : `/groups/${groupId}/manage/registrations`;
 }
 
-function RegistrationPendingBadge({ count }) {
+function RegistrationUnreadBadge({ count }) {
   if (!count || count < 1) return null;
 
   const visibleCount = count > 99 ? "99+" : String(count);
@@ -21,7 +21,7 @@ function RegistrationPendingBadge({ count }) {
       <span aria-hidden="true" className="manage-context__pending-badge">
         {visibleCount}
       </span>
-      <span className="manage-visually-hidden">처리 대기 신청 {count}건</span>
+      <span className="manage-visually-hidden">확인하지 않은 신청 {count}건</span>
     </>
   );
 }
@@ -41,7 +41,7 @@ export function ManagementContext({ active, groupId, recruitmentId }) {
     {
       key: "registrations",
       label: "신청 관리",
-      pendingCount: registrationSummary?.pendingCount ?? 0,
+      unreadCount: registrationSummary?.unreadCount ?? 0,
       to: registrationManagementPath(groupId, registrationSummary, recruitmentId)
     },
     { key: "members", label: "멤버 관리", to: `/groups/${groupId}/manage/members` }
@@ -64,7 +64,7 @@ export function ManagementContext({ active, groupId, recruitmentId }) {
           >
             <span>{link.label}</span>
             {link.key === "registrations" ? (
-              <RegistrationPendingBadge count={link.pendingCount} />
+              <RegistrationUnreadBadge count={link.unreadCount} />
             ) : null}
           </Link>
         ))}

@@ -6,7 +6,9 @@ import com.project.jarihana.registration.command.controller.dto.CreateRegistrati
 import com.project.jarihana.registration.command.controller.dto.CreateRegistrationResponse;
 import com.project.jarihana.registration.command.controller.dto.DecideRegistrationRequest;
 import com.project.jarihana.registration.command.controller.dto.DecideRegistrationResponse;
+import com.project.jarihana.registration.command.controller.dto.MarkRegistrationsReadRequest;
 import com.project.jarihana.registration.command.service.RegistrationCommandService;
+import com.project.jarihana.registration.command.service.RegistrationReadCommandService;
 import com.project.jarihana.registration.command.service.dto.CreateRegistrationResult;
 import com.project.jarihana.registration.command.service.dto.DecideRegistrationResult;
 import jakarta.validation.Valid;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 public class RegistrationCommandController {
 
     private final RegistrationCommandService registrationCommandService;
+    private final RegistrationReadCommandService registrationReadCommandService;
 
     @DeleteMapping("/{recruitmentId}/registrations/{registrationId}")
     public ResponseEntity<Void> withdrawRegistration(
@@ -61,5 +64,19 @@ public class RegistrationCommandController {
                 request.toCommand()
         );
         return ResponseEntity.ok(ApiResponse.success(DecideRegistrationResponse.from(result)));
+    }
+
+    @PatchMapping("/{recruitmentId}/registrations/read")
+    public ResponseEntity<Void> markRegistrationsRead(
+            @LoginMember long memberId,
+            @PathVariable long recruitmentId,
+            @Valid @RequestBody MarkRegistrationsReadRequest request
+    ) {
+        registrationReadCommandService.markRegistrationsRead(
+                memberId,
+                recruitmentId,
+                request.throughRegistrationId()
+        );
+        return ResponseEntity.noContent().build();
     }
 }

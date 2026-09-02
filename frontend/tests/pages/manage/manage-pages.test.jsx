@@ -16,6 +16,7 @@ import {
 import {
   useDecideRegistration,
   useInfiniteRegistrations,
+  useMarkRegistrationsRead,
   useRegistrationSummary
 } from "../../../src/features/registration/index.js";
 import { useLocation, useParams } from "react-router";
@@ -51,6 +52,7 @@ jest.mock("../../../src/features/recruitment/index.js", () => ({
 jest.mock("../../../src/features/registration/index.js", () => ({
   useDecideRegistration: jest.fn(),
   useInfiniteRegistrations: jest.fn(),
+  useMarkRegistrationsRead: jest.fn(),
   useRegistrationSummary: jest.fn()
 }));
 
@@ -63,6 +65,7 @@ const queryResult = (items) => ({
   isFetching: false,
   isFetchingNextPage: false,
   isPending: false,
+  isSuccess: true,
   refetch: jest.fn()
 });
 
@@ -140,12 +143,18 @@ beforeEach(() => {
     queryResult([filters.status === "APPROVED" ? approvedRegistrationFixture : registrationFixture])
   );
   useRegistrationSummary.mockReturnValue({
-    data: { pendingCount: 0, targetRecruitmentId: null },
+    data: {
+      unreadCount: 0,
+      pendingCount: 0,
+      targetRecruitmentId: null,
+      latestRegistrationId: null
+    },
     error: null,
     isError: false,
     isPending: false,
     refetch: jest.fn()
   });
+  useMarkRegistrationsRead.mockReturnValue({ isPending: false, mutate: jest.fn() });
   useDecideRegistration.mockReturnValue({ isPending: false, mutateAsync: jest.fn() });
 });
 
@@ -237,9 +246,14 @@ describe("ManageMembersPage", () => {
     expect(within(navigation).queryByText("0")).not.toBeInTheDocument();
   });
 
-  it("Given pending applications, When rendered, Then the registration tab shows an inline count badge", () => {
+  it("Given unread auto-approved applications, When rendered, Then the registration tab shows an inline count badge", () => {
     useRegistrationSummary.mockReturnValue({
-      data: { pendingCount: 7, targetRecruitmentId: 81 },
+      data: {
+        unreadCount: 7,
+        pendingCount: 0,
+        targetRecruitmentId: 81,
+        latestRegistrationId: 90
+      },
       error: null,
       isError: false,
       isPending: false,
@@ -251,13 +265,18 @@ describe("ManageMembersPage", () => {
     const navigation = screen.getByRole("navigation", { name: "모임 관리 메뉴" });
     expect(within(navigation).getByText("7")).toHaveClass("manage-context__pending-badge");
     expect(
-      within(navigation).getByRole("link", { name: "신청 관리 처리 대기 신청 7건" })
+      within(navigation).getByRole("link", { name: "신청 관리 확인하지 않은 신청 7건" })
     ).toHaveAttribute("href", "/groups/7/manage/recruitments/81/registrations");
   });
 
   it("Given at least 100 pending applications, When rendered, Then the badge truncates visually but keeps the full accessible count", () => {
     useRegistrationSummary.mockReturnValue({
-      data: { pendingCount: 123, targetRecruitmentId: 82 },
+      data: {
+        unreadCount: 123,
+        pendingCount: 123,
+        targetRecruitmentId: 82,
+        latestRegistrationId: 190
+      },
       error: null,
       isError: false,
       isPending: false,
@@ -269,7 +288,7 @@ describe("ManageMembersPage", () => {
     const navigation = screen.getByRole("navigation", { name: "모임 관리 메뉴" });
     expect(within(navigation).getByText("99+")).toHaveClass("manage-context__pending-badge");
     expect(
-      within(navigation).getByRole("link", { name: "신청 관리 처리 대기 신청 123건" })
+      within(navigation).getByRole("link", { name: "신청 관리 확인하지 않은 신청 123건" })
     ).toHaveAttribute("href", "/groups/7/manage/recruitments/82/registrations");
   });
 
@@ -571,6 +590,27 @@ describe("ManageRegistrationsPage", () => {
 
     expect(useInfiniteRegistrations).toHaveBeenCalledWith(82, {});
     expect(useRecruitment).toHaveBeenCalledWith("7", 82);
+  });
+
+  it("Given an unread summary snapshot, When the applicant list loads, Then it marks that snapshot read", () => {
+    const mutate = jest.fn();
+    useMarkRegistrationsRead.mockReturnValue({ isPending: false, mutate });
+    useRegistrationSummary.mockReturnValue({
+      data: {
+        unreadCount: 2,
+        pendingCount: 1,
+        targetRecruitmentId: 81,
+        latestRegistrationId: 90
+      },
+      error: null,
+      isError: false,
+      isPending: false,
+      refetch: jest.fn()
+    });
+
+    render(<ManageRegistrationsPage />);
+
+    expect(mutate).toHaveBeenCalledWith(90);
   });
 
   it("Given an active recruitment, When rendered, Then the applicant panel is directly identifiable in the management chrome", () => {

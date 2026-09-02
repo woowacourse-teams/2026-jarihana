@@ -1,9 +1,10 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { useInfiniteRecruitments, useRecruitment } from "../../features/recruitment/index.js";
 import {
   useDecideRegistration,
   useInfiniteRegistrations,
+  useMarkRegistrationsRead,
   useRegistrationSummary
 } from "../../features/registration/index.js";
 import {
@@ -47,12 +48,32 @@ export function ManageRegistrationsPage() {
   const registrationsQuery = useInfiniteRegistrations(recruitmentId, {
     ...(status ? { status } : {})
   });
+  const { mutate: markRegistrationsRead } = useMarkRegistrationsRead(recruitmentId);
+  const markedRecruitmentRef = useRef(null);
   const decideRegistration = useDecideRegistration(recruitmentId);
   const recruitmentQuery = useRecruitment(groupId, recruitmentId);
   const [decision, setDecision] = useState(null);
   const reasonRef = useRef(null);
   const [mutationError, setMutationError] = useState(null);
   const registrations = flattenPages(registrationsQuery.data);
+
+  useEffect(() => {
+    const latestRegistrationId = registrationSummaryQuery.data?.latestRegistrationId;
+    const summaryRecruitmentId = registrationSummaryQuery.data?.targetRecruitmentId;
+    const showsUnreadTarget =
+      summaryRecruitmentId != null && String(summaryRecruitmentId) === String(recruitmentId);
+    if (
+      String(markedRecruitmentRef.current) === String(recruitmentId) ||
+      !registrationsQuery.isSuccess ||
+      !latestRegistrationId ||
+      !showsUnreadTarget
+    ) {
+      return;
+    }
+
+    markedRecruitmentRef.current = recruitmentId;
+    markRegistrationsRead(latestRegistrationId);
+  }, [markRegistrationsRead, recruitmentId, registrationSummaryQuery.data, registrationsQuery.isSuccess]);
 
   if (!routeRecruitmentId && !targetRecruitmentId && recruitmentsQuery.isPending) {
     return <ManageLoading title="신청 관리" />;

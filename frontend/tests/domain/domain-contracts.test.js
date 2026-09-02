@@ -233,8 +233,10 @@ describe("backend DTO schemas", () => {
   it("accepts the group registration summary contract with a nullable target", () => {
     // Given
     const payload = {
+      unreadCount: 7,
       pendingCount: 123,
-      targetRecruitmentId: null
+      targetRecruitmentId: null,
+      latestRegistrationId: 91
     };
 
     // When

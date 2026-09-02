@@ -9,6 +9,7 @@ import {
   fetchMyRegistrations,
   fetchRegistrationSummary,
   fetchRegistrations,
+  markRegistrationsRead,
   withdrawRegistration
 } from "./api.js";
 
@@ -50,6 +51,16 @@ export function useRegistrationSummary(groupId) {
     refetchOnWindowFocus: true,
     refetchInterval: 30000,
     refetchIntervalInBackground: false
+  });
+}
+
+export function useMarkRegistrationsRead(recruitmentId) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (throughRegistrationId) =>
+      markRegistrationsRead(recruitmentId, throughRegistrationId),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: registrationKeys.groupSummaries() })
   });
 }
 

@@ -4,7 +4,8 @@ import {
   createRegistration,
   decideRegistration,
   fetchRegistrationSummary,
-  fetchMyRegistrations
+  fetchMyRegistrations,
+  markRegistrationsRead
 } from "../../src/features/registration/index.js";
 import {
   fetchGroups,
@@ -189,5 +190,20 @@ describe("domain API adapters", () => {
       "groups/17/registrations/summary",
       expect.objectContaining({ schema: expect.any(Object) })
     );
+  });
+
+  it("marks registrations read only through the summary snapshot", async () => {
+    // Given
+    const groupId = 17;
+    const throughRegistrationId = 29;
+
+    // When
+    await markRegistrationsRead(groupId, throughRegistrationId);
+
+    // Then
+    expect(apiRequest).toHaveBeenCalledWith("recruitments/17/registrations/read", {
+      method: "patch",
+      json: { throughRegistrationId: 29 }
+    });
   });
 });
