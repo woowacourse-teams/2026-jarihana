@@ -26,8 +26,10 @@ public record AuthProperties(
         @NotBlank
         @Pattern(regexp = "^https?://[^/]+$")
         String frontendOrigin,
+
         @NotBlank
         String oauthStateCookieName,
+
         @NotNull
         Duration refreshTokenValidity
 ) {

@@ -24,13 +24,17 @@ import org.springframework.validation.annotation.Validated;
 public record AuthCookieProperties(
         @NotNull
         Boolean secure,
+
         @NotBlank
         String accessTokenName,
+
         @NotBlank
         @Pattern(regexp = "^/.*")
         String accessTokenPath,
+
         @NotBlank
         String refreshTokenName,
+
         @NotBlank
         @Pattern(regexp = "^/.*")
         String refreshTokenPath
