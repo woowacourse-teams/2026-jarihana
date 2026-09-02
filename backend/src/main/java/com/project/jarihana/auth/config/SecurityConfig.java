@@ -1,5 +1,9 @@
-package com.project.jarihana.common.auth;
+package com.project.jarihana.auth.config;
 
+import com.project.jarihana.auth.token.AccessTokenProvider;
+import com.project.jarihana.auth.web.AccessDeniedResponder;
+import com.project.jarihana.auth.web.JwtCookieAuthenticationFilter;
+import com.project.jarihana.auth.web.UnauthenticatedEntryPoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;

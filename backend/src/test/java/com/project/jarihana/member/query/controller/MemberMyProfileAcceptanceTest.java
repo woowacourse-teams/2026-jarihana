@@ -1,8 +1,8 @@
 package com.project.jarihana.member.query.controller;
 
-import com.project.jarihana.common.auth.AccessTokenProvider;
-import com.project.jarihana.common.auth.AuthCookieProperties;
-import com.project.jarihana.common.auth.SignupSession;
+import com.project.jarihana.auth.config.AuthCookieProperties;
+import com.project.jarihana.auth.session.SignupSession;
+import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;

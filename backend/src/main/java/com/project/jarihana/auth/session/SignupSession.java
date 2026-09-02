@@ -1,4 +1,4 @@
-package com.project.jarihana.common.auth;
+package com.project.jarihana.auth.session;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;

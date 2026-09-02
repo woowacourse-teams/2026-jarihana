@@ -1,4 +1,4 @@
-package com.project.jarihana.common.auth;
+package com.project.jarihana.auth.config;
 
 import com.project.jarihana.support.IntegrationTestSupport;
 import io.restassured.RestAssured;

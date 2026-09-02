@@ -1,4 +1,4 @@
-package com.project.jarihana.common.auth;
+package com.project.jarihana.auth.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

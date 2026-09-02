@@ -1,5 +1,8 @@
-package com.project.jarihana.common.auth;
+package com.project.jarihana.auth.web;
 
+import com.project.jarihana.auth.config.AuthCookieProperties;
+import com.project.jarihana.auth.config.JwtProperties;
+import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.TestSupportConfig;
 import io.restassured.RestAssured;

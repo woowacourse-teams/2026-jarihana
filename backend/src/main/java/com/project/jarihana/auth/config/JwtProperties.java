@@ -1,4 +1,4 @@
-package com.project.jarihana.common.auth;
+package com.project.jarihana.auth.config;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

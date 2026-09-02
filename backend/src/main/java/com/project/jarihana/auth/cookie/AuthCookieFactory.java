@@ -1,5 +1,6 @@
-package com.project.jarihana.common.auth;
+package com.project.jarihana.auth.cookie;
 
+import com.project.jarihana.auth.config.AuthCookieProperties;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 

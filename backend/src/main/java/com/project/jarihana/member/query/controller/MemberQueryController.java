@@ -1,7 +1,7 @@
 package com.project.jarihana.member.query.controller;
 
+import com.project.jarihana.auth.session.SignupSession;
 import com.project.jarihana.common.auth.LoginMemberReader;
-import com.project.jarihana.common.auth.SignupSession;
 import com.project.jarihana.common.response.ApiResponse;
 import com.project.jarihana.member.query.controller.dto.MyProfileResponse;
 import com.project.jarihana.member.query.service.MemberQueryService;

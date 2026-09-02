@@ -1,5 +1,7 @@
-package com.project.jarihana.common.auth;
+package com.project.jarihana.auth.web;
 
+import com.project.jarihana.auth.config.AuthCookieProperties;
+import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.common.exception.BusinessException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

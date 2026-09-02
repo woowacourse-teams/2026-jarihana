@@ -1,7 +1,7 @@
 package com.project.jarihana.group.query.controller;
 
-import com.project.jarihana.common.auth.AccessTokenProvider;
-import com.project.jarihana.common.auth.AuthCookieProperties;
+import com.project.jarihana.auth.config.AuthCookieProperties;
+import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.MeetingType;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;

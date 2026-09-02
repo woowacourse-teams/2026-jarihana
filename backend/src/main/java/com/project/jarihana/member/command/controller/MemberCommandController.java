@@ -1,7 +1,7 @@
 package com.project.jarihana.member.command.controller;
 
-import com.project.jarihana.common.auth.AuthCookieFactory;
-import com.project.jarihana.common.auth.SignupSession;
+import com.project.jarihana.auth.cookie.AuthCookieFactory;
+import com.project.jarihana.auth.session.SignupSession;
 import com.project.jarihana.common.response.ApiResponse;
 import com.project.jarihana.member.command.controller.dto.MemberSignupRequest;
 import com.project.jarihana.member.command.controller.dto.MemberSignupResponse;

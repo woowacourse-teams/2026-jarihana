@@ -5,7 +5,7 @@ import com.project.jarihana.auth.command.service.dto.LogoutCommand;
 import com.project.jarihana.auth.command.service.dto.RefreshCommand;
 import com.project.jarihana.auth.command.service.dto.RefreshResult;
 import com.project.jarihana.auth.domain.RefreshToken;
-import com.project.jarihana.common.auth.AccessTokenProvider;
+import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import org.springframework.stereotype.Service;

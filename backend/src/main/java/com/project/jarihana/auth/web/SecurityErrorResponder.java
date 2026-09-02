@@ -1,4 +1,4 @@
-package com.project.jarihana.common.auth;
+package com.project.jarihana.auth.web;
 
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.common.response.ApiResponse;
