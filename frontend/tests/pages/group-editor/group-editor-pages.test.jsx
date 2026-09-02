@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const mockCreateGroup = jest.fn();
 const mockModifyGroup = jest.fn();
@@ -147,7 +148,20 @@ jest.mock(
 
 import { GroupManagePage, NewGroupPage } from "../../../src/pages/group-editor/index.jsx";
 
-const renderPage = (node) => render(node);
+const renderPage = (node) => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      mutations: { retry: false },
+      queries: { retry: false }
+    }
+  });
+
+  return render(node, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    )
+  });
+};
 
 /* 저장 버튼은 폼 밖에 있고 form 속성으로 연결된다. */
 const submitForm = (formId) => fireEvent.submit(document.getElementById(formId));
