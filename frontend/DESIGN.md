@@ -45,7 +45,7 @@
 | `--color-line`         | `#e0e0e0`        | 구분선과 field border                      |
 | `--color-surface`      | `#ffffff`        | 카드와 입력 surface                        |
 | `--color-section-soft` | `#fcfcfc`        | 탐색 결과 section을 hero와 분리하는 surface |
-| `--color-canvas`       | `#f5f5f7`        | 앱 배경                                    |
+| `--color-canvas`       | `#ffffff`        | 앱 배경                                    |
 | `--color-nav`          | `#000000`        | global header                              |
 | `--color-danger`       | `#c7352a`        | 오류/파괴 액션, AA 대비용 파생 token       |
 | `--color-danger-soft`  | `#fff0ee`        | 오류 배경                                  |
@@ -53,6 +53,12 @@
 | `--color-success-soft` | `#eaf8ef`        | 성공 배경                                  |
 | `--color-warning`      | `#8a5b00`        | 경고/대기 상태, AA 대비용 파생 token       |
 | `--color-warning-soft` | `#fff6df`        | 경고 배경                                  |
+| `--color-activity-study-ink` | `#24457f` | 스터디 유형 chip text                     |
+| `--color-activity-study-soft` | `#e7eefc` | 스터디 유형 chip surface                  |
+| `--color-activity-club-ink` | `#453a95`  | 동아리 유형 chip text                     |
+| `--color-activity-club-soft` | `#ece9fb` | 동아리 유형 chip surface                  |
+| `--color-activity-session-ink` | `#7a5405` | 세션 유형 chip text                     |
+| `--color-activity-session-soft` | `#fdf0da` | 세션 유형 chip surface                  |
 | `--color-cohort-1..5`  | categorical ramp | 멤버 기수 분포의 비텍스트 구간·아바타 배경 |
 
 `--color-text-brand`와 `--color-text-muted`는 각각 `brand-ink`, `muted-ink`를 가리키는
@@ -65,18 +71,22 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 ### Typography
 
 - Family: `Noto Sans KR`, `Apple SD Gothic Neo`, `Malgun Gothic`, sans-serif.
-- Hero: 48/1.18, 800. 모바일 34/1.22.
+- Hero: 56/1.22, 800. 모바일 40/1.22.
 - Hero body: desktop 20px, mobile 18px, 1.65 line-height.
 - Display: 40/1.2, 800. 모바일 30/1.25.
 - H1: 32/1.3, 700. 모바일 26/1.35.
 - H2: 24/1.4, 700. 모바일 21/1.4.
 - H3: 18/1.45, 700.
+- Discovery card title: `--groups-card-title-size` 20/1.45, 700; mobile은 `--text-label`
+  크기인 14px와 1.45 line-height를 사용한다.
 - Footer Contact us heading: `--text-footer-contact` 22/1.4, 700.
 - Body large: 17/1.65, 400.
 - Body: 15/1.65, 400.
 - Label: Figma 기준 14/20, 500.
 - Caption: 13/1.5, 400.
 - Brand: `--text-brand` 22px/800. Header wordmark에만 쓰며 본문 scale을 대체하지 않는다.
+- Letter spacing: 전역 기본값과 브랜드 `--tracking-brand`는 0이다. 마이페이지 제목, eyebrow,
+  활동 제목에도 별도의 음수/과한 양수 자간을 적용하지 않고 글꼴의 기본 간격을 유지한다.
 - `--font-size-caption`, `--font-size-label`, `--font-size-h3`는 기존 page CSS가 동일한
   type scale을 참조하도록 둔 compatibility alias다.
 
@@ -85,9 +95,9 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - Spacing: `0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64`.
 - Radius: small `8`, medium `14`, large `20`, pill `999`.
 - Footer Contact us block: `--footer-contact-max-width` `22rem` max width on desktop/tablet.
-- Container: 구현 token `--container-shell`은 `1216px`(`76rem`)이다. `/`의 content rail을
+- Container: 구현 token `--container-shell`은 `1440px`(`90rem`)이다. `/`의 content rail을
   기준으로 모든 route의 페이지 shell과 section 외곽선을 통일한다. gutter는 360–767px에서
-  20px, 768–1023px에서 32px, 1024px 이상에서 80px(`--groups-page-rail-gutter`)를 사용한다.
+  16px, 768–1023px에서 24px, 1024px 이상에서 32px(`--groups-page-rail-gutter`)를 사용한다.
   account, management, group editor, group detail도 같은 shell을 공유하고, 좁은 form 읽기 폭은
   shell 안쪽 content에만 적용한다.
 - Border: `--border-thin`(1px)과 `--border-strong`(2px)을 사용한다. 기본 surface 경계는
@@ -98,13 +108,20 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   geometry를 token화한다.
 - 탐색 랜딩(`/`)과 호환 진입점(`/groups`)의 hero는 header 아래
   `calc(100dvh - --header-height)` 높이로 첫 화면을 채우고, 하단의 `자리 둘러보기` 화살표 CTA가
-  discovery section으로 부드럽게 이동시킨다. `/groups`는 기존 링크와 북마크를 보존하는 동일
+  검색·필터가 가려지지 않도록 discovery section의 `자리 둘러보기` 제목으로 부드럽게 이동시킨다. `/groups`는 기존 링크와 북마크를 보존하는 동일
   랜딩 경로로 유지한다.
+- Hero의 desktop 열은 `minmax(26rem, .75fr) minmax(0, 1.25fr)`와 32px gap으로 나눈다.
+  문구는 내용 너비로 첫 번째 열의 오른쪽에 정렬해 이미지 내부 흰 여백을 고려한 바깥 좌우
+  균형을 맞춘다. tablet/mobile에서는 문구의 가운데 정렬을 유지하고 이미지만 화면 양 끝까지
+  넓히고 텍스트와 목록의 기존 gutter는 유지한다. 이미지는 원본 비율과 `contain`을 유지해
+  확대 후에도 상하좌우를 자르지 않는다.
 - 탐색 페이지의 hero와 discovery는 desktop에서 `--space-16` 외부 간격과 `--space-10` 내부 상단
   여백으로 넉넉하게 분리하고, discovery에는 `--color-section-soft`를 적용해 별도 정보 영역임을
   드러낸다. 결과 제목과
   모임 수/정렬 메타는 같은 baseline에서 바로 이어지며, 검색·필터와 카드 grid는 동일 rail을
   유지한다.
+- 탐색 랜딩의 full-bleed 배경은 `main`의 가로 경계에서만 잘라 세로 스크롤바가 있는
+  환경에서도 페이지에 가로 스크롤이 생기지 않게 한다. 세로 스크롤과 제목 기준 이동은 유지한다.
 - Shadow: 카드 hover와 modal만 `0 12px 34px rgb(29 29 31 / 10%)`; 일반 정보 그룹은 border/tonal
   surface로 깊이를 표현한다.
 - Z layers: header `20`, sticky `25`, overlay `40`, dialog `50`, toast `60`.
@@ -112,15 +129,21 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 ### Responsive breakpoints
 
 - token metadata: `--breakpoint-md` 48rem(768px), `--breakpoint-lg` 64rem(1024px).
-- `360–767`: full-bleed header, 20px page gutter, single column, mobile drawer. 그룹
-  detail rail과 운영 side rail은 본문 아래로 이동하고, management table은 labelled card rows로
-  바뀐다.
-- `768–1023`: full-bleed header 배경과 32px content gutter. 탐색 card는 2 columns, account는 좁은
+- `360–767`: full-bleed header, 16px page gutter, 탐색 모임은 마이페이지 activity row를 따른
+  왼쪽 썸네일의 1-column 목록, mobile drawer를 사용한다. 그룹 detail rail과 운영 side rail은
+  본문 아래로 이동하고, management table은 labelled card rows로 바뀐다.
+- `768–1023`: full-bleed header 배경과 24px content gutter. 탐색 card는 3 columns, account는 좁은
   profile/content split, group editor hero는 single column으로 전환한다.
-- `1024–1439`: desktop shell과 3-column 탐색 카드, group detail/registration의 side rail,
+- `1024–1439`: 32px content gutter와 4-column 탐색 카드, group detail/registration의 side rail,
   group editor 2-column hero, management grid/table을 사용한다. 고정 폭 action은 충분한
   공간이 없으면 줄바꿈한다.
-- `1440+`: Figma desktop 비율과 1216px shell 상한을 중앙 정렬한다.
+- `1440+`: 1440px shell 상한을 중앙 정렬하고 탐색 카드 4 columns를 유지한다.
+- 탐색 카드 간격은 축소 전 값으로 유지한다. 가로 간격은 desktop/tablet 24px, mobile 12px이며,
+  세로 간격은 desktop 40px, tablet 24px, mobile 12px이다. tablet/desktop 카드는 사진이 위에 있는
+  기존 grid와 정확한 `8 / 5` 비율을 유지한다. 모바일 행은 9rem 왼쪽 썸네일과 나머지 본문 열을
+  사용하며, 이미지는 고정 aspect ratio 없이 행 높이를 `object-fit: cover`로 채운다. 제목은 한 줄,
+  소개는 두 줄에서 말줄임하고, 모임 종류·활동 일정·잔여 모집 인원과 모집 중인 경우의 상태 badge를
+  함께 표시한다.
 
 ## 3. Layout system
 
@@ -149,7 +172,9 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
    viewport에서 유지하되, 접근성 이름은 한 문장으로 제공한다. 랜딩에는 하단 스크롤 CTA를
    둔다.
 - 탐색 hero는 `src/shared/assets/brand/jarihana-signature.png`를 교체 가능한 signature art로
-  사용하며, 헤더 mark는 `src/shared/assets/brand/jarihana-favicon.png`를 교체 지점으로 사용한다.
+  사용한다. 표시 영역은 원본의 `1672 / 941` 비율을 따르고, 중앙 정렬과 `contain`으로
+  상하좌우를 자르지 않는다.
+  헤더 mark는 `src/shared/assets/brand/jarihana-favicon.png`를 교체 지점으로 사용한다.
 - `DetailLayout`: group detail은 desktop에서 본문 + sticky support rail 구조를 사용하며
   전체 폭은 공통 `--container-shell`을 따른다. support rail은 운영자 프로필 카드 다음에 모집 정보 카드를
   배치한다. tablet 이하에서는 순차 single column으로 전환한다.
@@ -191,6 +216,7 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   세로로 쌓고, mobile day picker는 2 columns로 줄인다.
 - `MyPageLayout`: profile column + activity panel의 desktop split, 3개 count link, 2-column
   summary cards를 사용한다. tablet/mobile에서는 각 grid를 정보 순서대로 한 column으로 접는다.
+  dashboard surface의 좌우 확장과 내부 여백은 page gutter 이하로 제한해 모바일 가로 넘침을 막는다.
 - `ManageLayout`: group name context header와 horizontal route-backed tabs(`모임 수정`,
   `모집 관리`, 조건부 `신청 관리`, `멤버 관리`)를 모든 leader page가 공유한다. 멤버는 table,
   모집은 summary + condition form + public-state rail, 신청은 applicant panel + operations rail로
@@ -217,12 +243,18 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - Select: native keyboard/assistive-tech 동작을 유지하면서 오른쪽 chevron, 넉넉한 우측 padding,
   pointer cursor를 제공한다. 탐색 필터는 검색과 같은 underline control surface를 사용하고,
   focus 시 하단선을 brand color로 강조한다.
-- Cards: 14–20px radius, `--border-thin` line, 20–24px padding. 탐색 카드의 visual은 `8 / 5`
-  비율로 이미지 비중을 확보하고, 본문 상단 여백을 `--space-1`로 두어 하단 gradient fade와
-  텍스트가 4px 간격으로 이어지도록 한다. 클릭 가능한 카드 전체에
-  focus-visible을 둔다. 상태 badge는 이미지 위에 걸치지 않고 카드 본문 첫 metadata row 안에 둔다.
-  GroupCard 이미지는 backend의 `representativeImageUrl`을 그대로 사용하며, 이미지 하단은 surface로
-  부드럽게 fade되어 본문과 하나의 카드 surface처럼 이어진다. 서버 기본 이미지 경로도 별도
+  모바일에서도 세 가지 필터를 같은 행에 두며 간격은 `--space-2`(8px)이다. 검색 입력창은 별도
+  전체 너비 행을 유지한다. 모바일 select는 `--text-caption`(13px), 좌우 padding 8px/24px와
+  오른쪽 8px chevron을 사용해 긴 선택값도 잘리지 않게 한다. 최소 터치 높이는 유지한다.
+- Cards: 14–20px radius, `--border-thin` line, 20–24px padding. tablet/desktop 탐색 카드는 사진이
+  위에 있는 기존 구조와 정확한 `8 / 5` 비율을 유지한다. 모바일 탐색 카드는 마이페이지 activity row
+  문법을 사용해 `9rem minmax(0, 1fr)` 두 열로 배치한다. 왼쪽 이미지는 행 전체 높이를 채우고,
+  오른쪽 본문은 16px padding과 8px gap을 사용한다. 제목은 한 줄, 소개는 두 줄에서 말줄임표로
+  마감하며, 태블릿/데스크톱 카드와 같은 활동 일정·잔여 모집 인원 메타를 하단에 표시한다. 모임 종류는
+  모든 breakpoint에서 마이페이지와 같은 유형별 tag 색상을 사용한다. 모집 상태 badge는 `모집 중`일
+  때만 표시하고 마감 상태는 생략한다.
+  GroupCard 이미지는 backend의 `representativeImageUrl`을 그대로 사용하며, 탐색 이외의 기본
+  GroupCard는 기존 surface와 하단 fade를 유지한다. 서버 기본 이미지 경로도 별도
   일러스트로 치환하지 않는다.
 - Account activity/group cards: 상세 목적지가 하나인 카드는 제목만이 아니라 카드 전체가 하나의
   semantic link다. 내부 mutation button이 있는 신청 카드는 중첩 interactive element를 피하기 위해
@@ -266,7 +298,10 @@ long Korean copy, empty/skeleton을 검수한다. production navigation에는 �
 - Toast는 2,000ms 후 180ms 동안 opacity와 transform으로 부드럽게 퇴장한 뒤 제거되며, 사용자가
   직접 닫을 수 있는 닫기 버튼을 함께 제공한다.
 - Dialog는 opacity + 8px scale/translate, drawer는 transform을 사용한다.
-- `HeroScrollButton`은 실제 discovery section으로 smooth scroll하고, `ScrollToTopButton`은
+- `HeroScrollButton`은 카드 수나 화면 높이에 관계없이 목록의 `자리 둘러보기` 제목에 맞춰
+  smooth scroll한다. 제목 위의 화면 여백은 `--space-4`(16px)이며, 제목 아래 검색·필터를
+  먼저 보여준다. 카드가 없는 상태에서도 같은 기준을 유지한다.
+  `ScrollToTopButton`은
   viewport 우측 하단에 fixed로 유지되어 페이지 최상단으로 smooth scroll한다. 두 동작 모두
   `prefers-reduced-motion: reduce`에서는 즉시 이동한다.
 - loading은 레이아웃 이동 없이 skeleton 또는 버튼 내부 spinner로 표현한다.

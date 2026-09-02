@@ -856,6 +856,16 @@
   color: var(--color-brand-ink);
 }
 
+@media (min-width: 64.0625rem) {
+  .manage-member-controls--figma {
+    grid-template-columns: minmax(18rem, 1.1fr) minmax(0, 1.4fr) 10rem;
+  }
+
+  .manage-course-filters button {
+    padding-inline: var(--space-3);
+  }
+}
+
 .manage-member-sort {
   position: relative;
   display: inline-flex;
