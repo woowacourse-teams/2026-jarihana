@@ -107,7 +107,6 @@ PostgreSQL 역시 팀원 2명이 사용해 본 경험이 있고 현재 MVP 요�
 - 백엔드는 PostgreSQL JDBC 드라이버를 런타임 의존성으로 사용한다.
 - 로컬과 운영 Docker Compose는 PostgreSQL 17 이미지를 사용한다.
 - 현재 엔티티는 일반적인 관계형 스키마로 매핑하며 `jsonb`와 `pgvector`는 사용하지 않는다.
-- 자동화 테스트는 H2 인메모리 데이터베이스를 사용한다.
 
 ## 후속 작업
 
