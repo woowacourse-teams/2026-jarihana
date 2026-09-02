@@ -16,6 +16,7 @@
     "test": "jest --runInBand --no-watchman",
     "test:coverage": "jest --runInBand --no-watchman --coverage",
     "test:e2e": "playwright test",
+    "test:e2e:core": "playwright test --grep @core",
     "react-doctor": "react-doctor --json"
   },
   "dependencies": {
