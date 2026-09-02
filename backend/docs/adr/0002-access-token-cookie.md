@@ -7,6 +7,8 @@
 - 개정: 2026-08-27. 후속 작업의 CORS와 쿠키 `SameSite`, `Secure`, 도메인 항목은
   [ADR 0008](0008-aws-deployment-topology.md)이 단일 오리진 구성을 확정하면서 닫혔다.
   결과 항목의 "오리진이 달라 cross-site"라는 전제도 함께 바로잡는다.
+- 개정: 2026-09-02. 후속 작업의 `POST /api/auth/refresh`, `POST /api/auth/logout` 구현 항목을
+  닫는다. 남은 것은 서명 비밀키의 주입 경로와 교체 절차다.
 
 ## 배경
 
@@ -105,6 +107,7 @@ Service, 도메인                 이 리소스에 권한이 있나  실패 시
   단일 오리진 구성으로 CORS는 두지 않기로 확정했다. 쿠키는 `SameSite=Lax`, 도메인 미지정,
   `Secure`는 운영 `true`, 로컬 `false`로 적용되어 있다. 위 결과의 정정 항목 참조.
 - CSRF 토큰 저장소와 프론트엔드 전달 방식은 [ADR 0004](0004-csrf-token-delivery.md)에서 정했다.
-- `POST /api/auth/refresh`와 `POST /api/auth/logout`이 이 쿠키를 갱신하고 제거하는
-  방식을 구현한다.
+- ~~`POST /api/auth/refresh`와 `POST /api/auth/logout`이 이 쿠키를 갱신하고 제거하는
+  방식을 구현한다.~~ 완료. 두 엔드포인트 모두 `AuthCommandController`에 있다. 갱신은 새 Access
+  Token 쿠키를 내려 주고, 로그아웃은 Access Token과 Refresh Token 쿠키를 함께 만료시킨다.
 - 서명 비밀키의 주입 경로와 교체 절차를 정한다.

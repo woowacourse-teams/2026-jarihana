@@ -1,6 +1,7 @@
 # ADR 0012. 데이터베이스 스키마를 저장소가 소유한다
 
-- 상태: 제안
+- 상태: 제안. 결정 6(테스트 DBMS)만 2026-08-27에 팀이 확정했고 나머지는 채택을 기다린다.
+  가장 먼저 정해야 하는 것은 도구를 고르는 결정 4다.
 - 날짜: 2026-08-27
 - 관련 문서: [ADR 0009](0009-postgresql-rdbms-selection.md), [ADR 0008](0008-aws-deployment-topology.md),
   [영속성 컨벤션](../conventions/persistence.md), [프로젝트 운영 컨벤션](../conventions/project-operations.md)
