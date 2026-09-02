@@ -409,7 +409,7 @@ test(
       };
     });
 
-    expect(coachSignupLayout.panelRight).toBeGreaterThan(coachSignupLayout.selectedOptionLeft);
+    expect(coachSignupLayout.panelRight).toBeLessThan(coachSignupLayout.selectedOptionLeft);
 
     await page.getByRole("button", { name: "유형 변경" }).click();
     await expect(crewOption).toBeVisible();
@@ -421,7 +421,7 @@ test(
       .poll(() =>
         page.evaluate(() => getComputedStyle(document.querySelector(".signup-type-step")).transform)
       )
-      .toBe("matrix(1, 0, 0, 1, 8, 0)");
+      .toBe("matrix(1, 0, 0, 1, -8, 0)");
     const selectedSignupLayout = await page.evaluate(() => {
       const selectedOption = document.querySelector('.signup-type-option[aria-checked="true"]');
       const panel = document.querySelector(".signup-form__profile-panel");
@@ -444,7 +444,7 @@ test(
       };
     });
 
-    expect(selectedSignupLayout.panelRight).toBeLessThan(selectedSignupLayout.selectedOptionLeft);
+    expect(selectedSignupLayout.panelRight).toBeGreaterThan(selectedSignupLayout.selectedOptionLeft);
     expect(Math.abs(coachSignupLayout.headingTop - selectedSignupLayout.heading.top)).toBeLessThan(
       4
     );

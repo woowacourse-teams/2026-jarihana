@@ -8,7 +8,8 @@ export const leader = {
   course: "FRONTEND",
   crewName: "자리",
   generation: 8,
-  id: 1
+  id: 1,
+  memberType: "CREW"
 };
 
 const member = {
@@ -16,7 +17,8 @@ const member = {
   course: "BACKEND",
   crewName: "하나",
   generation: 8,
-  id: 2
+  id: 2,
+  memberType: "CREW"
 };
 
 const members = [
@@ -27,21 +29,24 @@ const members = [
     course: "ANDROID",
     crewName: "두리",
     generation: 7,
-    id: 3
+    id: 3,
+    memberType: "CREW"
   },
   {
     avatarUrl: "https://avatars.githubusercontent.com/u/4?v=4",
     course: "FRONTEND",
     crewName: "보름",
     generation: 9,
-    id: 4
+    id: 4,
+    memberType: "CREW"
   },
   {
     avatarUrl: "https://avatars.githubusercontent.com/u/5?v=4",
     course: "BACKEND",
     crewName: "여름",
     generation: 6,
-    id: 5
+    id: 5,
+    memberType: "CREW"
   }
 ];
 
@@ -49,7 +54,8 @@ const leaderSummary = {
   avatarUrl: leader.avatarUrl,
   crewName: leader.crewName,
   generation: leader.generation,
-  memberId: 1
+  memberId: 1,
+  memberType: "CREW"
 };
 
 export const group = {
@@ -87,7 +93,7 @@ const groups = [
     activeRecruitment: null,
     id: 11,
     introduction: "사이드 프로젝트를 함께 완주하는 주말 모임",
-    leader: { crewName: "두리", generation: 7, memberId: 3 },
+    leader: { crewName: "두리", generation: 7, memberId: 3, memberType: "CREW" },
     memberCount: 9,
     name: "주말 메이커 클럽",
     representativeImageUrl: "/images/maker-club.svg",
@@ -105,7 +111,7 @@ const groups = [
     },
     id: 12,
     introduction: "접근성 실무 사례를 나누는 한 번의 집중 세션",
-    leader: { crewName: "보름", generation: 9, memberId: 4 },
+    leader: { crewName: "보름", generation: 9, memberId: 4, memberType: "CREW" },
     memberCount: 12,
     name: "웹 접근성 실전 세션",
     representativeImageUrl: "/images/accessibility-session.svg",
@@ -180,6 +186,7 @@ const groupMember = (value, role, groupMemberId) => ({
   groupMemberId,
   joinedAt: "2026-08-02T12:00:00",
   memberId: value.id,
+  memberType: value.memberType,
   role
 });
 
