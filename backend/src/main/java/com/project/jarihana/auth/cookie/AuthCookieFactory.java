@@ -1,6 +1,7 @@
 package com.project.jarihana.auth.cookie;
 
 import com.project.jarihana.auth.config.AuthCookieProperties;
+import com.project.jarihana.auth.token.IssuedAccessToken;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 
@@ -30,7 +31,11 @@ public class AuthCookieFactory {
         return accessToken("", Duration.ZERO);
     }
 
-    public ResponseCookie accessToken(String value, Duration validity) {
+    public ResponseCookie accessToken(IssuedAccessToken accessToken) {
+        return accessToken(accessToken.value(), accessToken.validity());
+    }
+
+    private ResponseCookie accessToken(String value, Duration validity) {
         return ResponseCookie.from(authCookieProperties.accessTokenName(), value)
                 .httpOnly(true)
                 .secure(authCookieProperties.secure())
@@ -39,7 +44,6 @@ public class AuthCookieFactory {
                 .maxAge(validity)
                 .build();
     }
-
     public ResponseCookie expiredRefreshToken() {
         return refreshToken("", Duration.ZERO);
     }

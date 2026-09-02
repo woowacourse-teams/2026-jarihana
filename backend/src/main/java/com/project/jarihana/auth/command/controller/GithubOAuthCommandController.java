@@ -98,7 +98,7 @@ public class GithubOAuthCommandController {
 
     private String accessTokenCookie(GithubLoginResult result) {
         return authCookieFactory
-                .accessToken(result.accessToken().value(), result.accessToken().validity())
+                .accessToken(result.accessToken())
                 .toString();
     }
 

@@ -65,7 +65,7 @@ public class MemberCommandController {
 
     private String accessTokenCookie(MemberSignupResult result) {
         return authCookieFactory
-                .accessToken(result.accessToken().value(), result.accessToken().validity())
+                .accessToken(result.accessToken())
                 .toString();
     }
 

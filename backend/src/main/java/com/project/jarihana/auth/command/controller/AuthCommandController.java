@@ -86,7 +86,7 @@ public class AuthCommandController {
 
     private String accessTokenCookie(RefreshResult result) {
         return authCookieFactory
-                .accessToken(result.accessToken().value(), result.accessToken().validity())
+                .accessToken(result.accessToken())
                 .toString();
     }
 
