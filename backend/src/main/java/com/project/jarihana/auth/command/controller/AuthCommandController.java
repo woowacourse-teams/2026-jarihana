@@ -58,11 +58,9 @@ public class AuthCommandController {
         RefreshCommand command = new RefreshCommand(readRefreshToken(request).orElse(null));
         RefreshResult result = refreshOrExpireCredentials(command, response);
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, accessTokenCookie(result))
+                .header(HttpHeaders.SET_COOKIE, authCookieFactory.accessToken(result.accessToken()).toString())
                 .body(ApiResponse.success(RefreshResponse.from(result)));
     }
-
-
 
     /**
      * 재발급이 실패하면 세션이 끝난 것이므로 자격 증명 쿠키를 거둔다.
@@ -82,12 +80,6 @@ public class AuthCommandController {
             response.addHeader(HttpHeaders.SET_COOKIE, authCookieFactory.expiredRefreshToken().toString());
             throw exception;
         }
-    }
-
-    private String accessTokenCookie(RefreshResult result) {
-        return authCookieFactory
-                .accessToken(result.accessToken())
-                .toString();
     }
 
     private Optional<String> readRefreshToken(HttpServletRequest request) {

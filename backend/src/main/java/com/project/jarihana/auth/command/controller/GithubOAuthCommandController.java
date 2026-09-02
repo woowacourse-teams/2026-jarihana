@@ -61,8 +61,8 @@ public class GithubOAuthCommandController {
             return redirectToFrontend(true).build();
         }
         return redirectToFrontend(false)
-                .header(HttpHeaders.SET_COOKIE, accessTokenCookie(result))
-                .header(HttpHeaders.SET_COOKIE, refreshTokenCookie(result))
+                .header(HttpHeaders.SET_COOKIE, authCookieFactory.accessToken(result.accessToken()).toString())
+                .header(HttpHeaders.SET_COOKIE, authCookieFactory.refreshToken(result.refreshToken()).toString())
                 .build();
     }
 
@@ -94,17 +94,5 @@ public class GithubOAuthCommandController {
                 .build()
                 .toUri();
         return ResponseEntity.status(HttpStatus.FOUND).location(location);
-    }
-
-    private String accessTokenCookie(GithubLoginResult result) {
-        return authCookieFactory
-                .accessToken(result.accessToken())
-                .toString();
-    }
-
-    private String refreshTokenCookie(GithubLoginResult result) {
-        return authCookieFactory
-                .refreshToken(result.refreshToken())
-                .toString();
     }
 }

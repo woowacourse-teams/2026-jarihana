@@ -32,6 +32,10 @@ public class AuthCookieFactory {
         return accessToken("", Duration.ZERO);
     }
 
+    public ResponseCookie accessToken(IssuedAccessToken accessToken) {
+        return accessToken(accessToken.value(), accessToken.validity());
+    }
+
     private ResponseCookie accessToken(String value, Duration validity) {
         return ResponseCookie.from(authCookieProperties.accessTokenName(), value)
                 .httpOnly(true)
@@ -40,10 +44,6 @@ public class AuthCookieFactory {
                 .path(authCookieProperties.accessTokenPath())
                 .maxAge(validity)
                 .build();
-    }
-
-    public ResponseCookie accessToken(IssuedAccessToken accessToken) {
-        return accessToken(accessToken.value(), accessToken.validity());
     }
 
     public ResponseCookie expiredRefreshToken() {

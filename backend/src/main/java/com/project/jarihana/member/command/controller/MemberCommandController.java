@@ -58,20 +58,8 @@ public class MemberCommandController {
         signupSession.invalidate(servletRequest);
 
         return ResponseEntity.created(URI.create(MEMBER_LOCATION_PREFIX + result.id()))
-                .header(HttpHeaders.SET_COOKIE, accessTokenCookie(result))
-                .header(HttpHeaders.SET_COOKIE, refreshTokenCookie(result))
+                .header(HttpHeaders.SET_COOKIE, authCookieFactory.accessToken(result.accessToken()).toString())
+                .header(HttpHeaders.SET_COOKIE, authCookieFactory.refreshToken(result.refreshToken()).toString())
                 .body(ApiResponse.success(MemberSignupResponse.from(result)));
-    }
-
-    private String accessTokenCookie(MemberSignupResult result) {
-        return authCookieFactory
-                .accessToken(result.accessToken())
-                .toString();
-    }
-
-    private String refreshTokenCookie(MemberSignupResult result) {
-        return authCookieFactory
-                .refreshToken(result.refreshToken())
-                .toString();
     }
 }
