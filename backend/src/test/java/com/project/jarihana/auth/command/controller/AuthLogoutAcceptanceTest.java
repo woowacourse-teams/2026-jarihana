@@ -1,14 +1,14 @@
 package com.project.jarihana.auth.command.controller;
 
-import com.project.jarihana.auth.command.repository.RefreshTokenRepository;
 import com.project.jarihana.auth.command.service.RefreshTokenIssuer;
 import com.project.jarihana.auth.config.AuthCookieProperties;
-import com.project.jarihana.auth.session.SignupSession;
 import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.support.IntegrationTestSupport;
+import com.project.jarihana.support.RefreshTokenTestRepository;
+import com.project.jarihana.support.SignupSessionFixture;
 import io.restassured.RestAssured;
 import io.restassured.http.Cookie;
 import io.restassured.response.ExtractableResponse;
@@ -18,11 +18,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
-import org.springframework.session.Session;
-import org.springframework.session.SessionRepository;
-
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -45,13 +40,13 @@ class AuthLogoutAcceptanceTest extends IntegrationTestSupport {
     private MemberRepository memberRepository;
 
     @Autowired
-    private RefreshTokenRepository refreshTokenRepository;
+    private RefreshTokenTestRepository refreshTokenTestRepository;
 
     @Autowired
     private RefreshTokenIssuer refreshTokenIssuer;
 
     @Autowired
-    private SessionRepository<? extends Session> sessionRepository;
+    private SignupSessionFixture signupSessionFixture;
 
     @Autowired
     private AuthCookieProperties authCookieProperties;
@@ -73,7 +68,7 @@ class AuthLogoutAcceptanceTest extends IntegrationTestSupport {
 
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.NO_CONTENT.value());
-        assertThat(refreshTokenRepository.findAll()).isEmpty();
+        assertThat(refreshTokenTestRepository.findAll()).isEmpty();
     }
 
     private ExtractableResponse<Response> logout(CredentialSpec credentials) {
@@ -137,38 +132,23 @@ class AuthLogoutAcceptanceTest extends IntegrationTestSupport {
                 .cookie(authCookieProperties.refreshTokenName(), refreshToken));
 
         // Then
-        assertThat(refreshTokenRepository.findAll()).hasSize(1);
-        assertThat(refreshTokenRepository.findAll().get(0).getMember().getId()).isEqualTo(other.getId());
+        assertThat(refreshTokenTestRepository.findAll()).hasSize(1);
+        assertThat(refreshTokenTestRepository.findAll().get(0).getMember().getId()).isEqualTo(other.getId());
     }
 
     @DisplayName("가입 세션만 있는 사용자가 로그아웃하면 가입 세션을 무효화한다.")
     @Test
     void invalidateSignupSessionOnLogout() {
         // Given
-        String sessionId = createSignupSession(GITHUB_ID);
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
 
         // When
         ExtractableResponse<Response> response = logout(request -> request
-                .cookie(SESSION_COOKIE_NAME, encodeSessionCookie(sessionId)));
+                .cookie(SESSION_COOKIE_NAME, signupSessionFixture.cookieValue(sessionId)));
 
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.NO_CONTENT.value());
-        assertThat(sessionRepository.findById(sessionId)).isNull();
-    }
-
-    private String createSignupSession(String githubId) {
-        return storeSignupGithubId(sessionRepository, githubId);
-    }
-
-    private <S extends Session> String storeSignupGithubId(SessionRepository<S> repository, String githubId) {
-        S session = repository.createSession();
-        session.setAttribute(SignupSession.githubIdAttribute(), githubId);
-        repository.save(session);
-        return session.getId();
-    }
-
-    private String encodeSessionCookie(String sessionId) {
-        return Base64.getEncoder().encodeToString(sessionId.getBytes(StandardCharsets.UTF_8));
+        assertThat(signupSessionFixture.exists(sessionId)).isFalse();
     }
 
     @DisplayName("자격 증명이 없으면 거부한다.")

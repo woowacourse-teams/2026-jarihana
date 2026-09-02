@@ -17,13 +17,6 @@ public class SignupSession {
 
     private static final String GITHUB_ID_ATTRIBUTE = "signup.githubId";
 
-    /**
-     * 인수 테스트가 콜백을 거치지 않고 가입 구간을 만들 때 쓰는 세션 속성 이름이다.
-     */
-    public static String githubIdAttribute() {
-        return GITHUB_ID_ATTRIBUTE;
-    }
-
     public void store(HttpServletRequest request, String githubId) {
         request.getSession(true).setAttribute(GITHUB_ID_ATTRIBUTE, githubId);
     }

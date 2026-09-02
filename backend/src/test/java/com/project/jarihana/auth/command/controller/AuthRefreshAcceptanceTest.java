@@ -11,6 +11,7 @@ import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.support.IntegrationTestSupport;
+import com.project.jarihana.support.RefreshTokenTestRepository;
 import com.project.jarihana.support.TestSupportConfig;
 import io.restassured.RestAssured;
 import io.restassured.http.Cookie;
@@ -48,6 +49,9 @@ class AuthRefreshAcceptanceTest extends IntegrationTestSupport {
 
     @Autowired
     private RefreshTokenRepository refreshTokenRepository;
+
+    @Autowired
+    private RefreshTokenTestRepository refreshTokenTestRepository;
 
     @Autowired
     private RefreshTokenIssuer refreshTokenIssuer;
@@ -198,7 +202,7 @@ class AuthRefreshAcceptanceTest extends IntegrationTestSupport {
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
         assertThat(response.jsonPath().getString("error.code")).isEqualTo("REFRESH_TOKEN_INVALID");
-        assertThat(refreshTokenRepository.findAll()).hasSize(1);
+        assertThat(refreshTokenTestRepository.findAll()).hasSize(1);
     }
 
     @DisplayName("만료된 Refresh Token으로 실패하면 자격 증명 쿠키를 거둔다.")
