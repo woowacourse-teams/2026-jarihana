@@ -20,14 +20,18 @@ import org.springframework.validation.annotation.Validated;
 public record GithubOAuthProperties(
         @NotBlank
         String clientId,
+
         @NotBlank
         String clientSecret,
+
         @NotBlank
         @Pattern(regexp = "^https?://.+")
         String redirectUri,
+
         @NotBlank
         @Pattern(regexp = "^https?://.+")
         String tokenUri,
+
         @NotBlank
         @Pattern(regexp = "^https?://.+")
         String userUri

@@ -22,6 +22,7 @@ public record JwtProperties(
         @NotBlank
         @Size(min = 32)
         String secret,
+
         @NotNull
         Duration validity
 ) {
