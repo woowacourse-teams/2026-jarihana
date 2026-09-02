@@ -75,7 +75,8 @@ SQL을 직접 사용해도 기능 구현은 가능하지만 객체 조회와 저
 - 무한 스크롤 목록은 `Page` 대신 Spring Data JPA `Slice`를 사용한다. `Pageable`은
   DB의 limit 적용에 사용하고, offset 대신 `createdAt DESC, id DESC` 기준의 cursor
   조건으로 다음 페이지를 조회한다. 상세 결정은
-  [ADR 0002](../adr/0002-group-list-database-cursor-pagination.md)를 따른다.
+  [ADR 0002(그룹 목록 커서 페이지네이션)](../adr/0002-group-list-database-cursor-pagination.md)를
+  따른다.
 - `InMemoryGroupListRepository`는 Service 단위 테스트의 대역으로만 사용하므로
   `src/test/java` 아래에 두고, Spring Repository Bean으로 등록하지 않는다.
 

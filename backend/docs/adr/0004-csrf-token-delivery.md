@@ -4,7 +4,8 @@
 - 날짜: 2026-08-20
 - 관련 문서: [ADR 0002](0002-access-token-cookie.md), [ADR 0003](0003-oauth-authorization-ownership.md),
   [보안과 개인정보](../conventions/security.md), [API 공통 설계](../context/api/conventions.md)
-- 이 문서는 ADR 0002가 후속 작업으로 남긴 "CSRF 토큰 저장소와 프론트엔드 전달 방식"을 정한다.
+- 이 문서는 [ADR 0002(Access Token)](0002-access-token-cookie.md)가 후속 작업으로 남긴
+  "CSRF 토큰 저장소와 프론트엔드 전달 방식"을 정한다.
 - 개정: 2026-08-27. 최초 채택본은 쿠키 이름과 `HttpOnly` 여부만 정하고 **경로를 정하지 않았다.**
   [ADR 0006](0006-api-prefix-backend-context-path.md)이 백엔드에 context-path를 주면서 그 빈틈이
   드러나 모든 변경 요청이 403으로 막혔다. 결정 6으로 경로를 명시한다.
@@ -13,7 +14,8 @@
 
 ## 배경
 
-ADR 0002가 Access Token을 쿠키로 전달하기로 하면서 상태를 변경하는 요청에 CSRF 토큰이
+[ADR 0002(Access Token)](0002-access-token-cookie.md)가 Access Token을 쿠키로 전달하기로 하면서
+상태를 변경하는 요청에 CSRF 토큰이
 필요해졌다. 브라우저가 쿠키를 자동으로 실어 보내므로 요청이 우리 프론트엔드에서 시작됐는지
 확인할 다른 수단이 있어야 한다. 그 토큰을 어디에 담고 프론트엔드에 어떻게 건넬지는 정하지
 못한 채 후속 작업으로 남겼다.
@@ -80,7 +82,7 @@ BREACH는 압축된 HTTPS **응답 본문**에 비밀값이 들어 있고 공격
 | --- | --- | --- |
 | 기본값 유지(세션 저장소, 지연 생성) | 설정이 없다 | 토큰이 세션 안에만 있어 프론트엔드가 읽을 수 없고, 지연 생성이라 발급조차 되지 않는다 |
 | CSRF 보호 비활성화 | 프론트엔드와 백엔드 양쪽에서 할 일이 없다 | 쿠키 인증을 택한 이상 상태 변경 요청이 그대로 위조에 열린다 |
-| Access Token을 헤더로 전달 | CSRF 자체가 필요 없다 | ADR 0002가 XSS 노출을 이유로 이미 기각했다 |
+| Access Token을 헤더로 전달 | CSRF 자체가 필요 없다 | [ADR 0002(Access Token)](0002-access-token-cookie.md)가 XSS 노출을 이유로 이미 기각했다 |
 | `SameSite=Strict` 쿠키에만 의존 | 서버 구성이 단순하다 | 브라우저 지원과 구현 차이에 기대게 된다. 로그인 리다이렉트가 `Lax`를 요구해 쿠키 정책을 나누어야 한다 |
 | 상태 변경 요청에 임의의 커스텀 헤더만 요구 | 토큰 관리가 없다 | CORS preflight에만 기대는 방식이라 서버 CORS 설정이 느슨해지면 함께 무너진다 |
 
