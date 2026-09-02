@@ -39,19 +39,22 @@ describe("GroupCard", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/groups/17");
   });
 
-  it("Given the mobile activity appearance, When the card renders, Then it keeps the image and member metadata in one link", () => {
+  it("Given the mobile activity appearance, When the card renders, Then it keeps the image and desktop schedule metadata in one link", () => {
     render(
       <GroupCard
         group={{
+          activeRecruitment: { approvedCount: 6, capacity: 10, id: 90 },
           id: 18,
           introduction: "함께 공부해요.",
           memberCount: 6,
           name: "리액트 스터디",
           recruiting: true,
+          recurringSchedule: { daysOfWeek: ["MONDAY", "WEDNESDAY"] },
           representativeImageUrl: "/images/react-study.png",
           type: "STUDY"
         }}
         mobileAppearance="activity"
+        showScheduleMeta
       />
     );
 
@@ -61,7 +64,10 @@ describe("GroupCard", () => {
       "src",
       "/api/images/react-study.png"
     );
-    expect(card.querySelector(".ui-group-card__activity-members")).toHaveTextContent("6명");
+    expect(card.querySelector(".ui-group-card__detail-meta")).toHaveTextContent(
+      "주 2회 · 4자리 남음"
+    );
+    expect(card.querySelector(".ui-group-card__activity-members")).not.toBeInTheDocument();
   });
 
   it.each([

@@ -1523,16 +1523,7 @@
   }
 
   .groups-grid .ui-group-card--mobile-activity .ui-group-card__detail-meta {
-    display: none;
-  }
-
-  .groups-grid .ui-group-card--mobile-activity .ui-group-card__activity-members {
-    align-items: center;
-    color: var(--color-text-muted);
-    display: inline-flex;
-    font-size: var(--text-caption);
-    gap: var(--space-1);
-    min-height: var(--touch-target);
+    justify-self: end;
   }
 
   .groups-grid .ui-group-card--mobile-activity .ui-group-card__title {

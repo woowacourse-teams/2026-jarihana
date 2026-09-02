@@ -120,7 +120,7 @@ async function installResponsiveDiscoveryFixture(page) {
   return state;
 }
 
-test("mobile discovery uses the My Page activity row with a left thumbnail", async ({ page }) => {
+test("mobile discovery uses the My Page activity row with a left thumbnail and desktop card metadata", async ({ page }) => {
   await page.setViewportSize({ height: 900, width: 375 });
   const state = await installResponsiveDiscoveryFixture(page);
 
@@ -147,7 +147,26 @@ test("mobile discovery uses the My Page activity row with a left thumbnail", asy
   await expect(cards).toHaveCount(groupNames.length);
   await expect(cards.first().locator(".ui-group-card__visual")).toBeVisible();
   await expect(cards.first().locator(".ui-group-card__image")).toBeVisible();
-  await expect(cards.first().locator(".ui-group-card__activity-members")).toContainText("2명");
+  const scheduleMeta = cards.first().locator(".ui-group-card__detail-meta");
+  await expect(scheduleMeta).toBeVisible();
+  await expect(scheduleMeta).toHaveText("주 1회 · 11자리 남음");
+  await expect(cards.first().locator(".ui-group-card__activity-members")).toHaveCount(0);
+
+  const metaAlignment = await scheduleMeta.evaluate((element) => {
+    const body = element.closest(".ui-group-card__body");
+    if (!(body instanceof HTMLElement)) throw new Error("Missing card body");
+
+    const textRange = document.createRange();
+    textRange.selectNodeContents(element);
+    const bodyBounds = body.getBoundingClientRect();
+    const bodyStyle = getComputedStyle(body);
+    const textBounds = textRange.getBoundingClientRect();
+    return {
+      contentRight: bodyBounds.right - Number.parseFloat(bodyStyle.paddingRight),
+      textRight: textBounds.right
+    };
+  });
+  expect(Math.abs(metaAlignment.contentRight - metaAlignment.textRight)).toBeLessThanOrEqual(1);
 
   const mobileBounds = await cards.evaluateAll((elements) =>
     elements.map((element) => {
@@ -228,7 +247,8 @@ test("mobile discovery uses the My Page activity row with a left thumbnail", asy
 
   await page.setViewportSize({ height: 1000, width: 1024 });
   await expect(cards.first().locator(".ui-group-card__visual")).toBeVisible();
-  await expect(cards.first().locator(".ui-group-card__activity-members")).toBeHidden();
+  await expect(scheduleMeta).toBeVisible();
+  await expect(scheduleMeta).toHaveText("주 1회 · 11자리 남음");
 
   const desktopCard = await cards.first().evaluate((element) => {
     const visual = element.querySelector(".ui-group-card__visual");

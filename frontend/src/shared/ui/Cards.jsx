@@ -1,5 +1,4 @@
 import { forwardRef, useState } from "react";
-import { UsersRound } from "lucide-react";
 
 export const DEFAULT_GROUP_IMAGE = "/api/images/default-group.png";
 
@@ -156,11 +155,6 @@ export function GroupCard({
             함께하는 멤버 {group.memberCount}명
           </span>
         )}
-        {mobileActivityAppearance && group.memberCount !== undefined ? (
-          <span className="ui-group-card__activity-members">
-            <UsersRound aria-hidden="true" size={14} /> {group.memberCount}명
-          </span>
-        ) : null}
       </div>
     </Card>
   );
