@@ -32,4 +32,11 @@ describe("management text color tokens", () => {
     expect(manageCss).toContain("@media (max-width: 64rem)");
     expect(manageCss).toContain("--manage-rail-min");
   });
+
+  it("keeps the pending application badge compact while allowing larger counts to grow", () => {
+    expect(manageCss).toContain("box-sizing: border-box");
+    expect(manageCss).toContain("min-inline-size: var(--space-5)");
+    expect(manageCss).toContain("min-block-size: var(--space-5)");
+    expect(manageCss).toContain("padding-inline: var(--space-1)");
+  });
 });
