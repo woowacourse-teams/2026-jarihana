@@ -52,7 +52,8 @@ public class MemberCommandController {
                 signupSession.githubId(servletRequest).orElse(null),
                 request.crewName(),
                 request.generation(),
-                request.course()
+                request.course(),
+                request.memberType()
         );
         MemberSignupResult result = memberCommandService.signup(command);
         signupSession.invalidate(servletRequest);

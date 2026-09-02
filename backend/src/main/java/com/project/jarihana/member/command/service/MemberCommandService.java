@@ -8,6 +8,7 @@ import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.command.service.dto.MemberSignupCommand;
 import com.project.jarihana.member.command.service.dto.MemberSignupResult;
 import com.project.jarihana.member.domain.Member;
+import com.project.jarihana.member.domain.MemberType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,7 +17,7 @@ public class MemberCommandService {
 
     private static final String SIGNUP_SESSION_MESSAGE = "가입 절차를 다시 시작해 주세요.";
     private static final String ALREADY_EXISTS_MESSAGE = "이미 가입한 사용자입니다.";
-    private static final String CREW_DUPLICATED_MESSAGE = "같은 기수에 이미 사용 중인 크루명입니다.";
+    private static final String CREW_DUPLICATED_MESSAGE = "이미 사용 중인 크루명입니다.";
 
     private final MemberRepository memberRepository;
     private final AccessTokenProvider accessTokenProvider;
@@ -41,15 +42,21 @@ public class MemberCommandService {
     public MemberSignupResult signup(MemberSignupCommand command) {
         String githubId = requireSignupSession(command.githubId());
         validateNotRegistered(githubId);
-        validateCrewNameAvailable(command.crewName(), command.generation());
-
-        Member member = memberRepository.save(
-                Member.create(command.crewName(), command.generation(), githubId, command.course())
+        Member member = Member.create(
+                command.crewName(),
+                command.generation(),
+                githubId,
+                command.memberType(),
+                command.course()
         );
+        validateCrewNameAvailable(member);
+
+        member = memberRepository.save(member);
         return new MemberSignupResult(
                 member.getId(),
                 member.getCrewName(),
                 member.getGeneration(),
+                member.getMemberType(),
                 member.getCourse(),
                 member.getJoinedAt(),
                 accessTokenProvider.issue(member.getId()),
@@ -70,8 +77,12 @@ public class MemberCommandService {
         }
     }
 
-    private void validateCrewNameAvailable(String crewName, int generation) {
-        if (memberRepository.existsByCrewNameAndGeneration(crewName, generation)) {
+    private void validateCrewNameAvailable(Member member) {
+        boolean duplicated = member.getMemberType() == MemberType.COACH
+                ? memberRepository.existsByCrewName(member.getCrewName())
+                : memberRepository.existsByCrewNameAndGeneration(member.getCrewName(), member.getGeneration())
+                || memberRepository.existsByCrewNameAndMemberType(member.getCrewName(), MemberType.COACH);
+        if (duplicated) {
             throw new BusinessException(ErrorCode.MEMBER_CREW_DUPLICATED, CREW_DUPLICATED_MESSAGE);
         }
     }

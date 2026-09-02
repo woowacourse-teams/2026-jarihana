@@ -142,6 +142,7 @@ public class GroupQueryService {
                         leader.memberId(),
                         leader.member().getCrewName(),
                         leader.member().getGeneration(),
+                        leader.member().getMemberType(),
                         GithubAvatarUrl.from(leader.member().getGithubId())
                 ),
                 projection.memberCount(),

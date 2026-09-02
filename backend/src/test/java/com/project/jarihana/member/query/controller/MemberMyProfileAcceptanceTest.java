@@ -94,6 +94,8 @@ class MemberMyProfileAcceptanceTest extends IntegrationTestSupport {
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.OK.value());
         assertThat(response.jsonPath().getBoolean("data.signupCompleted")).isFalse();
+        assertThat(response.jsonPath().getString("data.avatarUrl"))
+                .isEqualTo("https://avatars.githubusercontent.com/u/" + GITHUB_ID);
         assertThat((Object) response.jsonPath().get("data.member")).isNull();
     }
 

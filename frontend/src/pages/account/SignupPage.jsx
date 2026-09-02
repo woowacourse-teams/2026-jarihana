@@ -1,38 +1,100 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 
 import { useAuth } from "../../features/auth/index.js";
 import { memberSignupFormSchema, useSignupMember } from "../../features/member/index.js";
-import { Button, ErrorState, Select, Skeleton, TextField } from "../../shared/ui/index.js";
+import profileAvatar from "../../shared/assets/brand/jarihana-favicon.png";
+import { Button, ErrorState, Modal, Select, Skeleton, TextField } from "../../shared/ui/index.js";
 import { AccountLayout } from "./AccountLayout.jsx";
 
+const FIRST_COHORT_YEAR = 2018;
+const currentGeneration = Math.max(new Date().getFullYear() - FIRST_COHORT_YEAR, 1);
+const generationOptions = Array.from({ length: currentGeneration }, (_, index) => index + 1);
+const SIGNUP_TYPE_OPTIONS = [
+  {
+    imageUrl:
+      "https://techcourse-project-2026.s3.ap-northeast-2.amazonaws.com/jarihana/images/signup/signup_crew.png",
+    label: "크루",
+    value: "CREW"
+  },
+  {
+    imageUrl:
+      "https://techcourse-project-2026.s3.ap-northeast-2.amazonaws.com/jarihana/images/signup/signup_coach.png",
+    label: "코치",
+    value: "COACH"
+  }
+];
+
+const SIGNUP_PROMPTS = {
+  DEFAULT: "안녕하세요. 크루인가요? 코치인가요?",
+  CREW: "안녕하세요 크루님 프로필을 작성해주세요",
+  COACH: "안녕하세요 코치님 프로필을 입력해주세요"
+};
+
 export function SignupPage() {
-  const { login, reload, status } = useAuth();
+  const { avatarUrl, login, status } = useAuth();
   const signupMutation = useSignupMember();
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
+  const [pendingValues, setPendingValues] = useState(null);
   const [submitError, setSubmitError] = useState("");
   const {
+    control,
     formState: { errors, isSubmitting },
     handleSubmit,
-    register
+    register,
+    setValue
   } = useForm({
-    defaultValues: { course: "FRONTEND", crewName: "", generation: 1 },
-    resolver: zodResolver(memberSignupFormSchema)
+    defaultValues: { course: "", crewName: "", generation: "", memberType: "" },
+    resolver: zodResolver(memberSignupFormSchema),
+    shouldUnregister: true
+  });
+  const selectedMemberType = useWatch({ control, name: "memberType" });
+
+  const onSubmit = handleSubmit((values) => {
+    setPendingValues(values);
+    openConfirmation();
   });
 
-  const onSubmit = handleSubmit(async (values) => {
+  function openConfirmation() {
     setSubmitError("");
+    setConfirmationOpen(true);
+  }
+
+  function changeMemberType() {
+    setValue("memberType", "", { shouldDirty: true, shouldValidate: false });
+    setValue("course", "", { shouldDirty: true, shouldValidate: false });
+    setValue("generation", "", { shouldDirty: true, shouldValidate: false });
+    setSubmitError("");
+  }
+
+  function selectMemberType(memberType) {
+    setValue("memberType", memberType, { shouldDirty: true, shouldValidate: false });
+    setSubmitError("");
+  }
+
+  function closeConfirmation(force = false) {
+    if (!force && signupMutation.isPending) return;
+    setConfirmationOpen(false);
+    setPendingValues(null);
+  }
+
+  async function confirmSignup() {
+    if (!pendingValues || signupMutation.isPending) return;
     try {
-      await signupMutation.mutateAsync(values);
-      await reload();
+      await signupMutation.mutateAsync(pendingValues);
     } catch (error) {
       const safeMessage =
         error?.status === 409
           ? error.userMessage || "이미 가입했거나 같은 크루 정보가 사용 중이에요."
           : "가입을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.";
       setSubmitError(safeMessage);
+      closeConfirmation(true);
+      return;
     }
-  });
+    window.location.replace("/my");
+  }
 
   if (status === "loading") {
     return (
@@ -54,43 +116,149 @@ export function SignupPage() {
     );
   }
 
+  const signupPrompt = selectedMemberType ? SIGNUP_PROMPTS[selectedMemberType] : SIGNUP_PROMPTS.DEFAULT;
+
   return (
-    <AccountLayout
-      compact
-      eyebrow="마지막 한 단계"
-      title="자리하나에서 사용할 정보를 알려 주세요"
-      description="GitHub 프로필과 별개로 모임에서 서로를 알아볼 수 있는 정보예요."
-    >
-      <form className="signup-form" noValidate onSubmit={onSubmit}>
-        {submitError ? (
-          <p className="form-alert" role="alert" tabIndex="-1">
-            {submitError}
-          </p>
-        ) : null}
-        <TextField
-          autoComplete="nickname"
-          description="완성형 한글 2~4자로 입력해 주세요."
-          error={errors.crewName?.message}
-          label="크루 이름"
-          {...register("crewName")}
-        />
-        <TextField
-          error={errors.generation?.message}
-          inputMode="numeric"
-          label="기수"
-          min="1"
-          type="number"
-          {...register("generation")}
-        />
-        <Select error={errors.course?.message} label="과정" {...register("course")}>
-          <option value="FRONTEND">프론트엔드</option>
-          <option value="BACKEND">백엔드</option>
-          <option value="ANDROID">안드로이드</option>
-        </Select>
-        <Button pending={isSubmitting || signupMutation.isPending} size="large" type="submit">
-          가입 완료하기
-        </Button>
+    <AccountLayout compact title={selectedMemberType ? "프로필 입력" : null}>
+      <form
+        className={`signup-form${selectedMemberType ? " signup-form--profile" : ""}${
+          selectedMemberType === "CREW" ? " signup-form--crew" : ""
+        }`}
+        noValidate
+        onSubmit={onSubmit}
+      >
+        <p aria-live="polite" className="signup-form__prompt">
+          {signupPrompt}
+        </p>
+        <div className="signup-form__layout">
+          <fieldset aria-label="가입 유형" className="signup-type-step">
+            <div aria-label="가입 유형" className="signup-type-options" role="radiogroup">
+              {SIGNUP_TYPE_OPTIONS.map(({ imageUrl, label, value }) => (
+                <button
+                  aria-checked={selectedMemberType === value}
+                  className="signup-type-option"
+                  key={value}
+                  onClick={() => selectMemberType(value)}
+                  role="radio"
+                  type="button"
+                >
+                  <span className="signup-type-option__image-frame">
+                    <img
+                      alt=""
+                      aria-hidden="true"
+                      className="signup-type-option__image"
+                      decoding="async"
+                      height="128"
+                      src={imageUrl}
+                      width="128"
+                    />
+                  </span>
+                  <span className="signup-type-option__label">{label}</span>
+                </button>
+              ))}
+            </div>
+            {errors.memberType?.message ? <p className="ui-field__error">{errors.memberType.message}</p> : null}
+          </fieldset>
+
+          {selectedMemberType ? (
+            <div className="signup-form__profile-panel">
+              <div className="signup-form__profile-heading">
+                <p className="account-eyebrow">나의 프로필</p>
+              </div>
+              <img
+                alt="GitHub 프로필 이미지"
+                className="signup-form__avatar"
+                onError={() => setAvatarLoadFailed(true)}
+                src={avatarLoadFailed ? profileAvatar : avatarUrl || profileAvatar}
+              />
+              {submitError ? (
+                <p className="form-alert" role="alert" tabIndex="-1">
+                  {submitError}
+                </p>
+              ) : null}
+              <TextField
+                aria-label="크루 이름"
+                autoComplete="nickname"
+                className="signup-form__name-input"
+                error={errors.crewName?.message}
+                label={null}
+                placeholder="닉네임 2~4글자"
+                {...register("crewName")}
+              />
+              {selectedMemberType === "CREW" ? (
+                <div className="signup-form__selects">
+                  <Select aria-label="과정" error={errors.course?.message} label={null} required {...register("course")}>
+                    <option disabled value="">
+                      과정
+                    </option>
+                    <option value="FRONTEND">프론트엔드</option>
+                    <option value="BACKEND">백엔드</option>
+                    <option value="ANDROID">안드로이드</option>
+                  </Select>
+                  <Select
+                    aria-label="기수"
+                    error={errors.generation?.message}
+                    label={null}
+                    required
+                    {...register("generation")}
+                  >
+                    <option disabled value="">
+                      기수
+                    </option>
+                    {generationOptions.map((generation) => (
+                      <option key={generation} value={generation}>
+                        {generation}기
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {selectedMemberType ? (
+            <div className="signup-form__profile-actions">
+              <Button
+                className="signup-form__submit"
+                pending={isSubmitting || signupMutation.isPending}
+                size="sm"
+                type="submit"
+              >
+                가입 완료하기
+              </Button>
+              <Button
+                className="signup-form__change-type"
+                onClick={changeMemberType}
+                size="sm"
+                type="button"
+                variant="tertiary"
+              >
+                유형 변경
+              </Button>
+            </div>
+          ) : null}
+        </div>
       </form>
+      <Modal
+        description={
+          <>
+            입력한 정보는 가입 후 직접 변경할 수 없어요.
+            <br />
+            잘못 입력한 경우 관리자에게 문의해 주세요.
+          </>
+        }
+        onClose={closeConfirmation}
+        open={confirmationOpen}
+        title="입력 정보를 확인해 주세요"
+      >
+        <div className="ui-dialog__actions signup-confirm-actions">
+          <Button onClick={closeConfirmation} size="sm" variant="secondary">
+            취소
+          </Button>
+          <Button onClick={confirmSignup} pending={signupMutation.isPending} size="sm">
+            확인
+          </Button>
+        </div>
+      </Modal>
     </AccountLayout>
   );
 }

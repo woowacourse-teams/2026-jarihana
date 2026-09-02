@@ -120,6 +120,11 @@ export function courseLabel(course) {
   return { ANDROID: "안드로이드", BACKEND: "백엔드", FRONTEND: "프론트엔드" }[course];
 }
 
+export function memberMetaLabel(member) {
+  if (member.memberType === "COACH") return "코치";
+  return `${Number.isInteger(member.generation) ? `${member.generation}기` : "기수 미정"} 크루`;
+}
+
 export function publicErrorCopy(error, resource) {
   if (error?.status === 403) {
     return {

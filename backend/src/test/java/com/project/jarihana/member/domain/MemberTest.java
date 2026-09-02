@@ -26,8 +26,21 @@ class MemberTest {
         assertThat(member.getCrewName()).isEqualTo(crewName);
         assertThat(member.getGeneration()).isEqualTo(8);
         assertThat(member.getGithubId()).isEqualTo("123456");
+        assertThat(member.getMemberType()).isEqualTo(MemberType.CREW);
         assertThat(member.getCourse()).isEqualTo(Course.BACKEND);
         assertThat(member.getWithdrawnAt()).isNull();
+    }
+
+    @DisplayName("코치는 과정과 기수 없이 회원을 생성한다.")
+    @Test
+    void createCoach() {
+        // When
+        Member member = Member.create("코치", null, "123456", MemberType.COACH, null);
+
+        // Then
+        assertThat(member.getMemberType()).isEqualTo(MemberType.COACH);
+        assertThat(member.getCourse()).isNull();
+        assertThat(member.getGeneration()).isNull();
     }
 
     @DisplayName("크루명은 공백이나 특수문자 없이 완성형 한글 2자부터 4자까지만 허용한다.")
@@ -69,6 +82,26 @@ class MemberTest {
     void courseIsRequired() {
         // When & Then
         assertThatThrownBy(() -> Member.create("우주", 8, "123456", null))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
+    }
+
+    @DisplayName("크루는 과정 없이 생성할 수 없다.")
+    @Test
+    void crewCourseIsRequired() {
+        // When & Then
+        assertThatThrownBy(() -> Member.create("우주", 8, "123456", MemberType.CREW, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
+    }
+
+    @DisplayName("코치는 과정이나 기수를 가질 수 없다.")
+    @Test
+    void coachCannotHaveCourseOrGeneration() {
+        // When & Then
+        assertThatThrownBy(() -> Member.create("코치", 8, "123456", MemberType.COACH, Course.BACKEND))
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_PARAMETER);
