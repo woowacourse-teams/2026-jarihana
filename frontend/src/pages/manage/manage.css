@@ -617,6 +617,10 @@
   width: 8rem;
 }
 
+.manage-history-table__mobile-label {
+  display: none;
+}
+
 .manage-history-period {
   display: grid;
   gap: var(--space-1);
@@ -1571,12 +1575,32 @@
     white-space: normal;
   }
 
+  .manage-history-table td {
+    font-size: var(--text-label);
+  }
+
   .manage-member-table td::before,
   .manage-history-table td::before {
     color: var(--color-muted-ink);
-    content: attr(data-label);
+    content: attr(data-label) ":";
     font-size: inherit;
     font-weight: 600;
+  }
+
+  .manage-history-table td::before {
+    content: none;
+  }
+
+  .manage-history-table__mobile-label {
+    display: inline-flex;
+    align-items: baseline;
+    color: var(--color-muted-ink);
+    font-weight: 600;
+  }
+
+  .manage-history-table__mobile-label-colon {
+    display: inline-block;
+    transform: translateY(1px);
   }
 
   .manage-member-table td[data-label="크루"],
@@ -1600,11 +1624,17 @@
   }
 
   .manage-history-table td[data-label="상태"] .ui-badge {
-    min-height: var(--space-5);
+    font-size: inherit;
+    line-height: 1;
+    min-height: var(--text-label);
   }
 
   .manage-history-table td[data-label="모집 기간"] {
     grid-column: 1 / -1;
+  }
+
+  .manage-history-table td[data-label="모집 기간"] .manage-history-table__mobile-label {
+    align-self: start;
   }
 
   .manage-history-table td[data-label="모집 기간"]::before {

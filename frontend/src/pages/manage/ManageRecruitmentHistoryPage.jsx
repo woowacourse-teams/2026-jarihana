@@ -131,9 +131,11 @@ export function ManageRecruitmentHistoryPage() {
                   key={recruitment.id}
                 >
                   <td data-label="등록일">
+                    <HistoryCellLabel>등록일</HistoryCellLabel>
                     {formatDate(recruitment.createdAt)}
                   </td>
                   <td data-label="모집 기간">
+                    <HistoryCellLabel>모집 기간</HistoryCellLabel>
                     <div className="manage-history-period">
                       <span className="manage-history-period__row">
                         <span className="manage-history-period__label">시작</span>
@@ -147,12 +149,20 @@ export function ManageRecruitmentHistoryPage() {
                       </span>
                     </div>
                   </td>
-                  <td data-label="모집 정원">{recruitment.capacity}명</td>
-                  <td data-label="승인 인원">{recruitment.approvedCount}명</td>
+                  <td data-label="모집 정원">
+                    <HistoryCellLabel>모집 정원</HistoryCellLabel>
+                    {recruitment.capacity}명
+                  </td>
+                  <td data-label="승인 인원">
+                    <HistoryCellLabel>승인 인원</HistoryCellLabel>
+                    {recruitment.approvedCount}명
+                  </td>
                   <td data-label="가입 방식">
+                    <HistoryCellLabel>가입 방식</HistoryCellLabel>
                     {recruitment.joinMethod === "APPROVAL" ? "모임장 승인" : "자동 승인"}
                   </td>
                   <td data-label="상태">
+                    <HistoryCellLabel>상태</HistoryCellLabel>
                     <StatusBadge tone={statusTone(recruitment.recruitingStatus)}>
                       {statusLabel(recruitment.recruitingStatus)}
                     </StatusBadge>
@@ -164,6 +174,15 @@ export function ManageRecruitmentHistoryPage() {
         </section>
       )}
     </div>
+  );
+}
+
+function HistoryCellLabel({ children }) {
+  return (
+    <span className="manage-history-table__mobile-label">
+      {children}
+      <span className="manage-history-table__mobile-label-colon">:</span>
+    </span>
   );
 }
 
