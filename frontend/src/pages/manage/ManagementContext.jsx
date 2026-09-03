@@ -45,12 +45,20 @@ export function ManagementContext({ active, groupId, recruitmentId }) {
   );
 }
 
-export function ManagementPageHeading({ description, statIcon, statLabel, statValue, title }) {
+export function ManagementPageHeading({
+  className,
+  description,
+  statIcon,
+  statLabel,
+  statValue,
+  title
+}) {
   const hasStat = statValue !== undefined && statValue !== null;
   const statAriaLabel = [statLabel, statValue].filter(Boolean).join(" ");
+  const headingClassName = ["manage-heading", className].filter(Boolean).join(" ");
 
   return (
-    <div className="manage-heading">
+    <div className={headingClassName}>
       <div>
         <h2>{title}</h2>
         <p>{description}</p>
