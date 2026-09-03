@@ -227,9 +227,9 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   모집은 summary + condition form + public-state rail, 신청은 applicant panel + operations rail로
   표현하고 mobile에서는 모두 single column으로 재배치한다. 관리 컨텍스트의 제목 행에는
   그룹명 왼쪽에 `ArrowLeft` 아이콘-only semantic link를 두어 모임 상세로 돌아갈 수 있음을
-  표현한다. 링크의 왼쪽 변은 아래 관리 탭의 시작점과 맞추고, 아이콘은 기존 `--touch-target`
-  (44px) hit area 안에서 시작한다. 좁은 화면에서는 제목 아래로 자연스럽게 줄바꿈하되
-  `aria-label="모임 상세로 돌아가기"`와 title로 목적지를 보완한다.
+  표현한다. 그룹명 오른쪽에는 작은 `모임 상세 보기` label과 `ExternalLink` 아이콘을 같은
+  semantic link 안에 배치하고, 그룹명 하단 기준선에 맞춘다. 링크는 기존 `--touch-target`(44px)
+  높이를 유지하고, 좁은 화면에서는 제목 아래로 자연스럽게 줄바꿈한다.
 - 일반 route는 page title 하나의 `h1`, section은 순차 `h2`, card title은 `h3`를 사용한다.
   탐색 route의 hero와 `자리 둘러보기`는 현재 제품 요구에 따라 각각 `h1`으로 노출한다.
 
@@ -238,8 +238,8 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - Buttons: primary mint/black text, secondary white/line, tertiary text, danger red. 모든 variant는
   default/hover/active/focus/disabled/pending 상태를 갖는다. 목적지를 바꾸는 액션은 버튼처럼
   보이더라도 semantic link를 사용한다. 일반 목적지 링크는 visible label을 유지하고, 관리
-  컨텍스트의 모임 상세 복귀만 관습적인 왼쪽 화살표와 `aria-label`을 함께 사용하는 icon-only
-  예외로 둔다.
+  컨텍스트의 모임 상세 이동은 작은 visible label과 관습적인 `ExternalLink` 아이콘을 함께
+  사용하는 예외로 둔다.
 - Footer: 프로토타입의 `64px 24px` desktop / `48px 24px` mobile padding, 좌측 서비스 설명 박스와
   우측 Contact us 안내·코드 아이콘이 있는 저장소 링크를 사용한다. 서비스 설명 박스는 민트색 시작선과
   얇은 경계로 별도 정보 영역임을 드러내고, Contact us는 22px 흰색 heading과 14px muted body copy로

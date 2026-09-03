@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { Link } from "react-router";
 import { useGroup } from "../../features/group/index.js";
 import "./manage.css";
@@ -26,15 +26,14 @@ export function ManagementContext({ active, groupId, recruitmentId }) {
   return (
     <header className="manage-context">
       <div className="manage-context__title-row">
+        <h1>{groupName}</h1>
         <Link
-          aria-label="모임 상세로 돌아가기"
-          className="manage-context__back-link"
-          title="모임 상세로 돌아가기"
+          className="manage-context__detail-link"
           to={`/groups/${groupId}`}
         >
-          <ArrowLeft aria-hidden="true" size={20} strokeWidth={2.25} />
+          <span>모임 상세 보기</span>
+          <ExternalLink aria-hidden="true" size={16} strokeWidth={2.25} />
         </Link>
-        <h1>{groupName}</h1>
       </div>
       <nav aria-label="모임 관리 메뉴" className="manage-context__nav">
         {links.map((link) => (
