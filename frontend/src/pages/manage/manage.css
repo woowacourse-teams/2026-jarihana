@@ -1575,7 +1575,7 @@
   .manage-history-table td::before {
     color: var(--color-muted-ink);
     content: attr(data-label);
-    font-size: var(--text-caption);
+    font-size: inherit;
     font-weight: 600;
   }
 
@@ -1597,6 +1597,10 @@
 
   .manage-history-table td[data-label="상태"] {
     justify-content: space-between;
+  }
+
+  .manage-history-table td[data-label="상태"] .ui-badge {
+    min-height: var(--space-5);
   }
 
   .manage-history-table td[data-label="모집 기간"] {
