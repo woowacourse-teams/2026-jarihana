@@ -6,9 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
 /**
- * GitHub OAuth 연동에 필요한 값을 소유한다. 하나라도 비면 기동 단계에서 멈춘다.
- *
- * <p>{@code clientId}와 {@code clientSecret}은 환경변수 기본값이 빈 문자열이다. 검증이 없으면
+ * {@code clientId}와 {@code clientSecret}은 환경변수 기본값이 빈 문자열이다. 검증이 없으면
  * 환경변수를 넣지 않아도 애플리케이션이 뜨고, 사용자가 로그인을 눌렀을 때 GitHub이 돌려주는
  * 알아보기 힘든 오류로 실패한다. 배포 직후가 아니라 기동 시점에 알아야 한다.
  *

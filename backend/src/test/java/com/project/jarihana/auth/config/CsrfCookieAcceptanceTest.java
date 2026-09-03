@@ -11,13 +11,6 @@ import org.springframework.http.HttpStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * CSRF 쿠키가 프론트엔드에서 읽을 수 있는 형태로 나가는지 검증한다.
- *
- * <p>브라우저는 문서 경로에 맞는 쿠키만 {@code document.cookie}로 노출한다. 쿠키 path가
- * context-path인 {@code /api}로 좁혀지면 루트 경로에서 뜨는 SPA가 토큰을 읽지 못해
- * {@code X-XSRF-TOKEN} 헤더를 채울 수 없고, 변경 요청이 전부 403으로 막힌다.
- */
 class CsrfCookieAcceptanceTest extends IntegrationTestSupport {
 
     private static final String PUBLIC_PATH = "/groups";

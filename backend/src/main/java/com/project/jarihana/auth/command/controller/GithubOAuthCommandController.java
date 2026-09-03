@@ -67,10 +67,8 @@ public class GithubOAuthCommandController {
     }
 
     /**
-     * 프론트엔드가 심은 state 쿠키를 읽고 즉시 만료시킨다.
-     *
-     * <p>프론트엔드는 같은 값을 이 쿠키와 authorize URL의 {@code state} 쿼리 양쪽에 싣는다.
-     * 대조는 Service가 수행한다. 검증 성공 여부와 무관하게 만료시켜 한 번만 쓰이게 한다.
+     * 프론트엔드는 같은 값을 이 쿠키와 authorize URL의 {@code state} 쿼리 양쪽에 싣는다. 검증
+     * 성공 여부와 무관하게 만료시켜 한 번만 쓰이게 한다.
      */
     private String consumeIssuedState(HttpServletRequest request, HttpServletResponse response) {
         String issuedState = AuthCookieReader

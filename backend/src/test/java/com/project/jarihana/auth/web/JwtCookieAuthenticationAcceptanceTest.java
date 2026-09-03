@@ -17,14 +17,6 @@ import java.time.Clock;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Access Token 쿠키 기반 인증 필터의 계약을 검증한다.
- *
- * <p>보호 경로로 {@code /members/me}를 사용하지만 이 엔드포인트는 아직 구현하지 않았다.
- * Spring Security는 요청을 Controller로 라우팅하기 전에 거부하므로 인증 실패 케이스는
- * 엔드포인트 구현과 무관하게 성립한다. 인증에 성공한 요청의 응답 본문은
- * {@code GET /members/me}를 구현하는 후속 작업에서 검증한다.
- */
 class JwtCookieAuthenticationAcceptanceTest extends IntegrationTestSupport {
 
     private static final String PROTECTED_PATH = "/members/me";

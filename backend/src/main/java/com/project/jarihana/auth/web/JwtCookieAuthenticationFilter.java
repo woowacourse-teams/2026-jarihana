@@ -16,9 +16,7 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Access Token 쿠키를 읽어 인증만 수행한다.
- *
- * <p>토큰이 없거나 유효하지 않으면 인증하지 않고 다음 필터로 넘긴다. 응답 형식은
+ * 토큰이 없거나 유효하지 않으면 인증하지 않고 다음 필터로 넘긴다. 응답 형식은
  * {@link UnauthenticatedEntryPoint}가 결정한다. 리소스 단위 권한은 이 필터가 아니라
  * Service와 도메인이 판단한다.
  */

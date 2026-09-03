@@ -20,10 +20,7 @@ public abstract class IntegrationTestSupport {
     private String contextPath;
 
     /**
-     * 요청 경로를 context-path 기준으로 맞춘다.
-     *
-     * <p>각 테스트는 컨트롤러 매핑 그대로의 경로를 쓰고, 접두사는 여기서 한 번만 붙인다.
-     * 설정에서 읽으므로 context-path가 바뀌어도 테스트 본문은 그대로 둔다.
+     * 각 테스트는 컨트롤러 매핑 그대로의 경로를 쓰고, context-path 접두사는 여기서 한 번만 붙인다.
      */
     @BeforeEach
     void setUpRestAssured() {

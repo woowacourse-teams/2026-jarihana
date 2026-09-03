@@ -21,12 +21,6 @@ import org.springframework.http.HttpStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * 로그아웃은 자격 증명 종류에 따라 무효화 대상이 다르다.
- *
- * <p>가입을 마친 회원은 Refresh Token을 폐기하고, GitHub 인증만 끝낸 사용자는 가입 세션을
- * 무효화한다. 어느 쪽도 없을 때만 거부한다.
- */
 class AuthLogoutAcceptanceTest extends IntegrationTestSupport {
 
     private static final String LOGOUT_PATH = "/auth/logout";

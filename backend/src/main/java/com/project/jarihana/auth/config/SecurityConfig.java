@@ -84,9 +84,7 @@ public class SecurityConfig {
     }
 
     /**
-     * CSRF 쿠키를 사이트 루트 경로로 내린다.
-     *
-     * <p>경로를 지정하지 않으면 context-path인 {@code /api}가 쿠키 path가 된다. 그러면 루트
+     * 경로를 지정하지 않으면 context-path인 {@code /api}가 쿠키 path가 된다. 그러면 루트
      * 경로에서 뜨는 프론트엔드 문서가 {@code document.cookie}로 토큰을 읽지 못해
      * {@code X-XSRF-TOKEN} 헤더를 채울 수 없고, 모든 변경 요청이 403으로 막힌다.
      */

@@ -27,8 +27,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 콜백은 프론트엔드가 심은 state 쿠키와 GitHub이 되돌려준 state 쿼리를 대조한다(ADR 0003).
- * 인가 시작은 프론트엔드가 소유하므로 이 테스트는 그 역할을 대신해 쿠키를 직접 보낸다.
+ * 인가 시작은 프론트엔드가 소유하므로, 이 테스트가 그 역할을 대신해 state 쿠키를 직접 보낸다.
  */
 class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
 

@@ -32,10 +32,16 @@ class AuthCookiePropertiesTest {
         assertThat(violations).isEmpty();
     }
 
-    /**
-     * 원시 타입이었다면 설정을 빠뜨려도 조용히 false로 묶여, Secure 없는 자격 증명 쿠키가
-     * 나가는 것을 아무도 모른다. 이 테스트가 감싼 타입을 지킨다.
-     */
+    private AuthCookieProperties propertiesWith(Boolean secure, String accessTokenPath, String refreshTokenPath) {
+        return new AuthCookieProperties(
+                secure,
+                ACCESS_TOKEN_NAME,
+                accessTokenPath,
+                REFRESH_TOKEN_NAME,
+                refreshTokenPath
+        );
+    }
+
     @DisplayName("Secure 속성을 빠뜨리면 위반으로 잡는다.")
     @Test
     void rejectMissingSecure() {
@@ -67,10 +73,6 @@ class AuthCookiePropertiesTest {
                 .containsExactly("accessTokenName");
     }
 
-    /**
-     * RFC 6265는 슬래시로 시작하지 않는 Path를 무시하고 요청 URI에서 유도한 기본 경로를 쓴다.
-     * 그러면 쿠키가 의도한 범위 밖으로 퍼진다.
-     */
     @DisplayName("슬래시로 시작하지 않는 쿠키 경로는 위반으로 잡는다.")
     @Test
     void rejectPathWithoutLeadingSlash() {
@@ -84,15 +86,5 @@ class AuthCookiePropertiesTest {
         assertThat(violations)
                 .extracting(violation -> violation.getPropertyPath().toString())
                 .containsExactly("refreshTokenPath");
-    }
-
-    private AuthCookieProperties propertiesWith(Boolean secure, String accessTokenPath, String refreshTokenPath) {
-        return new AuthCookieProperties(
-                secure,
-                ACCESS_TOKEN_NAME,
-                accessTokenPath,
-                REFRESH_TOKEN_NAME,
-                refreshTokenPath
-        );
     }
 }
