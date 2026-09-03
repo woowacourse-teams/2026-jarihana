@@ -215,9 +215,10 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - 모달의 모집 정보 스크롤바는 투명 track과 얇고 둥근 thumb를 사용하며 스크롤바 공간을 상시 예약하지
   않는다. 모달은 둥근 외곽 안쪽의 모집 정보 한 곳에서만 세로 스크롤하고 제목·닫기 버튼·신청
   action은 고정한다. 내부 flex/grid 요소는 가용 폭까지 줄어들며 가로 스크롤을 만들지 않는다.
-- `FormLayout`: group editor는 `1100px` content target 안에 mint hero, white form panels,
+- `FormLayout`: group editor는 `1100px` content target을 부모 shell 안에서 중앙 정렬하고, mint hero, white form panels,
   step title/illustration과 하단 action bar를 둔다. 1024px 미만에서는 hero의 text/visual을
-  세로로 쌓고, mobile day picker는 2 columns로 줄인다.
+  세로로 쌓고, mobile day picker는 2 columns로 줄인다. 모바일 설명 편집기의 `작성`·`미리보기`
+  도구는 한 행의 2열로 유지한다.
 - `MyPageLayout`: profile column + activity panel의 desktop split, 3개 count link, 2-column
   summary cards를 사용한다. tablet/mobile에서는 각 grid를 정보 순서대로 한 column으로 접는다.
   dashboard surface의 좌우 확장과 내부 여백은 page gutter 이하로 제한해 모바일 가로 넘침을 막는다.
@@ -232,7 +233,10 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 ## 4. Component visual grammar
 
 - Buttons: primary mint/black text, secondary white/line, tertiary text, danger red. 모든 variant는
-  default/hover/active/focus/disabled/pending 상태를 갖는다.
+  default/hover/active/focus/disabled/pending 상태를 갖는다. 목적지를 바꾸는 액션은 버튼처럼
+  보이더라도 semantic link를 사용한다. 일반 목적지 링크는 visible label을 유지하고, 관리
+  컨텍스트의 모임 상세 이동은 작은 visible label과 관습적인 `ExternalLink` 아이콘을 함께
+  사용하는 예외로 둔다.
 - Footer: 프로토타입의 `64px 24px` desktop / `48px 24px` mobile padding, 좌측 서비스 설명 박스와
   우측 Contact us 안내·코드 아이콘이 있는 저장소 링크를 사용한다. 서비스 설명 박스는 민트색 시작선과
   얇은 경계로 별도 정보 영역임을 드러내고, Contact us는 22px 흰색 heading과 14px muted body copy로
@@ -266,9 +270,12 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   제목 링크와 action을 분리한다.
 - MarkdownContent: raw HTML을 실행하지 않고 제목, 굵게, 목록, 인용, 안전한 http(s)/내부 링크만
   React element로 렌더한다. 작성 화면 미리보기와 공개 모임 소개가 같은 renderer를 공유한다.
-- GroupMemberInsights: 실제 group member cursor data로 멤버 요약, 기수별 categorical rail, 기수별
-  인원 chip을 구성한다. rail segment는 hover와 keyboard focus에서 `N기 · M명` preview를 제공한다.
-  생성 전 화면은 아직 groupId가 없으므로 멤버를 꾸며내지 않고 생성 후 확인 가능 상태를 표시한다.
+- GroupMemberInsights: 실제 group member cursor data로 상세 멤버 탭과 같은 `멤버` heading, 공통
+  `Avatar`를 사용한 멤버 요약, 기수별 categorical rail, 기수별 인원 chip을 구성한다. heading 옆에는
+  상세 멤버 탭과 중복되는 현재 인원 배지를 두지 않는다. avatarUrl이 있으면 GitHub 프로필 이미지를
+  표시하고, 실패하거나 없을 때만 crew name 이니셜로 대체한다. rail segment는 hover와 keyboard
+  focus에서 `N기 · M명` preview를 제공한다. 생성 전 화면은 아직 groupId가 없으므로 멤버를 꾸며내지
+  않고 생성 후 확인 가능 상태를 표시한다.
 - Badges: 상태색의 soft surface + 고대비 text, pill shape.
 - Tabs: route 또는 상태와 연결된 semantic tablist. 선택 underline 하나가 새 tab 위치로 이동하고
   panel은 짧게 fade/translate되어 공간 연속성을 전달한다. 모바일은 가로 scroll하되 page 자체

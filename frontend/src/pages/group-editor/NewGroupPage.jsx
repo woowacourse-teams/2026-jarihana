@@ -12,7 +12,6 @@ import {
 import { Button, GroupImage, Tabs, useToast } from "../../shared/ui/index.js";
 import { scheduleLines } from "../groups/pageUtils.js";
 import {
-  ReadOnlyFact,
   RepresentativeImageNotice,
   ScheduleFact,
   UnderlineField,
@@ -312,7 +311,6 @@ export function NewGroupPage() {
                     />
                   </div>
                 </div>
-                <ReadOnlyFact label="현재 멤버 수" value="개설자 1명" />
               </dl>
             </div>
           </div>
