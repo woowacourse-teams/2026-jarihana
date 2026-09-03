@@ -206,10 +206,11 @@ describe("ManageMembersPage", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "프론트엔드 성능 튜닝 챌린지" })
     ).toBeVisible();
-    expect(screen.getByRole("link", { name: "모임 상세 보기" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "모임 상세로 돌아가기" })).toHaveAttribute(
       "href",
       "/groups/7"
     );
+    expect(screen.queryByRole("link", { name: "모임 상세 보기" })).not.toBeInTheDocument();
     const navigation = screen.getByRole("navigation", { name: "모임 관리 메뉴" });
     expect(
       within(navigation)
