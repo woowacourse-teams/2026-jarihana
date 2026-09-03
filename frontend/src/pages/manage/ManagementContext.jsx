@@ -1,5 +1,4 @@
 import { Link } from "react-router";
-import { ArrowRight } from "lucide-react";
 import { useGroup } from "../../features/group/index.js";
 import "./manage.css";
 
@@ -29,7 +28,6 @@ export function ManagementContext({ active, groupId, recruitmentId }) {
         <h1>{groupName}</h1>
         <Link className="manage-context__detail-link" to={`/groups/${groupId}`}>
           <span>모임 상세 보기</span>
-          <ArrowRight aria-hidden="true" size={17} strokeWidth={2.25} />
         </Link>
       </div>
       <nav aria-label="모임 관리 메뉴" className="manage-context__nav">

@@ -456,13 +456,12 @@ describe("NewGroupPage", () => {
     });
   });
 
-  it("shows the member count as text rather than an editable field", () => {
+  it("does not show the member count in the creation form", () => {
     // Given
     renderPage(<NewGroupPage />);
 
     // Then
-    expect(screen.getByText("개설자 1명")).toBeVisible();
-    expect(screen.queryByLabelText("현재 멤버 수")).not.toBeInTheDocument();
+    expect(screen.queryByText("개설자 1명")).not.toBeInTheDocument();
   });
 
   it("never exposes a fake upload control", () => {
@@ -645,13 +644,12 @@ describe("GroupManagePage", () => {
     expect(within(hero).queryByLabelText("모임 종류")).not.toBeInTheDocument();
   });
 
-  it("shows the member count as text rather than an editable field", () => {
+  it("does not show the member count in the management form", () => {
     // Given
     renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
 
     // Then
-    expect(screen.getByText("6명")).toBeVisible();
-    expect(screen.queryByLabelText("현재 멤버 수")).not.toBeInTheDocument();
+    expect(screen.queryByText("6명")).not.toBeInTheDocument();
   });
 
   it("saves the overview without a schedule request when the schedule is untouched", async () => {

@@ -302,6 +302,10 @@
     margin-block-start: var(--space-8);
 }
 
+.manage-page--editor .group-editor__save-button {
+    color: var(--color-surface);
+}
+
 
 /* 대표 이미지 자리. 상세 페이지의 수정 아이콘과 같은 우측 상단에 둔다. */
 .group-editor__image-button {
