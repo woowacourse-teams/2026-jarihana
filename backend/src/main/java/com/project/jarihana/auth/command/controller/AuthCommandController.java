@@ -5,13 +5,13 @@ import com.project.jarihana.auth.command.service.AuthCommandService;
 import com.project.jarihana.auth.command.service.dto.LogoutCommand;
 import com.project.jarihana.auth.command.service.dto.RefreshCommand;
 import com.project.jarihana.auth.command.service.dto.RefreshResult;
-import com.project.jarihana.common.auth.AuthCookieFactory;
-import com.project.jarihana.common.auth.AuthCookieProperties;
+import com.project.jarihana.auth.config.AuthCookieProperties;
+import com.project.jarihana.auth.cookie.AuthCookieFactory;
+import com.project.jarihana.auth.cookie.AuthCookieReader;
+import com.project.jarihana.auth.session.SignupSession;
 import com.project.jarihana.common.auth.LoginMemberReader;
-import com.project.jarihana.common.auth.SignupSession;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.response.ApiResponse;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Arrays;
 import java.util.Optional;
 
 @RestController
@@ -47,10 +46,6 @@ public class AuthCommandController {
         this.signupSession = signupSession;
     }
 
-    /**
-     * Access Token은 응답 본문이 아니라 쿠키로 내린다(ADR 0002). Refresh Token은 회전하지 않으므로
-     * 다시 내리지 않는다.
-     */
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<RefreshResponse>> refresh(
             HttpServletRequest request,
@@ -59,19 +54,14 @@ public class AuthCommandController {
         RefreshCommand command = new RefreshCommand(readRefreshToken(request).orElse(null));
         RefreshResult result = refreshOrExpireCredentials(command, response);
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, accessTokenCookie(result))
+                .header(HttpHeaders.SET_COOKIE, authCookieFactory.accessToken(result.accessToken()).toString())
                 .body(ApiResponse.success(RefreshResponse.from(result)));
     }
 
     /**
-     * 재발급이 실패하면 세션이 끝난 것이므로 자격 증명 쿠키를 거둔다.
-     *
-     * <p>되돌아갈 경로가 없는데 브라우저가 쓸모없는 쿠키를 들고 있으면 프론트엔드가 로그인 화면으로
+     * 되돌아갈 경로가 없는데 브라우저가 쓸모없는 쿠키를 들고 있으면 프론트엔드가 로그인 화면으로
      * 보낼 근거가 없다. 이 규칙은 재발급 실패에만 적용한다. 다른 경로의 401까지 쿠키를 거두면
      * Access Token 만료로 401을 받은 순간 Refresh Token까지 사라져 재발급 경로 자체가 끊긴다.
-     *
-     * <p>응답 본문은 GlobalExceptionHandler가 만들므로 예외를 그대로 다시 던지고, 쿠키 헤더만
-     * 원본 응답에 미리 써 둔다.
      */
     private RefreshResult refreshOrExpireCredentials(RefreshCommand command, HttpServletResponse response) {
         try {
@@ -83,27 +73,13 @@ public class AuthCommandController {
         }
     }
 
-    private String accessTokenCookie(RefreshResult result) {
-        return authCookieFactory
-                .accessToken(result.accessToken().value(), result.accessToken().validity())
-                .toString();
-    }
-
     private Optional<String> readRefreshToken(HttpServletRequest request) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies == null) {
-            return Optional.empty();
-        }
-        return Arrays.stream(cookies)
-                .filter(cookie -> authCookieProperties.refreshTokenName().equals(cookie.getName()))
-                .map(Cookie::getValue)
-                .filter(value -> value != null && !value.isBlank())
-                .findFirst();
+        return AuthCookieReader.read(request, authCookieProperties.refreshTokenName());
     }
 
     /**
      * 자격 증명이 Access Token, Refresh Token, 가입 세션 세 갈래여서 LoginMember 어노테이션을
-     * 쓰지 않는다. 어느 쪽도 없을 때 거부하는 판단은 Service가 한다.
+     * 쓰지 않는다.
      */
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(HttpServletRequest request) {

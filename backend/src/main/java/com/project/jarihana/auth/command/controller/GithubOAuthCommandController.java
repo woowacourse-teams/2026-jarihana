@@ -4,9 +4,9 @@ import com.project.jarihana.auth.command.service.GithubOAuthCommandService;
 import com.project.jarihana.auth.command.service.dto.GithubLoginCommand;
 import com.project.jarihana.auth.command.service.dto.GithubLoginResult;
 import com.project.jarihana.auth.config.AuthProperties;
-import com.project.jarihana.common.auth.AuthCookieFactory;
-import com.project.jarihana.common.auth.SignupSession;
-import jakarta.servlet.http.Cookie;
+import com.project.jarihana.auth.cookie.AuthCookieFactory;
+import com.project.jarihana.auth.cookie.AuthCookieReader;
+import com.project.jarihana.auth.session.SignupSession;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
@@ -20,8 +20,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
-import java.util.Arrays;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/oauth/github")
@@ -63,33 +61,21 @@ public class GithubOAuthCommandController {
             return redirectToFrontend(true).build();
         }
         return redirectToFrontend(false)
-                .header(HttpHeaders.SET_COOKIE, accessTokenCookie(result))
-                .header(HttpHeaders.SET_COOKIE, refreshTokenCookie(result))
+                .header(HttpHeaders.SET_COOKIE, authCookieFactory.accessToken(result.accessToken()).toString())
+                .header(HttpHeaders.SET_COOKIE, authCookieFactory.refreshToken(result.refreshToken()).toString())
                 .build();
     }
 
     /**
-     * 프론트엔드가 심은 state 쿠키를 읽고 즉시 만료시킨다.
-     *
-     * <p>프론트엔드는 같은 값을 이 쿠키와 authorize URL의 {@code state} 쿼리 양쪽에 싣는다.
-     * 대조는 Service가 수행한다. 검증 성공 여부와 무관하게 만료시켜 한 번만 쓰이게 한다.
+     * 프론트엔드는 같은 값을 이 쿠키와 authorize URL의 {@code state} 쿼리 양쪽에 싣는다. 검증
+     * 성공 여부와 무관하게 만료시켜 한 번만 쓰이게 한다.
      */
     private String consumeIssuedState(HttpServletRequest request, HttpServletResponse response) {
-        String issuedState = readStateCookie(request).orElse(null);
+        String issuedState = AuthCookieReader
+                .read(request, authProperties.oauthStateCookieName())
+                .orElse(null);
         response.addHeader(HttpHeaders.SET_COOKIE, expiredStateCookie().toString());
         return issuedState;
-    }
-
-    private Optional<String> readStateCookie(HttpServletRequest request) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies == null) {
-            return Optional.empty();
-        }
-        return Arrays.stream(cookies)
-                .filter(cookie -> authProperties.oauthStateCookieName().equals(cookie.getName()))
-                .map(Cookie::getValue)
-                .filter(value -> value != null && !value.isBlank())
-                .findFirst();
     }
 
     private ResponseCookie expiredStateCookie() {
@@ -106,17 +92,5 @@ public class GithubOAuthCommandController {
                 .build()
                 .toUri();
         return ResponseEntity.status(HttpStatus.FOUND).location(location);
-    }
-
-    private String accessTokenCookie(GithubLoginResult result) {
-        return authCookieFactory
-                .accessToken(result.accessToken().value(), result.accessToken().validity())
-                .toString();
-    }
-
-    private String refreshTokenCookie(GithubLoginResult result) {
-        return authCookieFactory
-                .refreshToken(result.refreshToken().value(), result.refreshToken().validity())
-                .toString();
     }
 }

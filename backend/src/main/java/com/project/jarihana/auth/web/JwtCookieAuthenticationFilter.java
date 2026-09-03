@@ -1,9 +1,11 @@
-package com.project.jarihana.common.auth;
+package com.project.jarihana.auth.web;
 
+import com.project.jarihana.auth.config.AuthCookieProperties;
+import com.project.jarihana.auth.cookie.AuthCookieReader;
+import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.common.exception.BusinessException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -11,14 +13,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
 /**
- * Access Token 쿠키를 읽어 인증만 수행한다.
- *
- * <p>토큰이 없거나 유효하지 않으면 인증하지 않고 다음 필터로 넘긴다. 응답 형식은
+ * 토큰이 없거나 유효하지 않으면 인증하지 않고 다음 필터로 넘긴다. 응답 형식은
  * {@link UnauthenticatedEntryPoint}가 결정한다. 리소스 단위 권한은 이 필터가 아니라
  * Service와 도메인이 판단한다.
  */
@@ -41,20 +39,10 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain
     ) throws ServletException, IOException {
-        readAccessToken(request).ifPresent(this::authenticate);
+        AuthCookieReader
+                .read(request, authCookieProperties.accessTokenName())
+                .ifPresent(this::authenticate);
         filterChain.doFilter(request, response);
-    }
-
-    private Optional<String> readAccessToken(HttpServletRequest request) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies == null) {
-            return Optional.empty();
-        }
-        return Arrays.stream(cookies)
-                .filter(cookie -> authCookieProperties.accessTokenName().equals(cookie.getName()))
-                .map(Cookie::getValue)
-                .filter(value -> value != null && !value.isBlank())
-                .findFirst();
     }
 
     private void authenticate(String accessToken) {

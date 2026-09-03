@@ -5,7 +5,7 @@ import com.project.jarihana.auth.command.service.dto.LogoutCommand;
 import com.project.jarihana.auth.command.service.dto.RefreshCommand;
 import com.project.jarihana.auth.command.service.dto.RefreshResult;
 import com.project.jarihana.auth.domain.RefreshToken;
-import com.project.jarihana.common.auth.AccessTokenProvider;
+import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import org.springframework.stereotype.Service;
@@ -39,10 +39,7 @@ public class AuthCommandService {
     }
 
     /**
-     * 자격 증명 종류에 따라 무효화 대상이 다르다.
-     *
-     * <p>가입을 마친 회원은 Refresh Token을 폐기하고, GitHub 인증만 끝낸 사용자는 가입 세션만
-     * 가지고 있으므로 표현 계층이 세션을 무효화한다. 어느 쪽도 없으면 로그아웃할 대상이 없다.
+     * 가입 세션만 가진 사용자는 폐기할 Refresh Token이 없으므로, 세션 무효화는 표현 계층이 한다.
      *
      * <p>저장소에 없는 Refresh Token은 이미 폐기됐거나 위조된 값이므로 자격 증명으로 세지 않는다.
      */
@@ -67,10 +64,7 @@ public class AuthCommandService {
     }
 
     /**
-     * Refresh Token으로 Access Token만 새로 발급한다.
-     *
-     * <p>회전은 도입하지 않는다. 재발급해도 기존 Refresh Token을 그대로 두므로 같은 값으로 여러 번
-     * 재발급할 수 있다. 회전과 재사용 감지는 별도 결정으로 남긴다.
+     * 회전은 도입하지 않는다. 회전과 재사용 감지는 별도 결정으로 남긴다.
      *
      * <p>유효 기간이 지난 토큰은 거부만 하고 지우지 않는다. 실패 응답과 함께 삭제하려면 예외로
      * 트랜잭션이 되돌아가는 것을 우회해야 하는데, 만료된 토큰은 더 이상 인증에 쓰이지 못하므로

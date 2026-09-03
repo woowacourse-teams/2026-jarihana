@@ -1,4 +1,4 @@
-package com.project.jarihana.common.auth;
+package com.project.jarihana.auth.web;
 
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.common.response.ApiResponse;
@@ -10,9 +10,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 /**
- * 필터 단계에서 발생한 인증과 인가 실패를 공통 오류 응답으로 쓴다.
- *
- * <p>필터는 GlobalExceptionHandler보다 앞에서 동작해 예외 변환을 거치지 않으므로
+ * 필터는 GlobalExceptionHandler보다 앞에서 동작해 예외 변환을 거치지 않으므로
  * 같은 응답 형식을 이곳에서 직접 만든다.
  */
 final class SecurityErrorResponder {
