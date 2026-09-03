@@ -1,12 +1,12 @@
 package com.project.jarihana.member.query.controller;
 
-import com.project.jarihana.common.auth.AccessTokenProvider;
-import com.project.jarihana.common.auth.AuthCookieProperties;
-import com.project.jarihana.common.auth.SignupSession;
+import com.project.jarihana.auth.config.AuthCookieProperties;
+import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.support.IntegrationTestSupport;
+import com.project.jarihana.support.SignupSessionFixture;
 import io.restassured.RestAssured;
 import io.restassured.response.ExtractableResponse;
 import io.restassured.response.Response;
@@ -14,11 +14,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
-import org.springframework.session.Session;
-import org.springframework.session.SessionRepository;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -38,7 +34,7 @@ class MemberMyProfileAcceptanceTest extends IntegrationTestSupport {
     private MemberRepository memberRepository;
 
     @Autowired
-    private SessionRepository<? extends Session> sessionRepository;
+    private SignupSessionFixture signupSessionFixture;
 
     @Autowired
     private AuthCookieProperties authCookieProperties;
@@ -81,11 +77,11 @@ class MemberMyProfileAcceptanceTest extends IntegrationTestSupport {
     @Test
     void respondSignupRequiredToSessionOnlyUser() {
         // Given
-        String sessionId = createSignupSession(GITHUB_ID);
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
 
         // When
         ExtractableResponse<Response> response = RestAssured.given()
-                .cookie(SESSION_COOKIE_NAME, encodeSessionCookie(sessionId))
+                .cookie(SESSION_COOKIE_NAME, signupSessionFixture.cookieValue(sessionId))
                 .when()
                 .get(MY_PROFILE_PATH)
                 .then()
@@ -99,32 +95,17 @@ class MemberMyProfileAcceptanceTest extends IntegrationTestSupport {
         assertThat((Object) response.jsonPath().get("data.member")).isNull();
     }
 
-    private String createSignupSession(String githubId) {
-        return storeSignupGithubId(sessionRepository, githubId);
-    }
-
-    private <S extends Session> String storeSignupGithubId(SessionRepository<S> repository, String githubId) {
-        S session = repository.createSession();
-        session.setAttribute(SignupSession.githubIdAttribute(), githubId);
-        repository.save(session);
-        return session.getId();
-    }
-
-    private String encodeSessionCookie(String sessionId) {
-        return Base64.getEncoder().encodeToString(sessionId.getBytes(StandardCharsets.UTF_8));
-    }
-
     @DisplayName("가입 세션이 있어도 가입을 마쳤다면 회원 정보를 준다.")
     @Test
     void preferMemberProfileWhenBothCredentialsExist() {
         // Given
         Member member = memberRepository.save(Member.create("가온", 8, GITHUB_ID, Course.BACKEND));
-        String sessionId = createSignupSession(GITHUB_ID);
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
 
         // When
         ExtractableResponse<Response> response = RestAssured.given()
                 .cookie(authCookieProperties.accessTokenName(), accessTokenOf(member))
-                .cookie(SESSION_COOKIE_NAME, encodeSessionCookie(sessionId))
+                .cookie(SESSION_COOKIE_NAME, signupSessionFixture.cookieValue(sessionId))
                 .when()
                 .get(MY_PROFILE_PATH)
                 .then()

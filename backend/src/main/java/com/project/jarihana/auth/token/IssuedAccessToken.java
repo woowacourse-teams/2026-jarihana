@@ -1,4 +1,4 @@
-package com.project.jarihana.common.auth;
+package com.project.jarihana.auth.token;
 
 import java.time.Duration;
 

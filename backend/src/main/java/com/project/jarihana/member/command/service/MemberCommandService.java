@@ -1,7 +1,7 @@
 package com.project.jarihana.member.command.service;
 
 import com.project.jarihana.auth.command.service.RefreshTokenIssuer;
-import com.project.jarihana.common.auth.AccessTokenProvider;
+import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.member.command.repository.MemberRepository;
