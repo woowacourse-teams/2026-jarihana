@@ -215,7 +215,7 @@ describe("ManageMembersPage", () => {
       within(navigation)
         .getAllByRole("link")
         .map((link) => link.textContent)
-    ).toEqual(["모임 수정", "모집 관리", "신청 관리", "멤버 관리"]);
+    ).toEqual(["모임 수정", "모집 관리", "모집 이력", "신청 관리", "멤버 관리"]);
     expect(within(navigation).getByRole("link", { name: "멤버 관리" })).toHaveAttribute(
       "aria-current",
       "page"
@@ -479,7 +479,7 @@ describe("ManageRegistrationsPage", () => {
       within(navigation)
         .getAllByRole("link")
         .map((link) => link.textContent)
-    ).toEqual(["모임 수정", "모집 관리", "신청 관리", "멤버 관리"]);
+    ).toEqual(["모임 수정", "모집 관리", "모집 이력", "신청 관리", "멤버 관리"]);
     expect(within(navigation).getByRole("link", { name: "신청 관리" })).toHaveAttribute(
       "aria-current",
       "page"

@@ -223,13 +223,10 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   summary cards를 사용한다. tablet/mobile에서는 각 grid를 정보 순서대로 한 column으로 접는다.
   dashboard surface의 좌우 확장과 내부 여백은 page gutter 이하로 제한해 모바일 가로 넘침을 막는다.
 - `ManageLayout`: group name context header와 horizontal route-backed tabs(`모임 수정`,
-  `모집 관리`, 조건부 `신청 관리`, `멤버 관리`)를 모든 leader page가 공유한다. 멤버는 table,
-  모집은 summary + condition form + public-state rail, 신청은 applicant panel + operations rail로
-  표현하고 mobile에서는 모두 single column으로 재배치한다. 관리 컨텍스트의 제목 행에는
-  그룹명 왼쪽에 `ArrowLeft` 아이콘-only semantic link를 두어 모임 상세로 돌아갈 수 있음을
-  표현한다. 그룹명 오른쪽에는 작은 `모임 상세 보기` label과 `ExternalLink` 아이콘을 같은
-  semantic link 안에 배치하고, 그룹명 하단 기준선에 맞춘다. 링크는 기존 `--touch-target`(44px)
-  높이를 유지하고, 좁은 화면에서는 제목 아래로 자연스럽게 줄바꿈한다.
+  `모집 관리`, `모집 이력`, 조건부 `신청 관리`, `멤버 관리`)를 모든 leader page가 공유한다.
+  멤버는 검색·필터 가능한 table, 모집 이력은 가입 방식 필터와 최근 등록순 고정 정렬을 갖춘 table, 모집은 summary
+  + condition form + public-state rail, 신청은 applicant panel + operations rail로 표현하고
+  mobile에서는 모두 single column으로 재배치한다.
 - 일반 route는 page title 하나의 `h1`, section은 순차 `h2`, card title은 `h3`를 사용한다.
   탐색 route의 hero와 `자리 둘러보기`는 현재 제품 요구에 따라 각각 `h1`으로 노출한다.
 

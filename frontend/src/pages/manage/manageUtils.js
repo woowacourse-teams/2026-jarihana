@@ -3,6 +3,11 @@ const dateTimeFormatter = new Intl.DateTimeFormat("ko-KR", {
   dateStyle: "medium",
   timeStyle: "short"
 });
+const dateTime24HourFormatter = new Intl.DateTimeFormat("ko-KR", {
+  dateStyle: "medium",
+  hourCycle: "h23",
+  timeStyle: "short"
+});
 
 export function flattenPages(data) {
   return data?.pages?.flatMap((page) => page.items) ?? [];
@@ -16,6 +21,11 @@ export function formatDate(value) {
 export function formatDateTime(value) {
   if (!value) return "상시 모집";
   return dateTimeFormatter.format(new Date(value));
+}
+
+export function formatDateTime24Hour(value) {
+  if (!value) return "상시 모집";
+  return dateTime24HourFormatter.format(new Date(value));
 }
 
 export function courseLabel(course) {

@@ -14,6 +14,11 @@ export function ManagementContext({ active, groupId, recruitmentId }) {
       to: `/groups/${groupId}/manage/recruitments`
     },
     {
+      key: "history",
+      label: "모집 이력",
+      to: `/groups/${groupId}/manage/recruitments/history`
+    },
+    {
       key: "registrations",
       label: "신청 관리",
       to: recruitmentId
