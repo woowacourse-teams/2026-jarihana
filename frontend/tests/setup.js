@@ -67,3 +67,18 @@ if (typeof window !== "undefined" && typeof window.IntersectionObserver === "und
     });
   };
 }
+
+if (typeof window !== "undefined" && typeof window.ResizeObserver === "undefined") {
+  class ResizeObserverMock {
+    constructor() {}
+
+    observe() {}
+
+    unobserve() {}
+
+    disconnect() {}
+  }
+
+  window.ResizeObserver = ResizeObserverMock;
+  global.ResizeObserver = ResizeObserverMock;
+}

@@ -91,7 +91,7 @@ URL에 버전 경로를 붙이지 않는다.
 | --- | --- |
 | `Group.name` | 1~50자, 전역 중복 불가 |
 | `Group.introduction` | 1~100자 |
-| `Group.description` | 최대 5000자, 생략 가능 |
+| `Group.description` | 최대 10000자, 생략 가능 |
 | `Member.crewName` | 완성형 한글 2~4자, 공백·특수문자 불가 |
 | `Registration.message` | 최대 1000자, 생략 가능 |
 | `Registration.decisionReason` | 최대 1000자, 생략 가능 |
@@ -101,9 +101,9 @@ URL에 버전 경로를 붙이지 않는다.
 - `CLUB`, `STUDY`: `recurringSchedule`만 허용하며 생략 시 유동적 일정이다.
 - `SESSION`: `sessionSchedule`이 필수이며 `recurringSchedule`은 허용하지 않는다.
 - 두 일정은 동시에 전달할 수 없다.
-- 반복 일정은 하나 이상의 `daysOfWeek`와 공통 `startTime`, `endTime`을 가진다.
-- 세션 일정은 `sessionDate`, `startTime`, `endTime`을 가진다.
-- 두 일정 모두 `startTime < endTime`을 만족해야 한다.
+- 반복 일정은 하나 이상의 `daysOfWeek`를 가지며, 공통 `startTime`과 `endTime`은 함께 보내거나 함께 `null`로 둔다. 함께 비우면 요일만 고정한 시간 유동적 일정이고, 한쪽만 `null`이면 거절한다.
+- 세션 일정은 `sessionDate`, `startTime`, `endTime`을 모두 필수로 가진다.
+- 시각을 정한 경우 두 일정 모두 `startTime < endTime`을 만족해야 한다.
 
 ## 그룹 삭제와 종료
 

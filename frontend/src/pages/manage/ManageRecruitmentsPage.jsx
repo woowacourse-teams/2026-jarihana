@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useBeforeUnload, useNavigate, useParams } from "react-router";
+import { useBeforeUnload, useLocation, useNavigate, useParams } from "react-router";
 import { useGroup } from "../../features/group/index.js";
 import {
   useCloseRecruitment,
@@ -23,6 +23,8 @@ import {
   errorView,
   flattenPages,
   formatDateTime,
+  generationLabel,
+  memberTypeLabel,
   statusLabel,
   statusTone
 } from "./manageUtils.js";
@@ -57,6 +59,10 @@ const recruitmentCreateSteps = [
   }
 ];
 const finalCreateStepIndex = recruitmentCreateSteps.length - 1;
+/*
+ * 시작일을 앞으로 잡으면 백엔드는 SCHEDULED로 돌려준다. 이것을 현재 모집에서 빼면
+ * 마감도 아니어서 어느 목록에도 걸리지 않고, 방금 만든 모집이 사라진 것처럼 보인다.
+ */
 const currentRecruitmentStatuses = new Set(["SCHEDULED", "OPEN", "ALWAYS_OPEN"]);
 
 function createInitialForm(now = new Date(Date.now())) {
@@ -136,6 +142,7 @@ function RecruitmentEmptyState({ action, title }) {
 export function ManageRecruitmentsPage() {
   const { groupId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const recruitmentsQuery = useInfiniteRecruitments(groupId);
   const groupQuery = useGroup(groupId);
   const createRecruitment = useCreateRecruitment(groupId);
@@ -156,6 +163,8 @@ export function ManageRecruitmentsPage() {
   const [discardRequested, setDiscardRequested] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState(null);
   const [mutationError, setMutationError] = useState(null);
+  /* 모임을 만든 직후 "모집 시작하기"로 들어온 첫 진입에서만 생성 화면을 연다. */
+  const createIntentRef = useRef(location.state?.screen === "create");
 
   useEffect(() => {
     if (!recruitmentsQuery.isSuccess || !hasNextPage || isFetchingNextPage) return;
@@ -224,7 +233,7 @@ export function ManageRecruitmentsPage() {
     await Promise.all([recruitmentsQuery.refetch(), groupQuery.refetch()]);
   }
 
-  function openCreateScreen() {
+  const openCreateScreen = useCallback(() => {
     if (!isActiveGroup) return;
     const nextForm = createInitialForm();
     setFormBaseline(nextForm);
@@ -234,7 +243,14 @@ export function ManageRecruitmentsPage() {
     setCreateError(null);
     setCreateStepIndex(0);
     setScreen("create");
-  }
+  }, [isActiveGroup]);
+
+  /* 모임 정보를 받아 오기 전에는 아카이빙 여부를 모르므로, 활성 모임임이 확인된 뒤에 연다. */
+  useEffect(() => {
+    if (!createIntentRef.current || !isActiveGroup) return;
+    createIntentRef.current = false;
+    openCreateScreen();
+  }, [isActiveGroup, openCreateScreen]);
 
   function resetCreateState() {
     setFormBaseline(emptyForm);
@@ -793,7 +809,9 @@ function ApprovedMembersSnapshot({ query }) {
                   <span>
                     <strong>{registration.member.crewName}</strong>
                     <small>
-                      {registration.member.generation}기 · {courseLabel(registration.member.course)}
+                      {registration.member.memberType === "COACH"
+                        ? memberTypeLabel(registration.member.memberType)
+                        : `${generationLabel(registration.member.generation)} · ${courseLabel(registration.member.course)}`}
                     </small>
                   </span>
                 </li>

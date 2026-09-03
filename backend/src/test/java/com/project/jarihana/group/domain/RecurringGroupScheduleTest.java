@@ -61,9 +61,21 @@ class RecurringGroupScheduleTest {
                 .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
-    @DisplayName("반복 일정의 시작 시각과 종료 시각은 필수다.")
+    @DisplayName("반복 일정은 시작 시각과 종료 시각을 함께 비워 시간을 유동적으로 둘 수 있다.")
     @Test
-    void timesAreRequired() {
+    void timesCanBeOmittedTogether() {
+        // When
+        RecurringGroupSchedule schedule = RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), null, null);
+
+        // Then
+        assertThat(schedule.getActivityDays().values()).containsExactly(DayOfWeek.MONDAY);
+        assertThat(schedule.getStartTime()).isNull();
+        assertThat(schedule.getEndTime()).isNull();
+    }
+
+    @DisplayName("반복 일정의 시작 시각과 종료 시각은 함께 정하거나 함께 비워야 한다.")
+    @Test
+    void timesMustBeSetTogether() {
         // When & Then
         assertThatThrownBy(() -> RecurringGroupSchedule.of(
                 Set.of(DayOfWeek.MONDAY),

@@ -499,7 +499,10 @@
   font-size: var(--groups-card-title-size);
   line-height: 1.45;
   min-width: 0;
+  overflow: hidden;
   overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   word-break: keep-all;
 }
 
@@ -658,8 +661,21 @@
   object-fit: contain;
   object-position: right center;
   opacity: 0.28;
-  filter: invert(1);
   transform: translateX(6%);
+}
+
+.group-detail-page .group-profile--default-image .group-profile__image {
+  padding: 0;
+  object-fit: cover;
+  object-position: center;
+  transform: none;
+}
+
+.group-editor__profile.group-profile--default-image .group-profile__image {
+  padding: 0;
+  object-fit: cover;
+  object-position: center;
+  transform: none;
 }
 
 .group-info-title {
@@ -757,7 +773,7 @@
 
 .group-rail {
   position: sticky;
-  top: calc(var(--header-height) + var(--space-5));
+  top: var(--space-5);
   display: grid;
   gap: var(--space-4);
 }
@@ -779,21 +795,21 @@
 .group-recruitment-hero {
   position: relative;
   display: grid;
-  min-block-size: calc(
-    var(--space-16) + var(--space-16) + var(--space-16) + var(--space-8)
-  );
+  min-inline-size: 0;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
-  justify-items: end;
+  justify-items: center;
   gap: var(--space-3);
-  overflow: hidden;
 }
 
 .group-recruitment-hero .group-recruitment-hero__heading {
   position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
   width: 1px;
   height: 1px;
   padding: 0;
-  margin: -1px;
+  margin: 0;
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
@@ -802,14 +818,25 @@
 
 .group-recruitment-hero__image {
   display: block;
-  inline-size: calc(
-    var(--space-16) + var(--space-16) + var(--space-16) + var(--space-8)
+  inline-size: min(
+    100%,
+    22dvh,
+    calc(var(--space-16) + var(--space-16) + var(--space-16) + var(--space-8))
   );
+  min-inline-size: 0;
+  max-inline-size: 100%;
   block-size: auto;
   aspect-ratio: 1;
   object-fit: contain;
   pointer-events: none;
   user-select: none;
+}
+
+.group-rail--desktop .group-recruitment-hero__image {
+  inline-size: min(
+    100%,
+    calc(var(--space-16) + var(--space-16) + var(--space-16) + var(--space-8))
+  );
 }
 
 .group-recruitment-hero__status {
@@ -818,12 +845,13 @@
 
 .group-rail-card {
   display: flex;
+  min-inline-size: 0;
   min-height: var(--group-detail-rail-min-height);
   flex-direction: column;
 }
 
 .group-recruitment-summary dl {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   margin-block: var(--space-6) 0;
 }
 
@@ -918,10 +946,30 @@
 
 .group-recruitment-action {
   display: grid;
+  flex-shrink: 0;
 }
 
 .group-recruitment-action .ui-button {
   width: 100%;
+}
+
+.group-recruitment-action .group-apply-button {
+  border-color: var(--color-line);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.group-recruitment-action .group-apply-button:hover:not(:disabled) {
+  border-color: var(--color-brand);
+  background: var(--color-surface);
+}
+
+.group-recruitment-action .group-apply-button::before {
+  content: "";
+  flex: 0 0 var(--space-8);
+  inline-size: var(--space-8);
+  block-size: var(--space-8);
+  background: url("../../shared/assets/brand/jarihana-favicon.png") center / contain no-repeat;
 }
 
 .group-recruitment-empty {
@@ -932,6 +980,7 @@
 }
 
 .group-recruitment-empty__action {
+  text-decoration: none;
   width: 100%;
 }
 
@@ -1452,7 +1501,6 @@
 
 @media (max-width: 47.9375rem) {
   .groups-page,
-  .group-detail-page,
   .recruitment-detail-page {
     padding-block-start: calc(var(--space-4) + var(--space-16) + var(--space-4));
   }
@@ -1520,16 +1568,7 @@
   }
 
   .groups-grid .ui-group-card--mobile-activity .ui-group-card__detail-meta {
-    display: none;
-  }
-
-  .groups-grid .ui-group-card--mobile-activity .ui-group-card__activity-members {
-    align-items: center;
-    color: var(--color-text-muted);
-    display: inline-flex;
-    font-size: var(--text-caption);
-    gap: var(--space-1);
-    min-height: var(--touch-target);
+    justify-self: end;
   }
 
   .groups-grid .ui-group-card--mobile-activity .ui-group-card__title {
@@ -1634,31 +1673,77 @@
 
 .group-detail-page .group-rail {
   inline-size: 100%;
+  top: min(
+    var(--space-5),
+    calc(100dvh - var(--group-rail-height, 0px) - var(--space-4) - env(safe-area-inset-bottom))
+  );
+}
+
+.group-recruitment-info {
+  display: flow-root;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+
+.group-recruitment-modal .group-recruitment-info {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-color: color-mix(in srgb, var(--color-muted-ink) 35%, transparent) transparent;
+  scrollbar-width: thin;
+}
+
+.group-recruitment-modal .group-recruitment-info::-webkit-scrollbar {
+  width: var(--space-2);
+  height: var(--space-2);
+}
+
+.group-recruitment-modal .group-recruitment-info::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.group-recruitment-modal .group-recruitment-info::-webkit-scrollbar-thumb {
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-muted-ink) 35%, transparent);
 }
 
 .group-floating-recruitment {
   display: none;
 }
 
+.ui-dialog:has(.group-recruitment-modal) {
+  display: flex;
+  min-inline-size: 0;
+  max-block-size: calc(100dvh - var(--space-10));
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ui-dialog:has(.group-recruitment-modal) .ui-dialog__title {
+  flex-shrink: 0;
+}
+
+.ui-dialog:has(.group-recruitment-modal) .ui-dialog__content {
+  display: flex;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+.group-recruitment-modal {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+
 .group-recruitment-modal .group-rail-card {
+  inline-size: 100%;
   min-block-size: 0;
   padding: 0;
   border: 0;
   border-radius: 0;
-}
-
-.group-recruitment-modal .group-recruitment-hero {
-  min-block-size: 0;
-}
-
-.group-recruitment-modal .group-recruitment-hero__image {
-  inline-size: min(100%, calc(var(--space-16) * 4));
-}
-
-.group-recruitment-modal
-  .group-recruitment-hero--empty
-  .group-recruitment-hero__image {
-  justify-self: center;
 }
 
 .group-profile {
@@ -1806,6 +1891,12 @@
 }
 
 @media (max-width: 89.9375rem) {
+  .group-detail-page {
+    padding-block-end: calc(
+      var(--touch-target-lg) + var(--space-6) + env(safe-area-inset-bottom)
+    );
+  }
+
   .group-detail-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1828,13 +1919,26 @@
     z-index: calc(var(--z-overlay) - 1);
     inset-inline-end: var(--page-gutter);
     inset-block-end: calc(var(--space-4) + env(safe-area-inset-bottom));
+    inline-size: var(--touch-target-lg);
+    block-size: var(--touch-target-lg);
+    min-block-size: var(--touch-target-lg);
+    padding: var(--space-2);
+    border-radius: 50%;
     box-shadow: var(--shadow-float);
   }
 
   .group-recruitment-fab > span {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
+    display: grid;
+    inline-size: 100%;
+    block-size: 100%;
+    place-items: center;
+  }
+
+  .group-recruitment-fab__image {
+    display: block;
+    inline-size: 100%;
+    block-size: 100%;
+    object-fit: contain;
   }
 
   .group-detail-grid > :first-child,
@@ -1846,25 +1950,12 @@
   .group-detail-page .group-rail {
     position: static;
   }
-
-  .group-recruitment-hero {
-    min-block-size: calc(
-      var(--space-16) + var(--space-16) + var(--space-16) + var(--space-16) +
-        var(--space-16)
-    );
-  }
-
-  .group-recruitment-hero__image {
-    inline-size: calc(
-      var(--space-16) + var(--space-16) + var(--space-16) + var(--space-16) +
-        var(--space-16)
-    );
-  }
 }
 
 @media (max-width: 47.9375rem) {
   .group-detail-page {
-    padding-inline: var(--page-gutter);
+    padding-block-start: var(--space-0);
+    padding-inline: var(--space-0);
   }
 
   .group-back {
@@ -1874,7 +1965,20 @@
   .group-profile {
     grid-template-columns: minmax(0, 1fr);
     padding: var(--space-6);
-    border-radius: var(--radius-lg);
+    border-radius: 0;
+  }
+
+  .group-profile > .group-back--hero {
+    display: none;
+  }
+
+  .group-profile__copy {
+    padding-block-start: 0;
+  }
+
+  .group-profile:has(> .group-profile__edit) .group-profile__type-tag,
+  .group-profile:has(> .group-profile__edit) h1 {
+    padding-inline-end: calc(var(--touch-target) + var(--space-2));
   }
 
   .group-facts {
@@ -1912,17 +2016,5 @@
 
   .group-detail-tabs .ui-tabs__panel {
     padding-inline: var(--space-5);
-  }
-
-  .group-recruitment-hero {
-    min-block-size: calc(
-      var(--space-16) + var(--space-16) + var(--space-16) + var(--space-12)
-    );
-  }
-
-  .group-recruitment-hero__image {
-    inline-size: calc(
-      var(--space-16) + var(--space-16) + var(--space-16) + var(--space-12)
-    );
   }
 }

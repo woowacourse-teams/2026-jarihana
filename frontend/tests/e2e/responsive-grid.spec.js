@@ -120,7 +120,7 @@ async function installResponsiveDiscoveryFixture(page) {
   return state;
 }
 
-test("mobile discovery uses the My Page activity row with a left thumbnail", async ({ page }) => {
+test("mobile discovery uses the My Page activity row with a left thumbnail and desktop card metadata", async ({ page }) => {
   await page.setViewportSize({ height: 900, width: 375 });
   const state = await installResponsiveDiscoveryFixture(page);
 
@@ -147,7 +147,26 @@ test("mobile discovery uses the My Page activity row with a left thumbnail", asy
   await expect(cards).toHaveCount(groupNames.length);
   await expect(cards.first().locator(".ui-group-card__visual")).toBeVisible();
   await expect(cards.first().locator(".ui-group-card__image")).toBeVisible();
-  await expect(cards.first().locator(".ui-group-card__activity-members")).toContainText("2명");
+  const scheduleMeta = cards.first().locator(".ui-group-card__detail-meta");
+  await expect(scheduleMeta).toBeVisible();
+  await expect(scheduleMeta).toHaveText("주 1회 · 11자리 남음");
+  await expect(cards.first().locator(".ui-group-card__activity-members")).toHaveCount(0);
+
+  const metaAlignment = await scheduleMeta.evaluate((element) => {
+    const body = element.closest(".ui-group-card__body");
+    if (!(body instanceof HTMLElement)) throw new Error("Missing card body");
+
+    const textRange = document.createRange();
+    textRange.selectNodeContents(element);
+    const bodyBounds = body.getBoundingClientRect();
+    const bodyStyle = getComputedStyle(body);
+    const textBounds = textRange.getBoundingClientRect();
+    return {
+      contentRight: bodyBounds.right - Number.parseFloat(bodyStyle.paddingRight),
+      textRight: textBounds.right
+    };
+  });
+  expect(Math.abs(metaAlignment.contentRight - metaAlignment.textRight)).toBeLessThanOrEqual(1);
 
   const mobileBounds = await cards.evaluateAll((elements) =>
     elements.map((element) => {
@@ -228,7 +247,8 @@ test("mobile discovery uses the My Page activity row with a left thumbnail", asy
 
   await page.setViewportSize({ height: 1000, width: 1024 });
   await expect(cards.first().locator(".ui-group-card__visual")).toBeVisible();
-  await expect(cards.first().locator(".ui-group-card__activity-members")).toBeHidden();
+  await expect(scheduleMeta).toBeVisible();
+  await expect(scheduleMeta).toHaveText("주 1회 · 11자리 남음");
 
   const desktopCard = await cards.first().evaluate((element) => {
     const visual = element.querySelector(".ui-group-card__visual");
@@ -252,6 +272,62 @@ test("mobile discovery uses the My Page activity row with a left thumbnail", asy
   expect(countFirstRowColumns(desktopBounds)).toBe(4);
   expect(state.unexpectedResponses).toEqual([]);
 });
+
+for (const viewport of [
+  { height: 980, label: "tablet-768", width: 768 },
+  { height: 1000, label: "desktop-1280", width: 1280 }
+]) {
+  test(`discovery keeps long group names to one line at ${viewport.label}`, async ({ page }) => {
+    await page.setViewportSize({ height: viewport.height, width: viewport.width });
+    const state = await installResponsiveDiscoveryFixture(page);
+
+    await page.goto("/groups");
+    const longTitle = page.locator(".ui-group-card__title", {
+      hasText: "긴 이름도 들어가는 타입스크립트 모임"
+    });
+    const regularTitle = page.locator(".ui-group-card__title").first();
+    await expect(longTitle).toBeVisible();
+
+    const metrics = await longTitle.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return {
+        clientWidth: element.clientWidth,
+        height: rect.height,
+        lineHeight: Number.parseFloat(style.lineHeight),
+        overflowX: style.overflowX,
+        scrollWidth: element.scrollWidth,
+        textOverflow: style.textOverflow,
+        whiteSpace: style.whiteSpace
+      };
+    });
+    const regularTitleHeight = await regularTitle.evaluate(
+      (element) => element.getBoundingClientRect().height
+    );
+
+    expect(metrics).toEqual(
+      expect.objectContaining({
+        overflowX: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap"
+      })
+    );
+    expect(metrics.scrollWidth).toBeGreaterThan(metrics.clientWidth);
+    expect(metrics.height).toBeCloseTo(metrics.lineHeight, 0);
+    expect(metrics.height).toBeCloseTo(regularTitleHeight, 0);
+    expect(state.unexpectedResponses).toEqual([]);
+
+    mkdirSync(resolve(process.cwd(), evidenceDirectory), { recursive: true });
+    await page
+      .locator(".groups-card-frame", {
+        hasText: "긴 이름도 들어가는 타입스크립트 모임"
+      })
+      .screenshot({
+        animations: "disabled",
+        path: `${evidenceDirectory}/groups-long-title-${viewport.label}.png`
+      });
+  });
+}
 
 function countFirstRowColumns(cards) {
   const firstTop = cards[0]?.top;

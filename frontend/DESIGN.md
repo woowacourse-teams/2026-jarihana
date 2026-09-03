@@ -43,7 +43,9 @@
 | `--color-muted`        | `#7a7a7a`        | 보조 정보                                  |
 | `--color-muted-ink`    | `#666666`        | 작은 text의 대비 보강                      |
 | `--color-line`         | `#e0e0e0`        | 구분선과 field border                      |
+| `--color-line-strong`  | `#d8dade`        | 계정 카드처럼 선명한 surface 경계          |
 | `--color-surface`      | `#ffffff`        | 카드와 입력 surface                        |
+| `--color-surface-sunken`| `#f4f5f7`       | 카드 안쪽의 낮은 깊이 surface               |
 | `--color-section-soft` | `#fcfcfc`        | 탐색 결과 section을 hero와 분리하는 surface |
 | `--color-canvas`       | `#ffffff`        | 앱 배경                                    |
 | `--color-nav`          | `#000000`        | global header                              |
@@ -93,6 +95,8 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 ### Spacing and geometry
 
 - Spacing: `0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64`.
+- Signup character image: the visual size is capped at `--signup-type-image-size` (`15rem`),
+  with a `--signup-type-image-base-size` (`7.5rem`) layout box rendered at fixed `scale(2)`.
 - Radius: small `8`, medium `14`, large `20`, pill `999`.
 - Footer Contact us block: `--footer-contact-max-width` `22rem` max width on desktop/tablet.
 - Container: 구현 token `--container-shell`은 `1440px`(`90rem`)이다. `/`의 content rail을
@@ -142,7 +146,8 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   세로 간격은 desktop 40px, tablet 24px, mobile 12px이다. tablet/desktop 카드는 사진이 위에 있는
   기존 grid와 정확한 `8 / 5` 비율을 유지한다. 모바일 행은 9rem 왼쪽 썸네일과 나머지 본문 열을
   사용하며, 이미지는 고정 aspect ratio 없이 행 높이를 `object-fit: cover`로 채운다. 제목은 한 줄,
-  소개는 두 줄에서 말줄임하고, 모임 종류·멤버 수와 모집 중인 경우의 상태 badge를 함께 표시한다.
+  소개는 두 줄에서 말줄임하고, 모임 종류·활동 일정·잔여 모집 인원과 모집 중인 경우의 상태 badge를
+  함께 표시한다.
 
 ## 3. Layout system
 
@@ -177,11 +182,39 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - `DetailLayout`: group detail은 desktop에서 본문 + sticky support rail 구조를 사용하며
   전체 폭은 공통 `--container-shell`을 따른다. support rail은 운영자 프로필 카드 다음에 모집 정보 카드를
   배치한다. tablet 이하에서는 순차 single column으로 전환한다.
+  mobile(`47.9375rem` 이하)에서는 헤더와 상세 hero 사이 간격을 두지 않는다.
+  상세 페이지의 좌우 바깥 여백은 없애고, hero·탭 본문 안쪽 여백은 유지한다.
+  모바일 상세 hero는 둥근 모서리 없이 화면 가장자리와 맞닿게 배치한다.
+  모바일에서는 `목록으로` 버튼과 그 버튼용 상단 빈 공간을 없앤다. 운영자에게 보이는 수정 버튼은
+  유지하고, 모임 유형과 제목의 오른쪽에 버튼 공간을 확보해 겹치지 않게 한다.
 - rail이 숨는 tablet/mobile에서는 운영자 프로필을 hero 안의 프레임 없는 byline으로 옮긴다.
   민트 ring의 compact avatar와 `운영자 · N기 크루` caption, 이름을 한 덩어리로 묶되 별도의
   card·chip·배경은 만들지 않고 hero 자체 overlay 위에 직접 배치한다.
 - 모집 정보만 floating modal로 제공하며, detail tabs는 content section을 바꾸지만
   URL route는 detail에 남긴다.
+- desktop 모집 rail은 내용의 자연 높이를 유지하고 내부 스크롤을 만들지 않는다. rail의 실제
+  높이를 `ResizeObserver`로 측정해 `--group-rail-height`에 반영한다. sticky 상단 위치는
+  `--space-5`와 `100dvh - rail 높이 - --space-4 - safe area` 중 작은 값으로 정한다.
+  카드가 창보다 높아도 페이지 스크롤로 신청 action까지 도달할 수 있으며, 모집 일정 펼치기나
+  글꼴·화면 크기 변경에도 위치를 다시 맞춘다. 스크롤과 함께 사라지는 header 높이는 차감하지 않는다.
+  가로 `89.9375rem` 이하에서는 기존 `자리 확인` 버튼과 모집 정보 모달을 사용한다.
+  세로 viewport 높이나 DPI, devicePixelRatio는 전환 조건으로 사용하지 않는다.
+- 모집 정보 플로팅 버튼은 텍스트 없이 기존 `jarihana-favicon.png` 의자 로고만 담은 원형 버튼으로
+  표시한다. 지름은 `맨 위로 이동` 버튼과 같은 `--touch-target-lg`(48px), 안쪽 여백은
+  `--space-2`(8px)이며 secondary 표면을
+  사용한다. 이미지 전체를 `object-fit: contain`으로 표시하고, 버튼의 접근성 이름은
+  `모집 정보 보기`로 유지한다. 이미지에는 빈 alt와 `aria-hidden`을 적용한다.
+  본문 끝에는 버튼 영역만큼 여백을 두고, `맨 위로 이동` 버튼은 이 원형 버튼 위에
+  `--space-3`(12px) 간격으로 배치하고 오른쪽 끝을 맞춘다.
+  모집 정보 일러스트는 desktop과 모달에서 같은 가운데 정렬 규칙을 사용한다. desktop rail에서는
+  가용 가로 폭 안에 원본 비율로 맞추고 세로 viewport 높이에 따라 축소하지 않는다. 모달에서는
+  가용 폭과 viewport 높이 안에 맞춘다. 이미지 자체보다 큰 최소 높이를 별도로 예약하지 않는다.
+- desktop과 모바일 모집 정보 모달의 `가입 신청하기` 버튼은 흰 surface와 line 테두리를 사용하고,
+  문구 왼쪽에 기존 의자 로고를 `--space-8`(32px) 크기의 장식 이미지로 표시한다.
+  모집 마감·운영자·가입 완료 등의 상태별 버튼은 기존 표현을 유지한다.
+- 모달의 모집 정보 스크롤바는 투명 track과 얇고 둥근 thumb를 사용하며 스크롤바 공간을 상시 예약하지
+  않는다. 모달은 둥근 외곽 안쪽의 모집 정보 한 곳에서만 세로 스크롤하고 제목·닫기 버튼·신청
+  action은 고정한다. 내부 flex/grid 요소는 가용 폭까지 줄어들며 가로 스크롤을 만들지 않는다.
 - `FormLayout`: group editor는 `1100px` content target 안에 mint hero, white form panels,
   step title/illustration과 하단 action bar를 둔다. 1024px 미만에서는 hero의 text/visual을
   세로로 쌓고, mobile day picker는 2 columns로 줄인다.
@@ -267,8 +300,9 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   위에 있는 기존 구조와 정확한 `8 / 5` 비율을 유지한다. 모바일 탐색 카드는 마이페이지 activity row
   문법을 사용해 `9rem minmax(0, 1fr)` 두 열로 배치한다. 왼쪽 이미지는 행 전체 높이를 채우고,
   오른쪽 본문은 16px padding과 8px gap을 사용한다. 제목은 한 줄, 소개는 두 줄에서 말줄임표로
-  마감하며, 상세 일정 대신 멤버 수를 하단에 표시한다. 모임 종류는 모든 breakpoint에서 마이페이지와
-  같은 유형별 tag 색상을 사용한다. 모집 상태 badge는 `모집 중`일 때만 표시하고 마감 상태는 생략한다.
+  마감하며, 태블릿/데스크톱 카드와 같은 활동 일정·잔여 모집 인원 메타를 하단에 표시한다. 모임 종류는
+  모든 breakpoint에서 마이페이지와 같은 유형별 tag 색상을 사용한다. 모집 상태 badge는 `모집 중`일
+  때만 표시하고 마감 상태는 생략한다.
   GroupCard 이미지는 backend의 `representativeImageUrl`을 그대로 사용하며, 탐색 이외의 기본
   GroupCard는 기존 surface와 하단 fade를 유지한다. 서버 기본 이미지 경로도 별도
   일러스트로 치환하지 않는다.
@@ -305,12 +339,38 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 개발용 `/__showcase` route에서 light canvas 위 모든 variant, keyboard focus, error, disabled, pending,
 long Korean copy, empty/skeleton을 검수한다. production navigation에는 노출하지 않는다.
 
+`SignupTypeOption`은 `/signup`의 가입 유형 선택에만 사용하는 radio pattern이다. `button[role="radio"]`
+안에 1:1 character image와 text label을 쌓아 폼 내부 2열 중 한 열을 채우고,
+default/hover/active/focus/selected 상태를 제공한다.
+이미지는 장식적 보조 정보로 `alt=""`와 `aria-hidden`을 사용하며, 선택 의미는 라벨과
+`aria-checked`로 전달한다. 간격은 기존 `--space-*` 토큰을 사용하고, 이미지는
+`--signup-type-image-base-size`를 기준으로 `scale(2)`를 고정해 hover/selected 상태에서도
+크기를 바꾸지 않는다. 이미지 프레임이 확대된 이미지의 실제 영역을 차지하므로 라벨과
+언더라인이 이미지 아래에 놓인다. hover는 옅은 민트 surface를 사용하지만 selected 상태는
+브랜드 언더라인과 기본 text 색만 사용한다.
+프로필 입력 상태에서도 코치는 선택한 캐릭터 이미지와 선택 영역을 오른쪽, `SignupProfilePanel`을
+왼쪽에 두고, 크루는 캐릭터를 왼쪽, `SignupProfilePanel`을 오른쪽에 둔다. 캐릭터가
+프로필 사진을 등지지 않도록 선택 전의 캐릭터 위치를 유지하고, 프로필 입력 패널만
+캐릭터 반대편에서 펼쳐진다. 프로필 입력은
+선택 영역의 언더라인과 수직 기준을 맞추도록 위로 정렬한다. 가입 완료와 유형 변경 액션은
+전체 프로필 입력 영역의 중앙 아래에 배치한다. `유형 변경`으로 다시 두 유형을 선택할 수 있다.
+폼 상단의 안내 문구는 선택 전 `안녕하세요. 크루인가요? 코치인가요?`를 보여주고,
+선택 후에는 크루·코치 상태에 맞는 문구로 갱신한다. 상태 변경은 `aria-live="polite"`로
+전달하며 문구는 검정색의 h2 크기로 폼 상단 중앙에 배치한다. 초기 선택 화면에서는
+중복되는 `가입 유형 선택`·`프로필 입력` 헤더를 숨긴다. 문구는 `--space-8`만큼 위로
+시각 이동하고, 모바일에서는 정사각형 고정과 2열을 해제해 선택 캐릭터·프로필 입력·액션이
+세로로 이어지는 콘텐츠 기반 흐름을 사용한다. 모바일에서 유형을 선택한 뒤에는 선택 영역을
+숨기고 프로필 입력과 액션만 남겨 정보 입력에 집중할 수 있게 한다.
+
 ## 6. Interaction and motion
 
-- Fast `120ms`, base `180ms`, deliberate `240ms`; easing `cubic-bezier(.2,.8,.2,1)`.
+- Fast `120ms`, base `180ms`, deliberate `240ms`, smooth `420ms`; easing `cubic-bezier(.2,.8,.2,1)`.
 - Button은 색/1px translate 변화만, 카드 hover는 2px 이내 상승한다. tabs의 단일 underline은
   `180ms` transform으로 새 위치에 이동하고 panel은 opacity + 8px translate로 진입한다.
-- Header와 route/content tabs의 underline은 현재 목적지/패널 하나에만 표시한다. Select chevron은
+- Signup의 크루·코치 전환은 선택 전 캐릭터 위치를 유지한다. 캐릭터 반대편의 프로필 패널은
+  `scaleX`와 `translateX`를 함께 사용해 중앙에서 바깥쪽으로 살짝 펼쳐지며, 양쪽 방향 모두
+  `smooth` duration을 사용한다. `prefers-reduced-motion`에서는 이동을 제거한다.
+  Header와 route/content tabs의 underline은 현재 목적지/패널 하나에만 표시한다. Select chevron은
   열 수 있는 control임을 상시 알리며, 기수 rail preview는 hover와 focus에서 같은 정보를 제공한다.
 - Toast는 2,000ms 후 180ms 동안 opacity와 transform으로 부드럽게 퇴장한 뒤 제거되며, 사용자가
   직접 닫을 수 있는 닫기 버튼을 함께 제공한다.

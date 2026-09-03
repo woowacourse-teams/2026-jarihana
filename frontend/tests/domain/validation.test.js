@@ -9,7 +9,7 @@ import {
 describe("member form validation", () => {
   it.each(["자리", "자리하나", "김자리"])("accepts a 2-4 Hangul crew name: %s", (crewName) => {
     // Given
-    const values = { crewName, generation: 1, course: "FRONTEND" };
+    const values = { crewName, generation: 1, course: "FRONTEND", memberType: "CREW" };
 
     // When
     const result = memberSignupFormSchema.safeParse(values);
@@ -20,7 +20,7 @@ describe("member form validation", () => {
 
   it.each(["a자리", "자", "자리하나요"])("rejects an invalid crew name: %s", (crewName) => {
     // Given
-    const values = { crewName, generation: 1, course: "FRONTEND" };
+    const values = { crewName, generation: 1, course: "FRONTEND", memberType: "CREW" };
 
     // When
     const result = memberSignupFormSchema.safeParse(values);
@@ -71,6 +71,54 @@ describe("group form validation", () => {
     expect(result.success).toBe(false);
   });
 
+  it("accepts a recurring schedule that fixes days but leaves the time open", () => {
+    // Given
+    const values = {
+      type: "CLUB",
+      meetingType: "FLEXIBLE",
+      location: null,
+      name: "리액트 모임",
+      introduction: "요일만 정하고 시간은 그때그때 정해요",
+      description: "",
+      recurringSchedule: {
+        daysOfWeek: ["MONDAY"],
+        startTime: null,
+        endTime: null
+      },
+      sessionSchedule: null
+    };
+
+    // When
+    const result = groupCreateFormSchema.safeParse(values);
+
+    // Then
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a recurring schedule that keeps only one of the two times", () => {
+    // Given
+    const values = {
+      type: "CLUB",
+      meetingType: "FLEXIBLE",
+      location: null,
+      name: "리액트 모임",
+      introduction: "매주 함께 만나요",
+      description: "",
+      recurringSchedule: {
+        daysOfWeek: ["MONDAY"],
+        startTime: "19:00",
+        endTime: null
+      },
+      sessionSchedule: null
+    };
+
+    // When
+    const result = groupCreateFormSchema.safeParse(values);
+
+    // Then
+    expect(result.success).toBe(false);
+  });
+
   it("rejects a recurring schedule whose end is not after its start", () => {
     // Given
     const values = {
@@ -110,6 +158,28 @@ describe("group form validation", () => {
 
     // Then
     expect(result.success).toBe(false);
+  });
+
+  it("allows a group description up to 10,000 characters", () => {
+    // Given
+    const values = {
+      name: "모임",
+      introduction: "소개",
+      description: "가".repeat(10_000),
+      meetingType: "FLEXIBLE",
+      location: null
+    };
+
+    // When
+    const accepted = groupModifyFormSchema.safeParse(values);
+    const rejected = groupModifyFormSchema.safeParse({
+      ...values,
+      description: "가".repeat(10_001)
+    });
+
+    // Then
+    expect(accepted.success).toBe(true);
+    expect(rejected.success).toBe(false);
   });
 });
 

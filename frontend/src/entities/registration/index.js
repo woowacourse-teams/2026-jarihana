@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 import { cursorPageSchema, entityIdSchema, localDateTimeSchema } from "../common/schemas.js";
-import { courseSchema } from "../member/index.js";
+import { representativeImageUrlSchema } from "../group/index.js";
+import { courseSchema, memberTypeSchema } from "../member/index.js";
 
 export const registrationStatusSchema = z.enum(["PENDING", "APPROVED", "REJECTED"]);
 export const registrationDecisionSchema = z.enum(["APPROVED", "REJECTED"]);
@@ -31,8 +32,9 @@ export const registrationSchema = z.object({
   member: z.object({
     id: entityIdSchema,
     crewName: z.string(),
-    generation: z.number().int().positive(),
-    course: courseSchema
+    memberType: memberTypeSchema,
+    generation: z.number().int().positive().nullable(),
+    course: courseSchema.nullable()
   }),
   message: z.string().nullable(),
   status: registrationStatusSchema,
@@ -45,7 +47,11 @@ export const registrationSchema = z.object({
 export const registrationPageSchema = cursorPageSchema(registrationSchema);
 
 export const myRegistrationSchema = registrationSchema.omit({ member: true }).extend({
-  group: z.object({ id: entityIdSchema, name: z.string() }),
+  group: z.object({
+    id: entityIdSchema,
+    name: z.string(),
+    representativeImageUrl: representativeImageUrlSchema
+  }),
   recruitmentId: entityIdSchema
 });
 

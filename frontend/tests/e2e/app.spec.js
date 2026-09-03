@@ -227,43 +227,53 @@ test.describe("visual evidence", () => {
   }
 });
 
-test("does not show the persistent footer while a lazy route is resolving", async ({ page }) => {
-  let lazyChunkRequested = false;
-  let releaseLazyChunk;
-  const lazyChunkReleased = new Promise((resolve) => {
-    releaseLazyChunk = resolve;
-  });
+test(
+  "does not show the persistent footer while a lazy route is resolving",
+  { tag: "@core" },
+  async ({ page }) => {
+    let lazyChunkRequested = false;
+    let releaseLazyChunk;
+    const lazyChunkReleased = new Promise((resolve) => {
+      releaseLazyChunk = resolve;
+    });
 
-  await page.route("**/assets/**", async (route) => {
-    const response = await route.fetch();
-    const body = await response.body();
-    if (!body.toString().includes("groups-hero")) {
+    await page.route("**/assets/**", async (route) => {
+      const response = await route.fetch();
+      const body = await response.body();
+      if (!body.toString().includes("groups-hero")) {
+        await route.fulfill({ body, response });
+        return;
+      }
+
+      lazyChunkRequested = true;
+      await lazyChunkReleased;
       await route.fulfill({ body, response });
-      return;
-    }
+    });
 
-    lazyChunkRequested = true;
-    await lazyChunkReleased;
-    await route.fulfill({ body, response });
-  });
+    const state = await installApiFixture(page);
+    await page.goto("/", { waitUntil: "commit" });
+    await expect.poll(() => lazyChunkRequested).toBe(true);
+    await expect(page.locator(".route-loading")).toHaveCount(1);
+    await expect(page.locator("footer")).toBeHidden();
 
-  const state = await installApiFixture(page);
-  await page.goto("/", { waitUntil: "commit" });
-  await expect.poll(() => lazyChunkRequested).toBe(true);
-  await expect(page.locator(".route-loading")).toHaveCount(1);
-  await expect(page.locator("footer")).toBeHidden();
+    releaseLazyChunk();
+    await expect(
+      page.getByRole("heading", { name: "크루와 함께할 자리를 찾아보세요" })
+    ).toBeVisible();
+    expect(state.unexpectedResponses).toEqual([]);
+  }
+);
 
-  releaseLazyChunk();
-  await expect(page.getByRole("heading", { name: "크루와 함께할 자리를 찾아보세요" })).toBeVisible();
-  expect(state.unexpectedResponses).toEqual([]);
-});
-
-test("keeps the desktop footer contact hierarchy muted and vertically centered", async ({ page }) => {
+test("keeps the desktop footer contact hierarchy muted and vertically centered", async ({
+  page
+}) => {
   await page.setViewportSize({ height: 831, width: 1190 });
   const state = await installApiFixture(page);
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "크루와 함께할 자리를 찾아보세요" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "크루와 함께할 자리를 찾아보세요" })
+  ).toBeVisible();
 
   const styles = await page.evaluate(() => {
     const footer = document.querySelector(".app-footer");
@@ -292,7 +302,9 @@ test("places the desktop primary navigation beside the brand", async ({ page }) 
   const state = await installApiFixture(page);
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "크루와 함께할 자리를 찾아보세요" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "크루와 함께할 자리를 찾아보세요" })
+  ).toBeVisible();
 
   const layout = await page.evaluate(() => {
     const brand = document.querySelector(".app-header__brand").getBoundingClientRect();
@@ -312,89 +324,207 @@ test("places the desktop primary navigation beside the brand", async ({ page }) 
   expect(state.unexpectedResponses).toEqual([]);
 });
 
-test("anonymous deep link preserves continuation and stubs GitHub OAuth", async ({ page }) => {
-  const browserFailures = watchBrowserFailures(page, [
-    { path: "/api/members/me", status: 401 },
-    { path: "/api/auth/refresh", status: 401 }
-  ]);
-  const state = await installApiFixture(page, { auth: "anonymous" });
+test(
+  "anonymous deep link preserves continuation and stubs GitHub OAuth",
+  { tag: "@core" },
+  async ({ page }) => {
+    const browserFailures = watchBrowserFailures(page, [
+      { path: "/api/members/me", status: 401 },
+      { path: "/api/auth/refresh", status: 401 }
+    ]);
+    const state = await installApiFixture(page, { auth: "anonymous" });
 
-  await page.goto("/my/registrations?status=PENDING");
-  await expect(page).toHaveURL(/\/groups$/);
-  await expect(page.getByText("우테코 동료와", { exact: false })).toBeVisible();
-  expect(await page.evaluate((key) => sessionStorage.getItem(key), returnTargetStorageKey)).toBe(
-    "/my/registrations?status=PENDING"
-  );
+    await page.goto("/my/registrations?status=PENDING");
+    await expect(page).toHaveURL(/\/groups$/);
+    await expect(
+      page.getByRole("heading", { name: "크루와 함께할 자리를 찾아보세요" })
+    ).toBeVisible();
+    expect(await page.evaluate((key) => sessionStorage.getItem(key), returnTargetStorageKey)).toBe(
+      "/my/registrations?status=PENDING"
+    );
 
-  await page.getByRole("button", { name: "GitHub로 로그인" }).click();
-  await expect(page).toHaveURL(/github\.com\/login\/oauth\/authorize/);
-  await expect(page.getByRole("heading", { name: "Stub GitHub OAuth" })).toBeVisible();
-  expect(browserFailures).toEqual([]);
-  expect(state.unexpectedResponses).toEqual([]);
-});
+    await page.getByRole("button", { name: "GitHub로 로그인" }).click();
+    await expect(page).toHaveURL(/github\.com\/login\/oauth\/authorize/);
+    await expect(page.getByRole("heading", { name: "Stub GitHub OAuth" })).toBeVisible();
+    expect(browserFailures).toEqual([]);
+    expect(state.unexpectedResponses).toEqual([]);
+  }
+);
 
-test("signup-required continuation submits exact member payload", async ({ page }) => {
-  const browserFailures = watchBrowserFailures(page);
-  const state = await installApiFixture(page, { auth: "signup-required" });
-  await page.addInitScript(
-    ([key, value]) => {
-      sessionStorage.setItem(key, value);
-    },
-    [returnTargetStorageKey, "/my/registrations"]
-  );
+test(
+  "signup-required continuation submits exact member payload",
+  { tag: "@core" },
+  async ({ page }) => {
+    const browserFailures = watchBrowserFailures(page);
+    const state = await installApiFixture(page, { auth: "signup-required" });
+    await page.addInitScript(
+      ([key, value]) => {
+        sessionStorage.setItem(key, value);
+      },
+      [returnTargetStorageKey, "/my/registrations"]
+    );
 
-  await page.goto("/signup");
-  await page.getByLabel("크루 이름").fill("자리");
-  await page.getByLabel("기수").fill("8");
-  await page.getByLabel("과정").selectOption("FRONTEND");
-  await page.getByRole("button", { name: "가입 완료하기" }).click();
+    await page.goto("/signup");
+    const crewOption = page.getByRole("radio", { name: "크루" });
+    const coachOption = page.getByRole("radio", { name: "코치" });
+    await expect(crewOption).toBeVisible();
+    await expect(coachOption).toBeVisible();
+    await expect(page.getByText("안녕하세요. 크루인가요? 코치인가요?")).toBeVisible();
 
-  await expect(page).toHaveURL(/\/my\/registrations$/);
-  const signupRequest = state.requests.find(
-    (request) => request.method === "POST" && request.path === "/members"
-  );
-  expect(signupRequest?.postData).toEqual({ course: "FRONTEND", crewName: "자리", generation: 8 });
-  expect(browserFailures).toEqual([]);
-  expect(state.unexpectedResponses).toEqual([]);
-});
+    const initialSignupState = await page.evaluate(() => {
+      const form = document.querySelector(".signup-form");
+      const image = document.querySelector(".signup-type-option__image");
+      const layout = document.querySelector(".signup-form__layout");
+      const prompt = document.querySelector(".signup-form__prompt");
+      return {
+        borderStyle: getComputedStyle(form).borderStyle,
+        imageTransform: getComputedStyle(image).transform,
+        imageWidth: image.getBoundingClientRect().width,
+        layoutTop: layout.getBoundingClientRect().top,
+        promptBottom: prompt.getBoundingClientRect().bottom
+      };
+    });
 
-test("group discovery keeps filters in URL and opens detail tabs", async ({ page }) => {
-  const state = await installApiFixture(page);
-  await page.goto("/groups");
+    expect(initialSignupState.borderStyle).toBe("none");
+    expect(initialSignupState.imageTransform).toBe("matrix(2, 0, 0, 2, 0, 0)");
+    expect(initialSignupState.imageWidth).toBeGreaterThan(0);
+    expect(initialSignupState.promptBottom).toBeLessThanOrEqual(initialSignupState.layoutTop);
 
-  await page.getByLabel("모임 검색").fill("프론트");
-  await page.getByRole("button", { name: "검색", exact: true }).click();
-  await expect(page).toHaveURL(/keyword=%ED%94%84%EB%A1%A0%ED%8A%B8/);
-  await page.getByRole("button", { name: "스터디" }).click();
-  await expect(page).toHaveURL(/type=STUDY/);
-  await page.getByRole("link", { name: /프론트엔드 한 자리/ }).click();
-  await expect(page).toHaveURL(/\/groups\/10$/);
+    await coachOption.click();
+    await expect(page.locator(".signup-form__profile-panel")).toBeVisible();
+    await expect(page.getByText("안녕하세요 코치님 프로필을 입력해주세요")).toBeVisible();
+    await page.waitForTimeout(250);
+    const coachSignupLayout = await page.evaluate(() => {
+      const selectedOption = document.querySelector('.signup-type-option[aria-checked="true"]');
+      const panel = document.querySelector(".signup-form__profile-panel");
+      const heading = document.querySelector(".signup-form__profile-heading");
+      const avatar = document.querySelector(".signup-form__avatar");
+      const name = document.querySelector(".signup-form__name-input");
+      return {
+        panelRight: panel.getBoundingClientRect().right,
+        selectedOptionLeft: selectedOption.getBoundingClientRect().left,
+        headingTop: heading.getBoundingClientRect().top,
+        avatarTop: avatar.getBoundingClientRect().top,
+        nameTop: name.getBoundingClientRect().top
+      };
+    });
 
-  const memberTab = page.getByRole("tab", { name: /멤버/ });
-  await memberTab.focus();
-  await page.keyboard.press("ArrowRight");
-  await expect(page.getByRole("tab", { selected: true })).toBeVisible();
-  await assertSurface(page, state);
-});
+    expect(coachSignupLayout.panelRight).toBeLessThan(coachSignupLayout.selectedOptionLeft);
 
-test("anonymous protected navigation gives login feedback without a silent round trip", async ({
-  page
-}) => {
-  const state = await installApiFixture(page, { auth: "anonymous" });
-  await page.goto("/groups");
+    await page.getByRole("button", { name: "유형 변경" }).click();
+    await expect(crewOption).toBeVisible();
+    await crewOption.click();
+    await expect(page.locator(".signup-form__profile-panel")).toBeVisible();
+    await expect(page.getByText("안녕하세요 크루님 프로필을 작성해주세요")).toBeVisible();
+    await page.waitForTimeout(250);
+    await expect
+      .poll(() =>
+        page.evaluate(() => getComputedStyle(document.querySelector(".signup-type-step")).transform)
+      )
+      .toBe("matrix(1, 0, 0, 1, -8, 0)");
+    const selectedSignupLayout = await page.evaluate(() => {
+      const selectedOption = document.querySelector('.signup-type-option[aria-checked="true"]');
+      const panel = document.querySelector(".signup-form__profile-panel");
+      const actions = document.querySelector(".signup-form__profile-actions");
+      const layout = document.querySelector(".signup-form__layout");
+      return {
+        panelRight: panel.getBoundingClientRect().right,
+        selectedOptionLeft: selectedOption.getBoundingClientRect().left,
+        panelBottom: panel.getBoundingClientRect().bottom,
+        layout: layout.getBoundingClientRect().toJSON(),
+        heading: document
+          .querySelector(".signup-form__profile-heading")
+          .getBoundingClientRect()
+          .toJSON(),
+        avatar: document.querySelector(".signup-form__avatar").getBoundingClientRect().toJSON(),
+        selectedOption: selectedOption.getBoundingClientRect().toJSON(),
+        actions: actions.getBoundingClientRect().toJSON(),
+        selectsBottom: document.querySelector(".signup-form__selects").getBoundingClientRect()
+          .bottom
+      };
+    });
 
-  await page.getByRole("link", { name: "모임 만들기", exact: true }).click();
+    expect(selectedSignupLayout.panelRight).toBeGreaterThan(selectedSignupLayout.selectedOptionLeft);
+    expect(Math.abs(coachSignupLayout.headingTop - selectedSignupLayout.heading.top)).toBeLessThan(
+      4
+    );
+    expect(Math.abs(coachSignupLayout.avatarTop - selectedSignupLayout.avatar.top)).toBeLessThan(4);
+    expect(
+      Math.abs(selectedSignupLayout.selectsBottom - selectedSignupLayout.selectedOption.bottom)
+    ).toBeLessThan(2);
+    expect(selectedSignupLayout.actions.top).toBeGreaterThan(
+      selectedSignupLayout.selectedOption.bottom
+    );
+    expect(
+      Math.abs(
+        selectedSignupLayout.actions.left +
+          selectedSignupLayout.actions.width / 2 -
+          (selectedSignupLayout.layout.left + selectedSignupLayout.layout.width / 2)
+      )
+    ).toBeLessThan(1);
 
-  await expect(page).toHaveURL(/\/groups$/);
-  await expect(page.getByText("로그인이 필요한 메뉴예요", { exact: true })).toBeVisible();
-  await expect(
-    page.getByText("GitHub로 로그인한 뒤 이용할 수 있어요", { exact: true })
-  ).toBeVisible();
-  expect(await page.evaluate((key) => sessionStorage.getItem(key), returnTargetStorageKey)).toBe(
-    "/groups/new"
-  );
-  expect(state.unexpectedResponses).toEqual([]);
-});
+    await page.getByLabel("크루 이름").fill("자리");
+    await page.getByLabel("과정").selectOption("FRONTEND");
+    await page.getByLabel("기수").selectOption("8");
+    await page.getByRole("button", { name: "가입 완료하기" }).click();
+    await page.getByRole("button", { name: "확인" }).click();
+
+    await expect(page).toHaveURL(/\/my$/);
+    const signupRequest = state.requests.find(
+      (request) => request.method === "POST" && request.path === "/members"
+    );
+    expect(signupRequest?.postData).toEqual({
+      course: "FRONTEND",
+      crewName: "자리",
+      generation: 8,
+      memberType: "CREW"
+    });
+    expect(browserFailures).toEqual([]);
+    expect(state.unexpectedResponses).toEqual([]);
+  }
+);
+
+test(
+  "group discovery keeps filters in URL and opens detail tabs",
+  { tag: "@core" },
+  async ({ page }) => {
+    const state = await installApiFixture(page);
+    await page.goto("/groups");
+
+    await page.getByLabel("모임 검색").fill("프론트");
+    await page.getByRole("button", { name: "검색", exact: true }).click();
+    await expect(page).toHaveURL(/keyword=%ED%94%84%EB%A1%A0%ED%8A%B8/);
+    await page.getByLabel("모임 유형").selectOption("STUDY");
+    await expect(page).toHaveURL(/type=STUDY/);
+    await page.getByRole("link", { name: /프론트엔드 한 자리/ }).click();
+    await expect(page).toHaveURL(/\/groups\/10$/);
+
+    const memberTab = page.getByRole("tab", { name: /멤버/ });
+    await memberTab.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByRole("tab", { selected: true })).toBeVisible();
+    await assertSurface(page, state);
+  }
+);
+
+test(
+  "anonymous protected navigation gives login feedback without a silent round trip",
+  { tag: "@core" },
+  async ({ page }) => {
+    const state = await installApiFixture(page, { auth: "anonymous" });
+    await page.goto("/groups");
+
+    await page.getByRole("link", { name: "모임 만들기", exact: true }).click();
+
+    await expect(page).toHaveURL(/\/groups$/);
+    await expect(page.getByText("로그인이 필요한 메뉴예요", { exact: true })).toBeVisible();
+    await expect(page.getByText("로그인한 뒤 이용할 수 있어요", { exact: true })).toBeVisible();
+    expect(await page.evaluate((key) => sessionStorage.getItem(key), returnTargetStorageKey)).toBe(
+      "/groups/new"
+    );
+    expect(state.unexpectedResponses).toEqual([]);
+  }
+);
 
 test("group discovery aligns its sections and places status badges inside the card body", async ({
   page
@@ -438,129 +568,146 @@ test("group discovery aligns its sections and places status badges inside the ca
   await assertSurface(page, state, { axe: true });
 });
 
-test("registration can be created and withdrawn through confirmation dialogs", async ({ page }) => {
-  const state = await installApiFixture(page);
-  await page.goto("/groups/10/recruitments/20");
-  await page.getByLabel("가입 신청 메시지").fill("함께 공부하고 싶어요.");
-  await page.getByRole("button", { name: "가입 신청하기" }).click();
-  await expect(page.getByRole("dialog", { name: "가입 신청을 보낼까요?" })).toBeVisible();
-  await page.getByRole("button", { name: "신청 확정" }).click();
-  await expect(page.getByText("신청을 보냈어요.")).toBeVisible();
+test(
+  "registration can be created and withdrawn through confirmation dialogs",
+  { tag: "@core" },
+  async ({ page }) => {
+    const state = await installApiFixture(page);
+    await page.goto("/groups/10/recruitments/20");
+    await page.getByLabel("가입 신청 메시지").fill("함께 공부하고 싶어요.");
+    await page.getByRole("button", { name: "가입 신청하기" }).click();
+    await expect(page.getByRole("dialog", { name: "가입 신청을 보낼까요?" })).toBeVisible();
+    await page.getByRole("button", { name: "신청 확정" }).click();
+    await expect(page.getByText("신청을 보냈어요.")).toBeVisible();
 
-  await page.goto("/my/registrations");
-  const trigger = page.getByRole("button", { name: "신청 철회" });
-  await trigger.focus();
-  await trigger.click();
-  await expect(page.getByRole("dialog", { name: "신청을 철회할까요?" })).toBeVisible();
-  await page.getByRole("button", { name: "철회하기" }).click();
-  await expect(page.getByRole("heading", { name: "신청 목록" })).toBeFocused();
-  await expect(page.getByText("신청을 철회했어요")).toBeVisible();
-  await assertSurface(page, state);
-});
+    await page.goto("/my/registrations");
+    const trigger = page.getByRole("button", { name: "신청 철회" });
+    await trigger.focus();
+    await trigger.click();
+    await expect(page.getByRole("dialog", { name: "신청을 철회할까요?" })).toBeVisible();
+    await page.getByRole("button", { name: "철회하기" }).click();
+    await expect(page.getByRole("heading", { name: "신청 목록" })).toBeFocused();
+    await expect(page.getByText("신청을 철회했어요")).toBeVisible();
+    await assertSurface(page, state);
+  }
+);
 
-test("group creation and edit lifecycle mutations use server contracts", async ({ page }) => {
-  const state = await installApiFixture(page);
-  await page.goto("/groups/new");
-  await page.getByLabel("모임 이름").fill("새 모임");
-  await page.getByLabel("한 줄 소개").fill("새로운 배움의 자리");
-  await page.getByLabel("상세 소개").fill("함께 오래 공부합니다.");
-  await page.getByLabel("목요일").check();
-  await page.getByRole("button", { name: "모임 만들기" }).click();
-  await expect(page).toHaveURL(/\/groups\/10\/manage$/);
+test(
+  "group creation and edit lifecycle mutations use server contracts",
+  { tag: "@core" },
+  async ({ page }) => {
+    const state = await installApiFixture(page);
+    await page.goto("/groups/new");
+    await page.getByLabel("모임 이름").fill("새 모임");
+    await page.getByLabel("한 줄 소개").fill("새로운 배움의 자리");
+    await page.getByLabel("모임 소개").fill("함께 오래 공부합니다.");
+    await page.getByRole("button", { name: "모임 만들기" }).click();
+    await expect(page).toHaveURL(/\/groups\/10$/);
 
-  await page.getByLabel("한 줄 소개").fill("수정한 소개입니다.");
-  await page.getByRole("button", { name: "기본 정보 저장" }).click();
-  await expect
-    .poll(
-      () =>
-        state.requests.filter(
-          (request) => request.method === "PUT" && request.path === "/groups/10"
-        ).length
-    )
-    .toBe(1);
-  await assertSurface(page, state);
-});
-
-test("leader transfers leadership, closes recruitment, and decides registration", async ({
-  page
-}) => {
-  const state = await installApiFixture(page);
-
-  await page.goto("/groups/10/manage/members");
-  const transfer = page.getByRole("button", { name: "하나에게 모임장 넘기기" });
-  await transfer.click();
-  await page.getByRole("button", { name: "모임장 넘기기", exact: true }).click();
-  await expect
-    .poll(() =>
-      state.requests.some(
-        (request) => request.method === "PUT" && request.path === "/groups/10/leader"
+    await page.goto("/groups/10/manage");
+    await page.getByLabel("한 줄 소개").fill("수정한 소개입니다.");
+    await page.getByRole("button", { name: "모임 수정하기" }).click();
+    await expect
+      .poll(
+        () =>
+          state.requests.filter(
+            (request) => request.method === "PUT" && request.path === "/groups/10"
+          ).length
       )
-    )
-    .toBe(true);
+      .toBe(1);
+    await assertSurface(page, state);
+  }
+);
 
-  await page.goto("/groups/10/manage/recruitments");
-  await page.getByRole("button", { name: "20번 모집 마감하기" }).click();
-  await page.getByRole("button", { name: "모집 마감하기", exact: true }).click();
-  await expect
-    .poll(() =>
-      state.requests.some(
-        (request) => request.method === "PATCH" && request.path === "/groups/10/recruitments/20"
+test(
+  "leader transfers leadership, closes recruitment, and decides registration",
+  { tag: "@core" },
+  async ({ page }) => {
+    const state = await installApiFixture(page);
+
+    await page.goto("/groups/10/manage/members");
+    await page.getByRole("button", { name: "하나 관리 메뉴" }).click();
+    await page.getByRole("menuitem", { name: "모임장 넘기기" }).click();
+    await page.getByRole("button", { name: "모임장 넘기기", exact: true }).click();
+    await expect
+      .poll(() =>
+        state.requests.some(
+          (request) => request.method === "PUT" && request.path === "/groups/10/leader"
+        )
       )
-    )
-    .toBe(true);
+      .toBe(true);
 
-  await page.goto("/groups/10/manage/recruitments/20/registrations");
-  await page.getByRole("button", { name: "하나 승인" }).click();
-  await page.getByRole("button", { name: "신청 승인하기" }).click();
-  const decision = state.requests.find(
-    (request) => request.method === "PATCH" && request.path === "/recruitments/20/registrations/40"
-  );
-  expect(decision?.postData).toEqual({ status: "APPROVED" });
-  await assertSurface(page, state);
-});
+    await page.goto("/groups/10/manage/recruitments");
+    await page.getByRole("button", { name: "모집 마감하기", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "예", exact: true }).click();
+    await expect
+      .poll(() =>
+        state.requests.some(
+          (request) => request.method === "PATCH" && request.path === "/groups/10/recruitments/20"
+        )
+      )
+      .toBe(true);
 
-test("mobile drawer traps keyboard focus, closes on Escape, and restores focus", async ({
-  page
-}) => {
-  await page.setViewportSize({ height: 800, width: 360 });
-  const state = await installApiFixture(page);
-  await page.goto("/groups");
+    await page.goto("/groups/10/manage/recruitments/20/registrations");
+    await page.getByRole("button", { name: "승인", exact: true }).first().click();
+    await page.getByRole("button", { name: "신청 승인하기" }).click();
+    const decision = state.requests.find(
+      (request) =>
+        request.method === "PATCH" && request.path === "/recruitments/20/registrations/40"
+    );
+    expect(decision?.postData).toEqual({ status: "APPROVED" });
+    await assertSurface(page, state);
+  }
+);
 
-  const trigger = page.getByRole("button", { name: "메뉴 열기" });
-  await trigger.focus();
-  await trigger.click();
-  const dialog = page.getByRole("dialog", { name: "전체 메뉴" });
-  await expect(dialog).toBeVisible();
-  await page.keyboard.press("Tab");
-  await expect(dialog.locator(":focus")).toHaveCount(1);
-  await page.keyboard.press("Escape");
-  await expect(dialog).toBeHidden();
-  await expect(trigger).toBeFocused();
-  await assertSurface(page, state);
-});
+test(
+  "mobile drawer traps keyboard focus, closes on Escape, and restores focus",
+  { tag: "@core" },
+  async ({ page }) => {
+    await page.setViewportSize({ height: 800, width: 360 });
+    const state = await installApiFixture(page);
+    await page.goto("/groups");
+
+    const trigger = page.getByRole("button", { name: "메뉴 열기" });
+    await trigger.focus();
+    await trigger.click();
+    const dialog = page.getByRole("dialog", { name: "전체 메뉴" });
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press("Tab");
+    await expect(dialog.locator(":focus")).toHaveCount(1);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(trigger).toBeFocused();
+    await assertSurface(page, state);
+  }
+);
 
 for (const failure of [
   { expected: "권한", name: "403", status: 403 },
   { expected: "찾을 수 없어요", name: "404", status: 404 },
   { expected: "불러오지 못했어요", name: "network", status: 0 }
 ]) {
-  test(`${failure.name} group failure exposes a recoverable state`, async ({ page }) => {
-    const browserFailures = watchBrowserFailures(
-      page,
-      [403, 404].includes(failure.status)
-        ? [{ path: "/api/groups/10", status: failure.status }]
-        : []
-    );
-    const state = await installApiFixture(page, {
-      errorPath: "/api/groups/10",
-      errorStatus: failure.status
-    });
-    await page.goto("/groups/10/manage");
-    await expect(page.getByText(failure.expected, { exact: false }).first()).toBeVisible();
-    const retry = page.getByRole("button", { name: "다시 시도" });
-    if (await retry.count()) await expect(retry).toBeEnabled();
-    await expect(page.locator("main")).toHaveCount(1);
-    if (failure.status !== 0) expect(browserFailures).toEqual([]);
-    expect(state.unexpectedResponses).toEqual([]);
-  });
+  test(
+    `${failure.name} group failure exposes a recoverable state`,
+    { tag: "@core" },
+    async ({ page }) => {
+      const browserFailures = watchBrowserFailures(
+        page,
+        [403, 404].includes(failure.status)
+          ? [{ path: "/api/groups/10", status: failure.status }]
+          : []
+      );
+      const state = await installApiFixture(page, {
+        errorPath: "/api/groups/10",
+        errorStatus: failure.status
+      });
+      await page.goto("/groups/10/manage");
+      await expect(page.getByText(failure.expected, { exact: false }).first()).toBeVisible();
+      const retry = page.getByRole("button", { name: "다시 시도" });
+      if (await retry.count()) await expect(retry).toBeEnabled();
+      await expect(page.locator("main")).toHaveCount(1);
+      if (failure.status !== 0) expect(browserFailures).toEqual([]);
+      expect(state.unexpectedResponses).toEqual([]);
+    }
+  );
 }

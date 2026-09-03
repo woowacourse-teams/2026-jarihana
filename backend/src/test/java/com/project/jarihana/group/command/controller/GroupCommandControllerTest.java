@@ -384,6 +384,78 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                 .body("error", nullValue());
     }
 
+    @DisplayName("모임장은 요일만 고정하고 시간을 비운 반복 일정을 등록할 수 있다.")
+    @Test
+    void replacesRecurringScheduleWithFlexibleTime() {
+        // Given
+        Member leader = memberRepository.save(Member.create("가온", 12, "github-controller-schedule-flexible", Course.BACKEND));
+        Group group = createGroup(leader, "컨트롤러 유동적 시간 그룹");
+        String accessToken = accessTokenProvider.issue(leader.getId()).value();
+        String csrfToken = csrfToken(group.getId());
+
+        // When & Then
+        given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .cookie("XSRF-TOKEN", csrfToken)
+                .header("X-XSRF-TOKEN", csrfToken)
+                .contentType("application/json")
+                .body("""
+                        {
+                          "daysOfWeek": ["TUESDAY", "THURSDAY"],
+                          "startTime": null,
+                          "endTime": null
+                        }
+                        """)
+                .when()
+                .put("/groups/{groupId}/recurring-schedule", group.getId())
+                .then()
+                .statusCode(200)
+                .body("success", equalTo(true))
+                .body("data.daysOfWeek", hasItems("TUESDAY", "THURSDAY"))
+                .body("data.startTime", nullValue())
+                .body("data.endTime", nullValue());
+
+        // Then 조회에서도 요일은 남고 시간만 비어 있다.
+        given()
+                .when()
+                .get("/groups/{groupId}", group.getId())
+                .then()
+                .statusCode(200)
+                .body("data.recurringSchedule.daysOfWeek", hasItems("TUESDAY", "THURSDAY"))
+                .body("data.recurringSchedule.startTime", nullValue())
+                .body("data.recurringSchedule.endTime", nullValue());
+    }
+
+    @DisplayName("시작 시각만 있고 종료 시각이 없는 반복 일정은 등록할 수 없다.")
+    @Test
+    void rejectsRecurringScheduleWithOnlyStartTime() {
+        // Given
+        Member leader = memberRepository.save(Member.create("가온", 13, "github-controller-schedule-half-time", Course.BACKEND));
+        Group group = createGroup(leader, "컨트롤러 반쪽 시간 그룹");
+        String accessToken = accessTokenProvider.issue(leader.getId()).value();
+        String csrfToken = csrfToken(group.getId());
+
+        // When & Then
+        given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .cookie("XSRF-TOKEN", csrfToken)
+                .header("X-XSRF-TOKEN", csrfToken)
+                .contentType("application/json")
+                .body("""
+                        {
+                          "daysOfWeek": ["TUESDAY"],
+                          "startTime": "19:30:00",
+                          "endTime": null
+                        }
+                        """)
+                .when()
+                .put("/groups/{groupId}/recurring-schedule", group.getId())
+                .then()
+                .statusCode(400)
+                .body("success", equalTo(false))
+                .body("error.code", equalTo("SCHEDULE_INVALID_RULE"));
+    }
+
     @DisplayName("모임장의 반복 일정 삭제 요청은 204를 반환하고 일정을 제거한다.")
     @Test
     void removesRecurringSchedule() {

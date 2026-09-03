@@ -1,7 +1,6 @@
 import { forwardRef, useState } from "react";
-import { UsersRound } from "lucide-react";
 
-export const DEFAULT_GROUP_IMAGE = "/api/images/default-group.png";
+export const DEFAULT_GROUP_IMAGE = "/images/default-group.png";
 
 function classes(...values) {
   return values.filter(Boolean).join(" ");
@@ -57,11 +56,26 @@ function scheduleFrequencyText(group) {
   return null;
 }
 
+const DEFAULT_GROUP_IMAGE_PATH = /(^|\/)images\/default-group\.png$/;
+
+/**
+ * The default image is a frontend static asset, so it never goes through the API.
+ * `new URL` rejects every relative input, leading slash or not, so the base is a
+ * throwaway that only makes `images/...` and `/images/...` parseable. Absolute
+ * CloudFront URLs discard it, and reading `pathname` drops any query string.
+ */
+function isDefaultGroupImage(imageUrl) {
+  try {
+    return DEFAULT_GROUP_IMAGE_PATH.test(new URL(imageUrl, "http://localhost").pathname);
+  } catch {
+    return DEFAULT_GROUP_IMAGE_PATH.test(String(imageUrl));
+  }
+}
+
 export function groupImageUrl(group) {
   const imageUrl = group?.representativeImageUrl;
   if (!imageUrl) return DEFAULT_GROUP_IMAGE;
-  if (imageUrl.startsWith("images/")) return `/api/${imageUrl}`;
-  if (imageUrl.startsWith("/images/")) return `/api${imageUrl}`;
+  if (isDefaultGroupImage(imageUrl)) return DEFAULT_GROUP_IMAGE;
   return imageUrl;
 }
 
@@ -156,11 +170,6 @@ export function GroupCard({
             함께하는 멤버 {group.memberCount}명
           </span>
         )}
-        {mobileActivityAppearance && group.memberCount !== undefined ? (
-          <span className="ui-group-card__activity-members">
-            <UsersRound aria-hidden="true" size={14} /> {group.memberCount}명
-          </span>
-        ) : null}
       </div>
     </Card>
   );

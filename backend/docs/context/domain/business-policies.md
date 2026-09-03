@@ -20,9 +20,9 @@
 ## 일정 정책
 - `RecurringGroupSchedule`과 `SessionGroupSchedule`은 서로 독립된 일정 클래스이며 상속 관계를 두지 않는다.
 - `CLUB`, `STUDY`는 `recurringSchedule`만 사용할 수 있다. 값이 없으면 고정된 활동 요일·시간이 없는 유동적 일정이다.
-- `RecurringGroupSchedule`은 하나 이상의 `daysOfWeek`와 공통 `startTime`, `endTime`을 가진다.
+- `RecurringGroupSchedule`은 하나 이상의 `daysOfWeek`를 가지며, 공통 `startTime`과 `endTime`은 함께 정하거나 함께 비운다. 함께 비우면 요일만 고정하고 시간은 그때그때 정하는 시간 유동적 일정이고, 한쪽만 비우면 거절한다.
 - `SESSION`은 `sessionSchedule`을 반드시 가지며 `recurringSchedule`은 가질 수 없다.
-- `SessionGroupSchedule`은 하나의 `sessionDate`와 `startTime`, `endTime`을 가진다.
+- `SessionGroupSchedule`은 하나의 `sessionDate`와 `startTime`, `endTime`을 모두 필수로 가진다.
 - `recurringSchedule`과 `sessionSchedule`은 동시에 존재할 수 없다.
 
 ## 신청 상태 전이

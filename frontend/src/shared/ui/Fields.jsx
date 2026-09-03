@@ -20,14 +20,16 @@ function FieldFrame({
 }) {
   return (
     <div className="ui-field">
-      <label className="ui-field__label" htmlFor={inputId}>
-        {label}
-        {required ? (
-          <span className="ui-field__required" aria-hidden="true">
-            *
-          </span>
-        ) : null}
-      </label>
+      {label ? (
+        <label className="ui-field__label" htmlFor={inputId}>
+          {label}
+          {required ? (
+            <span className="ui-field__required" aria-hidden="true">
+              *
+            </span>
+          ) : null}
+        </label>
+      ) : null}
       {children}
       {description ? (
         <p className="ui-field__help" id={descriptionId}>

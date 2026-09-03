@@ -8,10 +8,13 @@ import {
   localTimeSchema
 } from "../common/schemas.js";
 
+const memberTypeSchema = z.enum(["CREW", "COACH"]);
+
 export const groupTypeSchema = z.enum(["CLUB", "STUDY", "SESSION"]);
 export const groupMeetingTypeSchema = z.enum(["ONLINE", "OFFLINE", "FLEXIBLE"]);
 export const groupStatusSchema = z.enum(["ACTIVE", "ENDED"]);
 export const groupRoleSchema = z.enum(["LEADER", "MEMBER"]);
+export const groupRegistrationStatusSchema = z.enum(["PENDING", "APPROVED", "REJECTED"]);
 export const groupRelationSchema = z.literal("JOINED");
 export const dayOfWeekSchema = z.enum([
   "MONDAY",
@@ -23,10 +26,11 @@ export const dayOfWeekSchema = z.enum([
   "SUNDAY"
 ]);
 
+/* 요일만 고정하고 시간은 그때그때 정하는 일정은 두 시각이 비어서 온다. */
 export const recurringScheduleSchema = z.object({
   daysOfWeek: z.array(dayOfWeekSchema),
-  startTime: localTimeSchema,
-  endTime: localTimeSchema
+  startTime: localTimeSchema.nullable(),
+  endTime: localTimeSchema.nullable()
 });
 
 export const sessionScheduleSchema = z.object({
@@ -38,7 +42,8 @@ export const sessionScheduleSchema = z.object({
 const leaderSchema = z.object({
   memberId: entityIdSchema,
   crewName: z.string(),
-  generation: z.number().int().positive(),
+  memberType: memberTypeSchema,
+  generation: z.number().int().positive().nullable(),
   avatarUrl: z.string().url().optional()
 });
 
@@ -56,7 +61,7 @@ export function normalizeRepresentativeImageUrl(imageUrl) {
   return imageUrl.startsWith("/") || absoluteUrl ? imageUrl : `/${imageUrl}`;
 }
 
-const representativeImageUrlSchema = z
+export const representativeImageUrlSchema = z
   .string()
   .min(1)
   .transform(normalizeRepresentativeImageUrl)
@@ -86,6 +91,7 @@ export const groupDetailSchema = groupListItemSchema.extend({
   representativeImageKey: z.string().max(255).nullable().optional(),
   recurringSchedule: recurringScheduleSchema.nullable(),
   sessionSchedule: sessionScheduleSchema.nullable(),
+  currentMemberRegistrationStatus: groupRegistrationStatusSchema.nullable().optional(),
   createdAt: localDateTimeSchema
 });
 

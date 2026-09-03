@@ -14,17 +14,15 @@ function declarationsFor(selector) {
   return accountCss.slice(blockStart + 1, blockEnd);
 }
 
-describe("account Korean text wrapping", () => {
-  it("keeps group card titles and descriptions on Korean word boundaries with a narrow fallback", () => {
-    expect(declarationsFor(".account-card h3,")).toContain("word-break: keep-all");
-    expect(declarationsFor(".account-card > p,")).toContain("word-break: keep-all");
-    expect(declarationsFor(".account-card > p,")).toContain("overflow-wrap: anywhere");
-  });
-
-  it("balances the signup heading without splitting Korean phrases", () => {
-    const headingDeclarations = declarationsFor(".account-heading h1");
-
-    expect(headingDeclarations).toContain("text-wrap: balance");
-    expect(headingDeclarations).toContain("word-break: keep-all");
+describe("signup profile layout", () => {
+  it("keeps the coach and crew profile panels opposite their selected type", () => {
+    expect(declarationsFor(".signup-form--profile .signup-type-step")).toContain(
+      "grid-column: 2"
+    );
+    expect(declarationsFor(".signup-form--crew .signup-type-step")).toContain("grid-column: 1");
+    expect(declarationsFor(".signup-form__profile-panel {")).toContain("grid-column: 1");
+    expect(declarationsFor(".signup-form--crew .signup-form__profile-panel")).toContain(
+      "grid-column: 2"
+    );
   });
 });

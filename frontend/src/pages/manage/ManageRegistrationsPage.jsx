@@ -20,6 +20,8 @@ import {
   errorView,
   flattenPages,
   formatDateTime,
+  generationLabel,
+  memberTypeLabel,
   statusLabel,
   statusTone
 } from "./manageUtils.js";
@@ -183,8 +185,14 @@ export function ManageRegistrationsPage() {
                       </div>
                       <h3>{registration.member.crewName}</h3>
                       <div className="manage-card-meta">
-                        <span>{registration.member.generation}기</span>
-                        <span>{courseLabel(registration.member.course)}</span>
+                        <span>
+                          {registration.member.memberType === "COACH"
+                            ? memberTypeLabel(registration.member.memberType)
+                            : generationLabel(registration.member.generation)}
+                        </span>
+                        {registration.member.memberType === "CREW" ? (
+                          <span>{courseLabel(registration.member.course)}</span>
+                        ) : null}
                         <span>신청 {formatDateTime(registration.registeredAt)}</span>
                       </div>
                       <p>{registration.message || "남긴 메시지가 없어요."}</p>
