@@ -68,6 +68,11 @@ function getApplicantAction(name) {
   return within(applicantPanel).getAllByRole("button", { name, exact: true }).at(-1);
 }
 
+async function goToRecruitmentPeriod(user) {
+  await user.click(screen.getByRole("button", { name: "다음" }));
+  await user.click(screen.getByRole("button", { name: "다음" }));
+}
+
 const memberFixture = {
   course: "FRONTEND",
   crewName: "링크로",
@@ -136,6 +141,10 @@ beforeEach(() => {
     queryResult([filters.status === "APPROVED" ? approvedRegistrationFixture : registrationFixture])
   );
   useDecideRegistration.mockReturnValue({ isPending: false, mutateAsync: jest.fn() });
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 describe("ManageMembersPage", () => {
@@ -260,19 +269,131 @@ describe("ManageRecruitmentsPage", () => {
     expect(mutateAsync).not.toHaveBeenCalled();
   });
 
-  it("Given valid local date-time values, When a recruitment is created, Then it sends the exact backend payload", async () => {
+  it("Given a new recruitment form, When opened, Then it defaults the start to the current local minute", async () => {
+    const user = userEvent.setup();
+    jest.spyOn(Date, "now").mockReturnValue(new Date(2026, 8, 2, 12, 34, 45).getTime());
+    useInfiniteRecruitments.mockReturnValue(queryResult([]));
+    render(<ManageRecruitmentsPage />);
+
+    await user.click(screen.getByRole("button", { name: "새 모집 만들기" }));
+    await goToRecruitmentPeriod(user);
+
+    expect(screen.getByRole("button", { name: "모집 시작일 선택" })).toHaveTextContent(
+      "2026. 9. 2."
+    );
+    expect(screen.getByLabelText("모집 시작 시간")).toHaveValue("12:34");
+  });
+
+  it("Given an untouched default period, When creation is cancelled, Then it exits without a discard warning", async () => {
+    const user = userEvent.setup();
+    jest.spyOn(Date, "now").mockReturnValue(new Date(2026, 8, 2, 12, 34).getTime());
+    useInfiniteRecruitments.mockReturnValue(queryResult([]));
+    render(<ManageRecruitmentsPage />);
+
+    await user.click(screen.getByRole("button", { name: "새 모집 만들기" }));
+    await user.click(screen.getByRole("button", { name: "생성 취소" }));
+
+    expect(screen.queryByRole("dialog", { name: "작성 중인 내용을 버릴까요?" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "새 모집 만들기" })).toBeVisible();
+  });
+
+  it("Given the current start minute, When the one-week preset is selected, Then the end is derived locally", async () => {
     const user = userEvent.setup();
     const mutateAsync = jest.fn().mockResolvedValue({ id: 83 });
+    jest.spyOn(Date, "now").mockReturnValue(new Date(2026, 8, 2, 12, 34).getTime());
     useCreateRecruitment.mockReturnValue({ isPending: false, mutateAsync });
     useInfiniteRecruitments.mockReturnValue(queryResult([]));
     render(<ManageRecruitmentsPage />);
 
     await user.click(screen.getByRole("button", { name: "새 모집 만들기" }));
-    await user.selectOptions(screen.getByRole("combobox", { name: "가입 방식" }), "APPROVAL");
-    await user.clear(screen.getByRole("spinbutton", { name: "모집 정원" }));
-    await user.type(screen.getByRole("spinbutton", { name: "모집 정원" }), "12");
-    await user.type(screen.getByLabelText("모집 시작일"), "2026-09-01T10:00");
-    await user.type(screen.getByLabelText("모집 마감일 (선택)"), "2026-09-10T23:59");
+    await goToRecruitmentPeriod(user);
+    await user.click(screen.getByRole("button", { name: "1주 뒤" }));
+    await user.click(screen.getByRole("button", { name: "모집 생성" }));
+
+    expect(mutateAsync).toHaveBeenCalledWith({
+      capacity: 10,
+      endsAt: "2026-09-09T12:34",
+      joinMethod: "AUTO",
+      startsAt: "2026-09-02T12:34"
+    });
+  });
+
+  it("Given the always-open choice, When a recruitment is created, Then the end is explicit in the UI and omitted from the payload", async () => {
+    const user = userEvent.setup();
+    const mutateAsync = jest.fn().mockResolvedValue({ id: 83 });
+    jest.spyOn(Date, "now").mockReturnValue(new Date(2026, 8, 2, 12, 34).getTime());
+    useCreateRecruitment.mockReturnValue({ isPending: false, mutateAsync });
+    useInfiniteRecruitments.mockReturnValue(queryResult([]));
+    render(<ManageRecruitmentsPage />);
+
+    await user.click(screen.getByRole("button", { name: "새 모집 만들기" }));
+    await goToRecruitmentPeriod(user);
+    expect(screen.getByRole("button", { name: "상시 모집" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    expect(screen.getByRole("button", { name: "모집 마감일 선택" })).toHaveTextContent("상시 모집");
+    expect(screen.getByText("없음")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "모집 생성" }));
+
+    expect(mutateAsync).toHaveBeenCalledWith({
+      capacity: 10,
+      joinMethod: "AUTO",
+      startsAt: "2026-09-02T12:34"
+    });
+  });
+
+  it("Given a future start date, When the recruitment is created, Then it stays visible as scheduled", async () => {
+    const user = userEvent.setup();
+    const mutateAsync = jest.fn().mockResolvedValue({
+      capacity: 10,
+      endsAt: null,
+      groupId: 7,
+      id: 84,
+      joinMethod: "AUTO",
+      recruitingStatus: "SCHEDULED",
+      startsAt: "2026-10-01T12:34"
+    });
+    jest.spyOn(Date, "now").mockReturnValue(new Date(2026, 8, 2, 12, 34).getTime());
+    useCreateRecruitment.mockReturnValue({ isPending: false, mutateAsync });
+    useInfiniteRecruitments.mockReturnValue(queryResult([]));
+    render(<ManageRecruitmentsPage />);
+
+    await user.click(screen.getByRole("button", { name: "새 모집 만들기" }));
+    await goToRecruitmentPeriod(user);
+    await user.click(screen.getByRole("button", { name: "모집 시작일 선택" }));
+    await user.click(screen.getByRole("button", { name: "다음 달" }));
+    await user.click(screen.getByRole("button", { name: "2026년 10월 1일" }));
+    await user.click(screen.getByRole("button", { name: "모집 생성" }));
+
+    expect(mutateAsync).toHaveBeenCalledWith({
+      capacity: 10,
+      joinMethod: "AUTO",
+      startsAt: "2026-10-01T12:34"
+    });
+    expect(screen.queryByText("현재 진행 중인 모집이 없어요")).not.toBeInTheDocument();
+    expect(screen.getByText("모집 예정")).toBeVisible();
+  });
+
+  it("Given valid local date-time values, When a recruitment is created, Then it sends the exact backend payload", async () => {
+    const user = userEvent.setup();
+    const mutateAsync = jest.fn().mockResolvedValue({ id: 83 });
+    jest.spyOn(Date, "now").mockReturnValue(new Date(2026, 8, 1, 10, 0).getTime());
+    useCreateRecruitment.mockReturnValue({ isPending: false, mutateAsync });
+    useInfiniteRecruitments.mockReturnValue(queryResult([]));
+    render(<ManageRecruitmentsPage />);
+
+    await user.click(screen.getByRole("button", { name: "새 모집 만들기" }));
+    await user.clear(screen.getByRole("spinbutton", { name: "모집 인원" }));
+    await user.type(screen.getByRole("spinbutton", { name: "모집 인원" }), "12");
+    await user.click(screen.getByRole("button", { name: "다음" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "승인 방식" }), "APPROVAL");
+    await user.click(screen.getByRole("button", { name: "다음" }));
+    await user.click(screen.getByRole("button", { name: "모집 마감일 선택" }));
+    await user.click(screen.getByRole("button", { name: "2026년 9월 10일" }));
+    fireEvent.change(screen.getByLabelText("모집 마감 시간"), {
+      target: { value: "23:59" }
+    });
     await user.click(screen.getByRole("button", { name: "모집 생성" }));
 
     expect(mutateAsync).toHaveBeenCalledWith({
@@ -309,6 +430,7 @@ describe("ManageRecruitmentsPage", () => {
   });
 
   it("Given a create request in flight, When the form is submitted twice rapidly, Then it sends only one request", async () => {
+    const user = userEvent.setup();
     let resolveMutation;
     const mutateAsync = jest.fn().mockImplementation(
       () =>
@@ -320,10 +442,8 @@ describe("ManageRecruitmentsPage", () => {
     useInfiniteRecruitments.mockReturnValue(queryResult([]));
     render(<ManageRecruitmentsPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "새 모집 만들기" }));
-    fireEvent.change(screen.getByLabelText("모집 시작일"), {
-      target: { value: "2026-09-01T10:00" }
-    });
+    await user.click(screen.getByRole("button", { name: "새 모집 만들기" }));
+    await goToRecruitmentPeriod(user);
     const submit = screen.getByRole("button", { name: "모집 생성" });
     fireEvent.click(submit);
     fireEvent.click(submit);

@@ -10,10 +10,12 @@ import { useInfiniteRegistrations } from "../../features/registration/index.js";
 import {
   Button,
   ConfirmDialog,
+  DateRangePicker,
   ErrorState,
   Select,
   Skeleton,
-  StatusBadge
+  StatusBadge,
+  toLocalDateTimeValue
 } from "../../shared/ui/index.js";
 import myProfileIllustration from "../../shared/assets/figma/my-profile-illustration.png";
 import {
@@ -27,11 +29,42 @@ import {
 import { ManagementContext, ManagementPageHeading } from "./ManagementContext.jsx";
 import "./manage.css";
 
-const initialForm = { capacity: 10, endsAt: "", joinMethod: "AUTO", startsAt: "" };
-const currentRecruitmentStatuses = new Set(["OPEN", "ALWAYS_OPEN"]);
+const emptyForm = {
+  alwaysOpen: true,
+  capacity: 10,
+  endsAt: "",
+  joinMethod: "AUTO",
+  startsAt: ""
+};
+const recruitmentCreateSteps = [
+  {
+    description: "이번 모집에서 받을 수 있는 인원을 먼저 정해요.",
+    key: "capacity",
+    label: "모집 인원",
+    title: "몇 명까지 모집할까요?"
+  },
+  {
+    description: "신청 즉시 자리를 줄지, 모임장이 확인한 뒤 승인할지 선택해요.",
+    key: "joinMethod",
+    label: "승인 방식",
+    title: "신청은 어떻게 승인할까요?"
+  },
+  {
+    description: "시작과 마감을 이어서 정해요.",
+    key: "period",
+    label: "모집 기간",
+    title: "모집 기간을 정해 주세요."
+  }
+];
+const finalCreateStepIndex = recruitmentCreateSteps.length - 1;
+const currentRecruitmentStatuses = new Set(["SCHEDULED", "OPEN", "ALWAYS_OPEN"]);
+
+function createInitialForm(now = new Date(Date.now())) {
+  return { ...emptyForm, startsAt: toLocalDateTimeValue(now) };
+}
 
 function dateCopy(value) {
-  return value ? formatDateTime(value) : "미정";
+  return value ? formatDateTime(value) : "상시 모집";
 }
 
 function toTimestamp(value) {
@@ -81,6 +114,7 @@ function selectClosedRecruitment(recruitments) {
 
 function isSameForm(first, second) {
   return (
+    first.alwaysOpen === second.alwaysOpen &&
     String(first.capacity) === String(second.capacity) &&
     first.endsAt === second.endsAt &&
     first.joinMethod === second.joinMethod &&
@@ -107,11 +141,14 @@ export function ManageRecruitmentsPage() {
   const createRecruitment = useCreateRecruitment(groupId);
   const closeRecruitment = useCloseRecruitment(groupId);
   const { fetchNextPage, hasNextPage, isFetchingNextPage } = recruitmentsQuery;
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm] = useState(emptyForm);
+  const [formBaseline, setFormBaseline] = useState(emptyForm);
   const [formError, setFormError] = useState("");
   const [creating, setCreating] = useState(false);
   const creatingRef = useRef(false);
   const [screen, setScreen] = useState("current");
+  const [createStepIndex, setCreateStepIndex] = useState(0);
+  const [stepError, setStepError] = useState("");
   const [createError, setCreateError] = useState(null);
   const [closing, setClosing] = useState(null);
   const [currentRecruitmentId, setCurrentRecruitmentId] = useState(null);
@@ -151,7 +188,27 @@ export function ManageRecruitmentsPage() {
   );
   const hasRecentClosedRecruitment =
     screen === "current" && !currentRecruitment && Boolean(latestClosedRecruitment);
-  const isCreateDirty = screen === "create" && !isSameForm(form, initialForm);
+  const isCreateDirty = screen === "create" && !isSameForm(form, formBaseline);
+  const pageHeading =
+    screen === "create"
+      ? {
+          description: "새로운 모집 공고를 작성합니다.",
+          title: "새 모집 생성"
+        }
+      : {
+          description: "모집을 생성하고 이력을 관리해요.",
+          title: "모집 관리"
+        };
+  const createStep = recruitmentCreateSteps[createStepIndex];
+  const visibleCreateStepIndexes = [createStepIndex];
+  const hasValidCapacity = Number(form.capacity) >= 1;
+  const canContinueCreateStep = createStep?.key !== "capacity" || hasValidCapacity;
+  const focusLayoutClassName =
+    screen === "create"
+      ? "manage-recruitment-focus-layout manage-recruitment-focus-layout--create"
+      : hasRecentClosedRecruitment || (screen === "current" && Boolean(currentRecruitment))
+        ? "manage-recruitment-focus-layout"
+        : undefined;
 
   const handleBeforeUnload = useCallback(
     (event) => {
@@ -169,16 +226,23 @@ export function ManageRecruitmentsPage() {
 
   function openCreateScreen() {
     if (!isActiveGroup) return;
-    setForm(initialForm);
+    const nextForm = createInitialForm();
+    setFormBaseline(nextForm);
+    setForm(nextForm);
     setFormError("");
+    setStepError("");
     setCreateError(null);
+    setCreateStepIndex(0);
     setScreen("create");
   }
 
   function resetCreateState() {
-    setForm(initialForm);
+    setFormBaseline(emptyForm);
+    setForm(emptyForm);
     setFormError("");
+    setStepError("");
     setCreateError(null);
+    setCreateStepIndex(0);
   }
 
   function closeCreateScreen() {
@@ -227,15 +291,63 @@ export function ManageRecruitmentsPage() {
     setScreen("current");
   }
 
-  async function submitCreate(event) {
-    event.preventDefault();
-    if (!isActiveGroup || creatingRef.current) return;
-    if (!form.startsAt) {
+  function goToPreviousCreateStep() {
+    setStepError("");
+    setFormError("");
+    setCreateStepIndex((current) => Math.max(0, current - 1));
+  }
+
+  function goToNextCreateStep() {
+    if (createStep.key === "capacity" && !hasValidCapacity) {
+      setStepError("모집 인원은 1명 이상이어야 해요.");
+      return;
+    }
+    if (createStep.key === "period" && !form.startsAt) {
       setFormError("모집 시작일을 입력해 주세요.");
       return;
     }
-    if (form.endsAt && form.endsAt <= form.startsAt) {
+    if (createStep.key === "period" && !form.alwaysOpen && !form.endsAt) {
+      setFormError("모집 마감일을 선택하거나 상시 모집을 선택해 주세요.");
+      return;
+    }
+    if (createStep.key === "period" && !form.alwaysOpen && form.endsAt <= form.startsAt) {
       setFormError("모집 마감일은 시작일보다 뒤여야 해요.");
+      return;
+    }
+    setStepError("");
+    setFormError("");
+    setCreateStepIndex((current) => Math.min(finalCreateStepIndex, current + 1));
+  }
+
+  async function handleCreateSubmit(event) {
+    event.preventDefault();
+    if (createStepIndex < finalCreateStepIndex) {
+      goToNextCreateStep();
+      return;
+    }
+    await submitCreate();
+  }
+
+  async function submitCreate() {
+    if (!isActiveGroup || creatingRef.current) return;
+    if (!hasValidCapacity) {
+      setStepError("모집 인원은 1명 이상이어야 해요.");
+      setCreateStepIndex(0);
+      return;
+    }
+    if (!form.startsAt) {
+      setFormError("모집 시작일을 입력해 주세요.");
+      setCreateStepIndex(2);
+      return;
+    }
+    if (!form.alwaysOpen && !form.endsAt) {
+      setFormError("모집 마감일을 선택하거나 상시 모집을 선택해 주세요.");
+      setCreateStepIndex(2);
+      return;
+    }
+    if (!form.alwaysOpen && form.endsAt <= form.startsAt) {
+      setFormError("모집 마감일은 시작일보다 뒤여야 해요.");
+      setCreateStepIndex(2);
       return;
     }
     creatingRef.current = true;
@@ -245,7 +357,7 @@ export function ManageRecruitmentsPage() {
     try {
       const createdRecruitment = await createRecruitment.mutateAsync({
         capacity: Number(form.capacity),
-        ...(form.endsAt ? { endsAt: form.endsAt } : {}),
+        ...(!form.alwaysOpen && form.endsAt ? { endsAt: form.endsAt } : {}),
         joinMethod: form.joinMethod,
         startsAt: form.startsAt
       });
@@ -313,94 +425,163 @@ export function ManageRecruitmentsPage() {
     <div className="manage-page" onClickCapture={handleNavigationCapture}>
       <ManagementContext active="recruitments" groupId={groupId} />
       <ManagementPageHeading
-        description="모집 기간과 정원, 가입 방식을 실제 모집 단위로 관리해요."
-        title="모집 관리"
+        className={screen === "create" ? "manage-heading--create" : undefined}
+        description={pageHeading.description}
+        title={pageHeading.title}
       />
 
       {isActiveGroup ? (
-        <div
-          className={
-            screen === "create" || hasRecentClosedRecruitment ||
-            (screen === "current" && Boolean(currentRecruitment))
-              ? "manage-recruitment-focus-layout"
-              : undefined
-          }
-        >
+        <div className={focusLayoutClassName}>
           <section
-            aria-labelledby="current-recruitment-title"
+            aria-label={screen === "create" ? "새 모집 생성" : undefined}
+            aria-labelledby={screen === "create" ? undefined : "current-recruitment-title"}
             className="manage-panel manage-recruitment-focus"
           >
             {screen === "create" ? (
-              <form className="manage-form" onSubmit={submitCreate}>
-                <div className="manage-recruitment-focus__heading">
-                  <div>
-                    <h2 id="current-recruitment-title">새 모집 생성</h2>
-                    <p>새로운 모집 조건을 입력해 주세요.</p>
-                  </div>
-                </div>
+              <form
+                aria-describedby={
+                  createStep.description
+                    ? `recruitment-create-step-${createStepIndex}-description`
+                    : undefined
+                }
+                aria-label="새 모집 생성"
+                className="manage-form manage-create-wizard"
+                onSubmit={handleCreateSubmit}
+              >
                 <fieldset className="manage-form-fieldset">
-                  <div className="manage-form-grid">
-                    <label className="manage-field">
-                      모집 시작일
-                      <input
-                        name="startsAt"
-                        onChange={(event) =>
-                          setForm((current) => ({ ...current, startsAt: event.target.value }))
+                  <div className="manage-create-wizard__progress" aria-hidden="true">
+                    {recruitmentCreateSteps.map((step, index) => (
+                      <span
+                        className={
+                          index <= createStepIndex
+                            ? "manage-create-wizard__progress-step is-complete"
+                            : "manage-create-wizard__progress-step"
                         }
-                        required
-                        type="datetime-local"
-                        value={form.startsAt}
+                        key={step.key}
                       />
-                    </label>
-                    <label className="manage-field">
-                      모집 마감일 (선택)
-                      <input
-                        aria-describedby={formError ? "recruitment-form-error" : undefined}
-                        name="endsAt"
-                        onChange={(event) =>
-                          setForm((current) => ({ ...current, endsAt: event.target.value }))
-                        }
-                        type="datetime-local"
-                        value={form.endsAt}
-                      />
-                    </label>
-                    <label className="manage-field">
-                      모집 정원
-                      <input
-                        min="1"
-                        name="capacity"
-                        onChange={(event) =>
-                          setForm((current) => ({ ...current, capacity: event.target.value }))
-                        }
-                        required
-                        type="number"
-                        value={form.capacity}
-                      />
-                    </label>
-                    <Select
-                      label="가입 방식"
-                      name="joinMethod"
-                      onChange={(event) =>
-                        setForm((current) => ({ ...current, joinMethod: event.target.value }))
-                      }
-                      value={form.joinMethod}
-                    >
-                      <option value="AUTO">자동 승인</option>
-                      <option value="APPROVAL">모임장 승인</option>
-                    </Select>
+                    ))}
                   </div>
+
+                  <div className="manage-create-wizard__status" key={`status-${createStep.key}`}>
+                    <span>
+                      단계 {createStepIndex + 1} / {recruitmentCreateSteps.length}
+                    </span>
+                    <strong>{createStep.label}</strong>
+                  </div>
+
+                  <div className="manage-create-wizard__steps" key={`steps-${createStep.key}`}>
+                    {visibleCreateStepIndexes.map((stepIndex) => {
+                      const step = recruitmentCreateSteps[stepIndex];
+
+                      return (
+                        <section
+                          aria-current={stepIndex === createStepIndex ? "step" : undefined}
+                          className={`manage-create-step manage-create-step--${step.key}`}
+                          data-active={stepIndex === createStepIndex || undefined}
+                          key={step.key}
+                        >
+                          <div className="manage-create-step__heading">
+                            <h2 id={`recruitment-create-step-${stepIndex}-title`}>{step.title}</h2>
+                            {step.description ? (
+                              <p id={`recruitment-create-step-${stepIndex}-description`}>
+                                {step.description}
+                              </p>
+                            ) : null}
+                          </div>
+
+                          {step.key === "capacity" ? (
+                            <label className="manage-field manage-field--underline">
+                              <span>모집 인원</span>
+                              <input
+                                aria-describedby={
+                                  stepError ? "recruitment-create-step-error" : undefined
+                                }
+                                aria-invalid={stepError ? "true" : undefined}
+                                className="ui-field__control--underline"
+                                min="1"
+                                name="capacity"
+                                onChange={(event) => {
+                                  setForm((current) => ({
+                                    ...current,
+                                    capacity: event.target.value
+                                  }));
+                                  setStepError("");
+                                }}
+                                required
+                                type="number"
+                                value={form.capacity}
+                              />
+                              {stepError ? (
+                                <small id="recruitment-create-step-error" role="alert">
+                                  {stepError}
+                                </small>
+                              ) : null}
+                            </label>
+                          ) : null}
+
+                          {step.key === "joinMethod" ? (
+                            <Select
+                              className="ui-field__control--underline"
+                              label="승인 방식"
+                              name="joinMethod"
+                              onChange={(event) => {
+                                setForm((current) => ({
+                                  ...current,
+                                  joinMethod: event.target.value
+                                }));
+                                setStepError("");
+                              }}
+                              value={form.joinMethod}
+                            >
+                              <option value="AUTO">자동 승인</option>
+                              <option value="APPROVAL">모임장 승인</option>
+                            </Select>
+                          ) : null}
+
+                          {step.key === "period" ? (
+                            <div className="manage-period-field">
+                              <DateRangePicker
+                                alwaysOpen={form.alwaysOpen}
+                                endValue={form.endsAt}
+                                error={formError}
+                                onAlwaysOpenChange={(alwaysOpen) => {
+                                  setForm((current) => ({ ...current, alwaysOpen }));
+                                  setFormError("");
+                                }}
+                                onEndChange={(endsAt) => {
+                                  setForm((current) => ({ ...current, endsAt }));
+                                  setFormError("");
+                                }}
+                                onStartChange={(startsAt) => {
+                                  setForm((current) => ({ ...current, startsAt }));
+                                  setFormError("");
+                                }}
+                                startValue={form.startsAt}
+                              />
+                            </div>
+                          ) : null}
+                        </section>
+                      );
+                    })}
+                  </div>
+
                   {createError ? <InlineError error={createError} /> : null}
-                  {formError ? (
-                    <p className="manage-inline-error" id="recruitment-form-error" role="alert">
-                      {formError}
-                    </p>
-                  ) : null}
                   <div className="manage-form-actions">
-                    <Button onClick={requestCreateExit} type="button" variant="secondary">
-                      생성 취소
-                    </Button>
-                    <Button pending={createRecruitment.isPending || creating} type="submit">
-                      모집 생성
+                    {createStepIndex > 0 ? (
+                      <Button onClick={goToPreviousCreateStep} type="button" variant="secondary">
+                        이전
+                      </Button>
+                    ) : (
+                      <Button onClick={requestCreateExit} type="button" variant="secondary">
+                        생성 취소
+                      </Button>
+                    )}
+                    <Button
+                      disabled={!canContinueCreateStep}
+                      pending={createRecruitment.isPending || creating}
+                      type="submit"
+                    >
+                      {createStepIndex === finalCreateStepIndex ? "모집 생성" : "다음"}
                     </Button>
                   </div>
                 </fieldset>
@@ -552,7 +733,7 @@ function RecruitmentInformation({
           </dd>
         </div>
         <div>
-          <dt>모집 정원</dt>
+          <dt>모집 인원</dt>
           <dd>{recruitment.capacity}명</dd>
         </div>
         {showMemberCount ? (
@@ -566,7 +747,7 @@ function RecruitmentInformation({
           <dd>{recruitment.approvedCount}명</dd>
         </div>
         <div>
-          <dt>가입 방식</dt>
+          <dt>승인 방식</dt>
           <dd>{recruitment.joinMethod === "APPROVAL" ? "모임장 승인" : "자동 승인"}</dd>
         </div>
       </dl>
@@ -631,27 +812,40 @@ function ApprovedMembersSnapshot({ query }) {
 
 function RecruitmentPreview({ form, memberCount }) {
   const capacity = Number(form.capacity) || 0;
+  const currentMinute = toLocalDateTimeValue();
+  const previewEndCopy = form.alwaysOpen
+    ? "상시 모집"
+    : form.endsAt
+      ? `~ ${dateCopy(form.endsAt)}`
+      : "~ 날짜 선택";
+  const previewStatus = form.startsAt > currentMinute
+    ? { label: "모집 예정", tone: "warning" }
+    : form.alwaysOpen
+      ? { label: "상시 모집", tone: "brand" }
+      : { label: "모집 중", tone: "brand" };
 
   return (
     <aside className="manage-recruitment-public-status" aria-labelledby="recruitment-preview-title">
       <div className="manage-recruitment-public-status__heading">
         <h2 id="recruitment-preview-title">공개 상태 미리보기</h2>
-        <StatusBadge tone="brand">모집 중</StatusBadge>
+        <span aria-live="polite">
+          <StatusBadge tone={previewStatus.tone}>{previewStatus.label}</StatusBadge>
+        </span>
       </div>
       <dl className="manage-preview-list">
         <div>
           <dt>모집 기간</dt>
           <dd className="manage-preview-period">
             <span>{dateCopy(form.startsAt)}</span>
-            <span>~ {dateCopy(form.endsAt)}</span>
+            <span>{previewEndCopy}</span>
           </dd>
         </div>
         <div>
-          <dt>모집 정원</dt>
+          <dt>모집 인원</dt>
           <dd>{capacity}명</dd>
         </div>
         <div>
-          <dt>가입 방식</dt>
+          <dt>승인 방식</dt>
           <dd>{form.joinMethod === "APPROVAL" ? "모임장 승인" : "자동 승인"}</dd>
         </div>
         <div>
