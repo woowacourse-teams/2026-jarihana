@@ -16,8 +16,8 @@
 - `최종 디자인 2` 내부의 header reference는 어떤 frame에서는 viewport 상단 full-bleed,
   다른 frame에서는 inset된 검은 frame으로 표현되어 서로 완전히 일치하지 않는다. 앱은 frame마다
   header를 바꾸지 않고 공통 AppShell로 통일했다. 모든 viewport에서 검은 배경은 full-bleed로
-  렌더하고, 내부 wordmark·navigation·auth action만 shell 상한과 page gutter에 맞춘다. 탐색/마이/관리
-  화면의 맥락이 바뀌어도 navigation 위치와 인증 동작이 흔들리지 않게 하려는 결정이다.
+  렌더하고, 내부 wordmark·auth action만 shell 상한과 page gutter에 맞춘다. 탐색/마이/관리
+  화면의 맥락이 바뀌어도 header 위치와 인증 동작이 흔들리지 않게 하려는 결정이다.
 - 정확한 Figma reference가 있으므로 별도 생성형 이미지·무관한 디자인 탐색은 사용하지 않았다.
 
 ## 1. Product atmosphere
@@ -106,12 +106,12 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   shell 안쪽 content에만 적용한다.
 - Border: `--border-thin`(1px)과 `--border-strong`(2px)을 사용한다. 기본 surface 경계는
   thin, 탐색 입력의 강조 하단선 같은 의도적 emphasis만 strong을 사용한다.
-- Touch: `--touch-target`은 44px, `--touch-target-lg`는 48px이다. button, navigation,
-  filter, form control은 이 최소 높이를 공유한다.
+- Touch: `--touch-target`은 44px, `--touch-target-lg`는 48px이다. 일반 button, navigation,
+  filter, form control은 이 최소 높이를 공유하며, 텍스트형 CTA는 문구 리듬을 위해 예외로 둔다.
 - Header: `--header-height` 72px, active line 3px, loading auth placeholder 108px로
   geometry를 token화한다.
 - 탐색 랜딩(`/`)과 호환 진입점(`/groups`)의 hero는 header 아래
-  `calc(100dvh - --header-height)` 높이로 첫 화면을 채우고, 하단의 `자리 둘러보기` 화살표 CTA가
+  `calc(100dvh - --header-height)` 높이로 첫 화면을 채우고, 설명 문구 아래의 `자리 둘러보기` 화살표 CTA가
   검색·필터가 가려지지 않도록 discovery section의 `자리 둘러보기` 제목으로 부드럽게 이동시킨다. `/groups`는 기존 링크와 북마크를 보존하는 동일
   랜딩 경로로 유지한다.
 - Hero의 desktop 열은 `minmax(26rem, .75fr) minmax(0, 1.25fr)`와 32px gap으로 나눈다.
@@ -157,24 +157,25 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   제공한다. 공통 footer는 검은 full-bleed surface 안에 브랜드 소개·자리 유래·Contact us 안내·외부
   GitHub 링크를 두고, 모바일에서는 안내와 외부 링크를 콘텐츠 아래로 쌓는다. route lazy loading 또는
   guard 확인 중에는 footer를 노출하지 않아 loading surface가 콘텐츠보다 먼저 보이지 않게 한다.
-- Header composition: desktop은 `auto / 1fr / auto` grid로 wordmark와 주요 navigation을 왼쪽
-  클러스터로 묶고, 우측 auth action을 고정한다. anonymous도 탐색·모임 만들기·모임 관리 진입점을 보고, guard가
+- Header composition: desktop은 `auto / 1fr / auto` grid로 wordmark와 우측 auth action을 고정하고,
+  member tabs는 노출하지 않는다. 모바일 drawer에서는 탐색·모임 만들기 진입점을 유지하고, guard가
   인증이 필요한 destination을 처리한다. anonymous가 보호 메뉴를 누르면 해당 경로를 로그인 후
   복귀 대상으로 저장하고, 현재 화면에서 로그인 필요 toast를 즉시 제공한다. authenticated 상태에만
   `마이` link와 logout action을 더한다.
-- Header active state는 pathname의 정확한 목적지 하나에만 연결한다. `/groups/new`에서 상위
+- Header active state는 모바일 drawer의 pathname 목적지에만 연결한다. `/groups/new`에서 상위
   `/groups` 탐색 링크를 동시에 활성화하거나, `/my/groups`에서 `/my`를 동시에 활성화하지 않는다.
 - `PageContainer`: 모든 route의 좌우 gutter와 최대 폭을 통일한다.
 - `ListLayout`: PageHeader → search/filter → result meta → cards → cursor action. 한 화면 안의 hero,
    tool row, result heading, card grid는 `PageContainer`의 동일한 좌우 rail을 공유하며,
    카드 grid의 좌우 변을 기준으로 정렬한다. 탐색 discovery는 hero와 분리된 soft surface 안에
-   배치하며, result meta는 `자리 둘러보기` 제목 바로 오른쪽에 둔다. 검색과 필터는 하나의
-   control panel로 묶고, `모임 유형`, `모임 상태`, `모집 상태`라는 추상화된 native select
+   배치하며, result meta는 `자리 둘러보기` 제목 바로 오른쪽에 두고 `모임 만들기` action은 같은
+   줄의 오른쪽 끝에 둔다. 검색과 필터는 하나의 control panel로 묶고, `모임 유형`, `모임 상태`, `모집 상태`라는 추상화된 native select
    세 개로 노출한다.
    
    탐색 hero의 display copy는 `크루와` / `함께할 자리를` / `찾아보세요` 세 줄을 모든
-   viewport에서 유지하되, 접근성 이름은 한 문장으로 제공한다. 랜딩에는 하단 스크롤 CTA를
-   둔다.
+   viewport에서 유지하되, 접근성 이름은 한 문장으로 제공한다. 랜딩에는 설명 문구 아래에
+   텍스트 하이라이트형 CTA를 두고, 넓은 화면에서는 문구 시작점에 맞춰 왼쪽 정렬한다. CTA는
+   상하 padding과 min-height를 0으로 두어 설명 문구와 시각적 간격을 맞춘다.
 - 탐색 hero는 `src/shared/assets/brand/jarihana-signature.png`를 교체 가능한 signature art로
   사용한다. 표시 영역은 원본의 `1672 / 941` 비율을 따르고, 중앙 정렬과 `contain`으로
   상하좌우를 자르지 않는다.

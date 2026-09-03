@@ -70,7 +70,7 @@
   color: var(--color-brand-display);
 }
 
-.groups-hero__copy > p:last-child {
+.groups-hero__copy > p {
   max-width: none;
   margin: 0;
   color: var(--color-muted-ink);
@@ -80,6 +80,7 @@
 
 .groups-hero__art {
   aspect-ratio: var(--groups-hero-art-ratio);
+  align-self: start;
   width: 100%;
   min-width: 0;
   min-height: 248px;
@@ -206,14 +207,16 @@
 }
 
 .groups-hero__scroll-button {
-  position: absolute;
-  right: 50%;
-  bottom: var(--space-6);
-  display: inline-flex;
-  min-height: var(--touch-target);
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  width: fit-content;
+  min-height: 0;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
+  margin-block-start: var(--space-3);
+  padding-block: 0;
+  padding-inline: 0;
   border: 0;
   border-radius: var(--radius-pill);
   background: transparent;
@@ -222,14 +225,34 @@
   font-size: var(--text-label);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transform: translateX(50%);
   transition: background-color var(--duration-fast) var(--ease-standard),
   color var(--duration-fast) var(--ease-standard);
 }
 
+.groups-hero__scroll-button::after {
+  position: absolute;
+  z-index: -1;
+  right: 0;
+  top: 50%;
+  left: 0;
+  height: 1.3em;
+  background: transparent;
+  content: "";
+  pointer-events: none;
+  transform: translateY(-50%) rotate(-0.75deg) scaleX(0);
+  transform-origin: center;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+  transform var(--duration-fast) var(--ease-standard);
+}
+
 .groups-hero__scroll-button:hover {
-  background: var(--color-brand-soft);
+  background: transparent;
   color: var(--color-brand-ink);
+}
+
+.groups-hero__scroll-button:hover::after {
+  background: color-mix(in srgb, var(--color-brand) 25%, var(--color-surface));
+  transform: translateY(-50%) rotate(0deg) scaleX(1);
 }
 
 .groups-hero__scroll-arrow {
@@ -342,7 +365,7 @@
   line-height: 1.3;
 }
 
-.groups-result-heading span,
+.groups-result-meta span,
 .groups-refresh {
   color: var(--color-muted-ink);
   font-size: var(--text-caption);
@@ -352,6 +375,28 @@
   display: flex;
   gap: var(--space-3);
   align-items: center;
+}
+
+.groups-result-heading__create-button {
+  align-self: center;
+  flex-shrink: 0;
+  margin-inline-start: auto;
+}
+
+.groups-result-heading__create-button > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.groups-result-heading__create-button svg {
+  width: 1.125em;
+  height: 1.125em;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.75;
 }
 
 .groups-result-meta span + span::before {
@@ -378,7 +423,7 @@
     max-width: 100%;
   }
 
-  .groups-hero__copy > p:last-child {
+  .groups-hero__copy > p {
     max-width: none;
     white-space: nowrap;
   }
@@ -399,6 +444,12 @@
 
   .groups-grid .groups-card-frame {
     min-height: calc(var(--groups-card-min-height) - var(--space-8));
+  }
+}
+
+@media (max-width: 47.9375rem) {
+  .groups-result-heading__create-button {
+    margin-inline-start: 0;
   }
 }
 
@@ -1465,6 +1516,10 @@
     display: grid;
     justify-items: center;
     text-align: center;
+  }
+
+  .groups-hero__scroll-button {
+    justify-self: center;
   }
 
   .groups-hero__art {
