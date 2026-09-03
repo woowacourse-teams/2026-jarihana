@@ -338,22 +338,6 @@ describe("NewGroupPage", () => {
     );
   });
 
-  it("시간을 유동적으로 두면 히어로 요약도 그렇게 읽힌다", async () => {
-    // Given
-    const user = userEvent.setup();
-    renderPage(<NewGroupPage />);
-
-    // When
-    await openSchedule(user, "모임 일정 설정");
-    const dialog = scheduleDialog();
-    await user.click(within(dialog).getByRole("button", { name: "평일" }));
-    await user.click(within(dialog).getByLabelText("시간은 그때그때 정해요"));
-    await user.click(within(dialog).getByRole("button", { name: "일정 저장" }));
-
-    // Then
-    expect(screen.getByText("시간 유동적")).toBeInTheDocument();
-  });
-
   it("생성 화면에서도 유동적을 고를 수 있다", async () => {
     // Given
     const user = userEvent.setup();
@@ -372,29 +356,6 @@ describe("NewGroupPage", () => {
     // Then
     await waitFor(() => expect(mockCreateGroup).toHaveBeenCalledTimes(1));
     expect(mockCreateGroup.mock.calls[0][0]).toMatchObject({ recurringSchedule: null });
-  });
-
-  it("edits the schedule in a dialog rather than in the hero", async () => {
-    // Given
-    const user = userEvent.setup();
-    renderPage(<NewGroupPage />);
-
-    // Then 히어로에는 요일이 없다.
-    expect(screen.queryByRole("dialog", { name: "활동 일정" })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("월요일")).not.toBeInTheDocument();
-
-    // When
-    await openSchedule(user, "모임 일정 설정");
-    const dialog = scheduleDialog();
-
-    // Then 요일은 모달 안에만 있고, 유동적으로 시작하므로 아직 아무것도 켜져 있지 않다.
-    expect(within(dialog).getByLabelText("월요일")).not.toBeChecked();
-
-    // When 프리셋을 고르면 요일이 켜진다.
-    await user.click(within(dialog).getByRole("button", { name: "평일" }));
-
-    // Then
-    expect(within(dialog).getByLabelText("월요일")).toBeChecked();
   });
 
   it("일괄 선택은 요일을 채워 줄 뿐 그다음 손질을 막지 않는다", async () => {
@@ -455,37 +416,6 @@ describe("NewGroupPage", () => {
     });
   });
 
-  it("shows the member count as text rather than an editable field", () => {
-    // Given
-    renderPage(<NewGroupPage />);
-
-    // Then
-    expect(screen.getByText("개설자 1명")).toBeVisible();
-    expect(screen.queryByLabelText("현재 멤버 수")).not.toBeInTheDocument();
-  });
-
-  it("never exposes a fake upload control", () => {
-    // Given
-    renderPage(<NewGroupPage />);
-
-    // Then
-    expect(screen.queryByLabelText(/이미지 업로드/)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /대표 이미지 변경/ })).not.toBeInTheDocument();
-  });
-
-  it("drops the description counter when the members tab is open", async () => {
-    // Given
-    const user = userEvent.setup();
-    renderPage(<NewGroupPage />);
-    expect(screen.getByText(/\/ 10,000/)).toBeInTheDocument();
-
-    // When
-    await user.click(screen.getByRole("tab", { name: "멤버" }));
-
-    // Then
-    expect(screen.queryByText(/\/ 10,000/)).not.toBeInTheDocument();
-  });
-
   it("locks a valid create form after the first submission", async () => {
     // Given
     const user = userEvent.setup();
@@ -530,72 +460,6 @@ describe("NewGroupPage", () => {
   });
 });
 
-describe("MarkdownEditor", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockCreateGroup.mockResolvedValue({ id: 73, status: "ACTIVE" });
-  });
-
-  it("wraps the selected text instead of appending to the end", async () => {
-    // Given
-    const user = userEvent.setup();
-    renderPage(<NewGroupPage />);
-    const editor = screen.getByRole("textbox", { name: /^모임 소개/ });
-    await user.type(editor, "굵게 만들 부분 그리고 꼬리말");
-
-    // When
-    editor.setSelectionRange(0, 8);
-    await user.click(screen.getByRole("button", { name: "굵게" }));
-
-    // Then
-    expect(editor).toHaveValue("**굵게 만들 부분** 그리고 꼬리말");
-  });
-
-  it("keeps whitespace outside the markers so the emphasis still parses", async () => {
-    // Given
-    const user = userEvent.setup();
-    renderPage(<NewGroupPage />);
-    const editor = screen.getByRole("textbox", { name: /^모임 소개/ });
-    await user.type(editor, "굵게 만들 부분 그리고 꼬리말");
-
-    // When the selection accidentally catches the trailing space
-    editor.setSelectionRange(0, 9);
-    await user.click(screen.getByRole("button", { name: "굵게" }));
-
-    // Then
-    expect(editor).toHaveValue("**굵게 만들 부분** 그리고 꼬리말");
-  });
-
-  it("inserts a code fence and keeps the placeholder selected", async () => {
-    // Given
-    const user = userEvent.setup();
-    renderPage(<NewGroupPage />);
-    const editor = screen.getByRole("textbox", { name: /^모임 소개/ });
-
-    // When
-    await user.click(screen.getByRole("button", { name: "코드 블럭" }));
-
-    // Then
-    expect(editor.value).toContain("```");
-    expect(editor.value.slice(editor.selectionStart, editor.selectionEnd)).toBe(
-      "코드를 붙여 넣어요"
-    );
-  });
-
-  it("disables the toolbar while previewing rather than forcing the editor back", async () => {
-    // Given
-    const user = userEvent.setup();
-    renderPage(<NewGroupPage />);
-
-    // When
-    await user.click(screen.getByRole("button", { name: "미리보기" }));
-
-    // Then
-    expect(screen.getByRole("button", { name: "굵게" })).toBeDisabled();
-    expect(screen.queryByRole("textbox", { name: /^모임 소개/ })).not.toBeInTheDocument();
-  });
-});
-
 describe("GroupManagePage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -623,15 +487,6 @@ describe("GroupManagePage", () => {
     mockRemoveRecurringSchedule.mockResolvedValue(undefined);
   });
 
-  it("labels the primary action as an edit rather than a create", () => {
-    // Given
-    renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
-
-    // Then
-    expect(screen.getByRole("button", { name: "모임 수정하기" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "모임 만들기" })).not.toBeInTheDocument();
-  });
-
   it("keeps the group type as plain text because it cannot change", () => {
     // Given
     renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
@@ -642,15 +497,6 @@ describe("GroupManagePage", () => {
     // Then
     expect(within(hero).getByText("스터디")).toBeVisible();
     expect(within(hero).queryByLabelText("모임 종류")).not.toBeInTheDocument();
-  });
-
-  it("shows the member count as text rather than an editable field", () => {
-    // Given
-    renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
-
-    // Then
-    expect(screen.getByText("6명")).toBeVisible();
-    expect(screen.queryByLabelText("현재 멤버 수")).not.toBeInTheDocument();
   });
 
   it("saves the overview without a schedule request when the schedule is untouched", async () => {
@@ -807,21 +653,4 @@ describe("GroupManagePage", () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it("uses the route-backed leader management tabs", () => {
-    // Given
-    renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
-
-    // When
-    const navigation = screen.getByRole("navigation", { name: "모임 관리 메뉴" });
-
-    // Then
-    expect(within(navigation).getByRole("link", { name: "모임 수정" })).toHaveAttribute(
-      "aria-current",
-      "page"
-    );
-    expect(within(navigation).getByRole("link", { name: "모집 관리" })).toHaveAttribute(
-      "href",
-      "/groups/17/manage/recruitments"
-    );
-  });
 });

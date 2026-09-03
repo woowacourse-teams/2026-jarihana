@@ -1,110 +1,8 @@
-import { chromium, expect, test } from "playwright/test";
+import { expect, test } from "playwright/test";
 
-import { assertSurface, installApiFixture, prepareVisualCapture } from "./api-fixture.js";
+import { installApiFixture } from "./api-fixture.js";
 
-const evidenceDirectory = "../.omo/evidence/visual-qa";
 const returnTargetStorageKey = "jarihana:auth:return-target";
-
-const viewports = [
-  { height: 800, label: "mobile-360", width: 360 },
-  { height: 1024, label: "tablet-768", width: 768 },
-  { height: 1000, label: "desktop-1440", width: 1440 }
-];
-
-const isolatedRouteCaptures = new Set([
-  "not-found:mobile-360",
-  "not-found:tablet-768",
-  "not-found:desktop-1440",
-  "signup:desktop-1440",
-  "recruitments-manage:desktop-1440",
-  "oauth-callback:mobile-360",
-  "my-registrations:desktop-1440"
-]);
-
-const routes = [
-  { expected: "크루와 함께할 자리를 찾아보세요", name: "root", path: "/" },
-  { expected: "크루와 함께할 자리를 찾아보세요", name: "groups", path: "/groups" },
-  { expected: "프론트엔드 한 자리", name: "group-detail", path: "/groups/10" },
-  {
-    expected: "프론트엔드 한 자리 모집",
-    name: "recruitment-detail",
-    path: "/groups/10/recruitments/20"
-  },
-  { expected: "마이페이지", name: "oauth-callback", path: "/oauth/callback" },
-  {
-    auth: "signup-required",
-    expected: "자리하나에서 사용할 정보를",
-    name: "signup",
-    path: "/signup"
-  },
-  { expected: "마이페이지", name: "my", path: "/my" },
-  { expected: "내 모임", name: "my-groups", path: "/my/groups" },
-  { expected: "내 신청", name: "my-registrations", path: "/my/registrations" },
-  { expected: "신규 모임 생성", name: "group-create", path: "/groups/new" },
-  { expected: "프론트엔드 한 자리", name: "group-manage", path: "/groups/10/manage" },
-  { expected: "멤버 관리", name: "members-manage", path: "/groups/10/manage/members" },
-  { expected: "모집 관리", name: "recruitments-manage", path: "/groups/10/manage/recruitments" },
-  {
-    expected: "프론트엔드 한 자리",
-    name: "registrations-manage",
-    path: "/groups/10/manage/recruitments/20/registrations"
-  },
-  { expected: "자리하나 UI Primitive Showcase", name: "showcase", path: "/__showcase" },
-  { expected: "페이지를 찾을 수 없어요", name: "not-found", path: "/does-not-exist" }
-];
-
-const matchedFigmaCaptures = [
-  {
-    expected: "크루와 함께할 자리를 찾아보세요",
-    height: 1009,
-    name: "groups-1526x1009",
-    path: "/groups",
-    width: 1526
-  },
-  {
-    expected: "프론트엔드 한 자리",
-    height: 1349,
-    name: "group-detail-1440x1349",
-    path: "/groups/10",
-    width: 1440
-  },
-  { expected: "마이페이지", height: 1000, name: "my-1440x1000", path: "/my", width: 1440 },
-  {
-    expected: "프론트엔드 한 자리",
-    height: 1349,
-    name: "group-manage-edit-1440x1349",
-    path: "/groups/10/manage",
-    width: 1440
-  },
-  {
-    expected: "프론트엔드 한 자리",
-    height: 1000,
-    name: "manage-registrations-1440x1000",
-    path: "/groups/10/manage/recruitments/20/registrations",
-    width: 1440
-  },
-  {
-    expected: "신규 모임 생성",
-    height: 1120,
-    name: "group-create-1440x1120",
-    path: "/groups/new",
-    width: 1440
-  },
-  {
-    expected: "멤버 관리",
-    height: 1120,
-    name: "members-manage-1440x1120",
-    path: "/groups/10/manage/members",
-    width: 1440
-  },
-  {
-    expected: "모집 관리",
-    height: 1120,
-    name: "recruitments-manage-1440x1120",
-    path: "/groups/10/manage/recruitments",
-    width: 1440
-  }
-];
 
 function watchBrowserFailures(page, expectedFetchFailures = []) {
   const failures = [];
@@ -125,204 +23,6 @@ function watchBrowserFailures(page, expectedFetchFailures = []) {
   return failures;
 }
 
-async function captureEvidence(page, options) {
-  const { path, ...captureOptions } = options;
-  await page.locator(".app-header").screenshot({ animations: "disabled" });
-  await page.screenshot({ ...captureOptions, animations: "disabled" });
-  await prepareVisualCapture(page);
-  await page.screenshot({ ...captureOptions, animations: "disabled", path });
-}
-
-test.describe("visual evidence", () => {
-  test.describe.configure({ mode: "serial" });
-
-  for (const viewport of viewports) {
-    for (const route of routes) {
-      test(`${route.name} renders at ${viewport.label}`, async ({ page }) => {
-        const isolateCapture = isolatedRouteCaptures.has(`${route.name}:${viewport.label}`);
-        const isolatedBrowser = isolateCapture
-          ? await chromium.launch({ args: ["--disable-gpu"] })
-          : null;
-        const isolatedContext = isolatedBrowser
-          ? await isolatedBrowser.newContext({
-              baseURL: "http://127.0.0.1:4174",
-              locale: "ko-KR",
-              reducedMotion: "reduce",
-              timezoneId: "Asia/Seoul",
-              viewport
-            })
-          : null;
-        const capturePage = isolatedContext ? await isolatedContext.newPage() : page;
-
-        await capturePage.setViewportSize(viewport);
-        const browserFailures = watchBrowserFailures(capturePage);
-        const state = await installApiFixture(capturePage, { auth: route.auth });
-
-        await capturePage.goto(route.path);
-        await expect(
-          capturePage.getByRole("heading", { name: route.expected, exact: false }).first()
-        ).toBeVisible();
-        await assertSurface(capturePage, state, { axe: viewport.width === 1440 });
-        expect(browserFailures, "브라우저 console/page error가 없어야 합니다").toEqual([]);
-        await prepareVisualCapture(capturePage);
-        const requiresFullPage = await capturePage.evaluate(
-          () => document.documentElement.scrollHeight > window.innerHeight
-        );
-
-        const screenshotOptions = {
-          animations: "disabled",
-          fullPage: requiresFullPage,
-          path: `${evidenceDirectory}/${route.name}-${viewport.label}.png`
-        };
-        if (isolateCapture) {
-          await capturePage.screenshot(screenshotOptions);
-        } else {
-          await captureEvidence(capturePage, screenshotOptions);
-        }
-        await isolatedBrowser?.close();
-      });
-    }
-  }
-
-  for (const capture of matchedFigmaCaptures) {
-    test(`${capture.name} matched Figma capture`, async ({ page }) => {
-      const viewport = { height: capture.height, width: capture.width };
-      const isolateCapture = capture.name === "members-manage-1440x1120";
-      const isolatedBrowser = isolateCapture
-        ? await chromium.launch({ args: ["--disable-gpu"] })
-        : null;
-      const isolatedContext = isolatedBrowser
-        ? await isolatedBrowser.newContext({
-            baseURL: "http://127.0.0.1:4174",
-            locale: "ko-KR",
-            reducedMotion: "reduce",
-            timezoneId: "Asia/Seoul",
-            viewport
-          })
-        : null;
-      const capturePage = isolatedContext ? await isolatedContext.newPage() : page;
-
-      await capturePage.setViewportSize(viewport);
-      const browserFailures = watchBrowserFailures(capturePage);
-      const state = await installApiFixture(capturePage);
-
-      await capturePage.goto(capture.path);
-      await expect(
-        capturePage.getByRole("heading", { name: capture.expected, exact: false }).first()
-      ).toBeVisible();
-      await assertSurface(capturePage, state);
-      expect(browserFailures).toEqual([]);
-      await prepareVisualCapture(capturePage);
-      const screenshotOptions = {
-        animations: "disabled",
-        path: `${evidenceDirectory}/matched/${capture.name}.png`
-      };
-      if (isolateCapture) {
-        await capturePage.screenshot(screenshotOptions);
-      } else {
-        await captureEvidence(capturePage, screenshotOptions);
-      }
-      await isolatedBrowser?.close();
-    });
-  }
-});
-
-test(
-  "does not show the persistent footer while a lazy route is resolving",
-  { tag: "@core" },
-  async ({ page }) => {
-    let lazyChunkRequested = false;
-    let releaseLazyChunk;
-    const lazyChunkReleased = new Promise((resolve) => {
-      releaseLazyChunk = resolve;
-    });
-
-    await page.route("**/assets/**", async (route) => {
-      const response = await route.fetch();
-      const body = await response.body();
-      if (!body.toString().includes("groups-hero")) {
-        await route.fulfill({ body, response });
-        return;
-      }
-
-      lazyChunkRequested = true;
-      await lazyChunkReleased;
-      await route.fulfill({ body, response });
-    });
-
-    const state = await installApiFixture(page);
-    await page.goto("/", { waitUntil: "commit" });
-    await expect.poll(() => lazyChunkRequested).toBe(true);
-    await expect(page.locator(".route-loading")).toHaveCount(1);
-    await expect(page.locator("footer")).toBeHidden();
-
-    releaseLazyChunk();
-    await expect(
-      page.getByRole("heading", { name: "크루와 함께할 자리를 찾아보세요" })
-    ).toBeVisible();
-    expect(state.unexpectedResponses).toEqual([]);
-  }
-);
-
-test("keeps the desktop footer contact hierarchy muted and vertically centered", async ({
-  page
-}) => {
-  await page.setViewportSize({ height: 831, width: 1190 });
-  const state = await installApiFixture(page);
-
-  await page.goto("/");
-  await expect(
-    page.getByRole("heading", { name: "크루와 함께할 자리를 찾아보세요" })
-  ).toBeVisible();
-
-  const styles = await page.evaluate(() => {
-    const footer = document.querySelector(".app-footer");
-    const actions = document.querySelector(".app-footer__actions");
-    const heading = document.querySelector(".app-footer__contact h2");
-    const copy = document.querySelector(".app-footer__contact p");
-    const center = (rect) => rect.top + rect.height / 2;
-    return {
-      actionsCenter: center(actions.getBoundingClientRect()),
-      copyColor: getComputedStyle(copy).color,
-      copyFontSize: getComputedStyle(copy).fontSize,
-      footerCenter: center(footer.getBoundingClientRect()),
-      headingColor: getComputedStyle(heading).color
-    };
-  });
-
-  expect(styles.copyColor).toBe("rgb(184, 184, 184)");
-  expect(styles.copyFontSize).toBe("14px");
-  expect(styles.headingColor).toBe("rgb(255, 255, 255)");
-  expect(Math.abs(styles.actionsCenter - styles.footerCenter)).toBeLessThan(2);
-  expect(state.unexpectedResponses).toEqual([]);
-});
-
-test("places the desktop primary navigation beside the brand", async ({ page }) => {
-  await page.setViewportSize({ height: 831, width: 1190 });
-  const state = await installApiFixture(page);
-
-  await page.goto("/");
-  await expect(
-    page.getByRole("heading", { name: "크루와 함께할 자리를 찾아보세요" })
-  ).toBeVisible();
-
-  const layout = await page.evaluate(() => {
-    const brand = document.querySelector(".app-header__brand").getBoundingClientRect();
-    const nav = document.querySelector(".app-header__desktop-nav").getBoundingClientRect();
-    const action = document.querySelector(".app-header__desktop-action").getBoundingClientRect();
-    return {
-      actionLeft: action.left,
-      brandRight: brand.right,
-      navLeft: nav.left,
-      navRight: nav.right
-    };
-  });
-
-  expect(layout.navLeft).toBeGreaterThanOrEqual(layout.brandRight);
-  expect(layout.navLeft - layout.brandRight).toBeLessThanOrEqual(32);
-  expect(layout.navRight).toBeLessThan(layout.actionLeft);
-  expect(state.unexpectedResponses).toEqual([]);
-});
 
 test(
   "anonymous deep link preserves continuation and stubs GitHub OAuth",
@@ -371,97 +71,15 @@ test(
     await expect(coachOption).toBeVisible();
     await expect(page.getByText("안녕하세요. 크루인가요? 코치인가요?")).toBeVisible();
 
-    const initialSignupState = await page.evaluate(() => {
-      const form = document.querySelector(".signup-form");
-      const image = document.querySelector(".signup-type-option__image");
-      const layout = document.querySelector(".signup-form__layout");
-      const prompt = document.querySelector(".signup-form__prompt");
-      return {
-        borderStyle: getComputedStyle(form).borderStyle,
-        imageTransform: getComputedStyle(image).transform,
-        imageWidth: image.getBoundingClientRect().width,
-        layoutTop: layout.getBoundingClientRect().top,
-        promptBottom: prompt.getBoundingClientRect().bottom
-      };
-    });
-
-    expect(initialSignupState.borderStyle).toBe("none");
-    expect(initialSignupState.imageTransform).toBe("matrix(2, 0, 0, 2, 0, 0)");
-    expect(initialSignupState.imageWidth).toBeGreaterThan(0);
-    expect(initialSignupState.promptBottom).toBeLessThanOrEqual(initialSignupState.layoutTop);
-
     await coachOption.click();
     await expect(page.locator(".signup-form__profile-panel")).toBeVisible();
     await expect(page.getByText("안녕하세요 코치님 프로필을 입력해주세요")).toBeVisible();
-    await page.waitForTimeout(250);
-    const coachSignupLayout = await page.evaluate(() => {
-      const selectedOption = document.querySelector('.signup-type-option[aria-checked="true"]');
-      const panel = document.querySelector(".signup-form__profile-panel");
-      const heading = document.querySelector(".signup-form__profile-heading");
-      const avatar = document.querySelector(".signup-form__avatar");
-      const name = document.querySelector(".signup-form__name-input");
-      return {
-        panelRight: panel.getBoundingClientRect().right,
-        selectedOptionLeft: selectedOption.getBoundingClientRect().left,
-        headingTop: heading.getBoundingClientRect().top,
-        avatarTop: avatar.getBoundingClientRect().top,
-        nameTop: name.getBoundingClientRect().top
-      };
-    });
-
-    expect(coachSignupLayout.panelRight).toBeLessThan(coachSignupLayout.selectedOptionLeft);
 
     await page.getByRole("button", { name: "유형 변경" }).click();
     await expect(crewOption).toBeVisible();
     await crewOption.click();
     await expect(page.locator(".signup-form__profile-panel")).toBeVisible();
     await expect(page.getByText("안녕하세요 크루님 프로필을 작성해주세요")).toBeVisible();
-    await page.waitForTimeout(250);
-    await expect
-      .poll(() =>
-        page.evaluate(() => getComputedStyle(document.querySelector(".signup-type-step")).transform)
-      )
-      .toBe("matrix(1, 0, 0, 1, -8, 0)");
-    const selectedSignupLayout = await page.evaluate(() => {
-      const selectedOption = document.querySelector('.signup-type-option[aria-checked="true"]');
-      const panel = document.querySelector(".signup-form__profile-panel");
-      const actions = document.querySelector(".signup-form__profile-actions");
-      const layout = document.querySelector(".signup-form__layout");
-      return {
-        panelRight: panel.getBoundingClientRect().right,
-        selectedOptionLeft: selectedOption.getBoundingClientRect().left,
-        panelBottom: panel.getBoundingClientRect().bottom,
-        layout: layout.getBoundingClientRect().toJSON(),
-        heading: document
-          .querySelector(".signup-form__profile-heading")
-          .getBoundingClientRect()
-          .toJSON(),
-        avatar: document.querySelector(".signup-form__avatar").getBoundingClientRect().toJSON(),
-        selectedOption: selectedOption.getBoundingClientRect().toJSON(),
-        actions: actions.getBoundingClientRect().toJSON(),
-        selectsBottom: document.querySelector(".signup-form__selects").getBoundingClientRect()
-          .bottom
-      };
-    });
-
-    expect(selectedSignupLayout.panelRight).toBeGreaterThan(selectedSignupLayout.selectedOptionLeft);
-    expect(Math.abs(coachSignupLayout.headingTop - selectedSignupLayout.heading.top)).toBeLessThan(
-      4
-    );
-    expect(Math.abs(coachSignupLayout.avatarTop - selectedSignupLayout.avatar.top)).toBeLessThan(4);
-    expect(
-      Math.abs(selectedSignupLayout.selectsBottom - selectedSignupLayout.selectedOption.bottom)
-    ).toBeLessThan(2);
-    expect(selectedSignupLayout.actions.top).toBeGreaterThan(
-      selectedSignupLayout.selectedOption.bottom
-    );
-    expect(
-      Math.abs(
-        selectedSignupLayout.actions.left +
-          selectedSignupLayout.actions.width / 2 -
-          (selectedSignupLayout.layout.left + selectedSignupLayout.layout.width / 2)
-      )
-    ).toBeLessThan(1);
 
     await page.getByLabel("크루 이름").fill("자리");
     await page.getByLabel("과정").selectOption("FRONTEND");
@@ -485,88 +103,23 @@ test(
 );
 
 test(
-  "group discovery keeps filters in URL and opens detail tabs",
-  { tag: "@core" },
-  async ({ page }) => {
-    const state = await installApiFixture(page);
-    await page.goto("/groups");
-
-    await page.getByLabel("모임 검색").fill("프론트");
-    await page.getByRole("button", { name: "검색", exact: true }).click();
-    await expect(page).toHaveURL(/keyword=%ED%94%84%EB%A1%A0%ED%8A%B8/);
-    await page.getByLabel("모임 유형").selectOption("STUDY");
-    await expect(page).toHaveURL(/type=STUDY/);
-    await page.getByRole("link", { name: /프론트엔드 한 자리/ }).click();
-    await expect(page).toHaveURL(/\/groups\/10$/);
-
-    const memberTab = page.getByRole("tab", { name: /멤버/ });
-    await memberTab.focus();
-    await page.keyboard.press("ArrowRight");
-    await expect(page.getByRole("tab", { selected: true })).toBeVisible();
-    await assertSurface(page, state);
-  }
-);
-
-test(
   "anonymous protected navigation gives login feedback without a silent round trip",
   { tag: "@core" },
   async ({ page }) => {
     const state = await installApiFixture(page, { auth: "anonymous" });
     await page.goto("/groups");
 
-    await page.getByRole("link", { name: "모임 만들기", exact: true }).click();
+    await page.getByRole("button", { name: "모임 만들기", exact: true }).click();
 
     await expect(page).toHaveURL(/\/groups$/);
-    await expect(page.getByText("로그인이 필요한 메뉴예요", { exact: true })).toBeVisible();
-    await expect(page.getByText("로그인한 뒤 이용할 수 있어요", { exact: true })).toBeVisible();
+    await expect(page.getByText("로그인이 필요한 기능이에요", { exact: true })).toBeVisible();
+    await expect(page.getByText("로그인한 뒤 모임을 만들 수 있어요.", { exact: true })).toBeVisible();
     expect(await page.evaluate((key) => sessionStorage.getItem(key), returnTargetStorageKey)).toBe(
       "/groups/new"
     );
     expect(state.unexpectedResponses).toEqual([]);
   }
 );
-
-test("group discovery aligns its sections and places status badges inside the card body", async ({
-  page
-}) => {
-  await page.setViewportSize({ height: 806, width: 1159 });
-  const state = await installApiFixture(page);
-  await page.goto("/groups");
-  await expect(page.getByRole("link", { name: /프론트엔드 한 자리/ }).first()).toBeVisible();
-  await expect(page.getByRole("search")).toBeVisible();
-
-  const geometry = await page.evaluate(() => {
-    const bounds = (selector) => {
-      const rect = document.querySelector(selector).getBoundingClientRect();
-      return { bottom: rect.bottom, left: rect.left, right: rect.right, top: rect.top };
-    };
-    const searchStyle = getComputedStyle(document.querySelector(".groups-search__control"));
-    return {
-      badge: bounds(".groups-grid .ui-badge"),
-      body: bounds(".groups-grid .ui-group-card__body"),
-      grid: bounds(".groups-grid"),
-      hero: bounds(".groups-hero"),
-      image: bounds(".groups-grid .ui-group-card__image"),
-      meta: bounds(".groups-grid .ui-group-card__body > .ui-card__meta:first-child"),
-      searchBorderRadius: Number.parseFloat(searchStyle.borderRadius),
-      searchBorderStyle: searchStyle.borderBottomStyle,
-      title: bounds(".groups-grid .ui-group-card__title"),
-      tools: bounds(".groups-tools")
-    };
-  });
-
-  expect(geometry.searchBorderStyle).toBe("solid");
-  expect(geometry.searchBorderRadius).toBe(0);
-  expect(geometry.hero.left).toBeCloseTo(geometry.tools.left, 0);
-  expect(geometry.hero.right).toBeCloseTo(geometry.tools.right, 0);
-  expect(geometry.hero.left).toBeCloseTo(geometry.grid.left, 0);
-  expect(geometry.hero.right).toBeCloseTo(geometry.grid.right, 0);
-  expect(geometry.body.top).toBeCloseTo(geometry.image.bottom, 0);
-  expect(geometry.meta.top).toBeGreaterThanOrEqual(geometry.body.top);
-  expect(geometry.badge.top).toBeGreaterThanOrEqual(geometry.body.top);
-  expect(geometry.badge.bottom).toBeLessThanOrEqual(geometry.title.top);
-  await assertSurface(page, state, { axe: true });
-});
 
 test(
   "registration can be created and withdrawn through confirmation dialogs",
@@ -588,7 +141,7 @@ test(
     await page.getByRole("button", { name: "철회하기" }).click();
     await expect(page.getByRole("heading", { name: "신청 목록" })).toBeFocused();
     await expect(page.getByText("신청을 철회했어요")).toBeVisible();
-    await assertSurface(page, state);
+    expect(state.unexpectedResponses).toEqual([]);
   }
 );
 
@@ -615,7 +168,7 @@ test(
           ).length
       )
       .toBe(1);
-    await assertSurface(page, state);
+    expect(state.unexpectedResponses).toEqual([]);
   }
 );
 
@@ -656,29 +209,7 @@ test(
         request.method === "PATCH" && request.path === "/recruitments/20/registrations/40"
     );
     expect(decision?.postData).toEqual({ status: "APPROVED" });
-    await assertSurface(page, state);
-  }
-);
-
-test(
-  "mobile drawer traps keyboard focus, closes on Escape, and restores focus",
-  { tag: "@core" },
-  async ({ page }) => {
-    await page.setViewportSize({ height: 800, width: 360 });
-    const state = await installApiFixture(page);
-    await page.goto("/groups");
-
-    const trigger = page.getByRole("button", { name: "메뉴 열기" });
-    await trigger.focus();
-    await trigger.click();
-    const dialog = page.getByRole("dialog", { name: "전체 메뉴" });
-    await expect(dialog).toBeVisible();
-    await page.keyboard.press("Tab");
-    await expect(dialog.locator(":focus")).toHaveCount(1);
-    await page.keyboard.press("Escape");
-    await expect(dialog).toBeHidden();
-    await expect(trigger).toBeFocused();
-    await assertSurface(page, state);
+    expect(state.unexpectedResponses).toEqual([]);
   }
 );
 

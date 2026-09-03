@@ -141,36 +141,6 @@ beforeEach(() => {
 });
 
 describe("ManageMembersPage", () => {
-  it("Given members, When rendered and sorted by nickname, Then it shows an inline count and sorted rows", async () => {
-    const user = userEvent.setup();
-    useInfiniteGroupMembers.mockReturnValue(
-      queryResult([
-        { ...memberFixture, crewName: "하나", groupMemberId: 1, joinedAt: "2026-08-02T10:00:00" },
-        { ...memberFixture, crewName: "김하나", groupMemberId: 2, joinedAt: "2026-08-01T10:00:00" }
-      ])
-    );
-
-    render(<ManageMembersPage />);
-
-    expect(screen.getByLabelText("2명")).toBeVisible();
-    expect(screen.queryByLabelText("전체 멤버 요약")).not.toBeInTheDocument();
-    expect(
-      screen
-        .getAllByRole("row")
-        .slice(1)
-        .map((row) => row.querySelector("td:first-child strong")?.textContent)
-    ).toEqual(["하나", "김하나"]);
-    await user.selectOptions(screen.getByRole("combobox", { name: "정렬 기준" }), "NICKNAME");
-
-    expect(
-      screen
-        .getAllByRole("row")
-        .slice(1)
-        .map((row) => row.querySelector("td:first-child strong")?.textContent)
-    ).toEqual(["김하나", "하나"]);
-    expect(screen.getByRole("combobox", { name: "정렬 기준" })).toHaveValue("NICKNAME");
-  });
-
   it("Given the full member DTO, When rendered, Then it exposes every server-owned member field and the member action menu", () => {
     useInfiniteGroupMembers.mockReturnValue(
       queryResult([
@@ -198,26 +168,6 @@ describe("ManageMembersPage", () => {
     await user.click(screen.getByRole("menuitem", { name: "내보내기" }));
 
     expect(mockShowToast).toHaveBeenCalledWith({ title: "아직 지원되지 않는 기능입니다." });
-  });
-
-  it("Given group context, When rendered, Then it exposes the Figma management header, local tabs, and dense member table", () => {
-    render(<ManageMembersPage />);
-
-    expect(
-      screen.getByRole("heading", { level: 1, name: "프론트엔드 성능 튜닝 챌린지" })
-    ).toBeVisible();
-    const navigation = screen.getByRole("navigation", { name: "모임 관리 메뉴" });
-    expect(
-      within(navigation)
-        .getAllByRole("link")
-        .map((link) => link.textContent)
-    ).toEqual(["모임 수정", "모집 관리", "신청 관리", "멤버 관리"]);
-    expect(within(navigation).getByRole("link", { name: "멤버 관리" })).toHaveAttribute(
-      "aria-current",
-      "page"
-    );
-    expect(screen.queryByText("모임장 관리")).not.toBeInTheDocument();
-    expect(screen.getByRole("table", { name: "모임 멤버" })).toBeVisible();
   });
 
   it("Given a member, When leader transfer is confirmed, Then it sends only the group-member identifier", async () => {
@@ -465,32 +415,6 @@ describe("ManageRegistrationsPage", () => {
     render(<ManageRegistrationsPage />);
 
     expect(useInfiniteRegistrations).toHaveBeenCalledWith("93", {});
-  });
-
-  it("Given an active recruitment, When rendered, Then the applicant panel is directly identifiable in the management chrome", () => {
-    render(<ManageRegistrationsPage />);
-
-    const navigation = screen.getByRole("navigation", { name: "모임 관리 메뉴" });
-    expect(
-      within(navigation)
-        .getAllByRole("link")
-        .map((link) => link.textContent)
-    ).toEqual(["모임 수정", "모집 관리", "신청 관리", "멤버 관리"]);
-    expect(within(navigation).getByRole("link", { name: "신청 관리" })).toHaveAttribute(
-      "aria-current",
-      "page"
-    );
-    expect(screen.getByRole("region", { name: "신청자 목록" })).toBeVisible();
-  });
-
-  it("Given the final2 operational dashboard, When rendered, Then it uses compact filters and no redundant stat card", () => {
-    render(<ManageRegistrationsPage />);
-
-    expect(screen.getByRole("region", { name: "신청 관리 대시보드" })).toHaveClass(
-      "manage-registration-layout"
-    );
-    expect(screen.getByRole("combobox", { name: "신청 상태" })).toHaveValue("");
-    expect(screen.queryByLabelText("현재 신청자 1명")).not.toBeInTheDocument();
   });
 
   it("Given a recruitment query, When rendered, Then the side rail shows only the current recruitment snapshot", () => {

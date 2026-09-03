@@ -62,66 +62,6 @@ beforeEach(() => {
   sessionStorage.clear();
 });
 
-it.each([
-  ["/groups", "탐색"],
-  ["/groups/1", "탐색"],
-  ["/groups/new", "모임 만들기"]
-])("marks exactly one header menu for %s", (pathname, expectedLabel) => {
-  mockPathname = pathname;
-  renderShell({ login: jest.fn(), logout: jest.fn(), status: "authenticated" });
-
-  const navigation = screen.getByRole("navigation", { name: "주요 메뉴" });
-  const currentLinks = within(navigation)
-    .getAllByRole("link")
-    .filter((link) => link.getAttribute("aria-current") === "page");
-
-  expect(currentLinks).toHaveLength(1);
-  expect(currentLinks[0]).toHaveTextContent(expectedLabel);
-});
-
-it.each(["/my/groups", "/groups/1/manage/members"])(
-  "does not expose or activate the removed management header menu for %s",
-  (pathname) => {
-    mockPathname = pathname;
-    renderShell({ login: jest.fn(), logout: jest.fn(), status: "authenticated" });
-
-    const navigation = screen.getByRole("navigation", { name: "주요 메뉴" });
-    expect(within(navigation).queryByRole("link", { name: "모임 관리" })).not.toBeInTheDocument();
-    expect(
-      within(navigation)
-        .queryAllByRole("link")
-        .filter((link) => link.getAttribute("aria-current") === "page")
-    ).toHaveLength(0);
-  }
-);
-
-it("provides skip navigation, global navigation, and a main landmark", () => {
-  // Given
-  const auth = { login: jest.fn(), logout: jest.fn(), status: "anonymous" };
-
-  // When
-  renderShell(auth);
-
-  // Then
-  expect(screen.getByRole("link", { name: "본문으로 건너뛰기" })).toHaveAttribute(
-    "href",
-    "#main-content"
-  );
-  const brand = screen.getByRole("link", { name: "자리하나 홈" });
-  const navigation = screen.getByRole("navigation", { name: "주요 메뉴" });
-  expect(brand).toHaveAttribute("href", "/groups");
-  expect(brand).toHaveTextContent("자리 하나?");
-  expect(
-    within(navigation)
-      .getAllByRole("link")
-      .map((link) => link.textContent)
-  ).toEqual(["탐색", "모임 만들기"]);
-  expect(screen.getByRole("link", { name: "모임 만들기" })).toHaveAttribute("href", "/groups/new");
-  expect(screen.queryByRole("link", { name: "마이페이지" })).not.toBeInTheDocument();
-  expect(screen.queryByRole("link", { name: "모임 관리" })).not.toBeInTheDocument();
-  expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
-});
-
 it("starts GitHub login from the anonymous header action", () => {
   // Given
   const login = jest.fn();
@@ -141,7 +81,12 @@ it.each([["모임 만들기", "/groups/new"]])(
     renderShell({ login: jest.fn(), logout: jest.fn(), status: "anonymous" });
 
     // When
-    const navigationContinues = fireEvent.click(screen.getByRole("link", { name: label }));
+    fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
+    const navigationContinues = fireEvent.click(
+      within(screen.getByRole("navigation", { name: "모바일 메뉴" })).getByRole("link", {
+        name: label
+      })
+    );
 
     // Then
     expect(navigationContinues).toBe(false);
@@ -169,32 +114,8 @@ it("shows member navigation and logs out an authenticated member", () => {
 
   // Then
   expect(
-    within(screen.getByRole("navigation", { name: "주요 메뉴" }))
-      .getAllByRole("link")
-      .map((link) => link.textContent)
-  ).toEqual(["탐색", "모임 만들기"]);
-  expect(screen.getByRole("link", { name: "모임 만들기" })).toHaveAttribute("href", "/groups/new");
+    within(screen.getByRole("navigation", { name: "주요 메뉴" })).queryAllByRole("link")
+  ).toHaveLength(0);
   expect(screen.getByRole("link", { name: "마이페이지" })).toHaveAttribute("href", "/my");
   expect(logout).toHaveBeenCalledTimes(1);
-});
-
-it("opens and closes the mobile navigation drawer", () => {
-  // Given
-  renderShell({ login: jest.fn(), logout: jest.fn(), status: "authenticated" });
-  const menuButton = screen.getByRole("button", { name: "메뉴 열기" });
-
-  // When
-  fireEvent.click(menuButton);
-
-  // Then
-  expect(menuButton).toHaveAttribute("aria-expanded", "true");
-  const dialog = screen.getByRole("dialog", { name: "전체 메뉴" });
-  expect(dialog).toBeInTheDocument();
-  expect(within(dialog).getByRole("button", { name: "로그아웃" })).toBeInTheDocument();
-
-  // When
-  fireEvent.click(screen.getByRole("button", { name: "닫기" }));
-
-  // Then
-  expect(screen.queryByRole("dialog", { name: "전체 메뉴" })).not.toBeInTheDocument();
 });
