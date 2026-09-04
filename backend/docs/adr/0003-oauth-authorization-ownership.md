@@ -8,6 +8,9 @@
 - 개정: 2026-08-20. 최초 채택본은 인가 시작을 **백엔드**가 소유한다고 정했으나, 그 결정은
   회의에서 이미 백엔드 인가 시작 엔드포인트를 두지 않기로 했다는 사실을 모른 채 내려졌다.
   결론을 뒤집고 `state` 검증 방식을 새로 정한다.
+- 개정: 2026-09-02. 후속 작업 세 항목을 모두 닫는다. 명세 갱신과 `state` 쿠키 합의는 구현으로
+  끝났고, 상위 도메인 공유 여부는 [ADR 0008](0008-aws-deployment-topology.md)의 단일 오리진
+  구성 때문에 물을 필요가 없어졌다.
 
 ## 배경
 
@@ -134,8 +137,16 @@ GithubOAuthCommandController   session.removeAttribute(OAUTH_STATE)   삭제
 
 ## 후속 작업
 
-- 명세 스냅샷의 `GET /api/oauth/github/authorization` 항목과 콜백의 `state` 설명을 이 결정에 맞게
-  갱신하거나, Notion 원본을 고친 뒤 다시 동기화한다.
-- `state` 쿠키의 이름, 길이, 생성 방법을 프론트엔드와 합의한다.
-- 운영 배포에서 프론트엔드와 백엔드가 상위 도메인을 공유하는지 확인한다. 공유하지 못하면 대안 A로
-  전환하고 이 ADR을 개정한다.
+- ~~명세 스냅샷의 `GET /api/oauth/github/authorization` 항목과 콜백의 `state` 설명을 이 결정에 맞게
+  갱신하거나, Notion 원본을 고친 뒤 다시 동기화한다.~~ 완료.
+  [명세 스냅샷](../context/api/endpoints.md)의 해당 항목에 `(폐기)`를 달았고,
+  [설계 맥락 README](../context/README.md)의 대조표에도 결정을 적었다.
+- ~~`state` 쿠키의 이름, 길이, 생성 방법을 프론트엔드와 합의한다.~~ 완료. 이름은 `oauthState`로
+  맞추고 양쪽 모두 설정값으로 뺐다(`jarihana.auth.oauth-state-cookie-name`,
+  `APP_OAUTH_COOKIE_NAME`). 값은 프론트엔드가 32바이트 난수를 16진수 64자로 만들고,
+  쿠키는 `Path=/`, `Max-Age=600`, `SameSite=Lax`로 심는다. HTTPS일 때만 `Secure`를 붙인다.
+- ~~운영 배포에서 프론트엔드와 백엔드가 상위 도메인을 공유하는지 확인한다. 공유하지 못하면 대안 A로
+  전환하고 이 ADR을 개정한다.~~ **닫힘(2026-09-02).**
+  [ADR 0008](0008-aws-deployment-topology.md)이 CloudFront 단일 진입점을 확정해 프론트엔드와 API가
+  같은 오리진이 됐다. 상위 도메인을 공유할 필요 자체가 없어졌으므로 대안 A로 전환할 조건도
+  성립하지 않는다.

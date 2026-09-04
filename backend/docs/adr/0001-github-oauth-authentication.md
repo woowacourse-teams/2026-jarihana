@@ -5,6 +5,10 @@
 - 관련 문서: [API 엔드포인트 설계](../context/api/endpoints.md), [보안과 개인정보](../conventions/security.md), [영속성 컨벤션](../conventions/persistence.md)
 - 결정 4의 Access Token 전달 방식은 [ADR 0002](0002-access-token-cookie.md)로 대체되었다.
 - 결정 2의 `state` 보관 방식은 [ADR 0003](0003-oauth-authorization-ownership.md)으로 대체되었다.
+- 개정: 2026-08-27. 후속 작업의 쿠키 도메인과 `Secure` 항목은
+  [ADR 0008](0008-aws-deployment-topology.md)이 단일 오리진 구성을 확정하면서 닫혔다.
+- 개정: 2026-09-02. 후속 작업 중 구현이 끝난 항목과 다른 ADR이 가져간 항목을 닫는다. 남은 것은
+  만료 Refresh Token 정리뿐이다.
 
 ## 배경
 
@@ -45,7 +49,15 @@
 
 ## 후속 작업
 
-- `POST /api/auth/refresh`와 `POST /api/auth/logout`은 이 저장소를 사용해 검증, 회전, 폐기를 구현한다.
-- 만료된 Refresh Token을 정리하는 방법을 정한다.
-- 운영 환경의 쿠키 도메인과 `Secure` 적용 범위를 배포 구성과 함께 확정한다.
-- Access Token의 형식과 유효 기간은 `POST /api/auth/refresh` 구현 시 별도 ADR로 남긴다.
+- ~~`POST /api/auth/refresh`와 `POST /api/auth/logout`은 이 저장소를 사용해 검증, 회전, 폐기를
+  구현한다.~~ 완료. 두 엔드포인트 모두 `AuthCommandController`에 있다.
+- 만료된 Refresh Token을 정리하는 방법을 정한다. **아직 열려 있다.** 정리를 수행하는 코드가 없어
+  폐기된 토큰이 계속 쌓인다.
+- ~~운영 환경의 쿠키 도메인과 `Secure` 적용 범위를 배포 구성과 함께 확정한다.~~
+  **닫힘(2026-08-27).** [ADR 0008](0008-aws-deployment-topology.md)이 CloudFront 단일 진입점을
+  확정하면서 프론트엔드와 API가 같은 오리진이 됐다. 쿠키에 도메인을 지정하지 않고(host-only)
+  `SameSite=Lax`를 쓰며, `Secure`는 운영 `true`, 로컬 `false`다. 상위 도메인을 공유해야 한다는
+  전제가 사라졌으므로 도메인 값을 따로 정하지 않는다.
+- ~~Access Token의 형식과 유효 기간은 `POST /api/auth/refresh` 구현 시 별도 ADR로 남긴다.~~
+  완료. [ADR 0002](0002-access-token-cookie.md)가 그 ADR이다. HS256 JWT에 유효 기간 1시간으로
+  정했다.

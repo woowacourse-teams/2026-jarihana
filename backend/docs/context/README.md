@@ -48,7 +48,7 @@ Delete로 처리한다.
 | --- | --- | --- |
 | `GET /api/oauth/github/authorization` | 엔드포인트로 존재 | 만들지 않는다. [ADR 0003](../adr/0003-oauth-authorization-ownership.md) |
 | 콜백의 `state` 보관 | 서버 세션 | 프론트엔드가 만든 쿠키와 대조. [ADR 0003](../adr/0003-oauth-authorization-ownership.md) |
-| 콜백의 토큰 전달 방식 | 결정 필요 | Access Token과 Refresh Token 모두 쿠키. [ADR 0002](../adr/0002-access-token-cookie.md) |
+| 콜백의 토큰 전달 방식 | 결정 필요 | Access Token과 Refresh Token 모두 쿠키. [ADR 0002(Access Token)](../adr/0002-access-token-cookie.md) |
 | 반복 일정의 `startTime`, `endTime` | 시각 필수 | 두 시각을 함께 비우면 요일만 고정한 시간 유동적 일정. 한쪽만 비우면 거절 |
 
 Notion의 아카이브, 기술 구현 결정, 인프라 설정, 역할 분담 문서는 이 스냅샷에 포함하지 않는다.
