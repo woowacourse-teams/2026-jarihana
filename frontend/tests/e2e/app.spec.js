@@ -45,6 +45,11 @@ const routes = [
   { expected: "멤버 관리", name: "members-manage", path: "/groups/10/manage/members" },
   { expected: "모집 관리", name: "recruitments-manage", path: "/groups/10/manage/recruitments" },
   {
+    expected: "모집 이력",
+    name: "recruitment-history-manage",
+    path: "/groups/10/manage/recruitments/history"
+  },
+  {
     expected: "프론트엔드 한 자리",
     name: "registrations-manage",
     path: "/groups/10/manage/recruitments/20/registrations"
@@ -321,6 +326,44 @@ test("places the desktop primary navigation beside the brand", async ({ page }) 
   expect(layout.navLeft).toBeGreaterThanOrEqual(layout.brandRight);
   expect(layout.navLeft - layout.brandRight).toBeLessThanOrEqual(32);
   expect(layout.navRight).toBeLessThan(layout.actionLeft);
+  expect(state.unexpectedResponses).toEqual([]);
+});
+
+test("opens recruitment history from the recruitment management tab", async ({ page }) => {
+  await page.setViewportSize({ height: 831, width: 1280 });
+  const state = await installApiFixture(page);
+
+  await page.goto("/groups/10/manage/recruitments");
+  await expect(page.getByRole("heading", { name: "모집 관리", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "모집 이력" }).click();
+
+  await expect(page).toHaveURL(/\/groups\/10\/manage\/recruitments\/history$/);
+  await expect(page.getByRole("heading", { name: "모집 이력", exact: true })).toBeVisible();
+  await expect(page.getByRole("table", { name: "모집 이력" })).toBeVisible();
+  await expect(page.getByRole("group", { name: "가입 방식 필터" })).toHaveCount(0);
+  expect(await page.getByRole("columnheader").allTextContents()).toEqual([
+    "등록일",
+    "모집 기간",
+    "모집 정원",
+    "승인 인원",
+    "가입 방식",
+    "상태"
+  ]);
+  const ascendingSortButton = page.getByRole("button", { name: "등록일 오름차순 정렬" });
+  const descendingSortButton = page.getByRole("button", { name: "등록일 내림차순 정렬" });
+  await expect(descendingSortButton).toHaveAttribute("aria-pressed", "true");
+  await ascendingSortButton.click();
+  await expect(page.locator("tbody tr").first().locator("td").first()).toHaveText("2026. 7. 1.");
+  await expect(ascendingSortButton).toHaveAttribute("aria-pressed", "true");
+  await descendingSortButton.click();
+  await expect(page.locator("tbody tr").first().locator("td").first()).toHaveText("2026. 8. 12.");
+  expect(await page.getByRole("row").count()).toBe(4);
+  await expect(page.getByRole("cell", { name: "모집 중", exact: true })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "모집 예정", exact: true })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "마감", exact: true })).toBeVisible();
+  expect(
+    state.requests.some(({ method, path }) => method === "GET" && path === "/groups/10/recruitments")
+  ).toBe(true);
   expect(state.unexpectedResponses).toEqual([]);
 });
 

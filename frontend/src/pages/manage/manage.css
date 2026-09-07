@@ -40,10 +40,51 @@
   border-bottom: var(--border-thin) solid var(--color-line);
 }
 
+.manage-context__title-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+
 .manage-context h1 {
-  margin: 0 0 var(--space-6);
+  min-width: 0;
+  margin: 0;
   font-size: var(--text-h1);
   line-height: 1.3;
+}
+
+.manage-context__detail-link {
+  display: inline-flex;
+  min-height: var(--touch-target);
+  align-items: center;
+  gap: var(--space-1);
+  padding-inline: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-muted-ink);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+}
+
+.manage-context__detail-link svg {
+  display: block;
+  flex: 0 0 var(--space-4);
+  width: var(--space-4);
+  height: var(--space-4);
+}
+
+.manage-context__detail-link:hover {
+  color: var(--color-ink);
+  transform: translateY(calc(var(--border-thin) * -1));
+}
+
+.manage-context__detail-link:active {
+  transform: translateY(var(--border-thin));
 }
 
 .manage-context__nav {
@@ -322,14 +363,6 @@
   margin-block-start: var(--space-6);
 }
 
-.manage-recruitment-recently-closed {
-  margin-block-start: 0;
-}
-
-.manage-recruitment-recently-closed .manage-recruitment-focus__heading {
-  margin-block-end: 0;
-}
-
 .manage-recruitment-archive {
   display: flex;
   align-items: center;
@@ -518,7 +551,8 @@
   overflow-x: auto;
 }
 
-.manage-member-table {
+.manage-member-table,
+.manage-history-table {
   width: 100%;
   min-width: max-content;
   border-collapse: collapse;
@@ -526,7 +560,9 @@
 }
 
 .manage-member-table th,
-.manage-member-table td {
+.manage-member-table td,
+.manage-history-table th,
+.manage-history-table td {
   padding: var(--space-5);
   border-bottom: var(--border-thin) solid var(--color-line);
   text-align: left;
@@ -534,14 +570,50 @@
   white-space: nowrap;
 }
 
-.manage-member-table th {
+.manage-member-table th,
+.manage-history-table th {
   background: var(--color-canvas);
   color: var(--color-muted-ink);
   font-size: var(--text-caption);
   font-weight: 700;
 }
 
-.manage-member-table tbody tr:last-child td {
+.manage-history-table__header-content {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.manage-history-sort {
+  display: grid;
+  grid-template-rows: repeat(2, var(--space-4));
+  gap: 0;
+}
+
+.manage-history-sort button {
+  display: grid;
+  width: var(--space-6);
+  height: var(--space-4);
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.manage-history-sort button[aria-pressed="true"] {
+  color: var(--color-brand-ink);
+}
+
+.manage-history-sort button:hover {
+  color: var(--color-ink);
+}
+
+.manage-member-table tbody tr:last-child td,
+.manage-history-table tbody tr:last-child td {
   border-bottom: 0;
 }
 
@@ -559,6 +631,72 @@
 
 .manage-member-table td[data-label="가입일"] {
   white-space: nowrap;
+}
+
+.manage-history-stat {
+  display: flex;
+  justify-content: flex-end;
+  margin-block-end: var(--space-6);
+}
+
+@media (max-width: 48rem) {
+  .manage-history-stat {
+    margin-block-end: var(--space-4);
+  }
+}
+
+.manage-history-table {
+  table-layout: fixed;
+}
+
+@media (min-width: 48rem) {
+  .manage-history-table td[data-label="상태"] .ui-badge {
+    margin-inline-start: calc(var(--space-3) * -1);
+  }
+}
+
+.manage-history-table__col--status {
+  width: 7rem;
+}
+
+.manage-history-table__col--period {
+  width: 28%;
+}
+
+.manage-history-table__col--capacity,
+.manage-history-table__col--approved {
+  width: 10rem;
+}
+
+.manage-history-table__col--method {
+  width: 10rem;
+}
+
+.manage-history-table__col--created {
+  width: 8rem;
+}
+
+.manage-history-table__mobile-label {
+  display: none;
+}
+
+.manage-history-period {
+  display: grid;
+  gap: var(--space-1);
+  white-space: normal;
+}
+
+.manage-history-period__row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-5);
+  min-inline-size: 0;
+}
+
+.manage-history-period__label {
+  flex: 0 0 auto;
+  color: var(--color-muted-ink);
+  font-weight: 600;
 }
 
 .manage-avatar {
@@ -1548,8 +1686,11 @@
     margin-bottom: var(--space-6);
   }
 
-  .manage-context h1 {
+  .manage-context__title-row {
     margin-bottom: var(--space-4);
+  }
+
+  .manage-context h1 {
     font-size: var(--text-h2);
   }
 
@@ -1564,6 +1705,10 @@
   .manage-registration-card,
   .manage-recruitment-archive {
     flex-direction: column;
+  }
+
+  .manage-heading {
+    align-items: start;
   }
 
   .manage-heading--create {
@@ -1691,18 +1836,22 @@
   }
 
   .manage-member-table,
-  .manage-member-table tbody {
+  .manage-member-table tbody,
+  .manage-history-table,
+  .manage-history-table tbody {
     display: grid;
     gap: var(--space-3);
     min-width: 0;
     width: 100%;
   }
 
-  .manage-member-table thead {
+  .manage-member-table thead,
+  .manage-history-table thead {
     display: none;
   }
 
-  .manage-member-table tr {
+  .manage-member-table tr,
+  .manage-history-table tr {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-3) var(--space-4);
@@ -1712,7 +1861,8 @@
     background: var(--color-surface);
   }
 
-  .manage-member-table td {
+  .manage-member-table td,
+  .manage-history-table td {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     min-width: 0;
@@ -1723,15 +1873,37 @@
     white-space: normal;
   }
 
-  .manage-member-table td::before {
+  .manage-history-table td {
+    font-size: var(--text-label);
+  }
+
+  .manage-member-table td::before,
+  .manage-history-table td::before {
     color: var(--color-muted-ink);
-    content: attr(data-label);
-    font-size: var(--text-caption);
+    content: attr(data-label) ":";
+    font-size: inherit;
     font-weight: 600;
   }
 
+  .manage-history-table td::before {
+    content: none;
+  }
+
+  .manage-history-table__mobile-label {
+    display: inline-flex;
+    align-items: baseline;
+    color: var(--color-muted-ink);
+    font-weight: 600;
+  }
+
+  .manage-history-table__mobile-label-colon {
+    display: inline-block;
+    transform: translateY(1px);
+  }
+
   .manage-member-table td[data-label="크루"],
-  .manage-member-table td:last-child {
+  .manage-member-table td:last-child,
+  .manage-history-table td[data-label="상태"] {
     grid-column: 1 / -1;
   }
 
@@ -1745,8 +1917,34 @@
     content: none;
   }
 
+  .manage-history-table td[data-label="상태"] {
+    justify-content: space-between;
+  }
+
+  .manage-history-table td[data-label="상태"] .ui-badge {
+    font-size: inherit;
+    line-height: 1;
+    min-height: var(--text-label);
+  }
+
+  .manage-history-table td[data-label="모집 기간"] {
+    grid-column: 1 / -1;
+  }
+
+  .manage-history-table td[data-label="모집 기간"] .manage-history-table__mobile-label {
+    align-self: start;
+  }
+
+  .manage-history-table td[data-label="모집 기간"]::before {
+    align-self: start;
+  }
+
   .manage-member-table td[data-label="가입일"] {
     white-space: normal;
+  }
+
+  .manage-history-table {
+    table-layout: auto;
   }
 
   .manage-member-identity {

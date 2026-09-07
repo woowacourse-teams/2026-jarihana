@@ -16,7 +16,7 @@
 
 .group-editor--embedded {
     inline-size: min(100%, var(--group-editor-content-width));
-    margin: 0;
+    margin-inline: auto;
     padding: 0;
 }
 
@@ -300,6 +300,10 @@
     justify-content: flex-end;
     gap: var(--space-3);
     margin-block-start: var(--space-8);
+}
+
+.manage-page--editor .group-editor__save-button {
+    color: var(--color-surface);
 }
 
 
@@ -682,22 +686,15 @@
     gap: var(--space-4);
 }
 
-.group-members-panel__heading p,
 .group-members-panel__heading h2,
 .group-members-panel__cohort-heading h3,
 .group-members-panel__cohort-heading p {
     margin: 0;
 }
 
-.group-members-panel__heading p {
-    color: var(--color-brand-ink);
-    font-size: var(--text-caption);
-    font-weight: 700;
-}
-
 .group-members-panel__heading h2 {
-    margin-block-start: var(--space-1);
-    font-size: var(--text-h2);
+    font-size: var(--text-h3);
+    line-height: 1.45;
 }
 
 .group-members-panel__people {
@@ -931,7 +928,7 @@
     }
 
     .group-editor__description-tools {
-        flex-direction: column;
+        flex-direction: row;
     }
 }
 

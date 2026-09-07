@@ -1,16 +1,16 @@
 package com.project.jarihana.auth.command.controller;
 
-import com.project.jarihana.auth.command.repository.RefreshTokenRepository;
+import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.config.AuthProperties;
 import com.project.jarihana.auth.domain.RefreshToken;
-import com.project.jarihana.common.auth.AccessTokenProvider;
-import com.project.jarihana.common.auth.AuthCookieProperties;
-import com.project.jarihana.common.auth.SignupSession;
+import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.support.GithubOAuthClientStub;
 import com.project.jarihana.support.IntegrationTestSupport;
+import com.project.jarihana.support.RefreshTokenTestRepository;
+import com.project.jarihana.support.SignupSessionFixture;
 import io.restassured.RestAssured;
 import io.restassured.http.Cookie;
 import io.restassured.response.ExtractableResponse;
@@ -21,18 +21,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.session.Session;
-import org.springframework.session.SessionRepository;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 콜백은 프론트엔드가 심은 state 쿠키와 GitHub이 되돌려준 state 쿼리를 대조한다(ADR 0003).
- * 인가 시작은 프론트엔드가 소유하므로 이 테스트는 그 역할을 대신해 쿠키를 직접 보낸다.
+ * 인가 시작은 프론트엔드가 소유하므로, 이 테스트가 그 역할을 대신해 state 쿠키를 직접 보낸다.
  */
 class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
 
@@ -49,10 +44,10 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
     private MemberRepository memberRepository;
 
     @Autowired
-    private RefreshTokenRepository refreshTokenRepository;
+    private RefreshTokenTestRepository refreshTokenTestRepository;
 
     @Autowired
-    private SessionRepository<? extends Session> sessionRepository;
+    private SignupSessionFixture signupSessionFixture;
 
     @Autowired
     private AuthProperties authProperties;
@@ -78,7 +73,7 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
                 .isEqualTo("http://localhost:5173/oauth/callback?signupRequired=true");
         assertThat(response.cookie(REFRESH_COOKIE_NAME)).isNull();
         assertThat(signupGithubIdOf(response)).isEqualTo(GITHUB_ID);
-        assertThat(refreshTokenRepository.findAll()).isEmpty();
+        assertThat(refreshTokenTestRepository.findAll()).isEmpty();
     }
 
     private ExtractableResponse<Response> callback(String stateCookie, String code, String state) {
@@ -96,15 +91,7 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
     }
 
     private String signupGithubIdOf(ExtractableResponse<Response> response) {
-        String sessionId = new String(
-                Base64.getDecoder().decode(response.cookie(SESSION_COOKIE_NAME)),
-                StandardCharsets.UTF_8
-        );
-        Session session = sessionRepository.findById(sessionId);
-        if (session == null) {
-            return null;
-        }
-        return session.getAttribute(SignupSession.githubIdAttribute());
+        return signupSessionFixture.githubIdOf(response.cookie(SESSION_COOKIE_NAME));
     }
 
     @DisplayName("가입한 회원은 Refresh Token 쿠키를 받고 서비스 화면으로 이동한다.")
@@ -125,7 +112,7 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
         assertThat(refreshCookie.getValue()).isNotBlank();
         assertThat(refreshCookie.isHttpOnly()).isTrue();
         assertThat(refreshCookie.getPath()).isEqualTo("/api/auth");
-        List<RefreshToken> refreshTokens = refreshTokenRepository.findAll();
+        List<RefreshToken> refreshTokens = refreshTokenTestRepository.findAll();
         assertThat(refreshTokens).hasSize(1);
         assertThat(refreshTokens.get(0).getTokenHash()).isNotEqualTo(refreshCookie.getValue());
     }

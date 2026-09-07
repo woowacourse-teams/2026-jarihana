@@ -26,6 +26,11 @@ export const routeRegistry = Object.freeze([
   },
   {
     access: "leader",
+    page: "GroupRecruitmentHistoryManagePage",
+    path: "/groups/:groupId/manage/recruitments/history"
+  },
+  {
+    access: "leader",
     page: "RegistrationManagePage",
     path: "/groups/:groupId/manage/registrations"
   },

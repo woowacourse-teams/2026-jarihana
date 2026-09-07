@@ -215,12 +215,16 @@ describe("ManageMembersPage", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "프론트엔드 성능 튜닝 챌린지" })
     ).toBeVisible();
+    const detailLink = screen.getByRole("link", { name: "모임 상세 보기" });
+    expect(detailLink).toHaveAttribute("href", "/groups/7");
+    expect(detailLink.querySelector("svg.lucide-external-link")).not.toBeNull();
+    expect(screen.queryByRole("link", { name: "모임 상세로 돌아가기" })).not.toBeInTheDocument();
     const navigation = screen.getByRole("navigation", { name: "모임 관리 메뉴" });
     expect(
       within(navigation)
         .getAllByRole("link")
         .map((link) => link.textContent)
-    ).toEqual(["모임 수정", "모집 관리", "신청 관리", "멤버 관리"]);
+    ).toEqual(["모임 수정", "모집 관리", "모집 이력", "신청 관리", "멤버 관리"]);
     expect(within(navigation).getByRole("link", { name: "멤버 관리" })).toHaveAttribute(
       "aria-current",
       "page"
@@ -573,7 +577,7 @@ describe("ManageRegistrationsPage", () => {
       within(navigation)
         .getAllByRole("link")
         .map((link) => link.textContent)
-    ).toEqual(["모임 수정", "모집 관리", "신청 관리", "멤버 관리"]);
+    ).toEqual(["모임 수정", "모집 관리", "모집 이력", "신청 관리", "멤버 관리"]);
     expect(within(navigation).getByRole("link", { name: "신청 관리" })).toHaveAttribute(
       "aria-current",
       "page"

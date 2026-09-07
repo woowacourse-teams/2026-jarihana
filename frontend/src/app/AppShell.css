@@ -1,7 +1,13 @@
 .app-shell {
-    min-height: 100vh;
+    min-block-size: 100dvb;
+    display: flex;
+    flex-direction: column;
     background: var(--color-surface);
     color: var(--color-ink);
+}
+
+#main-content {
+    flex: 1 0 auto;
 }
 
 .app-shell:has(.route-loading) .app-footer {

@@ -133,6 +133,7 @@ E2E는 production API에 mock 성공 데이터를 넣지 않습니다. 테스트
 | `/groups/:groupId/manage`                                           | 해당 그룹 리더        | 그룹 수정, 대표 이미지 업로드, 일정, 종료 또는 삭제       |
 | `/groups/:groupId/manage/members`                                   | 해당 그룹 리더        | 멤버 목록과 리더 위임                                     |
 | `/groups/:groupId/manage/recruitments`                              | 해당 그룹 리더        | 모집 생성·마감                                            |
+| `/groups/:groupId/manage/recruitments/history`                      | 해당 그룹 리더        | 모집 이력 조회                                            |
 | `/groups/:groupId/manage/recruitments/:recruitmentId/registrations` | 해당 그룹 리더        | 신청 승인·거절                                            |
 | `/__showcase`                                                       | 개발 점검             | 공통 UI primitive 상태 점검용, navigation에 노출하지 않음 |
 | 그 외                                                               | 공개                  | 안전한 404 화면                                           |

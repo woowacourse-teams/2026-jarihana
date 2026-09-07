@@ -3,14 +3,15 @@ package com.project.jarihana.auth.command.controller;
 import com.project.jarihana.auth.command.repository.RefreshTokenRepository;
 import com.project.jarihana.auth.command.service.RefreshTokenHasher;
 import com.project.jarihana.auth.command.service.RefreshTokenIssuer;
+import com.project.jarihana.auth.config.AuthCookieProperties;
+import com.project.jarihana.auth.config.JwtProperties;
 import com.project.jarihana.auth.domain.RefreshToken;
-import com.project.jarihana.common.auth.AccessTokenProvider;
-import com.project.jarihana.common.auth.AuthCookieProperties;
-import com.project.jarihana.common.auth.JwtProperties;
+import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.support.IntegrationTestSupport;
+import com.project.jarihana.support.RefreshTokenTestRepository;
 import com.project.jarihana.support.TestSupportConfig;
 import io.restassured.RestAssured;
 import io.restassured.http.Cookie;
@@ -24,17 +25,6 @@ import org.springframework.http.HttpStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * 재발급은 Refresh Token 쿠키만으로 새 Access Token을 내려준다.
- *
- * <p>Access Token은 HttpOnly 쿠키로 전달하므로 응답 본문에 값을 담지 않는다(ADR 0002).
- * 본문에는 프론트엔드가 다음 재발급 시점을 잡을 수 있도록 남은 유효 기간만 둔다.
- *
- * <p>회전은 아직 도입하지 않는다. 재발급해도 Refresh Token은 그대로 남는다.
- *
- * <p>재발급이 실패하면 세션이 끝난 것이므로 자격 증명 쿠키를 거둔다. 되돌아갈 경로가 없는데
- * 브라우저가 쓸모없는 쿠키를 들고 있으면 프론트엔드가 로그인 화면으로 보낼 근거가 없다.
- */
 class AuthRefreshAcceptanceTest extends IntegrationTestSupport {
 
     private static final String REFRESH_PATH = "/auth/refresh";
@@ -48,6 +38,9 @@ class AuthRefreshAcceptanceTest extends IntegrationTestSupport {
 
     @Autowired
     private RefreshTokenRepository refreshTokenRepository;
+
+    @Autowired
+    private RefreshTokenTestRepository refreshTokenTestRepository;
 
     @Autowired
     private RefreshTokenIssuer refreshTokenIssuer;
@@ -198,7 +191,7 @@ class AuthRefreshAcceptanceTest extends IntegrationTestSupport {
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
         assertThat(response.jsonPath().getString("error.code")).isEqualTo("REFRESH_TOKEN_INVALID");
-        assertThat(refreshTokenRepository.findAll()).hasSize(1);
+        assertThat(refreshTokenTestRepository.findAll()).hasSize(1);
     }
 
     @DisplayName("만료된 Refresh Token으로 실패하면 자격 증명 쿠키를 거둔다.")

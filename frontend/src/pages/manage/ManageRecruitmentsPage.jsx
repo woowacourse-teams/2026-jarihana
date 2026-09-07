@@ -84,12 +84,6 @@ function isCurrentRecruitment(recruitment, now = Date.now()) {
   return endsAt === null || endsAt > now;
 }
 
-function isClosedRecruitment(recruitment, now = Date.now()) {
-  if (recruitment.recruitingStatus === "CLOSED") return true;
-  const endsAt = toTimestamp(recruitment.endsAt);
-  return endsAt !== null && endsAt <= now;
-}
-
 function selectCurrentRecruitment(recruitments, now = Date.now()) {
   return (
     [...recruitments].sort((first, second) => {
@@ -104,16 +98,6 @@ function selectCurrentRecruitment(recruitments, now = Date.now()) {
       const firstCreatedAt = toTimestamp(first.createdAt) ?? 0;
       const secondCreatedAt = toTimestamp(second.createdAt) ?? 0;
       return secondCreatedAt - firstCreatedAt;
-    })[0] ?? null
-  );
-}
-
-function selectClosedRecruitment(recruitments) {
-  return (
-    [...recruitments].sort((first, second) => {
-      const firstDate = toTimestamp(first.endsAt) ?? Number.NEGATIVE_INFINITY;
-      const secondDate = toTimestamp(second.endsAt) ?? Number.NEGATIVE_INFINITY;
-      return secondDate - firstDate;
     })[0] ?? null
   );
 }
@@ -190,13 +174,6 @@ export function ManageRecruitmentsPage() {
   const approvedRegistrationsQuery = useInfiniteRegistrations(currentRecruitment?.id, {
     status: "APPROVED"
   });
-  const latestClosedRecruitment = selectClosedRecruitment(
-    recruitments
-      .filter(isClosedRecruitment)
-      .filter((recruitment) => toTimestamp(recruitment.endsAt) !== null)
-  );
-  const hasRecentClosedRecruitment =
-    screen === "current" && !currentRecruitment && Boolean(latestClosedRecruitment);
   const isCreateDirty = screen === "create" && !isSameForm(form, formBaseline);
   const pageHeading =
     screen === "create"
@@ -215,7 +192,7 @@ export function ManageRecruitmentsPage() {
   const focusLayoutClassName =
     screen === "create"
       ? "manage-recruitment-focus-layout manage-recruitment-focus-layout--create"
-      : hasRecentClosedRecruitment || (screen === "current" && Boolean(currentRecruitment))
+      : screen === "current" && Boolean(currentRecruitment)
         ? "manage-recruitment-focus-layout"
         : undefined;
 
@@ -635,23 +612,6 @@ export function ManageRecruitmentsPage() {
 
           {screen === "current" && currentRecruitment ? (
             <ApprovedMembersSnapshot query={approvedRegistrationsQuery} />
-          ) : null}
-
-          {hasRecentClosedRecruitment ? (
-            <section
-              aria-labelledby="latest-closed-recruitment-title"
-              className="manage-panel manage-recruitment-recently-closed"
-            >
-              <div className="manage-recruitment-focus__heading">
-                <h2 id="latest-closed-recruitment-title">최근 마감 모집</h2>
-              </div>
-              <RecruitmentInformation
-                memberCount={groupQuery.data?.memberCount}
-                recruitment={latestClosedRecruitment}
-                showMemberCount={false}
-                showStatus={false}
-              />
-            </section>
           ) : null}
 
           {screen === "create" ? (

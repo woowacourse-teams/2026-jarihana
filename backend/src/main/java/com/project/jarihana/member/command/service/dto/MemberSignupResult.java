@@ -1,7 +1,7 @@
 package com.project.jarihana.member.command.service.dto;
 
-import com.project.jarihana.auth.command.service.dto.IssuedRefreshToken;
-import com.project.jarihana.common.auth.IssuedAccessToken;
+import com.project.jarihana.auth.token.IssuedAccessToken;
+import com.project.jarihana.auth.token.IssuedRefreshToken;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.MemberType;
 
