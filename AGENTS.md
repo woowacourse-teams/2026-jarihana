@@ -18,6 +18,7 @@
 3. 작업 범위를 분류하고 해당 디렉터리의 세부 지침을 직접 읽는다.
    - 백엔드 작업: `backend/AGENTS.md`
    - 프론트엔드 작업: `frontend/AGENTS.md`, `frontend/docs/IMPLEMENTATION_MAP.md`
+   - 풀스택 기능·API 변경: `backend/AGENTS.md`, `frontend/AGENTS.md`
    - 인프라 작업: `infra/AGENTS.md`가 있으면 해당 파일
 4. 세부 지침이 지정한 설계 문서, 실행 명령과 검증 절차를 추가로 확인한다.
 5. 확인한 범위 안에서만 가장 작은 변경을 수행한다.

@@ -21,6 +21,7 @@ Compose 명령은 이 디렉터리에서 실행한다.
 | 작업 범위 | 추가로 읽을 문서 |
 | --- | --- |
 | API, Controller, 요청·응답, Swagger | `context/api/common-contract.md`, `context/api/endpoints/README.md`, 관련 `context/api/endpoints/` 상세 문서, `context/domain/model/README.md`, 관련 `context/domain/model/` 상세 문서, `conventions/api.md` |
+| 기능·유스케이스 변경 | 관련 `context/domain/model/` 문서, `context/domain/invariants.md`, `context/domain/business-policies.md`, API 변경 시 관련 `context/api/` 문서와 해당 컨벤션 |
 | 도메인 전체 관계·용어·생명주기 | `context/domain/model/README.md` |
 | 회원 모델·회원 정책 | `context/domain/model/member.md` |
 | 그룹 모델·그룹 상태·유형 | `context/domain/model/group.md` |
@@ -33,7 +34,7 @@ Compose 명령은 이 디렉터리에서 실행한다.
 | 패키지 구조, 계층, 예외 처리 | `conventions/architecture.md` |
 | 인증, 인가, 비밀값, 개인정보 | `conventions/security.md` |
 | 날짜, 시간, 현재 시각 | `conventions/time.md` |
-| ADR, 프로필, 빌드, 실행 환경 | `conventions/project-operations.md` |
+| ADR, 기존 기술 결정, 프로필, 빌드, 실행 환경 | 관련 `docs/adr/`, `conventions/project-operations.md` |
 | 컨벤션 자체 변경 | 변경 대상 모듈, `conventions/project-operations.md` |
 
 여러 범위에 해당하면 문서의 합집합을 읽고, 범위가 불명확하거나 복합적이면 관련
