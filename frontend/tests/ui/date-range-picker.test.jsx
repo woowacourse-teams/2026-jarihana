@@ -43,7 +43,9 @@ describe("DateRangePicker", () => {
     expect(screen.getByRole("button", { name: "모집 시작일 선택" })).toHaveTextContent(
       "2026. 9. 2."
     );
-    expect(screen.getByLabelText("모집 시작 시간")).toHaveValue("12:34");
+    expect(screen.getByRole("button", { name: "모집 시작 시간 선택" })).toHaveTextContent(
+      "오후 12:34"
+    );
   });
 
   it.each([
@@ -58,7 +60,9 @@ describe("DateRangePicker", () => {
     expect(screen.getByRole("button", { name: "모집 마감일 선택" })).toHaveTextContent(
       expectedDate
     );
-    expect(screen.getByLabelText("모집 마감 시간")).toHaveValue("10:00");
+    expect(screen.getByRole("button", { name: "모집 마감 시간 선택" })).toHaveTextContent(
+      "오전 10:00"
+    );
   });
 
   it("Given a selected start date, When the end calendar opens, Then earlier dates are disabled", async () => {
@@ -71,13 +75,19 @@ describe("DateRangePicker", () => {
     expect(screen.getByRole("button", { name: "2026년 9월 10일" })).toBeEnabled();
   });
 
-  it("Given the same start and end date, When the end time is edited, Then its minimum is one minute after the start", async () => {
+  it("Given the same start and end date, When an earlier end time is entered, Then it is rejected", async () => {
     const user = userEvent.setup();
     render(<PickerHarness initialEnd="2026-09-10T10:01" />);
 
-    await user.click(screen.getByRole("button", { name: "모집 마감일 선택" }));
+    const timeTrigger = screen.getByRole("button", { name: "모집 마감 시간 선택" });
+    await user.click(timeTrigger);
+    const minuteInput = screen.getByRole("textbox", { name: "분 직접 입력" });
+    await user.clear(minuteInput);
+    await user.type(minuteInput, "00");
+    await user.keyboard("{Enter}");
 
-    expect(screen.getByLabelText("모집 마감 시간")).toHaveAttribute("min", "10:01");
+    expect(minuteInput).toBeInvalid();
+    expect(timeTrigger).toHaveTextContent("오전 10:01");
   });
 
   it("Given an open end calendar, When Escape is pressed, Then it closes and returns focus to the endpoint", async () => {
@@ -151,7 +161,9 @@ describe("DateRangePicker", () => {
       "aria-pressed",
       "true"
     );
-    expect(screen.queryByLabelText("모집 마감 시간")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "모집 마감 시간 선택" })
+    ).not.toBeInTheDocument();
     expect(screen.getByText("없음")).toBeVisible();
     expect(screen.getByRole("button", { name: "모집 마감일 선택" })).toHaveTextContent("상시 모집");
   });

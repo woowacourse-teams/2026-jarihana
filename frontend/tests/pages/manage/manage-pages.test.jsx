@@ -287,7 +287,9 @@ describe("ManageRecruitmentsPage", () => {
     expect(screen.getByRole("button", { name: "모집 시작일 선택" })).toHaveTextContent(
       "2026. 9. 2."
     );
-    expect(screen.getByLabelText("모집 시작 시간")).toHaveValue("12:34");
+    expect(screen.getByRole("button", { name: "모집 시작 시간 선택" })).toHaveTextContent(
+      "오후 12:34"
+    );
   });
 
   it("Given an untouched default period, When creation is cancelled, Then it exits without a discard warning", async () => {
@@ -397,9 +399,17 @@ describe("ManageRecruitmentsPage", () => {
     await user.click(screen.getByRole("button", { name: "다음" }));
     await user.click(screen.getByRole("button", { name: "모집 마감일 선택" }));
     await user.click(screen.getByRole("button", { name: "2026년 9월 10일" }));
-    fireEvent.change(screen.getByLabelText("모집 마감 시간"), {
-      target: { value: "23:59" }
-    });
+    await user.click(screen.getByRole("button", { name: "모집 마감 시간 선택" }));
+    await user.click(screen.getByRole("button", { name: "오전 오후" }));
+    await user.click(screen.getByRole("option", { name: "오후" }));
+    const hourInput = screen.getByRole("textbox", { name: "시 직접 입력" });
+    await user.clear(hourInput);
+    await user.type(hourInput, "11");
+    await user.keyboard("{Enter}");
+    const minuteInput = screen.getByRole("textbox", { name: "분 직접 입력" });
+    await user.clear(minuteInput);
+    await user.type(minuteInput, "59");
+    await user.keyboard("{Enter}");
     await user.click(screen.getByRole("button", { name: "모집 생성" }));
 
     expect(mutateAsync).toHaveBeenCalledWith({
