@@ -20,7 +20,7 @@ Compose 명령은 이 디렉터리에서 실행한다.
 
 | 작업 범위 | 추가로 읽을 문서 |
 | --- | --- |
-| API, Controller, 요청·응답, Swagger | `context/api/` 2개, `context/domain/model/README.md`, 관련 `context/domain/model/` 상세 문서, `conventions/api.md` |
+| API, Controller, 요청·응답, Swagger | `context/api/common-contract.md`, `context/api/endpoints/README.md`, 관련 `context/api/endpoints/` 상세 문서, `context/domain/model/README.md`, 관련 `context/domain/model/` 상세 문서, `conventions/api.md` |
 | 도메인 전체 관계·용어·생명주기 | `context/domain/model/README.md` |
 | 회원 모델·회원 정책 | `context/domain/model/member.md` |
 | 그룹 모델·그룹 상태·유형 | `context/domain/model/group.md` |
