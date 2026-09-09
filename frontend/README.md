@@ -46,11 +46,7 @@ export ACCESS_TOKEN_SECRET="$(openssl rand -hex 32)"
 
 로컬 프로필은 `http://localhost:8080`을 사용하고 인증 쿠키의 `Secure` 속성을 끕니다.
 데이터베이스와 백엔드 환경 변수의 상세는 [backend README](../backend/README.md)를
-참조하세요. `local` 백엔드와 `npm run dev` 프론트 조합에서는 header의 `개발 계정으로 시작`을
-누르면 GitHub OAuth 없이 로컬 회원 ID 1로 실제 API와 권한을 점검할 수 있습니다. 브라우저가
-명시적으로 선택한 동안만 중앙 API client가 로컬 인증 header를 보내며, logout하면 즉시 해제됩니다.
-production build와 non-local backend에는 이 인증 경로가 활성화되지 않습니다. 실제 GitHub
-로그인까지 하려면 아래 OAuth 설정도 필요합니다.
+참조하세요. 실제 GitHub 로그인까지 하려면 아래 OAuth 설정도 필요합니다.
 
 ### 3. 공개 OAuth 설정
 
@@ -84,8 +80,7 @@ npm run dev
 
 브라우저에서 `http://localhost:5173`을 엽니다. Webpack 개발 서버는 `/api`를
 `http://localhost:8080`으로 proxy하고 `/images`는 프론트엔드 정적 파일로 제공합니다.
-화면의 API 코드는 언제나 상대 경로 `/api/...`만 사용합니다. React Router deep link도 개발 서버의 history fallback으로 새로고침됩니다. 보호
-화면을 점검하려면 `개발 계정으로 시작`을 누른 다음 `모임 만들기`, `모임 관리`로 이동합니다.
+화면의 API 코드는 언제나 상대 경로 `/api/...`만 사용합니다. React Router deep link도 개발 서버의 history fallback으로 새로고침됩니다.
 
 ## 스크립트
 
