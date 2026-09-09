@@ -1,14 +1,10 @@
 # API 엔드포인트 설계
 
-> 상태: Notion 설계 맥락 스냅샷
->
-> 원본: [Notion 문서](https://app.notion.com/p/0a438efca7fd4228bcbe8e0dfb10f75b)
->
-> 동기화: 2026-08-15
+> 상태: 저장소 최신 설계 기준
 >
 > 구현·테스트·Swagger/OpenAPI와 충돌하면 임의로 해석하지 않고 차이를 보고한다.
 
-이 문서는 Notion의 활성 엔드포인트 27개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청·응답·오류는 구현 시 Swagger/OpenAPI와 RestAssured 인수 테스트로 검증한다.
+이 문서는 저장소에서 관리하는 활성 엔드포인트 27개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청·응답·오류는 구현 시 Swagger/OpenAPI와 RestAssured 인수 테스트로 검증한다.
 
 ## 전체 목록
 
@@ -47,7 +43,6 @@
 
 - 설명: 가입 세션 또는 Refresh Token 무효화
 - 권한: `AUTH`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c8159a427e78b0411335d)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -76,7 +71,6 @@ Request Body는 없다.
 
 - 설명: Access Token 재발급
 - 권한: `PUBLIC`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c81c3a0b8ffe93985b5fa)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -116,7 +110,6 @@ Refresh Token 회전 정책을 적용하는 경우 기존 토큰을 폐기하고
 
 - 설명: 회원 가입 완료
 - 권한: `AUTH`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c81efad78ff74ca515616)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -180,7 +173,6 @@ Location: /api/members/12
 
 - 설명: 내 정보와 가입 완료 여부 조회
 - 권한: `AUTH`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c815faee5c25a2c467a1b)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -242,14 +234,13 @@ Location: /api/members/12
 되므로 백엔드에 둘 이유가 없다고 결론지었다. 근거와 그에 따른 `state` 검증 방식은
 [ADR 0003](../../adr/0003-oauth-authorization-ownership.md)에 있다.
 
-Notion 원본에는 이 페이지가 아직 남아 있다. 다시 동기화할 때 이 항목이 되살아나지 않도록
-주의한다. `OAUTH_CONFIGURATION_ERROR`도 이 엔드포인트에서만 쓰이던 코드이므로 사용하지 않는다.
+이 엔드포인트는 현재 설계에서 제외되었다. 관련 결정이 다시 되살아나지 않도록 주의한다.
+`OAUTH_CONFIGURATION_ERROR`도 이 엔드포인트에서만 쓰이던 코드이므로 사용하지 않는다.
 
 ### `GET /api/oauth/github/callback`
 
 - 설명: GitHub OAuth 콜백 처리
 - 권한: `PUBLIC`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c81898b3ad229c4081a95)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -304,7 +295,6 @@ Refresh Token을 모두 `HttpOnly` 쿠키로 내린다. `state` 검증 방식은
 
 - 설명: 그룹 목록 조회 — 관계·상태·유형 필터 지원
 - 권한: `PUBLIC`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c815e9341febcfaf3a70d)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -378,7 +368,6 @@ Refresh Token을 모두 `HttpOnly` 쿠키로 내린다. `state` 검증 방식은
 
 - 설명: 그룹 개설
 - 권한: `MEMBER`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c81199785e69ae2ee2c1b)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -387,6 +376,7 @@ Refresh Token을 모두 `HttpOnly` 쿠키로 내린다. `state` 검증 방식은
 - 시간 값은 `Asia/Seoul` 기준이다.
 - 오류 분기는 `error.code`를 기준으로 한다.
 - `meetingType`은 필수이며 `ONLINE`, `OFFLINE`, `FLEXIBLE` 중 하나를 사용한다. `FLEXIBLE`은 고정된 온라인·오프라인 방식 없이 유동적으로 정하는 경우다.
+- `meetingType`은 생성·수정 요청과 그룹 상세 응답에서 항상 포함한다.
 - `location`은 최대 255자의 nullable 문자열이다. 오프라인 장소 또는 온라인 접속 정보를 저장할 수 있다.
 - `representativeImageKey`는 nullable 스토리지 키이며, `null`이면 기본 대표 이미지를 사용한다.
 
@@ -480,7 +470,6 @@ Location: /api/groups/12
 
 - 설명: 생성 후 24시간 이내 그룹 삭제
 - 권한: `LEADER`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c818ebb5be57617dbe025)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -514,7 +503,6 @@ Request Body는 없다.
 
 - 설명: 그룹 상세 조회
 - 권한: `PUBLIC`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c811f8c11efef0f9cf241)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -571,7 +559,6 @@ Request Body는 없다.
 
 - 설명: 생성 후 24시간이 지난 그룹 종료
 - 권한: `LEADER`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c818798d5da6183638433)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -624,7 +611,6 @@ Request Body는 없다.
 
 - 설명: 그룹 기본 정보 전체 교체
 - 권한: `LEADER`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c814f8ecbd4f9d57d6485)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -669,7 +655,6 @@ Request Body는 없다.
 
 - 설명: 모임장 역할 위임
 - 권한: `LEADER`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c8143b792e46c75f448ff)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -720,7 +705,6 @@ Request Body는 없다.
 
 - 설명: 동아리·스터디를 유동적 일정으로 변경
 - 권한: `LEADER`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c810b92d4c4c5c1e6b48a)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -749,7 +733,6 @@ Request Body는 없다.
 
 - 설명: 동아리·스터디 반복 일정 등록 또는 교체
 - 권한: `LEADER`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c81cea04bfb849923aa9c)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -822,7 +805,6 @@ Request Body는 없다.
 
 - 설명: 세션 일정 교체
 - 권한: `LEADER`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c81c6812ecd5d487d4803)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -873,7 +855,6 @@ SESSION의 일정은 필수이므로 삭제 API를 제공하지 않는다.
 
 - 설명: 그룹의 모집 공고 이력 조회
 - 권한: `PUBLIC`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c8106a98befba48b242dc)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -930,7 +911,6 @@ endsAt <= now              CLOSED
 
 - 설명: 새 모집 공고 등록
 - 권한: `LEADER`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c81b6bea4c71140d4e1fa)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -996,7 +976,6 @@ Location: /api/groups/12/recruitments/45
 
 - 설명: 모집 공고 상세 조회
 - 권한: `PUBLIC`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c81a08b3ee1589c4c4b3c)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -1044,7 +1023,6 @@ Location: /api/groups/12/recruitments/45
 
 - 설명: 모집 공고 조기 마감
 - 권한: `LEADER`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c8112b804f4f8e46a9d5c)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -1100,7 +1078,6 @@ Location: /api/groups/12/recruitments/45
 
 - 설명: 모집 공고 신청자 목록 조회
 - 권한: `LEADER`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c81f2988ecd9712f4d34d)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -1159,7 +1136,6 @@ Location: /api/groups/12/recruitments/45
 
 - 설명: 모집 공고에 가입 신청
 - 권한: `MEMBER`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c8103b56bebe2739897ec)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -1231,7 +1207,6 @@ Location: /api/groups/12/recruitments/45
 
 - 설명: 내 대기 중 가입 신청 철회
 - 권한: `MEMBER`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c81359821f3d2f0d0dff0)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -1266,7 +1241,6 @@ Request Body는 없다.
 
 - 설명: 가입 신청 승인·거절
 - 권한: `LEADER`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c81b48fb7d6cc94c7a2d8)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -1337,7 +1311,6 @@ Request Body는 없다.
 
 - 설명: 내 가입 신청 목록 조회
 - 권한: `MEMBER`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c81cd9250e7c5d4e1596e)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -1402,7 +1375,6 @@ Request Body는 없다.
 
 - 설명: 그룹 구성원 목록 조회
 - 권한: `PUBLIC`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c81b68259d5ca2befc61e)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.
@@ -1453,7 +1425,6 @@ Request Body는 없다.
 
 - 설명: 이미지 업로드 리소스 생성
 - 권한: `MEMBER`
-- 원본: [Notion 상세 명세](https://app.notion.com/3bb0978a6e6c8102ac97ddc994a67f78)
 
 #### 공통 계약
 - Base Path는 `/api`이며 URL 버전은 붙이지 않는다.

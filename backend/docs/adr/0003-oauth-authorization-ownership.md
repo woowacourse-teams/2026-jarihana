@@ -16,8 +16,8 @@ authorize URL로 직접 보내면 되므로 백엔드에 엔드포인트를 둘 
 
 저장소는 이 결정을 반영하지 못한 상태다.
 
-- 명세 스냅샷(`docs/context/api/`, 마지막 동기화 2026-08-15)에 그 엔드포인트가 전체 목록과 상세
-  명세, `OAUTH_CONFIGURATION_ERROR`까지 그대로 남아 있다.
+- 기존 설계 문서(`docs/context/api/`)에 그 엔드포인트가 전체 목록과 상세 명세,
+  `OAUTH_CONFIGURATION_ERROR`까지 남아 있다.
 - ADR 0001 결정 2는 "`state`는 인가 시작 시 세션에 저장하고, 콜백에서 읽는 즉시 제거해 1회만
   사용한다"고 규정한다.
 - 콜백 명세는 `state`를 필수 쿼리 파라미터로 요구한다.
@@ -134,8 +134,8 @@ GithubOAuthCommandController   session.removeAttribute(OAUTH_STATE)   삭제
 
 ## 후속 작업
 
-- 명세 스냅샷의 `GET /api/oauth/github/authorization` 항목과 콜백의 `state` 설명을 이 결정에 맞게
-  갱신하거나, Notion 원본을 고친 뒤 다시 동기화한다.
+- 설계 문서의 `GET /api/oauth/github/authorization` 항목과 콜백의 `state` 설명을 이 결정에 맞게
+  갱신한다.
 - `state` 쿠키의 이름, 길이, 생성 방법을 프론트엔드와 합의한다.
 - 운영 배포에서 프론트엔드와 백엔드가 상위 도메인을 공유하는지 확인한다. 공유하지 못하면 대안 A로
   전환하고 이 ADR을 개정한다.
