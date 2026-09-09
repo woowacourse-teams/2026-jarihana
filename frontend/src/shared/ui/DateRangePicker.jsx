@@ -1,7 +1,8 @@
 import { ArrowRight } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { DateRangeCalendar } from "./DateRangeCalendar.jsx";
 import { DateRangeEndpoint } from "./DateRangeEndpoint.jsx";
+import { TimePickerPopover } from "./TimePickerPopover.jsx";
 import {
   addLocalDays,
   combineLocalDateTime,
@@ -30,37 +31,73 @@ export function DateRangePicker({
   const errorId = useId();
   const calendarId = useId();
   const rootReference = useRef(null);
+  const popoverReference = useRef(null);
   const startTrigger = useRef(null);
   const endTrigger = useRef(null);
+  const startTimeTrigger = useRef(null);
+  const endTimeTrigger = useRef(null);
   const start = splitLocalDateTime(startValue);
   const end = splitLocalDateTime(endValue);
   const [activeEndpoint, setActiveEndpoint] = useState("start");
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [activeTimeEndpoint, setActiveTimeEndpoint] = useState(null);
   const [visibleMonth, setVisibleMonth] = useState(() =>
     monthStart(start.date || toDateValue(new Date(Date.now())))
   );
   const activeLabel = activeEndpoint === "start" ? "모집 시작일" : "모집 마감일";
   const endTimeMinimum = minimumEndTime(startValue, end.date);
 
+  const closePicker = useCallback(
+    ({ restoreFocus = false } = {}) => {
+      setCalendarOpen(false);
+      setActiveTimeEndpoint(null);
+      if (!restoreFocus) return;
+      const trigger = activeTimeEndpoint
+        ? activeTimeEndpoint === "start"
+          ? startTimeTrigger.current
+          : endTimeTrigger.current
+        : activeEndpoint === "start"
+          ? startTrigger.current
+          : endTrigger.current;
+      trigger?.focus();
+    },
+    [activeEndpoint, activeTimeEndpoint]
+  );
+
   useEffect(() => {
-    if (!calendarOpen) return undefined;
+    if (!calendarOpen && !activeTimeEndpoint) return undefined;
     function handleEscape(event) {
       if (event.key !== "Escape" || !rootReference.current?.contains(document.activeElement)) {
         return;
       }
       event.preventDefault();
-      setCalendarOpen(false);
-      const trigger = activeEndpoint === "start" ? startTrigger.current : endTrigger.current;
-      trigger?.focus();
+      closePicker({ restoreFocus: true });
+    }
+    function handlePointerDown(event) {
+      if (popoverReference.current?.contains(event.target)) return;
+      if (popoverReference.current?.contains(document.activeElement)) {
+        document.activeElement.blur();
+      }
+      closePicker();
+    }
+    function handleFocusIn(event) {
+      if (!popoverReference.current?.contains(event.target)) closePicker();
     }
     document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
-  }, [activeEndpoint, calendarOpen]);
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("focusin", handleFocusIn);
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("focusin", handleFocusIn);
+    };
+  }, [activeTimeEndpoint, calendarOpen, closePicker]);
 
   function changeEndpoint(endpoint) {
     const selectedDate = endpoint === "start" ? start.date : end.date || start.date;
     if (endpoint === "end" && alwaysOpen) onAlwaysOpenChange(false);
     setActiveEndpoint(endpoint);
+    setActiveTimeEndpoint(null);
     setVisibleMonth(monthStart(selectedDate || toDateValue(new Date(Date.now()))));
     setCalendarOpen(true);
   }
@@ -69,6 +106,7 @@ export function DateRangePicker({
     if (activeEndpoint === "start") {
       const nextTime = start.time || splitLocalDateTime(toLocalDateTimeValue()).time;
       changeStart(combineLocalDateTime(date, nextTime));
+      closePicker({ restoreFocus: true });
       return;
     }
 
@@ -77,10 +115,12 @@ export function DateRangePicker({
     const nextTime = minimum && preferredTime < minimum ? minimum : preferredTime;
     onAlwaysOpenChange(false);
     onEndChange(combineLocalDateTime(date, nextTime));
+    closePicker({ restoreFocus: true });
   }
 
   function setStartToNow() {
     changeStart(toLocalDateTimeValue());
+    closePicker();
   }
 
   function changeStart(nextStart) {
@@ -103,13 +143,54 @@ export function DateRangePicker({
     onEndChange(nextEnd);
     setActiveEndpoint("end");
     setVisibleMonth(monthStart(splitLocalDateTime(nextEnd).date));
+    closePicker();
   }
 
   function setAlwaysOpen() {
     onEndChange("");
     onAlwaysOpenChange(true);
-    setCalendarOpen(false);
+    closePicker();
   }
+
+  function openTimePicker(endpoint) {
+    setActiveEndpoint(endpoint);
+    setCalendarOpen(false);
+    setActiveTimeEndpoint(endpoint);
+  }
+
+  function changeTime(endpoint, time) {
+    if (endpoint === "start") {
+      changeStart(combineLocalDateTime(start.date, time));
+      return;
+    }
+    onEndChange(combineLocalDateTime(end.date, time));
+  }
+
+  const timePickerId = `${calendarId}-time`;
+  const timePicker = activeTimeEndpoint ? (
+    <div className="ui-date-range__time-popover" id={timePickerId} ref={popoverReference}>
+      <TimePickerPopover
+        label={activeTimeEndpoint === "start" ? "모집 시작 시간" : "모집 마감 시간"}
+        minimum={activeTimeEndpoint === "end" ? endTimeMinimum : undefined}
+        onChange={(time) => changeTime(activeTimeEndpoint, time)}
+        value={activeTimeEndpoint === "start" ? start.time : end.time}
+      />
+    </div>
+  ) : null;
+
+  const calendar = calendarOpen ? (
+    <div className="ui-date-range__calendar-popover" id={calendarId} ref={popoverReference}>
+      <DateRangeCalendar
+        activeEndpoint={activeEndpoint}
+        endDate={end.date}
+        onMonthChange={setVisibleMonth}
+        onSelect={changeDate}
+        startDate={start.date}
+        startValue={startValue}
+        visibleMonth={visibleMonth}
+      />
+    </div>
+  ) : null;
 
   return (
     <fieldset
@@ -142,55 +223,51 @@ export function DateRangePicker({
       <div className="ui-date-range__endpoints">
         <DateRangeEndpoint
           active={activeEndpoint === "start"}
-          controls={calendarOpen ? calendarId : undefined}
+          calendar={activeEndpoint === "start" ? calendar : null}
+          controls={calendarOpen && activeEndpoint === "start" ? calendarId : undefined}
           date={start.date}
           endpoint="start"
           expanded={calendarOpen && activeEndpoint === "start"}
           invalid={Boolean(error)}
           onClick={() => changeEndpoint("start")}
-          onTimeChange={(time) => changeStart(combineLocalDateTime(start.date, time))}
+          onTimeClick={() => openTimePicker("start")}
           reference={startTrigger}
           time={start.time}
+          timeControls={activeTimeEndpoint === "start" ? timePickerId : undefined}
+          timeExpanded={activeTimeEndpoint === "start"}
+          timePopover={activeTimeEndpoint === "start" ? timePicker : null}
+          timeReference={startTimeTrigger}
         />
         <span aria-hidden="true" className="ui-date-range__connector">
           <ArrowRight size={20} strokeWidth={2.25} />
         </span>
         <DateRangeEndpoint
           active={activeEndpoint === "end"}
-          controls={calendarOpen ? calendarId : undefined}
+          calendar={activeEndpoint === "end" ? calendar : null}
+          controls={calendarOpen && activeEndpoint === "end" ? calendarId : undefined}
           date={alwaysOpen ? "" : end.date}
           endpoint="end"
           expanded={calendarOpen && activeEndpoint === "end"}
           invalid={Boolean(error)}
           onClick={() => changeEndpoint("end")}
-          onTimeChange={(time) => onEndChange(combineLocalDateTime(end.date, time))}
+          onTimeClick={() => openTimePicker("end")}
           reference={endTrigger}
           summary={alwaysOpen ? "상시 모집" : ""}
           time={end.time}
-          timeMinimum={endTimeMinimum}
+          timeControls={activeTimeEndpoint === "end" ? timePickerId : undefined}
+          timeExpanded={activeTimeEndpoint === "end"}
+          timePopover={activeTimeEndpoint === "end" ? timePicker : null}
+          timeReference={endTimeTrigger}
         />
       </div>
-      {calendarOpen ? (
-        <div id={calendarId}>
-          <DateRangeCalendar
-            activeEndpoint={activeEndpoint}
-            endDate={end.date}
-            onMonthChange={setVisibleMonth}
-            onSelect={changeDate}
-            startDate={start.date}
-            startValue={startValue}
-            visibleMonth={visibleMonth}
-          />
-        </div>
-      ) : null}
       {error ? (
         <p className="ui-date-range__error" id={errorId} role="alert">
           {error}
         </p>
       ) : null}
-      {calendarOpen ? (
+      {calendarOpen || activeTimeEndpoint ? (
         <span className="ui-sr-only" aria-live="polite">
-          {activeLabel} 달력이 열렸어요.
+          {calendarOpen ? `${activeLabel} 달력이 열렸어요.` : "시간 선택창이 열렸어요."}
         </span>
       ) : null}
     </fieldset>

@@ -1,7 +1,7 @@
 .manage-page {
   --manage-copy-max: 45rem;
   --manage-wizard-copy-max: 32rem;
-  --manage-period-rail-max: 44rem;
+  --manage-period-rail-max: 30rem;
   --manage-form-column-min: 17.5rem;
   --manage-form-column-max: 23.75rem;
   --manage-stat-min: 10rem;
@@ -22,9 +22,7 @@
   position: absolute;
   z-index: -1;
   inset-block: 0;
-  inset-inline-start: 50%;
-  inline-size: 100vw;
-  transform: translateX(-50%);
+  inset-inline: 0;
   background: var(--color-canvas);
   content: "";
 }
@@ -1671,13 +1669,13 @@
   }
 }
 
-@media (min-width: 48rem) and (max-width: 64rem) {
-  .manage-create-step--period {
-    --manage-step-rail-max: 36rem;
-  }
-}
-
 @media (max-width: 47.9375rem) {
+  .manage-create-step .ui-date-range__calendar-popover,
+  .manage-create-step .ui-date-range__time-popover {
+    inset-inline-start: calc(var(--space-6) * -1);
+    inset-inline-end: auto;
+  }
+
   .manage-page {
     padding-block: var(--space-6) var(--space-12);
   }

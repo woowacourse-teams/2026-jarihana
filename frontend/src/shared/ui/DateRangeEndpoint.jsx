@@ -1,19 +1,23 @@
 import { CalendarDays, Clock3 } from "lucide-react";
-import { formatEndpointDate } from "./dateRangeUtils.js";
+import { formatEndpointDate, formatEndpointTime } from "./dateRangeUtils.js";
 
 export function DateRangeEndpoint({
   active,
+  calendar,
   controls,
   date,
   endpoint,
   expanded,
   invalid,
   onClick,
-  onTimeChange,
+  onTimeClick,
   reference,
   summary,
   time,
-  timeMinimum
+  timeControls,
+  timeExpanded,
+  timePopover,
+  timeReference
 }) {
   const isStart = endpoint === "start";
   const label = isStart ? "모집 시작일" : "모집 마감일";
@@ -42,22 +46,28 @@ export function DateRangeEndpoint({
           >
             <strong>{summary || formatEndpointDate(date)}</strong>
           </button>
+          {calendar}
         </div>
         {date && !summary ? (
-          <label className="ui-date-range__endpoint-field ui-date-range__time">
+          <div className="ui-date-range__endpoint-field ui-date-range__time">
             <span className="ui-date-range__field-label">
               <Clock3 aria-hidden="true" size={16} />
               {timeLabel}
             </span>
-            <input
-              aria-label={timeLabel}
-              className="ui-field__control ui-field__control--underline"
-              min={timeMinimum || undefined}
-              onChange={(event) => onTimeChange(event.target.value)}
-              type="time"
-              value={time}
-            />
-          </label>
+            <button
+              aria-controls={timeControls}
+              aria-expanded={timeExpanded}
+              aria-haspopup="dialog"
+              aria-label={`${timeLabel} 선택`}
+              className="ui-date-range__endpoint-button ui-field__control--underline"
+              onClick={onTimeClick}
+              ref={timeReference}
+              type="button"
+            >
+              <strong>{formatEndpointTime(time)}</strong>
+            </button>
+            {timePopover}
+          </div>
         ) : !isStart ? (
           <div className="ui-date-range__endpoint-field ui-date-range__time">
             <span className="ui-date-range__field-label">

@@ -36,42 +36,22 @@ export function DateRangeCalendar({
   startValue,
   visibleMonth
 }) {
-  const calendarReference = useRef(null);
   const dayReferences = useRef(new Map());
   const pendingFocusReference = useRef("");
-  const [visibleMonthCount, setVisibleMonthCount] = useState(1);
   const monthPanels = useMemo(
     () =>
-      Array.from({ length: visibleMonthCount }, (_, index) =>
-        shiftVisibleMonth(visibleMonth, index)
-      ).map((monthValue) => ({
+      [visibleMonth].map((monthValue) => ({
         days: buildCalendarDays(monthValue).map((dateValue) =>
           isOutsideMonth(dateValue, monthValue) ? "" : dateValue
         ),
         monthValue
       })),
-    [visibleMonth, visibleMonthCount]
+    [visibleMonth]
   );
   const renderedMonthDays = monthPanels.flatMap(({ days }) => days.filter(Boolean));
   const [today] = useState(() => toDateValue(new Date(Date.now())));
   const selectedDate = activeEndpoint === "start" ? startDate : endDate;
   const endpointLabel = activeEndpoint === "start" ? "모집 시작일" : "모집 마감일";
-
-  useEffect(() => {
-    const node = calendarReference.current;
-    if (!node) return undefined;
-
-    function updateVisibleMonthCount() {
-      setVisibleMonthCount(node.getBoundingClientRect().width >= 704 ? 2 : 1);
-    }
-
-    updateVisibleMonthCount();
-    if (typeof ResizeObserver === "undefined") return undefined;
-
-    const observer = new ResizeObserver(updateVisibleMonthCount);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
 
   function isDisabled(dateValue) {
     if (activeEndpoint !== "end" || !startDate) return false;
@@ -104,7 +84,7 @@ export function DateRangeCalendar({
       target.focus();
       pendingFocusReference.current = "";
     }
-  }, [visibleMonth, visibleMonthCount]);
+  }, [visibleMonth]);
 
   function focusRenderedDate(dateValue) {
     const target = dayReferences.current.get(dateValue);
@@ -130,7 +110,6 @@ export function DateRangeCalendar({
     <section
       aria-label={`${endpointLabel} 달력`}
       className="ui-date-range__calendar"
-      ref={calendarReference}
     >
       <div className="ui-date-range__months">
         {monthPanels.map(({ days, monthValue }, panelIndex) => (
@@ -219,9 +198,6 @@ export function DateRangeCalendar({
           </div>
         ))}
       </div>
-      <p className="ui-date-range__calendar-hint">
-        방향키로 날짜를 이동하고 <span>PageUp·PageDown</span>으로 달을 바꿔요.
-      </p>
     </section>
   );
 }

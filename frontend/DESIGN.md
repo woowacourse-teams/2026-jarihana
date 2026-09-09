@@ -231,14 +231,14 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   자리를 `새 모집 생성` / `새로운 모집 공고를 작성합니다.`로 전환해 form body에 제목을 반복하지 않는다.
   새 모집 form은 `모집 인원` → `승인 방식` → `모집 기간` 순서의 3-step wizard로 진행한다.
   세 단계는 이전 입력을 누적하지 않고 각각 별도 화면으로 전환한다. 각 단계 section 자체를 해당
-  content rail 너비로 줄여 패널 가운데에 놓고, 그 안의 질문과 설명은 왼쪽 정렬한다.
-  각 단계는 제목 아래에 한 줄 설명을 유지하고, 단계 숫자는 상단 진행 상태에만 표시한다. 모집 인원
+  content rail 너비로 줄여 패널 가운데에 놓고, 그 안의 질문과 입력 정보는 왼쪽 정렬한다.
+  각 단계는 질문만 간결하게 표시하고 별도의 보조 설명은 두지 않으며, 단계 숫자는 상단 진행 상태에만 표시한다. 모집 인원
   단계는 section과 control을 질문 길이에 가까운 같은 `18rem` rail로
   두어, 내부 문구는 왼쪽 정렬하면서 질문 묶음 전체는 패널 가운데에 놓는다. 승인 방식
   단계는 질문이 읽히는 `20rem` 중앙 rail을 section과 control이 함께 공유한다. 입력란은 rail의
-  좌우 폭을 모두 채우고, 제목·설명·field label·선택값 자체는 왼쪽 정렬을 유지한다.
-  모집 기간 단계의 질문과 기간 입력은 desktop `44rem`, tablet `36rem`, mobile
-  가용 폭 전체의 같은 중앙 rail을 공유해 시작선을 맞춘다. 상단 진행 상태는 질문을 반복하지 않고
+  좌우 폭을 모두 채우고, 제목·field label·선택값 자체는 왼쪽 정렬을 유지한다.
+  모집 기간 단계의 질문과 기간 입력은 날짜 빠른 선택 capsule 묶음이 차지하는 폭을 기준으로 한
+  최대 `30rem` 중앙 rail을 공유하고, mobile에서는 가용 폭 전체까지 줄어든다. 상단 진행 상태는 질문을 반복하지 않고
   현재 입력 범주만 간결하게 표시한다.
   이전 action은 왼쪽, 다음 또는 생성 action은 오른쪽에 둔다. 공개 상태
   미리보기는 모든 단계에서 오른쪽 read-only summary로 노출한다. 넓은 화면에서는 왼쪽 입력 영역과
@@ -269,31 +269,40 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - Fields: label, optional description, control, inline error를 같은 field group으로 묶는다. 탐색
   검색은 주변 박스 테두리를 제거하고 얇은 underline과 focus 시 brand line으로 입력 상태를
   표현한다. 새 모집 생성처럼 데이터를 수정하는 작성 flow의 숫자 input, select, 날짜 trigger,
-  time input은 같은 underline variant를 사용한다. 모집 기간 빠른 선택은 날짜·시간 입력보다 먼저
+  시간 trigger는 같은 underline variant를 사용한다. 모집 기간 빠른 선택은 날짜·시간 입력보다 먼저
   배치한 capsule button group으로 구분하며 불필요한 field card는 추가하지 않는다.
 - DateRangePicker: 새 모집 form의 `모집 기간` 단계는 시작/마감 endpoint를 하나의 field group으로 묶되,
   별도 card로 감싸지 않는다. `시작`/`마감` 제목을 반복하는 대신 날짜·시간의 구체적인 visible label로
-  endpoint를 구분하고, 두 endpoint 사이는 brand-soft 원형의 방향 화살표로 연결한다. 화살표는 endpoint가
-  세로로 쌓일 때 아래쪽, 나란히 놓일 때 오른쪽을 향한다. 날짜와 시간 모두
+  endpoint를 구분하고, 두 endpoint는 모든 breakpoint에서 세로로 쌓으며 brand-soft 원형의 아래쪽 방향
+  화살표로 연결한다. 날짜와 시간 모두
   visible label을 underline control 위에 배치하고 현재 선택 중인 endpoint는 label과 underline의 selected
-  state로 표시한다. 달력 날짜는 semantic button grid로 제공하며
+  state로 표시한다. 날짜 trigger를 누르면 해당 trigger 아래에 한 달짜리 달력 하나를 popover로 띄우고,
+  날짜를 선택하거나 바깥 영역을 누르면 닫는다. 달력 날짜는 semantic button grid로 제공하며
   마감 선택 중에는 시작일 이전 날짜를 실제 disabled state로 막는다. 같은 날짜의 마감 시간은 시작
-  시각보다 최소 1분 뒤만 허용한다. 새 모집 화면을 여는 순간의 local minute를 시작 기본값으로 쓰고,
+  시각보다 최소 1분 뒤만 허용한다. 시간 trigger는 날짜 popover와 같은 surface·shadow·open/close 규칙을
+  쓰는 단일 시간 popover를 연다. 브라우저 기본 시간 입력처럼 오전/오후·시·분을 한 줄에 배치하되,
+  platform별 select 잘림을 피하도록 underline control과 custom listbox를 product theme로 제공한다.
+  시와 분은 키보드로 직접 입력하거나 custom 목록에서 선택할 수 있고, 분 목록은 10분 단위로 제공한다.
+  목록의 scrollbar는 투명한 track과 둥근 brand thumb를 사용해 native 사각형 scrollbar가 드러나지 않게 한다.
+  popover 안에는 같은 정보를 반복하는 제목·설명·완료
+  action을 두지 않는다. 값은 각 field 입력을 마칠 때 반영하고 바깥 영역 선택으로 panel을 닫는다.
+  같은 날짜의 마감 시간에서는 시작 시각 이전 선택지를 실제
+  disabled state로 막는다. Escape로 닫을 때는 trigger로 focus를 복원하고, 바깥 영역 선택이나 Tab으로
+  focus가 panel 밖으로 이동하면 해당 대상의 focus를 유지한 채 닫는다.
+  새 모집 화면을 여는 순간의 local minute를 시작 기본값으로 쓰고,
   UTC 변환 없이 `YYYY-MM-DDTHH:mm` 문자열을 유지한다. `지금 시작`, `3일 뒤`, `1주 뒤`, `2주 뒤`,
   `상시 모집`은 날짜·시간 endpoint 위에 44px 이상의 capsule button으로 제공한다. 선택된 기간은
   brand-soft surface와 brand-ink text로 구분하고, 상시 모집은 별도 설명 문구 없이 선택된 capsule과
   마감 endpoint의 `상시 모집`·`없음` 상태로 명시한다. 선택 중인 날짜 endpoint를 다시 눌러도 달력을
-  닫지 않고 열린 상태를 유지하며, `Escape` 또는 `상시 모집` 선택으로 닫는다. 달력은 date-range
-  container가 44rem 이상이면 현재 월과 다음 월을 나란히, 그보다
-  좁으면 현재 월 하나만 표시한다. 두 달 보기의 이전/다음 이동은 한 달 단위이며, 각 월 바깥 날짜는 빈
+  닫지 않고 열린 상태를 유지하며, `Escape` 또는 `상시 모집` 선택으로도 닫는다. 달력의 이전/다음 이동은
+  한 달 단위이며, 월 바깥 날짜는 빈
   slot으로 남겨 같은 날짜 button이 중복되지 않게 한다. 각 7열 행렬은
   `--date-calendar-grid-width`(7 × 44px)를 상한으로 중앙 정렬하고, 날짜의 선택·범위·keyboard focus
   surface는 browser 여유 폭과 무관하게 1:1 정사각형을 유지하고, 주 단위 행 사이는 작은 간격으로
   분리해 서로 다른 주의 범위 끝점이 세로 캡슐처럼 붙지 않게 한다.
-  date-range 폭이 `32rem` 이상이면 각 endpoint의 날짜와 시간을 동일한 두 열에 놓는다. 마감 시간은
+  date-range 폭이 `24rem` 이상이면 각 endpoint의 날짜와 시간을 동일한 두 열에 놓는다. 마감 시간은
   상시 모집일 때 `없음`, 마감일을 고르는 중에는 `날짜 선택 후 설정` 비활성 자리를 유지해 날짜 선택
-  전후에도 네 칸의 폭과 리듬이 달라지지 않게 한다. `44rem` 이상에서만
-  시작/마감 endpoint와 두 달력을 나란히 둔다. mobile은 endpoint와 시간 control을 세로로 쌓아
+  전후에도 네 칸의 폭과 리듬이 달라지지 않게 한다. mobile은 endpoint 안의 날짜와 시간 control을 세로로 쌓아
   44×44px 날짜 touch target과 정보 순서를 유지한다.
 - Select: native keyboard/assistive-tech 동작을 유지하면서 오른쪽 chevron, 넉넉한 우측 padding,
   pointer cursor를 제공한다. 탐색 필터는 검색과 같은 underline control surface를 사용하고,
@@ -339,7 +348,7 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 구현 대상 공통 primitive:
 
 `Button`, `IconButton`, `TextField`, `Textarea`, `Select`, `Checkbox`, `Radio`, `SearchField`,
-`DateRangePicker`,
+`DateRangePicker`, `TimePickerPopover`,
 `FilterBar`, `Card`, `GroupCard`, `RecruitmentCard`, `StatusBadge`, `Avatar`, `Tabs`, `Modal`,
 `ConfirmDialog`, `Drawer`, `Toast`, `Footer`, `ScrollToTopButton`, `HeroScrollButton`, `Skeleton`,
 `EmptyState`, `ErrorState`, `ForbiddenState`, `NotFoundState`, `CursorList`.
@@ -383,9 +392,10 @@ default/hover/active/focus/selected 상태를 제공한다.
 - Toast는 2,000ms 후 180ms 동안 opacity와 transform으로 부드럽게 퇴장한 뒤 제거되며, 사용자가
   직접 닫을 수 있는 닫기 버튼을 함께 제공한다.
 - Dialog는 opacity + 8px scale/translate, drawer는 transform을 사용한다.
-- DateRangePicker는 beui.dev `popover`의 controlled open state, trigger `aria-expanded`, Escape 시
-  trigger focus 복원과 `availability-scheduler`의 단일 active panel 원리를 가져온다. 달력 panel은
-  layout을 재는 morph 대신 inline disclosure로 두고, 열릴 때 opacity + 4px translate만 180ms로
+- DateRangePicker와 TimePickerPopover는 beui.dev `popover`의 controlled open state, trigger
+  `aria-expanded`, Escape 시 trigger focus 복원과 `availability-scheduler`의 단일 active panel 원리를
+  가져온다. 날짜·시간 panel은
+  문서 흐름을 밀지 않는 overlay popover로 두고, 열릴 때 opacity + 4px translate만 180ms로
   전환한다. 날짜 범위와 빠른 선택 결과는 즉시 갱신하며 전환 중에도 입력을 막지 않는다.
 - `HeroScrollButton`은 카드 수나 화면 높이에 관계없이 목록의 `자리 둘러보기` 제목에 맞춰
   smooth scroll한다. 제목 위의 화면 여백은 `--space-4`(16px)이며, 제목 아래 검색·필터를

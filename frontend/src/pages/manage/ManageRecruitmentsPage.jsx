@@ -40,19 +40,16 @@ const emptyForm = {
 };
 const recruitmentCreateSteps = [
   {
-    description: "이번 모집에서 받을 수 있는 인원을 먼저 정해요.",
     key: "capacity",
     label: "모집 인원",
     title: "몇 명까지 모집할까요?"
   },
   {
-    description: "신청 즉시 자리를 줄지, 모임장이 확인한 뒤 승인할지 선택해요.",
     key: "joinMethod",
     label: "승인 방식",
     title: "신청은 어떻게 승인할까요?"
   },
   {
-    description: "시작과 마감을 이어서 정해요.",
     key: "period",
     label: "모집 기간",
     title: "모집 기간을 정해 주세요."
@@ -432,11 +429,6 @@ export function ManageRecruitmentsPage() {
           >
             {screen === "create" ? (
               <form
-                aria-describedby={
-                  createStep.description
-                    ? `recruitment-create-step-${createStepIndex}-description`
-                    : undefined
-                }
                 aria-label="새 모집 생성"
                 className="manage-form manage-create-wizard"
                 onSubmit={handleCreateSubmit}
@@ -475,11 +467,6 @@ export function ManageRecruitmentsPage() {
                         >
                           <div className="manage-create-step__heading">
                             <h2 id={`recruitment-create-step-${stepIndex}-title`}>{step.title}</h2>
-                            {step.description ? (
-                              <p id={`recruitment-create-step-${stepIndex}-description`}>
-                                {step.description}
-                              </p>
-                            ) : null}
                           </div>
 
                           {step.key === "capacity" ? (

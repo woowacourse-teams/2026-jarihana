@@ -290,6 +290,7 @@ textarea {
 }
 
 .ui-date-range {
+    position: relative;
     display: grid;
     min-width: 0;
     gap: var(--space-4);
@@ -308,20 +309,10 @@ textarea {
     font-weight: var(--font-weight-semibold);
 }
 
-.ui-date-range__calendar-hint,
 .ui-date-range__error {
     margin: 0;
     font-size: var(--text-caption);
     line-height: 1.5;
-}
-
-.ui-date-range__calendar-hint {
-    color: var(--color-muted-ink);
-    word-break: keep-all;
-}
-
-.ui-date-range__calendar-hint span {
-    white-space: nowrap;
 }
 
 .ui-date-range__endpoints {
@@ -358,6 +349,7 @@ textarea {
 }
 
 .ui-date-range__endpoint-field {
+    position: relative;
     display: grid;
     min-width: 0;
     gap: var(--space-2);
@@ -442,6 +434,199 @@ textarea {
     block-size: var(--touch-target);
 }
 
+.ui-date-range__time-popover {
+    position: absolute;
+    z-index: var(--z-overlay);
+    inset-block-start: calc(100% + var(--space-2));
+    inset-inline-end: 0;
+    width: min(calc(100vw - var(--space-8)), calc(var(--date-calendar-grid-width) + var(--space-8)));
+}
+
+.ui-time-picker {
+    padding: var(--space-3);
+    border: var(--border-thin) solid var(--color-line);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-float);
+    animation: ui-date-range-enter var(--duration-base) var(--ease-standard);
+}
+
+.ui-time-picker__controls {
+    display: grid;
+    grid-template-columns: minmax(4.75rem, 1.1fr) minmax(4.25rem, 0.9fr) auto minmax(4.25rem, 0.9fr);
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.ui-time-picker__colon {
+    min-height: var(--touch-target);
+    display: grid;
+    place-items: center;
+    color: var(--color-muted-ink);
+    font-size: var(--text-body-lg);
+    font-weight: var(--font-weight-bold);
+}
+
+.ui-time-picker__select,
+.ui-time-picker__part {
+    position: relative;
+    display: block;
+    min-width: 0;
+}
+
+.ui-time-picker__select-trigger,
+.ui-time-picker__combobox {
+    width: 100%;
+    min-height: var(--touch-target);
+    border: 0;
+    border-bottom: var(--border-strong) solid var(--color-line);
+    border-radius: 0;
+    background: transparent;
+    color: var(--color-ink);
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    transition: border-color var(--duration-fast) var(--ease-standard);
+}
+
+.ui-time-picker__select-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: 0 var(--space-2) 0 0;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.ui-time-picker__select-trigger:hover,
+.ui-time-picker__select-trigger:focus-visible,
+.ui-time-picker__combobox:hover,
+.ui-time-picker__combobox:focus-within {
+    border-bottom-color: var(--color-brand);
+    outline: none;
+}
+
+.ui-time-picker__select-trigger:disabled,
+.ui-time-picker__part input:disabled {
+    cursor: not-allowed;
+    opacity: 0.52;
+}
+
+.ui-time-picker__combobox {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--touch-target);
+    align-items: center;
+}
+
+.ui-time-picker__part input {
+    width: 100%;
+    min-height: var(--touch-target);
+    padding-inline: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--color-ink);
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+}
+
+.ui-time-picker__part input:hover,
+.ui-time-picker__part input:focus {
+    outline: none;
+}
+
+.ui-time-picker__list-trigger {
+    display: grid;
+    width: var(--touch-target);
+    min-width: var(--touch-target);
+    height: var(--touch-target);
+    padding: 0;
+    place-items: center;
+    border: 0;
+    background: transparent;
+    color: var(--color-muted-ink);
+    cursor: pointer;
+}
+
+.ui-time-picker__list-trigger:hover,
+.ui-time-picker__list-trigger:focus-visible {
+    color: var(--color-brand-ink);
+    outline: none;
+}
+
+.ui-time-picker__list-trigger:disabled {
+    cursor: not-allowed;
+    opacity: 0.52;
+}
+
+.ui-time-picker__options {
+    position: absolute;
+    z-index: calc(var(--z-overlay) + 1);
+    inset-block-start: calc(100% + var(--space-1));
+    inset-inline: 0;
+    max-height: 14rem;
+    overflow-y: auto;
+    padding: var(--space-1);
+    border: var(--border-thin) solid var(--color-line);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-float);
+    animation: ui-date-range-enter var(--duration-fast) var(--ease-standard);
+    scrollbar-color: var(--color-brand) transparent;
+    scrollbar-width: thin;
+}
+
+.ui-time-picker__options::-webkit-scrollbar {
+    width: var(--space-2);
+}
+
+.ui-time-picker__options::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.ui-time-picker__options::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: var(--radius-pill);
+    background: var(--color-brand);
+    background-clip: padding-box;
+}
+
+.ui-time-picker__options::-webkit-scrollbar-thumb:hover {
+    background: var(--color-brand-ink);
+    background-clip: padding-box;
+}
+
+.ui-time-picker__option {
+    display: flex;
+    width: 100%;
+    min-height: var(--touch-target);
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding-inline: var(--space-3);
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-ink);
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+}
+
+.ui-time-picker__option:hover:not(:disabled),
+.ui-time-picker__option:focus-visible,
+.ui-time-picker__option[aria-selected="true"] {
+    background: var(--color-brand-soft);
+    color: var(--color-brand-ink);
+    outline: none;
+}
+
+.ui-time-picker__option:disabled {
+    color: var(--color-muted-ink);
+    cursor: not-allowed;
+    opacity: 0.52;
+}
+
 .ui-date-range__static-control {
     display: flex;
     width: 100%;
@@ -502,12 +687,21 @@ textarea {
 
 .ui-date-range__calendar {
     display: grid;
-    gap: var(--space-3);
-    padding: var(--space-4) 0 0;
-    border: 0;
-    border-block-start: var(--border-thin) solid var(--color-line);
-    background: transparent;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border: var(--border-thin) solid var(--color-line);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-float);
     animation: ui-date-range-enter var(--duration-base) var(--ease-standard);
+}
+
+.ui-date-range__calendar-popover {
+    position: absolute;
+    z-index: var(--z-overlay);
+    inset-block-start: calc(100% + var(--space-2));
+    inset-inline-start: 0;
+    width: min(calc(100vw - var(--space-8)), calc(var(--date-calendar-grid-width) + var(--space-8)));
 }
 
 @keyframes ui-date-range-enter {
@@ -658,23 +852,9 @@ textarea {
     text-decoration: line-through;
 }
 
-@container date-range (min-width: 32rem) {
+@container date-range (min-width: 24rem) {
     .ui-date-range__endpoint-fields {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-
-@container date-range (min-width: 44rem) {
-    .ui-date-range__endpoints {
-        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-    }
-
-    .ui-date-range__connector {
-        transform: none;
-    }
-
-    .ui-date-range__months {
-        grid-template-columns: repeat(2, minmax(0, var(--date-calendar-grid-width)));
     }
 }
 
@@ -1502,15 +1682,6 @@ img.ui-avatar {
 @media (max-width: 47.9375rem) {
     .ui-date-range {
         padding: 0;
-    }
-
-    .ui-date-range__calendar {
-        margin-inline: 0;
-        padding-inline: 0;
-    }
-
-    .ui-date-range__calendar-hint {
-        padding-inline: var(--space-2);
     }
 
     .ui-dialog__actions,

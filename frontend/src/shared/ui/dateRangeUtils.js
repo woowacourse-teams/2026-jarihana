@@ -145,6 +145,15 @@ export function formatEndpointDate(value) {
   return date ? `${date.getFullYear()}. ${date.getMonth() + 1}. ${date.getDate()}.` : "날짜 선택";
 }
 
+export function formatEndpointTime(value) {
+  const match = /^(\d{2}):(\d{2})$/.exec(value || "");
+  if (!match) return "시간 선택";
+  const hour = Number(match[1]);
+  const period = hour < 12 ? "오전" : "오후";
+  const displayHour = hour % 12 || 12;
+  return `${period} ${String(displayHour).padStart(2, "0")}:${match[2]}`;
+}
+
 export function formatMonthLabel(value) {
   const date = parseDateValue(value);
   return date ? `${date.getFullYear()}년 ${date.getMonth() + 1}월` : "";
