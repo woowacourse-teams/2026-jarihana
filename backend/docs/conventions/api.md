@@ -8,7 +8,7 @@
 Swagger/OpenAPI를 API 계약의 기준 문서로 사용한다.
 
 - Swagger/OpenAPI: 엔드포인트, 요청·응답 스키마, 상태 코드, 오류 코드
-- Notion: 정책, 사용자 흐름, 기획 배경, 논의 과정
+- 저장소 설계 문서: 정책, 사용자 흐름, 기획 배경, 논의 과정
 
 API가 변경되면 Swagger/OpenAPI 문서와 RestAssured 인수 테스트를 같은 PR에서
 수정한다. 서로 내용이 다르면 실행 가능한 API와 인수 테스트를 기준으로 불일치를
@@ -58,10 +58,12 @@ public ResponseEntity<ApiResponse<GroupListResponse>> findGroups(
   변환이 끝난 `*Query` DTO를 전달한다.
 - enum·boolean·숫자 변환 실패와 Bean Validation 실패는 Controller가 직접 처리하지
   않고 `GlobalExceptionHandler`에서 `INVALID_PARAMETER` 하나로 통일한다.
-- 필드별 상세 오류 메시지는 현재 제공하지 않는다. 외부 응답은 공통 `code`와
-  `message` 형식을 유지한다.
 
 ## 공통 오류 응답
+
+공통 오류 응답의 외부 계약과 상태 코드 의미는
+[API 공통 설계](../context/api/common-contract.md)를 따른다. 이 절에서는 해당 계약을
+코드로 구현하는 규칙만 정의한다.
 
 오류 코드는 `com.project.jarihana.common.exception.ErrorCode` enum에서 관리한다.
 
@@ -77,28 +79,12 @@ throw new BusinessException(
 ```
 
 - `com.project.jarihana.common.exception.GlobalExceptionHandler`가 비즈니스 예외와
-  Spring의 바인딩·검증 예외를 다음 공통 봉투로 변환한다.
+  Spring의 바인딩·검증 예외를 API 공통 설계에 정의된 외부 응답 봉투로 변환한다.
 
-```json
-{
-  "success": false,
-  "data": null,
-  "error": {
-    "code": "INVALID_PARAMETER",
-    "message": "요청 파라미터가 올바르지 않습니다."
-  }
-}
-```
-
-오류 응답의 HTTP 상태 코드와 JSON 본문은 서로 다른 계약이다.
-
-- 외부 JSON의 `error` 객체에는 `code`와 `message`만 포함한다. `httpStatus`를
-  JSON 필드로 추가하거나 `ErrorCode` enum 자체를 응답으로 직렬화하지 않는다.
-- `ErrorCode.status`는 서버 내부의 HTTP 매핑 메타데이터다. 메시지는
-  `BusinessException` 생성자 또는 바인딩 예외 처리 지점에서 순수 문자열로 전달하며,
-  `GlobalExceptionHandler`가 이를 `ApiResponse`에 담는다.
-- 따라서 클라이언트는 HTTP 상태 코드로 전송 수준을 판단하고, 세부 분기는
-  `error.code`를 기준으로 한다. 오류 메시지는 표시 가능한 외부 메시지로 관리한다.
+- `ErrorCode.status`는 서버 내부의 HTTP 매핑 메타데이터이며 JSON 필드로 직렬화하지
+  않는다.
+- 메시지는 `BusinessException` 생성자 또는 바인딩 예외 처리 지점에서 순수 문자열로
+  전달하고, `GlobalExceptionHandler`가 이를 `ApiResponse`에 담는다.
 
 ```text
 ErrorCode(code, status) + BusinessException(errorCode, message)
