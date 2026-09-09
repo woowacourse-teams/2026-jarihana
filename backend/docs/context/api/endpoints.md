@@ -1112,7 +1112,7 @@ Location: /api/groups/12/recruitments/45
       "message": "함께 활동하고 싶습니다.",
       "status": "PENDING",
       "registeredAt": "2026-08-21T10:00:00",
-      "decisionReason": null,
+      "rejectReason": null,
       "decidedAt": null,
       "decidedBy": null
     }],
@@ -1267,11 +1267,11 @@ Request Body는 없다.
 ```json
 {
   "status": "REJECTED",
-  "decisionReason": "현재 모집 인원이 모두 확정되었습니다."
+  "rejectReason": "현재 모집 인원이 모두 확정되었습니다."
 }
 ```
 
-`decisionReason`은 거절할 때 생략할 수 있으며 최대 1000자다.
+`rejectReason`은 거절할 때 생략할 수 있으며 최대 1000자다.
 
 #### 응답 200
 
@@ -1281,7 +1281,7 @@ Request Body는 없다.
   "data": {
     "id": 88,
     "status": "APPROVED",
-    "decisionReason": null,
+    "rejectReason": null,
     "decidedAt": "2026-08-22T09:00:00",
     "decidedBy": {"type": "MEMBER", "memberId": 3}
   },
@@ -1305,7 +1305,7 @@ Request Body는 없다.
 | 승인 정원 초과 | `RECRUITMENT_CAPACITY_EXCEEDED` | 409 |
 | 이미 그룹 구성원 | `GROUP_MEMBER_ALREADY_EXISTS` | 409 |
 | ENDED 그룹 | `GROUP_ENDED` | 409 |
-| 정의되지 않은 status 또는 decisionReason 1000자 초과 | `INVALID_PARAMETER` | 400 |
+| 정의되지 않은 status 또는 rejectReason 1000자 초과 | `INVALID_PARAMETER` | 400 |
 
 ### `GET /api/registrations?applicant=me`
 
@@ -1348,7 +1348,7 @@ Request Body는 없다.
       "message": "함께 활동하고 싶습니다.",
       "status": "PENDING",
       "registeredAt": "2026-08-21T10:00:00",
-      "decisionReason": null,
+      "rejectReason": null,
       "decidedAt": null,
       "decidedBy": null
     }],

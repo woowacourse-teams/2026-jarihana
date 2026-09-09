@@ -204,7 +204,7 @@ public class RegistrationCommandService {
             case REJECTED -> registrationRepository.save(
                     registration.reject(
                             DecisionActor.member(memberId),
-                            command.decisionReason(),
+                            command.rejectReason(),
                             LocalDateTime.now(clock)
                     )
             );

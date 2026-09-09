@@ -14,7 +14,7 @@ public record MyRegistrationListProjection(
         String message,
         RegistrationStatus status,
         LocalDateTime registeredAt,
-        String decisionReason,
+        String rejectReason,
         LocalDateTime decidedAt,
         DecisionActorType decidedByType,
         Long decidedByMemberId

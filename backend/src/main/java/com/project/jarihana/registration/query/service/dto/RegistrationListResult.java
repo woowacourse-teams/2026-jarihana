@@ -23,7 +23,7 @@ public record RegistrationListResult(
             String message,
             String status,
             LocalDateTime registeredAt,
-            String decisionReason,
+            String rejectReason,
             LocalDateTime decidedAt,
             String decidedByType,
             Long decidedByMemberId
@@ -38,7 +38,7 @@ public record RegistrationListResult(
                 String message,
                 String status,
                 LocalDateTime registeredAt,
-                String decisionReason,
+                String rejectReason,
                 LocalDateTime decidedAt,
                 String decidedByType,
                 Long decidedByMemberId
@@ -53,7 +53,7 @@ public record RegistrationListResult(
                     message,
                     status,
                     registeredAt,
-                    decisionReason,
+                    rejectReason,
                     decidedAt,
                     decidedByType,
                     decidedByMemberId
