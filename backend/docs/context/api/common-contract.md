@@ -24,7 +24,7 @@ URL에 버전 경로를 붙이지 않는다.
 | `LEADER` | 해당 그룹의 현재 모임장 | Access Token + `GroupMemberRole.LEADER` |
 
 - 신규 가입 구간은 서버 세션을 사용한다.
-- 일반 API는 `Authorization: Bearer {accessToken}` 헤더를 사용한다.
+- 일반 API는 `accessToken` HttpOnly 쿠키를 사용한다. `Authorization: Bearer {accessToken}` 헤더는 사용하지 않는다.
 - `LEADER` 권한은 요청 대상 그룹의 현재 `LEADER`인지 매 요청마다 검증한다.
 
 ## 페이지네이션
@@ -40,7 +40,7 @@ URL에 버전 경로를 붙이지 않는다.
 잘못되거나 만료된 `cursor`와 허용 범위를 벗어난 `size`는 `INVALID_PARAMETER`로 응답한다.
 
 ## 응답 형식
-`204 No Content`를 제외한 성공과 실패 응답은 동일한 봉투를 사용한다.
+`204 No Content`와 `3xx` 리다이렉트 응답을 제외한 API 응답은 동일한 봉투를 사용한다.
 
 ```json
 {
@@ -64,6 +64,13 @@ URL에 버전 경로를 붙이지 않는다.
 - 클라이언트는 `error.code`로 분기한다.
 - 필드 검증 오류는 `INVALID_PARAMETER`와 사용자용 한국어 메시지로 응답하며, 필드별 상세 오류는 제공하지 않는다.
 - 생성은 `201 Created`, 조회·상태 변경은 `200 OK`, 본문 없는 삭제·탈퇴는 `204 No Content`를 사용한다.
+
+## 리다이렉트 응답
+
+`3xx` 리다이렉트 응답은 JSON 응답 봉투를 사용하지 않는다.
+이동 위치는 `Location` 헤더로 전달하며 응답 본문은 없다.
+
+현재 리다이렉트 응답을 사용하는 엔드포인트는 `GET /api/oauth/github/callback`이다.
 
 ## 날짜·시간 형식
 - 기준 시간대: `Asia/Seoul`
