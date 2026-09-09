@@ -33,6 +33,14 @@
 - PR은 최소 1명의 승인과 필수 CI 통과 후 병합한다.
 - 작업 브랜치는 Squash merge하여 하나의 의도 단위 커밋으로 남긴다.
 
+## 이슈 컨벤션
+
+작업 요청은 목적에 맞는 이슈 템플릿을 사용한다.
+
+- [버그·계약 불일치](../.github/ISSUE_TEMPLATE/bug-contract.md)
+- [기능·개선 요청](../.github/ISSUE_TEMPLATE/feature-improvement.md)
+- [문서·구조 개선](../.github/ISSUE_TEMPLATE/documentation-structure.md)
+
 ## 커밋 컨벤션
 
 ### 형식
