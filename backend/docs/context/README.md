@@ -15,7 +15,7 @@
 | 영역 | 문서 | 내용 |
 | --- | --- | --- |
 | 도메인 | [도메인 모델](domain/model/README.md), [Member](domain/model/member.md), [Group](domain/model/group.md), [모집](domain/model/grouprecruitment.md), [일정](domain/model/schedule.md), [신청](domain/model/registration.md), [소속](domain/model/groupmember.md), [도메인 불변식](domain/invariants.md), [비즈니스 정책](domain/business-policies.md) | 전체 개요, 도메인별 모델, 불변식, 정책 |
-| API | [API 공통 설계](api/common-contract.md), [API 엔드포인트 설계](api/endpoints.md) | 공통 계약과 엔드포인트 |
+| API | [API 공통 설계](api/common-contract.md), [API 엔드포인트 설계](api/endpoints/README.md) | 공통 계약과 엔드포인트 |
 
 ## 책임 경계
 

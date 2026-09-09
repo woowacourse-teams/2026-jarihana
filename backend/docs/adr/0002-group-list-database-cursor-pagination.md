@@ -2,7 +2,7 @@
 
 - 상태: 채택
 - 날짜: 2026-08-19
-- 관련 문서: [영속성 컨벤션](../conventions/persistence.md), [아키텍처 컨벤션](../conventions/architecture.md), [그룹 API 엔드포인트 설계](../context/api/endpoints.md)
+- 관련 문서: [영속성 컨벤션](../conventions/persistence.md), [아키텍처 컨벤션](../conventions/architecture.md), [그룹 API 엔드포인트 설계](../context/api/endpoints/README.md)
 
 ## 배경
 

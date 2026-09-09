@@ -3,7 +3,7 @@
 - 상태: 채택
 - 날짜: 2026-08-20
 - 관련 문서: [ADR 0001](0001-github-oauth-authentication.md), [ADR 0002](0002-access-token-cookie.md),
-  [보안과 개인정보](../conventions/security.md), [API 엔드포인트 설계](../context/api/endpoints.md)
+  [보안과 개인정보](../conventions/security.md), [API 엔드포인트 설계](../context/api/endpoints/README.md)
 - 이 문서는 ADR 0001 결정 2의 `state` 보관 방식을 대체한다.
 - 개정: 2026-08-20. 최초 채택본은 인가 시작을 **백엔드**가 소유한다고 정했으나, 그 결정은
   회의에서 이미 백엔드 인가 시작 엔드포인트를 두지 않기로 했다는 사실을 모른 채 내려졌다.
