@@ -86,13 +86,13 @@ export function ManageRegistrationsPage() {
   async function confirmDecision() {
     if (!decision) return;
     setMutationError(null);
-    const decisionReason =
+    const rejectReason =
       decision.status === "REJECTED" ? reasonRef.current?.value.trim() : undefined;
 
     const payload = {
       registrationId: decision.registration.id,
       status: decision.status,
-      ...(decisionReason ? { decisionReason } : {})
+      ...(rejectReason ? { rejectReason } : {})
     };
     try {
       await decideRegistration.mutateAsync(payload);
@@ -199,8 +199,8 @@ export function ManageRegistrationsPage() {
                       {registration.decidedAt ? (
                         <div className="manage-decision-note">
                           <span>처리 {formatDateTime(registration.decidedAt)}</span>
-                          {registration.decisionReason ? (
-                            <span>사유: {registration.decisionReason}</span>
+                          {registration.rejectReason ? (
+                            <span>사유: {registration.rejectReason}</span>
                           ) : null}
                         </div>
                       ) : null}

@@ -202,7 +202,7 @@ describe("backend DTO schemas", () => {
           message: null,
           status: "PENDING",
           registeredAt: "2026-08-21T11:00:00",
-          decisionReason: null,
+          rejectReason: null,
           decidedAt: null,
           decidedBy: null
         }
@@ -223,7 +223,7 @@ describe("backend DTO schemas", () => {
     const payload = {
       id: 2,
       status: "APPROVE",
-      decisionReason: null,
+      rejectReason: null,
       decidedAt: "2026-08-21T11:30:00",
       decidedBy: { type: "MEMBER", memberId: 1 }
     };

@@ -3,7 +3,7 @@
 - 상태: 채택
 - 날짜: 2026-08-20
 - 관련 문서: [ADR 0002](0002-access-token-cookie.md), [ADR 0003](0003-oauth-authorization-ownership.md),
-  [보안과 개인정보](../conventions/security.md), [API 공통 설계](../context/api/conventions.md)
+  [보안과 개인정보](../conventions/security.md), [API 공통 설계](../context/api/common-contract.md)
 - 이 문서는 ADR 0002가 후속 작업으로 남긴 "CSRF 토큰 저장소와 프론트엔드 전달 방식"을 정한다.
 
 ## 배경

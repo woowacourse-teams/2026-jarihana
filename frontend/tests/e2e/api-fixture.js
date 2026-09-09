@@ -136,7 +136,7 @@ export const recruitment = {
 export const pendingRegistration = {
   decidedAt: null,
   decidedBy: null,
-  decisionReason: null,
+  rejectReason: null,
   id: 40,
   member,
   message: "함께 성장하고 싶습니다.",
@@ -149,7 +149,7 @@ const registrations = [
   {
     decidedAt: null,
     decidedBy: null,
-    decisionReason: null,
+    rejectReason: null,
     id: 41,
     member: members[2],
     message: "안드로이드 경험을 나누며 웹도 배우고 싶어요.",
@@ -159,7 +159,7 @@ const registrations = [
   {
     decidedAt: "2026-08-13T14:00:00",
     decidedBy: { memberId: leader.id, type: "MEMBER" },
-    decisionReason: null,
+    rejectReason: null,
     id: 42,
     member: members[3],
     message: "접근성까지 꼼꼼하게 리뷰하는 팀을 찾고 있습니다.",
@@ -169,7 +169,7 @@ const registrations = [
   {
     decidedAt: "2026-08-15T11:00:00",
     decidedBy: { memberId: leader.id, type: "MEMBER" },
-    decisionReason: "이번 기수의 정원이 모두 찼습니다.",
+    rejectReason: "이번 기수의 정원이 모두 찼습니다.",
     id: 43,
     member: members[4],
     message: "백엔드 관점의 피드백으로 함께 성장하고 싶습니다.",
@@ -451,7 +451,7 @@ export async function installApiFixture(pageInstance, options = {}) {
         success({
           decidedAt: now,
           decidedBy: { memberId: leader.id, type: "MEMBER" },
-          decisionReason: body.decisionReason ?? null,
+          rejectReason: body.rejectReason ?? null,
           id: pendingRegistration.id,
           status: body.status
         })

@@ -100,7 +100,7 @@ const recruitmentFixture = {
 const registrationFixture = {
   decidedAt: null,
   decidedBy: null,
-  decisionReason: null,
+  rejectReason: null,
   id: 72,
   member: { course: "FRONTEND", crewName: "개발자재키", generation: 8, id: 17 },
   message: "프론트 성능을 깊이 보고 싶어요.",
@@ -407,7 +407,7 @@ describe("ManageRegistrationsPage", () => {
           ...registrationFixture,
           decidedAt: "2026-08-21T12:00:00",
           decidedBy: { memberId: 1, type: "MEMBER" },
-          decisionReason: "모집 방향과 맞지 않아요.",
+          rejectReason: "모집 방향과 맞지 않아요.",
           status: "REJECTED"
         }
       ])
@@ -449,7 +449,7 @@ describe("ManageRegistrationsPage", () => {
     await user.click(screen.getByRole("button", { name: "신청 거절하기" }));
 
     expect(mutateAsync).toHaveBeenCalledWith({
-      decisionReason: "이번 정원이 마감됐어요.",
+      rejectReason: "이번 정원이 마감됐어요.",
       registrationId: 72,
       status: "REJECTED"
     });

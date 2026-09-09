@@ -93,7 +93,7 @@ public class RegistrationQueryService {
                 projection.message(),
                 projection.status().name(),
                 projection.registeredAt(),
-                projection.decisionReason(),
+                projection.rejectReason(),
                 projection.decidedAt(),
                 projection.decidedByType() == null ? null : projection.decidedByType().name(),
                 projection.decidedByMemberId()
@@ -192,7 +192,7 @@ public class RegistrationQueryService {
                 projection.message(),
                 projection.status().name(),
                 projection.registeredAt(),
-                projection.decisionReason(),
+                projection.rejectReason(),
                 projection.decidedAt(),
                 projection.decidedByType() == null ? null : projection.decidedByType().name(),
                 projection.decidedByMemberId()

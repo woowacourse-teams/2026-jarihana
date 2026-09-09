@@ -30,7 +30,7 @@ public record MyRegistrationListResponse(
             String message,
             String status,
             LocalDateTime registeredAt,
-            String decisionReason,
+            String rejectReason,
             LocalDateTime decidedAt,
             DecisionActorResponse decidedBy
     ) {
@@ -47,7 +47,7 @@ public record MyRegistrationListResponse(
                     item.message(),
                     item.status(),
                     item.registeredAt(),
-                    item.decisionReason(),
+                    item.rejectReason(),
                     item.decidedAt(),
                     item.decidedByType() == null
                             ? null

@@ -22,7 +22,7 @@ export const registrationCreateResponseSchema = z.object({
 export const registrationDecisionResponseSchema = z.object({
   id: entityIdSchema,
   status: registrationStatusSchema,
-  decisionReason: z.string().nullable(),
+  rejectReason: z.string().nullable(),
   decidedAt: localDateTimeSchema,
   decidedBy: decisionActorSchema
 });
@@ -39,7 +39,7 @@ export const registrationSchema = z.object({
   message: z.string().nullable(),
   status: registrationStatusSchema,
   registeredAt: localDateTimeSchema,
-  decisionReason: z.string().nullable(),
+  rejectReason: z.string().nullable(),
   decidedAt: localDateTimeSchema.nullable(),
   decidedBy: decisionActorSchema.nullable()
 });
