@@ -1,7 +1,7 @@
 # 워크플로 컨벤션
 
 > 이 문서는 구속력 있는 팀 컨벤션 모듈이다.
-> 인덱스: [team-convention.md](../team-convention.md)
+> 인덱스: [team-convention.md](../backend/docs/team-convention.md)
 
 ## 브랜치 컨벤션
 
