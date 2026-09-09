@@ -123,7 +123,7 @@ class RegistrationQueryControllerTest extends IntegrationTestSupport {
                 .body("data.items[0].message", equalTo("함께 활동하고 싶습니다."))
                 .body("data.items[0].status", equalTo("PENDING"))
                 .body("data.items[0].registeredAt", equalTo("2026-08-19T10:00:00"))
-                .body("data.items[0].decisionReason", nullValue())
+                .body("data.items[0].rejectReason", nullValue())
                 .body("data.items[0].decidedAt", nullValue())
                 .body("data.items[0].decidedBy", nullValue())
                 .body("data.items[1].member.id", equalTo(approvedApplicant.getId().intValue()))
@@ -146,7 +146,7 @@ class RegistrationQueryControllerTest extends IntegrationTestSupport {
                 .body("data.items.size()", equalTo(1))
                 .body("data.items[0].member.id", equalTo(rejectedApplicant.getId().intValue()))
                 .body("data.items[0].status", equalTo("REJECTED"))
-                .body("data.items[0].decisionReason", equalTo("모집 인원이 마감되었습니다."))
+                .body("data.items[0].rejectReason", equalTo("모집 인원이 마감되었습니다."))
                 .body("data.items[0].decidedBy.type", equalTo("MEMBER"))
                 .body("data.nextCursor", nullValue())
                 .body("data.hasNext", equalTo(false));

@@ -7,10 +7,10 @@ import jakarta.validation.constraints.Size;
 
 public record DecideRegistrationRequest(
         @NotNull RegistrationDecision status,
-        @Size(max = 1_000) String decisionReason
+        @Size(max = 1_000) String rejectReason
 ) {
 
     public DecideRegistrationCommand toCommand() {
-        return new DecideRegistrationCommand(status, decisionReason);
+        return new DecideRegistrationCommand(status, rejectReason);
     }
 }

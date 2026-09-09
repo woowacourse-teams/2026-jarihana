@@ -273,7 +273,7 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
                 .body("success", equalTo(true))
                 .body("data.id", equalTo(1))
                 .body("data.status", equalTo("APPROVED"))
-                .body("data.decisionReason", nullValue())
+                .body("data.rejectReason", nullValue())
                 .body("data.decidedAt", equalTo("2026-08-19T10:00:00"))
                 .body("data.decidedBy.type", equalTo("MEMBER"))
                 .body("data.decidedBy.memberId", equalTo(leader.getId().intValue()))
@@ -311,7 +311,7 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
                 .body("""
                         {
                           "status": "REJECTED",
-                          "decisionReason": "모집 방향과 맞지 않습니다."
+                          "rejectReason": "모집 방향과 맞지 않습니다."
                         }
                         """)
                 .when()
@@ -324,7 +324,7 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
                 .statusCode(200)
                 .body("success", equalTo(true))
                 .body("data.status", equalTo("REJECTED"))
-                .body("data.decisionReason", equalTo("모집 방향과 맞지 않습니다."))
+                .body("data.rejectReason", equalTo("모집 방향과 맞지 않습니다."))
                 .body("data.decidedAt", equalTo("2026-08-19T10:00:00"))
                 .body("data.decidedBy.type", equalTo("MEMBER"))
                 .body("data.decidedBy.memberId", equalTo(leader.getId().intValue()))
@@ -362,7 +362,7 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
                 .body("""
                         {
                           "status": "APPROVED",
-                          "decisionReason": "승인에는 사유를 보낼 수 없습니다."
+                          "rejectReason": "승인에는 사유를 보낼 수 없습니다."
                         }
                         """)
                 .when()
@@ -438,7 +438,7 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
 
         // When / Then
         authenticatedRequest(accessToken, csrfToken)
-                .body("{\"status\":\"REJECTED\",\"decisionReason\":\"" + "가".repeat(1_001) + "\"}")
+                .body("{\"status\":\"REJECTED\",\"rejectReason\":\"" + "가".repeat(1_001) + "\"}")
                 .when()
                 .patch(
                         "/recruitments/{recruitmentId}/registrations/{registrationId}",

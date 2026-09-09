@@ -22,7 +22,7 @@ public record MyRegistrationListResult(
             String message,
             String status,
             LocalDateTime registeredAt,
-            String decisionReason,
+            String rejectReason,
             LocalDateTime decidedAt,
             String decidedByType,
             Long decidedByMemberId
