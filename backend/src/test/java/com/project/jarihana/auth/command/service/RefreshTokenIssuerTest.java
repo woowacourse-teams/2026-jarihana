@@ -1,13 +1,14 @@
 package com.project.jarihana.auth.command.service;
 
 import com.project.jarihana.auth.command.repository.RefreshTokenRepository;
-import com.project.jarihana.auth.command.service.dto.IssuedRefreshToken;
 import com.project.jarihana.auth.config.AuthProperties;
 import com.project.jarihana.auth.domain.RefreshToken;
+import com.project.jarihana.auth.token.IssuedRefreshToken;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.support.IntegrationTestSupport;
+import com.project.jarihana.support.RefreshTokenTestRepository;
 import com.project.jarihana.support.TestSupportConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,9 @@ class RefreshTokenIssuerTest extends IntegrationTestSupport {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Autowired
+    private RefreshTokenTestRepository refreshTokenTestRepository;
+
+    @Autowired
     private AuthProperties authProperties;
 
     @DisplayName("발급한 Refresh Token은 원문이 아니라 해시로 저장한다.")
@@ -42,7 +46,7 @@ class RefreshTokenIssuerTest extends IntegrationTestSupport {
 
         // Then
         assertThat(issued.value()).isNotBlank();
-        List<RefreshToken> refreshTokens = refreshTokenRepository.findAll();
+        List<RefreshToken> refreshTokens = refreshTokenTestRepository.findAll();
         assertThat(refreshTokens).hasSize(1);
         assertThat(refreshTokens.get(0).getTokenHash())
                 .isNotEqualTo(issued.value())
@@ -61,7 +65,7 @@ class RefreshTokenIssuerTest extends IntegrationTestSupport {
 
         // Then
         assertThat(issued.validity()).isEqualTo(authProperties.refreshTokenValidity());
-        assertThat(refreshTokenRepository.findAll().get(0).getExpiresAt())
+        assertThat(refreshTokenTestRepository.findAll().get(0).getExpiresAt())
                 .isEqualTo(TestSupportConfig.FIXED_NOW.plus(authProperties.refreshTokenValidity()));
     }
 
@@ -77,6 +81,6 @@ class RefreshTokenIssuerTest extends IntegrationTestSupport {
 
         // Then
         assertThat(first.value()).isNotEqualTo(second.value());
-        assertThat(refreshTokenRepository.findAll()).hasSize(2);
+        assertThat(refreshTokenTestRepository.findAll()).hasSize(2);
     }
 }

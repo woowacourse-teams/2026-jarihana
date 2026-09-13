@@ -1,4 +1,4 @@
-package com.project.jarihana.auth.command.service.dto;
+package com.project.jarihana.auth.token;
 
 import java.time.Duration;
 

@@ -78,6 +78,7 @@ jest.mock(
           {children}
         </button>
       ),
+      Avatar: ({ alt, fallback }) => <span aria-label={alt}>{fallback}</span>,
       Checkbox: React.forwardRef(function Checkbox({ label, error, ...props }, ref) {
         return (
           <label>

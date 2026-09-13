@@ -1,13 +1,13 @@
 package com.project.jarihana.member.command.controller;
 
-import com.project.jarihana.common.auth.AccessTokenProvider;
-import com.project.jarihana.common.auth.AuthCookieProperties;
-import com.project.jarihana.common.auth.SignupSession;
+import com.project.jarihana.auth.config.AuthCookieProperties;
+import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.member.domain.MemberType;
 import com.project.jarihana.support.IntegrationTestSupport;
+import com.project.jarihana.support.SignupSessionFixture;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.http.Cookie;
@@ -19,11 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.session.Session;
-import org.springframework.session.SessionRepository;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -47,7 +43,7 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
     private MemberRepository memberRepository;
 
     @Autowired
-    private SessionRepository<? extends Session> sessionRepository;
+    private SignupSessionFixture signupSessionFixture;
 
     @Autowired
     private AuthCookieProperties authCookieProperties;
@@ -59,7 +55,7 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
     @Test
     void completeSignup() {
         // Given
-        String sessionId = createSignupSession(GITHUB_ID);
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
 
         // When
         ExtractableResponse<Response> response = signup(sessionId, body("가온", 8, "BACKEND"));
@@ -81,7 +77,7 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
     @Test
     void completeCoachSignupWithoutGeneration() {
         // Given
-        String sessionId = createSignupSession(GITHUB_ID);
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
 
         // When
         ExtractableResponse<Response> response = signup(
@@ -102,7 +98,7 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
     void rejectDuplicatedCoachName() {
         // Given
         memberRepository.save(Member.create("코치", null, "other-github-id", MemberType.COACH, null));
-        String sessionId = createSignupSession(GITHUB_ID);
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
 
         // When
         ExtractableResponse<Response> response = signup(
@@ -120,7 +116,7 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
     void rejectCoachNameDuplicatedWithCrewName() {
         // Given
         memberRepository.save(Member.create("코치", 8, "other-github-id", Course.FRONTEND));
-        String sessionId = createSignupSession(GITHUB_ID);
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
 
         // When
         ExtractableResponse<Response> response = signup(
@@ -138,7 +134,7 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
     void rejectCrewNameDuplicatedWithCoachName() {
         // Given
         memberRepository.save(Member.create("코치", null, "other-github-id", MemberType.COACH, null));
-        String sessionId = createSignupSession(GITHUB_ID);
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
 
         // When
         ExtractableResponse<Response> response = signup(
@@ -168,7 +164,7 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
                 .header(CSRF_HEADER_NAME, csrfToken)
                 .body(body);
         if (sessionId != null) {
-            request = request.cookie(SESSION_COOKIE_NAME, encodeSessionCookie(sessionId));
+            request = request.cookie(SESSION_COOKIE_NAME, signupSessionFixture.cookieValue(sessionId));
         }
         return request.when()
                 .post(SIGNUP_PATH)
@@ -185,26 +181,11 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
                 .cookie(CSRF_COOKIE_NAME);
     }
 
-    private String encodeSessionCookie(String sessionId) {
-        return Base64.getEncoder().encodeToString(sessionId.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private String createSignupSession(String githubId) {
-        return storeSignupGithubId(sessionRepository, githubId);
-    }
-
-    private <S extends Session> String storeSignupGithubId(SessionRepository<S> repository, String githubId) {
-        S session = repository.createSession();
-        session.setAttribute(SignupSession.githubIdAttribute(), githubId);
-        repository.save(session);
-        return session.getId();
-    }
-
     @DisplayName("가입을 마치면 이후 API에서 쓸 토큰 쿠키를 받는다.")
     @Test
     void issueTokenCookiesAfterSignup() {
         // Given
-        String sessionId = createSignupSession(GITHUB_ID);
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
 
         // When
         ExtractableResponse<Response> response = signup(sessionId, body("가온", 8, "BACKEND"));
@@ -224,7 +205,7 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
     @Test
     void useIssuedAccessTokenAfterSignup() {
         // Given
-        String sessionId = createSignupSession(GITHUB_ID);
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
         ExtractableResponse<Response> signup = signup(sessionId, body("가온", 8, "BACKEND"));
 
         // When
@@ -259,7 +240,7 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
     void rejectAlreadyRegisteredGithubUser() {
         // Given
         memberRepository.save(Member.create("우주", 8, GITHUB_ID, Course.BACKEND));
-        String sessionId = createSignupSession(GITHUB_ID);
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
 
         // When
         ExtractableResponse<Response> response = signup(sessionId, body("가온", 8, "BACKEND"));
@@ -274,7 +255,7 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
     void rejectDuplicatedCrewNameInSameGeneration() {
         // Given
         memberRepository.save(Member.create("가온", 8, "other-github-id", Course.FRONTEND));
-        String sessionId = createSignupSession(GITHUB_ID);
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
 
         // When
         ExtractableResponse<Response> response = signup(sessionId, body("가온", 8, "BACKEND"));
@@ -289,7 +270,7 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
     void allowDuplicatedCrewNameInDifferentGeneration() {
         // Given
         memberRepository.save(Member.create("가온", 7, "other-github-id", Course.FRONTEND));
-        String sessionId = createSignupSession(GITHUB_ID);
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
 
         // When
         ExtractableResponse<Response> response = signup(sessionId, body("가온", 8, "BACKEND"));
@@ -302,7 +283,7 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
     @Test
     void rejectInvalidCrewName() {
         // Given
-        String sessionId = createSignupSession(GITHUB_ID);
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
 
         // When
         ExtractableResponse<Response> response = signup(sessionId, body("crew", 8, "BACKEND"));
@@ -316,7 +297,7 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
     @Test
     void rejectUnsupportedCourse() {
         // Given
-        String sessionId = createSignupSession(GITHUB_ID);
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
 
         // When
         ExtractableResponse<Response> response = signup(sessionId, body("가온", 8, "DEVOPS"));
@@ -330,12 +311,12 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
     @Test
     void rejectSignupWithoutCsrfToken() {
         // Given
-        String sessionId = createSignupSession(GITHUB_ID);
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
 
         // When
         ExtractableResponse<Response> response = RestAssured.given()
                 .contentType(ContentType.JSON)
-                .cookie(SESSION_COOKIE_NAME, encodeSessionCookie(sessionId))
+                .cookie(SESSION_COOKIE_NAME, signupSessionFixture.cookieValue(sessionId))
                 .body(body("가온", 8, "BACKEND"))
                 .when()
                 .post(SIGNUP_PATH)

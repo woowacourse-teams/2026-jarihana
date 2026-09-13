@@ -8,10 +8,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 
 /**
- * Refresh Token 원문을 저장소에 남길 해시로 바꾼다.
- *
- * <p>발급과 조회가 같은 규칙을 써야 하므로 한곳에 둔다. 저장소에는 해시만 남기므로 유출되어도
- * 원문을 복원할 수 없다.
+ * 저장소에는 해시만 남기므로 유출되어도 원문을 복원할 수 없다.
  */
 @Component
 public class RefreshTokenHasher {
