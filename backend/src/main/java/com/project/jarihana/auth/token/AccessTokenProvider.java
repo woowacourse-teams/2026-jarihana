@@ -1,5 +1,6 @@
-package com.project.jarihana.common.auth;
+package com.project.jarihana.auth.token;
 
+import com.project.jarihana.auth.config.JwtProperties;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import io.jsonwebtoken.JwtException;

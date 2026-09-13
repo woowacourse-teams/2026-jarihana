@@ -3,6 +3,11 @@ const dateTimeFormatter = new Intl.DateTimeFormat("ko-KR", {
   dateStyle: "medium",
   timeStyle: "short"
 });
+const dateTime24HourFormatter = new Intl.DateTimeFormat("ko-KR", {
+  dateStyle: "medium",
+  hourCycle: "h23",
+  timeStyle: "short"
+});
 
 export function flattenPages(data) {
   return data?.pages?.flatMap((page) => page.items) ?? [];
@@ -18,6 +23,11 @@ export function formatDateTime(value) {
   return dateTimeFormatter.format(new Date(value));
 }
 
+export function formatDateTime24Hour(value) {
+  if (!value) return "상시 모집";
+  return dateTime24HourFormatter.format(new Date(value));
+}
+
 export function courseLabel(course) {
   return (
     {
@@ -26,6 +36,14 @@ export function courseLabel(course) {
       FRONTEND: "프론트엔드"
     }[course] ?? course
   );
+}
+
+export function memberTypeLabel(memberType) {
+  return { COACH: "코치", CREW: "크루" }[memberType] ?? memberType;
+}
+
+export function generationLabel(generation) {
+  return Number.isInteger(generation) && generation > 0 ? `${generation}기` : "기수 미정";
 }
 
 export function roleLabel(role) {

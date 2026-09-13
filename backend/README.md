@@ -115,6 +115,14 @@ docker compose -f docker-compose-local.yaml ps
 인증·OAuth 설정을 GitHub Actions Secrets와 함께 주입합니다. 운영 프로필은 스키마를 자동
 변경하지 않고 `ddl-auto: validate`로 검증만 수행합니다.
 
+회원 유형과 이름 중복 정책을 배포할 때는 운영 DB에서
+`docs/migrations/2026-09-01-member-type-and-name-policy.sql`을 실행합니다. 이 마이그레이션은
+기존 `course = 'COACH'` 회원을 `member_type = 'COACH'`로 옮기고, `member_type`에 따른
+`course`·`generation` 조합 및 회원 이름 중복 규칙을 적용합니다.
+
+운영 프로필은 `ddl-auto: validate`이므로 애플리케이션이 이 변경을 자동으로 적용하지 않습니다.
+기존 데이터에 새 정책과 충돌하는 이름이 있으면 마이그레이션 전에 해당 데이터를 정리해야 합니다.
+
 ### 운영 배포 시크릿
 
 `main` 브랜치에 반영된 커밋에 `backend/**` 변경이 포함되면 백엔드 배포 워크플로가

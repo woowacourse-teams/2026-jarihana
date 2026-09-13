@@ -192,7 +192,13 @@ describe("backend DTO schemas", () => {
       items: [
         {
           id: 2,
-          member: { id: 4, crewName: "자리", generation: 2, course: "FRONTEND" },
+          member: {
+            id: 4,
+            crewName: "자리",
+            memberType: "CREW",
+            generation: 2,
+            course: "FRONTEND"
+          },
           message: null,
           status: "PENDING",
           registeredAt: "2026-08-21T11:00:00",

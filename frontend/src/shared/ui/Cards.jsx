@@ -103,12 +103,12 @@ function cardScheduleMeta(group) {
   const frequency = scheduleFrequencyText(group);
   const recruitment = group.activeRecruitment;
   if (!recruitment) {
-    return [frequency, "모집 마감"].filter(Boolean).join(" · ");
+    return frequency;
   }
 
   const remainingSeats = Math.max(recruitment.capacity - recruitment.approvedCount, 0);
   if (remainingSeats === 0) {
-    return "모집 마감";
+    return frequency;
   }
   return [frequency, `${remainingSeats}자리 남음`].filter(Boolean).join(" · ");
 }
@@ -117,11 +117,22 @@ export function GroupCard({
   as: LinkComponent = "a",
   group,
   href = `/groups/${group.id}`,
+  mobileAppearance,
   showScheduleMeta = false
 }) {
   const destination = LinkComponent === "a" ? { href } : { to: href };
+  const mobileActivityAppearance = mobileAppearance === "activity";
+  const scheduleMeta = showScheduleMeta ? cardScheduleMeta(group) : null;
   return (
-    <Card {...destination} as={LinkComponent} className="ui-group-card" interactive>
+    <Card
+      {...destination}
+      as={LinkComponent}
+      className={classes(
+        "ui-group-card",
+        mobileActivityAppearance && "ui-group-card--mobile-activity"
+      )}
+      interactive
+    >
       <div className="ui-group-card__visual">
         <GroupImage
           alt=""
@@ -133,18 +144,31 @@ export function GroupCard({
         />
       </div>
       <div className="ui-group-card__body">
-        <div className="ui-card__meta">
-          <span>{readableType(group.type)}</span>
-          <StatusBadge tone={group.recruiting ? "brand" : "neutral"}>
-            {group.recruiting ? "모집 중" : "모집 마감"}
-          </StatusBadge>
+        <div className="ui-card__meta ui-group-card__top-meta">
+          <span
+            className={classes(
+              "ui-group-card__type",
+              `ui-group-card__type--${String(group.type).toLowerCase()}`
+            )}
+          >
+            {readableType(group.type)}
+          </span>
+          {group.recruiting ? (
+            <span className="ui-group-card__recruitment">
+              <StatusBadge tone="brand">모집 중</StatusBadge>
+            </span>
+          ) : null}
         </div>
         <h3 className="ui-group-card__title">{group.name}</h3>
         <p className="ui-group-card__intro">{group.introduction}</p>
-        {showScheduleMeta ? (
-          <span className="ui-card__meta">{cardScheduleMeta(group)}</span>
-        ) : group.memberCount === undefined ? null : (
-          <span className="ui-card__meta">함께하는 멤버 {group.memberCount}명</span>
+        {scheduleMeta ? (
+          <span className="ui-card__meta ui-group-card__detail-meta">
+            {scheduleMeta}
+          </span>
+        ) : showScheduleMeta || group.memberCount === undefined ? null : (
+          <span className="ui-card__meta ui-group-card__detail-meta">
+            함께하는 멤버 {group.memberCount}명
+          </span>
         )}
       </div>
     </Card>
