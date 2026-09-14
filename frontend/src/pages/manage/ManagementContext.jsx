@@ -1,3 +1,4 @@
+import { ExternalLink } from "lucide-react";
 import { Link } from "react-router";
 import { useGroup } from "../../features/group/index.js";
 import { useRegistrationSummary } from "../../features/registration/index.js";
@@ -39,6 +40,11 @@ export function ManagementContext({ active, groupId, recruitmentId }) {
       to: `/groups/${groupId}/manage/recruitments`
     },
     {
+      key: "history",
+      label: "모집 이력",
+      to: `/groups/${groupId}/manage/recruitments/history`
+    },
+    {
       key: "registrations",
       label: "신청 관리",
       unreadCount: registrationSummary?.unreadCount ?? 0,
@@ -49,7 +55,16 @@ export function ManagementContext({ active, groupId, recruitmentId }) {
 
   return (
     <header className="manage-context">
-      <h1>{groupName}</h1>
+      <div className="manage-context__title-row">
+        <h1>{groupName}</h1>
+        <Link
+          className="manage-context__detail-link"
+          to={`/groups/${groupId}`}
+        >
+          <span>모임 상세 보기</span>
+          <ExternalLink aria-hidden="true" size={16} strokeWidth={2.25} />
+        </Link>
+      </div>
       <nav aria-label="모임 관리 메뉴" className="manage-context__nav">
         {links.map((link) => (
           <Link
@@ -73,12 +88,20 @@ export function ManagementContext({ active, groupId, recruitmentId }) {
   );
 }
 
-export function ManagementPageHeading({ description, statIcon, statLabel, statValue, title }) {
+export function ManagementPageHeading({
+  className,
+  description,
+  statIcon,
+  statLabel,
+  statValue,
+  title
+}) {
   const hasStat = statValue !== undefined && statValue !== null;
   const statAriaLabel = [statLabel, statValue].filter(Boolean).join(" ");
+  const headingClassName = ["manage-heading", className].filter(Boolean).join(" ");
 
   return (
-    <div className="manage-heading">
+    <div className={headingClassName}>
       <div>
         <h2>{title}</h2>
         <p>{description}</p>

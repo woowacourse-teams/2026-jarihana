@@ -43,7 +43,9 @@
 | `--color-muted`        | `#7a7a7a`        | 보조 정보                                  |
 | `--color-muted-ink`    | `#666666`        | 작은 text의 대비 보강                      |
 | `--color-line`         | `#e0e0e0`        | 구분선과 field border                      |
+| `--color-line-strong`  | `#d8dade`        | 계정 카드처럼 선명한 surface 경계          |
 | `--color-surface`      | `#ffffff`        | 카드와 입력 surface                        |
+| `--color-surface-sunken`| `#f4f5f7`       | 카드 안쪽의 낮은 깊이 surface               |
 | `--color-section-soft` | `#fcfcfc`        | 탐색 결과 section을 hero와 분리하는 surface |
 | `--color-canvas`       | `#ffffff`        | 앱 배경                                    |
 | `--color-nav`          | `#000000`        | global header                              |
@@ -94,6 +96,8 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 ### Spacing and geometry
 
 - Spacing: `0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64`.
+- Signup character image: the visual size is capped at `--signup-type-image-size` (`15rem`),
+  with a `--signup-type-image-base-size` (`7.5rem`) layout box rendered at fixed `scale(2)`.
 - Radius: small `8`, medium `14`, large `20`, pill `999`.
 - Footer Contact us block: `--footer-contact-max-width` `22rem` max width on desktop/tablet.
 - Container: 구현 token `--container-shell`은 `1440px`(`90rem`)이다. `/`의 content rail을
@@ -212,28 +216,54 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - 모달의 모집 정보 스크롤바는 투명 track과 얇고 둥근 thumb를 사용하며 스크롤바 공간을 상시 예약하지
   않는다. 모달은 둥근 외곽 안쪽의 모집 정보 한 곳에서만 세로 스크롤하고 제목·닫기 버튼·신청
   action은 고정한다. 내부 flex/grid 요소는 가용 폭까지 줄어들며 가로 스크롤을 만들지 않는다.
-- `FormLayout`: group editor는 `1100px` content target 안에 mint hero, white form panels,
+- `FormLayout`: group editor는 `1100px` content target을 부모 shell 안에서 중앙 정렬하고, mint hero, white form panels,
   step title/illustration과 하단 action bar를 둔다. 1024px 미만에서는 hero의 text/visual을
-  세로로 쌓고, mobile day picker는 2 columns로 줄인다.
+  세로로 쌓고, mobile day picker는 2 columns로 줄인다. 모바일 설명 편집기의 `작성`·`미리보기`
+  도구는 한 행의 2열로 유지한다.
 - `MyPageLayout`: profile column + activity panel의 desktop split, 3개 count link, 2-column
   summary cards를 사용한다. tablet/mobile에서는 각 grid를 정보 순서대로 한 column으로 접는다.
   dashboard surface의 좌우 확장과 내부 여백은 page gutter 이하로 제한해 모바일 가로 넘침을 막는다.
 - `ManageLayout`: group name context header와 horizontal route-backed tabs(`모임 수정`,
-  `모집 관리`, 조건부 `신청 관리`, `멤버 관리`)를 모든 leader page가 공유한다. `신청 관리`는 승인 방식과
+  `모집 관리`, `모집 이력`, 조건부 `신청 관리`, `멤버 관리`)를 모든 leader page가 공유한다. `신청 관리`는 승인 방식과
   관계없이 모임장이 아직 확인하지 않은 신청 수가 1건 이상일 때만 label 뒤에 inline danger count
   badge를 표시하며, 1~99는 실제 숫자,
   100건 이상은 화면에 `99+`로 줄이고 숨은 텍스트는 실제 전체 수를 한국어로 전달한다. badge는
   `--color-danger`, surface/text token만 사용하고 active underline과 모바일 horizontal scroll을
   방해하지 않는다. 신청 관리 화면에서 대상 모집의 신청자 목록을 불러오면 해당 목록에서 확인한 마지막
-  신청까지 읽음 처리한다. 멤버는 table, 모집은 summary + condition form + public-state rail, 신청은
-  applicant panel + operations rail로 표현하고 mobile에서는 모두 single column으로 재배치한다.
+  신청까지 읽음 처리한다.
+  멤버는 검색·필터 가능한 table, 모집 이력은 가입 방식 필터와 최근 등록순 고정 정렬을 갖춘 table,
+  모집은 summary + condition form + public-state rail, 신청은 applicant panel + operations rail로
+  표현하고 mobile에서는 모두 single column으로 재배치한다. 모집 관리 기본 heading은
+  `모집 관리` / `모집을 생성하고 이력을 관리해요.`를 사용하고, 새 모집 작성 중에는 같은 heading
+  자리를 `새 모집 생성` / `새로운 모집 공고를 작성합니다.`로 전환해 form body에 제목을 반복하지 않는다.
+  새 모집 form은 `모집 인원` → `승인 방식` → `모집 기간` 순서의 3-step wizard로 진행한다.
+  세 단계는 이전 입력을 누적하지 않고 각각 별도 화면으로 전환한다. 각 단계 section 자체를 해당
+  content rail 너비로 줄여 패널 가운데에 놓고, 그 안의 질문과 입력 정보는 왼쪽 정렬한다.
+  각 단계는 질문만 간결하게 표시하고 별도의 보조 설명은 두지 않으며, 단계 숫자는 상단 진행 상태에만 표시한다. 모집 인원
+  단계는 section과 control을 질문 길이에 가까운 같은 `18rem` rail로
+  두어, 내부 문구는 왼쪽 정렬하면서 질문 묶음 전체는 패널 가운데에 놓는다. 승인 방식
+  단계는 질문이 읽히는 `20rem` 중앙 rail을 section과 control이 함께 공유한다. 입력란은 rail의
+  좌우 폭을 모두 채우고, 제목·field label·선택값 자체는 왼쪽 정렬을 유지한다.
+  모집 기간 단계의 질문과 기간 입력은 날짜 빠른 선택 capsule 묶음이 차지하는 폭을 기준으로 한
+  최대 `30rem` 중앙 rail을 공유하고, mobile에서는 가용 폭 전체까지 줄어든다. 상단 진행 상태는 질문을 반복하지 않고
+  현재 입력 범주만 간결하게 표시한다.
+  이전 action은 왼쪽, 다음 또는 생성 action은 오른쪽에 둔다. 공개 상태
+  미리보기는 모든 단계에서 오른쪽 read-only summary로 노출한다. 넓은 화면에서는 왼쪽 입력 영역과
+  같은 grid row에서 같은 세로 높이로 맞추고, 좁은 화면에서는 한 열로 쌓아 각 영역이 내용에 맞는
+  자연 높이를 사용한다. 상시 모집을 해제하고 마감일을 고르는 동안에는 마감 시간 자리를
+  `날짜 선택 후 설정`으로 유지하고, 미리보기에도 `날짜 선택` 상태를 보여 입력 영역이 사라지거나
+  상시 모집으로 오해되지 않게 한다. 단계 전환 시 status와 입력 영역은 240ms opacity + 8px translate로
+  진입하며, 동작 줄이기 설정에서는 즉시 전환한다.
 - 일반 route는 page title 하나의 `h1`, section은 순차 `h2`, card title은 `h3`를 사용한다.
   탐색 route의 hero와 `자리 둘러보기`는 현재 제품 요구에 따라 각각 `h1`으로 노출한다.
 
 ## 4. Component visual grammar
 
 - Buttons: primary mint/black text, secondary white/line, tertiary text, danger red. 모든 variant는
-  default/hover/active/focus/disabled/pending 상태를 갖는다.
+  default/hover/active/focus/disabled/pending 상태를 갖는다. 목적지를 바꾸는 액션은 버튼처럼
+  보이더라도 semantic link를 사용한다. 일반 목적지 링크는 visible label을 유지하고, 관리
+  컨텍스트의 모임 상세 이동은 작은 visible label과 관습적인 `ExternalLink` 아이콘을 함께
+  사용하는 예외로 둔다.
 - Footer: 프로토타입의 `64px 24px` desktop / `48px 24px` mobile padding, 좌측 서비스 설명 박스와
   우측 Contact us 안내·코드 아이콘이 있는 저장소 링크를 사용한다. 서비스 설명 박스는 민트색 시작선과
   얇은 경계로 별도 정보 영역임을 드러내고, Contact us는 22px 흰색 heading과 14px muted body copy로
@@ -245,7 +275,42 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   끝점을 맞춘다. 인스타그램은 노출하지 않고 저장소 링크 하나만 둔다.
 - Fields: label, optional description, control, inline error를 같은 field group으로 묶는다. 탐색
   검색은 주변 박스 테두리를 제거하고 얇은 underline과 focus 시 brand line으로 입력 상태를
-  표현한다.
+  표현한다. 새 모집 생성처럼 데이터를 수정하는 작성 flow의 숫자 input, select, 날짜 trigger,
+  시간 trigger는 같은 underline variant를 사용한다. 모집 기간 빠른 선택은 날짜·시간 입력보다 먼저
+  배치한 capsule button group으로 구분하며 불필요한 field card는 추가하지 않는다.
+- DateRangePicker: 새 모집 form의 `모집 기간` 단계는 시작/마감 endpoint를 하나의 field group으로 묶되,
+  별도 card로 감싸지 않는다. `시작`/`마감` 제목을 반복하는 대신 날짜·시간의 구체적인 visible label로
+  endpoint를 구분하고, 두 endpoint는 모든 breakpoint에서 세로로 쌓으며 brand-soft 원형의 아래쪽 방향
+  화살표로 연결한다. 날짜와 시간 모두
+  visible label을 underline control 위에 배치하고 현재 선택 중인 endpoint는 label과 underline의 selected
+  state로 표시한다. 날짜 trigger를 누르면 해당 trigger 아래에 한 달짜리 달력 하나를 popover로 띄우고,
+  날짜를 선택하거나 바깥 영역을 누르면 닫는다. 달력 날짜는 semantic button grid로 제공하며
+  마감 선택 중에는 시작일 이전 날짜를 실제 disabled state로 막는다. 같은 날짜의 마감 시간은 시작
+  시각보다 최소 1분 뒤만 허용한다. 시간 trigger는 날짜 popover와 같은 surface·shadow·open/close 규칙을
+  쓰는 단일 시간 popover를 연다. 브라우저 기본 시간 입력처럼 오전/오후·시·분을 한 줄에 배치하되,
+  platform별 select 잘림을 피하도록 underline control과 custom listbox를 product theme로 제공한다.
+  시와 분은 키보드로 직접 입력하거나 custom 목록에서 선택할 수 있고, 분 목록은 10분 단위로 제공한다.
+  목록의 scrollbar는 투명한 track과 둥근 brand thumb를 사용해 native 사각형 scrollbar가 드러나지 않게 한다.
+  popover 안에는 같은 정보를 반복하는 제목·설명·완료
+  action을 두지 않는다. 값은 각 field 입력을 마칠 때 반영하고 바깥 영역 선택으로 panel을 닫는다.
+  같은 날짜의 마감 시간에서는 시작 시각 이전 선택지를 실제
+  disabled state로 막는다. Escape로 닫을 때는 trigger로 focus를 복원하고, 바깥 영역 선택이나 Tab으로
+  focus가 panel 밖으로 이동하면 해당 대상의 focus를 유지한 채 닫는다.
+  새 모집 화면을 여는 순간의 local minute를 시작 기본값으로 쓰고,
+  UTC 변환 없이 `YYYY-MM-DDTHH:mm` 문자열을 유지한다. `지금 시작`, `3일 뒤`, `1주 뒤`, `2주 뒤`,
+  `상시 모집`은 날짜·시간 endpoint 위에 44px 이상의 capsule button으로 제공한다. 선택된 기간은
+  brand-soft surface와 brand-ink text로 구분하고, 상시 모집은 별도 설명 문구 없이 선택된 capsule과
+  마감 endpoint의 `상시 모집`·`없음` 상태로 명시한다. 선택 중인 날짜 endpoint를 다시 눌러도 달력을
+  닫지 않고 열린 상태를 유지하며, `Escape` 또는 `상시 모집` 선택으로도 닫는다. 달력의 이전/다음 이동은
+  한 달 단위이며, 월 바깥 날짜는 빈
+  slot으로 남겨 같은 날짜 button이 중복되지 않게 한다. 각 7열 행렬은
+  `--date-calendar-grid-width`(7 × 44px)를 상한으로 중앙 정렬하고, 날짜의 선택·범위·keyboard focus
+  surface는 browser 여유 폭과 무관하게 1:1 정사각형을 유지하고, 주 단위 행 사이는 작은 간격으로
+  분리해 서로 다른 주의 범위 끝점이 세로 캡슐처럼 붙지 않게 한다.
+  date-range 폭이 `24rem` 이상이면 각 endpoint의 날짜와 시간을 동일한 두 열에 놓는다. 마감 시간은
+  상시 모집일 때 `없음`, 마감일을 고르는 중에는 `날짜 선택 후 설정` 비활성 자리를 유지해 날짜 선택
+  전후에도 네 칸의 폭과 리듬이 달라지지 않게 한다. mobile은 endpoint 안의 날짜와 시간 control을 세로로 쌓아
+  44×44px 날짜 touch target과 정보 순서를 유지한다.
 - Select: native keyboard/assistive-tech 동작을 유지하면서 오른쪽 chevron, 넉넉한 우측 padding,
   pointer cursor를 제공한다. 탐색 필터는 검색과 같은 underline control surface를 사용하고,
   focus 시 하단선을 brand color로 강조한다.
@@ -267,9 +332,12 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   제목 링크와 action을 분리한다.
 - MarkdownContent: raw HTML을 실행하지 않고 제목, 굵게, 목록, 인용, 안전한 http(s)/내부 링크만
   React element로 렌더한다. 작성 화면 미리보기와 공개 모임 소개가 같은 renderer를 공유한다.
-- GroupMemberInsights: 실제 group member cursor data로 멤버 요약, 기수별 categorical rail, 기수별
-  인원 chip을 구성한다. rail segment는 hover와 keyboard focus에서 `N기 · M명` preview를 제공한다.
-  생성 전 화면은 아직 groupId가 없으므로 멤버를 꾸며내지 않고 생성 후 확인 가능 상태를 표시한다.
+- GroupMemberInsights: 실제 group member cursor data로 상세 멤버 탭과 같은 `멤버` heading, 공통
+  `Avatar`를 사용한 멤버 요약, 기수별 categorical rail, 기수별 인원 chip을 구성한다. heading 옆에는
+  상세 멤버 탭과 중복되는 현재 인원 배지를 두지 않는다. avatarUrl이 있으면 GitHub 프로필 이미지를
+  표시하고, 실패하거나 없을 때만 crew name 이니셜로 대체한다. rail segment는 hover와 keyboard
+  focus에서 `N기 · M명` preview를 제공한다. 생성 전 화면은 아직 groupId가 없으므로 멤버를 꾸며내지
+  않고 생성 후 확인 가능 상태를 표시한다.
 - Badges: 상태색의 soft surface + 고대비 text, pill shape.
 - Tabs: route 또는 상태와 연결된 semantic tablist. 선택 underline 하나가 새 tab 위치로 이동하고
   panel은 짧게 fade/translate되어 공간 연속성을 전달한다. 모바일은 가로 scroll하되 page 자체
@@ -287,6 +355,7 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 구현 대상 공통 primitive:
 
 `Button`, `IconButton`, `TextField`, `Textarea`, `Select`, `Checkbox`, `Radio`, `SearchField`,
+`DateRangePicker`, `TimePickerPopover`,
 `FilterBar`, `Card`, `GroupCard`, `RecruitmentCard`, `StatusBadge`, `Avatar`, `Tabs`, `Modal`,
 `ConfirmDialog`, `Drawer`, `Toast`, `Footer`, `ScrollToTopButton`, `HeroScrollButton`, `Skeleton`,
 `EmptyState`, `ErrorState`, `ForbiddenState`, `NotFoundState`, `CursorList`.
@@ -294,16 +363,47 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 개발용 `/__showcase` route에서 light canvas 위 모든 variant, keyboard focus, error, disabled, pending,
 long Korean copy, empty/skeleton을 검수한다. production navigation에는 노출하지 않는다.
 
+`SignupTypeOption`은 `/signup`의 가입 유형 선택에만 사용하는 radio pattern이다. `button[role="radio"]`
+안에 1:1 character image와 text label을 쌓아 폼 내부 2열 중 한 열을 채우고,
+default/hover/active/focus/selected 상태를 제공한다.
+이미지는 장식적 보조 정보로 `alt=""`와 `aria-hidden`을 사용하며, 선택 의미는 라벨과
+`aria-checked`로 전달한다. 간격은 기존 `--space-*` 토큰을 사용하고, 이미지는
+`--signup-type-image-base-size`를 기준으로 `scale(2)`를 고정해 hover/selected 상태에서도
+크기를 바꾸지 않는다. 이미지 프레임이 확대된 이미지의 실제 영역을 차지하므로 라벨과
+언더라인이 이미지 아래에 놓인다. hover는 옅은 민트 surface를 사용하지만 selected 상태는
+브랜드 언더라인과 기본 text 색만 사용한다.
+프로필 입력 상태에서도 코치는 선택한 캐릭터 이미지와 선택 영역을 오른쪽, `SignupProfilePanel`을
+왼쪽에 두고, 크루는 캐릭터를 왼쪽, `SignupProfilePanel`을 오른쪽에 둔다. 캐릭터가
+프로필 사진을 등지지 않도록 선택 전의 캐릭터 위치를 유지하고, 프로필 입력 패널만
+캐릭터 반대편에서 펼쳐진다. 프로필 입력은
+선택 영역의 언더라인과 수직 기준을 맞추도록 위로 정렬한다. 가입 완료와 유형 변경 액션은
+전체 프로필 입력 영역의 중앙 아래에 배치한다. `유형 변경`으로 다시 두 유형을 선택할 수 있다.
+폼 상단의 안내 문구는 선택 전 `안녕하세요. 크루인가요? 코치인가요?`를 보여주고,
+선택 후에는 크루·코치 상태에 맞는 문구로 갱신한다. 상태 변경은 `aria-live="polite"`로
+전달하며 문구는 검정색의 h2 크기로 폼 상단 중앙에 배치한다. 초기 선택 화면에서는
+중복되는 `가입 유형 선택`·`프로필 입력` 헤더를 숨긴다. 문구는 `--space-8`만큼 위로
+시각 이동하고, 모바일에서는 정사각형 고정과 2열을 해제해 선택 캐릭터·프로필 입력·액션이
+세로로 이어지는 콘텐츠 기반 흐름을 사용한다. 모바일에서 유형을 선택한 뒤에는 선택 영역을
+숨기고 프로필 입력과 액션만 남겨 정보 입력에 집중할 수 있게 한다.
+
 ## 6. Interaction and motion
 
-- Fast `120ms`, base `180ms`, deliberate `240ms`; easing `cubic-bezier(.2,.8,.2,1)`.
+- Fast `120ms`, base `180ms`, deliberate `240ms`, smooth `420ms`; easing `cubic-bezier(.2,.8,.2,1)`.
 - Button은 색/1px translate 변화만, 카드 hover는 2px 이내 상승한다. tabs의 단일 underline은
   `180ms` transform으로 새 위치에 이동하고 panel은 opacity + 8px translate로 진입한다.
-- Header와 route/content tabs의 underline은 현재 목적지/패널 하나에만 표시한다. Select chevron은
+- Signup의 크루·코치 전환은 선택 전 캐릭터 위치를 유지한다. 캐릭터 반대편의 프로필 패널은
+  `scaleX`와 `translateX`를 함께 사용해 중앙에서 바깥쪽으로 살짝 펼쳐지며, 양쪽 방향 모두
+  `smooth` duration을 사용한다. `prefers-reduced-motion`에서는 이동을 제거한다.
+  Header와 route/content tabs의 underline은 현재 목적지/패널 하나에만 표시한다. Select chevron은
   열 수 있는 control임을 상시 알리며, 기수 rail preview는 hover와 focus에서 같은 정보를 제공한다.
 - Toast는 2,000ms 후 180ms 동안 opacity와 transform으로 부드럽게 퇴장한 뒤 제거되며, 사용자가
   직접 닫을 수 있는 닫기 버튼을 함께 제공한다.
 - Dialog는 opacity + 8px scale/translate, drawer는 transform을 사용한다.
+- DateRangePicker와 TimePickerPopover는 beui.dev `popover`의 controlled open state, trigger
+  `aria-expanded`, Escape 시 trigger focus 복원과 `availability-scheduler`의 단일 active panel 원리를
+  가져온다. 날짜·시간 panel은
+  문서 흐름을 밀지 않는 overlay popover로 두고, 열릴 때 opacity + 4px translate만 180ms로
+  전환한다. 날짜 범위와 빠른 선택 결과는 즉시 갱신하며 전환 중에도 입력을 막지 않는다.
 - `HeroScrollButton`은 카드 수나 화면 높이에 관계없이 목록의 `자리 둘러보기` 제목에 맞춰
   smooth scroll한다. 제목 위의 화면 여백은 `--space-4`(16px)이며, 제목 아래 검색·필터를
   먼저 보여준다. 카드가 없는 상태에서도 같은 기준을 유지한다.

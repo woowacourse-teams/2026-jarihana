@@ -78,7 +78,12 @@ describe("domain API adapters", () => {
 
   it("keeps member signup out of the access-token refresh path", async () => {
     // Given
-    const values = { crewName: "자리", generation: 1, course: "FRONTEND" };
+    const values = {
+      crewName: "자리",
+      generation: 1,
+      course: "FRONTEND",
+      memberType: "CREW"
+    };
 
     // When
     await signupMember(values);
@@ -92,7 +97,12 @@ describe("domain API adapters", () => {
 
   it("rejects an invalid crew name before member signup reaches HTTP", () => {
     // Given
-    const values = { crewName: "seat", generation: 1, course: "FRONTEND" };
+    const values = {
+      crewName: "seat",
+      generation: 1,
+      course: "FRONTEND",
+      memberType: "CREW"
+    };
 
     // When
     const signup = () => signupMember(values);

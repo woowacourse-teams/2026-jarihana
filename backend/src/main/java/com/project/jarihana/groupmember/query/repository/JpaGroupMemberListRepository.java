@@ -50,6 +50,7 @@ public class JpaGroupMemberListRepository implements GroupMemberListRepository {
                 groupMember.getMember().getCrewName(),
                 groupMember.getMember().getGeneration(),
                 groupMember.getMember().getGithubId(),
+                groupMember.getMember().getMemberType(),
                 groupMember.getMember().getCourse(),
                 groupMember.getRole(),
                 groupMember.getJoinedAt()

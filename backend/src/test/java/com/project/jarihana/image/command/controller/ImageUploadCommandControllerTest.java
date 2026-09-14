@@ -4,8 +4,8 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 
-import com.project.jarihana.common.auth.AccessTokenProvider;
-import com.project.jarihana.common.auth.AuthCookieProperties;
+import com.project.jarihana.auth.config.AuthCookieProperties;
+import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;

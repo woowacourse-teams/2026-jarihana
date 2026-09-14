@@ -8,7 +8,8 @@ export const leader = {
   course: "FRONTEND",
   crewName: "자리",
   generation: 8,
-  id: 1
+  id: 1,
+  memberType: "CREW"
 };
 
 const member = {
@@ -16,7 +17,8 @@ const member = {
   course: "BACKEND",
   crewName: "하나",
   generation: 8,
-  id: 2
+  id: 2,
+  memberType: "CREW"
 };
 
 const members = [
@@ -27,21 +29,24 @@ const members = [
     course: "ANDROID",
     crewName: "두리",
     generation: 7,
-    id: 3
+    id: 3,
+    memberType: "CREW"
   },
   {
     avatarUrl: "https://avatars.githubusercontent.com/u/4?v=4",
     course: "FRONTEND",
     crewName: "보름",
     generation: 9,
-    id: 4
+    id: 4,
+    memberType: "CREW"
   },
   {
     avatarUrl: "https://avatars.githubusercontent.com/u/5?v=4",
     course: "BACKEND",
     crewName: "여름",
     generation: 6,
-    id: 5
+    id: 5,
+    memberType: "CREW"
   }
 ];
 
@@ -49,7 +54,8 @@ const leaderSummary = {
   avatarUrl: leader.avatarUrl,
   crewName: leader.crewName,
   generation: leader.generation,
-  memberId: 1
+  memberId: 1,
+  memberType: "CREW"
 };
 
 export const group = {
@@ -87,7 +93,7 @@ const groups = [
     activeRecruitment: null,
     id: 11,
     introduction: "사이드 프로젝트를 함께 완주하는 주말 모임",
-    leader: { crewName: "두리", generation: 7, memberId: 3 },
+    leader: { crewName: "두리", generation: 7, memberId: 3, memberType: "CREW" },
     memberCount: 9,
     name: "주말 메이커 클럽",
     representativeImageUrl: "/images/maker-club.svg",
@@ -105,7 +111,7 @@ const groups = [
     },
     id: 12,
     introduction: "접근성 실무 사례를 나누는 한 번의 집중 세션",
-    leader: { crewName: "보름", generation: 9, memberId: 4 },
+    leader: { crewName: "보름", generation: 9, memberId: 4, memberType: "CREW" },
     memberCount: 12,
     name: "웹 접근성 실전 세션",
     representativeImageUrl: "/images/accessibility-session.svg",
@@ -130,7 +136,7 @@ export const recruitment = {
 export const pendingRegistration = {
   decidedAt: null,
   decidedBy: null,
-  decisionReason: null,
+  rejectReason: null,
   id: 40,
   member,
   message: "함께 성장하고 싶습니다.",
@@ -143,7 +149,7 @@ const registrations = [
   {
     decidedAt: null,
     decidedBy: null,
-    decisionReason: null,
+    rejectReason: null,
     id: 41,
     member: members[2],
     message: "안드로이드 경험을 나누며 웹도 배우고 싶어요.",
@@ -153,7 +159,7 @@ const registrations = [
   {
     decidedAt: "2026-08-13T14:00:00",
     decidedBy: { memberId: leader.id, type: "MEMBER" },
-    decisionReason: null,
+    rejectReason: null,
     id: 42,
     member: members[3],
     message: "접근성까지 꼼꼼하게 리뷰하는 팀을 찾고 있습니다.",
@@ -163,7 +169,7 @@ const registrations = [
   {
     decidedAt: "2026-08-15T11:00:00",
     decidedBy: { memberId: leader.id, type: "MEMBER" },
-    decisionReason: "이번 기수의 정원이 모두 찼습니다.",
+    rejectReason: "이번 기수의 정원이 모두 찼습니다.",
     id: 43,
     member: members[4],
     message: "백엔드 관점의 피드백으로 함께 성장하고 싶습니다.",
@@ -180,6 +186,7 @@ const groupMember = (value, role, groupMemberId) => ({
   groupMemberId,
   joinedAt: "2026-08-02T12:00:00",
   memberId: value.id,
+  memberType: value.memberType,
   role
 });
 
@@ -245,6 +252,7 @@ export async function installApiFixture(pageInstance, options = {}) {
     auth: options.auth ?? "authenticated",
     errorPath: options.errorPath ?? null,
     errorStatus: options.errorStatus ?? null,
+    recruitments: options.recruitments ?? recruitmentItems,
     registrationPresent: true,
     registrationUnread: true,
     unexpectedResponses: [],
@@ -341,7 +349,8 @@ export async function installApiFixture(pageInstance, options = {}) {
           crewName: leader.crewName,
           generation: leader.generation,
           id: leader.id,
-          joinedAt: now
+          joinedAt: now,
+          memberType: "CREW"
         })
       );
     }
@@ -402,7 +411,7 @@ export async function installApiFixture(pageInstance, options = {}) {
       );
     }
     if (match(path, "/groups/:groupId/recruitments") && method === "GET") {
-      return json(route, success(page(recruitmentItems)));
+      return json(route, success(page(state.recruitments)));
     }
     if (match(path, "/groups/:groupId/recruitments") && method === "POST") {
       const body = request.postDataJSON();
@@ -460,7 +469,7 @@ export async function installApiFixture(pageInstance, options = {}) {
         success({
           decidedAt: now,
           decidedBy: { memberId: leader.id, type: "MEMBER" },
-          decisionReason: body.decisionReason ?? null,
+          rejectReason: body.rejectReason ?? null,
           id: pendingRegistration.id,
           status: body.status
         })

@@ -7,16 +7,30 @@
 
 ## 기술 선택과 실행 경계
 
-이 앱은 사용자의 후속 지시에 따라 **JavaScript/JSX + React + Webpack/Babel + Jest**로
-구성했다. TypeScript, Vite, Vitest는 사용하지 않는다. Node는 24.x로 고정하며 실행 방법,
-공개 OAuth 환경 변수, backend proxy와 운영 topology는 [frontend README](../README.md)를
-최종 runbook으로 사용한다.
+현재 기술 스택과 선택 이유는 [프론트엔드 기술 스택 ADR](adr/0001-frontend-toolchain.md)에서
+관리한다. 이 문서는 현재 코드와 백엔드 계약, Figma 매핑을 관리하며 실행 가이드를 소유하지
+않는다.
 
 시각 토큰은 `src/shared/styles/tokens.css`에 집중한다. 이번 hardening에서 contrast-aware
 `--color-text-brand`/`--color-text-muted`, `--border-thin`/`--border-strong`,
 `--touch-target`/`--touch-target-lg`, `--header-height`, `--breakpoint-md`/`--breakpoint-lg`를
 추가했다. 이 값은 AppShell과 page CSS가 동일한 border, touch area, header, responsive 기준을
 공유하게 한다.
+
+## 디렉터리 구조
+
+```text
+frontend/
+├── src/
+│   ├── app/             # provider, router, guard, AppShell
+│   ├── entities/        # API 응답 schema와 cursor 정책
+│   ├── features/        # 도메인 API, query/mutation hook, validation
+│   ├── pages/           # 공개·계정·그룹 편집·리더 관리 화면
+│   └── shared/          # API client, config, Figma assets, tokens, UI primitive
+├── docs/                # 구현 계약·Figma 매핑·기술 의사결정
+├── public/              # HTML/manifest
+└── tests/               # Jest setup 및 테스트 지원
+```
 
 ## Figma 인벤토리
 
@@ -61,6 +75,7 @@ header 구현으로 확대하지 않았다.
 | `/groups/:groupId/manage`                                           | 해당 그룹 리더         | 그룹/멤버/모집 조회, 이미지 업로드, 그룹 수정/종료/삭제 | ManageLayout, ManageNav, ImagePicker, Stats, ConfirmDialog | image preservation/replace, loading, 403, 404, lifecycle conflict, mutation states |
 | `/groups/:groupId/manage/members`                                   | 해당 그룹 리더         | 멤버 목록, 리더 위임                     | ManageLayout, PersonRow, ConfirmDialog                               | loading, empty, 403/404/409/422, mutation states                                 |
 | `/groups/:groupId/manage/recruitments`                              | 해당 그룹 리더         | 모집 목록/생성/마감                      | ManageLayout, RecruitmentCard, Modal                                 | loading, empty, validation, 403/404/409, mutation states                         |
+| `/groups/:groupId/manage/recruitments/history`                      | 해당 그룹 리더         | 모집 공고 이력 조회                      | ManageLayout, RecruitmentHistoryTable, StatusBadge                   | loading, empty, filter, sort, 403/404, network                                  |
 | `/groups/:groupId/manage/recruitments/:recruitmentId/registrations` | 해당 그룹 리더         | 신청자 목록, 승인/거절                   | ManageLayout, ApplicantRow, DecisionDialog, CursorList               | loading, empty, filter, cursor, 403/404/409, mutation states                     |
 | `*`                                                                 | 공개                   | 없음                                     | CenteredStateLayout, NotFoundState                                   | 404와 안전한 복귀 링크                                                           |
 

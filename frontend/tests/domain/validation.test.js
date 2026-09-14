@@ -9,7 +9,7 @@ import {
 describe("member form validation", () => {
   it.each(["자리", "자리하나", "김자리"])("accepts a 2-4 Hangul crew name: %s", (crewName) => {
     // Given
-    const values = { crewName, generation: 1, course: "FRONTEND" };
+    const values = { crewName, generation: 1, course: "FRONTEND", memberType: "CREW" };
 
     // When
     const result = memberSignupFormSchema.safeParse(values);
@@ -20,7 +20,7 @@ describe("member form validation", () => {
 
   it.each(["a자리", "자", "자리하나요"])("rejects an invalid crew name: %s", (crewName) => {
     // Given
-    const values = { crewName, generation: 1, course: "FRONTEND" };
+    const values = { crewName, generation: 1, course: "FRONTEND", memberType: "CREW" };
 
     // When
     const result = memberSignupFormSchema.safeParse(values);
@@ -229,7 +229,7 @@ describe("recruitment and registration validation", () => {
 
   it("does not send a reason for approval", () => {
     // Given
-    const values = { status: "APPROVED", decisionReason: "승인 사유" };
+    const values = { status: "APPROVED", rejectReason: "승인 사유" };
 
     // When
     const result = registrationDecisionFormSchema.safeParse(values);

@@ -3,6 +3,8 @@ package com.project.jarihana.support;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.session.Session;
+import org.springframework.session.SessionRepository;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -30,5 +32,10 @@ public class TestSupportConfig {
     @Primary
     public ImageStorageStub imageStorageStub() {
         return new ImageStorageStub();
+    }
+
+    @Bean
+    public SignupSessionFixture signupSessionFixture(SessionRepository<? extends Session> sessionRepository) {
+        return new SignupSessionFixture(sessionRepository);
     }
 }

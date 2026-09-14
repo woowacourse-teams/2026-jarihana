@@ -1,7 +1,7 @@
 package com.project.jarihana.registration.query.controller;
 
-import com.project.jarihana.common.auth.AccessTokenProvider;
-import com.project.jarihana.common.auth.AuthCookieProperties;
+import com.project.jarihana.auth.config.AuthCookieProperties;
+import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
@@ -130,7 +130,7 @@ class MyRegistrationQueryControllerTest extends IntegrationTestSupport {
                 .body("data.items.size()", equalTo(1))
                 .body("data.items[0].id", equalTo(rejected.getId().intValue()))
                 .body("data.items[0].status", equalTo("REJECTED"))
-                .body("data.items[0].decisionReason", equalTo("모집 인원이 마감되었습니다."))
+                .body("data.items[0].rejectReason", equalTo("모집 인원이 마감되었습니다."))
                 .body("data.nextCursor", nullValue())
                 .body("data.hasNext", equalTo(false));
 

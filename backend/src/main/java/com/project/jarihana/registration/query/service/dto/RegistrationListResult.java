@@ -17,15 +17,47 @@ public record RegistrationListResult(
             Long id,
             Long memberId,
             String crewName,
-            int generation,
+            Integer generation,
+            String memberType,
             String course,
             String message,
             String status,
             LocalDateTime registeredAt,
-            String decisionReason,
+            String rejectReason,
             LocalDateTime decidedAt,
             String decidedByType,
             Long decidedByMemberId
     ) {
+
+        public Item(
+                Long id,
+                Long memberId,
+                String crewName,
+                Integer generation,
+                String course,
+                String message,
+                String status,
+                LocalDateTime registeredAt,
+                String rejectReason,
+                LocalDateTime decidedAt,
+                String decidedByType,
+                Long decidedByMemberId
+        ) {
+            this(
+                    id,
+                    memberId,
+                    crewName,
+                    generation,
+                    "CREW",
+                    course,
+                    message,
+                    status,
+                    registeredAt,
+                    rejectReason,
+                    decidedAt,
+                    decidedByType,
+                    decidedByMemberId
+            );
+        }
     }
 }

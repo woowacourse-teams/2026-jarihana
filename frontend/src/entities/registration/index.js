@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { cursorPageSchema, entityIdSchema, localDateTimeSchema } from "../common/schemas.js";
 import { representativeImageUrlSchema } from "../group/index.js";
-import { courseSchema } from "../member/index.js";
+import { courseSchema, memberTypeSchema } from "../member/index.js";
 
 export const registrationStatusSchema = z.enum(["PENDING", "APPROVED", "REJECTED"]);
 export const registrationDecisionSchema = z.enum(["APPROVED", "REJECTED"]);
@@ -22,7 +22,7 @@ export const registrationCreateResponseSchema = z.object({
 export const registrationDecisionResponseSchema = z.object({
   id: entityIdSchema,
   status: registrationStatusSchema,
-  decisionReason: z.string().nullable(),
+  rejectReason: z.string().nullable(),
   decidedAt: localDateTimeSchema,
   decidedBy: decisionActorSchema
 });
@@ -32,13 +32,14 @@ export const registrationSchema = z.object({
   member: z.object({
     id: entityIdSchema,
     crewName: z.string(),
-    generation: z.number().int().positive(),
-    course: courseSchema
+    memberType: memberTypeSchema,
+    generation: z.number().int().positive().nullable(),
+    course: courseSchema.nullable()
   }),
   message: z.string().nullable(),
   status: registrationStatusSchema,
   registeredAt: localDateTimeSchema,
-  decisionReason: z.string().nullable(),
+  rejectReason: z.string().nullable(),
   decidedAt: localDateTimeSchema.nullable(),
   decidedBy: decisionActorSchema.nullable()
 });

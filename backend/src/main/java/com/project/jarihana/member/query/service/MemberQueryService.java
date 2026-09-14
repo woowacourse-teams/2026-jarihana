@@ -33,7 +33,7 @@ public class MemberQueryService {
                     .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHENTICATED, UNAUTHENTICATED_MESSAGE));
         }
         if (query.signupGithubId() != null) {
-            return MyProfileResult.signupRequired();
+            return MyProfileResult.signupRequired(query.signupGithubId());
         }
         throw new BusinessException(ErrorCode.UNAUTHENTICATED, UNAUTHENTICATED_MESSAGE);
     }
@@ -43,6 +43,7 @@ public class MemberQueryService {
                 projection.id(),
                 projection.crewName(),
                 projection.generation(),
+                projection.memberType(),
                 projection.course(),
                 projection.githubId()
         ));

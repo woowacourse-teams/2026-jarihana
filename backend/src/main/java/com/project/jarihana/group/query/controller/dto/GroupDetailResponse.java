@@ -94,7 +94,13 @@ public record GroupDetailResponse(
         }
     }
 
-    public record GroupLeader(Long memberId, String crewName, int generation, String avatarUrl) {
+    public record GroupLeader(
+            Long memberId,
+            String crewName,
+            Integer generation,
+            String memberType,
+            String avatarUrl
+    ) {
 
         private static GroupLeader from(GroupDetailMember member) {
             if (member == null) {
@@ -104,6 +110,7 @@ public record GroupDetailResponse(
                     member.memberId(),
                     member.member().getCrewName(),
                     member.member().getGeneration(),
+                    member.member().getMemberType().name(),
                     GithubAvatarUrl.from(member.member().getGithubId())
             );
         }
