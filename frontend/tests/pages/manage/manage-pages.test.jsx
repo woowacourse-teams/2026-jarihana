@@ -15,7 +15,9 @@ import {
 } from "../../../src/features/recruitment/index.js";
 import {
   useDecideRegistration,
-  useInfiniteRegistrations
+  useInfiniteRegistrations,
+  useMarkRegistrationsRead,
+  useRegistrationSummary
 } from "../../../src/features/registration/index.js";
 import { useLocation, useParams } from "react-router";
 
@@ -49,7 +51,9 @@ jest.mock("../../../src/features/recruitment/index.js", () => ({
 
 jest.mock("../../../src/features/registration/index.js", () => ({
   useDecideRegistration: jest.fn(),
-  useInfiniteRegistrations: jest.fn()
+  useInfiniteRegistrations: jest.fn(),
+  useMarkRegistrationsRead: jest.fn(),
+  useRegistrationSummary: jest.fn()
 }));
 
 const queryResult = (items) => ({
@@ -61,6 +65,7 @@ const queryResult = (items) => ({
   isFetching: false,
   isFetchingNextPage: false,
   isPending: false,
+  isSuccess: true,
   refetch: jest.fn()
 });
 
@@ -142,6 +147,19 @@ beforeEach(() => {
   useInfiniteRegistrations.mockImplementation((recruitmentId, filters = {}) =>
     queryResult([filters.status === "APPROVED" ? approvedRegistrationFixture : registrationFixture])
   );
+  useRegistrationSummary.mockReturnValue({
+    data: {
+      unreadCount: 0,
+      pendingCount: 0,
+      targetRecruitmentId: null,
+      latestRegistrationId: null
+    },
+    error: null,
+    isError: false,
+    isPending: false,
+    refetch: jest.fn()
+  });
+  useMarkRegistrationsRead.mockReturnValue({ isPending: false, mutate: jest.fn() });
   useDecideRegistration.mockReturnValue({ isPending: false, mutateAsync: jest.fn() });
 });
 

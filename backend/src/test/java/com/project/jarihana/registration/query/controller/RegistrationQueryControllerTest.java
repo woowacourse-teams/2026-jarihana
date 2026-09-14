@@ -281,4 +281,159 @@ class RegistrationQueryControllerTest extends IntegrationTestSupport {
                 .body("success", equalTo(false))
                 .body("error.code", equalTo("INVALID_PARAMETER"));
     }
+
+    @DisplayName("모임장이 그룹의 대기 신청 요약을 조회한다.")
+    @Test
+    void findsRegistrationSummaryForLeader() {
+        // Given
+        Member leader = saveMember("요약가온", Course.BACKEND, "registration-summary-query-leader");
+        Group group = saveGroup("신청 요약 조회 스터디");
+        Group otherGroup = saveGroup("다른 신청 요약 조회 스터디");
+        groupMemberRepository.save(GroupMember.createLeader(group, leader, NOW));
+        GroupRecruitment openRecruitment = recruitmentRepository.save(GroupRecruitment.create(
+                group,
+                JoinMethod.APPROVAL,
+                3,
+                NOW.minusDays(1),
+                NOW.plusDays(1)
+        ));
+        GroupRecruitment closedRecruitment = recruitmentRepository.save(GroupRecruitment.create(
+                group,
+                JoinMethod.APPROVAL,
+                3,
+                NOW.minusDays(5),
+                NOW.plusDays(1)
+        ));
+        GroupRecruitment otherRecruitment = recruitmentRepository.save(GroupRecruitment.create(
+                otherGroup,
+                JoinMethod.APPROVAL,
+                3,
+                NOW.minusDays(1),
+                NOW.plusDays(1)
+        ));
+        savePendingRegistration(
+                openRecruitment,
+                saveMember("요약나래", Course.FRONTEND, "registration-summary-query-open"),
+                null,
+                NOW.minusHours(1)
+        );
+        Registration latest = savePendingRegistration(
+                closedRecruitment,
+                saveMember("요약다온", Course.ANDROID, "registration-summary-query-closed"),
+                null,
+                NOW
+        );
+        Registration approved = savePendingRegistration(
+                closedRecruitment,
+                saveMember("요약라온", Course.BACKEND, "registration-summary-query-approved"),
+                null,
+                NOW.plusMinutes(1)
+        );
+        Registration latestUnread = registrationRepository.save(
+                approved.approve(DecisionActor.member(leader.getId()), NOW.plusMinutes(2), 0)
+        );
+        recruitmentRepository.save(closedRecruitment.closeAt(NOW.plusMinutes(3)));
+        savePendingRegistration(
+                otherRecruitment,
+                saveMember("요약마루", Course.FRONTEND, "registration-summary-query-other"),
+                null,
+                NOW.plusHours(3)
+        );
+        String accessToken = accessTokenProvider.issue(leader.getId()).value();
+
+        // When / Then
+        given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .when()
+                .get("/groups/{groupId}/registrations/summary", group.getId())
+                .then()
+                .statusCode(200)
+                .body("success", equalTo(true))
+                .body("data.unreadCount", equalTo(3))
+                .body("data.pendingCount", equalTo(2))
+                .body("data.targetRecruitmentId", equalTo(latest.getRecruitment().getId().intValue()))
+                .body("data.latestRegistrationId", equalTo(latestUnread.getId().intValue()))
+                .body("error", nullValue());
+    }
+
+    @DisplayName("대기 신청이 없으면 0과 null 대상 모집 공고를 반환한다.")
+    @Test
+    void findsEmptyRegistrationSummaryForLeader() {
+        // Given
+        Member leader = saveMember("요약바다", Course.BACKEND, "registration-summary-query-empty-leader");
+        Group group = saveGroup("빈 신청 요약 조회 스터디");
+        groupMemberRepository.save(GroupMember.createLeader(group, leader, NOW));
+        recruitmentRepository.save(GroupRecruitment.create(
+                group,
+                JoinMethod.APPROVAL,
+                3,
+                NOW.minusDays(1),
+                NOW.plusDays(1)
+        ));
+
+        // When / Then
+        given()
+                .cookie(authCookieProperties.accessTokenName(), accessTokenProvider.issue(leader.getId()).value())
+                .when()
+                .get("/groups/{groupId}/registrations/summary", group.getId())
+                .then()
+                .statusCode(200)
+                .body("success", equalTo(true))
+                .body("data.unreadCount", equalTo(0))
+                .body("data.pendingCount", equalTo(0))
+                .body("data.targetRecruitmentId", nullValue())
+                .body("data.latestRegistrationId", nullValue())
+                .body("error", nullValue());
+    }
+
+    @DisplayName("인증 없이 대기 신청 요약을 조회할 수 없다.")
+    @Test
+    void rejectsUnauthenticatedRegistrationSummaryRequest() {
+        // Given / When / Then
+        given()
+                .when()
+                .get("/groups/{groupId}/registrations/summary", 1L)
+                .then()
+                .statusCode(401)
+                .body("success", equalTo(false))
+                .body("error.code", equalTo("UNAUTHENTICATED"));
+    }
+
+    @DisplayName("모임장이 아닌 회원의 대기 신청 요약 조회를 거부한다.")
+    @Test
+    void rejectsRegistrationSummaryRequestFromNonLeader() {
+        // Given
+        Member leader = saveMember("요약사랑", Course.BACKEND, "registration-summary-query-access-leader");
+        Member member = saveMember("요약아름", Course.FRONTEND, "registration-summary-query-access-member");
+        Group group = saveGroup("신청 요약 권한 스터디");
+        groupMemberRepository.save(GroupMember.createLeader(group, leader, NOW));
+        groupMemberRepository.save(GroupMember.createMember(group, member, NOW));
+
+        // When / Then
+        given()
+                .cookie(authCookieProperties.accessTokenName(), accessTokenProvider.issue(member.getId()).value())
+                .when()
+                .get("/groups/{groupId}/registrations/summary", group.getId())
+                .then()
+                .statusCode(403)
+                .body("success", equalTo(false))
+                .body("error.code", equalTo("GROUP_ACCESS_DENIED"));
+    }
+
+    @DisplayName("존재하지 않는 그룹의 대기 신청 요약은 404를 반환한다.")
+    @Test
+    void rejectsRegistrationSummaryForUnknownGroup() {
+        // Given
+        Member member = saveMember("요약이든", Course.BACKEND, "registration-summary-query-unknown");
+
+        // When / Then
+        given()
+                .cookie(authCookieProperties.accessTokenName(), accessTokenProvider.issue(member.getId()).value())
+                .when()
+                .get("/groups/{groupId}/registrations/summary", 999L)
+                .then()
+                .statusCode(404)
+                .body("success", equalTo(false))
+                .body("error.code", equalTo("GROUP_NOT_FOUND"));
+    }
 }

@@ -8,6 +8,7 @@ import com.project.jarihana.registration.query.repository.dto.*;
 import com.project.jarihana.registration.query.service.dto.MyRegistrationListResult;
 import com.project.jarihana.registration.query.service.dto.RegistrationListQuery;
 import com.project.jarihana.registration.query.service.dto.RegistrationListResult;
+import com.project.jarihana.registration.query.service.dto.RegistrationSummaryResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -80,6 +81,29 @@ public class RegistrationQueryService {
                 nextCursor,
                 page.hasNext()
         );
+    }
+
+    public RegistrationSummaryResult findRegistrationSummary(Long memberId, Long groupId) {
+        validateSummaryRequest(memberId, groupId);
+        if (!registrationListRepository.existsGroupById(groupId)) {
+            throw new BusinessException(ErrorCode.GROUP_NOT_FOUND, "그룹을 찾을 수 없습니다.");
+        }
+        if (!registrationListRepository.existsLeaderByGroupIdAndMemberId(groupId, memberId)) {
+            throw new BusinessException(ErrorCode.GROUP_ACCESS_DENIED, "현재 모임장만 신청 요약을 조회할 수 있습니다.");
+        }
+        RegistrationSummaryProjection summary = registrationListRepository.findSummaryByGroupId(groupId);
+        return new RegistrationSummaryResult(
+                summary.unreadCount(),
+                summary.pendingCount(),
+                summary.targetRecruitmentId(),
+                summary.latestRegistrationId()
+        );
+    }
+
+    private static void validateSummaryRequest(Long memberId, Long groupId) {
+        if (memberId == null || memberId < 1 || groupId == null || groupId < 1) {
+            throw invalidParameter();
+        }
     }
 
     private static RegistrationListResult.Item toResult(RegistrationListProjection projection) {

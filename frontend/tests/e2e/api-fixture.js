@@ -252,6 +252,7 @@ export async function installApiFixture(pageInstance, options = {}) {
     errorStatus: options.errorStatus ?? null,
     recruitments: options.recruitments ?? recruitmentItems,
     registrationPresent: true,
+    registrationUnread: true,
     unexpectedResponses: [],
     requests: []
   };
@@ -395,6 +396,18 @@ export async function installApiFixture(pageInstance, options = {}) {
         success({ groupId: group.id, leaderGroupMemberId: 102, previousLeaderGroupMemberId: 101 })
       );
     }
+    if (match(path, "/groups/:groupId/registrations/summary") && method === "GET") {
+      return json(
+        route,
+        success({
+          unreadCount: state.registrationPresent && state.registrationUnread ? 1 : 0,
+          pendingCount: state.registrationPresent ? 1 : 0,
+          targetRecruitmentId: state.registrationPresent ? recruitment.id : null,
+          latestRegistrationId:
+            state.registrationPresent && state.registrationUnread ? pendingRegistration.id : null
+        })
+      );
+    }
     if (match(path, "/groups/:groupId/recruitments") && method === "GET") {
       return json(route, success(page(state.recruitments)));
     }
@@ -425,6 +438,10 @@ export async function installApiFixture(pageInstance, options = {}) {
         route,
         success(page(registrations.filter((item) => state.registrationPresent || item.id !== 40)))
       );
+    }
+    if (match(path, "/recruitments/:recruitmentId/registrations/read") && method === "PATCH") {
+      state.registrationUnread = false;
+      return route.fulfill({ status: 204 });
     }
     if (match(path, "/recruitments/:recruitmentId/registrations") && method === "POST") {
       return json(
