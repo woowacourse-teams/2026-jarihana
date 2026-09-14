@@ -1,16 +1,16 @@
-# ADR 0008. 제한된 AWS 환경에서 단일 진입점과 단일 EC2를 사용한다
+# ADR 0009. 제한된 AWS 환경에서 단일 진입점과 단일 EC2를 사용한다
 
 - 상태: 채택
 - 날짜: 2026-08-25
 - 관련 문서: [프로젝트 운영 컨벤션](../conventions/project-operations.md),
-  [모노레포와 인프라 경계 ADR](0007-monorepo-application-infrastructure-boundaries.md),
+  [모노레포와 인프라 경계 ADR](0010-monorepo-application-infrastructure-boundaries.md),
   [프론트엔드 운영 배포 전제](../../../frontend/README.md#운영-배포-전제),
   [운영 Docker Compose](../../../infra/docker-compose.yml),
   [백엔드 Dockerfile](../../Dockerfile),
   [백엔드 배포 워크플로](../../../.github/workflows/backend-build.yml),
   [Access Token 쿠키 ADR](0002-access-token-cookie.md),
-  [OAuth 인가 요청 소유권 ADR](0003-oauth-authorization-ownership.md),
-  [CSRF Token 전달 ADR](0004-csrf-token-delivery.md)
+  [OAuth 인가 요청 소유권 ADR](0004-oauth-authorization-ownership.md),
+  [CSRF Token 전달 ADR](0005-csrf-token-delivery.md)
 
 ## 배경
 

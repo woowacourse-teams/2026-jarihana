@@ -1,4 +1,4 @@
-# ADR 0009. 운영 RDBMS로 PostgreSQL을 선택한다
+# ADR 0011. 운영 RDBMS로 PostgreSQL을 선택한다
 
 - 상태: 채택
 - 날짜: 2026-08-26

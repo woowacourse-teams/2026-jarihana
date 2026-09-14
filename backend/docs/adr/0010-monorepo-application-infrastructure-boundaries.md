@@ -1,4 +1,4 @@
-# ADR 0007. 단일 저장소에서 애플리케이션과 인프라 경계 분리
+# ADR 0010. 단일 저장소에서 애플리케이션과 인프라 경계 분리
 
 - 상태: 채택
 - 날짜: 2026-08-19
@@ -93,7 +93,7 @@ PostgreSQL을 실행하는 `docker-compose-local.yaml`도 백엔드 개발 환�
 - 수동으로 관리하는 S3와 CloudFront 설정은 아직 저장소에 문서화되어 있지 않다.
 - 프론트엔드의 S3 배포는 현재 수동이며 이후 GitHub Actions로 자동화할 예정이다.
 - 상세한 EC2, S3, CloudFront와 네트워크 구성은
-  [배포 토폴로지 ADR](0008-aws-deployment-topology.md)에서 다룬다.
+  [배포 토폴로지 ADR](0009-aws-deployment-topology.md)에서 다룬다.
 
 ## 결과
 
@@ -123,7 +123,7 @@ PostgreSQL을 실행하는 `docker-compose-local.yaml`도 백엔드 개발 환�
 - 프론트엔드 배포를 `frontend/**` 변경 경로 기반 GitHub Actions로 자동화한다.
 - S3와 CloudFront의 Origin, Behavior, 캐시와 배포 설정을 운영 문서로 남긴다.
 - EC2, Docker Compose, S3, CloudFront와 퍼블릭 Origin 제약을
-  [배포 토폴로지 ADR](0008-aws-deployment-topology.md)로 기록한다.
+  [배포 토폴로지 ADR](0009-aws-deployment-topology.md)로 기록한다.
 - 필요한 AWS 권한이 확보되면 수동 관리 중인 리소스를 IaC로 이전하고 `infra/`에서 관리한다.
 - 공유 패키지와 복잡한 프로젝트 의존 관계로 인해 빌드 시간이 실제 문제가 될 때 저장소 단위
   빌드 오케스트레이션 도입을 다시 검토한다.

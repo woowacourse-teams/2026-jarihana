@@ -4,7 +4,7 @@
   H2 유지는 검토 대상이 아니다. 나머지 결정은 채택을 기다리고 있다. 가장 먼저 확정해야 할 항목은
   도구를 선택하는 결정 4다.
 - 날짜: 2026-08-27
-- 관련 문서: [ADR 0009](0009-postgresql-rdbms-selection.md), [ADR 0008](0008-aws-deployment-topology.md),
+- 관련 문서: [ADR 0011](0011-postgresql-rdbms-selection.md), [ADR 0009](0009-aws-deployment-topology.md),
   [영속성 컨벤션](../conventions/persistence.md), [프로젝트 운영 컨벤션](../conventions/project-operations.md)
 - **이 문서는 아직 채택되지 않았다.** 현재 스키마 관리 방식과 그에 따른 비용을 기록하고, 도구 선택을
   팀의 결정 안건으로 제시한다. 결정이 내려지면 상태를 갱신한다.
@@ -17,7 +17,7 @@
 ## 배경
 
 [프로젝트 운영 컨벤션](../conventions/project-operations.md)의 ADR 우선 대상 첫 항목은
-"데이터베이스와 마이그레이션 도구"다. [ADR 0009](0009-postgresql-rdbms-selection.md)에서는
+"데이터베이스와 마이그레이션 도구"다. [ADR 0011](0011-postgresql-rdbms-selection.md)에서는
 DBMS를 선택했다. 그러나 **스키마를 누가 만들고 어떻게 변경할 것인가**는 아직 정하지 않았다.
 
 이 기준 없이도 개발을 이어갈 수 있었던 이유는 환경마다 스키마가 자동으로 생성되었기 때문이다.
@@ -66,12 +66,12 @@ CREATE TABLE IF NOT EXISTS image_upload (
 - **되돌릴 절차가 없다.** 애플리케이션을 롤백해도 스키마는 변경된 상태로 남는다.
 - **로컬 환경에서 운영 환경을 검증할 수 없다.** 로컬에서는 `update`를 사용하므로 엔티티만 수정해도
   스키마가 자동으로 변경된다. 따라서 운영에 필요한 DDL을 작성하지 않아도 로컬에서는 문제가 발생하지
-  않으며, 누락 사실은 배포 시점에야 드러난다. [ADR 0006](0006-api-prefix-backend-context-path.md)이
+  않으며, 누락 사실은 배포 시점에야 드러난다. [ADR 0007](0007-api-prefix-backend-context-path.md)이
   경로 계층에서 제거한 "로컬에서만 성립하는 구성"이 스키마 계층에는 그대로 남아 있다.
 
-여기에 테스트 환경에서 다른 DBMS를 사용한다는 문제까지 더해진다. ADR 0009에서도 이를 감수해야 할
-비용으로 기록했다. 테스트에서는 H2와 `create-drop`으로 스키마를 생성하므로 운영 스키마와의 일치
-여부를 검증하지 않는다. 실제로 이러한 차이 때문에 `nullable` 파라미터 CAST와 관련된 운영 오류가
+여기에 테스트 환경에서 다른 DBMS를 사용한다는 문제까지 더해진다.
+[ADR 0011](0011-postgresql-rdbms-selection.md)에서도 이를 감수해야 할 비용으로 기록했다. 테스트에서는
+H2와 `create-drop`으로 스키마를 생성하므로 운영 스키마와의 일치 여부를 검증하지 않는다. 실제로 이러한 차이 때문에 `nullable` 파라미터 CAST와 관련된 운영 오류가
 발생했다(PR #93). H2에서 정상적으로 동작하던 조회가 PostgreSQL에서는 실패했고, 모든 테스트를
 통과한 코드가 운영 환경에서 오류를 일으켰다.
 
@@ -122,7 +122,7 @@ PostgreSQL 실행에는 **로컬 Docker Compose 구성을 재사용**한다(팀 
 - 운영 DB에는 이미 데이터가 저장되어 있다. 베이스라인은 기존 스키마와 정확히 일치해야 하며, 처음
   적용할 때는 `baseline-on-migrate`로 기존 상태를 인정한 뒤 시작해야 한다.
 - 운영 DB는 PostgreSQL 컨테이너 안에 있고 호스트 포트를 열지 않는다
-  ([ADR 0008](0008-aws-deployment-topology.md)). 현재 스키마를 덤프하려면 EC2 안에서 컨테이너에
+  ([ADR 0009](0009-aws-deployment-topology.md)). 현재 스키마를 덤프하려면 EC2 안에서 컨테이너에
   직접 접속해야 한다.
 - 마이그레이션은 백엔드 컨테이너 기동 시점에 실행된다. 배포와 스키마 변경이 같은 순간에 일어나므로,
   기존 컬럼을 삭제하는 변경은 여러 단계로 나누어 배포해야 한다.
@@ -152,8 +152,8 @@ PostgreSQL 실행에는 **로컬 Docker Compose 구성을 재사용**한다(팀 
 - 어떤 변경 사항이 언제 적용되었는지 DB에 이력이 남는다.
 - 테스트, 로컬, 운영 환경의 스키마 생성 방식이 하나로 통일된다.
 - 테스트가 운영과 같은 DBMS에서 실행되어 PostgreSQL 고유 동작을 배포 전에 검증할 수 있다.
-  PR #93과 같은 실패를 CI에서 발견할 수 있다. ADR 0009가 감수 비용으로 적어 둔 "H2 테스트만으로는
-  PostgreSQL 동작을 검증할 수 없다"는 문제도 함께 해소된다.
+  PR #93과 같은 실패를 CI에서 발견할 수 있다. [ADR 0011](0011-postgresql-rdbms-selection.md)이
+  감수 비용으로 적어 둔 "H2 테스트만으로는 PostgreSQL 동작을 검증할 수 없다"는 문제도 함께 해소된다.
 - 테스트할 때마다 마이그레이션 파일이 실행되므로 파일 자체도 검증 대상이 된다.
 
 ### 감수하는 비용
@@ -175,10 +175,10 @@ PostgreSQL 실행에는 **로컬 Docker Compose 구성을 재사용**한다(팀 
   테스트 전용 서비스를 하나 더 둔다. 이 방식을 정하기 전에는 결정 6을 적용할 수 없다.
 - CI에서 컨테이너를 실행하는 단계를 `ci.yml`에 추가한다. 로컬과 같은 Compose 파일을 사용할지,
   GitHub Actions의 `services:` 블록을 사용할지 정한다. 후자를 선택하면 로컬과 CI의 구성이 다시
-  달라지므로 [ADR 0006](0006-api-prefix-backend-context-path.md)에서 해소한 것과 같은 격차가 생긴다.
+  달라지므로 [ADR 0007](0007-api-prefix-backend-context-path.md)에서 해소한 것과 같은 격차가 생긴다.
 - 테스트 프로필에서 H2 의존성과 `ddl-auto: create-drop`을 제거하고
   [`truncate.sql`](../../src/test/resources/sql/truncate.sql)을 PostgreSQL 구문으로 다시 작성한다.
-- [ADR 0009](0009-postgresql-rdbms-selection.md)를 개정한다. 감수 비용의 "테스트 환경은 H2를
+- [ADR 0011](0011-postgresql-rdbms-selection.md)을 개정한다. 감수 비용의 "테스트 환경은 H2를
   사용하므로 PostgreSQL 고유 기능과 쿼리의 동작을 H2 테스트만으로 검증할 수 없다"와 그에 딸린
   후속 작업은 결정 6으로 해소된다.
 - 운영 DB 백업 절차를 정한다. 마이그레이션이 실패했을 때 되돌릴 지점이 필요하다.
