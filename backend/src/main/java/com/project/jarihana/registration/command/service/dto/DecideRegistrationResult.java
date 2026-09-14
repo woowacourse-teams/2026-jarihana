@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 public record DecideRegistrationResult(
         long id,
         RegistrationStatus status,
-        String decisionReason,
+        String rejectReason,
         LocalDateTime decidedAt,
         DecisionActorType decidedByType,
         long decidedByMemberId

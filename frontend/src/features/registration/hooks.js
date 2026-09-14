@@ -67,10 +67,10 @@ export function useWithdrawRegistration(recruitmentId) {
 export function useDecideRegistration(recruitmentId) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ registrationId, status, decisionReason }) =>
+    mutationFn: ({ registrationId, status, rejectReason }) =>
       decideRegistration(recruitmentId, registrationId, {
         status,
-        ...(decisionReason ? { decisionReason } : {})
+        ...(rejectReason ? { rejectReason } : {})
       }),
     onSuccess: () => invalidateRegistrationViews(queryClient)
   });

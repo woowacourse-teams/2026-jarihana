@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 public record DecideRegistrationResponse(
         long id,
         RegistrationStatus status,
-        String decisionReason,
+        String rejectReason,
         LocalDateTime decidedAt,
         DecisionActorResponse decidedBy
 ) {
@@ -18,7 +18,7 @@ public record DecideRegistrationResponse(
         return new DecideRegistrationResponse(
                 result.id(),
                 result.status(),
-                result.decisionReason(),
+                result.rejectReason(),
                 result.decidedAt(),
                 new DecisionActorResponse(result.decidedByType(), result.decidedByMemberId())
         );
