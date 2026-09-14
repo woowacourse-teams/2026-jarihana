@@ -5,6 +5,71 @@
 - 신청 상태는 `PENDING → APPROVED | REJECTED`로만 변경된다.
 - 신청 철회는 상태 변경이 아니라 `Registration` Hard Delete다.
 
+### `GET /api/groups/{groupId}/registrations/summary`
+
+- 설명: 그룹의 미확인 신청과 처리 대기 신청 요약 조회
+- 권한: `LEADER`
+
+#### 응답 200
+
+```json
+{
+  "success": true,
+  "data": {
+    "unreadCount": 4,
+    "pendingCount": 3,
+    "targetRecruitmentId": 45,
+    "latestRegistrationId": 91
+  },
+  "error": null
+}
+```
+
+- `unreadCount`는 해당 그룹의 모든 모집 공고에서 `leaderViewedAt = null`인 신청을 상태와 관계없이 집계한다.
+- `pendingCount`는 해당 그룹의 모든 모집 공고에 속한 `PENDING` 신청을 집계한다.
+- 마감된 모집 공고의 신청도 두 집계에 포함하고 다른 그룹의 신청은 제외한다.
+- `targetRecruitmentId`는 가장 최근 미확인 신청이 속한 모집 공고 ID다. 미확인 신청이 없으면 가장 최근 `PENDING` 신청의 모집 공고 ID이며, 둘 다 없으면 `null`이다.
+- `latestRegistrationId`는 가장 최근 미확인 신청 ID이며 미확인 신청이 없으면 `null`이다.
+
+#### 예외
+
+| 상황 | 코드 | HTTP |
+| --- | --- | --- |
+| 인증 정보 없음·만료 | `UNAUTHENTICATED` | 401 |
+| 해당 그룹의 모임장이 아님 | `GROUP_ACCESS_DENIED` | 403 |
+| 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
+
+### `PATCH /api/recruitments/{recruitmentId}/registrations/read`
+
+- 설명: 신청 관리 목록에서 확인한 마지막 신청까지 읽음 처리
+- 권한: `LEADER`
+
+#### 요청
+
+```json
+{
+  "throughRegistrationId": 91
+}
+```
+
+- `throughRegistrationId`는 직전에 받은 신청 요약의 `latestRegistrationId`를 사용한다.
+- 요청한 모집에서 ID가 `throughRegistrationId` 이하이고 `leaderViewedAt`이 `null`인 신청만 현재 시각으로 갱신한다.
+- 다른 모집의 신청과 요청 처리 중 새로 생성되어 더 큰 ID를 받은 신청은 갱신하지 않는다.
+
+#### 응답 204 No Content
+
+본문이 없다.
+
+#### 예외
+
+| 상황 | 코드 | HTTP |
+| --- | --- | --- |
+| 인증 정보 없음·만료 | `UNAUTHENTICATED` | 401 |
+| 해당 그룹의 모임장이 아님 | `GROUP_ACCESS_DENIED` | 403 |
+| 모집 공고 없음 | `RECRUITMENT_NOT_FOUND` | 404 |
+| 종료된 그룹 | `GROUP_ENDED` | 409 |
+| `throughRegistrationId`가 양수가 아님 | `INVALID_PARAMETER` | 400 |
+
 ### `GET /api/recruitments/{recruitmentId}/registrations`
 
 - 설명: 모집 공고 신청자 목록 조회

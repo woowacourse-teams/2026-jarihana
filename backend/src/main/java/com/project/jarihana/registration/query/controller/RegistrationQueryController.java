@@ -6,6 +6,7 @@ import com.project.jarihana.registration.query.controller.dto.MyRegistrationList
 import com.project.jarihana.registration.query.controller.dto.MyRegistrationListResponse;
 import com.project.jarihana.registration.query.controller.dto.RegistrationListRequest;
 import com.project.jarihana.registration.query.controller.dto.RegistrationListResponse;
+import com.project.jarihana.registration.query.controller.dto.RegistrationSummaryResponse;
 import com.project.jarihana.registration.query.service.RegistrationQueryService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -48,6 +49,18 @@ public class RegistrationQueryController {
         return ResponseEntity.ok(ApiResponse.success(
                 MyRegistrationListResponse.from(
                         registrationQueryService.findMyRegistrations(memberId, request.toQuery())
+                )
+        ));
+    }
+
+    @GetMapping("/groups/{groupId}/registrations/summary")
+    public ResponseEntity<ApiResponse<RegistrationSummaryResponse>> findRegistrationSummary(
+            @PathVariable Long groupId,
+            @LoginMember Long memberId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                RegistrationSummaryResponse.from(
+                        registrationQueryService.findRegistrationSummary(memberId, groupId)
                 )
         ));
     }
