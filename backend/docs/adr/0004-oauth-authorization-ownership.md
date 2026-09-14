@@ -1,4 +1,4 @@
-# ADR 0003. GitHub OAuth 인가 시작의 소유와 state 검증
+# ADR 0004. GitHub OAuth 인가 시작의 소유와 state 검증
 
 - 상태: 채택
 - 날짜: 2026-08-20
@@ -9,7 +9,7 @@
   회의에서 이미 백엔드 인가 시작 엔드포인트를 두지 않기로 했다는 사실을 모른 채 내려졌다.
   결론을 뒤집고 `state` 검증 방식을 새로 정한다.
 - 개정: 2026-09-02. 후속 작업 세 항목을 모두 닫는다. 명세 갱신과 `state` 쿠키 합의는 구현으로
-  끝났고, 상위 도메인 공유 여부는 [ADR 0008](0008-aws-deployment-topology.md)의 단일 오리진
+  끝났고, 상위 도메인 공유 여부는 [ADR 0009](0009-aws-deployment-topology.md)의 단일 오리진
   구성 때문에 물을 필요가 없어졌다.
 
 ## 배경
@@ -147,6 +147,6 @@ GithubOAuthCommandController   session.removeAttribute(OAUTH_STATE)   삭제
   쿠키는 `Path=/`, `Max-Age=600`, `SameSite=Lax`로 심는다. HTTPS일 때만 `Secure`를 붙인다.
 - ~~운영 배포에서 프론트엔드와 백엔드가 상위 도메인을 공유하는지 확인한다. 공유하지 못하면 대안 A로
   전환하고 이 ADR을 개정한다.~~ **닫힘(2026-09-02).**
-  [ADR 0008](0008-aws-deployment-topology.md)이 CloudFront 단일 진입점을 확정해 프론트엔드와 API가
+  [ADR 0009](0009-aws-deployment-topology.md)가 CloudFront 단일 진입점을 확정해 프론트엔드와 API가
   같은 오리진이 됐다. 상위 도메인을 공유할 필요 자체가 없어졌으므로 대안 A로 전환할 조건도
   성립하지 않는다.

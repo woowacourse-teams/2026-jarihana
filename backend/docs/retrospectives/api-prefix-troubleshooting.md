@@ -13,8 +13,8 @@
 결론부터 말하면 백엔드에 `context-path: /api`를 줘서 접두사를 뗄 필요 자체를 없앴습니다. 왜 그쪽을
 골랐는지는 6절에 있습니다.
 
-결정 자체는 [ADR 0006](../adr/0006-api-prefix-backend-context-path.md)에, 시도 2의 개발 계정
-우회로를 폐지한 결정은 [ADR 0005](../adr/0005-remove-local-development-auth-bypass.md)에 있습니다.
+결정 자체는 [ADR 0007](../adr/0007-api-prefix-backend-context-path.md)에, 시도 2의 개발 계정
+우회로를 폐지한 결정은 [ADR 0006](../adr/0006-remove-local-development-auth-bypass.md)에 있습니다.
 이 문서는 그 결정에 이르기까지의 기록입니다.
 
 ---

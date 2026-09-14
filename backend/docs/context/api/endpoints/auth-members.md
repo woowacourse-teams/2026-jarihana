@@ -165,7 +165,7 @@ Location: /api/members/12
 
 이 엔드포인트는 만들지 않는다. 팀 회의에서 프론트엔드가 GitHub authorize URL로 직접 보내면
 되므로 백엔드에 둘 이유가 없다고 결론지었다. 근거와 그에 따른 `state` 검증 방식은
-[ADR 0003](../../../adr/0003-oauth-authorization-ownership.md)에 있다.
+[ADR 0004](../../../adr/0004-oauth-authorization-ownership.md)에 있다.
 
 이 엔드포인트는 현재 설계에서 제외되었다. 관련 결정이 다시 되살아나지 않도록 주의한다.
 `OAUTH_CONFIGURATION_ERROR`도 이 엔드포인트에서만 쓰이던 코드이므로 사용하지 않는다.
@@ -199,7 +199,7 @@ Location: {frontendOrigin}/oauth/callback?signupRequired=true|false
 
 토큰 전달 방식은 [ADR 0002](../../../adr/0002-access-token-cookie.md)에서 확정했다. Access Token과
 Refresh Token을 모두 `HttpOnly` 쿠키로 내린다. `state` 검증 방식은
-[ADR 0003](../../../adr/0003-oauth-authorization-ownership.md)을 따른다.
+[ADR 0004](../../../adr/0004-oauth-authorization-ownership.md)를 따른다.
 
 #### 예외
 

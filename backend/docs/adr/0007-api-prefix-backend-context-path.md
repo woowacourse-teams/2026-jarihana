@@ -1,8 +1,8 @@
-# ADR 0006. `/api` 접두사를 백엔드 `context-path`로 설정한다
+# ADR 0007. `/api` 접두사를 백엔드 `context-path`로 설정한다
 
 - 상태: 채택
 - 날짜: 2026-08-24
-- 관련 문서: [ADR 0005](0005-remove-local-development-auth-bypass.md),
+- 관련 문서: [ADR 0006](0006-remove-local-development-auth-bypass.md),
   [`/api` 접두사는 누가 떼는가](../retrospective/api-prefix-troubleshooting.md)
 - 이 문서는 `/api` 접두사를 처리하는 책임을 엣지 계층에서 백엔드 애플리케이션으로 옮긴다.
 
@@ -76,7 +76,7 @@ baseUrl = "/api/"        // frontend/src/shared/api/client.js
 ```
 
 로컬 실행을 위해 프론트엔드에 환경별 분기를 추가하면서 발생하는 문제는 이미 경험했다.
-[ADR 0005](0005-remove-local-development-auth-bypass.md)에서 폐지한 개발 계정 우회가 그 사례이며,
+[ADR 0006](0006-remove-local-development-auth-bypass.md)에서 폐지한 개발 계정 우회가 그 사례이며,
 이 우회로 인해 정상적인 로그인 동작을 검증하지 못했다. 따라서 API 주소에서도 같은 종류의 분기를
 제거한다.
 
@@ -113,13 +113,13 @@ CloudFront의 Origin Path도 검토했지만 사용할 수 없다. Origin Path�
 
 - 접두사를 제거하는 규칙 자체가 사라진다. 로컬과 운영 환경이 같은 경로를 같은 방식으로 처리한다.
 - 로컬 환경에서 로그인이 성공하면 운영 환경에서도 같은 경로로 요청이 처리된다고 기대할 수 있다.
-  ADR 0005에서 인증 경로에 적용한 환경 일관성을 경로 계층에도 확보한다.
+  ADR 0006에서 인증 경로에 적용한 환경 일관성을 경로 계층에도 확보한다.
 - CloudFront는 `/api/*`를 백엔드로, 나머지를 S3로 전달하는 분기만 유지한다. 새 함수가 필요 없다.
 - 프론트엔드는 `/api/`를 고정된 값으로 사용하며, 환경별 분기를 두지 않는다.
 - **경로를 명시하지 않은 쿠키의 범위가 `/api`로 제한된다.** `context-path`는 서블릿 경로만 변경하는
   것이 아니라, 경로를 지정하지 않은 쿠키의 기본 `Path`로도 사용된다. 이 결정을 적용한 다음 날
   CSRF 쿠키가 `Path=/api`로 설정되었고, 루트 경로에서 제공되는 SPA가 토큰을 읽지 못해 모든 변경
-  요청이 403 응답으로 차단되었다. [ADR 0004](0004-csrf-token-delivery.md)의 결정 6에서 쿠키 경로를
+  요청이 403 응답으로 차단되었다. [ADR 0005](0005-csrf-token-delivery.md)의 결정 6에서 쿠키 경로를
   `/`로 명시하여 문제를 해결했다.
   Access Token 쿠키는 [ADR 0002](0002-access-token-cookie.md)가 처음부터 경로를 `/`로 정해
   두어 영향을 받지 않았다. **추후 추가하는 쿠키는 경로를 반드시 명시한다.**

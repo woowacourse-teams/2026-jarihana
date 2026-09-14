@@ -1,8 +1,8 @@
-# ADR 0005. 로컬 개발 인증 우회의 제거
+# ADR 0006. 로컬 개발 인증 우회의 제거
 
 - 상태: 채택
 - 날짜: 2026-08-24
-- 관련 문서: [ADR 0001](0001-github-oauth-authentication.md), [ADR 0003](0003-oauth-authorization-ownership.md),
+- 관련 문서: [ADR 0001](0001-github-oauth-authentication.md), [ADR 0004](0004-oauth-authorization-ownership.md),
   [보안과 개인정보](../conventions/security.md), [테스트](../conventions/testing.md)
 - 이 문서는 로컬 개발 환경에서 GitHub OAuth를 우회하던 고정 회원 인증을 폐지한다.
 
@@ -38,7 +38,7 @@ redirect_uri=http://localhost:5173/oauth/github/callback      ->  redirect_uri_m
 > 이 검증 시점에는 개발 서버 프록시가 `pathRewrite`로 `/api` 접두사를 떼서 컨트롤러에 넘겼다.
 > 같은 날 이후 백엔드가 `context-path: /api`로 접두사를 직접 받게 바뀌어 프록시는 경로를 그대로
 > 전달한다. 콜백이 컨트롤러에 도달한다는 결론은 그대로지만 도달 방식이 다르다. 경위는
-> [ADR 0006](0006-api-prefix-backend-context-path.md)에 있다.
+> [ADR 0007](0007-api-prefix-backend-context-path.md)에 있다.
 
 ### 2. GitHub App이라 callback URL을 여러 개 둘 수 있다
 
