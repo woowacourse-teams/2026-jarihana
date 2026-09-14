@@ -117,7 +117,7 @@ class JpaRegistrationListRepositoryTest {
         assertThat(secondPage.items())
                 .extracting(RegistrationListProjection::id)
                 .containsExactly(rejected.getId());
-        assertThat(secondPage.items().get(0).decisionReason()).isEqualTo("거절 사유");
+        assertThat(secondPage.items().get(0).rejectReason()).isEqualTo("거절 사유");
         assertThat(secondPage.items().get(0).decidedByType()).isEqualTo(DecisionActorType.SYSTEM);
         assertThat(secondPage.items().get(0).decidedByMemberId()).isNull();
         assertThat(approvedPage.items())

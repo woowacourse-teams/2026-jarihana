@@ -65,8 +65,8 @@ export function RegistrationSummaryCard({ registration, action }) {
       ) : (
         <p className="muted-copy">남긴 신청 메시지가 없어요.</p>
       )}
-      {registration.decisionReason ? (
-        <p className="decision-reason">안내: {registration.decisionReason}</p>
+      {registration.rejectReason ? (
+        <p className="decision-reason">안내: {registration.rejectReason}</p>
       ) : null}
       {action ? <div className="registration-card__action">{action}</div> : null}
     </Card>
