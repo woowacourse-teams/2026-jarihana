@@ -30,7 +30,6 @@ import {
 } from "../../shared/ui/index.js";
 import { scheduleLines, typeLabel } from "../groups/pageUtils.js";
 import {
-  ReadOnlyFact,
   RepresentativeImageNotice,
   ScheduleFact,
   UnderlineField,
@@ -422,10 +421,6 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
                       />
                     </div>
                   </div>
-                  <ReadOnlyFact
-                    label="현재 멤버 수"
-                    value={Number.isInteger(group.memberCount) ? `${group.memberCount}명` : "확인 중"}
-                  />
                 </dl>
               </div>
             </div>
@@ -528,6 +523,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
               pending={savePending}
               type="submit"
               variant="primary"
+              className="group-editor__save-button"
             >
               모임 수정하기
             </Button>

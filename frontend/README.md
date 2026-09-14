@@ -133,6 +133,7 @@ E2E는 production API에 mock 성공 데이터를 넣지 않습니다. 테스트
 | `/groups/:groupId/manage`                                           | 해당 그룹 리더        | 그룹 수정, 대표 이미지 업로드, 일정, 종료 또는 삭제       |
 | `/groups/:groupId/manage/members`                                   | 해당 그룹 리더        | 멤버 목록과 리더 위임                                     |
 | `/groups/:groupId/manage/recruitments`                              | 해당 그룹 리더        | 모집 생성·마감                                            |
+| `/groups/:groupId/manage/recruitments/history`                      | 해당 그룹 리더        | 모집 이력 조회                                            |
 | `/groups/:groupId/manage/recruitments/:recruitmentId/registrations` | 해당 그룹 리더        | 신청 승인·거절                                            |
 | `/__showcase`                                                       | 개발 점검             | 공통 UI primitive 상태 점검용, navigation에 노출하지 않음 |
 | 그 외                                                               | 공개                  | 안전한 404 화면                                           |
@@ -226,7 +227,9 @@ rounded black header를 사용합니다. 새 token은 대비가 보강된 brand/
 `--border-thin`/`--border-strong`, 44px/48px touch target, 72px header geometry, 48rem/64rem
 breakpoint metadata를 포함합니다.
 
-공개 탐색은 desktop 3-column → tablet 2-column → mobile 1-column으로, group detail과 신청 관리는
+공개 탐색은 desktop(1024px 이상) 4-column → tablet(768–1023px) 3-column → mobile 2-column으로 바뀝니다.
+공통 shell 상한은 1440px이며, 좌우 내부 여백은 desktop 32px, tablet 24px, mobile 16px입니다.
+group detail과 신청 관리는
 desktop side rail → mobile 본문 아래 순서로 바뀝니다. 계정 화면은 profile/content split을 접고,
 리더 관리 화면은 group context tabs, 멤버 table/card, 모집 panel, 신청 operations rail을
 viewport에 맞춰 단일 column으로 재배치합니다.

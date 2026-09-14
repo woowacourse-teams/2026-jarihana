@@ -25,6 +25,10 @@ export const lazyPageRegistry = Object.freeze({
   GroupDetailPage: lazyNamed(loadGroupPages, "GroupDetailPage"),
   GroupManagePage: lazyNamed(loadGroupEditorPages, "GroupManagePage"),
   GroupMembersManagePage: lazyNamed(loadManagePages, "ManageMembersPage"),
+  GroupRecruitmentHistoryManagePage: lazyNamed(
+    loadManagePages,
+    "ManageRecruitmentHistoryPage"
+  ),
   GroupRecruitmentsManagePage: lazyNamed(loadManagePages, "ManageRecruitmentsPage"),
   GroupsPage: lazyNamed(loadGroupPages, "GroupsPage"),
   MyGroupsPage: lazyNamed(loadAccountPages, "MyGroupsPage"),

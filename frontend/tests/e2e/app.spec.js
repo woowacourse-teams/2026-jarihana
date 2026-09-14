@@ -45,6 +45,11 @@ const routes = [
   { expected: "멤버 관리", name: "members-manage", path: "/groups/10/manage/members" },
   { expected: "모집 관리", name: "recruitments-manage", path: "/groups/10/manage/recruitments" },
   {
+    expected: "모집 이력",
+    name: "recruitment-history-manage",
+    path: "/groups/10/manage/recruitments/history"
+  },
+  {
     expected: "프론트엔드 한 자리",
     name: "registrations-manage",
     path: "/groups/10/manage/recruitments/20/registrations"
@@ -324,6 +329,44 @@ test("places the desktop primary navigation beside the brand", async ({ page }) 
   expect(state.unexpectedResponses).toEqual([]);
 });
 
+test("opens recruitment history from the recruitment management tab", async ({ page }) => {
+  await page.setViewportSize({ height: 831, width: 1280 });
+  const state = await installApiFixture(page);
+
+  await page.goto("/groups/10/manage/recruitments");
+  await expect(page.getByRole("heading", { name: "모집 관리", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "모집 이력" }).click();
+
+  await expect(page).toHaveURL(/\/groups\/10\/manage\/recruitments\/history$/);
+  await expect(page.getByRole("heading", { name: "모집 이력", exact: true })).toBeVisible();
+  await expect(page.getByRole("table", { name: "모집 이력" })).toBeVisible();
+  await expect(page.getByRole("group", { name: "가입 방식 필터" })).toHaveCount(0);
+  expect(await page.getByRole("columnheader").allTextContents()).toEqual([
+    "등록일",
+    "모집 기간",
+    "모집 정원",
+    "승인 인원",
+    "가입 방식",
+    "상태"
+  ]);
+  const ascendingSortButton = page.getByRole("button", { name: "등록일 오름차순 정렬" });
+  const descendingSortButton = page.getByRole("button", { name: "등록일 내림차순 정렬" });
+  await expect(descendingSortButton).toHaveAttribute("aria-pressed", "true");
+  await ascendingSortButton.click();
+  await expect(page.locator("tbody tr").first().locator("td").first()).toHaveText("2026. 7. 1.");
+  await expect(ascendingSortButton).toHaveAttribute("aria-pressed", "true");
+  await descendingSortButton.click();
+  await expect(page.locator("tbody tr").first().locator("td").first()).toHaveText("2026. 8. 12.");
+  expect(await page.getByRole("row").count()).toBe(4);
+  await expect(page.getByRole("cell", { name: "모집 중", exact: true })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "모집 예정", exact: true })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "마감", exact: true })).toBeVisible();
+  expect(
+    state.requests.some(({ method, path }) => method === "GET" && path === "/groups/10/recruitments")
+  ).toBe(true);
+  expect(state.unexpectedResponses).toEqual([]);
+});
+
 test(
   "anonymous deep link preserves continuation and stubs GitHub OAuth",
   { tag: "@core" },
@@ -365,19 +408,119 @@ test(
     );
 
     await page.goto("/signup");
-    await page.getByLabel("크루 이름").fill("자리");
-    await page.getByLabel("기수").fill("8");
-    await page.getByLabel("과정").selectOption("FRONTEND");
-    await page.getByRole("button", { name: "가입 완료하기" }).click();
+    const crewOption = page.getByRole("radio", { name: "크루" });
+    const coachOption = page.getByRole("radio", { name: "코치" });
+    await expect(crewOption).toBeVisible();
+    await expect(coachOption).toBeVisible();
+    await expect(page.getByText("안녕하세요. 크루인가요? 코치인가요?")).toBeVisible();
 
-    await expect(page).toHaveURL(/\/my\/registrations$/);
+    const initialSignupState = await page.evaluate(() => {
+      const form = document.querySelector(".signup-form");
+      const image = document.querySelector(".signup-type-option__image");
+      const layout = document.querySelector(".signup-form__layout");
+      const prompt = document.querySelector(".signup-form__prompt");
+      return {
+        borderStyle: getComputedStyle(form).borderStyle,
+        imageTransform: getComputedStyle(image).transform,
+        imageWidth: image.getBoundingClientRect().width,
+        layoutTop: layout.getBoundingClientRect().top,
+        promptBottom: prompt.getBoundingClientRect().bottom
+      };
+    });
+
+    expect(initialSignupState.borderStyle).toBe("none");
+    expect(initialSignupState.imageTransform).toBe("matrix(2, 0, 0, 2, 0, 0)");
+    expect(initialSignupState.imageWidth).toBeGreaterThan(0);
+    expect(initialSignupState.promptBottom).toBeLessThanOrEqual(initialSignupState.layoutTop);
+
+    await coachOption.click();
+    await expect(page.locator(".signup-form__profile-panel")).toBeVisible();
+    await expect(page.getByText("안녕하세요 코치님 프로필을 입력해주세요")).toBeVisible();
+    await page.waitForTimeout(250);
+    const coachSignupLayout = await page.evaluate(() => {
+      const selectedOption = document.querySelector('.signup-type-option[aria-checked="true"]');
+      const panel = document.querySelector(".signup-form__profile-panel");
+      const heading = document.querySelector(".signup-form__profile-heading");
+      const avatar = document.querySelector(".signup-form__avatar");
+      const name = document.querySelector(".signup-form__name-input");
+      return {
+        panelRight: panel.getBoundingClientRect().right,
+        selectedOptionLeft: selectedOption.getBoundingClientRect().left,
+        headingTop: heading.getBoundingClientRect().top,
+        avatarTop: avatar.getBoundingClientRect().top,
+        nameTop: name.getBoundingClientRect().top
+      };
+    });
+
+    expect(coachSignupLayout.panelRight).toBeLessThan(coachSignupLayout.selectedOptionLeft);
+
+    await page.getByRole("button", { name: "유형 변경" }).click();
+    await expect(crewOption).toBeVisible();
+    await crewOption.click();
+    await expect(page.locator(".signup-form__profile-panel")).toBeVisible();
+    await expect(page.getByText("안녕하세요 크루님 프로필을 작성해주세요")).toBeVisible();
+    await page.waitForTimeout(250);
+    await expect
+      .poll(() =>
+        page.evaluate(() => getComputedStyle(document.querySelector(".signup-type-step")).transform)
+      )
+      .toBe("matrix(1, 0, 0, 1, -8, 0)");
+    const selectedSignupLayout = await page.evaluate(() => {
+      const selectedOption = document.querySelector('.signup-type-option[aria-checked="true"]');
+      const panel = document.querySelector(".signup-form__profile-panel");
+      const actions = document.querySelector(".signup-form__profile-actions");
+      const layout = document.querySelector(".signup-form__layout");
+      return {
+        panelRight: panel.getBoundingClientRect().right,
+        selectedOptionLeft: selectedOption.getBoundingClientRect().left,
+        panelBottom: panel.getBoundingClientRect().bottom,
+        layout: layout.getBoundingClientRect().toJSON(),
+        heading: document
+          .querySelector(".signup-form__profile-heading")
+          .getBoundingClientRect()
+          .toJSON(),
+        avatar: document.querySelector(".signup-form__avatar").getBoundingClientRect().toJSON(),
+        selectedOption: selectedOption.getBoundingClientRect().toJSON(),
+        actions: actions.getBoundingClientRect().toJSON(),
+        selectsBottom: document.querySelector(".signup-form__selects").getBoundingClientRect()
+          .bottom
+      };
+    });
+
+    expect(selectedSignupLayout.panelRight).toBeGreaterThan(selectedSignupLayout.selectedOptionLeft);
+    expect(Math.abs(coachSignupLayout.headingTop - selectedSignupLayout.heading.top)).toBeLessThan(
+      4
+    );
+    expect(Math.abs(coachSignupLayout.avatarTop - selectedSignupLayout.avatar.top)).toBeLessThan(4);
+    expect(
+      Math.abs(selectedSignupLayout.selectsBottom - selectedSignupLayout.selectedOption.bottom)
+    ).toBeLessThan(2);
+    expect(selectedSignupLayout.actions.top).toBeGreaterThan(
+      selectedSignupLayout.selectedOption.bottom
+    );
+    expect(
+      Math.abs(
+        selectedSignupLayout.actions.left +
+          selectedSignupLayout.actions.width / 2 -
+          (selectedSignupLayout.layout.left + selectedSignupLayout.layout.width / 2)
+      )
+    ).toBeLessThan(1);
+
+    await page.getByLabel("크루 이름").fill("자리");
+    await page.getByLabel("과정").selectOption("FRONTEND");
+    await page.getByLabel("기수").selectOption("8");
+    await page.getByRole("button", { name: "가입 완료하기" }).click();
+    await page.getByRole("button", { name: "확인" }).click();
+
+    await expect(page).toHaveURL(/\/my$/);
     const signupRequest = state.requests.find(
       (request) => request.method === "POST" && request.path === "/members"
     );
     expect(signupRequest?.postData).toEqual({
       course: "FRONTEND",
       crewName: "자리",
-      generation: 8
+      generation: 8,
+      memberType: "CREW"
     });
     expect(browserFailures).toEqual([]);
     expect(state.unexpectedResponses).toEqual([]);
@@ -426,7 +569,7 @@ test(
   }
 );
 
-test("group discovery aligns its sections and keeps status badges inside card bodies", async ({
+test("group discovery aligns its sections and places status badges inside the card body", async ({
   page
 }) => {
   await page.setViewportSize({ height: 806, width: 1159 });
@@ -447,21 +590,24 @@ test("group discovery aligns its sections and keeps status badges inside card bo
       grid: bounds(".groups-grid"),
       hero: bounds(".groups-hero"),
       image: bounds(".groups-grid .ui-group-card__image"),
+      meta: bounds(".groups-grid .ui-group-card__body > .ui-card__meta:first-child"),
       searchBorderRadius: Number.parseFloat(searchStyle.borderRadius),
-      searchBorderStyle: searchStyle.borderStyle,
+      searchBorderStyle: searchStyle.borderBottomStyle,
+      title: bounds(".groups-grid .ui-group-card__title"),
       tools: bounds(".groups-tools")
     };
   });
 
   expect(geometry.searchBorderStyle).toBe("solid");
-  expect(geometry.searchBorderRadius).toBeGreaterThan(0);
+  expect(geometry.searchBorderRadius).toBe(0);
   expect(geometry.hero.left).toBeCloseTo(geometry.tools.left, 0);
   expect(geometry.hero.right).toBeCloseTo(geometry.tools.right, 0);
   expect(geometry.hero.left).toBeCloseTo(geometry.grid.left, 0);
   expect(geometry.hero.right).toBeCloseTo(geometry.grid.right, 0);
+  expect(geometry.body.top).toBeCloseTo(geometry.image.bottom, 0);
+  expect(geometry.meta.top).toBeGreaterThanOrEqual(geometry.body.top);
   expect(geometry.badge.top).toBeGreaterThanOrEqual(geometry.body.top);
-  expect(geometry.badge.bottom).toBeLessThanOrEqual(geometry.body.bottom);
-  expect(geometry.badge.top).toBeGreaterThanOrEqual(geometry.image.bottom);
+  expect(geometry.badge.bottom).toBeLessThanOrEqual(geometry.title.top);
   await assertSurface(page, state, { axe: true });
 });
 

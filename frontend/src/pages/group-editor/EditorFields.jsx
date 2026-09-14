@@ -93,18 +93,6 @@ export function UnderlineSelect({
   );
 }
 
-/* 상세 페이지의 dt/dd와 같은 모양. 밑줄이 없으니 고칠 수 없는 값이라는 게 읽힌다. */
-export function ReadOnlyFact({ label, value }) {
-  return (
-    <div className="group-fact group-fact--readonly">
-      <div>
-        <dt>{label}</dt>
-        <dd>{value}</dd>
-      </div>
-    </div>
-  );
-}
-
 /* 일정은 모달에서 고친다. 히어로에는 상세 페이지와 같은 요약만 남는다. */
 /*
  * 일정은 모달에서 고치므로, 일정 오류를 모달 안에서만 보여주면 모달을 닫는 순간

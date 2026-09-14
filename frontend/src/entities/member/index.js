@@ -3,13 +3,15 @@ import { z } from "zod";
 import { cursorPageSchema, entityIdSchema, localDateTimeSchema } from "../common/schemas.js";
 import { groupRoleSchema } from "../group/index.js";
 
+export const memberTypeSchema = z.enum(["CREW", "COACH"]);
 export const courseSchema = z.enum(["BACKEND", "FRONTEND", "ANDROID"]);
 
 export const memberSchema = z.object({
   id: entityIdSchema,
   crewName: z.string(),
-  generation: z.number().int().positive(),
-  course: courseSchema,
+  memberType: memberTypeSchema,
+  generation: z.number().int().positive().nullable(),
+  course: courseSchema.nullable(),
   avatarUrl: z.string()
 });
 
@@ -21,8 +23,9 @@ export const memberProfileSchema = z.discriminatedUnion("signupCompleted", [
 export const memberSignupResponseSchema = z.object({
   id: entityIdSchema,
   crewName: z.string(),
-  generation: z.number().int().positive(),
-  course: courseSchema,
+  memberType: memberTypeSchema,
+  generation: z.number().int().positive().nullable(),
+  course: courseSchema.nullable(),
   joinedAt: localDateTimeSchema
 });
 
@@ -30,8 +33,9 @@ export const groupMemberSchema = z.object({
   groupMemberId: entityIdSchema,
   memberId: entityIdSchema,
   crewName: z.string(),
-  generation: z.number().int().positive(),
-  course: courseSchema,
+  memberType: memberTypeSchema,
+  generation: z.number().int().positive().nullable(),
+  course: courseSchema.nullable(),
   avatarUrl: z.string().url().optional(),
   role: groupRoleSchema,
   joinedAt: localDateTimeSchema

@@ -1,6 +1,7 @@
 package com.project.jarihana.auth.command.service.dto;
 
-import com.project.jarihana.common.auth.IssuedAccessToken;
+import com.project.jarihana.auth.token.IssuedAccessToken;
+import com.project.jarihana.auth.token.IssuedRefreshToken;
 
 public record GithubLoginResult(
         boolean signupRequired,

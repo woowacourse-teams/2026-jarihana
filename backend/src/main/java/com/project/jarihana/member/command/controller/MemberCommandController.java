@@ -1,7 +1,7 @@
 package com.project.jarihana.member.command.controller;
 
-import com.project.jarihana.common.auth.AuthCookieFactory;
-import com.project.jarihana.common.auth.SignupSession;
+import com.project.jarihana.auth.cookie.AuthCookieFactory;
+import com.project.jarihana.auth.session.SignupSession;
 import com.project.jarihana.common.response.ApiResponse;
 import com.project.jarihana.member.command.controller.dto.MemberSignupRequest;
 import com.project.jarihana.member.command.controller.dto.MemberSignupResponse;
@@ -52,26 +52,15 @@ public class MemberCommandController {
                 signupSession.githubId(servletRequest).orElse(null),
                 request.crewName(),
                 request.generation(),
-                request.course()
+                request.course(),
+                request.memberType()
         );
         MemberSignupResult result = memberCommandService.signup(command);
         signupSession.invalidate(servletRequest);
 
         return ResponseEntity.created(URI.create(MEMBER_LOCATION_PREFIX + result.id()))
-                .header(HttpHeaders.SET_COOKIE, accessTokenCookie(result))
-                .header(HttpHeaders.SET_COOKIE, refreshTokenCookie(result))
+                .header(HttpHeaders.SET_COOKIE, authCookieFactory.accessToken(result.accessToken()).toString())
+                .header(HttpHeaders.SET_COOKIE, authCookieFactory.refreshToken(result.refreshToken()).toString())
                 .body(ApiResponse.success(MemberSignupResponse.from(result)));
-    }
-
-    private String accessTokenCookie(MemberSignupResult result) {
-        return authCookieFactory
-                .accessToken(result.accessToken().value(), result.accessToken().validity())
-                .toString();
-    }
-
-    private String refreshTokenCookie(MemberSignupResult result) {
-        return authCookieFactory
-                .refreshToken(result.refreshToken().value(), result.refreshToken().validity())
-                .toString();
     }
 }
