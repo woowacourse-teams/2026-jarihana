@@ -3,7 +3,7 @@
 - 상태: 채택
 - 날짜: 2026-08-24
 - 관련 문서: [ADR 0006](0006-remove-local-development-auth-bypass.md),
-  [`/api` 접두사는 누가 떼는가](../retrospective/api-prefix-troubleshooting.md)
+  [`/api` 접두사는 누가 떼는가](../retrospectives/api-prefix-troubleshooting.md)
 - 이 문서는 `/api` 접두사를 처리하는 책임을 엣지 계층에서 백엔드 애플리케이션으로 옮긴다.
 
 ## 배경

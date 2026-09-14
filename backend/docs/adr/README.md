@@ -21,7 +21,7 @@
 | 0011 | [운영 RDBMS로 PostgreSQL을 선택한다](0011-postgresql-rdbms-selection.md) | 채택 | 2026-08-26 | |
 | 0012 | [데이터베이스 스키마를 저장소가 소유한다](0012-database-schema-management.md) | 제안 | 2026-08-27 | 도구 미확정. 채택되면 0011의 감수 비용을 닫는다 |
 
-관련 회고: [`/api` 접두사는 누가 떼는가](../retrospective/api-prefix-troubleshooting.md)는
+관련 회고: [`/api` 접두사는 누가 떼는가](../retrospectives/api-prefix-troubleshooting.md)는
 ADR 0006과 0007에 이르기까지의 기록이다.
 
 ## 병합 대기 중인 ADR
