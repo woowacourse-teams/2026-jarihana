@@ -38,6 +38,14 @@
 - PR은 [PR 템플릿](../.github/pull_request_template.md)을 사용한다.
 - 템플릿의 `PR 내용`과 `변경 이력`을 작성하고, 관련 이슈는 PR 본문에 연결한다.
 
+## 이슈 컨벤션
+
+작업 요청은 목적에 맞는 이슈 템플릿을 사용한다.
+
+- [버그·계약 불일치](../.github/ISSUE_TEMPLATE/bug-contract.md)
+- [기능·개선 요청](../.github/ISSUE_TEMPLATE/feature-improvement.md)
+- [문서·구조 개선](../.github/ISSUE_TEMPLATE/documentation-structure.md)
+
 ## 커밋 컨벤션
 
 ### 형식
