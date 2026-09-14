@@ -117,20 +117,20 @@ export function GroupsPage() {
             <span aria-hidden="true">찾아보세요</span>
           </h1>
           <p>관심사와 맞는 모임을 발견해보세요.</p>
+          <button
+            aria-controls="groups-discovery"
+            aria-label="자리 둘러보기로 이동"
+            className="groups-hero__scroll-button"
+            onClick={scrollToDiscovery}
+            type="button"
+          >
+            <span>자리 둘러보기</span>
+            <svg aria-hidden="true" className="groups-hero__scroll-arrow" viewBox="0 0 24 24">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
         </div>
         <div className="groups-hero__art" role="img" aria-label="함께 탐험하는 크루 일러스트"></div>
-        <button
-          aria-controls="groups-discovery"
-          aria-label="자리 둘러보기로 이동"
-          className="groups-hero__scroll-button"
-          onClick={scrollToDiscovery}
-          type="button"
-        >
-          <span>자리 둘러보기</span>
-          <svg aria-hidden="true" className="groups-hero__scroll-arrow" viewBox="0 0 24 24">
-            <path d="m6 9 6 6 6-6" />
-          </svg>
-        </button>
       </section>
 
       <section className="groups-discovery" id="groups-discovery" aria-labelledby="recommended-groups">
@@ -139,6 +139,16 @@ export function GroupsPage() {
           <div className="groups-result-meta">
             {!query.isLoading && <span aria-live="polite">{visibleGroups.length}개 자리하는 중</span>}
           </div>
+          <Button
+            className="groups-result-heading__create-button"
+            onClick={handleCreateGroup}
+            size="sm"
+          >
+            모임 만들기
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path d="m9 6 6 6-6 6" />
+            </svg>
+          </Button>
         </div>
 
         <div className="groups-tools-panel">

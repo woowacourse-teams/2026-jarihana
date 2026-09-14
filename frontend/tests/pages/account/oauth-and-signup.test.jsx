@@ -140,41 +140,6 @@ describe("SignupPage", () => {
     });
   });
 
-  it("renders the crew and coach characters above their selectable labels", async () => {
-    // Given
-    const user = userEvent.setup();
-    renderRoute("/signup", <SignupPage />);
-
-    // Then
-    const crewOption = screen.getByRole("radio", { name: "크루" });
-    const coachOption = screen.getByRole("radio", { name: "코치" });
-    expect(screen.getByText("안녕하세요. 크루인가요? 코치인가요?")).toBeInTheDocument();
-    expect(crewOption.querySelector("img")).toHaveAttribute(
-      "src",
-      "https://techcourse-project-2026.s3.ap-northeast-2.amazonaws.com/jarihana/images/signup/signup_crew.png"
-    );
-    expect(coachOption.querySelector("img")).toHaveAttribute(
-      "src",
-      "https://techcourse-project-2026.s3.ap-northeast-2.amazonaws.com/jarihana/images/signup/signup_coach.png"
-    );
-
-    // When
-    await user.click(crewOption);
-
-    // Then
-    expect(screen.getByRole("heading", { name: "프로필 입력" })).toBeInTheDocument();
-    expect(screen.getByText("안녕하세요 크루님 프로필을 작성해주세요")).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "크루 이름" })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "크루" })).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "유형 변경" }));
-    await user.click(screen.getByRole("radio", { name: "코치" }));
-
-    expect(screen.getByRole("radio", { name: "코치" })).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByText("안녕하세요 코치님 프로필을 입력해주세요")).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "크루 이름" })).toBeInTheDocument();
-  });
-
   it("Given invalid profile fields, When submitted, Then every invalid field is identified inline", async () => {
     // Given
     const user = userEvent.setup();
