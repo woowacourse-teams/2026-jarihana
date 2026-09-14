@@ -141,11 +141,9 @@ frontend/src/app/AppHeader.jsx                                               라
 
 ## 후속 작업
 
-- `MemberQueryService.findMyProfile`의 분기 순서를 다시 본다. 우회로가 사라져 "memberId가 있으면
-  그 회원도 존재한다"는 전제가 다시 성립하지만, 회원 조회에 실패했을 때 401을 던지기보다 가입
-  세션으로 물러나는 편이 안전하다. 이 ADR의 범위 밖이라 따로 다룬다.
-- ~~`.env.example`과 `frontend/README.md`, `backend/docs/guide/intellij-local-run.md`의 redirect URI가
-  아직 `localhost:8080/api/...`를 가리킨다. 현재 동작하는 값으로 맞춘다.~~ 완료. 셋 다
+- `MemberQueryService.findMyProfile`의 분기 순서를 검토한다. 우회로가 사라져 "memberId가 있으면 그
+  회원이 존재한다"는 전제가 다시 성립하지만, 회원 조회 실패 시 401을 던지는 대신 가입 세션으로
+  폴백하는 편이 방어적이다. 이 ADR의 범위 밖이므로 별도로 다룬다.
+- ~~`backend/.env.example`과 `frontend/.env.example`의 redirect URI가 아직 `localhost:8080/api/...`를
+  가리킨다. 현재 동작하는 값으로 맞춘다.~~ 완료. 둘 다
   `http://localhost:5173/api/oauth/github/callback`로 통일했다.
-- ~~GitHub App에 등록된 callback URL 목록을 문서에 남겨 다음 사람이 추측하지 않게 한다.~~ 완료.
-  [IntelliJ 로컬 실행 가이드](../guide/intellij-local-run.md)에 표로 남겼다.

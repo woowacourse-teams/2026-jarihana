@@ -43,6 +43,15 @@ SQL을 직접 사용해도 기능 구현은 가능하지만 객체 조회와 저
 
 운영 환경에서는 `ddl-auto: update`와 `create`로 애플리케이션 스키마를 변경하지 않는다.
 
+### Group `meetingType` 마이그레이션
+
+기존 데이터에 `NULL`이 있다면 운영 반영 전에 `FLEXIBLE`로 보정한 뒤 `NOT NULL` 제약을 적용해야 한다.
+
+```sql
+UPDATE groups SET meeting_type = 'FLEXIBLE' WHERE meeting_type IS NULL;
+ALTER TABLE groups ALTER COLUMN meeting_type SET NOT NULL;
+```
+
 ### 엔티티 동일성
 
 - 엔티티의 `equals`와 `hashCode`는 ID 값만을 기준으로 구현한다.

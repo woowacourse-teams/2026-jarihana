@@ -130,7 +130,7 @@ class MyRegistrationQueryControllerTest extends IntegrationTestSupport {
                 .body("data.items.size()", equalTo(1))
                 .body("data.items[0].id", equalTo(rejected.getId().intValue()))
                 .body("data.items[0].status", equalTo("REJECTED"))
-                .body("data.items[0].decisionReason", equalTo("모집 인원이 마감되었습니다."))
+                .body("data.items[0].rejectReason", equalTo("모집 인원이 마감되었습니다."))
                 .body("data.nextCursor", nullValue())
                 .body("data.hasNext", equalTo(false));
 

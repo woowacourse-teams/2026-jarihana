@@ -229,7 +229,7 @@ describe("recruitment and registration validation", () => {
 
   it("does not send a reason for approval", () => {
     // Given
-    const values = { status: "APPROVED", decisionReason: "승인 사유" };
+    const values = { status: "APPROVED", rejectReason: "승인 사유" };
 
     // When
     const result = registrationDecisionFormSchema.safeParse(values);

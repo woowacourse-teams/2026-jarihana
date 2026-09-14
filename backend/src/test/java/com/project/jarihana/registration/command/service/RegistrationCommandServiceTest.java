@@ -253,7 +253,7 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
         // Then
         assertThat(result.id()).isEqualTo(registration.getId());
         assertThat(result.status()).isEqualTo(RegistrationStatus.APPROVED);
-        assertThat(result.decisionReason()).isNull();
+        assertThat(result.rejectReason()).isNull();
         assertThat(result.decidedAt()).isEqualTo(TestSupportConfig.FIXED_NOW);
         assertThat(result.decidedByType()).isEqualTo(DecisionActorType.MEMBER);
         assertThat(result.decidedByMemberId()).isEqualTo(leader.getId());
@@ -292,7 +292,7 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
 
         // Then
         assertThat(result.status()).isEqualTo(RegistrationStatus.REJECTED);
-        assertThat(result.decisionReason()).isEqualTo("모집 방향과 맞지 않습니다.");
+        assertThat(result.rejectReason()).isEqualTo("모집 방향과 맞지 않습니다.");
         assertThat(result.decidedAt()).isEqualTo(TestSupportConfig.FIXED_NOW);
         assertThat(result.decidedByType()).isEqualTo(DecisionActorType.MEMBER);
         assertThat(result.decidedByMemberId()).isEqualTo(leader.getId());
