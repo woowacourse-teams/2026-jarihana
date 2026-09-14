@@ -46,6 +46,17 @@
 - [기능·개선 요청](../.github/ISSUE_TEMPLATE/feature-improvement.md)
 - [문서·구조 개선](../.github/ISSUE_TEMPLATE/documentation-structure.md)
 
+## ADR 문서 구분
+
+이 모노레포는 백엔드와 프론트엔드의 기술 결정을 별도 ADR 체계로 관리한다. 두 체계의 번호는
+각 영역 안에서 독립적으로 부여하므로 서로 같은 번호를 사용할 수 있다.
+
+- 백엔드 결정은 [백엔드 ADR 목록](../backend/docs/adr/README.md)에서 관리한다.
+- 프론트엔드 결정은 [프론트엔드 ADR 목록](../frontend/docs/adr/README.md)에서 관리한다.
+
+다른 영역의 ADR을 참조할 때는 영역 이름과 해당 목록 또는 결정 문서 링크를 함께 적는다. 백엔드와
+프론트엔드 결정을 모두 인용할 때는 각각 별도의 링크로 표시해 번호가 혼동되지 않게 한다.
+
 ## 커밋 컨벤션
 
 ### 형식

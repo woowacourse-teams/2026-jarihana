@@ -4,7 +4,6 @@
 - 날짜: 2026-08-25
 - 관련 문서: [프로젝트 운영 컨벤션](../conventions/project-operations.md),
   [모노레포와 인프라 경계 ADR](0010-monorepo-application-infrastructure-boundaries.md),
-  [프론트엔드 운영 배포 전제](../../../frontend/README.md#운영-배포-전제),
   [운영 Docker Compose](../../../infra/docker-compose.yml),
   [백엔드 Dockerfile](../../Dockerfile),
   [백엔드 배포 워크플로](../../../.github/workflows/backend-build.yml),
