@@ -250,6 +250,7 @@ export async function installApiFixture(pageInstance, options = {}) {
     auth: options.auth ?? "authenticated",
     errorPath: options.errorPath ?? null,
     errorStatus: options.errorStatus ?? null,
+    recruitments: options.recruitments ?? recruitmentItems,
     registrationPresent: true,
     unexpectedResponses: [],
     requests: []
@@ -395,7 +396,7 @@ export async function installApiFixture(pageInstance, options = {}) {
       );
     }
     if (match(path, "/groups/:groupId/recruitments") && method === "GET") {
-      return json(route, success(page(recruitmentItems)));
+      return json(route, success(page(state.recruitments)));
     }
     if (match(path, "/groups/:groupId/recruitments") && method === "POST") {
       const body = request.postDataJSON();
