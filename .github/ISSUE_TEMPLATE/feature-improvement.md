@@ -6,6 +6,8 @@ labels: ""
 assignees: ""
 ---
 
+<!-- 제목은 `{type}: {title}` 형식으로 작성합니다. type은 docs/workflow.md의 커밋 타입을 따릅니다. -->
+
 ## 목표
 
 <!-- 무엇을 추가하거나 개선하려는지 작성해 주세요. -->

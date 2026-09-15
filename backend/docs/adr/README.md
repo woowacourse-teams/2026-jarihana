@@ -1,8 +1,8 @@
-# ADR 목록
+# 백엔드 ADR 목록
 
-되돌리기 어렵거나 영향 범위가 넓은 기술 결정을 이 디렉터리에 기록한다. 무엇을 ADR로 남기고
-어떻게 번호를 매기는지는 [프로젝트 운영 컨벤션](../conventions/project-operations.md)의
-"ADR 운영" 절에 있다.
+이 목록은 백엔드 기술 결정을 기록한다. 프론트엔드 결정은 별도 [프론트엔드 ADR 목록](../../../frontend/docs/adr/README.md)에서
+관리한다. 모노레포의 ADR 영역 구분과 교차 참조 방식은 [워크플로 컨벤션](../../../docs/workflow.md)에,
+백엔드 ADR 작성과 번호 관리는 [프로젝트 운영 컨벤션](../conventions/project-operations.md)의 "ADR 운영" 절에 있다.
 
 ## 기록된 결정
 
@@ -19,7 +19,7 @@
 | 0009 | [제한된 AWS 환경에서 단일 진입점과 단일 EC2를 사용한다](0009-aws-deployment-topology.md) | 채택 | 2026-08-25 | 0001, 0002, 0004, 0005의 후속 작업을 닫음 |
 | 0010 | [단일 저장소에서 애플리케이션과 인프라 경계 분리](0010-monorepo-application-infrastructure-boundaries.md) | 채택 | 2026-08-19 | |
 | 0011 | [운영 RDBMS로 PostgreSQL을 선택한다](0011-postgresql-rdbms-selection.md) | 채택 | 2026-08-26 | |
-| 0012 | [데이터베이스 스키마를 저장소가 소유한다](0012-database-schema-management.md) | 제안 | 2026-08-27 | 도구 미확정. 채택되면 0011의 감수 비용을 닫는다 |
+| 0012 | [데이터베이스 스키마를 저장소에서 관리한다](0012-database-schema-management.md) | 제안 | 2026-08-27 | 도구 미확정. 채택되면 0011의 감수 비용을 닫는다 |
 | 0013 | [자동화 테스트의 PostgreSQL을 Testcontainers로 실행한다](0013-testcontainers-test-database.md) | 채택 | 2026-09-14 | 0012의 테스트 DB Docker Compose 재사용 결정을 대체 |
 
 관련 회고: [`/api` 접두사는 누가 떼는가](../retrospectives/api-prefix-troubleshooting.md)는
@@ -45,4 +45,4 @@ ADR 0006과 0007에 이르기까지의 기록이다.
 | 0007 | 0010 | 단일 저장소에서 애플리케이션과 인프라 경계 분리 |
 | 0008 | 0009 | 제한된 AWS 환경에서 단일 진입점과 단일 EC2를 사용한다 |
 | 0009 | 0011 | 운영 RDBMS로 PostgreSQL을 선택한다 |
-| 0012 | 0012 | 데이터베이스 스키마를 저장소가 소유한다 (0010, 0011이 비어 있던 동안의 번호) |
+| 0012 | 0012 | 데이터베이스 스키마를 저장소에서 관리한다 (0010, 0011이 비어 있던 동안의 번호) |

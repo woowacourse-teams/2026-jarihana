@@ -5,11 +5,17 @@
 자리하나는 우아한테크코스 내부에 흩어진 동아리와 스터디 정보를 한곳에서 탐색할 수
 있도록 만드는 서비스다.
 
-이 문서와 여기서 참조하는 8개 모듈은 함께 하나의 구속력 있는 자리하나 팀 개발
-컨벤션이다. 이 문서는 모듈의 권한과 소유권을 정하는 인덱스이고, 각 모듈은 맡은
+저장소 공통 규칙과 이 문서에서 참조하는 8개 백엔드 모듈은 구속력 있는 자리하나 팀 개발
+컨벤션이다. 이 문서는 백엔드 모듈의 권한과 소유권을 정하는 인덱스이고, 각 문서는 맡은
 분야의 확정 규칙을 소유한다.
 
-## 구속력 있는 모듈
+## 저장소 공통 규칙
+
+| 문서 | 책임 |
+| --- | --- |
+| [workflow.md](../../docs/workflow.md) | 공통 브랜치·PR·이슈·커밋 정책, ADR 영역 구분과 교차 참조 |
+
+## 백엔드 구속력 있는 모듈
 
 | 모듈 | 책임 |
 | --- | --- |
@@ -20,7 +26,7 @@
 | [persistence.md](conventions/persistence.md) | JPA, 트랜잭션, 조회, DB와 삭제 |
 | [time.md](conventions/time.md) | 날짜, 시간, 현재 시각 |
 | [security.md](conventions/security.md) | 인증·인가, 비밀값, 개인정보 |
-| [project-operations.md](conventions/project-operations.md) | ADR, 프로필, 빌드, 실행 환경, 저장소 명령 |
+| [project-operations.md](conventions/project-operations.md) | 백엔드 ADR, 프로필, 빌드, 실행 환경, 저장소 명령 |
 
 `../proposals/convention-review.md`는 사용자가 명시적으로 재검토를 요청할 때만 읽는 비구속
 보류 문서이며, 이 컨벤션의 구속력 있는 규칙이나 모듈 소유권에 포함하지 않는다.
