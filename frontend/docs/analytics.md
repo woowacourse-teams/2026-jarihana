@@ -65,7 +65,7 @@ DOM 태그와 요소 순서로 구분한다.
 | 이벤트                   | 허용하는 도메인 속성                          |
 | ------------------------ | --------------------------------------------- |
 | `signup_completed`       | `member_id`                                   |
-| `group_created`          | `group_id`, `status`                          |
+| `group_created`          | `group_id`, `group_type`, `status`            |
 | `recruitment_created`    | `group_id`, `recruitment_id`, `status`        |
 | `recruitment_closed`     | `group_id`, `recruitment_id`, `status`        |
 | `registration_submitted` | `recruitment_id`, `registration_id`, `status` |
@@ -73,6 +73,9 @@ DOM 태그와 요소 순서로 구분한다.
 | `registration_decided`   | `recruitment_id`, `registration_id`, `status` |
 
 버튼 클릭이나 캐시 갱신 성공이 아닌 도메인 API 성공을 기준으로 기록한다.
+모임 생성의 `group_type`은 성공한 생성 요청의 `type`에서 가져오며,
+`CLUB`(동아리), `STUDY`(스터디), `SESSION`(같이해요)을 구분한다.
+요청의 이름·소개·설명 원문은 이벤트에 포함하지 않는다.
 신청 철회는 응답 본문이 없는 `204`이므로 요청에 사용한 신청 ID를 기록한다.
 가입 완료는 회원 생성 응답의 ID로 먼저 사용자를 식별한 뒤 전송한다.
 

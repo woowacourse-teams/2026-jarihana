@@ -39,9 +39,9 @@ const cases = [
     name: "group_created",
     useMutationHook: useCreateGroup,
     api: createGroup,
-    input: { name: "private group", description: "private description" },
+    input: { type: "SESSION", name: "private group", description: "private description" },
     response: { id: 12, status: "ACTIVE" },
-    properties: { group_id: 12, status: "ACTIVE" }
+    properties: { group_id: 12, group_type: "SESSION", status: "ACTIVE" }
   },
   {
     name: "recruitment_created",

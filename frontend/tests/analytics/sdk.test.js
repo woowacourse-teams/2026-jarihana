@@ -43,12 +43,16 @@ test("installed SDK identify and capture pass the sanitized required payload to 
   });
   try {
     sdk.identify("42");
-    sdk.capture("group_created", { group_id: 123, message: "private" });
+    sdk.capture("group_created", { group_id: 123, group_type: "SESSION", message: "private" });
     const identity = events.find((event) => event.event === "$identify");
     expect(identity.properties).toMatchObject({ token: "phc_test", distinct_id: "42" });
     expect(identity.properties.$anon_distinct_id).toBeTruthy();
     const created = events.find((event) => event.event === "group_created");
-    expect(created.properties).toMatchObject({ distinct_id: "42", group_id: 123 });
+    expect(created.properties).toMatchObject({
+      distinct_id: "42",
+      group_id: 123,
+      group_type: "SESSION"
+    });
     expect(JSON.stringify(created)).not.toContain("private");
   } finally {
     await sdk.shutdown();
