@@ -126,7 +126,7 @@ function ShowcaseContent() {
           />
           <FilterBar label="모집 방식">
             <Radio defaultChecked label="선착순" name="joinMethod" value="AUTO" />
-            <Radio label="모임장 승인" name="joinMethod" value="APPROVAL" />
+            <Radio label="승인제" name="joinMethod" value="APPROVAL" />
             <Checkbox label="모집 중인 모임만 보기" name="recruiting" />
           </FilterBar>
         </div>

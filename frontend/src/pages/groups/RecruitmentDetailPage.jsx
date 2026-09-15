@@ -117,7 +117,7 @@ export function RecruitmentDetailPage() {
               </div>
               <div>
                 <dt>참여 방식</dt>
-                <dd>{recruitment.joinMethod === "AUTO" ? "선착순" : "승인 가입"}</dd>
+                <dd>{recruitment.joinMethod === "AUTO" ? "선착순" : "승인제"}</dd>
               </div>
             </dl>
           </section>

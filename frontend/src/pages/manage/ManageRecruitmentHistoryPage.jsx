@@ -159,7 +159,7 @@ export function ManageRecruitmentHistoryPage() {
                   </td>
                   <td data-label="참여 방식">
                     <HistoryCellLabel>참여 방식</HistoryCellLabel>
-                    {recruitment.joinMethod === "APPROVAL" ? "모임장 승인" : "선착순"}
+                    {recruitment.joinMethod === "APPROVAL" ? "승인제" : "선착순"}
                   </td>
                   <td data-label="상태">
                     <HistoryCellLabel>상태</HistoryCellLabel>
