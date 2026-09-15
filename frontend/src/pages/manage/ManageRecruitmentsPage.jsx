@@ -431,6 +431,7 @@ export function ManageRecruitmentsPage() {
               <form
                 aria-label="새 모집 생성"
                 className="manage-form manage-create-wizard"
+                data-ph-capture-attribute-action="recruitment_create_form"
                 onSubmit={handleCreateSubmit}
               >
                 <fieldset className="manage-form-fieldset">
@@ -557,6 +558,11 @@ export function ManageRecruitmentsPage() {
                       </Button>
                     )}
                     <Button
+                      data-ph-capture-attribute-action={
+                        createStepIndex === finalCreateStepIndex
+                          ? "recruitment_create"
+                          : "recruitment_create_next"
+                      }
                       disabled={!canContinueCreateStep}
                       pending={createRecruitment.isPending || creating}
                       type="submit"
@@ -576,7 +582,11 @@ export function ManageRecruitmentsPage() {
                 {currentRecruitment ? (
                   <RecruitmentInformation
                     action={
-                      <Button onClick={() => setClosing(currentRecruitment)} variant="danger">
+                      <Button
+                        data-ph-capture-attribute-action="recruitment_close"
+                        onClick={() => setClosing(currentRecruitment)}
+                        variant="danger"
+                      >
                         모집 마감하기
                       </Button>
                     }
@@ -586,7 +596,12 @@ export function ManageRecruitmentsPage() {
                 ) : (
                   <RecruitmentEmptyState
                     action={
-                      <Button onClick={openCreateScreen} type="button" variant="primary">
+                      <Button
+                        data-ph-capture-attribute-action="recruitment_create_start"
+                        onClick={openCreateScreen}
+                        type="button"
+                        variant="primary"
+                      >
                         새 모집 만들기
                       </Button>
                     }

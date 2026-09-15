@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getSafeNextCursor } from "../../entities/cursor/index.js";
+import { captureEvent } from "../../shared/analytics/index.js";
 import { groupKeys } from "../group/index.js";
 import { recruitmentKeys } from "../recruitment/index.js";
 import {
@@ -78,7 +79,14 @@ export function useCreateRegistration(recruitmentId) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (values) => createRegistration(recruitmentId, values),
-    onSuccess: () => invalidateRegistrationViews(queryClient)
+    onSuccess: (registration) => {
+      captureEvent("registration_submitted", {
+        recruitment_id: recruitmentId,
+        registration_id: registration.id,
+        status: registration.status
+      });
+      return invalidateRegistrationViews(queryClient);
+    }
   });
 }
 
@@ -86,7 +94,13 @@ export function useWithdrawRegistration(recruitmentId) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (registrationId) => withdrawRegistration(recruitmentId, registrationId),
-    onSuccess: () => invalidateRegistrationViews(queryClient)
+    onSuccess: (_data, registrationId) => {
+      captureEvent("registration_withdrawn", {
+        recruitment_id: recruitmentId,
+        registration_id: registrationId
+      });
+      return invalidateRegistrationViews(queryClient);
+    }
   });
 }
 
@@ -98,6 +112,13 @@ export function useDecideRegistration(recruitmentId) {
         status,
         ...(rejectReason ? { rejectReason } : {})
       }),
-    onSuccess: () => invalidateRegistrationViews(queryClient)
+    onSuccess: (registration, { registrationId }) => {
+      captureEvent("registration_decided", {
+        recruitment_id: recruitmentId,
+        registration_id: registrationId,
+        status: registration.status
+      });
+      return invalidateRegistrationViews(queryClient);
+    }
   });
 }

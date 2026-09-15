@@ -13,3 +13,7 @@
 의존성 버전은 [package.json](package.json)과 `package-lock.json`에 고정되어 있습니다.
 
 TypeScript, Vite, Vitest는 사용하지 않습니다.
+
+## 운영 기능
+
+- [PostHog 분석 수집 설정과 이벤트 목록](docs/analytics.md)

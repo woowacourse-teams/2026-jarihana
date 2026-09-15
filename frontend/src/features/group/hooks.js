@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getSafeNextCursor } from "../../entities/cursor/index.js";
+import { captureEvent } from "../../shared/analytics/index.js";
 import {
   createGroup,
   deleteGroup,
@@ -59,7 +60,10 @@ export function useCreateGroup() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: createGroup,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: groupKeys.lists() })
+    onSuccess: (group) => {
+      captureEvent("group_created", { group_id: group.id, status: group.status });
+      return queryClient.invalidateQueries({ queryKey: groupKeys.lists() });
+    }
   });
 }
 

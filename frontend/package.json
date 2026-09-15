@@ -24,6 +24,7 @@
     "@tanstack/react-query": "5.101.4",
     "ky": "2.0.2",
     "lucide-react": "1.33.0",
+    "posthog-js": "1.433.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-hook-form": "7.85.0",

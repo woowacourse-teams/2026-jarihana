@@ -98,7 +98,7 @@ describe("identifier query guards", () => {
     const options = useDecideRegistration("23");
 
     // When
-    await options.onSuccess();
+    await options.onSuccess({ id: 29, status: "APPROVED" }, { registrationId: 29 });
 
     // Then
     expect(mockInvalidateQueries).toHaveBeenCalledWith({
