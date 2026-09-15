@@ -1,11 +1,16 @@
 import ky from "ky";
 import { z } from "zod";
+import { startRequestTracking } from "../analytics";
 import { getCookieValue } from "./cookies";
 import { ApiError } from "./errors";
 import { apiEnvelopeSchema } from "./schemas";
 
 const refreshSchema = z.object({ expiresIn: z.number().nonnegative() }).strict();
 const mutationMethods = new Set(["DELETE", "PATCH", "POST", "PUT"]);
+let requestSequence = 0;
+
+const createRequestId = () =>
+  globalThis.crypto?.randomUUID?.() ?? `request-${Date.now()}-${++requestSequence}`;
 
 const invalidResponse = (status, details) =>
   new ApiError({ code: "INVALID_RESPONSE", details, status });
@@ -64,7 +69,7 @@ export const createApiClient = ({
   let refreshPromise = null;
   let sessionExpiredHandler = onSessionExpired;
 
-  const send = async (path, options = {}) => {
+  const send = async (path, options, attemptContext) => {
     const method = (options.method ?? "GET").toUpperCase();
     const headers = new Headers(options.headers);
     if (mutationMethods.has(method)) {
@@ -74,18 +79,43 @@ export const createApiClient = ({
       }
     }
 
-    return transport(joinUrl(baseUrl, path), {
-      headers,
-      method,
-      ...(options.json === undefined ? {} : { json: options.json }),
-      ...(options.searchParams === undefined ? {} : { searchParams: options.searchParams })
-    });
+    const tracking = startRequestTracking({ endpoint: path, method, ...attemptContext });
+    let response;
+    try {
+      response = await transport(joinUrl(baseUrl, path), {
+        headers,
+        method,
+        ...(options.json === undefined ? {} : { json: options.json }),
+        ...(options.searchParams === undefined ? {} : { searchParams: options.searchParams })
+      });
+      const data = await parseResponse(response, options.schema);
+      tracking.finish({
+        status: response.status,
+        outcome: response.status >= 400 ? "api_error" : "success"
+      });
+      return data;
+    } catch (error) {
+      const outcome =
+        error instanceof ApiError
+          ? error.code === "INVALID_RESPONSE"
+            ? "invalid_response"
+            : "api_error"
+          : "network_error";
+      tracking.finish({
+        status: response?.status ?? 0,
+        outcome,
+        error_code: error instanceof ApiError ? error.code : "NETWORK_ERROR"
+      });
+      throw error;
+    }
   };
 
-  const refresh = async () => {
-    const response = await send("auth/refresh", { method: "POST" });
-    return parseResponse(response, refreshSchema);
-  };
+  const refresh = () =>
+    send(
+      "auth/refresh",
+      { method: "POST", schema: refreshSchema },
+      { logical_request_id: createRequestId(), attempt: 1, is_auth_refresh: true }
+    );
 
   const refreshOnce = () => {
     if (!refreshPromise) {
@@ -101,23 +131,26 @@ export const createApiClient = ({
     return refreshPromise;
   };
 
-  const request = async (path, options = {}, retryAttempted = false) => {
-    const response = await send(path, options);
+  const request = async (
+    path,
+    options = {},
+    attemptContext = { logical_request_id: createRequestId(), attempt: 1, is_auth_refresh: false }
+  ) => {
     try {
-      return await parseResponse(response, options.schema);
+      return await send(path, options, attemptContext);
     } catch (error) {
       const canRefresh =
         error instanceof ApiError &&
         error.status === 401 &&
         error.code === "UNAUTHENTICATED" &&
         options.authRetry !== false &&
-        !retryAttempted;
+        attemptContext.attempt === 1;
 
       if (!canRefresh) {
         throw error;
       }
       await refreshOnce();
-      return request(path, options, true);
+      return request(path, options, { ...attemptContext, attempt: 2 });
     }
   };
 

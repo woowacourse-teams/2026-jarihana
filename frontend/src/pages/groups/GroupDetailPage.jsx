@@ -425,7 +425,12 @@ function RecruitmentSummary({
       );
     }
     return (
-      <Button className="group-apply-button" onClick={openApplication} variant="primary">
+      <Button
+        className="group-apply-button"
+        data-ph-capture-attribute-action="registration_start"
+        onClick={openApplication}
+        variant="primary"
+      >
         가입 신청하기
       </Button>
     );
@@ -569,7 +574,11 @@ function ApplicationForm({ onSuccess, registration }) {
   }
 
   return (
-    <form className="group-application-form" onSubmit={submit}>
+    <form
+      className="group-application-form"
+      data-ph-capture-attribute-action="registration_form"
+      onSubmit={submit}
+    >
       <Textarea
         defaultValue=""
         description={`${messageLength}/1000자 · 운영자에게 전하고 싶은 내용을 적어주세요.`}
@@ -586,7 +595,12 @@ function ApplicationForm({ onSuccess, registration }) {
             : "신청을 보내지 못했어요. 다시 시도해주세요."}
         </p>
       ) : null}
-      <Button pending={registration.isPending} type="submit" variant="primary">
+      <Button
+        data-ph-capture-attribute-action="registration_submit"
+        pending={registration.isPending}
+        type="submit"
+        variant="primary"
+      >
         가입 신청하기
       </Button>
     </form>

@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { BrowserRouter, Route, Routes } from "react-router";
 
 import { Skeleton } from "../shared/ui";
+import { AnalyticsBridge } from "./AnalyticsBridge";
 import { AppShell } from "./AppShell";
 import { AuthGuard } from "./AuthGuard";
 import { LeaderGuard } from "./LeaderGuard";
@@ -94,6 +95,7 @@ export function AppRoutes() {
 export function AppRouter() {
   return (
     <BrowserRouter>
+      <AnalyticsBridge />
       <AppRoutes />
     </BrowserRouter>
   );

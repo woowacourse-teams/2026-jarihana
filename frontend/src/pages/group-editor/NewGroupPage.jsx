@@ -241,7 +241,12 @@ export function NewGroupPage() {
         </p>
       </header>
 
-      <form id="group-create-form" onSubmit={submit} noValidate>
+      <form
+        data-ph-capture-attribute-action="group_create_form"
+        id="group-create-form"
+        onSubmit={submit}
+        noValidate
+      >
         <section
           aria-label="모임 기본 정보"
           className="group-profile group-profile--default-image group-editor__profile"
@@ -256,7 +261,7 @@ export function NewGroupPage() {
             >
               <option value="STUDY">스터디</option>
               <option value="CLUB">동아리</option>
-              <option value="SESSION">세션</option>
+              <option value="SESSION">같이해요</option>
             </UnderlineSelect>
 
             <UnderlineField
@@ -368,6 +373,7 @@ export function NewGroupPage() {
           취소
         </Button>
         <Button
+          data-ph-capture-attribute-action="group_create"
           form="group-create-form"
           pending={createMutation.isPending || createLock.pending || imageUpload.isPending}
           type="submit"

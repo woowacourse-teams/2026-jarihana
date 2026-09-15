@@ -76,6 +76,10 @@ jobs:
           APP_GITHUB_REDIRECT_URI: ${{ secrets.OAUTH_GITHUB_REDIRECT_URI }}
           APP_OAUTH_COOKIE_NAME: oauthState
           DISABLE_REACT_DEVTOOLS: "1"
+          APP_POSTHOG_PROJECT_TOKEN: ${{ vars.POSTHOG_PROJECT_TOKEN }}
+          APP_POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
+          APP_ANALYTICS_ENABLED: ${{ vars.ANALYTICS_ENABLED || 'false' }}
+          APP_DEPLOY_ENV: production
         run: |
           set -euo pipefail
           npm run build

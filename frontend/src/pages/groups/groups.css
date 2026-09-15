@@ -116,6 +116,10 @@
   padding: 0;
 }
 
+.groups-empty-state .ui-state__visual {
+  width: min(60%, 22rem);
+}
+
 .groups-tools {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
@@ -207,62 +211,24 @@
 }
 
 .groups-hero__scroll-button {
-  position: relative;
-  isolation: isolate;
-  display: flex;
-  width: fit-content;
-  min-height: 0;
+  margin-block-start: var(--space-3);
+  padding-inline: var(--space-5);
+}
+
+.groups-hero__scroll-button > span {
+  display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  margin-block-start: var(--space-3);
-  padding-block: 0;
-  padding-inline: 0;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--color-muted-ink);
-  font: inherit;
-  font-size: var(--text-label);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-standard),
-  color var(--duration-fast) var(--ease-standard);
-}
-
-.groups-hero__scroll-button::after {
-  position: absolute;
-  z-index: -1;
-  right: 0;
-  top: 50%;
-  left: 0;
-  height: 1.3em;
-  background: transparent;
-  content: "";
-  pointer-events: none;
-  transform: translateY(-50%) rotate(-0.75deg) scaleX(0);
-  transform-origin: center;
-  transition: background-color var(--duration-fast) var(--ease-standard),
-  transform var(--duration-fast) var(--ease-standard);
-}
-
-.groups-hero__scroll-button:hover {
-  background: transparent;
-  color: var(--color-brand-ink);
-}
-
-.groups-hero__scroll-button:hover::after {
-  background: color-mix(in srgb, var(--color-brand) 25%, var(--color-surface));
-  transform: translateY(-50%) rotate(0deg) scaleX(1);
 }
 
 .groups-hero__scroll-arrow {
-  width: var(--space-5);
-  height: var(--space-5);
+  width: 1.125em;
+  height: 1.125em;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: var(--border-strong);
+  stroke-width: 1.75;
   animation: groups-scroll-indicator 1.8s var(--ease-standard) infinite;
 }
 
