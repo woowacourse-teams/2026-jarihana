@@ -198,7 +198,7 @@ export function RecruitmentCard({ as: LinkComponent = "a", href, recruitment }) 
       </StatusBadge>
       <h3 className="ui-recruitment-card__title">{recruitment.title || "새 참여자 모집"}</h3>
       <div className="ui-card__meta">
-        <span>{recruitment.joinMethod === "AUTO" ? "자동 승인" : "모임장 승인"}</span>
+        <span>{recruitment.joinMethod === "AUTO" ? "선착순" : "모임장 승인"}</span>
         <span>정원 {recruitment.capacity}명</span>
       </div>
     </Card>

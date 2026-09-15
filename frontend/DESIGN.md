@@ -232,7 +232,7 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   `--color-danger`, surface/text token만 사용하고 active underline과 모바일 horizontal scroll을
   방해하지 않는다. 신청 관리 화면에서 대상 모집의 신청자 목록을 불러오면 해당 목록에서 확인한 마지막
   신청까지 읽음 처리한다.
-  참여자는 검색·필터 가능한 table, 모집 이력은 가입 방식 필터와 최근 등록순 고정 정렬을 갖춘 table,
+  참여자는 검색·필터 가능한 table, 모집 이력은 참여 방식 필터와 최근 등록순 고정 정렬을 갖춘 table,
   모집은 summary + condition form + public-state rail, 신청은 applicant panel + operations rail로
   표현하고 mobile에서는 모두 single column으로 재배치한다. 모집 관리 기본 heading은
   `모집 관리` / `모집을 생성하고 이력을 관리해요.`를 사용하고, 새 모집 작성 중에는 같은 heading

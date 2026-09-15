@@ -486,7 +486,7 @@ function RecruitmentSummary({
             </dd>
           </div>
           <div>
-            <dt>가입 방식</dt>
+            <dt>참여 방식</dt>
             <dd>{recruitment.joinMethod === "AUTO" ? "선착순" : "승인제"}</dd>
           </div>
           <div>

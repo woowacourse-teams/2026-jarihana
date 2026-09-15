@@ -125,7 +125,7 @@ function ShowcaseContent() {
             placeholder="모임명으로 검색하기"
           />
           <FilterBar label="모집 방식">
-            <Radio defaultChecked label="자동 승인" name="joinMethod" value="AUTO" />
+            <Radio defaultChecked label="선착순" name="joinMethod" value="AUTO" />
             <Radio label="모임장 승인" name="joinMethod" value="APPROVAL" />
             <Checkbox label="모집 중인 모임만 보기" name="recruiting" />
           </FilterBar>

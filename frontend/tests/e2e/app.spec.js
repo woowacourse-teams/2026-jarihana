@@ -34,13 +34,13 @@ test("opens recruitment history from the recruitment management tab", async ({ p
   await expect(page).toHaveURL(/\/groups\/10\/manage\/recruitments\/history$/);
   await expect(page.getByRole("heading", { name: "모집 이력", exact: true })).toBeVisible();
   await expect(page.getByRole("table", { name: "모집 이력" })).toBeVisible();
-  await expect(page.getByRole("group", { name: "가입 방식 필터" })).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "참여 방식 필터" })).toHaveCount(0);
   expect(await page.getByRole("columnheader").allTextContents()).toEqual([
     "등록일",
     "모집 기간",
     "모집 정원",
     "승인 인원",
-    "가입 방식",
+    "참여 방식",
     "상태"
   ]);
   const ascendingSortButton = page.getByRole("button", { name: "등록일 오름차순 정렬" });

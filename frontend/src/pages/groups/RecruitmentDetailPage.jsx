@@ -116,8 +116,8 @@ export function RecruitmentDetailPage() {
                 <dd>{recruitment.remainingSeats}자리</dd>
               </div>
               <div>
-                <dt>가입 방식</dt>
-                <dd>{recruitment.joinMethod === "AUTO" ? "자동 가입" : "승인 가입"}</dd>
+                <dt>참여 방식</dt>
+                <dd>{recruitment.joinMethod === "AUTO" ? "선착순" : "승인 가입"}</dd>
               </div>
             </dl>
           </section>

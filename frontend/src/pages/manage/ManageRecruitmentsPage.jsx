@@ -514,7 +514,7 @@ export function ManageRecruitmentsPage() {
                               }}
                               value={form.joinMethod}
                             >
-                              <option value="AUTO">자동 승인</option>
+                              <option value="AUTO">선착순</option>
                               <option value="APPROVAL">모임장 승인</option>
                             </Select>
                           ) : null}
@@ -726,7 +726,7 @@ function RecruitmentInformation({
         </div>
         <div>
           <dt>승인 방식</dt>
-          <dd>{recruitment.joinMethod === "APPROVAL" ? "모임장 승인" : "자동 승인"}</dd>
+          <dd>{recruitment.joinMethod === "APPROVAL" ? "모임장 승인" : "선착순"}</dd>
         </div>
       </dl>
       <div className="manage-capacity-meter">
@@ -826,7 +826,7 @@ function RecruitmentPreview({ form, memberCount }) {
         </div>
         <div>
           <dt>승인 방식</dt>
-          <dd>{form.joinMethod === "APPROVAL" ? "모임장 승인" : "자동 승인"}</dd>
+          <dd>{form.joinMethod === "APPROVAL" ? "모임장 승인" : "선착순"}</dd>
         </div>
         <div>
           <dt>현재 참여자</dt>

@@ -327,7 +327,7 @@ function OperationsRail({ recruitmentQuery }) {
             <strong>
               승인 {recruitment.approvedCount} / 정원 {recruitment.capacity}명
             </strong>
-            <span>{recruitment.joinMethod === "APPROVAL" ? "모임장 승인" : "자동 승인"}</span>
+            <span>{recruitment.joinMethod === "APPROVAL" ? "모임장 승인" : "선착순"}</span>
           </div>
         ) : null}
       </section>
