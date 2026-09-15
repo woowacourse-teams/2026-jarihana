@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { storeReturnTarget, useAuth } from "../../features/auth/index.js";
 import { useInfiniteGroups } from "../../features/group/index.js";
-import signatureImage from "../../shared/assets/brand/jarihana-signature.png";
+import recruitmentEmptyIllustration from "../../shared/assets/illustrations/group-recruitment-empty.webp";
 import {
   Button,
   EmptyState,
@@ -117,18 +117,19 @@ export function GroupsPage() {
             <span aria-hidden="true">찾아보세요</span>
           </h1>
           <p>관심사와 맞는 모임을 발견해보세요.</p>
-          <button
+          <Button
             aria-controls="groups-discovery"
             aria-label="자리 둘러보기로 이동"
             className="groups-hero__scroll-button"
             onClick={scrollToDiscovery}
+            size="sm"
             type="button"
           >
-            <span>자리 둘러보기</span>
+            자리 둘러보기
             <svg aria-hidden="true" className="groups-hero__scroll-arrow" viewBox="0 0 24 24">
               <path d="m6 9 6 6 6-6" />
             </svg>
-          </button>
+          </Button>
         </div>
         <div className="groups-hero__art" role="img" aria-label="함께 탐험하는 크루 일러스트"></div>
       </section>
@@ -243,15 +244,10 @@ export function GroupsPage() {
         {!query.isLoading && !query.isError && visibleGroups.length === 0 && (
           <div className="groups-empty-state">
             <EmptyState
-              title="자리 없음!"
-              description="직접 자리를 만들어보세요."
+              description="직접 모임을 만들어보세요."
               showMark={false}
-              visual={<img alt="" src={signatureImage} />}
-              action={
-                <Button onClick={handleCreateGroup}>
-                  자리 만들기
-                </Button>
-              }
+              title={null}
+              visual={<img alt="" src={recruitmentEmptyIllustration} />}
             />
           </div>
         )}

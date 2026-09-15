@@ -132,7 +132,7 @@ export function AppHeader({ action = null, title = "" }) {
         <div className="app-header__inner">
           <Link aria-label="자리하나 홈" className="app-header__brand" to="/groups">
             <img alt="" aria-hidden="true" className="app-header__brand-mark" src={logoMark} />
-            <span className="app-header__brand-text">자리 하나?</span>
+            <span className="app-header__brand-text">자리하나?</span>
           </Link>
 
           <nav aria-label="주요 메뉴" className="app-header__desktop-nav">

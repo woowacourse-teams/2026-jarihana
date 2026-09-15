@@ -23,7 +23,6 @@ function watchBrowserFailures(page, expectedFetchFailures = []) {
   return failures;
 }
 
-
 test("opens recruitment history from the recruitment management tab", async ({ page }) => {
   await page.setViewportSize({ height: 831, width: 1280 });
   const state = await installApiFixture(page);
