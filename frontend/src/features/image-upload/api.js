@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { apiRequest } from "../../shared/api/index.js";
 import { ApiError } from "../../shared/api/errors.js";
+import { startRequestTracking } from "../../shared/analytics";
 
 export const IMAGE_ALLOWED_CONTENT_TYPES = Object.freeze([
   "image/jpeg",
@@ -62,6 +63,12 @@ export async function uploadImage(file, { fetcher = globalThis.fetch } = {}) {
     throw new ApiError({ code: "IMAGE_UPLOAD_FAILED", status: 0 });
   }
 
+  const tracking = startRequestTracking({
+    endpoint: "storage_upload",
+    method: "PUT",
+    attempt: 1,
+    is_auth_refresh: false
+  });
   let response;
   try {
     response = await fetcher(imageUpload.uploadUrl, {
@@ -71,11 +78,18 @@ export async function uploadImage(file, { fetcher = globalThis.fetch } = {}) {
       body: file
     });
   } catch {
+    tracking.finish({ status: 0, outcome: "network_error", error_code: "IMAGE_UPLOAD_FAILED" });
     throw new ApiError({ code: "IMAGE_UPLOAD_FAILED", status: 0 });
   }
   if (!response?.ok) {
-    throw new ApiError({ code: "IMAGE_UPLOAD_FAILED", status: response.status });
+    tracking.finish({
+      status: response?.status ?? 0,
+      outcome: "api_error",
+      error_code: "IMAGE_UPLOAD_FAILED"
+    });
+    throw new ApiError({ code: "IMAGE_UPLOAD_FAILED", status: response?.status ?? 0 });
   }
+  tracking.finish({ status: response.status, outcome: "success" });
   return imageUpload;
 }
 

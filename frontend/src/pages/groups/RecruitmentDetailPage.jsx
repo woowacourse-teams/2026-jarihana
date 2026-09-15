@@ -144,6 +144,7 @@ export function RecruitmentDetailPage() {
           )}
           {isOpen && !submitted && isAuthenticated && (
             <form
+              data-ph-capture-attribute-action="registration_form"
               onSubmit={(event) => {
                 event.preventDefault();
                 setConfirmOpen(true);
@@ -164,7 +165,12 @@ export function RecruitmentDetailPage() {
                     : "신청을 보내지 못했어요. 다시 시도해주세요."}
                 </p>
               )}
-              <Button type="submit" variant="primary" pending={registration.isPending}>
+              <Button
+                data-ph-capture-attribute-action="registration_submit"
+                type="submit"
+                variant="primary"
+                pending={registration.isPending}
+              >
                 가입 신청하기
               </Button>
             </form>

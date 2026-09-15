@@ -232,10 +232,14 @@ export function ManageRegistrationsPage() {
                   </div>
                   {registration.status === "PENDING" ? (
                     <div className="manage-card-actions">
-                      <Button onClick={() => setDecision({ registration, status: "APPROVED" })}>
+                      <Button
+                        data-ph-capture-attribute-action="registration_approve"
+                        onClick={() => setDecision({ registration, status: "APPROVED" })}
+                      >
                         승인
                       </Button>
                       <Button
+                        data-ph-capture-attribute-action="registration_reject"
                         onClick={() => setDecision({ registration, status: "REJECTED" })}
                         variant="secondary"
                       >
@@ -284,6 +288,7 @@ export function ManageRegistrationsPage() {
               취소
             </Button>
             <Button
+              data-ph-capture-attribute-action="registration_reject_confirm"
               onClick={confirmDecision}
               pending={decideRegistration.isPending}
               variant="danger"
