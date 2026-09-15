@@ -50,44 +50,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uk_member_coach_name
     ON member (crew_name)
     WHERE member_type = 'COACH';
 
-CREATE OR REPLACE FUNCTION prevent_member_name_conflict()
-RETURNS trigger
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    PERFORM pg_advisory_xact_lock(hashtextextended(NEW.crew_name, 0));
-
-    IF NEW.member_type = 'COACH' AND EXISTS (
-        SELECT 1
-        FROM member existing
-        WHERE existing.crew_name = NEW.crew_name
-          AND existing.id IS DISTINCT FROM NEW.id
-    ) THEN
-        RAISE EXCEPTION 'member name is already in use'
-            USING ERRCODE = '23505', CONSTRAINT = 'uk_member_name_scope';
-    END IF;
-
-    IF NEW.member_type = 'CREW' AND EXISTS (
-        SELECT 1
-        FROM member existing
-        WHERE existing.crew_name = NEW.crew_name
-          AND existing.id IS DISTINCT FROM NEW.id
-          AND (existing.member_type = 'COACH' OR existing.generation = NEW.generation)
-    ) THEN
-        RAISE EXCEPTION 'member name is already in use'
-            USING ERRCODE = '23505', CONSTRAINT = 'uk_member_name_scope';
-    END IF;
-
-    RETURN NEW;
-END;
-$$;
-
 DROP TRIGGER IF EXISTS trg_member_name_conflict ON member;
-
-CREATE TRIGGER trg_member_name_conflict
-BEFORE INSERT OR UPDATE OF crew_name, generation, member_type
-ON member
-FOR EACH ROW
-EXECUTE FUNCTION prevent_member_name_conflict();
+DROP FUNCTION IF EXISTS prevent_member_name_conflict();
 
 COMMIT;
