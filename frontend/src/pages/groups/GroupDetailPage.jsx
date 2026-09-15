@@ -518,19 +518,18 @@ function RecruitmentSummary({
       </div>
       <div className="group-recruitment-action">{applicationAction()}</div>
       <Modal
-        description={`운영자에게 전달할 ${participationLabel} 메시지를 작성해 주세요.`}
+        description="운영자에게 전달할 신청 메시지를 작성해 주세요."
         onClose={() => {
           if (!registration.isPending) setApplicationOpen(false);
         }}
         open={applicationOpen}
-        title={participationLabel}
+        title="신청"
       >
         <ApplicationForm
           onSuccess={() => {
             setApplicationOpen(false);
             setSubmitted(true);
           }}
-          participationLabel={participationLabel}
           registration={registration}
         />
       </Modal>
@@ -565,7 +564,7 @@ function RecruitmentHero({ empty = false }) {
   );
 }
 
-function ApplicationForm({ onSuccess, participationLabel, registration }) {
+function ApplicationForm({ onSuccess, registration }) {
   const messageReference = useRef(null);
   const [messageLength, setMessageLength] = useState(0);
 
@@ -585,7 +584,7 @@ function ApplicationForm({ onSuccess, participationLabel, registration }) {
       <Textarea
         defaultValue=""
         description={`${messageLength}/1000자 · 운영자에게 전하고 싶은 내용을 적어주세요.`}
-        label={`${participationLabel} 메시지`}
+        label="신청 메시지"
         maxLength={1000}
         onInput={(event) => setMessageLength(event.currentTarget.value.length)}
         ref={messageReference}
@@ -604,7 +603,7 @@ function ApplicationForm({ onSuccess, participationLabel, registration }) {
         type="submit"
         variant="primary"
       >
-        {`${participationLabel}하기`}
+        신청하기
       </Button>
     </form>
   );

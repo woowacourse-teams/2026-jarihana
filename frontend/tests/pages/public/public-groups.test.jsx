@@ -190,12 +190,12 @@ it("Given an approved group member, when the detail page renders, then applicati
 });
 
 it.each([
-  ["STUDY", "참여 신청하기", "참여 신청", "참여 신청 메시지", "참여 신청하기"],
-  ["CLUB", "참여 신청하기", "참여 신청", "참여 신청 메시지", "참여 신청하기"],
-  ["SESSION", "참여하기", "참여", "참여 메시지", "참여하기"]
+  ["STUDY", "참여 신청하기"],
+  ["CLUB", "참여 신청하기"],
+  ["SESSION", "참여하기"]
 ])(
-  "Given a %s group with an active recruitment, when the application form opens, then participation wording is used",
-  async (type, actionLabel, title, messageLabel, submitLabel) => {
+  "Given a %s group with an active recruitment, when the application form opens, then neutral application wording is used",
+  async (type, actionLabel) => {
     const user = userEvent.setup();
     groupHooks.useGroup.mockReturnValue({
       data: { ...group, type },
@@ -208,10 +208,11 @@ it.each([
     await user.click(screen.getByRole("button", { name: actionLabel }));
 
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByRole("heading", { name: title })).toBeInTheDocument();
-    expect(within(dialog).getByRole("textbox", { name: messageLabel })).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: submitLabel })).toBeInTheDocument();
+    expect(within(dialog).getByRole("heading", { name: "신청" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("textbox", { name: "신청 메시지" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "신청하기" })).toBeInTheDocument();
     expect(dialog).not.toHaveTextContent("가입");
+    expect(dialog).not.toHaveTextContent("참여");
   }
 );
 
