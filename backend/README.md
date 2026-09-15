@@ -9,7 +9,7 @@
 ```text
 2026-jarihana/
 ├── docs/
-│   └── workflow.md       # 저장소 공통 브랜치·PR·커밋 정책
+│   └── workflow.md       # 저장소 공통 브랜치·PR·커밋 및 ADR 영역·참조 정책
 ├── backend/              # 현재 디렉터리
 │   ├── AGENTS.md
 │   ├── README.md
@@ -56,7 +56,8 @@
 ## 문서 사용
 
 - 작업 규칙과 AI 문서 로딩은 이 디렉터리의 `AGENTS.md`를 확인합니다.
-- 공통 브랜치·PR·커밋 정책은 `../docs/workflow.md`를 확인합니다.
+- 공통 브랜치·PR·커밋 정책은 [워크플로 컨벤션](../docs/workflow.md)을 확인합니다.
+- ADR 영역 구분·교차 참조 규칙은 [워크플로 컨벤션](../docs/workflow.md)을 확인합니다.
 - 설계 의도는 `docs/context/`, 구속력 있는 구현 규칙은 `docs/conventions/`에서 확인합니다.
 
 ## 컨벤션 변경 위치
