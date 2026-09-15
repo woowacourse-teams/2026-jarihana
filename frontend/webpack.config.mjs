@@ -99,6 +99,7 @@ export default (_, arguments_) => {
           warnings: false
         }
       },
+      allowedHosts: [".trycloudflare.com", "localhost"],
       historyApiFallback: true,
       hot: true,
       port: 5173,
@@ -109,6 +110,31 @@ export default (_, arguments_) => {
           target: "http://localhost:8080"
         }
       ],
+      setupMiddlewares: (middlewares) => {
+        middlewares.unshift({
+          name: "group-share-preview",
+          middleware: async (request, response, next) => {
+            const groupPath = request.path.match(/^\/groups\/([1-9][0-9]*)\/?$/);
+            if (request.method !== "GET" || !groupPath || request.query.preview) {
+              next();
+              return;
+            }
+
+            try {
+              const previewResponse = await fetch(
+                `http://localhost:8080/api/share/groups/${groupPath[1]}`
+              );
+              response.status(previewResponse.status);
+              response.setHeader("Content-Type", "text/html; charset=UTF-8");
+              response.setHeader("Cache-Control", "no-store");
+              response.send(await previewResponse.text());
+            } catch (error) {
+              next(error);
+            }
+          }
+        });
+        return middlewares;
+      },
       static: {
         directory: path.resolve(directory, "public")
       }
