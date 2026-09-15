@@ -64,7 +64,7 @@ export const groupCreateFormSchema = groupModifyFormSchema
     if (values.type === "SESSION" && values.sessionSchedule === null) {
       context.addIssue({
         code: "custom",
-        message: "세션 일정을 입력해 주세요.",
+        message: "진행 날짜와 시간을 입력해 주세요.",
         path: ["sessionSchedule"]
       });
     }

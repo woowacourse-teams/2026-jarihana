@@ -45,7 +45,7 @@ export function Avatar({ alt = "", className, fallback = "?", size = "md", src }
 }
 
 function readableType(type) {
-  return { CLUB: "동아리", SESSION: "세션", STUDY: "스터디" }[type] || type || "모임";
+  return { CLUB: "동아리", SESSION: "같이해요", STUDY: "스터디" }[type] || type || "모임";
 }
 
 function scheduleFrequencyText(group) {

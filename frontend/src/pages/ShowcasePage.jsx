@@ -117,7 +117,7 @@ function ShowcaseContent() {
           <Select label="모임 유형" name="type" defaultValue="STUDY">
             <option value="CLUB">동아리</option>
             <option value="STUDY">스터디</option>
-            <option value="SESSION">세션</option>
+            <option value="SESSION">같이해요</option>
           </Select>
           <SearchField
             label="모임 검색"
@@ -144,7 +144,7 @@ function ShowcaseContent() {
               <option value="">전체</option>
               <option value="CLUB">동아리</option>
               <option value="STUDY">스터디</option>
-              <option value="SESSION">세션</option>
+              <option value="SESSION">같이해요</option>
             </Select>
             <Select label="모임 상태" name="groupStatus" defaultValue="ACTIVE">
               <option value="ACTIVE">활동 중</option>
