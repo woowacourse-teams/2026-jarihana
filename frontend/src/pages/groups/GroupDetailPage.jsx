@@ -359,6 +359,8 @@ function RecruitmentSummary({
   const registration = useCreateRegistration(recruitment?.id);
   const [applicationOpen, setApplicationOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const participationLabel = group.type === "SESSION" ? "참여" : "참여 신청";
+  const participationButtonLabel = `${participationLabel}하기`;
 
   const isAuthenticated = auth.status === "authenticated" || auth.isAuthenticated;
   const remainingSeats = recruitment
@@ -399,7 +401,7 @@ function RecruitmentSummary({
     if (isApprovedMember) {
       return (
         <Button disabled variant="secondary">
-          가입 완료!
+          참여 완료!
         </Button>
       );
     }
@@ -420,7 +422,7 @@ function RecruitmentSummary({
     if (!isAuthenticated) {
       return (
         <Button className="group-apply-button" onClick={() => auth.login?.()} variant="primary">
-          가입 신청하기
+          {participationButtonLabel}
         </Button>
       );
     }
@@ -431,7 +433,7 @@ function RecruitmentSummary({
         onClick={openApplication}
         variant="primary"
       >
-        가입 신청하기
+        {participationButtonLabel}
       </Button>
     );
   }
@@ -516,18 +518,19 @@ function RecruitmentSummary({
       </div>
       <div className="group-recruitment-action">{applicationAction()}</div>
       <Modal
-        description="운영자에게 전달할 가입 신청 메시지를 작성해 주세요."
+        description={`운영자에게 전달할 ${participationLabel} 메시지를 작성해 주세요.`}
         onClose={() => {
           if (!registration.isPending) setApplicationOpen(false);
         }}
         open={applicationOpen}
-        title="가입 신청"
+        title={participationLabel}
       >
         <ApplicationForm
           onSuccess={() => {
             setApplicationOpen(false);
             setSubmitted(true);
           }}
+          participationLabel={participationLabel}
           registration={registration}
         />
       </Modal>
@@ -562,7 +565,7 @@ function RecruitmentHero({ empty = false }) {
   );
 }
 
-function ApplicationForm({ onSuccess, registration }) {
+function ApplicationForm({ onSuccess, participationLabel, registration }) {
   const messageReference = useRef(null);
   const [messageLength, setMessageLength] = useState(0);
 
@@ -582,7 +585,7 @@ function ApplicationForm({ onSuccess, registration }) {
       <Textarea
         defaultValue=""
         description={`${messageLength}/1000자 · 운영자에게 전하고 싶은 내용을 적어주세요.`}
-        label="가입 신청 메시지"
+        label={`${participationLabel} 메시지`}
         maxLength={1000}
         onInput={(event) => setMessageLength(event.currentTarget.value.length)}
         ref={messageReference}
@@ -601,7 +604,7 @@ function ApplicationForm({ onSuccess, registration }) {
         type="submit"
         variant="primary"
       >
-        가입 신청하기
+        {`${participationLabel}하기`}
       </Button>
     </form>
   );
