@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { getSafeNextCursor } from "../../entities/cursor/index.js";
+import { captureEvent } from "../../shared/analytics/index.js";
 import { groupKeys } from "../group/index.js";
 import { fetchMembers, signupMember, transferLeader } from "./api.js";
 
@@ -38,6 +39,9 @@ export function useSignupMember() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: signupMember,
-    onSuccess: () => queryClient.invalidateQueries()
+    onSuccess: (member) => {
+      captureEvent("signup_completed", { member_id: member.id });
+      return queryClient.invalidateQueries();
+    }
   });
 }
