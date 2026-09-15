@@ -77,8 +77,17 @@ Docker Compose와 Spring Profile을 사용해 로컬 PostgreSQL을 실행합니�
 
 ```bash
 docker compose -f docker-compose-local.yaml up -d
+cp -n .env.example .env
+# .env에 GitHub OAuth 등 필수 값을 입력한 뒤 현재 셸에 반영한다.
+set -a
+source .env
+set +a
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
+
+`bootRun`은 서버가 종료되지 않는 동안 실행 상태로 유지된다. 로그에
+`Started JarihanaApplication`이 출력되면 정상적으로 요청을 받을 준비가 된 것이다.
+`DB_URL`과 OAuth 값이 현재 셸에 없으면 기동에 실패할 수 있다.
 
 로컬 PostgreSQL의 데이터베이스, 사용자, 비밀번호는 `jarihana`로 고정되어 있고
 호스트 포트는 `5432`입니다.
