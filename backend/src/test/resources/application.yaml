@@ -4,9 +4,9 @@ server:
 
 spring:
   datasource:
-    url: jdbc:h2:mem:jarihana-test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    username: sa
-    password:
+    # Testcontainers가 운영과 같은 postgres:17 컨테이너를 띄우고, 같은 URL을 쓰는 Spring 컨텍스트가 함께 쓴다.
+    # TC_DAEMON=true는 커넥션이 모두 닫혀도 JVM이 끝날 때까지 컨테이너를 유지한다.
+    url: jdbc:tc:postgresql:17:///jarihana_test?TC_DAEMON=true
   jpa:
     hibernate:
       ddl-auto: create-drop
