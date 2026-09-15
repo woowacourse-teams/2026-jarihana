@@ -131,7 +131,7 @@ export function RecruitmentDetailPage() {
               <strong>신청을 보냈어요.</strong>
               <p>
                 {recruitment.joinMethod === "AUTO"
-                  ? "바로 모임 멤버가 되었어요."
+                  ? "바로 모임 참여자가 되었어요."
                   : "운영자의 확인을 기다려주세요."}
               </p>
             </div>

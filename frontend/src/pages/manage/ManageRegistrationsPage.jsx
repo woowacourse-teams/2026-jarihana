@@ -259,7 +259,7 @@ export function ManageRegistrationsPage() {
       <ConfirmDialog
         cancelLabel="취소"
         confirmLabel="신청 승인하기"
-        description="승인하면 이 지원자는 바로 모임 멤버가 돼요."
+        description="승인하면 이 지원자는 바로 모임 참여자가 돼요."
         onClose={closeDialog}
         onConfirm={confirmDecision}
         open={decision?.status === "APPROVED"}

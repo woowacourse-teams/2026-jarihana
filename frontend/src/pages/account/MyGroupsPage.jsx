@@ -41,7 +41,7 @@ export function MyGroupsPage() {
         <Select label="모임 역할" name="groupRole" value={role} onChange={changeRole}>
           <option value="">전체</option>
           <option value="LEADER">내가 이끄는 모임</option>
-          <option value="MEMBER">멤버로 참여한 모임</option>
+          <option value="MEMBER">내가 참여한 모임</option>
         </Select>
         <span>{groups.length}개의 모임</span>
       </div>

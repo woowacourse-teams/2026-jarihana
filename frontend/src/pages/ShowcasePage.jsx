@@ -187,7 +187,7 @@ function ShowcaseContent() {
               capacity: 12,
               joinMethod: "APPROVAL",
               status: "OPEN",
-              title: "2026 하반기 멤버 모집"
+              title: "2026 하반기 참여자 모집"
             }}
           />
         </div>
@@ -205,7 +205,7 @@ function ShowcaseContent() {
                 value: "activity",
                 content: <p>최근 활동 기록이 아직 없어요.</p>
               },
-              { label: "멤버", value: "members", content: <p>함께하는 멤버 18명</p> }
+              { label: "참여자", value: "members", content: <p>함께하는 참여자 18명</p> }
             ]}
           />
         </div>

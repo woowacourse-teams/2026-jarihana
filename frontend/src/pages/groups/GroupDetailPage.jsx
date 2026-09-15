@@ -43,7 +43,7 @@ import "./groups.css";
 const tabs = [
   { label: "소개", value: "intro" },
   { label: "활동 기록", value: "recruitments" },
-  { label: "멤버", value: "members" }
+  { label: "참여자", value: "members" }
 ];
 
 /* 도착한 화면을 먼저 보여 준 뒤 묻는 정도의 짧은 간격이다. */
@@ -205,7 +205,7 @@ export function GroupDetailPage() {
                   />
                   <DetailFact
                     icon={memberIcon}
-                    label="현재 멤버 수"
+                    label="현재 참여자 수"
                     value={`${group.memberCount}명`}
                   />
                 </dl>
@@ -660,8 +660,8 @@ function MemberList({ items, query }) {
   }, [items.length]);
 
   if (query.isLoading) return <Skeleton className="group-list-skeleton" />;
-  if (query.isError) return <ErrorState title="멤버를 불러오지 못했어요" />;
-  if (items.length === 0) return <EmptyState title="아직 함께하는 멤버가 없어요" />;
+  if (query.isError) return <ErrorState title="참여자를 불러오지 못했어요" />;
+  if (items.length === 0) return <EmptyState title="아직 함께하는 참여자가 없어요" />;
 
   const cohorts = cohortItems(items);
   const canToggle = rowCount > 3 || query.hasNextPage || expanded;
@@ -683,7 +683,7 @@ function MemberList({ items, query }) {
   return (
     <div className="group-members-overview">
       <section aria-labelledby="group-members-title" className="group-members-list-panel">
-        <h2 id="group-members-title">멤버</h2>
+        <h2 id="group-members-title">참여자</h2>
         <ul
           className={`group-member-grid${!expanded && rowCount > 3 ? " is-collapsed" : ""}`}
           ref={gridReference}
@@ -821,7 +821,7 @@ function CohortDonut({ cohorts, total }) {
           </svg>
           <div className="group-cohort-panel__donut-label">
             <strong>{total}명</strong>
-            <span>전체 멤버</span>
+            <span>전체 참여자</span>
           </div>
           {activeCohort ? (
             <div className="group-cohort-panel__tooltip" role="status">
