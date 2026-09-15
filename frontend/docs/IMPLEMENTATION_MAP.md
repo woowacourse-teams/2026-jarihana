@@ -1,22 +1,36 @@
 # 자리하나 프론트엔드 구현 매핑
 
-이 문서는 2026-08-24 기준 실제 백엔드 Controller/DTO와 Figma 파일
+이 문서는 2026-08-31 기준 실제 백엔드 Controller/DTO와 Figma 파일
 `4FGyuqPPK0Vuv4FipZBTgF`를 대조한 구현 계약이다. 일반 화면은 `최종 디자인 2`
 (`438:2657`), 모임 생성·정보 수정·모임장 관리는 `최종 디자인`(`354:1479`) 초안을
 시각 기준으로 삼는다. 데이터·권한·상태 전이는 백엔드 코드를 최종 권위로 삼는다.
 
 ## 기술 선택과 실행 경계
 
-이 앱은 사용자의 후속 지시에 따라 **JavaScript/JSX + React + Webpack/Babel + Jest**로
-구성했다. TypeScript, Vite, Vitest는 사용하지 않는다. Node는 24.x로 고정하며 실행 방법,
-공개 OAuth 환경 변수, backend proxy와 운영 topology는 [frontend README](../README.md)를
-최종 runbook으로 사용한다.
+현재 프론트엔드 기술 스택과 선택 이유는 [프론트엔드 ADR 목록](adr/README.md)의
+[프론트엔드 ADR 0001](adr/0001-frontend-toolchain.md)에서 관리한다. 이 문서는 현재 코드와 백엔드
+계약, Figma 매핑을 관리하며 실행 가이드를 소유하지 않는다.
 
 시각 토큰은 `src/shared/styles/tokens.css`에 집중한다. 이번 hardening에서 contrast-aware
 `--color-text-brand`/`--color-text-muted`, `--border-thin`/`--border-strong`,
 `--touch-target`/`--touch-target-lg`, `--header-height`, `--breakpoint-md`/`--breakpoint-lg`를
 추가했다. 이 값은 AppShell과 page CSS가 동일한 border, touch area, header, responsive 기준을
 공유하게 한다.
+
+## 디렉터리 구조
+
+```text
+frontend/
+├── src/
+│   ├── app/             # provider, router, guard, AppShell
+│   ├── entities/        # API 응답 schema와 cursor 정책
+│   ├── features/        # 도메인 API, query/mutation hook, validation
+│   ├── pages/           # 공개·계정·그룹 편집·리더 관리 화면
+│   └── shared/          # API client, config, Figma assets, tokens, UI primitive
+├── docs/                # 구현 계약·Figma 매핑·기술 의사결정
+├── public/              # HTML/manifest
+└── tests/               # Jest setup 및 테스트 지원
+```
 
 ## Figma 인벤토리
 
@@ -61,6 +75,7 @@ header 구현으로 확대하지 않았다.
 | `/groups/:groupId/manage`                                           | 해당 그룹 리더         | 그룹/멤버/모집 조회, 이미지 업로드, 그룹 수정/종료/삭제 | ManageLayout, ManageNav, ImagePicker, Stats, ConfirmDialog | image preservation/replace, loading, 403, 404, lifecycle conflict, mutation states |
 | `/groups/:groupId/manage/members`                                   | 해당 그룹 리더         | 멤버 목록, 리더 위임                     | ManageLayout, PersonRow, ConfirmDialog                               | loading, empty, 403/404/409/422, mutation states                                 |
 | `/groups/:groupId/manage/recruitments`                              | 해당 그룹 리더         | 모집 목록/생성/마감                      | ManageLayout, RecruitmentCard, Modal                                 | loading, empty, validation, 403/404/409, mutation states                         |
+| `/groups/:groupId/manage/recruitments/history`                      | 해당 그룹 리더         | 모집 공고 이력 조회                      | ManageLayout, RecruitmentHistoryTable, StatusBadge                   | loading, empty, filter, sort, 403/404, network                                  |
 | `/groups/:groupId/manage/recruitments/:recruitmentId/registrations` | 해당 그룹 리더         | 신청자 목록, 승인/거절                   | ManageLayout, ApplicantRow, DecisionDialog, CursorList               | loading, empty, filter, cursor, 403/404/409, mutation states                     |
 | `*`                                                                 | 공개                   | 없음                                     | CenteredStateLayout, NotFoundState                                   | 404와 안전한 복귀 링크                                                           |
 
@@ -68,7 +83,7 @@ header 구현으로 확대하지 않았다.
 
 | 화면군         | Figma에서 유지한 정보 계층                      | 구현상 통일/반응형 결정                                                                                                  |
 | -------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| 공개 탐색      | mint hero, 검색·필터, 카드 우선순위             | 1440px 3-column, 768px 2-column, mobile 1-column; search는 strong bottom border와 48px touch target                      |
+| 공개 탐색      | mint hero, 검색·필터, 카드 우선순위             | 1024px 이상 4-column, 768–1023px 3-column, mobile 2-column; 공통 shell 1440px, gutter 32/24/16px; search는 strong bottom border와 48px touch target |
 | 그룹 상세/모집 | profile banner, 모임 정보(방식·일정·장소·멤버), content tabs, 참여 CTA | desktop content + sticky recruitment rail, 1024px 미만 rail을 본문 뒤로 이동                                             |
 | 계정           | profile illustration, activity count, 요약 카드 | desktop profile/content split, tablet/mobile은 순서 보존 single column; `?role=LEADER` deep link로 운영 모임 filter 유지 |
 | 그룹 생성/수정 | 단계 tab, mint editor hero, Markdown 소개       | 대표 이미지 picker와 업로드 상태, type별 일정 form, 1024px 미만 hero stack, mobile day/time grid 축소             |
@@ -101,7 +116,7 @@ header 구현으로 확대하지 않았다.
   그룹 수정은 `name`, `introduction`, `description`, `meetingType`, `location`,
   `representativeImageKey` 전체를 보내야 하며, nullable 필드를 비우려면 명시적으로 `null`을
   보낸다. 업로드 기록이 없거나 만료된 키는 거부된다.
-- 그룹 이름 50자, 소개 100자, 설명 5000자, 신청 메시지와 결정 사유 1000자 제한을
+- 그룹 이름 50자, 소개 100자, 설명 10000자, 신청 메시지와 결정 사유 1000자 제한을
   클라이언트와 서버 양쪽에서 검증한다.
 
 ### 그룹 상세 응답 스키마
@@ -114,6 +129,26 @@ header 구현으로 확대하지 않았다.
 - `meetingType`: `ONLINE`, `OFFLINE`, `FLEXIBLE` 중 하나인 필수 값
 - `location`: 최대 255자의 nullable 문자열
 - 목록 응답은 현재 모임 방식·장소를 제공하지 않으므로 `groupListItemSchema`에는 포함하지 않는다.
+
+### 내 신청 목록 응답 스키마
+
+`fetchMyRegistrations`의 각 항목은 신청 정보와 함께 신청 대상 그룹을 `group`으로 반환한다.
+대표 이미지는 신청서의 이미지가 아니라 그룹의 이미지이므로 `group.representativeImageUrl`에
+포함한다. 백엔드는 저장 키를 공개 URL로 변환해 전달하고, 프론트엔드 스키마는 상대 경로를
+`/images/...` 형식으로 정규화한다. 이미지가 없는 그룹은 `images/default-group.png`를 사용한다.
+
+```json
+{
+  "id": 88,
+  "group": {
+    "id": 12,
+    "name": "알고리즘 스터디",
+    "representativeImageUrl": "https://cdn.example.test/images/groups/algorithm.webp"
+  },
+  "recruitmentId": 45,
+  "status": "PENDING"
+}
+```
 
 | 도메인         | endpoint                                                                                                                                                                           | 화면에서 수행하는 일                                                           |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |

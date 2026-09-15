@@ -96,11 +96,11 @@ export function formatLocalDate(value) {
 
 export function scheduleLines(group) {
   if (group.recurringSchedule) {
-    const days = group.recurringSchedule.daysOfWeek.map((day) => dayLabels[day] ?? day).join("·");
-    return [
-      `매주 ${days}`,
-      `${group.recurringSchedule.startTime.slice(0, 5)} – ${group.recurringSchedule.endTime.slice(0, 5)}`
-    ];
+    const { daysOfWeek, endTime, startTime } = group.recurringSchedule;
+    const days = daysOfWeek.map((day) => dayLabels[day] ?? day).join("·");
+    /* 요일만 고정하고 시간은 그때그때 정하는 일정은 시각이 비어서 온다. */
+    if (!startTime || !endTime) return [`매주 ${days}`, "시간 유동적"];
+    return [`매주 ${days}`, `${startTime.slice(0, 5)} – ${endTime.slice(0, 5)}`];
   }
   if (group.sessionSchedule) {
     return [
@@ -118,6 +118,11 @@ export function scheduleText(group) {
 
 export function courseLabel(course) {
   return { ANDROID: "안드로이드", BACKEND: "백엔드", FRONTEND: "프론트엔드" }[course];
+}
+
+export function memberMetaLabel(member) {
+  if (member.memberType === "COACH") return "코치";
+  return `${Number.isInteger(member.generation) ? `${member.generation}기` : "기수 미정"} 크루`;
 }
 
 export function publicErrorCopy(error, resource) {

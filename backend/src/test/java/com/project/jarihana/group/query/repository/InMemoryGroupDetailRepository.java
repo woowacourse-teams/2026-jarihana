@@ -12,7 +12,7 @@ public class InMemoryGroupDetailRepository implements GroupDetailRepository {
     private final Map<Long, GroupDetailProjection> groups = new HashMap<>();
 
     @Override
-    public Optional<GroupDetailProjection> findById(Long groupId, LocalDateTime now) {
+    public Optional<GroupDetailProjection> findById(Long groupId, LocalDateTime now, Long currentMemberId) {
         return Optional.ofNullable(groups.get(groupId));
     }
 

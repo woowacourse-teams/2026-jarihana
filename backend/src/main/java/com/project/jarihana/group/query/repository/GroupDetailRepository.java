@@ -7,5 +7,5 @@ import java.util.Optional;
 
 public interface GroupDetailRepository {
 
-    Optional<GroupDetailProjection> findById(Long groupId, LocalDateTime now);
+    Optional<GroupDetailProjection> findById(Long groupId, LocalDateTime now, Long currentMemberId);
 }

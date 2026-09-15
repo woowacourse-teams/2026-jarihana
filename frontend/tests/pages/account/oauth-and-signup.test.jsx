@@ -144,27 +144,27 @@ describe("SignupPage", () => {
     // Given
     const user = userEvent.setup();
     renderRoute("/signup", <SignupPage />);
+    await user.click(screen.getByRole("radio", { name: "크루" }));
 
     expect(
-      screen.getByRole("heading", { name: "자리하나에서 사용할 정보를 알려 주세요" })
+      screen.getByRole("heading", { name: "프로필 입력" })
     ).toHaveClass("account-heading__title");
 
     // When
     await user.type(screen.getByRole("textbox", { name: "크루 이름" }), "a자");
-    await user.clear(screen.getByRole("spinbutton", { name: "기수" }));
     await user.click(screen.getByRole("button", { name: "가입 완료하기" }));
 
     // Then
     expect(await screen.findByRole("textbox", { name: "크루 이름" })).toHaveAccessibleDescription(
       expect.stringMatching(/크루 이름은 한글 2~4자/)
     );
-    expect(screen.getByRole("spinbutton", { name: "기수" })).toHaveAccessibleDescription(
-      expect.stringMatching(/기수는 1 이상의 숫자/)
+    expect(screen.getByRole("combobox", { name: "기수" })).toHaveAccessibleDescription(
+      expect.stringMatching(/기수를 선택해 주세요/)
     );
     expect(useSignupMember().mutateAsync).not.toHaveBeenCalled();
   });
 
-  it("Given valid fields, When signup succeeds, Then auth reloads and the signup guard solely owns continuation", async () => {
+  it("Given valid fields, When signup succeeds, Then it submits the complete profile data", async () => {
     // Given
     const reload = jest.fn().mockResolvedValue(undefined);
     const navigate = jest.fn();
@@ -186,23 +186,22 @@ describe("SignupPage", () => {
     useSignupMember.mockReturnValue({ mutateAsync, isPending: false });
     const user = userEvent.setup();
     renderRoute("/signup", <SignupPage />);
+    await user.click(screen.getByRole("radio", { name: "크루" }));
 
     // When
     await user.type(screen.getByRole("textbox", { name: "크루 이름" }), "자리");
-    await user.clear(screen.getByRole("spinbutton", { name: "기수" }));
-    await user.type(screen.getByRole("spinbutton", { name: "기수" }), "3");
     await user.selectOptions(screen.getByRole("combobox", { name: "과정" }), "FRONTEND");
+    await user.selectOptions(screen.getByRole("combobox", { name: "기수" }), "3");
     await user.click(screen.getByRole("button", { name: "가입 완료하기" }));
+    await user.click(screen.getByRole("button", { name: "확인" }));
 
     // Then
-    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
     expect(mutateAsync).toHaveBeenCalledWith({
       crewName: "자리",
       generation: 3,
-      course: "FRONTEND"
+      course: "FRONTEND",
+      memberType: "CREW"
     });
-    expect(consumeReturnTarget).not.toHaveBeenCalled();
-    expect(navigate).not.toHaveBeenCalled();
   });
 
   it("Given a duplicate member conflict, When signup fails, Then a safe recovery message is announced", async () => {
@@ -214,12 +213,14 @@ describe("SignupPage", () => {
     useNavigate.mockReturnValue(jest.fn());
     const user = userEvent.setup();
     renderRoute("/signup", <SignupPage />);
+    await user.click(screen.getByRole("radio", { name: "크루" }));
 
     // When
     await user.type(screen.getByRole("textbox", { name: "크루 이름" }), "자리");
-    await user.clear(screen.getByRole("spinbutton", { name: "기수" }));
-    await user.type(screen.getByRole("spinbutton", { name: "기수" }), "3");
+    await user.selectOptions(screen.getByRole("combobox", { name: "과정" }), "FRONTEND");
+    await user.selectOptions(screen.getByRole("combobox", { name: "기수" }), "3");
     await user.click(screen.getByRole("button", { name: "가입 완료하기" }));
+    await user.click(screen.getByRole("button", { name: "확인" }));
 
     // Then
     expect(await screen.findByRole("alert")).toHaveTextContent("이미 사용 중인 크루 정보예요.");

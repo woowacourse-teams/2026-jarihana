@@ -1,9 +1,11 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { useInfiniteRecruitments, useRecruitment } from "../../features/recruitment/index.js";
 import {
   useDecideRegistration,
-  useInfiniteRegistrations
+  useInfiniteRegistrations,
+  useMarkRegistrationsRead,
+  useRegistrationSummary
 } from "../../features/registration/index.js";
 import {
   Button,
@@ -20,6 +22,8 @@ import {
   errorView,
   flattenPages,
   formatDateTime,
+  generationLabel,
+  memberTypeLabel,
   statusLabel,
   statusTone
 } from "./manageUtils.js";
@@ -35,15 +39,19 @@ const filterOptions = [
 
 export function ManageRegistrationsPage() {
   const { groupId, recruitmentId: routeRecruitmentId } = useParams();
+  const registrationSummaryQuery = useRegistrationSummary(groupId);
+  const targetRecruitmentId = registrationSummaryQuery.data?.targetRecruitmentId;
   const recruitmentsQuery = useInfiniteRecruitments(groupId);
   const currentRecruitment = flattenPages(recruitmentsQuery.data).find(
     (recruitment) => recruitment.recruitingStatus !== "CLOSED"
   );
-  const recruitmentId = routeRecruitmentId ?? currentRecruitment?.id;
+  const recruitmentId = routeRecruitmentId ?? targetRecruitmentId ?? currentRecruitment?.id;
   const [status, setStatus] = useState("");
   const registrationsQuery = useInfiniteRegistrations(recruitmentId, {
     ...(status ? { status } : {})
   });
+  const { mutate: markRegistrationsRead } = useMarkRegistrationsRead(recruitmentId);
+  const markedRecruitmentRef = useRef(null);
   const decideRegistration = useDecideRegistration(recruitmentId);
   const recruitmentQuery = useRecruitment(groupId, recruitmentId);
   const [decision, setDecision] = useState(null);
@@ -51,11 +59,29 @@ export function ManageRegistrationsPage() {
   const [mutationError, setMutationError] = useState(null);
   const registrations = flattenPages(registrationsQuery.data);
 
-  if (!routeRecruitmentId && recruitmentsQuery.isPending) {
+  useEffect(() => {
+    const latestRegistrationId = registrationSummaryQuery.data?.latestRegistrationId;
+    const summaryRecruitmentId = registrationSummaryQuery.data?.targetRecruitmentId;
+    const showsUnreadTarget =
+      summaryRecruitmentId != null && String(summaryRecruitmentId) === String(recruitmentId);
+    if (
+      String(markedRecruitmentRef.current) === String(recruitmentId) ||
+      !registrationsQuery.isSuccess ||
+      !latestRegistrationId ||
+      !showsUnreadTarget
+    ) {
+      return;
+    }
+
+    markedRecruitmentRef.current = recruitmentId;
+    markRegistrationsRead(latestRegistrationId);
+  }, [markRegistrationsRead, recruitmentId, registrationSummaryQuery.data, registrationsQuery.isSuccess]);
+
+  if (!routeRecruitmentId && !targetRecruitmentId && recruitmentsQuery.isPending) {
     return <ManageLoading title="신청 관리" />;
   }
 
-  if (!routeRecruitmentId && recruitmentsQuery.isError) {
+  if (!routeRecruitmentId && !targetRecruitmentId && recruitmentsQuery.isError) {
     const view = errorView(recruitmentsQuery.error);
     return (
       <div className="manage-page manage-page--dashboard manage-page--registrations">
@@ -84,13 +110,13 @@ export function ManageRegistrationsPage() {
   async function confirmDecision() {
     if (!decision) return;
     setMutationError(null);
-    const decisionReason =
+    const rejectReason =
       decision.status === "REJECTED" ? reasonRef.current?.value.trim() : undefined;
 
     const payload = {
       registrationId: decision.registration.id,
       status: decision.status,
-      ...(decisionReason ? { decisionReason } : {})
+      ...(rejectReason ? { rejectReason } : {})
     };
     try {
       await decideRegistration.mutateAsync(payload);
@@ -183,16 +209,22 @@ export function ManageRegistrationsPage() {
                       </div>
                       <h3>{registration.member.crewName}</h3>
                       <div className="manage-card-meta">
-                        <span>{registration.member.generation}기</span>
-                        <span>{courseLabel(registration.member.course)}</span>
+                        <span>
+                          {registration.member.memberType === "COACH"
+                            ? memberTypeLabel(registration.member.memberType)
+                            : generationLabel(registration.member.generation)}
+                        </span>
+                        {registration.member.memberType === "CREW" ? (
+                          <span>{courseLabel(registration.member.course)}</span>
+                        ) : null}
                         <span>신청 {formatDateTime(registration.registeredAt)}</span>
                       </div>
                       <p>{registration.message || "남긴 메시지가 없어요."}</p>
                       {registration.decidedAt ? (
                         <div className="manage-decision-note">
                           <span>처리 {formatDateTime(registration.decidedAt)}</span>
-                          {registration.decisionReason ? (
-                            <span>사유: {registration.decisionReason}</span>
+                          {registration.rejectReason ? (
+                            <span>사유: {registration.rejectReason}</span>
                           ) : null}
                         </div>
                       ) : null}

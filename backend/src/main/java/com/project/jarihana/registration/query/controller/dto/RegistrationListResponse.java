@@ -29,7 +29,7 @@ public record RegistrationListResponse(
             String message,
             String status,
             LocalDateTime registeredAt,
-            String decisionReason,
+            String rejectReason,
             LocalDateTime decidedAt,
             DecisionActorResponse decidedBy
     ) {
@@ -41,12 +41,13 @@ public record RegistrationListResponse(
                             item.memberId(),
                             item.crewName(),
                             item.generation(),
+                            item.memberType(),
                             item.course()
                     ),
                     item.message(),
                     item.status(),
                     item.registeredAt(),
-                    item.decisionReason(),
+                    item.rejectReason(),
                     item.decidedAt(),
                     item.decidedByType() == null
                             ? null
@@ -58,7 +59,8 @@ public record RegistrationListResponse(
     public record MemberResponse(
             Long id,
             String crewName,
-            int generation,
+            Integer generation,
+            String memberType,
             String course
     ) {
     }

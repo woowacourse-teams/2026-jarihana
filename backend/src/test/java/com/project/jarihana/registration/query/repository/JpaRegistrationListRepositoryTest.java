@@ -117,7 +117,7 @@ class JpaRegistrationListRepositoryTest {
         assertThat(secondPage.items())
                 .extracting(RegistrationListProjection::id)
                 .containsExactly(rejected.getId());
-        assertThat(secondPage.items().get(0).decisionReason()).isEqualTo("거절 사유");
+        assertThat(secondPage.items().get(0).rejectReason()).isEqualTo("거절 사유");
         assertThat(secondPage.items().get(0).decidedByType()).isEqualTo(DecisionActorType.SYSTEM);
         assertThat(secondPage.items().get(0).decidedByMemberId()).isNull();
         assertThat(approvedPage.items())
@@ -131,11 +131,15 @@ class JpaRegistrationListRepositoryTest {
     }
 
     private Group saveGroup(String name) {
+        return saveGroup(name, null);
+    }
+
+    private Group saveGroup(String name, String representativeImageKey) {
         return groupRepository.save(Group.createStudy(
                 name,
                 "함께 학습합니다.",
                 null,
-                null,
+                representativeImageKey,
                 RecurringGroupSchedule.of(
                         Set.of(DayOfWeek.MONDAY),
                         LocalTime.of(19, 0),
@@ -172,7 +176,10 @@ class JpaRegistrationListRepositoryTest {
         // Given
         Member applicant = saveMember("내신청자", Course.BACKEND, "my-registration-repository-applicant");
         Member otherApplicant = saveMember("타신청", Course.FRONTEND, "my-registration-repository-other");
-        Group firstGroup = saveGroup("my-registration-repository-group-1");
+        Group firstGroup = saveGroup(
+                "my-registration-repository-group-1",
+                "groups/my-registration-repository.webp"
+        );
         Group secondGroup = saveGroup("my-registration-repository-group-2");
         GroupRecruitment firstRecruitment = saveRecruitment(firstGroup);
         GroupRecruitment secondRecruitment = saveRecruitment(secondGroup);
@@ -202,6 +209,8 @@ class JpaRegistrationListRepositoryTest {
                 .containsExactly(latest.getId());
         assertThat(firstPage.items().get(0).groupId()).isEqualTo(firstGroup.getId());
         assertThat(firstPage.items().get(0).groupName()).isEqualTo("my-registration-repository-group-1");
+        assertThat(firstPage.items().get(0).groupRepresentativeImageKey())
+                .isEqualTo("groups/my-registration-repository.webp");
         assertThat(firstPage.items().get(0).recruitmentId()).isEqualTo(firstRecruitment.getId());
         assertThat(firstPage.hasNext()).isTrue();
         assertThat(secondPage.items())
@@ -209,6 +218,78 @@ class JpaRegistrationListRepositoryTest {
                 .containsExactly(older.getId());
         assertThat(secondPage.items().get(0).groupId()).isEqualTo(secondGroup.getId());
         assertThat(secondPage.items().get(0).groupName()).isEqualTo("my-registration-repository-group-2");
+    }
+
+    @DisplayName("그룹의 모든 모집 공고에서 자동 승인까지 포함한 미확인 신청과 대기 신청을 조회한다.")
+    @Test
+    void findsUnreadSummaryByGroup() {
+        // Given
+        Member leader = saveMember("요약리더", Course.BACKEND, "registration-summary-repository-leader");
+        Member latestApplicant = saveMember("요약가온", Course.BACKEND, "registration-summary-repository-latest");
+        Member sameTimeApplicant = saveMember("요약나래", Course.FRONTEND, "registration-summary-repository-same-time");
+        Member olderApplicant = saveMember("요약다온", Course.ANDROID, "registration-summary-repository-older");
+        Member approvedApplicant = saveMember("요약라온", Course.BACKEND, "registration-summary-repository-approved");
+        Member autoApplicant = saveMember("요약하람", Course.BACKEND, "registration-summary-repository-auto");
+        Member otherApplicant = saveMember("요약마루", Course.FRONTEND, "registration-summary-repository-other");
+        Group group = saveGroup("신청 요약 저장소 스터디");
+        Group otherGroup = saveGroup("다른 신청 요약 저장소 스터디");
+        groupMemberRepository.save(GroupMember.createLeader(group, leader, NOW));
+        GroupRecruitment openRecruitment = saveRecruitment(group);
+        GroupRecruitment closedRecruitment = recruitmentRepository.save(GroupRecruitment.create(
+                group,
+                JoinMethod.APPROVAL,
+                3,
+                NOW.minusDays(5),
+                NOW.plusDays(1)
+        ));
+        GroupRecruitment otherRecruitment = saveRecruitment(otherGroup);
+        GroupRecruitment autoRecruitment = recruitmentRepository.save(GroupRecruitment.create(
+                group,
+                JoinMethod.AUTO,
+                3,
+                NOW.minusDays(1),
+                NOW.plusDays(1)
+        ));
+        savePending(openRecruitment, olderApplicant, NOW.minusHours(1));
+        savePending(openRecruitment, sameTimeApplicant, NOW);
+        Registration latest = savePending(closedRecruitment, latestApplicant, NOW);
+        Registration approved = savePending(closedRecruitment, approvedApplicant, NOW.plusMinutes(1));
+        registrationCommandRepository.save(approved.approve(DecisionActor.member(leader.getId()), NOW.plusMinutes(2), 0));
+        Registration autoApproved = registrationCommandRepository.save(Registration.createAutoApproved(
+                autoRecruitment,
+                autoApplicant,
+                null,
+                NOW.plusMinutes(2),
+                0
+        ));
+        recruitmentRepository.save(closedRecruitment.closeAt(NOW.plusMinutes(3)));
+        savePending(otherRecruitment, otherApplicant, NOW.plusHours(3));
+
+        // When
+        RegistrationSummaryProjection summary = repository.findSummaryByGroupId(group.getId());
+
+        // Then
+        assertThat(summary.unreadCount()).isEqualTo(5);
+        assertThat(summary.pendingCount()).isEqualTo(3);
+        assertThat(summary.targetRecruitmentId()).isEqualTo(autoRecruitment.getId());
+        assertThat(summary.latestRegistrationId()).isEqualTo(autoApproved.getId());
+    }
+
+    @DisplayName("그룹에 대기 신청이 없으면 대기 신청 수 0과 대상 모집 공고 없음으로 조회한다.")
+    @Test
+    void findsEmptyPendingSummaryByGroup() {
+        // Given
+        Group group = saveGroup("빈 신청 요약 저장소 스터디");
+        saveRecruitment(group);
+
+        // When
+        RegistrationSummaryProjection summary = repository.findSummaryByGroupId(group.getId());
+
+        // Then
+        assertThat(summary.unreadCount()).isZero();
+        assertThat(summary.pendingCount()).isZero();
+        assertThat(summary.targetRecruitmentId()).isNull();
+        assertThat(summary.latestRegistrationId()).isNull();
     }
 
     private Registration savePending(

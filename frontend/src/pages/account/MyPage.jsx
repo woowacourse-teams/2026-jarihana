@@ -6,7 +6,7 @@ import { useInfiniteMyRegistrations } from "../../features/registration/index.js
 import { Card, Skeleton } from "../../shared/ui/index.js";
 import { AccountLayout } from "./AccountLayout.jsx";
 import { MyActivityBoard } from "./MyActivityBoard.jsx";
-import { COURSE_LABELS, flattenPages } from "./accountUtils.js";
+import { flattenPages, memberMetaLabel } from "./accountUtils.js";
 
 const GROUP_TAB_IDS = ["joined", "registrations"];
 const LEGACY_GROUP_TAB_IDS = { led: "joined" };
@@ -116,9 +116,7 @@ export function MyPage() {
             <p className="account-eyebrow">나의 프로필</p>
             <ProfileAvatar member={member} />
             <h2>{member.crewName}</h2>
-            <p>
-              {member.generation}기 / {COURSE_LABELS[member.course] ?? member.course}
-            </p>
+            <p>{memberMetaLabel(member)}</p>
           </Card>
           <div aria-hidden="true" className="profile-companion" />
         </aside>

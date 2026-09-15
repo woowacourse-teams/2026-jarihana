@@ -20,7 +20,7 @@ public final class ModifyGroupRequest {
     @Size(max = 100)
     private final String introduction;
 
-    @Size(max = 5_000)
+    @Size(max = 10_000)
     private final String description;
 
     @NotNull

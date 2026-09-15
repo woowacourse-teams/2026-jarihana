@@ -8,6 +8,7 @@ import com.project.jarihana.group.query.service.dto.GroupDetailResult;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.common.github.GithubAvatarUrl;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
+import com.project.jarihana.registration.domain.RegistrationStatus;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -30,6 +31,7 @@ public record GroupDetailResponse(
         int memberCount,
         ActiveRecruitment activeRecruitment,
         GroupMemberRole currentMemberRole,
+        RegistrationStatus currentMemberRegistrationStatus,
         LocalDateTime createdAt
 ) {
 
@@ -51,6 +53,7 @@ public record GroupDetailResponse(
                 result.members().size(),
                 ActiveRecruitment.from(result.activeRecruitment(), result.approvedCount()),
                 result.currentMemberRole(),
+                result.currentMemberRegistrationStatus(),
                 group.getCreatedAt()
         );
     }
@@ -91,7 +94,13 @@ public record GroupDetailResponse(
         }
     }
 
-    public record GroupLeader(Long memberId, String crewName, int generation, String avatarUrl) {
+    public record GroupLeader(
+            Long memberId,
+            String crewName,
+            Integer generation,
+            String memberType,
+            String avatarUrl
+    ) {
 
         private static GroupLeader from(GroupDetailMember member) {
             if (member == null) {
@@ -101,6 +110,7 @@ public record GroupDetailResponse(
                     member.memberId(),
                     member.member().getCrewName(),
                     member.member().getGeneration(),
+                    member.member().getMemberType().name(),
                     GithubAvatarUrl.from(member.member().getGithubId())
             );
         }

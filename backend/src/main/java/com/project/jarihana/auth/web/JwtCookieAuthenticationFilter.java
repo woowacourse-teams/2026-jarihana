@@ -1,0 +1,57 @@
+package com.project.jarihana.auth.web;
+
+import com.project.jarihana.auth.config.AuthCookieProperties;
+import com.project.jarihana.auth.cookie.AuthCookieReader;
+import com.project.jarihana.auth.token.AccessTokenProvider;
+import com.project.jarihana.common.exception.BusinessException;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.util.List;
+
+/**
+ * 토큰이 없거나 유효하지 않으면 인증하지 않고 다음 필터로 넘긴다. 응답 형식은
+ * {@link UnauthenticatedEntryPoint}가 결정한다. 리소스 단위 권한은 이 필터가 아니라
+ * Service와 도메인이 판단한다.
+ */
+public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
+
+    private final AccessTokenProvider accessTokenProvider;
+    private final AuthCookieProperties authCookieProperties;
+
+    public JwtCookieAuthenticationFilter(
+            AccessTokenProvider accessTokenProvider,
+            AuthCookieProperties authCookieProperties
+    ) {
+        this.accessTokenProvider = accessTokenProvider;
+        this.authCookieProperties = authCookieProperties;
+    }
+
+    @Override
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain
+    ) throws ServletException, IOException {
+        AuthCookieReader
+                .read(request, authCookieProperties.accessTokenName())
+                .ifPresent(this::authenticate);
+        filterChain.doFilter(request, response);
+    }
+
+    private void authenticate(String accessToken) {
+        try {
+            Long memberId = accessTokenProvider.parseMemberId(accessToken);
+            SecurityContextHolder.getContext()
+                    .setAuthentication(new UsernamePasswordAuthenticationToken(memberId, null, List.of()));
+        } catch (BusinessException exception) {
+            SecurityContextHolder.clearContext();
+        }
+    }
+}

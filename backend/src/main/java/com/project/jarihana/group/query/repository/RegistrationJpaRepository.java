@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface RegistrationJpaRepository extends JpaRepository<Registration, Long> {
 
@@ -21,6 +22,17 @@ public interface RegistrationJpaRepository extends JpaRepository<Registration, L
     List<ApprovedRegistrationCount> countByRecruitmentIdsAndStatus(
             @Param("recruitmentIds") List<Long> recruitmentIds,
             @Param("status") RegistrationStatus status
+    );
+
+    @Query("""
+            select registration.status
+            from Registration registration
+            where registration.recruitment.id = :recruitmentId
+              and registration.member.id = :memberId
+            """)
+    Optional<RegistrationStatus> findStatusByRecruitmentIdAndMemberId(
+            @Param("recruitmentId") Long recruitmentId,
+            @Param("memberId") Long memberId
     );
 
     interface ApprovedRegistrationCount {

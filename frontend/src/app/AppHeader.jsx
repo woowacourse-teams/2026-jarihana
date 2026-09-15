@@ -23,10 +23,12 @@ const MEMBER_LINKS = [
   }
 ];
 
-function HeaderLinks({ onNavigate, onProtectedNavigate, status }) {
+const DESKTOP_MEMBER_LINKS = [];
+
+function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, status }) {
   const { pathname } = useLocation();
 
-  return MEMBER_LINKS.map((link) => {
+  return links.map((link) => {
     const isActive = link.isActive(pathname);
     return (
       <Link
@@ -135,6 +137,7 @@ export function AppHeader({ action = null, title = "" }) {
 
           <nav aria-label="주요 메뉴" className="app-header__desktop-nav">
             <HeaderLinks
+              links={DESKTOP_MEMBER_LINKS}
               onNavigate={() => {}}
               onProtectedNavigate={explainProtectedNavigation}
               status={status}

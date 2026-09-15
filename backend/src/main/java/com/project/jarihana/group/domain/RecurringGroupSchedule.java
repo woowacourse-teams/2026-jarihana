@@ -28,16 +28,20 @@ public class RecurringGroupSchedule {
 
     private RecurringGroupSchedule(Set<DayOfWeek> daysOfWeek, LocalTime startTime, LocalTime endTime) {
         this.activityDays = ActivityDays.from(daysOfWeek);
-        this.startTime = validateTime(startTime, "시작 시각");
-        this.endTime = validateTime(endTime, "종료 시각");
-        validateTimeRange(this.startTime, this.endTime);
+        validateTimes(startTime, endTime);
+        this.startTime = startTime;
+        this.endTime = endTime;
     }
 
-    private static LocalTime validateTime(LocalTime time, String fieldName) {
-        if (time == null) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 필수입니다.");
+    /* 두 시각을 함께 비우면 요일만 고정하고 시간은 그때그때 정하는 유동적 시간이다. */
+    private static void validateTimes(LocalTime startTime, LocalTime endTime) {
+        if (startTime == null && endTime == null) {
+            return;
         }
-        return time;
+        if (startTime == null || endTime == null) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "시작 시각과 종료 시각은 함께 정하거나 함께 비워야 합니다.");
+        }
+        validateTimeRange(startTime, endTime);
     }
 
     private static void validateTimeRange(LocalTime startTime, LocalTime endTime) {

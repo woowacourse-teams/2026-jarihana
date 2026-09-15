@@ -10,6 +10,7 @@ import com.project.jarihana.registration.query.repository.dto.*;
 import com.project.jarihana.registration.query.service.dto.MyRegistrationListResult;
 import com.project.jarihana.registration.query.service.dto.RegistrationListQuery;
 import com.project.jarihana.registration.query.service.dto.RegistrationListResult;
+import com.project.jarihana.registration.query.service.dto.RegistrationSummaryResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -31,7 +32,10 @@ class RegistrationQueryServiceTest {
     private static final LocalDateTime REGISTERED_AT = LocalDateTime.of(2026, 8, 19, 10, 0);
 
     private final FakeRegistrationListRepository repository = new FakeRegistrationListRepository();
-    private final RegistrationQueryService service = new RegistrationQueryService(repository);
+    private final RegistrationQueryService service = new RegistrationQueryService(
+            repository,
+            "https://cdn.example.test/images"
+    );
 
     @DisplayName("내 신청 목록을 조회하고 다음 커서를 생성한다.")
     @Test
@@ -42,6 +46,7 @@ class RegistrationQueryServiceTest {
                         88L,
                         12L,
                         "알고리즘 스터디",
+                        "groups/algorithm.webp",
                         RECRUITMENT_ID,
                         "함께 활동하고 싶습니다.",
                         RegistrationStatus.PENDING,
@@ -65,6 +70,7 @@ class RegistrationQueryServiceTest {
                 88L,
                 12L,
                 "알고리즘 스터디",
+                "https://cdn.example.test/images/groups/algorithm.webp",
                 RECRUITMENT_ID,
                 "함께 활동하고 싶습니다.",
                 "PENDING",
@@ -192,12 +198,65 @@ class RegistrationQueryServiceTest {
         assertInvalidParameter(() -> service.findMyRegistrations(MEMBER_ID, query));
     }
 
+    @DisplayName("모임장이 그룹의 대기 신청 요약을 조회한다.")
+    @Test
+    void findsRegistrationSummaryForLeader() {
+        // Given
+        repository.givenGroupExists(true);
+        repository.givenLeaderAccess(true);
+        repository.givenSummary(new RegistrationSummaryProjection(5, 3, 45L, 81L));
+
+        // When
+        RegistrationSummaryResult result = service.findRegistrationSummary(MEMBER_ID, 12L);
+
+        // Then
+        assertThat(result.unreadCount()).isEqualTo(5);
+        assertThat(result.pendingCount()).isEqualTo(3);
+        assertThat(result.targetRecruitmentId()).isEqualTo(45L);
+        assertThat(result.latestRegistrationId()).isEqualTo(81L);
+    }
+
+    @DisplayName("존재하지 않는 그룹의 대기 신청 요약 조회를 거부한다.")
+    @Test
+    void rejectsRegistrationSummaryForUnknownGroup() {
+        // Given
+        repository.givenGroupExists(false);
+
+        // When / Then
+        assertThatThrownBy(() -> service.findRegistrationSummary(MEMBER_ID, 12L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(
+                        exception -> ((BusinessException) exception).getErrorCode(),
+                        Throwable::getMessage
+                )
+                .containsExactly(ErrorCode.GROUP_NOT_FOUND, "그룹을 찾을 수 없습니다.");
+    }
+
+    @DisplayName("모임장이 아닌 회원의 대기 신청 요약 조회를 거부한다.")
+    @Test
+    void rejectsRegistrationSummaryForNonLeader() {
+        // Given
+        repository.givenGroupExists(true);
+        repository.givenLeaderAccess(false);
+
+        // When / Then
+        assertThatThrownBy(() -> service.findRegistrationSummary(MEMBER_ID, 12L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(
+                        exception -> ((BusinessException) exception).getErrorCode(),
+                        Throwable::getMessage
+                )
+                .containsExactly(ErrorCode.GROUP_ACCESS_DENIED, "현재 모임장만 신청 요약을 조회할 수 있습니다.");
+    }
+
     private static final class FakeRegistrationListRepository implements RegistrationListRepository {
 
         private final Optional<Long> groupId = Optional.of(12L);
+        private boolean groupExists = true;
         private boolean leaderAccess;
         private RegistrationListPage page = new RegistrationListPage(List.of(), false);
         private MyRegistrationListPage myPage = new MyRegistrationListPage(List.of(), false);
+        private RegistrationSummaryProjection summary = new RegistrationSummaryProjection(0, 0, null, null);
         private MyRegistrationListSearchCriteria lastMyCriteria;
         private int lastMySize;
 
@@ -212,6 +271,11 @@ class RegistrationQueryServiceTest {
         }
 
         @Override
+        public boolean existsGroupById(Long groupId) {
+            return groupExists;
+        }
+
+        @Override
         public RegistrationListPage findPage(RegistrationListSearchCriteria criteria, int size) {
             return page;
         }
@@ -221,6 +285,15 @@ class RegistrationQueryServiceTest {
             lastMyCriteria = criteria;
             lastMySize = size;
             return myPage;
+        }
+
+        @Override
+        public RegistrationSummaryProjection findSummaryByGroupId(Long groupId) {
+            return summary;
+        }
+
+        void givenGroupExists(boolean groupExists) {
+            this.groupExists = groupExists;
         }
 
         void givenLeaderAccess(boolean leaderAccess) {
@@ -233,6 +306,10 @@ class RegistrationQueryServiceTest {
 
         void givenMyPage(MyRegistrationListPage myPage) {
             this.myPage = myPage;
+        }
+
+        void givenSummary(RegistrationSummaryProjection summary) {
+            this.summary = summary;
         }
 
         MyRegistrationListSearchCriteria lastMyCriteria() {

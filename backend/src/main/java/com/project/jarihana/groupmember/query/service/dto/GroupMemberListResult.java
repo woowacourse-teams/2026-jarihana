@@ -17,11 +17,25 @@ public record GroupMemberListResult(
             Long groupMemberId,
             Long memberId,
             String crewName,
-            int generation,
+            Integer generation,
+            String memberType,
             String avatarUrl,
             String course,
             String role,
             LocalDateTime joinedAt
     ) {
+
+        public Item(
+                Long groupMemberId,
+                Long memberId,
+                String crewName,
+                Integer generation,
+                String avatarUrl,
+                String course,
+                String role,
+                LocalDateTime joinedAt
+        ) {
+            this(groupMemberId, memberId, crewName, generation, "CREW", avatarUrl, course, role, joinedAt);
+        }
     }
 }

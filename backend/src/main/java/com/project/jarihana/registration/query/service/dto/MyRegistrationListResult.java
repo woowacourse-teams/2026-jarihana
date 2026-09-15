@@ -17,11 +17,12 @@ public record MyRegistrationListResult(
             Long id,
             Long groupId,
             String groupName,
+            String groupRepresentativeImageUrl,
             Long recruitmentId,
             String message,
             String status,
             LocalDateTime registeredAt,
-            String decisionReason,
+            String rejectReason,
             LocalDateTime decidedAt,
             String decidedByType,
             Long decidedByMemberId

@@ -6,7 +6,8 @@ import {
 } from "../../src/entities/recruitment/index.js";
 import {
   registrationDecisionResponseSchema,
-  registrationPageSchema
+  registrationPageSchema,
+  registrationSummarySchema
 } from "../../src/entities/registration/index.js";
 
 describe("backend DTO schemas", () => {
@@ -192,11 +193,17 @@ describe("backend DTO schemas", () => {
       items: [
         {
           id: 2,
-          member: { id: 4, crewName: "자리", generation: 2, course: "FRONTEND" },
+          member: {
+            id: 4,
+            crewName: "자리",
+            memberType: "CREW",
+            generation: 2,
+            course: "FRONTEND"
+          },
           message: null,
           status: "PENDING",
           registeredAt: "2026-08-21T11:00:00",
-          decisionReason: null,
+          rejectReason: null,
           decidedAt: null,
           decidedBy: null
         }
@@ -217,7 +224,7 @@ describe("backend DTO schemas", () => {
     const payload = {
       id: 2,
       status: "APPROVE",
-      decisionReason: null,
+      rejectReason: null,
       decidedAt: "2026-08-21T11:30:00",
       decidedBy: { type: "MEMBER", memberId: 1 }
     };
@@ -227,6 +234,22 @@ describe("backend DTO schemas", () => {
 
     // Then
     expect(result.success).toBe(false);
+  });
+
+  it("accepts the group registration summary contract with a nullable target", () => {
+    // Given
+    const payload = {
+      unreadCount: 7,
+      pendingCount: 123,
+      targetRecruitmentId: null,
+      latestRegistrationId: 91
+    };
+
+    // When
+    const result = registrationSummarySchema.parse(payload);
+
+    // Then
+    expect(result).toEqual(payload);
   });
 
   it("distinguishes signup session from a completed member profile", () => {

@@ -1,6 +1,6 @@
 import { forwardRef, useState } from "react";
 
-export const DEFAULT_GROUP_IMAGE = "/api/images/default-group.png";
+export const DEFAULT_GROUP_IMAGE = "/images/default-group.png";
 
 function classes(...values) {
   return values.filter(Boolean).join(" ");
@@ -56,11 +56,26 @@ function scheduleFrequencyText(group) {
   return null;
 }
 
+const DEFAULT_GROUP_IMAGE_PATH = /(^|\/)images\/default-group\.png$/;
+
+/**
+ * The default image is a frontend static asset, so it never goes through the API.
+ * `new URL` rejects every relative input, leading slash or not, so the base is a
+ * throwaway that only makes `images/...` and `/images/...` parseable. Absolute
+ * CloudFront URLs discard it, and reading `pathname` drops any query string.
+ */
+function isDefaultGroupImage(imageUrl) {
+  try {
+    return DEFAULT_GROUP_IMAGE_PATH.test(new URL(imageUrl, "http://localhost").pathname);
+  } catch {
+    return DEFAULT_GROUP_IMAGE_PATH.test(String(imageUrl));
+  }
+}
+
 export function groupImageUrl(group) {
   const imageUrl = group?.representativeImageUrl;
   if (!imageUrl) return DEFAULT_GROUP_IMAGE;
-  if (imageUrl.startsWith("images/")) return `/api/${imageUrl}`;
-  if (imageUrl.startsWith("/images/")) return `/api${imageUrl}`;
+  if (isDefaultGroupImage(imageUrl)) return DEFAULT_GROUP_IMAGE;
   return imageUrl;
 }
 
@@ -88,12 +103,12 @@ function cardScheduleMeta(group) {
   const frequency = scheduleFrequencyText(group);
   const recruitment = group.activeRecruitment;
   if (!recruitment) {
-    return [frequency, "모집 마감"].filter(Boolean).join(" · ");
+    return frequency;
   }
 
   const remainingSeats = Math.max(recruitment.capacity - recruitment.approvedCount, 0);
   if (remainingSeats === 0) {
-    return "모집 마감";
+    return frequency;
   }
   return [frequency, `${remainingSeats}자리 남음`].filter(Boolean).join(" · ");
 }
@@ -102,11 +117,22 @@ export function GroupCard({
   as: LinkComponent = "a",
   group,
   href = `/groups/${group.id}`,
+  mobileAppearance,
   showScheduleMeta = false
 }) {
   const destination = LinkComponent === "a" ? { href } : { to: href };
+  const mobileActivityAppearance = mobileAppearance === "activity";
+  const scheduleMeta = showScheduleMeta ? cardScheduleMeta(group) : null;
   return (
-    <Card {...destination} as={LinkComponent} className="ui-group-card" interactive>
+    <Card
+      {...destination}
+      as={LinkComponent}
+      className={classes(
+        "ui-group-card",
+        mobileActivityAppearance && "ui-group-card--mobile-activity"
+      )}
+      interactive
+    >
       <div className="ui-group-card__visual">
         <GroupImage
           alt=""
@@ -118,18 +144,31 @@ export function GroupCard({
         />
       </div>
       <div className="ui-group-card__body">
-        <div className="ui-card__meta">
-          <span>{readableType(group.type)}</span>
-          <StatusBadge tone={group.recruiting ? "brand" : "neutral"}>
-            {group.recruiting ? "모집 중" : "모집 마감"}
-          </StatusBadge>
+        <div className="ui-card__meta ui-group-card__top-meta">
+          <span
+            className={classes(
+              "ui-group-card__type",
+              `ui-group-card__type--${String(group.type).toLowerCase()}`
+            )}
+          >
+            {readableType(group.type)}
+          </span>
+          {group.recruiting ? (
+            <span className="ui-group-card__recruitment">
+              <StatusBadge tone="brand">모집 중</StatusBadge>
+            </span>
+          ) : null}
         </div>
         <h3 className="ui-group-card__title">{group.name}</h3>
         <p className="ui-group-card__intro">{group.introduction}</p>
-        {showScheduleMeta ? (
-          <span className="ui-card__meta">{cardScheduleMeta(group)}</span>
-        ) : group.memberCount === undefined ? null : (
-          <span className="ui-card__meta">함께하는 멤버 {group.memberCount}명</span>
+        {scheduleMeta ? (
+          <span className="ui-card__meta ui-group-card__detail-meta">
+            {scheduleMeta}
+          </span>
+        ) : showScheduleMeta || group.memberCount === undefined ? null : (
+          <span className="ui-card__meta ui-group-card__detail-meta">
+            함께하는 멤버 {group.memberCount}명
+          </span>
         )}
       </div>
     </Card>

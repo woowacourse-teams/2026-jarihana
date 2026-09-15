@@ -1,5 +1,3 @@
-import { expect } from "playwright/test";
-
 const now = "2026-08-21T19:00:00";
 const later = "2026-09-21T19:00:00";
 
@@ -8,7 +6,8 @@ export const leader = {
   course: "FRONTEND",
   crewName: "자리",
   generation: 8,
-  id: 1
+  id: 1,
+  memberType: "CREW"
 };
 
 const member = {
@@ -16,7 +15,8 @@ const member = {
   course: "BACKEND",
   crewName: "하나",
   generation: 8,
-  id: 2
+  id: 2,
+  memberType: "CREW"
 };
 
 const members = [
@@ -27,21 +27,24 @@ const members = [
     course: "ANDROID",
     crewName: "두리",
     generation: 7,
-    id: 3
+    id: 3,
+    memberType: "CREW"
   },
   {
     avatarUrl: "https://avatars.githubusercontent.com/u/4?v=4",
     course: "FRONTEND",
     crewName: "보름",
     generation: 9,
-    id: 4
+    id: 4,
+    memberType: "CREW"
   },
   {
     avatarUrl: "https://avatars.githubusercontent.com/u/5?v=4",
     course: "BACKEND",
     crewName: "여름",
     generation: 6,
-    id: 5
+    id: 5,
+    memberType: "CREW"
   }
 ];
 
@@ -49,7 +52,8 @@ const leaderSummary = {
   avatarUrl: leader.avatarUrl,
   crewName: leader.crewName,
   generation: leader.generation,
-  memberId: 1
+  memberId: 1,
+  memberType: "CREW"
 };
 
 export const group = {
@@ -87,7 +91,7 @@ const groups = [
     activeRecruitment: null,
     id: 11,
     introduction: "사이드 프로젝트를 함께 완주하는 주말 모임",
-    leader: { crewName: "두리", generation: 7, memberId: 3 },
+    leader: { crewName: "두리", generation: 7, memberId: 3, memberType: "CREW" },
     memberCount: 9,
     name: "주말 메이커 클럽",
     representativeImageUrl: "/images/maker-club.svg",
@@ -105,7 +109,7 @@ const groups = [
     },
     id: 12,
     introduction: "접근성 실무 사례를 나누는 한 번의 집중 세션",
-    leader: { crewName: "보름", generation: 9, memberId: 4 },
+    leader: { crewName: "보름", generation: 9, memberId: 4, memberType: "CREW" },
     memberCount: 12,
     name: "웹 접근성 실전 세션",
     representativeImageUrl: "/images/accessibility-session.svg",
@@ -130,7 +134,7 @@ export const recruitment = {
 export const pendingRegistration = {
   decidedAt: null,
   decidedBy: null,
-  decisionReason: null,
+  rejectReason: null,
   id: 40,
   member,
   message: "함께 성장하고 싶습니다.",
@@ -143,7 +147,7 @@ const registrations = [
   {
     decidedAt: null,
     decidedBy: null,
-    decisionReason: null,
+    rejectReason: null,
     id: 41,
     member: members[2],
     message: "안드로이드 경험을 나누며 웹도 배우고 싶어요.",
@@ -153,7 +157,7 @@ const registrations = [
   {
     decidedAt: "2026-08-13T14:00:00",
     decidedBy: { memberId: leader.id, type: "MEMBER" },
-    decisionReason: null,
+    rejectReason: null,
     id: 42,
     member: members[3],
     message: "접근성까지 꼼꼼하게 리뷰하는 팀을 찾고 있습니다.",
@@ -163,7 +167,7 @@ const registrations = [
   {
     decidedAt: "2026-08-15T11:00:00",
     decidedBy: { memberId: leader.id, type: "MEMBER" },
-    decisionReason: "이번 기수의 정원이 모두 찼습니다.",
+    rejectReason: "이번 기수의 정원이 모두 찼습니다.",
     id: 43,
     member: members[4],
     message: "백엔드 관점의 피드백으로 함께 성장하고 싶습니다.",
@@ -180,12 +184,13 @@ const groupMember = (value, role, groupMemberId) => ({
   groupMemberId,
   joinedAt: "2026-08-02T12:00:00",
   memberId: value.id,
+  memberType: value.memberType,
   role
 });
 
 const myRegistration = {
   ...pendingRegistration,
-  group: { id: group.id, name: group.name },
+  group: { id: group.id, name: group.name, representativeImageUrl: group.representativeImageUrl },
   recruitmentId: recruitment.id
 };
 delete myRegistration.member;
@@ -245,7 +250,9 @@ export async function installApiFixture(pageInstance, options = {}) {
     auth: options.auth ?? "authenticated",
     errorPath: options.errorPath ?? null,
     errorStatus: options.errorStatus ?? null,
+    recruitments: options.recruitments ?? recruitmentItems,
     registrationPresent: true,
+    registrationUnread: true,
     unexpectedResponses: [],
     requests: []
   };
@@ -340,7 +347,8 @@ export async function installApiFixture(pageInstance, options = {}) {
           crewName: leader.crewName,
           generation: leader.generation,
           id: leader.id,
-          joinedAt: now
+          joinedAt: now,
+          memberType: "CREW"
         })
       );
     }
@@ -388,8 +396,20 @@ export async function installApiFixture(pageInstance, options = {}) {
         success({ groupId: group.id, leaderGroupMemberId: 102, previousLeaderGroupMemberId: 101 })
       );
     }
+    if (match(path, "/groups/:groupId/registrations/summary") && method === "GET") {
+      return json(
+        route,
+        success({
+          unreadCount: state.registrationPresent && state.registrationUnread ? 1 : 0,
+          pendingCount: state.registrationPresent ? 1 : 0,
+          targetRecruitmentId: state.registrationPresent ? recruitment.id : null,
+          latestRegistrationId:
+            state.registrationPresent && state.registrationUnread ? pendingRegistration.id : null
+        })
+      );
+    }
     if (match(path, "/groups/:groupId/recruitments") && method === "GET") {
-      return json(route, success(page(recruitmentItems)));
+      return json(route, success(page(state.recruitments)));
     }
     if (match(path, "/groups/:groupId/recruitments") && method === "POST") {
       const body = request.postDataJSON();
@@ -419,6 +439,10 @@ export async function installApiFixture(pageInstance, options = {}) {
         success(page(registrations.filter((item) => state.registrationPresent || item.id !== 40)))
       );
     }
+    if (match(path, "/recruitments/:recruitmentId/registrations/read") && method === "PATCH") {
+      state.registrationUnread = false;
+      return route.fulfill({ status: 204 });
+    }
     if (match(path, "/recruitments/:recruitmentId/registrations") && method === "POST") {
       return json(
         route,
@@ -443,7 +467,7 @@ export async function installApiFixture(pageInstance, options = {}) {
         success({
           decidedAt: now,
           decidedBy: { memberId: leader.id, type: "MEMBER" },
-          decisionReason: body.decisionReason ?? null,
+          rejectReason: body.rejectReason ?? null,
           id: pendingRegistration.id,
           status: body.status
         })
@@ -458,108 +482,4 @@ export async function installApiFixture(pageInstance, options = {}) {
   });
 
   return state;
-}
-
-export async function prepareVisualCapture(pageInstance) {
-  await pageInstance.evaluate(async () => {
-    await document.fonts.ready;
-    window.scrollTo(0, 0);
-    await new Promise((resolve) => requestAnimationFrame(resolve));
-    await new Promise((resolve) => requestAnimationFrame(resolve));
-  });
-  await expect
-    .poll(() => pageInstance.evaluate(() => ({ x: window.scrollX, y: window.scrollY })))
-    .toEqual({ x: 0, y: 0 });
-}
-
-export async function assertSurface(pageInstance, state, { axe = false } = {}) {
-  await expect(pageInstance.locator("main")).toHaveCount(1);
-  await expect(pageInstance.locator("body")).toBeVisible();
-  await prepareVisualCapture(pageInstance);
-  const horizontalLayout = await pageInstance.evaluate(() => {
-    const viewportWidth = document.documentElement.clientWidth;
-    const describe = (element) => {
-      const classes = [...element.classList].slice(0, 2).join(".");
-      return `${element.tagName.toLowerCase()}${element.id ? `#${element.id}` : ""}${classes ? `.${classes}` : ""}`;
-    };
-    const negativeOrOverflowingBounds = [...document.body.querySelectorAll("*")]
-      .filter((element) => element instanceof HTMLElement)
-      .filter((element) => {
-        if (element.closest("[aria-hidden='true'], [hidden]")) return false;
-        const style = getComputedStyle(element);
-        if (style.display === "none" || style.visibility === "hidden") return false;
-        const bounds = element.getBoundingClientRect();
-        if (bounds.width <= 0 || bounds.height <= 0) return false;
-        if (bounds.left < -1) return true;
-        if (bounds.right <= viewportWidth + 1) return false;
-
-        let ancestor = element.parentElement;
-        while (ancestor && ancestor !== document.body) {
-          const overflowX = getComputedStyle(ancestor).overflowX;
-          const isHorizontalScroller =
-            ["auto", "scroll"].includes(overflowX) && ancestor.scrollWidth > ancestor.clientWidth;
-          if (isHorizontalScroller) return false;
-          ancestor = ancestor.parentElement;
-        }
-        return true;
-      })
-      .slice(0, 12)
-      .map((element) => {
-        const bounds = element.getBoundingClientRect();
-        return {
-          element: describe(element),
-          left: Math.round(bounds.left * 10) / 10,
-          right: Math.round(bounds.right * 10) / 10,
-          width: Math.round(bounds.width * 10) / 10
-        };
-      });
-
-    const criticalBounds = [
-      ["app brand", document.querySelector(".app-header__brand")],
-      ["route heading", document.querySelector("main h1")],
-      ["main panel", document.querySelector("main > *")]
-    ]
-      .filter(([, element]) => element instanceof HTMLElement)
-      .map(([name, element]) => {
-        const bounds = element.getBoundingClientRect();
-        return { name, left: bounds.left, right: bounds.right, width: bounds.width };
-      })
-      .filter(({ left, right, width }) => width <= 0 || left < -1 || right > viewportWidth + 1);
-
-    return {
-      bodyOverflow: document.body.scrollWidth - document.body.clientWidth,
-      criticalBounds,
-      documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      negativeOrOverflowingBounds,
-      scrollX: window.scrollX
-    };
-  });
-  expect(horizontalLayout.scrollX, "캡처 전 수평 스크롤 위치는 0이어야 합니다").toBe(0);
-  expect(
-    {
-      body: horizontalLayout.bodyOverflow,
-      document: horizontalLayout.documentOverflow
-    },
-    "페이지에 가로 overflow가 없어야 합니다"
-  ).toEqual({ body: 0, document: 0 });
-  expect(
-    horizontalLayout.negativeOrOverflowingBounds,
-    "보이는 요소가 viewport의 수평 bounds를 벗어나면 안 됩니다"
-  ).toEqual([]);
-  expect(
-    horizontalLayout.criticalBounds,
-    "브랜드, route heading, main panel의 수평 bounds가 온전해야 합니다"
-  ).toEqual([]);
-  expect(state.unexpectedResponses, "예상하지 않은 API 4xx/5xx가 없어야 합니다").toEqual([]);
-
-  if (axe) {
-    const { AxeBuilder } = await import("@axe-core/playwright");
-    const results = await new AxeBuilder({ page: pageInstance })
-      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-      .analyze();
-    const blocking = results.violations.filter((violation) =>
-      ["critical", "serious"].includes(violation.impact)
-    );
-    expect(blocking, JSON.stringify(blocking, null, 2)).toEqual([]);
-  }
 }

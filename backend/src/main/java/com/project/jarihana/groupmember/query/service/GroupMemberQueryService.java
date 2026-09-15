@@ -60,8 +60,9 @@ public class GroupMemberQueryService {
                 projection.memberId(),
                 projection.crewName(),
                 projection.generation(),
+                projection.memberType().name(),
                 GithubAvatarUrl.from(projection.githubId()),
-                projection.course().name(),
+                projection.course() == null ? null : projection.course().name(),
                 projection.role().name(),
                 projection.joinedAt()
         );

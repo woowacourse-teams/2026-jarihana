@@ -15,15 +15,17 @@ import { createGithubAuthorizationUrl } from "./oauth";
 const AuthContext = createContext(null);
 
 const stateFromProfile = (profile) => {
+  const avatarUrl = profile.avatarUrl ?? profile.member?.avatarUrl ?? null;
+
   if (!profile.signupCompleted) {
-    return { error: null, member: null, status: "signup-required" };
+    return { avatarUrl, error: null, member: null, status: "signup-required" };
   }
-  return { error: null, member: profile.member, status: "authenticated" };
+  return { avatarUrl, error: null, member: profile.member, status: "authenticated" };
 };
 
 export const AuthProvider = ({ children }) => {
   const bootstrapStarted = useRef(false);
-  const [state, setState] = useState({ error: null, member: null, status: "loading" });
+  const [state, setState] = useState({ avatarUrl: null, error: null, member: null, status: "loading" });
 
   const reload = useCallback(async () => {
     await Promise.resolve();
@@ -32,10 +34,10 @@ export const AuthProvider = ({ children }) => {
       setState(stateFromProfile(await bootstrapAuth()));
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
-        setState({ error: null, member: null, status: "anonymous" });
+        setState({ avatarUrl: null, error: null, member: null, status: "anonymous" });
         return;
       }
-      setState({ error, member: null, status: "unavailable" });
+      setState({ avatarUrl: null, error, member: null, status: "unavailable" });
       throw error;
     }
   }, []);
@@ -46,7 +48,7 @@ export const AuthProvider = ({ children }) => {
     }
     bootstrapStarted.current = true;
     apiClient.setSessionExpiredHandler(() => {
-      setState({ error: null, member: null, status: "anonymous" });
+      setState({ avatarUrl: null, error: null, member: null, status: "anonymous" });
     });
     queueMicrotask(() => {
       void reload().catch(() => undefined);
@@ -59,7 +61,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = useCallback(async () => {
     await logoutRequest();
-    setState({ error: null, member: null, status: "anonymous" });
+    setState({ avatarUrl: null, error: null, member: null, status: "anonymous" });
   }, []);
 
   const value = useMemo(

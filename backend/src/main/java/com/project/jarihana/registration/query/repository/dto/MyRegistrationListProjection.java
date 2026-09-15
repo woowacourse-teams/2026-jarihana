@@ -9,11 +9,12 @@ public record MyRegistrationListProjection(
         Long id,
         Long groupId,
         String groupName,
+        String groupRepresentativeImageKey,
         Long recruitmentId,
         String message,
         RegistrationStatus status,
         LocalDateTime registeredAt,
-        String decisionReason,
+        String rejectReason,
         LocalDateTime decidedAt,
         DecisionActorType decidedByType,
         Long decidedByMemberId

@@ -2,7 +2,7 @@ import { UsersRound } from "lucide-react";
 import { useId, useState } from "react";
 
 import { useInfiniteGroupMembers } from "../../features/member/index.js";
-import { Button, EmptyState, ErrorState, Skeleton, StatusBadge } from "../../shared/ui/index.js";
+import { Avatar, Button, EmptyState, ErrorState, Skeleton, StatusBadge } from "../../shared/ui/index.js";
 
 const COURSE_LABEL = {
   ANDROID: "안드로이드",
@@ -20,16 +20,27 @@ function memberItems(data) {
 
 function cohortItems(members) {
   const counts = new Map();
-  for (const member of members)
-    counts.set(member.generation, (counts.get(member.generation) ?? 0) + 1);
+  for (const member of members) {
+    const generation =
+      Number.isInteger(member.generation) && member.generation > 0 ? member.generation : "unknown";
+    counts.set(generation, (counts.get(generation) ?? 0) + 1);
+  }
   return [...counts.entries()]
-    .sort(([left], [right]) => left - right)
+    .sort(([left], [right]) => {
+      if (left === "unknown") return 1;
+      if (right === "unknown") return -1;
+      return left - right;
+    })
     .map(([generation, count], index) => ({
       count,
       generation,
-      label: String(generation) + "기",
+      label: generation === "unknown" ? "기수 미정" : `${generation}기`,
       tone: (index % 5) + 1
     }));
+}
+
+function generationLabel(generation) {
+  return Number.isInteger(generation) && generation > 0 ? `${generation}기` : "기수 미정";
 }
 
 function PendingMembersPanel() {
@@ -55,32 +66,30 @@ function MemberInsights({ members }) {
     <section className="group-members-panel" aria-labelledby="group-members-title">
       <div className="group-members-panel__member-column">
         <div className="group-members-panel__heading">
-          <div>
-            <p id="group-members-title">실제 가입 데이터</p>
-          </div>
-          <StatusBadge tone="brand">현재 {members.length}명</StatusBadge>
+          <h2 id="group-members-title">멤버</h2>
         </div>
 
         <div aria-label="현재 멤버" className="group-members-panel__people" role="list">
           {members.map((member, index) => (
             <div className="group-members-panel__person" key={member.groupMemberId} role="listitem">
-              <span
-                aria-hidden="true"
+              <Avatar
+                alt={`${member.crewName} 프로필`}
                 className={`group-members-panel__avatar is-tone-${(index % 5) + 1}`}
-              >
-                {member.crewName.slice(0, 1)}
-              </span>
-                <span className="group-members-panel__copy">
-                  <span className="group-members-panel__name-row">
-                    <strong>{member.crewName}</strong>
-                    {member.role === "LEADER" ? (
-                      <StatusBadge tone="neutral">모임장</StatusBadge>
-                    ) : null}
-                  </span>
-                  <small>
-                    {member.generation}기 · {COURSE_LABEL[member.course] ?? member.course}
-                  </small>
+                fallback={member.crewName.slice(0, 1)}
+                size="sm"
+                src={member.avatarUrl}
+              />
+              <span className="group-members-panel__copy">
+                <span className="group-members-panel__name-row">
+                  <strong>{member.crewName}</strong>
+                  {member.role === "LEADER" ? <StatusBadge tone="neutral">모임장</StatusBadge> : null}
                 </span>
+                <small>
+                  {member.memberType === "COACH"
+                    ? "코치"
+                    : `${generationLabel(member.generation)} · ${COURSE_LABEL[member.course] ?? member.course}`}
+                </small>
+              </span>
             </div>
           ))}
         </div>
@@ -94,7 +103,7 @@ function MemberInsights({ members }) {
             <h3>기수 구성</h3>
             <p>막대에 마우스를 올리거나 키보드로 이동하면 기수별 인원을 볼 수 있어요.</p>
           </div>
-          <span>{cohorts[0].generation}기부터 참여 중</span>
+          <span>{cohorts[0].label}부터 참여 중</span>
         </div>
         <div className="group-members-panel__rail" aria-label="기수별 멤버 분포">
           {cohorts.map((cohort) => {
@@ -102,14 +111,14 @@ function MemberInsights({ members }) {
             return (
               <button
                 aria-describedby={tooltipId}
-                aria-label={`${cohort.generation}기 ${cohort.count}명`}
+                aria-label={`${cohort.label} ${cohort.count}명`}
                 className={`group-members-panel__segment is-tone-${cohort.tone}`}
                 key={cohort.generation}
                 style={{ "--cohort-size": cohort.count }}
                 type="button"
               >
                 <span className="group-members-panel__tooltip" id={tooltipId} role="tooltip">
-                  {cohort.generation}기 · {cohort.count}명
+                  {cohort.label} · {cohort.count}명
                 </span>
               </button>
             );
@@ -118,7 +127,7 @@ function MemberInsights({ members }) {
         <div className="group-members-panel__cohort-list">
           {cohorts.map((cohort) => (
             <span className={`is-tone-${cohort.tone}`} key={cohort.generation}>
-              <i aria-hidden="true" /> {cohort.generation}기 {cohort.count}명
+              <i aria-hidden="true" /> {cohort.label} {cohort.count}명
             </span>
           ))}
         </div>

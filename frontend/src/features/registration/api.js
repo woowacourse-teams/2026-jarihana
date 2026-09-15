@@ -2,7 +2,8 @@ import {
   myRegistrationPageSchema,
   registrationCreateResponseSchema,
   registrationDecisionResponseSchema,
-  registrationPageSchema
+  registrationPageSchema,
+  registrationSummarySchema
 } from "../../entities/registration/index.js";
 import { apiRequest } from "../../shared/api/index.js";
 
@@ -27,6 +28,19 @@ export function fetchMyRegistrations(filters = {}) {
   return apiRequest("registrations", {
     searchParams: buildRegistrationSearchParams(filters, true),
     schema: myRegistrationPageSchema
+  });
+}
+
+export function fetchRegistrationSummary(groupId) {
+  return apiRequest(`groups/${groupId}/registrations/summary`, {
+    schema: registrationSummarySchema
+  });
+}
+
+export function markRegistrationsRead(recruitmentId, throughRegistrationId) {
+  return apiRequest(`recruitments/${recruitmentId}/registrations/read`, {
+    method: "patch",
+    json: { throughRegistrationId }
   });
 }
 
