@@ -3,7 +3,7 @@ import { mergeCursorPages } from "../../entities/cursor/index.js";
 const typeLabels = {
   CLUB: "동아리",
   STUDY: "스터디",
-  SESSION: "세션"
+  SESSION: "같이해요"
 };
 
 const meetingTypeLabels = {

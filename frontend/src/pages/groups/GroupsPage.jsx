@@ -20,7 +20,7 @@ const filters = [
   { label: "전체", value: "" },
   { label: "동아리", value: "CLUB" },
   { label: "스터디", value: "STUDY" },
-  { label: "세션", value: "SESSION" }
+  { label: "같이해요", value: "SESSION" }
 ];
 
 function isGroupRecruiting(group) {
