@@ -60,8 +60,12 @@ export function useCreateGroup() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: createGroup,
-    onSuccess: (group) => {
-      captureEvent("group_created", { group_id: group.id, status: group.status });
+    onSuccess: (group, values) => {
+      captureEvent("group_created", {
+        group_id: group.id,
+        group_type: values.type,
+        status: group.status
+      });
       return queryClient.invalidateQueries({ queryKey: groupKeys.lists() });
     }
   });
