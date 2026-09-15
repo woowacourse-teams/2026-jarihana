@@ -22,8 +22,7 @@ public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
     private static final Set<String> MEMBER_NAME_CONSTRAINTS = Set.of(
             "uk_member_crew_name_generation",
-            "uk_member_coach_name",
-            "uk_member_name_scope"
+            "uk_member_coach_name"
     );
 
     @ExceptionHandler(BusinessException.class)
