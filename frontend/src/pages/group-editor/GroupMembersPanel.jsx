@@ -51,8 +51,8 @@ function PendingMembersPanel() {
     >
       <UsersRound aria-hidden="true" size={40} />
       <div>
-        <h2 id="pending-members-title">모임을 만든 뒤 멤버를 확인할 수 있어요</h2>
-        <p>생성이 완료되면 실제 멤버와 기수 구성을 이 탭에서 바로 보여드려요.</p>
+        <h2 id="pending-members-title">모임을 만든 뒤 참여자를 확인할 수 있어요</h2>
+        <p>생성이 완료되면 실제 참여자와 기수 구성을 이 탭에서 바로 보여드려요.</p>
       </div>
     </section>
   );
@@ -66,10 +66,10 @@ function MemberInsights({ members }) {
     <section className="group-members-panel" aria-labelledby="group-members-title">
       <div className="group-members-panel__member-column">
         <div className="group-members-panel__heading">
-          <h2 id="group-members-title">멤버</h2>
+          <h2 id="group-members-title">참여자</h2>
         </div>
 
-        <div aria-label="현재 멤버" className="group-members-panel__people" role="list">
+        <div aria-label="현재 참여자" className="group-members-panel__people" role="list">
           {members.map((member, index) => (
             <div className="group-members-panel__person" key={member.groupMemberId} role="listitem">
               <Avatar
@@ -105,7 +105,7 @@ function MemberInsights({ members }) {
           </div>
           <span>{cohorts[0].label}부터 참여 중</span>
         </div>
-        <div className="group-members-panel__rail" aria-label="기수별 멤버 분포">
+        <div className="group-members-panel__rail" aria-label="기수별 참여자 분포">
           {cohorts.map((cohort) => {
             const tooltipId = `${tooltipBaseId}-${cohort.generation}`;
             return (
@@ -213,7 +213,7 @@ function CohortDonut({ cohorts, total }) {
           </svg>
           <div className="group-members-panel__donut-label">
             <strong>{total}명</strong>
-            <span>전체 멤버</span>
+            <span>전체 참여자</span>
           </div>
           {activeCohort ? (
             <div className="group-members-panel__donut-tooltip" role="status">
@@ -242,11 +242,11 @@ function LoadedMembersPanel({ groupId }) {
   const query = useInfiniteGroupMembers(groupId);
   const members = memberItems(query.data);
 
-  if (query.isLoading) return <Skeleton aria-label="멤버 구성 불러오는 중" />;
+  if (query.isLoading) return <Skeleton aria-label="참여자 구성 불러오는 중" />;
   if (query.isError) {
     return (
       <ErrorState
-        title="멤버 구성을 불러오지 못했어요"
+        title="참여자 구성을 불러오지 못했어요"
         description="연결을 확인하고 다시 시도해 주세요."
         action={<Button onClick={() => query.refetch()}>다시 시도</Button>}
       />
@@ -255,8 +255,8 @@ function LoadedMembersPanel({ groupId }) {
   if (!members.length) {
     return (
       <EmptyState
-        title="아직 함께하는 멤버가 없어요"
-        description="첫 멤버가 합류하면 기수 구성이 표시돼요."
+        title="아직 함께하는 참여자가 없어요"
+        description="첫 참여자가 합류하면 기수 구성이 표시돼요."
       />
     );
   }
@@ -272,7 +272,7 @@ function LoadedMembersPanel({ groupId }) {
             type="button"
             variant="secondary"
           >
-            멤버 더 보기
+            참여자 더 보기
           </Button>
         </div>
       ) : null}

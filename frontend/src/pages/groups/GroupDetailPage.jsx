@@ -43,7 +43,7 @@ import "./groups.css";
 const tabs = [
   { label: "소개", value: "intro" },
   { label: "활동 기록", value: "recruitments" },
-  { label: "멤버", value: "members" }
+  { label: "참여자", value: "members" }
 ];
 
 /* 도착한 화면을 먼저 보여 준 뒤 묻는 정도의 짧은 간격이다. */
@@ -205,7 +205,7 @@ export function GroupDetailPage() {
                   />
                   <DetailFact
                     icon={memberIcon}
-                    label="현재 멤버 수"
+                    label="현재 참여자 수"
                     value={`${group.memberCount}명`}
                   />
                 </dl>
@@ -359,6 +359,8 @@ function RecruitmentSummary({
   const registration = useCreateRegistration(recruitment?.id);
   const [applicationOpen, setApplicationOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const participationLabel = group.type === "SESSION" ? "참여" : "참여 신청";
+  const participationButtonLabel = `${participationLabel}하기`;
 
   const isAuthenticated = auth.status === "authenticated" || auth.isAuthenticated;
   const remainingSeats = recruitment
@@ -399,7 +401,7 @@ function RecruitmentSummary({
     if (isApprovedMember) {
       return (
         <Button disabled variant="secondary">
-          가입 완료!
+          참여 완료!
         </Button>
       );
     }
@@ -420,7 +422,7 @@ function RecruitmentSummary({
     if (!isAuthenticated) {
       return (
         <Button className="group-apply-button" onClick={() => auth.login?.()} variant="primary">
-          가입 신청하기
+          {participationButtonLabel}
         </Button>
       );
     }
@@ -431,7 +433,7 @@ function RecruitmentSummary({
         onClick={openApplication}
         variant="primary"
       >
-        가입 신청하기
+        {participationButtonLabel}
       </Button>
     );
   }
@@ -486,7 +488,7 @@ function RecruitmentSummary({
             </dd>
           </div>
           <div>
-            <dt>가입 방식</dt>
+            <dt>참여 방식</dt>
             <dd>{recruitment.joinMethod === "AUTO" ? "선착순" : "승인제"}</dd>
           </div>
           <div>
@@ -516,12 +518,12 @@ function RecruitmentSummary({
       </div>
       <div className="group-recruitment-action">{applicationAction()}</div>
       <Modal
-        description="운영자에게 전달할 가입 신청 메시지를 작성해 주세요."
+        description="운영자에게 전달할 신청 메시지를 작성해 주세요."
         onClose={() => {
           if (!registration.isPending) setApplicationOpen(false);
         }}
         open={applicationOpen}
-        title="가입 신청"
+        title="신청"
       >
         <ApplicationForm
           onSuccess={() => {
@@ -582,7 +584,7 @@ function ApplicationForm({ onSuccess, registration }) {
       <Textarea
         defaultValue=""
         description={`${messageLength}/1000자 · 운영자에게 전하고 싶은 내용을 적어주세요.`}
-        label="가입 신청 메시지"
+        label="신청 메시지"
         maxLength={1000}
         onInput={(event) => setMessageLength(event.currentTarget.value.length)}
         ref={messageReference}
@@ -601,7 +603,7 @@ function ApplicationForm({ onSuccess, registration }) {
         type="submit"
         variant="primary"
       >
-        가입 신청하기
+        신청하기
       </Button>
     </form>
   );
@@ -660,8 +662,8 @@ function MemberList({ items, query }) {
   }, [items.length]);
 
   if (query.isLoading) return <Skeleton className="group-list-skeleton" />;
-  if (query.isError) return <ErrorState title="멤버를 불러오지 못했어요" />;
-  if (items.length === 0) return <EmptyState title="아직 함께하는 멤버가 없어요" />;
+  if (query.isError) return <ErrorState title="참여자를 불러오지 못했어요" />;
+  if (items.length === 0) return <EmptyState title="아직 함께하는 참여자가 없어요" />;
 
   const cohorts = cohortItems(items);
   const canToggle = rowCount > 3 || query.hasNextPage || expanded;
@@ -683,7 +685,7 @@ function MemberList({ items, query }) {
   return (
     <div className="group-members-overview">
       <section aria-labelledby="group-members-title" className="group-members-list-panel">
-        <h2 id="group-members-title">멤버</h2>
+        <h2 id="group-members-title">참여자</h2>
         <ul
           className={`group-member-grid${!expanded && rowCount > 3 ? " is-collapsed" : ""}`}
           ref={gridReference}
@@ -821,7 +823,7 @@ function CohortDonut({ cohorts, total }) {
           </svg>
           <div className="group-cohort-panel__donut-label">
             <strong>{total}명</strong>
-            <span>전체 멤버</span>
+            <span>전체 참여자</span>
           </div>
           {activeCohort ? (
             <div className="group-cohort-panel__tooltip" role="status">

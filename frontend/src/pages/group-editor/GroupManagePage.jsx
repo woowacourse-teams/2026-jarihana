@@ -480,7 +480,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
                   )
                 },
                 {
-                  label: "멤버",
+                  label: "참여자",
                   value: "members",
                   content: <GroupMembersPanel groupId={groupId} />
                 }

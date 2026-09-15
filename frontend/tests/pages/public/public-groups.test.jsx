@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import * as authHooks from "../../../src/features/auth/index.js";
@@ -129,7 +129,8 @@ beforeEach(() => {
     mutateAsync: jest.fn().mockResolvedValue({ id: 301, status: "PENDING" }),
     isPending: false,
     isSuccess: false,
-    error: null
+    error: null,
+    reset: jest.fn()
   });
   authHooks.useAuth.mockReturnValue({
     isAuthenticated: true,
@@ -181,12 +182,39 @@ it("Given an approved group member, when the detail page renders, then applicati
 
   renderAt("/groups/41", <GroupDetailPage />);
 
-  const button = screen.getByRole("button", { name: "가입 완료!" });
+  const button = screen.getByRole("button", { name: "참여 완료!" });
   expect(button).toBeDisabled();
   await user.click(button);
   expect(mutateAsync).not.toHaveBeenCalled();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
+
+it.each([
+  ["STUDY", "참여 신청하기"],
+  ["CLUB", "참여 신청하기"],
+  ["SESSION", "참여하기"]
+])(
+  "Given a %s group with an active recruitment, when the application form opens, then neutral application wording is used",
+  async (type, actionLabel) => {
+    const user = userEvent.setup();
+    groupHooks.useGroup.mockReturnValue({
+      data: { ...group, type },
+      isLoading: false,
+      isError: false
+    });
+
+    renderAt("/groups/41", <GroupDetailPage />);
+
+    await user.click(screen.getByRole("button", { name: actionLabel }));
+
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("heading", { name: "신청" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("textbox", { name: "신청 메시지" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "신청하기" })).toBeInTheDocument();
+    expect(dialog).not.toHaveTextContent("가입");
+    expect(dialog).not.toHaveTextContent("참여");
+  }
+);
 
 it("Given a pending application, when the detail page renders, then application is disabled", async () => {
   const user = userEvent.setup();
