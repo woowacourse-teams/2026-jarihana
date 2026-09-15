@@ -7,9 +7,9 @@
 
 ## 기술 선택과 실행 경계
 
-현재 기술 스택과 선택 이유는 [프론트엔드 기술 스택 ADR](adr/0001-frontend-toolchain.md)에서
-관리한다. 이 문서는 현재 코드와 백엔드 계약, Figma 매핑을 관리하며 실행 가이드를 소유하지
-않는다.
+현재 프론트엔드 기술 스택과 선택 이유는 [프론트엔드 ADR 목록](adr/README.md)의
+[프론트엔드 ADR 0001](adr/0001-frontend-toolchain.md)에서 관리한다. 이 문서는 현재 코드와 백엔드
+계약, Figma 매핑을 관리하며 실행 가이드를 소유하지 않는다.
 
 시각 토큰은 `src/shared/styles/tokens.css`에 집중한다. 이번 hardening에서 contrast-aware
 `--color-text-brand`/`--color-text-muted`, `--border-thin`/`--border-strong`,
