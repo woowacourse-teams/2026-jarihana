@@ -168,7 +168,7 @@ export function ScheduleDialog({
     <Modal
       description={
         isSession
-          ? "한 번만 만나는 세션이라 날짜와 시간을 정합니다."
+          ? "한 번만 만나는 모임이라 날짜와 시간을 정합니다."
           : "매주 반복되는 요일과 시간을 정합니다."
       }
       onClose={onClose}

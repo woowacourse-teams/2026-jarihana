@@ -12,7 +12,7 @@ export const MEMBER_TYPE_LABELS = {
 
 export const GROUP_TYPE_LABELS = {
   CLUB: "동아리",
-  SESSION: "세션",
+  SESSION: "같이해요",
   STUDY: "스터디"
 };
 

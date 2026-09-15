@@ -261,7 +261,7 @@ export function NewGroupPage() {
             >
               <option value="STUDY">스터디</option>
               <option value="CLUB">동아리</option>
-              <option value="SESSION">세션</option>
+              <option value="SESSION">같이해요</option>
             </UnderlineSelect>
 
             <UnderlineField
