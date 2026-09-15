@@ -6,6 +6,8 @@
 - 날짜: 2026-08-27
 - 관련 문서: [ADR 0011](0011-postgresql-rdbms-selection.md), [ADR 0009](0009-aws-deployment-topology.md),
   [영속성 컨벤션](../conventions/persistence.md), [프로젝트 운영 컨벤션](../conventions/project-operations.md)
+- 자동화 테스트의 PostgreSQL을 로컬 Docker Compose 구성으로 실행한다는 결정은
+  [ADR 0013](0013-testcontainers-test-database.md)으로 대체되었다. 테스트용 PostgreSQL은 Testcontainers로 실행한다.
 - **이 문서는 아직 채택되지 않았다.** 현재 스키마 관리 방식과 그에 따른 비용을 기록하고, 도구 선택을
   팀의 결정 안건으로 제시한다. 결정이 내려지면 상태를 갱신한다.
 - 개정: 2026-08-27. 팀에서 자동화 테스트를 PostgreSQL로 전환하기로 했다. 최초 작성본에서는 이 항목을
