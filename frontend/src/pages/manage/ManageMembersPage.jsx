@@ -95,7 +95,7 @@ export function ManageMembersPage() {
   }
 
   if (membersQuery.isPending) {
-    return <ManageLoading title="멤버 관리" />;
+    return <ManageLoading title="참여자 관리" />;
   }
 
   if (membersQuery.isError) {
@@ -115,19 +115,19 @@ export function ManageMembersPage() {
     <div className="manage-page">
       <ManagementContext active="members" groupId={groupId} />
       <ManagementPageHeading
-        description="승인된 크루와 역할, 가입일을 확인하고 멤버를 관리해요."
+        description="승인된 크루와 역할, 가입일을 확인하고 참여자를 관리해요."
         statIcon={<UsersRound aria-hidden="true" size={20} />}
         statValue={`${members.length}명`}
-        title="멤버 관리"
+        title="참여자 관리"
       />
 
       {mutationError ? <InlineError error={mutationError} /> : null}
       <div className="manage-member-controls manage-member-controls--figma">
         <label className="manage-member-search">
-          <span className="manage-visually-hidden">멤버 검색</span>
+          <span className="manage-visually-hidden">참여자 검색</span>
           <Search aria-hidden="true" className="manage-member-search__icon" size={20} />
           <input
-            aria-label="멤버 검색"
+            aria-label="참여자 검색"
             onChange={(event) => setSearch(event.target.value)}
             placeholder="닉네임, 과정, 기수 검색"
             type="search"
@@ -163,15 +163,15 @@ export function ManageMembersPage() {
       </div>
 
       {members.length === 0 ? (
-        <EmptyState title="아직 함께하는 멤버가 없어요" />
+        <EmptyState title="아직 함께하는 참여자가 없어요" />
       ) : sortedMembers.length === 0 ? (
-        <EmptyState title="검색 조건에 맞는 멤버가 없어요" />
+        <EmptyState title="검색 조건에 맞는 참여자가 없어요" />
       ) : (
         <section className="manage-table-panel" aria-labelledby="member-table-title">
           <h3 className="manage-visually-hidden" id="member-table-title">
-            모임 멤버
+            모임 참여자
           </h3>
-          <table aria-label="모임 멤버" className="manage-member-table">
+          <table aria-label="모임 참여자" className="manage-member-table">
             <colgroup>
               <col className="manage-member-table__col--crew" />
               <col className="manage-member-table__col--course" />
@@ -192,7 +192,7 @@ export function ManageMembersPage() {
             </thead>
             <tbody>
               {sortedMembers.map((member) => (
-                <tr aria-label={`${member.crewName} 멤버`} key={member.groupMemberId}>
+                <tr aria-label={`${member.crewName} 참여자`} key={member.groupMemberId}>
                   <td data-label="크루">
                     <div className="manage-member-identity">
                       <Avatar
@@ -268,7 +268,7 @@ export function ManageMembersPage() {
                 pending={membersQuery.isFetchingNextPage}
                 variant="secondary"
               >
-                멤버 더 보기
+                참여자 더 보기
               </Button>
             </div>
           ) : null}
