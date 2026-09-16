@@ -1,4 +1,4 @@
-package com.project.jarihana.share.controller;
+package com.project.jarihana.share.query.controller;
 
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;

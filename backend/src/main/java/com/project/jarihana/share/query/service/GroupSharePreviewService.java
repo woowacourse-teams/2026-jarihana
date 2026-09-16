@@ -1,10 +1,10 @@
-package com.project.jarihana.share.service;
+package com.project.jarihana.share.query.service;
 
 import com.project.jarihana.auth.config.AuthProperties;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.query.service.GroupQueryService;
 import com.project.jarihana.group.query.service.dto.GroupDetailResult;
-import com.project.jarihana.share.service.dto.GroupSharePreview;
+import com.project.jarihana.share.query.service.dto.GroupSharePreview;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;

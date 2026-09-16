@@ -1,4 +1,4 @@
-package com.project.jarihana.share.service.dto;
+package com.project.jarihana.share.query.service.dto;
 
 public record GroupSharePreview(
         String title,

@@ -1,7 +1,7 @@
-package com.project.jarihana.share.controller;
+package com.project.jarihana.share.query.controller;
 
-import com.project.jarihana.share.service.GroupSharePreviewService;
-import com.project.jarihana.share.service.dto.GroupSharePreview;
+import com.project.jarihana.share.query.service.GroupSharePreviewService;
+import com.project.jarihana.share.query.service.dto.GroupSharePreview;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
