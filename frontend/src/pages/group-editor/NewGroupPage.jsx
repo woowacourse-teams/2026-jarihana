@@ -237,7 +237,7 @@ export function NewGroupPage() {
       <header className="group-editor__heading">
         <h1>신규 모임 생성</h1>
         <p className="group-editor__heading-note">
-          모집 설정, 신청 관리, 멤버 관리는 모임을 만든 뒤 관리 화면에서 이어서 할 수 있어요.
+          모집 설정, 신청 관리, 참여자 관리는 모임을 만든 뒤 관리 화면에서 이어서 할 수 있어요.
         </p>
       </header>
 
@@ -359,7 +359,7 @@ export function NewGroupPage() {
                 )
               },
               {
-                label: "멤버",
+                label: "참여자",
                 value: "members",
                 content: <GroupMembersPanel />
               }

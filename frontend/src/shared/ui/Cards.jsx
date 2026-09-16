@@ -167,7 +167,7 @@ export function GroupCard({
           </span>
         ) : showScheduleMeta || group.memberCount === undefined ? null : (
           <span className="ui-card__meta ui-group-card__detail-meta">
-            함께하는 멤버 {group.memberCount}명
+            함께하는 참여자 {group.memberCount}명
           </span>
         )}
       </div>
@@ -196,9 +196,9 @@ export function RecruitmentCard({ as: LinkComponent = "a", href, recruitment }) 
       <StatusBadge tone={recruitmentTone(recruitment.status)}>
         {recruitmentLabel(recruitment.status)}
       </StatusBadge>
-      <h3 className="ui-recruitment-card__title">{recruitment.title || "새 멤버 모집"}</h3>
+      <h3 className="ui-recruitment-card__title">{recruitment.title || "새 참여자 모집"}</h3>
       <div className="ui-card__meta">
-        <span>{recruitment.joinMethod === "AUTO" ? "자동 승인" : "모임장 승인"}</span>
+        <span>{recruitment.joinMethod === "AUTO" ? "선착순" : "승인제"}</span>
         <span>정원 {recruitment.capacity}명</span>
       </div>
     </Card>

@@ -116,8 +116,8 @@ export function RecruitmentDetailPage() {
                 <dd>{recruitment.remainingSeats}자리</dd>
               </div>
               <div>
-                <dt>가입 방식</dt>
-                <dd>{recruitment.joinMethod === "AUTO" ? "자동 가입" : "승인 가입"}</dd>
+                <dt>참여 방식</dt>
+                <dd>{recruitment.joinMethod === "AUTO" ? "선착순" : "승인제"}</dd>
               </div>
             </dl>
           </section>
@@ -131,7 +131,7 @@ export function RecruitmentDetailPage() {
               <strong>신청을 보냈어요.</strong>
               <p>
                 {recruitment.joinMethod === "AUTO"
-                  ? "바로 모임 멤버가 되었어요."
+                  ? "바로 모임 참여자가 되었어요."
                   : "운영자의 확인을 기다려주세요."}
               </p>
             </div>
