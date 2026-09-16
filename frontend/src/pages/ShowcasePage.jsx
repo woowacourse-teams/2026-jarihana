@@ -125,8 +125,8 @@ function ShowcaseContent() {
             placeholder="모임명으로 검색하기"
           />
           <FilterBar label="모집 방식">
-            <Radio defaultChecked label="자동 승인" name="joinMethod" value="AUTO" />
-            <Radio label="모임장 승인" name="joinMethod" value="APPROVAL" />
+            <Radio defaultChecked label="선착순" name="joinMethod" value="AUTO" />
+            <Radio label="승인제" name="joinMethod" value="APPROVAL" />
             <Checkbox label="모집 중인 모임만 보기" name="recruiting" />
           </FilterBar>
         </div>
@@ -187,7 +187,7 @@ function ShowcaseContent() {
               capacity: 12,
               joinMethod: "APPROVAL",
               status: "OPEN",
-              title: "2026 하반기 멤버 모집"
+              title: "2026 하반기 참여자 모집"
             }}
           />
         </div>
@@ -205,7 +205,7 @@ function ShowcaseContent() {
                 value: "activity",
                 content: <p>최근 활동 기록이 아직 없어요.</p>
               },
-              { label: "멤버", value: "members", content: <p>함께하는 멤버 18명</p> }
+              { label: "참여자", value: "members", content: <p>함께하는 참여자 18명</p> }
             ]}
           />
         </div>
