@@ -161,7 +161,7 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - Header composition: desktop은 `auto / 1fr / auto` grid로 wordmark와 우측 auth action을 고정하고,
   member tabs는 노출하지 않는다. 모바일 drawer에서는 탐색·모임 만들기 진입점을 유지하고, guard가
   인증이 필요한 destination을 처리한다. anonymous가 보호 메뉴를 누르면 해당 경로를 로그인 후
-  복귀 대상으로 저장하고, 현재 화면에서 로그인 필요 toast를 즉시 제공한다. authenticated 상태에만
+  복귀 대상으로 저장하고 GitHub 로그인으로 이동한다. authenticated 상태에만
   `마이` link와 logout action을 더한다.
 - Header active state는 모바일 drawer의 pathname 목적지에만 연결한다. `/groups/new`에서 상위
   `/groups` 탐색 링크를 동시에 활성화하거나, `/my/groups`에서 `/my`를 동시에 활성화하지 않는다.
