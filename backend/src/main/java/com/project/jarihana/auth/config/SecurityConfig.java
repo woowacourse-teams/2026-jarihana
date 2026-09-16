@@ -26,6 +26,7 @@ public class SecurityConfig {
             "/groups/*/members",
             "/groups/*/recruitments",
             "/groups/*/recruitments/*",
+            "/share/groups/*",
             "/images/**"
     };
     private static final String[] PUBLIC_POST_PATHS = {"/auth/refresh"};
