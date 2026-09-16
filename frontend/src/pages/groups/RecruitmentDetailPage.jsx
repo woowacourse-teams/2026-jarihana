@@ -116,8 +116,8 @@ export function RecruitmentDetailPage() {
                 <dd>{recruitment.remainingSeats}자리</dd>
               </div>
               <div>
-                <dt>가입 방식</dt>
-                <dd>{recruitment.joinMethod === "AUTO" ? "자동 가입" : "승인 가입"}</dd>
+                <dt>참여 방식</dt>
+                <dd>{recruitment.joinMethod === "AUTO" ? "선착순" : "승인제"}</dd>
               </div>
             </dl>
           </section>
@@ -131,7 +131,7 @@ export function RecruitmentDetailPage() {
               <strong>신청을 보냈어요.</strong>
               <p>
                 {recruitment.joinMethod === "AUTO"
-                  ? "바로 모임 멤버가 되었어요."
+                  ? "바로 모임 참여자가 되었어요."
                   : "운영자의 확인을 기다려주세요."}
               </p>
             </div>
@@ -144,6 +144,7 @@ export function RecruitmentDetailPage() {
           )}
           {isOpen && !submitted && isAuthenticated && (
             <form
+              data-ph-capture-attribute-action="registration_form"
               onSubmit={(event) => {
                 event.preventDefault();
                 setConfirmOpen(true);
@@ -164,7 +165,12 @@ export function RecruitmentDetailPage() {
                     : "신청을 보내지 못했어요. 다시 시도해주세요."}
                 </p>
               )}
-              <Button type="submit" variant="primary" pending={registration.isPending}>
+              <Button
+                data-ph-capture-attribute-action="registration_submit"
+                type="submit"
+                variant="primary"
+                pending={registration.isPending}
+              >
                 가입 신청하기
               </Button>
             </form>

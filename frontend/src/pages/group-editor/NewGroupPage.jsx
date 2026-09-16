@@ -237,11 +237,16 @@ export function NewGroupPage() {
       <header className="group-editor__heading">
         <h1>신규 모임 생성</h1>
         <p className="group-editor__heading-note">
-          모집 설정, 신청 관리, 멤버 관리는 모임을 만든 뒤 관리 화면에서 이어서 할 수 있어요.
+          모집 설정, 신청 관리, 참여자 관리는 모임을 만든 뒤 관리 화면에서 이어서 할 수 있어요.
         </p>
       </header>
 
-      <form id="group-create-form" onSubmit={submit} noValidate>
+      <form
+        data-ph-capture-attribute-action="group_create_form"
+        id="group-create-form"
+        onSubmit={submit}
+        noValidate
+      >
         <section
           aria-label="모임 기본 정보"
           className="group-profile group-profile--default-image group-editor__profile"
@@ -256,7 +261,7 @@ export function NewGroupPage() {
             >
               <option value="STUDY">스터디</option>
               <option value="CLUB">동아리</option>
-              <option value="SESSION">세션</option>
+              <option value="SESSION">같이해요</option>
             </UnderlineSelect>
 
             <UnderlineField
@@ -354,7 +359,7 @@ export function NewGroupPage() {
                 )
               },
               {
-                label: "멤버",
+                label: "참여자",
                 value: "members",
                 content: <GroupMembersPanel />
               }
@@ -368,6 +373,7 @@ export function NewGroupPage() {
           취소
         </Button>
         <Button
+          data-ph-capture-attribute-action="group_create"
           form="group-create-form"
           pending={createMutation.isPending || createLock.pending || imageUpload.isPending}
           type="submit"

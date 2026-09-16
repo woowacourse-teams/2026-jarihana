@@ -431,6 +431,7 @@ export function ManageRecruitmentsPage() {
               <form
                 aria-label="새 모집 생성"
                 className="manage-form manage-create-wizard"
+                data-ph-capture-attribute-action="recruitment_create_form"
                 onSubmit={handleCreateSubmit}
               >
                 <fieldset className="manage-form-fieldset">
@@ -513,8 +514,8 @@ export function ManageRecruitmentsPage() {
                               }}
                               value={form.joinMethod}
                             >
-                              <option value="AUTO">자동 승인</option>
-                              <option value="APPROVAL">모임장 승인</option>
+                              <option value="AUTO">선착순</option>
+                              <option value="APPROVAL">승인제</option>
                             </Select>
                           ) : null}
 
@@ -557,6 +558,11 @@ export function ManageRecruitmentsPage() {
                       </Button>
                     )}
                     <Button
+                      data-ph-capture-attribute-action={
+                        createStepIndex === finalCreateStepIndex
+                          ? "recruitment_create"
+                          : "recruitment_create_next"
+                      }
                       disabled={!canContinueCreateStep}
                       pending={createRecruitment.isPending || creating}
                       type="submit"
@@ -576,7 +582,11 @@ export function ManageRecruitmentsPage() {
                 {currentRecruitment ? (
                   <RecruitmentInformation
                     action={
-                      <Button onClick={() => setClosing(currentRecruitment)} variant="danger">
+                      <Button
+                        data-ph-capture-attribute-action="recruitment_close"
+                        onClick={() => setClosing(currentRecruitment)}
+                        variant="danger"
+                      >
                         모집 마감하기
                       </Button>
                     }
@@ -586,7 +596,12 @@ export function ManageRecruitmentsPage() {
                 ) : (
                   <RecruitmentEmptyState
                     action={
-                      <Button onClick={openCreateScreen} type="button" variant="primary">
+                      <Button
+                        data-ph-capture-attribute-action="recruitment_create_start"
+                        onClick={openCreateScreen}
+                        type="button"
+                        variant="primary"
+                      >
                         새 모집 만들기
                       </Button>
                     }
@@ -701,7 +716,7 @@ function RecruitmentInformation({
         </div>
         {showMemberCount ? (
           <div>
-            <dt>현재 멤버 수</dt>
+            <dt>현재 참여자 수</dt>
             <dd>{Number.isInteger(memberCount) ? `${memberCount}명` : "확인 중"}</dd>
           </div>
         ) : null}
@@ -711,7 +726,7 @@ function RecruitmentInformation({
         </div>
         <div>
           <dt>승인 방식</dt>
-          <dd>{recruitment.joinMethod === "APPROVAL" ? "모임장 승인" : "자동 승인"}</dd>
+          <dd>{recruitment.joinMethod === "APPROVAL" ? "승인제" : "선착순"}</dd>
         </div>
       </dl>
       <div className="manage-capacity-meter">
@@ -738,11 +753,11 @@ function ApprovedMembersSnapshot({ query }) {
       aria-labelledby="approved-members-snapshot-title"
       className="manage-recruitment-approved-members"
     >
-      <h3 id="approved-members-snapshot-title">이번 모집 승인 멤버 {memberCount}</h3>
+      <h3 id="approved-members-snapshot-title">이번 모집 승인 참여자 {memberCount}</h3>
       {query.isPending ? <Skeleton count={3} /> : null}
       {query.isError ? (
         <p className="manage-recruitment-approved-members__error" role="status">
-          승인 멤버를 불러오지 못했어요.
+          승인 참여자를 불러오지 못했어요.
         </p>
       ) : null}
       {!query.isPending && !query.isError
@@ -768,7 +783,7 @@ function ApprovedMembersSnapshot({ query }) {
         : null}
       {!query.isPending && !query.isError && registrations.length === 0 ? (
         <p className="manage-recruitment-approved-members__empty">
-          이번 모집의 승인 멤버가 없어요.
+          이번 모집의 승인 참여자가 없어요.
         </p>
       ) : null}
     </aside>
@@ -811,10 +826,10 @@ function RecruitmentPreview({ form, memberCount }) {
         </div>
         <div>
           <dt>승인 방식</dt>
-          <dd>{form.joinMethod === "APPROVAL" ? "모임장 승인" : "자동 승인"}</dd>
+          <dd>{form.joinMethod === "APPROVAL" ? "승인제" : "선착순"}</dd>
         </div>
         <div>
-          <dt>현재 멤버</dt>
+          <dt>현재 참여자</dt>
           <dd>{Number.isInteger(memberCount) ? `${memberCount}명` : "확인 중"}</dd>
         </div>
       </dl>

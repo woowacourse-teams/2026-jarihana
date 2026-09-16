@@ -97,3 +97,7 @@ curl -sS https://<무작위>.trycloudflare.com/groups/13 \
 Quick Tunnel 주소는 임시·무작위 주소라 터널 프로세스를 종료하면 사라진다. 업로드한
 S3 이미지까지 외부 카드에서 보려면 이미지도 공개 URL이어야 하며,
 `IMAGE_S3_PUBLIC_BASE_URL`을 설정해야 한다.
+
+## 운영 기능
+
+- [PostHog 분석 수집 설정과 이벤트 목록](docs/analytics.md)

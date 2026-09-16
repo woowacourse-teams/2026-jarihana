@@ -29,7 +29,7 @@ function State({ action, description, mark, showMark = true, title, tone = "neut
           {mark}
         </span>
       ) : null}
-      <h2 className="ui-state__title">{title}</h2>
+      {title ? <h2 className="ui-state__title">{title}</h2> : null}
       {description ? <p className="ui-state__description">{description}</p> : null}
       {action ? <div>{action}</div> : null}
     </section>
