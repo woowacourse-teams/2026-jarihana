@@ -1,0 +1,49 @@
+name: Infrastructure Docker Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "infra/docker-compose.yml"
+      - ".github/workflows/infra-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compose로 PostgreSQL 배포
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        run: |
+          set -euo pipefail
+          docker compose -p infra -f infra/docker-compose.yml config --quiet
+
+          exec 9>/tmp/jarihana-production-deploy.lock
+          flock -w 180 9
+          postgres_id="$(docker ps -aq --filter 'name=^/jarihana-db-postgres$')"
+          if [[ -n "${postgres_id}" ]]; then
+            owner="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}/{{index .Config.Labels "com.docker.compose.service"}}' "${postgres_id}")"
+            data_volume="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Type}}:{{.Name}}{{end}}{{end}}' "${postgres_id}")"
+            if [[ "${owner}" != "infra/postgres" || "${data_volume}" != "volume:infra_postgres-data" ]]; then
+              echo '::error::기존 PostgreSQL의 Compose 소유자 또는 데이터 볼륨이 예상과 다릅니다. 전환 전에 확인하세요.'
+              exit 1
+            fi
+          fi
+
+          docker compose \
+            -p infra \
+            -f infra/docker-compose.yml \
+            up -d --wait --wait-timeout 60 postgres

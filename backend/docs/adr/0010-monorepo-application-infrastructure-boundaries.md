@@ -5,7 +5,9 @@
 - 관련 문서: [프로젝트 운영 컨벤션](../conventions/project-operations.md),
   [프론트엔드 README](../../../frontend/README.md),
   [백엔드 로컬 Docker Compose](../../docker-compose-local.yaml),
-  [운영 Docker Compose](../../../infra/docker-compose.yml),
+  [인프라 Docker Compose](../../../infra/docker-compose.yml),
+  [백엔드 운영 Docker Compose](../../docker-compose-prod.yaml),
+  [인프라 배포 워크플로](../../../.github/workflows/infra-build.yml),
   [백엔드 배포 워크플로](../../../.github/workflows/backend-build.yml)
 
 ## 배경
@@ -32,14 +34,13 @@ PostgreSQL을 실행하는 `docker-compose-local.yaml`도 백엔드 개발 환�
 따라서 이 파일들은 `backend/`에 두는 것이 자연스럽다. 프론트엔드 전용 Docker 이미지가
 필요해진다면 해당 파일 역시 `frontend/`에서 관리할 수 있다.
 
-그러나 운영 환경의 `docker-compose.yml`은 EC2에서 백엔드와 PostgreSQL을 함께 실행하기 위한
-파일이다. 특정 애플리케이션의 개발 환경이 아니라 서비스 운영 환경 전체를 구성한다. 이를
-`backend/`에 두면 PostgreSQL과 향후 추가될 캐시, 검색 엔진 등의 운영 자원까지 백엔드 내부
-설정처럼 보이게 된다.
+그러나 운영 PostgreSQL Compose는 특정 애플리케이션의 개발 환경이 아니라 서비스 운영
+인프라를 구성한다. 이를 `backend/`에 두면 PostgreSQL과 향후 추가될 캐시, 검색 엔진 등의
+운영 자원까지 백엔드 내부 설정처럼 보이게 된다.
 
 따라서 Docker 관련 파일이라는 이유만으로 한곳에 모으지 않고 적용 범위를 기준으로 위치를
 구분한다. 특정 애플리케이션의 빌드와 로컬 개발에 필요한 파일은 해당 애플리케이션 디렉터리에
-두고, 여러 애플리케이션과 운영 자원을 함께 구성하는 파일은 `infra/`에 둔다.
+두고, 특정 애플리케이션 하나에 속하지 않는 운영 자원 파일은 `infra/`에 둔다.
 
 ## 결정
 
@@ -58,21 +59,33 @@ PostgreSQL을 실행하는 `docker-compose-local.yaml`도 백엔드 개발 환�
 1. `frontend/`는 프론트엔드 애플리케이션의 소스 코드, 테스트, 빌드 설정과 문서를 소유한다.
 2. `backend/`는 백엔드 애플리케이션의 소스 코드, 테스트, 빌드 설정과 문서를 소유한다.
 3. `infra/`는 특정 애플리케이션 하나에 속하지 않는 공통 운영 설정을 소유한다. 현재는
-   백엔드와 PostgreSQL을 함께 실행하는 운영 Docker Compose 파일이 여기에 있다.
+   운영 PostgreSQL Docker Compose 파일이 여기에 있다.
 4. `.github/`는 저장소 단위의 빌드와 배포 자동화 워크플로를 소유한다.
 
 백엔드 이미지를 만드는 `Dockerfile`과 로컬 개발용 PostgreSQL을 실행하는
 `docker-compose-local.yaml`은 `backend/`에 둔다. 두 파일은 백엔드의 빌드와 로컬 개발 흐름에
-직접 종속되기 때문이다. 반면 운영 환경에서 백엔드와 데이터베이스를 함께 구성하는
-`infra/docker-compose.yml`은 프로젝트 운영 구성에 해당하므로 `infra/`에 둔다.
+직접 종속되기 때문이다. 운영 환경에서 백엔드 컨테이너만 실행하는
+`backend/docker-compose-prod.yaml`도 백엔드 애플리케이션 배포 설정이므로 `backend/`에 둔다.
+반면 운영 PostgreSQL과 그 네트워크·볼륨을 구성하는 `infra/docker-compose.yml`은 프로젝트
+인프라 구성에 해당하므로 `infra/`에 둔다.
+
+운영 Compose 프로젝트도 이 경계를 따른다. `infra/docker-compose.yml`은 `infra` 프로젝트로
+PostgreSQL만 실행하며 `infra_default` 네트워크와 `infra_postgres-data` 볼륨을 소유한다.
+`backend/docker-compose-prod.yaml`은 `jarihana-backend` 프로젝트로 백엔드만 실행하고 외부
+네트워크 `infra_default`에 연결한다. 백엔드의 DB URL은
+`jdbc:postgresql://postgres:5432/jarihana`를 유지한다.
 
 프론트엔드와 백엔드는 다음 원칙을 유지한다.
 
 - 서로의 소스 코드와 빌드 결과를 직접 참조하지 않는다.
 - HTTP API 계약을 통해서만 통신한다.
 - 각 애플리케이션은 자체 빌드 도구와 의존성 체계를 유지한다.
-- 빌드와 배포 절차를 애플리케이션별로 분리한다. 현재 자동화된 배포 워크플로는 백엔드에만
-  적용하며 프론트엔드 S3 배포 자동화는 후속 작업으로 둔다.
+- 빌드와 배포 절차를 애플리케이션과 인프라 경계별로 분리한다. 현재 운영 워크플로 경계는
+  PostgreSQL 인프라와 백엔드 애플리케이션 배포를 분리한다.
+- 백엔드 워크플로는 `backend/**`와 자기 워크플로 파일 변경에만 반응하고, 인프라 워크플로는
+  `infra/docker-compose.yml`과 자기 워크플로 파일 변경에만 반응한다.
+- 운영 Docker 상태 변경 구간은 GitHub Actions 공유 concurrency가 아니라 운영 호스트의
+  `/tmp/jarihana-production-deploy.lock` 파일 락으로 직렬화한다.
 - 저장소 루트에는 별도의 통합 빌드 시스템을 두지 않는다.
 
 ## 검토한 대안
@@ -82,6 +95,7 @@ PostgreSQL을 실행하는 `docker-compose-local.yaml`도 백엔드 개발 환�
 | 프론트엔드, 백엔드와 인프라를 별도 저장소로 분리 | 각 영역의 권한과 배포 이력을 독립적으로 관리할 수 있다 | 우아한테크코스에서 제공한 하나의 저장소를 프로젝트 기준으로 사용해야 한다. 별도 저장소를 운영하면 제출 저장소와 실제 작업 저장소 사이의 동기화 비용이 발생한다 |
 | 인프라 설정을 `backend/` 안에 배치 | 백엔드와 데이터베이스 설정을 가까이에서 확인할 수 있다 | 데이터베이스와 운영 Compose는 백엔드 코드만을 위한 설정이 아니다. 다른 운영 자원이 추가될수록 백엔드가 프로젝트 인프라 전체를 소유하는 구조가 된다 |
 | 운영 설정을 저장소 루트에 직접 배치 | 경로가 짧고 초기 구성이 단순하다 | 애플리케이션 파일과 운영 파일이 루트에 섞이며, 운영 설정이 늘어날수록 소유 경계가 불명확해진다 |
+| 백엔드와 PostgreSQL을 하나의 운영 Compose 프로젝트에 유지 | 한 파일에서 런타임 전체를 볼 수 있다 | 백엔드 이미지 배포와 PostgreSQL 데이터 볼륨의 수명주기가 달라, 애플리케이션 변경 때 데이터베이스 소유권과 볼륨을 함께 건드릴 위험이 커진다 |
 
 ## 제약과 전제
 
@@ -92,6 +106,10 @@ PostgreSQL을 실행하는 `docker-compose-local.yaml`도 백엔드 개발 환�
   있다. CloudFront를 기본 진입점으로 사용하지만 Origin 우회 접근까지 차단하는 구성은 아니다.
 - 수동으로 관리하는 S3와 CloudFront 설정은 아직 저장소에 문서화되어 있지 않다.
 - 프론트엔드의 S3 배포는 현재 수동이며 이후 GitHub Actions로 자동화할 예정이다.
+- 최초 운영 Compose 분리 배포는 인프라 배포가 먼저 성공해야 한다. 백엔드 배포는
+  `infra_default` 네트워크와 healthy PostgreSQL 컨테이너가 없으면 실패한다.
+- 운영 전환 가드는 기존 기본 리소스 이름이 Compose 프로젝트명에서 파생된다는 전제를 런타임에서
+  확인하지만, 이 ADR은 원격 운영 서버 상태를 직접 검증한 증거가 아니다.
 - 상세한 EC2, S3, CloudFront와 네트워크 구성은
   [배포 토폴로지 ADR](0009-aws-deployment-topology.md)에서 다룬다.
 
@@ -104,6 +122,8 @@ PostgreSQL을 실행하는 `docker-compose-local.yaml`도 백엔드 개발 환�
 - 프론트엔드와 백엔드를 독립적으로 빌드하고 배포할 수 있다.
 - 여러 영역에 영향을 주는 API 계약이나 운영 변경을 하나의 PR에서 함께 검토할 수 있다.
 - 데이터베이스와 향후 추가될 운영 구성 요소를 백엔드 애플리케이션 내부 설정처럼 다루지 않는다.
+- PostgreSQL 인프라 배포와 백엔드 애플리케이션 배포가 서로 다른 변경 경로와 시크릿 범위를
+  가진다.
 - 백엔드 배포 워크플로는 `backend/**` 변경에만 반응하며, 프론트엔드 배포 자동화도 다른
   애플리케이션과 결합하지 않고 별도로 추가할 수 있다.
 
@@ -115,11 +135,11 @@ PostgreSQL을 실행하는 `docker-compose-local.yaml`도 백엔드 개발 환�
 - 수동으로 관리되는 AWS 설정은 Git 변경 이력에 남지 않는다.
 - AWS 콘솔과 저장소의 운영 문서 사이에 설정 차이가 발생할 수 있다.
 - 동일한 운영 환경을 자동으로 재현하거나 장애 발생 시 복구하기 어렵다.
+- 운영 Compose 프로젝트가 분리되어 최초 전환 순서와 소유자·볼륨 가드 실패를 별도로 이해해야
+  한다.
 
 ## 후속 작업
 
-- 저장소 구조를 설명하는 문서에 `frontend/`, `backend/`, `infra/`의 역할과 실행 방법을
-  정리한다.
 - 프론트엔드 배포를 `frontend/**` 변경 경로 기반 GitHub Actions로 자동화한다.
 - S3와 CloudFront의 Origin, Behavior, 캐시와 배포 설정을 운영 문서로 남긴다.
 - EC2, Docker Compose, S3, CloudFront와 퍼블릭 Origin 제약을

@@ -4,8 +4,10 @@
 - 날짜: 2026-08-25
 - 관련 문서: [프로젝트 운영 컨벤션](../conventions/project-operations.md),
   [모노레포와 인프라 경계 ADR](0010-monorepo-application-infrastructure-boundaries.md),
-  [운영 Docker Compose](../../../infra/docker-compose.yml),
+  [인프라 Docker Compose](../../../infra/docker-compose.yml),
+  [백엔드 운영 Docker Compose](../../docker-compose-prod.yaml),
   [백엔드 Dockerfile](../../Dockerfile),
+  [인프라 배포 워크플로](../../../.github/workflows/infra-build.yml),
   [백엔드 배포 워크플로](../../../.github/workflows/backend-build.yml),
   [Access Token 쿠키 ADR](0002-access-token-cookie.md),
   [OAuth 인가 요청 소유권 ADR](0004-oauth-authorization-ownership.md),
@@ -26,7 +28,7 @@ CORS 설정이 없으므로 브라우저가 프론트엔드와 API를 하나의 
 우테코 AWS 환경을 변경할 권한이 없었다. 외부 Runner에서 SSH로 배포하는 일반적인 방식 대신,
 운영 EC2에서 GitHub Actions 작업을 실행할 배포 경로가 필요했다.
 
-이 ADR은 팀이 채택한 배포 구성을 사후에 기록한다. Docker Compose와 백엔드 배포 워크플로는
+이 ADR은 팀이 채택한 배포 구성을 사후에 기록한다. Docker Compose와 배포 워크플로는
 저장소에서 확인하고, 저장소에 없는 S3와 CloudFront 구성은 팀이 확인한 운영 사실을 근거로
 기록한다. 모든 AWS 환경에 적용할 일반적인 권장 구성이 아니라, 당시의 크레딧·권한과 MVP
 규모에서 선택한 운영 경계와 감수한 위험을 설명한다.
@@ -60,8 +62,15 @@ CloudFront
   호스트의 `127.0.0.1:5432`에 포트를 매핑한다.
 - PostgreSQL 데이터는 Docker Named Volume에 저장한다.
 - 같은 EC2에 self-hosted GitHub Actions Runner를 호스트 서비스로 설치한다.
-- 백엔드 배포 작업은 해당 Runner가 백엔드 이미지를 로컬에서 빌드한 뒤 운영 Docker Compose를
-  실행하는 방식으로 수행한다.
+- 운영 Docker Compose는 PostgreSQL 인프라와 백엔드 애플리케이션으로 나눈다.
+  `infra/docker-compose.yml`은 `infra` 프로젝트로 PostgreSQL만 실행하고 `infra_default`
+  네트워크와 `infra_postgres-data` 볼륨을 소유한다. `backend/docker-compose-prod.yaml`은
+  `jarihana-backend` 프로젝트로 백엔드만 실행하고 외부 네트워크 `infra_default`에 연결한다.
+- 백엔드 DB URL은 Compose 분리 뒤에도 `jdbc:postgresql://postgres:5432/jarihana`를 유지한다.
+- 백엔드 배포 작업은 해당 Runner가 백엔드 이미지를 로컬에서 빌드한 뒤 백엔드 운영 Compose를
+  실행하는 방식으로 수행한다. 인프라 배포 작업은 PostgreSQL Compose만 실행한다.
+- 두 운영 배포 워크플로는 GitHub Actions의 공유 concurrency 대신 운영 호스트의
+  `/tmp/jarihana-production-deploy.lock` 파일에 `flock`을 잡고 Docker 상태를 변경한다.
 - 프론트엔드 빌드 결과물의 S3 배포는 현재 수동으로 수행하고 이후 GitHub Actions로 자동화한다.
 
 CloudFront는 여기에서 공개 진입점과 정적 콘텐츠 캐시 계층의 역할을 한다. CloudFront가 모든
@@ -105,6 +114,28 @@ Runner를 호스트 서비스로 설치하면 체크아웃, 이미지 빌드와 
 단순하게 연결할 수 있다. 이는 우테코의 외부 SSH 제한 때문이 아니라 동일 EC2 안에서 배포
 구성을 단순하게 유지하기 위한 별도의 선택이다.
 
+### PostgreSQL과 백엔드 배포 워크플로를 분리한다
+
+PostgreSQL 데이터 볼륨은 애플리케이션 이미지 배포와 생명주기가 다르다. 백엔드 변경만으로
+데이터베이스 컨테이너와 볼륨을 다시 다루지 않도록 PostgreSQL은 `infra` Compose 프로젝트가
+소유하고, 백엔드는 `jarihana-backend` Compose 프로젝트가 소유한다.
+
+인프라 워크플로는 `infra/docker-compose.yml`과 자기 워크플로 파일 변경에만 반응하고
+`POSTGRES_PASSWORD`만 사용한다. 백엔드 워크플로는 `backend/**`와 자기 워크플로 파일 변경에만
+반응하며 애플리케이션 시크릿과 백엔드 이미지를 다룬다. 두 워크플로 모두 운영 호스트의 같은
+파일 락을 사용하므로 동시에 실행되어도 Docker 변경 구간은 직렬화된다.
+
+최초 전환 배포는 인프라를 먼저 실행해야 한다. 백엔드 배포는 백엔드 이미지와 Compose 설정을
+확인한 뒤 `infra_default` 네트워크와 `jarihana-db-postgres` 컨테이너가 있고 DB health가
+`healthy`인지, PostgreSQL이 해당 네트워크에 연결되어 있는지 확인한다. 기존 백엔드 컨테이너가
+이전 단일 Compose의 `infra/backend` 소유이면 새 이미지, Compose 설정, DB readiness 확인 뒤에만
+중지·삭제한다. PostgreSQL 컨테이너의 Compose 소유자나 데이터 볼륨이 예상과 다르거나, 백엔드
+컨테이너 소유자를 알 수 없으면 배포를 중단한다.
+
+운영 워크플로는 `docker compose down -v`나 `--remove-orphans`를 사용하지 않는다. 기본
+레거시 리소스 이름은 Compose 프로젝트명에서 파생되는 값으로 런타임 가드에 포함하지만, 이
+ADR은 원격 운영 서버에서 해당 리소스 상태를 직접 검증한 증거로 쓰지 않는다.
+
 ### Runner 전용 서버를 분리하지 않는다
 
 Runner는 배포 작업이 실행될 때만 주로 사용된다. 이를 위해 별도의 EC2를 상시 운영하면 한정된
@@ -137,6 +168,8 @@ EC2에 함께 두는 편이 운영 요소가 적다고 판단했다.
   침해되면 운영 컨테이너와 호스트에 미치는 영향이 크다.
 - Docker Named Volume은 EC2 내부 데이터 지속성을 제공하지만 관리형 백업이나 다중 가용 영역
   장애 조치를 제공하지 않는다.
+- PostgreSQL 인프라와 백엔드 애플리케이션 배포는 분리되어 있어 최초 전환 배포 때 인프라
+  배포가 먼저 성공해야 한다.
 - S3, CloudFront와 Security Group 설정은 AWS 콘솔에서 수동으로 관리하며 저장소가 완전한 IaC
   원본은 아니다.
 - ADR 작성 시점에는 S3 버킷이 CloudFront만 접근할 수 있는 비공개 구성인지, 객체 URL로도 직접
@@ -154,6 +187,8 @@ EC2에 함께 두는 편이 운영 요소가 적다고 판단했다.
 - RDS와 Runner 전용 서버 없이 제한된 크레딧으로 서비스를 운영할 수 있다.
 - 외부 SSH 배포 경로와 이미지 레지스트리 없이 같은 EC2에서 백엔드 이미지를 빌드하고 배포할
   수 있다.
+- PostgreSQL 인프라와 백엔드 애플리케이션을 서로 다른 Compose 프로젝트와 워크플로로 배포해
+  데이터 볼륨을 애플리케이션 배포 수명주기에서 분리할 수 있다.
 - 프론트엔드 정적 배포와 백엔드 런타임 배포를 독립적으로 수행할 수 있다.
 
 ### 감수하는 비용
@@ -161,6 +196,8 @@ EC2에 함께 두는 편이 운영 요소가 적다고 판단했다.
 - EC2 장애가 발생하면 백엔드, 데이터베이스와 자동 배포 경로가 함께 중단된다.
 - 백엔드와 Runner의 빌드 작업이 CPU, 메모리와 디스크를 공유하여 배포 중 서비스 성능에 영향을
   줄 수 있다.
+- PostgreSQL 인프라와 백엔드 워크플로가 분리되어 배포 순서와 readiness 가드 실패를 운영자가
+  이해해야 한다.
 - 데이터베이스 장애 복구와 백업을 직접 설계하고 운영해야 한다.
 - Runner가 운영 호스트의 Docker를 제어하므로 권한 분리와 침해 범위가 크다.
 - 퍼블릭 EC2 Origin을 우회한 직접 요청과 암호화되지 않은 Origin 연결을 허용한다.

@@ -1,32 +1,6 @@
+name: infra
+
 services:
-  backend:
-    image: "jarihana-backend:${BACKEND_TAG:?BACKEND_TAG is required}"
-    container_name: jarihana-backend
-
-    environment:
-      SPRING_PROFILES_ACTIVE: prod
-      DB_URL: "jdbc:postgresql://postgres:5432/jarihana"
-      DB_USERNAME: "jarihana"
-      DB_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
-      FRONTEND_ORIGIN: "${FRONTEND_ORIGIN:?FRONTEND_ORIGIN is required}"
-      ACCESS_TOKEN_SECRET: "${ACCESS_TOKEN_SECRET:?ACCESS_TOKEN_SECRET is required}"
-      GITHUB_OAUTH_CLIENT_ID: "${GITHUB_OAUTH_CLIENT_ID:?GITHUB_OAUTH_CLIENT_ID is required}"
-      GITHUB_OAUTH_CLIENT_SECRET: "${GITHUB_OAUTH_CLIENT_SECRET:?GITHUB_OAUTH_CLIENT_SECRET is required}"
-      GITHUB_OAUTH_REDIRECT_URI: "${GITHUB_OAUTH_REDIRECT_URI:?GITHUB_OAUTH_REDIRECT_URI is required}"
-      IMAGE_S3_BUCKET: "${IMAGE_S3_BUCKET:?IMAGE_S3_BUCKET is required}"
-      IMAGE_S3_REGION: "${IMAGE_S3_REGION:?IMAGE_S3_REGION is required}"
-      IMAGE_S3_KEY_PREFIX: "${IMAGE_S3_KEY_PREFIX:?IMAGE_S3_KEY_PREFIX is required}"
-      IMAGE_S3_PUBLIC_BASE_URL: "${IMAGE_S3_PUBLIC_BASE_URL:?IMAGE_S3_PUBLIC_BASE_URL is required}"
-
-    ports:
-      - "8080:8080"
-
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-    restart: unless-stopped
-
   postgres:
     image: postgres:17
     container_name: jarihana-db-postgres
@@ -52,3 +26,8 @@ services:
 
 volumes:
   postgres-data:
+    name: infra_postgres-data
+
+networks:
+  default:
+    name: infra_default

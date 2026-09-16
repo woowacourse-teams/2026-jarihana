@@ -15,7 +15,8 @@
 │   ├── README.md
 │   ├── db/migrations/
 │   └── docs/              # 팀 컨벤션과 설계 맥락
-└── frontend/             # 프론트엔드 애플리케이션
+├── frontend/             # 프론트엔드 애플리케이션
+└── infra/                # 운영 PostgreSQL Compose와 인프라 문서
 ```
 
 백엔드의 Gradle 명령과 Docker Compose 명령은 이 디렉터리에서 실행합니다.
@@ -43,7 +44,8 @@
 │       ├── proposals/
 │       ├── retrospectives/
 │       └── team-convention.md
-└── frontend/
+├── frontend/
+└── infra/
 ```
 
 - `backend/AGENTS.md`: 백엔드 AI 작업 규칙과 문서 라우팅을 소유합니다.
@@ -91,7 +93,8 @@ set +a
 
 로컬 PostgreSQL의 데이터베이스, 사용자, 비밀번호는 `jarihana`로 고정되어 있고
 호스트 포트는 `5432`입니다.
-운영 배포 환경 변수는 GitHub Actions Secrets에서 `infra/docker-compose.yml`로 주입합니다.
+운영 PostgreSQL 환경 변수는 GitHub Actions Secrets에서 `infra/docker-compose.yml`로
+주입합니다.
 
 PostgreSQL 컨테이너 상태는 다음 명령으로 확인할 수 있습니다.
 
@@ -102,9 +105,11 @@ docker compose -f docker-compose-local.yaml ps
 컨테이너를 종료해도 데이터는 named volume에 유지됩니다. 데이터까지 초기화할 때만
 `docker compose -f docker-compose-local.yaml down -v`를 사용합니다.
 
-운영 환경에서는 `infra/docker-compose.yml`이 `SPRING_PROFILES_ACTIVE=prod`, DB 접속값,
-인증·OAuth 설정을 GitHub Actions Secrets와 함께 주입합니다. 운영 프로필은 스키마를 자동
-변경하지 않고 `ddl-auto: validate`로 검증만 수행합니다.
+운영 환경에서는 `infra/docker-compose.yml`이 PostgreSQL만 실행하고,
+`backend/docker-compose-prod.yaml`이 백엔드 애플리케이션을 실행합니다. 백엔드 Compose는
+`SPRING_PROFILES_ACTIVE=prod`, DB 접속값, 인증·OAuth 설정을 GitHub Actions Secrets와 함께
+주입합니다. 운영 프로필은 스키마를 자동 변경하지 않고 `ddl-auto: validate`로 검증만
+수행합니다.
 
 회원 유형과 이름 중복 정책을 배포할 때는 운영 DB에서
 `db/migrations/2026-09-01-member-type-and-name-policy.sql`을 실행합니다. 이 마이그레이션은
@@ -116,7 +121,7 @@ docker compose -f docker-compose-local.yaml ps
 
 ### 운영 DB SSH 터널 접속
 
-운영 Compose는 PostgreSQL 포트를 서버의 `127.0.0.1:5432`에 바인딩합니다.
+운영 인프라 Compose는 PostgreSQL 포트를 서버의 `127.0.0.1:5432`에 바인딩합니다.
 운영 서버에 SSH 접속할 수 있고 SSH 포트 포워딩이 허용된 환경에서, 개인 키 경로와
 SSH 계정·서버 주소를 실제 값으로 바꿔 로컬 터미널에서 실행합니다.
 
@@ -135,11 +140,42 @@ User는 `jarihana`, Password는 운영 DB 비밀번호로 설정합니다. 이 �
 최초 포트 매핑 반영 시 PostgreSQL 컨테이너가 재생성되어 기존 DB 연결이 잠시 끊길 수
 있습니다. 기존 `postgres-data` 볼륨은 유지하며, 적용을 위해 볼륨을 삭제하지 않습니다.
 
-### 운영 배포 시크릿
+### 운영 배포 흐름과 시크릿
 
-`main` 브랜치 push에 `backend/**`, `infra/docker-compose.yml` 또는
-`.github/workflows/backend-build.yml` 변경이 포함되면 백엔드 배포 워크플로가 자동으로
-실행됩니다. 필요할 때는 GitHub Actions에서 수동으로도 실행할 수 있습니다.
+운영 배포는 PostgreSQL 인프라와 백엔드 애플리케이션 워크플로로 분리합니다.
+
+- `infra/docker-compose.yml` 또는 `.github/workflows/infra-build.yml` 변경이 `main`
+  브랜치에 push되면 인프라 배포 워크플로가 실행됩니다. 이 워크플로는 `infra` Compose
+  프로젝트로 PostgreSQL만 배포하고 `POSTGRES_PASSWORD` 시크릿만 사용합니다.
+- `backend/**` 또는 `.github/workflows/backend-build.yml` 변경이 `main` 브랜치에 push되면
+  백엔드 배포 워크플로가 실행됩니다. 이 워크플로는 백엔드 이미지를 빌드하고
+  `jarihana-backend` Compose 프로젝트로 백엔드 컨테이너만 배포합니다.
+- 두 워크플로는 GitHub Actions의 공유 concurrency를 사용하지 않고, 운영 서버의
+  `/tmp/jarihana-production-deploy.lock` 파일에 `flock`을 잡은 뒤 Docker 상태를 바꿉니다.
+  운영 Runner 호스트에는 Linux `util-linux`의 `flock` 명령이 필요합니다.
+
+최초 분리 배포는 인프라 워크플로를 먼저 실행해야 합니다. 백엔드 배포는 새 이미지와 Compose
+설정을 확인하고, `infra_default` 네트워크와 `jarihana-db-postgres` 컨테이너의 Compose 소유자,
+서비스명, health 상태, 네트워크 연결을 확인한 뒤 진행하므로, DB가 없거나 healthy가 아니면
+안전하게 실패합니다.
+
+운영 Compose 프로젝트와 기본 리소스 이름은 다음과 같습니다.
+
+| 영역 | Compose 파일 | 프로젝트 | 주요 리소스 |
+| --- | --- | --- | --- |
+| PostgreSQL 인프라 | `infra/docker-compose.yml` | `infra` | `jarihana-db-postgres`, `infra_default`, `infra_postgres-data` |
+| 백엔드 애플리케이션 | `backend/docker-compose-prod.yaml` | `jarihana-backend` | `jarihana-backend` |
+
+백엔드 컨테이너는 외부 네트워크 `infra_default`에 붙고 DB URL은
+`jdbc:postgresql://postgres:5432/jarihana`를 유지합니다. 이전 단일 Compose 배포에서
+생긴 `infra/backend` 소유의 레거시 백엔드 컨테이너가 있으면 새 백엔드 이미지, Compose 설정,
+DB readiness 확인 이후에만 중지·삭제합니다. 기존 PostgreSQL 컨테이너의 소유자나 데이터
+볼륨이 `infra/postgres`, `infra_postgres-data`와 다르면 배포를 중단합니다. 알 수 없는
+소유자의 백엔드 컨테이너도 배포를 중단합니다.
+
+운영 워크플로는 `docker compose down -v`나 `--remove-orphans`를 사용하지 않습니다. 기본
+레거시 리소스 이름은 Compose 프로젝트명에서 파생되는 값으로 런타임에서 가드하지만, 이 문서는
+원격 운영 서버 상태를 직접 검증한 결과가 아닙니다.
 
 저장소의 `Settings > Secrets and variables > Actions`에 다음 이름으로 시크릿을 등록합니다.
 GitHub은 `GITHUB_`로 시작하는 시크릿 이름을 허용하지 않으므로, OAuth 시크릿은

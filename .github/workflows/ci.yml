@@ -15,6 +15,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  deployment-config:
+    name: Deployment Config
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 운영 Compose 분리 검증
+        run: bash infra/tests/compose-config.sh
+
   backend:
     name: Backend Test
     runs-on: ubuntu-latest
