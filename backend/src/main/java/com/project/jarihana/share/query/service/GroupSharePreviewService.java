@@ -20,7 +20,7 @@ public class GroupSharePreviewService {
 
     public GroupSharePreviewService(GroupQueryService groupQueryService, AuthProperties authProperties) {
         this.groupQueryService = groupQueryService;
-        this.frontendOrigin = normalizeOrigin(authProperties.frontendOrigin());
+        this.frontendOrigin = authProperties.frontendOrigin();
     }
 
     public GroupSharePreview findGroupPreview(long groupId) {
@@ -47,10 +47,4 @@ public class GroupSharePreviewService {
         return frontendOrigin + "/" + imageUrl.replaceFirst("^/+", "");
     }
 
-    private static String normalizeOrigin(String origin) {
-        if (origin == null || origin.isBlank()) {
-            throw new IllegalArgumentException("프론트엔드 origin은 필수입니다.");
-        }
-        return origin.replaceFirst("/+$", "");
-    }
 }
