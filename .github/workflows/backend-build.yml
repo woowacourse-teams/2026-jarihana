@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - "backend/**"
+      - "infra/docker-compose.yml"
+      - ".github/workflows/backend-build.yml"
   workflow_dispatch:
 
 jobs:

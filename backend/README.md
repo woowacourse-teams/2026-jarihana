@@ -114,10 +114,32 @@ docker compose -f docker-compose-local.yaml ps
 운영 프로필은 `ddl-auto: validate`이므로 애플리케이션이 이 변경을 자동으로 적용하지 않습니다.
 기존 데이터에 새 정책과 충돌하는 이름이 있으면 마이그레이션 전에 해당 데이터를 정리해야 합니다.
 
+### 운영 DB SSH 터널 접속
+
+운영 Compose는 PostgreSQL 포트를 서버의 `127.0.0.1:5432`에 바인딩합니다.
+운영 서버에 SSH 접속할 수 있고 SSH 포트 포워딩이 허용된 환경에서, 개인 키 경로와
+SSH 계정·서버 주소를 실제 값으로 바꿔 로컬 터미널에서 실행합니다.
+
+```bash
+ssh -i /path/to/key.pem \
+  -N -o ExitOnForwardFailure=yes \
+  -L 127.0.0.1:15432:127.0.0.1:5432 \
+  SSH_USER@SERVER_IP
+```
+
+터널을 유지한 상태에서 DB 도구의 Host는 `127.0.0.1`, Port는 `15432`, Database와
+User는 `jarihana`, Password는 운영 DB 비밀번호로 설정합니다. 이 명령으로 터널을
+실행했다면 DB 도구의 SSH 터널 기능은 별도로 켜지 않습니다. 종료할 때는 터미널에서
+`Ctrl+C`를 누릅니다. 로컬 PostgreSQL의 `5432` 포트와 구분하기 위해 `15432`를 사용합니다.
+
+최초 포트 매핑 반영 시 PostgreSQL 컨테이너가 재생성되어 기존 DB 연결이 잠시 끊길 수
+있습니다. 기존 `postgres-data` 볼륨은 유지하며, 적용을 위해 볼륨을 삭제하지 않습니다.
+
 ### 운영 배포 시크릿
 
-`main` 브랜치에 반영된 커밋에 `backend/**` 변경이 포함되면 백엔드 배포 워크플로가
-자동으로 실행됩니다. 필요할 때는 GitHub Actions에서 수동으로도 실행할 수 있습니다.
+`main` 브랜치 push에 `backend/**`, `infra/docker-compose.yml` 또는
+`.github/workflows/backend-build.yml` 변경이 포함되면 백엔드 배포 워크플로가 자동으로
+실행됩니다. 필요할 때는 GitHub Actions에서 수동으로도 실행할 수 있습니다.
 
 저장소의 `Settings > Secrets and variables > Actions`에 다음 이름으로 시크릿을 등록합니다.
 GitHub은 `GITHUB_`로 시작하는 시크릿 이름을 허용하지 않으므로, OAuth 시크릿은
