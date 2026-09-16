@@ -140,7 +140,7 @@ test(
 );
 
 test(
-  "anonymous protected navigation gives login feedback without a silent round trip",
+  "anonymous group creation navigation starts GitHub login",
   { tag: "@core" },
   async ({ page }) => {
     const state = await installApiFixture(page, { auth: "anonymous" });
@@ -148,12 +148,8 @@ test(
 
     await page.getByRole("button", { name: "모임 만들기", exact: true }).click();
 
-    await expect(page).toHaveURL(/\/groups$/);
-    await expect(page.getByText("로그인이 필요한 기능이에요", { exact: true })).toBeVisible();
-    await expect(page.getByText("로그인한 뒤 모임을 만들 수 있어요.", { exact: true })).toBeVisible();
-    expect(await page.evaluate((key) => sessionStorage.getItem(key), returnTargetStorageKey)).toBe(
-      "/groups/new"
-    );
+    await expect(page).toHaveURL(/github\.com\/login\/oauth\/authorize/);
+    await expect(page.getByRole("heading", { name: "Stub GitHub OAuth" })).toBeVisible();
     expect(state.unexpectedResponses).toEqual([]);
   }
 );
