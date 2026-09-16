@@ -138,8 +138,8 @@ User는 `jarihana`, Password는 운영 DB 비밀번호로 설정합니다. 이 �
 ### 운영 배포 시크릿
 
 `main` 브랜치에 반영된 커밋에 `backend/**` 변경이 포함되면 백엔드 배포 워크플로가
-자동으로 실행됩니다. 인프라 배포 워크플로는 `infra/docker-compose.yml` 또는
-`.github/workflows/infra-build.yml` 변경 시 PostgreSQL만 배포합니다.
+자동으로 실행됩니다. 인프라 배포 워크플로는 `main`의 `infra/docker-compose.yml`
+변경 시 PostgreSQL만 배포합니다.
 두 워크플로 모두 GitHub Actions에서 수동으로도 실행할 수 있습니다.
 
 인프라 워크플로도 기존 운영 Compose를 사용하므로, Compose 전체의 환경 변수 해석에

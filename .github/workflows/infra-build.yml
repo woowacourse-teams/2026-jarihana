@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - "infra/docker-compose.yml"
-      - ".github/workflows/infra-build.yml"
   workflow_dispatch:
 
 permissions:
