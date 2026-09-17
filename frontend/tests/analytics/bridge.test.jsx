@@ -5,7 +5,12 @@ import { matchRoutes, useLocation } from "react-router";
 import { AnalyticsBridge } from "../../src/app/AnalyticsBridge";
 import { routeRegistry } from "../../src/app/routes";
 import { useAuth } from "../../src/features/auth";
-import { setAnalyticsRoute, syncAnalyticsIdentity, trackPage } from "../../src/shared/analytics";
+import {
+  setAnalyticsRoute,
+  syncAnalyticsIdentity,
+  syncPromotionAttribution,
+  trackPage
+} from "../../src/shared/analytics";
 
 jest.mock("react-router", () => ({
   matchRoutes: jest.fn(),
@@ -15,6 +20,7 @@ jest.mock("../../src/features/auth", () => ({ useAuth: jest.fn() }));
 jest.mock("../../src/shared/analytics", () => ({
   setAnalyticsRoute: jest.fn(),
   syncAnalyticsIdentity: jest.fn(),
+  syncPromotionAttribution: jest.fn(),
   trackPage: jest.fn()
 }));
 
@@ -29,6 +35,7 @@ function deferred() {
 beforeEach(() => {
   jest.clearAllMocks();
   syncAnalyticsIdentity.mockReset().mockResolvedValue(true);
+  syncPromotionAttribution.mockReset().mockReturnValue(undefined);
   useAuth.mockReturnValue({ member: { id: 42 }, status: "authenticated" });
   useLocation.mockReturnValue({ pathname: "/groups", search: "", hash: "" });
   matchRoutes.mockReturnValue([{ route: { page: "GroupsPage" }, params: {} }]);
@@ -94,6 +101,31 @@ test("uses route registry names and explicit group and recruitment IDs for conte
       recruitment_id: "34"
     }
   );
+  await act(async () => {});
+});
+
+test("adds only the validated promotion attribution to group route context", async () => {
+  matchRoutes.mockReturnValue([
+    { route: { page: "GroupDetailPage" }, params: { groupId: "13" } }
+  ]);
+  useLocation.mockReturnValue({
+    pathname: "/groups/13",
+    search: "?promotion_id=yutnori_chat_01"
+  });
+  syncPromotionAttribution.mockReturnValue({
+    group_id: "13",
+    promotion_id: "yutnori_chat_01"
+  });
+
+  render(<AnalyticsBridge />);
+
+  expect(syncPromotionAttribution).toHaveBeenCalledWith("13", "?promotion_id=yutnori_chat_01");
+  expect(setAnalyticsRoute).toHaveBeenCalledWith("/groups/13", {
+    route_name: "GroupDetailPage",
+    group_id: "13",
+    recruitment_id: undefined,
+    promotion_id: "yutnori_chat_01"
+  });
   await act(async () => {});
 });
 

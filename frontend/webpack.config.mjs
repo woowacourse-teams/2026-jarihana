@@ -119,7 +119,7 @@ export default (_, arguments_) => {
           name: "group-share-preview",
           middleware: async (request, response, next) => {
             const groupPath = request.path.match(/^\/groups\/([1-9][0-9]*)\/?$/);
-            if (request.method !== "GET" || !groupPath || request.query.preview) {
+            if (request.method !== "GET" || !groupPath || request.query.preview === "1") {
               next();
               return;
             }

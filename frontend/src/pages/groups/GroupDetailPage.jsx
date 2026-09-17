@@ -7,6 +7,7 @@ import { useGroup } from "../../features/group/index.js";
 import { useInfiniteGroupMembers } from "../../features/member/index.js";
 import { useCreateRegistration } from "../../features/registration/index.js";
 import { toUserMessage } from "../../shared/api/index.js";
+import { captureEvent, getPromotionAttribution } from "../../shared/analytics/index.js";
 import logoMark from "../../shared/assets/brand/jarihana-favicon.png";
 import scheduleIcon from "../../shared/assets/figma/edit-05.svg";
 import placeIcon from "../../shared/assets/figma/edit-06.svg";
@@ -356,7 +357,8 @@ function RecruitmentSummary({
   isLeader
 }) {
   const recruitment = group.activeRecruitment;
-  const registration = useCreateRegistration(recruitment?.id);
+  const registration = useCreateRegistration(recruitment?.id, group.id);
+  const registrationStartedReference = useRef();
   const [applicationOpen, setApplicationOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const participationLabel = group.type === "SESSION" ? "참여" : "참여 신청";
@@ -380,6 +382,16 @@ function RecruitmentSummary({
 
   function openApplication() {
     registration.reset();
+    const flowKey = `${group.id}:${recruitment?.id ?? "none"}`;
+    if (registrationStartedReference.current !== flowKey) {
+      registrationStartedReference.current = flowKey;
+      const promotionId = getPromotionAttribution(group.id)?.promotion_id;
+      captureEvent("registration_started", {
+        group_id: group.id,
+        recruitment_id: recruitment?.id,
+        ...(promotionId ? { promotion_id: promotionId } : {})
+      });
+    }
     setApplicationOpen(true);
   }
 
@@ -429,7 +441,6 @@ function RecruitmentSummary({
     return (
       <Button
         className="group-apply-button"
-        data-ph-capture-attribute-action="registration_start"
         onClick={openApplication}
         variant="primary"
       >

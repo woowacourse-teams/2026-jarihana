@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getSafeNextCursor } from "../../entities/cursor/index.js";
-import { captureEvent } from "../../shared/analytics/index.js";
+import { captureEvent, getPromotionAttribution } from "../../shared/analytics/index.js";
 import { groupKeys } from "../group/index.js";
 import { recruitmentKeys } from "../recruitment/index.js";
 import {
@@ -75,15 +75,18 @@ function invalidateRegistrationViews(queryClient) {
   ]);
 }
 
-export function useCreateRegistration(recruitmentId) {
+export function useCreateRegistration(recruitmentId, groupId) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (values) => createRegistration(recruitmentId, values),
     onSuccess: (registration) => {
+      const promotionId = getPromotionAttribution(groupId)?.promotion_id;
       captureEvent("registration_submitted", {
+        ...(groupId !== undefined ? { group_id: groupId } : {}),
         recruitment_id: recruitmentId,
         registration_id: registration.id,
-        status: registration.status
+        status: registration.status,
+        ...(promotionId ? { promotion_id: promotionId } : {})
       });
       return invalidateRegistrationViews(queryClient);
     }

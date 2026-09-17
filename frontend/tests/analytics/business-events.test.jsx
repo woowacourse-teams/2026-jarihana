@@ -20,7 +20,10 @@ import {
 } from "../../src/features/registration/hooks.js";
 import { captureEvent } from "../../src/shared/analytics/index.js";
 
-jest.mock("../../src/shared/analytics/index.js", () => ({ captureEvent: jest.fn() }));
+jest.mock("../../src/shared/analytics/index.js", () => ({
+  captureEvent: jest.fn(),
+  getPromotionAttribution: jest.fn(() => undefined)
+}));
 jest.mock("../../src/features/group/api.js");
 jest.mock("../../src/features/member/api.js");
 jest.mock("../../src/features/recruitment/api.js");
@@ -61,11 +64,11 @@ const cases = [
   },
   {
     name: "registration_submitted",
-    useMutationHook: () => useCreateRegistration(45),
+    useMutationHook: () => useCreateRegistration(45, 12),
     api: createRegistration,
     input: { message: "private application" },
     response: { id: 88, status: "APPROVED" },
-    properties: { recruitment_id: 45, registration_id: 88, status: "APPROVED" }
+    properties: { group_id: 12, recruitment_id: 45, registration_id: 88, status: "APPROVED" }
   },
   {
     name: "registration_withdrawn",
@@ -137,7 +140,7 @@ describe.each(cases)("$name", ({ name, useMutationHook, api, input, response, pr
 it("keeps the API success event even when subsequent cache invalidation fails", async () => {
   // Given
   createRegistration.mockResolvedValue({ id: 88, status: "PENDING" });
-  const { result, client } = renderMutation(() => useCreateRegistration(45));
+  const { result, client } = renderMutation(() => useCreateRegistration(45, 12));
   const error = new Error("query refresh failed");
   jest.spyOn(client, "invalidateQueries").mockRejectedValue(error);
 
@@ -149,6 +152,7 @@ it("keeps the API success event even when subsequent cache invalidation fails", 
   // Then
   expect(captureEvent).toHaveBeenCalledTimes(1);
   expect(captureEvent).toHaveBeenCalledWith("registration_submitted", {
+    group_id: 12,
     recruitment_id: 45,
     registration_id: 88,
     status: "PENDING"
