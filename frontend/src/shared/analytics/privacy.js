@@ -84,7 +84,10 @@ export function sanitizeProperties(properties = {}) {
       safeId(value)
     ) {
       result[key] = value;
-    } else if (key === "promotion_id" && safePromotionId(value)) {
+    } else if (
+      ["promotion_id", "attribution_promotion_id"].includes(key) &&
+      safePromotionId(value)
+    ) {
       result[key] = value;
     } else if (
       [

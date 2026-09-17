@@ -86,7 +86,7 @@ export function useCreateRegistration(recruitmentId, groupId) {
         recruitment_id: recruitmentId,
         registration_id: registration.id,
         status: registration.status,
-        ...(promotionId ? { promotion_id: promotionId } : {})
+        ...(promotionId ? { attribution_promotion_id: promotionId } : {})
       });
       return invalidateRegistrationViews(queryClient);
     }

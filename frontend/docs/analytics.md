@@ -32,7 +32,7 @@ Webpack 빌드 시 아래 환경변수를 주입한다. 값이 번들에 반영�
   `posthog-js`를 동적으로 불러온다. `@posthog/react` Provider는 사용하지 않는다.
 - `src/app/AnalyticsBridge.jsx`: 라우트·인증 상태를 분석 클라이언트에 연결한다.
 - `src/shared/analytics/config.js`, `privacy.js`, `promotion.js`: 수집 설정, 전송 속성 정제,
-  같은 모임의 유효한 홍보 식별자 세션 귀속을 담당한다.
+  홍보 링크 유입과 같은 세션의 전환 귀속을 분리해 관리한다.
 - `src/shared/api/client.js`: 공통 API 요청의 각 시도와 결과를 기록한다.
 - `src/features/image-upload/api.js`: 스토리지 직접 업로드 결과를 따로 기록한다.
 - 각 도메인의 mutation hook: API 성공 후 query invalidation 전에 성공 이벤트를 기록한다.
@@ -57,8 +57,10 @@ API 경로는 `/api/groups/:id`처럼 정규화하고 query·fragment를 제외�
 API 횟수를 사용자의 클릭 횟수로 해석하지 않는다.
 
 이벤트에는 라우트 레지스트리의 `route_name`과 해당 화면의 `group_id`, `recruitment_id`를
-붙인다. 그룹 상세·모집 상세의 유효한 `promotion_id`도 함께 기록하며, 화면이 바뀌면 이전
-식별자는 제거한다. 주요 CTA는
+붙인다. 그룹 상세·모집 상세의 `$pageview`에는 현재 URL에 유효한 `promotion_id`가 있을 때만
+이를 붙인다. 신청 이벤트에는 같은 PostHog 세션에서 처음 확인한 홍보 식별자를
+`attribution_promotion_id`로 따로 붙인다. 따라서 일반 상세 방문을 홍보 링크 유입으로
+오인하지 않으면서 로그인·회원가입 경유 신청은 연결할 수 있다. 주요 CTA는
 `data-ph-capture-attribute-action`으로 동작 이름을 남기고, 일반 클릭은 텍스트 없이
 DOM 태그와 요소 순서로 구분한다.
 
@@ -70,8 +72,8 @@ DOM 태그와 요소 순서로 구분한다.
 | `group_created`          | `group_id`, `group_type`, `status`            |
 | `recruitment_created`    | `group_id`, `recruitment_id`, `status`        |
 | `recruitment_closed`     | `group_id`, `recruitment_id`, `status`        |
-| `registration_started`   | `group_id`, `recruitment_id`, `promotion_id` |
-| `registration_submitted` | `group_id`, `recruitment_id`, `registration_id`, `status`, `promotion_id` |
+| `registration_started`   | `group_id`, `recruitment_id`, `attribution_promotion_id` |
+| `registration_submitted` | `group_id`, `recruitment_id`, `registration_id`, `status`, `attribution_promotion_id` |
 | `registration_withdrawn` | `recruitment_id`, `registration_id`           |
 | `registration_decided`   | `recruitment_id`, `registration_id`, `status` |
 
@@ -91,8 +93,8 @@ DOM 태그와 요소 순서로 구분한다.
 연결하며, 로그인 상태로 재방문하거나 다른 기기에서 로그인하면 같은 회원으로 식별한다.
 로그아웃·계정 변경 시 식별자를 초기화해 이전 회원의 행동과 섞이지 않게 한다.
 분석용 쿠키와 localStorage는 로그인 인증 쿠키·토큰과 별개다. 홍보 식별자는 개인정보가
-아닌 검증된 값만 `sessionStorage`에 모임 ID와 함께 보관해 같은 탭의 로그인·회원가입 경유
-신청에 연결하고, 다른 모임으로 이동하거나 계정을 바꾸면 제거한다.
+아닌 검증된 값만 `sessionStorage`에 모임 ID와 PostHog 세션 ID와 함께 보관한다. 따라서 같은
+세션의 로그인·회원가입 경유 신청에만 연결하고, 다른 모임·계정·PostHog 새 세션에서는 제거한다.
 
 쿠키·저장소 삭제, 분석 차단, 로그아웃 후 익명 방문은 기존 회원과의 연결에 제한이 있다.
 이미 PostHog 수집을 거부한 브라우저의 opt-out 상태는 유지한다.

@@ -44,7 +44,7 @@ export function RecruitmentDetailPage() {
     captureEvent("registration_started", {
       group_id: groupId,
       recruitment_id: recruitmentId,
-      ...(promotionId ? { promotion_id: promotionId } : {})
+      ...(promotionId ? { attribution_promotion_id: promotionId } : {})
     });
   }
 

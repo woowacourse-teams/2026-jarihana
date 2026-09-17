@@ -389,7 +389,7 @@ function RecruitmentSummary({
       captureEvent("registration_started", {
         group_id: group.id,
         recruitment_id: recruitment?.id,
-        ...(promotionId ? { promotion_id: promotionId } : {})
+        ...(promotionId ? { attribution_promotion_id: promotionId } : {})
       });
     }
     setApplicationOpen(true);
