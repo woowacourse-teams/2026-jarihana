@@ -32,6 +32,13 @@ const safeId = (value) =>
 const safeLabel = (value) =>
   typeof value === "string" && /^[a-zA-Z][a-zA-Z0-9_-]{0,79}$/.test(value);
 
+const safePromotionId = (value) =>
+  typeof value === "string" && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/.test(value);
+
+export function sanitizePromotionId(value) {
+  return safePromotionId(value) ? value : undefined;
+}
+
 export const isPrivateRoute = (path = "") => {
   try {
     return /^\/(?:api\/)?oauth(?:\/|$)/i.test(decodeURIComponent(path));
@@ -76,6 +83,8 @@ export function sanitizeProperties(properties = {}) {
       ["group_id", "recruitment_id", "registration_id", "member_id"].includes(key) &&
       safeId(value)
     ) {
+      result[key] = value;
+    } else if (key === "promotion_id" && safePromotionId(value)) {
       result[key] = value;
     } else if (
       [

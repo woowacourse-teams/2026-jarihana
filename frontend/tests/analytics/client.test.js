@@ -148,6 +148,43 @@ test("pageview is once per visit while back navigation still counts", async () =
   ]);
 });
 
+test("group pageview carries explicit group and promotion context", async () => {
+  const { analytics, client } = setup();
+  analytics.setAnalyticsRoute("/groups/13", {
+    route_name: "GroupDetailPage",
+    group_id: "13",
+    promotion_id: "yutnori_chat_01"
+  });
+  await analytics.syncAnalyticsIdentity("anonymous");
+
+  analytics.trackPage("/groups/13");
+
+  expect(client.capture).toHaveBeenCalledWith("$pageview", {
+    pathname: "/groups/:id",
+    $pathname: "/groups/:id",
+    group_id: "13",
+    promotion_id: "yutnori_chat_01"
+  });
+});
+
+test("registration_started is an allowed explicit business event", async () => {
+  const { analytics, client } = setup();
+  await analytics.syncAnalyticsIdentity("anonymous");
+
+  expect(
+    analytics.captureEvent("registration_started", {
+      group_id: 13,
+      recruitment_id: 91,
+      promotion_id: "yutnori_chat_01"
+    })
+  ).toBe(true);
+  expect(client.capture).toHaveBeenCalledWith("registration_started", {
+    group_id: 13,
+    recruitment_id: 91,
+    promotion_id: "yutnori_chat_01"
+  });
+});
+
 test("private callback prevents initialization and pauses an active recording", async () => {
   const { analytics, client } = setup();
   analytics.setAnalyticsRoute("/oauth/callback");
@@ -288,6 +325,24 @@ test("event and top-level person attribution cannot leak query, text, attributes
   expect(serialized).not.toMatch(/private|secret|token/);
   expect(event.properties.action).toBe("registration_submit");
   expect(event.$set_once.$initial_current_url).toBe("https://example.com/");
+});
+
+test("promotion attribution accepts only the bounded identifier format", () => {
+  expect(
+    sanitizeEvent({
+      event: "registration_started",
+      properties: {
+        promotion_id: "yutnori_chat_01",
+        invalid_promotion: "private"
+      }
+    }).properties
+  ).toEqual({ promotion_id: "yutnori_chat_01" });
+  expect(
+    sanitizeEvent({
+      event: "registration_started",
+      properties: { promotion_id: "13?email=private" }
+    }).properties
+  ).toEqual({});
 });
 
 test("heatmap URL keys and vitals attribution are sanitized while numeric measurements survive", () => {

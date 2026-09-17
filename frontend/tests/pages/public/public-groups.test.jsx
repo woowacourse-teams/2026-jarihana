@@ -10,6 +10,7 @@ import {
   GroupDetailPage,
   RecruitmentDetailPage
 } from "../../../src/pages/groups/index.js";
+import { captureEvent } from "../../../src/shared/analytics/index.js";
 import { ToastProvider } from "../../../src/shared/ui/Toast.jsx";
 
 let mockRouteParams = {};
@@ -49,6 +50,10 @@ jest.mock("../../../src/features/registration/index.js", () => ({
   useCreateRegistration: jest.fn()
 }));
 jest.mock("../../../src/features/auth/index.js", () => ({ useAuth: jest.fn() }));
+jest.mock("../../../src/shared/analytics/index.js", () => ({
+  captureEvent: jest.fn(),
+  getPromotionAttribution: jest.fn()
+}));
 
 const group = {
   id: 41,
@@ -213,6 +218,11 @@ it.each([
     expect(within(dialog).getByRole("button", { name: "신청하기" })).toBeInTheDocument();
     expect(dialog).not.toHaveTextContent("가입");
     expect(dialog).not.toHaveTextContent("참여");
+    expect(captureEvent).toHaveBeenCalledTimes(1);
+    expect(captureEvent).toHaveBeenCalledWith(
+      "registration_started",
+      expect.objectContaining({ group_id: 41, recruitment_id: 91 })
+    );
   }
 );
 
