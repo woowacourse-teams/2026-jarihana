@@ -3,6 +3,7 @@ import { matchRoutes, useLocation } from "react-router";
 
 import { useAuth } from "../features/auth";
 import {
+  getPromotionEntryId,
   setAnalyticsRoute,
   syncAnalyticsIdentity,
   syncPromotionAttribution,
@@ -18,23 +19,22 @@ export function AnalyticsBridge() {
   useLayoutEffect(() => {
     let cancelled = false;
     const match = matchRoutes(routeRegistry, pathname)?.at(-1);
-    const attribution = syncPromotionAttribution(match?.params.groupId, search);
+    const isPromotionRoute = ["GroupDetailPage", "RecruitmentDetailPage"].includes(
+      match?.route.page
+    );
+    const promotionId = isPromotionRoute ? getPromotionEntryId(search) : undefined;
     const routeProperties = {
       route_name: match?.route.page,
       group_id: match?.params.groupId,
       recruitment_id: match?.params.recruitmentId
     };
-    if (
-      ["GroupDetailPage", "RecruitmentDetailPage"].includes(match?.route.page) &&
-      attribution?.promotion_id
-    ) {
-      routeProperties.promotion_id = attribution.promotion_id;
-    }
+    if (promotionId) routeProperties.promotion_id = promotionId;
     setAnalyticsRoute(pathname, routeProperties);
 
     const synchronize = async () => {
       const ready = await syncAnalyticsIdentity(status, memberId);
       if (!cancelled && ready) {
+        syncPromotionAttribution(match?.params.groupId, search);
         trackPage(pathname);
       }
     };

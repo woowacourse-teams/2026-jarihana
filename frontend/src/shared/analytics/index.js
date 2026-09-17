@@ -2,8 +2,9 @@ import { createAnalytics } from "./client";
 import { readAnalyticsConfig } from "./config";
 import {
   clearPromotionAttribution,
-  getPromotionAttribution,
-  syncPromotionAttribution
+  getPromotionAttribution as readPromotionAttribution,
+  getPromotionEntryId,
+  syncPromotionAttribution as synchronizePromotionAttribution
 } from "./promotion";
 
 let analytics;
@@ -35,4 +36,9 @@ export const captureEvent = (event, properties) =>
 export const startRequestTracking = (metadata) =>
   safely("startRequestTracking", [metadata], { finish() {} });
 
-export { clearPromotionAttribution, getPromotionAttribution, syncPromotionAttribution };
+export const syncPromotionAttribution = (groupId, search) =>
+  synchronizePromotionAttribution(groupId, search, safely("getSessionId", [], undefined));
+export const getPromotionAttribution = (groupId) =>
+  readPromotionAttribution(groupId, safely("getSessionId", [], undefined));
+
+export { clearPromotionAttribution, getPromotionEntryId };
