@@ -26,7 +26,7 @@ export function createAnalytics({ config, loadClient, storage, now = () => perfo
   let initializing;
   let ready = false;
   let pathname = globalThis.location?.pathname || "/";
-  let lastPage;
+  let lastPageKey;
   let routeProperties = {};
   let desired;
   let revision = 0;
@@ -95,7 +95,7 @@ export function createAnalytics({ config, loadClient, storage, now = () => perfo
     pathname = path;
     routeProperties = sanitizeProperties(properties);
     if (isPrivateRoute(path)) {
-      lastPage = undefined;
+      lastPageKey = undefined;
       revision++;
       pause();
     } else if (permitted()) {
@@ -120,7 +120,7 @@ export function createAnalytics({ config, loadClient, storage, now = () => perfo
       sdk.stopSessionRecording();
       sdk.reset(true);
       identityRevision++;
-      lastPage = undefined;
+      lastPageKey = undefined;
     }
     if (id && member !== id) sdk.identify(id);
     if (id !== member) {
@@ -178,23 +178,32 @@ export function createAnalytics({ config, loadClient, storage, now = () => perfo
   }
 
   function trackPage(path) {
-    if (!permitted() || lastPage === path) return;
+    const pageKey = `${path}\u0000${routeProperties.promotion_id || ""}`;
+    if (!permitted() || lastPageKey === pageKey) return;
     try {
       const safePath = normalizePath(path);
       sdk.register({ pathname: safePath });
       sdk.capture("$pageview", {
         pathname: safePath,
         $pathname: safePath,
-        ...(routeProperties.group_id !== undefined
-          ? { group_id: routeProperties.group_id }
-          : {}),
+        ...(routeProperties.group_id !== undefined ? { group_id: routeProperties.group_id } : {}),
         ...(routeProperties.promotion_id !== undefined
           ? { promotion_id: routeProperties.promotion_id }
           : {})
       });
-      lastPage = path;
+      lastPageKey = pageKey;
     } catch {
       /* A tracking failure must not break navigation. */
+    }
+  }
+
+  function getSessionId() {
+    if (!permitted()) return undefined;
+    try {
+      const sessionId = sdk.get_session_id?.();
+      return typeof sessionId === "string" ? sessionId : undefined;
+    } catch {
+      return undefined;
     }
   }
 
@@ -247,6 +256,7 @@ export function createAnalytics({ config, loadClient, storage, now = () => perfo
     syncAnalyticsIdentity,
     captureEvent,
     trackPage,
+    getSessionId,
     startRequestTracking
   };
 }

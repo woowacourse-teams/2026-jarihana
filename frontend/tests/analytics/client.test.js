@@ -24,6 +24,7 @@ function setup(overrides = {}) {
       id = "new-anonymous";
     }),
     get_distinct_id: jest.fn(() => id),
+    get_session_id: jest.fn(() => "session-current"),
     get_property: jest.fn(),
     has_opted_out_capturing: jest.fn(() => false),
     register: jest.fn(),
@@ -167,6 +168,44 @@ test("group pageview carries explicit group and promotion context", async () => 
   });
 });
 
+test("records a new pageview when only the direct promotion identifier changes", async () => {
+  const { analytics, client } = setup();
+  await analytics.syncAnalyticsIdentity("anonymous");
+  analytics.setAnalyticsRoute("/groups/13", {
+    route_name: "GroupDetailPage",
+    group_id: "13"
+  });
+  analytics.trackPage("/groups/13");
+  analytics.setAnalyticsRoute("/groups/13", {
+    route_name: "GroupDetailPage",
+    group_id: "13",
+    promotion_id: "yutnori_chat_01"
+  });
+  analytics.trackPage("/groups/13");
+  analytics.trackPage("/groups/13");
+
+  expect(client.capture).toHaveBeenCalledTimes(2);
+  expect(client.capture.mock.calls[1]).toEqual([
+    "$pageview",
+    {
+      pathname: "/groups/:id",
+      $pathname: "/groups/:id",
+      group_id: "13",
+      promotion_id: "yutnori_chat_01"
+    }
+  ]);
+});
+
+test("exposes the current PostHog session only after analytics is ready", async () => {
+  const { analytics, client } = setup();
+
+  expect(analytics.getSessionId()).toBeUndefined();
+  await analytics.syncAnalyticsIdentity("anonymous");
+
+  expect(analytics.getSessionId()).toBe("session-current");
+  expect(client.get_session_id).toHaveBeenCalled();
+});
+
 test("registration_started is an allowed explicit business event", async () => {
   const { analytics, client } = setup();
   await analytics.syncAnalyticsIdentity("anonymous");
@@ -175,13 +214,13 @@ test("registration_started is an allowed explicit business event", async () => {
     analytics.captureEvent("registration_started", {
       group_id: 13,
       recruitment_id: 91,
-      promotion_id: "yutnori_chat_01"
+      attribution_promotion_id: "yutnori_chat_01"
     })
   ).toBe(true);
   expect(client.capture).toHaveBeenCalledWith("registration_started", {
     group_id: 13,
     recruitment_id: 91,
-    promotion_id: "yutnori_chat_01"
+    attribution_promotion_id: "yutnori_chat_01"
   });
 });
 
@@ -332,15 +371,15 @@ test("promotion attribution accepts only the bounded identifier format", () => {
     sanitizeEvent({
       event: "registration_started",
       properties: {
-        promotion_id: "yutnori_chat_01",
+        attribution_promotion_id: "yutnori_chat_01",
         invalid_promotion: "private"
       }
     }).properties
-  ).toEqual({ promotion_id: "yutnori_chat_01" });
+  ).toEqual({ attribution_promotion_id: "yutnori_chat_01" });
   expect(
     sanitizeEvent({
       event: "registration_started",
-      properties: { promotion_id: "13?email=private" }
+      properties: { attribution_promotion_id: "13?email=private" }
     }).properties
   ).toEqual({});
 });

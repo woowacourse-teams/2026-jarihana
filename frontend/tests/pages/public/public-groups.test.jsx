@@ -10,7 +10,7 @@ import {
   GroupDetailPage,
   RecruitmentDetailPage
 } from "../../../src/pages/groups/index.js";
-import { captureEvent } from "../../../src/shared/analytics/index.js";
+import { captureEvent, getPromotionAttribution } from "../../../src/shared/analytics/index.js";
 import { ToastProvider } from "../../../src/shared/ui/Toast.jsx";
 
 let mockRouteParams = {};
@@ -225,6 +225,40 @@ it.each([
     );
   }
 );
+
+it("records group-detail application start with session promotion attribution", async () => {
+  const user = userEvent.setup();
+  getPromotionAttribution.mockReturnValue({
+    group_id: "41",
+    promotion_id: "yutnori_chat_01"
+  });
+
+  renderAt("/groups/41", <GroupDetailPage />);
+  await user.click(screen.getByRole("button", { name: "참여 신청하기" }));
+
+  expect(captureEvent).toHaveBeenCalledWith("registration_started", {
+    group_id: 41,
+    recruitment_id: 91,
+    attribution_promotion_id: "yutnori_chat_01"
+  });
+});
+
+it("records recruitment-detail application start with session promotion attribution", async () => {
+  const user = userEvent.setup();
+  getPromotionAttribution.mockReturnValue({
+    group_id: "41",
+    promotion_id: "yutnori_chat_01"
+  });
+
+  renderAt("/groups/41/recruitments/91", <RecruitmentDetailPage />);
+  await user.click(screen.getByRole("button", { name: "가입 신청하기" }));
+
+  expect(captureEvent).toHaveBeenCalledWith("registration_started", {
+    group_id: "41",
+    recruitment_id: "91",
+    attribution_promotion_id: "yutnori_chat_01"
+  });
+});
 
 it("Given a pending application, when the detail page renders, then application is disabled", async () => {
   const user = userEvent.setup();

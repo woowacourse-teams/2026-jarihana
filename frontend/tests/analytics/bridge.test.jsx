@@ -6,6 +6,7 @@ import { AnalyticsBridge } from "../../src/app/AnalyticsBridge";
 import { routeRegistry } from "../../src/app/routes";
 import { useAuth } from "../../src/features/auth";
 import {
+  getPromotionEntryId,
   setAnalyticsRoute,
   syncAnalyticsIdentity,
   syncPromotionAttribution,
@@ -18,6 +19,7 @@ jest.mock("react-router", () => ({
 }));
 jest.mock("../../src/features/auth", () => ({ useAuth: jest.fn() }));
 jest.mock("../../src/shared/analytics", () => ({
+  getPromotionEntryId: jest.fn(),
   setAnalyticsRoute: jest.fn(),
   syncAnalyticsIdentity: jest.fn(),
   syncPromotionAttribution: jest.fn(),
@@ -34,6 +36,7 @@ function deferred() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  getPromotionEntryId.mockReset().mockReturnValue(undefined);
   syncAnalyticsIdentity.mockReset().mockResolvedValue(true);
   syncPromotionAttribution.mockReset().mockReturnValue(undefined);
   useAuth.mockReturnValue({ member: { id: 42 }, status: "authenticated" });
@@ -104,14 +107,34 @@ test("uses route registry names and explicit group and recruitment IDs for conte
   await act(async () => {});
 });
 
-test("adds only the validated promotion attribution to group route context", async () => {
-  matchRoutes.mockReturnValue([
-    { route: { page: "GroupDetailPage" }, params: { groupId: "13" } }
-  ]);
+test("adds only the current URL's validated promotion identifier to group route context", async () => {
+  matchRoutes.mockReturnValue([{ route: { page: "GroupDetailPage" }, params: { groupId: "13" } }]);
   useLocation.mockReturnValue({
     pathname: "/groups/13",
-    search: "?promotion_id=yutnori_chat_01"
+    search: "?promotion_id=second_campaign"
   });
+  getPromotionEntryId.mockReturnValue("second_campaign");
+  syncPromotionAttribution.mockReturnValue({
+    group_id: "13",
+    promotion_id: "first_campaign"
+  });
+
+  render(<AnalyticsBridge />);
+
+  expect(getPromotionEntryId).toHaveBeenCalledWith("?promotion_id=second_campaign");
+  expect(setAnalyticsRoute).toHaveBeenCalledWith("/groups/13", {
+    route_name: "GroupDetailPage",
+    group_id: "13",
+    recruitment_id: undefined,
+    promotion_id: "second_campaign"
+  });
+  await act(async () => {});
+  expect(syncPromotionAttribution).toHaveBeenCalledWith("13", "?promotion_id=second_campaign");
+});
+
+test("does not attach a stored conversion attribution to a general group pageview", async () => {
+  matchRoutes.mockReturnValue([{ route: { page: "GroupDetailPage" }, params: { groupId: "13" } }]);
+  useLocation.mockReturnValue({ pathname: "/groups/13", search: "" });
   syncPromotionAttribution.mockReturnValue({
     group_id: "13",
     promotion_id: "yutnori_chat_01"
@@ -119,14 +142,13 @@ test("adds only the validated promotion attribution to group route context", asy
 
   render(<AnalyticsBridge />);
 
-  expect(syncPromotionAttribution).toHaveBeenCalledWith("13", "?promotion_id=yutnori_chat_01");
   expect(setAnalyticsRoute).toHaveBeenCalledWith("/groups/13", {
     route_name: "GroupDetailPage",
     group_id: "13",
-    recruitment_id: undefined,
-    promotion_id: "yutnori_chat_01"
+    recruitment_id: undefined
   });
   await act(async () => {});
+  expect(syncPromotionAttribution).toHaveBeenCalledWith("13", "");
 });
 
 test.each(["loading", "unavailable", "anonymous", "signup-required"])(

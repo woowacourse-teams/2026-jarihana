@@ -18,7 +18,7 @@ import {
   useDecideRegistration,
   useWithdrawRegistration
 } from "../../src/features/registration/hooks.js";
-import { captureEvent } from "../../src/shared/analytics/index.js";
+import { captureEvent, getPromotionAttribution } from "../../src/shared/analytics/index.js";
 
 jest.mock("../../src/shared/analytics/index.js", () => ({
   captureEvent: jest.fn(),
@@ -156,5 +156,24 @@ it("keeps the API success event even when subsequent cache invalidation fails", 
     recruitment_id: 45,
     registration_id: 88,
     status: "PENDING"
+  });
+});
+
+it("records session attribution separately from the direct promotion link identifier", async () => {
+  createRegistration.mockResolvedValue({ id: 88, status: "PENDING" });
+  getPromotionAttribution.mockReturnValue({
+    group_id: "12",
+    promotion_id: "yutnori_chat_01"
+  });
+  const { result } = renderMutation(() => useCreateRegistration(45, 12));
+
+  await act(async () => result.current.mutateAsync({ message: "private" }));
+
+  expect(captureEvent).toHaveBeenCalledWith("registration_submitted", {
+    group_id: 12,
+    recruitment_id: 45,
+    registration_id: 88,
+    status: "PENDING",
+    attribution_promotion_id: "yutnori_chat_01"
   });
 });
