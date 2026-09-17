@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronLeft } from "lucide-react";
 import { Link, useParams } from "react-router";
 
@@ -6,6 +6,7 @@ import { useAuth } from "../../features/auth/index.js";
 import { useRecruitment } from "../../features/recruitment/index.js";
 import { useCreateRegistration } from "../../features/registration/index.js";
 import { toUserMessage } from "../../shared/api/index.js";
+import { captureEvent, getPromotionAttribution } from "../../shared/analytics/index.js";
 import {
   Button,
   ConfirmDialog,
@@ -27,12 +28,25 @@ export function RecruitmentDetailPage() {
   const { groupId, recruitmentId } = useParams();
   const auth = useAuth();
   const query = useRecruitment(groupId, recruitmentId);
-  const registration = useCreateRegistration(recruitmentId);
+  const registration = useCreateRegistration(recruitmentId, groupId);
+  const registrationStartedReference = useRef(false);
   const [message, setMessage] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const isAuthenticated = auth.status === "authenticated" || auth.isAuthenticated;
   const recruitment = query.data;
+
+  function markRegistrationStarted() {
+    const flowKey = `${groupId}:${recruitmentId}`;
+    if (registrationStartedReference.current === flowKey) return;
+    registrationStartedReference.current = flowKey;
+    const promotionId = getPromotionAttribution(groupId)?.promotion_id;
+    captureEvent("registration_started", {
+      group_id: groupId,
+      recruitment_id: recruitmentId,
+      ...(promotionId ? { promotion_id: promotionId } : {})
+    });
+  }
 
   async function submitRegistration() {
     await registration.mutateAsync({ message: message.trim() || null });
@@ -147,6 +161,7 @@ export function RecruitmentDetailPage() {
               data-ph-capture-attribute-action="registration_form"
               onSubmit={(event) => {
                 event.preventDefault();
+                markRegistrationStarted();
                 setConfirmOpen(true);
               }}
             >

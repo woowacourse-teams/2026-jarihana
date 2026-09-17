@@ -1,8 +1,10 @@
 import { automaticCapture, pausedCapture, sdkConfig } from "./config";
 import { isPrivateRoute, normalizePath, sanitizeEvent, sanitizeProperties } from "./privacy";
+import { clearPromotionAttribution } from "./promotion";
 
 const businessEvents = new Set([
   "signup_completed",
+  "registration_started",
   "registration_submitted",
   "registration_withdrawn",
   "registration_decided",
@@ -103,7 +105,8 @@ export function createAnalytics({ config, loadClient, storage, now = () => perfo
 
   function registerRoute() {
     try {
-      for (const key of ["route_name", "group_id", "recruitment_id"]) sdk.unregister(key);
+      for (const key of ["route_name", "group_id", "recruitment_id", "promotion_id"])
+        sdk.unregister(key);
       sdk.register({ ...routeProperties, pathname: normalizePath(pathname) });
     } catch {
       /* Route tracking must not interrupt navigation. */
@@ -113,6 +116,7 @@ export function createAnalytics({ config, loadClient, storage, now = () => perfo
   function setMember(id) {
     const persistedId = sdk.get_property("$user_id");
     if ((member && member !== id) || (persistedId && String(persistedId) !== id)) {
+      clearPromotionAttribution();
       sdk.stopSessionRecording();
       sdk.reset(true);
       identityRevision++;
@@ -178,7 +182,16 @@ export function createAnalytics({ config, loadClient, storage, now = () => perfo
     try {
       const safePath = normalizePath(path);
       sdk.register({ pathname: safePath });
-      sdk.capture("$pageview", { pathname: safePath, $pathname: safePath });
+      sdk.capture("$pageview", {
+        pathname: safePath,
+        $pathname: safePath,
+        ...(routeProperties.group_id !== undefined
+          ? { group_id: routeProperties.group_id }
+          : {}),
+        ...(routeProperties.promotion_id !== undefined
+          ? { promotion_id: routeProperties.promotion_id }
+          : {})
+      });
       lastPage = path;
     } catch {
       /* A tracking failure must not break navigation. */

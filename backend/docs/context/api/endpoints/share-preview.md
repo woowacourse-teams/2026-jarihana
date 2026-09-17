@@ -9,8 +9,10 @@
 응답의 `<head>`에는 `og:title`, `og:description`, `og:url`, `og:image`와
 `twitter:card`, `twitter:title`, `twitter:description`, `twitter:image`를 포함한다.
 `og:url`은 프론트엔드의 `/groups/{groupId}` canonical URL이다. 브라우저에서만 실행되는
-스크립트가 `/groups/{groupId}?preview=1`로 이동하며, JavaScript를 실행하지 않는
-크롤러는 첫 HTML의 메타데이터를 그대로 읽는다.
+스크립트가 원래 주소의 유효한 `promotion_id` 하나만 보존해
+`/groups/{groupId}?preview=1&promotion_id=...`로 이동하며, JavaScript를 실행하지 않는
+크롤러는 첫 HTML의 메타데이터를 그대로 읽는다. canonical과 OG URL에는 쿼리를 포함하지
+않는다.
 
 CloudFront viewer-request 함수가 일반 `/groups/{groupId}` 요청을 이 엔드포인트로
 연결해야 한다. `/api/share/groups/{groupId}`를 직접 호출해도 같은 HTML을 반환한다.

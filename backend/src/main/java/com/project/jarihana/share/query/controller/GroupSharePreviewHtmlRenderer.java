@@ -35,7 +35,19 @@ final class GroupSharePreviewHtmlRenderer {
                     <meta name="twitter:description" content="%s">
                     <meta name="twitter:image" content="%s">
                     <script>
-                      window.location.replace(document.querySelector('link[rel="canonical"]').href + "?preview=1");
+                      const promotionValues = new URLSearchParams(window.location.search)
+                        .getAll("promotion_id");
+                      const promotionId =
+                        promotionValues.length === 1 &&
+                        /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(promotionValues[0])
+                          ? promotionValues[0]
+                          : null;
+                      const target = new URL(
+                        document.querySelector('link[rel="canonical"]').href
+                      );
+                      target.searchParams.set("preview", "1");
+                      if (promotionId) target.searchParams.set("promotion_id", promotionId);
+                      window.location.replace(target.href);
                     </script>
                   </head>
                   <body>
