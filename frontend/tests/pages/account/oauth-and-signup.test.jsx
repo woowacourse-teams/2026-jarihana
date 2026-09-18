@@ -6,6 +6,10 @@ import { MemoryRouter, useNavigate } from "react-router";
 import { consumeReturnTarget, useAuth } from "../../../src/features/auth/index.js";
 import { useSignupMember } from "../../../src/features/member/index.js";
 import { OAuthCallbackPage, SignupPage } from "../../../src/pages/account/index.js";
+import {
+  beginLoginAttempt,
+  consumeLoginCompletion
+} from "../../../src/shared/analytics/loginConversion.js";
 
 jest.mock("react-router", () => ({
   MemoryRouter: ({ children }) => children,
@@ -36,6 +40,7 @@ function renderRoute(initialEntry, element) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  sessionStorage.clear();
 });
 
 describe("OAuthCallbackPage", () => {
@@ -76,6 +81,7 @@ describe("OAuthCallbackPage", () => {
 
   it("Given a misleading signup query and an authenticated session, When the callback reloads auth, Then it enters My instead of trusting the query", async () => {
     // Given
+    beginLoginAttempt();
     const reload = jest.fn().mockResolvedValue(undefined);
     const navigate = jest.fn();
     consumeReturnTarget.mockReturnValue("/groups/31");
@@ -101,6 +107,8 @@ describe("OAuthCallbackPage", () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith("/groups/31", { replace: true }));
     expect(reload).toHaveBeenCalledTimes(1);
     expect(consumeReturnTarget).toHaveBeenCalledWith("/my");
+    expect(consumeLoginCompletion(11)).toBe(true);
+    expect(consumeLoginCompletion(11)).toBe(false);
   });
 
   it("Given the callback cannot verify a session, When recovery is shown, Then login is available", async () => {

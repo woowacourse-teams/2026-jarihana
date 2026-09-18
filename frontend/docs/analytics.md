@@ -68,6 +68,7 @@ DOM 태그와 요소 순서로 구분한다.
 
 | 이벤트                   | 허용하는 도메인 속성                          |
 | ------------------------ | --------------------------------------------- |
+| `login_completed`        | `provider` (`github`)                          |
 | `signup_completed`       | `member_id`                                   |
 | `group_created`          | `group_id`, `group_type`, `status`            |
 | `recruitment_created`    | `group_id`, `recruitment_id`, `status`        |
@@ -88,6 +89,20 @@ DOM 태그와 요소 순서로 구분한다.
 가입 완료는 회원 생성 응답의 ID로 먼저 사용자를 식별한 뒤 전송한다.
 
 ## 사용자와 재방문
+
+로그인 시작 시 같은 탭의 sessionStorage에 10분 유효한 분석용 시도 표시를 남긴다.
+OAuth 콜백에서 회원 인증을 재확인한 경우에만 완료 표시를 남기고, 복귀 화면에서
+회원 식별과 분석 초기화가 끝난 뒤 `login_completed`를 한 번 기록한다.
+일반 재방문·새로고침·페이지 이동·인증 갱신은 로그인 완료로 세지 않는다.
+실패하거나 회원가입이 필요한 콜백은 표시를 지우며, 가입 완료는 기존
+`signup_completed`로 별도 집계한다. OAuth code/state·토큰·원본 URL은 저장하거나 전송하지 않는다.
+
+PostHog Funnel에서 첫 단계는 `$autocapture`의 `$event_type = click`과 고정
+`action` 값(예: `registration_start`), 마지막 단계는 `login_completed`로 설정하면
+해당 행동 이후 로그인한 사용자 수와 전환율을 확인할 수 있다. 페이지 방문은
+`$pageview`와 `route_name`으로 첫 단계를 설정한다. 회원가입 전환은 마지막 단계를
+`signup_completed`로 설정한다. 전환 시간 범위를 지정하고 사용자 기준으로 집계한다.
+이벤트는 배포 후부터 쌓이며, 이 코드 변경 자체가 PostHog 대시보드를 생성하지는 않는다.
 
 익명 방문은 PostHog의 분석용 식별자를 사용한다. 로그인한 회원은 내부 `member.id`로
 연결하며, 로그인 상태로 재방문하거나 다른 기기에서 로그인하면 같은 회원으로 식별한다.

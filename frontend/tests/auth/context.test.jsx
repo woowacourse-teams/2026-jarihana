@@ -3,6 +3,12 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AuthProvider, useAuth } from "../../src/features/auth/context";
 import { bootstrapAuth } from "../../src/features/auth/bootstrap";
 import { ApiError } from "../../src/shared/api";
+import { createGithubAuthorizationUrl } from "../../src/features/auth/oauth";
+import { consumeLoginCompletion, finishLoginAttempt } from "../../src/shared/analytics/loginConversion";
+
+jest.mock("../../src/features/auth/oauth", () => ({
+  createGithubAuthorizationUrl: jest.fn(() => "#oauth")
+}));
 
 jest.mock("../../src/features/auth/bootstrap", () => ({
   bootstrapAuth: jest.fn()
@@ -14,10 +20,11 @@ jest.mock("../../src/shared/api", () => ({
 }));
 
 const AuthStatus = () => {
-  const { error, reload, status } = useAuth();
+  const { error, login, reload, status } = useAuth();
   return (
     <div>
       <output>{status}</output>
+      <button onClick={login} type="button">login</button>
       {error ? <span>{error.message}</span> : null}
       <button onClick={() => void reload()} type="button">
         retry
@@ -28,6 +35,20 @@ const AuthStatus = () => {
 
 beforeEach(() => {
   bootstrapAuth.mockReset();
+  sessionStorage.clear();
+});
+
+test("login starts conversion tracking before leaving for OAuth", async () => {
+  const error = new ApiError("expired");
+  error.status = 401;
+  bootstrapAuth.mockRejectedValue(error);
+  render(<AuthProvider><AuthStatus /></AuthProvider>);
+  await waitFor(() => expect(screen.getByText("anonymous")).toBeInTheDocument());
+  fireEvent.click(screen.getByRole("button", { name: "login" }));
+  expect(createGithubAuthorizationUrl).toHaveBeenCalled();
+  expect(consumeLoginCompletion(42)).toBe(false);
+  finishLoginAttempt("authenticated", 42);
+  expect(consumeLoginCompletion(42)).toBe(true);
 });
 
 test("Given React StrictMode, when auth bootstraps, then it requests the session only once", async () => {

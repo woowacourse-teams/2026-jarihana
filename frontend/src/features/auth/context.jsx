@@ -8,6 +8,7 @@ import {
   useState
 } from "react";
 import { apiClient, ApiError } from "../../shared/api";
+import { beginLoginAttempt, finishLoginAttempt } from "../../shared/analytics/loginConversion";
 import { bootstrapAuth } from "./bootstrap";
 import { logout as logoutRequest } from "./api";
 import { createGithubAuthorizationUrl } from "./oauth";
@@ -56,11 +57,14 @@ export const AuthProvider = ({ children }) => {
   }, [reload]);
 
   const login = useCallback(() => {
-    window.location.assign(createGithubAuthorizationUrl());
+    const authorizationUrl = createGithubAuthorizationUrl();
+    beginLoginAttempt();
+    window.location.assign(authorizationUrl);
   }, []);
 
   const logout = useCallback(async () => {
     await logoutRequest();
+    finishLoginAttempt("anonymous");
     setState({ avatarUrl: null, error: null, member: null, status: "anonymous" });
   }, []);
 
