@@ -13,7 +13,7 @@
 
 | 문서 | 책임 |
 | --- | --- |
-| [workflow.md](../../docs/workflow.md) | 공통 브랜치·PR·이슈·커밋 정책, ADR 영역 구분과 교차 참조 |
+| [repository-conventions.md](../../docs/repository-conventions.md) | 공통 브랜치·PR·이슈·커밋 정책, ADR 영역 구분과 교차 참조 |
 
 ## 백엔드 구속력 있는 모듈
 

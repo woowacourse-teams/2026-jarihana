@@ -34,7 +34,7 @@ Compose 명령은 이 디렉터리에서 실행한다.
 | 패키지 구조, 계층, 예외 처리 | `conventions/architecture.md` |
 | 인증, 인가, 비밀값, 개인정보 | `conventions/security.md` |
 | 날짜, 시간, 현재 시각 | `conventions/time.md` |
-| ADR, 기존 기술 결정, 프로필, 빌드, 실행 환경 | 관련 `docs/adr/`, `conventions/project-operations.md`; 영역 간 참조는 [공통 워크플로 컨벤션](../docs/workflow.md) |
+| ADR, 기존 기술 결정, 프로필, 빌드, 실행 환경 | 관련 `docs/adr/`, `conventions/project-operations.md`; 영역 간 참조는 [저장소 컨벤션](../docs/repository-conventions.md) |
 | 컨벤션 자체 변경 | 변경 대상 모듈, `conventions/project-operations.md` |
 
 여러 범위에 해당하면 문서의 합집합을 읽고, 범위가 불명확하거나 복합적이면 관련
