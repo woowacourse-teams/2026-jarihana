@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
 import { consumeReturnTarget, useAuth } from "../../features/auth/index.js";
+import { finishLoginAttempt } from "../../shared/analytics/loginConversion.js";
 import { Button, ErrorState, Skeleton } from "../../shared/ui/index.js";
 import { AccountLayout } from "./AccountLayout.jsx";
 
 export function OAuthCallbackPage() {
-  const { status, login, reload } = useAuth();
+  const { status, member, login, reload } = useAuth();
+  const memberId = member?.id;
   const navigate = useNavigate();
   const verificationPromise = useRef(null);
   const [checking, setChecking] = useState(true);
@@ -26,9 +28,10 @@ export function OAuthCallbackPage() {
 
   useEffect(() => {
     if (checking || status === "loading") return;
+    finishLoginAttempt(status, memberId);
     if (status === "authenticated") navigate(consumeReturnTarget("/my"), { replace: true });
     if (status === "signup-required") navigate("/signup", { replace: true });
-  }, [checking, navigate, status]);
+  }, [checking, memberId, navigate, status]);
 
   if (
     checking ||

@@ -3,6 +3,7 @@ import { isPrivateRoute, normalizePath, sanitizeEvent, sanitizeProperties } from
 import { clearPromotionAttribution } from "./promotion";
 
 const businessEvents = new Set([
+  "login_completed",
   "signup_completed",
   "registration_started",
   "registration_submitted",
