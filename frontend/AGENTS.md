@@ -11,7 +11,7 @@
 | 기술 스택·의존성·도구 | `README.md`, `package.json` |
 | UI·UX·디자인·접근성·반응형 | `DESIGN.md`, `docs/analytics.md` |
 | 라우트·API·권한·화면 상태 | `docs/IMPLEMENTATION_MAP.md` |
-| 기술·구조 의사결정 | `docs/adr/README.md`에서 관련 프론트엔드 ADR 확인; 영역 간 참조는 [`../docs/workflow.md`](../docs/workflow.md) 참고 |
+| 기술·구조 의사결정 | `docs/adr/README.md`에서 관련 프론트엔드 ADR 확인; 영역 간 참조는 [`../docs/repository-conventions.md`](../docs/repository-conventions.md) 참고 |
 | 백엔드 API 계약 | `../backend/AGENTS.md`와 관련 백엔드 문서 |
 | 테스트·검증 명령 | `package.json`의 scripts와 이 문서 |
 

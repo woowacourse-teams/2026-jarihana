@@ -1,7 +1,7 @@
 # 백엔드 ADR 목록
 
 이 목록은 백엔드 기술 결정을 기록한다. 프론트엔드 결정은 별도 [프론트엔드 ADR 목록](../../../frontend/docs/adr/README.md)에서
-관리한다. 모노레포의 ADR 영역 구분과 교차 참조 방식은 [워크플로 컨벤션](../../../docs/workflow.md)에,
+관리한다. 모노레포의 ADR 영역 구분과 교차 참조 방식은 [저장소 컨벤션](../../../docs/repository-conventions.md)에,
 백엔드 ADR 작성과 번호 관리는 [프로젝트 운영 컨벤션](../conventions/project-operations.md)의 "ADR 운영" 절에 있다.
 
 ## 기록된 결정

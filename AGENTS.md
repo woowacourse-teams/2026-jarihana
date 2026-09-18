@@ -15,7 +15,7 @@
 
 1. 현재 브랜치와 working tree 상태를 확인한다.
 2. 공통 브랜치·PR·커밋 정책과 ADR 영역 구분·교차 참조 규칙은
-   [`docs/workflow.md`](docs/workflow.md)를 기준으로 확인한다.
+   [`docs/repository-conventions.md`](docs/repository-conventions.md)를 기준으로 확인한다.
 3. 작업 범위를 분류하고 해당 디렉터리의 세부 지침을 직접 읽는다.
    - 백엔드 작업: `backend/AGENTS.md`
    - 프론트엔드 작업: `frontend/AGENTS.md`, `frontend/docs/IMPLEMENTATION_MAP.md`
