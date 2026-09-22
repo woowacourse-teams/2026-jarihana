@@ -50,7 +50,7 @@ export function ManagementContext({ active, groupId, recruitmentId }) {
       unreadCount: registrationSummary?.unreadCount ?? 0,
       to: registrationManagementPath(groupId, registrationSummary, recruitmentId)
     },
-    { key: "members", label: "멤버 관리", to: `/groups/${groupId}/manage/members` }
+    { key: "members", label: "참여자 관리", to: `/groups/${groupId}/manage/members` }
   ];
 
   return (

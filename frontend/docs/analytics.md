@@ -31,7 +31,8 @@ Webpack 빌드 시 아래 환경변수를 주입한다. 값이 번들에 반영�
 - `src/shared/analytics/index.js`: 하나의 분석 클라이언트를 공유하고, 활성화 시
   `posthog-js`를 동적으로 불러온다. `@posthog/react` Provider는 사용하지 않는다.
 - `src/app/AnalyticsBridge.jsx`: 라우트·인증 상태를 분석 클라이언트에 연결한다.
-- `src/shared/analytics/config.js`, `privacy.js`: 수집 설정과 전송 속성 정제를 담당한다.
+- `src/shared/analytics/config.js`, `privacy.js`, `promotion.js`: 수집 설정, 전송 속성 정제,
+  홍보 링크 유입과 같은 세션의 전환 귀속을 분리해 관리한다.
 - `src/shared/api/client.js`: 공통 API 요청의 각 시도와 결과를 기록한다.
 - `src/features/image-upload/api.js`: 스토리지 직접 업로드 결과를 따로 기록한다.
 - 각 도메인의 mutation hook: API 성공 후 query invalidation 전에 성공 이벤트를 기록한다.
@@ -56,7 +57,10 @@ API 경로는 `/api/groups/:id`처럼 정규화하고 query·fragment를 제외�
 API 횟수를 사용자의 클릭 횟수로 해석하지 않는다.
 
 이벤트에는 라우트 레지스트리의 `route_name`과 해당 화면의 `group_id`, `recruitment_id`를
-붙인다. 화면이 바뀌면 이전 ID는 제거한다. 주요 CTA는
+붙인다. 그룹 상세·모집 상세의 `$pageview`에는 현재 URL에 유효한 `promotion_id`가 있을 때만
+이를 붙인다. 신청 이벤트에는 같은 PostHog 세션에서 처음 확인한 홍보 식별자를
+`attribution_promotion_id`로 따로 붙인다. 따라서 일반 상세 방문을 홍보 링크 유입으로
+오인하지 않으면서 로그인·회원가입 경유 신청은 연결할 수 있다. 주요 CTA는
 `data-ph-capture-attribute-action`으로 동작 이름을 남기고, 일반 클릭은 텍스트 없이
 DOM 태그와 요소 순서로 구분한다.
 
@@ -64,24 +68,48 @@ DOM 태그와 요소 순서로 구분한다.
 
 | 이벤트                   | 허용하는 도메인 속성                          |
 | ------------------------ | --------------------------------------------- |
+| `login_completed`        | `provider` (`github`)                          |
 | `signup_completed`       | `member_id`                                   |
-| `group_created`          | `group_id`, `status`                          |
+| `group_created`          | `group_id`, `group_type`, `status`            |
 | `recruitment_created`    | `group_id`, `recruitment_id`, `status`        |
 | `recruitment_closed`     | `group_id`, `recruitment_id`, `status`        |
-| `registration_submitted` | `recruitment_id`, `registration_id`, `status` |
+| `registration_started`   | `group_id`, `recruitment_id`, `attribution_promotion_id` |
+| `registration_submitted` | `group_id`, `recruitment_id`, `registration_id`, `status`, `attribution_promotion_id` |
 | `registration_withdrawn` | `recruitment_id`, `registration_id`           |
 | `registration_decided`   | `recruitment_id`, `registration_id`, `status` |
 
 버튼 클릭이나 캐시 갱신 성공이 아닌 도메인 API 성공을 기준으로 기록한다.
+`registration_started`는 모임 상세의 신청 패널을 실제로 열거나 모집 상세에서 신청 확인
+흐름을 연 시점에 한 번 기록하며, 자동 클릭 수집만으로 대신하지 않는다. `registration_submitted`는
+신청 API가 성공한 뒤에만 기록한다.
+모임 생성의 `group_type`은 성공한 생성 요청의 `type`에서 가져오며,
+`CLUB`(동아리), `STUDY`(스터디), `SESSION`(같이해요)을 구분한다.
+요청의 이름·소개·설명 원문은 이벤트에 포함하지 않는다.
 신청 철회는 응답 본문이 없는 `204`이므로 요청에 사용한 신청 ID를 기록한다.
 가입 완료는 회원 생성 응답의 ID로 먼저 사용자를 식별한 뒤 전송한다.
 
 ## 사용자와 재방문
 
+로그인 시작 시 같은 탭의 sessionStorage에 10분 유효한 분석용 시도 표시를 남긴다.
+OAuth 콜백에서 회원 인증을 재확인한 경우에만 완료 표시를 남기고, 복귀 화면에서
+회원 식별과 분석 초기화가 끝난 뒤 `login_completed`를 한 번 기록한다.
+일반 재방문·새로고침·페이지 이동·인증 갱신은 로그인 완료로 세지 않는다.
+실패하거나 회원가입이 필요한 콜백은 표시를 지우며, 가입 완료는 기존
+`signup_completed`로 별도 집계한다. OAuth code/state·토큰·원본 URL은 저장하거나 전송하지 않는다.
+
+PostHog Funnel에서 첫 단계는 `$autocapture`의 `$event_type = click`과 고정
+`action` 값(예: `registration_start`), 마지막 단계는 `login_completed`로 설정하면
+해당 행동 이후 로그인한 사용자 수와 전환율을 확인할 수 있다. 페이지 방문은
+`$pageview`와 `route_name`으로 첫 단계를 설정한다. 회원가입 전환은 마지막 단계를
+`signup_completed`로 설정한다. 전환 시간 범위를 지정하고 사용자 기준으로 집계한다.
+이벤트는 배포 후부터 쌓이며, 이 코드 변경 자체가 PostHog 대시보드를 생성하지는 않는다.
+
 익명 방문은 PostHog의 분석용 식별자를 사용한다. 로그인한 회원은 내부 `member.id`로
 연결하며, 로그인 상태로 재방문하거나 다른 기기에서 로그인하면 같은 회원으로 식별한다.
 로그아웃·계정 변경 시 식별자를 초기화해 이전 회원의 행동과 섞이지 않게 한다.
-분석용 쿠키와 localStorage는 로그인 인증 쿠키·토큰과 별개다.
+분석용 쿠키와 localStorage는 로그인 인증 쿠키·토큰과 별개다. 홍보 식별자는 개인정보가
+아닌 검증된 값만 `sessionStorage`에 모임 ID와 PostHog 세션 ID와 함께 보관한다. 따라서 같은
+세션의 로그인·회원가입 경유 신청에만 연결하고, 다른 모임·계정·PostHog 새 세션에서는 제거한다.
 
 쿠키·저장소 삭제, 분석 차단, 로그아웃 후 익명 방문은 기존 회원과의 연결에 제한이 있다.
 이미 PostHog 수집을 거부한 브라우저의 opt-out 상태는 유지한다.

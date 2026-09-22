@@ -177,14 +177,14 @@ describe("ManageMembersPage", () => {
     );
     render(<ManageMembersPage />);
 
-    const row = screen.getByRole("row", { name: "링크로 멤버" });
+    const row = screen.getByRole("row", { name: "링크로 참여자" });
     expect(within(row).getByText("프론트엔드")).toBeVisible();
     expect(within(row).getByText("8기")).toBeVisible();
     expect(within(row).getByText("모임원")).toBeVisible();
     expect(within(row).getByText("2026. 8. 1.")).toBeVisible();
-    expect(screen.getByRole("table", { name: "모임 멤버" })).not.toHaveTextContent("관리");
+    expect(screen.getByRole("table", { name: "모임 참여자" })).not.toHaveTextContent("관리");
     expect(screen.getByRole("button", { name: "링크로 관리 메뉴" })).toBeVisible();
-    expect(within(screen.getByRole("row", { name: "하나 멤버" })).queryByRole("button")).not.toBeInTheDocument();
+    expect(within(screen.getByRole("row", { name: "하나 참여자" })).queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("Given an unavailable expulsion action, When clicked, Then it shows a support notice", async () => {
@@ -395,7 +395,7 @@ describe("ManageRecruitmentsPage", () => {
     render(<ManageRecruitmentsPage />);
 
     expect(useInfiniteRegistrations).toHaveBeenCalledWith(81, { status: "APPROVED" });
-    expect(screen.getByRole("heading", { name: "이번 모집 승인 멤버 1명" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "이번 모집 승인 참여자 1명" })).toBeVisible();
     expect(screen.getByText("링크로")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "모집 마감하기" }));
     await user.click(
@@ -550,7 +550,7 @@ describe("ManageRegistrationsPage", () => {
     const rail = screen.getByRole("complementary", { name: "운영 현황" });
     expect(within(rail).getByText("모집 중")).toBeVisible();
     expect(within(rail).getByText("승인 4 / 정원 10명")).toBeVisible();
-    expect(screen.queryByRole("heading", { name: "이번 모집 승인 멤버 1명" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "이번 모집 승인 참여자 1명" })).not.toBeInTheDocument();
   });
 
   it("Given a recruitment query error, When applicants load, Then the safe rail error does not block decisions", () => {

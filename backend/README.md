@@ -9,7 +9,8 @@
 ```text
 2026-jarihana/
 ├── docs/
-│   └── workflow.md       # 저장소 공통 브랜치·PR·커밋 및 ADR 영역·참조 정책
+│   ├── repository-conventions.md # 저장소 공통 컨벤션 인덱스
+│   └── repository-conventions/   # 카테고리별 세부 컨벤션
 ├── backend/              # 현재 디렉터리
 │   ├── AGENTS.md
 │   ├── README.md
@@ -28,7 +29,8 @@
 ```text
 2026-jarihana/
 ├── docs/
-│   └── workflow.md
+│   ├── repository-conventions.md
+│   └── repository-conventions/
 ├── backend/
 │   ├── AGENTS.md
 │   ├── README.md
@@ -56,8 +58,8 @@
 ## 문서 사용
 
 - 작업 규칙과 AI 문서 로딩은 이 디렉터리의 `AGENTS.md`를 확인합니다.
-- 공통 브랜치·PR·커밋 정책은 [워크플로 컨벤션](../docs/workflow.md)을 확인합니다.
-- ADR 영역 구분·교차 참조 규칙은 [워크플로 컨벤션](../docs/workflow.md)을 확인합니다.
+- 공통 브랜치·PR·커밋 정책은 [저장소 컨벤션](../docs/repository-conventions.md)을 확인합니다.
+- ADR 영역 구분·교차 참조 규칙은 [저장소 컨벤션](../docs/repository-conventions.md)을 확인합니다.
 - 설계 의도는 `docs/context/`, 구속력 있는 구현 규칙은 `docs/conventions/`에서 확인합니다.
 
 ## 컨벤션 변경 위치
@@ -77,8 +79,17 @@ Docker Compose와 Spring Profile을 사용해 로컬 PostgreSQL을 실행합니�
 
 ```bash
 docker compose -f docker-compose-local.yaml up -d
+cp -n .env.example .env
+# .env에 GitHub OAuth 등 필수 값을 입력한 뒤 현재 셸에 반영한다.
+set -a
+source .env
+set +a
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
+
+`bootRun`은 서버가 종료되지 않는 동안 실행 상태로 유지된다. 로그에
+`Started JarihanaApplication`이 출력되면 정상적으로 요청을 받을 준비가 된 것이다.
+`DB_URL`과 OAuth 값이 현재 셸에 없으면 기동에 실패할 수 있다.
 
 로컬 PostgreSQL의 데이터베이스, 사용자, 비밀번호는 `jarihana`로 고정되어 있고
 호스트 포트는 `5432`입니다.
@@ -104,6 +115,27 @@ docker compose -f docker-compose-local.yaml ps
 
 운영 프로필은 `ddl-auto: validate`이므로 애플리케이션이 이 변경을 자동으로 적용하지 않습니다.
 기존 데이터에 새 정책과 충돌하는 이름이 있으면 마이그레이션 전에 해당 데이터를 정리해야 합니다.
+
+### 운영 DB SSH 터널 접속
+
+운영 Compose는 PostgreSQL 포트를 서버의 `127.0.0.1:5432`에 바인딩합니다.
+운영 서버에 SSH 접속할 수 있고 SSH 포트 포워딩이 허용된 환경에서, 개인 키 경로와
+SSH 계정·서버 주소를 실제 값으로 바꿔 로컬 터미널에서 실행합니다.
+
+```bash
+ssh -i /path/to/key.pem \
+  -N -o ExitOnForwardFailure=yes \
+  -L 127.0.0.1:15432:127.0.0.1:5432 \
+  SSH_USER@SERVER_IP
+```
+
+터널을 유지한 상태에서 DB 도구의 Host는 `127.0.0.1`, Port는 `15432`, Database와
+User는 `jarihana`, Password는 운영 DB 비밀번호로 설정합니다. 이 명령으로 터널을
+실행했다면 DB 도구의 SSH 터널 기능은 별도로 켜지 않습니다. 종료할 때는 터미널에서
+`Ctrl+C`를 누릅니다. 로컬 PostgreSQL의 `5432` 포트와 구분하기 위해 `15432`를 사용합니다.
+
+최초 포트 매핑 반영 시 PostgreSQL 컨테이너가 재생성되어 기존 DB 연결이 잠시 끊길 수
+있습니다. 기존 `postgres-data` 볼륨은 유지하며, 적용을 위해 볼륨을 삭제하지 않습니다.
 
 ### 운영 배포 시크릿
 

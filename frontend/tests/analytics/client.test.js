@@ -24,6 +24,7 @@ function setup(overrides = {}) {
       id = "new-anonymous";
     }),
     get_distinct_id: jest.fn(() => id),
+    get_session_id: jest.fn(() => "session-current"),
     get_property: jest.fn(),
     has_opted_out_capturing: jest.fn(() => false),
     register: jest.fn(),
@@ -92,6 +93,31 @@ test("anonymous visits persist until login then logout rotates identity", async 
   expect(client.reset).toHaveBeenCalledTimes(1);
 });
 
+test("login completion follows identification and strips OAuth secrets", async () => {
+  const { analytics, client, options } = setup();
+  await analytics.syncAnalyticsIdentity("anonymous");
+  await analytics.syncAnalyticsIdentity("authenticated", 42);
+  expect(
+    analytics.captureEvent("login_completed", {
+      provider: "github",
+      code: "secret",
+      state: "secret",
+      access_token: "secret"
+    })
+  ).toBe(true);
+  expect(client.reset).not.toHaveBeenCalled();
+  expect(client.capture).toHaveBeenCalledWith("login_completed", { provider: "github" });
+  expect(client.identify.mock.invocationCallOrder[0]).toBeLessThan(
+    client.capture.mock.invocationCallOrder[0]
+  );
+  expect(
+    options().before_send({
+      event: "login_completed",
+      properties: { provider: "github", code: "secret" }
+    }).properties
+  ).toEqual({ provider: "github" });
+});
+
 test("same persisted member refreshes SDK identity on another visit", async () => {
   const { analytics, client } = setup({ storage: { getItem: () => "42", setItem: jest.fn() } });
   await analytics.syncAnalyticsIdentity("authenticated", 42);
@@ -146,6 +172,81 @@ test("pageview is once per visit while back navigation still counts", async () =
     "$pageview",
     { pathname: "/groups/:id", $pathname: "/groups/:id" }
   ]);
+});
+
+test("group pageview carries explicit group and promotion context", async () => {
+  const { analytics, client } = setup();
+  analytics.setAnalyticsRoute("/groups/13", {
+    route_name: "GroupDetailPage",
+    group_id: "13",
+    promotion_id: "yutnori_chat_01"
+  });
+  await analytics.syncAnalyticsIdentity("anonymous");
+
+  analytics.trackPage("/groups/13");
+
+  expect(client.capture).toHaveBeenCalledWith("$pageview", {
+    pathname: "/groups/:id",
+    $pathname: "/groups/:id",
+    group_id: "13",
+    promotion_id: "yutnori_chat_01"
+  });
+});
+
+test("records a new pageview when only the direct promotion identifier changes", async () => {
+  const { analytics, client } = setup();
+  await analytics.syncAnalyticsIdentity("anonymous");
+  analytics.setAnalyticsRoute("/groups/13", {
+    route_name: "GroupDetailPage",
+    group_id: "13"
+  });
+  analytics.trackPage("/groups/13");
+  analytics.setAnalyticsRoute("/groups/13", {
+    route_name: "GroupDetailPage",
+    group_id: "13",
+    promotion_id: "yutnori_chat_01"
+  });
+  analytics.trackPage("/groups/13");
+  analytics.trackPage("/groups/13");
+
+  expect(client.capture).toHaveBeenCalledTimes(2);
+  expect(client.capture.mock.calls[1]).toEqual([
+    "$pageview",
+    {
+      pathname: "/groups/:id",
+      $pathname: "/groups/:id",
+      group_id: "13",
+      promotion_id: "yutnori_chat_01"
+    }
+  ]);
+});
+
+test("exposes the current PostHog session only after analytics is ready", async () => {
+  const { analytics, client } = setup();
+
+  expect(analytics.getSessionId()).toBeUndefined();
+  await analytics.syncAnalyticsIdentity("anonymous");
+
+  expect(analytics.getSessionId()).toBe("session-current");
+  expect(client.get_session_id).toHaveBeenCalled();
+});
+
+test("registration_started is an allowed explicit business event", async () => {
+  const { analytics, client } = setup();
+  await analytics.syncAnalyticsIdentity("anonymous");
+
+  expect(
+    analytics.captureEvent("registration_started", {
+      group_id: 13,
+      recruitment_id: 91,
+      attribution_promotion_id: "yutnori_chat_01"
+    })
+  ).toBe(true);
+  expect(client.capture).toHaveBeenCalledWith("registration_started", {
+    group_id: 13,
+    recruitment_id: 91,
+    attribution_promotion_id: "yutnori_chat_01"
+  });
 });
 
 test("private callback prevents initialization and pauses an active recording", async () => {
@@ -288,6 +389,24 @@ test("event and top-level person attribution cannot leak query, text, attributes
   expect(serialized).not.toMatch(/private|secret|token/);
   expect(event.properties.action).toBe("registration_submit");
   expect(event.$set_once.$initial_current_url).toBe("https://example.com/");
+});
+
+test("promotion attribution accepts only the bounded identifier format", () => {
+  expect(
+    sanitizeEvent({
+      event: "registration_started",
+      properties: {
+        attribution_promotion_id: "yutnori_chat_01",
+        invalid_promotion: "private"
+      }
+    }).properties
+  ).toEqual({ attribution_promotion_id: "yutnori_chat_01" });
+  expect(
+    sanitizeEvent({
+      event: "registration_started",
+      properties: { attribution_promotion_id: "13?email=private" }
+    }).properties
+  ).toEqual({});
 });
 
 test("heatmap URL keys and vitals attribution are sanitized while numeric measurements survive", () => {

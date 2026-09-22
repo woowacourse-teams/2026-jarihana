@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import * as authHooks from "../../../src/features/auth/index.js";
@@ -10,6 +10,7 @@ import {
   GroupDetailPage,
   RecruitmentDetailPage
 } from "../../../src/pages/groups/index.js";
+import { captureEvent, getPromotionAttribution } from "../../../src/shared/analytics/index.js";
 import { ToastProvider } from "../../../src/shared/ui/Toast.jsx";
 
 let mockRouteParams = {};
@@ -49,6 +50,10 @@ jest.mock("../../../src/features/registration/index.js", () => ({
   useCreateRegistration: jest.fn()
 }));
 jest.mock("../../../src/features/auth/index.js", () => ({ useAuth: jest.fn() }));
+jest.mock("../../../src/shared/analytics/index.js", () => ({
+  captureEvent: jest.fn(),
+  getPromotionAttribution: jest.fn()
+}));
 
 const group = {
   id: 41,
@@ -129,7 +134,8 @@ beforeEach(() => {
     mutateAsync: jest.fn().mockResolvedValue({ id: 301, status: "PENDING" }),
     isPending: false,
     isSuccess: false,
-    error: null
+    error: null,
+    reset: jest.fn()
   });
   authHooks.useAuth.mockReturnValue({
     isAuthenticated: true,
@@ -181,11 +187,77 @@ it("Given an approved group member, when the detail page renders, then applicati
 
   renderAt("/groups/41", <GroupDetailPage />);
 
-  const button = screen.getByRole("button", { name: "가입 완료!" });
+  const button = screen.getByRole("button", { name: "참여 완료!" });
   expect(button).toBeDisabled();
   await user.click(button);
   expect(mutateAsync).not.toHaveBeenCalled();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
+it.each([
+  ["STUDY", "참여 신청하기"],
+  ["CLUB", "참여 신청하기"],
+  ["SESSION", "참여하기"]
+])(
+  "Given a %s group with an active recruitment, when the application form opens, then neutral application wording is used",
+  async (type, actionLabel) => {
+    const user = userEvent.setup();
+    groupHooks.useGroup.mockReturnValue({
+      data: { ...group, type },
+      isLoading: false,
+      isError: false
+    });
+
+    renderAt("/groups/41", <GroupDetailPage />);
+
+    await user.click(screen.getByRole("button", { name: actionLabel }));
+
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("heading", { name: "신청" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("textbox", { name: "신청 메시지" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "신청하기" })).toBeInTheDocument();
+    expect(dialog).not.toHaveTextContent("가입");
+    expect(dialog).not.toHaveTextContent("참여");
+    expect(captureEvent).toHaveBeenCalledTimes(1);
+    expect(captureEvent).toHaveBeenCalledWith(
+      "registration_started",
+      expect.objectContaining({ group_id: 41, recruitment_id: 91 })
+    );
+  }
+);
+
+it("records group-detail application start with session promotion attribution", async () => {
+  const user = userEvent.setup();
+  getPromotionAttribution.mockReturnValue({
+    group_id: "41",
+    promotion_id: "yutnori_chat_01"
+  });
+
+  renderAt("/groups/41", <GroupDetailPage />);
+  await user.click(screen.getByRole("button", { name: "참여 신청하기" }));
+
+  expect(captureEvent).toHaveBeenCalledWith("registration_started", {
+    group_id: 41,
+    recruitment_id: 91,
+    attribution_promotion_id: "yutnori_chat_01"
+  });
+});
+
+it("records recruitment-detail application start with session promotion attribution", async () => {
+  const user = userEvent.setup();
+  getPromotionAttribution.mockReturnValue({
+    group_id: "41",
+    promotion_id: "yutnori_chat_01"
+  });
+
+  renderAt("/groups/41/recruitments/91", <RecruitmentDetailPage />);
+  await user.click(screen.getByRole("button", { name: "가입 신청하기" }));
+
+  expect(captureEvent).toHaveBeenCalledWith("registration_started", {
+    group_id: "41",
+    recruitment_id: "91",
+    attribution_promotion_id: "yutnori_chat_01"
+  });
 });
 
 it("Given a pending application, when the detail page renders, then application is disabled", async () => {

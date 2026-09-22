@@ -118,7 +118,7 @@ export function ManageRecruitmentHistoryPage() {
                 <th>모집 기간</th>
                 <th>모집 정원</th>
                 <th>승인 인원</th>
-                <th>가입 방식</th>
+                <th>참여 방식</th>
                 <th>상태</th>
               </tr>
             </thead>
@@ -157,9 +157,9 @@ export function ManageRecruitmentHistoryPage() {
                     <HistoryCellLabel>승인 인원</HistoryCellLabel>
                     {recruitment.approvedCount}명
                   </td>
-                  <td data-label="가입 방식">
-                    <HistoryCellLabel>가입 방식</HistoryCellLabel>
-                    {recruitment.joinMethod === "APPROVAL" ? "모임장 승인" : "자동 승인"}
+                  <td data-label="참여 방식">
+                    <HistoryCellLabel>참여 방식</HistoryCellLabel>
+                    {recruitment.joinMethod === "APPROVAL" ? "승인제" : "선착순"}
                   </td>
                   <td data-label="상태">
                     <HistoryCellLabel>상태</HistoryCellLabel>

@@ -61,7 +61,7 @@
 | `--color-activity-club-soft` | `#ece9fb` | 동아리 유형 chip surface                  |
 | `--color-activity-session-ink` | `#7a5405` | 세션 유형 chip text                     |
 | `--color-activity-session-soft` | `#fdf0da` | 세션 유형 chip surface                  |
-| `--color-cohort-1..5`  | categorical ramp | 멤버 기수 분포의 비텍스트 구간·아바타 배경 |
+| `--color-cohort-1..5`  | categorical ramp | 참여자 기수 분포의 비텍스트 구간·아바타 배경 |
 
 `--color-text-brand`와 `--color-text-muted`는 각각 `brand-ink`, `muted-ink`를 가리키는
 semantic text alias다. 밝은 brand fill은 CTA surface로, `brand-display`와 더 어두운 alias는
@@ -161,7 +161,7 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - Header composition: desktop은 `auto / 1fr / auto` grid로 wordmark와 우측 auth action을 고정하고,
   member tabs는 노출하지 않는다. 모바일 drawer에서는 탐색·모임 만들기 진입점을 유지하고, guard가
   인증이 필요한 destination을 처리한다. anonymous가 보호 메뉴를 누르면 해당 경로를 로그인 후
-  복귀 대상으로 저장하고, 현재 화면에서 로그인 필요 toast를 즉시 제공한다. authenticated 상태에만
+  복귀 대상으로 저장하고 GitHub 로그인으로 이동한다. authenticated 상태에만
   `마이` link와 logout action을 더한다.
 - Header active state는 모바일 drawer의 pathname 목적지에만 연결한다. `/groups/new`에서 상위
   `/groups` 탐색 링크를 동시에 활성화하거나, `/my/groups`에서 `/my`를 동시에 활성화하지 않는다.
@@ -211,9 +211,9 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   모집 정보 일러스트는 desktop과 모달에서 같은 가운데 정렬 규칙을 사용한다. desktop rail에서는
   가용 가로 폭 안에 원본 비율로 맞추고 세로 viewport 높이에 따라 축소하지 않는다. 모달에서는
   가용 폭과 viewport 높이 안에 맞춘다. 이미지 자체보다 큰 최소 높이를 별도로 예약하지 않는다.
-- desktop과 모바일 모집 정보 모달의 `가입 신청하기` 버튼은 흰 surface와 line 테두리를 사용하고,
+- desktop과 모바일 모집 정보 모달의 CLUB·STUDY 타입 `참여 신청하기`·SESSION 타입 `참여하기` 버튼은 흰 surface와 line 테두리를 사용하고,
   문구 왼쪽에 기존 의자 로고를 `--space-8`(32px) 크기의 장식 이미지로 표시한다.
-  모집 마감·운영자·가입 완료 등의 상태별 버튼은 기존 표현을 유지한다.
+  모집 마감·운영자·참여 완료 등의 상태별 버튼은 기존 표현을 유지한다.
 - 모달의 모집 정보 스크롤바는 투명 track과 얇고 둥근 thumb를 사용하며 스크롤바 공간을 상시 예약하지
   않는다. 모달은 둥근 외곽 안쪽의 모집 정보 한 곳에서만 세로 스크롤하고 제목·닫기 버튼·신청
   action은 고정한다. 내부 flex/grid 요소는 가용 폭까지 줄어들며 가로 스크롤을 만들지 않는다.
@@ -225,14 +225,14 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   summary cards를 사용한다. tablet/mobile에서는 각 grid를 정보 순서대로 한 column으로 접는다.
   dashboard surface의 좌우 확장과 내부 여백은 page gutter 이하로 제한해 모바일 가로 넘침을 막는다.
 - `ManageLayout`: group name context header와 horizontal route-backed tabs(`모임 수정`,
-  `모집 관리`, `모집 이력`, 조건부 `신청 관리`, `멤버 관리`)를 모든 leader page가 공유한다. `신청 관리`는 승인 방식과
+  `모집 관리`, `모집 이력`, 조건부 `신청 관리`, `참여자 관리`)를 모든 leader page가 공유한다. `신청 관리`는 승인 방식과
   관계없이 모임장이 아직 확인하지 않은 신청 수가 1건 이상일 때만 label 뒤에 inline danger count
   badge를 표시하며, 1~99는 실제 숫자,
   100건 이상은 화면에 `99+`로 줄이고 숨은 텍스트는 실제 전체 수를 한국어로 전달한다. badge는
   `--color-danger`, surface/text token만 사용하고 active underline과 모바일 horizontal scroll을
   방해하지 않는다. 신청 관리 화면에서 대상 모집의 신청자 목록을 불러오면 해당 목록에서 확인한 마지막
   신청까지 읽음 처리한다.
-  멤버는 검색·필터 가능한 table, 모집 이력은 가입 방식 필터와 최근 등록순 고정 정렬을 갖춘 table,
+  참여자는 검색·필터 가능한 table, 모집 이력은 참여 방식 필터와 최근 등록순 고정 정렬을 갖춘 table,
   모집은 summary + condition form + public-state rail, 신청은 applicant panel + operations rail로
   표현하고 mobile에서는 모두 single column으로 재배치한다. 모집 관리 기본 heading은
   `모집 관리` / `모집을 생성하고 이력을 관리해요.`를 사용하고, 새 모집 작성 중에는 같은 heading
@@ -333,11 +333,11 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   제목 링크와 action을 분리한다.
 - MarkdownContent: raw HTML을 실행하지 않고 제목, 굵게, 목록, 인용, 안전한 http(s)/내부 링크만
   React element로 렌더한다. 작성 화면 미리보기와 공개 모임 소개가 같은 renderer를 공유한다.
-- GroupMemberInsights: 실제 group member cursor data로 상세 멤버 탭과 같은 `멤버` heading, 공통
-  `Avatar`를 사용한 멤버 요약, 기수별 categorical rail, 기수별 인원 chip을 구성한다. heading 옆에는
-  상세 멤버 탭과 중복되는 현재 인원 배지를 두지 않는다. avatarUrl이 있으면 GitHub 프로필 이미지를
+- GroupMemberInsights: 실제 group member cursor data로 상세 참여자 탭과 같은 `참여자` heading, 공통
+  `Avatar`를 사용한 참여자 요약, 기수별 categorical rail, 기수별 인원 chip을 구성한다. heading 옆에는
+  상세 참여자 탭과 중복되는 현재 인원 배지를 두지 않는다. avatarUrl이 있으면 GitHub 프로필 이미지를
   표시하고, 실패하거나 없을 때만 crew name 이니셜로 대체한다. rail segment는 hover와 keyboard
-  focus에서 `N기 · M명` preview를 제공한다. 생성 전 화면은 아직 groupId가 없으므로 멤버를 꾸며내지
+  focus에서 `N기 · M명` preview를 제공한다. 생성 전 화면은 아직 groupId가 없으므로 참여자를 꾸며내지
   않고 생성 후 확인 가능 상태를 표시한다.
 - Badges: 상태색의 soft surface + 고대비 text, pill shape.
 - Tabs: route 또는 상태와 연결된 semantic tablist. 선택 underline 하나가 새 tab 위치로 이동하고
@@ -435,9 +435,9 @@ default/hover/active/focus/selected 상태를 제공한다.
 | 모든 viewport의 full-bleed header 배경         | 사용자 피드백과 공통 shell 정렬을 반영             | accepted            |
 | header 내부 콘텐츠의 shell/gutter 정렬         | 본문 section 시작·끝 rail과 일관성 유지            | accepted            |
 | 대표 이미지 picker/업로드                      | presigned 업로드 API와 그룹 image key 계약 반영      | implemented         |
-| 프로필 수정·멤버 제거 액션 제거                | backend에 실제 mutation 없음                       | accepted            |
+| 프로필 수정·참여자 제거 액션 제거              | backend에 실제 mutation 없음                       | accepted            |
 | production runtime fallback 성공 데이터 금지   | API에 없는 기능·데이터를 성공처럼 보이지 않게 함   | accepted            |
-| 생성 전 멤버 탭의 안내 상태                    | groupId가 생기기 전 실제 멤버 API를 호출할 수 없음 | accepted            |
+| 생성 전 참여자 탭의 안내 상태                  | groupId가 생기기 전 실제 참여자 API를 호출할 수 없음 | accepted            |
 | OAuth 실사용 검증은 자격 증명/테스트 계정 필요 | secret과 실제 계정은 저장소에 넣지 않음            | external dependency |
 
 Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. 해당 screenshot은

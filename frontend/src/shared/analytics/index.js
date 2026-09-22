@@ -1,5 +1,11 @@
 import { createAnalytics } from "./client";
 import { readAnalyticsConfig } from "./config";
+import {
+  clearPromotionAttribution,
+  getPromotionAttribution as readPromotionAttribution,
+  getPromotionEntryId,
+  syncPromotionAttribution as synchronizePromotionAttribution
+} from "./promotion";
 
 let analytics;
 function client() {
@@ -29,3 +35,10 @@ export const captureEvent = (event, properties) =>
   safely("captureEvent", [event, properties], false);
 export const startRequestTracking = (metadata) =>
   safely("startRequestTracking", [metadata], { finish() {} });
+
+export const syncPromotionAttribution = (groupId, search) =>
+  synchronizePromotionAttribution(groupId, search, safely("getSessionId", [], undefined));
+export const getPromotionAttribution = (groupId) =>
+  readPromotionAttribution(groupId, safely("getSessionId", [], undefined));
+
+export { clearPromotionAttribution, getPromotionEntryId };

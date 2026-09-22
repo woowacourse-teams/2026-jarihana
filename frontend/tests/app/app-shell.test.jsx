@@ -75,10 +75,11 @@ it("starts GitHub login from the anonymous header action", () => {
 });
 
 it.each([["모임 만들기", "/groups/new"]])(
-  "explains that %s requires login instead of silently returning to the current page",
+  "stores %s as the login return target and starts GitHub login",
   (label, target) => {
     // Given
-    renderShell({ login: jest.fn(), logout: jest.fn(), status: "anonymous" });
+    const login = jest.fn();
+    renderShell({ login, logout: jest.fn(), status: "anonymous" });
 
     // When
     fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
@@ -91,8 +92,8 @@ it.each([["모임 만들기", "/groups/new"]])(
     // Then
     expect(navigationContinues).toBe(false);
     expect(sessionStorage.getItem("jarihana:auth:return-target")).toBe(target);
-    expect(screen.getByRole("status")).toHaveTextContent("로그인이 필요한 메뉴예요");
-    expect(screen.getByRole("status")).toHaveTextContent("로그인한 뒤 이용할 수 있어요");
+    expect(login).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("로그인이 필요한 메뉴예요")).not.toBeInTheDocument();
   }
 );
 

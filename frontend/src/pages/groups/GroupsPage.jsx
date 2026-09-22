@@ -10,8 +10,7 @@ import {
   ErrorState,
   GroupCard,
   PageContainer,
-  Skeleton,
-  useToast
+  Skeleton
 } from "../../shared/ui/index.js";
 import { flattenPages, getLastPage, publicErrorCopy } from "./pageUtils.js";
 import "./groups.css";
@@ -31,8 +30,7 @@ function isGroupRecruiting(group) {
 export function GroupsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { status } = useAuth();
-  const toast = useToast();
+  const { login, status } = useAuth();
   const keyword = searchParams.get("keyword")?.trim() ?? "";
   const type = searchParams.get("type") ?? "";
   const groupStatus = searchParams.get("status");
@@ -96,10 +94,7 @@ export function GroupsPage() {
     const target = "/groups/new";
     if (status === "anonymous") {
       storeReturnTarget(target);
-      toast.danger({
-        description: "로그인한 뒤 모임을 만들 수 있어요.",
-        title: "로그인이 필요한 기능이에요"
-      });
+      login();
       return;
     }
     navigate(target);

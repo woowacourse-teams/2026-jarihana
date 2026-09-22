@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router";
 
 import { storeReturnTarget, useAuth } from "../features/auth";
-import { Drawer, useToast } from "../shared/ui";
+import { Drawer } from "../shared/ui";
 import logoMark from "../shared/assets/brand/jarihana-favicon.png";
 
 const MEMBER_LINKS = [
@@ -114,16 +114,12 @@ function AuthAction({ onNavigate, status }) {
 }
 
 export function AppHeader({ action = null, title = "" }) {
-  const { status } = useAuth();
-  const toast = useToast();
+  const { login, status } = useAuth();
   const [isMenuOpen, setMenuOpen] = useState(false);
   const closeMenu = () => setMenuOpen(false);
-  const explainProtectedNavigation = (target) => {
+  const redirectToLogin = (target) => {
     storeReturnTarget(target);
-    toast.warning({
-      description: "로그인한 뒤 이용할 수 있어요",
-      title: "로그인이 필요한 메뉴예요"
-    });
+    login();
   };
 
   return (
@@ -139,7 +135,7 @@ export function AppHeader({ action = null, title = "" }) {
             <HeaderLinks
               links={DESKTOP_MEMBER_LINKS}
               onNavigate={() => {}}
-              onProtectedNavigate={explainProtectedNavigation}
+              onProtectedNavigate={redirectToLogin}
               status={status}
             />
           </nav>
@@ -168,7 +164,7 @@ export function AppHeader({ action = null, title = "" }) {
           {title ? <p className="app-header__context">{title}</p> : null}
           <HeaderLinks
             onNavigate={closeMenu}
-            onProtectedNavigate={explainProtectedNavigation}
+            onProtectedNavigate={redirectToLogin}
             status={status}
           />
           {status === "authenticated" ? <MyPageLink onNavigate={closeMenu} /> : null}

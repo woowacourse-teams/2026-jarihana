@@ -56,7 +56,8 @@ CloudFront
 - CloudFront의 경로 기반 Origin 라우팅으로 프론트엔드와 API를 브라우저 관점의 단일 Origin으로
   제공한다.
 - 백엔드와 PostgreSQL은 하나의 EC2에서 서로 다른 Docker 컨테이너로 실행한다.
-- PostgreSQL은 호스트 포트를 공개하지 않고 Compose 내부 네트워크에서만 백엔드와 통신한다.
+- PostgreSQL은 Compose 내부 네트워크에서 백엔드와 통신한다. 관리용 SSH 터널 접속을 위해
+  호스트의 `127.0.0.1:5432`에 포트를 매핑한다.
 - PostgreSQL 데이터는 Docker Named Volume에 저장한다.
 - 같은 EC2에 self-hosted GitHub Actions Runner를 호스트 서비스로 설치한다.
 - 백엔드 배포 작업은 해당 Runner가 백엔드 이미지를 로컬에서 빌드한 뒤 운영 Docker Compose를

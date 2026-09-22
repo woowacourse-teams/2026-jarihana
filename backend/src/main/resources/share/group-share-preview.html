@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>%1$s</title>
+    <meta name="description" content="%2$s">
+    <link rel="canonical" href="%3$s">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="자리하나">
+    <meta property="og:locale" content="ko_KR">
+    <meta property="og:title" content="%1$s">
+    <meta property="og:description" content="%2$s">
+    <meta property="og:url" content="%3$s">
+    <meta property="og:image" content="%4$s">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="%1$s">
+    <meta name="twitter:description" content="%2$s">
+    <meta name="twitter:image" content="%4$s">
+    <script>
+      const promotionValues = new URLSearchParams(window.location.search)
+        .getAll("promotion_id");
+      const promotionId =
+        promotionValues.length === 1 &&
+        /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(promotionValues[0])
+          ? promotionValues[0]
+          : null;
+      const target = new URL(
+        document.querySelector('link[rel="canonical"]').href
+      );
+      target.searchParams.set("preview", "1");
+      if (promotionId) target.searchParams.set("promotion_id", promotionId);
+      window.location.replace(target.href);
+    </script>
+  </head>
+  <body>
+    <noscript><p><a href="%5$s">모임 페이지로 이동</a></p></noscript>
+  </body>
+</html>

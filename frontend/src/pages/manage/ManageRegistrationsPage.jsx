@@ -259,7 +259,7 @@ export function ManageRegistrationsPage() {
       <ConfirmDialog
         cancelLabel="취소"
         confirmLabel="신청 승인하기"
-        description="승인하면 이 지원자는 바로 모임 멤버가 돼요."
+        description="승인하면 이 지원자는 바로 모임 참여자가 돼요."
         onClose={closeDialog}
         onConfirm={confirmDecision}
         open={decision?.status === "APPROVED"}
@@ -327,7 +327,7 @@ function OperationsRail({ recruitmentQuery }) {
             <strong>
               승인 {recruitment.approvedCount} / 정원 {recruitment.capacity}명
             </strong>
-            <span>{recruitment.joinMethod === "APPROVAL" ? "모임장 승인" : "자동 승인"}</span>
+            <span>{recruitment.joinMethod === "APPROVAL" ? "승인제" : "선착순"}</span>
           </div>
         ) : null}
       </section>
