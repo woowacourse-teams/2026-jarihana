@@ -968,6 +968,14 @@ textarea {
     margin-block: 0;
 }
 
+.ui-markdown img {
+    display: block;
+    max-inline-size: 100%;
+    block-size: auto;
+    margin-block: var(--space-4);
+    border-radius: var(--radius-sm);
+}
+
 .ui-markdown a {
     color: var(--color-brand-ink);
     font-weight: 600;
