@@ -649,6 +649,7 @@
 }
 
 .group-editor__markdown-preview .ui-markdown {
+    max-width: 68ch;
     min-block-size: inherit;
 }
 

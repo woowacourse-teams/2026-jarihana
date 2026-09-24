@@ -772,8 +772,15 @@
 .group-introduction > p,
 .group-introduction > .ui-markdown {
   max-width: 68ch;
-  white-space: pre-line;
   line-height: 1.7;
+}
+
+.group-introduction > p {
+  white-space: pre-line;
+}
+
+.group-introduction > .ui-markdown {
+  white-space: normal;
 }
 
 .group-introduction h2 + p {
