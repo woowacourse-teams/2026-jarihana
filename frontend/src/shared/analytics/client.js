@@ -11,6 +11,7 @@ const businessEvents = new Set([
   "registration_decided",
   "group_created",
   "recruitment_created",
+  "recruitment_updated",
   "recruitment_closed"
 ]);
 const noopRequest = { finish() {} };

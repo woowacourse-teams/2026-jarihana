@@ -4,7 +4,8 @@ import { useGroup } from "../../features/group/index.js";
 import {
   useCloseRecruitment,
   useCreateRecruitment,
-  useInfiniteRecruitments
+  useInfiniteRecruitments,
+  useUpdateRecruitment
 } from "../../features/recruitment/index.js";
 import { useInfiniteRegistrations } from "../../features/registration/index.js";
 import {
@@ -12,9 +13,11 @@ import {
   ConfirmDialog,
   DateRangePicker,
   ErrorState,
+  Modal,
   Select,
   Skeleton,
   StatusBadge,
+  TextField,
   toLocalDateTimeValue
 } from "../../shared/ui/index.js";
 import myProfileIllustration from "../../shared/assets/figma/my-profile-illustration.png";
@@ -64,6 +67,27 @@ const currentRecruitmentStatuses = new Set(["SCHEDULED", "OPEN", "ALWAYS_OPEN"])
 
 function createInitialForm(now = new Date(Date.now())) {
   return { ...emptyForm, startsAt: toLocalDateTimeValue(now) };
+}
+
+function createRecruitmentEditForm(recruitment) {
+  return {
+    alwaysOpen: recruitment.endsAt === null,
+    capacity: String(recruitment.capacity),
+    endsAt: recruitment.endsAt?.slice(0, 16) ?? "",
+    joinMethod: recruitment.joinMethod,
+    startsAt: recruitment.startsAt.slice(0, 16)
+  };
+}
+
+function hasRecruitmentEditChanges(recruitment, form) {
+  const original = createRecruitmentEditForm(recruitment);
+  return (
+    Number(form.capacity) !== Number(original.capacity) ||
+    form.joinMethod !== original.joinMethod ||
+    form.startsAt !== original.startsAt ||
+    form.alwaysOpen !== original.alwaysOpen ||
+    (!form.alwaysOpen && form.endsAt !== original.endsAt)
+  );
 }
 
 function dateCopy(value) {
@@ -128,6 +152,7 @@ export function ManageRecruitmentsPage() {
   const groupQuery = useGroup(groupId);
   const createRecruitment = useCreateRecruitment(groupId);
   const closeRecruitment = useCloseRecruitment(groupId);
+  const updateRecruitment = useUpdateRecruitment(groupId);
   const { fetchNextPage, hasNextPage, isFetchingNextPage } = recruitmentsQuery;
   const [form, setForm] = useState(emptyForm);
   const [formBaseline, setFormBaseline] = useState(emptyForm);
@@ -139,6 +164,10 @@ export function ManageRecruitmentsPage() {
   const [stepError, setStepError] = useState("");
   const [createError, setCreateError] = useState(null);
   const [closing, setClosing] = useState(null);
+  const [editingRecruitment, setEditingRecruitment] = useState(null);
+  const [editForm, setEditForm] = useState(null);
+  const [editError, setEditError] = useState("");
+  const [editRequestError, setEditRequestError] = useState(null);
   const [currentRecruitmentId, setCurrentRecruitmentId] = useState(null);
   const [createdRecruitment, setCreatedRecruitment] = useState(null);
   const [discardRequested, setDiscardRequested] = useState(false);
@@ -389,6 +418,78 @@ export function ManageRecruitmentsPage() {
     }
   }
 
+  function openEditScreen(recruitment) {
+    setEditingRecruitment(recruitment);
+    setEditForm(createRecruitmentEditForm(recruitment));
+    setEditError("");
+    setEditRequestError(null);
+  }
+
+  const closeEditScreen = useCallback(() => {
+    if (updateRecruitment.isPending) return;
+    setEditingRecruitment(null);
+    setEditForm(null);
+    setEditError("");
+    setEditRequestError(null);
+  }, [updateRecruitment.isPending]);
+
+  function changeEditField(field, value) {
+    setEditForm((current) => (current ? { ...current, [field]: value } : current));
+    setEditError("");
+    setEditRequestError(null);
+  }
+
+  async function submitEdit(event) {
+    event.preventDefault();
+    if (!editingRecruitment || !editForm || updateRecruitment.isPending) return;
+    if (!hasRecruitmentEditChanges(editingRecruitment, editForm)) {
+      closeEditScreen();
+      return;
+    }
+
+    const capacity = Number(editForm.capacity);
+    if (!Number.isInteger(capacity) || capacity < Math.max(1, editingRecruitment.approvedCount)) {
+      setEditError("모집 인원은 1명 이상이며 승인된 인원보다 적을 수 없어요.");
+      return;
+    }
+    if (!editForm.startsAt) {
+      setEditError("모집 시작일을 입력해 주세요.");
+      return;
+    }
+    if (!editForm.alwaysOpen && !editForm.endsAt) {
+      setEditError("모집 마감일을 입력하거나 상시 모집을 선택해 주세요.");
+      return;
+    }
+    if (!editForm.alwaysOpen && editForm.endsAt <= editForm.startsAt) {
+      setEditError("모집 마감일은 시작일보다 뒤여야 해요.");
+      return;
+    }
+
+    setEditError("");
+    setEditRequestError(null);
+    try {
+      const updatedRecruitment = await updateRecruitment.mutateAsync({
+        recruitmentId: editingRecruitment.id,
+        values: {
+          capacity,
+          endsAt: editForm.alwaysOpen ? null : editForm.endsAt,
+          joinMethod: editForm.joinMethod,
+          startsAt: editForm.startsAt
+        }
+      });
+      setCreatedRecruitment((current) =>
+        String(current?.id) === String(editingRecruitment.id)
+          ? { ...current, ...updatedRecruitment }
+          : current
+      );
+      setCurrentRecruitmentId(editingRecruitment.id);
+      setEditingRecruitment(null);
+      setEditForm(null);
+    } catch (error) {
+      setEditRequestError(error);
+    }
+  }
+
   if (recruitmentsQuery.isPending) {
     return (
       <div aria-busy="true" className="manage-page">
@@ -582,13 +683,22 @@ export function ManageRecruitmentsPage() {
                 {currentRecruitment ? (
                   <RecruitmentInformation
                     action={
-                      <Button
-                        data-ph-capture-attribute-action="recruitment_close"
-                        onClick={() => setClosing(currentRecruitment)}
-                        variant="danger"
-                      >
-                        모집 마감하기
-                      </Button>
+                      <div className="manage-recruitment-actions">
+                        <Button
+                          className="manage-recruitment-edit-button"
+                          data-ph-capture-attribute-action="recruitment_edit_start"
+                          onClick={() => openEditScreen(currentRecruitment)}
+                        >
+                          모집 수정하기
+                        </Button>
+                        <Button
+                          data-ph-capture-attribute-action="recruitment_close"
+                          onClick={() => setClosing(currentRecruitment)}
+                          variant="danger"
+                        >
+                          모집 마감하기
+                        </Button>
+                      </div>
                     }
                     memberCount={groupQuery.data?.memberCount}
                     recruitment={currentRecruitment}
@@ -636,6 +746,98 @@ export function ManageRecruitmentsPage() {
       )}
 
       {mutationError ? <InlineError error={mutationError} /> : null}
+
+      <Modal
+        closeAction="recruitment_edit_dismiss"
+        description="모집 기간, 인원, 승인 방식만 수정할 수 있어요."
+        onClose={closeEditScreen}
+        open={Boolean(editingRecruitment)}
+        title="모집 수정하기"
+      >
+        {editingRecruitment && editForm ? (
+          <form
+            aria-label="모집 수정"
+            className="manage-form"
+            data-ph-capture-attribute-action="recruitment_edit_form"
+            onSubmit={submitEdit}
+          >
+            <div className="manage-recruitment-edit-fields">
+              <TextField
+                className="ui-field__control--underline"
+                data-ph-capture-attribute-action="recruitment_edit_capacity_change"
+                description={`최소 ${Math.max(1, editingRecruitment.approvedCount)}명으로 설정해 주세요.`}
+                disabled={updateRecruitment.isPending}
+                label="모집 인원"
+                min={Math.max(1, editingRecruitment.approvedCount)}
+                name="capacity"
+                onChange={(event) => changeEditField("capacity", event.target.value)}
+                required
+                step="1"
+                type="number"
+                value={editForm.capacity}
+              />
+              <Select
+                className="ui-field__control--underline"
+                data-ph-capture-attribute-action="recruitment_edit_join_method_change"
+                disabled={updateRecruitment.isPending}
+                label="승인 방식"
+                name="joinMethod"
+                onChange={(event) => changeEditField("joinMethod", event.target.value)}
+                value={editForm.joinMethod}
+              >
+                <option value="AUTO">선착순</option>
+                <option value="APPROVAL">승인제</option>
+              </Select>
+            </div>
+            <fieldset
+              className="manage-recruitment-edit-period"
+              disabled={updateRecruitment.isPending}
+            >
+              <legend className="ui-field__label">모집 기간</legend>
+              <DateRangePicker
+                alwaysOpen={editForm.alwaysOpen}
+                endValue={editForm.endsAt}
+                onAlwaysOpenChange={(alwaysOpen) => {
+                  setEditForm((current) => (current ? { ...current, alwaysOpen } : current));
+                  setEditError("");
+                  setEditRequestError(null);
+                }}
+                onEndChange={(endsAt) => {
+                  changeEditField("endsAt", endsAt);
+                }}
+                onStartChange={(startsAt) => {
+                  changeEditField("startsAt", startsAt);
+                }}
+                startValue={editForm.startsAt}
+              />
+            </fieldset>
+            {editError ? (
+              <p className="ui-field__error" role="alert">
+                {editError}
+              </p>
+            ) : null}
+            {editRequestError ? <InlineError error={editRequestError} /> : null}
+            <div className="manage-form-actions">
+              <Button
+                data-ph-capture-attribute-action="recruitment_edit_cancel"
+                disabled={updateRecruitment.isPending}
+                onClick={closeEditScreen}
+                type="button"
+                variant="secondary"
+              >
+                취소
+              </Button>
+              <Button
+                data-ph-capture-attribute-action="recruitment_edit_submit"
+                pending={updateRecruitment.isPending}
+                type="submit"
+              >
+                변경 내용 저장
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </Modal>
 
       <ConfirmDialog
         cancelLabel="취소"
@@ -731,9 +933,9 @@ function RecruitmentInformation({
       </dl>
       <div className="manage-capacity-meter">
         <span>
-          정원 사용률 <strong>{approvedCount} / {capacity}명</strong>
+          모집 현황 <strong>{approvedCount} / {capacity}명</strong>
         </span>
-        <div aria-label={`정원 사용률 ${progress}%`} role="progressbar">
+        <div aria-label={`모집 현황 ${progress}%`} role="progressbar">
           <span style={{ width: `${progress}%` }} />
         </div>
       </div>
@@ -835,9 +1037,9 @@ function RecruitmentPreview({ form, memberCount }) {
       </dl>
       <div className="manage-capacity-meter">
         <span>
-          정원 사용률 <strong>0 / {capacity}명</strong>
+          모집 현황 <strong>0 / {capacity}명</strong>
         </span>
-        <div aria-label="정원 사용률 0%" role="progressbar">
+        <div aria-label="모집 현황 0%" role="progressbar">
           <span style={{ width: "0%" }} />
         </div>
       </div>

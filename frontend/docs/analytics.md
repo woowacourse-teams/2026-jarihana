@@ -72,6 +72,7 @@ DOM 태그와 요소 순서로 구분한다.
 | `signup_completed`       | `member_id`                                   |
 | `group_created`          | `group_id`, `group_type`, `status`            |
 | `recruitment_created`    | `group_id`, `recruitment_id`, `status`        |
+| `recruitment_updated`    | `group_id`, `recruitment_id`, `status`        |
 | `recruitment_closed`     | `group_id`, `recruitment_id`, `status`        |
 | `registration_started`   | `group_id`, `recruitment_id`, `attribution_promotion_id` |
 | `registration_submitted` | `group_id`, `recruitment_id`, `registration_id`, `status`, `attribution_promotion_id` |

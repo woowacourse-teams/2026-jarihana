@@ -2,7 +2,8 @@ import {
   recruitmentCloseResponseSchema,
   recruitmentCreateResponseSchema,
   recruitmentDetailSchema,
-  recruitmentListPageSchema
+  recruitmentListPageSchema,
+  recruitmentUpdateResponseSchema
 } from "../../entities/recruitment/index.js";
 import { apiRequest } from "../../shared/api/index.js";
 
@@ -32,6 +33,14 @@ export function createRecruitment(groupId, values) {
     method: "post",
     json: values,
     schema: recruitmentCreateResponseSchema
+  });
+}
+
+export function updateRecruitment(groupId, recruitmentId, values) {
+  return apiRequest(`groups/${groupId}/recruitments/${recruitmentId}`, {
+    method: "put",
+    json: values,
+    schema: recruitmentUpdateResponseSchema
   });
 }
 

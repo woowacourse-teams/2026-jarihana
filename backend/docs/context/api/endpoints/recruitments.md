@@ -150,6 +150,59 @@ Location: /api/groups/12/recruitments/45
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
 | 모집 공고 없음 또는 해당 그룹의 공고가 아님 | `RECRUITMENT_NOT_FOUND` | 404 |
 
+### `PUT /api/groups/{groupId}/recruitments/{recruitmentId}`
+
+- 설명: 현재 모집의 기간, 정원, 승인 방식 수정
+- 권한: `LEADER`
+
+#### 요청
+
+```json
+{
+  "joinMethod": "APPROVAL",
+  "capacity": 8,
+  "startsAt": "2026-08-20T00:00:00",
+  "endsAt": "2026-08-31T23:59:59"
+}
+```
+
+- 수정 가능한 값은 `joinMethod`, `capacity`, `startsAt`, `endsAt`뿐이다.
+- `capacity`는 1 이상이며 이미 승인된 인원 이상이어야 한다.
+- `endsAt = null`이면 상시 모집이다.
+- `startsAt <= endsAt`이어야 한다.
+- 마감된 모집 공고는 수정할 수 없다.
+- 요청한 값이 현재 설정과 같으면 저장하지 않고 현재 모집 정보를 반환한다.
+
+#### 응답 200
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 45,
+    "groupId": 12,
+    "joinMethod": "APPROVAL",
+    "capacity": 8,
+    "startsAt": "2026-08-20T00:00:00",
+    "endsAt": "2026-08-31T23:59:59",
+    "recruitingStatus": "SCHEDULED"
+  },
+  "error": null
+}
+```
+
+#### 예외
+
+| 상황 | 코드 | HTTP |
+| --- | --- | --- |
+| 해당 그룹의 모임장이 아님 | `RECRUITMENT_ACCESS_DENIED` | 403 |
+| 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
+| 모집 공고 없음 또는 해당 그룹의 공고가 아님 | `RECRUITMENT_NOT_FOUND` | 404 |
+| 마감된 모집 공고 | `RECRUITMENT_ALREADY_CLOSED` | 409 |
+| 승인된 인원보다 작은 정원 | `RECRUITMENT_CAPACITY_EXCEEDED` | 409 |
+| ENDED 그룹 | `GROUP_ENDED` | 409 |
+| 잘못된 요청 값 또는 모집 기간 | `INVALID_PARAMETER` / `RECRUITMENT_INVALID_PERIOD` | 400 |
+
 ### `PATCH /api/groups/{groupId}/recruitments/{recruitmentId}`
 
 - 설명: 모집 공고 조기 마감

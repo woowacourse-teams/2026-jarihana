@@ -6,9 +6,12 @@ import com.project.jarihana.recruitment.command.controller.dto.CloseRecruitmentR
 import com.project.jarihana.recruitment.command.controller.dto.CloseRecruitmentResponse;
 import com.project.jarihana.recruitment.command.controller.dto.CreateRecruitmentRequest;
 import com.project.jarihana.recruitment.command.controller.dto.CreateRecruitmentResponse;
+import com.project.jarihana.recruitment.command.controller.dto.UpdateRecruitmentRequest;
+import com.project.jarihana.recruitment.command.controller.dto.UpdateRecruitmentResponse;
 import com.project.jarihana.recruitment.command.service.RecruitmentCommandService;
 import com.project.jarihana.recruitment.command.service.dto.CloseRecruitmentResult;
 import com.project.jarihana.recruitment.command.service.dto.CreateRecruitmentResult;
+import com.project.jarihana.recruitment.command.service.dto.UpdateRecruitmentResult;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -36,6 +39,22 @@ public class RecruitmentCommandController {
                 recruitmentId
         );
         return ResponseEntity.ok(ApiResponse.success(CloseRecruitmentResponse.from(result)));
+    }
+
+    @PutMapping("/{groupId}/recruitments/{recruitmentId}")
+    public ResponseEntity<ApiResponse<UpdateRecruitmentResponse>> updateRecruitment(
+            @LoginMember long memberId,
+            @PathVariable long groupId,
+            @PathVariable long recruitmentId,
+            @Valid @RequestBody UpdateRecruitmentRequest request
+    ) {
+        UpdateRecruitmentResult result = recruitmentCommandService.updateRecruitment(
+                memberId,
+                groupId,
+                recruitmentId,
+                request.toCommand()
+        );
+        return ResponseEntity.ok(ApiResponse.success(UpdateRecruitmentResponse.from(result)));
     }
 
     @PostMapping("/{groupId}/recruitments")
