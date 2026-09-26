@@ -7,10 +7,10 @@ import { FeedbackForm } from "../features/feedback/index.js";
 import { Button, Modal, useToast } from "../shared/ui/index.js";
 
 export function AppFooter() {
-  const { login, status } = useAuth();
+  const { status } = useAuth();
   const { hash, pathname, search } = useLocation();
   const navigate = useNavigate();
-  const { success } = useToast();
+  const { success, warning } = useToast();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   function handleFeedbackStart(event) {
@@ -27,7 +27,7 @@ export function AppFooter() {
       return;
     }
     storeReturnTarget(`${pathname}${search}${hash}`);
-    login();
+    warning({ title: "피드백은 로그인 후 남길 수 있어요." });
   }
 
   function handleFeedbackSuccess() {

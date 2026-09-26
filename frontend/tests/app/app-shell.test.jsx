@@ -89,60 +89,41 @@ it("starts GitHub login from the anonymous header action", () => {
   expect(login).toHaveBeenCalledTimes(1);
 });
 
-it("requires login before opening feedback from the header", () => {
-  // Given
-  const login = jest.fn();
-  renderShell({ login, logout: jest.fn(), status: "anonymous" });
+it.each(["header", "mobile menu", "footer"])(
+  "prompts anonymous users to sign in from the feedback %s without redirecting",
+  (surface) => {
+    // Given
+    const login = jest.fn();
+    renderShell({ login, logout: jest.fn(), status: "anonymous" });
 
-  // When
-  fireEvent.click(
-    within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole("button", {
-      name: "피드백 남기기"
-    })
-  );
+    // When
+    let feedbackButton;
+    if (surface === "mobile menu") {
+      fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
+      feedbackButton = within(screen.getByRole("navigation", { name: "모바일 메뉴" })).getByRole(
+        "button",
+        { name: "피드백 남기기" }
+      );
+    } else if (surface === "footer") {
+      feedbackButton = within(screen.getByRole("region", { name: "Contact us" })).getByRole(
+        "button",
+        { name: "피드백 남기기" }
+      );
+    } else {
+      feedbackButton = within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole(
+        "button",
+        { name: "피드백 남기기" }
+      );
+    }
+    fireEvent.click(feedbackButton);
 
-  // Then
-  expect(login).toHaveBeenCalledTimes(1);
-  expect(screen.queryByRole("dialog", { name: "피드백 남기기" })).not.toBeInTheDocument();
-  expect(sessionStorage.getItem("jarihana:auth:return-target")).toBe("/groups");
-});
-
-it("requires login before opening feedback from the mobile menu", () => {
-  // Given
-  const login = jest.fn();
-  renderShell({ login, logout: jest.fn(), status: "anonymous" });
-
-  // When
-  fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
-  fireEvent.click(
-    within(screen.getByRole("navigation", { name: "모바일 메뉴" })).getByRole("button", {
-      name: "피드백 남기기"
-    })
-  );
-
-  // Then
-  expect(login).toHaveBeenCalledTimes(1);
-  expect(screen.queryByRole("dialog", { name: "피드백 남기기" })).not.toBeInTheDocument();
-  expect(sessionStorage.getItem("jarihana:auth:return-target")).toBe("/groups");
-});
-
-it("requires login before opening feedback from the footer", () => {
-  // Given
-  const login = jest.fn();
-  renderShell({ login, logout: jest.fn(), status: "anonymous" });
-
-  // When
-  fireEvent.click(
-    within(screen.getByRole("region", { name: "Contact us" })).getByRole("button", {
-      name: "피드백 남기기"
-    })
-  );
-
-  // Then
-  expect(login).toHaveBeenCalledTimes(1);
-  expect(screen.queryByRole("dialog", { name: "피드백 남기기" })).not.toBeInTheDocument();
-  expect(sessionStorage.getItem("jarihana:auth:return-target")).toBe("/groups");
-});
+    // Then
+    expect(login).not.toHaveBeenCalled();
+    expect(screen.getByText("피드백은 로그인 후 남길 수 있어요.")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "피드백 남기기" })).not.toBeInTheDocument();
+    expect(sessionStorage.getItem("jarihana:auth:return-target")).toBe("/groups");
+  }
+);
 
 it.each(["header", "mobile menu", "footer"])(
   "does not start feedback login while authentication loads from the %s",

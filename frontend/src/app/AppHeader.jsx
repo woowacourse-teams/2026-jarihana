@@ -72,7 +72,7 @@ function FeedbackLink({ onClick, onNavigate, open, status }) {
   return (
     <button
       aria-expanded={open}
-      aria-haspopup="dialog"
+      aria-haspopup={status === "authenticated" ? "dialog" : undefined}
       className="app-header__link app-header__feedback-link"
       data-ph-capture-attribute-action="feedback_start"
       disabled={status === "loading"}
@@ -137,7 +137,7 @@ export function AppHeader({ action = null, title = "" }) {
   const { login, status } = useAuth();
   const { hash, pathname, search } = useLocation();
   const navigate = useNavigate();
-  const { success } = useToast();
+  const { success, warning } = useToast();
   const [isMenuOpen, setMenuOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const menuButtonReference = useRef(null);
@@ -157,7 +157,7 @@ export function AppHeader({ action = null, title = "" }) {
         return;
       }
       storeReturnTarget(`${pathname}${search}${hash}`);
-      login();
+      warning({ title: "피드백은 로그인 후 남길 수 있어요." });
       return;
     }
     focusMenuAfterFeedbackReference.current = fromMobileMenu;

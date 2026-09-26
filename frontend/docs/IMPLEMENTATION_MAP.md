@@ -95,7 +95,7 @@ header 구현으로 확대하지 않았다.
 
 ## 실제 API 계약 요약
 
-- 피드백 모달은 가입을 완료한 로그인 회원만 제출할 수 있다. 비로그인 사용자가 헤더나 푸터에서 피드백을 선택하면 현재 페이지를 로그인 후 복귀 경로로 저장하고 로그인을 시작한다. `POST /api/feedbacks`에는 `content`만 보내며, 서버는 인증 회원 ID를 `member_id`로 저장한다.
+- 피드백 모달은 가입을 완료한 로그인 회원만 제출할 수 있다. 비로그인 사용자가 헤더나 푸터에서 피드백을 선택하면 로그인 후 복귀 경로를 저장하고 로그인 안내를 표시한다. 로그인은 별도의 로그인 액션에서 시작한다. `POST /api/feedbacks`에는 `content`만 보내며, 서버는 인증 회원 ID를 `member_id`로 저장한다.
 
 - API base path는 `/api`이고 모든 요청은 cookie credentials를 포함한다.
 - JSON 응답은 `{ success, data, error }` envelope다. `204`는 본문을 읽지 않는다.
