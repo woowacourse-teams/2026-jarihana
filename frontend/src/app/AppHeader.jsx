@@ -2,7 +2,11 @@ import { useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 
 import { storeReturnTarget, useAuth } from "../features/auth";
-import { FeedbackForm } from "../features/feedback/index.js";
+import {
+  FeedbackForm,
+  FeedbackLoginPrompt,
+  getFeedbackReturnTarget
+} from "../features/feedback/index.js";
 import { Drawer, Modal, useToast } from "../shared/ui";
 import logoMark from "../shared/assets/brand/jarihana-favicon.png";
 
@@ -72,7 +76,7 @@ function FeedbackLink({ onClick, onNavigate, open, status }) {
   return (
     <button
       aria-expanded={open}
-      aria-haspopup={status === "authenticated" ? "dialog" : undefined}
+      aria-haspopup="dialog"
       className="app-header__link app-header__feedback-link"
       data-ph-capture-attribute-action="feedback_start"
       disabled={status === "loading"}
@@ -137,16 +141,35 @@ export function AppHeader({ action = null, title = "" }) {
   const { login, status } = useAuth();
   const { hash, pathname, search } = useLocation();
   const navigate = useNavigate();
-  const { success, warning } = useToast();
+  const { success } = useToast();
   const [isMenuOpen, setMenuOpen] = useState(false);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackManuallyOpen, setFeedbackManuallyOpen] = useState(false);
+  const [loginRequiredOpen, setLoginRequiredOpen] = useState(false);
   const menuButtonReference = useRef(null);
   const focusMenuAfterFeedbackReference = useRef(false);
+  const hasFeedbackReturnIntent = new URLSearchParams(search).get("feedback") === "open";
+  const feedbackOpen =
+    feedbackManuallyOpen || (status === "authenticated" && hasFeedbackReturnIntent);
   const closeMenu = () => setMenuOpen(false);
   const redirectToLogin = (target) => {
     storeReturnTarget(target);
     login();
   };
+
+  function handleLoginRequiredClose() {
+    setLoginRequiredOpen(false);
+    if (focusMenuAfterFeedbackReference.current) {
+      focusMenuAfterFeedbackReference.current = false;
+      requestAnimationFrame(() => menuButtonReference.current?.focus());
+    }
+  }
+
+  function handleFeedbackLogin() {
+    focusMenuAfterFeedbackReference.current = false;
+    storeReturnTarget(getFeedbackReturnTarget({ hash, pathname, search }));
+    setLoginRequiredOpen(false);
+    login();
+  }
 
   function handleFeedbackTrigger(fromMobileMenu) {
     if (status === "loading") return;
@@ -156,16 +179,25 @@ export function AppHeader({ action = null, title = "" }) {
         navigate("/signup");
         return;
       }
-      storeReturnTarget(`${pathname}${search}${hash}`);
-      warning({ title: "피드백은 로그인 후 남길 수 있어요." });
+      focusMenuAfterFeedbackReference.current = fromMobileMenu;
+      setLoginRequiredOpen(true);
       return;
     }
     focusMenuAfterFeedbackReference.current = fromMobileMenu;
-    setFeedbackOpen(true);
+    setFeedbackManuallyOpen(true);
   }
 
   function handleFeedbackOpenChange(open) {
-    setFeedbackOpen(open);
+    setFeedbackManuallyOpen(open);
+    if (!open && hasFeedbackReturnIntent) {
+      const searchParams = new URLSearchParams(search);
+      searchParams.delete("feedback");
+      const remainingSearch = searchParams.toString();
+      navigate(
+        { hash, pathname, search: remainingSearch ? `?${remainingSearch}` : "" },
+        { replace: true }
+      );
+    }
     if (!open && focusMenuAfterFeedbackReference.current) {
       focusMenuAfterFeedbackReference.current = false;
       requestAnimationFrame(() => menuButtonReference.current?.focus());
@@ -191,7 +223,7 @@ export function AppHeader({ action = null, title = "" }) {
           <nav aria-label="주요 메뉴" className="app-header__primary-nav">
             <FeedbackLink
               onClick={handleFeedbackTrigger}
-              open={feedbackOpen}
+              open={feedbackOpen || loginRequiredOpen}
               status={status}
             />
             <HeaderLinks
@@ -230,13 +262,19 @@ export function AppHeader({ action = null, title = "" }) {
         <FeedbackForm onSuccess={handleFeedbackSuccess} />
       </Modal>
 
+      <FeedbackLoginPrompt
+        onClose={handleLoginRequiredClose}
+        onLogin={handleFeedbackLogin}
+        open={loginRequiredOpen}
+      />
+
       <Drawer onClose={closeMenu} open={isMenuOpen} title="전체 메뉴">
         <nav aria-label="모바일 메뉴" className="app-header__mobile-nav">
           {title ? <p className="app-header__context">{title}</p> : null}
           <FeedbackLink
             onClick={handleFeedbackTrigger}
             onNavigate={closeMenu}
-            open={feedbackOpen}
+            open={feedbackOpen || loginRequiredOpen}
             status={status}
           />
           <HeaderLinks

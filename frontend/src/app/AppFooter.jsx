@@ -3,15 +3,20 @@ import { useLocation, useNavigate } from "react-router";
 
 import faviconImage from "../shared/assets/brand/jarihana-favicon.png";
 import { storeReturnTarget, useAuth } from "../features/auth";
-import { FeedbackForm } from "../features/feedback/index.js";
+import {
+  FeedbackForm,
+  FeedbackLoginPrompt,
+  getFeedbackReturnTarget
+} from "../features/feedback/index.js";
 import { Button, Modal, useToast } from "../shared/ui/index.js";
 
 export function AppFooter() {
-  const { status } = useAuth();
+  const { login, status } = useAuth();
   const { hash, pathname, search } = useLocation();
   const navigate = useNavigate();
-  const { success, warning } = useToast();
+  const { success } = useToast();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [loginRequiredOpen, setLoginRequiredOpen] = useState(false);
 
   function handleFeedbackStart(event) {
     if (status === "loading") {
@@ -19,15 +24,23 @@ export function AppFooter() {
       return;
     }
 
-    if (status === "authenticated") return;
+    if (status === "authenticated") {
+      setFeedbackOpen(true);
+      return;
+    }
 
     event.preventDefault();
     if (status === "signup-required") {
       navigate("/signup");
       return;
     }
-    storeReturnTarget(`${pathname}${search}${hash}`);
-    warning({ title: "피드백은 로그인 후 남길 수 있어요." });
+    setLoginRequiredOpen(true);
+  }
+
+  function handleFeedbackLogin() {
+    storeReturnTarget(getFeedbackReturnTarget({ hash, pathname, search }));
+    setLoginRequiredOpen(false);
+    login();
   }
 
   function handleFeedbackSuccess() {
@@ -69,24 +82,29 @@ export function AppFooter() {
               로그인 후 피드백을 남길 수 있어요.
             </span>
           </p>
+          <Button
+            aria-expanded={feedbackOpen || loginRequiredOpen}
+            aria-haspopup="dialog"
+            className="app-footer__feedback-button"
+            data-ph-capture-attribute-action="feedback_start"
+            disabled={status === "loading"}
+            onClick={handleFeedbackStart}
+            variant="secondary"
+          >
+            피드백 남기기
+          </Button>
           <Modal
             onOpenChange={setFeedbackOpen}
             open={feedbackOpen}
             title="피드백 남기기"
-            trigger={
-              <Button
-                className="app-footer__feedback-button"
-                data-ph-capture-attribute-action="feedback_start"
-                disabled={status === "loading"}
-                onClick={handleFeedbackStart}
-                variant="secondary"
-              >
-                피드백 남기기
-              </Button>
-            }
           >
             <FeedbackForm onSuccess={handleFeedbackSuccess} />
           </Modal>
+          <FeedbackLoginPrompt
+            onClose={() => setLoginRequiredOpen(false)}
+            onLogin={handleFeedbackLogin}
+            open={loginRequiredOpen}
+          />
         </section>
 
         <nav aria-label="외부 링크" className="app-footer__social-links">
