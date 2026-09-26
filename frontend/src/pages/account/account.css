@@ -560,6 +560,12 @@
   align-items: start;
 }
 
+.activity-column {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-7);
+}
+
 .profile-column {
   display: grid;
   gap: var(--space-6);
@@ -829,6 +835,17 @@ img.profile-card__avatar {
   -webkit-line-clamp: 2;
 }
 
+.activity-row .activity-row__decision-reason {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-ink);
+  background: var(--color-canvas);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-caption);
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: unset;
+}
+
 /* 관리 버튼이 있는 카드와 없는 카드의 발치 높이를 맞춘다 */
 .activity-row__foot {
   display: flex;
@@ -1060,6 +1077,10 @@ img.profile-card__avatar {
 
   .my-dashboard {
     grid-template-columns: 1fr;
+  }
+
+  .activity-column {
+    gap: var(--space-6);
   }
 
   .profile-companion {

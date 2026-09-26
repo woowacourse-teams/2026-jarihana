@@ -332,7 +332,8 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
       try {
         await action.mutateAsync(canDelete ? undefined : { status: "ENDED" });
         toast.show({ title: `모임을 ${lifecycleVerb}했어요.`, tone: "success" });
-        navigate("/my?tab=joined", { replace: true });
+        const groupTypeQuery = group?.type ? `&groupType=${group.type}` : "";
+        navigate(`/my?tab=joined${groupTypeQuery}`, { replace: true });
       } catch (error) {
         toast.show({
           title: `모임을 ${lifecycleVerb}하지 못했어요.`,
