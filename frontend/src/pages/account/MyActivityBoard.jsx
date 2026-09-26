@@ -2,6 +2,7 @@ import { CalendarDays, Crown, UsersRound } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 
+import emptyStateIllustration from "../../shared/assets/illustrations/group-recruitment-empty.webp";
 import {
   EmptyState,
   ErrorState,
@@ -211,11 +212,15 @@ export function MyActivityBoard({
         </div>
       ) : null}
       {!query.isLoading && !query.isError && activities.length === 0 ? (
-        <EmptyState
-          action={resolvedEmptyState.action}
-          description={resolvedEmptyState.description}
-          title={resolvedEmptyState.title}
-        />
+        <div className="activity-board__empty-state">
+          <EmptyState
+            action={resolvedEmptyState.action}
+            description={resolvedEmptyState.description}
+            showMark={false}
+            title={resolvedEmptyState.title}
+            visual={<img alt="" src={emptyStateIllustration} />}
+          />
+        </div>
       ) : null}
       {!query.isLoading && !query.isError && activities.length ? (
         <div className="activity-board__more" ref={sentinelRef}>

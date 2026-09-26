@@ -20,7 +20,7 @@ const GROUP_TYPE_TABS = [
     types: ["SESSION"],
     emptyState: {
       title: "가입한 같이해요가 없습니다.",
-      description: "새로운 사람들과 한 번의 만남을 시작해 보세요.",
+      description: "자리하나?",
       action: (
         <Link
           data-ph-capture-attribute-action="my_session_empty_explore"

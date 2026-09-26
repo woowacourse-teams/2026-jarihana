@@ -167,6 +167,8 @@ describe("MyPage", () => {
     );
     const recurringPanel = screen.getByRole("tabpanel", { name: /동아리·스터디/ });
     expect(within(recurringPanel).getByText("가입한 동아리·스터디가 없습니다.")).toBeInTheDocument();
+    expect(recurringPanel.querySelector(".ui-state__mark")).not.toBeInTheDocument();
+    expect(recurringPanel.querySelector(".ui-state__visual img")).toBeInTheDocument();
     expect(within(recurringPanel).getByRole("link", { name: "모임 둘러보기" })).toHaveAttribute(
       "href",
       "/groups"
@@ -175,6 +177,9 @@ describe("MyPage", () => {
     await user.click(screen.getByRole("tab", { name: /같이해요/ }));
 
     const sessionPanel = screen.getByRole("tabpanel", { name: /같이해요/ });
+    expect(within(sessionPanel).getByText("자리하나?")).toBeInTheDocument();
+    expect(sessionPanel.querySelector(".ui-state__mark")).not.toBeInTheDocument();
+    expect(sessionPanel.querySelector(".ui-state__visual img")).toBeInTheDocument();
     expect(within(sessionPanel).getByRole("link", { name: "모임 둘러보기" })).toHaveAttribute(
       "href",
       "/groups?type=SESSION"
@@ -184,6 +189,8 @@ describe("MyPage", () => {
 
     const rejectedPanel = screen.getByRole("tabpanel", { name: /미승인/ });
     expect(within(rejectedPanel).getByText("미승인 신청이 없습니다.")).toBeInTheDocument();
+    expect(rejectedPanel.querySelector(".ui-state__mark")).not.toBeInTheDocument();
+    expect(rejectedPanel.querySelector(".ui-state__visual img")).toBeInTheDocument();
     expect(within(rejectedPanel).getByRole("link", { name: "모임 둘러보기" })).toHaveAttribute(
       "href",
       "/groups"
