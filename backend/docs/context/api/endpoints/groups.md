@@ -105,7 +105,7 @@
 
 `recurringSchedule`을 생략하면 요일과 시간을 모두 정하지 않은 유동적 일정으로 생성한다.
 
-`recurringSchedule`을 보내되 `startTime`과 `endTime`을 함께 `null`로 두면 요일만 고정하고 시간은 정하지 않은 시간 유동적 일정으로 생성한다. 한쪽만 `null`인 요청은 `SCHEDULE_INVALID_RULE`로 거절한다.
+`recurringSchedule`을 보내되 `startTime`과 `endTime`을 함께 `null`로 두면 요일만 고정하고 시간은 정하지 않은 시간 유동적 일정으로 생성한다. 한쪽만 `null`인 요청은 `SCHEDULE_INVALID_RULE`로 허용하지 않는다.
 
 ```json
 {
@@ -277,7 +277,7 @@ Request Body는 없다.
 #### 부수 효과
 - `Group.status`를 `ACTIVE`에서 `ENDED`로 변경한다.
 - 마감되지 않은 모집 공고를 마감한다.
-- 해당 공고의 `PENDING` 신청을 `SYSTEM` 주체로 즉시 거절한다.
+- 해당 공고의 `PENDING` 신청을 `SYSTEM` 주체로 즉시 미승인한다.
 - 그룹과 모든 연관 이력을 보존하며 다시 `ACTIVE`로 되돌릴 수 없다.
 
 #### 예외
@@ -373,7 +373,7 @@ Request Body는 없다.
 }
 ```
 
-한쪽만 `null`인 요청은 `SCHEDULE_INVALID_RULE`로 거절한다. 반복 일정을 통째로 없애 요일까지 유동적으로 두려면 이 엔드포인트가 아니라 `DELETE /api/groups/{groupId}/recurring-schedule`을 사용한다.
+한쪽만 `null`인 요청은 `SCHEDULE_INVALID_RULE`로 허용하지 않는다. 반복 일정을 통째로 없애 요일까지 유동적으로 두려면 이 엔드포인트가 아니라 `DELETE /api/groups/{groupId}/recurring-schedule`을 사용한다.
 
 #### 응답 200
 

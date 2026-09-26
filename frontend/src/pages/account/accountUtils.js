@@ -19,7 +19,7 @@ export const GROUP_TYPE_LABELS = {
 export const REGISTRATION_STATUS_LABELS = {
   APPROVED: "승인",
   PENDING: "검토 중",
-  REJECTED: "거절"
+  REJECTED: "미승인"
 };
 
 export const REGISTRATION_TAB_LABELS = {

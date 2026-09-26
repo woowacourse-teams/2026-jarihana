@@ -134,7 +134,7 @@ describe("MyPage", () => {
 
     const rejectedPanel = screen.getByRole("tabpanel", { name: /미승인/ });
     expect(
-      within(rejectedPanel).queryByText("거절 사유: 이번 모집의 정원이 모두 찼습니다.")
+      within(rejectedPanel).queryByText("미승인 사유: 이번 모집의 정원이 모두 찼습니다.")
     ).not.toBeInTheDocument();
     const decisionButton = within(rejectedPanel).getByRole("button", { name: "신청 결과 보기" });
     expect(decisionButton).toHaveAttribute(

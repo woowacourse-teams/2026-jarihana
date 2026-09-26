@@ -213,7 +213,7 @@ Request Body는 없다.
 
 ### `PATCH /api/recruitments/{recruitmentId}/registrations/{registrationId}`
 
-- 설명: 가입 신청 승인·거절
+- 설명: 가입 신청 승인·미승인
 - 권한: `LEADER`
 
 #### Path Parameters
@@ -228,7 +228,7 @@ Request Body는 없다.
 }
 ```
 
-#### 요청 — 거절
+#### 요청 — 미승인
 
 ```json
 {
@@ -237,7 +237,7 @@ Request Body는 없다.
 }
 ```
 
-`rejectReason`은 거절할 때 생략할 수 있으며 최대 1000자다.
+`rejectReason`은 미승인할 때 생략할 수 있으며 최대 1000자다.
 
 #### 응답 200
 
@@ -258,7 +258,7 @@ Request Body는 없다.
 #### 부수 효과
 - 승인 시 `GroupMember(role = MEMBER)`를 생성한다.
 - 승인 인원이 `capacity`에 도달하면 `endsAt = now`로 공고를 자동 마감하고 다른 `PENDING` 신청을 `SYSTEM` 주체로 즉시 `REJECTED` 처리한다.
-- 거절 시 GroupMember를 생성하지 않는다.
+- 미승인 시 GroupMember를 생성하지 않는다.
 - `decidedBy`에는 결정 시점의 실제 모임장 회원 ID를 기록한다.
 
 #### 예외

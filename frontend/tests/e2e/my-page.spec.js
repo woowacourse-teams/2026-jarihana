@@ -25,7 +25,7 @@ test("마이페이지에서 내 모임과 내 신청을 별도 카드로 보여 
       .getByRole("link", { name: "프론트엔드 한 자리", exact: true })
   ).toBeVisible();
   await page.getByRole("tab", { name: /미승인/ }).click();
-  await expect(page.locator("#my-registrations-panel")).not.toContainText("거절 사유:");
+  await expect(page.locator("#my-registrations-panel")).not.toContainText("미승인 사유:");
   await page.getByRole("button", { name: "신청 결과 보기" }).click();
   await expect(page.getByRole("dialog", { name: "신청 결과" })).toContainText(
     "모임장 안내: 이번 모집의 정원이 모두 찼습니다."
