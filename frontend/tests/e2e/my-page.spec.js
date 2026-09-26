@@ -35,10 +35,34 @@ test("마이페이지에서 내 모임과 내 신청을 별도 카드로 보여 
 
 test("마이페이지의 두 카드는 모바일에서 세로로 쌓이고 가로로 넘치지 않는다", async ({ page }) => {
   await installApiFixture(page);
+  await page.setViewportSize({ height: 900, width: 792 });
+  await page.goto("/my");
+  await expect(page.getByRole("heading", { name: "내 모임", exact: true })).toBeVisible();
+  await expect(page.locator(".profile-companion")).toBeHidden();
+
+  const tabletTabLayout = await page.locator("#my-group-type-tab-session").evaluate((element) => ({
+    flexDirection: getComputedStyle(element).flexDirection,
+    flexWrap: getComputedStyle(element).flexWrap,
+    labelWhiteSpace: getComputedStyle(element.querySelector(".dashboard-counts__label")).whiteSpace
+  }));
+  expect(tabletTabLayout).toEqual({
+    flexDirection: "row",
+    flexWrap: "nowrap",
+    labelWhiteSpace: "nowrap"
+  });
+
   await page.setViewportSize({ height: 900, width: 360 });
 
   await page.goto("/my");
   await expect(page.getByRole("heading", { name: "내 모임", exact: true })).toBeVisible();
+  await expect(page.locator(".profile-companion")).toBeHidden();
+
+  const mobileTabLayout = await page.locator("#my-group-type-tab-session").evaluate((element) => ({
+    flexDirection: getComputedStyle(element).flexDirection,
+    flexWrap: getComputedStyle(element).flexWrap,
+    labelWhiteSpace: getComputedStyle(element.querySelector(".dashboard-counts__label")).whiteSpace
+  }));
+  expect(mobileTabLayout).toEqual(tabletTabLayout);
 
   const panels = await page.locator(".activity-column > .dashboard-panel").all();
   expect(panels).toHaveLength(2);

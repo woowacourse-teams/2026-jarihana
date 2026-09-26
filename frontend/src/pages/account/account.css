@@ -1013,10 +1013,14 @@ img.profile-card__avatar {
     grid-template-columns: 1fr;
   }
 
+  .profile-companion {
+    display: none;
+  }
+
   .dashboard-counts button {
-    align-items: center;
-    flex-direction: column-reverse;
-    gap: var(--space-1);
+    align-items: baseline;
+    flex-direction: row;
+    gap: var(--space-2);
     font-size: var(--text-caption);
   }
 }
@@ -1090,14 +1094,13 @@ img.profile-card__avatar {
   }
 
   .profile-companion {
-    min-height: 240px;
-    background-image: url("../../shared/assets/figma/my-companion-illustration.png");
+    display: none;
   }
 
   .dashboard-counts button {
-    align-items: center;
-    flex-direction: column-reverse;
-    gap: var(--space-1);
+    align-items: baseline;
+    flex-direction: row;
+    gap: var(--space-2);
     font-size: var(--text-caption);
   }
 
