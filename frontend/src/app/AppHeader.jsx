@@ -68,13 +68,14 @@ function MyPageLink({ onNavigate }) {
   );
 }
 
-function FeedbackLink({ onClick, onNavigate, open }) {
+function FeedbackLink({ onClick, onNavigate, open, status }) {
   return (
     <button
       aria-expanded={open}
       aria-haspopup="dialog"
       className="app-header__link app-header__feedback-link"
       data-ph-capture-attribute-action="feedback_start"
+      disabled={status === "loading"}
       onClick={() => {
         onNavigate?.();
         onClick(Boolean(onNavigate));
@@ -148,6 +149,8 @@ export function AppHeader({ action = null, title = "" }) {
   };
 
   function handleFeedbackTrigger(fromMobileMenu) {
+    if (status === "loading") return;
+
     if (status !== "authenticated") {
       if (status === "signup-required") {
         navigate("/signup");
@@ -189,6 +192,7 @@ export function AppHeader({ action = null, title = "" }) {
             <FeedbackLink
               onClick={handleFeedbackTrigger}
               open={feedbackOpen}
+              status={status}
             />
             <HeaderLinks
               links={DESKTOP_MEMBER_LINKS}
@@ -233,6 +237,7 @@ export function AppHeader({ action = null, title = "" }) {
             onClick={handleFeedbackTrigger}
             onNavigate={closeMenu}
             open={feedbackOpen}
+            status={status}
           />
           <HeaderLinks
             onNavigate={closeMenu}

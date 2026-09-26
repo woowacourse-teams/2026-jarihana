@@ -144,6 +144,41 @@ it("requires login before opening feedback from the footer", () => {
   expect(sessionStorage.getItem("jarihana:auth:return-target")).toBe("/groups");
 });
 
+it.each(["header", "mobile menu", "footer"])(
+  "does not start feedback login while authentication loads from the %s",
+  (surface) => {
+    // Given
+    const login = jest.fn();
+    renderShell({ login, logout: jest.fn(), status: "loading" });
+
+    // When
+    let feedbackButton;
+    if (surface === "mobile menu") {
+      fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
+      feedbackButton = within(screen.getByRole("navigation", { name: "모바일 메뉴" })).getByRole(
+        "button",
+        { name: "피드백 남기기" }
+      );
+    } else if (surface === "footer") {
+      feedbackButton = within(screen.getByRole("region", { name: "Contact us" })).getByRole(
+        "button",
+        { name: "피드백 남기기" }
+      );
+    } else {
+      feedbackButton = within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole(
+        "button",
+        { name: "피드백 남기기" }
+      );
+    }
+    fireEvent.click(feedbackButton);
+
+    // Then
+    expect(feedbackButton).toBeDisabled();
+    expect(login).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog", { name: "피드백 남기기" })).not.toBeInTheDocument();
+  }
+);
+
 it.each([["모임 만들기", "/groups/new"]])(
   "stores %s as the login return target and starts GitHub login",
   (label, target) => {

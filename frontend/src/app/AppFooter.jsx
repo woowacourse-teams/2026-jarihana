@@ -14,6 +14,11 @@ export function AppFooter() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   function handleFeedbackStart(event) {
+    if (status === "loading") {
+      event.preventDefault();
+      return;
+    }
+
     if (status === "authenticated") return;
 
     event.preventDefault();
@@ -72,6 +77,7 @@ export function AppFooter() {
               <Button
                 className="app-footer__feedback-button"
                 data-ph-capture-attribute-action="feedback_start"
+                disabled={status === "loading"}
                 onClick={handleFeedbackStart}
                 variant="secondary"
               >
