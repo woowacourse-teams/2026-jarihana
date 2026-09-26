@@ -95,6 +95,8 @@ header 구현으로 확대하지 않았다.
 
 ## 실제 API 계약 요약
 
+- 피드백 모달은 로그인 없이 제출할 수 있다. `POST /api/feedbacks`에는 `content`만 보내고, 서버가 인증 회원이면 `member_id`를 설정하며 비회원이면 `NULL`로 저장한다.
+
 - API base path는 `/api`이고 모든 요청은 cookie credentials를 포함한다.
 - JSON 응답은 `{ success, data, error }` envelope다. `204`는 본문을 읽지 않는다.
 - 인증 토큰은 `accessToken`, `refreshToken` HttpOnly cookie다. 브라우저 저장소와

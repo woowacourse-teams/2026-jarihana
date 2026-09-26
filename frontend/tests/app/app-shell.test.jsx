@@ -31,8 +31,11 @@ jest.mock("../../src/features/auth", () => ({
 }));
 
 jest.mock("../../src/shared/ui", () => {
+  const { Button } = jest.requireActual("../../src/shared/ui/Button.jsx");
+  const { Modal } = jest.requireActual("../../src/shared/ui/Overlay.jsx");
   const { useToast } = jest.requireActual("../../src/shared/ui/Toast.jsx");
   return {
+    Button,
     Drawer: ({ children, onClose, open, title }) =>
       open ? (
         <div aria-label={title} role="dialog">
@@ -42,6 +45,7 @@ jest.mock("../../src/shared/ui", () => {
           {children}
         </div>
       ) : null,
+    Modal,
     useToast
   };
 });

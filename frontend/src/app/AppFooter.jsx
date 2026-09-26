@@ -1,6 +1,18 @@
+import { useState } from "react";
+
 import faviconImage from "../shared/assets/brand/jarihana-favicon.png";
+import { FeedbackForm } from "../features/feedback/index.js";
+import { Button, Modal, useToast } from "../shared/ui/index.js";
 
 export function AppFooter() {
+  const { success } = useToast();
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+
+  function handleFeedbackSuccess() {
+    success({ title: "피드백을 보내드렸어요." });
+    setFeedbackOpen(false);
+  }
+
   return (
     <footer aria-labelledby="footer-origin-title" className="app-footer">
       <div className="app-footer__copy">
@@ -28,11 +40,29 @@ export function AppFooter() {
         <section aria-labelledby="footer-contact-title" className="app-footer__contact">
           <h2 id="footer-contact-title">Contact us</h2>
           <p>
-            <span className="app-footer__contact-intro">피드백이나 궁금한 점은</span>
+            <span className="app-footer__contact-intro">
+              자리하나를 더 편하게 만들 의견을 들려주세요.
+            </span>
             <span className="app-footer__contact-message">
-              이삭, 에덴, 파도, 요크에게 슬랙 DM 주세요!
+              로그인하지 않아도 피드백을 남길 수 있어요.
             </span>
           </p>
+          <Modal
+            onOpenChange={setFeedbackOpen}
+            open={feedbackOpen}
+            title="피드백 남기기"
+            trigger={
+              <Button
+                className="app-footer__feedback-button"
+                data-ph-capture-attribute-action="feedback_start"
+                variant="secondary"
+              >
+                피드백 남기기
+              </Button>
+            }
+          >
+            <FeedbackForm onSuccess={handleFeedbackSuccess} />
+          </Modal>
         </section>
 
         <nav aria-label="외부 링크" className="app-footer__social-links">

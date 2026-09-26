@@ -29,7 +29,7 @@ public class SecurityConfig {
             "/share/groups/*",
             "/images/**"
     };
-    private static final String[] PUBLIC_POST_PATHS = {"/auth/refresh"};
+    private static final String[] PUBLIC_POST_PATHS = {"/auth/refresh", "/feedbacks"};
 
     /**
      * 가입 세션과 Access Token 중 하나만 있어도 되는 경로다. 필터는 Access Token만 이해하므로
