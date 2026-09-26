@@ -127,6 +127,7 @@ export function MyPage() {
               <button
                 aria-controls="my-groups-panel"
                 aria-selected={activeGroupTab === tab.id}
+                data-ph-capture-attribute-action="my_activity_tab_change"
                 id={`my-groups-tab-${tab.id}`}
                 key={tab.id}
                 onClick={() => setActiveGroupTab(tab.id)}
