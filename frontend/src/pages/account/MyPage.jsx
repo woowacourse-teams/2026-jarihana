@@ -73,8 +73,8 @@ const REGISTRATION_TABS = [
     status: "REJECTED",
     label: REGISTRATION_TAB_LABELS.REJECTED,
     emptyState: {
-      title: "거절된 신청이 없습니다.",
-      description: "거절된 신청이 생기면 이곳에서 확인할 수 있어요.",
+      title: "미승인 신청이 없습니다.",
+      description: "미승인 신청이 생기면 이곳에서 확인할 수 있어요.",
       action: (
         <Link
           data-ph-capture-attribute-action="my_rejected_registration_empty_explore"

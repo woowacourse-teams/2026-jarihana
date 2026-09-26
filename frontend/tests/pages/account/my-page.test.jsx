@@ -130,15 +130,28 @@ describe("MyPage", () => {
     const pendingPanel = screen.getByRole("tabpanel", { name: /검토 중/ });
     expect(within(pendingPanel).getByText(sessionGroup.name)).toBeInTheDocument();
 
-    await user.click(screen.getByRole("tab", { name: /거절됨/ }));
+    await user.click(screen.getByRole("tab", { name: /미승인/ }));
 
-    const rejectedPanel = screen.getByRole("tabpanel", { name: /거절됨/ });
-    expect(within(rejectedPanel).getByText("거절 사유: 이번 모집의 정원이 모두 찼습니다.")).toBeInTheDocument();
+    const rejectedPanel = screen.getByRole("tabpanel", { name: /미승인/ });
+    expect(
+      within(rejectedPanel).queryByText("거절 사유: 이번 모집의 정원이 모두 찼습니다.")
+    ).not.toBeInTheDocument();
+    const decisionButton = within(rejectedPanel).getByRole("button", { name: "신청 결과 보기" });
+    expect(decisionButton).toHaveAttribute(
+      "data-ph-capture-attribute-action",
+      "my_rejected_reason_open"
+    );
+    await user.click(decisionButton);
+    const decisionDialog = screen.getByRole("dialog", { name: "신청 결과" });
+    expect(
+      within(decisionDialog).getByText("모임장 안내: 이번 모집의 정원이 모두 찼습니다.")
+    ).toBeInTheDocument();
+    await user.click(within(decisionDialog).getByRole("button", { name: "닫기" }));
     expect(screen.getByRole("tab", { name: /같이해요/ })).toHaveAttribute(
       "data-ph-capture-attribute-action",
       "my_group_type_tab_change"
     );
-    expect(screen.getByRole("tab", { name: /거절됨/ })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: /미승인/ })).toHaveAttribute(
       "data-ph-capture-attribute-action",
       "my_registration_status_tab_change"
     );
@@ -167,10 +180,10 @@ describe("MyPage", () => {
       "/groups?type=SESSION"
     );
 
-    await user.click(screen.getByRole("tab", { name: /거절됨/ }));
+    await user.click(screen.getByRole("tab", { name: /미승인/ }));
 
-    const rejectedPanel = screen.getByRole("tabpanel", { name: /거절됨/ });
-    expect(within(rejectedPanel).getByText("거절된 신청이 없습니다.")).toBeInTheDocument();
+    const rejectedPanel = screen.getByRole("tabpanel", { name: /미승인/ });
+    expect(within(rejectedPanel).getByText("미승인 신청이 없습니다.")).toBeInTheDocument();
     expect(within(rejectedPanel).getByRole("link", { name: "모임 둘러보기" })).toHaveAttribute(
       "href",
       "/groups"

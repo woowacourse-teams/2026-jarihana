@@ -24,7 +24,7 @@ export const REGISTRATION_STATUS_LABELS = {
 
 export const REGISTRATION_TAB_LABELS = {
   PENDING: "검토 중",
-  REJECTED: "거절됨"
+  REJECTED: "미승인"
 };
 
 const koreanDateFormatter = new Intl.DateTimeFormat("ko-KR", {

@@ -872,6 +872,12 @@ img.profile-card__avatar {
   text-decoration: none;
 }
 
+.activity-row__action {
+  position: relative;
+  z-index: 1;
+  flex: none;
+}
+
 .activity-board__more {
   display: flex;
   align-items: center;
