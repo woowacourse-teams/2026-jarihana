@@ -87,6 +87,8 @@ public class GroupQueryService {
         GroupListSearchCriteria criteria = new GroupListSearchCriteria(
                 query.status(),
                 query.type(),
+                query.excludedType(),
+                query.sessionDate(),
                 query.role(),
                 query.relation() != null,
                 query.recruiting(),

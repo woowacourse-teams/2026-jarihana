@@ -83,7 +83,7 @@ header 구현으로 확대하지 않았다.
 
 | 화면군         | Figma에서 유지한 정보 계층                      | 구현상 통일/반응형 결정                                                                                                  |
 | -------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| 공개 탐색      | mint hero, 검색·필터, 카드 우선순위             | 1024px 이상 4-column, 768–1023px 3-column, mobile 2-column; 공통 shell 1440px, gutter 32/24/16px; search는 strong bottom border와 48px touch target |
+| 공개 탐색      | 오늘 SESSION hero → 같이해요 → 스터디·동아리 탐색 | 공통 shell 1440px, gutter 32/24/16px. SESSION은 desktop 3열, community는 4열; mobile은 1열 activity row. hero 카드와 TODAY’S PLAN은 같은 선택 상태를 공유 |
 | 그룹 상세/모집 | profile banner, 모임 정보(방식·일정·장소·참여자), content tabs, 참여 CTA | desktop content + sticky recruitment rail, 1024px 미만 rail을 본문 뒤로 이동                                             |
 | 계정           | profile illustration, activity count, 요약 카드 | desktop profile/content split, tablet/mobile은 순서 보존 single column; `?role=LEADER` deep link로 운영 모임 filter 유지 |
 | 그룹 생성/수정 | 단계 tab, mint editor hero, Markdown 소개       | 대표 이미지 picker와 업로드 상태, type별 일정 form, 1024px 미만 hero stack, mobile day/time grid 축소             |
@@ -195,3 +195,21 @@ header 구현으로 확대하지 않았다.
 - 실제 OAuth 완료는 GitHub OAuth 앱의 public client ID, backend client secret, callback URL,
   테스트 가능한 GitHub 계정이 모두 있을 때만 수동으로 검증할 수 있다. 이 저장소에는 그
   자격 증명과 계정이 없다.
+
+### 메인 같이해요 발견성 (#273)
+
+- `/`와 `/groups`는 동일한 `GroupsPage`다. 기존 랜딩 대신 `TodaySessionsHero`를 보여주고,
+  `DiscoverySection`을 같이해요, 스터디·동아리 순서로 배치한다. 상단 바로가기로 각 탐색에 이동한다.
+- 오늘은 서비스 시간대 `Asia/Seoul` 기준이다. `type=SESSION`, `status=ACTIVE`, `sessionDate`로
+  조회한 모든 커서 페이지를 병합한 뒤 시작 시각/ID 순으로 정렬한다. 모집 마감 여부는 오늘 일정에서
+  제외하는 조건이 아니다. 날짜가 바뀌거나 탭으로 돌아오면 날짜를 갱신하며 목록은 60초마다 갱신한다.
+- 오늘 목록의 캐시 키는 일반 무한 목록과 구분하고, 날짜를 포함한다. 페이지 오류나 잘못된 반복
+  커서는 부분 목록을 전체 일정처럼 표시하지 않고 오류로 처리한다.
+- 같이해요 목록은 `type=SESSION`, 스터디·동아리 전체 목록은 `excludedType=SESSION`으로 서버에서
+  필터링한 뒤 페이징한다. 기존 `type=STUDY|CLUB` 필터도 유지한다. `sessionDate=YYYY-MM-DD`는
+  백엔드 목록 API의 선택 조건이다. 배포 시 확장된 백엔드 조회 API가 먼저 준비되어야 한다.
+- 각 탐색의 검색/상태/모집/더 보기는 독립적이다. URL의 `sessionKeyword`, `sessionStatus`,
+  `sessionRecruiting`은 같이해요, 기존 `keyword`, `type`, `status`, `recruiting`은 스터디·동아리에
+  적용한다. 기존 `type=SESSION` 링크는 같이해요 조건으로 해석한다.
+
+- 같이해요 만들기는 `/groups/new?type=SESSION`으로 이동해 유형을 미리 선택한다. 비로그인 사용자도 같은 복귀 경로를 저장한다.

@@ -6,10 +6,8 @@ import * as groupHooks from "../../../src/features/group/index.js";
 import * as memberHooks from "../../../src/features/member/index.js";
 import * as recruitmentHooks from "../../../src/features/recruitment/index.js";
 import * as registrationHooks from "../../../src/features/registration/index.js";
-import {
-  GroupDetailPage,
-  RecruitmentDetailPage
-} from "../../../src/pages/groups/index.js";
+import { GroupDetailPage } from "../../../src/pages/groups/GroupDetailPage.jsx";
+import { RecruitmentDetailPage } from "../../../src/pages/groups/RecruitmentDetailPage.jsx";
 import { captureEvent, getPromotionAttribution } from "../../../src/shared/analytics/index.js";
 import { ToastProvider } from "../../../src/shared/ui/Toast.jsx";
 

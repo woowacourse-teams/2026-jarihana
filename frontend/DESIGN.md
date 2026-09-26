@@ -116,22 +116,36 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - 문서의 `html`과 `body` 배경은 `--color-nav`로 맞춰 macOS의 탄성 스크롤에서
   헤더·푸터 바깥에 흰색이 드러나지 않게 한다. 본문은 `.app-shell`의 밝은 surface를 사용하며
   브라우저의 기본 스크롤 동작은 유지한다.
-- 탐색 랜딩(`/`)과 호환 진입점(`/groups`)의 hero는 header 아래
-  `calc(100dvh - --header-height)` 높이로 첫 화면을 채우고, 설명 문구 아래의 `자리 둘러보기` 화살표 CTA가
-  검색·필터가 가려지지 않도록 discovery section의 `자리 둘러보기` 제목으로 부드럽게 이동시킨다. `/groups`는 기존 링크와 북마크를 보존하는 동일
-  랜딩 경로로 유지한다.
-- Hero의 desktop 열은 `minmax(26rem, .75fr) minmax(0, 1.25fr)`와 32px gap으로 나눈다.
-  문구는 내용 너비로 첫 번째 열의 오른쪽에 정렬해 이미지 내부 흰 여백을 고려한 바깥 좌우
-  균형을 맞춘다. tablet/mobile에서는 문구의 가운데 정렬을 유지하고 이미지만 화면 양 끝까지
-  넓히고 텍스트와 목록의 기존 gutter는 유지한다. 이미지는 원본 비율과 `contain`을 유지해
-  확대 후에도 상하좌우를 자르지 않는다.
-- 탐색 페이지의 hero와 discovery는 desktop에서 `--space-16` 외부 간격과 `--space-10` 내부 상단
-  여백으로 넉넉하게 분리하고, discovery에는 `--color-section-soft`를 적용해 별도 정보 영역임을
-  드러낸다. 결과 제목과
-  모임 수/정렬 메타는 같은 baseline에서 바로 이어지며, 검색·필터와 카드 grid는 동일 rail을
+- 탐색 랜딩(`/`)과 호환 진입점(`/groups`)의 첫 화면은 기존 소개 hero 대신 오늘 예정된
+  `SESSION`(`같이해요`) hero를 노출한다. 왼쪽은 실제 오늘 일정 카드 rail, 오른쪽은 같은 active index를
+  쓰는 `TODAY'S PLAN` 다이얼로 구성한다. `/groups`는 기존 링크와 북마크를 보존하는 동일 랜딩 경로로
   유지한다.
-- 탐색 랜딩의 full-bleed 배경은 `main`의 가로 경계에서만 잘라 세로 스크롤바가 있는
-  환경에서도 페이지에 가로 스크롤이 생기지 않게 한다. 세로 스크롤과 제목 기준 이동은 유지한다.
+- 오늘 같이해요 hero는 page shell 안에서 최소 외곽 여백을 사용한다. desktop에서는 카드가 약 3개 보이는
+  horizontal rail과 plan panel을 `minmax(0, 1fr) minmax(18rem, .38fr)`에 가깝게 배치하고, 좌우 이동
+  버튼은 카드 행의 수직 중앙과 rail 가장자리에 overlay한다. 44px 클릭 영역 안의 원형 surface는
+  `--space-8`(32px), chevron은 `--space-4`(16px)로 작게 표시하며 그림자는 사용하지 않는다.
+  mobile은 원형 surface를 28px로 줄이고 클릭 영역을 page gutter 안까지 이동해 본문 텍스트를 가리지 않는다.
+  순서 표시는 카드 아래 `--space-6`(24px) 높이의 별도 행 중앙에 배치한다. dot은 24px 클릭 영역,
+  gap 0, 기본 4px 원/선택 12×4px pill을 사용한다. 작은 보조 컨트롤의 터치 영역 예외다.
+- 티켓 카드는 상단과 좌우를 여백 없이 채우는 대표 이미지, 시간·제목·소개, dashed stub을 따른다.
+  이미지는 desktop/tablet 9rem, mobile 8rem 높이이며 이미지 위에는 텍스트를 겹치지 않는다.
+  날짜는 hero 제목 위 eyebrow 옆에 `9월 27일 일요일` 형식의 보조색 caption으로 한 번만 표시한다.
+  좁은 폭에서는 eyebrow와 날짜 단위로 줄바꿈한다. 카드 본문은 시간·제목·소개 순서로 표시하며
+  카드와 TODAY’S PLAN에는 날짜를 반복하지 않고 유형 badge도 생략한다. stub에는
+  좌우 원형 notch와 잔여 자리 수를 표시하고, active 티켓은 stub surface만 mint로 강조한다.
+- `TODAY'S PLAN`은 검은 카드가 아니라 흰 바탕의 왼쪽 border rail 안에서 동작하는 수직 wheel이다. 가운데
+  active row만 mint surface로 강조하고 위아래 일정은 같은 목록 안에서 희미하게 보이며, 한 항목뿐이면 중앙에
+  하나만 둔다.
+- 카드 rail과 `TODAY'S PLAN`은 하나의 carousel state를 공유한다. 자동 전환은 5초 기준이며 hover, focus,
+  tab 비활성화, 사용자의 일시정지 토글, `prefers-reduced-motion: reduce`에서는 멈춘다. 이전/다음·dot 조작은
+  active index를 바꾸고 사용자가 재생을 다시 누르기 전까지 자동 전환을 재개하지 않는다. keyboard focus로 모든
+  조작 버튼에 접근할 수 있고 mobile swipe도 같은 active index만 바꾼다.
+- 오늘 같이해요 hero는 production runtime에서 mock 데이터를 만들지 않는다. `date`는 서울 기준
+  `YYYY-MM-DD`, `groups`는 오늘 예정된 ACTIVE SESSION 목록을 받으며, 표시 정보는 목록 API에 존재하는
+  이름, 소개, 대표 이미지, 세션 시간, 모집 인원만 사용한다. 장소처럼 목록 응답에 없는 정보는 추정해 쓰지 않는다.
+- 탐색 페이지의 discovery는 hero 아래에서 두 영역으로 분리한다. 먼저 같이해요 전용 탐색을 보여 발견성을
+  높이고, 그 아래에 기존 스터디·동아리 탐색을 별도 heading, 설명, section surface로 구분한다. 각 영역의
+  검색·필터·더 보기 상태는 독립적으로 유지한다.
 - Shadow: 카드 hover와 modal만 `0 12px 34px rgb(29 29 31 / 10%)`; 일반 정보 그룹은 border/tonal
   surface로 깊이를 표현한다.
 - Z layers: header `20`, sticky `25`, overlay `40`, dialog `50`, toast `60`.

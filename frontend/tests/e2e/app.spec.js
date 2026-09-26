@@ -110,7 +110,7 @@ test(
     await page.goto("/my/registrations?status=PENDING");
     await expect(page).toHaveURL(/\/groups$/);
     await expect(
-      page.getByRole("heading", { name: "크루와 함께할 자리를 찾아보세요" })
+      page.getByRole("heading", { name: "오늘의 같이해요를 먼저 확인해요" })
     ).toBeVisible();
     expect(await page.evaluate((key) => sessionStorage.getItem(key), returnTargetStorageKey)).toBe(
       "/my/registrations?status=PENDING"

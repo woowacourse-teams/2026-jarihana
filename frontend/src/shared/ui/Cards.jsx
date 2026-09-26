@@ -100,7 +100,10 @@ export function GroupImage({ alt = "", className, group, ...properties }) {
 }
 
 function cardScheduleMeta(group) {
-  const frequency = scheduleFrequencyText(group);
+  const schedule = group.sessionSchedule;
+  const frequency = schedule
+    ? `${schedule.sessionDate.replaceAll("-", ".")} · ${schedule.startTime.slice(0, 5)}`
+    : scheduleFrequencyText(group);
   const recruitment = group.activeRecruitment;
   if (!recruitment) {
     return frequency;
@@ -114,6 +117,7 @@ function cardScheduleMeta(group) {
 }
 
 export function GroupCard({
+  action,
   as: LinkComponent = "a",
   group,
   href = `/groups/${group.id}`,
@@ -127,6 +131,7 @@ export function GroupCard({
     <Card
       {...destination}
       as={LinkComponent}
+      data-ph-capture-attribute-action={action}
       className={classes(
         "ui-group-card",
         mobileActivityAppearance && "ui-group-card--mobile-activity"

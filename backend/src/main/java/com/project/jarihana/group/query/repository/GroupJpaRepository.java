@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public interface GroupJpaRepository extends JpaRepository<Group, Long> {
@@ -19,6 +20,8 @@ public interface GroupJpaRepository extends JpaRepository<Group, Long> {
             from Group g
             where g.status = :status
               and (cast(:type as String) is null or g.type = :type)
+              and (cast(:excludedType as String) is null or g.type <> :excludedType)
+              and (cast(:sessionDate as LocalDate) is null or g.sessionSchedule.sessionDate = :sessionDate)
               and (
                   cast(:keyword as String) is null
                   or lower(g.name) like lower(concat('%', cast(:keyword as String), '%'))
@@ -82,6 +85,8 @@ public interface GroupJpaRepository extends JpaRepository<Group, Long> {
     Slice<Group> findPage(
             @Param("status") GroupStatus status,
             @Param("type") GroupType type,
+            @Param("excludedType") GroupType excludedType,
+            @Param("sessionDate") LocalDate sessionDate,
             @Param("keyword") String keyword,
             @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
             @Param("cursorId") Long cursorId,
