@@ -96,4 +96,4 @@ erDiagram
 | 일정 | [일정 모델](schedule.md) | 반복·세션 일정 모델 |
 | 신청 | [Registration](registration.md) | 신청 모델 |
 | 소속 | [GroupMember](groupmember.md) | 그룹 소속 모델 |
-| 피드백 | [Feedback](feedback.md) | 피드백 내용과 선택적 작성 회원 |
+| 피드백 | [Feedback](feedback.md) | 피드백 내용과 필수 작성 회원 |

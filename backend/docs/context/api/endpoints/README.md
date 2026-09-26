@@ -12,7 +12,7 @@
 
 | 분류 | Method | Endpoint | 권한 | 설명 |
 | --- | --- | --- | --- | --- |
-| 피드백 | `POST` | `/api/feedbacks` | `PUBLIC` | 피드백 작성 |
+| 피드백 | `POST` | `/api/feedbacks` | `MEMBER` | 피드백 작성 |
 | 가입 신청 | `GET` | `/api/groups/{groupId}/registrations/summary` | `LEADER` | 그룹의 미확인·처리 대기 신청 요약 조회 |
 | 가입 신청 | `PATCH` | `/api/recruitments/{recruitmentId}/registrations/read` | `LEADER` | 확인한 마지막 신청까지 읽음 처리 |
 | 가입 신청 | `GET` | `/api/recruitments/{recruitmentId}/registrations` | `LEADER` | 모집 공고 신청자 목록 조회 |

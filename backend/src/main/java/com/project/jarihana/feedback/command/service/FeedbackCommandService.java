@@ -24,11 +24,9 @@ public class FeedbackCommandService {
     private final Clock clock;
 
     @Transactional
-    public CreateFeedbackResult createFeedback(Long memberId, CreateFeedbackCommand command) {
-        Member member = memberId == null
-                ? null
-                : memberRepository.findById(memberId)
-                        .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, "회원 정보를 찾을 수 없습니다."));
+    public CreateFeedbackResult createFeedback(long memberId, CreateFeedbackCommand command) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, "회원 정보를 찾을 수 없습니다."));
         Feedback feedback = Feedback.create(command.content(), member, LocalDateTime.now(clock));
         return CreateFeedbackResult.from(feedbackRepository.save(feedback));
     }

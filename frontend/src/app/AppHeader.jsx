@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 
 import { storeReturnTarget, useAuth } from "../features/auth";
 import { FeedbackForm } from "../features/feedback/index.js";
@@ -134,6 +134,8 @@ function AuthAction({ onNavigate, status }) {
 
 export function AppHeader({ action = null, title = "" }) {
   const { login, status } = useAuth();
+  const { hash, pathname, search } = useLocation();
+  const navigate = useNavigate();
   const { success } = useToast();
   const [isMenuOpen, setMenuOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -146,6 +148,15 @@ export function AppHeader({ action = null, title = "" }) {
   };
 
   function handleFeedbackTrigger(fromMobileMenu) {
+    if (status !== "authenticated") {
+      if (status === "signup-required") {
+        navigate("/signup");
+        return;
+      }
+      storeReturnTarget(`${pathname}${search}${hash}`);
+      login();
+      return;
+    }
     focusMenuAfterFeedbackReference.current = fromMobileMenu;
     setFeedbackOpen(true);
   }

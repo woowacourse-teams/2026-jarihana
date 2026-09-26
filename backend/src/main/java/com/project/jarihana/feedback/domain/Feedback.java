@@ -36,15 +36,15 @@ public class Feedback extends BaseEntity {
     @Column(name = "content", nullable = false, length = CONTENT_MAX_LENGTH)
     private String content;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = true)
-    @JoinColumn(name = "member_id", nullable = true)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "member_id", nullable = false)
     private Member member;
 
     private Feedback(Long id, String content, Member member, LocalDateTime createdAt) {
         super(createdAt);
         this.id = id;
         this.content = validateContent(content);
-        this.member = member;
+        this.member = Objects.requireNonNull(member);
     }
 
     public static Feedback create(String content, Member member, LocalDateTime createdAt) {

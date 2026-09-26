@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { AppShell } from "../../src/app/AppShell";
 import { useAuth } from "../../src/features/auth";
@@ -22,12 +23,17 @@ jest.mock("react-router", () => ({
     </a>
   ),
   Outlet: () => null,
-  useLocation: () => ({ pathname: mockPathname })
+  useLocation: () => ({ hash: "", pathname: mockPathname, search: "" }),
+  useNavigate: () => jest.fn()
 }));
 
 jest.mock("../../src/features/auth", () => ({
   storeReturnTarget: jest.requireActual("../../src/features/auth/returnTarget").storeReturnTarget,
   useAuth: jest.fn()
+}));
+
+jest.mock("../../src/features/feedback", () => ({
+  FeedbackForm: () => <div>피드백 폼</div>
 }));
 
 jest.mock("../../src/shared/ui", () => {
@@ -52,12 +58,17 @@ jest.mock("../../src/shared/ui", () => {
 
 function renderShell(auth) {
   useAuth.mockReturnValue(auth);
+  const queryClient = new QueryClient({
+    defaultOptions: { mutations: { retry: false }, queries: { retry: false } }
+  });
   return render(
-    <ToastProvider duration={0}>
-      <AppShell>
-        <h1>현재 화면</h1>
-      </AppShell>
-    </ToastProvider>
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider duration={0}>
+        <AppShell>
+          <h1>현재 화면</h1>
+        </AppShell>
+      </ToastProvider>
+    </QueryClientProvider>
   );
 }
 
@@ -76,6 +87,61 @@ it("starts GitHub login from the anonymous header action", () => {
 
   // Then
   expect(login).toHaveBeenCalledTimes(1);
+});
+
+it("requires login before opening feedback from the header", () => {
+  // Given
+  const login = jest.fn();
+  renderShell({ login, logout: jest.fn(), status: "anonymous" });
+
+  // When
+  fireEvent.click(
+    within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole("button", {
+      name: "피드백 남기기"
+    })
+  );
+
+  // Then
+  expect(login).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole("dialog", { name: "피드백 남기기" })).not.toBeInTheDocument();
+  expect(sessionStorage.getItem("jarihana:auth:return-target")).toBe("/groups");
+});
+
+it("requires login before opening feedback from the mobile menu", () => {
+  // Given
+  const login = jest.fn();
+  renderShell({ login, logout: jest.fn(), status: "anonymous" });
+
+  // When
+  fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
+  fireEvent.click(
+    within(screen.getByRole("navigation", { name: "모바일 메뉴" })).getByRole("button", {
+      name: "피드백 남기기"
+    })
+  );
+
+  // Then
+  expect(login).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole("dialog", { name: "피드백 남기기" })).not.toBeInTheDocument();
+  expect(sessionStorage.getItem("jarihana:auth:return-target")).toBe("/groups");
+});
+
+it("requires login before opening feedback from the footer", () => {
+  // Given
+  const login = jest.fn();
+  renderShell({ login, logout: jest.fn(), status: "anonymous" });
+
+  // When
+  fireEvent.click(
+    within(screen.getByRole("region", { name: "Contact us" })).getByRole("button", {
+      name: "피드백 남기기"
+    })
+  );
+
+  // Then
+  expect(login).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole("dialog", { name: "피드백 남기기" })).not.toBeInTheDocument();
+  expect(sessionStorage.getItem("jarihana:auth:return-target")).toBe("/groups");
 });
 
 it.each([["모임 만들기", "/groups/new"]])(
