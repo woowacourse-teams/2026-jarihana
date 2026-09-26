@@ -8,6 +8,7 @@
 }
 
 html {
+    background: var(--color-nav);
     scroll-padding-top: var(--header-height);
     color: var(--color-ink);
     font-family: var(--font-sans);
@@ -16,7 +17,7 @@ html {
 
 body {
     margin: 0;
-    background: var(--color-canvas);
+    background: var(--color-nav);
 }
 
 button,

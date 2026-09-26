@@ -48,7 +48,7 @@
 | `--color-surface-sunken`| `#f4f5f7`       | 카드 안쪽의 낮은 깊이 surface               |
 | `--color-section-soft` | `#fcfcfc`        | 탐색 결과 section을 hero와 분리하는 surface |
 | `--color-canvas`       | `#ffffff`        | 앱 배경                                    |
-| `--color-nav`          | `#000000`        | global header                              |
+| `--color-nav`          | `#000000`        | header, footer, 문서 바깥 스크롤 배경       |
 | `--color-danger`       | `#c7352a`        | 오류/파괴 액션, AA 대비용 파생 token       |
 | `--color-danger-soft`  | `#fff0ee`        | 오류 배경                                  |
 | `--color-success`      | `#247a45`        | 성공 상태, AA 대비용 파생 token            |
@@ -113,6 +113,9 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   geometry를 token화한다. 모든 화면에서 `position: sticky`와 `top: 0`으로 상단에 유지하며,
   문서 흐름에 헤더 공간을 남겨 본문 시작을 가리지 않는다. 루트 scroll padding은
   `--header-height`를 사용해 앵커 이동과 키보드 포커스가 헤더 아래에 보이도록 한다.
+- 문서의 `html`과 `body` 배경은 `--color-nav`로 맞춰 macOS의 탄성 스크롤에서
+  헤더·푸터 바깥에 흰색이 드러나지 않게 한다. 본문은 `.app-shell`의 밝은 surface를 사용하며
+  브라우저의 기본 스크롤 동작은 유지한다.
 - 탐색 랜딩(`/`)과 호환 진입점(`/groups`)의 hero는 header 아래
   `calc(100dvh - --header-height)` 높이로 첫 화면을 채우고, 설명 문구 아래의 `자리 둘러보기` 화살표 CTA가
   검색·필터가 가려지지 않도록 discovery section의 `자리 둘러보기` 제목으로 부드럽게 이동시킨다. `/groups`는 기존 링크와 북마크를 보존하는 동일
