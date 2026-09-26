@@ -110,7 +110,9 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - Touch: `--touch-target`은 44px, `--touch-target-lg`는 48px이다. 일반 button, navigation,
   filter, form control은 이 최소 높이를 공유하며, 텍스트형 CTA는 문구 리듬을 위해 예외로 둔다.
 - Header: `--header-height` 72px, active line 3px, loading auth placeholder 108px로
-  geometry를 token화한다.
+  geometry를 token화한다. 모든 화면에서 `position: sticky`와 `top: 0`으로 상단에 유지하며,
+  문서 흐름에 헤더 공간을 남겨 본문 시작을 가리지 않는다. 루트 scroll padding은
+  `--header-height`를 사용해 앵커 이동과 키보드 포커스가 헤더 아래에 보이도록 한다.
 - 탐색 랜딩(`/`)과 호환 진입점(`/groups`)의 hero는 header 아래
   `calc(100dvh - --header-height)` 높이로 첫 화면을 채우고, 설명 문구 아래의 `자리 둘러보기` 화살표 CTA가
   검색·필터가 가려지지 않도록 discovery section의 `자리 둘러보기` 제목으로 부드럽게 이동시킨다. `/groups`는 기존 링크와 북마크를 보존하는 동일
@@ -196,9 +198,9 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   URL route는 detail에 남긴다.
 - desktop 모집 rail은 내용의 자연 높이를 유지하고 내부 스크롤을 만들지 않는다. rail의 실제
   높이를 `ResizeObserver`로 측정해 `--group-rail-height`에 반영한다. sticky 상단 위치는
-  `--space-5`와 `100dvh - rail 높이 - --space-4 - safe area` 중 작은 값으로 정한다.
-  카드가 창보다 높아도 페이지 스크롤로 신청 action까지 도달할 수 있으며, 모집 일정 펼치기나
-  글꼴·화면 크기 변경에도 위치를 다시 맞춘다. 스크롤과 함께 사라지는 header 높이는 차감하지 않는다.
+  `--header-height + --space-5`와 `100dvh - rail 높이 - --space-4 - safe area` 중 작은 값으로 정한다.
+  짧은 카드는 고정 헤더 아래에 유지하고, 카드가 창보다 높으면 페이지 스크롤로 상단을 넘겨
+  신청 action까지 도달할 수 있다. 모집 일정 펼치기나 글꼴·화면 크기 변경에도 위치를 다시 맞춘다.
   가로 `89.9375rem` 이하에서는 기존 `자리 확인` 버튼과 모집 정보 모달을 사용한다.
   세로 viewport 높이나 DPI, devicePixelRatio는 전환 조건으로 사용하지 않는다.
 - 모집 정보 플로팅 버튼은 텍스트 없이 기존 `jarihana-favicon.png` 의자 로고만 담은 원형 버튼으로
@@ -406,7 +408,7 @@ default/hover/active/focus/selected 상태를 제공한다.
   문서 흐름을 밀지 않는 overlay popover로 두고, 열릴 때 opacity + 4px translate만 180ms로
   전환한다. 날짜 범위와 빠른 선택 결과는 즉시 갱신하며 전환 중에도 입력을 막지 않는다.
 - `HeroScrollButton`은 카드 수나 화면 높이에 관계없이 목록의 `자리 둘러보기` 제목에 맞춰
-  smooth scroll한다. 제목 위의 화면 여백은 `--space-4`(16px)이며, 제목 아래 검색·필터를
+  smooth scroll한다. 고정 헤더 아래에서 제목까지의 여백은 `--space-4`(16px)이며, 제목 아래 검색·필터를
   먼저 보여준다. 카드가 없는 상태에서도 같은 기준을 유지한다.
   `ScrollToTopButton`은
   viewport 우측 하단에 fixed로 유지되어 페이지 최상단으로 smooth scroll한다. 두 동작 모두
