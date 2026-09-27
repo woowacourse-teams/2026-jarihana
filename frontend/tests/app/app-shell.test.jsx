@@ -106,92 +106,50 @@ it("keeps an incomplete signup session on the signup flow", () => {
   expect(screen.getByRole("link", { name: "가입 계속하기" })).toHaveAttribute("href", "/signup");
 });
 
-it("opens the account actions and logs out an authenticated member", () => {
+it("logs out directly from the authenticated header", () => {
   const logout = jest.fn();
   renderShell({ login: jest.fn(), logout, member: { crewName: "자리" }, status: "authenticated" });
-  expect(screen.queryByRole("button", { name: "로그아웃" })).not.toBeInTheDocument();
 
-  fireEvent.click(screen.getAllByRole("button", { name: "자리 계정 메뉴" })[0]);
-  const menu = screen.getByRole("navigation", { name: "계정 메뉴" });
-  expect(within(menu).getByRole("link", { name: "마이페이지" })).toHaveAttribute("href", "/my");
-  fireEvent.click(within(menu).getByRole("button", { name: "로그아웃" }));
+  fireEvent.click(screen.getByRole("button", { name: "로그아웃" }));
 
   expect(logout).toHaveBeenCalledTimes(1);
-  expect(screen.queryByRole("navigation", { name: "계정 메뉴" })).not.toBeInTheDocument();
 });
 
-it("shows the signed-in photo and nickname on desktop and mobile account buttons", () => {
+it("links signed-in photos to my page without a nickname or account menu", () => {
   const avatarUrl = "https://avatars.githubusercontent.com/u/123";
   renderShell({ avatarUrl, member: { crewName: "에덴" }, status: "authenticated" });
 
-  for (const profile of screen.getAllByRole("button", { name: "에덴 계정 메뉴" })) {
+  for (const profile of screen.getAllByRole("link", { name: "마이페이지" })) {
     expect(profile.querySelector("img")).toHaveAttribute("src", avatarUrl);
-    expect(profile).toHaveTextContent("에덴");
-    expect(profile).toHaveAttribute("aria-expanded", "false");
-    expect(profile).toHaveAttribute("data-ph-capture-attribute-action", "profile_menu_toggle");
+    expect(profile).toHaveAttribute("href", "/my");
+    expect(profile).toHaveAttribute("data-ph-capture-attribute-action", "my_page_view");
+    expect(profile).not.toHaveTextContent("에덴");
+    expect(profile).not.toHaveAttribute("aria-expanded");
   }
+  expect(screen.queryByRole("navigation", { name: "계정 메뉴" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "GitHub로 로그인" })).not.toBeInTheDocument();
 });
 
-it("uses the member avatar and keeps the nickname when the photo fails", () => {
+it("uses the member avatar and falls back to the first nickname letter when the photo fails", () => {
   const avatarUrl = "https://avatars.githubusercontent.com/u/456";
   renderShell({ member: { avatarUrl, crewName: "자리" }, status: "authenticated" });
 
-  for (const profile of screen.getAllByRole("button", { name: "자리 계정 메뉴" })) {
+  for (const profile of screen.getAllByRole("link", { name: "마이페이지" })) {
     const image = profile.querySelector("img");
     expect(image).toHaveAttribute("src", avatarUrl);
     fireEvent.error(image);
     expect(profile.querySelector("img")).toBeNull();
-    expect(profile).toHaveTextContent("자자리");
+    expect(profile).toHaveTextContent(/^자$/);
   }
 });
 
-it("opens on hover, keeps the pointer path to the menu open, and closes on leave", () => {
-  renderShell({ member: { crewName: "자리" }, status: "authenticated" });
-  const trigger = screen.getAllByRole("button", { name: "자리 계정 메뉴" })[0];
-  const container = trigger.parentElement;
-  const enter = new Event("pointerover", { bubbles: true });
-  Object.defineProperty(enter, "pointerType", { value: "mouse" });
-  fireEvent(container, enter);
-
-  const menu = screen.getByRole("navigation", { name: "계정 메뉴" });
-  expect(trigger).toHaveAttribute("aria-expanded", "true");
-  expect(trigger).toHaveAttribute("aria-controls", menu.id);
-  fireEvent(trigger, new MouseEvent("pointerout", { bubbles: true, relatedTarget: menu }));
-  expect(menu).toBeInTheDocument();
-  fireEvent(container, new MouseEvent("pointerout", { bubbles: true, relatedTarget: document.body }));
-  expect(screen.queryByRole("navigation", { name: "계정 메뉴" })).not.toBeInTheDocument();
-});
-
-it("dismisses on Escape, outside press, and focus leaving the account actions", () => {
-  renderShell({ member: { crewName: "자리" }, status: "authenticated" });
-  const trigger = screen.getAllByRole("button", { name: "자리 계정 메뉴" })[0];
-  fireEvent.click(trigger);
-  screen.getByRole("link", { name: "마이페이지" }).focus();
-  fireEvent.keyDown(document, { key: "Escape" });
-  expect(trigger).toHaveFocus();
-  expect(trigger).toHaveAttribute("aria-expanded", "false");
-
-  fireEvent.click(trigger);
-  fireEvent.pointerDown(document.body);
-  expect(trigger).toHaveAttribute("aria-expanded", "false");
-
-  fireEvent.click(trigger);
-  fireEvent.blur(trigger, { relatedTarget: screen.getByRole("button", { name: "메뉴 열기" }) });
-  expect(trigger).toHaveAttribute("aria-expanded", "false");
-});
-
-it("supports tapping the mobile account button and closes when selecting my page", () => {
+it("marks profile links as current on my page routes", () => {
   mockPathname = "/my/groups";
   renderShell({ member: { crewName: "자리" }, status: "authenticated" });
-  const trigger = screen.getAllByRole("button", { name: "자리 계정 메뉴" })[1];
-  expect(trigger.querySelector("img")).toBeNull();
-  fireEvent.click(trigger);
-  const profile = screen.getByRole("link", { name: "마이페이지" });
-  expect(profile).toHaveAttribute("aria-current", "page");
-  expect(profile).toHaveAttribute("data-ph-capture-attribute-action", "my_page_view");
-  fireEvent.click(profile);
-  expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+  for (const profile of screen.getAllByRole("link", { name: "마이페이지" })) {
+    expect(profile).toHaveAttribute("aria-current", "page");
+  }
 });
 
 it("closes the mobile drawer when selecting my page", () => {

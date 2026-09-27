@@ -2,8 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router";
 
 import { storeReturnTarget, useAuth } from "../features/auth";
-import { Drawer } from "../shared/ui";
-import { ProfileMenu } from "./ProfileMenu";
+import { Avatar, Drawer } from "../shared/ui";
 import githubMark from "../shared/assets/brand/github-mark.svg";
 import logoMark from "../shared/assets/brand/jarihana-favicon.png";
 
@@ -52,19 +51,29 @@ function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, st
   });
 }
 
-function MyPageLink({ onNavigate }) {
+function MyPageLink({ onNavigate, showAvatar = false }) {
+  const { avatarUrl, member } = useAuth();
   const { pathname } = useLocation();
   const isActive = ["/my", "/my/groups", "/my/registrations"].includes(pathname);
 
   return (
     <Link
       aria-current={isActive ? "page" : undefined}
-      className="app-header__link"
+      aria-label="마이페이지"
+      className={showAvatar ? "app-header__profile" : "app-header__link"}
       data-ph-capture-attribute-action="my_page_view"
       onClick={onNavigate}
       to="/my"
     >
-      마이페이지
+      {showAvatar ? (
+        <Avatar
+          alt=""
+          className="app-header__avatar"
+          fallback={member?.crewName?.slice(0, 1) || "?"}
+          size="sm"
+          src={avatarUrl ?? member?.avatarUrl}
+        />
+      ) : "마이페이지"}
     </Link>
   );
 }
@@ -153,15 +162,12 @@ export function AppHeader({ action = null, title = "" }) {
           <div className="app-header__desktop-action">
             {title ? <span className="app-header__context">{title}</span> : null}
             {action}
-            {status === "authenticated" ? (
-              <ProfileMenu />
-            ) : (
-              <AuthAction onNavigate={() => {}} status={status} />
-            )}
+            {status === "authenticated" ? <MyPageLink onNavigate={() => {}} showAvatar /> : null}
+            <AuthAction onNavigate={() => {}} status={status} />
           </div>
 
           <div className="app-header__mobile-action">
-            {status === "authenticated" ? <ProfileMenu /> : null}
+            {status === "authenticated" ? <MyPageLink onNavigate={closeMenu} showAvatar /> : null}
             <button
               aria-expanded={isMenuOpen}
               aria-label="메뉴 열기"

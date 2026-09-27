@@ -213,85 +213,23 @@
     height: var(--space-5);
 }
 
-.app-header__profile-menu {
-    position: relative;
-    min-width: 0;
-}
-
 .app-header__profile {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-3);
-    max-width: 100%;
+    justify-content: center;
+    min-width: var(--touch-target);
     min-height: var(--touch-target);
-    padding: var(--space-1) 0;
-    border: 0;
-    border-radius: var(--radius-sm);
-    background: transparent;
+    border-radius: var(--radius-pill);
     color: inherit;
-    font: inherit;
-    font-size: var(--text-brand);
-    font-weight: var(--font-weight-bold);
-    cursor: pointer;
-}
-
-.app-header__profile:hover,
-.app-header__profile[aria-expanded="true"] {
-    color: var(--color-header-muted);
+    text-decoration: none;
 }
 
 .app-header__avatar {
     flex: none;
-    width: var(--space-12);
-    height: var(--space-12);
+    width: var(--space-10);
+    height: var(--space-10);
     background: var(--color-surface-sunken);
     color: var(--color-ink);
-}
-
-.app-header__nickname {
-    max-width: 20ch;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.app-header__profile-popover {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    min-width: max(100%, calc(var(--space-16) * 3));
-    padding-top: var(--space-2);
-}
-
-.app-header__profile-options {
-    display: grid;
-    padding: var(--space-1);
-    border: var(--border-thin) solid var(--color-line);
-    border-radius: var(--radius-md);
-    background: var(--color-surface);
-    box-shadow: var(--shadow-float);
-}
-
-.app-header__profile-option {
-    display: flex;
-    align-items: center;
-    min-height: var(--touch-target);
-    padding: var(--space-2) var(--space-3);
-    border: 0;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--color-ink);
-    font: inherit;
-    font-size: var(--text-body);
-    text-align: left;
-    text-decoration: none;
-    white-space: nowrap;
-    cursor: pointer;
-}
-
-.app-header__profile-option:hover,
-.app-header__profile-option:focus-visible {
-    background: var(--color-surface-sunken);
 }
 
 .app-header__mobile-action {
@@ -553,17 +491,9 @@
         gap: var(--space-3);
     }
 
-    .app-header__profile {
-        font-size: var(--text-h3);
-    }
-
     .app-header__avatar {
-        width: var(--space-10);
-        height: var(--space-10);
-    }
-
-    .app-header__nickname {
-        max-width: 8ch;
+        width: var(--space-8);
+        height: var(--space-8);
     }
 
     .app-header__menu-button {
