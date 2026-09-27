@@ -162,17 +162,26 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   member tabs는 노출하지 않는다. 모바일 drawer에서는 탐색·모임 만들기 진입점을 유지하고, guard가
   인증이 필요한 destination을 처리한다. anonymous가 보호 메뉴를 누르면 해당 경로를 로그인 후
   복귀 대상으로 저장하고 GitHub 로그인으로 이동한다. authenticated 상태에만
-  프로필 사진 link와 logout action을 더한다. 프로필은 공통 `Avatar`로 서버의 `avatarUrl`을 표시하고,
-  사진이 없거나 로드에 실패하면 크루 이름 첫 글자로 대체한다. desktop과 모바일 헤더에 항상
-  표시하며 `/my`로 이동한다. drawer에서는 사진 옆에 `마이페이지` 문구를 함께 표시한다.
+  프로필 사진과 오른쪽 닉네임(`member.crewName`)을 하나의 계정 메뉴 버튼으로 표시한다.
+  프로필은 공통 `Avatar`로 서버의 `avatarUrl`을 표시하고, 사진이 없거나 로드에 실패하면
+  크루 이름 첫 글자로 대체한다. desktop과 모바일 모두 같은 버튼을 사용한다.
 - Header GitHub login: [Octicons GitHub mark](https://github.com/primer/octicons/blob/main/icons/mark-github-16.svg)를 `--space-5` 크기로 문구 왼쪽에 둔다.
   흰색 `--color-surface` 바탕, `--color-ink` 글자, `--color-line` 테두리와 기존 버튼의 `--radius-pill` 모서리를
   사용한다. hover는 `--color-surface-sunken`, pressed는 `--color-line`으로 구분한다.
   최소 높이는 `--touch-target`이며, 로고와 문구 간격은 `--space-2`다.
-- Header profile: 원형 사진은 `--space-10`, link는 최소 `--touch-target` 크기로 유지한다.
-  기본 테두리는 `--color-header-line`, hover와 현재 마이페이지는 흰 테두리로 구분한다.
-  이름 대체 표면은 `--color-surface-sunken`과 `--color-ink`를 사용한다. 모든 인증 control은
-  기존 전역 keyboard focus ring을 유지한다.
+- Header profile menu: 원형 사진은 desktop `--space-12`(48px), 모바일 `--space-10`(40px)이다.
+  버튼은 최소 `--touch-target` 크기이며 사진 오른쪽 `--space-3`(12px) 간격으로 흰색 닉네임을
+  표시한다. 닉네임은 desktop `--text-brand`(22px), 모바일 `--text-h3`(18px)로 사진과의 비율을 맞춘다. 첨부 레퍼런스의 사진·닉네임
+  배치를 기존 검은 헤더에 적용하며, 별도 실명 필드는 추가하지 않는다. 긴 닉네임은 desktop
+  20ch, 모바일 8ch 안에서 말줄임하고 버튼의 접근성 이름과 title에는 전체 닉네임을 유지한다.
+  이름 대체 표면은 `--color-surface-sunken`과 `--color-ink`를 사용한다.
+  hover 또는 클릭·터치·Enter/Space로 열리는 disclosure에는 `마이페이지` link와 `로그아웃`
+  버튼을 둔다. 트리거부터 메뉴까지 연속된 hover 영역을 유지하고 Tab으로 항목을 탐색한다.
+  포인터·포커스 이탈, 바깥 클릭, Escape, 항목 선택으로 닫는다. Escape는 메뉴 안에 있던
+  키보드 포커스를 트리거로 돌린다. `aria-expanded`와 `aria-controls`로 펼침 상태를 알린다.
+  흰색 메뉴는 `--color-line` 테두리, `--radius-md`, `--shadow-float`를 사용한다.
+  메뉴 항목은 최소 `--touch-target`이며 hover는 `--color-surface-sunken`으로 구분한다.
+  불필요한 등장 애니메이션 없이 열리며 기존 전역 keyboard focus ring을 유지한다.
 - Header active state는 모바일 drawer의 pathname 목적지에만 연결한다. `/groups/new`에서 상위
   `/groups` 탐색 링크를 동시에 활성화하거나, `/my/groups`에서 `/my`를 동시에 활성화하지 않는다.
 - `PageContainer`: 모든 route의 좌우 gutter와 최대 폭을 통일한다.
