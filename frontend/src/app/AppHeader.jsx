@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router";
 
 import { storeReturnTarget, useAuth } from "../features/auth";
-import { Drawer } from "../shared/ui";
+import { Avatar, Drawer } from "../shared/ui";
+import githubMark from "../shared/assets/brand/github-mark.svg";
 import logoMark from "../shared/assets/brand/jarihana-favicon.png";
 
 const MEMBER_LINKS = [
@@ -50,7 +51,8 @@ function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, st
   });
 }
 
-function MyPageLink({ onNavigate }) {
+function MyPageLink({ onNavigate, showLabel = false }) {
+  const { avatarUrl, member } = useAuth();
   const { pathname } = useLocation();
   const isActive =
     pathname === "/my" || pathname === "/my/groups" || pathname === "/my/registrations";
@@ -58,11 +60,23 @@ function MyPageLink({ onNavigate }) {
   return (
     <Link
       aria-current={isActive ? "page" : undefined}
-      className={isActive ? "app-header__link app-header__link--active" : "app-header__link"}
+      aria-label="마이페이지"
+      className={
+        showLabel ? "app-header__profile app-header__profile--labelled" : "app-header__profile"
+      }
+      data-ph-capture-attribute-action="my_page_view"
       onClick={onNavigate}
+      title="마이페이지"
       to="/my"
     >
-      마이페이지
+      <Avatar
+        alt=""
+        className="app-header__avatar"
+        fallback={member?.crewName?.slice(0, 1) || "?"}
+        size="sm"
+        src={avatarUrl ?? member?.avatarUrl}
+      />
+      {showLabel ? <span>마이페이지</span> : null}
     </Link>
   );
 }
@@ -74,6 +88,7 @@ function AuthAction({ onNavigate, status }) {
     return (
       <button
         className="app-header__auth app-header__auth--secondary"
+        data-ph-capture-attribute-action="logout"
         onClick={() => {
           onNavigate();
           void logout();
@@ -93,7 +108,12 @@ function AuthAction({ onNavigate, status }) {
 
   if (status === "signup-required") {
     return (
-      <Link className="app-header__auth" onClick={onNavigate} to="/signup">
+      <Link
+        className="app-header__auth"
+        data-ph-capture-attribute-action="signup_continue"
+        onClick={onNavigate}
+        to="/signup"
+      >
         가입 계속하기
       </Link>
     );
@@ -101,13 +121,15 @@ function AuthAction({ onNavigate, status }) {
 
   return (
     <button
-      className="app-header__auth"
+      className="app-header__auth app-header__auth--github"
+      data-ph-capture-attribute-action="login"
       onClick={() => {
         onNavigate();
         login();
       }}
       type="button"
     >
+      <img alt="" aria-hidden="true" className="app-header__github-mark" src={githubMark} />
       GitHub로 로그인
     </button>
   );
@@ -147,15 +169,19 @@ export function AppHeader({ action = null, title = "" }) {
             <AuthAction onNavigate={() => {}} status={status} />
           </div>
 
-          <button
-            aria-expanded={isMenuOpen}
-            aria-label="메뉴 열기"
-            className="app-header__menu-button"
-            onClick={() => setMenuOpen(true)}
-            type="button"
-          >
-            <span aria-hidden="true" className="app-header__menu-lines" />
-          </button>
+          <div className="app-header__mobile-action">
+            {status === "authenticated" ? <MyPageLink onNavigate={closeMenu} /> : null}
+            <button
+              aria-expanded={isMenuOpen}
+              aria-label="메뉴 열기"
+              className="app-header__menu-button"
+              data-ph-capture-attribute-action="header_menu_open"
+              onClick={() => setMenuOpen(true)}
+              type="button"
+            >
+              <span aria-hidden="true" className="app-header__menu-lines" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -167,7 +193,7 @@ export function AppHeader({ action = null, title = "" }) {
             onProtectedNavigate={redirectToLogin}
             status={status}
           />
-          {status === "authenticated" ? <MyPageLink onNavigate={closeMenu} /> : null}
+          {status === "authenticated" ? <MyPageLink onNavigate={closeMenu} showLabel /> : null}
           {action}
           <AuthAction onNavigate={closeMenu} status={status} />
         </nav>

@@ -192,6 +192,76 @@
     text-decoration: none;
 }
 
+.app-header__auth--github {
+    gap: var(--space-2);
+    border: var(--border-thin) solid var(--color-line);
+    background: var(--color-surface);
+    white-space: nowrap;
+}
+
+.app-header__auth--github:hover {
+    background: var(--color-surface-sunken);
+}
+
+.app-header__auth--github:active {
+    background: var(--color-line);
+}
+
+.app-header__github-mark {
+    flex: none;
+    width: var(--space-5);
+    height: var(--space-5);
+}
+
+.app-header__profile {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    border: var(--border-thin) solid var(--color-header-line);
+    border-radius: var(--radius-pill);
+    color: inherit;
+    text-decoration: none;
+}
+
+.app-header__profile:hover,
+.app-header__profile[aria-current="page"] {
+    border-color: var(--color-surface);
+}
+
+.app-header__avatar {
+    width: var(--space-10);
+    height: var(--space-10);
+    background: var(--color-surface-sunken);
+    color: var(--color-ink);
+}
+
+.app-header__profile--labelled {
+    justify-self: start;
+    border-color: transparent;
+    border-radius: var(--radius-sm);
+    color: var(--color-ink);
+    font-size: var(--text-body-lg);
+    font-weight: var(--font-weight-semibold);
+}
+
+.app-header__profile--labelled:hover,
+.app-header__profile--labelled[aria-current="page"] {
+    border-color: transparent;
+    text-decoration: underline;
+    text-underline-offset: var(--space-1);
+}
+
+.app-header__mobile-action {
+    display: none;
+    align-items: center;
+    gap: var(--space-3);
+    margin-left: auto;
+}
+
 .app-header__auth--secondary {
     border: var(--border-thin) solid var(--color-header-line);
     background: transparent;
@@ -444,6 +514,7 @@
         display: none;
     }
 
+    .app-header__mobile-action,
     .app-header__menu-button {
         display: inline-flex;
     }
@@ -534,8 +605,10 @@
 @media (prefers-reduced-motion: no-preference) {
     .skip-link,
     .app-header__link,
-    .app-header__auth {
-        transition: color var(--duration-fast) var(--ease-standard),
+    .app-header__auth,
+    .app-header__profile {
+        transition: border-color var(--duration-fast) var(--ease-standard),
+        color var(--duration-fast) var(--ease-standard),
         background-color var(--duration-fast) var(--ease-standard),
         transform var(--duration-fast) var(--ease-standard);
     }

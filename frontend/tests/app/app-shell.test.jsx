@@ -33,6 +33,7 @@ jest.mock("../../src/features/auth", () => ({
 jest.mock("../../src/shared/ui", () => {
   const { useToast } = jest.requireActual("../../src/shared/ui/Toast.jsx");
   return {
+    Avatar: jest.requireActual("../../src/shared/ui/Cards.jsx").Avatar,
     Drawer: ({ children, onClose, open, title }) =>
       open ? (
         <div aria-label={title} role="dialog">
@@ -117,6 +118,47 @@ it("shows member navigation and logs out an authenticated member", () => {
   expect(
     within(screen.getByRole("navigation", { name: "주요 메뉴" })).queryAllByRole("link")
   ).toHaveLength(0);
-  expect(screen.getByRole("link", { name: "마이페이지" })).toHaveAttribute("href", "/my");
+  for (const profile of screen.getAllByRole("link", { name: "마이페이지" })) {
+    expect(profile).toHaveAttribute("href", "/my");
+  }
   expect(logout).toHaveBeenCalledTimes(1);
+});
+
+it("shows the signed-in profile image on desktop and mobile header links", () => {
+  const avatarUrl = "https://avatars.githubusercontent.com/u/123";
+  renderShell({ avatarUrl, member: { crewName: "자리" }, status: "authenticated" });
+
+  for (const profile of screen.getAllByRole("link", { name: "마이페이지" })) {
+    expect(profile.querySelector("img")).toHaveAttribute("src", avatarUrl);
+    expect(profile).toHaveAttribute("data-ph-capture-attribute-action", "my_page_view");
+  }
+  expect(screen.queryByRole("button", { name: "GitHub로 로그인" })).not.toBeInTheDocument();
+});
+
+it("uses the member avatar and falls back to their initial if the image fails", () => {
+  const avatarUrl = "https://avatars.githubusercontent.com/u/456";
+  renderShell({ member: { avatarUrl, crewName: "자리" }, status: "authenticated" });
+
+  for (const profile of screen.getAllByRole("link", { name: "마이페이지" })) {
+    const image = profile.querySelector("img");
+    expect(image).toHaveAttribute("src", avatarUrl);
+    fireEvent.error(image);
+    expect(profile.querySelector("img")).toBeNull();
+    expect(profile).toHaveTextContent("자");
+    expect(profile).toHaveAttribute("href", "/my");
+  }
+});
+
+it("keeps a usable profile link without an avatar and closes the mobile drawer on navigation", () => {
+  renderShell({ member: { crewName: "자리" }, status: "authenticated" });
+  mockPathname = "/my/groups";
+  fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
+  const menu = screen.getByRole("navigation", { name: "모바일 메뉴" });
+  const profile = within(menu).getByRole("link", { name: "마이페이지" });
+
+  expect(profile.querySelector("img")).toBeNull();
+  expect(profile).toHaveTextContent("자");
+  expect(profile).toHaveAttribute("aria-current", "page");
+  fireEvent.click(profile);
+  expect(screen.queryByRole("dialog", { name: "전체 메뉴" })).not.toBeInTheDocument();
 });
