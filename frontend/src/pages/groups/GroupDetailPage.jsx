@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChevronLeft, Pencil } from "lucide-react";
+import { ChevronLeft, Settings } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { useAuth } from "../../features/auth/index.js";
@@ -223,10 +223,11 @@ export function GroupDetailPage() {
               <Link
                 aria-label="모임 수정"
                 className="group-profile__edit ui-button ui-icon-button"
+                data-ph-capture-attribute-action="group_edit"
                 title="모임 수정"
                 to={`/groups/${groupId}/manage`}
               >
-                <Pencil aria-hidden="true" size={20} strokeWidth={2.25} />
+                <Settings aria-hidden="true" size={20} strokeWidth={2.25} />
               </Link>
             ) : null}
           </section>
