@@ -514,9 +514,9 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
                 .isEqualTo(ErrorCode.GROUP_NOT_FOUND);
     }
 
-    @DisplayName("생성 후 24시간이 지난 그룹을 종료하고 열린 모집과 대기 신청을 정리한다.")
+    @DisplayName("생성 후 24시간이 지난 그룹을 종료하고 마감되지 않은 모집과 대기 신청을 정리한다.")
     @Test
-    void terminateGroupClosesOpenRecruitmentsAndRejectsPendingRegistrations() {
+    void terminateGroupClosesUnclosedRecruitmentsAndRejectsPendingRegistrations() {
         Member leader = saveMember("github-terminate-leader");
         Member applicant = memberRepository.save(Member.create("누리", 9, "github-terminate-applicant", Course.BACKEND));
         LocalDateTime createdAt = TestSupportConfig.FIXED_NOW.minusHours(24).minusMinutes(1);
@@ -530,6 +530,9 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
         group = groupCommandRepository.findById(group.getId()).orElseThrow();
         GroupRecruitment recruitment = groupRecruitmentJpaRepository.save(GroupRecruitment.create(
                 group, JoinMethod.APPROVAL, 3, TestSupportConfig.FIXED_NOW.minusHours(1), null));
+        GroupRecruitment upcomingRecruitment = groupRecruitmentJpaRepository.save(GroupRecruitment.create(
+                group, JoinMethod.APPROVAL, 3,
+                TestSupportConfig.FIXED_NOW.plusDays(1), TestSupportConfig.FIXED_NOW.plusDays(8)));
         Registration registration = registrationJpaRepository.save(Registration.createPending(
                 recruitment, applicant, "신청", TestSupportConfig.FIXED_NOW));
 
@@ -541,6 +544,10 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
                 .isEqualTo(GroupStatus.ENDED);
         assertThat(groupRecruitmentJpaRepository.findById(recruitment.getId()).orElseThrow().getEndsAt())
                 .isEqualTo(TestSupportConfig.FIXED_NOW);
+        GroupRecruitment closedUpcomingRecruitment = groupRecruitmentJpaRepository
+                .findById(upcomingRecruitment.getId()).orElseThrow();
+        assertThat(closedUpcomingRecruitment.getStartsAt()).isEqualTo(TestSupportConfig.FIXED_NOW);
+        assertThat(closedUpcomingRecruitment.getEndsAt()).isEqualTo(TestSupportConfig.FIXED_NOW);
         assertThat(registrationJpaRepository.findById(registration.getId()).orElseThrow().getStatus())
                 .isEqualTo(RegistrationStatus.REJECTED);
     }
