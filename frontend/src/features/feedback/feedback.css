@@ -1,0 +1,41 @@
+.feedback-form {
+    display: grid;
+    gap: var(--space-3);
+}
+
+.feedback-form .feedback-form__textarea {
+    border-color: var(--color-muted-ink);
+    min-height: 16rem;
+}
+
+.feedback-form .feedback-form__textarea:focus {
+    border-color: var(--color-muted-ink);
+}
+
+.feedback-form__textarea::placeholder {
+    color: var(--color-muted);
+    opacity: 0.5;
+}
+
+.feedback-form__character-count {
+    display: block;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.feedback-form__error {
+    color: var(--color-danger);
+    font-size: var(--text-caption);
+    line-height: 1.5;
+    margin: 0;
+}
+
+.feedback-form__actions {
+    margin-top: var(--space-2);
+}
+
+@media (max-width: 47.9375rem) {
+    .feedback-form .feedback-form__textarea {
+        min-height: min(16rem, 35vh);
+    }
+}
