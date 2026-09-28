@@ -53,7 +53,9 @@ public class RecruitmentCommandController {
         CreateRecruitmentResponse response = CreateRecruitmentResponse.from(result);
         return ResponseEntity.created(LocationUri.of(
                 servletRequest,
-                "/groups/%d/recruitments/%d".formatted(response.groupId(), response.id())
+                "/groups/%d/recruitments/%d",
+                response.groupId(),
+                response.id()
         )).body(ApiResponse.success(response));
     }
 }

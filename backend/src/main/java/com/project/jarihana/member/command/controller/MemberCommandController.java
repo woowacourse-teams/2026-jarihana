@@ -22,8 +22,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/members")
 public class MemberCommandController {
 
-    private static final String MEMBER_LOCATION_PREFIX = "/members/";
-
     private final MemberCommandService memberCommandService;
     private final SignupSession signupSession;
     private final AuthCookieFactory authCookieFactory;
@@ -57,7 +55,7 @@ public class MemberCommandController {
         MemberSignupResult result = memberCommandService.signup(command);
         signupSession.invalidate(servletRequest);
 
-        return ResponseEntity.created(LocationUri.of(servletRequest, MEMBER_LOCATION_PREFIX + result.id()))
+        return ResponseEntity.created(LocationUri.of(servletRequest, "/members/%d", result.id()))
                 .header(HttpHeaders.SET_COOKIE, authCookieFactory.accessToken(result.accessToken()).toString())
                 .header(HttpHeaders.SET_COOKIE, authCookieFactory.refreshToken(result.refreshToken()).toString())
                 .body(ApiResponse.success(MemberSignupResponse.from(result)));
