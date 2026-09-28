@@ -33,7 +33,7 @@ public class GroupCommandController {
         CreateGroupResponse response = CreateGroupResponse.from(
                 groupCommandService.createGroup(memberId, request.toCommand())
         );
-        return ResponseEntity.created(LocationUri.of(servletRequest, "/groups/%d", response.id()))
+        return ResponseEntity.created(LocationUri.of(servletRequest.getContextPath(), "/groups/%d", response.id()))
                 .body(ApiResponse.success(response));
     }
 

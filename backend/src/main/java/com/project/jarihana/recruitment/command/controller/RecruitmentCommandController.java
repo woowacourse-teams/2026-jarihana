@@ -52,7 +52,7 @@ public class RecruitmentCommandController {
         );
         CreateRecruitmentResponse response = CreateRecruitmentResponse.from(result);
         return ResponseEntity.created(LocationUri.of(
-                servletRequest,
+                servletRequest.getContextPath(),
                 "/groups/%d/recruitments/%d",
                 response.groupId(),
                 response.id()
