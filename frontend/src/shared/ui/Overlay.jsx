@@ -118,6 +118,7 @@ function OverlayPanel({
       >
         <IconButton
           className="ui-dialog__close"
+          data-ph-capture-attribute-action="dialog_close"
           label={closeLabel}
           onClick={onDismiss}
           variant="tertiary"
