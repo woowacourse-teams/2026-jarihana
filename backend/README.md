@@ -116,6 +116,12 @@ docker compose -f docker-compose-local.yaml ps
 운영 프로필은 `ddl-auto: validate`이므로 애플리케이션이 이 변경을 자동으로 적용하지 않습니다.
 기존 데이터에 새 정책과 충돌하는 이름이 있으면 마이그레이션 전에 해당 데이터를 정리해야 합니다.
 
+피드백 기능을 운영에 배포하기 전에 운영 DB에서
+`db/migrations/2026-09-26-feedback.sql`을 실행해야 합니다. 피드백은 가입을 완료한
+로그인 회원만 작성할 수 있으며, 이 DDL은 회원 ID가 필수인 `feedback` 테이블을 생성합니다.
+작성 내용과 인증 회원 ID가 함께 저장됩니다. 운영 프로필은
+`ddl-auto: validate`이므로 이 DDL을 적용하지 않으면 애플리케이션이 기동하지 않습니다.
+
 ### 운영 DB SSH 터널 접속
 
 운영 Compose는 PostgreSQL 포트를 서버의 `127.0.0.1:5432`에 바인딩합니다.
