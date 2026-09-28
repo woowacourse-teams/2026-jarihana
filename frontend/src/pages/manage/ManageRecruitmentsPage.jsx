@@ -840,6 +840,7 @@ export function ManageRecruitmentsPage() {
       </Modal>
 
       <ConfirmDialog
+        closeAction="recruitment_close_confirm_dismiss"
         cancelLabel="취소"
         confirmLabel="예"
         description={
@@ -859,6 +860,7 @@ export function ManageRecruitmentsPage() {
       />
 
       <ConfirmDialog
+        closeAction="recruitment_create_discard_confirm_dismiss"
         cancelLabel="취소"
         confirmLabel="예"
         description="입력한 모집 조건은 저장되지 않아요."

@@ -257,6 +257,7 @@ export function ManageRegistrationsPage() {
       </div>
 
       <ConfirmDialog
+        closeAction="registration_approval_confirm_dismiss"
         cancelLabel="취소"
         confirmLabel="신청 승인하기"
         description="승인하면 이 지원자는 바로 모임 참여자가 돼요."
@@ -268,6 +269,7 @@ export function ManageRegistrationsPage() {
       />
 
       <Modal
+        closeAction="registration_rejection_reason_dismiss"
         description="거절 사유는 선택 사항이며 지원자의 신청 기록에 남아요."
         onClose={closeDialog}
         open={decision?.status === "REJECTED"}

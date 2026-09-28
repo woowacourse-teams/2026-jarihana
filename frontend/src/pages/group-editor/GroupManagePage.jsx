@@ -492,6 +492,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
         {group.status === "ACTIVE" ? (
           <section aria-label={`모임 ${lifecycleVerb} 설정`} className="group-editor__actions">
             <ConfirmDialog
+              closeAction={canDelete ? "group_delete_confirm_dismiss" : "group_end_confirm_dismiss"}
               trigger={
                 <Button type="button" variant="danger">
                   모임 {lifecycleVerb}하기

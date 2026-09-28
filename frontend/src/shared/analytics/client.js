@@ -9,6 +9,7 @@ const businessEvents = new Set([
   "registration_submitted",
   "registration_withdrawn",
   "registration_decided",
+  "feedback_submitted",
   "group_created",
   "recruitment_created",
   "recruitment_updated",

@@ -1,6 +1,53 @@
+import { useState } from "react";
+import { useLocation, useNavigate } from "react-router";
+
 import faviconImage from "../shared/assets/brand/jarihana-favicon.png";
+import { storeReturnTarget, useAuth } from "../features/auth";
+import {
+  FeedbackForm,
+  FeedbackLoginPrompt,
+  getFeedbackReturnTarget
+} from "../features/feedback/index.js";
+import { Button, Modal, useToast } from "../shared/ui/index.js";
 
 export function AppFooter() {
+  const { login, status } = useAuth();
+  const { hash, pathname, search } = useLocation();
+  const navigate = useNavigate();
+  const { success } = useToast();
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [loginRequiredOpen, setLoginRequiredOpen] = useState(false);
+
+  function handleFeedbackStart(event) {
+    if (status === "loading") {
+      event.preventDefault();
+      return;
+    }
+
+    if (status === "authenticated") {
+      setFeedbackOpen(true);
+      return;
+    }
+
+    event.preventDefault();
+    if (status === "signup-required") {
+      navigate("/signup");
+      return;
+    }
+    setLoginRequiredOpen(true);
+  }
+
+  function handleFeedbackLogin() {
+    storeReturnTarget(getFeedbackReturnTarget({ hash, pathname, search }));
+    setLoginRequiredOpen(false);
+    login();
+  }
+
+  function handleFeedbackSuccess() {
+    success({ title: "피드백을 보내드렸어요." });
+    setFeedbackOpen(false);
+  }
+
   return (
     <footer aria-labelledby="footer-origin-title" className="app-footer">
       <div className="app-footer__copy">
@@ -28,11 +75,37 @@ export function AppFooter() {
         <section aria-labelledby="footer-contact-title" className="app-footer__contact">
           <h2 id="footer-contact-title">Contact us</h2>
           <p>
-            <span className="app-footer__contact-intro">피드백이나 궁금한 점은</span>
+            <span className="app-footer__contact-intro">
+              자리하나를 더 편하게 만들 의견을 들려주세요.
+            </span>
             <span className="app-footer__contact-message">
-              이삭, 에덴, 파도, 요크에게 슬랙 DM 주세요!
+              로그인 후 피드백을 남길 수 있어요.
             </span>
           </p>
+          <Button
+            aria-expanded={feedbackOpen || loginRequiredOpen}
+            aria-haspopup="dialog"
+            className="app-footer__feedback-button"
+            data-ph-capture-attribute-action="feedback_start"
+            disabled={status === "loading"}
+            onClick={handleFeedbackStart}
+            variant="secondary"
+          >
+            피드백 남기기
+          </Button>
+          <Modal
+            closeAction="feedback_form_dismiss"
+            onOpenChange={setFeedbackOpen}
+            open={feedbackOpen}
+            title="피드백 남기기"
+          >
+            <FeedbackForm onSuccess={handleFeedbackSuccess} />
+          </Modal>
+          <FeedbackLoginPrompt
+            onClose={() => setLoginRequiredOpen(false)}
+            onLogin={handleFeedbackLogin}
+            open={loginRequiredOpen}
+          />
         </section>
 
         <nav aria-label="외부 링크" className="app-footer__social-links">

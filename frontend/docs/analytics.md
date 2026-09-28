@@ -64,6 +64,9 @@ API 횟수를 사용자의 클릭 횟수로 해석하지 않는다.
 `data-ph-capture-attribute-action`으로 동작 이름을 남기고, 일반 클릭은 텍스트 없이
 DOM 태그와 요소 순서로 구분한다.
 
+모달과 드로어의 닫기 버튼에도 화면 목적을 구분하는 고정 `*_dismiss` action을 지정한다.
+공통 `dialog_close` 하나로 합치지 않아 어떤 모달이나 드로어가 닫혔는지 구분할 수 있게 한다.
+
 ### 처리 성공 이벤트
 
 | 이벤트                   | 허용하는 도메인 속성                          |
@@ -78,6 +81,7 @@ DOM 태그와 요소 순서로 구분한다.
 | `registration_submitted` | `group_id`, `recruitment_id`, `registration_id`, `status`, `attribution_promotion_id` |
 | `registration_withdrawn` | `recruitment_id`, `registration_id`           |
 | `registration_decided`   | `recruitment_id`, `registration_id`, `status` |
+| `feedback_submitted`    | 없음 |
 
 버튼 클릭이나 캐시 갱신 성공이 아닌 도메인 API 성공을 기준으로 기록한다.
 `registration_started`는 모임 상세의 신청 패널을 실제로 열거나 모집 상세에서 신청 확인
@@ -88,6 +92,7 @@ DOM 태그와 요소 순서로 구분한다.
 요청의 이름·소개·설명 원문은 이벤트에 포함하지 않는다.
 신청 철회는 응답 본문이 없는 `204`이므로 요청에 사용한 신청 ID를 기록한다.
 가입 완료는 회원 생성 응답의 ID로 먼저 사용자를 식별한 뒤 전송한다.
+피드백 제출 이벤트에는 입력 내용이나 작성자 ID를 포함하지 않는다.
 
 ## 사용자와 재방문
 

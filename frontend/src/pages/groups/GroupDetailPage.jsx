@@ -278,6 +278,7 @@ export function GroupDetailPage() {
 
       <div className="group-floating-recruitment">
         <Modal
+          closeAction="group_recruitment_info_dismiss"
           title="모집 정보"
           trigger={
             <Button
@@ -312,6 +313,7 @@ export function GroupDetailPage() {
       </div>
 
       <Modal
+        closeAction="recruitment_start_prompt_dismiss"
         description="모집을 시작해야 다른 사람이 이 모임에 신청할 수 있어요."
         onClose={() => setRecruitmentPromptOpen(false)}
         open={recruitmentPromptOpen}
@@ -530,6 +532,7 @@ function RecruitmentSummary({
       </div>
       <div className="group-recruitment-action">{applicationAction()}</div>
       <Modal
+        closeAction="registration_form_dismiss"
         description="운영자에게 전달할 신청 메시지를 작성해 주세요."
         onClose={() => {
           if (!registration.isPending) setApplicationOpen(false);

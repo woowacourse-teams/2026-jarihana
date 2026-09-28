@@ -166,6 +166,7 @@ export function ScheduleDialog({
 }) {
   return (
     <Modal
+      closeAction={isSession ? "session_schedule_dismiss" : "recurring_schedule_dismiss"}
       description={
         isSession
           ? "한 번만 만나는 모임이라 날짜와 시간을 정합니다."

@@ -218,6 +218,7 @@ function ShowcaseContent() {
         />
         <div className="ui-showcase__row">
           <Modal
+            closeAction="showcase_modal_dismiss"
             description="이 surface 안에서 Tab focus가 순환합니다."
             title="모임 소개"
             trigger={<Button variant="secondary">모달 열기</Button>}
@@ -226,13 +227,18 @@ function ShowcaseContent() {
             <Button>확인</Button>
           </Modal>
           <ConfirmDialog
+            closeAction="showcase_confirm_dismiss"
             danger
             description="삭제한 모임은 되돌릴 수 없어요."
             onConfirm={() => {}}
             title="정말 삭제할까요?"
             trigger={<Button variant="danger">확인 대화상자</Button>}
           />
-          <Drawer title="전체 메뉴" trigger={<Button variant="secondary">드로어 열기</Button>}>
+          <Drawer
+            closeAction="showcase_drawer_dismiss"
+            title="전체 메뉴"
+            trigger={<Button variant="secondary">드로어 열기</Button>}
+          >
             <nav aria-label="드로어 메뉴">
               <a href="/groups">모임 둘러보기</a>
             </nav>

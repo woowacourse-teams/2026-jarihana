@@ -204,6 +204,7 @@ export function Modal({
 
 export function Drawer({
   children,
+  closeAction,
   defaultOpen = false,
   onClose,
   onOpenChange,
@@ -227,7 +228,7 @@ export function Drawer({
         </Trigger>
       ) : null}
       {visible ? (
-        <OverlayPanel mode="drawer" onDismiss={dismiss} title={title}>
+        <OverlayPanel closeAction={closeAction} mode="drawer" onDismiss={dismiss} title={title}>
           {children}
         </OverlayPanel>
       ) : null}
@@ -237,6 +238,7 @@ export function Drawer({
 
 export function ConfirmDialog({
   cancelLabel = "취소",
+  closeAction,
   confirmLabel = "확인",
   danger = false,
   description,
@@ -277,6 +279,7 @@ export function ConfirmDialog({
 
   return (
     <Modal
+      closeAction={closeAction}
       description={description}
       onClose={close}
       onOpenChange={controlled ? undefined : setUncontrolledOpen}

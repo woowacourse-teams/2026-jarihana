@@ -276,6 +276,7 @@ export function ManageMembersPage() {
       )}
 
       <ConfirmDialog
+        closeAction="leader_transfer_confirm_dismiss"
         cancelLabel="취소"
         confirmLabel="모임장 넘기기"
         description={
