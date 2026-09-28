@@ -1,6 +1,7 @@
 TRUNCATE TABLE
     refresh_token,
     image_upload,
+    feedback,
     registration,
     group_member,
     group_recruitment,
