@@ -80,7 +80,9 @@
 }
 
 .app-header {
-    position: relative;
+    position: sticky;
+    top: 0;
+    flex-shrink: 0;
     z-index: var(--z-header);
     width: 100%;
     min-height: var(--header-height);
