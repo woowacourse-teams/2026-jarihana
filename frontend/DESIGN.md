@@ -197,27 +197,23 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - rail이 숨는 tablet/mobile에서는 운영자 프로필을 hero 안의 프레임 없는 byline으로 옮긴다.
   민트 ring의 compact avatar와 `운영자 · N기 크루` caption, 이름을 한 덩어리로 묶되 별도의
   card·chip·배경은 만들지 않고 hero 자체 overlay 위에 직접 배치한다.
-- 모집 정보만 floating modal로 제공하며, detail tabs는 content section을 바꾸지만
-  URL route는 detail에 남긴다.
+- tablet/mobile에서는 `모집 정보` 진입 버튼을 hero 섹션 안쪽 하단에 가운데 배치한다. 모집 여부와
+  모임 종료 상태에 관계없이 표시하며 기존 모집 action 버튼의 흰 surface·line 테두리·의자 로고를 그대로 사용한다.
+  버튼을 누르면 모집 정보 모달을 열고, 모달 안의 신청 동작은 기존 흐름을 유지한다. detail tabs는
+  content section을 바꾸지만 URL route는 detail에 남긴다.
 - desktop 모집 rail은 내용의 자연 높이를 유지하고 내부 스크롤을 만들지 않는다. rail의 실제
   높이를 `ResizeObserver`로 측정해 `--group-rail-height`에 반영한다. sticky 상단 위치는
   `--header-height + --space-5`와 `100dvh - rail 높이 - --space-4 - safe area` 중 작은 값으로 정한다.
   짧은 카드는 고정 헤더 아래에 유지하고, 카드가 창보다 높으면 페이지 스크롤로 상단을 넘겨
   신청 action까지 도달할 수 있다. 모집 일정 펼치기나 글꼴·화면 크기 변경에도 위치를 다시 맞춘다.
-  가로 `89.9375rem` 이하에서는 기존 `자리 확인` 버튼과 모집 정보 모달을 사용한다.
+  가로 `89.9375rem` 이하에서는 모집 rail을 숨기고 hero 안의 참여 action과 모집 정보 모달을 사용한다.
   세로 viewport 높이나 DPI, devicePixelRatio는 전환 조건으로 사용하지 않는다.
-- 모집 정보 플로팅 버튼은 텍스트 없이 기존 `jarihana-favicon.png` 의자 로고만 담은 원형 버튼으로
-  표시한다. 지름은 `맨 위로 이동` 버튼과 같은 `--touch-target-lg`(48px), 안쪽 여백은
-  `--space-2`(8px)이며 secondary 표면을
-  사용한다. 이미지 전체를 `object-fit: contain`으로 표시하고, 버튼의 접근성 이름은
-  `모집 정보 보기`로 유지한다. 이미지에는 빈 alt와 `aria-hidden`을 적용한다.
-  본문 끝에는 버튼 영역만큼 여백을 두고, `맨 위로 이동` 버튼은 이 원형 버튼 위에
-  `--space-3`(12px) 간격으로 배치하고 오른쪽 끝을 맞춘다.
   모집 정보 일러스트는 desktop과 모달에서 같은 가운데 정렬 규칙을 사용한다. desktop rail에서는
   가용 가로 폭 안에 원본 비율로 맞추고 세로 viewport 높이에 따라 축소하지 않는다. 모달에서는
   가용 폭과 viewport 높이 안에 맞춘다. 이미지 자체보다 큰 최소 높이를 별도로 예약하지 않는다.
-- desktop과 모바일 모집 정보 모달의 CLUB·STUDY 타입 `참여 신청하기`·SESSION 타입 `참여하기` 버튼은 흰 surface와 line 테두리를 사용하고,
-  문구 왼쪽에 기존 의자 로고를 `--space-8`(32px) 크기의 장식 이미지로 표시한다.
+- desktop rail과 모집 정보 모달의 CLUB·STUDY 타입 `참여 신청하기`·SESSION 타입 `참여하기` 버튼은 흰 surface와 line 테두리를 사용하고,
+  문구 왼쪽에 기존 의자 로고를 `--space-8`(32px) 크기의 장식 이미지로 표시한다. tablet/mobile의
+  hero 안 진입 버튼은 같은 스타일과 로고를 사용하고 문구는 `모집 정보`로 표시한다.
   모집 마감·운영자·참여 완료 등의 상태별 버튼은 기존 표현을 유지한다.
 - 모달의 모집 정보 스크롤바는 투명 track과 얇고 둥근 thumb를 사용하며 스크롤바 공간을 상시 예약하지
   않는다. 모달은 둥근 외곽 안쪽의 모집 정보 한 곳에서만 세로 스크롤하고 제목·닫기 버튼·신청

@@ -1728,7 +1728,7 @@
   background: color-mix(in srgb, var(--color-muted-ink) 35%, transparent);
 }
 
-.group-floating-recruitment {
+.group-recruitment-entry {
   display: none;
 }
 
@@ -1912,12 +1912,6 @@
 }
 
 @media (max-width: 89.9375rem) {
-  .group-detail-page {
-    padding-block-end: calc(
-      var(--touch-target-lg) + var(--space-6) + env(safe-area-inset-bottom)
-    );
-  }
-
   .group-detail-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1926,40 +1920,18 @@
     display: none;
   }
 
-  .group-floating-recruitment {
-    display: block;
+  .group-recruitment-entry {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    inline-size: min(100%, var(--group-detail-rail-width));
+    justify-self: center;
+    margin-block-start: var(--space-4);
   }
 
   .group-profile__copy > .group-leader--hero {
     display: inline-grid;
     margin-block-start: var(--space-5);
-  }
-
-  .group-recruitment-fab {
-    position: fixed;
-    z-index: calc(var(--z-overlay) - 1);
-    inset-inline-end: var(--page-gutter);
-    inset-block-end: calc(var(--space-4) + env(safe-area-inset-bottom));
-    inline-size: var(--touch-target-lg);
-    block-size: var(--touch-target-lg);
-    min-block-size: var(--touch-target-lg);
-    padding: var(--space-2);
-    border-radius: 50%;
-    box-shadow: var(--shadow-float);
-  }
-
-  .group-recruitment-fab > span {
-    display: grid;
-    inline-size: 100%;
-    block-size: 100%;
-    place-items: center;
-  }
-
-  .group-recruitment-fab__image {
-    display: block;
-    inline-size: 100%;
-    block-size: 100%;
-    object-fit: contain;
   }
 
   .group-detail-grid > :first-child,
