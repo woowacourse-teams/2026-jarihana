@@ -3,6 +3,7 @@ package com.project.jarihana.member.command.controller;
 import com.project.jarihana.auth.cookie.AuthCookieFactory;
 import com.project.jarihana.auth.session.SignupSession;
 import com.project.jarihana.common.response.ApiResponse;
+import com.project.jarihana.common.response.LocationUri;
 import com.project.jarihana.member.command.controller.dto.MemberSignupRequest;
 import com.project.jarihana.member.command.controller.dto.MemberSignupResponse;
 import com.project.jarihana.member.command.service.MemberCommandService;
@@ -16,8 +17,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.net.URI;
 
 @RestController
 @RequestMapping("/members")
@@ -58,7 +57,7 @@ public class MemberCommandController {
         MemberSignupResult result = memberCommandService.signup(command);
         signupSession.invalidate(servletRequest);
 
-        return ResponseEntity.created(URI.create(MEMBER_LOCATION_PREFIX + result.id()))
+        return ResponseEntity.created(LocationUri.of(servletRequest, MEMBER_LOCATION_PREFIX + result.id()))
                 .header(HttpHeaders.SET_COOKIE, authCookieFactory.accessToken(result.accessToken()).toString())
                 .header(HttpHeaders.SET_COOKIE, authCookieFactory.refreshToken(result.refreshToken()).toString())
                 .body(ApiResponse.success(MemberSignupResponse.from(result)));

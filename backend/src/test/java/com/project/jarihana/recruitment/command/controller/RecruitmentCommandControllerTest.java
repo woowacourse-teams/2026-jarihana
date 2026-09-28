@@ -69,7 +69,7 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
                 .post("/groups/{groupId}/recruitments", group.getId())
                 .then()
                 .statusCode(201)
-                .header("Location", equalTo("/groups/%d/recruitments/1".formatted(group.getId())))
+                .header("Location", equalTo("/api/groups/%d/recruitments/1".formatted(group.getId())))
                 .body("success", equalTo(true))
                 .body("data.id", equalTo(1))
                 .body("data.groupId", equalTo(group.getId().intValue()))
