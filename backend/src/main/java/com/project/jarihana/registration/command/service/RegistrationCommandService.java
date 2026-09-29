@@ -27,7 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -142,12 +141,6 @@ public class RegistrationCommandService {
         if (recruitment.phaseAt(now) != RecruitmentPhase.CLOSED) {
             recruitmentRepository.save(recruitment.closeAt(now));
         }
-        registrationRepository.findAllByRecruitmentIdInAndStatus(
-                        List.of(recruitment.getId()),
-                        RegistrationStatus.PENDING
-                ).stream()
-                .map(registration -> registration.rejectBySystem("모집 정원 마감", now))
-                .forEach(registrationRepository::save);
     }
 
     @Transactional
