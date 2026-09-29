@@ -110,12 +110,13 @@ public class RecruitmentCommandService {
             );
         }
 
+        boolean capacityReached = approvedCount == command.capacity();
         if (recruitment.hasSameSettings(
                 command.joinMethod(),
                 command.capacity(),
                 command.startsAt(),
                 command.endsAt()
-        )) {
+        ) && !capacityReached) {
             return UpdateRecruitmentResult.of(recruitment, now);
         }
 
@@ -125,7 +126,11 @@ public class RecruitmentCommandService {
                 command.startsAt(),
                 command.endsAt()
         );
-        return UpdateRecruitmentResult.of(recruitmentRepository.save(updated), now);
+        if (capacityReached && updated.phaseAt(now) != RecruitmentPhase.CLOSED) {
+            updated = updated.closeAt(now);
+        }
+        GroupRecruitment saved = recruitmentRepository.save(updated);
+        return UpdateRecruitmentResult.of(saved, now);
     }
 
     @Transactional
