@@ -26,8 +26,10 @@ if aws cloudwatch get-dashboard --dashboard-name "${dashboard_name}" \
     echo 'The production dashboard already exists. Review it before updating; no changes made.' >&2
     exit 1
   fi
-  backup_dir="$(mktemp -d /tmp/jarihana-dashboard-backup.XXXXXXXX)"
-  cp "${temporary_dir}/existing.json" "${backup_dir}/existing.json"
+  backup_root=/var/lib/jarihana-cloudwatch/backups
+  sudo install -d -m 700 "${backup_root}"
+  backup_dir="$(sudo mktemp -d "${backup_root}/dashboard-$(date -u +%Y%m%dT%H%M%SZ).XXXXXXXX")"
+  sudo install -m 600 "${temporary_dir}/existing.json" "${backup_dir}/existing.json"
   printf 'Previous dashboard backup: %s/existing.json\n' "${backup_dir}"
 elif ! grep -q '(ResourceNotFound)' "${temporary_dir}/error"; then
   cat "${temporary_dir}/error" >&2
