@@ -28,13 +28,9 @@ def application_metrics(events):
                 continue
             if message.get("environment") != "prod":
                 continue
-            if message.get("area") == "nonheap":
-                continue
             for dimension_names in declaration["Dimensions"]:
                 dimensions = [{"Name": name, "Value": str(message[name])} for name in dimension_names]
                 for metric in declaration["Metrics"]:
-                    if metric["Name"] == "http_server_requests_seconds_sum" and set(dimension_names) != {"application", "environment"}:
-                        continue
                     metrics[metric["Name"]] = dimensions
     return metrics
 
@@ -54,7 +50,7 @@ def verify(instance_id, root_filesystem):
         "http_server_requests_seconds_count", "jvm_memory_used_bytes",
         "jvm_threads_live_threads", "jvm_gc_overhead",
         "hikaricp_connections_active", "hikaricp_connections_pending",
-        "http_server_requests_seconds_sum"
+        "http_server_requests_seconds_sum", "process_cpu_usage"
     }
     completed = set()
     for attempt in range(1, 11):

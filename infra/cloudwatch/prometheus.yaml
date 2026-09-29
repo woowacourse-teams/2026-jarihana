@@ -19,9 +19,6 @@ scrape_configs:
       - source_labels: [__name__, uri]
         action: drop
         regex: 'http_server_requests_seconds_(count|sum);(/api)?/actuator(/.*)?'
-      - source_labels: [__name__, area]
-        action: drop
-        regex: 'jvm_memory_used_bytes;nonheap'
       - source_labels: [__name__]
         action: keep
-        regex: 'http_server_requests_seconds_(count|sum)|jvm_memory_used_bytes|jvm_threads_live_threads|jvm_gc_overhead|hikaricp_connections_(active|pending)'
+        regex: 'http_server_requests_seconds_(count|sum)|jvm_memory_(used|max)_bytes|jvm_threads_(live|states)_threads|jvm_gc_pause_seconds_(count|sum)|jvm_gc_overhead|hikaricp_connections_(active|idle|max|pending)|hikaricp_connections_timeout_total|hikaricp_connections_acquire_seconds_(count|sum)|process_cpu_usage'
