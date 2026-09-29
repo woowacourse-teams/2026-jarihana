@@ -12,8 +12,8 @@ def validate():
     if prometheus["log_group_name"] != "/jarihana/current/prometheus":
         raise ValueError("Unexpected log group")
     processor = prometheus["emf_processor"]
-    if config["metrics"]["namespace"] != "Jarihana/prod" or processor["metric_namespace"] != "Jarihana/prod":
-        raise ValueError("Use Jarihana/prod for both host and application metrics")
+    if config["metrics"]["namespace"] != "Jarihana" or processor["metric_namespace"] != "Jarihana":
+        raise ValueError("Use Jarihana for both host and application metrics")
     allowed_dimensions = {
         "application", "environment", "status_class", "area", "id", "pool"
     }
@@ -29,6 +29,16 @@ def validate():
         for dimensions in declaration["dimensions"]:
             if not set(dimensions) <= allowed_dimensions:
                 raise ValueError(f"Unexpected metric dimensions: {dimensions}")
+            if "environment" not in dimensions:
+                raise ValueError("Keep prod and dev separated by environment")
+        source_labels = declaration["source_labels"]
+        label_matcher = "^jarihana-backend;jarihana;(prod|dev)$"
+        if source_labels == ["job", "application", "environment", "area"]:
+            label_matcher = "^jarihana-backend;jarihana;(prod|dev);heap$"
+        elif source_labels != ["job", "application", "environment"]:
+            raise ValueError("Unexpected source labels")
+        if declaration["label_matcher"] != label_matcher:
+            raise ValueError("Accept only the configured prod and dev environments")
         for selector in declaration["metric_selectors"]:
             if not selector.startswith("^") or not selector.endswith("$"):
                 raise ValueError(f"Unbounded metric selector: {selector}")
@@ -44,7 +54,7 @@ def validate():
         if name == "http_server_requests_seconds_sum" and declaration["dimensions"] != [["application", "environment"]]:
             raise ValueError("Publish one HTTP duration series for all status classes")
         if name == "jvm_memory_used_bytes":
-            if declaration["source_labels"] != ["job", "application", "environment", "area"] or declaration["label_matcher"] != "^jarihana-backend;jarihana;current;heap$":
+            if declaration["source_labels"] != ["job", "application", "environment", "area"] or declaration["label_matcher"] != "^jarihana-backend;jarihana;(prod|dev);heap$":
                 raise ValueError("Collect heap memory only")
             if declaration["dimensions"] != [["application", "environment", "area", "id"]]:
                 raise ValueError("Preserve memory pool identity")

@@ -4,7 +4,7 @@
     "run_as_user": "root"
   },
   "metrics": {
-    "namespace": "Jarihana/prod",
+    "namespace": "Jarihana",
     "append_dimensions": {
       "InstanceId": "${aws:InstanceId}"
     },
@@ -31,7 +31,7 @@
         "prometheus_config_path": "/opt/aws/amazon-cloudwatch-agent/etc/jarihana/prometheus.yaml",
         "emf_processor": {
           "metric_declaration_dedup": true,
-          "metric_namespace": "Jarihana/prod",
+          "metric_namespace": "Jarihana",
           "metric_unit": {
             "http_server_requests_seconds_count": "Count",
             "http_server_requests_seconds_sum": "Seconds",
@@ -44,31 +44,31 @@
           "metric_declaration": [
             {
               "source_labels": ["job", "application", "environment"],
-              "label_matcher": "^jarihana-backend;jarihana;current$",
+              "label_matcher": "^jarihana-backend;jarihana;(prod|dev)$",
               "dimensions": [["application", "environment", "status_class"]],
               "metric_selectors": ["^http_server_requests_seconds_count$"]
             },
             {
               "source_labels": ["job", "application", "environment"],
-              "label_matcher": "^jarihana-backend;jarihana;current$",
+              "label_matcher": "^jarihana-backend;jarihana;(prod|dev)$",
               "dimensions": [["application", "environment"]],
               "metric_selectors": ["^http_server_requests_seconds_sum$"]
             },
             {
               "source_labels": ["job", "application", "environment", "area"],
-              "label_matcher": "^jarihana-backend;jarihana;current;heap$",
+              "label_matcher": "^jarihana-backend;jarihana;(prod|dev);heap$",
               "dimensions": [["application", "environment", "area", "id"]],
               "metric_selectors": ["^jvm_memory_used_bytes$"]
             },
             {
               "source_labels": ["job", "application", "environment"],
-              "label_matcher": "^jarihana-backend;jarihana;current$",
+              "label_matcher": "^jarihana-backend;jarihana;(prod|dev)$",
               "dimensions": [["application", "environment", "pool"]],
               "metric_selectors": ["^hikaricp_connections_(active|pending)$"]
             },
             {
               "source_labels": ["job", "application", "environment"],
-              "label_matcher": "^jarihana-backend;jarihana;current$",
+              "label_matcher": "^jarihana-backend;jarihana;(prod|dev)$",
               "dimensions": [["application", "environment"]],
               "metric_selectors": [
                 "^jvm_threads_live_threads$",

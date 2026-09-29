@@ -68,7 +68,7 @@ class ManagementEndpointAcceptanceTest extends IntegrationTestSupport {
                 "jvm_threads_live_threads",
                 "hikaricp_connections_active",
                 "application=\"jarihana\"",
-                "environment=\"current\""
+                "environment=\"prod\""
         );
     }
 
