@@ -797,7 +797,7 @@
 
 .group-rail {
   position: sticky;
-  top: var(--space-5);
+  top: calc(var(--header-height) + var(--space-5));
   display: grid;
   gap: var(--space-4);
 }
@@ -1702,7 +1702,7 @@
 .group-detail-page .group-rail {
   inline-size: 100%;
   top: min(
-    var(--space-5),
+    calc(var(--header-height) + var(--space-5)),
     calc(100dvh - var(--group-rail-height, 0px) - var(--space-4) - env(safe-area-inset-bottom))
   );
 }
