@@ -74,7 +74,7 @@ public class Registration extends BaseEntity {
         this.member = require(member, "회원");
         this.message = validateNullableLength(message, MESSAGE_MAX_LENGTH, "신청 메시지");
         this.status = require(status, "신청 상태");
-        this.rejectReason = validateNullableLength(rejectReason, REJECT_REASON_MAX_LENGTH, "거절 사유");
+        this.rejectReason = validateNullableLength(rejectReason, REJECT_REASON_MAX_LENGTH, "미승인 사유");
         this.registeredAt = require(registeredAt, "신청 시각");
         this.decidedAt = decidedAt;
         this.decidedBy = decidedBy;
@@ -98,7 +98,7 @@ public class Registration extends BaseEntity {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "결정된 신청에는 결정 시각과 주체가 필요합니다.");
         }
         if (status == RegistrationStatus.APPROVED && rejectReason != null) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "승인 신청에는 거절 사유가 있을 수 없습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "승인 신청에는 미승인 사유가 있을 수 없습니다.");
         }
     }
 
@@ -238,13 +238,13 @@ public class Registration extends BaseEntity {
         requirePending();
         DecisionActor requiredActor = require(actor, "결정 주체");
         if (requiredActor.getType() != DecisionActorType.MEMBER) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "수동 거절은 회원 결정 주체만 수행할 수 있습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "수동 미승인은 회원 결정 주체만 수행할 수 있습니다.");
         }
         return rejected(requiredActor, reason, decidedAt);
     }
 
     private Registration rejected(DecisionActor actor, String reason, LocalDateTime decidedAt) {
-        String validatedReason = validateNullableLength(reason, REJECT_REASON_MAX_LENGTH, "거절 사유");
+        String validatedReason = validateNullableLength(reason, REJECT_REASON_MAX_LENGTH, "미승인 사유");
         return decided(
                 RegistrationStatus.REJECTED,
                 validatedReason,

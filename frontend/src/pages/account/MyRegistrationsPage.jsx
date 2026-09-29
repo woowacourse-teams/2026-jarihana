@@ -81,7 +81,7 @@ export function MyRegistrationsPage() {
           <option value="">전체</option>
           <option value="PENDING">검토 중</option>
           <option value="APPROVED">승인</option>
-          <option value="REJECTED">거절</option>
+          <option value="REJECTED">미승인</option>
         </Select>
         <span>{registrations.length}개의 신청</span>
       </div>

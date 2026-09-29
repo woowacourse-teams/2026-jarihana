@@ -145,7 +145,8 @@ function draftSummary(values) {
 export function NewGroupPage() {
   const navigate = useNavigate();
   const createMutation = useCreateGroup();
-  const imageUpload = useImageUpload();
+  const representativeImageUpload = useImageUpload();
+  const descriptionImageUpload = useImageUpload();
   const createLock = useSubmissionLock();
   const toast = useToast();
   const [scheduleOpen, setScheduleOpen] = useState(false);
@@ -213,7 +214,7 @@ export function NewGroupPage() {
   }
 
   const submit = handleSubmit(async (formValues) => {
-    if (imageUpload.isPending) return;
+    if (representativeImageUpload.isPending || descriptionImageUpload.isPending) return;
     await createLock.run(async () => {
       try {
         const result = await createMutation.mutateAsync(
@@ -325,9 +326,9 @@ export function NewGroupPage() {
             onPreviewChange={(file) => {
               setRepresentativeImagePreview(URL.createObjectURL(file));
             }}
-            onUpload={imageUpload.mutateAsync}
-            uploadError={imageUpload.error}
-            uploadPending={imageUpload.isPending}
+            onUpload={representativeImageUpload.mutateAsync}
+            uploadError={representativeImageUpload.error}
+            uploadPending={representativeImageUpload.isPending}
           />
           <div className="group-profile__art">
             <GroupImage
@@ -351,6 +352,8 @@ export function NewGroupPage() {
                   <MarkdownEditor
                     description="제목, 목록, 인용, 링크, 코드 블럭 문법을 사용할 수 있어요."
                     error={errors.description?.message}
+                    imageUploadPending={descriptionImageUpload.isPending}
+                    onImageUpload={descriptionImageUpload.mutateAsync}
                     register={register}
                     rows={8}
                     setValue={setValue}
@@ -375,7 +378,12 @@ export function NewGroupPage() {
         <Button
           data-ph-capture-attribute-action="group_create"
           form="group-create-form"
-          pending={createMutation.isPending || createLock.pending || imageUpload.isPending}
+          pending={
+            createMutation.isPending ||
+            createLock.pending ||
+            representativeImageUpload.isPending ||
+            descriptionImageUpload.isPending
+          }
           type="submit"
           variant="primary"
         >
