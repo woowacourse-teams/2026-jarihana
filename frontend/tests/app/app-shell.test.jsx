@@ -103,8 +103,7 @@ it("starts GitHub login from the mobile account area and closes the drawer", () 
   fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
   const menu = screen.getByRole("navigation", { name: "모바일 메뉴" });
   const loginButton = within(menu).getByRole("button", { name: "GitHub로 로그인" });
-  expect(within(menu).getByText("로그인하고 시작해요")).toBeInTheDocument();
-  expect(within(menu).getByText("내 모임과 신청 내역을 확인해요")).toBeInTheDocument();
+  expect(within(menu).getByText("모임에 참여하려면")).toBeInTheDocument();
   expect(within(menu).getByRole("heading", { name: "메뉴" })).toBeInTheDocument();
   expect(loginButton).toHaveAttribute("data-ph-capture-attribute-action", "login");
   expect(within(menu).queryByRole("link", { name: "마이페이지" })).not.toBeInTheDocument();

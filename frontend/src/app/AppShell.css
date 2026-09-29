@@ -405,6 +405,14 @@
     display: grid;
     gap: var(--space-1);
     min-width: 0;
+    min-height: calc(var(--space-12) + var(--space-2));
+}
+
+.app-header__mobile-guest-copy {
+    align-content: center;
+    margin: 0;
+    color: var(--color-muted-ink);
+    font-size: var(--text-body);
 }
 
 .app-header__guest-avatar {

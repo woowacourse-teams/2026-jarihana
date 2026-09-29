@@ -307,20 +307,24 @@ export function AppHeader({ action = null, title = "" }) {
                   <UserRound />
                 </span>
               )}
-              <div className="app-header__mobile-member">
-                <strong className="app-header__mobile-name">
-                  {status === "authenticated" ? member?.crewName
-                    : status === "loading" ? "잠시만 기다려 주세요"
-                      : status === "signup-required" ? "가입을 마무리해 주세요"
-                        : "로그인하고 시작해요"}
-                </strong>
-                <span className="app-header__mobile-generation">
-                  {status === "authenticated" ? memberDetails
-                    : status === "loading" ? "내 계정 정보를 확인하고 있어요"
-                      : status === "signup-required" ? "프로필을 완성하고 모임에 참여해요"
-                        : "내 모임과 신청 내역을 확인해요"}
-                </span>
-              </div>
+              {status === "anonymous" ? (
+                <p className="app-header__mobile-member app-header__mobile-guest-copy">
+                  모임에 참여하려면
+                </p>
+              ) : (
+                <div className="app-header__mobile-member">
+                  <strong className="app-header__mobile-name">
+                    {status === "authenticated" ? member?.crewName
+                      : status === "loading" ? "잠시만 기다려 주세요"
+                        : "가입을 마무리해 주세요"}
+                  </strong>
+                  <span className="app-header__mobile-generation">
+                    {status === "authenticated" ? memberDetails
+                      : status === "loading" ? "내 계정 정보를 확인하고 있어요"
+                        : "프로필을 완성하고 모임에 참여해요"}
+                  </span>
+                </div>
+              )}
             </div>
             <AuthAction onNavigate={closeMenu} status={status} />
           </div>
