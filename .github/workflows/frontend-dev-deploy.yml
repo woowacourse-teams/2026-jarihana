@@ -1,0 +1,89 @@
+name: Frontend Development Deploy
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-dev-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-dev-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: [self-hosted, Linux, ARM64]
+    environment: dev
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+        working-directory: frontend
+    env:
+      AWS_REGION: ap-northeast-2
+      AWS_DEFAULT_REGION: ap-northeast-2
+      AWS_PAGER: ""
+      S3_DESTINATION: s3://techcourse-project-2026/jarihana-dev/frontend
+      S3_RELEASE: s3://techcourse-project-2026/jarihana-dev/releases/${{ github.sha }}/frontend
+      CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.DEV_CLOUDFRONT_DISTRIBUTION_ID }}
+      APP_GITHUB_CLIENT_ID: ${{ vars.DEV_OAUTH_GITHUB_CLIENT_ID }}
+      APP_GITHUB_REDIRECT_URI: ${{ vars.DEV_OAUTH_GITHUB_REDIRECT_URI }}
+      APP_OAUTH_COOKIE_NAME: oauthState
+      DISABLE_REACT_DEVTOOLS: "1"
+      APP_ANALYTICS_ENABLED: "false"
+      APP_DEPLOY_ENV: development
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.node-version
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: dev 배포 설정 확인
+        run: |
+          test -n "${APP_GITHUB_CLIENT_ID}"
+          test -n "${APP_GITHUB_REDIRECT_URI}"
+          test -n "${CLOUDFRONT_DISTRIBUTION_ID}"
+          aws sts get-caller-identity
+          aws s3api head-bucket --bucket techcourse-project-2026
+
+      - name: 의존성 설치 및 검증
+        run: |
+          npm ci
+          npm run lint
+          npm run typecheck
+          npm test -- --ci
+
+      - name: Frontend 빌드
+        run: |
+          npm run build
+          test -f dist/index.html
+          test -d dist/assets
+
+      - name: 릴리스 보관 및 dev S3 배포
+        run: |
+          aws s3 sync dist "${S3_RELEASE}" --only-show-errors
+          aws s3 sync dist "${S3_DESTINATION}" \
+            --exclude "index.html" --only-show-errors
+          aws s3 cp dist/index.html "${S3_DESTINATION}/index.html" \
+            --cache-control "no-cache" --only-show-errors
+
+      - name: dev CloudFront 캐시 갱신
+        run: |
+          invalidation_id="$(aws cloudfront create-invalidation \
+            --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
+            --paths '/*' --query 'Invalidation.Id' --output text)"
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
+            --id "${invalidation_id}"
+          echo "Frontend dev 배포 성공: ${GITHUB_SHA}" >> "$GITHUB_STEP_SUMMARY"

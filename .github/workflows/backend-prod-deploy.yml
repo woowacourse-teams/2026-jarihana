@@ -1,4 +1,4 @@
-name: Backend Docker Deploy
+name: Backend Production Deploy
 
 on:
   push:
@@ -6,11 +6,23 @@ on:
       - main
     paths:
       - "backend/**"
+      - "infra/docker-compose.yml"
+      - ".github/workflows/backend-prod-deploy.yml"
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-prod-deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:
-    runs-on: self-hosted
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, Linux, ARM64]
+    environment: prod
+    timeout-minutes: 20
     env:
       BACKEND_TAG: ${{ github.sha }}
 

@@ -1,4 +1,4 @@
-name: Frontend Build and Deploy
+name: Frontend Production Deploy
 
 on:
   push:
@@ -6,18 +6,20 @@ on:
       - main
     paths:
       - "frontend/**"
-      - ".github/workflows/frontend-build.yml"
+      - ".github/workflows/frontend-prod-deploy.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: frontend-production-deploy
-  cancel-in-progress: true
+  group: frontend-prod-deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/main'
+    environment: prod
     runs-on:
       - self-hosted
       - Linux

@@ -1,0 +1,108 @@
+name: Backend Development Deploy
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - "backend/**"
+      - "infra/docker-compose.dev.yml"
+      - ".github/workflows/backend-dev-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-dev-deploy
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: corretto
+          java-version: "21"
+          cache: gradle
+          cache-dependency-path: backend/**/*.gradle*
+      - name: Backend 테스트
+        working-directory: backend
+        run: ./gradlew test --no-daemon
+
+  deploy:
+    needs: verify
+    if: github.ref == 'refs/heads/develop'
+    runs-on: [self-hosted, Linux, ARM64]
+    environment: dev
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    env:
+      BACKEND_TAG: ${{ github.sha }}
+      DEV_POSTGRES_PASSWORD: ${{ secrets.DEV_POSTGRES_PASSWORD }}
+      DEV_ACCESS_TOKEN_SECRET: ${{ secrets.DEV_ACCESS_TOKEN_SECRET }}
+      DEV_OAUTH_GITHUB_CLIENT_SECRET: ${{ secrets.DEV_OAUTH_GITHUB_CLIENT_SECRET }}
+      DEV_FRONTEND_ORIGIN: ${{ vars.DEV_FRONTEND_ORIGIN }}
+      DEV_OAUTH_GITHUB_CLIENT_ID: ${{ vars.DEV_OAUTH_GITHUB_CLIENT_ID }}
+      DEV_OAUTH_GITHUB_REDIRECT_URI: ${{ vars.DEV_OAUTH_GITHUB_REDIRECT_URI }}
+      DEV_IMAGE_S3_BUCKET: ${{ vars.DEV_IMAGE_S3_BUCKET }}
+      DEV_IMAGE_S3_REGION: ap-northeast-2
+      DEV_IMAGE_S3_PUBLIC_BASE_URL: ${{ vars.DEV_IMAGE_S3_PUBLIC_BASE_URL }}
+      DEV_BACKEND_MEMORY_LIMIT: ${{ vars.DEV_BACKEND_MEMORY_LIMIT }}
+      DEV_BACKEND_CPUS: ${{ vars.DEV_BACKEND_CPUS }}
+      DEV_POSTGRES_MEMORY_LIMIT: ${{ vars.DEV_POSTGRES_MEMORY_LIMIT }}
+      DEV_POSTGRES_CPUS: ${{ vars.DEV_POSTGRES_CPUS }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: dev Compose 설정 확인
+        run: |
+          unset COMPOSE_PROJECT_NAME
+          docker compose -f infra/docker-compose.dev.yml config -q
+
+      - name: Backend 이미지 빌드
+        run: docker build -t "jarihana-backend-dev:${BACKEND_TAG}" ./backend
+
+      - name: dev Backend 배포 및 응답 확인
+        run: |
+          set -euo pipefail
+          unset COMPOSE_PROJECT_NAME
+
+          compose() {
+            docker compose -f infra/docker-compose.dev.yml "$@"
+          }
+
+          ready() {
+            timeout 180s bash -c '
+              until response="$(curl --fail --silent --max-time 5 \
+                "http://127.0.0.1:8081/api/groups?size=1")" &&
+                grep -Eq '\''"success"[[:space:]]*:[[:space:]]*true'\'' <<< "$response"; do
+                sleep 5
+              done
+            '
+          }
+
+          previous_id="$(compose ps -a -q backend)"
+          previous_image=""
+          if [[ -n "$previous_id" ]]; then
+            previous_image="$(docker inspect -f '{{.Config.Image}}' "$previous_id")"
+          fi
+
+          if compose up -d --no-build backend && ready; then
+            echo "Backend dev 배포 성공: ${BACKEND_TAG}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error::dev Backend 배포 또는 응답 확인에 실패했습니다."
+            if [[ "$previous_image" == jarihana-backend-dev:* ]]; then
+              export BACKEND_TAG="${previous_image#jarihana-backend-dev:}"
+              compose up -d --no-build --no-deps backend
+              ready
+              echo "Backend dev 복구: ${BACKEND_TAG}" >> "$GITHUB_STEP_SUMMARY"
+            fi
+            exit 1
+          fi

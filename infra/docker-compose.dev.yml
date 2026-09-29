@@ -1,0 +1,62 @@
+name: jarihana-dev
+
+services:
+  backend:
+    image: "jarihana-backend-dev:${BACKEND_TAG:?BACKEND_TAG is required}"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://postgres:5432/jarihana_dev
+      DB_USERNAME: jarihana_dev
+      DB_PASSWORD: "${DEV_POSTGRES_PASSWORD:?DEV_POSTGRES_PASSWORD is required}"
+      FRONTEND_ORIGIN: "${DEV_FRONTEND_ORIGIN:?DEV_FRONTEND_ORIGIN is required}"
+      ACCESS_TOKEN_SECRET: "${DEV_ACCESS_TOKEN_SECRET:?DEV_ACCESS_TOKEN_SECRET is required}"
+      GITHUB_OAUTH_CLIENT_ID: "${DEV_OAUTH_GITHUB_CLIENT_ID:?DEV_OAUTH_GITHUB_CLIENT_ID is required}"
+      GITHUB_OAUTH_CLIENT_SECRET: "${DEV_OAUTH_GITHUB_CLIENT_SECRET:?DEV_OAUTH_GITHUB_CLIENT_SECRET is required}"
+      GITHUB_OAUTH_REDIRECT_URI: "${DEV_OAUTH_GITHUB_REDIRECT_URI:?DEV_OAUTH_GITHUB_REDIRECT_URI is required}"
+      IMAGE_S3_BUCKET: "${DEV_IMAGE_S3_BUCKET:?DEV_IMAGE_S3_BUCKET is required}"
+      IMAGE_S3_REGION: "${DEV_IMAGE_S3_REGION:?DEV_IMAGE_S3_REGION is required}"
+      IMAGE_S3_KEY_PREFIX: jarihana-dev/images
+      IMAGE_S3_PUBLIC_BASE_URL: "${DEV_IMAGE_S3_PUBLIC_BASE_URL:?DEV_IMAGE_S3_PUBLIC_BASE_URL is required}"
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65.0"
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "5"
+    mem_limit: "${DEV_BACKEND_MEMORY_LIMIT:?DEV_BACKEND_MEMORY_LIMIT is required}"
+    cpus: "${DEV_BACKEND_CPUS:?DEV_BACKEND_CPUS is required}"
+    ports:
+      - "8081:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: jarihana_dev
+      POSTGRES_USER: jarihana_dev
+      POSTGRES_PASSWORD: "${DEV_POSTGRES_PASSWORD:?DEV_POSTGRES_PASSWORD is required}"
+    mem_limit: "${DEV_POSTGRES_MEMORY_LIMIT:?DEV_POSTGRES_MEMORY_LIMIT is required}"
+    cpus: "${DEV_POSTGRES_CPUS:?DEV_POSTGRES_CPUS is required}"
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../backend/db/dev/bootstrap.sql:/docker-entrypoint-initdb.d/001-bootstrap.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jarihana_dev -d jarihana_dev -h 127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  postgres-data:

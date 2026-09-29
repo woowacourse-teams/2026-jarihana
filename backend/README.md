@@ -143,9 +143,15 @@ User는 `jarihana`, Password는 운영 DB 비밀번호로 설정합니다. 이 �
 최초 포트 매핑 반영 시 PostgreSQL 컨테이너가 재생성되어 기존 DB 연결이 잠시 끊길 수
 있습니다. 기존 `postgres-data` 볼륨은 유지하며, 적용을 위해 볼륨을 삭제하지 않습니다.
 
+### 공유 개발 환경
+
+`develop`의 백엔드 변경은 `backend-dev-deploy.yml`에서 같은 EC2의 개발 전용 Compose로
+배포합니다. 개발 DB·인증값·포트는 운영과 분리하고 Spring `prod` 프로필을 재사용합니다.
+초기 스키마, GitHub Environment 설정과 확인 절차는 [개발 환경 배포](../infra/README.dev.md)를 참고합니다.
+
 ### 운영 배포 시크릿
 
-`main` 브랜치에 반영된 커밋에 `backend/**` 변경이 포함되면 백엔드 배포 워크플로가
+`main` 브랜치에 반영된 커밋에 백엔드·운영 Compose·workflow 변경이 포함되면 `backend-prod-deploy.yml`이
 자동으로 실행됩니다. 필요할 때는 GitHub Actions에서 수동으로도 실행할 수 있습니다.
 
 저장소의 `Settings > Secrets and variables > Actions`에 다음 이름으로 시크릿을 등록합니다.
