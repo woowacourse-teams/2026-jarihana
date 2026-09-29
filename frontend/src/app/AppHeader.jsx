@@ -293,7 +293,9 @@ export function AppHeader({ action = null, title = "" }) {
           {title ? <p className="app-header__context">{title}</p> : null}
           <div className="app-header__mobile-account">
             <div className="app-header__mobile-identity">
-              <span className="app-header__mobile-eyebrow">나의 프로필</span>
+              {status !== "anonymous" ? (
+                <span className="app-header__mobile-eyebrow">나의 프로필</span>
+              ) : null}
               {status === "authenticated" ? (
                 <Avatar
                   alt=""
@@ -309,7 +311,7 @@ export function AppHeader({ action = null, title = "" }) {
               )}
               {status === "anonymous" ? (
                 <p className="app-header__mobile-member app-header__mobile-guest-copy">
-                  모임에 참여하려면
+                  게스트
                 </p>
               ) : (
                 <div className="app-header__mobile-member">

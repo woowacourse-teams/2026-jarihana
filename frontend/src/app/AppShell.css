@@ -382,19 +382,23 @@
 
 .app-header__mobile-identity {
     display: grid;
+    grid-template-rows: minmax(1lh, auto) auto auto;
     justify-items: center;
     gap: var(--space-3);
     width: 100%;
     min-width: 0;
+    font-size: var(--text-caption);
 }
 
 .app-header__mobile-eyebrow {
+    grid-row: 1;
     color: var(--color-text-brand);
     font-size: var(--text-caption);
     font-weight: var(--font-weight-extrabold);
 }
 
 .app-header__mobile-identity .app-header__avatar {
+    grid-row: 2;
     width: calc(var(--space-12) * 2);
     height: calc(var(--space-12) * 2);
     border: var(--border-thin) solid var(--color-line);
@@ -403,6 +407,7 @@
 
 .app-header__mobile-member {
     display: grid;
+    grid-row: 3;
     gap: var(--space-1);
     min-width: 0;
     min-height: calc(var(--space-12) + var(--space-2));
@@ -412,7 +417,8 @@
     align-content: center;
     margin: 0;
     color: var(--color-muted-ink);
-    font-size: var(--text-body);
+    font-size: var(--text-h3);
+    font-weight: var(--font-weight-bold);
 }
 
 .app-header__guest-avatar {
