@@ -35,7 +35,7 @@
 
 | 상황 | 코드 | HTTP |
 | --- | --- | --- |
-| 인증 정보 없음·만료 | `UNAUTHENTICATED` | 401 |
+| 인증 정보 없음/만료 | `UNAUTHENTICATED` | 401 |
 | 해당 그룹의 모임장이 아님 | `GROUP_ACCESS_DENIED` | 403 |
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
 
@@ -64,7 +64,7 @@
 
 | 상황 | 코드 | HTTP |
 | --- | --- | --- |
-| 인증 정보 없음·만료 | `UNAUTHENTICATED` | 401 |
+| 인증 정보 없음/만료 | `UNAUTHENTICATED` | 401 |
 | 해당 그룹의 모임장이 아님 | `GROUP_ACCESS_DENIED` | 403 |
 | 모집 공고 없음 | `RECRUITMENT_NOT_FOUND` | 404 |
 | 종료된 그룹 | `GROUP_ENDED` | 409 |
@@ -136,7 +136,7 @@
 
 `message`는 생략할 수 있으며 최대 1000자다.
 
-#### 응답 201 — APPROVAL
+#### 응답 201 - APPROVAL
 
 ```json
 {
@@ -150,7 +150,7 @@
 }
 ```
 
-#### 응답 201 — AUTO
+#### 응답 201 - AUTO
 
 ```json
 {
@@ -170,7 +170,7 @@
 - `AUTO`: 남은 정원이 있으면 즉시 승인하고 `GroupMember(role = MEMBER)`를 생성한다.
 - `APPROVAL`: 정원보다 많은 `PENDING` 신청을 허용한다.
 - 승인 인원이 `capacity`에 도달하면 `endsAt`을 현재 시각으로 변경하여 공고를 자동 마감한다.
-- 정원 도달로 마감되면 남아 있는 `PENDING` 신청을 `SYSTEM` 주체로 즉시 `REJECTED` 처리한다.
+- 정원 도달로 마감되어도 기존 `PENDING` 신청은 유지하며 신규 신청은 받지 않는다.
 
 #### 예외
 
@@ -220,7 +220,7 @@ Request Body는 없다.
 - `recruitmentId`: 신청의 직접 소유자인 모집 공고 식별자
 - `registrationId`: 가입 신청 식별자
 
-#### 요청 — 승인
+#### 요청 - 승인
 
 ```json
 {
@@ -257,7 +257,8 @@ Request Body는 없다.
 
 #### 부수 효과
 - 승인 시 `GroupMember(role = MEMBER)`를 생성한다.
-- 승인 인원이 `capacity`에 도달하면 `endsAt = now`로 공고를 자동 마감하고 다른 `PENDING` 신청을 `SYSTEM` 주체로 즉시 `REJECTED` 처리한다.
+- 승인 인원이 `capacity`에 도달하면 `endsAt = now`로 공고를 자동 마감한다. 다른 `PENDING` 신청은 유지하고 모임장이 직접 거절할 수 있다.
+- 기존 `PENDING` 신청의 승인은 정원이 남아 있을 때만 가능하며, 정원 초과 승인은 허용하지 않는다.
 - 미승인 시 GroupMember를 생성하지 않는다.
 - `decidedBy`에는 결정 시점의 실제 모임장 회원 ID를 기록한다.
 
@@ -280,7 +281,7 @@ Request Body는 없다.
 
 #### 엔드포인트 규칙
 - 여러 모집 공고에 걸친 Registration을 조회하는 검색용 컬렉션이다.
-- 단일 Registration의 수정·삭제 경로로 사용하지 않는다.
+- 단일 Registration의 수정/삭제 경로로 사용하지 않는다.
 #### Query Parameters
 
 | 이름 | 필수 | 설명 |
