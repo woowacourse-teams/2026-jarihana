@@ -79,7 +79,7 @@ class JpaRegistrationListRepositoryTest {
                 recruitment, pendingApplicant, "신청 메시지", NOW));
         Registration rejected = registrationCommandRepository.save(Registration.createPending(
                 recruitment, rejectedApplicant, null, NOW.minusHours(1)));
-        registrationCommandRepository.save(rejected.rejectBySystem("거절 사유", NOW));
+        registrationCommandRepository.save(rejected.rejectBySystem("미승인 사유", NOW));
 
         // When
         RegistrationListPage firstPage = repository.findPage(
@@ -117,7 +117,7 @@ class JpaRegistrationListRepositoryTest {
         assertThat(secondPage.items())
                 .extracting(RegistrationListProjection::id)
                 .containsExactly(rejected.getId());
-        assertThat(secondPage.items().get(0).rejectReason()).isEqualTo("거절 사유");
+        assertThat(secondPage.items().get(0).rejectReason()).isEqualTo("미승인 사유");
         assertThat(secondPage.items().get(0).decidedByType()).isEqualTo(DecisionActorType.SYSTEM);
         assertThat(secondPage.items().get(0).decidedByMemberId()).isNull();
         assertThat(approvedPage.items())

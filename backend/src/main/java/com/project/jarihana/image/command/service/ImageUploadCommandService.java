@@ -74,7 +74,21 @@ public class ImageUploadCommandService {
                 expiresAt,
                 now
         ));
-        return new CreateImageUploadResult(id, imageKey, uploadUrl, expiresAt);
+        return new CreateImageUploadResult(
+                id,
+                imageKey,
+                uploadUrl,
+                toPublicImageUrl(imageKey),
+                expiresAt
+        );
+    }
+
+    private String toPublicImageUrl(String imageKey) {
+        String baseUrl = imageProperties.publicBaseUrl();
+        if (baseUrl == null || baseUrl.isBlank()) {
+            return "/images/" + imageKey;
+        }
+        return baseUrl.replaceAll("/+$", "") + "/" + imageKey;
     }
 
     private void validateContentType(String contentType) {

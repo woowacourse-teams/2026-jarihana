@@ -77,7 +77,7 @@ class MyRegistrationQueryControllerTest extends IntegrationTestSupport {
         Registration rejected = savePending(
                 firstRecruitment,
                 applicant,
-                "거절 메시지",
+                "미승인 메시지",
                 NOW.minusHours(2)
         );
         registrationRepository.save(rejected.reject(

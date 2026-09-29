@@ -649,6 +649,7 @@
 }
 
 .group-editor__markdown-preview .ui-markdown {
+    max-width: 68ch;
     min-block-size: inherit;
 }
 
@@ -1230,6 +1231,35 @@
 .group-editor__markdown-toolbar button:disabled {
     cursor: not-allowed;
     opacity: 0.4;
+}
+
+.group-editor__markdown-toolbar .group-editor__image-upload-trigger {
+    min-inline-size: var(--touch-target);
+    block-size: var(--touch-target);
+}
+
+.group-editor__image-upload-input {
+    position: absolute;
+    overflow: hidden;
+    clip-path: inset(50%);
+    inline-size: 1px;
+    block-size: 1px;
+    white-space: nowrap;
+}
+
+.group-editor__markdown-upload-error {
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+    border-inline: var(--border-thin) solid var(--color-line);
+    background: var(--color-surface);
+    color: var(--color-danger);
+    font-size: var(--text-caption);
+}
+
+.group-editor__markdown-upload-status {
+    color: var(--color-muted-ink);
+    font-size: var(--text-caption);
+    white-space: nowrap;
 }
 
 .group-editor__toolbar-divide {

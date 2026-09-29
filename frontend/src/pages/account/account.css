@@ -560,6 +560,12 @@
   align-items: start;
 }
 
+.activity-column {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-7);
+}
+
 .profile-column {
   display: grid;
   gap: var(--space-6);
@@ -692,6 +698,17 @@ img.profile-card__avatar {
 
 .activity-board {
   padding-top: var(--space-6);
+}
+
+.activity-board__empty-state .ui-state {
+  min-height: 0;
+  padding: var(--space-4) 0 var(--space-2);
+  border: 0;
+  background: transparent;
+}
+
+.activity-board__empty-state .ui-state__visual {
+  width: min(60%, 18rem);
 }
 
 .activity-board__grid {
@@ -829,6 +846,17 @@ img.profile-card__avatar {
   -webkit-line-clamp: 2;
 }
 
+.activity-row .activity-row__decision-reason {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-ink);
+  background: var(--color-canvas);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-caption);
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: unset;
+}
+
 /* 관리 버튼이 있는 카드와 없는 카드의 발치 높이를 맞춘다 */
 .activity-row__foot {
   display: flex;
@@ -853,6 +881,12 @@ img.profile-card__avatar {
   z-index: 1;
   flex: none;
   text-decoration: none;
+}
+
+.activity-row__action {
+  position: relative;
+  z-index: 1;
+  flex: none;
 }
 
 .activity-board__more {
@@ -990,10 +1024,14 @@ img.profile-card__avatar {
     grid-template-columns: 1fr;
   }
 
+  .profile-companion {
+    display: none;
+  }
+
   .dashboard-counts button {
-    align-items: center;
-    flex-direction: column-reverse;
-    gap: var(--space-1);
+    align-items: baseline;
+    flex-direction: row;
+    gap: var(--space-2);
     font-size: var(--text-caption);
   }
 }
@@ -1062,15 +1100,18 @@ img.profile-card__avatar {
     grid-template-columns: 1fr;
   }
 
+  .activity-column {
+    gap: var(--space-6);
+  }
+
   .profile-companion {
-    min-height: 240px;
-    background-image: url("../../shared/assets/figma/my-companion-illustration.png");
+    display: none;
   }
 
   .dashboard-counts button {
-    align-items: center;
-    flex-direction: column-reverse;
-    gap: var(--space-1);
+    align-items: baseline;
+    flex-direction: row;
+    gap: var(--space-2);
     font-size: var(--text-caption);
   }
 

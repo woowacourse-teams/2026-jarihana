@@ -180,7 +180,7 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
         );
     }
 
-    @DisplayName("승인되거나 거절된 가입 신청은 철회할 수 없다.")
+    @DisplayName("승인되거나 미승인된 가입 신청은 철회할 수 없다.")
     @ParameterizedTest
     @EnumSource(value = RegistrationStatus.class, names = {"APPROVED", "REJECTED"})
     void rejectsWithdrawalOfDecidedRegistration(RegistrationStatus status) {
@@ -263,7 +263,7 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
         )).isPresent();
     }
 
-    @DisplayName("모임장이 대기 신청을 거절하면 사유와 결정 주체를 기록하고 구성원을 만들지 않는다.")
+    @DisplayName("모임장이 대기 신청을 미승인하면 사유와 결정 주체를 기록하고 구성원을 만들지 않는다.")
     @Test
     void rejectsPendingRegistration() {
         // Given
@@ -302,13 +302,14 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
         )).isEmpty();
     }
 
-    @DisplayName("승인으로 정원이 차면 모집을 현재 시각에 마감하고 나머지 대기 신청을 시스템 거절한다.")
+    @DisplayName("승인으로 정원이 차면 모집을 마감하고 나머지 신청은 모임장이 처리할 때까지 대기한다.")
     @Test
-    void closesRecruitmentAndRejectsPendingRegistrationsWhenCapacityIsReached() {
+    void closesRecruitmentAndKeepsPendingRegistrationsWhenCapacityIsReached() {
         // Given
         Member leader = saveMember("다온", "registration-service-full-decision-leader");
         Member approvedApplicant = saveMember("라온", "registration-service-full-approved-applicant");
         Member pendingApplicant = saveMember("마루", "registration-service-full-pending-applicant");
+        Member newApplicant = saveMember("보라", "registration-service-full-new-applicant");
         GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 1);
         groupMemberRepository.save(GroupMember.createLeader(
                 recruitment.getGroup(),
@@ -321,7 +322,7 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
                 null,
                 TestSupportConfig.FIXED_NOW.minusHours(2)
         ));
-        registrationRepository.save(Registration.createPending(
+        Registration pendingRegistration = registrationRepository.save(Registration.createPending(
                 recruitment,
                 pendingApplicant,
                 null,
@@ -348,11 +349,28 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
         assertThat(registrationRepository.countByRecruitmentIdAndStatus(
                 recruitment.getId(),
                 RegistrationStatus.PENDING
-        )).isZero();
+        )).isEqualTo(1);
         assertThat(registrationRepository.countByRecruitmentIdAndStatus(
                 recruitment.getId(),
                 RegistrationStatus.REJECTED
-        )).isEqualTo(1);
+        )).isZero();
+        assertBusinessError(
+                () -> createRegistration(newApplicant, recruitment),
+                ErrorCode.RECRUITMENT_NOT_OPEN
+        );
+
+        // When
+        DecideRegistrationResult rejected = registrationCommandService.decideRegistration(
+                leader.getId(),
+                recruitment.getId(),
+                pendingRegistration.getId(),
+                new DecideRegistrationCommand(RegistrationDecision.REJECTED, "모집 정원이 모두 찼습니다.")
+        );
+
+        // Then
+        assertThat(rejected.status()).isEqualTo(RegistrationStatus.REJECTED);
+        assertThat(rejected.decidedByType()).isEqualTo(DecisionActorType.MEMBER);
+        assertThat(rejected.decidedByMemberId()).isEqualTo(leader.getId());
     }
 
     @DisplayName("이미 수동 마감된 모집도 대기 신청을 승인할 수 있고 정원 도달 시 기존 마감 시각을 유지한다.")
@@ -402,7 +420,7 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
                 .isEqualTo(closedAt);
         assertThat(registrationRepository.countByRecruitmentIdAndStatus(
                 recruitment.getId(),
-                RegistrationStatus.REJECTED
+                RegistrationStatus.PENDING
         )).isEqualTo(1);
     }
 
@@ -491,7 +509,7 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
         );
     }
 
-    @DisplayName("이미 처리된 가입 신청은 다시 승인하거나 거절할 수 없다.")
+    @DisplayName("이미 처리된 가입 신청은 다시 승인하거나 미승인할 수 없다.")
     @Test
     void rejectsAlreadyDecidedRegistration() {
         // Given
@@ -566,7 +584,7 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
         );
     }
 
-    @DisplayName("종료된 그룹의 가입 신청은 승인하거나 거절할 수 없다.")
+    @DisplayName("종료된 그룹의 가입 신청은 승인하거나 미승인할 수 없다.")
     @Test
     void rejectsDecisionForEndedGroup() {
         // Given
@@ -616,7 +634,7 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
             // Then
             assertThat(attempts).filteredOn(DecisionAttempt::succeeded).hasSize(1);
             assertThat(attempts)
-                    .filteredOn(attempt -> attempt.errorCode() == ErrorCode.REGISTRATION_ALREADY_DECIDED)
+                    .filteredOn(attempt -> attempt.errorCode() == ErrorCode.RECRUITMENT_CAPACITY_EXCEEDED)
                     .hasSize(1);
             assertThat(registrationRepository.countByRecruitmentIdAndStatus(
                     recruitment.getId(),
@@ -624,7 +642,7 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
             )).isEqualTo(1);
             assertThat(registrationRepository.countByRecruitmentIdAndStatus(
                     recruitment.getId(),
-                    RegistrationStatus.REJECTED
+                    RegistrationStatus.PENDING
             )).isEqualTo(1);
             assertThat(groupMemberJpaRepository.findAllByGroupIdInOrderById(
                     List.of(recruitment.getGroup().getId())
