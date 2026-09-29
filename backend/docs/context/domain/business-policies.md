@@ -41,7 +41,8 @@ stateDiagram-v2
     REJECTED --> [*]
 ```
 
-- `PENDING` 신청 철회는 상태 전이가 아니라 `Registration`을 Hard Delete하는 행위다.
+- 모집 중인 공고의 `PENDING` 신청만 본인이 철회할 수 있다. 철회는 상태 전이가 아니라 `Registration`을 Hard Delete하는 행위다.
+- 기간 만료, 조기 마감, 정원 도달로 공고가 마감되면 남아 있는 `PENDING` 신청도 철회할 수 없다.
 - `APPROVED` 또는 `REJECTED` 신청은 철회할 수 없다.
 - 수동 승인/미승인의 `decidedBy`는 실제 결정을 수행한 `MEMBER(memberId)`로 기록한다.
 - 자동 미승인의 `decidedBy`는 `SYSTEM`으로 기록하고 UI에는 `System`으로 표시한다.

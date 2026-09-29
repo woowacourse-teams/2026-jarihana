@@ -47,7 +47,8 @@ jest.mock("../../../src/features/recruitment/index.js", () => ({
   useRecruitment: jest.fn()
 }));
 jest.mock("../../../src/features/registration/index.js", () => ({
-  useCreateRegistration: jest.fn()
+  useCreateRegistration: jest.fn(),
+  useWithdrawRegistration: jest.fn()
 }));
 jest.mock("../../../src/features/auth/index.js", () => ({ useAuth: jest.fn() }));
 jest.mock("../../../src/shared/analytics/index.js", () => ({
@@ -136,6 +137,10 @@ beforeEach(() => {
     isSuccess: false,
     error: null,
     reset: jest.fn()
+  });
+  registrationHooks.useWithdrawRegistration.mockReturnValue({
+    mutateAsync: jest.fn().mockResolvedValue(undefined),
+    isPending: false
   });
   authHooks.useAuth.mockReturnValue({
     isAuthenticated: true,
@@ -280,30 +285,99 @@ it("records recruitment-detail application start with session promotion attribut
   });
 });
 
-it("Given a pending application, when the detail page renders, then application is disabled", async () => {
+it("Given a pending application, when the detail page renders, then the member can withdraw it", async () => {
   const user = userEvent.setup();
   groupHooks.useGroup.mockReturnValue({
-    data: { ...group, currentMemberRegistrationStatus: "PENDING" },
+    data: {
+      ...group,
+      currentMemberRegistrationId: 301,
+      currentMemberRegistrationStatus: "PENDING"
+    },
     isLoading: false,
     isError: false
   });
-  const mutateAsync = jest.fn();
+  const create = jest.fn();
+  const withdraw = jest.fn().mockResolvedValue(undefined);
   registrationHooks.useCreateRegistration.mockReturnValue({
-    mutateAsync,
+    mutateAsync: create,
     isPending: false,
     isSuccess: false,
     error: null,
     reset: jest.fn()
   });
+  registrationHooks.useWithdrawRegistration.mockReturnValue({
+    mutateAsync: withdraw,
+    isPending: false
+  });
 
   renderAt("/groups/41", <GroupDetailPage />);
 
-  const button = screen.getByRole("button", { name: "신청 완료" });
-  expect(button).toBeDisabled();
+  const button = screen.getByRole("button", { name: "신청 철회" });
+  expect(button).toHaveAttribute("data-ph-capture-attribute-action", "registration_withdraw");
   await user.click(button);
-  expect(mutateAsync).not.toHaveBeenCalled();
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(screen.getByRole("dialog", { name: "신청을 철회할까요?" })).toBeInTheDocument();
+  const confirm = screen.getByRole("button", { name: "철회하기" });
+  expect(confirm).toHaveAttribute(
+    "data-ph-capture-attribute-action",
+    "registration_withdraw_confirm"
+  );
+  await user.click(confirm);
+  expect(withdraw).toHaveBeenCalledWith(301);
+  expect(create).not.toHaveBeenCalled();
 });
+
+it("Given a pending application and full recruitment, when the detail page renders, then withdrawal is unavailable", () => {
+  groupHooks.useGroup.mockReturnValue({
+    data: {
+      ...group,
+      activeRecruitment: { ...group.activeRecruitment, approvedCount: 10 },
+      currentMemberRegistrationId: 301,
+      currentMemberRegistrationStatus: "PENDING"
+    },
+    isLoading: false,
+    isError: false
+  });
+
+  renderAt("/groups/41", <GroupDetailPage />);
+
+  expect(screen.getByRole("button", { name: "모집 마감" })).toBeDisabled();
+  expect(screen.queryByRole("button", { name: "신청 철회" })).not.toBeInTheDocument();
+});
+
+it("Given a pending application without an ID, when the detail page renders, then the member can reach the withdrawal list", () => {
+  groupHooks.useGroup.mockReturnValue({
+    data: { ...group, currentMemberRegistrationStatus: "PENDING" },
+    isLoading: false,
+    isError: false
+  });
+
+  renderAt("/groups/41", <GroupDetailPage />);
+
+  expect(screen.getByRole("link", { name: "내 신청에서 철회" })).toHaveAttribute(
+    "href",
+    "/my/registrations"
+  );
+});
+
+it.each(["APPROVED", "REJECTED"])(
+  "Given a %s application, when the detail page renders, then withdrawal is unavailable",
+  (status) => {
+    groupHooks.useGroup.mockReturnValue({
+      data: {
+        ...group,
+        currentMemberRegistrationId: 301,
+        currentMemberRegistrationStatus: status
+      },
+      isLoading: false,
+      isError: false
+    });
+
+    renderAt("/groups/41", <GroupDetailPage />);
+
+    expect(screen.queryByRole("button", { name: "신청 철회" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "내 신청에서 철회" })).not.toBeInTheDocument();
+  }
+);
 
 it("Given no active recruitment, when group detail renders, then the fallen-chair empty state is concise", () => {
   groupHooks.useGroup.mockReturnValue({

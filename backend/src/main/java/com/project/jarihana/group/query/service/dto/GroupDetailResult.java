@@ -15,6 +15,7 @@ public record GroupDetailResult(
         GroupRecruitment activeRecruitment,
         int approvedCount,
         GroupMemberRole currentMemberRole,
+        Long currentMemberRegistrationId,
         RegistrationStatus currentMemberRegistrationStatus
 ) {
 
