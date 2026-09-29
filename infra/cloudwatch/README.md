@@ -5,15 +5,44 @@
 
 ```text
 Spring Boot :8081 → 호스트 127.0.0.1:8081 → CloudWatch Agent
-                                          ├─ EMF 로그 → Jarihana/prod
-                                          └─ 호스트 지표 → Jarihana/prod
+                                          ├─ EMF 로그 → Jarihana (environment=prod)
+                                          └─ 호스트 지표 → Jarihana (InstanceId)
 ```
 
-애플리케이션과 호스트 지표는 `Jarihana/prod` 네임스페이스 하나에 모은다. 이 이름의
-`/`는 하위 폴더를 만드는 구분자가 아니라 네임스페이스 이름의 일부다. 기존
-`Jarihana/Application`, `Jarihana/Host`에 저장된 데이터는 옮겨지지 않고, 설정 적용
-이후 데이터부터 새 네임스페이스로 전송된다. 지표의 environment 차원은 현재
-애플리케이션 설정에 맞춰 `current`를 유지한다.
+애플리케이션과 호스트 지표는 `Jarihana` 네임스페이스 하나에 모은다. 애플리케이션은
+environment 차원으로 prod/dev를 구분하고, EC2 자원은 InstanceId별 공통 지표로 한 번만
+수집한다. 기존 `Jarihana/Application`, `Jarihana/Host`, `Jarihana/prod` 데이터는 옮겨지지
+않고 설정 적용 이후 데이터부터 새 네임스페이스로 전송된다.
+
+현재 활성 수집 대상은 `127.0.0.1:8081` 운영 컨테이너 하나다. 대상 labels에 environment=prod를
+지정하고 honor_labels=false를 사용하므로, 아직 environment=current인 기존 배포판도
+CloudWatch에는 prod로 전달된다. 원래 값은 exported_environment에 남을 수 있지만
+CloudWatch 차원으로 사용하지 않는다. 백엔드 prod 프로필도 environment=prod로 맞췄으며
+다음 백엔드 배포부터 원본 메트릭에 반영된다.
+
+## 같은 EC2에 dev 컨테이너를 추가할 때
+
+dev 컨테이너의 관리 포트는 호스트 `127.0.0.1:8082` 등 운영과 다른 포트로 연결한다.
+컨테이너 내부 관리 포트는 같은 8081을 사용해도 된다. API·DB 연결과 별도로 관리 포트를
+localhost에만 공개하고, dev 애플리케이션의 environment 태그도 dev로 설정한다.
+실제 기동 후 기존 job의 static_configs에 두 번째 대상 그룹을 추가한다.
+
+```yaml
+static_configs:
+  - targets: [127.0.0.1:8081]
+    labels:
+      environment: prod
+  - targets: [127.0.0.1:8082]
+    labels:
+      environment: dev
+```
+
+위 예시의 dev 대상은 아직 활성 설정에 넣지 않았다. Agent 선언은 prod/dev 모두 허용하며
+모든 애플리케이션 지표의 environment 차원을 유지한다. 대시보드와 경보도 환경별로
+선택한다. 전체 응답 시간·heap 사용량을 합산할 때도 prod와 dev를 섞지 않는다.
+EC2 CPU·메모리·디스크는 컨테이너별 값이 아니므로 양쪽 대시보드에서 같은 지표를 참조한다.
+같은 종류의 dev 애플리케이션 지표가 추가되면 별도 시리즈로 과금되며, EC2 공통 지표는
+중복 전송하지 않는다. 현재 verify.sh는 prod 환경과 EC2 공통 지표만 확인한다.
 
 ## 구성
 

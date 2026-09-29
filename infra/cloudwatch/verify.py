@@ -24,7 +24,9 @@ def application_metrics(events):
             continue
         declarations = message.get("_aws", message).get("CloudWatchMetrics", [])
         for declaration in declarations:
-            if declaration.get("Namespace") != "Jarihana/prod":
+            if declaration.get("Namespace") != "Jarihana":
+                continue
+            if message.get("environment") != "prod":
                 continue
             if message.get("area") == "nonheap":
                 continue
@@ -65,9 +67,9 @@ def verify(instance_id, root_filesystem):
         )
         observed = application_metrics(result.get("events", []))
         for metric in sorted(required - completed):
-            if metric in observed and datapoints("Jarihana/prod", metric, observed[metric], start, end):
+            if metric in observed and datapoints("Jarihana", metric, observed[metric], start, end):
                 completed.add(metric)
-                print(f"CloudWatch application datapoints verified: {metric}", flush=True)
+                print(f"CloudWatch prod application datapoints verified: {metric}", flush=True)
         for metric in ("mem_used_percent", "disk_used_percent", "cpu_usage_active"):
             if metric in completed:
                 continue
@@ -76,9 +78,9 @@ def verify(instance_id, root_filesystem):
                 dimensions += [{"Name": "path", "Value": "/"}, {"Name": "fstype", "Value": root_filesystem}]
             if metric == "cpu_usage_active":
                 dimensions += [{"Name": "cpu", "Value": "cpu-total"}]
-            if datapoints("Jarihana/prod", metric, dimensions, start, end):
+            if datapoints("Jarihana", metric, dimensions, start, end):
                 completed.add(metric)
-                print(f"CloudWatch host datapoints verified: {metric}", flush=True)
+                print(f"CloudWatch shared EC2 datapoints verified: {metric}", flush=True)
         missing = (required | {"mem_used_percent", "disk_used_percent", "cpu_usage_active"}) - completed
         if not missing:
             print("Actual CloudWatch log events and all required metric groups verified.")
