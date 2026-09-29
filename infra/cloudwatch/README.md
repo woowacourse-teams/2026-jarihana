@@ -42,28 +42,34 @@ inspect 외 작업에는 확인한 EC2 ID를 `expected_instance_id`에 입력한
 
 | 대상 | 지표 | CloudWatch 차원과 읽는 방법 |
 | --- | --- | --- |
-| HTTP | 요청 수, 응답 시간 합계 | application/environment/status_class별 `Sum` |
-| JVM 메모리 | 사용량, 최대량 | application/environment/area/id별 `Average` |
-| JVM 스레드 | 전체 활성 수, 상태별 수 | application/environment 및 state별 `Average` |
-| GC | 중단 횟수·시간 합계, GC overhead | 횟수·시간은 `Sum`, overhead는 `Average` |
-| DB 커넥션 풀 | active/idle/max/pending, timeout, 연결 획득 횟수·시간 | pool별 gauge는 `Average`, counter는 `Sum` |
-| 애플리케이션 CPU | process_cpu_usage | application/environment별 `Average`, 0~1 비율 |
+| HTTP | 상태 범주별 요청 수, 전체 응답 시간 합계 | 요청 수는 application/environment/status_class별 `Sum`, 시간 합계는 application/environment별 `Sum` |
+| JVM 메모리 | heap 사용량 | application/environment/area/id별 `Average` |
+| JVM 스레드 | 전체 활성 수 | application/environment별 `Average` |
+| GC | GC overhead | application/environment별 `Average`, 0~1 비율 |
+| DB 커넥션 풀 | 사용 중 연결(active), 연결을 기다리는 요청(pending) | application/environment/pool별 `Average` |
 | EC2 | 메모리 사용률, 루트 디스크 사용률, 전체 CPU 사용률 | InstanceId별 `Average`, 백분율 |
 
 HTTP는 `2xx`, `4xx`, `5xx` 등 상태 범주로 합친다. 실제 URI, method, exception 등의
 원래 라벨은 Agent가 counter 증가분을 계산할 때 유지하고 EMF 로그에도 남지만, CloudWatch
 메트릭 차원에는 넣지 않는다. 여러 경로의 증가분을 합산하므로 HTTP에는 `Average`가 아닌
-`Sum`을 사용한다. 평균 응답 시간은 같은 상태 범주의 `Sum(시간 합계) / Sum(요청 수)`이며,
-요청 수가 0인 기간은 제외한다. 경로별 메트릭 그래프와 p95는 이 설정에 포함되지 않는다.
+`Sum`을 사용한다. 전체 평균 응답 시간은 `Sum(전체 시간 합계) / 모든 상태 범주의 Sum(요청 수) 합`
+이다. 요청 수가 0인 기간은 제외한다. 응답 시간에는 status_class 차원을 붙이지 않아
+상태 범주가 늘어도 시간 합계 시리즈는 하나다. 경로별 그래프와 p95는 포함되지 않는다.
 
 메모리 gauge는 풀별 `id`를 유지해 서로 다른 메모리 풀의 값이 같은 시리즈에 섞이지 않게
-한다. 전체 heap 사용량은 각 heap 풀의 `Average`를 더한다. JVM이 제한을 제공하지 않아
-최대량이 -1인 풀은 사용률 계산에서 제외한다. Hikari 풀의 max는 DB 서버의 전체 허용
-커넥션 수가 아니라 애플리케이션 풀의 설정값이다.
+한다. heap 영역만 수집하고, 전체 heap 사용량은 각 heap 풀의 `Average`를 더한다.
+id 라벨을 제거해서 전체 heap gauge가 되는 것은 아니다. 최대량은 수집하지 않으므로
+현재 지표만으로 JVM 메모리 사용률을 계산하지 않는다. EC2 전체 메모리 사용률은 별도로 수집한다.
 
-현재 확인한 메모리 풀 8개, 스레드 상태 6개, 커넥션 풀 1개 기준으로 최대 약 47개의
-커스텀 메트릭 시리즈가 생긴다. JVM 종류나 풀이 늘면 개수도 달라진다. 네임스페이스 하나가
-메트릭 하나인 것은 아니며, 메트릭 이름과 차원 조합마다 비용 대상이 된다. 모든 지표는
+초기 구성은 애플리케이션 지표 이름 7개와 EC2 지표 이름 3개다. heap 풀 3개와 Hikari 풀 1개를
+가정하면 HTTP 상태 범주 2개일 때 13개, 모든 상태 범주(1xx~5xx)가 생기면 최대 16개의
+커스텀 시리즈가 생긴다. 실제 풀 개수는 EC2 적용 후 확인한다. 시리즈 수는
+`상태 범주 수 + 1(시간 합계) + heap 풀 수 + 2(스레드·GC) + 2 × Hikari 풀 수 + 3(EC2)`다.
+서울 리전 첫 10,000개 구간의 개당 월 $0.30을 적용하면 13~16개를 한 달 내내 보낼 때
+메트릭 비용은 약 $3.90~$4.80이다. 무료 한도, 로그·API 요금, 세금은 별도다.
+상세 메모리 최대량·nonheap, 스레드 상태, GC pause, DB idle/max/timeout/연결 획득 시간,
+프로세스 CPU는 필요할 때 추가한다. 전송을 중단한 지표도 기존 데이터 때문에 목록에 남을 수 있다.
+네임스페이스 하나가 메트릭 하나인 것은 아니며, 메트릭 이름과 차원 조합마다 비용 대상이 된다. 모든 지표는
 60초 주기이고, Agent가 보내는 EMF 로그는 `/jarihana/current/prometheus`에서 7일 보존한다.
 애플리케이션 요청 본문·회원 ID를 수집하는 설정은 포함하지 않는다.
 
@@ -87,8 +93,8 @@ EXPECTED_INSTANCE_ID=<확인한-EC2-ID> bash infra/cloudwatch/verify.sh
 설치한 패키지의 서명, 체크섬, 버전은 설치 출력에서 확인한다. 기존 자리하나 Agent 설정을
 갱신할 때는 `/var/lib/jarihana-cloudwatch/backups/`에 백업하고, 새 설정 시작에 실패하면
 이전 설정을 복구한다. 패키지 설치와 Agent 시작 성공만으로 전송 성공을 선언하지 않는다.
-검증은 EMF 로그와 HTTP/JVM/GC/Hikari/프로세스 CPU/호스트 메모리·디스크·CPU의 실제
-CloudWatch 데이터 포인트를 확인한다. GC pause는 실제 GC 발생 후 나타날 수 있다.
+검증은 EMF 로그와 HTTP/JVM/GC/Hikari/호스트 메모리·디스크·CPU의 실제
+CloudWatch 데이터 포인트를 확인한다. 초기 구성의 GC 지표는 overhead만 수집한다.
 
 ## 다음 알림 단계에서 해결할 사항
 
@@ -106,3 +112,4 @@ CloudWatch Agent는 counter와 summary의 count/sum을 이전 수집과의 차�
 - [Agent metric 변환과 첫 counter 수집](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/ContainerInsights-Prometheus-metrics-conversion.html)
 - [Agent 권한](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/prerequisites.html)
 - [패키지 서명 검증](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/verify-CloudWatch-Agent-Package-Signature.html)
+- [서울 리전 공식 가격 데이터](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonCloudWatch/current/ap-northeast-2/index.json)
