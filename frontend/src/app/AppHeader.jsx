@@ -10,25 +10,38 @@ import {
 import { Drawer, Modal, useToast } from "../shared/ui";
 import logoMark from "../shared/assets/brand/jarihana-favicon.png";
 
-const MEMBER_LINKS = [
+const DISCOVERY_LINKS = [
   {
     isActive: (pathname) =>
       pathname === "/" ||
       pathname === "/groups" ||
       (pathname !== "/groups/new" && /^\/groups\/[^/]+(?:\/recruitments\/[^/]+)?$/.test(pathname)),
     label: "탐색",
+    action: "browse_groups",
     requiresAuth: false,
     to: "/groups"
   },
   {
+    isActive: (pathname) => pathname === "/activities",
+    label: "활동 기록",
+    action: "browse_activity_posts",
+    requiresAuth: false,
+    to: "/activities"
+  }
+];
+
+const MEMBER_LINKS = [
+  ...DISCOVERY_LINKS,
+  {
     isActive: (pathname) => pathname === "/groups/new",
     label: "모임 만들기",
+    action: "group_create",
     requiresAuth: true,
     to: "/groups/new"
   }
 ];
 
-const DESKTOP_MEMBER_LINKS = [];
+const DESKTOP_MEMBER_LINKS = DISCOVERY_LINKS;
 
 function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, status }) {
   const { pathname } = useLocation();
@@ -39,6 +52,7 @@ function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, st
       <Link
         aria-current={isActive ? "page" : undefined}
         className={isActive ? "app-header__link app-header__link--active" : "app-header__link"}
+        data-ph-capture-attribute-action={link.action}
         key={link.to}
         onClick={(event) => {
           if (link.requiresAuth && status === "anonymous") {

@@ -24,6 +24,8 @@ flowchart TD
     GM["GroupMember<br/>그룹에 실제로 속한 관계<br/>역할과 가입 시각 보유"]
     RS["RecurringGroupSchedule<br/>동아리·스터디의 고정 주간 일정<br/>활동 요일·시간"]
     SS["SessionGroupSchedule<br/>세션의 일회성 일정<br/>활동 날짜·시간"]
+    AP["ActivityPost<br/>그룹 사진 활동 기록<br/>활동 날짜·작성자·캡션"]
+    APP["ActivityPostPhoto<br/>게시물 사진 참조<br/>v1 게시물당 한 장"]
 
     M --> Reg
     M --> GM
@@ -32,6 +34,9 @@ flowchart TD
     G -->|"0..1"| SS
     G -->|"1..N"| GM
     R -->|"0..N"| Reg
+    M -->|"작성"| AP
+    G -->|"기록 대상"| AP
+    AP -->|"1..1 (v1)"| APP
 ```
 
 핵심 구분은 다음과 같다.
@@ -68,6 +73,8 @@ flowchart TD
 | `SessionGroupSchedule` | `SESSION`의 일회성 일정 | 세션 그룹에 연결되는 일정 모델이다 |
 | `Registration` | 모집 공고에 대한 가입 신청 | `PENDING`, `APPROVED`, `REJECTED` 상태를 가진다 |
 | `GroupMember` | 그룹 소속과 역할 | 회원과 그룹 사이의 소속 상태를 표현한다 |
+| `ActivityPost` | 그룹의 사진 활동 기록 | 공개 피드에 노출되는 게시물. `activityDate` 기준 최신순으로 조회한다 |
+| `ActivityPostPhoto` | 게시물 사진 | 게시물과 분리된 사진 참조이며 현재는 게시물당 사진 한 장이다 |
 
 ## 관계도
 
@@ -97,3 +104,4 @@ erDiagram
 | 신청 | [Registration](registration.md) | 신청 모델 |
 | 소속 | [GroupMember](groupmember.md) | 그룹 소속 모델 |
 | 피드백 | [Feedback](feedback.md) | 피드백 내용과 필수 작성 회원 |
+| 사진 활동 기록 | [ActivityPost](activitypost.md) | 공개 범위, 사진 참조, 활동 날짜와 생명주기 |

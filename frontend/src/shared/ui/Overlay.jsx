@@ -54,6 +54,7 @@ function OverlayPanel({
   children,
   closeLabel = "닫기",
   description,
+  dismissible = true,
   mode = "modal",
   onDismiss,
   title
@@ -68,7 +69,7 @@ function OverlayPanel({
     focusableElements(panelReference.current)[0]?.focus();
 
     function handleKeyDown(event) {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && dismissible) {
         event.preventDefault();
         onDismiss();
         return;
@@ -96,14 +97,14 @@ function OverlayPanel({
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [onDismiss]);
+  }, [dismissible, onDismiss]);
 
   const drawer = mode === "drawer";
   return createPortal(
     <div
       className={drawer ? "ui-overlay ui-drawer-overlay" : "ui-overlay"}
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onDismiss();
+        if (dismissible && event.target === event.currentTarget) onDismiss();
       }}
       role="presentation"
     >
@@ -119,6 +120,7 @@ function OverlayPanel({
         <IconButton
           className="ui-dialog__close"
           data-ph-capture-attribute-action="dialog_close"
+          disabled={!dismissible}
           label={closeLabel}
           onClick={onDismiss}
           variant="tertiary"
@@ -155,8 +157,10 @@ function Trigger({ children, expanded, onOpen }) {
 
 export function Modal({
   children,
+  closeLabel = "닫기",
   defaultOpen = false,
   description,
+  dismissible = true,
   onClose,
   onOpenChange,
   open,
@@ -171,6 +175,7 @@ export function Modal({
   }
 
   function dismiss() {
+    if (!dismissible) return;
     setVisible(false);
   }
 
@@ -182,7 +187,13 @@ export function Modal({
         </Trigger>
       ) : null}
       {visible ? (
-        <OverlayPanel description={description} onDismiss={dismiss} title={title}>
+        <OverlayPanel
+          closeLabel={closeLabel}
+          description={description}
+          dismissible={dismissible}
+          onDismiss={dismiss}
+          title={title}
+        >
           {children}
         </OverlayPanel>
       ) : null}

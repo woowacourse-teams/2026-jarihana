@@ -1,5 +1,6 @@
 package com.project.jarihana.group.command.service;
 
+import com.project.jarihana.activitypost.command.service.ActivityPostCommandService;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.command.repository.GroupCommandRepository;
@@ -46,6 +47,7 @@ public class GroupCommandService {
     private final GroupMemberCommandRepository groupMemberCommandRepository;
     private final GroupRecruitmentCommandRepository groupRecruitmentCommandRepository;
     private final RegistrationCommandRepository registrationCommandRepository;
+    private final ActivityPostCommandService activityPostCommandService;
     private final ImageUploadCommandRepository imageUploadCommandRepository;
     private final ImageStorage imageStorage;
     private final Clock clock;
@@ -56,6 +58,7 @@ public class GroupCommandService {
             GroupMemberCommandRepository groupMemberCommandRepository,
             GroupRecruitmentCommandRepository groupRecruitmentCommandRepository,
             RegistrationCommandRepository registrationCommandRepository,
+            ActivityPostCommandService activityPostCommandService,
             ImageUploadCommandRepository imageUploadCommandRepository,
             ImageStorage imageStorage,
             Clock clock
@@ -65,6 +68,7 @@ public class GroupCommandService {
         this.groupMemberCommandRepository = groupMemberCommandRepository;
         this.groupRecruitmentCommandRepository = groupRecruitmentCommandRepository;
         this.registrationCommandRepository = registrationCommandRepository;
+        this.activityPostCommandService = activityPostCommandService;
         this.imageUploadCommandRepository = imageUploadCommandRepository;
         this.imageStorage = imageStorage;
         this.clock = clock;
@@ -230,6 +234,7 @@ public class GroupCommandService {
         }
         registrationCommandRepository.deleteAllByRecruitmentGroupId(groupId);
         groupRecruitmentCommandRepository.deleteAllByGroupId(groupId);
+        activityPostCommandService.hideAllByGroupId(groupId);
         groupMemberCommandRepository.deleteAllByGroupId(groupId);
         groupCommandRepository.delete(group);
     }

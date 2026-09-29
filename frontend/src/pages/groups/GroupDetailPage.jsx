@@ -6,6 +6,7 @@ import { useAuth } from "../../features/auth/index.js";
 import { useGroup } from "../../features/group/index.js";
 import { useInfiniteGroupMembers } from "../../features/member/index.js";
 import { useCreateRegistration } from "../../features/registration/index.js";
+import { ActivityPostBoard } from "../activity-posts/ActivityPostBoard.jsx";
 import { toUserMessage } from "../../shared/api/index.js";
 import { captureEvent, getPromotionAttribution } from "../../shared/analytics/index.js";
 import logoMark from "../../shared/assets/brand/jarihana-favicon.png";
@@ -43,7 +44,7 @@ import "./groups.css";
 
 const tabs = [
   { label: "소개", value: "intro" },
-  { label: "활동 기록", value: "recruitments" },
+  { label: "활동 기록", value: "activities" },
   { label: "참여자", value: "members" }
 ];
 
@@ -250,7 +251,8 @@ export function GroupDetailPage() {
                 {
                   label: tabs[1].label,
                   value: tabs[1].value,
-                  content: <ActivityTab />
+                  content:
+                    selectedTab === "activities" ? <ActivityTab group={group} /> : null
                 },
                 {
                   label: tabs[2].label,
@@ -344,8 +346,8 @@ function Introduction({ group }) {
   );
 }
 
-function ActivityTab() {
-  return <p className="group-tab-placeholder">추후 기능이 추가됩니다.</p>;
+function ActivityTab({ group }) {
+  return <ActivityPostBoard group={group} />;
 }
 
 function RecruitmentSummary({

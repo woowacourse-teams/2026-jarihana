@@ -26,6 +26,8 @@ public class SecurityConfig {
             "/groups/*/members",
             "/groups/*/recruitments",
             "/groups/*/recruitments/*",
+            "/groups/*/activity-posts",
+            "/activity-posts",
             "/share/groups/*",
             "/images/**"
     };

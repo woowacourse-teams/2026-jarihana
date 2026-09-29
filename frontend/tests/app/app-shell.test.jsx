@@ -303,8 +303,10 @@ it("shows member navigation and logs out an authenticated member", () => {
 
   // Then
   expect(
-    within(screen.getByRole("navigation", { name: "주요 메뉴" })).queryAllByRole("link")
-  ).toHaveLength(0);
+    within(screen.getByRole("navigation", { name: "주요 메뉴" }))
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("href"))
+  ).toEqual(["/groups", "/activities"]);
   expect(screen.getByRole("link", { name: "마이페이지" })).toHaveAttribute("href", "/my");
   expect(logout).toHaveBeenCalledTimes(1);
 });

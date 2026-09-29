@@ -17,11 +17,13 @@ function lazyNamed(loadModule, exportName) {
 }
 
 const loadAccountPages = () => import("../pages/account/index.js");
+const loadActivityPostPages = () => import("../pages/activity-posts/index.js");
 const loadGroupEditorPages = () => import("../pages/group-editor/index.jsx");
 const loadGroupPages = () => import("../pages/groups/index.js");
 const loadManagePages = () => import("../pages/manage/index.js");
 
 export const lazyPageRegistry = Object.freeze({
+  ActivityPostsPage: lazyNamed(loadActivityPostPages, "ActivityPostsPage"),
   GroupCreatePage: lazyNamed(loadGroupEditorPages, "NewGroupPage"),
   GroupDetailPage: lazyNamed(loadGroupPages, "GroupDetailPage"),
   GroupManagePage: lazyNamed(loadGroupEditorPages, "GroupManagePage"),
