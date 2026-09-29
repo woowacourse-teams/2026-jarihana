@@ -15,6 +15,13 @@ on:
         options:
           - backend-deploy
           - cloudwatch-inspect
+          - cloudwatch-prepare
+          - cloudwatch-install
+          - cloudwatch-verify
+      expected_instance_id:
+        description: "CloudWatch 작업 대상 EC2 ID (inspect 외 작업 시 필수)"
+        required: false
+        type: string
       expected_current_image:
         description: "현재 운영 이미지 확인값 (지정 시 일치하지 않으면 배포 중단)"
         required: false
@@ -22,7 +29,7 @@ on:
 
 jobs:
   deploy:
-    if: ${{ inputs.operation != 'cloudwatch-inspect' }}
+    if: ${{ inputs.operation == '' || inputs.operation == 'backend-deploy' }}
     runs-on: self-hosted
     env:
       BACKEND_TAG: ${{ github.sha }}
@@ -122,12 +129,27 @@ jobs:
             http://127.0.0.1:8080/api/groups > /dev/null
 
   cloudwatch:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'cloudwatch-inspect' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && startsWith(inputs.operation, 'cloudwatch-') }}
     runs-on: [self-hosted, Linux, ARM64]
     permissions:
       contents: read
+    env:
+      EXPECTED_INSTANCE_ID: ${{ inputs.expected_instance_id }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: CloudWatch 설치 전 환경 확인
+        if: ${{ inputs.operation == 'cloudwatch-inspect' }}
         run: bash infra/cloudwatch/inspect.sh
+      - name: CloudWatch 수집 설정 검증
+        if: ${{ inputs.operation == 'cloudwatch-prepare' || inputs.operation == 'cloudwatch-install' }}
+        run: python3 infra/cloudwatch/validate.py
+      - name: CloudWatch 로그 그룹과 보존 기간 설정
+        if: ${{ inputs.operation == 'cloudwatch-prepare' || inputs.operation == 'cloudwatch-install' }}
+        run: bash infra/cloudwatch/prepare-aws.sh
+      - name: CloudWatch Agent 설치와 시작
+        if: ${{ inputs.operation == 'cloudwatch-install' }}
+        run: sudo -n --preserve-env=EXPECTED_INSTANCE_ID bash infra/cloudwatch/install.sh
+      - name: CloudWatch 실제 수신 확인
+        if: ${{ inputs.operation == 'cloudwatch-install' || inputs.operation == 'cloudwatch-verify' }}
+        run: bash infra/cloudwatch/verify.sh
