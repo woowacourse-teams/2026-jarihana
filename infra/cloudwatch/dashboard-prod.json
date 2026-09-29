@@ -12,6 +12,7 @@
       "type": "metric", "x": 0, "y": 3, "width": 8, "height": 6,
       "properties": {
         "title": "HTTP 요청 수 / 1분", "region": "ap-northeast-2",
+        "timezone": "+0900",
         "view": "timeSeries", "period": 60, "stat": "Sum", "stacked": false,
         "yAxis": {"left": {"min": 0, "label": "요청 수", "showUnits": false}},
         "metrics": [
@@ -27,6 +28,7 @@
       "type": "metric", "x": 8, "y": 3, "width": 8, "height": 6,
       "properties": {
         "title": "HTTP 전체 평균 응답 시간", "region": "ap-northeast-2",
+        "timezone": "+0900",
         "view": "timeSeries", "period": 60, "stat": "Sum", "stacked": false,
         "yAxis": {"left": {"min": 0, "label": "ms", "showUnits": false}},
         "metrics": [
@@ -49,6 +51,7 @@
       "type": "metric", "x": 16, "y": 3, "width": 8, "height": 6,
       "properties": {
         "title": "HTTP 5xx 요청 수·오류율", "region": "ap-northeast-2",
+        "timezone": "+0900",
         "view": "timeSeries", "period": 60, "stat": "Sum", "stacked": false,
         "yAxis": {"left": {"min": 0, "label": "요청 수", "showUnits": false}, "right": {"min": 0, "max": 100, "label": "%", "showUnits": false}},
         "metrics": [
@@ -66,6 +69,7 @@
       "type": "metric", "x": 0, "y": 9, "width": 8, "height": 6,
       "properties": {
         "title": "CPU 사용률 — 기본 EC2 (5분)·운영 앱 (1분)", "region": "ap-northeast-2",
+        "timezone": "+0900",
         "view": "timeSeries", "period": 60, "stat": "Average", "stacked": false,
         "yAxis": {"left": {"min": 0, "max": 100, "label": "%", "showUnits": false}},
         "metrics": [
@@ -79,6 +83,7 @@
       "type": "metric", "x": 8, "y": 9, "width": 8, "height": 6,
       "properties": {
         "title": "EC2 공통 메모리·루트 디스크 사용률", "region": "ap-northeast-2",
+        "timezone": "+0900",
         "view": "timeSeries", "period": 60, "stat": "Average", "stacked": false,
         "yAxis": {"left": {"min": 0, "max": 100, "label": "%", "showUnits": false}},
         "metrics": [
@@ -91,6 +96,7 @@
       "type": "metric", "x": 16, "y": 9, "width": 8, "height": 6,
       "properties": {
         "title": "JVM heap·nonheap 사용량", "region": "ap-northeast-2",
+        "timezone": "+0900",
         "view": "timeSeries", "period": 60, "stat": "Average", "stacked": false,
         "yAxis": {"left": {"min": 0, "label": "MiB", "showUnits": false}},
         "metrics": [
@@ -105,6 +111,7 @@
       "type": "metric", "x": 0, "y": 15, "width": 8, "height": 6,
       "properties": {
         "title": "JVM 전체·상태별 스레드 수", "region": "ap-northeast-2",
+        "timezone": "+0900",
         "view": "timeSeries", "period": 60, "stat": "Average", "stacked": false,
         "yAxis": {"left": {"min": 0, "label": "스레드 수", "showUnits": false}},
         "metrics": [
@@ -117,6 +124,7 @@
       "type": "metric", "x": 8, "y": 15, "width": 8, "height": 6,
       "properties": {
         "title": "GC pause 횟수·시간 / 1분", "region": "ap-northeast-2",
+        "timezone": "+0900",
         "view": "timeSeries", "period": 60, "stat": "Sum", "stacked": false,
         "yAxis": {"left": {"min": 0, "label": "횟수", "showUnits": false}, "right": {"min": 0, "label": "ms", "showUnits": false}},
         "metrics": [
@@ -130,6 +138,7 @@
       "type": "metric", "x": 16, "y": 15, "width": 8, "height": 6,
       "properties": {
         "title": "GC overhead", "region": "ap-northeast-2",
+        "timezone": "+0900",
         "view": "timeSeries", "period": 60, "stat": "Average", "stacked": false,
         "yAxis": {"left": {"min": 0, "max": 100, "label": "%", "showUnits": false}},
         "metrics": [
@@ -142,6 +151,7 @@
       "type": "metric", "x": 0, "y": 21, "width": 8, "height": 6,
       "properties": {
         "title": "DB 커넥션 풀 — active·idle·max·pending", "region": "ap-northeast-2",
+        "timezone": "+0900",
         "view": "timeSeries", "period": 60, "stat": "Average", "stacked": false,
         "yAxis": {"left": {"min": 0, "label": "연결·대기 요청 수", "showUnits": false}},
         "metrics": [
@@ -156,6 +166,7 @@
       "type": "metric", "x": 8, "y": 21, "width": 8, "height": 6,
       "properties": {
         "title": "DB 연결 획득·timeout 횟수 / 1분", "region": "ap-northeast-2",
+        "timezone": "+0900",
         "view": "timeSeries", "period": 60, "stat": "Sum", "stacked": false,
         "yAxis": {"left": {"min": 0, "label": "횟수", "showUnits": false}},
         "metrics": [
@@ -168,6 +179,7 @@
       "type": "metric", "x": 16, "y": 21, "width": 8, "height": 6,
       "properties": {
         "title": "DB 전체 평균 연결 획득 시간", "region": "ap-northeast-2",
+        "timezone": "+0900",
         "view": "timeSeries", "period": 60, "stat": "Sum", "stacked": false,
         "yAxis": {"left": {"min": 0, "label": "ms", "showUnits": false}},
         "metrics": [
@@ -182,6 +194,7 @@
       "type": "metric", "x": 0, "y": 27, "width": 24, "height": 6,
       "properties": {
         "title": "기본 EC2 상태 검사 — 0=통과 / 1=실패 / 빈 구간=확인 필요", "region": "ap-northeast-2",
+        "timezone": "+0900",
         "view": "timeSeries", "period": 60, "stat": "Maximum", "stacked": false,
         "yAxis": {"left": {"min": 0, "max": 1, "label": "검사 실패 여부", "showUnits": false}},
         "metrics": [
