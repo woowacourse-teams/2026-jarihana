@@ -15,16 +15,21 @@ def validate():
     if config["metrics"]["namespace"] != "Jarihana" or processor["metric_namespace"] != "Jarihana":
         raise ValueError("Use Jarihana for both host and application metrics")
     allowed_dimensions = {
-        "application", "environment", "status_class", "area", "id", "pool"
+        "application", "environment", "status_class", "area", "id", "state", "pool"
     }
     metric_names = list(processor["metric_unit"])
     expected_metrics = {
         "http_server_requests_seconds_count", "http_server_requests_seconds_sum",
-        "jvm_memory_used_bytes", "jvm_threads_live_threads", "jvm_gc_overhead",
-        "hikaricp_connections_active", "hikaricp_connections_pending"
+        "jvm_memory_used_bytes", "jvm_memory_max_bytes", "jvm_threads_live_threads",
+        "jvm_threads_states_threads", "jvm_gc_pause_seconds_count",
+        "jvm_gc_pause_seconds_sum", "jvm_gc_overhead",
+        "hikaricp_connections_active", "hikaricp_connections_idle",
+        "hikaricp_connections_max", "hikaricp_connections_pending",
+        "hikaricp_connections_timeout_total", "hikaricp_connections_acquire_seconds_count",
+        "hikaricp_connections_acquire_seconds_sum", "process_cpu_usage"
     }
     if set(metric_names) != expected_metrics:
-        raise ValueError("Keep only the agreed initial application metrics")
+        raise ValueError("Keep the agreed application metrics")
     for declaration in processor["metric_declaration"]:
         for dimensions in declaration["dimensions"]:
             if not set(dimensions) <= allowed_dimensions:
@@ -33,9 +38,7 @@ def validate():
                 raise ValueError("Keep prod and dev separated by environment")
         source_labels = declaration["source_labels"]
         label_matcher = "^jarihana-backend;jarihana;(prod|dev)$"
-        if source_labels == ["job", "application", "environment", "area"]:
-            label_matcher = "^jarihana-backend;jarihana;(prod|dev);heap$"
-        elif source_labels != ["job", "application", "environment"]:
+        if source_labels != ["job", "application", "environment"]:
             raise ValueError("Unexpected source labels")
         if declaration["label_matcher"] != label_matcher:
             raise ValueError("Accept only the configured prod and dev environments")
@@ -51,11 +54,10 @@ def validate():
         if len(matches) != 1:
             raise ValueError(f"Metric needs exactly one declaration: {name}")
         declaration = matches[0]
-        if name == "http_server_requests_seconds_sum" and declaration["dimensions"] != [["application", "environment"]]:
-            raise ValueError("Publish one HTTP duration series for all status classes")
-        if name == "jvm_memory_used_bytes":
-            if declaration["source_labels"] != ["job", "application", "environment", "area"] or declaration["label_matcher"] != "^jarihana-backend;jarihana;(prod|dev);heap$":
-                raise ValueError("Collect heap memory only")
+        if name in {"http_server_requests_seconds_count", "http_server_requests_seconds_sum"}:
+            if declaration["dimensions"] != [["application", "environment", "status_class"]]:
+                raise ValueError("Preserve HTTP status class for counts and durations")
+        if name in {"jvm_memory_used_bytes", "jvm_memory_max_bytes"}:
             if declaration["dimensions"] != [["application", "environment", "area", "id"]]:
                 raise ValueError("Preserve memory pool identity")
     measurements = config["metrics"]["metrics_collected"]
