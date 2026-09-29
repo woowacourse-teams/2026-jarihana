@@ -889,7 +889,10 @@ textarea {
     font-size: var(--text-h3);
 }
 
-.ui-markdown p,
+.ui-markdown p {
+    margin-block: var(--space-2);
+}
+
 .ui-markdown ul,
 .ui-markdown ol,
 .ui-markdown pre,
@@ -968,6 +971,14 @@ textarea {
 
 .ui-markdown blockquote > p {
     margin-block: 0;
+}
+
+.ui-markdown img {
+    display: block;
+    max-inline-size: 100%;
+    block-size: auto;
+    margin-block: var(--space-4);
+    border-radius: var(--radius-sm);
 }
 
 .ui-markdown a {
@@ -1161,6 +1172,21 @@ textarea {
 .ui-badge--danger {
     background: var(--color-danger-soft);
     color: var(--color-danger);
+}
+
+.ui-badge--group-type-study {
+    background: var(--color-activity-study-soft);
+    color: var(--color-activity-study-ink);
+}
+
+.ui-badge--group-type-club {
+    background: var(--color-activity-club-soft);
+    color: var(--color-activity-club-ink);
+}
+
+.ui-badge--group-type-session {
+    background: var(--color-activity-session-soft);
+    color: var(--color-activity-session-ink);
 }
 
 .ui-avatar {

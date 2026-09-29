@@ -226,6 +226,26 @@ it.each([
   }
 );
 
+it.each([
+  ["STUDY", "스터디", "ui-badge--group-type-study"],
+  ["CLUB", "동아리", "ui-badge--group-type-club"],
+  ["SESSION", "같이해요", "ui-badge--group-type-session"]
+])(
+  "Given a %s group, when the detail page renders, then its type uses the shared badge treatment",
+  (type, label, toneClass) => {
+    groupHooks.useGroup.mockReturnValue({
+      data: { ...group, type },
+      isLoading: false,
+      isError: false
+    });
+
+    renderAt("/groups/41", <GroupDetailPage />);
+
+    const typeBadge = screen.getByText(label, { exact: true });
+    expect(typeBadge).toHaveClass("ui-badge", toneClass);
+  }
+);
+
 it("records group-detail application start with session promotion attribution", async () => {
   const user = userEvent.setup();
   getPromotionAttribution.mockReturnValue({

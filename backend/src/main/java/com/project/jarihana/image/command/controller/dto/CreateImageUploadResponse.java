@@ -8,10 +8,17 @@ public record CreateImageUploadResponse(
         UUID id,
         String imageKey,
         String uploadUrl,
+        String publicImageUrl,
         LocalDateTime expiresAt
 ) {
 
     public static CreateImageUploadResponse from(CreateImageUploadResult result) {
-        return new CreateImageUploadResponse(result.id(), result.imageKey(), result.uploadUrl(), result.expiresAt());
+        return new CreateImageUploadResponse(
+                result.id(),
+                result.imageKey(),
+                result.uploadUrl(),
+                result.publicImageUrl(),
+                result.expiresAt()
+        );
     }
 }

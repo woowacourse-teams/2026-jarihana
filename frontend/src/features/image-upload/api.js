@@ -17,6 +17,7 @@ const imageUploadResponseSchema = z
     id: z.string().uuid(),
     imageKey: z.string().min(1),
     uploadUrl: z.string().url(),
+    publicImageUrl: z.string().min(1),
     expiresAt: z.string().min(1)
   })
   .strict();
