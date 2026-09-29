@@ -34,7 +34,6 @@ services:
       - "127.0.0.1:5433:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ../backend/db/dev/bootstrap.sql:/docker-entrypoint-initdb.d/001-bootstrap.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U jarihana_dev -d jarihana_dev -h 127.0.0.1"]
       interval: 5s

@@ -49,5 +49,4 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
-	inputs.file('db/dev/bootstrap.sql')
 }
