@@ -180,7 +180,7 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
         );
     }
 
-    @DisplayName("승인되거나 거절된 가입 신청은 철회할 수 없다.")
+    @DisplayName("승인되거나 미승인된 가입 신청은 철회할 수 없다.")
     @ParameterizedTest
     @EnumSource(value = RegistrationStatus.class, names = {"APPROVED", "REJECTED"})
     void rejectsWithdrawalOfDecidedRegistration(RegistrationStatus status) {
@@ -263,7 +263,7 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
         )).isPresent();
     }
 
-    @DisplayName("모임장이 대기 신청을 거절하면 사유와 결정 주체를 기록하고 구성원을 만들지 않는다.")
+    @DisplayName("모임장이 대기 신청을 미승인하면 사유와 결정 주체를 기록하고 구성원을 만들지 않는다.")
     @Test
     void rejectsPendingRegistration() {
         // Given
@@ -509,7 +509,7 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
         );
     }
 
-    @DisplayName("이미 처리된 가입 신청은 다시 승인하거나 거절할 수 없다.")
+    @DisplayName("이미 처리된 가입 신청은 다시 승인하거나 미승인할 수 없다.")
     @Test
     void rejectsAlreadyDecidedRegistration() {
         // Given
@@ -584,7 +584,7 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
         );
     }
 
-    @DisplayName("종료된 그룹의 가입 신청은 승인하거나 거절할 수 없다.")
+    @DisplayName("종료된 그룹의 가입 신청은 승인하거나 미승인할 수 없다.")
     @Test
     void rejectsDecisionForEndedGroup() {
         // Given

@@ -56,7 +56,7 @@ class RecruitmentCommandServiceTest extends IntegrationTestSupport {
     @Autowired
     private MemberRepository memberRepository;
 
-    @DisplayName("새 모집 공고를 등록하면 기존 활성 공고를 현재 시각에 마감하고 대기 신청을 시스템 거절한다.")
+    @DisplayName("새 모집 공고를 등록하면 기존 활성 공고를 현재 시각에 마감하고 대기 신청을 시스템 미승인한다.")
     @Test
     void createsRecruitmentAndClosesPreviousRecruitment() {
         // Given
@@ -118,7 +118,7 @@ class RecruitmentCommandServiceTest extends IntegrationTestSupport {
         return memberRepository.save(Member.create(crewName, 8, githubId, Course.BACKEND));
     }
 
-    @DisplayName("이미 기간이 만료된 공고의 대기 신청은 새 공고 등록 시 거절하지 않는다.")
+    @DisplayName("이미 기간이 만료된 공고의 대기 신청은 새 공고 등록 시 미승인하지 않는다.")
     @Test
     void keepsPendingRegistrationOfExpiredRecruitment() {
         // Given
