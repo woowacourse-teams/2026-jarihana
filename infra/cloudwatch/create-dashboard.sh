@@ -2,6 +2,14 @@
 set -euo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 . "${script_dir}/ec2-context.sh"
+update_existing=false
+if (( $# > 1 )) || [[ $# -eq 1 && "${1-}" != --update ]]; then
+  echo 'Usage: create-dashboard.sh [--update]' >&2
+  exit 1
+fi
+if [[ $# -eq 1 ]]; then
+  update_existing=true
+fi
 if [[ "${instance_id}" != i-0a1245eb20f7998b8 || "${region}" != ap-northeast-2 ]]; then
   echo 'The dashboard JSON targets the inspected Seoul production EC2.' >&2
   exit 1
@@ -14,11 +22,18 @@ trap 'rm -rf -- "${temporary_dir}"' EXIT
 python3 -m json.tool "${script_dir}/dashboard-prod.json" > /dev/null
 if aws cloudwatch get-dashboard --dashboard-name "${dashboard_name}" \
   --output json > "${temporary_dir}/existing.json" 2> "${temporary_dir}/error"; then
-  echo 'The production dashboard already exists. Review it before updating; no changes made.' >&2
-  exit 1
-fi
-if ! grep -q '(ResourceNotFound)' "${temporary_dir}/error"; then
+  if [[ "${update_existing}" != true ]]; then
+    echo 'The production dashboard already exists. Review it before updating; no changes made.' >&2
+    exit 1
+  fi
+  backup_dir="$(mktemp -d /tmp/jarihana-dashboard-backup.XXXXXXXX)"
+  cp "${temporary_dir}/existing.json" "${backup_dir}/existing.json"
+  printf 'Previous dashboard backup: %s/existing.json\n' "${backup_dir}"
+elif ! grep -q '(ResourceNotFound)' "${temporary_dir}/error"; then
   cat "${temporary_dir}/error" >&2
+  exit 1
+elif [[ "${update_existing}" == true ]]; then
+  echo 'The dashboard does not exist; use creation mode without --update.' >&2
   exit 1
 fi
 
@@ -42,9 +57,11 @@ import json
 import sys
 
 with open(sys.argv[1]) as source, open(sys.argv[2]) as result:
-    if json.load(source) != json.loads(json.load(result)["DashboardBody"]):
+    dashboard = json.load(source)
+    if dashboard != json.loads(json.load(result)["DashboardBody"]):
         raise SystemExit("Saved dashboard differs from the reviewed JSON")
-print("Dashboard saved and read back: DASHBOARD-jarihana-prod (12 graphs)")
+graphs = sum(widget["type"] == "metric" for widget in dashboard["widgets"])
+print(f"Dashboard saved and read back: DASHBOARD-jarihana-prod ({graphs} graphs)")
 PY
 printf 'https://%s.console.aws.amazon.com/cloudwatch/home?region=%s#dashboards/dashboard/%s\n' \
   "${region}" "${region}" "${dashboard_name}"

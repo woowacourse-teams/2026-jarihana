@@ -63,8 +63,8 @@ def validate():
     measurements = config["metrics"]["metrics_collected"]
     if measurements["disk"]["resources"] != ["/"]:
         raise ValueError("Collect only the root disk")
-    if "resources" in measurements["cpu"]:
-        raise ValueError("Do not emit a separate metric for each CPU core")
+    if set(measurements) != {"mem", "disk"}:
+        raise ValueError("Collect only host memory and root disk; use AWS/EC2 for CPU")
     print(f"Agent JSON checks passed: {len(metric_names)} selected application metric names")
 
 

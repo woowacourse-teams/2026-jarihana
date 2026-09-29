@@ -35,12 +35,12 @@ def application_metrics(events):
     return metrics
 
 
-def datapoints(namespace, metric, dimensions, start, end):
+def datapoints(namespace, metric, dimensions, start, end, period=60):
     result = aws(
         "cloudwatch", "get-metric-statistics", "--namespace", namespace,
         "--metric-name", metric, "--dimensions", json.dumps(dimensions),
         "--start-time", start, "--end-time", end,
-        "--period", "60", "--statistics", "Sum", "Average"
+        "--period", str(period), "--statistics", "Sum", "Average"
     )
     return result["Datapoints"]
 
@@ -51,6 +51,14 @@ def verify(instance_id, root_filesystem):
         "jvm_threads_live_threads", "jvm_gc_overhead",
         "hikaricp_connections_active", "hikaricp_connections_pending",
         "http_server_requests_seconds_sum", "process_cpu_usage"
+    }
+    host_metrics = {"mem_used_percent", "disk_used_percent"}
+    native_metrics = {
+        "CPUUtilization": 300,
+        "StatusCheckFailed": 60,
+        "StatusCheckFailed_Instance": 60,
+        "StatusCheckFailed_System": 60,
+        "StatusCheckFailed_AttachedEBS": 60,
     }
     completed = set()
     for attempt in range(1, 11):
@@ -66,18 +74,23 @@ def verify(instance_id, root_filesystem):
             if metric in observed and datapoints("Jarihana", metric, observed[metric], start, end):
                 completed.add(metric)
                 print(f"CloudWatch prod application datapoints verified: {metric}", flush=True)
-        for metric in ("mem_used_percent", "disk_used_percent", "cpu_usage_active"):
+        for metric in sorted(host_metrics):
             if metric in completed:
                 continue
             dimensions = [{"Name": "InstanceId", "Value": instance_id}]
             if metric == "disk_used_percent":
                 dimensions += [{"Name": "path", "Value": "/"}, {"Name": "fstype", "Value": root_filesystem}]
-            if metric == "cpu_usage_active":
-                dimensions += [{"Name": "cpu", "Value": "cpu-total"}]
             if datapoints("Jarihana", metric, dimensions, start, end):
                 completed.add(metric)
                 print(f"CloudWatch shared EC2 datapoints verified: {metric}", flush=True)
-        missing = (required | {"mem_used_percent", "disk_used_percent", "cpu_usage_active"}) - completed
+        for metric, period in native_metrics.items():
+            if metric in completed:
+                continue
+            dimensions = [{"Name": "InstanceId", "Value": instance_id}]
+            if datapoints("AWS/EC2", metric, dimensions, start, end, period):
+                completed.add(metric)
+                print(f"CloudWatch native EC2 datapoints verified: {metric}", flush=True)
+        missing = (required | host_metrics | set(native_metrics)) - completed
         if not missing:
             print("Actual CloudWatch log events and all required metric groups verified.")
             return
