@@ -16,10 +16,6 @@
         "measurement": ["used_percent"],
         "resources": ["/"],
         "drop_device": true
-      },
-      "cpu": {
-        "measurement": ["usage_active"],
-        "totalcpu": true
       }
     }
   },
