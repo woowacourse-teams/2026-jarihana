@@ -12,6 +12,8 @@ def validate():
     if prometheus["log_group_name"] != "/jarihana/current/prometheus":
         raise ValueError("Unexpected log group")
     processor = prometheus["emf_processor"]
+    if config["metrics"]["namespace"] != "Jarihana/prod" or processor["metric_namespace"] != "Jarihana/prod":
+        raise ValueError("Use Jarihana/prod for both host and application metrics")
     allowed_dimensions = {
         "application", "environment", "status_class", "area", "id", "state", "pool"
     }
