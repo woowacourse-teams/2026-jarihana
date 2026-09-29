@@ -235,15 +235,15 @@ export function AppHeader({ action = null, title = "" }) {
           </div>
 
           <nav aria-label="주요 메뉴" className="app-header__primary-nav">
-            <FeedbackLink
-              onClick={handleFeedbackTrigger}
-              open={feedbackOpen || loginRequiredOpen}
-              status={status}
-            />
             <HeaderLinks
               links={DESKTOP_MEMBER_LINKS}
               onNavigate={() => {}}
               onProtectedNavigate={redirectToLogin}
+              status={status}
+            />
+            <FeedbackLink
+              onClick={handleFeedbackTrigger}
+              open={feedbackOpen || loginRequiredOpen}
               status={status}
             />
           </nav>
@@ -285,15 +285,15 @@ export function AppHeader({ action = null, title = "" }) {
       <Drawer onClose={closeMenu} open={isMenuOpen} title="전체 메뉴">
         <nav aria-label="모바일 메뉴" className="app-header__mobile-nav">
           {title ? <p className="app-header__context">{title}</p> : null}
+          <HeaderLinks
+            onNavigate={closeMenu}
+            onProtectedNavigate={redirectToLogin}
+            status={status}
+          />
           <FeedbackLink
             onClick={handleFeedbackTrigger}
             onNavigate={closeMenu}
             open={feedbackOpen || loginRequiredOpen}
-            status={status}
-          />
-          <HeaderLinks
-            onNavigate={closeMenu}
-            onProtectedNavigate={redirectToLogin}
             status={status}
           />
           {status === "authenticated" ? <MyPageLink onNavigate={closeMenu} /> : null}

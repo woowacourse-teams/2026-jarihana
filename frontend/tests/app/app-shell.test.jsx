@@ -310,3 +310,27 @@ it("shows member navigation and logs out an authenticated member", () => {
   expect(screen.getByRole("link", { name: "마이페이지" })).toHaveAttribute("href", "/my");
   expect(logout).toHaveBeenCalledTimes(1);
 });
+
+it("places feedback after discovery links in desktop and mobile navigation", () => {
+  // Given
+  renderShell({ login: jest.fn(), logout: jest.fn(), status: "authenticated" });
+
+  // Then
+  const expectedOrder = ["탐색", "활동 기록", "피드백 남기기"];
+  const desktopNavigation = screen.getByRole("navigation", { name: "주요 메뉴" });
+  expect(
+    Array.from(desktopNavigation.querySelectorAll("a, button")).map((item) =>
+      item.textContent.trim()
+    )
+  ).toEqual(expectedOrder);
+
+  // And
+  fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
+  const mobileNavigation = screen.getByRole("navigation", { name: "모바일 메뉴" });
+  const expectedMobileOrder = ["탐색", "활동 기록", "모임 만들기", "피드백 남기기"];
+  expect(
+    Array.from(mobileNavigation.querySelectorAll("a, button"))
+      .slice(0, 4)
+      .map((item) => item.textContent.trim())
+  ).toEqual(expectedMobileOrder);
+});
