@@ -65,8 +65,8 @@ jobs:
 
       - name: 운영 환경 변수 확인
         env:
-          APP_GITHUB_CLIENT_ID: ${{ secrets.OAUTH_GITHUB_CLIENT_ID }}
-          APP_GITHUB_REDIRECT_URI: ${{ secrets.OAUTH_GITHUB_REDIRECT_URI }}
+          APP_GITHUB_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
+          APP_GITHUB_REDIRECT_URI: ${{ vars.OAUTH_GITHUB_REDIRECT_URI }}
         run: |
           set -euo pipefail
           test -n "${APP_GITHUB_CLIENT_ID}"
@@ -74,8 +74,8 @@ jobs:
 
       - name: 프론트엔드 빌드
         env:
-          APP_GITHUB_CLIENT_ID: ${{ secrets.OAUTH_GITHUB_CLIENT_ID }}
-          APP_GITHUB_REDIRECT_URI: ${{ secrets.OAUTH_GITHUB_REDIRECT_URI }}
+          APP_GITHUB_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
+          APP_GITHUB_REDIRECT_URI: ${{ vars.OAUTH_GITHUB_REDIRECT_URI }}
           APP_OAUTH_COOKIE_NAME: oauthState
           DISABLE_REACT_DEVTOOLS: "1"
           APP_POSTHOG_PROJECT_TOKEN: ${{ vars.POSTHOG_PROJECT_TOKEN }}

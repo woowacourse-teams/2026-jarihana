@@ -70,7 +70,13 @@ Secrets:
 | --- | --- |
 | `POSTGRES_PASSWORD` | 개발 DB 전용 비밀번호 |
 | `ACCESS_TOKEN_SECRET` | 개발 JWT 전용 비밀값, 현재 JWT 요구 길이 충족 |
+| `REFRESH_TOKEN_SECRET` | 운영과 동일한 등록 목록 유지, 현재 배포 workflow에서는 참조하지 않음 |
 | `OAUTH_GITHUB_CLIENT_SECRET` | 개발 GitHub OAuth 앱 secret |
+
+Variables:
+
+| 이름 | 값 |
+| --- | --- |
 | `FRONTEND_ORIGIN` | 개발 HTTPS origin, 경로 없이 지정 |
 | `OAUTH_GITHUB_CLIENT_ID` | 개발 GitHub OAuth 앱 client ID |
 | `OAUTH_GITHUB_REDIRECT_URI` | 개발 HTTPS `/api/oauth/github/callback` |
@@ -79,14 +85,15 @@ Secrets:
 | `IMAGE_S3_KEY_PREFIX` | `jarihana-dev/images` |
 | `IMAGE_S3_PUBLIC_BASE_URL` | 개발 이미지 공개 URL, 예: dev origin의 `/images` |
 
-시크릿은 `Settings > Environments > dev > Environment secrets`에 위 이름으로 등록한다. workflow의
+`Settings > Environments > dev`에서 위 비밀값 4개는 Environment secrets,
+일반 설정 7개는 Environment variables에 등록한다. workflow의
 `environment: dev`가 환경을 선택하므로 이름에 환경 접두사를 붙이지 않는다.
 동일한 이름이 저장소와 Environment에 있으면 Environment 값이 우선한다.
 Environment에 값이 없으면 저장소 공용 값이 사용될 수 있으므로, 위 개발 값을 모두 등록한다.
 기존 접두사 이름으로 등록했다면 새 이름으로 다시 등록해야 한다.
 
 프론트의 dev 분석 수집은 비활성화한다. SSH 환경값 예시의 `GITHUB_OAUTH_*`는
-컨테이너에 전달하는 이름이며, GitHub Secret은 운영과 동일하게 `OAUTH_GITHUB_*`를 사용한다.
+컨테이너에 전달하는 이름이며, GitHub Secrets와 Variables는 운영과 동일하게 `OAUTH_GITHUB_*`를 사용한다.
 
 ### CloudFront·AWS
 
