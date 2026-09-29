@@ -68,7 +68,7 @@ CloudFront
 ### 2026-09-29 공유 개발 환경 추가
 
 같은 EC2와 runner에 개발 백엔드·PostgreSQL을 추가한다. 독립 Compose의 최상위
-`name: jarihana-dev`로 network·volume을 구분하고 호스트 포트 8081·127.0.0.1:5433을 사용한다.
+`name: jarihana-dev`로 network·volume을 구분하고 호스트 포트 9080·127.0.0.1:15432를 사용한다.
 기존 운영 project와 volume은 유지한다. 개발용 S3 prefix, CloudFront 배포판과 OAuth 앱은
 운영과 분리하며 `prod` Spring 프로필의 schema validation과 secure cookie를 재사용한다.
 
