@@ -2,6 +2,7 @@ import {
   Bold,
   Code,
   Heading2,
+  ImagePlus,
   Italic,
   Link,
   List,
@@ -12,6 +13,10 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import {
+  IMAGE_ALLOWED_CONTENT_TYPES,
+  validateImageFile
+} from "../../features/image-upload/api.js";
 import { MarkdownContent, Textarea } from "../../shared/ui/index.js";
 
 const WRAPPERS = {
@@ -41,6 +46,8 @@ const TOOLS = [
   { icon: Code, kind: "code", label: "인라인 코드" },
   { icon: SquareCode, kind: "fence", label: "코드 블럭" }
 ];
+
+const IMAGE_UPLOAD_FAILURE_MESSAGE = "이미지를 업로드하지 못했어요. 잠시 후 다시 시도해 주세요.";
 
 /*
  * Builds the next value plus the selection to restore. Anything the caller did
@@ -106,12 +113,21 @@ export function MarkdownEditor({
   rows = 8,
   setValue,
   title = "모임 소개",
-  value = ""
+  value = "",
+  onImageUpload,
+  imageUploadError,
+  imageUploadPending = false
 }) {
   const [preview, setPreview] = useState(false);
+  const [localImageUploadError, setLocalImageUploadError] = useState("");
+  const [localImageUploadPending, setLocalImageUploadPending] = useState(false);
   const textareaRef = useRef(null);
+  const imageInputRef = useRef(null);
   const pendingSelection = useRef(null);
+  const selectionReference = useRef(null);
   const registration = register(name);
+  const imageUploadEnabled = typeof onImageUpload === "function";
+  const uploadPending = imageUploadPending || localImageUploadPending;
 
   useEffect(() => {
     const selection = pendingSelection.current;
@@ -137,6 +153,100 @@ export function MarkdownEditor({
     setValue(name, next, { shouldDirty: true, shouldValidate: true });
   }
 
+  function captureSelection() {
+    const node = textareaRef.current;
+    if (!node) return;
+    selectionReference.current = { from: node.selectionStart, to: node.selectionEnd };
+  }
+
+  function insertUploadedImages(uploads, selection) {
+    const node = textareaRef.current;
+    const current = node?.value ?? value;
+    const from = Math.min(selection?.from ?? current.length, current.length);
+    const to = Math.min(selection?.to ?? from, current.length);
+    const snippets = uploads.map((upload) => {
+      const imageUrl =
+        upload?.publicImageUrl || (upload?.imageKey ? `/images/${upload.imageKey}` : "");
+      if (!imageUrl) throw new Error(IMAGE_UPLOAD_FAILURE_MESSAGE);
+      return `![본문 이미지](${imageUrl})`;
+    });
+    const imageMarkdown = snippets.join("\n");
+    const leadingBreak = from > 0 && current[from - 1] !== "\n" ? "\n" : "";
+    const trailingBreak = to < current.length && current[to] !== "\n" ? "\n" : "";
+    const snippet = `${leadingBreak}${imageMarkdown}${trailingBreak}`;
+    const next = `${current.slice(0, from)}${snippet}${current.slice(to)}`;
+
+    if (next.length > maxLength) {
+      setLocalImageUploadError("이미지를 넣을 수 없어요. 소개 글자 수를 확인해 주세요.");
+      return;
+    }
+
+    pendingSelection.current = { from: from + snippet.length, to: from + snippet.length };
+    selectionReference.current = pendingSelection.current;
+    setValue(name, next, { shouldDirty: true, shouldValidate: true });
+  }
+
+  async function uploadImages(files, selection) {
+    if (!imageUploadEnabled || uploadPending || !files.length) return;
+
+    setLocalImageUploadError("");
+    setLocalImageUploadPending(true);
+    try {
+      files.forEach((file) => validateImageFile(file));
+      const uploads = [];
+      for (const file of files) {
+        uploads.push(await onImageUpload(file));
+      }
+      insertUploadedImages(uploads, selection);
+    } catch (uploadError) {
+      setLocalImageUploadError(
+        uploadError?.userMessage || uploadError?.message || IMAGE_UPLOAD_FAILURE_MESSAGE
+      );
+    } finally {
+      setLocalImageUploadPending(false);
+    }
+  }
+
+  function handlePaste(event) {
+    const clipboardItems = Array.from(event.clipboardData?.items ?? []);
+    const imageItems = clipboardItems.filter(
+      (item) => item.kind === "file" && item.type?.toLowerCase().startsWith("image/")
+    );
+    const itemFiles = imageItems.map((item) => item.getAsFile?.()).filter(Boolean);
+    const clipboardFiles = Array.from(event.clipboardData?.files ?? []).filter((file) =>
+      file.type?.toLowerCase().startsWith("image/")
+    );
+    const files =
+      imageItems.length && itemFiles.length === imageItems.length ? itemFiles : clipboardFiles;
+    if (!files.length || !imageUploadEnabled) return;
+
+    event.preventDefault();
+    if (imageItems.length && files.length !== imageItems.length) {
+      setLocalImageUploadError(IMAGE_UPLOAD_FAILURE_MESSAGE);
+      return;
+    }
+
+    captureSelection();
+    void uploadImages(files, selectionReference.current);
+  }
+
+  function openImagePicker() {
+    captureSelection();
+    imageInputRef.current?.click();
+  }
+
+  function handleImageChange(event) {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (!files.length) return;
+
+    captureSelection();
+    void uploadImages(files, selectionReference.current);
+  }
+
+  const uploadErrorMessage =
+    localImageUploadError || imageUploadError?.userMessage || imageUploadError?.message;
+
   return (
     <div className="group-editor__markdown-editor">
       <div className="group-editor__description-heading">
@@ -145,6 +255,7 @@ export function MarkdownEditor({
           <button
             aria-pressed={!preview}
             className={preview ? "" : "is-active"}
+            disabled={uploadPending}
             onClick={() => setPreview(false)}
             type="button"
           >
@@ -153,6 +264,7 @@ export function MarkdownEditor({
           <button
             aria-pressed={preview}
             className={preview ? "is-active" : ""}
+            disabled={uploadPending}
             onClick={() => setPreview(true)}
             type="button"
           >
@@ -168,7 +280,7 @@ export function MarkdownEditor({
           ) : (
             <button
               aria-label={tool.label}
-              disabled={preview}
+              disabled={preview || uploadPending}
               key={tool.kind}
               onClick={() => applyFormat(tool.kind)}
               title={tool.label}
@@ -178,10 +290,50 @@ export function MarkdownEditor({
             </button>
           )
         )}
+        {imageUploadEnabled ? (
+          <>
+            <button
+              aria-label={uploadPending ? "본문 이미지 업로드 중" : "본문 이미지 업로드"}
+              className="group-editor__image-upload-trigger"
+              data-ph-capture-attribute-action="group_description_image_upload"
+              disabled={preview || uploadPending}
+              onClick={openImagePicker}
+              onMouseDown={(event) => {
+                event.preventDefault();
+                captureSelection();
+              }}
+              title="본문 이미지 업로드"
+              type="button"
+            >
+              <ImagePlus aria-hidden="true" size={18} />
+            </button>
+            <input
+              accept={IMAGE_ALLOWED_CONTENT_TYPES.join(",")}
+              aria-label="본문 이미지 파일 선택"
+              className="group-editor__image-upload-input"
+              data-ph-capture-attribute-action="group_description_image_file"
+              disabled={uploadPending}
+              onChange={handleImageChange}
+              ref={imageInputRef}
+              tabIndex={-1}
+              type="file"
+            />
+          </>
+        ) : null}
+        {uploadPending ? (
+          <span className="group-editor__markdown-upload-status" role="status">
+            이미지 업로드 중...
+          </span>
+        ) : null}
         <span className="group-editor__toolbar-count">
           {value.length.toLocaleString()} / {maxLength.toLocaleString()}
         </span>
       </div>
+      {uploadErrorMessage ? (
+        <p className="group-editor__markdown-upload-error" role="alert">
+          {uploadErrorMessage}
+        </p>
+      ) : null}
 
       {preview ? (
         <div className="group-editor__markdown-preview" aria-label="모임 소개 미리보기">
@@ -199,6 +351,8 @@ export function MarkdownEditor({
             registration.ref(node);
           }}
           rows={rows}
+          disabled={uploadPending}
+          onPaste={handlePaste}
         />
       )}
     </div>
