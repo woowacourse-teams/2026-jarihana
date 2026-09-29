@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
+import { UserRound } from "lucide-react";
 
 import { storeReturnTarget, useAuth } from "../features/auth";
 import {
@@ -291,9 +292,9 @@ export function AppHeader({ action = null, title = "" }) {
         <nav aria-label="모바일 메뉴" className="app-header__mobile-nav">
           {title ? <p className="app-header__context">{title}</p> : null}
           <div className="app-header__mobile-account">
-            {status === "authenticated" ? (
-              <div className="app-header__mobile-identity">
-                <span className="app-header__mobile-eyebrow">나의 프로필</span>
+            <div className="app-header__mobile-identity">
+              <span className="app-header__mobile-eyebrow">나의 프로필</span>
+              {status === "authenticated" ? (
                 <Avatar
                   alt=""
                   className="app-header__avatar"
@@ -301,29 +302,44 @@ export function AppHeader({ action = null, title = "" }) {
                   size="sm"
                   src={avatarUrl ?? member?.avatarUrl}
                 />
-                <div className="app-header__mobile-member">
-                  <strong className="app-header__mobile-name">{member?.crewName}</strong>
-                  <span className="app-header__mobile-generation">
-                    {memberDetails}
-                  </span>
-                </div>
+              ) : (
+                <span aria-hidden="true" className="app-header__avatar app-header__guest-avatar">
+                  <UserRound />
+                </span>
+              )}
+              <div className="app-header__mobile-member">
+                <strong className="app-header__mobile-name">
+                  {status === "authenticated" ? member?.crewName
+                    : status === "loading" ? "잠시만 기다려 주세요"
+                      : status === "signup-required" ? "가입을 마무리해 주세요"
+                        : "로그인하고 시작해요"}
+                </strong>
+                <span className="app-header__mobile-generation">
+                  {status === "authenticated" ? memberDetails
+                    : status === "loading" ? "내 계정 정보를 확인하고 있어요"
+                      : status === "signup-required" ? "프로필을 완성하고 모임에 참여해요"
+                        : "내 모임과 신청 내역을 확인해요"}
+                </span>
               </div>
-            ) : null}
+            </div>
             <AuthAction onNavigate={closeMenu} status={status} />
           </div>
-          <FeedbackLink
-            onClick={handleFeedbackTrigger}
-            onNavigate={closeMenu}
-            open={feedbackOpen || loginRequiredOpen}
-            status={status}
-          />
-          <HeaderLinks
-            onNavigate={closeMenu}
-            onProtectedNavigate={redirectToLogin}
-            status={status}
-          />
-          {status === "authenticated" ? <MyPageLink onNavigate={closeMenu} /> : null}
-          {action}
+          <div className="app-header__mobile-links">
+            <h3 className="app-header__mobile-section-title">메뉴</h3>
+            <FeedbackLink
+              onClick={handleFeedbackTrigger}
+              onNavigate={closeMenu}
+              open={feedbackOpen || loginRequiredOpen}
+              status={status}
+            />
+            <HeaderLinks
+              onNavigate={closeMenu}
+              onProtectedNavigate={redirectToLogin}
+              status={status}
+            />
+            {status === "authenticated" ? <MyPageLink onNavigate={closeMenu} /> : null}
+            {action}
+          </div>
         </nav>
       </Drawer>
     </>

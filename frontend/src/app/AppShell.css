@@ -373,7 +373,6 @@
     display: grid;
     justify-items: center;
     gap: var(--space-4);
-    margin-bottom: var(--space-2);
     padding: var(--space-4);
     border: var(--border-thin) solid var(--color-line);
     border-radius: var(--radius-md);
@@ -408,6 +407,20 @@
     min-width: 0;
 }
 
+.app-header__guest-avatar {
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius-pill);
+    background: var(--color-line);
+    color: var(--color-muted);
+}
+
+.app-header__guest-avatar svg {
+    width: var(--space-12);
+    height: var(--space-12);
+    stroke-width: 1.5;
+}
+
 .app-header__mobile-name {
     color: var(--color-ink);
     font-size: var(--text-h3);
@@ -427,8 +440,23 @@
     background: var(--color-surface);
 }
 
-.app-header__mobile-account > :only-child {
+.app-header__mobile-account .app-header__auth-placeholder {
     width: 100%;
+}
+
+.app-header__mobile-links {
+    display: grid;
+    gap: var(--space-2);
+    margin-top: var(--space-4);
+    padding-top: var(--space-4);
+    border-top: var(--border-thin) solid var(--color-line);
+}
+
+.app-header__mobile-section-title {
+    margin: 0;
+    color: var(--color-muted-ink);
+    font-size: var(--text-caption);
+    font-weight: var(--font-weight-bold);
 }
 
 .app-header__mobile-nav .app-header__auth--secondary {
