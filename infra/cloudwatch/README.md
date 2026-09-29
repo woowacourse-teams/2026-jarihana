@@ -5,9 +5,15 @@
 
 ```text
 Spring Boot :8081 → 호스트 127.0.0.1:8081 → CloudWatch Agent
-                                          ├─ EMF 로그 → Jarihana/Application
-                                          └─ 호스트 지표 → Jarihana/Host
+                                          ├─ EMF 로그 → Jarihana/prod
+                                          └─ 호스트 지표 → Jarihana/prod
 ```
+
+애플리케이션과 호스트 지표는 `Jarihana/prod` 네임스페이스 하나에 모은다. 이 이름의
+`/`는 하위 폴더를 만드는 구분자가 아니라 네임스페이스 이름의 일부다. 기존
+`Jarihana/Application`, `Jarihana/Host`에 저장된 데이터는 옮겨지지 않고, 설정 적용
+이후 데이터부터 새 네임스페이스로 전송된다. 지표의 environment 차원은 현재
+애플리케이션 설정에 맞춰 `current`를 유지한다.
 
 ## 구성
 
