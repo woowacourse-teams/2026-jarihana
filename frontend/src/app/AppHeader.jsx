@@ -7,6 +7,7 @@ import {
   FeedbackLoginPrompt,
   getFeedbackReturnTarget
 } from "../features/feedback/index.js";
+import { COURSE_LABELS, generationLabel } from "../pages/account/accountUtils";
 import { Avatar, Drawer, Modal, useToast } from "../shared/ui";
 import githubMark from "../shared/assets/brand/github-mark.svg";
 import logoMark from "../shared/assets/brand/jarihana-favicon.png";
@@ -150,6 +151,9 @@ function AuthAction({ onNavigate, status }) {
 
 export function AppHeader({ action = null, title = "" }) {
   const { avatarUrl, login, member, status } = useAuth();
+  const memberDetails = member?.memberType === "COACH"
+    ? "코치"
+    : `${generationLabel(member?.generation)}${member?.course ? ` / ${COURSE_LABELS[member.course]}` : ""}`;
   const { hash, pathname, search } = useLocation();
   const navigate = useNavigate();
   const { success } = useToast();
@@ -289,6 +293,7 @@ export function AppHeader({ action = null, title = "" }) {
           <div className="app-header__mobile-account">
             {status === "authenticated" ? (
               <div className="app-header__mobile-identity">
+                <span className="app-header__mobile-eyebrow">나의 프로필</span>
                 <Avatar
                   alt=""
                   className="app-header__avatar"
@@ -299,9 +304,7 @@ export function AppHeader({ action = null, title = "" }) {
                 <div className="app-header__mobile-member">
                   <strong className="app-header__mobile-name">{member?.crewName}</strong>
                   <span className="app-header__mobile-generation">
-                    {member?.memberType === "COACH"
-                      ? "코치"
-                      : member?.generation ? `${member.generation}기` : "기수 미정"}
+                    {memberDetails}
                   </span>
                 </div>
               </div>

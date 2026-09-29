@@ -400,7 +400,7 @@ it("closes the profile menu after an outside press or focus leaving", () => {
 
 it("closes the mobile drawer when selecting my page", () => {
   const avatarUrl = "https://avatars.githubusercontent.com/u/123";
-  renderShell({ avatarUrl, member: { crewName: "자리", generation: 8, memberType: "CREW" }, status: "authenticated" });
+  renderShell({ avatarUrl, member: { course: "FRONTEND", crewName: "자리", generation: 8, memberType: "CREW" }, status: "authenticated" });
   fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
   const menu = screen.getByRole("navigation", { name: "모바일 메뉴" });
   const profile = within(menu).getByRole("link", { name: "마이페이지" });
@@ -408,7 +408,8 @@ it("closes the mobile drawer when selecting my page", () => {
   expect(profile).toHaveClass("app-header__link");
   expect(menu.querySelector("img")).toHaveAttribute("src", avatarUrl);
   expect(within(menu).getByText("자리")).toBeInTheDocument();
-  expect(within(menu).getByText("8기")).toBeInTheDocument();
+  expect(within(menu).getByText("나의 프로필")).toBeInTheDocument();
+  expect(within(menu).getByText("8기 / 프론트엔드")).toBeInTheDocument();
   expect(profile).toHaveAttribute("data-ph-capture-attribute-action", "my_page_view");
   expect(within(menu).queryByRole("button", { name: "프로필 메뉴" })).not.toBeInTheDocument();
   fireEvent.click(profile);

@@ -370,21 +370,36 @@
 }
 
 .app-header__mobile-account {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-    min-height: calc(var(--touch-target) + var(--space-6) + var(--border-thin));
+    display: grid;
+    justify-items: center;
+    gap: var(--space-4);
     margin-bottom: var(--space-2);
-    padding-bottom: var(--space-4);
-    border-bottom: var(--border-thin) solid var(--color-line);
+    padding: var(--space-4);
+    border: var(--border-thin) solid var(--color-line);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-sunken);
+    text-align: center;
 }
 
 .app-header__mobile-identity {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
+    display: grid;
+    justify-items: center;
+    gap: var(--space-3);
+    width: 100%;
     min-width: 0;
+}
+
+.app-header__mobile-eyebrow {
+    color: var(--color-text-brand);
+    font-size: var(--text-caption);
+    font-weight: var(--font-weight-extrabold);
+}
+
+.app-header__mobile-identity .app-header__avatar {
+    width: calc(var(--space-12) * 2);
+    height: calc(var(--space-12) * 2);
+    border: var(--border-thin) solid var(--color-line);
+    font-size: var(--text-h1);
 }
 
 .app-header__mobile-member {
@@ -395,7 +410,7 @@
 
 .app-header__mobile-name {
     color: var(--color-ink);
-    font-size: var(--text-body);
+    font-size: var(--text-h3);
     overflow-wrap: anywhere;
 }
 
@@ -405,10 +420,11 @@
 }
 
 .app-header__mobile-account .app-header__auth {
-    flex: none;
+    width: 100%;
     margin-top: 0;
     padding-inline: var(--space-3);
     border-color: var(--color-line);
+    background: var(--color-surface);
 }
 
 .app-header__mobile-account > :only-child {
