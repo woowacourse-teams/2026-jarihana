@@ -38,6 +38,7 @@ import {
   publicErrorCopy,
   recruitmentCountdownLabel,
   scheduleLines,
+  typeBadgeTone,
   typeLabel
 } from "./pageUtils.js";
 import "./groups.css";
@@ -175,9 +176,11 @@ export function GroupDetailPage() {
               <span>목록으로</span>
             </Link>
             <div className="group-profile__copy">
-              <p className="groups-eyebrow group-profile__type-tag">
-                <span>{typeLabel(group.type)}</span>
-              </p>
+              <div className="group-profile__type-tag">
+                <StatusBadge tone={typeBadgeTone(group.type)}>
+                  {typeLabel(group.type)}
+                </StatusBadge>
+              </div>
               <h1 id="group-title">{group.name}</h1>
               <p>{group.introduction}</p>
               <LeaderSummary leader={group.leader} variant="hero" />

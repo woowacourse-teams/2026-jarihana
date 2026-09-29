@@ -17,6 +17,7 @@ import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.recruitment.command.repository.GroupRecruitmentCommandRepository;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
+import com.project.jarihana.recruitment.domain.RecruitmentPhase;
 import com.project.jarihana.registration.command.repository.RegistrationCommandRepository;
 import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.registration.domain.RegistrationStatus;
@@ -265,7 +266,7 @@ public class GroupCommandService {
         }
 
         for (GroupRecruitment recruitment : groupRecruitmentCommandRepository.findAllByGroupId(groupId)) {
-            if (!recruitment.isOpenAt(now)) {
+            if (recruitment.phaseAt(now) == RecruitmentPhase.CLOSED) {
                 continue;
             }
             groupRecruitmentCommandRepository.save(recruitment.closeAt(now));

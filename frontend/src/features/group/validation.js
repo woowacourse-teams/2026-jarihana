@@ -10,7 +10,7 @@ const localTimeInputSchema = z.string().regex(/^\d{2}:\d{2}$/);
 
 /*
  * 두 시각을 함께 비우면 요일만 고정하고 시간은 유동적으로 두는 일정이다. 한쪽만
- * 비우는 것은 백엔드도 거절하므로 여기서 먼저 막는다.
+ * 비우는 것은 백엔드도 허용하지 않으므로 여기서 먼저 막는다.
  */
 export const recurringScheduleFormSchema = z
   .object({

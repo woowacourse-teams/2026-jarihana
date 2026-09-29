@@ -23,7 +23,7 @@
 | 가입 신청 | `GET` | `/api/recruitments/{recruitmentId}/registrations` | `LEADER` | 모집 공고 신청자 목록 조회 |
 | 가입 신청 | `POST` | `/api/recruitments/{recruitmentId}/registrations` | `MEMBER` | 모집 공고에 가입 신청 |
 | 가입 신청 | `DELETE` | `/api/recruitments/{recruitmentId}/registrations/{registrationId}` | `MEMBER` | 내 대기 중 가입 신청 철회 |
-| 가입 신청 | `PATCH` | `/api/recruitments/{recruitmentId}/registrations/{registrationId}` | `LEADER` | 가입 신청 승인·거절 |
+| 가입 신청 | `PATCH` | `/api/recruitments/{recruitmentId}/registrations/{registrationId}` | `LEADER` | 가입 신청 승인·미승인 |
 | 가입 신청 | `GET` | `/api/registrations?applicant=me` | `MEMBER` | 내 가입 신청 목록 조회 |
 | 그룹 | `GET` | `/api/groups` | `PUBLIC` | 그룹 목록 조회 — 관계·상태·유형 필터 지원 |
 | 그룹 | `POST` | `/api/groups` | `MEMBER` | 그룹 개설 |

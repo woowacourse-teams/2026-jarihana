@@ -321,7 +321,7 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
         )).isPresent();
     }
 
-    @DisplayName("모임장이 대기 신청을 거절하면 사유와 결정 주체를 응답하고 구성원을 만들지 않는다.")
+    @DisplayName("모임장이 대기 신청을 미승인하면 사유와 결정 주체를 응답하고 구성원을 만들지 않는다.")
     @Test
     void rejectsRegistration() {
         // Given
@@ -372,7 +372,7 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
         )).isEmpty();
     }
 
-    @DisplayName("승인 요청에 거절 사유를 함께 보내면 잘못된 요청으로 응답한다.")
+    @DisplayName("승인 요청에 미승인 사유를 함께 보내면 잘못된 요청으로 응답한다.")
     @Test
     void rejectsApprovalWithDecisionReason() {
         // Given

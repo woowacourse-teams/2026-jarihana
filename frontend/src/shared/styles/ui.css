@@ -893,7 +893,6 @@ textarea {
 .ui-markdown ul,
 .ui-markdown ol,
 .ui-markdown pre,
-.ui-markdown table,
 .ui-markdown blockquote {
     margin-block: var(--space-3);
 }
@@ -936,8 +935,16 @@ textarea {
     white-space: pre;
 }
 
-.ui-markdown table {
-    width: 100%;
+.ui-markdown__table-wrap {
+    max-inline-size: 100%;
+    margin-block: var(--space-3);
+    overflow-x: auto;
+}
+
+.ui-markdown__table-wrap table {
+    inline-size: max-content;
+    min-inline-size: 100%;
+    margin: 0;
     border-collapse: collapse;
 }
 
@@ -968,6 +975,14 @@ textarea {
 
 .ui-markdown blockquote > p {
     margin-block: 0;
+}
+
+.ui-markdown img {
+    display: block;
+    max-inline-size: 100%;
+    block-size: auto;
+    margin-block: var(--space-4);
+    border-radius: var(--radius-sm);
 }
 
 .ui-markdown a {
@@ -1161,6 +1176,21 @@ textarea {
 .ui-badge--danger {
     background: var(--color-danger-soft);
     color: var(--color-danger);
+}
+
+.ui-badge--group-type-study {
+    background: var(--color-activity-study-soft);
+    color: var(--color-activity-study-ink);
+}
+
+.ui-badge--group-type-club {
+    background: var(--color-activity-club-soft);
+    color: var(--color-activity-club-ink);
+}
+
+.ui-badge--group-type-session {
+    background: var(--color-activity-session-soft);
+    color: var(--color-activity-session-ink);
 }
 
 .ui-avatar {

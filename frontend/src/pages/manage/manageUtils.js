@@ -58,7 +58,7 @@ export function statusLabel(status) {
       CLOSED: "마감",
       OPEN: "모집 중",
       PENDING: "대기",
-      REJECTED: "거절",
+      REJECTED: "미승인",
       SCHEDULED: "모집 예정",
       UPCOMING: "모집 예정"
     }[status] ?? status

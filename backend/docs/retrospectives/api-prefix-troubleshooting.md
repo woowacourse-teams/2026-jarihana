@@ -264,7 +264,7 @@ normalizeRepresentativeImageUrl("images/default-group.png")  ->  /images/default
 3. GitHub 앱에 등록된 Callback URL
 ```
 
-세 값이 전부 같은 문자열이어야 합니다. 하나라도 다르면 `redirect_uri_mismatch`로 거절됩니다.
+세 값이 전부 같은 문자열이어야 합니다. 하나라도 다르면 `redirect_uri_mismatch`로 거부됩니다.
 
 등록 여부는 이렇게 확인할 수 있습니다. 아무 의미 없는 인가 코드를 보내면 오류 코드로 갈립니다.
 
