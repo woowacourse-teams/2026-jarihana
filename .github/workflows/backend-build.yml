@@ -7,6 +7,11 @@ on:
     paths:
       - "backend/**"
   workflow_dispatch:
+    inputs:
+      expected_current_image:
+        description: "현재 운영 이미지 확인값 (지정 시 일치하지 않으면 배포 중단)"
+        required: false
+        type: string
 
 jobs:
   deploy:
@@ -23,6 +28,20 @@ jobs:
           whoami
           docker version
 
+      - name: 이전 Backend 이미지 기록
+        id: previous
+        env:
+          EXPECTED_CURRENT_IMAGE: ${{ inputs.expected_current_image }}
+        run: |
+          previous_image="$(docker inspect --format '{{.Config.Image}}' jarihana-backend 2>/dev/null || true)"
+          echo "Previous backend image: ${previous_image}"
+          if [[ -n "${EXPECTED_CURRENT_IMAGE}" ]]; then
+            test "${previous_image}" = "${EXPECTED_CURRENT_IMAGE}"
+          fi
+          if [[ "${previous_image}" == jarihana-backend:* ]]; then
+            echo "backend_tag=${previous_image#jarihana-backend:}" >> "${GITHUB_OUTPUT}"
+          fi
+
       - name: Backend 이미지 빌드
         run: |
           docker build \
@@ -30,6 +49,7 @@ jobs:
             ./backend
 
       - name: Compose로 Backend 배포
+        id: rollout
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           FRONTEND_ORIGIN: ${{ secrets.FRONTEND_ORIGIN }}
@@ -52,3 +72,43 @@ jobs:
           test -n "${container_id}"
           test "$(docker inspect -f '{{.State.Status}}' "${container_id}")" = "running"
           docker ps --filter 'name=^/jarihana-backend$'
+
+      - name: Backend API와 관리용 메트릭 확인
+        run: |
+          curl --fail --silent --show-error \
+            --retry 20 --retry-all-errors --retry-delay 3 --max-time 5 \
+            http://127.0.0.1:8081/actuator/health > /dev/null
+
+          metrics="$(curl --fail --silent --show-error --max-time 10 \
+            http://127.0.0.1:8081/actuator/prometheus)"
+          [[ "${metrics}" == *jvm_memory_used_bytes* ]]
+          [[ "${metrics}" == *hikaricp_connections_active* ]]
+          test "$(docker port jarihana-backend 8081/tcp)" = "127.0.0.1:8081"
+
+          api_status="$(curl --silent --show-error --max-time 10 \
+            --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8080/api/groups)"
+          test "${api_status}" = "200"
+          metrics_status="$(curl --silent --show-error --max-time 10 \
+            --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8080/api/actuator/prometheus)"
+          test "${metrics_status}" = "403"
+          echo "Health and Prometheus: 200; groups API: ${api_status}; public-port metrics: ${metrics_status}"
+
+      - name: 검증 실패 시 이전 Backend 이미지 복구
+        if: ${{ failure() && (steps.rollout.outcome == 'success' || steps.rollout.outcome == 'failure') && steps.previous.outputs.backend_tag != '' }}
+        env:
+          BACKEND_TAG: ${{ steps.previous.outputs.backend_tag }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          FRONTEND_ORIGIN: ${{ secrets.FRONTEND_ORIGIN }}
+          ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
+          GITHUB_OAUTH_CLIENT_ID: ${{ secrets.OAUTH_GITHUB_CLIENT_ID }}
+          GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
+          GITHUB_OAUTH_REDIRECT_URI: ${{ secrets.OAUTH_GITHUB_REDIRECT_URI }}
+          IMAGE_S3_BUCKET: ${{ secrets.IMAGE_S3_BUCKET }}
+          IMAGE_S3_REGION: ${{ secrets.IMAGE_S3_REGION }}
+          IMAGE_S3_KEY_PREFIX: ${{ secrets.IMAGE_S3_KEY_PREFIX }}
+          IMAGE_S3_PUBLIC_BASE_URL: ${{ secrets.IMAGE_S3_PUBLIC_BASE_URL }}
+        run: |
+          docker compose -f infra/docker-compose.yml up -d --no-build --no-deps backend
+          curl --fail --silent --show-error \
+            --retry 20 --retry-all-errors --retry-delay 3 --max-time 5 \
+            http://127.0.0.1:8080/api/groups > /dev/null
