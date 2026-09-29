@@ -24,6 +24,7 @@
     "id": "550e8400-e29b-41d4-a716-446655440000",
     "imageKey": "groups/tmp/550e8400-e29b-41d4-a716-446655440000.webp",
     "uploadUrl": "https://storage.example.com/presigned-upload",
+    "publicImageUrl": "https://cdn.example.com/images/groups/tmp/550e8400-e29b-41d4-a716-446655440000.webp",
     "expiresAt": "2026-08-13T12:10:00"
   },
   "error": null
@@ -31,8 +32,10 @@
 ```
 
 - 클라이언트는 제한된 시간과 객체 키에만 유효한 Presigned URL로 스토리지에 이미지 바이트를 직접 업로드한다.
+- 업로드가 끝나면 `publicImageUrl`을 마크다운 이미지 주소로 사용한다.
 - 그룹 생성·수정 API에는 URL이 아니라 `representativeImageKey`를 전달한다.
 - 그룹 생성·수정 요청의 `representativeImageKey`는 아직 만료되지 않은 업로드 기록과 실제 스토리지 객체가 모두 존재해야 한다.
+- 모임 소개 본문에 삽입한 이미지는 `publicImageUrl`이 마크다운에 저장되므로, 이미지 정리 작업은 본문에 남아 있는 이미지 키도 참조 중인 이미지로 취급해야 한다.
 
 #### 생명주기
 - 그룹에 연결된 `representativeImageKey`만 대표 이미지로 확정한다.
