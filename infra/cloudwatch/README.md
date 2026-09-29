@@ -55,6 +55,8 @@ EC2 CPU·메모리·디스크는 컨테이너별 값이 아니므로 양쪽 대�
 | `install.sh` | 서명을 검증한 Ubuntu ARM64 패키지 설치와 Agent 시작 |
 | `verify.sh`, `verify.py` | 실제 CloudWatch 로그 및 메트릭 데이터 수신 확인 |
 | `validate.py` | Agent JSON의 지표 선택 및 차원 제한 확인 |
+| `dashboard-prod.json` | prod 전용 앱 지표와 EC2 공통 자원의 대시보드 정의 |
+| `create-dashboard.sh` | 기존 대시보드를 덮어쓰지 않고 생성한 뒤 저장된 JSON 확인 |
 
 `backend-build.yml`의 수동 실행에서 `operation`을 선택한다. 기본값 `backend-deploy`는
 기존 배포이고, `cloudwatch-*` 작업에서는 백엔드 배포 job을 건너뛴다.
@@ -137,7 +139,52 @@ CloudWatch Agent는 counter와 summary의 count/sum을 이전 수집과의 차�
 전용 오류 지표 또는 오류 로그를 포함해 이 요구사항을 보완한 후 5xx 알림을 구성한다.
 수집 시작 전 이벤트와 Agent 중단 구간도 별도로 고려해야 한다.
 
-대시보드, 알림, 애플리케이션 로그 수집은 후속 단계다.
+알림과 애플리케이션 로그 수집은 후속 단계다.
+
+## 운영 대시보드
+
+`DASHBOARD-jarihana-prod`는 3열 × 4행의 12개 그래프와 안내문으로 구성한다.
+모든 애플리케이션 지표는 application=jarihana, environment=prod로 제한한다.
+EC2 공통 지표는 현재 운영 인스턴스 `i-0a1245eb20f7998b8`를 참조한다.
+dev 대상을 수집에 추가해도 이 대시보드의 앱 지표에 섞이지 않는다.
+
+| 그래프 | 통계·계산 |
+| --- | --- |
+| HTTP 상태별 요청 수 | 각 상태 범주의 60초 `Sum` |
+| HTTP 전체 평균 응답 시간 | 모든 상태 범주의 시간 `Sum` / 요청 수 `Sum` × 1,000 (ms) |
+| HTTP 5xx 요청 수·오류율 | 5xx `Sum`, 5xx / 전체 요청 수 × 100 (%) |
+| CPU 사용률 | 호스트 CPU `Average`, prod 프로세스 CPU `Average` × 100 (%) |
+| EC2 메모리·루트 디스크 사용률 | 호스트 `Average` (%) |
+| JVM heap·nonheap 사용량 | 해당 영역의 풀별 `Average` 합계 / 1,048,576 (MiB) |
+| JVM 전체·상태별 스레드 수 | `Average`, 상태별 시리즈는 따로 표시 |
+| GC pause 횟수·시간 | 60초 `Sum`, 시간은 ms로 변환해 오른쪽 축에 표시 |
+| GC overhead | `Average` × 100 (%) |
+| DB active·idle·max·pending | 풀별 `Average`, Hikari max는 앱 풀의 한도 |
+| DB 연결 획득·timeout 횟수 | 풀별 60초 `Sum` |
+| DB 전체 평균 연결 획득 시간 | 모든 prod 풀의 시간 `Sum` / 횟수 `Sum` × 1,000 (ms) |
+
+나눗셈 그래프는 분모가 0인 구간을 표시하지 않는다. 미수집 구간을 정상으로 보이지 않게
+`FILL(...,0)`로 그래프의 빈 값을 채우지 않는다. 새 HTTP 상태 시리즈의 첫 counter 값은
+기준값이므로, 5xx 그래프도 위에 기록한 첫 오류 누락 가능성을 그대로 가진다.
+GC·timeout 등 이벤트가 아직 없거나 SEARCH의 신규 지표 검색이 반영되지 않았으면
+관련 그래프는 비어 있을 수 있다. 메모리 최대량은 수집하지만 이 대시보드에는 풀별 사용률
+그래프를 추가하지 않는다. p95와 실제 PostgreSQL 서버 지표도 포함하지 않는다.
+
+대시보드는 기존 수집 지표를 조회하며 새로운 커스텀 지표를 전송하지 않는다.
+대시보드 무료 한도는 같은 AWS 계정 전체에서 공유한다. 무료 한도가 이미 사용된 경우
+표준 사용자 지정 대시보드 하나의 요금은 월 $3이며, 지표·로그·조회 API 요금은 별도다.
+
+사용자 확인 후 sudo 없이 해당 EC2 역할로 실행한다. 이 단계는 애플리케이션이나 Agent를
+재시작하지 않는다. 필요한 권한은 `cloudwatch:GetDashboard`, `cloudwatch:PutDashboard`다.
+기존 같은 이름의 대시보드가 있거나 조회 권한이 없으면 생성 전에 중단한다.
+
+```bash
+EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 bash infra/cloudwatch/create-dashboard.sh
+```
+
+성공 후 콘솔의 대시보드 목록에서 `DASHBOARD-jarihana-prod`를 연다. 생성 응답에 검증
+메시지가 없고 저장된 JSON이 원본과 일치하는 것을 확인해도 실제 그래프 렌더링과 수신은
+별도로 확인한다. 이 단계에서 운영 오류나 GC를 강제로 발생시키지 않는다.
 
 ## 참고
 
@@ -146,3 +193,7 @@ CloudWatch Agent는 counter와 summary의 count/sum을 이전 수집과의 차�
 - [Agent 권한](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/prerequisites.html)
 - [패키지 서명 검증](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/verify-CloudWatch-Agent-Package-Signature.html)
 - [서울 리전 공식 가격 데이터](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonCloudWatch/current/ap-northeast-2/index.json)
+- [대시보드 JSON 구조](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Dashboard-Body-Structure.html)
+- [지표 검색 표현식](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/search-expression-syntax.html)
+- [지표 수식](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html)
+- [CloudWatch 대시보드 요금](https://aws.amazon.com/cloudwatch/pricing/)
