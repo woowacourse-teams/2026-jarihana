@@ -9,6 +9,8 @@ function MarkdownImage({ alt = "", node: _node, ...properties }) {
 
 function MarkdownTable({ children, node: _node, ...properties }) {
   return (
+    // The focusable region lets keyboard users scroll wide tables horizontally.
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- This region is intentionally focusable for keyboard scrolling.
     <div aria-label="표" className="ui-markdown__table-wrap" role="region" tabIndex={0}>
       <table {...properties}>{children}</table>
     </div>
