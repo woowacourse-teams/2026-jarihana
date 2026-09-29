@@ -8,6 +8,13 @@ on:
       - "backend/**"
   workflow_dispatch:
     inputs:
+      operation:
+        description: "실행할 작업"
+        type: choice
+        default: backend-deploy
+        options:
+          - backend-deploy
+          - cloudwatch-inspect
       expected_current_image:
         description: "현재 운영 이미지 확인값 (지정 시 일치하지 않으면 배포 중단)"
         required: false
@@ -15,6 +22,7 @@ on:
 
 jobs:
   deploy:
+    if: ${{ inputs.operation != 'cloudwatch-inspect' }}
     runs-on: self-hosted
     env:
       BACKEND_TAG: ${{ github.sha }}
@@ -112,3 +120,14 @@ jobs:
           curl --fail --silent --show-error \
             --retry 20 --retry-all-errors --retry-delay 3 --max-time 5 \
             http://127.0.0.1:8080/api/groups > /dev/null
+
+  cloudwatch:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'cloudwatch-inspect' }}
+    runs-on: [self-hosted, Linux, ARM64]
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: CloudWatch 설치 전 환경 확인
+        run: bash infra/cloudwatch/inspect.sh
