@@ -1174,6 +1174,21 @@ textarea {
     color: var(--color-danger);
 }
 
+.ui-badge--group-type-study {
+    background: var(--color-activity-study-soft);
+    color: var(--color-activity-study-ink);
+}
+
+.ui-badge--group-type-club {
+    background: var(--color-activity-club-soft);
+    color: var(--color-activity-club-ink);
+}
+
+.ui-badge--group-type-session {
+    background: var(--color-activity-session-soft);
+    color: var(--color-activity-session-ink);
+}
+
 .ui-avatar {
     align-items: center;
     background: var(--color-brand-soft);

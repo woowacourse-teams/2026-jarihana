@@ -61,6 +61,42 @@ test("opens recruitment history from the recruitment management tab", async ({ p
   expect(state.unexpectedResponses).toEqual([]);
 });
 
+test("keeps the group type badge readable across detail page viewports", async ({ page }) => {
+  const browserFailures = watchBrowserFailures(page);
+  const state = await installApiFixture(page);
+
+  for (const viewport of [
+    { height: 831, label: "desktop", width: 1280 },
+    { height: 900, label: "mobile", width: 375 }
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/groups/10");
+
+    const badge = page.locator(".group-profile__type-tag .ui-badge");
+    await expect(badge).toHaveText("스터디");
+    await expect(badge).toHaveClass(/ui-badge--group-type-study/);
+
+    const geometry = await page.locator(".group-profile").evaluate((profile) => {
+      const badgeElement = profile.querySelector(".group-profile__type-tag");
+      const profileBounds = profile.getBoundingClientRect();
+      const badgeBounds = badgeElement.getBoundingClientRect();
+
+      return {
+        badgeInsideProfile: badgeBounds.right <= profileBounds.right + 1,
+        profileHasHorizontalOverflow: profile.scrollWidth > profile.clientWidth
+      };
+    });
+
+    expect(geometry, `${viewport.label} detail geometry`).toEqual({
+      badgeInsideProfile: true,
+      profileHasHorizontalOverflow: false
+    });
+  }
+
+  expect(browserFailures).toEqual([]);
+  expect(state.unexpectedResponses).toEqual([]);
+});
+
 test(
   "anonymous deep link preserves continuation and stubs GitHub OAuth",
   { tag: "@core" },
