@@ -308,10 +308,11 @@ it("reveals logout only after opening the profile menu", () => {
   expect(screen.queryByRole("navigation", { name: "계정 메뉴" })).not.toBeInTheDocument();
 });
 
-it("shows only signed-in photos on desktop and mobile profile menu buttons", () => {
+it("keeps the profile dropdown only in the desktop header", () => {
   const avatarUrl = "https://avatars.githubusercontent.com/u/123";
   renderShell({ avatarUrl, member: { crewName: "에덴" }, status: "authenticated" });
 
+  expect(screen.getAllByRole("button", { name: "프로필 메뉴" })).toHaveLength(1);
   for (const profile of screen.getAllByRole("button", { name: "프로필 메뉴" })) {
     expect(profile.querySelector("img")).toHaveAttribute("src", avatarUrl);
     expect(profile).toHaveAttribute("data-ph-capture-attribute-action", "profile_menu_toggle");
@@ -335,11 +336,11 @@ it("uses the member avatar and falls back to the first nickname letter when the 
   }
 });
 
-it("marks my page as current and closes the mobile profile menu after selection", () => {
+it("marks my page as current and closes the profile menu after selection", () => {
   mockPathname = "/my/groups";
   renderShell({ member: { crewName: "자리" }, status: "authenticated" });
 
-  const trigger = screen.getAllByRole("button", { name: "프로필 메뉴" })[1];
+  const trigger = screen.getByRole("button", { name: "프로필 메뉴" });
   fireEvent.click(trigger);
   const profile = screen.getByRole("link", { name: "마이페이지" });
   expect(profile).toHaveAttribute("aria-current", "page");
@@ -349,9 +350,9 @@ it("marks my page as current and closes the mobile profile menu after selection"
   expect(trigger).toHaveAttribute("aria-expanded", "false");
 });
 
-it.each([0, 1])("toggles profile menu %s by click and keeps it closed on hover", (index) => {
+it("toggles the profile menu by click and keeps it closed on hover", () => {
   renderShell({ member: { crewName: "자리" }, status: "authenticated" });
-  const trigger = screen.getAllByRole("button", { name: "프로필 메뉴" })[index];
+  const trigger = screen.getByRole("button", { name: "프로필 메뉴" });
   fireEvent.pointerEnter(trigger);
   expect(trigger).toHaveAttribute("aria-expanded", "false");
   fireEvent.click(trigger);
@@ -385,9 +386,26 @@ it("closes the profile menu after an outside press or focus leaving", () => {
 });
 
 it("closes the mobile drawer when selecting my page", () => {
-  renderShell({ member: { crewName: "자리" }, status: "authenticated" });
+  const avatarUrl = "https://avatars.githubusercontent.com/u/123";
+  renderShell({ avatarUrl, member: { crewName: "자리" }, status: "authenticated" });
   fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
   const menu = screen.getByRole("navigation", { name: "모바일 메뉴" });
-  fireEvent.click(within(menu).getByRole("link", { name: "마이페이지" }));
+  const profile = within(menu).getByRole("link", { name: "마이페이지" });
+  expect(profile.querySelector("img")).toHaveAttribute("src", avatarUrl);
+  expect(profile).toHaveAttribute("data-ph-capture-attribute-action", "my_page_view");
+  expect(within(menu).queryByRole("button", { name: "프로필 메뉴" })).not.toBeInTheDocument();
+  fireEvent.click(profile);
+  expect(screen.queryByRole("dialog", { name: "전체 메뉴" })).not.toBeInTheDocument();
+});
+
+it("logs out from the mobile account row and closes the drawer", () => {
+  const logout = jest.fn();
+  renderShell({ logout, member: { crewName: "자리" }, status: "authenticated" });
+  fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
+  const menu = screen.getByRole("navigation", { name: "모바일 메뉴" });
+  const logoutButton = within(menu).getByRole("button", { name: "로그아웃" });
+  expect(logoutButton).toHaveAttribute("data-ph-capture-attribute-action", "logout");
+  fireEvent.click(logoutButton);
+  expect(logout).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("dialog", { name: "전체 메뉴" })).not.toBeInTheDocument();
 });

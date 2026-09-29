@@ -7,7 +7,7 @@ import {
   FeedbackLoginPrompt,
   getFeedbackReturnTarget
 } from "../features/feedback/index.js";
-import { Drawer, Modal, useToast } from "../shared/ui";
+import { Avatar, Drawer, Modal, useToast } from "../shared/ui";
 import githubMark from "../shared/assets/brand/github-mark.svg";
 import logoMark from "../shared/assets/brand/jarihana-favicon.png";
 import { ProfileMenu } from "./ProfileMenu";
@@ -58,6 +58,7 @@ function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, st
 }
 
 function MyPageLink({ onNavigate }) {
+  const { avatarUrl, member } = useAuth();
   const { pathname } = useLocation();
   const isActive = ["/my", "/my/groups", "/my/registrations"].includes(pathname);
 
@@ -70,6 +71,13 @@ function MyPageLink({ onNavigate }) {
       onClick={onNavigate}
       to="/my"
     >
+      <Avatar
+        alt=""
+        className="app-header__avatar"
+        fallback={member?.crewName?.slice(0, 1) || "?"}
+        size="sm"
+        src={avatarUrl ?? member?.avatarUrl}
+      />
       마이페이지
     </Link>
   );
@@ -255,20 +263,17 @@ export function AppHeader({ action = null, title = "" }) {
             )}
           </div>
 
-          <div className="app-header__mobile-action">
-            {status === "authenticated" ? <ProfileMenu /> : null}
-            <button
-              aria-expanded={isMenuOpen}
-              aria-label="메뉴 열기"
-              className="app-header__menu-button"
-              data-ph-capture-attribute-action="header_menu_open"
-              onClick={() => setMenuOpen(true)}
-              ref={menuButtonReference}
-              type="button"
-            >
-              <span aria-hidden="true" className="app-header__menu-lines" />
-            </button>
-          </div>
+          <button
+            aria-expanded={isMenuOpen}
+            aria-label="메뉴 열기"
+            className="app-header__menu-button"
+            data-ph-capture-attribute-action="header_menu_open"
+            onClick={() => setMenuOpen(true)}
+            ref={menuButtonReference}
+            type="button"
+          >
+            <span aria-hidden="true" className="app-header__menu-lines" />
+          </button>
         </div>
       </header>
 
@@ -289,6 +294,12 @@ export function AppHeader({ action = null, title = "" }) {
       <Drawer onClose={closeMenu} open={isMenuOpen} title="전체 메뉴">
         <nav aria-label="모바일 메뉴" className="app-header__mobile-nav">
           {title ? <p className="app-header__context">{title}</p> : null}
+          {status === "authenticated" ? (
+            <div className="app-header__mobile-account">
+              <MyPageLink onNavigate={closeMenu} />
+              <AuthAction onNavigate={closeMenu} status={status} />
+            </div>
+          ) : null}
           <FeedbackLink
             onClick={handleFeedbackTrigger}
             onNavigate={closeMenu}
@@ -300,9 +311,8 @@ export function AppHeader({ action = null, title = "" }) {
             onProtectedNavigate={redirectToLogin}
             status={status}
           />
-          {status === "authenticated" ? <MyPageLink onNavigate={closeMenu} /> : null}
           {action}
-          <AuthAction onNavigate={closeMenu} status={status} />
+          {status !== "authenticated" ? <AuthAction onNavigate={closeMenu} status={status} /> : null}
         </nav>
       </Drawer>
     </>

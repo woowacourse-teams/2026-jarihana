@@ -301,14 +301,6 @@
     background: var(--color-surface-sunken);
 }
 
-.app-header__mobile-action {
-    display: none;
-    min-width: 0;
-    align-items: center;
-    gap: var(--space-3);
-    margin-left: auto;
-}
-
 .app-header__auth--secondary {
     border: var(--border-thin) solid var(--color-header-line);
     background: transparent;
@@ -375,6 +367,29 @@
 
 .app-header__mobile-nav .app-header__auth {
     margin-top: var(--space-4);
+}
+
+.app-header__mobile-account {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-2);
+    padding-bottom: var(--space-4);
+    border-bottom: var(--border-thin) solid var(--color-line);
+}
+
+.app-header__mobile-account .app-header__link {
+    gap: var(--space-2);
+    min-height: var(--touch-target);
+    padding: 0;
+    font-size: var(--text-body);
+}
+
+.app-header__mobile-account .app-header__auth {
+    margin-top: 0;
+    padding-inline: var(--space-3);
+    border-color: var(--color-line);
 }
 
 .app-header__mobile-nav .app-header__auth--secondary {
@@ -578,7 +593,6 @@
         display: none;
     }
 
-    .app-header__mobile-action,
     .app-header__menu-button {
         display: inline-flex;
     }

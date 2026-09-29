@@ -167,14 +167,14 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   member tabs는 노출하지 않는다. 모바일 drawer에서는 탐색·모임 만들기 진입점을 유지하고, guard가
   인증이 필요한 destination을 처리한다. anonymous가 보호 메뉴를 누르면 해당 경로를 로그인 후
   복귀 대상으로 저장하고 GitHub 로그인으로 이동한다. authenticated 상태에만
-  프로필 사진을 계정 메뉴 버튼으로 표시하고, 마이페이지와 로그아웃은 드롭다운 안에 둔다.
+  desktop에서 프로필 사진을 계정 메뉴 버튼으로 표시하고, 마이페이지와 로그아웃은 드롭다운 안에 둔다.
   프로필은 공통 `Avatar`로 서버의 `avatarUrl`을 표시하고, 사진이 없거나 로드에 실패하면
-  크루 이름 첫 글자로 대체한다. desktop과 모바일 모두 같은 프로필 메뉴를 사용한다.
+  크루 이름 첫 글자로 대체한다. 모바일 헤더는 프로필 없이 햄버거 버튼만 표시한다.
 - Header GitHub login: [Octicons GitHub mark](https://github.com/primer/octicons/blob/main/icons/mark-github-16.svg)를 `--space-5` 크기로 문구 왼쪽에 둔다.
   흰색 `--color-surface` 바탕, `--color-ink` 글자, `--color-line` 테두리와 기존 버튼의 `--radius-pill` 모서리를
   사용한다. hover는 `--color-surface-sunken`, pressed는 `--color-line`으로 구분한다.
   최소 높이는 `--touch-target`이며, 로고와 문구 간격은 `--space-2`다.
-- Header profile: 원형 사진은 desktop `--space-10`(40px), 모바일 `--space-8`(32px)이다.
+- Header profile: 원형 사진은 desktop `--space-10`(40px)이다.
   버튼은 최소 `--touch-target` 크기이며 접근성 이름은 `프로필 메뉴`다. 닉네임은 표시하지 않는다.
   클릭·터치·Enter/Space로 마이페이지 링크와 로그아웃 버튼을 담은 disclosure를 열고,
   다시 클릭하거나 바깥 클릭·포커스 이탈·Escape·항목 선택으로 닫는다. hover만으로 열리지 않는다.
@@ -182,9 +182,14 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   `aria-expanded`와 `aria-controls`로 펼침 상태를 알린다. 흰색 메뉴는 사진 오른쪽에 정렬하고
   `--space-2` 아래에 `--color-line` 테두리, `--radius-md`, `--shadow-float`로 표시한다.
   메뉴 항목은 최소 `--touch-target` 크기이며 hover/focus는 `--color-surface-sunken`이다.
-  전역 focus ring과 기존 모바일 전체 메뉴의 계정 진입점은 유지한다.
+  전역 focus ring을 유지한다.
   사진이 없거나 로드에 실패하면 크루 이름 첫 글자를 `--color-surface-sunken` 바탕과
   `--color-ink` 글자로 표시한다.
+- Mobile account: 로그인한 모바일 전체 메뉴 상단에 `--space-8`(32px) 프로필 사진과 마이페이지 링크를
+  왼쪽에, 로그아웃 버튼을 오른쪽에 배치한다. 닉네임이나 별도 드롭다운은 표시하지 않는다.
+  사진·마이페이지 링크와 로그아웃 버튼의 최소 클릭 높이는 `--touch-target`이다.
+  계정 행과 아래 피드백·탐색·모임 만들기는 `--color-line` 구분선과 `--space-4` 여백으로 나눈다.
+  마이페이지 선택이나 로그아웃 시 사이드바를 닫으며, 비로그인 상태에는 계정 행을 표시하지 않는다.
 - Header active state는 모바일 drawer의 pathname 목적지에만 연결한다. `/groups/new`에서 상위
   `/groups` 탐색 링크를 동시에 활성화하거나, `/my/groups`에서 `/my`를 동시에 활성화하지 않는다.
 - `PageContainer`: 모든 route의 좌우 gutter와 최대 폭을 통일한다.
