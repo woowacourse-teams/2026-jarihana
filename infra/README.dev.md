@@ -71,27 +71,32 @@ Secrets:
 
 | 이름 | 값 |
 | --- | --- |
-| `DEV_POSTGRES_PASSWORD` | 개발 DB 전용 비밀번호 |
-| `DEV_ACCESS_TOKEN_SECRET` | 개발 JWT 전용 비밀값, 현재 JWT 요구 길이 충족 |
-| `DEV_OAUTH_GITHUB_CLIENT_SECRET` | 개발 GitHub OAuth 앱 secret |
+| `POSTGRES_PASSWORD` | 개발 DB 전용 비밀번호 |
+| `ACCESS_TOKEN_SECRET` | 개발 JWT 전용 비밀값, 현재 JWT 요구 길이 충족 |
+| `OAUTH_GITHUB_CLIENT_SECRET` | 개발 GitHub OAuth 앱 secret |
 
 Variables:
 
 | 이름 | 값 |
 | --- | --- |
-| `DEV_FRONTEND_ORIGIN` | 개발 HTTPS origin, 경로 없이 지정 |
-| `DEV_OAUTH_GITHUB_CLIENT_ID` | 개발 GitHub OAuth 앱 client ID |
-| `DEV_OAUTH_GITHUB_REDIRECT_URI` | 개발 HTTPS `/api/oauth/github/callback` |
-| `DEV_IMAGE_S3_BUCKET` | `techcourse-project-2026` |
-| `DEV_IMAGE_S3_PUBLIC_BASE_URL` | 개발 이미지 공개 URL, 예: dev origin의 `/images` |
-| `DEV_CLOUDFRONT_DISTRIBUTION_ID` | 개발 전용 배포판 ID, 운영 ID 사용 금지 |
-| `DEV_BACKEND_MEMORY_LIMIT` | 측정 후 결정한 Docker 메모리 상한, 예시 문법 `768m` |
-| `DEV_BACKEND_CPUS` | 측정 후 결정한 CPU 상한, 예시 문법 `1.0` |
-| `DEV_POSTGRES_MEMORY_LIMIT` | 측정 후 결정한 DB 메모리 상한, 예시 문법 `256m` |
-| `DEV_POSTGRES_CPUS` | 측정 후 결정한 CPU 상한, 예시 문법 `0.5` |
+| `FRONTEND_ORIGIN` | 개발 HTTPS origin, 경로 없이 지정 |
+| `OAUTH_GITHUB_CLIENT_ID` | 개발 GitHub OAuth 앱 client ID |
+| `OAUTH_GITHUB_REDIRECT_URI` | 개발 HTTPS `/api/oauth/github/callback` |
+| `IMAGE_S3_BUCKET` | `techcourse-project-2026` |
+| `IMAGE_S3_PUBLIC_BASE_URL` | 개발 이미지 공개 URL, 예: dev origin의 `/images` |
+| `CLOUDFRONT_DISTRIBUTION_ID` | 개발 전용 배포판 ID, 운영 ID 사용 금지 |
+| `BACKEND_MEMORY_LIMIT` | 측정 후 결정한 Docker 메모리 상한, 예시 문법 `768m` |
+| `BACKEND_CPUS` | 측정 후 결정한 CPU 상한, 예시 문법 `1.0` |
+| `POSTGRES_MEMORY_LIMIT` | 측정 후 결정한 DB 메모리 상한, 예시 문법 `256m` |
+| `POSTGRES_CPUS` | 측정 후 결정한 CPU 상한, 예시 문법 `0.5` |
 
-자원 값은 문법 예시이지 현재 EC2에 대한 권장값이 아니다. dev 값이 없을 때 운영값으로
-대체하지 않는다. 프론트의 dev 분석 수집은 비활성화한다.
+시크릿과 변수는 `Settings > Environments > dev`에 위 이름으로 등록한다. workflow의
+`environment: dev`가 환경을 선택하므로 이름에 환경 접두사를 붙이지 않는다.
+동일한 이름이 저장소와 Environment에 있으면 Environment 값이 우선한다.
+Environment에 값이 없으면 저장소 공용 값이 사용될 수 있으므로, 위 개발 값을 모두 등록한다.
+기존 접두사 이름으로 등록했다면 새 이름으로 다시 등록해야 한다.
+
+자원 값은 문법 예시이지 현재 EC2에 대한 권장값이 아니다. 프론트의 dev 분석 수집은 비활성화한다.
 
 ### CloudFront·AWS
 
@@ -150,8 +155,8 @@ destination=s3://techcourse-project-2026/jarihana-dev/frontend
 aws s3 ls "${release}/index.html"
 aws s3 sync "$release" "$destination" --exclude index.html
 aws s3 cp "${release}/index.html" "${destination}/index.html" --cache-control no-cache
-# DEV_CLOUDFRONT_DISTRIBUTION_ID는 위에서 확인한 개발 전용 ID
-aws cloudfront create-invalidation --distribution-id "$DEV_CLOUDFRONT_DISTRIBUTION_ID" --paths '/*'
+# CLOUDFRONT_DISTRIBUTION_ID는 위에서 확인한 개발 전용 ID
+aws cloudfront create-invalidation --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" --paths '/*'
 ```
 
 업로드된 릴리스가 모두 성공 배포인 것은 아니다. Actions 성공 기록과 실제 공개 응답을 함께 확인한다.

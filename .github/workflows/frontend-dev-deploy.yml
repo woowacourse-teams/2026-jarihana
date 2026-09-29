@@ -31,9 +31,9 @@ jobs:
       AWS_PAGER: ""
       S3_DESTINATION: s3://techcourse-project-2026/jarihana-dev/frontend
       S3_RELEASE: s3://techcourse-project-2026/jarihana-dev/releases/${{ github.sha }}/frontend
-      CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.DEV_CLOUDFRONT_DISTRIBUTION_ID }}
-      APP_GITHUB_CLIENT_ID: ${{ vars.DEV_OAUTH_GITHUB_CLIENT_ID }}
-      APP_GITHUB_REDIRECT_URI: ${{ vars.DEV_OAUTH_GITHUB_REDIRECT_URI }}
+      CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+      APP_GITHUB_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
+      APP_GITHUB_REDIRECT_URI: ${{ vars.OAUTH_GITHUB_REDIRECT_URI }}
       APP_OAUTH_COOKIE_NAME: oauthState
       DISABLE_REACT_DEVTOOLS: "1"
       APP_ANALYTICS_ENABLED: "false"
