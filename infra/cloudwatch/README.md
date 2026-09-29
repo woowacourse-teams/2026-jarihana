@@ -191,12 +191,14 @@ GC·timeout 등 이벤트가 아직 없거나 SEARCH의 신규 지표 검색이 
 대시보드 무료 한도는 같은 AWS 계정 전체에서 공유한다. 무료 한도가 이미 사용된 경우
 표준 사용자 지정 대시보드 하나의 요금은 월 $3이며, 지표·로그·조회 API 요금은 별도다.
 
-사용자 확인 후 sudo 없이 해당 EC2 역할로 실행한다. 이 단계는 애플리케이션이나 Agent를
+사용자 확인 후 해당 EC2 역할로 실행한다. 이 단계는 애플리케이션이나 Agent를
 재시작하지 않는다. 필요한 권한은 `cloudwatch:GetDashboard`, `cloudwatch:PutDashboard`다.
 기존 같은 이름의 대시보드가 있거나 조회 권한이 없으면 생성 전에 중단한다.
 기존 운영 대시보드를 변경할 때는 저장된 JSON과 변경 내용을 검토하고 사용자 확인 후
-`--update`로 실행한다. 기존 JSON은 출력되는 `/tmp/jarihana-dashboard-backup.*/existing.json`에
-보존하며, 갱신 응답과 저장된 JSON을 확인한다. 백업은 호스트 `/tmp` 정리 전에 보존해야 한다.
+`--update`로 실행한다. 기존 JSON은 sudo를 사용해
+`/var/lib/jarihana-cloudwatch/backups/dashboard-<백업시각>.<임의문자>/existing.json`에
+보존하며, 갱신 응답과 저장된 JSON을 확인한다. 백업 삭제는 실제 수신을 확인한 후 사용자
+요청에 따라 해당 백업 경로만 대상으로 수행한다.
 
 ```bash
 EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 bash infra/cloudwatch/create-dashboard.sh
