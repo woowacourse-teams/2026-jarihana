@@ -7,7 +7,7 @@
   [운영 Docker Compose](../../../infra/docker-compose.yml),
   [백엔드 Dockerfile](../../Dockerfile),
   [백엔드 운영 배포 워크플로](../../../.github/workflows/backend-prod-deploy.yml),
-  [공유 개발 환경 배포](../../../infra/README.dev.md),
+  [개발 Docker Compose](../../../infra/docker-compose.dev.yml),
   [Access Token 쿠키 ADR](0002-access-token-cookie.md),
   [OAuth 인가 요청 소유권 ADR](0004-oauth-authorization-ownership.md),
   [CSRF Token 전달 ADR](0005-csrf-token-delivery.md)
@@ -74,7 +74,7 @@ CloudFront
 
 `ci.yml`과 환경별·컴포넌트별 배포 workflow 네 개를 둔다. 각각 경로 필터로 실행하며
 백엔드·프론트 선후 관계는 두지 않는다. 설정은 저장소에 정의하지만 실제 AWS·GitHub 자원 준비와
-공개 URL 검증은 [개발 환경 배포 절차](../../../infra/README.dev.md)에 따라 별도로 수행한다.
+공개 URL의 화면·API·로그인·이미지 업로드 검증은 별도로 수행한다.
 
 CloudFront는 여기에서 공개 진입점과 정적 콘텐츠 캐시 계층의 역할을 한다. CloudFront가 모든
 리버스 프록시 기능을 대신하거나 전체 서비스의 고가용성을 보장한다는 의미는 아니다.

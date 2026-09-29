@@ -43,7 +43,7 @@ ADR 우선 대상:
 - 공유 개발 환경은 기존 운영 EC2와 self-hosted runner 하나를 공유하되, Compose project·DB·포트·인증값·S3 경로를 분리한다.
 - 로컬 개발은 `local` 프로필, 공유 개발과 운영 배포는 `prod` 프로필을 사용한다. 개발 환경에서도 schema validation과 secure cookie를 유지한다.
 - 개발은 `develop`, 운영은 `main`에서 프론트·백엔드 workflow를 각각 실행하며 배포 순서를 보장하지 않는다.
-- 설정과 최초 배포 절차는 [개발 환경 배포](../../../infra/README.dev.md)를 따른다. 별도 Spring `dev` 또는 `staging` 프로필은 추가하지 않는다.
+- 개발 DB 초기화와 배포 설정은 [백엔드 README](../../README.md#공유-개발-환경)를 따른다. 별도 Spring `dev` 또는 `staging` 프로필은 추가하지 않는다.
 
 ### 실제 저장소에서 확인할 정보
 
