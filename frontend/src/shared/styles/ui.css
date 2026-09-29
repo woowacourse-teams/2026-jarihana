@@ -889,10 +889,7 @@ textarea {
     font-size: var(--text-h3);
 }
 
-.ui-markdown p {
-    margin-block: var(--space-2);
-}
-
+.ui-markdown p,
 .ui-markdown ul,
 .ui-markdown ol,
 .ui-markdown pre,
