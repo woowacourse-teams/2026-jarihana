@@ -374,22 +374,45 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--space-3);
+    min-height: calc(var(--touch-target) + var(--space-6) + var(--border-thin));
     margin-bottom: var(--space-2);
     padding-bottom: var(--space-4);
     border-bottom: var(--border-thin) solid var(--color-line);
 }
 
-.app-header__mobile-account .app-header__link {
+.app-header__mobile-identity {
+    display: flex;
+    align-items: center;
     gap: var(--space-2);
-    min-height: var(--touch-target);
-    padding: 0;
+    min-width: 0;
+}
+
+.app-header__mobile-member {
+    display: grid;
+    gap: var(--space-1);
+    min-width: 0;
+}
+
+.app-header__mobile-name {
+    color: var(--color-ink);
     font-size: var(--text-body);
+    overflow-wrap: anywhere;
+}
+
+.app-header__mobile-generation {
+    color: var(--color-muted-ink);
+    font-size: var(--text-caption);
 }
 
 .app-header__mobile-account .app-header__auth {
+    flex: none;
     margin-top: 0;
     padding-inline: var(--space-3);
     border-color: var(--color-line);
+}
+
+.app-header__mobile-account > :only-child {
+    width: 100%;
 }
 
 .app-header__mobile-nav .app-header__auth--secondary {

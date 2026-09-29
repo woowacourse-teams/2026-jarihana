@@ -97,6 +97,19 @@ it("starts GitHub login from the anonymous header action", () => {
   expect(login).toHaveBeenCalledTimes(1);
 });
 
+it("starts GitHub login from the mobile account area and closes the drawer", () => {
+  const login = jest.fn();
+  renderShell({ login, status: "anonymous" });
+  fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
+  const menu = screen.getByRole("navigation", { name: "모바일 메뉴" });
+  const loginButton = within(menu).getByRole("button", { name: "GitHub로 로그인" });
+  expect(loginButton).toHaveAttribute("data-ph-capture-attribute-action", "login");
+  expect(within(menu).queryByRole("link", { name: "마이페이지" })).not.toBeInTheDocument();
+  fireEvent.click(loginButton);
+  expect(login).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole("dialog", { name: "전체 메뉴" })).not.toBeInTheDocument();
+});
+
 it.each(["header", "mobile menu", "footer"])(
   "shows the login-required dialog from the feedback %s without redirecting",
   (surface) => {
@@ -387,15 +400,30 @@ it("closes the profile menu after an outside press or focus leaving", () => {
 
 it("closes the mobile drawer when selecting my page", () => {
   const avatarUrl = "https://avatars.githubusercontent.com/u/123";
-  renderShell({ avatarUrl, member: { crewName: "자리" }, status: "authenticated" });
+  renderShell({ avatarUrl, member: { crewName: "자리", generation: 8, memberType: "CREW" }, status: "authenticated" });
   fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
   const menu = screen.getByRole("navigation", { name: "모바일 메뉴" });
   const profile = within(menu).getByRole("link", { name: "마이페이지" });
-  expect(profile.querySelector("img")).toHaveAttribute("src", avatarUrl);
+  expect(profile.querySelector("img")).toBeNull();
+  expect(profile).toHaveClass("app-header__link");
+  expect(menu.querySelector("img")).toHaveAttribute("src", avatarUrl);
+  expect(within(menu).getByText("자리")).toBeInTheDocument();
+  expect(within(menu).getByText("8기")).toBeInTheDocument();
   expect(profile).toHaveAttribute("data-ph-capture-attribute-action", "my_page_view");
   expect(within(menu).queryByRole("button", { name: "프로필 메뉴" })).not.toBeInTheDocument();
   fireEvent.click(profile);
   expect(screen.queryByRole("dialog", { name: "전체 메뉴" })).not.toBeInTheDocument();
+});
+
+it.each([
+  ["COACH", "코치"],
+  ["CREW", "기수 미정"]
+])("shows the appropriate member label when %s has no generation", (memberType, label) => {
+  renderShell({ member: { crewName: "자리", generation: null, memberType }, status: "authenticated" });
+  fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
+  const menu = screen.getByRole("navigation", { name: "모바일 메뉴" });
+  expect(within(menu).getByText(label)).toBeInTheDocument();
+  expect(within(menu).queryByText("null기")).not.toBeInTheDocument();
 });
 
 it("logs out from the mobile account row and closes the drawer", () => {

@@ -58,7 +58,6 @@ function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, st
 }
 
 function MyPageLink({ onNavigate }) {
-  const { avatarUrl, member } = useAuth();
   const { pathname } = useLocation();
   const isActive = ["/my", "/my/groups", "/my/registrations"].includes(pathname);
 
@@ -66,18 +65,11 @@ function MyPageLink({ onNavigate }) {
     <Link
       aria-current={isActive ? "page" : undefined}
       aria-label="마이페이지"
-      className="app-header__link"
+      className={isActive ? "app-header__link app-header__link--active" : "app-header__link"}
       data-ph-capture-attribute-action="my_page_view"
       onClick={onNavigate}
       to="/my"
     >
-      <Avatar
-        alt=""
-        className="app-header__avatar"
-        fallback={member?.crewName?.slice(0, 1) || "?"}
-        size="sm"
-        src={avatarUrl ?? member?.avatarUrl}
-      />
       마이페이지
     </Link>
   );
@@ -157,7 +149,7 @@ function AuthAction({ onNavigate, status }) {
 }
 
 export function AppHeader({ action = null, title = "" }) {
-  const { login, status } = useAuth();
+  const { avatarUrl, login, member, status } = useAuth();
   const { hash, pathname, search } = useLocation();
   const navigate = useNavigate();
   const { success } = useToast();
@@ -294,12 +286,28 @@ export function AppHeader({ action = null, title = "" }) {
       <Drawer onClose={closeMenu} open={isMenuOpen} title="전체 메뉴">
         <nav aria-label="모바일 메뉴" className="app-header__mobile-nav">
           {title ? <p className="app-header__context">{title}</p> : null}
-          {status === "authenticated" ? (
-            <div className="app-header__mobile-account">
-              <MyPageLink onNavigate={closeMenu} />
-              <AuthAction onNavigate={closeMenu} status={status} />
-            </div>
-          ) : null}
+          <div className="app-header__mobile-account">
+            {status === "authenticated" ? (
+              <div className="app-header__mobile-identity">
+                <Avatar
+                  alt=""
+                  className="app-header__avatar"
+                  fallback={member?.crewName?.slice(0, 1) || "?"}
+                  size="sm"
+                  src={avatarUrl ?? member?.avatarUrl}
+                />
+                <div className="app-header__mobile-member">
+                  <strong className="app-header__mobile-name">{member?.crewName}</strong>
+                  <span className="app-header__mobile-generation">
+                    {member?.memberType === "COACH"
+                      ? "코치"
+                      : member?.generation ? `${member.generation}기` : "기수 미정"}
+                  </span>
+                </div>
+              </div>
+            ) : null}
+            <AuthAction onNavigate={closeMenu} status={status} />
+          </div>
           <FeedbackLink
             onClick={handleFeedbackTrigger}
             onNavigate={closeMenu}
@@ -311,8 +319,8 @@ export function AppHeader({ action = null, title = "" }) {
             onProtectedNavigate={redirectToLogin}
             status={status}
           />
+          {status === "authenticated" ? <MyPageLink onNavigate={closeMenu} /> : null}
           {action}
-          {status !== "authenticated" ? <AuthAction onNavigate={closeMenu} status={status} /> : null}
         </nav>
       </Drawer>
     </>
