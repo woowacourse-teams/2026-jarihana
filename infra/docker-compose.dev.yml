@@ -10,28 +10,19 @@ services:
       DB_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
       FRONTEND_ORIGIN: "${FRONTEND_ORIGIN:?FRONTEND_ORIGIN is required}"
       ACCESS_TOKEN_SECRET: "${ACCESS_TOKEN_SECRET:?ACCESS_TOKEN_SECRET is required}"
-      GITHUB_OAUTH_CLIENT_ID: "${OAUTH_GITHUB_CLIENT_ID:?OAUTH_GITHUB_CLIENT_ID is required}"
-      GITHUB_OAUTH_CLIENT_SECRET: "${OAUTH_GITHUB_CLIENT_SECRET:?OAUTH_GITHUB_CLIENT_SECRET is required}"
-      GITHUB_OAUTH_REDIRECT_URI: "${OAUTH_GITHUB_REDIRECT_URI:?OAUTH_GITHUB_REDIRECT_URI is required}"
+      GITHUB_OAUTH_CLIENT_ID: "${GITHUB_OAUTH_CLIENT_ID:?GITHUB_OAUTH_CLIENT_ID is required}"
+      GITHUB_OAUTH_CLIENT_SECRET: "${GITHUB_OAUTH_CLIENT_SECRET:?GITHUB_OAUTH_CLIENT_SECRET is required}"
+      GITHUB_OAUTH_REDIRECT_URI: "${GITHUB_OAUTH_REDIRECT_URI:?GITHUB_OAUTH_REDIRECT_URI is required}"
       IMAGE_S3_BUCKET: "${IMAGE_S3_BUCKET:?IMAGE_S3_BUCKET is required}"
       IMAGE_S3_REGION: "${IMAGE_S3_REGION:?IMAGE_S3_REGION is required}"
       IMAGE_S3_KEY_PREFIX: jarihana-dev/images
       IMAGE_S3_PUBLIC_BASE_URL: "${IMAGE_S3_PUBLIC_BASE_URL:?IMAGE_S3_PUBLIC_BASE_URL is required}"
-      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65.0"
-      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "5"
-    mem_limit: "${BACKEND_MEMORY_LIMIT:?BACKEND_MEMORY_LIMIT is required}"
-    cpus: "${BACKEND_CPUS:?BACKEND_CPUS is required}"
     ports:
       - "8081:8080"
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
 
   postgres:
     image: postgres:17
@@ -39,8 +30,6 @@ services:
       POSTGRES_DB: jarihana_dev
       POSTGRES_USER: jarihana_dev
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
-    mem_limit: "${POSTGRES_MEMORY_LIMIT:?POSTGRES_MEMORY_LIMIT is required}"
-    cpus: "${POSTGRES_CPUS:?POSTGRES_CPUS is required}"
     ports:
       - "127.0.0.1:5433:5432"
     volumes:
@@ -52,11 +41,6 @@ services:
       timeout: 5s
       retries: 20
     restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
 
 volumes:
   postgres-data:

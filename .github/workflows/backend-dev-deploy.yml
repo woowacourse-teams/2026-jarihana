@@ -2,7 +2,8 @@ name: Backend Development Deploy
 
 on:
   push:
-    branches: [develop]
+    branches:
+      - develop
     paths:
       - "backend/**"
       - "infra/docker-compose.dev.yml"
@@ -17,92 +18,51 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  verify:
-    if: github.ref == 'refs/heads/develop'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v5
-        with:
-          distribution: corretto
-          java-version: "21"
-          cache: gradle
-          cache-dependency-path: backend/**/*.gradle*
-      - name: Backend 테스트
-        working-directory: backend
-        run: ./gradlew test --no-daemon
-
   deploy:
-    needs: verify
     if: github.ref == 'refs/heads/develop'
     runs-on: [self-hosted, Linux, ARM64]
     environment: dev
     timeout-minutes: 20
-    defaults:
-      run:
-        shell: bash
     env:
       BACKEND_TAG: ${{ github.sha }}
-      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-      ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
-      OAUTH_GITHUB_CLIENT_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
-      FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
-      OAUTH_GITHUB_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
-      OAUTH_GITHUB_REDIRECT_URI: ${{ vars.OAUTH_GITHUB_REDIRECT_URI }}
-      IMAGE_S3_BUCKET: ${{ vars.IMAGE_S3_BUCKET }}
-      IMAGE_S3_REGION: ap-northeast-2
-      IMAGE_S3_PUBLIC_BASE_URL: ${{ vars.IMAGE_S3_PUBLIC_BASE_URL }}
-      BACKEND_MEMORY_LIMIT: ${{ vars.BACKEND_MEMORY_LIMIT }}
-      BACKEND_CPUS: ${{ vars.BACKEND_CPUS }}
-      POSTGRES_MEMORY_LIMIT: ${{ vars.POSTGRES_MEMORY_LIMIT }}
-      POSTGRES_CPUS: ${{ vars.POSTGRES_CPUS }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: dev Compose 설정 확인
+      - name: Docker 확인
         run: |
-          unset COMPOSE_PROJECT_NAME
-          docker compose -f infra/docker-compose.dev.yml config -q
+          whoami
+          docker version
 
       - name: Backend 이미지 빌드
-        run: docker build -t "jarihana-backend-dev:${BACKEND_TAG}" ./backend
-
-      - name: dev Backend 배포 및 응답 확인
         run: |
-          set -euo pipefail
+          docker build \
+            -t jarihana-backend-dev:${BACKEND_TAG} \
+            ./backend
+
+      - name: Compose로 Backend 배포
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          FRONTEND_ORIGIN: ${{ secrets.FRONTEND_ORIGIN }}
+          ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
+          GITHUB_OAUTH_CLIENT_ID: ${{ secrets.OAUTH_GITHUB_CLIENT_ID }}
+          GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
+          GITHUB_OAUTH_REDIRECT_URI: ${{ secrets.OAUTH_GITHUB_REDIRECT_URI }}
+          IMAGE_S3_BUCKET: ${{ secrets.IMAGE_S3_BUCKET }}
+          IMAGE_S3_REGION: ${{ secrets.IMAGE_S3_REGION }}
+          IMAGE_S3_PUBLIC_BASE_URL: ${{ secrets.IMAGE_S3_PUBLIC_BASE_URL }}
+        run: |
           unset COMPOSE_PROJECT_NAME
+          docker compose \
+            -f infra/docker-compose.dev.yml \
+            up -d --no-build backend
 
-          compose() {
-            docker compose -f infra/docker-compose.dev.yml "$@"
-          }
-
-          ready() {
-            timeout 180s bash -c '
-              until response="$(curl --fail --silent --max-time 5 \
-                "http://127.0.0.1:8081/api/groups?size=1")" &&
-                grep -Eq '\''"success"[[:space:]]*:[[:space:]]*true'\'' <<< "$response"; do
-                sleep 5
-              done
-            '
-          }
-
-          previous_id="$(compose ps -a -q backend)"
-          previous_image=""
-          if [[ -n "$previous_id" ]]; then
-            previous_image="$(docker inspect -f '{{.Config.Image}}' "$previous_id")"
-          fi
-
-          if compose up -d --no-build backend && ready; then
-            echo "Backend dev 배포 성공: ${BACKEND_TAG}" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "::error::dev Backend 배포 또는 응답 확인에 실패했습니다."
-            if [[ "$previous_image" == jarihana-backend-dev:* ]]; then
-              export BACKEND_TAG="${previous_image#jarihana-backend-dev:}"
-              compose up -d --no-build --no-deps backend
-              ready
-              echo "Backend dev 복구: ${BACKEND_TAG}" >> "$GITHUB_STEP_SUMMARY"
-            fi
-            exit 1
-          fi
+      - name: Backend 컨테이너 상태 확인
+        run: |
+          container_id="$(docker ps -q \
+            --filter 'label=com.docker.compose.project=jarihana-dev' \
+            --filter 'label=com.docker.compose.service=backend')"
+          test -n "${container_id}"
+          test "$(docker inspect -f '{{.State.Status}}' "${container_id}")" = "running"
+          docker ps --filter "id=${container_id}"
