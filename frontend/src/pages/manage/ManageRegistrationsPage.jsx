@@ -34,7 +34,7 @@ const filterOptions = [
   ["", "전체"],
   ["PENDING", "대기"],
   ["APPROVED", "승인"],
-  ["REJECTED", "거절"]
+  ["REJECTED", "미승인"]
 ];
 
 export function ManageRegistrationsPage() {
@@ -243,7 +243,7 @@ export function ManageRegistrationsPage() {
                         onClick={() => setDecision({ registration, status: "REJECTED" })}
                         variant="secondary"
                       >
-                        거절
+                        미승인
                       </Button>
                     </div>
                   ) : null}
@@ -270,15 +270,15 @@ export function ManageRegistrationsPage() {
 
       <Modal
         closeAction="registration_rejection_reason_dismiss"
-        description="거절 사유는 선택 사항이며 지원자의 신청 기록에 남아요."
+        description="미승인 사유는 선택 사항이며 지원자의 신청 기록에 남아요."
         onClose={closeDialog}
         open={decision?.status === "REJECTED"}
-        title="이 신청을 거절할까요?"
+        title="이 신청을 미승인할까요?"
       >
         <div className="manage-form">
           <label className="manage-field">
-            거절 사유 (선택)
-            <textarea aria-label="거절 사유 (선택)" maxLength="1000" ref={reasonRef} />
+            미승인 사유 (선택)
+            <textarea aria-label="미승인 사유 (선택)" maxLength="1000" ref={reasonRef} />
             <span className="manage-character-count">최대 1000자</span>
           </label>
           <div className="manage-card-actions">
@@ -295,7 +295,7 @@ export function ManageRegistrationsPage() {
               pending={decideRegistration.isPending}
               variant="danger"
             >
-              신청 거절하기
+              신청 미승인하기
             </Button>
           </div>
         </div>

@@ -236,7 +236,7 @@ Location: /api/groups/12/recruitments/45
 
 #### 부수 효과
 - 미래의 `startsAt`보다 앞서 마감하는 경우 `startsAt = min(startsAt, now)`, `endsAt = now`로 `startsAt <= endsAt`을 유지한다.
-- 수동 조기 마감의 `PENDING` 신청은 즉시 거절하지 않고 마감 후 2주 정책을 적용한다.
+- 수동 조기 마감의 `PENDING` 신청은 즉시 미승인하지 않고 마감 후 2주 정책을 적용한다.
 - 한 번 마감된 공고를 다시 활성화하지 않는다.
 
 #### 예외

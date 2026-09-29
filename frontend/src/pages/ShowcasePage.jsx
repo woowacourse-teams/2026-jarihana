@@ -84,7 +84,7 @@ function ShowcaseContent() {
           <StatusBadge tone="brand">모집 중</StatusBadge>
           <StatusBadge tone="success">승인됨</StatusBadge>
           <StatusBadge tone="warning">승인 대기</StatusBadge>
-          <StatusBadge tone="danger">거절됨</StatusBadge>
+          <StatusBadge tone="danger">미승인</StatusBadge>
           <StatusBadge>모집 마감</StatusBadge>
           <Avatar alt="김자리" fallback="김" />
           <Avatar alt="이하나" fallback="이" size="lg" />
