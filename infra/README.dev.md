@@ -76,6 +76,7 @@ Secrets:
 | `OAUTH_GITHUB_REDIRECT_URI` | 개발 HTTPS `/api/oauth/github/callback` |
 | `IMAGE_S3_BUCKET` | `techcourse-project-2026` |
 | `IMAGE_S3_REGION` | `ap-northeast-2` |
+| `IMAGE_S3_KEY_PREFIX` | `jarihana-dev/images` |
 | `IMAGE_S3_PUBLIC_BASE_URL` | 개발 이미지 공개 URL, 예: dev origin의 `/images` |
 
 시크릿은 `Settings > Environments > dev > Environment secrets`에 위 이름으로 등록한다. workflow의
