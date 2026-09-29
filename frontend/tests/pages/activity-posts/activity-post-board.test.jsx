@@ -249,6 +249,27 @@ it("keeps the current photo wall visible while the selected feed loads", () => {
   expect(screen.queryByText("모든 활동 기록을 확인했어요.")).not.toBeInTheDocument();
 });
 
+it("keeps the create button at the end of the toolbar while the feed refreshes", () => {
+  useAuth.mockReturnValue({
+    isAuthenticated: true,
+    login: jest.fn(),
+    member: { id: 12 },
+    status: "authenticated"
+  });
+  mockActivityPosts(posts, { isFetching: true, isPlaceholderData: true });
+  renderBoard();
+
+  const toolbarEnd = screen
+    .getByRole("tablist", { name: "활동 기록 범위" })
+    .parentElement.querySelector(".activity-post-board__toolbar-end");
+  const refreshStatus = screen.getByText("활동 기록을 불러오는 중…");
+  const createButton = within(toolbarEnd).getByRole("button", { name: "기록 남기기" });
+
+  expect(toolbarEnd.firstElementChild).toBe(refreshStatus);
+  expect(toolbarEnd.lastElementChild).toBe(createButton);
+  expect(createButton).toBeVisible();
+});
+
 it("starts login when a visitor selects the personal-record filter", () => {
   const login = jest.fn();
   useAuth.mockReturnValue({ isAuthenticated: false, login, status: "anonymous" });

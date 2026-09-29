@@ -587,12 +587,12 @@ export function ActivityPostBoard({ group = null }) {
         />
         {isGlobal ? (
           <div className="activity-post-board__toolbar-end">
-            {action}
             {isRefreshingFeed ? (
               <p className="activity-post-board__refresh" role="status">
                 활동 기록을 불러오는 중…
               </p>
             ) : null}
+            {action}
           </div>
         ) : isRefreshingFeed ? (
           <p className="activity-post-board__refresh" role="status">
