@@ -83,6 +83,32 @@ class RegistrationCommandControllerTest extends IntegrationTestSupport {
         )).isFalse();
     }
 
+    @DisplayName("마감된 모집의 대기 신청 철회는 상태 충돌로 응답한다.")
+    @Test
+    void rejectsWithdrawalAfterRecruitmentCloses() {
+        // Given
+        Member applicant = saveMember("마감자", "withdrawal-api-closed-applicant");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 2);
+        Registration registration = registrationRepository.save(Registration.createPending(
+                recruitment, applicant, null, TestSupportConfig.FIXED_NOW.minusHours(1)
+        ));
+        recruitmentRepository.save(recruitment.closeAt(TestSupportConfig.FIXED_NOW));
+        String accessToken = accessTokenProvider.issue(applicant.getId()).value();
+        String csrfToken = csrfToken(recruitment.getGroup().getId());
+
+        // When / Then
+        authenticatedRequest(accessToken, csrfToken)
+                .when()
+                .delete("/recruitments/{recruitmentId}/registrations/{registrationId}",
+                        recruitment.getId(), registration.getId())
+                .then()
+                .statusCode(409)
+                .body("error.code", equalTo("RECRUITMENT_NOT_OPEN"));
+        assertThat(registrationRepository.existsByRecruitmentIdAndMemberId(
+                recruitment.getId(), applicant.getId()
+        )).isTrue();
+    }
+
     private RequestSpecification authenticatedRequest(String accessToken, String csrfToken) {
         return given()
                 .cookie(authCookieProperties.accessTokenName(), accessToken)

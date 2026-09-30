@@ -258,6 +258,8 @@ export function ManageRegistrationsPage() {
 
       <ConfirmDialog
         closeAction="registration_approval_confirm_dismiss"
+        cancelAction="registration_approval_cancel"
+        confirmAction="registration_approval_confirm"
         cancelLabel="취소"
         confirmLabel="신청 승인하기"
         description="승인하면 이 지원자는 바로 모임 참여자가 돼요."

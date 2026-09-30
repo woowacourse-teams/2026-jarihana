@@ -238,8 +238,10 @@ export function Drawer({
 
 export function ConfirmDialog({
   cancelLabel = "취소",
+  cancelAction,
   closeAction,
   confirmLabel = "확인",
+  confirmAction,
   danger = false,
   description,
   onClose,
@@ -293,10 +295,20 @@ export function ConfirmDialog({
         </p>
       ) : null}
       <div className="ui-dialog__actions">
-        <Button disabled={submitting} onClick={close} variant="secondary">
+        <Button
+          data-ph-capture-attribute-action={cancelAction}
+          disabled={submitting}
+          onClick={close}
+          variant="secondary"
+        >
           {cancelLabel}
         </Button>
-        <Button onClick={confirm} pending={submitting} variant={danger ? "danger" : "primary"}>
+        <Button
+          data-ph-capture-attribute-action={confirmAction}
+          onClick={confirm}
+          pending={submitting}
+          variant={danger ? "danger" : "primary"}
+        >
           {confirmLabel}
         </Button>
       </div>

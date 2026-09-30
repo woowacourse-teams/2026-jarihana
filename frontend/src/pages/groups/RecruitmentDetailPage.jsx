@@ -194,6 +194,8 @@ export function RecruitmentDetailPage() {
       </div>
       <ConfirmDialog
         closeAction="registration_submit_confirm_dismiss"
+        cancelAction="registration_submit_confirm_cancel"
+        confirmAction="registration_submit_confirm"
         open={confirmOpen}
         title="가입 신청을 보낼까요?"
         description="작성한 메시지와 함께 운영자에게 신청이 전달됩니다."

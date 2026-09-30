@@ -841,6 +841,8 @@ export function ManageRecruitmentsPage() {
 
       <ConfirmDialog
         closeAction="recruitment_close_confirm_dismiss"
+        cancelAction="recruitment_close_cancel"
+        confirmAction="recruitment_close_confirm"
         cancelLabel="취소"
         confirmLabel="예"
         description={
@@ -861,6 +863,8 @@ export function ManageRecruitmentsPage() {
 
       <ConfirmDialog
         closeAction="recruitment_create_discard_confirm_dismiss"
+        cancelAction="recruitment_create_discard_cancel"
+        confirmAction="recruitment_create_discard_confirm"
         cancelLabel="취소"
         confirmLabel="예"
         description="입력한 모집 조건은 저장되지 않아요."

@@ -283,9 +283,9 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
                 .body("error", nullValue());
     }
 
-    @DisplayName("인증된 회원의 모집 신청 상태를 그룹 상세 정보에 포함한다.")
+    @DisplayName("인증된 회원의 모집 신청 식별자와 상태를 그룹 상세 정보에 포함한다.")
     @Test
-    void includesCurrentMemberRegistrationStatus() {
+    void includesCurrentMemberRegistrationIdAndStatus() {
         // Given
         Group group = groupRepository.save(study(
                 "신청 상태 확인 스터디",
@@ -304,7 +304,7 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
                 TestSupportConfig.FIXED_NOW.minusHours(1),
                 TestSupportConfig.FIXED_NOW.plusDays(1)
         ));
-        registrationRepository.save(Registration.createPending(
+        Registration registration = registrationRepository.save(Registration.createPending(
                 recruitment,
                 applicant,
                 "잘 부탁드립니다.",
@@ -319,6 +319,7 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
                 .get("/groups/{groupId}", group.getId())
                 .then()
                 .statusCode(200)
+                .body("data.currentMemberRegistrationId", equalTo(registration.getId().intValue()))
                 .body("data.currentMemberRegistrationStatus", equalTo("PENDING"));
     }
 

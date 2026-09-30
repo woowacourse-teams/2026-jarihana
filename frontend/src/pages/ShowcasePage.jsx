@@ -228,6 +228,8 @@ function ShowcaseContent() {
           </Modal>
           <ConfirmDialog
             closeAction="showcase_confirm_dismiss"
+            cancelAction="showcase_confirm_cancel"
+            confirmAction="showcase_confirm_confirm"
             danger
             description="삭제한 모임은 되돌릴 수 없어요."
             onConfirm={() => {}}
