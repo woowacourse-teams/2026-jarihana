@@ -1,7 +1,7 @@
 # 현재 운영 EC2의 CloudWatch 수집
 
 기존 EC2의 Spring Boot와 PostgreSQL 컨테이너를 유지하고 호스트에 CloudWatch Agent를
-설치한다. 작업 브랜치는 `feat/cloudwatch-prod-check` 하나를 사용한다.
+설치한다. 작업 브랜치는 `feat/cloudwatch-observability-develop` 하나를 사용한다.
 
 ```text
 Spring Boot :8081 → 호스트 127.0.0.1:8081 → CloudWatch Agent
@@ -188,6 +188,10 @@ GC·timeout 등 이벤트가 아직 없거나 SEARCH의 신규 지표 검색이 
 그래프를 추가하지 않는다. p95와 실제 PostgreSQL 서버 지표도 포함하지 않는다.
 
 대시보드는 기존 수집 지표를 조회하며 새로운 커스텀 지표를 전송하지 않는다.
+KST 표시는 콘솔 상단 `UTC 시간대` 메뉴에서 `현지 시간대`를 선택한다.
+컴퓨터 시간대가 한국이면 KST(UTC+9)로 표시되며, 수집 시각이나 집계 주기는 변경하지 않는다.
+2026-09-29 운영 API 확인에서 그래프의 `timezone` 속성은 무시된다는 검증 경고가 반환되어,
+대시보드 JSON에는 넣지 않는다. 시간대는 콘솔 표시 설정으로 선택한다.
 대시보드 무료 한도는 같은 AWS 계정 전체에서 공유한다. 무료 한도가 이미 사용된 경우
 표준 사용자 지정 대시보드 하나의 요금은 월 $3이며, 지표·로그·조회 API 요금은 별도다.
 
