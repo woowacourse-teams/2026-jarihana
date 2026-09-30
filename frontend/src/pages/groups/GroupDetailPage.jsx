@@ -238,6 +238,7 @@ export function GroupDetailPage() {
             ) : null}
             <div className="group-recruitment-entry group-recruitment-action">
               <Modal
+                closeAction="group_recruitment_info_dismiss"
                 title="모집 정보"
                 trigger={
                   <Button
@@ -306,42 +307,6 @@ export function GroupDetailPage() {
             isLeader={isLeader}
           />
         </GroupDetailRail>
-      </div>
-
-      <div className="group-floating-recruitment">
-        <Modal
-          closeAction="group_recruitment_info_dismiss"
-          title="모집 정보"
-          trigger={
-            <Button
-              aria-label="모집 정보 보기"
-              className="group-recruitment-fab"
-              title="자리 확인"
-              variant="secondary"
-            >
-              <img
-                alt=""
-                aria-hidden="true"
-                className="group-recruitment-fab__image"
-                height={32}
-                src={logoMark}
-                width={32}
-              />
-            </Button>
-          }
-        >
-          <div className="group-recruitment-modal">
-            <RecruitmentSummary
-              auth={auth}
-              group={group}
-              createRecruitmentHref={isLeader ? `/groups/${groupId}/manage/recruitments` : null}
-              hasExistingRegistration={hasExistingRegistration}
-              isApprovedMember={isApprovedMember}
-              isArchived={isArchived}
-              isLeader={isLeader}
-            />
-          </div>
-        </Modal>
       </div>
 
       <Modal
