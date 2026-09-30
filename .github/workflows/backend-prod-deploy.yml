@@ -24,10 +24,6 @@ on:
         description: "CloudWatch 작업 대상 EC2 ID (inspect 외 작업 시 필수)"
         required: false
         type: string
-      expected_current_image:
-        description: "현재 운영 이미지 확인값 (지정 시 일치하지 않으면 배포 중단)"
-        required: false
-        type: string
 
 permissions:
   contents: read
@@ -54,20 +50,6 @@ jobs:
           whoami
           docker version
 
-      - name: 이전 Backend 이미지 기록
-        id: previous
-        env:
-          EXPECTED_CURRENT_IMAGE: ${{ inputs.expected_current_image }}
-        run: |
-          previous_image="$(docker inspect --format '{{.Config.Image}}' jarihana-backend 2>/dev/null || true)"
-          echo "Previous backend image: ${previous_image}"
-          if [[ -n "${EXPECTED_CURRENT_IMAGE}" ]]; then
-            test "${previous_image}" = "${EXPECTED_CURRENT_IMAGE}"
-          fi
-          if [[ "${previous_image}" == jarihana-backend:* ]]; then
-            echo "backend_tag=${previous_image#jarihana-backend:}" >> "${GITHUB_OUTPUT}"
-          fi
-
       - name: Backend 이미지 빌드
         run: |
           docker build \
@@ -75,7 +57,6 @@ jobs:
             ./backend
 
       - name: Compose로 Backend 배포
-        id: rollout
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
@@ -118,26 +99,6 @@ jobs:
             --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8080/api/actuator/prometheus)"
           test "${metrics_status}" = "403"
           echo "Health and Prometheus: 200; groups API: ${api_status}; public-port metrics: ${metrics_status}"
-
-      - name: 검증 실패 시 이전 Backend 이미지 복구
-        if: ${{ failure() && (steps.rollout.outcome == 'success' || steps.rollout.outcome == 'failure') && steps.previous.outputs.backend_tag != '' }}
-        env:
-          BACKEND_TAG: ${{ steps.previous.outputs.backend_tag }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
-          ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
-          GITHUB_OAUTH_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
-          GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
-          GITHUB_OAUTH_REDIRECT_URI: ${{ vars.OAUTH_GITHUB_REDIRECT_URI }}
-          IMAGE_S3_BUCKET: ${{ vars.IMAGE_S3_BUCKET }}
-          IMAGE_S3_REGION: ${{ vars.IMAGE_S3_REGION }}
-          IMAGE_S3_KEY_PREFIX: ${{ vars.IMAGE_S3_KEY_PREFIX }}
-          IMAGE_S3_PUBLIC_BASE_URL: ${{ vars.IMAGE_S3_PUBLIC_BASE_URL }}
-        run: |
-          docker compose -f infra/docker-compose.yml up -d --no-build --no-deps backend
-          curl --fail --silent --show-error \
-            --retry 20 --retry-all-errors --retry-delay 3 --max-time 5 \
-            http://127.0.0.1:8080/api/groups > /dev/null
 
   cloudwatch:
     if: ${{ github.event_name == 'workflow_dispatch' && startsWith(inputs.operation, 'cloudwatch-') }}
