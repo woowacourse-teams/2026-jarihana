@@ -93,7 +93,7 @@ set +a
 
 로컬 PostgreSQL의 데이터베이스, 사용자, 비밀번호는 `jarihana`로 고정되어 있고
 호스트 포트는 `5432`입니다.
-운영 배포 환경 변수는 GitHub Actions Secrets에서 `infra/docker-compose.yml`로 주입합니다.
+운영 배포 환경 변수는 GitHub Actions Secrets와 Variables에서 `infra/docker-compose.yml`로 주입합니다.
 
 PostgreSQL 컨테이너 상태는 다음 명령으로 확인할 수 있습니다.
 
@@ -105,7 +105,7 @@ docker compose -f docker-compose-local.yaml ps
 `docker compose -f docker-compose-local.yaml down -v`를 사용합니다.
 
 운영 환경에서는 `infra/docker-compose.yml`이 `SPRING_PROFILES_ACTIVE=prod`, DB 접속값,
-인증·OAuth 설정을 GitHub Actions Secrets와 함께 주입합니다. 운영 프로필은 스키마를 자동
+인증·OAuth 설정을 GitHub Actions Secrets와 Variables에서 주입합니다. 운영 프로필은 스키마를 자동
 변경하지 않고 `ddl-auto: validate`로 검증만 수행합니다.
 
 회원 유형과 이름 중복 정책을 배포할 때는 운영 DB에서
@@ -143,28 +143,37 @@ User는 `jarihana`, Password는 운영 DB 비밀번호로 설정합니다. 이 �
 최초 포트 매핑 반영 시 PostgreSQL 컨테이너가 재생성되어 기존 DB 연결이 잠시 끊길 수
 있습니다. 기존 `postgres-data` 볼륨은 유지하며, 적용을 위해 볼륨을 삭제하지 않습니다.
 
-### 운영 배포 시크릿
+### 공유 개발 환경
 
-`main` 브랜치에 반영된 커밋에 `backend/**` 변경이 포함되면 백엔드 배포 워크플로가
+`develop`의 백엔드 변경은 `backend-dev-deploy.yml`에서 같은 EC2의 개발 전용 Compose로
+배포합니다. 개발 DB·인증값·포트는 운영과 분리하고 Spring `prod` 프로필을 재사용합니다.
+[개발 Compose](../infra/docker-compose.dev.yml)는 DB 스키마를 자동으로 초기화하지 않습니다.
+`ddl-auto: validate`를 사용하므로 Spring Session 테이블을 포함한 개발 DB 스키마를 첫 배포 전에
+별도로 준비해야 합니다. 이후 스키마 변경은 `db/migrations/`의 SQL을 검토해 적용합니다.
+개발 `IMAGE_S3_KEY_PREFIX`는 `jarihana-dev/images`를 사용합니다.
+
+### 배포 환경 설정
+
+`main` 브랜치에 반영된 커밋에 백엔드·운영 Compose·workflow 변경이 포함되면 `backend-prod-deploy.yml`이
 자동으로 실행됩니다. 필요할 때는 GitHub Actions에서 수동으로도 실행할 수 있습니다.
 
-저장소의 `Settings > Secrets and variables > Actions`에 다음 이름으로 시크릿을 등록합니다.
-GitHub은 `GITHUB_`로 시작하는 시크릿 이름을 허용하지 않으므로, OAuth 시크릿은
+`Settings > Environments`의 `dev`, `prod`에 아래 Secrets와 Variables를 각각 등록합니다.
+개발과 운영은 같은 설정 이름을 사용하며, 값은 환경별로 구분합니다. OAuth 설정은
 `OAUTH_GITHUB_*` 이름으로 저장한 뒤 배포 워크플로에서 애플리케이션 환경 변수
 `GITHUB_OAUTH_*`로 매핑합니다.
 
-| 애플리케이션·Compose 환경 변수 | GitHub Actions 시크릿 |
-| --- | --- |
-| `POSTGRES_PASSWORD` | `POSTGRES_PASSWORD` |
-| `FRONTEND_ORIGIN` | `FRONTEND_ORIGIN` |
-| `ACCESS_TOKEN_SECRET` | `ACCESS_TOKEN_SECRET` |
-| `GITHUB_OAUTH_CLIENT_ID` | `OAUTH_GITHUB_CLIENT_ID` |
-| `GITHUB_OAUTH_CLIENT_SECRET` | `OAUTH_GITHUB_CLIENT_SECRET` |
-| `GITHUB_OAUTH_REDIRECT_URI` | `OAUTH_GITHUB_REDIRECT_URI` |
-| `IMAGE_S3_BUCKET` | `IMAGE_S3_BUCKET` |
-| `IMAGE_S3_REGION` | `IMAGE_S3_REGION` |
-| `IMAGE_S3_KEY_PREFIX` | `IMAGE_S3_KEY_PREFIX` (`jarihana/images`) |
-| `IMAGE_S3_PUBLIC_BASE_URL` | `IMAGE_S3_PUBLIC_BASE_URL` (`https://d1znkkaqfyz08f.cloudfront.net/images`) |
+| 애플리케이션·Compose 환경 변수 | GitHub 설정 이름 | 저장 위치 |
+| --- | --- | --- |
+| `POSTGRES_PASSWORD` | `POSTGRES_PASSWORD` | Secrets |
+| `FRONTEND_ORIGIN` | `FRONTEND_ORIGIN` | Variables |
+| `ACCESS_TOKEN_SECRET` | `ACCESS_TOKEN_SECRET` | Secrets |
+| `GITHUB_OAUTH_CLIENT_ID` | `OAUTH_GITHUB_CLIENT_ID` | Variables |
+| `GITHUB_OAUTH_CLIENT_SECRET` | `OAUTH_GITHUB_CLIENT_SECRET` | Secrets |
+| `GITHUB_OAUTH_REDIRECT_URI` | `OAUTH_GITHUB_REDIRECT_URI` | Variables |
+| `IMAGE_S3_BUCKET` | `IMAGE_S3_BUCKET` | Variables |
+| `IMAGE_S3_REGION` | `IMAGE_S3_REGION` | Variables |
+| `IMAGE_S3_KEY_PREFIX` | `IMAGE_S3_KEY_PREFIX` | Variables |
+| `IMAGE_S3_PUBLIC_BASE_URL` | `IMAGE_S3_PUBLIC_BASE_URL` | Variables |
 
 실제 값은 저장소에 커밋하지 않습니다. `backend/.env.example`은 로컬 실행용 키 목록과
 예시만 제공하며 운영값의 저장소가 아닙니다. S3 자격 증명은 애플리케이션에서 별도로

@@ -1,23 +1,25 @@
-name: Frontend Build and Deploy
+name: Frontend Development Deploy
 
 on:
   push:
     branches:
-      - main
+      - develop
     paths:
       - "frontend/**"
-      - ".github/workflows/frontend-build.yml"
+      - ".github/workflows/frontend-dev-deploy.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: frontend-production-deploy
-  cancel-in-progress: true
+  group: frontend-dev-deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/develop'
+    environment: dev
     runs-on:
       - self-hosted
       - Linux
@@ -31,7 +33,7 @@ jobs:
       AWS_REGION: ap-northeast-2
       AWS_DEFAULT_REGION: ap-northeast-2
       AWS_PAGER: ""
-      S3_DESTINATION: s3://techcourse-project-2026/jarihana/frontend
+      S3_DESTINATION: s3://techcourse-project-2026/jarihana-dev/frontend
 
     steps:
       - name: Checkout
@@ -61,10 +63,10 @@ jobs:
           npm run lint
           npm run typecheck
 
-      - name: 운영 환경 변수 확인
+      - name: 개발 환경 변수 확인
         env:
-          APP_GITHUB_CLIENT_ID: ${{ secrets.OAUTH_GITHUB_CLIENT_ID }}
-          APP_GITHUB_REDIRECT_URI: ${{ secrets.OAUTH_GITHUB_REDIRECT_URI }}
+          APP_GITHUB_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
+          APP_GITHUB_REDIRECT_URI: ${{ vars.OAUTH_GITHUB_REDIRECT_URI }}
         run: |
           set -euo pipefail
           test -n "${APP_GITHUB_CLIENT_ID}"
@@ -72,14 +74,12 @@ jobs:
 
       - name: 프론트엔드 빌드
         env:
-          APP_GITHUB_CLIENT_ID: ${{ secrets.OAUTH_GITHUB_CLIENT_ID }}
-          APP_GITHUB_REDIRECT_URI: ${{ secrets.OAUTH_GITHUB_REDIRECT_URI }}
+          APP_GITHUB_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
+          APP_GITHUB_REDIRECT_URI: ${{ vars.OAUTH_GITHUB_REDIRECT_URI }}
           APP_OAUTH_COOKIE_NAME: oauthState
           DISABLE_REACT_DEVTOOLS: "1"
-          APP_POSTHOG_PROJECT_TOKEN: ${{ vars.POSTHOG_PROJECT_TOKEN }}
-          APP_POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
-          APP_ANALYTICS_ENABLED: ${{ vars.ANALYTICS_ENABLED || 'false' }}
-          APP_DEPLOY_ENV: production
+          APP_ANALYTICS_ENABLED: "false"
+          APP_DEPLOY_ENV: development
         run: |
           set -euo pipefail
           npm run build

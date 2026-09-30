@@ -6,7 +6,7 @@
   [프론트엔드 README](../../../frontend/README.md),
   [백엔드 로컬 Docker Compose](../../docker-compose-local.yaml),
   [운영 Docker Compose](../../../infra/docker-compose.yml),
-  [백엔드 배포 워크플로](../../../.github/workflows/backend-build.yml)
+  [백엔드 배포 워크플로](../../../.github/workflows/backend-prod-deploy.yml)
 
 ## 배경
 

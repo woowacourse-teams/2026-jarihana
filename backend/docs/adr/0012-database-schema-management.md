@@ -143,7 +143,7 @@ H2를 유지하는 방안은 이 ADR의 검토 대상이 아니다.
   지연하는 방식 중 하나를 선택한다.
 - 테스트는 이미 GitHub 호스팅 러너(`ubuntu-latest`)에서 실행된다
   ([`ci.yml`](../../../.github/workflows/ci.yml)). 자체 호스팅 러너는 배포
-  ([`backend-build.yml`](../../../.github/workflows/backend-build.yml))에만 사용한다. 호스팅 러너에는
+  ([`backend-prod-deploy.yml`](../../../.github/workflows/backend-prod-deploy.yml))에만 사용한다. 호스팅 러너에는
   Docker가 있으므로 컨테이너 실행 가능 여부는 문제가 되지 않는다.
 - Testcontainers가 실행하는 PostgreSQL 테스트 컨테이너와 로컬 Compose의 영구 `jarihana` 데이터베이스는
   분리된다. 테스트 전에 로컬 DB를 비우거나 별도 Compose 테스트 DB를 구성할 필요가 없다.
