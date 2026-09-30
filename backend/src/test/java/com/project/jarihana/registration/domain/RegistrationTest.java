@@ -46,6 +46,9 @@ class RegistrationTest {
         assertThat(registration.getDecidedBy()).isNull();
         assertThat(registration.getLeaderViewedAt()).isNull();
         assertThat(registration.canWithdraw()).isTrue();
+        assertThat(registration.canWithdrawAt(STARTS_AT.minusNanos(1))).isFalse();
+        assertThat(registration.canWithdrawAt(ENDS_AT.minusNanos(1))).isTrue();
+        assertThat(registration.canWithdrawAt(ENDS_AT)).isFalse();
     }
 
     private GroupRecruitment recruitment(JoinMethod joinMethod, int capacity) {

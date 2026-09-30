@@ -63,8 +63,8 @@ EC2 CPU·메모리·디스크는 컨테이너별 값이 아니므로 양쪽 대�
 | `dashboard-prod.json` | prod 전용 앱 지표와 EC2 공통 자원의 대시보드 정의 |
 | `create-dashboard.sh` | 기본은 생성만 수행하고, 명시적 `--update`에서는 기존 JSON 백업 후 갱신 |
 
-`backend-build.yml`의 수동 실행에서 `operation`을 선택한다. 기본값 `backend-deploy`는
-기존 배포이고, `cloudwatch-*` 작업에서는 백엔드 배포 job을 건너뛴다.
+`backend-prod-deploy.yml`의 수동 실행에서 `operation`을 선택한다. 기본값 `backend-deploy`는
+`main` 브랜치에서만 운영 배포를 실행하고, `cloudwatch-*` 작업에서는 백엔드 배포 job을 건너뛴다.
 
 - `cloudwatch-inspect`: 환경 확인만 수행한다.
 - `cloudwatch-prepare`: 설정 검사, 로그 그룹 생성, 보존 기간 설정을 수행한다.

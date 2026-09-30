@@ -5,7 +5,10 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from "reac
 import { useAuth } from "../../features/auth/index.js";
 import { useGroup } from "../../features/group/index.js";
 import { useInfiniteGroupMembers } from "../../features/member/index.js";
-import { useCreateRegistration } from "../../features/registration/index.js";
+import {
+  useCreateRegistration,
+  useWithdrawRegistration
+} from "../../features/registration/index.js";
 import { toUserMessage } from "../../shared/api/index.js";
 import { captureEvent, getPromotionAttribution } from "../../shared/analytics/index.js";
 import scheduleIcon from "../../shared/assets/figma/edit-05.svg";
@@ -17,6 +20,7 @@ import recruitmentOpenIllustration from "../../shared/assets/illustrations/group
 import {
   Avatar,
   Button,
+  ConfirmDialog,
   EmptyState,
   ErrorState,
   GroupImage,
@@ -26,7 +30,8 @@ import {
   Skeleton,
   StatusBadge,
   Tabs,
-  Textarea
+  Textarea,
+  useToast
 } from "../../shared/ui/index.js";
 import {
   flattenPages,
@@ -238,6 +243,7 @@ export function GroupDetailPage() {
             ) : null}
             <div className="group-recruitment-entry group-recruitment-action">
               <Modal
+                closeAction="group_recruitment_info_dismiss"
                 title="모집 정보"
                 trigger={
                   <Button
@@ -309,6 +315,7 @@ export function GroupDetailPage() {
       </div>
 
       <Modal
+        closeAction="recruitment_start_prompt_dismiss"
         description="모집을 시작해야 다른 사람이 이 모임에 신청할 수 있어요."
         onClose={() => setRecruitmentPromptOpen(false)}
         open={recruitmentPromptOpen}
@@ -356,6 +363,8 @@ function RecruitmentSummary({
 }) {
   const recruitment = group.activeRecruitment;
   const registration = useCreateRegistration(recruitment?.id, group.id);
+  const withdrawal = useWithdrawRegistration(recruitment?.id);
+  const toast = useToast();
   const registrationStartedReference = useRef();
   const [applicationOpen, setApplicationOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -393,6 +402,44 @@ function RecruitmentSummary({
   }
 
   function applicationAction() {
+    if (group.currentMemberRegistrationStatus === "PENDING" && isOpen) {
+      if (group.currentMemberRegistrationId == null) {
+        return (
+          <Link
+            className="ui-button ui-button--danger ui-button--md"
+            data-ph-capture-attribute-action="registration_withdraw"
+            to="/my/registrations"
+          >
+            내 신청에서 철회
+          </Link>
+        );
+      }
+      return (
+        <ConfirmDialog
+          closeAction="registration_withdraw_confirm_dismiss"
+          cancelAction="registration_withdraw_cancel"
+          confirmAction="registration_withdraw_confirm"
+          confirmLabel="철회하기"
+          danger
+          description="철회한 신청은 되돌릴 수 없어요. 다시 참여하려면 모집이 열려 있을 때 새로 신청해야 해요."
+          onConfirm={async () => {
+            await withdrawal.mutateAsync(group.currentMemberRegistrationId);
+            setSubmitted(false);
+            toast.success({ title: "신청을 철회했어요" });
+          }}
+          pending={withdrawal.isPending}
+          title="신청을 철회할까요?"
+          trigger={
+            <Button
+              data-ph-capture-attribute-action="registration_withdraw"
+              variant="danger"
+            >
+              신청 철회
+            </Button>
+          }
+        />
+      );
+    }
     if (!isOpen) {
       return (
         <Button disabled variant="secondary">
@@ -526,6 +573,7 @@ function RecruitmentSummary({
       </div>
       <div className="group-recruitment-action">{applicationAction()}</div>
       <Modal
+        closeAction="registration_form_dismiss"
         description="운영자에게 전달할 신청 메시지를 작성해 주세요."
         onClose={() => {
           if (!registration.isPending) setApplicationOpen(false);

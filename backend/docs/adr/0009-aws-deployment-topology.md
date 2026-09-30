@@ -6,7 +6,8 @@
   [모노레포와 인프라 경계 ADR](0010-monorepo-application-infrastructure-boundaries.md),
   [운영 Docker Compose](../../../infra/docker-compose.yml),
   [백엔드 Dockerfile](../../Dockerfile),
-  [백엔드 배포 워크플로](../../../.github/workflows/backend-build.yml),
+  [백엔드 운영 배포 워크플로](../../../.github/workflows/backend-prod-deploy.yml),
+  [개발 Docker Compose](../../../infra/docker-compose.dev.yml),
   [Access Token 쿠키 ADR](0002-access-token-cookie.md),
   [OAuth 인가 요청 소유권 ADR](0004-oauth-authorization-ownership.md),
   [CSRF Token 전달 ADR](0005-csrf-token-delivery.md)
@@ -62,7 +63,18 @@ CloudFront
 - 같은 EC2에 self-hosted GitHub Actions Runner를 호스트 서비스로 설치한다.
 - 백엔드 배포 작업은 해당 Runner가 백엔드 이미지를 로컬에서 빌드한 뒤 운영 Docker Compose를
   실행하는 방식으로 수행한다.
-- 프론트엔드 빌드 결과물의 S3 배포는 현재 수동으로 수행하고 이후 GitHub Actions로 자동화한다.
+- 프론트엔드 빌드 결과물은 독립된 GitHub Actions workflow에서 S3로 배포한다.
+
+### 2026-09-29 공유 개발 환경 추가
+
+같은 EC2와 runner에 개발 백엔드·PostgreSQL을 추가한다. 독립 Compose의 최상위
+`name: jarihana-dev`로 network·volume을 구분하고 호스트 포트 9080·127.0.0.1:15432를 사용한다.
+기존 운영 project와 volume은 유지한다. 개발용 S3 prefix, CloudFront 배포판과 OAuth 앱은
+운영과 분리하며 `dev` Spring 프로필에서도 schema validation과 secure cookie를 유지한다.
+
+`ci.yml`과 환경별·컴포넌트별 배포 workflow 네 개를 둔다. 각각 경로 필터로 실행하며
+백엔드·프론트 선후 관계는 두지 않는다. 설정은 저장소에 정의하지만 실제 AWS·GitHub 자원 준비와
+공개 URL의 화면·API·로그인·이미지 업로드 검증은 별도로 수행한다.
 
 CloudFront는 여기에서 공개 진입점과 정적 콘텐츠 캐시 계층의 역할을 한다. CloudFront가 모든
 리버스 프록시 기능을 대신하거나 전체 서비스의 고가용성을 보장한다는 의미는 아니다.
@@ -141,7 +153,7 @@ EC2에 함께 두는 편이 운영 요소가 적다고 판단했다.
   원본은 아니다.
 - ADR 작성 시점에는 S3 버킷이 CloudFront만 접근할 수 있는 비공개 구성인지, 객체 URL로도 직접
   접근할 수 있는 구성인지 확인하지 못했다.
-- 프론트엔드 S3 배포는 수동이므로 백엔드 배포 워크플로와 자동화 수준이 다르다.
+- 프론트엔드와 백엔드 배포는 독립 workflow이므로 실행 순서와 동반 복구를 보장하지 않는다.
 
 ## 결과
 
@@ -165,11 +177,11 @@ EC2에 함께 두는 편이 운영 요소가 적다고 판단했다.
 - Runner가 운영 호스트의 Docker를 제어하므로 권한 분리와 침해 범위가 크다.
 - 퍼블릭 EC2 Origin을 우회한 직접 요청과 암호화되지 않은 Origin 연결을 허용한다.
 - 수동 AWS 설정이 Git 이력에 남지 않아 실제 환경과 문서 사이에 차이가 생길 수 있다.
-- 프론트엔드 배포가 수동이므로 배포 재현성과 변경 추적이 제한된다.
+- 개발과 운영이 CPU·메모리·디스크 및 호스트 권한을 공유하여 개발 빌드도 운영에 영향을 줄 수 있다.
 
 ## 후속 작업
 
-- 프론트엔드 빌드 결과물의 S3 업로드와 CloudFront 캐시 무효화를 GitHub Actions로 자동화한다.
+- CloudFront 캐시 무효화와 배포 복구 절차는 필요해질 때 별도로 검토한다. 현재 개발·운영 workflow에는 추가하지 않는다.
 - S3 버킷의 퍼블릭 접근 차단, CloudFront Origin 접근 방식과 직접 객체 접근 가능 여부를 확인해
   운영 문서에 기록한다.
 - CloudFront의 Origin, Behavior, 캐시 정책과 오류 응답 설정을 저장소 운영 문서에 기록한다.
