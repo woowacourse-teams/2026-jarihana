@@ -63,8 +63,11 @@ EC2 CPU·메모리·디스크는 컨테이너별 값이 아니므로 양쪽 대�
 | `dashboard-prod.json` | prod 전용 앱 지표와 EC2 공통 자원의 대시보드 정의 |
 | `create-dashboard.sh` | 기본은 생성만 수행하고, 명시적 `--update`에서는 기존 JSON 백업 후 갱신 |
 
-`backend-prod-deploy.yml`의 수동 실행에서 `operation`을 선택한다. 기본값 `backend-deploy`는
-`main` 브랜치에서만 운영 배포를 실행하고, `cloudwatch-*` 작업에서는 백엔드 배포 job을 건너뛴다.
+GitHub Actions의 `CloudWatch Manage` (`cloudwatch-manage.yml`)를 수동 실행하고
+`operation`을 선택한다. 기본값은 환경만 확인하는 `cloudwatch-inspect`다.
+Agent 하나가 같은 EC2의 prod/dev를 수집하므로 환경별 배포 workflow와 독립적으로 관리한다.
+prod/dev 백엔드 배포는 각각 `backend-prod-deploy.yml`, `backend-dev-deploy.yml`에서 실행한다.
+수동 실행 메뉴가 표시되려면 새 workflow 파일이 저장소 기본 브랜치인 `main`에 반영돼야 한다.
 
 - `cloudwatch-inspect`: 환경 확인만 수행한다.
 - `cloudwatch-prepare`: 설정 검사, 로그 그룹 생성, 보존 기간 설정을 수행한다.
@@ -73,6 +76,8 @@ EC2 CPU·메모리·디스크는 컨테이너별 값이 아니므로 양쪽 대�
 
 inspect 외 작업에는 확인한 EC2 ID를 `expected_instance_id`에 입력한다. 설치 과정에서
 인스턴스 ID를 IMDSv2로 비교하고, 다른 Agent 설정이 있으면 덮어쓰지 않고 중단한다.
+`cloudwatch-install`은 runner의 비대화형 sudo 권한이 필요하다. sudo 권한이 없으면
+아래 SSH 설치 절차로 설정을 갱신한다. 현재 `cloudwatch-verify`는 prod와 EC2 공통 지표만 확인한다.
 
 ## 지표와 비용 관리
 

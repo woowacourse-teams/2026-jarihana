@@ -1,0 +1,49 @@
+name: CloudWatch Manage
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "실행할 CloudWatch 작업"
+        type: choice
+        default: cloudwatch-inspect
+        options:
+          - cloudwatch-inspect
+          - cloudwatch-prepare
+          - cloudwatch-install
+          - cloudwatch-verify
+      expected_instance_id:
+        description: "CloudWatch 작업 대상 EC2 ID (inspect 외 작업 시 필수)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudwatch-manage
+  cancel-in-progress: false
+
+jobs:
+  cloudwatch:
+    runs-on: [self-hosted, Linux, ARM64]
+    env:
+      EXPECTED_INSTANCE_ID: ${{ inputs.expected_instance_id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: CloudWatch 설치 전 환경 확인
+        if: ${{ inputs.operation == 'cloudwatch-inspect' }}
+        run: bash infra/cloudwatch/inspect.sh
+      - name: CloudWatch 수집 설정 검증
+        if: ${{ inputs.operation == 'cloudwatch-prepare' || inputs.operation == 'cloudwatch-install' }}
+        run: python3 infra/cloudwatch/validate.py
+      - name: CloudWatch 로그 그룹과 보존 기간 설정
+        if: ${{ inputs.operation == 'cloudwatch-prepare' || inputs.operation == 'cloudwatch-install' }}
+        run: bash infra/cloudwatch/prepare-aws.sh
+      - name: CloudWatch Agent 설치와 시작
+        if: ${{ inputs.operation == 'cloudwatch-install' }}
+        run: sudo -n --preserve-env=EXPECTED_INSTANCE_ID bash infra/cloudwatch/install.sh
+      - name: CloudWatch 실제 수신 확인
+        if: ${{ inputs.operation == 'cloudwatch-install' || inputs.operation == 'cloudwatch-verify' }}
+        run: bash infra/cloudwatch/verify.sh
