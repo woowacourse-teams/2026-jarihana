@@ -16,7 +16,7 @@ import { ProfileMenu } from "./ProfileMenu";
 
 const HOME_LINK = {
   action: "group_home",
-  isActive: (pathname) => pathname === "/" || pathname === "/groups",
+  isActive: (pathname) => pathname === "/",
   label: "홈",
   requiresAuth: false,
   to: "/"
@@ -24,10 +24,10 @@ const HOME_LINK = {
 
 const EXPLORE_LINK = {
   action: "group_browse",
-  isActive: (pathname) => pathname === "/groups/explore",
+  isActive: (pathname) => pathname === "/groups",
   label: "모임 탐색",
   requiresAuth: false,
-  to: "/groups/explore"
+  to: "/groups"
 };
 
 const MEMBER_LINKS = [
@@ -241,7 +241,12 @@ export function AppHeader({ action = null, title = "" }) {
       <header className="app-header">
         <div className="app-header__inner">
           <div className="app-header__brand-group">
-            <Link aria-label="자리하나 홈" className="app-header__brand" to="/groups">
+            <Link
+              aria-label="자리하나 홈"
+              className="app-header__brand"
+              data-ph-capture-attribute-action="group_home"
+              to="/"
+            >
               <img alt="" aria-hidden="true" className="app-header__brand-mark" src={logoMark} />
               <span className="app-header__brand-text">자리하나?</span>
             </Link>

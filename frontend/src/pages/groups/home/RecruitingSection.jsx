@@ -154,7 +154,7 @@ export function RecruitingSection({ beforeResults, headline, heroPeriod, isAuthe
             aria-label="모집 중인 모임 더 보기"
             className="reference-browse-link"
             data-ph-capture-attribute-action="home_discovery_browse"
-            to={`/groups/explore?${browseParams}`}
+            to={`/groups?${browseParams}`}
           >
             모집 중인 모임 더 보기 <ArrowRight aria-hidden="true" size={16} />
           </Link>

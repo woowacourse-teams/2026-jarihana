@@ -1,7 +1,7 @@
 export const routeRegistry = Object.freeze([
   { access: "public", page: "GroupsPage", path: "/" },
-  { access: "public", page: "GroupsPage", path: "/groups" },
-  { access: "public", page: "GroupBrowsePage", path: "/groups/explore" },
+  { access: "public", page: "GroupBrowsePage", path: "/groups" },
+  { access: "public", page: "GroupBrowsePage", path: "/groups/explore", redirectTo: "/groups" },
   { access: "public", page: "GroupDetailPage", path: "/groups/:groupId" },
   {
     access: "public",

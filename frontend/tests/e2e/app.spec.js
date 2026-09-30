@@ -111,7 +111,7 @@ test(
 
     await page.goto("/my/registrations?status=PENDING");
     await expect(page).toHaveURL(/\/groups$/);
-    await expect(page.locator("#today-sessions-title")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "자리 둘러보기", exact: true })).toBeVisible();
     expect(await page.evaluate((key) => sessionStorage.getItem(key), returnTargetStorageKey)).toBe(
       "/my/registrations?status=PENDING"
     );

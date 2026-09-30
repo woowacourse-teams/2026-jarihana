@@ -579,15 +579,15 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
   clock, refresh at each hour boundary and reschedule immediately on focus or tab return.
   Preserve the existing headline slots, including the 19:00 night/campus phrase.
   Night uses a local `--reference-hero-night-surface` mixing 25% --color-activity-study-ink
-  with --color-nav behind the full hero, so text remains readable when content extends
-  beyond the 3:1 artwork or mobile moves the artwork below the copy. Night title, subtitle,
+  with --color-nav behind the full hero, so text remains readable as content changes height.
+  Night title, subtitle,
   search input and submit icon use --color-surface; inline emphasis uses --color-brand;
   the placeholder uses --color-brand-soft. Keep the existing white/mint type pills and
   search focus underline. Add no transition animation. Round the hero
   with `--radius-lg` (20px). A decorative pseudo-element rounds the CSS background
   at its existing image bounds without clipping the search and filter focus outlines.
   Keep public `홈` and `모임 탐색` links on desktop and in the mobile drawer, before feedback.
-  `홈` opens `/` and is active on `/` and `/groups`; `모임 탐색` opens `/groups/explore`
+  `홈` opens `/` and is active only on `/`; `모임 탐색` opens `/groups`
   and is active only on that route. Reuse the existing header link and active styles.
   Both links close the mobile drawer without triggering login; browse opens unfiltered.
   Put search and type controls beneath the hero copy,
@@ -615,13 +615,17 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
   From 768px through 1279px, protect copy/search contrast with a soft horizontal surface-color veil
   (85% at the left edge, 60% at 38%, transparent at 64%); night uses its dark hero surface.
   Keep search placeholders in ink and underline in muted ink, with light equivalents at night
-  and the existing mint focus state. Mobile and desktop do not need the tablet veil.
+  and the existing mint focus state. Desktop retains the original artwork without a veil.
   Background bounds always equal the hero bounds; never reserve a separate mobile image row
   or center a fixed-ratio strip inside a taller surface. Place left-aligned copy/search in the
   image's quiet area (46% desktop, 50% tablet). Keep phrases intact where possible and
   allow long words to wrap within the available width without truncation.
-  On mobile, keep copy full width at the top of the continuous background, with a 40rem minimum
-  hero height and natural content growth. Use --text-h1 for the mobile introduction, --space-5
+  On mobile, let the copy and block padding determine hero height; do not reserve extra height
+  for the scene. Frame the square artwork at bottom right with a width of max(100%, 36rem),
+  using --reference-hero-mobile-art-size, so the characters and planets sit behind the copy
+  and search instead of beneath them. Apply a horizontal surface veil (92% at the left edge,
+  75% at 45%, 25% at the right edge) for readable day and night controls.
+  Use --text-h1 for the mobile introduction, --space-5
   inline padding, and --space-3 pill padding so all four controls fit at 375px. Tablet inset is
   --space-8; desktop inset grows from --space-8 to --space-16 (4vw). The decorative scene has no separate image
   element or redundant accessibility name. Introduction, heading and controls remain real content.
@@ -640,7 +644,7 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
   The representative home shows at most four recruitment cards and never expands in place.
   Browsing beyond the preview belongs to a separate list page, reached from a heading-right
   text link `모집 중인 모임 더 보기` with an arrow. On narrow screens the link wraps
-  below the heading and remains right-aligned to keep both labels intact. It opens `/groups/explore` with the current keyword
+  below the heading and remains right-aligned to keep both labels intact. It opens `/groups` with the current keyword
   and type plus ACTIVE/recruiting=true. The lower recruitment pagination button is removed.
   The browse page reuses the original session-home-discovery `DiscoveryGroupCard` and
   `discovery.css` directly: four desktop columns, three tablet columns and horizontal mobile

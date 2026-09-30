@@ -13,7 +13,7 @@
   --reference-hero-image: url("../../../shared/assets/brand/jarihana-hero-day.png");
   --reference-hero-extended-image: url("../../../shared/assets/brand/jarihana-hero-day-extended.png");
   --reference-hero-inline-padding: clamp(var(--space-8), 4vw, var(--space-16));
-  --reference-hero-mobile-min-height: 40rem;
+  --reference-hero-mobile-art-size: 36rem;
   --reference-hero-copy-surface: var(--color-surface);
   --reference-hero-night-surface: color-mix(
     in srgb,
@@ -151,8 +151,20 @@
     --reference-hero-inline-padding: var(--space-5);
 
     align-items: flex-start;
-    min-height: var(--reference-hero-mobile-min-height);
     aspect-ratio: auto;
+  }
+
+  .reference-hero::before {
+    background-image:
+      linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--reference-hero-copy-surface) 92%, transparent),
+        color-mix(in srgb, var(--reference-hero-copy-surface) 75%, transparent) 45%,
+        color-mix(in srgb, var(--reference-hero-copy-surface) 25%, transparent)
+      ),
+      var(--reference-hero-extended-image);
+    background-position: center, right bottom;
+    background-size: cover, max(100%, var(--reference-hero-mobile-art-size)) auto;
   }
 
   .reference-hero .groups-hero__copy {

@@ -23,7 +23,8 @@ const groups = [
   makeGroup(105, "내일의 독서", "SESSION", "2026-09-28", "10"),
   makeGroup(201, "자바 스터디", "STUDY"),
   makeGroup(202, "리액트 스터디", "STUDY"),
-  makeGroup(203, "러닝 동아리", "CLUB")
+  makeGroup(203, "러닝 동아리", "CLUB"),
+  { ...makeGroup(301, "지난 자바 스터디", "STUDY"), status: "ENDED", activeRecruitment: null }
 ];
 
 async function installHome(page, options = {}) {
@@ -44,6 +45,11 @@ async function installHome(page, options = {}) {
       options.emptyToday && params.has("sessionDate") ? [] : (options.groups ?? groups)
     ).filter(
       (row) =>
+        (!params.get("status") || row.status === params.get("status")) &&
+        (!params.has("recruiting") ||
+          (Boolean(row.activeRecruitment &&
+            row.activeRecruitment.approvedCount < row.activeRecruitment.capacity) ===
+            (params.get("recruiting") === "true"))) &&
         (!params.get("type") || row.type === params.get("type")) &&
         (!params.get("excludedType") || row.type !== params.get("excludedType")) &&
         (!params.get("sessionDate") ||
@@ -51,7 +57,8 @@ async function installHome(page, options = {}) {
         (!params.get("keyword") || row.name.includes(params.get("keyword")))
     );
     const offset = Number(params.get("cursor") || 0);
-    const size = params.has("sessionDate") ? 2 : (options.discoveryPageSize ?? 3);
+    const size = params.has("sessionDate") ? 2 :
+      Math.min(Number(params.get("size") || 12), options.discoveryPageSize ?? Infinity);
     const items = rows.slice(offset, offset + size);
     const hasNext = offset + size < rows.length;
     await route.fulfill({
@@ -66,8 +73,11 @@ async function installHome(page, options = {}) {
 }
 
 const hero = (page) => page.locator('section[aria-labelledby="today-sessions-title"]');
-const sessions = (page) => page.getByRole("region", { name: "같이해요", exact: true });
-const communities = (page) => page.getByRole("region", { name: "스터디·동아리", exact: true });
+const recruiting = (page) => page.getByRole("region", { name: "지금 모집 중인 모임", exact: true });
+const previewCards = (page) => recruiting(page).locator(".reference-group-card");
+const archive = (page) => page.getByRole("region", { name: "지난 모임 아카이브", exact: true });
+const browse = (page) => page.getByRole("region", { name: "자리 둘러보기", exact: true });
+const browseCards = (page) => browse(page).locator(".discovery-group-card");
 const activePlan = (page) => hero(page).locator('.today-plan__item:not([aria-hidden="true"])');
 
 for (const width of [375, 768, 1280, 1440]) {
@@ -78,28 +88,16 @@ for (const width of [375, 768, 1280, 1440]) {
     page.on("pageerror", (error) => failures.push(error.message));
     await page.setViewportSize({ width, height: 900 });
     await installHome(page);
-    await page.goto("/groups");
+    await page.goto("/");
     await expect(activePlan(page)).toContainText("점심 한 끼 같이해요");
     await expect(hero(page).getByRole("link")).toHaveCount(4);
-    await expect(sessions(page).getByRole("link")).toHaveCount(width < 768 ? 1 : 3);
-    await expect(communities(page).getByRole("link")).toHaveCount(3);
-    await expect(communities(page)).not.toContainText("같이해요");
+    await expect(previewCards(page)).toHaveCount(4);
+    await expect(archive(page).getByRole("link")).toHaveCount(1);
+    await expect(archive(page)).toContainText("지난 자바 스터디");
+    await expect(recruiting(page)).not.toContainText("지난 자바 스터디");
     await expect(hero(page).locator(".today-session-ticket__location").first()).toHaveText(
       group.location
     );
-    await expect(sessions(page).locator(".discovery-group-card__location").first()).toHaveText(
-      group.location
-    );
-    await expect(communities(page).locator(".discovery-group-card__location").first()).toHaveText(
-      group.location
-    );
-    if (width < 768) {
-      const card = sessions(page).getByRole("link").first();
-      const visual = await card.locator(".discovery-group-card__visual").boundingBox();
-      const body = await card.locator(".discovery-group-card__body").boundingBox();
-      expect(body.x).toBeGreaterThan(visual.x);
-      expect(Math.abs(body.y - visual.y)).toBeLessThan(2);
-    }
     await expect(hero(page)).not.toContainText("내일의 독서");
     await hero(page).getByRole("button", { name: "다음 같이해요 보기", exact: true }).click();
     await expect(activePlan(page)).toContainText("커피와 이야기");
@@ -135,12 +133,17 @@ for (const width of [375, 768, 1280, 1440]) {
       .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
       .analyze();
     expect(accessibility.violations).toEqual([]);
-    for (const type of ["session", "study", "club"]) {
-      const image = page.locator(`.discovery-group-card--${type} img`).first();
+    for (const [label, type] of [["같이해요", "session"], ["스터디", "study"], ["동아리", "club"]]) {
+      await page.getByRole("group", { name: "모임 유형", exact: true })
+        .getByRole("button", { name: label, exact: true }).click();
+      const image = previewCards(page).first().locator("img");
       await image.scrollIntoViewIfNeeded();
       await expect(image).toHaveAttribute("src", `/images/default-group-${type}-3d.png`);
       await expect.poll(() => image.evaluate((element) => element.naturalWidth)).toBe(1254);
     }
+    await page.getByRole("group", { name: "모임 유형", exact: true })
+      .getByRole("button", { name: "전체", exact: true }).click();
+    await expect(previewCards(page)).toHaveCount(4);
     await expect(hero(page).locator("img").first()).toHaveAttribute(
       "src",
       "/images/default-group-session-3d.png"
@@ -150,100 +153,96 @@ for (const width of [375, 768, 1280, 1440]) {
   });
 }
 
-for (const [width, columns] of [
-  [375, 1],
-  [768, 3],
-  [1280, 4]
-]) {
-  test(
-    "session discovery starts with one row and expands independently at " + width + "px",
-    async ({ page }, testInfo) => {
-      await page.setViewportSize({ width, height: 900 });
-      const state = await installHome(page, {
-        discoveryPageSize: 6,
-        groups: [
-          ...Array.from({ length: 8 }, (_, index) =>
-            makeGroup(110 + index, "오늘의 자리 " + (index + 1))
-          ),
-          ...groups.filter((item) => item.type !== "SESSION")
-        ]
-      });
-      const sessionRequests = () =>
-        state.requests.filter((request) => request.type === "SESSION" && !request.sessionDate);
-      await page.goto("/groups");
-      await expect(sessions(page).getByRole("link")).toHaveCount(columns);
-      const rowTops = await sessions(page)
-        .getByRole("link")
-        .evaluateAll((cards) => cards.map((card) => card.getBoundingClientRect().top));
-      expect(Math.max(...rowTops) - Math.min(...rowTops)).toBeLessThan(1);
-      await sessions(page)
-        .getByRole("heading", { name: "같이해요", exact: true })
-        .scrollIntoViewIfNeeded();
-      await page.screenshot({ path: testInfo.outputPath("session-preview-" + width + ".png") });
-      const requestCount = sessionRequests().length;
-      const more = sessions(page).getByRole("button", { name: "더 많은 같이해요 보기" });
-      await expect(more).toHaveAttribute(
-        "data-ph-capture-attribute-action",
-        "session_discovery_load_more"
-      );
-      await more.click();
-      await expect(sessions(page).getByRole("link")).toHaveCount(6);
-      expect(sessionRequests()).toHaveLength(requestCount);
-      await more.click();
-      await expect(sessions(page).getByRole("link")).toHaveCount(8);
-      expect(sessionRequests().at(-1).cursor).toBe("6");
-      await expect(more).toHaveCount(0);
-      await expect(communities(page).getByRole("link")).toHaveCount(3);
-      await communities(page).getByLabel("모임 유형").selectOption("STUDY");
-      await expect(communities(page).getByRole("link")).toHaveCount(2);
-      await expect(sessions(page).getByRole("link")).toHaveCount(8);
-      await sessions(page).getByRole("searchbox").fill("오늘");
-      await expect(sessions(page).getByRole("link")).toHaveCount(8);
-      await sessions(page).getByRole("button", { name: "검색", exact: true }).click();
-      await expect(sessions(page).getByRole("link")).toHaveCount(columns);
-      await more.click();
-      await expect(sessions(page).getByRole("link")).toHaveCount(6);
-      await sessions(page).getByRole("searchbox").fill("");
-      await sessions(page).getByRole("button", { name: "검색", exact: true }).click();
-      await expect(sessions(page).getByRole("link")).toHaveCount(columns);
-      await page.setViewportSize({ width: 375, height: 900 });
-      await expect(sessions(page).getByRole("link")).toHaveCount(1);
-      await page.setViewportSize({ width: 1280, height: 900 });
-      await expect(sessions(page).getByRole("link")).toHaveCount(4);
-      await more.click();
-      await expect(sessions(page).getByRole("link")).toHaveCount(8);
-      await page.setViewportSize({ width: 375, height: 900 });
-      await expect(sessions(page).getByRole("link")).toHaveCount(8);
-    }
-  );
+for (const width of [375, 768, 1280]) {
+  test("home preview continues into canonical browse pagination at " + width + "px", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    const state = await installHome(page, {
+      discoveryPageSize: 6,
+      groups: [
+        ...Array.from({ length: 8 }, (_, index) => makeGroup(110 + index, "오늘의 자리 " + (index + 1))),
+        ...groups.filter((item) => item.type !== "SESSION")
+      ]
+    });
+    await page.goto("/?homeType=SESSION&homeKeyword=오늘");
+    await expect(previewCards(page)).toHaveCount(4);
+    await expect(archive(page).getByRole("link")).toHaveCount(1);
+    expect(state.requests.some((request) => request.size === "4" && request.recruiting === "true")).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath("home-preview-" + width + ".png"), fullPage: true });
+    await recruiting(page).getByRole("link", { name: "모집 중인 모임 더 보기" }).click();
+    await expect(page).toHaveURL(/\/groups\?status=ACTIVE&recruiting=true&type=SESSION&keyword=/);
+    await expect(browse(page).getByRole("searchbox")).toHaveValue("오늘");
+    await expect(browseCards(page)).toHaveCount(6);
+    const more = browse(page).getByRole("button", { name: "더 많은 모임 보기" });
+    await more.click();
+    await expect(browseCards(page)).toHaveCount(8);
+    expect(state.requests.some((request) => request.cursor === "6" && request.type === "SESSION")).toBe(true);
+    await expect(more).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath("browse-expanded-" + width + ".png"), fullPage: true });
+  });
 }
 
-test("independent search, type filters, pagination and links", async ({ page }) => {
-  const state = await installHome(page);
+test("browse search, type, status and recruitment filters preserve detail navigation", async ({ page }) => {
+  await installHome(page);
   await page.goto("/groups");
-  await expect(sessions(page).getByRole("link")).toHaveCount(3);
-  await sessions(page).getByRole("button", { name: "더 많은 같이해요 보기" }).click();
-  await expect(sessions(page).getByRole("link")).toHaveCount(5);
-  await expect(communities(page).getByRole("link")).toHaveCount(3);
-  await sessions(page).getByRole("searchbox").fill("커피");
-  await sessions(page).getByRole("button", { name: "검색", exact: true }).click();
-  await expect(sessions(page).getByRole("link")).toHaveCount(1);
-  await expect(communities(page).getByRole("link")).toHaveCount(3);
-  await communities(page).getByLabel("모임 유형").selectOption("STUDY");
-  await expect(communities(page).getByRole("link")).toHaveCount(2);
-  await expect(sessions(page).getByRole("link")).toHaveCount(1);
-  await communities(page).getByRole("searchbox").fill("자바");
-  await communities(page).getByRole("button", { name: "검색", exact: true }).click();
-  await expect(communities(page).getByRole("link")).toHaveCount(1);
-  await expect(hero(page).getByRole("link")).toHaveCount(4);
-  expect(
-    state.requests.some((request) => request.sessionDate === today && request.cursor === "2")
-  ).toBe(true);
-  await sessions(page).getByRole("link").click();
-  await expect(page).toHaveURL(/\/groups\/103$/);
+  await expect(browseCards(page)).toHaveCount(8);
+  await browse(page).getByLabel("모임 유형", { exact: true }).selectOption("STUDY");
+  await expect(browseCards(page)).toHaveCount(2);
+  await browse(page).getByRole("searchbox").fill("자바");
+  await browse(page).getByRole("button", { name: "검색", exact: true }).click();
+  await expect(browseCards(page)).toHaveCount(1);
+  await browseCards(page).click();
+  await expect(page).toHaveURL(/\/groups\/201$/);
   await page.goBack();
-  await expect(sessions(page).getByRole("searchbox")).toHaveValue("커피");
-  await expect(communities(page).getByRole("searchbox")).toHaveValue("자바");
+  await expect(browse(page).getByRole("searchbox")).toHaveValue("자바");
+  await expect(browse(page).getByLabel("모임 유형", { exact: true })).toHaveValue("STUDY");
+  await browse(page).getByLabel("모집 상태", { exact: true }).selectOption("true");
+  await browse(page).getByLabel("모임 상태", { exact: true }).selectOption("ENDED");
+  await expect(browseCards(page)).toHaveCount(1);
+  await expect(browseCards(page)).toContainText("지난 자바 스터디");
+  await expect(browse(page).getByLabel("모집 상태", { exact: true })).toBeDisabled();
+  await expect(page).not.toHaveURL(/recruiting=/);
+  await page.goto("/groups?type=SESSION&recruiting=false");
+  await expect(browseCards(page)).toHaveCount(1);
+  await expect(browseCards(page)).toContainText("보드게임 한 판");
+});
+
+test("home filters leave today's sessions and archive queries independent", async ({ page }) => {
+  const state = await installHome(page);
+  await page.goto("/");
+  await expect(previewCards(page)).toHaveCount(4);
+  await page.getByRole("searchbox", { name: "모임 검색" }).fill("자바");
+  await page.getByRole("button", { name: "검색", exact: true }).click();
+  await page.getByRole("group", { name: "모임 유형", exact: true })
+    .getByRole("button", { name: "스터디", exact: true }).click();
+  await expect(previewCards(page)).toHaveCount(1);
+  await expect(previewCards(page)).toContainText("자바 스터디");
+  await expect(hero(page).getByRole("link")).toHaveCount(4);
+  await expect(archive(page).getByRole("link")).toHaveCount(1);
+  expect(state.requests.some((request) => request.sessionDate === today && request.cursor === "2")).toBe(true);
+  expect(state.requests.filter((request) => request.status === "ENDED").every((request) => !request.keyword && !request.type)).toBe(true);
+});
+
+test("archive expands cached rows before requesting the next cursor", async ({ page }) => {
+  const state = await installHome(page, {
+    groups: [
+      ...groups.filter((item) => item.status !== "ENDED"),
+      ...Array.from({ length: 9 }, (_, index) => ({
+        ...makeGroup(300 + index, "지난 모임 " + index, "STUDY"), status: "ENDED", activeRecruitment: null
+      }))
+    ]
+  });
+  await page.goto("/");
+  await expect(archive(page).getByRole("link")).toHaveCount(4);
+  const requestCount = state.requests.filter((request) => request.status === "ENDED").length;
+  await archive(page).getByRole("button", { name: "전체 보기" }).click();
+  await expect(archive(page).getByRole("link")).toHaveCount(8);
+  expect(state.requests.filter((request) => request.status === "ENDED")).toHaveLength(requestCount);
+  await archive(page).getByRole("button", { name: "전체 보기" }).click();
+  await expect(archive(page).getByRole("link")).toHaveCount(9);
+  expect(state.requests.some((request) => request.status === "ENDED" && request.cursor === "8")).toBe(true);
+  await expect(archive(page).getByRole("button", { name: "전체 보기" })).toHaveCount(0);
+  await expect(previewCards(page)).toHaveCount(4);
 });
 
 test("automatic rotation synchronizes the dial, pauses on hover and remains paused after manual control", async ({
@@ -251,7 +250,7 @@ test("automatic rotation synchronizes the dial, pauses on hover and remains paus
 }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await installHome(page);
-  await page.goto("/groups");
+  await page.goto("/");
   await expect(activePlan(page)).toContainText("점심 한 끼 같이해요");
   await page.mouse.move(0, 0);
   await page.clock.fastForward(5000);
@@ -264,32 +263,32 @@ test("automatic rotation synchronizes the dial, pauses on hover and remains paus
   await expect(activePlan(page)).toContainText("커피와 이야기");
   await hero(page).getByRole("button", { name: "다음 같이해요 보기", exact: true }).click();
   await page.mouse.move(0, 0);
-  await page.getByRole("link", { name: "같이해요 둘러보기" }).focus();
+  await page.getByRole("link", { name: "모집 중인 모임 더 보기" }).focus();
   await page.clock.fastForward(15000);
   await expect(activePlan(page)).toContainText("보드게임 한 판");
   await hero(page).getByRole("button", { name: "오늘 같이해요 자동 전환 재생" }).click();
-  await page.getByRole("link", { name: "같이해요 둘러보기" }).focus();
+  await page.getByRole("link", { name: "모집 중인 모임 더 보기" }).focus();
   await page.mouse.move(0, 0);
   await page.clock.fastForward(5000);
   await expect(activePlan(page)).toContainText("저녁 산책 같이해요");
 });
 
-test("today empty state retains both discovery sections", async ({ page }, testInfo) => {
+test("today empty state retains recruiting preview and archive", async ({ page }, testInfo) => {
   await installHome(page, { emptyToday: true });
-  await page.goto("/groups");
+  await page.goto("/");
   await expect(hero(page)).toContainText("오늘 예정된 같이해요가 아직 없어요.");
-  await expect(sessions(page).getByRole("link")).toHaveCount(3);
-  await expect(communities(page).getByRole("link")).toHaveCount(3);
+  await expect(previewCards(page)).toHaveCount(4);
+  await expect(archive(page).getByRole("link")).toHaveCount(1);
   await page.screenshot({ path: testInfo.outputPath("home-empty.png"), fullPage: true });
 });
 
 test("today errors are isolated and can be retried", async ({ page }, testInfo) => {
   const state = await installHome(page, { todayError: true });
-  await page.goto("/groups");
+  await page.goto("/");
   await page.clock.fastForward(10000);
   await expect(hero(page).getByText("오늘의 같이해요를 불러오지 못했어요")).toBeVisible();
-  await expect(sessions(page).getByRole("link")).toHaveCount(3);
-  await expect(communities(page).getByRole("link")).toHaveCount(3);
+  await expect(previewCards(page)).toHaveCount(4);
+  await expect(archive(page).getByRole("link")).toHaveCount(1);
   await page.screenshot({ path: testInfo.outputPath("home-error.png"), fullPage: true });
   state.todayError = false;
   await hero(page).getByRole("button", { name: "다시 시도" }).click();
@@ -298,16 +297,18 @@ test("today errors are isolated and can be retried", async ({ page }, testInfo) 
 
 test("a single today session has no unnecessary rotation controls", async ({ page }) => {
   await installHome(page, { groups: [groups[1], groups[5]] });
-  await page.goto("/groups");
+  await page.goto("/");
   await expect(activePlan(page)).toContainText("점심 한 끼 같이해요");
-  await expect(hero(page).getByRole("button")).toHaveCount(0);
+  await expect(hero(page).getByRole("button", { name: "다음 같이해요 보기" })).toHaveCount(0);
+  await expect(hero(page).locator(".today-sessions-hero__dots")).toHaveCount(0);
+  await expect(hero(page).getByRole("button", { name: "내 위치로 캠퍼스 확인" })).toBeVisible();
   await expect(hero(page).getByRole("link")).toHaveCount(1);
 });
 
 test("swiping on a mobile ticket changes the plan without opening the link", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 900 });
   await installHome(page);
-  await page.goto("/groups");
+  await page.goto("/");
   await expect(activePlan(page)).toContainText("점심 한 끼 같이해요");
   const box = await hero(page).locator(".today-session-ticket").first().boundingBox();
   const cdp = await page.context().newCDPSession(page);
@@ -316,14 +317,13 @@ test("swiping on a mobile ticket changes the plan without opening the link", asy
   await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: 160, y }] });
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
   await expect(activePlan(page)).toContainText("커피와 이야기");
-  await expect(page).toHaveURL(/\/groups$/);
+  await expect(page).toHaveURL(/\/$/);
   await cdp.detach();
 });
 
-test("session creation opens the editor with 같이해요 selected", async ({ page }) => {
+test("session creation deep link opens the editor with 같이해요 selected", async ({ page }) => {
   await installHome(page);
-  await page.goto("/groups");
-  await sessions(page).getByRole("button", { name: "같이해요 만들기" }).click();
+  await page.goto("/groups/new?type=SESSION");
   await expect(page).toHaveURL(/\/groups\/new\?type=SESSION$/);
   await expect(page.locator('select[name="type"]')).toHaveValue("SESSION");
 });
@@ -341,22 +341,22 @@ test("cards use list locations, omit missing locations and contain long location
   await installHome(page, {
     groups: [{ ...groups[0], location: null }, { ...groups[1], location: longLocation }, groups[5]]
   });
-  await page.goto("/groups");
-  await expect(sessions(page).getByRole("link")).toHaveCount(1);
-  await sessions(page).getByRole("button", { name: "더 많은 같이해요 보기" }).click();
-  await expect(sessions(page).getByRole("link")).toHaveCount(2);
+  await page.goto("/");
   await expect(
     hero(page).locator('a[href="/groups/101"] .today-session-ticket__location')
   ).toHaveCount(0);
   await expect(
-    sessions(page).locator('a[href="/groups/101"] .discovery-group-card__location')
-  ).toHaveCount(0);
-  await expect(
     hero(page).locator('a[href="/groups/102"] .today-session-ticket__location')
   ).toHaveText(longLocation);
-  await expect(
-    sessions(page).locator('a[href="/groups/102"] .discovery-group-card__location')
-  ).toHaveText(longLocation);
+  await page.goto("/groups?type=SESSION");
+  await expect(browseCards(page)).toHaveCount(2);
+  await expect(browse(page).locator('a[href="/groups/101"] .discovery-group-card__location')).toHaveCount(0);
+  await expect(browse(page).locator('a[href="/groups/102"] .discovery-group-card__location')).toHaveText(longLocation);
+  const card = browseCards(page).first();
+  const visual = await card.locator(".discovery-group-card__visual").boundingBox();
+  const body = await card.locator(".discovery-group-card__body").boundingBox();
+  expect(body.x).toBeGreaterThan(visual.x);
+  expect(Math.abs(body.y - visual.y)).toBeLessThan(2);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(detailRequests).toEqual([]);
 });
@@ -373,8 +373,8 @@ test.describe("time-aware home headline", () => {
       Math.random = () => 0.999;
     });
     await page.clock.setSystemTime(new Date("2026-09-27T03:59:50Z"));
-    await page.goto("/groups");
-    const heading = page.locator("#today-sessions-title");
+    await page.goto("/");
+    const heading = page.locator("#home-headline");
     await expect(heading).toHaveText("오늘 구식 별로라던데, 나가서 먹을래요?");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true
@@ -397,8 +397,8 @@ test.describe("campus-aware home headline", () => {
     await context.grantPermissions(["geolocation"]);
     await context.setGeolocation(campus);
     await page.clock.setSystemTime(new Date("2026-09-27T09:59:50Z"));
-    await page.goto("/groups");
-    const heading = page.locator("#today-sessions-title");
+    await page.goto("/");
+    const heading = page.locator("#home-headline");
     await expect(heading).not.toHaveText("왜 아직 집 안 갔어요?");
     const checkLocation = page.getByRole("button", { name: "내 위치로 캠퍼스 확인" });
     await expect(checkLocation).toHaveAttribute(
@@ -437,8 +437,8 @@ test.describe("campus-aware home headline", () => {
       await context.grantPermissions(["geolocation"]);
       await context.setGeolocation(position);
       await page.clock.setSystemTime(new Date("2026-09-27T10:00:00Z"));
-      await page.goto("/groups");
-      const heading = page.locator("#today-sessions-title");
+      await page.goto("/");
+      const heading = page.locator("#home-headline");
       const original = await heading.textContent();
       await page.getByRole("button", { name: "내 위치로 캠퍼스 확인" }).click();
       await expect(hero(page).getByRole("status")).toHaveText(message);
@@ -455,8 +455,8 @@ test.describe("campus-aware home headline", () => {
         value: { getCurrentPosition: (_success, failure) => failure({ code: 1 }) }
       });
     });
-    await page.goto("/groups");
-    const heading = page.locator("#today-sessions-title");
+    await page.goto("/");
+    const heading = page.locator("#home-headline");
     const original = await heading.textContent();
     await page.getByRole("button", { name: "내 위치로 캠퍼스 확인" }).click();
     await expect(hero(page).getByRole("status")).toHaveText(

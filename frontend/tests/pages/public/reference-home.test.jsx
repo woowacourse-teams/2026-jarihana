@@ -153,7 +153,7 @@ function LocationProbe() {
   return <output aria-label="현재 검색 조건">{location.search}</output>;
 }
 
-function renderRecruitingSection(initialEntry = "/groups") {
+function renderRecruitingSection(initialEntry = "/") {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <RecruitingSection />
@@ -178,7 +178,7 @@ it("Given home query params, when recruiting groups render, then the active recr
   );
   groupHooks.useInfiniteGroups.mockReturnValue(infiniteGroups({ groups, hasNextPage: true }));
 
-  renderRecruitingSection("/groups?homeKeyword=react&homeType=STUDY&kept=1");
+  renderRecruitingSection("/?homeKeyword=react&homeType=STUDY&kept=1");
 
   expect(groupHooks.useInfiniteGroups).toHaveBeenCalledWith({
     status: "ACTIVE",
@@ -210,12 +210,12 @@ it("Given filtered recruiting results, when the preview renders, then a heading 
     infiniteGroups({ fetchNextPage, groups, hasNextPage: true })
   );
 
-  renderRecruitingSection("/groups?homeType=STUDY&homeKeyword=react&kept=1");
+  renderRecruitingSection("/?homeType=STUDY&homeKeyword=react&kept=1");
 
   const link = screen.getByRole("link", { name: "모집 중인 모임 더 보기" });
   expect(link).toHaveAttribute(
     "href",
-    "/groups/explore?status=ACTIVE&recruiting=true&type=STUDY&keyword=react"
+    "/groups?status=ACTIVE&recruiting=true&type=STUDY&keyword=react"
   );
   expect(link).toHaveAttribute("data-ph-capture-attribute-action", "home_discovery_browse");
   expect(link.closest(".reference-section-heading")).not.toBeNull();
@@ -231,7 +231,7 @@ it("Given a preview, when a type pill changes the filter, then the query and bro
   );
   groupHooks.useInfiniteGroups.mockReturnValue(infiniteGroups({ groups }));
 
-  renderRecruitingSection("/groups?homeKeyword=react");
+  renderRecruitingSection("/?homeKeyword=react");
 
   await user.click(screen.getByRole("button", { name: "같이해요" }));
 
@@ -246,7 +246,7 @@ it("Given a preview, when a type pill changes the filter, then the query and bro
   );
   expect(screen.getByRole("link", { name: "모집 중인 모임 더 보기" })).toHaveAttribute(
     "href",
-    "/groups/explore?status=ACTIVE&recruiting=true&type=SESSION&keyword=react"
+    "/groups?status=ACTIVE&recruiting=true&type=SESSION&keyword=react"
   );
   expect(screen.getByRole("button", { name: "같이해요" })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByRole("button", { name: "전체" })).toHaveAttribute("aria-pressed", "false");
@@ -259,7 +259,7 @@ it("Given a draft search, when Enter submits it, then homeKeyword changes while 
     infiniteGroups({ groups: [makeGroup({ id: 11, name: "검색 전 모임" })] })
   );
 
-  renderRecruitingSection("/groups?homeType=CLUB&kept=1");
+  renderRecruitingSection("/?homeType=CLUB&kept=1");
 
   await user.type(screen.getByRole("searchbox", { name: "모임 검색" }), "리액트{Enter}");
 
@@ -280,10 +280,10 @@ it("Given a draft search, when Enter submits it, then homeKeyword changes while 
 });
 
 it.each([
-  ["/groups?homeType=HACK", { status: "ACTIVE", recruiting: true, size: 4 }],
-  ["/groups?homeType=SESSION", { status: "ACTIVE", recruiting: true, type: "SESSION", size: 4 }],
-  ["/groups?homeType=STUDY", { status: "ACTIVE", recruiting: true, type: "STUDY", size: 4 }],
-  ["/groups?homeType=CLUB", { status: "ACTIVE", recruiting: true, type: "CLUB", size: 4 }]
+  ["/?homeType=HACK", { status: "ACTIVE", recruiting: true, size: 4 }],
+  ["/?homeType=SESSION", { status: "ACTIVE", recruiting: true, type: "SESSION", size: 4 }],
+  ["/?homeType=STUDY", { status: "ACTIVE", recruiting: true, type: "STUDY", size: 4 }],
+  ["/?homeType=CLUB", { status: "ACTIVE", recruiting: true, type: "CLUB", size: 4 }]
 ])(
   "Given %s, when the section renders, then only valid homeType values reach the query",
   (entry, expected) => {
@@ -340,7 +340,7 @@ describe("separate group browsing", () => {
   it("continues the homepage search and type in a paginated list", () => {
     const groups = Array.from({ length: 5 }, (_, index) => makeGroup({ id: index + 1 }));
     groupHooks.useInfiniteGroups.mockReturnValue(infiniteGroups({ groups, hasNextPage: true }));
-    renderBrowsePage("/groups/explore?status=ACTIVE&recruiting=true&type=STUDY&keyword=react");
+    renderBrowsePage("/groups?status=ACTIVE&recruiting=true&type=STUDY&keyword=react");
     expect(lastGroupQuery()).toEqual({
       status: "ACTIVE",
       recruiting: true,
@@ -368,7 +368,7 @@ describe("separate group browsing", () => {
     );
 
     // When
-    renderBrowsePage("/groups/explore");
+    renderBrowsePage("/groups");
 
     // Then
     for (const id of [1, 2, 3]) {
@@ -396,14 +396,14 @@ describe("separate group browsing", () => {
     groupHooks.useInfiniteGroups.mockReturnValue(
       infiniteGroups({ groups: [makeGroup()], hasNextPage: true, fetchNextPage })
     );
-    renderBrowsePage("/groups/explore");
+    renderBrowsePage("/groups");
     await user.click(screen.getByRole("button", { name: "더 많은 모임 보기" }));
     expect(fetchNextPage).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the keyword and type when switching to ended groups and clears recruiting", async () => {
     const user = userEvent.setup();
-    renderBrowsePage("/groups/explore?status=ACTIVE&recruiting=true&type=STUDY&keyword=react");
+    renderBrowsePage("/groups?status=ACTIVE&recruiting=true&type=STUDY&keyword=react");
     await user.selectOptions(screen.getByRole("combobox", { name: "모임 상태" }), "ENDED");
     expect(lastGroupQuery()).toEqual({
       status: "ENDED",
@@ -458,7 +458,7 @@ describe("headline in the introduction hero", () => {
     jest.setSystemTime(new Date("2026-09-27T14:00:00+09:00"));
     authHooks.useAuth.mockReturnValue({ status: "anonymous" });
     const page = () => (
-      <MemoryRouter initialEntries={["/groups?homeType=STUDY&homeKeyword=java"]}>
+      <MemoryRouter initialEntries={["/?homeType=STUDY&homeKeyword=java"]}>
         <GroupsPage />
       </MemoryRouter>
     );
@@ -525,7 +525,7 @@ describe("headline in the introduction hero", () => {
     jest.setSystemTime(new Date(`2026-09-27T${time}+09:00`));
     authHooks.useAuth.mockReturnValue({ status });
     render(
-      <MemoryRouter initialEntries={["/groups?homeType=STUDY&homeKeyword=java"]}>
+      <MemoryRouter initialEntries={["/?homeType=STUDY&homeKeyword=java"]}>
         <GroupsPage />
       </MemoryRouter>
     );

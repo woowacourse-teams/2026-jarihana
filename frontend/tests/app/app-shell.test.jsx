@@ -448,16 +448,16 @@ it("logs out from the mobile account row and closes the drawer", () => {
 
 it.each([
   ["/", "홈"],
-  ["/groups", "홈"],
-  ["/groups/explore", "모임 탐색"],
+  ["/groups", "모임 탐색"],
   ["/groups/41", null]
 ])("exposes public navigation on %s with matching active state", (pathname, activeName) => {
   mockPathname = pathname;
   renderShell({ login: jest.fn(), logout: jest.fn(), status: "anonymous" });
+  expect(screen.getByRole("link", { name: "자리하나 홈" })).toHaveAttribute("href", "/");
   const navigation = within(screen.getByRole("navigation", { name: "주요 메뉴" }));
   for (const [name, href, action] of [
     ["홈", "/", "group_home"],
-    ["모임 탐색", "/groups/explore", "group_browse"]
+    ["모임 탐색", "/groups", "group_browse"]
   ]) {
     const link = navigation.getByRole("link", { name, exact: true });
     expect(link).toHaveAttribute("href", href);
@@ -469,7 +469,7 @@ it.each([
 
 it.each([
   ["홈", "/"],
-  ["모임 탐색", "/groups/explore"]
+  ["모임 탐색", "/groups"]
 ])("closes the mobile menu and opens %s without requiring login", (name, href) => {
   const login = jest.fn();
   renderShell({ login, logout: jest.fn(), status: "anonymous" });

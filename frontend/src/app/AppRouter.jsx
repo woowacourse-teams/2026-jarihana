@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Route, Routes } from "react-router";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router";
 
 import { Skeleton } from "../shared/ui";
 import { AnalyticsBridge } from "./AnalyticsBridge";
@@ -74,8 +74,17 @@ function guardedPage(access, Page) {
   return page;
 }
 
+function RouteRedirect({ to }) {
+  const { hash, search } = useLocation();
+  return <Navigate replace to={{ pathname: to, search, hash }} />;
+}
+
 export function createAppRouteElements(pageRegistry) {
   return routeRegistry.map((route) => {
+    if (route.redirectTo) {
+      return <Route element={<RouteRedirect to={route.redirectTo} />} key={route.path} path={route.path} />;
+    }
+
     const Page = pageRegistry[route.page];
     if (!Page) {
       throw new Error(`등록되지 않은 페이지 export: ${route.page}`);

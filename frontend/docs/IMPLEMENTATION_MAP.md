@@ -63,7 +63,9 @@ header 구현으로 확대하지 않았다.
 
 | Route                                                               | 권한                   | API                                      | 공통 레이아웃/컴포넌트                                               | 반드시 표시할 상태                                                               |
 | ------------------------------------------------------------------- | ---------------------- | ---------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `/`, `/groups`                                                      | 공개                   | `GET /api/groups`                        | AppShell, ExploreHero, SearchField, FilterBar, GroupCard, CursorList | initial/background loading, empty, success, 400, network                         |
+| `/` | 공개 | `GET /api/groups` | AppShell, ExploreHero, TodaySessionsHero, RecruitingSection, ArchiveSection | loading, empty, success, network |
+| `/groups` | 공개 | `GET /api/groups` | AppShell, GroupBrowsePage, SearchField, FilterBar, GroupCard, CursorList | initial/background loading, empty, success, 400, network |
+| `/groups/explore` | 공개 | 없음 | 검색 조건과 해시를 보존해 `/groups`로 replace 이동 | 기존 링크 호환 |
 | `/groups/:groupId`                                                  | 공개                   | 그룹 상세(모임 방식·장소 포함), 모집 목록, 참여자 목록 | DetailLayout, Tabs, InfoRow, RecruitmentCard, PersonRow              | loading, empty section, 403, 404, network                                        |
 | `/groups/:groupId/recruitments/:recruitmentId`                      | 조회 공개, 신청은 회원 | 모집 상세, 신청 생성/철회                | DetailLayout, RecruitmentPanel, Modal, Toast                         | closed/ended, validation, 401, 403, 404, 409, mutation pending/success/failure   |
 | `/oauth/callback`                                                   | 공개                   | `GET /api/members/me`                    | CenteredStateLayout                                                  | callback loading, invalid callback, signup required, authenticated, 401, network |
@@ -198,7 +200,7 @@ header 구현으로 확대하지 않았다.
 
 ### 메인 같이해요 발견성 (#273)
 
-- `/`와 `/groups`는 동일한 `GroupsPage`다. 기존 랜딩 대신 `TodaySessionsHero`를 보여주고,
+- #273 원본에서는 `/`와 `/groups`가 동일한 `GroupsPage`였다. 비교안의 현재 경로는 아래 조회 분리 절을 따른다. 기존 랜딩 대신 `TodaySessionsHero`를 보여주고,
   `DiscoverySection`을 같이해요, 스터디·동아리 순서로 배치한다. 상단 탐색 바로가기는 생략한다.
 - 오늘은 서비스 시간대 `Asia/Seoul` 기준이다. `type=SESSION`, `status=ACTIVE`, `sessionDate`로
   조회한 모든 커서 페이지를 병합한 뒤 시작 시각/ID 순으로 정렬한다. 모집 마감 여부는 오늘 일정에서
@@ -225,7 +227,7 @@ header 구현으로 확대하지 않았다.
 
 ### 격리된 메인 화면 비교안 (`feat/home-reference-comparison`)
 
-이 브랜치의 `/`와 `/groups`는 develop의 소개 문구·이미지를 재사용한 `ExploreHero`와
+이 브랜치의 `/`는 develop의 소개 문구·이미지를 재사용한 `ExploreHero`와
 그 아래 `TodaySessionsHero`, 모집 카드, `ArchiveSection`을 배치한다. `RecruitingSection`이 히어로 내부 검색·유형
 필터와 모집 결과의 URL 상태를 함께 관리한다. 앞의 #273 원본 탐색 구성은 참고 이력이며, 비교안의 실제
 렌더링은 이 절을 따른다. 원본 작업 서버와 비교 서버는 별도 프로세스다.
@@ -240,10 +242,12 @@ header 구현으로 확대하지 않았다.
 
 ## 대표 화면 비교안의 조회 분리 (2026-09-27)
 
-격리 브랜치 feat/home-reference-comparison에서 /groups는 소개 히어로, 오늘 같이해요,
+격리 브랜치 feat/home-reference-comparison에서 `/`는 소개 히어로, 오늘 같이해요,
 최대 4개 모집 미리보기와 지난 모임 아카이브를 보여 준다. 모집 제목 오른쪽 전체 보기 링크는
-/groups/explore로 이동하며 homeType/homeKeyword를 type/keyword로 전달한다.
+`/groups`로 이동하며 homeType/homeKeyword를 type/keyword로 전달한다.
 모집 중인 결과에서 이어 보도록 status=ACTIVE, recruiting=true를 유지한다.
 
-별도 공개 조회 화면 GroupBrowsePage는 develop의 검색·유형/상태/모집 필터와
-size=12 커서 목록을 재사용한다. /groups/:groupId는 개별 모임 상세 경로로 유지한다.
+별도 공개 조회 화면 `GroupBrowsePage`는 `/groups`에서 develop의 검색·유형/상태/모집 필터와
+size=12 커서 목록을 재사용한다. `/groups/explore`는 검색 조건과 해시를 보존해 `/groups`로
+replace 이동한다. 헤더의 홈과 브랜드 링크는 `/`, 모임 탐색 링크는 `/groups`로 이동하며
+각 경로에서 해당 메뉴만 활성화한다. `/groups/:groupId`는 개별 모임 상세 경로로 유지한다.
