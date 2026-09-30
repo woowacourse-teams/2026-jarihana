@@ -145,6 +145,16 @@ public class RegistrationCommandService {
 
     @Transactional
     public void withdrawRegistration(long memberId, long recruitmentId, long registrationId) {
+        groupRepository.findWithLockByRecruitmentId(recruitmentId)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.RECRUITMENT_NOT_FOUND,
+                        "모집 공고를 찾을 수 없습니다."
+                ));
+        GroupRecruitment recruitment = recruitmentRepository.findWithLockById(recruitmentId)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.RECRUITMENT_NOT_FOUND,
+                        "모집 공고를 찾을 수 없습니다."
+                ));
         Registration registration = registrationRepository.findWithLockByIdAndRecruitmentId(
                         registrationId,
                         recruitmentId
@@ -158,6 +168,9 @@ public class RegistrationCommandService {
         }
         if (!registration.canWithdraw()) {
             throw new BusinessException(ErrorCode.REGISTRATION_ALREADY_DECIDED, "이미 처리된 가입 신청은 철회할 수 없습니다.");
+        }
+        if (!recruitment.isOpenAt(LocalDateTime.now(clock))) {
+            throw new BusinessException(ErrorCode.RECRUITMENT_NOT_OPEN, "모집 중인 공고의 가입 신청만 철회할 수 있습니다.");
         }
         registrationRepository.delete(registration);
     }

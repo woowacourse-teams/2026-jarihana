@@ -262,6 +262,10 @@ public class Registration extends BaseEntity {
         return status == RegistrationStatus.PENDING;
     }
 
+    public boolean canWithdrawAt(LocalDateTime now) {
+        return canWithdraw() && recruitment.isOpenAt(now);
+    }
+
     public Long getId() {
         return id;
     }

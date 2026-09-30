@@ -31,6 +31,7 @@ public record GroupDetailResponse(
         int memberCount,
         ActiveRecruitment activeRecruitment,
         GroupMemberRole currentMemberRole,
+        Long currentMemberRegistrationId,
         RegistrationStatus currentMemberRegistrationStatus,
         LocalDateTime createdAt
 ) {
@@ -53,6 +54,7 @@ public record GroupDetailResponse(
                 result.members().size(),
                 ActiveRecruitment.from(result.activeRecruitment(), result.approvedCount()),
                 result.currentMemberRole(),
+                result.currentMemberRegistrationId(),
                 result.currentMemberRegistrationStatus(),
                 group.getCreatedAt()
         );

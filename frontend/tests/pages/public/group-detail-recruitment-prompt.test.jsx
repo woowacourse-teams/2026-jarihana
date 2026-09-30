@@ -44,7 +44,8 @@ jest.mock("../../../src/features/recruitment/index.js", () => ({
   useRecruitment: jest.fn()
 }));
 jest.mock("../../../src/features/registration/index.js", () => ({
-  useCreateRegistration: jest.fn()
+  useCreateRegistration: jest.fn(),
+  useWithdrawRegistration: jest.fn()
 }));
 
 const leaderMemberId = 7;
@@ -104,6 +105,10 @@ beforeEach(() => {
   recruitmentHooks.useInfiniteRecruitments.mockReturnValue(idleInfinite);
   recruitmentHooks.useRecruitment.mockReturnValue({ data: null, isError: false, isLoading: false });
   registrationHooks.useCreateRegistration.mockReturnValue({
+    isPending: false,
+    mutateAsync: jest.fn()
+  });
+  registrationHooks.useWithdrawRegistration.mockReturnValue({
     isPending: false,
     mutateAsync: jest.fn()
   });

@@ -3,6 +3,7 @@ import { Button, Modal } from "../../shared/ui/index.js";
 export function FeedbackLoginPrompt({ onClose, onLogin, open }) {
   return (
     <Modal
+      closeAction="feedback_login_prompt_dismiss"
       description="피드백을 남기려면 로그인해 주세요."
       onOpenChange={(nextOpen) => {
         if (!nextOpen) onClose();

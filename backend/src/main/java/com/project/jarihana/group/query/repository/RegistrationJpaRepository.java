@@ -25,15 +25,23 @@ public interface RegistrationJpaRepository extends JpaRepository<Registration, L
     );
 
     @Query("""
-            select registration.status
+            select registration.id as id,
+                   registration.status as status
             from Registration registration
             where registration.recruitment.id = :recruitmentId
               and registration.member.id = :memberId
             """)
-    Optional<RegistrationStatus> findStatusByRecruitmentIdAndMemberId(
+    Optional<CurrentMemberRegistration> findByRecruitmentIdAndMemberId(
             @Param("recruitmentId") Long recruitmentId,
             @Param("memberId") Long memberId
     );
+
+    interface CurrentMemberRegistration {
+
+        Long getId();
+
+        RegistrationStatus getStatus();
+    }
 
     interface ApprovedRegistrationCount {
 

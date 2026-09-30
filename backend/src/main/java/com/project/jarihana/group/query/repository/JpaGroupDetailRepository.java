@@ -50,7 +50,7 @@ public class JpaGroupDetailRepository implements GroupDetailRepository {
                 .findFirst()
                 .orElse(null);
         int approvedCount = findApprovedCount(activeRecruitment);
-        RegistrationStatus currentMemberRegistrationStatus = findCurrentMemberRegistrationStatus(
+        Optional<RegistrationJpaRepository.CurrentMemberRegistration> currentMemberRegistration = findCurrentMemberRegistration(
                 activeRecruitment,
                 currentMemberId
         );
@@ -60,22 +60,19 @@ public class JpaGroupDetailRepository implements GroupDetailRepository {
                 members,
                 activeRecruitment,
                 approvedCount,
-                currentMemberRegistrationStatus
+                currentMemberRegistration.map(RegistrationJpaRepository.CurrentMemberRegistration::getId).orElse(null),
+                currentMemberRegistration.map(RegistrationJpaRepository.CurrentMemberRegistration::getStatus).orElse(null)
         ));
     }
 
-    private RegistrationStatus findCurrentMemberRegistrationStatus(
+    private Optional<RegistrationJpaRepository.CurrentMemberRegistration> findCurrentMemberRegistration(
             GroupRecruitment recruitment,
             Long currentMemberId
     ) {
         if (recruitment == null || currentMemberId == null) {
-            return null;
+            return Optional.empty();
         }
-        return registrationRepository.findStatusByRecruitmentIdAndMemberId(
-                        recruitment.getId(),
-                        currentMemberId
-                )
-                .orElse(null);
+        return registrationRepository.findByRecruitmentIdAndMemberId(recruitment.getId(), currentMemberId);
     }
 
     private int findApprovedCount(GroupRecruitment recruitment) {

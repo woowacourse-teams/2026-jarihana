@@ -13,6 +13,7 @@ public record GroupDetailProjection(
         List<GroupDetailMember> members,
         GroupRecruitment activeRecruitment,
         int approvedCount,
+        Long currentMemberRegistrationId,
         RegistrationStatus currentMemberRegistrationStatus
 ) {
 
@@ -30,7 +31,7 @@ public record GroupDetailProjection(
             GroupRecruitment activeRecruitment,
             int approvedCount
     ) {
-        return of(id, group, members, activeRecruitment, approvedCount, null);
+        return of(id, group, members, activeRecruitment, approvedCount, null, null);
     }
 
     public static GroupDetailProjection of(
@@ -39,6 +40,7 @@ public record GroupDetailProjection(
             List<GroupDetailMember> members,
             GroupRecruitment activeRecruitment,
             int approvedCount,
+            Long currentMemberRegistrationId,
             RegistrationStatus currentMemberRegistrationStatus
     ) {
         return new GroupDetailProjection(
@@ -47,6 +49,7 @@ public record GroupDetailProjection(
                 members,
                 activeRecruitment,
                 approvedCount,
+                currentMemberRegistrationId,
                 currentMemberRegistrationStatus
         );
     }

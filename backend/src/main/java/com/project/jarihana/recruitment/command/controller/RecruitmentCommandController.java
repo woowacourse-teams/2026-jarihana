@@ -2,19 +2,22 @@ package com.project.jarihana.recruitment.command.controller;
 
 import com.project.jarihana.common.auth.LoginMember;
 import com.project.jarihana.common.response.ApiResponse;
+import com.project.jarihana.common.response.LocationUri;
 import com.project.jarihana.recruitment.command.controller.dto.CloseRecruitmentRequest;
 import com.project.jarihana.recruitment.command.controller.dto.CloseRecruitmentResponse;
 import com.project.jarihana.recruitment.command.controller.dto.CreateRecruitmentRequest;
 import com.project.jarihana.recruitment.command.controller.dto.CreateRecruitmentResponse;
+import com.project.jarihana.recruitment.command.controller.dto.UpdateRecruitmentRequest;
+import com.project.jarihana.recruitment.command.controller.dto.UpdateRecruitmentResponse;
 import com.project.jarihana.recruitment.command.service.RecruitmentCommandService;
 import com.project.jarihana.recruitment.command.service.dto.CloseRecruitmentResult;
 import com.project.jarihana.recruitment.command.service.dto.CreateRecruitmentResult;
+import com.project.jarihana.recruitment.command.service.dto.UpdateRecruitmentResult;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.net.URI;
 
 @RestController
 @RequestMapping("/groups")
@@ -38,11 +41,28 @@ public class RecruitmentCommandController {
         return ResponseEntity.ok(ApiResponse.success(CloseRecruitmentResponse.from(result)));
     }
 
+    @PutMapping("/{groupId}/recruitments/{recruitmentId}")
+    public ResponseEntity<ApiResponse<UpdateRecruitmentResponse>> updateRecruitment(
+            @LoginMember long memberId,
+            @PathVariable long groupId,
+            @PathVariable long recruitmentId,
+            @Valid @RequestBody UpdateRecruitmentRequest request
+    ) {
+        UpdateRecruitmentResult result = recruitmentCommandService.updateRecruitment(
+                memberId,
+                groupId,
+                recruitmentId,
+                request.toCommand()
+        );
+        return ResponseEntity.ok(ApiResponse.success(UpdateRecruitmentResponse.from(result)));
+    }
+
     @PostMapping("/{groupId}/recruitments")
     public ResponseEntity<ApiResponse<CreateRecruitmentResponse>> createRecruitment(
             @LoginMember long memberId,
             @PathVariable long groupId,
-            @Valid @RequestBody CreateRecruitmentRequest request
+            @Valid @RequestBody CreateRecruitmentRequest request,
+            HttpServletRequest servletRequest
     ) {
         CreateRecruitmentResult result = recruitmentCommandService.createRecruitment(
                 memberId,
@@ -50,7 +70,11 @@ public class RecruitmentCommandController {
                 request.toCommand()
         );
         CreateRecruitmentResponse response = CreateRecruitmentResponse.from(result);
-        URI location = URI.create("/groups/%d/recruitments/%d".formatted(response.groupId(), response.id()));
-        return ResponseEntity.created(location).body(ApiResponse.success(response));
+        return ResponseEntity.created(LocationUri.of(
+                servletRequest.getContextPath(),
+                "/groups/%d/recruitments/%d",
+                response.groupId(),
+                response.id()
+        )).body(ApiResponse.success(response));
     }
 }

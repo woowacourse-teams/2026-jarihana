@@ -120,6 +120,7 @@ function RegistrationActivityRow({ registration }) {
       </article>
       {hasDecisionReason ? (
         <Modal
+          closeAction="my_rejected_reason_dismiss"
           description={`${registration.group.name} 신청 결과에 대한 모임장 안내입니다.`}
           onClose={() => setIsDecisionModalOpen(false)}
           open={isDecisionModalOpen}

@@ -79,6 +79,27 @@ class RegistrationCommandServiceTest extends IntegrationTestSupport {
         )).isFalse();
     }
 
+    @DisplayName("마감된 모집의 대기 신청은 철회할 수 없다.")
+    @Test
+    void rejectsWithdrawalAfterRecruitmentCloses() {
+        // Given
+        Member applicant = saveMember("마감자", "withdrawal-closed-applicant");
+        GroupRecruitment recruitment = saveRecruitment(JoinMethod.APPROVAL, 2);
+        Registration registration = savePendingRegistration(recruitment, applicant);
+        recruitmentRepository.save(recruitment.closeAt(TestSupportConfig.FIXED_NOW));
+
+        // When / Then
+        assertBusinessError(
+                () -> registrationCommandService.withdrawRegistration(
+                        applicant.getId(), recruitment.getId(), registration.getId()
+                ),
+                ErrorCode.RECRUITMENT_NOT_OPEN
+        );
+        assertThat(registrationRepository.existsByRecruitmentIdAndMemberId(
+                recruitment.getId(), applicant.getId()
+        )).isTrue();
+    }
+
     private Registration savePendingRegistration(GroupRecruitment recruitment, Member applicant) {
         return registrationRepository.save(Registration.createPending(
                 recruitment,

@@ -21,6 +21,7 @@ public record MyRegistrationListResult(
             Long recruitmentId,
             String message,
             String status,
+            boolean canWithdraw,
             LocalDateTime registeredAt,
             String rejectReason,
             LocalDateTime decidedAt,

@@ -379,6 +379,56 @@
   margin-block-start: var(--space-6);
 }
 
+.manage-recruitment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.manage-recruitment-edit-period {
+  display: grid;
+  min-inline-size: 0;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-4) 0 0;
+  border: 0;
+  border-block-start: var(--border-thin) solid var(--color-line);
+}
+
+.manage-recruitment-edit-period legend {
+  padding-inline: 0;
+}
+
+.manage-recruitment-edit-period:disabled {
+  opacity: 0.58;
+}
+
+.manage-recruitment-edit-period .ui-date-range {
+  min-inline-size: 0;
+}
+
+.manage-recruitment-edit-fields {
+  display: grid;
+  min-inline-size: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--space-4);
+}
+
+.manage-recruitment-edit-fields > .ui-field {
+  align-content: start;
+  align-self: start;
+}
+
+.manage-recruitment-edit-button {
+  color: var(--color-surface);
+}
+
+.manage-recruitment-edit-button:hover:not(:disabled) {
+  color: var(--color-surface);
+}
+
 .manage-recruitment-archive {
   display: flex;
   align-items: center;
@@ -1688,6 +1738,10 @@
 }
 
 @media (max-width: 47.9375rem) {
+  .manage-recruitment-edit-fields {
+    grid-template-columns: 1fr;
+  }
+
   .manage-create-step .ui-date-range__calendar-popover,
   .manage-create-step .ui-date-range__time-popover {
     inset-inline-start: calc(var(--space-6) * -1);
@@ -1721,6 +1775,12 @@
   .manage-registration-card,
   .manage-recruitment-archive {
     flex-direction: column;
+  }
+
+  .manage-recruitment-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
   }
 
   .manage-heading {

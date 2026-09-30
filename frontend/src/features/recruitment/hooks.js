@@ -3,7 +3,13 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { getSafeNextCursor } from "../../entities/cursor/index.js";
 import { captureEvent } from "../../shared/analytics/index.js";
 import { groupKeys } from "../group/index.js";
-import { closeRecruitment, createRecruitment, fetchRecruitment, fetchRecruitments } from "./api.js";
+import {
+  closeRecruitment,
+  createRecruitment,
+  fetchRecruitment,
+  fetchRecruitments,
+  updateRecruitment
+} from "./api.js";
 
 export const recruitmentKeys = {
   all: ["recruitments"],
@@ -59,6 +65,27 @@ export function useCloseRecruitment(groupId) {
     mutationFn: ({ recruitmentId }) => closeRecruitment(groupId, recruitmentId),
     onSuccess: (recruitment, { recruitmentId }) => {
       captureEvent("recruitment_closed", {
+        group_id: groupId,
+        recruitment_id: recruitmentId,
+        status: recruitment.recruitingStatus
+      });
+      return Promise.all([
+        invalidateRecruitments(queryClient, groupId),
+        queryClient.invalidateQueries({
+          queryKey: recruitmentKeys.detail(groupId, recruitmentId)
+        })
+      ]);
+    }
+  });
+}
+
+export function useUpdateRecruitment(groupId) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ recruitmentId, values }) =>
+      updateRecruitment(groupId, recruitmentId, values),
+    onSuccess: (recruitment, { recruitmentId }) => {
+      captureEvent("recruitment_updated", {
         group_id: groupId,
         recruitment_id: recruitmentId,
         status: recruitment.recruitingStatus

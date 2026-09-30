@@ -170,7 +170,7 @@
 - `AUTO`: 남은 정원이 있으면 즉시 승인하고 `GroupMember(role = MEMBER)`를 생성한다.
 - `APPROVAL`: 정원보다 많은 `PENDING` 신청을 허용한다.
 - 승인 인원이 `capacity`에 도달하면 `endsAt`을 현재 시각으로 변경하여 공고를 자동 마감한다.
-- 정원 도달로 마감되어도 기존 `PENDING` 신청은 유지하며 신규 신청은 받지 않는다.
+- 정원 도달로 마감되어도 기존 `PENDING` 신청은 유지하고 신규 신청은 받지 않는다. 모임장이 대기 신청을 직접 처리한다.
 
 #### 예외
 
@@ -201,7 +201,7 @@ Request Body는 없다.
 본문이 없다.
 
 #### 동작
-신청자가 자신의 `PENDING` 신청을 Hard Delete한다. `CANCELED` 상태를 만들지 않는다.
+신청자가 모집 중인 공고의 본인 `PENDING` 신청을 Hard Delete한다. 모집 마감 후에는 `PENDING` 상태가 유지되어도 철회할 수 없다. `CANCELED` 상태를 만들지 않는다.
 
 #### 예외
 
@@ -210,6 +210,7 @@ Request Body는 없다.
 | 신청 없음 또는 해당 공고의 신청이 아님 | `REGISTRATION_NOT_FOUND` | 404 |
 | 본인의 신청이 아님 | `REGISTRATION_ACCESS_DENIED` | 403 |
 | 이미 APPROVED 또는 REJECTED | `REGISTRATION_ALREADY_DECIDED` | 409 |
+| 모집 시작 전 또는 마감 후 | `RECRUITMENT_NOT_OPEN` | 409 |
 
 ### `PATCH /api/recruitments/{recruitmentId}/registrations/{registrationId}`
 
@@ -257,7 +258,7 @@ Request Body는 없다.
 
 #### 부수 효과
 - 승인 시 `GroupMember(role = MEMBER)`를 생성한다.
-- 승인 인원이 `capacity`에 도달하면 `endsAt = now`로 공고를 자동 마감한다. 다른 `PENDING` 신청은 유지하고 모임장이 직접 거절할 수 있다.
+- 승인 인원이 `capacity`에 도달하면 `endsAt = now`로 공고를 자동 마감한다. 다른 `PENDING` 신청은 유지하며 모임장이 직접 처리한다.
 - 기존 `PENDING` 신청의 승인은 정원이 남아 있을 때만 가능하며, 정원 초과 승인은 허용하지 않는다.
 - 미승인 시 GroupMember를 생성하지 않는다.
 - `decidedBy`에는 결정 시점의 실제 모임장 회원 ID를 기록한다.
@@ -307,6 +308,7 @@ Request Body는 없다.
       "recruitmentId": 45,
       "message": "함께 활동하고 싶습니다.",
       "status": "PENDING",
+      "canWithdraw": true,
       "registeredAt": "2026-08-21T10:00:00",
       "rejectReason": null,
       "decidedAt": null,
@@ -319,7 +321,7 @@ Request Body는 없다.
 }
 ```
 
-철회한 `PENDING` 신청은 Hard Delete되므로 조회되지 않는다.
+`canWithdraw`는 신청이 `PENDING`이고 모집 중일 때만 `true`다. 마감 후에도 목록에 남는 `PENDING` 신청은 `false`다. 철회한 `PENDING` 신청은 Hard Delete되므로 조회되지 않는다.
 
 #### 예외
 

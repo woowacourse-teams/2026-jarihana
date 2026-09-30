@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
+import { UserRound } from "lucide-react";
 
 import { storeReturnTarget, useAuth } from "../features/auth";
 import {
@@ -7,8 +8,11 @@ import {
   FeedbackLoginPrompt,
   getFeedbackReturnTarget
 } from "../features/feedback/index.js";
-import { Drawer, Modal, useToast } from "../shared/ui";
+import { COURSE_LABELS, generationLabel } from "../pages/account/accountUtils";
+import { Avatar, Drawer, Modal, useToast } from "../shared/ui";
+import githubMark from "../shared/assets/brand/github-mark.svg";
 import logoMark from "../shared/assets/brand/jarihana-favicon.png";
+import { ProfileMenu } from "./ProfileMenu";
 
 const MEMBER_LINKS = [
   {
@@ -57,13 +61,14 @@ function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, st
 
 function MyPageLink({ onNavigate }) {
   const { pathname } = useLocation();
-  const isActive =
-    pathname === "/my" || pathname === "/my/groups" || pathname === "/my/registrations";
+  const isActive = ["/my", "/my/groups", "/my/registrations"].includes(pathname);
 
   return (
     <Link
       aria-current={isActive ? "page" : undefined}
+      aria-label="마이페이지"
       className={isActive ? "app-header__link app-header__link--active" : "app-header__link"}
+      data-ph-capture-attribute-action="my_page_view"
       onClick={onNavigate}
       to="/my"
     >
@@ -98,6 +103,7 @@ function AuthAction({ onNavigate, status }) {
     return (
       <button
         className="app-header__auth app-header__auth--secondary"
+        data-ph-capture-attribute-action="logout"
         onClick={() => {
           onNavigate();
           void logout();
@@ -117,7 +123,12 @@ function AuthAction({ onNavigate, status }) {
 
   if (status === "signup-required") {
     return (
-      <Link className="app-header__auth" onClick={onNavigate} to="/signup">
+      <Link
+        className="app-header__auth"
+        data-ph-capture-attribute-action="signup_continue"
+        onClick={onNavigate}
+        to="/signup"
+      >
         가입 계속하기
       </Link>
     );
@@ -125,20 +136,25 @@ function AuthAction({ onNavigate, status }) {
 
   return (
     <button
-      className="app-header__auth"
+      className="app-header__auth app-header__auth--github"
+      data-ph-capture-attribute-action="login"
       onClick={() => {
         onNavigate();
         login();
       }}
       type="button"
     >
+      <img alt="" aria-hidden="true" className="app-header__github-mark" src={githubMark} />
       GitHub로 로그인
     </button>
   );
 }
 
 export function AppHeader({ action = null, title = "" }) {
-  const { login, status } = useAuth();
+  const { avatarUrl, login, member, status } = useAuth();
+  const memberDetails = member?.memberType === "COACH"
+    ? "코치"
+    : `${generationLabel(member?.generation)}${member?.course ? ` / ${COURSE_LABELS[member.course]}` : ""}`;
   const { hash, pathname, search } = useLocation();
   const navigate = useNavigate();
   const { success } = useToast();
@@ -237,14 +253,18 @@ export function AppHeader({ action = null, title = "" }) {
           <div className="app-header__desktop-action">
             {title ? <span className="app-header__context">{title}</span> : null}
             {action}
-            {status === "authenticated" ? <MyPageLink onNavigate={() => {}} /> : null}
-            <AuthAction onNavigate={() => {}} status={status} />
+            {status === "authenticated" ? (
+              <ProfileMenu />
+            ) : (
+              <AuthAction onNavigate={() => {}} status={status} />
+            )}
           </div>
 
           <button
             aria-expanded={isMenuOpen}
             aria-label="메뉴 열기"
             className="app-header__menu-button"
+            data-ph-capture-attribute-action="header_menu_open"
             onClick={() => setMenuOpen(true)}
             ref={menuButtonReference}
             type="button"
@@ -255,6 +275,7 @@ export function AppHeader({ action = null, title = "" }) {
       </header>
 
       <Modal
+        closeAction="feedback_form_dismiss"
         onOpenChange={handleFeedbackOpenChange}
         open={feedbackOpen}
         title="피드백 남기기"
@@ -268,23 +289,69 @@ export function AppHeader({ action = null, title = "" }) {
         open={loginRequiredOpen}
       />
 
-      <Drawer onClose={closeMenu} open={isMenuOpen} title="전체 메뉴">
+      <Drawer
+        closeAction="mobile_menu_dismiss"
+        onClose={closeMenu}
+        open={isMenuOpen}
+        title="전체 메뉴"
+      >
         <nav aria-label="모바일 메뉴" className="app-header__mobile-nav">
           {title ? <p className="app-header__context">{title}</p> : null}
-          <FeedbackLink
-            onClick={handleFeedbackTrigger}
-            onNavigate={closeMenu}
-            open={feedbackOpen || loginRequiredOpen}
-            status={status}
-          />
-          <HeaderLinks
-            onNavigate={closeMenu}
-            onProtectedNavigate={redirectToLogin}
-            status={status}
-          />
-          {status === "authenticated" ? <MyPageLink onNavigate={closeMenu} /> : null}
-          {action}
-          <AuthAction onNavigate={closeMenu} status={status} />
+          <div className="app-header__mobile-account">
+            <div className="app-header__mobile-identity">
+              {status !== "anonymous" ? (
+                <span className="app-header__mobile-eyebrow">나의 프로필</span>
+              ) : null}
+              {status === "authenticated" ? (
+                <Avatar
+                  alt=""
+                  className="app-header__avatar"
+                  fallback={member?.crewName?.slice(0, 1) || "?"}
+                  size="sm"
+                  src={avatarUrl ?? member?.avatarUrl}
+                />
+              ) : (
+                <span aria-hidden="true" className="app-header__avatar app-header__guest-avatar">
+                  <UserRound />
+                </span>
+              )}
+              {status === "anonymous" ? (
+                <p className="app-header__mobile-member app-header__mobile-guest-copy">
+                  게스트
+                </p>
+              ) : (
+                <div className="app-header__mobile-member">
+                  <strong className="app-header__mobile-name">
+                    {status === "authenticated" ? member?.crewName
+                      : status === "loading" ? "잠시만 기다려 주세요"
+                        : "가입을 마무리해 주세요"}
+                  </strong>
+                  <span className="app-header__mobile-generation">
+                    {status === "authenticated" ? memberDetails
+                      : status === "loading" ? "내 계정 정보를 확인하고 있어요"
+                        : "프로필을 완성하고 모임에 참여해요"}
+                  </span>
+                </div>
+              )}
+            </div>
+            <AuthAction onNavigate={closeMenu} status={status} />
+          </div>
+          <div className="app-header__mobile-links">
+            <h3 className="app-header__mobile-section-title">메뉴</h3>
+            <FeedbackLink
+              onClick={handleFeedbackTrigger}
+              onNavigate={closeMenu}
+              open={feedbackOpen || loginRequiredOpen}
+              status={status}
+            />
+            <HeaderLinks
+              onNavigate={closeMenu}
+              onProtectedNavigate={redirectToLogin}
+              status={status}
+            />
+            {status === "authenticated" ? <MyPageLink onNavigate={closeMenu} /> : null}
+            {action}
+          </div>
         </nav>
       </Drawer>
     </>

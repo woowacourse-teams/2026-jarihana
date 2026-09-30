@@ -1,5 +1,5 @@
 import { ArrowRight } from "lucide-react";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { DateRangeCalendar } from "./DateRangeCalendar.jsx";
 import { DateRangeEndpoint } from "./DateRangeEndpoint.jsx";
 import { TimePickerPopover } from "./TimePickerPopover.jsx";
@@ -92,6 +92,24 @@ export function DateRangePicker({
       document.removeEventListener("focusin", handleFocusIn);
     };
   }, [activeTimeEndpoint, calendarOpen, closePicker]);
+
+  useLayoutEffect(() => {
+    if (!calendarOpen && !activeTimeEndpoint) return;
+
+    const dialog = rootReference.current?.closest('[role="dialog"]');
+    const popover = popoverReference.current;
+    if (!dialog || !popover) return;
+
+    const dialogRect = dialog.getBoundingClientRect();
+    const popoverRect = popover.getBoundingClientRect();
+    const visibleTop = dialogRect.top + dialog.clientTop;
+    const visibleBottom = visibleTop + dialog.clientHeight;
+    const overflowBelow = popoverRect.bottom - visibleBottom;
+    const overflowAbove = visibleTop - popoverRect.top;
+
+    if (overflowBelow > 0) dialog.scrollTop += overflowBelow;
+    else if (overflowAbove > 0) dialog.scrollTop -= overflowAbove;
+  }, [activeTimeEndpoint, calendarOpen]);
 
   function changeEndpoint(endpoint) {
     const selectedDate = endpoint === "start" ? start.date : end.date || start.date;

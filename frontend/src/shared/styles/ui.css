@@ -889,14 +889,10 @@ textarea {
     font-size: var(--text-h3);
 }
 
-.ui-markdown p {
-    margin-block: var(--space-2);
-}
-
+.ui-markdown p,
 .ui-markdown ul,
 .ui-markdown ol,
 .ui-markdown pre,
-.ui-markdown table,
 .ui-markdown blockquote {
     margin-block: var(--space-3);
 }
@@ -939,8 +935,16 @@ textarea {
     white-space: pre;
 }
 
-.ui-markdown table {
-    width: 100%;
+.ui-markdown__table-wrap {
+    max-inline-size: 100%;
+    margin-block: var(--space-3);
+    overflow-x: auto;
+}
+
+.ui-markdown__table-wrap table {
+    inline-size: max-content;
+    min-inline-size: 100%;
+    margin: 0;
     border-collapse: collapse;
 }
 

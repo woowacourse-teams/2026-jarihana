@@ -59,7 +59,8 @@ export const myRegistrationSchema = registrationSchema.omit({ member: true }).ex
     name: z.string(),
     representativeImageUrl: representativeImageUrlSchema
   }),
-  recruitmentId: entityIdSchema
+  recruitmentId: entityIdSchema,
+  canWithdraw: z.boolean().optional()
 });
 
 export const myRegistrationPageSchema = cursorPageSchema(myRegistrationSchema);

@@ -106,6 +106,7 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
         // Then
         assertThat(response.statusCode()).isEqualTo(201);
         long groupId = ((Number) response.path("data.id")).longValue();
+        assertThat(response.header("Location")).isEqualTo("/api/groups/" + groupId);
         Group group = groupRepository.findById(groupId).orElseThrow();
         assertThat(group.getMeetingType()).isEqualTo(MeetingType.OFFLINE);
         assertThat(group.getLocation()).isEqualTo("서울 캠퍼스");

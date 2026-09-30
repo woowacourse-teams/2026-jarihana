@@ -239,6 +239,7 @@ export function SignupPage() {
         </div>
       </form>
       <Modal
+        closeAction="signup_confirmation_dismiss"
         description={
           <>
             입력한 정보는 가입 후 직접 변경할 수 없어요.

@@ -13,6 +13,7 @@ public record MyRegistrationListProjection(
         Long recruitmentId,
         String message,
         RegistrationStatus status,
+        boolean canWithdraw,
         LocalDateTime registeredAt,
         String rejectReason,
         LocalDateTime decidedAt,

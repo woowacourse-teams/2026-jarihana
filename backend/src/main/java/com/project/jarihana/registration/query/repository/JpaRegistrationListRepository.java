@@ -10,6 +10,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Repository;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,17 +22,20 @@ public class JpaRegistrationListRepository implements RegistrationListRepository
     private final RegistrationAccessJpaRepository accessRepository;
     private final RegistrationListJpaRepository registrationRepository;
     private final GroupJpaRepository groupRepository;
+    private final Clock clock;
 
     public JpaRegistrationListRepository(
             GroupRecruitmentJpaRepository recruitmentRepository,
             RegistrationAccessJpaRepository accessRepository,
             RegistrationListJpaRepository registrationRepository,
-            GroupJpaRepository groupRepository
+            GroupJpaRepository groupRepository,
+            Clock clock
     ) {
         this.recruitmentRepository = recruitmentRepository;
         this.accessRepository = accessRepository;
         this.registrationRepository = registrationRepository;
         this.groupRepository = groupRepository;
+        this.clock = clock;
     }
 
     @Override
@@ -78,8 +83,9 @@ public class JpaRegistrationListRepository implements RegistrationListRepository
                 criteria.cursorId(),
                 Pageable.ofSize(size)
         );
+        LocalDateTime now = LocalDateTime.now(clock);
         List<MyRegistrationListProjection> projections = registrations.getContent().stream()
-                .map(JpaRegistrationListRepository::toMyProjection)
+                .map(registration -> toMyProjection(registration, now))
                 .toList();
         return new MyRegistrationListPage(projections, registrations.hasNext());
     }
@@ -116,7 +122,7 @@ public class JpaRegistrationListRepository implements RegistrationListRepository
         );
     }
 
-    private static MyRegistrationListProjection toMyProjection(Registration registration) {
+    private static MyRegistrationListProjection toMyProjection(Registration registration, LocalDateTime now) {
         return new MyRegistrationListProjection(
                 registration.getId(),
                 registration.getRecruitment().getGroup().getId(),
@@ -125,6 +131,7 @@ public class JpaRegistrationListRepository implements RegistrationListRepository
                 registration.getRecruitment().getId(),
                 registration.getMessage(),
                 registration.getStatus(),
+                registration.canWithdrawAt(now),
                 registration.getRegisteredAt(),
                 registration.getRejectReason(),
                 registration.getDecidedAt(),

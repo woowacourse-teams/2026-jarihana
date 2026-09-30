@@ -190,6 +190,7 @@ const groupMember = (value, role, groupMemberId) => ({
 
 const myRegistration = {
   ...pendingRegistration,
+  canWithdraw: true,
   group: { id: group.id, name: group.name, representativeImageUrl: group.representativeImageUrl },
   recruitmentId: recruitment.id
 };
@@ -197,6 +198,7 @@ delete myRegistration.member;
 
 const rejectedMyRegistration = {
   ...myRegistration,
+  canWithdraw: false,
   decidedAt: "2026-08-15T11:00:00",
   decidedBy: { memberId: leader.id, type: "MEMBER" },
   id: 44,
