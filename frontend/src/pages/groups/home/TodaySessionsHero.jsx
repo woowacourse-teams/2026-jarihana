@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button, ErrorState, Skeleton } from "../../../shared/ui/index.js";
@@ -9,6 +9,14 @@ import { useSessionCarousel } from "./useSessionCarousel.js";
 
 const VISIBLE_TICKET_COUNT = 3;
 const SWIPE_THRESHOLD = 40;
+const campusStatusMessages = {
+  inside: "판교 캠퍼스 근처예요.",
+  outside: "캠퍼스 밖이네요. 어디서든 같이해요.",
+  imprecise: "위치가 정확하지 않아요. 다시 확인해 주세요.",
+  denied: "위치 권한이 꺼져 있어요. 브라우저 설정에서 허용해 주세요.",
+  unavailable: "지금은 위치를 확인하기 어려워요. 잠시 후 다시 시도해 주세요.",
+  unsupported: "이 브라우저에서는 위치를 확인할 수 없어요."
+};
 
 function formatHeroDate(date) {
   const [year, month, day] = date.split("-").map(Number);
@@ -77,7 +85,15 @@ function LoadingTodaySessions() {
   );
 }
 
-export function TodaySessionsHero({ date, error, groups, isLoading = false, onRetry }) {
+export function TodaySessionsHero({
+  campusStatus,
+  date,
+  error,
+  groups,
+  isLoading = false,
+  onRequestLocation,
+  onRetry
+}) {
   const sessions = useMemo(() => todaySessions(groups, date), [date, groups]);
   const ticketReferences = useRef([]);
   const ticketsViewport = useRef(null);
@@ -156,15 +172,35 @@ export function TodaySessionsHero({ date, error, groups, isLoading = false, onRe
   return (
     <section className="today-sessions-hero" aria-labelledby="today-sessions-title">
       <div className="today-sessions-hero__intro">
-        <div className="today-sessions-hero__meta">
-          <p className="today-sessions-hero__eyebrow">오늘 바로 만나는 자리</p>
-          {date ? (
-            <time className="today-sessions-hero__date" dateTime={date}>
-              {formatHeroDate(date)}
-            </time>
-          ) : null}
+        <div className="today-sessions-hero__heading">
+          <h2 className="today-sessions-hero__title" id="today-sessions-title">
+            오늘 같이해요
+          </h2>
+          <div className="today-sessions-hero__meta">
+            {date ? (
+              <time className="today-sessions-hero__date" dateTime={date}>
+                {formatHeroDate(date)}
+              </time>
+            ) : null}
+            <Button
+              aria-label="내 위치로 캠퍼스 확인"
+              aria-busy={campusStatus === "locating" || undefined}
+              className="today-sessions-hero__location"
+              data-ph-capture-attribute-action="home_campus_location_check"
+              disabled={campusStatus === "locating"}
+              onClick={onRequestLocation}
+              size="sm"
+              title="위치를 확인하면 캠퍼스에 맞는 한마디를 보여드려요."
+              variant="tertiary"
+            >
+              <MapPin aria-hidden="true" size={14} />
+              {campusStatus === "locating" ? "확인 중" : "위치 확인"}
+            </Button>
+          </div>
         </div>
-        <h1 id="today-sessions-title">오늘의 같이해요를 먼저 확인해요</h1>
+        <p className="today-sessions-hero__location-status" role="status">
+          {campusStatusMessages[campusStatus]}
+        </p>
       </div>
 
       {isLoading ? <LoadingTodaySessions /> : null}

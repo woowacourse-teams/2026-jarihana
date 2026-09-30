@@ -22,6 +22,7 @@ const loadGroupPages = () => import("../pages/groups/index.js");
 const loadManagePages = () => import("../pages/manage/index.js");
 
 export const lazyPageRegistry = Object.freeze({
+  GroupBrowsePage: lazyNamed(loadGroupPages, "GroupBrowsePage"),
   GroupCreatePage: lazyNamed(loadGroupEditorPages, "NewGroupPage"),
   GroupDetailPage: lazyNamed(loadGroupPages, "GroupDetailPage"),
   GroupManagePage: lazyNamed(loadGroupEditorPages, "GroupManagePage"),

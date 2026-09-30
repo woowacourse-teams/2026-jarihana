@@ -1,10 +1,10 @@
-import { Link } from "react-router";
-
+import { useState, useSyncExternalStore } from "react";
 import { useInfiniteGroups } from "../../../features/group/index.js";
 import recruitmentEmptyIllustration from "../../../shared/assets/illustrations/group-recruitment-empty.webp";
-import { Button, EmptyState, ErrorState, GroupCard, Skeleton } from "../../../shared/ui/index.js";
+import { Button, EmptyState, ErrorState, Skeleton } from "../../../shared/ui/index.js";
 import { flattenPages, publicErrorCopy } from "../pageUtils.js";
 import { DiscoveryFilters } from "./DiscoveryFilters.jsx";
+import { DiscoveryGroupCard } from "./DiscoveryGroupCard.jsx";
 import { useDiscoveryFilters } from "./useDiscoveryFilters.js";
 import "./discovery.css";
 
@@ -29,6 +29,21 @@ function sectionClassName(kind) {
   return `groups-discovery-section groups-discovery-section--${kind}`;
 }
 
+// Keep these boundaries aligned with the discovery grid in discovery.css.
+const discoveryBreakpoints = ["(max-width: 47.9375rem)", "(max-width: 63.9375rem)"];
+
+function subscribeToDiscoveryColumns(onChange) {
+  const queries = discoveryBreakpoints.map((breakpoint) => window.matchMedia(breakpoint));
+  queries.forEach((query) => query.addEventListener("change", onChange));
+  return () => queries.forEach((query) => query.removeEventListener("change", onChange));
+}
+
+function getDiscoveryColumns() {
+  if (window.matchMedia(discoveryBreakpoints[0]).matches) return 1;
+  if (window.matchMedia(discoveryBreakpoints[1]).matches) return 3;
+  return 4;
+}
+
 export function DiscoverySection({ kind, onCreateGroup }) {
   const isSession = kind === "session";
   const copy = sectionCopy[kind];
@@ -44,6 +59,23 @@ export function DiscoverySection({ kind, onCreateGroup }) {
   const query = useInfiniteGroups(queryFilters);
   const groups = flattenPages(query.data);
   const errorCopy = publicErrorCopy(query.error, copy.errorTarget);
+  const columns = useSyncExternalStore(subscribeToDiscoveryColumns, getDiscoveryColumns, () => 4);
+  const filterKey = JSON.stringify(queryFilters);
+  const [preview, setPreview] = useState({ filterKey, expanded: false });
+
+  if (preview.filterKey !== filterKey) {
+    setPreview({ filterKey, expanded: false });
+  }
+
+  const visibleGroups = isSession && !preview.expanded ? groups.slice(0, columns) : groups;
+  const hasHiddenGroups = visibleGroups.length < groups.length;
+
+  function showMore() {
+    setPreview({ filterKey, expanded: true });
+    if (!hasHiddenGroups && query.hasNextPage) {
+      query.fetchNextPage();
+    }
+  }
 
   return (
     <section aria-labelledby={`${copy.id}-heading`} className={sectionClassName(kind)} id={copy.id}>
@@ -88,7 +120,7 @@ export function DiscoverySection({ kind, onCreateGroup }) {
           className="groups-grid groups-discovery-grid"
           aria-label={`${copy.heading}를 불러오는 중`}
         >
-          {[0, 1, 2].map((item) => (
+          {Array.from({ length: isSession ? columns : 3 }, (_, item) => (
             <Skeleton className="groups-card-skeleton" key={item} />
           ))}
         </div>
@@ -132,30 +164,20 @@ export function DiscoverySection({ kind, onCreateGroup }) {
           className="groups-grid groups-discovery-grid"
           aria-busy={query.isFetching && !query.isFetchingNextPage}
         >
-          {groups.map((group) => (
-            <article className="groups-card-frame" key={group.id}>
-              <GroupCard
-                action="group_view"
-                as={Link}
-                href={`/groups/${group.id}`}
-                group={{
-                  ...group,
-                  recruiting: isGroupRecruiting(group)
-                }}
-                mobileAppearance="activity"
-                showScheduleMeta
-              />
+          {visibleGroups.map((group) => (
+            <article className="discovery-group-card-frame" key={group.id}>
+              <DiscoveryGroupCard group={group} recruiting={isGroupRecruiting(group)} />
             </article>
           ))}
         </div>
       )}
-      {query.hasNextPage && (
+      {(hasHiddenGroups || query.hasNextPage) && (
         <div className="groups-discovery-more">
           <Button
             data-ph-capture-attribute-action={`${kind}_discovery_load_more`}
             variant="secondary"
             pending={query.isFetchingNextPage}
-            onClick={() => query.fetchNextPage()}
+            onClick={showMore}
           >
             더 많은 {isSession ? "같이해요" : "모임"} 보기
           </Button>

@@ -56,7 +56,9 @@ test("opens recruitment history from the recruitment management tab", async ({ p
   await expect(page.getByRole("cell", { name: "모집 예정", exact: true })).toBeVisible();
   await expect(page.getByRole("cell", { name: "마감", exact: true })).toBeVisible();
   expect(
-    state.requests.some(({ method, path }) => method === "GET" && path === "/groups/10/recruitments")
+    state.requests.some(
+      ({ method, path }) => method === "GET" && path === "/groups/10/recruitments"
+    )
   ).toBe(true);
   expect(state.unexpectedResponses).toEqual([]);
 });
@@ -109,9 +111,7 @@ test(
 
     await page.goto("/my/registrations?status=PENDING");
     await expect(page).toHaveURL(/\/groups$/);
-    await expect(
-      page.getByRole("heading", { name: "오늘의 같이해요를 먼저 확인해요" })
-    ).toBeVisible();
+    await expect(page.locator("#today-sessions-title")).toBeVisible();
     expect(await page.evaluate((key) => sessionStorage.getItem(key), returnTargetStorageKey)).toBe(
       "/my/registrations?status=PENDING"
     );

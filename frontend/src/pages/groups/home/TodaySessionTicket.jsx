@@ -1,6 +1,8 @@
+import { ArrowRight, Clock3, MapPin } from "lucide-react";
 import { Link } from "react-router";
 
 import { GroupImage } from "../../../shared/ui/index.js";
+import { scheduleDuration } from "./groupCardMetadata.js";
 
 function remainingSeats(group) {
   const recruitment = group.activeRecruitment;
@@ -16,19 +18,21 @@ function timeRange(group) {
 
 function participationLabel(group) {
   const seats = remainingSeats(group);
-  if (seats === null) return "모집 정보 확인";
+  if (seats === null) return "모집 마감";
   if (seats <= 0) return "자리 마감";
   return `${seats}자리 남음`;
 }
 
 function capacityLabel(group) {
   const recruitment = group.activeRecruitment;
-  if (!recruitment) return "모집 정보 확인";
-  return `정원 ${recruitment.capacity}명`;
+  if (!recruitment) return "모집 마감";
+  return `모집 정원 ${recruitment.capacity}명`;
 }
 
 export function TodaySessionTicket({ active = false, group, tabIndex }) {
   const seats = remainingSeats(group);
+  const duration = scheduleDuration(group.sessionSchedule);
+  const location = group.location?.trim();
 
   return (
     <Link
@@ -49,14 +53,29 @@ export function TodaySessionTicket({ active = false, group, tabIndex }) {
         />
       </span>
       <span className="today-session-ticket__body">
-        <span className="today-session-ticket__time">{timeRange(group)}</span>
+        <span className="today-session-ticket__time">
+          <Clock3 aria-hidden="true" size={16} />
+          {timeRange(group)}
+        </span>
         <span className="today-session-ticket__title">{group.name}</span>
         <span className="today-session-ticket__intro">{group.introduction}</span>
+        {(location || duration) && (
+          <span className="today-session-ticket__details">
+            {location && (
+              <span className="today-session-ticket__location">
+                <MapPin aria-hidden="true" size={16} />
+                <span>{location}</span>
+              </span>
+            )}
+            {location && duration && <span aria-hidden="true">·</span>}
+            {duration && <span className="today-session-ticket__duration">{duration}</span>}
+          </span>
+        )}
       </span>
       <span className="today-session-ticket__stub">
         <span className="today-session-ticket__remaining">
           {seats === null ? (
-            <strong>확인</strong>
+            <strong>마감</strong>
           ) : (
             <strong>
               {seats}
@@ -66,7 +85,7 @@ export function TodaySessionTicket({ active = false, group, tabIndex }) {
           <span>{capacityLabel(group)}</span>
         </span>
         <span className="today-session-ticket__cta">
-          자리 보기 <span aria-hidden="true">→</span>
+          자세히 <ArrowRight aria-hidden="true" size={16} />
         </span>
       </span>
     </Link>
