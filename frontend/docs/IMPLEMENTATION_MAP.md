@@ -130,6 +130,7 @@ header 구현으로 확대하지 않았다.
 
 - `meetingType`: `ONLINE`, `OFFLINE`, `FLEXIBLE` 중 하나인 필수 값
 - `location`: 최대 255자의 nullable 문자열
+- `currentMemberRegistrationId`: 현재 모집에 대한 본인 신청 ID, 신청이 없으면 `null`
 - 목록 응답은 현재 모임 방식·장소를 제공하지 않으므로 `groupListItemSchema`에는 포함하지 않는다.
 
 ### 내 신청 목록 응답 스키마
@@ -148,9 +149,12 @@ header 구현으로 확대하지 않았다.
     "representativeImageUrl": "https://cdn.example.test/images/groups/algorithm.webp"
   },
   "recruitmentId": 45,
-  "status": "PENDING"
+  "status": "PENDING",
+  "canWithdraw": true
 }
 ```
+
+내 신청의 철회 버튼은 서버가 반환한 `canWithdraw`가 `true`일 때만 표시한다. 모집이 마감되면 `PENDING` 신청도 철회할 수 없다.
 
 | 도메인         | endpoint                                                                                                                                                                           | 화면에서 수행하는 일                                                           |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |

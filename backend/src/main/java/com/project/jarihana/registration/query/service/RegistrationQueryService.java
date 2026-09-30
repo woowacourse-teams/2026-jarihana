@@ -215,6 +215,7 @@ public class RegistrationQueryService {
                 projection.recruitmentId(),
                 projection.message(),
                 projection.status().name(),
+                projection.canWithdraw(),
                 projection.registeredAt(),
                 projection.rejectReason(),
                 projection.decidedAt(),
