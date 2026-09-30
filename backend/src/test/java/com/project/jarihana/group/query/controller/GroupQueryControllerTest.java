@@ -134,6 +134,24 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
         );
     }
 
+    private static Group studyWithLocation(
+            String name,
+            String introduction,
+            String location,
+            LocalDateTime createdAt
+    ) {
+        return Group.createStudy(
+                name,
+                introduction,
+                null,
+                "groups/1.webp",
+                MeetingType.OFFLINE,
+                location,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.NOON, LocalTime.of(13, 0)),
+                createdAt
+        );
+    }
+
     private static Group club(String name, String introduction, LocalDateTime createdAt) {
         return Group.createClub(
                 name,
@@ -159,6 +177,32 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
                 SessionGroupSchedule.of(sessionDate, LocalTime.of(12, 0), LocalTime.of(13, 0)),
                 createdAt
         );
+    }
+
+    @DisplayName("그룹 목록 응답에 저장된 장소를 포함하고 장소가 없으면 null을 반환한다.")
+    @Test
+    void includesLocationInGroupListResponse() {
+        // Given
+        groupRepository.save(studyWithLocation(
+                "오프라인 알고리즘 스터디",
+                "캠퍼스에서 함께 문제를 풉니다.",
+                "잠실 캠퍼스 3층",
+                CREATED_AT
+        ));
+        groupRepository.save(study("장소 미정 스터디", "장소는 나중에 정해요.", CREATED_AT.minusHours(1)));
+
+        // When / Then
+        given()
+                .queryParam("size", 2)
+                .when()
+                .get("/groups")
+                .then()
+                .statusCode(200)
+                .body("success", equalTo(true))
+                .body("data.items.size()", equalTo(2))
+                .body("data.items.find { it.name == '오프라인 알고리즘 스터디' }.location", equalTo("잠실 캠퍼스 3층"))
+                .body("data.items.find { it.name == '장소 미정 스터디' }.location", nullValue())
+                .body("error", nullValue());
     }
 
     @DisplayName("범위를 벗어난 그룹 목록 크기는 400을 반환한다.")

@@ -50,6 +50,7 @@
       "status": "ACTIVE",
       "name": "알고리즘 스터디",
       "introduction": "매주 함께 문제를 풉니다.",
+      "location": "서울 캠퍼스",
       "representativeImageUrl": "images/default-group.png",
       "leader": {"memberId": 3, "crewName": "크루A", "generation": 8, "memberType": "CREW", "avatarUrl": "https://avatars.githubusercontent.com/u/3"},
       "memberCount": 6,

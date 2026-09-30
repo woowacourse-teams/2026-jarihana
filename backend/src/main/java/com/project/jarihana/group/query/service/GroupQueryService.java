@@ -121,6 +121,7 @@ public class GroupQueryService {
                 projection.group().getStatus().name(),
                 projection.group().getName(),
                 projection.group().getIntroduction(),
+                projection.group().getLocation(),
                 toRepresentativeImageUrl(projection.group().getRepresentativeImageKey()),
                 projection.group().getRecurringSchedule() == null
                         ? null
