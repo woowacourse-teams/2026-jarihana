@@ -35,9 +35,10 @@ function WithdrawRegistration({ onWithdrawSuccess, registration }) {
 
   return (
     <ConfirmDialog
+      closeAction="registration_withdraw_confirm_dismiss"
       cancelAction="registration_withdraw_cancel"
-      confirmLabel="철회하기"
       confirmAction="registration_withdraw_confirm"
+      confirmLabel="철회하기"
       danger
       description="철회한 신청은 되돌릴 수 없어요. 다시 참여하려면 모집이 열려 있을 때 새로 신청해야 해요."
       onConfirm={withdraw}

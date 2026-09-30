@@ -11,7 +11,8 @@ import {
   useCloseRecruitment,
   useCreateRecruitment,
   useInfiniteRecruitments,
-  useRecruitment
+  useRecruitment,
+  useUpdateRecruitment
 } from "../../../src/features/recruitment/index.js";
 import {
   useDecideRegistration,
@@ -46,7 +47,8 @@ jest.mock("../../../src/features/recruitment/index.js", () => ({
   useCloseRecruitment: jest.fn(),
   useCreateRecruitment: jest.fn(),
   useInfiniteRecruitments: jest.fn(),
-  useRecruitment: jest.fn()
+  useRecruitment: jest.fn(),
+  useUpdateRecruitment: jest.fn()
 }));
 
 jest.mock("../../../src/features/registration/index.js", () => ({
@@ -144,6 +146,7 @@ beforeEach(() => {
   });
   useCreateRecruitment.mockReturnValue({ isPending: false, mutateAsync: jest.fn() });
   useCloseRecruitment.mockReturnValue({ isPending: false, mutateAsync: jest.fn() });
+  useUpdateRecruitment.mockReturnValue({ isPending: false, mutateAsync: jest.fn() });
   useInfiniteRegistrations.mockImplementation((recruitmentId, filters = {}) =>
     queryResult([filters.status === "APPROVED" ? approvedRegistrationFixture : registrationFixture])
   );

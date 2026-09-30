@@ -275,6 +275,7 @@ export function AppHeader({ action = null, title = "" }) {
       </header>
 
       <Modal
+        closeAction="feedback_form_dismiss"
         onOpenChange={handleFeedbackOpenChange}
         open={feedbackOpen}
         title="피드백 남기기"
@@ -288,7 +289,12 @@ export function AppHeader({ action = null, title = "" }) {
         open={loginRequiredOpen}
       />
 
-      <Drawer onClose={closeMenu} open={isMenuOpen} title="전체 메뉴">
+      <Drawer
+        closeAction="mobile_menu_dismiss"
+        onClose={closeMenu}
+        open={isMenuOpen}
+        title="전체 메뉴"
+      >
         <nav aria-label="모바일 메뉴" className="app-header__mobile-nav">
           {title ? <p className="app-header__context">{title}</p> : null}
           <div className="app-header__mobile-account">

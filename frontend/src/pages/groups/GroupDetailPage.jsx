@@ -243,6 +243,7 @@ export function GroupDetailPage() {
             ) : null}
             <div className="group-recruitment-entry group-recruitment-action">
               <Modal
+                closeAction="group_recruitment_info_dismiss"
                 title="모집 정보"
                 trigger={
                   <Button
@@ -314,6 +315,7 @@ export function GroupDetailPage() {
       </div>
 
       <Modal
+        closeAction="recruitment_start_prompt_dismiss"
         description="모집을 시작해야 다른 사람이 이 모임에 신청할 수 있어요."
         onClose={() => setRecruitmentPromptOpen(false)}
         open={recruitmentPromptOpen}
@@ -414,9 +416,10 @@ function RecruitmentSummary({
       }
       return (
         <ConfirmDialog
+          closeAction="registration_withdraw_confirm_dismiss"
           cancelAction="registration_withdraw_cancel"
-          confirmLabel="철회하기"
           confirmAction="registration_withdraw_confirm"
+          confirmLabel="철회하기"
           danger
           description="철회한 신청은 되돌릴 수 없어요. 다시 참여하려면 모집이 열려 있을 때 새로 신청해야 해요."
           onConfirm={async () => {
@@ -570,6 +573,7 @@ function RecruitmentSummary({
       </div>
       <div className="group-recruitment-action">{applicationAction()}</div>
       <Modal
+        closeAction="registration_form_dismiss"
         description="운영자에게 전달할 신청 메시지를 작성해 주세요."
         onClose={() => {
           if (!registration.isPending) setApplicationOpen(false);
