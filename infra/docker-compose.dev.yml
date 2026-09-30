@@ -4,7 +4,7 @@ services:
   backend:
     image: "jarihana-backend-dev:${BACKEND_TAG:?BACKEND_TAG is required}"
     environment:
-      SPRING_PROFILES_ACTIVE: prod
+      SPRING_PROFILES_ACTIVE: dev
       DB_URL: jdbc:postgresql://postgres:5432/jarihana_dev
       DB_USERNAME: jarihana_dev
       DB_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
