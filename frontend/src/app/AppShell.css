@@ -69,16 +69,6 @@
     stroke-width: var(--border-strong);
 }
 
-@media (max-width: 89.9375rem) {
-    .app-shell:has(.group-floating-recruitment) .app-scroll-top {
-        right: var(--page-gutter);
-        bottom: calc(
-            var(--space-4) + env(safe-area-inset-bottom) + var(--touch-target-lg) +
-                var(--space-3)
-        );
-    }
-}
-
 .app-header {
     position: sticky;
     top: 0;

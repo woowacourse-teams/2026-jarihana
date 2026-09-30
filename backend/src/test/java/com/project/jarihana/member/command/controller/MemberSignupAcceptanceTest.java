@@ -64,7 +64,7 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
         assertThat(response.statusCode()).isEqualTo(HttpStatus.CREATED.value());
         assertThat(response.jsonPath().getBoolean("success")).isTrue();
         Long id = response.jsonPath().getLong("data.id");
-        assertThat(response.header(HttpHeaders.LOCATION)).endsWith("/members/" + id);
+        assertThat(response.header(HttpHeaders.LOCATION)).isEqualTo("/api/members/" + id);
         assertThat(response.jsonPath().getString("data.crewName")).isEqualTo("가온");
         assertThat(response.jsonPath().getString("data.memberType")).isEqualTo("CREW");
         assertThat(response.jsonPath().getInt("data.generation")).isEqualTo(8);

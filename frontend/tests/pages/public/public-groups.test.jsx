@@ -199,6 +199,49 @@ it("Given an approved group member, when the detail page renders, then applicati
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 
+it("Given an active recruitment, when the detail page opens, then its entry opens recruitment information", async () => {
+  const user = userEvent.setup();
+
+  renderAt("/groups/41", <GroupDetailPage />);
+
+  const entryElement = document.querySelector(".group-profile .group-recruitment-entry");
+  expect(entryElement).toBeInTheDocument();
+  const entry = within(entryElement);
+  const button = entry.getByRole("button", { name: "모집 정보" });
+  expect(button).toHaveAttribute(
+    "data-ph-capture-attribute-action",
+    "recruitment_details_open"
+  );
+
+  await user.click(button);
+
+  const recruitmentDialog = screen.getByRole("dialog", { name: "모집 정보" });
+  expect(recruitmentDialog).toBeInTheDocument();
+  expect(within(recruitmentDialog).getByText("모집 중")).toBeVisible();
+});
+
+it("Given no active recruitment, when the detail page opens, then the entry opens the empty recruitment state", async () => {
+  const user = userEvent.setup();
+  groupHooks.useGroup.mockReturnValue({
+    data: { ...group, activeRecruitment: null },
+    isLoading: false,
+    isError: false
+  });
+
+  renderAt("/groups/41", <GroupDetailPage />);
+
+  const button = screen.getByRole("button", { name: "모집 정보" });
+  expect(button).toHaveAttribute(
+    "data-ph-capture-attribute-action",
+    "recruitment_details_open"
+  );
+
+  await user.click(button);
+
+  const recruitmentDialog = screen.getByRole("dialog", { name: "모집 정보" });
+  expect(within(recruitmentDialog).getByRole("heading", { name: "자리없음" })).toBeVisible();
+});
+
 it.each([
   ["STUDY", "참여 신청하기"],
   ["CLUB", "참여 신청하기"],
@@ -215,9 +258,13 @@ it.each([
 
     renderAt("/groups/41", <GroupDetailPage />);
 
-    await user.click(screen.getByRole("button", { name: actionLabel }));
+    const entry = within(document.querySelector(".group-recruitment-entry"));
+    await user.click(entry.getByRole("button", { name: "모집 정보" }));
 
-    const dialog = screen.getByRole("dialog");
+    const recruitmentDialog = screen.getByRole("dialog", { name: "모집 정보" });
+    await user.click(within(recruitmentDialog).getByRole("button", { name: actionLabel }));
+
+    const dialog = screen.getByRole("dialog", { name: "신청" });
     expect(within(dialog).getByRole("heading", { name: "신청" })).toBeInTheDocument();
     expect(within(dialog).getByRole("textbox", { name: "신청 메시지" })).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "신청하기" })).toBeInTheDocument();
@@ -259,7 +306,10 @@ it("records group-detail application start with session promotion attribution", 
   });
 
   renderAt("/groups/41", <GroupDetailPage />);
-  await user.click(screen.getByRole("button", { name: "참여 신청하기" }));
+  const entry = within(document.querySelector(".group-recruitment-entry"));
+  await user.click(entry.getByRole("button", { name: "모집 정보" }));
+  const recruitmentDialog = screen.getByRole("dialog", { name: "모집 정보" });
+  await user.click(within(recruitmentDialog).getByRole("button", { name: "참여 신청하기" }));
 
   expect(captureEvent).toHaveBeenCalledWith("registration_started", {
     group_id: 41,
