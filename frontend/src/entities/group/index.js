@@ -91,6 +91,7 @@ export const groupDetailSchema = groupListItemSchema.extend({
   representativeImageKey: z.string().max(255).nullable().optional(),
   recurringSchedule: recurringScheduleSchema.nullable(),
   sessionSchedule: sessionScheduleSchema.nullable(),
+  currentMemberRegistrationId: entityIdSchema.nullable().optional(),
   currentMemberRegistrationStatus: groupRegistrationStatusSchema.nullable().optional(),
   createdAt: localDateTimeSchema
 });

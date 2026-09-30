@@ -150,6 +150,61 @@ Location: /api/groups/12/recruitments/45
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
 | 모집 공고 없음 또는 해당 그룹의 공고가 아님 | `RECRUITMENT_NOT_FOUND` | 404 |
 
+### `PUT /api/groups/{groupId}/recruitments/{recruitmentId}`
+
+- 설명: 현재 모집의 기간, 정원, 승인 방식 수정
+- 권한: `LEADER`
+
+#### 요청
+
+```json
+{
+  "joinMethod": "APPROVAL",
+  "capacity": 8,
+  "startsAt": "2026-08-20T00:00:00",
+  "endsAt": "2026-08-31T23:59:59"
+}
+```
+
+- 수정 가능한 값은 `joinMethod`, `capacity`, `startsAt`, `endsAt`뿐이다.
+- `capacity`는 1 이상이며 이미 승인된 인원 이상이어야 한다.
+- `endsAt = null`이면 상시 모집이다.
+- `startsAt <= endsAt`이어야 한다.
+- 마감된 모집 공고는 수정할 수 없다.
+- `capacity`를 현재 승인 인원과 같게 수정하면 모집을 현재 시각에 마감하고 기존 `PENDING` 신청은 유지한다. 모임장이 대기 신청을 직접 처리한다.
+- 수정 요청의 값이 현재 설정과 같더라도 `capacity`가 현재 승인 인원과 같으면 모집을 마감한다.
+- 값이 같고 정원에 도달하지 않은 요청은 저장하지 않고 현재 모집 정보를 반환한다.
+
+#### 응답 200
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 45,
+    "groupId": 12,
+    "joinMethod": "APPROVAL",
+    "capacity": 8,
+    "startsAt": "2026-08-20T00:00:00",
+    "endsAt": "2026-08-31T23:59:59",
+    "recruitingStatus": "SCHEDULED"
+  },
+  "error": null
+}
+```
+
+#### 예외
+
+| 상황 | 코드 | HTTP |
+| --- | --- | --- |
+| 해당 그룹의 모임장이 아님 | `RECRUITMENT_ACCESS_DENIED` | 403 |
+| 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
+| 모집 공고 없음 또는 해당 그룹의 공고가 아님 | `RECRUITMENT_NOT_FOUND` | 404 |
+| 마감된 모집 공고 | `RECRUITMENT_ALREADY_CLOSED` | 409 |
+| 승인된 인원보다 작은 정원 | `RECRUITMENT_CAPACITY_EXCEEDED` | 409 |
+| ENDED 그룹 | `GROUP_ENDED` | 409 |
+| 잘못된 요청 값 또는 모집 기간 | `INVALID_PARAMETER` / `RECRUITMENT_INVALID_PERIOD` | 400 |
+
 ### `PATCH /api/groups/{groupId}/recruitments/{recruitmentId}`
 
 - 설명: 모집 공고 조기 마감
@@ -181,7 +236,7 @@ Location: /api/groups/12/recruitments/45
 
 #### 부수 효과
 - 미래의 `startsAt`보다 앞서 마감하는 경우 `startsAt = min(startsAt, now)`, `endsAt = now`로 `startsAt <= endsAt`을 유지한다.
-- 수동 조기 마감의 `PENDING` 신청은 즉시 거절하지 않고 마감 후 2주 정책을 적용한다.
+- 수동 조기 마감의 `PENDING` 신청은 즉시 미승인하지 않고 마감 후 2주 정책을 적용한다.
 - 한 번 마감된 공고를 다시 활성화하지 않는다.
 
 #### 예외

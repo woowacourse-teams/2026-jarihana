@@ -93,6 +93,31 @@ test("anonymous visits persist until login then logout rotates identity", async 
   expect(client.reset).toHaveBeenCalledTimes(1);
 });
 
+test("login completion follows identification and strips OAuth secrets", async () => {
+  const { analytics, client, options } = setup();
+  await analytics.syncAnalyticsIdentity("anonymous");
+  await analytics.syncAnalyticsIdentity("authenticated", 42);
+  expect(
+    analytics.captureEvent("login_completed", {
+      provider: "github",
+      code: "secret",
+      state: "secret",
+      access_token: "secret"
+    })
+  ).toBe(true);
+  expect(client.reset).not.toHaveBeenCalled();
+  expect(client.capture).toHaveBeenCalledWith("login_completed", { provider: "github" });
+  expect(client.identify.mock.invocationCallOrder[0]).toBeLessThan(
+    client.capture.mock.invocationCallOrder[0]
+  );
+  expect(
+    options().before_send({
+      event: "login_completed",
+      properties: { provider: "github", code: "secret" }
+    }).properties
+  ).toEqual({ provider: "github" });
+});
+
 test("same persisted member refreshes SDK identity on another visit", async () => {
   const { analytics, client } = setup({ storage: { getItem: () => "42", setItem: jest.fn() } });
   await analytics.syncAnalyticsIdentity("authenticated", 42);

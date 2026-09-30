@@ -84,7 +84,7 @@ function ShowcaseContent() {
           <StatusBadge tone="brand">모집 중</StatusBadge>
           <StatusBadge tone="success">승인됨</StatusBadge>
           <StatusBadge tone="warning">승인 대기</StatusBadge>
-          <StatusBadge tone="danger">거절됨</StatusBadge>
+          <StatusBadge tone="danger">미승인</StatusBadge>
           <StatusBadge>모집 마감</StatusBadge>
           <Avatar alt="김자리" fallback="김" />
           <Avatar alt="이하나" fallback="이" size="lg" />
@@ -218,6 +218,7 @@ function ShowcaseContent() {
         />
         <div className="ui-showcase__row">
           <Modal
+            closeAction="showcase_modal_dismiss"
             description="이 surface 안에서 Tab focus가 순환합니다."
             title="모임 소개"
             trigger={<Button variant="secondary">모달 열기</Button>}
@@ -226,13 +227,20 @@ function ShowcaseContent() {
             <Button>확인</Button>
           </Modal>
           <ConfirmDialog
+            closeAction="showcase_confirm_dismiss"
+            cancelAction="showcase_confirm_cancel"
+            confirmAction="showcase_confirm_confirm"
             danger
             description="삭제한 모임은 되돌릴 수 없어요."
             onConfirm={() => {}}
             title="정말 삭제할까요?"
             trigger={<Button variant="danger">확인 대화상자</Button>}
           />
-          <Drawer title="전체 메뉴" trigger={<Button variant="secondary">드로어 열기</Button>}>
+          <Drawer
+            closeAction="showcase_drawer_dismiss"
+            title="전체 메뉴"
+            trigger={<Button variant="secondary">드로어 열기</Button>}
+          >
             <nav aria-label="드로어 메뉴">
               <a href="/groups">모임 둘러보기</a>
             </nav>

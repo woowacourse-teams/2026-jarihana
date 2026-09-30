@@ -3,13 +3,16 @@ import { isPrivateRoute, normalizePath, sanitizeEvent, sanitizeProperties } from
 import { clearPromotionAttribution } from "./promotion";
 
 const businessEvents = new Set([
+  "login_completed",
   "signup_completed",
   "registration_started",
   "registration_submitted",
   "registration_withdrawn",
   "registration_decided",
+  "feedback_submitted",
   "group_created",
   "recruitment_created",
+  "recruitment_updated",
   "recruitment_closed"
 ]);
 const noopRequest = { finish() {} };

@@ -6,12 +6,14 @@ import { AnalyticsBridge } from "../../src/app/AnalyticsBridge";
 import { routeRegistry } from "../../src/app/routes";
 import { useAuth } from "../../src/features/auth";
 import {
+  captureEvent,
   getPromotionEntryId,
   setAnalyticsRoute,
   syncAnalyticsIdentity,
   syncPromotionAttribution,
   trackPage
 } from "../../src/shared/analytics";
+import { beginLoginAttempt, finishLoginAttempt } from "../../src/shared/analytics/loginConversion";
 
 jest.mock("react-router", () => ({
   matchRoutes: jest.fn(),
@@ -20,6 +22,7 @@ jest.mock("react-router", () => ({
 jest.mock("../../src/features/auth", () => ({ useAuth: jest.fn() }));
 jest.mock("../../src/shared/analytics", () => ({
   getPromotionEntryId: jest.fn(),
+  captureEvent: jest.fn(),
   setAnalyticsRoute: jest.fn(),
   syncAnalyticsIdentity: jest.fn(),
   syncPromotionAttribution: jest.fn(),
@@ -35,6 +38,7 @@ function deferred() {
 }
 
 beforeEach(() => {
+  sessionStorage.clear();
   jest.clearAllMocks();
   getPromotionEntryId.mockReset().mockReturnValue(undefined);
   syncAnalyticsIdentity.mockReset().mockResolvedValue(true);
@@ -42,6 +46,53 @@ beforeEach(() => {
   useAuth.mockReturnValue({ member: { id: 42 }, status: "authenticated" });
   useLocation.mockReturnValue({ pathname: "/groups", search: "", hash: "" });
   matchRoutes.mockReturnValue([{ route: { page: "GroupsPage" }, params: {} }]);
+});
+
+test("records verified login once after identity settles, including StrictMode and navigation", async () => {
+  beginLoginAttempt();
+  finishLoginAttempt("authenticated", 42);
+  const identity = deferred();
+  syncAnalyticsIdentity.mockReturnValue(identity.promise);
+  const { rerender, unmount } = render(
+    <StrictMode>
+      <AnalyticsBridge />
+    </StrictMode>
+  );
+  expect(captureEvent).not.toHaveBeenCalled();
+  await act(async () => identity.resolve(true));
+  expect(captureEvent).toHaveBeenCalledTimes(1);
+  expect(captureEvent).toHaveBeenCalledWith("login_completed", { provider: "github" });
+  useLocation.mockReturnValue({ pathname: "/my" });
+  rerender(
+    <StrictMode>
+      <AnalyticsBridge />
+    </StrictMode>
+  );
+  await act(async () => {});
+  unmount();
+  render(<AnalyticsBridge />);
+  await act(async () => {});
+  expect(captureEvent).toHaveBeenCalledTimes(1);
+});
+
+test("regular authenticated visits do not count as login", async () => {
+  render(<AnalyticsBridge />);
+  await act(async () => {});
+  expect(captureEvent).not.toHaveBeenCalled();
+});
+
+test("paused callback collection waits for an active destination before counting login", async () => {
+  beginLoginAttempt();
+  finishLoginAttempt("authenticated", 42);
+  useLocation.mockReturnValue({ pathname: "/oauth/callback" });
+  syncAnalyticsIdentity.mockResolvedValue(false);
+  const { rerender } = render(<AnalyticsBridge />);
+  await act(async () => {});
+  expect(captureEvent).not.toHaveBeenCalled();
+  useLocation.mockReturnValue({ pathname: "/groups" });
+  syncAnalyticsIdentity.mockResolvedValue(true);
+  rerender(<AnalyticsBridge />);
+  await waitFor(() => expect(captureEvent).toHaveBeenCalledTimes(1));
 });
 
 test("synchronizes member identity before recording a page without exposing profile fields", async () => {

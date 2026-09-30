@@ -1,4 +1,4 @@
-<!-- 제목은 `{type}: {title}` 형식으로 작성합니다. type은 docs/workflow.md의 커밋 타입을 따릅니다. -->
+<!-- 제목은 `{type}: {title}` 형식으로 작성합니다. type은 docs/repository-conventions/commits.md의 커밋 타입을 따릅니다. -->
 
 ## PR 내용
 

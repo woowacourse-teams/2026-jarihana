@@ -77,7 +77,7 @@ class MyRegistrationQueryControllerTest extends IntegrationTestSupport {
         Registration rejected = savePending(
                 firstRecruitment,
                 applicant,
-                "거절 메시지",
+                "미승인 메시지",
                 NOW.minusHours(2)
         );
         registrationRepository.save(rejected.reject(
@@ -109,8 +109,10 @@ class MyRegistrationQueryControllerTest extends IntegrationTestSupport {
                 .body("data.items[0].recruitmentId", equalTo(firstRecruitment.getId().intValue()))
                 .body("data.items[0].message", equalTo("대기 메시지"))
                 .body("data.items[0].status", equalTo("PENDING"))
+                .body("data.items[0].canWithdraw", equalTo(true))
                 .body("data.items[1].id", equalTo(approved.getId().intValue()))
                 .body("data.items[1].status", equalTo("APPROVED"))
+                .body("data.items[1].canWithdraw", equalTo(false))
                 .body("data.items[1].decidedBy.type", equalTo("MEMBER"))
                 .body("data.items[1].decidedBy.memberId", equalTo(decisionMaker.getId().intValue()))
                 .body("data.nextCursor", not(nullValue()))
@@ -130,6 +132,7 @@ class MyRegistrationQueryControllerTest extends IntegrationTestSupport {
                 .body("data.items.size()", equalTo(1))
                 .body("data.items[0].id", equalTo(rejected.getId().intValue()))
                 .body("data.items[0].status", equalTo("REJECTED"))
+                .body("data.items[0].canWithdraw", equalTo(false))
                 .body("data.items[0].rejectReason", equalTo("모집 인원이 마감되었습니다."))
                 .body("data.nextCursor", nullValue())
                 .body("data.hasNext", equalTo(false));
@@ -144,6 +147,27 @@ class MyRegistrationQueryControllerTest extends IntegrationTestSupport {
                 .statusCode(200)
                 .body("data.items.size()", equalTo(1))
                 .body("data.items[0].id", equalTo(pending.getId().intValue()));
+    }
+
+    @DisplayName("마감된 모집의 대기 신청은 철회할 수 없다고 응답한다.")
+    @Test
+    void marksClosedPendingRegistrationAsNotWithdrawable() {
+        // Given
+        Member applicant = saveMember("마감자", Course.BACKEND, "my-registration-closed-applicant");
+        GroupRecruitment recruitment = saveRecruitment(saveGroup("my-registration-closed-group"));
+        savePending(recruitment, applicant, null, NOW.minusHours(1));
+        recruitmentRepository.save(recruitment.closeAt(NOW));
+
+        // When / Then
+        given()
+                .cookie(authCookieProperties.accessTokenName(), accessTokenProvider.issue(applicant.getId()).value())
+                .queryParam("applicant", "me")
+                .when()
+                .get("/registrations")
+                .then()
+                .statusCode(200)
+                .body("data.items[0].status", equalTo("PENDING"))
+                .body("data.items[0].canWithdraw", equalTo(false));
     }
 
     private Registration savePending(

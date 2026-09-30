@@ -46,6 +46,9 @@ class RegistrationTest {
         assertThat(registration.getDecidedBy()).isNull();
         assertThat(registration.getLeaderViewedAt()).isNull();
         assertThat(registration.canWithdraw()).isTrue();
+        assertThat(registration.canWithdrawAt(STARTS_AT.minusNanos(1))).isFalse();
+        assertThat(registration.canWithdrawAt(ENDS_AT.minusNanos(1))).isTrue();
+        assertThat(registration.canWithdrawAt(ENDS_AT)).isFalse();
     }
 
     private GroupRecruitment recruitment(JoinMethod joinMethod, int capacity) {
@@ -223,7 +226,7 @@ class RegistrationTest {
                 .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
-    @DisplayName("대기 신청은 회원 주체가 수동 거절하고 시스템이 자동 거절할 수 있다.")
+    @DisplayName("대기 신청은 회원 주체가 수동 미승인하고 시스템이 자동 미승인할 수 있다.")
     @Test
     void rejectPendingRegistration() {
         // Given
@@ -241,7 +244,7 @@ class RegistrationTest {
         assertThat(original.getStatus()).isEqualTo(RegistrationStatus.PENDING);
     }
 
-    @DisplayName("시스템 주체로 수동 거절할 수 없다.")
+    @DisplayName("시스템 주체로 수동 미승인할 수 없다.")
     @Test
     void systemCannotManuallyReject() {
         // When & Then
@@ -254,7 +257,7 @@ class RegistrationTest {
                 .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
-    @DisplayName("거절 사유는 1000자를 초과할 수 없다.")
+    @DisplayName("미승인 사유는 1000자를 초과할 수 없다.")
     @Test
     void rejectReasonCannotExceedLimit() {
         // When & Then
@@ -267,7 +270,7 @@ class RegistrationTest {
                 .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
-    @DisplayName("이미 결정된 신청은 다시 승인하거나 거절할 수 없다.")
+    @DisplayName("이미 결정된 신청은 다시 승인하거나 미승인할 수 없다.")
     @Test
     void decidedRegistrationCannotChangeAgain() {
         // Given
@@ -287,7 +290,7 @@ class RegistrationTest {
                 .isEqualTo(ErrorCode.INVALID_PARAMETER);
         assertThatThrownBy(() -> approved.reject(
                 DecisionActor.member(10L),
-                "다시 거절",
+                "다시 미승인",
                 REGISTERED_AT.plusDays(2)
         )).isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())

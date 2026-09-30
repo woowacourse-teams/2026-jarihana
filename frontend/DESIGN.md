@@ -48,7 +48,7 @@
 | `--color-surface-sunken`| `#f4f5f7`       | 카드 안쪽의 낮은 깊이 surface               |
 | `--color-section-soft` | `#fcfcfc`        | 탐색 결과 section을 hero와 분리하는 surface |
 | `--color-canvas`       | `#ffffff`        | 앱 배경                                    |
-| `--color-nav`          | `#000000`        | global header                              |
+| `--color-nav`          | `#000000`        | header, footer, 문서 바깥 스크롤 배경       |
 | `--color-danger`       | `#c7352a`        | 오류/파괴 액션, AA 대비용 파생 token       |
 | `--color-danger-soft`  | `#fff0ee`        | 오류 배경                                  |
 | `--color-success`      | `#247a45`        | 성공 상태, AA 대비용 파생 token            |
@@ -110,7 +110,12 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - Touch: `--touch-target`은 44px, `--touch-target-lg`는 48px이다. 일반 button, navigation,
   filter, form control은 이 최소 높이를 공유하며, 텍스트형 CTA는 문구 리듬을 위해 예외로 둔다.
 - Header: `--header-height` 72px, active line 3px, loading auth placeholder 108px로
-  geometry를 token화한다.
+  geometry를 token화한다. 모든 화면에서 `position: sticky`와 `top: 0`으로 상단에 유지하며,
+  문서 흐름에 헤더 공간을 남겨 본문 시작을 가리지 않는다. 루트 scroll padding은
+  `--header-height`를 사용해 앵커 이동과 키보드 포커스가 헤더 아래에 보이도록 한다.
+- 문서의 `html`과 `body` 배경은 `--color-nav`로 맞춰 macOS의 탄성 스크롤에서
+  헤더·푸터 바깥에 흰색이 드러나지 않게 한다. 본문은 `.app-shell`의 밝은 surface를 사용하며
+  브라우저의 기본 스크롤 동작은 유지한다.
 - 탐색 랜딩(`/`)과 호환 진입점(`/groups`)의 hero는 header 아래
   `calc(100dvh - --header-height)` 높이로 첫 화면을 채우고, 설명 문구 아래의 `자리 둘러보기` 화살표 CTA가
   검색·필터가 가려지지 않도록 discovery section의 `자리 둘러보기` 제목으로 부드럽게 이동시킨다. `/groups`는 기존 링크와 북마크를 보존하는 동일
@@ -162,7 +167,46 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   member tabs는 노출하지 않는다. 모바일 drawer에서는 탐색·모임 만들기 진입점을 유지하고, guard가
   인증이 필요한 destination을 처리한다. anonymous가 보호 메뉴를 누르면 해당 경로를 로그인 후
   복귀 대상으로 저장하고 GitHub 로그인으로 이동한다. authenticated 상태에만
-  `마이` link와 logout action을 더한다.
+  desktop에서 프로필 사진을 계정 메뉴 버튼으로 표시하고, 마이페이지와 로그아웃은 드롭다운 안에 둔다.
+  프로필은 공통 `Avatar`로 서버의 `avatarUrl`을 표시하고, 사진이 없거나 로드에 실패하면
+  크루 이름 첫 글자로 대체한다. 모바일 헤더는 프로필 없이 햄버거 버튼만 표시한다.
+- Header GitHub login: [Octicons GitHub mark](https://github.com/primer/octicons/blob/main/icons/mark-github-16.svg)를 `--space-5` 크기로 문구 왼쪽에 둔다.
+  흰색 `--color-surface` 바탕, `--color-ink` 글자, `--color-line` 테두리와 기존 버튼의 `--radius-pill` 모서리를
+  사용한다. hover는 `--color-surface-sunken`, pressed는 `--color-line`으로 구분한다.
+  최소 높이는 `--touch-target`이며, 로고와 문구 간격은 `--space-2`다.
+- Header profile: 원형 사진은 desktop `--space-10`(40px)이다.
+  버튼은 최소 `--touch-target` 크기이며 접근성 이름은 `프로필 메뉴`다. 닉네임은 표시하지 않는다.
+  클릭·터치·Enter/Space로 마이페이지 링크와 로그아웃 버튼을 담은 disclosure를 열고,
+  다시 클릭하거나 바깥 클릭·포커스 이탈·Escape·항목 선택으로 닫는다. hover만으로 열리지 않는다.
+  Tab으로 항목을 탐색하며 Escape는 메뉴 안의 포커스를 사진 버튼으로 돌린다.
+  `aria-expanded`와 `aria-controls`로 펼침 상태를 알린다. 흰색 메뉴는 사진 오른쪽에 정렬하고
+  `--space-2` 아래에 `--color-line` 테두리, `--radius-md`, `--shadow-float`로 표시한다.
+  메뉴 항목은 최소 `--touch-target` 크기이며 hover/focus는 `--color-surface-sunken`이다.
+  전역 focus ring을 유지한다.
+  사진이 없거나 로드에 실패하면 크루 이름 첫 글자를 `--color-surface-sunken` 바탕과
+  `--color-ink` 글자로 표시한다.
+- Mobile account: 로그인한 모바일 전체 메뉴 상단은 마이페이지 프로필 카드의 가운데 정렬 세로 배치를 따른다.
+  `나의 프로필` 안내, `calc(--space-12 * 2)`(96px) 원형 사진, 이름(`--text-h3`),
+  기수/과정(`--text-caption`, muted), 전체 너비 로그아웃 버튼 순으로 쌓는다.
+  카드에는 `--color-surface-sunken` 바탕, `--color-line` 테두리, `--radius-md`, `--space-4` padding을 사용한다.
+  사진은 사이드바 폭에 맞춰 마이페이지보다 작게 표시하며, 사진과 글의 간격은 `--space-3`이다.
+  코치는 기수 대신 `코치`, 기수 정보가 없는 크루는 `기수 미정`을 표시한다. 긴 이름은 줄바꿈한다.
+  프로필 영역은 정보 표시용이며, 마이페이지는 아래의 탐색·모임 만들기와 같은 텍스트 메뉴로 둔다.
+  마이페이지 링크와 로그아웃 버튼의 최소 클릭 높이는 `--touch-target`이다.
+  계정 카드와 아래 메뉴는 `--space-4` 여백, `--color-line` 구분선, `--space-4` 안쪽 여백으로 나누고
+  메뉴 영역에 muted caption 크기의 `메뉴` 제목을 둔다.
+  비로그인 상태에도 같은 순서와 크기의 프로필 형태를 유지한다. 96px 회색 원형 바탕(`--color-line`)에
+  장식용 UserRound 아이콘 아래에는 `게스트`만 표시하고 하단에는 GitHub 로그인 버튼을 둔다.
+  비로그인 상태에는 `나의 프로필` 제목과 설명 문구를 렌더하지 않는다.
+  제목의 caption line-height에 해당하는 첫 grid 행을 유지해 사진과 버튼 위치가 바뀌지 않게 한다.
+  아이콘은 `--color-muted`, 게스트 이름은 `--text-h3`, bold, `--color-muted-ink`를 사용한다.
+  이름·기수 또는 게스트 이름 영역은 최소 `calc(--space-12 + --space-2)`(56px)를 확보하며,
+  게스트 이름은 그 안에서 세로 가운데 정렬한다. 빈 문구나 숨긴 텍스트로 공간을 채우지 않는다.
+  로딩으로 오해하지 않도록 비로그인 프로필에 shimmer나 pulse를 적용하지 않는다.
+  가입 중·인증 확인 중에도 프로필 형태를 유지하되 상태에 맞는 문구와 가입 계속하기·기존 인증 placeholder를 표시한다.
+  카드 높이는 내용에 맞추며 기본 이름·기수 두 줄과 게스트 이름 한 줄에서는 로그인 전후 사진·버튼 위치를 유지한다.
+  긴 이름은 줄바꿈하고, 높이가 짧은 화면에서는 기존 drawer가 세로 스크롤을 담당한다.
+  마이페이지 선택·로그인·로그아웃 시 사이드바를 닫는다.
 - Header active state는 모바일 drawer의 pathname 목적지에만 연결한다. `/groups/new`에서 상위
   `/groups` 탐색 링크를 동시에 활성화하거나, `/my/groups`에서 `/my`를 동시에 활성화하지 않는다.
 - `PageContainer`: 모든 route의 좌우 gutter와 최대 폭을 통일한다.
@@ -192,27 +236,23 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - rail이 숨는 tablet/mobile에서는 운영자 프로필을 hero 안의 프레임 없는 byline으로 옮긴다.
   민트 ring의 compact avatar와 `운영자 · N기 크루` caption, 이름을 한 덩어리로 묶되 별도의
   card·chip·배경은 만들지 않고 hero 자체 overlay 위에 직접 배치한다.
-- 모집 정보만 floating modal로 제공하며, detail tabs는 content section을 바꾸지만
-  URL route는 detail에 남긴다.
+- tablet/mobile에서는 `모집 정보` 진입 버튼을 hero 섹션 안쪽 하단에 가운데 배치한다. 모집 여부와
+  모임 종료 상태에 관계없이 표시하며 기존 모집 action 버튼의 흰 surface·line 테두리·의자 로고를 그대로 사용한다.
+  버튼을 누르면 모집 정보 모달을 열고, 모달 안의 신청 동작은 기존 흐름을 유지한다. detail tabs는
+  content section을 바꾸지만 URL route는 detail에 남긴다.
 - desktop 모집 rail은 내용의 자연 높이를 유지하고 내부 스크롤을 만들지 않는다. rail의 실제
   높이를 `ResizeObserver`로 측정해 `--group-rail-height`에 반영한다. sticky 상단 위치는
-  `--space-5`와 `100dvh - rail 높이 - --space-4 - safe area` 중 작은 값으로 정한다.
-  카드가 창보다 높아도 페이지 스크롤로 신청 action까지 도달할 수 있으며, 모집 일정 펼치기나
-  글꼴·화면 크기 변경에도 위치를 다시 맞춘다. 스크롤과 함께 사라지는 header 높이는 차감하지 않는다.
-  가로 `89.9375rem` 이하에서는 기존 `자리 확인` 버튼과 모집 정보 모달을 사용한다.
+  `--header-height + --space-5`와 `100dvh - rail 높이 - --space-4 - safe area` 중 작은 값으로 정한다.
+  짧은 카드는 고정 헤더 아래에 유지하고, 카드가 창보다 높으면 페이지 스크롤로 상단을 넘겨
+  신청 action까지 도달할 수 있다. 모집 일정 펼치기나 글꼴·화면 크기 변경에도 위치를 다시 맞춘다.
+  가로 `89.9375rem` 이하에서는 모집 rail을 숨기고 hero 안의 참여 action과 모집 정보 모달을 사용한다.
   세로 viewport 높이나 DPI, devicePixelRatio는 전환 조건으로 사용하지 않는다.
-- 모집 정보 플로팅 버튼은 텍스트 없이 기존 `jarihana-favicon.png` 의자 로고만 담은 원형 버튼으로
-  표시한다. 지름은 `맨 위로 이동` 버튼과 같은 `--touch-target-lg`(48px), 안쪽 여백은
-  `--space-2`(8px)이며 secondary 표면을
-  사용한다. 이미지 전체를 `object-fit: contain`으로 표시하고, 버튼의 접근성 이름은
-  `모집 정보 보기`로 유지한다. 이미지에는 빈 alt와 `aria-hidden`을 적용한다.
-  본문 끝에는 버튼 영역만큼 여백을 두고, `맨 위로 이동` 버튼은 이 원형 버튼 위에
-  `--space-3`(12px) 간격으로 배치하고 오른쪽 끝을 맞춘다.
   모집 정보 일러스트는 desktop과 모달에서 같은 가운데 정렬 규칙을 사용한다. desktop rail에서는
   가용 가로 폭 안에 원본 비율로 맞추고 세로 viewport 높이에 따라 축소하지 않는다. 모달에서는
   가용 폭과 viewport 높이 안에 맞춘다. 이미지 자체보다 큰 최소 높이를 별도로 예약하지 않는다.
-- desktop과 모바일 모집 정보 모달의 CLUB·STUDY 타입 `참여 신청하기`·SESSION 타입 `참여하기` 버튼은 흰 surface와 line 테두리를 사용하고,
-  문구 왼쪽에 기존 의자 로고를 `--space-8`(32px) 크기의 장식 이미지로 표시한다.
+- desktop rail과 모집 정보 모달의 CLUB·STUDY 타입 `참여 신청하기`·SESSION 타입 `참여하기` 버튼은 흰 surface와 line 테두리를 사용하고,
+  문구 왼쪽에 기존 의자 로고를 `--space-8`(32px) 크기의 장식 이미지로 표시한다. tablet/mobile의
+  hero 안 진입 버튼은 같은 스타일과 로고를 사용하고 문구는 `모집 정보`로 표시한다.
   모집 마감·운영자·참여 완료 등의 상태별 버튼은 기존 표현을 유지한다.
 - 모달의 모집 정보 스크롤바는 투명 track과 얇고 둥근 thumb를 사용하며 스크롤바 공간을 상시 예약하지
   않는다. 모달은 둥근 외곽 안쪽의 모집 정보 한 곳에서만 세로 스크롤하고 제목·닫기 버튼·신청
@@ -406,7 +446,7 @@ default/hover/active/focus/selected 상태를 제공한다.
   문서 흐름을 밀지 않는 overlay popover로 두고, 열릴 때 opacity + 4px translate만 180ms로
   전환한다. 날짜 범위와 빠른 선택 결과는 즉시 갱신하며 전환 중에도 입력을 막지 않는다.
 - `HeroScrollButton`은 카드 수나 화면 높이에 관계없이 목록의 `자리 둘러보기` 제목에 맞춰
-  smooth scroll한다. 제목 위의 화면 여백은 `--space-4`(16px)이며, 제목 아래 검색·필터를
+  smooth scroll한다. 고정 헤더 아래에서 제목까지의 여백은 `--space-4`(16px)이며, 제목 아래 검색·필터를
   먼저 보여준다. 카드가 없는 상태에서도 같은 기준을 유지한다.
   `ScrollToTopButton`은
   viewport 우측 하단에 fixed로 유지되어 페이지 최상단으로 smooth scroll한다. 두 동작 모두

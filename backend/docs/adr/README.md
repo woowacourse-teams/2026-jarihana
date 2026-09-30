@@ -1,7 +1,7 @@
 # 백엔드 ADR 목록
 
 이 목록은 백엔드 기술 결정을 기록한다. 프론트엔드 결정은 별도 [프론트엔드 ADR 목록](../../../frontend/docs/adr/README.md)에서
-관리한다. 모노레포의 ADR 영역 구분과 교차 참조 방식은 [워크플로 컨벤션](../../../docs/workflow.md)에,
+관리한다. 모노레포의 ADR 영역 구분과 교차 참조 방식은 [저장소 컨벤션](../../../docs/repository-conventions.md)에,
 백엔드 ADR 작성과 번호 관리는 [프로젝트 운영 컨벤션](../conventions/project-operations.md)의 "ADR 운영" 절에 있다.
 
 ## 기록된 결정
@@ -21,6 +21,7 @@
 | 0011 | [운영 RDBMS로 PostgreSQL을 선택한다](0011-postgresql-rdbms-selection.md) | 채택 | 2026-08-26 | |
 | 0012 | [데이터베이스 스키마를 저장소에서 관리한다](0012-database-schema-management.md) | 제안 | 2026-08-27 | 도구 미확정. 채택되면 0011의 감수 비용을 닫는다 |
 | 0013 | [자동화 테스트의 PostgreSQL을 Testcontainers로 실행한다](0013-testcontainers-test-database.md) | 채택 | 2026-09-14 | 0012의 테스트 DB Docker Compose 재사용 결정을 대체 |
+| 0014 | [초기 관찰 플랫폼으로 Amazon CloudWatch를 사용한다](0014-cloudwatch-observability-platform.md) | 채택 | 2026-09-23 | |
 
 관련 회고: [`/api` 접두사는 누가 떼는가](../retrospectives/api-prefix-troubleshooting.md)는
 ADR 0006과 0007에 이르기까지의 기록이다.

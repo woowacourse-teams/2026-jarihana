@@ -3,12 +3,14 @@ import { matchRoutes, useLocation } from "react-router";
 
 import { useAuth } from "../features/auth";
 import {
+  captureEvent,
   getPromotionEntryId,
   setAnalyticsRoute,
   syncAnalyticsIdentity,
   syncPromotionAttribution,
   trackPage
 } from "../shared/analytics";
+import { consumeLoginCompletion } from "../shared/analytics/loginConversion";
 import { routeRegistry } from "./routes";
 
 export function AnalyticsBridge() {
@@ -36,6 +38,9 @@ export function AnalyticsBridge() {
       if (!cancelled && ready) {
         syncPromotionAttribution(match?.params.groupId, search);
         trackPage(pathname);
+        if (status === "authenticated" && consumeLoginCompletion(memberId)) {
+          captureEvent("login_completed", { provider: "github" });
+        }
       }
     };
 

@@ -7,6 +7,7 @@ public record CreateImageUploadResult(
         UUID id,
         String imageKey,
         String uploadUrl,
+        String publicImageUrl,
         LocalDateTime expiresAt
 ) {
 }

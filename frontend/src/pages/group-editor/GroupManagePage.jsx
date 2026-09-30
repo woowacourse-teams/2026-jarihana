@@ -152,7 +152,8 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const recurringMutation = useReplaceRecurringSchedule(groupId);
   const removeRecurringMutation = useRemoveRecurringSchedule(groupId);
   const sessionMutation = useReplaceSessionSchedule(groupId);
-  const imageUpload = useImageUpload();
+  const representativeImageUpload = useImageUpload();
+  const descriptionImageUpload = useImageUpload();
   const saveLock = useSubmissionLock();
   const lifecycleLock = useSubmissionLock();
   const [contentTab, setContentTab] = useState("intro");
@@ -238,7 +239,11 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const age = now.getTime() - new Date(group.createdAt).getTime();
   const canDelete = age >= 0 && age <= DAY_MS;
   const lifecycleVerb = canDelete ? "삭제" : "종료";
-  const savePending = saveLock.pending || modifyMutation.isPending || imageUpload.isPending;
+  const savePending =
+    saveLock.pending ||
+    modifyMutation.isPending ||
+    representativeImageUpload.isPending ||
+    descriptionImageUpload.isPending;
 
   /* 일정 오류는 모달 안에만 두면 닫는 순간 사라지므로 히어로에도 함께 보여준다. */
   const scheduleError =
@@ -291,7 +296,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   }
 
   const save = handleSubmit(async (formValues) => {
-    if (imageUpload.isPending) return;
+    if (representativeImageUpload.isPending || descriptionImageUpload.isPending) return;
     const existingImageIsCustom =
       Boolean(group.representativeImageUrl) &&
       !isDefaultGroupImageUrl(group.representativeImageUrl);
@@ -332,7 +337,8 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
       try {
         await action.mutateAsync(canDelete ? undefined : { status: "ENDED" });
         toast.show({ title: `모임을 ${lifecycleVerb}했어요.`, tone: "success" });
-        navigate("/my?tab=joined", { replace: true });
+        const groupTypeQuery = group?.type ? `&groupType=${group.type}` : "";
+        navigate(`/my?tab=joined${groupTypeQuery}`, { replace: true });
       } catch (error) {
         toast.show({
           title: `모임을 ${lifecycleVerb}하지 못했어요.`,
@@ -446,9 +452,9 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
                   previewUrl
                 }));
               }}
-              onUpload={imageUpload.mutateAsync}
-              uploadError={imageUpload.error}
-              uploadPending={imageUpload.isPending}
+              onUpload={representativeImageUpload.mutateAsync}
+              uploadError={representativeImageUpload.error}
+              uploadPending={representativeImageUpload.isPending}
             />
             <div className="group-profile__art">
               <GroupImage
@@ -472,6 +478,8 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
                     <MarkdownEditor
                       description="제목, 목록, 인용, 링크, 코드 블럭 문법을 사용할 수 있어요."
                       error={errors.description?.message}
+                      imageUploadPending={descriptionImageUpload.isPending}
+                      onImageUpload={descriptionImageUpload.mutateAsync}
                       register={register}
                       rows={7}
                       setValue={setValue}
@@ -492,6 +500,9 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
         {group.status === "ACTIVE" ? (
           <section aria-label={`모임 ${lifecycleVerb} 설정`} className="group-editor__actions">
             <ConfirmDialog
+              closeAction={canDelete ? "group_delete_confirm_dismiss" : "group_end_confirm_dismiss"}
+              cancelAction={canDelete ? "group_delete_cancel" : "group_end_cancel"}
+              confirmAction={canDelete ? "group_delete_confirm" : "group_end_confirm"}
               trigger={
                 <Button type="button" variant="danger">
                   모임 {lifecycleVerb}하기

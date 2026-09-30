@@ -105,7 +105,7 @@
 
 `recurringSchedule`을 생략하면 요일과 시간을 모두 정하지 않은 유동적 일정으로 생성한다.
 
-`recurringSchedule`을 보내되 `startTime`과 `endTime`을 함께 `null`로 두면 요일만 고정하고 시간은 정하지 않은 시간 유동적 일정으로 생성한다. 한쪽만 `null`인 요청은 `SCHEDULE_INVALID_RULE`로 거절한다.
+`recurringSchedule`을 보내되 `startTime`과 `endTime`을 함께 `null`로 두면 요일만 고정하고 시간은 정하지 않은 시간 유동적 일정으로 생성한다. 한쪽만 `null`인 요청은 `SCHEDULE_INVALID_RULE`로 허용하지 않는다.
 
 ```json
 {
@@ -229,6 +229,7 @@ Request Body는 없다.
     "memberCount": 6,
     "activeRecruitment": null,
     "currentMemberRole": null,
+    "currentMemberRegistrationId": null,
     "currentMemberRegistrationStatus": null,
     "createdAt": "2026-08-13T10:00:00"
   },
@@ -237,7 +238,7 @@ Request Body는 없다.
 ```
 
 유동적 CLUB·STUDY는 두 일정이 모두 `null`이다. SESSION은 `sessionSchedule`만 반환한다. ENDED 그룹도 직접 조회할 수 있다.
-인증된 요청이면 `currentMemberRole`에 현재 사용자의 승인된 그룹 역할(`LEADER` 또는 `MEMBER`)을 반환하고, `currentMemberRegistrationStatus`에 현재 모집 공고에 대한 신청 상태(`PENDING`, `APPROVED`, `REJECTED`)를 반환한다. 비로그인 사용자나 해당 신청이 없는 사용자는 각 값을 `null`로 반환한다.
+인증된 요청이면 `currentMemberRole`에 현재 사용자의 승인된 그룹 역할(`LEADER` 또는 `MEMBER`)을 반환하고, `currentMemberRegistrationId`와 `currentMemberRegistrationStatus`에 현재 모집 공고에 대한 본인 신청 식별자와 상태(`PENDING`, `APPROVED`, `REJECTED`)를 반환한다. 비로그인 사용자나 해당 신청이 없는 사용자는 각 값을 `null`로 반환한다.
 
 #### 예외
 
@@ -277,7 +278,7 @@ Request Body는 없다.
 #### 부수 효과
 - `Group.status`를 `ACTIVE`에서 `ENDED`로 변경한다.
 - 마감되지 않은 모집 공고를 마감한다.
-- 해당 공고의 `PENDING` 신청을 `SYSTEM` 주체로 즉시 거절한다.
+- 해당 공고의 `PENDING` 신청을 `SYSTEM` 주체로 즉시 미승인한다.
 - 그룹과 모든 연관 이력을 보존하며 다시 `ACTIVE`로 되돌릴 수 없다.
 
 #### 예외
@@ -373,7 +374,7 @@ Request Body는 없다.
 }
 ```
 
-한쪽만 `null`인 요청은 `SCHEDULE_INVALID_RULE`로 거절한다. 반복 일정을 통째로 없애 요일까지 유동적으로 두려면 이 엔드포인트가 아니라 `DELETE /api/groups/{groupId}/recurring-schedule`을 사용한다.
+한쪽만 `null`인 요청은 `SCHEDULE_INVALID_RULE`로 허용하지 않는다. 반복 일정을 통째로 없애 요일까지 유동적으로 두려면 이 엔드포인트가 아니라 `DELETE /api/groups/{groupId}/recurring-schedule`을 사용한다.
 
 #### 응답 200
 

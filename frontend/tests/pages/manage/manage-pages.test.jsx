@@ -11,7 +11,8 @@ import {
   useCloseRecruitment,
   useCreateRecruitment,
   useInfiniteRecruitments,
-  useRecruitment
+  useRecruitment,
+  useUpdateRecruitment
 } from "../../../src/features/recruitment/index.js";
 import {
   useDecideRegistration,
@@ -46,7 +47,8 @@ jest.mock("../../../src/features/recruitment/index.js", () => ({
   useCloseRecruitment: jest.fn(),
   useCreateRecruitment: jest.fn(),
   useInfiniteRecruitments: jest.fn(),
-  useRecruitment: jest.fn()
+  useRecruitment: jest.fn(),
+  useUpdateRecruitment: jest.fn()
 }));
 
 jest.mock("../../../src/features/registration/index.js", () => ({
@@ -144,6 +146,7 @@ beforeEach(() => {
   });
   useCreateRecruitment.mockReturnValue({ isPending: false, mutateAsync: jest.fn() });
   useCloseRecruitment.mockReturnValue({ isPending: false, mutateAsync: jest.fn() });
+  useUpdateRecruitment.mockReturnValue({ isPending: false, mutateAsync: jest.fn() });
   useInfiniteRegistrations.mockImplementation((recruitmentId, filters = {}) =>
     queryResult([filters.status === "APPROVED" ? approvedRegistrationFixture : registrationFixture])
   );
@@ -513,12 +516,12 @@ describe("ManageRegistrationsPage", () => {
     useDecideRegistration.mockReturnValue({ isPending: false, mutateAsync });
     render(<ManageRegistrationsPage />);
 
-    await user.click(getApplicantAction("거절"));
+    await user.click(getApplicantAction("미승인"));
     await user.type(
-      screen.getByRole("textbox", { name: "거절 사유 (선택)" }),
+      screen.getByRole("textbox", { name: "미승인 사유 (선택)" }),
       "이번 정원이 마감됐어요."
     );
-    await user.click(screen.getByRole("button", { name: "신청 거절하기" }));
+    await user.click(screen.getByRole("button", { name: "신청 미승인하기" }));
 
     expect(mutateAsync).toHaveBeenCalledWith({
       rejectReason: "이번 정원이 마감됐어요.",

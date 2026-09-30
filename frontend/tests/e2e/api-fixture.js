@@ -190,10 +190,21 @@ const groupMember = (value, role, groupMemberId) => ({
 
 const myRegistration = {
   ...pendingRegistration,
+  canWithdraw: true,
   group: { id: group.id, name: group.name, representativeImageUrl: group.representativeImageUrl },
   recruitmentId: recruitment.id
 };
 delete myRegistration.member;
+
+const rejectedMyRegistration = {
+  ...myRegistration,
+  canWithdraw: false,
+  decidedAt: "2026-08-15T11:00:00",
+  decidedBy: { memberId: leader.id, type: "MEMBER" },
+  id: 44,
+  rejectReason: "이번 모집의 정원이 모두 찼습니다.",
+  status: "REJECTED"
+};
 
 const recruitmentItems = [
   {
@@ -474,7 +485,16 @@ export async function installApiFixture(pageInstance, options = {}) {
       );
     }
     if (path === "/registrations" && method === "GET") {
-      return json(route, success(page(state.registrationPresent ? [myRegistration] : [])));
+      const requestedStatus = url.searchParams.get("status");
+      const items =
+        requestedStatus === "REJECTED"
+          ? state.registrationPresent
+            ? [rejectedMyRegistration]
+            : []
+          : state.registrationPresent
+            ? [myRegistration]
+            : [];
+      return json(route, success(page(items)));
     }
 
     state.unexpectedResponses.push(`UNHANDLED ${method} ${path}`);

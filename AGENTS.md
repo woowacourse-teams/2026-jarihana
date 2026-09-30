@@ -15,7 +15,7 @@
 
 1. 현재 브랜치와 working tree 상태를 확인한다.
 2. 공통 브랜치·PR·커밋 정책과 ADR 영역 구분·교차 참조 규칙은
-   [`docs/workflow.md`](docs/workflow.md)를 기준으로 확인한다.
+   [`docs/repository-conventions.md`](docs/repository-conventions.md)를 기준으로 확인한다.
 3. 작업 범위를 분류하고 해당 디렉터리의 세부 지침을 직접 읽는다.
    - 백엔드 작업: `backend/AGENTS.md`
    - 프론트엔드 작업: `frontend/AGENTS.md`, `frontend/docs/IMPLEMENTATION_MAP.md`
@@ -29,7 +29,7 @@
 - 현재 사용자의 요청을 가장 우선한다.
 - 작업 전에 확인한 기존 변경사항을 되돌리거나 덮어쓰지 않는다.
 - working tree가 dirty하면 기존 변경과 겹치는 파일을 먼저 식별하고 보존한다.
-- 명시적인 요청 없이 브랜치를 전환하거나 보호 브랜치에 직접 작업하지 않는다.
+- 모든 작업은 파일을 수정하기 전에 변경 목적에 맞는 작업 브랜치를 생성하고 체크아웃한다. `main`, `develop` 등 보호 브랜치에서 직접 작업하지 않는다.
 - 요청 범위를 벗어난 정리, 의존성 변경, 파일 이동과 리팩터링을 추가하지 않는다.
 - 공통 규칙은 이 파일에, 백엔드·프론트엔드·infra 전용 규칙은 각 하위 `AGENTS.md`에 둔다.
 - 문서의 정책과 실행 가능한 코드·설정이 다르면 차이를 숨기지 말고 현재 요청 범위 안에서 보고한다.

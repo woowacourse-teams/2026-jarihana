@@ -35,13 +35,20 @@ function WithdrawRegistration({ onWithdrawSuccess, registration }) {
 
   return (
     <ConfirmDialog
+      closeAction="registration_withdraw_confirm_dismiss"
+      cancelAction="registration_withdraw_cancel"
+      confirmAction="registration_withdraw_confirm"
       confirmLabel="철회하기"
       danger
       description="철회한 신청은 되돌릴 수 없어요. 다시 참여하려면 모집이 열려 있을 때 새로 신청해야 해요."
       onConfirm={withdraw}
       pending={withdrawal.isPending}
       title="신청을 철회할까요?"
-      trigger={<Button variant="danger">신청 철회</Button>}
+      trigger={
+        <Button data-ph-capture-attribute-action="registration_withdraw" variant="danger">
+          신청 철회
+        </Button>
+      }
     />
   );
 }
@@ -81,7 +88,7 @@ export function MyRegistrationsPage() {
           <option value="">전체</option>
           <option value="PENDING">검토 중</option>
           <option value="APPROVED">승인</option>
-          <option value="REJECTED">거절</option>
+          <option value="REJECTED">미승인</option>
         </Select>
         <span>{registrations.length}개의 신청</span>
       </div>
@@ -117,7 +124,7 @@ export function MyRegistrationsPage() {
               <RegistrationSummaryCard
                 registration={registration}
                 action={
-                  registration.status === "PENDING" ? (
+                  registration.status === "PENDING" && registration.canWithdraw === true ? (
                     <WithdrawRegistration
                       onWithdrawSuccess={focusListAfterWithdrawal}
                       registration={registration}
