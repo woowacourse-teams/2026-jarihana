@@ -167,7 +167,46 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   member tabs는 노출하지 않는다. 모바일 drawer에서는 탐색·모임 만들기 진입점을 유지하고, guard가
   인증이 필요한 destination을 처리한다. anonymous가 보호 메뉴를 누르면 해당 경로를 로그인 후
   복귀 대상으로 저장하고 GitHub 로그인으로 이동한다. authenticated 상태에만
-  `마이` link와 logout action을 더한다.
+  desktop에서 프로필 사진을 계정 메뉴 버튼으로 표시하고, 마이페이지와 로그아웃은 드롭다운 안에 둔다.
+  프로필은 공통 `Avatar`로 서버의 `avatarUrl`을 표시하고, 사진이 없거나 로드에 실패하면
+  크루 이름 첫 글자로 대체한다. 모바일 헤더는 프로필 없이 햄버거 버튼만 표시한다.
+- Header GitHub login: [Octicons GitHub mark](https://github.com/primer/octicons/blob/main/icons/mark-github-16.svg)를 `--space-5` 크기로 문구 왼쪽에 둔다.
+  흰색 `--color-surface` 바탕, `--color-ink` 글자, `--color-line` 테두리와 기존 버튼의 `--radius-pill` 모서리를
+  사용한다. hover는 `--color-surface-sunken`, pressed는 `--color-line`으로 구분한다.
+  최소 높이는 `--touch-target`이며, 로고와 문구 간격은 `--space-2`다.
+- Header profile: 원형 사진은 desktop `--space-10`(40px)이다.
+  버튼은 최소 `--touch-target` 크기이며 접근성 이름은 `프로필 메뉴`다. 닉네임은 표시하지 않는다.
+  클릭·터치·Enter/Space로 마이페이지 링크와 로그아웃 버튼을 담은 disclosure를 열고,
+  다시 클릭하거나 바깥 클릭·포커스 이탈·Escape·항목 선택으로 닫는다. hover만으로 열리지 않는다.
+  Tab으로 항목을 탐색하며 Escape는 메뉴 안의 포커스를 사진 버튼으로 돌린다.
+  `aria-expanded`와 `aria-controls`로 펼침 상태를 알린다. 흰색 메뉴는 사진 오른쪽에 정렬하고
+  `--space-2` 아래에 `--color-line` 테두리, `--radius-md`, `--shadow-float`로 표시한다.
+  메뉴 항목은 최소 `--touch-target` 크기이며 hover/focus는 `--color-surface-sunken`이다.
+  전역 focus ring을 유지한다.
+  사진이 없거나 로드에 실패하면 크루 이름 첫 글자를 `--color-surface-sunken` 바탕과
+  `--color-ink` 글자로 표시한다.
+- Mobile account: 로그인한 모바일 전체 메뉴 상단은 마이페이지 프로필 카드의 가운데 정렬 세로 배치를 따른다.
+  `나의 프로필` 안내, `calc(--space-12 * 2)`(96px) 원형 사진, 이름(`--text-h3`),
+  기수/과정(`--text-caption`, muted), 전체 너비 로그아웃 버튼 순으로 쌓는다.
+  카드에는 `--color-surface-sunken` 바탕, `--color-line` 테두리, `--radius-md`, `--space-4` padding을 사용한다.
+  사진은 사이드바 폭에 맞춰 마이페이지보다 작게 표시하며, 사진과 글의 간격은 `--space-3`이다.
+  코치는 기수 대신 `코치`, 기수 정보가 없는 크루는 `기수 미정`을 표시한다. 긴 이름은 줄바꿈한다.
+  프로필 영역은 정보 표시용이며, 마이페이지는 아래의 탐색·모임 만들기와 같은 텍스트 메뉴로 둔다.
+  마이페이지 링크와 로그아웃 버튼의 최소 클릭 높이는 `--touch-target`이다.
+  계정 카드와 아래 메뉴는 `--space-4` 여백, `--color-line` 구분선, `--space-4` 안쪽 여백으로 나누고
+  메뉴 영역에 muted caption 크기의 `메뉴` 제목을 둔다.
+  비로그인 상태에도 같은 순서와 크기의 프로필 형태를 유지한다. 96px 회색 원형 바탕(`--color-line`)에
+  장식용 UserRound 아이콘 아래에는 `게스트`만 표시하고 하단에는 GitHub 로그인 버튼을 둔다.
+  비로그인 상태에는 `나의 프로필` 제목과 설명 문구를 렌더하지 않는다.
+  제목의 caption line-height에 해당하는 첫 grid 행을 유지해 사진과 버튼 위치가 바뀌지 않게 한다.
+  아이콘은 `--color-muted`, 게스트 이름은 `--text-h3`, bold, `--color-muted-ink`를 사용한다.
+  이름·기수 또는 게스트 이름 영역은 최소 `calc(--space-12 + --space-2)`(56px)를 확보하며,
+  게스트 이름은 그 안에서 세로 가운데 정렬한다. 빈 문구나 숨긴 텍스트로 공간을 채우지 않는다.
+  로딩으로 오해하지 않도록 비로그인 프로필에 shimmer나 pulse를 적용하지 않는다.
+  가입 중·인증 확인 중에도 프로필 형태를 유지하되 상태에 맞는 문구와 가입 계속하기·기존 인증 placeholder를 표시한다.
+  카드 높이는 내용에 맞추며 기본 이름·기수 두 줄과 게스트 이름 한 줄에서는 로그인 전후 사진·버튼 위치를 유지한다.
+  긴 이름은 줄바꿈하고, 높이가 짧은 화면에서는 기존 drawer가 세로 스크롤을 담당한다.
+  마이페이지 선택·로그인·로그아웃 시 사이드바를 닫는다.
 - Header active state는 모바일 drawer의 pathname 목적지에만 연결한다. `/groups/new`에서 상위
   `/groups` 탐색 링크를 동시에 활성화하거나, `/my/groups`에서 `/my`를 동시에 활성화하지 않는다.
 - `PageContainer`: 모든 route의 좌우 gutter와 최대 폭을 통일한다.

@@ -6,6 +6,12 @@ const typeLabels = {
   SESSION: "같이해요"
 };
 
+const typeBadgeTones = {
+  CLUB: "group-type-club",
+  STUDY: "group-type-study",
+  SESSION: "group-type-session"
+};
+
 const meetingTypeLabels = {
   FLEXIBLE: "유동적",
   OFFLINE: "오프라인",
@@ -42,6 +48,10 @@ export function getLastPage(data) {
 
 export function typeLabel(type) {
   return typeLabels[type] ?? type;
+}
+
+export function typeBadgeTone(type) {
+  return typeBadgeTones[type] ?? "neutral";
 }
 
 export function meetingTypeLabel(meetingType) {
