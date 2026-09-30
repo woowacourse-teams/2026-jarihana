@@ -1,12 +1,13 @@
 # 현재 운영 EC2의 CloudWatch 수집
 
 기존 EC2의 Spring Boot와 PostgreSQL 컨테이너를 유지하고 호스트에 CloudWatch Agent를
-설치한다. 작업 브랜치는 `feat/cloudwatch-observability-develop` 하나를 사용한다.
+설치한다. 같은 EC2에서 운영과 개발 애플리케이션 지표를 환경별로 수집한다.
 
 ```text
-Spring Boot :8081 → 호스트 127.0.0.1:8081 → CloudWatch Agent
-                                          ├─ EMF 로그 → Jarihana (environment=prod)
-                                          └─ 호스트 메모리·디스크 → Jarihana (InstanceId)
+prod Spring Boot :8081 → 호스트 127.0.0.1:8081 ┐
+dev Spring Boot :8081  → 호스트 127.0.0.1:81   ├→ CloudWatch Agent
+                                               ├─ EMF 로그 → Jarihana (environment=prod/dev)
+                                               └─ 호스트 메모리·디스크 → Jarihana (InstanceId)
 EC2 기본 모니터링 → AWS/EC2 (CPUUtilization·StatusCheckFailed 계열, InstanceId)
 ```
 
@@ -19,30 +20,31 @@ EC2 CPU는 기본 `AWS/EC2/CPUUtilization`을 조회하며 Agent의 `cpu_usage_a
 수집하지 않는다. 기본 모니터링의 5분 CPU와 무료 1분 상태 검사 지표를 그대로 사용하며,
 유료 상세 모니터링을 활성화하거나 기본 지표를 커스텀 네임스페이스로 재전송하지 않는다.
 
-현재 활성 수집 대상은 `127.0.0.1:8081` 운영 컨테이너 하나다. 대상 labels에 environment=prod를
+운영 수집 대상은 `127.0.0.1:8081`이다. 대상 labels에 environment=prod를
 지정하고 honor_labels=false를 사용하므로, 아직 environment=current인 기존 배포판도
 CloudWatch에는 prod로 전달된다. 원래 값은 exported_environment에 남을 수 있지만
 CloudWatch 차원으로 사용하지 않는다. 백엔드 prod 프로필도 environment=prod로 맞췄으며
 다음 백엔드 배포부터 원본 메트릭에 반영된다.
 
-## 같은 EC2에 dev 컨테이너를 추가할 때
+## 같은 EC2의 dev 컨테이너 수집
 
-dev 컨테이너의 관리 포트는 호스트 `127.0.0.1:8082` 등 운영과 다른 포트로 연결한다.
-컨테이너 내부 관리 포트는 같은 8081을 사용해도 된다. API·DB 연결과 별도로 관리 포트를
-localhost에만 공개하고, dev 애플리케이션의 environment 태그도 dev로 설정한다.
-실제 기동 후 기존 job의 static_configs에 두 번째 대상 그룹을 추가한다.
+dev API는 호스트 `80`에서 컨테이너 `8080`으로 전달한다. 관리 포트는 호스트
+`127.0.0.1:81`에서 컨테이너 `8081`로 연결하므로 EC2 외부에 81번 인바운드 규칙을
+추가하지 않는다. dev 애플리케이션은 environment=dev 태그로 지표를 노출하고,
+Agent는 같은 job에서 prod와 dev를 각각 수집한다.
 
 ```yaml
 static_configs:
   - targets: [127.0.0.1:8081]
     labels:
       environment: prod
-  - targets: [127.0.0.1:8082]
+  - targets: [127.0.0.1:81]
     labels:
       environment: dev
 ```
 
-위 예시의 dev 대상은 아직 활성 설정에 넣지 않았다. Agent 선언은 prod/dev 모두 허용하며
+dev 배포 후 EC2의 Agent 설정을 갱신해야 실제 수집이 시작된다. 개발 배포 workflow는
+Agent 설정을 자동으로 갱신하지 않는다. Agent 선언은 prod/dev 모두 허용하며
 모든 애플리케이션 지표의 environment 차원을 유지한다. 대시보드와 경보도 환경별로
 선택한다. 전체 응답 시간·heap 사용량을 합산할 때도 prod와 dev를 섞지 않는다.
 EC2 CPU·메모리·디스크는 컨테이너별 값이 아니므로 양쪽 대시보드에서 같은 지표를 참조한다.

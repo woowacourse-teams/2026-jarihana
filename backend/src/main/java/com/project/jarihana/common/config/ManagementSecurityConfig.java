@@ -16,7 +16,7 @@ import org.springframework.security.web.util.matcher.AndRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
 @Configuration(proxyBeanMethods = false)
-@Profile("prod")
+@Profile({"prod", "dev"})
 public class ManagementSecurityConfig {
 
     @Bean
