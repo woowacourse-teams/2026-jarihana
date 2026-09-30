@@ -8,7 +8,6 @@ import { useInfiniteGroupMembers } from "../../features/member/index.js";
 import { useCreateRegistration } from "../../features/registration/index.js";
 import { toUserMessage } from "../../shared/api/index.js";
 import { captureEvent, getPromotionAttribution } from "../../shared/analytics/index.js";
-import logoMark from "../../shared/assets/brand/jarihana-favicon.png";
 import scheduleIcon from "../../shared/assets/figma/edit-05.svg";
 import placeIcon from "../../shared/assets/figma/edit-06.svg";
 import memberIcon from "../../shared/assets/figma/edit-09.svg";
@@ -50,6 +49,10 @@ const tabs = [
 
 /* 도착한 화면을 먼저 보여 준 뒤 묻는 정도의 짧은 간격이다. */
 const RECRUITMENT_PROMPT_DELAY = 500;
+
+function getParticipationButtonLabel(group) {
+  return group.type === "SESSION" ? "참여하기" : "참여 신청하기";
+}
 
 function DetailFact({ icon, label, unavailable = false, value }) {
   return (
@@ -233,6 +236,32 @@ export function GroupDetailPage() {
                 <Settings aria-hidden="true" size={20} strokeWidth={2.25} />
               </Link>
             ) : null}
+            <div className="group-recruitment-entry group-recruitment-action">
+              <Modal
+                title="모집 정보"
+                trigger={
+                  <Button
+                    className="group-apply-button"
+                    data-ph-capture-attribute-action="recruitment_details_open"
+                    variant="primary"
+                  >
+                    모집 정보
+                  </Button>
+                }
+              >
+                <div className="group-recruitment-modal">
+                  <RecruitmentSummary
+                    auth={auth}
+                    group={group}
+                    createRecruitmentHref={isLeader ? `/groups/${groupId}/manage/recruitments` : null}
+                    hasExistingRegistration={hasExistingRegistration}
+                    isApprovedMember={isApprovedMember}
+                    isArchived={isArchived}
+                    isLeader={isLeader}
+                  />
+                </div>
+              </Modal>
+            </div>
           </section>
 
           <div className="group-detail-tabs">
@@ -367,8 +396,7 @@ function RecruitmentSummary({
   const registrationStartedReference = useRef();
   const [applicationOpen, setApplicationOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const participationLabel = group.type === "SESSION" ? "참여" : "참여 신청";
-  const participationButtonLabel = `${participationLabel}하기`;
+  const participationButtonLabel = getParticipationButtonLabel(group);
 
   const isAuthenticated = auth.status === "authenticated" || auth.isAuthenticated;
   const remainingSeats = recruitment
