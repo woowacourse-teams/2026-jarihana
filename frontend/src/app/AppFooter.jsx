@@ -94,6 +94,7 @@ export function AppFooter() {
             피드백 남기기
           </Button>
           <Modal
+            closeAction="feedback_form_dismiss"
             onOpenChange={setFeedbackOpen}
             open={feedbackOpen}
             title="피드백 남기기"
