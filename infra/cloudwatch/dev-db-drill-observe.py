@@ -59,7 +59,8 @@ def preflight():
     transforms = metric_filter["metricTransformations"]
     require(len(transforms) == 1 and transforms[0]["metricNamespace"] == "Jarihana/Alerts" and transforms[0]["metricName"] == "http-5xx-dev", "Dev 5xx metric transformation differs")
 
-    alarm = only_one(aws("cloudwatch", "describe-alarms", "--alarm-names", ALARM)["MetricAlarms"], "dev 5xx alarm")
+    alarms = aws("cloudwatch", "describe-alarms", "--alarm-name-prefix", ALARM)["MetricAlarms"]
+    alarm = only_one([item for item in alarms if item["AlarmName"] == ALARM], "dev 5xx alarm")
     require(alarm["StateValue"] == "OK", f"Dev 5xx alarm must be OK; current state {alarm['StateValue']}")
     require(alarm["Period"] == 60 and alarm["Threshold"] == 1 and alarm["EvaluationPeriods"] == 1 and alarm["DatapointsToAlarm"] == 1, "Dev 5xx alarm threshold differs")
     require(alarm["MetricName"] == "http-5xx-dev" and alarm["Namespace"] == "Jarihana/Alerts", "Dev alarm uses another metric")
