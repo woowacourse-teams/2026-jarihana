@@ -25,6 +25,9 @@ import com.project.jarihana.recruitment.domain.JoinMethod;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.*;
 import java.util.List;
@@ -238,6 +241,30 @@ class GroupQueryServiceTest {
         // Then
         assertThat(result.representativeImageUrl())
                 .isEqualTo("https://cdn.example.test/images/groups/tmp/uploaded-image.webp");
+    }
+
+    @DisplayName("이미지가 없거나 기존 기본 이미지 키이면 이미지 URL을 null로 반환한다.")
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = "images/default-group.png")
+    void returnsNullForDefaultImage(String imageKey) {
+        // Given
+        GroupQueryService cloudFrontService = new GroupQueryService(
+                listRepository, detailRepository, loginMemberReader, CLOCK,
+                "https://cdn.example.test/images"
+        );
+        Group group = Group.createStudy(
+                "기본 이미지 그룹", "기본 이미지를 조회합니다.", null, imageKey,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.NOON, LocalTime.of(13, 0)),
+                NOW
+        );
+        detailRepository.save(GroupDetailProjection.of(1L, group, List.of(), null, 0));
+
+        // When
+        GroupDetailResult result = cloudFrontService.findGroup(1L);
+
+        // Then
+        assertThat(result.representativeImageUrl()).isNull();
     }
 
     @DisplayName("존재하지 않는 그룹 상세 조회 시 예외가 발생한다.")

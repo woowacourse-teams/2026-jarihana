@@ -13,7 +13,7 @@ import java.net.URI;
 public class GroupSharePreviewService {
 
     private static final String SITE_NAME = "자리하나";
-    private static final String DEFAULT_IMAGE_PATH = "/images/default-group.png";
+    private static final String DEFAULT_IMAGE_PATH = "/assets/default-group.png";
 
     private final GroupQueryService groupQueryService;
     private final String frontendOrigin;

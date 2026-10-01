@@ -3,7 +3,8 @@
 ## 공통 규칙
 
 그룹 목록·상세 조회는 대표 이미지 키가 없거나 기본 이미지 키인 경우
-`images/default-group.png`를 반환한다. 업로드된 이미지 키가 연결된 경우에는
+`representativeImageUrl`을 `null`로 반환한다. 기본 이미지 선택은 프론트엔드에서 처리한다.
+기존 DB의 기본 이미지 키도 조회 시 `null`로 변환한다. 업로드된 이미지 키가 연결된 경우에는
 설정된 공개 이미지 Base URL과 스토리지 키를 조합한 URL을 반환한다.
 현재 운영 버킷의 이미지 객체 prefix는 `jarihana/images`이며, 공개 Base URL은
 해당 prefix를 제외한 CloudFront 경로(예: `https://d1znkkaqfyz08f.cloudfront.net/images`)다.
@@ -46,7 +47,7 @@
       "status": "ACTIVE",
       "name": "알고리즘 스터디",
       "introduction": "매주 함께 문제를 풉니다.",
-      "representativeImageUrl": "images/default-group.png",
+      "representativeImageUrl": null,
       "leader": {"memberId": 3, "crewName": "크루A", "generation": 8, "memberType": "CREW", "avatarUrl": "https://avatars.githubusercontent.com/u/3"},
       "memberCount": 6,
       "activeRecruitment": {
@@ -218,7 +219,7 @@ Request Body는 없다.
     "name": "알고리즘 스터디",
     "introduction": "매주 함께 문제를 풉니다.",
     "description": "문제 풀이와 코드 리뷰를 진행합니다.",
-    "representativeImageUrl": "images/default-group.png",
+    "representativeImageUrl": null,
     "recurringSchedule": {
       "daysOfWeek": ["MONDAY", "WEDNESDAY"],
       "startTime": "19:00:00",

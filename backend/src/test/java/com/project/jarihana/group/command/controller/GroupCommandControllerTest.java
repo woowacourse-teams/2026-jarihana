@@ -190,7 +190,8 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                 .body("data.description", nullValue())
                 .body("data.meetingType", equalTo("OFFLINE"))
                 .body("data.location", equalTo("서울 캠퍼스"))
-                .body("data.representativeImageUrl", equalTo("images/default-group.png"))
+                .body("data", hasKey("representativeImageUrl"))
+                .body("data.representativeImageUrl", nullValue())
                 .body("data.recurringSchedule.startTime", equalTo("19:00:00"))
                 .body("error", nullValue());
 
