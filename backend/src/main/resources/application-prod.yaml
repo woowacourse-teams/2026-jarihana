@@ -3,3 +3,30 @@ spring:
     hibernate:
       ddl-auto: validate
     show-sql: false
+
+management:
+  server:
+    port: 8081
+    address: 0.0.0.0
+  endpoints:
+    access:
+      default: none
+    web:
+      base-path: /actuator
+      discovery:
+        enabled: false
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      access: read-only
+      show-details: never
+      show-components: never
+      probes:
+        enabled: false
+    prometheus:
+      access: read-only
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      environment: prod

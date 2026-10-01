@@ -20,6 +20,7 @@ services:
 
     ports:
       - "8080:8080"
+      - "127.0.0.1:8081:8081"
 
     depends_on:
       postgres:
