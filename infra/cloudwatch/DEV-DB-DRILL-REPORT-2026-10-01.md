@@ -2,17 +2,18 @@
 
 기준: `develop` · 서울 리전 `ap-northeast-2` · 모든 시각 KST (UTC+09:00)
 
-> **진행 상태: 사전 점검 중.** 2026-10-01 16:55 KST 기준 자리하나 알람을
+> **진행 상태: 사전 점검 완료, 실험 보류.** 2026-10-01 17:05 KST 기준 자리하나 알람을
 > CloudWatch 콘솔에서 찾지 못했다. 현재 콘솔 사용자에게 CloudFormation 스택과 EventBridge
 > 연결 목록 조회 권한도 없어 배포 상태를 확정할 수 없다. 따라서 dev DB 중단과 HTTP 500
-> 발생은 아직 실행하지 않았다. 아래의 장애 시각·알람 전환·복구 지표는 실험 뒤 실제 수치로
+> 발생은 아직 실행하지 않았다. 안전한 실행 workflow는 [PR #346](https://github.com/woowacourse-teams/2026-jarihana/pull/346)로
+> `develop` 반영을 기다리고 있다. 아래의 장애 시각·알람 전환·복구 지표는 실험 뒤 실제 수치로
 > 채워야 한다.
 
 ## 구성과 확인 화면
 
 | 항목 | 구성 또는 확인 위치 | 현재 확인 결과 |
 | --- | --- | --- |
-| 실행 도구 | [CloudWatch Dev DB Drill workflow](../../.github/workflows/cloudwatch-dev-db-drill.yml), [주입·복구 스크립트](dev-db-drill.sh), [관측 스크립트](dev-db-drill-observe.py) | 로컬 구현·구문 검사 완료. 아직 GitHub에 반영되지 않음 |
+| 실행 도구 | [CloudWatch Dev DB Drill workflow](../../.github/workflows/cloudwatch-dev-db-drill.yml), [주입·복구 스크립트](dev-db-drill.sh), [관측 스크립트](dev-db-drill-observe.py) | `feat/cloudwatch-dev-db-scenario`에 구현·푸시했고 [PR #346](https://github.com/woowacourse-teams/2026-jarihana/pull/346)로 `develop` 반영 대기. 구문·모의 안전성 검사 완료 |
 | 로그 | CloudWatch Logs `/jarihana/dev/application`, `/jarihana/prod/application` | 환경별 ECS JSON 수집 설정 확인. 이번 실험의 500 로그는 아직 없음 |
 | 지표 화면 | [dev 대시보드](https://ap-northeast-2.console.aws.amazon.com/cloudwatch/home?region=ap-northeast-2#dashboards/dashboard/DASHBOARD-jarihana-dev), [prod 대시보드](https://ap-northeast-2.console.aws.amazon.com/cloudwatch/home?region=ap-northeast-2#dashboards/dashboard/DASHBOARD-jarihana-prod) | 2026-10-01 16:54 KST 콘솔 목록에서 두 대시보드 이름 확인 |
 | 5xx 알람 | [CloudWatch 알람 화면](https://ap-northeast-2.console.aws.amazon.com/cloudwatch/home?region=ap-northeast-2#alarmsV2:) · `[DEV] HTTP 5xx detected (application log)` | 2026-10-01 16:52 KST 이름 및 `jarihana` 검색 결과 0건. 배포 여부 재점검 필요 |
@@ -66,7 +67,8 @@ CloudWatch 수집 점검은 [CloudWatch Manage](https://github.com/woowacourse-t
    `cloudformation:ListStacks`와 `events:ListConnections` 권한이 없다.
 2. Discord 웹훅 HTTP 200 이후 대상 채널 도착을 확인한다. HTTP 200만으로 ALARM/OK
    전환 메시지 전달을 입증하지 않는다.
-3. 새 workflow를 `develop`에 반영하고, GitHub 수동 실행 UI에서 사용할 수 있도록
-   기본 브랜치에도 반영한다. 그 뒤 `expected_instance_id=i-0a1245eb20f7998b8`로 실행한다.
+3. [PR #346](https://github.com/woowacourse-teams/2026-jarihana/pull/346)을 `develop`에
+   반영한 뒤 GitHub 수동 실행 UI에서 `expected_instance_id=i-0a1245eb20f7998b8`로
+   실행한다. workflow는 `develop`에서만 동작하도록 제한되어 있다.
 4. workflow artifact의 KST 타임라인과 CloudWatch JSON, Discord 화면을 바탕으로 위
    장애 표를 실제 시각·수치·링크로 교체한다.
