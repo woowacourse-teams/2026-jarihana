@@ -1,4 +1,6 @@
 spring:
+  main:
+    banner-mode: "off"
   jpa:
     hibernate:
       ddl-auto: validate
@@ -30,3 +32,11 @@ management:
     tags:
       application: ${spring.application.name}
       environment: prod
+
+logging:
+  structured:
+    format:
+      console: ecs
+    ecs:
+      service:
+        environment: prod
