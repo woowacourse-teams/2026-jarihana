@@ -320,6 +320,10 @@ it("reveals logout only after opening the profile menu", () => {
   expect(logoutButton).toHaveAttribute("data-ph-capture-attribute-action", "logout");
   fireEvent.click(logoutButton);
 
+  // Then
+  expect(
+    within(screen.getByRole("navigation", { name: "주요 메뉴" })).queryAllByRole("link")
+  ).toHaveLength(2);
   expect(logout).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("navigation", { name: "계정 메뉴" })).not.toBeInTheDocument();
 });
@@ -440,4 +444,43 @@ it("logs out from the mobile account row and closes the drawer", () => {
   fireEvent.click(logoutButton);
   expect(logout).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("dialog", { name: "전체 메뉴" })).not.toBeInTheDocument();
+});
+
+it.each([
+  ["/", "홈"],
+  ["/groups", "모임 탐색"],
+  ["/groups/41", null]
+])("exposes public navigation on %s with matching active state", (pathname, activeName) => {
+  mockPathname = pathname;
+  renderShell({ login: jest.fn(), logout: jest.fn(), status: "anonymous" });
+  expect(screen.getByRole("link", { name: "자리하나 홈" })).toHaveAttribute("href", "/");
+  const navigation = within(screen.getByRole("navigation", { name: "주요 메뉴" }));
+  for (const [name, href, action] of [
+    ["홈", "/", "group_home"],
+    ["모임 탐색", "/groups", "group_browse"]
+  ]) {
+    const link = navigation.getByRole("link", { name, exact: true });
+    expect(link).toHaveAttribute("href", href);
+    expect(link).toHaveAttribute("data-ph-capture-attribute-action", action);
+    if (name === activeName) expect(link).toHaveAttribute("aria-current", "page");
+    else expect(link).not.toHaveAttribute("aria-current");
+  }
+});
+
+it.each([
+  ["홈", "/"],
+  ["모임 탐색", "/groups"]
+])("closes the mobile menu and opens %s without requiring login", (name, href) => {
+  const login = jest.fn();
+  renderShell({ login, logout: jest.fn(), status: "anonymous" });
+  fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
+  const link = within(screen.getByRole("navigation", { name: "모바일 메뉴" })).getByRole("link", {
+    name,
+    exact: true
+  });
+  expect(link).toHaveAttribute("href", href);
+  const navigationContinues = fireEvent.click(link);
+  expect(navigationContinues).toBe(true);
+  expect(screen.queryByRole("dialog", { name: "전체 메뉴" })).not.toBeInTheDocument();
+  expect(login).not.toHaveBeenCalled();
 });

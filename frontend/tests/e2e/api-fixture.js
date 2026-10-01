@@ -364,7 +364,17 @@ export async function installApiFixture(pageInstance, options = {}) {
       );
     }
 
-    if (path === "/groups" && method === "GET") return json(route, success(page(groups)));
+    if (path === "/groups" && method === "GET") {
+      const filters = url.searchParams;
+      const filtered = groups.filter(
+        (item) =>
+          (!filters.get("type") || item.type === filters.get("type")) &&
+          (!filters.get("excludedType") || item.type !== filters.get("excludedType")) &&
+          (!filters.get("sessionDate") ||
+            item.sessionSchedule?.sessionDate === filters.get("sessionDate"))
+      );
+      return json(route, success(page(filtered)));
+    }
     if (path === "/groups" && method === "POST") {
       return json(route, success({ id: group.id, status: "ACTIVE" }), 201);
     }

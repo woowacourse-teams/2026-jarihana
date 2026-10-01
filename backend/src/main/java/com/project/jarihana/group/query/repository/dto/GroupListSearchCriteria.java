@@ -4,11 +4,14 @@ import com.project.jarihana.group.domain.GroupStatus;
 import com.project.jarihana.group.domain.GroupType;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public record GroupListSearchCriteria(
         GroupStatus status,
         GroupType type,
+        GroupType excludedType,
+        LocalDate sessionDate,
         GroupMemberRole role,
         boolean joinedOnly,
         Boolean recruiting,

@@ -14,17 +14,27 @@ import githubMark from "../shared/assets/brand/github-mark.svg";
 import logoMark from "../shared/assets/brand/jarihana-favicon.png";
 import { ProfileMenu } from "./ProfileMenu";
 
+const HOME_LINK = {
+  action: "group_home",
+  isActive: (pathname) => pathname === "/",
+  label: "홈",
+  requiresAuth: false,
+  to: "/"
+};
+
+const EXPLORE_LINK = {
+  action: "group_browse",
+  isActive: (pathname) => pathname === "/groups",
+  label: "모임 탐색",
+  requiresAuth: false,
+  to: "/groups"
+};
+
 const MEMBER_LINKS = [
+  HOME_LINK,
+  EXPLORE_LINK,
   {
-    isActive: (pathname) =>
-      pathname === "/" ||
-      pathname === "/groups" ||
-      (pathname !== "/groups/new" && /^\/groups\/[^/]+(?:\/recruitments\/[^/]+)?$/.test(pathname)),
-    label: "탐색",
-    requiresAuth: false,
-    to: "/groups"
-  },
-  {
+    action: "group_create",
     isActive: (pathname) => pathname === "/groups/new",
     label: "모임 만들기",
     requiresAuth: true,
@@ -32,7 +42,7 @@ const MEMBER_LINKS = [
   }
 ];
 
-const DESKTOP_MEMBER_LINKS = [];
+const DESKTOP_MEMBER_LINKS = [HOME_LINK, EXPLORE_LINK];
 
 function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, status }) {
   const { pathname } = useLocation();
@@ -43,6 +53,7 @@ function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, st
       <Link
         aria-current={isActive ? "page" : undefined}
         className={isActive ? "app-header__link app-header__link--active" : "app-header__link"}
+        data-ph-capture-attribute-action={link.action}
         key={link.to}
         onClick={(event) => {
           if (link.requiresAuth && status === "anonymous") {
@@ -230,22 +241,27 @@ export function AppHeader({ action = null, title = "" }) {
       <header className="app-header">
         <div className="app-header__inner">
           <div className="app-header__brand-group">
-            <Link aria-label="자리하나 홈" className="app-header__brand" to="/groups">
+            <Link
+              aria-label="자리하나 홈"
+              className="app-header__brand"
+              data-ph-capture-attribute-action="group_home"
+              to="/"
+            >
               <img alt="" aria-hidden="true" className="app-header__brand-mark" src={logoMark} />
               <span className="app-header__brand-text">자리하나?</span>
             </Link>
           </div>
 
           <nav aria-label="주요 메뉴" className="app-header__primary-nav">
-            <FeedbackLink
-              onClick={handleFeedbackTrigger}
-              open={feedbackOpen || loginRequiredOpen}
-              status={status}
-            />
             <HeaderLinks
               links={DESKTOP_MEMBER_LINKS}
               onNavigate={() => {}}
               onProtectedNavigate={redirectToLogin}
+              status={status}
+            />
+            <FeedbackLink
+              onClick={handleFeedbackTrigger}
+              open={feedbackOpen || loginRequiredOpen}
               status={status}
             />
           </nav>
@@ -338,15 +354,15 @@ export function AppHeader({ action = null, title = "" }) {
           </div>
           <div className="app-header__mobile-links">
             <h3 className="app-header__mobile-section-title">메뉴</h3>
+            <HeaderLinks
+              onNavigate={closeMenu}
+              onProtectedNavigate={redirectToLogin}
+              status={status}
+            />
             <FeedbackLink
               onClick={handleFeedbackTrigger}
               onNavigate={closeMenu}
               open={feedbackOpen || loginRequiredOpen}
-              status={status}
-            />
-            <HeaderLinks
-              onNavigate={closeMenu}
-              onProtectedNavigate={redirectToLogin}
               status={status}
             />
             {status === "authenticated" ? <MyPageLink onNavigate={closeMenu} /> : null}
