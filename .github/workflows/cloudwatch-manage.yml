@@ -3,6 +3,13 @@ name: CloudWatch Manage
 on:
   workflow_dispatch:
     inputs:
+      target_environment:
+        description: "확인할 애플리케이션 환경 (Agent 설정은 EC2 공통)"
+        type: choice
+        default: prod
+        options:
+          - prod
+          - dev
       operation:
         description: "실행할 CloudWatch 작업"
         type: choice
@@ -29,6 +36,7 @@ jobs:
     runs-on: [self-hosted, Linux, ARM64]
     env:
       EXPECTED_INSTANCE_ID: ${{ inputs.expected_instance_id }}
+      TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,7 +51,7 @@ jobs:
         run: bash infra/cloudwatch/prepare-aws.sh
       - name: CloudWatch Agent 설치와 시작
         if: ${{ inputs.operation == 'cloudwatch-install' }}
-        run: sudo -n --preserve-env=EXPECTED_INSTANCE_ID bash infra/cloudwatch/install.sh
+        run: sudo -n --preserve-env=EXPECTED_INSTANCE_ID,TARGET_ENVIRONMENT bash infra/cloudwatch/install.sh
       - name: CloudWatch 실제 수신 확인
         if: ${{ inputs.operation == 'cloudwatch-install' || inputs.operation == 'cloudwatch-verify' }}
         run: bash infra/cloudwatch/verify.sh

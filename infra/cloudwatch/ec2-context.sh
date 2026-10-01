@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${EXPECTED_INSTANCE_ID:?Set EXPECTED_INSTANCE_ID to the inspected production EC2 ID}"
+: "${EXPECTED_INSTANCE_ID:?Set EXPECTED_INSTANCE_ID to the inspected target EC2 ID}"
 metadata=http://169.254.169.254/latest
 token="$(curl --noproxy '*' --fail --silent --show-error --max-time 3 \
   -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' "${metadata}/api/token")"

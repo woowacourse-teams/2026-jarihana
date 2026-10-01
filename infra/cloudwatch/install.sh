@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "${script_dir}/application-context.sh"
 . "${script_dir}/ec2-context.sh"
 
 if [[ "${EUID}" -ne 0 ]]; then
@@ -15,7 +16,8 @@ fi
 command -v gpg
 command -v dpkg
 python3 "${script_dir}/validate.py"
-curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8081/actuator/health > /dev/null
+curl --fail --silent --show-error --max-time 10 "${management_url}/actuator/health" > /dev/null
+curl --fail --silent --show-error --max-time 10 "${management_url}/actuator/prometheus" > /dev/null
 
 agent_dir=/opt/aws/amazon-cloudwatch-agent
 config_dir="${agent_dir}/etc/jarihana"

@@ -4,6 +4,10 @@ import json
 import subprocess
 import sys
 import time
+from typing import Literal
+
+
+Environment = Literal["prod", "dev"]
 
 
 def aws(*arguments):
@@ -15,7 +19,7 @@ def aws(*arguments):
     return json.loads(result.stdout)
 
 
-def application_metrics(events):
+def application_metrics(events, environment: Environment = "prod"):
     metrics = {}
     for event in events:
         try:
@@ -26,9 +30,11 @@ def application_metrics(events):
         for declaration in declarations:
             if declaration.get("Namespace") != "Jarihana":
                 continue
-            if message.get("environment") != "prod":
+            if message.get("environment") != environment or message.get("application") != "jarihana":
                 continue
             for dimension_names in declaration["Dimensions"]:
+                if not {"application", "environment"} <= set(dimension_names):
+                    continue
                 dimensions = [{"Name": name, "Value": str(message[name])} for name in dimension_names]
                 for metric in declaration["Metrics"]:
                     metrics[metric["Name"]] = dimensions
@@ -45,7 +51,7 @@ def datapoints(namespace, metric, dimensions, start, end, period=60):
     return result["Datapoints"]
 
 
-def verify(instance_id, root_filesystem):
+def verify(instance_id: str, root_filesystem: str, environment: Environment = "prod") -> None:
     required = {
         "http_server_requests_seconds_count", "jvm_memory_used_bytes",
         "jvm_threads_live_threads", "jvm_gc_overhead",
@@ -67,13 +73,14 @@ def verify(instance_id, root_filesystem):
         start, end = start_time.isoformat(), now.isoformat()
         result = aws(
             "logs", "filter-log-events", "--log-group-name", "/jarihana/current/prometheus",
+            "--filter-pattern", f'{{ $.application = "jarihana" && $.environment = "{environment}" }}',
             "--start-time", str(int(start_time.timestamp() * 1000)), "--max-items", "500"
         )
-        observed = application_metrics(result.get("events", []))
+        observed = application_metrics(result.get("events", []), environment)
         for metric in sorted(required - completed):
             if metric in observed and datapoints("Jarihana", metric, observed[metric], start, end):
                 completed.add(metric)
-                print(f"CloudWatch prod application datapoints verified: {metric}", flush=True)
+                print(f"CloudWatch {environment} application datapoints verified: {metric}", flush=True)
         for metric in sorted(host_metrics):
             if metric in completed:
                 continue
@@ -92,21 +99,22 @@ def verify(instance_id, root_filesystem):
                 print(f"CloudWatch native EC2 datapoints verified: {metric}", flush=True)
         missing = (required | host_metrics | set(native_metrics)) - completed
         if not missing:
-            print("Actual CloudWatch log events and all required metric groups verified.")
+            print(f"Actual CloudWatch {environment} application and shared EC2 datapoints verified.")
             return
         print(f"Attempt {attempt}/10; waiting for: {', '.join(sorted(missing))}", flush=True)
         if attempt < 10:
             time.sleep(30)
-    raise RuntimeError("No actual CloudWatch datapoints for: " + ", ".join(sorted(missing)))
+    raise RuntimeError(f"No actual CloudWatch {environment}/shared EC2 datapoints for: " + ", ".join(sorted(missing)))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--instance-id", required=True)
     parser.add_argument("--root-filesystem", required=True)
+    parser.add_argument("--environment", choices=("prod", "dev"), default="prod")
     options = parser.parse_args()
     try:
-        verify(options.instance_id, options.root_filesystem)
+        verify(options.instance_id, options.root_filesystem, options.environment)
     except (RuntimeError, subprocess.TimeoutExpired) as error:
         print(str(error), file=sys.stderr)
         sys.exit(1)

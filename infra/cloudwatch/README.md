@@ -1,12 +1,13 @@
-# 현재 운영 EC2의 CloudWatch 수집
+# 공통 EC2의 prod/dev CloudWatch 수집
 
 기존 EC2의 Spring Boot와 PostgreSQL 컨테이너를 유지하고 호스트에 CloudWatch Agent를
 설치한다. 작업 브랜치는 `feat/cloudwatch-observability-develop` 하나를 사용한다.
 
 ```text
-Spring Boot :8081 → 호스트 127.0.0.1:8081 → CloudWatch Agent
-                                          ├─ EMF 로그 → Jarihana (environment=prod)
-                                          └─ 호스트 메모리·디스크 → Jarihana (InstanceId)
+prod Spring Boot :8081 → 호스트 127.0.0.1:8081 ─┐
+dev Spring Boot  :8081 → 호스트 127.0.0.1:81   ─┴→ CloudWatch Agent 하나
+                                                ├─ EMF 로그 → Jarihana (environment=prod/dev)
+                                                └─ 호스트 메모리·디스크 → Jarihana (InstanceId)
 EC2 기본 모니터링 → AWS/EC2 (CPUUtilization·StatusCheckFailed 계열, InstanceId)
 ```
 
@@ -19,7 +20,8 @@ EC2 CPU는 기본 `AWS/EC2/CPUUtilization`을 조회하며 Agent의 `cpu_usage_a
 수집하지 않는다. 기본 모니터링의 5분 CPU와 무료 1분 상태 검사 지표를 그대로 사용하며,
 유료 상세 모니터링을 활성화하거나 기본 지표를 커스텀 네임스페이스로 재전송하지 않는다.
 
-현재 활성 수집 대상은 `127.0.0.1:8081` 운영 컨테이너 하나다. 대상 labels에 environment=prod를
+수집 설정에는 prod `127.0.0.1:8081`과 dev `127.0.0.1:81`을 함께 등록한다.
+실제 수집은 각 환경의 관리 엔드포인트가 기동된 후 시작한다. prod 대상 labels에 environment=prod를
 지정하고 honor_labels=false를 사용하므로, 아직 environment=current인 기존 배포판도
 CloudWatch에는 prod로 전달된다. 원래 값은 exported_environment에 남을 수 있지만
 CloudWatch 차원으로 사용하지 않는다. 백엔드 prod 프로필도 environment=prod로 맞췄으며
@@ -27,27 +29,31 @@ CloudWatch 차원으로 사용하지 않는다. 백엔드 prod 프로필도 envi
 
 ## 같은 EC2에 dev 컨테이너를 추가할 때
 
-dev 컨테이너의 관리 포트는 호스트 `127.0.0.1:8082` 등 운영과 다른 포트로 연결한다.
+dev 컨테이너의 API는 호스트 `80:8080`, 관리 포트는 `127.0.0.1:81:8081`로 연결한다.
 컨테이너 내부 관리 포트는 같은 8081을 사용해도 된다. API·DB 연결과 별도로 관리 포트를
 localhost에만 공개하고, dev 애플리케이션의 environment 태그도 dev로 설정한다.
-실제 기동 후 기존 job의 static_configs에 두 번째 대상 그룹을 추가한다.
+공통 `prometheus.yaml`에는 다음 두 대상 그룹을 유지한다.
 
 ```yaml
 static_configs:
-  - targets: [127.0.0.1:8081]
+  - targets: ["127.0.0.1:8081"]
     labels:
       environment: prod
-  - targets: [127.0.0.1:8082]
+  - targets: ["127.0.0.1:81"]
     labels:
       environment: dev
 ```
 
-위 예시의 dev 대상은 아직 활성 설정에 넣지 않았다. Agent 선언은 prod/dev 모두 허용하며
+dev 애플리케이션의 Actuator·포트 매핑 변경은 별도 `feat/cloudwatch-dev-metrics` 브랜치에서
+진행한다. 해당 변경을 develop에 반영하고 dev 서버를 배포해야 dev 관리 포트에 접근할 수 있다.
+이 공통화 작업은 dev 서버를 배포하거나 컨테이너 포트를 변경하지 않는다.
+dev 서버가 꺼져 있으면 dev 수집은 실패하지만 prod 수집은 계속 진행된다.
+Agent 선언은 prod/dev 모두 허용하며
 모든 애플리케이션 지표의 environment 차원을 유지한다. 대시보드와 경보도 환경별로
 선택한다. 전체 응답 시간·heap 사용량을 합산할 때도 prod와 dev를 섞지 않는다.
 EC2 CPU·메모리·디스크는 컨테이너별 값이 아니므로 양쪽 대시보드에서 같은 지표를 참조한다.
 같은 종류의 dev 애플리케이션 지표가 추가되면 별도 시리즈로 과금되며, EC2 공통 지표는
-중복 전송하지 않는다. 현재 verify.sh는 prod 환경과 EC2 공통 지표만 확인한다.
+중복 전송하지 않는다. verify.sh는 선택한 애플리케이션 환경과 EC2 공통 지표를 확인한다.
 
 ## 구성
 
@@ -55,6 +61,7 @@ EC2 CPU·메모리·디스크는 컨테이너별 값이 아니므로 양쪽 대�
 | --- | --- |
 | `prometheus.yaml` | 60초마다 로컬 메트릭을 읽고 필요한 시리즈만 수집 |
 | `agent.json` | 전송할 메트릭, 차원, 네임스페이스 설정 |
+| `application-context.sh` | prod/dev에 따른 로컬 API·관리 엔드포인트 선택 |
 | `inspect.sh` | OS, sudo, 인스턴스 역할, 메트릭 종류 확인 |
 | `prepare-aws.sh` | 전용 로그 그룹 생성 및 7일 보존 설정 |
 | `install.sh` | 서명을 검증한 Ubuntu ARM64 패키지 설치와 Agent 시작 |
@@ -64,20 +71,36 @@ EC2 CPU·메모리·디스크는 컨테이너별 값이 아니므로 양쪽 대�
 | `create-dashboard.sh` | 기본은 생성만 수행하고, 명시적 `--update`에서는 기존 JSON 백업 후 갱신 |
 
 GitHub Actions의 `CloudWatch Manage` (`cloudwatch-manage.yml`)를 수동 실행하고
-`operation`을 선택한다. 기본값은 환경만 확인하는 `cloudwatch-inspect`다.
+`target_environment`과 `operation`을 선택한다. 기본값은 prod의 환경만 확인하는
+`cloudwatch-inspect`다.
 Agent 하나가 같은 EC2의 prod/dev를 수집하므로 환경별 배포 workflow와 독립적으로 관리한다.
 prod/dev 백엔드 배포는 각각 `backend-prod-deploy.yml`, `backend-dev-deploy.yml`에서 실행한다.
 수동 실행 메뉴가 표시되려면 새 workflow 파일이 저장소 기본 브랜치인 `main`에 반영돼야 한다.
 
-- `cloudwatch-inspect`: 환경 확인만 수행한다.
-- `cloudwatch-prepare`: 설정 검사, 로그 그룹 생성, 보존 기간 설정을 수행한다.
-- `cloudwatch-install`: prepare 후 sudo 설치와 실제 전송 확인까지 수행한다.
-- `cloudwatch-verify`: 이미 설치한 Agent의 실제 전송을 확인한다.
+| 선택 환경 | 로컬 API | 로컬 관리 엔드포인트 | CloudWatch 앱 차원 |
+| --- | --- | --- | --- |
+| prod | `http://127.0.0.1:8080` | `http://127.0.0.1:8081` | `application=jarihana`, `environment=prod` |
+| dev | `http://127.0.0.1:80` | `http://127.0.0.1:81` | `application=jarihana`, `environment=dev` |
+
+- `cloudwatch-inspect`: EC2 환경과 선택한 앱의 health·Prometheus·Docker 포트 매핑을 확인한다.
+- `cloudwatch-prepare`: 공통 설정 검사, 공통 로그 그룹 생성, 보존 기간 설정을 수행한다.
+- `cloudwatch-install`: prepare 후 선택한 앱의 관리 엔드포인트를 확인하고, 공통 Agent 설정을
+  설치·갱신한 다음 선택 환경의 실제 전송을 확인한다.
+- `cloudwatch-verify`: 선택한 앱의 로컬 엔드포인트와 실제 CloudWatch 전송을 확인한다.
+
+`Run workflow`의 Branch는 실행할 코드 버전이며, `target_environment`은 확인할 앱 환경이다.
+dev를 확인하려면 dev 수집 설정과 이 공통 workflow가 포함된 코드 버전을 선택한다.
+EC2 호스트·Agent·로그 그룹은 공통이며, install은 선택 환경에 관계없이 prod/dev 전체 수집
+설정을 적용한다. 한 환경을 선택해도 다른 환경의 수집 대상을 제거하지 않는다.
+검증은 선택 환경의 EMF 로그와 environment 차원이 포함된 지표만 사용하므로 prod 데이터로
+dev 검증을 통과시키지 않는다. EC2 기본 CPU·상태 검사와 호스트 메모리·디스크는 공통으로 확인한다.
+Agent 설정을 함께 변경하므로 동시 실행도 환경 구분 없이 하나씩 처리한다.
 
 inspect 외 작업에는 확인한 EC2 ID를 `expected_instance_id`에 입력한다. 설치 과정에서
 인스턴스 ID를 IMDSv2로 비교하고, 다른 Agent 설정이 있으면 덮어쓰지 않고 중단한다.
 `cloudwatch-install`은 runner의 비대화형 sudo 권한이 필요하다. sudo 권한이 없으면
-아래 SSH 설치 절차로 설정을 갱신한다. 현재 `cloudwatch-verify`는 prod와 EC2 공통 지표만 확인한다.
+아래 SSH 설치 절차로 설정을 갱신한다. 이 workflow는 대시보드·경보를 생성하지 않는다.
+기존 prod 대시보드는 그대로 사용하고, dev 대시보드는 별도로 구성한다.
 
 ## 지표와 비용 관리
 
@@ -133,9 +156,15 @@ Agent는 EC2에 연결된 인스턴스 역할을 사용한다. AWS 콘솔에 로
 
 ```bash
 EXPECTED_INSTANCE_ID=<확인한-EC2-ID> bash infra/cloudwatch/prepare-aws.sh
-sudo env EXPECTED_INSTANCE_ID=<확인한-EC2-ID> bash infra/cloudwatch/install.sh
-EXPECTED_INSTANCE_ID=<확인한-EC2-ID> bash infra/cloudwatch/verify.sh
+sudo env EXPECTED_INSTANCE_ID=<확인한-EC2-ID> TARGET_ENVIRONMENT=prod bash infra/cloudwatch/install.sh
+EXPECTED_INSTANCE_ID=<확인한-EC2-ID> TARGET_ENVIRONMENT=prod bash infra/cloudwatch/verify.sh
+
+# dev 서버 배포 및 공통 Agent 설정 적용 후 dev 수신 확인
+EXPECTED_INSTANCE_ID=<확인한-EC2-ID> TARGET_ENVIRONMENT=dev bash infra/cloudwatch/verify.sh
 ```
+
+SSH에서 `TARGET_ENVIRONMENT`을 생략하면 prod를 선택한다. prod/dev 이외의 값이나 빈 값은
+inspect/install/verify가 EC2 또는 AWS에 접근하기 전에 거부한다.
 
 설치한 패키지의 서명, 체크섬, 버전은 설치 출력에서 확인한다. 기존 자리하나 Agent 설정을
 갱신할 때는 `/var/lib/jarihana-cloudwatch/backups/`에 백업하고, 새 설정 시작에 실패하면
