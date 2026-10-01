@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -69,7 +70,6 @@ class ApplicationLoggingAcceptanceTest extends IntegrationTestSupport {
     void correlatesRequestLogsWithoutTrustingClientId() throws Exception {
         // Given
         try (CapturedApplicationLogs logs = new CapturedApplicationLogs()) {
-            CompletableFuture<ILoggingEvent> complete = nextCompletion(logs);
             // When
             Response response = RestAssured.given()
                     .header("X-Request-Id", "untrusted-client-id-sentinel")
@@ -78,7 +78,7 @@ class ApplicationLoggingAcceptanceTest extends IntegrationTestSupport {
                     .get("/groups");
 
             // Then
-            ILoggingEvent event = complete.get(5, TimeUnit.SECONDS);
+            ILoggingEvent event = completedRequest(logs, response);
             String requestId = response.header("X-Request-Id");
             assertThat(response.statusCode()).isEqualTo(200);
             assertThat(requestId).isNotBlank().isNotEqualTo("untrusted-client-id-sentinel");
@@ -107,11 +107,10 @@ class ApplicationLoggingAcceptanceTest extends IntegrationTestSupport {
     void recordsUnauthorizedRequestBeforeController() throws Exception {
         // Given
         try (CapturedApplicationLogs logs = new CapturedApplicationLogs()) {
-            CompletableFuture<ILoggingEvent> complete = nextCompletion(logs);
             // When
             Response response = RestAssured.get("/groups/1/recruitments/1/registrations");
             // Then
-            ILoggingEvent event = complete.get(5, TimeUnit.SECONDS);
+            ILoggingEvent event = completedRequest(logs, response);
 
             assertThat(response.statusCode()).isEqualTo(401);
             assertThat(fields(event))
@@ -130,12 +129,11 @@ class ApplicationLoggingAcceptanceTest extends IntegrationTestSupport {
                 .minus(jwtProperties.validity()).minusSeconds(1), TestSupportConfig.ZONE);
         String expiredToken = new AccessTokenProvider(jwtProperties, expiredClock).issue(12L).value();
         try (CapturedApplicationLogs logs = new CapturedApplicationLogs()) {
-            CompletableFuture<ILoggingEvent> complete = nextCompletion(logs);
             // When
             Response response = RestAssured.given()
                     .cookie(authCookieProperties.accessTokenName(), expiredToken).get("/members/me");
             // Then
-            ILoggingEvent event = complete.get(5, TimeUnit.SECONDS);
+            ILoggingEvent event = completedRequest(logs, response);
 
             assertThat(response.statusCode()).isEqualTo(401);
             assertThat(fields(event)).containsEntry("jarihana.auth_failure", "TOKEN_EXPIRED");
@@ -148,13 +146,12 @@ class ApplicationLoggingAcceptanceTest extends IntegrationTestSupport {
     void recordsCsrfDenialWithoutRequestBody() throws Exception {
         // Given
         try (CapturedApplicationLogs logs = new CapturedApplicationLogs()) {
-            CompletableFuture<ILoggingEvent> complete = nextCompletion(logs);
             // When
             Response response = RestAssured.given().contentType("application/json")
                     .body("{\"message\":\"private-registration-message-sentinel\"}")
                     .post("/recruitments/1/registrations");
             // Then
-            ILoggingEvent event = complete.get(5, TimeUnit.SECONDS);
+            ILoggingEvent event = completedRequest(logs, response);
 
             assertThat(response.statusCode()).isEqualTo(403);
             assertThat(fields(event))
@@ -170,12 +167,11 @@ class ApplicationLoggingAcceptanceTest extends IntegrationTestSupport {
     void recordsValidationFieldNamesWithoutInvalidValues() throws Exception {
         // Given
         try (CapturedApplicationLogs logs = new CapturedApplicationLogs()) {
-            CompletableFuture<ILoggingEvent> complete = nextCompletion(logs);
             // When
             Response response = RestAssured.given().queryParam("size", 0)
                     .queryParam("keyword", "invalid-request-search-sentinel").get("/groups");
             // Then
-            ILoggingEvent event = complete.get(5, TimeUnit.SECONDS);
+            ILoggingEvent event = completedRequest(logs, response);
 
             assertThat(response.statusCode()).isEqualTo(400);
             assertThat(fields(event))
@@ -183,6 +179,27 @@ class ApplicationLoggingAcceptanceTest extends IntegrationTestSupport {
                     .containsEntry("jarihana.invalid_fields", List.of("size"));
             assertThat(fields(event)).doesNotContainKey("jarihana.request.query.size");
             assertThat(logText(logs)).doesNotContain("invalid-request-search-sentinel");
+        }
+    }
+
+    @DisplayName("다른 요청의 완료 로그와 섞여도 응답 ID에 해당하는 완료 로그를 선택한다.")
+    @Test
+    void selectsCompletionForRequestedResponse() throws Exception {
+        // Given
+        try (CapturedApplicationLogs logs = new CapturedApplicationLogs()) {
+            Response previous = RestAssured.get("/groups");
+            completedRequest(logs, previous);
+
+            // When
+            Response response = RestAssured.get("/members/me");
+            ILoggingEvent event = completedRequest(logs, response);
+
+            // Then
+            assertThat(response.statusCode()).isEqualTo(401);
+            assertThat(response.header("X-Request-Id")).isNotEqualTo(previous.header("X-Request-Id"));
+            assertThat(fields(event))
+                    .containsEntry("http.request.id", response.header("X-Request-Id"))
+                    .containsEntry("http.response.status_code", 401);
         }
     }
 
@@ -197,7 +214,6 @@ class ApplicationLoggingAcceptanceTest extends IntegrationTestSupport {
         String token = accessTokenProvider.issue(member.getId()).value();
         String csrf = RestAssured.get("/groups").cookie("XSRF-TOKEN");
         try (CapturedApplicationLogs logs = new CapturedApplicationLogs()) {
-            CompletableFuture<ILoggingEvent> complete = nextCompletion(logs);
             // When
             Response response = RestAssured.given().contentType("application/json")
                     .cookie(authCookieProperties.accessTokenName(), token)
@@ -205,7 +221,7 @@ class ApplicationLoggingAcceptanceTest extends IntegrationTestSupport {
                     .body("{\"joinMethod\":\"APPROVAL\",\"capacity\":10,\"startsAt\":\"2026-08-20T00:00:00\"}")
                     .post("/groups/{groupId}/recruitments", group.getId());
             // Then
-            ILoggingEvent event = complete.get(5, TimeUnit.SECONDS);
+            ILoggingEvent event = completedRequest(logs, response);
 
             assertThat(response.statusCode()).isEqualTo(201);
             assertThat(fields(event))
@@ -232,14 +248,12 @@ class ApplicationLoggingAcceptanceTest extends IntegrationTestSupport {
         // Given
         String token = accessTokenProvider.issue(123L).value();
         try (CapturedApplicationLogs logs = new CapturedApplicationLogs()) {
-            CompletableFuture<ILoggingEvent> first = nextCompletion(logs);
             // When
-            RestAssured.given().cookie(authCookieProperties.accessTokenName(), token).get("/groups");
+            Response first = RestAssured.given().cookie(authCookieProperties.accessTokenName(), token).get("/groups");
             // Then
-            assertThat(fields(first.get(5, TimeUnit.SECONDS))).containsEntry("user.id", "123");
-            CompletableFuture<ILoggingEvent> second = nextCompletion(logs);
-            RestAssured.get("/groups");
-            assertThat(fields(second.get(5, TimeUnit.SECONDS))).doesNotContainKey("user.id");
+            assertThat(fields(completedRequest(logs, first))).containsEntry("user.id", "123");
+            Response second = RestAssured.get("/groups");
+            assertThat(fields(completedRequest(logs, second))).doesNotContainKey("user.id");
         }
     }
 
@@ -248,11 +262,10 @@ class ApplicationLoggingAcceptanceTest extends IntegrationTestSupport {
     void recordsUnexpectedFailureWithoutExceptionMessage() throws Exception {
         // Given
         try (CapturedApplicationLogs logs = new CapturedApplicationLogs()) {
-            CompletableFuture<ILoggingEvent> complete = nextCompletion(logs);
             // When
             Response response = RestAssured.get("/groups/logging-failure");
             // Then
-            ILoggingEvent event = complete.get(5, TimeUnit.SECONDS);
+            ILoggingEvent event = completedRequest(logs, response);
 
             assertThat(response.statusCode()).isEqualTo(500);
             assertThat(fields(event)).containsEntry("jarihana.error_code", "INTERNAL_ERROR")
@@ -263,8 +276,14 @@ class ApplicationLoggingAcceptanceTest extends IntegrationTestSupport {
         }
     }
 
-    private CompletableFuture<ILoggingEvent> nextCompletion(CapturedApplicationLogs logs) {
-        return logs.subscribe(event -> "http.request.completed".equals(fields(event).get("event.action")));
+    private ILoggingEvent completedRequest(CapturedApplicationLogs logs, Response response) throws Exception {
+        String requestId = response.header("X-Request-Id");
+        Predicate<ILoggingEvent> matches = event -> "http.request.completed".equals(fields(event).get("event.action"))
+                && requestId.equals(fields(event).get("http.request.id"));
+        // Subscribe before scanning captured events so an event arriving between the two is not missed.
+        CompletableFuture<ILoggingEvent> complete = logs.subscribe(matches);
+        logs.events().stream().filter(matches).findFirst().ifPresent(complete::complete);
+        return complete.get(5, TimeUnit.SECONDS);
     }
 
     private JsonNode ecsJson(ILoggingEvent event) {
