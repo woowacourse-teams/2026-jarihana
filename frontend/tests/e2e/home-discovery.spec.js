@@ -138,7 +138,7 @@ for (const width of [375, 768, 1280, 1440]) {
         .getByRole("button", { name: label, exact: true }).click();
       const image = previewCards(page).first().locator("img");
       await image.scrollIntoViewIfNeeded();
-      await expect(image).toHaveAttribute("src", `/images/default-group-${type}-3d.png`);
+      await expect(image).toHaveAttribute("src", `/assets/default-group-${type}-3d.png`);
       await expect.poll(() => image.evaluate((element) => element.naturalWidth)).toBe(1254);
     }
     await page.getByRole("group", { name: "모임 유형", exact: true })
@@ -146,7 +146,7 @@ for (const width of [375, 768, 1280, 1440]) {
     await expect(previewCards(page)).toHaveCount(4);
     await expect(hero(page).locator("img").first()).toHaveAttribute(
       "src",
-      "/images/default-group-session-3d.png"
+      "/assets/default-group-session-3d.png"
     );
     await page.screenshot({ path: testInfo.outputPath(`home-${width}.png`), fullPage: true });
     expect(failures).toEqual([]);
