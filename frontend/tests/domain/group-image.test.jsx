@@ -3,9 +3,9 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { DEFAULT_GROUP_IMAGE, GroupImage, groupImageUrl } from "../../src/shared/ui/Cards.jsx";
 
 const defaults = [
-  ["CLUB", "/images/default-group-club-3d.png"],
-  ["STUDY", "/images/default-group-study-3d.png"],
-  ["SESSION", "/images/default-group-session-3d.png"]
+  ["CLUB", "/assets/default-group-club-3d.png"],
+  ["STUDY", "/assets/default-group-study-3d.png"],
+  ["SESSION", "/assets/default-group-session-3d.png"]
 ];
 
 describe.each(defaults)("%s representative image", (type, fallback) => {

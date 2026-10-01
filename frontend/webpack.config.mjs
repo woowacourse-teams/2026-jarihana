@@ -79,7 +79,7 @@ export default (_, arguments_) => {
         patterns: [
           {
             from: path.resolve(directory, "src/shared/assets/illustrations/default-group-*-3d.png"),
-            to: "images/[name][ext]"
+            to: "assets/[name][ext]"
           },
           {
             from: path.resolve(directory, "src/shared/assets/brand/jarihana-favicon.png"),
