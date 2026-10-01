@@ -1,26 +1,20 @@
-# CloudWatch 알림
+# CloudWatch 이메일 알림
 
 ## 구성
 
 ```text
-CloudWatch 알람 상태 조회 ← self-hosted GitHub Actions runner
-                         └→ Discord Webhook → 자리하나 알림 채널
+CloudWatch 알람 ─→ SNS Topic ─→ 확인된 팀 이메일 구독
+       └ ALARM 진입과 OK 복구 상태를 모두 전달
 ```
 
-Discord 웹훅은 지정한 채널에 메시지를 보낸다. 웹훅 URL은 채널에 메시지를 보낼 수 있는 비밀
-값이므로 저장소의 GitHub Actions secret `DISCORD_WEBHOOK_URL`에 저장한다. 메시지나 코드에 URL을
-넣지 않는다.
+`infra/cloudwatch/alerts.py`가 환경별 CloudWatch 알람, 로그 기반 지표 필터, SNS Topic과
+이메일 구독을 하나의 `jarihana-alerts` CloudFormation stack으로 관리한다. GitHub Actions
+스케줄과 self-hosted runner polling을 거치지 않으므로 runner가 배포로 점유되거나 중단돼도
+CloudWatch가 SNS로 알림을 전달한다.
 
-`infra/cloudwatch/alerts.py`는 CloudWatch 알람과 로그 기반 지표 필터만 CloudFormation으로 만든다.
-Discord 전송은 `infra/cloudwatch/discord-monitor.py`가 self-hosted runner에서 5분마다
-`cloudwatch:DescribeAlarms`로 상태를 조회하고, 상태 전환이 있을 때 Discord 웹훅을 호출한다.
-EventBridge Connection, API Destination, SQS DLQ와 그에 필요한 Secrets Manager 권한은 사용하지
-않는다. 웹훅 URL은 GitHub Actions secret에서만 읽으며 코드나 workflow 입력에 넣지 않는다.
-
-GitHub Actions 스케줄은 최대 약 5분 지연될 수 있고, runner나 Actions가 중단된 동안의 짧은
-상태 전환은 놓칠 수 있다. 모니터의 첫 실행은 현재 상태를 기준선으로 저장하고 메시지를 보내지
-않는다. 이후 `[PROD]`, `[DEV]`, `[EC2]` 알람이 `ALARM`으로 진입하거나 `ALARM`에서 `OK`로
-복구될 때만 메시지를 보낸다.
+이메일 주소는 저장소의 GitHub Actions secret `ALERT_EMAIL`에 저장한다. CloudFormation의
+`AlertEmail` parameter도 `NoEcho`로 선언한다. SNS 구독을 처음 만들면 AWS가 확인 메일을 보내며,
+수신자가 **Confirm subscription** 링크를 눌러야 실제 알림이 전달된다.
 
 ## 알람 기준
 
@@ -35,19 +29,21 @@ GitHub Actions 스케줄은 최대 약 5분 지연될 수 있고, runner나 Acti
 | `[EC2]` | EC2 메모리 | 70% 이상이 1분 단위 5회 연속 |
 | `[EC2]` | 루트 디스크 | 80% 이상이 1분 단위 5회 연속 |
 
-알람이 `ALARM`으로 바뀔 때와 `ALARM`에서 `OK`로 복구할 때 Discord에 보낸다.
-`INSUFFICIENT_DATA`와 새 알람 생성 직후의 초기 `OK` 상태는 보내지 않는다. `[PROD]`, `[DEV]`,
-`[EC2]` 접두사가 붙은 알람만 전달한다. 임계치는 첫 운영 기준이며 실제 부하를 보면서 조정할 수
-있다. 메시지에는 알람 이름, 변경된 상태, 발생 시각을 담는다.
+모든 알람은 `AlarmActions`와 `OKActions`에 같은 SNS Topic을 사용한다. `ALARM` 진입 이메일과
+`OK` 복구 이메일을 보내며 `INSUFFICIENT_DATA`에는 이메일을 보내지 않는다. 임계치는 첫 운영
+기준이며 실제 부하를 보면서 조정한다. SNS 이메일은 AWS가 생성한 제목과 알람 상태 JSON을
+사용한다.
 
 dev 애플리케이션 알람은 별도 스위치로 제어한다. 현재 dev 지표 수신을 확인했으므로
 `EnableDevApplicationAlarms`의 기본값은 `true`다. dev 서버를 분리하거나 중단하는 동안에는
 workflow에서 `false`로 바꿀 수 있다. 같은 EC2의 CPU·메모리·디스크·상태 알람은 환경에 관계없이
 계속 동작한다.
 
+## HTTP 5xx 데이터
+
 Prometheus counter는 Agent의 첫 수집값을 기준값으로 쓰므로 새 5xx counter 시리즈의 첫 오류를
 놓칠 수 있다. 이 경보는 해당 counter 대신 환경별 CloudWatch 로그 그룹에 수집되는 한 줄 ECS
-JSON을 사용한다. HTTP 요청 완료 이벤트의 상태 코드는 JSON 숫자이며 다음 고정 구성을 사용한다.
+JSON을 사용한다.
 
 | 환경 | 로그 그룹 | 필터 패턴 |
 | --- | --- | --- |
@@ -61,39 +57,45 @@ JSON을 사용한다. HTTP 요청 완료 이벤트의 상태 코드는 JSON 숫�
 현재 지표 구성은 p95 응답시간 알람이나 DB의 특정 Hikari pool 알람에 필요한 확정 차원값을
 제공하지 않아 포함하지 않았다. Hikari `pool` 차원 이름과 운영 기준을 확인하면 추가할 수 있다.
 
-## 사전 준비
+## 사전 준비와 배포
 
-1. Discord 서버에서 대상 채널의 `통합 → 웹후크`로 웹훅을 만든다. 만들 권한은 Discord의
-   `웹후크 관리` 권한이다.
-2. GitHub 저장소의 **Settings → Secrets and variables → Actions**에서 repository secret
-   `DISCORD_WEBHOOK_URL`을 추가한다. URL을 이 대화, 코드, workflow 입력에 붙여 넣지 않는다.
-3. `CloudWatch Manage`의 `cloudwatch-prepare`를 prod와 dev에 각각 실행하고, 로깅이 포함된
-   백엔드 컨테이너를 배포해 두 로그 그룹에 ECS JSON이 들어오는지 확인한다.
-4. GitHub Actions workflow가 기본 브랜치에 반영되면 `CloudWatch Alerts`에서 `test-webhook`으로
-   Discord 채널에 테스트 메시지가 오는지 확인하고, `validate`로 템플릿을 확인한다.
-5. `deploy`는 EC2 self-hosted runner에서 실행한다. `expected_instance_id`는 확인한 대상 EC2와
-   runner가 같은지 검사하는 값이다. 현재 EC2 ID는 `i-0a1245eb20f7998b8`이다. 이 단계는
-   CloudWatch 알람만 생성하며 EventBridge나 IAM 역할을 만들지 않는다.
-   이전 시도가 `ROLLBACK_COMPLETE`로 남아 있으면 스크립트가 그 실패 스택을 삭제한 뒤 다시 만든다.
-6. `CloudWatch Discord Monitor`는 기본 브랜치에서 5분마다 자동 실행된다. 첫 실행은 기준선을
-   저장하므로, 배포 뒤 workflow를 한 번 수동 실행해 기준선을 먼저 만든다.
+1. GitHub 저장소의 **Settings → Secrets and variables → Actions**에서 repository secret
+   `ALERT_EMAIL`에 팀이 확인할 수 있는 이메일 주소를 저장한다. 이메일을 workflow 입력이나 코드에
+   넣지 않는다.
+2. `CloudWatch Manage`의 `cloudwatch-prepare`를 prod와 dev에 각각 실행하고, 두 로그 그룹에
+   ECS JSON이 들어오는지 확인한다.
+3. `CloudWatch Alerts`에서 `check-sns-permissions`를 실행한다. 대상 EC2 ID를 입력한다.
+   CloudFormation이 임시 SNS Topic을 만들고 삭제해 Topic 생성·삭제 권한을 실제로 확인한다.
+   이메일 구독 권한은 다음 배포에서 확인된다.
+4. `validate`로 CloudFormation template과 단위 테스트를 확인한다.
+5. `deploy`에 대상 EC2 ID를 입력해 실행한다. 이 단계가 알람과 SNS Topic을 갱신하고 이메일
+   구독을 만든다.
+6. AWS에서 온 **AWS Notification - Subscription Confirmation** 메일의 확인 링크를 누른다.
+7. `test-email`에 대상 EC2 ID를 입력해 실행한다. workflow는 현재 `OK`인 dev 5xx 알람과 SNS
+   action 연결을 확인한 뒤 AWS의 테스트 API로 상태를 잠시 `ALARM`으로 바꾼다. 해당 제목의
+   CloudWatch ALARM 메일이 오는지 확인한다. 지표 알람은 실제 지표에 따라 곧 원래 상태로
+   재평가된다.
+8. dev DB 장애 실험으로 `[DEV] HTTP 5xx`의 `ALARM`과 `OK` 이메일을 확인한다.
 
-현재 EC2 역할에는 CloudWatch 알람 배포와 `cloudwatch:DescribeAlarms` 권한이 필요하다. Discord
-웹훅 호출은 AWS API가 아니라 runner의 HTTPS 요청으로 수행하므로 EventBridge Connection과
-Secrets Manager 권한은 필요하지 않다. URL이 노출되면 Discord에서 해당 웹훅을 삭제하고 새
-URL로 GitHub secret을 교체한다.
+현재 대상 EC2 ID는 `i-0a1245eb20f7998b8`이다. 권한 확인·배포·테스트는 이 ID와 self-hosted
+runner의 실제 EC2가 같은지 IMDSv2로 검사한다. SNS와 CloudWatch는 `ap-northeast-2`에서만
+관리한다.
 
-## 배포와 확인
+필요한 SNS 권한은 `sns:CreateTopic`, `sns:Subscribe`, `sns:GetTopicAttributes`,
+`sns:ListSubscriptionsByTopic`, `sns:DeleteTopic`이다. 기존 CloudWatch와 CloudFormation 권한도
+계속 필요하며 테스트에는 `cloudwatch:SetAlarmState`를 사용한다. 이 구성은 IAM Role,
+EventBridge, Lambda, Secrets Manager를 새로 만들지 않는다.
 
-workflow `CloudWatch Alerts`에서 `operation=deploy`를 고른다. dev 앱 알람의 기본값은 `true`다.
-스크립트는 EC2 ID, 서울 리전과 필요한 애플리케이션 로그 그룹을 검사하고 루트 파일시스템 형식을
-자동 확인한 다음 `jarihana-alerts` CloudFormation stack을 생성하거나 갱신한다.
+## 확인과 운영
 
-배포 후 CloudWatch 콘솔에서 `[PROD]`/`[DEV]`/`[EC2]` 알람을 확인하고, `CloudWatch Discord
-Monitor`의 workflow 로그에서 조회한 알람 수와 전송 건수를 확인한다. 경보가 실제로 `ALARM` 또는
-`OK`로 바뀔 때 Discord 메시지를 검증한다. 운영 환경에 강제 오류나 부하를 발생시켜 테스트하지
-않는다. Discord가 일시적으로 실패하면 다음 모니터 실행에서 같은 상태 전환을 다시 시도할 수
-있지만, 모니터가 중단된 동안 ALARM과 OK가 모두 지나간 상태 전환은 복구할 수 없다.
+배포 직후 구독이 `PendingConfirmation`인 것은 정상이다. 확인 링크를 누르기 전에는 CloudWatch가
+Topic에 발행해도 이메일을 받을 수 없다. `test-email`은 dev 5xx 알람을 테스트 목적으로 잠시
+`ALARM`으로 바꿔 SNS 전달을 검증한다. 실제 장애 감지는 dev 장애 실험의
+`OK → ALARM → OK` 전환으로 확인한다.
+
+배포 후 CloudWatch 콘솔에서 `[PROD]`, `[DEV]`, `[EC2]` 알람의 작업에
+`jarihana-cloudwatch-alerts` Topic이 연결되었는지 확인한다. dev 장애 실험의 preflight도 확인된
+이메일 구독과 dev 5xx 알람의 `AlarmActions`·`OKActions`를 검사한다.
 
 dev 로그 그룹이나 지표 수신을 중단할 계획이면 먼저 `EnableDevApplicationAlarms=false`로 stack을
-갱신한다. 템플릿 검증과 Discord 웹훅 테스트는 애플리케이션 로그 수신 여부와 독립적으로 실행된다.
+갱신한다. 운영 환경에는 강제 오류나 부하를 발생시켜 테스트하지 않는다.

@@ -64,7 +64,49 @@ class AlertTemplateTest(unittest.TestCase):
         ):
             self.assertNotIn(parameter_name, parameters)
 
-    def test_discord_delivery_does_not_require_eventbridge_resources(self):
+    def test_sns_email_delivery_is_attached_to_every_alarm(self):
+        topic = self.resources["AlertTopic"]
+        subscription = self.resources["AlertEmailSubscription"]
+
+        self.assertEqual("AWS::SNS::Topic", topic["Type"])
+        self.assertEqual(
+            "jarihana-cloudwatch-alerts",
+            topic["Properties"]["TopicName"],
+        )
+        self.assertEqual("AWS::SNS::Subscription", subscription["Type"])
+        self.assertEqual("email", subscription["Properties"]["Protocol"])
+        self.assertEqual(
+            {"Ref": "AlertEmail"},
+            subscription["Properties"]["Endpoint"],
+        )
+        self.assertEqual(
+            {"Ref": "AlertTopic"},
+            subscription["Properties"]["TopicArn"],
+        )
+
+        alarm_resources = [
+            resource for resource in self.resources.values()
+            if resource["Type"] == "AWS::CloudWatch::Alarm"
+        ]
+        self.assertEqual(12, len(alarm_resources))
+        for resource in alarm_resources:
+            properties = resource["Properties"]
+            self.assertEqual([{"Ref": "AlertTopic"}], properties["AlarmActions"])
+            self.assertEqual([{"Ref": "AlertTopic"}], properties["OKActions"])
+            self.assertNotIn("InsufficientDataActions", properties)
+
+    def test_email_parameter_is_required_and_hidden(self):
+        email = self.template["Parameters"]["AlertEmail"]
+
+        self.assertTrue(email["NoEcho"])
+        self.assertNotIn("Default", email)
+        self.assertIn("AllowedPattern", email)
+        self.assertEqual(
+            {"Ref": "AlertTopic"},
+            self.template["Outputs"]["AlertTopicArn"]["Value"],
+        )
+
+    def test_email_delivery_does_not_require_eventbridge_or_iam_resources(self):
         resource_types = {resource["Type"] for resource in self.resources.values()}
 
         self.assertNotIn("AWS::Events::Connection", resource_types)
@@ -72,7 +114,7 @@ class AlertTemplateTest(unittest.TestCase):
         self.assertNotIn("AWS::Events::Rule", resource_types)
         self.assertNotIn("AWS::IAM::Role", resource_types)
         self.assertNotIn("AWS::SQS::Queue", resource_types)
-        self.assertNotIn("DiscordWebhookUrl", self.template["Parameters"])
+        self.assertNotIn("AWS::SNS::TopicPolicy", resource_types)
 
 
 if __name__ == "__main__":

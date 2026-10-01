@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only CloudWatch evidence for the dev DB failure drill.
-
-Discord delivery is checked by the self-hosted CloudWatch Discord Monitor
-workflow. This script only checks the alarm stack, metrics, logs and alarm
-history, so it does not require EventBridge or Secrets Manager permissions.
-"""
+"""Read-only CloudWatch and SNS evidence for the dev DB failure drill."""
 
 import argparse
 import datetime as dt
@@ -46,6 +41,9 @@ def preflight():
     parameters = {item["ParameterKey"]: item.get("ParameterValue") for item in stack["Parameters"]}
     require(parameters.get("InstanceId") == os.environ["EXPECTED_INSTANCE_ID"], "Alert stack targets another EC2")
     require(parameters.get("EnableDevApplicationAlarms") == "true", "Dev application alarms are disabled")
+    outputs = {item["OutputKey"]: item.get("OutputValue") for item in stack.get("Outputs", [])}
+    topic_arn = outputs.get("AlertTopicArn")
+    require(topic_arn and topic_arn.startswith(f"arn:aws:sns:{REGION}:"), "Alert SNS topic output is missing")
 
     for environment in ("prod", "dev"):
         group_name = f"/jarihana/{environment}/application"
@@ -61,13 +59,15 @@ def preflight():
     transforms = metric_filter["metricTransformations"]
     require(len(transforms) == 1 and transforms[0]["metricNamespace"] == "Jarihana/Alerts" and transforms[0]["metricName"] == "http-5xx-dev", "Dev 5xx metric transformation differs")
 
-    alarm = only_one(aws("cloudwatch", "describe-alarms", "--alarm-names", ALARM)["MetricAlarms"], "dev 5xx alarm")
+    alarms = aws("cloudwatch", "describe-alarms", "--alarm-name-prefix", ALARM)["MetricAlarms"]
+    alarm = only_one([item for item in alarms if item["AlarmName"] == ALARM], "dev 5xx alarm")
     require(alarm["StateValue"] == "OK", f"Dev 5xx alarm must be OK; current state {alarm['StateValue']}")
     require(alarm["Period"] == 60 and alarm["Threshold"] == 1 and alarm["EvaluationPeriods"] == 1 and alarm["DatapointsToAlarm"] == 1, "Dev 5xx alarm threshold differs")
     require(alarm["MetricName"] == "http-5xx-dev" and alarm["Namespace"] == "Jarihana/Alerts", "Dev alarm uses another metric")
+    require(alarm.get("AlarmActions") == [topic_arn], "Dev alarm ALARM action is not the SNS topic")
+    require(alarm.get("OKActions") == [topic_arn], "Dev alarm recovery action is not the SNS topic")
 
-    print("Alert stack complete; dev 5xx alarm OK; 1-minute log filter; both log groups and dashboards present.")
-    print("Discord delivery is handled by the scheduled self-hosted CloudWatch Discord Monitor workflow.")
+    print("Alert stack complete; dev 5xx SNS alarm actions; 1-minute log filter; both dashboards present.")
 
 
 def kst(instant):
@@ -160,7 +160,7 @@ def main():
     print(f"Evidence saved: {path}")
     print(f"Dev 5xx log events: {len(evidence['dev_5xx_events'])}; alarm transitions: {len(evidence['alarm_transitions'])}")
     require(evidence["dev_5xx_events"] and "ALARM" in states and "OK" in states[states.index("ALARM") + 1:],
-            "Dev 5xx log or ALARM->OK transition not yet observed; inspect evidence and Discord manually")
+            "Dev 5xx log or ALARM->OK transition not yet observed; inspect evidence and email manually")
 
 
 if __name__ == "__main__":

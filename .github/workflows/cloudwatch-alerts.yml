@@ -9,10 +9,11 @@ on:
         default: validate
         options:
           - validate
-          - test-webhook
+          - check-sns-permissions
           - deploy
+          - test-email
       expected_instance_id:
-        description: "배포 대상 EC2 ID (deploy에 필수)"
+        description: "대상 EC2 ID (SNS 권한 확인·배포·이메일 테스트에 필수)"
         required: false
         type: string
       enable_dev_application_alarms:
@@ -49,33 +50,47 @@ jobs:
             --region ap-northeast-2 \
             --template-body "file://$RUNNER_TEMP/jarihana-alerts.json"
 
-      - name: Test Discord webhook
-        if: ${{ inputs.operation == 'test-webhook' }}
+      - name: Check SNS permissions
+        if: ${{ inputs.operation == 'check-sns-permissions' }}
         env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          EXPECTED_INSTANCE_ID: ${{ inputs.expected_instance_id }}
         run: |
-          if [[ -z "$DISCORD_WEBHOOK_URL" ]]; then
-            echo "Repository secret DISCORD_WEBHOOK_URL is not set." >&2
-            exit 1
-          fi
-          echo "::add-mask::$DISCORD_WEBHOOK_URL"
-          python3 - <<'PY' > "$RUNNER_TEMP/discord-webhook-test.json"
-          import json
-          print(json.dumps({
-              "content": "[자리하나 알림 테스트] Discord 웹훅 연결이 정상입니다.",
-              "allowed_mentions": {"parse": []},
-          }))
-          PY
-          curl --fail --silent --show-error --max-time 10 \
-            --output /dev/null --write-out 'Discord webhook HTTP %{http_code}\n' \
-            -X POST -H 'Content-Type: application/json' \
-            --data-binary "@$RUNNER_TEMP/discord-webhook-test.json" \
-            "${DISCORD_WEBHOOK_URL}?wait=true"
+          bash infra/cloudwatch/check-sns-permissions.sh
 
       - name: Deploy CloudWatch alarms
         if: ${{ inputs.operation == 'deploy' }}
         env:
           EXPECTED_INSTANCE_ID: ${{ inputs.expected_instance_id }}
           ENABLE_DEV_APPLICATION_ALARMS: ${{ inputs.enable_dev_application_alarms }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
         run: |
           bash infra/cloudwatch/deploy-alerts.sh
+
+      - name: Publish SNS email test
+        if: ${{ inputs.operation == 'test-email' }}
+        env:
+          EXPECTED_INSTANCE_ID: ${{ inputs.expected_instance_id }}
+        run: |
+          source infra/cloudwatch/ec2-context.sh
+          topic_arn="$(aws cloudformation describe-stacks \
+            --region "$AWS_REGION" \
+            --stack-name jarihana-alerts \
+            --query "Stacks[0].Outputs[?OutputKey=='AlertTopicArn'].OutputValue | [0]" \
+            --output text)"
+          test -n "$topic_arn" && test "$topic_arn" != None
+          alarm_name='[DEV] HTTP 5xx detected (application log)'
+          alarm_values="$(aws cloudwatch describe-alarms \
+            --region "$AWS_REGION" \
+            --alarm-name-prefix "$alarm_name" \
+            --query 'MetricAlarms[0].[AlarmName,StateValue,AlarmActions[0]]' \
+            --output text)"
+          IFS=$'\t' read -r actual_alarm_name current_state alarm_topic <<< "$alarm_values"
+          test "$actual_alarm_name" = "$alarm_name"
+          test "$current_state" = OK
+          test "$alarm_topic" = "$topic_arn"
+          aws cloudwatch set-alarm-state \
+            --region "$AWS_REGION" \
+            --alarm-name "$alarm_name" \
+            --state-value ALARM \
+            --state-reason "Manual SNS email delivery test from GitHub Actions run $GITHUB_RUN_ID"
+          echo 'Temporary ALARM state set. CloudWatch will return the metric alarm to its evaluated state.'

@@ -26,7 +26,6 @@ jobs:
       AWS_PAGER: ""
       AWS_REGION: ap-northeast-2
       AWS_DEFAULT_REGION: ap-northeast-2
-      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
 
     steps:
       - name: Checkout
@@ -34,12 +33,6 @@ jobs:
 
       - name: Alert stack and dev alarm preflight
         run: python3 infra/cloudwatch/dev-db-drill-observe.py preflight
-
-      - name: Initialize Discord monitor baseline
-        run: |
-          test -n "$DISCORD_WEBHOOK_URL"
-          python3 infra/cloudwatch/discord-monitor.py \
-            --state-file "$RUNNER_TEMP/jarihana-dev-db-discord-state.json"
 
       - name: Dev DB identity, health, API, and recovery preflight
         run: bash infra/cloudwatch/dev-db-drill.sh preflight
@@ -52,17 +45,6 @@ jobs:
         id: restore
         if: always()
         run: bash infra/cloudwatch/dev-db-drill.sh restore
-
-      - name: Poll alarm transitions and deliver Discord messages
-        if: always() && steps.inject.outcome == 'success' && steps.restore.outcome == 'success'
-        run: |
-          for attempt in {1..10}; do
-            python3 infra/cloudwatch/discord-monitor.py \
-              --state-file "$RUNNER_TEMP/jarihana-dev-db-discord-state.json"
-            if [[ "$attempt" -lt 10 ]]; then
-              sleep 30
-            fi
-          done
 
       - name: Collect CloudWatch log, alarm, and Hikari evidence
         if: always() && steps.restore.outcome == 'success'
