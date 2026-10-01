@@ -71,6 +71,11 @@
 - 보류 제안은 `docs/proposals/convention-review.md`에 기록하며, 수락 전에는 구현에 적용하지
   않습니다.
 
+## 애플리케이션 로그
+
+로컬 콘솔, dev/prod ECS JSON, CloudWatch 사전 준비와 조회 방법은
+[애플리케이션 로깅 운영 가이드](docs/operations/application-logging.md)를 확인합니다.
+
 ## 로컬 PostgreSQL 실행
 
 `backend/.env.example`은 로컬 실행용 템플릿이며, 복사한 `backend/.env`에 개인별 값을 입력합니다.
@@ -150,7 +155,7 @@ User는 `jarihana`, Password는 운영 DB 비밀번호로 설정합니다. 이 �
 개발 API는 호스트 `80`에서 컨테이너 `8080`으로 전달하고, CloudWatch Agent용 관리 포트는
 호스트 `127.0.0.1:81`에서 컨테이너 `8081`로만 전달합니다. `81`은 외부에 공개하지 않습니다.
 CloudFront 개발 API Origin도 EC2의 80번 포트를 바라보도록 확인해야 합니다.
-`application-dev.yaml`은 `ddl-auto: validate`, `show-sql: true`와 관리용 메트릭을 설정하며,
+`application-dev.yaml`은 `ddl-auto: validate`, `show-sql: false`와 관리용 메트릭을 설정하며,
 DB 접속값과 인증·OAuth·S3 설정은 개발 Compose의 환경 변수로 주입합니다.
 [개발 Compose](../infra/docker-compose.dev.yml)는 DB 스키마를 자동으로 초기화하지 않습니다.
 `ddl-auto: validate`를 사용하므로 Spring Session 테이블을 포함한 개발 DB 스키마를 첫 배포 전에

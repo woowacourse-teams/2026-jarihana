@@ -20,6 +20,11 @@ EC2 CPU는 기본 `AWS/EC2/CPUUtilization`을 조회하며 Agent의 `cpu_usage_a
 수집하지 않는다. 기본 모니터링의 5분 CPU와 무료 1분 상태 검사 지표를 그대로 사용하며,
 유료 상세 모니터링을 활성화하거나 기본 지표를 커스텀 네임스페이스로 재전송하지 않는다.
 
+애플리케이션 로그는 CloudWatch Agent가 파일을 읽는 방식으로 중복 수집하지 않는다.
+배포 Compose의 backend 컨테이너 stdout을 Docker `awslogs` driver가
+`/jarihana/<environment>/application` 로그 그룹으로 전송한다. `prepare` 단계는
+공통 메트릭 EMF 로그 그룹과 선택한 환경의 애플리케이션 로그 그룹을 배포 전에 준비한다.
+
 수집 설정에는 prod `127.0.0.1:8081`과 dev `127.0.0.1:81`을 함께 등록한다.
 실제 수집은 각 환경의 관리 엔드포인트가 기동된 후 시작한다. prod 대상 labels에 environment=prod를
 지정하고 honor_labels=false를 사용하므로, 아직 environment=current인 기존 배포판도
@@ -65,16 +70,17 @@ EC2 CPU·메모리·디스크는 컨테이너별 값이 아니므로 양쪽 대�
 | `agent.json` | 전송할 메트릭, 차원, 네임스페이스 설정 |
 | `application-context.sh` | prod/dev에 따른 로컬 API·관리 엔드포인트 선택 |
 | `inspect.sh` | OS, sudo, 인스턴스 역할, 메트릭 종류 확인 |
-| `prepare-aws.sh` | 전용 로그 그룹 생성 및 7일 보존 설정 |
+| `prepare-aws.sh` | 공통 메트릭 로그 그룹과 선택 환경의 애플리케이션 로그 그룹 생성 및 보존 설정 |
 | `install.sh` | 서명을 검증한 Ubuntu ARM64 패키지 설치와 Agent 시작 |
-| `verify.sh`, `verify.py` | 실제 CloudWatch 로그 및 메트릭 데이터 수신 확인 |
+| `verify.sh`, `verify.py` | 실제 CloudWatch EMF 로그 및 지표 데이터 수신 확인 |
 | `validate.py` | Agent JSON의 지표 선택 및 차원 제한 확인 |
 | `dashboard-prod.json` | prod 전용 앱 지표와 EC2 공통 자원의 대시보드 정의 |
 | `create-dashboard.sh` | 기본은 생성만 수행하고, 명시적 `--update`에서는 기존 JSON 백업 후 갱신 |
 
 GitHub Actions의 `CloudWatch Manage` (`cloudwatch-manage.yml`)를 수동 실행하고
-`target_environment`과 `operation`을 선택한다. 기본값은 prod의 환경만 확인하는
-`cloudwatch-inspect`다.
+`target_environment`, `operation`, `application_log_retention_days`를 선택한다.
+기본값은 prod의 환경만 확인하는 `cloudwatch-inspect`이며, 애플리케이션 로그 보존
+기본값은 14일이다.
 Agent 하나가 같은 EC2의 prod/dev를 수집하므로 환경별 배포 workflow와 독립적으로 관리한다.
 prod/dev 백엔드 배포는 각각 `backend-prod-deploy.yml`, `backend-dev-deploy.yml`에서 실행한다.
 수동 실행 메뉴가 표시되려면 새 workflow 파일이 저장소 기본 브랜치인 `main`에 반영돼야 한다.
@@ -85,15 +91,18 @@ prod/dev 백엔드 배포는 각각 `backend-prod-deploy.yml`, `backend-dev-depl
 | dev | `http://127.0.0.1:80` | `http://127.0.0.1:81` | `application=jarihana`, `environment=dev` |
 
 - `cloudwatch-inspect`: EC2 환경과 선택한 앱의 health·Prometheus·Docker 포트 매핑을 확인한다.
-- `cloudwatch-prepare`: 공통 설정 검사, 공통 로그 그룹 생성, 보존 기간 설정을 수행한다.
+- `cloudwatch-prepare`: 공통 설정 검사, 공통 메트릭 로그 그룹 생성, 선택 환경의
+  애플리케이션 로그 그룹 생성, 보존 기간 설정을 수행한다.
 - `cloudwatch-install`: prepare 후 선택한 앱의 관리 엔드포인트를 확인하고, 공통 Agent 설정을
-  설치·갱신한 다음 선택 환경의 실제 전송을 확인한다.
-- `cloudwatch-verify`: 선택한 앱의 로컬 엔드포인트와 실제 CloudWatch 전송을 확인한다.
+  설치·갱신한 다음 선택 환경의 메트릭 전송을 확인한다.
+- `cloudwatch-verify`: 선택한 앱의 로컬 엔드포인트와 실제 CloudWatch 메트릭 전송을 확인한다.
 
 `Run workflow`의 Branch는 실행할 코드 버전이며, `target_environment`은 확인할 앱 환경이다.
 dev를 확인하려면 dev 수집 설정과 이 공통 workflow가 포함된 코드 버전을 선택한다.
-EC2 호스트·Agent·로그 그룹은 공통이며, install은 선택 환경에 관계없이 prod/dev 전체 수집
-설정을 적용한다. 한 환경을 선택해도 다른 환경의 수집 대상을 제거하지 않는다.
+EC2 호스트·Agent·공통 메트릭 로그 그룹은 공유하며, install은 선택 환경에 관계없이
+prod/dev 전체 수집 설정을 적용한다. 한 환경을 선택해도 다른 환경의 수집 대상을 제거하지 않는다.
+애플리케이션 로그 그룹 준비는 선택한 환경만 대상으로 하며, 공통 메트릭 로그 그룹은 항상
+`/jarihana/current/prometheus`를 사용한다.
 검증은 선택 환경의 EMF 로그와 environment 차원이 포함된 지표만 사용하므로 prod 데이터로
 dev 검증을 통과시키지 않는다. EC2 기본 CPU·상태 검사와 호스트 메모리·디스크는 공통으로 확인한다.
 Agent 설정을 함께 변경하므로 동시 실행도 환경 구분 없이 하나씩 처리한다.
@@ -147,26 +156,40 @@ HTTP 상태 범주 2개, 메모리 풀 8개, 스레드 상태 6개, Hikari 풀
 
 ## 권한과 설치
 
-Agent는 EC2에 연결된 인스턴스 역할을 사용한다. AWS 콘솔에 로그인한 IAM 사용자의 권한을
-자동으로 사용하지 않는다. 필요한 전송 권한은 `CloudWatchAgentServerPolicy`를 기준으로
-확인한다. 7일 보존 설정에는 `logs:PutRetentionPolicy`가 추가로 필요하다. 검증 스크립트에는
+Agent와 Docker `awslogs` driver는 EC2에 연결된 인스턴스 역할을 사용한다. AWS 콘솔에
+로그인한 IAM 사용자의 권한을 자동으로 사용하지 않는다.
+AWS 관리형 [`CloudWatchAgentServerPolicy`](https://docs.aws.amazon.com/aws-managed-policy/latest/reference/CloudWatchAgentServerPolicy.html)
+v3에는 `logs:CreateLogGroup`,
+`logs:CreateLogStream`, `logs:PutLogEvents`, `logs:DescribeLogGroups`,
+`logs:DescribeLogStreams`, `logs:PutRetentionPolicy`가 `Resource: "*"`로 포함되어 있다.
+이 정책이 Docker 호스트의 EC2 역할에 이미 연결되어 있으면, 기본 로그 그룹 생성·보존 설정과
+Docker 로그 전송에는 같은 역할을 재사용할 수 있다. 실제 역할 연결 여부는 이 저장소에서
+검증하지 않는다.
+
+최소 권한을 별도로 나누는 경우에는 `prepare-aws.sh` 실행 권한과 Docker 런타임 쓰기 권한을
+분리한다. Docker 런타임에는 준비된 로그 그룹의 스트림 생성·기록 권한만 줄 수 있지만,
+`prepare-aws.sh`에는 로그 그룹 생성과 보존 기간 변경 권한이 필요하다. 검증 스크립트에는
 `logs:FilterLogEvents`, `cloudwatch:GetMetricStatistics` 읽기 권한도 필요하며, 이 읽기 권한이
-없다고 Agent의 전송 권한까지 없다고 판단하지 않는다.
+없다고 Agent나 Docker의 전송 권한까지 없다고 판단하지 않는다.
 
 현재 runner 계정은 sudo 권한이 없다. sudo 가능한 SSH 사용자로 저장소의 해당 커밋에 있는
 파일을 전달한 뒤 다음처럼 설치한다. 기존 EC2 역할을 다른 역할로 교체하지 않는다.
 
 ```bash
-EXPECTED_INSTANCE_ID=<확인한-EC2-ID> bash infra/cloudwatch/prepare-aws.sh
+TARGET_ENVIRONMENT=prod EXPECTED_INSTANCE_ID=<확인한-EC2-ID> APPLICATION_LOG_RETENTION_DAYS=14 bash infra/cloudwatch/prepare-aws.sh
 sudo env EXPECTED_INSTANCE_ID=<확인한-EC2-ID> TARGET_ENVIRONMENT=prod bash infra/cloudwatch/install.sh
 EXPECTED_INSTANCE_ID=<확인한-EC2-ID> TARGET_ENVIRONMENT=prod bash infra/cloudwatch/verify.sh
 
 # dev 서버 배포 및 공통 Agent 설정 적용 후 dev 수신 확인
+TARGET_ENVIRONMENT=dev EXPECTED_INSTANCE_ID=<확인한-EC2-ID> APPLICATION_LOG_RETENTION_DAYS=14 bash infra/cloudwatch/prepare-aws.sh
 EXPECTED_INSTANCE_ID=<확인한-EC2-ID> TARGET_ENVIRONMENT=dev bash infra/cloudwatch/verify.sh
 ```
 
 SSH에서 `TARGET_ENVIRONMENT`을 생략하면 prod를 선택한다. prod/dev 이외의 값이나 빈 값은
-inspect/install/verify가 EC2 또는 AWS에 접근하기 전에 거부한다.
+prepare/inspect/install/verify가 EC2 또는 AWS에 접근하기 전에 거부한다.
+`APPLICATION_LOG_RETENTION_DAYS`를 생략하면 14일을 사용한다. CloudWatch Manage의 선택지는
+7, 14, 30, 60, 90일이다. 배포 전에 해당 환경의 prepare를 먼저 실행해 Docker `awslogs`가
+참조할 로그 그룹을 만들어 둔다.
 
 설치한 패키지의 서명, 체크섬, 버전은 설치 출력에서 확인한다. 기존 자리하나 Agent 설정을
 갱신할 때는 `/var/lib/jarihana-cloudwatch/backups/`에 백업하고, 새 설정 시작에 실패하면
@@ -184,7 +207,7 @@ CloudWatch Agent는 counter와 summary의 count/sum을 이전 수집과의 차�
 전용 오류 지표 또는 오류 로그를 포함해 이 요구사항을 보완한 후 5xx 알림을 구성한다.
 수집 시작 전 이벤트와 Agent 중단 구간도 별도로 고려해야 한다.
 
-알림과 애플리케이션 로그 수집은 후속 단계다.
+로그 기반 알림 구성은 후속 단계다.
 
 ## 운영 대시보드
 
