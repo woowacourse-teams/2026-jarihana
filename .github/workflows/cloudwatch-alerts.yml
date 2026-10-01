@@ -16,27 +16,12 @@ on:
         required: false
         type: string
       enable_dev_application_alarms:
-        description: "dev CloudWatch 앱 지표 수신을 확인한 뒤에만 true 선택"
+        description: "dev 애플리케이션 알람 활성화"
         type: choice
-        default: "false"
+        default: "true"
         options:
-          - "false"
           - "true"
-      prod_backend_log_group_name:
-        description: "검증된 prod 애플리케이션 로그 그룹 (선택)"
-        required: false
-        type: string
-      prod_http_5xx_log_pattern:
-        description: "HTTP 5xx 한 건과 일치하는 검증된 prod 필터 패턴 (선택)"
-        required: false
-        type: string
-      dev_backend_log_group_name:
-        description: "검증된 dev 애플리케이션 로그 그룹 (선택)"
-        required: false
-        type: string
-      dev_http_5xx_log_pattern:
-        description: "HTTP 5xx 한 건과 일치하는 검증된 dev 필터 패턴 (선택)"
-        required: false
+          - "false"
 
 permissions:
   contents: read
@@ -57,6 +42,7 @@ jobs:
       - name: Render and validate CloudFormation template
         if: ${{ inputs.operation == 'validate' }}
         run: |
+          python3 -m unittest infra/cloudwatch/test_alerts.py
           python3 infra/cloudwatch/alerts.py > "$RUNNER_TEMP/jarihana-alerts.json"
           python3 -m json.tool "$RUNNER_TEMP/jarihana-alerts.json" > /dev/null
           aws cloudformation validate-template \
@@ -92,10 +78,6 @@ jobs:
           EXPECTED_INSTANCE_ID: ${{ inputs.expected_instance_id }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           ENABLE_DEV_APPLICATION_ALARMS: ${{ inputs.enable_dev_application_alarms }}
-          PROD_BACKEND_LOG_GROUP_NAME: ${{ inputs.prod_backend_log_group_name }}
-          PROD_HTTP_5XX_LOG_PATTERN: ${{ inputs.prod_http_5xx_log_pattern }}
-          DEV_BACKEND_LOG_GROUP_NAME: ${{ inputs.dev_backend_log_group_name }}
-          DEV_HTTP_5XX_LOG_PATTERN: ${{ inputs.dev_http_5xx_log_pattern }}
         run: |
           if [[ -z "$DISCORD_WEBHOOK_URL" ]]; then
             echo "Repository secret DISCORD_WEBHOOK_URL is not set." >&2

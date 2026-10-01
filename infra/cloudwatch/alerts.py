@@ -4,6 +4,16 @@
 import json
 
 
+APPLICATION_LOG_GROUPS = {
+    "prod": "/jarihana/prod/application",
+    "dev": "/jarihana/dev/application",
+}
+HTTP_5XX_LOG_PATTERN = (
+    '{ $.event.action = "http.request.completed" '
+    '&& $.http.response.status_code >= 500 }'
+)
+
+
 def parameter(description, default=None, allowed_pattern=None, no_echo=False):
     result = {"Type": "String", "Description": description}
     if default is not None:
@@ -44,84 +54,42 @@ def alarm(name, description, namespace, metric, dimensions, statistic, period,
     return resource
 
 
-def app_dimensions(environment, status_class=None):
-    result = [
+def app_dimensions(environment):
+    return [
         dimension("application", "jarihana"),
         dimension("environment", environment),
     ]
-    if status_class is not None:
-        result.append(dimension("status_class", status_class))
-    return result
-
-
-def non_empty(parameter_name):
-    return {"Fn::Not": [{"Fn::Equals": [{"Ref": parameter_name}, ""]}]}
 
 
 def parameter_is_true(parameter_name):
     return {"Fn::Equals": [{"Ref": parameter_name}, "true"]}
 
 
-def log_filter_enabled(environment):
-    prefix = environment.title()
-    configured = {
-        "Fn::And": [
-            non_empty(f"{prefix}BackendLogGroupName"),
-            non_empty(f"{prefix}Http5xxLogPattern"),
-        ]
-    }
-    if environment == "dev":
-        return {"Fn::And": [{"Condition": "EnableDevApplicationAlarms"}, configured]}
-    return configured
-
-
-def log_filter_rule(environment):
-    prefix = environment.title()
-    group_empty = {"Fn::Equals": [{"Ref": f"{prefix}BackendLogGroupName"}, ""]}
-    pattern_empty = {"Fn::Equals": [{"Ref": f"{prefix}Http5xxLogPattern"}, ""]}
-    return {
-        "Assertions": [{
-            "Assert": {
-                "Fn::Or": [
-                    {"Fn::And": [group_empty, pattern_empty]},
-                    {
-                        "Fn::And": [
-                            {"Fn::Not": [group_empty]},
-                            {"Fn::Not": [pattern_empty]},
-                        ]
-                    },
-                ]
-            },
-            "AssertDescription": (
-                f"Set both {prefix}BackendLogGroupName and "
-                f"{prefix}Http5xxLogPattern, or leave both empty."
-            ),
-        }]
-    }
-
-
 def log_filter_resources(environment):
     prefix = environment.title()
     label = environment.upper()
     metric_name = f"http-5xx-{environment}"
-    condition = f"Use{prefix}Log5xx"
+    condition = "EnableDevApplicationAlarms" if environment == "dev" else None
     alarm_name = f"[{label}] HTTP 5xx detected (application log)"
     filter_name = f"jarihana-{environment}-http-5xx"
-    return {
-        f"{prefix}Http5xxLogFilter": {
-            "Type": "AWS::Logs::MetricFilter",
-            "Condition": condition,
-            "Properties": {
-                "FilterName": filter_name,
-                "LogGroupName": {"Ref": f"{prefix}BackendLogGroupName"},
-                "FilterPattern": {"Ref": f"{prefix}Http5xxLogPattern"},
-                "MetricTransformations": [{
-                    "MetricNamespace": "Jarihana/Alerts",
-                    "MetricName": metric_name,
-                    "MetricValue": "1",
-                }],
-            },
+    metric_filter = {
+        "Type": "AWS::Logs::MetricFilter",
+        "Properties": {
+            "FilterName": filter_name,
+            "LogGroupName": APPLICATION_LOG_GROUPS[environment],
+            "FilterPattern": HTTP_5XX_LOG_PATTERN,
+            "MetricTransformations": [{
+                "MetricNamespace": "Jarihana/Alerts",
+                "MetricName": metric_name,
+                "MetricValue": "1",
+                "DefaultValue": 0,
+            }],
         },
+    }
+    if condition:
+        metric_filter["Condition"] = condition
+    return {
+        f"{prefix}Http5xxLogFilter": metric_filter,
         f"{prefix}Http5xxLogAlarm": alarm(
             alarm_name,
             f"[{label}] At least one HTTP 5xx request was recorded in the last minute.",
@@ -307,26 +275,6 @@ def template():
     for environment in ("prod", "dev"):
         prefix = environment.title()
         label = environment.upper()
-        log_condition = f"Use{prefix}Log5xx"
-        metric_condition = f"Use{prefix}Metric5xx"
-        resources[f"{prefix}Http5xxMetricAlarm"] = alarm(
-            f"[{label}] HTTP 5xx detected (Prometheus metric)",
-            (
-                f"[{label}] At least one reported HTTP 5xx in 60 seconds. "
-                "A new Prometheus counter series can miss its first increment."
-            ),
-            "Jarihana",
-            "http_server_requests_seconds_count",
-            app_dimensions(environment, "5xx"),
-            "Sum",
-            60,
-            1,
-            "GreaterThanOrEqualToThreshold",
-            1,
-            1,
-            "notBreaching",
-            metric_condition,
-        )
         resources[f"{prefix}ApplicationCpuHigh"] = alarm(
             f"[{label}] Application CPU at least 80% for five minutes",
             f"[{label}] Application process CPU usage averaged at least 80% for five minutes.",
@@ -447,22 +395,6 @@ def template():
     conditions = {
         "EnableDevApplicationAlarms": parameter_is_true("EnableDevApplicationAlarms"),
     }
-    for environment in ("prod", "dev"):
-        prefix = environment.title()
-        log_condition = f"Use{prefix}Log5xx"
-        conditions[log_condition] = log_filter_enabled(environment)
-        metric_fallback = {
-            "Fn::Not": [{"Condition": log_condition}]
-        }
-        if environment == "dev":
-            conditions[f"Use{prefix}Metric5xx"] = {
-                "Fn::And": [
-                    {"Condition": "EnableDevApplicationAlarms"},
-                    metric_fallback,
-                ]
-            }
-        else:
-            conditions[f"Use{prefix}Metric5xx"] = metric_fallback
 
     return {
         "AWSTemplateFormatVersion": "2010-09-09",
@@ -485,31 +417,11 @@ def template():
             "EnableDevApplicationAlarms": {
                 "Type": "String",
                 "Description": (
-                    "Enable dev application alarms after dev metrics are present in CloudWatch."
+                    "Enable dev application alarms; dev metrics have been verified in CloudWatch."
                 ),
-                "Default": "false",
+                "Default": "true",
                 "AllowedValues": ["true", "false"],
             },
-            "ProdBackendLogGroupName": parameter(
-                "Existing prod application log group; keep blank until the ECS log group is known.",
-                default="",
-            ),
-            "ProdHttp5xxLogPattern": parameter(
-                "Tested filter pattern matching exactly one prod HTTP 5xx request event.",
-                default="",
-            ),
-            "DevBackendLogGroupName": parameter(
-                "Existing dev application log group; keep blank until the ECS log group is known.",
-                default="",
-            ),
-            "DevHttp5xxLogPattern": parameter(
-                "Tested filter pattern matching exactly one dev HTTP 5xx request event.",
-                default="",
-            ),
-        },
-        "Rules": {
-            "ProdLogFilterConfiguration": log_filter_rule("prod"),
-            "DevLogFilterConfiguration": log_filter_rule("dev"),
         },
         "Conditions": conditions,
         "Resources": resources,

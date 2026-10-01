@@ -5,7 +5,7 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 : "${EXPECTED_INSTANCE_ID:?Set EXPECTED_INSTANCE_ID to the inspected target EC2 ID}"
 : "${DISCORD_WEBHOOK_URL:?Set DISCORD_WEBHOOK_URL as a GitHub Actions secret}"
 
-enable_dev_alarms="${ENABLE_DEV_APPLICATION_ALARMS:-false}"
+enable_dev_alarms="${ENABLE_DEV_APPLICATION_ALARMS:-true}"
 case "${enable_dev_alarms}" in
   true|false) ;;
   *) printf 'ENABLE_DEV_APPLICATION_ALARMS must be true or false\n' >&2; exit 1 ;;
@@ -37,23 +37,26 @@ if [[ -z "${root_filesystem}" ]]; then
   exit 1
 fi
 
-for environment in prod dev; do
-  if [[ "${environment}" == prod ]]; then
-    env_upper=PROD
-    env_title=Prod
-  else
-    env_upper=DEV
-    env_title=Dev
-  fi
-  group_var="${env_upper}_BACKEND_LOG_GROUP_NAME"
-  pattern_var="${env_upper}_HTTP_5XX_LOG_PATTERN"
-  group="${!group_var:-}"
-  pattern="${!pattern_var:-}"
-  if [[ -n "${group}" && -z "${pattern}" ]] || [[ -z "${group}" && -n "${pattern}" ]]; then
-    printf 'Set both %s and %s, or leave both empty.\n' "${group_var}" "${pattern_var}" >&2
+require_log_group() {
+  local log_group="$1"
+  local existing
+
+  existing="$(aws logs describe-log-groups \
+    --region "${region}" \
+    --log-group-name-prefix "${log_group}" \
+    --query "logGroups[?logGroupName=='${log_group}'].logGroupName | [0]" \
+    --output text)"
+  if [[ "${existing}" != "${log_group}" ]]; then
+    printf 'Required application log group is missing: %s\n' "${log_group}" >&2
+    printf 'Run CloudWatch Manage > cloudwatch-prepare for this environment before deploying alerts.\n' >&2
     exit 1
   fi
-done
+}
+
+require_log_group /jarihana/prod/application
+if [[ "${enable_dev_alarms}" == true ]]; then
+  require_log_group /jarihana/dev/application
+fi
 
 temporary_dir="$(mktemp -d)"
 trap 'rm -rf -- "${temporary_dir}"' EXIT
@@ -70,22 +73,6 @@ parameters=(
   "DiscordWebhookUrl=${DISCORD_WEBHOOK_URL}"
   "EnableDevApplicationAlarms=${enable_dev_alarms}"
 )
-for environment in prod dev; do
-  if [[ "${environment}" == prod ]]; then
-    env_upper=PROD
-    env_title=Prod
-  else
-    env_upper=DEV
-    env_title=Dev
-  fi
-  group_var="${env_upper}_BACKEND_LOG_GROUP_NAME"
-  pattern_var="${env_upper}_HTTP_5XX_LOG_PATTERN"
-  group="${!group_var:-}"
-  parameters+=(
-    "${env_title}BackendLogGroupName=${group}"
-    "${env_title}Http5xxLogPattern=${!pattern_var:-}"
-  )
-done
 
 caller_account="$(aws sts get-caller-identity --query Account --output text)"
 printf 'Deploying jarihana-alerts to account %s, region %s, EC2 %s; dev application alarms: %s\n' \

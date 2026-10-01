@@ -207,15 +207,15 @@ prepare/inspect/install/verify가 EC2 또는 AWS에 접근하기 전에 거부�
 GC pause는 실제 GC가 발생해야 나타날 수
 있으므로 검증을 위해 운영 GC나 오류를 강제로 발생시키지 않는다.
 
-## 다음 알림 단계에서 해결할 사항
+## 5xx 알림 데이터 선택
 
 CloudWatch Agent는 counter와 summary의 count/sum을 이전 수집과의 차이로 전송한다.
 새 시리즈의 첫 수집 값은 기준값으로 사용하고 두 번째 수집부터 전송한다. 따라서 현재 HTTP
-메트릭만으로 새 5xx 시리즈의 첫 오류까지 모두 알린다고 보장할 수 없다. 다음 알림 단계에서
-전용 오류 지표 또는 오류 로그를 포함해 이 요구사항을 보완한 후 5xx 알림을 구성한다.
-수집 시작 전 이벤트와 Agent 중단 구간도 별도로 고려해야 한다.
-
-로그 기반 알림 구성은 후속 단계다.
+메트릭만으로 새 5xx 시리즈의 첫 오류까지 모두 알린다고 보장할 수 없다. `CloudWatch Alerts`는
+이 메트릭 대신 ECS JSON의 `event.action=http.request.completed`와
+`http.response.status_code>=500`을 세는 환경별 로그 필터를 사용한다. 로그 그룹 준비와 배포 순서는
+[`ALERTS.md`](ALERTS.md)를 따른다. 필터 생성 전 이벤트와 로그 전송 중단 구간은 별도로 고려해야
+한다.
 
 ## 운영 대시보드
 
