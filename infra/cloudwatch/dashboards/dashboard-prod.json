@@ -5,7 +5,7 @@
     {
       "type": "text", "x": 0, "y": 0, "width": 24, "height": 3,
       "properties": {
-        "markdown": "# 자리하나 운영 모니터링\n애플리케이션: **jarihana / prod** · 리전: **서울** · 기본 EC2 CPU: **5분** · 앱·메모리·디스크·EC2 상태 검사: **1분**\nEC2 CPU·메모리·디스크·상태 검사는 **같은 호스트의 모든 컨테이너가 공유하는 값**입니다. EC2 상태 검사는 **0=통과 / 1=실패**이며, 빈 구간은 중지·미수집 등으로 **확인 필요**합니다. 상태 검사 통과가 애플리케이션의 정상 응답을 보장하지는 않습니다. GC·오류·연결 획득 지표는 해당 이벤트가 없으면 비어 있을 수 있습니다.\n설정 원본: `infra/cloudwatch/dashboard-prod.json` · 5xx 그래프는 추세 확인용이며 모든 오류의 개별 알림을 보장하지 않습니다."
+        "markdown": "# 자리하나 운영 모니터링\n애플리케이션: **jarihana / prod** · 리전: **서울** · 기본 EC2 CPU: **5분** · 앱·메모리·디스크·EC2 상태 검사: **1분**\nEC2 CPU·메모리·디스크·상태 검사는 **같은 호스트의 모든 컨테이너가 공유하는 값**입니다. EC2 상태 검사는 **0=통과 / 1=실패**이며, 빈 구간은 중지·미수집 등으로 **확인 필요**합니다. 상태 검사 통과가 애플리케이션의 정상 응답을 보장하지는 않습니다. GC·오류·연결 획득 지표는 해당 이벤트가 없으면 비어 있을 수 있습니다.\n설정 원본: `infra/cloudwatch/dashboards/dashboard-prod.json` · 5xx 그래프는 추세 확인용이며 모든 오류의 개별 알림을 보장하지 않습니다."
       }
     },
     {
@@ -189,6 +189,277 @@
           ["AWS/EC2", "StatusCheckFailed_Instance", "InstanceId", "i-0a1245eb20f7998b8", {"label": "인스턴스 상태 검사"}],
           ["AWS/EC2", "StatusCheckFailed_System", "InstanceId", "i-0a1245eb20f7998b8", {"label": "AWS 호스트 상태 검사"}],
           ["AWS/EC2", "StatusCheckFailed_AttachedEBS", "InstanceId", "i-0a1245eb20f7998b8", {"label": "연결된 EBS 상태 검사"}]
+        ]
+      }
+    }
+    ,
+    {
+      "type": "text",
+      "x": 0,
+      "y": 33,
+      "width": 24,
+      "height": 3,
+      "properties": {
+        "markdown": "### 서비스 생존 상태 (prod)\n**1 = 검사 성공 / 0 = 검사 실패 / -1 = 미수집·확인 필요** · 호스트에서 매분 검사합니다.\n컨테이너는 Docker running 상태, Spring 응답은 DB에 의존하지 않는 관리 포트의 Prometheus 응답, DB는 PostgreSQL 내부 TCP 연결의 SELECT 1 성공 여부입니다. DB 검사는 앱→DB 네트워크 경로까지 보장하지 않습니다. 수집기 heartbeat가 없으면 과거의 정상 값을 현재 정상으로 표시하지 않습니다."
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 36,
+      "width": 24,
+      "height": 4,
+      "properties": {
+        "title": "서비스 생존 상태 — 현재 (1 정상 / 0 실패 / -1 미확인)",
+        "region": "ap-northeast-2",
+        "view": "singleValue",
+        "period": 60,
+        "stat": "Minimum",
+        "setPeriodToTimeRange": false,
+        "sparkline": false,
+        "metrics": [
+          [
+            "Jarihana",
+            "ContainerRunning",
+            "application",
+            "jarihana",
+            "environment",
+            "prod",
+            "InstanceId",
+            "i-0a1245eb20f7998b8",
+            "component",
+            "backend",
+            {
+              "id": "cb",
+              "visible": false
+            }
+          ],
+          [
+            "Jarihana",
+            "ContainerRunning",
+            "application",
+            "jarihana",
+            "environment",
+            "prod",
+            "InstanceId",
+            "i-0a1245eb20f7998b8",
+            "component",
+            "postgres",
+            {
+              "id": "cp",
+              "visible": false
+            }
+          ],
+          [
+            "Jarihana",
+            "AppUp",
+            "application",
+            "jarihana",
+            "environment",
+            "prod",
+            "InstanceId",
+            "i-0a1245eb20f7998b8",
+            {
+              "id": "app",
+              "visible": false
+            }
+          ],
+          [
+            "Jarihana",
+            "DbUp",
+            "application",
+            "jarihana",
+            "environment",
+            "prod",
+            "InstanceId",
+            "i-0a1245eb20f7998b8",
+            {
+              "id": "db",
+              "visible": false
+            }
+          ],
+          [
+            "Jarihana",
+            "HealthCollectorHeartbeat",
+            "application",
+            "jarihana",
+            "environment",
+            "prod",
+            "InstanceId",
+            "i-0a1245eb20f7998b8",
+            {
+              "id": "hb",
+              "visible": false
+            }
+          ],
+          [
+            {
+              "expression": "IF(FILL(hb,0)>=1,FILL(cb,-1),-1)",
+              "id": "backendstate",
+              "label": "Backend 컨테이너"
+            }
+          ],
+          [
+            {
+              "expression": "IF(FILL(hb,0)>=1,FILL(cp,-1),-1)",
+              "id": "postgresstate",
+              "label": "PostgreSQL 컨테이너"
+            }
+          ],
+          [
+            {
+              "expression": "IF(FILL(hb,0)>=1,FILL(app,-1),-1)",
+              "id": "appstate",
+              "label": "Spring 응답 (DB 제외)"
+            }
+          ],
+          [
+            {
+              "expression": "IF(FILL(hb,0)>=1,FILL(db,-1),-1)",
+              "id": "dbstate",
+              "label": "DB SELECT 1"
+            }
+          ],
+          [
+            {
+              "expression": "FILL(hb,-1)",
+              "id": "collectorstate",
+              "label": "검사 수집기"
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 40,
+      "width": 24,
+      "height": 6,
+      "properties": {
+        "title": "서비스 생존 상태 — 이력 (1 정상 / 0 실패 / -1 미확인)",
+        "region": "ap-northeast-2",
+        "view": "timeSeries",
+        "period": 60,
+        "stat": "Minimum",
+        "stacked": false,
+        "yAxis": {
+          "left": {
+            "min": -1,
+            "max": 1,
+            "showUnits": false
+          }
+        },
+        "metrics": [
+          [
+            "Jarihana",
+            "ContainerRunning",
+            "application",
+            "jarihana",
+            "environment",
+            "prod",
+            "InstanceId",
+            "i-0a1245eb20f7998b8",
+            "component",
+            "backend",
+            {
+              "id": "cb",
+              "visible": false
+            }
+          ],
+          [
+            "Jarihana",
+            "ContainerRunning",
+            "application",
+            "jarihana",
+            "environment",
+            "prod",
+            "InstanceId",
+            "i-0a1245eb20f7998b8",
+            "component",
+            "postgres",
+            {
+              "id": "cp",
+              "visible": false
+            }
+          ],
+          [
+            "Jarihana",
+            "AppUp",
+            "application",
+            "jarihana",
+            "environment",
+            "prod",
+            "InstanceId",
+            "i-0a1245eb20f7998b8",
+            {
+              "id": "app",
+              "visible": false
+            }
+          ],
+          [
+            "Jarihana",
+            "DbUp",
+            "application",
+            "jarihana",
+            "environment",
+            "prod",
+            "InstanceId",
+            "i-0a1245eb20f7998b8",
+            {
+              "id": "db",
+              "visible": false
+            }
+          ],
+          [
+            "Jarihana",
+            "HealthCollectorHeartbeat",
+            "application",
+            "jarihana",
+            "environment",
+            "prod",
+            "InstanceId",
+            "i-0a1245eb20f7998b8",
+            {
+              "id": "hb",
+              "visible": false
+            }
+          ],
+          [
+            {
+              "expression": "IF(FILL(hb,0)>=1,FILL(cb,-1),-1)",
+              "id": "backendstate",
+              "label": "Backend 컨테이너"
+            }
+          ],
+          [
+            {
+              "expression": "IF(FILL(hb,0)>=1,FILL(cp,-1),-1)",
+              "id": "postgresstate",
+              "label": "PostgreSQL 컨테이너"
+            }
+          ],
+          [
+            {
+              "expression": "IF(FILL(hb,0)>=1,FILL(app,-1),-1)",
+              "id": "appstate",
+              "label": "Spring 응답 (DB 제외)"
+            }
+          ],
+          [
+            {
+              "expression": "IF(FILL(hb,0)>=1,FILL(db,-1),-1)",
+              "id": "dbstate",
+              "label": "DB SELECT 1"
+            }
+          ],
+          [
+            {
+              "expression": "FILL(hb,-1)",
+              "id": "collectorstate",
+              "label": "검사 수집기"
+            }
+          ]
         ]
       }
     }

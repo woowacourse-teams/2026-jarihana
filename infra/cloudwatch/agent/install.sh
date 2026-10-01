@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-. "${script_dir}/application-context.sh"
-. "${script_dir}/ec2-context.sh"
+. "${script_dir}/../common/application-context.sh"
+. "${script_dir}/../common/ec2-context.sh"
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo 'Run this installation with sudo on the inspected EC2.' >&2

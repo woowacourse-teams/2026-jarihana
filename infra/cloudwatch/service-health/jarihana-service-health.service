@@ -1,0 +1,13 @@
+[Unit]
+Description=Collect Jarihana prod/dev container, Spring and PostgreSQL health
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8
+Environment=AWS_REGION=ap-northeast-2
+Environment=AWS_PAGER=
+ExecStart=/bin/bash /opt/jarihana-service-health/service-health/service-health.sh
+TimeoutStartSec=55
+UMask=0077

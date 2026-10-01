@@ -33,7 +33,7 @@ dev 컨테이너의 API는 호스트 `80:8080`, 관리 포트는 `127.0.0.1:81:8
 컨테이너 내부 관리 포트는 같은 8081을 사용해도 된다. API·DB 연결과 별도로 관리 포트를
 localhost에만 공개하고, dev 애플리케이션의 environment 태그도 dev로 설정한다.
 81번 인바운드 규칙은 추가하지 않는다.
-공통 `prometheus.yaml`에는 다음 두 대상 그룹을 유지한다.
+공통 `agent/prometheus.yaml`에는 다음 두 대상 그룹을 유지한다.
 
 ```yaml
 static_configs:
@@ -59,19 +59,37 @@ EC2 CPU·메모리·디스크는 컨테이너별 값이 아니므로 양쪽 대�
 
 ## 구성
 
+역할별로 디렉터리를 나눈다. 아래 파일 경로는 `infra/cloudwatch/` 기준이다.
+
+```text
+cloudwatch/
+├── README.md
+├── common/         # 환경 선택, EC2 확인, 설치 전 점검, 로그 그룹 준비
+├── agent/          # Agent·Prometheus 설정, 설치, 설정 검증, 수신 확인
+├── dashboards/     # dev/prod JSON, 생성·갱신 스크립트
+└── service-health/ # 컨테이너·Spring·DB 검사, 설치·검증, systemd unit
+```
+
 | 파일 | 역할 |
 | --- | --- |
-| `prometheus.yaml` | 60초마다 로컬 메트릭을 읽고 필요한 시리즈만 수집 |
-| `agent.json` | 전송할 메트릭, 차원, 네임스페이스 설정 |
-| `application-context.sh` | prod/dev에 따른 로컬 API·관리 엔드포인트 선택 |
-| `inspect.sh` | OS, sudo, 인스턴스 역할, 메트릭 종류 확인 |
-| `prepare-aws.sh` | 전용 로그 그룹 생성 및 7일 보존 설정 |
-| `install.sh` | 서명을 검증한 Ubuntu ARM64 패키지 설치와 Agent 시작 |
-| `verify.sh`, `verify.py` | 실제 CloudWatch 로그 및 메트릭 데이터 수신 확인 |
-| `validate.py` | Agent JSON의 지표 선택 및 차원 제한 확인 |
-| `dashboard-prod.json` | prod 전용 앱 지표와 EC2 공통 자원의 대시보드 정의 |
-| `dashboard-dev.json` | dev 전용 앱 지표와 EC2 공통 자원의 대시보드 정의 |
-| `create-dashboard.sh` | 기본은 생성만 수행하고, 명시적 `--update`에서는 기존 JSON 백업 후 갱신 |
+| `agent/prometheus.yaml` | 60초마다 로컬 메트릭을 읽고 필요한 시리즈만 수집 |
+| `agent/agent.json` | 전송할 메트릭, 차원, 네임스페이스 설정 |
+| `common/application-context.sh` | prod/dev에 따른 로컬 API·관리 엔드포인트 선택 |
+| `common/ec2-context.sh` | IMDSv2로 대상 인스턴스 확인 및 AWS 리전 설정 |
+| `common/inspect.sh` | OS, sudo, 인스턴스 역할, 메트릭 종류 확인 |
+| `common/prepare-aws.sh` | 전용 로그 그룹 생성 및 7일 보존 설정 |
+| `agent/install.sh` | 서명을 검증한 Ubuntu ARM64 패키지 설치와 Agent 시작 |
+| `agent/verify.sh`, `agent/verify.py` | 실제 CloudWatch 로그 및 메트릭 데이터 수신 확인 |
+| `agent/validate.py` | Agent JSON의 지표 선택 및 차원 제한 확인 |
+| `dashboards/dashboard-prod.json` | prod 전용 앱 지표와 EC2 공통 자원의 대시보드 정의 |
+| `dashboards/dashboard-dev.json` | dev 전용 앱 지표와 EC2 공통 자원의 대시보드 정의 |
+| `dashboards/create-dashboard.sh` | 기본은 생성만 수행하고, 명시적 `--update`에서는 기존 JSON 백업 후 갱신 |
+| `service-health/service-health.sh` | 컨테이너·Spring·DB 검사 및 생존 상태 메트릭 전송 |
+| `service-health/install-service-health.sh`, `service-health/verify-service-health.sh` | 생존 검사 수집기 설치 및 최신 CloudWatch 값 확인 |
+| `service-health/jarihana-service-health.service`, `service-health/jarihana-service-health.timer` | 매분 실행하는 systemd 서비스와 타이머 |
+
+SSH로 파일을 전달할 때도 이 디렉터리 구조를 유지한다. 각 스크립트는 자신의 위치를
+기준으로 같은 디렉터리의 설정과 `common/`의 공통 스크립트를 읽는다.
 
 GitHub Actions의 `CloudWatch Manage` (`cloudwatch-manage.yml`)를 수동 실행하고
 `target_environment`과 `operation`을 선택한다. 기본값은 prod의 환경만 확인하는
@@ -104,6 +122,49 @@ inspect 외 작업에는 확인한 EC2 ID를 `expected_instance_id`에 입력한
 `cloudwatch-install`은 runner의 비대화형 sudo 권한이 필요하다. sudo 권한이 없으면
 아래 SSH 설치 절차로 설정을 갱신한다. 이 workflow는 대시보드·경보를 생성하지 않는다.
 기존 prod 대시보드는 그대로 사용하고, dev 대시보드는 별도로 구성한다.
+
+## 컨테이너·Spring·DB 생존 상태
+
+`service-health/service-health.sh`를 EC2 호스트의 systemd timer로 매분 실행한다. 앱과 독립적으로
+prod/dev를 검사하고 `Jarihana`에 전송한다. 차원은 `application=jarihana`,
+`environment=prod/dev`, `InstanceId`이며 `ContainerRunning`에만
+`component=backend/postgres`를 추가한다. 환경별 5개, 총 10개 커스텀 시리즈가 추가된다.
+
+| 지표 | 1=검사 성공 / 0=검사 실패 |
+| --- | --- |
+| `ContainerRunning` | 해당 Compose 컨테이너의 Docker running 상태 |
+| `AppUp` | 관리용 Prometheus HTTP 응답과 환경 태그. DB 검사와 분리하며 업무 API 전체의 정상 여부는 보장하지 않는다 |
+| `DbUp` | DB 컨테이너 내부 TCP 연결에서 인증 후 SELECT 1 성공. 앱→DB 네트워크 경로는 별도 검증 대상이다 |
+| `HealthCollectorHeartbeat` | 해당 환경 검사 주기가 완료되어 전송됨 |
+
+Docker daemon 검사 실패, 컨테이너 중복, 수집기·AWS 전송 실패는 정상 값으로 숨기지 않는다.
+대시보드 하단 현재 상태·이력은 1=정상, 0=실패, -1=미수집·확인 필요로 표시한다.
+Heartbeat나 개별 값이 없으면 과거 정상 값을 현재 정상으로 사용하지 않는다.
+최근 분의 수집·전송 지연 중에도 -1이 표시될 수 있다.
+EC2 역할에는 `cloudwatch:PutMetricData`가 필요하다.
+
+사용자가 설치·갱신을 요청한 범위에서 대상 EC2에 파일을 복사한 뒤 실행한다.
+설치 스크립트는 기존 설치가 있으면 중단하며 앱·DB를 재시작하지 않는다.
+새 설치는 `/opt/jarihana-service-health/` 아래에 `service-health/`와 `common/` 구조를
+유지하고 systemd 서비스가 그 경로를 실행한다. 기존 설치를 갱신하려면 먼저 파일과 unit을
+백업하고 경로 변경을 함께 검토한다. 저장소 파일 이동만으로 실행 중인 EC2 설치가 바뀌지는 않는다.
+
+```bash
+sudo env EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 bash infra/cloudwatch/service-health/install-service-health.sh
+sudo env EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 TARGET_ENVIRONMENT=dev bash infra/cloudwatch/dashboards/create-dashboard.sh --update
+sudo env EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 TARGET_ENVIRONMENT=prod bash infra/cloudwatch/dashboards/create-dashboard.sh --update
+sudo systemctl status jarihana-service-health.timer
+sudo journalctl -u jarihana-service-health.service --since '10 minutes ago'
+sudo env EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 bash infra/cloudwatch/service-health/verify-service-health.sh
+```
+
+새 환경의 대시보드는 환경별 JSON을 기준으로 `dashboards/create-dashboard.sh`로 생성한다.
+위의 `--update` 명령은 이미 존재하는 대시보드를 JSON 전체 정의로 갱신하며, 기존 구성은
+`/var/lib/jarihana-cloudwatch/backups/dashboard-*` 아래 백업한다. 기존 대시보드에 생존 상태
+위젯만 덧붙이는 별도 스크립트는 두지 않는다.
+중단은 `sudo systemctl disable --now jarihana-service-health.timer`로 수행한다.
+대시보드 복원은 백업의 `DashboardBody`를 `put-dashboard`에 전달한다.
+경보·Discord 전달 설정은 이 설치의 범위에 포함되지 않는다.
 
 ## 지표와 비용 관리
 
@@ -158,12 +219,12 @@ Agent는 EC2에 연결된 인스턴스 역할을 사용한다. AWS 콘솔에 로
 파일을 전달한 뒤 다음처럼 설치한다. 기존 EC2 역할을 다른 역할로 교체하지 않는다.
 
 ```bash
-EXPECTED_INSTANCE_ID=<확인한-EC2-ID> bash infra/cloudwatch/prepare-aws.sh
-sudo env EXPECTED_INSTANCE_ID=<확인한-EC2-ID> TARGET_ENVIRONMENT=prod bash infra/cloudwatch/install.sh
-EXPECTED_INSTANCE_ID=<확인한-EC2-ID> TARGET_ENVIRONMENT=prod bash infra/cloudwatch/verify.sh
+EXPECTED_INSTANCE_ID=<확인한-EC2-ID> bash infra/cloudwatch/common/prepare-aws.sh
+sudo env EXPECTED_INSTANCE_ID=<확인한-EC2-ID> TARGET_ENVIRONMENT=prod bash infra/cloudwatch/agent/install.sh
+EXPECTED_INSTANCE_ID=<확인한-EC2-ID> TARGET_ENVIRONMENT=prod bash infra/cloudwatch/agent/verify.sh
 
 # dev 서버 배포 및 공통 Agent 설정 적용 후 dev 수신 확인
-EXPECTED_INSTANCE_ID=<확인한-EC2-ID> TARGET_ENVIRONMENT=dev bash infra/cloudwatch/verify.sh
+EXPECTED_INSTANCE_ID=<확인한-EC2-ID> TARGET_ENVIRONMENT=dev bash infra/cloudwatch/agent/verify.sh
 ```
 
 SSH에서 `TARGET_ENVIRONMENT`을 생략하면 prod를 선택한다. prod/dev 이외의 값이나 빈 값은
@@ -242,10 +303,10 @@ KST 표시는 콘솔 상단 `UTC 시간대` 메뉴에서 `현지 시간대`를 �
 요청에 따라 해당 백업 경로만 대상으로 수행한다.
 
 ```bash
-EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 bash infra/cloudwatch/create-dashboard.sh
+EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 bash infra/cloudwatch/dashboards/create-dashboard.sh
 
 # 기존 대시보드를 검토한 후 명시적으로 갱신
-EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 bash infra/cloudwatch/create-dashboard.sh --update
+EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 bash infra/cloudwatch/dashboards/create-dashboard.sh --update
 ```
 
 성공 후 콘솔의 대시보드 목록에서 `DASHBOARD-jarihana-prod`를 연다. 생성 응답에 검증
@@ -266,11 +327,11 @@ HTTP 요청·응답 시간·5xx, JVM 메모리·스레드·GC, Hikari 커넥션 
 권한·백업·저장 후 재조회 검증은 위 운영 대시보드 절차와 같다.
 
 ```bash
-EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 TARGET_ENVIRONMENT=dev bash infra/cloudwatch/verify.sh
-EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 TARGET_ENVIRONMENT=dev bash infra/cloudwatch/create-dashboard.sh
+EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 TARGET_ENVIRONMENT=dev bash infra/cloudwatch/agent/verify.sh
+EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 TARGET_ENVIRONMENT=dev bash infra/cloudwatch/dashboards/create-dashboard.sh
 
 # 기존 개발 대시보드를 검토한 후 갱신
-EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 TARGET_ENVIRONMENT=dev bash infra/cloudwatch/create-dashboard.sh --update
+EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 TARGET_ENVIRONMENT=dev bash infra/cloudwatch/dashboards/create-dashboard.sh --update
 ```
 
 생성 후 [개발 대시보드](https://ap-northeast-2.console.aws.amazon.com/cloudwatch/home?region=ap-northeast-2#dashboards/dashboard/DASHBOARD-jarihana-dev)를 열어 실제 그래프 수신을 확인한다.

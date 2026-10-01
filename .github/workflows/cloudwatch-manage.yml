@@ -42,16 +42,16 @@ jobs:
         uses: actions/checkout@v4
       - name: CloudWatch 설치 전 환경 확인
         if: ${{ inputs.operation == 'cloudwatch-inspect' }}
-        run: bash infra/cloudwatch/inspect.sh
+        run: bash infra/cloudwatch/common/inspect.sh
       - name: CloudWatch 수집 설정 검증
         if: ${{ inputs.operation == 'cloudwatch-prepare' || inputs.operation == 'cloudwatch-install' }}
-        run: python3 infra/cloudwatch/validate.py
+        run: python3 infra/cloudwatch/agent/validate.py
       - name: CloudWatch 로그 그룹과 보존 기간 설정
         if: ${{ inputs.operation == 'cloudwatch-prepare' || inputs.operation == 'cloudwatch-install' }}
-        run: bash infra/cloudwatch/prepare-aws.sh
+        run: bash infra/cloudwatch/common/prepare-aws.sh
       - name: CloudWatch Agent 설치와 시작
         if: ${{ inputs.operation == 'cloudwatch-install' }}
-        run: sudo -n --preserve-env=EXPECTED_INSTANCE_ID,TARGET_ENVIRONMENT bash infra/cloudwatch/install.sh
+        run: sudo -n --preserve-env=EXPECTED_INSTANCE_ID,TARGET_ENVIRONMENT bash infra/cloudwatch/agent/install.sh
       - name: CloudWatch 실제 수신 확인
         if: ${{ inputs.operation == 'cloudwatch-install' || inputs.operation == 'cloudwatch-verify' }}
-        run: bash infra/cloudwatch/verify.sh
+        run: bash infra/cloudwatch/agent/verify.sh
