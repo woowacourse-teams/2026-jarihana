@@ -147,8 +147,11 @@ User는 `jarihana`, Password는 운영 DB 비밀번호로 설정합니다. 이 �
 
 `develop`의 백엔드 변경은 `backend-dev-deploy.yml`에서 같은 EC2의 개발 전용 Compose로
 배포합니다. 개발 DB·인증값·포트는 운영과 분리하고 Spring `dev` 프로필을 사용합니다.
-`application-dev.yaml`은 `ddl-auto: validate`, `show-sql: true`로 설정하며, DB 접속값과
-인증·OAuth·S3 설정은 개발 Compose의 환경 변수로 주입합니다.
+개발 API는 호스트 `80`에서 컨테이너 `8080`으로 전달하고, CloudWatch Agent용 관리 포트는
+호스트 `127.0.0.1:81`에서 컨테이너 `8081`로만 전달합니다. `81`은 외부에 공개하지 않습니다.
+CloudFront 개발 API Origin도 EC2의 80번 포트를 바라보도록 확인해야 합니다.
+`application-dev.yaml`은 `ddl-auto: validate`, `show-sql: true`와 관리용 메트릭을 설정하며,
+DB 접속값과 인증·OAuth·S3 설정은 개발 Compose의 환경 변수로 주입합니다.
 [개발 Compose](../infra/docker-compose.dev.yml)는 DB 스키마를 자동으로 초기화하지 않습니다.
 `ddl-auto: validate`를 사용하므로 Spring Session 테이블을 포함한 개발 DB 스키마를 첫 배포 전에
 별도로 준비해야 합니다. 이후 스키마 변경은 `db/migrations/`의 SQL을 검토해 적용합니다.

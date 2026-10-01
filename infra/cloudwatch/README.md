@@ -1,7 +1,7 @@
 # 공통 EC2의 prod/dev CloudWatch 수집
 
 기존 EC2의 Spring Boot와 PostgreSQL 컨테이너를 유지하고 호스트에 CloudWatch Agent를
-설치한다. 작업 브랜치는 `feat/cloudwatch-observability-develop` 하나를 사용한다.
+설치한다. 같은 EC2에서 운영과 개발 애플리케이션 지표를 환경별로 수집한다.
 
 ```text
 prod Spring Boot :8081 → 호스트 127.0.0.1:8081 ─┐
@@ -27,11 +27,12 @@ CloudWatch에는 prod로 전달된다. 원래 값은 exported_environment에 남
 CloudWatch 차원으로 사용하지 않는다. 백엔드 prod 프로필도 environment=prod로 맞췄으며
 다음 백엔드 배포부터 원본 메트릭에 반영된다.
 
-## 같은 EC2에 dev 컨테이너를 추가할 때
+## 같은 EC2의 dev 컨테이너 수집
 
 dev 컨테이너의 API는 호스트 `80:8080`, 관리 포트는 `127.0.0.1:81:8081`로 연결한다.
 컨테이너 내부 관리 포트는 같은 8081을 사용해도 된다. API·DB 연결과 별도로 관리 포트를
 localhost에만 공개하고, dev 애플리케이션의 environment 태그도 dev로 설정한다.
+81번 인바운드 규칙은 추가하지 않는다.
 공통 `prometheus.yaml`에는 다음 두 대상 그룹을 유지한다.
 
 ```yaml
@@ -44,9 +45,10 @@ static_configs:
       environment: dev
 ```
 
-dev 애플리케이션의 Actuator·포트 매핑 변경은 별도 `feat/cloudwatch-dev-metrics` 브랜치에서
-진행한다. 해당 변경을 develop에 반영하고 dev 서버를 배포해야 dev 관리 포트에 접근할 수 있다.
-이 공통화 작업은 dev 서버를 배포하거나 컨테이너 포트를 변경하지 않는다.
+dev 프로필과 Compose 설정은 위 관리 엔드포인트와 environment=dev 태그를 제공한다.
+해당 변경을 develop에 반영하고 dev 서버를 배포해야 dev 관리 포트에 접근할 수 있다.
+개발 배포 workflow는 Agent 설정을 자동으로 갱신하지 않는다. 공통 수집 설정이 아직 적용되지
+않았다면 CloudWatch Manage의 install 또는 SSH 설치 명령으로 갱신하고 dev 수신을 확인한다.
 dev 서버가 꺼져 있으면 dev 수집은 실패하지만 prod 수집은 계속 진행된다.
 Agent 선언은 prod/dev 모두 허용하며
 모든 애플리케이션 지표의 environment 차원을 유지한다. 대시보드와 경보도 환경별로
