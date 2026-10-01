@@ -47,6 +47,7 @@ function renderRoutes(initialEntries) {
 it.each([
   ["/", "GroupsPage"],
   ["/groups", "GroupBrowsePage"],
+  ["/activities", "ActivityPostsPage"],
   ["/groups/42", "GroupDetailPage"]
 ])("renders %s as %s", (path, page) => {
   renderRoutes([path]);

@@ -322,8 +322,10 @@ it("reveals logout only after opening the profile menu", () => {
 
   // Then
   expect(
-    within(screen.getByRole("navigation", { name: "주요 메뉴" })).queryAllByRole("link")
-  ).toHaveLength(2);
+    within(screen.getByRole("navigation", { name: "주요 메뉴" }))
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("href"))
+  ).toEqual(["/", "/groups", "/activities"]);
   expect(logout).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("navigation", { name: "계정 메뉴" })).not.toBeInTheDocument();
 });
@@ -446,9 +448,36 @@ it("logs out from the mobile account row and closes the drawer", () => {
   expect(screen.queryByRole("dialog", { name: "전체 메뉴" })).not.toBeInTheDocument();
 });
 
+it("places feedback after discovery links in desktop and mobile navigation", () => {
+  // Given
+  renderShell({ login: jest.fn(), logout: jest.fn(), status: "authenticated" });
+
+  // Then
+  const expectedOrder = ["홈", "모임 탐색", "활동 기록", "피드백 남기기"];
+  const desktopNavigation = screen.getByRole("navigation", { name: "주요 메뉴" });
+  expect(
+    Array.from(desktopNavigation.querySelectorAll("a, button")).map((item) =>
+      item.textContent.trim()
+    )
+  ).toEqual(expectedOrder);
+
+  // And
+  fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
+  const mobileNavigation = screen.getByRole("navigation", { name: "모바일 메뉴" });
+  const mobileLinks = mobileNavigation.querySelector(".app-header__mobile-links");
+  const expectedMobileOrder = ["홈", "모임 탐색", "활동 기록", "모임 만들기", "피드백 남기기"];
+  expect(mobileLinks).not.toBeNull();
+  expect(
+    Array.from(mobileLinks.querySelectorAll("a, button"))
+      .slice(0, 5)
+      .map((item) => item.textContent.trim())
+  ).toEqual(expectedMobileOrder);
+});
+
 it.each([
   ["/", "홈"],
   ["/groups", "모임 탐색"],
+  ["/activities", "활동 기록"],
   ["/groups/41", null]
 ])("exposes public navigation on %s with matching active state", (pathname, activeName) => {
   mockPathname = pathname;
@@ -457,7 +486,8 @@ it.each([
   const navigation = within(screen.getByRole("navigation", { name: "주요 메뉴" }));
   for (const [name, href, action] of [
     ["홈", "/", "group_home"],
-    ["모임 탐색", "/groups", "group_browse"]
+    ["모임 탐색", "/groups", "group_browse"],
+    ["활동 기록", "/activities", "browse_activity_posts"]
   ]) {
     const link = navigation.getByRole("link", { name, exact: true });
     expect(link).toHaveAttribute("href", href);
@@ -469,7 +499,8 @@ it.each([
 
 it.each([
   ["홈", "/"],
-  ["모임 탐색", "/groups"]
+  ["모임 탐색", "/groups"],
+  ["활동 기록", "/activities"]
 ])("closes the mobile menu and opens %s without requiring login", (name, href) => {
   const login = jest.fn();
   renderShell({ login, logout: jest.fn(), status: "anonymous" });

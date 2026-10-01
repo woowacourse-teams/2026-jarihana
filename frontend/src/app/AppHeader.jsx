@@ -30,9 +30,18 @@ const EXPLORE_LINK = {
   to: "/groups"
 };
 
+const ACTIVITY_LINK = {
+  action: "browse_activity_posts",
+  isActive: (pathname) => pathname === "/activities",
+  label: "활동 기록",
+  requiresAuth: false,
+  to: "/activities"
+};
+
 const MEMBER_LINKS = [
   HOME_LINK,
   EXPLORE_LINK,
+  ACTIVITY_LINK,
   {
     action: "group_create",
     isActive: (pathname) => pathname === "/groups/new",
@@ -42,7 +51,7 @@ const MEMBER_LINKS = [
   }
 ];
 
-const DESKTOP_MEMBER_LINKS = [HOME_LINK, EXPLORE_LINK];
+const DESKTOP_MEMBER_LINKS = [HOME_LINK, EXPLORE_LINK, ACTIVITY_LINK];
 
 function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, status }) {
   const { pathname } = useLocation();
