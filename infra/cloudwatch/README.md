@@ -78,6 +78,7 @@ EC2 CPU·메모리·디스크는 컨테이너별 값이 아니므로 양쪽 대�
 | `verify.sh`, `verify.py` | 실제 CloudWatch EMF 로그 및 지표 데이터 수신 확인 |
 | `validate.py` | Agent JSON의 지표 선택 및 차원 제한 확인 |
 | `dashboard-prod.json` | prod 전용 앱 지표와 EC2 공통 자원의 대시보드 정의 |
+| `dashboard-dev.json` | dev 전용 앱 지표와 EC2 공통 자원의 대시보드 정의 |
 | `create-dashboard.sh` | 기본은 생성만 수행하고, 명시적 `--update`에서는 기존 JSON 백업 후 갱신 |
 | `alerts.py`, `ALERTS.md` | 환경별 앱 경보, 공통 EC2 경보, EventBridge Discord 전달 구성 |
 
@@ -280,6 +281,30 @@ EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 bash infra/cloudwatch/create-dashboard.
 성공 후 콘솔의 대시보드 목록에서 `DASHBOARD-jarihana-prod`를 연다. 생성 응답에 검증
 메시지가 없고 저장된 JSON이 원본과 일치하는 것을 확인해도 실제 그래프 렌더링과 수신은
 별도로 확인한다. 이 단계에서 운영 오류나 GC를 강제로 발생시키지 않는다.
+
+## 개발 대시보드
+
+`DASHBOARD-jarihana-dev`는 운영 대시보드와 같은 13개 그래프를 제공하며,
+모든 앱 지표와 SEARCH 표현식을 `application=jarihana`, `environment=dev`로 제한한다.
+HTTP 요청·응답 시간·5xx, JVM 메모리·스레드·GC, Hikari 커넥션 풀과 개발 앱 CPU를
+조회한다. EC2 CPU·메모리·디스크·상태 검사는 같은 호스트의 공통 지표다.
+이벤트가 없거나 수집되지 않은 구간은 빈 값으로 유지한다.
+
+먼저 dev 수신을 확인한 뒤 같은 EC2에서 생성한다. `TARGET_ENVIRONMENT`을 생략하면
+기존과 같이 prod를 선택하며, dev 생성·갱신은 dev 대시보드 이름과 JSON만 사용한다.
+기존 대시보드는 기본 실행으로 덮어쓰지 않으며, 검토 후 `--update`를 지정해야 한다.
+권한·백업·저장 후 재조회 검증은 위 운영 대시보드 절차와 같다.
+
+```bash
+EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 TARGET_ENVIRONMENT=dev bash infra/cloudwatch/verify.sh
+EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 TARGET_ENVIRONMENT=dev bash infra/cloudwatch/create-dashboard.sh
+
+# 기존 개발 대시보드를 검토한 후 갱신
+EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 TARGET_ENVIRONMENT=dev bash infra/cloudwatch/create-dashboard.sh --update
+```
+
+생성 후 [개발 대시보드](https://ap-northeast-2.console.aws.amazon.com/cloudwatch/home?region=ap-northeast-2#dashboards/dashboard/DASHBOARD-jarihana-dev)를 열어 실제 그래프 수신을 확인한다.
+CloudWatch Manage workflow는 수집 관리용이며 대시보드 생성은 위 명령으로 따로 수행한다.
 
 ## 참고
 
