@@ -26,7 +26,7 @@ import java.util.List;
 @Service
 public class GroupQueryService {
 
-    private static final String DEFAULT_REPRESENTATIVE_IMAGE_KEY = "images/default-group.png";
+    private static final String DEFAULT_REPRESENTATIVE_IMAGE_URL = "images/default-group.png";
     private static final int DEFAULT_SIZE = 20;
     private static final int MAX_SIZE = 100;
 
@@ -221,8 +221,8 @@ public class GroupQueryService {
     }
 
     private String toRepresentativeImageUrl(String imageKey) {
-        if (imageKey == null || DEFAULT_REPRESENTATIVE_IMAGE_KEY.equals(imageKey)) {
-            return null;
+        if (imageKey == null || DEFAULT_REPRESENTATIVE_IMAGE_URL.equals(imageKey)) {
+            return DEFAULT_REPRESENTATIVE_IMAGE_URL;
         }
         if (publicBaseUrl.isBlank()) {
             return imageKey;

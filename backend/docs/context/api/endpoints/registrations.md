@@ -279,8 +279,8 @@ Request Body는 없다.
 
 - 설명: 내 가입 신청 목록 조회
 - 권한: `MEMBER`
-- 그룹의 업로드 이미지가 없거나 기존 기본 이미지 키이면 `group.representativeImageUrl`은
-  `null`이다. 기본 이미지는 프론트엔드에서 선택한다.
+- 그룹의 업로드 이미지가 없거나 기본 이미지 키이면 `group.representativeImageUrl`은
+  기존과 동일하게 `images/default-group.png`다.
 
 #### 엔드포인트 규칙
 - 여러 모집 공고에 걸친 Registration을 조회하는 검색용 컬렉션이다.

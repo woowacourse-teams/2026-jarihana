@@ -91,11 +91,11 @@ class RegistrationQueryServiceTest {
         assertThat(repository.lastMySize()).isEqualTo(20);
     }
 
-    @DisplayName("내 신청의 이미지가 없거나 기존 기본 이미지 키이면 이미지 URL을 null로 반환한다.")
+    @DisplayName("내 신청의 이미지가 없거나 기본 이미지 키이면 기존 기본 이미지 경로를 반환한다.")
     @ParameterizedTest
     @NullSource
     @ValueSource(strings = "images/default-group.png")
-    void returnsNullForDefaultImage(String imageKey) {
+    void preservesDefaultImageUrl(String imageKey) {
         // Given
         repository.givenMyPage(new MyRegistrationListPage(
                 List.of(new MyRegistrationListProjection(
@@ -112,7 +112,8 @@ class RegistrationQueryServiceTest {
         );
 
         // Then
-        assertThat(result.items().getFirst().groupRepresentativeImageUrl()).isNull();
+        assertThat(result.items().getFirst().groupRepresentativeImageUrl())
+                .isEqualTo("images/default-group.png");
     }
 
     private static String decodeCursor(String cursor) {

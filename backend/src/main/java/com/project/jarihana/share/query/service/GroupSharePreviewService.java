@@ -37,7 +37,7 @@ public class GroupSharePreviewService {
     }
 
     private String toAbsoluteUrl(String imageUrl) {
-        if (imageUrl == null || imageUrl.isBlank()) {
+        if (imageUrl == null || imageUrl.isBlank() || "images/default-group.png".equals(imageUrl)) {
             return frontendOrigin + DEFAULT_IMAGE_PATH;
         }
         URI parsed = URI.create(imageUrl);

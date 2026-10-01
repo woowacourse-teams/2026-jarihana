@@ -138,9 +138,9 @@ header 구현으로 확대하지 않았다.
 `fetchMyRegistrations`의 각 항목은 신청 정보와 함께 신청 대상 그룹을 `group`으로 반환한다.
 대표 이미지는 신청서의 이미지가 아니라 그룹의 이미지이므로 `group.representativeImageUrl`에
 포함한다. 백엔드는 저장 키를 공개 URL로 변환해 전달하고, 프론트엔드 스키마는 상대 경로를
-루트 기준 경로로 정규화한다. 업로드 이미지가 없는 그룹의 API 응답은 `null`이며,
-프론트엔드에서 `/assets/default-group.png`를 표시한다. 이전 버전의
-`images/default-group.png` 응답도 같은 정적 이미지로 표시한다.
+루트 기준 경로로 정규화한다. 업로드 이미지가 없는 그룹의 API 응답은 기존과 동일하게
+`images/default-group.png`이며, 프론트엔드에서는 이를 기본 이미지로 인식해
+`/assets/default-group.png`를 표시한다.
 
 ```json
 {

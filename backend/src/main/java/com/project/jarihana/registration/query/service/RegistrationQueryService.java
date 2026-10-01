@@ -21,7 +21,7 @@ import java.util.List;
 @Service
 public class RegistrationQueryService {
 
-    private static final String DEFAULT_REPRESENTATIVE_IMAGE_KEY = "images/default-group.png";
+    private static final String DEFAULT_REPRESENTATIVE_IMAGE_URL = "images/default-group.png";
     private static final int MAX_SIZE = 100;
 
     private final RegistrationListRepository registrationListRepository;
@@ -225,8 +225,8 @@ public class RegistrationQueryService {
     }
 
     private String toRepresentativeImageUrl(String imageKey) {
-        if (imageKey == null || DEFAULT_REPRESENTATIVE_IMAGE_KEY.equals(imageKey)) {
-            return null;
+        if (imageKey == null || DEFAULT_REPRESENTATIVE_IMAGE_URL.equals(imageKey)) {
+            return DEFAULT_REPRESENTATIVE_IMAGE_URL;
         }
         if (publicBaseUrl.isBlank()) {
             return imageKey;

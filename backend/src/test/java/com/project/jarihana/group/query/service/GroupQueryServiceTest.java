@@ -243,11 +243,11 @@ class GroupQueryServiceTest {
                 .isEqualTo("https://cdn.example.test/images/groups/tmp/uploaded-image.webp");
     }
 
-    @DisplayName("이미지가 없거나 기존 기본 이미지 키이면 이미지 URL을 null로 반환한다.")
+    @DisplayName("이미지가 없거나 기본 이미지 키이면 기존 기본 이미지 경로를 반환한다.")
     @ParameterizedTest
     @NullSource
     @ValueSource(strings = "images/default-group.png")
-    void returnsNullForDefaultImage(String imageKey) {
+    void preservesDefaultImageUrl(String imageKey) {
         // Given
         GroupQueryService cloudFrontService = new GroupQueryService(
                 listRepository, detailRepository, loginMemberReader, CLOCK,
@@ -264,7 +264,7 @@ class GroupQueryServiceTest {
         GroupDetailResult result = cloudFrontService.findGroup(1L);
 
         // Then
-        assertThat(result.representativeImageUrl()).isNull();
+        assertThat(result.representativeImageUrl()).isEqualTo("images/default-group.png");
     }
 
     @DisplayName("존재하지 않는 그룹 상세 조회 시 예외가 발생한다.")
