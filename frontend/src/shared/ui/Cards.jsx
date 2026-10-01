@@ -2,9 +2,9 @@ import { forwardRef, useState } from "react";
 
 export const DEFAULT_GROUP_IMAGE = "/assets/default-group.png";
 const DEFAULT_GROUP_IMAGES = {
-  CLUB: "/images/default-group-club-3d.png",
-  STUDY: "/images/default-group-study-3d.png",
-  SESSION: "/images/default-group-session-3d.png"
+  CLUB: "/assets/default-group-club-3d.png",
+  STUDY: "/assets/default-group-study-3d.png",
+  SESSION: "/assets/default-group-session-3d.png"
 };
 
 function classes(...values) {
