@@ -3,18 +3,24 @@
 ## 구성
 
 ```text
-CloudWatch 알람 상태 변경 → EventBridge → Discord Webhook → 자리하나 알림 채널
-                                                └ 실패 이벤트 → SQS DLQ
+CloudWatch 알람 상태 조회 ← self-hosted GitHub Actions runner
+                         └→ Discord Webhook → 자리하나 알림 채널
 ```
 
 Discord 웹훅은 지정한 채널에 메시지를 보낸다. 웹훅 URL은 채널에 메시지를 보낼 수 있는 비밀
 값이므로 저장소의 GitHub Actions secret `DISCORD_WEBHOOK_URL`에 저장한다. 메시지나 코드에 URL을
 넣지 않는다.
 
-`infra/cloudwatch/alerts.py`가 CloudFormation 템플릿을 만든다. CloudWatch 알람 상태 변경을
-EventBridge API Destination으로 보내고, EventBridge가 Discord 웹훅을 호출한다. EventBridge
-연결이 요구하는 API key 형식은 사용하지만 Discord 인증은 웹훅 URL 경로가 담당한다. 연결
-헤더는 의미 없는 고정 값이다. Discord 웹훅에는 봇 토큰이 필요 없다.
+`infra/cloudwatch/alerts.py`는 CloudWatch 알람과 로그 기반 지표 필터만 CloudFormation으로 만든다.
+Discord 전송은 `infra/cloudwatch/discord-monitor.py`가 self-hosted runner에서 5분마다
+`cloudwatch:DescribeAlarms`로 상태를 조회하고, 상태 전환이 있을 때 Discord 웹훅을 호출한다.
+EventBridge Connection, API Destination, SQS DLQ와 그에 필요한 Secrets Manager 권한은 사용하지
+않는다. 웹훅 URL은 GitHub Actions secret에서만 읽으며 코드나 workflow 입력에 넣지 않는다.
+
+GitHub Actions 스케줄은 최대 약 5분 지연될 수 있고, runner나 Actions가 중단된 동안의 짧은
+상태 전환은 놓칠 수 있다. 모니터의 첫 실행은 현재 상태를 기준선으로 저장하고 메시지를 보내지
+않는다. 이후 `[PROD]`, `[DEV]`, `[EC2]` 알람이 `ALARM`으로 진입하거나 `ALARM`에서 `OK`로
+복구될 때만 메시지를 보낸다.
 
 ## 알람 기준
 
@@ -63,22 +69,19 @@ JSON을 사용한다. HTTP 요청 완료 이벤트의 상태 코드는 JSON 숫�
    `DISCORD_WEBHOOK_URL`을 추가한다. URL을 이 대화, 코드, workflow 입력에 붙여 넣지 않는다.
 3. `CloudWatch Manage`의 `cloudwatch-prepare`를 prod와 dev에 각각 실행하고, 로깅이 포함된
    백엔드 컨테이너를 배포해 두 로그 그룹에 ECS JSON이 들어오는지 확인한다.
-4. GitHub Actions workflow가 기본 브랜치에 반영되면 `CloudWatch Alerts`를 수동 실행한다.
-   먼저 `test-webhook`으로 Discord 채널에 테스트 메시지가 오는지 확인하고, `validate`로
-   템플릿을 확인한다.
+4. GitHub Actions workflow가 기본 브랜치에 반영되면 `CloudWatch Alerts`에서 `test-webhook`으로
+   Discord 채널에 테스트 메시지가 오는지 확인하고, `validate`로 템플릿을 확인한다.
 5. `deploy`는 EC2 self-hosted runner에서 실행한다. `expected_instance_id`는 확인한 대상 EC2와
-   runner가 같은지 검사하는 값이다. 현재 EC2 ID는 `i-0a1245eb20f7998b8`이다.
+   runner가 같은지 검사하는 값이다. 현재 EC2 ID는 `i-0a1245eb20f7998b8`이다. 이 단계는
+   CloudWatch 알람만 생성하며 EventBridge나 IAM 역할을 만들지 않는다.
+   이전 시도가 `ROLLBACK_COMPLETE`로 남아 있으면 스크립트가 그 실패 스택을 삭제한 뒤 다시 만든다.
+6. `CloudWatch Discord Monitor`는 기본 브랜치에서 5분마다 자동 실행된다. 첫 실행은 기준선을
+   저장하므로, 배포 뒤 workflow를 한 번 수동 실행해 기준선을 먼저 만든다.
 
-현재 EC2 역할은 CloudFormation, CloudWatch, EventBridge, SQS, IAM 역할 전달 및 EventBridge
-연결용 권한을 가져야 한다. `ec2-project` 역할 정책은 확인하지 않았다. 배포 권한이 부족하면
-workflow가 AWS의 정확한
-`AccessDenied` 작업을 출력한다. 역할 권한을 수정하지 않고도 템플릿 검증과 Discord 웹훅 테스트는
-따로 실행할 수 있다.
-
-웹훅 URL은 CloudFormation 파라미터에서 숨기지만 EventBridge API Destination의 endpoint에도
-저장된다. AWS에서 `events:DescribeApiDestination` 권한이 있는 사용자는 endpoint를 조회할 수
-있으므로 이 권한은 신뢰할 수 있는 운영자에게만 부여해야 한다. URL이 노출되면 Discord에서 해당
-웹훅을 삭제하고 새 URL로 GitHub secret을 교체한다.
+현재 EC2 역할에는 CloudWatch 알람 배포와 `cloudwatch:DescribeAlarms` 권한이 필요하다. Discord
+웹훅 호출은 AWS API가 아니라 runner의 HTTPS 요청으로 수행하므로 EventBridge Connection과
+Secrets Manager 권한은 필요하지 않다. URL이 노출되면 Discord에서 해당 웹훅을 삭제하고 새
+URL로 GitHub secret을 교체한다.
 
 ## 배포와 확인
 
@@ -86,10 +89,11 @@ workflow `CloudWatch Alerts`에서 `operation=deploy`를 고른다. dev 앱 알�
 스크립트는 EC2 ID, 서울 리전과 필요한 애플리케이션 로그 그룹을 검사하고 루트 파일시스템 형식을
 자동 확인한 다음 `jarihana-alerts` CloudFormation stack을 생성하거나 갱신한다.
 
-배포 후 stack의 출력에서 API Destination ARN과 SQS DLQ 주소를 확인하고, CloudWatch 콘솔의
-`[PROD]`/`[EC2]` 알람 상태를 본다. 경보가 실제로 `ALARM` 또는 `OK`로 바뀔 때 전달을 검증한다.
-운영 환경에 강제 오류나 부하를 발생시켜 테스트하지 않는다. Discord 전달을 재시도 후에도
-완료하지 못한 이벤트는 SQS DLQ에 남으므로 AWS 운영 권한이 있는 사람이 확인할 수 있다.
+배포 후 CloudWatch 콘솔에서 `[PROD]`/`[DEV]`/`[EC2]` 알람을 확인하고, `CloudWatch Discord
+Monitor`의 workflow 로그에서 조회한 알람 수와 전송 건수를 확인한다. 경보가 실제로 `ALARM` 또는
+`OK`로 바뀔 때 Discord 메시지를 검증한다. 운영 환경에 강제 오류나 부하를 발생시켜 테스트하지
+않는다. Discord가 일시적으로 실패하면 다음 모니터 실행에서 같은 상태 전환을 다시 시도할 수
+있지만, 모니터가 중단된 동안 ALARM과 OK가 모두 지나간 상태 전환은 복구할 수 없다.
 
 dev 로그 그룹이나 지표 수신을 중단할 계획이면 먼저 `EnableDevApplicationAlarms=false`로 stack을
 갱신한다. 템플릿 검증과 Discord 웹훅 테스트는 애플리케이션 로그 수신 여부와 독립적으로 실행된다.
