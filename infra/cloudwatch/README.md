@@ -11,7 +11,7 @@ dev Spring Boot  :8081 → 호스트 127.0.0.1:81   ─┴→ CloudWatch Agent �
 EC2 기본 모니터링 → AWS/EC2 (CPUUtilization·StatusCheckFailed 계열, InstanceId)
 ```
 
-CloudWatch 경보와 Discord 전달 구성은 [`ALERTS.md`](ALERTS.md)를 참고한다. prod/dev
+CloudWatch 경보와 SNS 이메일 전달 구성은 [`ALERTS.md`](ALERTS.md)를 참고한다. prod/dev
 애플리케이션 경보는 environment 차원으로 나누고, 같은 EC2의 호스트 경보는 한 번만 만든다.
 
 애플리케이션과 호스트 커스텀 지표는 `Jarihana` 네임스페이스 하나에 모은다. 애플리케이션은
@@ -80,7 +80,7 @@ EC2 CPU·메모리·디스크는 컨테이너별 값이 아니므로 양쪽 대�
 | `dashboard-prod.json` | prod 전용 앱 지표와 EC2 공통 자원의 대시보드 정의 |
 | `dashboard-dev.json` | dev 전용 앱 지표와 EC2 공통 자원의 대시보드 정의 |
 | `create-dashboard.sh` | 기본은 생성만 수행하고, 명시적 `--update`에서는 기존 JSON 백업 후 갱신 |
-| `alerts.py`, `ALERTS.md`, `discord-monitor.py` | 환경별 앱 경보, 공통 EC2 경보, self-hosted runner의 Discord 전달 구성 |
+| `alerts.py`, `deploy-alerts.sh`, `check-sns-permissions.sh`, `ALERTS.md` | 환경별 앱 경보, 공통 EC2 경보, SNS 이메일 전달과 권한 확인 |
 
 GitHub Actions의 `CloudWatch Manage` (`cloudwatch-manage.yml`)를 수동 실행하고
 `target_environment`, `operation`, `application_log_retention_days`를 선택한다.
@@ -90,11 +90,11 @@ Agent 하나가 같은 EC2의 prod/dev를 수집하므로 환경별 배포 workf
 prod/dev 백엔드 배포는 각각 `backend-prod-deploy.yml`, `backend-dev-deploy.yml`에서 실행한다.
 수동 실행 메뉴가 표시되려면 새 workflow 파일이 저장소 기본 브랜치인 `main`에 반영돼야 한다.
 
-알람 배포는 별도 `CloudWatch Alerts` workflow에서 수행한다. Discord 웹훅 테스트와 상태
-모니터는 `DISCORD_WEBHOOK_URL` repository secret을 사용한다. 알람 배포 자체에는 Discord
-웹훅이나 EventBridge 권한이 필요하지 않으며, dev 애플리케이션 알람은 실제 dev 지표 수신을
-확인한 뒤 켠다. `CloudWatch Discord Monitor` workflow가 기본 브랜치에서 5분마다 알람 상태를
-조회한다.
+알람 배포는 별도 `CloudWatch Alerts` workflow에서 수행한다. SNS 이메일 주소는
+`ALERT_EMAIL` repository secret으로 전달하며, 첫 배포 뒤 AWS 구독 확인 메일의 링크를 눌러야
+한다. `check-sns-permissions`는 CloudFormation 임시 stack으로 SNS Topic 생성·삭제 권한을 먼저 확인한다.
+dev 애플리케이션 알람은 실제 dev 지표 수신을 확인한 뒤 켠다. CloudWatch가 알람 상태 전환을
+SNS로 직접 전달하므로 GitHub Actions의 주기적 상태 조회는 사용하지 않는다.
 
 | 선택 환경 | 로컬 API | 로컬 관리 엔드포인트 | CloudWatch 앱 차원 |
 | --- | --- | --- | --- |
@@ -248,7 +248,8 @@ EC2 상태 검사에 데이터가 없으면 중지·수집 지연 등으로 확�
 0으로 채우지 않으며 최신 데이터가 없을 때 과거의 0을 현재 정상으로 해석하지 않는다.
 정확한 running/stopped/terminated 상태는 EC2 콘솔에서 확인한다. 기본 상태 검사는
 호스트·인스턴스·EBS의 상태이며 Spring 프로세스나 HTTP 응답의 정상 여부를 보장하지 않는다.
-이 구성은 무료 기본 지표를 조회하는 대시보드이며 추가 CloudWatch 경보나 SNS는 생성하지 않는다.
+대시보드 생성 명령 자체는 추가 CloudWatch 경보나 SNS를 생성하지 않는다. 경보와 SNS는 별도의
+`CloudWatch Alerts` workflow가 관리한다.
 
 나눗셈 그래프는 분모가 0인 구간을 표시하지 않는다. 미수집 구간을 정상으로 보이지 않게
 `FILL(...,0)`로 그래프의 빈 값을 채우지 않는다. 새 HTTP 상태 시리즈의 첫 counter 값은

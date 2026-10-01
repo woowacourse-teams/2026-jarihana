@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Render CloudFormation for Jarihana CloudWatch alarms.
-
-Discord delivery is intentionally outside this stack. The self-hosted runner
-polls alarm state with the existing CloudWatch read permission and posts state
-transitions to Discord. Keeping the webhook out of CloudFormation avoids the
-EventBridge Connection resource, which also requires Secrets Manager access.
-"""
+"""Render CloudFormation for Jarihana CloudWatch alarms and email delivery."""
 
 import json
 
@@ -18,6 +12,7 @@ HTTP_5XX_LOG_PATTERN = (
     '{ $.event.action = "http.request.completed" '
     '&& $.http.response.status_code >= 500 }'
 )
+ALERT_TOPIC = {"Ref": "AlertTopic"}
 
 
 def parameter(description, default=None, allowed_pattern=None, no_echo=False):
@@ -51,6 +46,8 @@ def alarm(name, description, namespace, metric, dimensions, statistic, period,
         "Threshold": threshold,
         "ComparisonOperator": comparison,
         "TreatMissingData": missing_data,
+        "AlarmActions": [ALERT_TOPIC],
+        "OKActions": [ALERT_TOPIC],
     }
     if dimensions:
         properties["Dimensions"] = dimensions
@@ -115,7 +112,22 @@ def log_filter_resources(environment):
 
 
 def template():
-    resources = {}
+    resources = {
+        "AlertTopic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+                "TopicName": "jarihana-cloudwatch-alerts",
+            },
+        },
+        "AlertEmailSubscription": {
+            "Type": "AWS::SNS::Subscription",
+            "Properties": {
+                "Protocol": "email",
+                "Endpoint": {"Ref": "AlertEmail"},
+                "TopicArn": ALERT_TOPIC,
+            },
+        },
+    }
 
     for environment in ("prod", "dev"):
         prefix = environment.title()
@@ -245,9 +257,14 @@ def template():
         "AWSTemplateFormatVersion": "2010-09-09",
         "Description": (
             "Jarihana prod/dev CloudWatch alarms on one shared EC2 instance, "
-            "with alarm state changes read by the self-hosted Discord monitor."
+            "with alarm and recovery notifications delivered by SNS email."
         ),
         "Parameters": {
+            "AlertEmail": parameter(
+                "Email address that confirms and receives SNS alarm notifications.",
+                allowed_pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$",
+                no_echo=True,
+            ),
             "InstanceId": parameter(
                 "The shared EC2 instance ID used by host metric alarms.",
                 allowed_pattern="^i-[0-9a-f]+$",
@@ -267,6 +284,9 @@ def template():
         "Conditions": conditions,
         "Resources": resources,
         "Outputs": {
+            "AlertTopicArn": {
+                "Value": ALERT_TOPIC,
+            },
             "DevApplicationAlarmsEnabled": {
                 "Value": {"Ref": "EnableDevApplicationAlarms"}
             },
