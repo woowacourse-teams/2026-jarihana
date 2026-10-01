@@ -86,8 +86,8 @@ export default (_, arguments_) => {
             to: "manifest.webmanifest"
           },
           {
-            from: path.resolve(directory, "public/images"),
-            to: "images"
+            from: path.resolve(directory, "src/shared/assets/illustrations/default-group.png"),
+            to: "assets/default-group.png"
           }
         ]
       }),

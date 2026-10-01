@@ -138,7 +138,9 @@ header 구현으로 확대하지 않았다.
 `fetchMyRegistrations`의 각 항목은 신청 정보와 함께 신청 대상 그룹을 `group`으로 반환한다.
 대표 이미지는 신청서의 이미지가 아니라 그룹의 이미지이므로 `group.representativeImageUrl`에
 포함한다. 백엔드는 저장 키를 공개 URL로 변환해 전달하고, 프론트엔드 스키마는 상대 경로를
-`/images/...` 형식으로 정규화한다. 이미지가 없는 그룹은 `images/default-group.png`를 사용한다.
+루트 기준 경로로 정규화한다. 업로드 이미지가 없는 그룹의 API 응답은 기존과 동일하게
+`images/default-group.png`이며, 프론트엔드에서는 이를 기본 이미지로 인식해
+`/assets/default-group.png`를 표시한다.
 
 ```json
 {
@@ -193,7 +195,12 @@ header 구현으로 확대하지 않았다.
 - production runtime에 mock/fallback 성공 데이터를 넣지 않는다.
 - Playwright와 단위 테스트의 network fixture만 허용한다.
 - `/api`는 Webpack dev server에서 `http://localhost:8080`으로 proxy한다.
-- `/images`는 운영에서 이미지 CDN 경로로, 개발에서는 기본 이미지 정적 경로로 제공한다.
+- `/images`는 사용자 업로드 이미지 경로다. 기본 그룹 이미지와 회원가입 그림 등 서비스 정적
+  이미지는 프론트 배포에 포함하고 `/assets`로 제공한다.
+- 기본 그룹 이미지와 회원가입 그림의 원본은 `src/shared/assets/illustrations`에서 관리한다.
+  기본 그룹 이미지는 백엔드 공유 미리보기에서도 참조하므로 Webpack에서
+  `assets/default-group.png`라는 고정 이름으로 복사하고, import하는 회원가입 그림에는
+  콘텐츠 해시를 붙인다.
 - 운영은 same-origin reverse proxy 또는 cookie가 유효한 same-site 배포를 전제로 한다.
 - GitHub client secret은 어떤 프론트엔드 설정이나 bundle에도 포함하지 않는다.
 - 실제 OAuth 완료는 GitHub OAuth 앱의 public client ID, backend client secret, callback URL,
