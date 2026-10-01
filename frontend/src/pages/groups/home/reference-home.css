@@ -155,16 +155,9 @@
   }
 
   .reference-hero::before {
-    background-image:
-      linear-gradient(
-        90deg,
-        color-mix(in srgb, var(--reference-hero-copy-surface) 92%, transparent),
-        color-mix(in srgb, var(--reference-hero-copy-surface) 75%, transparent) 45%,
-        color-mix(in srgb, var(--reference-hero-copy-surface) 25%, transparent)
-      ),
-      var(--reference-hero-extended-image);
-    background-position: center, right bottom;
-    background-size: cover, max(100%, var(--reference-hero-mobile-art-size)) auto;
+    background-image: var(--reference-hero-extended-image);
+    background-position: right bottom;
+    background-size: max(100%, var(--reference-hero-mobile-art-size)) auto;
   }
 
   .reference-hero .groups-hero__copy {
@@ -193,17 +186,6 @@
 }
 
 @media (min-width: 48rem) and (max-width: 79.9375rem) {
-  .reference-hero::before {
-    background-image:
-      linear-gradient(
-        90deg,
-        color-mix(in srgb, var(--reference-hero-copy-surface) 85%, transparent),
-        color-mix(in srgb, var(--reference-hero-copy-surface) 60%, transparent) 38%,
-        transparent 64%
-      ),
-      var(--reference-hero-extended-image);
-  }
-
   .reference-hero .reference-type-filters button {
     padding-inline: var(--space-4);
   }
