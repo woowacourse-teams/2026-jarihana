@@ -1,8 +1,10 @@
 spring:
+  main:
+    banner-mode: "off"
   jpa:
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    show-sql: false
 
 management:
   server:
@@ -30,3 +32,11 @@ management:
     tags:
       application: ${spring.application.name}
       environment: dev
+
+logging:
+  structured:
+    format:
+      console: ecs
+    ecs:
+      service:
+        environment: dev
