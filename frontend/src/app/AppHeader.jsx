@@ -14,38 +14,44 @@ import githubMark from "../shared/assets/brand/github-mark.svg";
 import logoMark from "../shared/assets/brand/jarihana-favicon.png";
 import { ProfileMenu } from "./ProfileMenu";
 
-const DISCOVERY_LINKS = [
-  {
-    isActive: (pathname) =>
-      pathname === "/" ||
-      pathname === "/groups" ||
-      (pathname !== "/groups/new" && /^\/groups\/[^/]+(?:\/recruitments\/[^/]+)?$/.test(pathname)),
-    label: "탐색",
-    action: "browse_groups",
-    requiresAuth: false,
-    to: "/groups"
-  },
-  {
-    isActive: (pathname) => pathname === "/activities",
-    label: "활동 기록",
-    action: "browse_activity_posts",
-    requiresAuth: false,
-    to: "/activities"
-  }
-];
+const HOME_LINK = {
+  action: "group_home",
+  isActive: (pathname) => pathname === "/",
+  label: "홈",
+  requiresAuth: false,
+  to: "/"
+};
+
+const EXPLORE_LINK = {
+  action: "group_browse",
+  isActive: (pathname) => pathname === "/groups",
+  label: "모임 탐색",
+  requiresAuth: false,
+  to: "/groups"
+};
+
+const ACTIVITY_LINK = {
+  action: "browse_activity_posts",
+  isActive: (pathname) => pathname === "/activities",
+  label: "활동 기록",
+  requiresAuth: false,
+  to: "/activities"
+};
 
 const MEMBER_LINKS = [
-  ...DISCOVERY_LINKS,
+  HOME_LINK,
+  EXPLORE_LINK,
+  ACTIVITY_LINK,
   {
+    action: "group_create",
     isActive: (pathname) => pathname === "/groups/new",
     label: "모임 만들기",
-    action: "group_create",
     requiresAuth: true,
     to: "/groups/new"
   }
 ];
 
-const DESKTOP_MEMBER_LINKS = DISCOVERY_LINKS;
+const DESKTOP_MEMBER_LINKS = [HOME_LINK, EXPLORE_LINK, ACTIVITY_LINK];
 
 function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, status }) {
   const { pathname } = useLocation();
@@ -244,7 +250,12 @@ export function AppHeader({ action = null, title = "" }) {
       <header className="app-header">
         <div className="app-header__inner">
           <div className="app-header__brand-group">
-            <Link aria-label="자리하나 홈" className="app-header__brand" to="/groups">
+            <Link
+              aria-label="자리하나 홈"
+              className="app-header__brand"
+              data-ph-capture-attribute-action="group_home"
+              to="/"
+            >
               <img alt="" aria-hidden="true" className="app-header__brand-mark" src={logoMark} />
               <span className="app-header__brand-text">자리하나?</span>
             </Link>

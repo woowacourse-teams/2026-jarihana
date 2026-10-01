@@ -19,6 +19,7 @@ public record GroupListResult(List<Item> items, String nextCursor, boolean hasNe
             String status,
             String name,
             String introduction,
+            String location,
             String representativeImageUrl,
             RecurringSchedule recurringSchedule,
             SessionSchedule sessionSchedule,

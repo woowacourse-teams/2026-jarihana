@@ -7,6 +7,7 @@ import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.GroupStatus;
 import com.project.jarihana.group.domain.GroupType;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
+import com.project.jarihana.group.domain.SessionGroupSchedule;
 import com.project.jarihana.group.query.GroupRelation;
 import com.project.jarihana.group.query.repository.InMemoryGroupDetailRepository;
 import com.project.jarihana.group.query.repository.InMemoryGroupListRepository;
@@ -72,6 +73,8 @@ class GroupQueryServiceTest {
                 null,
                 GroupType.STUDY,
                 null,
+                null,
+                null,
                 "알고리즘",
                 null,
                 20
@@ -110,6 +113,40 @@ class GroupQueryServiceTest {
         ));
     }
 
+    @DisplayName("오늘 세션 목록은 세션 날짜와 제외 유형 조건을 함께 적용한다.")
+    @Test
+    void filtersSessionGroupsBySessionDateAndExcludedType() {
+        // Given
+        Group todaySession = session("오늘 점심 같이해요", "가볍게 점심을 먹어요.", LocalDate.of(2026, 8, 19), NOW);
+        Group tomorrowSession = session(
+                "내일 커피 같이해요",
+                "내일 커피를 마셔요.",
+                LocalDate.of(2026, 8, 20),
+                NOW.minusMinutes(1)
+        );
+        listRepository.save(GroupListProjection.of(3L, todaySession, 1, List.of(), null, 0));
+        listRepository.save(GroupListProjection.of(4L, tomorrowSession, 1, List.of(), null, 0));
+        saveGroupListFixtures();
+        GroupListQuery query = new GroupListQuery(
+                GroupStatus.ACTIVE,
+                null,
+                null,
+                GroupType.SESSION,
+                GroupType.STUDY,
+                LocalDate.of(2026, 8, 19),
+                null,
+                null,
+                null,
+                20
+        );
+
+        // When
+        GroupListResult result = service.findGroups(query);
+
+        // Then
+        assertThat(result.items()).extracting(projection -> projection.id()).containsExactly(3L);
+    }
+
     private static Group study(String name, String introduction, LocalDateTime createdAt) {
         return Group.createStudy(
                 name,
@@ -117,6 +154,22 @@ class GroupQueryServiceTest {
                 null,
                 null,
                 RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.NOON, LocalTime.of(13, 0)),
+                createdAt
+        );
+    }
+
+    private static Group session(
+            String name,
+            String introduction,
+            LocalDate sessionDate,
+            LocalDateTime createdAt
+    ) {
+        return Group.createSession(
+                name,
+                introduction,
+                null,
+                null,
+                SessionGroupSchedule.of(sessionDate, LocalTime.of(12, 0), LocalTime.of(13, 0)),
                 createdAt
         );
     }
@@ -134,6 +187,8 @@ class GroupQueryServiceTest {
                 GroupStatus.ACTIVE,
                 GroupRelation.JOINED,
                 GroupMemberRole.LEADER,
+                null,
+                null,
                 null,
                 true,
                 null,
@@ -156,6 +211,8 @@ class GroupQueryServiceTest {
                 GroupStatus.ACTIVE,
                 null,
                 GroupMemberRole.LEADER,
+                null,
+                null,
                 null,
                 false,
                 null,

@@ -47,6 +47,8 @@ public class JpaGroupListRepository implements GroupListRepository {
         Slice<Group> groups = groupRepository.findPage(
                 criteria.status(),
                 criteria.type(),
+                criteria.excludedType(),
+                criteria.sessionDate(),
                 criteria.keyword(),
                 criteria.cursorCreatedAt(),
                 criteria.cursorId(),
