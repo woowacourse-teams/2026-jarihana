@@ -4,12 +4,22 @@ on:
   workflow_dispatch:
     inputs:
       target_environment:
-        description: "확인할 애플리케이션 환경 (Agent 설정은 EC2 공통)"
+        description: "확인할 애플리케이션 환경과 준비할 애플리케이션 로그 그룹"
         type: choice
         default: prod
         options:
           - prod
           - dev
+      application_log_retention_days:
+        description: "애플리케이션 로그 그룹 보존 기간"
+        type: choice
+        default: "14"
+        options:
+          - "7"
+          - "14"
+          - "30"
+          - "60"
+          - "90"
       operation:
         description: "실행할 CloudWatch 작업"
         type: choice
@@ -37,6 +47,7 @@ jobs:
     env:
       EXPECTED_INSTANCE_ID: ${{ inputs.expected_instance_id }}
       TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
+      APPLICATION_LOG_RETENTION_DAYS: ${{ inputs.application_log_retention_days }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
