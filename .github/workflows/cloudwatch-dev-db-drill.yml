@@ -1,0 +1,68 @@
+name: CloudWatch Dev DB Drill
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_instance_id:
+        description: "dev Compose와 self-hosted runner가 있는 EC2 ID"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-dev-deploy
+  cancel-in-progress: false
+
+jobs:
+  drill:
+    if: github.ref == 'refs/heads/develop' && inputs.expected_instance_id == 'i-0a1245eb20f7998b8'
+    runs-on: [self-hosted, Linux, ARM64]
+    environment: dev
+    timeout-minutes: 25
+    env:
+      EXPECTED_INSTANCE_ID: ${{ inputs.expected_instance_id }}
+      AWS_PAGER: ""
+      AWS_REGION: ap-northeast-2
+      AWS_DEFAULT_REGION: ap-northeast-2
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Alert stack and dev alarm preflight
+        run: python3 infra/cloudwatch/dev-db-drill-observe.py preflight
+
+      - name: Dev DB identity, health, API, and recovery preflight
+        run: bash infra/cloudwatch/dev-db-drill.sh preflight
+
+      - name: Stop only dev PostgreSQL and request one HTTP 500
+        id: inject
+        run: bash infra/cloudwatch/dev-db-drill.sh inject
+
+      - name: Always restore and verify dev PostgreSQL
+        id: restore
+        if: always()
+        run: bash infra/cloudwatch/dev-db-drill.sh restore
+
+      - name: Collect CloudWatch log, alarm, and Hikari evidence
+        if: always() && steps.restore.outcome == 'success'
+        run: |
+          if [[ -f "$RUNNER_TEMP/jarihana-dev-db-drill-start-utc" ]]; then
+            python3 infra/cloudwatch/dev-db-drill-observe.py collect \
+              --output "$RUNNER_TEMP/jarihana-dev-db-drill-evidence.json"
+          else
+            echo 'Injection did not start; no post-drill evidence to collect.'
+          fi
+
+      - name: Preserve sanitized KST timeline and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudwatch-dev-db-drill-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/jarihana-dev-db-drill-timeline.txt
+            ${{ runner.temp }}/jarihana-dev-db-drill-evidence.json
+          if-no-files-found: warn
+          retention-days: 14

@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from "reac
 
 import { useAuth } from "../../features/auth/index.js";
 import { useGroup } from "../../features/group/index.js";
+import { isDefaultGroupImageUrl } from "../../features/image-upload/index.js";
 import { useInfiniteGroupMembers } from "../../features/member/index.js";
 import {
   useCreateRegistration,
@@ -122,7 +123,7 @@ export function GroupDetailPage() {
   const isLeader = currentMember?.id === group?.leader?.memberId;
   const usesDefaultImage =
     !group?.representativeImageUrl ||
-    group.representativeImageUrl.endsWith("images/default-group.png");
+    isDefaultGroupImageUrl(group.representativeImageUrl);
   const isApprovedMember =
     group?.currentMemberRole === "MEMBER" || group?.currentMemberRole === "LEADER";
   const hasExistingRegistration = group?.currentMemberRegistrationStatus != null;

@@ -1,6 +1,6 @@
 import { forwardRef, useState } from "react";
 
-export const DEFAULT_GROUP_IMAGE = "/images/default-group.png";
+export const DEFAULT_GROUP_IMAGE = "/assets/default-group.png";
 
 function classes(...values) {
   return values.filter(Boolean).join(" ");
@@ -56,7 +56,7 @@ function scheduleFrequencyText(group) {
   return null;
 }
 
-const DEFAULT_GROUP_IMAGE_PATH = /(^|\/)images\/default-group\.png$/;
+const DEFAULT_GROUP_IMAGE_PATH = /(^|\/)(?:images|assets)\/default-group\.png$/;
 
 /**
  * The default image is a frontend static asset, so it never goes through the API.

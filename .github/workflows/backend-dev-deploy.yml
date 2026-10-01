@@ -67,3 +67,26 @@ jobs:
           test -n "${container_id}"
           test "$(docker inspect -f '{{.State.Status}}' "${container_id}")" = "running"
           docker ps --filter "id=${container_id}"
+
+      - name: Backend 관리용 메트릭 확인
+        run: |
+          curl --fail --silent --show-error \
+            --retry 20 --retry-all-errors --retry-delay 3 --max-time 5 \
+            http://127.0.0.1:81/actuator/health > /dev/null
+
+          metrics="$(curl --fail --silent --show-error --max-time 10 \
+            http://127.0.0.1:81/actuator/prometheus)"
+          [[ "${metrics}" == *jvm_memory_used_bytes* ]]
+          [[ "${metrics}" == *hikaricp_connections_active* ]]
+          [[ "${metrics}" == *'environment="dev"'* ]]
+
+          container_id="$(docker ps -q \
+            --filter 'label=com.docker.compose.project=jarihana-dev' \
+            --filter 'label=com.docker.compose.service=backend')"
+          test "$(docker port "${container_id}" 8081/tcp)" = "127.0.0.1:81"
+          api_status="$(curl --silent --show-error --max-time 10 \
+            --output /dev/null --write-out '%{http_code}' http://127.0.0.1:80/api/groups)"
+          test "${api_status}" = "200"
+          public_metrics_status="$(curl --silent --show-error --max-time 10 \
+            --output /dev/null --write-out '%{http_code}' http://127.0.0.1:80/api/actuator/prometheus)"
+          test "${public_metrics_status}" = "403"

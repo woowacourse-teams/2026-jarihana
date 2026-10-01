@@ -5,6 +5,7 @@ services:
     image: "jarihana-backend-dev:${BACKEND_TAG:?BACKEND_TAG is required}"
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      APP_VERSION: "${BACKEND_TAG:?BACKEND_TAG is required}"
       DB_URL: jdbc:postgresql://postgres:5432/jarihana_dev
       DB_USERNAME: jarihana_dev
       DB_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
@@ -17,8 +18,19 @@ services:
       IMAGE_S3_REGION: "${IMAGE_S3_REGION:?IMAGE_S3_REGION is required}"
       IMAGE_S3_KEY_PREFIX: "${IMAGE_S3_KEY_PREFIX:?IMAGE_S3_KEY_PREFIX is required}"
       IMAGE_S3_PUBLIC_BASE_URL: "${IMAGE_S3_PUBLIC_BASE_URL:?IMAGE_S3_PUBLIC_BASE_URL is required}"
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: "${CLOUDWATCH_LOG_REGION:-ap-northeast-2}"
+        awslogs-group: "${CLOUDWATCH_LOG_GROUP:-/jarihana/dev/application}"
+        awslogs-create-group: "false"
+        tag: "${BACKEND_TAG:?BACKEND_TAG is required}/{{.ID}}"
+        mode: non-blocking
+        max-buffer-size: "4m"
+
     ports:
       - "80:8080"
+      - "127.0.0.1:81:8081"
     depends_on:
       postgres:
         condition: service_healthy
