@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "${script_dir}/application-context.sh"
 
 printf 'OS: '
 . /etc/os-release
@@ -40,10 +42,21 @@ if command -v aws > /dev/null; then
   aws sts get-caller-identity --query '{Account:Account,Arn:Arn}' --output json || true
 fi
 
-curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8081/actuator/health
+curl --fail --silent --show-error --max-time 10 "${management_url}/actuator/health"
 printf '\nManagement binding: '
-docker port jarihana-backend 8081/tcp
-curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8081/actuator/prometheus |
+if [[ "${target_environment}" == prod ]]; then
+  docker port jarihana-backend 8081/tcp
+else
+  container_id="$(docker ps -q \
+    --filter label=com.docker.compose.project=jarihana-dev \
+    --filter label=com.docker.compose.service=backend)"
+  if [[ -z "${container_id}" || "${container_id}" == *$'\n'* ]]; then
+    echo 'Expected one running jarihana-dev backend container.' >&2
+    exit 1
+  fi
+  docker port "${container_id}" 8081/tcp
+fi
+curl --fail --silent --show-error --max-time 10 "${management_url}/actuator/prometheus" |
   python3 -c '
 import collections,sys
 types={}
