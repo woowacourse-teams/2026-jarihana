@@ -188,7 +188,7 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
         // Given / When / Then
         given()
                 .when()
-                .get("/images/default-group.png")
+                .get("/assets/default-group.png")
                 .then()
                 .statusCode(200)
                 .contentType("image/png");
