@@ -80,7 +80,7 @@ EC2 CPU·메모리·디스크는 컨테이너별 값이 아니므로 양쪽 대�
 | `dashboard-prod.json` | prod 전용 앱 지표와 EC2 공통 자원의 대시보드 정의 |
 | `dashboard-dev.json` | dev 전용 앱 지표와 EC2 공통 자원의 대시보드 정의 |
 | `create-dashboard.sh` | 기본은 생성만 수행하고, 명시적 `--update`에서는 기존 JSON 백업 후 갱신 |
-| `alerts.py`, `ALERTS.md` | 환경별 앱 경보, 공통 EC2 경보, EventBridge Discord 전달 구성 |
+| `alerts.py`, `ALERTS.md`, `discord-monitor.py` | 환경별 앱 경보, 공통 EC2 경보, self-hosted runner의 Discord 전달 구성 |
 
 GitHub Actions의 `CloudWatch Manage` (`cloudwatch-manage.yml`)를 수동 실행하고
 `target_environment`, `operation`, `application_log_retention_days`를 선택한다.
@@ -90,8 +90,11 @@ Agent 하나가 같은 EC2의 prod/dev를 수집하므로 환경별 배포 workf
 prod/dev 백엔드 배포는 각각 `backend-prod-deploy.yml`, `backend-dev-deploy.yml`에서 실행한다.
 수동 실행 메뉴가 표시되려면 새 workflow 파일이 저장소 기본 브랜치인 `main`에 반영돼야 한다.
 
-알림 배포는 별도 `CloudWatch Alerts` workflow에서 수행한다. Discord 웹훅 secret이 없으면
-테스트와 배포는 실행할 수 없으며, dev 애플리케이션 알람은 실제 dev 지표 수신을 확인한 뒤 켠다.
+알람 배포는 별도 `CloudWatch Alerts` workflow에서 수행한다. Discord 웹훅 테스트와 상태
+모니터는 `DISCORD_WEBHOOK_URL` repository secret을 사용한다. 알람 배포 자체에는 Discord
+웹훅이나 EventBridge 권한이 필요하지 않으며, dev 애플리케이션 알람은 실제 dev 지표 수신을
+확인한 뒤 켠다. `CloudWatch Discord Monitor` workflow가 기본 브랜치에서 5분마다 알람 상태를
+조회한다.
 
 | 선택 환경 | 로컬 API | 로컬 관리 엔드포인트 | CloudWatch 앱 차원 |
 | --- | --- | --- | --- |

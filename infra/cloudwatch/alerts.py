@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Render CloudFormation for Jarihana alarms and the Discord webhook route."""
+"""Render CloudFormation for Jarihana CloudWatch alarms.
+
+Discord delivery is intentionally outside this stack. The self-hosted runner
+polls alarm state with the existing CloudWatch read permission and posts state
+transitions to Discord. Keeping the webhook out of CloudFormation avoids the
+EventBridge Connection resource, which also requires Secrets Manager access.
+"""
 
 import json
 
@@ -108,169 +114,8 @@ def log_filter_resources(environment):
     }
 
 
-def discord_alarm_target(target_id):
-    return {
-        "Id": target_id,
-        "Arn": {"Fn::GetAtt": ["DiscordApiDestination", "Arn"]},
-        "RoleArn": {"Fn::GetAtt": ["DiscordInvokeRole", "Arn"]},
-        "RetryPolicy": {
-            "MaximumEventAgeInSeconds": 3600,
-            "MaximumRetryAttempts": 12,
-        },
-        "DeadLetterConfig": {
-            "Arn": {"Fn::GetAtt": ["DiscordAlarmDeliveryDlq", "Arn"]}
-        },
-        "InputTransformer": {
-            "InputPathsMap": {
-                "alarmName": "$.detail.alarmName",
-                "state": "$.detail.state.value",
-                "time": "$.time",
-            },
-            "InputTemplate": (
-                "{\"content\":\"**CloudWatch <state>** | <alarmName>\\n"
-                "<time>\",\"allowed_mentions\":{\"parse\":[]}}"
-            ),
-        },
-    }
-
-
-def discord_alarm_event_pattern(state, previous_state=None):
-    detail = {
-        "alarmName": [
-            {"prefix": "[PROD]"},
-            {"prefix": "[DEV]"},
-            {"prefix": "[EC2]"},
-        ],
-        "state": {"value": [state]},
-    }
-    if previous_state is not None:
-        detail["previousState"] = {"value": [previous_state]}
-    return {
-        "source": ["aws.cloudwatch"],
-        "detail-type": ["CloudWatch Alarm State Change"],
-        "detail": detail,
-    }
-
-
 def template():
-    resources = {
-        "DiscordConnection": {
-            "Type": "AWS::Events::Connection",
-            "Properties": {
-                "Name": "jarihana-discord",
-                "Description": "Connection for the Jarihana Discord webhook.",
-                "AuthorizationType": "API_KEY",
-                "AuthParameters": {
-                    "ApiKeyAuthParameters": {
-                        "ApiKeyName": "X-EventBridge-Connection",
-                        "ApiKeyValue": "discord-webhook-auth-is-in-url",
-                    }
-                },
-            },
-        },
-        "DiscordApiDestination": {
-            "Type": "AWS::Events::ApiDestination",
-            "Properties": {
-                "Name": "jarihana-discord-alerts",
-                "Description": "Deliver CloudWatch alarm state changes to Discord.",
-                "ConnectionArn": {"Fn::GetAtt": ["DiscordConnection", "Arn"]},
-                "InvocationEndpoint": {
-                    "Fn::Sub": "${DiscordWebhookUrl}?wait=true"
-                },
-                "HttpMethod": "POST",
-                "InvocationRateLimitPerSecond": 1,
-            },
-        },
-        "DiscordInvokeRole": {
-            "Type": "AWS::IAM::Role",
-            "Properties": {
-                "AssumeRolePolicyDocument": {
-                    "Version": "2012-10-17",
-                    "Statement": [{
-                        "Effect": "Allow",
-                        "Principal": {"Service": "events.amazonaws.com"},
-                        "Action": "sts:AssumeRole",
-                    }],
-                },
-                "Policies": [{
-                    "PolicyName": "InvokeJarihanaDiscordDestination",
-                    "PolicyDocument": {
-                        "Version": "2012-10-17",
-                        "Statement": [{
-                            "Effect": "Allow",
-                            "Action": "events:InvokeApiDestination",
-                            "Resource": {"Fn::GetAtt": ["DiscordApiDestination", "Arn"]},
-                        }],
-                    },
-                }],
-            },
-        },
-        "DiscordAlarmDeliveryDlq": {
-            "Type": "AWS::SQS::Queue",
-            "Properties": {
-                "QueueName": "jarihana-discord-alerts-dlq",
-                "MessageRetentionPeriod": 1209600,
-                "SqsManagedSseEnabled": True,
-            },
-        },
-        "DiscordAlarmDeliveryDlqPolicy": {
-            "Type": "AWS::SQS::QueuePolicy",
-            "Properties": {
-                "Queues": [{"Ref": "DiscordAlarmDeliveryDlq"}],
-                "PolicyDocument": {
-                    "Version": "2012-10-17",
-                    "Statement": [
-                        {
-                            "Effect": "Allow",
-                            "Principal": {"Service": "events.amazonaws.com"},
-                            "Action": "sqs:SendMessage",
-                            "Resource": {"Fn::GetAtt": ["DiscordAlarmDeliveryDlq", "Arn"]},
-                            "Condition": {
-                                "ArnEquals": {
-                                    "aws:SourceArn": {
-                                        "Fn::GetAtt": ["DiscordAlarmEnteredAlarm", "Arn"]
-                                    }
-                                }
-                            },
-                        },
-                        {
-                            "Effect": "Allow",
-                            "Principal": {"Service": "events.amazonaws.com"},
-                            "Action": "sqs:SendMessage",
-                            "Resource": {"Fn::GetAtt": ["DiscordAlarmDeliveryDlq", "Arn"]},
-                            "Condition": {
-                                "ArnEquals": {
-                                    "aws:SourceArn": {
-                                        "Fn::GetAtt": ["DiscordAlarmRecovered", "Arn"]
-                                    }
-                                }
-                            },
-                        },
-                    ],
-                },
-            },
-        },
-        "DiscordAlarmEnteredAlarm": {
-            "Type": "AWS::Events::Rule",
-            "Properties": {
-                "Name": "jarihana-cloudwatch-alarm-alarm",
-                "Description": "Send Jarihana alarm transitions to Discord.",
-                "State": "ENABLED",
-                "EventPattern": discord_alarm_event_pattern("ALARM"),
-                "Targets": [discord_alarm_target("JarihanaDiscordAlarm")],
-            },
-        },
-        "DiscordAlarmRecovered": {
-            "Type": "AWS::Events::Rule",
-            "Properties": {
-                "Name": "jarihana-cloudwatch-alarm-recovered",
-                "Description": "Send Jarihana recovery transitions to Discord.",
-                "State": "ENABLED",
-                "EventPattern": discord_alarm_event_pattern("OK", "ALARM"),
-                "Targets": [discord_alarm_target("JarihanaDiscordRecovery")],
-            },
-        },
-    }
+    resources = {}
 
     for environment in ("prod", "dev"):
         prefix = environment.title()
@@ -400,7 +245,7 @@ def template():
         "AWSTemplateFormatVersion": "2010-09-09",
         "Description": (
             "Jarihana prod/dev CloudWatch alarms on one shared EC2 instance, "
-            "with alarm state changes delivered to Discord through EventBridge."
+            "with alarm state changes read by the self-hosted Discord monitor."
         ),
         "Parameters": {
             "InstanceId": parameter(
@@ -409,10 +254,6 @@ def template():
             ),
             "RootFilesystemType": parameter(
                 "Root filesystem type from df -T /; it is a CloudWatch metric dimension."
-            ),
-            "DiscordWebhookUrl": parameter(
-                "Discord incoming webhook URL. Keep it in the GitHub Actions secret DISCORD_WEBHOOK_URL.",
-                no_echo=True,
             ),
             "EnableDevApplicationAlarms": {
                 "Type": "String",
@@ -426,12 +267,6 @@ def template():
         "Conditions": conditions,
         "Resources": resources,
         "Outputs": {
-            "DiscordApiDestinationArn": {
-                "Value": {"Fn::GetAtt": ["DiscordApiDestination", "Arn"]}
-            },
-            "DiscordAlarmDeliveryDlqUrl": {
-                "Value": {"Ref": "DiscordAlarmDeliveryDlq"}
-            },
             "DevApplicationAlarmsEnabled": {
                 "Value": {"Ref": "EnableDevApplicationAlarms"}
             },

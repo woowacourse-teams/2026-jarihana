@@ -3,27 +3,12 @@ set -euo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 : "${EXPECTED_INSTANCE_ID:?Set EXPECTED_INSTANCE_ID to the inspected target EC2 ID}"
-: "${DISCORD_WEBHOOK_URL:?Set DISCORD_WEBHOOK_URL as a GitHub Actions secret}"
 
 enable_dev_alarms="${ENABLE_DEV_APPLICATION_ALARMS:-true}"
 case "${enable_dev_alarms}" in
   true|false) ;;
   *) printf 'ENABLE_DEV_APPLICATION_ALARMS must be true or false\n' >&2; exit 1 ;;
 esac
-
-python3 - <<'PY'
-import os
-import re
-from urllib.parse import urlsplit
-
-url = os.environ["DISCORD_WEBHOOK_URL"]
-parsed = urlsplit(url)
-valid_path = re.fullmatch(r"/api/webhooks/[0-9]+/[A-Za-z0-9._-]+", parsed.path)
-if parsed.scheme != "https" or parsed.hostname not in {"discord.com", "discordapp.com"}:
-    raise SystemExit("Discord webhook must be an https://discord.com/api/webhooks/... URL")
-if parsed.query or parsed.fragment or not valid_path:
-    raise SystemExit("Discord webhook URL has an unexpected path or query string")
-PY
 
 . "${script_dir}/ec2-context.sh"
 if [[ "${region}" != "ap-northeast-2" ]]; then
@@ -70,18 +55,32 @@ aws cloudformation validate-template \
 parameters=(
   "InstanceId=${instance_id}"
   "RootFilesystemType=${root_filesystem}"
-  "DiscordWebhookUrl=${DISCORD_WEBHOOK_URL}"
   "EnableDevApplicationAlarms=${enable_dev_alarms}"
 )
 
 caller_account="$(aws sts get-caller-identity --query Account --output text)"
 printf 'Deploying jarihana-alerts to account %s, region %s, EC2 %s; dev application alarms: %s\n' \
   "${caller_account}" "${region}" "${instance_id}" "${enable_dev_alarms}"
+
+existing_stack_status="$(aws cloudformation describe-stacks \
+  --region "${region}" \
+  --stack-name jarihana-alerts \
+  --query 'Stacks[0].StackStatus' \
+  --output text 2>/dev/null || true)"
+if [[ "${existing_stack_status}" == "ROLLBACK_COMPLETE" ]]; then
+  echo 'Removing the previous ROLLBACK_COMPLETE alert stack before recreating it.'
+  aws cloudformation delete-stack \
+    --region "${region}" \
+    --stack-name jarihana-alerts
+  aws cloudformation wait stack-delete-complete \
+    --region "${region}" \
+    --stack-name jarihana-alerts
+fi
+
 aws cloudformation deploy \
   --region "${region}" \
   --stack-name jarihana-alerts \
   --template-file "${template_file}" \
-  --capabilities CAPABILITY_IAM \
   --no-fail-on-empty-changeset \
   --parameter-overrides "${parameters[@]}"
 
