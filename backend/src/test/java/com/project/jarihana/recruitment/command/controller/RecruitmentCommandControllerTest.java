@@ -12,6 +12,10 @@ import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.recruitment.command.repository.GroupRecruitmentCommandRepository;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.JoinMethod;
+import com.project.jarihana.registration.command.repository.RegistrationCommandRepository;
+import com.project.jarihana.registration.domain.DecisionActor;
+import com.project.jarihana.registration.domain.Registration;
+import com.project.jarihana.registration.domain.RegistrationStatus;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.TestSupportConfig;
 import io.restassured.response.ExtractableResponse;
@@ -22,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static io.restassured.RestAssured.given;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 
@@ -35,6 +40,9 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
 
     @Autowired
     private GroupRecruitmentCommandRepository recruitmentRepository;
+
+    @Autowired
+    private RegistrationCommandRepository registrationRepository;
 
     @Autowired
     private MemberRepository memberRepository;
@@ -69,7 +77,7 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
                 .post("/groups/{groupId}/recruitments", group.getId())
                 .then()
                 .statusCode(201)
-                .header("Location", equalTo("/groups/%d/recruitments/1".formatted(group.getId())))
+                .header("Location", equalTo("/api/groups/%d/recruitments/1".formatted(group.getId())))
                 .body("success", equalTo(true))
                 .body("data.id", equalTo(1))
                 .body("data.groupId", equalTo(group.getId().intValue()))
@@ -79,6 +87,93 @@ class RecruitmentCommandControllerTest extends IntegrationTestSupport {
                 .body("data.endsAt", equalTo("2026-08-31T23:59:59"))
                 .body("data.recruitingStatus", equalTo("SCHEDULED"))
                 .body("error", nullValue());
+    }
+
+    @DisplayName("모집 정원을 현재 승인 인원으로 수정하면 모집을 마감하고 대기 신청은 유지한다.")
+    @Test
+    void closesRecruitmentWhenUpdatedCapacityMatchesApprovedCount() {
+        // Given
+        Member leaderMember = saveMember("가람", "update-full-recruitment-leader");
+        Member firstApplicant = saveMember("나래", "update-full-recruitment-applicant-1");
+        Member secondApplicant = saveMember("다솜", "update-full-recruitment-applicant-2");
+        Member thirdApplicant = saveMember("라온", "update-full-recruitment-applicant-3");
+        Group group = saveActiveGroup("정원 변경 자동 마감 그룹");
+        groupMemberRepository.save(GroupMember.createLeader(group, leaderMember, TestSupportConfig.FIXED_NOW));
+        var startsAt = TestSupportConfig.FIXED_NOW.minusDays(2);
+        var endsAt = TestSupportConfig.FIXED_NOW.plusDays(7);
+        GroupRecruitment recruitment = recruitmentRepository.save(GroupRecruitment.create(
+                group,
+                JoinMethod.APPROVAL,
+                2,
+                startsAt,
+                endsAt
+        ));
+        Registration firstRegistration = Registration.createPending(
+                recruitment,
+                firstApplicant,
+                null,
+                TestSupportConfig.FIXED_NOW.minusHours(3)
+        );
+        registrationRepository.save(firstRegistration.approve(
+                DecisionActor.member(leaderMember.getId()),
+                TestSupportConfig.FIXED_NOW.minusHours(2),
+                0
+        ));
+        registrationRepository.save(Registration.createPending(
+                recruitment,
+                secondApplicant,
+                null,
+                TestSupportConfig.FIXED_NOW.minusHours(1)
+        ));
+        registrationRepository.save(Registration.createPending(
+                recruitment,
+                thirdApplicant,
+                null,
+                TestSupportConfig.FIXED_NOW.minusMinutes(30)
+        ));
+        String accessToken = accessTokenProvider.issue(leaderMember.getId()).value();
+        String csrfToken = csrfToken(group.getId());
+
+        // When
+        Response response = authenticatedRequest(accessToken, csrfToken)
+                .body("""
+                        {
+                          "joinMethod": "APPROVAL",
+                          "capacity": 1,
+                          "startsAt": "%s",
+                          "endsAt": "%s"
+                        }
+                        """.formatted(startsAt, endsAt))
+                .when()
+                .put("/groups/{groupId}/recruitments/{recruitmentId}", group.getId(), recruitment.getId());
+
+        // Then
+        response.then()
+                .statusCode(200)
+                .body("success", equalTo(true))
+                .body("data.capacity", equalTo(1))
+                .body("data.endsAt", equalTo("2026-08-19T10:00:00"))
+                .body("data.recruitingStatus", equalTo("CLOSED"))
+                .body("error", nullValue());
+
+        assertThat(recruitmentRepository.findAllByGroupId(group.getId()))
+                .singleElement()
+                .satisfies(updated -> {
+                    assertThat(updated.getCapacity()).isEqualTo(1);
+                    assertThat(updated.getEndsAt()).isEqualTo(TestSupportConfig.FIXED_NOW);
+                });
+        assertThat(registrationRepository.countByRecruitmentIdAndStatus(
+                recruitment.getId(),
+                RegistrationStatus.APPROVED
+        )).isEqualTo(1);
+        assertThat(registrationRepository.countByRecruitmentIdAndStatus(
+                recruitment.getId(),
+                RegistrationStatus.PENDING
+        )).isEqualTo(2);
+        assertThat(registrationRepository.countByRecruitmentIdAndStatus(
+                recruitment.getId(),
+                RegistrationStatus.REJECTED
+        )).isZero();
     }
 
     private RequestSpecification authenticatedRequest(String accessToken, String csrfToken) {

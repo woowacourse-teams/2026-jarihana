@@ -52,6 +52,7 @@ function useFocusReturn(visible) {
 
 function OverlayPanel({
   children,
+  closeAction = "dialog_close",
   closeLabel = "닫기",
   description,
   dismissible = true,
@@ -62,6 +63,13 @@ function OverlayPanel({
   const titleId = useId();
   const descriptionId = useId();
   const panelReference = useRef(null);
+  const dismissReference = useRef(onDismiss);
+  const dismissibleReference = useRef(dismissible);
+
+  useLayoutEffect(() => {
+    dismissReference.current = onDismiss;
+    dismissibleReference.current = dismissible;
+  });
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -69,9 +77,9 @@ function OverlayPanel({
     focusableElements(panelReference.current)[0]?.focus();
 
     function handleKeyDown(event) {
-      if (event.key === "Escape" && dismissible) {
+      if (event.key === "Escape" && dismissibleReference.current) {
         event.preventDefault();
-        onDismiss();
+        dismissReference.current();
         return;
       }
       if (event.key !== "Tab") return;
@@ -97,7 +105,7 @@ function OverlayPanel({
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [dismissible, onDismiss]);
+  }, []);
 
   const drawer = mode === "drawer";
   return createPortal(
@@ -119,7 +127,7 @@ function OverlayPanel({
       >
         <IconButton
           className="ui-dialog__close"
-          data-ph-capture-attribute-action="dialog_close"
+          data-ph-capture-attribute-action={closeAction}
           disabled={!dismissible}
           label={closeLabel}
           onClick={onDismiss}
@@ -158,6 +166,7 @@ function Trigger({ children, expanded, onOpen }) {
 export function Modal({
   children,
   closeLabel = "닫기",
+  closeAction = "dialog_close",
   defaultOpen = false,
   description,
   dismissible = true,
@@ -188,6 +197,7 @@ export function Modal({
       ) : null}
       {visible ? (
         <OverlayPanel
+          closeAction={closeAction}
           closeLabel={closeLabel}
           description={description}
           dismissible={dismissible}
@@ -203,6 +213,7 @@ export function Modal({
 
 export function Drawer({
   children,
+  closeAction,
   defaultOpen = false,
   onClose,
   onOpenChange,
@@ -226,7 +237,7 @@ export function Drawer({
         </Trigger>
       ) : null}
       {visible ? (
-        <OverlayPanel mode="drawer" onDismiss={dismiss} title={title}>
+        <OverlayPanel closeAction={closeAction} mode="drawer" onDismiss={dismiss} title={title}>
           {children}
         </OverlayPanel>
       ) : null}
@@ -236,7 +247,10 @@ export function Drawer({
 
 export function ConfirmDialog({
   cancelLabel = "취소",
+  cancelAction,
+  closeAction,
   confirmLabel = "확인",
+  confirmAction,
   danger = false,
   description,
   onClose,
@@ -276,6 +290,7 @@ export function ConfirmDialog({
 
   return (
     <Modal
+      closeAction={closeAction}
       description={description}
       onClose={close}
       onOpenChange={controlled ? undefined : setUncontrolledOpen}
@@ -289,10 +304,20 @@ export function ConfirmDialog({
         </p>
       ) : null}
       <div className="ui-dialog__actions">
-        <Button disabled={submitting} onClick={close} variant="secondary">
+        <Button
+          data-ph-capture-attribute-action={cancelAction}
+          disabled={submitting}
+          onClick={close}
+          variant="secondary"
+        >
           {cancelLabel}
         </Button>
-        <Button onClick={confirm} pending={submitting} variant={danger ? "danger" : "primary"}>
+        <Button
+          data-ph-capture-attribute-action={confirmAction}
+          onClick={confirm}
+          pending={submitting}
+          variant={danger ? "danger" : "primary"}
+        >
           {confirmLabel}
         </Button>
       </div>

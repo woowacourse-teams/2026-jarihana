@@ -40,6 +40,7 @@
 | 모집 공고 | `GET` | `/api/groups/{groupId}/recruitments` | `PUBLIC` | 그룹의 모집 공고 이력 조회 |
 | 모집 공고 | `POST` | `/api/groups/{groupId}/recruitments` | `LEADER` | 새 모집 공고 등록 |
 | 모집 공고 | `GET` | `/api/groups/{groupId}/recruitments/{recruitmentId}` | `PUBLIC` | 모집 공고 상세 조회 |
+| 모집 공고 | `PUT` | `/api/groups/{groupId}/recruitments/{recruitmentId}` | `LEADER` | 현재 모집의 기간·정원·승인 방식 수정 |
 | 모집 공고 | `PATCH` | `/api/groups/{groupId}/recruitments/{recruitmentId}` | `LEADER` | 모집 공고 조기 마감 |
 | 이미지 | `POST` | `/api/image-uploads` | `MEMBER` | 이미지 업로드 리소스 생성 |
 | 인증·회원 | `POST` | `/api/auth/logout` | `AUTH` | 가입 세션 또는 Refresh Token 무효화 |

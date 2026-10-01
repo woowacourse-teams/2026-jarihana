@@ -96,6 +96,27 @@ public class GroupRecruitment extends BaseEntity {
         return new GroupRecruitment(null, group, joinMethod, capacity, startsAt, endsAt);
     }
 
+    public GroupRecruitment update(
+            JoinMethod joinMethod,
+            int capacity,
+            LocalDateTime startsAt,
+            LocalDateTime endsAt
+    ) {
+        return new GroupRecruitment(id, group, joinMethod, capacity, startsAt, endsAt);
+    }
+
+    public boolean hasSameSettings(
+            JoinMethod joinMethod,
+            int capacity,
+            LocalDateTime startsAt,
+            LocalDateTime endsAt
+    ) {
+        return Objects.equals(this.joinMethod, joinMethod)
+                && this.capacity == capacity
+                && Objects.equals(this.startsAt, startsAt)
+                && Objects.equals(this.endsAt, endsAt);
+    }
+
     public boolean isOpenAt(LocalDateTime now) {
         RecruitmentPhase phase = phaseAt(now);
         return phase == RecruitmentPhase.OPEN || phase == RecruitmentPhase.ALWAYS_OPEN;

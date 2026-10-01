@@ -132,6 +132,7 @@ header 구현으로 확대하지 않았다.
 
 - `meetingType`: `ONLINE`, `OFFLINE`, `FLEXIBLE` 중 하나인 필수 값
 - `location`: 최대 255자의 nullable 문자열
+- `currentMemberRegistrationId`: 현재 모집에 대한 본인 신청 ID, 신청이 없으면 `null`
 - 목록 응답은 현재 모임 방식·장소를 제공하지 않으므로 `groupListItemSchema`에는 포함하지 않는다.
 
 ### 내 신청 목록 응답 스키마
@@ -150,16 +151,19 @@ header 구현으로 확대하지 않았다.
     "representativeImageUrl": "https://cdn.example.test/images/groups/algorithm.webp"
   },
   "recruitmentId": 45,
-  "status": "PENDING"
+  "status": "PENDING",
+  "canWithdraw": true
 }
 ```
+
+내 신청의 철회 버튼은 서버가 반환한 `canWithdraw`가 `true`일 때만 표시한다. 모집이 마감되면 `PENDING` 신청도 철회할 수 없다.
 
 | 도메인         | endpoint                                                                                                                                                                           | 화면에서 수행하는 일                                                           |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | 그룹           | `GET/POST /api/groups`, `GET/PUT/PATCH/DELETE /api/groups/{groupId}`                                                                                                               | 탐색·상세·생성·수정·종료·삭제                                                  |
 | 일정           | `PUT/DELETE /api/groups/{groupId}/recurring-schedule`, `PUT /api/groups/{groupId}/session-schedule`                                                                                | 모임 유형에 맞는 일정 저장/삭제                                                |
 | 참여자         | `GET /api/groups/{groupId}/members`, `PUT /api/groups/{groupId}/leader`                                                                                                            | 참여자 목록과 리더 위임                                                        |
-| 모집           | `GET/POST /api/groups/{groupId}/recruitments`, `GET/PATCH /api/groups/{groupId}/recruitments/{recruitmentId}`                                                                      | 모집 이력·상세·생성·마감                                                       |
+| 모집           | `GET/POST /api/groups/{groupId}/recruitments`, `GET/PUT/PATCH /api/groups/{groupId}/recruitments/{recruitmentId}`                                                                  | 모집 이력·상세·생성·수정·마감                                                  |
 | 신청           | `GET/POST /api/recruitments/{recruitmentId}/registrations`, `PATCH/DELETE /api/recruitments/{recruitmentId}/registrations/{registrationId}`, `GET /api/registrations?applicant=me` | 신청 생성·철회·승인/미승인·내 신청                                               |
 | 이미지         | `POST /api/image-uploads`                                                                                                                                                           | Presigned URL 발급 후 이미지 업로드. 그룹 생성·수정 시 `representativeImageKey` 전달 |
 | 인증/회원      | `GET /api/members/me`, `POST /api/members`, `POST /api/auth/refresh`, `POST /api/auth/logout`                                                                                      | bootstrap·가입·refresh·logout                                                  |

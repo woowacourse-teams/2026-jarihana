@@ -34,6 +34,8 @@ export const recruitmentCreateResponseSchema = z.object({
   recruitingStatus: recruitingStatusSchema
 });
 
+export const recruitmentUpdateResponseSchema = recruitmentCreateResponseSchema;
+
 export const recruitmentCloseResponseSchema = z.object({
   id: entityIdSchema,
   endsAt: localDateTimeSchema,
