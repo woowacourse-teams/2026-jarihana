@@ -2,15 +2,15 @@ package com.project.jarihana.group.command.controller;
 
 import com.project.jarihana.common.auth.LoginMember;
 import com.project.jarihana.common.response.ApiResponse;
+import com.project.jarihana.common.response.LocationUri;
 import com.project.jarihana.group.command.controller.dto.*;
 import com.project.jarihana.group.command.service.GroupCommandService;
 import com.project.jarihana.group.query.controller.dto.GroupDetailResponse;
 import com.project.jarihana.group.query.service.GroupQueryService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.net.URI;
 
 @RestController
 @RequestMapping("/groups")
@@ -27,12 +27,13 @@ public class GroupCommandController {
     @PostMapping
     public ResponseEntity<ApiResponse<CreateGroupResponse>> createGroup(
             @LoginMember Long memberId,
-            @Valid @RequestBody CreateGroupRequest request
+            @Valid @RequestBody CreateGroupRequest request,
+            HttpServletRequest servletRequest
     ) {
         CreateGroupResponse response = CreateGroupResponse.from(
                 groupCommandService.createGroup(memberId, request.toCommand())
         );
-        return ResponseEntity.created(URI.create("/groups/" + response.id()))
+        return ResponseEntity.created(LocationUri.of(servletRequest.getContextPath(), "/groups/%d", response.id()))
                 .body(ApiResponse.success(response));
     }
 

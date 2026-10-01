@@ -1,0 +1,196 @@
+{
+  "start": "-PT3H",
+  "periodOverride": "inherit",
+  "widgets": [
+    {
+      "type": "text", "x": 0, "y": 0, "width": 24, "height": 3,
+      "properties": {
+        "markdown": "# 자리하나 운영 모니터링\n애플리케이션: **jarihana / prod** · 리전: **서울** · 기본 EC2 CPU: **5분** · 앱·메모리·디스크·EC2 상태 검사: **1분**\nEC2 CPU·메모리·디스크·상태 검사는 **같은 호스트의 모든 컨테이너가 공유하는 값**입니다. EC2 상태 검사는 **0=통과 / 1=실패**이며, 빈 구간은 중지·미수집 등으로 **확인 필요**합니다. 상태 검사 통과가 애플리케이션의 정상 응답을 보장하지는 않습니다. GC·오류·연결 획득 지표는 해당 이벤트가 없으면 비어 있을 수 있습니다.\n설정 원본: `infra/cloudwatch/dashboard-prod.json` · 5xx 그래프는 추세 확인용이며 모든 오류의 개별 알림을 보장하지 않습니다."
+      }
+    },
+    {
+      "type": "metric", "x": 0, "y": 3, "width": 8, "height": 6,
+      "properties": {
+        "title": "HTTP 요청 수 / 1분", "region": "ap-northeast-2",
+        "view": "timeSeries", "period": 60, "stat": "Sum", "stacked": false,
+        "yAxis": {"left": {"min": 0, "label": "요청 수", "showUnits": false}},
+        "metrics": [
+          ["Jarihana", "http_server_requests_seconds_count", "application", "jarihana", "environment", "prod", "status_class", "1xx", {"label": "1xx"}],
+          ["Jarihana", "http_server_requests_seconds_count", "application", "jarihana", "environment", "prod", "status_class", "2xx", {"label": "2xx"}],
+          ["Jarihana", "http_server_requests_seconds_count", "application", "jarihana", "environment", "prod", "status_class", "3xx", {"label": "3xx"}],
+          ["Jarihana", "http_server_requests_seconds_count", "application", "jarihana", "environment", "prod", "status_class", "4xx", {"label": "4xx"}],
+          ["Jarihana", "http_server_requests_seconds_count", "application", "jarihana", "environment", "prod", "status_class", "5xx", {"label": "5xx", "color": "#d62728"}]
+        ]
+      }
+    },
+    {
+      "type": "metric", "x": 8, "y": 3, "width": 8, "height": 6,
+      "properties": {
+        "title": "HTTP 전체 평균 응답 시간", "region": "ap-northeast-2",
+        "view": "timeSeries", "period": 60, "stat": "Sum", "stacked": false,
+        "yAxis": {"left": {"min": 0, "label": "ms", "showUnits": false}},
+        "metrics": [
+          ["Jarihana", "http_server_requests_seconds_count", "application", "jarihana", "environment", "prod", "status_class", "1xx", {"id": "c1", "visible": false}],
+          ["Jarihana", "http_server_requests_seconds_count", "application", "jarihana", "environment", "prod", "status_class", "2xx", {"id": "c2", "visible": false}],
+          ["Jarihana", "http_server_requests_seconds_count", "application", "jarihana", "environment", "prod", "status_class", "3xx", {"id": "c3", "visible": false}],
+          ["Jarihana", "http_server_requests_seconds_count", "application", "jarihana", "environment", "prod", "status_class", "4xx", {"id": "c4", "visible": false}],
+          ["Jarihana", "http_server_requests_seconds_count", "application", "jarihana", "environment", "prod", "status_class", "5xx", {"id": "c5", "visible": false}],
+          ["Jarihana", "http_server_requests_seconds_sum", "application", "jarihana", "environment", "prod", "status_class", "1xx", {"id": "t1", "visible": false}],
+          ["Jarihana", "http_server_requests_seconds_sum", "application", "jarihana", "environment", "prod", "status_class", "2xx", {"id": "t2", "visible": false}],
+          ["Jarihana", "http_server_requests_seconds_sum", "application", "jarihana", "environment", "prod", "status_class", "3xx", {"id": "t3", "visible": false}],
+          ["Jarihana", "http_server_requests_seconds_sum", "application", "jarihana", "environment", "prod", "status_class", "4xx", {"id": "t4", "visible": false}],
+          ["Jarihana", "http_server_requests_seconds_sum", "application", "jarihana", "environment", "prod", "status_class", "5xx", {"id": "t5", "visible": false}],
+          [{"expression": "SUM([c1,c2,c3,c4,c5])", "id": "requests", "visible": false}],
+          [{"expression": "IF(requests>0,1000*SUM([t1,t2,t3,t4,t5])/requests)", "id": "latency", "label": "평균 응답 시간 (ms)"}]
+        ]
+      }
+    },
+    {
+      "type": "metric", "x": 16, "y": 3, "width": 8, "height": 6,
+      "properties": {
+        "title": "HTTP 5xx 요청 수·오류율", "region": "ap-northeast-2",
+        "view": "timeSeries", "period": 60, "stat": "Sum", "stacked": false,
+        "yAxis": {"left": {"min": 0, "label": "요청 수", "showUnits": false}, "right": {"min": 0, "max": 100, "label": "%", "showUnits": false}},
+        "metrics": [
+          ["Jarihana", "http_server_requests_seconds_count", "application", "jarihana", "environment", "prod", "status_class", "1xx", {"id": "c1", "visible": false}],
+          ["Jarihana", "http_server_requests_seconds_count", "application", "jarihana", "environment", "prod", "status_class", "2xx", {"id": "c2", "visible": false}],
+          ["Jarihana", "http_server_requests_seconds_count", "application", "jarihana", "environment", "prod", "status_class", "3xx", {"id": "c3", "visible": false}],
+          ["Jarihana", "http_server_requests_seconds_count", "application", "jarihana", "environment", "prod", "status_class", "4xx", {"id": "c4", "visible": false}],
+          ["Jarihana", "http_server_requests_seconds_count", "application", "jarihana", "environment", "prod", "status_class", "5xx", {"id": "c5", "label": "5xx 요청 수", "color": "#d62728"}],
+          [{"expression": "SUM([c1,c2,c3,c4,c5])", "id": "requests", "visible": false}],
+          [{"expression": "IF(requests>0,100*c5/requests)", "id": "errorrate", "label": "5xx 오류율 (%)", "yAxis": "right"}]
+        ]
+      }
+    },
+    {
+      "type": "metric", "x": 0, "y": 9, "width": 8, "height": 6,
+      "properties": {
+        "title": "CPU 사용률 — 기본 EC2 (5분)·운영 앱 (1분)", "region": "ap-northeast-2",
+        "view": "timeSeries", "period": 60, "stat": "Average", "stacked": false,
+        "yAxis": {"left": {"min": 0, "max": 100, "label": "%", "showUnits": false}},
+        "metrics": [
+          ["AWS/EC2", "CPUUtilization", "InstanceId", "i-0a1245eb20f7998b8", {"label": "기본 EC2 CPU (%) / 5분", "period": 300}],
+          ["Jarihana", "process_cpu_usage", "application", "jarihana", "environment", "prod", {"id": "appcpu", "visible": false}],
+          [{"expression": "100*appcpu", "id": "apppct", "label": "운영 앱 CPU (%)"}]
+        ]
+      }
+    },
+    {
+      "type": "metric", "x": 8, "y": 9, "width": 8, "height": 6,
+      "properties": {
+        "title": "EC2 공통 메모리·루트 디스크 사용률", "region": "ap-northeast-2",
+        "view": "timeSeries", "period": 60, "stat": "Average", "stacked": false,
+        "yAxis": {"left": {"min": 0, "max": 100, "label": "%", "showUnits": false}},
+        "metrics": [
+          ["Jarihana", "mem_used_percent", "InstanceId", "i-0a1245eb20f7998b8", {"label": "EC2 메모리 (%)"}],
+          [{"expression": "SEARCH('{Jarihana,InstanceId,path,fstype} MetricName=\"disk_used_percent\" InstanceId=\"i-0a1245eb20f7998b8\" path=\"/\"', 'Average', 60)", "id": "disk", "label": "루트 디스크 (%)"}]
+        ]
+      }
+    },
+    {
+      "type": "metric", "x": 16, "y": 9, "width": 8, "height": 6,
+      "properties": {
+        "title": "JVM heap·nonheap 사용량", "region": "ap-northeast-2",
+        "view": "timeSeries", "period": 60, "stat": "Average", "stacked": false,
+        "yAxis": {"left": {"min": 0, "label": "MiB", "showUnits": false}},
+        "metrics": [
+          [{"expression": "SEARCH('{Jarihana,application,environment,area,id} MetricName=\"jvm_memory_used_bytes\" application=\"jarihana\" environment=\"prod\" area=\"heap\"', 'Average', 60)", "id": "heap", "visible": false}],
+          [{"expression": "SEARCH('{Jarihana,application,environment,area,id} MetricName=\"jvm_memory_used_bytes\" application=\"jarihana\" environment=\"prod\" area=\"nonheap\"', 'Average', 60)", "id": "nonheap", "visible": false}],
+          [{"expression": "SUM(heap)/1048576", "id": "heapmib", "label": "Heap 사용량 (MiB)"}],
+          [{"expression": "SUM(nonheap)/1048576", "id": "nonheapmib", "label": "Nonheap 사용량 (MiB)"}]
+        ]
+      }
+    },
+    {
+      "type": "metric", "x": 0, "y": 15, "width": 8, "height": 6,
+      "properties": {
+        "title": "JVM 전체·상태별 스레드 수", "region": "ap-northeast-2",
+        "view": "timeSeries", "period": 60, "stat": "Average", "stacked": false,
+        "yAxis": {"left": {"min": 0, "label": "스레드 수", "showUnits": false}},
+        "metrics": [
+          ["Jarihana", "jvm_threads_live_threads", "application", "jarihana", "environment", "prod", {"label": "전체 활성 스레드"}],
+          [{"expression": "SEARCH('{Jarihana,application,environment,state} MetricName=\"jvm_threads_states_threads\" application=\"jarihana\" environment=\"prod\"', 'Average', 60)", "id": "states", "label": "${PROP('Dim.state')}"}]
+        ]
+      }
+    },
+    {
+      "type": "metric", "x": 8, "y": 15, "width": 8, "height": 6,
+      "properties": {
+        "title": "GC pause 횟수·시간 / 1분", "region": "ap-northeast-2",
+        "view": "timeSeries", "period": 60, "stat": "Sum", "stacked": false,
+        "yAxis": {"left": {"min": 0, "label": "횟수", "showUnits": false}, "right": {"min": 0, "label": "ms", "showUnits": false}},
+        "metrics": [
+          ["Jarihana", "jvm_gc_pause_seconds_count", "application", "jarihana", "environment", "prod", {"label": "GC pause 횟수"}],
+          ["Jarihana", "jvm_gc_pause_seconds_sum", "application", "jarihana", "environment", "prod", {"id": "gctime", "visible": false}],
+          [{"expression": "1000*gctime", "id": "gcmillis", "label": "GC pause 합계 (ms)", "yAxis": "right"}]
+        ]
+      }
+    },
+    {
+      "type": "metric", "x": 16, "y": 15, "width": 8, "height": 6,
+      "properties": {
+        "title": "GC overhead", "region": "ap-northeast-2",
+        "view": "timeSeries", "period": 60, "stat": "Average", "stacked": false,
+        "yAxis": {"left": {"min": 0, "max": 100, "label": "%", "showUnits": false}},
+        "metrics": [
+          ["Jarihana", "jvm_gc_overhead", "application", "jarihana", "environment", "prod", {"id": "overhead", "visible": false}],
+          [{"expression": "100*overhead", "id": "gcpct", "label": "GC overhead (%)"}]
+        ]
+      }
+    },
+    {
+      "type": "metric", "x": 0, "y": 21, "width": 8, "height": 6,
+      "properties": {
+        "title": "DB 커넥션 풀 — active·idle·max·pending", "region": "ap-northeast-2",
+        "view": "timeSeries", "period": 60, "stat": "Average", "stacked": false,
+        "yAxis": {"left": {"min": 0, "label": "연결·대기 요청 수", "showUnits": false}},
+        "metrics": [
+          [{"expression": "SEARCH('{Jarihana,application,environment,pool} MetricName=\"hikaricp_connections_active\" application=\"jarihana\" environment=\"prod\"', 'Average', 60)", "id": "active", "label": "Active / ${PROP('Dim.pool')}"}],
+          [{"expression": "SEARCH('{Jarihana,application,environment,pool} MetricName=\"hikaricp_connections_idle\" application=\"jarihana\" environment=\"prod\"', 'Average', 60)", "id": "idle", "label": "Idle / ${PROP('Dim.pool')}"}],
+          [{"expression": "SEARCH('{Jarihana,application,environment,pool} MetricName=\"hikaricp_connections_max\" application=\"jarihana\" environment=\"prod\"', 'Average', 60)", "id": "maxconnections", "label": "Max / ${PROP('Dim.pool')}"}],
+          [{"expression": "SEARCH('{Jarihana,application,environment,pool} MetricName=\"hikaricp_connections_pending\" application=\"jarihana\" environment=\"prod\"', 'Average', 60)", "id": "pending", "label": "Pending / ${PROP('Dim.pool')}"}]
+        ]
+      }
+    },
+    {
+      "type": "metric", "x": 8, "y": 21, "width": 8, "height": 6,
+      "properties": {
+        "title": "DB 연결 획득·timeout 횟수 / 1분", "region": "ap-northeast-2",
+        "view": "timeSeries", "period": 60, "stat": "Sum", "stacked": false,
+        "yAxis": {"left": {"min": 0, "label": "횟수", "showUnits": false}},
+        "metrics": [
+          [{"expression": "SEARCH('{Jarihana,application,environment,pool} MetricName=\"hikaricp_connections_acquire_seconds_count\" application=\"jarihana\" environment=\"prod\"', 'Sum', 60)", "id": "acquires", "label": "획득 / ${PROP('Dim.pool')}"}],
+          [{"expression": "SEARCH('{Jarihana,application,environment,pool} MetricName=\"hikaricp_connections_timeout_total\" application=\"jarihana\" environment=\"prod\"', 'Sum', 60)", "id": "timeouts", "label": "Timeout / ${PROP('Dim.pool')}", "color": "#d62728"}]
+        ]
+      }
+    },
+    {
+      "type": "metric", "x": 16, "y": 21, "width": 8, "height": 6,
+      "properties": {
+        "title": "DB 전체 평균 연결 획득 시간", "region": "ap-northeast-2",
+        "view": "timeSeries", "period": 60, "stat": "Sum", "stacked": false,
+        "yAxis": {"left": {"min": 0, "label": "ms", "showUnits": false}},
+        "metrics": [
+          [{"expression": "SEARCH('{Jarihana,application,environment,pool} MetricName=\"hikaricp_connections_acquire_seconds_count\" application=\"jarihana\" environment=\"prod\"', 'Sum', 60)", "id": "counts", "visible": false}],
+          [{"expression": "SEARCH('{Jarihana,application,environment,pool} MetricName=\"hikaricp_connections_acquire_seconds_sum\" application=\"jarihana\" environment=\"prod\"', 'Sum', 60)", "id": "times", "visible": false}],
+          [{"expression": "SUM(counts)", "id": "total", "visible": false}],
+          [{"expression": "IF(total>0,1000*SUM(times)/total)", "id": "acquirelatency", "label": "평균 연결 획득 시간 (ms)"}]
+        ]
+      }
+    },
+    {
+      "type": "metric", "x": 0, "y": 27, "width": 24, "height": 6,
+      "properties": {
+        "title": "기본 EC2 상태 검사 — 0=통과 / 1=실패 / 빈 구간=확인 필요", "region": "ap-northeast-2",
+        "view": "timeSeries", "period": 60, "stat": "Maximum", "stacked": false,
+        "yAxis": {"left": {"min": 0, "max": 1, "label": "검사 실패 여부", "showUnits": false}},
+        "metrics": [
+          ["AWS/EC2", "StatusCheckFailed", "InstanceId", "i-0a1245eb20f7998b8", {"label": "전체 상태 검사", "color": "#d62728"}],
+          ["AWS/EC2", "StatusCheckFailed_Instance", "InstanceId", "i-0a1245eb20f7998b8", {"label": "인스턴스 상태 검사"}],
+          ["AWS/EC2", "StatusCheckFailed_System", "InstanceId", "i-0a1245eb20f7998b8", {"label": "AWS 호스트 상태 검사"}],
+          ["AWS/EC2", "StatusCheckFailed_AttachedEBS", "InstanceId", "i-0a1245eb20f7998b8", {"label": "연결된 EBS 상태 검사"}]
+        ]
+      }
+    }
+  ]
+}

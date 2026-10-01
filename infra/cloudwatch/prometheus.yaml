@@ -1,0 +1,27 @@
+global:
+  scrape_interval: 60s
+  scrape_timeout: 10s
+
+scrape_configs:
+  - job_name: jarihana-backend
+    honor_labels: false
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["127.0.0.1:8081"]
+        labels:
+          environment: prod
+      - targets: ["127.0.0.1:81"]
+        labels:
+          environment: dev
+    sample_limit: 2000
+    metric_relabel_configs:
+      - source_labels: [status]
+        target_label: status_class
+        regex: '([1-5])[0-9][0-9]'
+        replacement: '${1}xx'
+      - source_labels: [__name__, uri]
+        action: drop
+        regex: 'http_server_requests_seconds_(count|sum);(/api)?/actuator(/.*)?'
+      - source_labels: [__name__]
+        action: keep
+        regex: 'http_server_requests_seconds_(count|sum)|jvm_memory_(used|max)_bytes|jvm_threads_(live|states)_threads|jvm_gc_pause_seconds_(count|sum)|jvm_gc_overhead|hikaricp_connections_(active|idle|max|pending)|hikaricp_connections_timeout_total|hikaricp_connections_acquire_seconds_(count|sum)|process_cpu_usage'

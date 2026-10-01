@@ -1,0 +1,92 @@
+name: Backend Development Deploy
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "backend/**"
+      - "infra/docker-compose.dev.yml"
+      - ".github/workflows/backend-dev-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-dev-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: [self-hosted, Linux, ARM64]
+    environment: dev
+    timeout-minutes: 20
+    env:
+      BACKEND_TAG: ${{ github.sha }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker 확인
+        run: |
+          whoami
+          docker version
+
+      - name: Backend 이미지 빌드
+        run: |
+          docker build \
+            -t jarihana-backend-dev:${BACKEND_TAG} \
+            ./backend
+
+      - name: Compose로 Backend 배포
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
+          ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
+          GITHUB_OAUTH_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
+          GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
+          GITHUB_OAUTH_REDIRECT_URI: ${{ vars.OAUTH_GITHUB_REDIRECT_URI }}
+          IMAGE_S3_BUCKET: ${{ vars.IMAGE_S3_BUCKET }}
+          IMAGE_S3_REGION: ${{ vars.IMAGE_S3_REGION }}
+          IMAGE_S3_KEY_PREFIX: ${{ vars.IMAGE_S3_KEY_PREFIX }}
+          IMAGE_S3_PUBLIC_BASE_URL: ${{ vars.IMAGE_S3_PUBLIC_BASE_URL }}
+        run: |
+          unset COMPOSE_PROJECT_NAME
+          docker compose \
+            -f infra/docker-compose.dev.yml \
+            up -d --no-build backend
+
+      - name: Backend 컨테이너 상태 확인
+        run: |
+          container_id="$(docker ps -q \
+            --filter 'label=com.docker.compose.project=jarihana-dev' \
+            --filter 'label=com.docker.compose.service=backend')"
+          test -n "${container_id}"
+          test "$(docker inspect -f '{{.State.Status}}' "${container_id}")" = "running"
+          docker ps --filter "id=${container_id}"
+
+      - name: Backend 관리용 메트릭 확인
+        run: |
+          curl --fail --silent --show-error \
+            --retry 20 --retry-all-errors --retry-delay 3 --max-time 5 \
+            http://127.0.0.1:81/actuator/health > /dev/null
+
+          metrics="$(curl --fail --silent --show-error --max-time 10 \
+            http://127.0.0.1:81/actuator/prometheus)"
+          [[ "${metrics}" == *jvm_memory_used_bytes* ]]
+          [[ "${metrics}" == *hikaricp_connections_active* ]]
+          [[ "${metrics}" == *'environment="dev"'* ]]
+
+          container_id="$(docker ps -q \
+            --filter 'label=com.docker.compose.project=jarihana-dev' \
+            --filter 'label=com.docker.compose.service=backend')"
+          test "$(docker port "${container_id}" 8081/tcp)" = "127.0.0.1:81"
+          api_status="$(curl --silent --show-error --max-time 10 \
+            --output /dev/null --write-out '%{http_code}' http://127.0.0.1:80/api/groups)"
+          test "${api_status}" = "200"
+          public_metrics_status="$(curl --silent --show-error --max-time 10 \
+            --output /dev/null --write-out '%{http_code}' http://127.0.0.1:80/api/actuator/prometheus)"
+          test "${public_metrics_status}" = "403"

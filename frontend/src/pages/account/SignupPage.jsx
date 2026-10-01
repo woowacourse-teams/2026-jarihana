@@ -5,6 +5,8 @@ import { useForm, useWatch } from "react-hook-form";
 import { useAuth } from "../../features/auth/index.js";
 import { memberSignupFormSchema, useSignupMember } from "../../features/member/index.js";
 import profileAvatar from "../../shared/assets/brand/jarihana-favicon.png";
+import signupCoach from "../../shared/assets/illustrations/signup-coach.png";
+import signupCrew from "../../shared/assets/illustrations/signup-crew.png";
 import { Button, ErrorState, Modal, Select, Skeleton, TextField } from "../../shared/ui/index.js";
 import { AccountLayout } from "./AccountLayout.jsx";
 
@@ -13,14 +15,12 @@ const currentGeneration = Math.max(new Date().getFullYear() - FIRST_COHORT_YEAR,
 const generationOptions = Array.from({ length: currentGeneration }, (_, index) => index + 1);
 const SIGNUP_TYPE_OPTIONS = [
   {
-    imageUrl:
-      "https://techcourse-project-2026.s3.ap-northeast-2.amazonaws.com/jarihana/images/signup/signup_crew.png",
+    imageUrl: signupCrew,
     label: "크루",
     value: "CREW"
   },
   {
-    imageUrl:
-      "https://techcourse-project-2026.s3.ap-northeast-2.amazonaws.com/jarihana/images/signup/signup_coach.png",
+    imageUrl: signupCoach,
     label: "코치",
     value: "COACH"
   }
@@ -239,6 +239,7 @@ export function SignupPage() {
         </div>
       </form>
       <Modal
+        closeAction="signup_confirmation_dismiss"
         description={
           <>
             입력한 정보는 가입 후 직접 변경할 수 없어요.
