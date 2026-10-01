@@ -11,6 +11,9 @@ dev Spring Boot  :8081 → 호스트 127.0.0.1:81   ─┴→ CloudWatch Agent �
 EC2 기본 모니터링 → AWS/EC2 (CPUUtilization·StatusCheckFailed 계열, InstanceId)
 ```
 
+CloudWatch 경보와 Discord 전달 구성은 [`ALERTS.md`](ALERTS.md)를 참고한다. prod/dev
+애플리케이션 경보는 environment 차원으로 나누고, 같은 EC2의 호스트 경보는 한 번만 만든다.
+
 애플리케이션과 호스트 커스텀 지표는 `Jarihana` 네임스페이스 하나에 모은다. 애플리케이션은
 environment 차원으로 prod/dev를 구분하고, EC2 자원은 InstanceId별 공통 지표로 한 번만
 수집한다. 기존 `Jarihana/Application`, `Jarihana/Host`, `Jarihana/prod` 데이터는 옮겨지지
@@ -75,7 +78,9 @@ EC2 CPU·메모리·디스크는 컨테이너별 값이 아니므로 양쪽 대�
 | `verify.sh`, `verify.py` | 실제 CloudWatch EMF 로그 및 지표 데이터 수신 확인 |
 | `validate.py` | Agent JSON의 지표 선택 및 차원 제한 확인 |
 | `dashboard-prod.json` | prod 전용 앱 지표와 EC2 공통 자원의 대시보드 정의 |
+| `dashboard-dev.json` | dev 전용 앱 지표와 EC2 공통 자원의 대시보드 정의 |
 | `create-dashboard.sh` | 기본은 생성만 수행하고, 명시적 `--update`에서는 기존 JSON 백업 후 갱신 |
+| `alerts.py`, `ALERTS.md` | 환경별 앱 경보, 공통 EC2 경보, EventBridge Discord 전달 구성 |
 
 GitHub Actions의 `CloudWatch Manage` (`cloudwatch-manage.yml`)를 수동 실행하고
 `target_environment`, `operation`, `application_log_retention_days`를 선택한다.
@@ -84,6 +89,9 @@ GitHub Actions의 `CloudWatch Manage` (`cloudwatch-manage.yml`)를 수동 실행
 Agent 하나가 같은 EC2의 prod/dev를 수집하므로 환경별 배포 workflow와 독립적으로 관리한다.
 prod/dev 백엔드 배포는 각각 `backend-prod-deploy.yml`, `backend-dev-deploy.yml`에서 실행한다.
 수동 실행 메뉴가 표시되려면 새 workflow 파일이 저장소 기본 브랜치인 `main`에 반영돼야 한다.
+
+알림 배포는 별도 `CloudWatch Alerts` workflow에서 수행한다. Discord 웹훅 secret이 없으면
+테스트와 배포는 실행할 수 없으며, dev 애플리케이션 알람은 실제 dev 지표 수신을 확인한 뒤 켠다.
 
 | 선택 환경 | 로컬 API | 로컬 관리 엔드포인트 | CloudWatch 앱 차원 |
 | --- | --- | --- | --- |
@@ -199,15 +207,15 @@ prepare/inspect/install/verify가 EC2 또는 AWS에 접근하기 전에 거부�
 GC pause는 실제 GC가 발생해야 나타날 수
 있으므로 검증을 위해 운영 GC나 오류를 강제로 발생시키지 않는다.
 
-## 다음 알림 단계에서 해결할 사항
+## 5xx 알림 데이터 선택
 
 CloudWatch Agent는 counter와 summary의 count/sum을 이전 수집과의 차이로 전송한다.
 새 시리즈의 첫 수집 값은 기준값으로 사용하고 두 번째 수집부터 전송한다. 따라서 현재 HTTP
-메트릭만으로 새 5xx 시리즈의 첫 오류까지 모두 알린다고 보장할 수 없다. 다음 알림 단계에서
-전용 오류 지표 또는 오류 로그를 포함해 이 요구사항을 보완한 후 5xx 알림을 구성한다.
-수집 시작 전 이벤트와 Agent 중단 구간도 별도로 고려해야 한다.
-
-로그 기반 알림 구성은 후속 단계다.
+메트릭만으로 새 5xx 시리즈의 첫 오류까지 모두 알린다고 보장할 수 없다. `CloudWatch Alerts`는
+이 메트릭 대신 ECS JSON의 `event.action=http.request.completed`와
+`http.response.status_code>=500`을 세는 환경별 로그 필터를 사용한다. 로그 그룹 준비와 배포 순서는
+[`ALERTS.md`](ALERTS.md)를 따른다. 필터 생성 전 이벤트와 로그 전송 중단 구간은 별도로 고려해야
+한다.
 
 ## 운영 대시보드
 
@@ -273,6 +281,30 @@ EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 bash infra/cloudwatch/create-dashboard.
 성공 후 콘솔의 대시보드 목록에서 `DASHBOARD-jarihana-prod`를 연다. 생성 응답에 검증
 메시지가 없고 저장된 JSON이 원본과 일치하는 것을 확인해도 실제 그래프 렌더링과 수신은
 별도로 확인한다. 이 단계에서 운영 오류나 GC를 강제로 발생시키지 않는다.
+
+## 개발 대시보드
+
+`DASHBOARD-jarihana-dev`는 운영 대시보드와 같은 13개 그래프를 제공하며,
+모든 앱 지표와 SEARCH 표현식을 `application=jarihana`, `environment=dev`로 제한한다.
+HTTP 요청·응답 시간·5xx, JVM 메모리·스레드·GC, Hikari 커넥션 풀과 개발 앱 CPU를
+조회한다. EC2 CPU·메모리·디스크·상태 검사는 같은 호스트의 공통 지표다.
+이벤트가 없거나 수집되지 않은 구간은 빈 값으로 유지한다.
+
+먼저 dev 수신을 확인한 뒤 같은 EC2에서 생성한다. `TARGET_ENVIRONMENT`을 생략하면
+기존과 같이 prod를 선택하며, dev 생성·갱신은 dev 대시보드 이름과 JSON만 사용한다.
+기존 대시보드는 기본 실행으로 덮어쓰지 않으며, 검토 후 `--update`를 지정해야 한다.
+권한·백업·저장 후 재조회 검증은 위 운영 대시보드 절차와 같다.
+
+```bash
+EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 TARGET_ENVIRONMENT=dev bash infra/cloudwatch/verify.sh
+EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 TARGET_ENVIRONMENT=dev bash infra/cloudwatch/create-dashboard.sh
+
+# 기존 개발 대시보드를 검토한 후 갱신
+EXPECTED_INSTANCE_ID=i-0a1245eb20f7998b8 TARGET_ENVIRONMENT=dev bash infra/cloudwatch/create-dashboard.sh --update
+```
+
+생성 후 [개발 대시보드](https://ap-northeast-2.console.aws.amazon.com/cloudwatch/home?region=ap-northeast-2#dashboards/dashboard/DASHBOARD-jarihana-dev)를 열어 실제 그래프 수신을 확인한다.
+CloudWatch Manage workflow는 수집 관리용이며 대시보드 생성은 위 명령으로 따로 수행한다.
 
 ## 참고
 
