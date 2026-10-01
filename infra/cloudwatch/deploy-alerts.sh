@@ -3,6 +3,7 @@ set -euo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 : "${EXPECTED_INSTANCE_ID:?Set EXPECTED_INSTANCE_ID to the inspected target EC2 ID}"
+: "${ALERT_EMAIL:?Set ALERT_EMAIL to the SNS notification recipient}"
 
 enable_dev_alarms="${ENABLE_DEV_APPLICATION_ALARMS:-true}"
 case "${enable_dev_alarms}" in
@@ -53,6 +54,7 @@ aws cloudformation validate-template \
   --template-body "file://${template_file}"
 
 parameters=(
+  "AlertEmail=${ALERT_EMAIL}"
   "InstanceId=${instance_id}"
   "RootFilesystemType=${root_filesystem}"
   "EnableDevApplicationAlarms=${enable_dev_alarms}"
@@ -94,3 +96,11 @@ aws cloudwatch describe-alarms \
   --alarm-name-prefix '[' \
   --query 'MetricAlarms[].{Alarm:AlarmName,State:StateValue}' \
   --output table
+
+aws cloudformation describe-stack-resource \
+  --region "${region}" \
+  --stack-name jarihana-alerts \
+  --logical-resource-id AlertEmailSubscription \
+  --query 'StackResourceDetail.{Resource:LogicalResourceId,Status:ResourceStatus}' \
+  --output table
+printf 'SNS email subscription resource created. Confirm the AWS subscription email before testing delivery.\n'
