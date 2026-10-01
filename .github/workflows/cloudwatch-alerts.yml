@@ -79,17 +79,14 @@ jobs:
             --output text)"
           test -n "$topic_arn" && test "$topic_arn" != None
           alarm_name='[DEV] HTTP 5xx detected (application log)'
-          current_state="$(aws cloudwatch describe-alarms \
+          alarm_values="$(aws cloudwatch describe-alarms \
             --region "$AWS_REGION" \
-            --alarm-names "$alarm_name" \
-            --query 'MetricAlarms[0].StateValue' \
+            --alarm-name-prefix "$alarm_name" \
+            --query 'MetricAlarms[0].[AlarmName,StateValue,AlarmActions[0]]' \
             --output text)"
+          IFS=$'\t' read -r actual_alarm_name current_state alarm_topic <<< "$alarm_values"
+          test "$actual_alarm_name" = "$alarm_name"
           test "$current_state" = OK
-          alarm_topic="$(aws cloudwatch describe-alarms \
-            --region "$AWS_REGION" \
-            --alarm-names "$alarm_name" \
-            --query 'MetricAlarms[0].AlarmActions[0]' \
-            --output text)"
           test "$alarm_topic" = "$topic_arn"
           aws cloudwatch set-alarm-state \
             --region "$AWS_REGION" \
