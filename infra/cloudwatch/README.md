@@ -11,6 +11,9 @@ dev Spring Boot  :8081 → 호스트 127.0.0.1:81   ─┴→ CloudWatch Agent �
 EC2 기본 모니터링 → AWS/EC2 (CPUUtilization·StatusCheckFailed 계열, InstanceId)
 ```
 
+CloudWatch 경보와 Discord 전달 구성은 [`ALERTS.md`](ALERTS.md)를 참고한다. prod/dev
+애플리케이션 경보는 environment 차원으로 나누고, 같은 EC2의 호스트 경보는 한 번만 만든다.
+
 애플리케이션과 호스트 커스텀 지표는 `Jarihana` 네임스페이스 하나에 모은다. 애플리케이션은
 environment 차원으로 prod/dev를 구분하고, EC2 자원은 InstanceId별 공통 지표로 한 번만
 수집한다. 기존 `Jarihana/Application`, `Jarihana/Host`, `Jarihana/prod` 데이터는 옮겨지지
@@ -71,6 +74,7 @@ EC2 CPU·메모리·디스크는 컨테이너별 값이 아니므로 양쪽 대�
 | `validate.py` | Agent JSON의 지표 선택 및 차원 제한 확인 |
 | `dashboard-prod.json` | prod 전용 앱 지표와 EC2 공통 자원의 대시보드 정의 |
 | `create-dashboard.sh` | 기본은 생성만 수행하고, 명시적 `--update`에서는 기존 JSON 백업 후 갱신 |
+| `alerts.py`, `ALERTS.md` | 환경별 앱 경보, 공통 EC2 경보, EventBridge Discord 전달 구성 |
 
 GitHub Actions의 `CloudWatch Manage` (`cloudwatch-manage.yml`)를 수동 실행하고
 `target_environment`과 `operation`을 선택한다. 기본값은 prod의 환경만 확인하는
@@ -78,6 +82,9 @@ GitHub Actions의 `CloudWatch Manage` (`cloudwatch-manage.yml`)를 수동 실행
 Agent 하나가 같은 EC2의 prod/dev를 수집하므로 환경별 배포 workflow와 독립적으로 관리한다.
 prod/dev 백엔드 배포는 각각 `backend-prod-deploy.yml`, `backend-dev-deploy.yml`에서 실행한다.
 수동 실행 메뉴가 표시되려면 새 workflow 파일이 저장소 기본 브랜치인 `main`에 반영돼야 한다.
+
+알림 배포는 별도 `CloudWatch Alerts` workflow에서 수행한다. Discord 웹훅 secret이 없으면
+테스트와 배포는 실행할 수 없으며, dev 애플리케이션 알람은 실제 dev 지표 수신을 확인한 뒤 켠다.
 
 | 선택 환경 | 로컬 API | 로컬 관리 엔드포인트 | CloudWatch 앱 차원 |
 | --- | --- | --- | --- |

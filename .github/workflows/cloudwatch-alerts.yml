@@ -1,0 +1,105 @@
+name: CloudWatch Alerts
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "실행할 작업"
+        type: choice
+        default: validate
+        options:
+          - validate
+          - test-webhook
+          - deploy
+      expected_instance_id:
+        description: "배포 대상 EC2 ID (deploy에 필수)"
+        required: false
+        type: string
+      enable_dev_application_alarms:
+        description: "dev CloudWatch 앱 지표 수신을 확인한 뒤에만 true 선택"
+        type: choice
+        default: "false"
+        options:
+          - "false"
+          - "true"
+      prod_backend_log_group_name:
+        description: "검증된 prod 애플리케이션 로그 그룹 (선택)"
+        required: false
+        type: string
+      prod_http_5xx_log_pattern:
+        description: "HTTP 5xx 한 건과 일치하는 검증된 prod 필터 패턴 (선택)"
+        required: false
+        type: string
+      dev_backend_log_group_name:
+        description: "검증된 dev 애플리케이션 로그 그룹 (선택)"
+        required: false
+        type: string
+      dev_http_5xx_log_pattern:
+        description: "HTTP 5xx 한 건과 일치하는 검증된 dev 필터 패턴 (선택)"
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudwatch-alerts
+  cancel-in-progress: false
+
+jobs:
+  alerts:
+    runs-on: [self-hosted, Linux, ARM64]
+    env:
+      AWS_PAGER: ""
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Render and validate CloudFormation template
+        if: ${{ inputs.operation == 'validate' }}
+        run: |
+          python3 infra/cloudwatch/alerts.py > "$RUNNER_TEMP/jarihana-alerts.json"
+          python3 -m json.tool "$RUNNER_TEMP/jarihana-alerts.json" > /dev/null
+          aws cloudformation validate-template \
+            --region ap-northeast-2 \
+            --template-body "file://$RUNNER_TEMP/jarihana-alerts.json"
+
+      - name: Test Discord webhook
+        if: ${{ inputs.operation == 'test-webhook' }}
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          if [[ -z "$DISCORD_WEBHOOK_URL" ]]; then
+            echo "Repository secret DISCORD_WEBHOOK_URL is not set." >&2
+            exit 1
+          fi
+          echo "::add-mask::$DISCORD_WEBHOOK_URL"
+          python3 - <<'PY' > "$RUNNER_TEMP/discord-webhook-test.json"
+          import json
+          print(json.dumps({
+              "content": "[자리하나 알림 테스트] Discord 웹훅 연결이 정상입니다.",
+              "allowed_mentions": {"parse": []},
+          }))
+          PY
+          curl --fail --silent --show-error --max-time 10 \
+            --output /dev/null --write-out 'Discord webhook HTTP %{http_code}\n' \
+            -X POST -H 'Content-Type: application/json' \
+            --data-binary "@$RUNNER_TEMP/discord-webhook-test.json" \
+            "${DISCORD_WEBHOOK_URL}?wait=true"
+
+      - name: Deploy CloudWatch alerts and Discord delivery
+        if: ${{ inputs.operation == 'deploy' }}
+        env:
+          EXPECTED_INSTANCE_ID: ${{ inputs.expected_instance_id }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          ENABLE_DEV_APPLICATION_ALARMS: ${{ inputs.enable_dev_application_alarms }}
+          PROD_BACKEND_LOG_GROUP_NAME: ${{ inputs.prod_backend_log_group_name }}
+          PROD_HTTP_5XX_LOG_PATTERN: ${{ inputs.prod_http_5xx_log_pattern }}
+          DEV_BACKEND_LOG_GROUP_NAME: ${{ inputs.dev_backend_log_group_name }}
+          DEV_HTTP_5XX_LOG_PATTERN: ${{ inputs.dev_http_5xx_log_pattern }}
+        run: |
+          if [[ -z "$DISCORD_WEBHOOK_URL" ]]; then
+            echo "Repository secret DISCORD_WEBHOOK_URL is not set." >&2
+            exit 1
+          fi
+          echo "::add-mask::$DISCORD_WEBHOOK_URL"
+          bash infra/cloudwatch/deploy-alerts.sh
