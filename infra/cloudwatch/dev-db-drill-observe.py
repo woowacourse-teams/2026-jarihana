@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Read-only CloudWatch/EventBridge evidence for the dev DB failure drill.
+"""Read-only CloudWatch evidence for the dev DB failure drill.
 
-Only allowlisted fields are printed. In particular, the Discord endpoint URL is
-never requested from the EventBridge API destination.
+Discord delivery is checked by the self-hosted CloudWatch Discord Monitor
+workflow. This script only checks the alarm stack, metrics, logs and alarm
+history, so it does not require EventBridge or Secrets Manager permissions.
 """
 
 import argparse
@@ -65,18 +66,8 @@ def preflight():
     require(alarm["Period"] == 60 and alarm["Threshold"] == 1 and alarm["EvaluationPeriods"] == 1 and alarm["DatapointsToAlarm"] == 1, "Dev 5xx alarm threshold differs")
     require(alarm["MetricName"] == "http-5xx-dev" and alarm["Namespace"] == "Jarihana/Alerts", "Dev alarm uses another metric")
 
-    connection = aws("events", "describe-connection", "--name", "jarihana-discord", "--query", "{State:ConnectionState,Arn:ConnectionArn}")
-    require(connection["State"] == "AUTHORIZED", "Discord EventBridge connection is not authorized")
-    destination = aws("events", "describe-api-destination", "--name", "jarihana-discord-alerts", "--query", "{State:ApiDestinationState,Arn:ApiDestinationArn,ConnectionArn:ConnectionArn}")
-    require(destination["State"] == "ACTIVE" and destination["ConnectionArn"] == connection["Arn"], "Discord API destination is inactive or disconnected")
-    for rule_name in ("jarihana-cloudwatch-alarm-alarm", "jarihana-cloudwatch-alarm-recovered"):
-        rule = aws("events", "describe-rule", "--name", rule_name, "--query", "{State:State}")
-        require(rule["State"] == "ENABLED", f"{rule_name} is disabled")
-        targets = aws("events", "list-targets-by-rule", "--rule", rule_name, "--query", "Targets[].{Arn:Arn,DeadLetterConfig:DeadLetterConfig}")["Targets"]
-        require(any(target["Arn"] == destination["Arn"] and target.get("DeadLetterConfig", {}).get("Arn") for target in targets), f"{rule_name} lacks Discord target or DLQ")
-
     print("Alert stack complete; dev 5xx alarm OK; 1-minute log filter; both log groups and dashboards present.")
-    print("EventBridge Discord connection AUTHORIZED; API destination ACTIVE; ALARM/OK rules enabled with DLQ.")
+    print("Discord delivery is handled by the scheduled self-hosted CloudWatch Discord Monitor workflow.")
 
 
 def kst(instant):

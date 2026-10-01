@@ -64,6 +64,16 @@ class AlertTemplateTest(unittest.TestCase):
         ):
             self.assertNotIn(parameter_name, parameters)
 
+    def test_discord_delivery_does_not_require_eventbridge_resources(self):
+        resource_types = {resource["Type"] for resource in self.resources.values()}
+
+        self.assertNotIn("AWS::Events::Connection", resource_types)
+        self.assertNotIn("AWS::Events::ApiDestination", resource_types)
+        self.assertNotIn("AWS::Events::Rule", resource_types)
+        self.assertNotIn("AWS::IAM::Role", resource_types)
+        self.assertNotIn("AWS::SQS::Queue", resource_types)
+        self.assertNotIn("DiscordWebhookUrl", self.template["Parameters"])
+
 
 if __name__ == "__main__":
     unittest.main()
