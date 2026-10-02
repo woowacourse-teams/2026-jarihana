@@ -6,7 +6,7 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 : "${GITHUB_RUN_ID:?Run this permission check from GitHub Actions}"
 : "${GITHUB_RUN_ATTEMPT:?GitHub Actions run attempt is required}"
 
-. "${script_dir}/ec2-context.sh"
+. "${script_dir}/../common/ec2-context.sh"
 if [[ "${region}" != "ap-northeast-2" ]]; then
   printf 'Refusing to check SNS outside ap-northeast-2 (runner region: %s)\n' "${region}" >&2
   exit 1

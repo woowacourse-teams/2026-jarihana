@@ -43,8 +43,8 @@ jobs:
       - name: Render and validate CloudFormation template
         if: ${{ inputs.operation == 'validate' }}
         run: |
-          python3 -m unittest infra/cloudwatch/test_alerts.py
-          python3 infra/cloudwatch/alerts.py > "$RUNNER_TEMP/jarihana-alerts.json"
+          python3 -m unittest infra/cloudwatch/alerts/test_alerts.py
+          python3 infra/cloudwatch/alerts/alerts.py > "$RUNNER_TEMP/jarihana-alerts.json"
           python3 -m json.tool "$RUNNER_TEMP/jarihana-alerts.json" > /dev/null
           aws cloudformation validate-template \
             --region ap-northeast-2 \
@@ -55,7 +55,7 @@ jobs:
         env:
           EXPECTED_INSTANCE_ID: ${{ inputs.expected_instance_id }}
         run: |
-          bash infra/cloudwatch/check-sns-permissions.sh
+          bash infra/cloudwatch/alerts/check-sns-permissions.sh
 
       - name: Deploy CloudWatch alarms
         if: ${{ inputs.operation == 'deploy' }}
@@ -64,14 +64,14 @@ jobs:
           ENABLE_DEV_APPLICATION_ALARMS: ${{ inputs.enable_dev_application_alarms }}
           ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
         run: |
-          bash infra/cloudwatch/deploy-alerts.sh
+          bash infra/cloudwatch/alerts/deploy-alerts.sh
 
       - name: Publish SNS email test
         if: ${{ inputs.operation == 'test-email' }}
         env:
           EXPECTED_INSTANCE_ID: ${{ inputs.expected_instance_id }}
         run: |
-          source infra/cloudwatch/ec2-context.sh
+          source infra/cloudwatch/common/ec2-context.sh
           topic_arn="$(aws cloudformation describe-stacks \
             --region "$AWS_REGION" \
             --stack-name jarihana-alerts \

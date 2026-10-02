@@ -6,7 +6,7 @@ mode="${1:?Use preflight, inject, or restore}"
 : "${RUNNER_TEMP:?GitHub runner temporary directory is required}"
 if [[ "$mode" == preflight || "$mode" == inject ]]; then
   : "${EXPECTED_INSTANCE_ID:?Expected EC2 ID is required}"
-  source "$(dirname "$0")/ec2-context.sh"
+  source "$(dirname "$0")/../common/ec2-context.sh"
   [[ "${AWS_REGION}" == ap-northeast-2 ]] || { echo 'Unexpected AWS region' >&2; exit 1; }
 fi
 

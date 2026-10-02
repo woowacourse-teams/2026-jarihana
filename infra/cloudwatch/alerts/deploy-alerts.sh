@@ -11,7 +11,7 @@ case "${enable_dev_alarms}" in
   *) printf 'ENABLE_DEV_APPLICATION_ALARMS must be true or false\n' >&2; exit 1 ;;
 esac
 
-. "${script_dir}/ec2-context.sh"
+. "${script_dir}/../common/ec2-context.sh"
 if [[ "${region}" != "ap-northeast-2" ]]; then
   printf 'Refusing to deploy alerts outside ap-northeast-2 (runner region: %s)\n' "${region}" >&2
   exit 1

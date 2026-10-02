@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-. "${script_dir}/application-context.sh"
-. "${script_dir}/ec2-context.sh"
+. "${script_dir}/../common/application-context.sh"
+. "${script_dir}/../common/ec2-context.sh"
 update_existing=false
 if (( $# > 1 )) || [[ $# -eq 1 && "${1-}" != --update ]]; then
   echo 'Usage: create-dashboard.sh [--update]' >&2

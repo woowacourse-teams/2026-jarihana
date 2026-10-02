@@ -32,25 +32,25 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Alert stack and dev alarm preflight
-        run: python3 infra/cloudwatch/dev-db-drill-observe.py preflight
+        run: python3 infra/cloudwatch/drills/dev-db-drill-observe.py preflight
 
       - name: Dev DB identity, health, API, and recovery preflight
-        run: bash infra/cloudwatch/dev-db-drill.sh preflight
+        run: bash infra/cloudwatch/drills/dev-db-drill.sh preflight
 
       - name: Stop only dev PostgreSQL and request one HTTP 500
         id: inject
-        run: bash infra/cloudwatch/dev-db-drill.sh inject
+        run: bash infra/cloudwatch/drills/dev-db-drill.sh inject
 
       - name: Always restore and verify dev PostgreSQL
         id: restore
         if: always()
-        run: bash infra/cloudwatch/dev-db-drill.sh restore
+        run: bash infra/cloudwatch/drills/dev-db-drill.sh restore
 
       - name: Collect CloudWatch log, alarm, and Hikari evidence
         if: always() && steps.restore.outcome == 'success'
         run: |
           if [[ -f "$RUNNER_TEMP/jarihana-dev-db-drill-start-utc" ]]; then
-            python3 infra/cloudwatch/dev-db-drill-observe.py collect \
+            python3 infra/cloudwatch/drills/dev-db-drill-observe.py collect \
               --output "$RUNNER_TEMP/jarihana-dev-db-drill-evidence.json"
           else
             echo 'Injection did not start; no post-drill evidence to collect.'

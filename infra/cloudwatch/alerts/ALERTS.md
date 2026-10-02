@@ -7,7 +7,7 @@ CloudWatch 알람 ─→ SNS Topic ─→ 확인된 팀 이메일 구독
        └ ALARM 진입과 OK 복구 상태를 모두 전달
 ```
 
-`infra/cloudwatch/alerts.py`가 환경별 CloudWatch 알람, 로그 기반 지표 필터, SNS Topic과
+`infra/cloudwatch/alerts/alerts.py`가 환경별 CloudWatch 알람, 로그 기반 지표 필터, SNS Topic과
 이메일 구독을 하나의 `jarihana-alerts` CloudFormation stack으로 관리한다. GitHub Actions
 스케줄과 self-hosted runner polling을 거치지 않으므로 runner가 배포로 점유되거나 중단돼도
 CloudWatch가 SNS로 알림을 전달한다.
