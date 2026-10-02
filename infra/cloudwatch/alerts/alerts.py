@@ -64,6 +64,15 @@ def app_dimensions(environment):
     ]
 
 
+def service_health_dimensions(environment, component=None):
+    dimensions = app_dimensions(environment) + [
+        dimension("InstanceId", {"Ref": "InstanceId"}),
+    ]
+    if component:
+        dimensions.append(dimension("component", component))
+    return dimensions
+
+
 def parameter_is_true(parameter_name):
     return {"Fn::Equals": [{"Ref": parameter_name}, "true"]}
 
@@ -106,6 +115,90 @@ def log_filter_resources(environment):
             1,
             1,
             "notBreaching",
+            condition,
+        ),
+    }
+
+
+def service_health_alarm_resources(environment):
+    prefix = environment.title()
+    label = environment.upper()
+    condition = "EnableDevApplicationAlarms" if environment == "dev" else None
+
+    return {
+        f"{prefix}BackendContainerStopped": alarm(
+            f"[{label}] Backend container stopped",
+            f"[{label}] The backend Docker container is not running.",
+            "Jarihana",
+            "ContainerRunning",
+            service_health_dimensions(environment, "backend"),
+            "Minimum",
+            60,
+            1,
+            "LessThanThreshold",
+            1,
+            1,
+            "notBreaching",
+            condition,
+        ),
+        f"{prefix}PostgresContainerStopped": alarm(
+            f"[{label}] PostgreSQL container stopped",
+            f"[{label}] The PostgreSQL Docker container is not running.",
+            "Jarihana",
+            "ContainerRunning",
+            service_health_dimensions(environment, "postgres"),
+            "Minimum",
+            60,
+            1,
+            "LessThanThreshold",
+            1,
+            1,
+            "notBreaching",
+            condition,
+        ),
+        f"{prefix}ApplicationUnavailable": alarm(
+            f"[{label}] Application unavailable",
+            f"[{label}] The Spring Boot management endpoint or process metric is unavailable.",
+            "Jarihana",
+            "AppUp",
+            service_health_dimensions(environment),
+            "Minimum",
+            60,
+            1,
+            "LessThanThreshold",
+            1,
+            1,
+            "notBreaching",
+            condition,
+        ),
+        f"{prefix}DatabaseUnavailable": alarm(
+            f"[{label}] Database unavailable",
+            f"[{label}] PostgreSQL TCP connectivity or SELECT 1 failed.",
+            "Jarihana",
+            "DbUp",
+            service_health_dimensions(environment),
+            "Minimum",
+            60,
+            1,
+            "LessThanThreshold",
+            1,
+            1,
+            "notBreaching",
+            condition,
+        ),
+        f"{prefix}HealthCollectorMissing": alarm(
+            f"[{label}] Health collector missing",
+            f"[{label}] The service health collector did not report in two of the last three minutes.",
+            "Jarihana",
+            "HealthCollectorHeartbeat",
+            service_health_dimensions(environment),
+            "Minimum",
+            60,
+            1,
+            "LessThanThreshold",
+            3,
+            2,
+            "breaching",
             condition,
         ),
     }
@@ -185,6 +278,7 @@ def template():
             ):
                 resources[resource_name]["Condition"] = "EnableDevApplicationAlarms"
         resources.update(log_filter_resources(environment))
+        resources.update(service_health_alarm_resources(environment))
 
     host_dimensions = [dimension("InstanceId", {"Ref": "InstanceId"})]
     resources.update({
@@ -257,7 +351,8 @@ def template():
         "AWSTemplateFormatVersion": "2010-09-09",
         "Description": (
             "Jarihana prod/dev CloudWatch alarms on one shared EC2 instance, "
-            "with alarm and recovery notifications delivered by SNS email."
+            "including application and service health alarms, with alarm and "
+            "recovery notifications delivered by SNS email."
         ),
         "Parameters": {
             "AlertEmail": parameter(
