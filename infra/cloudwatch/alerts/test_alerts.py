@@ -41,6 +41,11 @@ class AlertTemplateTest(unittest.TestCase):
             "DevApplicationCpuHigh",
             "DevGcOverheadHigh",
             "DevAppTelemetryMissing",
+            "DevBackendContainerStopped",
+            "DevPostgresContainerStopped",
+            "DevApplicationUnavailable",
+            "DevDatabaseUnavailable",
+            "DevHealthCollectorMissing",
         ):
             self.assertEqual(
                 "EnableDevApplicationAlarms",
@@ -52,6 +57,48 @@ class AlertTemplateTest(unittest.TestCase):
             "true",
             self.template["Parameters"]["EnableDevApplicationAlarms"]["Default"],
         )
+
+    def test_service_health_alarms_use_collector_metrics(self):
+        expected = {
+            "ProdBackendContainerStopped": ("ContainerRunning", "backend"),
+            "ProdPostgresContainerStopped": ("ContainerRunning", "postgres"),
+            "ProdApplicationUnavailable": ("AppUp", None),
+            "ProdDatabaseUnavailable": ("DbUp", None),
+            "ProdHealthCollectorMissing": ("HealthCollectorHeartbeat", None),
+            "DevBackendContainerStopped": ("ContainerRunning", "backend"),
+            "DevPostgresContainerStopped": ("ContainerRunning", "postgres"),
+            "DevApplicationUnavailable": ("AppUp", None),
+            "DevDatabaseUnavailable": ("DbUp", None),
+            "DevHealthCollectorMissing": ("HealthCollectorHeartbeat", None),
+        }
+
+        for resource_name, (metric_name, component) in expected.items():
+            properties = self.resources[resource_name]["Properties"]
+            environment = "prod" if resource_name.startswith("Prod") else "dev"
+            expected_dimensions = [
+                {"Name": "application", "Value": "jarihana"},
+                {"Name": "environment", "Value": environment},
+                {"Name": "InstanceId", "Value": {"Ref": "InstanceId"}},
+            ]
+            if component:
+                expected_dimensions.append({"Name": "component", "Value": component})
+
+            self.assertEqual("Jarihana", properties["Namespace"])
+            self.assertEqual(metric_name, properties["MetricName"])
+            self.assertEqual(expected_dimensions, properties["Dimensions"])
+            self.assertEqual("Minimum", properties["Statistic"])
+            self.assertEqual(60, properties["Period"])
+            self.assertEqual(1, properties["Threshold"])
+            self.assertEqual("LessThanThreshold", properties["ComparisonOperator"])
+
+            if metric_name == "HealthCollectorHeartbeat":
+                self.assertEqual(3, properties["EvaluationPeriods"])
+                self.assertEqual(2, properties["DatapointsToAlarm"])
+                self.assertEqual("breaching", properties["TreatMissingData"])
+            else:
+                self.assertEqual(1, properties["EvaluationPeriods"])
+                self.assertEqual(1, properties["DatapointsToAlarm"])
+                self.assertEqual("notBreaching", properties["TreatMissingData"])
 
     def test_deferred_log_parameters_are_removed(self):
         parameters = self.template["Parameters"]
@@ -88,7 +135,7 @@ class AlertTemplateTest(unittest.TestCase):
             resource for resource in self.resources.values()
             if resource["Type"] == "AWS::CloudWatch::Alarm"
         ]
-        self.assertEqual(12, len(alarm_resources))
+        self.assertEqual(22, len(alarm_resources))
         for resource in alarm_resources:
             properties = resource["Properties"]
             self.assertEqual([{"Ref": "AlertTopic"}], properties["AlarmActions"])
