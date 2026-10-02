@@ -5,13 +5,16 @@
 
 ## 기준 문서
 
-Swagger/OpenAPI를 API 계약의 기준 문서로 사용한다.
+현재 API 계약은 Controller·요청/응답 DTO·ErrorCode와 RestAssured 인수 테스트를
+기준으로 확인하고, Markdown 문서에 정리한다.
 
-- Swagger/OpenAPI: 엔드포인트, 요청·응답 스키마, 상태 코드, 오류 코드
+- Controller·요청/응답 DTO·ErrorCode: 실제 엔드포인트, 요청·응답 필드, 상태 코드, 오류 코드
+- RestAssured 인수 테스트: 실제 HTTP 요청·응답과 인증·인가 동작 검증
+- `docs/context/api/`의 Markdown 문서: API 공통 계약과 엔드포인트별 요청·응답·오류 정리
 - 저장소 설계 문서: 정책, 사용자 흐름, 기획 배경, 논의 과정
 
-API가 변경되면 Swagger/OpenAPI 문서와 RestAssured 인수 테스트를 같은 PR에서
-수정한다. 서로 내용이 다르면 실행 가능한 API와 인수 테스트를 기준으로 불일치를
+API가 변경되면 관련 Markdown API 문서와 RestAssured 인수 테스트를 같은 PR에서
+수정한다. 서로 내용이 다르면 실제 API 코드와 인수 테스트를 기준으로 불일치를
 해소하고 문서를 즉시 갱신한다.
 
 ## Controller 반환 타입

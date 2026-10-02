@@ -19,7 +19,7 @@
 
 | 모듈 | 책임 |
 | --- | --- |
-| [api.md](conventions/api.md) | API 계약과 Swagger/OpenAPI 문서화 |
+| [api.md](conventions/api.md) | 실제 API 코드·인수 테스트 기준과 Markdown API 문서화 |
 | [architecture.md](conventions/architecture.md) | 패키지 구조, 계층 경계, 예외 처리 |
 | [testing.md](conventions/testing.md) | TDD와 테스트 구성·작성 |
 | [code.md](conventions/code.md) | 도메인, 엔티티, DTO, 이름, 스타일 |
