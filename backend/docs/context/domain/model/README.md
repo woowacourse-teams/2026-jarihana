@@ -105,3 +105,9 @@ erDiagram
 | 소속 | [GroupMember](groupmember.md) | 그룹 소속 모델 |
 | 피드백 | [Feedback](feedback.md) | 피드백 내용과 필수 작성 회원 |
 | 사진 활동 기록 | [ActivityPost](activitypost.md) | 공개 범위, 사진 참조, 활동 날짜와 생명주기 |
+
+## 구현 예정 모델
+
+| 영역 | 문서 | 상태 |
+| --- | --- | --- |
+| 알림·구독·전송 | [Notification](notification.md) | 구현 계약, 엔티티·SQL 반영 전 |

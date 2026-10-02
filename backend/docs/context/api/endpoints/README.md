@@ -62,3 +62,11 @@
 | 이미지 | [images.md](images.md) | 이미지 업로드 엔드포인트 |
 | 활동 기록 | [activity-posts.md](activity-posts.md) | 사진 활동 기록 조회·작성·수정·숨김 |
 | 공유 미리보기 | [share-preview.md](share-preview.md) | 그룹 공유 미리보기 HTML 엔드포인트 |
+
+## 구현 예정 계약
+
+아래 문서는 아직 구현되지 않은 API 계약이다. 위 활성 API 목록/개수에 포함하지 않는다.
+
+| 분류 | 문서 |
+| --- | --- |
+| 알림함·웹푸시 | [notifications.md](notifications.md) |

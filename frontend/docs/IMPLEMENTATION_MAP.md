@@ -99,6 +99,29 @@ header 구현으로 확대하지 않았다.
 
 ## 실제 API 계약 요약
 
+### 웹푸시·알림함 구현 계약 (구현 전)
+
+아직 현재 라우트·UI에 구현되지 않은 계약이다.
+[백엔드 ADR 0015](../../backend/docs/adr/0015-web-push-and-notification-inbox.md)와
+[알림 API](../../backend/docs/context/api/endpoints/notifications.md)를 함께 따른다.
+
+- 로그인 회원의 프로필 옆 종 접근을 desktop·mobile 모두 제공한다. 열기만으로 읽음 처리하지 않는다.
+- 목록/안 읽은 수는 계정별 query key. read/read-all 성공 후 invalidate하며 읽은 행은 유지한다.
+- 전체 읽음은 서버 전체 대상 처리다. 요청 중 새로 도착한 알림까지 무조건 읽음으로 칠하지 않는다.
+- DELETE204 뒤에만 해당 행 퇴장·collapse. 실패 행 유지, reduced-motion 이동 생략, 키보드 focus 보존.
+- 신규 진입 `/notifications/open/:id`는 기존 AuthGuard/returnTarget 흐름으로 인증 복귀하고,
+  GET `/notifications/{id}`로 본인·target을 확인한 뒤 PATCH read와 내부 경로 이동을 수행한다.
+- 모임장은 해당 모집의 신청 관리, 신청자는 `/my/registrations`로 이동한다.403/404는 안내와 안전한 복귀.
+- 이 기기 push setting은 명시적 동작에 따른 권한 요청/등록/해제. 모바일에만 설치 안내.
+- 현재 브라우저의 구독 id·generation을 보관하고, 서버는 회원 소유권·활성 상태·generation을 확인한다.
+- SW는 푸시의 구독 id·generation을 조회 전과 응답 후에 다시 확인한다. private 응답 no-store·일반 안내 fallback.
+- logout 전 local disarm 완료 확인 후 `{pushSubscriptionId,generation}`을 전송한다. 계정 전환·logout 뒤 이전 응답의 표시·캐시 반영을 막는다.
+- 새 동작에 고정 action 지정: notification_inbox_open, notification_open, notification_read_all,
+  notification_delete, push_permission_request, push_enable, push_disable, pwa_install_prompt.
+- UI 상태: loading/empty/error/retry, page error, mutation pending, 마지막 행 삭제, 새 소식·계정 변경.
+
+### 현재 구현된 API 계약
+
 - 피드백 모달은 가입을 완료한 로그인 회원만 제출할 수 있다. 비로그인 사용자가 헤더나 푸터에서 피드백을 선택하면 로그인 안내 모달에서 `로그인하러 가기` 또는 `취소`를 선택한다. 로그인을 진행하면 현재 경로를 복귀 대상으로 저장하고, 인증 완료 후 피드백 모달을 자동으로 연다. `POST /api/feedbacks`에는 `content`만 보내며, 서버는 인증 회원 ID를 `member_id`로 저장한다.
 
 - API base path는 `/api`이고 모든 요청은 cookie credentials를 포함한다.
