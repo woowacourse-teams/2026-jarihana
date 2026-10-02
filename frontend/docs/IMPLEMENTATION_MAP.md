@@ -63,8 +63,11 @@ header 구현으로 확대하지 않았다.
 
 | Route                                                               | 권한                   | API                                      | 공통 레이아웃/컴포넌트                                               | 반드시 표시할 상태                                                               |
 | ------------------------------------------------------------------- | ---------------------- | ---------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `/`, `/groups`                                                      | 공개                   | `GET /api/groups`                        | AppShell, ExploreHero, SearchField, FilterBar, GroupCard, CursorList | initial/background loading, empty, success, 400, network                         |
-| `/groups/:groupId`                                                  | 공개                   | 그룹 상세(모임 방식·장소 포함), 모집 목록, 참여자 목록 | DetailLayout, Tabs, InfoRow, RecruitmentCard, PersonRow              | loading, empty section, 403, 404, network                                        |
+| `/` | 공개 | `GET /api/groups` | AppShell, ExploreHero, TodaySessionsHero, RecruitingSection, ArchiveSection | loading, empty, success, network |
+| `/groups` | 공개 | `GET /api/groups` | AppShell, GroupBrowsePage, SearchField, FilterBar, GroupCard, CursorList | initial/background loading, empty, success, 400, network |
+| `/groups/explore` | 공개 | 없음 | 검색 조건과 해시를 보존해 `/groups`로 replace 이동 | 기존 링크 호환 |
+| `/activities`                                                       | 공개                   | `GET /api/activity-posts`, 활동 기록 작성·수정·숨김 API | AppShell, ActivityPostBoard, PolaroidCard, infinite cursor list | loading, empty, error, public/mine filter, image upload and public-visibility notice |
+| `/groups/:groupId`                                                  | 공개                   | 그룹 상세(모임 방식·장소 포함), 모집 목록, 참여자 목록, 활동 기록 | DetailLayout, Tabs, InfoRow, RecruitmentCard, PersonRow, ActivityPostBoard | loading, empty section, 403, 404, network                                        |
 | `/groups/:groupId/recruitments/:recruitmentId`                      | 조회 공개, 신청은 회원 | 모집 상세, 신청 생성/철회                | DetailLayout, RecruitmentPanel, Modal, Toast                         | closed/ended, validation, 401, 403, 404, 409, mutation pending/success/failure   |
 | `/oauth/callback`                                                   | 공개                   | `GET /api/members/me`                    | CenteredStateLayout                                                  | callback loading, invalid callback, signup required, authenticated, 401, network |
 | `/signup`                                                           | 가입 세션              | 내 정보 조회, 회원 생성                  | FormLayout, FormField, Select                                        | field/server validation, missing session, 409, pending/success/failure           |
@@ -83,7 +86,8 @@ header 구현으로 확대하지 않았다.
 
 | 화면군         | Figma에서 유지한 정보 계층                      | 구현상 통일/반응형 결정                                                                                                  |
 | -------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| 공개 탐색      | mint hero, 검색·필터, 카드 우선순위             | 1024px 이상 4-column, 768–1023px 3-column, mobile 2-column; 공통 shell 1440px, gutter 32/24/16px; search는 strong bottom border와 48px touch target |
+| 공개 탐색      | 오늘 SESSION hero → 같이해요 → 스터디·동아리 탐색 | 공통 shell 1440px, gutter 32/24/16px. 탐색 카드는 desktop 4열, tablet 3열, mobile 1열 activity row. SESSION은 한 행으로 시작하고 더 보기로 펼친다. hero 카드와 TODAY’S PLAN은 같은 선택 상태를 공유 |
+| 사진 활동 기록 | 그룹 이름·활동 날짜가 있는 폴라로이드 카드 | 전체 탐색과 그룹 상세 탭에서 같은 보드를 재사용; 이미지 비율을 유지하고 카드 높이를 측정해 가장 짧은 열에 배치하는 Masonry, 동률은 왼쪽 우선, 모바일 1열, 최신순 DOM 순서 보존 |
 | 그룹 상세/모집 | profile banner, 모임 정보(방식·일정·장소·참여자), content tabs, 참여 CTA | desktop content + sticky recruitment rail, 1024px 미만 rail을 본문 뒤로 이동                                             |
 | 계정           | profile illustration, activity count, 요약 카드 | desktop profile/content split, tablet/mobile은 순서 보존 single column; `?role=LEADER` deep link로 운영 모임 filter 유지 |
 | 그룹 생성/수정 | 단계 tab, mint editor hero, Markdown 소개       | 대표 이미지 picker와 업로드 상태, type별 일정 form, 1024px 미만 hero stack, mobile day/time grid 축소             |
@@ -206,3 +210,57 @@ header 구현으로 확대하지 않았다.
 - 실제 OAuth 완료는 GitHub OAuth 앱의 public client ID, backend client secret, callback URL,
   테스트 가능한 GitHub 계정이 모두 있을 때만 수동으로 검증할 수 있다. 이 저장소에는 그
   자격 증명과 계정이 없다.
+
+### 메인 같이해요 발견성 (#273)
+
+- #273 원본에서는 `/`와 `/groups`가 동일한 `GroupsPage`였다. 비교안의 현재 경로는 아래 조회 분리 절을 따른다. 기존 랜딩 대신 `TodaySessionsHero`를 보여주고,
+  `DiscoverySection`을 같이해요, 스터디·동아리 순서로 배치한다. 상단 탐색 바로가기는 생략한다.
+- 오늘은 서비스 시간대 `Asia/Seoul` 기준이다. `type=SESSION`, `status=ACTIVE`, `sessionDate`로
+  조회한 모든 커서 페이지를 병합한 뒤 시작 시각/ID 순으로 정렬한다. 모집 마감 여부는 오늘 일정에서
+  제외하는 조건이 아니다. 날짜가 바뀌거나 탭으로 돌아오면 날짜를 갱신하며 목록은 60초마다 갱신한다.
+- 오늘 목록의 캐시 키는 일반 무한 목록과 구분하고, 날짜를 포함한다. 페이지 오류나 잘못된 반복
+  커서는 부분 목록을 전체 일정처럼 표시하지 않고 오류로 처리한다.
+- 같이해요 목록은 `type=SESSION`, 스터디·동아리 전체 목록은 `excludedType=SESSION`으로 서버에서
+  필터링한 뒤 페이징한다. 기존 `type=STUDY|CLUB` 필터도 유지한다. `sessionDate=YYYY-MM-DD`는
+  백엔드 목록 API의 선택 조건이다. 배포 시 확장된 백엔드 조회 API가 먼저 준비되어야 한다.
+- 각 탐색의 검색/상태/모집/더 보기는 독립적이다. URL의 `sessionKeyword`, `sessionStatus`,
+  `sessionRecruiting`은 같이해요, 기존 `keyword`, `type`, `status`, `recruiting`은 스터디·동아리에
+  적용한다. 기존 `type=SESSION` 링크는 같이해요 조건으로 해석한다.
+
+- 같이해요 만들기는 `/groups/new?type=SESSION`으로 이동해 유형을 미리 선택한다. 비로그인 사용자도 같은 복귀 경로를 저장한다.
+
+### 오늘의 같이해요 제목과 캠퍼스 조건
+
+- `pages/groups/home/useSessionHeadline.js`: 서울 시간의 아침·점심·오후·저녁·밤 문구를 선택한다.
+  판교 위치가 확인된 밤에는 캠퍼스 전용 문구를 우선한다.
+- `pages/groups/home/pangyoCampus.js`: 판교 A동 중심과 100m 반경을 기준으로 브라우저 위치의 정확도까지 판별한다.
+- `pages/groups/home/usePangyoCampus.js`: 사용자 버튼 클릭 시에만 위치를 요청한다.
+  성공 판정은 5분 또는 탭 숨김 시 만료되고, 권한 거부·조회 실패 시 일반 문구를 유지한다.
+  좌표를 저장하거나 API/분석 이벤트로 전송하지 않는다. 캠퍼스 IP 판별은 아직 제공하지 않는다.
+
+### 격리된 메인 화면 비교안 (`feat/home-reference-comparison`)
+
+이 브랜치의 `/`는 develop의 소개 문구·이미지를 재사용한 `ExploreHero`와
+그 아래 `TodaySessionsHero`, 모집 카드, `ArchiveSection`을 배치한다. `RecruitingSection`이 히어로 내부 검색·유형
+필터와 모집 결과의 URL 상태를 함께 관리한다. 앞의 #273 원본 탐색 구성은 참고 이력이며, 비교안의 실제
+렌더링은 이 절을 따른다. 원본 작업 서버와 비교 서버는 별도 프로세스다.
+
+- 모집 목록: `status=ACTIVE`, `recruiting=true`, `size=12`; 검색 `homeKeyword`와 유형
+  `homeType`(`SESSION|STUDY|CLUB`)을 URL에 저장하고 실제 API의 `keyword`, `type`으로 전달한다.
+- 모집 카드는 처음 4개를 보여 주고, 더 보기는 로드된 나머지를 먼저 펼친 다음 서버 cursor를 요청한다.
+- 아카이브: 독립 쿼리 `status=ENDED`, `size=8`. 모집 마감과 모임 종료를 구분한다.
+- 소개 히어로 아래 오늘 같이해요는 기존 날짜·위치 동의·티켓·오늘의 일정 동작을 유지한다.
+- 검색은 develop의 밑줄형 공통 스타일을 재사용한다. 검색·유형 선택 후 모집 결과로 이동한다.
+- 실제 서버 연결과 검증 경계: [비교안 실행 안내](home-reference-comparison.md).
+
+## 대표 화면 비교안의 조회 분리 (2026-09-27)
+
+격리 브랜치 feat/home-reference-comparison에서 `/`는 소개 히어로, 오늘 같이해요,
+최대 4개 모집 미리보기와 지난 모임 아카이브를 보여 준다. 모집 제목 오른쪽 전체 보기 링크는
+`/groups`로 이동하며 homeType/homeKeyword를 type/keyword로 전달한다.
+모집 중인 결과에서 이어 보도록 status=ACTIVE, recruiting=true를 유지한다.
+
+별도 공개 조회 화면 `GroupBrowsePage`는 `/groups`에서 develop의 검색·유형/상태/모집 필터와
+size=12 커서 목록을 재사용한다. `/groups/explore`는 검색 조건과 해시를 보존해 `/groups`로
+replace 이동한다. 헤더의 홈과 브랜드 링크는 `/`, 모임 탐색 링크는 `/groups`로 이동하며
+각 경로에서 해당 메뉴만 활성화한다. `/groups/:groupId`는 개별 모임 상세 경로로 유지한다.

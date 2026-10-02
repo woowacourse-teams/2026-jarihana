@@ -4,7 +4,7 @@
 >
 > 구현·테스트·Swagger/OpenAPI와 충돌하면 임의로 해석하지 않고 차이를 보고한다.
 
-이 문서는 저장소에서 관리하는 활성 엔드포인트 30개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청·응답·오류는 구현 시 Swagger/OpenAPI와 RestAssured 인수 테스트로 검증한다.
+이 문서는 저장소에서 관리하는 활성 엔드포인트 35개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청·응답·오류는 구현 시 Swagger/OpenAPI와 RestAssured 인수 테스트로 검증한다.
 
 이 디렉터리는 API 엔드포인트의 전체 목록과 리소스별 상세 설계를 관리한다. 모든 엔드포인트는 [API 공통 설계](../common-contract.md)를 따르며, 상세 문서에는 엔드포인트 고유 내용만 둔다.
 
@@ -12,6 +12,11 @@
 
 | 분류 | Method | Endpoint | 권한 | 설명 |
 | --- | --- | --- | --- | --- |
+| 활동 기록 | `GET` | `/api/activity-posts` | `PUBLIC` | 전체 공개 사진 활동 기록을 활동 날짜 최신순으로 조회 |
+| 활동 기록 | `GET` | `/api/groups/{groupId}/activity-posts` | `PUBLIC` | 그룹 사진 활동 기록 조회 |
+| 활동 기록 | `POST` | `/api/groups/{groupId}/activity-posts` | `MEMBER` | 활성 그룹 구성원의 사진 활동 기록 작성 |
+| 활동 기록 | `PUT` | `/api/activity-posts/{postId}` | `MEMBER` | 작성자 또는 현재 모임장이 사진 활동 기록 수정 |
+| 활동 기록 | `DELETE` | `/api/activity-posts/{postId}` | `MEMBER` | 작성자 또는 현재 모임장이 사진 활동 기록 숨김 |
 | 피드백 | `POST` | `/api/feedbacks` | `MEMBER` | 피드백 작성 |
 | 가입 신청 | `GET` | `/api/groups/{groupId}/registrations/summary` | `LEADER` | 그룹의 미확인·처리 대기 신청 요약 조회 |
 | 가입 신청 | `PATCH` | `/api/recruitments/{recruitmentId}/registrations/read` | `LEADER` | 확인한 마지막 신청까지 읽음 처리 |
@@ -55,4 +60,5 @@
 | 가입 신청 | [registrations.md](registrations.md) | 가입 신청 엔드포인트 |
 | 그룹 구성원 | [group-members.md](group-members.md) | 그룹 구성원 엔드포인트 |
 | 이미지 | [images.md](images.md) | 이미지 업로드 엔드포인트 |
+| 활동 기록 | [activity-posts.md](activity-posts.md) | 사진 활동 기록 조회·작성·수정·숨김 |
 | 공유 미리보기 | [share-preview.md](share-preview.md) | 그룹 공유 미리보기 HTML 엔드포인트 |
