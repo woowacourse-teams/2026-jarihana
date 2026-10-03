@@ -75,6 +75,9 @@ flowchart TD
 | `GroupMember` | 그룹 소속과 역할 | 회원과 그룹 사이의 소속 상태를 표현한다 |
 | `ActivityPost` | 그룹의 사진 활동 기록 | 공개 피드에 노출되는 게시물. `activityDate` 기준 최신순으로 조회한다 |
 | `ActivityPostPhoto` | 게시물 사진 | 게시물과 분리된 사진 참조이며 현재는 게시물당 사진 한 장이다 |
+| `Notification` | 회원별 알림 기록 | 읽음·삭제 시각을 기록하며 삭제 후에도 사건 중복 방지 행을 유지한다 |
+| `PushSubscription` | 브라우저 푸시 연결 | 해제·재연결·키 교체 시 연결 버전을 증가시킨다 |
+| `NotificationDelivery` | 구독별 전송 대기 | 생성 당시 연결 버전과 전송 상태를 기록한다. 워커 연결은 구현 전이다 |
 
 ## 관계도
 
@@ -105,9 +108,4 @@ erDiagram
 | 소속 | [GroupMember](groupmember.md) | 그룹 소속 모델 |
 | 피드백 | [Feedback](feedback.md) | 피드백 내용과 필수 작성 회원 |
 | 사진 활동 기록 | [ActivityPost](activitypost.md) | 공개 범위, 사진 참조, 활동 날짜와 생명주기 |
-
-## 구현 예정 모델
-
-| 영역 | 문서 | 상태 |
-| --- | --- | --- |
-| 알림·구독·전송 | [Notification](notification.md) | 구현 계약, 엔티티·SQL 반영 전 |
+| 알림·구독·전송 | [Notification](notification.md) | 엔티티·Repository·SQL 구현. 업무 이벤트·API·푸시 워커 연결은 구현 전 |

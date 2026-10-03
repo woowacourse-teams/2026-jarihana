@@ -127,6 +127,13 @@ docker compose -f docker-compose-local.yaml ps
 작성 내용과 인증 회원 ID가 함께 저장됩니다. 운영 프로필은
 `ddl-auto: validate`이므로 이 DDL을 적용하지 않으면 애플리케이션이 기동하지 않습니다.
 
+웹푸시·알림함 데이터 모델을 공유 개발·운영에 배포하기 전에는
+`db/migrations/2026-10-03-notification.sql`을 먼저 적용해야 합니다.
+기존 `member` 테이블을 참조하는 `notifications`, `push_subscriptions`,
+`notification_deliveries`와 조회 인덱스·DB 제약을 추가합니다.
+이 SQL은 기존 테이블과 데이터를 변경하지 않습니다. 스키마 적용 후 백엔드를 배포하며,
+알림 API·업무 이벤트·외부 푸시 전송은 후속 구현 단계에서 연결합니다.
+
 ### 운영 DB SSH 터널 접속
 
 운영 Compose는 PostgreSQL 포트를 서버의 `127.0.0.1:5432`에 바인딩합니다.

@@ -1,6 +1,6 @@
 # 알림·브라우저 구독·전송 작업
 
-> 상태: 구현 계약. 엔티티·SQL·API는 아직 구현 전이다.
+> 상태: 엔티티·Repository·수동 SQL 구현. 업무 이벤트·API·푸시 워커 연결은 구현 전이다.
 
 선택 이유는 [백엔드 ADR 0015](../../../adr/0015-web-push-and-notification-inbox.md)에 있다.
 계약은 [알림 API](../../api/endpoints/notifications.md)와 함께 구현·검증한다.
@@ -130,6 +130,3 @@ status·attemptCount·lease 필드 일관성을 DB check 제약과 도메인 테
 - 전체 읽음은 회원·미삭제·미읽음 조건의 단일 UPDATE snapshot을 경계로 한다. max(id)를 commit 순서로 사용하지 않는다.
 - native UPDATE는 updated_at도 갱신한다. 목록은 읽은 행도 포함하고 삭제된 행만 제외한다.
 - 시각은 주입 Clock과 LocalDateTime, DB는 TIMESTAMP WITHOUT TIME ZONE을 사용한다.
-
-SQL 추가와 실제 DB 검증은 구현 2단계에서 수행한다. 기존 test create-drop만으로 운영 SQL을 검증했다고
-표시하지 않으며, 새 SQL 적용 후 validate 및 새 테이블 truncate 격리를 별도로 확인한다.
