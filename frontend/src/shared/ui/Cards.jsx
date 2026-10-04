@@ -1,6 +1,11 @@
 import { forwardRef, useState } from "react";
 
-export const DEFAULT_GROUP_IMAGE = "/images/default-group.png";
+export const DEFAULT_GROUP_IMAGE = "/assets/default-group.png";
+const DEFAULT_GROUP_IMAGES = {
+  CLUB: "/assets/default-group-club-3d.png",
+  STUDY: "/assets/default-group-study-3d.png",
+  SESSION: "/assets/default-group-session-3d.png"
+};
 
 function classes(...values) {
   return values.filter(Boolean).join(" ");
@@ -28,14 +33,7 @@ export function Avatar({ alt = "", className, fallback = "?", size = "md", src }
   const classNames = classes(`ui-avatar ui-avatar--${size}`, className);
 
   if (src && failedSource !== src) {
-    return (
-      <img
-        alt={alt}
-        className={classNames}
-        onError={() => setFailedSource(src)}
-        src={src}
-      />
-    );
+    return <img alt={alt} className={classNames} onError={() => setFailedSource(src)} src={src} />;
   }
   return (
     <span aria-label={alt || undefined} className={classNames}>
@@ -56,7 +54,7 @@ function scheduleFrequencyText(group) {
   return null;
 }
 
-const DEFAULT_GROUP_IMAGE_PATH = /(^|\/)images\/default-group\.png$/;
+const DEFAULT_GROUP_IMAGE_PATH = /(^|\/)(?:images|assets)\/default-group\.png$/;
 
 /**
  * The default image is a frontend static asset, so it never goes through the API.
@@ -74,33 +72,36 @@ function isDefaultGroupImage(imageUrl) {
 
 export function groupImageUrl(group) {
   const imageUrl = group?.representativeImageUrl;
-  if (!imageUrl) return DEFAULT_GROUP_IMAGE;
-  if (isDefaultGroupImage(imageUrl)) return DEFAULT_GROUP_IMAGE;
+  const fallbackImage = DEFAULT_GROUP_IMAGES[group?.type] || DEFAULT_GROUP_IMAGE;
+  if (!imageUrl || isDefaultGroupImage(imageUrl)) return fallbackImage;
   return imageUrl;
 }
 
 export function GroupImage({ alt = "", className, group, ...properties }) {
+  const [failedSource, setFailedSource] = useState(null);
+  const imageUrl = groupImageUrl(group);
+  const typeDefaultImage = DEFAULT_GROUP_IMAGES[group?.type];
+  const fallbackImage = typeDefaultImage || DEFAULT_GROUP_IMAGE;
+  const source = failedSource === imageUrl ? fallbackImage : imageUrl;
+
   return (
     <img
       {...properties}
       alt={alt}
-      className={className}
-      onError={(event) => {
-        const image = event.currentTarget;
-        const fallbackUrl = new URL(DEFAULT_GROUP_IMAGE, window.location.origin).href;
-
-        if (image.src === fallbackUrl) {
-          return;
-        }
-        image.src = fallbackUrl;
+      className={classes(className, source === typeDefaultImage && "ui-group-image--type-default")}
+      onError={() => {
+        if (source !== fallbackImage) setFailedSource(imageUrl);
       }}
-      src={groupImageUrl(group)}
+      src={source}
     />
   );
 }
 
 function cardScheduleMeta(group) {
-  const frequency = scheduleFrequencyText(group);
+  const schedule = group.sessionSchedule;
+  const frequency = schedule
+    ? `${schedule.sessionDate.replaceAll("-", ".")} · ${schedule.startTime.slice(0, 5)}`
+    : scheduleFrequencyText(group);
   const recruitment = group.activeRecruitment;
   if (!recruitment) {
     return frequency;
@@ -114,6 +115,7 @@ function cardScheduleMeta(group) {
 }
 
 export function GroupCard({
+  action,
   as: LinkComponent = "a",
   group,
   href = `/groups/${group.id}`,
@@ -127,6 +129,7 @@ export function GroupCard({
     <Card
       {...destination}
       as={LinkComponent}
+      data-ph-capture-attribute-action={action}
       className={classes(
         "ui-group-card",
         mobileActivityAppearance && "ui-group-card--mobile-activity"
@@ -162,9 +165,7 @@ export function GroupCard({
         <h3 className="ui-group-card__title">{group.name}</h3>
         <p className="ui-group-card__intro">{group.introduction}</p>
         {scheduleMeta ? (
-          <span className="ui-card__meta ui-group-card__detail-meta">
-            {scheduleMeta}
-          </span>
+          <span className="ui-card__meta ui-group-card__detail-meta">{scheduleMeta}</span>
         ) : showScheduleMeta || group.memberCount === undefined ? null : (
           <span className="ui-card__meta ui-group-card__detail-meta">
             함께하는 참여자 {group.memberCount}명

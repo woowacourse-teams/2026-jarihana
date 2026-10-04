@@ -6,6 +6,7 @@ const pathSegments = new Set([
   "members",
   "me",
   "groups",
+  "explore",
   "new",
   "manage",
   "recruitments",

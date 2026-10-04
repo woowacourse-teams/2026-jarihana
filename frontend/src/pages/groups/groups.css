@@ -199,6 +199,10 @@
   padding-block-start: 0;
 }
 
+.groups-page.groups-page--browse {
+  padding-block-start: 0;
+}
+
 #main-content:has(.groups-page--landing) {
   overflow-x: clip;
 }

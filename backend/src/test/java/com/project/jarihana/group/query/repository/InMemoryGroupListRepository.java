@@ -21,6 +21,11 @@ public class InMemoryGroupListRepository implements GroupListRepository {
                 .filter(projection -> projection.group().getStatus() == criteria.status())
                 .filter(projection -> criteria.type() == null
                         || projection.group().getType() == criteria.type())
+                .filter(projection -> criteria.excludedType() == null
+                        || projection.group().getType() != criteria.excludedType())
+                .filter(projection -> criteria.sessionDate() == null
+                        || projection.group().getSessionSchedule() != null
+                        && criteria.sessionDate().equals(projection.group().getSessionSchedule().getSessionDate()))
                 .filter(projection -> criteria.keyword() == null
                         || projection.group().getName().contains(criteria.keyword())
                         || projection.group().getIntroduction().contains(criteria.keyword()))

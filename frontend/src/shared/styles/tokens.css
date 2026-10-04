@@ -90,7 +90,9 @@
   --signup-type-image-size: 15rem;
   --signup-type-image-base-size: 7.5rem;
   --showcase-skeleton-height: 14rem;
-  --shadow-float: 0 0.75rem 2.125rem var(--color-shadow);
+  --shadow-card: 0 0.125rem 0.75rem var(--color-shadow);
+  --shadow-float-size: 0 0.75rem 2.125rem;
+  --shadow-float: var(--shadow-float-size) var(--color-shadow);
   --duration-fast: 120ms;
   --duration-base: 180ms;
   --duration-deliberate: 240ms;

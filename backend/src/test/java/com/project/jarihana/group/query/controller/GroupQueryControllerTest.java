@@ -134,6 +134,77 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
         );
     }
 
+    private static Group studyWithLocation(
+            String name,
+            String introduction,
+            String location,
+            LocalDateTime createdAt
+    ) {
+        return Group.createStudy(
+                name,
+                introduction,
+                null,
+                "groups/1.webp",
+                MeetingType.OFFLINE,
+                location,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.NOON, LocalTime.of(13, 0)),
+                createdAt
+        );
+    }
+
+    private static Group club(String name, String introduction, LocalDateTime createdAt) {
+        return Group.createClub(
+                name,
+                introduction,
+                null,
+                "groups/1.webp",
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.WEDNESDAY), LocalTime.NOON, LocalTime.of(13, 0)),
+                createdAt
+        );
+    }
+
+    private static Group session(
+            String name,
+            String introduction,
+            LocalDate sessionDate,
+            LocalDateTime createdAt
+    ) {
+        return Group.createSession(
+                name,
+                introduction,
+                null,
+                "groups/1.webp",
+                SessionGroupSchedule.of(sessionDate, LocalTime.of(12, 0), LocalTime.of(13, 0)),
+                createdAt
+        );
+    }
+
+    @DisplayName("그룹 목록 응답에 저장된 장소를 포함하고 장소가 없으면 null을 반환한다.")
+    @Test
+    void includesLocationInGroupListResponse() {
+        // Given
+        groupRepository.save(studyWithLocation(
+                "오프라인 알고리즘 스터디",
+                "캠퍼스에서 함께 문제를 풉니다.",
+                "잠실 캠퍼스 3층",
+                CREATED_AT
+        ));
+        groupRepository.save(study("장소 미정 스터디", "장소는 나중에 정해요.", CREATED_AT.minusHours(1)));
+
+        // When / Then
+        given()
+                .queryParam("size", 2)
+                .when()
+                .get("/groups")
+                .then()
+                .statusCode(200)
+                .body("success", equalTo(true))
+                .body("data.items.size()", equalTo(2))
+                .body("data.items.find { it.name == '오프라인 알고리즘 스터디' }.location", equalTo("잠실 캠퍼스 3층"))
+                .body("data.items.find { it.name == '장소 미정 스터디' }.location", nullValue())
+                .body("error", nullValue());
+    }
+
     @DisplayName("범위를 벗어난 그룹 목록 크기는 400을 반환한다.")
     @Test
     void rejectsInvalidSize() {
@@ -167,6 +238,126 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
                 .body("error.message", equalTo("요청 파라미터가 올바르지 않습니다."));
     }
 
+    @DisplayName("오늘 예정된 세션 그룹만 날짜로 조회한다.")
+    @Test
+    void filtersSessionGroupsBySessionDate() {
+        // Given
+        groupRepository.save(session(
+                "내일 커피 같이해요",
+                "내일 커피를 마셔요.",
+                LocalDate.of(2026, 8, 20),
+                CREATED_AT
+        ));
+        groupRepository.save(session(
+                "어제 점심 같이해요",
+                "어제 점심을 먹었어요.",
+                LocalDate.of(2026, 8, 18),
+                CREATED_AT.minusHours(1)
+        ));
+        groupRepository.save(session(
+                "오늘 점심 같이해요",
+                "가볍게 점심을 먹어요.",
+                LocalDate.of(2026, 8, 19),
+                CREATED_AT.minusDays(30)
+        ));
+        groupRepository.save(study("알고리즘 스터디", "함께 문제를 풉니다.", CREATED_AT.minusHours(2)));
+
+        // When / Then
+        given()
+                .queryParam("type", "SESSION")
+                .queryParam("sessionDate", "2026-08-19")
+                .when()
+                .get("/groups")
+                .then()
+                .statusCode(200)
+                .body("success", equalTo(true))
+                .body("data.items.size()", equalTo(1))
+                .body("data.items[0].name", equalTo("오늘 점심 같이해요"))
+                .body("data.items[0].sessionSchedule.sessionDate", equalTo("2026-08-19"))
+                .body("data.hasNext", equalTo(false))
+                .body("error", nullValue());
+    }
+
+    @DisplayName("제외 유형과 기존 필터를 함께 적용해 목록을 조회한다.")
+    @Test
+    void filtersGroupsByExcludedTypeAndExistingFilters() {
+        // Given
+        groupRepository.save(session(
+                "오늘 점심 같이해요",
+                "가볍게 점심을 먹어요.",
+                LocalDate.of(2026, 8, 19),
+                CREATED_AT
+        ));
+        groupRepository.save(study("알고리즘 스터디", "함께 문제를 풉니다.", CREATED_AT.minusHours(2)));
+        groupRepository.save(club("러닝 동아리", "함께 달립니다.", CREATED_AT.minusHours(1)));
+
+        // When
+        var firstPage = given()
+                .queryParam("excludedType", "SESSION")
+                .queryParam("size", 1)
+                .when()
+                .get("/groups")
+                .then()
+                .statusCode(200)
+                .body("success", equalTo(true))
+                .body("data.items.size()", equalTo(1))
+                .body("data.items[0].type", anyOf(equalTo("STUDY"), equalTo("CLUB")))
+                .body("data.hasNext", equalTo(true))
+                .body("data.nextCursor", not(emptyOrNullString()))
+                .body("error", nullValue())
+                .extract();
+        String firstType = firstPage.path("data.items[0].type");
+        String nextCursor = firstPage.path("data.nextCursor");
+
+        // Then
+        given()
+                .queryParam("excludedType", "SESSION")
+                .queryParam("cursor", nextCursor)
+                .queryParam("size", 1)
+                .when()
+                .get("/groups")
+                .then()
+                .statusCode(200)
+                .body("success", equalTo(true))
+                .body("data.items.size()", equalTo(1))
+                .body("data.items[0].type", allOf(anyOf(equalTo("STUDY"), equalTo("CLUB")), not(equalTo(firstType))))
+                .body("data.hasNext", equalTo(false))
+                .body("data.nextCursor", nullValue())
+                .body("error", nullValue());
+    }
+
+    @DisplayName("잘못된 제외 유형 파라미터는 공통 오류를 반환한다.")
+    @Test
+    void rejectsInvalidExcludedTypeWithCommonError() {
+        // Given / When / Then
+        given()
+                .queryParam("excludedType", "INVALID")
+                .when()
+                .get("/groups")
+                .then()
+                .statusCode(400)
+                .body("success", equalTo(false))
+                .body("data", nullValue())
+                .body("error.code", equalTo("INVALID_PARAMETER"))
+                .body("error.message", equalTo("요청 파라미터가 올바르지 않습니다."));
+    }
+
+    @DisplayName("잘못된 세션 날짜 파라미터는 공통 오류를 반환한다.")
+    @Test
+    void rejectsInvalidSessionDateWithCommonError() {
+        // Given / When / Then
+        given()
+                .queryParam("sessionDate", "2026-99-99")
+                .when()
+                .get("/groups")
+                .then()
+                .statusCode(400)
+                .body("success", equalTo(false))
+                .body("data", nullValue())
+                .body("error.code", equalTo("INVALID_PARAMETER"))
+                .body("error.message", equalTo("요청 파라미터가 올바르지 않습니다."));
+    }
+
     @DisplayName("관계 필터를 사용하려면 인증이 필요하다.")
     @Test
     void requiresAuthenticationForRelationFilter() {
@@ -188,7 +379,7 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
         // Given / When / Then
         given()
                 .when()
-                .get("/images/default-group.png")
+                .get("/assets/default-group.png")
                 .then()
                 .statusCode(200)
                 .contentType("image/png");

@@ -57,6 +57,7 @@ jest.mock("react-router", () => ({
     </a>
   ),
   useNavigate: () => mockNavigate,
+  useSearchParams: () => [new URLSearchParams()],
   useParams: () => ({ groupId: "17" })
 }));
 

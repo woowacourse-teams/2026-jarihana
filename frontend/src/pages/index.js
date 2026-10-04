@@ -1,6 +1,7 @@
 import { NotFoundState, PageContainer } from "../shared/ui";
 
 export { ShowcasePage } from "./ShowcasePage.jsx";
+export { ActivityPostsPage } from "./activity-posts/ActivityPostBoard.jsx";
 export {
   MyGroupsPage,
   MyPage,
