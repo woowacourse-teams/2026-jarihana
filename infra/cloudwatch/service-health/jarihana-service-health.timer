@@ -1,0 +1,10 @@
+[Unit]
+Description=Check Jarihana service health every minute
+
+[Timer]
+OnCalendar=*-*-* *:*:00
+AccuracySec=1s
+Unit=jarihana-service-health.service
+
+[Install]
+WantedBy=timers.target

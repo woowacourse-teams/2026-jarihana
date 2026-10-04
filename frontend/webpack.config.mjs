@@ -78,6 +78,10 @@ export default (_, arguments_) => {
       new CopyWebpackPlugin({
         patterns: [
           {
+            from: path.resolve(directory, "src/shared/assets/illustrations/default-group-*-3d.png"),
+            to: "assets/[name][ext]"
+          },
+          {
             from: path.resolve(directory, "src/shared/assets/brand/jarihana-favicon.png"),
             to: "favicon.png"
           },
@@ -86,8 +90,8 @@ export default (_, arguments_) => {
             to: "manifest.webmanifest"
           },
           {
-            from: path.resolve(directory, "public/images"),
-            to: "images"
+            from: path.resolve(directory, "src/shared/assets/illustrations/default-group.png"),
+            to: "assets/default-group.png"
           }
         ]
       }),

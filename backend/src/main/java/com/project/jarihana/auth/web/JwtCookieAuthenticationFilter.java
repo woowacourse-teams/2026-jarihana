@@ -4,6 +4,8 @@ import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.cookie.AuthCookieReader;
 import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.common.exception.BusinessException;
+import com.project.jarihana.common.logging.RequestLogContext;
+import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -50,7 +52,11 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
             Long memberId = accessTokenProvider.parseMemberId(accessToken);
             SecurityContextHolder.getContext()
                     .setAuthentication(new UsernamePasswordAuthenticationToken(memberId, null, List.of()));
+            RequestLogContext.setMemberId(memberId);
         } catch (BusinessException exception) {
+            RequestLogContext.setAuthenticationFailure(
+                    exception.getCause() instanceof ExpiredJwtException ? "TOKEN_EXPIRED" : "TOKEN_INVALID"
+            );
             SecurityContextHolder.clearContext();
         }
     }

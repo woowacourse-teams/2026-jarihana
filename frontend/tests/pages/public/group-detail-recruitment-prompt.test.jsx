@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 
-import { GroupDetailPage } from "../../../src/pages/groups/index.js";
+import { GroupDetailPage } from "../../../src/pages/groups/GroupDetailPage.jsx";
 import { ToastProvider } from "../../../src/shared/ui/Toast.jsx";
 import * as authHooks from "../../../src/features/auth/index.js";
 import * as groupHooks from "../../../src/features/group/index.js";

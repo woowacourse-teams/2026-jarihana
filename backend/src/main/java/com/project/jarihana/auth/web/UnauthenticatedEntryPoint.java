@@ -1,6 +1,7 @@
 package com.project.jarihana.auth.web;
 
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.common.logging.RequestLogContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.core.AuthenticationException;
@@ -27,6 +28,8 @@ public class UnauthenticatedEntryPoint implements AuthenticationEntryPoint {
             HttpServletResponse response,
             AuthenticationException authenticationException
     ) throws IOException {
+        RequestLogContext.setErrorCode(ErrorCode.UNAUTHENTICATED.name());
+        RequestLogContext.setAuthenticationFailureIfAbsent("MISSING_TOKEN");
         SecurityErrorResponder.write(response, objectMapper, ErrorCode.UNAUTHENTICATED, MESSAGE);
     }
 }

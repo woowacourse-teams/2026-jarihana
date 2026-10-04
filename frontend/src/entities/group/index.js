@@ -74,6 +74,7 @@ export const groupListItemSchema = z.object({
   name: z.string(),
   introduction: z.string(),
   representativeImageUrl: representativeImageUrlSchema,
+  location: z.string().max(255).nullable().optional(),
   recurringSchedule: recurringScheduleSchema.nullable().optional(),
   sessionSchedule: sessionScheduleSchema.nullable().optional(),
   leader: leaderSchema.nullable(),

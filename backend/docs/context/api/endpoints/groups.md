@@ -23,6 +23,8 @@
 | `relation` | String | X | `joined`: 현재 사용자의 GroupMember가 존재하는 그룹만. 사용 시 MEMBER 권한 필요 |
 | `role` | GroupMemberRole | X | `LEADER`, `MEMBER`. `relation=joined`일 때만 허용 |
 | `type` | GroupType | X | `CLUB`, `STUDY`, `SESSION` |
+| `excludedType` | GroupType | X | 제외할 그룹 유형. `CLUB`, `STUDY`, `SESSION` |
+| `sessionDate` | LocalDate | X | `YYYY-MM-DD`. SESSION의 일회성 일정 날짜 |
 | `recruiting` | Boolean | X | `true`이면 현재 모집 중인 공고가 있는 그룹만 |
 | `keyword` | String | X | 이름·한 줄 소개 부분 일치 |
 | `cursor` | String | X | 다음 페이지 커서 |
@@ -32,6 +34,8 @@
 - 내 소속 그룹: `GET /api/groups?relation=joined`
 - 내가 모임장인 그룹: `GET /api/groups?relation=joined&role=LEADER`
 - 내 종료 그룹: `GET /api/groups?status=ENDED&relation=joined`
+- 오늘의 같이해요: `GET /api/groups?type=SESSION&sessionDate=2026-08-19`
+- 스터디·동아리 탐색: `GET /api/groups?excludedType=SESSION`
 - `owned`는 사용하지 않는다. 모임장은 소유자가 아니라 `GroupMember.role`이다.
 
 #### 응답 200
@@ -46,6 +50,7 @@
       "status": "ACTIVE",
       "name": "알고리즘 스터디",
       "introduction": "매주 함께 문제를 풉니다.",
+      "location": "서울 캠퍼스",
       "representativeImageUrl": "images/default-group.png",
       "leader": {"memberId": 3, "crewName": "크루A", "generation": 8, "memberType": "CREW", "avatarUrl": "https://avatars.githubusercontent.com/u/3"},
       "memberCount": 6,

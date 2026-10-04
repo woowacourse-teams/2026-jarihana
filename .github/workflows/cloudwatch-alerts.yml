@@ -1,0 +1,96 @@
+name: CloudWatch Alerts
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "실행할 작업"
+        type: choice
+        default: validate
+        options:
+          - validate
+          - check-sns-permissions
+          - deploy
+          - test-email
+      expected_instance_id:
+        description: "대상 EC2 ID (SNS 권한 확인·배포·이메일 테스트에 필수)"
+        required: false
+        type: string
+      enable_dev_application_alarms:
+        description: "dev 애플리케이션 알람 활성화"
+        type: choice
+        default: "true"
+        options:
+          - "true"
+          - "false"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudwatch-alerts
+  cancel-in-progress: false
+
+jobs:
+  alerts:
+    runs-on: [self-hosted, Linux, ARM64]
+    env:
+      AWS_PAGER: ""
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Render and validate CloudFormation template
+        if: ${{ inputs.operation == 'validate' }}
+        run: |
+          python3 -m unittest infra/cloudwatch/alerts/test_alerts.py
+          python3 infra/cloudwatch/alerts/alerts.py > "$RUNNER_TEMP/jarihana-alerts.json"
+          python3 -m json.tool "$RUNNER_TEMP/jarihana-alerts.json" > /dev/null
+          aws cloudformation validate-template \
+            --region ap-northeast-2 \
+            --template-body "file://$RUNNER_TEMP/jarihana-alerts.json"
+
+      - name: Check SNS permissions
+        if: ${{ inputs.operation == 'check-sns-permissions' }}
+        env:
+          EXPECTED_INSTANCE_ID: ${{ inputs.expected_instance_id }}
+        run: |
+          bash infra/cloudwatch/alerts/check-sns-permissions.sh
+
+      - name: Deploy CloudWatch alarms
+        if: ${{ inputs.operation == 'deploy' }}
+        env:
+          EXPECTED_INSTANCE_ID: ${{ inputs.expected_instance_id }}
+          ENABLE_DEV_APPLICATION_ALARMS: ${{ inputs.enable_dev_application_alarms }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+        run: |
+          bash infra/cloudwatch/alerts/deploy-alerts.sh
+
+      - name: Publish SNS email test
+        if: ${{ inputs.operation == 'test-email' }}
+        env:
+          EXPECTED_INSTANCE_ID: ${{ inputs.expected_instance_id }}
+        run: |
+          source infra/cloudwatch/common/ec2-context.sh
+          topic_arn="$(aws cloudformation describe-stacks \
+            --region "$AWS_REGION" \
+            --stack-name jarihana-alerts \
+            --query "Stacks[0].Outputs[?OutputKey=='AlertTopicArn'].OutputValue | [0]" \
+            --output text)"
+          test -n "$topic_arn" && test "$topic_arn" != None
+          alarm_name='[DEV] HTTP 5xx detected (application log)'
+          alarm_values="$(aws cloudwatch describe-alarms \
+            --region "$AWS_REGION" \
+            --alarm-name-prefix "$alarm_name" \
+            --query 'MetricAlarms[0].[AlarmName,StateValue,AlarmActions[0]]' \
+            --output text)"
+          IFS=$'\t' read -r actual_alarm_name current_state alarm_topic <<< "$alarm_values"
+          test "$actual_alarm_name" = "$alarm_name"
+          test "$current_state" = OK
+          test "$alarm_topic" = "$topic_arn"
+          aws cloudwatch set-alarm-state \
+            --region "$AWS_REGION" \
+            --alarm-name "$alarm_name" \
+            --state-value ALARM \
+            --state-reason "Manual SNS email delivery test from GitHub Actions run $GITHUB_RUN_ID"
+          echo 'Temporary ALARM state set. CloudWatch will return the metric alarm to its evaluated state.'

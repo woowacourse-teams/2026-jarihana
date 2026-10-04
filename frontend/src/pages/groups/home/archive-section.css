@@ -1,0 +1,192 @@
+.archive-section {
+  --reference-card-radius: var(--radius-sm);
+  --reference-grid-gap: var(--space-5);
+  --reference-archive-min-height: 10rem;
+  --reference-archive-scrim: linear-gradient(
+    90deg,
+    rgb(0 0 0 / 86%),
+    rgb(0 0 0 / 28%)
+  );
+
+  padding-block: var(--space-8) var(--space-12);
+}
+
+.archive-section__heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-5);
+  margin-block-end: var(--space-6);
+}
+
+.archive-section__heading h2 {
+  margin: 0;
+  font-size: var(--text-h2);
+  line-height: 1.35;
+}
+
+.archive-section__heading p {
+  margin: var(--space-2) 0 0;
+  color: var(--color-muted-ink);
+  font-size: var(--text-body);
+}
+
+.archive-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--reference-grid-gap);
+}
+
+.archive-card,
+.archive-card-skeleton {
+  min-height: var(--reference-archive-min-height);
+  border-radius: var(--reference-card-radius);
+}
+
+.archive-card {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  isolation: isolate;
+  color: var(--color-surface);
+  text-decoration: none;
+  outline: var(--border-thin) solid transparent;
+  outline-offset: 0;
+  transition:
+    transform var(--duration-base) var(--ease-standard),
+    outline-color var(--duration-base) var(--ease-standard);
+}
+
+.archive-card:focus-visible {
+  outline: var(--border-strong) solid var(--color-brand);
+  outline-offset: var(--space-1);
+}
+
+.archive-card__image,
+.archive-card__scrim {
+  position: absolute;
+  inset: 0;
+}
+
+.archive-card__image {
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.archive-card__image.ui-group-image--type-default {
+  object-fit: contain;
+  transform: scale(2.2);
+}
+
+.archive-card__scrim {
+  z-index: -1;
+  background: var(--reference-archive-scrim);
+}
+
+.archive-card__badge {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  padding: calc(var(--space-1) / 2) var(--space-2);
+  border-radius: var(--space-1);
+  background: var(--color-nav);
+  color: var(--color-surface);
+  font-size: var(--text-badge);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+}
+
+.archive-card__content {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: end;
+  gap: var(--space-1);
+  padding: var(--space-12) var(--space-4) var(--space-4);
+}
+
+.archive-card__type,
+.archive-card__meta {
+  color: color-mix(in srgb, var(--color-surface) 82%, transparent);
+  font-size: var(--text-caption);
+  line-height: 1.45;
+}
+
+.archive-card h3 {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-surface);
+  font-size: var(--text-h3);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.archive-card__meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.archive-section__refresh {
+  margin: var(--space-4) 0 0;
+  color: var(--color-muted-ink);
+  font-size: var(--text-caption);
+  text-align: center;
+}
+
+@media (max-width: 63.9375rem) {
+  .archive-section__heading {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .archive-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 47.9375rem) {
+  .archive-section {
+    padding-block: var(--space-6) var(--space-10);
+  }
+
+  .archive-section__heading h2 {
+    font-size: var(--text-h3);
+  }
+
+  .archive-section__heading p {
+    font-size: var(--text-caption);
+  }
+
+  .archive-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .archive-card:hover {
+    outline-color: var(--color-brand);
+    transform: translateY(calc(-1 * var(--space-1)));
+  }
+
+  .archive-card:active {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .archive-card {
+    transition: none;
+  }
+
+  .archive-card:hover,
+  .archive-card:active {
+    transform: none;
+  }
+}

@@ -44,3 +44,10 @@ jarihana:
       redirect-uri: ${GITHUB_OAUTH_REDIRECT_URI:http://localhost:8080/api/oauth/github/callback}
       token-uri: https://github.com/login/oauth/access_token
       user-uri: https://api.github.com/user
+
+logging:
+  structured:
+    ecs:
+      service:
+        name: ${spring.application.name}
+        version: ${APP_VERSION:unknown}

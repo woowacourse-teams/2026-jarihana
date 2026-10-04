@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { z } from "zod";
 
 import { useCreateGroup } from "../../features/group/index.js";
@@ -144,6 +144,7 @@ function draftSummary(values) {
 
 export function NewGroupPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const createMutation = useCreateGroup();
   const representativeImageUpload = useImageUpload();
   const descriptionImageUpload = useImageUpload();
@@ -171,7 +172,7 @@ export function NewGroupPage() {
   } = useForm({
     resolver: zodResolver(newGroupSchema),
     defaultValues: {
-      type: "STUDY",
+      type: searchParams.get("type") === "SESSION" ? "SESSION" : "STUDY",
       name: "",
       introduction: "",
       description: "",

@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 
+import { activityPostKeys, useInfiniteActivityPosts } from "../../src/features/activity-post/hooks.js";
 import { useGroup, useInfiniteGroups } from "../../src/features/group/index.js";
 import { useInfiniteGroupMembers } from "../../src/features/member/index.js";
 import { useInfiniteRecruitments, useRecruitment } from "../../src/features/recruitment/index.js";
@@ -15,6 +16,7 @@ import {
 const mockInvalidateQueries = jest.fn();
 
 jest.mock("@tanstack/react-query", () => ({
+  keepPreviousData: (previousData) => previousData,
   useInfiniteQuery: jest.fn((options) => options),
   useMutation: jest.fn((options) => options),
   useQuery: jest.fn((options) => options),
@@ -45,6 +47,33 @@ describe("infinite query cursor guards", () => {
 
     // Then
     expect(nextCursor).toBeUndefined();
+  });
+});
+
+describe("activity post feed query", () => {
+  beforeEach(() => {
+    useInfiniteQuery.mockClear();
+  });
+
+  it("keeps prior feed pages available while a filter-specific feed loads", () => {
+    const previousData = { pages: [{ items: [{ id: 1 }] }] };
+    const previousGlobalFeed = {
+      queryKey: activityPostKeys.feed({ groupId: null, mine: false, viewerKey: 12 })
+    };
+    const previousGroupFeed = {
+      queryKey: activityPostKeys.feed({ groupId: 41, mine: false, viewerKey: 12 })
+    };
+
+    const options = useInfiniteActivityPosts({ mine: true, viewerKey: 12 });
+
+    expect(options.queryKey).toEqual(
+      activityPostKeys.feed({ groupId: null, mine: true, viewerKey: 12 })
+    );
+    expect(options.placeholderData(previousData, previousGlobalFeed)).toBe(previousData);
+    expect(options.placeholderData(previousData, previousGroupFeed)).toBeUndefined();
+    expect(options.placeholderData(previousData, {
+      queryKey: activityPostKeys.feed({ groupId: null, mine: false, viewerKey: 34 })
+    })).toBeUndefined();
   });
 });
 

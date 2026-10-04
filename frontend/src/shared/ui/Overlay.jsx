@@ -52,9 +52,10 @@ function useFocusReturn(visible) {
 
 function OverlayPanel({
   children,
-  closeAction,
+  closeAction = "dialog_close",
   closeLabel = "닫기",
   description,
+  dismissible = true,
   mode = "modal",
   onDismiss,
   title
@@ -63,10 +64,12 @@ function OverlayPanel({
   const descriptionId = useId();
   const panelReference = useRef(null);
   const dismissReference = useRef(onDismiss);
+  const dismissibleReference = useRef(dismissible);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     dismissReference.current = onDismiss;
-  }, [onDismiss]);
+    dismissibleReference.current = dismissible;
+  });
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -74,7 +77,7 @@ function OverlayPanel({
     focusableElements(panelReference.current)[0]?.focus();
 
     function handleKeyDown(event) {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && dismissibleReference.current) {
         event.preventDefault();
         dismissReference.current();
         return;
@@ -109,7 +112,7 @@ function OverlayPanel({
     <div
       className={drawer ? "ui-overlay ui-drawer-overlay" : "ui-overlay"}
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onDismiss();
+        if (dismissible && event.target === event.currentTarget) onDismiss();
       }}
       role="presentation"
     >
@@ -125,6 +128,7 @@ function OverlayPanel({
         <IconButton
           className="ui-dialog__close"
           data-ph-capture-attribute-action={closeAction}
+          disabled={!dismissible}
           label={closeLabel}
           onClick={onDismiss}
           variant="tertiary"
@@ -161,9 +165,11 @@ function Trigger({ children, expanded, onOpen }) {
 
 export function Modal({
   children,
-  closeAction,
+  closeLabel = "닫기",
+  closeAction = "dialog_close",
   defaultOpen = false,
   description,
+  dismissible = true,
   onClose,
   onOpenChange,
   open,
@@ -178,6 +184,7 @@ export function Modal({
   }
 
   function dismiss() {
+    if (!dismissible) return;
     setVisible(false);
   }
 
@@ -191,7 +198,9 @@ export function Modal({
       {visible ? (
         <OverlayPanel
           closeAction={closeAction}
+          closeLabel={closeLabel}
           description={description}
+          dismissible={dismissible}
           onDismiss={dismiss}
           title={title}
         >

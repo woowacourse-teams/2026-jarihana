@@ -10,7 +10,7 @@ export const IMAGE_ALLOWED_CONTENT_TYPES = Object.freeze([
   "image/webp"
 ]);
 export const IMAGE_MAX_FILE_SIZE = 5 * 1024 * 1024;
-export const DEFAULT_GROUP_IMAGE_URL = "/images/default-group.png";
+export const DEFAULT_GROUP_IMAGE_URL = "/assets/default-group.png";
 
 const imageUploadResponseSchema = z
   .object({
@@ -105,7 +105,11 @@ function imagePath(imageUrl) {
 
 export function isDefaultGroupImageUrl(imageUrl) {
   const path = imagePath(imageUrl);
-  return path === "images/default-group.png" || path === "api/images/default-group.png";
+  return (
+    path === "assets/default-group.png" ||
+    path === "images/default-group.png" ||
+    path === "api/images/default-group.png"
+  );
 }
 
 /**

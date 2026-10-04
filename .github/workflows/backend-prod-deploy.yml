@@ -64,3 +64,23 @@ jobs:
           test -n "${container_id}"
           test "$(docker inspect -f '{{.State.Status}}' "${container_id}")" = "running"
           docker ps --filter 'name=^/jarihana-backend$'
+
+      - name: Backend API와 관리용 메트릭 확인
+        run: |
+          curl --fail --silent --show-error \
+            --retry 20 --retry-all-errors --retry-delay 3 --max-time 5 \
+            http://127.0.0.1:8081/actuator/health > /dev/null
+
+          metrics="$(curl --fail --silent --show-error --max-time 10 \
+            http://127.0.0.1:8081/actuator/prometheus)"
+          [[ "${metrics}" == *jvm_memory_used_bytes* ]]
+          [[ "${metrics}" == *hikaricp_connections_active* ]]
+          test "$(docker port jarihana-backend 8081/tcp)" = "127.0.0.1:8081"
+
+          api_status="$(curl --silent --show-error --max-time 10 \
+            --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8080/api/groups)"
+          test "${api_status}" = "200"
+          metrics_status="$(curl --silent --show-error --max-time 10 \
+            --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8080/api/actuator/prometheus)"
+          test "${metrics_status}" = "403"
+          echo "Health and Prometheus: 200; groups API: ${api_status}; public-port metrics: ${metrics_status}"

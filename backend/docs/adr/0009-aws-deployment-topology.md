@@ -68,9 +68,11 @@ CloudFront
 ### 2026-09-29 공유 개발 환경 추가
 
 같은 EC2와 runner에 개발 백엔드·PostgreSQL을 추가한다. 독립 Compose의 최상위
-`name: jarihana-dev`로 network·volume을 구분하고 호스트 포트 9080·127.0.0.1:15432를 사용한다.
-기존 운영 project와 volume은 유지한다. 개발용 S3 prefix, CloudFront 배포판과 OAuth 앱은
-운영과 분리하며 `dev` Spring 프로필에서도 schema validation과 secure cookie를 유지한다.
+`name: jarihana-dev`로 network·volume을 구분하고 개발 API는 호스트 80, PostgreSQL은
+`127.0.0.1:15432`를 사용한다. 운영 API의 호스트 포트 8080과 충돌하지 않는다. 기존 운영
+project와 volume은 유지한다. 개발용 S3 prefix, CloudFront 배포판과 OAuth 앱은 운영과 분리하며
+`dev` Spring 프로필에서도 schema validation과 secure cookie를 유지한다. 개발 프로필에는
+별도 관리 포트 8081이 설정되어 있지 않아 외부에 매핑하지 않는다.
 
 `ci.yml`과 환경별·컴포넌트별 배포 workflow 네 개를 둔다. 각각 경로 필터로 실행하며
 백엔드·프론트 선후 관계는 두지 않는다. 설정은 저장소에 정의하지만 실제 AWS·GitHub 자원 준비와
@@ -78,6 +80,13 @@ CloudFront
 
 CloudFront는 여기에서 공개 진입점과 정적 콘텐츠 캐시 계층의 역할을 한다. CloudFront가 모든
 리버스 프록시 기능을 대신하거나 전체 서비스의 고가용성을 보장한다는 의미는 아니다.
+
+### 2026-09-30 개발 API와 메트릭 포트 변경
+
+개발 API는 EC2의 기존 인바운드 규칙을 사용하도록 호스트 80에서 컨테이너 8080으로
+연결한다. CloudFront 개발 API Origin도 호스트 80을 사용해야 한다. 관리용 메트릭은
+호스트 127.0.0.1:81에서 컨테이너 8081로 연결하며 외부 인바운드는 열지 않는다.
+개발 PostgreSQL의 호스트 127.0.0.1:15432는 유지한다.
 
 ## 선택 이유
 

@@ -1,0 +1,8 @@
+.groups-page.groups-page--home {
+  padding-block-start: var(--space-6);
+  padding-block-end: var(--space-16);
+}
+
+#main-content:has(.groups-page--home) {
+  overflow-x: clip;
+}

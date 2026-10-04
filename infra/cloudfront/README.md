@@ -28,3 +28,22 @@ CloudFront에서 다음을 한 번 설정한다.
 일반 사용자가 `/groups/13`을 열면 메타 페이지의 브라우저 전용 스크립트가 `?preview=1`로
 이동시키고, 이 쿼리가 붙은 요청은 rewrite를 건너뛰어 기존 S3의 React 앱을 표시한다.
 공유 크롤러는 첫 HTML의 메타태그를 읽으므로 그룹별 미리보기를 얻는다.
+
+## 개발 SPA 경로 fallback
+
+`spa-fallback.js`는 개발 프론트엔드에서 `/oauth/callback` 같은 React Router 경로를
+직접 열거나 새로고침할 때 S3 대신 React 앱 셸을 응답하도록 한다. 확장자 없는 경로를
+원본 요청 전에 `/index.html`로 바꾸며, 브라우저 주소와 쿼리 문자열은 바꾸지 않는다.
+CloudFront는 URI를 바꿔도 이미 선택한 캐시 동작과 원본을 유지한다.
+
+개발 배포판 `E33XV6JTG8NPYF`에 다음과 같이 설정한다.
+
+1. `Functions`에서 `spa-fallback.js` 코드로 CloudFront Function을 만들고 Runtime 2.0을 선택한다.
+2. 테스트한 뒤 함수를 **Publish**해 `LIVE` 상태로 만든다.
+3. 개발 배포판의 기본 캐시 동작 `Default (*)`에서 `Function associations`의 **Viewer request**에 연결한다.
+4. `/api/*` 동작에는 함수를 연결하지 않는다. 이 경로는 백엔드 원본 동작에 남아야 한다.
+5. 배포 상태가 `Deployed`가 된 뒤 `/oauth/callback?signupRequired=true`와 정적 파일을 확인한다.
+
+SPA 경로를 처리할 때 배포판 전체의 사용자 지정 `403`/`404` 응답을 `/index.html`로 바꾸지
+않는다. 그런 설정은 백엔드 `/api/*` 응답 코드까지 바꿀 수 있다. 함수 방식에서는 프론트엔드
+경로만 React 앱으로 보내며, API의 `400`/`404` 응답은 API 동작을 통해 그대로 전달한다.
