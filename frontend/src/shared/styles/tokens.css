@@ -73,7 +73,9 @@
   --space-16: 4rem;
   --space-7: 1.75rem;
   --groups-page-shell: var(--container-shell);
-  --groups-page-rail-gutter: var(--space-8);
+  --page-hero-gap: var(--space-6);
+  --groups-page-rail-gutter: var(--page-hero-gap);
+  --page-hero-min-height: 35rem;
   --footer-contact-max-width: 22rem;
 
   --radius-sm: 0.5rem;
@@ -111,7 +113,7 @@
 
 @media (min-width: 48rem) {
   :root {
-    --page-gutter: var(--space-6);
+    --page-gutter: var(--page-hero-gap);
   }
 }
 
@@ -123,6 +125,7 @@
 
 @media (max-width: 47.9375rem) {
   :root {
+    --header-height: 4rem;
     --text-h2: 1.3125rem;
     --text-h1: 1.625rem;
     --text-hero: 2.5rem;

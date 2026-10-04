@@ -32,7 +32,7 @@ function GroupActivityRow({ group, isLeader }) {
   const isEnded = group.status === "ENDED";
 
   return (
-    <article className="activity-row activity-row--interactive">
+    <article className={`activity-row activity-row--interactive${isEnded ? " activity-row--ended" : ""}`}>
       <GroupImage className="activity-row__visual" group={group} />
       <div className="activity-row__body">
         <div className="activity-row__badges">

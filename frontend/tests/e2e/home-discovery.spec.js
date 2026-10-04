@@ -76,6 +76,7 @@ const hero = (page) => page.locator('section[aria-labelledby="today-sessions-tit
 const recruiting = (page) => page.getByRole("region", { name: "지금 모집 중인 모임", exact: true });
 const previewCards = (page) => recruiting(page).locator(".reference-group-card");
 const archive = (page) => page.getByRole("region", { name: "지난 모임 아카이브", exact: true });
+const archiveCards = (page) => archive(page).locator(".archive-card");
 const browse = (page) => page.getByRole("region", { name: "자리 둘러보기", exact: true });
 const browseCards = (page) => browse(page).locator(".discovery-group-card");
 const activePlan = (page) => hero(page).locator('.today-plan__item:not([aria-hidden="true"])');
@@ -92,7 +93,7 @@ for (const width of [375, 768, 1280, 1440]) {
     await expect(activePlan(page)).toContainText("점심 한 끼 같이해요");
     await expect(hero(page).getByRole("link")).toHaveCount(4);
     await expect(previewCards(page)).toHaveCount(4);
-    await expect(archive(page).getByRole("link")).toHaveCount(1);
+    await expect(archiveCards(page)).toHaveCount(1);
     await expect(archive(page)).toContainText("지난 자바 스터디");
     await expect(recruiting(page)).not.toContainText("지난 자바 스터디");
     await expect(hero(page).locator(".today-session-ticket__location").first()).toHaveText(
@@ -165,7 +166,7 @@ for (const width of [375, 768, 1280]) {
     });
     await page.goto("/?homeType=SESSION&homeKeyword=오늘");
     await expect(previewCards(page)).toHaveCount(4);
-    await expect(archive(page).getByRole("link")).toHaveCount(1);
+    await expect(archiveCards(page)).toHaveCount(1);
     expect(state.requests.some((request) => request.size === "4" && request.recruiting === "true")).toBe(true);
     await page.screenshot({ path: testInfo.outputPath("home-preview-" + width + ".png"), fullPage: true });
     await recruiting(page).getByRole("link", { name: "모집 중인 모임 더 보기" }).click();
@@ -218,31 +219,35 @@ test("home filters leave today's sessions and archive queries independent", asyn
   await expect(previewCards(page)).toHaveCount(1);
   await expect(previewCards(page)).toContainText("자바 스터디");
   await expect(hero(page).getByRole("link")).toHaveCount(4);
-  await expect(archive(page).getByRole("link")).toHaveCount(1);
+  await expect(archiveCards(page)).toHaveCount(1);
   expect(state.requests.some((request) => request.sessionDate === today && request.cursor === "2")).toBe(true);
   expect(state.requests.filter((request) => request.status === "ENDED").every((request) => !request.keyword && !request.type)).toBe(true);
 });
 
-test("archive expands cached rows before requesting the next cursor", async ({ page }) => {
+test("archive preview opens ended-group browsing and continues pagination there", async ({ page }) => {
   const state = await installHome(page, {
     groups: [
       ...groups.filter((item) => item.status !== "ENDED"),
-      ...Array.from({ length: 9 }, (_, index) => ({
-        ...makeGroup(300 + index, "지난 모임 " + index, "STUDY"), status: "ENDED", activeRecruitment: null
+      ...Array.from({ length: 14 }, (_, index) => ({
+        ...makeGroup(300 + index, "지난 모임 " + index, ["SESSION", "STUDY", "CLUB"][index % 3]),
+        status: "ENDED", activeRecruitment: null
       }))
     ]
   });
-  await page.goto("/");
-  await expect(archive(page).getByRole("link")).toHaveCount(4);
-  const requestCount = state.requests.filter((request) => request.status === "ENDED").length;
-  await archive(page).getByRole("button", { name: "전체 보기" }).click();
-  await expect(archive(page).getByRole("link")).toHaveCount(8);
-  expect(state.requests.filter((request) => request.status === "ENDED")).toHaveLength(requestCount);
-  await archive(page).getByRole("button", { name: "전체 보기" }).click();
-  await expect(archive(page).getByRole("link")).toHaveCount(9);
-  expect(state.requests.some((request) => request.status === "ENDED" && request.cursor === "8")).toBe(true);
-  await expect(archive(page).getByRole("button", { name: "전체 보기" })).toHaveCount(0);
-  await expect(previewCards(page)).toHaveCount(4);
+  await page.goto("/?homeType=STUDY&homeKeyword=자바");
+  await expect(archiveCards(page)).toHaveCount(4);
+  expect(state.requests.some((request) => request.status === "ENDED" && request.size === "4")).toBe(true);
+  await archive(page).getByRole("link", { name: "지난 모임 전체 보기" }).click();
+  await expect(page).toHaveURL(/\/groups\?status=ENDED$/);
+  await expect(browse(page).getByRole("combobox", { name: "모임 상태" })).toHaveValue("ENDED");
+  await expect(browse(page).getByRole("combobox", { name: "모임 유형" })).toHaveValue("");
+  await expect(browse(page).getByRole("combobox", { name: "모집 상태" })).toBeDisabled();
+  await expect(browseCards(page)).toHaveCount(12);
+  await browse(page).getByRole("button", { name: "더 많은 모임 보기" }).click();
+  await expect(browseCards(page)).toHaveCount(14);
+  expect(state.requests.some((request) => request.status === "ENDED" && request.cursor === "12")).toBe(true);
+  expect(state.requests.filter((request) => request.status === "ENDED").every((request) => !request.keyword && !request.type && !request.recruiting)).toBe(true);
+  await expect(browse(page).getByRole("button", { name: "더 많은 모임 보기" })).toHaveCount(0);
 });
 
 test("automatic rotation synchronizes the dial, pauses on hover and remains paused after manual control", async ({
@@ -278,7 +283,7 @@ test("today empty state retains recruiting preview and archive", async ({ page }
   await page.goto("/");
   await expect(hero(page)).toContainText("오늘 예정된 같이해요가 아직 없어요.");
   await expect(previewCards(page)).toHaveCount(4);
-  await expect(archive(page).getByRole("link")).toHaveCount(1);
+  await expect(archiveCards(page)).toHaveCount(1);
   await page.screenshot({ path: testInfo.outputPath("home-empty.png"), fullPage: true });
 });
 
@@ -288,7 +293,7 @@ test("today errors are isolated and can be retried", async ({ page }, testInfo) 
   await page.clock.fastForward(10000);
   await expect(hero(page).getByText("오늘의 같이해요를 불러오지 못했어요")).toBeVisible();
   await expect(previewCards(page)).toHaveCount(4);
-  await expect(archive(page).getByRole("link")).toHaveCount(1);
+  await expect(archiveCards(page)).toHaveCount(1);
   await page.screenshot({ path: testInfo.outputPath("home-error.png"), fullPage: true });
   state.todayError = false;
   await hero(page).getByRole("button", { name: "다시 시도" }).click();

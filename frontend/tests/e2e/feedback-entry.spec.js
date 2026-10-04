@@ -18,7 +18,7 @@ for (const { surface, width } of [
       await page.getByRole("button", { name: "메뉴 열기" }).click();
       await page
         .getByRole("navigation", { name: "모바일 메뉴" })
-        .getByRole("button", { name: "피드백 남기기" })
+        .getByRole("button", { name: "피드백" })
         .click();
     } else if (surface === "footer") {
       const contact = page.getByRole("region", { name: "Contact us" });
@@ -27,7 +27,7 @@ for (const { surface, width } of [
     } else {
       await page
         .getByRole("navigation", { name: "주요 메뉴" })
-        .getByRole("button", { name: "피드백 남기기" })
+        .getByRole("button", { name: "피드백" })
         .click();
     }
 
@@ -60,7 +60,7 @@ test("returns from login and opens the feedback form automatically", async ({ pa
 
   await page
     .getByRole("navigation", { name: "주요 메뉴" })
-    .getByRole("button", { name: "피드백 남기기" })
+    .getByRole("button", { name: "피드백" })
     .click();
   await page.getByRole("button", { name: "로그인하러 가기" }).click();
   await expect(page).toHaveURL(/github\.com\/login\/oauth\/authorize/);

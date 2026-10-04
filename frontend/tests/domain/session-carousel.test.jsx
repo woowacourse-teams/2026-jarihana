@@ -24,8 +24,34 @@ it("rotates every five seconds, wraps, and releases the timer on unmount", () =>
   expect(result.current.activeIndex).toBe(1);
   act(() => jest.advanceTimersByTime(10000));
   expect(result.current.activeIndex).toBe(0);
+  expect(result.current.activePosition).toBe(3);
   unmount();
   expect(jest.getTimerCount()).toBe(0);
+});
+
+it("keeps forward and backward movement distinct when two items wrap", () => {
+  const { result } = renderHook(() => useSessionCarousel(2));
+  act(() => result.current.goPrevious({ pause: true }));
+  expect(result.current.activeIndex).toBe(1);
+  expect(result.current.activePosition).toBe(-1);
+  act(() => result.current.goNext());
+  expect(result.current.activePosition).toBe(0);
+  act(() => result.current.goNext());
+  act(() => result.current.goNext());
+  expect(result.current.activeIndex).toBe(0);
+  expect(result.current.activePosition).toBe(2);
+});
+
+it("selects the nearest occurrence for dots and keeps the current dot stationary", () => {
+  const { result } = renderHook(() => useSessionCarousel(6));
+  act(() => result.current.goTo(5, { pause: true }));
+  expect(result.current.activePosition).toBe(-1);
+  act(() => result.current.goTo(0));
+  expect(result.current.activePosition).toBe(0);
+  act(() => result.current.goTo(3));
+  expect(result.current.activePosition).toBe(3);
+  act(() => result.current.goTo(3));
+  expect(result.current.activePosition).toBe(3);
 });
 
 it("keeps focus pause when the pointer leaves, and preserves manual pause until replay", () => {

@@ -53,6 +53,8 @@ frontend/
 header 구현으로 확대하지 않았다.
 
 - `AppShell`은 하나의 navigation/auth state와 skip link/main landmark를 모든 route에 적용한다.
+- 공통 main은 밝은 surface와 `--radius-lg`(20px)를 사용해 검은 header/footer와 맞닿는 네 모서리를 통일한다.
+  바깥 shell은 검은 배경이며 `overflow: clip`은 본문 경계만 자르고 문서 스크롤과 sticky 배치를 유지한다.
 - 360–767px에서는 full-bleed header + drawer를 사용해 44px 이상 touch target을 확보한다.
 - 768px 이상에서도 검은 header 배경은 viewport 전체 폭을 채우고, 내부 navigation만 1360px shell에
   맞춰 중앙 정렬한다.
@@ -84,9 +86,14 @@ header 구현으로 확대하지 않았다.
 
 ### Visual pattern mapping
 
+로컬 개발 서버(`NODE_ENV=development`)에서는 홈 히어로 오른쪽 위의 `개발 · 배경` 선택기로
+자동·낮·노을·밤 배경을 미리 볼 수 있다. `ExploreHero.jsx`의 로컬 상태로 테마만 전환하며,
+실제 시각·헤드라인·오늘 일정은 바꾸지 않는다. 자동 선택 시 현재 시간의 테마를 사용한다.
+새로고침하면 자동으로 초기화하고 production 빌드에는 제어 UI와 수동 테마 적용을 제외한다.
+
 | 화면군         | Figma에서 유지한 정보 계층                      | 구현상 통일/반응형 결정                                                                                                  |
 | -------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| 공개 탐색      | 오늘 SESSION hero → 같이해요 → 스터디·동아리 탐색 | 공통 shell 1440px, gutter 32/24/16px. 탐색 카드는 desktop 4열, tablet 3열, mobile 1열 activity row. SESSION은 한 행으로 시작하고 더 보기로 펼친다. hero 카드와 TODAY’S PLAN은 같은 선택 상태를 공유 |
+| 공개 탐색      | 오늘 SESSION hero → 같이해요 → 스터디·동아리 탐색 | 공통 shell 1440px, gutter는 desktop/tablet 24px(홈 hero 상단 간격과 공유), mobile 16px. 탐색 카드는 desktop 4열, tablet 3열, mobile 1열 activity row. SESSION은 한 행으로 시작하고 더 보기로 펼친다. hero 카드와 TODAY’S PLAN은 같은 선택 상태를 공유 |
 | 사진 활동 기록 | 그룹 이름·활동 날짜가 있는 폴라로이드 카드 | 전체 탐색과 그룹 상세 탭에서 같은 보드를 재사용; 이미지 비율을 유지하고 카드 높이를 측정해 가장 짧은 열에 배치하는 Masonry, 동률은 왼쪽 우선, 모바일 1열, 최신순 DOM 순서 보존 |
 | 그룹 상세/모집 | profile banner, 모임 정보(방식·일정·장소·참여자), content tabs, 참여 CTA | desktop content + sticky recruitment rail, 1024px 미만 rail을 본문 뒤로 이동                                             |
 | 계정           | profile illustration, activity count, 요약 카드 | desktop profile/content split, tablet/mobile은 순서 보존 single column; `?role=LEADER` deep link로 운영 모임 filter 유지 |
@@ -248,7 +255,9 @@ header 구현으로 확대하지 않았다.
 - 모집 목록: `status=ACTIVE`, `recruiting=true`, `size=12`; 검색 `homeKeyword`와 유형
   `homeType`(`SESSION|STUDY|CLUB`)을 URL에 저장하고 실제 API의 `keyword`, `type`으로 전달한다.
 - 모집 카드는 처음 4개를 보여 주고, 더 보기는 로드된 나머지를 먼저 펼친 다음 서버 cursor를 요청한다.
-- 아카이브: 독립 쿼리 `status=ENDED`, `size=8`. 모집 마감과 모임 종료를 구분한다.
+- 아카이브: 독립 쿼리 `status=ENDED`, `size=4`로 최대 4개를 미리 보여 준다. `전체 보기`는
+  `/groups?status=ENDED`로 이동해 종료된 모임 전체를 검색·필터링·페이지 조회한다.
+  모집 마감과 모임 종료를 구분한다.
 - 소개 히어로 아래 오늘 같이해요는 기존 날짜·위치 동의·티켓·오늘의 일정 동작을 유지한다.
 - 검색은 develop의 밑줄형 공통 스타일을 재사용한다. 검색·유형 선택 후 모집 결과로 이동한다.
 - 실제 서버 연결과 검증 경계: [비교안 실행 안내](home-reference-comparison.md).
@@ -262,5 +271,5 @@ header 구현으로 확대하지 않았다.
 
 별도 공개 조회 화면 `GroupBrowsePage`는 `/groups`에서 develop의 검색·유형/상태/모집 필터와
 size=12 커서 목록을 재사용한다. `/groups/explore`는 검색 조건과 해시를 보존해 `/groups`로
-replace 이동한다. 헤더의 홈과 브랜드 링크는 `/`, 모임 탐색 링크는 `/groups`로 이동하며
+replace 이동한다. 헤더의 홈과 브랜드 링크는 `/`, 모임 링크는 `/groups`로 이동하며
 각 경로에서 해당 메뉴만 활성화한다. `/groups/:groupId`는 개별 모임 상세 경로로 유지한다.

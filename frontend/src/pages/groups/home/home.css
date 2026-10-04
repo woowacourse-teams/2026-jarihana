@@ -1,8 +1,14 @@
 .groups-page.groups-page--home {
-  padding-block-start: var(--space-6);
+  padding-block-start: var(--page-hero-gap);
   padding-block-end: var(--space-16);
 }
 
 #main-content:has(.groups-page--home) {
   overflow-x: clip;
+}
+
+@media (max-width: 47.9375rem) {
+  .groups-page.groups-page--home {
+    padding-block-start: 0;
+  }
 }

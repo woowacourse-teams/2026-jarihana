@@ -759,6 +759,10 @@ img.profile-card__avatar {
   background: var(--color-brand-soft);
 }
 
+.activity-row--ended .activity-row__visual {
+  filter: brightness(0.5);
+}
+
 .activity-row__body {
   display: grid;
   align-content: center;

@@ -262,11 +262,45 @@
 }
 
 .discovery-group-card__visual {
+  position: relative;
   display: block;
+  isolation: isolate;
   aspect-ratio: var(--groups-card-art-ratio);
   overflow: hidden;
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   background: var(--color-surface-sunken);
+}
+
+.discovery-group-card--ended .discovery-group-card__visual::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background: linear-gradient(90deg, rgb(0 0 0 / 86%), rgb(0 0 0 / 28%));
+  pointer-events: none;
+  content: "";
+}
+
+.discovery-group-card__ended-badge,
+.discovery-group-card__recruiting-badge {
+  position: absolute;
+  z-index: 2;
+  top: var(--space-3);
+  left: var(--space-3);
+  padding: calc(var(--space-1) / 2) var(--space-2);
+  border-radius: var(--space-1);
+  background: var(--color-nav);
+  color: var(--color-surface);
+  font-size: var(--text-badge);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+}
+
+.discovery-group-card__recruiting-badge {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-brand-soft);
+  color: var(--color-brand-ink);
+  line-height: 1.5;
 }
 
 .discovery-group-card__image {
@@ -282,7 +316,8 @@
 }
 
 .discovery-group-card__body {
-  display: block;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   padding: var(--space-4);
 }
@@ -318,21 +353,15 @@
   color: var(--color-activity-club-ink);
 }
 
-.discovery-group-card__recruiting {
-  color: var(--color-muted-ink);
-}
-
 .discovery-group-card__title {
-  display: -webkit-box;
+  display: block;
   margin: 0 0 var(--space-2);
   overflow: hidden;
   font-size: var(--groups-card-title-size);
   font-weight: var(--font-weight-bold);
   line-height: 1.45;
-  overflow-wrap: anywhere;
-  word-break: keep-all;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   transition: color var(--duration-fast) var(--ease-standard);
 }
 
@@ -364,7 +393,8 @@
 }
 
 .discovery-group-card__schedule {
-  margin-top: var(--space-4);
+  margin-top: auto;
+  padding-top: var(--space-4);
   font-size: var(--discovery-card-meta-size);
   line-height: 1.6;
 }
@@ -501,7 +531,7 @@
   }
 
   .discovery-group-card__schedule {
-    margin-top: var(--space-3);
+    padding-top: var(--space-3);
   }
 
   .discovery-group-card__schedule,

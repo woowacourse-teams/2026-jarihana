@@ -1,6 +1,12 @@
+import { useState } from "react";
+
 const introduction = "크루와 함께할 자리를 찾아보세요";
 
 export function ExploreHero({ children, headline = "", period = "day", isAuthenticated = false }) {
+  const [previewPeriod, setPreviewPeriod] = useState("auto");
+  const displayedPeriod = process.env.NODE_ENV === "development" && previewPeriod !== "auto"
+    ? previewPeriod
+    : period;
   const accent = /세 번|같이|커피|점심|갓생|칼퇴|공범|추억|자리|퇴실|집중력/.exec(headline);
   const highlightedHeadline = (
     <span className="reference-hero__message" id="home-headline">
@@ -19,9 +25,25 @@ export function ExploreHero({ children, headline = "", period = "day", isAuthent
   return (
     <section
       className="groups-hero reference-hero"
-      data-time-of-day={period}
+      data-time-of-day={displayedPeriod}
       aria-labelledby="groups-title"
     >
+      {process.env.NODE_ENV === "development" && (
+        <label className="reference-hero__preview">
+          <span>개발 · 배경</span>
+          <select
+            aria-label="히어로 배경 미리보기"
+            data-ph-capture-attribute-action="home_hero_background_preview_change"
+            value={previewPeriod}
+            onChange={(event) => setPreviewPeriod(event.target.value)}
+          >
+            <option value="auto">자동</option>
+            <option value="day">낮</option>
+            <option value="sunset">노을</option>
+            <option value="night">밤</option>
+          </select>
+        </label>
+      )}
       <div className="groups-hero__copy">
         <h1
           className="reference-hero__title"

@@ -24,6 +24,7 @@ export function useSessionCarousel(itemCount, { interval = AUTO_ROTATION_INTERVA
   );
   const [reducedMotion, setReducedMotion] = useState(readsReducedMotion);
   const activeIndex = normalizeIndex(rawActiveIndex, itemCount);
+  const activePosition = itemCount > 1 ? rawActiveIndex : 0;
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
@@ -50,15 +51,25 @@ export function useSessionCarousel(itemCount, { interval = AUTO_ROTATION_INTERVA
 
   const goTo = useCallback(
     (index, { pause = false } = {}) => {
-      setRawActiveIndex(normalizeIndex(index, itemCount));
+      setRawActiveIndex((current) => {
+        const forward = normalizeIndex(index - normalizeIndex(current, itemCount), itemCount);
+        const distance = forward > itemCount / 2 ? forward - itemCount : forward;
+        return itemCount > 1 ? current + distance : 0;
+      });
       if (pause) setUserPaused(true);
     },
     [itemCount]
   );
 
-  const goNext = useCallback((options) => goTo(activeIndex + 1, options), [activeIndex, goTo]);
-
-  const goPrevious = useCallback((options) => goTo(activeIndex - 1, options), [activeIndex, goTo]);
+  const step = useCallback(
+    (distance, { pause = false } = {}) => {
+      setRawActiveIndex((current) => (itemCount > 1 ? current + distance : 0));
+      if (pause) setUserPaused(true);
+    },
+    [itemCount]
+  );
+  const goNext = useCallback((options) => step(1, options), [step]);
+  const goPrevious = useCallback((options) => step(-1, options), [step]);
 
   const autoPaused =
     itemCount <= 1 || focusPaused || hoverPaused || userPaused || pageHidden || reducedMotion;
@@ -67,7 +78,7 @@ export function useSessionCarousel(itemCount, { interval = AUTO_ROTATION_INTERVA
     if (autoPaused) return undefined;
 
     const timer = window.setInterval(() => {
-      setRawActiveIndex((current) => normalizeIndex(current + 1, itemCount));
+      setRawActiveIndex((current) => current + 1);
     }, interval);
 
     return () => window.clearInterval(timer);
@@ -75,6 +86,7 @@ export function useSessionCarousel(itemCount, { interval = AUTO_ROTATION_INTERVA
 
   return {
     activeIndex,
+    activePosition,
     goNext,
     goPrevious,
     goTo,

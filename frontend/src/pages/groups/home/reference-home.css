@@ -1,5 +1,5 @@
 .groups-page--home {
-  --reference-card-radius: var(--radius-sm);
+  --reference-card-radius: var(--radius-lg);
   --reference-grid-gap: var(--space-5);
   --reference-feature-min-height: 22rem;
   --reference-archive-min-height: 10rem;
@@ -9,12 +9,12 @@
 
 .reference-hero {
   --reference-hero-copy-width: 46%;
-  --reference-hero-art-ratio: 3 / 1;
   --reference-hero-image: url("../../../shared/assets/brand/jarihana-hero-day.png");
-  --reference-hero-extended-image: url("../../../shared/assets/brand/jarihana-hero-day-extended.png");
   --reference-hero-inline-padding: clamp(var(--space-8), 4vw, var(--space-16));
-  --reference-hero-mobile-art-size: 36rem;
   --reference-hero-copy-surface: var(--color-surface);
+  --reference-hero-action-surface: var(--color-brand-soft);
+  --reference-hero-action-ink: var(--color-brand-ink);
+  --reference-hero-action-glass-backing: var(--reference-hero-action-surface);
   --reference-hero-night-surface: color-mix(
     in srgb,
     var(--color-activity-study-ink) 25%,
@@ -24,7 +24,7 @@
   isolation: isolate;
   display: flex;
   align-items: center;
-  aspect-ratio: var(--reference-hero-art-ratio);
+  min-block-size: var(--page-hero-min-height);
   padding: var(--space-8) var(--reference-hero-inline-padding);
   border-radius: var(--radius-lg);
 }
@@ -43,52 +43,31 @@
 }
 
 .reference-hero[data-time-of-day="sunset"] {
+  --reference-hero-action-surface: var(--color-activity-session-soft);
+  --reference-hero-action-ink: var(--color-activity-session-ink);
   --reference-hero-image: url("../../../shared/assets/brand/jarihana-hero-sunset.png");
-  --reference-hero-extended-image: url("../../../shared/assets/brand/jarihana-hero-sunset-extended.png");
 }
 
 .reference-hero[data-time-of-day="night"] {
   --reference-hero-image: url("../../../shared/assets/brand/jarihana-hero-night.png");
-  --reference-hero-extended-image: url("../../../shared/assets/brand/jarihana-hero-night-extended.png");
   --reference-hero-copy-surface: var(--reference-hero-night-surface);
+  --reference-hero-action-surface: color-mix(
+    in srgb,
+    var(--color-activity-study-ink) 70%,
+    var(--reference-hero-night-surface)
+  );
+  --reference-hero-action-ink: var(--color-activity-study-soft);
 
   background-color: var(--reference-hero-night-surface);
 }
 
 .reference-hero[data-time-of-day="night"] .reference-hero__title,
-.reference-hero[data-time-of-day="night"] .groups-hero__copy > .reference-hero__subtitle,
-.reference-hero[data-time-of-day="night"] .groups-search input,
-.reference-hero[data-time-of-day="night"] .groups-search__submit {
+.reference-hero[data-time-of-day="night"] .groups-hero__copy > .reference-hero__subtitle {
   color: var(--color-surface);
 }
 
 .reference-hero[data-time-of-day="night"] .reference-hero__headline-accent {
   color: var(--color-brand);
-}
-
-.reference-hero[data-time-of-day="night"] .groups-search input::placeholder {
-  color: var(--color-brand-soft);
-  opacity: 1;
-}
-
-.reference-hero[data-time-of-day="night"] .groups-search__submit:hover {
-  color: var(--color-ink);
-}
-
-.reference-hero .groups-search__control {
-  border-bottom-color: var(--color-muted-ink);
-}
-
-.reference-hero .groups-search input::placeholder {
-  color: var(--color-ink);
-}
-
-.reference-hero[data-time-of-day="night"] .groups-search__control {
-  border-bottom-color: var(--color-brand-soft);
-}
-
-.reference-hero .groups-search__control:focus-within {
-  border-bottom-color: var(--color-brand);
 }
 
 .reference-hero .groups-hero__copy {
@@ -133,61 +112,292 @@
   color: var(--color-brand-ink);
 }
 
+.reference-hero__preview {
+  position: absolute;
+  inset-block-start: var(--space-1);
+  inset-inline-end: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  max-width: calc(100% - var(--space-6));
+  padding-inline: var(--space-3);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-size: var(--text-caption);
+}
+
+.reference-hero__preview select {
+  min-height: var(--touch-target);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.reference-hero__actions {
+  --reference-hero-motion-cycle: 3.6s;
+  --reference-hero-motion-delay: 0s;
+
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  margin-block-start: var(--space-6);
+}
+
+.reference-hero__actions .ui-button {
+  --reference-hero-mark-transform: none;
+
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-4);
+  border-color: color-mix(
+    in srgb,
+    var(--color-surface) 48%,
+    transparent
+  );
+  background-color: color-mix(
+    in srgb,
+    var(--reference-hero-action-surface) 82%,
+    var(--reference-hero-action-glass-backing)
+  );
+  background-image: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--color-surface) 24%, transparent),
+    color-mix(in srgb, var(--color-surface) 4%, transparent) 60%
+  );
+  background-clip: padding-box;
+  box-shadow: 0 var(--space-1) var(--space-3) color-mix(in srgb, var(--color-nav) 10%, transparent);
+  color: var(--reference-hero-action-ink);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.reference-hero__actions .reference-hero__create {
+  --reference-hero-motion-delay: -0.9s;
+}
+
+.reference-hero__actions .ui-button:is(:hover, :active) {
+  transform: none;
+}
+
+.reference-hero__actions .ui-button:focus-visible {
+  --reference-hero-mark-transform: translateY(-1px) scale(1.08);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .reference-hero__actions .ui-button:hover {
+    --reference-hero-mark-transform: translateY(-1px) scale(1.08);
+  }
+}
+
+.reference-hero__actions .ui-button:hover:not(:disabled) {
+  background-clip: padding-box;
+  background-color: color-mix(
+    in srgb,
+    var(--reference-hero-action-surface) 90%,
+    var(--reference-hero-action-glass-backing)
+  );
+}
+
+.reference-hero__actions .ui-button:active:not(:disabled) {
+  --reference-hero-mark-transform: scale(0.96);
+
+  background-color: color-mix(
+    in srgb,
+    var(--reference-hero-action-surface) 94%,
+    var(--reference-hero-action-glass-backing)
+  );
+}
+
+.reference-hero__actions .ui-button:focus-visible {
+  outline-color: var(--reference-hero-action-ink);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .reference-hero {
+    --reference-hero-action-glass-backing: transparent;
+  }
+
+  .reference-hero__actions .ui-button {
+    -webkit-backdrop-filter: blur(var(--space-4)) saturate(130%);
+    backdrop-filter: blur(var(--space-4)) saturate(130%);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .reference-hero {
+    --reference-hero-action-glass-backing: var(--reference-hero-action-surface);
+  }
+
+  .reference-hero__actions .ui-button {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+.reference-hero__chairs {
+  flex: 0 0 calc(var(--space-12) + var(--space-2));
+  width: calc(var(--space-12) + var(--space-2));
+  height: var(--space-10);
+}
+
+.reference-hero__chair {
+  display: block;
+  width: 100%;
+  height: var(--space-10);
+  object-fit: contain;
+}
+
+.reference-hero__create-mark {
+  flex: 0 0 var(--touch-target);
+  width: var(--touch-target);
+  height: var(--space-10);
+}
+
+.reference-hero__create-chair {
+  display: block;
+  width: var(--space-10);
+  height: var(--space-10);
+  object-fit: contain;
+}
+
+.reference-hero__chair,
+.reference-hero__create-chair {
+  transform: var(--reference-hero-mark-transform);
+  transition: transform var(--duration-smooth) var(--ease-standard);
+}
+
+.reference-hero__chairs,
+.reference-hero__create-mark,
+.reference-hero__action-label {
+  animation: reference-hero-element-wave var(--reference-hero-motion-cycle) ease-in-out infinite;
+  animation-delay: var(--reference-hero-motion-delay);
+}
+
+.reference-hero__action-label {
+  animation-delay: calc(var(--reference-hero-motion-delay) - 0.45s);
+}
+
+.reference-hero__actions[data-motion-paused="true"] .ui-button > span {
+  animation-play-state: paused;
+}
+
+@keyframes reference-hero-element-wave {
+  0%, 100% { transform: translateY(3px); }
+  50% { transform: translateY(-3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reference-hero__chairs,
+  .reference-hero__create-mark,
+  .reference-hero__action-label {
+    animation: none;
+  }
+
+  .reference-hero__chair,
+  .reference-hero__create-chair {
+    transform: none;
+    transition: none;
+  }
+}
+
+@media (min-width: 64rem) {
+  .reference-hero {
+    min-block-size: clamp(27rem, calc(34svh + var(--space-16)), 31rem);
+    padding-block: calc(var(--space-10) + var(--space-4));
+  }
+
+  .reference-hero .reference-hero__title {
+    font-size: clamp(2.5rem, 3.125vw, 3rem);
+  }
+}
+
 @media (max-width: 79.9375rem) {
   .reference-hero {
-    --reference-hero-copy-width: 50%;
+    --reference-hero-copy-width: min(100%, max(50%, 22rem));
     --reference-hero-inline-padding: var(--space-8);
   }
 
-  .reference-hero::before {
-    background-image: var(--reference-hero-extended-image);
-    background-position: right bottom;
+}
+
+@media (max-width: 63.9375rem) {
+  .reference-hero {
+    --reference-hero-copy-width: min(100%, max(60%, 24rem));
+
+    min-block-size: clamp(16rem, calc(24svh + var(--space-16)), 20rem);
+    padding-block: var(--space-12);
+    overflow: clip;
+  }
+
+  .reference-hero .reference-hero__title {
+    margin-block-end: var(--space-2);
+    font-size: clamp(1.75rem, 3.5vw, 2rem);
+  }
+
+  .reference-hero .groups-hero__copy > .reference-hero__subtitle {
+    font-size: var(--text-hero-body);
+  }
+
+  .reference-hero__actions {
+    margin-block-start: var(--space-4);
+  }
+
+  .reference-hero .reference-hero__title,
+  .reference-hero .groups-hero__copy > .reference-hero__subtitle {
+    text-shadow:
+      0 1px var(--space-1) color-mix(in srgb, var(--reference-hero-copy-surface) 90%, transparent),
+      0 0 var(--space-2) color-mix(in srgb, var(--reference-hero-copy-surface) 85%, transparent),
+      0 0 var(--space-4) color-mix(in srgb, var(--reference-hero-copy-surface) 70%, transparent);
   }
 }
 
 @media (max-width: 47.9375rem) {
   .reference-hero {
-    --reference-hero-copy-width: 100%;
-    --reference-hero-inline-padding: var(--space-5);
+    --reference-hero-inline-padding: clamp(var(--space-5), 4vw, var(--space-8));
 
-    align-items: flex-start;
     aspect-ratio: auto;
+    margin-inline: calc(-1 * var(--page-gutter));
+    border-radius: 0;
   }
 
   .reference-hero::before {
-    background-image: var(--reference-hero-extended-image);
-    background-position: right bottom;
-    background-size: max(100%, var(--reference-hero-mobile-art-size)) auto;
+    background-position: center;
   }
 
-  .reference-hero .groups-hero__copy {
-    align-self: flex-start;
+  .reference-hero__actions {
+    gap: var(--space-2);
   }
 
-  .reference-hero .reference-hero__title {
-    font-size: var(--text-h1);
+  .reference-hero__actions .ui-button {
+    min-height: var(--touch-target-lg);
+    gap: var(--space-1);
+    padding-inline: var(--space-3);
+    font-size: clamp(var(--text-body), 2.5vw, var(--text-body-lg));
   }
 
-  .reference-hero .groups-hero__copy > .reference-hero__subtitle {
-    font-size: var(--text-h3);
+  .reference-hero__chairs {
+    flex-basis: var(--space-8);
+    width: var(--space-8);
+    height: var(--space-7);
   }
-}
 
-.reference-hero .reference-discovery-tools {
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-3);
-  margin-block: var(--space-6) 0;
-  width: 100%;
-}
+  .reference-hero__chair {
+    height: var(--space-7);
+  }
 
-.reference-hero .reference-search {
-  width: 100%;
-}
+  .reference-hero__create-mark {
+    flex-basis: var(--space-7);
+    width: var(--space-7);
+    height: var(--space-7);
+  }
 
-@media (min-width: 48rem) and (max-width: 79.9375rem) {
-  .reference-hero .reference-type-filters button {
-    padding-inline: var(--space-4);
+  .reference-hero__create-chair {
+    width: var(--space-7);
+    height: var(--space-7);
   }
 }
 
@@ -476,9 +686,6 @@
   }
   .reference-type-filters button {
     padding-inline: var(--space-4);
-  }
-  .reference-hero .reference-type-filters button {
-    padding-inline: var(--space-3);
   }
   .reference-recruiting-grid {
     grid-template-columns: minmax(0, 1fr);

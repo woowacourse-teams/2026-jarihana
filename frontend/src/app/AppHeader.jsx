@@ -25,7 +25,7 @@ const HOME_LINK = {
 const EXPLORE_LINK = {
   action: "group_browse",
   isActive: (pathname) => pathname === "/groups",
-  label: "모임 탐색",
+  label: "모임",
   requiresAuth: false,
   to: "/groups"
 };
@@ -33,7 +33,7 @@ const EXPLORE_LINK = {
 const ACTIVITY_LINK = {
   action: "browse_activity_posts",
   isActive: (pathname) => pathname === "/activities",
-  label: "활동 기록",
+  label: "활동",
   requiresAuth: false,
   to: "/activities"
 };
@@ -111,7 +111,7 @@ function FeedbackLink({ onClick, onNavigate, open, status }) {
       }}
       type="button"
     >
-      피드백 남기기
+      피드백
     </button>
   );
 }

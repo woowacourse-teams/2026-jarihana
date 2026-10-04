@@ -6,17 +6,18 @@ import { groupScheduleLabel, groupSeatsLabel, scheduleDuration } from "./groupCa
 import { typeLabel } from "../pageUtils.js";
 
 export function DiscoveryGroupCard({ group, recruiting }) {
+  const isEnded = group.status === "ENDED";
   const duration = group.type === "SESSION" ? scheduleDuration(group.sessionSchedule) : null;
-  const seats = groupSeatsLabel(group);
+  const seats = isEnded ? null : groupSeatsLabel(group);
   const location = group.location?.trim();
 
   return (
     <Link
-      className={`discovery-group-card discovery-group-card--${group.type.toLowerCase()}`}
+      className={`discovery-group-card discovery-group-card--${group.type.toLowerCase()}${isEnded ? " discovery-group-card--ended" : ""}`}
       data-ph-capture-attribute-action="group_view"
       to={`/groups/${group.id}`}
     >
-      <span className="discovery-group-card__visual" aria-hidden="true">
+      <span className="discovery-group-card__visual">
         <GroupImage
           alt=""
           className="discovery-group-card__image"
@@ -25,6 +26,10 @@ export function DiscoveryGroupCard({ group, recruiting }) {
           loading="lazy"
           width="320"
         />
+        {isEnded && <span className="discovery-group-card__ended-badge">종료</span>}
+        {recruiting && !isEnded && (
+          <span className="discovery-group-card__recruiting-badge">모집 중</span>
+        )}
       </span>
       <div className="discovery-group-card__body">
         <div className="discovery-group-card__top">
@@ -33,7 +38,6 @@ export function DiscoveryGroupCard({ group, recruiting }) {
           >
             {typeLabel(group.type)}
           </span>
-          {recruiting ? <span className="discovery-group-card__recruiting">모집 중</span> : null}
         </div>
         <h3 className="discovery-group-card__title">{group.name}</h3>
         <p className="discovery-group-card__description">{group.introduction}</p>

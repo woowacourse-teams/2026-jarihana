@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { Button, ErrorState, Skeleton } from "../../../shared/ui/index.js";
 import { TodayPlan } from "./TodayPlan.jsx";
@@ -9,6 +9,18 @@ import { useSessionCarousel } from "./useSessionCarousel.js";
 
 const VISIBLE_TICKET_COUNT = 3;
 const SWIPE_THRESHOLD = 40;
+const MOBILE_LAYOUT_QUERY = "(max-width: 47.9375rem)";
+
+function subscribeToMobileLayout(onChange) {
+  const query = window.matchMedia(MOBILE_LAYOUT_QUERY);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+
+function getMobileLayout() {
+  return window.matchMedia(MOBILE_LAYOUT_QUERY).matches;
+}
+
 const campusStatusMessages = {
   inside: "판교 캠퍼스 근처예요.",
   outside: "캠퍼스 밖이네요. 어디서든 같이해요.",
@@ -94,6 +106,7 @@ export function TodaySessionsHero({
   onRequestLocation,
   onRetry
 }) {
+  const isMobile = useSyncExternalStore(subscribeToMobileLayout, getMobileLayout, () => false);
   const sessions = useMemo(() => todaySessions(groups, date), [date, groups]);
   const ticketReferences = useRef([]);
   const ticketsViewport = useRef(null);
@@ -102,6 +115,7 @@ export function TodaySessionsHero({
   const [visibleCount, setVisibleCount] = useState(VISIBLE_TICKET_COUNT);
   const {
     activeIndex,
+    activePosition,
     goNext,
     goPrevious,
     goTo,
@@ -171,6 +185,14 @@ export function TodaySessionsHero({
 
   return (
     <section className="today-sessions-hero" aria-labelledby="today-sessions-title">
+      {isMobile && !isLoading && sessions.length > 0 ? (
+        <TodayPlan
+          activePosition={activePosition}
+          groups={sessions}
+          onMouseEnter={pauseHover}
+          onMouseLeave={resumeHover}
+        />
+      ) : null}
       <div className="today-sessions-hero__intro">
         <div className="today-sessions-hero__heading">
           <h2 className="today-sessions-hero__title" id="today-sessions-title">
@@ -325,7 +347,7 @@ export function TodaySessionsHero({
             ) : null}
           </div>
 
-          <TodayPlan activeIndex={activeIndex} groups={sessions} />
+          {!isMobile ? <TodayPlan activePosition={activePosition} groups={sessions} /> : null}
         </div>
       ) : null}
     </section>

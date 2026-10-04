@@ -23,12 +23,6 @@ function participationLabel(group) {
   return `${seats}자리 남음`;
 }
 
-function capacityLabel(group) {
-  const recruitment = group.activeRecruitment;
-  if (!recruitment) return "모집 마감";
-  return `모집 정원 ${recruitment.capacity}명`;
-}
-
 export function TodaySessionTicket({ active = false, group, tabIndex }) {
   const seats = remainingSeats(group);
   const duration = scheduleDuration(group.sessionSchedule);
@@ -82,7 +76,6 @@ export function TodaySessionTicket({ active = false, group, tabIndex }) {
               <small>자리</small>
             </strong>
           )}
-          <span>{capacityLabel(group)}</span>
         </span>
         <span className="today-session-ticket__cta">
           자세히 <ArrowRight aria-hidden="true" size={16} />

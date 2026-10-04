@@ -1,8 +1,10 @@
 import { ArrowRight, CalendarDays, Search, Users } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 
 import { useInfiniteGroups } from "../../../features/group/index.js";
+import createChairImage from "../../../shared/assets/brand/jarihana-chair-create.png";
+import rainbowChairsImage from "../../../shared/assets/brand/jarihana-chairs-rainbow.png";
 import { Button, EmptyState, ErrorState, GroupImage, Skeleton } from "../../../shared/ui/index.js";
 import { flattenPages, publicErrorCopy, typeLabel } from "../pageUtils.js";
 import { ExploreHero } from "./ExploreHero.jsx";
@@ -51,6 +53,8 @@ function RecruitingCard({ group, featured }) {
 
 export function RecruitingSection({ beforeResults, headline, heroPeriod, isAuthenticated = false }) {
   const resultsRef = useRef(null);
+  const actionsRef = useRef(null);
+  const [motionPaused, setMotionPaused] = useState(true);
   const [params, setParams] = useSearchParams();
   const keyword = params.get("homeKeyword")?.trim() || "";
   const type = types.some((option) => option.value === params.get("homeType"))
@@ -58,6 +62,25 @@ export function RecruitingSection({ beforeResults, headline, heroPeriod, isAuthe
     : "";
   const [draft, setDraft] = useState({ keyword, value: keyword });
   const searchValue = draft.keyword === keyword ? draft.value : keyword;
+
+  useEffect(() => {
+    let inView = !window.IntersectionObserver;
+    const updateMotion = () => setMotionPaused(!inView || document.hidden);
+    const observer = window.IntersectionObserver
+      ? new IntersectionObserver(([entry]) => {
+          inView = entry.isIntersecting;
+          updateMotion();
+        })
+      : null;
+
+    observer?.observe(actionsRef.current);
+    document.addEventListener("visibilitychange", updateMotion);
+    updateMotion();
+    return () => {
+      observer?.disconnect();
+      document.removeEventListener("visibilitychange", updateMotion);
+    };
+  }, []);
 
   const query = useInfiniteGroups({
     status: "ACTIVE",
@@ -90,6 +113,62 @@ export function RecruitingSection({ beforeResults, headline, heroPeriod, isAuthe
   return (
     <>
       <ExploreHero headline={headline} period={heroPeriod} isAuthenticated={isAuthenticated}>
+        <div
+          className="reference-hero__actions"
+          data-motion-paused={motionPaused}
+          ref={actionsRef}
+        >
+          <Link
+            className="ui-button ui-button--primary ui-button--lg reference-hero__seat"
+            data-ph-capture-attribute-action="group_browse"
+            to="/groups"
+          >
+            <span aria-hidden="true" className="reference-hero__chairs">
+              <img
+                alt=""
+                className="reference-hero__chair"
+                height="40"
+                src={rainbowChairsImage}
+                width="56"
+              />
+            </span>
+            <span className="reference-hero__action-label">자리하기</span>
+          </Link>
+          <Link
+            className="ui-button ui-button--primary ui-button--lg reference-hero__create"
+            data-ph-capture-attribute-action="group_create"
+            to="/groups/new"
+          >
+            <span aria-hidden="true" className="reference-hero__create-mark">
+              <img
+                alt=""
+                className="reference-hero__create-chair"
+                height="40"
+                src={createChairImage}
+                width="40"
+              />
+            </span>
+            <span className="reference-hero__action-label">자리 만들기</span>
+          </Link>
+        </div>
+      </ExploreHero>
+      {beforeResults}
+      <section
+        aria-labelledby="reference-recruiting-title"
+        className="reference-discovery"
+        ref={resultsRef}
+      >
+        <div className="reference-section-heading">
+          <h2 id="reference-recruiting-title">지금 모집 중인 모임</h2>
+          <Link
+            aria-label="모집 중인 모임 더 보기"
+            className="reference-browse-link"
+            data-ph-capture-attribute-action="home_discovery_browse"
+            to={`/groups?${browseParams}`}
+          >
+            모집 중인 모임 더 보기 <ArrowRight aria-hidden="true" size={16} />
+          </Link>
+        </div>
         <div className="reference-discovery-tools">
           <form
             aria-label="모임 검색"
@@ -140,24 +219,6 @@ export function RecruitingSection({ beforeResults, headline, heroPeriod, isAuthe
               </button>
             ))}
           </div>
-        </div>
-      </ExploreHero>
-      {beforeResults}
-      <section
-        aria-labelledby="reference-recruiting-title"
-        className="reference-discovery"
-        ref={resultsRef}
-      >
-        <div className="reference-section-heading">
-          <h2 id="reference-recruiting-title">지금 모집 중인 모임</h2>
-          <Link
-            aria-label="모집 중인 모임 더 보기"
-            className="reference-browse-link"
-            data-ph-capture-attribute-action="home_discovery_browse"
-            to={`/groups?${browseParams}`}
-          >
-            모집 중인 모임 더 보기 <ArrowRight aria-hidden="true" size={16} />
-          </Link>
         </div>
         {query.isLoading && (
           <div aria-label="모집 중인 모임을 불러오는 중" className="reference-recruiting-grid">
