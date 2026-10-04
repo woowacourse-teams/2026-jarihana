@@ -21,7 +21,10 @@ import com.project.jarihana.registration.command.service.dto.DecideRegistrationR
 import com.project.jarihana.registration.domain.DecisionActor;
 import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.registration.domain.RegistrationStatus;
+import com.project.jarihana.registration.domain.event.RegistrationSubmittedEvent;
+import com.project.jarihana.registration.domain.event.RegistrationDecidedEvent;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +41,7 @@ public class RegistrationCommandService {
     private final GroupMemberCommandRepository groupMemberRepository;
     private final MemberRepository memberRepository;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
     @Transactional
     public CreateRegistrationResult createRegistration(
@@ -67,6 +71,12 @@ public class RegistrationCommandService {
             );
         };
         registration = registrationRepository.save(registration);
+        Registration saved = registration;
+        groupMemberRepository.findByGroupIdAndRole(recruitment.getGroup().getId(), GroupMemberRole.LEADER)
+                .ifPresent(leader -> events.publishEvent(RegistrationSubmittedEvent.from(saved, leader.getMember().getId())));
+        if (saved.getStatus() == RegistrationStatus.APPROVED) {
+            events.publishEvent(RegistrationDecidedEvent.from(saved));
+        }
         return CreateRegistrationResult.from(registration);
     }
 
@@ -215,6 +225,7 @@ public class RegistrationCommandService {
                     )
             );
         };
+        events.publishEvent(RegistrationDecidedEvent.from(decidedRegistration));
         return DecideRegistrationResult.from(decidedRegistration);
     }
 

@@ -132,7 +132,9 @@ docker compose -f docker-compose-local.yaml ps
 기존 `member` 테이블을 참조하는 `notifications`, `push_subscriptions`,
 `notification_deliveries`와 조회 인덱스·DB 제약을 추가합니다.
 이 SQL은 기존 테이블과 데이터를 변경하지 않습니다. 스키마 적용 후 백엔드를 배포하며,
-알림 API·업무 이벤트·외부 푸시 전송은 후속 구현 단계에서 연결합니다.
+알림함 API와 신청·승인·미승인 업무 알림은 구현되어 있습니다.
+브라우저 구독 API와 외부 푸시 전송은 후속 구현 단계에서 연결합니다.
+전송 대기의 유효기간은 `jarihana.notification.delivery-ttl`로 설정하며 기본값은 24시간입니다.
 
 ### 운영 DB SSH 터널 접속
 

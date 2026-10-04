@@ -108,4 +108,4 @@ erDiagram
 | 소속 | [GroupMember](groupmember.md) | 그룹 소속 모델 |
 | 피드백 | [Feedback](feedback.md) | 피드백 내용과 필수 작성 회원 |
 | 사진 활동 기록 | [ActivityPost](activitypost.md) | 공개 범위, 사진 참조, 활동 날짜와 생명주기 |
-| 알림·구독·전송 | [Notification](notification.md) | 엔티티·Repository·SQL 구현. 업무 이벤트·API·푸시 워커 연결은 구현 전 |
+| 알림·구독·전송 | [Notification](notification.md) | 데이터 모델·업무 이벤트·알림함 API 구현. 구독 API·푸시 워커 연결은 구현 전 |

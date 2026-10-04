@@ -17,6 +17,27 @@ public interface NotificationCommandRepository extends Repository<Notification, 
 
     Optional<Notification> findByEventKeyAndMemberId(String eventKey, long memberId);
 
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            update notifications set read_at = :now, updated_at = :now
+            where id = :id and member_id = :memberId and deleted_at is null and read_at is null
+            """, nativeQuery = true)
+    int markRead(@Param("id") long id, @Param("memberId") long memberId, @Param("now") LocalDateTime now);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            update notifications set read_at = :now, updated_at = :now
+            where member_id = :memberId and deleted_at is null and read_at is null
+            """, nativeQuery = true)
+    int markAllRead(@Param("memberId") long memberId, @Param("now") LocalDateTime now);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            update notifications set deleted_at = :now, updated_at = :now
+            where id = :id and member_id = :memberId and deleted_at is null
+            """, nativeQuery = true)
+    int softDelete(@Param("id") long id, @Param("memberId") long memberId, @Param("now") LocalDateTime now);
+
     @Modifying
     @Query(value = """
             insert into notifications (member_id, event_key, event_type, payload_version, payload, created_at, updated_at)

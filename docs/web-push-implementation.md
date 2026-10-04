@@ -21,10 +21,12 @@ DB·API·화면 계약은 ADR과 각 상세 문서에 남긴다. 최종 검증 �
 ## 현재 진행 상태
 
 - 1단계: 완료, `7fb90d7a` 커밋.
-- 2단계: 구현·검증 완료, 사용자 커밋 승인 완료. 전체 백엔드 테스트 468건 통과(새 테스트 30건).
+- 2단계: 완료, `53bb4c13` 커밋. 전체 백엔드 테스트 468건 통과(새 테스트 30건).
   SQL 직접 적용 후 validate·DB 제약·인덱스·truncate 격리도 확인했다.
   상세 결과는 아래 [2단계 구현과 검증](#2단계-구현과-검증)에 기록했다.
-- 3~6단계: 대기. 2단계 커밋 이후 3단계 업무 이벤트·알림함 API를 시작한다.
+- 3단계: 구현·검증 완료, 사용자 커밋 승인 완료. 전체 백엔드 테스트 532건 통과(이번 단계 새 테스트 64건).
+  상세 결과는 아래 [3단계 구현과 검증](#3단계-구현과-검증)에 기록했다.
+- 4~6단계: 대기. 3단계 커밋 이후 구독 API·로그아웃 연결 해제·푸시 워커를 시작한다.
 
 ## 2단계 구현과 검증
 
@@ -50,6 +52,37 @@ DB·API·화면 계약은 ADR과 각 상세 문서에 남긴다. 최종 검증 �
 2026-10-03 검증: `backend/`에서 `./gradlew test`를 실행해 전체 468건이 통과했다
 (실패·오류·생략 0건). 이 중 새 도메인·Repository·SQL 검증은 30건이다.
 수동 SQL 검증은 테스트 DB에서 수행했으며 공유 개발·운영 DB 적용과 실제 푸시 수신은 아직 수행하지 않았다.
+
+## 3단계 구현과 검증
+
+- 신청 생성·수동 결정·재모집·그룹 종료 서비스가 실제 업무 변경 뒤 값으로 구성한 신청 사건을 발행한다.
+  사건에는 영속 엔티티·신청 본문·미승인 사유 문장을 담지 않는다.
+- 동기 BEFORE_COMMIT 리스너가 알림과 당시 활성 구독별 전송 대기를 같은 TX에 기록한다.
+  중복 사건은 유일키 충돌을 정상 처리하고 삭제한 알림을 복원하거나 과거 전송을 추가하지 않는다.
+  전송 대기의 유효기간은 `jarihana.notification.delivery-ttl`이며 기본값은 24시간이다.
+- 알림함 API 6개를 구현했다. 목록·개별 조회·안 읽은 수·개별 읽음·전체 읽음·삭제이며,
+  인증 회원 소유권, 존재하는 가입 회원, CSRF, 커서·size·식별자와 no-store 응답을 검증한다.
+- 개별 읽음·삭제는 기존 상태를 조건으로 UPDATE한다. 최초 읽은 시각을 보존하고 삭제한 행을 복원하지 않는다.
+  전체 읽음은 단일 PostgreSQL UPDATE의 statement snapshot을 기준으로 처리한다.
+  삭제는 같은 TX에서 미완료 전송을 취소하고 선점 정보를 정리하며 완료된 전송 상태는 유지한다.
+- [업무 알림 통합 테스트](../backend/src/test/java/com/project/jarihana/notification/NotificationBusinessEventTest.java)는
+  실제 신청·결정·재모집·종료의 수신자, 구독0개·활성 구독 선택, 정원 마감 시 대기 신청 유지,
+  알림/전송 저장 실패 시 업무 롤백과 원 업무 데이터 삭제 후 알림 보존을 확인한다.
+- [사건 리스너 테스트](../backend/src/test/java/com/project/jarihana/notification/NotificationEventListenerTest.java)는
+  동일 TX의 커밋 전 처리, 트랜잭션 밖/롤백 사건 무시, 동시 중복과 삭제 후 재처리,
+  구독 generation 복사와 뒤늦은 구독의 과거 전송 미생성을 확인한다.
+- [RestAssured 인수 테스트](../backend/src/test/java/com/project/jarihana/notification/NotificationInboxAcceptanceTest.java)는
+  실제 HTTP로 6개 API의 응답·소유권·인증·CSRF·커서·읽음·삭제와 전송 상태별 취소를 확인한다.
+- [동시 처리 테스트](../backend/src/test/java/com/project/jarihana/notification/NotificationConcurrencyTest.java)는
+  실제 PostgreSQL 행 잠금과 커밋 순서를 제어한다. 전체 읽음 시작 뒤 커밋된 낮은 ID/새 알림은 미읽음으로 남고,
+  개별·전체 읽음과 삭제가 어느 순서로 경합해도 삭제 상태를 되돌리지 않는다.
+- [내부 사건 오류 인수 테스트](../backend/src/test/java/com/project/jarihana/notification/NotificationEventFailureAcceptanceTest.java)는
+  대기 신청을 결정 사건으로 처리하는 서버 오류를 팩토리·리스너에서 각각 재현한다.
+  `IllegalStateException`으로 500을 반환하고 업무 변경·알림·전송 기록이 함께 롤백되는지 확인한다.
+
+2026-10-03 검증: `backend/`에서 `./gradlew test`를 실행해 전체 532건이 통과했다
+(실패·오류·생략 0건). 이번 단계 새 테스트는 업무 10건, 리스너 4건, API 43건, 동시 처리 5건, 내부 오류 2건이다.
+브라우저 구독 API·푸시 내용 조회·로그아웃 확장·외부 푸시 전송과 알림함 UI는 후속 단계에서 구현한다.
 
 ## 고정 동작
 

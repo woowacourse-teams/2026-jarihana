@@ -1,9 +1,9 @@
 # 알림함·웹푸시
 
-> 상태: 구현 계약. 아래 신규 API와 로그아웃 확장은 아직 서버에 구현되지 않았다.
+> 상태: 알림함 API 6개 구현. 브라우저 구독·푸시 내용 조회·로그아웃 확장은 구현 전이다.
 
 [API 공통 설계](../common-contract.md)를 따른다. 구현 시 Controller·요청/응답 DTO·ErrorCode와
-RestAssured 인수 테스트로 계약을 검증한다. 선택 이유는
+RestAssured 인수 테스트로 계약을 검증한다. 알림함 API는 Controller·DTO·ErrorCode와 인수 테스트에 반영했다. 선택 이유는
 [백엔드 ADR 0015](../../../adr/0015-web-push-and-notification-inbox.md), 저장 규칙은
 [알림·구독·전송 모델](../../domain/model/notification.md)에 있다.
 

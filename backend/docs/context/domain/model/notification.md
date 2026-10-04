@@ -1,6 +1,6 @@
 # 알림·브라우저 구독·전송 작업
 
-> 상태: 엔티티·Repository·수동 SQL 구현. 업무 이벤트·API·푸시 워커 연결은 구현 전이다.
+> 상태: 데이터 모델·업무 이벤트·알림함 API 구현. 구독 API·푸시 워커 연결은 구현 전이다.
 
 선택 이유는 [백엔드 ADR 0015](../../../adr/0015-web-push-and-notification-inbox.md)에 있다.
 계약은 [알림 API](../../api/endpoints/notifications.md)와 함께 구현·검증한다.
@@ -129,4 +129,7 @@ status·attemptCount·lease 필드 일관성을 DB check 제약과 도메인 테
 - 구독 해제/generation 변경/알림 삭제는 미완료 작업을 취소한다. 이미 수락·전송 중인 요청은 회수 보장하지 않는다.
 - 전체 읽음은 회원·미삭제·미읽음 조건의 단일 UPDATE snapshot을 경계로 한다. max(id)를 commit 순서로 사용하지 않는다.
 - native UPDATE는 updated_at도 갱신한다. 목록은 읽은 행도 포함하고 삭제된 행만 제외한다.
+- 개별 읽음·삭제는 회원·기존 상태 조건을 둔 UPDATE로 최초 시각을 보존한다.
+  이전 객체 전체를 저장하지 않으므로 읽음·삭제 경합에서도 삭제 상태를 되돌리지 않는다.
+  알림 삭제와 미완료 전송 취소는 같은 TX에서 처리한다.
 - 시각은 주입 Clock과 LocalDateTime, DB는 TIMESTAMP WITHOUT TIME ZONE을 사용한다.

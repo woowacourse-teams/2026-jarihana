@@ -9,8 +9,18 @@ import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 public interface NotificationQueryRepository extends Repository<Notification, Long> {
+
+    @Query("""
+            select new com.project.jarihana.notification.query.repository.dto.NotificationProjection(
+                notification.id, notification.eventType, notification.payloadVersion,
+                notification.payload, notification.readAt, notification.createdAt)
+            from Notification notification
+            where notification.id = :id and notification.member.id = :memberId and notification.deletedAt is null
+            """)
+    Optional<NotificationProjection> findActiveByIdAndMemberId(@Param("id") long id, @Param("memberId") long memberId);
 
     @Query("""
             select new com.project.jarihana.notification.query.repository.dto.NotificationProjection(

@@ -2,9 +2,9 @@
 
 > 상태: 저장소 최신 설계 기준
 >
-> 구현·테스트·Swagger/OpenAPI와 충돌하면 임의로 해석하지 않고 차이를 보고한다.
+> 구현·테스트와 충돌하면 임의로 해석하지 않고 차이를 보고한다.
 
-이 문서는 저장소에서 관리하는 활성 엔드포인트 35개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청·응답·오류는 구현 시 Swagger/OpenAPI와 RestAssured 인수 테스트로 검증한다.
+이 문서는 저장소에서 관리하는 활성 엔드포인트 42개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청·응답·오류는 Controller·요청/응답 DTO·ErrorCode와 RestAssured 인수 테스트로 확인한다.
 
 이 디렉터리는 API 엔드포인트의 전체 목록과 리소스별 상세 설계를 관리한다. 모든 엔드포인트는 [API 공통 설계](../common-contract.md)를 따르며, 상세 문서에는 엔드포인트 고유 내용만 둔다.
 
@@ -48,6 +48,12 @@
 | 인증·회원 | `POST` | `/api/members` | `AUTH` | 회원 가입 완료 |
 | 인증·회원 | `GET` | `/api/members/me` | `AUTH` | 내 정보와 가입 완료 여부 조회 |
 | 인증·회원 | `GET` | `/api/oauth/github/callback` | `PUBLIC` | GitHub OAuth 콜백 처리 |
+| 알림함 | `GET` | `/api/notifications` | `MEMBER` | 본인 알림 목록 조회 |
+| 알림함 | `GET` | `/api/notifications/{id}` | `MEMBER` | 본인 알림과 이동 대상 조회 |
+| 알림함 | `GET` | `/api/notifications/unread-count` | `MEMBER` | 안 읽은 알림 수 |
+| 알림함 | `PATCH` | `/api/notifications/{id}/read` | `MEMBER` | 개별 읽음 |
+| 알림함 | `PATCH` | `/api/notifications/read-all` | `MEMBER` | 전체 읽음 |
+| 알림함 | `DELETE` | `/api/notifications/{id}` | `MEMBER` | 개별 삭제와 미완료 전송 취소 |
 
 ## 상세 문서
 
@@ -62,11 +68,13 @@
 | 이미지 | [images.md](images.md) | 이미지 업로드 엔드포인트 |
 | 활동 기록 | [activity-posts.md](activity-posts.md) | 사진 활동 기록 조회·작성·수정·숨김 |
 | 공유 미리보기 | [share-preview.md](share-preview.md) | 그룹 공유 미리보기 HTML 엔드포인트 |
+| 알림함 | [notifications.md](notifications.md) | 목록·개별 조회·안 읽은 수·읽음·전체 읽음·삭제 |
 
 ## 구현 예정 계약
 
-아래 문서는 아직 구현되지 않은 API 계약이다. 위 활성 API 목록/개수에 포함하지 않는다.
+아래 문서의 브라우저 구독·푸시 내용 조회·로그아웃 확장은 아직 구현되지 않았다.
+이 부분은 위 활성 API 목록/개수에 포함하지 않는다.
 
 | 분류 | 문서 |
 | --- | --- |
-| 알림함·웹푸시 | [notifications.md](notifications.md) |
+| 웹푸시 구독·내용 조회·로그아웃 확장 | [notifications.md](notifications.md) |

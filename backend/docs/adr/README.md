@@ -30,7 +30,7 @@ ADR 0006과 0007에 이르기까지의 기록이다.
 
 | 번호 | 제목 | 상태 | 날짜 | 작업 브랜치 |
 | --- | --- | --- | --- | --- |
-| 0015 | [알림함에 소식을 저장하고 웹푸시는 별도로 전송한다](0015-web-push-and-notification-inbox.md) | 설계 결정 · 코드 반영 전 | 2026-10-02 | `feat/web-push-notifications` |
+| 0015 | [알림함에 소식을 저장하고 웹푸시는 별도로 전송한다](0015-web-push-and-notification-inbox.md) | 채택 · 알림 저장·알림함 API 구현, 웹푸시 전송 구현 전 | 2026-10-02 | `feat/web-push-notifications` |
 
 ## 번호를 다시 매긴 이력
 
