@@ -40,7 +40,7 @@ test("real business APIs create inbox rows; click, read-all, delete and logout u
     expect(submitted.eventType).toBe("REGISTRATION_SUBMITTED");
     expect(submitted.body).toContain(flow.groupName);
     await page.goto(`${origin}/notifications/open/${submitted.id}`);
-    await expect(page).toHaveURL(new RegExp(`/groups/${flow.group.id}$`));
+    await expect(page).toHaveURL(new RegExp(`/groups/${flow.group.id}/manage/registrations$`));
     await mutation(flow.leader, "PATCH", `recruitments/${flow.recruitment.id}/registrations/${flow.registration.id}`, { status: "APPROVED" });
     const inbox = await flow.applicant.newPage(); await inbox.goto(`${origin}/notifications`);
     const rows = inbox.getByRole("list", { name: "받은 알림 목록" }).getByRole("listitem");
@@ -51,6 +51,11 @@ test("real business APIs create inbox rows; click, read-all, delete and logout u
     const before = await rows.count();
     await inbox.getByRole("button", { name: "전체 읽음", exact: true }).click();
     await expect(inbox.getByText("안 읽음", { exact: true })).toHaveCount(0); await expect(rows).toHaveCount(before);
+    await inbox.goto(`${origin}/notifications/open/${approved.id}`);
+    await expect(inbox).toHaveURL((url) => url.pathname === "/my" && url.searchParams.get("focusGroup") === String(flow.group.id));
+    await expect(inbox.locator(`#my-groups-panel [data-activity-id="${flow.group.id}"]`)).toBeFocused();
+    await inbox.goto(`${origin}/notifications`);
+    await expect(rows).not.toHaveCount(0);
     const row = rows.filter({ has: inbox.locator(`a[href='/notifications/open/${approved.id}']`) });
     await row.getByRole("button", { name: /알림 삭제/ }).click(); await expect(row).toHaveCount(0);
     expect((await flow.applicant.request.get(`/api/notifications/${approved.id}`)).status()).toBe(404);

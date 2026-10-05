@@ -7,6 +7,7 @@ import { useInfiniteMyRegistrations } from "../../../src/features/registration/i
 import { MyPage } from "../../../src/pages/account/MyPage.jsx";
 
 jest.mock("react-router", () => ({
+  useLocation: () => ({ search: globalThis.location.search }),
   Link: ({ children, to, ...props }) => (
     <a href={typeof to === "string" ? to : "/"} {...props}>
       {children}

@@ -5,8 +5,9 @@ const id = z.number().int().positive().safe();
 export const notificationSchema = z.object({
   id, eventType: z.string(), payloadVersion: z.literal(1), title: z.string(), body: z.string(),
   createdAt: z.string(), readAt: z.string().nullable(),
-  target: z.object({ kind: z.enum(["GROUP_DETAIL", "LEADER_REGISTRATIONS", "MY_REGISTRATIONS"]), groupId: id, recruitmentId: id })
-});
+  target: z.object({ kind: z.enum(["GROUP_DETAIL", "LEADER_REGISTRATIONS", "MY_REGISTRATIONS", "LEADER_MEMBERS", "MY_PAGE", "MY_GROUPS"]), groupId: id, recruitmentId: id, registrationId: id.optional() })
+}).transform((notification) => notification.eventType === "REGISTRATION_APPROVED" && notification.target.kind === "GROUP_DETAIL"
+  ? { ...notification, target: { ...notification.target, kind: "MY_GROUPS" } } : notification);
 export const notificationPageSchema = z.object({
   items: z.array(notificationSchema), nextCursor: z.string().nullable(), hasNext: z.boolean()
 }).refine((page) => !page.hasNext || Boolean(page.nextCursor));
@@ -25,4 +26,14 @@ export const readAllNotifications = (client = apiClient) => client.request("noti
   method: "PATCH", schema: z.object({ updatedCount: z.number().int().nonnegative(), readAt: z.string() })
 });
 export const deleteNotification = (notificationId, client = apiClient) => client.request(`notifications/${notificationId}`, { method: "DELETE" });
-export const notificationTargetPath = ({ groupId }) => `/groups/${groupId}`;
+export const notificationTargetPath = ({ kind, groupId, recruitmentId, registrationId }, notificationId) => {
+  const context = notificationId ? `&notification=${notificationId}` : "";
+  if (kind === "MY_GROUPS") return `/my?focusGroup=${groupId}${context}`;
+  if (kind === "MY_PAGE" || kind === "MY_REGISTRATIONS") {
+    const focus = registrationId ? `focusRegistration=${registrationId}` : `focusRecruitment=${recruitmentId}`;
+    return `/my?registrationStatus=REJECTED&${focus}${context}`;
+  }
+  if (kind === "LEADER_REGISTRATIONS") return `/groups/${groupId}/manage/registrations`;
+  if (kind === "LEADER_MEMBERS") return `/groups/${groupId}/manage/members`;
+  return `/groups/${groupId}`;
+};

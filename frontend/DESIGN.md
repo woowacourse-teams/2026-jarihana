@@ -695,3 +695,11 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
   서버 비활성·동기화 실패와 재시도를 구분한다. 계정·endpoint·키는 분석에 보내지 않는다.
 - 변경 범위의 viewport 360/768/1440, 키보드·긴 문구·삭제 실패·reduced-motion을 확인한다.
   실제 OS 알림·외부 Push Service·모바일 설치는 6단계 실기기 검증으로 남긴다.
+
+## 13. 알림에서 마이페이지 항목 찾기
+
+- 승인 알림은 내 모임의 해당 유형 탭, 미승인 알림은 내 신청의 미승인 탭을 연다.
+- 다음 페이지의 항목도 조회한 뒤 카드 중앙으로 스크롤하고 `tabIndex=-1`인 카드에
+  키보드 focus를 옮긴다. 기존 focus-visible 토큰과 함께 brand-soft 배경·shadow-float로
+  3초 동안 강조한다. 기존 카드·44px 클릭 영역을 재사용하며 새 색·motion 토큰은 만들지 않는다.
+- reduced-motion에서는 즉시 스크롤한다. 찾는 중·조회 실패·기록 없음은 명시적으로 안내한다.

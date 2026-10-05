@@ -81,19 +81,19 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
         assertThat(response.statusCode()).isEqualTo(200);
         assertThat(response.jsonPath().getString("data.title")).isEqualTo("신청 승인");
         assertThat(response.jsonPath().getString("data.body")).isNotBlank();
-        assertThat(response.jsonPath().getString("data.target.kind")).isEqualTo("GROUP_DETAIL");
+        assertThat(response.jsonPath().getString("data.target.kind")).isEqualTo("MY_GROUPS");
         assertThat(response.jsonPath().getLong("data.target.groupId")).isEqualTo(12);
         assertThat(response.jsonPath().getLong("data.target.recruitmentId")).isEqualTo(45);
         assertThat(response.jsonPath().getString("data.readAt")).isNull();
         assertThat(response.header("Cache-Control")).contains("no-store");
-        assertThat(leader.jsonPath().getString("data.target.kind")).isEqualTo("GROUP_DETAIL");
+        assertThat(leader.jsonPath().getString("data.target.kind")).isEqualTo("LEADER_REGISTRATIONS");
         assertThat(notifications.findByIdAndMemberId(notification.getId(), owner.getId()).orElseThrow().getReadAt()).isNull();
     }
 
     @ParameterizedTest
     @EnumSource(NotificationEventType.class)
-    @DisplayName("모든 사건은 목록과 개별 조회에 모임 이름을 표시하고 모임 상세를 목적지로 반환한다.")
-    void showGroupNameAndDetailTargetForEveryEvent(NotificationEventType eventType) {
+    @DisplayName("모든 사건은 모임 이름과 사건별 이동 대상을 반환한다.")
+    void showGroupNameAndTargetForEveryEvent(NotificationEventType eventType) {
         // Given
         Member owner = member("101");
         var recruitment = recruitment(owner, JoinMethod.APPROVAL, 5);
@@ -110,8 +110,16 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
         // Then
         assertThat(detail.statusCode()).isEqualTo(200);
         assertThat(detail.jsonPath().getString("data.body")).contains(group.getName());
-        assertThat(detail.jsonPath().getString("data.target.kind")).isEqualTo("GROUP_DETAIL");
+        String expectedKind = switch (eventType) {
+            case REGISTRATION_SUBMITTED -> "LEADER_REGISTRATIONS";
+            case PARTICIPANT_JOINED -> "LEADER_MEMBERS";
+            case REGISTRATION_APPROVED -> "MY_GROUPS";
+            case REGISTRATION_REJECTED, REGISTRATION_SYSTEM_REJECTED -> "MY_PAGE";
+        };
+        assertThat(detail.jsonPath().getString("data.target.kind")).isEqualTo(expectedKind);
+        assertThat(list.jsonPath().getString("data.items[0].target.kind")).isEqualTo(expectedKind);
         assertThat(detail.jsonPath().getLong("data.target.groupId")).isEqualTo(group.getId());
+        assertThat(detail.jsonPath().getLong("data.target.registrationId")).isEqualTo(123);
         assertThat(list.jsonPath().getString("data.items[0].body"))
                 .isEqualTo(detail.jsonPath().getString("data.body"));
     }

@@ -1,6 +1,6 @@
 import { test, expect } from "playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { installApiFixture } from "./api-fixture.js";
+import { group, installApiFixture } from "./api-fixture.js";
 
 const initialRows = [1, 2].map((id) => ({ id, eventType: "REGISTRATION_APPROVED", payloadVersion: 1,
   title: `모임 신청 승인 ${id}`, body: "‘테스트 모임’ 모임의 신청이 승인되었습니다.",
@@ -80,19 +80,43 @@ test("@core delete failure keeps row; normal motion starts only after successful
   await expect(page.locator(".notification-row--exiting")).toHaveCount(1);
   await expect(page.getByText("모임 신청 승인 1", { exact: true })).toHaveCount(0);
 });
-for (const kind of ["GROUP_DETAIL", "MY_REGISTRATIONS", "LEADER_REGISTRATIONS"]) {
-  test(`@core notification ${kind} opens group detail without requiring its recruitment`, async ({ page }) => {
-    const { state } = await fixture(page);
-    state.rows[0].target.kind = kind;
-    await page.route("**/api/groups/10/recruitments/20", (route) => route.fulfill({ status: 404 }));
-    await page.goto("/notifications");
-    await expect(page.getByText("‘테스트 모임’ 모임의 신청이 승인되었습니다.")).toHaveCount(2);
-    await page.getByRole("link", { name: /모임 신청 승인 1/ }).click();
-    await expect(page).toHaveURL(/\/groups\/10$/);
-    expect(state.reads).toBeGreaterThan(0);
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  });
+for (const [kind, destination] of Object.entries({ GROUP_DETAIL: "/my?focusGroup=10&notification=1", LEADER_REGISTRATIONS: "/groups/10/manage/registrations",
+  LEADER_MEMBERS: "/groups/10/manage/members", MY_GROUPS: "/my?focusGroup=10&notification=1", MY_PAGE: "/my?registrationStatus=REJECTED&focusRegistration=44&notification=1", MY_REGISTRATIONS: "/my?registrationStatus=REJECTED&focusRegistration=44&notification=1" })) {
+  for (const entry of ["inbox", "push"]) {
+    test(`@core notification ${kind} from ${entry} opens its destination`, async ({ page }) => {
+      const { state } = await fixture(page);
+      state.rows[0].target.kind = kind;
+      state.rows[0].target.registrationId = 44;
+      if (kind === "MY_PAGE" || kind === "MY_REGISTRATIONS") {
+        await page.route("**/api/groups/10", (route) => route.fulfill({ status: 404 }));
+      }
+      if (entry === "inbox") {
+        await page.goto("/notifications");
+        await page.getByRole("link", { name: /모임 신청 승인 1/ }).click();
+      } else {
+        await page.goto("/notifications/open/1");
+      }
+      await expect(page).toHaveURL((url) => url.pathname + url.search === destination);
+      if (kind === "GROUP_DETAIL" || kind === "MY_GROUPS" || kind === "MY_PAGE" || kind === "MY_REGISTRATIONS") {
+        const panel = kind === "GROUP_DETAIL" || kind === "MY_GROUPS" ? "#my-groups-panel" : "#my-registrations-panel";
+        const itemId = kind === "GROUP_DETAIL" || kind === "MY_GROUPS" ? 10 : 44;
+        const card = page.locator(`${panel} [data-activity-id="${itemId}"]`);
+        await expect(card).toBeFocused();
+        await expect(card).toHaveClass(/activity-row--notification/);
+      }
+      expect(state.reads).toBeGreaterThan(0);
+    });
+  }
 }
+test("@core former leader cannot open notification management target or mark it read", async ({ page }) => {
+  const { state } = await fixture(page);
+  state.rows[0].target = { kind: "LEADER_REGISTRATIONS", groupId: 11, recruitmentId: 20 };
+  await page.route("**/api/groups/11", (route) => route.fulfill({ json: { success: true,
+    data: { ...group, id: 11, leader: { ...group.leader, memberId: 2 } }, error: null } }));
+  await page.goto("/notifications/open/1");
+  await expect(page.getByRole("alert")).toContainText("이 알림을 확인할 수 없어요");
+  expect(state.reads).toBe(0);
+});
 test("@core actual Service Worker stores binding in IndexedDB and shares disarm across tabs", async ({ page, context }) => {
   await installApiFixture(page); await page.goto("/groups");
   const command = async (target, type, extra = {}) => target.evaluate(async ({ type, extra }) => {
@@ -120,6 +144,8 @@ test("@core actual Service Worker stores binding in IndexedDB and shares disarm 
 for (const status of [403, 404]) {
   test(`@core notification target ${status} keeps an inbox return without marking read`, async ({ page }) => {
     const { state } = await fixture(page);
+    state.rows[0].target.kind = "LEADER_REGISTRATIONS";
+    state.rows[0].eventType = "REGISTRATION_SUBMITTED";
     await page.route("**/api/groups/10", (route) => route.fulfill({ status, json: { success: false, data: null, error: { code: status === 403 ? "FORBIDDEN" : "GROUP_NOT_FOUND" } } }));
     await page.goto("/notifications/open/1");
     await expect(page.getByRole("alert")).toContainText("이 알림을 확인할 수 없어요");

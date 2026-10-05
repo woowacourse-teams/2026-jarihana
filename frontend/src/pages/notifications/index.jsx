@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
+import { useAuth } from "../../features/auth";
 import { fetchGroup } from "../../features/group/api";
 import { NotificationInbox } from "../../features/notifications/NotificationInbox";
 import { fetchNotification, notificationTargetPath, readNotification } from "../../features/notifications/api";
@@ -17,11 +18,18 @@ export function NotificationOpenPage() {
   const navigate = useNavigate();
   const client = useQueryClient();
   const scope = useNotificationScope();
+  const { member } = useAuth();
   const validId = /^[1-9]\d*$/.test(id) && Number.isSafeInteger(Number(id));
   const query = useQuery({ queryKey: [...scope.key, "open", id], enabled: scope.enabled && validId,
     queryFn: async ({ signal }) => {
       const notification = await fetchNotification(id, undefined, signal);
-      await fetchGroup(notification.target.groupId);
+      const { kind, groupId } = notification.target;
+      if (kind !== "MY_PAGE" && kind !== "MY_REGISTRATIONS" && kind !== "MY_GROUPS") {
+        const group = await fetchGroup(groupId);
+        if ((kind === "LEADER_REGISTRATIONS" || kind === "LEADER_MEMBERS") && group.leader.memberId !== member?.id) {
+          throw Object.assign(new Error("Leader access required"), { status: 403 });
+        }
+      }
       return notification;
     }, retry: false, staleTime: 0 });
   const read = useMutation({ mutationFn: () => readNotification(id) });
@@ -29,13 +37,18 @@ export function NotificationOpenPage() {
   useEffect(() => {
     if (!query.data || !scope.enabled) return;
     let current = true;
-    mutate(undefined, { onSuccess: () => {
+    mutate(undefined, { onSuccess: async () => {
       if (!current) return;
-      void client.invalidateQueries({ queryKey: scope.key });
-      navigate(notificationTargetPath(query.data.target), { replace: true });
+      await Promise.all([
+        client.invalidateQueries({ queryKey: [...scope.key, "list"] }),
+        client.invalidateQueries({ queryKey: [...scope.key, "count"] }),
+        client.invalidateQueries({ queryKey: ["groups", "list"] }),
+        client.invalidateQueries({ queryKey: ["registrations", "my"] })
+      ]);
+      if (current) navigate(notificationTargetPath(query.data.target, id), { replace: true });
     } });
     return () => { current = false; };
-  }, [client, mutate, navigate, query.data, scope.enabled, scope.key, readRetry]);
+  }, [client, mutate, navigate, query.data, scope.enabled, scope.key, readRetry, id]);
   const error = query.error ?? read.error;
   return <PageContainer><section className="notification-page">
     <h1>알림 확인</h1>

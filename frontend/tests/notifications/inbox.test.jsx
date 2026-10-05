@@ -63,9 +63,18 @@ test("empty state appears after deleting the last row", async () => {
   await screen.findByText("아직 받은 알림이 없어요.");
 });
 test("server targets map to internal destinations and unsupported targets are rejected", () => {
-  for (const kind of ["GROUP_DETAIL", "MY_REGISTRATIONS", "LEADER_REGISTRATIONS"]) {
-    expect(original.notificationTargetPath({ kind, groupId: 10, recruitmentId: 20 })).toBe("/groups/10");
+  for (const [kind, path] of Object.entries({ GROUP_DETAIL: "/groups/10", MY_REGISTRATIONS: "/my?registrationStatus=REJECTED&focusRecruitment=20", MY_PAGE: "/my?registrationStatus=REJECTED&focusRecruitment=20", MY_GROUPS: "/my?focusGroup=10",
+    LEADER_REGISTRATIONS: "/groups/10/manage/registrations", LEADER_MEMBERS: "/groups/10/manage/members" })) {
+    expect(original.notificationTargetPath({ kind, groupId: 10, recruitmentId: 20 })).toBe(path);
   }
+  expect(original.notificationTargetPath({ kind: "MY_PAGE", groupId: 10, recruitmentId: 20, registrationId: 44 }, 5))
+    .toBe("/my?registrationStatus=REJECTED&focusRegistration=44&notification=5");
   expect(original.notificationSchema.safeParse({ ...row(1), payloadVersion: 1, eventType: "REGISTRATION_APPROVED",
     target: { kind: "EXTERNAL", groupId: 1, recruitmentId: 2 } }).success).toBe(false);
+});
+
+test("previous backend approval destination also focuses the joined group on my page", () => {
+  const notification = original.notificationSchema.parse({ ...row(1), payloadVersion: 1,
+    eventType: "REGISTRATION_APPROVED", target: { kind: "GROUP_DETAIL", groupId: 10, recruitmentId: 20 } });
+  expect(original.notificationTargetPath(notification.target, notification.id)).toBe("/my?focusGroup=10&notification=1");
 });

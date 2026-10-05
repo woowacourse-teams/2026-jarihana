@@ -8,8 +8,8 @@ import java.time.LocalDateTime;
 public record NotificationItemResult(long id, NotificationEventType eventType, int payloadVersion, String title,
                                      String body, LocalDateTime createdAt, LocalDateTime readAt, Target target) {
 
-    public enum TargetKind { GROUP_DETAIL }
-    public record Target(TargetKind kind, long groupId, long recruitmentId) { }
+    public enum TargetKind { GROUP_DETAIL, LEADER_REGISTRATIONS, LEADER_MEMBERS, MY_PAGE, MY_GROUPS }
+    public record Target(TargetKind kind, long groupId, long recruitmentId, long registrationId) { }
 
     public static NotificationItemResult from(NotificationProjection projection, String groupName) {
         String title = switch (projection.eventType()) {
@@ -29,8 +29,14 @@ public record NotificationItemResult(long id, NotificationEventType eventType, i
                 case GROUP_ENDED -> group + "이 종료되어 신청이 미승인되었습니다.";
             };
         };
+        TargetKind targetKind = switch (projection.eventType()) {
+            case REGISTRATION_SUBMITTED -> TargetKind.LEADER_REGISTRATIONS;
+            case PARTICIPANT_JOINED -> TargetKind.LEADER_MEMBERS;
+            case REGISTRATION_APPROVED -> TargetKind.MY_GROUPS;
+            case REGISTRATION_REJECTED, REGISTRATION_SYSTEM_REJECTED -> TargetKind.MY_PAGE;
+        };
         return new NotificationItemResult(projection.id(), projection.eventType(), projection.payloadVersion(), title,
                 body, projection.createdAt(), projection.readAt(),
-                new Target(TargetKind.GROUP_DETAIL, projection.payload().getGroupId(), projection.payload().getRecruitmentId()));
+                new Target(targetKind, projection.payload().getGroupId(), projection.payload().getRecruitmentId(), projection.payload().getRegistrationId()));
     }
 }

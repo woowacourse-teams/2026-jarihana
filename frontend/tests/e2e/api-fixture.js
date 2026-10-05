@@ -196,7 +196,7 @@ const myRegistration = {
 };
 delete myRegistration.member;
 
-const rejectedMyRegistration = {
+export const rejectedMyRegistration = {
   ...myRegistration,
   canWithdraw: false,
   decidedAt: "2026-08-15T11:00:00",

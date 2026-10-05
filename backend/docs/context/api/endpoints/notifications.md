@@ -58,9 +58,10 @@ RestAssured 인수 테스트로 계약을 검증한다. 알림함 API는 Control
       "createdAt": "2026-10-03T10:00:00",
       "readAt": null,
       "target": {
-        "kind": "GROUP_DETAIL",
+        "kind": "MY_GROUPS",
         "groupId": 12,
-        "recruitmentId": 45
+        "recruitmentId": 45,
+        "registrationId": 123
       }
     }],
     "nextCursor": null,
@@ -73,7 +74,15 @@ RestAssured 인수 테스트로 계약을 검증한다. 알림함 API는 Control
 - 읽은 알림도 목록에 포함하며, 삭제된 알림만 제외한다.
 - `readAt = null`이면 안 읽음이다.
 - `title`은 사건 종류, `body`는 모임 이름과 발생한 일을 함께 표시한다. 모임 이름은 조회 시 현재 이름을 사용하며, 삭제된 모임은 `삭제된 모임`으로 표시한다. 목록의 모임 이름은 일괄 조회한다.
-- `target.kind`는 모든 사건에서 `GROUP_DETAIL`이다. `groupId`로 `/groups/{groupId}`에 이동하며 `recruitmentId`는 사건의 모집 식별 정보로 유지한다.
+- `target.kind`는 사건에 따라 아래 목적지를 나타낸다. `recruitmentId`는 사건의 모집 식별 정보로 유지한다.
+
+| 사건 | target.kind | 이동 경로 |
+| --- | --- | --- |
+| 새 가입 신청 | `LEADER_REGISTRATIONS` | `/groups/{groupId}/manage/registrations` |
+| 새 구성원 참여 | `LEADER_MEMBERS` | `/groups/{groupId}/manage/members` |
+| 신청 승인 | `MY_GROUPS` | `/my?focusGroup={groupId}` |
+| 수동 미승인·재모집 미승인·모임 종료 미승인 | `MY_PAGE` | `/my?registrationStatus=REJECTED&focusRegistration={registrationId}` |
+
 - 클라이언트는 `target`을 내부 화면 경로로 해석한다. 외부 URL을 목적지로 전달하지 않는다.
 - 목록 조회나 알림함을 여는 동작만으로 읽음 처리하지 않는다.
 
@@ -106,9 +115,10 @@ RestAssured 인수 테스트로 계약을 검증한다. 알림함 API는 Control
     "createdAt": "2026-10-03T10:00:00",
     "readAt": null,
     "target": {
-      "kind": "GROUP_DETAIL",
+      "kind": "MY_GROUPS",
       "groupId": 12,
-      "recruitmentId": 45
+      "recruitmentId": 45,
+      "registrationId": 123
     }
   },
   "error": null
@@ -117,7 +127,7 @@ RestAssured 인수 테스트로 계약을 검증한다. 알림함 API는 Control
 
 - 목록의 개별 항목과 같은 응답 필드를 사용한다.
 - 미삭제 본인 알림만 조회하며, 조회 자체로 읽음 상태를 변경하지 않는다.
-- 클릭 후 클라이언트는 본인 알림과 모임의 존재·접근 가능 여부를 확인하고 개별 읽음 API를 호출한 뒤 모임 상세로 이동한다. 모집이 삭제되었거나 리더가 변경되어도 모임 상세를 볼 수 있으면 이동한다. 모임 조회가 403/404이면 읽음 처리하지 않고 알림함 복귀를 안내한다.
+- 알림함과 푸시 클릭은 같은 진입 경로에서 본인 알림을 조회하고 사건별 목적지로 이동한다. 관리 화면은 현재 모임장인지 확인한 뒤 읽음 처리한다. 승인과 미승인은 읽음 처리 후 마이페이지에서 해당 참여 모임 또는 미승인 신청을 찾아 포커스·강조한다. 권한 변경이나 모임 조회 403/404이면 읽음 처리 없이 알림함 복귀를 안내한다. 승인·미승인 알림은 모임 개별 조회 없이 마이페이지의 본인 목록에서 대상을 찾는다. 목록의 다음 페이지도 조회하며, 탈퇴·삭제 등으로 대상이 없으면 안내한다. `registrationId`는 같은 모임의 여러 신청 중 정확한 항목을 선택하는 데 사용한다.
 
 #### 예외
 
