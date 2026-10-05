@@ -78,11 +78,14 @@ export function PushSettings({ headingLevel = 3 }) {
   return (
     <section aria-label="푸시 설정" className="notification-push-settings">
       <div><Heading>이 브라우저의 푸시 알림</Heading><p>{description}</p></div>
-      {canUsePush && connection?.config.enabled ? <Button
+      {canUsePush && connection?.config.enabled ? <button
+        aria-label={failedDisable ? "푸시 알림 해제 재시도" : "이 브라우저의 푸시 알림"}
+        aria-checked={Boolean(connection.active || failedDisable)} aria-busy={pending || undefined}
+        className="notification-push-toggle" role="switch" type="button"
         data-ph-capture-attribute-action={connection.active || failedDisable ? "push_disable" : Notification.permission === "default" ? "push_permission_request" : "push_enable"}
-        disabled={logoutPending || (permissionDenied && !connection.active && !failedDisable) || !connection.state} onClick={() => void toggle()} pending={pending} size="sm" variant="secondary">
-        {failedDisable ? "해제 재시도" : connection.active ? "끄기" : "켜기"}
-      </Button> : null}
+        disabled={pending || logoutPending || (permissionDenied && !connection.active && !failedDisable) || !connection.state} onClick={() => void toggle()}>
+        <span aria-hidden="true" className="notification-push-toggle__track"><span className="notification-push-toggle__thumb" /></span>
+      </button> : null}
       {canUsePush && !connection && !error ? <p role="status">푸시 상태 확인 중…</p> : null}
       {error ? <div role="alert"><p>{error}</p><Button data-ph-capture-attribute-action="push_status_retry" onClick={() => setRetry((value) => value + 1)} size="sm" variant="tertiary">다시 확인</Button></div> : null}
       {installPrompt ? <Button data-ph-capture-attribute-action="pwa_install_prompt" onClick={() => {

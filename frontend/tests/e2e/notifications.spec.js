@@ -30,16 +30,29 @@ async function fixture(page) {
   });
   return { ...state, shared, state };
 }
+async function openInbox(page) {
+  await page.goto("/groups");
+  if (page.viewportSize().width < 768) await page.getByRole("button", { name: "메뉴 열기" }).click();
+  await page.getByRole("button", { name: /알림함/ }).filter({ visible: true }).click();
+  await page.getByRole("dialog", { name: "알림함" }).evaluate(async (dialog) => {
+    await Promise.all(dialog.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined)));
+  });
+}
 for (const width of [360, 768, 1440]) {
   test(`@core inbox read/delete and keyboard at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     const { state } = await fixture(page);
-    await page.goto("/notifications");
+    await openInbox(page);
     await expect(page.getByRole("heading", { name: "알림함", exact: true })).toBeVisible();
     await expect(page.getByText("모임 신청 승인 1", { exact: true })).toBeVisible();
+    const firstRow = page.getByText("모임 신청 승인 1", { exact: true }).locator("..").locator("..");
+    await expect(page.getByText("안 읽음", { exact: true }).first()).toHaveClass(/ui-sr-only/);
+    const unreadDot = await firstRow.evaluate((row) => getComputedStyle(row, "::before").backgroundColor);
     expect(state.reads).toBe(0);
     await page.getByRole("button", { name: "전체 읽음", exact: true }).click();
     await expect(page.getByText("읽음", { exact: true })).toHaveCount(2);
+    await expect(page.getByText("읽음", { exact: true }).first()).toHaveClass(/ui-sr-only/);
+    expect(await firstRow.evaluate((row) => getComputedStyle(row, "::before").backgroundColor)).not.toBe(unreadDot);
     await expect(page.getByRole("list", { name: "받은 알림 목록" }).getByRole("listitem")).toHaveCount(2);
     await page.getByRole("button", { name: "모임 신청 승인 1 알림 삭제" }).focus();
     await page.keyboard.press("Enter");
@@ -47,7 +60,7 @@ for (const width of [360, 768, 1440]) {
     await expect(page.getByRole("link", { name: /모임 신청 승인 2/ })).toBeFocused();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
     expect(overflow).toBe(false);
-    const axe = await new AxeBuilder({ page }).include(".notification-page").analyze();
+    const axe = await new AxeBuilder({ page }).include("[role=dialog]").analyze();
     expect(axe.violations).toEqual([]);
     await page.screenshot({ path: `test-results/notifications-${width}.png`, fullPage: true });
   });
@@ -68,9 +81,96 @@ test("@core bell opens without reading and Escape returns focus", async ({ page 
   await expect(page.getByRole("dialog", { name: "알림함" })).toHaveCount(0);
   await expect(bell).toBeFocused();
 });
+test("@core mobile menu shows only a dot for unread notifications and clears it after read-all", async ({ page }) => {
+  await page.setViewportSize({ width: 481, height: 896 });
+  await fixture(page);
+  await page.goto("/groups");
+  const menu = page.getByRole("button", { name: "메뉴 열기" });
+  await expect(menu.locator(".app-header__unread-dot")).toBeVisible();
+  await expect(menu).toHaveAccessibleDescription("안 읽은 알림이 있어요.");
+  await expect(menu.locator(".app-header__unread-dot")).toHaveText("");
+  await page.screenshot({ path: "test-results/mobile-menu-unread-dot.png" });
+  await menu.click();
+  await page.getByRole("dialog", { name: "전체 메뉴" }).getByRole("button", { name: /알림함/ }).click();
+  await page.getByRole("button", { name: "전체 읽음", exact: true }).click();
+  await expect(menu.locator(".app-header__unread-dot")).toHaveCount(0);
+  await expect(menu).not.toHaveAttribute("aria-describedby");
+  await page.getByRole("dialog", { name: "알림함" }).getByRole("button", { name: "닫기", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeVisible();
+});
+for (const width of [481, 1440]) {
+  test(`@core push switch and notification header at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 896 });
+    await page.context().grantPermissions(["notifications"]);
+    await fixture(page);
+    await page.route("**/api/push-config", (route) => route.fulfill({ json: { success: true, data: {
+      enabled: true, vapidPublicKey: "test-key", payloadVersions: [1]
+    }, error: null } }));
+    await page.addInitScript(() => {
+      Object.defineProperty(Notification, "permission", { configurable: true, get: () => "default" });
+      Notification.requestPermission = async () => "denied";
+    });
+    await page.goto("/groups");
+    if (width < 768) await page.getByRole("button", { name: "메뉴 열기" }).click();
+    const bell = page.getByRole("button", { name: /알림함, 안 읽은 알림/ }).filter({ visible: true });
+    if (width < 768) {
+      await page.getByRole("dialog", { name: "전체 메뉴" }).evaluate(async (dialog) => {
+        await Promise.all(dialog.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined)));
+      });
+      const b = await bell.boundingBox();
+      const m = await page.getByRole("dialog", { name: "전체 메뉴" }).getByRole("button", { name: "닫기", exact: true }).boundingBox();
+      expect(m.x - b.x - b.width).toBeCloseTo(4, 0);
+      await page.screenshot({ path: "test-results/mobile-menu-notification-bell.png" });
+      expect((await new AxeBuilder({ page }).include("[role=dialog]").analyze()).violations).toEqual([]);
+    }
+    await bell.click();
+    await expect(page.getByRole("dialog", { name: "전체 메뉴" })).toHaveCount(0);
+    const toggle = page.getByRole("switch", { name: "이 브라우저의 푸시 알림" });
+    await expect(toggle).toBeEnabled();
+    await expect(toggle).toHaveAttribute("aria-checked", "false");
+    const box = await toggle.boundingBox();
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    await page.getByRole("dialog", { name: "알림함" }).evaluate(async (dialog) => {
+      await Promise.all(dialog.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined)));
+    });
+    expect((await new AxeBuilder({ page }).include("[role=dialog]").analyze()).violations).toEqual([]);
+    await page.screenshot({ path: `test-results/notification-toggle-${width}.png` });
+    await toggle.focus();
+    await page.keyboard.press("Space");
+    await expect(page.getByRole("alert")).toContainText("브라우저 설정에서 알림 권한을 허용해 주세요.");
+    await expect(toggle).toHaveAttribute("aria-checked", "false");
+    if (width < 768) {
+      await page.getByRole("dialog", { name: "알림함" }).getByRole("button", { name: "닫기", exact: true }).click();
+      await expect(page.getByRole("dialog", { name: "전체 메뉴" })).toBeVisible();
+      await expect(page.getByRole("dialog", { name: "알림함" })).toHaveCount(0);
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("button", { name: "메뉴 열기" })).toBeFocused();
+    }
+  });
+}
+for (const width of [360, 1440]) {
+  test(`@core selecting a drawer notification closes the drawer at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await fixture(page);
+    await page.goto("/groups");
+    if (width < 768) await page.getByRole("button", { name: "메뉴 열기" }).click();
+    const bell = page.getByRole("button", { name: /알림함, 안 읽은 알림/ }).filter({ visible: true });
+    await bell.click();
+    const drawer = page.getByRole("dialog", { name: "알림함" });
+    const notification = drawer.getByRole("link", { name: /모임 신청 승인 1/ });
+    await notification.focus();
+    await page.keyboard.press("Enter");
+    await expect(drawer).toHaveCount(0);
+    if (width < 768) await expect(page.getByRole("button", { name: "메뉴 열기" })).toHaveAttribute("aria-expanded", "false");
+    else await expect(bell).toHaveAttribute("aria-expanded", "false");
+    await expect(page).toHaveURL(/\/my\?focusGroup=10&notification=1$/);
+  });
+}
 test("@core delete failure keeps row; normal motion starts only after successful response", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  const { state } = await fixture(page); await page.goto("/notifications");
+  const { state } = await fixture(page); await openInbox(page);
   state.failDelete = true;
   await page.getByRole("button", { name: "모임 신청 승인 1 알림 삭제" }).click();
   await expect(page.getByText("삭제하지 못했어요. 삭제 버튼으로 다시 시도해 주세요.")).toBeVisible();
@@ -91,7 +191,7 @@ for (const [kind, destination] of Object.entries({ GROUP_DETAIL: "/my?focusGroup
         await page.route("**/api/groups/10", (route) => route.fulfill({ status: 404 }));
       }
       if (entry === "inbox") {
-        await page.goto("/notifications");
+        await openInbox(page);
         await page.getByRole("link", { name: /모임 신청 승인 1/ }).click();
       } else {
         await page.goto("/notifications/open/1");
@@ -150,8 +250,8 @@ for (const status of [403, 404]) {
     await page.goto("/notifications/open/1");
     await expect(page.getByRole("alert")).toContainText("이 알림을 확인할 수 없어요");
     expect(state.reads).toBe(0);
-    await page.getByRole("link", { name: "알림함으로 돌아가기" }).click();
-    await expect(page).toHaveURL(/\/notifications$/);
+    await page.getByRole("button", { name: "알림함 열기" }).click();
+    await expect(page.getByRole("dialog", { name: "알림함" })).toBeVisible();
   });
 }
 test("@core signed-out notification click preserves the return route for login", async ({ page }) => {

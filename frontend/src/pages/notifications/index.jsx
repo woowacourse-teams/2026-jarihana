@@ -1,18 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import { useAuth } from "../../features/auth";
 import { fetchGroup } from "../../features/group/api";
-import { NotificationInbox } from "../../features/notifications/NotificationInbox";
+import { NotificationDrawer } from "../../features/notifications/NotificationInbox";
 import { fetchNotification, notificationTargetPath, readNotification } from "../../features/notifications/api";
 import { useNotificationScope } from "../../features/notifications/hooks";
 import { Button, PageContainer } from "../../shared/ui";
 
-export function NotificationsPage() {
-  const { key } = useNotificationScope();
-  return <PageContainer><section className="notification-page"><h1>알림함</h1><NotificationInbox headingLevel={2} key={key.join(":")} /></section></PageContainer>;
-}
 export function NotificationOpenPage() {
+  const [inboxOpen, setInboxOpen] = useState(false);
   const { id } = useParams();
   const [readRetry, setReadRetry] = useState(0);
   const navigate = useNavigate();
@@ -57,7 +54,8 @@ export function NotificationOpenPage() {
         ? "이 알림을 확인할 수 없어요. 삭제되었거나 접근 권한이 변경되었을 수 있어요."
         : "알림을 확인하지 못했어요. 다시 시도해 주세요."}</p>
       {validId && error?.status !== 403 && error?.status !== 404 ? <Button data-ph-capture-attribute-action="notification_open_retry" onClick={() => { if (query.error) void query.refetch(); else setReadRetry((value) => value + 1); }}>다시 시도</Button> : null}
-      <Link data-ph-capture-attribute-action="notification_inbox_return" to="/notifications">알림함으로 돌아가기</Link>
+      <Button data-ph-capture-attribute-action="notification_inbox_return" onClick={() => setInboxOpen(true)}>알림함 열기</Button>
     </> : <p role="status">알림을 확인하고 관련 화면으로 이동하고 있어요…</p>}
+    <NotificationDrawer open={inboxOpen} onOpenChange={setInboxOpen} />
   </section></PageContainer>;
 }

@@ -91,7 +91,7 @@ Content-Type과 `no-cache, max-age=0, must-revalidate`를 지정한다. 파일 �
 | `/sw.js` | JavaScript, SPA HTML로 치환 금지, 장기 immutable 캐시 금지 |
 | `/manifest.webmanifest` | `application/manifest+json` |
 | `/icons/pwa-192.png`, `/icons/pwa-512.png` | `image/png` |
-| `/notifications`, `/notifications/open/:id` | 프론트 SPA 셸, 인증 복귀 경로 유지 |
+| `/notifications/open/:id` | 프론트 SPA 셸, 인증 복귀 경로 유지 |
 | `/api/notifications/*`, `/api/push-subscriptions*`, `/api/push-config` | 백엔드 응답 유지, 인증 쿠키·쿼리와 변경 요청의 CSRF 헤더 전달, 공유 캐시 금지 |
 
 CloudFront의 SW 캐시 정책은 Minimum TTL을 0으로 확인해야 한다. Minimum TTL이 양수이면 origin의

@@ -14,7 +14,7 @@ function timestamp(value) {
     timeZone: "Asia/Seoul", month: "long", day: "numeric", hour: "numeric", minute: "2-digit"
   }).format(date);
 }
-function NotificationRow({ item, onDeleted, onBusy, onFocusNext }) {
+function NotificationRow({ item, onDeleted, onBusy, onFocusNext, onOpenNotification }) {
   const row = useRef(null);
   const [exiting, setExiting] = useState(false);
   const [pending, setPending] = useState(false);
@@ -37,8 +37,12 @@ function NotificationRow({ item, onDeleted, onBusy, onFocusNext }) {
   return (
     <li className={`notification-row${item.readAt ? " notification-row--read" : ""}${exiting ? " notification-row--exiting" : ""}`} ref={row}>
       <Link className="notification-row__link" data-ph-capture-attribute-action="notification_open"
-        aria-disabled={exiting || undefined} tabIndex={exiting ? -1 : undefined} to={`/notifications/open/${item.id}`}>
-        <span className="notification-row__status">{item.readAt ? "읽음" : "안 읽음"}</span>
+        aria-disabled={exiting || undefined} tabIndex={exiting ? -1 : undefined} to={`/notifications/open/${item.id}`}
+        onClick={(event) => {
+          if (exiting) { event.preventDefault(); return; }
+          if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) onOpenNotification?.();
+        }}>
+        <span className="notification-row__status ui-sr-only">{item.readAt ? "읽음" : "안 읽음"}</span>
         <strong>{item.title}</strong><span>{item.body}</span><time dateTime={`${item.createdAt}+09:00`}>{timestamp(item.createdAt)}</time>
       </Link>
       <button aria-label={`${item.title} 알림 삭제`} className="notification-row__delete" data-ph-capture-attribute-action="notification_delete"
@@ -48,7 +52,7 @@ function NotificationRow({ item, onDeleted, onBusy, onFocusNext }) {
     </li>
   );
 }
-export function NotificationInbox({ headingLevel = 3 }) {
+export function NotificationInbox({ headingLevel = 3, onOpenNotification }) {
   const Heading = `h${headingLevel}`;
   const client = useQueryClient();
   const scope = useNotificationScope();
@@ -89,7 +93,7 @@ export function NotificationInbox({ headingLevel = 3 }) {
       {list.isSuccess && items.length === 0 ? <div className="notification-empty"><Bell aria-hidden="true" /><p>아직 받은 알림이 없어요.</p><span>모임의 새 소식이 여기에 쌓여요.</span></div> : null}
       <ul aria-label="받은 알림 목록" className="notification-list">
         {items.map((item) => <NotificationRow item={item} key={item.id} onBusy={(busy) => setBusyRows((current) => current + (busy ? 1 : -1))}
-          onDeleted={deleted} onFocusNext={focusNext} />)}
+          onDeleted={deleted} onFocusNext={focusNext} onOpenNotification={onOpenNotification} />)}
       </ul>
       {list.hasNextPage && !brokenCursor ? <Button data-ph-capture-attribute-action="notification_load_more" disabled={busyRows > 0}
         onClick={() => void list.fetchNextPage()} pending={list.isFetchingNextPage} variant="secondary">더 보기</Button> : null}
@@ -97,20 +101,28 @@ export function NotificationInbox({ headingLevel = 3 }) {
     </div>
   );
 }
-export function NotificationBell() {
-  const [open, setOpen] = useState(false);
+export function NotificationBellTrigger({ open = false, onClick }) {
   const count = useUnreadCount();
-  const { key } = useNotificationScope();
   const unread = count.data?.unreadCount;
   return (
-    <>
       <button aria-expanded={open} aria-haspopup="dialog" aria-label={`알림함${unread ? `, 안 읽은 알림 ${unread}개` : ""}`}
-        className="notification-bell" data-ph-capture-attribute-action="notification_inbox_open" onClick={() => setOpen(true)} type="button">
+        className="notification-bell" data-ph-capture-attribute-action="notification_inbox_open" onClick={onClick} type="button">
         <Bell aria-hidden="true" />{unread > 0 ? <span aria-hidden="true" className="notification-bell__count">{unread > 99 ? "99+" : unread}</span> : null}
       </button>
-      <Drawer closeAction="notification_inbox_close" onOpenChange={setOpen} open={open} title="알림함">
-        <NotificationInbox key={key.join(":")} />
-      </Drawer>
+  );
+}
+export function NotificationDrawer({ open, onOpenChange, onOpenNotification = () => onOpenChange(false) }) {
+  const { key } = useNotificationScope();
+  return <Drawer closeAction="notification_inbox_close" onOpenChange={onOpenChange} open={open} title="알림함">
+    <NotificationInbox key={key.join(":")} onOpenNotification={onOpenNotification} />
+  </Drawer>;
+}
+export function NotificationBell() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <NotificationBellTrigger open={open} onClick={() => setOpen(true)} />
+      <NotificationDrawer open={open} onOpenChange={setOpen} />
     </>
   );
 }

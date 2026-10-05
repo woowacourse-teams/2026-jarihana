@@ -101,7 +101,7 @@ header 구현으로 확대하지 않았다.
 
 ### 웹푸시·알림함 구현
 
-현재 `/notifications` 페이지와 헤더의 알림함 Drawer에 구현되어 있다.
+알림함은 헤더의 종 버튼이 여는 Drawer로 제공하며 독립된 `/notifications` 페이지는 없다.
 [백엔드 ADR 0015](../../backend/docs/adr/0015-web-push-and-notification-inbox.md)와
 [알림 API](../../backend/docs/context/api/endpoints/notifications.md)를 함께 따른다.
 

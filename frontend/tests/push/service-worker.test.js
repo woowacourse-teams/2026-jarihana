@@ -77,7 +77,7 @@ test("failed authentication shows only general copy and clicks the inbox", async
   expect(options.data.notificationId).toBeNull(); expect(options.body).not.toContain("승인");
   let done;
   w.handlers.notificationclick({ notification: { data: options.data, close: jest.fn() }, waitUntil: (promise) => { done = promise; } });
-  await done; expect(w.self.clients.openWindow).toHaveBeenCalledWith("https://app.test/notifications");
+  await done; expect(w.self.clients.openWindow).toHaveBeenCalledWith("https://app.test/");
 });
 test("matching click goes through the authenticated app route instead of a payload URL", async () => {
   const w = worker(); await bind(w); await w.push();

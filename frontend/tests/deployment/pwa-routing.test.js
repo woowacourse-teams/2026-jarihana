@@ -11,7 +11,7 @@ describe.each(["spa-fallback.js", "group-share-preview.js"])("CloudFront %s", (f
     const result = context.handler({ request: { uri, method: "GET", querystring: {} } });
     expect(result.uri).toBe(uri);
   });
-  test.each(["/notifications", "/notifications/open/12"])("%s opens the SPA for authentication and internal navigation", (uri) => {
+  test.each(["/", "/notifications/open/12"])("%s opens the SPA for authentication and internal navigation", (uri) => {
     const result = context.handler({ request: { uri, method: "GET", querystring: {} } });
     expect(result.uri).toBe("/index.html");
   });

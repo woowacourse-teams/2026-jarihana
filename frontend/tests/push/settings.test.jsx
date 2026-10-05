@@ -18,8 +18,9 @@ beforeEach(() => {
 afterEach(() => { global.Notification = originalNotification; delete navigator.serviceWorker; });
 test("opening settings does not request permission; an explicit click requests and binds", async () => {
   render(<PushSettings />);
-  const button = await screen.findByRole("button", { name: "켜기" });
+  const button = await screen.findByRole("switch", { name: "이 브라우저의 푸시 알림" });
   expect(Notification.requestPermission).not.toHaveBeenCalled();
+  expect(button).toHaveAttribute("aria-checked", "false");
   expect(button).toHaveAttribute("data-ph-capture-attribute-action", "push_permission_request");
   fireEvent.click(button);
   expect(Notification.requestPermission).toHaveBeenCalledTimes(1);
@@ -27,9 +28,25 @@ test("opening settings does not request permission; an explicit click requests a
 });
 test("denied permission explains browser settings without repeatedly requesting permission", async () => {
   Notification.permission = "denied"; render(<PushSettings />);
-  expect(await screen.findByRole("button", { name: "켜기" })).toBeDisabled();
+  expect(await screen.findByRole("switch", { name: "이 브라우저의 푸시 알림" })).toBeDisabled();
   expect(screen.getByText(/알림 권한이 차단돼 있어요/)).toBeInTheDocument();
   expect(Notification.requestPermission).not.toHaveBeenCalled();
+});
+test("toggle reflects the confirmed connection after enabling and disabling", async () => {
+  render(<PushSettings />);
+  const toggle = await screen.findByRole("switch", { name: "이 브라우저의 푸시 알림" });
+  await waitFor(() => expect(toggle).not.toBeDisabled());
+  syncBrowserPush.mockResolvedValue({ config: { enabled: true }, registration: {}, active: true });
+  workerCommand.mockResolvedValue({ armed: true });
+  fireEvent.click(toggle);
+  expect(toggle).toBeDisabled();
+  await waitFor(() => expect(toggle).toHaveAttribute("aria-checked", "true"));
+  await waitFor(() => expect(toggle).not.toBeDisabled());
+  syncBrowserPush.mockResolvedValue({ config: { enabled: true }, registration: {}, active: false });
+  workerCommand.mockResolvedValue({ armed: false });
+  fireEvent.click(toggle);
+  await waitFor(() => expect(toggle).toHaveAttribute("aria-checked", "false"));
+  expect(disableBrowserPush).toHaveBeenCalledTimes(1);
 });
 test("iOS outside the installed app shows installation guidance without subscription calls", () => {
   pushEnvironment.mockReturnValue({ supported: false, installRequired: true }); render(<PushSettings />);
@@ -41,8 +58,9 @@ test("failed server disable can be retried without re-enabling push", async () =
   syncBrowserPush.mockResolvedValue({ config: { enabled: true }, registration: {}, active: true });
   workerCommand.mockResolvedValue({ armed: true });
   disableBrowserPush.mockRejectedValueOnce(new Error("offline")); render(<PushSettings />);
-  fireEvent.click(await screen.findByRole("button", { name: "끄기" }));
-  const retry = await screen.findByRole("button", { name: "해제 재시도" });
+  fireEvent.click(await screen.findByRole("switch", { name: "이 브라우저의 푸시 알림" }));
+  const retry = await screen.findByRole("switch", { name: "푸시 알림 해제 재시도" });
+  expect(retry).toHaveAttribute("aria-checked", "true");
   await waitFor(() => expect(retry).not.toBeDisabled()); fireEvent.click(retry);
   await waitFor(() => expect(disableBrowserPush).toHaveBeenCalledTimes(2));
   expect(enableBrowserPush).not.toHaveBeenCalled();

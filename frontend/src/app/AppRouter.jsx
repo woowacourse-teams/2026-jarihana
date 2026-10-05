@@ -24,7 +24,6 @@ const loadManagePages = () => import("../pages/manage/index.js");
 
 const loadNotificationPages = () => import("../pages/notifications/index.jsx");
 export const lazyPageRegistry = Object.freeze({
-  NotificationsPage: lazyNamed(loadNotificationPages, "NotificationsPage"),
   NotificationOpenPage: lazyNamed(loadNotificationPages, "NotificationOpenPage"),
   ActivityPostsPage: lazyNamed(loadActivityPostPages, "ActivityPostsPage"),
   GroupBrowsePage: lazyNamed(loadGroupPages, "GroupBrowsePage"),

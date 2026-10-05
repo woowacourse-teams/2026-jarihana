@@ -115,7 +115,7 @@ async function openNotification(notification) {
   notification.close();
   const state = await serial(readState);
   const valid = sameBinding(state, notification.data?.binding ?? {}) && positive(notification.data?.notificationId);
-  const path = valid ? `/notifications/open/${notification.data.notificationId}` : "/notifications";
+  const path = valid ? `/notifications/open/${notification.data.notificationId}` : "/";
   const url = new URL(path, self.location.origin).href;
   const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
   const windowClient = windows.find((client) => new URL(client.url).origin === self.location.origin);

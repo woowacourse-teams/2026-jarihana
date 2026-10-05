@@ -17,6 +17,10 @@ async function mutation(context, method, path, data) {
   expect(response.ok(), `${method} ${path}: HTTP ${response.status()}`).toBe(true);
   return response.status() === 204 ? undefined : (await response.json()).data;
 }
+async function openInbox(page) {
+  await page.goto(`${origin}/groups`);
+  await page.getByRole("button", { name: /알림함/ }).filter({ visible: true }).click();
+}
 const seoulTime = (offset) => new Date(Date.now() + 9 * 3600000 + offset).toISOString().slice(0, 19);
 async function businessFlow(browser) {
   const leader = await browser.newContext({ baseURL: origin });
@@ -33,7 +37,7 @@ async function businessFlow(browser) {
 test("real business APIs create inbox rows; click, read-all, delete and logout use real backend", async ({ browser }) => {
   const flow = await businessFlow(browser);
   try {
-    const page = await flow.leader.newPage(); await page.goto(`${origin}/notifications`);
+    const page = await flow.leader.newPage(); await openInbox(page);
     await expect(page.getByRole("list", { name: "받은 알림 목록" }).getByRole("listitem")).not.toHaveCount(0);
     const notifications = (await (await flow.leader.request.get("/api/notifications?size=100")).json()).data.items;
     const submitted = notifications.find((item) => item.target.recruitmentId === flow.recruitment.id);
@@ -42,7 +46,7 @@ test("real business APIs create inbox rows; click, read-all, delete and logout u
     await page.goto(`${origin}/notifications/open/${submitted.id}`);
     await expect(page).toHaveURL(new RegExp(`/groups/${flow.group.id}/manage/registrations$`));
     await mutation(flow.leader, "PATCH", `recruitments/${flow.recruitment.id}/registrations/${flow.registration.id}`, { status: "APPROVED" });
-    const inbox = await flow.applicant.newPage(); await inbox.goto(`${origin}/notifications`);
+    const inbox = await flow.applicant.newPage(); await openInbox(inbox);
     const rows = inbox.getByRole("list", { name: "받은 알림 목록" }).getByRole("listitem");
     await expect(rows).not.toHaveCount(0);
     const approved = (await (await flow.applicant.request.get("/api/notifications?size=100")).json()).data.items.find((item) => item.target.recruitmentId === flow.recruitment.id);
@@ -54,11 +58,12 @@ test("real business APIs create inbox rows; click, read-all, delete and logout u
     await inbox.goto(`${origin}/notifications/open/${approved.id}`);
     await expect(inbox).toHaveURL((url) => url.pathname === "/my" && url.searchParams.get("focusGroup") === String(flow.group.id));
     await expect(inbox.locator(`#my-groups-panel [data-activity-id="${flow.group.id}"]`)).toBeFocused();
-    await inbox.goto(`${origin}/notifications`);
+    await openInbox(inbox);
     await expect(rows).not.toHaveCount(0);
     const row = rows.filter({ has: inbox.locator(`a[href='/notifications/open/${approved.id}']`) });
     await row.getByRole("button", { name: /알림 삭제/ }).click(); await expect(row).toHaveCount(0);
     expect((await flow.applicant.request.get(`/api/notifications/${approved.id}`)).status()).toBe(404);
+    await inbox.getByRole("dialog", { name: "알림함" }).getByRole("button", { name: "닫기", exact: true }).click();
     await inbox.getByRole("button", { name: "프로필 메뉴" }).click();
     await inbox.getByRole("button", { name: "로그아웃", exact: true }).click();
     await expect(inbox.getByRole("button", { name: "GitHub로 로그인" }).first()).toBeVisible();
@@ -83,11 +88,11 @@ test("real Chrome receives an external provider push and current-browser logout 
   let flow;
   try {
     await authenticate(context, "leader");
-    const page = await context.newPage(); await page.goto(`${origin}/notifications`);
+    const page = await context.newPage(); await openInbox(page);
     const registeredResponse = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/push-subscriptions" && response.request().method() === "POST");
-    await page.getByRole("button", { name: "켜기", exact: true }).click();
+    await page.getByRole("switch", { name: "이 브라우저의 푸시 알림", exact: true }).click();
     const registered = (await (await registeredResponse).json()).data;
-    await expect(page.getByRole("button", { name: "끄기", exact: true })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole("switch", { name: "이 브라우저의 푸시 알림", exact: true })).toHaveAttribute("aria-checked", "true", { timeout: 60_000 });
     flow = await businessFlow(browser);
     const inbox = (await (await context.request.get("/api/notifications?size=100")).json()).data.items;
     const notification = inbox.find((item) => item.target.recruitmentId === flow.recruitment.id);
@@ -96,6 +101,7 @@ test("real Chrome receives an external provider push and current-browser logout 
       const notices = await registration.getNotifications({ tag: `jarihana:${id}` });
       return notices.some((notice) => notice.data?.notificationId === id && notice.title === "새 신청");
     }, notification.id), { timeout: 60_000 }).toBe(true);
+    await page.getByRole("dialog", { name: "알림함" }).getByRole("button", { name: "닫기", exact: true }).click();
     await page.getByRole("button", { name: "프로필 메뉴" }).click();
     await page.getByRole("button", { name: "로그아웃", exact: true }).click();
     await expect(page.getByRole("button", { name: "GitHub로 로그인" }).first()).toBeVisible();
