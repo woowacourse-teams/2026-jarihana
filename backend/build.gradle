@@ -16,6 +16,7 @@ java {
 ext {
 	jjwtVersion = '0.13.0'
 	awsSdkVersion = '2.31.63'
+	sentryVersion = '8.58.0'
 }
 
 repositories {
@@ -29,6 +30,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-session-jdbc'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	implementation "io.sentry:sentry-spring-boot-4-starter:${sentryVersion}"
 	implementation 'io.micrometer:micrometer-registry-prometheus'
 	implementation platform("software.amazon.awssdk:bom:${awsSdkVersion}")
 	implementation 'software.amazon.awssdk:s3'

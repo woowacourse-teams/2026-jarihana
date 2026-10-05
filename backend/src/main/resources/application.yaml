@@ -15,6 +15,14 @@ spring:
     exclude:
       - org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
 
+sentry:
+  dsn: ${SENTRY_BACKEND_DSN:}
+  environment: ${SENTRY_ENVIRONMENT:local}
+  release: ${APP_VERSION:unknown}
+  send-default-pii: false
+  max-request-body-size: none
+  enable-tracing: false
+
 jarihana:
   image:
     bucket: ${IMAGE_S3_BUCKET:techcourse-project-2026}

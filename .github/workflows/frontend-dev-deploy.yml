@@ -76,13 +76,17 @@ jobs:
         env:
           APP_GITHUB_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
           APP_GITHUB_REDIRECT_URI: ${{ vars.OAUTH_GITHUB_REDIRECT_URI }}
+          APP_SENTRY_DSN: ${{ vars.SENTRY_FRONTEND_DSN }}
+          APP_SENTRY_RELEASE: ${{ github.sha }}
           APP_OAUTH_COOKIE_NAME: oauthState
           DISABLE_REACT_DEVTOOLS: "1"
           APP_ANALYTICS_ENABLED: "false"
           APP_DEPLOY_ENV: development
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
           set -euo pipefail
           npm run build
+          npm run clean:sourcemaps
           test -f dist/index.html
           test -d dist/assets
 

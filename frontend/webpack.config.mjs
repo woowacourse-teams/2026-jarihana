@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import CopyWebpackPlugin from "copy-webpack-plugin";
 import dotenv from "dotenv";
 import HtmlWebpackPlugin from "html-webpack-plugin";
+import { sentryWebpackPlugin } from "@sentry/webpack-plugin";
 import webpack from "webpack";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
@@ -16,6 +17,8 @@ const publicEnvironmentKeys = [
   "APP_POSTHOG_PROJECT_TOKEN",
   "APP_POSTHOG_HOST",
   "APP_ANALYTICS_ENABLED",
+  "APP_SENTRY_DSN",
+  "APP_SENTRY_RELEASE",
   "APP_DEPLOY_ENV",
   "DISABLE_REACT_DEVTOOLS"
 ];
@@ -27,9 +30,25 @@ const publicEnvironmentDefinitions = Object.fromEntries(
 export default (_, arguments_) => {
   const mode = arguments_.mode ?? "development";
   const isProduction = mode === "production";
+  const sentryPlugins =
+    isProduction && process.env.SENTRY_AUTH_TOKEN && process.env.APP_SENTRY_RELEASE
+      ? [
+          sentryWebpackPlugin({
+            authToken: process.env.SENTRY_AUTH_TOKEN,
+            org: "jarihana",
+            project: "jarihana-frontend",
+            release: { name: process.env.APP_SENTRY_RELEASE },
+            sourcemaps: {
+              assets: path.resolve(directory, "dist/**"),
+              filesToDeleteAfterUpload: path.resolve(directory, "dist/**/*.map")
+            },
+            telemetry: false
+          })
+        ]
+      : [];
 
   return {
-    devtool: isProduction ? "source-map" : "eval-source-map",
+    devtool: isProduction ? "hidden-source-map" : "eval-source-map",
     entry: path.resolve(directory, "src/index.jsx"),
     output: {
       clean: true,
@@ -98,7 +117,8 @@ export default (_, arguments_) => {
       new webpack.DefinePlugin({
         ...publicEnvironmentDefinitions,
         "process.env.NODE_ENV": JSON.stringify(isProduction ? "production" : "development")
-      })
+      }),
+      ...sentryPlugins
     ],
     devServer: {
       client: {

@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "webpack serve --mode development --port 5173",
     "build": "webpack --mode production",
+    "clean:sourcemaps": "node scripts/clean-source-maps.mjs",
     "preview": "webpack serve --mode production --port 4173",
     "lint": "eslint .",
     "typecheck": "npm run lint -- --max-warnings=0",
@@ -21,6 +22,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "5.9.1",
+    "@sentry/react": "11.4.0",
     "@tanstack/react-query": "5.101.4",
     "ky": "2.0.2",
     "lucide-react": "1.33.0",
@@ -41,6 +43,7 @@
     "@babel/preset-env": "8.0.2",
     "@babel/preset-react": "8.0.1",
     "@eslint/js": "9.39.1",
+    "@sentry/webpack-plugin": "5.4.0",
     "@tailwindcss/postcss": "4.3.3",
     "@testing-library/dom": "10.4.1",
     "@testing-library/jest-dom": "7.0.1",

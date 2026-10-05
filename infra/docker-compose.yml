@@ -6,6 +6,8 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
       APP_VERSION: "${BACKEND_TAG:?BACKEND_TAG is required}"
+      SENTRY_BACKEND_DSN: "${SENTRY_BACKEND_DSN:-}"
+      SENTRY_ENVIRONMENT: production
       DB_URL: "jdbc:postgresql://postgres:5432/jarihana"
       DB_USERNAME: "jarihana"
       DB_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
