@@ -102,3 +102,14 @@ S3 이미지까지 외부 카드에서 보려면 이미지도 공개 URL이어�
 ## 운영 기능
 
 - [PostHog 분석 수집 설정과 이벤트 목록](docs/analytics.md)
+
+## PWA와 웹푸시
+
+- 알림함은 프로필 옆 종 버튼과 `/notifications`에서 제공한다. 푸시 권한은 알림함의 `켜기` 버튼으로 요청한다.
+- HTTPS(로컬 개발은 localhost)에서 SW·PushManager·Notification을 지원하는 환경이 필요하다. iPhone·iPad는 홈 화면에 추가한 앱에서 켠다.
+- 백엔드 공개 설정이 비활성인 경우 알림함만 제공한다. VAPID 개인키는 프론트 환경 변수에 넣지 않는다.
+- Webpack이 `public/sw.js`, `manifest.webmanifest`, `icons/pwa-192.png`, `icons/pwa-512.png`를 빌드 결과로 복사한다.
+- 배포 서버는 `/sw.js`에 JavaScript MIME 타입을 제공하고 SPA fallback보다 먼저 처리해야 한다. SW에는 장기 immutable 캐시를 적용하지 않고 재검증하도록 설정한다. manifest·아이콘도 정확한 파일을 반환해야 한다.
+- SW scope는 `/`다. 앱 페이지·API를 오프라인 캐시하지 않는다. 새 SW는 기존 탭을 닫은 후 활성화되며 인증·구독 상태는 다시 확인한다.
+- 로그아웃 실패 시 로그인 상태는 유지되지만 로컬 푸시는 중단된다. 로그아웃 재시도 또는 알림함의 명시적 `켜기`로 다음 동작을 선택한다.
+- [프론트엔드 ADR 0002](docs/adr/0002-notification-inbox-and-service-worker.md)에 연결·수신·로그아웃 순서와 검증 경계를 기록했다. 실제 제공자 전달과 실기기 확인은 아직 남아 있다.

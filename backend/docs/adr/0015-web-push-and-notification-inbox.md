@@ -1,8 +1,9 @@
 # ADR 0015. 알림함에 소식을 저장하고 웹푸시는 별도로 전송한다
 
-- 상태: **채택 — 백엔드 알림함·구독·웹푸시 전송 구현, 화면·실기기 연결 전**
+- 상태: **채택 — 백엔드 알림함·구독·웹푸시 전송 구현, 화면·Service Worker 연결 구현, 실기기 검증 전**
 - 날짜: 2026-10-02
 - 작성 목적: 웹푸시 업무 담당자가 선택한 구조와 그 이유를 팀에 공유한다.
+- 프론트엔드 구조: [프론트엔드 ADR 0002 · 알림함과 Service Worker](../../../frontend/docs/adr/0002-notification-inbox-and-service-worker.md)
 - 결정 범위: 알림 저장, 브라우저 구독, 푸시 전송과 실패 처리의 구조
 - 관련 결정: [백엔드 ADR 0008 · CQRS-lite 협업 경계](0008-cqrs-lite-collaboration-boundary.md),
   [백엔드 ADR 0011 · PostgreSQL 선택](0011-postgresql-rdbms-selection.md)

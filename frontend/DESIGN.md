@@ -671,3 +671,27 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
 - Reference fidelity boundary: the screenshot's hand-drawn artwork, fabricated participant
   portraits and technology tags are not supplied production assets/API fields. Use existing
   imagery and supported types. New browser checks cover 375/768/1280px and live data.
+
+## 12. 알림함과 웹푸시
+
+- 기존 검은 헤더와 흰 surface/mint palette를 유지한다. 로그인 시 desktop 프로필 바로 왼쪽,
+  mobile 메뉴 버튼 왼쪽에 44px 종 버튼과 안 읽은 수를 표시한다.
+- 알림함은 공통 Drawer의 focus trap·Escape·닫기 후 focus 복귀를 재사용한다.
+  [scroll-body-shell](https://github.com/changeroa/StyleGallery/blob/main/patterns/viewport-shell/scroll-body-shell.md)
+  구조를 따라 패널 안쪽 콘텐츠가 스크롤하며 페이지는 잠긴다. 긴 문구는 줄바꿈한다.
+- NotificationRow: 제목·본문·서울 기준 시각·읽음 상태, 별도의 삭제 버튼. 미읽음은
+  brand-soft surface와 텍스트로 구분한다. 목록을 여는 동작은 읽음 처리하지 않는다.
+- 전체 읽음은 재조회로 표시만 바꾼다. 삭제 API 성공 후 해당 행을 오른쪽 100%로
+  translate하며 opacity를 낮추고 제거한다. 주변 행은 제거 후 자연스럽게 자리를 채운다.
+  [beui swipeable-list](https://beui.dev/r/swipeable-list/raw)의 수평 transform·세로 스크롤 분리
+  원리를 참조했으며 새 gesture/motion 라이브러리는 추가하지 않는다. 삭제는 버튼으로 수행한다.
+  duration-deliberate(240ms)·ease-standard를 사용하고 reduced-motion에서는 즉시 제거한다.
+  삭제된 행에 focus가 있으면 다음 항목, 이전 항목, 목록 제목 순으로 옮긴다.
+- NotificationBell/NotificationRow/PushSettings는 loading·empty·error·pending·disabled·retry
+  상태를 갖는다. 아이콘은 lucide-react, 색·글자·간격·radius는 기존 공통 token을 사용한다.
+- 단독 /notifications는 PageContainer 안의 같은 알림함을 사용한다. 목록 읽기 폭
+  --notifications-content-width는 48rem이다. 종 아이콘은 --space-5 크기다.
+- 푸시 설정은 이 브라우저의 상태를 설명한다. 모바일 설치 안내, 권한 거부·미지원·
+  서버 비활성·동기화 실패와 재시도를 구분한다. 계정·endpoint·키는 분석에 보내지 않는다.
+- 변경 범위의 viewport 360/768/1440, 키보드·긴 문구·삭제 실패·reduced-motion을 확인한다.
+  실제 OS 알림·외부 Push Service·모바일 설치는 6단계 실기기 검증으로 남긴다.

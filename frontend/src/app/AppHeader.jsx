@@ -1,3 +1,4 @@
+import { NotificationBell } from "../features/notifications/NotificationInbox";
 import { useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { UserRound } from "lucide-react";
@@ -117,16 +118,17 @@ function FeedbackLink({ onClick, onNavigate, open, status }) {
 }
 
 function AuthAction({ onNavigate, status }) {
-  const { login, logout } = useAuth();
+  const { login, logout, logoutPending } = useAuth();
 
   if (status === "authenticated") {
     return (
       <button
         className="app-header__auth app-header__auth--secondary"
         data-ph-capture-attribute-action="logout"
+        disabled={logoutPending}
         onClick={() => {
           onNavigate();
-          void logout();
+          void Promise.resolve(logout()).catch(() => undefined);
         }}
         type="button"
       >
@@ -171,7 +173,7 @@ function AuthAction({ onNavigate, status }) {
 }
 
 export function AppHeader({ action = null, title = "" }) {
-  const { avatarUrl, login, member, status } = useAuth();
+  const { avatarUrl, login, logout, logoutError, logoutPending, member, status } = useAuth();
   const memberDetails = member?.memberType === "COACH"
     ? "코치"
     : `${generationLabel(member?.generation)}${member?.course ? ` / ${COURSE_LABELS[member.course]}` : ""}`;
@@ -279,12 +281,13 @@ export function AppHeader({ action = null, title = "" }) {
             {title ? <span className="app-header__context">{title}</span> : null}
             {action}
             {status === "authenticated" ? (
-              <ProfileMenu />
+              <div className="notification-header-actions"><NotificationBell /><ProfileMenu /></div>
             ) : (
               <AuthAction onNavigate={() => {}} status={status} />
             )}
           </div>
 
+          {status === "authenticated" ? <div className="notification-mobile-trigger"><NotificationBell /></div> : null}
           <button
             aria-expanded={isMenuOpen}
             aria-label="메뉴 열기"
@@ -299,6 +302,12 @@ export function AppHeader({ action = null, title = "" }) {
         </div>
       </header>
 
+      {logoutError ? <div className="notification-logout-error" role="alert"><p>{logoutError}</p>
+        <button data-ph-capture-attribute-action={status === "authenticated" ? "logout_retry" : "login_retry"} disabled={logoutPending}
+          onClick={() => { if (status === "authenticated") void logout().catch(() => undefined); else login(); }} type="button">
+          {status === "authenticated" ? "로그아웃 재시도" : "로그인 재시도"}
+        </button>
+      </div> : null}
       <Modal
         closeAction="feedback_form_dismiss"
         onOpenChange={handleFeedbackOpenChange}

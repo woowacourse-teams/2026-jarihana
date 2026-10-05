@@ -1,7 +1,7 @@
 # 알림함·웹푸시
 
 > 상태: 알림함 API 6개, 구독·공개 설정·푸시 내용 조회 API 5개와 로그아웃 확장을 구현했다.
-> 알림함 화면·Service Worker의 실제 수신·클릭 연결은 후속 구현 범위다.
+> 알림함 화면·Service Worker 연결은 구현했다. 실제 Push Service 수신·실기기 클릭과 배포는 별도 검증이 필요하다.
 
 [API 공통 설계](../common-contract.md)를 따른다. 구현 시 Controller·요청/응답 DTO·ErrorCode와
 RestAssured 인수 테스트로 계약을 검증한다. 알림함 API는 Controller·DTO·ErrorCode와 인수 테스트에 반영했다. 선택 이유는

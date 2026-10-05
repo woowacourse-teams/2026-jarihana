@@ -99,21 +99,21 @@ header 구현으로 확대하지 않았다.
 
 ## 실제 API 계약 요약
 
-### 웹푸시·알림함 구현 계약 (구현 전)
+### 웹푸시·알림함 구현
 
-아직 현재 라우트·UI에 구현되지 않은 계약이다.
+현재 `/notifications` 페이지와 헤더의 알림함 Drawer에 구현되어 있다.
 [백엔드 ADR 0015](../../backend/docs/adr/0015-web-push-and-notification-inbox.md)와
 [알림 API](../../backend/docs/context/api/endpoints/notifications.md)를 함께 따른다.
 
 - 로그인 회원의 프로필 옆 종 접근을 desktop·mobile 모두 제공한다. 열기만으로 읽음 처리하지 않는다.
-- 목록/안 읽은 수는 계정별 query key. read/read-all 성공 후 invalidate하며 읽은 행은 유지한다.
+- 목록/안 읽은 수는 회원 ID·인증 세션 버전별 query key. 계정·세션 변경 시 이전 조회를 취소하고 캐시를 제거한다. 안 읽은 수는 30초마다/창 복귀 때 갱신하며 목록은 열기·새로고침·변경 성공 후 갱신한다. read/read-all 성공 후 invalidate하며 읽은 행은 유지한다.
 - 전체 읽음은 서버 전체 대상 처리다. 요청 중 새로 도착한 알림까지 무조건 읽음으로 칠하지 않는다.
-- DELETE204 뒤에만 해당 행 퇴장·collapse. 실패 행 유지, reduced-motion 이동 생략, 키보드 focus 보존.
+- DELETE204 뒤에만 해당 행을 240ms 슬라이드 후 제거한다. 실패 행 유지, reduced-motion 이동 생략, 키보드 focus 보존.
 - 신규 진입 `/notifications/open/:id`는 기존 AuthGuard/returnTarget 흐름으로 인증 복귀하고,
   GET `/notifications/{id}`로 본인·target을 확인한 뒤 PATCH read와 내부 경로 이동을 수행한다.
 - 모임장은 해당 모집의 신청 관리, 신청자는 `/my/registrations`로 이동한다.403/404는 안내와 안전한 복귀.
-- 이 기기 push setting은 명시적 동작에 따른 권한 요청/등록/해제. 모바일에만 설치 안내.
-- 현재 브라우저의 구독 id·generation을 보관하고, 서버는 회원 소유권·활성 상태·generation을 확인한다.
+- 이 브라우저 push setting은 명시적 동작에 따른 권한 요청/등록/해제. iPhone·iPad의 일반 브라우저는 홈 화면 설치 안내를 표시한다. 설치 이벤트를 제공하는 브라우저는 설치 버튼을 표시한다.
+- SW의 IndexedDB에 현재 브라우저의 회원 ID·구독 id·generation·armed·revision을 보관한다. endpoint·암호화 키·알림 본문·로그인 토큰은 보관하지 않는다. 서버는 회원 소유권·활성 상태·generation을 확인한다.
 - SW는 푸시의 구독 id·generation을 조회 전과 응답 후에 다시 확인한다. private 응답 no-store·일반 안내 fallback.
 - logout 전 local disarm 완료 확인 후 `{pushSubscriptionId,generation}`을 전송한다. 계정 전환·logout 뒤 이전 응답의 표시·캐시 반영을 막는다.
 - 새 동작에 고정 action 지정: notification_inbox_open, notification_open, notification_read_all,
