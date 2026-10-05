@@ -352,10 +352,21 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - `PageContainer`: 모든 route의 좌우 gutter와 최대 폭을 통일한다.
 - 공개 활동 목록은 탐색 목록과 같은 `--space-12` 상단 여백, `--text-h1` 제목과
   제목 아래 `--space-6` 간격을 사용한다. 영어 eyebrow와 중복 소개 문구는 두지 않는다.
-  `활동 기록` 제목 옆에 `활동 올리기` primary small 버튼을 두며, 64rem 미만에서는
-  탐색 페이지처럼 제목 아래 왼쪽으로 배치한다. 카메라 아이콘은 `--space-5`, 글자와의 간격은
-  `--space-2`이며 하나의 inline-flex 안에서 세로 가운데로 맞춘다. 로그인 전후 문구·크기는
-  같고 기존 로그인 흐름과 action 식별자를 유지한다. 범위 필터는 제목 다음 행에 둔다.
+  제목 다음 행에 범위 필터와 `활동 올리기` primary small 버튼을 하나의 toolbar로 묶는다.
+  필터는 왼쪽, 버튼은 오른쪽에서 세로 가운데로 맞추며, 선택한 필터는 brand-ink 글자와
+  brand 밑줄로 표시한다. toolbar 아래에는 `--color-line` 구분선을 둔다.
+  선택 밑줄은 실제 탭의 위치·너비에 맞춰 `--duration-base`와 `--ease-standard`로 이동한다.
+  목록은 새 필터의 데이터가 준비되면 공통 탭과 같은 opacity 0→1, `--space-2` 아래에서
+  제자리로 이동하는 전환을 사용한다. 기존 사진 DOM과 masonry 측정은 유지하며,
+  추가 페이지 로딩에는 반복하지 않는다. reduced-motion에서는 두 전환 모두 생략한다.
+  필터의 클릭 높이는 `--touch-target` 이상이고, 좁은 화면에서는 좌우 padding을 줄여
+  두 필터와 버튼을 배치하되 공간이 부족하면 자연스럽게 줄바꿈한다.
+  카메라 아이콘은 `--space-5`, 글자와의 간격은 `--space-2`이며 하나의 inline-flex로 정렬한다.
+  로그인 전후 문구·크기는 같고 기존 로그인 흐름과 action 식별자를 유지한다.
+  공개 목록의 빈 상태는 숫자와 테두리 박스 없이 기존 빈자리 일러스트(최대 14rem),
+  `--text-h3` 안내 제목, 한 줄 설명을 가운데 배치한다. 전체·내 기록의 안내를 구분하며
+  올리기 버튼은 toolbar에 한 번만 표시한다. 모임 내부의 기록 권한과 빈 상태,
+  사진 카드의 크기·정보·masonry 배치는 그대로 유지한다.
 - `ListLayout`: PageHeader → search/filter → result meta → cards → cursor action. 한 화면 안의 hero,
   tool row, result heading, card grid는 `PageContainer`의 동일한 좌우 rail을 공유하며,
   카드 grid의 좌우 변을 기준으로 정렬한다. 탐색 discovery는 hero와 분리된 soft surface 안에

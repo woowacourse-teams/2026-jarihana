@@ -14,6 +14,7 @@ import {
 import { fetchGroups } from "../../features/group/api.js";
 import { groupKeys } from "../../features/group/hooks.js";
 import { toUserMessage } from "../../shared/api/index.js";
+import emptyStateIllustration from "../../shared/assets/illustrations/group-recruitment-empty.webp";
 import {
   Button,
   ConfirmDialog,
@@ -391,12 +392,34 @@ function ActivityPhotoWall({ busy, onDelete, onEdit, posts, scopeKey }) {
   );
 }
 
-function ActivityPostFilters({ mine, onSelectMine, onSelectPublic }) {
+function ActivityPostFilters({ animatedUnderline, mine, onSelectMine, onSelectPublic }) {
+  const filtersReference = useRef(null);
+
+  useLayoutEffect(() => {
+    if (!animatedUnderline) return undefined;
+    const filters = filtersReference.current;
+    const updateIndicator = () => {
+      const selectedTab = filters?.querySelector('[aria-selected="true"]');
+      if (!selectedTab) return;
+      filters.style.setProperty("--activity-post-indicator-x", `${selectedTab.offsetLeft}px`);
+      filters.style.setProperty("--activity-post-indicator-scale", `${selectedTab.offsetWidth}`);
+    };
+    updateIndicator();
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateIndicator) : null;
+    if (filters) observer?.observe(filters);
+    window.addEventListener("resize", updateIndicator);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", updateIndicator);
+    };
+  }, [animatedUnderline, mine]);
+
   return (
     <div
       aria-label="활동 기록 범위"
       className="activity-post-filters"
       data-active={mine ? "mine" : "all"}
+      ref={filtersReference}
       role="tablist"
     >
       <span aria-hidden="true" className="activity-post-filters__indicator" />
@@ -431,6 +454,8 @@ export function ActivityPostBoard({ group = null }) {
   const toast = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const mine = searchParams.get("mine") === "true";
+  const contentReference = useRef(null);
+  const previousMine = useRef(mine);
   const [composerOpen, setComposerOpen] = useState(false);
   const [composerSession, setComposerSession] = useState(0);
   const [editingPost, setEditingPost] = useState(null);
@@ -458,6 +483,26 @@ export function ActivityPostBoard({ group = null }) {
     onLoadMore: () => postsQuery.fetchNextPage(),
     pending: Boolean(postsQuery.isFetchingNextPage)
   });
+
+  useLayoutEffect(() => {
+    if (!isGlobal || hasPreviousFeed || postsQuery.isLoading || previousMine.current === mine) return;
+    previousMine.current = mine;
+    const content = contentReference.current;
+    if (!content?.animate || !window.matchMedia?.("(prefers-reduced-motion: no-preference)")?.matches) return;
+
+    const styles = getComputedStyle(content);
+    const animation = content.animate(
+      [
+        { opacity: 0, transform: "translateY(var(--space-2))" },
+        { opacity: 1, transform: "translateY(0)" }
+      ],
+      {
+        duration: Number.parseFloat(styles.getPropertyValue("--duration-base")),
+        easing: styles.getPropertyValue("--ease-standard").trim()
+      }
+    );
+    return () => animation.cancel();
+  }, [hasPreviousFeed, isGlobal, mine, postsQuery.isLoading]);
 
   function openLogin(target) {
     storeReturnTarget(target);
@@ -575,10 +620,12 @@ export function ActivityPostBoard({ group = null }) {
     <>
       <div className="activity-post-board__toolbar">
         <ActivityPostFilters
+          animatedUnderline={isGlobal}
           mine={mine}
           onSelectMine={() => chooseMine(true)}
           onSelectPublic={() => chooseMine(false)}
         />
+        {isGlobal ? action : null}
         {isRefreshingFeed ? (
           <p className="activity-post-board__refresh" role="status">
             활동 기록을 불러오는 중…
@@ -590,57 +637,67 @@ export function ActivityPostBoard({ group = null }) {
         {groupLoginAction}
       </div>
 
-      {postsQuery.isLoading ? (
-        <div aria-label="활동 기록 불러오는 중" className="activity-photo-wall activity-photo-wall--loading" role="status">
-          {Array.from({ length: 6 }, (_, index) => (
-            <Skeleton className="activity-photo-wall__skeleton" key={index} />
-          ))}
-        </div>
-      ) : null}
-      {!postsQuery.isLoading && postsQuery.isError ? (
-        <ErrorState
-          action={<Button onClick={() => postsQuery.refetch()}>다시 시도</Button>}
-          description="연결을 확인하고 다시 시도해 주세요."
-          title="활동 기록을 불러오지 못했어요"
-        />
-      ) : null}
-      {!postsQuery.isLoading && !postsQuery.isError && posts.length > 0 ? (
-        <>
-          <ActivityPhotoWall
-            busy={isRefreshingFeed}
-            key={viewerKey}
-            onDelete={setDeletingPost}
-            onEdit={startEdit}
-            posts={posts}
-            scopeKey={group ? `group:${group.id}` : mine ? "mine" : "all"}
-          />
-          {postsQuery.isFetchingNextPage ? (
-            <div
-              aria-label="다음 활동 기록 불러오는 중"
-              className="activity-photo-wall activity-photo-wall--loading activity-photo-wall--next-page"
-              role="status"
-            >
-              {Array.from({ length: 3 }, (_, index) => (
-                <Skeleton className="activity-photo-wall__skeleton" key={index} />
-              ))}
-            </div>
-          ) : null}
-          <div className="activity-post-board__sentinel" ref={sentinelReference}>
-            {hasNextPage || hasPreviousFeed ? null : <span>모든 활동 기록을 확인했어요.</span>}
+      <div className="activity-post-board__content" ref={contentReference}>
+        {postsQuery.isLoading ? (
+          <div aria-label="활동 기록 불러오는 중" className="activity-photo-wall activity-photo-wall--loading" role="status">
+            {Array.from({ length: 6 }, (_, index) => (
+              <Skeleton className="activity-photo-wall__skeleton" key={index} />
+            ))}
           </div>
-        </>
-      ) : null}
-      {!postsQuery.isLoading && !postsQuery.isError && posts.length === 0 ? (
-        <EmptyState
-          action={isGlobal ? undefined : canCreateInGroup ? action : groupLoginAction ?? undefined}
-          description={
-            mine
-              ? "아직 내가 남긴 사진 기록이 없어요."
-              : "모임의 순간을 사진으로 기록해 첫 게시글을 남겨 보세요."
-          }
-          title={mine ? "내 활동 기록이 없어요" : "아직 사진 기록이 없어요"}
-        />
-      ) : null}
+        ) : null}
+        {!postsQuery.isLoading && postsQuery.isError ? (
+          <ErrorState
+            action={<Button onClick={() => postsQuery.refetch()}>다시 시도</Button>}
+            description="연결을 확인하고 다시 시도해 주세요."
+            title="활동 기록을 불러오지 못했어요"
+          />
+        ) : null}
+        {!postsQuery.isLoading && !postsQuery.isError && posts.length > 0 ? (
+          <>
+            <ActivityPhotoWall
+              busy={isRefreshingFeed}
+              key={viewerKey}
+              onDelete={setDeletingPost}
+              onEdit={startEdit}
+              posts={posts}
+              scopeKey={group ? `group:${group.id}` : mine ? "mine" : "all"}
+            />
+            {postsQuery.isFetchingNextPage ? (
+              <div
+                aria-label="다음 활동 기록 불러오는 중"
+                className="activity-photo-wall activity-photo-wall--loading activity-photo-wall--next-page"
+                role="status"
+              >
+                {Array.from({ length: 3 }, (_, index) => (
+                  <Skeleton className="activity-photo-wall__skeleton" key={index} />
+                ))}
+              </div>
+            ) : null}
+            <div className="activity-post-board__sentinel" ref={sentinelReference}>
+              {hasNextPage || hasPreviousFeed ? null : <span>모든 활동 기록을 확인했어요.</span>}
+            </div>
+          </>
+        ) : null}
+        {!postsQuery.isLoading && !postsQuery.isError && posts.length === 0 ? (
+          <div className={isGlobal ? "activity-post-board__empty" : undefined}>
+            <EmptyState
+              action={isGlobal ? undefined : canCreateInGroup ? action : groupLoginAction ?? undefined}
+              description={
+                isGlobal
+                  ? mine
+                    ? "함께한 순간을 첫 활동으로 올려 보세요."
+                    : "함께한 순간을 사진으로 나눠 보세요."
+                  : mine
+                    ? "아직 내가 남긴 사진 기록이 없어요."
+                    : "모임의 순간을 사진으로 기록해 첫 게시글을 남겨 보세요."
+              }
+              showMark={!isGlobal}
+              title={mine ? "내 활동 기록이 없어요" : "아직 사진 기록이 없어요"}
+              visual={isGlobal ? <img alt="" height="720" src={emptyStateIllustration} width="720" /> : undefined}
+            />
+          </div>
+        ) : null}
+      </div>
     </>
   );
 
@@ -648,10 +705,7 @@ export function ActivityPostBoard({ group = null }) {
     <>
       {isGlobal ? (
         <PageContainer className="activity-posts-page">
-          <PageHeader
-            action={action}
-            title="활동 기록"
-          />
+          <PageHeader title="활동 기록" />
           {content}
         </PageContainer>
       ) : (

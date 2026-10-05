@@ -88,6 +88,77 @@
   color: var(--color-ink);
 }
 
+.activity-posts-page .activity-post-board__toolbar {
+  column-gap: var(--space-3);
+  row-gap: var(--space-2);
+  border-bottom: var(--border-thin) solid var(--color-line);
+}
+
+.activity-posts-page .activity-post-filters {
+  display: flex;
+  gap: var(--space-2);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.activity-posts-page .activity-post-filters .activity-post-filters__indicator {
+  display: block;
+  inset: auto auto 0 0;
+  width: 1px;
+  height: var(--border-strong);
+  border-radius: 0;
+  background: var(--color-brand);
+  box-shadow: none;
+  transform: translateX(var(--activity-post-indicator-x, 0))
+    scaleX(var(--activity-post-indicator-scale, 0));
+  transform-origin: left center;
+}
+
+.activity-posts-page .activity-post-filters__tab {
+  min-height: calc(var(--touch-target) + var(--space-2));
+  width: auto;
+  padding-inline: var(--space-3);
+  border-bottom: var(--border-strong) solid transparent;
+  border-radius: 0;
+}
+
+.activity-posts-page .activity-post-filters__tab.is-active {
+  color: var(--color-brand-ink);
+}
+
+.activity-posts-page .activity-post-board__refresh {
+  flex-basis: 100%;
+  padding-bottom: var(--space-2);
+  text-align: right;
+}
+
+.activity-post-board__empty .ui-state {
+  min-height: 0;
+  padding: var(--space-8) var(--space-4) var(--space-12);
+  border: 0;
+  background: transparent;
+  gap: var(--space-2);
+}
+
+.activity-post-board__empty .ui-state__visual {
+  width: min(100%, 14rem);
+  margin-bottom: var(--space-3);
+}
+
+.activity-post-board__empty .ui-state__visual img {
+  height: auto;
+}
+
+.activity-post-board__empty .ui-state__title {
+  font-size: var(--text-h3);
+}
+
+.activity-post-board__empty .ui-state__description {
+  font-size: var(--text-label);
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .activity-post-filters__indicator {
     transition: transform var(--duration-base) var(--ease-standard);
@@ -393,13 +464,6 @@
   }
 }
 
-@media (max-width: 63.9375rem) {
-  .activity-posts-page .ui-page-header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-}
-
 @media (max-width: 39.9375rem) {
   .activity-photo-wall {
     grid-template-columns: minmax(0, 1fr);
@@ -407,6 +471,18 @@
 
   .activity-post-board__toolbar {
     align-items: flex-start;
+  }
+
+  .activity-posts-page .activity-post-board__toolbar {
+    align-items: center;
+  }
+
+  .activity-posts-page .activity-post-filters {
+    gap: 0;
+  }
+
+  .activity-posts-page .activity-post-filters__tab {
+    padding-inline: var(--space-2);
   }
 
   .activity-photo-card__paper {
