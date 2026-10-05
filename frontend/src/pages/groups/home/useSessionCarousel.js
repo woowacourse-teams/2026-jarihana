@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 const AUTO_ROTATION_INTERVAL = 5000;
+const INTERACTION_IDLE_DELAY = 10000;
 
 function normalizeIndex(index, itemCount) {
   if (itemCount <= 0) return 0;
@@ -17,8 +18,7 @@ function readsReducedMotion() {
 export function useSessionCarousel(itemCount, { interval = AUTO_ROTATION_INTERVAL, initialIndex = 0 } = {}) {
   const [rawActiveIndex, setRawActiveIndex] = useState(initialIndex);
   const [focusPaused, setFocusPaused] = useState(false);
-  const [hoverPaused, setHoverPaused] = useState(false);
-  const [userPaused, setUserPaused] = useState(false);
+  const [interactionPausedUntil, setInteractionPausedUntil] = useState(null);
   const [pageHidden, setPageHidden] = useState(
     () => typeof document !== "undefined" && document.hidden
   );
@@ -49,6 +49,11 @@ export function useSessionCarousel(itemCount, { interval = AUTO_ROTATION_INTERVA
     return () => query.removeEventListener?.("change", handleMotionPreferenceChange);
   }, []);
 
+  const pauseInteraction = useCallback(() => {
+    const idleUntil = Date.now() + INTERACTION_IDLE_DELAY;
+    setInteractionPausedUntil((current) => Math.max(current ?? 0, idleUntil));
+  }, []);
+
   const goTo = useCallback(
     (index, { pause = false } = {}) => {
       setRawActiveIndex((current) => {
@@ -56,33 +61,42 @@ export function useSessionCarousel(itemCount, { interval = AUTO_ROTATION_INTERVA
         const distance = forward > itemCount / 2 ? forward - itemCount : forward;
         return itemCount > 1 ? current + distance : 0;
       });
-      if (pause) setUserPaused(true);
+      if (pause) pauseInteraction();
     },
-    [itemCount]
+    [itemCount, pauseInteraction]
   );
 
   const step = useCallback(
     (distance, { pause = false } = {}) => {
       setRawActiveIndex((current) => (itemCount > 1 ? current + distance : 0));
-      if (pause) setUserPaused(true);
+      if (pause) pauseInteraction();
     },
-    [itemCount]
+    [itemCount, pauseInteraction]
   );
   const goNext = useCallback((options) => step(1, options), [step]);
   const goPrevious = useCallback((options) => step(-1, options), [step]);
 
-  const autoPaused =
-    itemCount <= 1 || focusPaused || hoverPaused || userPaused || pageHidden || reducedMotion;
+  const autoPaused = itemCount <= 1 || focusPaused || pageHidden || reducedMotion;
 
   useEffect(() => {
     if (autoPaused) return undefined;
+
+    const remainingInteractionDelay = Math.max((interactionPausedUntil ?? 0) - Date.now(), 0);
+    if (remainingInteractionDelay > 0) {
+      const timer = window.setTimeout(() => {
+        setInteractionPausedUntil(null);
+        setRawActiveIndex((current) => current + 1);
+      }, remainingInteractionDelay);
+
+      return () => window.clearTimeout(timer);
+    }
 
     const timer = window.setInterval(() => {
       setRawActiveIndex((current) => current + 1);
     }, interval);
 
     return () => window.clearInterval(timer);
-  }, [autoPaused, interval, itemCount]);
+  }, [autoPaused, interactionPausedUntil, interval, itemCount]);
 
   return {
     activeIndex,
@@ -90,13 +104,9 @@ export function useSessionCarousel(itemCount, { interval = AUTO_ROTATION_INTERVA
     goNext,
     goPrevious,
     goTo,
-    isAutoPlaying: !autoPaused,
     pauseFocus: () => setFocusPaused(true),
-    pauseHover: () => setHoverPaused(true),
+    pauseInteraction,
     reducedMotion,
-    resumeFocus: () => setFocusPaused(false),
-    resumeHover: () => setHoverPaused(false),
-    setUserPaused,
-    userPaused
+    resumeFocus: () => setFocusPaused(false)
   };
 }

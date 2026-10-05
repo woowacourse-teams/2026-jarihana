@@ -104,7 +104,7 @@
   --duration-fast: 120ms;
   --duration-base: 180ms;
   --duration-deliberate: 240ms;
-  --duration-group-transition: 680ms;
+  --duration-group-transition: 420ms;
   --ease-group-transition: cubic-bezier(.2, 0, .2, 1);
   --duration-smooth: 420ms;
   --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);

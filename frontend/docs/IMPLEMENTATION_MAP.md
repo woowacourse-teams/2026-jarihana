@@ -278,14 +278,17 @@ header 구현으로 확대하지 않았다.
 
 별도 공개 조회 화면 `GroupBrowsePage`는 `/groups`에서 develop의 검색·유형/상태/모집 필터와
 size=12 커서 목록을 재사용한다. `/groups/explore`는 검색 조건과 해시를 보존해 `/groups`로
-replace 이동한다. 헤더의 홈과 브랜드 링크는 `/`, 모임 링크는 `/groups`로 이동하며
+replace 이동한다. 헤더의 홈과 브랜드 링크는 `/`, 탐색 링크는 `/groups`로 이동하며
 각 경로에서 해당 메뉴만 활성화한다. `/groups/:groupId`는 개별 모임 상세 경로로 유지한다.
 
 
 ### 홈·탐색 카드 → 상세 전환
 
-- `app/AppRouter.jsx`는 QueryClient별 data router를 유지하며 `app/routeLoaders.js`가 상세 query를 미리 준비한다.
+- `app/AppRouter.jsx`는 QueryClient별 data router를 유지하며 `app/routeLoaders.js`가 탐색 첫 페이지와 상세 query를 미리 준비한다.
+  탐색 loader와 화면은 `features/group/browseFilters.js`의 URL 정규화와 `infiniteGroupsQueryOptions`의 캐시 키를 공유한다.
+  목록 캐시가 있으면 기존 커서 페이지를 바로 사용하며 검색·필터 변경은 loader 대기 없이 화면 query가 처리한다.
 - `pages/groups/GroupTransition.jsx`의 `GroupDetailLink`는 출발 history key·카드 종류·모임 ID로 클릭한 카드 하나를 선택한다.
+  포인터 진입·키보드 포커스·터치 시작 시 해당 모임 상세 query를 미리 가져온다.
   `group-transition.css`는 대표 이미지와 상세 hero를 native View Transition으로 연결한다.
 - `GroupDetailPage`의 목록 링크와 `ScrollRestoration`이 필터·스크롤을 복원한다. 상세 내부 탭은 origin state를 유지한다.
   `TodaySessionsHero`는 history에 보관한 캐러셀 index로 초기 배치한다. 수정키 클릭은 기존 브라우저 동작을 유지한다.

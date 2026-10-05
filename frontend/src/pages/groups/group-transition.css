@@ -21,8 +21,37 @@
   view-transition-name: group-image;
 }
 
+.group-transition-shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+[data-group-transition-source] .group-transition-shade,
+.group-detail-page .group-profile__shade {
+  view-transition-name: group-shade;
+}
+
+[data-group-transition-source].reference-group-card--featured .reference-group-card__body,
+[data-group-transition-source].archive-card .archive-card__content {
+  view-transition-name: group-card-copy;
+}
+
+[data-group-transition-source].reference-group-card--featured .reference-group-card__badge,
+[data-group-transition-source].archive-card .archive-card__badge {
+  view-transition-name: group-card-badge;
+}
+
 .group-detail-page .group-profile__copy {
   view-transition-name: group-copy;
+}
+
+.group-detail-page .group-detail-tabs {
+  view-transition-name: group-detail-content;
+}
+
+.group-detail-page .group-rail--desktop {
+  view-transition-name: group-detail-rail;
 }
 
 /* The image owns the hero background; the larger card surface stays transparent. */
@@ -30,16 +59,20 @@
   background: transparent;
 }
 
-/* The contrast overlay travels with the shared image. */
 .group-detail-page .group-profile::after {
   display: none;
 }
 
-.group-detail-page .group-profile__art::after {
-  position: absolute;
-  content: "";
-  inset: 0;
+.group-detail-page .group-profile__shade {
   background: var(--group-profile-overlay);
+}
+
+.group-detail-page .group-profile--default-image .group-profile__image {
+  opacity: 1;
+}
+
+.group-detail-page .group-profile--default-image .group-profile__shade {
+  background: var(--group-profile-overlay), linear-gradient(rgb(0 0 0 / 35%), rgb(0 0 0 / 35%));
 }
 
 ::view-transition {
@@ -54,20 +87,43 @@
   z-index: 1;
 }
 
+::view-transition-group(group-detail-content),
+::view-transition-group(group-detail-rail) {
+  z-index: 1;
+}
+
 ::view-transition-group(group-image) {
   z-index: 2;
   border-radius: var(--radius-lg);
+}
+
+::view-transition-group(group-shade) {
+  z-index: 3;
+  overflow: clip;
+  border-radius: var(--radius-lg);
+  animation-duration: var(--duration-group-transition);
+  animation-timing-function: var(--ease-group-transition);
+}
+
+::view-transition-old(group-shade),
+::view-transition-new(group-shade) {
+  height: 100%;
+  mix-blend-mode: normal;
+  animation-duration: var(--duration-group-transition);
+  animation-timing-function: var(--ease-group-transition);
 }
 
 ::view-transition-image-pair(group-image) {
   isolation: isolate;
   overflow: clip;
   border-radius: inherit;
-  animation: group-image-lift var(--duration-group-transition) linear both;
+  box-shadow: var(--shadow-float);
 }
 
-::view-transition-group(group-copy) {
-  z-index: 3;
+::view-transition-group(group-copy),
+::view-transition-group(group-card-copy),
+::view-transition-group(group-card-badge) {
+  z-index: 4;
 }
 
 ::view-transition-group(group-surface),
@@ -99,49 +155,105 @@
 ::view-transition-old(group-image),
 ::view-transition-new(group-image) {
   object-fit: cover;
-  /* Complementary opacities add to full coverage instead of fading through the page. */
-  mix-blend-mode: plus-lighter;
+  animation: none;
+  opacity: 1;
 }
 
 ::view-transition-old(group-image) {
-  animation: group-image-exit var(--duration-group-transition) var(--ease-group-transition) both;
+  display: none;
 }
 
-::view-transition-new(group-image) {
-  animation: group-image-enter var(--duration-group-transition) var(--ease-group-transition) both;
+:root[data-group-photo-motion]::view-transition-image-pair(group-image) {
+  background-image: var(--group-photo-url);
+  background-position: center;
+  background-repeat: no-repeat;
+  animation: group-photo-crop var(--duration-group-transition) var(--ease-group-transition) both;
+}
+
+:root[data-group-photo-motion]::view-transition-new(group-image) {
+  visibility: hidden;
+}
+
+@keyframes group-photo-crop {
+  from {
+    background-size: var(--group-photo-from-size);
+    background-color: var(--group-photo-from-background);
+  }
+  to {
+    background-size: var(--group-photo-to-size);
+    background-color: var(--group-photo-to-background);
+  }
 }
 
 ::view-transition-old(group-copy) {
   animation-duration: var(--duration-fast);
 }
 
-::view-transition-new(group-surface),
-::view-transition-new(group-copy) {
-  animation: group-copy-reveal var(--duration-group-transition) linear both;
+::view-transition-new(group-surface) {
+  animation: group-image-enter var(--duration-fast) var(--ease-standard)
+    calc(var(--duration-group-transition) - var(--duration-fast)) both;
 }
 
-@keyframes group-copy-reveal {
-  0%, 80% { opacity: 0; }
-  100% { opacity: 1; }
+::view-transition-new(group-copy) {
+  animation: group-detail-copy-in var(--duration-fast) var(--ease-standard)
+    calc(var(--duration-group-transition) - var(--duration-fast)) both;
+}
+
+/* Returning cards keep their final bounds while the photo travels back above them. */
+:root:has(.groups-page)::view-transition-group(group-surface) {
+  animation: none;
+}
+
+:root:has(.groups-page)::view-transition-new(group-surface),
+::view-transition-new(group-card-copy),
+::view-transition-new(group-card-badge) {
+  animation: group-image-enter var(--duration-base) var(--ease-standard) both;
+}
+
+::view-transition-old(group-card-copy),
+::view-transition-old(group-card-badge) {
+  animation: group-content-exit var(--duration-fast) ease-in both;
+}
+
+::view-transition-new(group-detail-content) {
+  animation:
+    group-detail-content-in var(--duration-group-transition) var(--ease-group-transition) both,
+    group-image-enter var(--duration-fast) var(--ease-standard) both;
+}
+
+::view-transition-new(group-detail-rail) {
+  animation:
+    group-detail-rail-in var(--duration-group-transition) var(--ease-group-transition) both,
+    group-image-enter var(--duration-fast) var(--ease-standard) both;
+}
+
+::view-transition-old(group-detail-content),
+::view-transition-old(group-detail-rail) {
+  animation: group-content-exit var(--duration-fast) ease-out both;
+}
+
+@keyframes group-detail-copy-in {
+  from { opacity: 0; transform: translateX(calc(var(--space-2) * -1)); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes group-detail-content-in {
+  from { transform: translateY(var(--space-4)); }
+  to { transform: translateY(0); }
+}
+
+@keyframes group-detail-rail-in {
+  from { transform: translateX(var(--space-4)); }
+  to { transform: translateX(0); }
 }
 
 @keyframes group-content-exit {
   to { opacity: 0; }
 }
 
-@keyframes group-image-exit {
-  from { opacity: 1; }
-  to { opacity: 0; }
-}
-
 @keyframes group-image-enter {
   from { opacity: 0; }
   to { opacity: 1; }
-}
-
-@keyframes group-image-lift {
-  0%, 100% { box-shadow: none; }
-  15%, 75% { box-shadow: var(--shadow-float); }
 }
 
 @media (prefers-reduced-motion: reduce) {

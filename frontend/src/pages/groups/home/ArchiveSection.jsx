@@ -27,9 +27,9 @@ function ArchiveCard({ group }) {
           loading="lazy"
           width="320"
         />
+          <span aria-hidden="true" className="group-transition-shade archive-card__scrim" />
       </span>
-      <span aria-hidden="true" className="archive-card__scrim" />
-      <span className="archive-card__badge">종료</span>
+      <StatusBadge className="archive-card__badge" placement="overlay" tone="ended">종료</StatusBadge>
       <span className="archive-card__content">
         <StatusBadge tone={typeBadgeTone(group.type)}>{typeLabel(group.type)}</StatusBadge>
         <h3>{group.name}</h3>

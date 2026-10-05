@@ -57,10 +57,6 @@ const tabs = [
 /* 도착한 화면을 먼저 보여 준 뒤 묻는 정도의 짧은 간격이다. */
 const RECRUITMENT_PROMPT_DELAY = 500;
 
-function getParticipationButtonLabel(group) {
-  return group.type === "SESSION" ? "참여하기" : "참여 신청하기";
-}
-
 function DetailFact({ icon, label, unavailable = false, value }) {
   return (
     <div className={unavailable ? "group-fact group-fact--unavailable" : "group-fact"}>
@@ -260,6 +256,7 @@ export function GroupDetailPage() {
                 className="group-profile__image"
                 group={group}
               />
+              <span aria-hidden="true" className="group-transition-shade group-profile__shade" />
             </div>
             {isLeader ? (
               <Link
@@ -407,7 +404,6 @@ function RecruitmentSummary({
   const registrationStartedReference = useRef();
   const [applicationOpen, setApplicationOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const participationButtonLabel = getParticipationButtonLabel(group);
 
   const isAuthenticated = auth.status === "authenticated" || auth.isAuthenticated;
   const remainingSeats = recruitment
@@ -516,18 +512,24 @@ function RecruitmentSummary({
     }
     if (!isAuthenticated) {
       return (
-        <Button className="group-apply-button" onClick={() => auth.login?.()} variant="primary">
-          {participationButtonLabel}
+        <Button
+          className="group-apply-button group-apply-button--join"
+          data-ph-capture-attribute-action="registration_start"
+          onClick={() => auth.login?.()}
+          variant="primary"
+        >
+          자리하기
         </Button>
       );
     }
     return (
       <Button
-        className="group-apply-button"
+        className="group-apply-button group-apply-button--join"
+        data-ph-capture-attribute-action="registration_start"
         onClick={openApplication}
         variant="primary"
       >
-        {participationButtonLabel}
+        자리하기
       </Button>
     );
   }
@@ -650,11 +652,6 @@ function RecruitmentHero({ empty = false }) {
         src={illustration}
         width={720}
       />
-      {empty ? null : (
-        <div className="group-recruitment-hero__status">
-          <StatusBadge tone="brand">모집 중</StatusBadge>
-        </div>
-      )}
     </div>
   );
 }

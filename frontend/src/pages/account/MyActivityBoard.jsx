@@ -19,12 +19,11 @@ import {
 } from "./accountUtils.js";
 import { useInfiniteScroll } from "./useInfiniteScroll.js";
 
-/** 모임 종류를 노션 속성 태그처럼 값마다 다른 색으로 보여 준다. */
 function GroupTypeTag({ type }) {
   return (
-    <span className={`activity-tag activity-tag--${String(type).toLowerCase()}`}>
+    <StatusBadge tone={`group-type-${String(type).toLowerCase()}`}>
       {GROUP_TYPE_LABELS[type] ?? type}
-    </span>
+    </StatusBadge>
   );
 }
 
@@ -42,7 +41,7 @@ function GroupActivityRow({ group, isLeader }) {
               <Crown aria-hidden="true" size={13} /> 모임장
             </StatusBadge>
           ) : null}
-          {isEnded ? <StatusBadge tone="neutral">모임 종료</StatusBadge> : null}
+          {isEnded ? <StatusBadge tone="ended">모임 종료</StatusBadge> : null}
         </div>
         <h3>
           <Link

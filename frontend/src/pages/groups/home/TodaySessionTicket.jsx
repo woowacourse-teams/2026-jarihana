@@ -47,6 +47,7 @@ export function TodaySessionTicket({ active = false, carouselIndex, group, tabIn
           loading={active ? "eager" : "lazy"}
           width="420"
         />
+        <span aria-hidden="true" className="group-transition-shade" />
       </span>
       <span className="today-session-ticket__body">
         <span className="today-session-ticket__time">

@@ -26,7 +26,7 @@ const HOME_LINK = {
 const EXPLORE_LINK = {
   action: "group_browse",
   isActive: (pathname) => pathname === "/groups",
-  label: "모임",
+  label: "탐색",
   requiresAuth: false,
   to: "/groups"
 };

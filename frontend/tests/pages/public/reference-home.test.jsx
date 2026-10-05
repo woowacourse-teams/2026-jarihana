@@ -190,7 +190,7 @@ it("Given home query params, when recruiting groups render, then the active recr
   expect(screen.getByRole("heading", { name: "지금 모집 중인 모임" })).toBeInTheDocument();
   const hero = screen.getByRole("region", { name: "크루와 함께할 자리를 찾아보세요" });
   const createLink = within(hero).getByRole("link", { name: "자리 만들기" });
-  const browseLink = within(hero).getByRole("link", { name: "자리하기" });
+  const browseLink = within(hero).getByRole("link", { name: "자리찾기" });
   expect(createLink).toHaveAttribute("href", "/groups/new");
   expect(createLink).toHaveAttribute("data-ph-capture-attribute-action", "group_create");
   expect(browseLink).toHaveAttribute("href", "/groups");

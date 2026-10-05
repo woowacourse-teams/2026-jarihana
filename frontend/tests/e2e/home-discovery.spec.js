@@ -250,9 +250,7 @@ test("archive preview opens ended-group browsing and continues pagination there"
   await expect(browse(page).getByRole("button", { name: "더 많은 모임 보기" })).toHaveCount(0);
 });
 
-test("automatic rotation synchronizes the dial, pauses on hover and remains paused after manual control", async ({
-  page
-}, testInfo) => {
+test("automatic rotation resumes ten seconds after the last manual control", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await installHome(page);
   await page.goto("/");
@@ -260,22 +258,15 @@ test("automatic rotation synchronizes the dial, pauses on hover and remains paus
   await page.mouse.move(0, 0);
   await page.clock.fastForward(5000);
   await expect(activePlan(page)).toContainText("커피와 이야기");
-  await page.screenshot({ path: testInfo.outputPath("dial-transition.png") });
-  await page.clock.runFor(500);
-  await page.screenshot({ path: testInfo.outputPath("dial-settled.png") });
-  await hero(page).locator(".today-session-ticket").first().hover();
-  await page.clock.fastForward(10000);
-  await expect(activePlan(page)).toContainText("커피와 이야기");
   await hero(page).getByRole("button", { name: "다음 같이해요 보기", exact: true }).click();
-  await page.mouse.move(0, 0);
-  await page.getByRole("link", { name: "모집 중인 모임 더 보기" }).focus();
-  await page.clock.fastForward(15000);
   await expect(activePlan(page)).toContainText("보드게임 한 판");
-  await hero(page).getByRole("button", { name: "오늘 같이해요 자동 전환 재생" }).click();
-  await page.getByRole("link", { name: "모집 중인 모임 더 보기" }).focus();
-  await page.mouse.move(0, 0);
-  await page.clock.fastForward(5000);
+  await expect(hero(page).getByRole("button", { name: /자동 전환/ })).toHaveCount(0);
+  await page.clock.fastForward(9000);
+  await expect(activePlan(page)).toContainText("보드게임 한 판");
+  await page.clock.fastForward(1000);
   await expect(activePlan(page)).toContainText("저녁 산책 같이해요");
+  await page.clock.fastForward(5000);
+  await expect(activePlan(page)).toContainText("점심 한 끼 같이해요");
 });
 
 test("today empty state retains recruiting preview and archive", async ({ page }, testInfo) => {

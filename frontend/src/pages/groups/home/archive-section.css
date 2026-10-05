@@ -86,19 +86,6 @@
   background: var(--reference-archive-scrim);
 }
 
-.archive-card__badge {
-  position: absolute;
-  top: var(--space-3);
-  left: var(--space-3);
-  padding: calc(var(--space-1) / 2) var(--space-2);
-  border-radius: var(--space-1);
-  background: var(--color-nav);
-  color: var(--color-surface);
-  font-size: var(--text-badge);
-  font-weight: var(--font-weight-bold);
-  line-height: 1;
-}
-
 .archive-card__content {
   display: flex;
   min-width: 0;
@@ -106,14 +93,6 @@
   justify-content: end;
   gap: var(--space-1);
   padding: var(--space-12) var(--space-4) var(--space-4);
-}
-
-.archive-card__content > .ui-badge {
-  min-height: 0;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-badge);
-  line-height: 1.45;
 }
 
 .archive-card__meta {

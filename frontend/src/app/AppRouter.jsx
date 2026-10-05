@@ -17,7 +17,7 @@ import { AnalyticsBridge } from "./AnalyticsBridge";
 import { AppShell } from "./AppShell";
 import { AuthGuard } from "./AuthGuard";
 import { LeaderGuard } from "./LeaderGuard";
-import { createGroupDetailLoader } from "./routeLoaders";
+import { createGroupBrowseLoader, createGroupDetailLoader, shouldRevalidateGroupBrowse } from "./routeLoaders";
 import { routeRegistry } from "./routes";
 import { SignupGuard } from "./SignupGuard";
 
@@ -104,15 +104,16 @@ export function createAppRouteElements(pageRegistry, loaders = {}) {
       throw new Error(`등록되지 않은 페이지 export: ${route.page}`);
     }
 
-    if (route.page === "GroupDetailPage" && loaders.GroupDetailPage) {
+    if (["GroupBrowsePage", "GroupDetailPage"].includes(route.page) && loaders[route.page]) {
       return (
         <Route
           key={route.path}
           lazy={async () => {
-            const { GroupDetailPage } = await loadGroupPages();
-            return { element: guardedPage(route.access, GroupDetailPage) };
+            const module = await loadGroupPages();
+            return { element: guardedPage(route.access, module[route.page]) };
           }}
-          loader={loaders.GroupDetailPage}
+          loader={loaders[route.page]}
+          shouldRevalidate={route.page === "GroupBrowsePage" ? shouldRevalidateGroupBrowse : undefined}
           path={route.path}
         />
       );
@@ -160,6 +161,7 @@ export function AppRouter() {
           }
         >
           {createAppRouteElements(lazyPageRegistry, {
+            GroupBrowsePage: createGroupBrowseLoader(queryClient),
             GroupDetailPage: createGroupDetailLoader(queryClient)
           })}
         </Route>

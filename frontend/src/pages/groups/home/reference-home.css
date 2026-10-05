@@ -573,17 +573,6 @@
   object-fit: contain;
   transform: scale(2.05);
 }
-.reference-group-card__badge {
-  position: absolute;
-  top: var(--space-3);
-  left: var(--space-3);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-pill);
-  background: var(--color-brand-soft);
-  color: var(--color-brand-ink);
-  font-size: var(--text-badge);
-  font-weight: var(--font-weight-bold);
-}
 .reference-group-card__body {
   position: relative;
   display: flex;
@@ -644,14 +633,6 @@
   flex: 1;
   min-width: 0;
 }
-.reference-group-card__type {
-  padding: calc(var(--space-1) / 2) 0.375rem;
-  border-radius: var(--space-1);
-  background: var(--reference-type-background, var(--color-surface-sunken));
-  color: var(--reference-type-ink, var(--color-muted-ink));
-  font-size: 0.6875rem;
-  font-weight: var(--font-weight-bold);
-}
 .reference-group-card__seats {
   margin-inline-start: auto;
   color: var(--reference-type-ink, var(--color-brand-ink));
@@ -664,15 +645,10 @@
   position: absolute;
   inset: 0;
   aspect-ratio: auto;
+  background: var(--color-ink);
 }
-.reference-group-card--featured .reference-group-card__visual::after {
-  position: absolute;
-  inset: 0;
-  content: "";
+.reference-group-card--featured .reference-group-card__shade {
   background: var(--reference-feature-scrim);
-}
-.reference-group-card--featured .reference-group-card__badge {
-  z-index: 1;
 }
 .reference-group-card--featured .reference-group-card__body {
   justify-content: flex-end;

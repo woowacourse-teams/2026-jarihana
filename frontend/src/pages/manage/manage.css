@@ -1998,12 +1998,6 @@
     justify-content: space-between;
   }
 
-  .manage-history-table td[data-label="상태"] .ui-badge {
-    font-size: inherit;
-    line-height: 1;
-    min-height: var(--text-label);
-  }
-
   .manage-history-table td[data-label="모집 기간"] {
     grid-column: 1 / -1;
   }

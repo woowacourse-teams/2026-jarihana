@@ -182,7 +182,7 @@ test(
     const state = await installApiFixture(page, { auth: "anonymous" });
     await page.goto("/groups");
 
-    await page.getByRole("button", { name: "모임 만들기", exact: true }).click();
+    await page.getByRole("button", { name: "자리 만들기", exact: true }).click();
 
     await expect(page).toHaveURL(/github\.com\/login\/oauth\/authorize/);
     await expect(page.getByRole("heading", { name: "Stub GitHub OAuth" })).toBeVisible();

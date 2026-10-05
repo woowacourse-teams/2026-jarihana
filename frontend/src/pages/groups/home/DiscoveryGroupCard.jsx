@@ -1,9 +1,9 @@
 import { CalendarDays, MapPin, Timer } from "lucide-react";
 
 import { GroupDetailLink } from "../GroupTransition.jsx";
-import { GroupImage } from "../../../shared/ui/index.js";
+import { GroupImage, StatusBadge } from "../../../shared/ui/index.js";
 import { groupScheduleLabel, groupSeatsLabel, scheduleDuration } from "./groupCardMetadata.js";
-import { typeLabel } from "../pageUtils.js";
+import { typeBadgeTone, typeLabel } from "../pageUtils.js";
 
 export function DiscoveryGroupCard({ group, recruiting }) {
   const isEnded = group.status === "ENDED";
@@ -28,19 +28,21 @@ export function DiscoveryGroupCard({ group, recruiting }) {
             loading="lazy"
             width="320"
           />
+          <span aria-hidden="true" className="group-transition-shade discovery-group-card__shade" />
         </span>
-        {isEnded && <span className="discovery-group-card__ended-badge">종료</span>}
+        {isEnded && <StatusBadge className="discovery-group-card__ended-badge" placement="overlay" tone="ended">종료</StatusBadge>}
         {recruiting && !isEnded && (
-          <span className="discovery-group-card__recruiting-badge">모집 중</span>
+          <StatusBadge className="discovery-group-card__recruiting-badge" placement="overlay" tone="brand">모집 중</StatusBadge>
         )}
       </span>
       <div className="discovery-group-card__body">
         <div className="discovery-group-card__top">
-          <span
+          <StatusBadge
             className={`discovery-group-card__type discovery-group-card__type--${group.type.toLowerCase()}`}
+            tone={typeBadgeTone(group.type)}
           >
             {typeLabel(group.type)}
-          </span>
+          </StatusBadge>
         </div>
         <h3 className="discovery-group-card__title">{group.name}</h3>
         <p className="discovery-group-card__description">{group.introduction}</p>

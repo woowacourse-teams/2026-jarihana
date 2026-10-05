@@ -1,9 +1,12 @@
 .activity-posts-page {
-  padding-block: var(--space-10) var(--space-16);
+  padding-block: var(--space-12);
 }
 
 .activity-posts-page .ui-page-header {
-  margin-bottom: var(--space-8);
+  align-items: center;
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+  padding: 0;
 }
 
 .activity-post-board__toolbar {
@@ -15,14 +18,23 @@
   margin-bottom: var(--space-6);
 }
 
-.activity-post-board__toolbar-end {
-  display: flex;
-  flex: 0 0 auto;
-  flex-wrap: wrap;
+.activity-post-board__create-button {
+  flex-shrink: 0;
+  border: 0;
+  color: var(--color-ink);
+}
+
+.activity-post-board__create-button > span {
+  display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-3);
-  margin-inline-start: auto;
+  gap: var(--space-2);
+}
+
+.activity-post-board__create-button svg {
+  display: block;
+  flex: none;
+  width: var(--space-5);
+  height: var(--space-5);
 }
 
 .activity-post-filters {
@@ -381,11 +393,14 @@
   }
 }
 
-@media (max-width: 39.9375rem) {
-  .activity-posts-page {
-    padding-block: var(--space-6) var(--space-12);
+@media (max-width: 63.9375rem) {
+  .activity-posts-page .ui-page-header {
+    align-items: flex-start;
+    flex-direction: column;
   }
+}
 
+@media (max-width: 39.9375rem) {
   .activity-photo-wall {
     grid-template-columns: minmax(0, 1fr);
   }

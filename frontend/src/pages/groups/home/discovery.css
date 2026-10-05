@@ -46,22 +46,22 @@
 
 .groups-discovery-section__create-button {
   flex-shrink: 0;
+  border: 0;
+  color: var(--color-ink);
 }
 
 .groups-discovery-section__create-button > span {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
-.groups-discovery-section__create-button svg {
-  width: 1.125em;
-  height: 1.125em;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.75;
+.groups-discovery-section__create-button img {
+  display: block;
+  flex: none;
+  width: var(--space-6);
+  height: var(--space-6);
+  object-fit: contain;
 }
 
 .groups-discovery-tools-panel {
@@ -271,36 +271,9 @@
   background: var(--color-surface-sunken);
 }
 
-.discovery-group-card--ended .discovery-group-card__visual::after {
-  position: absolute;
+.discovery-group-card--ended .discovery-group-card__shade {
   z-index: 1;
-  inset: 0;
   background: linear-gradient(90deg, rgb(0 0 0 / 86%), rgb(0 0 0 / 28%));
-  pointer-events: none;
-  content: "";
-}
-
-.discovery-group-card__ended-badge,
-.discovery-group-card__recruiting-badge {
-  position: absolute;
-  z-index: 2;
-  top: var(--space-3);
-  left: var(--space-3);
-  padding: calc(var(--space-1) / 2) var(--space-2);
-  border-radius: var(--space-1);
-  background: var(--color-nav);
-  color: var(--color-surface);
-  font-size: var(--text-badge);
-  font-weight: var(--font-weight-bold);
-  line-height: 1;
-}
-
-.discovery-group-card__recruiting-badge {
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--space-1);
-  background: var(--color-brand-soft);
-  color: var(--color-brand-ink);
-  line-height: 1.5;
 }
 
 .discovery-group-card__image {
@@ -329,28 +302,6 @@
   gap: var(--space-2);
   margin-bottom: var(--space-2);
   font-size: var(--discovery-card-meta-size);
-}
-
-.discovery-group-card__type {
-  padding: calc(var(--space-1) / 2) var(--discovery-card-icon-gap);
-  border-radius: var(--space-1);
-  font-size: var(--discovery-card-small-size);
-  font-weight: var(--font-weight-bold);
-}
-
-.discovery-group-card__type--session {
-  background: var(--color-activity-session-soft);
-  color: var(--color-activity-session-ink);
-}
-
-.discovery-group-card__type--study {
-  background: var(--color-activity-study-soft);
-  color: var(--color-activity-study-ink);
-}
-
-.discovery-group-card__type--club {
-  background: var(--color-activity-club-soft);
-  color: var(--color-activity-club-ink);
 }
 
 .discovery-group-card__title {
@@ -492,6 +443,10 @@
   .groups-discovery-tools {
     grid-template-columns: 1fr;
     gap: var(--space-5);
+  }
+
+  .groups-discovery-search {
+    max-width: none;
   }
 
   .groups-discovery-grid {

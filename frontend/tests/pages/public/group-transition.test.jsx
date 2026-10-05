@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router";
 
@@ -24,9 +25,23 @@ jest.mock("react-router", () => {
   return { ...components, ...hooks, Link };
 });
 
-function Cards() {
+const mockFetchGroup = jest.fn(async (groupId) => ({ id: Number(groupId), name: `group-${groupId}` }));
+
+jest.mock("../../../src/features/group/api.js", () => ({
+  createGroup: jest.fn(),
+  deleteGroup: jest.fn(),
+  fetchGroup: (...args) => mockFetchGroup(...args),
+  fetchGroups: jest.fn(),
+  modifyGroup: jest.fn(),
+  removeRecurringSchedule: jest.fn(),
+  replaceRecurringSchedule: jest.fn(),
+  replaceSessionSchedule: jest.fn(),
+  terminateGroup: jest.fn()
+}));
+
+function Cards({ linkProps = {} }) {
   return <>
-    <GroupDetailLink groupId={42} source="today" data-ph-capture-attribute-action="today_session_open">오늘 카드</GroupDetailLink>
+    <GroupDetailLink groupId={42} source="today" data-ph-capture-attribute-action="today_session_open" {...linkProps}>오늘 카드</GroupDetailLink>
     <GroupDetailLink groupId={42} source="recruiting" data-ph-capture-attribute-action="group_view">모집 카드</GroupDetailLink>
   </>;
 }
@@ -40,17 +55,36 @@ function Detail() {
   </>;
 }
 
-function renderRoutes(entry = "/?homeType=STUDY#results") {
-  return render(<MemoryRouter initialEntries={[entry]}>
-    <GroupTransitionProvider>
-      <Routes>
-        <Route path="/" element={<Cards />} />
-        <Route path="/groups" element={<Cards />} />
-        <Route path="/groups/:groupId" element={<Detail />} />
-      </Routes>
-    </GroupTransitionProvider>
-  </MemoryRouter>);
+function createQueryClient() {
+  return new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 30_000 } } });
 }
+
+function renderRoutes(entry = "/?homeType=STUDY#results", { linkProps } = {}) {
+  const queryClient = createQueryClient();
+  const result = render(<QueryClientProvider client={queryClient}>
+    <MemoryRouter initialEntries={[entry]}>
+      <GroupTransitionProvider>
+        <Routes>
+          <Route path="/" element={<Cards linkProps={linkProps} />} />
+          <Route path="/groups" element={<Cards linkProps={linkProps} />} />
+          <Route path="/groups/:groupId" element={<Detail />} />
+        </Routes>
+      </GroupTransitionProvider>
+    </MemoryRouter>
+  </QueryClientProvider>);
+
+  return { queryClient, ...result };
+}
+
+function firePointerDown(element, pointerType) {
+  const event = new Event("pointerdown", { bubbles: true, cancelable: true });
+  Object.defineProperty(event, "pointerType", { value: pointerType });
+  fireEvent(element, event);
+}
+
+beforeEach(() => {
+  mockFetchGroup.mockClear();
+});
 
 test.each(["/?homeType=STUDY#results", "/groups?type=STUDY&keyword=react#results"])(
   "restores the clicked card and preserves origin %s", async (origin) => {
@@ -74,8 +108,59 @@ test("a modified click keeps the current page and does not select a shared image
   expect(document.querySelectorAll("[data-group-transition-source]")).toHaveLength(0);
 });
 
+test("prefetches the group detail query on mouse intent, focus, and touch intent", async () => {
+  const callbacks = {
+    onFocus: jest.fn(),
+    onPointerDown: jest.fn(),
+    onPointerEnter: jest.fn()
+  };
+  const { queryClient } = renderRoutes("/?homeType=STUDY#results", { linkProps: callbacks });
+  const todayCard = screen.getByRole("link", { name: "오늘 카드" });
+
+  fireEvent.pointerEnter(todayCard, { pointerType: "mouse" });
+  await waitFor(() => expect(queryClient.getQueryData(["groups", "detail", "42"])).toEqual({ id: 42, name: "group-42" }));
+  expect(mockFetchGroup).toHaveBeenCalledWith("42");
+
+  queryClient.removeQueries({ queryKey: ["groups", "detail", "42"] });
+  fireEvent.focus(todayCard);
+  await waitFor(() => expect(queryClient.getQueryData(["groups", "detail", "42"])).toEqual({ id: 42, name: "group-42" }));
+
+  queryClient.removeQueries({ queryKey: ["groups", "detail", "42"] });
+  firePointerDown(todayCard, "touch");
+  await waitFor(() => expect(queryClient.getQueryData(["groups", "detail", "42"])).toEqual({ id: 42, name: "group-42" }));
+
+  expect(callbacks.onPointerEnter).toHaveBeenCalled();
+  expect(callbacks.onFocus).toHaveBeenCalled();
+  expect(callbacks.onPointerDown).toHaveBeenCalled();
+});
+
 test.each(["https://example.com", "//example.com", "/groups/new", "/groups/42"])(
   "does not treat %s as a discovery origin", (origin) => {
     expect(groupTransitionOrigin({ groupTransition: { origin } })).toBeNull();
   }
 );
+
+
+test("repeated intent on cards for the same group reuses the detail cache", async () => {
+  const { queryClient } = renderRoutes();
+  fireEvent.pointerEnter(screen.getByRole("link", { name: "오늘 카드" }));
+  await waitFor(() => expect(queryClient.getQueryData(["groups", "detail", "42"])).toBeDefined());
+  fireEvent.focus(screen.getByRole("link", { name: "모집 카드" }));
+  expect(mockFetchGroup).toHaveBeenCalledTimes(1);
+});
+
+test("a failed intent request does not block normal detail navigation", async () => {
+  mockFetchGroup.mockRejectedValueOnce(new Error("offline"));
+  const { queryClient } = renderRoutes();
+  const card = screen.getByRole("link", { name: "오늘 카드" });
+  fireEvent.pointerEnter(card);
+  await waitFor(() => expect(queryClient.getQueryState(["groups", "detail", "42"]).status).toBe("error"));
+  fireEvent.click(card);
+  expect(screen.getByLabelText("출발 경로")).toHaveTextContent("/?homeType=STUDY#results");
+});
+
+test("an existing intent callback can prevent prefetch", () => {
+  renderRoutes("/", { linkProps: { onFocus: (event) => event.preventDefault() } });
+  fireEvent.focus(screen.getByRole("link", { name: "오늘 카드" }));
+  expect(mockFetchGroup).not.toHaveBeenCalled();
+});

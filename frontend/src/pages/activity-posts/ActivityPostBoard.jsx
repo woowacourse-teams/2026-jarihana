@@ -542,22 +542,16 @@ export function ActivityPostBoard({ group = null }) {
     isAuthenticated &&
     (group.currentMemberRole === "MEMBER" || group.currentMemberRole === "LEADER");
   const action = isGlobal ? (
-    isAuthenticated ? (
+    isAuthenticated || auth.status !== "loading" ? (
       <Button
-        data-ph-capture-attribute-action="activity_post_create_start"
+        className="activity-post-board__create-button"
+        data-ph-capture-attribute-action={isAuthenticated ? "activity_post_create_start" : "activity_post_login_to_create"}
         onClick={startCreate}
+        size="sm"
       >
-        <Camera aria-hidden="true" size={17} /> 기록 남기기
+        <Camera aria-hidden="true" /> 활동 올리기
       </Button>
-    ) : auth.status === "loading" ? null : (
-      <Button
-        data-ph-capture-attribute-action="activity_post_login_to_create"
-        onClick={startCreate}
-        variant="secondary"
-      >
-        로그인하고 기록 남기기
-      </Button>
-    )
+    ) : null
   ) : canCreateInGroup ? (
     <Button
       data-ph-capture-attribute-action="activity_post_create_start"
@@ -585,16 +579,7 @@ export function ActivityPostBoard({ group = null }) {
           onSelectMine={() => chooseMine(true)}
           onSelectPublic={() => chooseMine(false)}
         />
-        {isGlobal ? (
-          <div className="activity-post-board__toolbar-end">
-            {isRefreshingFeed ? (
-              <p className="activity-post-board__refresh" role="status">
-                활동 기록을 불러오는 중…
-              </p>
-            ) : null}
-            {action}
-          </div>
-        ) : isRefreshingFeed ? (
+        {isRefreshingFeed ? (
           <p className="activity-post-board__refresh" role="status">
             활동 기록을 불러오는 중…
           </p>
@@ -664,8 +649,7 @@ export function ActivityPostBoard({ group = null }) {
       {isGlobal ? (
         <PageContainer className="activity-posts-page">
           <PageHeader
-            description="모임이 함께 만든 순간들을 사진으로 둘러보세요."
-            eyebrow="ACTIVITY PHOTO WALL"
+            action={action}
             title="활동 기록"
           />
           {content}

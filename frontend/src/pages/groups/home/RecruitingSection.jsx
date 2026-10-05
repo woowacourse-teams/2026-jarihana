@@ -5,9 +5,9 @@ import { Link, useSearchParams } from "react-router";
 import { useInfiniteGroups } from "../../../features/group/index.js";
 import createChairImage from "../../../shared/assets/brand/jarihana-chair-create.png";
 import rainbowChairsImage from "../../../shared/assets/brand/jarihana-chairs-rainbow.png";
-import { Button, EmptyState, ErrorState, GroupImage, Skeleton } from "../../../shared/ui/index.js";
+import { Button, EmptyState, ErrorState, GroupImage, Skeleton, StatusBadge } from "../../../shared/ui/index.js";
 import { GroupDetailLink } from "../GroupTransition.jsx";
-import { flattenPages, publicErrorCopy, typeLabel } from "../pageUtils.js";
+import { flattenPages, publicErrorCopy, typeBadgeTone, typeLabel } from "../pageUtils.js";
 import { ExploreHero } from "./ExploreHero.jsx";
 import { groupScheduleLabel, groupSeatsLabel } from "./groupCardMetadata.js";
 import "./reference-home.css";
@@ -32,11 +32,12 @@ function RecruitingCard({ group, featured }) {
       <span className="reference-group-card__visual">
         <span className="group-card-transition-image" data-group-transition-image>
           <GroupImage alt="" className="reference-group-card__image" group={group} loading="lazy" />
+          <span aria-hidden="true" className="group-transition-shade reference-group-card__shade" />
         </span>
-        <span className="reference-group-card__badge">모집 중</span>
+        <StatusBadge className="reference-group-card__badge" placement="overlay" tone="brand">모집 중</StatusBadge>
       </span>
       <div className="reference-group-card__body">
-        <span className="reference-group-card__type">{typeLabel(group.type)}</span>
+        <StatusBadge className="reference-group-card__type" tone={typeBadgeTone(group.type)}>{typeLabel(group.type)}</StatusBadge>
         <h3>{group.name}</h3>
         <p className="reference-group-card__introduction">{group.introduction}</p>
         <span className="reference-group-card__schedule">
@@ -137,7 +138,7 @@ export function RecruitingSection({ beforeResults, headline, heroPeriod, isAuthe
                 width="56"
               />
             </span>
-            <span className="reference-hero__action-label">자리하기</span>
+            <span className="reference-hero__action-label">자리찾기</span>
           </Link>
           <Link
             className="ui-button ui-button--primary ui-button--lg reference-hero__create"

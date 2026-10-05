@@ -200,10 +200,12 @@ it("keeps browsing public to visitors who are not signed in", () => {
 
   expect(screen.getByRole("heading", { name: "활동 기록" })).toBeVisible();
   const toolbar = screen.getByRole("tablist", { name: "활동 기록 범위" }).parentElement;
-  expect(within(toolbar).getByRole("button", { name: "로그인하고 기록 남기기" })).toBeVisible();
   const pageHeader = screen.getByRole("heading", { name: "활동 기록" }).closest(".ui-page-header");
-  expect(within(pageHeader).queryByRole("button", { name: "로그인하고 기록 남기기" })).not.toBeInTheDocument();
-  expect(screen.getAllByRole("button", { name: "로그인하고 기록 남기기" })).toHaveLength(1);
+  const createButton = within(pageHeader).getByRole("button", { name: "활동 올리기" });
+  expect(createButton).toBeVisible();
+  expect(createButton).toHaveAttribute("data-ph-capture-attribute-action", "activity_post_login_to_create");
+  expect(within(toolbar).queryByRole("button", { name: "활동 올리기" })).not.toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: "활동 올리기" })).toHaveLength(1);
   const filters = screen.getByRole("tablist", { name: "활동 기록 범위" });
   expect(filters).toHaveAttribute("data-active", "all");
   expect(filters.querySelector(".activity-post-filters__indicator")).toHaveAttribute("aria-hidden", "true");
@@ -249,7 +251,7 @@ it("keeps the current photo wall visible while the selected feed loads", () => {
   expect(screen.queryByText("모든 활동 기록을 확인했어요.")).not.toBeInTheDocument();
 });
 
-it("keeps the create button at the end of the toolbar while the feed refreshes", () => {
+it("keeps the create action in the heading while the filter row shows refresh status", () => {
   useAuth.mockReturnValue({
     isAuthenticated: true,
     login: jest.fn(),
@@ -259,14 +261,14 @@ it("keeps the create button at the end of the toolbar while the feed refreshes",
   mockActivityPosts(posts, { isFetching: true, isPlaceholderData: true });
   renderBoard();
 
-  const toolbarEnd = screen
-    .getByRole("tablist", { name: "활동 기록 범위" })
-    .parentElement.querySelector(".activity-post-board__toolbar-end");
+  const toolbar = screen.getByRole("tablist", { name: "활동 기록 범위" }).parentElement;
+  const pageHeader = screen.getByRole("heading", { name: "활동 기록" }).closest(".ui-page-header");
   const refreshStatus = screen.getByText("활동 기록을 불러오는 중…");
-  const createButton = within(toolbarEnd).getByRole("button", { name: "기록 남기기" });
+  const createButton = within(pageHeader).getByRole("button", { name: "활동 올리기" });
 
-  expect(toolbarEnd.firstElementChild).toBe(refreshStatus);
-  expect(toolbarEnd.lastElementChild).toBe(createButton);
+  expect(toolbar).toContainElement(refreshStatus);
+  expect(toolbar).not.toContainElement(createButton);
+  expect(createButton).toHaveAttribute("data-ph-capture-attribute-action", "activity_post_create_start");
   expect(createButton).toBeVisible();
 });
 

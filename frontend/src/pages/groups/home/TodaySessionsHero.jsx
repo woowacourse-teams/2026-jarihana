@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { Button, ErrorState, Skeleton } from "../../../shared/ui/index.js";
 import { useGroupTransitionSource } from "../GroupTransition.jsx";
@@ -101,6 +101,8 @@ export function TodaySessionsHero({
   const ticketsViewport = useRef(null);
   const pointerStart = useRef(null);
   const swiped = useRef(false);
+  const wheelScrolling = useRef(false);
+  const scrollSettleTimer = useRef(null);
   const [visibleCount, setVisibleCount] = useState(null);
   const returningSource = useGroupTransitionSource();
   const [transitionSource] = useState(returningSource);
@@ -113,12 +115,9 @@ export function TodaySessionsHero({
     goPrevious,
     goTo,
     pauseFocus,
-    pauseHover,
+    pauseInteraction,
     reducedMotion,
-    resumeFocus,
-    resumeHover,
-    setUserPaused,
-    userPaused
+    resumeFocus
   } = useSessionCarousel(sessions.length, {
     initialIndex: transitionSource?.source === "today" ? transitionSource.carouselIndex ?? 0 : 0
   });
@@ -166,7 +165,38 @@ export function TodaySessionsHero({
     positionedViewport.current = true;
   }, [reducedMotion, visibleCount, visibleStartIndex]);
 
+  useEffect(() => () => window.clearTimeout(scrollSettleTimer.current), []);
+
+  function settleWheelScroll() {
+    window.clearTimeout(scrollSettleTimer.current);
+    scrollSettleTimer.current = window.setTimeout(() => {
+      const viewport = ticketsViewport.current;
+      wheelScrolling.current = false;
+      if (!viewport) return;
+      const closestIndex = ticketReferences.current.reduce((closest, ticket, index, tickets) => {
+        if (!ticket) return closest;
+        return Math.abs(ticket.offsetLeft - viewport.scrollLeft) <
+          Math.abs(tickets[closest].offsetLeft - viewport.scrollLeft) ? index : closest;
+      }, 0);
+      goTo(closestIndex);
+    }, 180);
+  }
+
+  function handleWheel(event) {
+    if (event.ctrlKey || Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
+    wheelScrolling.current = true;
+    pauseInteraction();
+    settleWheelScroll();
+  }
+
+  function handleFocus(event) {
+    if (event.target.matches(":focus-visible")) pauseFocus();
+  }
+
   function handlePointerDown(event) {
+    resumeFocus();
+    wheelScrolling.current = false;
+    window.clearTimeout(scrollSettleTimer.current);
     pointerStart.current = { x: event.clientX, y: event.clientY };
     swiped.current = false;
   }
@@ -248,9 +278,7 @@ export function TodaySessionsHero({
         <div
           className="today-sessions-hero__stage"
           onBlur={handleBlur}
-          onFocus={pauseFocus}
-          onMouseEnter={pauseHover}
-          onMouseLeave={resumeHover}
+          onFocus={handleFocus}
           onPointerCancel={() => {
             pointerStart.current = null;
           }}
@@ -267,46 +295,15 @@ export function TodaySessionsHero({
           aria-roledescription="carousel"
         >
           <div className="today-sessions-hero__carousel">
-            {sessions.length > 1 ? (
-              <>
-                <button
-                  aria-label={
-                    reducedMotion
-                      ? "동작 줄이기 설정으로 자동 전환 정지"
-                      : userPaused
-                        ? "오늘 같이해요 자동 전환 재생"
-                        : "오늘 같이해요 자동 전환 일시정지"
-                  }
-                  disabled={reducedMotion}
-                  className="today-sessions-hero__autoplay"
-                  data-ph-capture-attribute-action="today_session_autoplay_toggle"
-                  onClick={() => setUserPaused((current) => !current)}
-                  type="button"
-                >
-                  <span aria-hidden="true">{userPaused || reducedMotion ? "▶" : "Ⅱ"}</span>
-                </button>
-                <button
-                  aria-label="이전 같이해요 보기"
-                  className="today-sessions-hero__nav today-sessions-hero__nav--previous"
-                  data-ph-capture-attribute-action="today_session_previous"
-                  onClick={() => goPrevious({ pause: true })}
-                  type="button"
-                >
-                  <ChevronLeft aria-hidden="true" />
-                </button>
-                <button
-                  aria-label="다음 같이해요 보기"
-                  className="today-sessions-hero__nav today-sessions-hero__nav--next"
-                  data-ph-capture-attribute-action="today_session_next"
-                  onClick={() => goNext({ pause: true })}
-                  type="button"
-                >
-                  <ChevronRight aria-hidden="true" />
-                </button>
-              </>
-            ) : null}
-
-            <div className="today-sessions-hero__tickets" aria-live="off" ref={ticketsViewport}>
+            <div
+              className="today-sessions-hero__tickets"
+              aria-live="off"
+              onScroll={() => {
+                if (wheelScrolling.current) settleWheelScroll();
+              }}
+              onWheel={handleWheel}
+              ref={ticketsViewport}
+            >
               {sessions.map((group, index) => (
                 <div
                   className={classes(
@@ -329,18 +326,38 @@ export function TodaySessionsHero({
             </div>
 
             {sessions.length > 1 ? (
-              <div className="today-sessions-hero__dots" aria-label="오늘 같이해요 순서">
-                {sessions.map((group, index) => (
-                  <button
-                    aria-label={`${index + 1}번째 같이해요 보기`}
-                    aria-pressed={index === activeIndex}
-                    className="today-sessions-hero__dot"
-                    data-ph-capture-attribute-action="today_session_dot_select"
-                    key={group.id}
-                    onClick={() => goTo(index, { pause: true })}
-                    type="button"
-                  />
-                ))}
+              <div className="today-sessions-hero__controls">
+                <button
+                  aria-label="이전 같이해요 보기"
+                  className="today-sessions-hero__nav"
+                  data-ph-capture-attribute-action="today_session_previous"
+                  onClick={() => goPrevious({ pause: true })}
+                  type="button"
+                >
+                  <ChevronLeft aria-hidden="true" />
+                </button>
+                <div className="today-sessions-hero__dots" aria-label="오늘 같이해요 순서">
+                  {sessions.map((group, index) => (
+                    <button
+                      aria-label={`${index + 1}번째 같이해요 보기`}
+                      aria-pressed={index === activeIndex}
+                      className="today-sessions-hero__dot"
+                      data-ph-capture-attribute-action="today_session_dot_select"
+                      key={group.id}
+                      onClick={() => goTo(index, { pause: true })}
+                      type="button"
+                    />
+                  ))}
+                </div>
+                <button
+                  aria-label="다음 같이해요 보기"
+                  className="today-sessions-hero__nav"
+                  data-ph-capture-attribute-action="today_session_next"
+                  onClick={() => goNext({ pause: true })}
+                  type="button"
+                >
+                  <ChevronRight aria-hidden="true" />
+                </button>
               </div>
             ) : null}
           </div>

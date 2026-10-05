@@ -214,7 +214,8 @@ it("Given an active recruitment, when the detail page opens, then its entry open
 
   const recruitmentDialog = screen.getByRole("dialog", { name: "모집 정보" });
   expect(recruitmentDialog).toBeInTheDocument();
-  expect(within(recruitmentDialog).getByText("모집 중")).toBeVisible();
+  expect(within(recruitmentDialog).getByRole("region", { name: "모집 상세 정보" })).toBeVisible();
+  expect(within(recruitmentDialog).queryByText("모집 중")).not.toBeInTheDocument();
 });
 
 it("Given no active recruitment, when the detail page opens, then the entry opens the empty recruitment state", async () => {
@@ -240,9 +241,9 @@ it("Given no active recruitment, when the detail page opens, then the entry open
 });
 
 it.each([
-  ["STUDY", "참여 신청하기"],
-  ["CLUB", "참여 신청하기"],
-  ["SESSION", "참여하기"]
+  ["STUDY", "자리하기"],
+  ["CLUB", "자리하기"],
+  ["SESSION", "자리하기"]
 ])(
   "Given a %s group with an active recruitment, when the application form opens, then neutral application wording is used",
   async (type, actionLabel) => {
@@ -306,7 +307,7 @@ it("records group-detail application start with session promotion attribution", 
   const entry = within(document.querySelector(".group-recruitment-entry"));
   await user.click(entry.getByRole("button", { name: "모집 정보" }));
   const recruitmentDialog = screen.getByRole("dialog", { name: "모집 정보" });
-  await user.click(within(recruitmentDialog).getByRole("button", { name: "참여 신청하기" }));
+  await user.click(within(recruitmentDialog).getByRole("button", { name: "자리하기" }));
 
   expect(captureEvent).toHaveBeenCalledWith("registration_started", {
     group_id: 41,

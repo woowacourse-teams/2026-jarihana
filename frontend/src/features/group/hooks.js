@@ -26,13 +26,17 @@ export function useGroups(filters = {}) {
   return useQuery({ queryKey: groupKeys.list(filters), queryFn: () => fetchGroups(filters) });
 }
 
-export function useInfiniteGroups(filters = {}) {
-  return useInfiniteQuery({
+export function infiniteGroupsQueryOptions(filters = {}) {
+  return {
     queryKey: groupKeys.list(filters),
     initialPageParam: null,
     queryFn: ({ pageParam }) => fetchGroups({ ...filters, cursor: pageParam }),
     getNextPageParam: getSafeNextCursor
-  });
+  };
+}
+
+export function useInfiniteGroups(filters = {}, options = {}) {
+  return useInfiniteQuery({ ...infiniteGroupsQueryOptions(filters), ...options });
 }
 
 export function groupQueryOptions(groupId) {

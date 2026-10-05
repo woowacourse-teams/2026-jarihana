@@ -1,6 +1,10 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useContext, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Link, useLocation } from "react-router";
+
+import { groupQueryOptions } from "../../features/group/hooks.js";
+import { useGroupPhotoTransition } from "./useGroupPhotoTransition.js";
 
 import "./group-transition.css";
 
@@ -20,9 +24,11 @@ export function groupTransitionOrigin(state) {
 
 export function GroupTransitionProvider({ children }) {
   const location = useLocation();
+  const queryClient = useQueryClient();
   const [selection, setSelection] = useState(() => location.state?.groupTransition ?? null);
   const source = location.state?.groupTransition ?? selection;
   const previousPath = useRef(location.pathname);
+  useGroupPhotoTransition(location.pathname, source);
 
   if (location.state?.groupTransition && location.state.groupTransition !== selection) {
     setSelection(location.state.groupTransition);
@@ -46,6 +52,12 @@ export function GroupTransitionProvider({ children }) {
     <GroupTransitionContext.Provider value={{
       source,
       setSelection,
+      prefetchGroup: (groupId) => {
+        void queryClient.prefetchQuery({
+          ...groupQueryOptions(String(groupId)),
+          retry: false
+        });
+      },
       returningSource: source?.originKey === location.key ? source : null
     }}>
       {children}
@@ -63,7 +75,18 @@ export function GroupDetailLink({ groupId, source, carouselIndex, ...properties 
   return <TransitionLink {...properties} carouselIndex={carouselIndex} context={context} groupId={groupId} source={source} />;
 }
 
-function TransitionLink({ context, groupId, source, onClick, state, carouselIndex, ...properties }) {
+function TransitionLink({
+  context,
+  groupId,
+  source,
+  onClick,
+  onFocus,
+  onPointerDown,
+  onPointerEnter,
+  state,
+  carouselIndex,
+  ...properties
+}) {
   const location = useLocation();
   const selection = {
     key: `${location.key}:${source}:${groupId}`,
@@ -80,12 +103,37 @@ function TransitionLink({ context, groupId, source, onClick, state, carouselInde
     flushSync(() => context.setSelection(selection));
   }
 
+  function prefetchGroup(event) {
+    if (event.defaultPrevented) return;
+    context.prefetchGroup(groupId);
+  }
+
+  function handleFocus(event) {
+    onFocus?.(event);
+    prefetchGroup(event);
+  }
+
+  function handlePointerEnter(event) {
+    onPointerEnter?.(event);
+    if (event.pointerType && event.pointerType !== "mouse") return;
+    prefetchGroup(event);
+  }
+
+  function handlePointerDown(event) {
+    onPointerDown?.(event);
+    if (event.pointerType !== "touch") return;
+    prefetchGroup(event);
+  }
+
   return (
     <Link
       {...properties}
       data-group-source={selection.key}
       data-group-transition-source={context.source?.key === selection.key || undefined}
       onClick={handleClick}
+      onFocus={handleFocus}
+      onPointerDown={handlePointerDown}
+      onPointerEnter={handlePointerEnter}
       state={{ ...state, groupTransition: selection }}
       to={`/groups/${groupId}`}
       viewTransition
