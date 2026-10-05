@@ -103,9 +103,10 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   with a `--signup-type-image-base-size` (`7.5rem`) layout box rendered at fixed `scale(2)`.
 - Radius: small `8`, medium `14`, large `20`, pill `999`.
 - Footer Contact us block: `--footer-contact-max-width` `22rem` max width on desktop/tablet.
-- Container: 구현 token `--container-shell`은 `1440px`(`90rem`)이다. `/`의 content rail을
-  기준으로 모든 route의 페이지 shell과 section 외곽선을 통일한다. gutter는 360–767px에서
-  16px, 768px 이상에서 `--page-hero-gap`(24px)을 공유한다. 홈의 첫 hero는 예외로
+- Container: 구현 token `--container-shell`은 기본 `90rem`, 1024px 이상에서는 `100rem`이다.
+  기본 글꼴 설정에서 데스크톱 상한은 1400px이며 `/`의 content rail을 기준으로 모든 route의
+  페이지 shell과 section 외곽선을 통일한다. gutter는 모바일 16px, 태블릿 24px,
+  데스크톱 21px로 `--page-hero-gap`을 공유한다. 홈의 첫 hero는 예외로
   header 바로 아래부터 화면 좌우 전체를 채우며, 이후 section은 기존 shell과 gutter를 유지한다.
   desktop의 `--groups-page-rail-gutter`도 같은 token을 참조하며 header와 footer까지 좌우 기준선을 맞춘다.
   account, management, group editor, group detail도 같은 shell을 공유하고, 좁은 form 읽기 폭은
@@ -259,8 +260,9 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 ### Desktop density
 
 - 가로 1024px 이상에서는 루트 글꼴을 브라우저 기본 크기의 `87.5%`로 둔다. 기본 16px 환경에서
-  `1rem`은 14px이 되어 글자·간격·카드·shell이 함께 줄고, 같은 화면에 더 많은 내용이 보인다.
-  `--container-shell` 90rem은 1260px, 헤더 3.75rem은 52.5px이 된다.
+  `1rem`은 14px이 되어 글자·간격·카드가 함께 줄고, 같은 화면에 더 많은 내용이 보인다.
+  데스크톱 `--container-shell`은 100rem(1400px)로 두어 좌우 공간을 더 사용한다.
+  헤더 3.75rem은 52.5px이며 헤더·히어로 문구·본문·푸터는 넓어진 shell의 기준선을 공유한다.
 - 모바일·태블릿은 기존 루트 크기를 유지한다. 원형 icon button과 입력 컨트롤은 PC에서도
   44px/48px을 보장하고, 캡슐 버튼은 별도 compact 크기를 사용한다. 브라우저의 글꼴 설정과 확대
   기능은 유지하며 DPI나 운영체제 설정을 감지해 보정하지 않는다.
@@ -275,10 +277,10 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   본문 아래로 이동하고, management table은 labelled card rows로 바뀐다.
 - `768–1023`: full-bleed header 배경과 24px content gutter. 탐색 card는 3 columns, account는 좁은
   profile/content split, group editor hero는 single column으로 전환한다.
-- `1024–1439`: 24px content gutter와 4-column 탐색 카드, group detail/registration의 side rail,
+- `1024–1439`: 21px content gutter와 4-column 탐색 카드, group detail/registration의 side rail,
   group editor 2-column hero, management grid/table을 사용한다. 고정 폭 action은 충분한
   공간이 없으면 줄바꿈한다.
-- `1440+`: 1440px shell 상한을 중앙 정렬하고 탐색 카드 4 columns를 유지한다.
+- `1440+`: 1400px shell 상한을 중앙 정렬하고 탐색 카드 4 columns를 유지한다.
 - 하단 discovery는 desktop 4열/가로 24px·세로 40px, tablet 3열/24px, mobile 1열/24px이다.
   mobile 카드는 104px 왼쪽 이미지와 본문 사이 12px 간격을 두며 이미지는 행 높이를 채우고
   최소 148px 높이를 유지한다. 이 두 geometry는 discovery component token으로 둔다.
@@ -767,7 +769,7 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
   with reduced-motion support so the intervening today section does not hide the outcome.
   At every viewport the hero starts directly below the header and fills the available page width,
   without top or side gutters. The home page has no width cap or inline padding; subsequent
-  sections retain the 1440px shell minus shared gutters, centered independently. Below 1024px use
+  sections retain the shared shell (1400px on desktop) minus shared gutters, centered independently. Below 1024px use
   clamp(16rem, calc(24svh + 4rem), 20rem) with 48px block padding instead of a 560px floor.
   Keep the height content-driven when longer copy requires more room.
   From 1024px, use a home-only minimum of max(clamp(27rem, calc(34svh + 4rem), 31rem), 28.125vw)

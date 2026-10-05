@@ -128,6 +128,7 @@
 @media (min-width: 64rem) {
   :root {
     font-size: 87.5%;
+    --container-shell: 100rem;
     --touch-target: max(2.75rem, 44px);
     --touch-target-lg: max(3rem, 48px);
     --page-gutter: var(--groups-page-rail-gutter);
