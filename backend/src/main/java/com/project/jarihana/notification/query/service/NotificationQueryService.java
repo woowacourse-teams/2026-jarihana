@@ -5,6 +5,7 @@ import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.notification.query.repository.NotificationQueryRepository;
 import com.project.jarihana.notification.query.repository.dto.NotificationProjection;
+import com.project.jarihana.notification.query.repository.dto.NotificationGroupProjection;
 import com.project.jarihana.notification.query.service.dto.NotificationItemResult;
 import com.project.jarihana.notification.query.service.dto.NotificationListQuery;
 import com.project.jarihana.notification.query.service.dto.NotificationListResult;
@@ -18,6 +19,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -37,7 +40,10 @@ public class NotificationQueryService {
                 PageRequest.of(0, query.size()));
         List<NotificationProjection> items = page.getContent();
         String next = page.hasNext() ? encode(items.getLast()) : null;
-        return new NotificationListResult(items.stream().map(NotificationItemResult::from).toList(), next, page.hasNext());
+        Map<Long, String> groupNames = findGroupNames(items);
+        return new NotificationListResult(items.stream()
+                .map(item -> NotificationItemResult.from(item, groupNames.get(item.payload().getGroupId())))
+                .toList(), next, page.hasNext());
     }
 
     public NotificationItemResult findNotification(long memberId, long id) {
@@ -45,8 +51,19 @@ public class NotificationQueryService {
         if (id <= 0) {
             throw invalidParameter();
         }
-        return notifications.findActiveByIdAndMemberId(id, memberId).map(NotificationItemResult::from)
+        NotificationProjection item = notifications.findActiveByIdAndMemberId(id, memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOTIFICATION_NOT_FOUND, "알림을 찾을 수 없습니다."));
+        Map<Long, String> groupNames = findGroupNames(List.of(item));
+        return NotificationItemResult.from(item, groupNames.get(item.payload().getGroupId()));
+    }
+
+    private Map<Long, String> findGroupNames(List<NotificationProjection> items) {
+        if (items.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> groupIds = items.stream().map(item -> item.payload().getGroupId()).distinct().toList();
+        return notifications.findGroupNames(groupIds).stream()
+                .collect(Collectors.toMap(NotificationGroupProjection::id, NotificationGroupProjection::name));
     }
 
     public long countUnreadNotifications(long memberId) {

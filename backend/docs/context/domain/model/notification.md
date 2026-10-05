@@ -1,6 +1,7 @@
 # 알림·브라우저 구독·전송 작업
 
-> 상태: 데이터 모델·업무 이벤트·알림함·구독 API·푸시 워커를 구현했다. 화면·Service Worker 연결은 후속 구현 범위다.
+> 상태: 데이터 모델·업무 이벤트·알림함·구독 API·푸시 워커·화면·Service Worker 연결을 구현했다.
+> 환경별 검증 상태는 [웹푸시 운영 가이드](../../../operations/web-push.md#구현과-검증-상태)를 따른다.
 
 선택 이유는 [백엔드 ADR 0015](../../../adr/0015-web-push-and-notification-inbox.md)에 있다.
 계약은 [알림 API](../../api/endpoints/notifications.md)와 함께 구현·검증한다.
@@ -49,6 +50,10 @@ REGISTRATION_REJECTED, REGISTRATION_SYSTEM_REJECTED.
 안 읽음 인덱스: `(member_id, id) WHERE deleted_at IS NULL AND read_at IS NULL`.
 업무 ID는 payload의 값이며 업무 테이블 FK를 두지 않는다. 그룹·신청 물리 삭제 후에도 알림 기록은
 남고, 클릭 시 없어진 목적지를 안전하게 처리한다. 회원 FK는 기본 삭제 제한을 유지한다.
+
+알림함의 제목은 사건 종류, 본문은 현재 모임 이름과 발생한 일을 함께 표시한다.
+모임 이름은 목록 단위로 일괄 조회하며 별도 스냅샷 필드를 두지 않는다. 삭제된 모임은 `삭제된 모임`으로 표시한다.
+모든 사건의 클릭 목적지는 해당 모임 상세이며, 모임을 조회할 수 없으면 읽음 처리하지 않고 복귀 안내를 보여준다.
 
 ## PushSubscription (`push_subscriptions`)
 

@@ -1,6 +1,6 @@
 # ADR 0002. 알림함과 Service Worker
 
-- 상태: 채택 — 화면·브라우저 연결 구현, 실제 제공자·실기기 검증 전
+- 상태: 채택 — 알림함 화면·브라우저·Service Worker 연결 구현
 - 날짜: 2026-10-05
 - 목적: 구현한 프론트엔드 구조와 선택 이유를 팀에 공유한다.
 - 관련 결정: [백엔드 ADR 0015 · 알림함과 웹푸시](../../../backend/docs/adr/0015-web-push-and-notification-inbox.md), [프론트엔드 ADR 0001 · 기술 스택](0001-frontend-toolchain.md)
@@ -29,7 +29,8 @@ iPhone·iPad에서는 홈 화면에서 실행하도록 안내하고, 미지원 �
 `public/sw.js`는 앱 번들과 별도로 `/sw.js`에 배포한다. SW는 푸시의 알림 ID·구독 ID·generation을
 확인하고 로그인 쿠키를 포함해 서버의 비공개 내용 API를 조회한다. 조회가 실패하면 승인 결과 같은
 상세 내용 없이 일반 안내만 표시한다. 클릭은 임의의 payload URL 대신 `/notifications/open/:id`로 이동한다.
-앱은 로그인 복귀, 알림 소유권과 대상의 존재·권한을 확인하고 읽음 처리한 뒤 내부 화면으로 이동한다.
+앱은 로그인 복귀, 알림 소유권과 모임의 존재·접근 가능 여부를 확인하고 읽음 처리한 뒤 `/groups/:groupId` 모임 상세로 이동한다.
+알림함 본문은 현재 모임 이름과 사건 내용을 함께 보여준다. 모집 삭제·리더 변경 때문에 공개 상세 이동을 막지 않는다.
 대상이 없어졌거나 접근 권한이 바뀌면 알림함으로 돌아갈 수 있게 안내한다.
 
 SW는 IndexedDB에 회원 ID·구독 ID·generation·수신 활성 여부·로컬 revision만 저장한다.
@@ -53,7 +54,7 @@ endpoint, 암호화 키, 알림 본문과 로그인 토큰을 저장하지 않�
 SW는 자동으로 `skipWaiting`하지 않는다. 기존 탭을 닫아 새 SW가 활성화된 뒤 저장된 연결 상태를
 읽는다. 앱·SW 메시지 protocol과 저장 형식을 변경할 때는 이전 버전과의 호환성을 검토해야 한다.
 `/sw.js`를 SPA HTML로 되돌리지 않고 JavaScript로 제공하며 캐시 갱신 정책과 manifest·아이콘 경로를 확인한다.
-관련 운영 경로는 [프론트엔드 README](../../README.md#pwa와-웹푸시)에 기록한다.
+배포 경로와 환경별 검증 상태는 [웹푸시 운영 가이드](../../../backend/docs/operations/web-push.md)를 따른다.
 
 Jest의 SW 이벤트 재현과 Chromium의 실제 SW·IndexedDB 검증은 외부 푸시 제공자의 전달 성공을
 보장하지 않는다. 실제 제공자 수락, Chrome·Safari·홈 화면 앱의 수신·클릭, 배포 경로는 별도 검증한다.

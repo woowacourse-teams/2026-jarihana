@@ -1,7 +1,7 @@
 # 알림함·웹푸시
 
 > 상태: 알림함 API 6개, 구독·공개 설정·푸시 내용 조회 API 5개와 로그아웃 확장을 구현했다.
-> 알림함 화면·Service Worker 연결은 구현했다. 실제 Push Service 수신·실기기 클릭과 배포는 별도 검증이 필요하다.
+> 알림함 화면·Service Worker 연결을 구현했다. 환경별 검증 상태는 [웹푸시 운영 가이드](../../../operations/web-push.md#구현과-검증-상태)를 따른다.
 
 [API 공통 설계](../common-contract.md)를 따른다. 구현 시 Controller·요청/응답 DTO·ErrorCode와
 RestAssured 인수 테스트로 계약을 검증한다. 알림함 API는 Controller·DTO·ErrorCode와 인수 테스트에 반영했다. 선택 이유는
@@ -54,11 +54,11 @@ RestAssured 인수 테스트로 계약을 검증한다. 알림함 API는 Control
       "eventType": "REGISTRATION_APPROVED",
       "payloadVersion": 1,
       "title": "신청 승인",
-      "body": "신청이 승인되었습니다.",
+      "body": "‘자바 스터디’ 모임의 신청이 승인되었습니다.",
       "createdAt": "2026-10-03T10:00:00",
       "readAt": null,
       "target": {
-        "kind": "MY_REGISTRATIONS",
+        "kind": "GROUP_DETAIL",
         "groupId": 12,
         "recruitmentId": 45
       }
@@ -72,8 +72,8 @@ RestAssured 인수 테스트로 계약을 검증한다. 알림함 API는 Control
 
 - 읽은 알림도 목록에 포함하며, 삭제된 알림만 제외한다.
 - `readAt = null`이면 안 읽음이다.
-- `title`과 `body`는 사건 종류에 맞춰 서버가 제공하는 표시 문구다. 예시 문구는 응답 구조를 설명하기 위한 것이다.
-- `target.kind`는 `LEADER_REGISTRATIONS` 또는 `MY_REGISTRATIONS`이며, 목적지에 필요한 `groupId`·`recruitmentId`를 포함한다.
+- `title`은 사건 종류, `body`는 모임 이름과 발생한 일을 함께 표시한다. 모임 이름은 조회 시 현재 이름을 사용하며, 삭제된 모임은 `삭제된 모임`으로 표시한다. 목록의 모임 이름은 일괄 조회한다.
+- `target.kind`는 모든 사건에서 `GROUP_DETAIL`이다. `groupId`로 `/groups/{groupId}`에 이동하며 `recruitmentId`는 사건의 모집 식별 정보로 유지한다.
 - 클라이언트는 `target`을 내부 화면 경로로 해석한다. 외부 URL을 목적지로 전달하지 않는다.
 - 목록 조회나 알림함을 여는 동작만으로 읽음 처리하지 않는다.
 
@@ -102,11 +102,11 @@ RestAssured 인수 테스트로 계약을 검증한다. 알림함 API는 Control
     "eventType": "REGISTRATION_APPROVED",
     "payloadVersion": 1,
     "title": "신청 승인",
-    "body": "신청이 승인되었습니다.",
+    "body": "‘자바 스터디’ 모임의 신청이 승인되었습니다.",
     "createdAt": "2026-10-03T10:00:00",
     "readAt": null,
     "target": {
-      "kind": "MY_REGISTRATIONS",
+      "kind": "GROUP_DETAIL",
       "groupId": 12,
       "recruitmentId": 45
     }
@@ -117,7 +117,7 @@ RestAssured 인수 테스트로 계약을 검증한다. 알림함 API는 Control
 
 - 목록의 개별 항목과 같은 응답 필드를 사용한다.
 - 미삭제 본인 알림만 조회하며, 조회 자체로 읽음 상태를 변경하지 않는다.
-- 클릭 후 클라이언트는 본인 알림·목적지를 확인하고 개별 읽음 API를 호출한 뒤 관련 화면으로 이동한다.
+- 클릭 후 클라이언트는 본인 알림과 모임의 존재·접근 가능 여부를 확인하고 개별 읽음 API를 호출한 뒤 모임 상세로 이동한다. 모집이 삭제되었거나 리더가 변경되어도 모임 상세를 볼 수 있으면 이동한다. 모임 조회가 403/404이면 읽음 처리하지 않고 알림함 복귀를 안내한다.
 
 #### 예외
 

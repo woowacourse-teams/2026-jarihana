@@ -77,7 +77,7 @@ flowchart TD
 | `ActivityPostPhoto` | 게시물 사진 | 게시물과 분리된 사진 참조이며 현재는 게시물당 사진 한 장이다 |
 | `Notification` | 회원별 알림 기록 | 읽음·삭제 시각을 기록하며 삭제 후에도 사건 중복 방지 행을 유지한다 |
 | `PushSubscription` | 브라우저 푸시 연결 | 해제·재연결·키 교체 시 연결 버전을 증가시킨다 |
-| `NotificationDelivery` | 구독별 전송 대기 | 생성 당시 연결 버전과 전송 상태를 기록한다. 워커 연결은 구현 전이다 |
+| `NotificationDelivery` | 구독별 전송 대기 | 생성 당시 연결 버전과 전송 상태를 기록하며 워커가 선점·전송·재시도를 수행한다 |
 
 ## 관계도
 
@@ -108,4 +108,4 @@ erDiagram
 | 소속 | [GroupMember](groupmember.md) | 그룹 소속 모델 |
 | 피드백 | [Feedback](feedback.md) | 피드백 내용과 필수 작성 회원 |
 | 사진 활동 기록 | [ActivityPost](activitypost.md) | 공개 범위, 사진 참조, 활동 날짜와 생명주기 |
-| 알림·구독·전송 | [Notification](notification.md) | 데이터 모델·업무 이벤트·알림함 API 구현. 구독 API·푸시 워커 연결은 구현 전 |
+| 알림·구독·전송 | [Notification](notification.md) | 데이터 모델·업무 이벤트·알림함·구독 API·푸시 워커·화면·SW 연결 구현 |

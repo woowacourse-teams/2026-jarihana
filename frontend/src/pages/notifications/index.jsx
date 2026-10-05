@@ -1,9 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { useAuth } from "../../features/auth";
 import { fetchGroup } from "../../features/group/api";
-import { fetchRecruitment } from "../../features/recruitment/api";
 import { NotificationInbox } from "../../features/notifications/NotificationInbox";
 import { fetchNotification, notificationTargetPath, readNotification } from "../../features/notifications/api";
 import { useNotificationScope } from "../../features/notifications/hooks";
@@ -15,7 +13,6 @@ export function NotificationsPage() {
 }
 export function NotificationOpenPage() {
   const { id } = useParams();
-  const { member } = useAuth();
   const [readRetry, setReadRetry] = useState(0);
   const navigate = useNavigate();
   const client = useQueryClient();
@@ -24,11 +21,7 @@ export function NotificationOpenPage() {
   const query = useQuery({ queryKey: [...scope.key, "open", id], enabled: scope.enabled && validId,
     queryFn: async ({ signal }) => {
       const notification = await fetchNotification(id, undefined, signal);
-      const group = await fetchGroup(notification.target.groupId);
-      await fetchRecruitment(notification.target.groupId, notification.target.recruitmentId);
-      if (notification.target.kind === "LEADER_REGISTRATIONS" && group.leader.memberId !== member.id) {
-        throw Object.assign(new Error("알림 대상의 접근 권한이 변경되었어요."), { status: 403 });
-      }
+      await fetchGroup(notification.target.groupId);
       return notification;
     }, retry: false, staleTime: 0 });
   const read = useMutation({ mutationFn: () => readNotification(id) });

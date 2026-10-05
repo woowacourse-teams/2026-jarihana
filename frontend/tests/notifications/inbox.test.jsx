@@ -63,7 +63,9 @@ test("empty state appears after deleting the last row", async () => {
   await screen.findByText("아직 받은 알림이 없어요.");
 });
 test("server targets map to internal destinations and unsupported targets are rejected", () => {
-  expect(original.notificationTargetPath({ kind: "MY_REGISTRATIONS" })).toBe("/my/registrations");
+  for (const kind of ["GROUP_DETAIL", "MY_REGISTRATIONS", "LEADER_REGISTRATIONS"]) {
+    expect(original.notificationTargetPath({ kind, groupId: 10, recruitmentId: 20 })).toBe("/groups/10");
+  }
   expect(original.notificationSchema.safeParse({ ...row(1), payloadVersion: 1, eventType: "REGISTRATION_APPROVED",
     target: { kind: "EXTERNAL", groupId: 1, recruitmentId: 2 } }).success).toBe(false);
 });

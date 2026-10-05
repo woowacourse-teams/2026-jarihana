@@ -3,9 +3,9 @@ import AxeBuilder from "@axe-core/playwright";
 import { installApiFixture } from "./api-fixture.js";
 
 const initialRows = [1, 2].map((id) => ({ id, eventType: "REGISTRATION_APPROVED", payloadVersion: 1,
-  title: `모임 신청 승인 ${id}`, body: "모임 신청이 승인되었습니다. 자세한 내용은 내 신청에서 확인해 주세요.",
+  title: `모임 신청 승인 ${id}`, body: "‘테스트 모임’ 모임의 신청이 승인되었습니다.",
   createdAt: "2026-10-05T12:00:00", readAt: null,
-  target: { kind: "MY_REGISTRATIONS", groupId: 10, recruitmentId: 20 } }));
+  target: { kind: "GROUP_DETAIL", groupId: 10, recruitmentId: 20 } }));
 async function fixture(page) {
   const shared = await installApiFixture(page);
   const state = { rows: structuredClone(initialRows), reads: 0, failDelete: false };
@@ -80,11 +80,19 @@ test("@core delete failure keeps row; normal motion starts only after successful
   await expect(page.locator(".notification-row--exiting")).toHaveCount(1);
   await expect(page.getByText("모임 신청 승인 1", { exact: true })).toHaveCount(0);
 });
-test("@core notification click verifies and marks read before opening related screen", async ({ page }) => {
-  const { state } = await fixture(page); await page.goto("/notifications/open/1");
-  await expect(page).toHaveURL(/\/my\/registrations$/);
-  expect(state.reads).toBeGreaterThan(0);
-});
+for (const kind of ["GROUP_DETAIL", "MY_REGISTRATIONS", "LEADER_REGISTRATIONS"]) {
+  test(`@core notification ${kind} opens group detail without requiring its recruitment`, async ({ page }) => {
+    const { state } = await fixture(page);
+    state.rows[0].target.kind = kind;
+    await page.route("**/api/groups/10/recruitments/20", (route) => route.fulfill({ status: 404 }));
+    await page.goto("/notifications");
+    await expect(page.getByText("‘테스트 모임’ 모임의 신청이 승인되었습니다.")).toHaveCount(2);
+    await page.getByRole("link", { name: /모임 신청 승인 1/ }).click();
+    await expect(page).toHaveURL(/\/groups\/10$/);
+    expect(state.reads).toBeGreaterThan(0);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  });
+}
 test("@core actual Service Worker stores binding in IndexedDB and shares disarm across tabs", async ({ page, context }) => {
   await installApiFixture(page); await page.goto("/groups");
   const command = async (target, type, extra = {}) => target.evaluate(async ({ type, extra }) => {

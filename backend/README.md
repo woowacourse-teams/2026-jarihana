@@ -127,58 +127,6 @@ docker compose -f docker-compose-local.yaml ps
 작성 내용과 인증 회원 ID가 함께 저장됩니다. 운영 프로필은
 `ddl-auto: validate`이므로 이 DDL을 적용하지 않으면 애플리케이션이 기동하지 않습니다.
 
-웹푸시·알림함 데이터 모델을 공유 개발·운영에 배포하기 전에는
-`db/migrations/2026-10-03-notification.sql`을 먼저 적용해야 합니다.
-기존 `member` 테이블을 참조하는 `notifications`, `push_subscriptions`,
-`notification_deliveries`와 조회 인덱스·DB 제약을 추가합니다.
-기존 데이터는 수정하지 않으며 알림 테이블과 인덱스를 추가합니다. 이미 적용한 환경에서도
-갱신된 SQL을 다시 적용해 구독 목록·구독별 미완료 작업 취소 인덱스를 추가할 수 있습니다.
-스키마 적용 후 백엔드를 배포합니다. 알림함·구독·푸시 내용 API, 현재 브라우저 로그아웃 연결 해제,
-외부 웹푸시 전송 워커를 구현했습니다. 알림함 화면·Service Worker와 실기기 연결은 후속 범위입니다.
-전송 대기의 유효기간은 `jarihana.notification.delivery-ttl`로 설정하며 기본값은 24시간입니다.
-
-### 웹푸시 설정과 운영 확인
-
-기본값은 `PUSH_ENABLED=false`입니다. 활성화하려면 동일한 VAPID 키 쌍과 연락처를 환경 변수로 전달합니다.
-공개키는 브라우저 구독에 사용하는 P-256 비압축 공개키 65바이트의 Base64URL 문자열이고,
-비밀키는 P-256 개인 스칼라 32바이트의 Base64URL 문자열입니다. 패딩 없는 문자열을 권장합니다.
-키 쌍이 일치하지 않거나 연락처가 잘못되면 기동을 거절합니다.
-
-| 환경 변수 | 기본값 | 용도 |
-| --- | --- | --- |
-| `PUSH_ENABLED` | `false` | 공개 설정·새 구독 등록·전송 활성화 |
-| `PUSH_WORKER_ENABLED` | `true` | 활성화된 환경에서 자동 워커 실행 여부 |
-| `PUSH_VAPID_PUBLIC_KEY` | 빈 값 | 브라우저에 제공할 공개키 |
-| `PUSH_VAPID_PRIVATE_KEY` | 빈 값 | 서버 서명용 비밀키. 저장소·로그에 남기지 않음 |
-| `PUSH_VAPID_SUBJECT` | 빈 값 | `mailto:담당자주소` 또는 HTTPS 연락처 |
-| `PUSH_ALLOWED_HOSTS` | `fcm.googleapis.com,updates.push.services.mozilla.com,web.push.apple.com` | 정확한 제공자 호스트 목록 |
-| `PUSH_BATCH_SIZE` | `50` | 한 실행에서 처리할 최대 작업 수, 1~100 |
-| `PUSH_POLL_DELAY` | `1000` | 실행이 끝난 뒤 다음 실행까지 기다리는 밀리초 |
-| `PUSH_LEASE_DURATION` | `PT1M` | 워커 선점 유효기간 |
-| `PUSH_REQUEST_TIMEOUT` | `PT10S` | 외부 HTTP 요청의 전체 제한시간 |
-| `PUSH_CONNECT_TIMEOUT` | `PT5S` | DNS·TCP·TLS 연결 제한시간 |
-| `PUSH_RETRY_DELAY` | `PT5S` | 재시도 간격의 시작값 |
-
-DNS는 최대 두 건만 동시에 조회하고 기다리는 요청을 쌓지 않습니다. 공개 주소를 검사한 뒤 해당 주소에
-연결하며, 원래 호스트의 TLS 인증서 검증을 유지합니다. redirect와 HTTP 클라이언트 자체 재시도는 끕니다.
-선점 시간은 HTTP 제한시간과 연결 제한시간 두 번의 합보다 커야 하며, 네트워크 제한시간은 최소 1ms입니다.
-비밀키·구독 endpoint·암호화 키·원격 응답 본문은 운영 로그에 남기지 않습니다.
-
-`jarihana.push.requests` 카운터는 외부 요청 결과를 `ACCEPTED`, `RETRY`, `GONE`, `FAILED`로 구분합니다.
-외부 수락은 실제 기기 표시·사용자 읽음과 다릅니다. `push.request.failed` 로그에는 전송 작업 ID와
-제한된 오류 코드만, `push.worker.failed`에는 예외 타입만 남깁니다. 재시도·만료 선점이 쌓이는지는
-다음 조회로 확인할 수 있습니다. 개인 수신 주소·키를 조회하는 쿼리는 운영 확인에 필요하지 않습니다.
-
-```sql
-SELECT status, count(*) FROM notification_deliveries GROUP BY status;
-SELECT count(*) FROM notification_deliveries
-WHERE status IN ('PENDING', 'RETRY') AND next_attempt_at <= localtimestamp;
-SELECT count(*) FROM notification_deliveries
-WHERE status = 'IN_FLIGHT' AND locked_until <= localtimestamp;
-```
-
-실제 제공자 인증·브라우저 수신·클릭·운영 배포는 이후 통합 검증에서 확인합니다.
-
 ### 운영 DB SSH 터널 접속
 
 운영 Compose는 PostgreSQL 포트를 서버의 `127.0.0.1:5432`에 바인딩합니다.
@@ -241,3 +189,7 @@ DB 접속값과 인증·OAuth·S3 설정은 개발 Compose의 환경 변수로 �
 예시만 제공하며 운영값의 저장소가 아닙니다. S3 자격 증명은 애플리케이션에서 별도로
 주입하지 않고 AWS SDK 기본 자격 증명 체인을 사용하므로, 운영 EC2에서는 연결된 IAM Role이
 필요합니다.
+
+## 웹푸시·알림함
+
+설정·DB 적용·로컬 테스트·배포·장애 확인은 [웹푸시 운영 가이드](docs/operations/web-push.md)를 확인합니다.

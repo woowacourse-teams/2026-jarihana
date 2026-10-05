@@ -2,6 +2,7 @@ package com.project.jarihana.notification.query.repository;
 
 import com.project.jarihana.notification.domain.Notification;
 import com.project.jarihana.notification.query.repository.dto.NotificationProjection;
+import com.project.jarihana.notification.query.repository.dto.NotificationGroupProjection;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.Query;
@@ -9,6 +10,8 @@ import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface NotificationQueryRepository extends Repository<Notification, Long> {
@@ -42,6 +45,12 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
             @Param("cursorId") Long cursorId,
             Pageable pageable
     );
+
+    @Query("""
+            select new com.project.jarihana.notification.query.repository.dto.NotificationGroupProjection(g.id, g.name)
+            from Group g where g.id in :groupIds
+            """)
+    List<NotificationGroupProjection> findGroupNames(@Param("groupIds") Collection<Long> groupIds);
 
     @Query("""
             select count(notification)

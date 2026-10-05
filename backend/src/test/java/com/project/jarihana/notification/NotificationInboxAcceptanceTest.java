@@ -3,6 +3,8 @@ package com.project.jarihana.notification;
 import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.member.domain.Member;
+import com.project.jarihana.notification.domain.SystemRejectionReason;
+import com.project.jarihana.recruitment.domain.JoinMethod;
 import com.project.jarihana.notification.domain.Notification;
 import com.project.jarihana.notification.domain.NotificationEventType;
 import com.project.jarihana.notification.domain.NotificationPayload;
@@ -79,13 +81,54 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
         assertThat(response.statusCode()).isEqualTo(200);
         assertThat(response.jsonPath().getString("data.title")).isEqualTo("신청 승인");
         assertThat(response.jsonPath().getString("data.body")).isNotBlank();
-        assertThat(response.jsonPath().getString("data.target.kind")).isEqualTo("MY_REGISTRATIONS");
+        assertThat(response.jsonPath().getString("data.target.kind")).isEqualTo("GROUP_DETAIL");
         assertThat(response.jsonPath().getLong("data.target.groupId")).isEqualTo(12);
         assertThat(response.jsonPath().getLong("data.target.recruitmentId")).isEqualTo(45);
         assertThat(response.jsonPath().getString("data.readAt")).isNull();
         assertThat(response.header("Cache-Control")).contains("no-store");
-        assertThat(leader.jsonPath().getString("data.target.kind")).isEqualTo("LEADER_REGISTRATIONS");
+        assertThat(leader.jsonPath().getString("data.target.kind")).isEqualTo("GROUP_DETAIL");
         assertThat(notifications.findByIdAndMemberId(notification.getId(), owner.getId()).orElseThrow().getReadAt()).isNull();
+    }
+
+    @ParameterizedTest
+    @EnumSource(NotificationEventType.class)
+    @DisplayName("모든 사건은 목록과 개별 조회에 모임 이름을 표시하고 모임 상세를 목적지로 반환한다.")
+    void showGroupNameAndDetailTargetForEveryEvent(NotificationEventType eventType) {
+        // Given
+        Member owner = member("101");
+        var recruitment = recruitment(owner, JoinMethod.APPROVAL, 5);
+        var group = recruitment.getGroup();
+        Notification notification = notifications.save(Notification.create(owner, "named-event", eventType,
+                NotificationPayload.of(group.getId(), recruitment.getId(), 123,
+                        eventType == NotificationEventType.REGISTRATION_SYSTEM_REJECTED
+                                ? SystemRejectionReason.RERECRUITMENT : null), NOW));
+
+        // When
+        Response detail = authenticated(owner).get("/notifications/" + notification.getId());
+        Response list = authenticated(owner).get("/notifications");
+
+        // Then
+        assertThat(detail.statusCode()).isEqualTo(200);
+        assertThat(detail.jsonPath().getString("data.body")).contains(group.getName());
+        assertThat(detail.jsonPath().getString("data.target.kind")).isEqualTo("GROUP_DETAIL");
+        assertThat(detail.jsonPath().getLong("data.target.groupId")).isEqualTo(group.getId());
+        assertThat(list.jsonPath().getString("data.items[0].body"))
+                .isEqualTo(detail.jsonPath().getString("data.body"));
+    }
+
+    @Test
+    @DisplayName("모임이 없어도 알림 기록과 사건 문구는 조회할 수 있다.")
+    void preserveNotificationForMissingGroup() {
+        // Given
+        Member owner = member("101");
+        Notification notification = notification(owner, "missing-group");
+
+        // When
+        Response detail = authenticated(owner).get("/notifications/" + notification.getId());
+
+        // Then
+        assertThat(detail.statusCode()).isEqualTo(200);
+        assertThat(detail.jsonPath().getString("data.body")).isEqualTo("삭제된 모임의 신청이 승인되었습니다.");
     }
 
     @Test

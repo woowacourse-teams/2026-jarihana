@@ -5,7 +5,7 @@ const id = z.number().int().positive().safe();
 export const notificationSchema = z.object({
   id, eventType: z.string(), payloadVersion: z.literal(1), title: z.string(), body: z.string(),
   createdAt: z.string(), readAt: z.string().nullable(),
-  target: z.object({ kind: z.enum(["LEADER_REGISTRATIONS", "MY_REGISTRATIONS"]), groupId: id, recruitmentId: id })
+  target: z.object({ kind: z.enum(["GROUP_DETAIL", "LEADER_REGISTRATIONS", "MY_REGISTRATIONS"]), groupId: id, recruitmentId: id })
 });
 export const notificationPageSchema = z.object({
   items: z.array(notificationSchema), nextCursor: z.string().nullable(), hasNext: z.boolean()
@@ -25,5 +25,4 @@ export const readAllNotifications = (client = apiClient) => client.request("noti
   method: "PATCH", schema: z.object({ updatedCount: z.number().int().nonnegative(), readAt: z.string() })
 });
 export const deleteNotification = (notificationId, client = apiClient) => client.request(`notifications/${notificationId}`, { method: "DELETE" });
-export const notificationTargetPath = ({ kind, groupId, recruitmentId }) => kind === "MY_REGISTRATIONS"
-  ? "/my/registrations" : `/groups/${groupId}/manage/recruitments/${recruitmentId}/registrations`;
+export const notificationTargetPath = ({ groupId }) => `/groups/${groupId}`;
