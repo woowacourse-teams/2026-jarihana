@@ -60,6 +60,7 @@ class NotificationSchemaMigrationTest extends IntegrationTestSupport {
                 assertColumnTypes(jdbc, schema);
                 assertIndexes(jdbc, schema);
                 assertConstraints(jdbc);
+                assertSubscriptionAccessPaths(jdbc);
                 migration.execute(isolated);
                 assertThat(jdbc.queryForObject("select count(*) from notifications", Long.class)).isEqualTo(1);
             } finally {
@@ -107,7 +108,8 @@ class NotificationSchemaMigrationTest extends IntegrationTestSupport {
     private void assertIndexes(JdbcTemplate jdbc, String schema) {
         List<String> indexes = jdbc.queryForList("select indexname from pg_indexes where schemaname = ?", String.class, schema);
         assertThat(indexes).contains("idx_notifications_inbox", "idx_notifications_unread",
-                "idx_push_subscriptions_active", "idx_notification_deliveries_due", "idx_notification_deliveries_expired_lease");
+                "idx_push_subscriptions_active", "idx_notification_deliveries_due", "idx_notification_deliveries_expired_lease",
+                "idx_push_subscriptions_inbox", "idx_notification_deliveries_subscription_unfinished");
         assertThat(jdbc.queryForObject("select indexdef from pg_indexes where schemaname = ? and indexname = 'idx_notifications_inbox'",
                 String.class, schema)).contains("member_id, created_at DESC, id DESC").contains("deleted_at IS NULL");
         assertThat(jdbc.queryForObject("select indexdef from pg_indexes where schemaname = ? and indexname = 'idx_notifications_unread'",
@@ -118,6 +120,39 @@ class NotificationSchemaMigrationTest extends IntegrationTestSupport {
                 String.class, schema)).contains("next_attempt_at, id").contains("PENDING").contains("RETRY");
         assertThat(jdbc.queryForObject("select indexdef from pg_indexes where schemaname = ? and indexname = 'idx_notification_deliveries_expired_lease'",
                 String.class, schema)).contains("locked_until, id").contains("IN_FLIGHT");
+        assertThat(jdbc.queryForObject("select indexdef from pg_indexes where schemaname = ? and indexname = 'idx_push_subscriptions_inbox'",
+                String.class, schema)).contains("member_id, created_at DESC, id DESC");
+        assertThat(jdbc.queryForObject("select indexdef from pg_indexes where schemaname = ? and indexname = 'idx_notification_deliveries_subscription_unfinished'",
+                String.class, schema)).contains("push_subscription_id, subscription_generation").contains("PENDING").contains("RETRY").contains("IN_FLIGHT");
+    }
+
+    private void assertSubscriptionAccessPaths(JdbcTemplate jdbc) {
+        jdbc.update("""
+                insert into push_subscriptions (id, member_id, endpoint, p256dh, auth, enabled, generation,
+                    last_seen_at, disabled_at, created_at, updated_at)
+                select 1000 + value, 1, 'https://fcm.googleapis.com/index/' || value, 'public-key', 'auth-value',
+                    value % 2 = 0, 1, localtimestamp, case when value % 2 = 0 then null else localtimestamp end,
+                    localtimestamp, localtimestamp from generate_series(1, 10000) value
+                """);
+        jdbc.update("""
+                insert into notification_deliveries (notification_id, push_subscription_id, subscription_generation,
+                    status, attempt_count, next_attempt_at, expires_at, created_at, updated_at)
+                select 1, 1000 + value, 1, 'PENDING', 0, localtimestamp, localtimestamp + interval '24 hours',
+                    localtimestamp, localtimestamp from generate_series(1, 10000) value
+                """);
+        jdbc.execute("analyze push_subscriptions");
+        jdbc.execute("analyze notification_deliveries");
+        String listing = String.join("\n", jdbc.queryForList("""
+                explain select id, generation, enabled, last_seen_at from push_subscriptions
+                where member_id = 1 order by created_at desc, id desc limit 20
+                """, String.class));
+        String cancellation = String.join("\n", jdbc.queryForList("""
+                explain update notification_deliveries set status = 'CANCELLED'
+                where push_subscription_id = 1001 and subscription_generation < 2
+                    and status in ('PENDING', 'RETRY', 'IN_FLIGHT')
+                """, String.class));
+        assertThat(listing).contains("idx_push_subscriptions_inbox");
+        assertThat(cancellation).contains("idx_notification_deliveries_subscription_unfinished");
     }
 
     private void assertConstraints(JdbcTemplate jdbc) {

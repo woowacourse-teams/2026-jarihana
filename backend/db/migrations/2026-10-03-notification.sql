@@ -49,6 +49,8 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 
 CREATE INDEX IF NOT EXISTS idx_push_subscriptions_active
     ON push_subscriptions (member_id, id) WHERE enabled = true;
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_inbox
+    ON push_subscriptions (member_id, created_at DESC, id DESC);
 
 CREATE TABLE IF NOT EXISTS notification_deliveries (
     id BIGSERIAL PRIMARY KEY,
@@ -88,5 +90,8 @@ CREATE INDEX IF NOT EXISTS idx_notification_deliveries_due
     ON notification_deliveries (next_attempt_at, id) WHERE status IN ('PENDING', 'RETRY');
 CREATE INDEX IF NOT EXISTS idx_notification_deliveries_expired_lease
     ON notification_deliveries (locked_until, id) WHERE status = 'IN_FLIGHT';
+CREATE INDEX IF NOT EXISTS idx_notification_deliveries_subscription_unfinished
+    ON notification_deliveries (push_subscription_id, subscription_generation)
+    WHERE status IN ('PENDING', 'RETRY', 'IN_FLIGHT');
 
 COMMIT;

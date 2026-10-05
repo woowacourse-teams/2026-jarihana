@@ -1,6 +1,6 @@
 # 알림·브라우저 구독·전송 작업
 
-> 상태: 데이터 모델·업무 이벤트·알림함 API 구현. 구독 API·푸시 워커 연결은 구현 전이다.
+> 상태: 데이터 모델·업무 이벤트·알림함·구독 API·푸시 워커를 구현했다. 화면·Service Worker 연결은 후속 구현 범위다.
 
 선택 이유는 [백엔드 ADR 0015](../../../adr/0015-web-push-and-notification-inbox.md)에 있다.
 계약은 [알림 API](../../api/endpoints/notifications.md)와 함께 구현·검증한다.
@@ -69,6 +69,7 @@ REGISTRATION_REJECTED, REGISTRATION_SYSTEM_REJECTED.
 | updatedAt | LocalDateTime | BaseEntity, NOT NULL | 키 교체·연결 해제 등 구독 정보를 마지막으로 바꾼 시각이다. |
 
 활성 인덱스: `(member_id, id) WHERE enabled = true`.
+구독 목록 인덱스: `(member_id, created_at DESC, id DESC)`. 비활성 구독도 목록에 포함한다.
 `endpoint` 원문에 전역 UNIQUE를 두며 비활성 행도 포함한다. 중복 조회만으로 끝내지 않고 DB 제약으로
 동시 등록도 막는다. 검증 후 원문을 저장하며 주소를 임의 재작성하지 않는다.
 API에서 UTF-8 최대2048바이트를 검사하고 DB에도 `CHECK (octet_length(endpoint) BETWEEN 1 AND 2048)`을 둔다.
@@ -119,6 +120,7 @@ DB에는 작업 `status`와 제한된 `lastErrorCode` 분류를 남긴다.
 유일키: `(notification_id, push_subscription_id, subscription_generation)`.
 due 인덱스: `(next_attempt_at, id)`의 PENDING/RETRY partial index.
 만료 선점 인덱스: `(locked_until, id)`의 IN_FLIGHT partial index.
+구독별 취소 인덱스: `(push_subscription_id, subscription_generation)`의 PENDING/RETRY/IN_FLIGHT partial index.
 status·attemptCount·lease 필드 일관성을 DB check 제약과 도메인 테스트로 검증한다.
 
 ## 상태·동시성 규칙
@@ -126,6 +128,12 @@ status·attemptCount·lease 필드 일관성을 DB check 제약과 도메인 테
 - 실제 업무 변경 성공 후 동기 BEFORE_COMMIT 리스너가 알림과 전송 대기를 같은 TX에 기록한다.
 - 구독0개여도 알림은 저장한다. 이후 등록한 구독에 과거 알림을 소급 전송하지 않는다.
 - 외부 HTTP는 TX 밖에서 수행한다. SKIP LOCKED 선점 + 만료 lease 복구 + leaseToken 조건부 결과 저장을 사용한다.
+- 한 건씩 선점·전송 준비·결과 반영을 별도 짧은 TX로 처리한다. 결과 반영은 구독 행을 먼저 잠그고,
+  연결 버전과 현재 leaseToken을 모두 확인한다. 과거 워커의 응답으로 새 연결이나 다른 워커의 상태를 변경하지 않는다.
+- 최초 전송을 포함해 최대 5회 시도한다. 네트워크·429·5xx 실패는 기본 5·10·20·40초 간격으로 재시도한다.
+  더 늦은 Retry-After를 우선하고, 다음 시도가 유효기간 밖이면 실패로 종료한다. 404·410은 해당 연결만 해제한다.
+- 알림을 삭제하거나 구독을 해제하는 동안 이미 시작한 외부 요청은 전달될 수 있다.
+  늦은 응답은 취소 상태를 덮어쓰지 않으며, 상세 정보 보호는 Service Worker의 연결 재확인과 내용 API 소유권 검증으로 처리한다.
 - 구독 해제/generation 변경/알림 삭제는 미완료 작업을 취소한다. 이미 수락·전송 중인 요청은 회수 보장하지 않는다.
 - 전체 읽음은 회원·미삭제·미읽음 조건의 단일 UPDATE snapshot을 경계로 한다. max(id)를 commit 순서로 사용하지 않는다.
 - native UPDATE는 updated_at도 갱신한다. 목록은 읽은 행도 포함하고 삭제된 행만 제외한다.
