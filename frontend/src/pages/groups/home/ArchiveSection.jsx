@@ -2,9 +2,9 @@ import { ArrowRight } from "lucide-react";
 import { Link } from "react-router";
 
 import { useInfiniteGroups } from "../../../features/group/index.js";
-import { Button, EmptyState, ErrorState, GroupImage, Skeleton } from "../../../shared/ui/index.js";
+import { Button, EmptyState, ErrorState, GroupImage, Skeleton, StatusBadge } from "../../../shared/ui/index.js";
 import { GroupDetailLink } from "../GroupTransition.jsx";
-import { flattenPages, publicErrorCopy, typeLabel } from "../pageUtils.js";
+import { flattenPages, publicErrorCopy, typeBadgeTone, typeLabel } from "../pageUtils.js";
 import { groupScheduleLabel } from "./groupCardMetadata.js";
 import "./archive-section.css";
 
@@ -31,10 +31,9 @@ function ArchiveCard({ group }) {
       <span aria-hidden="true" className="archive-card__scrim" />
       <span className="archive-card__badge">종료</span>
       <span className="archive-card__content">
-        <span className="archive-card__type">{typeLabel(group.type)}</span>
+        <StatusBadge tone={typeBadgeTone(group.type)}>{typeLabel(group.type)}</StatusBadge>
         <h3>{group.name}</h3>
         <span className="archive-card__meta">{groupScheduleLabel(group)}</span>
-        <span className="archive-card__meta">참여자 {group.memberCount}명</span>
       </span>
     </GroupDetailLink>
   );

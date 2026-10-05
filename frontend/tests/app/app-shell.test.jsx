@@ -97,6 +97,18 @@ it("starts GitHub login from the anonymous header action", () => {
   expect(login).toHaveBeenCalledTimes(1);
 });
 
+it("returns to group creation after login from the desktop create action", () => {
+  const login = jest.fn();
+  renderShell({ login, status: "anonymous" });
+  const createLink = within(screen.getByRole("banner")).getByRole("link", { name: "자리 만들기" });
+
+  expect(createLink).toHaveAttribute("href", "/groups/new");
+  expect(createLink).toHaveAttribute("data-ph-capture-attribute-action", "group_create");
+  expect(fireEvent.click(createLink)).toBe(false);
+  expect(sessionStorage.getItem("jarihana:auth:return-target")).toBe("/groups/new");
+  expect(login).toHaveBeenCalledTimes(1);
+});
+
 it("starts GitHub login from the mobile account area and closes the drawer", () => {
   const login = jest.fn();
   renderShell({ login, status: "anonymous" });

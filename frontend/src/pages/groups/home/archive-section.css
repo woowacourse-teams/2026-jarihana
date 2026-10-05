@@ -108,7 +108,14 @@
   padding: var(--space-12) var(--space-4) var(--space-4);
 }
 
-.archive-card__type,
+.archive-card__content > .ui-badge {
+  min-height: 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-badge);
+  line-height: 1.45;
+}
+
 .archive-card__meta {
   color: color-mix(in srgb, var(--color-surface) 82%, transparent);
   font-size: var(--text-caption);
@@ -117,6 +124,7 @@
 
 .archive-card h3 {
   display: -webkit-box;
+  min-block-size: 2lh;
   margin: 0;
   overflow: hidden;
   color: var(--color-surface);
@@ -171,7 +179,6 @@
     font-size: var(--text-body);
   }
 
-  .archive-card__type,
   .archive-card__meta {
     font-size: var(--text-badge);
   }

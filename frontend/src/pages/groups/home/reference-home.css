@@ -260,28 +260,28 @@
 }
 
 .reference-hero__chairs {
-  flex: 0 0 calc(var(--space-12) + var(--space-2));
-  width: calc(var(--space-12) + var(--space-2));
-  height: var(--space-10);
+  flex: 0 0 var(--space-12);
+  width: var(--space-12);
+  height: var(--space-8);
 }
 
 .reference-hero__chair {
   display: block;
   width: 100%;
-  height: var(--space-10);
+  height: var(--space-8);
   object-fit: contain;
 }
 
 .reference-hero__create-mark {
-  flex: 0 0 var(--touch-target);
-  width: var(--touch-target);
-  height: var(--space-10);
+  flex: 0 0 var(--space-8);
+  width: var(--space-8);
+  height: var(--space-8);
 }
 
 .reference-hero__create-chair {
   display: block;
-  width: var(--space-10);
-  height: var(--space-10);
+  width: var(--space-8);
+  height: var(--space-8);
   object-fit: contain;
 }
 
@@ -410,7 +410,7 @@
     min-height: var(--touch-target-lg);
     gap: var(--space-1);
     padding-inline: var(--space-3);
-    font-size: clamp(var(--text-body), 2.5vw, var(--text-body-lg));
+    font-size: var(--text-label);
   }
 
   .reference-hero__chairs {
@@ -496,24 +496,40 @@
   flex-wrap: wrap;
 }
 .reference-type-filters button {
-  min-height: var(--touch-target);
-  padding: var(--space-2) var(--space-5);
+  min-height: var(--button-height-sm);
+  padding: var(--space-1) var(--space-4);
   border: var(--border-thin) solid var(--color-line);
   border-radius: var(--radius-pill);
   background: var(--color-surface);
   color: var(--color-muted-ink);
   font: inherit;
   font-size: var(--text-label);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.4;
   cursor: pointer;
 }
+.reference-type-filters button[data-group-type="SESSION"],
+.reference-group-card[data-group-type="SESSION"] {
+  --reference-type-background: var(--color-activity-session-soft);
+  --reference-type-ink: var(--color-activity-session-ink);
+}
+.reference-type-filters button[data-group-type="STUDY"],
+.reference-group-card[data-group-type="STUDY"] {
+  --reference-type-background: var(--color-activity-study-soft);
+  --reference-type-ink: var(--color-activity-study-ink);
+}
+.reference-type-filters button[data-group-type="CLUB"],
+.reference-group-card[data-group-type="CLUB"] {
+  --reference-type-background: var(--color-activity-club-soft);
+  --reference-type-ink: var(--color-activity-club-ink);
+}
 .reference-type-filters button[aria-pressed="true"] {
-  border-color: var(--color-brand);
-  background: var(--color-brand);
-  color: var(--color-ink);
+  border-color: var(--reference-type-background, var(--color-brand));
+  background: var(--reference-type-background, var(--color-brand));
+  color: var(--reference-type-ink, var(--color-ink));
 }
 .reference-type-filters button:hover:not([aria-pressed="true"]) {
-  background: var(--color-brand-soft);
+  background: var(--reference-type-background, var(--color-brand-soft));
 }
 
 .reference-recruiting-grid {
@@ -528,15 +544,17 @@
   flex-direction: column;
   min-width: 0;
   overflow: hidden;
-  border: var(--border-thin) solid var(--color-line);
+  border: max(1px, var(--border-thin)) solid var(--color-line);
   border-radius: var(--reference-card-radius);
   background: var(--color-surface);
   color: var(--color-ink);
   text-decoration: none;
-  transition: transform var(--duration-base) var(--ease-standard);
+  transition:
+    transform var(--duration-base) var(--ease-standard),
+    border-color var(--duration-base) var(--ease-standard);
 }
 .reference-group-card:focus-visible {
-  outline: var(--border-strong) solid var(--color-brand-ink);
+  outline: var(--border-strong) solid var(--reference-type-ink, var(--color-brand-ink));
   outline-offset: var(--space-1);
 }
 .reference-group-card__visual {
@@ -612,22 +630,31 @@
   flex-shrink: 0;
   margin-block-start: var(--space-1);
 }
+.reference-group-card__schedule {
+  margin-block-start: auto;
+}
 .reference-group-card__footer {
   align-self: stretch;
-  gap: var(--space-2);
+  justify-content: space-between;
+  gap: var(--space-1);
   flex-wrap: wrap;
-  margin-block-start: auto;
-  padding-block-start: var(--space-1);
   font-size: var(--text-badge);
 }
+.reference-group-card__members {
+  flex: 1;
+  min-width: 0;
+}
 .reference-group-card__type {
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-sunken);
-  color: var(--color-muted-ink);
+  padding: calc(var(--space-1) / 2) 0.375rem;
+  border-radius: var(--space-1);
+  background: var(--reference-type-background, var(--color-surface-sunken));
+  color: var(--reference-type-ink, var(--color-muted-ink));
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-bold);
 }
 .reference-group-card__seats {
-  color: var(--color-brand-ink);
+  margin-inline-start: auto;
+  color: var(--reference-type-ink, var(--color-brand-ink));
   font-weight: var(--font-weight-bold);
 }
 .reference-group-card--featured {
@@ -658,15 +685,18 @@
 }
 .reference-group-card--featured .reference-group-card__introduction,
 .reference-group-card--featured .reference-group-card__schedule,
-.reference-group-card--featured .reference-group-card__members,
-.reference-group-card--featured .reference-group-card__seats {
+.reference-group-card--featured .reference-group-card__members {
   color: inherit;
 }
-.reference-group-card--featured .reference-group-card__footer {
-  margin-block-start: var(--space-3);
+.reference-group-card--featured .reference-group-card__seats {
+  color: var(--reference-type-background, var(--color-surface));
+}
+.reference-group-card--featured .reference-group-card__schedule {
+  margin-block-start: 0;
 }
 .reference-group-card--featured .reference-group-card__footer > svg {
-  margin-inline-start: auto;
+  flex: none;
+  margin-inline-start: var(--space-2);
 }
 .reference-card-skeleton {
   min-height: var(--reference-feature-min-height);
@@ -676,7 +706,7 @@
 @media (hover: hover) and (pointer: fine) {
   .reference-group-card:hover {
     transform: translateY(-2px);
-    border-color: var(--color-brand-ink);
+    border-color: var(--reference-type-ink, var(--color-brand-ink));
   }
 }
 @media (max-width: 63.9375rem) {

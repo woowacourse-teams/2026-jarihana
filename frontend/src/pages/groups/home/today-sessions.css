@@ -1,5 +1,6 @@
 .today-sessions-hero {
   --today-session-ticket-gap: var(--space-4);
+  --today-session-ticket-stroke: max(1px, var(--border-thin));
   --today-session-ticket-width: calc((100% - (var(--today-session-ticket-gap) * 2)) / 3);
   --today-session-panel-min-height: 23rem;
   --today-session-control-row: var(--space-6);
@@ -98,10 +99,12 @@
   display: flex;
   min-width: 0;
   gap: var(--today-session-ticket-gap);
-  padding-block: var(--space-1);
+  margin-inline: calc(var(--space-1) * -1);
+  padding: var(--space-1);
   overflow-x: hidden;
   overscroll-behavior-x: contain;
   scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--space-1);
   scrollbar-width: none;
 }
 
@@ -122,7 +125,7 @@
   grid-template-rows: auto 1fr auto;
   height: 100%;
   min-height: 21rem;
-  border: var(--border-thin) solid var(--today-session-ticket-border-color);
+  border: var(--today-session-ticket-stroke) solid var(--today-session-ticket-border-color);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   color: var(--color-ink);
@@ -142,8 +145,8 @@
   display: block;
   aspect-ratio: var(--groups-card-art-ratio);
   overflow: hidden;
-  border-radius: calc(var(--radius-lg) - var(--border-thin))
-    calc(var(--radius-lg) - var(--border-thin)) 0 0;
+  border-radius: calc(var(--radius-lg) - var(--today-session-ticket-stroke))
+    calc(var(--radius-lg) - var(--today-session-ticket-stroke)) 0 0;
   background: var(--color-surface-sunken);
 }
 
@@ -234,9 +237,9 @@
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--today-session-ticket-padding);
-  border-top: var(--border-thin) dashed var(--color-line);
-  border-radius: 0 0 calc(var(--radius-lg) - var(--border-thin))
-    calc(var(--radius-lg) - var(--border-thin));
+  border-top: var(--today-session-ticket-stroke) dashed var(--color-line);
+  border-radius: 0 0 calc(var(--radius-lg) - var(--today-session-ticket-stroke))
+    calc(var(--radius-lg) - var(--today-session-ticket-stroke));
   background: var(--color-surface-sunken);
 }
 
@@ -250,19 +253,19 @@
   top: calc(var(--space-2) * -1);
   width: var(--space-4);
   height: var(--space-4);
-  border: var(--border-thin) solid var(--today-session-ticket-border-color);
+  border: var(--today-session-ticket-stroke) solid var(--today-session-ticket-border-color);
   border-radius: var(--radius-pill);
   background: var(--color-surface);
   content: "";
 }
 
 .today-session-ticket__stub::before {
-  left: calc((var(--space-2) + var(--border-thin)) * -1);
+  left: calc((var(--space-2) + var(--today-session-ticket-stroke)) * -1);
   clip-path: inset(0 0 0 50%);
 }
 
 .today-session-ticket__stub::after {
-  right: calc((var(--space-2) + var(--border-thin)) * -1);
+  right: calc((var(--space-2) + var(--today-session-ticket-stroke)) * -1);
   clip-path: inset(0 50% 0 0);
 }
 
@@ -290,10 +293,11 @@
   display: inline-flex;
   flex-shrink: 0;
   gap: var(--space-2);
-  min-height: var(--touch-target);
+  min-height: var(--button-visual-height-sm);
   align-items: center;
   justify-content: center;
-  padding-inline: var(--space-3);
+  padding: var(--space-1) var(--space-4);
+  line-height: 1.4;
   border: var(--border-thin) solid var(--color-line);
   border-radius: var(--radius-pill);
   background: var(--color-surface);
@@ -714,10 +718,6 @@
 
   .today-sessions-hero__meta {
     justify-content: flex-start;
-  }
-
-  .today-sessions-hero__tickets {
-    padding-inline: var(--space-1);
   }
 
   .today-sessions-hero__nav--previous {

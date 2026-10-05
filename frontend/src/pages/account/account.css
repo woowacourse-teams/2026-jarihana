@@ -475,7 +475,6 @@
   margin-top: var(--space-3);
   align-self: center;
   justify-self: center;
-  font-size: 1rem;
   transform: translateY(calc(var(--space-3) * 2));
 }
 

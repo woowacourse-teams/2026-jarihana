@@ -68,6 +68,7 @@
   cursor: pointer;
   font-size: var(--text-label);
   font-weight: var(--font-weight-semibold);
+  line-height: 1.4;
   white-space: nowrap;
 }
 
@@ -216,8 +217,8 @@
 
 .activity-photo-card__actions .ui-button {
   gap: var(--space-1);
-  min-height: 2.5rem;
-  padding-inline: var(--space-2);
+  min-height: var(--button-height-sm);
+  padding-inline: var(--space-3);
   font-size: var(--text-caption);
 }
 
@@ -313,7 +314,7 @@
   right: var(--space-3);
   bottom: var(--space-3);
   display: inline-flex;
-  min-height: var(--touch-target);
+  min-height: var(--button-visual-height-sm);
   align-items: center;
   gap: var(--space-2);
   padding-inline: var(--space-4);
@@ -322,6 +323,7 @@
   color: var(--color-surface);
   font-size: var(--text-caption);
   font-weight: var(--font-weight-semibold);
+  line-height: 1.4;
 }
 
 .activity-photo-picker__input {

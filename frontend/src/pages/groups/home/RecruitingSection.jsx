@@ -24,6 +24,7 @@ function RecruitingCard({ group, featured }) {
   return (
     <GroupDetailLink
       className={`reference-group-card${featured ? " reference-group-card--featured" : ""}`}
+      data-group-type={group.type}
       data-ph-capture-attribute-action="group_view"
       groupId={group.id}
       source="recruiting"
@@ -35,18 +36,18 @@ function RecruitingCard({ group, featured }) {
         <span className="reference-group-card__badge">모집 중</span>
       </span>
       <div className="reference-group-card__body">
+        <span className="reference-group-card__type">{typeLabel(group.type)}</span>
         <h3>{group.name}</h3>
         <p className="reference-group-card__introduction">{group.introduction}</p>
         <span className="reference-group-card__schedule">
           <CalendarDays aria-hidden="true" size={14} />
           <span>{groupScheduleLabel(group)}</span>
         </span>
-        <span className="reference-group-card__members">
-          <Users aria-hidden="true" size={14} />
-          {group.memberCount}명 함께하는 중
-        </span>
         <span className="reference-group-card__footer">
-          <span className="reference-group-card__type">{typeLabel(group.type)}</span>
+          <span className="reference-group-card__members">
+            <Users aria-hidden="true" size={14} />
+            {group.memberCount}명 자리하는 중
+          </span>
           {seats && <span className="reference-group-card__seats">{seats}</span>}
           {featured && <ArrowRight aria-hidden="true" size={20} />}
         </span>
@@ -211,6 +212,7 @@ export function RecruitingSection({ beforeResults, headline, heroPeriod, isAuthe
             {types.map((option) => (
               <button
                 aria-pressed={type === option.value}
+                data-group-type={option.value}
                 data-ph-capture-attribute-action="home_discovery_type_change"
                 key={option.value}
                 onClick={() => {

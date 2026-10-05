@@ -12,6 +12,7 @@ import { COURSE_LABELS, generationLabel } from "../pages/account/accountUtils";
 import { Avatar, Drawer, Modal, useToast } from "../shared/ui";
 import githubMark from "../shared/assets/brand/github-mark.svg";
 import logoMark from "../shared/assets/brand/jarihana-favicon.png";
+import createChairImage from "../shared/assets/brand/jarihana-chair-create.png";
 import { ProfileMenu } from "./ProfileMenu";
 
 const HOME_LINK = {
@@ -284,6 +285,27 @@ export function AppHeader({ action = null, title = "" }) {
           <div className="app-header__desktop-action">
             {title ? <span className="app-header__context">{title}</span> : null}
             {action}
+            <Link
+              className="app-header__auth app-header__create"
+              data-ph-capture-attribute-action="group_create"
+              onClick={(event) => {
+                if (status === "anonymous") {
+                  event.preventDefault();
+                  redirectToLogin("/groups/new");
+                }
+              }}
+              to="/groups/new"
+            >
+              <img
+                alt=""
+                aria-hidden="true"
+                className="app-header__create-chair"
+                height="24"
+                src={createChairImage}
+                width="24"
+              />
+              자리 만들기
+            </Link>
             {status === "authenticated" ? (
               <ProfileMenu />
             ) : (

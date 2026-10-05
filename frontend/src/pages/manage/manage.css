@@ -1210,15 +1210,16 @@
 }
 
 .manage-course-filters button {
-  min-block-size: var(--touch-target);
-  padding-inline: var(--space-5);
+  min-block-size: var(--button-height-sm);
+  padding: var(--space-1) var(--space-4);
   border: var(--border-thin) solid var(--color-line);
   border-radius: var(--radius-pill);
   background: var(--color-surface);
   color: var(--color-muted-ink);
   font: inherit;
   font-size: var(--text-caption);
-  font-weight: 700;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.4;
   cursor: pointer;
 }
 

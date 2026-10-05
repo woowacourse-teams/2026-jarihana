@@ -30,7 +30,7 @@
   background: transparent;
 }
 
-/* Keep the image's contrast overlay in its own shared snapshot. */
+/* The contrast overlay travels with the shared image. */
 .group-detail-page .group-profile::after {
   display: none;
 }
@@ -104,11 +104,11 @@
 }
 
 ::view-transition-old(group-image) {
-  animation: group-image-exit var(--duration-group-transition) linear both;
+  animation: group-image-exit var(--duration-group-transition) var(--ease-group-transition) both;
 }
 
 ::view-transition-new(group-image) {
-  animation: group-image-enter var(--duration-group-transition) linear both;
+  animation: group-image-enter var(--duration-group-transition) var(--ease-group-transition) both;
 }
 
 ::view-transition-old(group-copy) {
@@ -118,17 +118,6 @@
 ::view-transition-new(group-surface),
 ::view-transition-new(group-copy) {
   animation: group-copy-reveal var(--duration-group-transition) linear both;
-}
-
-/* On history return, reveal the card image early and its body after the shrink. */
-:root:has([data-group-transition-source])::view-transition-old(group-image) {
-  animation: group-content-exit var(--duration-fast) ease-in both;
-  mix-blend-mode: normal;
-}
-
-:root:has([data-group-transition-source])::view-transition-new(group-image) {
-  animation: none;
-  mix-blend-mode: normal;
 }
 
 @keyframes group-copy-reveal {
@@ -141,13 +130,13 @@
 }
 
 @keyframes group-image-exit {
-  0%, 45% { opacity: 1; }
-  70%, 100% { opacity: 0; }
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 @keyframes group-image-enter {
-  0%, 45% { opacity: 0; }
-  70%, 100% { opacity: 1; }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes group-image-lift {

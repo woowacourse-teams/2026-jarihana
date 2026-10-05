@@ -50,7 +50,7 @@
   --text-hero: 3.5rem;
   --text-hero-body: 1.25rem;
   --text-display: 2.5rem;
-  --text-brand: 1.375rem;
+  --text-brand: 1.4375rem;
   --text-brand-mobile: 1.125rem;
   --text-footer-contact: 1.375rem;
   --font-weight-semibold: 600;
@@ -87,9 +87,14 @@
   --border-strong: 0.125rem;
   --touch-target: 2.75rem;
   --touch-target-lg: 3rem;
+  --button-visual-height-sm: max(2.25rem, 32px);
+  --button-height-sm: var(--button-visual-height-sm);
+  --button-height-md: max(2.5rem, 36px);
+  --button-height-lg: max(2.75rem, 40px);
   --date-calendar-grid-width: 19.25rem;
   --header-auth-placeholder-width: 6.75rem;
   --header-active-line-width: 0.1875rem;
+  --header-nav-item-width: 4.25rem;
   --signup-type-image-size: 15rem;
   --signup-type-image-base-size: 7.5rem;
   --showcase-skeleton-height: 14rem;
@@ -109,7 +114,7 @@
   --z-header: 20;
   --container-shell: 90rem;
   --page-gutter: var(--space-4);
-  --header-height: 3.5rem;
+  --header-height: 3.75rem;
   --breakpoint-md: 48rem;
   --breakpoint-lg: 64rem;
 }
@@ -122,6 +127,9 @@
 
 @media (min-width: 64rem) {
   :root {
+    font-size: 87.5%;
+    --touch-target: max(2.75rem, 44px);
+    --touch-target-lg: max(3rem, 48px);
     --page-gutter: var(--groups-page-rail-gutter);
   }
 }
@@ -134,5 +142,13 @@
     --text-hero: 2.5rem;
     --text-hero-body: 1.125rem;
     --text-display: 1.875rem;
+  }
+}
+
+@media (max-width: 47.9375rem), (pointer: coarse) {
+  :root {
+    --button-height-sm: max(var(--button-visual-height-sm), var(--touch-target));
+    --button-height-md: var(--touch-target);
+    --button-height-lg: var(--touch-target-lg);
   }
 }
