@@ -176,6 +176,7 @@ export function AppHeader({ action = null, title = "" }) {
     ? "코치"
     : `${generationLabel(member?.generation)}${member?.course ? ` / ${COURSE_LABELS[member.course]}` : ""}`;
   const { hash, pathname, search } = useLocation();
+  const activeMenuIndex = DESKTOP_MEMBER_LINKS.findIndex((link) => link.isActive(pathname));
   const navigate = useNavigate();
   const { success } = useToast();
   const [isMenuOpen, setMenuOpen] = useState(false);
@@ -261,7 +262,12 @@ export function AppHeader({ action = null, title = "" }) {
             </Link>
           </div>
 
-          <nav aria-label="주요 메뉴" className="app-header__primary-nav">
+          <nav
+            aria-label="주요 메뉴"
+            className="app-header__primary-nav"
+            data-active={activeMenuIndex >= 0}
+            style={{ "--header-active-index": Math.max(0, activeMenuIndex) }}
+          >
             <HeaderLinks
               links={DESKTOP_MEMBER_LINKS}
               onNavigate={() => {}}

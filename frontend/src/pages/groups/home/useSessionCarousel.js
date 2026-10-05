@@ -14,8 +14,8 @@ function readsReducedMotion() {
   );
 }
 
-export function useSessionCarousel(itemCount, { interval = AUTO_ROTATION_INTERVAL } = {}) {
-  const [rawActiveIndex, setRawActiveIndex] = useState(0);
+export function useSessionCarousel(itemCount, { interval = AUTO_ROTATION_INTERVAL, initialIndex = 0 } = {}) {
+  const [rawActiveIndex, setRawActiveIndex] = useState(initialIndex);
   const [focusPaused, setFocusPaused] = useState(false);
   const [hoverPaused, setHoverPaused] = useState(false);
   const [userPaused, setUserPaused] = useState(false);

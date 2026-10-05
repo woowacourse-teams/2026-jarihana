@@ -104,3 +104,12 @@ it("keeps a valid index as the list shrinks and never schedules zero or one item
   rerender({ count: 1 });
   expect(jest.getTimerCount()).toBe(0);
 });
+
+
+it("starts at the saved carousel position before the first rotation", () => {
+  const { result } = renderHook(() => useSessionCarousel(6, { initialIndex: 4 }));
+  expect(result.current.activeIndex).toBe(4);
+  act(() => result.current.pauseFocus());
+  act(() => jest.advanceTimersByTime(10000));
+  expect(result.current.activeIndex).toBe(4);
+});

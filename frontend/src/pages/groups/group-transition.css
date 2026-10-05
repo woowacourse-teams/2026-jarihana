@@ -1,0 +1,165 @@
+.group-card-transition-image {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+  border-radius: inherit;
+  background: inherit;
+}
+
+.group-detail-page #group-title:focus {
+  outline: none;
+}
+
+[data-group-transition-source],
+.group-detail-page .group-profile {
+  view-transition-name: group-surface;
+}
+
+[data-group-transition-source] [data-group-transition-image],
+.group-detail-page .group-profile__art {
+  view-transition-name: group-image;
+}
+
+.group-detail-page .group-profile__copy {
+  view-transition-name: group-copy;
+}
+
+/* The image owns the hero background; the larger card surface stays transparent. */
+.group-detail-page .group-profile {
+  background: transparent;
+}
+
+/* Keep the image's contrast overlay in its own shared snapshot. */
+.group-detail-page .group-profile::after {
+  display: none;
+}
+
+.group-detail-page .group-profile__art::after {
+  position: absolute;
+  content: "";
+  inset: 0;
+  background: var(--group-profile-overlay);
+}
+
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-group(root) {
+  z-index: 0;
+}
+
+::view-transition-group(group-surface) {
+  z-index: 1;
+}
+
+::view-transition-group(group-image) {
+  z-index: 2;
+  border-radius: var(--radius-lg);
+}
+
+::view-transition-image-pair(group-image) {
+  isolation: isolate;
+  overflow: clip;
+  border-radius: inherit;
+  animation: group-image-lift var(--duration-group-transition) linear both;
+}
+
+::view-transition-group(group-copy) {
+  z-index: 3;
+}
+
+::view-transition-group(group-surface),
+::view-transition-group(group-image),
+::view-transition-group(group-copy) {
+  animation-duration: var(--duration-group-transition);
+  animation-timing-function: var(--ease-group-transition);
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--duration-fast);
+}
+
+::view-transition-old(group-surface),
+::view-transition-new(group-surface),
+::view-transition-old(group-image),
+::view-transition-new(group-image) {
+  height: 100%;
+  animation-duration: var(--duration-group-transition);
+  animation-timing-function: var(--ease-group-transition);
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(group-surface) {
+  animation: group-content-exit var(--duration-fast) ease-in both;
+}
+
+::view-transition-old(group-image),
+::view-transition-new(group-image) {
+  object-fit: cover;
+  /* Complementary opacities add to full coverage instead of fading through the page. */
+  mix-blend-mode: plus-lighter;
+}
+
+::view-transition-old(group-image) {
+  animation: group-image-exit var(--duration-group-transition) linear both;
+}
+
+::view-transition-new(group-image) {
+  animation: group-image-enter var(--duration-group-transition) linear both;
+}
+
+::view-transition-old(group-copy) {
+  animation-duration: var(--duration-fast);
+}
+
+::view-transition-new(group-surface),
+::view-transition-new(group-copy) {
+  animation: group-copy-reveal var(--duration-group-transition) linear both;
+}
+
+/* On history return, reveal the card image early and its body after the shrink. */
+:root:has([data-group-transition-source])::view-transition-old(group-image) {
+  animation: group-content-exit var(--duration-fast) ease-in both;
+  mix-blend-mode: normal;
+}
+
+:root:has([data-group-transition-source])::view-transition-new(group-image) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+@keyframes group-copy-reveal {
+  0%, 80% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes group-content-exit {
+  to { opacity: 0; }
+}
+
+@keyframes group-image-exit {
+  0%, 45% { opacity: 1; }
+  70%, 100% { opacity: 0; }
+}
+
+@keyframes group-image-enter {
+  0%, 45% { opacity: 0; }
+  70%, 100% { opacity: 1; }
+}
+
+@keyframes group-image-lift {
+  0%, 100% { box-shadow: none; }
+  15%, 75% { box-shadow: var(--shadow-float); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-image-pair(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

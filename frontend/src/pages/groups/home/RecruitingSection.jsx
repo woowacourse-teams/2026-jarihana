@@ -6,6 +6,7 @@ import { useInfiniteGroups } from "../../../features/group/index.js";
 import createChairImage from "../../../shared/assets/brand/jarihana-chair-create.png";
 import rainbowChairsImage from "../../../shared/assets/brand/jarihana-chairs-rainbow.png";
 import { Button, EmptyState, ErrorState, GroupImage, Skeleton } from "../../../shared/ui/index.js";
+import { GroupDetailLink } from "../GroupTransition.jsx";
 import { flattenPages, publicErrorCopy, typeLabel } from "../pageUtils.js";
 import { ExploreHero } from "./ExploreHero.jsx";
 import { groupScheduleLabel, groupSeatsLabel } from "./groupCardMetadata.js";
@@ -21,13 +22,16 @@ const types = [
 function RecruitingCard({ group, featured }) {
   const seats = groupSeatsLabel(group);
   return (
-    <Link
+    <GroupDetailLink
       className={`reference-group-card${featured ? " reference-group-card--featured" : ""}`}
       data-ph-capture-attribute-action="group_view"
-      to={`/groups/${group.id}`}
+      groupId={group.id}
+      source="recruiting"
     >
       <span className="reference-group-card__visual">
-        <GroupImage alt="" className="reference-group-card__image" group={group} loading="lazy" />
+        <span className="group-card-transition-image" data-group-transition-image>
+          <GroupImage alt="" className="reference-group-card__image" group={group} loading="lazy" />
+        </span>
         <span className="reference-group-card__badge">모집 중</span>
       </span>
       <div className="reference-group-card__body">
@@ -47,7 +51,7 @@ function RecruitingCard({ group, featured }) {
           {featured && <ArrowRight aria-hidden="true" size={20} />}
         </span>
       </div>
-    </Link>
+    </GroupDetailLink>
   );
 }
 
@@ -100,7 +104,7 @@ export function RecruitingSection({ beforeResults, headline, heroPeriod, isAuthe
     const next = new URLSearchParams(params);
     if (value) next.set(key, value);
     else next.delete(key);
-    setParams(next, { replace: true });
+    setParams(next, { replace: true, preventScrollReset: true });
   }
 
   function scrollToResults() {

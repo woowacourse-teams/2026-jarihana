@@ -1,7 +1,8 @@
 import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { Button, ErrorState, Skeleton } from "../../../shared/ui/index.js";
+import { useGroupTransitionSource } from "../GroupTransition.jsx";
 import { TodayPlan } from "./TodayPlan.jsx";
 import { TodaySessionTicket } from "./TodaySessionTicket.jsx";
 import "./today-sessions.css";
@@ -9,17 +10,6 @@ import { useSessionCarousel } from "./useSessionCarousel.js";
 
 const VISIBLE_TICKET_COUNT = 3;
 const SWIPE_THRESHOLD = 40;
-const MOBILE_LAYOUT_QUERY = "(max-width: 47.9375rem)";
-
-function subscribeToMobileLayout(onChange) {
-  const query = window.matchMedia(MOBILE_LAYOUT_QUERY);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
-
-function getMobileLayout() {
-  return window.matchMedia(MOBILE_LAYOUT_QUERY).matches;
-}
 
 const campusStatusMessages = {
   inside: "판교 캠퍼스 근처예요.",
@@ -106,13 +96,16 @@ export function TodaySessionsHero({
   onRequestLocation,
   onRetry
 }) {
-  const isMobile = useSyncExternalStore(subscribeToMobileLayout, getMobileLayout, () => false);
   const sessions = useMemo(() => todaySessions(groups, date), [date, groups]);
   const ticketReferences = useRef([]);
   const ticketsViewport = useRef(null);
   const pointerStart = useRef(null);
   const swiped = useRef(false);
-  const [visibleCount, setVisibleCount] = useState(VISIBLE_TICKET_COUNT);
+  const [visibleCount, setVisibleCount] = useState(null);
+  const returningSource = useGroupTransitionSource();
+  const [transitionSource] = useState(returningSource);
+  const restoredSource = useRef(null);
+  const positionedViewport = useRef(false);
   const {
     activeIndex,
     activePosition,
@@ -126,10 +119,22 @@ export function TodaySessionsHero({
     resumeHover,
     setUserPaused,
     userPaused
-  } = useSessionCarousel(sessions.length);
-  const visibleStartIndex = visibleTicketStart(activeIndex, sessions.length, visibleCount);
+  } = useSessionCarousel(sessions.length, {
+    initialIndex: transitionSource?.source === "today" ? transitionSource.carouselIndex ?? 0 : 0
+  });
+  const ticketCount = visibleCount ?? VISIBLE_TICKET_COUNT;
+  const visibleStartIndex = visibleTicketStart(activeIndex, sessions.length, ticketCount);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (!sessions.length || transitionSource?.source !== "today" || restoredSource.current === transitionSource.key) return;
+    const index = transitionSource.carouselIndex ?? sessions.findIndex((group) => group.id === transitionSource.groupId);
+    if (index < 0) return;
+    restoredSource.current = transitionSource.key;
+    positionedViewport.current = false;
+    goTo(index, { pause: true });
+  }, [goTo, sessions, transitionSource]);
+
+  useLayoutEffect(() => {
     const viewport = ticketsViewport.current;
     if (!viewport) return undefined;
 
@@ -137,29 +142,29 @@ export function TodaySessionsHero({
       setVisibleCount(visibleTicketCount(viewport, ticketReferences.current[0], sessions.length));
     }
 
-    const frame = window.requestAnimationFrame(updateVisibleCount);
+    updateVisibleCount();
     if (typeof ResizeObserver === "undefined") {
-      return () => window.cancelAnimationFrame(frame);
+      return undefined;
     }
 
     const observer = new ResizeObserver(updateVisibleCount);
     observer.observe(viewport);
     return () => {
-      window.cancelAnimationFrame(frame);
       observer.disconnect();
     };
   }, [sessions.length]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const activeTicket = ticketReferences.current[visibleStartIndex];
     const viewport = ticketsViewport.current;
-    if (!activeTicket || !viewport) return;
+    if (!activeTicket || !viewport || visibleCount === null) return;
 
     viewport.scrollTo({
       left: activeTicket.offsetLeft,
-      behavior: reducedMotion ? "auto" : "smooth"
+      behavior: reducedMotion || !positionedViewport.current ? "auto" : "smooth"
     });
-  }, [reducedMotion, visibleStartIndex]);
+    positionedViewport.current = true;
+  }, [reducedMotion, visibleCount, visibleStartIndex]);
 
   function handlePointerDown(event) {
     pointerStart.current = { x: event.clientX, y: event.clientY };
@@ -185,14 +190,6 @@ export function TodaySessionsHero({
 
   return (
     <section className="today-sessions-hero" aria-labelledby="today-sessions-title">
-      {isMobile && !isLoading && sessions.length > 0 ? (
-        <TodayPlan
-          activePosition={activePosition}
-          groups={sessions}
-          onMouseEnter={pauseHover}
-          onMouseLeave={resumeHover}
-        />
-      ) : null}
       <div className="today-sessions-hero__intro">
         <div className="today-sessions-hero__heading">
           <h2 className="today-sessions-hero__title" id="today-sessions-title">
@@ -323,8 +320,9 @@ export function TodaySessionsHero({
                 >
                   <TodaySessionTicket
                     active={index === activeIndex}
+                    carouselIndex={activeIndex}
                     group={group}
-                    tabIndex={isTicketFocusable(index, visibleStartIndex, visibleCount) ? 0 : -1}
+                    tabIndex={isTicketFocusable(index, visibleStartIndex, ticketCount) ? 0 : -1}
                   />
                 </div>
               ))}
@@ -347,7 +345,7 @@ export function TodaySessionsHero({
             ) : null}
           </div>
 
-          {!isMobile ? <TodayPlan activePosition={activePosition} groups={sessions} /> : null}
+          <TodayPlan activePosition={activePosition} groups={sessions} />
         </div>
       ) : null}
     </section>

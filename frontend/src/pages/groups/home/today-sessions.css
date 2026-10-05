@@ -101,7 +101,6 @@
   padding-block: var(--space-1);
   overflow-x: hidden;
   overscroll-behavior-x: contain;
-  scroll-behavior: smooth;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
 }
@@ -739,9 +738,6 @@
 
   .today-plan {
     min-height: 0;
-    padding-block: 0 var(--space-6);
-    border-top: 0;
-    border-bottom: var(--border-thin) solid var(--color-line);
   }
 
   .today-plan__header h2 {

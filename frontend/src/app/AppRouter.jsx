@@ -1,11 +1,23 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router";
+import {
+  createBrowserRouter,
+  createRoutesFromElements,
+  Navigate,
+  Route,
+  Routes,
+  ScrollRestoration,
+  useLocation
+} from "react-router";
+import { RouterProvider } from "react-router/dom";
 
+import { GroupTransitionProvider } from "../pages/groups/GroupTransition.jsx";
 import { Skeleton } from "../shared/ui";
 import { AnalyticsBridge } from "./AnalyticsBridge";
 import { AppShell } from "./AppShell";
 import { AuthGuard } from "./AuthGuard";
 import { LeaderGuard } from "./LeaderGuard";
+import { createGroupDetailLoader } from "./routeLoaders";
 import { routeRegistry } from "./routes";
 import { SignupGuard } from "./SignupGuard";
 
@@ -81,7 +93,7 @@ function RouteRedirect({ to }) {
   return <Navigate replace to={{ pathname: to, search, hash }} />;
 }
 
-export function createAppRouteElements(pageRegistry) {
+export function createAppRouteElements(pageRegistry, loaders = {}) {
   return routeRegistry.map((route) => {
     if (route.redirectTo) {
       return <Route element={<RouteRedirect to={route.redirectTo} />} key={route.path} path={route.path} />;
@@ -90,6 +102,20 @@ export function createAppRouteElements(pageRegistry) {
     const Page = pageRegistry[route.page];
     if (!Page) {
       throw new Error(`등록되지 않은 페이지 export: ${route.page}`);
+    }
+
+    if (route.page === "GroupDetailPage" && loaders.GroupDetailPage) {
+      return (
+        <Route
+          key={route.path}
+          lazy={async () => {
+            const { GroupDetailPage } = await loadGroupPages();
+            return { element: guardedPage(route.access, GroupDetailPage) };
+          }}
+          loader={loaders.GroupDetailPage}
+          path={route.path}
+        />
+      );
     }
 
     return <Route element={guardedPage(route.access, Page)} key={route.path} path={route.path} />;
@@ -104,11 +130,43 @@ export function AppRoutes() {
   );
 }
 
-export function AppRouter() {
+function RouterLayout() {
   return (
-    <BrowserRouter>
+    <>
       <AnalyticsBridge />
-      <AppRoutes />
-    </BrowserRouter>
+      <GroupTransitionProvider>
+        <AppShell />
+      </GroupTransitionProvider>
+      <ScrollRestoration />
+    </>
   );
+}
+
+const browserRouters = new WeakMap();
+
+export function AppRouter() {
+  const queryClient = useQueryClient();
+  let router = browserRouters.get(queryClient);
+
+  if (!router) {
+    router = createBrowserRouter(
+      createRoutesFromElements(
+        <Route
+          element={<RouterLayout />}
+          hydrateFallbackElement={
+            <AppShell>
+              <PageLoading />
+            </AppShell>
+          }
+        >
+          {createAppRouteElements(lazyPageRegistry, {
+            GroupDetailPage: createGroupDetailLoader(queryClient)
+          })}
+        </Route>
+      )
+    );
+    browserRouters.set(queryClient, router);
+  }
+
+  return <RouterProvider router={router} />;
 }

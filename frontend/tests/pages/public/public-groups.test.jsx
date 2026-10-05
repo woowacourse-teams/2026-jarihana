@@ -29,8 +29,7 @@ jest.mock(
     useNavigate: () => jest.fn(),
     useParams: () => mockRouteParams,
     useSearchParams: () => [mockSearchParams, mockSetSearchParams]
-  }),
-  { virtual: true }
+  })
 );
 
 jest.mock("../../../src/features/group/index.js", () => ({

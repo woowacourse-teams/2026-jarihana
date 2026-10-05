@@ -89,7 +89,8 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - Caption: 13/1.5, 400.
 - Badge: `--text-badge` 12/1, 800. 작은 count badge에 사용한다. 탐색 카드의 보조 정보는
   같은 12px 크기를 일반 굵기로 재사용한다.
-- Brand: `--text-brand` 22px/800. Header wordmark에만 쓰며 본문 scale을 대체하지 않는다.
+- Brand: `--text-brand` 22px/800, 모바일은 `--text-brand-mobile` 18px/800.
+  Header wordmark에만 쓰며 본문 scale을 대체하지 않는다.
 - Letter spacing: 전역 기본값과 브랜드 `--tracking-brand`는 0이다. 마이페이지 제목, eyebrow,
   활동 제목에도 별도의 음수/과한 양수 자간을 적용하지 않고 글꼴의 기본 간격을 유지한다.
 - `--font-size-caption`, `--font-size-label`, `--font-size-h3`는 기존 page CSS가 동일한
@@ -104,7 +105,8 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - Footer Contact us block: `--footer-contact-max-width` `22rem` max width on desktop/tablet.
 - Container: 구현 token `--container-shell`은 `1440px`(`90rem`)이다. `/`의 content rail을
   기준으로 모든 route의 페이지 shell과 section 외곽선을 통일한다. gutter는 360–767px에서
-  16px, 768px 이상에서 홈 hero와 header 사이 간격인 `--page-hero-gap`(24px)을 공유한다.
+  16px, 768px 이상에서 `--page-hero-gap`(24px)을 공유한다. 홈의 첫 hero는 예외로
+  header 바로 아래부터 화면 좌우 전체를 채우며, 이후 section은 기존 shell과 gutter를 유지한다.
   desktop의 `--groups-page-rail-gutter`도 같은 token을 참조하며 header와 footer까지 좌우 기준선을 맞춘다.
   account, management, group editor, group detail도 같은 shell을 공유하고, 좁은 form 읽기 폭은
   shell 안쪽 content에만 적용한다.
@@ -112,19 +114,25 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   thin, 탐색 입력의 강조 하단선 같은 의도적 emphasis만 strong을 사용한다.
 - Touch: `--touch-target`은 44px, `--touch-target-lg`는 48px이다. 일반 button, navigation,
   filter, form control은 이 최소 높이를 공유하며, 텍스트형 CTA는 문구 리듬을 위해 예외로 둔다.
-- Header: `--header-height`는 모바일 64px, 태블릿·데스크톱 72px이며, active line 3px, loading auth placeholder 108px로
+- Header: `--header-height`는 모바일 48px, 태블릿·데스크톱 56px이며, active line 3px, loading auth placeholder 108px로
   geometry를 token화한다. 모든 화면에서 `position: sticky`와 `top: 0`으로 상단에 유지하며,
   문서 흐름에 헤더 공간을 남겨 본문 시작을 가리지 않는다. 루트 scroll padding은
   `--header-height`를 사용해 앵커 이동과 키보드 포커스가 헤더 아래에 보이도록 한다.
 - 문서의 `html`과 `body` 배경은 `--color-nav`로 맞춰 macOS의 탄성 스크롤에서
   헤더·푸터 바깥에 흰색이 드러나지 않게 한다. `.app-shell`도 같은 검은 배경을 사용하고,
-  `#main-content`는 밝은 surface와 `--radius-lg`(20px)로 네 모서리를 둥글게 처리한다.
-  태블릿·데스크톱에서는 헤더·푸터와 맞닿는 본문 경계가 카드와 같은 곡률을 공유한다.
-  sticky 헤더 아래 양 끝에는 같은 20px 곡률의 장식 모서리를 고정해 스크롤 중에도
-  본문 경계가 둥글게 유지된다. 장식은 포인터 입력을 가로채지 않으며 모바일 메뉴
+  `#main-content`는 밝은 surface와 shell의 `--app-body-radius`로 아래 두 모서리를 둥글게 처리한다.
+  이 값은 태블릿·데스크톱에서 16px, 모바일에서 `--radius-md`(14px)를 사용한다.
+  헤더·푸터와 맞닿는 본문 경계는 같은 곡률을 공유한다.
+  sticky 헤더 아래 양 끝에는 같은 곡률의 장식 모서리를 고정해 스크롤 중에도
+  본문 경계가 둥글게 유지된다. 위쪽 곡선은 헤더 장식 한 겹으로만 처리해 본문 배경과
+  히어로가 중복으로 잘리면서 흰 테두리가 비치는 현상을 방지한다.
+  모서리 radial-gradient의 투명·검정 stop은 같은 radius에 두어 1px 반투명 구간이
+  장식 사각형 끝에서 수평·수직 테두리처럼 보이지 않게 한다.
+  장식은 포인터 입력을 가로채지 않으며 모바일 메뉴
   오버레이보다 아래 레이어에 둔다.
-  모바일(767px 이하)은 본문 위쪽 두 모서리를 직각으로 하고 헤더의 장식 모서리를 숨겨
-  full-bleed hero와 헤더가 일자로 맞닿게 한다. 푸터 쪽 아래 모서리는 기존 곡률을 유지한다.
+  모바일(767px 이하)에서는 헤더 아래 양 끝의 장식 모서리를 14px로 줄여 full-bleed hero와
+  본문이 둥글게 이어지며, 스크롤 중에도 곡률을 유지한다. 푸터 쪽 아래 모서리도 같은 곡률을 유지한다.
+  푸터 상단에는 수평 테두리를 두지 않아 본문의 아래 곡선이 검은 배경으로 바로 이어지게 한다.
   `overflow: clip`으로 full-bleed 배경도 이 경계를 따르게 하되 별도 스크롤 영역은 만들지 않는다.
   브라우저의 기본 스크롤과 본문 안 sticky 배치를 유지한다.
 - 탐색 랜딩(`/`)과 호환 진입점(`/groups`)의 첫 화면은 기존 소개 hero 대신 오늘 예정된
@@ -136,11 +144,10 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   버튼은 카드 행의 수직 중앙과 rail 가장자리에 overlay한다. 44px 클릭 영역 안의 원형 surface는
   `--space-8`(32px), chevron은 `--space-4`(16px)로 작게 표시하며 그림자는 사용하지 않는다.
   tablet/mobile에서는 카드 두 개가 온전히 보이도록 rail 너비를 나누고 카드 좌우·stub 여백을 12px로 맞춘다.
-  오늘 영역은 상단 여백 24px, 구간 간격 16px로 시작한다. tablet에서는 plan을
-  카드 아래에 배치한다. mobile(767px 이하)에서는 hero 다음에 `오늘의 일정` 패널을 먼저 두고,
-  그 아래 `오늘 같이해요` 제목·날짜·위치와 카드 rail을 배치한다. 화면과 DOM 순서를 맞추고
+  오늘 영역은 상단 여백 24px, 구간 간격 16px로 시작한다. tablet/mobile에서는
+  `오늘 같이해요` 제목·날짜·위치와 카드 rail 다음에 `오늘의 일정` 패널을 배치한다. 화면과 DOM 순서를 맞추고
   일정 패널은 하나만 렌더링한다. 화면 폭이 바뀌어도 carousel의 active index와 정지 상태를 유지한다.
-  mobile 일정의 상단 구분선·padding은 없애고, 아래에 24px padding과 얇은 구분선을 둔다.
+  tablet/mobile 일정의 위에 24px padding과 얇은 구분선을 둔다.
   mobile은 카드 간격과 본문 좌우 여백을 각각 8px, 12px로 줄인다. 480px 미만에서는 제목 16px,
   메타/소개 12px, 잔여 자리 24px를 사용하고 stub의 상세 CTA를 인원 아래 전체 너비로 배치한다.
   mobile은 원형 surface를 28px로 줄이고 클릭 영역을 page gutter 안까지 이동해 본문 텍스트를 가리지 않는다.
@@ -344,6 +351,9 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   768px 이상에서는 `--page-hero-gap`(24px)으로 헤더 아래 간격도 맞춘다.
   홈의 가로 비율 기반 높이를 해제해 tablet 폭에 따라 hero 높이가 급변하지 않게 한다.
   상세 hero 내용은 세로 가운데 정렬하고 긴 제목·소개·일정이 있으면 자연스럽게 늘어난다.
+  상세 기본 이미지의 배경은 녹색 그라데이션 없이 `--color-nav`를 사용한다.
+  상세 기본 이미지의 불투명도는 모든 화면에서 0.65로 두어 배경을 드러내고,
+  기존 어두운 오버레이는 유지해 본문 대비를 확보한다.
   상세의 sticky rail과 생성·수정 form hero는 기존 배치 규칙을 유지한다.
   mobile(`47.9375rem` 이하)에서는 헤더와 상세 hero 사이 간격을 두지 않는다.
   상세 페이지의 좌우 바깥 여백은 없애고, hero·탭 본문 안쪽 여백은 유지한다.
@@ -551,7 +561,26 @@ default/hover/active/focus/selected 상태를 제공한다.
 
 ## 6. Interaction and motion
 
+- 홈의 오늘 같이해요·모집 중·아카이브 카드와 탐색 카드는 상세 진입 시 동일한 대표 이미지를
+  공유 요소로 연결한다. 클릭한 카드 하나만 이름을 부여해 같은 모임의 중복 카드와 충돌하지 않는다.
+  이미지는 기존 상세 전환의 680ms `cubic-bezier(.2, 0, .2, 1)` 곡선으로 상세 배너에 도착한다.
+  사진은 진행률 45–70%에 교체하고 제목과 정보는 마지막 80–100% 구간에 나타난다.
+  사진 교체 중에는 격리된 이미지 쌍에 `plus-lighter`를 적용해 두 투명도의 합을 유지하고
+  본문 배경이 비쳐 이미지가 옅어지는 현상을 막는다. 뒤로 가기는 기존 일반 합성을 유지한다.
+  이동 중 `--shadow-float` 그림자로 흰 이미지와 본문을 구분하고 시작·종료 시 그림자를 없앤다.
+  카드 배지는 이미지와 함께 확대하지 않는다. 상세 데이터와 페이지 모듈 준비 후 전환한다.
+  뒤로 가기는 출발 URL의 필터·스크롤·카드 포커스와 오늘 캐러셀 순서를 복원한다.
+  동작 줄이기에서는 이동을 생략하며 미지원 브라우저는 일반 링크 탐색을 유지한다.
+
 - Fast `120ms`, base `180ms`, deliberate `240ms`, smooth `420ms`; easing `cubic-bezier(.2,.8,.2,1)`.
+- Header 주요 메뉴는 글자 수와 관계없이 네 칸을 각각 `--space-16`(64px) 폭으로 맞춘다.
+  선택 밑줄은 한 개를 공유하며 180ms transform으로 이동한다. 홈·모임·활동 탭 사이에서는
+  새 본문이 420ms 동안 opacity 0→1과 수평 이동을 함께 적용한다. 이동 폭은 화면의 6%,
+  최대 `--space-12`(48px)로 제한해 넓은 화면에서도 과하게 쓸려 들어오지 않게 한다.
+  오른쪽 탭은 오른쪽에서, 왼쪽 탭은 왼쪽에서 들어오며 표준 easing으로 부드럽게 감속한다.
+  main 내부의 content만 이동하고 배경·둥근 모서리·header·footer는 고정한다.
+  본문을 remount하지 않고, 최초 진입·동일 경로의 query 변경·상세 페이지 진출입·피드백 모달에는 화면 전환을 적용하지 않는다.
+  reduced-motion에서는 밑줄과 본문 모두 즉시 전환한다.
 - Button은 색/1px translate 변화만, 카드 hover는 2px 이내 상승한다. tabs의 단일 underline은
   `180ms` transform으로 새 위치에 이동하고 panel은 opacity + 8px translate로 진입한다.
 - Signup의 크루·코치 전환은 선택 전 캐릭터 위치를 유지한다. 캐릭터 반대편의 프로필 패널은
@@ -614,9 +643,10 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
   time/location phrase. After login, swap the two content slots: the phrase becomes h1 and
   the fixed introduction moves below it. Only authenticated status enables the swap;
   loading, anonymous, signup-required and unavailable keep the pre-login arrangement.
-  Use the user-supplied 2172×724 day, sunset and night illustrations as decorative CSS
-  backgrounds in `src/shared/assets/brand/jarihana-hero-{day,sunset,night}.png`.
-  Use the final supplied illustrations without changing their pixels.
+  Preserve the user-supplied 2172×724 day, sunset and night originals at
+  `src/shared/assets/brand/jarihana-hero-{day,sunset,night}.png` as references.
+  The home hero uses the sibling `-responsive.png` versions, regenerated as whole scenes
+  with more vertical breathing room while preserving the characters' identities and poses.
   Select day at 06:00–16:59, sunset at 17:00–19:59 and night at 20:00–05:59
   in Asia/Seoul, independently of the browser's timezone. Derive art and copy from the same
   clock, refresh at each hour boundary and reschedule immediately on focus or tab return.
@@ -640,9 +670,9 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
   supported backdrop filters switch it to transparent. Reduced transparency restores the
   opaque backing and disables blur. Keep chair images and labels fully opaque.
   Focus uses the action ink with the shared outline width and offset.
-  Keep background changes immediate. Round the hero
-  with `--radius-lg` (20px). A decorative pseudo-element rounds the CSS background
-  at its existing image bounds without clipping the action focus outlines.
+  Keep background changes immediate. The hero fills the page width with square corners;
+  the existing main frame supplies its outer top rounding on tablet and desktop.
+  A decorative pseudo-element fills the hero bounds without clipping action focus outlines.
   Use `홈`, `모임`, `활동`, and `피드백` labels in desktop and mobile navigation.
   `홈` opens `/` and is active only on `/`; `모임` opens `/groups`
   and is active only on that route. Reuse the existing header link and active styles.
@@ -701,35 +731,44 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
   transparent surface, no side/top border or rounded frame, a strong bottom border, and
   brand-color focus underline. Search submit and type selection scroll to recruitment results
   with reduced-motion support so the intervening today section does not hide the outcome.
-  At tablet and desktop sizes the hero shares the following sections' left and right rails,
-  with a cover background clipped to its 20px radius. Below 1024px use
+  At every viewport the hero starts directly below the header and fills the available page width,
+  without top or side gutters. The home page has no width cap or inline padding; subsequent
+  sections retain the 1440px shell minus shared gutters, centered independently. Below 1024px use
   clamp(16rem, calc(24svh + 4rem), 20rem) with 48px block padding instead of a 560px floor.
   Keep the height content-driven when longer copy requires more room.
-  From 1024px, use a home-only minimum of clamp(27rem, calc(34svh + 4rem), 31rem) with 56px block padding.
+  From 1024px, use a home-only minimum of max(clamp(27rem, calc(34svh + 4rem), 31rem), 28.125vw)
+  with 56px block padding. The width-based floor only grows the hero on ultra-wide screens,
+  keeping the 32:9 artwork's full vertical extent inside the visible background.
   Both responsive ranges add 64px to the compact hero, including when its content determines height.
-  At the 1423px desktop reference, the 432px hero reduces the wide artwork's vertical crop to about 11px per edge.
   Keep the copy centered and preserve the following section's spacing.
-  From 768px, also share --page-hero-gap (24px). Keep content vertically centered and allow natural expansion.
-  On mobile remove the home page's
-  top padding and extend only the hero across the page gutters using negative --page-gutter
-  inline margins. Keep the hero full bleed directly below the header with square top corners;
-  mobile removes the main frame's top rounding and the sticky header's corner decorations.
+  Keep content vertically centered and allow natural expansion. Mobile removes the main frame's
+  top rounding and the sticky header's corner decorations, so its hero has square top corners.
   Following sections retain their normal page gutters.
-  At every viewport use the original wide art with cover sizing. Align it right center
-  on tablet and desktop, and center center on mobile so cropping stays balanced around
-  the illustration's midpoint as the viewport narrows. Do not use the
-  extended-sky variants here: their empty upper area pushes the visible scene downward.
+  Use the regenerated 32:9 jarihana-hero-{day,sunset,night}-responsive.png artwork with
+  height-fit sizing (`background-size: auto 100%`). The three runtime hero images are whole-scene
+  generations cropped from native 2172×724 sources to the same 2144×603 center crop, without
+  resize, compositing or color adjustment. Keep the original day/sunset/night PNGs as references
+  only; the older square extended-sky variants and night-starry source are not runtime assets.
+  Align it center center at every breakpoint so narrow screens crop evenly from the sides.
+  Generation prompts and crop verification are recorded in docs/hero-responsive-art.md.
   Below 1024px, apply contrast only around title and subtitle glyphs using layered text shadows
   with 4px, 8px and 16px blur at 90%, 85% and 70% opacity. Let the shadows follow natural
   line wrapping; do not add a copy-container background or a rectangular backing around the actions.
   Use --reference-hero-copy-surface (light for day/sunset, dark navy for night).
   Clip this decorative backing at the hero boundary and keep it noninteractive.
   Desktop keeps the original artwork without contrast backing.
-  Development builds only show a compact background-preview select at the hero's top right:
-  automatic, day, sunset and night. It overrides only the hero theme; live headlines, dates and
-  session data keep their real-time behavior. Automatic resumes the current Korean-time theme.
-  The selection is local to the mounted hero and resets on reload. Production builds have no
-  selector or theme override. Keep the control outside the copy flow so previewing preserves layout.
+  Development builds only show compact preview selects at the hero's top right: one for
+  automatic, day, sunset and night, and one for the artwork set. The artwork set defaults to
+  the current responsive assets and can switch to the experimental `classic` set when the
+  matching day/sunset/night files are present. A separate nebula option shares the classic
+  day/sunset images and uses `jarihana-hero-night-nebula.png` only while the displayed period is
+  night. The dev-only refined option labeled `얼굴 보정 (낮·노을·밤)` uses
+  `jarihana-hero-{day,sunset,night}-refined.png` when present, preserving the same hero sizing
+  and center/auto-100% background behavior. These controls override only the hero theme or
+  background asset; live headlines, dates and session data keep their real-time behavior.
+  Automatic resumes the current Korean-time theme. The selections are local to the mounted hero
+  and reset on reload. Production builds have no selectors or theme override. Keep the controls
+  outside the copy flow so previewing preserves layout.
   Recruitment search keeps its existing underline and mint focus state on the page canvas.
   Background bounds always equal the hero bounds; never reserve a separate mobile image row
   or center a fixed-ratio strip inside a taller surface. Place left-aligned copy/actions in the
@@ -738,13 +777,14 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
   allow long words to wrap within the available width without truncation.
   Center the copy vertically and allow the hero to grow when longer text wraps. Mobile shares the tablet
   copy width, min(100%, max(60%, 24rem)), and compact height and spacing.
-  The wide artwork covers the entire hero and stays vertically centered. The localized
+  The wide artwork fills the hero height with the responsive focal positions above. The localized
   copy backing also applies on mobile; do not add a veil across the entire artwork.
   Below 1024px use clamp(1.75rem, 3.5vw, 2rem) for the title (28–32px, 1.22 line height),
-  --space-2 between title and subtitle, and --space-4 above the actions. Scale mobile
-  inline padding from --space-5 to --space-8 at 4vw; retain compact side-by-side actions at 320px.
-  Tablet inset is
-  --space-8; desktop inset grows from --space-8 to --space-16 (4vw). The decorative scene has no separate image
+  --space-2 between title and subtitle, and --space-4 above the actions. Align the title, subtitle
+  and actions with the following sections using the shared --page-gutter (16px mobile, 24px from 768px).
+  Beyond the 1440px --container-shell, include the centered shell's outer margin in the hero's
+  inline padding while keeping its background full width. Retain compact side-by-side actions at 320px.
+  The decorative scene has no separate image
   element or redundant accessibility name. Introduction, heading and controls remain real content.
   The recruitment section's selected type pill uses --color-brand mint with --color-ink text, matching the common
   primary action palette; do not use the dark --color-brand-ink as its background. Use

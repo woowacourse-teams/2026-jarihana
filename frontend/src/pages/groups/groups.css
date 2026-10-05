@@ -602,12 +602,8 @@
   overflow: hidden;
 }
 
-.group-profile::after {
-  position: absolute;
-  z-index: 1;
-  content: "";
-  inset: 0;
-  background:
+.group-profile {
+  --group-profile-overlay:
     linear-gradient(
       90deg,
       color-mix(in srgb, var(--color-nav) 68%, transparent) 0%,
@@ -619,6 +615,14 @@
       color-mix(in srgb, var(--color-nav) 4%, transparent) 0%,
       color-mix(in srgb, var(--color-nav) 30%, transparent) 100%
     );
+}
+
+.group-profile::after {
+  position: absolute;
+  z-index: 1;
+  content: "";
+  inset: 0;
+  background: var(--group-profile-overlay);
   pointer-events: none;
 }
 
@@ -662,8 +666,8 @@
     color-mix(in srgb, var(--color-brand) 30%, var(--color-nav));
 }
 
-.group-profile--default-image::after {
-  background:
+.group-profile--default-image {
+  --group-profile-overlay:
     linear-gradient(
       90deg,
       color-mix(in srgb, var(--color-nav) 62%, transparent) 0%,
@@ -675,6 +679,10 @@
       transparent 0%,
       color-mix(in srgb, var(--color-nav) 22%, transparent) 100%
     );
+}
+
+.group-profile--default-image::after {
+  background: var(--group-profile-overlay);
 }
 
 .group-profile--default-image .group-profile__image {
@@ -689,6 +697,7 @@
   padding: 0;
   object-fit: cover;
   object-position: center;
+  opacity: 0.65;
   transform: none;
 }
 
@@ -1693,6 +1702,10 @@
   max-width: var(--container-shell);
 }
 
+.group-detail-page .group-profile--default-image .group-profile__art {
+  background: var(--color-nav);
+}
+
 .group-detail-grid {
   grid-template-columns: minmax(0, 1fr) var(--group-detail-rail-width);
   gap: var(--space-5);
@@ -1999,20 +2012,28 @@
     column-gap: var(--space-2);
   }
 
-  .group-profile::after {
-    background: linear-gradient(
+  .group-profile {
+    --group-profile-overlay: linear-gradient(
       180deg,
       color-mix(in srgb, var(--color-nav) 48%, transparent) 0%,
       color-mix(in srgb, var(--color-nav) 68%, transparent) 100%
     );
   }
 
-  .group-profile--default-image::after {
-    background: linear-gradient(
+  .group-profile::after {
+    background: var(--group-profile-overlay);
+  }
+
+  .group-profile--default-image {
+    --group-profile-overlay: linear-gradient(
       180deg,
       color-mix(in srgb, var(--color-nav) 28%, transparent) 0%,
       color-mix(in srgb, var(--color-nav) 54%, transparent) 100%
     );
+  }
+
+  .group-profile--default-image::after {
+    background: var(--group-profile-overlay);
   }
 
   .group-profile--default-image .group-profile__image {

@@ -51,6 +51,7 @@
   --text-hero-body: 1.25rem;
   --text-display: 2.5rem;
   --text-brand: 1.375rem;
+  --text-brand-mobile: 1.125rem;
   --text-footer-contact: 1.375rem;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
@@ -98,6 +99,8 @@
   --duration-fast: 120ms;
   --duration-base: 180ms;
   --duration-deliberate: 240ms;
+  --duration-group-transition: 680ms;
+  --ease-group-transition: cubic-bezier(.2, 0, .2, 1);
   --duration-smooth: 420ms;
   --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
   --z-overlay: 40;
@@ -106,7 +109,7 @@
   --z-header: 20;
   --container-shell: 90rem;
   --page-gutter: var(--space-4);
-  --header-height: 4.5rem;
+  --header-height: 3.5rem;
   --breakpoint-md: 48rem;
   --breakpoint-lg: 64rem;
 }
@@ -125,7 +128,7 @@
 
 @media (max-width: 47.9375rem) {
   :root {
-    --header-height: 4rem;
+    --header-height: 3rem;
     --text-h2: 1.3125rem;
     --text-h1: 1.625rem;
     --text-hero: 2.5rem;

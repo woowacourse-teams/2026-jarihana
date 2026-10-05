@@ -1,14 +1,16 @@
 .groups-page.groups-page--home {
-  padding-block-start: var(--page-hero-gap);
+  max-width: none;
+  padding-inline: 0;
+  padding-block-start: 0;
   padding-block-end: var(--space-16);
+}
+
+.groups-page--home > section:not(.reference-hero) {
+  width: calc(100% - var(--page-gutter) * 2);
+  max-width: calc(var(--container-shell) - var(--page-gutter) * 2);
+  margin-inline: auto;
 }
 
 #main-content:has(.groups-page--home) {
   overflow-x: clip;
-}
-
-@media (max-width: 47.9375rem) {
-  .groups-page.groups-page--home {
-    padding-block-start: 0;
-  }
 }

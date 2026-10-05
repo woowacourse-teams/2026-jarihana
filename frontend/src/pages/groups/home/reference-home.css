@@ -9,8 +9,11 @@
 
 .reference-hero {
   --reference-hero-copy-width: 46%;
-  --reference-hero-image: url("../../../shared/assets/brand/jarihana-hero-day.png");
-  --reference-hero-inline-padding: clamp(var(--space-8), 4vw, var(--space-16));
+  --reference-hero-image: url("../../../shared/assets/brand/jarihana-hero-day-responsive.png");
+  --reference-hero-inline-padding: max(
+    var(--page-gutter),
+    calc((100% - var(--container-shell)) / 2 + var(--page-gutter))
+  );
   --reference-hero-copy-surface: var(--color-surface);
   --reference-hero-action-surface: var(--color-brand-soft);
   --reference-hero-action-ink: var(--color-brand-ink);
@@ -26,7 +29,7 @@
   align-items: center;
   min-block-size: var(--page-hero-min-height);
   padding: var(--space-8) var(--reference-hero-inline-padding);
-  border-radius: var(--radius-lg);
+  border-radius: 0;
 }
 
 .reference-hero::before {
@@ -36,8 +39,8 @@
   border-radius: inherit;
   background-image: var(--reference-hero-image);
   background-repeat: no-repeat;
-  background-position: right center;
-  background-size: cover;
+  background-position: center center;
+  background-size: auto 100%;
   pointer-events: none;
   content: "";
 }
@@ -45,11 +48,11 @@
 .reference-hero[data-time-of-day="sunset"] {
   --reference-hero-action-surface: var(--color-activity-session-soft);
   --reference-hero-action-ink: var(--color-activity-session-ink);
-  --reference-hero-image: url("../../../shared/assets/brand/jarihana-hero-sunset.png");
+  --reference-hero-image: url("../../../shared/assets/brand/jarihana-hero-sunset-responsive.png");
 }
 
 .reference-hero[data-time-of-day="night"] {
-  --reference-hero-image: url("../../../shared/assets/brand/jarihana-hero-night.png");
+  --reference-hero-image: url("../../../shared/assets/brand/jarihana-hero-night-responsive.png");
   --reference-hero-copy-surface: var(--reference-hero-night-surface);
   --reference-hero-action-surface: color-mix(
     in srgb,
@@ -112,15 +115,23 @@
   color: var(--color-brand-ink);
 }
 
-.reference-hero__preview {
+.reference-hero__preview-controls {
   position: absolute;
   inset-block-start: var(--space-1);
   inset-inline-end: var(--space-3);
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  max-width: calc(100% - var(--space-6));
+  flex-wrap: wrap;
+}
+
+.reference-hero__preview {
+  display: flex;
+  align-items: center;
   gap: var(--space-2);
   min-height: var(--touch-target);
-  max-width: calc(100% - var(--space-6));
   padding-inline: var(--space-3);
   border: var(--border-thin) solid var(--color-line);
   border-radius: var(--radius-sm);
@@ -135,6 +146,15 @@
   background: transparent;
   color: inherit;
   cursor: pointer;
+}
+
+.reference-hero__preview-note {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .reference-hero__actions {
@@ -307,7 +327,7 @@
 
 @media (min-width: 64rem) {
   .reference-hero {
-    min-block-size: clamp(27rem, calc(34svh + var(--space-16)), 31rem);
+    min-block-size: max(clamp(27rem, calc(34svh + var(--space-16)), 31rem), 28.125vw);
     padding-block: calc(var(--space-10) + var(--space-4));
   }
 
@@ -319,7 +339,6 @@
 @media (max-width: 79.9375rem) {
   .reference-hero {
     --reference-hero-copy-width: min(100%, max(50%, 22rem));
-    --reference-hero-inline-padding: var(--space-8);
   }
 
 }
@@ -357,15 +376,30 @@
 
 @media (max-width: 47.9375rem) {
   .reference-hero {
-    --reference-hero-inline-padding: clamp(var(--space-5), 4vw, var(--space-8));
-
     aspect-ratio: auto;
-    margin-inline: calc(-1 * var(--page-gutter));
-    border-radius: 0;
   }
 
   .reference-hero::before {
-    background-position: center;
+    background-position: center center;
+  }
+
+  .reference-hero__preview-controls {
+    inset-block-start: 0;
+    flex-wrap: nowrap;
+  }
+
+  .reference-hero__preview {
+    min-width: 0;
+    padding-inline: var(--space-2);
+  }
+
+  .reference-hero__preview > span {
+    display: none;
+  }
+
+  .reference-hero__preview select {
+    min-width: 0;
+    max-width: 100%;
   }
 
   .reference-hero__actions {

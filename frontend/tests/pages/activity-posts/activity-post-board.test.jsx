@@ -19,7 +19,7 @@ jest.mock("react-router", () => ({
   ),
   useNavigate: () => jest.fn(),
   useSearchParams: () => [new URLSearchParams(), jest.fn()]
-}), { virtual: true });
+}));
 
 jest.mock("../../../src/features/activity-post/hooks.js", () => ({
   useCreateActivityPost: () => ({ mutateAsync: jest.fn(), isPending: false }),

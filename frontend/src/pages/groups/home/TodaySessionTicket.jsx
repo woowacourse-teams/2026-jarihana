@@ -1,6 +1,6 @@
 import { ArrowRight, Clock3, MapPin } from "lucide-react";
-import { Link } from "react-router";
 
+import { GroupDetailLink } from "../GroupTransition.jsx";
 import { GroupImage } from "../../../shared/ui/index.js";
 import { scheduleDuration } from "./groupCardMetadata.js";
 
@@ -23,20 +23,22 @@ function participationLabel(group) {
   return `${seats}자리 남음`;
 }
 
-export function TodaySessionTicket({ active = false, group, tabIndex }) {
+export function TodaySessionTicket({ active = false, carouselIndex, group, tabIndex }) {
   const seats = remainingSeats(group);
   const duration = scheduleDuration(group.sessionSchedule);
   const location = group.location?.trim();
 
   return (
-    <Link
+    <GroupDetailLink
+      carouselIndex={carouselIndex}
       aria-current={active ? "true" : undefined}
       className="today-session-ticket"
       data-ph-capture-attribute-action="today_session_open"
       tabIndex={tabIndex}
-      to={`/groups/${group.id}`}
+      groupId={group.id}
+      source="today"
     >
-      <span className="today-session-ticket__image-frame">
+      <span className="today-session-ticket__image-frame" data-group-transition-image>
         <GroupImage
           alt=""
           className="today-session-ticket__image"
@@ -81,7 +83,7 @@ export function TodaySessionTicket({ active = false, group, tabIndex }) {
           자세히 <ArrowRight aria-hidden="true" size={16} />
         </span>
       </span>
-    </Link>
+    </GroupDetailLink>
   );
 }
 

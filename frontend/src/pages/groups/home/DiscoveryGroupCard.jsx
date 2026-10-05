@@ -1,6 +1,6 @@
 import { CalendarDays, MapPin, Timer } from "lucide-react";
-import { Link } from "react-router";
 
+import { GroupDetailLink } from "../GroupTransition.jsx";
 import { GroupImage } from "../../../shared/ui/index.js";
 import { groupScheduleLabel, groupSeatsLabel, scheduleDuration } from "./groupCardMetadata.js";
 import { typeLabel } from "../pageUtils.js";
@@ -12,20 +12,23 @@ export function DiscoveryGroupCard({ group, recruiting }) {
   const location = group.location?.trim();
 
   return (
-    <Link
+    <GroupDetailLink
       className={`discovery-group-card discovery-group-card--${group.type.toLowerCase()}${isEnded ? " discovery-group-card--ended" : ""}`}
       data-ph-capture-attribute-action="group_view"
-      to={`/groups/${group.id}`}
+      groupId={group.id}
+      source="discovery"
     >
       <span className="discovery-group-card__visual">
-        <GroupImage
-          alt=""
-          className="discovery-group-card__image"
-          group={group}
-          height="172"
-          loading="lazy"
-          width="320"
-        />
+        <span className="group-card-transition-image" data-group-transition-image>
+          <GroupImage
+            alt=""
+            className="discovery-group-card__image"
+            group={group}
+            height="172"
+            loading="lazy"
+            width="320"
+          />
+        </span>
         {isEnded && <span className="discovery-group-card__ended-badge">종료</span>}
         {recruiting && !isEnded && (
           <span className="discovery-group-card__recruiting-badge">모집 중</span>
@@ -65,6 +68,6 @@ export function DiscoveryGroupCard({ group, recruiting }) {
           {seats ? <span className="discovery-group-card__seats">{seats}</span> : null}
         </div>
       </div>
-    </Link>
+    </GroupDetailLink>
   );
 }

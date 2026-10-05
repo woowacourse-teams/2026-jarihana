@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
 import { storeReturnTarget, useAuth } from "../../features/auth/index.js";
@@ -65,17 +65,13 @@ export function GroupBrowsePage() {
   const lastPage = getLastPage(query.data);
   const errorCopy = publicErrorCopy(query.error, "모임 목록");
 
-  useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-  }, []);
-
   function updateQuery(next) {
     const params = new URLSearchParams(searchParams);
     Object.entries(next).forEach(([key, value]) => {
       if (value) params.set(key, value);
       else params.delete(key);
     });
-    setSearchParams(params, { replace: true });
+    setSearchParams(params, { replace: true, preventScrollReset: true });
   }
 
   function submitSearch(event) {

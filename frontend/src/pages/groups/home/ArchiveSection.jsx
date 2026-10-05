@@ -3,6 +3,7 @@ import { Link } from "react-router";
 
 import { useInfiniteGroups } from "../../../features/group/index.js";
 import { Button, EmptyState, ErrorState, GroupImage, Skeleton } from "../../../shared/ui/index.js";
+import { GroupDetailLink } from "../GroupTransition.jsx";
 import { flattenPages, publicErrorCopy, typeLabel } from "../pageUtils.js";
 import { groupScheduleLabel } from "./groupCardMetadata.js";
 import "./archive-section.css";
@@ -11,19 +12,22 @@ const INITIAL_ARCHIVE_COUNT = 4;
 
 function ArchiveCard({ group }) {
   return (
-    <Link
+    <GroupDetailLink
       className="archive-card"
       data-ph-capture-attribute-action="group_view"
-      to={`/groups/${group.id}`}
+      groupId={group.id}
+      source="archive"
     >
-      <GroupImage
-        alt=""
-        className="archive-card__image"
-        group={group}
-        height="160"
-        loading="lazy"
-        width="320"
-      />
+      <span className="group-card-transition-image" data-group-transition-image>
+        <GroupImage
+          alt=""
+          className="archive-card__image"
+          group={group}
+          height="160"
+          loading="lazy"
+          width="320"
+        />
+      </span>
       <span aria-hidden="true" className="archive-card__scrim" />
       <span className="archive-card__badge">종료</span>
       <span className="archive-card__content">
@@ -32,7 +36,7 @@ function ArchiveCard({ group }) {
         <span className="archive-card__meta">{groupScheduleLabel(group)}</span>
         <span className="archive-card__meta">참여자 {group.memberCount}명</span>
       </span>
-    </Link>
+    </GroupDetailLink>
   );
 }
 

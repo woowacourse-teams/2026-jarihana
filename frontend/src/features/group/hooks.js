@@ -35,11 +35,18 @@ export function useInfiniteGroups(filters = {}) {
   });
 }
 
-export function useGroup(groupId) {
-  return useQuery({
+export function groupQueryOptions(groupId) {
+  return {
     queryKey: groupKeys.detail(groupId),
     queryFn: () => fetchGroup(groupId),
     enabled: Boolean(groupId)
+  };
+}
+
+export function useGroup(groupId) {
+  return useQuery({
+    ...groupQueryOptions(groupId),
+    retryOnMount: false
   });
 }
 

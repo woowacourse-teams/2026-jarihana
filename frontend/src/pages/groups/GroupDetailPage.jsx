@@ -46,6 +46,7 @@ import {
   typeBadgeTone,
   typeLabel
 } from "./pageUtils.js";
+import { groupTransitionOrigin, isPlainLinkClick } from "./GroupTransition.jsx";
 import "./groups.css";
 
 const tabs = [
@@ -105,11 +106,9 @@ function GroupDetailRail({ children }) {
 
 export function GroupDetailPage() {
   const { groupId } = useParams();
-  useLayoutEffect(() => {
-    window.scrollTo(0, 0);
-  }, [groupId]);
   const location = useLocation();
   const navigate = useNavigate();
+  const origin = groupTransitionOrigin(location.state);
   const justCreatedReference = useRef(location.state?.justCreated === true);
   const [recruitmentPromptOpen, setRecruitmentPromptOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -119,6 +118,10 @@ export function GroupDetailPage() {
   const auth = useAuth();
   const groupQuery = useGroup(groupId);
   const group = groupQuery.data;
+  const loadedGroupId = group?.id;
+  useEffect(() => {
+    if (loadedGroupId) document.getElementById("group-title")?.focus({ preventScroll: true });
+  }, [loadedGroupId]);
   const currentMember = auth.member ?? auth.user;
   const isLeader = currentMember?.id === group?.leader?.memberId;
   const usesDefaultImage =
@@ -180,7 +183,17 @@ export function GroupDetailPage() {
             className={`group-profile${usesDefaultImage ? " group-profile--default-image" : ""}`}
             aria-labelledby="group-title"
           >
-            <Link className="group-back group-back--hero" to="/groups">
+            <Link
+              className="group-back group-back--hero"
+              data-ph-capture-attribute-action="group_list_return"
+              to={origin ?? "/groups"}
+              viewTransition
+              onClick={(event) => {
+                if (!origin || !isPlainLinkClick(event)) return;
+                event.preventDefault();
+                navigate(-1);
+              }}
+            >
               <ChevronLeft aria-hidden="true" size={18} strokeWidth={2.25} />
               <span>목록으로</span>
             </Link>
@@ -190,7 +203,7 @@ export function GroupDetailPage() {
                   {typeLabel(group.type)}
                 </StatusBadge>
               </div>
-              <h1 id="group-title">{group.name}</h1>
+              <h1 id="group-title" tabIndex={-1}>{group.name}</h1>
               <p>{group.introduction}</p>
               <LeaderSummary leader={group.leader} variant="hero" />
               <div className="group-info">
@@ -279,7 +292,11 @@ export function GroupDetailPage() {
               onValueChange={(value) => {
                 const nextSearchParams = new URLSearchParams(searchParams);
                 nextSearchParams.set("tab", value);
-                setSearchParams(nextSearchParams, { replace: true });
+                setSearchParams(nextSearchParams, {
+                  replace: true,
+                  state: location.state,
+                  preventScrollReset: true
+                });
               }}
               items={[
                 {
