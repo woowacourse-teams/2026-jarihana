@@ -44,6 +44,8 @@ PostgreSQL을 별도 Compose project로 추가했다. 그 결과 t4g.medium(메�
   라벨만 붙인다. 배포 workflow는 이 라벨로 실행 서버를 고른다. `environment`는 시크릿을 고를 뿐 실행
   서버를 고르지 않는다.
 - CloudFront가 Origin에 접속하고 runner가 GitHub에 접속해야 하므로 두 EC2에는 퍼블릭 IP를 둔다.
+- 보안 그룹과 IAM Role은 새로 만들지 않고 우테코가 제공하는 것을 쓴다. 두 EC2 모두 제공 IAM Role
+  `ec2-project`를 쓴다.
 
 ### 2. 데이터베이스는 RDS for PostgreSQL 한 대에서 dev와 prod DB를 나눈다
 
@@ -52,10 +54,12 @@ PostgreSQL을 별도 Compose project로 추가했다. 그 결과 t4g.medium(메�
 - 인스턴스 안에 `jarihana_dev`와 `jarihana_prod` DB를 두고, 각 DB의 소유자를 같은 이름의 앱 계정으로
   한다. 두 DB 모두 `PUBLIC`의 `CONNECT` 권한을 회수한다. master 계정은 GitHub Environment에 넣지
   않는다.
-- 접속은 RDS의 EC2 연결 기능이 만드는 보안 그룹으로 EC2에서만 허용한다. 보안 그룹은 인스턴스 단위로만
-  막으므로 dev와 prod DB 사이의 격리는 PostgreSQL 계정과 권한이 맡는다.
-- Compose에서 PostgreSQL 서비스와 볼륨을 제거하고, `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`를
-  환경별 GitHub Environment에서 주입한다.
+- EC2에서 RDS로의 접속은 제공된 보안 그룹 구성으로 허용한다. dev EC2에서 5432 연결을
+  확인했다(2026-10-05). 보안 그룹은 인스턴스 단위로만 막으므로 dev와 prod DB 사이의 격리는
+  PostgreSQL 계정과 권한이 맡는다.
+- Compose에서 PostgreSQL 서비스와 볼륨을 제거한다. RDS 호스트(`RDS_URL`), `DB_USERNAME`,
+  `DB_PASSWORD`를 환경별 GitHub Environment에서 주입하고, JDBC URL은 Compose가 환경별 DB 이름과
+  `sslmode=require`를 붙여 조립한다.
 
 ### 3. 공개 진입점은 그대로 둔다
 
@@ -106,9 +110,11 @@ EC2로 바꾼다. 운영 배포판은 CloudFront Function이 Origin 이름 `jari
 
 - 학생 계정의 EC2 생성은 `ec2-restrict-student` 정책의 명시적 거부를 받는다. x86 인스턴스는
   생성되지 않고 ARM64 인스턴스는 생성된다. 정책의 전체 조건은 조회 권한이 없어 확인하지 못했다.
-- 새 EC2, RDS, 보안 그룹, IAM Role, Elastic IP를 만들 권한이 필요하다. ADR 0009에는 보안 그룹을
-  구성할 권한이 없었다고 기록되어 있다. RDS의 EC2 연결 기능도 보안 그룹을 만든다.
-- 환경별 IAM Role을 만들 수 없으면 기존 Role을 재사용하며, 이때 dev가 운영 S3 경로에 접근할 수 있다.
+- 보안 그룹과 IAM Role은 우테코가 제공한 것을 써야 한다. 학생 계정의 보안 그룹 생성은
+  `techcourse-project` 정책의 명시적 거부를 받고(2026-10-05 확인), RDS의 EC2 연결 기능도 보안
+  그룹을 만들지 못해 실패했다. 포트나 통신 경로가 더 필요하면 운영 담당에게 요청해야 한다.
+- dev와 prod EC2가 같은 제공 Role(`ec2-project`)을 쓰므로 dev도 운영 S3 경로에 접근할 수 있다.
+  환경 사이 S3 분리는 `IMAGE_S3_KEY_PREFIX` 설정으로만 지킨다.
 - RDS 한 대를 공유하므로 DB 서버의 CPU, 메모리, I/O와 재시작은 dev와 prod가 함께 겪는다.
   db.t4g는 Unlimited 모드라 CPU를 오래 높게 쓰면 추가 요금이 붙는다.
 - Single-AZ이므로 인스턴스나 AZ 장애, 클래스 변경 같은 유지 관리 동안 dev와 prod DB가 함께 중단된다.
@@ -131,6 +137,7 @@ EC2로 바꾼다. 운영 배포판은 CloudFront Function이 Origin 이름 `jari
 - 기존 EC2의 개발 DB 컨테이너를 멈추는 장애 훈련은 RDS에서 그대로 쓸 수 없다.
 - 운영 데이터 이전 전까지 운영은 접근 수단이 제한된 기존 EC2에 남는다.
 - 서버마다 빌드하는 동안 dev와 prod가 같은 이미지를 쓴다는 보장이 없다.
+- dev와 prod가 같은 IAM Role을 써서 AWS 권한이 환경별로 나뉘지 않는다.
 
 ## 후속 작업
 
