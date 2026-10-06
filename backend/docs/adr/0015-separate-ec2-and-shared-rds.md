@@ -6,7 +6,7 @@
   [배포 토폴로지 ADR](0009-aws-deployment-topology.md),
   [PostgreSQL 선택 ADR](0011-postgresql-rdbms-selection.md),
   [스키마 관리 ADR](0012-database-schema-management.md),
-  [CloudWatch 관찰 플랫폼 ADR](0014-cloudwatch-observability-platform.md),
+  [관찰 플랫폼 ADR](0014-cloudwatch-observability-platform.md),
   [운영 Docker Compose](../../../infra/docker-compose.yml),
   [개발 Docker Compose](../../../infra/docker-compose.dev.yml),
   [백엔드 운영 배포 워크플로](../../../.github/workflows/backend-prod-deploy.yml),
@@ -33,12 +33,13 @@ PostgreSQL을 별도 Compose project로 추가했다. 그 결과 t4g.medium(메�
 ### 1. dev와 prod 백엔드를 별도 EC2에서 실행한다
 
 - 새 EC2 두 대를 만들어 하나는 dev, 하나는 prod 백엔드에 쓴다. 둘 다 **t4g.small**(vCPU 2, 메모리
-  2 GiB), Ubuntu ARM64로 만든다. 기존 workflow의 `ARM64` runner 조건과 CloudWatch 설치
-  스크립트의 Ubuntu ARM64 전제를 유지한다. 학생 계정 정책(`ec2-restrict-student`)에서 x86
-  인스턴스 생성이 거부되었으므로(2026-10-05 확인) ARM64는 선택이 아니라 전제다.
+  2 GiB), Ubuntu ARM64로 만든다. 기존 workflow의 `ARM64` runner 조건을 유지한다. 학생 계정
+  정책(`ec2-restrict-student`)에서 x86 인스턴스 생성이 거부되었으므로(2026-10-05 확인) ARM64는
+  선택이 아니라 전제다.
 - 두 EC2 모두 API를 호스트 8080에 매핑한다. 개발 API가 호스트 80을 쓴 것은 EC2 한 대를 공유할
   때의 포트 충돌과 보안 그룹 제약 때문이었으므로 서버를 나누면서 운영과 맞춘다. 관리 엔드포인트는
-  계속 localhost에만 바인딩한다.
+  계속 localhost에만 바인딩한다. 다른 EC2의 관찰 도구가 메트릭을 수집하는 방식은 이 ADR에서 정하지
+  않는다.
 - 각 EC2에 self-hosted runner를 하나씩 두고 기본 라벨 없이 `jarihana-dev`, `jarihana-prod` 전용
   라벨만 붙인다. 배포 workflow는 이 라벨로 실행 서버를 고른다. `environment`는 시크릿을 고를 뿐 실행
   서버를 고르지 않는다.
@@ -143,7 +144,15 @@ EC2로 바꾼다. 운영 배포판은 CloudFront Function이 Origin 이름 `jari
   [백엔드 ADR 0012](0012-database-schema-management.md)에서 정한다.
 - 운영 데이터 이전 절차(리허설, 쓰기 차단, 최종 복원, Origin 교체, 복귀 기준)를 런북으로 만든다.
 - 서버 이전이 안정되면 레지스트리를 통한 이미지 승격과 자동 롤백을 별도 결정으로 도입한다.
-- CloudWatch 수집 설정, 대시보드와 알람의 대상 인스턴스, 개발 DB 장애 훈련을 새 구성에 맞춘다.
+- 팀은 관찰 도구를 CloudWatch에서 별도 EC2의 Prometheus와 Grafana로 옮기기로 했다. 이 결정은
+  [백엔드 ADR 0014](0014-cloudwatch-observability-platform.md)를 대체하는 별도 ADR로 기록하고, 그
+  결정에서 다음을 새 구성에 맞춰 정한다.
+  - 메트릭 수집 경로: 관리 엔드포인트가 localhost에만 열려 있으므로 각 앱 EC2의 수집 에이전트가
+    localhost에서 수집해 보낼지, 관리 포트를 사설망에 열지 정한다. 어느 쪽이든 EC2 사이 통신이
+    필요하므로 보안 그룹 제약을 먼저 확인한다.
+  - 로그 수집: 전환 전까지 앱 로그는 awslogs 드라이버로 CloudWatch Logs에 보낸다.
+  - RDS 지표: RDS의 CPU, 연결 수, 저장 공간은 CloudWatch에만 있으므로 수집 방법을 정한다.
+  - 개발 DB 장애 훈련: 개발 DB 컨테이너를 멈추던 방식을 RDS 구성에 맞게 다시 설계한다.
 
 ## 적용하지 않는 범위
 
