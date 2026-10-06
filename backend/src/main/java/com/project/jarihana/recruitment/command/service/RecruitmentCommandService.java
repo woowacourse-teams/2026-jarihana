@@ -18,7 +18,10 @@ import com.project.jarihana.recruitment.domain.RecruitmentPhase;
 import com.project.jarihana.registration.command.repository.RegistrationCommandRepository;
 import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.registration.domain.RegistrationStatus;
+import com.project.jarihana.registration.domain.event.RegistrationDecidedEvent;
+import com.project.jarihana.registration.domain.event.RegistrationDecidedEvent.SystemReason;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +38,7 @@ public class RecruitmentCommandService {
     private final GroupRecruitmentCommandRepository recruitmentRepository;
     private final RegistrationCommandRepository registrationRepository;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
     @Transactional
     public CloseRecruitmentResult closeRecruitment(long memberId, long groupId, long recruitmentId) {
@@ -182,7 +186,8 @@ public class RecruitmentCommandService {
                 recruitmentIds,
                 RegistrationStatus.PENDING
         )) {
-            registrationRepository.save(registration.rejectBySystem("새 모집 공고 등록", now));
+            Registration rejected = registrationRepository.save(registration.rejectBySystem("새 모집 공고 등록", now));
+            events.publishEvent(RegistrationDecidedEvent.from(rejected, SystemReason.RERECRUITMENT));
         }
     }
 }

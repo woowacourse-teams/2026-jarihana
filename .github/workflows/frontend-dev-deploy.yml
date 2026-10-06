@@ -85,6 +85,17 @@ jobs:
           npm run build
           test -f dist/index.html
           test -d dist/assets
+          test -s dist/sw.js
+          test -s dist/manifest.webmanifest
+          test -s dist/icons/pwa-192.png
+          test -s dist/icons/pwa-512.png
 
       - name: S3 배포
         run: aws s3 sync dist "${S3_DESTINATION}" --delete --region "${AWS_REGION}" --only-show-errors
+
+      - name: PWA 파일의 응답 메타데이터 지정
+        run: |
+          set -euo pipefail
+          aws s3 cp dist/sw.js "${S3_DESTINATION}/sw.js" --region "${AWS_REGION}" --only-show-errors --content-type "text/javascript; charset=utf-8" --cache-control "no-cache, max-age=0, must-revalidate"
+          aws s3 cp dist/manifest.webmanifest "${S3_DESTINATION}/manifest.webmanifest" --region "${AWS_REGION}" --only-show-errors --content-type "application/manifest+json" --cache-control "no-cache, max-age=0, must-revalidate"
+          aws s3 cp dist/icons "${S3_DESTINATION}/icons" --recursive --region "${AWS_REGION}" --only-show-errors --content-type "image/png" --cache-control "no-cache, max-age=0, must-revalidate"

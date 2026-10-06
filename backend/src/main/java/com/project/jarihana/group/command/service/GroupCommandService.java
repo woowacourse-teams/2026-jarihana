@@ -21,6 +21,9 @@ import com.project.jarihana.recruitment.domain.RecruitmentPhase;
 import com.project.jarihana.registration.command.repository.RegistrationCommandRepository;
 import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.registration.domain.RegistrationStatus;
+import com.project.jarihana.registration.domain.event.RegistrationDecidedEvent;
+import com.project.jarihana.registration.domain.event.RegistrationDecidedEvent.SystemReason;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,6 +55,7 @@ public class GroupCommandService {
     private final ImageUploadCommandRepository imageUploadCommandRepository;
     private final ImageStorage imageStorage;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
     public GroupCommandService(
             MemberRepository memberRepository,
@@ -62,7 +66,8 @@ public class GroupCommandService {
             ActivityPostCommandService activityPostCommandService,
             ImageUploadCommandRepository imageUploadCommandRepository,
             ImageStorage imageStorage,
-            Clock clock
+            Clock clock,
+            ApplicationEventPublisher events
     ) {
         this.memberRepository = memberRepository;
         this.groupCommandRepository = groupCommandRepository;
@@ -73,6 +78,7 @@ public class GroupCommandService {
         this.imageUploadCommandRepository = imageUploadCommandRepository;
         this.imageStorage = imageStorage;
         this.clock = clock;
+        this.events = events;
     }
 
     @Transactional
@@ -273,7 +279,8 @@ public class GroupCommandService {
             for (Registration registration : registrationCommandRepository
                     .findAllByRecruitmentGroupIdAndStatus(groupId, RegistrationStatus.PENDING)) {
                 if (registration.getRecruitment().equals(recruitment)) {
-                    registrationCommandRepository.save(registration.rejectBySystem("그룹 종료", now));
+                    Registration rejected = registrationCommandRepository.save(registration.rejectBySystem("그룹 종료", now));
+                    events.publishEvent(RegistrationDecidedEvent.from(rejected, SystemReason.GROUP_ENDED));
                 }
             }
         }

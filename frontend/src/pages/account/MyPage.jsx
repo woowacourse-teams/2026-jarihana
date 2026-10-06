@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 
 import { useAuth } from "../../features/auth/index.js";
 import { useInfiniteGroups } from "../../features/group/index.js";
 import { useInfiniteMyRegistrations } from "../../features/registration/index.js";
 import { Card, Skeleton } from "../../shared/ui/index.js";
 import { AccountLayout } from "./AccountLayout.jsx";
+import { positiveFocusId, useNotificationFocus } from "./useNotificationFocus.js";
 import { MyActivityBoard } from "./MyActivityBoard.jsx";
 import {
   flattenPages,
@@ -120,6 +121,7 @@ function mergeGroupQueries(activeQuery, archivedQuery) {
     hasNextPage: Boolean(activeQuery.hasNextPage || archivedQuery.hasNextPage),
     isError: activeQuery.isError || archivedQuery.isError,
     isFetchingNextPage: activeQuery.isFetchingNextPage || archivedQuery.isFetchingNextPage,
+    isFetching: activeQuery.isFetching || archivedQuery.isFetching,
     isLoading: activeQuery.isLoading || archivedQuery.isLoading,
     items: [...groups.values()]
   };
@@ -152,8 +154,13 @@ function ProfileAvatar({ member }) {
 
 export function MyPage() {
   const { member } = useAuth();
-  const [activeGroupTypeTab, setActiveGroupTypeTab] = useState(groupTypeTabFromQuery);
-  const [activeRegistrationTab, setActiveRegistrationTab] = useState(registrationTabFromQuery);
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const focusGroupId = positiveFocusId(params.get("focusGroup"));
+  const focusRegistrationId = positiveFocusId(params.get("focusRegistration"));
+  const focusRecruitmentId = positiveFocusId(params.get("focusRecruitment"));
+  const [groupTabSelection, setGroupTabSelection] = useState(null);
+  const [registrationTabSelection, setRegistrationTabSelection] = useState(null);
   const joinedActiveQuery = useInfiniteGroups({ relation: "JOINED" });
   const joinedEndedQuery = useInfiniteGroups({ relation: "JOINED", status: "ENDED" });
   const pendingRegistrationQuery = useInfiniteMyRegistrations({
@@ -166,6 +173,17 @@ export function MyPage() {
   });
   const joinedQuery = mergeGroupQueries(joinedActiveQuery, joinedEndedQuery);
   const joined = joinedQuery.items;
+  const focusedGroup = joined.find((group) => group.id === focusGroupId);
+  const focusedRegistration = flattenPages(rejectedRegistrationQuery.data).find((registration) =>
+    focusRegistrationId ? registration.id === focusRegistrationId : registration.recruitmentId === focusRecruitmentId);
+  const groupFocus = useNotificationFocus({ requested: Boolean(focusGroupId), item: focusedGroup, query: joinedQuery });
+  const registrationFocus = useNotificationFocus({ requested: Boolean(focusRegistrationId || focusRecruitmentId),
+    item: focusedRegistration, query: rejectedRegistrationQuery });
+  const activeGroupTypeTab = groupTabSelection?.search === location.search ? groupTabSelection.id
+    : focusedGroup ? (focusedGroup.type === "SESSION" ? "session" : "recurring") : groupTypeTabFromQuery();
+  const activeRegistrationTab = registrationTabSelection?.search === location.search ? registrationTabSelection.id
+    : focusRegistrationId || focusRecruitmentId ? "rejected" : registrationTabFromQuery();
+  const focusStatus = focusGroupId ? groupFocus : registrationFocus;
   const groupTabs = GROUP_TYPE_TABS.map((tab) => {
     const items = joined.filter((group) => tab.types.includes(group.type));
     return {
@@ -215,6 +233,9 @@ export function MyPage() {
           <div aria-hidden="true" className="profile-companion" />
         </aside>
         <div className="activity-column">
+          {focusStatus === "loading" ? <p role="status">알림에 해당하는 항목을 찾고 있어요…</p> : null}
+          {focusStatus === "missing" ? <p role="status">알림에 해당하는 항목을 찾을 수 없어요. 탈퇴했거나 기록이 삭제되었을 수 있어요.</p> : null}
+          {focusStatus === "error" ? <p role="alert">알림에 해당하는 항목을 불러오지 못했어요. 페이지를 새로고침해 주세요.</p> : null}
           <Card as="section" className="dashboard-panel">
             <h2>내 모임</h2>
             <div aria-label="내 모임 유형" className="dashboard-counts" role="tablist">
@@ -225,7 +246,7 @@ export function MyPage() {
                   data-ph-capture-attribute-action="my_group_type_tab_change"
                   id={`my-group-type-tab-${tab.id}`}
                   key={tab.id}
-                  onClick={() => setActiveGroupTypeTab(tab.id)}
+                  onClick={() => setGroupTabSelection({ search: location.search, id: tab.id })}
                   role="tab"
                   type="button"
                 >
@@ -238,6 +259,8 @@ export function MyPage() {
               currentMemberId={member.id}
               emptyState={activeGroup.emptyState}
               items={activeGroup.items}
+              focusId={focusedGroup?.id}
+              focusKey={location.search}
               kind="groups"
               panelId="my-groups-panel"
               query={activeGroup.query}
@@ -254,7 +277,7 @@ export function MyPage() {
                   data-ph-capture-attribute-action="my_registration_status_tab_change"
                   id={`my-registration-status-tab-${tab.id}`}
                   key={tab.id}
-                  onClick={() => setActiveRegistrationTab(tab.id)}
+                  onClick={() => setRegistrationTabSelection({ search: location.search, id: tab.id })}
                   role="tab"
                   type="button"
                 >
@@ -266,6 +289,8 @@ export function MyPage() {
             <MyActivityBoard
               emptyState={activeRegistration.emptyState}
               items={activeRegistration.items}
+              focusId={focusedRegistration?.id}
+              focusKey={location.search}
               kind="registrations"
               panelId="my-registrations-panel"
               query={activeRegistration.query}
