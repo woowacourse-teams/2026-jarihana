@@ -674,6 +674,8 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
 
 ## 12. 알림함과 웹푸시
 
+- PWA 설치 이름과 짧은 이름은 `자리하나?`로 통일한다. 설치용 192px·512px 아이콘은
+  기존 민트 의자 시그니처를 흰색 불투명 배경 위에 표시한다.
 - 기존 검은 헤더와 흰 surface/mint palette를 유지한다. 로그인 시 desktop 프로필 바로 왼쪽,
   mobile 전체 메뉴의 닫기 버튼 왼쪽에 44px 종 버튼과 안 읽은 수를 표시한다.
   종 버튼을 누르면 전체 메뉴를 닫고 알림함을 연다. 닫기 버튼과 간격은 4px이며,
