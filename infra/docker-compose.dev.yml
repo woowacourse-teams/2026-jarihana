@@ -11,9 +11,9 @@ services:
       PUSH_VAPID_PRIVATE_KEY: "${PUSH_VAPID_PRIVATE_KEY:-}"
       PUSH_VAPID_SUBJECT: "${PUSH_VAPID_SUBJECT:-}"
       APP_VERSION: "${BACKEND_TAG:?BACKEND_TAG is required}"
-      DB_URL: jdbc:postgresql://postgres:5432/jarihana_dev
-      DB_USERNAME: jarihana_dev
-      DB_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+      DB_URL: "jdbc:postgresql://${RDS_URL:?RDS_URL is required}:5432/jarihana_dev?sslmode=require"
+      DB_USERNAME: "${DB_USERNAME:?DB_USERNAME is required}"
+      DB_PASSWORD: "${DB_PASSWORD:?DB_PASSWORD is required}"
       FRONTEND_ORIGIN: "${FRONTEND_ORIGIN:?FRONTEND_ORIGIN is required}"
       ACCESS_TOKEN_SECRET: "${ACCESS_TOKEN_SECRET:?ACCESS_TOKEN_SECRET is required}"
       GITHUB_OAUTH_CLIENT_ID: "${GITHUB_OAUTH_CLIENT_ID:?GITHUB_OAUTH_CLIENT_ID is required}"
@@ -34,29 +34,6 @@ services:
         max-buffer-size: "4m"
 
     ports:
-      - "80:8080"
+      - "8080:8080"
       - "127.0.0.1:81:8081"
-    depends_on:
-      postgres:
-        condition: service_healthy
     restart: unless-stopped
-
-  postgres:
-    image: postgres:17
-    environment:
-      POSTGRES_DB: jarihana_dev
-      POSTGRES_USER: jarihana_dev
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
-    ports:
-      - "127.0.0.1:15432:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U jarihana_dev -d jarihana_dev -h 127.0.0.1"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-    restart: unless-stopped
-
-volumes:
-  postgres-data:

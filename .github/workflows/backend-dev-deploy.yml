@@ -20,7 +20,7 @@ concurrency:
 jobs:
   deploy:
     if: github.ref == 'refs/heads/develop'
-    runs-on: [self-hosted, Linux, ARM64]
+    runs-on: [jarihana-dev]
     environment: dev
     timeout-minutes: 20
     env:
@@ -43,6 +43,9 @@ jobs:
 
       - name: Compose로 Backend 배포
         env:
+          RDS_URL: ${{ vars.RDS_URL }}
+          DB_USERNAME: ${{ vars.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           PUSH_ENABLED: ${{ vars.PUSH_ENABLED || 'false' }}
           PUSH_WORKER_ENABLED: ${{ vars.PUSH_WORKER_ENABLED || 'true' }}
           PUSH_VAPID_PUBLIC_KEY: ${{ vars.PUSH_VAPID_PUBLIC_KEY }}
@@ -90,8 +93,8 @@ jobs:
             --filter 'label=com.docker.compose.service=backend')"
           test "$(docker port "${container_id}" 8081/tcp)" = "127.0.0.1:81"
           api_status="$(curl --silent --show-error --max-time 10 \
-            --output /dev/null --write-out '%{http_code}' http://127.0.0.1:80/api/groups)"
+            --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8080/api/groups)"
           test "${api_status}" = "200"
           public_metrics_status="$(curl --silent --show-error --max-time 10 \
-            --output /dev/null --write-out '%{http_code}' http://127.0.0.1:80/api/actuator/prometheus)"
+            --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8080/api/actuator/prometheus)"
           test "${public_metrics_status}" = "403"
