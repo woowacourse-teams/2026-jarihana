@@ -11,6 +11,8 @@ services:
       PUSH_VAPID_PRIVATE_KEY: "${PUSH_VAPID_PRIVATE_KEY:-}"
       PUSH_VAPID_SUBJECT: "${PUSH_VAPID_SUBJECT:-}"
       APP_VERSION: "${BACKEND_TAG:?BACKEND_TAG is required}"
+      SENTRY_BACKEND_DSN: "${SENTRY_BACKEND_DSN:-}"
+      SENTRY_ENVIRONMENT: development
       DB_URL: "jdbc:postgresql://${RDS_URL:?RDS_URL is required}:5432/jarihana_dev?sslmode=require"
       DB_USERNAME: "${DB_USERNAME:?DB_USERNAME is required}"
       DB_PASSWORD: "${DB_PASSWORD:?DB_PASSWORD is required}"

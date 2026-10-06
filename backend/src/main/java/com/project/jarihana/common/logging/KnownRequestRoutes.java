@@ -1,6 +1,7 @@
 package com.project.jarihana.common.logging;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,6 +40,38 @@ final class KnownRequestRoutes {
             }
         }
         return Map.of();
+    }
+
+    static String sanitizeUrl(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        try {
+            URI uri = URI.create(value);
+            String path = uri.getRawPath();
+            if (path == null) {
+                return null;
+            }
+
+            String contextPath = "/api";
+            if (path.startsWith(contextPath)) {
+                path = path.substring(contextPath.length());
+            }
+            String routePath = path;
+            String normalizedPath = ROUTES.stream()
+                    .filter(route -> route.pattern().matcher(routePath).matches())
+                    .map(Route::template)
+                    .findFirst()
+                    .orElse("/:redacted");
+            String authority = uri.getRawAuthority();
+            String origin = uri.getScheme() != null && authority != null
+                    ? uri.getScheme() + "://" + authority
+                    : "";
+            return origin + contextPath + normalizedPath;
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
     }
 
     private static Route route(String template) {
