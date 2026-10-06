@@ -56,6 +56,7 @@ function OverlayPanel({
   closeLabel = "닫기",
   description,
   dismissible = true,
+  headerActions,
   mode = "modal",
   onDismiss,
   title
@@ -135,7 +136,8 @@ function OverlayPanel({
         >
           ×
         </IconButton>
-        <h2 className="ui-dialog__title" id={titleId}>
+        {headerActions ? <div className="ui-dialog__header-actions">{headerActions}</div> : null}
+        <h2 className={`ui-dialog__title${headerActions ? " ui-dialog__title--with-actions" : ""}`} id={titleId}>
           {title}
         </h2>
         {description ? (
@@ -215,6 +217,7 @@ export function Drawer({
   children,
   closeAction,
   defaultOpen = false,
+  headerActions,
   onClose,
   onOpenChange,
   open,
@@ -237,7 +240,7 @@ export function Drawer({
         </Trigger>
       ) : null}
       {visible ? (
-        <OverlayPanel closeAction={closeAction} mode="drawer" onDismiss={dismiss} title={title}>
+        <OverlayPanel closeAction={closeAction} headerActions={headerActions} mode="drawer" onDismiss={dismiss} title={title}>
           {children}
         </OverlayPanel>
       ) : null}

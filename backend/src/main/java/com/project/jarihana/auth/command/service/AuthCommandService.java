@@ -8,6 +8,9 @@ import com.project.jarihana.auth.domain.RefreshToken;
 import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.pushsubscription.command.service.PushSubscriptionCommandService;
+import com.project.jarihana.pushsubscription.command.service.dto.DisconnectPushSubscriptionCommand;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,17 +28,20 @@ public class AuthCommandService {
     private final RefreshTokenHasher refreshTokenHasher;
     private final AccessTokenProvider accessTokenProvider;
     private final Clock clock;
+    private final PushSubscriptionCommandService subscriptions;
 
     public AuthCommandService(
             RefreshTokenRepository refreshTokenRepository,
             RefreshTokenHasher refreshTokenHasher,
             AccessTokenProvider accessTokenProvider,
-            Clock clock
+            Clock clock,
+            PushSubscriptionCommandService subscriptions
     ) {
         this.refreshTokenRepository = refreshTokenRepository;
         this.refreshTokenHasher = refreshTokenHasher;
         this.accessTokenProvider = accessTokenProvider;
         this.clock = clock;
+        this.subscriptions = subscriptions;
     }
 
     /**
@@ -45,22 +51,31 @@ public class AuthCommandService {
      */
     @Transactional
     public void logout(LogoutCommand command) {
-        boolean discarded = discardRefreshToken(command.refreshTokenValue());
-        if (!discarded && command.memberId() == null && command.signupGithubId() == null) {
-            throw new BusinessException(ErrorCode.UNAUTHENTICATED, UNAUTHENTICATED_MESSAGE);
-        }
+        logout(command, null);
     }
 
-    private boolean discardRefreshToken(String refreshTokenValue) {
-        if (refreshTokenValue == null || refreshTokenValue.isBlank()) {
-            return false;
+    @Transactional
+    public void logout(LogoutCommand command, DisconnectPushSubscriptionCommand binding) {
+        Optional<RefreshToken> refresh = findRefreshToken(command.refreshTokenValue());
+        if (refresh.isEmpty() && command.memberId() == null && command.signupGithubId() == null) {
+            throw new BusinessException(ErrorCode.UNAUTHENTICATED, UNAUTHENTICATED_MESSAGE);
         }
-        return refreshTokenRepository.findByTokenHash(refreshTokenHasher.hash(refreshTokenValue))
-                .map(refreshToken -> {
-                    refreshTokenRepository.delete(refreshToken);
-                    return true;
-                })
-                .orElse(false);
+        if (binding != null) {
+            Long memberId = command.memberId() != null ? command.memberId() : refresh.map(token -> token.getMember().getId()).orElse(null);
+            if (memberId == null || (command.memberId() != null && refresh.isPresent()
+                    && !command.memberId().equals(refresh.get().getMember().getId()))) {
+                throw new BusinessException(ErrorCode.UNAUTHENTICATED, "인증 정보가 일치하지 않습니다.");
+            }
+            subscriptions.disconnectSubscription(memberId, binding.subscriptionId(), binding.generation());
+        }
+        refresh.ifPresent(refreshTokenRepository::delete);
+    }
+
+    private Optional<RefreshToken> findRefreshToken(String refreshTokenValue) {
+        if (refreshTokenValue == null || refreshTokenValue.isBlank()) {
+            return Optional.empty();
+        }
+        return refreshTokenRepository.findByTokenHash(refreshTokenHasher.hash(refreshTokenValue));
     }
 
     /**
