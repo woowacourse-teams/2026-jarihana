@@ -671,3 +671,43 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
 - Reference fidelity boundary: the screenshot's hand-drawn artwork, fabricated participant
   portraits and technology tags are not supplied production assets/API fields. Use existing
   imagery and supported types. New browser checks cover 375/768/1280px and live data.
+
+## 12. 알림함과 웹푸시
+
+- 기존 검은 헤더와 흰 surface/mint palette를 유지한다. 로그인 시 desktop 프로필 바로 왼쪽,
+  mobile 전체 메뉴의 닫기 버튼 왼쪽에 44px 종 버튼과 안 읽은 수를 표시한다.
+  종 버튼을 누르면 전체 메뉴를 닫고 알림함을 연다. 닫기 버튼과 간격은 4px이며,
+  숫자 배지는 신청관리와 같은 danger 배경과 surface 글자색을 사용한다.
+  모바일 햄버거 버튼에는 미읽음이 있을 때만 숫자 없는 danger 색 점을 표시하고,
+  스크린리더에는 미읽음 알림이 있다는 설명을 제공한다.
+  모바일 알림함을 닫으면 전체 메뉴로 돌아온다. 알림을 선택해 이동할 때는 메뉴를 열지 않는다.
+- 알림함은 공통 Drawer의 focus trap·Escape·닫기 후 focus 복귀를 재사용한다.
+  [scroll-body-shell](https://github.com/changeroa/StyleGallery/blob/main/patterns/viewport-shell/scroll-body-shell.md)
+  구조를 따라 패널 안쪽 콘텐츠가 스크롤하며 페이지는 잠긴다. 긴 문구는 줄바꿈한다.
+- NotificationRow: 제목·본문·서울 기준 시각·읽음 상태, 별도의 삭제 버튼. 미읽음은
+  왼쪽 세로 중앙의 brand 색 점으로 구분하고, 읽은 항목은 점 없이 surface-sunken 배경과
+  muted 글자색을 사용한다. 읽음 상태 텍스트는 스크린리더에만 제공한다. 목록을 여는 동작은 읽음 처리하지 않는다.
+- 전체 읽음은 재조회로 표시만 바꾼다. 삭제 API 성공 후 해당 행을 오른쪽 100%로
+  translate하며 opacity를 낮추고 제거한다. 주변 행은 제거 후 자연스럽게 자리를 채운다.
+  [beui swipeable-list](https://beui.dev/r/swipeable-list/raw)의 수평 transform·세로 스크롤 분리
+  원리를 참조했으며 새 gesture/motion 라이브러리는 추가하지 않는다. 삭제는 버튼으로 수행한다.
+  duration-deliberate(240ms)·ease-standard를 사용하고 reduced-motion에서는 즉시 제거한다.
+  삭제된 행에 focus가 있으면 다음 항목, 이전 항목, 목록 제목 순으로 옮긴다.
+- NotificationBell/NotificationRow/PushSettings는 loading·empty·error·pending·disabled·retry
+  상태를 갖는다. 아이콘은 lucide-react, 색·글자·간격·radius는 기존 공통 token을 사용한다.
+- 알림함은 종 버튼의 Drawer로 제공하며 독립된 /notifications 페이지는 두지 않는다.
+  /notifications/open/:id는 알림 확인·이동에 사용한다. 종 아이콘은 --space-5 크기다.
+- 푸시 설정은 이 브라우저의 상태를 설명한다. 모바일 설치 안내, 권한 거부·미지원·
+  서버 비활성·동기화 실패와 재시도를 구분한다. 계정·endpoint·키는 분석에 보내지 않는다.
+  켜기·끄기는 44px 터치 영역의 토글(`role="switch"`)로 제공하고, 실제 연결 상태를
+  `aria-checked`로 알린다. 처리 중에는 비활성화하며 키보드와 reduced-motion을 지원한다.
+- 변경 범위의 viewport 360/768/1440, 키보드·긴 문구·삭제 실패·reduced-motion을 확인한다.
+  실제 OS 알림·외부 Push Service·모바일 설치는 6단계 실기기 검증으로 남긴다.
+
+## 13. 알림에서 마이페이지 항목 찾기
+
+- 승인 알림은 내 모임의 해당 유형 탭, 미승인 알림은 내 신청의 미승인 탭을 연다.
+- 다음 페이지의 항목도 조회한 뒤 카드 중앙으로 스크롤하고 `tabIndex=-1`인 카드에
+  키보드 focus를 옮긴다. 기존 focus-visible 토큰과 함께 brand-soft 배경·shadow-float로
+  3초 동안 강조한다. 기존 카드·44px 클릭 영역을 재사용하며 새 색·motion 토큰은 만들지 않는다.
+- reduced-motion에서는 즉시 스크롤한다. 찾는 중·조회 실패·기록 없음은 명시적으로 안내한다.

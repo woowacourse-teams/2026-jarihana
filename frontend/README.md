@@ -102,3 +102,8 @@ S3 이미지까지 외부 카드에서 보려면 이미지도 공개 URL이어�
 ## 운영 기능
 
 - [PostHog 분석 수집 설정과 이벤트 목록](docs/analytics.md)
+
+## PWA와 웹푸시
+
+- [프론트엔드 ADR 0002](docs/adr/0002-notification-inbox-and-service-worker.md): 알림함·Service Worker·로그아웃 연결 구조와 선택 이유
+- [웹푸시 운영 가이드](../backend/docs/operations/web-push.md): 로컬 실행·환경 설정·배포·장애 확인·검증 상태

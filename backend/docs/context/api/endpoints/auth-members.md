@@ -6,7 +6,9 @@
 - 권한: `AUTH`
 
 #### 요청
-Request Body는 없다.
+Request Body 없이 기존처럼 호출할 수 있다. 현재 브라우저 푸시 연결을 함께 해제할 때는
+JSON 본문 `{ "pushSubscriptionId": 81, "generation": 1 }`을 전달한다.
+필드·소유권·실패 시 롤백 규칙은 [알림함·웹푸시의 로그아웃 확장](notifications.md#기존-로그아웃의-호환-확장)을 따른다.
 
 #### 응답 204 No Content
 본문이 없다.
@@ -14,12 +16,16 @@ Request Body는 없다.
 #### 부수 효과
 - 가입 전 사용자라면 가입 세션을 무효화한다.
 - 가입 회원이라면 Refresh Token을 폐기한다.
+- 선택적 푸시 본문이 있으면 현재 연결 버전을 검증하고 구독 해제·미완료 전송 취소·토큰 폐기를 같은 TX로 처리한다.
 
 #### 예외
 
 | 상황 | 코드 | HTTP |
 | --- | --- | --- |
 | 유효한 세션과 토큰이 모두 없음 | `UNAUTHENTICATED` | 401 |
+| 푸시 본문의 형식·필수 값 오류 | `INVALID_PARAMETER` | 400 |
+| 푸시 본문 사용 시 Access/Refresh 회원 불일치 | `UNAUTHENTICATED` | 401 |
+| 푸시 구독 없음·다른 회원·연결 버전 불일치 | `PUSH_SUBSCRIPTION_NOT_FOUND` | 404 |
 
 ### `POST /api/auth/refresh`
 

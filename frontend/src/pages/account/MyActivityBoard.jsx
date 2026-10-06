@@ -1,5 +1,5 @@
 import { CalendarDays, Crown, UsersRound } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 
 import emptyStateIllustration from "../../shared/assets/illustrations/group-recruitment-empty.webp";
@@ -28,11 +28,11 @@ function GroupTypeTag({ type }) {
   );
 }
 
-function GroupActivityRow({ group, isLeader }) {
+function GroupActivityRow({ group, isLeader, highlighted }) {
   const isEnded = group.status === "ENDED";
 
   return (
-    <article className="activity-row activity-row--interactive">
+    <article className={`activity-row activity-row--interactive${highlighted ? " activity-row--notification" : ""}`} data-activity-id={group.id} tabIndex={-1}>
       <GroupImage className="activity-row__visual" group={group} />
       <div className="activity-row__body">
         <div className="activity-row__badges">
@@ -74,7 +74,7 @@ function GroupActivityRow({ group, isLeader }) {
   );
 }
 
-function RegistrationActivityRow({ registration }) {
+function RegistrationActivityRow({ registration, highlighted }) {
   const [isDecisionModalOpen, setIsDecisionModalOpen] = useState(false);
   const tone = registration.status === "REJECTED" ? "danger" : "warning";
   const hasDecisionReason = registration.status === "REJECTED" && registration.rejectReason;
@@ -85,7 +85,7 @@ function RegistrationActivityRow({ registration }) {
 
   return (
     <>
-      <article className="activity-row activity-row--interactive">
+      <article className={`activity-row activity-row--interactive${highlighted ? " activity-row--notification" : ""}`} data-activity-id={registration.id} tabIndex={-1}>
         <GroupImage className="activity-row__visual" group={registration.group} />
         <div className="activity-row__body">
           <div className="activity-row__badges">
@@ -150,19 +150,34 @@ const DEFAULT_EMPTY_STATES = {
 export function MyActivityBoard({
   currentMemberId,
   emptyState,
+  focusId,
+  focusKey,
   items = [],
   kind,
   panelId = "my-groups-panel",
   query,
   tabId = `my-groups-tab-${kind}`
 }) {
+  const boardRef = useRef(null);
+  const [highlightedId, setHighlightedId] = useState(null);
+  const visibleFocusId = items.some((item) => item.id === focusId) ? focusId : null;
+  useEffect(() => {
+    if (!visibleFocusId || query.isLoading || query.isError) return;
+    const row = boardRef.current?.querySelector(`[data-activity-id="${visibleFocusId}"]`);
+    if (!row) return;
+    row.focus({ preventScroll: true });
+    row.scrollIntoView?.({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    setHighlightedId(visibleFocusId);
+    const timer = setTimeout(() => setHighlightedId(null), 3000);
+    return () => clearTimeout(timer);
+  }, [visibleFocusId, focusKey, query.isLoading, query.isError]);
   const isRegistrations = kind === "registrations";
   const resolvedEmptyState =
     emptyState ?? DEFAULT_EMPTY_STATES[isRegistrations ? "registrations" : "groups"];
   const sentinelRef = useInfiniteScroll({
     hasNext: Boolean(query.hasNextPage),
     onLoadMore: () => query.fetchNextPage(),
-    pending: Boolean(query.isFetchingNextPage)
+    pending: Boolean(query.isFetchingNextPage || query.isFetching)
   });
   const activities = items.map((item) =>
     isRegistrations
@@ -172,7 +187,7 @@ export function MyActivityBoard({
   const resourceLabel = isRegistrations ? "신청" : "모임";
 
   return (
-    <section aria-labelledby={tabId} className="activity-board" id={panelId} role="tabpanel">
+    <section aria-labelledby={tabId} className="activity-board" id={panelId} ref={boardRef} role="tabpanel">
       {query.isLoading ? (
         <div
           aria-label={`${resourceLabel} 불러오는 중`}
@@ -192,10 +207,11 @@ export function MyActivityBoard({
         <div className="activity-board__grid">
           {activities.map((activity) =>
             isRegistrations ? (
-              <RegistrationActivityRow key={activity.key} registration={activity.registration} />
+              <RegistrationActivityRow highlighted={highlightedId === activity.registration.id} key={activity.key} registration={activity.registration} />
             ) : (
               <GroupActivityRow
                 group={activity.group}
+                highlighted={highlightedId === activity.group.id}
                 isLeader={
                   currentMemberId != null && activity.group.leader?.memberId === currentMemberId
                 }

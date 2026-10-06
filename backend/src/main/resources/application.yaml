@@ -24,6 +24,19 @@ sentry:
   enable-tracing: false
 
 jarihana:
+  push:
+    enabled: ${PUSH_ENABLED:false}
+    worker-enabled: ${PUSH_WORKER_ENABLED:true}
+    vapid-public-key: ${PUSH_VAPID_PUBLIC_KEY:}
+    vapid-private-key: ${PUSH_VAPID_PRIVATE_KEY:}
+    vapid-subject: ${PUSH_VAPID_SUBJECT:}
+    allowed-hosts: ${PUSH_ALLOWED_HOSTS:fcm.googleapis.com,updates.push.services.mozilla.com,web.push.apple.com}
+    batch-size: ${PUSH_BATCH_SIZE:50}
+    poll-delay: ${PUSH_POLL_DELAY:1000}
+    lease-duration: ${PUSH_LEASE_DURATION:PT1M}
+    request-timeout: ${PUSH_REQUEST_TIMEOUT:PT10S}
+    connect-timeout: ${PUSH_CONNECT_TIMEOUT:PT5S}
+    retry-delay: ${PUSH_RETRY_DELAY:PT5S}
   image:
     bucket: ${IMAGE_S3_BUCKET:techcourse-project-2026}
     region: ${IMAGE_S3_REGION:ap-northeast-2}

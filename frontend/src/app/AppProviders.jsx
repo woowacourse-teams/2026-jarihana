@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { NotificationSessionBoundary } from "../features/notifications/NotificationSessionBoundary";
 import { AuthProvider } from "../features/auth";
 import { ToastProvider } from "../shared/ui";
 
@@ -23,7 +24,7 @@ export function AppProviders({ children }) {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <ToastProvider>{children}</ToastProvider>
+        <ToastProvider><NotificationSessionBoundary />{children}</ToastProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

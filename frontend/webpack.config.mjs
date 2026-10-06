@@ -96,6 +96,8 @@ export default (_, arguments_) => {
       }),
       new CopyWebpackPlugin({
         patterns: [
+          { from: path.resolve(directory, "public/sw.js"), to: "sw.js" },
+          { from: path.resolve(directory, "public/icons"), to: "icons" },
           {
             from: path.resolve(directory, "src/shared/assets/illustrations/default-group-*-3d.png"),
             to: "assets/[name][ext]"

@@ -99,6 +99,29 @@ header 구현으로 확대하지 않았다.
 
 ## 실제 API 계약 요약
 
+### 웹푸시·알림함 구현
+
+알림함은 헤더의 종 버튼이 여는 Drawer로 제공하며 독립된 `/notifications` 페이지는 없다.
+[백엔드 ADR 0015](../../backend/docs/adr/0015-web-push-and-notification-inbox.md)와
+[알림 API](../../backend/docs/context/api/endpoints/notifications.md)를 함께 따른다.
+
+- 로그인 회원의 프로필 옆 종 접근을 desktop·mobile 모두 제공한다. 열기만으로 읽음 처리하지 않는다.
+- 목록/안 읽은 수는 회원 ID·인증 세션 버전별 query key. 계정·세션 변경 시 이전 조회를 취소하고 캐시를 제거한다. 안 읽은 수는 30초마다/창 복귀 때 갱신하며 목록은 열기·새로고침·변경 성공 후 갱신한다. read/read-all 성공 후 invalidate하며 읽은 행은 유지한다.
+- 전체 읽음은 서버 전체 대상 처리다. 요청 중 새로 도착한 알림까지 무조건 읽음으로 칠하지 않는다.
+- DELETE204 뒤에만 해당 행을 240ms 슬라이드 후 제거한다. 실패 행 유지, reduced-motion 이동 생략, 키보드 focus 보존.
+- 신규 진입 `/notifications/open/:id`는 기존 AuthGuard/returnTarget 흐름으로 인증 복귀하고,
+  GET `/notifications/{id}`로 본인·target을 확인한 뒤 PATCH read와 내부 경로 이동을 수행한다.
+- 알림함과 푸시 클릭은 `/notifications/open/:id`를 공유한다. 새 신청은 `/groups/:groupId/manage/registrations`, 새 참여는 `/groups/:groupId/manage/members`, 승인은 `/my?focusGroup=:groupId`, 모든 미승인은 `/my?registrationStatus=REJECTED&focusRegistration=:registrationId`로 이동한다. 관리 화면은 현재 모임장 여부를 확인한다. 관리 대상 조회 403/404는 읽음 처리 없이 안내한다. 승인·미승인은 읽음 처리 후 목록 캐시를 갱신하고 마이페이지로 이동한다. 해당 유형/미승인 탭을 선택하고 다음 페이지도 조회하여 정확한 카드에 스크롤·키보드 focus·3초 강조를 적용한다. 대상이 없으면 안내하며 reduced-motion에서는 즉시 스크롤한다. 이전 백엔드의 승인 알림 `GROUP_DETAIL` 응답도 프론트 API 경계에서 `MY_GROUPS`로 변환해 같은 카드 강조 경로를 사용한다. 알림함 본문에는 현재 모임 이름과 사건 내용을 표시한다.
+- 이 브라우저 push setting은 명시적 동작에 따른 권한 요청/등록/해제. iPhone·iPad의 일반 브라우저는 홈 화면 설치 안내를 표시한다. 설치 이벤트를 제공하는 브라우저는 설치 버튼을 표시한다.
+- SW의 IndexedDB에 현재 브라우저의 회원 ID·구독 id·generation·armed·revision을 보관한다. endpoint·암호화 키·알림 본문·로그인 토큰은 보관하지 않는다. 서버는 회원 소유권·활성 상태·generation을 확인한다.
+- SW는 푸시의 구독 id·generation을 조회 전과 응답 후에 다시 확인한다. private 응답 no-store·일반 안내 fallback.
+- logout 전 local disarm 완료 확인 후 `{pushSubscriptionId,generation}`을 전송한다. 계정 전환·logout 뒤 이전 응답의 표시·캐시 반영을 막는다.
+- 새 동작에 고정 action 지정: notification_inbox_open, notification_open, notification_read_all,
+  notification_delete, push_permission_request, push_enable, push_disable, pwa_install_prompt.
+- UI 상태: loading/empty/error/retry, page error, mutation pending, 마지막 행 삭제, 새 소식·계정 변경.
+
+### 현재 구현된 API 계약
+
 - 피드백 모달은 가입을 완료한 로그인 회원만 제출할 수 있다. 비로그인 사용자가 헤더나 푸터에서 피드백을 선택하면 로그인 안내 모달에서 `로그인하러 가기` 또는 `취소`를 선택한다. 로그인을 진행하면 현재 경로를 복귀 대상으로 저장하고, 인증 완료 후 피드백 모달을 자동으로 연다. `POST /api/feedbacks`에는 `content`만 보내며, 서버는 인증 회원 ID를 `member_id`로 저장한다.
 
 - API base path는 `/api`이고 모든 요청은 cookie credentials를 포함한다.

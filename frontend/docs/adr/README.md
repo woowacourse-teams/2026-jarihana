@@ -9,3 +9,4 @@
 | 번호 | 제목 | 상태 |
 | --- | --- | --- |
 | 0001 | [프론트엔드 기술 스택](0001-frontend-toolchain.md) | 채택 |
+| 0002 | [알림함과 Service Worker](0002-notification-inbox-and-service-worker.md) | 채택 |
