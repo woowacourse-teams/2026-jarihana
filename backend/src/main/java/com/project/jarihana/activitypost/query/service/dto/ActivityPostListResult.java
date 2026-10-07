@@ -14,10 +14,16 @@ public record ActivityPostListResult(List<Item> items, String nextCursor, boolea
             String caption,
             LocalDate activityDate,
             LocalDateTime createdAt,
-            boolean canModify
+            boolean canModify,
+            long commentCount,
+            List<ActivityReactionResult> reactions
     ) {
+
+        public Item {
+            reactions = List.copyOf(reactions);
+        }
     }
 
-    public record Group(Long id, String name, String type, String status) {
+    public record Group(Long id, String name, String type, String status, boolean recruiting, boolean joined) {
     }
 }
