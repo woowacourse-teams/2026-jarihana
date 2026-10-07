@@ -196,7 +196,7 @@ const myRegistration = {
 };
 delete myRegistration.member;
 
-const rejectedMyRegistration = {
+export const rejectedMyRegistration = {
   ...myRegistration,
   canWithdraw: false,
   decidedAt: "2026-08-15T11:00:00",
@@ -317,6 +317,8 @@ export async function installApiFixture(pageInstance, options = {}) {
     const method = request.method();
     state.requests.push({ method, path, postData: request.postDataJSON?.() });
 
+    if (path === "/notifications/unread-count") return json(route, success({ unreadCount: 0 }));
+    if (path === "/push-config") return json(route, success({ enabled: false, vapidPublicKey: null, payloadVersions: [1] }));
     if (path.startsWith("/images/") && method === "GET") {
       return route.fulfill({
         body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="#dff8f3"/></svg>',

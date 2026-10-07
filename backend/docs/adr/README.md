@@ -22,13 +22,16 @@
 | 0012 | [데이터베이스 스키마를 저장소에서 관리한다](0012-database-schema-management.md) | 제안 | 2026-08-27 | 도구 미확정. 채택되면 0011의 감수 비용을 닫는다 |
 | 0013 | [자동화 테스트의 PostgreSQL을 Testcontainers로 실행한다](0013-testcontainers-test-database.md) | 채택 | 2026-09-14 | 0012의 테스트 DB Docker Compose 재사용 결정을 대체 |
 | 0014 | [초기 관찰 플랫폼으로 Amazon CloudWatch를 사용한다](0014-cloudwatch-observability-platform.md) | 채택 | 2026-09-23 | |
+| 0015 | [dev와 prod를 별도 EC2로 나누고 데이터베이스는 RDS 한 대에서 계정으로 나눈다](0015-separate-ec2-and-shared-rds.md) | 제안 | 2026-10-05 | 채택되면 0009의 단일 EC2와 RDS 미채택 결정을 대체 |
 
 관련 회고: [`/api` 접두사는 누가 떼는가](../retrospectives/api-prefix-troubleshooting.md)는
 ADR 0006과 0007에 이르기까지의 기록이다.
 
 ## 병합 대기 중인 ADR
 
-현재 없다.
+| 번호 | 제목 | 상태 | 날짜 | 작업 브랜치 |
+| --- | --- | --- | --- | --- |
+| 0015 | [알림함에 소식을 저장하고 웹푸시는 별도로 전송한다](0015-web-push-and-notification-inbox.md) | 채택 · 알림함·구독·푸시 전송·화면·SW 구현 | 2026-10-02 | `feat/web-push-notifications` |
 
 ## 번호를 다시 매긴 이력
 

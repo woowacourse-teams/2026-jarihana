@@ -1,6 +1,6 @@
 {
-  "name": "자리 하나?",
-  "short_name": "자리하나",
+  "name": "자리하나?",
+  "short_name": "자리하나?",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f5f5f7",
@@ -8,10 +8,18 @@
   "lang": "ko",
   "icons": [
     {
-      "src": "/favicon.png",
-      "sizes": "500x500",
+      "src": "/icons/pwa-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/pwa-512.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     }
-  ]
+  ],
+  "id": "/",
+  "scope": "/"
 }

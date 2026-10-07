@@ -2,6 +2,7 @@ package com.project.jarihana.groupmember.command.repository;
 
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.groupmember.domain.GroupMember;
+import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.member.domain.Member;
 import org.springframework.data.repository.Repository;
 
@@ -14,6 +15,8 @@ public interface GroupMemberCommandRepository extends Repository<GroupMember, Lo
     Optional<GroupMember> findByGroupAndMember(Group group, Member member);
 
     Optional<GroupMember> findByGroupIdAndMemberId(long groupId, long memberId);
+
+    Optional<GroupMember> findByGroupIdAndRole(long groupId, GroupMemberRole role);
 
     Optional<GroupMember> findByIdAndGroupId(long groupMemberId, long groupId);
 

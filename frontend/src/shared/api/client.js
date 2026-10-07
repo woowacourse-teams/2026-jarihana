@@ -85,6 +85,7 @@ export const createApiClient = ({
       response = await transport(joinUrl(baseUrl, path), {
         headers,
         method,
+        ...(options.signal ? { signal: options.signal } : {}),
         ...(options.json === undefined ? {} : { json: options.json }),
         ...(options.searchParams === undefined ? {} : { searchParams: options.searchParams })
       });

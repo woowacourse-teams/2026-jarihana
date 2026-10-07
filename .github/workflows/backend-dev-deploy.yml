@@ -43,6 +43,11 @@ jobs:
 
       - name: Compose로 Backend 배포
         env:
+          PUSH_ENABLED: ${{ vars.PUSH_ENABLED || 'false' }}
+          PUSH_WORKER_ENABLED: ${{ vars.PUSH_WORKER_ENABLED || 'true' }}
+          PUSH_VAPID_PUBLIC_KEY: ${{ vars.PUSH_VAPID_PUBLIC_KEY }}
+          PUSH_VAPID_PRIVATE_KEY: ${{ secrets.PUSH_VAPID_PRIVATE_KEY }}
+          PUSH_VAPID_SUBJECT: ${{ vars.PUSH_VAPID_SUBJECT }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
           ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}

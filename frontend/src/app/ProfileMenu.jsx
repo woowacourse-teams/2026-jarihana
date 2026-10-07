@@ -5,7 +5,7 @@ import { useAuth } from "../features/auth";
 import { Avatar } from "../shared/ui";
 
 export function ProfileMenu() {
-  const { avatarUrl, logout, member } = useAuth();
+  const { avatarUrl, logout, logoutPending, member } = useAuth();
   const { pathname } = useLocation();
   const [isOpen, setOpen] = useState(false);
   const containerRef = useRef(null);
@@ -72,9 +72,10 @@ export function ProfileMenu() {
           <button
             className="app-header__profile-option"
             data-ph-capture-attribute-action="logout"
+            disabled={logoutPending}
             onClick={() => {
               setOpen(false);
-              void logout();
+              void Promise.resolve(logout()).catch(() => undefined);
             }}
             type="button"
           >
