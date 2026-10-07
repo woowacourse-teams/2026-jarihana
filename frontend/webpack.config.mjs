@@ -4,6 +4,7 @@ import CopyWebpackPlugin from "copy-webpack-plugin";
 import dotenv from "dotenv";
 import HtmlWebpackPlugin from "html-webpack-plugin";
 import webpack from "webpack";
+import { activityPostDemoMiddleware } from "./scripts/activity-post-demo.mjs";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(directory, ".env"), quiet: true });
@@ -24,9 +25,10 @@ const publicEnvironmentDefinitions = Object.fromEntries(
   publicEnvironmentKeys.map((key) => [`process.env.${key}`, JSON.stringify(process.env[key] ?? "")])
 );
 
-export default (_, arguments_) => {
+export default (environment, arguments_) => {
   const mode = arguments_.mode ?? "development";
   const isProduction = mode === "production";
+  const activityPostDemo = !isProduction && environment?.activityPostDemo === "true";
 
   return {
     devtool: isProduction ? "source-map" : "eval-source-map",
@@ -80,7 +82,7 @@ export default (_, arguments_) => {
           { from: path.resolve(directory, "public/sw.js"), to: "sw.js" },
           { from: path.resolve(directory, "public/icons"), to: "icons" },
           {
-            from: path.resolve(directory, "src/shared/assets/illustrations/default-group-*-3d.png"),
+            from: path.resolve(directory, "src/shared/assets/illustrations/default-group-*-3d.png").replaceAll("\\", "/"),
             to: "assets/[name][ext]"
           },
           {
@@ -121,11 +123,22 @@ export default (_, arguments_) => {
         }
       ],
       setupMiddlewares: (middlewares) => {
+        if (activityPostDemo) {
+          middlewares.unshift({
+            name: "activity-post-demo",
+            middleware: activityPostDemoMiddleware
+          });
+        }
         middlewares.unshift({
           name: "group-share-preview",
           middleware: async (request, response, next) => {
             const groupPath = request.path.match(/^\/groups\/([1-9][0-9]*)\/?$/);
             if (request.method !== "GET" || !groupPath || request.query.preview === "1") {
+              next();
+              return;
+            }
+
+            if (activityPostDemo) {
               next();
               return;
             }

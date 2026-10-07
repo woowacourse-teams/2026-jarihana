@@ -221,6 +221,8 @@ header 구현으로 확대하지 않았다.
 
 - production runtime에 mock/fallback 성공 데이터를 넣지 않는다.
 - Playwright와 단위 테스트의 network fixture만 허용한다.
+- 로컬 사진 확인용 `npm run dev:activities`는 개발 서버에서만 읽기 전용 예시 데이터를
+  제공한다. 사진 목록, 상세와 예시 모임의 활동 기록을 확인하는 용도이며 운영 번들에는 포함하지 않는다.
 - `/api`는 Webpack dev server에서 `http://localhost:8080`으로 proxy한다.
 - `/images`는 사용자 업로드 이미지 경로다. 기본 그룹 이미지와 회원가입 그림 등 서비스 정적
   이미지는 프론트 배포에 포함하고 `/assets`로 제공한다.

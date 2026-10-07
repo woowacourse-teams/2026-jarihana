@@ -14,6 +14,23 @@
 
 TypeScript, Vite, Vitest는 사용하지 않습니다.
 
+## 활동 기록 사진 예시
+
+백엔드 없이 활동 기록의 사진 목록, 상세, 크게 보기와 종료된 모임의 사진 표현을
+확인하려면 `frontend/`에서 다음 명령을 실행합니다.
+
+```bash
+npm run dev:activities
+```
+
+브라우저에서 `http://localhost:5173/activities`를 열면 가로, 세로, 정사각형 사진
+12개와 예시 댓글, 이모지 반응이 표시됩니다. 모임 링크와 모임별 활동 기록도
+예시 데이터로 확인할 수 있습니다. 읽기 전용이며 비로그인 상태로 표시합니다.
+사진은 [Lorem Picsum](https://picsum.photos/)에서 불러오므로 인터넷 연결이 필요합니다.
+
+이 데이터는 `scripts/activity-post-demo.mjs`에서 관리하며 `dev:activities`로 실행한
+개발 서버에서만 사용합니다. 일반 `npm run dev`와 운영 빌드에는 적용되지 않습니다.
+
 ## 공유 미리보기 로컬 확인
 
 공유 미리보기는 크롤러가 읽는 서버 HTML을 확인해야 하므로, 백엔드와 프론트엔드 개발
