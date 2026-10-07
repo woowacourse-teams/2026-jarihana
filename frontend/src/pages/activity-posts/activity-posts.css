@@ -135,11 +135,26 @@
 
 .activity-photo-card__link {
   display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
   color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
   text-decoration: none;
+  -webkit-touch-callout: none;
+}
+
+.activity-photo-card__link:focus-visible {
+  outline: 0.125rem solid var(--color-brand-ink);
+  outline-offset: 0.25rem;
 }
 
 .activity-photo-card__paper {
+  position: relative;
+  display: block;
   margin: 0;
   padding: 0.625rem 0.625rem 0.75rem;
   border: 1px solid rgb(29 29 31 / 9%);
@@ -196,15 +211,72 @@
   white-space: nowrap;
 }
 
-.activity-photo-card__archive {
-  width: fit-content;
-  margin-top: var(--space-1);
-  padding: 0.1rem 0.5rem;
+.activity-photo-card__signals {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.activity-photo-card__reaction,
+.activity-photo-card__comment-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  min-height: 1.4rem;
+  padding: 0 0.45rem;
+  border: var(--border-thin) solid var(--color-line);
   border-radius: var(--radius-pill);
-  background: var(--color-surface-sunken);
+  color: var(--color-ink);
+  font-size: var(--text-badge);
+  font-variant-numeric: tabular-nums;
+}
+
+.activity-photo-card__comment-count {
+  border-color: transparent;
   color: var(--color-muted-ink);
-  font-size: 0.7rem;
-  font-weight: var(--font-weight-semibold);
+}
+
+/* 종료된 모임의 기록: 배지 대신 바랜 사진, 누렇게 변한 인화지, 테이프로 붙인 앨범 사진처럼 보여 준다. */
+.activity-photo-card.is-ended .activity-photo-card__paper {
+  border-color: rgb(120 92 40 / 16%);
+  background: #f4eedf;
+  box-shadow: 0 0.15rem 0.5rem rgb(80 60 20 / 10%);
+}
+
+.activity-photo-card.is-ended .activity-photo-card__paper::before {
+  position: absolute;
+  z-index: 1;
+  top: -0.55rem;
+  left: 50%;
+  width: 4.2rem;
+  height: 1.15rem;
+  background: rgb(236 226 196 / 82%);
+  box-shadow: 0 1px 2px rgb(80 60 20 / 12%);
+  content: "";
+  pointer-events: none;
+  transform: translateX(-50%) rotate(-3deg);
+}
+
+.activity-photo-card.is-ended .activity-photo-card__image {
+  box-shadow: 0 0 0 1px rgb(120 92 40 / 14%);
+  filter: grayscale(0.75) sepia(0.4) contrast(0.9) brightness(1.04);
+}
+
+.activity-photo-card.is-ended .activity-photo-card__note {
+  color: #4b4132;
+}
+
+.activity-photo-card.is-ended .activity-photo-card__byline,
+.activity-photo-card.is-ended .activity-photo-card__date,
+.activity-photo-card.is-ended .activity-photo-card__comment-count {
+  color: #6f624b;
+}
+
+.activity-photo-card.is-ended .activity-photo-card__reaction {
+  border-color: rgb(120 92 40 / 22%);
+  color: #4b4132;
 }
 
 .activity-photo-card__actions {
@@ -373,6 +445,15 @@
 }
 
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .activity-photo-card.is-ended .activity-photo-card__image {
+    transition: filter var(--duration-deliberate) var(--ease-standard);
+  }
+
+  .activity-photo-card.is-ended:hover .activity-photo-card__image,
+  .activity-photo-card.is-ended:focus-within .activity-photo-card__image {
+    filter: grayscale(0.35) sepia(0.25) contrast(0.95);
+  }
+
   .activity-photo-card:hover {
     transform: translateY(-0.25rem) rotate(var(--photo-rotation));
     filter: drop-shadow(0 0.5rem 0.65rem rgb(29 29 31 / 12%));
@@ -408,5 +489,579 @@
 @media (prefers-reduced-motion: reduce) {
   .activity-photo-card {
     transition: none;
+  }
+}
+
+/* ===== 기록 상세: 가운데 다이얼로그 (데스크톱 왼쪽 사진, 오른쪽 대화) ===== */
+.ui-dialog.activity-post-detail {
+  display: grid;
+  width: 100%;
+  max-width: 64rem;
+  height: min(44rem, calc(100vh - 2.5rem));
+  padding: 0;
+  overflow: hidden;
+  grid-template-columns: minmax(0, 1.3fr) minmax(19rem, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.activity-post-detail .ui-dialog__title {
+  grid-column: 2;
+  grid-row: 1;
+  padding: var(--space-4) var(--space-12) var(--space-3) var(--space-5);
+  border-bottom: var(--border-thin) solid var(--color-line);
+  font-size: var(--text-h3);
+}
+
+.activity-post-detail .ui-dialog__content {
+  display: contents;
+}
+
+.activity-post-detail__photo {
+  display: grid;
+  min-height: 0;
+  padding: var(--space-5);
+  background: #141618;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  place-items: center;
+}
+
+.activity-post-detail__photo-button {
+  position: relative;
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+
+.activity-post-detail__image {
+  display: block;
+  max-width: 100%;
+  max-height: calc(min(44rem, 100vh - 2.5rem) - var(--space-10));
+  object-fit: contain;
+}
+
+.activity-post-detail__zoom-hint {
+  position: absolute;
+  right: var(--space-2);
+  bottom: var(--space-2);
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 55%);
+  color: #fff;
+  place-items: center;
+}
+
+.activity-post-detail__photo-button:focus-visible {
+  outline: 0.125rem solid #fff;
+  outline-offset: 0.25rem;
+}
+
+.activity-post-detail__side {
+  display: grid;
+  min-height: 0;
+  grid-column: 2;
+  grid-row: 2;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.activity-post-detail__scroll {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+  min-height: 0;
+  padding: var(--space-4) var(--space-5);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.activity-post-detail__story {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.activity-post-detail__caption {
+  margin: 0;
+  font-size: var(--text-body-lg);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.activity-post-detail__meta {
+  display: flex;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--color-muted-ink);
+  font-size: var(--text-caption);
+}
+
+.activity-detail-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  color: var(--color-ink);
+  font-size: var(--text-label);
+  text-decoration: none;
+}
+
+.activity-detail-group:focus-visible {
+  outline: 0.125rem solid var(--color-brand-ink);
+  outline-offset: 0.125rem;
+}
+
+.activity-detail-group__type {
+  padding: 0.05rem 0.5rem;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-badge);
+  font-weight: var(--font-weight-bold);
+}
+
+.activity-detail-group__type--study {
+  background: var(--color-activity-study-soft);
+  color: var(--color-activity-study-ink);
+}
+
+.activity-detail-group__type--club {
+  background: var(--color-activity-club-soft);
+  color: var(--color-activity-club-ink);
+}
+
+.activity-detail-group__type--session {
+  background: var(--color-activity-session-soft);
+  color: var(--color-activity-session-ink);
+}
+
+.activity-detail-group__name {
+  min-width: 0;
+  font-weight: var(--font-weight-bold);
+  overflow-wrap: anywhere;
+}
+
+.activity-detail-group__state {
+  padding: 0.05rem 0.5rem;
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-muted-ink);
+  font-size: var(--text-badge);
+  font-weight: var(--font-weight-semibold);
+}
+
+.activity-detail-group__state--open {
+  border-color: transparent;
+  background: var(--color-brand-soft);
+  color: var(--color-brand-ink);
+}
+
+.activity-detail-group__go {
+  margin-inline-start: auto;
+  color: var(--color-brand-ink);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-bold);
+  white-space: nowrap;
+}
+
+.activity-detail-group--invite .activity-detail-group__go {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--color-brand-ink);
+  color: var(--color-surface);
+}
+
+/* 이모지 반응: 이모지별 개수 배지 */
+.activity-reactions {
+  position: relative;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.activity-reactions__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.activity-reaction,
+.activity-reaction-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-height: 2rem;
+  padding: 0 0.65rem;
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-body);
+}
+
+.activity-reaction__count {
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-semibold);
+}
+
+.activity-reaction[aria-pressed="true"] {
+  border-color: var(--color-brand);
+  background: var(--color-brand-soft);
+  color: var(--color-brand-ink);
+}
+
+.activity-reaction:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.activity-reaction-add {
+  min-width: 2.4rem;
+  border-style: dashed;
+  color: var(--color-muted-ink);
+}
+
+.activity-reaction:focus-visible,
+.activity-reaction-add:focus-visible,
+.activity-reaction-picker button:focus-visible {
+  outline: 0.125rem solid var(--color-brand-ink);
+  outline-offset: 0.125rem;
+}
+
+.activity-reactions--sm .activity-reaction,
+.activity-reactions--sm .activity-reaction-add {
+  min-height: 1.6rem;
+  padding: 0 0.45rem;
+  font-size: var(--text-label);
+}
+
+.activity-reactions--sm .activity-reaction-add {
+  min-width: 2rem;
+}
+
+.activity-reaction-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.1rem;
+  width: fit-content;
+  max-width: 100%;
+  padding: var(--space-1);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-float);
+}
+
+.activity-reaction-picker button {
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+
+.activity-reaction-picker button:hover,
+.activity-reaction-picker button[aria-pressed="true"] {
+  background: var(--color-surface-sunken);
+}
+
+/* 댓글 */
+.activity-post-detail__comments {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.activity-post-detail__comments-title {
+  margin: 0;
+  font-size: var(--text-label);
+}
+
+.activity-post-detail__comments-title span {
+  color: var(--color-muted-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.activity-comments {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.activity-comments--empty,
+.activity-comments--error p {
+  margin: 0;
+  color: var(--color-muted-ink);
+  font-size: var(--text-caption);
+}
+
+.activity-comments__skeleton {
+  height: 3rem;
+}
+
+.activity-comments__list {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity-comment {
+  display: grid;
+  align-items: start;
+  gap: var(--space-2);
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.activity-comment__avatar {
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: var(--color-brand-soft);
+  color: var(--color-brand-ink);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-bold);
+  place-items: center;
+}
+
+.activity-comment__body {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.activity-comment__meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-caption);
+}
+
+.activity-comment__meta time {
+  color: var(--color-muted-ink);
+}
+
+.activity-comment__delete {
+  margin-inline-start: auto;
+  padding: 0 var(--space-1);
+  border: 0;
+  background: none;
+  color: var(--color-muted-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-caption);
+}
+
+.activity-comment__delete:hover {
+  color: var(--color-danger);
+}
+
+.activity-comment__content {
+  margin: 0;
+  font-size: var(--text-label);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.activity-comment-composer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: var(--border-thin) solid var(--color-line);
+  background: var(--color-surface);
+}
+
+.activity-comment-composer__input {
+  min-width: 0;
+  height: var(--touch-target);
+  flex: 1 1 auto;
+  padding: 0 var(--space-4);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--text-label);
+}
+
+.activity-comment-composer__input:focus {
+  outline: 0.125rem solid var(--color-brand);
+  outline-offset: 0;
+  background: var(--color-surface);
+}
+
+.activity-comment-composer__login {
+  width: 100%;
+}
+
+/* 사진 크게 보기 */
+.activity-photo-viewer {
+  position: fixed;
+  z-index: calc(var(--z-dialog) + 5);
+  display: grid;
+  inset: 0;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: rgb(8 8 10 / 94%);
+  color: #fff;
+  touch-action: pan-x;
+}
+
+.activity-photo-viewer__backdrop {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-out;
+  inset: 0;
+}
+
+.activity-photo-viewer__close {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  margin: calc(env(safe-area-inset-top, 0px) + var(--space-3)) var(--space-3) 0 auto;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 14%);
+  color: #fff;
+  cursor: pointer;
+  place-items: center;
+}
+
+.activity-photo-viewer__close:focus-visible {
+  outline: 0.125rem solid #fff;
+  outline-offset: 0.125rem;
+}
+
+.activity-photo-viewer__image {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  min-height: 0;
+  max-width: calc(100% - var(--space-8));
+  max-height: 100%;
+  align-self: center;
+  justify-self: center;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.activity-photo-viewer__caption {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 0.15rem;
+  padding: var(--space-4) var(--space-5) calc(env(safe-area-inset-bottom, 0px) + var(--space-5));
+  font-size: var(--text-label);
+  pointer-events: none;
+}
+
+.activity-photo-viewer__caption span {
+  color: #e6e6e6;
+}
+
+.activity-photo-viewer__meta {
+  display: flex;
+  gap: var(--space-2);
+  color: #a9a9a9 !important;
+  font-size: var(--text-caption);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .activity-reaction,
+  .activity-reaction-add {
+    transition:
+      background-color var(--duration-fast) var(--ease-standard),
+      border-color var(--duration-fast) var(--ease-standard);
+  }
+
+  .activity-photo-viewer {
+    animation: activity-photo-viewer-in var(--duration-base) var(--ease-standard);
+  }
+}
+
+@keyframes activity-photo-viewer-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* 모바일: 전체 화면 상세, 사진과 대화를 함께 스크롤하고 입력창은 아래에 고정한다. */
+@media (max-width: 39.9375rem) {
+  .ui-overlay:has(> .activity-post-detail) {
+    padding: 0;
+  }
+
+  .ui-dialog.activity-post-detail {
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    max-height: none;
+    overflow: auto;
+    border-radius: 0;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+  }
+
+  .activity-post-detail .ui-dialog__title {
+    position: sticky;
+    z-index: 2;
+    top: 0;
+    grid-column: 1;
+    grid-row: 1;
+    background: var(--color-surface);
+  }
+
+  .activity-post-detail .ui-dialog__close {
+    position: fixed;
+    z-index: 3;
+    top: calc(env(safe-area-inset-top, 0px) + var(--space-2));
+  }
+
+  .activity-post-detail__photo {
+    padding: 0;
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .activity-post-detail__image {
+    max-height: 70vh;
+  }
+
+  .activity-post-detail__side {
+    display: block;
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .activity-post-detail__scroll {
+    overflow: visible;
+  }
+
+  .activity-comment-composer {
+    position: sticky;
+    bottom: 0;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-3));
   }
 }
