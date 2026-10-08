@@ -1,8 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 
-import { useAuth } from "../../../src/features/auth/index.js";
-import { useInfiniteActivityPosts } from "../../../src/features/activity-post/hooks.js";
+import { storeReturnTarget, useAuth } from "../../../src/features/auth/index.js";
+import {
+  useInfiniteActivityComments,
+  useInfiniteActivityPosts,
+  useToggleActivityReaction
+} from "../../../src/features/activity-post/hooks.js";
 import { ActivityPostBoard } from "../../../src/pages/activity-posts/ActivityPostBoard.jsx";
 import { ToastProvider } from "../../../src/shared/ui/Toast.jsx";
 
@@ -22,10 +26,14 @@ jest.mock("react-router", () => ({
 }), { virtual: true });
 
 jest.mock("../../../src/features/activity-post/hooks.js", () => ({
+  useCreateActivityComment: () => ({ mutateAsync: jest.fn(), isPending: false }),
   useCreateActivityPost: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  useDeleteActivityComment: () => ({ mutateAsync: jest.fn(), isPending: false }),
   useDeleteActivityPost: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  useInfiniteActivityComments: jest.fn(),
   useInfiniteActivityPosts: jest.fn(),
-  useModifyActivityPost: () => ({ mutateAsync: jest.fn(), isPending: false })
+  useModifyActivityPost: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  useToggleActivityReaction: jest.fn()
 }));
 
 const posts = [
@@ -34,20 +42,27 @@ const posts = [
     authorNickname: "가온",
     canModify: false,
     caption: "모두 함께한 하루",
+    commentCount: 2,
     createdAt: "2026-08-19T10:00:00",
-    group: { id: 41, name: "우아한 스터디", status: "ACTIVE", type: "STUDY" },
+    group: { id: 41, joined: false, name: "우아한 스터디", recruiting: true, status: "ACTIVE", type: "STUDY" },
     id: 2,
-    imageUrl: "https://cdn.example.test/photo-2.jpg"
+    imageUrl: "https://cdn.example.test/photo-2.jpg",
+    reactions: [
+      { count: 3, emoji: "THUMBS_UP", reacted: false },
+      { count: 1, emoji: "FIRE", reacted: true }
+    ]
   },
   {
     activityDate: "2026-08-10",
     authorNickname: "나래",
     canModify: false,
     caption: null,
+    commentCount: 0,
     createdAt: "2026-08-19T09:00:00",
-    group: { id: 43, name: "사진 동아리", status: "ENDED", type: "CLUB" },
+    group: { id: 43, joined: false, name: "사진 동아리", recruiting: false, status: "ENDED", type: "CLUB" },
     id: 1,
-    imageUrl: "https://cdn.example.test/photo-1.jpg"
+    imageUrl: "https://cdn.example.test/photo-1.jpg",
+    reactions: []
   }
 ];
 
@@ -158,9 +173,32 @@ function mockPhotoWallMeasurements() {
   };
 }
 
+const comments = [
+  {
+    authorNickname: "나래",
+    canDelete: false,
+    content: "다음 모임에 저도 가고 싶어요",
+    createdAt: "2026-08-19T11:00:00",
+    id: 7,
+    reactions: [{ count: 1, emoji: "HEART", reacted: false }]
+  }
+];
+
+const toggleReaction = jest.fn(() => Promise.resolve());
+
 beforeEach(() => {
   jest.clearAllMocks();
   useAuth.mockReturnValue({ isAuthenticated: false, login: jest.fn(), status: "anonymous" });
+  useToggleActivityReaction.mockReturnValue({ mutateAsync: toggleReaction });
+  useInfiniteActivityComments.mockReturnValue({
+    data: { pages: [{ hasNext: false, items: comments, nextCursor: null }] },
+    fetchNextPage: jest.fn(),
+    hasNextPage: false,
+    isError: false,
+    isFetchingNextPage: false,
+    isLoading: false,
+    refetch: jest.fn()
+  });
   useInfiniteActivityPosts.mockReturnValue({
     data: { pages: [{ hasNext: false, items: posts, nextCursor: null }] },
     fetchNextPage: jest.fn(),
@@ -179,20 +217,108 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-it("shows public photo posts in the server's date order and links them to their group board", () => {
+it("shows public photo posts in the server's date order with reaction and comment counts", () => {
   renderBoard();
 
-  const links = screen.getAllByRole("link", { name: /활동 사진/ });
-  expect(links).toHaveLength(2);
-  expect(links[0]).toHaveAttribute("href", "/groups/41?tab=activities");
-  expect(links[1]).toHaveAttribute("href", "/groups/43?tab=activities");
-  expect(within(links[0]).getByText("우아한 스터디")).toBeVisible();
-  expect(within(links[0]).queryByText("가온")).not.toBeInTheDocument();
-  expect(within(links[0]).getByText("모두 함께한 하루")).toHaveClass("activity-photo-card__note");
-  expect(links[0].querySelector(".activity-photo-card__date")).toHaveTextContent("2026. 8. 18.");
-  expect(links[0].querySelector(".activity-photo-card__date svg")).not.toBeInTheDocument();
-  expect(within(links[1]).getByText("아카이브")).toBeVisible();
-  expect(links[0].querySelector("img")).toHaveAttribute("src", posts[0].imageUrl);
+  const cards = screen.getAllByRole("button", { name: /활동 사진/ });
+  expect(cards).toHaveLength(2);
+  expect(cards[0]).not.toHaveAttribute("href");
+  expect(cards[0]).toHaveAttribute("data-ph-capture-attribute-action", "activity_post_detail_open");
+  expect(within(cards[0]).getByText("우아한 스터디")).toBeVisible();
+  expect(within(cards[0]).queryByText("가온")).not.toBeInTheDocument();
+  expect(within(cards[0]).getByText("모두 함께한 하루")).toHaveClass("activity-photo-card__note");
+  expect(cards[0].querySelector(".activity-photo-card__date")).toHaveTextContent("2026. 8. 18.");
+  expect(cards[0].querySelector(".activity-photo-card__date svg")).not.toBeInTheDocument();
+  expect(cards[0].querySelector("img")).toHaveAttribute("src", posts[0].imageUrl);
+  expect(cards[0].querySelector(".activity-photo-card__signals")).toHaveTextContent("👍3🔥12");
+  expect(within(cards[0]).getByText("반응과 댓글: 좋아요 3개, 불 1개, 댓글 2개")).toHaveClass("ui-sr-only");
+  expect(cards[1].querySelector(".activity-photo-card__signals")).not.toBeInTheDocument();
+});
+
+it("marks ended group records through the card design instead of an archive badge", () => {
+  renderBoard();
+
+  const cards = screen.getAllByRole("button", { name: /활동 사진/ });
+  expect(cards[1].closest("article")).toHaveClass("is-ended");
+  expect(cards[0].closest("article")).not.toHaveClass("is-ended");
+  expect(within(cards[1]).queryByText("아카이브")).not.toBeInTheDocument();
+  expect(within(cards[1]).getByText("종료된 모임의 기록")).toHaveClass("ui-sr-only");
+});
+
+it("opens the post detail with its group, reactions and comments when a card is selected", () => {
+  renderBoard();
+
+  fireEvent.click(screen.getAllByRole("button", { name: /활동 사진/ })[0]);
+
+  const dialog = screen.getByRole("dialog", { name: "우아한 스터디" });
+  expect(within(dialog).getByText("모두 함께한 하루")).toBeVisible();
+  expect(within(dialog).getByRole("link", { name: /모임 둘러보기/ })).toHaveAttribute("href", "/groups/41");
+  expect(within(dialog).getByText("모집 중")).toBeVisible();
+  expect(within(dialog).getByRole("button", { name: "좋아요 반응 3개" })).toHaveAttribute("aria-pressed", "false");
+  expect(within(dialog).getByRole("button", { name: "불 반응 1개, 내가 남김" })).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
+  expect(within(dialog).getByText("다음 모임에 저도 가고 싶어요")).toBeVisible();
+  expect(useInfiniteActivityComments).toHaveBeenLastCalledWith({ postId: 2, viewerKey: "anonymous" });
+});
+
+it("asks visitors to log in before reacting or commenting and returns them to the same post", () => {
+  const login = jest.fn();
+  useAuth.mockReturnValue({ isAuthenticated: false, login, status: "anonymous" });
+  renderBoard();
+  fireEvent.click(screen.getAllByRole("button", { name: /활동 사진/ })[0]);
+  const dialog = screen.getByRole("dialog", { name: "우아한 스터디" });
+
+  fireEvent.click(within(dialog).getByRole("button", { name: "좋아요 반응 3개" }));
+  fireEvent.click(within(dialog).getByRole("button", { name: "로그인하고 댓글 남기기" }));
+
+  expect(toggleReaction).not.toHaveBeenCalled();
+  expect(storeReturnTarget).toHaveBeenCalledTimes(2);
+  expect(storeReturnTarget).toHaveBeenLastCalledWith("/?post=2");
+  expect(login).toHaveBeenCalledTimes(2);
+});
+
+it("toggles post reactions for signed-in members with the viewer relation", async () => {
+  useAuth.mockReturnValue({ isAuthenticated: true, member: { id: 9 }, status: "authenticated" });
+  renderBoard();
+  fireEvent.click(screen.getAllByRole("button", { name: /활동 사진/ })[0]);
+  const dialog = screen.getByRole("dialog", { name: "우아한 스터디" });
+
+  await act(async () => {
+    fireEvent.click(within(dialog).getByRole("button", { name: "불 반응 1개, 내가 남김" }));
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "활동 기록 반응 추가" }));
+  await act(async () => {
+    fireEvent.click(within(dialog).getByRole("button", { name: "체크" }));
+  });
+
+  expect(toggleReaction).toHaveBeenNthCalledWith(1, expect.objectContaining({
+    emoji: "FIRE",
+    reacted: true,
+    target: { id: 2, type: "post" },
+    viewerRelation: "non_member"
+  }));
+  expect(toggleReaction).toHaveBeenNthCalledWith(2, expect.objectContaining({
+    emoji: "CHECK",
+    reacted: false,
+    target: { id: 2, type: "post" }
+  }));
+});
+
+it("closes the photo viewer with Escape while keeping the post detail open", () => {
+  renderBoard();
+  fireEvent.click(screen.getAllByRole("button", { name: /활동 사진/ })[0]);
+
+  fireEvent.click(screen.getByRole("button", { name: "사진 크게 보기" }));
+  const viewer = screen.getByRole("dialog", { name: "사진 크게 보기" });
+  expect(within(viewer).getByRole("button", { name: "크게 보기 닫기" })).toHaveFocus();
+
+  fireEvent.keyDown(within(viewer).getByRole("button", { name: "크게 보기 닫기" }), { key: "Escape" });
+
+  expect(screen.queryByRole("dialog", { name: "사진 크게 보기" })).not.toBeInTheDocument();
+  expect(screen.getByRole("dialog", { name: "우아한 스터디" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "사진 크게 보기" })).toHaveFocus();
 });
 
 it("keeps browsing public to visitors who are not signed in", () => {
@@ -283,11 +409,11 @@ it("starts login when a visitor selects the personal-record filter", () => {
 it("does not open management actions when the viewer cannot modify the post", () => {
   renderBoard();
 
-  const link = screen.getAllByRole("link", { name: /활동 사진/ })[0];
+  const link = screen.getAllByRole("button", { name: /활동 사진/ })[0];
   expect(fireEvent.contextMenu(link)).toBe(false);
   expect(screen.queryByRole("group", { name: "우아한 스터디 기록 관리" })).not.toBeInTheDocument();
 
-  const secondLink = screen.getAllByRole("link", { name: /활동 사진/ })[1];
+  const secondLink = screen.getAllByRole("button", { name: /활동 사진/ })[1];
   fireEvent.keyDown(secondLink, { key: "ContextMenu" });
   expect(screen.queryByRole("group", { name: "사진 동아리 기록 관리" })).not.toBeInTheDocument();
 });
@@ -302,7 +428,7 @@ it("separates feed cache by viewer and closes open management actions after logo
   mockActivityPosts([{ ...posts[0], canModify: true }]);
   const view = renderBoard();
 
-  const link = screen.getByRole("link", { name: /활동 사진/ });
+  const link = screen.getByRole("button", { name: /활동 사진/ });
   fireEvent.contextMenu(link);
   expect(screen.getByRole("group", { name: "우아한 스터디 기록 관리" })).toBeVisible();
   expect(useInfiniteActivityPosts).toHaveBeenLastCalledWith({
@@ -328,7 +454,7 @@ it("opens the same management actions on touch long-press without navigating", (
   mockActivityPosts([{ ...posts[0], canModify: true }]);
   renderBoard();
 
-  const link = screen.getAllByRole("link", { name: /활동 사진/ })[0];
+  const link = screen.getAllByRole("button", { name: /활동 사진/ })[0];
   firePointerEvent(link, "pointerdown", {
     button: 0,
     clientX: 20,
@@ -352,7 +478,7 @@ it("cancels touch long-press when the pointer moves like a scroll gesture", () =
   mockActivityPosts([{ ...posts[0], canModify: true }]);
   renderBoard();
 
-  const link = screen.getAllByRole("link", { name: /활동 사진/ })[0];
+  const link = screen.getAllByRole("button", { name: /활동 사진/ })[0];
   firePointerEvent(link, "pointerdown", {
     button: 0,
     clientX: 20,
@@ -372,7 +498,7 @@ it("toggles management actions on repeated context-menu input when the viewer ca
   mockActivityPosts([{ ...posts[0], canModify: true }]);
   renderBoard();
 
-  const link = screen.getByRole("link", { name: /활동 사진/ });
+  const link = screen.getByRole("button", { name: /활동 사진/ });
   fireEvent.contextMenu(link, { button: 2 });
 
   const actions = screen.getByRole("group", { name: "우아한 스터디 기록 관리" });
@@ -387,7 +513,7 @@ it("dismisses visible management actions when the board scrolls", () => {
   mockActivityPosts([{ ...posts[0], canModify: true }]);
   renderBoard();
 
-  const link = screen.getByRole("link", { name: /활동 사진/ });
+  const link = screen.getByRole("button", { name: /활동 사진/ });
   fireEvent.contextMenu(link, { button: 2 });
   expect(screen.getByRole("group", { name: "우아한 스터디 기록 관리" })).toBeVisible();
 
@@ -400,7 +526,7 @@ it("does not open management actions on touch long-press without modification pe
   jest.useFakeTimers();
   renderBoard();
 
-  const link = screen.getAllByRole("link", { name: /활동 사진/ })[0];
+  const link = screen.getAllByRole("button", { name: /활동 사진/ })[0];
   firePointerEvent(link, "pointerdown", {
     button: 0,
     clientX: 20,

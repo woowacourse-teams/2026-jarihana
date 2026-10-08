@@ -1,6 +1,7 @@
 package com.project.jarihana.activitypost.query.service;
 
 import com.project.jarihana.activitypost.query.repository.ActivityPostQueryRepository;
+import com.project.jarihana.activitypost.query.repository.ActivityPostReactionQueryRepository;
 import com.project.jarihana.activitypost.query.repository.dto.ActivityPostProjection;
 import com.project.jarihana.activitypost.query.service.dto.ActivityPostListQuery;
 import com.project.jarihana.activitypost.query.service.dto.ActivityPostListResult;
@@ -9,7 +10,9 @@ import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
 import com.project.jarihana.image.config.ImageProperties;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.Base64;
 import java.util.List;
@@ -23,17 +26,23 @@ public class ActivityPostQueryService {
     private static final int MAX_SIZE = 100;
 
     private final ActivityPostQueryRepository activityPostQueryRepository;
+    private final ActivityPostReactionQueryRepository activityPostReactionQueryRepository;
     private final GroupJpaRepository groupRepository;
     private final String publicBaseUrl;
+    private final Clock clock;
 
     public ActivityPostQueryService(
             ActivityPostQueryRepository activityPostQueryRepository,
+            ActivityPostReactionQueryRepository activityPostReactionQueryRepository,
             GroupJpaRepository groupRepository,
-            ImageProperties imageProperties
+            ImageProperties imageProperties,
+            Clock clock
     ) {
         this.activityPostQueryRepository = activityPostQueryRepository;
+        this.activityPostReactionQueryRepository = activityPostReactionQueryRepository;
         this.groupRepository = groupRepository;
         this.publicBaseUrl = imageProperties.publicBaseUrl();
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -50,6 +59,7 @@ public class ActivityPostQueryService {
                 memberId,
                 cursor == null ? null : cursor.activityDate(),
                 cursor == null ? null : cursor.id(),
+                LocalDateTime.now(clock),
                 Pageable.ofSize(query.size() + 1)
         );
         boolean hasNext = candidates.size() > query.size();
@@ -57,8 +67,9 @@ public class ActivityPostQueryService {
                 ? candidates.subList(0, query.size())
                 : candidates;
         String nextCursor = hasNext ? encodeCursor(page.get(page.size() - 1)) : null;
+        ReactionSummaries reactions = findReactions(page, memberId);
         return new ActivityPostListResult(
-                page.stream().map(this::toResult).toList(),
+                page.stream().map(projection -> toResult(projection, reactions)).toList(),
                 nextCursor,
                 hasNext
         );
@@ -73,21 +84,33 @@ public class ActivityPostQueryService {
         }
     }
 
-    private ActivityPostListResult.Item toResult(ActivityPostProjection projection) {
+    private ReactionSummaries findReactions(List<ActivityPostProjection> page, Long memberId) {
+        if (page.isEmpty()) {
+            return ReactionSummaries.from(List.of());
+        }
+        List<Long> postIds = page.stream().map(ActivityPostProjection::id).toList();
+        return ReactionSummaries.from(activityPostReactionQueryRepository.countByPostIds(postIds, memberId));
+    }
+
+    private ActivityPostListResult.Item toResult(ActivityPostProjection projection, ReactionSummaries reactions) {
         return new ActivityPostListResult.Item(
                 projection.id(),
                 new ActivityPostListResult.Group(
                         projection.groupId(),
                         projection.groupName(),
                         projection.groupType().name(),
-                        projection.groupStatus().name()
+                        projection.groupStatus().name(),
+                        projection.groupRecruiting(),
+                        projection.joined()
                 ),
                 projection.authorNickname(),
                 toImageUrl(projection.imageKey()),
                 projection.caption(),
                 projection.activityDate(),
                 projection.createdAt(),
-                projection.canModify()
+                projection.canModify(),
+                projection.commentCount(),
+                reactions.of(projection.id())
         );
     }
 

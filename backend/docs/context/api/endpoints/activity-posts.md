@@ -34,7 +34,13 @@
 | `mine` | Boolean | X | `false` | `true`이면 현재 회원 작성 기록만 조회하며 인증 필요 |
 
 응답은 `{items, nextCursor, hasNext}` 구조다. `items` 각 항목은 그룹 요약, 작성자 닉네임,
-이미지 URL, 선택 캡션, 활동 날짜, 작성 시각, 요청자의 `canModify`를 포함한다.
+이미지 URL, 선택 캡션, 활동 날짜, 작성 시각, 요청자의 `canModify`, 숨기지 않은 댓글 수
+`commentCount`, 이모지 반응 요약 `reactions`를 포함한다.
+
+- `group.recruiting`: 그룹이 `ACTIVE`이고 지금 신청할 수 있는 모집 공고(시작했고 마감 전이거나 상시 모집)가 있으면 `true`다.
+- `group.joined`: 요청자가 그룹 구성원이면 `true`다. 비로그인 요청은 항상 `false`다.
+- `reactions`: 반응이 1개 이상인 이모지만 이모지 선언 순서(`THUMBS_UP`, `SAD`, `GRIN`, `HEART`, `EYES`, `FIRE`,
+  `CHECK`, `QUESTION`, `EXCLAMATION`)로 담는다. `reacted`는 요청자가 남긴 반응인지다.
 
 ```json
 {
@@ -42,13 +48,15 @@
   "data": {
     "items": [{
       "id": 101,
-      "group": {"id": 12, "name": "알고리즘 스터디", "type": "STUDY", "status": "ACTIVE"},
+      "group": {"id": 12, "name": "알고리즘 스터디", "type": "STUDY", "status": "ACTIVE", "recruiting": true, "joined": false},
       "authorNickname": "크루A",
       "imageUrl": "https://cdn.example.test/images/activity.webp",
       "caption": "함께한 문제 풀이 모임",
       "activityDate": "2026-09-12",
       "createdAt": "2026-09-28T10:15:30",
-      "canModify": false
+      "canModify": false,
+      "commentCount": 2,
+      "reactions": [{"emoji": "THUMBS_UP", "count": 3, "reacted": true}]
     }],
     "nextCursor": "MjAyNi0wOS0xMnwxMDE",
     "hasNext": true
@@ -85,6 +93,44 @@
 - 그룹 삭제 전에도 연결을 끊고 숨김 처리하므로 공개 피드에서 조회되지 않는다.
 - 응답: `200 OK`, `data: null`.
 
+## 댓글
+
+### `GET /api/activity-posts/{postId}/comments`
+
+- 권한: `PUBLIC`
+- 설명: 숨기지 않은 댓글을 대화 순서대로 `createdAt ASC, id ASC`로 조회한다.
+- query parameter: `cursor`(선택), `size`(기본 20, 1 이상 100 이하). 커서는 URL-safe Base64로 인코딩한 `createdAt|id`다.
+- 각 항목: `id`, `authorNickname`(작성자 `crewName`), `content`, `createdAt`, 요청자의 `canDelete`, 댓글 반응 요약 `reactions`.
+- 숨겨진 기록이나 없는 기록은 `ACTIVITY_POST_NOT_FOUND`로 응답한다.
+
+### `POST /api/activity-posts/{postId}/comments`
+
+- 권한: `MEMBER`. 그룹 구성원이 아니어도 로그인 회원이면 쓸 수 있다.
+- 요청: `content` 필수. 앞뒤 공백을 지운 뒤 1자 이상 200자 이하여야 한다.
+- 종료된 그룹의 기록에도 댓글을 남길 수 있다.
+- 응답: `201 Created`, `{ "id": 7 }`.
+
+### `DELETE /api/activity-post-comments/{commentId}`
+
+- 권한: `MEMBER`. 댓글 작성자 또는 기록 그룹의 현재 모임장이 지울 수 있다.
+- 물리 삭제 대신 `deletedAt`으로 숨긴다. 숨긴 댓글은 목록과 `commentCount`에서 빠진다.
+- 응답: `204 No Content`.
+
+## 이모지 반응
+
+| Method | Endpoint | 설명 |
+| --- | --- | --- |
+| `PUT` | `/api/activity-posts/{postId}/reactions/{emoji}` | 기록에 반응 추가 |
+| `DELETE` | `/api/activity-posts/{postId}/reactions/{emoji}` | 기록의 내 반응 취소 |
+| `PUT` | `/api/activity-post-comments/{commentId}/reactions/{emoji}` | 댓글에 반응 추가 |
+| `DELETE` | `/api/activity-post-comments/{commentId}/reactions/{emoji}` | 댓글의 내 반응 취소 |
+
+- 권한: `MEMBER`. 그룹 구성원이 아니어도 로그인 회원이면 반응할 수 있고, 종료된 그룹의 기록에도 반응할 수 있다.
+- `emoji`는 `THUMBS_UP`(👍), `SAD`(😢), `GRIN`(😄), `HEART`(❤️), `EYES`(👀), `FIRE`(🔥), `CHECK`(✅),
+  `QUESTION`(❓), `EXCLAMATION`(❗) 중 하나다. 그 밖의 값은 `INVALID_PARAMETER`다.
+- 같은 회원은 대상별로 같은 이모지를 하나만 남긴다. 추가와 취소는 모두 멱등이며 `204 No Content`로 응답한다.
+- 숨겨진 기록과 댓글은 각각 `ACTIVITY_POST_NOT_FOUND`, `ACTIVITY_POST_COMMENT_NOT_FOUND`로 응답한다.
+
 ## 주요 오류
 
 | 상황 | 코드 | HTTP |
@@ -95,3 +141,6 @@
 | 다른 작성자의 수정·숨김 | `ACTIVITY_POST_ACCESS_DENIED` | 403 |
 | 게시물·이미지 없음 또는 업로드 만료 | `ACTIVITY_POST_NOT_FOUND` 또는 `IMAGE_NOT_FOUND` | 404 |
 | 미래 날짜, 캡션 길이, 잘못된 커서·크기 | `INVALID_PARAMETER` | 400 |
+| 빈 댓글, 200자를 넘는 댓글, 지원하지 않는 이모지 | `INVALID_PARAMETER` | 400 |
+| 다른 회원 댓글을 모임장이 아닌 회원이 삭제 | `ACTIVITY_POST_COMMENT_ACCESS_DENIED` | 403 |
+| 댓글 없음 또는 이미 숨긴 댓글 | `ACTIVITY_POST_COMMENT_NOT_FOUND` | 404 |

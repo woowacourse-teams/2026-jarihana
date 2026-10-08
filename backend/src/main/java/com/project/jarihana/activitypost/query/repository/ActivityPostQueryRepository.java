@@ -19,6 +19,17 @@ public interface ActivityPostQueryRepository extends JpaRepository<ActivityPost,
                 activityGroup.name,
                 activityGroup.type,
                 activityGroup.status,
+                case when activityGroup.status = com.project.jarihana.group.domain.GroupStatus.ACTIVE and exists (
+                    select recruitment.id from GroupRecruitment recruitment
+                    where recruitment.group.id = activityGroup.id
+                      and recruitment.startsAt <= :now
+                      and (recruitment.endsAt is null or recruitment.endsAt > :now)
+                ) then true else false end,
+                case when :memberId is not null and exists (
+                    select joinedMember.id from GroupMember joinedMember
+                    where joinedMember.group.id = activityGroup.id
+                      and joinedMember.member.id = :memberId
+                ) then true else false end,
                 author.crewName,
                 photo.imageKey,
                 post.caption,
@@ -31,7 +42,12 @@ public interface ActivityPostQueryRepository extends JpaRepository<ActivityPost,
                           and groupMember.member.id = :memberId
                           and groupMember.role = com.project.jarihana.groupmember.domain.GroupMemberRole.LEADER
                     )
-                ) then true else false end
+                ) then true else false end,
+                (
+                    select count(comment.id) from ActivityPostComment comment
+                    where comment.post.id = post.id
+                      and comment.deletedAt is null
+                )
             )
             from ActivityPost post
             join post.group activityGroup
@@ -53,6 +69,9 @@ public interface ActivityPostQueryRepository extends JpaRepository<ActivityPost,
             @Param("memberId") Long memberId,
             @Param("cursorDate") LocalDate cursorDate,
             @Param("cursorId") Long cursorId,
+            @Param("now") LocalDateTime now,
             Pageable pageable
     );
+
+    boolean existsByIdAndDeletedAtIsNull(long id);
 }

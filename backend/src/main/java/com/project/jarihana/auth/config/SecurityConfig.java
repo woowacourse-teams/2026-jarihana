@@ -28,6 +28,7 @@ public class SecurityConfig {
             "/groups/*/recruitments/*",
             "/groups/*/activity-posts",
             "/activity-posts",
+            "/activity-posts/*/comments",
             "/share/groups/*",
             "/assets/default-group.png"
     };
