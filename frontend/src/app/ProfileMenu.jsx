@@ -57,6 +57,21 @@ export function ProfileMenu() {
           size="sm"
           src={avatarUrl ?? member?.avatarUrl}
         />
+        <svg
+          aria-hidden="true"
+          className="app-header__profile-caret"
+          focusable="false"
+          viewBox="0 0 12 12"
+        >
+          <path
+            d="m2 4.5 4 4 4-4"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.25"
+          />
+        </svg>
       </button>
       {isOpen ? (
         <nav aria-label="계정 메뉴" className="app-header__profile-options" id={menuId}>

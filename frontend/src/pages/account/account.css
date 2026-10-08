@@ -475,7 +475,6 @@
   margin-top: var(--space-3);
   align-self: center;
   justify-self: center;
-  font-size: 1rem;
   transform: translateY(calc(var(--space-3) * 2));
 }
 
@@ -759,6 +758,10 @@ img.profile-card__avatar {
   background: var(--color-brand-soft);
 }
 
+.activity-row--ended .activity-row__visual {
+  filter: brightness(0.5);
+}
+
 .activity-row__body {
   display: grid;
   align-content: center;
@@ -774,44 +777,6 @@ img.profile-card__avatar {
   gap: var(--space-2);
   min-width: 0;
   flex-wrap: wrap;
-}
-
-/* 노션 속성 태그처럼 값마다 색이 다른 칩이다 */
-.activity-tag {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.75rem;
-  padding-inline: var(--space-3);
-  border-radius: var(--radius-pill);
-  font-size: var(--text-caption);
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.activity-tag--study {
-  color: var(--color-activity-study-ink);
-  background: var(--color-activity-study-soft);
-}
-
-.activity-tag--club {
-  color: var(--color-activity-club-ink);
-  background: var(--color-activity-club-soft);
-}
-
-.activity-tag--session {
-  color: var(--color-activity-session-ink);
-  background: var(--color-activity-session-soft);
-}
-
-.activity-row__badges .ui-badge {
-  gap: var(--space-1);
-  white-space: nowrap;
-}
-
-/* neutral 뱃지 배경이 카드 배경과 같아 종료 표시가 묻히는 것을 막는다 */
-.activity-row__badges .ui-badge--neutral {
-  color: var(--color-ink);
-  background: var(--color-line);
 }
 
 .activity-row h3 {

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChevronLeft, Settings } from "lucide-react";
+import { ChevronLeft, Settings, Users } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { useAuth } from "../../features/auth/index.js";
@@ -15,7 +15,6 @@ import { toUserMessage } from "../../shared/api/index.js";
 import { captureEvent, getPromotionAttribution } from "../../shared/analytics/index.js";
 import scheduleIcon from "../../shared/assets/figma/edit-05.svg";
 import placeIcon from "../../shared/assets/figma/edit-06.svg";
-import memberIcon from "../../shared/assets/figma/edit-09.svg";
 import kindIcon from "../../shared/assets/figma/edit-04.svg";
 import recruitmentEmptyIllustration from "../../shared/assets/illustrations/group-recruitment-empty.webp";
 import recruitmentOpenIllustration from "../../shared/assets/illustrations/group-recruitment-open.webp";
@@ -46,6 +45,7 @@ import {
   typeBadgeTone,
   typeLabel
 } from "./pageUtils.js";
+import { groupTransitionOrigin, isPlainLinkClick } from "./GroupTransition.jsx";
 import "./groups.css";
 
 const tabs = [
@@ -57,14 +57,10 @@ const tabs = [
 /* 도착한 화면을 먼저 보여 준 뒤 묻는 정도의 짧은 간격이다. */
 const RECRUITMENT_PROMPT_DELAY = 500;
 
-function getParticipationButtonLabel(group) {
-  return group.type === "SESSION" ? "참여하기" : "참여 신청하기";
-}
-
 function DetailFact({ icon, label, unavailable = false, value }) {
   return (
     <div className={unavailable ? "group-fact group-fact--unavailable" : "group-fact"}>
-      <img alt="" aria-hidden="true" src={icon} />
+      {icon}
       <div>
         <dt>{label}</dt>
         <dd>{value}</dd>
@@ -73,13 +69,20 @@ function DetailFact({ icon, label, unavailable = false, value }) {
   );
 }
 
-function GroupDetailRail({ children }) {
+function GroupDetailRail({ children, matchProfileHeight, profileReference }) {
   const railReference = useRef(null);
 
   useLayoutEffect(() => {
     const rail = railReference.current;
+    const profile = matchProfileHeight ? profileReference.current : null;
 
     function updateHeight() {
+      if (profile) {
+        rail.style.setProperty(
+          "--group-profile-height",
+          `${profile.getBoundingClientRect().height}px`
+        );
+      }
       rail.style.setProperty(
         "--group-rail-height",
         `${Math.ceil(rail.getBoundingClientRect().height)}px`
@@ -87,15 +90,23 @@ function GroupDetailRail({ children }) {
     }
 
     updateHeight();
-    const observer = new ResizeObserver(updateHeight);
+    let animationFrame;
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(animationFrame);
+      animationFrame = requestAnimationFrame(updateHeight);
+    });
     observer.observe(rail, { box: "border-box" });
-    return () => observer.disconnect();
-  }, []);
+    if (profile) observer.observe(profile, { box: "border-box" });
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(animationFrame);
+    };
+  }, [matchProfileHeight, profileReference]);
 
   return (
     <aside
       aria-label="운영자와 모집 정보"
-      className="group-rail group-rail--desktop"
+      className={`group-rail group-rail--desktop${matchProfileHeight ? " group-rail--empty" : ""}`}
       ref={railReference}
     >
       {children}
@@ -105,12 +116,11 @@ function GroupDetailRail({ children }) {
 
 export function GroupDetailPage() {
   const { groupId } = useParams();
-  useLayoutEffect(() => {
-    window.scrollTo(0, 0);
-  }, [groupId]);
   const location = useLocation();
   const navigate = useNavigate();
+  const origin = groupTransitionOrigin(location.state);
   const justCreatedReference = useRef(location.state?.justCreated === true);
+  const profileReference = useRef(null);
   const [recruitmentPromptOpen, setRecruitmentPromptOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedTab = tabs.some((tab) => tab.value === searchParams.get("tab"))
@@ -119,6 +129,10 @@ export function GroupDetailPage() {
   const auth = useAuth();
   const groupQuery = useGroup(groupId);
   const group = groupQuery.data;
+  const loadedGroupId = group?.id;
+  useEffect(() => {
+    if (loadedGroupId) document.getElementById("group-title")?.focus({ preventScroll: true });
+  }, [loadedGroupId]);
   const currentMember = auth.member ?? auth.user;
   const isLeader = currentMember?.id === group?.leader?.memberId;
   const usesDefaultImage =
@@ -179,8 +193,19 @@ export function GroupDetailPage() {
           <section
             className={`group-profile${usesDefaultImage ? " group-profile--default-image" : ""}`}
             aria-labelledby="group-title"
+            ref={profileReference}
           >
-            <Link className="group-back group-back--hero" to="/groups">
+            <Link
+              className="group-back group-back--hero"
+              data-ph-capture-attribute-action="group_list_return"
+              to={origin ?? "/groups"}
+              viewTransition
+              onClick={(event) => {
+                if (!origin || !isPlainLinkClick(event)) return;
+                event.preventDefault();
+                navigate(-1);
+              }}
+            >
               <ChevronLeft aria-hidden="true" size={18} strokeWidth={2.25} />
               <span>목록으로</span>
             </Link>
@@ -190,20 +215,20 @@ export function GroupDetailPage() {
                   {typeLabel(group.type)}
                 </StatusBadge>
               </div>
-              <h1 id="group-title">{group.name}</h1>
+              <h1 id="group-title" tabIndex={-1}>{group.name}</h1>
               <p>{group.introduction}</p>
               <LeaderSummary leader={group.leader} variant="hero" />
               <div className="group-info">
                 <h2 className="group-info-title">모임 정보</h2>
                 <dl className="group-facts">
                   <DetailFact
-                    icon={kindIcon}
-                    label="모임 방식"
+                    icon={<img alt="" aria-hidden="true" src={kindIcon} />}
+                    label="진행"
                     value={meetingTypeLabel(group.meetingType)}
                   />
                   <DetailFact
-                    icon={scheduleIcon}
-                    label="모임 일정"
+                    icon={<img alt="" aria-hidden="true" src={scheduleIcon} />}
+                    label="일정"
                     value={
                       <span className="group-facts__schedule">
                         {scheduleLines(group).map((line) => (
@@ -213,13 +238,13 @@ export function GroupDetailPage() {
                     }
                   />
                   <DetailFact
-                    icon={placeIcon}
+                    icon={<img alt="" aria-hidden="true" src={placeIcon} />}
                     label="장소"
                     value={group.location || "장소 미정"}
                   />
                   <DetailFact
-                    icon={memberIcon}
-                    label="현재 참여자 수"
+                    icon={<Users aria-hidden="true" />}
+                    label="참여"
                     value={`${group.memberCount}명`}
                   />
                 </dl>
@@ -231,6 +256,7 @@ export function GroupDetailPage() {
                 className="group-profile__image"
                 group={group}
               />
+              <span aria-hidden="true" className="group-transition-shade group-profile__shade" />
             </div>
             {isLeader ? (
               <Link
@@ -279,7 +305,11 @@ export function GroupDetailPage() {
               onValueChange={(value) => {
                 const nextSearchParams = new URLSearchParams(searchParams);
                 nextSearchParams.set("tab", value);
-                setSearchParams(nextSearchParams, { replace: true });
+                setSearchParams(nextSearchParams, {
+                  replace: true,
+                  state: location.state,
+                  preventScrollReset: true
+                });
               }}
               items={[
                 {
@@ -303,7 +333,10 @@ export function GroupDetailPage() {
           </div>
         </div>
 
-        <GroupDetailRail>
+        <GroupDetailRail
+          matchProfileHeight={!group.activeRecruitment && !isArchived}
+          profileReference={profileReference}
+        >
           <LeaderSummary leader={group.leader} variant="card" />
           <RecruitmentSummary
             auth={auth}
@@ -371,7 +404,6 @@ function RecruitmentSummary({
   const registrationStartedReference = useRef();
   const [applicationOpen, setApplicationOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const participationButtonLabel = getParticipationButtonLabel(group);
 
   const isAuthenticated = auth.status === "authenticated" || auth.isAuthenticated;
   const remainingSeats = recruitment
@@ -480,18 +512,24 @@ function RecruitmentSummary({
     }
     if (!isAuthenticated) {
       return (
-        <Button className="group-apply-button" onClick={() => auth.login?.()} variant="primary">
-          {participationButtonLabel}
+        <Button
+          className="group-apply-button group-apply-button--join"
+          data-ph-capture-attribute-action="registration_start"
+          onClick={() => auth.login?.()}
+          variant="primary"
+        >
+          자리하기
         </Button>
       );
     }
     return (
       <Button
-        className="group-apply-button"
+        className="group-apply-button group-apply-button--join"
+        data-ph-capture-attribute-action="registration_start"
         onClick={openApplication}
         variant="primary"
       >
-        {participationButtonLabel}
+        자리하기
       </Button>
     );
   }
@@ -614,11 +652,6 @@ function RecruitmentHero({ empty = false }) {
         src={illustration}
         width={720}
       />
-      {empty ? null : (
-        <div className="group-recruitment-hero__status">
-          <StatusBadge tone="brand">모집 중</StatusBadge>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,6 +1,14 @@
 .groups-page.groups-page--home {
-  padding-block-start: var(--space-6);
+  max-width: none;
+  padding-inline: 0;
+  padding-block-start: 0;
   padding-block-end: var(--space-16);
+}
+
+.groups-page--home > section:not(.reference-hero) {
+  width: calc(100% - var(--page-gutter) * 2);
+  max-width: calc(var(--container-shell) - var(--page-gutter) * 2);
+  margin-inline: auto;
 }
 
 #main-content:has(.groups-page--home) {

@@ -84,9 +84,9 @@ function queryWithItems(items) {
   };
 }
 
-function renderMyPage({ groups = [sessionGroup, recurringGroup], pending = [pendingRegistration], rejected = [rejectedRegistration], path = "/my" } = {}) {
+function renderMyPage({ groups = [sessionGroup, recurringGroup], endedGroups = [], pending = [pendingRegistration], rejected = [rejectedRegistration], path = "/my" } = {}) {
   const activeGroupsQuery = queryWithItems(groups);
-  const endedGroupsQuery = queryWithItems([]);
+  const endedGroupsQuery = queryWithItems(endedGroups);
   const pendingQuery = queryWithItems(pending);
   const rejectedQuery = queryWithItems(rejected);
 
@@ -108,6 +108,43 @@ beforeEach(() => {
 });
 
 describe("MyPage", () => {
+  it("종료된 내 모임만 이미지를 어둡게 표시하고 종료 상태와 상세 링크를 유지한다", () => {
+    renderMyPage({
+      endedGroups: [{ ...sessionGroup, id: 103, name: "마친 모임", status: "ENDED" }]
+    });
+
+    const panel = screen.getByRole("tabpanel", { name: /같이해요/ });
+    const endedLink = within(panel).getByRole("link", { name: "마친 모임", exact: true });
+    const endedRow = endedLink.closest("article");
+    expect(endedRow).toHaveClass("activity-row--ended");
+    expect(within(endedRow).getByText("모임 종료")).toBeInTheDocument();
+    expect(endedLink).toHaveAttribute("href", "/groups/103");
+    expect(within(endedRow).getByRole("link", { name: "마친 모임 모임 관리" })).toHaveAttribute(
+      "href", "/groups/103/manage"
+    );
+    const activeRow = within(panel).getByRole("link", { name: sessionGroup.name }).closest("article");
+    expect(activeRow).not.toHaveClass("activity-row--ended");
+    expect(within(activeRow).queryByText("모임 종료")).not.toBeInTheDocument();
+  });
+
+  it("알림으로 찾은 종료 모임의 유형 탭을 열고 종료 표시와 포커스 강조를 함께 유지한다", () => {
+    renderMyPage({
+      endedGroups: [{ ...recurringGroup, id: 103, name: "마친 스터디", status: "ENDED" }],
+      path: "/my?focusGroup=103&notification=1"
+    });
+
+    const panel = screen.getByRole("tabpanel", { name: /동아리·스터디/ });
+    const link = within(panel).getByRole("link", { name: "마친 스터디", exact: true });
+    const row = link.closest("article");
+    expect(row).toHaveFocus();
+    expect(row).toHaveClass("activity-row--ended", "activity-row--notification");
+    expect(within(row).getByText("모임 종료")).toBeInTheDocument();
+    expect(link).toHaveAttribute("href", "/groups/103");
+    expect(screen.getByRole("tab", { name: /동아리·스터디/ })).toHaveAttribute(
+      "aria-selected", "true"
+    );
+  });
+
   it("모임과 신청을 별도 카드로 나누고 각각의 탭에 맞는 항목을 보여 준다", async () => {
     const user = userEvent.setup();
     renderMyPage();

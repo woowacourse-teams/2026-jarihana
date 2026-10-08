@@ -188,6 +188,18 @@ it("Given home query params, when recruiting groups render, then the active recr
     size: 4
   });
   expect(screen.getByRole("heading", { name: "지금 모집 중인 모임" })).toBeInTheDocument();
+  const hero = screen.getByRole("region", { name: "크루와 함께할 자리를 찾아보세요" });
+  const createLink = within(hero).getByRole("link", { name: "자리 만들기" });
+  const browseLink = within(hero).getByRole("link", { name: "자리찾기" });
+  expect(createLink).toHaveAttribute("href", "/groups/new");
+  expect(createLink).toHaveAttribute("data-ph-capture-attribute-action", "group_create");
+  expect(browseLink).toHaveAttribute("href", "/groups");
+  expect(browseLink).toHaveAttribute("data-ph-capture-attribute-action", "group_browse");
+  expect(within(hero).queryByRole("search")).not.toBeInTheDocument();
+  expect(within(hero).queryByRole("group", { name: "모임 유형" })).not.toBeInTheDocument();
+  const recruiting = screen.getByRole("region", { name: "지금 모집 중인 모임" });
+  expect(within(recruiting).getByRole("searchbox", { name: "모임 검색" })).toHaveValue("react");
+  expect(within(recruiting).getByRole("button", { name: "스터디", pressed: true })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: /모집 모임 1/ })).toHaveAttribute("href", "/groups/1");
   expect(screen.queryByRole("link", { name: /모집 모임 5/ })).not.toBeInTheDocument();
 
@@ -199,6 +211,35 @@ it("Given home query params, when recruiting groups render, then the active recr
   cards.forEach((link) => {
     expect(link).toHaveAttribute("data-ph-capture-attribute-action", "group_view");
   });
+});
+
+it("pauses hero decoration outside the viewport or while the tab is hidden", () => {
+  const hidden = jest.spyOn(document, "hidden", "get").mockReturnValue(false);
+  const { container, unmount } = renderRecruitingSection();
+  const actions = container.querySelector(".reference-hero__actions");
+
+  try {
+    expect(actions).toHaveAttribute("data-motion-paused", "true");
+    act(() => global.triggerIntersection(true));
+    expect(actions).toHaveAttribute("data-motion-paused", "false");
+    act(() => global.triggerIntersection(false));
+    expect(actions).toHaveAttribute("data-motion-paused", "true");
+    act(() => global.triggerIntersection(true));
+
+    hidden.mockReturnValue(true);
+    fireEvent(document, new Event("visibilitychange"));
+    expect(actions).toHaveAttribute("data-motion-paused", "true");
+    hidden.mockReturnValue(false);
+    fireEvent(document, new Event("visibilitychange"));
+    expect(actions).toHaveAttribute("data-motion-paused", "false");
+
+    act(() => global.triggerIntersection(false));
+    fireEvent(document, new Event("visibilitychange"));
+    expect(actions).toHaveAttribute("data-motion-paused", "true");
+  } finally {
+    unmount();
+    hidden.mockRestore();
+  }
 });
 
 it("Given filtered recruiting results, when the preview renders, then a heading link opens the separate list with those filters", () => {
@@ -355,6 +396,52 @@ describe("separate group browsing", () => {
     expect(screen.getByRole("button", { name: "더 많은 모임 보기" })).toBeInTheDocument();
   });
 
+  it("opens the archive destination with all ended group types and no recruitment restriction", () => {
+    groupHooks.useInfiniteGroups.mockReturnValue(
+      infiniteGroups({
+        groups: ["SESSION", "STUDY", "CLUB"].map((type, index) =>
+          makeGroup({ id: index + 1, type, status: "ENDED" })
+        ),
+        hasNextPage: true
+      })
+    );
+
+    renderBrowsePage("/groups?status=ENDED");
+
+    expect(lastGroupQuery()).toEqual({
+      status: "ENDED",
+      recruiting: undefined,
+      type: undefined,
+      keyword: undefined,
+      size: 12
+    });
+    expect(screen.getByRole("combobox", { name: "모임 상태" })).toHaveValue("ENDED");
+    expect(screen.getByRole("combobox", { name: "모임 유형" })).toHaveValue("");
+    expect(screen.getByRole("combobox", { name: "모집 상태" })).toBeDisabled();
+    expect(screen.getAllByRole("link")).toHaveLength(3);
+    for (const card of screen.getAllByRole("link")) {
+      expect(card).toHaveClass("discovery-group-card--ended");
+      expect(card).toHaveAccessibleName(/^종료 /);
+      expect(within(card).getByText("종료").closest(".discovery-group-card__visual")).not.toBeNull();
+      expect(within(card).queryByText("모집 중")).not.toBeInTheDocument();
+      expect(within(card).queryByText(/자리 남음/)).not.toBeInTheDocument();
+    }
+    expect(screen.getByRole("button", { name: "더 많은 모임 보기" })).toBeInTheDocument();
+  });
+
+  it("does not mark an active group as ended when its recruitment has closed", () => {
+    groupHooks.useInfiniteGroups.mockReturnValue(
+      infiniteGroups({ groups: [makeGroup({ activeRecruitment: null })] })
+    );
+
+    renderBrowsePage("/groups?status=ACTIVE&recruiting=false");
+
+    const card = screen.getByRole("link", { name: /우테코 모임 1/ });
+    expect(card).not.toHaveClass("discovery-group-card--ended");
+    expect(within(card).queryByText("종료")).not.toBeInTheDocument();
+    expect(within(card).queryByText("모집 중")).not.toBeInTheDocument();
+  });
+
   it("shows original discovery information for each group type", () => {
     // Given
     groupHooks.useInfiniteGroups.mockReturnValue(
@@ -378,7 +465,9 @@ describe("separate group browsing", () => {
       expect(within(card).getByText("함께 배우고 기록하는 모임입니다.")).toBeInTheDocument();
       expect(within(card).getByText("잠실 캠퍼스")).toBeInTheDocument();
       expect(within(card).getByText("3자리 남음")).toBeInTheDocument();
-      expect(within(card).getByText("모집 중")).toBeInTheDocument();
+      expect(card).toHaveAccessibleName(/^모집 중 /);
+      expect(within(card).getByText("모집 중").closest(".discovery-group-card__visual")).not.toBeNull();
+      expect(within(card.querySelector(".discovery-group-card__body")).queryByText("모집 중")).not.toBeInTheDocument();
     }
     const session = screen.getByRole("link", { name: /우테코 모임 2/ });
     expect(within(session).getByText("10/5 · 19:00 – 20:30")).toBeInTheDocument();

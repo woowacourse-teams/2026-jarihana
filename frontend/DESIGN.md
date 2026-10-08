@@ -87,9 +87,10 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - Body: 15/1.65, 400.
 - Label: Figma 기준 14/20, 500.
 - Caption: 13/1.5, 400.
-- Badge: `--text-badge` 12/1, 800. 작은 count badge에 사용한다. 탐색 카드의 보조 정보와
-  티켓 모집 정원 안내는 같은 12px 크기를 일반 굵기로 재사용한다.
-- Brand: `--text-brand` 22px/800. Header wordmark에만 쓰며 본문 scale을 대체하지 않는다.
+- Badge: `--text-badge` 12/1, 800. 작은 count badge에 사용한다. 탐색 카드의 보조 정보는
+  같은 12px 크기를 일반 굵기로 재사용한다.
+- Brand: `--text-brand` 1.4375rem/800 (태블릿 23px, 데스크톱 약 20px), 모바일은 `--text-brand-mobile` 18px/800.
+  Header wordmark에만 쓰며 본문 scale을 대체하지 않는다.
 - Letter spacing: 전역 기본값과 브랜드 `--tracking-brand`는 0이다. 마이페이지 제목, eyebrow,
   활동 제목에도 별도의 음수/과한 양수 자간을 적용하지 않고 글꼴의 기본 간격을 유지한다.
 - `--font-size-caption`, `--font-size-label`, `--font-size-h3`는 기존 page CSS가 동일한
@@ -102,35 +103,57 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   with a `--signup-type-image-base-size` (`7.5rem`) layout box rendered at fixed `scale(2)`.
 - Radius: small `8`, medium `14`, large `20`, pill `999`.
 - Footer Contact us block: `--footer-contact-max-width` `22rem` max width on desktop/tablet.
-- Container: 구현 token `--container-shell`은 `1440px`(`90rem`)이다. `/`의 content rail을
-  기준으로 모든 route의 페이지 shell과 section 외곽선을 통일한다. gutter는 360–767px에서
-  16px, 768–1023px에서 24px, 1024px 이상에서 32px(`--groups-page-rail-gutter`)를 사용한다.
+- Container: 구현 token `--container-shell`은 기본 `90rem`, 1024px 이상에서는 `100rem`이다.
+  기본 글꼴 설정에서 데스크톱 상한은 1400px이며 `/`의 content rail을 기준으로 모든 route의
+  페이지 shell과 section 외곽선을 통일한다. gutter는 모바일 16px, 태블릿 24px,
+  데스크톱 21px로 `--page-hero-gap`을 공유한다. 홈의 첫 hero는 예외로
+  header 바로 아래부터 화면 좌우 전체를 채우며, 이후 section은 기존 shell과 gutter를 유지한다.
+  desktop의 `--groups-page-rail-gutter`도 같은 token을 참조하며 header와 footer까지 좌우 기준선을 맞춘다.
   account, management, group editor, group detail도 같은 shell을 공유하고, 좁은 form 읽기 폭은
   shell 안쪽 content에만 적용한다.
 - Border: `--border-thin`(1px)과 `--border-strong`(2px)을 사용한다. 기본 surface 경계는
   thin, 탐색 입력의 강조 하단선 같은 의도적 emphasis만 strong을 사용한다.
-- Touch: `--touch-target`은 44px, `--touch-target-lg`는 48px이다. 일반 button, navigation,
-  filter, form control은 이 최소 높이를 공유하며, 텍스트형 CTA는 문구 리듬을 위해 예외로 둔다.
-- Header: `--header-height` 72px, active line 3px, loading auth placeholder 108px로
+- Touch: `--touch-target`은 44px, `--touch-target-lg`는 48px이다. navigation, form control,
+  원형 icon button은 이 최소 높이를 공유한다. 캡슐 버튼은 아래 button 전용 크기를 사용하고,
+  모바일 또는 coarse pointer에서는 실제 버튼의 최소 높이를 44px(large 48px)로 확보한다.
+- Header: `--header-height`는 모바일 3rem(48px), 태블릿·데스크톱 3.75rem(각각 60px·52.5px)이며, active line 3px, loading auth placeholder 108px로
   geometry를 token화한다. 모든 화면에서 `position: sticky`와 `top: 0`으로 상단에 유지하며,
   문서 흐름에 헤더 공간을 남겨 본문 시작을 가리지 않는다. 루트 scroll padding은
   `--header-height`를 사용해 앵커 이동과 키보드 포커스가 헤더 아래에 보이도록 한다.
 - 문서의 `html`과 `body` 배경은 `--color-nav`로 맞춰 macOS의 탄성 스크롤에서
-  헤더·푸터 바깥에 흰색이 드러나지 않게 한다. 본문은 `.app-shell`의 밝은 surface를 사용하며
-  브라우저의 기본 스크롤 동작은 유지한다.
+  헤더·푸터 바깥에 흰색이 드러나지 않게 한다. `.app-shell`도 같은 검은 배경을 사용하고,
+  `#main-content`는 밝은 surface와 shell의 `--app-body-radius`로 아래 두 모서리를 둥글게 처리한다.
+  이 값은 태블릿·데스크톱에서 16px, 모바일에서 `--radius-md`(14px)를 사용한다.
+  헤더·푸터와 맞닿는 본문 경계는 같은 곡률을 공유한다.
+  sticky 헤더 아래 양 끝에는 같은 곡률의 장식 모서리를 고정해 스크롤 중에도
+  본문 경계가 둥글게 유지된다. 위쪽 곡선은 헤더 장식 한 겹으로만 처리해 본문 배경과
+  히어로가 중복으로 잘리면서 흰 테두리가 비치는 현상을 방지한다.
+  모서리 radial-gradient의 투명·검정 stop은 같은 radius에 두어 1px 반투명 구간이
+  장식 사각형 끝에서 수평·수직 테두리처럼 보이지 않게 한다.
+  장식은 포인터 입력을 가로채지 않으며 모바일 메뉴
+  오버레이보다 아래 레이어에 둔다.
+  모바일(767px 이하)에서는 헤더 아래 양 끝의 장식 모서리를 14px로 줄여 full-bleed hero와
+  본문이 둥글게 이어지며, 스크롤 중에도 곡률을 유지한다. 푸터 쪽 아래 모서리도 같은 곡률을 유지한다.
+  푸터 상단에는 수평 테두리를 두지 않아 본문의 아래 곡선이 검은 배경으로 바로 이어지게 한다.
+  `overflow: clip`으로 full-bleed 배경도 이 경계를 따르게 하되 별도 스크롤 영역은 만들지 않는다.
+  브라우저의 기본 스크롤과 본문 안 sticky 배치를 유지한다.
 - 탐색 랜딩(`/`)과 호환 진입점(`/groups`)의 첫 화면은 기존 소개 hero 대신 오늘 예정된
   `SESSION`(`같이해요`) hero를 노출한다. 왼쪽은 실제 오늘 일정 카드 rail, 오른쪽은 같은 active index를
   쓰는 `TODAY'S PLAN` 다이얼로 구성한다. `/groups`는 기존 링크와 북마크를 보존하는 동일 랜딩 경로로
   유지한다.
 - 오늘 같이해요 hero는 page shell 안에서 최소 외곽 여백을 사용한다. desktop에서는 카드가 약 3개 보이는
   horizontal rail과 plan panel을 `minmax(0, 1fr) minmax(18rem, .38fr)`에 가깝게 배치하고, 좌우 이동
-  버튼은 카드 행의 수직 중앙과 rail 가장자리에 overlay한다. 44px 클릭 영역 안의 원형 surface는
+  버튼은 카드 아래 순서 표시의 양쪽에 배치한다. 44px 클릭 영역 안의 원형 surface는
   `--space-8`(32px), chevron은 `--space-4`(16px)로 작게 표시하며 그림자는 사용하지 않는다.
-  tablet/mobile에서는 카드 두 개가 온전히 보이도록 rail 너비를 나누고 plan을 아래에 배치한다.
+  tablet/mobile에서는 카드 두 개가 온전히 보이도록 rail 너비를 나누고 카드 좌우·stub 여백을 12px로 맞춘다.
+  오늘 영역은 상단 여백 24px, 구간 간격 16px로 시작한다. tablet/mobile에서는
+  `오늘 같이해요` 제목·날짜·위치와 카드 rail 다음에 `오늘의 일정` 패널을 배치한다. 화면과 DOM 순서를 맞추고
+  일정 패널은 하나만 렌더링한다. 화면 폭이 바뀌어도 carousel의 active index와 정지 상태를 유지한다.
+  tablet/mobile 일정의 위에 24px padding과 얇은 구분선을 둔다.
   mobile은 카드 간격과 본문 좌우 여백을 각각 8px, 12px로 줄인다. 480px 미만에서는 제목 16px,
   메타/소개 12px, 잔여 자리 24px를 사용하고 stub의 상세 CTA를 인원 아래 전체 너비로 배치한다.
-  mobile은 원형 surface를 28px로 줄이고 클릭 영역을 page gutter 안까지 이동해 본문 텍스트를 가리지 않는다.
-  순서 표시는 카드 아래 `--space-6`(24px) 높이의 별도 행 중앙에 배치한다. dot은 24px 클릭 영역,
+  mobile은 원형 surface를 28px로 줄이고 44px 클릭 영역은 유지한다.
+  순서 표시는 카드 아래 이전·다음 버튼 사이에 배치한다. dot은 24px 클릭 영역,
   gap 0, 기본 4px 원/선택 12×4px pill을 사용한다. 작은 보조 컨트롤의 터치 영역 예외다.
 - 오늘 일정 티켓은 로컬 12번 시안의 흰색 티켓 surface, 카드 상단을 채우는 이미지, 20px radius,
   절취선과 좌우 notch, 잔여 자리/상세 CTA 구조를 따른다. 얇은 외곽선은 유지하되 notch의 반원
@@ -138,7 +161,10 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   연결부가 카드 외곽선 밖으로 돌출되지 않도록 한다. notch가 외곽선을 덮을 수 있도록 카드 전체를
   자르지 않고 이미지 상단과 stub 하단 모서리를 각각 자른다. active는 brand 외곽선,
   mint stub과 brand CTA로 표시한다. 상시 그림자는 두지 않으며 공통 focus ring은 유지한다.
-- 오늘 일정의 현재 모집 정보가 없으면 티켓 잔여 자리 영역은 `마감`/`모집 마감`, 일정 목록은 `모집 마감`으로 표시한다.
+  외곽선·절취선·notch는 화면 밀도를 줄여도 최소 1px 두께를 유지한다. 카드 rail은 `--space-1`만큼
+  좌우 clipping 여유와 scroll padding을 두고, 음수 margin으로 본문과의 수직 정렬을 유지한다.
+- 오늘 일정의 현재 모집 정보가 없으면 티켓 잔여 자리 영역은 큰 `마감`만 표시하고 중복 보조 문구는 생략한다.
+  모집 정보가 있으면 남은 자리 수만 표시하고 모집 정원 보조 문구는 생략한다. 일정 목록은 `모집 마감`으로 표시한다.
 - 오늘 일정 티켓의 hover와 키보드 focus는 같이해요의 amber 외곽선·제목·시간·CTA와
   연한 amber stub으로 구분한다. 정밀 포인터 hover에서는 4px 올라가며 reduced motion에서는
   이동을 생략한다. 반원 홈의 윤곽을 유지하기 위해 티켓에는 사각 그림자를 추가하지 않는다.
@@ -149,10 +175,11 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   원본 여백을 줄이기 위해 `object-fit: contain`과 2.45배 확대를 적용하고 이미지 프레임에서 잘라낸다.
   모바일의 세로형 조회 카드는 2.15배로 조정해 인물·의자 전체가 남도록 한다. 직접 등록한 사진에는
   이 확대를 적용하지 않는다.
-- 본문은 18px 좌우 여백, 시계 icon과 시간, 18px brand 제목, 13px 소개 순서다. 소개는 2줄 높이를
-  확보한다. 소개 아래에는 pin icon, 장소, 가운데 점, 소요 시간을 한 줄에 13px로 표시한다.
+- 본문은 18px 좌우 여백, 시계 icon과 시간, 18px brand 제목, 13px 소개 순서다. 제목과 소개는
+  모든 화면 크기에서 각각 한 줄로 표시하고 넘치는 텍스트는 말줄임한다. 소개 아래에는 pin icon,
+  장소, 가운데 점, 소요 시간을 한 줄에 13px로 표시한다.
   타이머 icon은 생략하고 장소와 소요 시간이 모두 있을 때만 가운데 점을 표시한다. stub은 18px(mobile 16px)
-  여백, 34px 잔여 자리 숫자, 12px 모집 정원 안내, 14px `자세히` CTA다.
+  여백, 34px 잔여 자리 숫자, 14px `자세히` CTA다.
   18px/34px은 12번 시안의 티켓 geometry를 위한 component token이며 기존 palette/type token을 재사용한다.
 - hero 제목은 `Asia/Seoul` 기준 아침(06–11), 점심(11–13), 오후(13–17), 저녁(17–19), 밤(19–06)에
   맞는 문구를 아침 5개·점심 6개·오후 7개·저녁 8개·밤 5개 중 방문 시 선택한다. 같은 시간대에서는 카드를 넘기거나 재렌더해도 유지하고,
@@ -171,13 +198,25 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   `--color-brand-ink`, `--text-label`(14px), `--font-weight-bold`로 한 번만 표시한다.
   별도 eyebrow와 상단 탐색 바로가기는 두지 않는다.
   카드와 TODAY’S PLAN에는 날짜를 반복하지 않고 유형 badge도 생략한다.
-- `TODAY'S PLAN`은 검은 카드가 아니라 흰 바탕의 왼쪽 border rail 안에서 동작하는 수직 wheel이다. 가운데
-  active row만 mint surface로 강조하고 위아래 일정은 같은 목록 안에서 희미하게 보이며, 한 항목뿐이면 중앙에
-  하나만 둔다.
-- 카드 rail과 `TODAY'S PLAN`은 하나의 carousel state를 공유한다. 자동 전환은 5초 기준이며 hover, focus,
-  tab 비활성화, 사용자의 일시정지 토글, `prefers-reduced-motion: reduce`에서는 멈춘다. 이전/다음·dot 조작은
-  active index를 바꾸고 사용자가 재생을 다시 누르기 전까지 자동 전환을 재개하지 않는다. keyboard focus로 모든
-  조작 버튼에 접근할 수 있고 mobile swipe도 같은 active index만 바꾼다.
+- 일정 패널은 `오늘의 일정` 제목만 표시하며 영문 보조 문구는 두지 않는다.
+  흰 바탕의 왼쪽 border rail 안에서 동작하는 수직 wheel이다. 제목 아래 남은 세로 공간을
+  목록이 채우며, 첫 일정부터 마지막 일정까지 선택된 행을 항상 다이얼의 세로 중앙에 둔다.
+  앞뒤 일정은 이 중심을 기준으로 원형으로 이어진다. 첫 일정 위에는 마지막 일정들이,
+  마지막 일정 아래에는 첫 일정들이 표시된다. 다음·이전과 자동 전환은 경계를 넘어도 같은
+  방향으로 한 칸씩 이동하며, dot은 가장 가까운 위치로 이동한다(같은 거리이면 다음 방향).
+  중심 앞뒤 네 행을 반복 배치하고 화면 밖 행만 교체해 되감기 없이 계속 회전한다.
+  반복된 행은 접근성 트리에서 숨기고 선택된 중앙 행만 읽는다.
+  각 행은 8px 간격, 20px 곡률과 1px 회색 테두리를
+  사용하고 active row만 mint surface와 brand 테두리로 강조한다. 중심에서 멀어질수록 행을
+  22도씩 기울이고(최대 64도) 24px씩 뒤로 보내 원통형 wheel처럼 보이게 한다. 각 단계의
+  불투명도는 22%씩 낮추되 최소 30%로 유지하고, blur는 0.35px씩 최대 1.2px까지 적용한다.
+  중심 행은 선명하게 유지하며 상하 15% 영역(32–64px)을 흰색으로 부드럽게 흐린다.
+  한 항목뿐이면 중앙에 하나만 둔다. reduced-motion에서는 위치·기울기·blur의 전환을 제거한다.
+- 카드 rail과 `TODAY'S PLAN`은 하나의 carousel state를 공유한다. 자동 전환은 5초 간격이며,
+  이전·다음·dot·모바일 swipe·트랙패드 가로 스크롤을 조작하면 마지막 조작으로부터 10초 후 첫 자동 이동을 재개한다.
+  재생/일시정지 버튼은 두지 않는다. 트랙패드는 카드 rail을 자연스럽게 가로 스크롤하며 멈춘 위치에 맞춰 dot과 일정을 갱신한다.
+  키보드 focus, tab 비활성화, `prefers-reduced-motion: reduce`에서는 자동 전환을 멈춘다.
+  마우스 hover나 클릭 후 남은 focus는 10초 재개를 막지 않는다. 모든 이동 버튼은 키보드로 접근할 수 있다.
 - 오늘 같이해요 hero는 production runtime에서 mock 데이터를 만들지 않는다. `date`는 서울 기준
   `YYYY-MM-DD`, `groups`는 오늘 예정된 ACTIVE SESSION 목록을 받으며, 표시 정보는 목록 API에 존재하는
   이름, 소개, 대표 이미지, 세션 시간, 장소, 모집 인원만 사용한다. 장소는 기존 저장된 location을
@@ -191,10 +230,19 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - 하단 discovery 카드는 기본 상태에서 테두리 없는 흰색 surface와 `--shadow-card`의 은은한 그림자를 사용한다.
   실제 대표 이미지는 8:5 비율로 상단과 좌우 끝까지 채우며 카드 바깥쪽 모서리만 14px radius로 자른다.
   본문 여백은 16px다. mobile 가로형에서는 사진의 왼쪽 모서리만 둥글게 하고 본문은 위·아래·오른쪽
-  12px 여백을 둔다. 사진과 본문 사이에는 기존 12px 간격을 유지한다. 11px 유형
-  label(4px radius, 세로 2px/가로 6px padding) 옆에 모집 중 상태를 12px 일반 텍스트로 둔다.
-  제목, 2줄 소개, calendar icon 일정, timer icon 소요 시간과 잔여 자리 순서로 읽힌다.
+  12px 여백을 둔다. 사진과 본문 사이에는 기존 12px 간격을 유지한다. 12px 유형
+  label(4px radius, 세로 4px/가로 8px padding, line-height 1.5)은 본문 상단에 둔다.
+  모집 중 상태는 민트 바탕·진한 민트 글자의 배지로 대표 이미지 왼쪽 위에 둔다.
+  모집 중 배지와 상세 히어로의 유형 배지는 탐색 카드 유형 배지와 같은 `--space-1` 곡률을 사용한다.
+  배지 위치는 위·왼쪽 12px, 글자 12px, padding 4px/8px이며 본문에는 중복 표시하지 않는다.
+  제목은 모든 화면 크기에서 한 줄 말줄임표로 표시하고, 전체 제목은 링크의 접근성 이름에 유지한다.
+  2줄 소개 다음에 calendar icon 일정, timer icon 소요 시간과 잔여 자리 순서로 읽힌다.
+  본문은 세로 flex로 채우고 일정·하단 정보를 아래로 밀어 카드 끝에서 desktop/tablet 16px,
+  mobile 12px 여백을 유지한다. 소개와 일정 사이에는 최소 16px(mobile 12px)을 둔다.
   11px와 6px은 discovery component token이고 나머지는 공통 palette/spacing token을 사용한다.
+  `status=ENDED`인 카드는 대표 이미지에 아카이브와 같은 어두운 그라데이션(검정 86% → 28%)을
+  겹치고 왼쪽 위에 검정 바탕·흰 글자의 `종료` 배지를 표시한다. 배지는 접근성 이름에도 포함한다.
+  종료된 모임에는 모집 중·남은 자리 표시를 생략한다. 모집만 마감된 ACTIVE 모임에는 적용하지 않는다.
   소요 시간과 timer icon은 같이해요(SESSION) 카드에서만 표시하며 API 세션 일정의 종료-시작으로
   계산한다. 스터디·동아리 카드에서는 소요 시간과 timer icon을 생략한다. 장소와 소요 시간은
   하단 왼쪽에서 묶고 잔여 자리는 오른쪽에 둔다. 장소가 없으면 생략하며 카드별 상세 요청은 추가하지 않는다. 모집 정보가 없으면 잔여 자리도
@@ -210,6 +258,18 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   일반 정보 그룹은 border/tonal surface로 깊이를 표현한다.
 - Z layers: header `20`, sticky `25`, overlay `40`, dialog `50`, toast `60`.
 
+### Desktop density
+
+- 가로 1024px 이상에서는 루트 글꼴을 브라우저 기본 크기의 `87.5%`로 둔다. 기본 16px 환경에서
+  `1rem`은 14px이 되어 글자·간격·카드가 함께 줄고, 같은 화면에 더 많은 내용이 보인다.
+  데스크톱 `--container-shell`은 100rem(1400px)로 두어 좌우 공간을 더 사용한다.
+  헤더 3.75rem은 52.5px이며 헤더·히어로 문구·본문·푸터는 넓어진 shell의 기준선을 공유한다.
+- 모바일·태블릿은 기존 루트 크기를 유지한다. 원형 icon button과 입력 컨트롤은 PC에서도
+  44px/48px을 보장하고, 캡슐 버튼은 별도 compact 크기를 사용한다. 브라우저의 글꼴 설정과 확대
+  기능은 유지하며 DPI나 운영체제 설정을 감지해 보정하지 않는다.
+- 홈 배경은 32:9 이미지의 세로 전체를 보여 주는 최소 높이를 유지한다. 모임 상세의 오른쪽 rail은
+  줄어든 본문 크기에 맞춰 1260px부터 표시한다. 미디어 쿼리의 rem 기준은 루트 글꼴 재정의와 별개다.
+
 ### Responsive breakpoints
 
 - token metadata: `--breakpoint-md` 48rem(768px), `--breakpoint-lg` 64rem(1024px).
@@ -218,10 +278,10 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   본문 아래로 이동하고, management table은 labelled card rows로 바뀐다.
 - `768–1023`: full-bleed header 배경과 24px content gutter. 탐색 card는 3 columns, account는 좁은
   profile/content split, group editor hero는 single column으로 전환한다.
-- `1024–1439`: 32px content gutter와 4-column 탐색 카드, group detail/registration의 side rail,
+- `1024–1439`: 21px content gutter와 4-column 탐색 카드, group detail/registration의 side rail,
   group editor 2-column hero, management grid/table을 사용한다. 고정 폭 action은 충분한
   공간이 없으면 줄바꿈한다.
-- `1440+`: 1440px shell 상한을 중앙 정렬하고 탐색 카드 4 columns를 유지한다.
+- `1440+`: 1400px shell 상한을 중앙 정렬하고 탐색 카드 4 columns를 유지한다.
 - 하단 discovery는 desktop 4열/가로 24px·세로 40px, tablet 3열/24px, mobile 1열/24px이다.
   mobile 카드는 104px 왼쪽 이미지와 본문 사이 12px 간격을 두며 이미지는 행 높이를 채우고
   최소 148px 높이를 유지한다. 이 두 geometry는 discovery component token으로 둔다.
@@ -235,19 +295,27 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   제공한다. 공통 footer는 검은 full-bleed surface 안에 브랜드 소개·자리 유래·Contact us 안내·외부
   GitHub 링크를 두고, 모바일에서는 안내와 외부 링크를 콘텐츠 아래로 쌓는다. route lazy loading 또는
   guard 확인 중에는 footer를 노출하지 않아 loading surface가 콘텐츠보다 먼저 보이지 않게 한다.
-- Header composition: desktop은 `auto / 1fr / auto` grid로 wordmark와 우측 auth action을 고정하고,
+- Header composition: desktop은 `1fr / auto / 1fr` grid로 가운데 메뉴를 유지하고,
+  tablet에서는 `auto / minmax(0, 1fr) / auto`와 16px gap으로 로고·메뉴·우측 버튼이 겹치지 않게 한다.
+  로그인/프로필 왼쪽에는 민트색 `자리 만들기` 링크(`/groups/new`, action `group_create`)를 둔다.
+  히어로와 같은 의자 이미지와 문구를 사용하며, 헤더의 의자 크기는 1.5rem으로 맞춘다.
+  로그인 버튼과 같은 small 높이를 사용하며 익명 클릭은 생성 경로를 저장하고 기존 로그인으로 연결한다.
+  wordmark와 우측 auth action을 고정하고,
   member tabs는 노출하지 않는다. 모바일 drawer에서는 탐색·모임 만들기 진입점을 유지하고, guard가
   인증이 필요한 destination을 처리한다. anonymous가 보호 메뉴를 누르면 해당 경로를 로그인 후
   복귀 대상으로 저장하고 GitHub 로그인으로 이동한다. authenticated 상태에만
   desktop에서 프로필 사진을 계정 메뉴 버튼으로 표시하고, 마이페이지와 로그아웃은 드롭다운 안에 둔다.
   프로필은 공통 `Avatar`로 서버의 `avatarUrl`을 표시하고, 사진이 없거나 로드에 실패하면
   크루 이름 첫 글자로 대체한다. 모바일 헤더는 프로필 없이 햄버거 버튼만 표시한다.
+  햄버거 버튼은 투명 배경에 테두리 없이 표시하고, 44px 터치 영역과 공통 키보드 포커스 표시를 유지한다.
 - Header GitHub login: [Octicons GitHub mark](https://github.com/primer/octicons/blob/main/icons/mark-github-16.svg)를 `--space-5` 크기로 문구 왼쪽에 둔다.
   흰색 `--color-surface` 바탕, `--color-ink` 글자, `--color-line` 테두리와 기존 버튼의 `--radius-pill` 모서리를
   사용한다. hover는 `--color-surface-sunken`, pressed는 `--color-line`으로 구분한다.
-  최소 높이는 `--touch-target`이며, 로고와 문구 간격은 `--space-2`다.
+  최소 높이는 `--button-height-sm`이며, 로고와 문구 간격은 `--space-2`다.
 - Header profile: 원형 사진은 desktop `--space-10`(40px)이다.
   버튼은 최소 `--touch-target` 크기이며 접근성 이름은 `프로필 메뉴`다. 닉네임은 표시하지 않는다.
+  사진 오른쪽에는 `--space-2` 간격으로 `--space-3` 크기의 가는 아래쪽 꺾쇠를 둔다.
+  화살표는 장식용이며 메뉴가 열리면 180도 회전한다. 동작 줄이기 설정에서는 전환을 생략한다.
   클릭·터치·Enter/Space로 마이페이지 링크와 로그아웃 버튼을 담은 disclosure를 열고,
   다시 클릭하거나 바깥 클릭·포커스 이탈·Escape·항목 선택으로 닫는다. hover만으로 열리지 않는다.
   Tab으로 항목을 탐색하며 Escape는 메뉴 안의 포커스를 사진 버튼으로 돌린다.
@@ -282,6 +350,23 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - Header active state는 모바일 drawer의 pathname 목적지에만 연결한다. `/groups/new`에서 상위
   `/groups` 탐색 링크를 동시에 활성화하거나, `/my/groups`에서 `/my`를 동시에 활성화하지 않는다.
 - `PageContainer`: 모든 route의 좌우 gutter와 최대 폭을 통일한다.
+- 공개 활동 목록은 탐색 목록과 같은 `--space-12` 상단 여백, `--text-h1` 제목과
+  제목 아래 `--space-6` 간격을 사용한다. 영어 eyebrow와 중복 소개 문구는 두지 않는다.
+  제목 다음 행에 범위 필터와 `활동 올리기` primary small 버튼을 하나의 toolbar로 묶는다.
+  필터는 왼쪽, 버튼은 오른쪽에서 세로 가운데로 맞추며, 선택한 필터는 brand-ink 글자와
+  brand 밑줄로 표시한다. toolbar 아래에는 `--color-line` 구분선을 둔다.
+  선택 밑줄은 실제 탭의 위치·너비에 맞춰 `--duration-base`와 `--ease-standard`로 이동한다.
+  목록은 새 필터의 데이터가 준비되면 공통 탭과 같은 opacity 0→1, `--space-2` 아래에서
+  제자리로 이동하는 전환을 사용한다. 기존 사진 DOM과 masonry 측정은 유지하며,
+  추가 페이지 로딩에는 반복하지 않는다. reduced-motion에서는 두 전환 모두 생략한다.
+  필터의 클릭 높이는 `--touch-target` 이상이고, 좁은 화면에서는 좌우 padding을 줄여
+  두 필터와 버튼을 배치하되 공간이 부족하면 자연스럽게 줄바꿈한다.
+  카메라 아이콘은 `--space-5`, 글자와의 간격은 `--space-2`이며 하나의 inline-flex로 정렬한다.
+  로그인 전후 문구·크기는 같고 기존 로그인 흐름과 action 식별자를 유지한다.
+  공개 목록의 빈 상태는 숫자와 테두리 박스 없이 기존 빈자리 일러스트(최대 14rem),
+  `--text-h3` 안내 제목, 한 줄 설명을 가운데 배치한다. 전체·내 기록의 안내를 구분하며
+  올리기 버튼은 toolbar에 한 번만 표시한다. 모임 내부의 기록 권한과 빈 상태,
+  사진 카드의 크기·정보·masonry 배치는 그대로 유지한다.
 - `ListLayout`: PageHeader → search/filter → result meta → cards → cursor action. 한 화면 안의 hero,
   tool row, result heading, card grid는 `PageContainer`의 동일한 좌우 rail을 공유하며,
   카드 grid의 좌우 변을 기준으로 정렬한다. 탐색 discovery는 hero와 분리된 soft surface 안에
@@ -301,9 +386,21 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - `DetailLayout`: group detail은 desktop에서 본문 + sticky support rail 구조를 사용하며
   전체 폭은 공통 `--container-shell`을 따른다. support rail은 운영자 프로필 카드 다음에 모집 정보 카드를
   배치한다. tablet 이하에서는 순차 single column으로 전환한다.
+  모임 상세 hero는 모든 화면에서 기존 `--group-detail-hero-min-height`(24.5rem, 기본 392px)를
+  최소 높이로 사용한다. 홈 hero는 mobile·tablet에서 `clamp(16rem, calc(24svh + 4rem), 20rem)`과
+  상하 48px 여백을 사용한다. 1024px 이상에서는 `clamp(27rem, calc(34svh + 4rem), 31rem)`과
+  상하 56px 여백을 사용한다. 압축된 비율보다 모든 화면의 높이를 64px 늘려 캐릭터와 경계 사이에 여유를 둔다.
+  768px 이상에서는 `--page-hero-gap`(24px)으로 헤더 아래 간격도 맞춘다.
+  홈의 가로 비율 기반 높이를 해제해 tablet 폭에 따라 hero 높이가 급변하지 않게 한다.
+  상세 hero 내용은 세로 가운데 정렬하고 긴 제목·소개·일정이 있으면 자연스럽게 늘어난다.
+  상세 기본 이미지의 배경은 녹색 그라데이션 없이 `--color-nav`를 사용한다.
+  상세 기본 이미지의 불투명도는 모든 화면에서 0.65로 두어 배경을 드러내고,
+  기존 어두운 오버레이는 유지해 본문 대비를 확보한다.
+  상세의 sticky rail과 생성·수정 form hero는 기존 배치 규칙을 유지한다.
   mobile(`47.9375rem` 이하)에서는 헤더와 상세 hero 사이 간격을 두지 않는다.
   상세 페이지의 좌우 바깥 여백은 없애고, hero·탭 본문 안쪽 여백은 유지한다.
-  모바일 상세 hero는 둥근 모서리 없이 화면 가장자리와 맞닿게 배치한다.
+  모바일 상세 hero는 별도 여백 없이 화면 가장자리와 맞닿게 배치하며,
+  위쪽 모서리는 공통 본문 경계의 20px 곡률을 따른다.
   모바일에서는 `목록으로` 버튼과 그 버튼용 상단 빈 공간을 없앤다. 운영자에게 보이는 수정 버튼은
   유지하고, 모임 유형과 제목의 오른쪽에 버튼 공간을 확보해 겹치지 않게 한다.
 - rail이 숨는 tablet/mobile에서는 운영자 프로필을 hero 안의 프레임 없는 byline으로 옮긴다.
@@ -318,14 +415,14 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   `--header-height + --space-5`와 `100dvh - rail 높이 - --space-4 - safe area` 중 작은 값으로 정한다.
   짧은 카드는 고정 헤더 아래에 유지하고, 카드가 창보다 높으면 페이지 스크롤로 상단을 넘겨
   신청 action까지 도달할 수 있다. 모집 일정 펼치기나 글꼴·화면 크기 변경에도 위치를 다시 맞춘다.
-  가로 `89.9375rem` 이하에서는 모집 rail을 숨기고 hero 안의 참여 action과 모집 정보 모달을 사용한다.
+  가로 `78.6875rem` 이하에서는 모집 rail을 숨기고 hero 안의 참여 action과 모집 정보 모달을 사용한다.
   세로 viewport 높이나 DPI, devicePixelRatio는 전환 조건으로 사용하지 않는다.
   모집 정보 일러스트는 desktop과 모달에서 같은 가운데 정렬 규칙을 사용한다. desktop rail에서는
   가용 가로 폭 안에 원본 비율로 맞추고 세로 viewport 높이에 따라 축소하지 않는다. 모달에서는
   가용 폭과 viewport 높이 안에 맞춘다. 이미지 자체보다 큰 최소 높이를 별도로 예약하지 않는다.
-- desktop rail과 모집 정보 모달의 CLUB·STUDY 타입 `참여 신청하기`·SESSION 타입 `참여하기` 버튼은 흰 surface와 line 테두리를 사용하고,
-  문구 왼쪽에 기존 의자 로고를 `--space-8`(32px) 크기의 장식 이미지로 표시한다. tablet/mobile의
-  hero 안 진입 버튼은 같은 스타일과 로고를 사용하고 문구는 `모집 정보`로 표시한다.
+- desktop rail과 모집 정보 모달의 참여 버튼은 모임 유형에 관계없이 `자리하기`로 표시하고 흰 surface와 line 테두리를 사용한다.
+  문구 왼쪽에는 홈과 같은 `jarihana-chairs-rainbow.png`를 `--space-12` × `--space-8` 크기의 장식 이미지로 표시한다.
+  tablet/mobile의 hero 안 진입 버튼은 기존 의자 로고와 `모집 정보` 문구를 유지한다.
   모집 마감·운영자·참여 완료 등의 상태별 버튼은 기존 표현을 유지한다.
 - 모달의 모집 정보 스크롤바는 투명 track과 얇고 둥근 thumb를 사용하며 스크롤바 공간을 상시 예약하지
   않는다. 모달은 둥근 외곽 안쪽의 모집 정보 한 곳에서만 세로 스크롤하고 제목·닫기 버튼·신청
@@ -373,7 +470,17 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 
 ## 4. Component visual grammar
 
+- 홈 모집 카드: 유형 배지는 필터와 같은 유형별 soft 배경·ink 글자를 사용하고, 남은 자리 수는 같은 ink 색으로 맞춘다.
+  사진 위에 놓인 큰 카드의 남은 자리 수는 가독성을 위해 같은 유형의 soft 색을 사용한다. 참여 문구는 `N명 자리하는 중`으로 표시한다.
 - Buttons: primary mint/black text, secondary white/line, tertiary text, danger red. 모든 variant는
+  `--radius-pill` 캡슐형이며 홈 히어로 CTA와 오늘 모임 카드의 `자세히`도 같은 곡률을 사용한다.
+  높이는 `--button-height-sm/md/lg`로 통일한다. 마우스 환경에서 각각 2.25/2.5/2.75rem
+  (최소 32/36/40px), 좌우 padding은 16/20/24px rem 토큰을 사용한다. 글자는 small/medium
+  `--text-label`, large `--text-body`, 굵기 600, line-height 1.4로 맞춘다. 로그인·유형 필터는
+  small 기준을 공유한다. 홈 유형 필터의 선택·hover 배경은 같이해요 amber, 스터디 blue,
+  동아리 violet의 기존 activity soft 토큰을 사용하고, 선택 문구는 같은 유형의 ink 토큰을 쓴다.
+  `전체`는 기존 mint를 유지한다. 카드 전체가 링크인 `자세히`와 파일 선택 영역 안의 시각적 CTA는
+  터치 영역을 따로 키우지 않고 `--button-visual-height-sm`과 좌우 16px rem 여백을 사용한다.
   default/hover/active/focus/disabled/pending 상태를 갖는다. 목적지를 바꾸는 액션은 버튼처럼
   보이더라도 semantic link를 사용한다. 일반 목적지 링크는 visible label을 유지하고, 관리
   컨텍스트의 모임 상세 이동은 작은 visible label과 관습적인 `ExternalLink` 아이콘을 함께
@@ -443,7 +550,8 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   로딩 실패 시에도 같은 종류의 이미지로 대체한다. 승인된 1254×1254 원본은
   `public/images/default-group-{club,study,session}-3d.png`에 보관하며, 알 수 없는 종류에는 기존
   공통 기본 이미지를 사용한다. 탐색 이외의 기본 GroupCard는 기존 surface와 하단 fade를 유지한다.
-- Account activity/group cards: 상세 목적지가 하나인 카드는 제목만이 아니라 카드 전체가 하나의
+- Account activity/group cards: 종료된 내 모임은 대표 이미지 밝기를 50%로 낮추고
+  기존 `모임 종료` 배지를 함께 표시한다. 상세 목적지가 하나인 카드는 제목만이 아니라 카드 전체가 하나의
   semantic link다. 내부 mutation button이 있는 신청 카드는 중첩 interactive element를 피하기 위해
   제목 링크와 action을 분리한다.
 - MarkdownContent: raw HTML을 실행하지 않고 제목, 굵게, 목록, 인용, 안전한 http(s)/내부 링크만
@@ -454,10 +562,17 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   표시하고, 실패하거나 없을 때만 crew name 이니셜로 대체한다. rail segment는 hover와 keyboard
   focus에서 `N기 · M명` preview를 제공한다. 생성 전 화면은 아직 groupId가 없으므로 참여자를 꾸며내지
   않고 생성 후 확인 가능 상태를 표시한다.
-- Badges: 상태색의 soft surface + 고대비 text, pill shape.
+- Badges: 유형·상태는 공통 `StatusBadge`를 사용한다. 홈·탐색·아카이브·상세·내 모임·관리 화면에서
+  `--text-badge`(12px), 굵기 700, line-height 1.5, padding `--space-1`/`--space-2`(4px/8px),
+  radius `--space-1`(4px)을 동일하게 적용한다. 화면별 크기·곡률 override를 두지 않는다.
+  아이콘은 글자 크기에 맞추고 간격은 `--space-1`로 통일한다.
+  유형·상태색은 기존 soft surface + 고대비 text를 쓰며, 모임 종료는 검정 바탕·흰 글자 `ended` tone을 쓴다.
+  사진 위 상태 배지는 `placement="overlay"`로 위·왼쪽 `--space-3`(12px)에 배치한다.
+  유형 배지는 제목 앞에 놓고 부모가 문맥에 맞는 간격을 관리한다. 버튼·필터·숫자 카운터는 이 규격과 구분한다.
 - Tabs: route 또는 상태와 연결된 semantic tablist. 선택 underline 하나가 새 tab 위치로 이동하고
   panel은 짧게 fade/translate되어 공간 연속성을 전달한다. 모바일은 가로 scroll하되 page 자체
-  overflow는 막는다.
+  overflow는 막는다. 상세 탭은 모든 화면에서 최소 `--touch-target`(44px), 상하 padding `--space-2`,
+  글자 `--text-label`·굵기 600·line-height 1.4로 맞춰 헤더 메뉴처럼 얇고 간결하게 표시한다.
 - Modal/Dialog: 중앙 dialog 또는 오른쪽 drawer를 사용한다. focus trap, Escape, focus restore를
   공통 동작으로 제공한다.
 - Toast: 성공/오류를 `aria-live`, 최대 3개 stack으로 알리고 2,000ms 후 자동 닫힘과 수동 닫기
@@ -504,7 +619,44 @@ default/hover/active/focus/selected 상태를 제공한다.
 
 ## 6. Interaction and motion
 
+- 홈의 오늘 같이해요·모집 중·아카이브 카드와 탐색 카드는 상세 진입 시 동일한 대표 이미지를
+  공유 요소로 연결한다. 클릭한 카드 하나만 이름을 부여해 같은 모임의 중복 카드와 충돌하지 않는다.
+  이미지는 420ms `cubic-bezier(.2, 0, .2, 1)` 곡선으로 상세 배너에 도착한다.
+  사진은 한 장만 그린다. 출발·도착 이미지의 실제 표시 크기와 `object-fit`을 측정해
+  프레임 이동과 같은 곡선으로 크롭 크기를 보간한다. 서로 다른 크롭의 사진 두 장을
+  교차 합성하지 않는다. 명암은 별도 공유 레이어로 분리해 이동 동안 전환한다.
+  제목과 정보는 마지막 120ms에
+  왼쪽 `--space-2`에서 제자리로 들어온다.
+  상세 탭·본문은 아래 `--space-4`, 모집 rail은 오른쪽 `--space-4`에서
+  420ms 동안 제자리로 모인다. 불투명도는 처음 120ms에 1이 되어 테두리와 글자가
+  이동 내내 연해지지 않게 한다. 퇴장은 이동 없이 120ms 동안 사라진다.
+  확대·반동은 추가하지 않고 공통 헤더는 이동에 포함하지 않는다.
+  목록 복귀 시에는 카드 프레임을 도착 위치에 고정하고 본문을 처음 180ms 동안 나타낸다.
+  전체 사진형 대표·아카이브 카드의 본문과 배지는 사진보다 위에서 나타나며,
+  카드 명암은 사진과 같은 위치와 크기로 이동한다. 복귀 카드에는 상세 진입용 노출 지연을 적용하지 않는다.
+  이미지 크기를 아직 측정할 수 없거나 원본 URL이 다르면 도착 사진 하나를 사용한다.
+  뒤로 가기와 화면 크기 변경에도 현재 이미지 크기를 다시 사용한다.
+  전환용 이미지 쌍에는 고정된 `--shadow-float` 그림자를 사용해 흰 이미지와 본문을 구분한다.
+  그림자 크기를 매 프레임 바꾸지 않으며 전환 레이어가 사라질 때 함께 제거한다.
+  카드 배지는 이미지와 함께 확대하지 않는다. 카드에 마우스를 올리거나 키보드로 포커스하거나
+  터치를 시작하면 해당 모임 상세 query만 미리 준비한다. 상세 데이터와 페이지 모듈 준비 후 전환한다.
+  뒤로 가기는 출발 URL의 필터·스크롤·카드 포커스와 오늘 캐러셀 순서를 복원한다.
+  동작 줄이기에서는 이동을 생략하며 미지원 브라우저는 일반 링크 탐색을 유지한다.
+
 - Fast `120ms`, base `180ms`, deliberate `240ms`, smooth `420ms`; easing `cubic-bezier(.2,.8,.2,1)`.
+- Header 주요 메뉴는 글자 수와 관계없이 네 칸을 각각 `--header-nav-item-width`(4.25rem) 폭으로 맞춘다.
+  주요 메뉴 글자는 `--text-body`(0.9375rem)를 사용한다. 헤더 의자 로고는 태블릿·데스크톱에서
+  2.125rem, 모바일에서 2rem 크기를 사용한다.
+  선택 밑줄은 한 개를 공유하며 180ms transform으로 이동한다. 홈·탐색·활동 탭 사이에서는
+  새 본문이 420ms 동안 opacity 0→1과 수평 이동을 함께 적용한다. 탐색 페이지 첫 진입은
+  목록 첫 페이지와 모듈 준비 후 시작해 전환 도중 로딩 화면이 카드로 교체되지 않게 한다.
+  캐시된 목록으로 돌아올 때는 기존 페이지들을 즉시 재사용하며 검색·필터 변경은 기존 query 로딩을 유지한다.
+  이동 폭은 화면의 6%,
+  최대 `--space-12`(48px)로 제한해 넓은 화면에서도 과하게 쓸려 들어오지 않게 한다.
+  오른쪽 탭은 오른쪽에서, 왼쪽 탭은 왼쪽에서 들어오며 표준 easing으로 부드럽게 감속한다.
+  main 내부의 content만 이동하고 배경·둥근 모서리·header·footer는 고정한다.
+  본문을 remount하지 않고, 최초 진입·동일 경로의 query 변경·상세 페이지 진출입·피드백 모달에는 화면 전환을 적용하지 않는다.
+  reduced-motion에서는 밑줄과 본문 모두 즉시 전환한다.
 - Button은 색/1px translate 변화만, 카드 hover는 2px 이내 상승한다. tabs의 단일 underline은
   `180ms` transform으로 새 위치에 이동하고 panel은 opacity + 8px translate로 진입한다.
 - Signup의 크루·코치 전환은 선택 전 캐릭터 위치를 유지한다. 캐릭터 반대편의 프로필 패널은
@@ -567,75 +719,161 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
   time/location phrase. After login, swap the two content slots: the phrase becomes h1 and
   the fixed introduction moves below it. Only authenticated status enables the swap;
   loading, anonymous, signup-required and unavailable keep the pre-login arrangement.
-  Use the user-supplied 2172×724 day, sunset and night illustrations as decorative CSS
-  backgrounds in `src/shared/assets/brand/jarihana-hero-{day,sunset,night}.png`.
-  Use the final supplied illustrations without changing their pixels.
+  Preserve the user-supplied 2172×724 day, sunset and night originals at
+  `src/shared/assets/brand/jarihana-hero-{day,sunset,night}.png` as references.
+  The home hero uses the sibling `-responsive.png` versions, regenerated as whole scenes
+  with more vertical breathing room while preserving the characters' identities and poses.
   Select day at 06:00–16:59, sunset at 17:00–19:59 and night at 20:00–05:59
   in Asia/Seoul, independently of the browser's timezone. Derive art and copy from the same
   clock, refresh at each hour boundary and reschedule immediately on focus or tab return.
   Preserve the existing headline slots, including the 19:00 night/campus phrase.
   Night uses a local `--reference-hero-night-surface` mixing 25% --color-activity-study-ink
   with --color-nav behind the full hero, so text remains readable as content changes height.
-  Night title, subtitle,
-  search input and submit icon use --color-surface; inline emphasis uses --color-brand;
-  the placeholder uses --color-brand-soft. Keep the existing white/mint type pills and
-  search focus underline. Add no transition animation. Round the hero
-  with `--radius-lg` (20px). A decorative pseudo-element rounds the CSS background
-  at its existing image bounds without clipping the search and filter focus outlines.
-  Keep public `홈` and `모임 탐색` links on desktop and in the mobile drawer, before feedback.
-  `홈` opens `/` and is active only on `/`; `모임 탐색` opens `/groups`
+  Night title and subtitle use --color-surface; inline emphasis uses --color-brand.
+  Both hero actions share the same frosted-glass surface and type treatment, with local tokens
+  inherited from the existing data-time-of-day state. Day uses --color-brand-soft with
+  --color-brand-ink text; sunset uses --color-activity-session-soft with
+  --color-activity-session-ink text; night mixes --color-activity-study-ink at 70% with
+  --reference-hero-night-surface and uses --color-activity-study-soft text.
+  Name these tokens --reference-hero-action-surface and --reference-hero-action-ink.
+  Keep the glass mostly opaque: mix the action surface at 82% over a transparent backing,
+  increasing to 90% on hover and 94% when pressed. Apply a static 16px backdrop blur and
+  130% saturation only within the two buttons. A 160-degree white glaze fades from 24% to
+  4% at 60%; use one uniform --border-thin (1px) border at 48% white and a soft
+  0/4px/12px black shadow at 10%. Clip the glass background to the padding box and omit
+  inset edge highlights so the outline stays even. Use existing surface/nav and spacing tokens.
+  The local --reference-hero-action-glass-backing defaults to the opaque action surface;
+  supported backdrop filters switch it to transparent. Reduced transparency restores the
+  opaque backing and disables blur. Keep chair images and labels fully opaque.
+  Focus uses the action ink with the shared outline width and offset.
+  Keep background changes immediate. The hero fills the page width with square corners;
+  the existing main frame supplies its outer top rounding on tablet and desktop.
+  A decorative pseudo-element fills the hero bounds without clipping action focus outlines.
+  Use `홈`, `탐색`, `활동`, and `피드백` labels in desktop and mobile navigation.
+  `홈` opens `/` and is active only on `/`; `탐색` opens `/groups`
   and is active only on that route. Reuse the existing header link and active styles.
   Both links close the mobile drawer without triggering login; browse opens unfiltered.
-  Put search and type controls beneath the hero copy,
-  followed by TodaySessionsHero, recruitment, and archive sections. TodaySessionsHero keeps
+  Put two semantic CTA links beneath the hero copy, led by `자리찾기` opening
+  unfiltered `/groups`. Both actions inherit the shared --radius-pill capsule shape and use ui-button--lg
+  --button-height-lg minimum height and --text-body semibold label.
+  Use the generated transparent `jarihana-chairs-rainbow.png` beside the label: three
+  vivid red, green and blue chairs form a compact fan in the existing
+  rounded 3D style. Render the single bitmap at --space-12 (48px) wide
+  and --space-8 (32px) high, with object-fit contain and full opacity. Keep its original
+  vivid colors without CSS color filters; the compact group stays inside the button.
+  Use --space-1 block padding, --space-4 inline padding and --space-2 item gaps.
+  The group is decorative (aria-hidden and empty alt), inside the same navigation target.
+  `자리 만들기` opens `/groups/new` with the existing member guard, using the same
+  filled button treatment. Its decorative mark
+  uses the generated transparent `jarihana-chair-create.png`: one mint chair and a small
+  ivory three-dimensional plus sign beside its upper-right backrest, rendered together
+  as a single bitmap. Display it in a --space-8 (32px) square group. Do not overlay a separate SVG plus. Both action labels
+  remain the accessible names, with the image decorative and no separate badge surface.
+  Reuse ui-button shape and interaction states with local hero surface overrides.
+  Actions use --space-3 gaps and --space-6 top spacing;
+  wrap when needed. On mobile use compact content-width buttons side by side, with
+  --space-2 between buttons, --touch-target-lg (48px) minimum height, --text-label (14px)
+  semibold labels, --space-1 icon gaps and --space-3 inline padding. The browse chair fan is
+  --space-8 (32px) wide and --space-7 (28px) high; the create mark is 28px
+  square. Both labels fit on one row at 320px; allow wrapping for enlarged text.
+  Keep hero action shells stationary while each chair mark and label gently move up and
+  down by 3px over a 3.6s ease-in-out loop. Stagger each label by -0.45s after its mark
+  and offset the create action by -0.9s, creating a traveling vertical wave across the
+  four elements. Use local --reference-hero-motion-cycle and --reference-hero-motion-delay.
+  Keep the glass surface static, without rings or surface ripples.
+  Fine-pointer hover and keyboard focus lift the chair image by 1px and scale it to 1.08
+  over --duration-smooth while the vertical wave continues. Press scales the image to 0.96.
+  Pause decorative loops while the action row is offscreen
+  or the document is hidden; remove all motion with prefers-reduced-motion.
+  Preserve the shared focus outline and stable group_create/group_browse actions.
+  Keep the section order hero, TodaySessionsHero, recruitment, then archive. Move the existing
+  search and type controls to the recruitment section before its results. TodaySessionsHero keeps
   its live date, location prompt, rotating tickets and plan. The actual h2 section title is
   `오늘 같이해요`, matching the recruitment heading size and weight. Date/location are muted
   secondary metadata beside the title on desktop and wrap below on mobile.
-  Both auth states share the same title → subtitle → search layout and background.
-  Main title: 40–56px through the existing hero token, bold ink, 1.22 line height;
+  Both auth states share the same title → subtitle → actions layout and background.
+  Main title: desktop 40–48px at 3.125vw; tablet and mobile 28–32px at 3.5vw,
+  bold ink, 1.22 line height;
   keep the service title's original three lines and balance natural time-phrase wrapping.
-  Subtitle: --text-h2 desktop, --text-h3 mobile, semibold ink, 1.5 line height and --space-3
-  below the title. Preserve inline mint emphasis on the key phrase or the word 자리.
+  Subtitle: --text-h2 desktop; --text-hero-body (18px) below 1024px.
+  Use semibold ink, 1.5 line height and --space-3 below the title (--space-2 below 1024px).
+  Preserve inline mint emphasis on the key phrase or the word 자리.
   The active main title is the page's only h1 and labels the hero region. The home page
   owns the shared auth, campus and time state; login/logout swaps presentation only,
   without resetting the phrase variant, search, type filters or today's location control.
   Today's title/meta lead directly into its cards without repeating the headline.
-  Search reuses develop's groups-search__control and groups-search__submit:
+  Recruitment search reuses develop's groups-search__control and groups-search__submit:
   transparent surface, no side/top border or rounded frame, a strong bottom border, and
   brand-color focus underline. Search submit and type selection scroll to recruitment results
   with reduced-motion support so the intervening today section does not hide the outcome.
-  The full-width hero shares the following sections' left and right rails. Its background
-  fills the entire content-sized hero with a cover background, clipped only by its 20px radius.
-  At 1280px and wider use the original wide art; below 1280px use the generated square extended-sky
-  variants (`jarihana-hero-{day,sunset,night}-extended.png`) with bottom-right subject framing.
-  From 768px through 1279px, protect copy/search contrast with a soft horizontal surface-color veil
-  (85% at the left edge, 60% at 38%, transparent at 64%); night uses its dark hero surface.
-  Keep search placeholders in ink and underline in muted ink, with light equivalents at night
-  and the existing mint focus state. Desktop retains the original artwork without a veil.
+  At every viewport the hero starts directly below the header and fills the available page width,
+  without top or side gutters. The home page has no width cap or inline padding; subsequent
+  sections retain the shared shell (1400px on desktop) minus shared gutters, centered independently. Below 1024px use
+  clamp(16rem, calc(24svh + 4rem), 20rem) with 48px block padding instead of a 560px floor.
+  Keep the height content-driven when longer copy requires more room.
+  From 1024px, use a home-only minimum of max(clamp(27rem, calc(34svh + 4rem), 31rem), 28.125vw)
+  with 56px block padding. The width-based floor only grows the hero on ultra-wide screens,
+  keeping the 32:9 artwork's full vertical extent inside the visible background.
+  Both responsive ranges add 64px to the compact hero, including when its content determines height.
+  Keep the copy centered and preserve the following section's spacing.
+  Keep content vertically centered and allow natural expansion. Mobile removes the main frame's
+  top rounding and the sticky header's corner decorations, so its hero has square top corners.
+  Following sections retain their normal page gutters.
+  Use the regenerated 32:9 jarihana-hero-{day,sunset,night}-responsive.png artwork with
+  height-fit sizing (`background-size: auto 100%`). The three runtime hero images are whole-scene
+  generations cropped from native 2172×724 sources to the same 2144×603 center crop, without
+  resize, compositing or color adjustment. Keep the original day/sunset/night PNGs as references
+  only; the older square extended-sky variants and night-starry source are not runtime assets.
+  Align it center center at every breakpoint so narrow screens crop evenly from the sides.
+  Below 1024px, apply contrast only around title and subtitle glyphs using layered text shadows
+  with 4px, 8px and 16px blur at 90%, 85% and 70% opacity. Let the shadows follow natural
+  line wrapping; do not add a copy-container background or a rectangular backing around the actions.
+  Use --reference-hero-copy-surface (light for day/sunset, dark navy for night).
+  Clip this decorative backing at the hero boundary and keep it noninteractive.
+  Desktop keeps the original artwork without contrast backing.
+  Development builds only show compact preview selects at the hero's top right: one for
+  automatic, day, sunset and night, and one for the artwork set. The artwork set defaults to
+  the current responsive assets and can switch to the experimental `classic` set when the
+  matching day/sunset/night files are present. A separate nebula option shares the classic
+  day/sunset images and uses `jarihana-hero-night-nebula.png` only while the displayed period is
+  night. The dev-only refined option labeled `얼굴 보정 (낮·노을·밤)` uses
+  `jarihana-hero-{day,sunset,night}-refined.png` when present, preserving the same hero sizing
+  and center/auto-100% background behavior. These controls override only the hero theme or
+  background asset; live headlines, dates and session data keep their real-time behavior.
+  Automatic resumes the current Korean-time theme. The selections are local to the mounted hero
+  and reset on reload. Production builds have no selectors or theme override. Keep the controls
+  outside the copy flow so previewing preserves layout.
+  Recruitment search keeps its existing underline and mint focus state on the page canvas.
   Background bounds always equal the hero bounds; never reserve a separate mobile image row
-  or center a fixed-ratio strip inside a taller surface. Place left-aligned copy/search in the
-  image's quiet area (46% desktop, 50% tablet). Keep phrases intact where possible and
+  or center a fixed-ratio strip inside a taller surface. Place left-aligned copy/actions in the
+  image's quiet area (46% desktop, 60% below 1024px with a 24rem minimum capped at 100%, so
+  the two content-width buttons fit on one row at normal text size). Keep phrases intact where possible and
   allow long words to wrap within the available width without truncation.
-  On mobile, let the copy and block padding determine hero height; do not reserve extra height
-  for the scene. Frame the square artwork at bottom right with a width of max(100%, 36rem),
-  using --reference-hero-mobile-art-size, so the characters and planets sit behind the copy
-  and search instead of beneath them. Apply a horizontal surface veil (92% at the left edge,
-  75% at 45%, 25% at the right edge) for readable day and night controls.
-  Use --text-h1 for the mobile introduction, --space-5
-  inline padding, and --space-3 pill padding so all four controls fit at 375px. Tablet inset is
-  --space-8; desktop inset grows from --space-8 to --space-16 (4vw). The decorative scene has no separate image
+  Center the copy vertically and allow the hero to grow when longer text wraps. Mobile shares the tablet
+  copy width, min(100%, max(60%, 24rem)), and compact height and spacing.
+  The wide artwork fills the hero height with the responsive focal positions above. The localized
+  copy backing also applies on mobile; do not add a veil across the entire artwork.
+  Below 1024px use clamp(1.75rem, 3.5vw, 2rem) for the title (28–32px, 1.22 line height),
+  --space-2 between title and subtitle, and --space-4 above the actions. Align the title, subtitle
+  and actions with the following sections using the shared --page-gutter (16px mobile, 24px from 768px).
+  Beyond the 1440px --container-shell, include the centered shell's outer margin in the hero's
+  inline padding while keeping its background full width. Retain compact side-by-side actions at 320px.
+  The decorative scene has no separate image
   element or redundant accessibility name. Introduction, heading and controls remain real content.
-  The selected type pill uses --color-brand mint with --color-ink text, matching the common
+  The recruitment section's selected type pill uses --color-brand mint with --color-ink text, matching the common
   primary action palette; do not use the dark --color-brand-ink as its background. Use
-  --space-6 for control separation, --space-3 between search and pills, and --space-8 hero
-  block padding. Hero search width follows the copy column. Use the supplied and extended background assets
+  --space-6 for action separation from copy and --space-3 between wrapped rows on desktop.
+  Hero actions follow the copy column. Use the supplied background assets
   and actual API data.
 - Visitor task: find a currently recruiting group, filter by the actual supported group type,
   open its details, and browse ended groups separately. No invented tags, participants, dates,
   counts, or sample runtime data. Live API state remains authoritative.
 - Recruitment section: compact heading `지금 모집 중인 모임`, a labelled search field and type
   pills (`전체`, `같이해요`, `스터디`, `동아리`), then one large image-led featured card and three
-  small image-over-body cards per desktop row. Desktop grid = `2.4fr repeat(3, 1fr)`;
+  small image-over-body cards per desktop row. Their hover borders and keyboard focus rings
+  use the same type colors as browse cards (SESSION amber, STUDY blue, CLUB purple).
+  Keep borders at least 1 CSS px at compact desktop density and transition border color
+  over the shared base duration without changing card dimensions. Desktop grid = `2.4fr repeat(3, 1fr)`;
   tablet = two equal columns with a full-width featured card; mobile = one column.
   The representative home shows at most four recruitment cards and never expands in place.
   Browsing beyond the preview belongs to a separate list page, reached from a heading-right
@@ -649,18 +887,37 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
   Its heading, underline search and native type/status/recruiting selects use the same original
   discovery styles. The single all-type list keeps URL filters, loading/empty/error states and
   cursor pagination. Its title is `자리 둘러보기`; creation remains available from that page.
+  Below 64rem, the stacked search fills the same content width as the filters. The creation
+  button uses the header's chair image, `자리 만들기` label, small height, 1.5rem icon and 4px
+  icon gap while preserving its existing authentication flow and analytics action.
   Feature placement is the first API result, never labelled popular or recommended.
-- Cards use GroupImage with real images and current type defaults. The featured card has a
-  dark lower image scrim, white title, readable schedule and recruitment count. Small cards
-  use white surfaces, thin borders and 8px corners. Existing group_view click identifiers
+- Cards use GroupImage with real images and current type defaults. Like browse cards, place
+  the type badge above the title. Home featured/regular and browse type badges match archive
+  sizing through StatusBadge: --text-badge, --space-1/--space-2 padding, line-height 1.5 and 4px corners.
+  Keep schedule and participant metadata at the bottom,
+  with remaining seats aligned to the right of the participant row; allow wrapping on narrow cards.
+  Preserve the group-type colors for badges and remaining seats. The featured card follows the
+  same information order with its arrow after the remaining seats, a dark lower image scrim,
+  white title and readable metadata. Small cards use white surfaces and thin borders. Recruitment cards, archive cards and their loading
+  skeletons share --radius-lg (20px) corners with the existing today session tickets.
+  Existing group_view click identifiers
   and /groups/:id routes remain intact. No nested interactive elements.
-- Archive: heading `지난 모임 아카이브`; independently request status=ENDED. Four image-backed
-  horizontal cards on desktop, two on tablet, one on mobile, with a dark gradient, ENDED
-  label `종료`, name, actual schedule, member count. Independent cursor-based more action,
+- Archive: heading `지난 모임 아카이브`; independently request status=ENDED, size=4. Four image-backed
+  cards per row on desktop and two per row on tablet and mobile, with a dark gradient, ENDED
+  label `종료`, a compact type-colored badge, name and actual schedule. Omit member counts.
+  Reuse the shared type badge tones for SESSION/STUDY/CLUB. Keep a four-card preview on home.
+  On mobile, use a 12px grid gap and 12px side/bottom content padding, with 15px titles
+  and 12px type/schedule text. Reserve two line-heights for every title at all breakpoints,
+  including single-line titles, so type badges and schedules stay aligned. Keep the two-line
+  title limit and matching loading grid.
+  The heading's `전체 보기` text link with a small arrow opens `/groups?status=ENDED`,
+  where search, type filters and cursor pagination continue. Keep the title and link on
+  the same row on mobile, with the description below. Use action `archive_browse` for this
+  navigation instead of the retired `archive_load_more` action. Preserve independent
   empty, loading and retry states. Never describe merely recruitment-closed ACTIVE groups
   as ended groups.
 - Reuse semantic colors, typography, spacing and motion from sections 2 and 6. Local tokens:
-  `--reference-card-radius`=var(--radius-sm), `--reference-grid-gap`=var(--space-5),
+  `--reference-card-radius`=var(--radius-lg), `--reference-grid-gap`=var(--space-5),
   `--reference-feature-min-height`=22rem, `--reference-archive-min-height`=10rem,
   `--reference-feature-scrim`=linear-gradient(180deg, rgb(0 0 0 / 0%) 12%, rgb(0 0 0 / 82%) 100%),
   `--reference-archive-scrim`=linear-gradient(90deg, rgb(0 0 0 / 86%), rgb(0 0 0 / 28%)).

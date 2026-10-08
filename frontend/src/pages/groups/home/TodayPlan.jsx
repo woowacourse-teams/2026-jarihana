@@ -1,24 +1,38 @@
 import { participationLabel, timeRange } from "./TodaySessionTicket.jsx";
 
-export function TodayPlan({ activeIndex, groups }) {
+const DIAL_OVERSCAN = 4;
+
+export function TodayPlan({ activePosition, groups, onMouseEnter, onMouseLeave }) {
+  const radius = groups.length > 1 ? DIAL_OVERSCAN : 0;
+  const rows = groups.length
+    ? Array.from({ length: radius * 2 + 1 }, (_, index) => {
+        const offset = index - radius;
+        const position = activePosition + offset;
+        const groupIndex = ((position % groups.length) + groups.length) % groups.length;
+        return { group: groups[groupIndex], offset, position };
+      })
+    : [];
+
   return (
-    <aside className="today-plan" aria-label="오늘의 같이해요 일정">
+    <aside
+      className="today-plan"
+      aria-label="오늘의 같이해요 일정"
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
       <div className="today-plan__header">
-        <div>
-          <span>TODAY&apos;S PLAN</span>
-          <h2>오늘의 일정</h2>
-        </div>
+        <h2>오늘의 일정</h2>
       </div>
       <div className="today-plan__dial" aria-live="off">
         <ul className="today-plan__items">
-          {groups.map((group, index) => (
+          {rows.map(({ group, offset, position }) => (
             <li
-              aria-hidden={index !== activeIndex ? "true" : undefined}
+              aria-hidden={offset !== 0 ? "true" : undefined}
               className="today-plan__item"
-              key={group.id}
+              key={`${group.id}:${position}`}
               style={{
-                "--today-plan-row-distance": Math.abs(index - activeIndex),
-                "--today-plan-row-offset": index - activeIndex
+                "--today-plan-row-distance": Math.abs(offset),
+                "--today-plan-row-offset": offset
               }}
             >
               <span className="today-plan__time">

@@ -14,6 +14,7 @@ import { COURSE_LABELS, generationLabel } from "../pages/account/accountUtils";
 import { Avatar, Drawer, Modal, useToast } from "../shared/ui";
 import githubMark from "../shared/assets/brand/github-mark.svg";
 import logoMark from "../shared/assets/brand/jarihana-favicon.png";
+import createChairImage from "../shared/assets/brand/jarihana-chair-create.png";
 import { ProfileMenu } from "./ProfileMenu";
 
 const HOME_LINK = {
@@ -27,7 +28,7 @@ const HOME_LINK = {
 const EXPLORE_LINK = {
   action: "group_browse",
   isActive: (pathname) => pathname === "/groups",
-  label: "모임 탐색",
+  label: "탐색",
   requiresAuth: false,
   to: "/groups"
 };
@@ -35,7 +36,7 @@ const EXPLORE_LINK = {
 const ACTIVITY_LINK = {
   action: "browse_activity_posts",
   isActive: (pathname) => pathname === "/activities",
-  label: "활동 기록",
+  label: "활동",
   requiresAuth: false,
   to: "/activities"
 };
@@ -113,7 +114,7 @@ function FeedbackLink({ onClick, onNavigate, open, status }) {
       }}
       type="button"
     >
-      피드백 남기기
+      피드백
     </button>
   );
 }
@@ -182,6 +183,7 @@ export function AppHeader({ action = null, title = "" }) {
     ? "코치"
     : `${generationLabel(member?.generation)}${member?.course ? ` / ${COURSE_LABELS[member.course]}` : ""}`;
   const { hash, pathname, search } = useLocation();
+  const activeMenuIndex = DESKTOP_MEMBER_LINKS.findIndex((link) => link.isActive(pathname));
   const navigate = useNavigate();
   const { success } = useToast();
   const [isMenuOpen, setMenuOpen] = useState(false);
@@ -268,7 +270,12 @@ export function AppHeader({ action = null, title = "" }) {
             </Link>
           </div>
 
-          <nav aria-label="주요 메뉴" className="app-header__primary-nav">
+          <nav
+            aria-label="주요 메뉴"
+            className="app-header__primary-nav"
+            data-active={activeMenuIndex >= 0}
+            style={{ "--header-active-index": Math.max(0, activeMenuIndex) }}
+          >
             <HeaderLinks
               links={DESKTOP_MEMBER_LINKS}
               onNavigate={() => {}}
@@ -285,6 +292,27 @@ export function AppHeader({ action = null, title = "" }) {
           <div className="app-header__desktop-action">
             {title ? <span className="app-header__context">{title}</span> : null}
             {action}
+            <Link
+              className="app-header__auth app-header__create"
+              data-ph-capture-attribute-action="group_create"
+              onClick={(event) => {
+                if (status === "anonymous") {
+                  event.preventDefault();
+                  redirectToLogin("/groups/new");
+                }
+              }}
+              to="/groups/new"
+            >
+              <img
+                alt=""
+                aria-hidden="true"
+                className="app-header__create-chair"
+                height="24"
+                src={createChairImage}
+                width="24"
+              />
+              자리 만들기
+            </Link>
             {status === "authenticated" ? (
               <div className="notification-header-actions"><NotificationBell /><ProfileMenu /></div>
             ) : (

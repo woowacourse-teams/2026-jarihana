@@ -26,20 +26,31 @@ export function useGroups(filters = {}) {
   return useQuery({ queryKey: groupKeys.list(filters), queryFn: () => fetchGroups(filters) });
 }
 
-export function useInfiniteGroups(filters = {}) {
-  return useInfiniteQuery({
+export function infiniteGroupsQueryOptions(filters = {}) {
+  return {
     queryKey: groupKeys.list(filters),
     initialPageParam: null,
     queryFn: ({ pageParam }) => fetchGroups({ ...filters, cursor: pageParam }),
     getNextPageParam: getSafeNextCursor
-  });
+  };
+}
+
+export function useInfiniteGroups(filters = {}, options = {}) {
+  return useInfiniteQuery({ ...infiniteGroupsQueryOptions(filters), ...options });
+}
+
+export function groupQueryOptions(groupId) {
+  return {
+    queryKey: groupKeys.detail(groupId),
+    queryFn: () => fetchGroup(groupId),
+    enabled: Boolean(groupId)
+  };
 }
 
 export function useGroup(groupId) {
   return useQuery({
-    queryKey: groupKeys.detail(groupId),
-    queryFn: () => fetchGroup(groupId),
-    enabled: Boolean(groupId)
+    ...groupQueryOptions(groupId),
+    retryOnMount: false
   });
 }
 

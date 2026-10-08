@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
 import { storeReturnTarget, useAuth } from "../../features/auth/index.js";
 import { useInfiniteGroups } from "../../features/group/index.js";
+import { readGroupBrowseFilters } from "../../features/group/browseFilters.js";
+import createChairImage from "../../shared/assets/brand/jarihana-chair-create.png";
 import recruitmentEmptyIllustration from "../../shared/assets/illustrations/group-recruitment-empty.webp";
 import { Button, EmptyState, ErrorState, PageContainer, Skeleton } from "../../shared/ui/index.js";
 import { flattenPages, getLastPage, publicErrorCopy } from "./pageUtils.js";
@@ -17,8 +19,6 @@ const filters = [
   { label: "같이해요", value: "SESSION" }
 ];
 
-const groupTypes = new Set(filters.map((filter) => filter.value).filter(Boolean));
-
 function isGroupRecruiting(group) {
   const recruitment = group.activeRecruitment;
   return (
@@ -28,34 +28,16 @@ function isGroupRecruiting(group) {
   );
 }
 
-function readGroupType(searchParams) {
-  const type = searchParams.get("type") ?? "";
-  return groupTypes.has(type) ? type : "";
-}
-
 export function GroupBrowsePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { login, status } = useAuth();
-  const keyword = searchParams.get("keyword")?.trim() ?? "";
-  const type = readGroupType(searchParams);
-  const groupStatus = searchParams.get("status");
-  const statusFilter = groupStatus === "ENDED" ? "ENDED" : "ACTIVE";
-  const requestedRecruitmentFilter = statusFilter === "ENDED" ? "" : searchParams.get("recruiting");
-  const recruitmentFilter =
-    requestedRecruitmentFilter === "true" || requestedRecruitmentFilter === "false"
-      ? requestedRecruitmentFilter
-      : "";
-  const recruiting = recruitmentFilter === "" ? undefined : recruitmentFilter === "true";
+  const queryFilters = readGroupBrowseFilters(searchParams);
+  const { keyword = "", type = "", status: statusFilter, recruiting } = queryFilters;
+  const recruitmentFilter = recruiting === undefined ? "" : String(recruiting);
   const [searchDraft, setSearchDraft] = useState({ source: keyword, value: keyword });
   const searchValue = searchDraft.source === keyword ? searchDraft.value : keyword;
-  const query = useInfiniteGroups({
-    keyword: keyword || undefined,
-    type: type || undefined,
-    status: statusFilter || undefined,
-    recruiting,
-    size: 12
-  });
+  const query = useInfiniteGroups(queryFilters, { retryOnMount: false });
   const groups = flattenPages(query.data);
   const visibleGroups = groups.filter((group) => {
     if (recruitmentFilter === "true") return isGroupRecruiting(group);
@@ -65,17 +47,13 @@ export function GroupBrowsePage() {
   const lastPage = getLastPage(query.data);
   const errorCopy = publicErrorCopy(query.error, "모임 목록");
 
-  useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-  }, []);
-
   function updateQuery(next) {
     const params = new URLSearchParams(searchParams);
     Object.entries(next).forEach(([key, value]) => {
       if (value) params.set(key, value);
       else params.delete(key);
     });
-    setSearchParams(params, { replace: true });
+    setSearchParams(params, { replace: true, preventScrollReset: true });
   }
 
   function submitSearch(event) {
@@ -119,10 +97,8 @@ export function GroupBrowsePage() {
               onClick={handleCreateGroup}
               size="sm"
             >
-              모임 만들기
-              <svg aria-hidden="true" viewBox="0 0 24 24">
-                <path d="m9 6 6 6-6 6" />
-              </svg>
+              <img alt="" aria-hidden="true" height="24" src={createChairImage} width="24" />
+              자리 만들기
             </Button>
           </div>
         </div>

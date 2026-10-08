@@ -1,5 +1,5 @@
 .archive-section {
-  --reference-card-radius: var(--radius-sm);
+  --reference-card-radius: var(--radius-lg);
   --reference-grid-gap: var(--space-5);
   --reference-archive-min-height: 10rem;
   --reference-archive-scrim: linear-gradient(
@@ -12,10 +12,10 @@
 }
 
 .archive-section__heading {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: var(--space-5);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
   margin-block-end: var(--space-6);
 }
 
@@ -26,7 +26,8 @@
 }
 
 .archive-section__heading p {
-  margin: var(--space-2) 0 0;
+  grid-column: 1 / -1;
+  margin: 0;
   color: var(--color-muted-ink);
   font-size: var(--text-body);
 }
@@ -85,19 +86,6 @@
   background: var(--reference-archive-scrim);
 }
 
-.archive-card__badge {
-  position: absolute;
-  top: var(--space-3);
-  left: var(--space-3);
-  padding: calc(var(--space-1) / 2) var(--space-2);
-  border-radius: var(--space-1);
-  background: var(--color-nav);
-  color: var(--color-surface);
-  font-size: var(--text-badge);
-  font-weight: var(--font-weight-bold);
-  line-height: 1;
-}
-
 .archive-card__content {
   display: flex;
   min-width: 0;
@@ -107,7 +95,6 @@
   padding: var(--space-12) var(--space-4) var(--space-4);
 }
 
-.archive-card__type,
 .archive-card__meta {
   color: color-mix(in srgb, var(--color-surface) 82%, transparent);
   font-size: var(--text-caption);
@@ -116,6 +103,7 @@
 
 .archive-card h3 {
   display: -webkit-box;
+  min-block-size: 2lh;
   margin: 0;
   overflow: hidden;
   color: var(--color-surface);
@@ -141,11 +129,6 @@
 }
 
 @media (max-width: 63.9375rem) {
-  .archive-section__heading {
-    align-items: start;
-    flex-direction: column;
-  }
-
   .archive-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -153,6 +136,8 @@
 
 @media (max-width: 47.9375rem) {
   .archive-section {
+    --reference-grid-gap: var(--space-3);
+
     padding-block: var(--space-6) var(--space-10);
   }
 
@@ -164,8 +149,17 @@
     font-size: var(--text-caption);
   }
 
-  .archive-grid {
-    grid-template-columns: 1fr;
+  .archive-card__content {
+    padding-inline: var(--space-3);
+    padding-block-end: var(--space-3);
+  }
+
+  .archive-card h3 {
+    font-size: var(--text-body);
+  }
+
+  .archive-card__meta {
+    font-size: var(--text-badge);
   }
 }
 

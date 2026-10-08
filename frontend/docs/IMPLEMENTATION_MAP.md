@@ -53,6 +53,8 @@ frontend/
 header 구현으로 확대하지 않았다.
 
 - `AppShell`은 하나의 navigation/auth state와 skip link/main landmark를 모든 route에 적용한다.
+- 공통 main은 밝은 surface와 `--app-body-radius`(태블릿·데스크톱 16px, 모바일 14px)를 사용해 검은 header/footer와 맞닿는 네 모서리를 통일한다.
+  바깥 shell은 검은 배경이며 `overflow: clip`은 본문 경계만 자르고 문서 스크롤과 sticky 배치를 유지한다.
 - 360–767px에서는 full-bleed header + drawer를 사용해 44px 이상 touch target을 확보한다.
 - 768px 이상에서도 검은 header 배경은 viewport 전체 폭을 채우고, 내부 navigation만 1360px shell에
   맞춰 중앙 정렬한다.
@@ -84,9 +86,21 @@ header 구현으로 확대하지 않았다.
 
 ### Visual pattern mapping
 
+로컬 개발 서버(`NODE_ENV=development`)에서는 홈 히어로 오른쪽 위의 `개발 · 시간대` 선택기로
+확장형 `jarihana-hero-{day,sunset,night}-responsive.png`의
+자동·낮·노을·밤 배경을 미리 볼 수 있다. 함께 표시되는 `히어로 이미지 버전` 선택기는
+기본 `현재 버전`, 실험용 `보정 세트 (낮·노을·밤)`, 밤 성운 비교용 `성운 강조 (밤 전용)`,
+얼굴 참조를 반영한 `얼굴 보정 (낮·노을·밤)` 세트를 비교한다. 실험용 세트는
+`jarihana-hero-{day,sunset,night}-classic.png`, `jarihana-hero-night-nebula.png`,
+`jarihana-hero-{day,sunset,night}-refined.png` 파일이 있을 때 개발 모드에서만 CSS 변수로
+덮어쓴다. 성운 강조는 낮·노을에서 원본 구도 보정 세트를 공유하고, 밤에서만 성운 강조 이미지를 쓴다.
+`ExploreHero.jsx`의 로컬 상태로 테마와 이미지 세트만 전환하며,
+실제 시각·헤드라인·오늘 일정은 바꾸지 않는다. 자동 선택 시 현재 시간의 테마를 사용한다.
+새로고침하면 자동으로 초기화하고 production 빌드에는 제어 UI와 수동 테마 적용을 제외한다.
+
 | 화면군         | Figma에서 유지한 정보 계층                      | 구현상 통일/반응형 결정                                                                                                  |
 | -------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| 공개 탐색      | 오늘 SESSION hero → 같이해요 → 스터디·동아리 탐색 | 공통 shell 1440px, gutter 32/24/16px. 탐색 카드는 desktop 4열, tablet 3열, mobile 1열 activity row. SESSION은 한 행으로 시작하고 더 보기로 펼친다. hero 카드와 TODAY’S PLAN은 같은 선택 상태를 공유 |
+| 공개 탐색      | 오늘 SESSION hero → 같이해요 → 스터디·동아리 탐색 | 홈 첫 hero는 모든 화면에서 header 바로 아래에 상단·좌우 여백 없이 전체 폭으로 표시한다. 이후 section은 공통 shell 1440px, desktop/tablet gutter 24px, mobile 16px을 유지한다. 탐색 카드는 desktop 4열, tablet 3열, mobile 1열 activity row. SESSION은 한 행으로 시작하고 더 보기로 펼친다. hero 카드와 TODAY’S PLAN은 같은 선택 상태를 공유 |
 | 사진 활동 기록 | 그룹 이름·활동 날짜가 있는 폴라로이드 카드 | 전체 탐색과 그룹 상세 탭에서 같은 보드를 재사용; 이미지 비율을 유지하고 카드 높이를 측정해 가장 짧은 열에 배치하는 Masonry, 동률은 왼쪽 우선, 모바일 1열, 최신순 DOM 순서 보존 |
 | 그룹 상세/모집 | profile banner, 모임 정보(방식·일정·장소·참여자), content tabs, 참여 CTA | desktop content + sticky recruitment rail, 1024px 미만 rail을 본문 뒤로 이동                                             |
 | 계정           | profile illustration, activity count, 요약 카드 | desktop profile/content split, tablet/mobile은 순서 보존 single column; `?role=LEADER` deep link로 운영 모임 filter 유지 |
@@ -271,7 +285,9 @@ header 구현으로 확대하지 않았다.
 - 모집 목록: `status=ACTIVE`, `recruiting=true`, `size=12`; 검색 `homeKeyword`와 유형
   `homeType`(`SESSION|STUDY|CLUB`)을 URL에 저장하고 실제 API의 `keyword`, `type`으로 전달한다.
 - 모집 카드는 처음 4개를 보여 주고, 더 보기는 로드된 나머지를 먼저 펼친 다음 서버 cursor를 요청한다.
-- 아카이브: 독립 쿼리 `status=ENDED`, `size=8`. 모집 마감과 모임 종료를 구분한다.
+- 아카이브: 독립 쿼리 `status=ENDED`, `size=4`로 최대 4개를 미리 보여 준다. `전체 보기`는
+  `/groups?status=ENDED`로 이동해 종료된 모임 전체를 검색·필터링·페이지 조회한다.
+  모집 마감과 모임 종료를 구분한다.
 - 소개 히어로 아래 오늘 같이해요는 기존 날짜·위치 동의·티켓·오늘의 일정 동작을 유지한다.
 - 검색은 develop의 밑줄형 공통 스타일을 재사용한다. 검색·유형 선택 후 모집 결과로 이동한다.
 - 실제 서버 연결과 검증 경계: [비교안 실행 안내](home-reference-comparison.md).
@@ -285,5 +301,17 @@ header 구현으로 확대하지 않았다.
 
 별도 공개 조회 화면 `GroupBrowsePage`는 `/groups`에서 develop의 검색·유형/상태/모집 필터와
 size=12 커서 목록을 재사용한다. `/groups/explore`는 검색 조건과 해시를 보존해 `/groups`로
-replace 이동한다. 헤더의 홈과 브랜드 링크는 `/`, 모임 탐색 링크는 `/groups`로 이동하며
+replace 이동한다. 헤더의 홈과 브랜드 링크는 `/`, 탐색 링크는 `/groups`로 이동하며
 각 경로에서 해당 메뉴만 활성화한다. `/groups/:groupId`는 개별 모임 상세 경로로 유지한다.
+
+
+### 홈·탐색 카드 → 상세 전환
+
+- `app/AppRouter.jsx`는 QueryClient별 data router를 유지하며 `app/routeLoaders.js`가 탐색 첫 페이지와 상세 query를 미리 준비한다.
+  탐색 loader와 화면은 `features/group/browseFilters.js`의 URL 정규화와 `infiniteGroupsQueryOptions`의 캐시 키를 공유한다.
+  목록 캐시가 있으면 기존 커서 페이지를 바로 사용하며 검색·필터 변경은 loader 대기 없이 화면 query가 처리한다.
+- `pages/groups/GroupTransition.jsx`의 `GroupDetailLink`는 출발 history key·카드 종류·모임 ID로 클릭한 카드 하나를 선택한다.
+  포인터 진입·키보드 포커스·터치 시작 시 해당 모임 상세 query를 미리 가져온다.
+  `group-transition.css`는 대표 이미지와 상세 hero를 native View Transition으로 연결한다.
+- `GroupDetailPage`의 목록 링크와 `ScrollRestoration`이 필터·스크롤을 복원한다. 상세 내부 탭은 origin state를 유지한다.
+  `TodaySessionsHero`는 history에 보관한 캐러셀 index로 초기 배치한다. 수정키 클릭은 기존 브라우저 동작을 유지한다.

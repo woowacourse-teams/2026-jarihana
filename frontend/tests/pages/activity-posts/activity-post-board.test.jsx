@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { useSearchParams } from "react-router";
 
 import { useAuth } from "../../../src/features/auth/index.js";
 import { useInfiniteActivityPosts } from "../../../src/features/activity-post/hooks.js";
@@ -18,8 +19,8 @@ jest.mock("react-router", () => ({
     </a>
   ),
   useNavigate: () => jest.fn(),
-  useSearchParams: () => [new URLSearchParams(), jest.fn()]
-}), { virtual: true });
+  useSearchParams: jest.fn()
+}));
 
 jest.mock("../../../src/features/activity-post/hooks.js", () => ({
   useCreateActivityPost: () => ({ mutateAsync: jest.fn(), isPending: false }),
@@ -52,6 +53,7 @@ const posts = [
 ];
 
 let restorePhotoWallMeasurements;
+const originalMatchMedia = window.matchMedia;
 
 function createBoardTree(client) {
   return (
@@ -160,6 +162,7 @@ function mockPhotoWallMeasurements() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  useSearchParams.mockReturnValue([new URLSearchParams(), jest.fn()]);
   useAuth.mockReturnValue({ isAuthenticated: false, login: jest.fn(), status: "anonymous" });
   useInfiniteActivityPosts.mockReturnValue({
     data: { pages: [{ hasNext: false, items: posts, nextCursor: null }] },
@@ -173,6 +176,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  Object.defineProperty(window, "matchMedia", { configurable: true, value: originalMatchMedia });
   restorePhotoWallMeasurements?.restore();
   restorePhotoWallMeasurements = null;
   jest.clearAllTimers();
@@ -200,10 +204,12 @@ it("keeps browsing public to visitors who are not signed in", () => {
 
   expect(screen.getByRole("heading", { name: "활동 기록" })).toBeVisible();
   const toolbar = screen.getByRole("tablist", { name: "활동 기록 범위" }).parentElement;
-  expect(within(toolbar).getByRole("button", { name: "로그인하고 기록 남기기" })).toBeVisible();
   const pageHeader = screen.getByRole("heading", { name: "활동 기록" }).closest(".ui-page-header");
-  expect(within(pageHeader).queryByRole("button", { name: "로그인하고 기록 남기기" })).not.toBeInTheDocument();
-  expect(screen.getAllByRole("button", { name: "로그인하고 기록 남기기" })).toHaveLength(1);
+  const createButton = within(toolbar).getByRole("button", { name: "활동 올리기" });
+  expect(createButton).toBeVisible();
+  expect(createButton).toHaveAttribute("data-ph-capture-attribute-action", "activity_post_login_to_create");
+  expect(within(pageHeader).queryByRole("button", { name: "활동 올리기" })).not.toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: "활동 올리기" })).toHaveLength(1);
   const filters = screen.getByRole("tablist", { name: "활동 기록 범위" });
   expect(filters).toHaveAttribute("data-active", "all");
   expect(filters.querySelector(".activity-post-filters__indicator")).toHaveAttribute("aria-hidden", "true");
@@ -249,7 +255,7 @@ it("keeps the current photo wall visible while the selected feed loads", () => {
   expect(screen.queryByText("모든 활동 기록을 확인했어요.")).not.toBeInTheDocument();
 });
 
-it("keeps the create button at the end of the toolbar while the feed refreshes", () => {
+it("keeps one create action with the filters while the feed refreshes", () => {
   useAuth.mockReturnValue({
     isAuthenticated: true,
     login: jest.fn(),
@@ -259,14 +265,13 @@ it("keeps the create button at the end of the toolbar while the feed refreshes",
   mockActivityPosts(posts, { isFetching: true, isPlaceholderData: true });
   renderBoard();
 
-  const toolbarEnd = screen
-    .getByRole("tablist", { name: "활동 기록 범위" })
-    .parentElement.querySelector(".activity-post-board__toolbar-end");
+  const toolbar = screen.getByRole("tablist", { name: "활동 기록 범위" }).parentElement;
   const refreshStatus = screen.getByText("활동 기록을 불러오는 중…");
-  const createButton = within(toolbarEnd).getByRole("button", { name: "기록 남기기" });
+  const createButton = within(toolbar).getByRole("button", { name: "활동 올리기" });
 
-  expect(toolbarEnd.firstElementChild).toBe(refreshStatus);
-  expect(toolbarEnd.lastElementChild).toBe(createButton);
+  expect(toolbar).toContainElement(refreshStatus);
+  expect(screen.getAllByRole("button", { name: "활동 올리기" })).toHaveLength(1);
+  expect(createButton).toHaveAttribute("data-ph-capture-attribute-action", "activity_post_create_start");
   expect(createButton).toBeVisible();
 });
 
@@ -278,6 +283,46 @@ it("starts login when a visitor selects the personal-record filter", () => {
   fireEvent.click(screen.getByRole("tab", { name: "내가 쓴 기록" }));
 
   expect(login).toHaveBeenCalledTimes(1);
+});
+
+it("animates a ready filter change without remounting the existing photo wall", () => {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: () => ({ matches: true })
+  });
+  const view = renderBoard();
+  const wall = screen.getByLabelText("활동 사진 게시판");
+  const cancel = jest.fn();
+  const animate = jest.fn(() => ({ cancel }));
+  wall.parentElement.animate = animate;
+
+  useSearchParams.mockReturnValue([new URLSearchParams("mine=true"), jest.fn()]);
+  mockActivityPosts(posts, { isFetching: true, isPlaceholderData: true });
+  view.rerender(createBoardTree(view.queryClient));
+  expect(screen.getByLabelText("활동 사진 게시판")).toBe(wall);
+  expect(animate).not.toHaveBeenCalled();
+
+  view.rerender(createBoardTree(view.queryClient));
+  expect(screen.getByLabelText("활동 사진 게시판")).toBe(wall);
+  expect(animate).toHaveBeenCalledTimes(1);
+
+  mockActivityPosts(posts, { isFetchingNextPage: true });
+  view.rerender(createBoardTree(view.queryClient));
+  expect(animate).toHaveBeenCalledTimes(1);
+  view.unmount();
+  expect(cancel).toHaveBeenCalledTimes(1);
+});
+
+it("keeps filter changes immediate when motion is reduced", () => {
+  const view = renderBoard();
+  const content = screen.getByLabelText("활동 사진 게시판").parentElement;
+  content.animate = jest.fn();
+  useSearchParams.mockReturnValue([new URLSearchParams("mine=true"), jest.fn()]);
+
+  view.rerender(createBoardTree(view.queryClient));
+
+  expect(screen.getByRole("tab", { name: "내가 쓴 기록" })).toHaveAttribute("aria-selected", "true");
+  expect(content.animate).not.toHaveBeenCalled();
 });
 
 it("does not open management actions when the viewer cannot modify the post", () => {
