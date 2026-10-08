@@ -52,7 +52,7 @@ function NotificationRow({ item, onDeleted, onBusy, onFocusNext, onOpenNotificat
     </li>
   );
 }
-export function NotificationInbox({ headingLevel = 3, onOpenNotification }) {
+export function NotificationInbox({ headingLevel = 3, onOpenNotification, onOpenPwaGuide }) {
   const Heading = `h${headingLevel}`;
   const client = useQueryClient();
   const scope = useNotificationScope();
@@ -78,7 +78,7 @@ export function NotificationInbox({ headingLevel = 3, onOpenNotification }) {
   };
   return (
     <div className="notification-inbox">
-      <PushSettings headingLevel={headingLevel} />
+      <PushSettings headingLevel={headingLevel} onOpenPwaGuide={onOpenPwaGuide} />
       <div className="notification-inbox__toolbar">
         <Heading ref={heading} tabIndex={-1}>받은 알림</Heading>
         <Button data-ph-capture-attribute-action="notification_read_all" disabled={busyRows > 0 || !count.data?.unreadCount}
@@ -111,18 +111,22 @@ export function NotificationBellTrigger({ open = false, onClick }) {
       </button>
   );
 }
-export function NotificationDrawer({ open, onOpenChange, onOpenNotification = () => onOpenChange(false) }) {
+export function NotificationDrawer({ open, onOpenChange, onOpenNotification = () => onOpenChange(false), onOpenPwaGuide }) {
   const { key } = useNotificationScope();
   return <Drawer closeAction="notification_inbox_close" onOpenChange={onOpenChange} open={open} title="알림함">
-    <NotificationInbox key={key.join(":")} onOpenNotification={onOpenNotification} />
+    <NotificationInbox key={key.join(":")} onOpenNotification={onOpenNotification} onOpenPwaGuide={onOpenPwaGuide} />
   </Drawer>;
 }
-export function NotificationBell() {
+export function NotificationBell({ onOpenPwaGuide }) {
   const [open, setOpen] = useState(false);
+  function handleOpenPwaGuide() {
+    setOpen(false);
+    window.requestAnimationFrame(() => onOpenPwaGuide?.());
+  }
   return (
     <>
       <NotificationBellTrigger open={open} onClick={() => setOpen(true)} />
-      <NotificationDrawer open={open} onOpenChange={setOpen} />
+      <NotificationDrawer open={open} onOpenChange={setOpen} onOpenPwaGuide={handleOpenPwaGuide} />
     </>
   );
 }

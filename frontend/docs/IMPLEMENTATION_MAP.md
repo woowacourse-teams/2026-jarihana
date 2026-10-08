@@ -113,11 +113,14 @@ header 구현으로 확대하지 않았다.
   GET `/notifications/{id}`로 본인·target을 확인한 뒤 PATCH read와 내부 경로 이동을 수행한다.
 - 알림함과 푸시 클릭은 `/notifications/open/:id`를 공유한다. 새 신청은 `/groups/:groupId/manage/registrations`, 새 참여는 `/groups/:groupId/manage/members`, 승인은 `/my?focusGroup=:groupId`, 모든 미승인은 `/my?registrationStatus=REJECTED&focusRegistration=:registrationId`로 이동한다. 관리 화면은 현재 모임장 여부를 확인한다. 관리 대상 조회 403/404는 읽음 처리 없이 안내한다. 승인·미승인은 읽음 처리 후 목록 캐시를 갱신하고 마이페이지로 이동한다. 해당 유형/미승인 탭을 선택하고 다음 페이지도 조회하여 정확한 카드에 스크롤·키보드 focus·3초 강조를 적용한다. 대상이 없으면 안내하며 reduced-motion에서는 즉시 스크롤한다. 이전 백엔드의 승인 알림 `GROUP_DETAIL` 응답도 프론트 API 경계에서 `MY_GROUPS`로 변환해 같은 카드 강조 경로를 사용한다. 알림함 본문에는 현재 모임 이름과 사건 내용을 표시한다.
 - 이 브라우저 push setting은 명시적 동작에 따른 권한 요청/등록/해제. iPhone·iPad의 일반 브라우저는 홈 화면 설치 안내를 표시한다. 설치 이벤트를 제공하는 브라우저는 설치 버튼을 표시한다.
+- 홈(`/`)에 진입하면 모바일에서 PWA 설치·알림 설정 가이드를 모달로 자동 표시한다. iOS는 실제 화면 이미지로 구성된 5단계 안내를 제공하고, Android는 단계 없이 `준비중입니다`를 표시한다. `7일간 보지 않기`는 만료 시각을 브라우저 localStorage에 저장한다. 로그인한 계정에 `GET /api/push-subscriptions` 기준 `enabled=true`인 활성 구독이 있으면 자동 표시하지 않으며, 계정·구독 확인이 실패한 경우에도 팝업을 보류한다. 닫기만 한 경우 홈에 다시 진입하면 다시 표시할 수 있다. 푸터와 알림함의 `설치 안내 보기`에서 수동으로 다시 열 수 있다. 이미지는 `public/images/ios-pwa-guide/`에 둔다.
 - SW의 IndexedDB에 현재 브라우저의 회원 ID·구독 id·generation·armed·revision을 보관한다. endpoint·암호화 키·알림 본문·로그인 토큰은 보관하지 않는다. 서버는 회원 소유권·활성 상태·generation을 확인한다.
 - SW는 푸시의 구독 id·generation을 조회 전과 응답 후에 다시 확인한다. private 응답 no-store·일반 안내 fallback.
 - logout 전 local disarm 완료 확인 후 `{pushSubscriptionId,generation}`을 전송한다. 계정 전환·logout 뒤 이전 응답의 표시·캐시 반영을 막는다.
 - 새 동작에 고정 action 지정: notification_inbox_open, notification_open, notification_read_all,
-  notification_delete, push_permission_request, push_enable, push_disable, pwa_install_prompt.
+  notification_delete, push_permission_request, push_enable, push_disable, pwa_install_prompt,
+  pwa_guide_reopen, pwa_guide_dismiss, pwa_guide_platform_ios, pwa_guide_platform_android,
+  pwa_guide_previous, pwa_guide_next, pwa_guide_complete, pwa_guide_hide_seven_days_toggle.
 - UI 상태: loading/empty/error/retry, page error, mutation pending, 마지막 행 삭제, 새 소식·계정 변경.
 
 ### 현재 구현된 API 계약
