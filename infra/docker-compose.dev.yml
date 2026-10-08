@@ -2,7 +2,7 @@ name: jarihana-dev
 
 services:
   backend:
-    image: "ghcr.io/woowacourse-teams/jarihana-backend-dev:${BACKEND_TAG:?BACKEND_TAG is required}"
+    image: "ghcr.io/woowacourse-teams/jarihana-backend:${BACKEND_TAG:?BACKEND_TAG is required}"
     environment:
       SPRING_PROFILES_ACTIVE: dev
       PUSH_ENABLED: "${PUSH_ENABLED:-false}"
