@@ -78,6 +78,35 @@ test("PWA files have correct MIME; missing SW files do not return the SPA shell"
   expect((await request.get("/missing-sw.js")).status()).toBe(404);
 });
 
+test("new group inbox notification opens the created group and excludes its creator", async ({ browser }) => {
+  test.skip(process.env.WEB_PUSH_REAL_PROVIDER === "1", "Synthetic subscription requires the worker to be disabled.");
+  const creator = await browser.newContext({ baseURL: origin });
+  const recipient = await browser.newContext({ baseURL: origin });
+  let subscription;
+  try {
+    await authenticate(creator, "leader"); await authenticate(recipient, "applicant");
+    const config = (await (await recipient.request.get("/api/push-config")).json()).data;
+    subscription = await mutation(recipient, "POST", "push-subscriptions", {
+      endpoint: "https://fcm.googleapis.com/new-group-isolated-test",
+      keys: { p256dh: config.vapidPublicKey, auth: Buffer.alloc(16).toString("base64url") }
+    });
+    const name = `새 모임 알림 ${Date.now()}`;
+    const group = await mutation(creator, "POST", "groups", { type: "STUDY", name,
+      introduction: "새 모임 상세 이동 검증", meetingType: "FLEXIBLE" });
+    const page = await recipient.newPage(); await openInbox(page);
+    const row = page.getByRole("listitem").filter({ hasText: `‘${name}’ 모임이 새로 등록되었습니다.` });
+    await expect(row).toBeVisible();
+    await row.getByRole("link").click();
+    await expect(page).toHaveURL(`${origin}/groups/${group.id}`);
+    await expect(page.getByRole("dialog", { name: "알림함" })).toHaveCount(0);
+    const own = (await (await creator.request.get("/api/notifications?size=100")).json()).data.items;
+    expect(own.some((item) => item.eventType === "GROUP_CREATED" && item.target.groupId === group.id)).toBe(false);
+  } finally {
+    if (subscription) await mutation(recipient, "DELETE", `push-subscriptions/${subscription.id}`);
+    await creator.close(); await recipient.close();
+  }
+});
+
 test("real Chrome receives an external provider push and current-browser logout disconnects it", async () => {
   test.skip(process.env.WEB_PUSH_REAL_PROVIDER !== "1", "Explicit real-provider run required.");
   test.setTimeout(150_000);
@@ -99,8 +128,23 @@ test("real Chrome receives an external provider push and current-browser logout 
     await expect.poll(() => page.evaluate(async (id) => {
       const registration = await navigator.serviceWorker.getRegistration("/");
       const notices = await registration.getNotifications({ tag: `jarihana:${id}` });
-      return notices.some((notice) => notice.data?.notificationId === id && notice.title === "새 신청");
+      return notices.some((notice) => notice.data?.notificationId === id && notice.title === "자리하나?");
     }, notification.id), { timeout: 60_000 }).toBe(true);
+    const newGroup = await mutation(flow.applicant, "POST", "groups", { type: "STUDY",
+      name: `새 모임 푸시 검증 ${Date.now()}`, introduction: "구독자에게 새 모임을 알립니다", meetingType: "FLEXIBLE" });
+    const recipientInbox = (await (await context.request.get("/api/notifications?size=100")).json()).data.items;
+    const created = recipientInbox.find((item) => item.eventType === "GROUP_CREATED" && item.target.groupId === newGroup.id);
+    expect(created.target).toEqual({ kind: "GROUP_DETAIL", groupId: newGroup.id });
+    const creatorInbox = (await (await flow.applicant.request.get("/api/notifications?size=100")).json()).data.items;
+    expect(creatorInbox.some((item) => item.eventType === "GROUP_CREATED" && item.target.groupId === newGroup.id)).toBe(false);
+    await expect.poll(() => page.evaluate(async (id) => {
+      const registration = await navigator.serviceWorker.getRegistration("/");
+      const notices = await registration.getNotifications({ tag: `jarihana:${id}` });
+      return notices.some((notice) => notice.title === "자리하나?" && notice.body === "새로운 모임이 등록되었어요.");
+    }, created.id), { timeout: 60_000 }).toBe(true);
+    await page.goto(`${origin}/notifications/open/${created.id}`);
+    await expect(page).toHaveURL(`${origin}/groups/${newGroup.id}`);
+    await openInbox(page);
     await page.getByRole("dialog", { name: "알림함" }).getByRole("button", { name: "닫기", exact: true }).click();
     await page.getByRole("button", { name: "프로필 메뉴" }).click();
     await page.getByRole("button", { name: "로그아웃", exact: true }).click();

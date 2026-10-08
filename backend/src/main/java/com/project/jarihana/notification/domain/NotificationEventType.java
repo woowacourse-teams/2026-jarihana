@@ -1,6 +1,7 @@
 package com.project.jarihana.notification.domain;
 
 public enum NotificationEventType {
+    GROUP_CREATED,
     REGISTRATION_SUBMITTED,
     PARTICIPANT_JOINED,
     REGISTRATION_APPROVED,

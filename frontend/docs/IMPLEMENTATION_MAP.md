@@ -101,6 +101,8 @@ header 구현으로 확대하지 않았다.
 
 ### 웹푸시·알림함 구현
 
+새 모임 등록(`GROUP_CREATED`)은 알림함과 푸시 클릭 모두 `/groups/:groupId`로 이동한다. 이 사건의 target은 `kind: GROUP_DETAIL`, `groupId`만 가지며 모집·신청 식별자는 없다. 생성 당시 활성 푸시 구독 회원 중 생성자를 제외하고 알림함에 한 건씩 남긴다. SW 표시 제목은 `자리하나?`, 본문은 `새로운 모임이 등록되었어요.`다.
+
 알림함은 헤더의 종 버튼이 여는 Drawer로 제공하며 독립된 `/notifications` 페이지는 없다.
 [백엔드 ADR 0015](../../backend/docs/adr/0015-web-push-and-notification-inbox.md)와
 [알림 API](../../backend/docs/context/api/endpoints/notifications.md)를 함께 따른다.

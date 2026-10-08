@@ -67,7 +67,7 @@ try {
     cwd: path.join(root, "backend"), stdio: ["ignore", backendLog, backendLog],
     env: { ...environment, SPRING_PROFILES_ACTIVE: "local", DB_URL: "jdbc:postgresql://127.0.0.1:55436/jarihana_push_test",
       DB_USERNAME: "push_test", DB_PASSWORD: "push-test-local-only", ACCESS_TOKEN_SECRET: secret,
-      FRONTEND_ORIGIN: "http://127.0.0.1:4176", PUSH_ENABLED: "true", PUSH_WORKER_ENABLED: "true",
+      FRONTEND_ORIGIN: "http://127.0.0.1:4176", PUSH_ENABLED: "true", PUSH_WORKER_ENABLED: realProvider ? "true" : "false",
       PUSH_VAPID_PUBLIC_KEY: key.getPublicKey().toString("base64url"), PUSH_VAPID_PRIVATE_KEY: key.getPrivateKey().toString("base64url"),
       PUSH_VAPID_SUBJECT: "mailto:local-push@example.test", GITHUB_OAUTH_CLIENT_ID: "local-test",
       GITHUB_OAUTH_CLIENT_SECRET: "local-test", GITHUB_OAUTH_REDIRECT_URI: "http://127.0.0.1:8086/api/oauth/github/callback" }

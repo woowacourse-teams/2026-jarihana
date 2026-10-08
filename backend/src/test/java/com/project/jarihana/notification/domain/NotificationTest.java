@@ -99,4 +99,25 @@ class NotificationTest {
                 "registration:3:approved", NotificationEventType.REGISTRATION_APPROVED,
                 NotificationPayload.of(1, 2, 3, null), NOW);
     }
+
+    @Test
+    @DisplayName("모임 등록 알림만 모집과 신청 없이 모임 식별자만 저장한다.")
+    void groupCreatedPayloadContainsOnlyGroup() {
+        // Given
+        Member member = Member.create("우주", 8, "123", Course.BACKEND);
+        NotificationPayload group = NotificationPayload.forGroup(1);
+
+        // When
+        Notification created = Notification.create(member, "group:1:created", NotificationEventType.GROUP_CREATED, group, NOW);
+
+        // Then
+        assertThat(created.getPayload().getGroupId()).isEqualTo(1);
+        assertThat(created.getPayload().getRegistrationId()).isNull();
+        assertThatThrownBy(() -> Notification.create(member, "registration:1:approved",
+                NotificationEventType.REGISTRATION_APPROVED, group, NOW)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> Notification.create(member, "group:1:created", NotificationEventType.GROUP_CREATED,
+                NotificationPayload.of(1, 2, 3, null), NOW)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> NotificationPayload.from(1, 2L, null, null)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> NotificationPayload.forGroup(0)).isInstanceOf(BusinessException.class);
+    }
 }
