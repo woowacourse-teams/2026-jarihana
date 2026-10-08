@@ -825,7 +825,6 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
   resize, compositing or color adjustment. Keep the original day/sunset/night PNGs as references
   only; the older square extended-sky variants and night-starry source are not runtime assets.
   Align it center center at every breakpoint so narrow screens crop evenly from the sides.
-  Generation prompts and crop verification are recorded in docs/hero-responsive-art.md.
   Below 1024px, apply contrast only around title and subtitle glyphs using layered text shadows
   with 4px, 8px and 16px blur at 90%, 85% and 70% opacity. Let the shadows follow natural
   line wrapping; do not add a copy-container background or a rectangular backing around the actions.
