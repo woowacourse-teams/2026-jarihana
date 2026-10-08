@@ -78,12 +78,14 @@ RestAssured 인수 테스트로 계약을 검증한다. 알림함 API는 Control
 
 | 사건 | target.kind | 이동 경로 |
 | --- | --- | --- |
+| 새 모임 등록 (`GROUP_CREATED`) | `GROUP_DETAIL` | `/groups/{groupId}` |
 | 새 가입 신청 | `LEADER_REGISTRATIONS` | `/groups/{groupId}/manage/registrations` |
 | 새 구성원 참여 | `LEADER_MEMBERS` | `/groups/{groupId}/manage/members` |
 | 신청 승인 | `MY_GROUPS` | `/my?focusGroup={groupId}` |
 | 수동 미승인·재모집 미승인·모임 종료 미승인 | `MY_PAGE` | `/my?registrationStatus=REJECTED&focusRegistration={registrationId}` |
 
 - 클라이언트는 `target`을 내부 화면 경로로 해석한다. 외부 URL을 목적지로 전달하지 않는다.
+- `GROUP_CREATED`의 `target`에는 `kind`, `groupId`만 포함한다. 알림함 제목은 `새 모임`, 본문은 `‘모임 이름’ 모임이 새로 등록되었습니다.`다. 기존 신청·참여 알림의 모집·신청 식별자는 유지한다.
 - 목록 조회나 알림함을 여는 동작만으로 읽음 처리하지 않는다.
 
 #### 예외
@@ -489,7 +491,8 @@ Request Body는 없다.
 
 - 기존 `accessToken` 쿠키로 인증한다.
 - 본인의 미삭제 알림, 본인의 활성 구독, 현재 `generation`을 모두 검증한다.
-- payload 버전 1은 `groupId`, `recruitmentId`, `registrationId`를 포함하고 시스템 미승인에는 `reasonCode`를 추가한다.
+- payload 버전 1에서 `GROUP_CREATED`는 `groupId`만 포함한다. 기존 신청·참여 사건은 `groupId`, `recruitmentId`, `registrationId`를 포함하고 시스템 미승인에는 `reasonCode`를 추가한다.
+- 새 모임 등록 푸시는 제목 `자리하나?`, 본문 `새로운 모임이 등록되었어요.`로 표시한다. 알림함과 푸시 클릭은 동일한 본인 알림 확인 경로를 거쳐 새 모임 상세로 이동한다.
 - `reasonCode`는 `RERECRUITMENT` 또는 `GROUP_ENDED`다. 신청 본문·미승인 사유 문장·회원명은 포함하지 않는다.
 - Service Worker는 사건 종류와 payload로 표시 문구를 구성한다.
 

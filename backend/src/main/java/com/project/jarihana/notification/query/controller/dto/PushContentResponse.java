@@ -8,7 +8,7 @@ public record PushContentResponse(long notificationId, String eventType, int pay
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record PayloadResponse(long groupId, long recruitmentId, long registrationId, String reasonCode) {
+    public record PayloadResponse(long groupId, Long recruitmentId, Long registrationId, String reasonCode) {
         static PayloadResponse from(NotificationPayload payload) {
             return new PayloadResponse(payload.getGroupId(), payload.getRecruitmentId(), payload.getRegistrationId(),
                     payload.getReasonCode() == null ? null : payload.getReasonCode().name());

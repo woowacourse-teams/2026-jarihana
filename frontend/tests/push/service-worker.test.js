@@ -47,6 +47,7 @@ test("old generation never fetches or displays detail", async () => {
   expect(w.fetcher).not.toHaveBeenCalled(); expect(w.self.registration.showNotification).not.toHaveBeenCalled();
 });
 test.each([
+  ["GROUP_CREATED", "새로운 모임이 등록되었어요."],
   ["REGISTRATION_SUBMITTED", "모임에 새로운 신청이 도착했어요."],
   ["PARTICIPANT_JOINED", "모임 참여가 완료되었어요."],
   ["REGISTRATION_APPROVED", "모임 신청이 승인되었어요."],

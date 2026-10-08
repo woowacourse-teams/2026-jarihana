@@ -47,4 +47,13 @@ public interface PushSubscriptionCommandRepository extends Repository<PushSubscr
             order by subscription.id
             """)
     List<PushSubscription> findActiveByMemberId(@Param("memberId") long memberId);
+
+    @EntityGraph(attributePaths = "member")
+    @Query("""
+            select subscription from PushSubscription subscription
+            where subscription.enabled = true and subscription.member.id <> :creatorMemberId
+                and subscription.member.withdrawnAt is null
+            order by subscription.member.id, subscription.id
+            """)
+    List<PushSubscription> findActiveExceptCreator(@Param("creatorMemberId") long creatorMemberId);
 }

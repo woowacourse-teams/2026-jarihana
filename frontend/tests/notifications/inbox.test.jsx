@@ -78,3 +78,11 @@ test("previous backend approval destination also focuses the joined group on my 
     eventType: "REGISTRATION_APPROVED", target: { kind: "GROUP_DETAIL", groupId: 10, recruitmentId: 20 } });
   expect(original.notificationTargetPath(notification.target, notification.id)).toBe("/my?focusGroup=10&notification=1");
 });
+
+test("new group notifications need only a group id and open the group detail", () => {
+  const notification = original.notificationSchema.parse({ ...row(1), payloadVersion: 1,
+    eventType: "GROUP_CREATED", target: { kind: "GROUP_DETAIL", groupId: 10 } });
+  expect(original.notificationTargetPath(notification.target, notification.id)).toBe("/groups/10");
+  expect(original.notificationSchema.safeParse({ ...notification,
+    eventType: "REGISTRATION_SUBMITTED" }).success).toBe(false);
+});
