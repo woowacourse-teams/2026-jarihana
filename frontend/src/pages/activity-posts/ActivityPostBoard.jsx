@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Camera, Pencil, Trash2 } from "lucide-react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Camera, MessageCircle, Pencil, Trash2 } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router";
 import { useInfiniteQuery } from "@tanstack/react-query";
 
+import { findReactionEmoji } from "../../entities/activity-post/index.js";
 import { getSafeNextCursor } from "../../entities/cursor/index.js";
 import { useAuth, storeReturnTarget } from "../../features/auth/index.js";
 import {
@@ -26,6 +27,7 @@ import {
 import { useToast } from "../../shared/ui/Toast.jsx";
 import { useInfiniteScroll } from "../account/useInfiniteScroll.js";
 import { ActivityPostComposer } from "./ActivityPostComposer.jsx";
+import { ActivityPostDetail, formatActivityDate } from "./ActivityPostDetail.jsx";
 import { calculateActivityPhotoWallLayout } from "./activity-photo-wall-layout.js";
 import "./activity-posts.css";
 
@@ -34,16 +36,38 @@ const LONG_PRESS_DURATION_MS = 500;
 const LONG_PRESS_MOVE_THRESHOLD_PX = 12;
 const SUPPRESS_CLICK_DURATION_MS = 1000;
 
-function formatActivityDate(date) {
-  return new Intl.DateTimeFormat("ko-KR", {
-    year: "numeric",
-    month: "numeric",
-    day: "numeric"
-  }).format(new Date(`${date}T00:00:00`));
+function ActivityPostSignals({ post }) {
+  const reactions = post.reactions
+    .map((reaction) => ({ ...reaction, emoji: findReactionEmoji(reaction.emoji) }))
+    .filter((reaction) => reaction.emoji);
+  if (reactions.length === 0 && post.commentCount === 0) return null;
+  const summary = [
+    ...reactions.map((reaction) => `${reaction.emoji.label} ${reaction.count}개`),
+    ...(post.commentCount > 0 ? [`댓글 ${post.commentCount}개`] : [])
+  ].join(", ");
+  return (
+    <>
+      <span aria-hidden="true" className="activity-photo-card__signals">
+        {reactions.map((reaction) => (
+          <span className="activity-photo-card__reaction" key={reaction.emoji.code}>
+            <span>{reaction.emoji.symbol}</span>
+            {reaction.count}
+          </span>
+        ))}
+        {post.commentCount > 0 ? (
+          <span className="activity-photo-card__comment-count">
+            <MessageCircle size={13} />
+            {post.commentCount}
+          </span>
+        ) : null}
+      </span>
+      <span className="ui-sr-only">{`반응과 댓글: ${summary}`}</span>
+    </>
+  );
 }
 
-function ActivityPostCard({ layout, onDelete, onEdit, onImageLoad, post }) {
-  const destination = `/groups/${post.group.id}?tab=activities`;
+function ActivityPostCard({ layout, onDelete, onEdit, onImageLoad, onOpen, post }) {
+  const ended = post.group.status === "ENDED";
   const [actionsVisible, setActionsVisible] = useState(false);
   const cardRef = useRef(null);
   const firstActionRef = useRef(null);
@@ -162,20 +186,20 @@ function ActivityPostCard({ layout, onDelete, onEdit, onImageLoad, post }) {
     }
   }
 
-  function suppressNavigationAfterLongPress(event) {
-    if (!suppressNextClickRef.current) {
+  function openDetail(event) {
+    if (suppressNextClickRef.current) {
+      event.preventDefault();
+      event.stopPropagation();
+      suppressNextClickRef.current = false;
+      window.clearTimeout(suppressClickTimerRef.current);
       return;
     }
-
-    event.preventDefault();
-    event.stopPropagation();
-    suppressNextClickRef.current = false;
-    window.clearTimeout(suppressClickTimerRef.current);
+    onOpen(post);
   }
 
   return (
     <article
-      className="activity-photo-card"
+      className={ended ? "activity-photo-card is-ended" : "activity-photo-card"}
       ref={cardRef}
       style={layout ? {
         left: layout.left,
@@ -184,10 +208,10 @@ function ActivityPostCard({ layout, onDelete, onEdit, onImageLoad, post }) {
         width: layout.width
       } : undefined}
     >
-      <Link
+      <button
         className="activity-photo-card__link"
-        data-ph-capture-attribute-action="activity_post_open_group"
-        onClick={suppressNavigationAfterLongPress}
+        data-ph-capture-attribute-action="activity_post_detail_open"
+        onClick={openDetail}
         onContextMenu={(event) => {
           event.preventDefault();
           if (event.button === 2 && !suppressNextClickRef.current) {
@@ -201,9 +225,9 @@ function ActivityPostCard({ layout, onDelete, onEdit, onImageLoad, post }) {
         onPointerDown={startLongPress}
         onPointerMove={moveLongPress}
         onPointerUp={endLongPress}
-        to={destination}
+        type="button"
       >
-        <figure className="activity-photo-card__paper">
+        <span className="activity-photo-card__paper">
           <img
             alt={`${post.group.name} 활동 사진`}
             className="activity-photo-card__image"
@@ -212,7 +236,7 @@ function ActivityPostCard({ layout, onDelete, onEdit, onImageLoad, post }) {
             onLoad={onImageLoad}
             src={post.imageUrl}
           />
-          <figcaption className="activity-photo-card__caption">
+          <span className="activity-photo-card__caption">
             {post.caption ? <span className="activity-photo-card__note">{post.caption}</span> : null}
             <span className="activity-photo-card__byline-row">
               <span className="activity-photo-card__byline">{post.group.name}</span>
@@ -220,12 +244,11 @@ function ActivityPostCard({ layout, onDelete, onEdit, onImageLoad, post }) {
                 {formatActivityDate(post.activityDate)}
               </time>
             </span>
-            {post.group.status === "ENDED" ? (
-              <span className="activity-photo-card__archive">아카이브</span>
-            ) : null}
-          </figcaption>
-        </figure>
-      </Link>
+            {ended ? <span className="ui-sr-only">종료된 모임의 기록</span> : null}
+            <ActivityPostSignals post={post} />
+          </span>
+        </span>
+      </button>
       {actionsVisible && post.canModify ? (
         <div aria-label={`${post.group.name} 기록 관리`} className="activity-photo-card__actions" role="group">
           <Button
@@ -265,7 +288,7 @@ function areLayoutsEqual(previous, next) {
   });
 }
 
-function ActivityPhotoWall({ busy, onDelete, onEdit, posts, scopeKey }) {
+function ActivityPhotoWall({ busy, onDelete, onEdit, onOpen, posts, scopeKey }) {
   const wallRef = useRef(null);
   const measureRef = useRef(null);
   const measuredContentHeightsRef = useRef(new Map());
@@ -277,7 +300,9 @@ function ActivityPhotoWall({ busy, onDelete, onEdit, posts, scopeKey }) {
     post.caption,
     post.activityDate,
     post.group.name,
-    post.group.status
+    post.group.status,
+    post.commentCount,
+    post.reactions.map((reaction) => [reaction.emoji, reaction.count])
   ]));
   const scheduleLayout = useCallback(() => measureRef.current?.(), []);
 
@@ -384,6 +409,7 @@ function ActivityPhotoWall({ busy, onDelete, onEdit, posts, scopeKey }) {
           onDelete={onDelete}
           onEdit={onEdit}
           onImageLoad={scheduleLayout}
+          onOpen={onOpen}
           post={post}
         />
       ))}
@@ -435,6 +461,7 @@ export function ActivityPostBoard({ group = null }) {
   const [composerSession, setComposerSession] = useState(0);
   const [editingPost, setEditingPost] = useState(null);
   const [deletingPost, setDeletingPost] = useState(null);
+  const [detailPostId, setDetailPostId] = useState(null);
   const isAuthenticated = auth.status === "authenticated" || auth.isAuthenticated;
   const viewerKey = isAuthenticated ? auth.member?.id ?? "authenticated" : auth.status;
   const postsQuery = useInfiniteActivityPosts({ groupId: group?.id, mine, viewerKey });
@@ -450,6 +477,11 @@ export function ActivityPostBoard({ group = null }) {
   });
   const groups = groupsQuery.data?.pages.flatMap((page) => page.items) ?? [];
   const posts = postsQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  // 로그인하고 돌아오면 주소의 post 값으로 보던 기록 상세를 다시 연다.
+  const requestedPostId = Number(searchParams.get("post")) || null;
+  const requestedPostLoaded = requestedPostId !== null && posts.some((post) => post.id === requestedPostId);
+  const activeDetailId = detailPostId ?? (requestedPostLoaded ? requestedPostId : null);
+  const detailPost = activeDetailId === null ? null : posts.find((post) => post.id === activeDetailId) ?? null;
   const hasPreviousFeed = Boolean(postsQuery.isPlaceholderData);
   const hasNextPage = Boolean(postsQuery.hasNextPage) && !hasPreviousFeed;
   const isRefreshingFeed = postsQuery.isFetching && !postsQuery.isLoading && !postsQuery.isFetchingNextPage;
@@ -466,6 +498,31 @@ export function ActivityPostBoard({ group = null }) {
       return;
     }
     auth.login?.();
+  }
+
+  function clearRequestedPost() {
+    const next = new URLSearchParams(searchParams);
+    next.delete("post");
+    setSearchParams(next, { replace: true });
+  }
+
+  // 불러온 목록에 없는 기록이면 주소만 정리한다.
+  useEffect(() => {
+    if (requestedPostId === null || postsQuery.isLoading || requestedPostLoaded) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete("post");
+    setSearchParams(next, { replace: true });
+  }, [postsQuery.isLoading, requestedPostId, requestedPostLoaded, searchParams, setSearchParams]);
+
+  function closeDetail() {
+    setDetailPostId(null);
+    if (requestedPostId !== null) clearRequestedPost();
+  }
+
+  function requireLoginForPost(post) {
+    const target = new URLSearchParams(searchParams);
+    target.set("post", String(post.id));
+    openLogin(`${window.location.pathname}?${target.toString()}`);
   }
 
   function chooseMine(nextMine) {
@@ -626,6 +683,7 @@ export function ActivityPostBoard({ group = null }) {
             key={viewerKey}
             onDelete={setDeletingPost}
             onEdit={startEdit}
+            onOpen={(post) => setDetailPostId(post.id)}
             posts={posts}
             scopeKey={group ? `group:${group.id}` : mine ? "mine" : "all"}
           />
@@ -710,6 +768,17 @@ export function ActivityPostBoard({ group = null }) {
         open={Boolean(deletingPost)}
         title="활동 기록을 내릴까요?"
       />
+      {detailPost ? (
+        <ActivityPostDetail
+          key={detailPost.id}
+          onClose={closeDetail}
+          onNavigateGroup={closeDetail}
+          onRequireLogin={requireLoginForPost}
+          post={detailPost}
+          signedIn={Boolean(isAuthenticated)}
+          viewerKey={viewerKey}
+        />
+      ) : null}
     </>
   );
 }

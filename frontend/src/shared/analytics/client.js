@@ -13,7 +13,11 @@ const businessEvents = new Set([
   "group_created",
   "recruitment_created",
   "recruitment_updated",
-  "recruitment_closed"
+  "recruitment_closed",
+  "activity_comment_created",
+  "activity_comment_deleted",
+  "activity_reaction_added",
+  "activity_reaction_removed"
 ]);
 const noopRequest = { finish() {} };
 

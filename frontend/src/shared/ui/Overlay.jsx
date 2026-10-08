@@ -52,6 +52,7 @@ function useFocusReturn(visible) {
 
 function OverlayPanel({
   children,
+  className = "",
   closeAction = "dialog_close",
   closeLabel = "닫기",
   description,
@@ -121,7 +122,7 @@ function OverlayPanel({
         aria-describedby={description ? descriptionId : undefined}
         aria-labelledby={titleId}
         aria-modal="true"
-        className={drawer ? "ui-drawer" : "ui-dialog"}
+        className={[drawer ? "ui-drawer" : "ui-dialog", className].filter(Boolean).join(" ")}
         ref={panelReference}
         role="dialog"
         tabIndex={-1}
@@ -167,6 +168,7 @@ function Trigger({ children, expanded, onOpen }) {
 
 export function Modal({
   children,
+  className,
   closeLabel = "닫기",
   closeAction = "dialog_close",
   defaultOpen = false,
@@ -199,6 +201,7 @@ export function Modal({
       ) : null}
       {visible ? (
         <OverlayPanel
+          className={className}
           closeAction={closeAction}
           closeLabel={closeLabel}
           description={description}
