@@ -606,8 +606,9 @@
 .app-footer__social-links {
     display: flex;
     flex: none;
-    align-items: center;
-    gap: var(--space-4);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
     align-self: flex-start;
 }
 

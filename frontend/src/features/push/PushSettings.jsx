@@ -3,7 +3,7 @@ import { useAuth } from "../auth";
 import { Button } from "../../shared/ui";
 import { disableBrowserPush, enableBrowserPush, pushEnvironment, syncBrowserPush, workerCommand } from "./browser";
 
-export function PushSettings({ headingLevel = 3 }) {
+export function PushSettings({ headingLevel = 3, onOpenPwaGuide }) {
   const Heading = `h${headingLevel}`;
   const { member, logoutPending, sessionVersion = 0 } = useAuth();
   const currentSession = useRef(sessionVersion);
@@ -77,7 +77,17 @@ export function PushSettings({ headingLevel = 3 }) {
   else if (permissionDenied) description = "알림 권한이 차단돼 있어요. 브라우저 설정에서 허용해 주세요.";
   return (
     <section aria-label="푸시 설정" className="notification-push-settings">
-      <div><Heading>이 브라우저의 푸시 알림</Heading><p>{description}</p></div>
+      <div>
+        <Heading>이 브라우저의 푸시 알림</Heading>
+        <p>{description}</p>
+        {onOpenPwaGuide ? <button
+          aria-haspopup="dialog"
+          className="notification-push-settings__install-link"
+          data-ph-capture-attribute-action="pwa_guide_reopen"
+          onClick={onOpenPwaGuide}
+          type="button"
+        >설치 안내 보기</button> : null}
+      </div>
       {canUsePush && connection?.config.enabled ? <button
         aria-label={failedDisable ? "푸시 알림 해제 재시도" : "이 브라우저의 푸시 알림"}
         aria-checked={Boolean(connection.active || failedDisable)} aria-busy={pending || undefined}

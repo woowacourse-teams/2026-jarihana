@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Outlet } from "react-router";
 
 import { AppHeader } from "./AppHeader";
@@ -43,18 +43,24 @@ function ScrollToTopButton() {
 }
 
 export function AppShell({ children, headerAction = null, headerTitle = "" }) {
+  const pwaGuideReference = useRef(null);
+
+  function openPwaGuide() {
+    pwaGuideReference.current?.open();
+  }
+
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">
         본문으로 건너뛰기
       </a>
-      <AppHeader action={headerAction} title={headerTitle} />
+      <AppHeader action={headerAction} onOpenPwaGuide={openPwaGuide} title={headerTitle} />
 
       <main id="main-content" tabIndex="-1">
         {children ?? <Outlet />}
       </main>
 
-      <AppFooter />
+      <AppFooter pwaGuideReference={pwaGuideReference} />
       <ScrollToTopButton />
     </div>
   );
