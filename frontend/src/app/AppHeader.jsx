@@ -1,4 +1,6 @@
-import { useRef, useState } from "react";
+import { NotificationBell, NotificationBellTrigger, NotificationDrawer } from "../features/notifications/NotificationInbox";
+import { useId, useRef, useState } from "react";
+import { useUnreadCount } from "../features/notifications/hooks";
 import { Link, useLocation, useNavigate } from "react-router";
 import { UserRound } from "lucide-react";
 
@@ -118,16 +120,17 @@ function FeedbackLink({ onClick, onNavigate, open, status }) {
 }
 
 function AuthAction({ onNavigate, status }) {
-  const { login, logout } = useAuth();
+  const { login, logout, logoutPending } = useAuth();
 
   if (status === "authenticated") {
     return (
       <button
         className="app-header__auth app-header__auth--secondary"
         data-ph-capture-attribute-action="logout"
+        disabled={logoutPending}
         onClick={() => {
           onNavigate();
-          void logout();
+          void Promise.resolve(logout()).catch(() => undefined);
         }}
         type="button"
       >
@@ -172,7 +175,10 @@ function AuthAction({ onNavigate, status }) {
 }
 
 export function AppHeader({ action = null, title = "" }) {
-  const { avatarUrl, login, member, status } = useAuth();
+  const { avatarUrl, login, logout, logoutError, logoutPending, member, status } = useAuth();
+  const unreadCount = useUnreadCount();
+  const hasUnread = status === "authenticated" && unreadCount.data?.unreadCount > 0;
+  const unreadDescriptionId = useId();
   const memberDetails = member?.memberType === "COACH"
     ? "코치"
     : `${generationLabel(member?.generation)}${member?.course ? ` / ${COURSE_LABELS[member.course]}` : ""}`;
@@ -181,6 +187,7 @@ export function AppHeader({ action = null, title = "" }) {
   const navigate = useNavigate();
   const { success } = useToast();
   const [isMenuOpen, setMenuOpen] = useState(false);
+  const [isMobileNotificationOpen, setMobileNotificationOpen] = useState(false);
   const [feedbackManuallyOpen, setFeedbackManuallyOpen] = useState(false);
   const [loginRequiredOpen, setLoginRequiredOpen] = useState(false);
   const menuButtonReference = useRef(null);
@@ -307,7 +314,7 @@ export function AppHeader({ action = null, title = "" }) {
               자리 만들기
             </Link>
             {status === "authenticated" ? (
-              <ProfileMenu />
+              <div className="notification-header-actions"><NotificationBell /><ProfileMenu /></div>
             ) : (
               <AuthAction onNavigate={() => {}} status={status} />
             )}
@@ -316,6 +323,7 @@ export function AppHeader({ action = null, title = "" }) {
           <button
             aria-expanded={isMenuOpen}
             aria-label="메뉴 열기"
+            aria-describedby={hasUnread ? unreadDescriptionId : undefined}
             className="app-header__menu-button"
             data-ph-capture-attribute-action="header_menu_open"
             onClick={() => setMenuOpen(true)}
@@ -323,10 +331,20 @@ export function AppHeader({ action = null, title = "" }) {
             type="button"
           >
             <span aria-hidden="true" className="app-header__menu-lines" />
+            {hasUnread ? <>
+              <span aria-hidden="true" className="app-header__unread-dot" />
+              <span className="ui-sr-only" id={unreadDescriptionId}>안 읽은 알림이 있어요.</span>
+            </> : null}
           </button>
         </div>
       </header>
 
+      {logoutError ? <div className="notification-logout-error" role="alert"><p>{logoutError}</p>
+        <button data-ph-capture-attribute-action={status === "authenticated" ? "logout_retry" : "login_retry"} disabled={logoutPending}
+          onClick={() => { if (status === "authenticated") void logout().catch(() => undefined); else login(); }} type="button">
+          {status === "authenticated" ? "로그아웃 재시도" : "로그인 재시도"}
+        </button>
+      </div> : null}
       <Modal
         closeAction="feedback_form_dismiss"
         onOpenChange={handleFeedbackOpenChange}
@@ -344,6 +362,11 @@ export function AppHeader({ action = null, title = "" }) {
 
       <Drawer
         closeAction="mobile_menu_dismiss"
+        headerActions={status === "authenticated" ? <NotificationBellTrigger onClick={() => {
+          closeMenu();
+          menuButtonReference.current?.focus();
+          setMobileNotificationOpen(true);
+        }} /> : null}
         onClose={closeMenu}
         open={isMenuOpen}
         title="전체 메뉴"
@@ -407,6 +430,13 @@ export function AppHeader({ action = null, title = "" }) {
           </div>
         </nav>
       </Drawer>
+      {status === "authenticated" ? <NotificationDrawer open={isMobileNotificationOpen} onOpenChange={(open) => {
+        setMobileNotificationOpen(open);
+        if (!open) {
+          menuButtonReference.current?.focus();
+          setMenuOpen(true);
+        }
+      }} onOpenNotification={() => setMobileNotificationOpen(false)} /> : null}
     </>
   );
 }

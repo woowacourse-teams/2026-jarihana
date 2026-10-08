@@ -401,6 +401,7 @@
 }
 
 .app-header__menu-button {
+    position: relative;
     display: none;
     width: var(--touch-target);
     height: var(--touch-target);
@@ -411,6 +412,16 @@
     border-radius: var(--radius-sm);
     background: transparent;
     color: inherit;
+}
+
+.app-header__unread-dot {
+    position: absolute;
+    top: var(--space-1);
+    right: var(--space-1);
+    width: var(--space-2);
+    height: var(--space-2);
+    border-radius: var(--radius-pill);
+    background: var(--color-danger);
 }
 
 .app-header__menu-lines,

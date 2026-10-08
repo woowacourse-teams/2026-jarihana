@@ -1386,6 +1386,16 @@ img.ui-avatar {
     padding-right: var(--space-12);
 }
 
+.ui-dialog__header-actions {
+    position: absolute;
+    right: calc(var(--space-4) + var(--touch-target) + var(--space-1));
+    top: var(--space-4);
+}
+
+.ui-dialog__title--with-actions {
+    padding-right: calc(var(--touch-target) * 2 + var(--space-2));
+}
+
 .ui-dialog__description {
     color: var(--color-text-muted);
     line-height: 1.65;

@@ -7,6 +7,7 @@ import { useInfiniteMyRegistrations } from "../../../src/features/registration/i
 import { MyPage } from "../../../src/pages/account/MyPage.jsx";
 
 jest.mock("react-router", () => ({
+  useLocation: () => ({ search: globalThis.location.search }),
   Link: ({ children, to, ...props }) => (
     <a href={typeof to === "string" ? to : "/"} {...props}>
       {children}
@@ -124,6 +125,24 @@ describe("MyPage", () => {
     const activeRow = within(panel).getByRole("link", { name: sessionGroup.name }).closest("article");
     expect(activeRow).not.toHaveClass("activity-row--ended");
     expect(within(activeRow).queryByText("모임 종료")).not.toBeInTheDocument();
+  });
+
+  it("알림으로 찾은 종료 모임의 유형 탭을 열고 종료 표시와 포커스 강조를 함께 유지한다", () => {
+    renderMyPage({
+      endedGroups: [{ ...recurringGroup, id: 103, name: "마친 스터디", status: "ENDED" }],
+      path: "/my?focusGroup=103&notification=1"
+    });
+
+    const panel = screen.getByRole("tabpanel", { name: /동아리·스터디/ });
+    const link = within(panel).getByRole("link", { name: "마친 스터디", exact: true });
+    const row = link.closest("article");
+    expect(row).toHaveFocus();
+    expect(row).toHaveClass("activity-row--ended", "activity-row--notification");
+    expect(within(row).getByText("모임 종료")).toBeInTheDocument();
+    expect(link).toHaveAttribute("href", "/groups/103");
+    expect(screen.getByRole("tab", { name: /동아리·스터디/ })).toHaveAttribute(
+      "aria-selected", "true"
+    );
   });
 
   it("모임과 신청을 별도 카드로 나누고 각각의 탭에 맞는 항목을 보여 준다", async () => {

@@ -1114,3 +1114,8 @@ img.profile-card__avatar {
     padding: var(--space-0);
   }
 }
+
+.activity-row--notification {
+  background: var(--color-brand-soft);
+  box-shadow: var(--shadow-float);
+}

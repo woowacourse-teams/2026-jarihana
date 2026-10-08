@@ -34,7 +34,9 @@ const loadGroupEditorPages = () => import("../pages/group-editor/index.jsx");
 const loadGroupPages = () => import("../pages/groups/index.js");
 const loadManagePages = () => import("../pages/manage/index.js");
 
+const loadNotificationPages = () => import("../pages/notifications/index.jsx");
 export const lazyPageRegistry = Object.freeze({
+  NotificationOpenPage: lazyNamed(loadNotificationPages, "NotificationOpenPage"),
   ActivityPostsPage: lazyNamed(loadActivityPostPages, "ActivityPostsPage"),
   GroupBrowsePage: lazyNamed(loadGroupPages, "GroupBrowsePage"),
   GroupCreatePage: lazyNamed(loadGroupEditorPages, "NewGroupPage"),
