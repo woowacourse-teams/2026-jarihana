@@ -83,6 +83,22 @@
     background: var(--color-surface-sunken);
 }
 
+.pwa-guide__browser-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-1);
+    margin: var(--space-2) var(--space-5) 0;
+    padding: var(--space-1);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-sunken);
+}
+
+.pwa-guide__platform-panel {
+    display: grid;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+}
+
 .pwa-guide__tab {
     display: inline-flex;
     min-width: 0;
@@ -99,13 +115,37 @@
     cursor: pointer;
 }
 
+.pwa-guide__browser-tab {
+    display: inline-flex;
+    min-width: 0;
+    min-height: var(--touch-target);
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-2) var(--space-3);
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-muted);
+    font: inherit;
+    font-size: var(--text-caption);
+    font-weight: var(--font-weight-semibold);
+    cursor: pointer;
+}
+
 .pwa-guide__tab[aria-selected="true"] {
     background: var(--color-surface);
     color: var(--color-ink);
     box-shadow: 0 1px 4px rgb(29 29 31 / 10%);
 }
 
+.pwa-guide__browser-tab[aria-selected="true"] {
+    background: var(--color-surface);
+    color: var(--color-ink);
+    box-shadow: 0 1px 4px rgb(29 29 31 / 10%);
+}
+
 .pwa-guide__tab:focus-visible,
+.pwa-guide__browser-tab:focus-visible,
 .pwa-guide__navigation button:focus-visible,
 .pwa-guide__reopen:focus-visible {
     outline: var(--border-strong) solid var(--color-brand-ink);
@@ -183,12 +223,60 @@
     object-position: center;
 }
 
+.pwa-guide__screenshot--safari-share {
+    aspect-ratio: 2.96 / 1;
+    container-type: inline-size;
+}
+
+.pwa-guide__screenshot--safari-share img {
+    object-fit: cover;
+    object-position: center;
+}
+
+.pwa-guide__safari-domain-cover {
+    position: absolute;
+    top: 18.5%;
+    left: 35.8%;
+    width: 35%;
+    height: 14%;
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    pointer-events: none;
+}
+
+.pwa-guide__safari-domain {
+    position: absolute;
+    top: 19.4%;
+    left: 36.3%;
+    color: var(--color-ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 3.7vw;
+    font-size: clamp(0.7rem, 4.4cqw, 2rem);
+    line-height: 1;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
 .pwa-guide__share-focus {
     position: absolute;
     top: 0.4%;
     right: 1.5%;
     width: clamp(2rem, 6vw, 2.625rem);
     aspect-ratio: 1;
+    border: var(--border-strong) solid var(--color-brand-ink);
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--color-brand-soft) 28%, transparent);
+    box-shadow: 0 0 0 var(--space-1) color-mix(in srgb, var(--color-surface) 78%, transparent);
+    pointer-events: none;
+}
+
+.pwa-guide__safari-share-focus {
+    position: absolute;
+    top: 60.5%;
+    left: 50.7%;
+    width: clamp(2.75rem, 10cqw, 3.25rem);
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%);
     border: var(--border-strong) solid var(--color-brand-ink);
     border-radius: var(--radius-pill);
     background: color-mix(in srgb, var(--color-brand-soft) 28%, transparent);
@@ -295,6 +383,187 @@
     pointer-events: none;
 }
 
+.pwa-guide__screenshot--samsung-menu { aspect-ratio: 2.45 / 1; }
+.pwa-guide__screenshot--samsung-install-options { aspect-ratio: 2.72 / 1; }
+.pwa-guide__screenshot--samsung-install-confirm { aspect-ratio: 2.83 / 1; }
+.pwa-guide__screenshot--samsung-play-protect-details { aspect-ratio: 2.88 / 1; }
+.pwa-guide__screenshot--samsung-play-protect-install { aspect-ratio: 2.8 / 1; }
+.pwa-guide__screenshot--samsung-home-screen-name { aspect-ratio: 2.83 / 1; }
+.pwa-guide__screenshot--samsung-home-screen-confirm { aspect-ratio: 3.64 / 1; }
+.pwa-guide__screenshot--android-chrome-menu-install { aspect-ratio: 2.2 / 1; }
+.pwa-guide__screenshot--android-chrome-install-choice { aspect-ratio: 2.35 / 1; }
+
+.pwa-guide__screenshot--samsung-menu img,
+.pwa-guide__screenshot--samsung-install-options img,
+.pwa-guide__screenshot--samsung-install-confirm img,
+.pwa-guide__screenshot--samsung-play-protect-details img,
+.pwa-guide__screenshot--samsung-play-protect-install img,
+.pwa-guide__screenshot--samsung-home-screen-name img,
+.pwa-guide__screenshot--samsung-home-screen-confirm img {
+    object-fit: cover;
+}
+
+.pwa-guide__screenshot--android-chrome-menu-install img,
+.pwa-guide__screenshot--android-chrome-install-choice img {
+    object-fit: cover;
+}
+
+.pwa-guide__screenshot--android-chrome-menu-install img {
+    object-position: center 61%;
+}
+
+.pwa-guide__screenshot--android-chrome-install-choice img {
+    object-position: center 90%;
+}
+
+.pwa-guide__screenshot--samsung-menu img {
+    object-position: center;
+}
+
+.pwa-guide__screenshot--samsung-install-options img {
+    object-fit: contain;
+    object-position: center;
+}
+
+.pwa-guide__samsung-focus {
+    position: absolute;
+    border: var(--border-strong) solid var(--color-brand-ink);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--color-brand-soft) 24%, transparent);
+    box-shadow: 0 0 0 var(--space-1) color-mix(in srgb, var(--color-surface) 78%, transparent);
+    pointer-events: none;
+}
+
+.pwa-guide__samsung-focus--samsung-menu {
+    top: 47%;
+    left: 34%;
+    width: 50%;
+    height: 32%;
+}
+
+.pwa-guide__samsung-focus--samsung-install-options-web-app,
+.pwa-guide__samsung-focus--samsung-install-options-home-screen {
+    left: 3%;
+    width: 46%;
+    height: 27%;
+}
+
+.pwa-guide__samsung-focus--samsung-install-options-web-app {
+    top: 53%;
+}
+
+.pwa-guide__samsung-focus--samsung-install-options-home-screen {
+    top: 11%;
+}
+
+.pwa-guide__samsung-focus--samsung-install-confirm {
+    top: 50%;
+    right: 20%;
+    width: 17%;
+    height: 38%;
+}
+
+.pwa-guide__samsung-focus--samsung-play-protect-details {
+    top: 4%;
+    left: 6%;
+    width: 34%;
+    height: 18%;
+}
+
+.pwa-guide__samsung-focus--samsung-play-protect-install {
+    top: 10%;
+    left: 5%;
+    width: 32%;
+    height: 42%;
+}
+
+.pwa-guide__samsung-focus--samsung-home-screen-name,
+.pwa-guide__samsung-focus--samsung-home-screen-confirm {
+    top: 43%;
+    left: 65%;
+    width: 14%;
+    height: 42%;
+}
+
+.pwa-guide__chrome-focus {
+    position: absolute;
+    border: var(--border-strong) solid var(--color-brand-ink);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--color-brand-soft) 24%, transparent);
+    box-shadow: 0 0 0 var(--space-1) color-mix(in srgb, var(--color-surface) 78%, transparent);
+    pointer-events: none;
+}
+
+.pwa-guide__chrome-focus--android-chrome-menu-install {
+    top: 31%;
+    right: 3%;
+    left: 23%;
+    height: 31%;
+}
+
+.pwa-guide__chrome-focus--android-chrome-install-choice {
+    right: 6%;
+    left: 6%;
+}
+
+.pwa-guide__chrome-focus--android-chrome-install-choice-install {
+    top: 5%;
+    height: 43%;
+}
+
+.pwa-guide__chrome-focus--android-chrome-install-choice-home-screen {
+    top: 52%;
+    height: 43%;
+}
+
+.pwa-guide__step-note {
+    margin: var(--space-2) 0 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-caption);
+    line-height: 1.5;
+}
+
+.pwa-guide__install-path {
+    display: grid;
+    gap: var(--space-2);
+    margin: var(--space-2) 0;
+}
+
+.pwa-guide__install-path .pwa-guide__step-note {
+    margin: 0;
+}
+
+.pwa-guide__install-path-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2);
+}
+
+.pwa-guide__install-path-option {
+    min-width: 0;
+    min-height: var(--touch-target);
+    padding: var(--space-2) var(--space-3);
+    border: var(--border-thin) solid var(--color-line);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+    font: inherit;
+    font-size: var(--text-caption);
+    font-weight: var(--font-weight-semibold);
+    cursor: pointer;
+}
+
+.pwa-guide__install-path-option[aria-pressed="true"] {
+    border-color: var(--color-brand-ink);
+    background: var(--color-brand-soft);
+    color: var(--color-brand-ink);
+}
+
+.pwa-guide__install-path-option:focus-visible {
+    outline: var(--border-strong) solid var(--color-brand-ink);
+    outline-offset: var(--space-1);
+}
+
 .pwa-guide__coming-soon {
     display: grid;
     min-height: 100%;
@@ -389,6 +658,10 @@
     }
 
     .pwa-guide__tabs {
+        margin-inline: var(--space-4);
+    }
+
+    .pwa-guide__browser-tabs {
         margin-inline: var(--space-4);
     }
 
