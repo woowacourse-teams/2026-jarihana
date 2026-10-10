@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#000000">
+    <title>자리하나 모바일 설치 · 푸시 알림 안내</title>
+    <link rel="stylesheet" href="../frontend/src/shared/styles/tokens.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      * { box-sizing: border-box; }
+      body { min-width: 20rem; min-height: 100dvh; margin: 0; background: var(--color-surface-sunken); color: var(--color-ink); font-family: var(--font-sans); font-size: var(--text-body); line-height: 1.6; }
+      button { font: inherit; }
+      button:focus-visible { outline: var(--border-strong) solid var(--color-brand-ink); outline-offset: var(--space-1); }
+      [hidden] { display: none !important; }
+
+      .preview-header { display: flex; min-height: var(--header-height); align-items: center; justify-content: space-between; gap: var(--space-4); padding-inline: max(var(--page-gutter), calc((100vw - var(--container-shell)) / 2)); background: var(--color-nav); color: var(--color-surface); }
+      .preview-brand { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-brand); font-weight: var(--font-weight-extrabold); }
+      .preview-brand img { width: var(--space-8); height: var(--space-8); border-radius: var(--radius-pill); }
+      .preview-nav { display: flex; align-items: center; gap: var(--space-6); color: var(--color-header-muted); font-size: var(--text-label); }
+      .preview-nav span:first-child { color: var(--color-surface); }
+      .preview-main { width: min(calc(100% - 2 * var(--page-gutter)), 68rem); margin: clamp(var(--space-8), 10vh, var(--space-16)) auto; }
+      .preview-kicker { margin: 0 0 var(--space-3); color: var(--color-text-brand); font-size: var(--text-label); font-weight: var(--font-weight-bold); }
+      .preview-main h1 { max-width: 13ch; margin: 0; font-size: clamp(var(--text-h1), 5vw, var(--text-display)); line-height: 1.3; }
+      .preview-description { max-width: 38rem; margin: var(--space-3) 0 0; color: var(--color-text-muted); font-size: var(--text-body-lg); }
+      .preview-section { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin-top: var(--space-12); padding-block: var(--space-4); border-bottom: var(--border-thin) solid var(--color-line); }
+      .preview-section h2 { margin: 0; font-size: var(--text-h3); }
+      .preview-section span { color: var(--color-text-muted); font-size: var(--text-caption); }
+      .preview-skeletons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); margin-top: var(--space-4); }
+      .preview-skeleton { min-height: 10rem; border-radius: var(--radius-md); background: linear-gradient(145deg, var(--color-surface), var(--color-brand-soft)); }
+      .preview-skeleton:nth-child(2) { background: linear-gradient(145deg, var(--color-surface), var(--color-section-soft)); }
+      .preview-skeleton:nth-child(3) { background: linear-gradient(145deg, var(--color-surface), var(--color-surface-sunken)); }
+      .preview-reopen { min-height: var(--touch-target); margin-top: var(--space-8); padding: var(--space-2) var(--space-4); border: var(--border-thin) solid var(--color-line); border-radius: var(--radius-pill); background: var(--color-surface); color: var(--color-ink); cursor: pointer; }
+
+      .guide-dialog { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; width: min(30rem, calc(100vw - 2 * var(--space-4))); max-width: none; max-height: min(42rem, calc(100dvh - 2 * var(--space-8))); margin: auto; overflow: hidden; padding: 0; border: var(--border-thin) solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: var(--shadow-float); }
+      .guide-dialog::backdrop { background: var(--color-overlay); backdrop-filter: blur(var(--space-1)); }
+      .guide-dialog[open] { animation: dialog-enter var(--duration-base) var(--ease-standard) both; }
+      @keyframes dialog-enter { from { opacity: 0; transform: translateY(var(--space-3)) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+      .dialog-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-4) var(--space-6); border-bottom: var(--border-thin) solid var(--color-line); }
+      .brand-lockup { display: inline-flex; min-width: 0; align-items: center; gap: var(--space-2); }
+      .brand-lockup img { width: var(--space-8); height: var(--space-8); border-radius: var(--radius-pill); }
+      .brand-name { color: var(--color-ink); font-size: var(--text-label); font-weight: var(--font-weight-extrabold); }
+      .brand-divider { width: var(--border-thin); height: var(--space-4); background: var(--color-line-strong); }
+      .guide-label { color: var(--color-text-muted); font-size: var(--text-caption); }
+      .icon-button { display: grid; width: var(--touch-target); height: var(--touch-target); flex: none; place-items: center; border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--color-text-muted); cursor: pointer; }
+      .icon-button:hover { background: var(--color-surface-sunken); color: var(--color-ink); }
+      .icon-button svg { width: var(--space-5); height: var(--space-5); }
+
+      .platform-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-1); margin: var(--space-4) var(--space-6) 0; padding: var(--space-1); border-radius: var(--radius-pill); background: var(--color-surface-sunken); }
+      .platform-tab { display: inline-flex; min-height: var(--touch-target); align-items: center; justify-content: center; gap: var(--space-2); border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--color-text-muted); font-size: var(--text-label); font-weight: var(--font-weight-bold); cursor: pointer; }
+      .platform-tab[aria-selected="true"] { background: var(--color-surface); color: var(--color-ink); box-shadow: 0 1px 4px rgb(29 29 31 / 10%); }
+      .platform-tab svg { width: var(--space-4); height: var(--space-4); }
+
+      .dialog-content { min-height: 0; overflow-y: auto; padding: var(--space-5) var(--space-6) var(--space-6); overscroll-behavior: contain; }
+      .intro { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-4); margin-bottom: var(--space-4); }
+      .progress-count { flex: none; color: var(--color-text-muted); font-size: var(--text-caption); font-weight: var(--font-weight-bold); font-variant-numeric: tabular-nums; white-space: nowrap; }
+      .progress-track { height: var(--space-1); margin-bottom: var(--space-4); overflow: hidden; border-radius: var(--radius-pill); background: var(--color-surface-sunken); }
+      .progress-value { width: 20%; height: 100%; border-radius: inherit; background: var(--color-brand-ink); transition: width var(--duration-base) var(--ease-standard); }
+      .step-heading { margin: 0 0 var(--space-4); font-size: var(--text-h3); font-weight: var(--font-weight-bold); }
+      .step-panel { min-height: 0; }
+      .step-panel[hidden] { display: none; }
+      .coming-soon { display: grid; min-height: 10rem; place-items: center; margin: 0; color: var(--color-text-muted); font-size: var(--text-h3); font-weight: var(--font-weight-bold); }
+
+      .screenshot { position: relative; overflow: hidden; border-radius: var(--radius-md); background: var(--color-surface-sunken); }
+      .screenshot img { display: block; width: 100%; height: 100%; }
+      .screenshot--share { aspect-ratio: 3.1 / 1; }
+      .screenshot--share img { object-fit: cover; object-position: center; }
+      .share-marker { position: absolute; top: .4%; right: 1.5%; width: clamp(2rem, 6vw, 2.625rem); aspect-ratio: 1; border: var(--border-strong) solid var(--color-brand-ink); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--color-brand-soft) 28%, transparent); box-shadow: 0 0 0 var(--space-1) color-mix(in srgb, var(--color-surface) 78%, transparent); pointer-events: none; }
+      .screenshot--menu { aspect-ratio: 2.35 / 1; max-height: 15rem; }
+      .screenshot--menu img { object-fit: cover; object-position: center 58%; }
+      .menu-marker { position: absolute; inset: 56% 3% auto; height: 34%; border: var(--border-strong) solid var(--color-brand-ink); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-brand-soft) 15%, transparent); box-shadow: 0 0 0 var(--space-1) color-mix(in srgb, var(--color-surface) 72%, transparent); pointer-events: none; }
+      .screenshot--hamburger { aspect-ratio: 5.45 / 1; }
+      .screenshot--hamburger img,
+      .screenshot--bell img { object-fit: contain; }
+      .hamburger-marker { position: absolute; top: 20%; right: 4.1%; width: 11.4%; height: 60%; border: var(--border-strong) solid var(--color-brand); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-brand-soft) 22%, transparent); pointer-events: none; }
+      .screenshot--bell { aspect-ratio: 5.13 / 1; }
+      .bell-badge-cleanup { position: absolute; z-index: 1; top: 19%; left: 72%; width: 11%; height: 54%; background: var(--color-surface); pointer-events: none; }
+      .bell-icon-restored { position: absolute; z-index: 2; top: 36.5%; left: 72%; width: 6.5%; height: 31%; overflow: visible; color: var(--color-ink); pointer-events: none; }
+      .bell-icon-restored path { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.1; }
+      .bell-marker { position: absolute; z-index: 3; top: 30%; right: 20.7%; width: 8%; aspect-ratio: 1; border: var(--border-strong) solid var(--color-brand-ink); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--color-brand-soft) 18%, transparent); pointer-events: none; }
+
+      .inbox-capture { margin: 0; overflow: hidden; border: var(--border-thin) solid var(--color-line); border-radius: var(--radius-md); background: var(--color-surface); }
+      .push-capture-image { position: relative; }
+      .push-capture-image img { display: block; width: 100%; height: auto; }
+      .push-marker { position: absolute; top: 33%; right: 4.2%; width: 13.2%; height: 34%; border: var(--border-strong) solid var(--color-brand-ink); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-brand-soft) 16%, transparent); pointer-events: none; }
+
+      .dialog-footer { display: grid; gap: var(--space-2); padding: var(--space-4) var(--space-6); border-top: var(--border-thin) solid var(--color-line); background: var(--color-surface); }
+      .navigation-actions { display: flex; justify-content: space-between; gap: var(--space-3); }
+      .hide-guide-option { display: flex; width: max-content; max-width: 100%; min-height: var(--touch-target); align-items: center; gap: var(--space-2); padding-inline: var(--space-2); color: var(--color-text-muted); font-size: var(--text-caption); cursor: pointer; }
+      .hide-guide-option input { width: var(--space-4); height: var(--space-4); flex: none; margin: 0; accent-color: var(--color-brand-ink); }
+      .hide-guide-option input:focus-visible { outline: var(--border-strong) solid var(--color-brand-ink); outline-offset: var(--space-1); }
+      .button { display: inline-flex; min-height: var(--touch-target-lg); align-items: center; justify-content: center; gap: var(--space-2); padding: var(--space-2) var(--space-4); border: var(--border-thin) solid transparent; border-radius: var(--radius-pill); font-size: var(--text-label); font-weight: var(--font-weight-bold); line-height: 1.4; white-space: nowrap; cursor: pointer; transition: background-color var(--duration-fast) var(--ease-standard), transform var(--duration-fast) var(--ease-standard); }
+      .button:active { transform: translateY(var(--space-1)); }
+      .button:disabled { opacity: .45; cursor: not-allowed; }
+      .button:focus-visible { outline: var(--border-strong) solid var(--color-brand-ink); outline-offset: var(--space-1); }
+      .button svg { width: var(--space-4); height: var(--space-4); }
+      .button-primary { background: var(--color-brand); color: var(--color-ink); }
+      .button-primary:hover:not(:disabled) { background: var(--color-brand-strong); }
+      .button-secondary { border-color: var(--color-line); background: var(--color-surface); color: var(--color-ink); }
+      .button-secondary:hover:not(:disabled) { background: var(--color-surface-sunken); }
+      .button-next { margin-left: auto; }
+
+      @media (max-width: 47.9375rem) {
+        .preview-nav { display: none; }
+        .preview-main { margin-block: var(--space-8); }
+        .preview-main h1 { max-width: 16ch; }
+        .preview-skeletons { grid-template-columns: 1fr; }
+        .preview-skeleton { min-height: 7rem; }
+        .preview-skeleton:nth-child(n + 2) { display: none; }
+        .guide-dialog { position: fixed; inset: 0; width: min(30rem, calc(100vw - 2 * var(--space-4))); max-height: calc(100dvh - 2 * var(--space-8)); margin: auto; border-radius: var(--radius-lg); }
+        .dialog-header { padding: var(--space-3) var(--space-4); }
+        .platform-tabs { margin: var(--space-3) var(--space-4) 0; }
+        .dialog-content { padding: var(--space-4); }
+        .intro { gap: var(--space-2); margin-bottom: var(--space-3); }
+        .progress-track { margin-bottom: var(--space-4); }
+        .step-heading { font-size: var(--text-label); }
+        .screenshot--share { aspect-ratio: 3.1 / 1; }
+        .dialog-footer { padding: var(--space-3) var(--space-4); }
+        .navigation-actions .button { flex: 1; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="preview-header">
+      <div class="preview-brand">
+        <img src="../frontend/public/icons/pwa-192.png" alt="" width="32" height="32">
+        <span>자리하나?</span>
+      </div>
+      <nav class="preview-nav" aria-label="미리보기 메뉴">
+        <span>모임 둘러보기</span>
+        <span>내 모임</span>
+        <span>프로필</span>
+      </nav>
+    </header>
+
+    <main class="preview-main" id="preview">
+      <p class="preview-kicker">모임 둘러보기</p>
+      <h1>함께할 자리를 찾아보세요.</h1>
+      <p class="preview-description">자리하나의 새 모임 소식을 놓치지 않도록, 홈 화면에 추가하고 푸시 알림을 켜보세요.</p>
+      <section aria-label="모집 중인 모임 미리보기">
+        <div class="preview-section">
+          <h2>모집 중인 모임</h2>
+          <span>모바일 설치와 푸시 알림 안내</span>
+        </div>
+        <div class="preview-skeletons" aria-hidden="true">
+          <div class="preview-skeleton"></div>
+          <div class="preview-skeleton"></div>
+          <div class="preview-skeleton"></div>
+        </div>
+      </section>
+      <button class="preview-reopen" id="reopen-dialog" type="button" data-ph-capture-attribute-action="push_guide_reopen">설치 안내 다시 보기</button>
+    </main>
+
+    <dialog class="guide-dialog" id="guide-dialog" aria-labelledby="dialog-title">
+      <div class="dialog-header">
+        <div class="brand-lockup">
+          <img src="../frontend/public/icons/pwa-192.png" alt="" width="32" height="32">
+          <span class="brand-name">자리하나?</span>
+          <span class="brand-divider" aria-hidden="true"></span>
+          <span class="guide-label" id="dialog-title">PWA 앱 설치 및 알림 설정 가이드</span>
+        </div>
+        <button class="icon-button" id="close-dialog" type="button" aria-label="팝업 닫기" data-ph-capture-attribute-action="push_guide_dismiss">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m18 6-12 12M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="platform-tabs" role="tablist" aria-label="기기 선택">
+        <button class="platform-tab" id="tab-ios" type="button" role="tab" aria-selected="true" aria-controls="guide-panel" tabindex="0" data-platform="ios" data-ph-capture-attribute-action="push_guide_platform_ios">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10 18.5h4"/></svg>
+          iOS
+        </button>
+        <button class="platform-tab" id="tab-android" type="button" role="tab" aria-selected="false" aria-controls="guide-panel" tabindex="-1" data-platform="android" data-ph-capture-attribute-action="push_guide_platform_android">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 6 7.5 4M15 6l1.5-2M9 17h6"/></svg>
+          Android
+        </button>
+      </div>
+
+      <div class="dialog-content" id="guide-panel" role="tabpanel" aria-labelledby="tab-ios" tabindex="0">
+        <div id="ios-guide">
+        <div class="intro">
+          <span class="progress-count" id="progress-count" aria-label="전체 다섯 단계 중 1단계">1 / 5</span>
+        </div>
+        <div class="progress-track" role="progressbar" aria-label="안내 진행률" aria-valuemin="1" aria-valuemax="5" aria-valuenow="1">
+          <div class="progress-value" id="progress-value"></div>
+        </div>
+
+        <section class="step-panel" data-step="0" aria-labelledby="step-one-title">
+          <h3 class="step-heading" id="step-one-title" data-step-title>공유 버튼을 눌러요</h3>
+          <div class="screenshot screenshot--share">
+            <img src="assets/ios-pwa-guide/safari-share.jpeg" alt="자리하나 주소창 오른쪽에 공유 아이콘이 있는 화면 예시">
+            <span class="share-marker" aria-hidden="true"></span>
+          </div>
+        </section>
+
+        <section class="step-panel" data-step="1" aria-labelledby="step-two-title" hidden>
+          <h3 class="step-heading" id="step-two-title" data-step-title>홈 화면에 추가해요</h3>
+          <div class="screenshot screenshot--menu">
+            <img src="assets/ios-pwa-guide/home-screen-add.jpeg" alt="공유 메뉴에서 홈 화면에 추가 항목을 선택하는 화면 예시">
+            <span class="menu-marker" aria-hidden="true"></span>
+          </div>
+        </section>
+
+        <section class="step-panel" data-step="2" aria-labelledby="step-three-title" hidden>
+          <h3 class="step-heading" id="step-three-title" data-step-title>목록 버튼을 눌러요</h3>
+          <div class="screenshot screenshot--hamburger">
+            <img src="assets/ios-pwa-guide/menu-hamburger.png" alt="자리하나 화면 오른쪽 위의 목록 버튼">
+            <span class="hamburger-marker" aria-hidden="true"></span>
+          </div>
+        </section>
+
+        <section class="step-panel" data-step="3" aria-labelledby="step-four-title" hidden>
+          <h3 class="step-heading" id="step-four-title" data-step-title>종 버튼을 눌러요</h3>
+          <div class="screenshot screenshot--bell">
+            <img src="assets/ios-pwa-guide/menu-bell.png" alt="전체 메뉴 위쪽에 있는 종 버튼">
+            <span class="bell-badge-cleanup" aria-hidden="true"></span>
+            <svg class="bell-icon-restored" aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
+            </svg>
+            <span class="bell-marker" aria-hidden="true"></span>
+          </div>
+        </section>
+
+        <section class="step-panel" data-step="4" aria-labelledby="step-five-title" hidden>
+          <h3 class="step-heading" id="step-five-title" data-step-title>푸시 알림을 켜요</h3>
+          <figure class="inbox-capture">
+            <div class="push-capture-image">
+              <img src="assets/ios-pwa-guide/notification-push-setting.png" alt="dev.jarihana.com 실제 알림함의 ‘이 브라우저의 푸시 알림’ 설정 화면. 스위치가 꺼져 있어요.">
+              <span class="push-marker" aria-hidden="true"></span>
+            </div>
+          </figure>
+        </section>
+        </div>
+        <p class="coming-soon" id="android-message" role="status" hidden>준비중입니다</p>
+      </div>
+
+      <div class="dialog-footer" id="guide-navigation">
+        <div class="navigation-actions">
+          <button class="button button-secondary" id="previous-button" type="button" disabled data-ph-capture-attribute-action="push_guide_previous">이전</button>
+          <button class="button button-primary button-next" id="next-button" type="button" data-ph-capture-attribute-action="push_guide_next">
+            다음
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+        <label class="hide-guide-option" for="hide-guide-seven-days">
+          <input id="hide-guide-seven-days" type="checkbox" data-ph-capture-attribute-action="push_guide_hide_seven_days_toggle">
+          <span>7일간 보지 않기</span>
+        </label>
+      </div>
+    </dialog>
+
+    <script>
+      const dialog = document.querySelector("#guide-dialog");
+      const reopenButton = document.querySelector("#reopen-dialog");
+      const platformTabs = [...document.querySelectorAll("[role='tab']")];
+      const panels = [...document.querySelectorAll("[data-step]")];
+      const iosGuide = document.querySelector("#ios-guide");
+      const androidMessage = document.querySelector("#android-message");
+      const navigation = document.querySelector("#guide-navigation");
+      const previousButton = document.querySelector("#previous-button");
+      const nextButton = document.querySelector("#next-button");
+      const count = document.querySelector("#progress-count");
+      const progress = document.querySelector(".progress-track");
+      const progressValue = document.querySelector("#progress-value");
+      const hideForSevenDays = document.querySelector("#hide-guide-seven-days");
+      const snoozeKey = "jarihana:pwa-guide:hidden-until";
+      const snoozeDuration = 7 * 24 * 60 * 60 * 1000;
+      let activePlatform = "ios";
+      let activeStep = 0;
+      let lastTrigger = reopenButton;
+
+      const labels = {
+        ios: {
+          steps: [
+            { title: "공유를 눌러요" },
+            { title: "홈 화면에 추가해요" },
+            { title: "목록 버튼을 눌러요" },
+            { title: "종 버튼을 눌러요" },
+            { title: "푸시 알림을 켜요" }
+          ]
+        }
+      };
+
+      function render() {
+        const isIOS = activePlatform === "ios";
+        iosGuide.hidden = !isIOS;
+        androidMessage.hidden = isIOS;
+        navigation.hidden = !isIOS;
+        const totalSteps = panels.length;
+        platformTabs.forEach((tab) => {
+          const selected = tab.dataset.platform === activePlatform;
+          tab.setAttribute("aria-selected", String(selected));
+          tab.tabIndex = selected ? 0 : -1;
+        });
+        document.querySelector("#guide-panel").setAttribute("aria-labelledby", `tab-${activePlatform}`);
+        if (!isIOS) return;
+        const steps = labels.ios.steps;
+        panels.forEach((panel, index) => {
+          panel.hidden = index !== activeStep;
+          panel.querySelector("[data-step-title]").textContent = steps[index].title;
+        });
+        count.textContent = `${activeStep + 1} / ${totalSteps}`;
+        count.setAttribute("aria-label", `전체 ${totalSteps}단계 중 ${activeStep + 1}단계`);
+        progress.setAttribute("aria-valuemax", String(totalSteps));
+        progress.setAttribute("aria-valuenow", String(activeStep + 1));
+        progressValue.style.width = `${((activeStep + 1) / totalSteps) * 100}%`;
+        previousButton.disabled = activeStep === 0;
+        nextButton.innerHTML = activeStep === totalSteps - 1
+          ? "완료"
+          : "다음 <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14M13 6l6 6-6 6\"/></svg>";
+      }
+
+      function closeDialog() {
+        if (!dialog.open) return;
+        dialog.close();
+        lastTrigger?.focus();
+      }
+
+      function getSnoozeExpiry() {
+        try {
+          const expiry = Number(localStorage.getItem(snoozeKey));
+          if (expiry > Date.now()) return expiry;
+          localStorage.removeItem(snoozeKey);
+        } catch {}
+        return 0;
+      }
+
+      function syncSnoozeControl() {
+        hideForSevenDays.checked = getSnoozeExpiry() > Date.now();
+      }
+
+      function saveSnoozePreference() {
+        try {
+          if (hideForSevenDays.checked) {
+            localStorage.setItem(snoozeKey, String(Date.now() + snoozeDuration));
+          } else {
+            localStorage.removeItem(snoozeKey);
+          }
+        } catch {}
+      }
+
+      platformTabs.forEach((tab, index) => {
+        tab.addEventListener("click", () => { activePlatform = tab.dataset.platform; render(); });
+        tab.addEventListener("keydown", (event) => {
+          const next = event.key === "ArrowRight" ? (index + 1) % platformTabs.length
+            : event.key === "ArrowLeft" ? (index + platformTabs.length - 1) % platformTabs.length
+              : event.key === "Home" ? 0 : event.key === "End" ? platformTabs.length - 1 : -1;
+          if (next < 0) return;
+          event.preventDefault();
+          activePlatform = platformTabs[next].dataset.platform;
+          render();
+          platformTabs[next].focus();
+        });
+      });
+      previousButton.addEventListener("click", () => {
+        if (activePlatform !== "ios") return;
+        activeStep = Math.max(0, activeStep - 1);
+        render();
+      });
+      nextButton.addEventListener("click", () => {
+        if (activePlatform !== "ios") return;
+        if (activeStep === panels.length - 1) { closeDialog(); return; }
+        activeStep += 1;
+        render();
+        document.querySelector(".dialog-content").scrollTop = 0;
+      });
+      document.querySelector("#close-dialog").addEventListener("click", closeDialog);
+      document.querySelector("#done-button")?.addEventListener("click", closeDialog);
+      hideForSevenDays.addEventListener("change", saveSnoozePreference);
+      reopenButton.addEventListener("click", () => {
+        lastTrigger = reopenButton;
+        syncSnoozeControl();
+        dialog.showModal();
+      });
+      dialog.addEventListener("cancel", (event) => { event.preventDefault(); closeDialog(); });
+      render();
+      lastTrigger = document.activeElement;
+      syncSnoozeControl();
+      if (!hideForSevenDays.checked) dialog.showModal();
+    </script>
+  </body>
+</html>

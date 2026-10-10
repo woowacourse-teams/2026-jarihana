@@ -79,6 +79,7 @@ export default (_, arguments_) => {
         patterns: [
           { from: path.resolve(directory, "public/sw.js"), to: "sw.js" },
           { from: path.resolve(directory, "public/icons"), to: "icons" },
+          { from: path.resolve(directory, "public/images"), to: "images" },
           {
             from: path.resolve(directory, "src/shared/assets/illustrations/default-group-*-3d.png"),
             to: "assets/[name][ext]"
