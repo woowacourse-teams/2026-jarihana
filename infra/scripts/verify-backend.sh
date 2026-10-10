@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 배포 후 점검: readiness 대기와 스모크 테스트(학습서 4.5).
+# 배포 후 점검: readiness 대기와 스모크 테스트.
 # 배포 직후와 롤백 직후에 같은 점검을 쓴다. 하나라도 실패하면 0이 아닌 값으로 끝난다.
 # 사용법: verify-backend.sh <dev|prod>
 set -euo pipefail
