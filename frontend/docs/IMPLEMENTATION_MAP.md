@@ -67,7 +67,7 @@ header 구현으로 확대하지 않았다.
 | `/groups` | 공개 | `GET /api/groups` | AppShell, GroupBrowsePage, SearchField, FilterBar, GroupCard, CursorList | initial/background loading, empty, success, 400, network |
 | `/groups/explore` | 공개 | 없음 | 검색 조건과 해시를 보존해 `/groups`로 replace 이동 | 기존 링크 호환 |
 | `/activities`                                                       | 공개                   | `GET /api/activity-posts`, 활동 기록 작성·수정·숨김 API | AppShell, ActivityPostBoard, PolaroidCard, infinite cursor list | loading, empty, error, public/mine filter, image upload and public-visibility notice |
-| `/groups/:groupId`                                                  | 공개                   | 그룹 상세(모임 방식·장소 포함), 모집 목록, 참여자 목록, 활동 기록 | DetailLayout, Tabs, InfoRow, RecruitmentCard, PersonRow, ActivityPostBoard | loading, empty section, 403, 404, network                                        |
+| `/groups/:groupId`                                                  | 그룹 정보와 달력 제목·날짜·시각은 공개, 일정 상세는 그룹원 | 그룹 상세, 모집·참여자·활동 기록, `/api/groups/{groupId}/calendar`와 그룹원 일정 상세 API | DetailLayout, Tabs(소개·캘린더·활동 기록), GroupCalendarTab, InfoRow, RecruitmentCard, PersonRow, ActivityPostBoard | loading, empty section, calendar range/error, leader calendar actions, 403, 404, 409 conflict, network |
 | `/groups/:groupId/recruitments/:recruitmentId`                      | 조회 공개, 신청은 회원 | 모집 상세, 신청 생성/철회                | DetailLayout, RecruitmentPanel, Modal, Toast                         | closed/ended, validation, 401, 403, 404, 409, mutation pending/success/failure   |
 | `/oauth/callback`                                                   | 공개                   | `GET /api/members/me`                    | CenteredStateLayout                                                  | callback loading, invalid callback, signup required, authenticated, 401, network |
 | `/signup`                                                           | 가입 세션              | 내 정보 조회, 회원 생성                  | FormLayout, FormField, Select                                        | field/server validation, missing session, 409, pending/success/failure           |
@@ -138,6 +138,9 @@ header 구현으로 확대하지 않았다.
 - 모집 방식: `AUTO | APPROVAL`, 조회 상태: `SCHEDULED | OPEN | ALWAYS_OPEN | CLOSED`.
 - 신청 상태: `PENDING | APPROVED | REJECTED`.
 - `CLUB`/`STUDY`는 반복 일정, `SESSION`은 단일 세션 일정을 입력한다.
+- 그룹 상세의 `캘린더` 탭은 `소개`와 `활동 기록` 사이에 둔다. `CLUB`·`STUDY`의 정기 일정과 개별 일정, 독립된 `SESSION` 그룹의 단일 일정을 표시한다. 새 모임 부속 세션과 RSVP는 이번 범위에 포함하지 않는다.
+- 공개 달력 응답에는 제목·날짜·시각만 포함한다. 개별 일정의 설명·장소와 정기·세션 일정의 당시 장소는 그룹원 전용 상세 API로 조회한다.
+- 기존 정기·세션 일정 표시 설정과 개별 일정의 등록·수정·삭제는 모임장 전용이다. 달력에는 일정 제목을 공개한다.
 - 이미지 업로드는 `POST /api/image-uploads`로 Presigned URL을 발급한 뒤 스토리지에
   직접 전송하고, 응답의 `imageKey`를 그룹 생성·수정 요청의 `representativeImageKey`로
   전달한다. 업로드 URL은 제한 시간 동안만 유효하다.
@@ -189,6 +192,7 @@ header 구현으로 확대하지 않았다.
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | 그룹           | `GET/POST /api/groups`, `GET/PUT/PATCH/DELETE /api/groups/{groupId}`                                                                                                               | 탐색·상세·생성·수정·종료·삭제                                                  |
 | 일정           | `PUT/DELETE /api/groups/{groupId}/recurring-schedule`, `PUT /api/groups/{groupId}/session-schedule`                                                                                | 모임 유형에 맞는 일정 저장/삭제                                                |
+| 그룹 달력      | `GET /api/groups/{groupId}/calendar`, `GET /api/groups/{groupId}/calendar/schedule-details`, `GET/POST/PUT/DELETE /api/groups/{groupId}/events`, 정기 규칙·표시 설정 API              | 월간 달력 조회, 그룹원 상세, 모임장 일정·표시 범위 관리                         |
 | 참여자         | `GET /api/groups/{groupId}/members`, `PUT /api/groups/{groupId}/leader`                                                                                                            | 참여자 목록과 리더 위임                                                        |
 | 모집           | `GET/POST /api/groups/{groupId}/recruitments`, `GET/PUT/PATCH /api/groups/{groupId}/recruitments/{recruitmentId}`                                                                  | 모집 이력·상세·생성·수정·마감                                                  |
 | 신청           | `GET/POST /api/recruitments/{recruitmentId}/registrations`, `PATCH/DELETE /api/recruitments/{recruitmentId}/registrations/{registrationId}`, `GET /api/registrations?applicant=me` | 신청 생성·철회·승인/미승인·내 신청                                               |

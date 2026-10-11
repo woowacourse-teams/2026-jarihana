@@ -1,0 +1,178 @@
+# 그룹 달력
+
+## 공통 규칙
+
+머신 판독 가능한 API 계약은 [그룹 달력 OpenAPI 명세](group-calendar.openapi.yaml)에 있다.
+
+- `CLUB`, `STUDY`, `SESSION` 모두 그룹 상세의 월간 달력을 제공한다. `SESSION`은 독립된 그룹 유형이며 그룹의 일회성 일정이 달력에 표시된다.
+- 이번 범위에는 정기 일정과 모임장이 등록하는 개별 일정, 기존 `SESSION`의 단일 일정만 포함한다. 기존 모임에 딸린 별도 세션과 RSVP는 포함하지 않는다.
+- 달력 조회는 공개다. 개별 일정의 제목·날짜·시각은 공개 응답에 포함되지만 설명·장소는 포함하지 않는다. 일정 상세와 정기·세션 일정의 당시 장소는 그룹원 전용 API로 조회한다.
+- 정기 일정의 달력 노출 설정은 세션 일정에도 함께 적용하며, 개별 일정에는 영향을 주지 않는다.
+- 모든 날짜는 `YYYY-MM-DD`, 시간은 `HH:mm:ss` 형식을 사용한다. 날짜 범위는 시작일과 종료일을 포함한다.
+- 개별 일정은 시작일부터 1년 이내로 제한한다. 종일 일정은 시각이 모두 `null`이고, 시간 지정 일정은 시작·종료 시각이 모두 필요하다.
+- `GROUP_EVENT_CONFLICT`는 이벤트 버전 또는 정기 규칙 버전이 최신 상태와 다를 때 반환한다. 요청의 최신 버전을 다시 조회한 뒤 수정해야 한다.
+
+## `GET /api/groups/{groupId}/calendar`
+
+- 설명: 모임의 공개 달력 조회
+- 권한: `PUBLIC`
+- Query Parameters: `from`, `to` (`YYYY-MM-DD`, 필수). 범위 양 끝을 포함해 최대 42일이며 `from`은 `to`보다 늦을 수 없다.
+
+응답에는 `showBaseSchedule`, 첫 정기 등록 전의 유동적 기간, 정기 규칙 삭제 후의 유동적 기간과 달력 이벤트가 포함된다. 유동적 기간 정보가 없으면 해당 필드는 `null` 또는 빈 배열이다.
+
+```json
+{
+  "success": true,
+  "data": {
+    "showBaseSchedule": true,
+    "flexibleBeforeFirstRecurring": null,
+    "flexibleAfterRecurring": [],
+    "events": [{
+      "kind": "GROUP_EVENT",
+      "id": 24,
+      "occurrenceKey": null,
+      "periodId": null,
+      "title": "보드게임 모임",
+      "startDate": "2026-10-14",
+      "endDate": "2026-10-14",
+      "allDay": false,
+      "startTime": "19:00:00",
+      "endTime": "21:00:00"
+    }]
+  },
+  "error": null
+}
+```
+
+`kind`는 `GROUP_EVENT`, `RECURRING`, `SESSION` 중 하나다. 달력 응답에는 개별 일정의 설명·장소가 포함되지 않는다. 정기 일정은 제목을 `정기 모임`으로 표시하고, `SESSION` 일정은 현재 그룹 이름을 제목으로 표시한다.
+
+## `GET /api/groups/{groupId}/calendar/schedule-details`
+
+- 설명: 정기 또는 세션 일정의 당시 장소 조회
+- 권한: `MEMBER`
+- Query Parameters: `kind` (`RECURRING` 또는 `SESSION`), `date` (`YYYY-MM-DD`), 모두 필수
+
+```json
+{
+  "success": true,
+  "data": {
+    "kind": "RECURRING",
+    "title": "정기 모임",
+    "date": "2026-10-14",
+    "startTime": "19:00:00",
+    "endTime": "21:00:00",
+    "location": "서울 캠퍼스"
+  },
+  "error": null
+}
+```
+
+시간이 없는 정기 일정은 `startTime`과 `endTime`이 `null`이다. 해당 날짜의 장소는 그날 마지막으로 적용된 장소 이력에서 조회한다.
+
+## `PUT /api/groups/{groupId}/calendar/settings`
+
+- 설명: 기존 정기·세션 일정의 달력 표시 설정
+- 권한: `LEADER`
+- 요청: `{"showBaseSchedule": true}`
+- 응답: `{"success":true,"data":{"showBaseSchedule":true},"error":null}`
+
+이 설정은 기본 정기·세션 일정에만 적용한다. 개별 일정과 그룹 정보는 변경하지 않는다.
+
+## 개별 일정
+
+### `POST /api/groups/{groupId}/events`
+
+- 설명: 개별 일정 등록
+- 권한: `LEADER`
+- 요청 필드: `title`, `startDate`, `endDate`, `allDay`, `startTime`, `endTime`, `description`, `location`
+- `description`은 필수, `location`은 선택이다. `allDay=true`이면 시각 두 개를 `null`로 보내고, `allDay=false`이면 두 시각을 모두 지정한다.
+- 응답: `201 Created`, 생성된 일정 정보와 `Location: /api/groups/{groupId}/events/{eventId}`
+
+### `GET /api/groups/{groupId}/events/{eventId}`
+
+- 설명: 개별 일정 상세 조회
+- 권한: `MEMBER`
+- 응답: `id`, `title`, `startDate`, `endDate`, `allDay`, `startTime`, `endTime`, `description`, `location`, `version`
+
+### `PUT /api/groups/{groupId}/events/{eventId}`
+
+- 설명: 개별 일정 전체 교체
+- 권한: `LEADER`
+- 요청: 등록 요청 필드에 조회한 `version`을 추가한다.
+- 응답: 수정된 일정 정보와 증가한 `version`
+
+### `DELETE /api/groups/{groupId}/events/{eventId}?version={version}`
+
+- 설명: 개별 일정 삭제
+- 권한: `LEADER`
+- 응답: `204 No Content`. 삭제는 soft delete다.
+
+개별 일정의 제목은 최대 50자, 장소는 최대 255자, 설명은 최대 10,000자다. 과거 날짜의 일정도 등록·수정할 수 있다. 종료된 그룹에서는 개별 일정을 변경할 수 없다.
+
+## 정기 규칙
+
+### `POST /api/groups/{groupId}/recurring-schedule/series`
+
+- 설명: 첫 정기 규칙 등록
+- 권한: `LEADER`
+- 요청: `daysOfWeek`는 하나 이상의 요일이며, `startTime`·`endTime`은 함께 지정하거나 함께 `null`로 둔다.
+- 첫 정기 등록은 오늘부터 적용하며 변경 범위 선택을 받지 않는다.
+- 응답: `201 Created`, `seriesId`, `periodId`, `startDate`, `endDate`, `version`, `daysOfWeek`, `startTime`, `endTime`
+
+### `GET /api/groups/{groupId}/recurring-schedule/manage`
+
+- 설명: 현재 정기 일정 관리 정보 조회
+- 권한: `LEADER`
+- 응답: 현재 `seriesId`, 최신 `periodId`, 전체 표시 기간, `version`, 요일과 시각
+
+### `GET /api/groups/{groupId}/recurring-schedule/periods/{periodId}`
+
+- 설명: 선택한 과거 또는 현재 규칙 구간 조회
+- 권한: `LEADER`
+- 응답: `periodId`, `effectiveFrom`, `effectiveUntil`, 시리즈 `version`, 요일과 시각
+
+### `PUT /api/groups/{groupId}/recurring-schedule/scoped`
+
+- 설명: 정기 규칙의 요일·시각 변경
+- 권한: `LEADER`
+- 요청: `daysOfWeek`, `startTime`, `endTime`, `applyScope`, `version`
+- `applyScope`는 `ALL`, `PREVIOUS_RULE`, `FROM_TODAY`다. `ALL`은 모든 규칙 구간의 요일·시각을 바꾸고, `PREVIOUS_RULE`은 현재 규칙 구간만 바꾸며, `FROM_TODAY`는 오늘 이후 구간을 바꾼다. 전체 시작·종료일은 별도 API로 수정한다.
+- 응답: 증가한 시리즈 `version`
+
+### `PUT /api/groups/{groupId}/recurring-schedule/periods/{periodId}`
+
+- 설명: 선택한 규칙 구간의 요일·시각만 수정
+- 권한: `LEADER`
+- 요청: `daysOfWeek`, `startTime`, `endTime`, `version`
+- 응답: 증가한 시리즈 `version`
+
+### `PUT /api/groups/{groupId}/recurring-schedule/calendar-range`
+
+- 설명: 정기 일정 전체의 시작일·종료일 수정
+- 권한: `LEADER`
+- 요청: `startDate`, nullable `endDate`, `version`. 시작일은 모임 개설일보다 이를 수 없고, 종료일은 시작일보다 빠를 수 없다.
+- 응답: 증가한 시리즈 `version`
+
+### `DELETE /api/groups/{groupId}/recurring-schedule/scoped`
+
+- 설명: 범위를 선택해 정기 규칙 제거
+- 권한: `LEADER`
+- 요청: `applyScope` (`ALL`, `PREVIOUS_RULE`, `FROM_TODAY`), `version`
+- 응답: `204 No Content`
+- 현재 규칙 삭제는 범위에 따라 해당 구간의 정기 발생을 숨기고 이후 유동적 운영 기간으로 전환한다. `ALL`은 모임 개설일부터, `PREVIOUS_RULE`은 현재 규칙 구간 시작일부터, `FROM_TODAY`는 오늘부터 유동적으로 표시한다.
+
+## 공통 오류
+
+| 상황 | 코드 | HTTP |
+| --- | --- | --- |
+| 인증이 필요한 요청에 인증 정보 없음 | `UNAUTHENTICATED` | 401 |
+| 그룹 모임장이 아님 또는 그룹원이 아님 | `GROUP_ACCESS_DENIED` | 403 |
+| 그룹 또는 개별 일정 없음 | `GROUP_NOT_FOUND`, `GROUP_EVENT_NOT_FOUND` | 404 |
+| 정기 규칙 또는 규칙 구간 없음 | `RECURRING_SCHEDULE_NOT_FOUND` | 404 |
+| 요청 값·조회 범위·일정 기간이 올바르지 않음 | `INVALID_PARAMETER` | 400 |
+| 종료된 그룹 또는 최신 버전과 충돌 | `GROUP_ENDED`, `GROUP_EVENT_CONFLICT` | 409 |
+| 정기 규칙을 지원하지 않는 `SESSION` 그룹 | `SCHEDULE_TYPE_MISMATCH` | 400 |
+
+## 기존 정기 일정 API 호환
+
+기존 `PUT/DELETE /api/groups/{groupId}/recurring-schedule`은 구버전 화면 호환용이다. `GROUP_CALENDAR_LEGACY_RECURRING_WRITE_ENABLED=true`일 때만 허용하고 오늘 이후 범위로 이력을 함께 갱신한다. 기본값은 `false`이며, 비활성 상태에서 호출하면 `CALENDAR_CLIENT_OUTDATED` (`409`)를 반환한다. 기존 모임 정보 수정과 `SESSION` 일정 수정 API는 유지한다.

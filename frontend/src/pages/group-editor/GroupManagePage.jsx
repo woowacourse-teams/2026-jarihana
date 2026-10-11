@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { useNavigate, useParams } from "react-router";
 import { z } from "zod";
@@ -9,6 +9,7 @@ import {
   useGroup,
   useModifyGroup,
   useRemoveRecurringSchedule,
+  useRegisterGroupRecurringSeries,
   useReplaceRecurringSchedule,
   useReplaceSessionSchedule,
   useTerminateGroup
@@ -29,6 +30,8 @@ import {
   useToast
 } from "../../shared/ui/index.js";
 import { scheduleLines, typeLabel } from "../groups/pageUtils.js";
+import { GroupRecurringManageDialog } from "../groups/GroupRecurringManageDialog.jsx";
+import { GroupSessionManageDialog } from "../groups/GroupSessionManageDialog.jsx";
 import {
   RepresentativeImageNotice,
   ScheduleFact,
@@ -150,20 +153,25 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const deleteMutation = useDeleteGroup(groupId);
   const terminateMutation = useTerminateGroup(groupId);
   const recurringMutation = useReplaceRecurringSchedule(groupId);
+  const registerRecurringMutation = useRegisterGroupRecurringSeries(groupId);
   const removeRecurringMutation = useRemoveRecurringSchedule(groupId);
   const sessionMutation = useReplaceSessionSchedule(groupId);
   const representativeImageUpload = useImageUpload();
   const descriptionImageUpload = useImageUpload();
   const saveLock = useSubmissionLock();
   const lifecycleLock = useSubmissionLock();
+  const scheduleLock = useSubmissionLock();
   const [contentTab, setContentTab] = useState("intro");
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [recurringManageOpen, setRecurringManageOpen] = useState(false);
   const [representativeImageDraft, setRepresentativeImageDraft] = useState(null);
+  const dirtyFieldsRef = useRef({});
 
   const {
     control,
-    formState: { errors },
+    formState: { errors, dirtyFields },
     handleSubmit,
+    getValues,
     register,
     reset,
     setValue,
@@ -185,6 +193,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   });
 
   const values = useWatch({ control });
+  useEffect(() => { dirtyFieldsRef.current = dirtyFields; }, [dirtyFields]);
   const description = values.description ?? "";
   const daysOfWeek = values.daysOfWeek ?? [];
   const flexibleTime = values.flexibleTime ?? false;
@@ -201,7 +210,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
 
   useEffect(() => {
     if (!group) return;
-    reset(toFormValues(group));
+    reset(toFormValues(group), { keepDirtyValues: Object.keys(dirtyFieldsRef.current).length > 0 });
   }, [group, reset]);
 
   if (groupQuery.isLoading)
@@ -264,10 +273,18 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
     event.preventDefault();
     const fields = isSession ? ["sessionDate", "startTime", "endTime"] : ["startTime", "endTime"];
     if (!(await trigger(fields))) return;
-    setScheduleOpen(false);
+    await scheduleLock.run(async () => {
+      try {
+        await saveSchedule(getValues());
+        toast.show({ title: "일정을 저장했어요.", tone: "success" });
+        setScheduleOpen(false);
+      } catch (error) {
+        toast.show({ title: "일정을 저장하지 못했어요.", description: errorDescription(error), tone: "danger" });
+      }
+    });
   }
 
-  /* 저장은 한 번이지만 일정은 별도 엔드포인트라, 바뀌었을 때만 두 번째 요청이 나간다. */
+  /* 일정 모달의 저장은 모임 정보 폼과 별도 요청으로 처리한다. */
   async function saveSchedule(formValues) {
     if (isSession) {
       const next = {
@@ -289,7 +306,8 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
       : null;
     if (sameSchedule(currentRecurring(group), next)) return;
     if (next) {
-      await recurringMutation.mutateAsync(next);
+      if (group.recurringSchedule) await recurringMutation.mutateAsync(next);
+      else await registerRecurringMutation.mutateAsync(next);
       return;
     }
     await removeRecurringMutation.mutateAsync();
@@ -318,7 +336,6 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
           location: formValues.location.trim() || null,
           representativeImageKey: representativeImageKey ?? null
         });
-        await saveSchedule(formValues);
         toast.show({ title: "모임 정보를 저장했어요.", tone: "success" });
         navigate(`/groups/${groupId}`, { replace: true });
       } catch (error) {
@@ -414,7 +431,8 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
                   <ScheduleFact
                     error={scheduleError}
                     lines={summary}
-                    onEdit={() => setScheduleOpen(true)}
+                    onEdit={group.status === "ACTIVE" ? () => group.recurringSchedule && !isSession
+                      ? setRecurringManageOpen(true) : setScheduleOpen(true) : undefined}
                   />
                   <div className="group-fact group-fact--field">
                     <div>
@@ -541,7 +559,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
           </section>
         ) : null}
 
-        <ScheduleDialog
+        {!isSession ? <ScheduleDialog
           errors={errors}
           flexibleTime={flexibleTime}
           isSession={isSession}
@@ -550,9 +568,23 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
           onPresetSelect={selectPreset}
           onSubmit={confirmSchedule}
           open={scheduleOpen}
+          pending={scheduleLock.pending || sessionMutation.isPending || registerRecurringMutation.isPending || recurringMutation.isPending || removeRecurringMutation.isPending}
           register={register}
+          requestError={sessionMutation.error?.userMessage || registerRecurringMutation.error?.userMessage || recurringMutation.error?.userMessage || removeRecurringMutation.error?.userMessage}
           selectedDays={daysOfWeek}
-        />
+        /> : null}
+        {isSession && scheduleOpen ? <GroupSessionManageDialog
+          groupId={groupId}
+          onClose={() => setScheduleOpen(false)}
+          open={scheduleOpen}
+          schedule={group.sessionSchedule}
+        /> : null}
+        {recurringManageOpen ? <GroupRecurringManageDialog
+          current={recurringManageOpen}
+          groupId={groupId}
+          location={group.location}
+          onClose={() => setRecurringManageOpen(false)}
+        /> : null}
       </div>
     </div>
   );

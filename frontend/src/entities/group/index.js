@@ -39,6 +39,77 @@ export const sessionScheduleSchema = z.object({
   endTime: localTimeSchema
 });
 
+export const groupCalendarSchema = z.object({
+  showBaseSchedule: z.boolean(),
+  flexibleBeforeFirstRecurring: z.object({
+    fromDate: localDateSchema,
+    untilDate: localDateSchema,
+    registeredOn: localDateSchema
+  }).strict().nullable(),
+  flexibleAfterRecurring: z.array(z.object({
+    fromDate: localDateSchema,
+    untilDate: localDateSchema.nullable()
+  }).strict()),
+  events: z.array(z.object({
+    kind: z.enum(["GROUP_EVENT", "RECURRING", "SESSION"]),
+    id: entityIdSchema.optional(),
+    occurrenceKey: z.string().optional(),
+    periodId: entityIdSchema.optional(),
+    title: z.string(),
+    startDate: localDateSchema,
+    endDate: localDateSchema,
+    allDay: z.boolean(),
+    startTime: localTimeSchema.nullable(),
+    endTime: localTimeSchema.nullable()
+  }).strict())
+}).strict();
+
+export const groupEventDetailSchema = z.object({
+  id: entityIdSchema,
+  title: z.string(),
+  startDate: localDateSchema,
+  endDate: localDateSchema,
+  allDay: z.boolean(),
+  startTime: localTimeSchema.nullable(),
+  endTime: localTimeSchema.nullable(),
+  description: z.string(),
+  location: z.string().nullable(),
+  version: z.number().int().nonnegative()
+}).strict();
+
+export const groupScheduleDetailSchema = z.object({
+  kind: z.enum(["RECURRING", "SESSION"]),
+  title: z.string(),
+  date: localDateSchema,
+  startTime: localTimeSchema.nullable(),
+  endTime: localTimeSchema.nullable(),
+  location: z.string().nullable()
+}).strict();
+
+export const groupRecurringManageSchema = z.object({
+  seriesId: entityIdSchema,
+  periodId: entityIdSchema,
+  startDate: localDateSchema,
+  endDate: localDateSchema.nullable(),
+  version: z.number().int().nonnegative(),
+  daysOfWeek: z.array(dayOfWeekSchema),
+  startTime: localTimeSchema.nullable(),
+  endTime: localTimeSchema.nullable()
+}).strict();
+
+export const groupRecurringPeriodSchema = z.object({
+  periodId: entityIdSchema,
+  effectiveFrom: localDateSchema,
+  effectiveUntil: localDateSchema.nullable(),
+  version: z.number().int().nonnegative(),
+  daysOfWeek: z.array(dayOfWeekSchema),
+  startTime: localTimeSchema.nullable(),
+  endTime: localTimeSchema.nullable()
+}).strict();
+
+export const groupVersionSchema = z.object({ version: z.number().int().nonnegative() }).strict();
+export const groupCalendarSettingsSchema = z.object({ showBaseSchedule: z.boolean() }).strict();
+
 const leaderSchema = z.object({
   memberId: entityIdSchema,
   crewName: z.string(),

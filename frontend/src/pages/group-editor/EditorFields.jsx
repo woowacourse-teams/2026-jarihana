@@ -105,8 +105,9 @@ export function ScheduleFact({ actionLabel = "수정", error, lines, onEdit }) {
         <dt>모임 일정</dt>
         <dd>
           <button
-            aria-label={`모임 일정 ${actionLabel}`}
+            aria-label={`모임 일정 ${onEdit ? actionLabel : "종료됨"}`}
             className="group-editor__schedule-row"
+            disabled={!onEdit}
             onClick={onEdit}
             type="button"
           >
@@ -115,7 +116,7 @@ export function ScheduleFact({ actionLabel = "수정", error, lines, onEdit }) {
                 <span key={line}>{line}</span>
               ))}
             </span>
-            <span className="group-editor__schedule-edit">{actionLabel}</span>
+            <span className="group-editor__schedule-edit">{onEdit ? actionLabel : "종료됨"}</span>
           </button>
           {error ? (
             <p className="group-editor__error" role="alert">

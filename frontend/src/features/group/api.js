@@ -1,5 +1,12 @@
 import {
   groupCreateResponseSchema,
+  groupCalendarSchema,
+  groupEventDetailSchema,
+  groupScheduleDetailSchema,
+  groupRecurringManageSchema,
+  groupRecurringPeriodSchema,
+  groupVersionSchema,
+  groupCalendarSettingsSchema,
   groupDetailSchema,
   groupListPageSchema,
   groupTerminateResponseSchema,
@@ -26,6 +33,94 @@ export function fetchGroups(filters = {}) {
 
 export function fetchGroup(groupId) {
   return apiRequest(`groups/${groupId}`, { schema: groupDetailSchema });
+}
+
+export function fetchGroupCalendar(groupId, range) {
+  return apiRequest(`groups/${groupId}/calendar`, {
+    searchParams: range,
+    schema: groupCalendarSchema
+  });
+}
+
+export function createGroupEvent(groupId, values) {
+  return apiRequest(`groups/${groupId}/events`, {
+    method: "post",
+    json: values,
+    schema: groupEventDetailSchema
+  });
+}
+
+export function fetchGroupEventDetail(groupId, eventId) {
+  return apiRequest(`groups/${groupId}/events/${eventId}`, { schema: groupEventDetailSchema });
+}
+
+export function updateGroupEvent(groupId, eventId, values) {
+  return apiRequest(`groups/${groupId}/events/${eventId}`, {
+    method: "put", json: values, schema: groupEventDetailSchema
+  });
+}
+
+export function deleteGroupEvent(groupId, eventId, version) {
+  return apiRequest(`groups/${groupId}/events/${eventId}`, {
+    method: "delete", searchParams: { version }
+  });
+}
+
+export function fetchGroupScheduleDetail(groupId, kind, date) {
+  return apiRequest(`groups/${groupId}/calendar/schedule-details`, {
+    searchParams: { kind, date },
+    schema: groupScheduleDetailSchema
+  });
+}
+
+export function fetchGroupRecurringManage(groupId) {
+  return apiRequest(`groups/${groupId}/recurring-schedule/manage`, {
+    schema: groupRecurringManageSchema
+  });
+}
+
+export function registerGroupRecurringSeries(groupId, values) {
+  return apiRequest(`groups/${groupId}/recurring-schedule/series`, {
+    method: "post", json: values, schema: groupRecurringManageSchema
+  });
+}
+
+export function fetchGroupRecurringPeriod(groupId, periodId) {
+  return apiRequest(`groups/${groupId}/recurring-schedule/periods/${periodId}`, {
+    schema: groupRecurringPeriodSchema
+  });
+}
+
+export function replaceScopedRecurringSchedule(groupId, values) {
+  return apiRequest(`groups/${groupId}/recurring-schedule/scoped`, {
+    method: "put", json: values, schema: groupVersionSchema
+  });
+}
+
+export function editGroupRecurringPeriod(groupId, periodId, values) {
+  return apiRequest(`groups/${groupId}/recurring-schedule/periods/${periodId}`, {
+    method: "put", json: values, schema: groupVersionSchema
+  });
+}
+
+export function updateGroupRecurringRange(groupId, values) {
+  return apiRequest(`groups/${groupId}/recurring-schedule/calendar-range`, {
+    method: "put", json: values, schema: groupVersionSchema
+  });
+}
+
+export function deleteScopedRecurringSchedule(groupId, values) {
+  return apiRequest(`groups/${groupId}/recurring-schedule/scoped`, {
+    method: "delete", json: values
+  });
+}
+
+export function setGroupCalendarVisibility(groupId, showBaseSchedule) {
+  return apiRequest(`groups/${groupId}/calendar/settings`, {
+    method: "put",
+    json: { showBaseSchedule },
+    schema: groupCalendarSettingsSchema
+  });
 }
 
 export function createGroup(values) {
