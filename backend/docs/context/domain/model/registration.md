@@ -7,6 +7,7 @@
 | `memberId` | Long | NOT NULL, FK | 신청한 `Member` |
 | `message` | String | nullable, 최대 1000자 | 신청 메시지 |
 | `status` | Enum | NOT NULL | `PENDING`, `APPROVED`, `REJECTED` |
+| `approvalOrigin` | Enum | NOT NULL | `RECRUITMENT` 또는 `INVITATION` |
 | `rejectReason` | String | nullable, 최대 1000자 | 미승인 사유 |
 | `registeredAt` | LocalDateTime | NOT NULL | 신청 시각 |
 | `decidedAt` | LocalDateTime | nullable | 승인 또는 미승인 시각 |
@@ -15,6 +16,8 @@
 
 ## 모델 규칙
 
+- 기존 데이터와 일반 신청 경로의 approvalOrigin은 RECRUITMENT다. 초대로 기존 PENDING을 승인하면 APPROVED·SYSTEM·INVITATION으로 기록하고 leaderViewedAt을 유지한다.
+- 초대 합류에 기존 신청이 없으면 Registration을 만들지 않는다. 선택 이유는 [ADR 0017](../../../adr/0017-separate-invitation-acceptance-history.md)을 따른다. 서비스 연결과 모집 정원 집계 변경은 후속 단계에서 구현한다.
 - 신청 확인 여부는 신청 상태와 독립적으로 관리한다.
 - `AUTO`의 즉시 승인 신청과 `APPROVAL`의 대기 신청 모두 생성 시 `leaderViewedAt`이 `null`이다.
 - 승인·미승인 상태 전이는 기존 `leaderViewedAt`을 유지한다.

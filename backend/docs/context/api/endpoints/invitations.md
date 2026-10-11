@@ -94,10 +94,9 @@ ALREADY_JOINED는 현재 소속에 대한 수락 결과이며 초대 status와 �
 ```
 
 - data 필드: id·groupId·type·targetMemberId·message·createdAt·expiresAt·status·sharePath·reused.
-- sharePath는 서버가 결정한 내부 상대 경로다. DIRECT는 `/invitations/{id}`, LINK 최초 발급은 `/invitations/link/{token}`이다.
+- sharePath는 서버가 결정한 내부 상대 경로다. DIRECT는 `/invitations/{id}`, LINK는 `/invitations/link/{token}`이다.
 - 동일 발급자+requestId의 동일 요청 재시도는 200과 reused=true다. 모임·유형·대상·메시지가 다르면 INVITATION_REQUEST_CONFLICT다.
-- LINK 원본은 최초 응답에만 제공하는 계약안이다. 재시도 응답에서 sharePath는 null이며 목록에서도 원본 경로를 제공하지 않는다.
-  DIRECT는 ID 기반이므로 재시도에서도 같은 sharePath를 반환한다.
+- 두 유형 모두 동일 요청 재시도에서 같은 sharePath를 반환한다. LINK는 권한 있는 관리 상세에서 나중에도 같은 링크를 다시 복사할 수 있다. 목록에서는 원본 경로를 제공하지 않는다.
 - 다른 requestId의 명시적 신규 발급은 별도 초대다.
 
 #### 부수 효과
@@ -339,20 +338,22 @@ Request Body는 없다.
     "expiresAt": null,
     "status": "ACTIVE",
     "canAccept": true,
-    "canRevoke": false
+    "canRevoke": false,
+    "sharePath": "/invitations/501"
   },
   "error": null
 }
 ```
 
-data 필드: id·type·group(id,name,introduction)·inviter(id,crewName)·message·createdAt·expiresAt·status·canAccept·canRevoke.
+data 필드: id·type·group(id,name,introduction)·inviter(id,crewName)·message·createdAt·expiresAt·status·canAccept·canRevoke·sharePath.
+sharePath는 DIRECT의 ID 경로 또는 LINK의 기존 공유 경로다. LINK는 현재 구성원인 발급자 또는 현재 모임장에게만 제공한다. 재복사는 새 발급이나 유효 기간 연장이 아니다.
 DIRECT의 발급자·대상만 상세에 접근하며 모임장이라는 이유로 타인의 DIRECT를 열람할 수 없다.
 LINK 관리 상세는 발급자·현재 모임장만 접근한다. 비회원에게 DIRECT 상세 정보를 제공하지 않는다.
 그룹 삭제는 INVITATION_NOT_FOUND다. canAccept·canRevoke는 현재 권한과 상태를 서버에서 계산한 안내 값이며 변경 요청에서 재검증한다.
 
 #### 부수 효과
 
-만료·취소·종료는 권한 있는 사용자에게 200과 status로 안내한다. 상세 조회는 소속·수락 이력·신청 상태·알림 읽음 상태를 변경하지 않는다. 관리자가 링크 원문을 재조회하는 API가 아니다.
+만료·취소·종료는 권한 있는 사용자에게 200과 status로 안내한다. 상세 조회는 소속·수락 이력·신청 상태·알림 읽음 상태를 변경하지 않는다. 저장용 토큰 해시·암호문은 응답에 포함하지 않는다.
 
 #### 예외
 

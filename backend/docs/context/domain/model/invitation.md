@@ -1,8 +1,7 @@
 # Invitation · InvitationAcceptance
 
-> 상태: 초대 기능의 설계 모델. 엔티티·테이블·API는 아직 구현되지 않았다.
-> 필드·저장 제약은 설계안이며 실제 구현에서 확정한다.
-> 기술 대안을 비교해 채택한 결정은 해당 구현 단계에서 백엔드 ADR로 기록한다.
+> 상태: 엔티티·명령 저장소·수동 DDL의 저장 기반 구현. 발급·수락·상태 조회 API는 아직 미구현이다.
+> 모델 분리와 승인 출처 선택은 [ADR 0017](../../../adr/0017-separate-invitation-acceptance-history.md)을 따른다.
 
 ## Invitation
 
@@ -16,12 +15,16 @@
 | inviterMemberId | Long | NOT NULL | 초대를 발급한 회원 |
 | type | Enum | NOT NULL | DIRECT 또는 LINK |
 | targetMemberId | Long | DIRECT 필수, LINK null | 지정 초대의 대상 회원 |
-| message | String | nullable, 최대 200자 제안 | 초대장에 보여 줄 짧은 메시지 |
+| message | String | nullable, 최대 200자 | 앞뒤 공백 제거, 공백만 있으면 null |
+| requestId | UUID | NOT NULL, 발급자와 조합 유일 | 발급 요청 재시도 식별자 |
+| tokenHash | String | LINK 필수, 64자리 소문자 hex, 유일 | 공유 토큰 조회용 해시 저장값 |
+| encryptedToken | String | LINK 필수, 최대 512자 | 같은 링크 재복사를 위한 암호문 저장 공간 |
 | createdAt | LocalDateTime | NOT NULL | 발급 시각 |
 | expiresAt | LocalDateTime | DIRECT null, LINK 필수 | 공유 링크의 시간 만료 기준 |
 | revokedAt | LocalDateTime | nullable | 최초 취소 시각 |
 
-토큰·요청 재시도 식별자의 저장 방식은 도메인 의미와 구분해 백엔드 ADR에 기록한다.
+DIRECT의 토큰 저장 필드는 null이다. 공유 토큰 생성·암복호화·키 관리는 4단계에서 구현한다.
+현재는 저장 형식만 제공하며 암호화 구현이나 재복사 API가 완료된 것은 아니다.
 
 ## 모델 규칙
 
@@ -29,7 +32,7 @@
 - LINK는 링크 소지자를 대상으로 한다. 첫 수락으로 초대 자체가 소비되지 않는다.
 - DIRECT는 시간 만료가 없고 LINK는 초기 약 3일의 유효 기간을 가진다.
   계약안은 발급 시각+72시간, now >= expiresAt부터 만료다.
-- message의 최대 200자·공백 정리는 기술 계약 제안이며 현재 구현된 제한이 아니다.
+- message의 최대 200자·공백 정리는 도메인 생성 시 검증한다.
 - revokedAt이 있으면 신규 합류를 허용하지 않는다. 취소는 과거 합류를 되돌리지 않는다.
 - 발급·수락·취소 흐름과 권한은 [비즈니스 정책](../business-policies.md#초대-발급과-합류)을 따른다.
 - 모델 간 유일성과 모집 집계 관계는 [불변식](../invariants.md#invitation--groupmember--registration)을 따른다.
@@ -44,6 +47,9 @@
 | invitationId | Long | NOT NULL | 합류에 사용한 초대 |
 | memberId | Long | NOT NULL | 수락한 회원 |
 | acceptedAt | LocalDateTime | NOT NULL | 실제 신규 합류 시각 |
+
+같은 invitationId·memberId는 유일하다. 생성 시 지정 대상 일치와 발급 이후 수락 시각을 검증한다.
+현재 소속·만료·취소 검증과 소속 생성의 원자적 연결은 6단계의 수락 서비스에서 구현한다.
 
 ## 모델 관계와 조회 상태
 

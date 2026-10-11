@@ -127,6 +127,10 @@ docker compose -f docker-compose-local.yaml ps
 작성 내용과 인증 회원 ID가 함께 저장됩니다. 운영 프로필은
 `ddl-auto: validate`이므로 이 DDL을 적용하지 않으면 애플리케이션이 기동하지 않습니다.
 
+초대 저장 기반을 포함한 애플리케이션을 배포하기 전에는
+`db/migrations/2026-10-11-invitation.sql`을 적용해야 합니다. 기존 신청 출처를 보정하고
+초대·수락 테이블을 추가합니다. 적용 순서·검증·복구 제한은 [초대 운영 가이드](docs/operations/invitations.md)를 따릅니다.
+
 ### 운영 DB SSH 터널 접속
 
 운영 Compose는 PostgreSQL 포트를 서버의 `127.0.0.1:5432`에 바인딩합니다.

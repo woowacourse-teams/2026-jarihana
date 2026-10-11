@@ -33,6 +33,7 @@ ADR 0006과 0007에 이르기까지의 기록이다.
 | 번호 | 제목 | 상태 | 날짜 | 작업 브랜치 |
 | --- | --- | --- | --- | --- |
 | 0015 | [알림함에 소식을 저장하고 웹푸시는 별도로 전송한다](0015-web-push-and-notification-inbox.md) | 채택 · 알림함·구독·푸시 전송·화면·SW 구현 | 2026-10-02 | `feat/web-push-notifications` |
+| 0017 | [초대 합류 이력을 모집 신청과 분리한다](0017-separate-invitation-acceptance-history.md) | 채택 · 저장 기반 검증 완료, API 미구현 | 2026-10-11 | `feat/invitation` |
 
 ## 번호를 다시 매긴 이력
 
