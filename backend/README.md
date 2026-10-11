@@ -129,7 +129,9 @@ docker compose -f docker-compose-local.yaml ps
 
 초대 저장 기반을 포함한 애플리케이션을 배포하기 전에는
 `db/migrations/2026-10-11-invitation.sql`을 적용해야 합니다. 기존 신청 출처를 보정하고
-초대·수락 테이블을 추가합니다. 적용 순서·검증·복구 제한은 [초대 운영 가이드](docs/operations/invitations.md)를 따릅니다.
+초대·수락 테이블을 추가합니다. 지정 초대 알림 발급에는 기존 알림 DDL 이후
+`db/migrations/2026-10-11-invitation-notification.sql`도 적용해야 합니다. 공유 토큰 암호화 키 설정과
+적용 순서·검증·복구 제한은 [초대 운영 가이드](docs/operations/invitations.md)를 따릅니다.
 
 ### 운영 DB SSH 터널 접속
 

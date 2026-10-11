@@ -98,10 +98,13 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
         Member owner = member("101");
         var recruitment = recruitment(owner, JoinMethod.APPROVAL, 5);
         var group = recruitment.getGroup();
-        Notification notification = notifications.save(Notification.create(owner, "named-event", eventType,
-                NotificationPayload.of(group.getId(), recruitment.getId(), 123,
+        NotificationPayload payload = eventType == NotificationEventType.INVITATION_RECEIVED
+                ? NotificationPayload.invitation(group.getId(), 123)
+                : NotificationPayload.of(group.getId(), recruitment.getId(), 123,
                         eventType == NotificationEventType.REGISTRATION_SYSTEM_REJECTED
-                                ? SystemRejectionReason.RERECRUITMENT : null), NOW));
+                                ? SystemRejectionReason.RERECRUITMENT : null);
+        Notification notification = notifications.save(Notification.create(owner, "named-event", eventType,
+                payload, NOW));
 
         // When
         Response detail = authenticated(owner).get("/notifications/" + notification.getId());
@@ -115,11 +118,19 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
             case PARTICIPANT_JOINED -> "LEADER_MEMBERS";
             case REGISTRATION_APPROVED -> "MY_GROUPS";
             case REGISTRATION_REJECTED, REGISTRATION_SYSTEM_REJECTED -> "MY_PAGE";
+            case INVITATION_RECEIVED -> "INVITATION";
         };
         assertThat(detail.jsonPath().getString("data.target.kind")).isEqualTo(expectedKind);
         assertThat(list.jsonPath().getString("data.items[0].target.kind")).isEqualTo(expectedKind);
         assertThat(detail.jsonPath().getLong("data.target.groupId")).isEqualTo(group.getId());
-        assertThat(detail.jsonPath().getLong("data.target.registrationId")).isEqualTo(123);
+        if (eventType == NotificationEventType.INVITATION_RECEIVED) {
+            assertThat(detail.jsonPath().getString("data.title")).isEqualTo("모임 초대");
+            assertThat(detail.jsonPath().getMap("data.target").keySet()).containsExactlyInAnyOrder("kind", "groupId", "invitationId");
+            assertThat(detail.jsonPath().getLong("data.target.invitationId")).isEqualTo(123);
+        } else {
+            assertThat(detail.jsonPath().getLong("data.target.registrationId")).isEqualTo(123);
+            assertThat(detail.jsonPath().getMap("data.target").keySet()).containsExactlyInAnyOrder("kind", "groupId", "recruitmentId", "registrationId");
+        }
         assertThat(list.jsonPath().getString("data.items[0].body"))
                 .isEqualTo(detail.jsonPath().getString("data.body"));
     }

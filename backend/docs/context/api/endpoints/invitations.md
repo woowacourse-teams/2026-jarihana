@@ -1,8 +1,8 @@
 # 초대
 
-> 상태: 1단계 설계 계약. 아래 API·필드·오류는 아직 구현되지 않았다.
-> 구현 단계에서 Controller·DTO·ErrorCode·Swagger/OpenAPI와 RestAssured 인수 테스트에 반영한다.
-> 기존 실행 가능한 API를 이 문서 작성만으로 변경한 것으로 취급하지 않는다.
+> 상태: 발급·회원 후보 검색·받은 초대 목록을 구현하고 실제 PostgreSQL·HTTP에서 검증했다.
+> 발급 목록·상세·공개 미리보기·취소·수락 API는 아직 구현되지 않았다.
+> 실행 계약은 Controller·DTO·ErrorCode와 RestAssured 인수 테스트로 확인한다. 저장소에는 OpenAPI 생성 의존성이 없어 자동 스키마 검증은 수행하지 않았다.
 
 [공통 계약](../common-contract.md), [API 컨벤션](../../../conventions/api.md),
 [초대 모델](../../domain/model/invitation.md),
@@ -70,7 +70,7 @@ ALREADY_JOINED는 현재 소속에 대한 수락 결과이며 초대 status와 �
 | requestId | UUID | 발급 동작의 식별자. 통신 재시도에는 같은 값 사용 |
 
 발급자 ID는 인증 정보에서 결정한다. DIRECT 대상은 가입 완료 회원이어야 하며 자기 자신·현재 구성원·탈퇴 회원은 제외한다.
-메시지 길이와 requestId는 구현 단계에서 확정할 계약안이다.
+메시지는 공백 정리 후 200자까지이며 requestId는 필수다.
 
 #### 응답 201
 
@@ -114,6 +114,7 @@ DIRECT 신규 발급은 대상 회원에게 알림을 생성한다. LINK는 수�
 | 종료된 그룹 | `GROUP_ENDED` | 409 |
 | 대상이 현재 구성원 | `GROUP_MEMBER_ALREADY_EXISTS` | 409 |
 | 동일 requestId에 다른 요청 내용 | `INVITATION_REQUEST_CONFLICT` | 409 |
+| 공유 토큰 암복호화 키 누락·잘못된 설정·저장값 복원 실패 | `INVITATION_UNAVAILABLE` | 503 |
 
 ### `GET /api/groups/{groupId}/invitations`
 
@@ -241,6 +242,7 @@ items는 memberId·crewName·generation·memberType·course만 제공한다. 이
 | 그룹 구성원이 아님 | `ACCESS_DENIED` | 403 |
 | 종료된 그룹 | `GROUP_ENDED` | 409 |
 | 검색어·cursor·size 오류 | `INVALID_PARAMETER` | 400 |
+| 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
 
 ### `GET /api/invitations/received`
 
@@ -534,7 +536,7 @@ Request Body는 없다.
 
 ## 오류 계약
 
-아래 공통 예외와 각 엔드포인트의 개별 예외를 함께 적용한다. 신규 초대 오류 코드는 구현 예정이다.
+아래 공통 예외와 각 엔드포인트의 개별 예외를 함께 적용한다. 현재 INVITATION_REQUEST_CONFLICT·INVITATION_UNAVAILABLE를 구현했고 나머지 초대 전용 오류는 후속 단계에서 구현한다.
 권한 확인은 초대 유효 상태나 개인정보 상세를 제공하기 전에 수행한다.
 
 | 상황 | 코드 | HTTP |

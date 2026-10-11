@@ -588,24 +588,25 @@ JSON `null`, 잘못된 JSON, 필수 값 누락·0·음수는 `400`이다.
 
 ## 초대 알림 응답 확장 계약
 
-> 상태: 구현 예정. 현재 알림 API·DTO·schema·Service Worker는 아래 초대 사건을 아직 지원하지 않는다.
-> 기존 알림 계약은 유지하며 초대 확장만 별도로 표시한다.
+> 상태: 백엔드 알림 저장·목록·개별 조회·푸시 내용 조회·전송 대기를 구현했다.
+> 프론트 schema·초대 클릭·Service Worker의 전용 문구는 7단계에서 구현한다. 기존 알림 응답 형식은 유지한다.
 
 [초대 API](invitations.md)의 DIRECT 신규 발급은 대상 회원 알림을 생성한다.
-알림함 목록과 개별 조회에 다음 사건·표시 내용·target을 추가하는 계약안이다.
+알림함 목록과 개별 조회는 다음 사건·표시 내용·target을 반환한다.
 표의 title·body는 서비스 안의 알림함 표시값이며 OS 푸시 알림의 제목·본문과 구분한다.
 
 | 응답 필드 | 초대 사건 |
 | --- | --- |
 | eventType | INVITATION_RECEIVED |
+| payloadVersion | 1; 기존 알림과 동일, 사건 종류로 필수 데이터를 구분 |
 | title | 모임 초대 |
-| body | ‘현재 모임 이름’ 모임에 초대받았습니다. |
+| body | ‘현재 모임 이름’ 모임에 초대되었습니다. |
 | target.kind | INVITATION |
 | target.groupId | 초대한 모임 ID |
 | target.invitationId | 초대 ID |
 
 - target에 모집·신청 ID의 가짜 값을 넣지 않는다. 초대 target에는 recruitmentId·registrationId를 요구하지 않는다.
 - 알림 목록·개별 조회의 회원 소유권 검사와 조회만으로 읽음 처리하지 않는 계약을 유지한다.
-- 초대 사건의 payloadVersion 값과 호환 전략은 구현 단계에서 확정한다. 기존 사건의 응답을 이 문서 추가만으로 바꾸지 않는다.
+- 푸시 내용 조회는 payload에 groupId·invitationId만 제공한다. 초대 메시지·원본 토큰은 포함하지 않는다. 실제 푸시 전송 참조의 payloadVersion과 push-config의 payloadVersions도 기존 1을 유지한다.
 - OS 푸시 알림은 기존 Service Worker의 제목 '자리하나?'와 본문 '새 모임 초대가 도착했어요.'를 사용하는 안이다. 개인 초대 메시지는 OS 알림에 넣지 않는다.
 - 클릭·인증 복귀·대상 확인·읽음 처리 순서는 [프론트 초대 계약](../../../../../frontend/docs/IMPLEMENTATION_MAP.md#초대-기능-설계-계약)을 따른다.

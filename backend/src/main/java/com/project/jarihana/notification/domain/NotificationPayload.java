@@ -14,27 +14,43 @@ import lombok.Getter;
 public final class NotificationPayload {
 
     private final long groupId;
-    private final long recruitmentId;
-    private final long registrationId;
+    private final Long recruitmentId;
+    private final Long registrationId;
+    private final Long invitationId;
     private final SystemRejectionReason reasonCode;
 
-    private NotificationPayload(long groupId, long recruitmentId, long registrationId, SystemRejectionReason reasonCode) {
-        if (groupId <= 0 || recruitmentId <= 0 || registrationId <= 0) {
+    private NotificationPayload(long groupId, Long recruitmentId, Long registrationId, Long invitationId,
+                                SystemRejectionReason reasonCode) {
+        boolean registration = recruitmentId != null && recruitmentId > 0 && registrationId != null
+                && registrationId > 0 && invitationId == null;
+        boolean invitation = invitationId != null && invitationId > 0 && recruitmentId == null
+                && registrationId == null && reasonCode == null;
+        if (groupId <= 0 || (!registration && !invitation)) {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "알림의 업무 식별자는 양수여야 합니다.");
         }
         this.groupId = groupId;
         this.recruitmentId = recruitmentId;
         this.registrationId = registrationId;
+        this.invitationId = invitationId;
         this.reasonCode = reasonCode;
     }
 
+    public static NotificationPayload of(long groupId, long recruitmentId, long registrationId, SystemRejectionReason reasonCode) {
+        return new NotificationPayload(groupId, recruitmentId, registrationId, null, reasonCode);
+    }
+
+    public static NotificationPayload invitation(long groupId, long invitationId) {
+        return new NotificationPayload(groupId, null, null, invitationId, null);
+    }
+
     @JsonCreator
-    public static NotificationPayload of(
+    public static NotificationPayload from(
             @JsonProperty("groupId") long groupId,
-            @JsonProperty("recruitmentId") long recruitmentId,
-            @JsonProperty("registrationId") long registrationId,
+            @JsonProperty("recruitmentId") Long recruitmentId,
+            @JsonProperty("registrationId") Long registrationId,
+            @JsonProperty("invitationId") Long invitationId,
             @JsonProperty("reasonCode") SystemRejectionReason reasonCode
     ) {
-        return new NotificationPayload(groupId, recruitmentId, registrationId, reasonCode);
+        return new NotificationPayload(groupId, recruitmentId, registrationId, invitationId, reasonCode);
     }
 }

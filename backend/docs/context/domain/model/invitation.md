@@ -1,6 +1,6 @@
 # Invitation · InvitationAcceptance
 
-> 상태: 엔티티·명령 저장소·수동 DDL의 저장 기반 구현. 발급·수락·상태 조회 API는 아직 미구현이다.
+> 상태: 저장 기반·초대 발급·회원 후보 검색·받은 초대 목록 구현. 상세·취소·수락 API는 아직 미구현이다.
 > 모델 분리와 승인 출처 선택은 [ADR 0017](../../../adr/0017-separate-invitation-acceptance-history.md)을 따른다.
 
 ## Invitation
@@ -23,15 +23,17 @@
 | expiresAt | LocalDateTime | DIRECT null, LINK 필수 | 공유 링크의 시간 만료 기준 |
 | revokedAt | LocalDateTime | nullable | 최초 취소 시각 |
 
-DIRECT의 토큰 저장 필드는 null이다. 공유 토큰 생성·암복호화·키 관리는 4단계에서 구현한다.
-현재는 저장 형식만 제공하며 암호화 구현이나 재복사 API가 완료된 것은 아니다.
+DIRECT의 토큰 저장 필드는 null이다. LINK는 32바이트 난수의 패딩 없는 Base64URL 토큰을 발급한다.
+조회용 SHA-256 해시와 AES-256-GCM 암호문을 저장하고 같은 발급 요청 재시도에서 원래 링크를 복원한다.
+키 ID와 환경 설정의 키 목록을 사용하며 관리 상세에서의 재복사는 5단계에서 연결한다.
+선택 이유와 키 관리 비용은 [백엔드 ADR 0018](../../../adr/0018-encrypted-invitation-token-storage.md)을 따른다.
 
 ## 모델 규칙
 
 - DIRECT는 특정 가입 완료 회원을 대상으로 하며 대상은 발급 후 바꾸지 않는다.
 - LINK는 링크 소지자를 대상으로 한다. 첫 수락으로 초대 자체가 소비되지 않는다.
 - DIRECT는 시간 만료가 없고 LINK는 초기 약 3일의 유효 기간을 가진다.
-  계약안은 발급 시각+72시간, now >= expiresAt부터 만료다.
+  발급 시각+72시간이며 now >= expiresAt부터 만료다.
 - message의 최대 200자·공백 정리는 도메인 생성 시 검증한다.
 - revokedAt이 있으면 신규 합류를 허용하지 않는다. 취소는 과거 합류를 되돌리지 않는다.
 - 발급·수락·취소 흐름과 권한은 [비즈니스 정책](../business-policies.md#초대-발급과-합류)을 따른다.

@@ -1,0 +1,108 @@
+package com.project.jarihana.invitation.command.service;
+
+import com.project.jarihana.common.exception.BusinessException;
+import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.group.command.repository.GroupCommandRepository;
+import com.project.jarihana.group.domain.Group;
+import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
+import com.project.jarihana.invitation.command.repository.InvitationAcceptanceCommandRepository;
+import com.project.jarihana.invitation.command.repository.InvitationCommandRepository;
+import com.project.jarihana.invitation.command.service.dto.CreateInvitationCommand;
+import com.project.jarihana.invitation.command.service.dto.CreateInvitationResult;
+import com.project.jarihana.invitation.domain.Invitation;
+import com.project.jarihana.invitation.domain.InvitationStatus;
+import com.project.jarihana.invitation.domain.InvitationType;
+import com.project.jarihana.invitation.domain.event.InvitationIssuedEvent;
+import com.project.jarihana.member.command.repository.MemberRepository;
+import com.project.jarihana.member.domain.Member;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+@Service
+@RequiredArgsConstructor
+public class InvitationCommandService {
+    private final InvitationCommandRepository invitations;
+    private final InvitationAcceptanceCommandRepository acceptances;
+    private final MemberRepository members;
+    private final GroupCommandRepository groups;
+    private final GroupMemberCommandRepository groupMembers;
+    private final InvitationTokenCodec tokens;
+    private final ApplicationEventPublisher events;
+    private final Clock clock;
+
+    @Transactional
+    public CreateInvitationResult createInvitation(long memberId, long groupId, CreateInvitationCommand command) {
+        validate(groupId, command);
+        Member inviter = members.findById(memberId).filter(member -> member.getWithdrawnAt() == null)
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHENTICATED, "인증 정보가 필요합니다."));
+        Group group = groups.findWithLockById(groupId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND, "모임을 찾을 수 없습니다."));
+        groupMembers.findByGroupIdAndMemberId(groupId, memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ACCESS_DENIED, "현재 구성원만 초대를 발급할 수 있습니다."));
+        if (!group.isActive()) throw new BusinessException(ErrorCode.GROUP_ENDED, "종료된 모임에는 초대할 수 없습니다.");
+        LocalDateTime now = LocalDateTime.now(clock);
+        var existing = invitations.findByInviterMemberIdAndRequestId(memberId, command.requestId());
+        if (existing.isPresent()) return reused(existing.get(), command, groupId, now);
+
+        Invitation issued;
+        if (command.type() == InvitationType.DIRECT) {
+            Member target = members.findById(command.targetMemberId()).filter(member -> member.getWithdrawnAt() == null)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PARAMETER, "가입 완료한 초대 대상을 지정해야 합니다."));
+            if (inviter.equals(target)) throw new BusinessException(ErrorCode.INVALID_PARAMETER, "자신을 초대할 수 없습니다.");
+            if (groupMembers.findByGroupIdAndMemberId(groupId, target.getId()).isPresent()) {
+                throw new BusinessException(ErrorCode.GROUP_MEMBER_ALREADY_EXISTS, "이미 모임에 참여 중인 회원입니다.");
+            }
+            issued = Invitation.issueDirect(group, inviter, target, command.message(), command.requestId(), now);
+        } else {
+            var token = tokens.issue();
+            issued = Invitation.issueLink(group, inviter, command.message(), command.requestId(), token.hash(), token.encrypted(), now);
+        }
+        int inserted = invitations.insertIfAbsent(groupId, memberId, command.targetMemberId(), issued.getType().name(),
+                issued.getMessage(), issued.getRequestId(), issued.getTokenHash(), issued.getEncryptedToken(), issued.getExpiresAt(), now);
+        Invitation stored = invitations.findByInviterMemberIdAndRequestId(memberId, command.requestId()).orElseThrow();
+        if (inserted == 0) return reused(stored, command, groupId, now);
+        if (stored.getType() == InvitationType.DIRECT) {
+            events.publishEvent(new InvitationIssuedEvent(stored.getId(), groupId, stored.getTargetMember().getId(), now));
+        }
+        return result(stored, false, now);
+    }
+
+    private CreateInvitationResult reused(Invitation existing, CreateInvitationCommand command, long groupId, LocalDateTime now) {
+        Long targetId = existing.getTargetMember() == null ? null : existing.getTargetMember().getId();
+        String message = command.message() == null || command.message().strip().isEmpty() ? null : command.message().strip();
+        if (existing.getGroup().getId() != groupId || existing.getType() != command.type()
+                || !Objects.equals(targetId, command.targetMemberId()) || !Objects.equals(existing.getMessage(), message)) {
+            throw new BusinessException(ErrorCode.INVITATION_REQUEST_CONFLICT, "같은 발급 요청 식별자에 다른 내용을 사용할 수 없습니다.");
+        }
+        return result(existing, true, now);
+    }
+
+    private CreateInvitationResult result(Invitation invitation, boolean reused, LocalDateTime now) {
+        Group group = invitation.getGroup();
+        Long targetId = invitation.getTargetMember() == null ? null : invitation.getTargetMember().getId();
+        boolean accepted = targetId != null && acceptances.findByInvitationIdAndMemberId(invitation.getId(), targetId).isPresent();
+        boolean inviterPresent = invitation.getInviterMember().getWithdrawnAt() == null
+                && groupMembers.findByGroupIdAndMemberId(group.getId(), invitation.getInviterMember().getId()).isPresent();
+        InvitationStatus status = InvitationStatus.resolve(invitation.getType(), invitation.getRevokedAt(), group.isActive(),
+                inviterPresent, invitation.getExpiresAt(), accepted, now);
+        String path = invitation.getType() == InvitationType.DIRECT ? "/invitations/" + invitation.getId()
+                : "/invitations/link/" + tokens.recover(invitation.getEncryptedToken(), invitation.getTokenHash());
+        return new CreateInvitationResult(invitation.getId(), group.getId(), invitation.getType(), targetId, invitation.getMessage(),
+                invitation.getCreatedAt(), invitation.getExpiresAt(), status, path, reused);
+    }
+
+    private void validate(long groupId, CreateInvitationCommand command) {
+        if (groupId <= 0 || command == null || command.type() == null || command.requestId() == null
+                || (command.type() == InvitationType.DIRECT && (command.targetMemberId() == null || command.targetMemberId() <= 0))
+                || (command.type() == InvitationType.LINK && command.targetMemberId() != null)
+                || (command.message() != null && command.message().strip().length() > 200)) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "초대 발급 요청이 올바르지 않습니다.");
+        }
+    }
+}

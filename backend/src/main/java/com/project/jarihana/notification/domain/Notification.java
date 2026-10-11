@@ -73,6 +73,9 @@ public class Notification extends BaseEntity {
         }
         Objects.requireNonNull(eventType);
         Objects.requireNonNull(payload);
+        if ((eventType == NotificationEventType.INVITATION_RECEIVED) != (payload.getInvitationId() != null)) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "알림 종류와 업무 식별자가 일치해야 합니다.");
+        }
         if ((eventType == NotificationEventType.REGISTRATION_SYSTEM_REJECTED) != (payload.getReasonCode() != null)) {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "시스템 미승인 알림에만 원인 분류가 필요합니다.");
         }

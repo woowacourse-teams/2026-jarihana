@@ -16,6 +16,12 @@ spring:
       - org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
 
 jarihana:
+  invitation:
+    token:
+      active-key-id: ${INVITATION_TOKEN_ACTIVE_KEY_ID:primary}
+      keys:
+        primary: ${INVITATION_TOKEN_KEY_PRIMARY:}
+        previous: ${INVITATION_TOKEN_KEY_PREVIOUS:}
   push:
     enabled: ${PUSH_ENABLED:false}
     worker-enabled: ${PUSH_WORKER_ENABLED:true}
