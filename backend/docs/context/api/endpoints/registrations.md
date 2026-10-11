@@ -3,6 +3,8 @@
 ## 공통 규칙
 
 - 신청 상태는 `PENDING → APPROVED | REJECTED`로만 변경된다.
+- 선착순 가입·수동 승인의 남은 정원과 정원 도달 마감은 모집으로 가입한 인원(APPROVED·RECRUITMENT)으로 계산한다. 초대 출처 승인은 자리를 소진하지 않는다.
+- 신청 목록의 APPROVED 필터는 초대로 승인된 기존 신청도 포함한다. 신청 이력 개수와 모집 정원용 approvedCount는 다른 값이며, 신청이 없는 초대 합류자의 이력을 이 목록에 새로 만들지 않는다.
 - 신청 철회는 상태 변경이 아니라 `Registration` Hard Delete다.
 
 ### `GET /api/groups/{groupId}/registrations/summary`

@@ -7,7 +7,6 @@ import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.query.repository.dto.RecruitmentListPage;
 import com.project.jarihana.recruitment.query.repository.dto.RecruitmentListProjection;
 import com.project.jarihana.recruitment.query.repository.dto.RecruitmentListSearchCriteria;
-import com.project.jarihana.registration.domain.RegistrationStatus;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Repository;
@@ -64,9 +63,8 @@ public class JpaRecruitmentListRepository implements RecruitmentListRepository {
         List<Long> recruitmentIds = recruitments.stream()
                 .map(GroupRecruitment::getId)
                 .toList();
-        return registrationRepository.countByRecruitmentIdsAndStatus(
-                        recruitmentIds,
-                        RegistrationStatus.APPROVED
+        return registrationRepository.countRecruitmentApprovalsByRecruitmentIds(
+                        recruitmentIds
                 )
                 .stream()
                 .collect(Collectors.toMap(

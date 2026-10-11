@@ -13,6 +13,8 @@ Java 21과 실행 중인 Docker가 필요하다. 백엔드에서 다음 명령�
 
 ```bash
 ./gradlew test --tests '*Invitation*Test' --tests '*RegistrationTest' --tests '*RegistrationCommandServiceTest'
+# 초대 출처와 일반 모집의 정원·조회 회귀
+./gradlew test --tests '*RecruitmentCapacityIntegrationTest'
 ```
 
 PostgreSQL 17 Testcontainers에서 저장 유일성과 실제 수동 DDL을 확인한다.
@@ -48,7 +50,7 @@ SELECT count(*) FROM registration WHERE approval_origin IS NULL;
 ```
 
 최초 적용에서 과거 신청은 모든 상태가 RECRUITMENT이며 마지막 조회는 0이어야 한다.
-재적용 시 이미 기록된 INVITATION은 보존한다. 정원 조회 변경은 3단계, 실제 초대 수락 연결은 6단계,
+재적용 시 이미 기록된 INVITATION은 보존한다. 3단계에서 일반 모집 출처만 집계하도록 변경했다. 실제 초대 수락 연결은 6단계,
 그룹 삭제 시 수락 → 초대 → 그룹 정리는 10단계에서 구현하므로 저장 단계만으로 기능을 출시하지 않는다.
 
 ## 복구 제한

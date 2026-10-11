@@ -20,6 +20,7 @@ import com.project.jarihana.registration.command.service.dto.DecideRegistrationC
 import com.project.jarihana.registration.command.service.dto.DecideRegistrationResult;
 import com.project.jarihana.registration.domain.DecisionActor;
 import com.project.jarihana.registration.domain.Registration;
+import com.project.jarihana.registration.domain.ApprovalOrigin;
 import com.project.jarihana.registration.domain.RegistrationStatus;
 import com.project.jarihana.registration.domain.event.RegistrationSubmittedEvent;
 import com.project.jarihana.registration.domain.event.RegistrationDecidedEvent;
@@ -115,9 +116,10 @@ public class RegistrationCommandService {
     }
 
     private int approvedCount(long recruitmentId) {
-        return Math.toIntExact(registrationRepository.countByRecruitmentIdAndStatus(
+        return Math.toIntExact(registrationRepository.countByRecruitmentIdAndStatusAndApprovalOrigin(
                 recruitmentId,
-                RegistrationStatus.APPROVED
+                RegistrationStatus.APPROVED,
+                ApprovalOrigin.RECRUITMENT
         ));
     }
 

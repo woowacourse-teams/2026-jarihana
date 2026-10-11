@@ -8,6 +8,11 @@
 현재 운영 버킷의 이미지 객체 prefix는 `jarihana/images`이며, 공개 Base URL은
 해당 prefix를 제외한 CloudFront 경로(예: `https://d1znkkaqfyz08f.cloudfront.net/images`)다.
 
+목록·상세의 `activeRecruitment.approvedCount`는 해당 공고의 모집으로 가입한 인원(APPROVED·RECRUITMENT)이다.
+초대 출처 승인은 제외한다. `memberCount`는 실제 GroupMember 수이며 모임장과 초대 합류자도 포함한다.
+`recruiting=true`는 기간상 열린 공고의 모집으로 가입한 인원이 정원보다 적은 그룹을,
+`recruiting=false`는 그런 공고가 없는 그룹을 조회한다.
+
 ### `GET /api/groups`
 
 - 설명: 그룹 목록 조회 — 관계·상태·유형 필터 지원

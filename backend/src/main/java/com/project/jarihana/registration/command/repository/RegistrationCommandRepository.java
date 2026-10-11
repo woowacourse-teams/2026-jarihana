@@ -1,6 +1,7 @@
 package com.project.jarihana.registration.command.repository;
 
 import com.project.jarihana.registration.domain.Registration;
+import com.project.jarihana.registration.domain.ApprovalOrigin;
 import com.project.jarihana.registration.domain.RegistrationStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Lock;
@@ -21,6 +22,12 @@ public interface RegistrationCommandRepository extends Repository<Registration, 
     );
 
     long countByRecruitmentIdAndStatus(long recruitmentId, RegistrationStatus status);
+
+    long countByRecruitmentIdAndStatusAndApprovalOrigin(
+            long recruitmentId,
+            RegistrationStatus status,
+            ApprovalOrigin approvalOrigin
+    );
 
     boolean existsByRecruitmentIdAndMemberId(long recruitmentId, long memberId);
 

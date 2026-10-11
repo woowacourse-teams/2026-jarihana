@@ -17,7 +17,8 @@
 ## 모델 규칙
 
 - 기존 데이터와 일반 신청 경로의 approvalOrigin은 RECRUITMENT다. 초대로 기존 PENDING을 승인하면 APPROVED·SYSTEM·INVITATION으로 기록하고 leaderViewedAt을 유지한다.
-- 초대 합류에 기존 신청이 없으면 Registration을 만들지 않는다. 선택 이유는 [ADR 0017](../../../adr/0017-separate-invitation-acceptance-history.md)을 따른다. 서비스 연결과 모집 정원 집계 변경은 후속 단계에서 구현한다.
+- 초대 합류에 기존 신청이 없으면 Registration을 만들지 않는다. 선택 이유는 [ADR 0017](../../../adr/0017-separate-invitation-acceptance-history.md)을 따른다. 실제 초대 수락 서비스 연결은 후속 단계에서 구현한다.
+- 모집 정원 집계는 APPROVED·RECRUITMENT만 센다. 신청 목록의 APPROVED 필터와 상태별 이력 개수는 출처와 관계없이 승인된 기존 신청을 모두 포함한다.
 - 신청 확인 여부는 신청 상태와 독립적으로 관리한다.
 - `AUTO`의 즉시 승인 신청과 `APPROVAL`의 대기 신청 모두 생성 시 `leaderViewedAt`이 `null`이다.
 - 승인·미승인 상태 전이는 기존 `leaderViewedAt`을 유지한다.
