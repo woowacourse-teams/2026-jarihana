@@ -49,7 +49,7 @@ class InvitationNotificationDeliveryTest extends PushIntegrationTestSupport {
         var subscription = subscription(target, "one");
         subscription(target, "two");
         var issued = invitations.createInvitation(inviter.getId(), group.getId(),
-                new CreateInvitationCommand(InvitationType.DIRECT, target.getId(), "개인 초대 메시지", UUID.randomUUID()));
+                new CreateInvitationCommand(InvitationType.DIRECT, target.getId(), UUID.randomUUID()));
 
         // When
         new TransactionTemplate(transactions).executeWithoutResult(status -> {
@@ -69,7 +69,7 @@ class InvitationNotificationDeliveryTest extends PushIntegrationTestSupport {
         assertThat(content.jsonPath().getInt("data.payloadVersion")).isEqualTo(1);
         assertThat(content.jsonPath().getMap("data.payload").keySet()).containsExactlyInAnyOrder("groupId", "invitationId");
         assertThat(content.jsonPath().getLong("data.payload.invitationId")).isEqualTo(issued.id());
-        assertThat(content.asString()).doesNotContain("개인 초대 메시지", "token");
+        assertThat(content.asString()).doesNotContain("message", "token");
         assertThat(denied.statusCode()).isEqualTo(404);
     }
 
@@ -83,7 +83,7 @@ class InvitationNotificationDeliveryTest extends PushIntegrationTestSupport {
         var success = subscription(target, "success");
         subscription(target, "failure");
         invitations.createInvitation(inviter.getId(), group.getId(),
-                new CreateInvitationCommand(InvitationType.DIRECT, target.getId(), null, UUID.randomUUID()));
+                new CreateInvitationCommand(InvitationType.DIRECT, target.getId(), UUID.randomUUID()));
         assertThat(transport.requests()).isEmpty();
         transport.respond(request -> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();

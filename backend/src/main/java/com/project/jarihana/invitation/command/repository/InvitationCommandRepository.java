@@ -19,17 +19,19 @@ public interface InvitationCommandRepository extends Repository<Invitation, Long
 
     Optional<Invitation> findByTokenHash(String tokenHash);
 
+    @Query("select i.group.id from Invitation i where i.id = :id")
+    Optional<Long> findGroupIdById(@Param("id") long id);
+
     @Modifying
     @Query(value = """
-            insert into invitation (group_id, inviter_member_id, target_member_id, type, message, request_id,
+            insert into invitation (group_id, inviter_member_id, target_member_id, type, request_id,
                                     token_hash, encrypted_token, expires_at, created_at, updated_at)
-            values (:groupId, :inviterId, :targetId, :type, :message, :requestId, :tokenHash, :encryptedToken,
+            values (:groupId, :inviterId, :targetId, :type, :requestId, :tokenHash, :encryptedToken,
                     :expiresAt, :now, :now)
             on conflict (inviter_member_id, request_id) do nothing
             """, nativeQuery = true)
     int insertIfAbsent(@Param("groupId") long groupId, @Param("inviterId") long inviterId,
-            @Param("targetId") Long targetId, @Param("type") String type, @Param("message") String message,
-            @Param("requestId") UUID requestId, @Param("tokenHash") String tokenHash,
+            @Param("targetId") Long targetId, @Param("type") String type, @Param("requestId") UUID requestId, @Param("tokenHash") String tokenHash,
             @Param("encryptedToken") String encryptedToken, @Param("expiresAt") LocalDateTime expiresAt,
             @Param("now") LocalDateTime now);
 }

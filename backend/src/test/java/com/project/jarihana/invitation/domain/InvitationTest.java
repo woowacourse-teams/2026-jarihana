@@ -20,19 +20,41 @@ class InvitationTest {
     private final Member target = Member.create("마루", 8, "101", Course.FRONTEND);
 
     @Test
+    @DisplayName("취소는 기존 초대를 바꾸지 않고 최초 취소 시각을 가진 새 초대를 반환하며 재취소는 최초 시각을 유지한다.")
+    void revocationIsImmutableAndKeepsFirstRevokedAt() {
+        // Given
+        Invitation invitation = Invitation.issueLink(group, inviter, UUID.randomUUID(), "a".repeat(64), "encrypted", NOW);
+
+        // When
+        Invitation revoked = invitation.revoke(NOW.plusMinutes(1));
+        Invitation repeated = revoked.revoke(NOW.plusMinutes(2));
+
+        // Then
+        assertThat(invitation.getRevokedAt()).isNull();
+        assertThat(revoked).isNotSameAs(invitation);
+        assertThat(revoked.getRevokedAt()).isEqualTo(NOW.plusMinutes(1));
+        assertThat(repeated).isSameAs(revoked);
+        assertThat(revoked.getCreatedAt()).isEqualTo(invitation.getCreatedAt());
+        assertThat(revoked.getExpiresAt()).isEqualTo(invitation.getExpiresAt());
+        assertThat(revoked.getRequestId()).isEqualTo(invitation.getRequestId());
+        assertThat(revoked.getEncryptedToken()).isEqualTo(invitation.getEncryptedToken());
+        assertThatThrownBy(() -> invitation.revoke(null)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> invitation.revoke(NOW.minusSeconds(1))).isInstanceOf(BusinessException.class);
+    }
+
+    @Test
     @DisplayName("지정 초대는 대상 회원을 가지며 모집 공고와 시간 만료를 요구하지 않는다.")
     void directInvitationHasTargetWithoutRecruitmentOrExpiry() {
         // Given
         UUID requestId = UUID.randomUUID();
         // When
-        Invitation invitation = Invitation.issueDirect(group, inviter, target, " 함께해요 ", requestId, NOW);
+        Invitation invitation = Invitation.issueDirect(group, inviter, target, requestId, NOW);
         // Then
         assertThat(invitation.getType()).isEqualTo(InvitationType.DIRECT);
         assertThat(invitation.getTargetMember()).isSameAs(target);
         assertThat(invitation.getExpiresAt()).isNull();
         assertThat(invitation.getTokenHash()).isNull();
         assertThat(invitation.getEncryptedToken()).isNull();
-        assertThat(invitation.getMessage()).isEqualTo("함께해요");
         assertThat(invitation.getRequestId()).isEqualTo(requestId);
         assertThat(invitation.getCreatedAt()).isEqualTo(NOW);
     }
@@ -43,7 +65,7 @@ class InvitationTest {
         // Given
         String hash = "a".repeat(64);
         // When
-        Invitation invitation = Invitation.issueLink(group, inviter, null, UUID.randomUUID(), hash, "encrypted-value", NOW);
+        Invitation invitation = Invitation.issueLink(group, inviter, UUID.randomUUID(), hash, "encrypted-value", NOW);
         // Then
         assertThat(invitation.getType()).isEqualTo(InvitationType.LINK);
         assertThat(invitation.getTargetMember()).isNull();
@@ -58,9 +80,9 @@ class InvitationTest {
         // Given
         UUID requestId = UUID.randomUUID();
         // When & Then
-        assertThatThrownBy(() -> Invitation.issueDirect(group, inviter, inviter, null, requestId, NOW))
+        assertThatThrownBy(() -> Invitation.issueDirect(group, inviter, inviter, requestId, NOW))
                 .isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> Invitation.issueDirect(group, inviter, null, null, requestId, NOW))
+        assertThatThrownBy(() -> Invitation.issueDirect(group, inviter, null, requestId, NOW))
                 .isInstanceOf(BusinessException.class);
     }
 
@@ -70,22 +92,19 @@ class InvitationTest {
         // Given
         UUID requestId = UUID.randomUUID();
         // When & Then
-        assertThatThrownBy(() -> Invitation.issueLink(group, inviter, null, requestId, "bad", "encrypted-value", NOW))
+        assertThatThrownBy(() -> Invitation.issueLink(group, inviter, requestId, "bad", "encrypted-value", NOW))
                 .isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> Invitation.issueLink(group, inviter, null, requestId, "a".repeat(64), " ", NOW))
+        assertThatThrownBy(() -> Invitation.issueLink(group, inviter, requestId, "a".repeat(64), " ", NOW))
                 .isInstanceOf(BusinessException.class);
     }
 
     @Test
-    @DisplayName("초대 메시지는 공백만 있으면 비우고 200자를 초과할 수 없다.")
-    void invitationMessageIsNormalizedAndBounded() {
-        // Given
-        UUID requestId = UUID.randomUUID();
-        // When
-        Invitation invitation = Invitation.issueDirect(group, inviter, target, " ", requestId, NOW);
-        // Then
-        assertThat(invitation.getMessage()).isNull();
-        assertThatThrownBy(() -> Invitation.issueDirect(group, inviter, target, "가".repeat(201), requestId, NOW))
+    @DisplayName("초대 발급은 재시도 식별자인 requestId 없이 생성할 수 없다.")
+    void invitationRequiresRequestId() {
+        // When & Then
+        assertThatThrownBy(() -> Invitation.issueDirect(group, inviter, target, null, NOW))
+                .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> Invitation.issueLink(group, inviter, null, "a".repeat(64), "encrypted-value", NOW))
                 .isInstanceOf(BusinessException.class);
     }
 
@@ -93,7 +112,7 @@ class InvitationTest {
     @DisplayName("수락 이력은 모집 신청 없이 초대와 수락 회원을 연결한다.")
     void acceptanceConnectsInvitationAndMemberWithoutRegistration() {
         // Given
-        Invitation invitation = Invitation.issueDirect(group, inviter, target, null, UUID.randomUUID(), NOW);
+        Invitation invitation = Invitation.issueDirect(group, inviter, target, UUID.randomUUID(), NOW);
         // When
         InvitationAcceptance acceptance = InvitationAcceptance.create(invitation, target, NOW.plusHours(1));
         // Then

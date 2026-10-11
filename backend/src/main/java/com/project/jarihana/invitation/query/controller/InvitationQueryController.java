@@ -6,6 +6,10 @@ import com.project.jarihana.invitation.query.controller.dto.InvitationCandidateR
 import com.project.jarihana.invitation.query.controller.dto.InvitationCandidateResponse;
 import com.project.jarihana.invitation.query.controller.dto.ReceivedInvitationRequest;
 import com.project.jarihana.invitation.query.controller.dto.ReceivedInvitationResponse;
+import com.project.jarihana.invitation.query.controller.dto.IssuedInvitationRequest;
+import com.project.jarihana.invitation.query.controller.dto.IssuedInvitationResponse;
+import com.project.jarihana.invitation.query.controller.dto.InvitationDetailResponse;
+import com.project.jarihana.invitation.query.controller.dto.InvitationPreviewResponse;
 import com.project.jarihana.invitation.query.service.InvitationQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.CacheControl;
@@ -20,6 +24,26 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class InvitationQueryController {
     private final InvitationQueryService invitations;
+
+    @GetMapping("/groups/{groupId}/invitations")
+    public ResponseEntity<ApiResponse<IssuedInvitationResponse>> findIssuedInvitations(
+            @LoginMember long memberId, @PathVariable long groupId, @Validated @ModelAttribute IssuedInvitationRequest request) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponse.success(
+                IssuedInvitationResponse.from(invitations.findIssued(memberId, groupId, request.toQuery()))));
+    }
+
+    @GetMapping("/invitations/{invitationId}")
+    public ResponseEntity<ApiResponse<InvitationDetailResponse>> findInvitationDetail(
+            @LoginMember long memberId, @PathVariable long invitationId) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponse.success(
+                InvitationDetailResponse.from(invitations.findDetail(memberId, invitationId))));
+    }
+
+    @GetMapping("/invitations/links/{token}")
+    public ResponseEntity<ApiResponse<InvitationPreviewResponse>> findInvitationPreview(@PathVariable String token) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponse.success(
+                InvitationPreviewResponse.from(invitations.previewLink(token))));
+    }
 
     @GetMapping("/groups/{groupId}/invitation-candidates")
     public ResponseEntity<ApiResponse<InvitationCandidateResponse>> findInvitationCandidates(

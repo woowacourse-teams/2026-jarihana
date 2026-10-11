@@ -199,3 +199,5 @@ DB 접속값과 인증·OAuth·S3 설정은 개발 Compose의 환경 변수로 �
 ## 웹푸시·알림함
 
 설정·DB 적용·로컬 테스트·배포·장애 확인은 [웹푸시 운영 가이드](docs/operations/web-push.md)를 확인합니다.
+
+초대 저장 DDL 적용 후에는 [개인 초대 메시지 제거 DDL](db/migrations/2026-10-11-invitation-message-removal.sql)도 적용한다. 적용 순서와 복구 제한은 [초대 운영 문서](docs/operations/invitations.md#개인-메시지-제거-증분-ddl)를 따른다.

@@ -1,6 +1,6 @@
 # Invitation · InvitationAcceptance
 
-> 상태: 저장 기반·초대 발급·회원 후보 검색·받은 초대 목록 구현. 상세·취소·수락 API는 아직 미구현이다.
+> 상태: 저장·발급·회원 후보·수신/발급 목록·상세·공개 미리보기·취소 구현. 실제 수락·합류 연결은 아직 미구현이다.
 > 모델 분리와 승인 출처 선택은 [ADR 0017](../../../adr/0017-separate-invitation-acceptance-history.md)을 따른다.
 
 ## Invitation
@@ -15,7 +15,6 @@
 | inviterMemberId | Long | NOT NULL | 초대를 발급한 회원 |
 | type | Enum | NOT NULL | DIRECT 또는 LINK |
 | targetMemberId | Long | DIRECT 필수, LINK null | 지정 초대의 대상 회원 |
-| message | String | nullable, 최대 200자 | 앞뒤 공백 제거, 공백만 있으면 null |
 | requestId | UUID | NOT NULL, 발급자와 조합 유일 | 발급 요청 재시도 식별자 |
 | tokenHash | String | LINK 필수, 64자리 소문자 hex, 유일 | 공유 토큰 조회용 해시 저장값 |
 | encryptedToken | String | LINK 필수, 최대 512자 | 같은 링크 재복사를 위한 암호문 저장 공간 |
@@ -25,7 +24,7 @@
 
 DIRECT의 토큰 저장 필드는 null이다. LINK는 32바이트 난수의 패딩 없는 Base64URL 토큰을 발급한다.
 조회용 SHA-256 해시와 AES-256-GCM 암호문을 저장하고 같은 발급 요청 재시도에서 원래 링크를 복원한다.
-키 ID와 환경 설정의 키 목록을 사용하며 관리 상세에서의 재복사는 5단계에서 연결한다.
+키 ID와 환경 설정의 키 목록을 사용하며 모든 현재 모임원이 공유 초대 상세에서 기존 링크를 복원할 수 있다. 재복사는 만료 시각을 연장하지 않는다.
 선택 이유와 키 관리 비용은 [백엔드 ADR 0018](../../../adr/0018-encrypted-invitation-token-storage.md)을 따른다.
 
 ## 모델 규칙
@@ -34,8 +33,8 @@ DIRECT의 토큰 저장 필드는 null이다. LINK는 32바이트 난수의 패�
 - LINK는 링크 소지자를 대상으로 한다. 첫 수락으로 초대 자체가 소비되지 않는다.
 - DIRECT는 시간 만료가 없고 LINK는 초기 약 3일의 유효 기간을 가진다.
   발급 시각+72시간이며 now >= expiresAt부터 만료다.
-- message의 최대 200자·공백 정리는 도메인 생성 시 검증한다.
 - revokedAt이 있으면 신규 합류를 허용하지 않는다. 취소는 과거 합류를 되돌리지 않는다.
+- revoke는 원본을 변경하지 않고 최초 취소 시각을 가진 새 엔티티를 반환한다. 이미 취소된 경우 최초 시각을 유지한다. 취소 시각은 발급 이전일 수 없다.
 - 발급·수락·취소 흐름과 권한은 [비즈니스 정책](../business-policies.md#초대-발급과-합류)을 따른다.
 - 모델 간 유일성과 모집 집계 관계는 [불변식](../invariants.md#invitation--groupmember--registration)을 따른다.
 
@@ -64,3 +63,4 @@ DIRECT의 토큰 저장 필드는 null이다. LINK는 32바이트 난수의 패�
 - 복합 상태 표시 우선순위는 REVOKED → GROUP_ENDED → EXPIRED → DIRECT ACCEPTED → ACTIVE다.
   JSON 필드는 [초대 API](../../api/endpoints/invitations.md)에 정의한다.
 - 그룹 물리 삭제에 따른 초대/수락 이력 정리는 기존 그룹 생명주기를 따르며 저장 순서는 백엔드 ADR에서 정한다.
+- 개인 초대 메시지는 저장하지 않는다. 거절 상태와 거절 이력은 없으며 알림 삭제는 초대 상태를 변경하지 않는다.

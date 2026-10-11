@@ -1,0 +1,3 @@
+BEGIN;
+ALTER TABLE invitation DROP COLUMN IF EXISTS message;
+COMMIT;

@@ -7,9 +7,8 @@ import jakarta.validation.constraints.Positive;
 
 import java.util.UUID;
 
-public record CreateInvitationRequest(@NotNull InvitationType type, @Positive Long targetMemberId, String message,
-                                      @NotNull UUID requestId) {
+public record CreateInvitationRequest(@NotNull InvitationType type, @Positive Long targetMemberId, @NotNull UUID requestId) {
     public CreateInvitationCommand toCommand() {
-        return new CreateInvitationCommand(type, targetMemberId, message, requestId);
+        return new CreateInvitationCommand(type, targetMemberId, requestId);
     }
 }

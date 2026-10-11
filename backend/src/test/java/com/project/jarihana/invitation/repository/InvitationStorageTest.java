@@ -52,10 +52,8 @@ class InvitationStorageTest extends IntegrationTestSupport {
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
         // When & Then
         transaction.executeWithoutResult(status -> {
-            Invitation direct = invitations.save(Invitation.issueDirect(fixture.group(), fixture.inviter(), fixture.first(),
-                    "함께해요", UUID.randomUUID(), NOW));
-            Invitation link = invitations.save(Invitation.issueLink(fixture.group(), fixture.inviter(), null,
-                    UUID.randomUUID(), "a".repeat(64), "encrypted-value", NOW));
+            Invitation direct = invitations.save(Invitation.issueDirect(fixture.group(), fixture.inviter(), fixture.first(), UUID.randomUUID(), NOW));
+            Invitation link = invitations.save(Invitation.issueLink(fixture.group(), fixture.inviter(), UUID.randomUUID(), "a".repeat(64), "encrypted-value", NOW));
             acceptances.save(InvitationAcceptance.create(link, fixture.first(), NOW.plusMinutes(1)));
             acceptances.save(InvitationAcceptance.create(link, fixture.second(), NOW.plusMinutes(2)));
             GroupRecruitment recruitment = recruitments.save(GroupRecruitment.create(fixture.group(), JoinMethod.AUTO,
@@ -76,8 +74,7 @@ class InvitationStorageTest extends IntegrationTestSupport {
     void databaseRejectsDuplicateAcceptanceAndMembership() {
         // Given
         Fixture fixture = fixture();
-        Invitation invitation = invitations.save(Invitation.issueLink(fixture.group(), fixture.inviter(), null,
-                UUID.randomUUID(), "a".repeat(64), "encrypted-value", NOW));
+        Invitation invitation = invitations.save(Invitation.issueLink(fixture.group(), fixture.inviter(), UUID.randomUUID(), "a".repeat(64), "encrypted-value", NOW));
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
         transaction.executeWithoutResult(status -> {
             acceptances.save(InvitationAcceptance.create(invitation, fixture.first(), NOW.plusMinutes(1)));
@@ -98,15 +95,15 @@ class InvitationStorageTest extends IntegrationTestSupport {
         // Given
         Fixture fixture = fixture();
         UUID requestId = UUID.randomUUID();
-        invitations.save(Invitation.issueLink(fixture.group(), fixture.inviter(), null, requestId,
+        invitations.save(Invitation.issueLink(fixture.group(), fixture.inviter(), requestId,
                 "a".repeat(64), "encrypted-value", NOW));
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
         // When & Then
         assertThatThrownBy(() -> transaction.executeWithoutResult(status ->
-                invitations.save(Invitation.issueDirect(fixture.group(), fixture.inviter(), fixture.first(), null, requestId, NOW))))
+                invitations.save(Invitation.issueDirect(fixture.group(), fixture.inviter(), fixture.first(), requestId, NOW))))
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThatThrownBy(() -> transaction.executeWithoutResult(status ->
-                invitations.save(Invitation.issueLink(fixture.group(), fixture.inviter(), null, UUID.randomUUID(),
+                invitations.save(Invitation.issueLink(fixture.group(), fixture.inviter(), UUID.randomUUID(),
                         "a".repeat(64), "encrypted-value", NOW))))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }

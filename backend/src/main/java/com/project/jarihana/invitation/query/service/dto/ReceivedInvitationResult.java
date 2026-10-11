@@ -9,6 +9,6 @@ import java.util.List;
 public record ReceivedInvitationResult(List<Item> items, String nextCursor, boolean hasNext) {
     public ReceivedInvitationResult { items = List.copyOf(items); }
     public record Item(long id, InvitationType type, long groupId, String groupName, long inviterId,
-                       String inviterCrewName, String message, LocalDateTime createdAt, LocalDateTime expiresAt,
+                       String inviterCrewName, LocalDateTime createdAt, LocalDateTime expiresAt,
                        InvitationStatus status, boolean canRevoke) { }
 }

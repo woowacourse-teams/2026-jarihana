@@ -1,7 +1,7 @@
 # 초대 실행·배포·검증
 
-> 상태: 저장·발급·회원 후보·받은 초대·알림의 로컬 PostgreSQL·HTTP 검증 완료.
-> 상세·취소·수락·프론트·로그 마스킹·배포 호환성은 후속 단계다.
+> 상태: 저장·발급·조회·공개 미리보기·취소·알림의 로컬 PostgreSQL·HTTP 검증 완료.
+> 수락·프론트·로그 마스킹·배포 호환성은 후속 단계다.
 
 API는 [초대 계약](../context/api/endpoints/invitations.md)과
 [초대 알림 응답](../context/api/endpoints/notifications.md#초대-알림-응답-확장-계약),
@@ -18,6 +18,8 @@ Java 21과 실행 중인 Docker가 필요하다. 백엔드에서 다음 명령�
 ./gradlew test --tests '*RecruitmentCapacityIntegrationTest'
 # 발급·검색·수신·재시도·암복호화·알림·전송 실패·증분 DDL
 ./gradlew test --tests '*Invitation*Test' --tests '*Notification*Test' --tests '*PushDeliveryWorkerTest'
+# 상세·목록·공개 미리보기·만료 경계·취소 권한·동시 취소·롤백
+./gradlew test --tests '*InvitationIssuanceAcceptanceTest' --tests '*InvitationTest' --tests '*InvitationStatusTest'
 ```
 
 PostgreSQL 17 Testcontainers에서 저장 유일성과 실제 수동 DDL을 확인한다.
@@ -38,6 +40,7 @@ DDL 적용·기존 승인 보존·기본값·제약·재적용·Hibernate valida
 ```bash
 psql "$INVITATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/db/migrations/2026-10-11-invitation.sql
 psql "$INVITATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/db/migrations/2026-10-11-invitation-notification.sql
+psql "$INVITATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/db/migrations/2026-10-11-invitation-message-removal.sql
 ```
 
 연결 값은 로그·검증 자료에 기록하지 않는다. SQL은 하나의 트랜잭션으로 적용되며
@@ -91,13 +94,13 @@ SELECT count(*) FROM registration WHERE approval_origin IS NULL;
 적용 중 실패하면 트랜잭션을 롤백하고 원인을 확인한다. 애플리케이션만 되돌릴 때는 추가 스키마를 유지할 수 있다.
 초대 사용 이후 테이블·승인 출처를 삭제하면 합류 이력과 링크 복원 정보를 잃는다.
 INVITATION을 RECRUITMENT로 바꾸면 모집 집계 의미도 달라진다. 실제 데이터와 백업을 확인한 복구 계획 없이 스키마를 제거하지 않는다.
-암복호화·키 교체와 발급 재시도의 링크 복원은 로컬에서 검증했다. 관리 상세의 재복사는 5단계에서 권한 검사와 연결한다.
+암복호화·키 교체와 발급 재시도의 링크 복원은 로컬에서 검증했다. 공유 초대 상세의 재복사는 모든 현재 모임원이 이용할 수 있다. 다른 모임원이 재복사해도 최초 발급자·만료·취소 권한은 바뀌지 않는다.
 초대 알림이 저장된 뒤 구 백엔드로 되돌리면 새 eventType을 읽을 수 없다. 새 사건을 읽을 수 있는 백엔드를 유지하거나 데이터를 보존하는 별도 복구안을 먼저 확인한다.
 
 ## 로그와 민감정보 확인
 
 - 원본 공유 토큰을 access log·API 오류·분석·세션 녹화에 남기지 않도록 서버·프록시 경로 마스킹과 프론트 수집 제외를 구현한다.
-- 인증 복귀용 초대 경로를 보관하더라도 분석으로 전송하지 않는다. 개인 초대 메시지도 분석과 장애 공유 자료에서 제외한다.
+- 인증 복귀용 초대 경로를 보관하더라도 분석으로 전송하지 않는다. 초대에는 개인 메시지가 없다.
 - 정상 조회·수락뿐 아니라 잘못된 토큰·인증 실패·서버 오류 경로에서도 원본이 남지 않는지 확인한다.
 - 검증 자료에는 원본 토큰·인증 쿠키·푸시 구독 비밀값을 기록하지 않는다.
 
@@ -112,7 +115,13 @@ INVITATION을 RECRUITMENT로 바꾸면 모집 집계 의미도 달라진다. 실
 ## 구현과 검증 상태
 
 저장·발급·검색·수신·알림 저장과 구독별 워커 전송은 로컬 PostgreSQL·HTTP 및 외부 전송 대역으로 확인했다.
-초대 화면·취소·수락·삭제 연계는 아직 미구현이므로 현재 단계만 배포하지 않는다. 기존 그룹 삭제는 초대 FK 정리 없이는 실패할 수 있으며 10단계에서 연결한다.
+상세·발급 목록·비회원 공개 미리보기·만료·취소는 실제 HTTP·DB에서 검증했다. 공개 조회는 합류하지 않고 재복사는 만료를 연장하지 않는다.
+취소는 모임 잠금 후 현재 소속과 유형별 권한을 검사하고 초대 취소 및 미전송 푸시 취소를 같은 트랜잭션에 저장한다. 이미 외부 전송을 시작한 푸시의 회수는 보장하지 않는다.
+초대 화면·수락·삭제 연계는 아직 미구현이므로 현재 단계만 배포하지 않는다. 기존 그룹 삭제는 초대 FK 정리 없이는 실패할 수 있으며 10단계에서 연결한다.
 현 프론트 알림 schema는 초대 target을 처리하지 못하고, 기존 SW는 새 사건에 일반 알림 문구로 대응한다. 7단계에서 전용 문구·클릭·조회와 호환 검증을 구현한다.
 공유·운영 DB 적용, 실제 초대 외부 푸시 수신, OS 알림 클릭과 배포는 아직 수행하지 않았다.
 로컬 검증과 실제 운영 검증의 결과를 구분해 후속 단계에서 갱신한다.
+
+### 개인 메시지 제거 증분 DDL
+
+[메시지 제거 DDL](../../db/migrations/2026-10-11-invitation-message-removal.sql)은 기존 초대 DDL 이후 적용하며 재적용할 수 있다. 개인 메시지 컬럼과 기존 텍스트는 삭제하고 초대 식별자·토큰·수락 이력은 보존한다. 적용 후에는 message 컬럼을 참조하는 구 백엔드로 되돌릴 수 없으므로 메시지를 제거한 백엔드를 유지한다. 이 DDL은 격리된 테스트 DB에서만 검증했으며 공유·운영 DB에는 적용하지 않았다.

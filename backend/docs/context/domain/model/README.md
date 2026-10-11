@@ -105,7 +105,7 @@ erDiagram
 | 모집 | [GroupRecruitment](grouprecruitment.md) | 모집 공고 모델 |
 | 일정 | [일정 모델](schedule.md) | 반복·세션 일정 모델 |
 | 신청 | [Registration](registration.md) | 신청 모델 |
-| 초대 | [Invitation · InvitationAcceptance](invitation.md) | 저장·발급·수신 구현, 상세·취소·수락 예정인 모델·규칙·관계 |
+| 초대 | [Invitation · InvitationAcceptance](invitation.md) | 저장·발급·조회·취소 구현, 수락 예정인 모델·규칙·관계 |
 | 소속 | [GroupMember](groupmember.md) | 그룹 소속 모델 |
 | 피드백 | [Feedback](feedback.md) | 피드백 내용과 필수 작성 회원 |
 | 사진 활동 기록 | [ActivityPost](activitypost.md) | 공개 범위, 사진 참조, 활동 날짜와 생명주기 |

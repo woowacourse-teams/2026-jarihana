@@ -1,7 +1,7 @@
 # 초대
 
-> 상태: 발급·회원 후보 검색·받은 초대 목록을 구현하고 실제 PostgreSQL·HTTP에서 검증했다.
-> 발급 목록·상세·공개 미리보기·취소·수락 API는 아직 구현되지 않았다.
+> 상태: 발급·회원 후보 검색·수신/발급 목록·상세·공개 미리보기·취소를 구현했다.
+> 초대 수락 API는 아직 구현되지 않았다. 조회·취소 계약은 실제 PostgreSQL·HTTP 인수 테스트로 검증한다.
 > 실행 계약은 Controller·DTO·ErrorCode와 RestAssured 인수 테스트로 확인한다. 저장소에는 OpenAPI 생성 의존성이 없어 자동 스키마 검증은 수행하지 않았다.
 
 [공통 계약](../common-contract.md), [API 컨벤션](../../../conventions/api.md),
@@ -57,7 +57,6 @@ ALREADY_JOINED는 현재 소속에 대한 수락 결과이며 초대 status와 �
 {
   "type": "DIRECT",
   "targetMemberId": 21,
-  "message": "함께 활동해요.",
   "requestId": "5f7d4c53-3f10-4b78-a237-814f7e9e3439"
 }
 ```
@@ -66,11 +65,10 @@ ALREADY_JOINED는 현재 소속에 대한 수락 결과이며 초대 status와 �
 | --- | --- | --- |
 | type | enum | DIRECT 또는 LINK |
 | targetMemberId | Long/null | DIRECT는 필수 양수, LINK는 null |
-| message | String/null | 선택, 최대 200자, 양끝 공백 제거 후 빈 값은 null |
 | requestId | UUID | 발급 동작의 식별자. 통신 재시도에는 같은 값 사용 |
 
 발급자 ID는 인증 정보에서 결정한다. DIRECT 대상은 가입 완료 회원이어야 하며 자기 자신·현재 구성원·탈퇴 회원은 제외한다.
-메시지는 공백 정리 후 200자까지이며 requestId는 필수다.
+개인 초대 메시지는 받지 않으며 requestId는 필수다.
 
 #### 응답 201
 
@@ -82,7 +80,6 @@ ALREADY_JOINED는 현재 소속에 대한 수락 결과이며 초대 status와 �
     "groupId": 12,
     "type": "DIRECT",
     "targetMemberId": 21,
-    "message": "함께 활동해요.",
     "createdAt": "2026-10-11T14:00:00",
     "expiresAt": null,
     "status": "ACTIVE",
@@ -93,9 +90,9 @@ ALREADY_JOINED는 현재 소속에 대한 수락 결과이며 초대 status와 �
 }
 ```
 
-- data 필드: id·groupId·type·targetMemberId·message·createdAt·expiresAt·status·sharePath·reused.
+- data 필드: id·groupId·type·targetMemberId·createdAt·expiresAt·status·sharePath·reused.
 - sharePath는 서버가 결정한 내부 상대 경로다. DIRECT는 `/invitations/{id}`, LINK는 `/invitations/link/{token}`이다.
-- 동일 발급자+requestId의 동일 요청 재시도는 200과 reused=true다. 모임·유형·대상·메시지가 다르면 INVITATION_REQUEST_CONFLICT다.
+- 동일 발급자+requestId의 동일 요청 재시도는 200과 reused=true다. 모임·유형·대상이 다르면 INVITATION_REQUEST_CONFLICT다.
 - 두 유형 모두 동일 요청 재시도에서 같은 sharePath를 반환한다. LINK는 권한 있는 관리 상세에서 나중에도 같은 링크를 다시 복사할 수 있다. 목록에서는 원본 경로를 제공하지 않는다.
 - 다른 requestId의 명시적 신규 발급은 별도 초대다.
 
@@ -108,7 +105,7 @@ DIRECT 신규 발급은 대상 회원에게 알림을 생성한다. LINK는 수�
 
 | 상황 | 코드 | HTTP |
 | --- | --- | --- |
-| 대상·유형·메시지·requestId 검증 실패 | `INVALID_PARAMETER` | 400 |
+| 대상·유형·requestId 검증 실패 | `INVALID_PARAMETER` | 400 |
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
 | 그룹 구성원이 아님 | `ACCESS_DENIED` | 403 |
 | 종료된 그룹 | `GROUP_ENDED` | 409 |
@@ -118,8 +115,8 @@ DIRECT 신규 발급은 대상 회원에게 알림을 생성한다. LINK는 수�
 
 ### `GET /api/groups/{groupId}/invitations`
 
-- 설명: 본인 발급 초대 또는 모임장 관리 공유 링크 목록
-- 권한: `MEMBER + 현재 구성원; MANAGED_LINKS는 현재 모임장`
+- 설명: 본인 발급 초대 또는 모임의 공유 링크 목록
+- 권한: `MEMBER + 현재 구성원`
 
 #### Path Parameters
 
@@ -158,8 +155,7 @@ Request Body는 없다.
         "createdAt": "2026-10-11T14:00:00",
         "expiresAt": null,
         "status": "ACTIVE",
-        "canRevoke": true,
-        "message": "함께 활동해요."
+        "canRevoke": true
       }
     ],
     "nextCursor": null,
@@ -169,10 +165,12 @@ Request Body는 없다.
 }
 ```
 
-- MINE은 본인이 발급한 두 유형, MANAGED_LINKS는 모임의 LINK 전체다. 일반 모임원은 타인 발급 목록을 조회할 수 없다.
+- MINE은 본인이 발급한 두 유형, MANAGED_LINKS는 모임의 LINK 전체다. 두 scope 모두 현재 모임장과 일반 모임원이 조회할 수 있다. 타인 DIRECT는 어느 scope에도 제공하지 않는다.
 - items 필드: id·type·group(id,name)·inviter(id,crewName)·createdAt·expiresAt·status·canRevoke.
-- 본인 발급 항목에만 message를 포함한다. 타인 LINK 관리 항목에는 message를 제공하지 않는다.
-- canRevoke는 현재 취소 권한을 서버에서 계산한 값이다. 취소 요청에서 권한을 다시 검사한다.
+- 모든 초대 요청·응답에는 개인 메시지 필드가 없다.
+- canRevoke는 현재 소속·유형별 권한이 있고 모임이 ACTIVE이며 아직 취소되지 않은 경우 true다. 시간 만료나 수락 이력이 있어도 이 조건을 충족하면 취소할 수 있다. 취소 요청에서 권한을 다시 검사한다.
+- MANAGED_LINKS를 조회할 수 있다고 취소 권한이 생기는 것은 아니다. 타인 LINK의 canRevoke는 현재 모임장에게만 true다.
+- 종료된 모임도 현재 소속이 있으면 이력 목록을 조회할 수 있다. 커서는 모임·조회 회원·scope별로 구분한다.
 
 #### 부수 효과
 
@@ -278,7 +276,6 @@ Request Body는 없다.
           "id": 3,
           "crewName": "가온"
         },
-        "message": "함께 활동해요.",
         "createdAt": "2026-10-11T14:00:00",
         "expiresAt": null,
         "status": "ACTIVE",
@@ -292,7 +289,7 @@ Request Body는 없다.
 }
 ```
 
-본인을 대상으로 한 DIRECT만 반환한다. 항목에는 message를 포함하며 종료·취소·수락된 이력도 status와 함께 반환한다.
+본인을 대상으로 한 DIRECT만 반환한다. 종료·취소·수락된 이력도 status와 함께 반환한다.
 조회는 소속·신청 상태도 변경하지 않는다.
 
 #### 부수 효과
@@ -308,7 +305,7 @@ Request Body는 없다.
 ### `GET /api/invitations/{invitationId}`
 
 - 설명: 본인의 지정 초대 또는 권한 있는 관리 상세 조회
-- 권한: `MEMBER + 지정 대상/발급자; LINK는 발급자/현재 모임장`
+- 권한: `MEMBER + 지정 대상/발급자; LINK는 현재 구성원 또는 발급자`
 
 #### Path Parameters
 
@@ -335,7 +332,6 @@ Request Body는 없다.
       "id": 3,
       "crewName": "가온"
     },
-    "message": "함께 활동해요.",
     "createdAt": "2026-10-11T14:00:00",
     "expiresAt": null,
     "status": "ACTIVE",
@@ -347,10 +343,12 @@ Request Body는 없다.
 }
 ```
 
-data 필드: id·type·group(id,name,introduction)·inviter(id,crewName)·message·createdAt·expiresAt·status·canAccept·canRevoke·sharePath.
-sharePath는 DIRECT의 ID 경로 또는 LINK의 기존 공유 경로다. LINK는 현재 구성원인 발급자 또는 현재 모임장에게만 제공한다. 재복사는 새 발급이나 유효 기간 연장이 아니다.
+data 필드: id·type·group(id,name,introduction)·inviter(id,crewName)·createdAt·expiresAt·status·canAccept·canRevoke·sharePath.
+sharePath는 DIRECT의 ID 경로 또는 LINK의 기존 공유 경로다. LINK는 모든 현재 구성원에게 제공하며 다른 사람이 만든 링크도 다시 복사하여 전달할 수 있다. 재복사는 새 발급이나 유효 기간 연장이 아니다.
 DIRECT의 발급자·대상만 상세에 접근하며 모임장이라는 이유로 타인의 DIRECT를 열람할 수 없다.
-LINK 관리 상세는 발급자·현재 모임장만 접근한다. 비회원에게 DIRECT 상세 정보를 제공하지 않는다.
+LINK 상세는 모든 현재 구성원이 접근한다. 발급자는 이탈 후에도 본인 발급 상세의 상태를 조회할 수 있다. 비회원에게 DIRECT 상세 정보를 제공하지 않는다.
+이탈한 발급자는 본인 발급 상세의 상태를 조회할 수 있지만 canRevoke는 false이며 LINK sharePath는 null이다.
+인증 상세의 canAccept는 초대가 ACTIVE이고 아직 구성원이 아니며 지정 대상 자격을 만족할 때 true다.
 그룹 삭제는 INVITATION_NOT_FOUND다. canAccept·canRevoke는 현재 권한과 상태를 서버에서 계산한 안내 값이며 변경 요청에서 재검증한다.
 
 #### 부수 효과
@@ -363,6 +361,8 @@ LINK 관리 상세는 발급자·현재 모임장만 접근한다. 비회원에�
 | --- | --- | --- |
 | 지정 대상이 아닌 회원의 지정 링크 접근 | `INVITATION_ACCESS_DENIED` | 403 |
 | 없거나 접근할 수 없는 관리 상세 | `INVITATION_NOT_FOUND` | 404 |
+| 초대 ID가 0·음수이거나 형식이 잘못됨 | `INVALID_PARAMETER` | 400 |
+| 권한 확인 후 공유 링크 복원 실패·키 설정 오류 | `INVITATION_UNAVAILABLE` | 503 |
 
 ### `GET /api/invitations/links/{token}`
 
@@ -394,7 +394,6 @@ Request Body는 없다.
       "id": 3,
       "crewName": "가온"
     },
-    "message": "함께 활동해요.",
     "createdAt": "2026-10-11T14:00:00",
     "expiresAt": "2026-10-14T14:00:00",
     "status": "ACTIVE",
@@ -404,7 +403,7 @@ Request Body는 없다.
 }
 ```
 
-응답은 id·type·모임 이름/소개·발급자 표시명·message·생성/만료 시각·status·canAccept로 제한한다.
+응답은 id·type·모임 이름/소개·발급자 표시명·생성/만료 시각·status·canAccept로 제한한다.
 지정 대상 정보와 원본 토큰은 응답에 포함하지 않는다.
 
 #### 부수 효과
@@ -524,7 +523,9 @@ Request Body는 없다.
 #### 부수 효과
 
 권한을 매번 확인하며 이미 취소된 초대도 200과 최초 revokedAt을 반환한다.
+현재 구성원만 취소할 수 있다. 발급자라도 이탈하면 취소 권한은 사라지고, LINK의 모임장 권한은 위임 후 현재 역할로 판단한다.
 기존 소속과 신청 결정은 되돌리지 않는다. 해당 초대의 미전송 알림 작업을 취소하되 이미 전송된 푸시 회수는 보장하지 않는다.
+지정 초대의 PENDING·RETRY·IN_FLIGHT 전송 작업을 CANCELLED로 바꾸고 선점 정보를 해제한다. ACCEPTED·FAILED 기록과 알림함의 읽음·삭제 상태는 유지한다. 초대 취소와 전송 작업 취소는 함께 성공하거나 함께 롤백한다.
 
 #### 예외
 
@@ -533,10 +534,11 @@ Request Body는 없다.
 | 유형별 취소 권한 없음 | `ACCESS_DENIED` | 403 |
 | 초대 없음 | `INVITATION_NOT_FOUND` | 404 |
 | 종료된 그룹 | `GROUP_ENDED` | 409 |
+| 초대 ID가 0·음수이거나 형식이 잘못됨 | `INVALID_PARAMETER` | 400 |
 
 ## 오류 계약
 
-아래 공통 예외와 각 엔드포인트의 개별 예외를 함께 적용한다. 현재 INVITATION_REQUEST_CONFLICT·INVITATION_UNAVAILABLE를 구현했고 나머지 초대 전용 오류는 후속 단계에서 구현한다.
+아래 공통 예외와 각 엔드포인트의 개별 예외를 함께 적용한다. INVITATION_REQUEST_CONFLICT·INVITATION_UNAVAILABLE·INVITATION_NOT_FOUND·INVITATION_ACCESS_DENIED를 구현했고 수락 전용 만료·취소 오류는 6단계에서 구현한다.
 권한 확인은 초대 유효 상태나 개인정보 상세를 제공하기 전에 수행한다.
 
 | 상황 | 코드 | HTTP |
@@ -554,3 +556,7 @@ Request Body는 없다.
 | [알림 응답](notifications.md#초대-알림-응답-확장-계약) | 지정 초대 알림의 eventType·target·표시 내용 |
 | [초대 운영 확인사항](../../../operations/invitations.md) | 로그·민감정보 차단·배포 전 확인사항 |
 | [초대 정책](../../domain/business-policies.md#초대-발급과-합류) | 발급·수락·취소·PENDING 승인·알림의 업무 흐름 |
+
+## 수신자의 알림 삭제
+
+수신자는 기존 알림 삭제 API로 초대 알림을 알림함에서 지울 수 있다. 별도 거절 API·거절 상태·거절 이력은 만들지 않는다. 알림 삭제는 초대를 취소하거나 수락하지 않으며, 받은 초대 목록이나 기존 초대 경로에서 나중에 수락할 수 있다.

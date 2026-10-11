@@ -5,7 +5,14 @@ import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.command.repository.GroupCommandRepository;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
+import com.project.jarihana.groupmember.domain.GroupMemberRole;
+import com.project.jarihana.invitation.command.service.InvitationTokenCodec;
 import com.project.jarihana.invitation.domain.InvitationStatus;
+import com.project.jarihana.invitation.domain.InvitationType;
+import com.project.jarihana.invitation.query.repository.dto.InvitationDetailProjection;
+import com.project.jarihana.invitation.query.service.dto.InvitationDetailResult;
+import com.project.jarihana.invitation.query.service.dto.IssuedInvitationQuery;
+import com.project.jarihana.invitation.query.service.dto.IssuedInvitationResult;
 import com.project.jarihana.invitation.query.repository.InvitationCandidateRepository;
 import com.project.jarihana.invitation.query.repository.InvitationQueryRepository;
 import com.project.jarihana.invitation.query.service.dto.InvitationCandidateQuery;
@@ -31,6 +38,75 @@ public class InvitationQueryService {
     private final GroupCommandRepository groups;
     private final GroupMemberCommandRepository groupMembers;
     private final Clock clock;
+    private final InvitationTokenCodec tokens;
+
+    public IssuedInvitationResult findIssued(long memberId, long groupId, IssuedInvitationQuery query) {
+        requireMember(memberId);
+        if (groupId <= 0 || query == null || query.scope() == null) throw invalid();
+        validateSize(query.size());
+        groups.findById(groupId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND, "모임을 찾을 수 없습니다."));
+        var membership = groupMembers.findByGroupIdAndMemberId(groupId, memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ACCESS_DENIED, "현재 구성원만 발급 목록을 조회할 수 있습니다."));
+        boolean managed = query.scope() == InvitationListScope.MANAGED_LINKS;
+        String scope = "i:" + groupId + ":" + memberId + ":" + query.scope();
+        InvitationCursor cursor = InvitationCursor.decode(query.cursor(), scope);
+        var page = invitations.findIssued(groupId, memberId, managed, cursor == null ? null : cursor.createdAt(),
+                cursor == null ? null : cursor.id(), PageRequest.of(0, query.size()));
+        var items = page.getContent();
+        String next = page.hasNext() ? InvitationCursor.encode(scope, items.getLast().createdAt(), items.getLast().id()) : null;
+        LocalDateTime now = LocalDateTime.now(clock);
+        return new IssuedInvitationResult(items.stream().map(item -> {
+            InvitationStatus status = InvitationStatus.resolve(item.type(), item.revokedAt(), item.groupActive(),
+                    item.inviterPresent(), item.expiresAt(), item.accepted(), now);
+            return new IssuedInvitationResult.Item(item.id(), item.type(), item.groupId(), item.groupName(),
+                    item.inviterId(), item.inviterCrewName(), item.createdAt(), item.expiresAt(), status, item.groupActive() && status != InvitationStatus.REVOKED
+                    && (item.inviterId() == memberId || (item.type() == InvitationType.LINK && membership.getRole() == GroupMemberRole.LEADER)));
+        }).toList(), next, page.hasNext());
+    }
+
+    public InvitationDetailResult findDetail(long memberId, long invitationId) {
+        requireMember(memberId);
+        if (invitationId <= 0) throw invalid();
+        InvitationDetailProjection item = invitations.findDetail(invitationId, memberId).orElseThrow(InvitationQueryService::notFound);
+        boolean owner = item.inviterId() == memberId;
+        boolean target = item.targetId() != null && item.targetId() == memberId;
+        if (item.type() == InvitationType.DIRECT && !owner && !target) {
+            throw new BusinessException(ErrorCode.INVITATION_ACCESS_DENIED, "초대 상세에 접근할 수 없습니다.");
+        }
+        if (item.type() == InvitationType.LINK && !owner && !item.viewerPresent()) throw notFound();
+        InvitationStatus status = status(item);
+        boolean canRevoke = item.viewerPresent() && item.groupActive() && status != InvitationStatus.REVOKED
+                && (owner || (item.type() == InvitationType.LINK && item.viewerLeader()));
+        boolean canAccept = status == InvitationStatus.ACTIVE && !item.viewerPresent()
+                && (item.type() == InvitationType.LINK || target);
+        String path = item.type() == InvitationType.DIRECT ? "/invitations/" + item.id()
+                : item.viewerPresent() ? "/invitations/link/" + tokens.recover(item.encryptedToken(), item.tokenHash()) : null;
+        return detail(item, status, canAccept, canRevoke, path);
+    }
+
+    public InvitationDetailResult previewLink(String token) {
+        long id = invitations.findLinkIdByTokenHash(tokens.hash(token)).orElseThrow(InvitationQueryService::notFound);
+        InvitationDetailProjection item = invitations.findDetail(id, 0).orElseThrow(InvitationQueryService::notFound);
+        InvitationStatus status = status(item);
+        return detail(item, status, status == InvitationStatus.ACTIVE, false, null);
+    }
+
+    private InvitationStatus status(InvitationDetailProjection item) {
+        return InvitationStatus.resolve(item.type(), item.revokedAt(), item.groupActive(), item.inviterPresent(),
+                item.expiresAt(), item.accepted(), LocalDateTime.now(clock));
+    }
+
+    private InvitationDetailResult detail(InvitationDetailProjection item, InvitationStatus status,
+            boolean canAccept, boolean canRevoke, String path) {
+        return new InvitationDetailResult(item.id(), item.type(), item.groupId(), item.groupName(), item.groupIntroduction(),
+                item.inviterId(), item.inviterCrewName(), item.createdAt(), item.expiresAt(),
+                status, canAccept, canRevoke, path);
+    }
+
+    private static BusinessException notFound() {
+        return new BusinessException(ErrorCode.INVITATION_NOT_FOUND, "초대를 찾을 수 없습니다.");
+    }
 
     public InvitationCandidateResult findCandidates(long memberId, long groupId, InvitationCandidateQuery query) {
         requireMember(memberId);
@@ -67,7 +143,7 @@ public class InvitationQueryService {
         LocalDateTime now = LocalDateTime.now(clock);
         return new ReceivedInvitationResult(items.stream().map(item -> new ReceivedInvitationResult.Item(
                 item.id(), item.type(), item.groupId(), item.groupName(), item.inviterId(), item.inviterCrewName(),
-                item.message(), item.createdAt(), item.expiresAt(), InvitationStatus.resolve(item.type(), item.revokedAt(),
+                item.createdAt(), item.expiresAt(), InvitationStatus.resolve(item.type(), item.revokedAt(),
                 item.groupActive(), item.inviterPresent(), item.expiresAt(), item.accepted(), now), false)).toList(), next, page.hasNext());
     }
 

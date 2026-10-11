@@ -608,5 +608,7 @@ JSON `null`, 잘못된 JSON, 필수 값 누락·0·음수는 `400`이다.
 - target에 모집·신청 ID의 가짜 값을 넣지 않는다. 초대 target에는 recruitmentId·registrationId를 요구하지 않는다.
 - 알림 목록·개별 조회의 회원 소유권 검사와 조회만으로 읽음 처리하지 않는 계약을 유지한다.
 - 푸시 내용 조회는 payload에 groupId·invitationId만 제공한다. 초대 메시지·원본 토큰은 포함하지 않는다. 실제 푸시 전송 참조의 payloadVersion과 push-config의 payloadVersions도 기존 1을 유지한다.
-- OS 푸시 알림은 기존 Service Worker의 제목 '자리하나?'와 본문 '새 모임 초대가 도착했어요.'를 사용하는 안이다. 개인 초대 메시지는 OS 알림에 넣지 않는다.
+- OS 푸시 알림은 기존 Service Worker의 제목 '자리하나?'와 본문 '새 모임 초대가 도착했어요.'를 사용하는 안이다. 초대에는 개인 메시지가 없다.
 - 클릭·인증 복귀·대상 확인·읽음 처리 순서는 [프론트 초대 계약](../../../../../frontend/docs/IMPLEMENTATION_MAP.md#초대-기능-설계-계약)을 따른다.
+
+초대 알림도 기존 삭제 API를 사용한다. 삭제는 알림함 표시와 미전송 푸시를 취소하며 초대의 상태와 수락 이력은 변경하지 않는다. 거절 이력은 생성하지 않는다.

@@ -4,4 +4,4 @@ import com.project.jarihana.invitation.domain.InvitationType;
 
 import java.util.UUID;
 
-public record CreateInvitationCommand(InvitationType type, Long targetMemberId, String message, UUID requestId) { }
+public record CreateInvitationCommand(InvitationType type, Long targetMemberId, UUID requestId) { }

@@ -93,6 +93,14 @@ class InvitationSchemaMigrationTest extends IntegrationTestSupport {
                 assertThat(jdbc.queryForList("select indexname from pg_indexes where schemaname = ?", String.class, schema))
                         .contains("idx_invitation_group_created", "idx_invitation_target_created", "idx_invitation_acceptance_member");
                 assertConstraintsAndDefault(jdbc);
+                jdbc.update("update invitation set message = '기존 개인 메시지' where id = 1");
+                ResourceDatabasePopulator messageRemoval = new ResourceDatabasePopulator(
+                        new FileSystemResource("db/migrations/2026-10-11-invitation-message-removal.sql"));
+                messageRemoval.execute(isolated);
+                messageRemoval.execute(isolated);
+                assertThat(jdbc.queryForObject("select count(*) from information_schema.columns where table_schema = ? and table_name = 'invitation' and column_name = 'message'", Integer.class, schema)).isZero();
+                assertThat(jdbc.queryForObject("select encrypted_token from invitation where id = 1", String.class)).isEqualTo("encrypted-value");
+                assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isEqualTo(1);
                 migration.execute(isolated);
                 buildSchema(isolated, schema, "validate");
                 assertThat(jdbc.queryForObject("select count(*) from registration", Long.class)).isEqualTo(4);

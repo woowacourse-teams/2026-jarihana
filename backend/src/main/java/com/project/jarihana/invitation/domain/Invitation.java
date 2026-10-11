@@ -53,9 +53,6 @@ public class Invitation extends BaseEntity {
     @Column(name = "type", nullable = false, length = 20)
     private InvitationType type;
 
-    @Column(name = "message", length = 200)
-    private String message;
-
     @Column(name = "request_id", nullable = false)
     private UUID requestId;
 
@@ -71,8 +68,7 @@ public class Invitation extends BaseEntity {
     @Column(name = "revoked_at")
     private LocalDateTime revokedAt;
 
-    private Invitation(Group group, Member inviter, Member target, InvitationType type, String message,
-                       UUID requestId, String tokenHash, String encryptedToken, LocalDateTime issuedAt) {
+    private Invitation(Group group, Member inviter, Member target, InvitationType type, UUID requestId, String tokenHash, String encryptedToken, LocalDateTime issuedAt) {
         super(require(issuedAt, "발급 시각"));
         this.group = require(group, "모임");
         if (!group.isActive()) {
@@ -81,7 +77,6 @@ public class Invitation extends BaseEntity {
         this.inviterMember = require(inviter, "발급자");
         this.type = type;
         this.requestId = require(requestId, "발급 요청 식별자");
-        this.message = normalizeMessage(message);
         this.targetMember = target;
         this.tokenHash = tokenHash;
         this.encryptedToken = encryptedToken;
@@ -101,25 +96,35 @@ public class Invitation extends BaseEntity {
         }
     }
 
-    public static Invitation issueDirect(Group group, Member inviter, Member target, String message,
-                                         UUID requestId, LocalDateTime issuedAt) {
-        return new Invitation(group, inviter, target, InvitationType.DIRECT, message, requestId, null, null, issuedAt);
+    public static Invitation issueDirect(Group group, Member inviter, Member target, UUID requestId, LocalDateTime issuedAt) {
+        return new Invitation(group, inviter, target, InvitationType.DIRECT, requestId, null, null, issuedAt);
     }
 
-    public static Invitation issueLink(Group group, Member inviter, String message, UUID requestId,
+    public static Invitation issueLink(Group group, Member inviter, UUID requestId,
                                        String tokenHash, String encryptedToken, LocalDateTime issuedAt) {
-        return new Invitation(group, inviter, null, InvitationType.LINK, message, requestId, tokenHash, encryptedToken, issuedAt);
+        return new Invitation(group, inviter, null, InvitationType.LINK, requestId, tokenHash, encryptedToken, issuedAt);
     }
 
-    private static String normalizeMessage(String value) {
-        if (value == null || value.strip().isEmpty()) {
-            return null;
+    private Invitation(Invitation source, LocalDateTime revokedAt) {
+        super(source.getCreatedAt());
+        this.id = source.id;
+        this.group = source.group;
+        this.inviterMember = source.inviterMember;
+        this.targetMember = source.targetMember;
+        this.type = source.type;
+        this.requestId = source.requestId;
+        this.tokenHash = source.tokenHash;
+        this.encryptedToken = source.encryptedToken;
+        this.expiresAt = source.expiresAt;
+        this.revokedAt = revokedAt;
+    }
+
+    public Invitation revoke(LocalDateTime now) {
+        require(now, "취소 시각");
+        if (now.isBefore(getCreatedAt())) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "취소 시각은 발급 시각보다 이를 수 없습니다.");
         }
-        String normalized = value.strip();
-        if (normalized.length() > 200) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "초대 메시지는 200자 이하여야 합니다.");
-        }
-        return normalized;
+        return revokedAt == null ? new Invitation(this, now) : this;
     }
 
     private static <T> T require(T value, String name) {

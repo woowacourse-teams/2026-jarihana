@@ -4,7 +4,7 @@
 >
 > 구현·테스트와 충돌하면 임의로 해석하지 않고 차이를 보고한다.
 
-이 문서는 저장소에서 관리하는 활성 엔드포인트 50개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청·응답·오류는 Controller·요청/응답 DTO·ErrorCode와 RestAssured 인수 테스트로 확인한다.
+이 문서는 저장소에서 관리하는 활성 엔드포인트 54개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청·응답·오류는 Controller·요청/응답 DTO·ErrorCode와 RestAssured 인수 테스트로 확인한다.
 
 이 디렉터리는 API 엔드포인트의 전체 목록과 리소스별 상세 설계를 관리한다. 모든 엔드포인트는 [API 공통 설계](../common-contract.md)를 따르며, 상세 문서에는 엔드포인트 고유 내용만 둔다.
 
@@ -15,6 +15,10 @@
 | 초대 | `POST` | `/api/groups/{groupId}/invitations` | `MEMBER + 현재 소속` | 활성 모임의 지정/공유 초대 발급과 요청 재시도 처리 |
 | 초대 | `GET` | `/api/groups/{groupId}/invitation-candidates` | `MEMBER + 현재 소속` | 활성 모임의 지정 초대 후보를 제한된 회원 정보로 검색 |
 | 초대 | `GET` | `/api/invitations/received` | `MEMBER` | 본인에게 온 지정 초대와 현재 상태 조회 |
+| 초대 | `GET` | `/api/groups/{groupId}/invitations` | `MEMBER + 현재 소속` | 본인 발급 초대 또는 모든 구성원이 볼 수 있는 모임의 공유 링크 목록 |
+| 초대 | `GET` | `/api/invitations/{invitationId}` | `MEMBER + 유형별 상세 권한` | 상태 조회와 권한 있는 공유 링크 재복사 |
+| 초대 | `GET` | `/api/invitations/links/{token}` | `PUBLIC` | 공유 초대의 제한된 공개 미리보기 |
+| 초대 | `PATCH` | `/api/invitations/{invitationId}/revoke` | `MEMBER + 현재 소속·유형별 취소 권한` | 초대와 미전송 푸시 작업 취소 |
 | 활동 기록 | `GET` | `/api/activity-posts` | `PUBLIC` | 전체 공개 사진 활동 기록을 활동 날짜 최신순으로 조회 |
 | 활동 기록 | `GET` | `/api/groups/{groupId}/activity-posts` | `PUBLIC` | 그룹 사진 활동 기록 조회 |
 | 활동 기록 | `POST` | `/api/groups/{groupId}/activity-posts` | `MEMBER` | 활성 그룹 구성원의 사진 활동 기록 작성 |
@@ -69,13 +73,13 @@
 
 | 분류 | 문서 | 상태 |
 | --- | --- | --- |
-| 초대 후속 API | [invitations.md](invitations.md) | 발급 목록·상세·공개 미리보기·취소·수락은 미구현이며 위 활성 목록에 포함하지 않음 |
+| 초대 후속 API | [invitations.md](invitations.md) | 수락은 미구현이며 위 활성 목록에 포함하지 않음 |
 
 ### 활성 API 상세
 
 | 분류 | 문서 | 내용 |
 | --- | --- | --- |
-| 초대 | [invitations.md](invitations.md) | 초대 발급·회원 후보 검색·받은 초대 목록; 나머지 계약은 구현 예정 |
+| 초대 | [invitations.md](invitations.md) | 발급·회원 후보·수신/발급 목록·상세·공개 미리보기·취소; 수락은 구현 예정 |
 | 피드백 | [feedbacks.md](feedbacks.md) | 피드백 작성 |
 | 인증·회원 | [auth-members.md](auth-members.md) | 인증과 회원 엔드포인트 |
 | 그룹 | [groups.md](groups.md) | 그룹과 일정 엔드포인트 |
