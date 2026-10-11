@@ -73,6 +73,10 @@ public class Invitation extends BaseEntity {
     @Column(name = "revoked_at")
     private LocalDateTime revokedAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private InvitationState state;
+
     private Invitation(Group group, Member inviter, Member target, InvitationType type, UUID requestId, String tokenHash, String encryptedToken, LocalDateTime issuedAt) {
         super(require(issuedAt, "발급 시각"));
         this.group = require(group, "모임");
@@ -81,6 +85,7 @@ public class Invitation extends BaseEntity {
         }
         this.inviterMember = require(inviter, "발급자");
         this.type = type;
+        this.state = InvitationState.VALID;
         this.requestId = require(requestId, "발급 요청 식별자");
         this.targetMember = target;
         this.tokenHash = tokenHash;
@@ -110,7 +115,7 @@ public class Invitation extends BaseEntity {
         return new Invitation(group, inviter, null, InvitationType.LINK, requestId, tokenHash, encryptedToken, issuedAt);
     }
 
-    private Invitation(Invitation source, LocalDateTime revokedAt) {
+    private Invitation(Invitation source, LocalDateTime revokedAt, InvitationState state) {
         super(source.getCreatedAt());
         this.id = source.id;
         this.version = source.version;
@@ -123,6 +128,7 @@ public class Invitation extends BaseEntity {
         this.encryptedToken = source.encryptedToken;
         this.expiresAt = source.expiresAt;
         this.revokedAt = revokedAt;
+        this.state = state;
     }
 
     public Invitation revoke(LocalDateTime now) {
@@ -130,7 +136,19 @@ public class Invitation extends BaseEntity {
         if (now.isBefore(getCreatedAt())) {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "취소 시각은 발급 시각보다 이를 수 없습니다.");
         }
-        return revokedAt == null ? new Invitation(this, now) : this;
+        return revokedAt == null ? new Invitation(this, now,
+                state == InvitationState.REJECTED ? state : InvitationState.CANCELED) : this;
+    }
+
+    public Invitation decline(LocalDateTime now) {
+        require(now, "거절 시각");
+        if (type != InvitationType.DIRECT || now.isBefore(getCreatedAt())) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "지정 초대만 발급 이후 거절할 수 있습니다.");
+        }
+        if (state == InvitationState.CANCELED) {
+            throw new BusinessException(ErrorCode.INVITATION_CANCELED, "취소된 초대입니다.");
+        }
+        return state == InvitationState.REJECTED ? this : new Invitation(this, revokedAt, InvitationState.REJECTED);
     }
 
     private static <T> T require(T value, String name) {

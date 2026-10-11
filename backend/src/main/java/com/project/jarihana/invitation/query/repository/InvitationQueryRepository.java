@@ -23,7 +23,7 @@ public interface InvitationQueryRepository extends Repository<Invitation, Long> 
                 exists (select gm.id from GroupMember gm where gm.group.id = g.id and gm.member.id = :viewerId),
                 exists (select gm.id from GroupMember gm where gm.group.id = g.id and gm.member.id = :viewerId
                     and gm.role = com.project.jarihana.groupmember.domain.GroupMemberRole.LEADER),
-                i.tokenHash, i.encryptedToken)
+                i.tokenHash, i.encryptedToken, i.state)
             from Invitation i join i.group g join i.inviterMember inviter left join i.targetMember target
             where i.id = :id
             """)
@@ -37,7 +37,7 @@ public interface InvitationQueryRepository extends Repository<Invitation, Long> 
                 i.id, i.type, g.id, g.name, inviter.id, inviter.crewName, i.createdAt, i.expiresAt, i.revokedAt, g.status = com.project.jarihana.group.domain.GroupStatus.ACTIVE,
                 inviter.withdrawnAt is null and exists (
                     select gm.id from GroupMember gm where gm.group.id = g.id and gm.member.id = inviter.id),
-                exists (select a.id from InvitationAcceptance a where a.invitation.id = i.id and a.member.id = target.id))
+                exists (select a.id from InvitationAcceptance a where a.invitation.id = i.id and a.member.id = target.id), i.state)
             from Invitation i join i.group g join i.inviterMember inviter left join i.targetMember target
             where g.id = :groupId and ((:managed = true and i.type = com.project.jarihana.invitation.domain.InvitationType.LINK)
                 or (:managed = false and inviter.id = :memberId))
@@ -53,7 +53,7 @@ public interface InvitationQueryRepository extends Repository<Invitation, Long> 
                 i.id, i.type, g.id, g.name, inviter.id, inviter.crewName, i.createdAt, i.expiresAt, i.revokedAt, g.status = com.project.jarihana.group.domain.GroupStatus.ACTIVE,
                 inviter.withdrawnAt is null and exists (
                     select gm.id from GroupMember gm where gm.group.id = g.id and gm.member.id = inviter.id),
-                exists (select a.id from InvitationAcceptance a where a.invitation.id = i.id and a.member.id = :memberId))
+                exists (select a.id from InvitationAcceptance a where a.invitation.id = i.id and a.member.id = :memberId), i.state)
             from Invitation i join i.group g join i.inviterMember inviter
             where i.type = com.project.jarihana.invitation.domain.InvitationType.DIRECT and i.targetMember.id = :memberId
               and (cast(:createdAt as timestamp) is null or i.createdAt < :createdAt or (i.createdAt = :createdAt and i.id < :id))

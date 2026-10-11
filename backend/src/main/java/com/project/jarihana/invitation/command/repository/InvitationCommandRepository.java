@@ -20,6 +20,10 @@ public interface InvitationCommandRepository extends Repository<Invitation, Long
     @Lock(LockModeType.OPTIMISTIC)
     Optional<Invitation> findWithOptimisticLockById(long id);
 
+    @Lock(LockModeType.OPTIMISTIC_FORCE_INCREMENT)
+    @Query("select i from Invitation i where i.id = :id and i.type = com.project.jarihana.invitation.domain.InvitationType.DIRECT")
+    Optional<Invitation> findDirectWithOptimisticLockById(@Param("id") long id);
+
     Optional<Invitation> findByInviterMemberIdAndRequestId(long inviterMemberId, UUID requestId);
 
     Optional<Invitation> findByTokenHash(String tokenHash);
@@ -30,9 +34,9 @@ public interface InvitationCommandRepository extends Repository<Invitation, Long
     @Modifying
     @Query(value = """
             insert into invitation (group_id, inviter_member_id, target_member_id, type, request_id,
-                                    token_hash, encrypted_token, expires_at, created_at, updated_at, version)
+                                    token_hash, encrypted_token, expires_at, created_at, updated_at, version, status)
             values (:groupId, :inviterId, :targetId, :type, :requestId, :tokenHash, :encryptedToken,
-                    :expiresAt, :now, :now, 0)
+                    :expiresAt, :now, :now, 0, 'VALID')
             on conflict (inviter_member_id, request_id) do nothing
             """, nativeQuery = true)
     int insertIfAbsent(@Param("groupId") long groupId, @Param("inviterId") long inviterId,

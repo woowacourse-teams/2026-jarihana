@@ -1,5 +1,9 @@
 const pathSegments = new Set([
   "api",
+  "invitations",
+  "link",
+  "links",
+  "acceptances",
   "auth",
   "refresh",
   "logout",
@@ -42,7 +46,7 @@ export function sanitizePromotionId(value) {
 
 export const isPrivateRoute = (path = "") => {
   try {
-    return /^\/(?:api\/)?oauth(?:\/|$)/i.test(decodeURIComponent(path));
+    return /^\/(?:api\/)?(?:oauth|invitations\/links?)(?:\/|$)/i.test(decodeURIComponent(path));
   } catch {
     return true;
   }
@@ -57,7 +61,8 @@ export function normalizePath(value = "/") {
       path
         .split("/")
         .filter(Boolean)
-        .map((part) => {
+        .map((part, index, parts) => {
+          if (parts[index - 2] === "invitations" && ["link", "links"].includes(parts[index - 1])) return ":redacted";
           if (pathSegments.has(part) || [":id", ":redacted"].includes(part)) return part;
           return safeId(part) ? ":id" : ":redacted";
         })

@@ -58,9 +58,9 @@ public class InvitationQueryService {
         LocalDateTime now = LocalDateTime.now(clock);
         return new IssuedInvitationResult(items.stream().map(item -> {
             InvitationStatus status = InvitationStatus.resolve(item.type(), item.revokedAt(), item.groupActive(),
-                    item.inviterPresent(), item.expiresAt(), item.accepted(), now);
+                    item.inviterPresent(), item.expiresAt(), item.accepted(), now, item.state());
             return new IssuedInvitationResult.Item(item.id(), item.type(), item.groupId(), item.groupName(),
-                    item.inviterId(), item.inviterCrewName(), item.createdAt(), item.expiresAt(), status, item.groupActive() && status != InvitationStatus.REVOKED
+                    item.inviterId(), item.inviterCrewName(), item.createdAt(), item.expiresAt(), status, item.groupActive() && status != InvitationStatus.CANCELED
                     && (item.inviterId() == memberId || (item.type() == InvitationType.LINK && membership.getRole() == GroupMemberRole.LEADER)));
         }).toList(), next, page.hasNext());
     }
@@ -76,9 +76,9 @@ public class InvitationQueryService {
         }
         if (item.type() == InvitationType.LINK && !owner && !item.viewerPresent()) throw notFound();
         InvitationStatus status = status(item);
-        boolean canRevoke = item.viewerPresent() && item.groupActive() && status != InvitationStatus.REVOKED
+        boolean canRevoke = item.viewerPresent() && item.groupActive() && status != InvitationStatus.CANCELED
                 && (owner || (item.type() == InvitationType.LINK && item.viewerLeader()));
-        boolean canAccept = status == InvitationStatus.ACTIVE && !item.viewerPresent()
+        boolean canAccept = status == InvitationStatus.VALID && !item.viewerPresent()
                 && (item.type() == InvitationType.LINK || target);
         String path = item.type() == InvitationType.DIRECT ? "/invitations/" + item.id()
                 : item.viewerPresent() ? "/invitations/link/" + tokens.recover(item.encryptedToken(), item.tokenHash()) : null;
@@ -89,12 +89,12 @@ public class InvitationQueryService {
         long id = invitations.findLinkIdByTokenHash(tokens.hash(token)).orElseThrow(InvitationQueryService::notFound);
         InvitationDetailProjection item = invitations.findDetail(id, 0).orElseThrow(InvitationQueryService::notFound);
         InvitationStatus status = status(item);
-        return detail(item, status, status == InvitationStatus.ACTIVE, false, null);
+        return detail(item, status, status == InvitationStatus.VALID, false, null);
     }
 
     private InvitationStatus status(InvitationDetailProjection item) {
         return InvitationStatus.resolve(item.type(), item.revokedAt(), item.groupActive(), item.inviterPresent(),
-                item.expiresAt(), item.accepted(), LocalDateTime.now(clock));
+                item.expiresAt(), item.accepted(), LocalDateTime.now(clock), item.state());
     }
 
     private InvitationDetailResult detail(InvitationDetailProjection item, InvitationStatus status,
@@ -144,7 +144,7 @@ public class InvitationQueryService {
         return new ReceivedInvitationResult(items.stream().map(item -> new ReceivedInvitationResult.Item(
                 item.id(), item.type(), item.groupId(), item.groupName(), item.inviterId(), item.inviterCrewName(),
                 item.createdAt(), item.expiresAt(), InvitationStatus.resolve(item.type(), item.revokedAt(),
-                item.groupActive(), item.inviterPresent(), item.expiresAt(), item.accepted(), now), false)).toList(), next, page.hasNext());
+                item.groupActive(), item.inviterPresent(), item.expiresAt(), item.accepted(), now, item.state()), false)).toList(), next, page.hasNext());
     }
 
     private void requireMember(long id) {

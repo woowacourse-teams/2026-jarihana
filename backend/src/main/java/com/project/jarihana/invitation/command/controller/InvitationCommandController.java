@@ -24,6 +24,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class InvitationCommandController {
     private final InvitationCommandService invitations;
 
+    @PatchMapping("/invitations/{invitationId}/decline")
+    public ResponseEntity<Void> declineInvitation(@LoginMember long memberId, @PathVariable long invitationId) {
+        invitations.declineInvitation(memberId, invitationId);
+        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+    }
+
     @PostMapping("/invitations/{invitationId}/acceptances")
     public ResponseEntity<ApiResponse<AcceptInvitationResponse>> acceptInvitation(@LoginMember long memberId,
             @PathVariable long invitationId, @RequestBody AcceptInvitationRequest request) {

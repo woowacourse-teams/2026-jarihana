@@ -20,6 +20,23 @@ class InvitationTest {
     private final Member target = Member.create("마루", 8, "101", Course.FRONTEND);
 
     @Test
+    @DisplayName("거절은 지정 초대의 상태를 불변으로 변경하고 공유 초대와 발급 전 시각은 거부한다.")
+    void declineIsImmutableAndKeepsRejectedState() {
+        // Given
+        Invitation invitation = Invitation.issueDirect(group, inviter, target, UUID.randomUUID(), NOW);
+        // When
+        Invitation declined = invitation.decline(NOW.plusMinutes(1));
+        // Then
+        assertThat(invitation.getState()).isEqualTo(InvitationState.VALID);
+        assertThat(declined.getState()).isEqualTo(InvitationState.REJECTED);
+        assertThat(declined.decline(NOW.plusMinutes(2))).isSameAs(declined);
+        assertThat(declined.revoke(NOW.plusMinutes(3)).getState()).isEqualTo(InvitationState.REJECTED);
+        assertThatThrownBy(() -> invitation.decline(NOW.minusSeconds(1))).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> Invitation.issueLink(group, inviter, UUID.randomUUID(), "a".repeat(64), "encrypted", NOW).decline(NOW))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
     @DisplayName("취소는 기존 초대를 바꾸지 않고 최초 취소 시각을 가진 새 초대를 반환하며 재취소는 최초 시각을 유지한다.")
     void revocationIsImmutableAndKeepsFirstRevokedAt() {
         // Given
@@ -33,6 +50,8 @@ class InvitationTest {
         assertThat(invitation.getRevokedAt()).isNull();
         assertThat(revoked).isNotSameAs(invitation);
         assertThat(revoked.getRevokedAt()).isEqualTo(NOW.plusMinutes(1));
+        assertThat(revoked.getState()).isEqualTo(InvitationState.CANCELED);
+        assertThatThrownBy(() -> revoked.decline(NOW.plusMinutes(2))).isInstanceOf(BusinessException.class);
         assertThat(repeated).isSameAs(revoked);
         assertThat(revoked.getCreatedAt()).isEqualTo(invitation.getCreatedAt());
         assertThat(revoked.getExpiresAt()).isEqualTo(invitation.getExpiresAt());

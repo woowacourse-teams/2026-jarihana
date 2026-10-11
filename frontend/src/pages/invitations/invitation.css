@@ -1,0 +1,57 @@
+.invitation-page {
+  padding-block: var(--space-10);
+}
+.invitation-page > * {
+  max-inline-size: calc(var(--space-16) * 8);
+  inline-size: 100%;
+  margin-inline: auto;
+}
+.invitation-card {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  overflow-wrap: anywhere;
+  font-size: var(--text-body);
+  line-height: 1.65;
+}
+.invitation-card :where(h2, p, dl, dd) {
+  margin: var(--space-0);
+}
+.invitation-card h2 {
+  font-size: var(--text-h2);
+  font-weight: var(--font-weight-bold);
+}
+.invitation-card__intro {
+  white-space: pre-wrap;
+}
+.invitation-card__meta {
+  display: grid;
+  gap: var(--space-3);
+  padding-block: var(--space-4);
+  border-block: var(--border-thin) solid var(--color-line);
+}
+.invitation-card__meta div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+.invitation-card__meta dt {
+  color: var(--color-muted-ink);
+}
+.invitation-card .ui-button, .invitation-card .ui-badge {
+  justify-self: start;
+}
+.invitation-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+.ui-dialog__actions.invitation-decline-actions {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+}
+.invitation-decline-actions .ui-button {
+  width: auto;
+}

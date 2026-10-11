@@ -129,6 +129,9 @@ PostHog Funnel에서 첫 단계는 `$autocapture`의 `$event_type = click`과 �
 - 인증 쿠키·토큰·OAuth 코드·이름·이메일·신청 메시지·미승인 사유 원문은 전송하지 않는다.
 - API 요청/응답 본문과 헤더, 콘솔 로그, 서명된 업로드 URL은 전송하지 않는다.
 - OAuth 화면은 수집에서 제외하고 URL query·fragment와 식별 불가능한 경로 부분을 제거한다.
+- 공유 초대의 `/invitations/link/:token`에서도 수집·녹화를 중단한다.
+  공유 초대 URL과 `/api/invitations/links/:token`의 토큰 자리는 항상 `:redacted`로 정제한다.
+  숫자로만 된 토큰도 분석용 ID로 남기지 않으며 초대 내용은 `data-ph-private`로 가린다.
 - 예외 메시지는 마스킹하고, 스택의 파일 URL도 정제한다. 서버 내부 처리·DB 변경을
   수집하는 서버 로그 기능은 이 구현에 포함되지 않는다.
 

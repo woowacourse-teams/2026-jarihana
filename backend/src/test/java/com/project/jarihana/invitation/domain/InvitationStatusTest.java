@@ -14,10 +14,10 @@ class InvitationStatusTest {
 
     @ParameterizedTest
     @CsvSource({
-            "DIRECT,false,true,true,false,ACTIVE",
+            "DIRECT,false,true,true,false,VALID",
             "DIRECT,false,true,true,true,ACCEPTED",
-            "LINK,false,true,true,true,ACTIVE",
-            "DIRECT,true,false,false,true,REVOKED",
+            "LINK,false,true,true,true,VALID",
+            "DIRECT,true,false,false,true,CANCELED",
             "DIRECT,false,false,false,true,GROUP_ENDED",
             "DIRECT,false,true,false,true,EXPIRED"
     })
@@ -28,7 +28,7 @@ class InvitationStatusTest {
         LocalDateTime revokedAt = revoked ? NOW : null;
 
         // When
-        InvitationStatus status = InvitationStatus.resolve(type, revokedAt, active, inviterPresent, null, accepted, NOW);
+        InvitationStatus status = InvitationStatus.resolve(type, revokedAt, active, inviterPresent, null, accepted, NOW, null);
 
         // Then
         assertThat(status).isEqualTo(expected);
@@ -41,11 +41,11 @@ class InvitationStatusTest {
         LocalDateTime expiresAt = NOW.plusDays(3);
 
         // When
-        InvitationStatus before = InvitationStatus.resolve(InvitationType.LINK, null, true, true, expiresAt, false, expiresAt.minusNanos(1));
-        InvitationStatus at = InvitationStatus.resolve(InvitationType.LINK, null, true, true, expiresAt, false, expiresAt);
+        InvitationStatus before = InvitationStatus.resolve(InvitationType.LINK, null, true, true, expiresAt, false, expiresAt.minusNanos(1), null);
+        InvitationStatus at = InvitationStatus.resolve(InvitationType.LINK, null, true, true, expiresAt, false, expiresAt, null);
 
         // Then
-        assertThat(before).isEqualTo(InvitationStatus.ACTIVE);
+        assertThat(before).isEqualTo(InvitationStatus.VALID);
         assertThat(at).isEqualTo(InvitationStatus.EXPIRED);
     }
 }

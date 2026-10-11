@@ -87,6 +87,10 @@ class InvitationSchemaMigrationTest extends IntegrationTestSupport {
                         new FileSystemResource("db/migrations/2026-10-11-invitation-optimistic-locking.sql"));
                 versioning.execute(isolated);
                 versioning.execute(isolated);
+                ResourceDatabasePopulator declining = new ResourceDatabasePopulator(
+                        new FileSystemResource("db/migrations/2026-10-12-invitation-status.sql"));
+                declining.execute(isolated);
+                declining.execute(isolated);
                 buildSchema(isolated, schema, "validate");
 
                 // Then
@@ -101,6 +105,8 @@ class InvitationSchemaMigrationTest extends IntegrationTestSupport {
                 assertThat(jdbc.queryForList("select indexname from pg_indexes where schemaname = ?", String.class, schema))
                         .contains("idx_invitation_group_created", "idx_invitation_target_created", "idx_invitation_acceptance_member");
                 assertConstraintsAndDefault(jdbc);
+                assertThatThrownBy(() -> jdbc.update("update invitation set status = 'REJECTED' where id = 1"))
+                        .isInstanceOf(DataIntegrityViolationException.class);
                 jdbc.update("update invitation set message = '기존 개인 메시지' where id = 1");
                 ResourceDatabasePopulator messageRemoval = new ResourceDatabasePopulator(
                         new FileSystemResource("db/migrations/2026-10-11-invitation-message-removal.sql"));
@@ -113,6 +119,7 @@ class InvitationSchemaMigrationTest extends IntegrationTestSupport {
                 assertThat(jdbc.queryForObject("select encrypted_token from invitation where id = 1", String.class)).isEqualTo("encrypted-value");
                 assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isEqualTo(1);
                 migration.execute(isolated);
+                declining.execute(isolated);
                 buildSchema(isolated, schema, "validate");
                 assertThat(jdbc.queryForObject("select count(*) from registration", Long.class)).isEqualTo(4);
             } finally {

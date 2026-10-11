@@ -22,6 +22,7 @@
 | createdAt | LocalDateTime | NOT NULL | 발급 시각 |
 | expiresAt | LocalDateTime | DIRECT null, LINK 필수 | 공유 링크의 시간 만료 기준 |
 | revokedAt | LocalDateTime | nullable | 최초 취소 시각 |
+| state | InvitationState | status 컬럼, VALID·REJECTED·CANCELED | 유효·수신자 거절·발급자 취소 상태 |
 
 DIRECT의 토큰 저장 필드는 null이다. LINK는 32바이트 난수의 패딩 없는 Base64URL 토큰을 발급한다.
 조회용 SHA-256 해시와 AES-256-GCM 암호문을 저장하고 같은 발급 요청 재시도에서 원래 링크를 복원한다.
@@ -30,7 +31,7 @@ DIRECT의 토큰 저장 필드는 null이다. LINK는 32바이트 난수의 패�
 
 ## 모델 규칙
 
-- 취소 상태 전이는 읽은 버전을 보존한다. 수락은 초대·모임 버전을 검증하되 수락만으로 이 버전들을 증가시키지 않는다. 충돌 처리의 선택과 비용은 [백엔드 ADR 0019](../../../adr/0019-optimistic-invitation-acceptance.md)를 따른다.
+- 취소·거절 상태 전이는 읽은 버전을 보존한다. 수락은 초대·모임 버전을 검증하며 지정 초대 수락만 초대 버전을 증가시켜 거절과의 경쟁을 감지한다. 공유 링크 수락은 버전을 증가시키지 않는다. 충돌 처리의 선택과 비용은 [백엔드 ADR 0019](../../../adr/0019-optimistic-invitation-acceptance.md)를 따른다.
 - DIRECT는 특정 가입 완료 회원을 대상으로 하며 대상은 발급 후 바꾸지 않는다.
 - LINK는 링크 소지자를 대상으로 한다. 첫 수락으로 초대 자체가 소비되지 않는다.
 - DIRECT는 시간 만료가 없고 LINK는 초기 약 3일의 유효 기간을 가진다.
@@ -60,9 +61,9 @@ DIRECT의 토큰 저장 필드는 null이다. LINK는 32바이트 난수의 패�
 - DIRECT만 대상 Member를 지정한다. LINK는 여러 회원의 수락 이력을 가질 수 있다.
 - InvitationAcceptance는 초대와 수락 회원을 추적하며 소속 상태를 별도로 복제하지 않는다.
 - 같은 그룹/회원의 GroupMember는 초대 개수와 관계없이 하나다.
-- 조회 상태 ACTIVE·ACCEPTED·EXPIRED·REVOKED·GROUP_ENDED는 초대와 관련 모델의 현재 상태를 해석한 결과다.
+- 조회 상태 VALID·ACCEPTED·REJECTED·EXPIRED·CANCELED·GROUP_ENDED는 초대와 관련 모델의 현재 상태를 해석한 결과다.
   이탈한 발급자의 초대는 EXPIRED로 안내하고 ACCEPTED는 DIRECT에만 적용한다.
-- 복합 상태 표시 우선순위는 REVOKED → GROUP_ENDED → EXPIRED → DIRECT ACCEPTED → ACTIVE다.
+- 복합 상태 표시 우선순위는 DIRECT REJECTED → CANCELED → GROUP_ENDED → EXPIRED → DIRECT ACCEPTED → VALID다.
   JSON 필드는 [초대 API](../../api/endpoints/invitations.md)에 정의한다.
 - 그룹 물리 삭제에 따른 초대/수락 이력 정리는 기존 그룹 생명주기를 따르며 저장 순서는 백엔드 ADR에서 정한다.
-- 개인 초대 메시지는 저장하지 않는다. 거절 상태와 거절 이력은 없으며 알림 삭제는 초대 상태를 변경하지 않는다.
+- 개인 초대 메시지는 저장하지 않는다. 지정 초대의 decline은 원본을 변경하지 않고 REJECTED 상태의 새 엔티티를 반환하며 재거절은 같은 상태를 유지한다. 공유 초대와 발급 이전 거절 시각을 거부한다. 알림 삭제는 초대 상태를 변경하지 않는다.

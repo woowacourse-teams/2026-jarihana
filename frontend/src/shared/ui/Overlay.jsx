@@ -249,6 +249,7 @@ export function Drawer({
 }
 
 export function ConfirmDialog({
+  actionsClassName,
   cancelLabel = "취소",
   cancelAction,
   closeAction,
@@ -306,7 +307,7 @@ export function ConfirmDialog({
           요청을 완료하지 못했어요. 다시 시도해 주세요.
         </p>
       ) : null}
-      <div className="ui-dialog__actions">
+      <div className={`ui-dialog__actions${actionsClassName ? ` ${actionsClassName}` : ""}`}>
         <Button
           data-ph-capture-attribute-action={cancelAction}
           disabled={submitting}

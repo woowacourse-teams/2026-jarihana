@@ -249,14 +249,14 @@ test("registration_started is an allowed explicit business event", async () => {
   });
 });
 
-test("private callback prevents initialization and pauses an active recording", async () => {
+test.each(["/oauth/callback", `/invitations/link/${"A".repeat(43)}`])("private route %s prevents initialization and pauses an active recording", async (path) => {
   const { analytics, client } = setup();
-  analytics.setAnalyticsRoute("/oauth/callback");
+  analytics.setAnalyticsRoute(path);
   expect(await analytics.syncAnalyticsIdentity("anonymous")).toBe(false);
   expect(client.init).not.toHaveBeenCalled();
   analytics.setAnalyticsRoute("/groups");
   await analytics.syncAnalyticsIdentity("anonymous");
-  analytics.setAnalyticsRoute("/oauth/callback");
+  analytics.setAnalyticsRoute(path);
   analytics.captureEvent("group_created", { group_id: 1 });
   expect(client.capture).not.toHaveBeenCalled();
   expect(client.stopSessionRecording).toHaveBeenCalled();

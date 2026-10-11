@@ -203,3 +203,5 @@ DB 접속값과 인증·OAuth·S3 설정은 개발 Compose의 환경 변수로 �
 초대 저장 DDL 적용 후에는 [개인 초대 메시지 제거 DDL](db/migrations/2026-10-11-invitation-message-removal.sql)도 적용한다. 적용 순서와 복구 제한은 [초대 운영 문서](docs/operations/invitations.md#개인-메시지-제거-증분-ddl)를 따른다.
 
 초대 수락을 포함한 백엔드를 배포하기 전에는 [낙관적 잠금 버전 DDL](db/migrations/2026-10-11-invitation-optimistic-locking.sql)을 적용한다. Group·Invitation·Registration의 기존 행에 버전 0을 추가하며 재적용 시 현재 버전을 보존한다. 선택 이유는 [백엔드 ADR 0019](docs/adr/0019-optimistic-invitation-acceptance.md)를 따른다.
+
+지정 초대 거절 기능을 배포하기 전에는 [거절 시각 DDL](db/migrations/2026-10-12-invitation-status.sql)을 적용한다. 기존 초대는 거절하지 않은 상태로 유지되며 새 declined_at 컬럼은 nullable이다. 이 DDL은 재적용할 수 있다.

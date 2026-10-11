@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useAuth } from "../../features/auth";
 import { fetchGroup } from "../../features/group/api";
+import { fetchInvitation } from "../../features/invitation/api";
+import { ApiError } from "../../shared/api";
 import { NotificationDrawer } from "../../features/notifications/NotificationInbox";
 import { fetchNotification, notificationTargetPath, readNotification } from "../../features/notifications/api";
 import { useNotificationScope } from "../../features/notifications/hooks";
@@ -21,7 +23,12 @@ export function NotificationOpenPage() {
     queryFn: async ({ signal }) => {
       const notification = await fetchNotification(id, undefined, signal);
       const { kind, groupId } = notification.target;
-      if (kind !== "MY_PAGE" && kind !== "MY_REGISTRATIONS" && kind !== "MY_GROUPS") {
+      if (kind === "INVITATION") {
+        const invitation = await fetchInvitation(notification.target.invitationId, undefined, signal);
+        if (invitation.type !== "DIRECT" || invitation.id !== notification.target.invitationId || invitation.group.id !== groupId) {
+          throw new ApiError({ code: "INVITATION_NOT_FOUND", status: 404 });
+        }
+      } else if (kind !== "MY_PAGE" && kind !== "MY_REGISTRATIONS" && kind !== "MY_GROUPS") {
         const group = await fetchGroup(groupId);
         if ((kind === "LEADER_REGISTRATIONS" || kind === "LEADER_MEMBERS") && group.leader.memberId !== member?.id) {
           throw Object.assign(new Error("Leader access required"), { status: 403 });

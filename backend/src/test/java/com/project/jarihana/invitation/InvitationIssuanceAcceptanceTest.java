@@ -53,6 +53,88 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSupport {
 
+    @Test
+    @DisplayName("지정 초대 거절은 알림을 보존하고 재조회·재수락을 차단하며 모임장에게 알리지 않는다.")
+    void declinePreservesInboxAndBlocksAcceptance() {
+        // Given
+        Member leader = member("101");
+        Member target = member("102");
+        Group group = group(leader);
+        long id = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+        // When
+        Response declined = decline(target, id);
+        // Then
+        assertThat(declined.statusCode()).isEqualTo(204);
+        assertThat(decline(target, id).statusCode()).isEqualTo(204);
+        Response detail = auth(target).get("/invitations/{id}", id);
+        assertThat(detail.jsonPath().getString("data.status")).isEqualTo("REJECTED");
+        assertThat(detail.jsonPath().getBoolean("data.canAccept")).isFalse();
+        assertError(accept(target, id, Map.of()), 409, "INVITATION_REJECTED");
+        assertThat(auth(target).get("/invitations/received").jsonPath().getString("data.items[0].status")).isEqualTo("REJECTED");
+        assertThat(jdbc.queryForList("select member_id from notifications", Long.class)).containsExactly(target.getId());
+        assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isZero();
+        assertThat(groupMembers.findByGroupIdAndMemberId(group.getId(), target.getId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("초대 거절은 지정 대상·인증·CSRF를 검증하고 수락된 초대나 공유 링크는 거절할 수 없다.")
+    void declineValidatesRecipientAndAcceptedState() {
+        // Given
+        Member leader = member("101");
+        Member target = member("102");
+        Member outsider = member("103");
+        Group group = group(leader);
+        long id = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+        // When / Then
+        assertError(decline(outsider, id), 403, "INVITATION_ACCESS_DENIED");
+        assertError(decline(leader, id), 403, "INVITATION_ACCESS_DENIED");
+        assertError(auth(target).patch("/invitations/{id}/decline", id), 403, "ACCESS_DENIED");
+        String csrf = RestAssured.get("/groups").cookie("XSRF-TOKEN");
+        assertError(RestAssured.given().cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .patch("/invitations/{id}/decline", id), 401, "UNAUTHENTICATED");
+        assertThat(accept(target, id, Map.of()).statusCode()).isEqualTo(201);
+        assertError(decline(target, id), 409, "INVITATION_ALREADY_ACCEPTED");
+        long linkId = issue(leader, group.getId(), Map.of("type", "LINK", "requestId", UUID.randomUUID())).jsonPath().getLong("data.id");
+        assertError(decline(outsider, linkId), 403, "INVITATION_ACCESS_DENIED");
+    }
+
+    private Response decline(Member member, long id) {
+        String csrf = RestAssured.get("/groups").cookie("XSRF-TOKEN");
+        return auth(member).cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .patch("/invitations/{id}/decline", id);
+    }
+
+    @Test
+    @DisplayName("수락 도중 거절을 저장하면 수락은 롤백하고 재시도 후 거절한 초대로 안내한다.")
+    void declineDuringAcceptanceRollsBackMembershipAndHistory() throws Exception {
+        // Given
+        Member leader = member("101");
+        Member target = member("102");
+        Group group = group(leader);
+        var pending = pending(group, target);
+        long id = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+        CountDownLatch checked = new CountDownLatch(1);
+        CountDownLatch resume = new CountDownLatch(1);
+        pauseFirstMembershipSave(target, checked, resume);
+        // When
+        Response accepted;
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var accepting = executor.submit(() -> accept(target, id, Map.of()));
+            try {
+                assertThat(checked.await(5, TimeUnit.SECONDS)).isTrue();
+                assertThat(decline(target, id).statusCode()).isEqualTo(204);
+            } finally {
+                resume.countDown();
+            }
+            accepted = accepting.get(10, TimeUnit.SECONDS);
+        }
+        // Then
+        assertError(accepted, 409, "INVITATION_REJECTED");
+        assertThat(groupMembers.findByGroupIdAndMemberId(group.getId(), target.getId())).isEmpty();
+        assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isZero();
+        assertThat(registrations.findById(pending.getId()).orElseThrow().getStatus()).isEqualTo(RegistrationStatus.PENDING);
+    }
+
     @Autowired private AccessTokenProvider tokens;
     @Autowired private AuthCookieProperties cookies;
     @Autowired private GroupRecruitmentCommandRepository recruitments;
@@ -95,7 +177,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         assertThat(response.header("Cache-Control")).contains("no-store");
         assertThat(response.jsonPath().getMap("data")).doesNotContainKey("message");
         assertThat(response.jsonPath().getString("data.sharePath")).isEqualTo("/invitations/" + id);
-        assertThat(response.jsonPath().getString("data.status")).isEqualTo("ACTIVE");
+        assertThat(response.jsonPath().getString("data.status")).isEqualTo("VALID");
         assertThat(response.jsonPath().getString("data.expiresAt")).isNull();
         assertThat(jdbc.queryForList("select member_id from notifications", Long.class)).containsExactly(target.getId());
         assertThat(jdbc.queryForObject("select event_type from notifications", String.class)).isEqualTo("INVITATION_RECEIVED");
@@ -335,7 +417,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         assertThat(page.statusCode()).isEqualTo(200);
         assertThat(page.header("Cache-Control")).contains("no-store");
         assertThat(page.jsonPath().getList("data.items.id", Long.class)).containsExactly(second.jsonPath().getLong("data.id"));
-        assertThat(page.jsonPath().getString("data.items[0].status")).isEqualTo("REVOKED");
+        assertThat(page.jsonPath().getString("data.items[0].status")).isEqualTo("CANCELED");
         assertThat(page.jsonPath().getBoolean("data.items[0].canRevoke")).isFalse();
         Response last = auth(target).queryParam("size", 1).queryParam("cursor", page.jsonPath().getString("data.nextCursor"))
                 .get("/invitations/received");
@@ -346,7 +428,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         assertThat(expired.jsonPath().getString("data.items[1].status")).isEqualTo("EXPIRED");
         jdbc.update("update groups set status = 'ENDED' where id = ?", group.getId());
         Response ended = auth(target).get("/invitations/received");
-        assertThat(ended.jsonPath().getString("data.items[0].status")).isEqualTo("REVOKED");
+        assertThat(ended.jsonPath().getString("data.items[0].status")).isEqualTo("CANCELED");
         assertThat(ended.jsonPath().getString("data.items[1].status")).isEqualTo("GROUP_ENDED");
         assertThat(auth(leader).get("/invitations/received").jsonPath().getList("data.items")).isEmpty();
         assertError(auth(target).queryParam("cursor", "broken").get("/invitations/received"), 400, "INVALID_PARAMETER");
@@ -465,7 +547,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
     }
 
     @ParameterizedTest
-    @CsvSource({"1,ACTIVE,true", "0,EXPIRED,false", "-1,EXPIRED,false"})
+    @CsvSource({"1,VALID,true", "0,EXPIRED,false", "-1,EXPIRED,false"})
     @DisplayName("공유 링크의 상세와 공개 미리보기는 만료 전까지 수락 가능하며 만료 정각과 이후에는 만료로 안내한다.")
     void linkViewsRespectExpiryBoundary(int secondsUntilExpiry, String status, boolean canAccept) {
         // Given
@@ -561,7 +643,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         // Then
         assertThat(response.statusCode()).isEqualTo(allowed ? 200 : 403);
         if (allowed) {
-            assertThat(response.jsonPath().getString("data.status")).isEqualTo("REVOKED");
+            assertThat(response.jsonPath().getString("data.status")).isEqualTo("CANCELED");
             assertThat(response.jsonPath().getString("data.revokedAt")).isEqualTo(NOW.toString() + ":00");
         } else {
             assertThat(response.jsonPath().getString("error.code")).isEqualTo("ACCESS_DENIED");
@@ -599,7 +681,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
                 .containsExactly("CANCELLED", "CANCELLED", "CANCELLED", "ACCEPTED", "FAILED");
         assertThat(jdbc.queryForObject("select count(*) from notification_deliveries where lease_token is not null", Integer.class)).isZero();
         assertThat(jdbc.queryForObject("select count(*) from notifications where deleted_at is null and read_at is null", Integer.class)).isEqualTo(1);
-        assertThat(auth(target).get("/invitations/{id}", id).jsonPath().getString("data.status")).isEqualTo("REVOKED");
+        assertThat(auth(target).get("/invitations/{id}", id).jsonPath().getString("data.status")).isEqualTo("CANCELED");
         assertThat(auth(target).get("/invitations/{id}", id).jsonPath().getBoolean("data.canAccept")).isFalse();
     }
 
@@ -719,7 +801,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         }
         assertThat(withdrawn.jsonPath().getString("data.status")).isEqualTo("EXPIRED");
         assertThat(ended.jsonPath().getString("data.status")).isEqualTo("GROUP_ENDED");
-        assertThat(revoked.jsonPath().getString("data.status")).isEqualTo("REVOKED");
+        assertThat(revoked.jsonPath().getString("data.status")).isEqualTo("CANCELED");
         assertError(RestAssured.get("/invitations/links/{token}", token), 404, "INVITATION_NOT_FOUND");
         assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isZero();
     }
@@ -733,7 +815,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         Group group = group(leader);
         long id = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
         jdbc.update("update invitation set created_at = ? where id = ?", NOW.minusYears(1), id);
-        assertThat(auth(target).get("/invitations/{id}", id).jsonPath().getString("data.status")).isEqualTo("ACTIVE");
+        assertThat(auth(target).get("/invitations/{id}", id).jsonPath().getString("data.status")).isEqualTo("VALID");
         groupMembers.save(GroupMember.createMember(group, target, NOW));
         jdbc.update("insert into invitation_acceptance (invitation_id, member_id, accepted_at, created_at, updated_at) values (?, ?, ?, ?, ?)",
                 id, target.getId(), NOW, NOW, NOW);
@@ -833,10 +915,10 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         assertThat(deleted.statusCode()).isEqualTo(204);
         assertThat(detail.statusCode()).isEqualTo(200);
         assertThat(detail.jsonPath().getMap("data")).doesNotContainKey("message");
-        assertThat(detail.jsonPath().getString("data.status")).isEqualTo("ACTIVE");
+        assertThat(detail.jsonPath().getString("data.status")).isEqualTo("VALID");
         assertThat(detail.jsonPath().getBoolean("data.canAccept")).isTrue();
         assertThat(received.jsonPath().getMap("data.items[0]")).doesNotContainKey("message");
-        assertThat(received.jsonPath().getString("data.items[0].status")).isEqualTo("ACTIVE");
+        assertThat(received.jsonPath().getString("data.items[0].status")).isEqualTo("VALID");
         assertThat(issuedList.jsonPath().getMap("data.items[0]")).doesNotContainKey("message");
         assertThat(auth(target).get("/notifications").jsonPath().getList("data.items")).isEmpty();
         assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isZero();
@@ -895,7 +977,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         assertThat(accept(second, id, Map.of("token", token)).statusCode()).isEqualTo(201);
         assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isEqualTo(2);
         assertThat(jdbc.queryForObject("select count(*) from group_member", Integer.class)).isEqualTo(3);
-        assertThat(RestAssured.get("/invitations/links/{token}", token).jsonPath().getString("data.status")).isEqualTo("ACTIVE");
+        assertThat(RestAssured.get("/invitations/links/{token}", token).jsonPath().getString("data.status")).isEqualTo("VALID");
     }
 
     @Test
@@ -909,7 +991,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         groupMembers.save(GroupMember.createMember(group, other, NOW));
         revoke(leader, id);
         assertError(accept(other, id, Map.of()), 403, "INVITATION_ACCESS_DENIED");
-        assertError(accept(target, id, Map.of()), 409, "INVITATION_REVOKED");
+        assertError(accept(target, id, Map.of()), 409, "INVITATION_CANCELED");
         assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isZero();
     }
 
@@ -975,7 +1057,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
             case "revoked" -> revoke(leader, id);
             default -> throw new IllegalArgumentException(state);
         }
-        String error = state.equals("ended") ? "GROUP_ENDED" : state.equals("revoked") ? "INVITATION_REVOKED" : "INVITATION_EXPIRED";
+        String error = state.equals("ended") ? "GROUP_ENDED" : state.equals("revoked") ? "INVITATION_CANCELED" : "INVITATION_EXPIRED";
         assertError(accept(target, id, Map.of("token", token)), 409, error);
         assertThat(groupMembers.findByGroupIdAndMemberId(group.getId(), target.getId())).isEmpty();
         assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isZero();
@@ -1107,7 +1189,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         }
 
         // Then
-        assertError(accepted, 409, "INVITATION_REVOKED");
+        assertError(accepted, 409, "INVITATION_CANCELED");
         assertThat(groupMembers.findByGroupIdAndMemberId(group.getId(), target.getId())).isEmpty();
         assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isZero();
         assertThat(registrations.findById(registration.getId()).orElseThrow().getStatus()).isEqualTo(
@@ -1315,11 +1397,11 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
             assertThat(groupMembers.findByGroupIdAndMemberId(group.getId(), target.getId())).isPresent();
             assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isEqualTo(1);
         } else {
-            assertError(results.get(0), 409, "INVITATION_REVOKED");
+            assertError(results.get(0), 409, "INVITATION_CANCELED");
             assertThat(groupMembers.findByGroupIdAndMemberId(group.getId(), target.getId())).isEmpty();
             assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isZero();
         }
-        assertThat(auth(target).get("/invitations/{id}", id).jsonPath().getString("data.status")).isEqualTo("REVOKED");
+        assertThat(auth(target).get("/invitations/{id}", id).jsonPath().getString("data.status")).isEqualTo("CANCELED");
     }
 
     @Test

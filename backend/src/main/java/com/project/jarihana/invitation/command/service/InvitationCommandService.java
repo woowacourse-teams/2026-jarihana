@@ -23,6 +23,7 @@ import com.project.jarihana.invitation.command.service.dto.CreateInvitationResul
 import com.project.jarihana.invitation.domain.Invitation;
 import com.project.jarihana.invitation.domain.InvitationStatus;
 import com.project.jarihana.invitation.domain.InvitationType;
+import com.project.jarihana.invitation.domain.InvitationState;
 import com.project.jarihana.invitation.domain.event.InvitationIssuedEvent;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Member;
@@ -63,7 +64,8 @@ public class InvitationCommandService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHENTICATED, "인증 정보가 필요합니다."));
         long groupId = invitations.findGroupIdById(invitationId).orElseThrow(InvitationCommandService::notFound);
         Group group = groups.findWithOptimisticLockById(groupId).orElseThrow(InvitationCommandService::notFound);
-        Invitation invitation = invitations.findWithOptimisticLockById(invitationId).orElseThrow(InvitationCommandService::notFound);
+        Invitation invitation = invitations.findDirectWithOptimisticLockById(invitationId).orElseGet(() ->
+                invitations.findWithOptimisticLockById(invitationId).orElseThrow(InvitationCommandService::notFound));
         if (invitation.getType() == InvitationType.DIRECT) {
             if (invitation.getTargetMember().getId() != memberId) {
                 throw new BusinessException(ErrorCode.INVITATION_ACCESS_DENIED, "지정된 회원만 초대를 수락할 수 있습니다.");
@@ -74,6 +76,9 @@ public class InvitationCommandService {
         } else if (command.token() == null || !Objects.equals(tokens.hash(command.token()), invitation.getTokenHash())) {
             throw notFound();
         }
+        if (invitation.getState() == InvitationState.REJECTED) {
+            throw new BusinessException(ErrorCode.INVITATION_REJECTED, "거절한 초대장입니다.");
+        }
         var existing = groupMembers.findByGroupIdAndMemberId(groupId, memberId);
         if (existing.isPresent()) {
             var membership = existing.orElseThrow();
@@ -83,13 +88,14 @@ public class InvitationCommandService {
         boolean inviterPresent = invitation.getInviterMember().getWithdrawnAt() == null
                 && groupMembers.findByGroupIdAndMemberId(groupId, invitation.getInviterMember().getId()).isPresent();
         InvitationStatus status = InvitationStatus.resolve(invitation.getType(), invitation.getRevokedAt(), group.isActive(),
-                inviterPresent, invitation.getExpiresAt(), false, now);
+                inviterPresent, invitation.getExpiresAt(), false, now, invitation.getState());
         switch (status) {
-            case REVOKED -> throw new BusinessException(ErrorCode.INVITATION_REVOKED, "취소된 초대입니다.");
+            case CANCELED -> throw new BusinessException(ErrorCode.INVITATION_CANCELED, "취소된 초대입니다.");
             case GROUP_ENDED -> throw new BusinessException(ErrorCode.GROUP_ENDED, "종료된 모임에는 합류할 수 없습니다.");
             case EXPIRED -> throw new BusinessException(ErrorCode.INVITATION_EXPIRED, "만료된 초대입니다.");
             case ACCEPTED -> throw new BusinessException(ErrorCode.INVALID_PARAMETER, "이미 수락한 초대입니다.");
-            case ACTIVE -> { }
+            case REJECTED -> throw new BusinessException(ErrorCode.INVITATION_REJECTED, "거절한 초대장입니다.");
+            case VALID -> { }
         }
         approvePendingRegistrations(groupId, memberId, now);
         registrations.flush();
@@ -104,6 +110,39 @@ public class InvitationCommandService {
                 groupId, memberId, RegistrationStatus.PENDING)) {
             registrations.save(pending.approveByInvitation(now));
         }
+    }
+
+    public void declineInvitation(long memberId, long invitationId) {
+        concurrentCommands.execute(() -> {
+            if (invitationId <= 0) throw new BusinessException(ErrorCode.INVALID_PARAMETER, "초대 식별자는 양수여야 합니다.");
+            members.findById(memberId).filter(member -> member.getWithdrawnAt() == null)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHENTICATED, "인증 정보가 필요합니다."));
+            long groupId = invitations.findGroupIdById(invitationId).orElseThrow(InvitationCommandService::notFound);
+            Group group = groups.findWithOptimisticLockById(groupId).orElseThrow(InvitationCommandService::notFound);
+            Invitation invitation = invitations.findWithOptimisticLockById(invitationId).orElseThrow(InvitationCommandService::notFound);
+            if (invitation.getType() != InvitationType.DIRECT || invitation.getTargetMember().getId() != memberId) {
+                throw new BusinessException(ErrorCode.INVITATION_ACCESS_DENIED, "지정된 회원만 초대를 거절할 수 있습니다.");
+            }
+            if (invitation.getState() == InvitationState.REJECTED) return null;
+            if (acceptances.findByInvitationIdAndMemberId(invitationId, memberId).isPresent()) {
+                throw new BusinessException(ErrorCode.INVITATION_ALREADY_ACCEPTED, "이미 수락한 초대는 거절할 수 없습니다.");
+            }
+            LocalDateTime now = LocalDateTime.now(clock);
+            boolean inviterPresent = invitation.getInviterMember().getWithdrawnAt() == null
+                    && groupMembers.findByGroupIdAndMemberId(groupId, invitation.getInviterMember().getId()).isPresent();
+            InvitationStatus status = InvitationStatus.resolve(invitation.getType(), invitation.getRevokedAt(), group.isActive(),
+                    inviterPresent, invitation.getExpiresAt(), false, now, invitation.getState());
+            switch (status) {
+                case CANCELED -> throw new BusinessException(ErrorCode.INVITATION_CANCELED, "취소된 초대입니다.");
+                case GROUP_ENDED -> throw new BusinessException(ErrorCode.GROUP_ENDED, "종료된 모임의 초대는 거절할 수 없습니다.");
+                case EXPIRED -> throw new BusinessException(ErrorCode.INVITATION_EXPIRED, "만료된 초대입니다.");
+                case ACCEPTED, REJECTED, VALID -> { }
+            }
+            invitations.save(invitation.decline(now));
+            notifications.findByEventKeyAndMemberId("invitation:" + invitationId + ":received", memberId)
+                    .ifPresent(notification -> deliveries.cancelByNotificationId(notification.getId(), now));
+            return null;
+        });
     }
 
     @Transactional
@@ -127,7 +166,7 @@ public class InvitationCommandService {
             notifications.findByEventKeyAndMemberId("invitation:" + invitationId + ":received", invitation.getTargetMember().getId())
                     .ifPresent(notification -> deliveries.cancelByNotificationId(notification.getId(), now));
         }
-        return new RevokeInvitationResult(invitationId, revoked.getRevokedAt(), InvitationStatus.REVOKED);
+        return new RevokeInvitationResult(invitationId, revoked.getRevokedAt(), InvitationStatus.CANCELED);
     }
 
     private static BusinessException notFound() {
@@ -187,7 +226,7 @@ public class InvitationCommandService {
         boolean inviterPresent = invitation.getInviterMember().getWithdrawnAt() == null
                 && groupMembers.findByGroupIdAndMemberId(group.getId(), invitation.getInviterMember().getId()).isPresent();
         InvitationStatus status = InvitationStatus.resolve(invitation.getType(), invitation.getRevokedAt(), group.isActive(),
-                inviterPresent, invitation.getExpiresAt(), accepted, now);
+                inviterPresent, invitation.getExpiresAt(), accepted, now, invitation.getState());
         String path = invitation.getType() == InvitationType.DIRECT ? "/invitations/" + invitation.getId()
                 : "/invitations/link/" + tokens.recover(invitation.getEncryptedToken(), invitation.getTokenHash());
         return new CreateInvitationResult(invitation.getId(), group.getId(), invitation.getType(), targetId,

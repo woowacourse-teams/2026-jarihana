@@ -48,6 +48,8 @@ it.each([
   ["/", "GroupsPage"],
   ["/groups", "GroupBrowsePage"],
   ["/activities", "ActivityPostsPage"],
+  ["/invitations/501", "InvitationPage"],
+  ["/invitations/link/token", "InvitationPage"],
   ["/groups/42", "GroupDetailPage"]
 ])("renders %s as %s", (path, page) => {
   renderRoutes([path]);

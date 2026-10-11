@@ -70,6 +70,8 @@ header 구현으로 확대하지 않았다.
 | `/groups/:groupId`                                                  | 공개                   | 그룹 상세(모임 방식·장소 포함), 모집 목록, 참여자 목록, 활동 기록 | DetailLayout, Tabs, InfoRow, RecruitmentCard, PersonRow, ActivityPostBoard | loading, empty section, 403, 404, network                                        |
 | `/groups/:groupId/recruitments/:recruitmentId`                      | 조회 공개, 신청은 회원 | 모집 상세, 신청 생성/철회                | DetailLayout, RecruitmentPanel, Modal, Toast                         | closed/ended, validation, 401, 403, 404, 409, mutation pending/success/failure   |
 | `/oauth/callback`                                                   | 공개                   | `GET /api/members/me`                    | CenteredStateLayout                                                  | callback loading, invalid callback, signup required, authenticated, 401, network |
+| `/invitations/:invitationId` | 상세는 지정 대상 또는 발급자 회원 | 초대 ID 상세·수락 | PageContainer·Card·상태 컴포넌트 | 로그인/가입 필요, 대상 불일치, 만료/취소/종료, 수락 중/결과/재시도 |
+| `/invitations/link/:token` | 공개 조회·회원 수락 | 공개 초대 미리보기·token 수락 | PageContainer·Card·상태 컴포넌트 | 공개 소개, 인증 복귀, 잘못된 주소, 만료/취소/종료, 중복 합류 |
 | `/signup`                                                           | 가입 세션              | 내 정보 조회, 회원 생성                  | FormLayout, FormField, Select                                        | field/server validation, missing session, 409, pending/success/failure           |
 | `/my`                                                               | 회원                   | 내 정보, 내 그룹, 내 신청                | MyPageLayout, ProfileCard, SummaryCard                               | bootstrap loading, partial empty, 401, network                                   |
 | `/my/groups`                                                        | 회원                   | `GET /api/groups?relation=JOINED`        | ListLayout, GroupCard, CursorList                                    | loading, empty, cursor, 401, network                                             |
@@ -101,7 +103,8 @@ header 구현으로 확대하지 않았다.
 
 ### 초대 기능 설계 계약
 
-> 상태: 구현 예정. 아래 경로·API·상태는 아직 Router·schema·화면에 반영되지 않았다.
+> 상태: 초대 수신 페이지·API/schema·수락·인증 복귀·알림 클릭을 구현했다.
+> 모임 상세의 초대 발급 진입점, 받은 초대 목록과 발급·관리 화면은 후속 단계에서 구현한다.
 > [초대 API 계약](../../backend/docs/context/api/endpoints/invitations.md)과
 > [초대 정책](../../backend/docs/context/domain/business-policies.md#초대-발급과-합류)을 따른다.
 > 기술 계약은 7–9단계에서 확정한다. 새 기술 결정을 채택하면 해당 영역 ADR에 대안과 선택 이유를 기록한다.
@@ -117,11 +120,13 @@ header 구현으로 확대하지 않았다.
 - MEMBER는 서비스 가입 완료 권한이다. 생성·공유 링크 조회·재복사는 현재 모임 소속을 따로 검사한다. 신청 승인 등 모임장 전용 관리 route는 일반 모임원에게 열지 않는다.
 - 기존 storeReturnTarget→OAuthCallbackPage→SignupPage→SignupGuard를 재사용하고 가입 전 초대 복귀 정보를 소모하지 않는다.
 - 회원가입·알림 클릭·읽음만으로 합류하지 않는다. 초대 화면에서 명시적으로 수락한다.
-- 초대 작성에는 개인 메시지 입력을 두지 않는다. 알림에는 수락을 제공하고 별도 거절 버튼은 두지 않는다. 사용자는 기존 알림 삭제로 초대 알림을 지우며 초대 상태는 유지한다. 받은 초대 목록이나 기존 경로에서 나중에 수락할 수 있다.
-- 신규 JOINED와 ALREADY_JOINED를 구분하며 둘 다 모임으로 이동하되 후자는 합류 성과를 기록하지 않는다.
+- 초대 작성에는 개인 메시지 입력을 두지 않는다. 지정 초대장의 `거절`은 확인 창에서 모임장에게 알림이 가지 않으며 재수락할 수 없음을 안내한다. `PATCH /api/invitations/{invitationId}/decline` 성공(204) 후 초대를 다시 조회하며 REJECTED 상태에서는 `거절한 초대장입니다.`를 표시하고 수락 버튼을 숨긴다. 알림을 삭제하지 않으며 알림함 재진입에도 같은 상태를 표시한다. 공유 링크에는 지정 초대 거절 버튼을 두지 않는다.
+- 거절 관련 고정 action은 `invitation_decline`, `invitation_decline_confirm`, `invitation_decline_cancel`, `invitation_decline_close`를 사용한다.
+- 신규 JOINED와 ALREADY_JOINED를 구분해 먼저 결과를 안내하고 `모임으로 이동` 링크를 제공한다. 후자는 합류 성과를 기록하지 않는다.
 - 성공 후 모임·내 모임·내 신청 캐시를 갱신하고 받은 초대·알림 캐시는 계정/세션 변경에 맞춰 분리한다.
-- 알림 schema의 모집 ID 필수 조건·target enum·payloadVersion=1 제한을 확장하고 기존 알림을 계속 지원한다.
-  `public/sw.js`의 버전 검사와 사건 문구도 함께 갱신하며 이전 SW와 신규 알림의 배포 호환성을 확인한다.
+- 알림 schema는 INVITATION_RECEIVED의 target에 groupId·invitationId를 요구하고 모집·신청 ID를 요구하지 않는다.
+  기존 신청 사건의 target과 `payloadVersion=1`은 유지한다. `public/sw.js`는 같은 버전에서
+  초대 사건의 본문만 추가한다. 이전 SW도 같은 참조를 읽으며 알 수 없는 초대 사건은 기본 안내와 `/` 복귀를 사용한다.
 - 원본 token 경로·API path·오류·세션 녹화의 분석 전송을 차단한다. 반환 경로를 외부 URL로 변환하지 않는다.
 - 발급 동작마다 requestId를 만들고 통신 재시도에는 같은 값을 사용한다. 서버가 반환한 내부 sharePath만 복사하며 외부 URL을 입력받지 않는다.
 - 공유 링크 목록(scope=MANAGED_LINKS)과 상세·재복사는 모든 현재 모임장과 모임원이 이용할 수 있다. 다른 사람이 발급한 링크도 복사하여 전달할 수 있다. 취소 버튼은 서버의 canRevoke가 true인 발급자 또는 현재 모임장에게만 제공한다. 동일 요청 재시도에도 같은 sharePath를 받으며 재복사는 새 발급이나 만료 시각 연장이 아니다. 만료·취소 상태를 함께 표시한다.
@@ -134,6 +139,18 @@ header 구현으로 확대하지 않았다.
 - UI의 고정 action 후보는 invitation_create, invitation_member_select, invitation_link_copy,
   invitation_accept, invitation_revoke다. 기존 알림 클릭은 notification_open을 유지한다.
 - 저장소 JS/JSX·공통 API client·Jest·기존 UI/토큰을 사용한다. 새 장기 구조 선택이 없으면 기존 프론트 ADR을 재사용한다.
+- 실행 코드: `entities/invitation`은 응답을 검증하고 `features/invitation`은 조회·수락을 공통 client로 호출한다.
+  조회는 no-store, 명시적 수락 요청만 POST한다. 수락 성공 후 모임·구성원·신청·초대 캐시를 갱신한다.
+  초대 조회 캐시는 회원 ID·세션 버전으로 구분하고 이전 계정의 조회를 취소·제거한다.
+  화면도 세션별로 분리해 이전 계정의 뒤늦은 수락 결과를 표시하지 않는다.
+- 회원가입 성공 후 고정 `/my` 대신 저장한 안전한 복귀 경로로 이동한다. 가입 실패와 가입 대기 중에는
+  경로를 소모하지 않는다. 기존 OAuthCallbackPage와 SignupGuard의 가입 세션 처리도 유지한다.
+- 공유 토큰 경로에서는 OAuth 경로와 같은 방식으로 분석 수집·녹화를 중단한다.
+  URL·API 경로 정제에서도 토큰 위치를 항상 `:redacted`로 바꾼다. 초대 상세는 `data-ph-private`로 보호한다.
+  합류 성과 이벤트와 서버 로그 점검은 후속 분석·운영 단계에서 마무리한다.
+- 브라우저 계약 검증은 `tests/e2e/invitations.spec.js`, API·화면·계정 회귀는
+  `tests/api/invitation.test.js`, `tests/pages/invitations/invitation-page.test.jsx`에 둔다.
+  실제 GitHub 제공자 로그인·외부 OS 푸시 수신은 fixture 검증과 별도로 확인해야 한다.
 
 
 ### 웹푸시·알림함 구현

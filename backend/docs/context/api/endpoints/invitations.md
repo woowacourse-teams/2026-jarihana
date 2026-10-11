@@ -34,12 +34,13 @@
 | GET | /api/invitations/links/{token} | PUBLIC, 유효 형식 토큰 | 200 | 없음 |
 | POST | /api/invitations/{invitationId}/acceptances | MEMBER + 수락 자격 | 신규 201, 기존 소속 200 | 소속·수락 이력·기존 PENDING의 초대 승인 |
 | PATCH | /api/invitations/{invitationId}/revoke | MEMBER + 유형별 취소 권한 | 200 | revokedAt; 해당 초대의 미전송 알림 작업 정리 |
+| PATCH | /api/invitations/{invitationId}/decline | MEMBER + DIRECT 지정 대상 | 204 | REJECTED 상태; 해당 초대의 미전송 알림 작업 정리 |
 
 ## 엔드포인트 상세
 
 공통 예외는 아래 오류 계약을 따른다. 모든 ID는 양수이며 형식 오류는 INVALID_PARAMETER다.
 목록 요청·응답·기본 정렬은 API 공통 계약의 커서 페이지네이션을 따른다.
-응답 status는 ACTIVE·ACCEPTED·EXPIRED·REVOKED·GROUP_ENDED이며 의미와 표시 우선순위는 초대 모델을 따른다.
+응답 status는 VALID·ACCEPTED·REJECTED·EXPIRED·CANCELED·GROUP_ENDED이며 의미와 표시 우선순위는 초대 모델을 따른다.
 ALREADY_JOINED는 현재 소속에 대한 수락 결과이며 초대 status와 구분한다.
 
 ### `POST /api/groups/{groupId}/invitations`
@@ -82,7 +83,7 @@ ALREADY_JOINED는 현재 소속에 대한 수락 결과이며 초대 status와 �
     "targetMemberId": 21,
     "createdAt": "2026-10-11T14:00:00",
     "expiresAt": null,
-    "status": "ACTIVE",
+    "status": "VALID",
     "sharePath": "/invitations/501",
     "reused": false
   },
@@ -154,7 +155,7 @@ Request Body는 없다.
         },
         "createdAt": "2026-10-11T14:00:00",
         "expiresAt": null,
-        "status": "ACTIVE",
+        "status": "VALID",
         "canRevoke": true
       }
     ],
@@ -278,7 +279,7 @@ Request Body는 없다.
         },
         "createdAt": "2026-10-11T14:00:00",
         "expiresAt": null,
-        "status": "ACTIVE",
+        "status": "VALID",
         "canRevoke": false
       }
     ],
@@ -334,7 +335,7 @@ Request Body는 없다.
     },
     "createdAt": "2026-10-11T14:00:00",
     "expiresAt": null,
-    "status": "ACTIVE",
+    "status": "VALID",
     "canAccept": true,
     "canRevoke": false,
     "sharePath": "/invitations/501"
@@ -348,7 +349,7 @@ sharePath는 DIRECT의 ID 경로 또는 LINK의 기존 공유 경로다. LINK는
 DIRECT의 발급자·대상만 상세에 접근하며 모임장이라는 이유로 타인의 DIRECT를 열람할 수 없다.
 LINK 상세는 모든 현재 구성원이 접근한다. 발급자는 이탈 후에도 본인 발급 상세의 상태를 조회할 수 있다. 비회원에게 DIRECT 상세 정보를 제공하지 않는다.
 이탈한 발급자는 본인 발급 상세의 상태를 조회할 수 있지만 canRevoke는 false이며 LINK sharePath는 null이다.
-인증 상세의 canAccept는 초대가 ACTIVE이고 아직 구성원이 아니며 지정 대상 자격을 만족할 때 true다.
+인증 상세의 canAccept는 초대가 VALID이고 아직 구성원이 아니며 지정 대상 자격을 만족할 때 true다.
 그룹 삭제는 INVITATION_NOT_FOUND다. canAccept·canRevoke는 현재 권한과 상태를 서버에서 계산한 안내 값이며 변경 요청에서 재검증한다.
 
 #### 부수 효과
@@ -396,7 +397,7 @@ Request Body는 없다.
     },
     "createdAt": "2026-10-11T14:00:00",
     "expiresAt": "2026-10-14T14:00:00",
-    "status": "ACTIVE",
+    "status": "VALID",
     "canAccept": true
   },
   "error": null
@@ -490,7 +491,7 @@ DIRECT의 요청은 위와 같이 빈 객체다. LINK는 다음과 같이 token�
 | 지정 계정 불일치 | `INVITATION_ACCESS_DENIED` | 403 |
 | 공유 토큰 불일치·초대 없음 | `INVITATION_NOT_FOUND` | 404 |
 | 시간 만료·발급자 소속 상실 | `INVITATION_EXPIRED` | 409 |
-| 취소된 초대 | `INVITATION_REVOKED` | 409 |
+| 취소된 초대 | `INVITATION_CANCELED` | 409 |
 | 종료된 그룹의 신규 합류 | `GROUP_ENDED` | 409 |
 | 최초 요청을 포함한 세 번의 시도가 모두 동시성 충돌 | `CONCURRENT_MODIFICATION` | 409 |
 | 초대 ID·공유 토큰 형식 오류, DIRECT에 token 전달 | `INVALID_PARAMETER` | 400 |
@@ -516,7 +517,7 @@ Request Body는 없다.
   "data": {
     "id": 501,
     "revokedAt": "2026-10-11T14:10:00",
-    "status": "REVOKED"
+    "status": "CANCELED"
   },
   "error": null
 }
@@ -540,7 +541,7 @@ Request Body는 없다.
 
 ## 오류 계약
 
-아래 공통 예외와 각 엔드포인트의 개별 예외를 함께 적용한다. INVITATION_REQUEST_CONFLICT·INVITATION_UNAVAILABLE·INVITATION_NOT_FOUND·INVITATION_ACCESS_DENIED·INVITATION_EXPIRED·INVITATION_REVOKED를 구현했다.
+아래 공통 예외와 각 엔드포인트의 개별 예외를 함께 적용한다. INVITATION_REQUEST_CONFLICT·INVITATION_UNAVAILABLE·INVITATION_NOT_FOUND·INVITATION_ACCESS_DENIED·INVITATION_EXPIRED·INVITATION_CANCELED를 구현했다.
 권한 확인은 초대 유효 상태나 개인정보 상세를 제공하기 전에 수행한다.
 
 | 상황 | 코드 | HTTP |
@@ -559,6 +560,40 @@ Request Body는 없다.
 | [초대 운영 확인사항](../../../operations/invitations.md) | 로그·민감정보 차단·배포 전 확인사항 |
 | [초대 정책](../../domain/business-policies.md#초대-발급과-합류) | 발급·수락·취소·PENDING 승인·알림의 업무 흐름 |
 
-## 수신자의 알림 삭제
+## 지정 초대 거절
 
-수신자는 기존 알림 삭제 API로 초대 알림을 알림함에서 지울 수 있다. 별도 거절 API·거절 상태·거절 이력은 만들지 않는다. 알림 삭제는 초대를 취소하거나 수락하지 않으며, 받은 초대 목록이나 기존 초대 경로에서 나중에 수락할 수 있다.
+### `PATCH /api/invitations/{invitationId}/decline`
+
+- 설명: 지정 대상 회원의 초대 거절과 재수락 차단
+- 권한: `MEMBER + DIRECT 지정 대상`
+
+#### Path Parameters
+
+- `invitationId`: 초대 식별자
+
+#### 요청
+
+Request Body는 없다. 인증과 CSRF를 검증한다.
+
+#### 응답 204
+
+성공·재거절 모두 본문 없이 204와 Cache-Control: no-store를 반환한다.
+
+#### 부수 효과
+
+REJECTED 상태를 저장한다. 알림을 보존하며 모임장·발급자에게 새 알림을 만들지 않는다. 미완료 전송 작업은 취소한다.
+상세·수신·발급 목록은 REJECTED, 상세의 canAccept는 false다. 이후 모임 종료·취소에도 거절 상태를 우선 표시한다.
+거절 이후 수락은 INVITATION_REJECTED(409)다. 동시 수락·거절은 버전 충돌 후 재조회하여 한 결과만 반영한다.
+알림 삭제는 별도 동작이며 거절 상태를 바꾸지 않는다.
+
+#### 예외
+
+| 상황 | 코드 | HTTP |
+| --- | --- | --- |
+| LINK 또는 지정 대상이 아닌 회원 | `INVITATION_ACCESS_DENIED` | 403 |
+| 초대 없음 | `INVITATION_NOT_FOUND` | 404 |
+| 이미 수락한 초대 | `INVITATION_ALREADY_ACCEPTED` | 409 |
+| 취소된 초대 | `INVITATION_CANCELED` | 409 |
+| 만료된 초대 | `INVITATION_EXPIRED` | 409 |
+| 종료된 그룹 | `GROUP_ENDED` | 409 |
+| 재시도 한도까지 동시 변경 충돌 | `CONCURRENT_MODIFICATION` | 409 |
