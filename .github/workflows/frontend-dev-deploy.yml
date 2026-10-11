@@ -17,23 +17,17 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  # 빌드는 GitHub 호스팅 runner에서 한다. 서버의 runner는 결과물을 받아 S3에 올리기만 한다.
+  # 결과물은 정적 파일이라 빌드 runner의 아키텍처와 상관없다.
+  build:
     if: github.ref == 'refs/heads/develop'
     environment: dev
-    runs-on:
-      - self-hosted
-      - Linux
-      - ARM64
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
       run:
         shell: bash
         working-directory: frontend
-    env:
-      AWS_REGION: ap-northeast-2
-      AWS_DEFAULT_REGION: ap-northeast-2
-      AWS_PAGER: ""
-      S3_DESTINATION: s3://techcourse-project-2026/jarihana-dev/frontend
 
     steps:
       - name: Checkout
@@ -45,15 +39,6 @@ jobs:
           node-version-file: frontend/.node-version
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-
-      - name: AWS 배포 대상 확인
-        run: |
-          set -euo pipefail
-          aws --version
-          aws sts get-caller-identity
-          aws s3api head-bucket \
-            --bucket techcourse-project-2026 \
-            --region "${AWS_REGION}"
 
       - name: 의존성 설치
         run: npm ci
@@ -89,6 +74,62 @@ jobs:
           test -s dist/manifest.webmanifest
           test -s dist/icons/pwa-192.png
           test -s dist/icons/pwa-512.png
+
+      - name: 빌드 결과 올리기
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          if-no-files-found: error
+          retention-days: 7
+
+  # S3 쓰기 권한은 EC2의 IAM 역할에만 있으므로 올리는 일만 self-hosted runner에 남긴다.
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/develop'
+    environment: dev
+    runs-on:
+      - self-hosted
+      - Linux
+      - ARM64
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    env:
+      AWS_REGION: ap-northeast-2
+      AWS_DEFAULT_REGION: ap-northeast-2
+      AWS_PAGER: ""
+      S3_DESTINATION: s3://techcourse-project-2026/jarihana-dev/frontend
+
+    steps:
+      - name: AWS 배포 대상 확인
+        run: |
+          set -euo pipefail
+          aws --version
+          aws sts get-caller-identity
+          aws s3api head-bucket \
+            --bucket techcourse-project-2026 \
+            --region "${AWS_REGION}"
+
+      # self-hosted runner의 작업 디렉터리는 실행 사이에 남는다.
+      # 이전 결과물이 섞이면 sync --delete가 엉뚱한 파일을 올리므로 먼저 비운다.
+      - name: 이전 빌드 결과 비우기
+        run: rm -rf dist
+
+      - name: 빌드 결과 받기
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist
+
+      - name: 빌드 결과 확인
+        run: |
+          set -euo pipefail
+          test -f dist/index.html
+          test -d dist/assets
+          test -s dist/sw.js
+          test -s dist/manifest.webmanifest
 
       - name: S3 배포
         run: aws s3 sync dist "${S3_DESTINATION}" --delete --region "${AWS_REGION}" --only-show-errors
