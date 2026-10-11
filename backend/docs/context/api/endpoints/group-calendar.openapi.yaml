@@ -109,7 +109,7 @@ paths:
     post:
       operationId: createGroupEvent
       summary: Create an individual group event
-      description: The description is required. The event date range may span at most one year.
+      description: The description is required. The event date range may span at most one year. A one-off regular meeting is allowed only for CLUB or STUDY on a date without a generated recurring occurrence.
       requestBody:
         required: true
         content:
@@ -405,6 +405,16 @@ components:
       type: object
       required: [title, startDate, endDate, allDay, description]
       properties:
+        eventType:
+          type: string
+          enum: [INDIVIDUAL, REGULAR_MEETING]
+          default: INDIVIDUAL
+          description: Omitted requests retain the existing individual-event behavior. REGULAR_MEETING is a single date with the fixed title '정기 모임'.
+        status:
+          type: string
+          enum: [AUTO, UPCOMING, COMPLETED]
+          default: AUTO
+          description: For REGULAR_MEETING, AUTO derives status from the date; UPCOMING and COMPLETED are leader overrides.
         title: { type: string, minLength: 1, maxLength: 50 }
         startDate: { type: string, format: date }
         endDate: { type: string, format: date, description: Inclusive end date; no more than one year after startDate. }
@@ -417,9 +427,12 @@ components:
       allOf:
         - $ref: "#/components/schemas/GroupEventInput"
         - type: object
-          required: [id, version]
+          required: [id, eventType, status, effectiveStatus, version]
           properties:
             id: { type: integer, format: int64 }
+            eventType: { type: string, enum: [INDIVIDUAL, REGULAR_MEETING] }
+            status: { type: string, enum: [AUTO, UPCOMING, COMPLETED] }
+            effectiveStatus: { type: string, enum: [UPCOMING, COMPLETED] }
             version: { type: integer, format: int64 }
     CalendarResponse:
       type: object
@@ -450,7 +463,7 @@ components:
       type: object
       required: [kind, title, startDate, endDate, allDay]
       properties:
-        kind: { type: string, enum: [GROUP_EVENT, RECURRING, SESSION] }
+        kind: { type: string, enum: [GROUP_EVENT, REGULAR_MEETING, RECURRING, SESSION] }
         id: { type: integer, format: int64, nullable: true }
         occurrenceKey: { type: string, nullable: true }
         periodId: { type: integer, format: int64, nullable: true }

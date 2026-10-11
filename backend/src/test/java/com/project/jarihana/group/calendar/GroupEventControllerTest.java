@@ -174,6 +174,9 @@ class GroupEventControllerTest extends IntegrationTestSupport {
                         """)
                 .post("/groups/{groupId}/events", group.getId())
                 .then().statusCode(201)
+                .body("data.eventType", equalTo("INDIVIDUAL"))
+                .body("data.status", equalTo("AUTO"))
+                .body("data.effectiveStatus", equalTo("UPCOMING"))
                 .body("data.title", equalTo("가을 모임"))
                 .extract().jsonPath().getLong("data.id");
 
@@ -183,6 +186,7 @@ class GroupEventControllerTest extends IntegrationTestSupport {
                 .then().statusCode(200)
                 .body("data.events[0].id", equalTo((int) eventId))
                 .body("data.events[0].title", equalTo("가을 모임"))
+                .body("data.events[0].kind", equalTo("GROUP_EVENT"))
                 .body("data.events[0].location", nullValue())
                 .body("data.events[0].description", nullValue());
 
@@ -192,6 +196,8 @@ class GroupEventControllerTest extends IntegrationTestSupport {
                 .get("/groups/{groupId}/events/{eventId}", group.getId(), eventId)
                 .then().statusCode(200)
                 .header("Cache-Control", containsString("no-store"))
+                .body("data.status", equalTo("AUTO"))
+                .body("data.effectiveStatus", equalTo("UPCOMING"))
                 .body("data.description", equalTo("회원만 보는 내용"))
                 .body("data.location", equalTo("비공개 장소"));
 
@@ -201,6 +207,85 @@ class GroupEventControllerTest extends IntegrationTestSupport {
         given().cookie(cookies.accessTokenName(), token)
                 .get("/groups/{groupId}/events/{eventId}", another.getId(), eventId)
                 .then().statusCode(404);
+    }
+
+    @DisplayName("모임장은 하루짜리 정기 모임을 등록하고 공개 달력에 고정 제목을 표시한다.")
+    @Test
+    void leaderCreatesOneOffRegularMeeting() {
+        // Given
+        Member leader = members.save(Member.create("가온", 8, "calendar-regular-meeting-leader", Course.BACKEND));
+        Group group = groups.save(Group.createStudy("유동적 모임", "함께해요", null, null, null,
+                TestSupportConfig.FIXED_NOW));
+        memberships.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
+        String token = tokens.issue(leader.getId()).value();
+        String csrf = given().get("/groups/{groupId}", group.getId()).getCookie("XSRF-TOKEN");
+
+        // When
+        long eventId = given().cookie(cookies.accessTokenName(), token)
+                .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .contentType("application/json")
+                .body("""
+                        {"eventType":"REGULAR_MEETING","title":"입력한 제목",
+                         "startDate":"2026-08-20","endDate":"2026-08-20","allDay":true,
+                         "description":"이번 주 모임을 진행해요"}
+                        """)
+                .post("/groups/{groupId}/events", group.getId())
+                .then().statusCode(201)
+                .body("data.eventType", equalTo("REGULAR_MEETING"))
+                .body("data.status", equalTo("AUTO"))
+                .body("data.effectiveStatus", equalTo("UPCOMING"))
+                .body("data.title", equalTo("정기 모임"))
+                .extract().jsonPath().getLong("data.id");
+
+        given().cookie(cookies.accessTokenName(), token)
+                .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .contentType("application/json")
+                .body("""
+                        {"eventType":"REGULAR_MEETING","status":"COMPLETED","title":"정기 모임",
+                         "startDate":"2026-08-20","endDate":"2026-08-20","allDay":true,
+                         "description":"이번 주 모임을 진행해요","version":0}
+                        """)
+                .put("/groups/{groupId}/events/{eventId}", group.getId(), eventId)
+                .then().statusCode(200)
+                .body("data.status", equalTo("COMPLETED"))
+                .body("data.effectiveStatus", equalTo("COMPLETED"));
+
+        // Then
+        given().queryParam("from", "2026-08-20").queryParam("to", "2026-08-20")
+                .get("/groups/{groupId}/calendar", group.getId())
+                .then().statusCode(200)
+                .body("data.events.size()", equalTo(1))
+                .body("data.events[0].id", equalTo((int) eventId))
+                .body("data.events[0].kind", equalTo("REGULAR_MEETING"))
+                .body("data.events[0].title", equalTo("정기 모임"));
+    }
+
+    @DisplayName("반복 규칙이 이미 회차를 만드는 날짜에는 별도 정기 모임을 등록할 수 없다.")
+    @Test
+    void rejectsOneOffRegularMeetingOnRecurringDate() {
+        // Given
+        Member leader = members.save(Member.create("가온", 8, "calendar-regular-overlap-leader", Course.BACKEND));
+        Group group = groups.save(Group.createStudy("수요일 모임", "함께해요", null, null,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.THURSDAY), null, null), TestSupportConfig.FIXED_NOW));
+        memberships.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
+        GroupRecurringSeries savedSeries = series.save(GroupRecurringSeries.create(group,
+                LocalDate.of(2026, 8, 19), null, TestSupportConfig.FIXED_NOW));
+        periods.save(GroupRecurringPeriod.create(savedSeries, Set.of(DayOfWeek.THURSDAY), null, null,
+                LocalDate.of(2026, 8, 19), null, TestSupportConfig.FIXED_NOW));
+        String token = tokens.issue(leader.getId()).value();
+        String csrf = given().get("/groups/{groupId}", group.getId()).getCookie("XSRF-TOKEN");
+
+        // When / Then
+        given().cookie(cookies.accessTokenName(), token)
+                .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .contentType("application/json")
+                .body("""
+                        {"eventType":"REGULAR_MEETING","title":"정기 모임",
+                         "startDate":"2026-08-20","endDate":"2026-08-20","allDay":true,
+                         "description":"중복은 막아야 해요"}
+                        """)
+                .post("/groups/{groupId}/events", group.getId())
+                .then().statusCode(409).body("error.code", equalTo("GROUP_EVENT_CONFLICT"));
     }
 
     @DisplayName("모임장이 아닌 회원은 개별 일정을 만들 수 없다.")

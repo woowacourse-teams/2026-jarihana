@@ -3,6 +3,9 @@ package com.project.jarihana.group.calendar;
 import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.group.domain.Group;
+import com.project.jarihana.group.domain.GroupEvent;
+import com.project.jarihana.group.domain.GroupEventStatus;
+import com.project.jarihana.group.domain.GroupEventType;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
 import com.project.jarihana.group.query.repository.GroupMemberJpaRepository;
@@ -33,6 +36,7 @@ class GroupRecurringControllerTest extends IntegrationTestSupport {
     @Autowired MemberRepository members;
     @Autowired GroupRecurringSeriesRepository series;
     @Autowired GroupRecurringPeriodRepository periods;
+    @Autowired GroupEventRepository groupEvents;
     @Autowired AccessTokenProvider tokens;
     @Autowired AuthCookieProperties cookies;
     @Autowired JdbcTemplate jdbc;
@@ -94,6 +98,61 @@ class GroupRecurringControllerTest extends IntegrationTestSupport {
                 .post("/groups/{groupId}/recurring-schedule/series", group.getId())
                 .then().statusCode(409);
         assertThat(series.findAllByGroupIdOrderByCalendarStartDateAsc(group.getId())).hasSize(1);
+    }
+
+    @DisplayName("첫 반복 규칙이 날짜별 정기 모임과 겹치면 등록을 거절한다.")
+    @Test
+    void rejectsFirstRuleWhenItWouldOverlapOneOffRegularMeeting() {
+        Member leader = members.save(Member.create("가온", 8, "first-rule-overlap-leader", Course.BACKEND));
+        Group group = groups.save(Group.createStudy("유동적 모임", "함께해요", null, null,
+                null, TestSupportConfig.FIXED_NOW));
+        memberships.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
+        LocalDate date = LocalDate.of(2026, 8, 19);
+        groupEvents.save(GroupEvent.create(group, GroupEventType.REGULAR_MEETING, GroupEventStatus.AUTO,
+                "정기 모임", date, date, true, null, null, "그날만 만나요", null, TestSupportConfig.FIXED_NOW));
+        String token = tokens.issue(leader.getId()).value();
+        String csrf = given().get("/groups/{groupId}", group.getId()).getCookie("XSRF-TOKEN");
+
+        given().cookie(cookies.accessTokenName(), token)
+                .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .contentType("application/json")
+                .body("{\"daysOfWeek\":[\"WEDNESDAY\"],\"startTime\":null,\"endTime\":null}")
+                .post("/groups/{groupId}/recurring-schedule/series", group.getId())
+                .then().statusCode(409).body("error.code", equalTo("GROUP_EVENT_CONFLICT"));
+
+        assertThat(series.findAllByGroupIdOrderByCalendarStartDateAsc(group.getId())).isEmpty();
+        assertThat(groups.findById(group.getId()).orElseThrow().getRecurringSchedule()).isNull();
+    }
+
+    @DisplayName("반복 규칙 변경으로 날짜별 정기 모임과 겹치면 변경을 거절하고 기존 규칙을 보존한다.")
+    @Test
+    void rejectsScopedRuleChangeWhenItWouldOverlapOneOffRegularMeeting() {
+        Member leader = members.save(Member.create("가온", 8, "scoped-rule-overlap-leader", Course.BACKEND));
+        Group group = groups.save(Group.createStudy("목요일 모임", "함께해요", null, null,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.THURSDAY), null, null), TestSupportConfig.FIXED_NOW));
+        memberships.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
+        GroupRecurringSeries current = series.save(GroupRecurringSeries.create(group,
+                LocalDate.of(2026, 8, 19), null, TestSupportConfig.FIXED_NOW));
+        periods.save(GroupRecurringPeriod.create(current, Set.of(DayOfWeek.THURSDAY), null, null,
+                LocalDate.of(2026, 8, 19), null, TestSupportConfig.FIXED_NOW));
+        LocalDate date = LocalDate.of(2026, 8, 21);
+        groupEvents.save(GroupEvent.create(group, GroupEventType.REGULAR_MEETING, GroupEventStatus.AUTO,
+                "정기 모임", date, date, true, null, null, "그날만 만나요", null, TestSupportConfig.FIXED_NOW));
+        String token = tokens.issue(leader.getId()).value();
+        String csrf = given().get("/groups/{groupId}", group.getId()).getCookie("XSRF-TOKEN");
+
+        given().cookie(cookies.accessTokenName(), token)
+                .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .contentType("application/json")
+                .body("""
+                        {"daysOfWeek":["THURSDAY","FRIDAY"],"startTime":null,"endTime":null,
+                         "applyScope":"ALL","version":0}
+                        """)
+                .put("/groups/{groupId}/recurring-schedule/scoped", group.getId())
+                .then().statusCode(409).body("error.code", equalTo("GROUP_EVENT_CONFLICT"));
+
+        assertThat(periods.findAllBySeriesIdOrderByEffectiveFromAsc(current.getId())).singleElement()
+                .satisfies(period -> assertThat(period.getDaysOfWeek().values()).containsExactly(DayOfWeek.THURSDAY));
     }
 
     @DisplayName("앞으로의 일정 수정은 오늘부터 새 규칙 구간을 만들고 이전 구간을 보존한다.")

@@ -4,6 +4,7 @@ import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.GroupEvent;
+import com.project.jarihana.group.domain.GroupEventType;
 import com.project.jarihana.group.domain.GroupStatus;
 import com.project.jarihana.group.domain.GroupType;
 import com.project.jarihana.group.domain.MeetingType;
@@ -85,7 +86,9 @@ public class GroupCalendarService {
         List<GroupCalendarResponse.CalendarEvent> results = new ArrayList<>();
         for (GroupEvent event : events.findAllByGroupIdAndDeletedAtIsNullAndStartDateLessThanEqualAndEndDateGreaterThanEqualOrderByStartDateAscIdAsc(
                 groupId, visibleTo, from)) {
-            results.add(new GroupCalendarResponse.CalendarEvent("GROUP_EVENT", event.getId(), null, null,
+            String eventKind = event.getEventType() == GroupEventType.REGULAR_MEETING
+                    ? "REGULAR_MEETING" : "GROUP_EVENT";
+            results.add(new GroupCalendarResponse.CalendarEvent(eventKind, event.getId(), null, null,
                     event.getTitle(), event.getStartDate(), min(event.getEndDate(), visibleTo), event.isAllDay(),
                     event.getStartTime(), event.getEndTime()));
         }

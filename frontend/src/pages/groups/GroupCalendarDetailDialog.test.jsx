@@ -33,3 +33,10 @@ test("모임장은 삭제를 한 번 더 확인한다", async () => {
   await userEvent.click(screen.getByRole("button", { name: "삭제 확정" }));
   expect(onDelete).toHaveBeenCalledTimes(1);
 });
+
+test("모임원은 날짜별 정기 모임 상태를 본다", () => {
+  render(<GroupCalendarDetailDialog event={{ ...event, kind: "REGULAR_MEETING", title: "정기 모임" }}
+    isMember detail={{ description: "오늘 모여요", location: null, effectiveStatus: "COMPLETED" }} />);
+
+  expect(screen.getByText("상태").parentElement).toHaveTextContent("개최 완료");
+});

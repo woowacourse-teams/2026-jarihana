@@ -5,12 +5,12 @@
 머신 판독 가능한 API 계약은 [그룹 달력 OpenAPI 명세](group-calendar.openapi.yaml)에 있다.
 
 - `CLUB`, `STUDY`, `SESSION` 모두 그룹 상세의 월간 달력을 제공한다. `SESSION`은 독립된 그룹 유형이며 그룹의 일회성 일정이 달력에 표시된다.
-- 이번 범위에는 정기 일정과 모임장이 등록하는 개별 일정, 기존 `SESSION`의 단일 일정만 포함한다. 기존 모임에 딸린 별도 세션과 RSVP는 포함하지 않는다.
+- 이번 범위에는 반복 정기 일정, 모임장이 날짜별로 등록하는 `정기 모임` 회차와 개별 일정, 기존 `SESSION`의 단일 일정만 포함한다. 모임에 딸린 별도 세션과 RSVP는 포함하지 않는다.
 - 달력 조회는 공개다. 개별 일정의 제목·날짜·시각은 공개 응답에 포함되지만 설명·장소는 포함하지 않는다. 일정 상세와 정기·세션 일정의 당시 장소는 그룹원 전용 API로 조회한다.
 - 정기 일정의 달력 노출 설정은 세션 일정에도 함께 적용하며, 개별 일정에는 영향을 주지 않는다.
 - 모든 날짜는 `YYYY-MM-DD`, 시간은 `HH:mm:ss` 형식을 사용한다. 날짜 범위는 시작일과 종료일을 포함한다.
 - 개별 일정은 시작일부터 1년 이내로 제한한다. 종일 일정은 시각이 모두 `null`이고, 시간 지정 일정은 시작·종료 시각이 모두 필요하다.
-- `GROUP_EVENT_CONFLICT`는 이벤트 버전 또는 정기 규칙 버전이 최신 상태와 다를 때 반환한다. 요청의 최신 버전을 다시 조회한 뒤 수정해야 한다.
+- `GROUP_EVENT_CONFLICT`는 일정·정기 규칙 버전이 최신 상태와 다르거나, 수동으로 등록한 정기 모임 회차와 반복 규칙이 겹칠 때 반환한다. 요청의 최신 버전을 다시 조회한 뒤 수정해야 한다.
 
 ## `GET /api/groups/{groupId}/calendar`
 
@@ -44,7 +44,7 @@
 }
 ```
 
-`kind`는 `GROUP_EVENT`, `RECURRING`, `SESSION` 중 하나다. 달력 응답에는 개별 일정의 설명·장소가 포함되지 않는다. 정기 일정은 제목을 `정기 모임`으로 표시하고, `SESSION` 일정은 현재 그룹 이름을 제목으로 표시한다.
+`kind`는 `GROUP_EVENT`, `REGULAR_MEETING`, `RECURRING`, `SESSION` 중 하나다. 날짜별 `REGULAR_MEETING` 회차는 동아리·스터디에서만 등록할 수 있고, 그 날짜에 반복 규칙이 회차를 이미 만들면 등록을 거절한다. 회차는 하루 일정이며 제목은 `정기 모임`으로 고정한다. 달력 응답에는 개별 일정과 날짜별 정기 모임의 설명·장소가 포함되지 않는다. 반복 정기 일정도 제목을 `정기 모임`으로 표시하고, `SESSION` 일정은 현재 그룹 이름을 제목으로 표시한다.
 
 ## `GET /api/groups/{groupId}/calendar/schedule-details`
 
@@ -76,7 +76,7 @@
 - 요청: `{"showBaseSchedule": true}`
 - 응답: `{"success":true,"data":{"showBaseSchedule":true},"error":null}`
 
-이 설정은 기본 정기·세션 일정에만 적용한다. 개별 일정과 그룹 정보는 변경하지 않는다.
+이 설정은 반복 정기·세션 일정에만 적용한다. 개별 일정, 날짜별 정기 모임 회차와 그룹 정보는 변경하지 않는다.
 
 ## 개별 일정
 
@@ -85,6 +85,8 @@
 - 설명: 개별 일정 등록
 - 권한: `LEADER`
 - 요청 필드: `title`, `startDate`, `endDate`, `allDay`, `startTime`, `endTime`, `description`, `location`
+- `eventType`을 생략하면 기존 동작대로 `INDIVIDUAL`로 처리한다. `REGULAR_MEETING`은 날짜가 하루로 고정되고 제목은 서버가 `정기 모임`으로 저장한다.
+- `status`는 `AUTO`, `UPCOMING`, `COMPLETED` 중 하나다. `AUTO`는 과거 날짜에 `COMPLETED`, 오늘과 미래 날짜에 `UPCOMING`을 응답한다. 모임장은 `UPCOMING` 또는 `COMPLETED`로 덮어쓸 수 있고, `AUTO`로 되돌리면 날짜 기준 계산을 다시 적용한다. 생성 요청에서 생략하면 `AUTO`, 수정 요청에서 생략하면 기존 설정을 유지한다.
 - `description`은 필수, `location`은 선택이다. `allDay=true`이면 시각 두 개를 `null`로 보내고, `allDay=false`이면 두 시각을 모두 지정한다.
 - 응답: `201 Created`, 생성된 일정 정보와 `Location: /api/groups/{groupId}/events/{eventId}`
 
@@ -92,7 +94,7 @@
 
 - 설명: 개별 일정 상세 조회
 - 권한: `MEMBER`
-- 응답: `id`, `title`, `startDate`, `endDate`, `allDay`, `startTime`, `endTime`, `description`, `location`, `version`
+- 응답: `id`, `eventType`, `status`, `effectiveStatus`, `title`, `startDate`, `endDate`, `allDay`, `startTime`, `endTime`, `description`, `location`, `version`
 
 ### `PUT /api/groups/{groupId}/events/{eventId}`
 
@@ -108,6 +110,10 @@
 - 응답: `204 No Content`. 삭제는 soft delete다.
 
 개별 일정의 제목은 최대 50자, 장소는 최대 255자, 설명은 최대 10,000자다. 과거 날짜의 일정도 등록·수정할 수 있다. 종료된 그룹에서는 개별 일정을 변경할 수 없다.
+
+### 날짜별 정기 모임
+
+모임장은 종일 또는 시작·종료 시각, 장소(선택), 설명(필수)을 지정해 하루짜리 회차를 등록·수정·삭제할 수 있다. 기본 상태는 날짜에 따라 오늘·미래 `예정`, 과거 `개최 완료`로 계산한다. 모임장은 상태를 직접 `예정` 또는 `개최 완료`로 설정할 수 있으며 `날짜 기준 자동`으로 되돌릴 수 있다. 제목은 `정기 모임`으로 고정한다. 종일·시간 지정 모드 모두 필수 선택이며 과거 날짜도 등록할 수 있다. `CLUB`·`STUDY`만 지원하고, 반복 규칙이 같은 날짜에 회차를 이미 만들거나 변경 후 만들게 되면 `GROUP_EVENT_CONFLICT`를 반환한다. 삭제한 회차는 공개 달력에서 숨긴다.
 
 ## 정기 규칙
 

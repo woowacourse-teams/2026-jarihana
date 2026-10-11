@@ -89,3 +89,26 @@ test("모임장은 달력에서만 기본 일정 표시를 끄고 켤 수 있다
   fireEvent.click(screen.getByRole("checkbox", { name: "정기·세션 일정 표시" }));
   expect(onToggleBase).toHaveBeenCalledWith(false);
 });
+
+test("기본 반복 일정 표시를 꺼도 모임장이 등록한 날짜별 정기 모임은 남는다", () => {
+  render(<GroupCalendar calendar={{
+    ...calendar,
+    showBaseSchedule: false,
+    events: [
+      ...calendar.events,
+      {
+        kind: "REGULAR_MEETING",
+        id: 8,
+        title: "정기 모임",
+        startDate: "2026-10-08",
+        endDate: "2026-10-08",
+        allDay: true,
+        startTime: null,
+        endTime: null
+      }
+    ]
+  }} initialDate="2026-10-08" onEventOpen={() => {}} />);
+
+  expect(screen.getAllByRole("button", { name: "종일 정기 모임" })).toHaveLength(2);
+  expect(screen.queryByRole("button", { name: /^정기 모임$/ })).not.toBeInTheDocument();
+});

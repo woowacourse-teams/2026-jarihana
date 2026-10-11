@@ -94,7 +94,7 @@ export function useGroupCalendarEventDetail(groupId, event, viewerId, sessionVer
   return useQuery({
     queryKey: ["groups", "calendar-private-detail", viewerId, sessionVersion, groupId,
       event?.kind, event?.id ?? event?.occurrenceKey],
-    queryFn: () => event.kind === "GROUP_EVENT"
+    queryFn: () => event.kind === "GROUP_EVENT" || event.kind === "REGULAR_MEETING"
       ? fetchGroupEventDetail(groupId, event.id)
       : fetchGroupScheduleDetail(groupId, event.kind, event.startDate),
     enabled: Boolean(enabled && viewerId && event),

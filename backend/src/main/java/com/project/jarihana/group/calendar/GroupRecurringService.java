@@ -4,6 +4,8 @@ import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.command.repository.GroupCommandRepository;
 import com.project.jarihana.group.domain.Group;
+import com.project.jarihana.group.domain.GroupEvent;
+import com.project.jarihana.group.domain.GroupEventType;
 import com.project.jarihana.group.domain.GroupType;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
@@ -17,6 +19,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Set;
 
 @Service
@@ -26,15 +29,18 @@ public class GroupRecurringService {
     private final GroupMemberCommandRepository memberships;
     private final GroupRecurringSeriesRepository seriesRepository;
     private final GroupRecurringPeriodRepository periodRepository;
+    private final GroupEventRepository events;
     private final Clock clock;
 
     public GroupRecurringService(GroupCommandRepository groups, GroupMemberCommandRepository memberships,
                                  GroupRecurringSeriesRepository seriesRepository,
-                                 GroupRecurringPeriodRepository periodRepository, Clock clock) {
+                                 GroupRecurringPeriodRepository periodRepository,
+                                 GroupEventRepository events, Clock clock) {
         this.groups = groups;
         this.memberships = memberships;
         this.seriesRepository = seriesRepository;
         this.periodRepository = periodRepository;
+        this.events = events;
         this.clock = clock;
     }
 
@@ -58,6 +64,8 @@ public class GroupRecurringService {
                 request.daysOfWeek(), request.startTime(), request.endTime());
         LocalDateTime now = LocalDateTime.now(clock);
         LocalDate today = LocalDate.now(clock);
+        requireNoRegularMeetingConflict(groupId, today, null,
+                List.of(new RulePeriod(today, null, rule.getActivityDays().values())));
         GroupRecurringSeries series = seriesRepository.save(GroupRecurringSeries.create(group, today, null, now));
         GroupRecurringPeriod period = periodRepository.save(GroupRecurringPeriod.create(series,
                 rule.getActivityDays().values(), rule.getStartTime(), rule.getEndTime(), today, null, now));
@@ -82,12 +90,21 @@ public class GroupRecurringService {
         GroupRecurringSeries series = seriesRepository.findFirstByGroupIdAndCurrentTrue(groupId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RECURRING_SCHEDULE_NOT_FOUND,
                         "등록된 정기 일정이 없습니다."));
-        if (request.version() == null || seriesRepository.incrementVersion(series.getId(), request.version()) != 1) {
+        if (request.version() == null || !request.version().equals(series.getVersion())) {
             throw new BusinessException(ErrorCode.GROUP_EVENT_CONFLICT, "정기 일정이 변경되었습니다. 새로고침 후 다시 시도해 주세요.");
         }
         List<GroupRecurringPeriod> periods = periodRepository.findAllBySeriesIdOrderByEffectiveFromAsc(series.getId());
         if (periods.isEmpty()) {
             throw new BusinessException(ErrorCode.RECURRING_SCHEDULE_NOT_FOUND, "정기 일정 이력을 찾을 수 없습니다.");
+        }
+        List<RulePeriod> candidatePeriods = candidatePeriods(periods, replacement,
+                request.applyScope(), LocalDate.now(clock));
+        if (!series.isHideAll()) {
+            requireNoRegularMeetingConflict(groupId, series.getCalendarStartDate(), series.getCalendarEndDate(),
+                    candidatePeriods);
+        }
+        if (seriesRepository.incrementVersion(series.getId(), request.version()) != 1) {
+            throw new BusinessException(ErrorCode.GROUP_EVENT_CONFLICT, "정기 일정이 변경되었습니다. 새로고침 후 다시 시도해 주세요.");
         }
         switch (request.applyScope()) {
             case ALL -> periods.forEach(period -> periodRepository.save(period.withRule(
@@ -118,6 +135,17 @@ public class GroupRecurringService {
         GroupRecurringSeries series = period.getSeries();
         RecurringGroupSchedule rule = RecurringGroupSchedule.of(
                 request.daysOfWeek(), request.startTime(), request.endTime());
+        List<GroupRecurringPeriod> periods = periodRepository.findAllBySeriesIdOrderByEffectiveFromAsc(series.getId());
+        List<RulePeriod> candidatePeriods = periods.stream()
+                .map(existing -> existing.getId().equals(periodId)
+                        ? new RulePeriod(existing.getEffectiveFrom(), existing.getEffectiveUntil(),
+                                rule.getActivityDays().values())
+                        : RulePeriod.from(existing))
+                .toList();
+        if (!series.isHideAll()) {
+            requireNoRegularMeetingConflict(groupId, series.getCalendarStartDate(), series.getCalendarEndDate(),
+                    candidatePeriods);
+        }
         if (seriesRepository.incrementVersion(series.getId(), request.version()) != 1) {
             throw new BusinessException(ErrorCode.GROUP_EVENT_CONFLICT, "정기 일정이 변경되었습니다. 새로고침 후 다시 시도해 주세요.");
         }
@@ -179,6 +207,9 @@ public class GroupRecurringService {
         GroupRecurringSeries series = seriesRepository.findFirstByGroupIdAndCurrentTrue(groupId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RECURRING_SCHEDULE_NOT_FOUND,
                         "등록된 정기 일정이 없습니다."));
+        List<RulePeriod> candidatePeriods = periodRepository.findAllBySeriesIdOrderByEffectiveFromAsc(series.getId())
+                .stream().map(RulePeriod::from).toList();
+        requireNoRegularMeetingConflict(groupId, request.startDate(), request.endDate(), candidatePeriods);
         if (seriesRepository.updateRange(series.getId(), request.version(),
                 request.startDate(), request.endDate()) != 1) {
             throw new BusinessException(ErrorCode.GROUP_EVENT_CONFLICT, "정기 일정이 변경되었습니다. 새로고침 후 다시 시도해 주세요.");
@@ -254,6 +285,77 @@ public class GroupRecurringService {
         if (memberships.findByGroupIdAndMemberId(groupId, memberId)
                 .filter(membership -> membership.getRole() == GroupMemberRole.LEADER).isEmpty()) {
             throw new BusinessException(ErrorCode.GROUP_ACCESS_DENIED, "그룹 모임장만 일정을 변경할 수 있습니다.");
+        }
+    }
+
+    private List<RulePeriod> candidatePeriods(List<GroupRecurringPeriod> periods,
+                                               RecurringGroupSchedule replacement,
+                                               ScopedRuleRequest.ApplyScope applyScope,
+                                               LocalDate today) {
+        return switch (applyScope) {
+            case ALL -> periods.stream().map(period -> new RulePeriod(period.getEffectiveFrom(),
+                    period.getEffectiveUntil(), replacement.getActivityDays().values())).toList();
+            case PREVIOUS_RULE -> {
+                List<RulePeriod> candidates = new ArrayList<>(periods.stream().map(RulePeriod::from).toList());
+                GroupRecurringPeriod previous = periods.getLast();
+                candidates.set(candidates.size() - 1, new RulePeriod(previous.getEffectiveFrom(),
+                        previous.getEffectiveUntil(), replacement.getActivityDays().values()));
+                yield candidates;
+            }
+            case FROM_TODAY -> replaceRulesFromToday(periods, replacement, today);
+        };
+    }
+
+    private List<RulePeriod> replaceRulesFromToday(List<GroupRecurringPeriod> periods,
+                                                    RecurringGroupSchedule replacement,
+                                                    LocalDate today) {
+        List<RulePeriod> candidates = new ArrayList<>();
+        boolean changed = false;
+        for (GroupRecurringPeriod period : periods) {
+            if (period.getEffectiveUntil() != null && period.getEffectiveUntil().isBefore(today)) {
+                candidates.add(RulePeriod.from(period));
+            } else if (period.getEffectiveFrom().isBefore(today)) {
+                candidates.add(new RulePeriod(period.getEffectiveFrom(), today.minusDays(1),
+                        period.getDaysOfWeek().values()));
+                candidates.add(new RulePeriod(today, period.getEffectiveUntil(),
+                        replacement.getActivityDays().values()));
+                changed = true;
+            } else {
+                candidates.add(new RulePeriod(period.getEffectiveFrom(), period.getEffectiveUntil(),
+                        replacement.getActivityDays().values()));
+                changed = true;
+            }
+        }
+        if (!changed) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "오늘 이후에 적용할 정기 일정이 없습니다.");
+        }
+        return candidates;
+    }
+
+    private void requireNoRegularMeetingConflict(Long groupId, LocalDate seriesFrom, LocalDate seriesUntil,
+                                                  List<RulePeriod> periods) {
+        if (periods.isEmpty()) return;
+        boolean overlaps = events.findAllByGroupIdAndEventTypeAndDeletedAtIsNullOrderByStartDateAscIdAsc(
+                        groupId, GroupEventType.REGULAR_MEETING).stream()
+                .map(GroupEvent::getStartDate)
+                .filter(date -> !date.isBefore(seriesFrom))
+                .filter(date -> seriesUntil == null || !date.isAfter(seriesUntil))
+                .anyMatch(date -> periods.stream().anyMatch(period -> period.includes(date)));
+        if (overlaps) {
+            throw new BusinessException(ErrorCode.GROUP_EVENT_CONFLICT,
+                    "반복 규칙이 수동 등록한 정기 모임과 겹칩니다. 겹치는 회차를 옮기거나 삭제한 뒤 다시 시도해 주세요.");
+        }
+    }
+
+    private record RulePeriod(LocalDate from, LocalDate until, Set<DayOfWeek> days) {
+        private static RulePeriod from(GroupRecurringPeriod period) {
+            return new RulePeriod(period.getEffectiveFrom(), period.getEffectiveUntil(),
+                    period.getDaysOfWeek().values());
+        }
+
+        private boolean includes(LocalDate date) {
+            return !date.isBefore(from) && (until == null || !date.isAfter(until))
+                    && days.contains(date.getDayOfWeek());
         }
     }
 }

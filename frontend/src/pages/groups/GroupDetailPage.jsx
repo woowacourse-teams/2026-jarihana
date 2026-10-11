@@ -292,7 +292,7 @@ export function GroupDetailPage() {
                 {
                   label: tabs[1].label,
                   value: tabs[1].value,
-                  content: selectedTab === "calendar" ? <GroupCalendarTab groupId={groupId} isLeader={isLeader && !isArchived} isMember={isApprovedMember} sessionSchedule={group.sessionSchedule} /> : null
+                  content: selectedTab === "calendar" ? <GroupCalendarTab groupId={groupId} groupType={group.type} isLeader={isLeader && !isArchived} isMember={isApprovedMember} sessionSchedule={group.sessionSchedule} /> : null
                 },
                 {
                   label: tabs[2].label,

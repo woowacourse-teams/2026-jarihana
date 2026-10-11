@@ -5,6 +5,8 @@ import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -38,6 +40,14 @@ public class GroupEvent extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "group_id", nullable = false)
     private Group group;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "event_type", nullable = false, length = 30)
+    private GroupEventType eventType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "event_status", nullable = false, length = 30)
+    private GroupEventStatus status;
 
     @Column(name = "title", nullable = false, length = 50)
     private String title;
@@ -73,6 +83,8 @@ public class GroupEvent extends BaseEntity {
     private GroupEvent(
             Long id,
             Group group,
+            GroupEventType eventType,
+            GroupEventStatus status,
             String title,
             LocalDate startDate,
             LocalDate endDate,
@@ -88,7 +100,17 @@ public class GroupEvent extends BaseEntity {
         super(require(createdAt, "생성 시각"));
         this.id = id;
         this.group = require(group, "모임");
-        this.title = requiredText(title, 50, "일정 제목");
+        this.eventType = require(eventType, "일정 종류");
+        this.status = eventType == GroupEventType.INDIVIDUAL
+                ? GroupEventStatus.AUTO : require(status, "일정 상태");
+        if (eventType == GroupEventType.REGULAR_MEETING && group.getType() == GroupType.SESSION) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "같이해요에는 정기 모임 회차를 등록할 수 없습니다.");
+        }
+        if (eventType == GroupEventType.REGULAR_MEETING && !Objects.equals(startDate, endDate)) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "정기 모임 회차는 하루 일정으로 등록해 주세요.");
+        }
+        this.title = eventType == GroupEventType.REGULAR_MEETING
+                ? "정기 모임" : requiredText(title, 50, "일정 제목");
         this.startDate = require(startDate, "시작일");
         this.endDate = require(endDate, "종료일");
         this.allDay = allDay;
@@ -103,6 +125,7 @@ public class GroupEvent extends BaseEntity {
 
     public static GroupEvent create(
             Group group,
+            GroupEventType eventType,
             String title,
             LocalDate startDate,
             LocalDate endDate,
@@ -113,11 +136,45 @@ public class GroupEvent extends BaseEntity {
             String location,
             LocalDateTime createdAt
     ) {
-        return new GroupEvent(null, group, title, startDate, endDate, allDay, startTime, endTime,
+        return create(group, eventType, GroupEventStatus.AUTO, title, startDate, endDate,
+                allDay, startTime, endTime, description, location, createdAt);
+    }
+
+    public static GroupEvent create(
+            Group group,
+            GroupEventType eventType,
+            GroupEventStatus status,
+            String title,
+            LocalDate startDate,
+            LocalDate endDate,
+            boolean allDay,
+            LocalTime startTime,
+            LocalTime endTime,
+            String description,
+            String location,
+            LocalDateTime createdAt
+    ) {
+        return new GroupEvent(null, group, eventType, status, title, startDate, endDate, allDay, startTime, endTime,
                 description, location, null, null, createdAt);
     }
 
     public GroupEvent modify(
+            GroupEventType eventType,
+            String title,
+            LocalDate startDate,
+            LocalDate endDate,
+            boolean allDay,
+            LocalTime startTime,
+            LocalTime endTime,
+            String description,
+            String location
+    ) {
+        return modify(eventType, status, title, startDate, endDate, allDay, startTime, endTime, description, location);
+    }
+
+    public GroupEvent modify(
+            GroupEventType eventType,
+            GroupEventStatus status,
             String title,
             LocalDate startDate,
             LocalDate endDate,
@@ -128,13 +185,13 @@ public class GroupEvent extends BaseEntity {
             String location
     ) {
         requireNotDeleted();
-        return new GroupEvent(id, group, title, startDate, endDate, allDay, startTime, endTime,
+        return new GroupEvent(id, group, eventType, status, title, startDate, endDate, allDay, startTime, endTime,
                 description, location, null, version, getCreatedAt());
     }
 
     public GroupEvent deleteAt(LocalDateTime now) {
         requireNotDeleted();
-        return new GroupEvent(id, group, title, startDate, endDate, allDay, startTime, endTime,
+        return new GroupEvent(id, group, eventType, status, title, startDate, endDate, allDay, startTime, endTime,
                 description, location, require(now, "삭제 시각"), version, getCreatedAt());
     }
 
@@ -198,6 +255,9 @@ public class GroupEvent extends BaseEntity {
 
     public Long getId() { return id; }
     public Group getGroup() { return group; }
+    public GroupEventType getEventType() { return eventType; }
+    public GroupEventStatus getStatus() { return status; }
+    public GroupEventStatus getEffectiveStatus(LocalDate today) { return status.effectiveFor(startDate, today); }
     public String getTitle() { return title; }
     public LocalDate getStartDate() { return startDate; }
     public LocalDate getEndDate() { return endDate; }

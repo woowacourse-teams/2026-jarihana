@@ -10,6 +10,8 @@ ALTER TABLE groups
 CREATE TABLE IF NOT EXISTS group_event (
     id BIGSERIAL PRIMARY KEY,
     group_id BIGINT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    event_type VARCHAR(30) NOT NULL DEFAULT 'INDIVIDUAL',
+    event_status VARCHAR(30) NOT NULL DEFAULT 'AUTO',
     title VARCHAR(50) NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
@@ -30,6 +32,13 @@ CREATE TABLE IF NOT EXISTS group_event (
             (end_date > start_date OR end_time > start_time))
     )
 );
+
+-- Safe when the calendar tables were expanded before the one-off regular-meeting type was added.
+ALTER TABLE group_event
+    ADD COLUMN IF NOT EXISTS event_type VARCHAR(30) NOT NULL DEFAULT 'INDIVIDUAL';
+
+ALTER TABLE group_event
+    ADD COLUMN IF NOT EXISTS event_status VARCHAR(30) NOT NULL DEFAULT 'AUTO';
 
 CREATE INDEX IF NOT EXISTS idx_group_event_group_range
     ON group_event(group_id, start_date, end_date);

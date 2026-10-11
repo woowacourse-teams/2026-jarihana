@@ -1,5 +1,7 @@
 package com.project.jarihana.group.calendar;
 
+import com.project.jarihana.group.domain.GroupEventType;
+import com.project.jarihana.group.domain.GroupEventStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -16,6 +18,15 @@ public record GroupEventRequest(
         LocalTime endTime,
         @NotBlank @Size(max = 10_000) String description,
         @Size(max = 255) String location,
-        Long version
-) {
+        Long version,
+        GroupEventType eventType,
+        GroupEventStatus status
+    ) {
+    public GroupEventType resolvedEventType() {
+        return eventType == null ? GroupEventType.INDIVIDUAL : eventType;
+    }
+
+    public GroupEventStatus resolvedStatus() {
+        return status == null ? GroupEventStatus.AUTO : status;
+    }
 }

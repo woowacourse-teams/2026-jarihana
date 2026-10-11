@@ -85,7 +85,8 @@ function hasFlexibleScheduleOnDate(calendar, dateKey) {
 
 function EventButton({ compact = false, dateKey, event, onOpen }) {
   const time = timeLabel(event, dateKey, !compact);
-  const className = `group-calendar__event group-calendar__event--${event.kind.toLowerCase()}${compact ? " group-calendar__event--compact" : ""}`;
+  const eventStyle = event.kind === "REGULAR_MEETING" ? "recurring" : event.kind.toLowerCase();
+  const className = `group-calendar__event group-calendar__event--${eventStyle}${compact ? " group-calendar__event--compact" : ""}`;
   const content = (
     <span className="group-calendar__event-copy">
       {time ? <span className="group-calendar__event-time">{time}</span> : null}
@@ -140,7 +141,7 @@ export function GroupCalendar({
 
   const eventsByDay = useMemo(() => {
     const events = (calendar?.events ?? []).filter((event) =>
-      calendar?.showBaseSchedule !== false || event.kind === "GROUP_EVENT");
+      calendar?.showBaseSchedule !== false || event.kind === "GROUP_EVENT" || event.kind === "REGULAR_MEETING");
     const result = new Map(days.map((day) => [day, []]));
     for (const event of events) {
       for (const day of days) {

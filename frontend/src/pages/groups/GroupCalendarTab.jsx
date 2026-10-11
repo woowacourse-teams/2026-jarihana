@@ -8,7 +8,7 @@ import { GroupCalendarEventDialog } from "./GroupCalendarEventDialog.jsx";
 import { GroupRecurringManageDialog } from "./GroupRecurringManageDialog.jsx";
 import { GroupSessionManageDialog } from "./GroupSessionManageDialog.jsx";
 
-export function GroupCalendarTab({ groupId, isLeader = false, isMember = false, sessionSchedule = null }) {
+export function GroupCalendarTab({ groupId, groupType = "CLUB", isLeader = false, isMember = false, sessionSchedule = null }) {
   const [range, setRange] = useState(null);
   const [createDate, setCreateDate] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -66,6 +66,7 @@ export function GroupCalendarTab({ groupId, isLeader = false, isMember = false, 
         togglePending={visibility.isPending}
       />
       <GroupCalendarEventDialog
+        groupType={groupType}
         initialDate={createDate}
         onClose={() => { createEvent.reset(); setCreateDate(null); }}
         onSave={handleCreate}
@@ -74,6 +75,7 @@ export function GroupCalendarTab({ groupId, isLeader = false, isMember = false, 
         serverError={createEvent.error?.userMessage || (createEvent.error ? "일정을 저장하지 못했어요. 다시 시도해 주세요." : null)}
       />
       <GroupCalendarEventDialog
+        groupType={groupType}
         initialEvent={editEvent}
         onClose={() => { updateEvent.reset(); setEditEvent(null); }}
         onSave={handleUpdate}
