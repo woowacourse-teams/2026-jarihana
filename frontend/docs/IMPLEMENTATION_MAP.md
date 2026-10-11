@@ -99,6 +99,41 @@ header 구현으로 확대하지 않았다.
 
 ## 실제 API 계약 요약
 
+### 초대 기능 설계 계약
+
+> 상태: 구현 예정. 아래 경로·API·상태는 아직 Router·schema·화면에 반영되지 않았다.
+> [초대 API 계약](../../backend/docs/context/api/endpoints/invitations.md)과
+> [초대 정책](../../backend/docs/context/domain/business-policies.md#초대-발급과-합류)을 따른다.
+> 기술 계약은 7–9단계에서 확정한다. 새 기술 결정을 채택하면 해당 영역 ADR에 대안과 선택 이유를 기록한다.
+
+| Route 또는 진입점 | 권한 | API | 화면 상태 |
+| --- | --- | --- | --- |
+| `/invitations/:invitationId` | 지정 대상 회원; 비회원은 로그인 안내 | ID 상세·수락 | 로딩·가입 필요·대상 불일치·만료·취소·종료·이미 참여 중·수락 중/성공/실패 |
+| `/invitations/link/:token` | 조회 공개, 수락은 가입 완료 회원 | 공개 링크 조회·수락(token) | 모임·발급자·짧은 메시지·만료·인증 필요·중복·네트워크 오류 |
+| 모임 상세의 구성원 전용 초대 진입점 | 현재 모임장·모임원 | 후보 검색·생성·발급 목록·취소 | 두 유형 선택·검색·빈 결과·복사·전송 완료와 구분·권한 오류 |
+| 마이페이지의 받은 초대 | 회원 | 본인 DIRECT 목록·상세 | 로딩·빈 목록·커서·유효/취소/만료/수락 상태 |
+| `/notifications/open/:id` | 본인 알림의 회원 | 본인 알림·초대 상세·읽음 | 로그인 복귀·잘못된 계정·없는 대상·현재 상태 안내 |
+
+- MEMBER는 서비스 가입 완료 권한이다. 생성·관리는 현재 모임 소속을 따로 검사하며 일반 모임원에게 모임장 관리 route를 열지 않는다.
+- 기존 storeReturnTarget→OAuthCallbackPage→SignupPage→SignupGuard를 재사용하고 가입 전 초대 복귀 정보를 소모하지 않는다.
+- 회원가입·알림 클릭·읽음만으로 합류하지 않는다. 초대 화면에서 명시적으로 수락한다.
+- 신규 JOINED와 ALREADY_JOINED를 구분하며 둘 다 모임으로 이동하되 후자는 합류 성과를 기록하지 않는다.
+- 성공 후 모임·내 모임·내 신청 캐시를 갱신하고 받은 초대·알림 캐시는 계정/세션 변경에 맞춰 분리한다.
+- 알림 schema의 모집 ID 필수 조건·target enum·payloadVersion=1 제한을 확장하고 기존 알림을 계속 지원한다.
+  `public/sw.js`의 버전 검사와 사건 문구도 함께 갱신하며 이전 SW와 신규 알림의 배포 호환성을 확인한다.
+- 원본 token 경로·API path·오류·세션 녹화의 분석 전송을 차단한다. 반환 경로를 외부 URL로 변환하지 않는다.
+- 발급 동작마다 requestId를 만들고 통신 재시도에는 같은 값을 사용한다. 서버가 반환한 내부 sharePath만 복사하며 외부 URL을 입력받지 않는다.
+- 공유 링크는 최초 발급에서만 복사하는 계약안이다. 응답 유실·화면 이탈로 원본을 잃으면 기존 링크를 취소하고 새 발급 동작을 안내한다.
+- 없는 초대·모임은 '유효하지 않은 초대'로 안내한다. DIRECT의 비회원 접근은 로그인 후 대상 계정을 확인한다.
+- 알림 클릭은 /notifications/open/:id → 본인 알림 조회 → 초대 대상 권한 확인 → 읽음 → /invitations/:invitationId 순서다.
+  다른 계정·없는 초대에는 읽음 없이 안내한다. 본인의 취소·만료 초대는 상태 확인 후 읽음 처리하고 안내한다.
+  발급자 이탈·모임 종료도 클릭 시 현재 상태를 기준으로 합류를 차단하며 클릭 자체로 수락하지 않는다.
+- 분석 성공 이벤트는 신규 JOINED에만 기록한다. 실패·기존 소속 안내는 신규 합류 성과를 만들지 않는다.
+- UI의 고정 action 후보는 invitation_create, invitation_member_select, invitation_link_copy,
+  invitation_accept, invitation_revoke다. 기존 알림 클릭은 notification_open을 유지한다.
+- 저장소 JS/JSX·공통 API client·Jest·기존 UI/토큰을 사용한다. 새 장기 구조 선택이 없으면 기존 프론트 ADR을 재사용한다.
+
+
 ### 웹푸시·알림함 구현
 
 알림함은 헤더의 종 버튼이 여는 Drawer로 제공하며 독립된 `/notifications` 페이지는 없다.
