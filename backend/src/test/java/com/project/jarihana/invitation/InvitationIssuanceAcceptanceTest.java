@@ -3,6 +3,17 @@ package com.project.jarihana.invitation;
 import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.group.domain.Group;
+import com.project.jarihana.recruitment.command.repository.GroupRecruitmentCommandRepository;
+import com.project.jarihana.registration.command.repository.RegistrationCommandRepository;
+import com.project.jarihana.group.command.service.GroupCommandService;
+import com.project.jarihana.registration.domain.Registration;
+import com.project.jarihana.registration.domain.RegistrationStatus;
+import com.project.jarihana.registration.domain.ApprovalOrigin;
+import com.project.jarihana.registration.domain.DecisionActor;
+import com.project.jarihana.recruitment.domain.GroupRecruitment;
+import com.project.jarihana.recruitment.domain.JoinMethod;
+import com.project.jarihana.group.command.service.dto.TerminateGroupCommand;
+import com.project.jarihana.group.domain.GroupStatus;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.notification.support.NotificationIntegrationTestSupport;
@@ -17,6 +28,14 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mockingDetails;
+import static org.mockito.ArgumentMatchers.any;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -36,6 +55,10 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
 
     @Autowired private AccessTokenProvider tokens;
     @Autowired private AuthCookieProperties cookies;
+    @Autowired private GroupRecruitmentCommandRepository recruitments;
+    @MockitoSpyBean private RegistrationCommandRepository registrations;
+    @Autowired private GroupCommandService groupCommands;
+    @MockitoSpyBean private GroupMemberCommandRepository membershipWrites;
 
     @DynamicPropertySource
     static void tokenKeys(DynamicPropertyRegistry registry) {
@@ -826,6 +849,528 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         String csrf = RestAssured.get("/groups").cookie("XSRF-TOKEN");
         return auth(member).cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
                 .patch("/invitations/{id}/revoke", invitationId);
+    }
+
+    @Test
+    @DisplayName("모집 없는 지정 초대 수락은 실제 대상 프록시를 검증하고 소속과 수락 이력을 한 번만 생성한다.")
+    void directAcceptanceCreatesMembershipAndHistoryOnlyOnce() {
+        Member leader = member("101");
+        Member target = member("102");
+        Group group = group(leader);
+        long id = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+
+        Response joined = accept(target, id, Map.of());
+        Response repeated = accept(target, id, Map.of());
+
+        assertThat(joined.statusCode()).isEqualTo(201);
+        assertThat(joined.jsonPath().getString("data.result")).isEqualTo("JOINED");
+        assertThat(joined.jsonPath().getString("data.registrationOrigin")).isEqualTo("INVITATION");
+        assertThat(repeated.statusCode()).isEqualTo(200);
+        assertThat(repeated.jsonPath().getString("data.result")).isEqualTo("ALREADY_JOINED");
+        assertThat(repeated.jsonPath().getMap("data")).doesNotContainKey("registrationOrigin");
+        assertThat(repeated.jsonPath().getLong("data.groupMemberId")).isEqualTo(joined.jsonPath().getLong("data.groupMemberId"));
+        assertThat(repeated.jsonPath().getString("data.joinedAt")).isEqualTo(joined.jsonPath().getString("data.joinedAt"));
+        assertThat(auth(target).get("/invitations/{id}", id).jsonPath().getString("data.status")).isEqualTo("ACCEPTED");
+        assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from group_member", Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select count(*) from registration", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from notifications", Integer.class)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("하나의 공유 링크는 서로 다른 회원들이 수락할 수 있고 ID만 있거나 다른 토큰이면 합류하지 못한다.")
+    void linkRequiresMatchingTokenAndSupportsMultipleMembers() {
+        Member leader = member("101");
+        Member first = member("102");
+        Member second = member("103");
+        Group group = group(leader);
+        Response issued = issue(leader, group.getId(), Map.of("type", "LINK", "requestId", UUID.randomUUID()));
+        long id = issued.jsonPath().getLong("data.id");
+        String path = issued.jsonPath().getString("data.sharePath");
+        String token = path.substring(path.lastIndexOf('/') + 1);
+
+        assertError(accept(first, id, Map.of()), 404, "INVITATION_NOT_FOUND");
+        assertError(accept(first, id, Map.of("token", "A".repeat(43))), 404, "INVITATION_NOT_FOUND");
+        assertThat(accept(first, id, Map.of("token", token)).statusCode()).isEqualTo(201);
+        assertThat(accept(second, id, Map.of("token", token)).statusCode()).isEqualTo(201);
+        assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select count(*) from group_member", Integer.class)).isEqualTo(3);
+        assertThat(RestAssured.get("/invitations/links/{token}", token).jsonPath().getString("data.status")).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    @DisplayName("지정 대상 이외의 계정은 취소된 초대나 기존 구성원이어도 수락 권한을 얻지 못한다.")
+    void wrongDirectTargetCannotAcceptEvenAfterJoiningOrRevocation() {
+        Member leader = member("101");
+        Member target = member("102");
+        Member other = member("103");
+        Group group = group(leader);
+        long id = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+        groupMembers.save(GroupMember.createMember(group, other, NOW));
+        revoke(leader, id);
+        assertError(accept(other, id, Map.of()), 403, "INVITATION_ACCESS_DENIED");
+        assertError(accept(target, id, Map.of()), 409, "INVITATION_REVOKED");
+        assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isZero();
+    }
+
+    private Response accept(Member member, long invitationId, Map<String, Object> request) {
+        String csrf = RestAssured.get("/groups").cookie("XSRF-TOKEN");
+        return auth(member).cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .contentType("application/json").body(request).post("/invitations/{id}/acceptances", invitationId);
+    }
+
+    @Test
+    @DisplayName("초대 합류는 마감·정원 도달한 모집의 대기 신청도 시스템 승인하며 확인 시각과 과거 이력을 보존한다.")
+    void invitationApprovesPendingAcrossRecruitmentsWithoutConsumingCapacity() {
+        Member leader = member("101");
+        Member target = member("102");
+        Member ordinary = member("103");
+        Group group = group(leader);
+        var first = pending(group, target);
+        var second = pending(group, target);
+        var old = registrations.save(Registration.createPending(
+                first.getRecruitment(), target, "과거 신청", NOW).rejectBySystem("이전 미승인", NOW));
+        registrations.save(Registration.createPending(
+                first.getRecruitment(), ordinary, null, NOW).approve(
+                DecisionActor.member(leader.getId()), NOW, 0));
+        registrations.save(first.viewByLeader(NOW.minusMinutes(1)));
+        jdbc.update("update group_recruitment set ends_at = ? where id = ?", NOW.minusSeconds(1), second.getRecruitment().getId());
+        long id = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+
+        Response response = accept(target, id, Map.of());
+
+        assertThat(response.statusCode()).isEqualTo(201);
+        for (long registrationId : List.of(first.getId(), second.getId())) {
+            var saved = registrations.findById(registrationId).orElseThrow();
+            assertThat(saved.getStatus().name()).isEqualTo("APPROVED");
+            assertThat(saved.getApprovalOrigin().name()).isEqualTo("INVITATION");
+            assertThat(saved.getDecidedBy().getType().name()).isEqualTo("SYSTEM");
+            assertThat(saved.getDecidedBy().getMemberId()).isNull();
+            assertThat(saved.getDecidedAt()).isEqualTo(NOW);
+        }
+        assertThat(registrations.findById(first.getId()).orElseThrow().getLeaderViewedAt()).isEqualTo(NOW.minusMinutes(1));
+        assertThat(registrations.findById(old.getId()).orElseThrow().getStatus().name()).isEqualTo("REJECTED");
+        assertThat(jdbc.queryForObject("select count(*) from registration", Integer.class)).isEqualTo(4);
+        assertThat(jdbc.queryForObject("select count(*) from registration where status = 'APPROVED' and approval_origin = 'RECRUITMENT'", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select ends_at from group_recruitment where id = ?", Timestamp.class, first.getRecruitment().getId()).toLocalDateTime()).isEqualTo(NOW.plusDays(1));
+        assertThat(jdbc.queryForObject("select count(*) from notifications", Integer.class)).isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"expired", "departed", "withdrawn", "ended", "revoked"})
+    @DisplayName("만료·발급자 이탈·탈퇴·모임 종료·취소된 초대는 신규 소속과 수락 이력을 남기지 않는다.")
+    void invalidInvitationsDoNotJoin(String state) {
+        Member leader = member("101");
+        Member target = member("102");
+        Group group = group(leader);
+        Response issued = issue(leader, group.getId(), Map.of("type", "LINK", "requestId", UUID.randomUUID()));
+        long id = issued.jsonPath().getLong("data.id");
+        String path = issued.jsonPath().getString("data.sharePath");
+        String token = path.substring(path.lastIndexOf('/') + 1);
+        switch (state) {
+            case "expired" -> jdbc.update("update invitation set expires_at = ? where id = ?", NOW, id);
+            case "departed" -> jdbc.update("delete from group_member where group_id = ? and member_id = ?", group.getId(), leader.getId());
+            case "withdrawn" -> jdbc.update("update member set withdrawn_at = ? where id = ?", NOW, leader.getId());
+            case "ended" -> jdbc.update("update groups set status = 'ENDED' where id = ?", group.getId());
+            case "revoked" -> revoke(leader, id);
+            default -> throw new IllegalArgumentException(state);
+        }
+        String error = state.equals("ended") ? "GROUP_ENDED" : state.equals("revoked") ? "INVITATION_REVOKED" : "INVITATION_EXPIRED";
+        assertError(accept(target, id, Map.of("token", token)), 409, error);
+        assertThat(groupMembers.findByGroupIdAndMemberId(group.getId(), target.getId())).isEmpty();
+        assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isZero();
+    }
+
+    @Test
+    @DisplayName("이미 참여한 회원은 만료·취소 이후에도 자격을 확인한 뒤 기존 소속을 반환하며 다른 토큰은 거부한다.")
+    void existingMembershipIsReturnedAfterInvalidationWithoutExtraHistory() {
+        Member leader = member("101");
+        Member target = member("102");
+        Group group = group(leader);
+        Response issued = issue(leader, group.getId(), Map.of("type", "LINK", "requestId", UUID.randomUUID()));
+        long id = issued.jsonPath().getLong("data.id");
+        String path = issued.jsonPath().getString("data.sharePath");
+        String token = path.substring(path.lastIndexOf('/') + 1);
+        var existing = groupMembers.save(GroupMember.createMember(group, target, NOW.minusDays(1)));
+        revoke(leader, id);
+        jdbc.update("update groups set status = 'ENDED' where id = ?", group.getId());
+        Response response = accept(target, id, Map.of("token", token));
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.jsonPath().getLong("data.groupMemberId")).isEqualTo(existing.getId());
+        assertError(accept(target, id, Map.of("token", "A".repeat(43))), 404, "INVITATION_NOT_FOUND");
+        assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"invitation_acceptance", "registration"})
+    @DisplayName("수락 이력이나 대기 신청 승인 저장에 실패하면 새 소속과 수락 이력·신청 변경을 모두 롤백한다.")
+    void acceptanceFailureRollsBackMembershipHistoryAndPending(String failingTable) {
+        Member leader = member("101");
+        Member target = member("102");
+        Group group = group(leader);
+        var registration = pending(group, target);
+        long id = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+        jdbc.execute("create function invitation_accept_fail() returns trigger language plpgsql as $$ begin raise exception 'write failure'; end; $$");
+        jdbc.execute("create trigger invitation_accept_fail before insert or update on " + failingTable + " for each row execute function invitation_accept_fail()");
+        try {
+            assertError(accept(target, id, Map.of()), 500, "INTERNAL_ERROR");
+            assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isZero();
+            assertThat(groupMembers.findByGroupIdAndMemberId(group.getId(), target.getId())).isEmpty();
+            assertThat(registrations.findById(registration.getId()).orElseThrow().getStatus().name()).isEqualTo("PENDING");
+        } finally {
+            jdbc.execute("drop trigger invitation_accept_fail on " + failingTable);
+            jdbc.execute("drop function invitation_accept_fail()");
+        }
+    }
+
+    @Test
+    @DisplayName("수락 API는 회원 인증·CSRF와 유효한 요청을 요구하며 실패하면 합류하지 않는다.")
+    void acceptanceRequiresAuthenticationCsrfAndValidInput() {
+        Member leader = member("101");
+        Member target = member("102");
+        Group group = group(leader);
+        long id = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+        String csrf = RestAssured.get("/groups").cookie("XSRF-TOKEN");
+        assertError(RestAssured.given().cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .contentType("application/json").body(Map.of()).post("/invitations/{id}/acceptances", id), 401, "UNAUTHENTICATED");
+        assertError(auth(target).contentType("application/json").body(Map.of()).post("/invitations/{id}/acceptances", id), 403, "ACCESS_DENIED");
+        assertError(accept(target, 0, Map.of()), 400, "INVALID_PARAMETER");
+        assertError(accept(target, 999999, Map.of()), 404, "INVITATION_NOT_FOUND");
+        assertError(accept(target, id, Map.of("token", "unexpected")), 400, "INVALID_PARAMETER");
+        jdbc.update("update member set withdrawn_at = ? where id = ?", NOW, target.getId());
+        assertError(accept(target, id, Map.of()), 401, "UNAUTHENTICATED");
+        assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isZero();
+    }
+
+    private Registration pending(Group group, Member target) {
+        var recruitment = recruitments.save(GroupRecruitment.create(
+                group, JoinMethod.APPROVAL, 1, NOW.minusHours(1), NOW.plusDays(1)));
+        return registrations.save(Registration.createPending(recruitment, target, null, NOW));
+    }
+
+    @Test
+    @DisplayName("서로 다른 회원은 같은 공유 링크의 소속 저장에 동시에 도달하고 모두 합류한다.")
+    void differentMembersAcceptSameLinkConcurrently() throws Exception {
+        // Given
+        Member leader = member("101");
+        Member first = member("102");
+        Member second = member("103");
+        Group group = group(leader);
+        Response issued = issue(leader, group.getId(), Map.of("type", "LINK", "requestId", UUID.randomUUID()));
+        long invitationId = issued.jsonPath().getLong("data.id");
+        String path = issued.jsonPath().getString("data.sharePath");
+        Map<String, Object> acceptance = Map.of("token", path.substring(path.lastIndexOf('/') + 1));
+        CyclicBarrier concurrentWrites = new CyclicBarrier(2);
+        doAnswer(invocation -> {
+            GroupMember membership = invocation.getArgument(0);
+            if (membership.getMember().getId().equals(first.getId()) || membership.getMember().getId().equals(second.getId())) {
+                concurrentWrites.await(5, TimeUnit.SECONDS);
+            }
+            return mockingDetails(membershipWrites).getMockCreationSettings().getDefaultAnswer().answer(invocation);
+        }).when(membershipWrites).save(any(GroupMember.class));
+
+        // When
+        List<Response> results = concurrently(() -> accept(first, invitationId, acceptance), () -> accept(second, invitationId, acceptance));
+
+        // Then
+        assertThat(results.stream().map(Response::statusCode).toList()).containsExactly(201, 201);
+        assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select count(*) from group_member", Integer.class)).isEqualTo(3);
+        assertThat(jdbc.queryForObject("select version from groups where id = ?", Long.class, group.getId())).isZero();
+        assertThat(jdbc.queryForObject("select version from invitation where id = ?", Long.class, invitationId)).isZero();
+    }
+
+    @Test
+    @DisplayName("상태 확인 후 초대가 취소되면 버전 충돌로 소속·수락 이력·대기 신청 승인을 모두 롤백한다.")
+    void revocationAfterValidationRollsBackEntireAcceptance() throws Exception {
+        // Given
+        Member leader = member("101");
+        Member target = member("102");
+        Group group = group(leader);
+        Registration registration = pending(group, target);
+        long id = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+        CountDownLatch checked = new CountDownLatch(1);
+        CountDownLatch resume = new CountDownLatch(1);
+        pauseFirstMembershipSave(target, checked, resume);
+
+        // When
+        Response accepted;
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var accepting = executor.submit(() -> accept(target, id, Map.of()));
+            try {
+                assertThat(checked.await(5, TimeUnit.SECONDS)).isTrue();
+                assertThat(revoke(leader, id).statusCode()).isEqualTo(200);
+            } finally {
+                resume.countDown();
+            }
+            accepted = accepting.get(10, TimeUnit.SECONDS);
+        }
+
+        // Then
+        assertError(accepted, 409, "INVITATION_REVOKED");
+        assertThat(groupMembers.findByGroupIdAndMemberId(group.getId(), target.getId())).isEmpty();
+        assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isZero();
+        assertThat(registrations.findById(registration.getId()).orElseThrow().getStatus()).isEqualTo(
+                RegistrationStatus.PENDING);
+    }
+
+    @Test
+    @DisplayName("상태 확인 후 모임이 종료되면 버전 충돌로 합류를 롤백하고 종료된 모임으로 안내한다.")
+    void terminationAfterValidationRollsBackAcceptance() throws Exception {
+        // Given
+        Member leader = member("101");
+        Member target = member("102");
+        Group group = group(leader);
+        jdbc.update("update groups set created_at = ? where id = ?", NOW.minusDays(2), group.getId());
+        long id = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+        CountDownLatch checked = new CountDownLatch(1);
+        CountDownLatch resume = new CountDownLatch(1);
+        pauseFirstMembershipSave(target, checked, resume);
+
+        // When
+        Response accepted;
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var accepting = executor.submit(() -> accept(target, id, Map.of()));
+            try {
+                assertThat(checked.await(5, TimeUnit.SECONDS)).isTrue();
+                groupCommands.terminateGroup(leader.getId(), group.getId(), new TerminateGroupCommand(GroupStatus.ENDED));
+            } finally {
+                resume.countDown();
+            }
+            accepted = accepting.get(10, TimeUnit.SECONDS);
+        }
+
+        // Then
+        assertError(accepted, 409, "GROUP_ENDED");
+        assertThat(groupMembers.findByGroupIdAndMemberId(group.getId(), target.getId())).isEmpty();
+        assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isZero();
+    }
+
+    private void pauseFirstMembershipSave(Member member, CountDownLatch checked, CountDownLatch resume) {
+        AtomicBoolean first = new AtomicBoolean(true);
+        doAnswer(invocation -> {
+            GroupMember membership = invocation.getArgument(0);
+            if (membership.getMember().getId().equals(member.getId()) && first.compareAndSet(true, false)) {
+                checked.countDown();
+                assertThat(resume.await(5, TimeUnit.SECONDS)).isTrue();
+            }
+            return mockingDetails(membershipWrites).getMockCreationSettings().getDefaultAnswer().answer(invocation);
+        }).when(membershipWrites).save(any(GroupMember.class));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    @DisplayName("같은 신청을 읽은 두 승인 경로는 버전 충돌 후 먼저 저장된 승인 출처와 소속을 보존한다.")
+    void registrationVersionConflictPreservesCommittedDecision(boolean normalFirst) throws Exception {
+        // Given
+        Member leader = member("101");
+        Member target = member("102");
+        Group group = group(leader);
+        Registration registration = pending(group, target);
+        long invitationId = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+        CountDownLatch staleRead = new CountDownLatch(1);
+        CountDownLatch resume = new CountDownLatch(1);
+        AtomicBoolean first = new AtomicBoolean(true);
+        ApprovalOrigin pausedOrigin = normalFirst ? ApprovalOrigin.INVITATION : ApprovalOrigin.RECRUITMENT;
+        doAnswer(invocation -> {
+            Registration saving = invocation.getArgument(0);
+            if (saving.getStatus() == RegistrationStatus.APPROVED && saving.getApprovalOrigin() == pausedOrigin
+                    && first.compareAndSet(true, false)) {
+                staleRead.countDown();
+                assertThat(resume.await(5, TimeUnit.SECONDS)).isTrue();
+            }
+            return mockingDetails(registrations).getMockCreationSettings().getDefaultAnswer().answer(invocation);
+        }).when(registrations).save(any(Registration.class));
+
+        // When
+        Response retried;
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var paused = executor.submit(() -> normalFirst ? accept(target, invitationId, Map.of()) : approve(leader, registration));
+            try {
+                assertThat(staleRead.await(5, TimeUnit.SECONDS)).isTrue();
+                Response winning = normalFirst ? approve(leader, registration) : accept(target, invitationId, Map.of());
+                assertThat(winning.statusCode()).isEqualTo(normalFirst ? 200 : 201);
+            } finally {
+                resume.countDown();
+            }
+            retried = paused.get(10, TimeUnit.SECONDS);
+        }
+
+        // Then
+        if (normalFirst) {
+            assertThat(retried.statusCode()).isEqualTo(200);
+            assertThat(retried.jsonPath().getString("data.result")).isEqualTo("ALREADY_JOINED");
+        } else {
+            assertError(retried, 409, "REGISTRATION_ALREADY_DECIDED");
+        }
+        assertThat(registrations.findById(registration.getId()).orElseThrow().getApprovalOrigin())
+                .isEqualTo(normalFirst ? ApprovalOrigin.RECRUITMENT : ApprovalOrigin.INVITATION);
+        assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isEqualTo(normalFirst ? 0 : 1);
+        assertThat(jdbc.queryForObject("select count(*) from group_member", Integer.class)).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("소속 저장 직전에 만들어진 모집 신청도 초대 합류와 같은 트랜잭션에서 승인한다.")
+    void applicationCreatedDuringAcceptanceIsAlsoApproved() throws Exception {
+        // Given
+        Member leader = member("101");
+        Member target = member("102");
+        Group group = group(leader);
+        GroupRecruitment recruitment = recruitments.save(GroupRecruitment.create(group, JoinMethod.APPROVAL, 2, NOW, NOW.plusDays(1)));
+        long invitationId = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+        CountDownLatch checked = new CountDownLatch(1);
+        CountDownLatch resume = new CountDownLatch(1);
+        pauseFirstMembershipSave(target, checked, resume);
+
+        // When
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var accepting = executor.submit(() -> accept(target, invitationId, Map.of()));
+            try {
+                assertThat(checked.await(5, TimeUnit.SECONDS)).isTrue();
+                String csrf = RestAssured.get("/groups").cookie("XSRF-TOKEN");
+                Response submitted = auth(target).cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                        .contentType("application/json").body(Map.of())
+                        .post("/recruitments/{id}/registrations", recruitment.getId());
+                assertThat(submitted.statusCode()).isEqualTo(201);
+            } finally {
+                resume.countDown();
+            }
+            assertThat(accepting.get(10, TimeUnit.SECONDS).statusCode()).isEqualTo(201);
+        }
+
+        // Then
+        assertThat(jdbc.queryForObject("select count(*) from registration where status = 'PENDING'", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from registration where status = 'APPROVED' and approval_origin = 'INVITATION'", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("두 공유 초대를 같은 회원이 동시에 수락해도 합류 한 건과 이미 참여 중 한 건으로 끝난다.")
+    void concurrentAcceptanceOfDifferentLinksCreatesOneMembership() throws Exception {
+        Member leader = member("101");
+        Member target = member("102");
+        Group group = group(leader);
+        Response first = issue(leader, group.getId(), Map.of("type", "LINK", "requestId", UUID.randomUUID()));
+        Response second = issue(leader, group.getId(), Map.of("type", "LINK", "requestId", UUID.randomUUID()));
+        List<Response> results = concurrently(() -> acceptLink(target, first), () -> acceptLink(target, second));
+        assertThat(results.stream().map(Response::statusCode).toList()).containsExactlyInAnyOrder(201, 200);
+        assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from group_member", Integer.class)).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("일반 모집 승인과 초대 수락이 동시에 진행되어도 소속은 하나이며 먼저 완료한 승인 출처를 유지한다.")
+    void normalApprovalAndInvitationAcceptancePreserveWinningDecision() throws Exception {
+        Member leader = member("101");
+        Member target = member("102");
+        Group group = group(leader);
+        var registration = pending(group, target);
+        long id = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+        List<Response> results = concurrently(() -> accept(target, id, Map.of()), () -> approve(leader, registration));
+        String origin = registrations.findById(registration.getId()).orElseThrow().getApprovalOrigin().name();
+        if (origin.equals("INVITATION")) {
+            assertThat(results.get(0).statusCode()).isEqualTo(201);
+            assertError(results.get(1), 409, "REGISTRATION_ALREADY_DECIDED");
+            assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isEqualTo(1);
+        } else {
+            assertThat(origin).isEqualTo("RECRUITMENT");
+            assertThat(results.get(0).statusCode()).isEqualTo(200);
+            assertThat(results.get(1).statusCode()).isEqualTo(200);
+            assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isZero();
+        }
+        assertThat(jdbc.queryForObject("select count(*) from group_member", Integer.class)).isEqualTo(2);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    @DisplayName("일반 승인과 초대 수락은 어느 쪽이 먼저 완료해도 다음 요청이 기존 결정과 소속을 보존한다.")
+    void normalApprovalAndInvitationBothSerialOrders(boolean invitationFirst) {
+        Member leader = member("101");
+        Member target = member("102");
+        Group group = group(leader);
+        var registration = pending(group, target);
+        long id = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+        if (invitationFirst) {
+            assertThat(accept(target, id, Map.of()).statusCode()).isEqualTo(201);
+            assertError(approve(leader, registration), 409, "REGISTRATION_ALREADY_DECIDED");
+            assertThat(jdbc.queryForObject("select count(*) from registration where approval_origin = 'INVITATION'", Integer.class)).isEqualTo(1);
+        } else {
+            assertThat(approve(leader, registration).statusCode()).isEqualTo(200);
+            assertThat(accept(target, id, Map.of()).statusCode()).isEqualTo(200);
+            assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isZero();
+        }
+        assertThat(jdbc.queryForObject("select count(*) from group_member", Integer.class)).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("수락과 취소가 겹쳐도 합류 이력을 보존하거나 현재 취소 상태에 따라 신규 합류를 거부한다.")
+    void acceptanceAndRevocationPreserveConsistentOutcome() throws Exception {
+        Member leader = member("101");
+        Member target = member("102");
+        Group group = group(leader);
+        long id = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+        List<Response> results = concurrently(() -> accept(target, id, Map.of()), () -> revoke(leader, id));
+        assertThat(results.get(1).statusCode()).isEqualTo(200);
+        if (results.get(0).statusCode() == 201) {
+            assertThat(groupMembers.findByGroupIdAndMemberId(group.getId(), target.getId())).isPresent();
+            assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isEqualTo(1);
+        } else {
+            assertError(results.get(0), 409, "INVITATION_REVOKED");
+            assertThat(groupMembers.findByGroupIdAndMemberId(group.getId(), target.getId())).isEmpty();
+            assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isZero();
+        }
+        assertThat(auth(target).get("/invitations/{id}", id).jsonPath().getString("data.status")).isEqualTo("REVOKED");
+    }
+
+    @Test
+    @DisplayName("수락과 모임 종료가 동시에 진행되면 종료 전 합류만 유지하고 종료 후 신규 합류를 거부한다.")
+    void acceptanceAndGroupTerminationPreserveConsistentOutcome() throws Exception {
+        Member leader = member("101");
+        Member target = member("102");
+        Group group = group(leader);
+        jdbc.update("update groups set created_at = ? where id = ?", NOW.minusDays(2), group.getId());
+        long id = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+        List<Response> results = concurrently(() -> accept(target, id, Map.of()), () -> {
+            groupCommands.terminateGroup(leader.getId(), group.getId(),
+                    new TerminateGroupCommand(GroupStatus.ENDED));
+            return auth(target).get("/invitations/{id}", id);
+        });
+        assertThat(results.get(1).statusCode()).isEqualTo(200);
+        assertThat(results.get(1).jsonPath().getString("data.status")).isEqualTo("GROUP_ENDED");
+        if (results.get(0).statusCode() == 201) {
+            assertThat(groupMembers.findByGroupIdAndMemberId(group.getId(), target.getId())).isPresent();
+            assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isEqualTo(1);
+        } else {
+            assertError(results.get(0), 409, "GROUP_ENDED");
+            assertThat(groupMembers.findByGroupIdAndMemberId(group.getId(), target.getId())).isEmpty();
+        }
+    }
+
+    private Response approve(Member leader, Registration registration) {
+        String csrf = RestAssured.get("/groups").cookie("XSRF-TOKEN");
+        return auth(leader).cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .contentType("application/json").body(Map.of("status", "APPROVED"))
+                .patch("/recruitments/{recruitmentId}/registrations/{id}", registration.getRecruitment().getId(), registration.getId());
+    }
+
+    private Response acceptLink(Member member, Response issued) {
+        String path = issued.jsonPath().getString("data.sharePath");
+        return accept(member, issued.jsonPath().getLong("data.id"), Map.of("token", path.substring(path.lastIndexOf('/') + 1)));
+    }
+
+    private List<Response> concurrently(Callable<Response> first, Callable<Response> second) throws Exception {
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var futures = List.of(first, second).stream().map(action -> executor.submit(() -> {
+                ready.countDown();
+                start.await();
+                return action.call();
+            })).toList();
+            ready.await();
+            start.countDown();
+            return List.of(futures.get(0).get(), futures.get(1).get());
+        }
     }
 
     private Group group(Member leader) {

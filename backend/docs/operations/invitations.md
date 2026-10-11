@@ -1,7 +1,7 @@
 # 초대 실행·배포·검증
 
 > 상태: 저장·발급·조회·공개 미리보기·취소·알림의 로컬 PostgreSQL·HTTP 검증 완료.
-> 수락·프론트·로그 마스킹·배포 호환성은 후속 단계다.
+> 수락·합류·낙관적 충돌 처리도 로컬 검증 완료. 프론트·로그 마스킹·배포 호환성은 후속 단계다.
 
 API는 [초대 계약](../context/api/endpoints/invitations.md)과
 [초대 알림 응답](../context/api/endpoints/notifications.md#초대-알림-응답-확장-계약),
@@ -18,7 +18,7 @@ Java 21과 실행 중인 Docker가 필요하다. 백엔드에서 다음 명령�
 ./gradlew test --tests '*RecruitmentCapacityIntegrationTest'
 # 발급·검색·수신·재시도·암복호화·알림·전송 실패·증분 DDL
 ./gradlew test --tests '*Invitation*Test' --tests '*Notification*Test' --tests '*PushDeliveryWorkerTest'
-# 상세·목록·공개 미리보기·만료 경계·취소 권한·동시 취소·롤백
+# 상세·목록·공개 미리보기·수락·대기 신청 연결·동시 승인/수락/취소/종료·롤백
 ./gradlew test --tests '*InvitationIssuanceAcceptanceTest' --tests '*InvitationTest' --tests '*InvitationStatusTest'
 ```
 
@@ -41,6 +41,7 @@ DDL 적용·기존 승인 보존·기본값·제약·재적용·Hibernate valida
 psql "$INVITATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/db/migrations/2026-10-11-invitation.sql
 psql "$INVITATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/db/migrations/2026-10-11-invitation-notification.sql
 psql "$INVITATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/db/migrations/2026-10-11-invitation-message-removal.sql
+psql "$INVITATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/db/migrations/2026-10-11-invitation-optimistic-locking.sql
 ```
 
 연결 값은 로그·검증 자료에 기록하지 않는다. SQL은 하나의 트랜잭션으로 적용되며
@@ -57,7 +58,7 @@ SELECT count(*) FROM registration WHERE approval_origin IS NULL;
 ```
 
 최초 적용에서 과거 신청은 모든 상태가 RECRUITMENT이며 마지막 조회는 0이어야 한다.
-재적용 시 이미 기록된 INVITATION은 보존한다. 3단계에서 일반 모집 출처만 집계하도록 변경했다. 실제 초대 수락 연결은 6단계,
+재적용 시 이미 기록된 INVITATION은 보존한다. 3단계에서 일반 모집 출처만 집계하도록 변경했다. 실제 초대 수락 연결은 6단계에서 구현했고,
 그룹 삭제 시 수락 → 초대 → 그룹 정리는 10단계에서 구현하므로 저장 단계만으로 기능을 출시하지 않는다.
 
 알림 테이블이 없는 DB에서는 기존 [알림 DDL](../../db/migrations/2026-10-03-notification.sql)을 먼저 적용한다.
@@ -117,7 +118,7 @@ INVITATION을 RECRUITMENT로 바꾸면 모집 집계 의미도 달라진다. 실
 저장·발급·검색·수신·알림 저장과 구독별 워커 전송은 로컬 PostgreSQL·HTTP 및 외부 전송 대역으로 확인했다.
 상세·발급 목록·비회원 공개 미리보기·만료·취소는 실제 HTTP·DB에서 검증했다. 공개 조회는 합류하지 않고 재복사는 만료를 연장하지 않는다.
 취소는 모임 잠금 후 현재 소속과 유형별 권한을 검사하고 초대 취소 및 미전송 푸시 취소를 같은 트랜잭션에 저장한다. 이미 외부 전송을 시작한 푸시의 회수는 보장하지 않는다.
-초대 화면·수락·삭제 연계는 아직 미구현이므로 현재 단계만 배포하지 않는다. 기존 그룹 삭제는 초대 FK 정리 없이는 실패할 수 있으며 10단계에서 연결한다.
+초대 화면·삭제 연계는 아직 미구현이므로 현재 단계만 배포하지 않는다. 기존 그룹 삭제는 초대 FK 정리 없이는 실패할 수 있으며 10단계에서 연결한다.
 현 프론트 알림 schema는 초대 target을 처리하지 못하고, 기존 SW는 새 사건에 일반 알림 문구로 대응한다. 7단계에서 전용 문구·클릭·조회와 호환 검증을 구현한다.
 공유·운영 DB 적용, 실제 초대 외부 푸시 수신, OS 알림 클릭과 배포는 아직 수행하지 않았다.
 로컬 검증과 실제 운영 검증의 결과를 구분해 후속 단계에서 갱신한다.
@@ -125,3 +126,15 @@ INVITATION을 RECRUITMENT로 바꾸면 모집 집계 의미도 달라진다. 실
 ### 개인 메시지 제거 증분 DDL
 
 [메시지 제거 DDL](../../db/migrations/2026-10-11-invitation-message-removal.sql)은 기존 초대 DDL 이후 적용하며 재적용할 수 있다. 개인 메시지 컬럼과 기존 텍스트는 삭제하고 초대 식별자·토큰·수락 이력은 보존한다. 적용 후에는 message 컬럼을 참조하는 구 백엔드로 되돌릴 수 없으므로 메시지를 제거한 백엔드를 유지한다. 이 DDL은 격리된 테스트 DB에서만 검증했으며 공유·운영 DB에는 적용하지 않았다.
+
+## 초대 수락과 원자성 확인
+
+수락은 지정 대상 또는 공유 토큰을 확인한 뒤 기존 구성원에게 200과 기존 소속을 반환한다. 신규 합류는 201이며 소속·수락 이력·모든 기존 PENDING 승인은 같은 트랜잭션에서 처리한다. 일반 승인 알림은 추가하지 않는다. 모집 마감·정원은 초대 합류를 제한하지 않는다.
+
+동시성 방식은 [백엔드 ADR 0019](../adr/0019-optimistic-invitation-acceptance.md)를 따른다. 정상 수락은 모임의 배타적 잠금을 잡거나 모임·초대 버전을 증가시키지 않는다. 소속·수락 유일 제약 및 신청·초대·모임 버전 충돌은 전체 롤백 후 새 트랜잭션에서 다시 판단한다. 최초 요청을 포함해 최대 세 번 시도하며 계속 충돌하면 CONCURRENT_MODIFICATION(409)을 반환한다. 그 외 저장 실패는 재시도하지 않는다.
+
+일반 모집의 정원 보호를 위한 모집 잠금과 대기 신청의 중복 방지를 위한 신청 생성의 기존 모임 잠금은 유지한다. 수락과 일반 승인에서는 신청 변경을 소속 저장 전에 flush하여 버전 충돌을 먼저 확인하고, 소속 저장 이후 PENDING을 다시 조회해 그 사이에 생성된 신청도 승인한다. 확인 처리·철회·모임 종료도 관련 버전 충돌을 새 트랜잭션에서 재판단한다.
+
+[버전 추가 DDL](../../db/migrations/2026-10-11-invitation-optimistic-locking.sql)은 기존 초대 DDL 이후 적용한다. 기존 행의 버전은 0으로 시작하고 재적용 시 이미 증가한 버전을 보존한다. 직접 SQL로 모임·초대·신청의 상태를 변경한다면 version도 증가시켜야 수락의 상태 검증이 이를 감지한다. 구 백엔드와 새 백엔드가 동시에 상태를 변경하면 이 규칙을 보장할 수 없으므로 상태 변경을 처리하는 백엔드를 함께 전환한다. 실제 공유·운영 DB에는 적용하지 않았다.
+
+그룹 삭제의 초대 FK 정리는 10단계에서 구현한다. 동시성 변경만으로 삭제 연계가 완료된 것은 아니다.

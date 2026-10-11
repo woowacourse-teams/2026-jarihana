@@ -87,3 +87,4 @@ URL에 버전 경로를 붙이지 않는다.
 | 권한 부족 | `ACCESS_DENIED` | 403 |
 | 리소스 없음 | `*_NOT_FOUND` | 404 |
 | 현재 상태와 요청 충돌 | `*_CONFLICT` | 409 |
+| 낙관적 버전 충돌 또는 제한된 동시성 재시도 소진 | `CONCURRENT_MODIFICATION` | 409 |

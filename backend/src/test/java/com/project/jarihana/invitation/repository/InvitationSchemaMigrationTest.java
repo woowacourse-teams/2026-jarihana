@@ -64,6 +64,7 @@ class InvitationSchemaMigrationTest extends IntegrationTestSupport {
                 buildSchema(isolated, schema, "create");
                 jdbc.execute("drop table invitation_acceptance, invitation");
                 jdbc.execute("alter table registration drop column approval_origin");
+                jdbc.execute("alter table registration drop column version");
                 for (String table : List.of("member", "groups", "group_recruitment")) {
                     jdbc.execute("insert into " + table + " select * from public." + table);
                 }
@@ -74,6 +75,7 @@ class InvitationSchemaMigrationTest extends IntegrationTestSupport {
                             registered_at, decided_at, decided_by_type, decided_by_member_id, leader_viewed_at, created_at, updated_at
                         from public.registration
                         """);
+                jdbc.execute("alter table groups drop column version");
                 assertThat(jdbc.queryForObject("select count(*) from registration where status = 'APPROVED'", Long.class)).isEqualTo(1);
                 assertThatThrownBy(() -> buildSchema(isolated, schema, "validate")).isInstanceOf(SchemaManagementException.class);
 
@@ -81,11 +83,17 @@ class InvitationSchemaMigrationTest extends IntegrationTestSupport {
                 ResourceDatabasePopulator migration = new ResourceDatabasePopulator(
                         new FileSystemResource("db/migrations/2026-10-11-invitation.sql"));
                 migration.execute(isolated);
+                ResourceDatabasePopulator versioning = new ResourceDatabasePopulator(
+                        new FileSystemResource("db/migrations/2026-10-11-invitation-optimistic-locking.sql"));
+                versioning.execute(isolated);
+                versioning.execute(isolated);
                 buildSchema(isolated, schema, "validate");
 
                 // Then
                 assertThat(jdbc.queryForObject("select count(*) from registration", Long.class)).isEqualTo(3);
                 assertThat(jdbc.queryForObject("select count(*) from registration where approval_origin = 'RECRUITMENT'", Long.class)).isEqualTo(3);
+                assertThat(jdbc.queryForObject("select count(*) from registration where version = 0", Long.class)).isEqualTo(3);
+                assertThat(jdbc.queryForObject("select count(*) from groups where version = 0", Long.class)).isEqualTo(1);
                 assertThat(jdbc.queryForObject("select count(*) from registration where status = 'APPROVED' and approval_origin = 'RECRUITMENT'", Long.class)).isEqualTo(1);
                 assertThat(jdbc.queryForList("select distinct data_type from information_schema.columns where table_schema = '" + schema
                         + "' and table_name in ('invitation', 'invitation_acceptance') and column_name in ('created_at','updated_at','expires_at','revoked_at','accepted_at')", String.class))
@@ -98,6 +106,9 @@ class InvitationSchemaMigrationTest extends IntegrationTestSupport {
                         new FileSystemResource("db/migrations/2026-10-11-invitation-message-removal.sql"));
                 messageRemoval.execute(isolated);
                 messageRemoval.execute(isolated);
+                jdbc.update("update invitation set version = 7 where id = 1");
+                versioning.execute(isolated);
+                assertThat(jdbc.queryForObject("select version from invitation where id = 1", Long.class)).isEqualTo(7);
                 assertThat(jdbc.queryForObject("select count(*) from information_schema.columns where table_schema = ? and table_name = 'invitation' and column_name = 'message'", Integer.class, schema)).isZero();
                 assertThat(jdbc.queryForObject("select encrypted_token from invitation where id = 1", String.class)).isEqualTo("encrypted-value");
                 assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isEqualTo(1);

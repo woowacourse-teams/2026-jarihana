@@ -3,6 +3,7 @@ package com.project.jarihana.group.command.service;
 import com.project.jarihana.activitypost.command.service.ActivityPostCommandService;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.common.transaction.ConcurrentCommandExecutor;
 import com.project.jarihana.group.command.repository.GroupCommandRepository;
 import com.project.jarihana.group.command.service.dto.*;
 import com.project.jarihana.group.domain.*;
@@ -56,6 +57,7 @@ public class GroupCommandService {
     private final ImageStorage imageStorage;
     private final Clock clock;
     private final ApplicationEventPublisher events;
+    private final ConcurrentCommandExecutor concurrentCommands;
 
     public GroupCommandService(
             MemberRepository memberRepository,
@@ -67,7 +69,8 @@ public class GroupCommandService {
             ImageUploadCommandRepository imageUploadCommandRepository,
             ImageStorage imageStorage,
             Clock clock,
-            ApplicationEventPublisher events
+            ApplicationEventPublisher events,
+            ConcurrentCommandExecutor concurrentCommands
     ) {
         this.memberRepository = memberRepository;
         this.groupCommandRepository = groupCommandRepository;
@@ -79,6 +82,7 @@ public class GroupCommandService {
         this.imageStorage = imageStorage;
         this.clock = clock;
         this.events = events;
+        this.concurrentCommands = concurrentCommands;
     }
 
     @Transactional
@@ -246,8 +250,11 @@ public class GroupCommandService {
         groupCommandRepository.delete(group);
     }
 
-    @Transactional
     public TerminateGroupResult terminateGroup(Long memberId, Long groupId, TerminateGroupCommand command) {
+        return concurrentCommands.execute(() -> terminateGroupInTransaction(memberId, groupId, command));
+    }
+
+    private TerminateGroupResult terminateGroupInTransaction(Long memberId, Long groupId, TerminateGroupCommand command) {
         Group group = groupCommandRepository.findById(groupId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND, GROUP_NOT_FOUND_MESSAGE));
         Member member = memberRepository.findById(memberId)

@@ -24,6 +24,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -43,6 +44,32 @@ class InvitationStorageTest extends IntegrationTestSupport {
     @Autowired private GroupRecruitmentCommandRepository recruitments;
     @Autowired private RegistrationCommandRepository registrations;
     @Autowired private PlatformTransactionManager transactionManager;
+
+    @Test
+    @DisplayName("모임·초대·신청의 불변 상태 전이는 버전을 보존해 과거 인스턴스의 덮어쓰기를 거부한다.")
+    void immutableTransitionsRejectStaleGroupInvitationAndRegistration() {
+        // Given
+        Fixture fixture = fixture();
+        Group staleGroup = groups.findById(fixture.group().getId()).orElseThrow();
+        Invitation staleInvitation = invitations.save(Invitation.issueDirect(
+                staleGroup, fixture.inviter(), fixture.first(), UUID.randomUUID(), NOW));
+        GroupRecruitment recruitment = recruitments.save(GroupRecruitment.create(
+                staleGroup, JoinMethod.APPROVAL, 3, NOW, NOW.plusDays(1)));
+        Registration staleRegistration = registrations.save(Registration.createPending(recruitment, fixture.first(), null, NOW));
+
+        // When
+        groups.save(staleGroup.modify("변경된 모임", "변경된 소개", null, null, null, null));
+        invitations.save(staleInvitation.revoke(NOW.plusMinutes(1)));
+        registrations.save(staleRegistration.approveByInvitation(NOW.plusMinutes(1)));
+
+        // Then
+        assertThatThrownBy(() -> groups.save(staleGroup.endAt(NOW.plusDays(2))))
+                .isInstanceOf(OptimisticLockingFailureException.class);
+        assertThatThrownBy(() -> invitations.save(staleInvitation.revoke(NOW.plusMinutes(2))))
+                .isInstanceOf(OptimisticLockingFailureException.class);
+        assertThatThrownBy(() -> registrations.save(staleRegistration.rejectBySystem("이전 상태", NOW.plusMinutes(2))))
+                .isInstanceOf(OptimisticLockingFailureException.class);
+    }
 
     @Test
     @DisplayName("두 초대 유형과 수락 이력을 저장하고 기존 일반 승인 출처를 함께 조회한다.")
@@ -106,6 +133,18 @@ class InvitationStorageTest extends IntegrationTestSupport {
                 invitations.save(Invitation.issueLink(fixture.group(), fixture.inviter(), UUID.randomUUID(),
                         "a".repeat(64), "encrypted-value", NOW))))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("저장소에서 다시 조회한 지정 대상 프록시는 같은 ID의 실제 회원과 수락 이력을 생성할 수 있다.")
+    void directTargetProxyMatchesPersistedMemberId() {
+        Fixture fixture = fixture();
+        Invitation stored = invitations.save(Invitation.issueDirect(fixture.group(), fixture.inviter(),
+                fixture.first(), UUID.randomUUID(), NOW));
+        Invitation loaded = invitations.findById(stored.getId()).orElseThrow();
+        InvitationAcceptance acceptance = InvitationAcceptance.create(loaded, fixture.first(), NOW.plusMinutes(1));
+        assertThat(acceptance.getMember()).isSameAs(fixture.first());
+        assertThat(acceptances.save(acceptance).getId()).isNotNull();
     }
 
     private Fixture fixture() {

@@ -16,6 +16,9 @@ public interface RegistrationCommandRepository extends Repository<Registration, 
 
     List<Registration> findAllByRecruitmentGroupIdAndStatus(long groupId, RegistrationStatus status);
 
+    List<Registration> findAllByRecruitmentGroupIdAndMemberIdAndStatusOrderByIdAsc(
+            long groupId, long memberId, RegistrationStatus status);
+
     List<Registration> findAllByRecruitmentIdInAndStatus(
             List<Long> recruitmentIds,
             RegistrationStatus status
@@ -39,6 +42,10 @@ public interface RegistrationCommandRepository extends Repository<Registration, 
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Registration> findWithLockByIdAndRecruitmentId(long id, long recruitmentId);
+
+    Optional<Registration> findByIdAndRecruitmentId(long id, long recruitmentId);
+
+    void flush();
 
     Optional<Registration> findById(Long id);
 

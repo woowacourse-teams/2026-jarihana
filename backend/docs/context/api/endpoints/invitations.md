@@ -1,7 +1,7 @@
 # 초대
 
 > 상태: 발급·회원 후보 검색·수신/발급 목록·상세·공개 미리보기·취소를 구현했다.
-> 초대 수락 API는 아직 구현되지 않았다. 조회·취소 계약은 실제 PostgreSQL·HTTP 인수 테스트로 검증한다.
+> 초대 수락·소속 생성·기존 대기 신청 승인도 구현했다. 실제 PostgreSQL·HTTP 인수 테스트로 검증한다.
 > 실행 계약은 Controller·DTO·ErrorCode와 RestAssured 인수 테스트로 확인한다. 저장소에는 OpenAPI 생성 의존성이 없어 자동 스키마 검증은 수행하지 않았다.
 
 [공통 계약](../common-contract.md), [API 컨벤션](../../../conventions/api.md),
@@ -480,7 +480,7 @@ DIRECT의 요청은 위와 같이 빈 객체다. LINK는 다음과 같이 token�
 #### 부수 효과
 
 신규 합류는 소속·수락 이력·기존 PENDING 신청 승인을 부분 반영 없이 처리한다.
-이미 참여 중이면 소속·수락 이력·신청 승인 결과를 추가하지 않는다.
+이미 참여 중이면 소속·수락 이력·신청 승인 결과를 추가하지 않는다. 초대 수락으로 일반 모집 승인 사건을 발행하지 않아 추가 승인 알림을 만들지 않는다.
 합류와 신청 처리 규칙은 [초대 정책](../../domain/business-policies.md#기존-신청-이력과-모집-정원)을 따른다.
 
 #### 예외
@@ -492,6 +492,8 @@ DIRECT의 요청은 위와 같이 빈 객체다. LINK는 다음과 같이 token�
 | 시간 만료·발급자 소속 상실 | `INVITATION_EXPIRED` | 409 |
 | 취소된 초대 | `INVITATION_REVOKED` | 409 |
 | 종료된 그룹의 신규 합류 | `GROUP_ENDED` | 409 |
+| 최초 요청을 포함한 세 번의 시도가 모두 동시성 충돌 | `CONCURRENT_MODIFICATION` | 409 |
+| 초대 ID·공유 토큰 형식 오류, DIRECT에 token 전달 | `INVALID_PARAMETER` | 400 |
 
 ### `PATCH /api/invitations/{invitationId}/revoke`
 
@@ -538,7 +540,7 @@ Request Body는 없다.
 
 ## 오류 계약
 
-아래 공통 예외와 각 엔드포인트의 개별 예외를 함께 적용한다. INVITATION_REQUEST_CONFLICT·INVITATION_UNAVAILABLE·INVITATION_NOT_FOUND·INVITATION_ACCESS_DENIED를 구현했고 수락 전용 만료·취소 오류는 6단계에서 구현한다.
+아래 공통 예외와 각 엔드포인트의 개별 예외를 함께 적용한다. INVITATION_REQUEST_CONFLICT·INVITATION_UNAVAILABLE·INVITATION_NOT_FOUND·INVITATION_ACCESS_DENIED·INVITATION_EXPIRED·INVITATION_REVOKED를 구현했다.
 권한 확인은 초대 유효 상태나 개인정보 상세를 제공하기 전에 수행한다.
 
 | 상황 | 코드 | HTTP |

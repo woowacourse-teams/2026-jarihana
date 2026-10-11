@@ -2,6 +2,7 @@ package com.project.jarihana.invitation.command.service;
 
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.common.transaction.ConcurrentCommandExecutor;
 import com.project.jarihana.group.command.repository.GroupCommandRepository;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
@@ -12,6 +13,12 @@ import com.project.jarihana.notificationdelivery.command.repository.Notification
 import com.project.jarihana.invitation.command.repository.InvitationAcceptanceCommandRepository;
 import com.project.jarihana.invitation.command.repository.InvitationCommandRepository;
 import com.project.jarihana.invitation.command.service.dto.CreateInvitationCommand;
+import com.project.jarihana.invitation.command.service.dto.AcceptInvitationCommand;
+import com.project.jarihana.invitation.command.service.dto.AcceptInvitationResult;
+import com.project.jarihana.invitation.domain.InvitationAcceptance;
+import com.project.jarihana.groupmember.domain.GroupMember;
+import com.project.jarihana.registration.command.repository.RegistrationCommandRepository;
+import com.project.jarihana.registration.domain.RegistrationStatus;
 import com.project.jarihana.invitation.command.service.dto.CreateInvitationResult;
 import com.project.jarihana.invitation.domain.Invitation;
 import com.project.jarihana.invitation.domain.InvitationStatus;
@@ -41,6 +48,63 @@ public class InvitationCommandService {
     private final Clock clock;
     private final NotificationCommandRepository notifications;
     private final NotificationDeliveryCommandRepository deliveries;
+    private final RegistrationCommandRepository registrations;
+    private final ConcurrentCommandExecutor concurrentCommands;
+
+    public AcceptInvitationResult acceptInvitation(long memberId, long invitationId, AcceptInvitationCommand command) {
+        return concurrentCommands.execute(() -> acceptInvitationInTransaction(memberId, invitationId, command));
+    }
+
+    private AcceptInvitationResult acceptInvitationInTransaction(long memberId, long invitationId, AcceptInvitationCommand command) {
+        if (invitationId <= 0 || command == null) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "초대 수락 요청이 올바르지 않습니다.");
+        }
+        Member member = members.findById(memberId).filter(value -> value.getWithdrawnAt() == null)
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHENTICATED, "인증 정보가 필요합니다."));
+        long groupId = invitations.findGroupIdById(invitationId).orElseThrow(InvitationCommandService::notFound);
+        Group group = groups.findWithOptimisticLockById(groupId).orElseThrow(InvitationCommandService::notFound);
+        Invitation invitation = invitations.findWithOptimisticLockById(invitationId).orElseThrow(InvitationCommandService::notFound);
+        if (invitation.getType() == InvitationType.DIRECT) {
+            if (invitation.getTargetMember().getId() != memberId) {
+                throw new BusinessException(ErrorCode.INVITATION_ACCESS_DENIED, "지정된 회원만 초대를 수락할 수 있습니다.");
+            }
+            if (command.token() != null) {
+                throw new BusinessException(ErrorCode.INVALID_PARAMETER, "지정 초대에는 공유 토큰을 전달하지 않습니다.");
+            }
+        } else if (command.token() == null || !Objects.equals(tokens.hash(command.token()), invitation.getTokenHash())) {
+            throw notFound();
+        }
+        var existing = groupMembers.findByGroupIdAndMemberId(groupId, memberId);
+        if (existing.isPresent()) {
+            var membership = existing.orElseThrow();
+            return new AcceptInvitationResult(false, invitationId, groupId, membership.getId(), membership.getJoinedAt());
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        boolean inviterPresent = invitation.getInviterMember().getWithdrawnAt() == null
+                && groupMembers.findByGroupIdAndMemberId(groupId, invitation.getInviterMember().getId()).isPresent();
+        InvitationStatus status = InvitationStatus.resolve(invitation.getType(), invitation.getRevokedAt(), group.isActive(),
+                inviterPresent, invitation.getExpiresAt(), false, now);
+        switch (status) {
+            case REVOKED -> throw new BusinessException(ErrorCode.INVITATION_REVOKED, "취소된 초대입니다.");
+            case GROUP_ENDED -> throw new BusinessException(ErrorCode.GROUP_ENDED, "종료된 모임에는 합류할 수 없습니다.");
+            case EXPIRED -> throw new BusinessException(ErrorCode.INVITATION_EXPIRED, "만료된 초대입니다.");
+            case ACCEPTED -> throw new BusinessException(ErrorCode.INVALID_PARAMETER, "이미 수락한 초대입니다.");
+            case ACTIVE -> { }
+        }
+        approvePendingRegistrations(groupId, memberId, now);
+        registrations.flush();
+        GroupMember membership = groupMembers.save(GroupMember.createMember(group, member, now));
+        approvePendingRegistrations(groupId, memberId, now);
+        acceptances.save(InvitationAcceptance.create(invitation, member, now));
+        return new AcceptInvitationResult(true, invitationId, groupId, membership.getId(), membership.getJoinedAt());
+    }
+
+    private void approvePendingRegistrations(long groupId, long memberId, LocalDateTime now) {
+        for (var pending : registrations.findAllByRecruitmentGroupIdAndMemberIdAndStatusOrderByIdAsc(
+                groupId, memberId, RegistrationStatus.PENDING)) {
+            registrations.save(pending.approveByInvitation(now));
+        }
+    }
 
     @Transactional
     public RevokeInvitationResult revokeInvitation(long memberId, long invitationId) {

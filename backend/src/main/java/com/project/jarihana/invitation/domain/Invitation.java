@@ -17,6 +17,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -36,6 +37,10 @@ public class Invitation extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "group_id", nullable = false)
@@ -108,6 +113,7 @@ public class Invitation extends BaseEntity {
     private Invitation(Invitation source, LocalDateTime revokedAt) {
         super(source.getCreatedAt());
         this.id = source.id;
+        this.version = source.version;
         this.group = source.group;
         this.inviterMember = source.inviterMember;
         this.targetMember = source.targetMember;

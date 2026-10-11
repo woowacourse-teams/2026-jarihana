@@ -50,7 +50,9 @@ public class InvitationAcceptance extends BaseEntity {
         if (acceptedAt.isBefore(invitation.getCreatedAt())) {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "수락 시각은 초대 발급 시각보다 빠를 수 없습니다.");
         }
-        if (invitation.getType() == InvitationType.DIRECT && !member.equals(invitation.getTargetMember())) {
+        Member target = invitation.getTargetMember();
+        if (invitation.getType() == InvitationType.DIRECT && member != target
+                && (member.getId() == null || !Objects.equals(member.getId(), target.getId()))) {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "지정된 회원만 초대 수락 이력을 남길 수 있습니다.");
         }
         this.invitation = invitation;

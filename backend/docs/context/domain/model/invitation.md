@@ -1,6 +1,6 @@
 # Invitation · InvitationAcceptance
 
-> 상태: 저장·발급·회원 후보·수신/발급 목록·상세·공개 미리보기·취소 구현. 실제 수락·합류 연결은 아직 미구현이다.
+> 상태: 저장·발급·회원 후보·수신/발급 목록·상세·공개 미리보기·취소 구현. 수락·합류·기존 대기 신청 승인도 구현했다.
 > 모델 분리와 승인 출처 선택은 [ADR 0017](../../../adr/0017-separate-invitation-acceptance-history.md)을 따른다.
 
 ## Invitation
@@ -11,6 +11,7 @@
 | 필드 | 타입 | 제약 | 설명 |
 | --- | --- | --- | --- |
 | id | Long | PK | 초대 식별자 |
+| version | Long | NOT NULL, 영속화 전 null | 취소와 수락 사이의 낙관적 상태 검증 버전 |
 | groupId | Long | NOT NULL | 합류할 그룹 |
 | inviterMemberId | Long | NOT NULL | 초대를 발급한 회원 |
 | type | Enum | NOT NULL | DIRECT 또는 LINK |
@@ -29,6 +30,7 @@ DIRECT의 토큰 저장 필드는 null이다. LINK는 32바이트 난수의 패�
 
 ## 모델 규칙
 
+- 취소 상태 전이는 읽은 버전을 보존한다. 수락은 초대·모임 버전을 검증하되 수락만으로 이 버전들을 증가시키지 않는다. 충돌 처리의 선택과 비용은 [백엔드 ADR 0019](../../../adr/0019-optimistic-invitation-acceptance.md)를 따른다.
 - DIRECT는 특정 가입 완료 회원을 대상으로 하며 대상은 발급 후 바꾸지 않는다.
 - LINK는 링크 소지자를 대상으로 한다. 첫 수락으로 초대 자체가 소비되지 않는다.
 - DIRECT는 시간 만료가 없고 LINK는 초기 약 3일의 유효 기간을 가진다.
@@ -50,7 +52,7 @@ DIRECT의 토큰 저장 필드는 null이다. LINK는 32바이트 난수의 패�
 | acceptedAt | LocalDateTime | NOT NULL | 실제 신규 합류 시각 |
 
 같은 invitationId·memberId는 유일하다. 생성 시 지정 대상 일치와 발급 이후 수락 시각을 검증한다.
-현재 소속·만료·취소 검증과 소속 생성의 원자적 연결은 6단계의 수락 서비스에서 구현한다.
+수락 서비스에서 대상 ID·공유 토큰 자격을 확인하고 소속·수락 이력·기존 PENDING 승인을 원자적으로 저장한다. 프록시 대상 비교에는 ID getter를 사용하며 회원 전체의 equals 정책을 바꾸지 않는다.
 
 ## 모델 관계와 조회 상태
 

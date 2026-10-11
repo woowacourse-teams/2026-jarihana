@@ -23,6 +23,10 @@ public class Group extends BaseEntity {
     @Column(name = "id")
     private Long id;
 
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 20)
     private GroupType type;
@@ -68,6 +72,7 @@ public class Group extends BaseEntity {
 
     private Group(
             Long id,
+            Long version,
             GroupType type,
             MeetingType meetingType,
             String location,
@@ -82,6 +87,7 @@ public class Group extends BaseEntity {
     ) {
         super(require(createdAt, "생성 시각"));
         this.id = id;
+        this.version = version;
         this.type = require(type, "그룹 유형");
         this.meetingType = require(meetingType, "모임 방식");
         this.location = validateNullableLength(location, 255, "장소");
@@ -188,6 +194,7 @@ public class Group extends BaseEntity {
     ) {
         return new Group(
                 null,
+                null,
                 type,
                 meetingType,
                 location,
@@ -277,6 +284,7 @@ public class Group extends BaseEntity {
     ) {
         return new Group(
                 null,
+                null,
                 GroupType.SESSION,
                 meetingType,
                 location,
@@ -339,6 +347,7 @@ public class Group extends BaseEntity {
         requireActive();
         return new Group(
                 id,
+                version,
                 type,
                 meetingType,
                 location,
@@ -366,6 +375,7 @@ public class Group extends BaseEntity {
         }
         return new Group(
                 id,
+                version,
                 type,
                 meetingType,
                 location,
@@ -390,6 +400,7 @@ public class Group extends BaseEntity {
         }
         return new Group(
                 id,
+                version,
                 type,
                 meetingType,
                 location,
@@ -411,6 +422,7 @@ public class Group extends BaseEntity {
         }
         return new Group(
                 id,
+                version,
                 type,
                 meetingType,
                 location,
@@ -431,6 +443,7 @@ public class Group extends BaseEntity {
         }
         return new Group(
                 id,
+                version,
                 type,
                 meetingType,
                 location,

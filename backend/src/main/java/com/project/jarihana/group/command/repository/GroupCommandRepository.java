@@ -15,6 +15,13 @@ public interface GroupCommandRepository extends Repository<Group, Long> {
 
     Optional<Group> findById(Long id);
 
+    @Lock(LockModeType.OPTIMISTIC)
+    Optional<Group> findWithOptimisticLockById(long id);
+
+    @Lock(LockModeType.OPTIMISTIC)
+    @Query("select recruitment.group from GroupRecruitment recruitment where recruitment.id = :recruitmentId")
+    Optional<Group> findWithOptimisticLockByRecruitmentId(@Param("recruitmentId") long recruitmentId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Group> findWithLockById(long id);
 

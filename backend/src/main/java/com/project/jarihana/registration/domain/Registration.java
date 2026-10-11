@@ -26,6 +26,10 @@ public class Registration extends BaseEntity {
     @Column(name = "id")
     private Long id;
 
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "recruitment_id", nullable = false)
     private GroupRecruitment recruitment;
@@ -62,6 +66,7 @@ public class Registration extends BaseEntity {
 
     private Registration(
             Long id,
+            Long version,
             GroupRecruitment recruitment,
             Member member,
             String message,
@@ -75,6 +80,7 @@ public class Registration extends BaseEntity {
     ) {
         super(registeredAt);
         this.id = id;
+        this.version = version;
         this.recruitment = require(recruitment, "모집 공고");
         this.member = require(member, "회원");
         this.message = validateNullableLength(message, MESSAGE_MAX_LENGTH, "신청 메시지");
@@ -136,6 +142,7 @@ public class Registration extends BaseEntity {
         validateRecruitmentOpen(recruitment, registeredAt);
         return new Registration(
                 null,
+                null,
                 recruitment,
                 member,
                 message,
@@ -180,6 +187,7 @@ public class Registration extends BaseEntity {
         }
         return new Registration(
                 null,
+                null,
                 recruitment,
                 member,
                 message,
@@ -220,6 +228,7 @@ public class Registration extends BaseEntity {
     ) {
         return new Registration(
                 id,
+                version,
                 recruitment,
                 member,
                 message,
@@ -236,6 +245,7 @@ public class Registration extends BaseEntity {
     public Registration viewByLeader(LocalDateTime viewedAt) {
         return new Registration(
                 id,
+                version,
                 recruitment,
                 member,
                 message,

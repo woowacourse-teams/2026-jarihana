@@ -201,3 +201,5 @@ DB 접속값과 인증·OAuth·S3 설정은 개발 Compose의 환경 변수로 �
 설정·DB 적용·로컬 테스트·배포·장애 확인은 [웹푸시 운영 가이드](docs/operations/web-push.md)를 확인합니다.
 
 초대 저장 DDL 적용 후에는 [개인 초대 메시지 제거 DDL](db/migrations/2026-10-11-invitation-message-removal.sql)도 적용한다. 적용 순서와 복구 제한은 [초대 운영 문서](docs/operations/invitations.md#개인-메시지-제거-증분-ddl)를 따른다.
+
+초대 수락을 포함한 백엔드를 배포하기 전에는 [낙관적 잠금 버전 DDL](db/migrations/2026-10-11-invitation-optimistic-locking.sql)을 적용한다. Group·Invitation·Registration의 기존 행에 버전 0을 추가하며 재적용 시 현재 버전을 보존한다. 선택 이유는 [백엔드 ADR 0019](docs/adr/0019-optimistic-invitation-acceptance.md)를 따른다.
