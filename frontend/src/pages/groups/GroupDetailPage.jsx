@@ -11,6 +11,7 @@ import {
   useWithdrawRegistration
 } from "../../features/registration/index.js";
 import { ActivityPostBoard } from "../activity-posts/ActivityPostBoard.jsx";
+import { GroupCalendarTab } from "./GroupCalendarTab.jsx";
 import { toUserMessage } from "../../shared/api/index.js";
 import { captureEvent, getPromotionAttribution } from "../../shared/analytics/index.js";
 import scheduleIcon from "../../shared/assets/figma/edit-05.svg";
@@ -50,6 +51,7 @@ import "./groups.css";
 
 const tabs = [
   { label: "소개", value: "intro" },
+  { label: "캘린더", value: "calendar" },
   { label: "활동 기록", value: "activities" },
   { label: "참여자", value: "members" }
 ];
@@ -320,12 +322,17 @@ export function GroupDetailPage() {
                 {
                   label: tabs[1].label,
                   value: tabs[1].value,
-                  content:
-                    selectedTab === "activities" ? <ActivityTab group={group} /> : null
+                  content: selectedTab === "calendar" ? <GroupCalendarTab groupId={groupId} groupType={group.type} isLeader={isLeader && !isArchived} isMember={isApprovedMember} sessionSchedule={group.sessionSchedule} /> : null
                 },
                 {
                   label: tabs[2].label,
                   value: tabs[2].value,
+                  content:
+                    selectedTab === "activities" ? <ActivityTab group={group} /> : null
+                },
+                {
+                  label: tabs[3].label,
+                  value: tabs[3].value,
                   content: selectedTab === "members" ? <MemberTab groupId={groupId} /> : null
                 }
               ]}

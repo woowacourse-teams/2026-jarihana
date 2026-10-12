@@ -2,9 +2,9 @@
 
 > 상태: 저장소 최신 설계 기준
 >
-> 구현·테스트·Swagger/OpenAPI와 충돌하면 임의로 해석하지 않고 차이를 보고한다.
+> 구현·테스트와 충돌하면 임의로 해석하지 않고 차이를 보고한다.
 
-저장소의 구속력 있는 API 문서화 규칙은 [API 문서화 컨벤션](../../conventions/api.md)을 따른다. 이 문서는 저장소에 정리된 최신 API 설계 의도를 전달하며, 실행 가능한 계약은 Swagger/OpenAPI와 인수 테스트로 검증한다.
+저장소의 구속력 있는 API 문서화 규칙은 [API 문서화 컨벤션](../../conventions/api.md)을 따른다. 이 문서는 저장소에 정리된 최신 API 설계 의도를 전달하며, 실제 계약은 Controller·요청/응답 DTO·ErrorCode와 RestAssured 인수 테스트로 확인한다.
 
 ## Base Path
 

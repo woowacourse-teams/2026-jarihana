@@ -4,10 +4,25 @@ import { getSafeNextCursor } from "../../entities/cursor/index.js";
 import { captureEvent } from "../../shared/analytics/index.js";
 import {
   createGroup,
+  createGroupEvent,
+  createRecurringOccurrenceOverride,
+  updateGroupEvent,
+  deleteGroupEvent,
+  deleteRecurringOccurrence,
+  deleteScopedRecurringSchedule,
   deleteGroup,
   fetchGroup,
+  fetchGroupCalendar,
+  fetchGroupEventDetail,
+  fetchGroupRecurringManage,
+  registerGroupRecurringSeries,
+  fetchGroupRecurringPeriod,
+  fetchGroupScheduleDetail,
   fetchGroups,
   modifyGroup,
+  replaceScopedRecurringSchedule,
+  updateGroupRecurringRange,
+  setGroupCalendarVisibility,
   removeRecurringSchedule,
   replaceRecurringSchedule,
   replaceSessionSchedule,
@@ -19,7 +34,8 @@ export const groupKeys = {
   lists: () => ["groups", "list"],
   list: (filters) => ["groups", "list", filters],
   details: () => ["groups", "detail"],
-  detail: (groupId) => ["groups", "detail", groupId]
+  detail: (groupId) => ["groups", "detail", groupId],
+  calendar: (groupId, range) => ["groups", "calendar", groupId, range?.from, range?.to]
 };
 
 export function useGroups(filters = {}) {
@@ -54,6 +70,117 @@ export function useGroup(groupId) {
   });
 }
 
+export function useGroupCalendar(groupId, range) {
+  return useQuery({
+    queryKey: groupKeys.calendar(groupId, range),
+    queryFn: () => fetchGroupCalendar(groupId, range),
+    enabled: Boolean(groupId && range)
+  });
+}
+
+export function useCreateGroupEvent(groupId) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (values) => createGroupEvent(groupId, values),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["groups", "calendar", groupId] })
+  });
+}
+
+export function useUpdateGroupEvent(groupId) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ eventId, ...values }) => updateGroupEvent(groupId, eventId, values),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["groups", "calendar", groupId] })
+  });
+}
+
+export function useDeleteGroupEvent(groupId) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ eventId, version }) => deleteGroupEvent(groupId, eventId, version),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["groups", "calendar", groupId] })
+  });
+}
+
+export function useGroupCalendarEventDetail(groupId, event, viewerId, sessionVersion, enabled) {
+  return useQuery({
+    queryKey: ["groups", "calendar-private-detail", viewerId, sessionVersion, groupId,
+      event?.kind, event?.id ?? event?.occurrenceKey],
+    queryFn: () => event.kind === "GROUP_EVENT" || event.kind === "REGULAR_MEETING"
+      || event.kind === "RECURRING" && event.id != null
+      ? fetchGroupEventDetail(groupId, event.id)
+      : fetchGroupScheduleDetail(groupId, event.kind, event.startDate),
+    enabled: Boolean(enabled && viewerId && event),
+    gcTime: 0,
+    staleTime: 0
+  });
+}
+
+export function useGroupRecurringManage(groupId, enabled, viewerId, sessionVersion) {
+  return useQuery({
+    queryKey: ["groups", "recurring-manage", groupId, viewerId, sessionVersion],
+    queryFn: () => fetchGroupRecurringManage(groupId),
+    enabled: Boolean(groupId && enabled && viewerId),
+    staleTime: 0,
+    gcTime: 0
+  });
+}
+
+export function useGroupRecurringPeriod(groupId, periodId, enabled, viewerId, sessionVersion) {
+  return useQuery({
+    queryKey: ["groups", "recurring-period", groupId, periodId, viewerId, sessionVersion],
+    queryFn: () => fetchGroupRecurringPeriod(groupId, periodId),
+    enabled: Boolean(groupId && periodId && enabled && viewerId),
+    staleTime: 0,
+    gcTime: 0
+  });
+}
+
+function useRecurringMutation(groupId, mutationFn) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSuccess: () => Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["groups", "calendar", groupId] }),
+      queryClient.invalidateQueries({ queryKey: ["groups", "recurring-manage", groupId] }),
+      queryClient.invalidateQueries({ queryKey: ["groups", "recurring-period", groupId] }),
+      queryClient.invalidateQueries({ queryKey: groupKeys.detail(groupId) })
+    ])
+  });
+}
+
+export function useReplaceScopedRecurringSchedule(groupId) {
+  return useRecurringMutation(groupId, (values) => replaceScopedRecurringSchedule(groupId, values));
+}
+
+export function useRegisterGroupRecurringSeries(groupId) {
+  return useRecurringMutation(groupId, (values) => registerGroupRecurringSeries(groupId, values));
+}
+
+export function useUpdateGroupRecurringRange(groupId) {
+  return useRecurringMutation(groupId, (values) => updateGroupRecurringRange(groupId, values));
+}
+
+export function useDeleteScopedRecurringSchedule(groupId) {
+  return useRecurringMutation(groupId, (values) => deleteScopedRecurringSchedule(groupId, values));
+}
+
+export function useCreateRecurringOccurrenceOverride(groupId) {
+  return useRecurringMutation(groupId, (values) => createRecurringOccurrenceOverride(groupId, values));
+}
+
+export function useDeleteRecurringOccurrence(groupId) {
+  return useRecurringMutation(groupId, (values) => deleteRecurringOccurrence(groupId, values));
+}
+
+export function useSetGroupCalendarVisibility(groupId) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (visible) => setGroupCalendarVisibility(groupId, visible),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["groups", "calendar", groupId] })
+  });
+}
+
 function useGroupMutation(groupId, mutationFn) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -61,7 +188,8 @@ function useGroupMutation(groupId, mutationFn) {
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: groupKeys.lists() }),
-        queryClient.invalidateQueries({ queryKey: groupKeys.detail(groupId) })
+        queryClient.invalidateQueries({ queryKey: groupKeys.detail(groupId) }),
+        queryClient.invalidateQueries({ queryKey: ["groups", "calendar", groupId] })
       ]);
     }
   });
