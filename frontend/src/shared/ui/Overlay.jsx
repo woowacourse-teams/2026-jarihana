@@ -54,6 +54,7 @@ function OverlayPanel({
   children,
   closeAction = "dialog_close",
   closeLabel = "닫기",
+  panelClassName = "",
   description,
   dismissible = true,
   headerActions,
@@ -121,7 +122,7 @@ function OverlayPanel({
         aria-describedby={description ? descriptionId : undefined}
         aria-labelledby={titleId}
         aria-modal="true"
-        className={drawer ? "ui-drawer" : "ui-dialog"}
+        className={drawer ? "ui-drawer" : ["ui-dialog", panelClassName].filter(Boolean).join(" ")}
         ref={panelReference}
         role="dialog"
         tabIndex={-1}
@@ -175,6 +176,7 @@ export function Modal({
   onClose,
   onOpenChange,
   open,
+  panelClassName,
   title,
   trigger
 }) {
@@ -204,6 +206,7 @@ export function Modal({
           description={description}
           dismissible={dismissible}
           onDismiss={dismiss}
+          panelClassName={panelClassName}
           title={title}
         >
           {children}

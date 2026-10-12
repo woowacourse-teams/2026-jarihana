@@ -4,7 +4,7 @@
 >
 > 구현·테스트와 충돌하면 임의로 해석하지 않고 차이를 보고한다.
 
-이 문서는 저장소에서 관리하는 활성 엔드포인트 47개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청·응답·오류는 Controller·요청/응답 DTO·ErrorCode와 RestAssured 인수 테스트로 확인한다.
+이 문서는 저장소에서 관리하는 활성 엔드포인트 63개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청·응답·오류는 Controller·요청/응답 DTO·ErrorCode와 RestAssured 인수 테스트로 확인한다.
 
 이 디렉터리는 API 엔드포인트의 전체 목록과 리소스별 상세 설계를 관리한다. 모든 엔드포인트는 [API 공통 설계](../common-contract.md)를 따르며, 상세 문서에는 엔드포인트 고유 내용만 둔다.
 
@@ -35,6 +35,22 @@
 | 그룹 | `DELETE` | `/api/groups/{groupId}/recurring-schedule` | `LEADER` | 동아리·스터디를 유동적 일정으로 변경 |
 | 그룹 | `PUT` | `/api/groups/{groupId}/recurring-schedule` | `LEADER` | 동아리·스터디 반복 일정 등록 또는 교체 |
 | 그룹 | `PUT` | `/api/groups/{groupId}/session-schedule` | `LEADER` | 세션 일정 교체 |
+| 그룹 달력 | `GET` | `/api/groups/{groupId}/calendar` | `PUBLIC` | 모임 일정 제목·날짜·시각 조회 |
+| 그룹 달력 | `GET` | `/api/groups/{groupId}/calendar/schedule-details` | `MEMBER` | 정기·세션 일정의 당시 장소 조회 |
+| 그룹 달력 | `PUT` | `/api/groups/{groupId}/calendar/settings` | `LEADER` | 정기·세션 일정의 달력 표시 설정 |
+| 그룹 달력 | `POST` | `/api/groups/{groupId}/events` | `LEADER` | 개별 일정 등록 |
+| 그룹 달력 | `GET` | `/api/groups/{groupId}/events/{eventId}` | `MEMBER` | 개별 일정 상세 조회 |
+| 그룹 달력 | `PUT` | `/api/groups/{groupId}/events/{eventId}` | `LEADER` | 개별 일정 수정 |
+| 그룹 달력 | `DELETE` | `/api/groups/{groupId}/events/{eventId}` | `LEADER` | 개별 일정 삭제 |
+| 그룹 달력 | `POST` | `/api/groups/{groupId}/recurring-schedule/series` | `LEADER` | 첫 정기 규칙 등록 |
+| 그룹 달력 | `GET` | `/api/groups/{groupId}/recurring-schedule/manage` | `LEADER` | 현재 정기 일정 관리 정보 조회 |
+| 그룹 달력 | `GET` | `/api/groups/{groupId}/recurring-schedule/periods/{periodId}` | `LEADER` | 선택한 회차에 적용된 정기 규칙 조회 |
+| 그룹 달력 | `PUT` | `/api/groups/{groupId}/recurring-schedule/scoped` | `LEADER` | 정기 규칙 변경 범위 적용 |
+| 그룹 달력 | `DELETE` | `/api/groups/{groupId}/recurring-schedule/scoped` | `LEADER` | 정기 규칙 변경 범위 삭제 |
+| 그룹 달력 | `POST` | `/api/groups/{groupId}/recurring-schedule/occurrences` | `LEADER` | 반복 정기 모임의 한 회차 수정 |
+| 그룹 달력 | `DELETE` | `/api/groups/{groupId}/recurring-schedule/occurrences` | `LEADER` | 반복 정기 모임의 한 회차 숨김 |
+| 그룹 달력 | `PUT` | `/api/groups/{groupId}/recurring-schedule/periods/{periodId}` | `LEADER` | 구버전 화면 요청 거절 |
+| 그룹 달력 | `PUT` | `/api/groups/{groupId}/recurring-schedule/calendar-range` | `LEADER` | 정기 일정 전체 표시 기간 수정 |
 | 그룹 구성원 | `GET` | `/api/groups/{groupId}/members` | `PUBLIC` | 그룹 구성원 목록 조회 |
 | 그룹 구성원 | `PUT` | `/api/groups/{groupId}/leader` | `LEADER` | 모임장 역할 위임 |
 | 모집 공고 | `GET` | `/api/groups/{groupId}/recruitments` | `PUBLIC` | 그룹의 모집 공고 이력 조회 |
@@ -67,6 +83,7 @@
 | 피드백 | [feedbacks.md](feedbacks.md) | 피드백 작성 |
 | 인증·회원 | [auth-members.md](auth-members.md) | 인증과 회원 엔드포인트 |
 | 그룹 | [groups.md](groups.md) | 그룹과 일정 엔드포인트 |
+| 그룹 달력 | [group-calendar.md](group-calendar.md) | 공개 달력 조회, 개별 일정, 정기 규칙 이력·관리 |
 | 모집 공고 | [recruitments.md](recruitments.md) | 모집 공고 엔드포인트 |
 | 가입 신청 | [registrations.md](registrations.md) | 가입 신청 엔드포인트 |
 | 그룹 구성원 | [group-members.md](group-members.md) | 그룹 구성원 엔드포인트 |

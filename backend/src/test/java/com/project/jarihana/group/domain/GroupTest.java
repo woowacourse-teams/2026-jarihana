@@ -210,8 +210,27 @@ class GroupTest {
         // Then
         assertThat(original.getStatus()).isEqualTo(GroupStatus.ACTIVE);
         assertThat(ended.getStatus()).isEqualTo(GroupStatus.ENDED);
+        assertThat(ended.getEndedOn()).isEqualTo(afterBoundary.toLocalDate());
         assertThat(ended.canDeleteAt(afterBoundary)).isFalse();
         assertThat(ended.canEndAt(afterBoundary)).isFalse();
+    }
+
+    @DisplayName("기본 일정의 달력 표시 설정은 그룹 정보와 일정 수정 후에도 유지된다.")
+    @Test
+    void calendarVisibilitySurvivesGroupChanges() {
+        // Given
+        Group original = Group.createClub("러닝크루", "함께 달려요", null, null, null, CREATED_AT);
+
+        // When
+        Group hidden = original.withBaseScheduleVisibility(false);
+        Group renamed = hidden.modify("새 러닝크루", "함께 달려요", null, null, null, null);
+        Group scheduled = renamed.replaceRecurringSchedule(recurringSchedule());
+
+        // Then
+        assertThat(original.isShowBaseScheduleInCalendar()).isTrue();
+        assertThat(hidden.isShowBaseScheduleInCalendar()).isFalse();
+        assertThat(renamed.isShowBaseScheduleInCalendar()).isFalse();
+        assertThat(scheduled.isShowBaseScheduleInCalendar()).isFalse();
     }
 
     @DisplayName("종료한 그룹은 수정하거나 다시 종료할 수 없다.")
