@@ -94,11 +94,7 @@ jobs:
     needs: build
     if: github.ref == 'refs/heads/main'
     environment: prod
-    runs-on:
-      - self-hosted
-      - Linux
-      - ARM64
-      - jarihana-legacy
+    runs-on: [jarihana-prod]
     timeout-minutes: 10
     defaults:
       run:
