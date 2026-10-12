@@ -50,6 +50,7 @@ workflow는 저장소 전체 Actions 변수와 시크릿을 사용한다. 저장
 | Repository variable | `MONITORING_HOST_ID` | 지표 라벨에 사용할 안정적인 모니터링 호스트 이름. 실제 AWS instance ID일 필요는 없다 |
 | Repository variable | `MONITORING_BIND_ADDRESS` | 모니터링 EC2의 실제 사설 IPv4 |
 | Repository secret | `SLACK_WEBHOOK_URL` | Slack Incoming Webhook URL |
+| Repository secret | `GRAFANA_ADMIN_PASSWORD` | Grafana 관리자 계정의 초기 비밀번호 |
 
 Repository variable이나 secret만 바꾸면 push 이벤트가 발생하지 않는다. 값 변경을 바로 적용하려면
 `workflow_dispatch`로 `main`의 모니터링 배포를 다시 실행한다.
@@ -61,7 +62,7 @@ Repository variable이나 secret만 바꾸면 push 이벤트가 발생하지 않
 
 배포 단계는 `.env` 파일을 요구하지 않는다. workflow는 repository variable `MONITORING_HOST_ID`를
 컨테이너 환경변수 `HOST_ID`로 매핑한다. repository 변수 이름을 분리해 backend dev/prod workflow의
-`vars.HOST_ID`와 충돌하지 않게 한다. `MONITORING_BIND_ADDRESS`, `SLACK_WEBHOOK_URL`도 shell 환경변수로 주입하고 모든 Compose 명령에 `--env-file /dev/null`을
+`vars.HOST_ID`와 충돌하지 않게 한다. `MONITORING_BIND_ADDRESS`, `GRAFANA_ADMIN_PASSWORD`, `SLACK_WEBHOOK_URL`도 shell 환경변수로 주입하고 모든 Compose 명령에 `--env-file /dev/null`을
 명시한다. Compose 구성 검사(`config --quiet`), 이미지 받기(`pull`), 각 서비스의 설정 검사,
 컨테이너 재생성(`up -d --no-build --force-recreate`) 순서로 실행한다.
 Prometheus, Loki, Tempo, Grafana, Alloy의 준비 상태와 Nginx를 거친 Grafana 응답을 HTTP로 확인한다.
@@ -77,10 +78,13 @@ export HOST_ID=jarihana-monitoring-ec2
 export MONITORING_BIND_ADDRESS=10.0.1.10 # 실제 모니터링 EC2 사설 IPv4로 변경
 read -r -s -p 'Slack Webhook URL: ' SLACK_WEBHOOK_URL
 export SLACK_WEBHOOK_URL
+read -r -s -p 'Grafana initial admin password: ' GRAFANA_ADMIN_PASSWORD
+export GRAFANA_ADMIN_PASSWORD
 docker compose --env-file /dev/null --project-name jarihana-monitoring --file docker-compose.yml config --quiet
 ```
 
-관리자 초기 비밀번호는 `docker-compose.yml`의 `GF_SECURITY_ADMIN_PASSWORD`에 고정되어 있다.
+관리자 초기 비밀번호는 repository secret `GRAFANA_ADMIN_PASSWORD`에서 주입하며 Compose의
+`GF_SECURITY_ADMIN_PASSWORD`로 전달한다. 값이 없거나 비어 있으면 배포 입력 검사와 Compose 구성 검사가 실패한다.
 Grafana는 시작할 때 마운트된 파일에서 알림 규칙·연락처·전달 정책을 읽으며 이후 시작할 때도
 파일 설정을 다시 적용한다. Webhook 준비·변경과 실제 전송 확인은 [Slack 장애 알림](SLACK.md)을 따른다.
 `MONITORING_BIND_ADDRESS`는 Nginx `80`·`8080`을 bind할 모니터링 EC2의 실제 사설 IPv4다.
@@ -160,7 +164,7 @@ ssh -N -L 3000:127.0.0.1:3000 <ssh-user>@<monitoring-host>
 Prometheus·Loki·Tempo 데이터 소스는 이미 등록된다. 같은 네트워크의 서비스 이름으로 연결하므로
 이 데이터 소스 URL은 Nginx 주소로 바꾸지 않는다.
 관리자 초기 비밀번호는 첫 데이터베이스 생성에 사용된다. 기존 Grafana 볼륨이 있다면
-Compose나 `.env` 변경만으로 계정 비밀번호가 바뀌지 않으며 Grafana의 비밀번호 변경 절차를 사용한다.
+GitHub Secret·Compose·`.env` 변경만으로 계정 비밀번호가 바뀌지 않으며 Grafana의 비밀번호 변경 절차를 사용한다.
 알림 파일 적용에는 별도 관리자 API 인증이나 호스트 스크립트 실행이 필요하지 않다.
 
 ## DB 연결 준비
@@ -372,7 +376,7 @@ Loki 데이터 소스에서는 다음 범위로 앱 로그를 찾는다.
   측정해 서버 크기를 조정한다.
 
 보관 정책은 각 저장소 설정 파일에서 바꾼다. 자동 배포 입력인 `MONITORING_HOST_ID`,
-`MONITORING_BIND_ADDRESS`, `SLACK_WEBHOOK_URL`은 repository-wide Actions variables/secrets에서 관리한다. 포트·관리자 사용자명은
+`MONITORING_BIND_ADDRESS`, `GRAFANA_ADMIN_PASSWORD`, `SLACK_WEBHOOK_URL`은 repository-wide Actions variables/secrets에서 관리한다. 포트·관리자 사용자명은
 `docker-compose.yml`의 고정값을 수정한다. 모니터링 Compose에 컨테이너별 메모리 상한을 두려면
 해당 서비스에 명시적으로 추가하고 운영 부하로 검증한다. 앱 Alloy의 메모리 상한은 앱 Compose의
 `mem_limit`에서 수정한다.

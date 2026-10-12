@@ -24,7 +24,7 @@ runner에서 교체한다. 두 workflow 모두 직전 성공 태그를 기록해
 
 모니터링은 별도 workflow가 `main`의 `infra/monitoring/**` 또는 해당 workflow 변경 시 자동 배포한다.
 repository-wide Actions variables `MONITORING_HOST_ID`·`MONITORING_BIND_ADDRESS`와 repository secret
-`SLACK_WEBHOOK_URL`을 환경변수로 주입하므로 EC2에 `.env`를 따로 만들 필요가 없다.
+`GRAFANA_ADMIN_PASSWORD`·`SLACK_WEBHOOK_URL`을 환경변수로 주입하므로 EC2에 `.env`를 따로 만들 필요가 없다.
 workflow는 `MONITORING_HOST_ID`를 컨테이너 `HOST_ID`로 매핑해 backend dev/prod workflow의
 `vars.HOST_ID`와 충돌하지 않게 한다. 이 값은 지표 라벨에 사용할 안정적인 모니터링 호스트 이름이며 실제 AWS instance ID일 필요는 없다.
 `MONITORING_BIND_ADDRESS`는 Nginx `80`·`8080`을 bind할 모니터링 EC2의 실제 사설 IPv4다.

@@ -110,7 +110,7 @@ workflow의 라벨 조건은 작성했지만 실제 runner 등록·라벨 설정
 자동 배포한다. `main`에 `infra/monitoring/**` 또는 해당 workflow 변경이 반영되면
 `jarihana-monitoring` runner가 대시보드 생성, 설정 검증, Compose 재생성, 준비 상태 확인을 실행한다.
 repository-wide Actions variables `MONITORING_HOST_ID`·`MONITORING_BIND_ADDRESS`와 repository secret
-`SLACK_WEBHOOK_URL`을 주입한다. workflow는 `MONITORING_HOST_ID`를 컨테이너 `HOST_ID`로 매핑해
+`GRAFANA_ADMIN_PASSWORD`·`SLACK_WEBHOOK_URL`을 주입한다. workflow는 `MONITORING_HOST_ID`를 컨테이너 `HOST_ID`로 매핑해
 backend dev/prod workflow의 `vars.HOST_ID`와 충돌하지 않게 한다. 이 값은 지표 라벨에 사용할
 안정적인 모니터링 호스트 이름이며 실제 AWS instance ID일 필요는 없다. `MONITORING_BIND_ADDRESS`는 Nginx `80`·`8080`을 bind할 모니터링 EC2의 실제 사설 IPv4다.
 Prometheus `9090`, Loki `3100`, Tempo 조회 `3200`, Grafana `3000`은 호스트 loopback 관리 포트로 유지하며

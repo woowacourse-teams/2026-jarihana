@@ -42,9 +42,10 @@ jobs:
         env:
           HOST_ID: ${{ vars.MONITORING_HOST_ID }}
           MONITORING_BIND_ADDRESS: ${{ vars.MONITORING_BIND_ADDRESS }}
+          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          for name in HOST_ID MONITORING_BIND_ADDRESS SLACK_WEBHOOK_URL; do
+          for name in HOST_ID MONITORING_BIND_ADDRESS GRAFANA_ADMIN_PASSWORD SLACK_WEBHOOK_URL; do
             if [[ -z "${!name}" ]]; then
               echo "::error::Repository monitoring variable or secret is missing ${name}"
               exit 1
