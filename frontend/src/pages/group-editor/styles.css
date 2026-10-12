@@ -314,7 +314,7 @@
     inset-block-start: var(--space-4);
     inset-inline-end: var(--space-4);
     display: inline-flex;
-    min-block-size: var(--touch-target);
+    min-block-size: var(--button-height-sm);
     align-items: center;
     gap: var(--space-2);
     padding-inline: var(--space-4);
@@ -324,7 +324,8 @@
     color: var(--color-surface);
     font: inherit;
     font-size: var(--text-label);
-    font-weight: var(--font-weight-bold);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.4;
     cursor: pointer;
     transition: background-color var(--duration-fast) var(--ease-standard),
     border-color var(--duration-fast) var(--ease-standard);
@@ -402,7 +403,8 @@
     color: var(--color-ink);
     font: inherit;
     font-size: var(--text-caption);
-    font-weight: var(--font-weight-bold);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.4;
     cursor: pointer;
     transition: background-color var(--duration-fast) var(--ease-standard),
     border-color var(--duration-fast) var(--ease-standard),
