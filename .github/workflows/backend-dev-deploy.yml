@@ -7,8 +7,14 @@ on:
     paths:
       - "backend/**"
       - "infra/docker-compose.dev.yml"
+      - "infra/scripts/verify-backend.sh"
       - ".github/workflows/backend-dev-deploy.yml"
   workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "다시 배포할 기존 이미지 태그(커밋 SHA). 비우면 현재 커밋을 빌드해 배포한다."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -17,12 +23,19 @@ concurrency:
   group: backend-dev-deploy
   cancel-in-progress: false
 
+env:
+  # dev와 prod가 같은 이미지를 쓴다. prod는 main의 backend 트리 해시로 이 이미지를 찾아 받는다.
+  BACKEND_IMAGE: ghcr.io/woowacourse-teams/jarihana-backend
+
 jobs:
-  deploy:
-    if: github.ref == 'refs/heads/develop'
-    runs-on: [self-hosted, Linux, ARM64]
-    environment: dev
+  # 이미지는 GitHub 호스팅 ARM runner에서 빌드해 GHCR에 올린다. 서버는 빌드하지 않는다.
+  build:
+    if: github.ref == 'refs/heads/develop' && inputs.image_tag == ''
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
     env:
       BACKEND_TAG: ${{ github.sha }}
 
@@ -30,68 +43,147 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Docker 확인
-        run: |
-          whoami
-          docker version
+      - name: GHCR 로그인
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
 
+      # 커밋 SHA 태그는 실행 중인 컨테이너를 커밋에 잇는다.
+      # 트리 해시 태그는 squash나 merge commit으로 main에 들어가도 backend 코드가 같으면 같은 값이라,
+      # prod가 다시 빌드하지 않고 이 이미지를 찾는 데 쓴다.
       - name: Backend 이미지 빌드
         run: |
+          BACKEND_TREE="$(git rev-parse HEAD:backend)"
+          echo "BACKEND_TREE=${BACKEND_TREE}" >> "${GITHUB_ENV}"
           docker build \
-            -t jarihana-backend-dev:${BACKEND_TAG} \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=${BACKEND_TAG}" \
+            -t "${BACKEND_IMAGE}:${BACKEND_TAG}" \
+            -t "${BACKEND_IMAGE}:tree-${BACKEND_TREE}" \
             ./backend
 
-      - name: Compose로 Backend 배포
+      - name: GHCR에 이미지 push
+        run: |
+          docker push "${BACKEND_IMAGE}:${BACKEND_TAG}"
+          docker push "${BACKEND_IMAGE}:tree-${BACKEND_TREE}"
+
+  # dev EC2의 runner는 GHCR에서 이미지를 받아 컨테이너만 교체한다.
+  # 교체 뒤 readiness 대기와 스모크 테스트를 하고, 실패하면 직전 성공 태그로 되돌린 뒤 실패로 끝낸다.
+  # image_tag를 넣어 수동 실행하면 빌드를 건너뛰고 그 태그로 다시 배포한다. 없는 태그면 받기에서 실패한다.
+  deploy:
+    needs: build
+    if: >-
+      always()
+      && github.ref == 'refs/heads/develop'
+      && (needs.build.result == 'success'
+        || (needs.build.result == 'skipped' && inputs.image_tag != ''))
+    runs-on: [jarihana-dev]
+    environment: dev
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+    # 배포와 롤백이 같은 Compose 명령을 쓰므로 실행 값은 job 단위로 둔다.
+    env:
+      BACKEND_TAG: ${{ inputs.image_tag || github.sha }}
+      # runner 계정의 홈 디렉터리 기준 경로
+      LAST_SUCCESS_FILE: .jarihana/backend-dev-last-success
+      RDS_URL: ${{ vars.RDS_URL }}
+      DB_USERNAME: ${{ vars.DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      PUSH_ENABLED: ${{ vars.PUSH_ENABLED || 'false' }}
+      PUSH_WORKER_ENABLED: ${{ vars.PUSH_WORKER_ENABLED || 'true' }}
+      PUSH_VAPID_PUBLIC_KEY: ${{ vars.PUSH_VAPID_PUBLIC_KEY }}
+      PUSH_VAPID_PRIVATE_KEY: ${{ secrets.PUSH_VAPID_PRIVATE_KEY }}
+      PUSH_VAPID_SUBJECT: ${{ vars.PUSH_VAPID_SUBJECT }}
+      FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
+      ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
+      GITHUB_OAUTH_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
+      GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
+      GITHUB_OAUTH_REDIRECT_URI: ${{ vars.OAUTH_GITHUB_REDIRECT_URI }}
+      IMAGE_S3_BUCKET: ${{ vars.IMAGE_S3_BUCKET }}
+      IMAGE_S3_REGION: ${{ vars.IMAGE_S3_REGION }}
+      IMAGE_S3_KEY_PREFIX: ${{ vars.IMAGE_S3_KEY_PREFIX }}
+      IMAGE_S3_PUBLIC_BASE_URL: ${{ vars.IMAGE_S3_PUBLIC_BASE_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: GHCR 로그인
         env:
-          PUSH_ENABLED: ${{ vars.PUSH_ENABLED || 'false' }}
-          PUSH_WORKER_ENABLED: ${{ vars.PUSH_WORKER_ENABLED || 'true' }}
-          PUSH_VAPID_PUBLIC_KEY: ${{ vars.PUSH_VAPID_PUBLIC_KEY }}
-          PUSH_VAPID_PRIVATE_KEY: ${{ secrets.PUSH_VAPID_PRIVATE_KEY }}
-          PUSH_VAPID_SUBJECT: ${{ vars.PUSH_VAPID_SUBJECT }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
-          ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
-          GITHUB_OAUTH_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
-          GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
-          GITHUB_OAUTH_REDIRECT_URI: ${{ vars.OAUTH_GITHUB_REDIRECT_URI }}
-          IMAGE_S3_BUCKET: ${{ vars.IMAGE_S3_BUCKET }}
-          IMAGE_S3_REGION: ${{ vars.IMAGE_S3_REGION }}
-          IMAGE_S3_KEY_PREFIX: ${{ vars.IMAGE_S3_KEY_PREFIX }}
-          IMAGE_S3_PUBLIC_BASE_URL: ${{ vars.IMAGE_S3_PUBLIC_BASE_URL }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+
+      # 직전 성공 태그는 배포가 점검까지 통과할 때만 서버 파일에 기록한다.
+      # 처음 배포하는 서버에는 기록이 없으므로 실패해도 되돌릴 곳이 없다.
+      - name: 직전 성공 태그 확인
+        id: previous
+        run: |
+          file="${HOME}/${LAST_SUCCESS_FILE}"
+          tag=""
+          if [ -f "${file}" ]; then
+            tag="$(cat "${file}")"
+          fi
+          echo "직전 성공 태그: ${tag:-없음}"
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+
+      - name: Backend 이미지 받기
+        run: docker pull "${BACKEND_IMAGE}:${BACKEND_TAG}"
+
+      - name: Compose로 Backend 교체
+        id: swap
         run: |
           unset COMPOSE_PROJECT_NAME
           docker compose \
             -f infra/docker-compose.dev.yml \
             up -d --no-build backend
 
-      - name: Backend 컨테이너 상태 확인
+      - name: 배포 후 점검(readiness 대기, 스모크 테스트)
+        run: bash infra/scripts/verify-backend.sh dev
+
+      - name: 성공 태그 기록
         run: |
-          container_id="$(docker ps -q \
-            --filter 'label=com.docker.compose.project=jarihana-dev' \
-            --filter 'label=com.docker.compose.service=backend')"
-          test -n "${container_id}"
-          test "$(docker inspect -f '{{.State.Status}}' "${container_id}")" = "running"
-          docker ps --filter "id=${container_id}"
+          file="${HOME}/${LAST_SUCCESS_FILE}"
+          mkdir -p "$(dirname "${file}")"
+          echo "${BACKEND_TAG}" > "${file}"
+          echo "배포 성공: ${BACKEND_IMAGE}:${BACKEND_TAG}"
 
-      - name: Backend 관리용 메트릭 확인
+      - name: 실패한 컨테이너 로그
+        if: failure() && steps.swap.outcome != 'skipped'
         run: |
-          curl --fail --silent --show-error \
-            --retry 20 --retry-all-errors --retry-delay 3 --max-time 5 \
-            http://127.0.0.1:81/actuator/health > /dev/null
+          docker compose -f infra/docker-compose.dev.yml logs --no-color --tail 80 backend || true
 
-          metrics="$(curl --fail --silent --show-error --max-time 10 \
-            http://127.0.0.1:81/actuator/prometheus)"
-          [[ "${metrics}" == *jvm_memory_used_bytes* ]]
-          [[ "${metrics}" == *hikaricp_connections_active* ]]
-          [[ "${metrics}" == *'environment="dev"'* ]]
+      # 이미지를 받지 못해 교체 전에 멈췄다면 컨테이너는 그대로이므로 되돌리지 않는다.
+      - name: 직전 성공 태그로 롤백
+        if: >-
+          failure()
+          && steps.swap.outcome != 'skipped'
+          && steps.previous.outputs.tag != ''
+          && steps.previous.outputs.tag != env.BACKEND_TAG
+        env:
+          ROLLBACK_TAG: ${{ steps.previous.outputs.tag }}
+        run: |
+          echo "::error::배포 후 점검에 실패해 ${ROLLBACK_TAG}로 되돌린다."
+          docker image inspect "${BACKEND_IMAGE}:${ROLLBACK_TAG}" > /dev/null 2>&1 \
+            || docker pull "${BACKEND_IMAGE}:${ROLLBACK_TAG}"
+          unset COMPOSE_PROJECT_NAME
+          BACKEND_TAG="${ROLLBACK_TAG}" docker compose \
+            -f infra/docker-compose.dev.yml \
+            up -d --no-build backend
+          bash infra/scripts/verify-backend.sh dev
+          echo "::error::${ROLLBACK_TAG}로 복구했다. 이 배포(${BACKEND_TAG})는 실패로 남긴다."
 
-          container_id="$(docker ps -q \
-            --filter 'label=com.docker.compose.project=jarihana-dev' \
-            --filter 'label=com.docker.compose.service=backend')"
-          test "$(docker port "${container_id}" 8081/tcp)" = "127.0.0.1:81"
-          api_status="$(curl --silent --show-error --max-time 10 \
-            --output /dev/null --write-out '%{http_code}' http://127.0.0.1:80/api/groups)"
-          test "${api_status}" = "200"
-          public_metrics_status="$(curl --silent --show-error --max-time 10 \
-            --output /dev/null --write-out '%{http_code}' http://127.0.0.1:80/api/actuator/prometheus)"
-          test "${public_metrics_status}" = "403"
+      - name: GHCR 로그아웃
+        if: always()
+        run: docker logout ghcr.io
+
+      # 이 저장소가 만든 이미지 중 실행 중이 아니고 일주일이 지난 것만 지운다.
+      # 필터 없는 prune -a는 되돌아갈 이미지까지 지우므로 쓰지 않는다. 지운 이미지도 GHCR에 남아 있다.
+      - name: 오래된 Backend 이미지 정리
+        run: |
+          docker image prune -af \
+            --filter "until=168h" \
+            --filter "label=org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}"
