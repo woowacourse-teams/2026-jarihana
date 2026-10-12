@@ -46,8 +46,13 @@ function ScrollToTopButton() {
 
 export function AppShell({ children, headerAction = null, headerTitle = "" }) {
   const { pathname } = useLocation();
+  const pwaGuideReference = useRef(null);
   const pageReference = useRef(null);
   const previousPathname = useRef(pathname);
+
+  function openPwaGuide() {
+    pwaGuideReference.current?.open();
+  }
 
   useLayoutEffect(() => {
     const previousIndex = PRIMARY_PAGE_PATHS.indexOf(previousPathname.current);
@@ -77,7 +82,7 @@ export function AppShell({ children, headerAction = null, headerTitle = "" }) {
       <a className="skip-link" href="#main-content">
         본문으로 건너뛰기
       </a>
-      <AppHeader action={headerAction} title={headerTitle} />
+      <AppHeader action={headerAction} onOpenPwaGuide={openPwaGuide} title={headerTitle} />
 
       <main id="main-content" tabIndex="-1">
         <div className="app-page-content" ref={pageReference}>
@@ -85,7 +90,7 @@ export function AppShell({ children, headerAction = null, headerTitle = "" }) {
         </div>
       </main>
 
-      <AppFooter />
+      <AppFooter pwaGuideReference={pwaGuideReference} />
       <ScrollToTopButton />
     </div>
   );

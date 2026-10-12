@@ -174,7 +174,7 @@ function AuthAction({ onNavigate, status }) {
   );
 }
 
-export function AppHeader({ action = null, title = "" }) {
+export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
   const { avatarUrl, login, logout, logoutError, logoutPending, member, status } = useAuth();
   const unreadCount = useUnreadCount();
   const hasUnread = status === "authenticated" && unreadCount.data?.unreadCount > 0;
@@ -254,6 +254,12 @@ export function AppHeader({ action = null, title = "" }) {
     handleFeedbackOpenChange(false);
   }
 
+  function handleOpenPwaGuideFromInbox() {
+    setMobileNotificationOpen(false);
+    setMenuOpen(false);
+    window.requestAnimationFrame(() => onOpenPwaGuide?.());
+  }
+
   return (
     <>
       <header className="app-header">
@@ -314,7 +320,7 @@ export function AppHeader({ action = null, title = "" }) {
               자리 만들기
             </Link>
             {status === "authenticated" ? (
-              <div className="notification-header-actions"><NotificationBell /><ProfileMenu /></div>
+              <div className="notification-header-actions"><NotificationBell onOpenPwaGuide={onOpenPwaGuide} /><ProfileMenu /></div>
             ) : (
               <AuthAction onNavigate={() => {}} status={status} />
             )}
@@ -436,7 +442,7 @@ export function AppHeader({ action = null, title = "" }) {
           menuButtonReference.current?.focus();
           setMenuOpen(true);
         }
-      }} onOpenNotification={() => setMobileNotificationOpen(false)} /> : null}
+      }} onOpenNotification={() => setMobileNotificationOpen(false)} onOpenPwaGuide={handleOpenPwaGuideFromInbox} /> : null}
     </>
   );
 }

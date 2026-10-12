@@ -18,6 +18,7 @@ import com.project.jarihana.group.calendar.RuleRegistrationRequest;
 import com.project.jarihana.group.calendar.ScopedRuleRequest;
 import com.project.jarihana.group.calendar.DeleteRuleRequest;
 import com.project.jarihana.group.domain.*;
+import com.project.jarihana.group.domain.event.GroupCreatedEvent;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
@@ -133,6 +134,7 @@ public class GroupCommandService {
         }
         GroupMember leader = GroupMember.createLeader(group, member, now);
         groupMemberCommandRepository.save(leader);
+        events.publishEvent(GroupCreatedEvent.from(group, memberId));
         return new CreateGroupResult(group.getId(), group.getStatus());
     }
 
