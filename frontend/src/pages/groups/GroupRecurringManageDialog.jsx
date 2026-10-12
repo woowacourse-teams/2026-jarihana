@@ -18,8 +18,7 @@ const WEEKDAYS = [
 ];
 const SCOPES = [
   ["ALL", "모든 일정"],
-  ["PREVIOUS_RULE", "직전 일정"],
-  ["FROM_TODAY", "앞으로의 일정"]
+  ["FROM_TODAY", "이 이후의 일정까지"]
 ];
 
 function sourceDateOf(event) {

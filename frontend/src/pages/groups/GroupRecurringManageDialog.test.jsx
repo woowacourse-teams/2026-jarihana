@@ -37,7 +37,7 @@ test("현재 정기 규칙 변경에는 범위 선택이 필수다", async () =>
   await userEvent.click(screen.getByRole("button", { name: "규칙 저장" }));
   expect(screen.getByRole("alert")).toHaveTextContent("변경할 일정 범위를 선택해 주세요.");
   expect(mockReplace).not.toHaveBeenCalled();
-  await userEvent.click(screen.getByRole("radio", { name: "앞으로의 일정" }));
+  await userEvent.click(screen.getByRole("radio", { name: "이 이후의 일정까지" }));
   await userEvent.click(screen.getByRole("button", { name: "규칙 저장" }));
   expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({
     applyScope: "FROM_TODAY", version: 2
@@ -48,7 +48,8 @@ test("과거 구간은 범위 선택 없이 그 구간의 요일과 시각만 �
   mockEdit.mockClear().mockResolvedValue({ version: 3 });
   render(<GroupRecurringManageDialog groupId="17" event={{ periodId: 8, startDate: "2026-08-10" }} onClose={jest.fn()} />);
   expect(screen.getByText(/선택한 과거 구간/)).toHaveTextContent("2026-08-01 ~ 2026-08-15");
-  expect(screen.queryByRole("radio", { name: "앞으로의 일정" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("radio", { name: "이 이후의 일정까지" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("radio", { name: "직전 일정" })).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "규칙 저장" }));
   expect(mockEdit).toHaveBeenCalledWith(expect.objectContaining({
     periodId: 8, version: 2, daysOfWeek: ["MONDAY"]
