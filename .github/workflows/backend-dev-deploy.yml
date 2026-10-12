@@ -220,13 +220,13 @@ jobs:
     permissions:
       contents: read
     env:
-      RDS_HOST: ${ vars.RDS_URL }
-      DB_USERNAME: ${ vars.DB_USERNAME }
-      DB_PASSWORD: ${ secrets.DB_PASSWORD }
+      RDS_HOST: ${{ vars.RDS_URL }}
+      DB_USERNAME: ${{ vars.DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
       PGPORT: "5432"
       PGDATABASE: jarihana_dev
       PGSSLMODE: require
-      BATCH_SIZE: ${ inputs.batch_size }
+      BATCH_SIZE: ${{ inputs.batch_size }}
 
     steps:
       - name: Checkout
