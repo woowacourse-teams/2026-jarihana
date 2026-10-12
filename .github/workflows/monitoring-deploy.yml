@@ -1,0 +1,81 @@
+name: Monitoring Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "infra/monitoring/**"
+      - ".github/workflows/monitoring-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monitoring-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, Linux, ARM64, jarihana-monitoring]
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+        working-directory: infra/monitoring
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js 준비
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: 토폴로지 대시보드 생성
+        run: node grafana/topology/sync-dashboard.mjs
+
+      - name: 모니터링 설정 검증 및 배포
+        env:
+          HOST_ID: ${{ vars.MONITORING_HOST_ID }}
+          MONITORING_BIND_ADDRESS: ${{ vars.MONITORING_BIND_ADDRESS }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          for name in HOST_ID MONITORING_BIND_ADDRESS SLACK_WEBHOOK_URL; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Repository monitoring variable or secret is missing ${name}"
+              exit 1
+            fi
+          done
+
+          compose=(docker compose --env-file /dev/null --project-name jarihana-monitoring --file docker-compose.yml)
+          docker compose version
+          "${compose[@]}" config --quiet
+          "${compose[@]}" pull
+
+          "${compose[@]}" run --rm --no-deps --entrypoint /bin/promtool prometheus \
+            check config /etc/prometheus/prometheus.yml
+          "${compose[@]}" run --rm --no-deps loki \
+            -config.file=/etc/loki/config.yaml -verify-config=true
+          "${compose[@]}" run --rm --no-deps tempo \
+            -config.file=/etc/tempo/config.yaml -config.verify=true
+          "${compose[@]}" run --rm --no-deps alloy \
+            validate /etc/alloy/config.alloy
+
+          "${compose[@]}" up -d --no-build --force-recreate
+
+          for endpoint in \
+            "http://127.0.0.1:12345/-/ready" \
+            "http://${MONITORING_BIND_ADDRESS}:9090/-/ready" \
+            "http://${MONITORING_BIND_ADDRESS}:3100/ready" \
+            "http://127.0.0.1:3200/ready" \
+            "http://127.0.0.1:3000/api/health"; do
+            curl --fail --silent --show-error \
+              --retry 30 --retry-all-errors --retry-delay 3 --max-time 5 \
+              "${endpoint}" > /dev/null
+          done
+
+          "${compose[@]}" ps

@@ -7,6 +7,7 @@ on:
     paths:
       - "backend/**"
       - "infra/docker-compose.yml"
+      - "infra/monitoring/alloy/config.alloy"
       - "infra/scripts/verify-backend.sh"
       - ".github/workflows/backend-prod-deploy.yml"
   workflow_dispatch:
@@ -64,6 +65,12 @@ jobs:
       IMAGE_S3_REGION: ${{ vars.IMAGE_S3_REGION }}
       IMAGE_S3_KEY_PREFIX: ${{ vars.IMAGE_S3_KEY_PREFIX }}
       IMAGE_S3_PUBLIC_BASE_URL: ${{ vars.IMAGE_S3_PUBLIC_BASE_URL }}
+      MONITORING_BIND_ADDRESS: ${{ vars.MONITORING_BIND_ADDRESS }}
+      HOST_ID: ${{ vars.HOST_ID || 'jarihana-prod-ec2' }}
+      PROMETHEUS_REMOTE_WRITE_URL: http://${{ vars.MONITORING_BIND_ADDRESS }}:9090/api/v1/write
+      LOKI_PUSH_URL: http://${{ vars.MONITORING_BIND_ADDRESS }}:3100/loki/api/v1/push
+      TEMPO_OTLP_ENDPOINT: ${{ vars.MONITORING_BIND_ADDRESS }}:4317
+      POSTGRES_MONITOR_DSN: ${{ secrets.POSTGRES_MONITOR_DSN }}
 
     steps:
       - name: Checkout
@@ -115,16 +122,41 @@ jobs:
           echo "직전 성공 태그: ${tag:-없음}"
           echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
 
+      - name: 모니터링 배포 입력 확인
+        run: |
+          for name in MONITORING_BIND_ADDRESS HOST_ID POSTGRES_MONITOR_DSN; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::prod environment is missing ${name}"
+              exit 1
+            fi
+          done
+
+      - name: Alloy 이미지와 설정 검증
+        run: |
+          unset COMPOSE_PROJECT_NAME
+          docker compose \
+            -f infra/docker-compose.yml \
+            pull alloy
+          docker compose \
+            -f infra/docker-compose.yml \
+            run --rm --no-deps alloy validate /etc/alloy/config.alloy
+
       - name: Compose로 Backend 교체
         id: swap
         run: |
           unset COMPOSE_PROJECT_NAME
           docker compose \
             -f infra/docker-compose.yml \
-            up -d --no-build backend
+            up -d --no-build --force-recreate backend alloy
 
       - name: 배포 후 점검(readiness 대기, 스모크 테스트)
         run: bash infra/scripts/verify-backend.sh prod
+
+      - name: Alloy readiness 확인
+        run: |
+          curl --fail --silent --show-error \
+            --retry 20 --retry-all-errors --retry-delay 3 --max-time 5 \
+            http://127.0.0.1:12345/-/ready > /dev/null
 
       - name: 성공 태그 기록
         run: |
@@ -154,8 +186,11 @@ jobs:
           unset COMPOSE_PROJECT_NAME
           BACKEND_TAG="${ROLLBACK_TAG}" docker compose \
             -f infra/docker-compose.yml \
-            up -d --no-build backend
+            up -d --no-build --force-recreate backend alloy
           bash infra/scripts/verify-backend.sh prod
+          curl --fail --silent --show-error \
+            --retry 20 --retry-all-errors --retry-delay 3 --max-time 5 \
+            http://127.0.0.1:12345/-/ready > /dev/null
           echo "::error::${ROLLBACK_TAG}로 복구했다. 이 배포(${BACKEND_TAG})는 실패로 남긴다."
 
       - name: GHCR 로그아웃

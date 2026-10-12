@@ -1,0 +1,57 @@
+prometheus.remote_write "monitoring" {
+	endpoint {
+		url = sys.env("PROMETHEUS_REMOTE_WRITE_URL")
+	}
+}
+
+prometheus.exporter.unix "host" {
+	procfs_path = "/host/proc"
+	sysfs_path  = "/host/sys"
+	rootfs_path = "/host/root"
+
+	// Docker 데이터 디스크가 /var/lib/docker 아래에 있어도 수집한다.
+	filesystem {
+		mount_points_exclude = "^/(dev|proc|run/credentials/.+|sys)($|/)"
+	}
+}
+
+prometheus.scrape "host" {
+	job_name        = "jarihana-host"
+	scrape_interval = "30s"
+	targets         = prometheus.exporter.unix.host.targets
+	forward_to      = [prometheus.relabel.host_labels.receiver]
+}
+
+prometheus.relabel "host_labels" {
+	forward_to = [prometheus.remote_write.monitoring.receiver]
+
+	rule {
+		target_label = "job"
+		replacement  = "jarihana-host"
+	}
+
+	rule {
+		target_label = "host_id"
+		replacement  = sys.env("HOST_ID")
+	}
+
+	rule {
+		target_label = "instance"
+		replacement  = sys.env("HOST_ID")
+	}
+}
+
+prometheus.scrape "alloy" {
+	job_name        = "jarihana-alloy"
+	scrape_interval = "30s"
+
+	targets = [
+		{
+			"__address__" = "127.0.0.1:12345",
+			"host_id"     = sys.env("HOST_ID"),
+			"instance"    = sys.env("HOST_ID") + ":alloy",
+		},
+	]
+
+	forward_to = [prometheus.remote_write.monitoring.receiver]
+}
