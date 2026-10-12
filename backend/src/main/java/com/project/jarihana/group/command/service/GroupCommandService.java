@@ -6,6 +6,7 @@ import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.command.repository.GroupCommandRepository;
 import com.project.jarihana.group.command.service.dto.*;
 import com.project.jarihana.group.domain.*;
+import com.project.jarihana.group.domain.event.GroupCreatedEvent;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
@@ -94,6 +95,7 @@ public class GroupCommandService {
         Group group = groupCommandRepository.save(createGroup(command, now));
         GroupMember leader = GroupMember.createLeader(group, member, now);
         groupMemberCommandRepository.save(leader);
+        events.publishEvent(GroupCreatedEvent.from(group, memberId));
         return new CreateGroupResult(group.getId(), group.getStatus());
     }
 

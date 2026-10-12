@@ -22,7 +22,8 @@
 
 ## Notification (`notifications`)
 
-회원이 알림함에서 확인하는 사건 기록이다. 푸시 허용 여부와 무관하게 저장한다.
+회원이 알림함에서 확인하는 사건 기록이다. 신청·참여 사건은 푸시 허용 여부와 무관하게 저장한다.
+새 모임 등록 사건은 생성자를 제외한 활성 푸시 구독 회원에게만 저장한다.
 
 | 필드 | 타입/DB | 규칙 | 왜 필요한가 · 예시 |
 | --- | --- | --- | --- |
@@ -37,11 +38,13 @@
 | createdAt | LocalDateTime | BaseEntity, NOT NULL | 소식이 저장된 시각이다. 알림함을 최신순으로 정렬하고 다음 페이지를 조회하는 기준으로 쓴다. |
 | updatedAt | LocalDateTime | BaseEntity, NOT NULL | 읽음·삭제 등 마지막 변경 시각이다. 언제 알림 상태가 바뀌었는지 확인하는 공통 기록이다. |
 
-타입: REGISTRATION_SUBMITTED, PARTICIPANT_JOINED, REGISTRATION_APPROVED,
+타입: GROUP_CREATED, REGISTRATION_SUBMITTED, PARTICIPANT_JOINED, REGISTRATION_APPROVED,
 REGISTRATION_REJECTED, REGISTRATION_SYSTEM_REJECTED.
 시스템 미승인 원인: RERECRUITMENT 또는 GROUP_ENDED. 사유 본문·신청 내용·토큰은 payload에 넣지 않는다.
 
 유일키는 `(event_key, member_id)`다. 예: `registration:123:approved`.
+모임 등록은 `group:123:created`를 사용하며 payload에는 `groupId`만 저장한다.
+모집·신청 사건의 `recruitmentId`, `registrationId` 필수 규칙은 유지한다.
 같은 사건 재처리는 기존 행을 재사용한다. 삭제된 행도 이 유일키에 남겨 알림이 부활하지 않게 한다.
 새 알림을 실제 생성한 경우에만 구독별 전송 대기를 생성한다.
 이 정책은 soft delete 유일키 충돌을 새 INSERT로 해결하지 않는 이 기능의 설계 기준이다.
@@ -131,7 +134,7 @@ status·attemptCount·lease 필드 일관성을 DB check 제약과 도메인 테
 ## 상태·동시성 규칙
 
 - 실제 업무 변경 성공 후 동기 BEFORE_COMMIT 리스너가 알림과 전송 대기를 같은 TX에 기록한다.
-- 구독0개여도 알림은 저장한다. 이후 등록한 구독에 과거 알림을 소급 전송하지 않는다.
+- 신청·참여 사건은 구독0개여도 알림을 저장한다. 모임 등록 사건은 당시 활성 구독이 있는 회원만 대상으로 하며 생성자와 탈퇴 회원은 제외한다. 회원당 알림 1건, 활성 브라우저 구독당 전송 1건을 생성한다. 이후 등록한 구독에 과거 알림을 소급 전송하지 않는다.
 - 외부 HTTP는 TX 밖에서 수행한다. SKIP LOCKED 선점 + 만료 lease 복구 + leaseToken 조건부 결과 저장을 사용한다.
 - 한 건씩 선점·전송 준비·결과 반영을 별도 짧은 TX로 처리한다. 결과 반영은 구독 행을 먼저 잠그고,
   연결 버전과 현재 leaseToken을 모두 확인한다. 과거 워커의 응답으로 새 연결이나 다른 워커의 상태를 변경하지 않는다.

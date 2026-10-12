@@ -54,6 +54,9 @@ class NotificationSchemaMigrationTest extends IntegrationTestSupport {
                 ResourceDatabasePopulator migration = new ResourceDatabasePopulator(
                         new FileSystemResource("db/migrations/2026-10-03-notification.sql"));
                 migration.execute(isolated);
+                ResourceDatabasePopulator groupCreatedMigration = new ResourceDatabasePopulator(
+                        new FileSystemResource("db/migrations/2026-10-08-group-created-notification.sql"));
+                groupCreatedMigration.execute(isolated);
                 buildSchema(isolated, schema, "validate");
 
                 // Then
@@ -63,6 +66,10 @@ class NotificationSchemaMigrationTest extends IntegrationTestSupport {
                 assertSubscriptionAccessPaths(jdbc);
                 migration.execute(isolated);
                 assertThat(jdbc.queryForObject("select count(*) from notifications", Long.class)).isEqualTo(1);
+                groupCreatedMigration.execute(isolated);
+                jdbc.update("update notifications set event_type = 'GROUP_CREATED', payload = '{\"groupId\":1}' where id = 1");
+                assertThat(jdbc.queryForObject("select event_type from notifications where id = 1", String.class))
+                        .isEqualTo("GROUP_CREATED");
             } finally {
                 connection.setSchema(originalSchema);
                 administrative.execute("drop schema " + schema + " cascade");
