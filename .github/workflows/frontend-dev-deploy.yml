@@ -96,6 +96,7 @@ jobs:
       - self-hosted
       - Linux
       - ARM64
+      - jarihana-legacy
     timeout-minutes: 10
     defaults:
       run:
