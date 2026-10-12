@@ -40,7 +40,7 @@ function courseLabel(course) {
   return ({ ANDROID: "안드로이드", BACKEND: "백엔드", FRONTEND: "프론트엔드" })[course] ?? "";
 }
 
-function statusLabel(status) {
+function statusLabel(status, type) {
   return ({
     ACCEPTED: "수락됨",
     CANCELED: "취소됨",
@@ -48,7 +48,7 @@ function statusLabel(status) {
     GROUP_ENDED: "모임 종료",
     PENDING: "응답 대기",
     REJECTED: "거절됨",
-    VALID: "사용 가능"
+    VALID: type === "DIRECT" ? "응답 대기" : "사용 가능"
   })[status] ?? status ?? "상태 확인 필요";
 }
 
@@ -459,7 +459,7 @@ function InviteMembersDialogSession({ groupId, open, onClose }) {
                           return <li className="invitation-issued" key={invitation.id}>
                             <div className="invitation-issued__main">
                               <div className="invitation-issued__title-row"><strong>{isLink ? "공유 링크" : "회원 초대"}</strong>
-                                <span className={`invitation-status invitation-status--${invitation.status.toLowerCase()}`}>{statusLabel(invitation.status)}</span></div>
+                                <span className={`invitation-status invitation-status--${invitation.status.toLowerCase()}`}>{statusLabel(invitation.status, invitation.type)}</span></div>
                               <p>{invitation.inviter?.crewName ? `${invitation.inviter.crewName} · ` : ""}{isLink ? "모임에 참여 중인 회원이 복사할 수 있어요." : "회원에게 직접 보낸 초대예요."}</p>
                               {invitation.expiresAt ? <time dateTime={invitation.expiresAt}>만료 {invitation.expiresAt.slice(0, 10).replaceAll("-", ".")}</time> : !isLink && <span className="invitation-issued__expiry">만료 없음</span>}
                             </div>
