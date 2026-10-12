@@ -2,7 +2,9 @@
 
 ## 공통 규칙
 
-머신 판독 가능한 API 계약은 [그룹 달력 OpenAPI 명세](group-calendar.openapi.yaml)에 있다.
+실제 API 계약은 Controller·요청/응답 DTO·ErrorCode와 RestAssured 인수 테스트를
+기준으로 확인한다. 이 문서는 그룹 달력 API의 설계 의도와 주요 요청·응답 동작을
+정리한다.
 
 - `CLUB`, `STUDY`, `SESSION` 모두 그룹 상세의 월간 달력을 제공한다. `SESSION`은 독립된 그룹 유형이며 그룹의 일회성 일정이 달력에 표시된다.
 - 이번 범위에는 반복 정기 일정, 모임장이 날짜별로 등록하는 `정기 모임` 회차와 개별 일정, 기존 `SESSION`의 단일 일정만 포함한다. 모임에 딸린 별도 세션과 RSVP는 포함하지 않는다.
