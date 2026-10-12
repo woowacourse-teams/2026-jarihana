@@ -251,7 +251,7 @@ export function NewGroupPage() {
       >
         <section
           aria-label="모임 기본 정보"
-          className="group-profile group-profile--default-image group-editor__profile"
+          className={`group-profile group-editor__profile${representativeImagePreview ? "" : " group-profile--default-image"}`}
         >
           <div className="group-profile__copy">
             <UnderlineSelect
@@ -287,7 +287,7 @@ export function NewGroupPage() {
 
             <div className="group-info">
               <h2 className="group-info-title">모임 정보</h2>
-              <dl className="group-facts">
+              <div className="group-facts">
                 <div className="group-fact group-fact--field">
                   <div>
                     <UnderlineSelect
@@ -318,7 +318,7 @@ export function NewGroupPage() {
                     />
                   </div>
                 </div>
-              </dl>
+              </div>
             </div>
           </div>
           <RepresentativeImageNotice
@@ -335,7 +335,7 @@ export function NewGroupPage() {
             <GroupImage
               alt=""
               className="group-profile__image"
-              group={{ representativeImageUrl: representativeImagePreview || DEFAULT_GROUP_IMAGE_URL }}
+              group={{ type, representativeImageUrl: representativeImagePreview || DEFAULT_GROUP_IMAGE_URL }}
             />
           </div>
         </section>

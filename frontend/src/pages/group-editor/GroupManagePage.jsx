@@ -244,6 +244,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const representativeImageUrl = hasRepresentativeImageDraft
     ? representativeImageDraft.previewUrl || group.representativeImageUrl || DEFAULT_GROUP_IMAGE_URL
     : group.representativeImageUrl || DEFAULT_GROUP_IMAGE_URL;
+  const usesDefaultImage = isDefaultGroupImageUrl(representativeImageUrl);
   const representativeImageChanged = hasRepresentativeImageDraft && representativeImageDraft.changed;
   const age = now.getTime() - new Date(group.createdAt).getTime();
   const canDelete = age >= 0 && age <= DAY_MS;
@@ -389,7 +390,10 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
       <ManagementContext active="overview" groupId={groupId} />
       <div className="group-editor group-editor--embedded">
         <form id="group-overview-form" onSubmit={save} noValidate>
-          <section aria-label="모임 기본 정보" className="group-profile group-editor__profile">
+          <section
+            aria-label="모임 기본 정보"
+            className={`group-profile group-editor__profile${usesDefaultImage ? " group-profile--default-image" : ""}`}
+          >
             <div className="group-profile__copy">
               <p className="groups-eyebrow group-profile__type-tag group-editor__type-static">
                 <span>{typeLabel(group.type)}</span>
@@ -414,7 +418,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
 
               <div className="group-info">
                 <h2 className="group-info-title">모임 정보</h2>
-                <dl className="group-facts">
+                <div className="group-facts">
                   <div className="group-fact group-fact--field">
                     <div>
                       <UnderlineSelect
@@ -445,7 +449,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
                       />
                     </div>
                   </div>
-                </dl>
+                </div>
               </div>
             </div>
             <RepresentativeImageNotice
