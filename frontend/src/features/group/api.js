@@ -97,12 +97,6 @@ export function replaceScopedRecurringSchedule(groupId, values) {
   });
 }
 
-export function editGroupRecurringPeriod(groupId, periodId, values) {
-  return apiRequest(`groups/${groupId}/recurring-schedule/periods/${periodId}`, {
-    method: "put", json: values, schema: groupVersionSchema
-  });
-}
-
 export function updateGroupRecurringRange(groupId, values) {
   return apiRequest(`groups/${groupId}/recurring-schedule/calendar-range`, {
     method: "put", json: values, schema: groupVersionSchema

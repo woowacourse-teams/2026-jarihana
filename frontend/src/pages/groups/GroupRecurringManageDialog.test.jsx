@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockReplace = jest.fn();
-const mockEdit = jest.fn();
+const mockDeleteRecurring = jest.fn();
 const mockSaveOccurrence = jest.fn();
 const mockDeleteOccurrence = jest.fn();
 const mockManage = {
@@ -24,35 +24,48 @@ jest.mock("../../features/group/index.js", () => ({
   useGroupRecurringManage: () => mockManage,
   useGroupRecurringPeriod: () => mockPeriod,
   useReplaceScopedRecurringSchedule: () => mockMutation(mockReplace),
-  useEditGroupRecurringPeriod: () => mockMutation(mockEdit),
   useUpdateGroupRecurringRange: () => mockMutation(jest.fn()),
-  useDeleteScopedRecurringSchedule: () => mockMutation(jest.fn())
+  useDeleteScopedRecurringSchedule: () => mockMutation(mockDeleteRecurring)
 }));
 
 import { GroupRecurringManageDialog } from "./GroupRecurringManageDialog.jsx";
 
-test("현재 정기 규칙 변경에는 범위 선택이 필수다", async () => {
+test("이 이후의 일정 변경은 선택한 회차 날짜부터 적용한다", async () => {
   mockReplace.mockClear().mockResolvedValue({ version: 3 });
-  render(<GroupRecurringManageDialog groupId="17" event={{ periodId: 9, startDate: "2026-08-19" }} onClose={jest.fn()} />);
+  render(<GroupRecurringManageDialog groupId="17" event={{ periodId: 9, startDate: "2026-08-26" }} onClose={jest.fn()} />);
   await userEvent.click(screen.getByRole("button", { name: "규칙 저장" }));
   expect(screen.getByRole("alert")).toHaveTextContent("변경할 일정 범위를 선택해 주세요.");
   expect(mockReplace).not.toHaveBeenCalled();
   await userEvent.click(screen.getByRole("radio", { name: "이 이후의 일정까지" }));
   await userEvent.click(screen.getByRole("button", { name: "규칙 저장" }));
   expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({
-    applyScope: "FROM_TODAY", version: 2
+    applyScope: "FROM_TODAY", fromDate: "2026-08-26", periodId: 9, version: 2
   }));
 });
 
-test("과거 구간은 범위 선택 없이 그 구간의 요일과 시각만 수정한다", async () => {
-  mockEdit.mockClear().mockResolvedValue({ version: 3 });
+test("이 이후의 일정 삭제도 선택한 회차 날짜부터 적용한다", async () => {
+  mockDeleteRecurring.mockClear().mockResolvedValue(undefined);
+  render(<GroupRecurringManageDialog groupId="17" event={{ periodId: 9, startDate: "2026-08-26" }} onClose={jest.fn()} />);
+
+  await userEvent.selectOptions(screen.getByLabelText("삭제 범위"), "FROM_TODAY");
+  await userEvent.click(screen.getByRole("button", { name: "정기 일정 삭제" }));
+  await userEvent.click(screen.getByRole("button", { name: "삭제 확정" }));
+
+  expect(mockDeleteRecurring).toHaveBeenCalledWith({
+    applyScope: "FROM_TODAY", fromDate: "2026-08-26", periodId: 9, version: 2
+  });
+});
+
+test("과거 규칙 구간도 선택한 날짜를 기준으로 세 가지 변경 범위를 제공한다", async () => {
+  mockReplace.mockClear().mockResolvedValue({ version: 3 });
   render(<GroupRecurringManageDialog groupId="17" event={{ periodId: 8, startDate: "2026-08-10" }} onClose={jest.fn()} />);
-  expect(screen.getByText(/선택한 과거 구간/)).toHaveTextContent("2026-08-01 ~ 2026-08-15");
-  expect(screen.queryByRole("radio", { name: "이 이후의 일정까지" })).not.toBeInTheDocument();
-  expect(screen.queryByRole("radio", { name: "직전 일정" })).not.toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: "모든 일정" })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: "이 이후의 일정까지" })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: "이 일정만" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("radio", { name: "이 이후의 일정까지" }));
   await userEvent.click(screen.getByRole("button", { name: "규칙 저장" }));
-  expect(mockEdit).toHaveBeenCalledWith(expect.objectContaining({
-    periodId: 8, version: 2, daysOfWeek: ["MONDAY"]
+  expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({
+    applyScope: "FROM_TODAY", fromDate: "2026-08-10", periodId: 8, version: 2
   }));
 });
 

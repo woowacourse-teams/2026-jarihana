@@ -41,6 +41,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
@@ -393,7 +394,7 @@ public class GroupCommandService {
             recurringService.replaceScoped(memberId, groupId,
                     new ScopedRuleRequest(schedule.getActivityDays().values(),
                             schedule.getStartTime(), schedule.getEndTime(),
-                            ScopedRuleRequest.ApplyScope.FROM_TODAY, current.getVersion()));
+                            ScopedRuleRequest.ApplyScope.FROM_TODAY, LocalDate.now(clock), null, current.getVersion()));
         }
         return new ReplaceRecurringScheduleResult(
                 schedule.getActivityDays().values(), schedule.getStartTime(), schedule.getEndTime()
@@ -424,7 +425,8 @@ public class GroupCommandService {
         GroupRecurringSeries current = ensureLegacyRecurringHistory(group,
                 recurringSeriesRepository.findFirstByGroupIdAndCurrentTrue(groupId).orElse(null));
         recurringService.deleteScoped(memberId, groupId,
-                new DeleteRuleRequest(ScopedRuleRequest.ApplyScope.FROM_TODAY, current.getVersion()));
+                new DeleteRuleRequest(ScopedRuleRequest.ApplyScope.FROM_TODAY,
+                        LocalDate.now(clock), null, current.getVersion()));
     }
 
     private void requireLegacyRecurringWrite() {

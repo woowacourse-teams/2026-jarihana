@@ -96,19 +96,34 @@ export function GroupCalendarEventForm({ groupType = "CLUB", initialDate, initia
       {eventType === "REGULAR_MEETING" ? (
         <TextField data-ph-capture-attribute-action="group_calendar_event_date_change" label="날짜" onChange={(event) => { setStartDate(event.currentTarget.value); setEndDate(event.currentTarget.value); }} required type="date" value={startDate} />
       ) : (
-        <div className="group-calendar-form__row">
-          <TextField data-ph-capture-attribute-action="group_calendar_event_start_date_change" label="시작일" onChange={(event) => setStartDate(event.currentTarget.value)} required type="date" value={startDate} />
-          <TextField
-            data-ph-capture-attribute-action="group_calendar_event_end_date_change"
-            description="시작일부터 1년 이내로 설정할 수 있어요."
-            label="종료일"
-            max={maxEventEndDate(startDate)}
-            min={startDate}
-            onChange={(event) => setEndDate(event.currentTarget.value)}
-            required
-            type="date"
-            value={endDate}
-          />
+        <div className="group-calendar-form__date-fields">
+          <div className="group-calendar-form__row">
+            <TextField
+              data-ph-capture-attribute-action="group_calendar_event_start_date_change"
+              label="시작일"
+              onChange={(event) => {
+                const nextStartDate = event.currentTarget.value;
+                setStartDate(nextStartDate);
+                setEndDate((currentEndDate) => currentEndDate && currentEndDate < nextStartDate
+                  ? nextStartDate
+                  : currentEndDate);
+              }}
+              required
+              type="date"
+              value={startDate}
+            />
+            <TextField
+              data-ph-capture-attribute-action="group_calendar_event_end_date_change"
+              label="종료일"
+              max={maxEventEndDate(startDate)}
+              min={startDate}
+              onChange={(event) => setEndDate(event.currentTarget.value)}
+              required
+              type="date"
+              value={endDate}
+            />
+          </div>
+          <p className="group-calendar-form__notice">시작일부터 1년 이내로 설정할 수 있어요.</p>
         </div>
       )}
       {mode === "timed" ? (
@@ -129,7 +144,7 @@ export function GroupCalendarEventForm({ groupType = "CLUB", initialDate, initia
 
 export function GroupCalendarEventDialog({ groupType = "CLUB", initialDate, initialEvent, onClose, onSave, open, saveDisabled = false, saving = false, serverError = null }) {
   return (
-    <Modal closeAction="group_calendar_event_form_dismiss" onClose={onClose} open={open} title={initialEvent ? "일정 수정" : "일정 등록"}>
+    <Modal closeAction="group_calendar_event_form_dismiss" onClose={onClose} open={open} panelClassName="ui-dialog--group-calendar-event" title={initialEvent ? "일정 수정" : "일정 등록"}>
       <GroupCalendarEventForm groupType={groupType} initialDate={initialDate} initialEvent={initialEvent} key={initialEvent?.id ?? initialDate} onSave={onSave} saveDisabled={saveDisabled} saving={saving} serverError={serverError} />
     </Modal>
   );

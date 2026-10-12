@@ -87,9 +87,7 @@ public class GroupRecurringService {
         }
         RecurringGroupSchedule replacement = RecurringGroupSchedule.of(
                 request.daysOfWeek(), request.startTime(), request.endTime());
-        GroupRecurringSeries series = seriesRepository.findFirstByGroupIdAndCurrentTrue(groupId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.RECURRING_SCHEDULE_NOT_FOUND,
-                        "등록된 정기 일정이 없습니다."));
+        GroupRecurringSeries series = findTargetSeries(groupId, request.periodId());
         if (request.version() == null || !request.version().equals(series.getVersion())) {
             throw new BusinessException(ErrorCode.GROUP_EVENT_CONFLICT, "정기 일정이 변경되었습니다. 새로고침 후 다시 시도해 주세요.");
         }
@@ -97,8 +95,9 @@ public class GroupRecurringService {
         if (periods.isEmpty()) {
             throw new BusinessException(ErrorCode.RECURRING_SCHEDULE_NOT_FOUND, "정기 일정 이력을 찾을 수 없습니다.");
         }
+        LocalDate fromDate = scopeStartDate(request.applyScope(), request.fromDate());
         List<RulePeriod> candidatePeriods = candidatePeriods(periods, replacement,
-                request.applyScope(), LocalDate.now(clock));
+                request.applyScope(), fromDate);
         if (!series.isHideAll()) {
             requireNoRegularMeetingConflict(groupId, series.getCalendarStartDate(), series.getCalendarEndDate(),
                     candidatePeriods);
@@ -109,14 +108,11 @@ public class GroupRecurringService {
         switch (request.applyScope()) {
             case ALL -> periods.forEach(period -> periodRepository.save(period.withRule(
                     replacement.getActivityDays().values(), replacement.getStartTime(), replacement.getEndTime())));
-            case PREVIOUS_RULE -> {
-                GroupRecurringPeriod previous = periods.getLast();
-                periodRepository.save(previous.withRule(replacement.getActivityDays().values(),
-                        replacement.getStartTime(), replacement.getEndTime()));
-            }
-            case FROM_TODAY -> replaceFromToday(series, periods, replacement, LocalDate.now(clock));
+            case FROM_TODAY -> replaceFromDate(series, periods, replacement, fromDate);
         }
-        groups.save(group.replaceRecurringSchedule(replacement));
+        if (series.isCurrent()) {
+            groups.save(group.replaceRecurringSchedule(replacement));
+        }
         return request.version() + 1;
     }
 
@@ -128,33 +124,12 @@ public class GroupRecurringService {
         if (!group.isActive()) {
             throw new BusinessException(ErrorCode.GROUP_ENDED, "종료된 그룹은 일정을 변경할 수 없습니다.");
         }
-        GroupRecurringPeriod period = periodRepository.findById(periodId)
+        periodRepository.findById(periodId)
                 .filter(found -> found.getSeries().getGroup().getId().equals(groupId))
                 .orElseThrow(() -> new BusinessException(ErrorCode.RECURRING_SCHEDULE_NOT_FOUND,
                         "정기 일정 이력을 찾을 수 없습니다."));
-        GroupRecurringSeries series = period.getSeries();
-        RecurringGroupSchedule rule = RecurringGroupSchedule.of(
-                request.daysOfWeek(), request.startTime(), request.endTime());
-        List<GroupRecurringPeriod> periods = periodRepository.findAllBySeriesIdOrderByEffectiveFromAsc(series.getId());
-        List<RulePeriod> candidatePeriods = periods.stream()
-                .map(existing -> existing.getId().equals(periodId)
-                        ? new RulePeriod(existing.getEffectiveFrom(), existing.getEffectiveUntil(),
-                                rule.getActivityDays().values())
-                        : RulePeriod.from(existing))
-                .toList();
-        if (!series.isHideAll()) {
-            requireNoRegularMeetingConflict(groupId, series.getCalendarStartDate(), series.getCalendarEndDate(),
-                    candidatePeriods);
-        }
-        if (seriesRepository.incrementVersion(series.getId(), request.version()) != 1) {
-            throw new BusinessException(ErrorCode.GROUP_EVENT_CONFLICT, "정기 일정이 변경되었습니다. 새로고침 후 다시 시도해 주세요.");
-        }
-        periodRepository.save(period.withRule(rule.getActivityDays().values(), rule.getStartTime(), rule.getEndTime()));
-        if (series.isCurrent() && periodRepository.findAllBySeriesIdOrderByEffectiveFromAsc(series.getId())
-                .getLast().getId().equals(periodId)) {
-            groups.save(group.replaceRecurringSchedule(rule));
-        }
-        return request.version() + 1;
+        throw new BusinessException(ErrorCode.CALENDAR_CLIENT_OUTDATED,
+                "화면이 오래되었습니다. 새로고침한 뒤 날짜 기준 변경 범위를 선택해 주세요.");
     }
 
     public record ManageDetail(Long seriesId, Long periodId, LocalDate startDate, LocalDate endDate, Long version,
@@ -225,51 +200,58 @@ public class GroupRecurringService {
         if (!group.isActive()) {
             throw new BusinessException(ErrorCode.GROUP_ENDED, "종료된 그룹은 일정을 변경할 수 없습니다.");
         }
-        if (group.getRecurringSchedule() == null) {
-            throw new BusinessException(ErrorCode.RECURRING_SCHEDULE_NOT_FOUND, "등록된 정기 일정이 없습니다.");
-        }
-        GroupRecurringSeries series = seriesRepository.findFirstByGroupIdAndCurrentTrue(groupId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.RECURRING_SCHEDULE_NOT_FOUND,
-                        "등록된 정기 일정 이력이 없습니다."));
+        GroupRecurringSeries series = findTargetSeries(groupId, request.periodId());
         List<GroupRecurringPeriod> periods = periodRepository.findAllBySeriesIdOrderByEffectiveFromAsc(series.getId());
         if (periods.isEmpty()) {
             throw new BusinessException(ErrorCode.RECURRING_SCHEDULE_NOT_FOUND, "정기 일정 이력을 찾을 수 없습니다.");
         }
-        LocalDate today = LocalDate.now(clock);
-        LocalDate stopBefore = switch (request.applyScope()) {
-            case ALL -> null;
-            case PREVIOUS_RULE -> periods.getLast().getEffectiveFrom().minusDays(1);
-            case FROM_TODAY -> today.minusDays(1);
-        };
+        LocalDate fromDate = scopeStartDate(request.applyScope(), request.fromDate());
+        LocalDate stopBefore = request.applyScope() == ScopedRuleRequest.ApplyScope.ALL
+                ? null : fromDate.minusDays(1);
         boolean hideAll = stopBefore == null || stopBefore.isBefore(series.getCalendarStartDate());
         LocalDate endDate = hideAll ? series.getCalendarEndDate() :
                 series.getCalendarEndDate() == null || stopBefore.isBefore(series.getCalendarEndDate())
                         ? stopBefore : series.getCalendarEndDate();
-        LocalDate flexibleFromDate = hideAll ? switch (request.applyScope()) {
-            case ALL -> group.getCreatedAt().toLocalDate();
-            case PREVIOUS_RULE -> periods.getLast().getEffectiveFrom();
-            case FROM_TODAY -> today;
-        } : null;
+        LocalDate flexibleFromDate = hideAll
+                ? request.applyScope() == ScopedRuleRequest.ApplyScope.ALL
+                        ? series.isCurrent() ? group.getCreatedAt().toLocalDate() : null
+                        : fromDate
+                : null;
         if (seriesRepository.stop(series.getId(), request.version(), endDate, hideAll, flexibleFromDate) != 1) {
             throw new BusinessException(ErrorCode.GROUP_EVENT_CONFLICT, "정기 일정이 변경되었습니다. 새로고침 후 다시 시도해 주세요.");
         }
-        if (request.applyScope() == ScopedRuleRequest.ApplyScope.ALL) {
+        if (request.applyScope() == ScopedRuleRequest.ApplyScope.ALL && series.isCurrent()) {
             seriesRepository.hideOtherSeries(groupId, series.getId(), group.getCreatedAt().toLocalDate());
         }
-        groups.save(group.removeRecurringSchedule());
+        if (series.isCurrent()) {
+            groups.save(group.removeRecurringSchedule());
+        }
     }
 
-    private void replaceFromToday(GroupRecurringSeries series, List<GroupRecurringPeriod> periods,
-                                  RecurringGroupSchedule replacement, LocalDate today) {
+    private GroupRecurringSeries findTargetSeries(Long groupId, Long periodId) {
+        if (periodId == null) {
+            return seriesRepository.findFirstByGroupIdAndCurrentTrue(groupId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.RECURRING_SCHEDULE_NOT_FOUND,
+                            "등록된 정기 일정이 없습니다."));
+        }
+        return periodRepository.findById(periodId)
+                .filter(period -> period.getSeries().getGroup().getId().equals(groupId))
+                .map(GroupRecurringPeriod::getSeries)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RECURRING_SCHEDULE_NOT_FOUND,
+                        "정기 일정 이력을 찾을 수 없습니다."));
+    }
+
+    private void replaceFromDate(GroupRecurringSeries series, List<GroupRecurringPeriod> periods,
+                                 RecurringGroupSchedule replacement, LocalDate fromDate) {
         boolean changed = false;
         for (GroupRecurringPeriod period : periods) {
-            if (period.getEffectiveUntil() != null && period.getEffectiveUntil().isBefore(today)) continue;
-            if (period.getEffectiveFrom().isBefore(today)) {
+            if (period.getEffectiveUntil() != null && period.getEffectiveUntil().isBefore(fromDate)) continue;
+            if (period.getEffectiveFrom().isBefore(fromDate)) {
                 LocalDate originalUntil = period.getEffectiveUntil();
-                periodRepository.save(period.endingOn(today.minusDays(1)));
+                periodRepository.save(period.endingOn(fromDate.minusDays(1)));
                 periodRepository.save(GroupRecurringPeriod.create(series,
                         replacement.getActivityDays().values(), replacement.getStartTime(), replacement.getEndTime(),
-                        today, originalUntil, LocalDateTime.now(clock)));
+                        fromDate, originalUntil, LocalDateTime.now(clock)));
             } else {
                 periodRepository.save(period.withRule(replacement.getActivityDays().values(),
                         replacement.getStartTime(), replacement.getEndTime()));
@@ -277,8 +259,17 @@ public class GroupRecurringService {
             changed = true;
         }
         if (!changed) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "오늘 이후에 적용할 정기 일정이 없습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "선택한 날짜 이후에 적용할 정기 일정이 없습니다.");
         }
+    }
+
+    private LocalDate scopeStartDate(ScopedRuleRequest.ApplyScope applyScope, LocalDate fromDate) {
+        if (applyScope == ScopedRuleRequest.ApplyScope.ALL) return null;
+        if (fromDate == null) {
+            throw new BusinessException(ErrorCode.CALENDAR_CLIENT_OUTDATED,
+                    "화면이 오래되었습니다. 새로고침한 뒤 일정을 다시 저장해 주세요.");
+        }
+        return fromDate;
     }
 
     private void requireLeader(Long memberId, Long groupId) {
@@ -291,33 +282,26 @@ public class GroupRecurringService {
     private List<RulePeriod> candidatePeriods(List<GroupRecurringPeriod> periods,
                                                RecurringGroupSchedule replacement,
                                                ScopedRuleRequest.ApplyScope applyScope,
-                                               LocalDate today) {
-        return switch (applyScope) {
-            case ALL -> periods.stream().map(period -> new RulePeriod(period.getEffectiveFrom(),
+                                               LocalDate fromDate) {
+        if (applyScope == ScopedRuleRequest.ApplyScope.ALL) {
+            return periods.stream().map(period -> new RulePeriod(period.getEffectiveFrom(),
                     period.getEffectiveUntil(), replacement.getActivityDays().values())).toList();
-            case PREVIOUS_RULE -> {
-                List<RulePeriod> candidates = new ArrayList<>(periods.stream().map(RulePeriod::from).toList());
-                GroupRecurringPeriod previous = periods.getLast();
-                candidates.set(candidates.size() - 1, new RulePeriod(previous.getEffectiveFrom(),
-                        previous.getEffectiveUntil(), replacement.getActivityDays().values()));
-                yield candidates;
-            }
-            case FROM_TODAY -> replaceRulesFromToday(periods, replacement, today);
-        };
+        }
+        return replaceRulesFromDate(periods, replacement, fromDate);
     }
 
-    private List<RulePeriod> replaceRulesFromToday(List<GroupRecurringPeriod> periods,
-                                                    RecurringGroupSchedule replacement,
-                                                    LocalDate today) {
+    private List<RulePeriod> replaceRulesFromDate(List<GroupRecurringPeriod> periods,
+                                                   RecurringGroupSchedule replacement,
+                                                   LocalDate fromDate) {
         List<RulePeriod> candidates = new ArrayList<>();
         boolean changed = false;
         for (GroupRecurringPeriod period : periods) {
-            if (period.getEffectiveUntil() != null && period.getEffectiveUntil().isBefore(today)) {
+            if (period.getEffectiveUntil() != null && period.getEffectiveUntil().isBefore(fromDate)) {
                 candidates.add(RulePeriod.from(period));
-            } else if (period.getEffectiveFrom().isBefore(today)) {
-                candidates.add(new RulePeriod(period.getEffectiveFrom(), today.minusDays(1),
+            } else if (period.getEffectiveFrom().isBefore(fromDate)) {
+                candidates.add(new RulePeriod(period.getEffectiveFrom(), fromDate.minusDays(1),
                         period.getDaysOfWeek().values()));
-                candidates.add(new RulePeriod(today, period.getEffectiveUntil(),
+                candidates.add(new RulePeriod(fromDate, period.getEffectiveUntil(),
                         replacement.getActivityDays().values()));
                 changed = true;
             } else {
@@ -327,7 +311,7 @@ public class GroupRecurringService {
             }
         }
         if (!changed) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "오늘 이후에 적용할 정기 일정이 없습니다.");
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "선택한 날짜 이후에 적용할 정기 일정이 없습니다.");
         }
         return candidates;
     }

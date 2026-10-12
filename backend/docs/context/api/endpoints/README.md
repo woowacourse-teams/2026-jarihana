@@ -44,12 +44,12 @@
 | 그룹 달력 | `DELETE` | `/api/groups/{groupId}/events/{eventId}` | `LEADER` | 개별 일정 삭제 |
 | 그룹 달력 | `POST` | `/api/groups/{groupId}/recurring-schedule/series` | `LEADER` | 첫 정기 규칙 등록 |
 | 그룹 달력 | `GET` | `/api/groups/{groupId}/recurring-schedule/manage` | `LEADER` | 현재 정기 일정 관리 정보 조회 |
-| 그룹 달력 | `GET` | `/api/groups/{groupId}/recurring-schedule/periods/{periodId}` | `LEADER` | 선택한 정기 규칙 구간 조회 |
+| 그룹 달력 | `GET` | `/api/groups/{groupId}/recurring-schedule/periods/{periodId}` | `LEADER` | 선택한 회차에 적용된 정기 규칙 조회 |
 | 그룹 달력 | `PUT` | `/api/groups/{groupId}/recurring-schedule/scoped` | `LEADER` | 정기 규칙 변경 범위 적용 |
 | 그룹 달력 | `DELETE` | `/api/groups/{groupId}/recurring-schedule/scoped` | `LEADER` | 정기 규칙 변경 범위 삭제 |
 | 그룹 달력 | `POST` | `/api/groups/{groupId}/recurring-schedule/occurrences` | `LEADER` | 반복 정기 모임의 한 회차 수정 |
 | 그룹 달력 | `DELETE` | `/api/groups/{groupId}/recurring-schedule/occurrences` | `LEADER` | 반복 정기 모임의 한 회차 숨김 |
-| 그룹 달력 | `PUT` | `/api/groups/{groupId}/recurring-schedule/periods/{periodId}` | `LEADER` | 선택한 정기 규칙 구간 수정 |
+| 그룹 달력 | `PUT` | `/api/groups/{groupId}/recurring-schedule/periods/{periodId}` | `LEADER` | 구버전 화면 요청 거절 |
 | 그룹 달력 | `PUT` | `/api/groups/{groupId}/recurring-schedule/calendar-range` | `LEADER` | 정기 일정 전체 표시 기간 수정 |
 | 그룹 구성원 | `GET` | `/api/groups/{groupId}/members` | `PUBLIC` | 그룹 구성원 목록 조회 |
 | 그룹 구성원 | `PUT` | `/api/groups/{groupId}/leader` | `LEADER` | 모임장 역할 위임 |

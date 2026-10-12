@@ -290,6 +290,7 @@ button.group-calendar__event:hover { filter: brightness(0.96); }
 
 .group-calendar-form { display: grid; gap: var(--space-5); }
 .group-calendar-form__row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.group-calendar-form__date-fields { display: grid; gap: var(--space-2); }
 .group-calendar-form__mode { display: flex; flex-wrap: wrap; gap: var(--space-4); margin: 0; padding: 0; border: 0; }
 .group-calendar-form__mode legend { width: 100%; margin-bottom: var(--space-2); font-weight: 700; }
 .group-calendar-form__mode legend span { color: var(--color-danger); }
@@ -301,15 +302,40 @@ button.group-calendar__event:hover { filter: brightness(0.96); }
 .group-calendar-form__fixed-title strong { font-weight: 700; }
 .group-calendar-form__status { display: grid; gap: var(--space-2); font-weight: 700; }
 .group-calendar-form__status select { min-height: var(--touch-target); padding: 0 var(--space-3); border: var(--border-thin) solid var(--color-line); border-radius: var(--radius-sm); background: var(--color-surface); font: inherit; }
+.ui-dialog--group-calendar-event { display: flex; flex-direction: column; overflow: hidden; }
+.ui-dialog--group-calendar-event > .ui-dialog__content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-inline-end: var(--space-3);
+}
+.ui-dialog--group-calendar-event .ui-field__control,
+.ui-dialog--group-calendar-event .group-calendar-form__status select { border-radius: var(--radius-md); }
+.ui-dialog--group-recurring-manage { display: flex; flex-direction: column; overflow: hidden; }
+.ui-dialog--group-recurring-manage > .ui-dialog__content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-inline-end: var(--space-3);
+}
 .group-calendar-form__error { margin: 0; color: var(--color-danger); }
 .group-calendar-form__notice { margin: 0; color: var(--color-muted-ink); font-size: var(--text-caption); }
-.group-calendar-form__actions { display: flex; justify-content: flex-end; }
+.group-calendar-form__actions { display: flex; flex-wrap: wrap; gap: var(--space-3); justify-content: flex-end; }
+.ui-dialog--group-calendar-event .group-calendar-form__actions {
+  position: sticky;
+  bottom: 0;
+  padding-block: var(--space-2);
+  border-top: var(--border-thin) solid var(--color-line);
+  background: var(--color-surface);
+}
 .group-calendar-detail { display: grid; gap: var(--space-3); }
 .group-calendar-detail p { margin: 0; }
 .group-calendar-detail__description { white-space: pre-wrap; }
-.group-recurring-dialog { display: grid; gap: var(--space-6); }
+.group-recurring-dialog { display: grid; gap: var(--space-3); }
 .group-recurring-dialog > p { margin: 0; }
-.group-recurring-form { padding-top: var(--space-4); border-top: var(--border-thin) solid var(--color-line); }
+.group-recurring-form { gap: var(--space-3); padding-top: var(--space-4); border-top: var(--border-thin) solid var(--color-line); }
 .group-recurring-form h3 { margin: 0; font-size: var(--text-h3); }
 .group-recurring-form__weekdays, .group-recurring-form__scopes { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; border: 0; }
 .group-recurring-form__weekdays legend, .group-recurring-form__scopes legend { width: 100%; margin-bottom: var(--space-2); font-weight: 700; }

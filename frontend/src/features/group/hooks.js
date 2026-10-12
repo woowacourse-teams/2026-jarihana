@@ -20,7 +20,6 @@ import {
   fetchGroupScheduleDetail,
   fetchGroups,
   modifyGroup,
-  editGroupRecurringPeriod,
   replaceScopedRecurringSchedule,
   updateGroupRecurringRange,
   setGroupCalendarVisibility,
@@ -156,11 +155,6 @@ export function useReplaceScopedRecurringSchedule(groupId) {
 
 export function useRegisterGroupRecurringSeries(groupId) {
   return useRecurringMutation(groupId, (values) => registerGroupRecurringSeries(groupId, values));
-}
-
-export function useEditGroupRecurringPeriod(groupId) {
-  return useRecurringMutation(groupId, ({ periodId, ...values }) =>
-    editGroupRecurringPeriod(groupId, periodId, values));
 }
 
 export function useUpdateGroupRecurringRange(groupId) {

@@ -132,6 +132,11 @@ docker compose -f docker-compose-local.yaml ps
 기존 일정 데이터는 nullable 연결 컬럼으로 보존되며, `ddl-auto: validate` 환경에서는
 마이그레이션을 적용하지 않으면 애플리케이션이 기동하지 않습니다.
 
+달력 전체의 운영 스키마 확장, 기존 그룹 이력 백필, 기능 공개 순서는
+[모임 달력 운영 데이터 이관·배포 가이드](docs/operations/group-calendar-rollout.md)를 따릅니다.
+운영 배포 전에 `2026-10-07-group-calendar-expand.sql`과 반복 회차 예외 SQL을 적용하고,
+호환 백엔드 배포 뒤 `2026-10-07-group-calendar-backfill-batch.sql`을 검토·실행해야 합니다.
+
 ### 운영 DB SSH 터널 접속
 
 운영 Compose는 PostgreSQL 포트를 서버의 `127.0.0.1:5432`에 바인딩합니다.

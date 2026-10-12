@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { Modal } from "../../shared/ui/index.js";
+import { Button, Modal } from "../../shared/ui/index.js";
 
 function displayDate(event) {
   return event.startDate === event.endDate
@@ -39,11 +39,11 @@ export function GroupCalendarDetailDialog({ event, isMember, isLeader, detail, l
           {isMember && detail?.location ? <p><strong>장소</strong> {detail.location}</p> : null}
           {isMember && detail?.description ? <p className="group-calendar-detail__description">{detail.description}</p> : null}
           {isLeader && ["GROUP_EVENT", "REGULAR_MEETING"].includes(event.kind) && detail ? <div className="group-calendar-form__actions">
-            <button data-ph-capture-attribute-action="group_calendar_event_edit" onClick={onEdit} type="button">일정 수정</button>
+            <Button data-ph-capture-attribute-action="group_calendar_event_edit" onClick={onEdit} type="button">일정 수정</Button>
             {confirmDelete ? <>
-              <button data-ph-capture-attribute-action="group_calendar_event_delete_cancel" onClick={() => setConfirmDelete(false)} type="button">취소</button>
-              <button data-ph-capture-attribute-action="group_calendar_event_delete_confirm" disabled={deleting} onClick={onDelete} type="button">삭제 확정</button>
-            </> : <button data-ph-capture-attribute-action="group_calendar_event_delete_open" onClick={() => setConfirmDelete(true)} type="button">일정 삭제</button>}
+              <Button data-ph-capture-attribute-action="group_calendar_event_delete_cancel" onClick={() => setConfirmDelete(false)} type="button" variant="secondary">취소</Button>
+              <Button data-ph-capture-attribute-action="group_calendar_event_delete_confirm" disabled={deleting} onClick={onDelete} type="button" variant="danger">삭제 확정</Button>
+            </> : <Button data-ph-capture-attribute-action="group_calendar_event_delete_open" onClick={() => setConfirmDelete(true)} type="button" variant="danger">일정 삭제</Button>}
           </div> : null}
           {deleteError ? <p className="group-calendar-form__error" role="alert">{deleteError}</p> : null}
         </div>

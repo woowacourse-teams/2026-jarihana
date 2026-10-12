@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { GroupCalendarEventDialog } from "./GroupCalendarEventDialog.jsx";
@@ -61,4 +61,20 @@ test("개별 일정을 수정할 때 기존 값을 채우고 버전을 함께 �
     eventType: "INDIVIDUAL",
     title: "게임의 밤", allDay: true, version: 2
   }));
+});
+
+test("시작일을 종료일보다 뒤로 옮기면 종료일을 시작일에 맞춘다", () => {
+  render(<GroupCalendarEventDialog open initialEvent={{
+    id: 4, eventType: "INDIVIDUAL", title: "게임의 밤", startDate: "2026-10-07", endDate: "2026-10-10",
+    allDay: true, startTime: null, endTime: null, location: null,
+    description: "함께 게임해요", version: 2
+  }} />);
+  const startDate = screen.getByLabelText(/^시작일/);
+  const endDate = screen.getByLabelText(/^종료일/);
+
+  fireEvent.change(startDate, { target: { value: "2026-10-12" } });
+  expect(endDate).toHaveValue("2026-10-12");
+
+  fireEvent.change(startDate, { target: { value: "2026-10-09" } });
+  expect(endDate).toHaveValue("2026-10-12");
 });

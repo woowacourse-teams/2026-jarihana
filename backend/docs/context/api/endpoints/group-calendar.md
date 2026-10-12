@@ -155,7 +155,7 @@
 
 ### `GET /api/groups/{groupId}/recurring-schedule/periods/{periodId}`
 
-- 설명: 선택한 과거 또는 현재 규칙 구간 조회
+- 설명: 선택한 회차 날짜에 적용된 정기 규칙 조회
 - 권한: `LEADER`
 - 응답: `periodId`, `effectiveFrom`, `effectiveUntil`, 시리즈 `version`, 요일과 시각
 
@@ -163,17 +163,17 @@
 
 - 설명: 정기 규칙의 요일·시각 변경
 - 권한: `LEADER`
-- 요청: `daysOfWeek`, `startTime`, `endTime`, `applyScope`, `version`
-- `applyScope`는 `ALL`, `PREVIOUS_RULE`, `FROM_TODAY`다. `ALL`은 모든 규칙 구간의 요일·시각을 바꾸고, `PREVIOUS_RULE`은 현재 규칙 구간만 바꾸며, `FROM_TODAY`는 오늘 이후 구간을 바꾼다. 전체 시작·종료일은 별도 API로 수정한다.
+- 요청: `daysOfWeek`, `startTime`, `endTime`, `applyScope`, `fromDate`, 캘린더 회차의 `periodId`, `version`
+- `applyScope`는 `ALL`, `FROM_TODAY`다. 캘린더 회차에서 요청할 때 `periodId`로 해당 회차가 속한 반복 일정을 지정한다. `ALL`은 그 반복 일정의 모든 규칙 구간에 요일·시각을 적용한다. `FROM_TODAY`는 요청의 `fromDate`부터 포함해 이후 일정을 바꾸며, 해당 날짜를 기준으로 구간을 나눈다. `FROM_TODAY`에서 `fromDate`가 빠진 오래된 화면 요청은 새로고침 오류로 거절한다. 전체 시작·종료일은 별도 API로 수정한다.
 - 위 범위는 반복 규칙 자체에 적용한다. `이 일정만`은 선택한 발생일에 예외 일정을 저장하므로 반복 규칙 변경 API가 아니라 `/recurring-schedule/occurrences` API를 사용한다.
 - 응답: 증가한 시리즈 `version`
 
 ### `PUT /api/groups/{groupId}/recurring-schedule/periods/{periodId}`
 
-- 설명: 선택한 규칙 구간의 요일·시각만 수정
+- 설명: 구버전 화면의 규칙 구간 직접 수정 요청을 거절
 - 권한: `LEADER`
 - 요청: `daysOfWeek`, `startTime`, `endTime`, `version`
-- 응답: 증가한 시리즈 `version`
+- 응답: `409 CALENDAR_CLIENT_OUTDATED`; 새 화면에서 날짜 기준 변경 범위를 선택해야 한다.
 
 ### `PUT /api/groups/{groupId}/recurring-schedule/calendar-range`
 
@@ -186,9 +186,9 @@
 
 - 설명: 범위를 선택해 정기 규칙 제거
 - 권한: `LEADER`
-- 요청: `applyScope` (`ALL`, `PREVIOUS_RULE`, `FROM_TODAY`), `version`
+- 요청: `applyScope` (`ALL`, `FROM_TODAY`), `fromDate` (`FROM_TODAY`일 때 필수), 선택한 회차의 `periodId`, `version`
 - 응답: `204 No Content`
-- 현재 규칙 삭제는 범위에 따라 해당 구간의 정기 발생을 숨기고 이후 유동적 운영 기간으로 전환한다. `ALL`은 모임 개설일부터, `PREVIOUS_RULE`은 현재 규칙 구간 시작일부터, `FROM_TODAY`는 오늘부터 유동적으로 표시한다.
+- 규칙 삭제도 수정과 같은 선택 날짜 범위를 사용한다. 캘린더 회차에서 요청하면 `periodId`가 지정한 반복 일정에 적용하고, 관리 화면에서 요청하면 현재 반복 일정에 적용한다. `ALL`은 선택한 반복 일정의 정기 발생을 모두 숨기고, `FROM_TODAY`는 `fromDate`부터 정기 발생을 숨긴다. `이 일정만`은 occurrence 삭제 API를 사용한다.
 
 ## 공통 오류
 

@@ -155,9 +155,9 @@ class GroupRecurringControllerTest extends IntegrationTestSupport {
                 .satisfies(period -> assertThat(period.getDaysOfWeek().values()).containsExactly(DayOfWeek.THURSDAY));
     }
 
-    @DisplayName("앞으로의 일정 수정은 오늘부터 새 규칙 구간을 만들고 이전 구간을 보존한다.")
+    @DisplayName("이후 일정 수정은 선택한 날짜부터 새 규칙 구간을 만들고 이전 구간을 보존한다.")
     @Test
-    void fromTodaySplitsCurrentRule() {
+    void fromSelectedDateSplitsCurrentRule() {
         // Given
         Member leader = members.save(Member.create("가온", 8, "recurring-leader", Course.BACKEND));
         Group group = groups.save(Group.createStudy("정기 모임", "함께해요", null, null,
@@ -166,14 +166,16 @@ class GroupRecurringControllerTest extends IntegrationTestSupport {
         memberships.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
         GroupRecurringSeries savedSeries = series.save(GroupRecurringSeries.create(group,
                 LocalDate.of(2026, 8, 1), null, TestSupportConfig.FIXED_NOW));
+        GroupRecurringPeriod selectedPeriod = periods.save(GroupRecurringPeriod.create(savedSeries,
+                Set.of(DayOfWeek.MONDAY), LocalTime.of(19, 0), LocalTime.of(21, 0),
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 10), TestSupportConfig.FIXED_NOW));
         periods.save(GroupRecurringPeriod.create(savedSeries, Set.of(DayOfWeek.WEDNESDAY),
-                LocalTime.of(19, 0), LocalTime.of(21, 0), LocalDate.of(2026, 8, 1),
+                LocalTime.of(19, 0), LocalTime.of(21, 0), LocalDate.of(2026, 8, 11),
                 null, TestSupportConfig.FIXED_NOW));
         String token = tokens.issue(leader.getId()).value();
         String csrf = given().get("/groups/{groupId}", group.getId()).getCookie("XSRF-TOKEN");
 
-        // When
-        var response = given().cookie(cookies.accessTokenName(), token)
+        given().cookie(cookies.accessTokenName(), token)
                 .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
                 .contentType("application/json")
                 .body("""
@@ -181,23 +183,76 @@ class GroupRecurringControllerTest extends IntegrationTestSupport {
                          "applyScope":"FROM_TODAY","version":0}
                         """)
                 .put("/groups/{groupId}/recurring-schedule/scoped", group.getId())
+                .then().statusCode(409).body("error.code", equalTo("CALENDAR_CLIENT_OUTDATED"));
+
+        // When
+        var response = given().cookie(cookies.accessTokenName(), token)
+                .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .contentType("application/json")
+                .body("""
+                        {"daysOfWeek":["THURSDAY"],"startTime":"18:00:00","endTime":"20:00:00",
+                         "applyScope":"FROM_TODAY","fromDate":"2026-08-10","periodId":%d,"version":0}
+                        """.formatted(selectedPeriod.getId()))
+                .put("/groups/{groupId}/recurring-schedule/scoped", group.getId())
                 .then().extract();
         assertThat(response.statusCode()).as(response.asString()).isEqualTo(200);
         assertThat(response.jsonPath().getInt("data.version")).isEqualTo(1);
 
         // Then
         var history = periods.findAllBySeriesIdOrderByEffectiveFromAsc(savedSeries.getId());
-        assertThat(history).hasSize(2);
-        assertThat(history.get(0).getEffectiveUntil()).isEqualTo(LocalDate.of(2026, 8, 18));
-        assertThat(history.get(1).getEffectiveFrom()).isEqualTo(LocalDate.of(2026, 8, 19));
+        assertThat(history).hasSize(3);
+        assertThat(history.get(0).getEffectiveUntil()).isEqualTo(LocalDate.of(2026, 8, 9));
+        assertThat(history.get(0).getDaysOfWeek().contains(DayOfWeek.MONDAY)).isTrue();
+        assertThat(history.get(1).getEffectiveFrom()).isEqualTo(LocalDate.of(2026, 8, 10));
+        assertThat(history.get(1).getEffectiveUntil()).isEqualTo(LocalDate.of(2026, 8, 10));
         assertThat(history.get(1).getDaysOfWeek().contains(DayOfWeek.THURSDAY)).isTrue();
+        assertThat(history.get(2).getEffectiveFrom()).isEqualTo(LocalDate.of(2026, 8, 11));
+        assertThat(history.get(2).getDaysOfWeek().contains(DayOfWeek.THURSDAY)).isTrue();
         assertThat(groups.findById(group.getId()).orElseThrow().getRecurringSchedule()
                 .getActivityDays().contains(DayOfWeek.THURSDAY)).isTrue();
+
+        given().queryParam("from", "2026-08-01").queryParam("to", "2026-08-31")
+                .get("/groups/{groupId}/calendar", group.getId())
+                .then().statusCode(200)
+                .body("data.events.size()", equalTo(4))
+                .body("data.events[0].startDate", equalTo("2026-08-03"))
+                .body("data.events[1].startDate", equalTo("2026-08-13"))
+                .body("data.events[2].startDate", equalTo("2026-08-20"))
+                .body("data.events[3].startDate", equalTo("2026-08-27"));
     }
 
-    @DisplayName("과거 규칙 구간은 날짜 경계를 유지한 채 요일과 시각만 수정한다.")
+    @DisplayName("이후 일정 삭제는 선택한 날짜 전날까지만 정기 규칙을 표시한다.")
     @Test
-    void editsPastPeriodWithoutChangingCurrentRule() {
+    void deletesRecurringScheduleFromSelectedDate() {
+        Member leader = members.save(Member.create("가온", 8, "delete-from-date-leader", Course.BACKEND));
+        Group group = groups.save(Group.createStudy("정기 일정 삭제 모임", "함께해요", null, null,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.WEDNESDAY), null, null), TestSupportConfig.FIXED_NOW));
+        memberships.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
+        GroupRecurringSeries savedSeries = series.save(GroupRecurringSeries.create(group,
+                LocalDate.of(2026, 8, 1), null, TestSupportConfig.FIXED_NOW));
+        periods.save(GroupRecurringPeriod.create(savedSeries, Set.of(DayOfWeek.WEDNESDAY),
+                null, null, LocalDate.of(2026, 8, 1), null, TestSupportConfig.FIXED_NOW));
+        String token = tokens.issue(leader.getId()).value();
+        String csrf = given().get("/groups/{groupId}", group.getId()).getCookie("XSRF-TOKEN");
+
+        given().cookie(cookies.accessTokenName(), token)
+                .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .contentType("application/json")
+                .body("""
+                        {"applyScope":"FROM_TODAY","fromDate":"2026-08-26","version":0}
+                        """)
+                .delete("/groups/{groupId}/recurring-schedule/scoped", group.getId())
+                .then().statusCode(204);
+
+        GroupRecurringSeries stopped = series.findById(savedSeries.getId()).orElseThrow();
+        assertThat(stopped.getCalendarEndDate()).isEqualTo(LocalDate.of(2026, 8, 25));
+        assertThat(stopped.isCurrent()).isFalse();
+        assertThat(groups.findById(group.getId()).orElseThrow().getRecurringSchedule()).isNull();
+    }
+
+    @DisplayName("과거 구간만 직접 바꾸던 오래된 화면 요청은 새로고침 안내와 함께 거절한다.")
+    @Test
+    void rejectsLegacyRulePeriodEdit() {
         // Given
         Member leader = members.save(Member.create("가온", 8, "past-period-leader", Course.BACKEND));
         Group group = groups.save(Group.createStudy("과거 이력 모임", "함께해요", null, null,
@@ -222,13 +277,13 @@ class GroupRecurringControllerTest extends IntegrationTestSupport {
                          "endTime":"20:00:00","version":0}
                         """)
                 .put("/groups/{groupId}/recurring-schedule/periods/{periodId}", group.getId(), past.getId())
-                .then().statusCode(200).body("data.version", equalTo(1));
+                .then().statusCode(409).body("error.code", equalTo("CALENDAR_CLIENT_OUTDATED"));
 
         // Then
         var history = periods.findAllBySeriesIdOrderByEffectiveFromAsc(savedSeries.getId());
         assertThat(history.get(0).getEffectiveFrom()).isEqualTo(LocalDate.of(2026, 8, 1));
         assertThat(history.get(0).getEffectiveUntil()).isEqualTo(LocalDate.of(2026, 8, 15));
-        assertThat(history.get(0).getDaysOfWeek().contains(DayOfWeek.THURSDAY)).isTrue();
+        assertThat(history.get(0).getDaysOfWeek().contains(DayOfWeek.MONDAY)).isTrue();
         assertThat(history.get(1).getDaysOfWeek().contains(DayOfWeek.WEDNESDAY)).isTrue();
         assertThat(groups.findById(group.getId()).orElseThrow().getRecurringSchedule()
                 .getActivityDays().contains(DayOfWeek.WEDNESDAY)).isTrue();
@@ -273,48 +328,9 @@ class GroupRecurringControllerTest extends IntegrationTestSupport {
                 .getEffectiveFrom()).isEqualTo(LocalDate.of(2026, 8, 19));
     }
 
-    @DisplayName("직전 규칙 삭제는 그 구간 시작 전의 정기 발생 기록만 남긴다.")
+    @DisplayName("모든 일정 범위는 이력 구간 전부의 규칙을 바꾸고 날짜 경계는 유지한다.")
     @Test
-    void deletingPreviousRulePreservesOlderOccurrences() {
-        // Given
-        Member leader = members.save(Member.create("가온", 8, "delete-rule-leader", Course.BACKEND));
-        Group group = groups.save(Group.createStudy("삭제 모임", "함께해요", null, null,
-                RecurringGroupSchedule.of(Set.of(DayOfWeek.WEDNESDAY), null, null),
-                TestSupportConfig.FIXED_NOW));
-        memberships.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
-        GroupRecurringSeries savedSeries = series.save(GroupRecurringSeries.create(group,
-                LocalDate.of(2026, 8, 1), null, TestSupportConfig.FIXED_NOW));
-        periods.save(GroupRecurringPeriod.create(savedSeries, Set.of(DayOfWeek.MONDAY),
-                null, null, LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 15), TestSupportConfig.FIXED_NOW));
-        periods.save(GroupRecurringPeriod.create(savedSeries, Set.of(DayOfWeek.WEDNESDAY),
-                null, null, LocalDate.of(2026, 8, 16), null, TestSupportConfig.FIXED_NOW));
-        String token = tokens.issue(leader.getId()).value();
-        String csrf = given().get("/groups/{groupId}", group.getId()).getCookie("XSRF-TOKEN");
-
-        // When
-        given().cookie(cookies.accessTokenName(), token)
-                .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
-                .contentType("application/json")
-                .body("{\"applyScope\":\"PREVIOUS_RULE\",\"version\":0}")
-                .delete("/groups/{groupId}/recurring-schedule/scoped", group.getId())
-                .then().statusCode(204);
-
-        // Then
-        assertThat(groups.findById(group.getId()).orElseThrow().getRecurringSchedule()).isNull();
-        assertThat(series.findById(savedSeries.getId()).orElseThrow().getCalendarEndDate())
-                .isEqualTo(LocalDate.of(2026, 8, 15));
-        given().queryParam("from", "2026-08-01").queryParam("to", "2026-08-31")
-                .get("/groups/{groupId}/calendar", group.getId())
-                .then().statusCode(200)
-                .body("data.events.size()", equalTo(2))
-                .body("data.events[0].startDate", equalTo("2026-08-03"))
-                .body("data.events[1].startDate", equalTo("2026-08-10"))
-                .body("data.flexibleAfterRecurring[0].fromDate", equalTo("2026-08-16"));
-    }
-
-    @DisplayName("직전 일정은 현재 구간만, 모든 일정은 이력 구간 전부의 규칙만 바꾼다.")
-    @Test
-    void previousAndAllScopesPreserveDateBoundaries() {
+    void allScopePreservesDateBoundaries() {
         // Given
         Member leader = members.save(Member.create("가온", 8, "scope-leader", Course.BACKEND));
         Group group = groups.save(Group.createStudy("범위 선택 모임", "함께해요", null, null,
@@ -335,22 +351,8 @@ class GroupRecurringControllerTest extends IntegrationTestSupport {
                 .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
                 .contentType("application/json")
                 .body("""
-                        {"daysOfWeek":["THURSDAY"],"startTime":null,"endTime":null,
-                         "applyScope":"PREVIOUS_RULE","version":0}
-                        """)
-                .put("/groups/{groupId}/recurring-schedule/scoped", group.getId())
-                .then().statusCode(200);
-        var afterPrevious = periods.findAllBySeriesIdOrderByEffectiveFromAsc(savedSeries.getId());
-        assertThat(afterPrevious.get(0).getDaysOfWeek().contains(DayOfWeek.MONDAY)).isTrue();
-        assertThat(afterPrevious.get(1).getDaysOfWeek().contains(DayOfWeek.THURSDAY)).isTrue();
-
-        // Then
-        given().cookie(cookies.accessTokenName(), token)
-                .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
-                .contentType("application/json")
-                .body("""
                         {"daysOfWeek":["FRIDAY"],"startTime":null,"endTime":null,
-                         "applyScope":"ALL","version":1}
+                         "applyScope":"ALL","version":0}
                         """)
                 .put("/groups/{groupId}/recurring-schedule/scoped", group.getId())
                 .then().statusCode(200);
