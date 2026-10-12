@@ -3,6 +3,7 @@ package com.project.jarihana.common.exception;
 import com.project.jarihana.common.response.ApiResponse;
 import com.project.jarihana.common.logging.RequestLogContext;
 import com.project.jarihana.common.logging.SafeExceptionLogFields;
+import io.sentry.Sentry;
 import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -101,6 +102,7 @@ public class GlobalExceptionHandler {
                 .addKeyValue("jarihana.error_code", errorCode.name());
         if (errorCode == ErrorCode.INTERNAL_ERROR) {
             SafeExceptionLogFields.from(exception).forEach(event::addKeyValue);
+            Sentry.captureException(exception);
         } else {
             event.addKeyValue("error.type", exception.getClass().getName());
         }
