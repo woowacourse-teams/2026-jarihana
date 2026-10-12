@@ -11,6 +11,23 @@ on:
       - ".github/workflows/backend-dev-deploy.yml"
   workflow_dispatch:
     inputs:
+      operation:
+        description: "개발 백엔드 배포 또는 달력 데이터 백필을 선택한다."
+        type: choice
+        required: true
+        default: deploy
+        options:
+          - deploy
+          - group-calendar-backfill
+      batch_size:
+        description: "달력 백필 한 번에 처리할 모임 수"
+        type: choice
+        required: true
+        default: "50"
+        options:
+          - "25"
+          - "50"
+          - "100"
       image_tag:
         description: "다시 배포할 기존 이미지 태그(커밋 SHA). 비우면 현재 커밋을 빌드해 배포한다."
         required: false
@@ -30,7 +47,7 @@ env:
 jobs:
   # 이미지는 GitHub 호스팅 ARM runner에서 빌드해 GHCR에 올린다. 서버는 빌드하지 않는다.
   build:
-    if: github.ref == 'refs/heads/develop' && inputs.image_tag == ''
+    if: github.ref == 'refs/heads/develop' && inputs.operation != 'group-calendar-backfill' && inputs.image_tag == ''
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     permissions:
@@ -76,6 +93,7 @@ jobs:
     if: >-
       always()
       && github.ref == 'refs/heads/develop'
+      && inputs.operation != 'group-calendar-backfill'
       && (needs.build.result == 'success'
         || (needs.build.result == 'skipped' && inputs.image_tag != ''))
     runs-on: [jarihana-dev]
@@ -188,3 +206,137 @@ jobs:
           docker image prune -af \
             --filter "until=168h" \
             --filter "label=org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}"
+
+
+  group-calendar-backfill:
+    name: Group calendar backfill (development)
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      && github.ref == 'refs/heads/develop'
+      && inputs.operation == 'group-calendar-backfill'
+    runs-on: [jarihana-dev]
+    environment: dev
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      RDS_HOST: ${ vars.RDS_URL }
+      DB_USERNAME: ${ vars.DB_USERNAME }
+      DB_PASSWORD: ${ secrets.DB_PASSWORD }
+      PGPORT: "5432"
+      PGDATABASE: jarihana_dev
+      PGSSLMODE: require
+      BATCH_SIZE: ${ inputs.batch_size }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: PostgreSQL client 준비
+        run: docker pull postgres:17-alpine
+
+      - name: 개발 DB 확인 후 작은 구간별 백필
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_REF}" != "refs/heads/develop" || "${PGDATABASE}" != "jarihana_dev" ]]; then
+            echo "::error::이 작업은 develop 브랜치의 jarihana_dev 데이터베이스에서만 실행할 수 있다."
+            exit 1
+          fi
+          if [[ ! "${BATCH_SIZE}" =~ ^(25|50|100)$ ]]; then
+            echo "::error::허용하지 않는 batch_size다."
+            exit 1
+          fi
+          : "${RDS_HOST:?dev 환경의 RDS_URL이 필요하다}"
+          : "${DB_USERNAME:?dev 환경의 DB_USERNAME이 필요하다}"
+          : "${DB_PASSWORD:?dev 환경의 DB_PASSWORD가 필요하다}"
+
+          export PGHOST="${RDS_HOST}"
+          export PGUSER="${DB_USERNAME}"
+          export PGPASSWORD="${DB_PASSWORD}"
+
+          psql_dev() {
+            docker run --rm --network host \
+              -e PGHOST -e PGPORT -e PGDATABASE -e PGUSER -e PGPASSWORD -e PGSSLMODE \
+              postgres:17-alpine psql -X -v ON_ERROR_STOP=1 "$@"
+          }
+
+          schema_ready="$(psql_dev -At -c "
+            SELECT current_database() = 'jarihana_dev'
+              AND to_regclass('public.groups') IS NOT NULL
+              AND to_regclass('public.group_event') IS NOT NULL
+              AND to_regclass('public.group_recurring_series') IS NOT NULL
+              AND to_regclass('public.group_recurring_schedule_period') IS NOT NULL
+              AND to_regclass('public.group_location_history') IS NOT NULL;
+          ")"
+          if [[ "${schema_ready}" != "t" ]]; then
+            echo "::error::개발 DB 이름 또는 캘린더 스키마가 예상과 다르다. 백필을 시작하지 않았다."
+            exit 1
+          fi
+
+          sql_file="backend/db/migrations/2026-10-07-group-calendar-backfill-batch.sql"
+          if [[ ! -f "${sql_file}" ]]; then
+            echo "::error::백필 SQL 파일을 찾을 수 없다: ${sql_file}"
+            exit 1
+          fi
+
+          ranges="$(psql_dev -At -F '|' -c "
+            SELECT MIN(id)::text || '|' || MAX(id)::text
+            FROM (
+              SELECT id,
+                     (row_number() OVER (ORDER BY id) - 1) / ${BATCH_SIZE} AS batch_number
+              FROM groups
+            ) numbered_groups
+            GROUP BY batch_number
+            ORDER BY batch_number;
+          ")"
+
+          if [[ -z "${ranges}" ]]; then
+            echo "개발 DB에 모임이 없어 백필할 데이터가 없다."
+            exit 0
+          fi
+
+          batch_number=0
+          while IFS='|' read -r batch_start_id batch_end_id; do
+            [[ -n "${batch_start_id}" ]] || continue
+            if [[ ! "${batch_start_id}" =~ ^[0-9]+$ || ! "${batch_end_id}" =~ ^[0-9]+$ ]]; then
+              echo "::error::DB에서 읽은 모임 ID 구간이 숫자가 아니다."
+              exit 1
+            fi
+
+            batch_number=$((batch_number + 1))
+            rendered_sql="${RUNNER_TEMP}/group-calendar-backfill-${batch_number}.sql"
+            sed \
+              -e "s/BATCH_START_ID/${batch_start_id}/g" \
+              -e "s/BATCH_END_ID/${batch_end_id}/g" \
+              "${sql_file}" > "${rendered_sql}"
+
+            echo "백필 구간 ${batch_number}: group ID ${batch_start_id}–${batch_end_id}"
+            psql_dev -f "${rendered_sql}"
+            rm -f "${rendered_sql}"
+          done <<< "${ranges}"
+
+          remaining="$(psql_dev -At -F '|' -c "
+            SELECT
+              (SELECT COUNT(*) FROM groups g
+               WHERE NOT EXISTS (
+                 SELECT 1 FROM group_location_history h WHERE h.group_id = g.id
+               ))::text || '|' ||
+              (SELECT COUNT(*) FROM groups g
+               WHERE g.recurring_activity_days IS NOT NULL
+                 AND NOT EXISTS (
+                   SELECT 1
+                   FROM group_recurring_series s
+                   WHERE s.group_id = g.id AND s.is_current
+                     AND EXISTS (
+                       SELECT 1 FROM group_recurring_schedule_period p WHERE p.series_id = s.id
+                     )
+                 ))::text;
+          ")"
+          IFS='|' read -r groups_without_location recurring_groups_without_schedule <<< "${remaining}"
+          if [[ "${groups_without_location}" != "0" || "${recurring_groups_without_schedule}" != "0" ]]; then
+            echo "::error::백필 검증 실패: 장소 이력 누락 ${groups_without_location}, 정기 규칙 누락 ${recurring_groups_without_schedule}"
+            exit 1
+          fi
+
+          echo "개발 DB 백필 완료: ${batch_number}개 구간 처리, 장소 이력과 정기 규칙 검증 통과"
