@@ -28,16 +28,14 @@
 | 도구 | 주로 확인하는 것 | 이 저장소에서의 역할 |
 | --- | --- | --- |
 | Sentry | 예외, 스택 트레이스, 오류별 이벤트 묶음, 배포 버전 | 애플리케이션 Error Monitoring |
-| CloudWatch | 애플리케이션·인프라 로그와 메트릭, 대시보드, 알림 | 현재 로그·메트릭 관찰 플랫폼 |
-| Prometheus | 시계열 메트릭 수집과 조회 | CloudWatch Agent가 백엔드 메트릭을 읽어 CloudWatch로 전달 |
-| Grafana | 메트릭과 로그를 조회하는 대시보드 | 별도 Grafana 서비스는 운영하지 않음 |
-| Loki | 로그 수집과 검색 | 별도 Loki 서비스는 운영하지 않음 |
+| CloudWatch | 기존 AWS 로그·메트릭 도구 | legacy 운영 도구로 보존 |
+| Prometheus | 시계열 메트릭 수집과 조회 | Alloy가 보낸 앱·호스트 메트릭 저장 |
+| Grafana | 메트릭과 로그를 조회하는 대시보드 | Prometheus·Loki·Tempo 데이터 소스와 알림 UI |
+| Loki | 로그 수집과 검색 | Docker `local` 로그를 Alloy가 전달하는 현재 backend 로그 저장소 |
 
 Prometheus·Grafana·Loki는 함께 구성해 쓸 수 있지만 Sentry의 Issue 묶기나 소스맵 기반 오류
-위치 확인을 대신하지는 않는다. 이 저장소는 별도 Prometheus·Grafana·Loki 스택 대신 CloudWatch를
-사용하기로 했다. 자세한 배경은 [백엔드 ADR 0014: 초기 관찰 플랫폼으로 Amazon CloudWatch를
-사용한다](../../../backend/docs/adr/0014-cloudwatch-observability-platform.md)와
-[CloudWatch 수집 운영 문서](../../cloudwatch/README.md)를 참고한다.
+위치 확인을 대신하지는 않는다. 현재 backend 로그·메트릭은 Alloy → Loki/Prometheus 경로를
+사용한다. CloudWatch 문서는 legacy 운영 도구로 남겨 둔다.
 
 ## Sentry 프로젝트
 

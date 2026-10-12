@@ -1,0 +1,359 @@
+{
+  "cellIdPreamble": "cell-",
+  "gradientMode": "none",
+  "datapoint": "last",
+  "background": {
+    "darkThemeColor": "#0c111b",
+    "lightThemeColor": "#0c111b"
+  },
+  "cells": {
+    "server": {
+      "dataRef": "app_health",
+      "strokeColor": {
+        "thresholds": [
+          {
+            "color": "#93a4bd",
+            "level": -1
+          },
+          {
+            "color": "#ff6b7a",
+            "level": 0
+          },
+          {
+            "color": "#76b4ff",
+            "level": 1
+          }
+        ]
+      },
+      "link": {
+        "url": "/d/jarihana-overview?var-environment=${environment}&from=${__from}&to=${__to}"
+      }
+    },
+    "database": {
+      "dataRef": "db_health",
+      "strokeColor": {
+        "thresholds": [
+          {
+            "color": "#93a4bd",
+            "level": -1
+          },
+          {
+            "color": "#ff6b7a",
+            "level": 0
+          },
+          {
+            "color": "#b69cff",
+            "level": 1
+          }
+        ]
+      },
+      "link": {
+        "url": "/d/jarihana-overview?var-environment=${environment}&from=${__from}&to=${__to}"
+      }
+    },
+    "http-rps": {
+      "dataRef": "http_rps",
+      "label": {
+        "separator": "replace",
+        "units": "reqps",
+        "decimalPoints": 2,
+        "valueMappings": [
+          {
+            "value": null,
+            "text": "—"
+          },
+          {
+            "value": -1,
+            "text": "—"
+          }
+        ]
+      }
+    },
+    "db-rps": {
+      "dataRef": "db_rps",
+      "label": {
+        "separator": "replace",
+        "units": "ops",
+        "decimalPoints": 2,
+        "valueMappings": [
+          {
+            "value": null,
+            "text": "—"
+          },
+          {
+            "value": -1,
+            "text": "—"
+          }
+        ]
+      }
+    },
+    "p95": {
+      "dataRef": "http_p95",
+      "label": {
+        "separator": "replace",
+        "units": "ms",
+        "decimalPoints": 1,
+        "valueMappings": [
+          {
+            "value": null,
+            "text": "—"
+          },
+          {
+            "value": -1,
+            "text": "—"
+          }
+        ]
+      }
+    },
+    "p99": {
+      "dataRef": "http_p99",
+      "label": {
+        "separator": "replace",
+        "units": "ms",
+        "decimalPoints": 1,
+        "valueMappings": [
+          {
+            "value": null,
+            "text": "—"
+          },
+          {
+            "value": -1,
+            "text": "—"
+          }
+        ]
+      }
+    },
+    "db-p95": {
+      "dataRef": "db_p95",
+      "label": {
+        "separator": "replace",
+        "units": "ms",
+        "decimalPoints": 1,
+        "valueMappings": [
+          {
+            "value": null,
+            "text": "—"
+          },
+          {
+            "value": -1,
+            "text": "—"
+          }
+        ]
+      }
+    },
+    "pool-max": {
+      "dataRef": "db_max",
+      "label": {
+        "separator": "space",
+        "units": "none",
+        "decimalPoints": 0,
+        "valueMappings": [
+          {
+            "value": null,
+            "text": "—"
+          },
+          {
+            "value": -1,
+            "text": "—"
+          }
+        ]
+      }
+    },
+    "pool-pending": {
+      "dataRef": "db_pending",
+      "label": {
+        "separator": "space",
+        "units": "none",
+        "decimalPoints": 0,
+        "valueMappings": [
+          {
+            "value": null,
+            "text": "—"
+          },
+          {
+            "value": -1,
+            "text": "—"
+          }
+        ]
+      },
+      "labelColor": {
+        "thresholds": [
+          {
+            "color": "#93a4bd",
+            "level": -1
+          },
+          {
+            "color": "#4dd7ba",
+            "level": 0
+          },
+          {
+            "color": "#ff6b7a",
+            "level": 1
+          }
+        ]
+      }
+    },
+    "http-line": {
+      "dataRef": "http_flow",
+      "strokeColor": {
+        "dataRef": "app_health",
+        "thresholds": [
+          {
+            "color": "#93a4bd",
+            "level": -1
+          },
+          {
+            "color": "#ff6b7a",
+            "level": 0
+          },
+          {
+            "color": "#4dd7ba",
+            "level": 1
+          }
+        ]
+      },
+      "fillColor": {
+        "dataRef": "app_health",
+        "thresholds": [
+          {
+            "color": "#93a4bd",
+            "level": -1
+          },
+          {
+            "color": "#ff6b7a",
+            "level": 0
+          },
+          {
+            "color": "#4dd7ba",
+            "level": 1
+          }
+        ]
+      },
+      "flowAnimation": {
+        "thresholdOffValue": 0,
+        "thresholdLwrValue": 0.05,
+        "thresholdLwrDurationSecs": 2.4,
+        "thresholdUprValue": 30,
+        "thresholdUprDurationSecs": 0.25,
+        "biasPower": 0.4,
+        "unidirectional": true
+      }
+    },
+    "response-line": {
+      "dataRef": "http_flow",
+      "strokeColor": {
+        "dataRef": "app_health",
+        "thresholds": [
+          { "color": "#93a4bd", "level": -1 },
+          { "color": "#ff6b7a", "level": 0 },
+          { "color": "#76b4ff", "level": 1 }
+        ]
+      },
+      "fillColor": {
+        "dataRef": "app_health",
+        "thresholds": [
+          { "color": "#93a4bd", "level": -1 },
+          { "color": "#ff6b7a", "level": 0 },
+          { "color": "#76b4ff", "level": 1 }
+        ]
+      },
+      "flowAnimation": {
+        "thresholdOffValue": 0,
+        "thresholdLwrValue": 0.05,
+        "thresholdLwrDurationSecs": 2.4,
+        "thresholdUprValue": 30,
+        "thresholdUprDurationSecs": 0.25,
+        "biasPower": 0.4,
+        "unidirectional": true
+      }
+    },
+    "http-errors": {
+      "dataRef": "http_5xx",
+      "label": {
+        "separator": "space",
+        "units": "reqps",
+        "decimalPoints": 2,
+        "valueMappings": [
+          { "value": null, "text": "—" },
+          { "value": -1, "text": "—" }
+        ]
+      },
+      "labelColor": {
+        "thresholds": [
+          { "color": "#93a4bd", "level": -1 },
+          { "color": "#4dd7ba", "level": 0 },
+          { "color": "#ff6b7a", "level": 0.000001 }
+        ]
+      }
+    },
+    "pool-node": {
+      "dataRef": "db_max",
+      "flowAnimation": {
+        "thresholdOffValue": 0,
+        "thresholdLwrValue": 1,
+        "thresholdLwrDurationSecs": 3.2,
+        "thresholdUprValue": 100,
+        "thresholdUprDurationSecs": 3.2,
+        "unidirectional": true
+      }
+    },
+    "pool-status": {
+      "dataRef": "db_max",
+      "bespokeDataRef": "poolStatus",
+      "label": { "separator": "replace" },
+      "bespoke": {
+        "namespace": "pool-nodes",
+        "drives": [
+          { "elementName": "text", "attribsSet": { "y": "hasMax and capacity > 0 ? 70 : 164" } }
+        ]
+      }
+    },
+    "db-line": {
+      "dataRef": "db_flow",
+      "strokeColor": {
+        "dataRef": "db_health",
+        "thresholds": [
+          {
+            "color": "#93a4bd",
+            "level": -1
+          },
+          {
+            "color": "#ff6b7a",
+            "level": 0
+          },
+          {
+            "color": "#4dd7ba",
+            "level": 1
+          }
+        ]
+      },
+      "fillColor": {
+        "dataRef": "db_health",
+        "thresholds": [
+          {
+            "color": "#93a4bd",
+            "level": -1
+          },
+          {
+            "color": "#ff6b7a",
+            "level": 0
+          },
+          {
+            "color": "#4dd7ba",
+            "level": 1
+          }
+        ]
+      },
+      "flowAnimation": {
+        "thresholdOffValue": 0,
+        "thresholdLwrValue": 0.05,
+        "thresholdLwrDurationSecs": 2.4,
+        "thresholdUprValue": 30,
+        "thresholdUprDurationSecs": 0.25,
+        "biasPower": 0.4,
+        "unidirectional": true
+      }
+    }
+
+  }
+}
