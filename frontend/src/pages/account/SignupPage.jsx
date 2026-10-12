@@ -93,7 +93,9 @@ export function SignupPage() {
       closeConfirmation(true);
       return;
     }
-    window.location.replace(consumeReturnTarget("/my"));
+    const returnTarget = consumeReturnTarget("/my");
+    const invitationReturn = returnTarget.startsWith("/invitations/") || returnTarget.startsWith("/notifications/open/");
+    window.location.replace(invitationReturn ? returnTarget : "/my");
   }
 
   if (status === "loading") {

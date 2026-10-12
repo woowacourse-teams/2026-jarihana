@@ -4,14 +4,20 @@ import { apiClient } from "../../shared/api";
 const id = z.number().int().positive().safe();
 const notificationTargetSchema = z.union([
   z.object({ kind: z.literal("INVITATION"), groupId: id, invitationId: id }),
-  z.object({ kind: z.enum(["GROUP_DETAIL", "LEADER_REGISTRATIONS", "MY_REGISTRATIONS", "LEADER_MEMBERS", "MY_PAGE", "MY_GROUPS"]), groupId: id, recruitmentId: id, registrationId: id.optional() })
+  z.object({ kind: z.literal("GROUP_DETAIL"), groupId: id, recruitmentId: id.optional(), registrationId: id.optional() }),
+  z.object({ kind: z.enum(["LEADER_REGISTRATIONS", "MY_REGISTRATIONS", "LEADER_MEMBERS", "MY_PAGE", "MY_GROUPS"]), groupId: id, recruitmentId: id, registrationId: id.optional() })
 ]);
 export const notificationSchema = z.object({
   id, eventType: z.string(), payloadVersion: z.literal(1), title: z.string(), body: z.string(),
   createdAt: z.string(), readAt: z.string().nullable(),
   target: notificationTargetSchema
-}).refine((notification) => (notification.eventType === "INVITATION_RECEIVED") === (notification.target.kind === "INVITATION"))
-  .transform((notification) => notification.eventType === "REGISTRATION_APPROVED" && notification.target.kind === "GROUP_DETAIL"
+}).refine((notification) => notification.eventType === "INVITATION_RECEIVED"
+  ? notification.target.kind === "INVITATION"
+  : notification.eventType === "GROUP_CREATED"
+    ? notification.target.kind === "GROUP_DETAIL" && notification.target.recruitmentId === undefined && notification.target.registrationId === undefined
+    : notification.target.kind !== "INVITATION" && notification.target.recruitmentId !== undefined,
+  { message: "알림 종류에 맞는 이동 대상이 필요합니다." }
+).transform((notification) => notification.eventType === "REGISTRATION_APPROVED" && notification.target.kind === "GROUP_DETAIL"
   ? { ...notification, target: { ...notification.target, kind: "MY_GROUPS" } } : notification);
 export const notificationPageSchema = z.object({
   items: z.array(notificationSchema), nextCursor: z.string().nullable(), hasNext: z.boolean()

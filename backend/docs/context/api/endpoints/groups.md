@@ -356,7 +356,7 @@ Request Body는 없다.
 | --- | --- | --- |
 | 모임장이 아님 | `GROUP_ACCESS_DENIED` | 403 |
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
-| SESSION 그룹 | `SCHEDULE_TYPE_MISMATCH` | 409 |
+| SESSION 그룹 | `SCHEDULE_TYPE_MISMATCH` | 400 |
 | ENDED 그룹 | `GROUP_ENDED` | 409 |
 | 등록된 반복 일정 없음 | `RECURRING_SCHEDULE_NOT_FOUND` | 404 |
 
@@ -421,7 +421,7 @@ Request Body는 없다.
 | --- | --- | --- |
 | 모임장이 아님 | `GROUP_ACCESS_DENIED` | 403 |
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
-| SESSION 그룹 | `SCHEDULE_TYPE_MISMATCH` | 409 |
+| SESSION 그룹 | `SCHEDULE_TYPE_MISMATCH` | 400 |
 | ENDED 그룹 | `GROUP_ENDED` | 409 |
 | 요일 비어 있음, 시간 역전 또는 두 시각 중 한쪽만 지정 | `SCHEDULE_INVALID_RULE` | 400 |
 
@@ -462,6 +462,15 @@ SESSION의 일정은 필수이므로 삭제 API를 제공하지 않는다.
 | --- | --- | --- |
 | 모임장이 아님 | `GROUP_ACCESS_DENIED` | 403 |
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
-| CLUB·STUDY 그룹 | `SCHEDULE_TYPE_MISMATCH` | 409 |
+| CLUB·STUDY 그룹 | `SCHEDULE_TYPE_MISMATCH` | 400 |
 | ENDED 그룹 | `GROUP_ENDED` | 409 |
 | 날짜 누락 또는 시간 역전 | `SCHEDULE_INVALID_RULE` | 400 |
+
+### 캘린더를 통한 정기 일정 관리
+
+신규 프론트엔드는 [그룹 달력 API](group-calendar.md)의 별도 정기 규칙 API를 사용한다. 기존
+`PUT/DELETE /api/groups/{groupId}/recurring-schedule`은 구버전 화면 호환용이며,
+`GROUP_CALENDAR_LEGACY_RECURRING_WRITE_ENABLED=true`일 때만 오늘 이후 범위로 이력을 함께
+수정한다. 기본값은 `false`다. 비활성 상태에서 기존 정기 일정 변경 요청은
+`CALENDAR_CLIENT_OUTDATED` (`409`)로 거절된다. 모임 기본 정보 수정과 `SESSION` 일정 수정은
+계속 허용한다.

@@ -7,6 +7,7 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
@@ -37,6 +38,12 @@ public class Group extends BaseEntity {
 
     @Column(name = "location", length = 255)
     private String location;
+
+    @Column(name = "show_base_schedule_in_calendar", nullable = false)
+    private boolean showBaseScheduleInCalendar;
+
+    @Column(name = "ended_on")
+    private LocalDate endedOn;
 
     @Embedded
     @AttributeOverrides({
@@ -83,7 +90,9 @@ public class Group extends BaseEntity {
             String description,
             String representativeImageKey,
             GroupStatus status,
-            LocalDateTime createdAt
+            LocalDateTime createdAt,
+            boolean showBaseScheduleInCalendar,
+            LocalDate endedOn
     ) {
         super(require(createdAt, "생성 시각"));
         this.id = id;
@@ -99,6 +108,8 @@ public class Group extends BaseEntity {
         this.description = validateNullableLength(description, 10_000, "상세 소개");
         this.representativeImageKey = representativeImageKey;
         this.status = require(status, "그룹 상태");
+        this.showBaseScheduleInCalendar = showBaseScheduleInCalendar;
+        this.endedOn = endedOn;
     }
 
     private static void validateSchedule(
@@ -205,7 +216,9 @@ public class Group extends BaseEntity {
                 description,
                 representativeImageKey,
                 GroupStatus.ACTIVE,
-                createdAt
+                createdAt,
+                true,
+                null
         );
     }
 
@@ -295,7 +308,9 @@ public class Group extends BaseEntity {
                 description,
                 representativeImageKey,
                 GroupStatus.ACTIVE,
-                createdAt
+                createdAt,
+                true,
+                null
         );
     }
 
@@ -358,7 +373,9 @@ public class Group extends BaseEntity {
                 description,
                 representativeImageKey,
                 status,
-                getCreatedAt()
+                getCreatedAt(),
+                showBaseScheduleInCalendar,
+                endedOn
         );
     }
 
@@ -386,7 +403,9 @@ public class Group extends BaseEntity {
                 description,
                 representativeImageKey,
                 status,
-                getCreatedAt()
+                getCreatedAt(),
+                showBaseScheduleInCalendar,
+                endedOn
         );
     }
 
@@ -411,7 +430,9 @@ public class Group extends BaseEntity {
                 description,
                 representativeImageKey,
                 status,
-                getCreatedAt()
+                getCreatedAt(),
+                showBaseScheduleInCalendar,
+                endedOn
         );
     }
 
@@ -433,7 +454,9 @@ public class Group extends BaseEntity {
                 description,
                 representativeImageKey,
                 status,
-                getCreatedAt()
+                getCreatedAt(),
+                showBaseScheduleInCalendar,
+                endedOn
         );
     }
 
@@ -454,8 +477,17 @@ public class Group extends BaseEntity {
                 description,
                 representativeImageKey,
                 GroupStatus.ENDED,
-                getCreatedAt()
+                getCreatedAt(),
+                showBaseScheduleInCalendar,
+                now.toLocalDate()
         );
+    }
+
+    public Group withBaseScheduleVisibility(boolean visible) {
+        requireActive();
+        return new Group(id, version, type, meetingType, location, recurringSchedule, sessionSchedule,
+                name, introduction, description, representativeImageKey, status, getCreatedAt(),
+                visible, endedOn);
     }
 
     public boolean canEndAt(LocalDateTime now) {
@@ -507,6 +539,14 @@ public class Group extends BaseEntity {
 
     public GroupStatus getStatus() {
         return status;
+    }
+
+    public boolean isShowBaseScheduleInCalendar() {
+        return showBaseScheduleInCalendar;
+    }
+
+    public LocalDate getEndedOn() {
+        return endedOn;
     }
 
     @Override

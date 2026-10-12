@@ -3,6 +3,7 @@ const messages = Object.freeze({
   ACTIVITY_POST_NOT_FOUND: "활동 기록을 찾을 수 없어요.",
   ACCESS_DENIED: "이 작업을 수행할 권한이 없어요.",
   GROUP_ALREADY_ENDED: "이미 종료된 모임이에요.",
+  CALENDAR_CLIENT_OUTDATED: "화면이 오래되었어요. 새로고침한 뒤 일정을 다시 저장해 주세요.",
   GROUP_ACCESS_DENIED: "이 모임을 관리할 권한이 없어요.",
   GROUP_DELETE_WINDOW_EXPIRED: "모임 생성 후 24시간이 지나 삭제할 수 없어요.",
   GROUP_ENDED: "이미 종료된 모임이에요.",

@@ -41,6 +41,9 @@
 .invitation-card .ui-button, .invitation-card .ui-badge {
   justify-self: start;
 }
+.invitation-card__actions .ui-button, .invitation-decline-actions .ui-button {
+  min-block-size: max(44px, var(--touch-target));
+}
 .invitation-card__actions {
   display: flex;
   flex-wrap: wrap;

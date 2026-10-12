@@ -32,8 +32,7 @@ jest.mock(
     useNavigate: () => mockNavigate,
     useParams: () => ({ groupId: "41" }),
     useSearchParams: () => [new URLSearchParams(), jest.fn()]
-  }),
-  { virtual: true }
+  })
 );
 
 jest.mock("../../../src/features/auth/index.js", () => ({ useAuth: jest.fn() }));

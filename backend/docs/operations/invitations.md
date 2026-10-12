@@ -28,9 +28,12 @@ DDL 적용·기존 승인 보존·기본값·제약·재적용·Hibernate valida
 
 ## 저장 DDL 적용 순서
 
-모델 선택은 [ADR 0017](../adr/0017-separate-invitation-acceptance-history.md), 실제 SQL은
-[초대 저장 마이그레이션](../../db/migrations/2026-10-11-invitation.sql)을 따른다.
+모델 선택은 [ADR 0018](../adr/0018-separate-invitation-acceptance-history.md), 실제 SQL은
+[통합 초대 마이그레이션](../../db/migrations/2026-10-11-invitation.sql)을 따른다.
 운영 프로필은 validate이므로 스키마 변경 후 애플리케이션을 배포한다.
+
+아직 공유·운영 DB에 적용하지 않은 초대 마이그레이션 6개를 최초 배포용 파일 하나로 통합했다.
+기존 웹푸시·새 모임 알림 DDL은 별도로 유지한다. 실제 배포 이후의 스키마 변경은 새 증분 파일로 추가한다.
 
 1. 대상 DB·백업을 확인하고 기존 신청의 상태별 개수와 모집별 APPROVED 개수를 기록한다.
 2. 기존 스키마와 SQL의 전제가 맞는지 확인한다. 많은 신청을 보정하는 작업은 테이블 잠금을 고려해 적용 시간을 정한다.
@@ -39,16 +42,11 @@ DDL 적용·기존 승인 보존·기본값·제약·재적용·Hibernate valida
 
 ```bash
 psql "$INVITATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/db/migrations/2026-10-11-invitation.sql
-psql "$INVITATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/db/migrations/2026-10-11-invitation-notification.sql
-psql "$INVITATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/db/migrations/2026-10-11-invitation-message-removal.sql
-psql "$INVITATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/db/migrations/2026-10-11-invitation-optimistic-locking.sql
-psql "$INVITATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/db/migrations/2026-10-12-invitation-status.sql
-psql "$INVITATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/db/migrations/2026-10-12-single-shared-invitation.sql
 ```
 
-연결 값은 로그·검증 자료에 기록하지 않는다. SQL은 하나의 트랜잭션으로 적용되며
-기존 null 출처만 RECRUITMENT로 보정한다. DB 기본값도 RECRUITMENT여서 구 애플리케이션의 일반 신청 저장을 지원한다.
-CHECK 제약의 재생성도 같은 트랜잭션 안에서 수행한다. 재적용은 검증했지만 IF NOT EXISTS가 임의로 다른 기존 테이블의 구조까지 교정하지는 않는다.
+연결 값은 로그·검증 자료에 기록하지 않는다. 신청 출처·버전·초대/수락 테이블·상태·공유 링크 보정·알림 제약을 하나의 트랜잭션으로 적용하며, 중간 실패 시 전체를 롤백한다.
+기존 신청의 null 출처만 RECRUITMENT로 보정한다. DB 기본값도 RECRUITMENT여서 구 애플리케이션의 일반 신청 저장을 지원한다.
+최초 적용은 메시지 컬럼 없이 상태·버전을 포함한 최종 초대 스키마를 생성한다. CHECK 제약의 재생성도 같은 트랜잭션 안에서 수행한다. 재적용은 검증했지만 IF NOT EXISTS가 임의로 다른 기존 테이블의 구조까지 교정하지는 않는다.
 
 ```sql
 SELECT status, approval_origin, count(*)
@@ -64,13 +62,14 @@ SELECT count(*) FROM registration WHERE approval_origin IS NULL;
 그룹 삭제는 기존 모임 삭제 트랜잭션에서 수락 이력 → 초대 → 기존 연관 데이터 → 그룹 순서로 정리한다. 삭제 FK에 추가 cascade DDL은 필요하지 않으며 위 저장 스키마를 유지한다.
 
 알림 테이블이 없는 DB에서는 기존 [알림 DDL](../../db/migrations/2026-10-03-notification.sql)을 먼저 적용한다.
-초대 알림 증분 DDL은 기존 알림 사건 CHECK를 갱신하고 INVITATION_RECEIVED를 추가한다. 기존 알림·버전·전송 데이터는 수정하지 않는다.
+새 모임 알림 확장이 필요하면 [새 모임 알림 DDL](../../db/migrations/2026-10-08-group-created-notification.sql)을 통합 초대 DDL보다 먼저 적용한다. 통합 초대 DDL은 `GROUP_CREATED`와 기존 신청 사건을 유지한 채 `INVITATION_RECEIVED`를 허용한다. 초대 알림이 저장된 뒤 앞선 새 모임 DDL을 다시 실행하면 제약에서 초대 사건이 빠지므로 이 순서를 바꾸지 않는다.
+통합 DDL의 알림 확장은 기존 알림 사건 CHECK를 갱신하고 INVITATION_RECEIVED를 추가한다. 기존 알림·버전·전송 데이터는 수정하지 않는다.
 수동 DDL의 ck_notifications_event_type과 Hibernate가 만든 notifications_event_type_check 이름을 처리한다.
 다른 이름의 사용자 정의 event_type 제약이 있으면 적용 전에 확인해야 한다. 적용·재적용·기존 알림 보존·새 사건 저장·validate를 격리 스키마에서 검증했다.
 
 ## 공유 토큰 설정과 키 교체
 
-저장 방식은 [백엔드 ADR 0018](../adr/0018-encrypted-invitation-token-storage.md)을 따른다.
+저장 방식은 [백엔드 ADR 0019](../adr/0019-encrypted-invitation-token-storage.md)을 따른다.
 키는 32바이트 난수를 일반 Base64로 인코딩한 서버 비밀값이다. VAPID·JWT 키와 따로 관리하고 저장소·로그·프론트에 전달하지 않는다.
 
 | 환경 변수 | 기본값 | 용도 |
@@ -142,19 +141,23 @@ npm run test:push:local -- --real-provider
 
 OS 클릭까지 수동 확인하려면 `WEB_PUSH_NATIVE_CLICK=1 npm run test:push:local -- --real-provider`로 실행하고 `INVITATION_NATIVE_CLICK_READY`가 출력된 뒤 90초 안에 테스트 초대 알림을 클릭한다. 초대장과 수락 버튼을 확인한 경우에만 통과하며 결과 화면은 `frontend/test-results/integration/invitation-native-click.png`에 저장한다. 이후 로그아웃·구독 해제를 검증하고 임시 Chrome을 자동 종료하므로 직접 화면을 읽기 전에 창이 닫힐 수 있다. 이동 결과는 저장한 캡처와 최종 테스트 결과로 확인한다. 알림 클릭을 합성하거나 수신 확인으로 클릭을 대신하지 않는다.
 
-### 개인 메시지 제거 증분 DDL
+### 이전 로컬 초대 스키마 보정
 
-[메시지 제거 DDL](../../db/migrations/2026-10-11-invitation-message-removal.sql)은 기존 초대 DDL 이후 적용하며 재적용할 수 있다. 개인 메시지 컬럼과 기존 텍스트는 삭제하고 초대 식별자·토큰·수락 이력은 보존한다. 적용 후에는 message 컬럼을 참조하는 구 백엔드로 되돌릴 수 없으므로 메시지를 제거한 백엔드를 유지한다. 이 DDL은 격리된 테스트 DB에서만 검증했으며 공유·운영 DB에는 적용하지 않았다.
+[통합 초대 DDL](../../db/migrations/2026-10-11-invitation.sql)은 이전 로컬 초대 테이블에도 적용할 수 있다. 개인 메시지 컬럼과 기존 텍스트는 제거하지만 초대 식별자·토큰·수락 이력은 보존한다. 상태가 없는 기존 행은 VALID로 시작하고, 취소 시각이 있으면 CANCELED로 보정한다. 중간 로컬 버전의 declined_at이 있으면 REJECTED로 이전한 뒤 해당 컬럼을 제거한다. 재적용 시 기존 승인 출처·상태와 증가한 버전을 보존한다.
+
+사용 가능한 공유 링크가 여러 개 남아 있으면 가장 오래된 한 개를 유지하고 나머지는 취소 상태로 보정한다. 만료·이탈·종료로 이미 사용할 수 없는 링크와 과거 수락 이력은 삭제하지 않는다. 신규 테이블에는 보정할 이전 데이터가 없다.
+
+message 컬럼을 참조하거나 거절 상태를 검사하지 않는 구 백엔드로 되돌리면 호환되지 않으므로 현재 초대 계약을 처리하는 백엔드를 유지한다. 통합 DDL은 격리된 테스트 DB에서 검증하며 공유·운영 DB에는 적용하지 않았다.
 
 ## 초대 수락과 원자성 확인
 
 수락은 지정 대상 또는 공유 토큰을 확인한 뒤 기존 구성원에게 200과 기존 소속을 반환한다. 신규 합류는 201이며 소속·수락 이력·모든 기존 PENDING 승인은 같은 트랜잭션에서 처리한다. 일반 승인 알림은 추가하지 않는다. 모집 마감·정원은 초대 합류를 제한하지 않는다.
 
-동시성 방식은 [백엔드 ADR 0019](../adr/0019-optimistic-invitation-acceptance.md)를 따른다. 정상 수락은 모임의 배타적 잠금을 잡거나 모임 버전을 증가시키지 않는다. 공유 링크 수락은 초대 버전도 증가시키지 않는다. 지정 초대 수락은 초대 버전을 증가시켜 대상 회원의 거절과 경쟁할 때 충돌을 감지한다. 소속·수락 unique 제약 및 신청·초대·모임 버전 충돌은 전체 롤백 후 새 트랜잭션에서 다시 판단한다. 최초 요청을 포함해 최대 세 번 시도하며 계속 충돌하면 CONCURRENT_MODIFICATION(409)을 반환한다. 그 외 저장 실패는 재시도하지 않는다.
+동시성 방식은 [백엔드 ADR 0020](../adr/0020-optimistic-invitation-acceptance.md)를 따른다. 정상 수락은 모임의 배타적 잠금을 잡거나 모임 버전을 증가시키지 않는다. 공유 링크 수락은 초대 버전도 증가시키지 않는다. 지정 초대 수락은 초대 버전을 증가시켜 대상 회원의 거절과 경쟁할 때 충돌을 감지한다. 소속·수락 unique 제약 및 신청·초대·모임 버전 충돌은 전체 롤백 후 새 트랜잭션에서 다시 판단한다. 최초 요청을 포함해 최대 세 번 시도하며 계속 충돌하면 CONCURRENT_MODIFICATION(409)을 반환한다. 그 외 저장 실패는 재시도하지 않는다.
 
 일반 모집의 정원 보호를 위한 모집 잠금과 대기 신청의 중복 방지를 위한 신청 생성의 기존 모임 잠금은 유지한다. 수락과 일반 승인에서는 신청 변경을 소속 저장 전에 flush하여 버전 충돌을 먼저 확인하고, 소속 저장 이후 PENDING을 다시 조회해 그 사이에 생성된 신청도 승인한다. 확인 처리·철회·모임 종료도 관련 버전 충돌을 새 트랜잭션에서 재판단한다.
 
-[버전 추가 DDL](../../db/migrations/2026-10-11-invitation-optimistic-locking.sql)은 기존 초대 DDL 이후 적용한다. 기존 행의 버전은 0으로 시작하고 재적용 시 이미 증가한 버전을 보존한다. 직접 SQL로 모임·초대·신청의 상태를 변경한다면 version도 증가시켜야 수락의 상태 검증이 이를 감지한다. 구 백엔드와 새 백엔드가 동시에 상태를 변경하면 이 규칙을 보장할 수 없으므로 상태 변경을 처리하는 백엔드를 함께 전환한다. 실제 공유·운영 DB에는 적용하지 않았다.
+[통합 초대 DDL](../../db/migrations/2026-10-11-invitation.sql)은 Group·Invitation·Registration의 버전도 준비한다. 기존 행의 버전은 0으로 시작하고 재적용 시 이미 증가한 버전을 보존한다. 직접 SQL로 모임·초대·신청의 상태를 변경한다면 version도 증가시켜야 수락의 상태 검증이 이를 감지한다. 구 백엔드와 새 백엔드가 동시에 상태를 변경하면 이 규칙을 보장할 수 없으므로 상태 변경을 처리하는 백엔드를 함께 전환한다. 실제 공유·운영 DB에는 적용하지 않았다.
 
 그룹 삭제의 초대 FK 정리는 아래 절차를 따른다.
 
@@ -172,9 +175,9 @@ OS 클릭까지 수동 확인하려면 `WEB_PUSH_NATIVE_CLICK=1 npm run test:pus
 ./gradlew test build
 ```
 
-## 지정 초대 거절과 상태 마이그레이션
+## 지정 초대 거절과 상태
 
-[상태 추가 DDL](../../db/migrations/2026-10-12-invitation-status.sql)은 기존 초대 DDL 이후 적용한다. 기존 유효 초대는 VALID, 취소 시각이 있는 초대는 CANCELED로 보정한다. 중간 로컬 구현의 declined_at이 있으면 REJECTED로 이전한 뒤 해당 컬럼을 제거한다. 재적용 시 이미 저장된 상태와 수락 이력은 보존한다.
+[통합 초대 DDL](../../db/migrations/2026-10-11-invitation.sql)에서 VALID·REJECTED·CANCELED 상태와 제약을 준비한다. 이전 로컬 데이터의 변환은 위 보정 절차를 따른다.
 
 지정 대상만 거절할 수 있으며 REJECTED 초대는 다시 수락할 수 없다. 알림은 유지하고 미전송 푸시는 취소하지만 모임장에게 거절 알림을 보내지 않는다. 공유 링크에는 거절 상태를 적용하지 않는다. 알림의 일반 삭제도 거절로 처리하지 않는다.
 

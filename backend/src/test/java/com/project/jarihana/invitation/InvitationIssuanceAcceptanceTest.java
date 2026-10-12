@@ -584,7 +584,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         Response first = issue(leader, group.getId(), direct(target, UUID.randomUUID()));
         Response second = issue(leader, group.getId(), direct(target, UUID.randomUUID()));
         issue(leader, group.getId(), direct(other, UUID.randomUUID()));
-        jdbc.update("update invitation set revoked_at = ? where id = ?", NOW, second.jsonPath().getLong("data.id"));
+        jdbc.update("update invitation set revoked_at = ?, status = 'CANCELED', version = version + 1 where id = ?", NOW, second.jsonPath().getLong("data.id"));
 
         // When
         Response page = auth(target).queryParam("size", 1).get("/invitations/received");
@@ -970,7 +970,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         Response withdrawn = RestAssured.get("/invitations/links/{token}", token);
         jdbc.update("update groups set status = 'ENDED' where id = ?", group.getId());
         Response ended = RestAssured.get("/invitations/links/{token}", token);
-        jdbc.update("update invitation set revoked_at = ? where id = ?", NOW, id);
+        jdbc.update("update invitation set revoked_at = ?, status = 'CANCELED', version = version + 1 where id = ?", NOW, id);
         Response revoked = RestAssured.get("/invitations/links/{token}", token);
         jdbc.update("delete from invitation where id = ?", id);
         jdbc.update("delete from group_member where group_id = ?", group.getId());
@@ -1679,7 +1679,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
                 select group_id, inviter_member_id, type, ?, repeat('a', 64), encrypted_token,
                     expires_at, created_at, updated_at, version, status from invitation where id = ? returning id
                 """, Long.class, UUID.randomUUID(), original);
-        var migration = new ResourceDatabasePopulator(new FileSystemResource("db/migrations/2026-10-12-single-shared-invitation.sql"));
+        var migration = new ResourceDatabasePopulator(new FileSystemResource("db/migrations/2026-10-11-invitation.sql"));
         // When
         migration.execute(dataSource);
         migration.execute(dataSource);

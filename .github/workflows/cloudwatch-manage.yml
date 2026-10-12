@@ -43,7 +43,7 @@ concurrency:
 
 jobs:
   cloudwatch:
-    runs-on: [self-hosted, Linux, ARM64]
+    runs-on: [self-hosted, Linux, ARM64, jarihana-legacy]
     env:
       EXPECTED_INSTANCE_ID: ${{ inputs.expected_instance_id }}
       TARGET_ENVIRONMENT: ${{ inputs.target_environment }}

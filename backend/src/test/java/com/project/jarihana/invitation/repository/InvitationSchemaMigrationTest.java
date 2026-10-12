@@ -26,6 +26,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
+import org.springframework.jdbc.datasource.init.ScriptException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -48,7 +49,7 @@ class InvitationSchemaMigrationTest extends IntegrationTestSupport {
     @Autowired private PlatformTransactionManager transactionManager;
 
     @Test
-    @DisplayName("기존 신청이 있는 PostgreSQL에 DDL을 적용·재적용해 이력 보정·제약·Hibernate validate를 검증한다.")
+    @DisplayName("통합 DDL의 최초 적용·실패 롤백·구 로컬 데이터 보정·재적용과 Hibernate validate를 검증한다.")
     void migrateExistingHistoryAndValidateActualSchema() throws SQLException {
         // Given
         seedExistingHistory();
@@ -82,15 +83,14 @@ class InvitationSchemaMigrationTest extends IntegrationTestSupport {
                 // When
                 ResourceDatabasePopulator migration = new ResourceDatabasePopulator(
                         new FileSystemResource("db/migrations/2026-10-11-invitation.sql"));
+                jdbc.execute("alter table notifications rename to notifications_not_ready");
+                assertThatThrownBy(() -> migration.execute(isolated)).isInstanceOf(ScriptException.class);
+                jdbc.execute("rollback");
+                assertThat(jdbc.queryForObject("select to_regclass('invitation')", String.class)).isNull();
+                assertThat(jdbc.queryForObject("select count(*) from information_schema.columns where table_schema = ? and table_name = 'registration' and column_name = 'approval_origin'", Integer.class, schema)).isZero();
+                assertThat(jdbc.queryForObject("select count(*) from information_schema.columns where table_schema = ? and table_name = 'groups' and column_name = 'version'", Integer.class, schema)).isZero();
+                jdbc.execute("alter table notifications_not_ready rename to notifications");
                 migration.execute(isolated);
-                ResourceDatabasePopulator versioning = new ResourceDatabasePopulator(
-                        new FileSystemResource("db/migrations/2026-10-11-invitation-optimistic-locking.sql"));
-                versioning.execute(isolated);
-                versioning.execute(isolated);
-                ResourceDatabasePopulator declining = new ResourceDatabasePopulator(
-                        new FileSystemResource("db/migrations/2026-10-12-invitation-status.sql"));
-                declining.execute(isolated);
-                declining.execute(isolated);
                 buildSchema(isolated, schema, "validate");
 
                 // Then
@@ -107,21 +107,31 @@ class InvitationSchemaMigrationTest extends IntegrationTestSupport {
                 assertConstraintsAndDefault(jdbc);
                 assertThatThrownBy(() -> jdbc.update("update invitation set status = 'REJECTED' where id = 1"))
                         .isInstanceOf(DataIntegrityViolationException.class);
-                jdbc.update("update invitation set message = '기존 개인 메시지' where id = 1");
-                ResourceDatabasePopulator messageRemoval = new ResourceDatabasePopulator(
-                        new FileSystemResource("db/migrations/2026-10-11-invitation-message-removal.sql"));
-                messageRemoval.execute(isolated);
-                messageRemoval.execute(isolated);
+                assertThat(jdbc.queryForObject("select count(*) from information_schema.columns where table_schema = ? and table_name = 'invitation' and column_name in ('message','declined_at')", Integer.class, schema)).isZero();
+                jdbc.execute("alter table invitation add column message varchar(200)");
                 jdbc.update("update invitation set version = 7 where id = 1");
-                versioning.execute(isolated);
+                jdbc.update("update invitation set message = '기존 개인 메시지' where id = 1");
+                jdbc.execute("""
+                        insert into invitation (group_id, inviter_member_id, target_member_id, type, request_id, created_at, updated_at)
+                        values (1,1,2,'DIRECT','00000000-0000-0000-0000-000000000002',localtimestamp,localtimestamp)
+                        """);
+                jdbc.execute("alter table invitation drop constraint ck_invitation_status");
+                jdbc.execute("alter table invitation drop column status");
+                jdbc.execute("alter table invitation add column declined_at timestamp without time zone");
+                jdbc.update("update invitation set declined_at = localtimestamp, revoked_at = localtimestamp where type = 'DIRECT'");
+                jdbc.update("update registration set approval_origin = 'INVITATION' where status = 'APPROVED'");
+                migration.execute(isolated);
                 assertThat(jdbc.queryForObject("select version from invitation where id = 1", Long.class)).isEqualTo(7);
-                assertThat(jdbc.queryForObject("select count(*) from information_schema.columns where table_schema = ? and table_name = 'invitation' and column_name = 'message'", Integer.class, schema)).isZero();
+                assertThat(jdbc.queryForObject("select count(*) from information_schema.columns where table_schema = ? and table_name = 'invitation' and column_name in ('message','declined_at')", Integer.class, schema)).isZero();
                 assertThat(jdbc.queryForObject("select encrypted_token from invitation where id = 1", String.class)).isEqualTo("encrypted-value");
                 assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isEqualTo(1);
+                assertThat(jdbc.queryForObject("select status from invitation where type = 'DIRECT'", String.class)).isEqualTo("REJECTED");
+                assertThat(jdbc.queryForObject("select count(*) from invitation where type = 'DIRECT' and revoked_at is not null", Integer.class)).isEqualTo(1);
                 migration.execute(isolated);
-                declining.execute(isolated);
                 buildSchema(isolated, schema, "validate");
                 assertThat(jdbc.queryForObject("select count(*) from registration", Long.class)).isEqualTo(4);
+                assertThat(jdbc.queryForObject("select count(*) from registration where approval_origin = 'INVITATION'", Long.class)).isEqualTo(1);
+                assertThat(jdbc.queryForObject("select status from invitation where type = 'DIRECT'", String.class)).isEqualTo("REJECTED");
             } finally {
                 connection.setSchema(originalSchema);
             }
@@ -162,6 +172,7 @@ class InvitationSchemaMigrationTest extends IntegrationTestSupport {
             var now = TestSupportConfig.FIXED_NOW;
             Group group = groups.save(Group.createClub("기존 이력 모임", "함께해요", null, null, null, now));
             Member member = members.save(Member.create("우주", 8, "100", Course.BACKEND));
+            members.save(Member.create("하늘", 8, "101", Course.BACKEND));
             GroupRecruitment automatic = recruitments.save(GroupRecruitment.create(group, JoinMethod.AUTO, 3, now, now.plusDays(1)));
             GroupRecruitment approval = recruitments.save(GroupRecruitment.create(group, JoinMethod.APPROVAL, 3, now, now.plusDays(1)));
             registrations.save(Registration.createAutoApproved(automatic, member, null, now, 0));

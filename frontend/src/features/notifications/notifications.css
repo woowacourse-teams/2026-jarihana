@@ -30,6 +30,8 @@
 .notification-push-settings > div:first-child { flex: 1; min-width: 0; }
 .notification-push-settings :is(h2, h3) { font-size: var(--text-label); }
 .notification-push-settings p { margin: var(--space-2) 0 0; font-size: var(--text-caption); color: var(--color-text-muted); overflow-wrap: anywhere; }
+.notification-push-settings__install-link { display: inline-flex; align-items: center; min-height: var(--touch-target); margin-top: var(--space-1); padding: 0; border: 0; background: transparent; color: var(--color-text-brand); font: inherit; font-size: var(--text-caption); font-weight: var(--font-weight-semibold); text-decoration: underline; text-underline-offset: var(--space-1); cursor: pointer; }
+.notification-push-settings__install-link:focus-visible { outline: var(--border-strong) solid var(--color-brand-ink); outline-offset: var(--space-1); }
 .notification-push-toggle { display: inline-grid; place-items: center; flex: none; min-width: var(--touch-target); min-height: var(--touch-target); padding: 0; border: 0; border-radius: var(--radius-pill); background: transparent; cursor: pointer; }
 .notification-push-toggle__track { display: flex; align-items: center; width: var(--touch-target); height: var(--space-6); padding: var(--border-thin); border-radius: var(--radius-pill); background: var(--color-text-muted); }
 .notification-push-toggle__thumb { width: var(--space-5); height: var(--space-5); border-radius: var(--radius-pill); background: var(--color-surface); transition: transform var(--duration-deliberate) var(--ease-standard); }
@@ -47,3 +49,7 @@
 
 .notification-logout-error { padding: var(--space-4) var(--page-gutter); background: var(--color-danger-soft); color: var(--color-danger); }
 .notification-logout-error button { min-height: var(--touch-target); text-decoration: underline; cursor: pointer; }
+
+@media (min-width: 48rem) {
+  .notification-push-settings__install-link { display: none; }
+}

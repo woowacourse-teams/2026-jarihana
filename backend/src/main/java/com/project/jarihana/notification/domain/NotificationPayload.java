@@ -25,7 +25,8 @@ public final class NotificationPayload {
                 && registrationId > 0 && invitationId == null;
         boolean invitation = invitationId != null && invitationId > 0 && recruitmentId == null
                 && registrationId == null && reasonCode == null;
-        if (groupId <= 0 || (!registration && !invitation)) {
+        boolean group = recruitmentId == null && registrationId == null && invitationId == null && reasonCode == null;
+        if (groupId <= 0 || (!registration && !invitation && !group)) {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "알림의 업무 식별자는 양수여야 합니다.");
         }
         this.groupId = groupId;
@@ -41,6 +42,10 @@ public final class NotificationPayload {
 
     public static NotificationPayload invitation(long groupId, long invitationId) {
         return new NotificationPayload(groupId, null, null, invitationId, null);
+    }
+
+    public static NotificationPayload forGroup(long groupId) {
+        return new NotificationPayload(groupId, null, null, null, null);
     }
 
     @JsonCreator
