@@ -38,6 +38,9 @@ jobs:
       - name: 토폴로지 대시보드 생성
         run: node grafana/topology/sync-dashboard.mjs
 
+      - name: Explore 쿼리 초기화 검증
+        run: node --test grafana/explore/sync-starred-queries.test.mjs
+
       - name: 모니터링 설정 검증 및 배포
         env:
           HOST_ID: ${{ vars.MONITORING_HOST_ID }}
@@ -80,5 +83,7 @@ jobs:
               --retry 30 --retry-all-errors --retry-delay 3 --max-time 5 \
               "${endpoint}" > /dev/null
           done
+
+          node grafana/explore/sync-starred-queries.mjs
 
           "${compose[@]}" ps

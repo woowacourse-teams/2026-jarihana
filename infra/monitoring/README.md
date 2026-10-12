@@ -6,7 +6,7 @@
 - [prod 앱 Compose](../docker-compose.yml)·[dev 앱 Compose](../docker-compose.dev.yml): 앱·Alloy 서비스와 `alloy-data` 볼륨
 - [Slack 장애 알림](../docs/observability/SLACK.md): Grafana 파일 provisioning, health·HTTP 500·호스트 자원 알림 정의 12개와 전달 정책
 - [Grafana 운영 대시보드](../docs/observability/DASHBOARD.md): `Jarihana` 폴더의 `jarihana-overview` 대시보드와 필터·패널 해석
-- [Grafana 로그 조회](../docs/observability/DASHBOARD.md#로그-조회와-explore): `jarihana-logs`의 환경·서버·레벨별 원본 로그와 패널 메뉴 → Explore
+- [Explore 자주 쓰는 로그 쿼리](../docs/observability/DASHBOARD.md#로그-조회와-explore): `admin`의 Query history → Starred에 dev·prod 레벨별 쿼리 12개 등록
 - [Grafana Canvas](../docs/observability/CANVAS.md): `jarihana-canvas` 시스템 흐름 화면, 앱·DB 상태와 최근 2분 평균 트래픽 해석
 - [앱 Alloy 설정](alloy/config.alloy): 두 앱 Compose가 마운트하는 공통 수집 설정
 - [모니터링 Alloy 설정](alloy/monitoring.alloy): 모니터링 EC2의 호스트·Alloy 자체 메트릭 수집
@@ -46,6 +46,10 @@ Loki 경로는 그대로 전달한다. `8080`은 RFC1918 사설 IPv4·loopback�
 `8080`은 앱 EC2 보안 그룹에 허용한다. 수집 주소는 기존 `MONITORING_BIND_ADDRESS`로 만들며 새 변수·시크릿은 없다.
 모니터링 스택을 먼저 배포한 뒤 backend·Alloy를 갱신한다. AWS 배포와 보안 그룹·라우팅 검증은 아직 수행하지 않았다.
 대시보드를 생성하고 설정을 검증한 뒤 컨테이너를 재생성하며, 데이터 볼륨은 유지한다.
+Grafana 준비 상태 확인 후 `grafana/explore/sync-starred-queries.mjs`가 `admin` 계정에
+자주 쓰는 로그 쿼리를 등록한다. 기존 즐겨찾기를 보존하고 재실행 시 중복을 만들지 않는다.
+API 인증에는 같은 `GRAFANA_ADMIN_PASSWORD`를 사용하므로 이 Secret은 현재 로그인 비밀번호와
+일치해야 한다. Compose만 직접 실행할 때의 등록 명령은 [실행 가이드](../docs/observability/OPERATIONS.md)에 있다.
 Compose는 Alloy를 포함한 모니터링 서비스에 컨테이너별 메모리 상한을 걸지 않는다.
 실제 메모리는 같은 호스트의 Docker·OS·다른 프로세스와 공유한다.
 모니터링 스택을 `docker compose up -d`로 시작하면 Grafana가 알림 파일을 읽어 적용한다.

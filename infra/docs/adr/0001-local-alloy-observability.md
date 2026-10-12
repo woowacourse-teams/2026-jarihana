@@ -174,13 +174,17 @@ SigNoz·Datadog·Kiali는 수집기와 같은 층의 대안이 아니다. 각각
 | 호스트 CPU·메모리·디스크·인터페이스 송수신량 | Alloy의 호스트 수집 경로로 수집한다 |
 | HTTP 요청량·5xx 비율·응답시간, JVM·Hikari | Micrometer → Alloy → Prometheus |
 | 애플리케이션 로그 | 기존 ECS JSON을 유지하고 로컬 로그 원본 → Alloy → Loki로 전환한다 |
-| 조회 화면 | Grafana의 일반 대시보드, 로그 조회와 [Canvas 시스템 흐름 화면](../observability/CANVAS.md)을 파일 provisioning으로 관리한다 |
+| 조회 화면 | Grafana 일반 대시보드와 [Canvas 시스템 흐름 화면](../observability/CANVAS.md)은 파일 provisioning으로 관리한다. [Explore 자주 쓰는 로그 쿼리](../observability/DASHBOARD.md#로그-조회와-explore)는 Query History API로 `admin` 계정에 등록한다 |
 | 트레이스·자동 서비스 그래프 | 초기에는 제외했으나 [인프라 ADR 0003](0003-tempo-tracing.md)에서 Agent·Tempo·지표 생성을 추가한다. 자동 서비스 그래프와 인프라 지도는 후속 범위다 |
 | DB 간선별 bytes/s | 초기 제외. 호스트 총 송수신량과 구별하며 별도 네트워크 계측이 필요하다 |
 | 알림 | [Slack 장애 알림](../observability/SLACK.md)은 Grafana 시작 시 health·HTTP 500·호스트 CPU·메모리·디스크·inode 알림 정의 12개와 전달 정책을 파일 provisioning으로 적용한다. 이후 변경도 파일에서 관리한다. 외부 장애 감시는 아직 없으며 실제 AWS·Slack 동작은 별도 검증한다 |
 | micro 모니터링 서버 | 검증 후보. 평상시와 부하 테스트의 수용량을 보장한 결정이 아니다 |
 
 ## 결과와 재검토 조건
+
+Explore에서 쿼리를 바로 선택하려는 요구는 Starred로 제공한다. 사용자별 조회 기록이므로
+배포 후 실제 `admin` 계정으로 API를 호출한다. 저장소의 관리 식별자로 중복을 방지하고
+사용자가 저장한 다른 즐겨찾기는 보존한다. 일반 대시보드·알림의 파일 provisioning 경로는 유지한다.
 
 직접 구성하는 만큼 각 도구의 연결과 데이터 흐름을 설명하기 쉬워지지만 보관 기간·디스크
 고갈·백업·업데이트·수집 누락을 팀이 운영해야 한다. 모니터링 EC2 한 대에 세 프로그램을 두면

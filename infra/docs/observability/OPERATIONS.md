@@ -17,6 +17,7 @@ dev·prod는 각각 별도 EC2에서 실행하며 각 앱의 Alloy가 메트릭�
 | [loki/loki.yaml](../../monitoring/loki/loki.yaml) | 단일 노드 로그 저장소와 보관 정책 |
 | [tempo/tempo.yaml](../../monitoring/tempo/tempo.yaml) | 트레이스 7일 보관, span·서비스 그래프 지표 생성 |
 | [Grafana 데이터 소스](../../monitoring/grafana/provisioning/datasources/datasources.yaml) | Prometheus·Loki·Tempo 자동 연결 |
+| [Explore 쿼리 목록](../../monitoring/grafana/explore/queries.json)·[초기화 스크립트](../../monitoring/grafana/explore/sync-starred-queries.mjs) | `admin`의 Query history → Starred에 dev·prod 레벨별 로그 쿼리 등록 |
 | [monitoring-deploy.yml](../../../.github/workflows/monitoring-deploy.yml) | 모니터링 EC2 self-hosted runner에서 Compose 스택 자동 배포 |
 
 설계 배경은 [아키텍처](ARCHITECTURE.md)와
@@ -50,7 +51,7 @@ workflow는 저장소 전체 Actions 변수와 시크릿을 사용한다. 저장
 | Repository variable | `MONITORING_HOST_ID` | 지표 라벨에 사용할 안정적인 모니터링 호스트 이름. 실제 AWS instance ID일 필요는 없다 |
 | Repository variable | `MONITORING_BIND_ADDRESS` | 모니터링 EC2의 실제 사설 IPv4 |
 | Repository secret | `SLACK_WEBHOOK_URL` | Slack Incoming Webhook URL |
-| Repository secret | `GRAFANA_ADMIN_PASSWORD` | Grafana 관리자 계정의 초기 비밀번호 |
+| Repository secret | `GRAFANA_ADMIN_PASSWORD` | Grafana `admin` 초기 비밀번호이자 Explore 초기화 API 인증값. 기존 계정이 있으면 현재 로그인 비밀번호와 일치해야 한다 |
 
 Repository variable이나 secret만 바꾸면 push 이벤트가 발생하지 않는다. 값 변경을 바로 적용하려면
 `workflow_dispatch`로 `main`의 모니터링 배포를 다시 실행한다.
@@ -66,6 +67,8 @@ Repository variable이나 secret만 바꾸면 push 이벤트가 발생하지 않
 명시한다. Compose 구성 검사(`config --quiet`), 이미지 받기(`pull`), 각 서비스의 설정 검사,
 컨테이너 재생성(`up -d --no-build --force-recreate`) 순서로 실행한다.
 Prometheus, Loki, Tempo, Grafana, Alloy의 준비 상태와 Nginx를 거친 Grafana 응답을 HTTP로 확인한다.
+이후 `grafana/explore/sync-starred-queries.mjs`가 loopback Grafana API에 `admin`으로 접속해
+Explore의 자주 쓰는 로그 쿼리 12개를 등록한다. 재배포 시에도 실행되며 기존 등록 항목을 재사용한다.
 재생성해도 Prometheus·Loki·Tempo·Grafana·Alloy named volume은 유지한다.
 
 터미널에서 같은 입력으로 임시 확인해야 할 때만 `infra/monitoring/.env.example`을 참고해
@@ -78,7 +81,7 @@ export HOST_ID=jarihana-monitoring-ec2
 export MONITORING_BIND_ADDRESS=10.0.1.10 # 실제 모니터링 EC2 사설 IPv4로 변경
 read -r -s -p 'Slack Webhook URL: ' SLACK_WEBHOOK_URL
 export SLACK_WEBHOOK_URL
-read -r -s -p 'Grafana initial admin password: ' GRAFANA_ADMIN_PASSWORD
+read -r -s -p 'Grafana admin password: ' GRAFANA_ADMIN_PASSWORD
 export GRAFANA_ADMIN_PASSWORD
 docker compose --env-file /dev/null --project-name jarihana-monitoring --file docker-compose.yml config --quiet
 ```
@@ -141,6 +144,20 @@ curl --fail --retry 30 --retry-all-errors --retry-delay 3 --max-time 5 "http://1
 curl --fail --retry 30 --retry-all-errors --retry-delay 3 --max-time 5 -H "Host: grafana.jarihana.com" "http://${MONITORING_BIND_ADDRESS}:80/api/health"
 ```
 
+Compose를 직접 실행했다면 준비 상태 확인 후 Node 24로 다음 명령을 실행한다.
+workflow 배포에서는 이 단계까지 자동으로 실행한다. 스크립트는 위에서 export한
+`GRAFANA_ADMIN_PASSWORD`를 사용하며, 기본 접속 주소는 `http://127.0.0.1:3000`이다.
+
+```bash
+node grafana/explore/sync-starred-queries.mjs
+# 로컬 검증 스택처럼 포트가 다를 때만 주소 지정
+GRAFANA_URL=http://127.0.0.1:13000 node grafana/explore/sync-starred-queries.mjs
+```
+
+등록 위치와 조회 조건은 [Explore 사용 안내](DASHBOARD.md#로그-조회와-explore)를 따른다.
+스크립트는 기존 사용자 즐겨찾기를 보존한다. 관리 대상 쿼리가 바뀌면 새 항목을 별표로 등록한 뒤
+이전 관리 항목의 별표만 해제하고 조회 기록은 남긴다.
+
 Prometheus·Grafana는 컨테이너 healthcheck도 설정했다. Loki 이미지는 shell·curl이 없는
 distroless 이미지이므로 위의 외부 `/ready` 확인을 사용한다. 컨테이너가 running이라는 사실만으로
 데이터 수신까지 확인한 것은 아니다.
@@ -165,6 +182,8 @@ Prometheus·Loki·Tempo 데이터 소스는 이미 등록된다. 같은 네트�
 이 데이터 소스 URL은 Nginx 주소로 바꾸지 않는다.
 관리자 초기 비밀번호는 첫 데이터베이스 생성에 사용된다. 기존 Grafana 볼륨이 있다면
 GitHub Secret·Compose·`.env` 변경만으로 계정 비밀번호가 바뀌지 않으며 Grafana의 비밀번호 변경 절차를 사용한다.
+비밀번호를 변경했다면 Explore 초기화에 쓰는 `GRAFANA_ADMIN_PASSWORD` Secret도 같은 값으로 갱신한다.
+API 인증이 실패하면 배포 단계가 실패하며, 스크립트가 계정 비밀번호를 초기화하지는 않는다.
 알림 파일 적용에는 별도 관리자 API 인증이나 호스트 스크립트 실행이 필요하지 않다.
 
 ## DB 연결 준비

@@ -19,7 +19,6 @@ http://localhost:13000/d/jarihana-overview
 | --- | --- |
 | [jarihana.yaml](../../monitoring/grafana/provisioning/dashboards/jarihana.yaml) | Grafana dashboard provider 설정 |
 | [jarihana-overview.json](../../monitoring/grafana/provisioning/dashboards/json/jarihana-overview.json) | 실제 대시보드 정의 |
-| [jarihana-logs.json](../../monitoring/grafana/provisioning/dashboards/json/jarihana-logs.json) | 환경·서버·레벨별 원본 로그와 Explore 진입 |
 | [jarihana-canvas.json](../../monitoring/grafana/provisioning/dashboards/json/jarihana-canvas.json) | [시스템 흐름 Canvas](CANVAS.md) 정의 |
 
 Grafana는 시작할 때 provider가 가리키는 JSON 파일을 읽고, 이후 `updateIntervalSeconds: 30`
@@ -129,24 +128,35 @@ HTTP 500은 정확히 status code 500만 센다. 501·502·503 같은 다른 5xx
 
 ## 로그 조회와 Explore
 
-`Jarihana` 폴더의 `자리하나 · 로그 조회`(`/d/jarihana-logs`)에서 환경(`dev`·`prod`),
-서버(`host_id`), 시간 범위를 선택한다. 서버 목록은 선택한 환경의 Loki 로그에서 읽는다.
-여러 서버를 선택할 수 있으며, 특정 서버만 보려면 `All`을 해제한다.
+`admin`으로 로그인한 뒤 **Explore → Query history → Starred**를 연다.
+`dev`·`prod` 각각 `전체`, `ERROR`, `WARN`, `INFO`, `DEBUG·TRACE`, `WARN·ERROR`의
+6개 쿼리, 총 12개를 등록한다. 원하는 항목을 선택하고 시간 범위를 지정한 뒤 **Run query**를 누른다.
+쿼리는 최신 원본 로그 100건까지 조회한다.
 
-`전체`, `ERROR`, `WARN`, `INFO`, `DEBUG·TRACE`, `WARN·ERROR` 패널은 각각 최신 원본 로그
-100건을 표시한다. 기본 시간 범위는 최근 1시간이며 자동 새로고침은 꺼져 있다.
-패널 메뉴 → **Explore**를 누르면 선택한 필터·시간 범위가 적용된 쿼리를 바로 탐색할 수 있다.
-저장소가 provision하는 것은 이 대시보드의 쿼리이며, OSS의 공유 Saved queries 라이브러리가 아니다.
+각 쿼리에 환경이 명시되어 있고 `host_id=~".*"`는 전체 서버를 뜻한다.
+특정 서버만 보려면 Explore 쿼리 편집기에서 `host_id="대상 HOST_ID"`로 바꾼다.
+Explore는 대시보드의 환경·서버 변수를 사용하지 않는다.
+
+원본은 [queries.json](../../monitoring/grafana/explore/queries.json)이며,
+[초기화 스크립트](../../monitoring/grafana/explore/sync-starred-queries.mjs)가 배포 후
+Query History API로 등록한다. 재실행 시 관리 식별자로 기존 항목을 찾아 중복 등록을 막는다.
+저장소에서 쿼리를 변경하면 새 쿼리를 등록한 뒤 이전 관리 항목의 별표만 해제한다.
+사용자가 따로 저장한 즐겨찾기는 유지한다.
+
+Starred는 Grafana DB에 사용자별로 저장된다. 다른 계정에는 공유되지 않으며,
+별표를 붙인 쿼리는 일반 기록의 2주 정리 대상에서 제외된다.
+공유 Saved queries 라이브러리나 파일 provisioning을 사용하는 기능은 아니다.
+[Grafana Query history 문서](https://grafana.com/docs/grafana/latest/visualizations/explore/query-management/)
 
 레벨은 Loki 인덱스 라벨이 아니라 JSON 본문의 `log.level`을 `| json`으로 파싱한
 `log_level` 필드로 필터링한다. `전체`는 파싱하지 않아 비 JSON 로그도 보존한다.
-레벨 패널이 비어 있으면 해당 시간의 로그가 없거나 앱에서 해당 레벨 출력을 꺼 둔 것일 수 있다.
+레벨 조회 결과가 비어 있으면 해당 시간의 로그가 없거나 앱에서 해당 레벨 출력을 꺼 둔 것일 수 있다.
 HTTP 500 완료 로그도 현재 `Events` logger에서는 `INFO`로 기록되므로 `ERROR`와 HTTP 500은
 같은 조건이 아니다. HTTP 상태 코드로 확인하려면 운영 현황의 `HTTP 500 요청 로그`를 사용한다.
 
 ## 수정과 적용
 
-대시보드를 바꿀 때는 해당 JSON(`jarihana-overview.json` 또는 `jarihana-logs.json`)을 수정한다. Grafana UI에서 임시로 확인한
+대시보드를 바꿀 때는 해당 JSON(`jarihana-overview.json` 등)을 수정한다. Grafana UI에서 임시로 확인한
 변경이 있다면 JSON으로 옮긴 뒤 파일을 기준으로 검증한다.
 
 JSON 파일만 수정한 경우 Grafana가 30초 polling으로 변경을 반영한다. provider 파일
