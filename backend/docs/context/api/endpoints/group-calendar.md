@@ -201,7 +201,9 @@
 #### 요청
 
 ```json
-{"showBaseSchedule": true}
+{
+  "showBaseSchedule": true
+}
 ```
 
 #### 응답 200
