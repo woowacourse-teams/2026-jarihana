@@ -40,7 +40,7 @@ public interface InvitationQueryRepository extends Repository<Invitation, Long> 
                 exists (select a.id from InvitationAcceptance a where a.invitation.id = i.id and a.member.id = target.id), i.state)
             from Invitation i join i.group g join i.inviterMember inviter left join i.targetMember target
             where g.id = :groupId and ((:managed = true and i.type = com.project.jarihana.invitation.domain.InvitationType.LINK)
-                or (:managed = false and inviter.id = :memberId))
+                or (:managed = false and inviter.id = :memberId and i.type = com.project.jarihana.invitation.domain.InvitationType.DIRECT))
               and (cast(:createdAt as timestamp) is null or i.createdAt < :createdAt or (i.createdAt = :createdAt and i.id < :id))
             order by i.createdAt desc, i.id desc
             """)

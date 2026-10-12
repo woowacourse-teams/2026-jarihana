@@ -28,6 +28,16 @@ public interface InvitationCommandRepository extends Repository<Invitation, Long
 
     Optional<Invitation> findByTokenHash(String tokenHash);
 
+    @Query(value = """
+            select i.* from invitation i join member inviter on inviter.id = i.inviter_member_id
+            where i.group_id = :groupId and i.type = 'LINK' and i.status = 'VALID'
+              and i.revoked_at is null and i.expires_at > :now and inviter.withdrawn_at is null
+              and exists (select 1 from group_member gm
+                          where gm.group_id = i.group_id and gm.member_id = i.inviter_member_id)
+            order by i.created_at, i.id limit 1
+            """, nativeQuery = true)
+    Optional<Invitation> findValidSharedLink(@Param("groupId") long groupId, @Param("now") LocalDateTime now);
+
     @Query("select i.group.id from Invitation i where i.id = :id")
     Optional<Long> findGroupIdById(@Param("id") long id);
 

@@ -95,7 +95,9 @@ ALREADY_JOINED는 현재 소속에 대한 수락 결과이며 초대 status와 �
 - sharePath는 서버가 결정한 내부 상대 경로다. DIRECT는 `/invitations/{id}`, LINK는 `/invitations/link/{token}`이다.
 - 동일 발급자+requestId의 동일 요청 재시도는 200과 reused=true다. 모임·유형·대상이 다르면 INVITATION_REQUEST_CONFLICT다.
 - 두 유형 모두 동일 요청 재시도에서 같은 sharePath를 반환한다. LINK는 권한 있는 관리 상세에서 나중에도 같은 링크를 다시 복사할 수 있다. 목록에서는 원본 경로를 제공하지 않는다.
-- 다른 requestId의 명시적 신규 발급은 별도 초대다.
+- DIRECT는 다른 requestId로 요청하면 별도 초대를 발급한다.
+- LINK는 모임에 유효한 공유 링크가 있으면 발급자와 requestId가 달라도 200·reused=true로 같은 링크를 반환한다. 최초 발급자·createdAt·expiresAt은 유지한다. 유효 링크가 없을 때만 새 링크를 발급해 201·reused=false를 반환한다.
+- 재사용 응답은 새 초대나 발급 요청 기록을 저장하지 않는다. 기존 초대를 실제 생성한 requestId의 재시도는 그 초대를 반환한다. 만료·취소·발급자 이탈 후 새 링크를 만들려면 새로운 requestId를 사용한다.
 
 #### 부수 효과
 
@@ -166,7 +168,7 @@ Request Body는 없다.
 }
 ```
 
-- MINE은 본인이 발급한 두 유형, MANAGED_LINKS는 모임의 LINK 전체다. 두 scope 모두 현재 모임장과 일반 모임원이 조회할 수 있다. 타인 DIRECT는 어느 scope에도 제공하지 않는다.
+- MINE은 본인이 발급한 DIRECT만, MANAGED_LINKS는 모임의 LINK 전체다. 본인이 발급한 LINK도 MANAGED_LINKS에서만 조회한다. 두 scope 모두 현재 모임장과 일반 모임원이 조회할 수 있다. 타인 DIRECT는 어느 scope에도 제공하지 않는다.
 - items 필드: id·type·group(id,name)·inviter(id,crewName)·createdAt·expiresAt·status·canRevoke.
 - 모든 초대 요청·응답에는 개인 메시지 필드가 없다.
 - canRevoke는 현재 소속·유형별 권한이 있고 모임이 ACTIVE이며 아직 취소되지 않은 경우 true다. 시간 만료나 수락 이력이 있어도 이 조건을 충족하면 취소할 수 있다. 취소 요청에서 권한을 다시 검사한다.
@@ -187,7 +189,7 @@ Request Body는 없다.
 
 ### `GET /api/groups/{groupId}/invitation-candidates`
 
-- 설명: 지정 초대에 사용할 제한된 회원 검색
+- 설명: 지정 초대에 사용할 제한된 회원 목록과 이름 검색
 - 권한: `MEMBER + ACTIVE 그룹의 현재 구성원`
 
 #### Path Parameters
@@ -198,7 +200,7 @@ Request Body는 없다.
 
 | 이름 | 필수 | 설명 |
 | --- | --- | --- |
-| `keyword` | O | 공백 제거 후 2–50자, crewName 검색 |
+| `keyword` | X | 생략·빈 값·공백은 전체 초대 후보 목록. 입력하면 공백 제거 후 2–50자, crewName 검색 |
 | `cursor` | X | 다음 페이지 커서 |
 | `size` | X | 기본 20, 1–100 |
 

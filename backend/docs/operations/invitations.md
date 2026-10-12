@@ -43,6 +43,7 @@ psql "$INVITATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/db/migrations/2026
 psql "$INVITATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/db/migrations/2026-10-11-invitation-message-removal.sql
 psql "$INVITATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/db/migrations/2026-10-11-invitation-optimistic-locking.sql
 psql "$INVITATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/db/migrations/2026-10-12-invitation-status.sql
+psql "$INVITATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/db/migrations/2026-10-12-single-shared-invitation.sql
 ```
 
 연결 값은 로그·검증 자료에 기록하지 않는다. SQL은 하나의 트랜잭션으로 적용되며
@@ -92,6 +93,8 @@ SELECT count(*) FROM registration WHERE approval_origin IS NULL;
 키를 잃거나 DB와 키가 함께 노출된 상황은 별도 복구·취소 계획이 필요하다. 운영 키 교체는 이번 로컬 검증에서 수행하지 않았다.
 
 ## 복구 제한
+
+모임당 공유 링크 단일화 DDL은 현재 유효한 링크가 여러 개이면 최초 createdAt·id의 링크를 남기고 나머지를 CANCELED로 보정한다. 기존 초대·수락 이력은 삭제하지 않는다. 적용 전 유지할 링크와 취소할 링크를 확인하고 기존 발급 서버를 중단한 상태에서 DDL과 새 서버 전환을 진행한다. 보정 과정은 DB의 LOCALTIMESTAMP를 사용하므로 서비스 시간대 Asia/Seoul과 일치하는 세션 시간대를 먼저 확인한다. 공유·운영 DB에는 적용하지 않았다.
 
 적용 중 실패하면 트랜잭션을 롤백하고 원인을 확인한다. 애플리케이션만 되돌릴 때는 추가 스키마를 유지할 수 있다.
 초대 사용 이후 테이블·승인 출처를 삭제하면 합류 이력과 링크 복원 정보를 잃는다.

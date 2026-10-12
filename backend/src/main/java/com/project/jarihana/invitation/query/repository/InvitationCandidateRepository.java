@@ -16,7 +16,7 @@ public interface InvitationCandidateRepository extends Repository<Member, Long> 
             select new com.project.jarihana.invitation.query.repository.dto.InvitationCandidateProjection(
                 m.id, m.crewName, m.generation, m.memberType, m.course, m.createdAt)
             from Member m
-            where m.withdrawnAt is null and m.id <> :memberId and locate(:keyword, m.crewName) > 0
+            where m.withdrawnAt is null and m.id <> :memberId and (:keyword = '' or locate(:keyword, m.crewName) > 0)
               and not exists (select gm.id from GroupMember gm where gm.group.id = :groupId and gm.member.id = m.id)
               and (cast(:createdAt as timestamp) is null or m.createdAt < :createdAt or (m.createdAt = :createdAt and m.id < :id))
             order by m.createdAt desc, m.id desc

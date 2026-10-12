@@ -1,6 +1,6 @@
 /** @jest-environment node */
 import { createApiClient } from "../../src/shared/api";
-import { acceptInvitation, declineInvitation, fetchInvitation, fetchInvitationPreview } from "../../src/features/invitation/api";
+import { createInvitation, fetchInvitationCandidates, fetchIssuedInvitations, revokeInvitation, sharedInvitationUrl, acceptInvitation, declineInvitation, fetchInvitation, fetchInvitationPreview } from "../../src/features/invitation/api";
 import { invitationAcceptanceSchema } from "../../src/entities/invitation";
 import { notificationSchema, notificationTargetPath } from "../../src/features/notifications/api";
 import { isPrivateRoute, normalizePath, safeUrl, sanitizeEvent } from "../../src/shared/analytics/privacy";
@@ -9,6 +9,39 @@ const token = "A".repeat(43);
 const time = "2026-10-12T10:00:00";
 const invitation = { id: 501, type: "DIRECT", group: { id: 10, name: "스터디", introduction: "함께해요" }, inviter: { id: 2, crewName: "하나" }, createdAt: time, expiresAt: null, status: "VALID", canAccept: true, canRevoke: false, sharePath: "/invitations/501" };
 const joined = { result: "JOINED", invitationId: 501, groupId: 10, groupMemberId: 30, joinedAt: time, registrationOrigin: "INVITATION" };
+const created = { id: 501, groupId: 10, type: "LINK", targetMemberId: null, createdAt: time, expiresAt: time, status: "VALID", sharePath: `/invitations/link/${token}`, reused: true };
+test("공유 링크 재사용 응답은 CSRF·요청 식별자를 보존하고 서버의 내부 경로만 복사한다", async () => {
+  const { client, requests } = wire(created);
+  const command = { type: "LINK", requestId: "fixed-request" };
+  expect(await createInvitation(10, command, client)).toEqual(created);
+  expect(await requests[0].json()).toEqual(command);
+  expect(requests[0].headers.get("X-XSRF-TOKEN")).toBe("csrf");
+  expect(sharedInvitationUrl(created.sharePath, "https://app.test")).toBe(`https://app.test/invitations/link/${token}`);
+});
+test.each(["https://evil.test/link", "//evil.test/link", "/invitations/link/invalid", "/invitations/501"])('외부·잘못된 공유 경로는 복사하지 않는다: %s', async (sharePath) => {
+  expect(() => sharedInvitationUrl(sharePath, "https://app.test")).toThrow();
+  await expect(createInvitation(10, { type: "LINK" }, wire({ ...created, sharePath }).client)).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+});
+test("다른 모임의 발급 응답은 거부하고 후보·발급 목록의 커서와 조회 취소 신호를 전달한다", async () => {
+  await expect(createInvitation(11, { type: "LINK" }, wire(created).client)).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+  const page = { items: [], nextCursor: null, hasNext: false };
+  const { client, requests } = wire(page);
+  await fetchInvitationCandidates(10, { keyword: "마루", cursor: "next", size: 20 }, client, new AbortController().signal);
+  expect(new URL(requests[0].url).searchParams.get("keyword")).toBe("마루");
+  expect(new URL(requests[0].url).searchParams.get("cursor")).toBe("next");
+  await fetchIssuedInvitations(10, { scope: "MANAGED_LINKS" }, client);
+  expect(new URL(requests[1].url).searchParams.get("scope")).toBe("MANAGED_LINKS");
+});
+test("취소 응답은 대상 초대와 상태를 검증한다", async () => {
+  await expect(revokeInvitation(501, wire({ id: 502, revokedAt: time, status: "CANCELED" }).client)).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+  expect(await revokeInvitation(501, wire({ id: 501, revokedAt: time, status: "CANCELED" }).client)).toMatchObject({ id: 501 });
+});
+test("회원 후보와 보낸 초대의 첫 페이지 요청에는 null 커서를 보내지 않는다", async () => {
+  const { client, requests } = wire({ items: [], nextCursor: null, hasNext: false });
+  await fetchInvitationCandidates(10, { keyword: "", cursor: null, size: 20 }, client);
+  await fetchIssuedInvitations(10, { scope: "MINE", cursor: null, size: 20 }, client);
+  for (const request of requests) expect(new URL(request.url).searchParams.has("cursor")).toBe(false);
+});
 test("거절은 CSRF를 포함한 서버 요청을 보내고 204를 처리하며 알림을 삭제하지 않는다", async () => {
   const requests = [];
   const client = createApiClient({ baseUrl: "https://app.test/api/", cookieSource: () => "XSRF-TOKEN=csrf",

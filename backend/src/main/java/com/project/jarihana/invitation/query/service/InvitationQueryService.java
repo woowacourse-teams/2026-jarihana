@@ -113,7 +113,7 @@ public class InvitationQueryService {
         if (groupId <= 0 || query == null) throw invalid();
         validateSize(query.size());
         String keyword = query.keyword() == null ? "" : query.keyword().strip();
-        if (keyword.length() < 2 || keyword.length() > 50) throw invalid();
+        if ((!keyword.isEmpty() && keyword.length() < 2) || keyword.length() > 50) throw invalid();
         Group group = groups.findById(groupId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND, "모임을 찾을 수 없습니다."));
         groupMembers.findByGroupIdAndMemberId(groupId, memberId)

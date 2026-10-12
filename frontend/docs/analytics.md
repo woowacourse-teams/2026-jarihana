@@ -4,6 +4,23 @@
 분석과 녹화 조회는 PostHog 관리자 화면에서 수행한다. 자리하나의 서비스 화면이나
 DB 테이블·스키마는 추가하지 않는다.
 
+## 초대 UI의 고정 식별자
+
+모임 상세의 초대 흐름은 다음 action으로 구분한다. 회원 이름·검색어·선택 대상 ID·초대 토큰·공유 주소를 action에 포함하지 않는다.
+
+| 동작 | action |
+| --- | --- |
+| 참여자 영역에서 초대 모달 열기 | `invitation_create` |
+| 공유 링크 복사·직접 주소 선택 | `invitation_link_copy`, `invitation_link_copy_select` |
+| 회원 검색·검색 제출·선택·선택 제거 | `invitation_search`, `invitation_search_submit`, `invitation_member_select`, `invitation_chip_remove` |
+| 선택 회원에게 발급 요청 | `invitation_send` |
+| 보낸 초대 관리·조회 범위 변경 | `invitation_management_open`, `invitation_management_scope_change` |
+| 취소 확인 창 열기·취소 실행 | `invitation_revoke_open`, `invitation_revoke` |
+
+검색·선택 회원·보낸 초대·공유 주소가 표시되는 모달 내용은 `data-ph-private`로 마스킹한다.
+위 action은 사용자 조작 식별자이며 발급 성공·복사 성공을 보장하는 이벤트는 아니다.
+초대 전용 성공 이벤트와 전환 연결은 초대 구현맵의 9단계에서 다룬다. 실제 PostHog 수신은 별도 검증이 필요하다.
+
 ## 활성화 설정
 
 Webpack 빌드 시 아래 환경변수를 주입한다. 값이 번들에 반영되므로 변경 후 다시 빌드해야 한다.

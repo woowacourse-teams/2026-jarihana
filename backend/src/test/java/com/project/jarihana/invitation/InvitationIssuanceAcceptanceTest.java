@@ -26,6 +26,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
+import javax.sql.DataSource;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
@@ -265,7 +268,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    @DisplayName("모임장과 모임원이 발급한 공유 링크는 72시간 유효하고 재시도 시 같은 경로를 복원하며 알림을 만들지 않는다.")
+    @DisplayName("공유 링크는 72시간 유효하며 새 요청도 기존 링크를 재사용하고 만료를 연장하거나 알림을 만들지 않는다.")
     void linkIssuanceRestoresPathAndDoesNotNotify(boolean leaderIssues) {
         // Given
         Member leader = member("101");
@@ -286,8 +289,10 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         assertThat(path).matches("/invitations/link/[A-Za-z0-9_-]{43}");
         assertThat(retry.statusCode()).isEqualTo(200);
         assertThat(retry.jsonPath().getString("data.sharePath")).isEqualTo(path);
-        assertThat(another.statusCode()).isEqualTo(201);
-        assertThat(another.jsonPath().getString("data.sharePath")).isNotEqualTo(path);
+        assertThat(another.statusCode()).isEqualTo(200);
+        assertThat(another.jsonPath().getString("data.sharePath")).isEqualTo(path);
+        assertThat(another.jsonPath().getString("data.expiresAt")).isEqualTo(first.jsonPath().getString("data.expiresAt"));
+        assertThat(another.jsonPath().getBoolean("data.reused")).isTrue();
         assertThat(jdbc.queryForObject("select encrypted_token from invitation where id = ?", String.class,
                 first.jsonPath().getLong("data.id"))).doesNotContain(path.substring(path.lastIndexOf('/') + 1));
         assertThat(jdbc.queryForObject("select count(*) from notifications", Integer.class)).isZero();
@@ -356,7 +361,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
     }
 
     @Test
-    @DisplayName("회원 후보는 크루명으로 검색하고 본인·소속·탈퇴 회원을 제외하며 제한된 필드와 커서를 제공한다.")
+    @DisplayName("회원 후보는 검색 없이 조회하거나 크루명으로 검색하며 본인·소속·탈퇴 회원을 제외하고 커서로 추가 조회한다.")
     void candidatesAreRestrictedAndPaginatedWithoutSensitiveFields() {
         // Given
         Member leader = member("101");
@@ -386,7 +391,19 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         assertThat(last.jsonPath().getBoolean("data.hasNext")).isFalse();
         assertThat(last.jsonPath().getString("data.nextCursor")).isNull();
         assertError(auth(first).queryParam("keyword", "크루").get("/groups/{id}/invitation-candidates", group.getId()), 403, "ACCESS_DENIED");
-        for (String keyword : new String[]{"가", " ", "가".repeat(51)}) {
+        Response all = auth(leader).queryParam("size", 1).get("/groups/{id}/invitation-candidates", group.getId());
+        assertThat(all.statusCode()).isEqualTo(200);
+        assertThat(all.jsonPath().getList("data.items.memberId", Long.class)).containsExactly(second.getId());
+        Response allLast = auth(leader).queryParam("keyword", " ").queryParam("size", 1)
+                .queryParam("cursor", all.jsonPath().getString("data.nextCursor"))
+                .get("/groups/{id}/invitation-candidates", group.getId());
+        assertThat(allLast.statusCode()).isEqualTo(200);
+        assertThat(allLast.jsonPath().getList("data.items.memberId", Long.class)).containsExactly(first.getId());
+        assertThat(allLast.jsonPath().getBoolean("data.hasNext")).isFalse();
+        assertError(auth(leader).queryParam("keyword", "크루").queryParam("cursor", all.jsonPath().getString("data.nextCursor"))
+                .get("/groups/{id}/invitation-candidates", group.getId()), 400, "INVALID_PARAMETER");
+        assertError(auth(first).get("/groups/{id}/invitation-candidates", group.getId()), 403, "ACCESS_DENIED");
+        for (String keyword : new String[]{"가", "가".repeat(51)}) {
             assertError(auth(leader).queryParam("keyword", keyword).get("/groups/{id}/invitation-candidates", group.getId()), 400, "INVALID_PARAMETER");
         }
         assertError(auth(leader).queryParam("keyword", "크루").queryParam("cursor", "broken")
@@ -573,7 +590,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
     }
 
     @Test
-    @DisplayName("본인 발급 목록은 두 유형을 보여주고 모든 모임원이 조회하는 공유 링크 목록은 지정 초대를 제외한다.")
+    @DisplayName("본인 발급 목록은 지정 초대만 페이지로 조회하고 공유 링크 목록은 모임의 링크만 제공한다.")
     void issuedListsEnforceScopeAndCursorPrivacy() {
         // Given
         Member leader = member("101");
@@ -586,6 +603,8 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
                 .jsonPath().getLong("data.id");
         long leaderLink = issue(leader, group.getId(), Map.of("type", "LINK", "requestId", UUID.randomUUID()))
                 .jsonPath().getLong("data.id");
+        long leaderDirectId = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+        long latestDirectId = issue(inviter, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
 
         // When
         Response first = auth(inviter).queryParam("size", 1).get("/groups/{id}/invitations", group.getId());
@@ -595,22 +614,26 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
 
         // Then
         assertThat(first.statusCode()).isEqualTo(200);
-        assertThat(first.jsonPath().getLong("data.items[0].id")).isEqualTo(linkId);
+        assertThat(first.jsonPath().getList("data.items.id", Long.class)).containsExactly(latestDirectId);
+        assertThat(first.jsonPath().getString("data.items[0].type")).isEqualTo("DIRECT");
         assertThat(first.jsonPath().getBoolean("data.hasNext")).isTrue();
         assertThat(first.jsonPath().getMap("data.items[0]")).doesNotContainKey("message");
         assertThat(next.jsonPath().getLong("data.items[0].id")).isEqualTo(directId);
+        assertThat(next.jsonPath().getString("data.items[0].type")).isEqualTo("DIRECT");
         assertThat(next.jsonPath().getBoolean("data.hasNext")).isFalse();
         assertThat(next.jsonPath().getString("data.nextCursor")).isNull();
         assertThat(managed.statusCode()).isEqualTo(200);
-        assertThat(managed.jsonPath().getList("data.items.id", Long.class)).containsExactly(leaderLink, linkId);
-        assertThat(managed.jsonPath().getMap("data.items[1]")).doesNotContainKey("message");
+        assertThat(leaderLink).isEqualTo(linkId);
+        assertThat(managed.jsonPath().getList("data.items.id", Long.class)).containsExactly(linkId);
+        assertThat(managed.jsonPath().getMap("data.items[0]")).doesNotContainKey("message");
         assertThat(managed.asString()).doesNotContain("message", "sharePath", "tokenHash", "encryptedToken");
         Response memberLinks = auth(inviter).queryParam("scope", "MANAGED_LINKS").get("/groups/{id}/invitations", group.getId());
         assertThat(memberLinks.statusCode()).isEqualTo(200);
-        assertThat(memberLinks.jsonPath().getList("data.items.id", Long.class)).containsExactly(leaderLink, linkId);
-        assertThat(memberLinks.jsonPath().getBoolean("data.items[0].canRevoke")).isFalse();
-        assertThat(memberLinks.jsonPath().getBoolean("data.items[1].canRevoke")).isTrue();
+        assertThat(memberLinks.jsonPath().getList("data.items.id", Long.class)).containsExactly(linkId);
+        assertThat(memberLinks.jsonPath().getBoolean("data.items[0].canRevoke")).isTrue();
         assertThat(memberLinks.jsonPath().getMap("data.items[0]")).doesNotContainKey("message");
+        assertThat(auth(leader).get("/groups/{id}/invitations", group.getId())
+                .jsonPath().getList("data.items.id", Long.class)).containsExactly(leaderDirectId);
         assertError(auth(inviter).queryParam("scope", "MANAGED_LINKS").queryParam("cursor", cursor)
                 .get("/groups/{id}/invitations", group.getId()), 400, "INVALID_PARAMETER");
         assertError(auth(target).get("/groups/{id}/invitations", group.getId()), 403, "ACCESS_DENIED");
@@ -1438,6 +1461,74 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
     private Response acceptLink(Member member, Response issued) {
         String path = issued.jsonPath().getString("data.sharePath");
         return accept(member, issued.jsonPath().getLong("data.id"), Map.of("token", path.substring(path.lastIndexOf('/') + 1)));
+    }
+
+    @Test
+    @DisplayName("모임장과 모임원이 동시에 공유 링크를 발급하면 같은 링크 하나를 함께 사용한다.")
+    void differentMembersIssueOneSharedLinkConcurrently() throws Exception {
+        // Given
+        Member leader = member("101");
+        Member inviter = member("102");
+        Group group = group(leader);
+        groupMembers.save(GroupMember.createMember(group, inviter, NOW));
+        // When
+        List<Response> responses = concurrently(
+                () -> issue(leader, group.getId(), Map.of("type", "LINK", "requestId", UUID.randomUUID())),
+                () -> issue(inviter, group.getId(), Map.of("type", "LINK", "requestId", UUID.randomUUID())));
+        // Then
+        assertThat(responses.stream().map(Response::statusCode)).containsExactlyInAnyOrder(201, 200);
+        assertThat(responses.get(0).jsonPath().getString("data.sharePath"))
+                .isEqualTo(responses.get(1).jsonPath().getString("data.sharePath"));
+        assertThat(jdbc.queryForObject("select count(*) from invitation where type = 'LINK'", Integer.class)).isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"expired", "canceled", "inviterLeft"})
+    @DisplayName("공유 링크가 만료·취소되거나 발급자가 이탈하면 새 요청으로 새 링크를 발급한다.")
+    void invalidSharedLinkAllowsReplacement(String reason) {
+        // Given
+        Member leader = member("101");
+        Member inviter = member("102");
+        Group group = group(leader);
+        groupMembers.save(GroupMember.createMember(group, inviter, NOW));
+        Response first = issue(inviter, group.getId(), Map.of("type", "LINK", "requestId", UUID.randomUUID()));
+        long id = first.jsonPath().getLong("data.id");
+        if (reason.equals("expired")) jdbc.update("update invitation set expires_at = ?, version = version + 1 where id = ?", Timestamp.valueOf(NOW), id);
+        if (reason.equals("canceled")) jdbc.update("update invitation set revoked_at = ?, status = 'CANCELED', version = version + 1 where id = ?", Timestamp.valueOf(NOW), id);
+        if (reason.equals("inviterLeft")) jdbc.update("delete from group_member where group_id = ? and member_id = ?", group.getId(), inviter.getId());
+        // When
+        Response replacement = issue(leader, group.getId(), Map.of("type", "LINK", "requestId", UUID.randomUUID()));
+        // Then
+        assertThat(replacement.statusCode()).isEqualTo(201);
+        assertThat(replacement.jsonPath().getString("data.sharePath")).isNotEqualTo(first.jsonPath().getString("data.sharePath"));
+        assertThat(replacement.jsonPath().getString("data.expiresAt")).isEqualTo(NOW.plusDays(3).toString() + ":00");
+    }
+
+    @Autowired private DataSource dataSource;
+
+    @Test
+    @DisplayName("단일 링크 보정은 가장 오래된 유효 링크를 남기고 나머지만 취소하며 재적용해도 버전과 이력을 보존한다.")
+    void singleLinkMigrationPreservesOriginalAndIsRepeatable() {
+        // Given
+        Member leader = member("101");
+        Group group = group(leader);
+        long original = issue(leader, group.getId(), Map.of("type", "LINK", "requestId", UUID.randomUUID())).jsonPath().getLong("data.id");
+        jdbc.update("update invitation set expires_at = localtimestamp + interval '3 days' where id = ?", original);
+        Long duplicate = jdbc.queryForObject("""
+                insert into invitation (group_id, inviter_member_id, type, request_id, token_hash, encrypted_token,
+                    expires_at, created_at, updated_at, version, status)
+                select group_id, inviter_member_id, type, ?, repeat('a', 64), encrypted_token,
+                    expires_at, created_at, updated_at, version, status from invitation where id = ? returning id
+                """, Long.class, UUID.randomUUID(), original);
+        var migration = new ResourceDatabasePopulator(new FileSystemResource("db/migrations/2026-10-12-single-shared-invitation.sql"));
+        // When
+        migration.execute(dataSource);
+        migration.execute(dataSource);
+        // Then
+        assertThat(jdbc.queryForObject("select status from invitation where id = ?", String.class, original)).isEqualTo("VALID");
+        assertThat(jdbc.queryForObject("select status from invitation where id = ?", String.class, duplicate)).isEqualTo("CANCELED");
+        assertThat(jdbc.queryForObject("select version from invitation where id = ?", Long.class, duplicate)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from invitation", Integer.class)).isEqualTo(2);
     }
 
     private List<Response> concurrently(Callable<Response> first, Callable<Response> second) throws Exception {

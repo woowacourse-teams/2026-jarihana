@@ -197,6 +197,8 @@ public class InvitationCommandService {
             }
             issued = Invitation.issueDirect(group, inviter, target, command.requestId(), now);
         } else {
+            var shared = invitations.findValidSharedLink(groupId, now);
+            if (shared.isPresent()) return result(shared.orElseThrow(), true, now);
             var token = tokens.issue();
             issued = Invitation.issueLink(group, inviter, command.requestId(), token.hash(), token.encrypted(), now);
         }
