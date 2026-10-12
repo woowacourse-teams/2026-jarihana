@@ -151,6 +151,3 @@ WHERE status = 'IN_FLIGHT' AND locked_until <= timezone('Asia/Seoul', now());
 외부 전송만 잠시 멈추려면 `PUSH_WORKER_ENABLED=false`로 재배포한다. 이때 기존 대기는 유효기간 안에서
 재개 후 처리될 수 있다. 새 푸시 사용까지 중단하려면 `PUSH_ENABLED=false`로 재배포한다.
 워커 중단이나 기능 비활성은 모든 기존 브라우저 구독을 삭제하는 동작이 아니며 알림함은 유지한다.
-
-완료 전 실행별 결과는 [검증 결과](../../../docs/verification/web-push-2026-10-05.md)에 기록한다.
-검증 결과와 [구현 진행표](../../../docs/web-push-implementation.md)는 모든 구현·필수 검증이 끝났을 때 삭제한다.

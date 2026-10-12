@@ -10,35 +10,36 @@ import "./pwa-install-guide.css";
 
 const snoozeKey = "jarihana:pwa-guide:hidden-until";
 const sevenDays = 7 * 24 * 60 * 60 * 1000;
+const pushGuideImageBaseUrl = "https://d2lab72n5rrvlq.cloudfront.net/images/push-guide";
 const iosChromeSteps = [
   {
     alt: "Chrome 주소창 오른쪽의 공유 버튼",
     className: "share",
-    image: "/images/ios-pwa-guide/safari-share.jpeg",
+    image: `${pushGuideImageBaseUrl}/ios-pwa-guide/safari-share.jpeg`,
     title: "공유를 눌러요"
   },
   {
     alt: "공유 메뉴에서 홈 화면에 추가 항목을 선택하는 화면",
     className: "menu",
-    image: "/images/ios-pwa-guide/home-screen-add-hq.jpeg",
+    image: `${pushGuideImageBaseUrl}/ios-pwa-guide/home-screen-add-hq.jpeg`,
     title: "홈 화면에 추가해요"
   },
   {
     alt: "자리하나 화면 오른쪽 위의 목록 버튼",
     className: "hamburger",
-    image: "/images/ios-pwa-guide/menu-hamburger.png",
+    image: `${pushGuideImageBaseUrl}/ios-pwa-guide/menu-hamburger.png`,
     title: "목록 버튼을 눌러요"
   },
   {
     alt: "전체 메뉴 오른쪽 위의 종 버튼",
     className: "bell",
-    image: "/images/ios-pwa-guide/menu-bell.png",
+    image: `${pushGuideImageBaseUrl}/ios-pwa-guide/menu-bell.png`,
     title: "종 버튼을 눌러요"
   },
   {
     alt: "자리하나 알림함의 이 브라우저 푸시 알림 스위치",
     className: "push",
-    image: "/images/ios-pwa-guide/notification-push-setting.png",
+    image: `${pushGuideImageBaseUrl}/ios-pwa-guide/notification-push-setting.png`,
     title: "푸시 알림을 켜요"
   }
 ];
@@ -46,7 +47,7 @@ const iosSafariSteps = [
   {
     alt: "Safari 주소창 아래의 공유 버튼",
     className: "safari-share",
-    image: "/images/ios-pwa-guide/ios-safari-share.jpeg",
+    image: `${pushGuideImageBaseUrl}/ios-pwa-guide/ios-safari-share.jpeg`,
     title: "공유를 눌러요"
   },
   ...iosChromeSteps.slice(1)
@@ -55,13 +56,13 @@ const androidSamsungInstallStart = [
   {
     alt: "삼성 브라우저의 현재 페이지 추가 메뉴 항목",
     className: "samsung-menu",
-    image: "/images/android-samsung-guide/menu.png",
+    image: `${pushGuideImageBaseUrl}/android-samsung-guide/menu.png`,
     title: "삼점 메뉴에서 현재 페이지 추가"
   },
   {
     alt: "웹 앱으로 설치와 홈 화면 추가 중 선택하는 삼성 브라우저 메뉴",
     className: "samsung-install-options",
-    image: "/images/android-samsung-guide/add-options.png",
+    image: `${pushGuideImageBaseUrl}/android-samsung-guide/add-options.png`,
     title: "설치 방법을 골라요",
     type: "install-path"
   }
@@ -70,13 +71,13 @@ const androidChromeInstallStart = [
   {
     alt: "Chrome 메뉴에서 설치 및 바로가기 만들기를 선택하는 화면",
     className: "android-chrome-menu-install",
-    image: "/images/android-chrome-guide/menu-install.png",
+    image: `${pushGuideImageBaseUrl}/android-chrome-guide/menu-install.png`,
     title: "설치 메뉴를 눌러요"
   },
   {
     alt: "Chrome에서 설치와 바로가기 만들기 중 선택하는 화면",
     className: "android-chrome-install-choice",
-    image: "/images/android-chrome-guide/install-choice.png",
+    image: `${pushGuideImageBaseUrl}/android-chrome-guide/install-choice.png`,
     title: "설치 방법을 골라요",
     type: "chrome-install-path"
   }
@@ -85,19 +86,19 @@ const androidSamsungWebAppSteps = [
   {
     alt: "앱스 화면에 웹페이지를 추가할지 묻는 확인 창",
     className: "samsung-install-confirm",
-    image: "/images/android-samsung-guide/install-confirm.png",
+    image: `${pushGuideImageBaseUrl}/android-samsung-guide/install-confirm.png`,
     title: "앱스 화면에 추가해요"
   },
   {
     alt: "Google Play 프로텍트 안내의 세부정보 더보기",
     className: "samsung-play-protect-details",
-    image: "/images/android-samsung-guide/play-protect-details.png",
+    image: `${pushGuideImageBaseUrl}/android-samsung-guide/play-protect-details.png`,
     title: "세부정보 더보기를 눌러요"
   },
   {
     alt: "Google Play 프로텍트 안내의 무시하고 설치하기 선택 화면",
     className: "samsung-play-protect-install",
-    image: "/images/android-samsung-guide/play-protect-install.png",
+    image: `${pushGuideImageBaseUrl}/android-samsung-guide/play-protect-install.png`,
     title: "무시하고 설치한 뒤 인증해요"
   }
 ];
@@ -105,13 +106,13 @@ const androidSamsungHomeScreenSteps = [
   {
     alt: "홈 화면에 추가 창에서 앱 이름과 추가 버튼을 확인하는 화면",
     className: "samsung-home-screen-name",
-    image: "/images/android-samsung-guide/home-screen-name.png",
+    image: `${pushGuideImageBaseUrl}/android-samsung-guide/home-screen-name.png`,
     title: "이름을 확인하고 추가해요"
   },
   {
     alt: "홈 화면 바로가기 추가 안내의 추가 버튼",
     className: "samsung-home-screen-confirm",
-    image: "/images/android-samsung-guide/home-screen-confirm.png",
+    image: `${pushGuideImageBaseUrl}/android-samsung-guide/home-screen-confirm.png`,
     title: "확인 창에서 추가를 눌러요"
   }
 ];
