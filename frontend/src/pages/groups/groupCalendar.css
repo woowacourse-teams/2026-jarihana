@@ -337,6 +337,8 @@ button.group-calendar__event:hover { filter: brightness(0.96); }
 .group-recurring-dialog > p { margin: 0; }
 .group-recurring-form { gap: var(--space-3); padding-top: var(--space-4); border-top: var(--border-thin) solid var(--color-line); }
 .group-recurring-form h3 { margin: 0; font-size: var(--text-h3); }
+.group-recurring-form > form { display: grid; gap: var(--space-4); }
+.group-recurring-form__time-toggle { justify-self: start; }
 .group-recurring-form__weekdays, .group-recurring-form__scopes { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; border: 0; }
 .group-recurring-form__weekdays legend, .group-recurring-form__scopes legend { width: 100%; margin-bottom: var(--space-2); font-weight: 700; }
 .group-recurring-form__weekdays label, .group-recurring-form__scopes label, .group-recurring-form__time-toggle { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--touch-target); padding: 0 var(--space-3); border: var(--border-thin) solid var(--color-line); border-radius: var(--radius-sm); cursor: pointer; }
