@@ -26,6 +26,13 @@
   },
   "links": [
     {
+      "title": "로그 조회",
+      "type": "link",
+      "url": "/d/jarihana-logs?var-environment=${environment}&from=${__from}&to=${__to}",
+      "targetBlank": false,
+      "icon": "dashboard"
+    },
+    {
       "title": "알림 규칙",
       "type": "link",
       "url": "/alerting/list",

@@ -6,6 +6,7 @@
 - [prod 앱 Compose](../docker-compose.yml)·[dev 앱 Compose](../docker-compose.dev.yml): 앱·Alloy 서비스와 `alloy-data` 볼륨
 - [Slack 장애 알림](../docs/observability/SLACK.md): Grafana 파일 provisioning, health·HTTP 500·호스트 자원 알림 정의 12개와 전달 정책
 - [Grafana 운영 대시보드](../docs/observability/DASHBOARD.md): `Jarihana` 폴더의 `jarihana-overview` 대시보드와 필터·패널 해석
+- [Grafana 로그 조회](../docs/observability/DASHBOARD.md#로그-조회와-explore): `jarihana-logs`의 환경·서버·레벨별 원본 로그와 패널 메뉴 → Explore
 - [Grafana Canvas](../docs/observability/CANVAS.md): `jarihana-canvas` 시스템 흐름 화면, 앱·DB 상태와 최근 2분 평균 트래픽 해석
 - [앱 Alloy 설정](alloy/config.alloy): 두 앱 Compose가 마운트하는 공통 수집 설정
 - [모니터링 Alloy 설정](alloy/monitoring.alloy): 모니터링 EC2의 호스트·Alloy 자체 메트릭 수집

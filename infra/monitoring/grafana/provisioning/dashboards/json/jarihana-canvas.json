@@ -48,6 +48,13 @@
   },
   "links": [
     {
+      "title": "로그 조회",
+      "type": "link",
+      "url": "/d/jarihana-logs?var-environment=${environment}&from=${__from}&to=${__to}",
+      "targetBlank": false,
+      "icon": "dashboard"
+    },
+    {
       "title": "운영 상세",
       "type": "link",
       "url": "/d/jarihana-overview?var-environment=${environment}&from=${__from}&to=${__to}",
