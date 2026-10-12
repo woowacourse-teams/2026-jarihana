@@ -115,10 +115,11 @@ backend dev/prod workflow의 `vars.HOST_ID`와 충돌하지 않게 한다. 이 �
 안정적인 모니터링 호스트 이름이며 실제 AWS instance ID일 필요는 없다. `MONITORING_BIND_ADDRESS`는 Nginx `80`·`8080`을 bind할 모니터링 EC2의 실제 사설 IPv4다.
 Prometheus `9090`, Loki `3100`, Tempo 조회 `3200`, Grafana `3000`은 호스트 loopback 관리 포트로 유지하며
 Tempo OTLP `4317`은 호스트에 publish하지 않는다.
-Grafana의 `GF_SERVER_ROOT_URL`은 Compose에서 `http://grafana.jarihana.com/`으로 고정한다.
-도메인·HTTPS 변경 시 Compose의 이 값과 Nginx Host 설정을 함께 맞춘다.
+Grafana의 `GF_SERVER_ROOT_URL`은 Compose에서 `https://grafana.jarihana.com/`으로 고정한다.
+CloudFront에서 HTTPS를 처리하고, CloudFront → Nginx → Grafana는 HTTP로 연결한다.
+도메인을 변경할 때는 Compose의 이 값과 Nginx Host 설정을 함께 맞춘다.
 Nginx `80`은 `grafana.jarihana.com` Host만 받고 다른 Host는 `404`로 응답한다.
-`grafana.jarihana.com`의 공개 DNS를 모니터링 EC2 공인 IP에 연결하며 루트 `jarihana.com`의 기존 서비스는 변경하지 않는다.
+`grafana.jarihana.com`의 공개 DNS는 CloudFront 배포에 연결하며 루트 `jarihana.com`의 기존 서비스는 변경하지 않는다.
 앱 Alloy는 사설 IP의 `8080`으로 수집 데이터를 보낸다. 수집용 도메인·DNS·`extra_hosts`는 추가하지 않는다.
 공개 Grafana DNS 변경과 AWS 배포는 아직 수행하지 않았다.
 프로젝트 이름은 `jarihana-monitoring`으로 고정하고

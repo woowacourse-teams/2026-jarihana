@@ -103,7 +103,7 @@ Nginx는 `/prometheus`·`/tempo` 접두사를 제거하고 Loki 경로는 그대
 backend·Alloy를 갱신한다. Nginx 장애 중에는 앱 Alloy가 재시도하며 큐·원본 보관 한도를 넘으면 유실될 수 있다.
 Grafana 관리자 사용자명은 `admin`으로 고정한다.
 포트·관리자 사용자명과 Grafana의 `GF_SERVER_ROOT_URL`은 `docker-compose.yml`의 고정값이다.
-공개 URL은 `http://grafana.jarihana.com/`이며 별도 환경변수를 추가하지 않는다.
+공개 URL은 `https://grafana.jarihana.com/`이며 별도 환경변수를 추가하지 않는다.
 
 모니터링 Alloy는 host 네트워크에서 `http://127.0.0.1:9090/api/v1/write`로 직접 전송한다. 앱 메트릭·health·Docker 로그는 수집하지 않으며
 Docker socket도 마운트하지 않는다. procfs·sysfs·rootfs는 읽기 전용으로 마운트하고,
@@ -141,11 +141,13 @@ Prometheus·Grafana는 컨테이너 healthcheck도 설정했다. Loki 이미지�
 distroless 이미지이므로 위의 외부 `/ready` 확인을 사용한다. 컨테이너가 running이라는 사실만으로
 데이터 수신까지 확인한 것은 아니다.
 
-`grafana.jarihana.com`의 DNS를 모니터링 EC2의 공인 IP에 연결하고 `http://grafana.jarihana.com/`으로
-Grafana를 연다. 루트 `jarihana.com`의 기존 서비스 레코드는 변경하지 않는다. DNS 실제 변경은 아직 수행하지 않았다.
+`grafana.jarihana.com`의 DNS를 CloudFront 배포에 연결하고 `https://grafana.jarihana.com/`으로
+Grafana를 연다. CloudFront에서 HTTPS를 처리하고, CloudFront → Nginx → Grafana는 HTTP로 연결한다.
+CloudFront의 원본 요청은 `Host: grafana.jarihana.com`을 유지해야 한다.
+루트 `jarihana.com`의 기존 서비스 레코드는 변경하지 않는다. CloudFront·DNS의 실제 설정은 아직 수행하지 않았다.
 수집 주소는 모니터링 EC2의 사설 IP `8080`을 사용하며 수집용 도메인·DNS·`extra_hosts`는 필요 없다.
-Grafana에 HTTPS나 다른 도메인을 사용한다면
-Compose의 `GF_SERVER_ROOT_URL`과 `nginx/default.conf`의 Host 설정을 함께 수정하고 접근 범위·TLS도 확인한다.
+Grafana의 도메인을 변경한다면
+Compose의 `GF_SERVER_ROOT_URL`과 `nginx/default.conf`의 Host 설정을 함께 수정한다.
 Grafana Live의 WebSocket Origin 검사 때문에 브라우저 접속 주소와 공개 URL이 일치해야 한다.
 SSH로 관리할 때는 개인 컴퓨터에서 아래와 같이 loopback Grafana 포트 `3000`으로 터널을 열 수도 있다.
 
