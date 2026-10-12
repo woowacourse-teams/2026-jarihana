@@ -72,6 +72,7 @@ async function command(message) {
   throw new Error("INVALID_COMMAND");
 }
 const EVENT_COPY = {
+  GROUP_CREATED: "새로운 모임이 등록되었어요.",
   REGISTRATION_SUBMITTED: "모임에 새로운 신청이 도착했어요.",
   REGISTRATION_APPROVED: "모임 신청이 승인되었어요.",
   REGISTRATION_REJECTED: "모임 신청 결과를 확인해 주세요.",

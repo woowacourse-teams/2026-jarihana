@@ -12,7 +12,6 @@
 - 구현 계약: [데이터 모델](../context/domain/model/notification.md),
   [알림 API](../context/api/endpoints/notifications.md)
 - 실행·배포·검증 상태: [웹푸시 운영 가이드](../operations/web-push.md)
-- 임시 진행 기록: [단계별 구현·검증](../../../docs/web-push-implementation.md) — 모든 구현·필수 검증 완료 후 삭제
 
 ## 이 업무에서 선택한 구조
 
