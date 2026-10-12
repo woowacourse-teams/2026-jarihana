@@ -28,9 +28,12 @@
 Grafana에서 두 저장소를 조회한다. 중앙 Collector는 초기 구성에 추가하지 않는다.**
 
 Nginx `80`은 Grafana 루트 경로·WebSocket을, `8080`은 정확히 일치하는 세 POST 수집 경로
-(`/api/v1/write`, `/loki/api/v1/push`, `/v1/traces`)를 제공한다. `8080`은 RFC1918 사설 IPv4와
-loopback만 허용하고 나머지 출발지를 거부하며 알 수 없는 경로는 `404`로 응답한다.
+(`/prometheus/api/v1/write`, `/loki/api/v1/push`, `/tempo/v1/traces`)를 제공한다.
+Prometheus·Tempo는 `/prometheus`·`/tempo` 접두사를 제거해 저장소 경로로 전달하고 Loki 경로는 유지한다.
+`8080`은 RFC1918 사설 IPv4와 loopback만 허용하고 나머지 출발지를 거부한다.
+알 수 없는 경로는 `404`, 허용 경로의 POST 외 메서드는 `403`으로 응답한다.
 기존 `MONITORING_BIND_ADDRESS`로 두 포트를 bind하고 저장소 관리 포트는 loopback에만 둔다.
+앱 Alloy의 수집 주소는 이 사설 IP와 경로로 만들며 수집용 도메인·DNS·`extra_hosts`나 새 변수·시크릿은 추가하지 않는다.
 Nginx는 HTTP 전달을 맡으며 신호 가공·큐를 가진 중앙 Collector 역할은 추가하지 않는다.
 사설 IP bind와 별개로 AWS 보안 그룹·라우팅에서 운영자 화면 접근과 앱 EC2 수집 접근을 확인한다.
 

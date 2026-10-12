@@ -69,7 +69,7 @@ services:
       HOST_ID: ${HOST_ID:?set HOST_ID to a stable app-host identifier}
       PROMETHEUS_REMOTE_WRITE_URL: ${PROMETHEUS_REMOTE_WRITE_URL:?set Prometheus remote_write URL}
       LOKI_PUSH_URL: ${LOKI_PUSH_URL:?set Loki push URL}
-      TEMPO_OTLP_ENDPOINT: ${TEMPO_OTLP_ENDPOINT:?set OTLP HTTP base URL http://monitoring-host:8080}
+      TEMPO_OTLP_ENDPOINT: ${TEMPO_OTLP_ENDPOINT:?set OTLP HTTP base URL http://monitoring-host:8080/tempo}
       APP_METRICS_TARGET: 127.0.0.1:8081
       POSTGRES_MONITOR_DSN: ${POSTGRES_MONITOR_DSN:?set PostgreSQL monitoring DSN}
     volumes:

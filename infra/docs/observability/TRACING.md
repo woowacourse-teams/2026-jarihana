@@ -10,7 +10,7 @@
 ```mermaid
 flowchart LR
   APP["Spring + OTel Java Agent"] -->|"OTLP HTTP :4318"| ALLOY["앱 EC2의 Alloy"]
-  ALLOY -->|"OTLP HTTP :8080/v1/traces"| NGINX["모니터링 EC2의 Nginx"]
+  ALLOY -->|"OTLP HTTP :8080/tempo/v1/traces"| NGINX["모니터링 EC2의 Nginx"]
   NGINX -->|"OTLP HTTP :4318"| TEMPO["Tempo"]
   TEMPO -->|"트레이스 조회 :3200"| GRAFANA["Grafana"]
   TEMPO -->|"metrics-generator · remote write"| PROM["Prometheus"]
@@ -34,7 +34,7 @@ payload를 전송하지 않는다. 헤더·본문 수집은 활성화하지 않�
 | 설정 | 값과 의미 |
 | --- | --- |
 | 앱 → Alloy | `http://host.docker.internal:4318`, OTLP `http/protobuf` |
-| Alloy → Nginx → Tempo | 필수 `TEMPO_OTLP_ENDPOINT=http://<monitoring-private-ip>:8080`, OTLP HTTP 기본 주소 |
+| Alloy → Nginx → Tempo | 필수 `TEMPO_OTLP_ENDPOINT=http://<monitoring-private-ip>:8080/tempo`, OTLP HTTP 기본 주소 |
 | Grafana → Tempo | Compose 내부 주소 `http://tempo:3200`, 데이터 소스 UID `tempo` |
 | `service.name` | `jarihana` |
 | `deployment.environment.name` | 앱 Compose에 고정한 `dev` 또는 `prod` |
@@ -48,10 +48,11 @@ payload를 전송하지 않는다. 헤더·본문 수집은 활성화하지 않�
 Alloy 관리 포트 `12345`와 앱 관리 포트 `8081`의 loopback 제한은 유지한다.
 
 Alloy는 `otelcol.exporter.otlphttp`를 사용하며 `TEMPO_OTLP_ENDPOINT`에 `/v1/traces`를 자동으로
-추가한다. endpoint에 이 경로를 중복해서 넣거나 Nginx용 접두사를 붙이지 않는다.
+추가한다. endpoint에는 `/tempo`까지 넣고 `/v1/traces`를 중복해서 넣지 않는다.
 모니터링 EC2의 Nginx `8080`을 `MONITORING_BIND_ADDRESS`의 사설 IP에 bind하고, 정확히 일치하는
-`POST /v1/traces`를 Compose 내부 Tempo HTTP receiver `4318`로 전달한다. Nginx는 RFC1918 사설 IPv4와
-loopback만 허용하고 나머지 출발지를 거부하며 알 수 없는 경로는 `404`로 응답한다.
+`POST /tempo/v1/traces`에서 `/tempo`를 제거해 Compose 내부 Tempo HTTP receiver `4318`의
+`/v1/traces`로 전달한다. Nginx는 RFC1918 사설 IPv4와 loopback만 허용하고 나머지 출발지를 거부한다.
+알 수 없는 경로는 `404`, 허용 경로의 POST 외 메서드는 `403`으로 응답한다.
 보안 그룹·라우팅도 앱 EC2의 사설 접근만 허용하는지 확인한다. 사설 IP bind만으로 인터넷 차단을 보장하지 않는다.
 초기 OTLP 구간에는 TLS·인증이 없으므로 신뢰하는 사설망에서만 사용한다. Tempo `4317`은 호스트에
 publish하지 않으며 조회 API `3200`은 호스트 loopback에만 공개한다. Grafana는 `http://tempo:3200`으로 직접 조회한다.
@@ -73,7 +74,7 @@ publish하지 않으며 조회 API `3200`은 호스트 loopback에만 공개한�
    기존 볼륨을 옮겨 사용하는 경우에는 소유권이 일치하는지 확인한다.
    Tempo 본체는 해당 non-root 사용자로 실행한다. 설정 파일은 읽기 전용 마운트다.
 
-2. 수동 실행 시 각 앱 EC2의 `infra/.env`에 `TEMPO_OTLP_ENDPOINT=http://<monitoring-private-ip>:8080`을
+2. 수동 실행 시 각 앱 EC2의 `infra/.env`에 `TEMPO_OTLP_ENDPOINT=http://<monitoring-private-ip>:8080/tempo`를
    설정하고 **Agent가 포함된 새 이미지**를 준비한다.
    기존 이미지에는 Agent 파일이 없으므로 Compose만 갱신하면 JVM이 시작하지 못한다.
 
@@ -86,8 +87,8 @@ publish하지 않으며 조회 API `3200`은 호스트 loopback에만 공개한�
    ```
 
    prod는 이미지 이름 `jarihana-backend`와 `infra/docker-compose.yml`을 사용한다.
-   GitHub dev·prod 배포 workflow는 기존 repository variable `MONITORING_BIND_ADDRESS`와 `8080`으로
-   `TEMPO_OTLP_ENDPOINT`를 만든다. 수집 주소용 새 변수·시크릿을 등록할 필요는 없다.
+   GitHub dev·prod 배포 workflow는 기존 repository variable `MONITORING_BIND_ADDRESS`와 `8080/tempo`로
+   `TEMPO_OTLP_ENDPOINT`를 만든다. 수집용 도메인·DNS·`extra_hosts`와 새 변수·시크릿은 필요 없다.
    앱 Compose·앱 Alloy 설정 변경은 백엔드 배포를 실행하며 `infra/docs/**`만 바뀌면 실행하지 않는다. 모니터링 스택은 별도
    [자동 배포 workflow](../../../.github/workflows/monitoring-deploy.yml)가 `main`의
    `infra/monitoring/**` 변경에 반응해 배포한다.

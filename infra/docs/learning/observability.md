@@ -192,9 +192,10 @@ node_exporter 같은 별도 호스트 수집기로 수집할 수 있다.
 
 선택한 초기 구조에서 메트릭은 Prometheus scrape·remote write, 로그는 Docker API·Loki push를
 사용한다. trace 경로는 Agent → Alloy와 Alloy → Nginx → Tempo 모두 OTLP HTTP를 사용한다.
-앱 Alloy는 Nginx `8080`의 `/api/v1/write`, `/loki/api/v1/push`, `/v1/traces`로 각 신호를 보낸다.
-`TEMPO_OTLP_ENDPOINT`는 `http://<monitoring-private-ip>:8080`이며 `otelcol.exporter.otlphttp`가
-`/v1/traces`를 추가한다. 전체 그림의 화살표를 모두 OTLP로 적으면 실제 연결이 틀어진다.
+앱 Alloy는 Nginx `8080`의 `/prometheus/api/v1/write`, `/loki/api/v1/push`, `/tempo/v1/traces`로 각 신호를 보낸다.
+`TEMPO_OTLP_ENDPOINT`는 `http://<monitoring-private-ip>:8080/tempo`이며 `otelcol.exporter.otlphttp`가
+`/v1/traces`를 추가한다. Nginx는 `/prometheus`·`/tempo` 접두사를 제거해 저장소의 `/api/v1/write`·`/v1/traces`로
+전달하고 Loki 경로는 그대로 유지한다. 전체 그림의 화살표를 모두 OTLP로 적으면 실제 연결이 틀어진다.
 
 Nginx는 HTTP 요청을 정해진 저장소로 전달하는 진입점이다. `80`은 Grafana 루트 경로·WebSocket,
 `8080`은 정확히 일치하는 세 POST 수집 경로만 제공한다. 신호를 가공하거나 영속 큐에 보관하는
@@ -613,7 +614,9 @@ backend·Alloy에는 모두 `dev`, prod Compose에는 모두 `prod`로 고정한
 호스트·Alloy 자체 메트릭도 계속 수집한다.
 모니터링 Compose 안의 Grafana는 같은 bridge에 있는 `prometheus:9090`과 `loki:3100`을 읽는다.
 Tempo 데이터 소스도 `tempo:3200`으로 직접 조회한다. 앱 Alloy는 모니터링 서버의 사설 주소와
-Nginx `8080`으로 보낸다. 기존 `MONITORING_BIND_ADDRESS`는 Nginx `80`·`8080` bind에 사용하고
+Nginx `8080`으로 보낸다. 수집용 도메인·DNS·`extra_hosts`는 추가하지 않는다.
+앱 배포 workflow는 기존 `MONITORING_BIND_ADDRESS`와 신호별 경로로 세 목적지 URL을 만든다.
+새 변수·시크릿은 필요 없으며 같은 `MONITORING_BIND_ADDRESS`는 Nginx `80`·`8080` bind에 사용한다.
 Prometheus `9090`, Loki `3100`, Tempo `3200`, Grafana `3000`은 loopback 관리 포트로 유지한다.
 모니터링 호스트의 Alloy는 `http://127.0.0.1:9090/api/v1/write`로 직접 전송한다.
 `8080`의 사설 IPv4·loopback 허용 규칙과 별개로 AWS 보안 그룹·라우팅도 확인해야 한다.

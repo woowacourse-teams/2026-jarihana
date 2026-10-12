@@ -18,8 +18,11 @@ HTTP 처리와 DB 호출 중 어디에서 시간이 쓰였는지 확인하려면
 Spring 이미지에 OpenTelemetry Java Agent `2.32.0`을 버전·체크섬을 고정해 넣고 dev·prod Compose에서
 활성화한다. 앱은 기존 OTLP HTTP `4318`로 같은 EC2의 Alloy에 보내며 Alloy는 OTLP HTTP로
 별도 모니터링 EC2의 Nginx `8080`을 거쳐 Tempo HTTP receiver `4318`에 전달한다.
-기존 `TEMPO_OTLP_ENDPOINT` 이름을 유지하되 값은 `http://<monitoring-private-ip>:8080`으로 바꾼다.
-`otelcol.exporter.otlphttp`가 `/v1/traces`를 추가하고 Nginx는 정확히 일치하는 POST 경로를 전달한다. 기존 Micrometer와 Docker 로그 전송을 유지하기 위해 Agent는 트레이스만 내보낸다.
+기존 `TEMPO_OTLP_ENDPOINT` 이름을 유지하되 값은 `http://<monitoring-private-ip>:8080/tempo`로 바꾼다.
+`otelcol.exporter.otlphttp`가 `/v1/traces`를 추가하고 Nginx는 정확히 일치하는 `POST /tempo/v1/traces`에서
+`/tempo`를 제거해 Tempo의 `/v1/traces`로 전달한다. 수집 주소는 기존 `MONITORING_BIND_ADDRESS`로 만들며
+수집용 도메인·DNS·`extra_hosts`나 새 변수·시크릿은 추가하지 않는다.
+기존 Micrometer와 Docker 로그 전송을 유지하기 위해 Agent는 트레이스만 내보낸다.
 
 OAuth callback의 인증 코드와 state가 URL 속성에 남지 않도록 Alloy에서 query·fragment를 제거한다.
 업무 경로와 호출 시간은 유지하고 인증 값은 저장하지 않는다.

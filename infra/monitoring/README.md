@@ -32,10 +32,16 @@ Tempo OTLP `4317`은 호스트에 publish하지 않는다.
 Grafana의 `GF_SERVER_ROOT_URL`은 Compose에서 `http://grafana.jarihana.com/`으로 고정한다.
 도메인·HTTPS 변경 시 Compose의 이 값과 Nginx Host 설정을 함께 맞춘다.
 Nginx `80`은 `grafana.jarihana.com` Host만 받고 다른 Host는 `404`로 응답한다.
-이 서브도메인의 DNS를 모니터링 EC2 공인 IP에 연결하며 루트 `jarihana.com`의 기존 서비스는 변경하지 않는다.
-DNS 실제 변경은 아직 수행하지 않았다. 수집 주소는 사설 IP의 `8080`을 유지한다.
+`grafana.jarihana.com`의 공개 DNS를 모니터링 EC2 공인 IP에 연결하며 루트 `jarihana.com`의 기존 서비스는 변경하지 않는다.
+앱 Alloy는 모니터링 EC2의 사설 IP와 `8080`을 사용하며 수집용 도메인·DNS·`extra_hosts`는 추가하지 않는다.
+공개 Grafana DNS 변경과 AWS 배포는 아직 수행하지 않았다.
 Nginx `80`은 Grafana 루트 경로·WebSocket, `8080`은 세 수집 API만 제공한다.
-앱 Alloy는 기존 환경변수 이름을 유지하면서 세 목적지를 `8080`으로 바꾼다.
+앱 Alloy의 목적지는 `http://<monitoring-private-ip>:8080/prometheus/api/v1/write`,
+`http://<monitoring-private-ip>:8080/loki/api/v1/push`, `http://<monitoring-private-ip>:8080/tempo`다.
+Tempo exporter가 `/v1/traces`를 추가하며 Nginx는 `/prometheus`·`/tempo` 접두사를 제거해 전달한다.
+Loki 경로는 그대로 전달한다. `8080`은 RFC1918 사설 IPv4·loopback의 정확한 POST 경로만 허용한다.
+다른 경로는 `404`, 허용 경로의 다른 메서드는 `403`이다. 보안 그룹에서 `80`은 운영자에게,
+`8080`은 앱 EC2 보안 그룹에 허용한다. 수집 주소는 기존 `MONITORING_BIND_ADDRESS`로 만들며 새 변수·시크릿은 없다.
 모니터링 스택을 먼저 배포한 뒤 backend·Alloy를 갱신한다. AWS 배포와 보안 그룹·라우팅 검증은 아직 수행하지 않았다.
 대시보드를 생성하고 설정을 검증한 뒤 컨테이너를 재생성하며, 데이터 볼륨은 유지한다.
 Compose는 Alloy를 포함한 모니터링 서비스에 컨테이너별 메모리 상한을 걸지 않는다.

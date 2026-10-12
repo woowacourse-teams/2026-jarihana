@@ -28,7 +28,7 @@ dev·prod는 각각 별도 EC2에서 실행하며 각 앱의 Alloy가 메트릭�
 기준이며 macOS에서 호스트 지표가 동일하게 수집된다고 가정하지 않는다.
 
 처음에는 dev에서 확인한다. 모니터링 서버의 Nginx `80`은 Grafana에 접근할 운영자에게,
-`8080`은 앱 EC2의 사설 접근에만 열도록 보안 그룹·라우팅을 확인한다. 사설 IP bind만으로
+`8080`은 앱 EC2 보안 그룹의 사설 접근에만 열도록 보안 그룹·라우팅을 확인한다. 사설 IP bind만으로
 인터넷 접근이 차단된다고 판단하지 않는다. 이 초기 구성의 수신 API에는 인증·TLS가 없으므로
 인터넷에 공개하지 않는다. 외부망을 통과해야 한다면 먼저 인증·TLS 경로를 추가한다.
 
@@ -90,14 +90,16 @@ Tempo OTLP `4317`은 호스트에 publish하지 않는다.
 Nginx `80`은 `Host: grafana.jarihana.com` 요청의 Grafana 루트 경로와 WebSocket을 전달하며
 다른 Host는 `404`로 응답한다. `8080`은 RFC1918 사설 IPv4와 loopback만
 허용하고 다른 출발지는 거부한다. 정확히 일치하는 다음 POST 경로만 전달하며 나머지 경로는 `404`다.
+허용 경로의 POST 외 메서드는 `403`으로 거부한다.
 
 | Nginx 수집 경로 | Compose 내부 목적지 |
 | --- | --- |
-| `POST /api/v1/write` | `http://prometheus:9090/api/v1/write` |
+| `POST /prometheus/api/v1/write` | `http://prometheus:9090/api/v1/write` |
 | `POST /loki/api/v1/push` | `http://loki:3100/loki/api/v1/push` |
-| `POST /v1/traces` | `http://tempo:4318/v1/traces` |
+| `POST /tempo/v1/traces` | `http://tempo:4318/v1/traces` |
 
-Nginx용 접두사를 붙이지 않는다. 모니터링 스택을 먼저 배포하고 수신 경로를 확인한 뒤
+Nginx는 `/prometheus`·`/tempo` 접두사를 제거하고 Loki 경로는 그대로 전달한다.
+모니터링 스택을 먼저 배포하고 수신 경로를 확인한 뒤
 backend·Alloy를 갱신한다. Nginx 장애 중에는 앱 Alloy가 재시도하며 큐·원본 보관 한도를 넘으면 유실될 수 있다.
 Grafana 관리자 사용자명은 `admin`으로 고정한다.
 포트·관리자 사용자명과 Grafana의 `GF_SERVER_ROOT_URL`은 `docker-compose.yml`의 고정값이다.
@@ -141,7 +143,8 @@ distroless 이미지이므로 위의 외부 `/ready` 확인을 사용한다. 컨
 
 `grafana.jarihana.com`의 DNS를 모니터링 EC2의 공인 IP에 연결하고 `http://grafana.jarihana.com/`으로
 Grafana를 연다. 루트 `jarihana.com`의 기존 서비스 레코드는 변경하지 않는다. DNS 실제 변경은 아직 수행하지 않았다.
-수집 주소는 모니터링 EC2의 사설 IP `8080`을 유지한다. HTTPS나 다른 도메인을 사용한다면
+수집 주소는 모니터링 EC2의 사설 IP `8080`을 사용하며 수집용 도메인·DNS·`extra_hosts`는 필요 없다.
+Grafana에 HTTPS나 다른 도메인을 사용한다면
 Compose의 `GF_SERVER_ROOT_URL`과 `nginx/default.conf`의 Host 설정을 함께 수정하고 접근 범위·TLS도 확인한다.
 Grafana Live의 WebSocket Origin 검사 때문에 브라우저 접속 주소와 공개 URL이 일치해야 한다.
 SSH로 관리할 때는 개인 컴퓨터에서 아래와 같이 loopback Grafana 포트 `3000`으로 터널을 열 수도 있다.
@@ -206,13 +209,14 @@ cp infra/.env.example infra/.env
 | 변수 | dev EC2 | prod EC2 |
 | --- | --- | --- |
 | `HOST_ID` | dev EC2의 고유 ID | prod EC2의 고유 ID |
-| `PROMETHEUS_REMOTE_WRITE_URL` | `http://<monitoring-private-ip>:8080/api/v1/write` | 동일 모니터링 수신 URL |
+| `PROMETHEUS_REMOTE_WRITE_URL` | `http://<monitoring-private-ip>:8080/prometheus/api/v1/write` | 동일 모니터링 수신 URL |
 | `LOKI_PUSH_URL` | `http://<monitoring-private-ip>:8080/loki/api/v1/push` | 동일 모니터링 수신 URL |
-| `TEMPO_OTLP_ENDPOINT` | `http://<monitoring-private-ip>:8080` | 동일 모니터링 OTLP HTTP 기본 주소 |
+| `TEMPO_OTLP_ENDPOINT` | `http://<monitoring-private-ip>:8080/tempo` | 동일 모니터링 OTLP HTTP 기본 주소 |
 | `POSTGRES_MONITOR_DSN` | dev RDS 모니터링 계정 DSN | prod RDS 모니터링 계정 DSN |
 
 위 다섯 변수는 필수다. 수신 주소는 모니터링 EC2의 사설 주소와 Nginx `8080`을 사용한다.
-`TEMPO_OTLP_ENDPOINT`에는 `/v1/traces`를 붙이지 않는다. `otelcol.exporter.otlphttp`가 이 경로를 추가한다.
+`TEMPO_OTLP_ENDPOINT`에는 `/tempo`까지 넣고 `/v1/traces`는 붙이지 않는다.
+`otelcol.exporter.otlphttp`가 이 경로를 추가해 `/tempo/v1/traces`로 전송한다.
 `APP_METRICS_TARGET`은 dev·prod 각 Compose에서 `127.0.0.1:8081`로 고정해 Alloy 컨테이너에 전달한다.
 셸이나 `.env`의 값으로 치환하지 않는다. 호스트 `8081`은 컨테이너 관리 포트 `8081`로 연결한다. Alloy는 해당 앱 하나를
 `/actuator/prometheus` 경로로 읽고 같은 포트의 `/actuator/health`, `/actuator/health/liveness`,
@@ -262,7 +266,8 @@ Alloy 시작 역시 저장소 수신을 뜻하지 않으므로 앱 health·DB �
 
 `APP_METRICS_TARGET`은 각 앱 Compose의 고정값을 사용하며 GitHub Actions에서 주입하지 않는다.
 프로필은 workflow 환경변수 없이 각 앱 Compose의 고정값을 사용한다. 배포 workflow는 repository
-variable `MONITORING_BIND_ADDRESS`와 포트 `8080`에서 위 세 endpoint를 만든다. 수집 주소용 새 변수·시크릿은 필요하지 않다. `HOST_ID`는
+variable `MONITORING_BIND_ADDRESS`와 포트 `8080`, 위 경로에서 세 endpoint를 만든다.
+수집 주소용 새 변수·시크릿은 필요하지 않다. `HOST_ID`는
 환경별 override가 없으면 `jarihana-dev-ec2` 또는 `jarihana-prod-ec2`를 사용한다.
 `POSTGRES_MONITOR_DSN`은 비밀번호를 포함하므로 각 GitHub Environment의 Secret으로 등록하며
 같은 배포 단계에 전달한다. 배포는 `up -d --no-build --force-recreate backend alloy`로
@@ -374,7 +379,16 @@ Compose 프로젝트 이름을 바꾸면 다른 named volume이 만들어질 수
 
 ## 검증 기록과 남은 범위
 
-2026-10-12에는 별도 Docker 프로젝트에서 Nginx 경유 HTTP 검증 22개를 통과했다.
+2026-10-12에는 접두사를 적용한 별도 Docker 프로젝트에서 29개 검증을 통과했다.
+실제 Alloy의 remote write가 `/prometheus/api/v1/write`를 거쳐 Prometheus에 샘플 `42`를 저장했고,
+OTLP HTTP exporter가 `/tempo`에 `/v1/traces`를 붙여 전송한 트레이스도 Tempo에서 조회했다.
+Loki는 Nginx를 통한 직접 HTTP 전송·조회를 확인했다. Grafana 로그인·WebSocket,
+이전 수집 경로와 알 수 없는 경로의 `404`, GET·HEAD와 외부 출발지의 `403`도 확인했다.
+이 테스트의 Alloy는 bridge 네트워크를 사용했으며 실제 EC2의 host 네트워크와 AWS 접근 설정은 검증하지 않았다.
+Slack 알림은 비활성화했고 검증용 컨테이너·볼륨·네트워크는 제거했다.
+
+아래는 `/prometheus`·`/tempo` 접두사를 추가하기 전인 2026-10-12의 사설 IP `8080` 경로 검증 기록이다.
+현재 접두사가 있는 수집 경로의 검증 결과는 아니다. 당시 별도 Docker 프로젝트에서 Nginx 경유 HTTP 검증 22개를 통과했다.
 Grafana 로그인 `200`·인증된 WebSocket 연결 `101`, Loki 로그 저장·조회, Alloy를 거친 Tempo 트레이스 조회,
 Prometheus remote write 샘플 `42`를 확인했다. 다른 Host와 조회 경로는 `404`, 수집 경로의 GET·HEAD는
 `403`이었다. 사설 주소를 `X-Forwarded-For`에 넣은 외부 출발지 요청도 `403`으로 거부했다.

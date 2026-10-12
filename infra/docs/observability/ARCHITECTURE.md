@@ -118,8 +118,9 @@ Tempo OTLP `4317`은 호스트에 publish하지 않는다.
 Grafana의 `GF_SERVER_ROOT_URL`은 Compose에서 `http://grafana.jarihana.com/`으로 고정한다.
 도메인·HTTPS 변경 시 Compose의 이 값과 Nginx Host 설정을 함께 맞춘다.
 Nginx `80`은 `grafana.jarihana.com` Host만 받고 다른 Host는 `404`로 응답한다.
-이 서브도메인의 DNS를 모니터링 EC2 공인 IP에 연결하며 루트 `jarihana.com`의 기존 서비스는 변경하지 않는다.
-DNS 실제 변경은 아직 수행하지 않았다. 수집 주소는 사설 IP의 `8080`을 유지한다.
+`grafana.jarihana.com`의 공개 DNS를 모니터링 EC2 공인 IP에 연결하며 루트 `jarihana.com`의 기존 서비스는 변경하지 않는다.
+앱 Alloy는 사설 IP의 `8080`으로 수집 데이터를 보낸다. 수집용 도메인·DNS·`extra_hosts`는 추가하지 않는다.
+공개 Grafana DNS 변경과 AWS 배포는 아직 수행하지 않았다.
 프로젝트 이름은 `jarihana-monitoring`으로 고정하고
 named volume을 유지한다. 등록 방법은 [실행 가이드](OPERATIONS.md)를 따른다.
 
@@ -146,12 +147,16 @@ loopback으로 제한한다. 반면 Prometheus·Loki·Grafana는 모니터링 Co
 Nginx를 거치지 않으며 저장소를 `localhost`로 지정하지 않는다.
 
 앱 EC2의 Alloy는 모니터링 EC2의 **사설 주소와 Nginx `8080`**으로 전송한다.
-Nginx는 정확히 일치하는 `POST /api/v1/write`, `POST /loki/api/v1/push`, `POST /v1/traces`만
-각각 Prometheus `9090`, Loki `3100`, Tempo OTLP HTTP `4318`로 전달한다. 경로 접두사는 추가하지 않는다.
-`8080`은 RFC1918 사설 IPv4와 loopback만 허용하며 다른 출발지는 거부하고 알 수 없는 경로는 `404`로 응답한다.
+Nginx는 정확히 일치하는 `POST /prometheus/api/v1/write`, `POST /loki/api/v1/push`, `POST /tempo/v1/traces`만
+각각 Prometheus `9090`, Loki `3100`, Tempo OTLP HTTP `4318`로 전달한다. `/prometheus`·`/tempo` 접두사는
+제거해 저장소의 `/api/v1/write`·`/v1/traces`로 보내고 Loki 경로는 그대로 유지한다.
+앱 배포 workflow는 기존 `MONITORING_BIND_ADDRESS`와 이 경로로 URL을 만든다. `TEMPO_OTLP_ENDPOINT`는
+`http://<monitoring-private-ip>:8080/tempo`이며 exporter가 `/v1/traces`를 추가한다. 새 변수·시크릿은 없다.
+`8080`은 RFC1918 사설 IPv4와 loopback만 허용하며 다른 출발지를 거부한다.
+알 수 없는 경로는 `404`, 허용 경로의 POST 외 메서드는 `403`이다.
 Grafana 화면은 Nginx `80`의 루트 경로로 제공하며 WebSocket도 전달한다.
 사설 IP bind만으로 인터넷 차단이 보장되지는 않는다. AWS 보안 그룹·라우팅에서 `80`은 허용한 운영자,
-`8080`은 앱 EC2의 사설 접근만 허용하는지 별도로 확인한다.
+`8080`은 앱 EC2 보안 그룹의 사설 접근만 허용하는지 별도로 확인한다.
 모니터링 Alloy는 host 네트워크에서 `http://127.0.0.1:9090/api/v1/write`로 직접 전송한다.
 Compose 서비스 DNS는 서로 다른 EC2를 연결하지 않으며 host 모드 Alloy에도 제공되지 않는다.
 [Compose 네트워크](https://docs.docker.com/compose/how-tos/networking/)
@@ -215,7 +220,7 @@ Micrometer → /actuator/prometheus
                  ↓
           Alloy prometheus.remote_write
                  ↓ HTTP
-          Nginx :8080/api/v1/write → Prometheus :9090
+          Nginx :8080/prometheus/api/v1/write → Prometheus :9090/api/v1/write
 ```
 
 Prometheus 수신 서버에서는 `--web.enable-remote-write-receiver`를 명시적으로 활성화해야
@@ -263,7 +268,7 @@ Spring ECS JSON stdout
   → discovery.docker / loki.source.docker
   → loki.process의 필요한 파싱·라벨 정리
   → loki.write
-  → Nginx :8080/loki/api/v1/push → Loki :3100
+  → Nginx :8080/loki/api/v1/push → Loki :3100/loki/api/v1/push
 ```
 
 로그는 Compose 서비스 이름이 `backend`이고 `com.jarihana.monitoring.logs=true`인 컨테이너만
@@ -405,7 +410,7 @@ dev·prod RDS 접속과 DB 백업·복원 확인도 수행하지 않았다. 이�
 ```mermaid
 flowchart LR
   JAVA["Spring + OTel Java Agent"] -->|"OTLP HTTP :4318"| ALLOY["로컬 Alloy"]
-  ALLOY -->|"OTLP HTTP :8080/v1/traces"| NGINX["Nginx"]
+  ALLOY -->|"OTLP HTTP :8080/tempo/v1/traces"| NGINX["Nginx"]
   NGINX -->|"OTLP HTTP :4318"| TEMPO["Tempo"]
   TEMPO -->|"활성화한 metrics-generator"| GRAPH["서비스 그래프 메트릭"]
   GRAPH -->|"remote write"| PROM["Prometheus"]
