@@ -1,4 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
+import { captureEventWhenReady } from "../../shared/analytics";
 import { isInvitationId, isInvitationToken } from "../../entities/invitation";
 import { ApiError } from "../../shared/api";
 import { useAuth } from "../auth";
@@ -8,7 +10,8 @@ export function useInvitation({ invitationId, token }) {
   const { member, sessionVersion = 0, status } = useAuth();
   const link = token !== undefined;
   const valid = link ? isInvitationToken(token) : isInvitationId(invitationId);
-  return useQuery({
+  const viewed = useRef(null);
+  const query = useQuery({
     queryKey: ["invitations", member?.id ?? null, sessionVersion, link ? "link" : "direct", token ?? invitationId],
     enabled: valid && (link || status === "authenticated"),
     queryFn: async ({ signal }) => {
@@ -23,6 +26,19 @@ export function useInvitation({ invitationId, token }) {
     staleTime: 0,
     gcTime: 0
   });
+  useEffect(() => {
+    if (!query.data) return;
+    const invitation = query.data;
+    const key = `${member?.id ?? "guest"}:${sessionVersion}:${invitation.type}:${invitation.id}`;
+    if (viewed.current === key) return;
+    viewed.current = key;
+    void captureEventWhenReady("invitation_viewed", {
+      invitation_id: invitation.id, group_id: invitation.group.id, invitation_type: invitation.type, status: invitation.status
+    }).then((captured) => {
+      if (!captured && viewed.current === key) viewed.current = null;
+    });
+  }, [query.data, member?.id, sessionVersion]);
+  return query;
 }
 
 export function useAcceptInvitation() {

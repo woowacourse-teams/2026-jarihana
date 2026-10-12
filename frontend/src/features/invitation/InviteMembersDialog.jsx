@@ -14,6 +14,7 @@ import {
   sharedInvitationUrl
 } from "./api";
 import "./invitation-controls.css";
+import { startEventTracking } from "../../shared/analytics";
 
 const PAGE_SIZE = 20;
 const INVITATION_QUERY_ROOT = ["invitations"];
@@ -293,6 +294,9 @@ function InviteMembersDialogSession({ groupId, open, onClose }) {
     copyingRef.current = true;
     setCopyingId(invitation.id);
     const capturedSession = sessionKeyRef.current;
+    const tracking = startEventTracking();
+    const properties = { group_id: invitation.group.id, invitation_id: invitation.id, invitation_type: "LINK" };
+    tracking.captureEvent("invitation_copy_attempted", properties);
     try {
       const detail = await fetchInvitation(invitation.id);
       if (!isCurrentSession(capturedSession)) return;
@@ -301,6 +305,7 @@ function InviteMembersDialogSession({ groupId, open, onClose }) {
         if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
         await navigator.clipboard.writeText(url);
         if (isCurrentSession(capturedSession)) {
+          tracking.captureEvent("invitation_link_copied", properties);
           toast.success({
             title: detail.status === "EXPIRED" ? "만료된 링크를 복사했어요. 새 링크를 만들면 다시 사용할 수 있어요." :
               detail.status === "CANCELED" ? "취소된 링크를 복사했어요. 이 링크로는 합류할 수 없어요." : "초대 링크를 복사했어요"
@@ -320,10 +325,13 @@ function InviteMembersDialogSession({ groupId, open, onClose }) {
   async function confirmRevoke() {
     if (!revokeTarget || revoking) return;
     const capturedSession = sessionKeyRef.current;
+    const tracking = startEventTracking();
+    const properties = { group_id: revokeTarget.group.id, invitation_id: revokeTarget.id, invitation_type: revokeTarget.type };
     setRevoking(true);
     try {
       await revokeInvitation(revokeTarget.id);
       if (!isCurrentSession(capturedSession)) return;
+      tracking.captureEvent("invitation_revoked", properties);
       await queryClient.invalidateQueries({ queryKey: INVITATION_QUERY_ROOT });
       if (!isCurrentSession(capturedSession)) return;
       setRevokeTarget(null);

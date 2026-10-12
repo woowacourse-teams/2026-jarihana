@@ -1,5 +1,13 @@
 import { automaticCapture, pausedCapture, sdkConfig } from "./config";
-import { isPrivateRoute, normalizePath, sanitizeEvent, sanitizeProperties } from "./privacy";
+import {
+  isPrivateRoute,
+  isSharedInvitationRoute,
+  normalizePath,
+  sanitizeEvent,
+  sanitizeProperties,
+  sanitizeSharedInvitationEvent,
+  sharedInvitationEvents
+} from "./privacy";
 import { clearPromotionAttribution } from "./promotion";
 
 const businessEvents = new Set([
@@ -13,7 +21,17 @@ const businessEvents = new Set([
   "group_created",
   "recruitment_created",
   "recruitment_updated",
-  "recruitment_closed"
+  "recruitment_closed",
+  "invitation_viewed",
+  "invitation_issue_attempted",
+  "invitation_created",
+  "invitation_link_reused",
+  "invitation_copy_attempted",
+  "invitation_link_copied",
+  "invitation_accept_attempted",
+  "invitation_joined",
+  "invitation_already_joined",
+  "invitation_revoked"
 ]);
 const noopRequest = { finish() {} };
 
@@ -27,7 +45,9 @@ export function createAnalytics({ config, loadClient, storage, now = () => perfo
   }
   let sdk;
   let initializing;
+  let identitySync = Promise.resolve(false);
   let ready = false;
+  let automaticReady = false;
   let pathname = globalThis.location?.pathname || "/";
   let lastPageKey;
   let routeProperties = {};
@@ -54,18 +74,26 @@ export function createAnalytics({ config, loadClient, storage, now = () => perfo
   };
   const permitted = () =>
     ready && !isPrivateRoute(pathname) && !isPrivateRoute(globalThis.location?.pathname);
+  const supportsBusinessEvents = (path) => !isPrivateRoute(path) || isSharedInvitationRoute(path);
+  const businessPermitted = () =>
+    ready && supportsBusinessEvents(pathname) && supportsBusinessEvents(globalThis.location?.pathname);
   const pause = () => {
     ready = false;
+    automaticReady = false;
     try {
       sdk?.stopSessionRecording();
-      sdk?.set_config(pausedCapture);
+      sdk?.set_config({
+        ...pausedCapture,
+        advanced_disable_flags: isPrivateRoute(pathname) || isPrivateRoute(globalThis.location?.pathname)
+      });
     } catch {
       /* Analytics is optional. */
     }
   };
 
   function initializeAnalytics() {
-    if (!config.enabled || isPrivateRoute(pathname)) return Promise.resolve(false);
+    if (!config.enabled || !supportsBusinessEvents(pathname) || !supportsBusinessEvents(globalThis.location?.pathname))
+      return Promise.resolve(false);
     if (!initializing) {
       initializing = Promise.resolve()
         .then(loadClient)
@@ -73,16 +101,30 @@ export function createAnalytics({ config, loadClient, storage, now = () => perfo
           sdk = client;
           sdk.init(
             config.key,
-            sdkConfig(config, (event) => {
-              if (!permitted()) return null;
-              // Replay has its own DOM/network sanitizers; snapshot payloads are not product events.
-              if (event.event === "$snapshot") return event;
-              try {
-                return sanitizeEvent(event);
-              } catch {
-                return null;
-              }
-            })
+            {
+              ...sdkConfig(config, (event) => {
+                if (!permitted()) {
+                  if (!businessPermitted()) return null;
+                  try {
+                    return sanitizeSharedInvitationEvent(event, {
+                      projectToken: config.key,
+                      distinctId: sdk.get_distinct_id(),
+                      identified: member !== null
+                    });
+                  } catch {
+                    return null;
+                  }
+                }
+                // Replay has its own DOM/network sanitizers; snapshot payloads are not product events.
+                if (event.event === "$snapshot") return event;
+                try {
+                  return sanitizeEvent(event);
+                } catch {
+                  return null;
+                }
+              }),
+              advanced_disable_flags: isPrivateRoute(pathname) || isPrivateRoute(globalThis.location?.pathname)
+            }
           );
           return true;
         })
@@ -132,20 +174,25 @@ export function createAnalytics({ config, loadClient, storage, now = () => perfo
     }
   }
 
-  async function syncAnalyticsIdentity(status, id) {
+  function syncAnalyticsIdentity(status, id) {
+    identitySync = synchronizeIdentity(status, id);
+    return identitySync;
+  }
+
+  async function synchronizeIdentity(status, id) {
     const nextId =
       status === "authenticated" && (typeof id === "number" || typeof id === "string")
         ? String(id)
         : null;
     const next = `${status}:${nextId}`;
-    if (next === desired && permitted()) return true;
+    if (next === desired && permitted() && automaticReady) return true;
     desired = next;
     const ticket = ++revision;
     pause();
     if (
       !["authenticated", "anonymous", "signup-required"].includes(status) ||
       (status === "authenticated" && !nextId) ||
-      isPrivateRoute(pathname)
+      !supportsBusinessEvents(pathname)
     )
       return false;
     if (!(await initializeAnalytics()) || ticket !== revision) return false;
@@ -156,9 +203,11 @@ export function createAnalytics({ config, loadClient, storage, now = () => perfo
       setMember(nextId);
       // Refresh identity on a new page load even when our persisted marker already matches.
       if (nextId && sdk.get_distinct_id() !== nextId) sdk.identify(nextId);
+      if (!permitted()) return false;
       sdk.register({ environment: config.environment });
       registerRoute();
-      sdk.set_config(automaticCapture);
+      sdk.set_config({ ...automaticCapture, advanced_disable_flags: false });
+      automaticReady = true;
       sdk.startSessionRecording();
       return true;
     } catch {
@@ -168,7 +217,9 @@ export function createAnalytics({ config, loadClient, storage, now = () => perfo
   }
 
   function captureEvent(event, properties = {}) {
-    if (!permitted() || !businessEvents.has(event)) return false;
+    if (!businessPermitted() || !businessEvents.has(event)) return false;
+    if (!permitted() && (!sharedInvitationEvents.has(event) || properties.invitation_type !== "LINK"))
+      return false;
     try {
       const safe = sanitizeProperties(properties);
       if (event === "signup_completed" && safe.member_id !== undefined)
@@ -178,6 +229,14 @@ export function createAnalytics({ config, loadClient, storage, now = () => perfo
     } catch {
       return false;
     }
+  }
+
+  async function captureEventWhenReady(event, properties = {}) {
+    const ticket = revision;
+    const path = pathname;
+    await identitySync;
+    if (ticket !== revision || path !== pathname) return false;
+    return captureEvent(event, properties);
   }
 
   function trackPage(path) {
@@ -198,6 +257,21 @@ export function createAnalytics({ config, loadClient, storage, now = () => perfo
     } catch {
       /* A tracking failure must not break navigation. */
     }
+  }
+
+  function startEventTracking() {
+    if (!businessPermitted()) return { captureEvent: () => false };
+    let distinctId;
+    try { distinctId = sdk.get_distinct_id(); } catch { return { captureEvent: () => false }; }
+    const identity = identityRevision;
+    return {
+      captureEvent(event, properties) {
+        try {
+          if (identity !== identityRevision || sdk.get_distinct_id() !== distinctId) return false;
+          return captureEvent(event, properties);
+        } catch { return false; }
+      }
+    };
   }
 
   function getSessionId() {
@@ -258,8 +332,10 @@ export function createAnalytics({ config, loadClient, storage, now = () => perfo
     setAnalyticsRoute,
     syncAnalyticsIdentity,
     captureEvent,
+    captureEventWhenReady,
     trackPage,
     getSessionId,
-    startRequestTracking
+    startRequestTracking,
+    startEventTracking
   };
 }

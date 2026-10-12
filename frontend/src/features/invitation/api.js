@@ -1,5 +1,6 @@
 import { createdInvitationSchema, invitationCandidatePageSchema, issuedInvitationPageSchema, revokedInvitationSchema, invitationAcceptanceSchema, invitationDetailSchema, invitationPreviewSchema } from "../../entities/invitation";
 import { apiClient, ApiError } from "../../shared/api";
+import { startEventTracking } from "../../shared/analytics";
 
 export const fetchInvitation = (id, client = apiClient, signal) => client.request(`invitations/${id}`, {
   schema: invitationDetailSchema, signal, cache: "no-store"
@@ -8,10 +9,16 @@ export const fetchInvitationPreview = (token, client = apiClient, signal) => cli
   schema: invitationPreviewSchema, signal, cache: "no-store", authRetry: false
 });
 export async function acceptInvitation(id, token, client = apiClient) {
+  const tracking = startEventTracking();
+  const invitationType = token ? "LINK" : "DIRECT";
+  tracking.captureEvent("invitation_accept_attempted", { invitation_id: Number(id), invitation_type: invitationType });
   const result = await client.request(`invitations/${id}/acceptances`, {
     method: "POST", json: token ? { token } : {}, schema: invitationAcceptanceSchema, cache: "no-store"
   });
   if (result.invitationId !== Number(id)) throw new ApiError({ code: "INVALID_RESPONSE", status: 200 });
+  tracking.captureEvent(result.result === "JOINED" ? "invitation_joined" : "invitation_already_joined", {
+    invitation_id: result.invitationId, group_id: result.groupId, invitation_type: invitationType
+  });
   return result;
 }
 
@@ -30,6 +37,9 @@ export const fetchIssuedInvitations = (groupId, searchParams, client = apiClient
   searchParams: invitationPageParams(searchParams), signal, schema: issuedInvitationPageSchema, cache: "no-store"
 });
 export async function createInvitation(groupId, command, client = apiClient) {
+  const tracking = startEventTracking();
+  const properties = { group_id: Number(groupId), invitation_type: command.type };
+  tracking.captureEvent("invitation_issue_attempted", properties);
   const result = await client.request(`groups/${groupId}/invitations`, {
     method: "POST", json: command, schema: createdInvitationSchema, cache: "no-store"
   });
@@ -41,6 +51,8 @@ export async function createInvitation(groupId, command, client = apiClient) {
     ? /^\/invitations\/link\/[A-Za-z0-9_-]{43}$/
     : new RegExp(`^/invitations/${result.id}$`);
   if (!expectedPath.test(result.sharePath)) throw new ApiError({ code: "INVALID_RESPONSE", status: 200 });
+  if (!result.reused) tracking.captureEvent("invitation_created", { ...properties, invitation_id: result.id });
+  else if (result.type === "LINK") tracking.captureEvent("invitation_link_reused", { ...properties, invitation_id: result.id });
   return result;
 }
 export async function revokeInvitation(invitationId, client = apiClient) {

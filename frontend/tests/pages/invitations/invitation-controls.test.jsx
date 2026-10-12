@@ -7,6 +7,8 @@ import { createInvitation, fetchInvitationCandidates } from "../../../src/featur
 import { InviteMembersDialog } from "../../../src/features/invitation/InviteMembersDialog.jsx";
 import { ShareInvitationButton } from "../../../src/features/invitation/ShareInvitationButton.jsx";
 import { ToastProvider } from "../../../src/shared/ui/Toast.jsx";
+const mockCaptureEvent = jest.fn();
+jest.mock("../../../src/shared/analytics", () => ({ startEventTracking: () => ({ captureEvent: mockCaptureEvent }) }));
 
 jest.mock("../../../src/features/auth", () => ({ useAuth: jest.fn() }));
 jest.mock("../../../src/features/invitation/api", () => ({ createInvitation: jest.fn(), fetchInvitationCandidates: jest.fn(),
@@ -49,6 +51,7 @@ test("링크 준비가 실패하면 재시도 요청 식별자를 유지하고 �
   await screen.findByRole("dialog");
   expect(createInvitation.mock.calls[0][1].requestId).toBe(createInvitation.mock.calls[1][1].requestId);
   expect(screen.getByRole("textbox", { name: "초대 링크" })).toHaveValue(`http://localhost/invitations/link/${"A".repeat(43)}`);
+  expect(mockCaptureEvent.mock.calls.map(([event]) => event)).not.toContain("invitation_link_copied");
 });
 test("링크 준비 도중 컴포넌트가 사라지면 늦은 응답으로 클립보드나 안내를 열지 않는다", async () => {
   let resolve;
@@ -60,4 +63,14 @@ test("링크 준비 도중 컴포넌트가 사라지면 늦은 응답으로 클�
   await act(async () => { resolve({ sharePath: `/invitations/link/${"A".repeat(43)}` }); });
   expect(writeText).not.toHaveBeenCalled();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(mockCaptureEvent.mock.calls.map(([event]) => event)).not.toContain("invitation_link_copied");
+});
+
+test("클립보드 쓰기가 성공한 뒤에만 복사 완료를 기록하고 링크 원문은 전달하지 않는다", async () => {
+  createInvitation.mockResolvedValue({ id: 501, groupId: 10, sharePath: `/invitations/link/${"A".repeat(43)}`, reused: true });
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: jest.fn(async () => undefined) } });
+  setup(<ShareInvitationButton groupId="10" />);
+  await userEvent.click(screen.getByRole("button", { name: "초대 링크 복사" }));
+  await waitFor(() => expect(mockCaptureEvent).toHaveBeenCalledWith("invitation_link_copied", { group_id: 10, invitation_id: 501, invitation_type: "LINK" }));
+  expect(JSON.stringify(mockCaptureEvent.mock.calls)).not.toContain("A".repeat(43));
 });

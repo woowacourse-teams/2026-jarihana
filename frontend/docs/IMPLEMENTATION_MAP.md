@@ -124,6 +124,7 @@ header 구현으로 확대하지 않았다.
 - 초대 작성에는 개인 메시지 입력을 두지 않는다. 지정 초대장의 `거절`은 확인 창에서 모임장에게 알림이 가지 않으며 재수락할 수 없음을 안내한다. `PATCH /api/invitations/{invitationId}/decline` 성공(204) 후 초대를 다시 조회하며 REJECTED 상태에서는 `거절한 초대장입니다.`를 표시하고 수락 버튼을 숨긴다. 알림을 삭제하지 않으며 알림함 재진입에도 같은 상태를 표시한다. 공유 링크에는 지정 초대 거절 버튼을 두지 않는다.
 - 거절 관련 고정 action은 `invitation_decline`, `invitation_decline_confirm`, `invitation_decline_cancel`, `invitation_decline_close`를 사용한다.
 - 신규 JOINED와 ALREADY_JOINED를 구분해 먼저 결과를 안내하고 `모임으로 이동` 링크를 제공한다. 후자는 합류 성과를 기록하지 않는다.
+- 초대 분석은 새 발급·공유 링크 재사용·조회·복사 시도/완료·수락 시도·JOINED/ALREADY_JOINED·취소를 분리한다. 로그인한 회원은 DB 사용자 ID로 연결하고 처리 성공 이벤트는 분석 사용자를 요청 시작 시점에 묶어 계정 변경 후 늦은 응답을 버린다. 이름·검색어·대상 회원·원본 토큰·공유 주소는 전송하지 않는다. 공유 초대 페이지는 조회·수락의 명시적 이벤트만 허용하고 자동 수집·녹화는 차단한다. [프론트엔드 ADR 0003](adr/0003-invitation-events-and-user-identity.md), [분석 문서](analytics.md), [개인정보 후속 이슈 #384](https://github.com/woowacourse-teams/2026-jarihana/issues/384)를 따른다.
 - 성공 후 모임·내 모임·내 신청 캐시를 갱신하고 받은 초대·알림 캐시는 계정/세션 변경에 맞춰 분리한다.
 - 알림 schema는 INVITATION_RECEIVED의 target에 groupId·invitationId를 요구하고 모집·신청 ID를 요구하지 않는다.
   기존 신청 사건의 target과 `payloadVersion=1`은 유지한다. `public/sw.js`는 같은 버전에서

@@ -5,6 +5,7 @@ import { useAuth } from "../auth";
 import { Button, Modal, TextField, useToast } from "../../shared/ui";
 import { createInvitation, sharedInvitationUrl } from "./api";
 import "./invitation-controls.css";
+import { startEventTracking } from "../../shared/analytics";
 
 function requestId() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
@@ -62,6 +63,8 @@ function ShareInvitationButtonSession({ groupId, className = "" }) {
     setPending(true);
     const requestSession = sessionKeyRef.current;
     const isCurrent = () => mountedRef.current && sessionKeyRef.current === requestSession;
+    const tracking = startEventTracking();
+    tracking.captureEvent("invitation_copy_attempted", { group_id: Number(groupId), invitation_type: "LINK" });
 
     try {
       const result = await createInvitation(groupId, {
@@ -75,7 +78,10 @@ function ShareInvitationButtonSession({ groupId, className = "" }) {
       try {
         if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
         await navigator.clipboard.writeText(url);
-        if (isCurrent()) toast.success({ title: result.reused ? "기존 초대 링크를 복사했어요" : "초대 링크를 복사했어요" });
+        if (isCurrent()) {
+          tracking.captureEvent("invitation_link_copied", { group_id: result.groupId, invitation_id: result.id, invitation_type: "LINK" });
+          toast.success({ title: result.reused ? "기존 초대 링크를 복사했어요" : "초대 링크를 복사했어요" });
+        }
       } catch {
         if (isCurrent()) setManualUrl(url);
       }

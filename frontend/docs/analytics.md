@@ -19,7 +19,7 @@ DB 테이블·스키마는 추가하지 않는다.
 
 검색·선택 회원·보낸 초대·공유 주소가 표시되는 모달 내용은 `data-ph-private`로 마스킹한다.
 위 action은 사용자 조작 식별자이며 발급 성공·복사 성공을 보장하는 이벤트는 아니다.
-초대 전용 성공 이벤트와 전환 연결은 초대 구현맵의 9단계에서 다룬다. 실제 PostHog 수신은 별도 검증이 필요하다.
+초대 전용 성공 이벤트와 전환 연결은 아래 계약을 따른다. 공유 초대 페이지에서도 명시적 초대 이벤트만 수집한다. 실제 PostHog 수신은 별도 검증이 필요하다.
 
 ## 활성화 설정
 
@@ -73,7 +73,7 @@ API 경로는 `/api/groups/:id`처럼 정규화하고 query·fragment를 제외�
 인증 갱신 요청은 `is_auth_refresh`로 구분한다. 주기적 조회도 API 요청에 포함되므로
 API 횟수를 사용자의 클릭 횟수로 해석하지 않는다.
 
-이벤트에는 라우트 레지스트리의 `route_name`과 해당 화면의 `group_id`, `recruitment_id`를
+일반 화면의 이벤트에는 라우트 레지스트리의 `route_name`과 해당 화면의 `group_id`, `recruitment_id`를
 붙인다. 그룹 상세·모집 상세의 `$pageview`에는 현재 URL에 유효한 `promotion_id`가 있을 때만
 이를 붙인다. 신청 이벤트에는 같은 PostHog 세션에서 처음 확인한 홍보 식별자를
 `attribution_promotion_id`로 따로 붙인다. 따라서 일반 상세 방문을 홍보 링크 유입으로
@@ -99,6 +99,48 @@ DOM 태그와 요소 순서로 구분한다.
 | `registration_withdrawn` | `recruitment_id`, `registration_id`           |
 | `registration_decided`   | `recruitment_id`, `registration_id`, `status` |
 | `feedback_submitted`    | 없음 |
+| `invitation_viewed` | `group_id`, `invitation_id`, `invitation_type`, `status` |
+| `invitation_issue_attempted` | `group_id`, `invitation_type` |
+| `invitation_created` | `group_id`, `invitation_id`, `invitation_type` |
+| `invitation_link_reused` | `group_id`, `invitation_id`, `invitation_type` |
+| `invitation_copy_attempted` | `group_id`, `invitation_id`(기존 링크 조회 시), `invitation_type` |
+| `invitation_link_copied` | `group_id`, `invitation_id`, `invitation_type` |
+| `invitation_accept_attempted` | `invitation_id`, `invitation_type` |
+| `invitation_joined` | `group_id`, `invitation_id`, `invitation_type` |
+| `invitation_already_joined` | `group_id`, `invitation_id`, `invitation_type` |
+| `invitation_revoked` | `group_id`, `invitation_id`, `invitation_type` |
+
+초대 ID는 토큰과 별개인 양의 정수이며 초대 유형은 DIRECT·LINK만 허용한다.
+대상 회원 ID·이름·검색어·발급 requestId·공유 주소·원본 토큰을 초대 이벤트에 넣지 않는다.
+초대 조회는 같은 화면·계정·초대의 재조회에서 중복 기록하지 않는다. 실제 발급 응답의
+`reused=false`만 `invitation_created`로 기록하고 LINK 재사용은 별도 이벤트로 구분한다.
+클립보드 쓰기가 완료된 경우만 `invitation_link_copied`다. 직접 주소 선택이나 복사 버튼 클릭은
+복사 성공·상대에게 전달 완료를 뜻하지 않는다. 수락 응답의 `JOINED`만 합류 전환이며,
+`ALREADY_JOINED`는 별도 결과다. 거절·취소·만료 페이지 조회도 합류 성공으로 집계하지 않는다.
+
+초대의 비동기 처리 이벤트는 요청 시작 시 분석 사용자를 묶어 두고 계정이 바뀐 뒤의
+결과를 버린다. SDK 비활성화·수집 차단·전송 오류가 발급·복사·수락·취소 결과를 바꾸지 않는다.
+공유 초대 페이지에서는 `invitation_viewed`, `invitation_accept_attempted`, `invitation_joined`,
+`invitation_already_joined`만 허용한다. 자동 클릭·페이지뷰·녹화·히트맵·API 요청·오류·
+`$identify` 이벤트는 차단한다. 전송 payload를 다시 구성해 양의 정수인 초대/모임 ID·LINK 유형·
+초대 상태와 `distinct_id`, `$is_identified`, `$process_person_profile`만 남긴다.
+SDK의 공개 프로젝트 수집용 `token`과 재전송 중복 제거용 이벤트 UUID·시각은 유지한다.
+여기서 SDK `token`은 `phc_` 프로젝트 키이며 원본 초대 토큰이 아니다. 원본 URL·프로필 속성·
+기기/세션 정보·다른 화면의 등록 속성은 공유 페이지 payload에 포함하지 않는다.
+
+로그인한 회원은 DB 사용자 ID를 `distinct_id`로 사용한다. 비회원은 기존 SDK 익명 식별자를 사용하며,
+공유 페이지에서는 `$identify`를 보내지 않으므로 로그인 전후를 같은 사람으로 자동 병합하지 않는다.
+초대 조회는 인증·SDK 준비를 기다린 뒤 기록하고 그 사이 계정·경로가 바뀌면 버린다.
+수집 방식의 대안과 채택 이유는 [프론트엔드 ADR 0003](adr/0003-invitation-events-and-user-identity.md)에 기록했다.
+개인정보 처리방침·위탁·국외 이전·보유/삭제 기준은 [후속 이슈 #384](https://github.com/woowacourse-teams/2026-jarihana/issues/384)에서 정비한다.
+이 구현 자체를 개인정보 처리 근거 검토 완료로 보지 않는다.
+
+PostHog에서는 생성 성공(`invitation_created`)과 수락 시도→합류(`invitation_joined`)를 분리해
+분석한다. 새 발급·새 합류는 서버 감사 로그가 아닌 브라우저 수신 성공 기준이다. 서버에서
+발급한 뒤 응답이 유실되고 재시도에서 reused=true를 받으면 새 발급 이벤트는 누락될 수 있다.
+합류 응답이 유실되고 재수락에서 ALREADY_JOINED를 받으면 합류 전환도 누락될 수 있다.
+브라우저/SDK 차단·준비 전 요청·탭 종료도 수집 공백이다. 기존 모임원의
+서비스 도입 여부는 계정 존재 여부로 추정하지 않는다. 구현맵의 20%/30%는 검증 전 가설이다.
 
 버튼 클릭이나 캐시 갱신 성공이 아닌 도메인 API 성공을 기준으로 기록한다.
 `registration_started`는 모임 상세의 신청 패널을 실제로 열거나 모집 상세에서 신청 확인
@@ -146,7 +188,7 @@ PostHog Funnel에서 첫 단계는 `$autocapture`의 `$event_type = click`과 �
 - 인증 쿠키·토큰·OAuth 코드·이름·이메일·신청 메시지·미승인 사유 원문은 전송하지 않는다.
 - API 요청/응답 본문과 헤더, 콘솔 로그, 서명된 업로드 URL은 전송하지 않는다.
 - OAuth 화면은 수집에서 제외하고 URL query·fragment와 식별 불가능한 경로 부분을 제거한다.
-- 공유 초대의 `/invitations/link/:token`에서도 수집·녹화를 중단한다.
+- 공유 초대의 `/invitations/link/:token`에서는 자동 수집·녹화를 중단하고 위 명시적 이벤트만 허용한다.
   공유 초대 URL과 `/api/invitations/links/:token`의 토큰 자리는 항상 `:redacted`로 정제한다.
   숫자로만 된 토큰도 분석용 ID로 남기지 않으며 초대 내용은 `data-ph-private`로 가린다.
 - 예외 메시지는 마스킹하고, 스택의 파일 URL도 정제한다. 서버 내부 처리·DB 변경을
@@ -157,7 +199,7 @@ PostHog Funnel에서 첫 단계는 `$autocapture`의 `$event_type = click`과 �
 - 최초 인증 상태를 확정하기 위한 bootstrap API 요청은 기록하지 않는다.
   이전 로그인 정보가 남아 있는 브라우저에서 잘못된 회원에게 연결하지 않기 위한 제한이다.
 - 요청 진행 중 로그아웃·계정 변경으로 식별자가 달라지면 늦게 도착한 응답 이벤트를 버린다.
-- 초기 인증 확인·SDK 준비 전의 클릭과 요청은 소급해 복원하지 않는다.
+- 초기 인증 확인·SDK 준비 전의 클릭과 요청은 소급해 복원하지 않는다. 초대 조회 이벤트는 현재 인증 동기화 완료를 기다리며 계정·경로가 바뀌면 버린다.
 - 브라우저 차단, 네트워크 실패, 탭 종료 등으로 누락될 수 있다. 모든 사용자의 모든 행동을
   100% 남기는 감사 로그로 사용하지 않는다.
 
@@ -193,8 +235,15 @@ PostHog Funnel에서 첫 단계는 `$autocapture`의 `$event_type = click`과 �
 4. 이벤트 속성과 녹화를 열어 입력 원문·개인정보·인증 정보·서명 URL이 없는지 확인한다.
 5. 로그아웃 후 다른 계정으로 로그인하여 사용자 식별과 녹화가 분리되는지 확인한다.
 6. PostHog 수집 요청이 차단된 상태에서도 서비스의 핵심 작업이 정상인지 확인한다.
+7. 지정 초대와 공유 초대를 조회·수락하여 회원 DB ID가 `distinct_id`로 연결되는지 확인한다.
+   재수락의 `invitation_already_joined`를 신규 합류에 포함하지 않는다. 공유 초대 페이지에는
+   위 네 가지 이벤트만 있고 자동 클릭·페이지뷰·녹화·API/오류·원본 URL·초대 토큰은 없는지 확인한다.
 
 저장소 검증은 관련 Jest 테스트, lint, production build로 수행한다.
+`npm run test:analytics:e2e`는 별도 production 빌드에서 분석을 켜고 가짜 수집 주소를 브라우저에서
+가로채 실제 SDK의 압축/batch payload를 검증한다. 서버 API는 fixture를 사용하며 실제 PostHog
+프로젝트에는 테스트 데이터를 보내지 않는다. 회원 ID·최소 필드·JOINED/ALREADY_JOINED 분리·
+조회 중복 제외·공유 페이지 자동 이벤트/녹화 차단을 확인한다.
 에이전트 기반 브라우저 QA나 실제 PostHog 계정 확인을 수행했다고 간주하지 않는다.
 
 도입 시 Node 24 production build를 기준 `ae8d2da`와 비교한 결과:

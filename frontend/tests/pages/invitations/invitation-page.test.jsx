@@ -6,6 +6,8 @@ import { acceptInvitation, declineInvitation, fetchInvitation, fetchInvitationPr
 import { NotificationSessionBoundary } from "../../../src/features/notifications/NotificationSessionBoundary";
 import { InvitationPage } from "../../../src/pages/invitations/index.jsx";
 import { useParams } from "react-router";
+import { captureEventWhenReady } from "../../../src/shared/analytics";
+jest.mock("../../../src/shared/analytics", () => ({ captureEventWhenReady: jest.fn(async () => true), startEventTracking: () => ({ captureEvent: jest.fn() }), startRequestTracking: () => ({ finish() {} }) }));
 
 const mockNavigate = jest.fn();
 jest.mock("react-router", () => ({
@@ -27,6 +29,15 @@ beforeEach(() => {
   useAuth.mockReturnValue({ member: { id: 1 }, sessionVersion: 1, status: "authenticated", login: jest.fn() });
   fetchInvitation.mockResolvedValue(detail);
   declineInvitation.mockResolvedValue(undefined);
+});
+test("초대 상세를 다시 조회해도 같은 초대의 조회 이벤트를 중복 기록하지 않는다", async () => {
+  const { client } = setup();
+  await screen.findByRole("button", { name: "수락" });
+  expect(captureEventWhenReady).toHaveBeenCalledWith("invitation_viewed", { invitation_id: 501, group_id: 10, invitation_type: "DIRECT", status: "VALID" });
+  fetchInvitation.mockResolvedValue({ ...detail });
+  await act(async () => { await client.invalidateQueries({ queryKey: ["invitations"] }); });
+  expect(fetchInvitation).toHaveBeenCalledTimes(2);
+  expect(captureEventWhenReady).toHaveBeenCalledTimes(1);
 });
 test("초대장의 보조 문구와 ACTIVE 배지를 제거하고 거절 확인·취소는 합류하지 않는다", async () => {
   setup();
