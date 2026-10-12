@@ -19,12 +19,11 @@ import {
 } from "./accountUtils.js";
 import { useInfiniteScroll } from "./useInfiniteScroll.js";
 
-/** 모임 종류를 노션 속성 태그처럼 값마다 다른 색으로 보여 준다. */
 function GroupTypeTag({ type }) {
   return (
-    <span className={`activity-tag activity-tag--${String(type).toLowerCase()}`}>
+    <StatusBadge tone={`group-type-${String(type).toLowerCase()}`}>
       {GROUP_TYPE_LABELS[type] ?? type}
-    </span>
+    </StatusBadge>
   );
 }
 
@@ -32,7 +31,11 @@ function GroupActivityRow({ group, isLeader, highlighted }) {
   const isEnded = group.status === "ENDED";
 
   return (
-    <article className={`activity-row activity-row--interactive${highlighted ? " activity-row--notification" : ""}`} data-activity-id={group.id} tabIndex={-1}>
+    <article
+      className={`activity-row activity-row--interactive${isEnded ? " activity-row--ended" : ""}${highlighted ? " activity-row--notification" : ""}`}
+      data-activity-id={group.id}
+      tabIndex={-1}
+    >
       <GroupImage className="activity-row__visual" group={group} />
       <div className="activity-row__body">
         <div className="activity-row__badges">
@@ -42,7 +45,7 @@ function GroupActivityRow({ group, isLeader, highlighted }) {
               <Crown aria-hidden="true" size={13} /> 모임장
             </StatusBadge>
           ) : null}
-          {isEnded ? <StatusBadge tone="neutral">모임 종료</StatusBadge> : null}
+          {isEnded ? <StatusBadge tone="ended">모임 종료</StatusBadge> : null}
         </div>
         <h3>
           <Link
