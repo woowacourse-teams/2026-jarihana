@@ -15,6 +15,8 @@ dev/prod에서는 콘솔 배너도 꺼서 일반 시작 출력에 텍스트 배�
 `APP_VERSION`이다. 직접 실행에서 버전을 주입하지 않으면 `unknown`을 기록한다.
 배포 Compose는 이미지 태그 `BACKEND_TAG`를 `APP_VERSION`으로 전달하며, 기존
 개발·운영 workflow가 `BACKEND_TAG=${{ github.sha }}`를 설정한다.
+현재 배포 로그 경로는 Docker `local` driver → 앱 Alloy → Loki다. 아래 CloudWatch 절차는
+남겨 둔 legacy 운영 도구와 기존 로그 조회용이며 현재 backend 컨테이너의 기본 전송 경로가 아니다.
 `@timestamp`, `log.level`, `log.logger`, `process`, `ecs.version`은 Boot formatter가
 생성한다. `ecs.version`을 애플리케이션 버전으로 덮어쓰거나 별도로 고정하지 않는다.
 서비스 설정과 기본값은 [Spring Boot 4.1 로깅 문서](https://docs.spring.io/spring-boot/4.1/reference/features/logging.html#features.logging.structured.elastic-common-schema)를 따른다.
@@ -140,10 +142,11 @@ APP_VERSION=local-check ./gradlew bootRun \
 일반 로그가 한 줄 JSON인지, `service.version=local-check`인지 확인한다.
 이 실행은 dev/prod 프로필의 DB schema validation이나 AWS 전송 검증을 대신하지 않는다.
 
-## CloudWatch 배포 전 준비
+## CloudWatch legacy 운영 도구
 
-배포용 `infra/docker-compose.dev.yml`과 `infra/docker-compose.yml`의 backend만
-Docker `awslogs` driver를 사용한다. PostgreSQL과 로컬 Compose는 대상이 아니다.
+CloudWatch 자동화와 조회 예시는 보존하지만 현재 배포용 `infra/docker-compose.dev.yml`과
+`infra/docker-compose.yml`의 backend는 Docker `local` driver를 사용하고 Alloy가 Loki로 보낸다.
+이 절은 기존 CloudWatch 로그 그룹을 유지·조회해야 할 때의 참고로 사용한다.
 
 | 설정 | 개발 기본값 | 운영 기본값 |
 | --- | --- | --- |
@@ -153,12 +156,12 @@ Docker `awslogs` driver를 사용한다. PostgreSQL과 로컬 Compose는 대상�
 | 그룹 자동 생성 | `false` | `false` |
 | 전송 모드 / 버퍼 | `non-blocking` / `4m` | `non-blocking` / `4m` |
 
-지역과 그룹을 바꾸려면 **Compose 실행 환경**에 해당 변수를 주입한다. 현재 workflow는
+과거 `awslogs` 경로에서 지역과 그룹을 바꾸려면 **Compose 실행 환경**에 해당 변수를 주입했다. 현재 workflow는
 이 두 GitHub Variables를 자동 매핑하지 않으므로, GitHub UI에 값을 등록하는 것만으로
 override가 적용되지는 않는다. 기본값을 쓸 때는 추가 workflow 변수가 필요 없다.
 환경별 그룹 이름은 반드시 구분한다.
 
-배포 전 `CloudWatch Manage`의 `cloudwatch-prepare`를 실행해 선택한 환경의 로그 그룹을
+legacy CloudWatch 경로를 다시 사용할 때는 `CloudWatch Manage`의 `cloudwatch-prepare`를 실행해 선택한 환경의 로그 그룹을
 만든다. `cloudwatch-install`도 같은 prepare를 먼저 실행한다. 수동 SSH에서는 저장소 루트에서
 다음처럼 실행한다.
 
@@ -225,15 +228,15 @@ v3에는 로그 그룹 생성, 스트림 생성, 이벤트 기록, 로그 그룹
 
 ## 배포 후 확인과 장애 조사
 
-기존 배포 절차로 컨테이너를 재생성해야 logging 설정이 적용된다. 단순 restart로
-기존 컨테이너의 driver 설정이 바뀌지는 않는다. 배포용 환경 변수를 준비한
-`backend/` 셸에서 개발 컨테이너의 실제 설정을 확인한다.
+현재 배포에서는 Loki에서 요청 ID로 로그 수신을 확인한다. legacy CloudWatch 경로를 다시 적용했다면
+컨테이너를 재생성해야 logging 설정이 적용된다. 단순 restart로 기존 컨테이너의 driver 설정이
+바뀌지는 않는다. 배포용 환경 변수를 준비한 `backend/` 셸에서 개발 컨테이너의 실제 설정을 확인한다.
 
 ```bash
 docker compose -f ../infra/docker-compose.dev.yml config --quiet
 container_id=$(docker compose -f ../infra/docker-compose.dev.yml ps -q backend)
 docker inspect --format '{{json .HostConfig.LogConfig}}' "$container_id"
-curl -i http://localhost:80/api/groups
+curl -i http://localhost:8080/api/groups
 aws logs tail /jarihana/dev/application --region ap-northeast-2 --since 5m --format short
 ```
 
