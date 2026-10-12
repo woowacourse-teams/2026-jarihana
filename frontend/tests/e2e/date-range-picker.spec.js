@@ -70,6 +70,15 @@ async function assertQuestionAndFieldAlignment(page, fieldSelector) {
   expect(leftDelta).toBeLessThanOrEqual(1);
 }
 
+async function assertControlRailWidth(page, label, railRem) {
+  const expectedWidth = await page.locator(".manage-create-wizard__steps")
+    .evaluate((element, rem) => Math.min(
+      element.getBoundingClientRect().width,
+      rem * Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
+    ), railRem);
+  await expect(page.getByLabel(label)).toHaveCSS("width", `${expectedWidth}px`);
+}
+
 async function assertSelectFrameMatchesControl(page) {
   const widthDelta = await page.evaluate(() => {
     const frame = document.querySelector(".manage-create-step--joinMethod .ui-select");
@@ -93,10 +102,10 @@ async function assertPeriodFieldAlignment(page) {
     const endpoints = document.querySelector(".ui-date-range__endpoints");
     const controls = [
       ...document.querySelectorAll(
-        ".ui-date-range__endpoint-button, .ui-date-range__time .ui-field__control, .ui-date-range__static-control"
+        ".ui-date-range__endpoint-button, .ui-date-range__static-control"
       )
     ];
-    if (!heading || !endpoints || controls.length < 3) return null;
+    if (!heading || !endpoints || controls.length !== 4) return null;
 
     const headingBounds = heading.getBoundingClientRect();
     const endpointBounds = endpoints.getBoundingClientRect();
@@ -142,9 +151,9 @@ for (const viewport of viewports) {
     await expect(page.locator(".manage-create-wizard__status strong")).toHaveText("모집 인원");
     await expect(page.locator(".manage-create-step__heading > span")).toHaveCount(0);
     await expect(page.locator(".manage-create-step--capacity .manage-create-step__heading > p"))
-      .toHaveText("이번 모집에서 받을 수 있는 인원을 먼저 정해요.");
+      .toHaveCount(0);
     await expect(page.getByLabel("모집 인원")).toHaveValue("10");
-    await expect(page.getByLabel("모집 인원")).toHaveCSS("width", "288px");
+    await assertControlRailWidth(page, "모집 인원", 18);
     await expect(page.getByRole("heading", { name: "공개 상태 미리보기" })).toBeVisible();
     await assertWizardLayout(page, { desktop: viewport.width >= 1024 });
     await assertQuestionAndFieldAlignment(page, ".manage-field--underline");
@@ -156,7 +165,7 @@ for (const viewport of viewports) {
     await expect(page.locator(".manage-create-wizard__status strong")).toHaveText("승인 방식");
     await expect(page.getByLabel("모집 인원")).toHaveCount(0);
     await expect(page.getByLabel("승인 방식")).toHaveValue("AUTO");
-    await expect(page.getByLabel("승인 방식")).toHaveCSS("width", "224px");
+    await assertControlRailWidth(page, "승인 방식", 20);
     await assertWizardLayout(page, { desktop: viewport.width >= 1024 });
     await assertQuestionAndFieldAlignment(page, ".manage-create-step > .ui-field");
     await assertSelectFrameMatchesControl(page);
@@ -170,7 +179,8 @@ for (const viewport of viewports) {
     await expect(page.getByRole("button", { name: "모집 시작일 선택" })).toContainText(
       "2026. 9. 2."
     );
-    await expect(page.getByLabel("모집 시작 시간")).toHaveValue("12:34");
+    await expect(page.getByRole("button", { name: "모집 시작 시간 선택" }))
+      .toHaveText("오후 12:34");
     await expect(page.getByRole("button", { name: "상시 모집" })).toHaveAttribute(
       "aria-pressed",
       "true"
@@ -264,6 +274,9 @@ for (const viewport of viewports) {
       style: ".app-scroll-top { visibility: hidden !important; }"
     });
 
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("region", { name: "모집 마감일 달력" })).toBeHidden();
+    await expect(endEndpoint).toBeFocused();
     await page.getByRole("button", { name: "모집 생성" }).click();
     const request = state.requests.find(
       (entry) => entry.method === "POST" && entry.path === "/groups/10/recruitments"
