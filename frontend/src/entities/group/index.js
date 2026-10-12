@@ -77,7 +77,8 @@ export const groupEventDetailSchema = z.object({
   endTime: localTimeSchema.nullable(),
   description: z.string(),
   location: z.string().nullable(),
-  version: z.number().int().nonnegative()
+  version: z.number().int().nonnegative(),
+  recurrenceSourceDate: localDateSchema.nullable().optional()
 }).strict();
 
 export const groupScheduleDetailSchema = z.object({

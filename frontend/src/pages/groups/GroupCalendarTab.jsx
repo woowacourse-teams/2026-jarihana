@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import { useAuth } from "../../features/auth/index.js";
-import { useCreateGroupEvent, useDeleteGroupEvent, useGroupCalendar, useGroupCalendarEventDetail, useSetGroupCalendarVisibility, useUpdateGroupEvent } from "../../features/group/index.js";
+import { useCreateGroupEvent, useCreateRecurringOccurrenceOverride, useDeleteGroupEvent, useDeleteRecurringOccurrence, useGroupCalendar, useGroupCalendarEventDetail, useSetGroupCalendarVisibility, useUpdateGroupEvent } from "../../features/group/index.js";
 import { GroupCalendar } from "./GroupCalendar.jsx";
 import { GroupCalendarDetailDialog } from "./GroupCalendarDetailDialog.jsx";
 import { GroupCalendarEventDialog } from "./GroupCalendarEventDialog.jsx";
@@ -18,8 +18,10 @@ export function GroupCalendarTab({ groupId, groupType = "CLUB", isLeader = false
   const hasDetailAccess = Boolean(isMember && viewerId && auth.status === "authenticated");
   const calendarQuery = useGroupCalendar(groupId, range);
   const createEvent = useCreateGroupEvent(groupId);
+  const createOccurrence = useCreateRecurringOccurrenceOverride(groupId);
   const updateEvent = useUpdateGroupEvent(groupId);
   const deleteEvent = useDeleteGroupEvent(groupId);
+  const deleteOccurrence = useDeleteRecurringOccurrence(groupId);
   const visibility = useSetGroupCalendarVisibility(groupId);
   const detailQuery = useGroupCalendarEventDetail(groupId, selectedEvent, viewerId,
     auth.sessionVersion, hasDetailAccess);
@@ -48,6 +50,32 @@ export function GroupCalendarTab({ groupId, groupType = "CLUB", isLeader = false
       await deleteEvent.mutateAsync({ eventId: selectedEvent.id, version: detailQuery.data.version });
       setSelectedEvent(null);
     } catch { /* The detail dialog displays the server error. */ }
+  }
+
+  async function handleSaveOccurrence(values) {
+    try {
+      if (values.eventId != null) {
+        const { eventId, ...eventValues } = values;
+        await updateEvent.mutateAsync({ eventId, ...eventValues });
+      } else {
+        const { sourceDate, periodId, seriesVersion, startDate, allDay, startTime, endTime,
+          status, description, location } = values;
+        await createOccurrence.mutateAsync({ sourceDate, periodId, seriesVersion, startDate,
+          allDay, startTime, endTime, status, description, location });
+      }
+      setSelectedEvent(null);
+    } catch { /* Keep the occurrence form open and show the server error. */ }
+  }
+
+  async function handleDeleteOccurrence({ sourceDate, periodId, seriesVersion }) {
+    try {
+      if (selectedEvent.id != null) {
+        await deleteEvent.mutateAsync({ eventId: selectedEvent.id, version: detailQuery.data.version });
+      } else {
+        await deleteOccurrence.mutateAsync({ sourceDate, periodId, seriesVersion });
+      }
+      setSelectedEvent(null);
+    } catch { throw new Error("일정을 삭제하지 못했어요."); }
   }
 
   return (
@@ -90,7 +118,10 @@ export function GroupCalendarTab({ groupId, groupType = "CLUB", isLeader = false
         isMember={hasDetailAccess}
         isLeader={isLeader}
         loading={detailQuery.isPending}
-        onClose={() => setSelectedEvent(null)}
+        onClose={() => {
+          createOccurrence.reset(); updateEvent.reset(); deleteOccurrence.reset(); deleteEvent.reset();
+          setSelectedEvent(null);
+        }}
         onEdit={() => { setEditEvent(detailQuery.data); setSelectedEvent(null); }}
         onDelete={handleDelete}
         deleting={deleteEvent.isPending}
@@ -99,8 +130,21 @@ export function GroupCalendarTab({ groupId, groupType = "CLUB", isLeader = false
       <GroupRecurringManageDialog
         event={manageSelected ? selectedEvent : null}
         groupId={groupId}
+        groupType={groupType}
+        detail={detailQuery.data}
         location={detailQuery.data?.location}
-        onClose={() => setSelectedEvent(null)}
+        onSaveOccurrence={handleSaveOccurrence}
+        occurrenceSaving={createOccurrence.isPending || updateEvent.isPending}
+        occurrenceError={createOccurrence.error?.userMessage || updateEvent.error?.userMessage
+          || (createOccurrence.error || updateEvent.error ? "회차를 저장하지 못했어요. 다시 시도해 주세요." : null)}
+        onDeleteOccurrence={handleDeleteOccurrence}
+        occurrenceDeleting={deleteEvent.isPending || deleteOccurrence.isPending}
+        occurrenceDeleteError={deleteEvent.error?.userMessage || deleteOccurrence.error?.userMessage
+          || (deleteEvent.error || deleteOccurrence.error ? "회차를 삭제하지 못했어요. 다시 시도해 주세요." : null)}
+        onClose={() => {
+          createOccurrence.reset(); updateEvent.reset(); deleteOccurrence.reset(); deleteEvent.reset();
+          setSelectedEvent(null);
+        }}
       />
       {manageSession ? <GroupSessionManageDialog
         groupId={groupId}

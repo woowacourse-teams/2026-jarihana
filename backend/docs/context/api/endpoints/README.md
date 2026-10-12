@@ -4,7 +4,7 @@
 >
 > 구현·테스트와 충돌하면 임의로 해석하지 않고 차이를 보고한다.
 
-이 문서는 저장소에서 관리하는 활성 엔드포인트 61개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청·응답·오류는 Controller·요청/응답 DTO·ErrorCode와 RestAssured 인수 테스트로 확인한다.
+이 문서는 저장소에서 관리하는 활성 엔드포인트 63개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청·응답·오류는 Controller·요청/응답 DTO·ErrorCode와 RestAssured 인수 테스트로 확인한다.
 
 이 디렉터리는 API 엔드포인트의 전체 목록과 리소스별 상세 설계를 관리한다. 모든 엔드포인트는 [API 공통 설계](../common-contract.md)를 따르며, 상세 문서에는 엔드포인트 고유 내용만 둔다.
 
@@ -47,6 +47,8 @@
 | 그룹 달력 | `GET` | `/api/groups/{groupId}/recurring-schedule/periods/{periodId}` | `LEADER` | 선택한 정기 규칙 구간 조회 |
 | 그룹 달력 | `PUT` | `/api/groups/{groupId}/recurring-schedule/scoped` | `LEADER` | 정기 규칙 변경 범위 적용 |
 | 그룹 달력 | `DELETE` | `/api/groups/{groupId}/recurring-schedule/scoped` | `LEADER` | 정기 규칙 변경 범위 삭제 |
+| 그룹 달력 | `POST` | `/api/groups/{groupId}/recurring-schedule/occurrences` | `LEADER` | 반복 정기 모임의 한 회차 수정 |
+| 그룹 달력 | `DELETE` | `/api/groups/{groupId}/recurring-schedule/occurrences` | `LEADER` | 반복 정기 모임의 한 회차 숨김 |
 | 그룹 달력 | `PUT` | `/api/groups/{groupId}/recurring-schedule/periods/{periodId}` | `LEADER` | 선택한 정기 규칙 구간 수정 |
 | 그룹 달력 | `PUT` | `/api/groups/{groupId}/recurring-schedule/calendar-range` | `LEADER` | 정기 일정 전체 표시 기간 수정 |
 | 그룹 구성원 | `GET` | `/api/groups/{groupId}/members` | `PUBLIC` | 그룹 구성원 목록 조회 |

@@ -5,8 +5,10 @@ import { captureEvent } from "../../shared/analytics/index.js";
 import {
   createGroup,
   createGroupEvent,
+  createRecurringOccurrenceOverride,
   updateGroupEvent,
   deleteGroupEvent,
+  deleteRecurringOccurrence,
   deleteScopedRecurringSchedule,
   deleteGroup,
   fetchGroup,
@@ -106,6 +108,7 @@ export function useGroupCalendarEventDetail(groupId, event, viewerId, sessionVer
     queryKey: ["groups", "calendar-private-detail", viewerId, sessionVersion, groupId,
       event?.kind, event?.id ?? event?.occurrenceKey],
     queryFn: () => event.kind === "GROUP_EVENT" || event.kind === "REGULAR_MEETING"
+      || event.kind === "RECURRING" && event.id != null
       ? fetchGroupEventDetail(groupId, event.id)
       : fetchGroupScheduleDetail(groupId, event.kind, event.startDate),
     enabled: Boolean(enabled && viewerId && event),
@@ -166,6 +169,14 @@ export function useUpdateGroupRecurringRange(groupId) {
 
 export function useDeleteScopedRecurringSchedule(groupId) {
   return useRecurringMutation(groupId, (values) => deleteScopedRecurringSchedule(groupId, values));
+}
+
+export function useCreateRecurringOccurrenceOverride(groupId) {
+  return useRecurringMutation(groupId, (values) => createRecurringOccurrenceOverride(groupId, values));
+}
+
+export function useDeleteRecurringOccurrence(groupId) {
+  return useRecurringMutation(groupId, (values) => deleteRecurringOccurrence(groupId, values));
 }
 
 export function useSetGroupCalendarVisibility(groupId) {

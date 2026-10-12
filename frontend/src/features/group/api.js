@@ -115,6 +115,18 @@ export function deleteScopedRecurringSchedule(groupId, values) {
   });
 }
 
+export function createRecurringOccurrenceOverride(groupId, values) {
+  return apiRequest(`groups/${groupId}/recurring-schedule/occurrences`, {
+    method: "post", json: values, schema: groupEventDetailSchema
+  });
+}
+
+export function deleteRecurringOccurrence(groupId, values) {
+  return apiRequest(`groups/${groupId}/recurring-schedule/occurrences`, {
+    method: "delete", json: values
+  });
+}
+
 export function setGroupCalendarVisibility(groupId, showBaseSchedule) {
   return apiRequest(`groups/${groupId}/calendar/settings`, {
     method: "put",

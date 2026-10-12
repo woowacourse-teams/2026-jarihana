@@ -20,12 +20,13 @@ public record GroupEventResponse(
         LocalTime endTime,
         String description,
         String location,
-        Long version
+        Long version,
+        LocalDate recurrenceSourceDate
 ) {
     public static GroupEventResponse from(GroupEvent event, LocalDate today) {
         return new GroupEventResponse(event.getId(), event.getEventType(), event.getStatus(),
                 event.getEffectiveStatus(today), event.getTitle(), event.getStartDate(), event.getEndDate(),
                 event.isAllDay(), event.getStartTime(), event.getEndTime(), event.getDescription(),
-                event.getLocation(), event.getVersion());
+                event.getLocation(), event.getVersion(), event.getRecurrenceSourceDate());
     }
 }

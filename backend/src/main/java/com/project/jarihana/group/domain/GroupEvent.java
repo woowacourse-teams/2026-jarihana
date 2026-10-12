@@ -27,7 +27,8 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "group_event", indexes = {
-        @Index(name = "idx_group_event_group_range", columnList = "group_id, start_date, end_date")
+        @Index(name = "idx_group_event_group_range", columnList = "group_id, start_date, end_date"),
+        @Index(name = "idx_group_event_recurring_source_date", columnList = "group_id, recurrence_source_date")
 })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class GroupEvent extends BaseEntity {
@@ -73,6 +74,15 @@ public class GroupEvent extends BaseEntity {
     @Column(name = "location", length = 255)
     private String location;
 
+    @Column(name = "recurring_series_id")
+    private Long recurringSeriesId;
+
+    @Column(name = "recurring_period_id")
+    private Long recurringPeriodId;
+
+    @Column(name = "recurrence_source_date")
+    private LocalDate recurrenceSourceDate;
+
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
@@ -93,6 +103,9 @@ public class GroupEvent extends BaseEntity {
             LocalTime endTime,
             String description,
             String location,
+            Long recurringSeriesId,
+            Long recurringPeriodId,
+            LocalDate recurrenceSourceDate,
             LocalDateTime deletedAt,
             Long version,
             LocalDateTime createdAt
@@ -118,6 +131,16 @@ public class GroupEvent extends BaseEntity {
         this.endTime = endTime;
         this.description = requiredText(description, 10_000, "설명");
         this.location = optionalText(location, 255, "장소");
+        if ((recurringSeriesId == null) != (recurringPeriodId == null)
+                || (recurringSeriesId == null) != (recurrenceSourceDate == null)) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "반복 회차 참조가 올바르지 않습니다.");
+        }
+        if (recurringSeriesId != null && eventType != GroupEventType.REGULAR_MEETING) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "반복 회차 일정이 올바르지 않습니다.");
+        }
+        this.recurringSeriesId = recurringSeriesId;
+        this.recurringPeriodId = recurringPeriodId;
+        this.recurrenceSourceDate = recurrenceSourceDate;
         this.deletedAt = deletedAt;
         this.version = version;
         validateRange();
@@ -155,7 +178,50 @@ public class GroupEvent extends BaseEntity {
             LocalDateTime createdAt
     ) {
         return new GroupEvent(null, group, eventType, status, title, startDate, endDate, allDay, startTime, endTime,
-                description, location, null, null, createdAt);
+                description, location, null, null, null, null, null, createdAt);
+    }
+
+    public static GroupEvent createRecurringOverride(
+            Group group,
+            Long seriesId,
+            Long periodId,
+            LocalDate sourceDate,
+            GroupEventStatus status,
+            LocalDate startDate,
+            boolean allDay,
+            LocalTime startTime,
+            LocalTime endTime,
+            String description,
+            String location,
+            LocalDateTime createdAt
+    ) {
+        if (group == null || seriesId == null || periodId == null) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "반복 규칙 구간은 필수입니다.");
+        }
+        return new GroupEvent(null, group, GroupEventType.REGULAR_MEETING, status,
+                "정기 모임", startDate, startDate, allDay, startTime, endTime, description, location,
+                seriesId, periodId, sourceDate, null, null, createdAt);
+    }
+
+    public static GroupEvent createRecurringTombstone(
+            Group group,
+            Long seriesId,
+            Long periodId,
+            LocalDate sourceDate,
+            LocalTime startTime,
+            LocalTime endTime,
+            LocalDateTime deletedAt
+    ) {
+        if (group == null || seriesId == null || periodId == null) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "반복 규칙 구간은 필수입니다.");
+        }
+        boolean allDay = startTime == null;
+        return new GroupEvent(null, group, GroupEventType.REGULAR_MEETING,
+                GroupEventStatus.AUTO, "정기 모임", sourceDate, sourceDate, allDay,
+                allDay ? null : startTime, allDay ? null : endTime,
+                "숨긴 정기 모임 회차", null, seriesId, periodId, sourceDate,
+                require(deletedAt, "삭제 시각"), null,
+                deletedAt);
     }
 
     public GroupEvent modify(
@@ -185,14 +251,19 @@ public class GroupEvent extends BaseEntity {
             String location
     ) {
         requireNotDeleted();
+        if (recurringPeriodId != null && eventType != GroupEventType.REGULAR_MEETING) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "반복 회차는 정기 모임 종류를 유지해야 합니다.");
+        }
         return new GroupEvent(id, group, eventType, status, title, startDate, endDate, allDay, startTime, endTime,
-                description, location, null, version, getCreatedAt());
+                description, location, recurringSeriesId, recurringPeriodId, recurrenceSourceDate,
+                null, version, getCreatedAt());
     }
 
     public GroupEvent deleteAt(LocalDateTime now) {
         requireNotDeleted();
         return new GroupEvent(id, group, eventType, status, title, startDate, endDate, allDay, startTime, endTime,
-                description, location, require(now, "삭제 시각"), version, getCreatedAt());
+                description, location, recurringSeriesId, recurringPeriodId, recurrenceSourceDate,
+                require(now, "삭제 시각"), version, getCreatedAt());
     }
 
     private void requireNotDeleted() {
@@ -266,6 +337,10 @@ public class GroupEvent extends BaseEntity {
     public LocalTime getEndTime() { return endTime; }
     public String getDescription() { return description; }
     public String getLocation() { return location; }
+    public Long getRecurringSeriesId() { return recurringSeriesId; }
+    public Long getRecurringPeriodId() { return recurringPeriodId; }
+    public LocalDate getRecurrenceSourceDate() { return recurrenceSourceDate; }
+    public boolean isRecurringOverride() { return recurringPeriodId != null; }
     public LocalDateTime getDeletedAt() { return deletedAt; }
     public Long getVersion() { return version; }
 

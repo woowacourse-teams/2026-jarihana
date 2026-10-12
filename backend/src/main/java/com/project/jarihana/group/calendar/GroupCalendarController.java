@@ -90,6 +90,24 @@ public class GroupCalendarController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/recurring-schedule/occurrences")
+    public ResponseEntity<ApiResponse<GroupEventResponse>> overrideRecurringOccurrence(
+            @LoginMember Long memberId, @PathVariable Long groupId,
+            @Valid @RequestBody RecurringOccurrenceRequest request, HttpServletRequest servletRequest) {
+        GroupEventResponse result = events.overrideOccurrence(memberId, groupId, request);
+        return ResponseEntity.created(LocationUri.of(servletRequest.getContextPath(),
+                        "/groups/%d/events/%d", groupId, result.id()))
+                .body(ApiResponse.success(result));
+    }
+
+    @DeleteMapping("/recurring-schedule/occurrences")
+    public ResponseEntity<Void> deleteRecurringOccurrence(
+            @LoginMember Long memberId, @PathVariable Long groupId,
+            @Valid @RequestBody RecurringOccurrenceDeleteRequest request) {
+        events.hideOccurrence(memberId, groupId, request);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/calendar/schedule-details")
     public ResponseEntity<ApiResponse<GroupCalendarService.ScheduleDetail>> scheduleDetail(
             @LoginMember Long memberId, @PathVariable Long groupId,

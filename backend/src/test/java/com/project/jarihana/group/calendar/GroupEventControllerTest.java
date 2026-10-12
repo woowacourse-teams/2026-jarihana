@@ -288,6 +288,113 @@ class GroupEventControllerTest extends IntegrationTestSupport {
                 .then().statusCode(409).body("error.code", equalTo("GROUP_EVENT_CONFLICT"));
     }
 
+    @DisplayName("모임장은 반복 일정의 한 회차를 옮겨 수정하고 삭제해도 원래 회차를 다시 노출하지 않는다.")
+    @Test
+    void leaderOverridesOneRecurringOccurrence() {
+        // Given
+        Member leader = members.save(Member.create("가온", 8, "calendar-recurring-override-leader", Course.BACKEND));
+        Group group = groups.save(Group.createStudy("반복 회차 수정 모임", "함께해요", null, null,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.THURSDAY), LocalTime.of(19, 0), LocalTime.of(21, 0)),
+                TestSupportConfig.FIXED_NOW));
+        memberships.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
+        GroupRecurringSeries savedSeries = series.save(GroupRecurringSeries.create(group,
+                LocalDate.of(2026, 8, 19), null, TestSupportConfig.FIXED_NOW));
+        GroupRecurringPeriod period = periods.save(GroupRecurringPeriod.create(savedSeries,
+                Set.of(DayOfWeek.THURSDAY), LocalTime.of(19, 0), LocalTime.of(21, 0),
+                LocalDate.of(2026, 8, 19), null, TestSupportConfig.FIXED_NOW));
+        String token = tokens.issue(leader.getId()).value();
+        String csrf = given().get("/groups/{groupId}", group.getId()).getCookie("XSRF-TOKEN");
+
+        // When
+        long eventId = given().cookie(cookies.accessTokenName(), token)
+                .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .contentType("application/json")
+                .body(String.format("""
+                        {"sourceDate":"2026-08-20","periodId":%d,"seriesVersion":0,
+                         "startDate":"2026-08-22","allDay":true,"status":"UPCOMING",
+                         "description":"이번 회차만 변경","location":"새 장소"}
+                        """, period.getId()))
+                .post("/groups/{groupId}/recurring-schedule/occurrences", group.getId())
+                .then().statusCode(201)
+                .body("data.eventType", equalTo("REGULAR_MEETING"))
+                .body("data.title", equalTo("정기 모임"))
+                .body("data.recurrenceSourceDate", equalTo("2026-08-20"))
+                .extract().jsonPath().getLong("data.id");
+
+        // Then
+        given().queryParam("from", "2026-08-20").queryParam("to", "2026-08-22")
+                .get("/groups/{groupId}/calendar", group.getId())
+                .then().statusCode(200)
+                .body("data.events.size()", equalTo(1))
+                .body("data.events[0].kind", equalTo("RECURRING"))
+                .body("data.events[0].id", equalTo((int) eventId))
+                .body("data.events[0].startDate", equalTo("2026-08-22"))
+                .body("data.events[0].occurrenceKey", equalTo("recurring:" + savedSeries.getId() + ":2026-08-20"));
+
+        given().cookie(cookies.accessTokenName(), token)
+                .get("/groups/{groupId}/events/{eventId}", group.getId(), eventId)
+                .then().statusCode(200)
+                .body("data.description", equalTo("이번 회차만 변경"))
+                .body("data.location", equalTo("새 장소"));
+
+        given().cookie(cookies.accessTokenName(), token)
+                .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .contentType("application/json")
+                .body("""
+                        {"title":"정기 모임","eventType":"REGULAR_MEETING","status":"COMPLETED",
+                         "startDate":"2026-08-23","endDate":"2026-08-23","allDay":true,
+                         "description":"수정한 회차 설명","version":0}
+                        """)
+                .put("/groups/{groupId}/events/{eventId}", group.getId(), eventId)
+                .then().statusCode(200)
+                .body("data.recurrenceSourceDate", equalTo("2026-08-20"))
+                .body("data.startDate", equalTo("2026-08-23"));
+
+        given().cookie(cookies.accessTokenName(), token)
+                .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .queryParam("version", 1)
+                .delete("/groups/{groupId}/events/{eventId}", group.getId(), eventId)
+                .then().statusCode(204);
+
+        given().queryParam("from", "2026-08-20").queryParam("to", "2026-08-23")
+                .get("/groups/{groupId}/calendar", group.getId())
+                .then().statusCode(200).body("data.events.size()", equalTo(0));
+    }
+
+    @DisplayName("모임장은 반복 일정의 원래 회차를 한 건만 달력에서 숨긴다.")
+    @Test
+    void leaderCanHideOneUnmodifiedRecurringOccurrence() {
+        // Given
+        Member leader = members.save(Member.create("가온", 8, "calendar-recurring-delete-leader", Course.BACKEND));
+        Group group = groups.save(Group.createStudy("반복 회차 숨김 모임", "함께해요", null, null,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.THURSDAY), null, null), TestSupportConfig.FIXED_NOW));
+        memberships.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW));
+        GroupRecurringSeries savedSeries = series.save(GroupRecurringSeries.create(group,
+                LocalDate.of(2026, 8, 19), null, TestSupportConfig.FIXED_NOW));
+        GroupRecurringPeriod period = periods.save(GroupRecurringPeriod.create(savedSeries,
+                Set.of(DayOfWeek.THURSDAY), null, null, LocalDate.of(2026, 8, 19),
+                null, TestSupportConfig.FIXED_NOW));
+        String token = tokens.issue(leader.getId()).value();
+        String csrf = given().get("/groups/{groupId}", group.getId()).getCookie("XSRF-TOKEN");
+
+        // When
+        given().cookie(cookies.accessTokenName(), token)
+                .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .contentType("application/json")
+                .body(String.format("""
+                        {"sourceDate":"2026-08-20","periodId":%d,"seriesVersion":0}
+                        """, period.getId()))
+                .delete("/groups/{groupId}/recurring-schedule/occurrences", group.getId())
+                .then().statusCode(204);
+
+        // Then
+        given().queryParam("from", "2026-08-20").queryParam("to", "2026-08-27")
+                .get("/groups/{groupId}/calendar", group.getId())
+                .then().statusCode(200)
+                .body("data.events.size()", equalTo(1))
+                .body("data.events[0].startDate", equalTo("2026-08-27"));
+    }
+
     @DisplayName("모임장이 아닌 회원은 개별 일정을 만들 수 없다.")
     @Test
     void nonLeaderCannotCreateEvent() {

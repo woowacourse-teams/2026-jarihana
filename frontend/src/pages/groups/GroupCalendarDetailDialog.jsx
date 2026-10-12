@@ -33,7 +33,9 @@ export function GroupCalendarDetailDialog({ event, isMember, isLeader, detail, l
           {!isMember ? <p>장소와 설명은 모임원에게만 보여요.</p> : null}
           {isMember && loading ? <p role="status">상세 내용을 불러오는 중이에요.</p> : null}
           {isMember && error ? <p role="alert">상세 내용을 불러오지 못했어요.</p> : null}
-          {event.kind === "REGULAR_MEETING" && isMember && statusLabel(detail?.effectiveStatus) ? <p><strong>상태</strong> {statusLabel(detail.effectiveStatus)}</p> : null}
+          {(event.kind === "REGULAR_MEETING" || event.kind === "RECURRING" && event.id != null)
+            && isMember && statusLabel(detail?.effectiveStatus)
+            ? <p><strong>상태</strong> {statusLabel(detail.effectiveStatus)}</p> : null}
           {isMember && detail?.location ? <p><strong>장소</strong> {detail.location}</p> : null}
           {isMember && detail?.description ? <p className="group-calendar-detail__description">{detail.description}</p> : null}
           {isLeader && ["GROUP_EVENT", "REGULAR_MEETING"].includes(event.kind) && detail ? <div className="group-calendar-form__actions">

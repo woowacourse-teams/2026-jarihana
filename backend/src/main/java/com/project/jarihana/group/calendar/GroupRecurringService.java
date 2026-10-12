@@ -337,6 +337,8 @@ public class GroupRecurringService {
         if (periods.isEmpty()) return;
         boolean overlaps = events.findAllByGroupIdAndEventTypeAndDeletedAtIsNullOrderByStartDateAscIdAsc(
                         groupId, GroupEventType.REGULAR_MEETING).stream()
+                .filter(event -> !event.isRecurringOverride()
+                        || !event.getStartDate().equals(event.getRecurrenceSourceDate()))
                 .map(GroupEvent::getStartDate)
                 .filter(date -> !date.isBefore(seriesFrom))
                 .filter(date -> seriesUntil == null || !date.isAfter(seriesUntil))

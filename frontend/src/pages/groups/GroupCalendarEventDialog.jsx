@@ -11,9 +11,11 @@ function maxEventEndDate(startDate) {
   return `${String(nextYear).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 }
 
-function EventForm({ groupType = "CLUB", initialDate, initialEvent, onSave, saveDisabled = false, saving = false, serverError = null }) {
-  const [mode, setMode] = useState(initialEvent ? (initialEvent.allDay ? "all-day" : "timed") : "");
-  const [eventType, setEventType] = useState(initialEvent?.eventType ?? "INDIVIDUAL");
+export function GroupCalendarEventForm({ groupType = "CLUB", initialDate, initialEvent, fixedEventType, initialMode,
+  onSave, saveDisabled = false, saving = false, serverError = null }) {
+  const isEditing = Boolean(initialEvent?.id);
+  const [mode, setMode] = useState(initialMode ?? (isEditing ? (initialEvent.allDay ? "all-day" : "timed") : ""));
+  const [eventType, setEventType] = useState(fixedEventType ?? initialEvent?.eventType ?? "INDIVIDUAL");
   const [status, setStatus] = useState(initialEvent?.status ?? "AUTO");
   const [formError, setFormError] = useState("");
   const [startDate, setStartDate] = useState(initialEvent?.startDate ?? initialDate ?? "");
@@ -62,17 +64,17 @@ function EventForm({ groupType = "CLUB", initialDate, initialEvent, onSave, save
       endTime: mode === "timed" ? endTime : null,
       location: location.trim() || null,
       description: description.trim(),
-      ...(initialEvent ? { version: initialEvent.version } : {})
+      ...(isEditing ? { version: initialEvent.version } : {})
     });
   }
 
   return (
     <form className="group-calendar-form" noValidate onSubmit={submit}>
-      <fieldset className="group-calendar-form__mode">
+      {!fixedEventType ? <fieldset className="group-calendar-form__mode">
         <legend>일정 종류 <span aria-hidden="true">*</span></legend>
         <label><input checked={eventType === "INDIVIDUAL"} data-ph-capture-attribute-action="group_calendar_event_individual_select" name="eventType" onChange={() => { setEventType("INDIVIDUAL"); setStatus("AUTO"); }} type="radio" />개별 일정</label>
         {groupType !== "SESSION" ? <label><input checked={eventType === "REGULAR_MEETING"} data-ph-capture-attribute-action="group_calendar_event_regular_meeting_select" name="eventType" onChange={() => { setEventType("REGULAR_MEETING"); setStatus(initialEvent?.status ?? "AUTO"); }} type="radio" />정기 모임</label> : null}
-      </fieldset>
+      </fieldset> : null}
       {eventType === "REGULAR_MEETING" ? (
         <div className="group-calendar-form__fixed-title"><span>일정 제목</span><strong>정기 모임</strong></div>
       ) : (
@@ -120,7 +122,7 @@ function EventForm({ groupType = "CLUB", initialDate, initialEvent, onSave, save
       {formError ? <p className="group-calendar-form__error" role="alert">{formError}</p> : null}
       {saveDisabled ? <p className="group-calendar-form__notice">일정 등록은 서버 연결 후 사용할 수 있어요.</p> : null}
       {serverError ? <p className="group-calendar-form__error" role="alert">{serverError}</p> : null}
-      <div className="group-calendar-form__actions"><Button data-ph-capture-attribute-action="group_calendar_event_save" disabled={saveDisabled || saving} type="submit">{saving ? "저장 중..." : initialEvent ? "일정 수정" : "일정 등록"}</Button></div>
+      <div className="group-calendar-form__actions"><Button data-ph-capture-attribute-action="group_calendar_event_save" disabled={saveDisabled || saving} type="submit">{saving ? "저장 중..." : isEditing ? "일정 수정" : "일정 등록"}</Button></div>
     </form>
   );
 }
@@ -128,7 +130,7 @@ function EventForm({ groupType = "CLUB", initialDate, initialEvent, onSave, save
 export function GroupCalendarEventDialog({ groupType = "CLUB", initialDate, initialEvent, onClose, onSave, open, saveDisabled = false, saving = false, serverError = null }) {
   return (
     <Modal closeAction="group_calendar_event_form_dismiss" onClose={onClose} open={open} title={initialEvent ? "일정 수정" : "일정 등록"}>
-      <EventForm groupType={groupType} initialDate={initialDate} initialEvent={initialEvent} key={initialEvent?.id ?? initialDate} onSave={onSave} saveDisabled={saveDisabled} saving={saving} serverError={serverError} />
+      <GroupCalendarEventForm groupType={groupType} initialDate={initialDate} initialEvent={initialEvent} key={initialEvent?.id ?? initialDate} onSave={onSave} saveDisabled={saveDisabled} saving={saving} serverError={serverError} />
     </Modal>
   );
 }

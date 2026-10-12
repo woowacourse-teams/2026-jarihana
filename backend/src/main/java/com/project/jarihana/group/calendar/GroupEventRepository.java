@@ -18,5 +18,11 @@ public interface GroupEventRepository extends JpaRepository<GroupEvent, Long> {
 
     Optional<GroupEvent> findByIdAndGroupIdAndDeletedAtIsNull(Long id, Long groupId);
 
+    Optional<GroupEvent> findByRecurringSeriesIdAndRecurrenceSourceDate(Long recurringSeriesId,
+                                                                         LocalDate recurrenceSourceDate);
+
+    List<GroupEvent> findAllByGroupIdAndRecurringSeriesIdIsNotNullAndRecurrenceSourceDateBetween(
+            Long groupId, LocalDate from, LocalDate to);
+
     void deleteAllByGroupId(Long groupId);
 }

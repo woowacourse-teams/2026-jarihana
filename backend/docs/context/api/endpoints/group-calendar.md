@@ -44,7 +44,7 @@
 }
 ```
 
-`kind`는 `GROUP_EVENT`, `REGULAR_MEETING`, `RECURRING`, `SESSION` 중 하나다. 날짜별 `REGULAR_MEETING` 회차는 동아리·스터디에서만 등록할 수 있고, 그 날짜에 반복 규칙이 회차를 이미 만들면 등록을 거절한다. 회차는 하루 일정이며 제목은 `정기 모임`으로 고정한다. 달력 응답에는 개별 일정과 날짜별 정기 모임의 설명·장소가 포함되지 않는다. 반복 정기 일정도 제목을 `정기 모임`으로 표시하고, `SESSION` 일정은 현재 그룹 이름을 제목으로 표시한다.
+`kind`는 `GROUP_EVENT`, `REGULAR_MEETING`, `RECURRING`, `SESSION` 중 하나다. 날짜별 `REGULAR_MEETING` 회차는 동아리·스터디에서만 등록할 수 있고, 그 날짜에 반복 규칙이 회차를 이미 만들면 등록을 거절한다. 회차는 하루 일정이며 제목은 `정기 모임`으로 고정한다. 달력 응답에는 개별 일정과 날짜별 정기 모임의 설명·장소가 포함되지 않는다. 반복 정기 일정도 제목을 `정기 모임`으로 표시하고, `SESSION` 일정은 현재 그룹 이름을 제목으로 표시한다. 일반 반복 회차는 `id=null`이며, 모임장이 개별 수정한 회차는 안정적인 `group_event.id`를 가진다. 이동한 회차도 원래 날짜 기준 `occurrenceKey`를 유지한다.
 
 ## `GET /api/groups/{groupId}/calendar/schedule-details`
 
@@ -76,7 +76,7 @@
 - 요청: `{"showBaseSchedule": true}`
 - 응답: `{"success":true,"data":{"showBaseSchedule":true},"error":null}`
 
-이 설정은 반복 정기·세션 일정에만 적용한다. 개별 일정, 날짜별 정기 모임 회차와 그룹 정보는 변경하지 않는다.
+이 설정은 반복 정기·세션 일정에 적용하며, 반복 회차의 예외 일정도 함께 숨긴다. 개별 일정, 날짜별 정기 모임 회차와 그룹 정보는 변경하지 않는다.
 
 ## 개별 일정
 
@@ -92,9 +92,9 @@
 
 ### `GET /api/groups/{groupId}/events/{eventId}`
 
-- 설명: 개별 일정 상세 조회
+- 설명: 개별 일정 또는 개별 수정한 반복 회차 상세 조회
 - 권한: `MEMBER`
-- 응답: `id`, `eventType`, `status`, `effectiveStatus`, `title`, `startDate`, `endDate`, `allDay`, `startTime`, `endTime`, `description`, `location`, `version`
+- 응답: `id`, `eventType`, `status`, `effectiveStatus`, `title`, `startDate`, `endDate`, `allDay`, `startTime`, `endTime`, `description`, `location`, `version`, nullable `recurrenceSourceDate`
 
 ### `PUT /api/groups/{groupId}/events/{eventId}`
 
@@ -110,6 +110,26 @@
 - 응답: `204 No Content`. 삭제는 soft delete다.
 
 개별 일정의 제목은 최대 50자, 장소는 최대 255자, 설명은 최대 10,000자다. 과거 날짜의 일정도 등록·수정할 수 있다. 종료된 그룹에서는 개별 일정을 변경할 수 없다.
+
+반복 회차를 개별 수정한 뒤에는 위 `PUT/DELETE /events/{eventId}` 경로로 같은 안정 ID를 수정·삭제한다. 삭제된 연결 행은 원래 반복 날짜를 숨기는 tombstone으로 남아 규칙 변경이나 새로고침 뒤에도 회차가 다시 나타나지 않는다.
+
+### `POST /api/groups/{groupId}/recurring-schedule/occurrences`
+
+- 설명: 반복 정기 모임의 한 회차를 예외 일정으로 수정
+- 권한: `LEADER`
+- 요청: `sourceDate`, `periodId`, `seriesVersion`, 새 `startDate`, `allDay`, 선택적 `startTime`·`endTime`, `description`, 선택적 `location`과 `status`
+- `sourceDate`는 기존 반복 규칙이 만든 원래 회차 날짜다. 새 날짜가 다른 반복 회차와 겹치면 `GROUP_EVENT_CONFLICT`로 거절한다.
+- 제목은 `정기 모임`으로 고정한다. 설명은 필수, 장소는 선택이고, 종일/시간 지정 규칙과 회차 상태는 날짜별 정기 모임과 같다.
+- 응답: `201 Created`, `GroupEvent`와 안정적인 일정 ID
+
+### `DELETE /api/groups/{groupId}/recurring-schedule/occurrences`
+
+- 설명: 원래 반복 규칙은 두고 선택한 회차 한 건만 달력에서 숨김
+- 권한: `LEADER`
+- 요청: `sourceDate`, `periodId`, `seriesVersion`
+- 응답: `204 No Content`. 숨김 행은 soft delete로 보존하며 같은 반복 회차를 다시 표시하지 않는다.
+
+수정·삭제 요청은 조회한 시리즈 `version`과 `periodId`를 함께 보낸다. 이미 예외 일정으로 바뀐 회차는 새로고침 후 기존 일정 ID의 수정·삭제 API를 사용한다.
 
 ### 날짜별 정기 모임
 
@@ -143,6 +163,7 @@
 - 권한: `LEADER`
 - 요청: `daysOfWeek`, `startTime`, `endTime`, `applyScope`, `version`
 - `applyScope`는 `ALL`, `PREVIOUS_RULE`, `FROM_TODAY`다. `ALL`은 모든 규칙 구간의 요일·시각을 바꾸고, `PREVIOUS_RULE`은 현재 규칙 구간만 바꾸며, `FROM_TODAY`는 오늘 이후 구간을 바꾼다. 전체 시작·종료일은 별도 API로 수정한다.
+- 위 범위는 반복 규칙 자체에 적용한다. `이 일정만`은 선택한 발생일에 예외 일정을 저장하므로 반복 규칙 변경 API가 아니라 `/recurring-schedule/occurrences` API를 사용한다.
 - 응답: 증가한 시리즈 `version`
 
 ### `PUT /api/groups/{groupId}/recurring-schedule/periods/{periodId}`

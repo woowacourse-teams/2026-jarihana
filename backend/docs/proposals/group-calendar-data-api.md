@@ -45,7 +45,7 @@
 | 저장 대상 | 제안 필드 | 이유 |
 | --- | --- | --- |
 | `groups` | `show_base_schedule_in_calendar BOOLEAN NOT NULL DEFAULT TRUE`, `ended_on DATE NULL` | 기본 일정의 달력 노출 설정과 새로 종료하는 그룹의 서울 기준 종료 일자. 기존 embedded 일정은 그룹 상세의 현재 요일·시각으로 유지한다. 기존 `ENDED` 행은 최종 수정 일자를 종료 일자 후보로 점검한 뒤 보정한다. |
-| `group_event` | `id`, `group_id`, `title`, `start_date`, `end_date`, `all_day`, `start_time`, `end_time`, `description`, `location`, `deleted_at`, `version`, `created_at`, `updated_at` | 모임장이 직접 등록하는 개별 일정. 달력 외의 화면에서도 같은 일정 ID를 참조할 수 있는 모임 소속 자원이다. 종료 날짜는 사용자가 입력한 마지막 날을 **포함**하며 시작일부터 1년 이내여야 한다. 삭제는 기존 기본 정책에 따라 soft delete한다. `version`은 여러 탭의 수정 충돌을 검출한다. |
+| `group_event` | `id`, `group_id`, `title`, `start_date`, `end_date`, `all_day`, `start_time`, `end_time`, `description`, `location`, `recurring_series_id`, `recurring_period_id`, `recurrence_source_date`, `deleted_at`, `version`, `created_at`, `updated_at` | 모임장이 직접 등록하는 개별 일정 또는 특정 반복 회차의 예외 일정. 달력 외의 화면에서도 같은 일정 ID를 참조할 수 있는 모임 소속 자원이다. 종료 날짜는 사용자가 입력한 마지막 날을 **포함**하며 시작일부터 1년 이내여야 한다. 삭제는 기존 기본 정책에 따라 soft delete한다. `version`은 여러 탭의 수정 충돌을 검출한다. |
 | `group_recurring_series` | `id`, `group_id`, `calendar_start_date`, `calendar_end_date`, `flexible_from_date`, `is_current`, `version`, `created_at`, `updated_at` | 한 번 등록된 정기 일정 묶음의 안정적인 ID와 **전체** 표시 기간. 요일·시각 이력 구간을 나눠도 ID가 유지된다. `flexible_from_date`는 정기 일정 삭제 후 유동적으로 운영하는 시작일을 보존한다. 전체 삭제에서는 모임 개설일을 기록해 선택 날짜의 유동적 운영 안내를 제공한다. 제거 후 다시 등록하는 경우를 구별하도록 과거 묶음은 보존한다. 그룹별 현재 묶음은 최대 한 건이다. `version`은 묶음의 범위·기간 변경과 과거 구간 수정을 함께 보호한다. |
 | `group_recurring_schedule_period` | `id`, `series_id`, `days_of_week`, `start_time`, `end_time`, `effective_from`, `effective_until`, `created_at`, `updated_at` | A·B·C처럼 같은 묶음 안에서 서로 다른 요일·시각이 적용된 이력 구간. 구간은 겹치지 않으며 종료일은 포함한다. |
 | `group_location_history` | `id`, `group_id`, `location`, `effective_from_at`, `effective_until_at`, `created_at`, `updated_at` | 모임 장소의 시각별 이력. 현재 `groups.location`은 기존 그룹 상세용 최신 값으로 유지한다. 종료 시각은 배타적이다. |
@@ -162,6 +162,7 @@
 - `group_event`는 달력 화면에 종속되지 않은 **모임 소속 개별 일정**이다. 달력과 장래 홈·목록 화면은 같은 `group_event.id`를 참조하며 별도의 일정 사본을 만들지 않는다. `calendar` API는 정기·세션·개별 일정을 합치는 조회 모델로 둔다.
 - `group_event.event_type`은 `INDIVIDUAL` 또는 하루짜리 `REGULAR_MEETING`을 구분한다. 기존 행과 eventType을 생략한 구버전 요청은 `INDIVIDUAL`로 처리해 기존 개별 일정 데이터를 유지한다. 날짜별 정기 모임은 별도 row를 가지므로 RSVP가 추가될 때 안정적인 일정 ID를 제공한다.
 - `group_event.event_status`는 `AUTO`, `UPCOMING`, `COMPLETED`를 저장한다. `AUTO`는 조회 날짜 기준으로 상태를 계산하고, 모임장이 지정한 두 값은 수동 변경으로 유지한다.
+- 반복 회차 예외는 `group_event`의 `recurring_series_id`, `recurring_period_id`, `recurrence_source_date`를 함께 저장한다. 한 시리즈의 원래 날짜당 한 행만 허용하고, 삭제된 예외 행도 원래 반복 발생을 숨기는 tombstone으로 보존한다. 이동한 예외는 `seriesId + sourceDate` 공개 키와 `group_event.id`를 유지한다.
 - 이번 개별 일정의 설명과 장소는 기존 합의대로 현재 그룹원에게만 제공한다. 장래 외부 모집용 공개 상세는 별도 공개 정보와 권한 정책을 명시적으로 추가한다. 지금의 비공개 설명·장소가 공개 목록이나 신청 API에서 자동 노출되도록 만들지 않는다.
 - 기존 `GroupRecruitment`·`Registration`은 **그룹 가입**을 처리하며 승인 시 `GroupMember`를 만든다. 장래 일정 RSVP·외부 신청은 일정 참석 도메인으로 분리한다. 일정 신청만으로 그룹원이 되지 않게 한다. 참석 인원 제한, 대기·승인 상태, 중복 신청, 취소 및 정원 경쟁 처리는 그 도메인에서 한 트랜잭션으로 정의한다.
 - 미래의 모임 주최 단기 세션은 모임이 소유한 `group_event`에 모집·공개 정책을 연결하는 방향이다. 기존 일정에 모집을 추가하는 경로와, 일정과 모집을 처음부터 함께 생성하는 경로를 모두 지원한다. 두 경로 모두 같은 `group_event.id`로 달력·홈·목록을 연결하며 별도 일정 사본을 만들지 않는다. 함께 생성할 때는 일정과 모집의 생성이 한 트랜잭션에서 성공하거나 함께 롤백되어야 한다. 이를 새로운 `GroupType.SESSION` 모임이나 그룹 가입 모집으로 표현하지 않는다.

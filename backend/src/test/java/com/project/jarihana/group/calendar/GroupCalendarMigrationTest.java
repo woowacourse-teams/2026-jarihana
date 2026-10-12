@@ -7,6 +7,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -62,12 +64,16 @@ class GroupCalendarMigrationTest {
                     """);
 
             String expand = Files.readString(Path.of("db/migrations/2026-10-07-group-calendar-expand.sql"));
+            String occurrenceOverrides = Files.readString(
+                    Path.of("db/migrations/2026-10-12-group-recurring-occurrence-overrides.sql"));
             String backfill = Files.readString(Path.of("db/migrations/2026-10-07-group-calendar-backfill-batch.sql"))
                     .replace("BATCH_START_ID", "1").replace("BATCH_END_ID", "100");
 
             // When
             statement.execute(expand);
             statement.execute(expand);
+            executePostgresScript(statement, occurrenceOverrides);
+            executePostgresScript(statement, occurrenceOverrides);
             statement.execute(backfill);
             statement.execute(backfill);
 
@@ -81,6 +87,15 @@ class GroupCalendarMigrationTest {
                 assertThat(events.getString(1)).isEqualTo("INDIVIDUAL");
                 assertThat(events.getString(2)).isEqualTo("AUTO");
                 assertThat(events.getString(3)).isEqualTo("기존 일정");
+            }
+            try (ResultSet events = statement.executeQuery("""
+                    SELECT recurring_series_id, recurring_period_id, recurrence_source_date
+                    FROM group_event WHERE id = 1
+                    """)) {
+                assertThat(events.next()).isTrue();
+                assertThat(events.getObject(1)).isNull();
+                assertThat(events.getObject(2)).isNull();
+                assertThat(events.getObject(3)).isNull();
             }
             try (ResultSet rows = statement.executeQuery("""
                     SELECT g.recurring_activity_days, g.location, g.show_base_schedule_in_calendar,
@@ -104,6 +119,35 @@ class GroupCalendarMigrationTest {
         try (rows) {
             assertThat(rows.next()).isTrue();
             return rows.getLong(1);
+        }
+    }
+
+    private void executePostgresScript(Statement statement, String sql) throws Exception {
+        int start = 0;
+        boolean inDollarQuotedBlock = false;
+        for (int index = 0; index < sql.length(); index++) {
+            if (sql.startsWith("$$", index)) {
+                inDollarQuotedBlock = !inDollarQuotedBlock;
+                index++;
+            } else if (sql.charAt(index) == ';' && !inDollarQuotedBlock) {
+                String command = sql.substring(start, index + 1).trim();
+                if (!command.isEmpty()) {
+                    executeMigrationStatement(statement, command);
+                }
+                start = index + 1;
+            }
+        }
+        String trailingCommand = sql.substring(start).trim();
+        if (!trailingCommand.isEmpty()) {
+            executeMigrationStatement(statement, trailingCommand);
+        }
+    }
+
+    private void executeMigrationStatement(Statement statement, String command) throws SQLException {
+        try {
+            statement.execute(command);
+        } catch (SQLException exception) {
+            throw new SQLException("Failed migration statement: " + command, exception);
         }
     }
 }

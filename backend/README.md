@@ -127,6 +127,11 @@ docker compose -f docker-compose-local.yaml ps
 작성 내용과 인증 회원 ID가 함께 저장됩니다. 운영 프로필은
 `ddl-auto: validate`이므로 이 DDL을 적용하지 않으면 애플리케이션이 기동하지 않습니다.
 
+그룹 달력의 반복 회차별 예외 수정을 배포하기 전에 운영 DB에서
+`db/migrations/2026-10-12-group-recurring-occurrence-overrides.sql`을 실행해야 합니다.
+기존 일정 데이터는 nullable 연결 컬럼으로 보존되며, `ddl-auto: validate` 환경에서는
+마이그레이션을 적용하지 않으면 애플리케이션이 기동하지 않습니다.
+
 ### 운영 DB SSH 터널 접속
 
 운영 Compose는 PostgreSQL 포트를 서버의 `127.0.0.1:5432`에 바인딩합니다.

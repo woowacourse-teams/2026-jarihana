@@ -17,6 +17,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class GroupCalendarService {
@@ -84,8 +87,33 @@ public class GroupCalendarService {
             return new GroupCalendarResponse(group.isShowBaseScheduleInCalendar(), null, List.of(), List.of());
         }
         List<GroupCalendarResponse.CalendarEvent> results = new ArrayList<>();
+        List<GroupRecurringSeries> recurringSeries = group.isShowBaseScheduleInCalendar()
+                ? series.findAllByGroupIdOrderByCalendarStartDateAsc(groupId) : List.of();
+        Map<Long, GroupRecurringSeries> visibleSeriesById = recurringSeries.stream()
+                .filter(recurring -> !recurring.isHideAll())
+                .collect(Collectors.toMap(GroupRecurringSeries::getId, recurring -> recurring));
+        List<GroupEvent> occurrenceOverrides = !visibleSeriesById.isEmpty()
+                ? events.findAllByGroupIdAndRecurringSeriesIdIsNotNullAndRecurrenceSourceDateBetween(
+                        groupId, from, visibleTo)
+                : List.of();
+        Set<String> overriddenOccurrences = occurrenceOverrides.stream()
+                .filter(event -> visibleSeriesById.containsKey(event.getRecurringSeriesId()))
+                .filter(event -> isWithinCalendarRange(visibleSeriesById.get(event.getRecurringSeriesId()),
+                        event.getRecurrenceSourceDate()))
+                .map(event -> occurrenceKey(event.getRecurringSeriesId(), event.getRecurrenceSourceDate()))
+                .collect(Collectors.toSet());
         for (GroupEvent event : events.findAllByGroupIdAndDeletedAtIsNullAndStartDateLessThanEqualAndEndDateGreaterThanEqualOrderByStartDateAscIdAsc(
                 groupId, visibleTo, from)) {
+            if (event.isRecurringOverride() && !group.isShowBaseScheduleInCalendar()) continue;
+            if (event.isRecurringOverride()) {
+                GroupRecurringSeries recurring = visibleSeriesById.get(event.getRecurringSeriesId());
+                if (recurring == null || !isWithinCalendarRange(recurring, event.getRecurrenceSourceDate())) continue;
+                results.add(new GroupCalendarResponse.CalendarEvent("RECURRING", event.getId(),
+                        occurrenceKey(event.getRecurringSeriesId(), event.getRecurrenceSourceDate()),
+                        event.getRecurringPeriodId(), "정기 모임", event.getStartDate(), event.getEndDate(),
+                        event.isAllDay(), event.getStartTime(), event.getEndTime()));
+                continue;
+            }
             String eventKind = event.getEventType() == GroupEventType.REGULAR_MEETING
                     ? "REGULAR_MEETING" : "GROUP_EVENT";
             results.add(new GroupCalendarResponse.CalendarEvent(eventKind, event.getId(), null, null,
@@ -95,7 +123,6 @@ public class GroupCalendarService {
         GroupCalendarResponse.FlexibleBeforeFirstRecurring flexible = null;
         List<GroupCalendarResponse.FlexibleAfterRecurring> flexibleAfter = new ArrayList<>();
         if (group.isShowBaseScheduleInCalendar()) {
-            List<GroupRecurringSeries> recurringSeries = series.findAllByGroupIdOrderByCalendarStartDateAsc(groupId);
             List<GroupRecurringSeries> visibleSeries = recurringSeries.stream()
                     .filter(recurring -> !recurring.isHideAll()).toList();
             if (recurringSeries.isEmpty() && group.getType() != GroupType.SESSION
@@ -167,8 +194,9 @@ public class GroupCalendarService {
                     if (periodTo.isBefore(periodFrom)) continue;
                     for (LocalDate date = periodFrom; !date.isAfter(periodTo); date = date.plusDays(1)) {
                         if (!period.getDaysOfWeek().contains(date.getDayOfWeek())) continue;
+                        if (overriddenOccurrences.contains(occurrenceKey(recurring.getId(), date))) continue;
                         results.add(new GroupCalendarResponse.CalendarEvent("RECURRING", null,
-                                "recurring:" + recurring.getId() + ":" + date, period.getId(),
+                                occurrenceKey(recurring.getId(), date), period.getId(),
                                 "정기 모임", date, date, false, period.getStartTime(), period.getEndTime()));
                     }
                 }
@@ -194,5 +222,14 @@ public class GroupCalendarService {
 
     private LocalDate max(LocalDate left, LocalDate right) {
         return left.isAfter(right) ? left : right;
+    }
+
+    private String occurrenceKey(Long seriesId, LocalDate sourceDate) {
+        return "recurring:" + seriesId + ":" + sourceDate;
+    }
+
+    private boolean isWithinCalendarRange(GroupRecurringSeries recurring, LocalDate date) {
+        return !date.isBefore(recurring.getCalendarStartDate())
+                && (recurring.getCalendarEndDate() == null || !date.isAfter(recurring.getCalendarEndDate()));
     }
 }

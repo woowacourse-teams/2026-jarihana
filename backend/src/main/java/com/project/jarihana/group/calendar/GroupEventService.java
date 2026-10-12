@@ -43,7 +43,7 @@ public class GroupEventService {
         requireLeader(memberId, groupId);
         GroupEventType eventType = request.resolvedEventType();
         GroupEventStatus status = request.resolvedStatus();
-        requireNoRecurringOccurrence(groupId, eventType, request.startDate());
+        requireNoRecurringOccurrence(groupId, eventType, request.startDate(), null, null);
         GroupEvent event = GroupEvent.create(group, eventType, status, request.title(), request.startDate(), request.endDate(),
                 request.allDay(), request.startTime(), request.endTime(), request.description(), request.location(),
                 LocalDateTime.now(clock));
@@ -80,7 +80,8 @@ public class GroupEventService {
         if (eventType == GroupEventType.INDIVIDUAL) {
             status = GroupEventStatus.AUTO;
         }
-        requireNoRecurringOccurrence(groupId, eventType, request.startDate());
+        requireNoRecurringOccurrence(groupId, eventType, request.startDate(), existing.getRecurringSeriesId(),
+                existing.getRecurrenceSourceDate());
         return GroupEventResponse.from(events.saveAndFlush(existing.modify(eventType, status, request.title(), request.startDate(),
                 request.endDate(), request.allDay(), request.startTime(), request.endTime(),
                 request.description(), request.location())), LocalDate.now(clock));
@@ -93,6 +94,47 @@ public class GroupEventService {
         GroupEvent existing = findEvent(groupId, eventId);
         requireVersion(existing, version);
         events.save(existing.deleteAt(LocalDateTime.now(clock)));
+    }
+
+    @Transactional
+    public GroupEventResponse overrideOccurrence(Long memberId, Long groupId, RecurringOccurrenceRequest request) {
+        Group group = lockedActiveGroup(groupId);
+        requireLeader(memberId, groupId);
+        GroupRecurringPeriod period = recurringPeriods.findById(request.periodId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.RECURRING_SCHEDULE_NOT_FOUND,
+                        "정기 일정 구간을 찾을 수 없습니다."));
+        GroupRecurringSeries schedule = period.getSeries();
+        requireOccurrenceBelongsToGroup(group, schedule, period, request.sourceDate());
+        requireOccurrenceVersion(schedule, request.seriesVersion());
+        if (events.findByRecurringSeriesIdAndRecurrenceSourceDate(schedule.getId(), request.sourceDate()).isPresent()) {
+            throw new BusinessException(ErrorCode.GROUP_EVENT_CONFLICT,
+                    "이미 개별 변경된 회차입니다. 달력을 새로고침해 주세요.");
+        }
+        requireNoRecurringOccurrence(groupId, GroupEventType.REGULAR_MEETING, request.startDate(),
+                schedule.getId(), request.sourceDate());
+        GroupEvent event = GroupEvent.createRecurringOverride(group, schedule.getId(), period.getId(),
+                request.sourceDate(), request.resolvedStatus(), request.startDate(), request.allDay(),
+                request.startTime(), request.endTime(), request.description(), request.location(),
+                LocalDateTime.now(clock));
+        return GroupEventResponse.from(events.saveAndFlush(event), LocalDate.now(clock));
+    }
+
+    @Transactional
+    public void hideOccurrence(Long memberId, Long groupId, RecurringOccurrenceDeleteRequest request) {
+        Group group = lockedActiveGroup(groupId);
+        requireLeader(memberId, groupId);
+        GroupRecurringPeriod period = recurringPeriods.findById(request.periodId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.RECURRING_SCHEDULE_NOT_FOUND,
+                        "정기 일정 구간을 찾을 수 없습니다."));
+        GroupRecurringSeries schedule = period.getSeries();
+        requireOccurrenceBelongsToGroup(group, schedule, period, request.sourceDate());
+        requireOccurrenceVersion(schedule, request.seriesVersion());
+        if (events.findByRecurringSeriesIdAndRecurrenceSourceDate(schedule.getId(), request.sourceDate()).isPresent()) {
+            throw new BusinessException(ErrorCode.GROUP_EVENT_CONFLICT,
+                    "이미 개별 변경된 회차입니다. 달력을 새로고침해 주세요.");
+        }
+        events.saveAndFlush(GroupEvent.createRecurringTombstone(group, schedule.getId(), period.getId(),
+                request.sourceDate(), period.getStartTime(), period.getEndTime(), LocalDateTime.now(clock)));
     }
 
     private Group lockedActiveGroup(Long groupId) {
@@ -122,7 +164,8 @@ public class GroupEventService {
         }
     }
 
-    private void requireNoRecurringOccurrence(Long groupId, GroupEventType eventType, LocalDate date) {
+    private void requireNoRecurringOccurrence(Long groupId, GroupEventType eventType, LocalDate date,
+                                              Long allowedSeriesId, LocalDate allowedSourceDate) {
         if (eventType != GroupEventType.REGULAR_MEETING) {
             return;
         }
@@ -130,13 +173,41 @@ public class GroupEventService {
                 .filter(series -> !series.isHideAll())
                 .filter(series -> !date.isBefore(series.getCalendarStartDate()))
                 .filter(series -> series.getCalendarEndDate() == null || !date.isAfter(series.getCalendarEndDate()))
-                .anyMatch(series -> recurringPeriods.findAllBySeriesIdOrderByEffectiveFromAsc(series.getId()).stream()
-                        .filter(period -> !date.isBefore(period.getEffectiveFrom()))
-                        .filter(period -> period.getEffectiveUntil() == null || !date.isAfter(period.getEffectiveUntil()))
-                        .anyMatch(period -> period.getDaysOfWeek().values().contains(date.getDayOfWeek())));
+                .anyMatch(schedule -> {
+                    if (schedule.getId().equals(allowedSeriesId) && date.equals(allowedSourceDate)) {
+                        return false;
+                    }
+                    return recurringPeriods.findAllBySeriesIdOrderByEffectiveFromAsc(schedule.getId()).stream()
+                            .filter(period -> !date.isBefore(period.getEffectiveFrom()))
+                            .filter(period -> period.getEffectiveUntil() == null || !date.isAfter(period.getEffectiveUntil()))
+                            .anyMatch(period -> period.getDaysOfWeek().values().contains(date.getDayOfWeek()));
+                });
         if (overlaps) {
             throw new BusinessException(ErrorCode.GROUP_EVENT_CONFLICT,
                     "이 날짜에는 정기 일정이 이미 있어요. 다른 날짜를 선택해 주세요.");
+        }
+    }
+
+    private void requireOccurrenceVersion(GroupRecurringSeries schedule, Long version) {
+        if (!version.equals(schedule.getVersion())) {
+            throw new BusinessException(ErrorCode.GROUP_EVENT_CONFLICT,
+                    "정기 일정이 변경되었습니다. 달력을 새로고침 후 다시 시도해 주세요.");
+        }
+    }
+
+    private void requireOccurrenceBelongsToGroup(Group group, GroupRecurringSeries schedule,
+                                                  GroupRecurringPeriod period, LocalDate sourceDate) {
+        if (!schedule.getGroup().getId().equals(group.getId()) || !period.getSeries().getId().equals(schedule.getId())) {
+            throw new BusinessException(ErrorCode.RECURRING_SCHEDULE_NOT_FOUND,
+                    "정기 일정 구간을 찾을 수 없습니다.");
+        }
+        if (schedule.isHideAll() || sourceDate.isBefore(schedule.getCalendarStartDate())
+                || schedule.getCalendarEndDate() != null && sourceDate.isAfter(schedule.getCalendarEndDate())
+                || sourceDate.isBefore(period.getEffectiveFrom())
+                || period.getEffectiveUntil() != null && sourceDate.isAfter(period.getEffectiveUntil())
+                || !period.getDaysOfWeek().values().contains(sourceDate.getDayOfWeek())) {
+            throw new BusinessException(ErrorCode.GROUP_EVENT_CONFLICT,
+                    "선택한 날짜에는 정기 일정이 없습니다. 달력을 새로고침해 주세요.");
         }
     }
 }
