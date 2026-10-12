@@ -333,7 +333,7 @@ export function GroupDetailPage() {
                 {
                   label: tabs[3].label,
                   value: tabs[3].value,
-                  content: selectedTab === "members" ? <MemberTab groupId={groupId} /> : null
+                  content: selectedTab === "members" ? <MemberTab groupId={groupId} leader={group.leader} /> : null
                 }
               ]}
             />
@@ -790,7 +790,7 @@ function MemberList({ items, query }) {
           ref={gridReference}
         >
           {items.map((member) => (
-            <li data-member-card key={member.groupMemberId}>
+            <li data-member-card key={member.memberId}>
               <Avatar
                 alt={`${member.crewName} 프로필`}
                 className="group-member-avatar"
@@ -943,8 +943,11 @@ function CohortDonut({ cohorts, total }) {
   );
 }
 
-function MemberTab({ groupId }) {
+function MemberTab({ groupId, leader }) {
   const query = useInfiniteGroupMembers(groupId);
-  const items = flattenPages(query.data, (member) => member.groupMemberId);
+  const members = flattenPages(query.data, (member) => member.groupMemberId);
+  const items = leader
+    ? [{ ...leader, role: "LEADER" }, ...members.filter((member) => member.memberId !== leader.memberId)]
+    : members;
   return <MemberList items={items} query={query} />;
 }
