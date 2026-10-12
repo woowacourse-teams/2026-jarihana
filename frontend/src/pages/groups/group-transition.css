@@ -63,18 +63,6 @@
   display: none;
 }
 
-.group-detail-page .group-profile__shade {
-  background: var(--group-profile-overlay);
-}
-
-.group-detail-page .group-profile--default-image .group-profile__image {
-  opacity: 1;
-}
-
-.group-detail-page .group-profile--default-image .group-profile__shade {
-  background: var(--group-profile-overlay), linear-gradient(rgb(0 0 0 / 35%), rgb(0 0 0 / 35%));
-}
-
 ::view-transition {
   pointer-events: none;
 }

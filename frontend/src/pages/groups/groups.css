@@ -597,8 +597,12 @@
   z-index: 1;
   content: "";
   inset: 0;
-  background: var(--group-profile-overlay);
   pointer-events: none;
+}
+
+.group-profile::after,
+.group-profile__shade {
+  background: var(--group-profile-overlay);
 }
 
 .group-profile h1 {
@@ -631,16 +635,6 @@
   object-position: center;
 }
 
-.group-profile--default-image .group-profile__art {
-  background:
-    radial-gradient(
-      circle at 82% 50%,
-      color-mix(in srgb, var(--color-brand) 42%, transparent),
-      transparent 44%
-    ),
-    color-mix(in srgb, var(--color-brand) 30%, var(--color-nav));
-}
-
 .group-profile--default-image {
   --group-profile-overlay:
     linear-gradient(
@@ -656,30 +650,16 @@
     );
 }
 
-.group-profile--default-image::after {
-  background: var(--group-profile-overlay);
+.group-profile--default-image::after,
+.group-profile--default-image .group-profile__shade {
+  background: var(--group-profile-overlay), linear-gradient(rgb(0 0 0 / 35%), rgb(0 0 0 / 35%));
 }
 
 .group-profile--default-image .group-profile__image {
-  padding: var(--space-7);
-  object-fit: contain;
-  object-position: right center;
-  opacity: 0.28;
-  transform: translateX(6%);
-}
-
-.group-detail-page .group-profile--default-image .group-profile__image {
   padding: 0;
   object-fit: cover;
   object-position: center;
-  opacity: 0.65;
-  transform: none;
-}
-
-.group-editor__profile.group-profile--default-image .group-profile__image {
-  padding: 0;
-  object-fit: cover;
-  object-position: center;
+  opacity: 1;
   transform: none;
 }
 
@@ -1681,10 +1661,6 @@
   max-width: var(--container-shell);
 }
 
-.group-detail-page .group-profile--default-image .group-profile__art {
-  background: var(--color-nav);
-}
-
 .group-detail-grid {
   grid-template-columns: minmax(0, 1fr) var(--group-detail-rail-width);
   gap: var(--space-5);
@@ -2027,27 +2003,12 @@
     );
   }
 
-  .group-profile::after {
-    background: var(--group-profile-overlay);
-  }
-
   .group-profile--default-image {
     --group-profile-overlay: linear-gradient(
       180deg,
       color-mix(in srgb, var(--color-nav) 28%, transparent) 0%,
       color-mix(in srgb, var(--color-nav) 54%, transparent) 100%
     );
-  }
-
-  .group-profile--default-image::after {
-    background: var(--group-profile-overlay);
-  }
-
-  .group-profile--default-image .group-profile__image {
-    padding: var(--space-8) var(--space-3) var(--space-3);
-    object-position: center bottom;
-    opacity: 0.22;
-    transform: none;
   }
 
   .group-detail-tabs .ui-tabs__list {
