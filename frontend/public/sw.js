@@ -72,11 +72,11 @@ async function command(message) {
   throw new Error("INVALID_COMMAND");
 }
 const EVENT_COPY = {
-  REGISTRATION_SUBMITTED: ["새 신청", "모임에 새로운 신청이 도착했어요."],
-  REGISTRATION_APPROVED: ["신청 승인", "모임 신청이 승인되었어요."],
-  REGISTRATION_REJECTED: ["신청 결과", "모임 신청 결과를 확인해 주세요."],
-  REGISTRATION_SYSTEM_REJECTED: ["신청 결과", "모집 상태 변경으로 신청이 마감되었어요."],
-  PARTICIPANT_JOINED: ["모임 참여", "모임 참여가 완료되었어요."]
+  REGISTRATION_SUBMITTED: "모임에 새로운 신청이 도착했어요.",
+  REGISTRATION_APPROVED: "모임 신청이 승인되었어요.",
+  REGISTRATION_REJECTED: "모임 신청 결과를 확인해 주세요.",
+  REGISTRATION_SYSTEM_REJECTED: "모집 상태 변경으로 신청이 마감되었어요.",
+  PARTICIPANT_JOINED: "모임 참여가 완료되었어요."
 };
 async function receivePush(event) {
   let reference;
@@ -103,8 +103,8 @@ async function receivePush(event) {
   await serial(async () => {
     const current = await readState();
     if (!sameBinding(initial, current)) return;
-    const [title, body] = content ? EVENT_COPY[content.eventType] : ["자리하나", "새 소식이 있어요. 알림함에서 확인해 주세요."];
-    await self.registration.showNotification(title, {
+    const body = content ? EVENT_COPY[content.eventType] : "새 소식이 있어요. 알림함에서 확인해 주세요.";
+    await self.registration.showNotification("자리하나?", {
       body, icon: "/icons/pwa-192.png", tag: `jarihana:${reference.notificationId}`,
       data: { notificationId: content ? reference.notificationId : null, binding: current }
     });
