@@ -5,7 +5,6 @@
  */
 
 .group-editor {
-    --group-editor-content-width: 68.75rem;
     color: var(--color-ink);
     inline-size: 100%;
     max-inline-size: var(--container-shell);
@@ -15,7 +14,6 @@
 }
 
 .group-editor--embedded {
-    inline-size: min(100%, var(--group-editor-content-width));
     margin-inline: auto;
     padding: 0;
 }
@@ -175,25 +173,6 @@
 
 
 /*
- * 히어로에 입력이 올라가는데 대표 이미지가 어떤 색일지 알 수 없다.
- * 이미지를 어둡게 깔고 그 위에 고른 scrim을 덮어, 순백 이미지가 올라와도
- * 흰 글자 10.5:1, 브랜드 4.7:1, muted 5.3:1로 모두 AA를 넘게 만든다.
- * 기본 일러스트는 이미 opacity로 눌러 두었으므로 건드리지 않는다.
- */
-.group-profile.group-editor__profile:not(.group-profile--default-image) .group-profile__image {
-    filter: brightness(0.45);
-}
-
-.group-profile.group-editor__profile::after {
-    background:
-        linear-gradient(
-            90deg,
-            color-mix(in srgb, var(--color-nav) 56%, transparent) 0%,
-            color-mix(in srgb, var(--color-nav) 45%, transparent) 100%
-        );
-}
-
-/*
  * 상세 페이지의 히어로는 좌측 상단 '목록으로' 버튼 자리를 비워 두려고 위쪽에
  * touch-target 만큼 여백을 준다. 편집 화면에는 그 버튼이 없어 그만큼이 빈 공간이다.
  * 우측 상단 대표 이미지 버튼과는 375px에서도 겹치지 않는다. 버튼이 차지하는
@@ -242,13 +221,21 @@
  * 컨트롤을 바닥으로 밀어 밑줄을 한 줄에 맞춘다.
  */
 .group-profile.group-editor__profile .group-fact .group-editor__ul,
-.group-profile.group-editor__profile .group-fact dd {
+.group-profile.group-editor__profile .group-editor__schedule-value {
     margin-block-start: auto;
 }
 
-/* dd의 브라우저 기본 들여쓰기가 남아 있어 칸마다 시작점이 어긋난다. */
-.group-profile.group-editor__profile .group-fact dd {
-    margin-inline-start: 0;
+.group-editor__schedule-label {
+    color: var(--color-header-muted);
+    font-size: var(--text-caption);
+    line-height: 1.35;
+}
+
+.group-editor__schedule-value {
+    color: var(--color-surface);
+    font-size: var(--text-label);
+    line-height: 1.4;
+    overflow-wrap: anywhere;
 }
 
 .group-editor__schedule-row {

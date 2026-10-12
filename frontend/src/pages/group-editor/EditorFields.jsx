@@ -102,8 +102,8 @@ export function ScheduleFact({ actionLabel = "수정", error, lines, onEdit }) {
   return (
     <div className="group-fact group-fact--schedule">
       <div>
-        <dt>모임 일정</dt>
-        <dd>
+        <span className="group-editor__schedule-label">모임 일정</span>
+        <div className="group-editor__schedule-value">
           <button
             aria-label={`모임 일정 ${actionLabel}`}
             className="group-editor__schedule-row"
@@ -122,7 +122,7 @@ export function ScheduleFact({ actionLabel = "수정", error, lines, onEdit }) {
               {error}
             </p>
           ) : null}
-        </dd>
+        </div>
       </div>
     </div>
   );

@@ -394,9 +394,10 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   홈의 가로 비율 기반 높이를 해제해 tablet 폭에 따라 hero 높이가 급변하지 않게 한다.
   상세 hero 내용은 세로 가운데 정렬하고 긴 제목·소개·일정이 있으면 자연스럽게 늘어난다.
   상세 기본 이미지의 배경은 녹색 그라데이션 없이 `--color-nav`를 사용한다.
-  상세 기본 이미지의 불투명도는 모든 화면에서 0.65로 두어 배경을 드러내고,
-  기존 어두운 오버레이는 유지해 본문 대비를 확보한다.
-  상세의 sticky rail과 생성·수정 form hero는 기존 배치 규칙을 유지한다.
+  상세·생성·수정의 대표 이미지는 같은 `cover`·중앙 정렬을 사용한다. 이미지 자체의
+  불투명도는 1로 유지하고, 공통 `--group-profile-overlay`로 명암을 조절한다.
+  기본 이미지에는 검정 35% 레이어를 추가한다. 기본/업로드 이미지 모두 민트색 배경이나
+  편집 전용 밝기 필터 없이 같은 효과를 사용하며, 모바일에서는 공통 세로 gradient로 전환한다.
   mobile(`47.9375rem` 이하)에서는 헤더와 상세 hero 사이 간격을 두지 않는다.
   상세 페이지의 좌우 바깥 여백은 없애고, hero·탭 본문 안쪽 여백은 유지한다.
   모바일 상세 hero는 별도 여백 없이 화면 가장자리와 맞닿게 배치하며,
@@ -427,10 +428,11 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
 - 모달의 모집 정보 스크롤바는 투명 track과 얇고 둥근 thumb를 사용하며 스크롤바 공간을 상시 예약하지
   않는다. 모달은 둥근 외곽 안쪽의 모집 정보 한 곳에서만 세로 스크롤하고 제목·닫기 버튼·신청
   action은 고정한다. 내부 flex/grid 요소는 가용 폭까지 줄어들며 가로 스크롤을 만들지 않는다.
-- `FormLayout`: group editor는 `1100px` content target을 부모 shell 안에서 중앙 정렬하고, mint hero, white form panels,
-  step title/illustration과 하단 action bar를 둔다. 1024px 미만에서는 hero의 text/visual을
-  세로로 쌓고, mobile day picker는 2 columns로 줄인다. 모바일 설명 편집기의 `작성`·`미리보기`
-  도구는 한 행의 2열로 유지한다.
+- `FormLayout`: 모임 생성·수정은 공통 `--container-shell`과 `--page-gutter`를 사용해
+  좌우 여백과 콘텐츠 폭을 맞춘다. 수정 form은 관리 shell의 안쪽 폭을 그대로 사용한다.
+  대표 이미지는 선택한 모임 종류의 기본 이미지를 표시하고, 업로드 이후에는 선택한 사진을 유지한다.
+  hero의 본문 폭과 이미지 배치는 상세의 `.group-profile` 규칙을 공유한다.
+  mobile day picker와 설명 편집기의 `작성`·`미리보기` 도구는 2열로 유지한다.
 - `MyPageLayout`: profile column + activity panel의 desktop split, 3개 count link, 2-column
   summary cards를 사용한다. tablet/mobile에서는 각 grid를 정보 순서대로 한 column으로 접는다.
   dashboard surface의 좌우 확장과 내부 여백은 page gutter 이하로 제한해 모바일 가로 넘침을 막는다.
