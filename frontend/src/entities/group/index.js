@@ -52,9 +52,9 @@ export const groupCalendarSchema = z.object({
   }).strict()),
   events: z.array(z.object({
     kind: z.enum(["GROUP_EVENT", "REGULAR_MEETING", "RECURRING", "SESSION"]),
-    id: entityIdSchema.optional(),
-    occurrenceKey: z.string().optional(),
-    periodId: entityIdSchema.optional(),
+    id: entityIdSchema.nullable().optional(),
+    occurrenceKey: z.string().nullable().optional(),
+    periodId: entityIdSchema.nullable().optional(),
     title: z.string(),
     startDate: localDateSchema,
     endDate: localDateSchema,
