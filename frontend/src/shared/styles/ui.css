@@ -38,11 +38,13 @@ textarea {
     border-radius: var(--radius-pill);
     cursor: pointer;
     display: inline-flex;
-    font-weight: 700;
+    font-size: var(--text-label);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.4;
     gap: var(--space-2);
     justify-content: center;
-    min-height: var(--touch-target);
-    padding-inline: var(--space-5);
+    min-height: var(--button-height-md);
+    padding: var(--space-1) var(--space-5);
     transition: background-color var(--duration-fast) var(--ease-standard),
     color var(--duration-fast) var(--ease-standard),
     border-color var(--duration-fast) var(--ease-standard),
@@ -100,26 +102,26 @@ textarea {
 }
 
 .ui-button--sm {
-    min-height: var(--touch-target);
+    min-height: var(--button-height-sm);
     padding-inline: var(--space-4);
     font-size: var(--text-label);
 }
 
 .ui-button--md {
-    min-height: 2.875rem;
-    font-size: var(--text-body);
+    min-height: var(--button-height-md);
+    font-size: var(--text-label);
 }
 
 .ui-button--lg {
-    min-height: 3.25rem;
+    min-height: var(--button-height-lg);
     padding-inline: var(--space-6);
-    font-size: var(--text-body-lg);
+    font-size: var(--text-body);
 }
 
 .ui-button--large {
-    min-height: 3.25rem;
+    min-height: var(--button-height-lg);
     padding-inline: var(--space-6);
-    font-size: var(--text-body-lg);
+    font-size: var(--text-body);
 }
 
 .ui-button--block {
@@ -127,6 +129,7 @@ textarea {
 }
 
 .ui-icon-button {
+    min-height: var(--touch-target);
     padding: 0;
     width: var(--touch-target);
 }
@@ -650,8 +653,9 @@ textarea {
 }
 
 .ui-date-range__presets button {
-    min-height: var(--touch-target);
-    padding-inline: var(--space-5);
+    min-height: var(--button-height-sm);
+    padding: var(--space-1) var(--space-4);
+    line-height: 1.4;
     border: var(--border-thin) solid var(--color-line);
     border-radius: var(--radius-pill);
     background: var(--color-surface);
@@ -1143,14 +1147,34 @@ textarea {
 }
 
 .ui-badge {
-    align-items: center;
-    border-radius: var(--radius-pill);
-    display: inline-flex;
-    font-size: var(--text-caption);
-    font-weight: 700;
-    min-height: 1.75rem;
-    padding-inline: var(--space-3);
-    width: fit-content;
+  align-items: center;
+  border-radius: var(--space-1);
+  display: inline-flex;
+  gap: var(--space-1);
+  font-size: var(--text-badge);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.5;
+  padding: var(--space-1) var(--space-2);
+  white-space: nowrap;
+  width: fit-content;
+}
+
+.ui-badge > svg {
+  flex: none;
+  height: 1em;
+  width: 1em;
+}
+
+.ui-badge--overlay {
+  position: absolute;
+  z-index: 2;
+  top: var(--space-3);
+  left: var(--space-3);
+}
+
+.ui-badge--ended {
+  background: var(--color-nav);
+  color: var(--color-surface);
 }
 
 .ui-badge--brand {

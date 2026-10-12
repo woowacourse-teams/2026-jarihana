@@ -1,39 +1,48 @@
 import { CalendarDays, MapPin, Timer } from "lucide-react";
-import { Link } from "react-router";
 
-import { GroupImage } from "../../../shared/ui/index.js";
+import { GroupDetailLink } from "../GroupTransition.jsx";
+import { GroupImage, StatusBadge } from "../../../shared/ui/index.js";
 import { groupScheduleLabel, groupSeatsLabel, scheduleDuration } from "./groupCardMetadata.js";
-import { typeLabel } from "../pageUtils.js";
+import { typeBadgeTone, typeLabel } from "../pageUtils.js";
 
 export function DiscoveryGroupCard({ group, recruiting }) {
+  const isEnded = group.status === "ENDED";
   const duration = group.type === "SESSION" ? scheduleDuration(group.sessionSchedule) : null;
-  const seats = groupSeatsLabel(group);
+  const seats = isEnded ? null : groupSeatsLabel(group);
   const location = group.location?.trim();
 
   return (
-    <Link
-      className={`discovery-group-card discovery-group-card--${group.type.toLowerCase()}`}
+    <GroupDetailLink
+      className={`discovery-group-card discovery-group-card--${group.type.toLowerCase()}${isEnded ? " discovery-group-card--ended" : ""}`}
       data-ph-capture-attribute-action="group_view"
-      to={`/groups/${group.id}`}
+      groupId={group.id}
+      source="discovery"
     >
-      <span className="discovery-group-card__visual" aria-hidden="true">
-        <GroupImage
-          alt=""
-          className="discovery-group-card__image"
-          group={group}
-          height="172"
-          loading="lazy"
-          width="320"
-        />
+      <span className="discovery-group-card__visual">
+        <span className="group-card-transition-image" data-group-transition-image>
+          <GroupImage
+            alt=""
+            className="discovery-group-card__image"
+            group={group}
+            height="172"
+            loading="lazy"
+            width="320"
+          />
+          <span aria-hidden="true" className="group-transition-shade discovery-group-card__shade" />
+        </span>
+        {isEnded && <StatusBadge className="discovery-group-card__ended-badge" placement="overlay" tone="ended">종료</StatusBadge>}
+        {recruiting && !isEnded && (
+          <StatusBadge className="discovery-group-card__recruiting-badge" placement="overlay" tone="brand">모집 중</StatusBadge>
+        )}
       </span>
       <div className="discovery-group-card__body">
         <div className="discovery-group-card__top">
-          <span
+          <StatusBadge
             className={`discovery-group-card__type discovery-group-card__type--${group.type.toLowerCase()}`}
+            tone={typeBadgeTone(group.type)}
           >
             {typeLabel(group.type)}
-          </span>
-          {recruiting ? <span className="discovery-group-card__recruiting">모집 중</span> : null}
+          </StatusBadge>
         </div>
         <h3 className="discovery-group-card__title">{group.name}</h3>
         <p className="discovery-group-card__description">{group.introduction}</p>
@@ -61,6 +70,6 @@ export function DiscoveryGroupCard({ group, recruiting }) {
           {seats ? <span className="discovery-group-card__seats">{seats}</span> : null}
         </div>
       </div>
-    </Link>
+    </GroupDetailLink>
   );
 }
