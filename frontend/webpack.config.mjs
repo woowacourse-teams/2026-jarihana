@@ -104,7 +104,8 @@ export default (_, arguments_) => {
             to: "images"
           },
           {
-            from: path.resolve(directory, "src/shared/assets/illustrations/default-group-*-3d.png"),
+            context: path.resolve(directory, "src/shared/assets/illustrations"),
+            from: "default-group-*-3d.png",
             to: "assets/[name][ext]"
           },
           {
