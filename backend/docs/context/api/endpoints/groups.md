@@ -8,6 +8,11 @@
 현재 운영 버킷의 이미지 객체 prefix는 `jarihana/images`이며, 공개 Base URL은
 해당 prefix를 제외한 CloudFront 경로(예: `https://d1znkkaqfyz08f.cloudfront.net/images`)다.
 
+목록·상세의 `activeRecruitment.approvedCount`는 해당 공고의 모집으로 가입한 인원(APPROVED·RECRUITMENT)이다.
+초대 출처 승인은 제외한다. `memberCount`는 실제 GroupMember 수이며 모임장과 초대 합류자도 포함한다.
+`recruiting=true`는 기간상 열린 공고의 모집으로 가입한 인원이 정원보다 적은 그룹을,
+`recruiting=false`는 그런 공고가 없는 그룹을 조회한다.
+
 ### `GET /api/groups`
 
 - 설명: 그룹 목록 조회 — 관계·상태·유형 필터 지원
@@ -188,7 +193,8 @@ Request Body는 없다.
 
 #### 동작
 - `ACTIVE`이고 생성 후 24시간 이내인 경우에만 가능하다.
-- 그룹, 모집 공고, 신청, 구성원, 반복 일정 또는 세션 일정을 Hard Delete한다.
+- 그룹, 초대·수락 이력, 모집 공고, 신청, 구성원, 반복 일정 또는 세션 일정을 Hard Delete한다.
+- 수신자의 초대 알림은 유지하고 PENDING·RETRY·IN_FLIGHT 초대 전송을 취소한다. 삭제된 초대의 상세·공유 미리보기·수락은 INVITATION_NOT_FOUND(404)로 안내한다. 이미 전달된 OS 알림은 회수하지 않는다.
 - `Group.status`를 변경하지 않는다.
 - 삭제 요청을 종료 요청으로 자동 전환하지 않는다.
 

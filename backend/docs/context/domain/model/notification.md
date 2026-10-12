@@ -32,15 +32,21 @@
 | eventKey | String / varchar(160) | 서버가 생성하는 사건 의미키, NOT NULL | 같은 사건을 두 번 처리해도 알림을 중복 생성하지 않기 위한 이름이다. 예: `registration:123:approved`. `member`와 묶어서 회원당 한 건만 허용한다. |
 | eventType | enum / varchar(50) | 사건 종류, NOT NULL | 새 신청인지 승인 결과인지 구분해 표시 문구와 이동할 화면을 결정한다. `eventKey`가 특정 사건의 이름이라면 이 값은 사건의 종류다. |
 | payloadVersion | int / smallint | 최초1, 양수 | 저장된 알림 내용의 형식 번호다. 나중에 내용 구조를 바꾸더라도 예전 형식의 알림을 올바르게 해석할 수 있다. |
-| payload | JSON object / jsonb | groupId, recruitmentId, registrationId, 시스템 미승인 원인 분류 | 어느 그룹·모집·신청에서 생긴 소식인지 기억한다. 클릭할 목적지와 시스템 미승인의 원인을 구분하는 데 사용한다. |
+| payload | JSON object / jsonb | 사건별 업무 식별자; 새 모임은 groupId, 신청은 groupId·recruitmentId·registrationId, 초대는 groupId·invitationId | 관련 업무와 이동 대상을 식별한다. 시스템 미승인에만 원인 분류를 넣는다. |
 | readAt | LocalDateTime | nullable, 최초 읽음 시각 | 비어 있으면 안 읽음, 값이 있으면 읽음이다. 안 읽은 개수와 표시를 계산하며 전체 읽음도 이 값만 채운다. |
 | deletedAt | LocalDateTime | nullable, 일반 조회 제외 시각 | 사용자가 삭제했는지 기록한다. 값이 있으면 목록에서 숨기되 행은 남겨서 같은 사건 재처리로 알림이 다시 생기는 것을 막는다. |
 | createdAt | LocalDateTime | BaseEntity, NOT NULL | 소식이 저장된 시각이다. 알림함을 최신순으로 정렬하고 다음 페이지를 조회하는 기준으로 쓴다. |
 | updatedAt | LocalDateTime | BaseEntity, NOT NULL | 읽음·삭제 등 마지막 변경 시각이다. 언제 알림 상태가 바뀌었는지 확인하는 공통 기록이다. |
 
 타입: GROUP_CREATED, REGISTRATION_SUBMITTED, PARTICIPANT_JOINED, REGISTRATION_APPROVED,
-REGISTRATION_REJECTED, REGISTRATION_SYSTEM_REJECTED.
+REGISTRATION_REJECTED, REGISTRATION_SYSTEM_REJECTED, INVITATION_RECEIVED.
 시스템 미승인 원인: RERECRUITMENT 또는 GROUP_ENDED. 사유 본문·신청 내용·토큰은 payload에 넣지 않는다.
+
+payloadVersion은 기존 사건과 초대 사건 모두 1이다. eventType이 데이터 의미를 구분하므로 초대 추가만으로 버전을 나누지 않는다.
+새 모임 알림에는 groupId만, 신청 알림에는 모집·신청 ID가, 초대 알림에는 invitationId가 필요하다. 서로 다른 형태를 섞거나 필수 식별자를 누락하면 거절하며, 알림 생성 시 사건 종류와 payload 형태가 일치하는지 확인한다.
+초대 payload·target은 모집·신청 ID를 생략하고 기존 사건에는 invitationId를 추가하지 않아 기존 응답 형태를 유지한다.
+지정 초대는 `invitation:{id}:received` 의미키를 사용한다. 초대·알림·활성 구독별 전송 대기는 같은 트랜잭션에 저장한다.
+공유 링크 발급은 수신 알림을 만들지 않는다.
 
 유일키는 `(event_key, member_id)`다. 예: `registration:123:approved`.
 모임 등록은 `group:123:created`를 사용하며 payload에는 `groupId`만 저장한다.
@@ -56,7 +62,7 @@ REGISTRATION_REJECTED, REGISTRATION_SYSTEM_REJECTED.
 
 알림함의 제목은 사건 종류, 본문은 현재 모임 이름과 발생한 일을 함께 표시한다.
 모임 이름은 목록 단위로 일괄 조회하며 별도 스냅샷 필드를 두지 않는다. 삭제된 모임은 `삭제된 모임`으로 표시한다.
-클릭 목적지는 사건별로 신청 관리·참여자 관리·마이페이지의 해당 참여 모임·미승인 신청으로 나뉜다. 구체적인 경로는 알림 API 계약을 따른다. 관리 화면의 접근 확인 실패 시 읽음 처리 없이 복귀를 안내하며, 승인·미승인은 모임 개별 조회 없이 마이페이지의 본인 목록에서 해당 모임·신청을 찾아 강조한다.
+클릭 목적지는 사건별로 신청 관리·참여자 관리·마이페이지의 해당 참여 모임·미승인 신청·지정 초대장으로 나뉜다. 구체적인 경로는 알림 API 계약을 따른다. 관리 화면의 접근 확인이나 지정 초대 조회가 실패하면 읽음 처리 없이 복귀를 안내한다. 승인·미승인은 모임 개별 조회 없이 마이페이지의 본인 목록에서 해당 모임·신청을 찾아 강조한다.
 
 ## PushSubscription (`push_subscriptions`)
 

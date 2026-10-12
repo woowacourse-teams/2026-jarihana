@@ -137,6 +137,11 @@ docker compose -f docker-compose-local.yaml ps
 운영 배포 전에 `2026-10-07-group-calendar-expand.sql`과 반복 회차 예외 SQL을 적용하고,
 호환 백엔드 배포 뒤 `2026-10-07-group-calendar-backfill-batch.sql`을 검토·실행해야 한다.
 
+초대 기능을 배포하기 전에는 [통합 초대 DDL](db/migrations/2026-10-11-invitation.sql)을 적용한다.
+기존 신청 출처·낙관적 잠금 버전, 초대·수락 테이블, 초대 상태·공유 링크 보정과 알림 사건 확장을
+하나의 트랜잭션으로 처리한다. 기존 알림 테이블이 먼저 준비되어 있어야 한다.
+공유 토큰 암호화 키 설정과 적용 순서·검증·복구 제한은 [초대 운영 가이드](docs/operations/invitations.md)를 따른다.
+
 ### 운영 DB SSH 터널 접속
 
 운영 Compose는 PostgreSQL 포트를 서버의 `127.0.0.1:5432`에 바인딩한다.
@@ -203,3 +208,5 @@ DB 접속값과 인증·OAuth·S3 설정은 개발 Compose의 환경 변수로 �
 ## 웹푸시·알림함
 
 설정·DB 적용·로컬 테스트·배포·장애 확인은 [웹푸시 운영 가이드](docs/operations/web-push.md)를 확인한다.
+
+dev/prod GitHub Environment의 Variables에 `INVITATION_TOKEN_ACTIVE_KEY_ID`(기본 primary), Secrets에 `INVITATION_TOKEN_KEY_PRIMARY`와 필요한 `INVITATION_TOKEN_KEY_PREVIOUS`를 설정하면 backend 배포 workflow와 Compose가 서버로 전달한다. 키는 32바이트를 Base64로 인코딩한 값이며 환경마다 분리한다. 실제 Secrets 등록·DB 적용·배포는 코드 변경과 별도로 수행한다.

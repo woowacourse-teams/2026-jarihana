@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 
-import { useAuth } from "../../features/auth/index.js";
+import { consumeReturnTarget, useAuth } from "../../features/auth/index.js";
 import { memberSignupFormSchema, useSignupMember } from "../../features/member/index.js";
 import profileAvatar from "../../shared/assets/brand/jarihana-favicon.png";
 import signupCoach from "../../shared/assets/illustrations/signup-coach.png";
@@ -93,7 +93,9 @@ export function SignupPage() {
       closeConfirmation(true);
       return;
     }
-    window.location.replace("/my");
+    const returnTarget = consumeReturnTarget("/my");
+    const invitationReturn = returnTarget.startsWith("/invitations/") || returnTarget.startsWith("/notifications/open/");
+    window.location.replace(invitationReturn ? returnTarget : "/my");
   }
 
   if (status === "loading") {

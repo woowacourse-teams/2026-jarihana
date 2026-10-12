@@ -3,6 +3,7 @@ package com.project.jarihana.group.command.service;
 import com.project.jarihana.activitypost.command.service.ActivityPostCommandService;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.common.transaction.ConcurrentCommandExecutor;
 import com.project.jarihana.group.command.repository.GroupCommandRepository;
 import com.project.jarihana.group.command.service.dto.*;
 import com.project.jarihana.group.calendar.GroupEventRepository;
@@ -26,6 +27,7 @@ import com.project.jarihana.image.client.ImageStorage;
 import com.project.jarihana.image.client.ImageStorageException;
 import com.project.jarihana.image.command.repository.ImageUploadCommandRepository;
 import com.project.jarihana.image.domain.ImageUpload;
+import com.project.jarihana.invitation.command.service.InvitationCommandService;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.recruitment.command.repository.GroupRecruitmentCommandRepository;
@@ -76,6 +78,8 @@ public class GroupCommandService {
     private final ImageStorage imageStorage;
     private final Clock clock;
     private final ApplicationEventPublisher events;
+    private final ConcurrentCommandExecutor concurrentCommands;
+    private final InvitationCommandService invitationCommandService;
 
     public GroupCommandService(
             MemberRepository memberRepository,
@@ -93,7 +97,9 @@ public class GroupCommandService {
             ImageUploadCommandRepository imageUploadCommandRepository,
             ImageStorage imageStorage,
             Clock clock,
-            ApplicationEventPublisher events
+            ApplicationEventPublisher events,
+            ConcurrentCommandExecutor concurrentCommands,
+            InvitationCommandService invitationCommandService
     ) {
         this.memberRepository = memberRepository;
         this.groupCommandRepository = groupCommandRepository;
@@ -111,6 +117,8 @@ public class GroupCommandService {
         this.imageStorage = imageStorage;
         this.clock = clock;
         this.events = events;
+        this.concurrentCommands = concurrentCommands;
+        this.invitationCommandService = invitationCommandService;
     }
 
     @Transactional
@@ -299,6 +307,7 @@ public class GroupCommandService {
                     GROUP_DELETE_WINDOW_EXPIRED_MESSAGE
             );
         }
+        invitationCommandService.removeGroupInvitations(groupId);
         registrationCommandRepository.deleteAllByRecruitmentGroupId(groupId);
         groupRecruitmentCommandRepository.deleteAllByGroupId(groupId);
         activityPostCommandService.hideAllByGroupId(groupId);
@@ -312,8 +321,11 @@ public class GroupCommandService {
         groupCommandRepository.delete(group);
     }
 
-    @Transactional
     public TerminateGroupResult terminateGroup(Long memberId, Long groupId, TerminateGroupCommand command) {
+        return concurrentCommands.execute(() -> terminateGroupInTransaction(memberId, groupId, command));
+    }
+
+    private TerminateGroupResult terminateGroupInTransaction(Long memberId, Long groupId, TerminateGroupCommand command) {
         Group group = groupCommandRepository.findWithLockById(groupId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND, GROUP_NOT_FOUND_MESSAGE));
         Member member = memberRepository.findById(memberId)

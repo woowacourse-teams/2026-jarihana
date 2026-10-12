@@ -84,6 +84,28 @@ class HttpRequestLoggingFilterTest {
                 .getConstructor().newInstance();
     }
 
+    @Test
+    @DisplayName("공유 초대의 인증 실패·없는 주소·서버 오류 로그에도 원본 토큰과 쿼리를 남기지 않는다")
+    void invitationFailuresDoNotLogTokenOrQuery() throws Exception {
+        String token = "A".repeat(43);
+        ListAppender<ILoggingEvent> appender = capture();
+        try {
+            for (int status : List.of(401, 404, 500)) {
+                MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/invitations/links/" + token);
+                request.setContextPath("/api");
+                request.setQueryString("token=private-query");
+                filter().doFilter(request, new MockHttpServletResponse(),
+                        (req, res) -> ((MockHttpServletResponse) res).setStatus(status));
+            }
+            assertThat(appender.list).hasSize(6);
+            for (ILoggingEvent event : appender.list) {
+                assertThat(values(event).toString()).doesNotContain(token, "private-query", "/invitations/links/");
+            }
+        } finally {
+            detach(appender);
+        }
+    }
+
     private List<Object> values(ILoggingEvent event) {
         return event.getKeyValuePairs().stream().map(pair -> pair.value).toList();
     }

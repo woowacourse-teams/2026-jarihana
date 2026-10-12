@@ -24,6 +24,12 @@ sentry:
   enable-tracing: false
 
 jarihana:
+  invitation:
+    token:
+      active-key-id: ${INVITATION_TOKEN_ACTIVE_KEY_ID:primary}
+      keys:
+        primary: ${INVITATION_TOKEN_KEY_PRIMARY:}
+        previous: ${INVITATION_TOKEN_KEY_PREVIOUS:}
   group-calendar:
     legacy-recurring-write-enabled: ${GROUP_CALENDAR_LEGACY_RECURRING_WRITE_ENABLED:false}
   push:

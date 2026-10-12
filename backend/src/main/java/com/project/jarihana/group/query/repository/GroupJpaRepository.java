@@ -64,6 +64,7 @@ public interface GroupJpaRepository extends JpaRepository<Group, Long> {
                             from Registration registration
                             where registration.recruitment = recruitment
                               and registration.status = com.project.jarihana.registration.domain.RegistrationStatus.APPROVED
+                              and registration.approvalOrigin = com.project.jarihana.registration.domain.ApprovalOrigin.RECRUITMENT
                         ) < recruitment.capacity
                   ))
                   or (:recruiting = false and not exists (
@@ -77,6 +78,7 @@ public interface GroupJpaRepository extends JpaRepository<Group, Long> {
                             from Registration registration
                             where registration.recruitment = recruitment
                               and registration.status = com.project.jarihana.registration.domain.RegistrationStatus.APPROVED
+                              and registration.approvalOrigin = com.project.jarihana.registration.domain.ApprovalOrigin.RECRUITMENT
                         ) < recruitment.capacity
                   ))
               )
