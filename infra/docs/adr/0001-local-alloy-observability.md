@@ -1,8 +1,9 @@
-# ADR 0001. 로컬 Alloy에서 Prometheus와 Loki로 직접 전송한다
+# ADR 0001. 로컬 Alloy에서 Prometheus와 Loki로 전송한다
 
 - 상태: 채택 — 초기 Compose 설정을 작성했으며 AWS 배포·운영 전환은 아직 하지 않았다.
 - 날짜: 2026-10-03
 - 보완: 2026-10-06 — dev·prod별 EC2와 앱 Compose의 Alloy 직접 정의, 각 Compose의 dev/prod 프로필 고정 및 Slack 알림 규칙·전달 정책을 반영했다.
+- 보완: 2026-10-12 — 모니터링 Nginx의 화면·수집 진입점과 저장소 관리 포트의 loopback 제한을 반영했다.
 - 범위: 자리하나의 시스템 메트릭·애플리케이션 로그 수집과 조회
 - 관련 문서: [아키텍처](../observability/ARCHITECTURE.md), [실행 가이드](../observability/OPERATIONS.md), [학습 노트](../learning/observability.md), [현재 로깅 가이드](../../../backend/docs/operations/application-logging.md)
 
@@ -23,11 +24,18 @@
 
 ## 결정
 
-**애플리케이션 EC2마다 Grafana Alloy를 두고 별도 모니터링 EC2의 Prometheus와 Loki로 직접 보낸다.
+**애플리케이션 EC2마다 Grafana Alloy를 두고 별도 모니터링 EC2의 Nginx를 거쳐 Prometheus와 Loki로 보낸다.
 Grafana에서 두 저장소를 조회한다. 중앙 Collector는 초기 구성에 추가하지 않는다.**
 
+Nginx `80`은 Grafana 루트 경로·WebSocket을, `8080`은 정확히 일치하는 세 POST 수집 경로
+(`/api/v1/write`, `/loki/api/v1/push`, `/v1/traces`)를 제공한다. `8080`은 RFC1918 사설 IPv4와
+loopback만 허용하고 나머지 출발지를 거부하며 알 수 없는 경로는 `404`로 응답한다.
+기존 `MONITORING_BIND_ADDRESS`로 두 포트를 bind하고 저장소 관리 포트는 loopback에만 둔다.
+Nginx는 HTTP 전달을 맡으며 신호 가공·큐를 가진 중앙 Collector 역할은 추가하지 않는다.
+사설 IP bind와 별개로 AWS 보안 그룹·라우팅에서 운영자 화면 접근과 앱 EC2 수집 접근을 확인한다.
+
 dev EC2와 prod EC2는 서로 다른 서버이며 모니터링 EC2도 별도로 둔다.
-Alloy·Prometheus·Loki·Grafana는 모두 Docker Compose로 실행한다.
+Nginx·Alloy·Prometheus·Loki·Grafana는 모두 Docker Compose로 실행한다.
 `infra/docker-compose.yml`과 `infra/docker-compose.dev.yml`에
 Alloy 서비스와 `alloy-data` 볼륨을 각각 직접 정의해 Spring Boot·Alloy를 같은 프로젝트에서
 관리한다. include·extends로 파일을 연결하기보다 한 앱 Compose 파일에서 실행 구성을 바로
@@ -64,7 +72,7 @@ dev·prod 각 Compose가 `127.0.0.1:8081`로 고정해 전달한 `APP_METRICS_TA
 
 | 배치 | 수집 경로 |
 | --- | --- |
-| **① 채택** | 로컬 Alloy → 각 관측 저장소 |
+| **① 채택** | 로컬 Alloy → Nginx → 각 관측 저장소 |
 | ② | 애플리케이션 → OTLP → 중앙 Alloy → 각 관측 저장소 |
 | ③ | 로컬 Alloy → 중앙 Alloy → 각 관측 저장소 |
 | ④ | 애플리케이션 → 각 관측 저장소 직접 전송 |
@@ -173,7 +181,8 @@ SigNoz·Datadog·Kiali는 수집기와 같은 층의 대안이 아니다. 각각
 
 직접 구성하는 만큼 각 도구의 연결과 데이터 흐름을 설명하기 쉬워지지만 보관 기간·디스크
 고갈·백업·업데이트·수집 누락을 팀이 운영해야 한다. 모니터링 EC2 한 대에 세 프로그램을 두면
-그 호스트의 장애로 수집·조회·알림이 함께 중단될 수 있다.
+그 호스트의 장애로 수집·조회·알림이 함께 중단될 수 있다. Nginx 장애도 앱 Alloy의 전송 재시도를
+발생시킨다. 모니터링 스택을 먼저 배포하고 수신을 확인한 뒤 앱 Alloy 목적지를 바꾼다.
 
 Prometheus의 remote write 수신은 작은 유입량을 전제로 검토한다. 공식 문서는 이 수신 경로를
 대규모 push 수집의 일반 대안으로 사용하지 말라고 설명한다. 초기 1번 배치는 유지하되 실제

@@ -10,7 +10,8 @@
 ```mermaid
 flowchart LR
   APP["Spring + OTel Java Agent"] -->|"OTLP HTTP :4318"| ALLOY["앱 EC2의 Alloy"]
-  ALLOY -->|"OTLP gRPC :4317"| TEMPO["모니터링 EC2의 Tempo"]
+  ALLOY -->|"OTLP HTTP :8080/v1/traces"| NGINX["모니터링 EC2의 Nginx"]
+  NGINX -->|"OTLP HTTP :4318"| TEMPO["Tempo"]
   TEMPO -->|"트레이스 조회 :3200"| GRAFANA["Grafana"]
   TEMPO -->|"metrics-generator · remote write"| PROM["Prometheus"]
 ```
@@ -33,7 +34,7 @@ payload를 전송하지 않는다. 헤더·본문 수집은 활성화하지 않�
 | 설정 | 값과 의미 |
 | --- | --- |
 | 앱 → Alloy | `http://host.docker.internal:4318`, OTLP `http/protobuf` |
-| Alloy → Tempo | 필수 `TEMPO_OTLP_ENDPOINT=<monitoring-private-ip>:4317`, scheme 없는 gRPC 주소 |
+| Alloy → Nginx → Tempo | 필수 `TEMPO_OTLP_ENDPOINT=http://<monitoring-private-ip>:8080`, OTLP HTTP 기본 주소 |
 | Grafana → Tempo | Compose 내부 주소 `http://tempo:3200`, 데이터 소스 UID `tempo` |
 | `service.name` | `jarihana` |
 | `deployment.environment.name` | 앱 Compose에 고정한 `dev` 또는 `prod` |
@@ -46,19 +47,24 @@ payload를 전송하지 않는다. 헤더·본문 수집은 활성화하지 않�
 다른 EC2에 개방하지 않는다.** 호스트 방화벽을 사용한다면 앱 Docker 네트워크에서 오는 연결만 허용한다.
 Alloy 관리 포트 `12345`와 앱 관리 포트 `8081`의 loopback 제한은 유지한다.
 
-모니터링 EC2의 `4317`은 `MONITORING_BIND_ADDRESS`에 지정한 사설 IP에만 공개하고 앱 EC2의
-보안 그룹에서만 접근하도록 설정한다. 초기 OTLP 구간에는 TLS·인증이 없으므로 신뢰하는 사설망에서만
-사용한다. Tempo 조회 API `3200`은 호스트 loopback에만 공개한다.
+Alloy는 `otelcol.exporter.otlphttp`를 사용하며 `TEMPO_OTLP_ENDPOINT`에 `/v1/traces`를 자동으로
+추가한다. endpoint에 이 경로를 중복해서 넣거나 Nginx용 접두사를 붙이지 않는다.
+모니터링 EC2의 Nginx `8080`을 `MONITORING_BIND_ADDRESS`의 사설 IP에 bind하고, 정확히 일치하는
+`POST /v1/traces`를 Compose 내부 Tempo HTTP receiver `4318`로 전달한다. Nginx는 RFC1918 사설 IPv4와
+loopback만 허용하고 나머지 출발지를 거부하며 알 수 없는 경로는 `404`로 응답한다.
+보안 그룹·라우팅도 앱 EC2의 사설 접근만 허용하는지 확인한다. 사설 IP bind만으로 인터넷 차단을 보장하지 않는다.
+초기 OTLP 구간에는 TLS·인증이 없으므로 신뢰하는 사설망에서만 사용한다. Tempo `4317`은 호스트에
+publish하지 않으며 조회 API `3200`은 호스트 loopback에만 공개한다. Grafana는 `http://tempo:3200`으로 직접 조회한다.
 
 ## 실행 순서
 
-1. 모니터링 EC2에서 먼저 Tempo를 시작한다.
+1. [모니터링 실행 가이드](OPERATIONS.md)의 환경변수로 Nginx를 포함한 모니터링 스택을 먼저 시작한다.
 
    ```bash
    cd infra/monitoring
    docker compose config --quiet
    docker compose run --rm --no-deps tempo -config.file=/etc/tempo/config.yaml -config.verify=true
-   docker compose up -d tempo prometheus grafana
+   docker compose up -d
    curl --fail http://127.0.0.1:3200/ready
    ```
 
@@ -67,7 +73,8 @@ Alloy 관리 포트 `12345`와 앱 관리 포트 `8081`의 loopback 제한은 �
    기존 볼륨을 옮겨 사용하는 경우에는 소유권이 일치하는지 확인한다.
    Tempo 본체는 해당 non-root 사용자로 실행한다. 설정 파일은 읽기 전용 마운트다.
 
-2. 각 앱 EC2의 `infra/.env`에 `TEMPO_OTLP_ENDPOINT`를 추가하고 **Agent가 포함된 새 이미지**를 준비한다.
+2. 수동 실행 시 각 앱 EC2의 `infra/.env`에 `TEMPO_OTLP_ENDPOINT=http://<monitoring-private-ip>:8080`을
+   설정하고 **Agent가 포함된 새 이미지**를 준비한다.
    기존 이미지에는 Agent 파일이 없으므로 Compose만 갱신하면 JVM이 시작하지 못한다.
 
    ```bash
@@ -79,9 +86,9 @@ Alloy 관리 포트 `12345`와 앱 관리 포트 `8081`의 loopback 제한은 �
    ```
 
    prod는 이미지 이름 `jarihana-backend`와 `infra/docker-compose.yml`을 사용한다.
-   현재 GitHub 배포 workflow의 dev·prod Variables에도 `TEMPO_OTLP_ENDPOINT`를 넣는다.
-   향후 CodeBuild/CodeDeploy로 옮겨도 이미지 빌드와 이 입력 전달은 필요하다.
-   백엔드 배포는 인프라 파일 변경만으로 시작하지 않는다. 모니터링 스택은 별도
+   GitHub dev·prod 배포 workflow는 기존 repository variable `MONITORING_BIND_ADDRESS`와 `8080`으로
+   `TEMPO_OTLP_ENDPOINT`를 만든다. 수집 주소용 새 변수·시크릿을 등록할 필요는 없다.
+   앱 Compose·앱 Alloy 설정 변경은 백엔드 배포를 실행하며 `infra/docs/**`만 바뀌면 실행하지 않는다. 모니터링 스택은 별도
    [자동 배포 workflow](../../../.github/workflows/monitoring-deploy.yml)가 `main`의
    `infra/monitoring/**` 변경에 반응해 배포한다.
 
@@ -119,6 +126,7 @@ service-graphs와 span-metrics processor를 켰고 환경 속성도 dimension으
   이어받는다. Actuator 요청도 span이 생길 수 있어 수집량·CPU·메모리를 측정한 뒤 정책을 조정한다.
 - 앱 Alloy의 `256m` 제한은 유지한다. 트레이스 memory limiter는 `192MiB`, spike는 `48MiB`로 두었다.
   프로세스 메모리를 보고 OTLP 수신을 제한하지만 기존 `prometheus.*`·`loki.*` 경로까지 제한하지는 않는다.
+- Nginx가 중단되면 앱 Alloy의 전송 재시도가 발생한다. 모니터링 스택 배포·수신 확인 후 앱 Alloy를 갱신한다.
 - OTLP batch는 최대 512 span, 전송 큐는 128개 batch, 실패 재시도는 최대 5분이다. 큐는 메모리에 있으므로
   Alloy 종료·장애 장기화·한도 초과 시 유실될 수 있다. `alloy-data`가 트레이스 전송 큐까지 영속화하지는 않는다.
 - 모니터링 서비스에는 컨테이너별 메모리 제한을 추가하지 않았다. 트레이스 보관·색인·지표 생성에 드는
@@ -126,7 +134,8 @@ service-graphs와 span-metrics processor를 켰고 환경 속성도 dimension으
 
 ## 로컬 검증 기록 — 2026-10-09
 
-실제 백엔드 Dockerfile로 이미지를 빌드하고 별도 Compose 프로젝트에서 다음을 확인했다.
+아래는 Nginx 도입 전 gRPC 전송 구성의 과거 기록이며 현재 OTLP HTTP 경로의 검증 결과는 아니다.
+당시 실제 백엔드 Dockerfile로 이미지를 빌드하고 별도 Compose 프로젝트에서 다음을 확인했다.
 
 | 확인 항목 | 결과 |
 | --- | --- |

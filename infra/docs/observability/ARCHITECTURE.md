@@ -2,7 +2,7 @@
 
 이 문서는 [인프라 ADR 0001](../adr/0001-local-alloy-observability.md)의 실행 설계를
 설명한다. 목표는 로컬 Alloy에서 별도 서버의 Prometheus·Loki로 보내고 Grafana에서 조회하는
-구조다. 트레이스는 같은 앱 Alloy를 거쳐 Tempo에 저장한다. Alloy·Prometheus·Loki·Tempo·Grafana는 Docker Compose로 실행한다.
+구조다. 트레이스는 같은 앱 Alloy를 거쳐 Tempo에 저장한다. Nginx·Alloy·Prometheus·Loki·Tempo·Grafana는 Docker Compose로 실행한다.
 **저장소는 Alloy·Prometheus·Loki·Tempo·Grafana와 dev·prod RDS 연결을 반영했다.
 실제 AWS 배포·RDS 접속 검증·기존 Agent 제거와 외부 자원 정리는 아직 수행하지 않았다.**
 
@@ -52,17 +52,18 @@ flowchart LR
     LOKI["Loki"]
     TEMPO["Tempo"]
     GRAF["Grafana"]
+    NGINX["Nginx · :8080 수집 / :80 화면"]
+    NGINX -->|"POST /api/v1/write"| PROM
+    NGINX -->|"POST /loki/api/v1/push"| LOKI
+    NGINX -->|"POST /v1/traces · HTTP :4318"| TEMPO
+    NGINX -->|"화면 · WebSocket"| GRAF
     PROM -->|"PromQL 조회 결과"| GRAF
     LOKI -->|"LogQL 조회 결과"| GRAF
     TEMPO -->|"트레이스 조회"| GRAF
     TEMPO -->|"trace 기반 메트릭"| PROM
   end
-  DEVALLOY -->|"remote write"| PROM
-  DEVALLOY -->|"Loki push"| LOKI
-  PRODALLOY -->|"remote write"| PROM
-  PRODALLOY -->|"Loki push"| LOKI
-  DEVALLOY -->|"OTLP gRPC"| TEMPO
-  PRODALLOY -->|"OTLP gRPC"| TEMPO
+  DEVALLOY -->|"remote write · Loki push · OTLP HTTP"| NGINX
+  PRODALLOY -->|"remote write · Loki push · OTLP HTTP"| NGINX
 ```
 
 dev·prod·모니터링은 각각 다른 EC2다. 각 앱 EC2에는 해당 앱과 Alloy 한 개를 둔다.
@@ -77,7 +78,7 @@ Alloy는 자기 환경의 앱 대상 한 곳과 호스트·자체 메트릭을 �
 | --- | --- | --- |
 | dev EC2 | dev 앱 프로젝트 | `infra/docker-compose.dev.yml`의 Spring Boot·Alloy 직접 정의 |
 | prod EC2 | prod 앱 프로젝트 | `infra/docker-compose.yml`의 Spring Boot·Alloy 직접 정의 |
-| 모니터링 EC2 | 모니터링 프로젝트 | Prometheus·Loki·Tempo·Grafana·호스트 수집 Alloy와 각 저장 볼륨 |
+| 모니터링 EC2 | 모니터링 프로젝트 | Nginx·Prometheus·Loki·Tempo·Grafana·호스트 수집 Alloy와 각 저장 볼륨 |
 
 각 EC2에서 해당 Compose를 실행한다. Compose가 서비스들을 다른 EC2에 자동으로 배치하지는 않는다.
 Alloy 서비스와 `alloy-data` 볼륨은 두 앱 Compose 파일에 각각 직접 정의한다.
@@ -111,8 +112,14 @@ workflow의 라벨 조건은 작성했지만 실제 runner 등록·라벨 설정
 repository-wide Actions variables `MONITORING_HOST_ID`·`MONITORING_BIND_ADDRESS`와 repository secret
 `SLACK_WEBHOOK_URL`을 주입한다. workflow는 `MONITORING_HOST_ID`를 컨테이너 `HOST_ID`로 매핑해
 backend dev/prod workflow의 `vars.HOST_ID`와 충돌하지 않게 한다. 이 값은 지표 라벨에 사용할
-안정적인 모니터링 호스트 이름이며 실제 AWS instance ID일 필요는 없다. `MONITORING_BIND_ADDRESS`는 Prometheus `9090`, Loki `3100`,
-Tempo OTLP `4317`을 bind할 모니터링 EC2의 실제 사설 IPv4다. Grafana는 `127.0.0.1:3000`에만 bind한다.
+안정적인 모니터링 호스트 이름이며 실제 AWS instance ID일 필요는 없다. `MONITORING_BIND_ADDRESS`는 Nginx `80`·`8080`을 bind할 모니터링 EC2의 실제 사설 IPv4다.
+Prometheus `9090`, Loki `3100`, Tempo 조회 `3200`, Grafana `3000`은 호스트 loopback 관리 포트로 유지하며
+Tempo OTLP `4317`은 호스트에 publish하지 않는다.
+Grafana의 `GF_SERVER_ROOT_URL`은 Compose에서 `http://grafana.jarihana.com/`으로 고정한다.
+도메인·HTTPS 변경 시 Compose의 이 값과 Nginx Host 설정을 함께 맞춘다.
+Nginx `80`은 `grafana.jarihana.com` Host만 받고 다른 Host는 `404`로 응답한다.
+이 서브도메인의 DNS를 모니터링 EC2 공인 IP에 연결하며 루트 `jarihana.com`의 기존 서비스는 변경하지 않는다.
+DNS 실제 변경은 아직 수행하지 않았다. 수집 주소는 사설 IP의 `8080`을 유지한다.
 프로젝트 이름은 `jarihana-monitoring`으로 고정하고
 named volume을 유지한다. 등록 방법은 [실행 가이드](OPERATIONS.md)를 따른다.
 
@@ -135,11 +142,17 @@ Linux EC2의 Alloy에는 **`network_mode: host`**를 사용한다. 호스트 네
 host 모드 Alloy에는 `ports`를 지정하지 않는다. Alloy의 관리 HTTP 주소는 호스트
 loopback으로 제한한다. 반면 Prometheus·Loki·Grafana는 모니터링 Compose의 bridge 네트워크를
 공유한다. 서비스 이름을 각각 `prometheus`, `loki`로 정하면 Grafana의 데이터 소스 주소는
-`http://prometheus:9090`, `http://loki:3100`이다. Grafana 컨테이너에서 저장소를 `localhost`로
-지정하지 않는다.
+`http://prometheus:9090`, `http://loki:3100`, `http://tempo:3200`이다. Grafana 데이터 소스는
+Nginx를 거치지 않으며 저장소를 `localhost`로 지정하지 않는다.
 
-앱 EC2의 Alloy는 모니터링 EC2의 **사설 IP 또는 DNS와 공개한 호스트 포트**로 전송한다.
-수신 포트는 모니터링 EC2의 사설 주소에 publish하고 앱 EC2에서만 접근하도록 제한한다.
+앱 EC2의 Alloy는 모니터링 EC2의 **사설 주소와 Nginx `8080`**으로 전송한다.
+Nginx는 정확히 일치하는 `POST /api/v1/write`, `POST /loki/api/v1/push`, `POST /v1/traces`만
+각각 Prometheus `9090`, Loki `3100`, Tempo OTLP HTTP `4318`로 전달한다. 경로 접두사는 추가하지 않는다.
+`8080`은 RFC1918 사설 IPv4와 loopback만 허용하며 다른 출발지는 거부하고 알 수 없는 경로는 `404`로 응답한다.
+Grafana 화면은 Nginx `80`의 루트 경로로 제공하며 WebSocket도 전달한다.
+사설 IP bind만으로 인터넷 차단이 보장되지는 않는다. AWS 보안 그룹·라우팅에서 `80`은 허용한 운영자,
+`8080`은 앱 EC2의 사설 접근만 허용하는지 별도로 확인한다.
+모니터링 Alloy는 host 네트워크에서 `http://127.0.0.1:9090/api/v1/write`로 직접 전송한다.
 Compose 서비스 DNS는 서로 다른 EC2를 연결하지 않으며 host 모드 Alloy에도 제공되지 않는다.
 [Compose 네트워크](https://docs.docker.com/compose/how-tos/networking/)
 
@@ -174,6 +187,7 @@ Compose는 Grafana·Loki·Tempo·Prometheus와 모니터링 Alloy에 컨테이�
 | Spring Boot | 업무 처리, 허용된 로그 필드 생성, Micrometer 메트릭 노출 |
 | Docker | 컨테이너 stdout 로그의 로컬 보관·회전 |
 | Alloy | 대상 발견, 수집, 라벨 정리, 가공, 제한된 버퍼·재시도와 전송 |
+| Nginx | Grafana 화면·WebSocket과 세 수집 API의 HTTP 진입점 |
 | Prometheus·Loki | 신호별 저장·조회, 보관 정책 적용 |
 | Grafana | 화면·탐색·설정한 알림 평가와 전달 |
 | 운영 구성 | 영속 볼륨, 접근 제어, 백업·복구, 버전·자원 한도 관리 |
@@ -201,7 +215,7 @@ Micrometer → /actuator/prometheus
                  ↓
           Alloy prometheus.remote_write
                  ↓ HTTP
-          Prometheus /api/v1/write
+          Nginx :8080/api/v1/write → Prometheus :9090
 ```
 
 Prometheus 수신 서버에서는 `--web.enable-remote-write-receiver`를 명시적으로 활성화해야
@@ -249,7 +263,7 @@ Spring ECS JSON stdout
   → discovery.docker / loki.source.docker
   → loki.process의 필요한 파싱·라벨 정리
   → loki.write
-  → Loki
+  → Nginx :8080/loki/api/v1/push → Loki :3100
 ```
 
 로그는 Compose 서비스 이름이 `backend`이고 `com.jarihana.monitoring.logs=true`인 컨테이너만
@@ -320,7 +334,7 @@ Prometheus·Loki의 저장 볼륨, Grafana의 설정·대시보드·사용자 �
 
 ## 접근과 알림
 
-Actuator는 기존 loopback 범위를 유지한다. Prometheus·Loki의 수신 포트는 지정한 수집기에서만
+Actuator는 기존 loopback 범위를 유지한다. Nginx `8080` 수신 포트는 지정한 앱 EC2에서만
 접근하게 하고 Grafana 화면은 인증된 운영자에게만 제공한다. 네트워크와 전송 구간에 맞는
 인증·암호화를 구성한다. 인터넷에 저장소 쓰기 API를 그대로 공개하는 설계는 아니다.
 
@@ -391,7 +405,8 @@ dev·prod RDS 접속과 DB 백업·복원 확인도 수행하지 않았다. 이�
 ```mermaid
 flowchart LR
   JAVA["Spring + OTel Java Agent"] -->|"OTLP HTTP :4318"| ALLOY["로컬 Alloy"]
-  ALLOY -->|"OTLP gRPC :4317"| TEMPO["Tempo"]
+  ALLOY -->|"OTLP HTTP :8080/v1/traces"| NGINX["Nginx"]
+  NGINX -->|"OTLP HTTP :4318"| TEMPO["Tempo"]
   TEMPO -->|"활성화한 metrics-generator"| GRAPH["서비스 그래프 메트릭"]
   GRAPH -->|"remote write"| PROM["Prometheus"]
   TEMPO -->|"Trace 조회"| GRAF["Grafana"]

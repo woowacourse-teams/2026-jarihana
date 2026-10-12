@@ -2,6 +2,7 @@
 
 - 상태: 채택 — 저장소 구성 반영, AWS 미배포
 - 날짜: 2026-10-09
+- 보완: 2026-10-12 — 앱 Alloy의 원격 전송을 Nginx 경유 OTLP HTTP로 변경한다.
 - 범위: 트레이스 생성·수집·저장과 trace 기반 메트릭 생성
 - 대체 관계: [인프라 ADR 0001](0001-local-alloy-observability.md)의 트레이스 도입 보류를 해제한다.
 - 관련 문서: [트레이스 실행 가이드](../observability/TRACING.md), [아키텍처](../observability/ARCHITECTURE.md)
@@ -15,8 +16,10 @@ HTTP 처리와 DB 호출 중 어디에서 시간이 쓰였는지 확인하려면
 ## 결정
 
 Spring 이미지에 OpenTelemetry Java Agent `2.32.0`을 버전·체크섬을 고정해 넣고 dev·prod Compose에서
-활성화한다. 앱은 OTLP HTTP로 같은 EC2의 Alloy에 보내며 Alloy는 OTLP gRPC로 별도 모니터링 EC2의
-Tempo에 전달한다. 기존 Micrometer와 Docker 로그 전송을 유지하기 위해 Agent는 트레이스만 내보낸다.
+활성화한다. 앱은 기존 OTLP HTTP `4318`로 같은 EC2의 Alloy에 보내며 Alloy는 OTLP HTTP로
+별도 모니터링 EC2의 Nginx `8080`을 거쳐 Tempo HTTP receiver `4318`에 전달한다.
+기존 `TEMPO_OTLP_ENDPOINT` 이름을 유지하되 값은 `http://<monitoring-private-ip>:8080`으로 바꾼다.
+`otelcol.exporter.otlphttp`가 `/v1/traces`를 추가하고 Nginx는 정확히 일치하는 POST 경로를 전달한다. 기존 Micrometer와 Docker 로그 전송을 유지하기 위해 Agent는 트레이스만 내보낸다.
 
 OAuth callback의 인증 코드와 state가 URL 속성에 남지 않도록 Alloy에서 query·fragment를 제거한다.
 업무 경로와 호출 시간은 유지하고 인증 값은 저장하지 않는다.
@@ -46,6 +49,9 @@ Agent의 CPU·메모리, Tempo 저장 공간, metrics-generator의 시계열 비
 단일 장애 지점이며 named volume은 백업이 아니다. Alloy의 OTLP 큐도 메모리에 있으므로 무손실을 보장하지 않는다.
 저장량·지연·유실을 측정해 샘플링, 보관 기간, 호스트 크기, 객체 저장소 전환을 결정한다.
 
-OTLP 수신 포트는 사설망으로 제한한다. DB client span은 앱에서 본 호출을 설명하며 RDS 내부 상태나
+Nginx `8080`은 RFC1918 사설 IPv4와 loopback만 허용하고 AWS 보안 그룹·라우팅에서도 앱 EC2의
+사설 접근만 허용한다. 사설 IP bind만으로 인터넷 차단을 보장하지 않는다. Tempo `4317`은 호스트에
+publish하지 않으며 `3200` 조회 포트는 loopback으로 유지한다. Nginx 장애 시 Alloy가 재시도하므로
+모니터링 스택을 먼저 배포하고 앱 Alloy를 갱신한다. DB client span은 앱에서 본 호출을 설명하며 RDS 내부 상태나
 실제 네트워크 bytes/s를 대신하지 않는다. HTTP·JDBC가 같은 trace에 연결되고 재기동 후에도 조회되는지를
 실제 요청으로 확인한다. AWS 보안 그룹·RDS TLS·운영 부하 검증은 로컬 테스트와 별도로 수행한다.

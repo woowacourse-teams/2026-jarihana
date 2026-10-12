@@ -95,6 +95,7 @@ OTel Java Agent의 Agent는 또 다르다. JVM에 붙어서 지원하는 라이�
 | Micrometer | 애플리케이션 메트릭 계측 | 중앙 저장소 운영 |
 | OTel Java Agent | 지원하는 Java 라이브러리의 자동 계측 | 모든 업무 메서드의 의미 파악 |
 | Alloy | 수집·가공·전송 | 모든 데이터의 영구 보관 |
+| Nginx | HTTP 수집 API와 Grafana 화면·WebSocket 전달 | 신호 가공·영속 큐·저장 |
 | Prometheus | 시계열 메트릭 수집·저장·조회 | JSON 로그 검색, trace 저장 |
 | Loki | 로그 수집 경로의 목적지·저장·조회 | 앱 내부 호출의 span 생성 |
 | Tempo | trace 저장·조회, 설정에 따른 trace 기반 메트릭 생성 | 계측 없는 앱의 요청 흐름 생성 |
@@ -190,8 +191,14 @@ node_exporter 같은 별도 호스트 수집기로 수집할 수 있다.
 ### 전송 프로토콜도 별도로 구분한다
 
 선택한 초기 구조에서 메트릭은 Prometheus scrape·remote write, 로그는 Docker API·Loki push를
-사용한다. trace 경로에서는 Agent → Alloy에 OTLP HTTP, Alloy → Tempo에 OTLP gRPC를 사용한다. 전체 그림의 화살표를 모두 OTLP로 적으면
-실제 연결이 틀어진다.
+사용한다. trace 경로는 Agent → Alloy와 Alloy → Nginx → Tempo 모두 OTLP HTTP를 사용한다.
+앱 Alloy는 Nginx `8080`의 `/api/v1/write`, `/loki/api/v1/push`, `/v1/traces`로 각 신호를 보낸다.
+`TEMPO_OTLP_ENDPOINT`는 `http://<monitoring-private-ip>:8080`이며 `otelcol.exporter.otlphttp`가
+`/v1/traces`를 추가한다. 전체 그림의 화살표를 모두 OTLP로 적으면 실제 연결이 틀어진다.
+
+Nginx는 HTTP 요청을 정해진 저장소로 전달하는 진입점이다. `80`은 Grafana 루트 경로·WebSocket,
+`8080`은 정확히 일치하는 세 POST 수집 경로만 제공한다. 신호를 가공하거나 영속 큐에 보관하는
+중앙 Collector와는 역할이 다르다. Nginx 장애 중에는 앱 Alloy가 재시도하며 보관 한도에 따라 유실될 수 있다.
 
 중앙 Collector를 추가할 때도 각 프로토콜을 받을 receiver와 필요한 변환을 준비해야 한다.
 Alloy가 여러 규격을 지원한다는 사실이 아무 endpoint끼리 연결해도 된다는 뜻은 아니다.
@@ -605,7 +612,12 @@ backend·Alloy에는 모두 `dev`, prod Compose에는 모두 `prod`로 고정한
 입력하지 않는다. 호스트 `8081` 포트는 backend 컨테이너의 관리 포트 `8081`로 연결하며
 호스트·Alloy 자체 메트릭도 계속 수집한다.
 모니터링 Compose 안의 Grafana는 같은 bridge에 있는 `prometheus:9090`과 `loki:3100`을 읽는다.
-앱 EC2에서 모니터링 EC2로 보낼 때는 모니터링 서버의 사설 주소를 사용한다.
+Tempo 데이터 소스도 `tempo:3200`으로 직접 조회한다. 앱 Alloy는 모니터링 서버의 사설 주소와
+Nginx `8080`으로 보낸다. 기존 `MONITORING_BIND_ADDRESS`는 Nginx `80`·`8080` bind에 사용하고
+Prometheus `9090`, Loki `3100`, Tempo `3200`, Grafana `3000`은 loopback 관리 포트로 유지한다.
+모니터링 호스트의 Alloy는 `http://127.0.0.1:9090/api/v1/write`로 직접 전송한다.
+`8080`의 사설 IPv4·loopback 허용 규칙과 별개로 AWS 보안 그룹·라우팅도 확인해야 한다.
+사설 주소에 bind했다는 사실만으로 인터넷 접근이 차단된다고 결론 내리지 않는다.
 [Compose 네트워크](https://docs.docker.com/compose/how-tos/networking/)
 
 컨테이너를 새로 만드는 것과 데이터를 지우는 것도 구분한다. WAL과 저장소 데이터를 영속

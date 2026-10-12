@@ -1,14 +1,14 @@
 # 자리하나 모니터링 실행 구성
 
 dev·prod는 각각 별도 EC2에서 실행하며 각 앱의 Alloy가 메트릭과 허용한 로그를
-세 번째 서버인 모니터링 EC2로 보낸다. Prometheus·Loki·Tempo·Grafana와 호스트 수집 Alloy는
+세 번째 서버인 모니터링 EC2로 보낸다. Nginx·Prometheus·Loki·Tempo·Grafana와 호스트 수집 Alloy는
 모니터링 서버의 Compose 프로젝트로 실행한다. health·HTTP 500·호스트 CPU·메모리·디스크·inode 알림 정의
 12개와 Slack 연락처·전달 정책을 제공한다. 트레이스 연결과 실행 순서는 [Tempo 가이드](TRACING.md)를 따른다.
 모니터링 서버 Compose 배포는 GitHub Actions가 자동으로 수행하며, 외부 장애 감시는 포함하지 않는다.
 
 | 파일 | 실행 위치와 역할 |
 | --- | --- |
-| [docker-compose.yml](../../monitoring/docker-compose.yml) | 모니터링 EC2: Prometheus·Loki·Tempo·Grafana·호스트 수집 Alloy |
+| [docker-compose.yml](../../monitoring/docker-compose.yml) | 모니터링 EC2: Nginx·Prometheus·Loki·Tempo·Grafana·호스트 수집 Alloy |
 | [prod 앱 Compose](../../docker-compose.yml)·[dev 앱 Compose](../../docker-compose.dev.yml) | 각 EC2: 앱·Alloy 서비스와 `alloy-data` 볼륨 직접 정의 |
 | [앱 환경변수 예시](../../.env.example) | 각 앱 EC2: 앱·Alloy 공통 입력 |
 | [alloy/config.alloy](../../monitoring/alloy/config.alloy) | HTTP·호스트 메트릭 수집, health 확인, Docker 로그와 OTLP 트레이스 전송 |
@@ -27,11 +27,12 @@ dev·prod는 각각 별도 EC2에서 실행하며 각 앱의 Alloy가 메트릭�
 대상은 Docker Engine과 Docker Compose v2가 설치된 Linux EC2다. Alloy의 host 네트워크와 호스트 마운트는 Linux EC2
 기준이며 macOS에서 호스트 지표가 동일하게 수집된다고 가정하지 않는다.
 
-처음에는 dev에서 확인한다. 모니터링 서버의 Prometheus·Loki·Tempo OTLP 수신 포트는 앱 EC2에서만
-접근하도록 보안 그룹을 제한한다. 이 초기 구성의 수신 API에는 인증·TLS가 없으므로
+처음에는 dev에서 확인한다. 모니터링 서버의 Nginx `80`은 Grafana에 접근할 운영자에게,
+`8080`은 앱 EC2의 사설 접근에만 열도록 보안 그룹·라우팅을 확인한다. 사설 IP bind만으로
+인터넷 접근이 차단된다고 판단하지 않는다. 이 초기 구성의 수신 API에는 인증·TLS가 없으므로
 인터넷에 공개하지 않는다. 외부망을 통과해야 한다면 먼저 인증·TLS 경로를 추가한다.
 
-이미지는 Prometheus `v3.15.0`, Loki `3.7.8`, Tempo `2.10.8`, Grafana `13.2.3`, Alloy `v1.20.1`로
+이미지는 Nginx `1.30.5-alpine`, Prometheus `v3.15.0`, Loki `3.7.8`, Tempo `2.10.8`, Grafana `13.2.3`, Alloy `v1.20.1`로
 고정했다. 버전을 바꿀 때는 설정 검사와 수집·조회 검증을 다시 수행한다.
 
 ## 1. 모니터링 서버 실행과 자동 배포
@@ -63,7 +64,7 @@ Repository variable이나 secret만 바꾸면 push 이벤트가 발생하지 않
 `vars.HOST_ID`와 충돌하지 않게 한다. `MONITORING_BIND_ADDRESS`, `SLACK_WEBHOOK_URL`도 shell 환경변수로 주입하고 모든 Compose 명령에 `--env-file /dev/null`을
 명시한다. Compose 구성 검사(`config --quiet`), 이미지 받기(`pull`), 각 서비스의 설정 검사,
 컨테이너 재생성(`up -d --no-build --force-recreate`) 순서로 실행한다.
-Prometheus, Loki, Tempo, Grafana, Alloy 다섯 서비스의 준비 상태를 HTTP로 확인한다.
+Prometheus, Loki, Tempo, Grafana, Alloy의 준비 상태와 Nginx를 거친 Grafana 응답을 HTTP로 확인한다.
 재생성해도 Prometheus·Loki·Tempo·Grafana·Alloy named volume은 유지한다.
 
 터미널에서 같은 입력으로 임시 확인해야 할 때만 `infra/monitoring/.env.example`을 참고해
@@ -82,14 +83,27 @@ docker compose --env-file /dev/null --project-name jarihana-monitoring --file do
 관리자 초기 비밀번호는 `docker-compose.yml`의 `GF_SECURITY_ADMIN_PASSWORD`에 고정되어 있다.
 Grafana는 시작할 때 마운트된 파일에서 알림 규칙·연락처·전달 정책을 읽으며 이후 시작할 때도
 파일 설정을 다시 적용한다. Webhook 준비·변경과 실제 전송 확인은 [Slack 장애 알림](SLACK.md)을 따른다.
-`MONITORING_BIND_ADDRESS`는 모니터링 EC2의 실제 사설 IPv4로 지정한다. 이 주소에 Prometheus `9090`,
-Loki `3100`, Tempo OTLP `4317`을 bind한다. 기본값 `127.0.0.1`은 같은 서버에서 시험할 때만 사용하며,
-외부 앱 EC2에서는 접근할 수 없다. Grafana는 Compose에서 `127.0.0.1:3000`으로 고정하므로 SSH 터널로 접속한다.
-Grafana 관리자 사용자명은 `admin`으로 고정한다.
-이 포트·Grafana 공개 주소·관리자 사용자명을 바꾸려면 `docker-compose.yml`을 수정한다.
+`MONITORING_BIND_ADDRESS`는 Nginx `80`·`8080`을 bind할 모니터링 EC2의 실제 사설 IPv4다.
+Prometheus `9090`, Loki `3100`, Tempo 조회 `3200`, Grafana `3000`은 호스트 loopback 관리 포트로 유지하며
+Tempo OTLP `4317`은 호스트에 publish하지 않는다.
+기본값 `127.0.0.1`은 같은 서버에서 시험할 때만 사용하며 외부 앱 EC2에서는 접근할 수 없다.
+Nginx `80`은 `Host: grafana.jarihana.com` 요청의 Grafana 루트 경로와 WebSocket을 전달하며
+다른 Host는 `404`로 응답한다. `8080`은 RFC1918 사설 IPv4와 loopback만
+허용하고 다른 출발지는 거부한다. 정확히 일치하는 다음 POST 경로만 전달하며 나머지 경로는 `404`다.
 
-모니터링 Alloy는 host 네트워크에서 `MONITORING_BIND_ADDRESS`와 고정 포트 `9090`으로 만든
-로컬 Prometheus 수신 URL에 전송한다. 앱 메트릭·health·Docker 로그는 수집하지 않으며
+| Nginx 수집 경로 | Compose 내부 목적지 |
+| --- | --- |
+| `POST /api/v1/write` | `http://prometheus:9090/api/v1/write` |
+| `POST /loki/api/v1/push` | `http://loki:3100/loki/api/v1/push` |
+| `POST /v1/traces` | `http://tempo:4318/v1/traces` |
+
+Nginx용 접두사를 붙이지 않는다. 모니터링 스택을 먼저 배포하고 수신 경로를 확인한 뒤
+backend·Alloy를 갱신한다. Nginx 장애 중에는 앱 Alloy가 재시도하며 큐·원본 보관 한도를 넘으면 유실될 수 있다.
+Grafana 관리자 사용자명은 `admin`으로 고정한다.
+포트·관리자 사용자명과 Grafana의 `GF_SERVER_ROOT_URL`은 `docker-compose.yml`의 고정값이다.
+공개 URL은 `http://grafana.jarihana.com/`이며 별도 환경변수를 추가하지 않는다.
+
+모니터링 Alloy는 host 네트워크에서 `http://127.0.0.1:9090/api/v1/write`로 직접 전송한다. 앱 메트릭·health·Docker 로그는 수집하지 않으며
 Docker socket도 마운트하지 않는다. procfs·sysfs·rootfs는 읽기 전용으로 마운트하고,
 상태는 모니터링 프로젝트의 `alloy-data` 볼륨에 보관한다. 관리 주소는
 `127.0.0.1:12345`로 고정한다. 모니터링 Compose는 이 Alloy에 컨테이너별 메모리 상한을 걸지 않는다.
@@ -114,25 +128,32 @@ docker compose --env-file /dev/null --project-name jarihana-monitoring --file do
 
 ```bash
 curl --fail --retry 30 --retry-all-errors --retry-delay 3 --max-time 5 "http://127.0.0.1:12345/-/ready"
-curl --fail --retry 30 --retry-all-errors --retry-delay 3 --max-time 5 "http://${MONITORING_BIND_ADDRESS}:9090/-/ready"
-curl --fail --retry 30 --retry-all-errors --retry-delay 3 --max-time 5 "http://${MONITORING_BIND_ADDRESS}:3100/ready"
+curl --fail --retry 30 --retry-all-errors --retry-delay 3 --max-time 5 "http://127.0.0.1:9090/-/ready"
+curl --fail --retry 30 --retry-all-errors --retry-delay 3 --max-time 5 "http://127.0.0.1:3100/ready"
 curl --fail --retry 30 --retry-all-errors --retry-delay 3 --max-time 5 "http://127.0.0.1:3200/ready"
 curl --fail --retry 30 --retry-all-errors --retry-delay 3 --max-time 5 "http://127.0.0.1:3000/api/health"
+curl --fail --retry 30 --retry-all-errors --retry-delay 3 --max-time 5 -H "Host: grafana.jarihana.com" "http://${MONITORING_BIND_ADDRESS}:80/api/health"
 ```
 
 Prometheus·Grafana는 컨테이너 healthcheck도 설정했다. Loki 이미지는 shell·curl이 없는
 distroless 이미지이므로 위의 외부 `/ready` 확인을 사용한다. 컨테이너가 running이라는 사실만으로
 데이터 수신까지 확인한 것은 아니다.
 
-개인 컴퓨터에서 SSH 사용자와 서버 주소를 채워 고정 Grafana 포트 `3000`으로 터널을 연다.
+`grafana.jarihana.com`의 DNS를 모니터링 EC2의 공인 IP에 연결하고 `http://grafana.jarihana.com/`으로
+Grafana를 연다. 루트 `jarihana.com`의 기존 서비스 레코드는 변경하지 않는다. DNS 실제 변경은 아직 수행하지 않았다.
+수집 주소는 모니터링 EC2의 사설 IP `8080`을 유지한다. HTTPS나 다른 도메인을 사용한다면
+Compose의 `GF_SERVER_ROOT_URL`과 `nginx/default.conf`의 Host 설정을 함께 수정하고 접근 범위·TLS도 확인한다.
+Grafana Live의 WebSocket Origin 검사 때문에 브라우저 접속 주소와 공개 URL이 일치해야 한다.
+SSH로 관리할 때는 개인 컴퓨터에서 아래와 같이 loopback Grafana 포트 `3000`으로 터널을 열 수도 있다.
 
 ```bash
 ssh -N -L 3000:127.0.0.1:3000 <ssh-user>@<monitoring-host>
 ```
 
-브라우저에서 [Grafana](http://localhost:3000)를 열고 설정한 관리자 계정으로 로그인한다.
+터널 사용 시 브라우저에서 [Grafana](http://localhost:3000)를 열고 설정한 관리자 계정으로 로그인한다.
+이 주소는 기본 공개 URL과 다르므로 Grafana Live 확인은 `GF_SERVER_ROOT_URL`과 일치하는 주소에서 수행한다.
 Prometheus·Loki·Tempo 데이터 소스는 이미 등록된다. 같은 네트워크의 서비스 이름으로 연결하므로
-이 데이터 소스 URL을 모니터링 서버의 사설 주소로 바꿀 필요는 없다.
+이 데이터 소스 URL은 Nginx 주소로 바꾸지 않는다.
 관리자 초기 비밀번호는 첫 데이터베이스 생성에 사용된다. 기존 Grafana 볼륨이 있다면
 Compose나 `.env` 변경만으로 계정 비밀번호가 바뀌지 않으며 Grafana의 비밀번호 변경 절차를 사용한다.
 알림 파일 적용에는 별도 관리자 API 인증이나 호스트 스크립트 실행이 필요하지 않다.
@@ -185,12 +206,13 @@ cp infra/.env.example infra/.env
 | 변수 | dev EC2 | prod EC2 |
 | --- | --- | --- |
 | `HOST_ID` | dev EC2의 고유 ID | prod EC2의 고유 ID |
-| `PROMETHEUS_REMOTE_WRITE_URL` | `http://<monitoring-private-ip>:9090/api/v1/write` | 동일 모니터링 수신 URL |
-| `LOKI_PUSH_URL` | `http://<monitoring-private-ip>:3100/loki/api/v1/push` | 동일 모니터링 수신 URL |
-| `TEMPO_OTLP_ENDPOINT` | `<monitoring-private-ip>:4317` | 동일 모니터링 gRPC 수신 주소 |
+| `PROMETHEUS_REMOTE_WRITE_URL` | `http://<monitoring-private-ip>:8080/api/v1/write` | 동일 모니터링 수신 URL |
+| `LOKI_PUSH_URL` | `http://<monitoring-private-ip>:8080/loki/api/v1/push` | 동일 모니터링 수신 URL |
+| `TEMPO_OTLP_ENDPOINT` | `http://<monitoring-private-ip>:8080` | 동일 모니터링 OTLP HTTP 기본 주소 |
 | `POSTGRES_MONITOR_DSN` | dev RDS 모니터링 계정 DSN | prod RDS 모니터링 계정 DSN |
 
-위 다섯 변수는 필수다. 저장소 주소는 모니터링 EC2의 사설 주소와 공개한 호스트 포트를 사용한다.
+위 다섯 변수는 필수다. 수신 주소는 모니터링 EC2의 사설 주소와 Nginx `8080`을 사용한다.
+`TEMPO_OTLP_ENDPOINT`에는 `/v1/traces`를 붙이지 않는다. `otelcol.exporter.otlphttp`가 이 경로를 추가한다.
 `APP_METRICS_TARGET`은 dev·prod 각 Compose에서 `127.0.0.1:8081`로 고정해 Alloy 컨테이너에 전달한다.
 셸이나 `.env`의 값으로 치환하지 않는다. 호스트 `8081`은 컨테이너 관리 포트 `8081`로 연결한다. Alloy는 해당 앱 하나를
 `/actuator/prometheus` 경로로 읽고 같은 포트의 `/actuator/health`, `/actuator/health/liveness`,
@@ -240,7 +262,7 @@ Alloy 시작 역시 저장소 수신을 뜻하지 않으므로 앱 health·DB �
 
 `APP_METRICS_TARGET`은 각 앱 Compose의 고정값을 사용하며 GitHub Actions에서 주입하지 않는다.
 프로필은 workflow 환경변수 없이 각 앱 Compose의 고정값을 사용한다. 배포 workflow는 repository
-variable `MONITORING_BIND_ADDRESS`에서 Prometheus·Loki·Tempo endpoint를 만들고 `HOST_ID`는
+variable `MONITORING_BIND_ADDRESS`와 포트 `8080`에서 위 세 endpoint를 만든다. 수집 주소용 새 변수·시크릿은 필요하지 않다. `HOST_ID`는
 환경별 override가 없으면 `jarihana-dev-ec2` 또는 `jarihana-prod-ec2`를 사용한다.
 `POSTGRES_MONITOR_DSN`은 비밀번호를 포함하므로 각 GitHub Environment의 Secret으로 등록하며
 같은 배포 단계에 전달한다. 배포는 `up -d --no-build --force-recreate backend alloy`로
@@ -343,7 +365,7 @@ Loki 데이터 소스에서는 다음 범위로 앱 로그를 찾는다.
   측정해 서버 크기를 조정한다.
 
 보관 정책은 각 저장소 설정 파일에서 바꾼다. 자동 배포 입력인 `MONITORING_HOST_ID`,
-`MONITORING_BIND_ADDRESS`, `SLACK_WEBHOOK_URL`은 repository-wide Actions variables/secrets에 등록한다. 포트·Grafana 공개 주소·관리자 사용자명은
+`MONITORING_BIND_ADDRESS`, `SLACK_WEBHOOK_URL`은 repository-wide Actions variables/secrets에서 관리한다. 포트·관리자 사용자명은
 `docker-compose.yml`의 고정값을 수정한다. 모니터링 Compose에 컨테이너별 메모리 상한을 두려면
 해당 서비스에 명시적으로 추가하고 운영 부하로 검증한다. 앱 Alloy의 메모리 상한은 앱 Compose의
 `mem_limit`에서 수정한다.
@@ -352,7 +374,15 @@ Compose 프로젝트 이름을 바꾸면 다른 named volume이 만들어질 수
 
 ## 검증 기록과 남은 범위
 
-2026-10-05에 최종 dev·prod 구성의 로컬 Docker 테스트를 수행했다. 실제 Spring 대신 Python
+2026-10-12에는 별도 Docker 프로젝트에서 Nginx 경유 HTTP 검증 22개를 통과했다.
+Grafana 로그인 `200`·인증된 WebSocket 연결 `101`, Loki 로그 저장·조회, Alloy를 거친 Tempo 트레이스 조회,
+Prometheus remote write 샘플 `42`를 확인했다. 다른 Host와 조회 경로는 `404`, 수집 경로의 GET·HEAD는
+`403`이었다. 사설 주소를 `X-Forwarded-For`에 넣은 외부 출발지 요청도 `403`으로 거부했다.
+테스트용 계정·데이터를 사용하고 Slack 알림과 Grafana provisioning은 비활성화했으며,
+검증용 컨테이너·볼륨·네트워크는 제거했다. 브라우저 화면, 실제 AWS DNS·보안 그룹·TLS 검증은 포함하지 않는다.
+
+아래는 Nginx 도입 전인 2026-10-05의 dev·prod 구성으로 수행한 로컬 Docker 테스트 기록이다.
+현재 Nginx `8080` 수신 경로와 OTLP HTTP 전환의 검증 결과는 아니다. 실제 Spring 대신 Python
 테스트 앱과 bridge 네트워크를 사용했으며 DB 컨테이너·로그 override 없이 다음을 확인했다.
 
 - backend의 `local` driver `10m`·5개, 기본 수집 허용 라벨과 두 서비스 구성을 inspect로 확인했다.

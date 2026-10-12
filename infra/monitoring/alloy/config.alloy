@@ -43,16 +43,13 @@ otelcol.processor.batch "traces" {
 	send_batch_max_size = 512
 
 	output {
-		traces = [otelcol.exporter.otlp.tempo.input]
+		traces = [otelcol.exporter.otlphttp.tempo.input]
 	}
 }
 
-otelcol.exporter.otlp "tempo" {
+otelcol.exporter.otlphttp "tempo" {
 	client {
 		endpoint = sys.env("TEMPO_OTLP_ENDPOINT")
-		tls {
-			insecure = true
-		}
 	}
 
 	sending_queue {
