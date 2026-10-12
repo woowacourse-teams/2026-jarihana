@@ -123,7 +123,15 @@ function RuleForm({ source, event, detail, groupType, seriesVersion, onSave, sav
         <fieldset className="group-recurring-form__weekdays">
           <legend>반복 요일</legend>
           {WEEKDAYS.map(([value, label]) => (
-            <label key={value}><input checked={days.includes(value)} onChange={() => toggleDay(value)} type="checkbox" />{label}</label>
+            <label key={value}>
+              <input
+                checked={days.includes(value)}
+                data-ph-capture-attribute-action="group_calendar_recurring_weekday_toggle"
+                onChange={() => toggleDay(value)}
+                type="checkbox"
+              />
+              <span>{label}</span>
+            </label>
           ))}
         </fieldset>
         <label className="group-recurring-form__time-toggle">
