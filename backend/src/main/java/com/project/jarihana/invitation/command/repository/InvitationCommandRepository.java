@@ -28,6 +28,10 @@ public interface InvitationCommandRepository extends Repository<Invitation, Long
 
     Optional<Invitation> findByTokenHash(String tokenHash);
 
+    @Modifying
+    @Query("delete from Invitation invitation where invitation.group.id = :groupId")
+    void removeAllByGroupId(@Param("groupId") long groupId);
+
     @Query(value = """
             select i.* from invitation i join member inviter on inviter.id = i.inviter_member_id
             where i.group_id = :groupId and i.type = 'LINK' and i.status = 'VALID'

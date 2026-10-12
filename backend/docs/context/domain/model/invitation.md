@@ -68,5 +68,5 @@ DIRECT의 토큰 저장 필드는 null이다. LINK는 32바이트 난수의 패�
   이탈한 발급자의 초대는 EXPIRED로 안내하고 ACCEPTED는 DIRECT에만 적용한다.
 - 복합 상태 표시 우선순위는 DIRECT REJECTED → CANCELED → GROUP_ENDED → EXPIRED → DIRECT ACCEPTED → VALID다.
   JSON 필드는 [초대 API](../../api/endpoints/invitations.md)에 정의한다.
-- 그룹 물리 삭제에 따른 초대/수락 이력 정리는 기존 그룹 생명주기를 따르며 저장 순서는 백엔드 ADR에서 정한다.
+- 그룹 물리 삭제는 기존 그룹 생명주기를 따른다. 같은 삭제 트랜잭션에서 미완료 초대 푸시 전송을 취소하고 수락 이력 → 초대 → 기존 연관 데이터 → 그룹 순서로 정리한다. 초대 알림은 유지한다. 구조 결정은 [백엔드 ADR 0017](../../../adr/0017-separate-invitation-acceptance-history.md), 삭제와 수락의 경쟁 처리는 [백엔드 ADR 0019](../../../adr/0019-optimistic-invitation-acceptance.md)를 따른다.
 - 개인 초대 메시지는 저장하지 않는다. 지정 초대의 decline은 원본을 변경하지 않고 REJECTED 상태의 새 엔티티를 반환하며 재거절은 같은 상태를 유지한다. 공유 초대와 발급 이전 거절 시각을 거부한다. 알림 삭제는 초대 상태를 변경하지 않는다.

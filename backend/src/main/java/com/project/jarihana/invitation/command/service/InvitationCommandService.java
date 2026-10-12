@@ -29,6 +29,7 @@ import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Member;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,7 +54,19 @@ public class InvitationCommandService {
     private final ConcurrentCommandExecutor concurrentCommands;
 
     public AcceptInvitationResult acceptInvitation(long memberId, long invitationId, AcceptInvitationCommand command) {
-        return concurrentCommands.execute(() -> acceptInvitationInTransaction(memberId, invitationId, command));
+        try {
+            return concurrentCommands.execute(() -> acceptInvitationInTransaction(memberId, invitationId, command));
+        } catch (DataIntegrityViolationException failure) {
+            if (invitations.findById(invitationId).isEmpty()) throw notFound();
+            throw failure;
+        }
+    }
+
+    @Transactional
+    public void removeGroupInvitations(long groupId) {
+        deliveries.cancelInvitationsByGroupId(groupId, LocalDateTime.now(clock));
+        acceptances.removeAllByGroupId(groupId);
+        invitations.removeAllByGroupId(groupId);
     }
 
     private AcceptInvitationResult acceptInvitationInTransaction(long memberId, long invitationId, AcceptInvitationCommand command) {

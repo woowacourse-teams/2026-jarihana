@@ -14,6 +14,7 @@ import com.project.jarihana.image.client.ImageStorage;
 import com.project.jarihana.image.client.ImageStorageException;
 import com.project.jarihana.image.command.repository.ImageUploadCommandRepository;
 import com.project.jarihana.image.domain.ImageUpload;
+import com.project.jarihana.invitation.command.service.InvitationCommandService;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.recruitment.command.repository.GroupRecruitmentCommandRepository;
@@ -58,6 +59,7 @@ public class GroupCommandService {
     private final Clock clock;
     private final ApplicationEventPublisher events;
     private final ConcurrentCommandExecutor concurrentCommands;
+    private final InvitationCommandService invitationCommandService;
 
     public GroupCommandService(
             MemberRepository memberRepository,
@@ -70,7 +72,8 @@ public class GroupCommandService {
             ImageStorage imageStorage,
             Clock clock,
             ApplicationEventPublisher events,
-            ConcurrentCommandExecutor concurrentCommands
+            ConcurrentCommandExecutor concurrentCommands,
+            InvitationCommandService invitationCommandService
     ) {
         this.memberRepository = memberRepository;
         this.groupCommandRepository = groupCommandRepository;
@@ -83,6 +86,7 @@ public class GroupCommandService {
         this.clock = clock;
         this.events = events;
         this.concurrentCommands = concurrentCommands;
+        this.invitationCommandService = invitationCommandService;
     }
 
     @Transactional
@@ -225,7 +229,7 @@ public class GroupCommandService {
 
     @Transactional
     public void deleteGroup(Long memberId, Long groupId) {
-        Group group = groupCommandRepository.findById(groupId)
+        Group group = groupCommandRepository.findWithLockById(groupId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND, GROUP_NOT_FOUND_MESSAGE));
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, MEMBER_NOT_FOUND_MESSAGE));
@@ -243,6 +247,7 @@ public class GroupCommandService {
                     GROUP_DELETE_WINDOW_EXPIRED_MESSAGE
             );
         }
+        invitationCommandService.removeGroupInvitations(groupId);
         registrationCommandRepository.deleteAllByRecruitmentGroupId(groupId);
         groupRecruitmentCommandRepository.deleteAllByGroupId(groupId);
         activityPostCommandService.hideAllByGroupId(groupId);

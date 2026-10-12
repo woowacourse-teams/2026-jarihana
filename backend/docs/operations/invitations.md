@@ -1,7 +1,7 @@
 # 초대 실행·배포·검증
 
-> 상태: 저장·발급·조회·공개 미리보기·취소·알림의 로컬 PostgreSQL·HTTP 검증 완료.
-> 수락·합류·낙관적 충돌 처리도 로컬 검증 완료. 프론트·로그 마스킹·배포 호환성은 후속 단계다.
+> 상태: 저장·발급·조회·취소·수락·삭제와 프론트 연결을 로컬 PostgreSQL·HTTP·브라우저에서 검증했다.
+> 실제 PC Chrome의 초대 푸시 수신과 사용자의 OS 알림 클릭 후 초대장 이동을 확인했다. Safari/iOS 실기기·공유/운영 환경 적용은 미검증이다.
 
 API는 [초대 계약](../context/api/endpoints/invitations.md)과
 [초대 알림 응답](../context/api/endpoints/notifications.md#초대-알림-응답-확장-계약),
@@ -61,7 +61,7 @@ SELECT count(*) FROM registration WHERE approval_origin IS NULL;
 
 최초 적용에서 과거 신청은 모든 상태가 RECRUITMENT이며 마지막 조회는 0이어야 한다.
 재적용 시 이미 기록된 INVITATION은 보존한다. 3단계에서 일반 모집 출처만 집계하도록 변경했다. 실제 초대 수락 연결은 6단계에서 구현했고,
-그룹 삭제 시 수락 → 초대 → 그룹 정리는 10단계에서 구현하므로 저장 단계만으로 기능을 출시하지 않는다.
+그룹 삭제는 기존 모임 삭제 트랜잭션에서 수락 이력 → 초대 → 기존 연관 데이터 → 그룹 순서로 정리한다. 삭제 FK에 추가 cascade DDL은 필요하지 않으며 위 저장 스키마를 유지한다.
 
 알림 테이블이 없는 DB에서는 기존 [알림 DDL](../../db/migrations/2026-10-03-notification.sql)을 먼저 적용한다.
 초대 알림 증분 DDL은 기존 알림 사건 CHECK를 갱신하고 INVITATION_RECEIVED를 추가한다. 기존 알림·버전·전송 데이터는 수정하지 않는다.
@@ -82,7 +82,9 @@ SELECT count(*) FROM registration WHERE approval_origin IS NULL;
 키가 없거나 잘못된 경우 애플리케이션은 기동하되 공유 링크 발급·복원은 INVITATION_UNAVAILABLE(503)로 거절한다.
 지정 초대는 암호화 키를 사용하지 않는다. 키 ID는 영문·숫자·밑줄·하이픈 1–32자다.
 추가 ID는 외부 설정의 jarihana.invitation.token.keys 맵에 넣고 활성 ID를 지정할 수 있다.
-현재 배포 workflow·Compose에는 이 환경 변수를 아직 연결하지 않았다. 10단계에서 전달 경로를 준비한 뒤 공유 초대를 출시한다.
+backend dev/prod 배포 workflow와 두 Compose 파일에 위 세 변수를 연결했다. GitHub Environment별 Variables의 `INVITATION_TOKEN_ACTIVE_KEY_ID`(미설정 시 primary)와 Secrets의 `INVITATION_TOKEN_KEY_PRIMARY`, `INVITATION_TOKEN_KEY_PREVIOUS`가 서버로 전달된다. dev는 job env를 사용하므로 배포와 롤백에 동일한 키 구성이 적용되고 prod는 Compose 배포 step env를 사용한다. 실제 GitHub 값 등록이나 배포는 수행하지 않았다.
+
+키는 32바이트 난수를 Base64로 인코딩한 값이다. 예를 들어 `openssl rand -base64 32`로 생성해 해당 환경의 Secrets에 보관한다. 출력·키 원문을 커밋·로그·검증 자료에 남기지 않는다. 개발과 운영의 키를 분리하고 DB 백업과 기존 암호문을 복원할 키의 보관 정책을 함께 정한다. 검증은 가짜 키로 Compose의 빈 설정·두 키 슬롯 설정과 workflow의 Variables/Secrets 연결을 확인했다.
 
 1. 기존 키와 ID를 그대로 보관하면서 다른 ID의 새 키를 추가한다. primary로 발급했다면 그 키를 previous로 옮기거나 같은 ID의 값을 덮어쓰지 않는다.
 2. 기존 암호문 복원과 새 키 발급을 확인하고 active-key-id만 새 ID로 바꾼다. 여러 서버가 있다면 모두 이전 키와 새 키를 읽을 수 있어야 한다.
@@ -104,14 +106,15 @@ INVITATION을 RECRUITMENT로 바꾸면 모집 집계 의미도 달라진다. 실
 
 ## 로그와 민감정보 확인
 
-- 원본 공유 토큰을 access log·API 오류·분석·세션 녹화에 남기지 않도록 서버·프록시 경로 마스킹과 프론트 수집 제외를 구현한다.
+- 서버 HTTP 로그는 라우트 템플릿과 허용된 식별자만 기록한다. 잘못된 토큰·인증 실패·서버 오류에서도 원본 토큰과 쿼리를 기록하지 않는 테스트를 갖춘다. 프록시/CDN의 실제 access log 설정은 출시 환경에서 별도로 확인한다.
+- 공유 초대 페이지에서는 자동 수집·녹화를 차단하고, 정제한 명시적 사건만 수집한다. 회원 DB ID로 사건을 연결하며 원본 URL·토큰·프로필은 보내지 않는다. 계약과 개인정보 후속 이슈는 [프론트 분석 문서](../../../frontend/docs/analytics.md)를 따른다.
 - 인증 복귀용 초대 경로를 보관하더라도 분석으로 전송하지 않는다. 초대에는 개인 메시지가 없다.
 - 정상 조회·수락뿐 아니라 잘못된 토큰·인증 실패·서버 오류 경로에서도 원본이 남지 않는지 확인한다.
 - 검증 자료에는 원본 토큰·인증 쿠키·푸시 구독 비밀값을 기록하지 않는다.
 
 ## 배포 전에 확인할 항목
 
-- 로그·분석의 원본 토큰 차단을 구현하고 검증한 뒤 공유 초대 API를 외부에 출시한다.
+- 애플리케이션의 토큰 차단 테스트와 별도로 프록시/CDN의 실제 로그에도 원본 초대 경로·토큰이 남지 않는지 확인한다.
 - 위 DDL 적용·기존 데이터 보정·validate 결과를 대상 DB에서도 확인한다.
 - 알림의 저장 데이터와 실제 전송 데이터의 버전 연결을 확인한다. 신규 사건과 기존 사건을 모두 처리하도록 서버·프론트·SW 호환성을 검증한다.
 - 구 SW가 신규 초대 사건을 누락하지 않는지 확인하고 SW 갱신·배포 순서를 확정한다.
@@ -122,10 +125,22 @@ INVITATION을 RECRUITMENT로 바꾸면 모집 집계 의미도 달라진다. 실
 저장·발급·검색·수신·알림 저장과 구독별 워커 전송은 로컬 PostgreSQL·HTTP 및 외부 전송 대역으로 확인했다.
 상세·발급 목록·비회원 공개 미리보기·만료·취소는 실제 HTTP·DB에서 검증했다. 공개 조회는 합류하지 않고 재복사는 만료를 연장하지 않는다.
 취소는 모임 잠금 후 현재 소속과 유형별 권한을 검사하고 초대 취소 및 미전송 푸시 취소를 같은 트랜잭션에 저장한다. 이미 외부 전송을 시작한 푸시의 회수는 보장하지 않는다.
-초대 화면·인증 복귀·알림 클릭은 7단계에서 구현했다. 삭제 연계는 아직 미구현이며 기존 그룹 삭제는 초대 FK 정리 없이는 실패할 수 있으므로 10단계에서 연결한 뒤 배포한다.
-프론트 알림 schema는 초대 target을 처리하며 SW는 초대 전용 문구를 표시한다. 브라우저 검증은 외부 푸시 제공자와 실제 GitHub 인증을 대역으로 처리한 결과다.
-공유·운영 DB 적용, 실제 초대 외부 푸시 수신, OS 알림 클릭과 배포는 아직 수행하지 않았다.
-로컬 검증과 실제 운영 검증의 결과를 구분해 후속 단계에서 갱신한다.
+초대 화면·인증 복귀·알림 클릭은 7단계에서 구현했고 10단계에서 기존 그룹 삭제에 초대/수락 이력 정리를 연결했다. 삭제·권한 거부·수락 경쟁·마지막 삭제 실패 시 전체 롤백을 PostgreSQL·HTTP 테스트로 확인했다. 백엔드 전체 746개·build, 프론트 Jest 698개·lint·build와 Chromium 회귀 62개가 통과했다.
+격리 DB·실제 Spring API·production 프론트로 다수 지정 초대, 알림함 이동·수락, 비회원 공유 미리보기, 공유 합류·중복, 모임 삭제 후 남은 알림 안내를 확인했다. 임시 PC Chrome 프로필에서 외부 제공자를 거친 초대 푸시 수신과 사건 ID·title·body도 확인했다. 프론트 알림 schema는 초대 target을 처리하며 SW는 초대 전용 문구를 표시한다.
+실제 GitHub 제공자 인증은 대역으로 검증했다. 공유·운영 DB 적용·Secrets 등록·배포와 Safari/iOS 홈 화면 앱은 아직 확인하지 않았다. 자동 UI 제어로는 macOS 알림 센터 클릭을 확인하지 못했으나, 사용자가 수동으로 알림을 클릭한 실행에서 초대장·수락 버튼 캡처와 테스트 통과 결과를 확인했다.
+
+### 격리된 서버와 브라우저로 재현
+
+`frontend/`에서 Java 21의 `JAVA_HOME`과 프로젝트 Node 실행 환경을 설정한 뒤 실행한다. 테스트는 임시 PostgreSQL 컨테이너와 55436·8086·4176 포트를 사용하며 기존 로컬 DB·회원·키를 사용하지 않는다. 초대 암호화 키와 JWT·VAPID 키는 실행마다 생성하고 종료 시 임시 환경을 정리한다. 공유 토큰·쿠키가 담길 수 있는 trace와 자동 실패 스크린샷은 수집하지 않는다.
+
+```bash
+npm run test:push:local
+npm run test:push:local -- --real-provider
+```
+
+첫 명령은 실제 DB·API와 브라우저 흐름을 검증하고 외부 제공자 수신은 생략한다. 두 번째 명령은 설치된 Chrome의 임시 프로필로 실제 푸시 수신과 로그아웃 구독 해제를 추가 확인한다. 공유·운영 적용이나 모든 기기의 수신 결과로 해석하지 않는다.
+
+OS 클릭까지 수동 확인하려면 `WEB_PUSH_NATIVE_CLICK=1 npm run test:push:local -- --real-provider`로 실행하고 `INVITATION_NATIVE_CLICK_READY`가 출력된 뒤 90초 안에 테스트 초대 알림을 클릭한다. 초대장과 수락 버튼을 확인한 경우에만 통과하며 결과 화면은 `frontend/test-results/integration/invitation-native-click.png`에 저장한다. 이후 로그아웃·구독 해제를 검증하고 임시 Chrome을 자동 종료하므로 직접 화면을 읽기 전에 창이 닫힐 수 있다. 이동 결과는 저장한 캡처와 최종 테스트 결과로 확인한다. 알림 클릭을 합성하거나 수신 확인으로 클릭을 대신하지 않는다.
 
 ### 개인 메시지 제거 증분 DDL
 
@@ -141,7 +156,21 @@ INVITATION을 RECRUITMENT로 바꾸면 모집 집계 의미도 달라진다. 실
 
 [버전 추가 DDL](../../db/migrations/2026-10-11-invitation-optimistic-locking.sql)은 기존 초대 DDL 이후 적용한다. 기존 행의 버전은 0으로 시작하고 재적용 시 이미 증가한 버전을 보존한다. 직접 SQL로 모임·초대·신청의 상태를 변경한다면 version도 증가시켜야 수락의 상태 검증이 이를 감지한다. 구 백엔드와 새 백엔드가 동시에 상태를 변경하면 이 규칙을 보장할 수 없으므로 상태 변경을 처리하는 백엔드를 함께 전환한다. 실제 공유·운영 DB에는 적용하지 않았다.
 
-그룹 삭제의 초대 FK 정리는 10단계에서 구현한다. 동시성 변경만으로 삭제 연계가 완료된 것은 아니다.
+그룹 삭제의 초대 FK 정리는 아래 절차를 따른다.
+
+## 모임 삭제와 남은 알림
+
+기존의 ACTIVE·모임장·생성 후 24시간 조건을 확인한 뒤 삭제한다. 삭제 명령은 모임 행을 잠가 발급과 신청 생성이 정리 중에 새 데이터를 만들지 않게 조정한다. 정상 초대 수락에는 배타적 모임 잠금을 추가하지 않는다.
+
+같은 트랜잭션에서 해당 모임의 INVITATION_RECEIVED 전송 중 PENDING·RETRY·IN_FLIGHT를 CANCELLED로 바꾸고 lease를 제거한다. ACCEPTED·FAILED 이력과 수신자의 알림함은 유지한다. 이어서 수락 이력·초대와 기존 신청/모집/소속·그룹을 정리한다. 어느 단계에서든 실패하면 전송 취소까지 모두 롤백한다. 이미 외부 전송을 시작한 푸시나 OS 알림의 회수는 보장하지 않는다.
+
+삭제된 초대의 ID 상세·공유 미리보기·수락은 INVITATION_NOT_FOUND(404)다. 남은 알림의 내용 조회는 가능하며 프론트는 클릭 후 현재 대상 부재를 확인해 안전한 오류 안내와 알림함 복귀를 제공한다. tombstone이나 삭제 사유별 초대 상태를 추가하지 않는다. 삭제 직전 상태를 확인한 수락이 FK 저장에서 실패하면 전체 롤백 이후 초대 부재를 확인해 같은 404를 반환한다. 초대가 남은 무결성 오류는 일반 실패로 처리한다.
+
+```bash
+./gradlew test --tests '*InvitationIssuanceAcceptanceTest.groupDeletion*' --tests '*InvitationIssuanceAcceptanceTest.rejectedGroupDeletion*'
+./gradlew test --tests '*GroupCommandServiceTest' --tests '*GroupCommandControllerTest'
+./gradlew test build
+```
 
 ## 지정 초대 거절과 상태 마이그레이션
 

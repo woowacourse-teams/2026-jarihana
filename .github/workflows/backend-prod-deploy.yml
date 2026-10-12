@@ -44,6 +44,9 @@ jobs:
       - name: Compose로 Backend 배포
         env:
           PUSH_ENABLED: ${{ vars.PUSH_ENABLED || 'false' }}
+          INVITATION_TOKEN_ACTIVE_KEY_ID: ${{ vars.INVITATION_TOKEN_ACTIVE_KEY_ID || 'primary' }}
+          INVITATION_TOKEN_KEY_PRIMARY: ${{ secrets.INVITATION_TOKEN_KEY_PRIMARY }}
+          INVITATION_TOKEN_KEY_PREVIOUS: ${{ secrets.INVITATION_TOKEN_KEY_PREVIOUS }}
           PUSH_WORKER_ENABLED: ${{ vars.PUSH_WORKER_ENABLED || 'true' }}
           PUSH_VAPID_PUBLIC_KEY: ${{ vars.PUSH_VAPID_PUBLIC_KEY }}
           PUSH_VAPID_PRIVATE_KEY: ${{ secrets.PUSH_VAPID_PRIVATE_KEY }}

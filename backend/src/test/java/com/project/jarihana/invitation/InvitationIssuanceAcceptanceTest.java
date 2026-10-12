@@ -57,6 +57,133 @@ import static org.assertj.core.api.Assertions.assertThat;
 class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSupport {
 
     @Test
+    @DisplayName("모임 삭제는 두 초대 유형과 수락 이력을 정리하고 알림은 보존하며 다른 모임은 유지한다.")
+    void groupDeletionRemovesInvitationsAndAcceptancesWhilePreservingInboxAndOtherGroups() {
+        // Given
+        Member leader = member("101");
+        Member target = member("102");
+        Member linkTarget = member("103");
+        Member pendingTarget = member("104");
+        Group group = group(leader);
+        for (int index = 0; index < 5; index++) subscription(pendingTarget, "delete-pending-" + index);
+        long directId = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+        assertThat(accept(target, directId, Map.of()).statusCode()).isEqualTo(201);
+        Response link = issue(leader, group.getId(), Map.of("type", "LINK", "requestId", UUID.randomUUID()));
+        assertThat(acceptLink(linkTarget, link).statusCode()).isEqualTo(201);
+        long pendingId = issue(leader, group.getId(), direct(pendingTarget, UUID.randomUUID())).jsonPath().getLong("data.id");
+        long notificationId = jdbc.queryForObject("select id from notifications where event_key = ?", Long.class,
+                "invitation:" + pendingId + ":received");
+        List<Long> deliveries = jdbc.queryForList("select id from notification_deliveries order by id", Long.class);
+        jdbc.update("update notification_deliveries set status = 'RETRY', attempt_count = 1 where id = ?", deliveries.get(1));
+        jdbc.update("update notification_deliveries set status = 'IN_FLIGHT', attempt_count = 1, lease_token = ?, locked_until = ? where id = ?",
+                UUID.randomUUID(), NOW.plusMinutes(1), deliveries.get(2));
+        jdbc.update("update notification_deliveries set status = 'ACCEPTED', attempt_count = 1, accepted_at = ? where id = ?", NOW, deliveries.get(3));
+        jdbc.update("update notification_deliveries set status = 'FAILED' where id = ?", deliveries.get(4));
+        Member otherLeader = member("105");
+        Group otherGroup = group(otherLeader);
+        long otherId = issue(otherLeader, otherGroup.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+        assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isEqualTo(2);
+
+        // When
+        Response deleted = deleteGroup(leader, group.getId());
+
+        // Then
+        assertThat(deleted.statusCode()).isEqualTo(204);
+        assertThat(jdbc.queryForObject("select count(*) from invitation where group_id = ?", Integer.class, group.getId())).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isZero();
+        assertThat(groups.findById(group.getId())).isEmpty();
+        assertThat(groups.findById(otherGroup.getId())).isPresent();
+        assertThat(jdbc.queryForList("select id from invitation", Long.class)).containsExactly(otherId);
+        assertThat(jdbc.queryForObject("select count(*) from notifications where id = ? and deleted_at is null", Integer.class, notificationId)).isEqualTo(1);
+        assertThat(jdbc.queryForList("select status from notification_deliveries order by id", String.class))
+                .containsExactly("CANCELLED", "CANCELLED", "CANCELLED", "ACCEPTED", "FAILED");
+        assertThat(jdbc.queryForObject("select count(*) from notification_deliveries where lease_token is not null", Integer.class)).isZero();
+        assertError(auth(target).get("/invitations/{id}", directId), 404, "INVITATION_NOT_FOUND");
+        String path = link.jsonPath().getString("data.sharePath");
+        assertError(RestAssured.get("/invitations/links/{token}", path.substring(path.lastIndexOf('/') + 1)), 404, "INVITATION_NOT_FOUND");
+        assertError(accept(target, directId, Map.of()), 404, "INVITATION_NOT_FOUND");
+        assertThat(auth(pendingTarget).get("/notifications/{id}", notificationId).statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("삭제 권한이나 24시간 조건이 맞지 않으면 초대와 전송 대기 알림을 정리하지 않는다.")
+    void rejectedGroupDeletionPreservesInvitationAndDelivery() {
+        // Given
+        Member leader = member("101");
+        Member target = member("102");
+        Group group = group(leader);
+        subscription(target, "delete-rejected");
+        long id = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+        // When / Then
+        assertError(deleteGroup(target, group.getId()), 403, "GROUP_ACCESS_DENIED");
+        jdbc.update("update groups set created_at = ? where id = ?", NOW.minusDays(2), group.getId());
+        assertError(deleteGroup(leader, group.getId()), 409, "GROUP_DELETE_WINDOW_EXPIRED");
+        assertThat(auth(target).get("/invitations/{id}", id).jsonPath().getString("data.status")).isEqualTo("VALID");
+        assertThat(jdbc.queryForList("select status from notification_deliveries", String.class)).containsExactly("PENDING");
+    }
+
+    @Test
+    @DisplayName("수락 상태 확인 뒤 모임이 삭제되면 합류를 롤백하고 유효하지 않은 초대를 안내한다.")
+    void groupDeletionAfterAcceptanceStateCheckRollsBackJoin() throws Exception {
+        // Given
+        Member leader = member("101");
+        Member target = member("102");
+        Group group = group(leader);
+        Response link = issue(leader, group.getId(), Map.of("type", "LINK", "requestId", UUID.randomUUID()));
+        CountDownLatch checked = new CountDownLatch(1);
+        CountDownLatch resume = new CountDownLatch(1);
+        pauseFirstMembershipSave(target, checked, resume);
+        // When
+        Response accepted;
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var accepting = executor.submit(() -> acceptLink(target, link));
+            try {
+                assertThat(checked.await(5, TimeUnit.SECONDS)).isTrue();
+                assertThat(deleteGroup(leader, group.getId()).statusCode()).isEqualTo(204);
+            } finally {
+                resume.countDown();
+            }
+            accepted = accepting.get(10, TimeUnit.SECONDS);
+        }
+        // Then
+        assertError(accepted, 404, "INVITATION_NOT_FOUND");
+        assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isZero();
+        assertThat(groupMembers.findByGroupIdAndMemberId(group.getId(), target.getId())).isEmpty();
+    }
+
+    private Response deleteGroup(Member leader, long groupId) {
+        String csrf = RestAssured.get("/groups").cookie("XSRF-TOKEN");
+        return auth(leader).cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf).delete("/groups/{id}", groupId);
+    }
+
+    @Test
+    @DisplayName("모임 삭제의 마지막 저장이 실패하면 초대·수락·전송 취소도 모두 롤백한다.")
+    void groupDeletionFailureRollsBackInvitationCleanup() {
+        // Given
+        Member leader = member("101");
+        Member target = member("102");
+        Group group = group(leader);
+        subscription(target, "delete-rollback");
+        long id = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+        assertThat(accept(target, id, Map.of()).statusCode()).isEqualTo(201);
+        jdbc.execute("create table invitation_delete_guard (group_id bigint references groups(id))");
+        try {
+            jdbc.update("insert into invitation_delete_guard values (?)", group.getId());
+            // When
+            Response deleted = deleteGroup(leader, group.getId());
+            // Then
+            assertThat(deleted.statusCode()).isEqualTo(500);
+            assertThat(groups.findById(group.getId())).isPresent();
+            assertThat(groupMembers.findByGroupIdAndMemberId(group.getId(), target.getId())).isPresent();
+            assertThat(jdbc.queryForObject("select count(*) from invitation where id = ?", Integer.class, id)).isEqualTo(1);
+            assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance where invitation_id = ?", Integer.class, id)).isEqualTo(1);
+            assertThat(jdbc.queryForList("select status from notification_deliveries", String.class)).containsExactly("PENDING");
+        } finally {
+            jdbc.execute("drop table invitation_delete_guard");
+        }
+    }
+
+    @Test
     @DisplayName("지정 초대 거절은 알림을 보존하고 재조회·재수락을 차단하며 모임장에게 알리지 않는다.")
     void declinePreservesInboxAndBlocksAcceptance() {
         // Given

@@ -204,4 +204,8 @@ DB 접속값과 인증·OAuth·S3 설정은 개발 Compose의 환경 변수로 �
 
 초대 수락을 포함한 백엔드를 배포하기 전에는 [낙관적 잠금 버전 DDL](db/migrations/2026-10-11-invitation-optimistic-locking.sql)을 적용한다. Group·Invitation·Registration의 기존 행에 버전 0을 추가하며 재적용 시 현재 버전을 보존한다. 선택 이유는 [백엔드 ADR 0019](docs/adr/0019-optimistic-invitation-acceptance.md)를 따른다.
 
-지정 초대 거절 기능을 배포하기 전에는 [거절 시각 DDL](db/migrations/2026-10-12-invitation-status.sql)을 적용한다. 기존 초대는 거절하지 않은 상태로 유지되며 새 declined_at 컬럼은 nullable이다. 이 DDL은 재적용할 수 있다.
+지정 초대 거절 기능을 배포하기 전에는 [초대 상태 DDL](db/migrations/2026-10-12-invitation-status.sql)을 적용한다. 기존 유효 초대는 VALID, 취소 초대는 CANCELED로 보정하고 중간 로컬 버전의 declined_at이 있으면 REJECTED로 이전한 뒤 제거한다. 재적용 시 기존 상태와 수락 이력은 보존한다.
+
+모임당 공유 링크 하나를 적용하려면 [공유 링크 단일화 DDL](db/migrations/2026-10-12-single-shared-invitation.sql)을 위 상태 DDL 이후 적용한다. 스키마 적용 순서·DB 검증·복구 제한은 [초대 운영 가이드](docs/operations/invitations.md)를 따른다.
+
+dev/prod GitHub Environment의 Variables에 `INVITATION_TOKEN_ACTIVE_KEY_ID`(기본 primary), Secrets에 `INVITATION_TOKEN_KEY_PRIMARY`와 필요한 `INVITATION_TOKEN_KEY_PREVIOUS`를 설정하면 backend 배포 workflow와 Compose가 서버로 전달한다. 키는 32바이트를 Base64로 인코딩한 값이며 환경마다 분리한다. 실제 Secrets 등록·DB 적용·배포는 코드 변경과 별도로 수행한다.

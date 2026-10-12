@@ -75,7 +75,7 @@
 
 | 분류 | 문서 | 내용 |
 | --- | --- | --- |
-| 초대 | [invitations.md](invitations.md) | 발급·회원 후보·수신/발급 목록·상세·공개 미리보기·취소·수락·대기 신청 승인 |
+| 초대 | [invitations.md](invitations.md) | 발급·회원 후보·수신/발급 목록·상세·공개 미리보기·취소·거절·수락·대기 신청 승인 |
 | 피드백 | [feedbacks.md](feedbacks.md) | 피드백 작성 |
 | 인증·회원 | [auth-members.md](auth-members.md) | 인증과 회원 엔드포인트 |
 | 그룹 | [groups.md](groups.md) | 그룹과 일정 엔드포인트 |
