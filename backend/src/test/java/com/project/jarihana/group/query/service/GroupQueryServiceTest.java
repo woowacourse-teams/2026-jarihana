@@ -7,6 +7,7 @@ import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.GroupStatus;
 import com.project.jarihana.group.domain.GroupType;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
+import com.project.jarihana.group.domain.SessionGroupSchedule;
 import com.project.jarihana.group.query.GroupRelation;
 import com.project.jarihana.group.query.repository.InMemoryGroupDetailRepository;
 import com.project.jarihana.group.query.repository.InMemoryGroupListRepository;
@@ -25,6 +26,9 @@ import com.project.jarihana.recruitment.domain.JoinMethod;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.*;
 import java.util.List;
@@ -69,6 +73,8 @@ class GroupQueryServiceTest {
                 null,
                 GroupType.STUDY,
                 null,
+                null,
+                null,
                 "알고리즘",
                 null,
                 20
@@ -107,6 +113,40 @@ class GroupQueryServiceTest {
         ));
     }
 
+    @DisplayName("오늘 세션 목록은 세션 날짜와 제외 유형 조건을 함께 적용한다.")
+    @Test
+    void filtersSessionGroupsBySessionDateAndExcludedType() {
+        // Given
+        Group todaySession = session("오늘 점심 같이해요", "가볍게 점심을 먹어요.", LocalDate.of(2026, 8, 19), NOW);
+        Group tomorrowSession = session(
+                "내일 커피 같이해요",
+                "내일 커피를 마셔요.",
+                LocalDate.of(2026, 8, 20),
+                NOW.minusMinutes(1)
+        );
+        listRepository.save(GroupListProjection.of(3L, todaySession, 1, List.of(), null, 0));
+        listRepository.save(GroupListProjection.of(4L, tomorrowSession, 1, List.of(), null, 0));
+        saveGroupListFixtures();
+        GroupListQuery query = new GroupListQuery(
+                GroupStatus.ACTIVE,
+                null,
+                null,
+                GroupType.SESSION,
+                GroupType.STUDY,
+                LocalDate.of(2026, 8, 19),
+                null,
+                null,
+                null,
+                20
+        );
+
+        // When
+        GroupListResult result = service.findGroups(query);
+
+        // Then
+        assertThat(result.items()).extracting(projection -> projection.id()).containsExactly(3L);
+    }
+
     private static Group study(String name, String introduction, LocalDateTime createdAt) {
         return Group.createStudy(
                 name,
@@ -114,6 +154,22 @@ class GroupQueryServiceTest {
                 null,
                 null,
                 RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.NOON, LocalTime.of(13, 0)),
+                createdAt
+        );
+    }
+
+    private static Group session(
+            String name,
+            String introduction,
+            LocalDate sessionDate,
+            LocalDateTime createdAt
+    ) {
+        return Group.createSession(
+                name,
+                introduction,
+                null,
+                null,
+                SessionGroupSchedule.of(sessionDate, LocalTime.of(12, 0), LocalTime.of(13, 0)),
                 createdAt
         );
     }
@@ -131,6 +187,8 @@ class GroupQueryServiceTest {
                 GroupStatus.ACTIVE,
                 GroupRelation.JOINED,
                 GroupMemberRole.LEADER,
+                null,
+                null,
                 null,
                 true,
                 null,
@@ -153,6 +211,8 @@ class GroupQueryServiceTest {
                 GroupStatus.ACTIVE,
                 null,
                 GroupMemberRole.LEADER,
+                null,
+                null,
                 null,
                 false,
                 null,
@@ -238,6 +298,30 @@ class GroupQueryServiceTest {
         // Then
         assertThat(result.representativeImageUrl())
                 .isEqualTo("https://cdn.example.test/images/groups/tmp/uploaded-image.webp");
+    }
+
+    @DisplayName("이미지가 없거나 기본 이미지 키이면 기존 기본 이미지 경로를 반환한다.")
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = "images/default-group.png")
+    void preservesDefaultImageUrl(String imageKey) {
+        // Given
+        GroupQueryService cloudFrontService = new GroupQueryService(
+                listRepository, detailRepository, loginMemberReader, CLOCK,
+                "https://cdn.example.test/images"
+        );
+        Group group = Group.createStudy(
+                "기본 이미지 그룹", "기본 이미지를 조회합니다.", null, imageKey,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.NOON, LocalTime.of(13, 0)),
+                NOW
+        );
+        detailRepository.save(GroupDetailProjection.of(1L, group, List.of(), null, 0));
+
+        // When
+        GroupDetailResult result = cloudFrontService.findGroup(1L);
+
+        // Then
+        assertThat(result.representativeImageUrl()).isEqualTo("images/default-group.png");
     }
 
     @DisplayName("존재하지 않는 그룹 상세 조회 시 예외가 발생한다.")

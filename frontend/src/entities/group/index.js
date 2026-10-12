@@ -39,6 +39,81 @@ export const sessionScheduleSchema = z.object({
   endTime: localTimeSchema
 });
 
+export const groupCalendarSchema = z.object({
+  showBaseSchedule: z.boolean(),
+  flexibleBeforeFirstRecurring: z.object({
+    fromDate: localDateSchema,
+    untilDate: localDateSchema,
+    registeredOn: localDateSchema
+  }).strict().nullable(),
+  flexibleAfterRecurring: z.array(z.object({
+    fromDate: localDateSchema,
+    untilDate: localDateSchema.nullable()
+  }).strict()),
+  events: z.array(z.object({
+    kind: z.enum(["GROUP_EVENT", "REGULAR_MEETING", "RECURRING", "SESSION"]),
+    id: entityIdSchema.nullable().optional(),
+    occurrenceKey: z.string().nullable().optional(),
+    periodId: entityIdSchema.nullable().optional(),
+    title: z.string(),
+    startDate: localDateSchema,
+    endDate: localDateSchema,
+    allDay: z.boolean(),
+    startTime: localTimeSchema.nullable(),
+    endTime: localTimeSchema.nullable()
+  }).strict())
+}).strict();
+
+export const groupEventDetailSchema = z.object({
+  id: entityIdSchema,
+  eventType: z.enum(["INDIVIDUAL", "REGULAR_MEETING"]).optional(),
+  status: z.enum(["AUTO", "UPCOMING", "COMPLETED"]).optional(),
+  effectiveStatus: z.enum(["UPCOMING", "COMPLETED"]).optional(),
+  title: z.string(),
+  startDate: localDateSchema,
+  endDate: localDateSchema,
+  allDay: z.boolean(),
+  startTime: localTimeSchema.nullable(),
+  endTime: localTimeSchema.nullable(),
+  description: z.string(),
+  location: z.string().nullable(),
+  version: z.number().int().nonnegative(),
+  recurrenceSourceDate: localDateSchema.nullable().optional()
+}).strict();
+
+export const groupScheduleDetailSchema = z.object({
+  kind: z.enum(["RECURRING", "SESSION"]),
+  title: z.string(),
+  date: localDateSchema,
+  startTime: localTimeSchema.nullable(),
+  endTime: localTimeSchema.nullable(),
+  location: z.string().nullable()
+}).strict();
+
+export const groupRecurringManageSchema = z.object({
+  seriesId: entityIdSchema,
+  periodId: entityIdSchema,
+  startDate: localDateSchema,
+  endDate: localDateSchema.nullable(),
+  version: z.number().int().nonnegative(),
+  daysOfWeek: z.array(dayOfWeekSchema),
+  startTime: localTimeSchema.nullable(),
+  endTime: localTimeSchema.nullable()
+}).strict();
+
+export const groupRecurringPeriodSchema = z.object({
+  periodId: entityIdSchema,
+  effectiveFrom: localDateSchema,
+  effectiveUntil: localDateSchema.nullable(),
+  version: z.number().int().nonnegative(),
+  daysOfWeek: z.array(dayOfWeekSchema),
+  startTime: localTimeSchema.nullable(),
+  endTime: localTimeSchema.nullable()
+}).strict();
+
+export const groupVersionSchema = z.object({ version: z.number().int().nonnegative() }).strict();
+export const groupCalendarSettingsSchema = z.object({ showBaseSchedule: z.boolean() }).strict();
+
 const leaderSchema = z.object({
   memberId: entityIdSchema,
   crewName: z.string(),
@@ -74,6 +149,7 @@ export const groupListItemSchema = z.object({
   name: z.string(),
   introduction: z.string(),
   representativeImageUrl: representativeImageUrlSchema,
+  location: z.string().max(255).nullable().optional(),
   recurringSchedule: recurringScheduleSchema.nullable().optional(),
   sessionSchedule: sessionScheduleSchema.nullable().optional(),
   leader: leaderSchema.nullable(),

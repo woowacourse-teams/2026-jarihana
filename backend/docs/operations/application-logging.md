@@ -163,7 +163,7 @@ override가 적용되지는 않는다. 기본값을 쓸 때는 추가 workflow �
 다음처럼 실행한다.
 
 ```bash
-TARGET_ENVIRONMENT=dev EXPECTED_INSTANCE_ID=<확인한-EC2-ID> APPLICATION_LOG_RETENTION_DAYS=14 bash infra/cloudwatch/prepare-aws.sh
+TARGET_ENVIRONMENT=dev EXPECTED_INSTANCE_ID=<확인한-EC2-ID> APPLICATION_LOG_RETENTION_DAYS=14 bash infra/cloudwatch/common/prepare-aws.sh
 ```
 
 `TARGET_ENVIRONMENT`는 `dev` 또는 `prod`이고, 기본 로그 그룹은 각각

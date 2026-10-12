@@ -1,5 +1,10 @@
 TRUNCATE TABLE
+    notification_deliveries,
+    push_subscriptions,
+    notifications,
     refresh_token,
+    activity_post_photo,
+    activity_post,
     image_upload,
     feedback,
     registration,

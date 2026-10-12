@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { z } from "zod";
 
 import { useCreateGroup } from "../../features/group/index.js";
@@ -144,6 +144,7 @@ function draftSummary(values) {
 
 export function NewGroupPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const createMutation = useCreateGroup();
   const representativeImageUpload = useImageUpload();
   const descriptionImageUpload = useImageUpload();
@@ -171,7 +172,7 @@ export function NewGroupPage() {
   } = useForm({
     resolver: zodResolver(newGroupSchema),
     defaultValues: {
-      type: "STUDY",
+      type: searchParams.get("type") === "SESSION" ? "SESSION" : "STUDY",
       name: "",
       introduction: "",
       description: "",
@@ -250,7 +251,7 @@ export function NewGroupPage() {
       >
         <section
           aria-label="모임 기본 정보"
-          className="group-profile group-profile--default-image group-editor__profile"
+          className={`group-profile group-editor__profile${representativeImagePreview ? "" : " group-profile--default-image"}`}
         >
           <div className="group-profile__copy">
             <UnderlineSelect
@@ -286,7 +287,7 @@ export function NewGroupPage() {
 
             <div className="group-info">
               <h2 className="group-info-title">모임 정보</h2>
-              <dl className="group-facts">
+              <div className="group-facts">
                 <div className="group-fact group-fact--field">
                   <div>
                     <UnderlineSelect
@@ -317,7 +318,7 @@ export function NewGroupPage() {
                     />
                   </div>
                 </div>
-              </dl>
+              </div>
             </div>
           </div>
           <RepresentativeImageNotice
@@ -334,7 +335,7 @@ export function NewGroupPage() {
             <GroupImage
               alt=""
               className="group-profile__image"
-              group={{ representativeImageUrl: representativeImagePreview || DEFAULT_GROUP_IMAGE_URL }}
+              group={{ type, representativeImageUrl: representativeImagePreview || DEFAULT_GROUP_IMAGE_URL }}
             />
           </div>
         </section>

@@ -443,6 +443,7 @@ test("network scrubber discards external signed URLs and strips same-origin payl
 
 test("path normalization is idempotent and removes arbitrary user-controlled segments", () => {
   expect(normalizePath(normalizePath("/groups/42?token=secret"))).toBe("/groups/:id");
+  expect(normalizePath("/groups/explore?keyword=private")).toBe("/groups/explore");
   expect(normalizePath("/people/private@example.com")).toBe("/:redacted/:redacted");
   expect(isPrivateRoute("/api/oauth/github/callback")).toBe(true);
 });

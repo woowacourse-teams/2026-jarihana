@@ -9,6 +9,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.project.jarihana.auth.command.repository.RefreshTokenRepository;
 import com.project.jarihana.auth.command.service.AuthCommandService;
+import com.project.jarihana.pushsubscription.command.service.PushSubscriptionCommandService;
 import com.project.jarihana.auth.command.service.RefreshTokenHasher;
 import com.project.jarihana.auth.command.service.dto.LogoutCommand;
 import com.project.jarihana.auth.token.AccessTokenProvider;
@@ -69,7 +70,7 @@ class LoggingProxyTransactionTest {
         @Bean LocalTransactionManager transactionManager() { return new LocalTransactionManager(); }
         @Bean AuthCommandService service() {
             return new AuthCommandService(mock(RefreshTokenRepository.class), mock(RefreshTokenHasher.class),
-                    mock(AccessTokenProvider.class), Clock.systemUTC());
+                    mock(AccessTokenProvider.class), Clock.systemUTC(), mock(PushSubscriptionCommandService.class));
         }
     }
     static class LocalTransactionManager extends AbstractPlatformTransactionManager {

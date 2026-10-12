@@ -2,7 +2,7 @@
 
 > 상태: 저장소 최신 설계 기준
 >
-> 구현·테스트·Swagger/OpenAPI와 충돌하면 임의로 해석하지 않고 차이를 보고한다.
+> 구현·테스트와 충돌하면 임의로 해석하지 않고 차이를 보고한다.
 
 ## 도메인 액터
 
@@ -24,14 +24,27 @@ flowchart TD
     GM["GroupMember<br/>그룹에 실제로 속한 관계<br/>역할과 가입 시각 보유"]
     RS["RecurringGroupSchedule<br/>동아리·스터디의 고정 주간 일정<br/>활동 요일·시간"]
     SS["SessionGroupSchedule<br/>세션의 일회성 일정<br/>활동 날짜·시간"]
+    GE["GroupEvent<br/>개별 일정·날짜별 정기 모임·반복 회차 예외"]
+    GRS["GroupRecurringSeries<br/>정기 일정 전체 기간과 안정 ID"]
+    GRP["GroupRecurringPeriod<br/>요일·시각 변경 이력 구간"]
+    GLH["GroupLocationHistory<br/>모임 장소 변경 이력"]
+    AP["ActivityPost<br/>그룹 사진 활동 기록<br/>활동 날짜·작성자·캡션"]
+    APP["ActivityPostPhoto<br/>게시물 사진 참조<br/>v1 게시물당 한 장"]
 
     M --> Reg
     M --> GM
     G -->|"0..N"| R
     G -->|"0..1"| RS
     G -->|"0..1"| SS
+    G -->|"0..N"| GE
+    G -->|"0..N"| GRS
+    GRS -->|"1..N"| GRP
+    G -->|"0..N"| GLH
     G -->|"1..N"| GM
     R -->|"0..N"| Reg
+    M -->|"작성"| AP
+    G -->|"기록 대상"| AP
+    AP -->|"1..1 (v1)"| APP
 ```
 
 핵심 구분은 다음과 같다.
@@ -40,7 +53,7 @@ flowchart TD
 - `GroupRecruitment`는 그룹에 속한 한 번의 모집 공고다.
 - `Registration`은 특정 모집 공고에 대한 신청과 의사결정 이력이다.
 - `GroupMember`는 회원과 그룹 사이의 실제 소속 관계다.
-- 일정은 `RecurringGroupSchedule`과 `SessionGroupSchedule`이라는 서로 다른 모델로 표현한다.
+- `RecurringGroupSchedule`과 `SessionGroupSchedule`은 현재 일정 값을 표현한다. 달력의 개별 일정과 정기 규칙 이력은 `GroupEvent`, `GroupRecurringSeries`, `GroupRecurringPeriod`로 보관한다.
 이 분리를 통해 같은 그룹이 시기별로 여러 번 모집하거나, 모집이 끝난 뒤에도 활동을 계속하거나, 모집 공고 없이 과거 활동을 보존하는 구조를 표현할 수 있다.
 
 ## 용어
@@ -49,6 +62,10 @@ flowchart TD
 | --- | --- | --- |
 | 회원 | `Member` | 자리하나 서비스의 사용자 |
 | 그룹 | `Group` | 동아리, 스터디 또는 일회성 세션 등 활동의 단위 |
+| 모임 일정 | `GroupEvent` | 모임장이 등록한 개별 일정, 날짜별 정기 모임 또는 반복 회차 예외 |
+| 정기 일정 묶음 | `GroupRecurringSeries` | 정기 일정의 전체 표시 기간과 안정적인 묶음 ID |
+| 정기 규칙 구간 | `GroupRecurringPeriod` | 정기 일정의 요일·시각이 적용되는 이력 구간 |
+| 모임 장소 이력 | `GroupLocationHistory` | 모임 장소와 그 적용 시각 구간 |
 | 모집 공고 | `GroupRecruitment` | 그룹이 사람을 모집하는 한 번의 공고 |
 | 신청 | `Registration` | 회원이 특정 모집 공고에 제출한 참여 요청 |
 | 그룹 구성원 | `GroupMember` | 회원과 그룹 사이의 실제 소속 관계 |
@@ -66,8 +83,17 @@ flowchart TD
 | `GroupRecruitment` | 한 번의 모집 공고 | 등록 후 마감되는 생명주기를 가진다 |
 | `RecurringGroupSchedule` | `CLUB`, `STUDY`의 반복 일정 | 그룹에 연결되는 일정 모델이다 |
 | `SessionGroupSchedule` | `SESSION`의 일회성 일정 | 세션 그룹에 연결되는 일정 모델이다 |
+| `GroupEvent` | 모임 소속 개별 일정과 날짜별 정기 모임 | 등록·수정·삭제되며 삭제한 반복 회차 예외도 tombstone으로 보존한다 |
+| `GroupRecurringSeries` | 정기 일정의 안정적인 묶음과 전체 표시 기간 | 요일·시각 규칙이 달라져도 묶음 ID를 유지한다 |
+| `GroupRecurringPeriod` | 정기 규칙의 요일·시각 변경 구간 | 묶음 안에서 겹치지 않는 날짜 구간으로 이력을 보관한다 |
+| `GroupLocationHistory` | 당시 장소 조회를 위한 모임 장소 이력 | 현재 장소와 별도로 변경 시각 구간을 보관한다 |
 | `Registration` | 모집 공고에 대한 가입 신청 | `PENDING`, `APPROVED`, `REJECTED` 상태를 가진다 |
 | `GroupMember` | 그룹 소속과 역할 | 회원과 그룹 사이의 소속 상태를 표현한다 |
+| `ActivityPost` | 그룹의 사진 활동 기록 | 공개 피드에 노출되는 게시물. `activityDate` 기준 최신순으로 조회한다 |
+| `ActivityPostPhoto` | 게시물 사진 | 게시물과 분리된 사진 참조이며 현재는 게시물당 사진 한 장이다 |
+| `Notification` | 회원별 알림 기록 | 읽음·삭제 시각을 기록하며 삭제 후에도 사건 중복 방지 행을 유지한다 |
+| `PushSubscription` | 브라우저 푸시 연결 | 해제·재연결·키 교체 시 연결 버전을 증가시킨다 |
+| `NotificationDelivery` | 구독별 전송 대기 | 생성 당시 연결 버전과 전송 상태를 기록하며 워커가 선점·전송·재시도를 수행한다 |
 
 ## 관계도
 
@@ -78,6 +104,10 @@ erDiagram
     GROUP ||--o{ GROUP_RECRUITMENT : "모집한다"
     GROUP ||--o| RECURRING_GROUP_SCHEDULE : "동아리·스터디 반복 일정"
     GROUP ||--o| SESSION_GROUP_SCHEDULE : "세션 단일 일정"
+    GROUP ||--o{ GROUP_EVENT : "모임 소속 일정"
+    GROUP ||--o{ GROUP_RECURRING_SERIES : "정기 일정 이력"
+    GROUP_RECURRING_SERIES ||--|{ GROUP_RECURRING_PERIOD : "규칙 구간"
+    GROUP ||--o{ GROUP_LOCATION_HISTORY : "장소 변경 이력"
     GROUP ||--o{ GROUP_MEMBER : "구성원을 가진다"
     GROUP_RECRUITMENT ||--o{ REGISTRATION : "신청을 받는다"
 ```
@@ -97,3 +127,5 @@ erDiagram
 | 신청 | [Registration](registration.md) | 신청 모델 |
 | 소속 | [GroupMember](groupmember.md) | 그룹 소속 모델 |
 | 피드백 | [Feedback](feedback.md) | 피드백 내용과 필수 작성 회원 |
+| 사진 활동 기록 | [ActivityPost](activitypost.md) | 공개 범위, 사진 참조, 활동 날짜와 생명주기 |
+| 알림·구독·전송 | [Notification](notification.md) | 데이터 모델·업무 이벤트·알림함·구독 API·푸시 워커·화면·SW 연결 구현 |

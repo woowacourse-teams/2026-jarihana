@@ -14,6 +14,7 @@ import com.project.jarihana.registration.query.service.dto.RegistrationSummaryRe
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.nio.charset.StandardCharsets;
@@ -88,6 +89,31 @@ class RegistrationQueryServiceTest {
                 new MyRegistrationListSearchCriteria(MEMBER_ID, null, null, null)
         );
         assertThat(repository.lastMySize()).isEqualTo(20);
+    }
+
+    @DisplayName("내 신청의 이미지가 없거나 기본 이미지 키이면 기존 기본 이미지 경로를 반환한다.")
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = "images/default-group.png")
+    void preservesDefaultImageUrl(String imageKey) {
+        // Given
+        repository.givenMyPage(new MyRegistrationListPage(
+                List.of(new MyRegistrationListProjection(
+                        88L, 12L, "기본 이미지 그룹", imageKey, RECRUITMENT_ID,
+                        "참여하고 싶습니다.", RegistrationStatus.PENDING, true, REGISTERED_AT,
+                        null, null, null, null
+                )),
+                false
+        ));
+
+        // When
+        MyRegistrationListResult result = service.findMyRegistrations(
+                MEMBER_ID, new RegistrationListQuery(null, null, 20)
+        );
+
+        // Then
+        assertThat(result.items().getFirst().groupRepresentativeImageUrl())
+                .isEqualTo("images/default-group.png");
     }
 
     private static String decodeCursor(String cursor) {

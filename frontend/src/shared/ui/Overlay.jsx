@@ -52,9 +52,12 @@ function useFocusReturn(visible) {
 
 function OverlayPanel({
   children,
-  closeAction,
+  closeAction = "dialog_close",
   closeLabel = "닫기",
+  panelClassName = "",
   description,
+  dismissible = true,
+  headerActions,
   mode = "modal",
   onDismiss,
   title
@@ -63,10 +66,12 @@ function OverlayPanel({
   const descriptionId = useId();
   const panelReference = useRef(null);
   const dismissReference = useRef(onDismiss);
+  const dismissibleReference = useRef(dismissible);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     dismissReference.current = onDismiss;
-  }, [onDismiss]);
+    dismissibleReference.current = dismissible;
+  });
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -74,7 +79,7 @@ function OverlayPanel({
     focusableElements(panelReference.current)[0]?.focus();
 
     function handleKeyDown(event) {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && dismissibleReference.current) {
         event.preventDefault();
         dismissReference.current();
         return;
@@ -109,7 +114,7 @@ function OverlayPanel({
     <div
       className={drawer ? "ui-overlay ui-drawer-overlay" : "ui-overlay"}
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onDismiss();
+        if (dismissible && event.target === event.currentTarget) onDismiss();
       }}
       role="presentation"
     >
@@ -117,7 +122,7 @@ function OverlayPanel({
         aria-describedby={description ? descriptionId : undefined}
         aria-labelledby={titleId}
         aria-modal="true"
-        className={drawer ? "ui-drawer" : "ui-dialog"}
+        className={drawer ? "ui-drawer" : ["ui-dialog", panelClassName].filter(Boolean).join(" ")}
         ref={panelReference}
         role="dialog"
         tabIndex={-1}
@@ -125,13 +130,15 @@ function OverlayPanel({
         <IconButton
           className="ui-dialog__close"
           data-ph-capture-attribute-action={closeAction}
+          disabled={!dismissible}
           label={closeLabel}
           onClick={onDismiss}
           variant="tertiary"
         >
           ×
         </IconButton>
-        <h2 className="ui-dialog__title" id={titleId}>
+        {headerActions ? <div className="ui-dialog__header-actions">{headerActions}</div> : null}
+        <h2 className={`ui-dialog__title${headerActions ? " ui-dialog__title--with-actions" : ""}`} id={titleId}>
           {title}
         </h2>
         {description ? (
@@ -161,12 +168,15 @@ function Trigger({ children, expanded, onOpen }) {
 
 export function Modal({
   children,
-  closeAction,
+  closeLabel = "닫기",
+  closeAction = "dialog_close",
   defaultOpen = false,
   description,
+  dismissible = true,
   onClose,
   onOpenChange,
   open,
+  panelClassName,
   title,
   trigger
 }) {
@@ -178,6 +188,7 @@ export function Modal({
   }
 
   function dismiss() {
+    if (!dismissible) return;
     setVisible(false);
   }
 
@@ -191,8 +202,11 @@ export function Modal({
       {visible ? (
         <OverlayPanel
           closeAction={closeAction}
+          closeLabel={closeLabel}
           description={description}
+          dismissible={dismissible}
           onDismiss={dismiss}
+          panelClassName={panelClassName}
           title={title}
         >
           {children}
@@ -206,6 +220,7 @@ export function Drawer({
   children,
   closeAction,
   defaultOpen = false,
+  headerActions,
   onClose,
   onOpenChange,
   open,
@@ -228,7 +243,7 @@ export function Drawer({
         </Trigger>
       ) : null}
       {visible ? (
-        <OverlayPanel closeAction={closeAction} mode="drawer" onDismiss={dismiss} title={title}>
+        <OverlayPanel closeAction={closeAction} headerActions={headerActions} mode="drawer" onDismiss={dismiss} title={title}>
           {children}
         </OverlayPanel>
       ) : null}

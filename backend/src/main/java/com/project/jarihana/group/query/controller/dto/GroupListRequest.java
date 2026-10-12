@@ -7,12 +7,17 @@ import com.project.jarihana.group.query.service.dto.GroupListQuery;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import org.springframework.format.annotation.DateTimeFormat;
+
+import java.time.LocalDate;
 
 public record GroupListRequest(
         GroupStatus status,
         GroupRelation relation,
         GroupMemberRole role,
         GroupType type,
+        GroupType excludedType,
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate sessionDate,
         Boolean recruiting,
         String keyword,
         String cursor,
@@ -31,6 +36,17 @@ public record GroupListRequest(
     }
 
     public GroupListQuery toQuery() {
-        return new GroupListQuery(status, relation, role, type, recruiting, keyword, cursor, size);
+        return new GroupListQuery(
+                status,
+                relation,
+                role,
+                type,
+                excludedType,
+                sessionDate,
+                recruiting,
+                keyword,
+                cursor,
+                size
+        );
     }
 }

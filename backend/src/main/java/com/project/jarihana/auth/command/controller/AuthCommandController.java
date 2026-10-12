@@ -1,6 +1,11 @@
 package com.project.jarihana.auth.command.controller;
 
 import com.project.jarihana.auth.command.controller.dto.RefreshResponse;
+import com.project.jarihana.auth.command.controller.dto.LogoutRequest;
+import jakarta.validation.Validator;
+import tools.jackson.databind.json.JsonMapper;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.RequestBody;
 import com.project.jarihana.auth.command.service.AuthCommandService;
 import com.project.jarihana.auth.command.service.dto.LogoutCommand;
 import com.project.jarihana.auth.command.service.dto.RefreshCommand;
@@ -15,6 +20,8 @@ import com.project.jarihana.common.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import com.project.jarihana.common.exception.ErrorCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,6 +31,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/auth")
+@RequiredArgsConstructor
 public class AuthCommandController {
 
     private final AuthCommandService authCommandService;
@@ -31,20 +39,8 @@ public class AuthCommandController {
     private final AuthCookieFactory authCookieFactory;
     private final LoginMemberReader loginMemberReader;
     private final SignupSession signupSession;
-
-    public AuthCommandController(
-            AuthCommandService authCommandService,
-            AuthCookieProperties authCookieProperties,
-            AuthCookieFactory authCookieFactory,
-            LoginMemberReader loginMemberReader,
-            SignupSession signupSession
-    ) {
-        this.authCommandService = authCommandService;
-        this.authCookieProperties = authCookieProperties;
-        this.authCookieFactory = authCookieFactory;
-        this.loginMemberReader = loginMemberReader;
-        this.signupSession = signupSession;
-    }
+    private final JsonMapper jsonMapper;
+    private final Validator validator;
 
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<RefreshResponse>> refresh(
@@ -82,13 +78,32 @@ public class AuthCommandController {
      * 쓰지 않는다.
      */
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(HttpServletRequest request) {
+    public ResponseEntity<Void> logout(HttpServletRequest request, @RequestBody(required = false) byte[] body) {
+        return performLogout(request, readLogoutBody(request, body));
+    }
+
+    private LogoutRequest readLogoutBody(HttpServletRequest request, byte[] body) {
+        if (body == null || body.length == 0) return null;
+        try {
+            if (body.length > 1024 || request.getContentType() == null
+                    || !MediaType.APPLICATION_JSON.isCompatibleWith(MediaType.parseMediaType(request.getContentType()))) {
+                throw new IllegalArgumentException();
+            }
+            LogoutRequest parsed = jsonMapper.readValue(body, LogoutRequest.class);
+            if (parsed == null || !validator.validate(parsed).isEmpty()) throw new IllegalArgumentException();
+            return parsed;
+        } catch (RuntimeException exception) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "로그아웃 본문에 유효한 구독 ID와 연결 버전이 필요합니다.");
+        }
+    }
+
+    private ResponseEntity<Void> performLogout(HttpServletRequest request, LogoutRequest body) {
         LogoutCommand command = new LogoutCommand(
                 loginMemberReader.currentMemberId().orElse(null),
                 signupSession.githubId(request).orElse(null),
                 readRefreshToken(request).orElse(null)
         );
-        authCommandService.logout(command);
+        authCommandService.logout(command, body == null ? null : body.toCommand());
         signupSession.invalidate(request);
 
         return ResponseEntity.noContent()

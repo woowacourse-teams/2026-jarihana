@@ -1,4 +1,6 @@
-import { useRef, useState } from "react";
+import { NotificationBell, NotificationBellTrigger, NotificationDrawer } from "../features/notifications/NotificationInbox";
+import { useId, useRef, useState } from "react";
+import { useUnreadCount } from "../features/notifications/hooks";
 import { Link, useLocation, useNavigate } from "react-router";
 import { UserRound } from "lucide-react";
 
@@ -12,19 +14,39 @@ import { COURSE_LABELS, generationLabel } from "../pages/account/accountUtils";
 import { Avatar, Drawer, Modal, useToast } from "../shared/ui";
 import githubMark from "../shared/assets/brand/github-mark.svg";
 import logoMark from "../shared/assets/brand/jarihana-favicon.png";
+import createChairImage from "../shared/assets/brand/jarihana-chair-create.png";
 import { ProfileMenu } from "./ProfileMenu";
 
+const HOME_LINK = {
+  action: "group_home",
+  isActive: (pathname) => pathname === "/",
+  label: "홈",
+  requiresAuth: false,
+  to: "/"
+};
+
+const EXPLORE_LINK = {
+  action: "group_browse",
+  isActive: (pathname) => pathname === "/groups",
+  label: "탐색",
+  requiresAuth: false,
+  to: "/groups"
+};
+
+const ACTIVITY_LINK = {
+  action: "browse_activity_posts",
+  isActive: (pathname) => pathname === "/activities",
+  label: "활동",
+  requiresAuth: false,
+  to: "/activities"
+};
+
 const MEMBER_LINKS = [
+  HOME_LINK,
+  EXPLORE_LINK,
+  ACTIVITY_LINK,
   {
-    isActive: (pathname) =>
-      pathname === "/" ||
-      pathname === "/groups" ||
-      (pathname !== "/groups/new" && /^\/groups\/[^/]+(?:\/recruitments\/[^/]+)?$/.test(pathname)),
-    label: "탐색",
-    requiresAuth: false,
-    to: "/groups"
-  },
-  {
+    action: "group_create",
     isActive: (pathname) => pathname === "/groups/new",
     label: "모임 만들기",
     requiresAuth: true,
@@ -32,7 +54,7 @@ const MEMBER_LINKS = [
   }
 ];
 
-const DESKTOP_MEMBER_LINKS = [];
+const DESKTOP_MEMBER_LINKS = [HOME_LINK, EXPLORE_LINK, ACTIVITY_LINK];
 
 function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, status }) {
   const { pathname } = useLocation();
@@ -43,6 +65,7 @@ function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, st
       <Link
         aria-current={isActive ? "page" : undefined}
         className={isActive ? "app-header__link app-header__link--active" : "app-header__link"}
+        data-ph-capture-attribute-action={link.action}
         key={link.to}
         onClick={(event) => {
           if (link.requiresAuth && status === "anonymous") {
@@ -91,22 +114,23 @@ function FeedbackLink({ onClick, onNavigate, open, status }) {
       }}
       type="button"
     >
-      피드백 남기기
+      피드백
     </button>
   );
 }
 
 function AuthAction({ onNavigate, status }) {
-  const { login, logout } = useAuth();
+  const { login, logout, logoutPending } = useAuth();
 
   if (status === "authenticated") {
     return (
       <button
         className="app-header__auth app-header__auth--secondary"
         data-ph-capture-attribute-action="logout"
+        disabled={logoutPending}
         onClick={() => {
           onNavigate();
-          void logout();
+          void Promise.resolve(logout()).catch(() => undefined);
         }}
         type="button"
       >
@@ -150,15 +174,20 @@ function AuthAction({ onNavigate, status }) {
   );
 }
 
-export function AppHeader({ action = null, title = "" }) {
-  const { avatarUrl, login, member, status } = useAuth();
+export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
+  const { avatarUrl, login, logout, logoutError, logoutPending, member, status } = useAuth();
+  const unreadCount = useUnreadCount();
+  const hasUnread = status === "authenticated" && unreadCount.data?.unreadCount > 0;
+  const unreadDescriptionId = useId();
   const memberDetails = member?.memberType === "COACH"
     ? "코치"
     : `${generationLabel(member?.generation)}${member?.course ? ` / ${COURSE_LABELS[member.course]}` : ""}`;
   const { hash, pathname, search } = useLocation();
+  const activeMenuIndex = DESKTOP_MEMBER_LINKS.findIndex((link) => link.isActive(pathname));
   const navigate = useNavigate();
   const { success } = useToast();
   const [isMenuOpen, setMenuOpen] = useState(false);
+  const [isMobileNotificationOpen, setMobileNotificationOpen] = useState(false);
   const [feedbackManuallyOpen, setFeedbackManuallyOpen] = useState(false);
   const [loginRequiredOpen, setLoginRequiredOpen] = useState(false);
   const menuButtonReference = useRef(null);
@@ -225,27 +254,43 @@ export function AppHeader({ action = null, title = "" }) {
     handleFeedbackOpenChange(false);
   }
 
+  function handleOpenPwaGuideFromInbox() {
+    setMobileNotificationOpen(false);
+    setMenuOpen(false);
+    window.requestAnimationFrame(() => onOpenPwaGuide?.());
+  }
+
   return (
     <>
       <header className="app-header">
         <div className="app-header__inner">
           <div className="app-header__brand-group">
-            <Link aria-label="자리하나 홈" className="app-header__brand" to="/groups">
+            <Link
+              aria-label="자리하나 홈"
+              className="app-header__brand"
+              data-ph-capture-attribute-action="group_home"
+              to="/"
+            >
               <img alt="" aria-hidden="true" className="app-header__brand-mark" src={logoMark} />
               <span className="app-header__brand-text">자리하나?</span>
             </Link>
           </div>
 
-          <nav aria-label="주요 메뉴" className="app-header__primary-nav">
-            <FeedbackLink
-              onClick={handleFeedbackTrigger}
-              open={feedbackOpen || loginRequiredOpen}
-              status={status}
-            />
+          <nav
+            aria-label="주요 메뉴"
+            className="app-header__primary-nav"
+            data-active={activeMenuIndex >= 0}
+            style={{ "--header-active-index": Math.max(0, activeMenuIndex) }}
+          >
             <HeaderLinks
               links={DESKTOP_MEMBER_LINKS}
               onNavigate={() => {}}
               onProtectedNavigate={redirectToLogin}
+              status={status}
+            />
+            <FeedbackLink
+              onClick={handleFeedbackTrigger}
+              open={feedbackOpen || loginRequiredOpen}
               status={status}
             />
           </nav>
@@ -253,8 +298,29 @@ export function AppHeader({ action = null, title = "" }) {
           <div className="app-header__desktop-action">
             {title ? <span className="app-header__context">{title}</span> : null}
             {action}
+            <Link
+              className="app-header__auth app-header__create"
+              data-ph-capture-attribute-action="group_create"
+              onClick={(event) => {
+                if (status === "anonymous") {
+                  event.preventDefault();
+                  redirectToLogin("/groups/new");
+                }
+              }}
+              to="/groups/new"
+            >
+              <img
+                alt=""
+                aria-hidden="true"
+                className="app-header__create-chair"
+                height="24"
+                src={createChairImage}
+                width="24"
+              />
+              자리 만들기
+            </Link>
             {status === "authenticated" ? (
-              <ProfileMenu />
+              <div className="notification-header-actions"><NotificationBell onOpenPwaGuide={onOpenPwaGuide} /><ProfileMenu /></div>
             ) : (
               <AuthAction onNavigate={() => {}} status={status} />
             )}
@@ -263,6 +329,7 @@ export function AppHeader({ action = null, title = "" }) {
           <button
             aria-expanded={isMenuOpen}
             aria-label="메뉴 열기"
+            aria-describedby={hasUnread ? unreadDescriptionId : undefined}
             className="app-header__menu-button"
             data-ph-capture-attribute-action="header_menu_open"
             onClick={() => setMenuOpen(true)}
@@ -270,10 +337,20 @@ export function AppHeader({ action = null, title = "" }) {
             type="button"
           >
             <span aria-hidden="true" className="app-header__menu-lines" />
+            {hasUnread ? <>
+              <span aria-hidden="true" className="app-header__unread-dot" />
+              <span className="ui-sr-only" id={unreadDescriptionId}>안 읽은 알림이 있어요.</span>
+            </> : null}
           </button>
         </div>
       </header>
 
+      {logoutError ? <div className="notification-logout-error" role="alert"><p>{logoutError}</p>
+        <button data-ph-capture-attribute-action={status === "authenticated" ? "logout_retry" : "login_retry"} disabled={logoutPending}
+          onClick={() => { if (status === "authenticated") void logout().catch(() => undefined); else login(); }} type="button">
+          {status === "authenticated" ? "로그아웃 재시도" : "로그인 재시도"}
+        </button>
+      </div> : null}
       <Modal
         closeAction="feedback_form_dismiss"
         onOpenChange={handleFeedbackOpenChange}
@@ -291,6 +368,11 @@ export function AppHeader({ action = null, title = "" }) {
 
       <Drawer
         closeAction="mobile_menu_dismiss"
+        headerActions={status === "authenticated" ? <NotificationBellTrigger onClick={() => {
+          closeMenu();
+          menuButtonReference.current?.focus();
+          setMobileNotificationOpen(true);
+        }} /> : null}
         onClose={closeMenu}
         open={isMenuOpen}
         title="전체 메뉴"
@@ -338,15 +420,15 @@ export function AppHeader({ action = null, title = "" }) {
           </div>
           <div className="app-header__mobile-links">
             <h3 className="app-header__mobile-section-title">메뉴</h3>
+            <HeaderLinks
+              onNavigate={closeMenu}
+              onProtectedNavigate={redirectToLogin}
+              status={status}
+            />
             <FeedbackLink
               onClick={handleFeedbackTrigger}
               onNavigate={closeMenu}
               open={feedbackOpen || loginRequiredOpen}
-              status={status}
-            />
-            <HeaderLinks
-              onNavigate={closeMenu}
-              onProtectedNavigate={redirectToLogin}
               status={status}
             />
             {status === "authenticated" ? <MyPageLink onNavigate={closeMenu} /> : null}
@@ -354,6 +436,13 @@ export function AppHeader({ action = null, title = "" }) {
           </div>
         </nav>
       </Drawer>
+      {status === "authenticated" ? <NotificationDrawer open={isMobileNotificationOpen} onOpenChange={(open) => {
+        setMobileNotificationOpen(open);
+        if (!open) {
+          menuButtonReference.current?.focus();
+          setMenuOpen(true);
+        }
+      }} onOpenNotification={() => setMobileNotificationOpen(false)} onOpenPwaGuide={handleOpenPwaGuideFromInbox} /> : null}
     </>
   );
 }

@@ -51,7 +51,7 @@ class LoggingPrivacyTest {
         RequestLogContext.begin("test-request");
         MethodInvocation invocation = mock(MethodInvocation.class);
         when(invocation.getArguments()).thenReturn(new Object[] {
-                new GroupListRequest(null, null, null, null, true, "secret-keyword", "secret-cursor", 25)
+                new GroupListRequest(null, null, null, null, null, null, true, "secret-keyword", "secret-cursor", 25)
         });
         try {
             // When

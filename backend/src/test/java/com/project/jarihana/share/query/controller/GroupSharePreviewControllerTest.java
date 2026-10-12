@@ -6,6 +6,9 @@ import com.project.jarihana.group.query.repository.GroupJpaRepository;
 import com.project.jarihana.support.IntegrationTestSupport;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.DayOfWeek;
@@ -52,6 +55,27 @@ class GroupSharePreviewControllerTest extends IntegrationTestSupport {
                 .body(containsString("http://localhost:5173/groups/" + group.getId() + "?preview=1"))
                 .body(containsString("getAll(\"promotion_id\")"))
                 .body(containsString("promotionValues.length === 1"));
+    }
+
+    @DisplayName("기본 이미지의 공유 미리보기는 프론트 정적 이미지 URL을 사용한다.")
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = "images/default-group.png")
+    void usesFrontendAssetForDefaultImage(String imageKey) {
+        // Given
+        Group group = groupRepository.save(Group.createStudy(
+                "기본 이미지 그룹", "함께 공부합니다.", null, imageKey,
+                RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.NOON, LocalTime.of(13, 0)),
+                CREATED_AT
+        ));
+
+        // When / Then
+        given()
+                .when()
+                .get("/share/groups/{groupId}", group.getId())
+                .then()
+                .statusCode(200)
+                .body(containsString("<meta property=\"og:image\" content=\"http://localhost:5173/assets/default-group.png\""));
     }
 
     @DisplayName("존재하지 않는 그룹의 공유 미리보기는 404를 반환한다.")

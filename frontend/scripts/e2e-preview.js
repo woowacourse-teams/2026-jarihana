@@ -1,12 +1,16 @@
 const { createReadStream } = require("node:fs");
 const { stat } = require("node:fs/promises");
-const { createServer } = require("node:http");
+const { createServer, request: proxyRequest } = require("node:http");
 const path = require("node:path");
 
 const directory = __dirname;
 const distDirectory = path.resolve(directory, "../dist");
 const host = "127.0.0.1";
-const port = 4174;
+const port = Number(process.env.WEB_PUSH_TEST_PORT ?? 4174);
+const apiOrigin = process.env.WEB_PUSH_TEST_API_ORIGIN;
+if (apiOrigin && !["127.0.0.1", "localhost"].includes(new URL(apiOrigin).hostname)) {
+  throw new Error("Integration preview only proxies a loopback backend.");
+}
 
 const contentTypes = {
   ".css": "text/css; charset=utf-8",
@@ -36,6 +40,17 @@ async function resolveRequestPath(requestUrl) {
 }
 
 const server = createServer(async (request, response) => {
+  if (apiOrigin && (request.url === "/api" || request.url.startsWith("/api/"))) {
+    const target = proxyRequest(new URL(request.url, apiOrigin), {
+      method: request.method, headers: { ...request.headers, host: new URL(apiOrigin).host }
+    }, (upstream) => {
+      response.writeHead(upstream.statusCode, upstream.headers);
+      upstream.pipe(response);
+    });
+    target.on("error", () => { if (!response.headersSent) response.writeHead(502); response.end("Local backend unavailable"); });
+    request.pipe(target);
+    return;
+  }
   const filePath = await resolveRequestPath(request.url ?? "/");
   if (!filePath) {
     response.writeHead(404).end("Not found");

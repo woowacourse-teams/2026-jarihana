@@ -2,9 +2,9 @@
 
 > 상태: 저장소 최신 설계 기준
 >
-> 구현·테스트·Swagger/OpenAPI와 충돌하면 임의로 해석하지 않고 차이를 보고한다.
+> 구현·테스트와 충돌하면 임의로 해석하지 않고 차이를 보고한다.
 
-이 문서는 저장소에서 관리하는 활성 엔드포인트 30개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청·응답·오류는 구현 시 Swagger/OpenAPI와 RestAssured 인수 테스트로 검증한다.
+이 문서는 저장소에서 관리하는 활성 엔드포인트 63개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청·응답·오류는 Controller·요청/응답 DTO·ErrorCode와 RestAssured 인수 테스트로 확인한다.
 
 이 디렉터리는 API 엔드포인트의 전체 목록과 리소스별 상세 설계를 관리한다. 모든 엔드포인트는 [API 공통 설계](../common-contract.md)를 따르며, 상세 문서에는 엔드포인트 고유 내용만 둔다.
 
@@ -12,6 +12,11 @@
 
 | 분류 | Method | Endpoint | 권한 | 설명 |
 | --- | --- | --- | --- | --- |
+| 활동 기록 | `GET` | `/api/activity-posts` | `PUBLIC` | 전체 공개 사진 활동 기록을 활동 날짜 최신순으로 조회 |
+| 활동 기록 | `GET` | `/api/groups/{groupId}/activity-posts` | `PUBLIC` | 그룹 사진 활동 기록 조회 |
+| 활동 기록 | `POST` | `/api/groups/{groupId}/activity-posts` | `MEMBER` | 활성 그룹 구성원의 사진 활동 기록 작성 |
+| 활동 기록 | `PUT` | `/api/activity-posts/{postId}` | `MEMBER` | 작성자 또는 현재 모임장이 사진 활동 기록 수정 |
+| 활동 기록 | `DELETE` | `/api/activity-posts/{postId}` | `MEMBER` | 작성자 또는 현재 모임장이 사진 활동 기록 숨김 |
 | 피드백 | `POST` | `/api/feedbacks` | `MEMBER` | 피드백 작성 |
 | 가입 신청 | `GET` | `/api/groups/{groupId}/registrations/summary` | `LEADER` | 그룹의 미확인·처리 대기 신청 요약 조회 |
 | 가입 신청 | `PATCH` | `/api/recruitments/{recruitmentId}/registrations/read` | `LEADER` | 확인한 마지막 신청까지 읽음 처리 |
@@ -30,6 +35,22 @@
 | 그룹 | `DELETE` | `/api/groups/{groupId}/recurring-schedule` | `LEADER` | 동아리·스터디를 유동적 일정으로 변경 |
 | 그룹 | `PUT` | `/api/groups/{groupId}/recurring-schedule` | `LEADER` | 동아리·스터디 반복 일정 등록 또는 교체 |
 | 그룹 | `PUT` | `/api/groups/{groupId}/session-schedule` | `LEADER` | 세션 일정 교체 |
+| 그룹 달력 | `GET` | `/api/groups/{groupId}/calendar` | `PUBLIC` | 모임 일정 제목·날짜·시각 조회 |
+| 그룹 달력 | `GET` | `/api/groups/{groupId}/calendar/schedule-details` | `MEMBER` | 정기·세션 일정의 당시 장소 조회 |
+| 그룹 달력 | `PUT` | `/api/groups/{groupId}/calendar/settings` | `LEADER` | 정기·세션 일정의 달력 표시 설정 |
+| 그룹 달력 | `POST` | `/api/groups/{groupId}/events` | `LEADER` | 개별 일정 등록 |
+| 그룹 달력 | `GET` | `/api/groups/{groupId}/events/{eventId}` | `MEMBER` | 개별 일정 상세 조회 |
+| 그룹 달력 | `PUT` | `/api/groups/{groupId}/events/{eventId}` | `LEADER` | 개별 일정 수정 |
+| 그룹 달력 | `DELETE` | `/api/groups/{groupId}/events/{eventId}` | `LEADER` | 개별 일정 삭제 |
+| 그룹 달력 | `POST` | `/api/groups/{groupId}/recurring-schedule/series` | `LEADER` | 첫 정기 규칙 등록 |
+| 그룹 달력 | `GET` | `/api/groups/{groupId}/recurring-schedule/manage` | `LEADER` | 현재 정기 일정 관리 정보 조회 |
+| 그룹 달력 | `GET` | `/api/groups/{groupId}/recurring-schedule/periods/{periodId}` | `LEADER` | 선택한 회차에 적용된 정기 규칙 조회 |
+| 그룹 달력 | `PUT` | `/api/groups/{groupId}/recurring-schedule/scoped` | `LEADER` | 정기 규칙 변경 범위 적용 |
+| 그룹 달력 | `DELETE` | `/api/groups/{groupId}/recurring-schedule/scoped` | `LEADER` | 정기 규칙 변경 범위 삭제 |
+| 그룹 달력 | `POST` | `/api/groups/{groupId}/recurring-schedule/occurrences` | `LEADER` | 반복 정기 모임의 한 회차 수정 |
+| 그룹 달력 | `DELETE` | `/api/groups/{groupId}/recurring-schedule/occurrences` | `LEADER` | 반복 정기 모임의 한 회차 숨김 |
+| 그룹 달력 | `PUT` | `/api/groups/{groupId}/recurring-schedule/periods/{periodId}` | `LEADER` | 구버전 화면 요청 거절 |
+| 그룹 달력 | `PUT` | `/api/groups/{groupId}/recurring-schedule/calendar-range` | `LEADER` | 정기 일정 전체 표시 기간 수정 |
 | 그룹 구성원 | `GET` | `/api/groups/{groupId}/members` | `PUBLIC` | 그룹 구성원 목록 조회 |
 | 그룹 구성원 | `PUT` | `/api/groups/{groupId}/leader` | `LEADER` | 모임장 역할 위임 |
 | 모집 공고 | `GET` | `/api/groups/{groupId}/recruitments` | `PUBLIC` | 그룹의 모집 공고 이력 조회 |
@@ -43,6 +64,17 @@
 | 인증·회원 | `POST` | `/api/members` | `AUTH` | 회원 가입 완료 |
 | 인증·회원 | `GET` | `/api/members/me` | `AUTH` | 내 정보와 가입 완료 여부 조회 |
 | 인증·회원 | `GET` | `/api/oauth/github/callback` | `PUBLIC` | GitHub OAuth 콜백 처리 |
+| 알림함 | `GET` | `/api/notifications` | `MEMBER` | 본인 알림 목록 조회 |
+| 알림함 | `GET` | `/api/notifications/{id}` | `MEMBER` | 본인 알림과 이동 대상 조회 |
+| 알림함 | `GET` | `/api/notifications/unread-count` | `MEMBER` | 안 읽은 알림 수 |
+| 알림함 | `PATCH` | `/api/notifications/{id}/read` | `MEMBER` | 개별 읽음 |
+| 알림함 | `PATCH` | `/api/notifications/read-all` | `MEMBER` | 전체 읽음 |
+| 알림함 | `DELETE` | `/api/notifications/{id}` | `MEMBER` | 개별 삭제와 미완료 전송 취소 |
+| 웹푸시 | `GET` | `/api/push-config` | `MEMBER` | 사용 가능 여부와 VAPID 공개키 |
+| 웹푸시 | `GET` | `/api/push-subscriptions` | `MEMBER` | 본인의 브라우저 연결 목록 |
+| 웹푸시 | `POST` | `/api/push-subscriptions` | `MEMBER` | 현재 브라우저 구독 등록·갱신 |
+| 웹푸시 | `DELETE` | `/api/push-subscriptions/{id}` | `MEMBER` | 구독 해제와 과거 연결의 미완료 전송 취소 |
+| 웹푸시 | `GET` | `/api/notifications/{id}/push-content` | `MEMBER` | 본인 알림·활성 구독·현재 연결 버전 검증 후 내용 조회 |
 
 ## 상세 문서
 
@@ -51,8 +83,11 @@
 | 피드백 | [feedbacks.md](feedbacks.md) | 피드백 작성 |
 | 인증·회원 | [auth-members.md](auth-members.md) | 인증과 회원 엔드포인트 |
 | 그룹 | [groups.md](groups.md) | 그룹과 일정 엔드포인트 |
+| 그룹 달력 | [group-calendar.md](group-calendar.md) | 공개 달력 조회, 개별 일정, 정기 규칙 이력·관리 |
 | 모집 공고 | [recruitments.md](recruitments.md) | 모집 공고 엔드포인트 |
 | 가입 신청 | [registrations.md](registrations.md) | 가입 신청 엔드포인트 |
 | 그룹 구성원 | [group-members.md](group-members.md) | 그룹 구성원 엔드포인트 |
 | 이미지 | [images.md](images.md) | 이미지 업로드 엔드포인트 |
+| 활동 기록 | [activity-posts.md](activity-posts.md) | 사진 활동 기록 조회·작성·수정·숨김 |
 | 공유 미리보기 | [share-preview.md](share-preview.md) | 그룹 공유 미리보기 HTML 엔드포인트 |
+| 알림함·웹푸시 | [notifications.md](notifications.md) | 알림함·구독·푸시 내용 조회·로그아웃 호환 확장 |

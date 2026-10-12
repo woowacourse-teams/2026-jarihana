@@ -45,7 +45,7 @@ beforeEach(() => {
   syncPromotionAttribution.mockReset().mockReturnValue(undefined);
   useAuth.mockReturnValue({ member: { id: 42 }, status: "authenticated" });
   useLocation.mockReturnValue({ pathname: "/groups", search: "", hash: "" });
-  matchRoutes.mockReturnValue([{ route: { page: "GroupsPage" }, params: {} }]);
+  matchRoutes.mockReturnValue([{ route: { page: "GroupBrowsePage" }, params: {} }]);
 });
 
 test("records verified login once after identity settles, including StrictMode and navigation", async () => {
@@ -107,7 +107,7 @@ test("synchronizes member identity before recording a page without exposing prof
 
   expect(setAnalyticsRoute).toHaveBeenCalledWith(
     "/groups",
-    expect.objectContaining({ route_name: "GroupsPage" })
+    expect.objectContaining({ route_name: "GroupBrowsePage" })
   );
   expect(syncAnalyticsIdentity).toHaveBeenCalledWith("authenticated", 42);
   expect(trackPage).not.toHaveBeenCalled();

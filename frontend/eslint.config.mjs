@@ -64,5 +64,9 @@ export default [
       globals: globals.jest
     }
   },
+  {
+    files: ["public/sw.js"],
+    languageOptions: { globals: globals.serviceworker }
+  },
   prettier
 ];

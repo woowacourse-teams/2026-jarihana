@@ -1,6 +1,8 @@
 export const routeRegistry = Object.freeze([
   { access: "public", page: "GroupsPage", path: "/" },
-  { access: "public", page: "GroupsPage", path: "/groups" },
+  { access: "public", page: "GroupBrowsePage", path: "/groups" },
+  { access: "public", page: "GroupBrowsePage", path: "/groups/explore", redirectTo: "/groups" },
+  { access: "public", page: "ActivityPostsPage", path: "/activities" },
   { access: "public", page: "GroupDetailPage", path: "/groups/:groupId" },
   {
     access: "public",
@@ -9,6 +11,7 @@ export const routeRegistry = Object.freeze([
   },
   { access: "public", page: "OAuthCallbackPage", path: "/oauth/callback" },
   { access: "signup", page: "SignupPage", path: "/signup" },
+  { access: "member", page: "NotificationOpenPage", path: "/notifications/open/:id" },
   { access: "member", page: "MyPage", path: "/my" },
   { access: "member", page: "MyGroupsPage", path: "/my/groups" },
   { access: "member", page: "MyRegistrationsPage", path: "/my/registrations" },

@@ -56,7 +56,9 @@ test("opens recruitment history from the recruitment management tab", async ({ p
   await expect(page.getByRole("cell", { name: "모집 예정", exact: true })).toBeVisible();
   await expect(page.getByRole("cell", { name: "마감", exact: true })).toBeVisible();
   expect(
-    state.requests.some(({ method, path }) => method === "GET" && path === "/groups/10/recruitments")
+    state.requests.some(
+      ({ method, path }) => method === "GET" && path === "/groups/10/recruitments"
+    )
   ).toBe(true);
   expect(state.unexpectedResponses).toEqual([]);
 });
@@ -109,9 +111,7 @@ test(
 
     await page.goto("/my/registrations?status=PENDING");
     await expect(page).toHaveURL(/\/groups$/);
-    await expect(
-      page.getByRole("heading", { name: "크루와 함께할 자리를 찾아보세요" })
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "자리 둘러보기", exact: true })).toBeVisible();
     expect(await page.evaluate((key) => sessionStorage.getItem(key), returnTargetStorageKey)).toBe(
       "/my/registrations?status=PENDING"
     );
@@ -182,7 +182,7 @@ test(
     const state = await installApiFixture(page, { auth: "anonymous" });
     await page.goto("/groups");
 
-    await page.getByRole("button", { name: "모임 만들기", exact: true }).click();
+    await page.getByRole("button", { name: "자리 만들기", exact: true }).click();
 
     await expect(page).toHaveURL(/github\.com\/login\/oauth\/authorize/);
     await expect(page.getByRole("heading", { name: "Stub GitHub OAuth" })).toBeVisible();

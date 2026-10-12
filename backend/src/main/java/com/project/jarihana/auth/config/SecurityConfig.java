@@ -23,11 +23,14 @@ public class SecurityConfig {
     private static final String[] PUBLIC_GET_PATHS = {
             "/groups",
             "/groups/*",
+            "/groups/*/calendar",
             "/groups/*/members",
             "/groups/*/recruitments",
             "/groups/*/recruitments/*",
+            "/groups/*/activity-posts",
+            "/activity-posts",
             "/share/groups/*",
-            "/images/**"
+            "/assets/default-group.png"
     };
     private static final String[] PUBLIC_POST_PATHS = {"/auth/refresh"};
 

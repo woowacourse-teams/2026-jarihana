@@ -87,6 +87,8 @@ public class GroupQueryService {
         GroupListSearchCriteria criteria = new GroupListSearchCriteria(
                 query.status(),
                 query.type(),
+                query.excludedType(),
+                query.sessionDate(),
                 query.role(),
                 query.relation() != null,
                 query.recruiting(),
@@ -119,6 +121,7 @@ public class GroupQueryService {
                 projection.group().getStatus().name(),
                 projection.group().getName(),
                 projection.group().getIntroduction(),
+                projection.group().getLocation(),
                 toRepresentativeImageUrl(projection.group().getRepresentativeImageKey()),
                 projection.group().getRecurringSchedule() == null
                         ? null
