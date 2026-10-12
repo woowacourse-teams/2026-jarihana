@@ -1,14 +1,14 @@
 # 초대
 
-> 상태: 발급·회원 후보 검색·수신/발급 목록·상세·공개 미리보기·취소를 구현했다.
-> 초대 수락·소속 생성·기존 대기 신청 승인도 구현했다. 실제 PostgreSQL·HTTP 인수 테스트로 검증한다.
+> 상태: 발급·회원 후보 검색·수신/발급 목록·상세·공개 미리보기·취소·거절을 구현했다.
+> 초대 수락·소속 생성·기존 대기 신청 승인도 구현했다. 실제 PostgreSQL·HTTP 인수 테스트로 검증했다.
 > 실행 계약은 Controller·DTO·ErrorCode와 RestAssured 인수 테스트로 확인한다. 저장소에는 OpenAPI 생성 의존성이 없어 자동 스키마 검증은 수행하지 않았다.
 
 [공통 계약](../common-contract.md), [API 컨벤션](../../../conventions/api.md),
 [초대 모델](../../domain/model/invitation.md),
 [초대 비즈니스 정책](../../domain/business-policies.md#초대-발급과-합류),
 [초대 불변식](../../domain/invariants.md#invitation--groupmember--registration)을 따른다.
-기술 구조는 구현 단계에서 대안을 비교해 확정하며, 채택한 결정과 선택 이유를 백엔드 ADR에 기록한다.
+채택한 기술 구조와 선택 이유는 [백엔드 ADR 목록](../../../adr/README.md)에서 확인한다.
 시간 표현과 JSON 응답 봉투는 API 공통 계약을 따른다.
 
 ## 공통 규칙
@@ -171,7 +171,7 @@ Request Body는 없다.
 - MINE은 본인이 발급한 DIRECT만, MANAGED_LINKS는 모임의 LINK 전체다. 본인이 발급한 LINK도 MANAGED_LINKS에서만 조회한다. 두 scope 모두 현재 모임장과 일반 모임원이 조회할 수 있다. 타인 DIRECT는 어느 scope에도 제공하지 않는다.
 - items 필드: id·type·group(id,name)·inviter(id,crewName)·createdAt·expiresAt·status·canRevoke.
 - 모든 초대 요청·응답에는 개인 메시지 필드가 없다.
-- canRevoke는 현재 소속·유형별 권한이 있고 모임이 ACTIVE이며 아직 취소되지 않은 경우 true다. 시간 만료나 수락 이력이 있어도 이 조건을 충족하면 취소할 수 있다. 취소 요청에서 권한을 다시 검사한다.
+- canRevoke는 현재 소속·유형별 권한이 있고 모임이 ACTIVE이며 아직 취소되지 않은 경우 true다. 시간 만료나 수락 이력이 있어도 이 조건을 충족하면 취소할 수 있다. 거절 상태를 우선 표시하는 DIRECT도 취소 시각이 있으면 false다. 취소 요청에서 권한을 다시 검사한다.
 - MANAGED_LINKS를 조회할 수 있다고 취소 권한이 생기는 것은 아니다. 타인 LINK의 canRevoke는 현재 모임장에게만 true다.
 - 종료된 모임도 현재 소속이 있으면 이력 목록을 조회할 수 있다. 커서는 모임·조회 회원·scope별로 구분한다.
 
@@ -200,7 +200,7 @@ Request Body는 없다.
 
 | 이름 | 필수 | 설명 |
 | --- | --- | --- |
-| `keyword` | X | 생략·빈 값·공백은 전체 초대 후보 목록. 입력하면 공백 제거 후 2–50자, crewName 검색 |
+| `keyword` | X | 생략·빈 값·공백은 전체 초대 후보 목록. 입력하면 앞뒤 공백 제거 후 2–50자, crewName 검색. 검색어 내부 공백은 유지 |
 | `cursor` | X | 다음 페이지 커서 |
 | `size` | X | 기본 20, 1–100 |
 

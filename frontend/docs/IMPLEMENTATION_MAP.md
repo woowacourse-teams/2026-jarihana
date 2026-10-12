@@ -107,7 +107,7 @@ header 구현으로 확대하지 않았다.
 > 모임 상세의 링크 복사·다수 회원 초대·발급/취소 관리도 구현했다. 별도 받은 초대 목록은 제공하지 않고 알림함→초대장 경로를 유지한다.
 > [초대 API 계약](../../backend/docs/context/api/endpoints/invitations.md)과
 > [초대 정책](../../backend/docs/context/domain/business-policies.md#초대-발급과-합류)을 따른다.
-> 기술 계약은 7–9단계에서 확정한다. 새 기술 결정을 채택하면 해당 영역 ADR에 대안과 선택 이유를 기록한다.
+> 현재 화면·API·분석 계약은 아래 구현과 관련 문서를 따른다. 채택한 기술 결정은 해당 영역 ADR에 기록한다.
 
 | Route 또는 진입점 | 권한 | API | 화면 상태 |
 | --- | --- | --- | --- |
@@ -136,13 +136,13 @@ header 구현으로 확대하지 않았다.
 - 받은 초대 전용 목록·마이페이지 탭은 추가하지 않는다. 기존 수신 목록 API와 서버 초대·수락 기록은 유지한다. 알림함에서 초대장을 열어 수락·거절하고 알림을 삭제할 수 있다.
 - 모임당 현재 유효 공유 링크는 하나다. 구성원 모두 같은 링크를 사용한다. 상세의 `초대 링크 복사`는 유효 링크가 있으면 재사용하고 없으면 발급한 뒤 복사한다. LINK 응답이 reused=true이면 기존 발급자·만료일을 유지한 링크 재사용으로 안내한다. 공유 링크 관리 목록에는 과거 링크도 상태와 함께 표시한다. 재복사·재사용은 만료를 연장하지 않는다.
 - 공유 링크 목록(scope=MANAGED_LINKS)과 상세·재복사는 모든 현재 모임장과 모임원이 이용할 수 있다. 다른 사람이 발급한 링크도 복사하여 전달할 수 있다. 취소 버튼은 서버의 canRevoke가 true인 발급자 또는 현재 모임장에게만 제공한다. 동일 요청 재시도에도 같은 sharePath를 받으며 재복사는 새 발급이나 만료 시각 연장이 아니다. 만료·취소 상태를 함께 표시한다.
-- 모집 화면의 approvedCount는 '모집으로 가입한 인원', capacity-approvedCount는 '남은 모집 자리'를 뜻한다(표시 문구 적용은 초대 화면 구현 단계). 초대 합류 인원을 더하거나 신청 목록의 승인 건수로 대신 계산하지 않는다. memberCount는 모임장·초대 합류자를 포함한 실제 구성원 수다. 신청 목록의 '승인' 상태는 초대로 승인된 기존 신청도 포함한다.
+- 모집 화면의 approvedCount는 모집으로 가입한 인원, capacity-approvedCount는 남은 모집 자리를 뜻한다. 화면은 기존 '승인'·'정원' 문구를 사용한다. 초대 합류 인원을 더하거나 신청 목록의 승인 건수로 대신 계산하지 않는다. memberCount는 모임장·초대 합류자를 포함한 실제 구성원 수다. 신청 목록의 '승인' 상태는 초대로 승인된 기존 신청도 포함한다.
 - 없는 초대·모임은 '유효하지 않은 초대'로 안내한다. DIRECT의 비회원 접근은 로그인 후 대상 계정을 확인한다.
 - 알림 클릭은 /notifications/open/:id → 본인 알림 조회 → 초대 대상 권한 확인 → 읽음 → /invitations/:invitationId 순서다.
   다른 계정·없는 초대에는 읽음 없이 안내한다. 본인의 취소·만료 초대는 상태 확인 후 읽음 처리하고 안내한다.
   발급자 이탈·모임 종료도 클릭 시 현재 상태를 기준으로 합류를 차단하며 클릭 자체로 수락하지 않는다.
 - 분석 성공 이벤트는 신규 JOINED에만 기록한다. 실패·기존 소속 안내는 신규 합류 성과를 만들지 않는다.
-- UI의 고정 action 후보는 invitation_create, invitation_member_select, invitation_link_copy,
+- UI에 적용한 주요 고정 action은 invitation_create, invitation_member_select, invitation_link_copy,
   invitation_accept, invitation_revoke다. 기존 알림 클릭은 notification_open을 유지한다.
 - 저장소 JS/JSX·공통 API client·Jest·기존 UI/토큰을 사용한다. 새 장기 구조 선택이 없으면 기존 프론트 ADR을 재사용한다.
 - 실행 코드: `entities/invitation`은 응답을 검증하고 `features/invitation`은 조회·수락을 공통 client로 호출한다.
@@ -151,12 +151,15 @@ header 구현으로 확대하지 않았다.
   화면도 세션별로 분리해 이전 계정의 뒤늦은 수락 결과를 표시하지 않는다.
 - 회원가입 성공 후 고정 `/my` 대신 저장한 안전한 복귀 경로로 이동한다. 가입 실패와 가입 대기 중에는
   경로를 소모하지 않는다. 기존 OAuthCallbackPage와 SignupGuard의 가입 세션 처리도 유지한다.
-- 공유 토큰 경로에서는 OAuth 경로와 같은 방식으로 분석 수집·녹화를 중단한다.
-  URL·API 경로 정제에서도 토큰 위치를 항상 `:redacted`로 바꾼다. 초대 상세는 `data-ph-private`로 보호한다.
-  합류 성과 이벤트와 서버 로그 점검은 후속 분석·운영 단계에서 마무리한다.
+- 공유 토큰 경로의 자동 수집·녹화는 차단한다. 유효한 공유 초대 페이지에서는 정제한
+  invitation_viewed·invitation_accept_attempted·invitation_joined·invitation_already_joined만 허용한다.
+  OAuth 경로의 전체 수집 차단은 유지한다. URL·API 경로 정제에서 토큰 위치는 `:redacted`로 바꾸고
+  초대 상세는 `data-ph-private`로 보호한다. 서버 로그와 프록시/CDN의 검증 범위는
+  [초대 운영 가이드](../../backend/docs/operations/invitations.md#로그와-민감정보-확인)를 따른다.
 - 브라우저 계약 검증은 `tests/e2e/invitations.spec.js`, API·화면·계정 회귀는
   `tests/api/invitation.test.js`, `tests/pages/invitations/invitation-page.test.jsx`에 둔다.
-  실제 GitHub 제공자 로그인·외부 OS 푸시 수신은 fixture 검증과 별도로 확인해야 한다.
+  실제 DB·API·PC Chrome의 외부 푸시 수신과 사용자 OS 클릭은 `tests/integration/notifications.spec.js`로 별도 확인했다.
+  실제 GitHub 제공자 로그인·Safari/iOS 설치 앱·공유/운영 배포는 미검증이다.
 
 
 ### 웹푸시·알림함 구현

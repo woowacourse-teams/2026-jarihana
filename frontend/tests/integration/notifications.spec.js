@@ -169,7 +169,7 @@ test("real Chrome receives an external provider push and current-browser logout 
       const registration = await navigator.serviceWorker.getRegistration("/");
       const notices = await registration.getNotifications({ tag: `jarihana:${id}` });
       return notices.some(notice => notice.data?.notificationId === id && notice.title === "자리하나?"
-        && notice.body === "모임 초대가 도착했어요. 초대장을 확인해 주세요.");
+        && notice.body === "새 모임 초대가 도착했어요.");
     }, invitationNotice.id), { timeout: 60_000 }).toBe(true);
     await expect.poll(() => page.evaluate(async (id) => {
       const registration = await navigator.serviceWorker.getRegistration("/");

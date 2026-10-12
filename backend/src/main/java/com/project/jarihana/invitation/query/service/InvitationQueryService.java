@@ -60,7 +60,7 @@ public class InvitationQueryService {
             InvitationStatus status = InvitationStatus.resolve(item.type(), item.revokedAt(), item.groupActive(),
                     item.inviterPresent(), item.expiresAt(), item.accepted(), now, item.state());
             return new IssuedInvitationResult.Item(item.id(), item.type(), item.groupId(), item.groupName(),
-                    item.inviterId(), item.inviterCrewName(), item.createdAt(), item.expiresAt(), status, item.groupActive() && status != InvitationStatus.CANCELED
+                    item.inviterId(), item.inviterCrewName(), item.createdAt(), item.expiresAt(), status, item.groupActive() && item.revokedAt() == null && status != InvitationStatus.CANCELED
                     && (item.inviterId() == memberId || (item.type() == InvitationType.LINK && membership.getRole() == GroupMemberRole.LEADER)));
         }).toList(), next, page.hasNext());
     }
@@ -76,7 +76,7 @@ public class InvitationQueryService {
         }
         if (item.type() == InvitationType.LINK && !owner && !item.viewerPresent()) throw notFound();
         InvitationStatus status = status(item);
-        boolean canRevoke = item.viewerPresent() && item.groupActive() && status != InvitationStatus.CANCELED
+        boolean canRevoke = item.viewerPresent() && item.groupActive() && item.revokedAt() == null && status != InvitationStatus.CANCELED
                 && (owner || (item.type() == InvitationType.LINK && item.viewerLeader()));
         boolean canAccept = status == InvitationStatus.VALID && !item.viewerPresent()
                 && (item.type() == InvitationType.LINK || target);

@@ -206,6 +206,38 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         assertThat(groupMembers.findByGroupIdAndMemberId(group.getId(), target.getId())).isEmpty();
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName("거절한 지정 초대를 취소하면 상세·발급 목록은 거절 상태를 유지하고 추가 취소는 불가로 안내한다.")
+    void revokedRejectedInvitationCannotBeRevokedAgainInDetailOrIssuedList(boolean issuedList) {
+        // Given
+        Member leader = member("101");
+        Member target = member("102");
+        Group group = group(leader);
+        long id = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+        assertThat(decline(target, id).statusCode()).isEqualTo(204);
+        String path = issuedList ? "/groups/" + group.getId() + "/invitations?scope=MINE" : "/invitations/" + id;
+        String itemPath = issuedList ? "data.items[0]" : "data";
+        Response before = auth(leader).get(path);
+        assertThat(before.statusCode()).isEqualTo(200);
+        assertThat(before.jsonPath().getString(itemPath + ".status")).isEqualTo("REJECTED");
+        assertThat(before.jsonPath().getBoolean(itemPath + ".canRevoke")).isTrue();
+
+        // When
+        Response revoked = revoke(leader, id);
+        Response after = auth(leader).get(path);
+
+        // Then
+        assertThat(revoked.statusCode()).isEqualTo(200);
+        assertThat(after.statusCode()).isEqualTo(200);
+        assertThat(after.jsonPath().getString(itemPath + ".status")).isEqualTo("REJECTED");
+        assertThat(after.jsonPath().getBoolean(itemPath + ".canRevoke")).isFalse();
+        Response repeated = revoke(leader, id);
+        assertThat(repeated.statusCode()).isEqualTo(200);
+        assertThat(repeated.jsonPath().getString("data.revokedAt")).isEqualTo(revoked.jsonPath().getString("data.revokedAt"));
+        assertError(accept(target, id, Map.of()), 409, "INVITATION_REJECTED");
+    }
+
     @Test
     @DisplayName("초대 거절은 지정 대상·인증·CSRF를 검증하고 수락된 초대나 공유 링크는 거절할 수 없다.")
     void declineValidatesRecipientAndAcceptedState() {
