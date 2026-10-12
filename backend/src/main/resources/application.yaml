@@ -24,6 +24,8 @@ sentry:
   enable-tracing: false
 
 jarihana:
+  group-calendar:
+    legacy-recurring-write-enabled: ${GROUP_CALENDAR_LEGACY_RECURRING_WRITE_ENABLED:false}
   push:
     enabled: ${PUSH_ENABLED:false}
     worker-enabled: ${PUSH_WORKER_ENABLED:true}

@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { useSearchParams } from "react-router";
+
 import {
   Avatar,
   Button,
@@ -28,9 +31,81 @@ import {
   useToast
 } from "../shared/ui/index.js";
 import signatureImage from "../shared/assets/brand/jarihana-signature.png";
+import { GroupCalendar } from "./groups/GroupCalendar.jsx";
+import { GroupCalendarEventDialog } from "./groups/GroupCalendarEventDialog.jsx";
+import "./groups/groups.css";
 
 const longCopy =
   "처음 참여하는 분도 부담 없이 자기 속도로 이야기를 나누고, 서로의 배움을 안전하게 이어 갈 수 있는 모임입니다.";
+
+const calendarExampleEvents = [
+  { kind: "RECURRING", occurrenceKey: "recurring:1:2026-10-07", title: "정기 모임", startDate: "2026-10-07", endDate: "2026-10-07", allDay: false, startTime: "19:00", endTime: "21:00" },
+  { kind: "RECURRING", occurrenceKey: "recurring:1:2026-10-14", title: "정기 모임", startDate: "2026-10-14", endDate: "2026-10-14", allDay: false, startTime: null, endTime: null },
+  { kind: "GROUP_EVENT", id: 11, title: "알고리즘 회고", startDate: "2026-10-09", endDate: "2026-10-09", allDay: false, startTime: "13:00", endTime: "15:00" },
+  { kind: "GROUP_EVENT", id: 12, title: "해커톤", startDate: "2026-10-22", endDate: "2026-10-24", allDay: true, startTime: null, endTime: null },
+  { kind: "SESSION", id: 13, title: "같이해요 예시 모임", startDate: "2026-10-28", endDate: "2026-10-28", allDay: false, startTime: "18:00", endTime: "20:00" }
+];
+
+function CalendarShowcase() {
+  const [events, setEvents] = useState(calendarExampleEvents);
+  const [createDate, setCreateDate] = useState(null);
+
+  function saveExampleEvent(values) {
+    setEvents((current) => [...current, {
+      id: Math.max(...current.map((event) => event.id ?? 0)) + 1,
+      kind: "GROUP_EVENT",
+      title: values.title,
+      startDate: values.startDate,
+      endDate: values.endDate,
+      allDay: values.allDay,
+      startTime: values.startTime,
+      endTime: values.endTime
+    }]);
+    setCreateDate(null);
+  }
+
+  return (
+    <>
+      <div className="group-detail-tabs">
+        <Tabs
+        defaultValue="calendar"
+        items={[
+          { label: "소개", value: "intro", content: <p>모임 소개가 표시되는 기존 탭입니다.</p> },
+          {
+            label: "캘린더",
+            value: "calendar",
+            content: (
+              <GroupCalendar
+                calendar={{
+                  showBaseSchedule: true,
+                  flexibleBeforeFirstRecurring: {
+                    fromDate: "2026-09-01",
+                    untilDate: "2026-10-06",
+                    registeredOn: "2026-10-07"
+                  },
+                  flexibleAfterRecurring: [{ fromDate: "2026-10-15", untilDate: null }],
+                  events
+                }}
+                initialDate="2026-10-05"
+                isLeader
+                onCreateEvent={setCreateDate}
+              />
+            )
+          },
+          { label: "활동 기록", value: "activities", content: <p>기존 활동 기록 탭입니다.</p> },
+          { label: "참여자", value: "members", content: <p>기존 참여자 탭입니다.</p> }
+        ]}
+        />
+      </div>
+      <GroupCalendarEventDialog
+        initialDate={createDate}
+        onClose={() => setCreateDate(null)}
+        onSave={saveExampleEvent}
+        open={createDate !== null}
+      />
+    </>
+  );
+}
 
 function ToastControls() {
   const toast = useToast();
@@ -211,6 +286,14 @@ function ShowcaseContent() {
         </div>
       </section>
 
+      <section className="ui-showcase__section" id="group-calendar-showcase">
+        <SectionHeader
+          description="모임 상세의 네 탭 배치, 달력 화면, 개별 일정 등록 모달을 검수합니다."
+          title="모임 상세 캘린더 탭"
+        />
+        <CalendarShowcase />
+      </section>
+
       <section className="ui-showcase__section">
         <SectionHeader
           description="focus trap, Escape, 수동 닫기, 2초 자동 닫힘"
@@ -272,9 +355,23 @@ function ShowcaseContent() {
 }
 
 export function ShowcasePage() {
+  const [searchParams] = useSearchParams();
+  const calendarOnly = searchParams.get("calendar") === "1";
+
   return (
     <ToastProvider>
-      <ShowcaseContent />
+      {calendarOnly ? (
+        <PageContainer className="ui-showcase">
+          <PageHeader
+            description="월간 중심 캘린더 탭과 일정 등록 모달을 예시 데이터로 확인할 수 있습니다. 여기서 등록한 일정은 새로고침하면 사라집니다."
+            eyebrow="화면 미리보기"
+            title="모임 캘린더"
+          />
+          <section className="ui-showcase__section">
+            <CalendarShowcase />
+          </section>
+        </PageContainer>
+      ) : <ShowcaseContent />}
     </ToastProvider>
   );
 }
