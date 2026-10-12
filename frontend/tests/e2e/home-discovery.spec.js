@@ -135,8 +135,18 @@ for (const width of [375, 768, 1280, 1440]) {
       .analyze();
     expect(accessibility.violations).toEqual([]);
     for (const [label, type] of [["같이해요", "session"], ["스터디", "study"], ["동아리", "club"]]) {
+      const filterResponse = page.waitForResponse((response) => {
+        const url = new URL(response.url());
+        return url.pathname === "/api/groups" &&
+          url.searchParams.get("recruiting") === "true" &&
+          url.searchParams.get("type") === type.toUpperCase();
+      });
       await page.getByRole("group", { name: "모임 유형", exact: true })
         .getByRole("button", { name: label, exact: true }).click();
+      await filterResponse;
+      await expect(previewCards(page)).toHaveCount(type === "session" ? 4 : type === "study" ? 2 : 1);
+      await expect(recruiting(page).locator(".reference-recruiting-grid[aria-busy]"))
+        .toHaveAttribute("aria-busy", "false");
       const image = previewCards(page).first().locator("img");
       await image.scrollIntoViewIfNeeded();
       await expect(image).toHaveAttribute("src", `/assets/default-group-${type}-3d.png`);
@@ -187,7 +197,7 @@ test("browse search, type, status and recruitment filters preserve detail naviga
   await installHome(page);
   await page.goto("/groups");
   await expect(browseCards(page)).toHaveCount(8);
-  await browse(page).getByLabel("모임 유형", { exact: true }).selectOption("STUDY");
+  await browse(page).getByRole("combobox", { name: "모임 유형", exact: true }).selectOption("STUDY");
   await expect(browseCards(page)).toHaveCount(2);
   await browse(page).getByRole("searchbox").fill("자바");
   await browse(page).getByRole("button", { name: "검색", exact: true }).click();
@@ -196,12 +206,12 @@ test("browse search, type, status and recruitment filters preserve detail naviga
   await expect(page).toHaveURL(/\/groups\/201$/);
   await page.goBack();
   await expect(browse(page).getByRole("searchbox")).toHaveValue("자바");
-  await expect(browse(page).getByLabel("모임 유형", { exact: true })).toHaveValue("STUDY");
-  await browse(page).getByLabel("모집 상태", { exact: true }).selectOption("true");
-  await browse(page).getByLabel("모임 상태", { exact: true }).selectOption("ENDED");
+  await expect(browse(page).getByRole("combobox", { name: "모임 유형", exact: true })).toHaveValue("STUDY");
+  await browse(page).getByRole("combobox", { name: "모집 상태", exact: true }).selectOption("true");
+  await browse(page).getByRole("combobox", { name: "모임 상태", exact: true }).selectOption("ENDED");
   await expect(browseCards(page)).toHaveCount(1);
   await expect(browseCards(page)).toContainText("지난 자바 스터디");
-  await expect(browse(page).getByLabel("모집 상태", { exact: true })).toBeDisabled();
+  await expect(browse(page).getByRole("combobox", { name: "모집 상태", exact: true })).toBeDisabled();
   await expect(page).not.toHaveURL(/recruiting=/);
   await page.goto("/groups?type=SESSION&recruiting=false");
   await expect(browseCards(page)).toHaveCount(1);
