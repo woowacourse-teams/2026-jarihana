@@ -558,6 +558,17 @@
         padding-block: var(--space-8) var(--space-12);
     }
 
+    .group-editor--create,
+    .manage-page.manage-page--editor {
+        padding-inline: var(--space-0);
+    }
+
+    .group-editor__heading,
+    .manage-page--editor > .manage-context,
+    .group-editor__actions {
+        padding-inline: var(--page-gutter);
+    }
+
     .group-editor__time-grid {
         grid-template-columns: minmax(0, 1fr);
     }

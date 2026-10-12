@@ -32,13 +32,15 @@ async function expectNoHorizontalOverflow(page) {
   )).toBe(true);
 }
 
-for (const width of [390, 768, 1024, 1440]) {
+for (const width of [360, 390, 767, 768, 1024, 1440]) {
   test(`create and edit share detail image effects and editor width at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     await installApiFixture(page);
 
     await page.goto("/groups/10");
     const detail = await heroAppearance(page);
+    const detailBounds = await page.locator(".group-profile").boundingBox();
+    const detailTabsBounds = await page.locator(".group-detail-tabs").boundingBox();
     await page.screenshot({ path: testInfo.outputPath("detail.png"), fullPage: true });
 
     await page.goto("/groups/new");
@@ -52,6 +54,15 @@ for (const width of [390, 768, 1024, 1440]) {
     await page.getByLabel("한 줄 소개", { exact: true }).fill(group.introduction);
     expect(await heroAppearance(page)).toEqual(detail);
     const createBounds = await page.locator(".group-profile").boundingBox();
+    if (width < 768) {
+      expect(createBounds.x).toBeCloseTo(0, 1);
+      expect(createBounds.width).toBeCloseTo(width, 1);
+      expect(createBounds.x).toBeCloseTo(detailBounds.x, 1);
+      expect(createBounds.width).toBeCloseTo(detailBounds.width, 1);
+      const tabsBounds = await page.locator(".group-detail-tabs").boundingBox();
+      expect(tabsBounds.x).toBeCloseTo(detailTabsBounds.x, 1);
+      expect(tabsBounds.width).toBeCloseTo(detailTabsBounds.width, 1);
+    }
     await expectNoHorizontalOverflow(page);
     await page.screenshot({ path: testInfo.outputPath("create.png"), fullPage: true });
     expect((await new AxeBuilder({ page }).include(".group-profile").analyze()).violations).toEqual([]);
@@ -65,6 +76,11 @@ for (const width of [390, 768, 1024, 1440]) {
     const editBounds = await page.locator(".group-profile").boundingBox();
     expect(editBounds.x).toBeCloseTo(createBounds.x, 1);
     expect(editBounds.width).toBeCloseTo(createBounds.width, 1);
+    if (width < 768) {
+      const tabsBounds = await page.locator(".group-detail-tabs").boundingBox();
+      expect(tabsBounds.x).toBeCloseTo(detailTabsBounds.x, 1);
+      expect(tabsBounds.width).toBeCloseTo(detailTabsBounds.width, 1);
+    }
     await expectNoHorizontalOverflow(page);
     await page.screenshot({ path: testInfo.outputPath("edit.png"), fullPage: true });
     expect((await new AxeBuilder({ page }).include(".group-profile").analyze()).violations).toEqual([]);
