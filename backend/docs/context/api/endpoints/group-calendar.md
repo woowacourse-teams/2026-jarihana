@@ -42,18 +42,20 @@
     "showBaseSchedule": true,
     "flexibleBeforeFirstRecurring": null,
     "flexibleAfterRecurring": [],
-    "events": [{
-      "kind": "GROUP_EVENT",
-      "id": 24,
-      "occurrenceKey": null,
-      "periodId": null,
-      "title": "보드게임 모임",
-      "startDate": "2026-10-14",
-      "endDate": "2026-10-14",
-      "allDay": false,
-      "startTime": "19:00:00",
-      "endTime": "21:00:00"
-    }]
+    "events": [
+      {
+        "kind": "GROUP_EVENT",
+        "id": 24,
+        "occurrenceKey": null,
+        "periodId": null,
+        "title": "보드게임 모임",
+        "startDate": "2026-10-14",
+        "endDate": "2026-10-14",
+        "allDay": false,
+        "startTime": "19:00:00",
+        "endTime": "21:00:00"
+      }
+    ]
   },
   "error": null
 }
@@ -111,8 +113,30 @@
 
 #### 응답 200
 
-응답 데이터는 `id`, `eventType`, `status`, `effectiveStatus`, `title`, `startDate`, `endDate`, `allDay`,
-`startTime`, `endTime`, `description`, `location`, `version`, nullable `recurrenceSourceDate`를 포함한다.
+```json
+{
+  "success": true,
+  "data": {
+    "id": 24,
+    "eventType": "INDIVIDUAL",
+    "status": "AUTO",
+    "effectiveStatus": "UPCOMING",
+    "title": "보드게임 모임",
+    "startDate": "2026-10-14",
+    "endDate": "2026-10-14",
+    "allDay": false,
+    "startTime": "19:00:00",
+    "endTime": "21:00:00",
+    "description": "보드게임을 함께 합니다.",
+    "location": "서울 캠퍼스",
+    "version": 0,
+    "recurrenceSourceDate": null
+  },
+  "error": null
+}
+```
+
+반복 회차를 개별 수정한 일정은 `eventType`이 `REGULAR_MEETING`이고 `recurrenceSourceDate`에 원래 회차 날짜를 반환한다.
 
 ### `GET /api/groups/{groupId}/recurring-schedule/manage`
 
@@ -121,7 +145,22 @@
 
 #### 응답 200
 
-현재 `seriesId`, 최신 `periodId`, 전체 표시 기간, `version`, 요일과 시각을 반환한다.
+```json
+{
+  "success": true,
+  "data": {
+    "seriesId": 7,
+    "periodId": 12,
+    "startDate": "2026-09-15",
+    "endDate": null,
+    "version": 3,
+    "daysOfWeek": ["TUESDAY", "SATURDAY"],
+    "startTime": "19:00:00",
+    "endTime": "21:00:00"
+  },
+  "error": null
+}
+```
 
 ### `GET /api/groups/{groupId}/recurring-schedule/periods/{periodId}`
 
@@ -136,7 +175,21 @@
 
 #### 응답 200
 
-`periodId`, `effectiveFrom`, `effectiveUntil`, 시리즈 `version`, 요일과 시각을 반환한다.
+```json
+{
+  "success": true,
+  "data": {
+    "periodId": 11,
+    "effectiveFrom": "2026-09-15",
+    "effectiveUntil": "2026-10-11",
+    "version": 3,
+    "daysOfWeek": ["MONDAY", "WEDNESDAY"],
+    "startTime": "19:00:00",
+    "endTime": "21:00:00"
+  },
+  "error": null
+}
+```
 
 ## 달력 표시 설정
 
@@ -154,7 +207,13 @@
 #### 응답 200
 
 ```json
-{"success":true,"data":{"showBaseSchedule":true},"error":null}
+{
+  "success": true,
+  "data": {
+    "showBaseSchedule": true
+  },
+  "error": null
+}
 ```
 
 #### 동작
@@ -183,7 +242,30 @@
 
 #### 응답 201 Created
 
-생성된 일정 정보를 반환하고 다음 `Location` 헤더를 포함한다.
+```json
+{
+  "success": true,
+  "data": {
+    "id": 24,
+    "eventType": "INDIVIDUAL",
+    "status": "AUTO",
+    "effectiveStatus": "UPCOMING",
+    "title": "보드게임 모임",
+    "startDate": "2026-10-14",
+    "endDate": "2026-10-14",
+    "allDay": false,
+    "startTime": "19:00:00",
+    "endTime": "21:00:00",
+    "description": "보드게임을 함께 합니다.",
+    "location": "서울 캠퍼스",
+    "version": 0,
+    "recurrenceSourceDate": null
+  },
+  "error": null
+}
+```
+
+다음 `Location` 헤더를 함께 반환한다.
 
 ```plain text
 Location: /api/groups/{groupId}/events/{eventId}
@@ -213,7 +295,28 @@ Location: /api/groups/{groupId}/events/{eventId}
 
 #### 응답 200
 
-수정된 일정 정보와 증가한 `version`을 반환한다.
+```json
+{
+  "success": true,
+  "data": {
+    "id": 24,
+    "eventType": "INDIVIDUAL",
+    "status": "AUTO",
+    "effectiveStatus": "UPCOMING",
+    "title": "보드게임 모임",
+    "startDate": "2026-10-14",
+    "endDate": "2026-10-14",
+    "allDay": false,
+    "startTime": "19:00:00",
+    "endTime": "21:00:00",
+    "description": "보드게임을 함께 합니다.",
+    "location": "서울 캠퍼스",
+    "version": 1,
+    "recurrenceSourceDate": null
+  },
+  "error": null
+}
+```
 
 ### `DELETE /api/groups/{groupId}/events/{eventId}?version={version}`
 
@@ -251,7 +354,30 @@ Location: /api/groups/{groupId}/events/{eventId}
 
 #### 응답 201 Created
 
-`GroupEvent`와 안정적인 일정 ID를 반환한다.
+```json
+{
+  "success": true,
+  "data": {
+    "id": 31,
+    "eventType": "REGULAR_MEETING",
+    "status": "AUTO",
+    "effectiveStatus": "UPCOMING",
+    "title": "정기 모임",
+    "startDate": "2026-10-14",
+    "endDate": "2026-10-14",
+    "allDay": false,
+    "startTime": "19:00:00",
+    "endTime": "21:00:00",
+    "description": "정기 모임 회차 안내입니다.",
+    "location": "서울 캠퍼스",
+    "version": 0,
+    "recurrenceSourceDate": "2026-10-14"
+  },
+  "error": null
+}
+```
+
+다음 `Location` 헤더를 함께 반환한다.
 
 ### `DELETE /api/groups/{groupId}/recurring-schedule/occurrences`
 
@@ -284,8 +410,22 @@ Location: /api/groups/{groupId}/events/{eventId}
 
 #### 응답 201 Created
 
-`seriesId`, `periodId`, `startDate`, `endDate`, `version`, `daysOfWeek`, `startTime`, `endTime`을
-반환한다.
+```json
+{
+  "success": true,
+  "data": {
+    "seriesId": 7,
+    "periodId": 12,
+    "startDate": "2026-10-12",
+    "endDate": null,
+    "version": 0,
+    "daysOfWeek": ["TUESDAY", "SATURDAY"],
+    "startTime": "19:00:00",
+    "endTime": "21:00:00"
+  },
+  "error": null
+}
+```
 
 ### `PUT /api/groups/{groupId}/recurring-schedule/scoped`
 
@@ -305,7 +445,15 @@ Location: /api/groups/{groupId}/events/{eventId}
 
 #### 응답 200
 
-증가한 시리즈 `version`을 반환한다.
+```json
+{
+  "success": true,
+  "data": {
+    "version": 4
+  },
+  "error": null
+}
+```
 
 ### `DELETE /api/groups/{groupId}/recurring-schedule/scoped`
 
@@ -336,7 +484,16 @@ API를 사용한다.
 
 #### 응답 409 Conflict
 
-`CALENDAR_CLIENT_OUTDATED`를 반환한다. 새 화면에서 날짜 기준 변경 범위를 선택해야 한다.
+```json
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "CALENDAR_CLIENT_OUTDATED",
+    "message": "화면이 오래되었습니다. 새로고침한 뒤 날짜 기준 변경 범위를 선택해 주세요."
+  }
+}
+```
 
 ### `PUT /api/groups/{groupId}/recurring-schedule/calendar-range`
 
@@ -349,7 +506,15 @@ API를 사용한다.
 
 #### 응답 200
 
-증가한 시리즈 `version`을 반환한다.
+```json
+{
+  "success": true,
+  "data": {
+    "version": 4
+  },
+  "error": null
+}
+```
 
 ## 공통 오류
 
