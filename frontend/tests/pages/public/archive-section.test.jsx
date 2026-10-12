@@ -1,5 +1,4 @@
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 
 import { useInfiniteGroups } from "../../../src/features/group/index.js";
 import { ArchiveSection } from "../../../src/pages/groups/home/ArchiveSection.jsx";
@@ -67,40 +66,34 @@ it("Given ended groups, when the archive renders, then it requests only ended gr
 
   render(<ArchiveSection />);
 
-  expect(useInfiniteGroups).toHaveBeenCalledWith({ size: 8, status: "ENDED" });
+  expect(useInfiniteGroups).toHaveBeenCalledWith({ size: 4, status: "ENDED" });
   expect(screen.getByRole("heading", { name: "지난 모임 아카이브" })).toBeInTheDocument();
   expect(screen.getAllByRole("link", { name: /종료 모임/ })).toHaveLength(4);
   expect(screen.getByText("종료 모임 4")).toBeInTheDocument();
   expect(screen.queryByText("종료 모임 5")).not.toBeInTheDocument();
 });
 
-it("Given more loaded ended groups, when the user expands archive, then already loaded records appear before fetching another cursor", async () => {
-  const user = userEvent.setup();
-  const fetchNextPage = jest.fn();
-  useInfiniteGroups.mockReturnValue(archiveQuery({ fetchNextPage, hasNextPage: true }));
+it.each([false, true])(
+  "Given hasNextPage=%s, when the archive renders, then all ended groups are available through browse navigation",
+  (hasNextPage) => {
+    const fetchNextPage = jest.fn();
+    useInfiniteGroups.mockReturnValue(
+      archiveQuery({
+        data: {
+          pages: [{ items: Array.from({ length: 4 }, (_, index) => archiveGroup(index + 1)) }]
+        },
+        fetchNextPage,
+        hasNextPage
+      })
+    );
 
-  render(<ArchiveSection />);
-  await user.click(screen.getByRole("button", { name: "전체 보기" }));
+    render(<ArchiveSection />);
 
-  expect(screen.getAllByRole("link", { name: /종료 모임/ })).toHaveLength(6);
-  expect(fetchNextPage).not.toHaveBeenCalled();
-});
-
-it("Given no hidden loaded records and another cursor, when the user asks for more, then the next page is requested", async () => {
-  const user = userEvent.setup();
-  const fetchNextPage = jest.fn();
-  useInfiniteGroups.mockReturnValue(
-    archiveQuery({
-      data: {
-        pages: [{ items: Array.from({ length: 4 }, (_, index) => archiveGroup(index + 1)) }]
-      },
-      fetchNextPage,
-      hasNextPage: true
-    })
-  );
-
-  render(<ArchiveSection />);
-  await user.click(screen.getByRole("button", { name: "전체 보기" }));
-
-  expect(fetchNextPage).toHaveBeenCalledTimes(1);
-});
+    const link = screen.getByRole("link", { name: "지난 모임 전체 보기" });
+    expect(link).toHaveAttribute("href", "/groups?status=ENDED");
+    expect(link).toHaveAttribute("data-ph-capture-attribute-action", "archive_browse");
+    expect(screen.queryByRole("button", { name: "전체 보기" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /종료 모임/ })).toHaveLength(4);
+    expect(fetchNextPage).not.toHaveBeenCalled();
+  }
+);
