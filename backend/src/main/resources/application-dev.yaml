@@ -1,6 +1,9 @@
 spring:
   main:
     banner-mode: "off"
+  flyway:
+    baseline-on-migrate: ${FLYWAY_BASELINE_ON_MIGRATE:false}
+    baseline-version: 1
   jpa:
     hibernate:
       ddl-auto: validate

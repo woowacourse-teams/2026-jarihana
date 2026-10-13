@@ -18,6 +18,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.jdbc.Sql;
+import org.springframework.test.context.jdbc.SqlConfig;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Import(TestSupportConfig.class)
 @Transactional
+@Sql(scripts = "/sql/truncate.sql", config = @SqlConfig(transactionMode = SqlConfig.TransactionMode.ISOLATED))
 class GroupListControllerTest {
 
     private static final LocalDateTime CREATED_AT = LocalDateTime.of(2026, 8, 19, 10, 0);

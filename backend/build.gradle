@@ -37,6 +37,8 @@ dependencies {
 	implementation platform("software.amazon.awssdk:bom:${awsSdkVersion}")
 	implementation 'software.amazon.awssdk:s3'
 	implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+	implementation 'org.springframework.boot:spring-boot-starter-flyway'
+	runtimeOnly 'org.flywaydb:flyway-database-postgresql'
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'org.postgresql:postgresql'
 	runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
