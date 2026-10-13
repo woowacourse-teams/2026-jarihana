@@ -85,31 +85,65 @@ publish하지 않으며 조회 API `3200`은 호스트 loopback에만 공개한�
    기존 볼륨을 옮겨 사용하는 경우에는 소유권이 일치하는지 확인한다.
    Tempo 본체는 해당 non-root 사용자로 실행한다. 설정 파일은 읽기 전용 마운트다.
 
-2. 수동 실행 시 각 앱 EC2의 `infra/.env`에 trace 관련 값을 추가하고 백엔드 이미지를 준비한다.
-   기본 모니터링 배포에는 이 변수들이 필요하지 않다.
+2. 각 앱 EC2의 저장소 루트로 돌아온 뒤 `infra/.env`에 trace 관련 값을 추가하고 백엔드 이미지를 준비한다.
+   기본 모니터링 배포에는 이 변수들이 필요하지 않다. `infra/.env`만 바꾸면 안 된다. dev·prod
+   Compose는 기본값으로 `OTEL_SDK_DISABLED=true`를 고정하고, 앱 Alloy도 기본 환경에는
+   `TEMPO_OTLP_ENDPOINT`를 받지 않기 때문이다.
 
    ```env
    TEMPO_OTLP_ENDPOINT=http://<monitoring-private-ip>:8080/tempo
-   OTEL_SDK_DISABLED=false
-   OTEL_TRACES_EXPORTER=otlp
-   OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4318
-   OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-   OTEL_SERVICE_NAME=jarihana
-   OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=<dev|prod>,service.instance.id=<HOST_ID>,service.version=<BACKEND_TAG>
    ```
 
-   메트릭·로그는 기존 경로를 유지하므로 `OTEL_METRICS_EXPORTER=none`, `OTEL_LOGS_EXPORTER=none`을 함께
-   유지한다. 샘플링 정책을 바꾸려면 `OTEL_TRACES_SAMPLER`와 관련 인자를 별도로 조정한다.
+   `<monitoring-private-ip>`는 모니터링 EC2 사설 IP로 바꾼다. `HOST_ID`, `BACKEND_TAG`를 비롯한
+   기존 앱 실행용 `.env` 값은 유지한다.
+
+   다음 override 파일을 만들어 backend에서 trace를 켜고 Alloy에 수신 주소를 전달한다.
+   메트릭·로그 exporter는 `none`으로 두어 기존 수집 경로를 유지한다.
+
+   ```yaml
+   # /tmp/jarihana-tracing.override.yml
+   services:
+     backend:
+       environment:
+         OTEL_SDK_DISABLED: "false"
+         OTEL_TRACES_EXPORTER: otlp
+         OTEL_EXPORTER_OTLP_ENDPOINT: http://host.docker.internal:4318
+         OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+         OTEL_SERVICE_NAME: jarihana
+         OTEL_RESOURCE_ATTRIBUTES: "deployment.environment.name=dev,service.instance.id=${HOST_ID:?set HOST_ID},service.version=${BACKEND_TAG:?set BACKEND_TAG}"
+         OTEL_METRICS_EXPORTER: none
+         OTEL_LOGS_EXPORTER: none
+     alloy:
+       environment:
+         TEMPO_OTLP_ENDPOINT: "${TEMPO_OTLP_ENDPOINT:?set TEMPO_OTLP_ENDPOINT}"
+   ```
+
+   Compose override는 `infra/docker-compose.dev.yml` 또는 `infra/docker-compose.yml` 뒤에 둔다. 뒤의 파일이
+   같은 환경 변수를 덮어써야 기본 `OTEL_SDK_DISABLED=true`가 trace 선택 구성에서만 바뀐다.
+   샘플링 정책을 바꾸려면 override의 backend 환경에 `OTEL_TRACES_SAMPLER`와 관련 인자를 추가한다.
 
    ```bash
-   export BACKEND_TAG="$(git rev-parse HEAD)"
-   docker build -t "jarihana-backend-dev:${BACKEND_TAG}" ./backend
-   docker compose --env-file infra/.env -f infra/docker-compose.dev.yml config --quiet
-   docker compose --env-file infra/.env -f infra/docker-compose.dev.yml run --rm --no-deps alloy validate /etc/alloy/config.alloy
-   docker compose --env-file infra/.env -f infra/docker-compose.dev.yml up -d --no-build --force-recreate backend alloy
+   docker compose --env-file infra/.env \
+     -f infra/docker-compose.dev.yml \
+     -f /tmp/jarihana-tracing.override.yml \
+     config --quiet
+
+   docker compose --env-file infra/.env \
+     -f infra/docker-compose.dev.yml \
+     -f /tmp/jarihana-tracing.override.yml \
+     run --rm --no-deps alloy validate /etc/alloy/config.alloy
+
+   docker compose --env-file infra/.env \
+     -f infra/docker-compose.dev.yml \
+     -f /tmp/jarihana-tracing.override.yml \
+     up -d --no-build --force-recreate backend alloy
    ```
 
-   prod는 이미지 이름 `jarihana-backend`와 `infra/docker-compose.yml`을 사용한다.
+   prod에서는 override의 `deployment.environment.name=dev`를 `deployment.environment.name=prod`로
+   바꾸고, 위 세 명령의 기본 파일을 `infra/docker-compose.yml`로 지정한다. 두 Compose 파일 모두
+   `ghcr.io/woowacourse-teams/jarihana-backend:${BACKEND_TAG}` 이미지를 사용하므로, trace를 켤 때도
+   해당 태그의 GHCR 이미지를 먼저 준비해야 한다. 로컬에서 다른 이름으로 빌드한 이미지는 이 Compose가
+   사용하지 않는다.
    기본 GitHub dev·prod 배포 workflow는 Tempo 전송을 켜지 않는다. trace 선택 구성을 배포할 때만
    기존 repository variable `MONITORING_BIND_ADDRESS`와 `8080/tempo`로 `TEMPO_OTLP_ENDPOINT`를 만들고,
    위 OTel 변수들을 함께 주입한다. 수집용 도메인·DNS·`extra_hosts`는 필요 없다.
