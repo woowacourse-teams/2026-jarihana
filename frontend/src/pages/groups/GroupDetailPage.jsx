@@ -1,11 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChevronLeft, Settings, Users } from "lucide-react";
+import { ChevronLeft, Plus, Settings, Users } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { useAuth } from "../../features/auth/index.js";
 import { useGroup } from "../../features/group/index.js";
 import { isDefaultGroupImageUrl } from "../../features/image-upload/index.js";
 import { useInfiniteGroupMembers } from "../../features/member/index.js";
+import { InviteMembersDialog } from "../../features/invitation/InviteMembersDialog.jsx";
+import { ShareInvitationButton } from "../../features/invitation/ShareInvitationButton.jsx";
 import {
   useCreateRegistration,
   useWithdrawRegistration
@@ -124,6 +126,7 @@ export function GroupDetailPage() {
   const justCreatedReference = useRef(location.state?.justCreated === true);
   const profileReference = useRef(null);
   const [recruitmentPromptOpen, setRecruitmentPromptOpen] = useState(false);
+  const [invitationOpenScope, setInvitationOpenScope] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedTab = tabs.some((tab) => tab.value === searchParams.get("tab"))
     ? searchParams.get("tab")
@@ -144,6 +147,9 @@ export function GroupDetailPage() {
     group?.currentMemberRole === "MEMBER" || group?.currentMemberRole === "LEADER";
   const hasExistingRegistration = group?.currentMemberRegistrationStatus != null;
   const isArchived = group?.status === "ENDED";
+  const canInvite = auth.status === "authenticated" && isApprovedMember && !isArchived;
+  const invitationScope = `${groupId}:${currentMember?.id ?? "guest"}:${auth.sessionVersion ?? 0}`;
+
 
   /*
    * 모임을 만들자마자 모집도 시작된 줄 아는 오해가 있어, 방금 만든 모임장에게만 모집을
@@ -260,6 +266,7 @@ export function GroupDetailPage() {
               />
               <span aria-hidden="true" className="group-transition-shade group-profile__shade" />
             </div>
+            <div className="group-profile__invitation-actions">
             {isLeader ? (
               <Link
                 aria-label="모임 수정"
@@ -271,6 +278,8 @@ export function GroupDetailPage() {
                 <Settings aria-hidden="true" size={20} strokeWidth={2.25} />
               </Link>
             ) : null}
+            {canInvite ? <ShareInvitationButton key={invitationScope} groupId={groupId} /> : null}
+            </div>
             <div className="group-recruitment-entry group-recruitment-action">
               <Modal
                 closeAction="group_recruitment_info_dismiss"
@@ -333,7 +342,7 @@ export function GroupDetailPage() {
                 {
                   label: tabs[3].label,
                   value: tabs[3].value,
-                  content: selectedTab === "members" ? <MemberTab groupId={groupId} /> : null
+                  content: selectedTab === "members" ? <MemberTab groupId={groupId} leader={group.leader} canInvite={canInvite} onInvite={() => setInvitationOpenScope(invitationScope)} /> : null
                 }
               ]}
             />
@@ -356,6 +365,8 @@ export function GroupDetailPage() {
           />
         </GroupDetailRail>
       </div>
+
+      {canInvite ? <InviteMembersDialog key={invitationScope} groupId={groupId} open={invitationOpenScope === invitationScope} onClose={() => setInvitationOpenScope(null)} /> : null}
 
       <Modal
         closeAction="recruitment_start_prompt_dismiss"
@@ -736,7 +747,7 @@ function LeaderSummary({ leader, variant }) {
   );
 }
 
-function MemberList({ items, query }) {
+function MemberList({ items, query, canInvite, onInvite }) {
   const [expanded, setExpanded] = useState(false);
   const [rowCount, setRowCount] = useState(0);
   const gridReference = useRef(null);
@@ -784,13 +795,16 @@ function MemberList({ items, query }) {
   return (
     <div className="group-members-overview">
       <section aria-labelledby="group-members-title" className="group-members-list-panel">
-        <h2 id="group-members-title">참여자</h2>
+        <div className="group-members-list-panel__heading">
+          <h2 id="group-members-title">참여자</h2>
+          {canInvite ? <Button className="invitation-member-trigger" data-ph-capture-attribute-action="invitation_create" onClick={onInvite} size="sm" variant="secondary"><Plus size={14} aria-hidden="true" /> 초대</Button> : null}
+        </div>
         <ul
           className={`group-member-grid${!expanded && rowCount > 3 ? " is-collapsed" : ""}`}
           ref={gridReference}
         >
           {items.map((member) => (
-            <li data-member-card key={member.groupMemberId}>
+            <li data-member-card key={member.memberId}>
               <Avatar
                 alt={`${member.crewName} 프로필`}
                 className="group-member-avatar"
@@ -943,8 +957,11 @@ function CohortDonut({ cohorts, total }) {
   );
 }
 
-function MemberTab({ groupId }) {
+function MemberTab({ groupId, leader, canInvite, onInvite }) {
   const query = useInfiniteGroupMembers(groupId);
-  const items = flattenPages(query.data, (member) => member.groupMemberId);
-  return <MemberList items={items} query={query} />;
+  const members = flattenPages(query.data, (member) => member.groupMemberId);
+  const items = leader
+    ? [{ ...leader, role: "LEADER" }, ...members.filter((member) => member.memberId !== leader.memberId)]
+    : members;
+  return <MemberList items={items} query={query} canInvite={canInvite} onInvite={onInvite} />;
 }

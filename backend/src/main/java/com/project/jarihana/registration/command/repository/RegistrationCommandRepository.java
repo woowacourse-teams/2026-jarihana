@@ -1,6 +1,7 @@
 package com.project.jarihana.registration.command.repository;
 
 import com.project.jarihana.registration.domain.Registration;
+import com.project.jarihana.registration.domain.ApprovalOrigin;
 import com.project.jarihana.registration.domain.RegistrationStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Lock;
@@ -15,12 +16,21 @@ public interface RegistrationCommandRepository extends Repository<Registration, 
 
     List<Registration> findAllByRecruitmentGroupIdAndStatus(long groupId, RegistrationStatus status);
 
+    List<Registration> findAllByRecruitmentGroupIdAndMemberIdAndStatusOrderByIdAsc(
+            long groupId, long memberId, RegistrationStatus status);
+
     List<Registration> findAllByRecruitmentIdInAndStatus(
             List<Long> recruitmentIds,
             RegistrationStatus status
     );
 
     long countByRecruitmentIdAndStatus(long recruitmentId, RegistrationStatus status);
+
+    long countByRecruitmentIdAndStatusAndApprovalOrigin(
+            long recruitmentId,
+            RegistrationStatus status,
+            ApprovalOrigin approvalOrigin
+    );
 
     boolean existsByRecruitmentIdAndMemberId(long recruitmentId, long memberId);
 
@@ -32,6 +42,10 @@ public interface RegistrationCommandRepository extends Repository<Registration, 
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Registration> findWithLockByIdAndRecruitmentId(long id, long recruitmentId);
+
+    Optional<Registration> findByIdAndRecruitmentId(long id, long recruitmentId);
+
+    void flush();
 
     Optional<Registration> findById(Long id);
 

@@ -8,6 +8,8 @@ import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
+import jakarta.persistence.OptimisticLockException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
@@ -69,6 +71,12 @@ public class GlobalExceptionHandler {
             return toResponse(ErrorCode.MEMBER_CREW_DUPLICATED, "이미 사용 중인 크루명입니다.");
         }
         return handleUnexpectedException(exception);
+    }
+
+    @ExceptionHandler({OptimisticLockingFailureException.class, OptimisticLockException.class})
+    public ResponseEntity<ApiResponse<Void>> handleOptimisticConflict(Exception exception) {
+        recordFailure(ErrorCode.CONCURRENT_MODIFICATION, exception);
+        return toResponse(ErrorCode.CONCURRENT_MODIFICATION, "다른 요청과 충돌했습니다. 다시 시도해 주세요.");
     }
 
     private boolean isMemberNameConflict(DataIntegrityViolationException exception) {

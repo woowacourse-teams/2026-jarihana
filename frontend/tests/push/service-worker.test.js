@@ -47,6 +47,7 @@ test("old generation never fetches or displays detail", async () => {
   expect(w.fetcher).not.toHaveBeenCalled(); expect(w.self.registration.showNotification).not.toHaveBeenCalled();
 });
 test.each([
+  ["INVITATION_RECEIVED", "새 모임 초대가 도착했어요."],
   ["GROUP_CREATED", "새로운 모임이 등록되었어요."],
   ["REGISTRATION_SUBMITTED", "모임에 새로운 신청이 도착했어요."],
   ["PARTICIPANT_JOINED", "모임 참여가 완료되었어요."],
@@ -85,20 +86,71 @@ test("late subscribe completion cannot rearm after disarm", async () => {
   expect((await bind(w)).ok).toBe(false);
   expect((await w.message("GET_STATE")).state.armed).toBe(false);
 });
-test("failed authentication shows only general copy and clicks the inbox", async () => {
+test("failed content lookup shows general copy but preserves the authenticated notification route", async () => {
   const w = worker(); await bind(w); w.fetcher.mockRejectedValueOnce(new Error("offline")); await w.push();
   const options = w.self.registration.showNotification.mock.calls[0][1];
   expect(w.self.registration.showNotification).toHaveBeenCalledWith("자리하나?", expect.objectContaining({ body: "새 소식이 있어요. 알림함에서 확인해 주세요." }));
-  expect(options.data.notificationId).toBeNull(); expect(options.body).not.toContain("승인");
+  expect(options.data.notificationId).toBe(5); expect(options.body).not.toContain("승인");
   let done;
   w.handlers.notificationclick({ notification: { data: options.data, close: jest.fn() }, waitUntil: (promise) => { done = promise; } });
-  await done; expect(w.self.clients.openWindow).toHaveBeenCalledWith("https://app.test/");
+  await done; expect(w.self.clients.openWindow).toHaveBeenCalledWith("https://app.test/notifications/open/5");
 });
 test("matching click goes through the authenticated app route instead of a payload URL", async () => {
   const w = worker(); await bind(w); await w.push();
   const options = w.self.registration.showNotification.mock.calls[0][1]; let done;
   w.handlers.notificationclick({ notification: { data: { ...options.data, url: "https://evil.test" }, close: jest.fn() }, waitUntil: (promise) => { done = promise; } });
   await done; expect(w.self.clients.openWindow).toHaveBeenCalledWith("https://app.test/notifications/open/5");
+});
+
+test("an unknown event keeps general copy and the notification reference for app resolution", async () => {
+  const w = worker(); await bind(w);
+  w.fetcher.mockResolvedValueOnce({ ok: true, json: async () => ({ success: true,
+    data: { notificationId: 5, payloadVersion: 1, eventType: "FUTURE_EVENT" } }) });
+  await w.push();
+  const options = w.self.registration.showNotification.mock.calls[0][1];
+  expect(options.body).toBe("새 소식이 있어요. 알림함에서 확인해 주세요.");
+  let done;
+  w.handlers.notificationclick({ notification: { data: options.data, close: jest.fn() }, waitUntil: promise => { done = promise; } });
+  await done;
+  expect(w.self.clients.openWindow).toHaveBeenCalledWith("https://app.test/notifications/open/5");
+});
+
+test("a matching existing app window navigates and focuses the notification route", async () => {
+  const w = worker(); await bind(w); await w.push();
+  const options = w.self.registration.showNotification.mock.calls[0][1];
+  const focused = { focus: jest.fn() };
+  const windowClient = { url: "https://app.test/groups", navigate: jest.fn(async () => focused) };
+  w.self.clients.matchAll.mockResolvedValue([windowClient]);
+  let done;
+  w.handlers.notificationclick({ notification: { data: options.data, close: jest.fn() }, waitUntil: promise => { done = promise; } });
+  await done;
+  expect(windowClient.navigate).toHaveBeenCalledWith("https://app.test/notifications/open/5");
+  expect(focused.focus).toHaveBeenCalled();
+  expect(w.self.clients.openWindow).not.toHaveBeenCalled();
+});
+
+test.each(["closed", "failed"])("a %s existing window falls back to opening the notification route", async (failure) => {
+  const w = worker(); await bind(w); await w.push();
+  const options = w.self.registration.showNotification.mock.calls[0][1];
+  w.self.clients.matchAll.mockResolvedValue([{ url: "https://app.test/", navigate: async () => {
+    if (failure === "failed") throw new Error("Window unavailable");
+    return null;
+  } }]);
+  let done;
+  w.handlers.notificationclick({ notification: { data: options.data, close: jest.fn() }, waitUntil: promise => { done = promise; } });
+  await done;
+  expect(w.self.clients.openWindow).toHaveBeenCalledWith("https://app.test/notifications/open/5");
+});
+
+test("a click from a previous account binding does not open that account's notification", async () => {
+  const w = worker(); await bind(w); await w.push();
+  const options = w.self.registration.showNotification.mock.calls[0][1];
+  const stopped = await w.message("DISARM");
+  await w.message("BIND", { expectedRevision: stopped.state.revision, binding: { id: 9, generation: 1, memberId: 13 } });
+  let done;
+  w.handlers.notificationclick({ notification: { data: options.data, close: jest.fn() }, waitUntil: promise => { done = promise; } });
+  await done;
+  expect(w.self.clients.openWindow).toHaveBeenCalledWith("https://app.test/");
 });
 
 test("a stale key replacement cannot disarm a newer browser binding", async () => {

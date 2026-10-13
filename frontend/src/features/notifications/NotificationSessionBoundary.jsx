@@ -7,8 +7,8 @@ export function NotificationSessionBoundary() {
   const { member, sessionVersion = 0, status } = useAuth();
   const client = useQueryClient();
   useEffect(() => {
-    const previousSession = (query) => query.queryKey[0] === "notifications"
-      && (query.queryKey[1] !== member?.id || query.queryKey[2] !== sessionVersion);
+    const previousSession = (query) => ["notifications", "invitations"].includes(query.queryKey[0])
+      && (query.queryKey[1] !== (member?.id ?? null) || query.queryKey[2] !== sessionVersion);
     void client.cancelQueries({ predicate: previousSession });
     client.removeQueries({ predicate: previousSession });
   }, [client, member?.id, sessionVersion, status]);

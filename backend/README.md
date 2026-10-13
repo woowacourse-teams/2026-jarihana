@@ -73,7 +73,7 @@
 
 ## 애플리케이션 로그
 
-로컬 콘솔, dev/prod ECS JSON, CloudWatch 사전 준비와 조회 방법은
+로컬 콘솔, dev/prod ECS JSON, 현재 Docker `local` → Alloy → Loki 경로와 legacy CloudWatch 조회 방법은
 [애플리케이션 로깅 운영 가이드](docs/operations/application-logging.md)를 확인한다.
 
 ## 로컬 PostgreSQL 실행
@@ -137,34 +137,25 @@ docker compose -f docker-compose-local.yaml ps
 운영 배포 전에 `2026-10-07-group-calendar-expand.sql`과 반복 회차 예외 SQL을 적용하고,
 호환 백엔드 배포 뒤 `2026-10-07-group-calendar-backfill-batch.sql`을 검토·실행해야 한다.
 
-### 운영 DB SSH 터널 접속
+초대 기능을 배포하기 전에는 [통합 초대 DDL](db/migrations/2026-10-11-invitation.sql)을 적용한다.
+기존 신청 출처·낙관적 잠금 버전, 초대·수락 테이블, 초대 상태·공유 링크 보정과 알림 사건 확장을
+하나의 트랜잭션으로 처리한다. 기존 알림 테이블이 먼저 준비되어 있어야 한다.
+공유 토큰 암호화 키 설정과 적용 순서·검증·복구 제한은 [초대 운영 가이드](docs/operations/invitations.md)를 따른다.
 
-운영 Compose는 PostgreSQL 포트를 서버의 `127.0.0.1:5432`에 바인딩한다.
-운영 서버에 SSH 접속할 수 있고 SSH 포트 포워딩이 허용된 환경에서, 개인 키 경로와
-SSH 계정·서버 주소를 실제 값으로 바꿔 로컬 터미널에서 실행한다.
+### 운영 RDS 접속
 
-```bash
-ssh -i /path/to/key.pem \
-  -N -o ExitOnForwardFailure=yes \
-  -L 127.0.0.1:15432:127.0.0.1:5432 \
-  SSH_USER@SERVER_IP
-```
-
-터널을 유지한 상태에서 DB 도구의 Host는 `127.0.0.1`, Port는 `15432`, Database와
-User는 `jarihana`, Password는 운영 DB 비밀번호로 설정한다. 이 명령으로 터널을
-실행했다면 DB 도구의 SSH 터널 기능은 별도로 켜지 않는다. 종료할 때는 터미널에서
-`Ctrl+C`를 누른다. 로컬 PostgreSQL의 `5432` 포트와 구분하기 위해 `15432`를 사용한다.
-
-최초 포트 매핑 반영 시 PostgreSQL 컨테이너가 재생성되어 기존 DB 연결이 잠시 끊길 수
-있다. 기존 `postgres-data` 볼륨은 유지하며, 적용을 위해 볼륨을 삭제하지 않는다.
+운영 배포는 앱 EC2의 Compose PostgreSQL이 아니라 RDS의 `jarihana_prod` 데이터베이스에
+연결한다. 로컬 DB 도구에서 운영 DB를 확인해야 할 때는 AWS 보안 그룹, VPN 또는 bastion 정책에
+맞는 승인된 접속 경로를 사용한다. RDS endpoint, 사용자, 비밀번호는 GitHub Actions의 `prod`
+Environment에 저장하며 저장소에 커밋하지 않는다.
 
 ### 공유 개발 환경
 
-`develop`의 백엔드 변경은 `backend-dev-deploy.yml`에서 같은 EC2의 개발 전용 Compose로
+`develop`의 백엔드 변경은 `backend-dev-deploy.yml`에서 개발 전용 EC2의 Compose로
 배포한다. 개발 DB·인증값·포트는 운영과 분리하고 Spring `dev` 프로필을 사용한다.
-개발 API는 호스트 `80`에서 컨테이너 `8080`으로 전달하고, CloudWatch Agent용 관리 포트는
-호스트 `127.0.0.1:81`에서 컨테이너 `8081`로만 전달한다. `81`은 외부에 공개하지 않는다.
-CloudFront 개발 API Origin도 EC2의 80번 포트를 바라보도록 확인해야 한다.
+개발 API는 호스트 `8080`에서 컨테이너 `8080`으로 전달하고, 관리 포트는
+호스트 `127.0.0.1:8081`에서 컨테이너 `8081`로만 전달한다. `8081`은 외부에 공개하지 않는다.
+CloudFront 개발 API Origin도 EC2의 8080번 포트를 바라보도록 확인해야 한다.
 `application-dev.yaml`은 `ddl-auto: validate`, `show-sql: false`와 관리용 메트릭을 설정하며,
 DB 접속값과 인증·OAuth·S3 설정은 개발 Compose의 환경 변수로 주입한다.
 [개발 Compose](../infra/docker-compose.dev.yml)는 DB 스키마를 자동으로 초기화하지 않는다.
@@ -176,15 +167,21 @@ DB 접속값과 인증·OAuth·S3 설정은 개발 Compose의 환경 변수로 �
 
 `main` 브랜치에 반영된 커밋에 백엔드·운영 Compose·workflow 변경이 포함되면 `backend-prod-deploy.yml`이
 자동으로 실행된다. 필요할 때는 GitHub Actions에서 수동으로도 실행할 수 있다.
+prod workflow는 서버에서 Docker 이미지를 새로 빌드하지 않고, develop 배포가 GHCR에 올린 backend
+tree tag 이미지를 `jarihana-prod` runner에서 받아 교체한다. 배포 후 `infra/scripts/verify-backend.sh prod`를
+실행하고, 실패하면 서버에 기록된 직전 성공 태그로 롤백한다.
 
 `Settings > Environments`의 `dev`, `prod`에 아래 Secrets와 Variables를 각각 등록한다.
-개발과 운영은 같은 설정 이름을 사용하며, 값은 환경별로 구분한다. OAuth 설정은
+dev·prod 모두 RDS 접속값을 사용한다. OAuth 설정은
 `OAUTH_GITHUB_*` 이름으로 저장한 뒤 배포 워크플로에서 애플리케이션 환경 변수
 `GITHUB_OAUTH_*`로 매핑한다.
 
 | 애플리케이션·Compose 환경 변수 | GitHub 설정 이름 | 저장 위치 |
 | --- | --- | --- |
-| `POSTGRES_PASSWORD` | `POSTGRES_PASSWORD` | Secrets |
+| `RDS_URL` | `RDS_URL` | dev/prod Variables |
+| `DB_USERNAME` | `DB_USERNAME` | dev/prod Variables |
+| `DB_PASSWORD` | `DB_PASSWORD` | dev/prod Secrets |
+| `POSTGRES_MONITOR_DSN` | `POSTGRES_MONITOR_DSN` | dev/prod Secrets |
 | `FRONTEND_ORIGIN` | `FRONTEND_ORIGIN` | Variables |
 | `ACCESS_TOKEN_SECRET` | `ACCESS_TOKEN_SECRET` | Secrets |
 | `GITHUB_OAUTH_CLIENT_ID` | `OAUTH_GITHUB_CLIENT_ID` | Variables |
@@ -203,3 +200,5 @@ DB 접속값과 인증·OAuth·S3 설정은 개발 Compose의 환경 변수로 �
 ## 웹푸시·알림함
 
 설정·DB 적용·로컬 테스트·배포·장애 확인은 [웹푸시 운영 가이드](docs/operations/web-push.md)를 확인한다.
+
+dev/prod GitHub Environment의 Variables에 `INVITATION_TOKEN_ACTIVE_KEY_ID`(기본 primary), Secrets에 `INVITATION_TOKEN_KEY_PRIMARY`와 필요한 `INVITATION_TOKEN_KEY_PREVIOUS`를 설정하면 backend 배포 workflow와 Compose가 서버로 전달한다. 키는 32바이트를 Base64로 인코딩한 값이며 환경마다 분리한다. 실제 Secrets 등록·DB 적용·배포는 코드 변경과 별도로 수행한다.

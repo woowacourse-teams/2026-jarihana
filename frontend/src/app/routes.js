@@ -11,6 +11,8 @@ export const routeRegistry = Object.freeze([
   },
   { access: "public", page: "OAuthCallbackPage", path: "/oauth/callback" },
   { access: "signup", page: "SignupPage", path: "/signup" },
+  { access: "public", page: "InvitationPage", path: "/invitations/:invitationId" },
+  { access: "public", page: "InvitationPage", path: "/invitations/link/:token" },
   { access: "member", page: "NotificationOpenPage", path: "/notifications/open/:id" },
   { access: "member", page: "MyPage", path: "/my" },
   { access: "member", page: "MyGroupsPage", path: "/my/groups" },
