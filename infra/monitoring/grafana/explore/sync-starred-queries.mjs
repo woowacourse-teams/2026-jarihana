@@ -77,18 +77,19 @@ export async function syncStarredQueries({
     for (let page = 1; ; page++) {
       const params = new URLSearchParams({ datasourceUid: 'loki', sort: 'time-asc', limit: String(pageSize), page: String(page), from: '0', to });
       const result = await request('GET', `${historyPath}?${params}`);
-      if (!Array.isArray(result.queryHistory) || !Number.isInteger(result.totalCount) || result.totalCount < 0 ||
+      const queryHistory = result.totalCount === 0 && result.queryHistory === null ? [] : result.queryHistory;
+      if (!Array.isArray(queryHistory) || !Number.isInteger(result.totalCount) || result.totalCount < 0 ||
           result.page !== page || !Number.isInteger(result.perPage) || result.perPage <= 0) {
         throw new Error('Grafana returned invalid query history pagination');
       }
-      for (const item of result.queryHistory) {
+      for (const item of queryHistory) {
         const entry = validateEntry(item);
         if (seen.has(entry.uid)) throw new Error('Grafana query history pagination repeated an entry; retry synchronization');
         seen.add(entry.uid);
         history.push(entry);
       }
       if (history.length >= result.totalCount) return history;
-      if (result.queryHistory.length === 0) throw new Error('Grafana query history pagination ended early');
+      if (queryHistory.length === 0) throw new Error('Grafana query history pagination ended early');
     }
   }
 
