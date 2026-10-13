@@ -32,8 +32,9 @@ ADR 0006과 0007에 이르기까지의 기록이다.
 
 | 번호 | 제목 | 상태 | 날짜 | 작업 브랜치 |
 | --- | --- | --- | --- | --- |
-| 0015 | [알림함에 소식을 저장하고 웹푸시는 별도로 전송한다](0015-web-push-and-notification-inbox.md) | 채택 · 알림함·구독·푸시 전송·화면·SW 구현 | 2026-10-02 | `feat/web-push-notifications` |
-| 0017 | [모임 달력 일정과 정기 규칙 이력을 분리한다](0017-group-calendar-event-and-history-model.md) | 채택 · 모임 달력 구현 | 2026-10-12 | `feat/group-calendar` |
+| 0015 | [알림함에 소식을 저장하고 웹푸시는 별도로 전송한다](0015-web-push-and-notification-inbox.md) | 채택, 알림함, 구독, 푸시 전송, 화면, SW 구현 | 2026-10-02 | `feat/web-push-notifications` |
+| 0017 | [모임 달력 일정과 정기 규칙 이력을 분리한다](0017-group-calendar-event-and-history-model.md) | 채택, 모임 달력 구현 | 2026-10-12 | `feat/group-calendar` |
+| 0018 | [Flyway로 스키마를 초기화하고 변경 이력을 관리한다](0018-flyway-schema-baseline.md) | 제안, 코드 구현 완료, 기존 DB 검증 대기 | 2026-10-14 | `chore/flyway-baseline` |
 
 ## 번호를 다시 매긴 이력
 

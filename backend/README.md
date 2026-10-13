@@ -53,13 +53,14 @@
 - `backend/docs/conventions/`: 8개 구속력 있는 모듈이며, 각 파일이 자기 분야의 확정 규칙을 소유한다.
 - `backend/docs/context/`: 도메인과 API 설계 의도를 사람이 검토하는 문서 모음이다.
 - `backend/docs/proposals/`: 사용자가 명시적으로 재검토할 때만 읽는 비구속 제안 문서다.
-- `backend/db/migrations/`: 데이터베이스 마이그레이션이다.
+- `backend/src/main/resources/db/migration/`: Flyway가 실행하는 스키마 마이그레이션이다.
+- `backend/db/migrations/`: V1 이전 수동 SQL 기록과 기존 데이터 백필이다.
 
 ## 문서 사용
 
 - 작업 규칙과 AI 문서 로딩은 이 디렉터리의 `AGENTS.md`를 확인한다.
-- 공통 브랜치·PR·커밋 정책은 [저장소 컨벤션](../docs/repository-conventions.md)을 확인한다.
-- ADR 영역 구분·교차 참조 규칙은 [저장소 컨벤션](../docs/repository-conventions.md)을 확인한다.
+- 공통 브랜치,PR, 커밋 정책은 [저장소 컨벤션](../docs/repository-conventions.md)을 확인한다.
+- ADR 영역 구분, 교차 참조 규칙은 [저장소 컨벤션](../docs/repository-conventions.md)을 확인한다.
 - 설계 의도는 `docs/context/`, 구속력 있는 구현 규칙은 `docs/conventions/`에서 확인한다.
 
 ## 컨벤션 변경 위치
@@ -109,39 +110,33 @@ docker compose -f docker-compose-local.yaml ps
 컨테이너를 종료해도 데이터는 named volume에 유지된다. 데이터까지 초기화할 때만
 `docker compose -f docker-compose-local.yaml down -v`를 사용한다.
 
-운영 환경에서는 `infra/docker-compose.yml`이 `SPRING_PROFILES_ACTIVE=prod`, DB 접속값,
-인증·OAuth 설정을 GitHub Actions Secrets와 Variables에서 주입한다. 운영 프로필은 스키마를 자동
-변경하지 않고 `ddl-auto: validate`로 검증만 수행한다.
+### Flyway 스키마 관리
 
-회원 유형과 이름 중복 정책을 배포할 때는 운영 DB에서
-`db/migrations/2026-09-01-member-type-and-name-policy.sql`을 실행한다. 이 마이그레이션은
-기존 `course = 'COACH'` 회원을 `member_type = 'COACH'`로 옮기고, `member_type`에 따른
-`course`·`generation` 조합 및 회원 이름 중복 규칙을 적용한다.
+모든 프로필은 Flyway 마이그레이션을 실행한 뒤 Hibernate `ddl-auto: validate`로
+엔티티 매핑을 검증한다. Spring Session 테이블도 V1이 만들며 별도 초기화는 끈다.
+빈 DB에는 `src/main/resources/db/migration/V1__baseline.sql`부터 적용한다.
 
-운영 프로필은 `ddl-auto: validate`이므로 애플리케이션이 이 변경을 자동으로 적용하지 않는다.
-기존 데이터에 새 정책과 충돌하는 이름이 있으면 마이그레이션 전에 해당 데이터를 정리해야 한다.
+기존 DB는 실제 스키마와 V1 결과를 비교한 뒤에만 버전 1을 baseline으로 등록한다.
+이력이 없는 기존 DB의 자동 등록은 기본적으로 꺼져 있으므로 최초 도입 준비 없이
+배포하면 기동이 실패한다. 첫 배포에서만 환경별 `FLYWAY_BASELINE_ON_MIGRATE=true`를
+설정하고 등록 확인 후 끈다. 새 변경은 V2 이후로 추가하며 기존 파일을 수정하지 않는다.
 
-피드백 기능을 운영에 배포하기 전에 운영 DB에서
-`db/migrations/2026-09-26-feedback.sql`을 실행해야 한다. 피드백은 가입을 완료한
-로그인 회원만 작성할 수 있으며, 이 DDL은 회원 ID가 필수인 `feedback` 테이블을 생성한다.
-작성 내용과 인증 회원 ID가 함께 저장된다. 운영 프로필은
-`ddl-auto: validate`이므로 이 DDL을 적용하지 않으면 애플리케이션이 기동하지 않는다.
+현재 V1은 엔티티와 기존 SQL을 합친 것이며 실제 dev/prod 덤프와의 비교는 남아 있다.
+SSM 접속, 스키마 대조, 복원 DB 검증 및 최초 도입 절차는
+[Flyway baseline 운영 가이드](docs/operations/flyway-baseline.md)를 따른다.
+기존 로컬 DB도 스키마 대조가 필요하며, 데이터 재생성이 가능한 경우에만 사용자가
+로컬 볼륨을 초기화한다. 자동 baseline으로 오래된 로컬 스키마를 최신으로 인정하지 않는다.
 
-그룹 달력의 반복 회차별 예외 수정을 배포하기 전에 운영 DB에서
-`db/migrations/2026-10-12-group-recurring-occurrence-overrides.sql`을 실행해야 한다.
-기존 일정 데이터는 nullable 연결 컬럼으로 보존되며, `ddl-auto: validate` 환경에서는
-마이그레이션을 적용하지 않으면 애플리케이션이 기동하지 않는다.
-
-달력 전체의 운영 스키마 확장, 기존 그룹 이력 백필, 기능 공개 순서는
-[모임 달력 운영 데이터 이관·배포 가이드](docs/operations/group-calendar-rollout.md)를 따른다.
-운영 배포 전에 `2026-10-07-group-calendar-expand.sql`과 반복 회차 예외 SQL을 적용하고,
-호환 백엔드 배포 뒤 `2026-10-07-group-calendar-backfill-batch.sql`을 검토·실행해야 한다.
+`db/migrations/`의 회원 정책, 피드백, 활동 기록, 알림과 달력 DDL은 V1에 반영했다.
+기존 DB에 해당 SQL이 적용되어 있는지는 첫 도입 전에 확인해야 한다.
+달력의 기존 데이터 백필과 기능 공개는
+[모임 달력 운영 데이터 이관 및 배포 가이드](docs/operations/group-calendar-rollout.md)를 계속 따른다.
 
 ### 운영 DB SSH 터널 접속
 
 운영 Compose는 PostgreSQL 포트를 서버의 `127.0.0.1:5432`에 바인딩한다.
 운영 서버에 SSH 접속할 수 있고 SSH 포트 포워딩이 허용된 환경에서, 개인 키 경로와
-SSH 계정·서버 주소를 실제 값으로 바꿔 로컬 터미널에서 실행한다.
+SSH 계정, 서버 주소를 실제 값으로 바꿔 로컬 터미널에서 실행한다.
 
 ```bash
 ssh -i /path/to/key.pem \
@@ -161,20 +156,21 @@ User는 `jarihana`, Password는 운영 DB 비밀번호로 설정한다. 이 명�
 ### 공유 개발 환경
 
 `develop`의 백엔드 변경은 `backend-dev-deploy.yml`에서 같은 EC2의 개발 전용 Compose로
-배포한다. 개발 DB·인증값·포트는 운영과 분리하고 Spring `dev` 프로필을 사용한다.
+배포한다. 개발 DB, 인증값, 포트는 운영과 분리하고 Spring `dev` 프로필을 사용한다.
 개발 API는 호스트 `80`에서 컨테이너 `8080`으로 전달하고, CloudWatch Agent용 관리 포트는
 호스트 `127.0.0.1:81`에서 컨테이너 `8081`로만 전달한다. `81`은 외부에 공개하지 않는다.
 CloudFront 개발 API Origin도 EC2의 80번 포트를 바라보도록 확인해야 한다.
 `application-dev.yaml`은 `ddl-auto: validate`, `show-sql: false`와 관리용 메트릭을 설정하며,
-DB 접속값과 인증·OAuth·S3 설정은 개발 Compose의 환경 변수로 주입한다.
+DB 접속값과 인증,OAuth,S3 설정은 개발 Compose의 환경 변수로 주입한다.
 [개발 Compose](../infra/docker-compose.dev.yml)는 DB 스키마를 자동으로 초기화하지 않는다.
-`ddl-auto: validate`를 사용하므로 Spring Session 테이블을 포함한 개발 DB 스키마를 첫 배포 전에
-별도로 준비해야 한다. 이후 스키마 변경은 `db/migrations/`의 SQL을 검토해 적용한다.
+빈 개발 DB는 Flyway V1으로 Spring Session을 포함한 스키마를 준비한다. 기존 개발 DB의
+첫 도입은 [Flyway baseline 운영 가이드](docs/operations/flyway-baseline.md)에 따라 대조와
+baseline 등록을 먼저 준비한다. 이후 변경은 버전 마이그레이션으로 자동 적용한다.
 개발 `IMAGE_S3_KEY_PREFIX`는 `jarihana-dev/images`를 사용한다.
 
 ### 배포 환경 설정
 
-`main` 브랜치에 반영된 커밋에 백엔드·운영 Compose·workflow 변경이 포함되면 `backend-prod-deploy.yml`이
+`main` 브랜치에 반영된 커밋에 백엔드, 운영 Compose,workflow 변경이 포함되면 `backend-prod-deploy.yml`이
 자동으로 실행된다. 필요할 때는 GitHub Actions에서 수동으로도 실행할 수 있다.
 
 `Settings > Environments`의 `dev`, `prod`에 아래 Secrets와 Variables를 각각 등록한다.
@@ -182,7 +178,7 @@ DB 접속값과 인증·OAuth·S3 설정은 개발 Compose의 환경 변수로 �
 `OAUTH_GITHUB_*` 이름으로 저장한 뒤 배포 워크플로에서 애플리케이션 환경 변수
 `GITHUB_OAUTH_*`로 매핑한다.
 
-| 애플리케이션·Compose 환경 변수 | GitHub 설정 이름 | 저장 위치 |
+| 애플리케이션,Compose 환경 변수 | GitHub 설정 이름 | 저장 위치 |
 | --- | --- | --- |
 | `POSTGRES_PASSWORD` | `POSTGRES_PASSWORD` | Secrets |
 | `FRONTEND_ORIGIN` | `FRONTEND_ORIGIN` | Variables |
@@ -200,6 +196,6 @@ DB 접속값과 인증·OAuth·S3 설정은 개발 Compose의 환경 변수로 �
 주입하지 않고 AWS SDK 기본 자격 증명 체인을 사용하므로, 운영 EC2에서는 연결된 IAM Role이
 필요하다.
 
-## 웹푸시·알림함
+## 웹푸시, 알림함
 
-설정·DB 적용·로컬 테스트·배포·장애 확인은 [웹푸시 운영 가이드](docs/operations/web-push.md)를 확인한다.
+설정,DB 적용, 로컬 테스트, 배포, 장애 확인은 [웹푸시 운영 가이드](docs/operations/web-push.md)를 확인한다.
