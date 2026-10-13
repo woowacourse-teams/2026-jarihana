@@ -1,7 +1,7 @@
 # Grafana Slack 장애 알림
 
-Grafana는 시작할 때 마운트된 provisioning 파일을 읽어 health·HTTP 500·호스트 자원 알림 정의 12개, Slack 연락처와
-전달 정책을 등록한다. 이후 시작할 때도 파일 설정을 다시 적용하며 변경은 UI가 아닌 파일에서
+Grafana는 시작할 때 마운트된 provisioning 파일을 읽어 health·HTTP 500·호스트 자원 알림 정의 12개, Slack 연락처,
+메시지 템플릿과 전달 정책을 등록한다. 이후 시작할 때도 파일 설정을 다시 적용하며 변경은 UI가 아닌 파일에서
 관리한다. Prometheus·Loki 데이터 소스도 기존 파일 provisioning을 유지한다.
 실제 AWS 배포와 Slack 전송은 수행하지 않았다.
 
@@ -9,8 +9,8 @@ Grafana는 시작할 때 마운트된 provisioning 파일을 읽어 health·HTTP
 
 [contact-points.yaml](../../monitoring/grafana/provisioning/alerting/contact-points.yaml)은
 조직 1에 이름·receiver UID가 모두 `jarihana-slack`인 Slack 연락처를 등록한다.
-`disableResolveMessage: false`로 조건 해제 시 복구 알림도 전달한다. 복구 메시지가 뜻하는
-범위는 규칙마다 다르므로 아래 조건 설명과 함께 판단한다.
+`disableResolveMessage: false`로 조건 해제 시 해제 알림도 전달한다. 해제는 정상 복구뿐 아니라
+주의에서 긴급으로 전환되거나 지표가 사라진 경우에도 발생하므로 아래 조건 설명과 함께 판단한다.
 
 Slack 앱의 Incoming Webhook을 활성화하고 알림을 받을 채널에 연결된 URL을 발급한다.
 이 방식에서는 별도의 Bot OAuth token을 입력하지 않는다. 연락처 하나는 Webhook에 연결된
@@ -37,6 +37,45 @@ Grafana가 연락처 파일의 `url: $SLACK_WEBHOOK_URL`을 이 환경변수로 
 파일로 등록한 알림 규칙·연락처·정책은 Grafana UI에서 편집할 수 없다. 설정 파일을 수정하고
 Grafana를 다시 시작해 적용한다. 최초 실행 여부를 연락처 존재나 marker로 판별하지 않는다.
 [Grafana 파일 provisioning 문서](https://grafana.com/docs/grafana/latest/alerting/set-up/provision-alerting-resources/file-provisioning/)
+
+## Slack 메시지 표시
+
+[templates.yaml](../../monitoring/grafana/provisioning/alerting/templates.yaml)의
+`jarihana.slack.title`과 `jarihana.slack.text`를 연락처의 제목·본문에 연결한다.
+Grafana가 시작할 때 규칙·연락처와 함께 등록하므로 UI에서 따로 설정할 필요가 없다.
+발생 조건과 전달 주기는 바꾸지 않고 메시지만 정리한다.
+
+- 제목에는 `긴급`·`주의`·`해제`, 알림 대상, 서버 또는 환경을 표시한다.
+- 본문에는 환경·서버·마운트, 측정값, 발생 또는 해제 기준, 확인할 내용과 Grafana 링크를 표시한다.
+- CPU·메모리·디스크·inode는 소수점 한 자리와 `%`, 최근 5분 HTTP 500 로그는 정수와 `건`으로 표시한다.
+  표시할 때만 반올림하며 임계치 판단은 원래 값으로 수행한다.
+- 헬스체크의 `1`은 실패 횟수가 아니다. `정상 상태 확인 실패`, `0`은 `정상 응답 확인`으로 표시한다.
+- `A`·`B`와 전체 라벨 목록은 메시지에 출력하지 않는다. `B`는 알림 조건의 참·거짓을 나타내는 내부 값이다.
+- Slack 굵게 표시는 `*문구*`, 링크는 `<URL|문구>`를 사용한다.
+
+CPU 긴급 알림이 해제되면 다음처럼 표시한다.
+
+```text
+[해제] CPU 사용률 높음 · jarihana-prod-ec2
+
+알림 해제 · CPU 사용률 높음
+서버: jarihana-prod-ec2
+평가 시 CPU 사용률: 1.5%
+해제 기준: 90% 미만 (80% 이상이 5분 지속되면 주의 알림 대상)
+Grafana에서 확인
+```
+
+`1.5%`는 이 예시의 측정값이며 해제 기준이 아니다. 긴급 조건은 90% 미만에서 해제된다.
+주의 조건은 80% 미만뿐 아니라 90% 이상이 되어도 해제되므로, 이때는 긴급 알림 대상을 함께 안내한다.
+따라서 메시지에서는 `정상 복구` 대신 `알림 해제`라고 표현한다.
+
+`MissingSeries`·`NoData` 등 지표 부재로 해제된 경우에는 수치상 복구로 표현하지 않고
+해제 사유와 수집 상태 확인 안내를 표시한다. 값이 없으면 `0%` 대신 `확인 불가`로 표시한다.
+`DatasourceError`·`DatasourceNoData`도 각각 지표 조회 오류·지표 없음으로 구분한다.
+
+메시지를 수정한 뒤 Grafana의 알림 템플릿 미리보기에서 발생·해제, 0값, 값 없음,
+지표 부재, 여러 알림이 섞인 메시지를 확인한다. 템플릿 미리보기는 Slack 전송이 아니며,
+연락처의 **Test**는 실제 채널로 보내므로 두 기능을 구분한다.
 
 ## 어떤 상태를 감지하는가
 

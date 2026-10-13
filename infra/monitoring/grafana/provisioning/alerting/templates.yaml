@@ -1,0 +1,69 @@
+apiVersion: 1
+
+templates:
+  - orgId: 1
+    name: jarihana-slack
+    template: |
+      {{ define "jarihana.slack.title" -}}
+      {{ if eq .Status "resolved" }}[해제]{{ else if eq .CommonLabels.severity "critical" }}[긴급]{{ else if eq .CommonLabels.severity "warning" }}[주의]{{ else }}[알림]{{ end }} {{ if eq .CommonLabels.alertname "DatasourceError" }}지표 조회 오류{{ else if eq .CommonLabels.alertname "DatasourceNoData" }}지표 없음{{ else }}{{ or .CommonAnnotations.display_name .CommonLabels.alertname "모니터링 알림" }}{{ end }}
+      {{- with .CommonLabels.host_id }} · {{ . }}{{ end -}}
+      {{- with .CommonLabels.environment }} · {{ if eq . "prod" }}운영{{ else if eq . "dev" }}개발{{ else }}{{ . }}{{ end }}{{ end -}}
+      {{- end }}
+
+      {{ define "jarihana.slack.text" -}}
+      {{ range .Alerts -}}
+      {{ if eq .Status "resolved" }}*알림 해제*{{ else if eq .Labels.severity "critical" }}*긴급*{{ else if eq .Labels.severity "warning" }}*주의*{{ else }}*알림 발생*{{ end }} · {{ if eq .Labels.alertname "DatasourceError" }}지표 조회 오류{{ else if eq .Labels.alertname "DatasourceNoData" }}지표 없음{{ else }}{{ or .Annotations.display_name .Labels.alertname "모니터링 알림" }}{{ end }}
+      {{- with .Labels.environment }}
+      환경: {{ if eq . "prod" }}운영 (prod){{ else if eq . "dev" }}개발 (dev){{ else }}{{ . }}{{ end }}{{ end }}
+      {{- with .Labels.host_id }}
+      서버: {{ . }}{{ end }}
+      {{- with .Labels.mountpoint }}
+      마운트: {{ . }}{{ end }}
+      {{- if eq .Labels.alertname "DatasourceError" }}
+      상태: 지표 조회 오류 알림{{ if eq .Status "resolved" }} 해제{{ else }} 발생{{ end }}
+      확인할 내용: 데이터 소스 연결과 알림 규칙의 쿼리를 확인하세요.
+      {{- else if eq .Labels.alertname "DatasourceNoData" }}
+      상태: 지표 없음 알림{{ if eq .Status "resolved" }} 해제{{ else }} 발생{{ end }}
+      확인할 내용: 지표 수집과 전송 경로를 확인하세요.
+      {{- else if and (eq .Status "resolved") .Annotations.grafana_state_reason }}
+      해제 사유: {{ if eq .Annotations.grafana_state_reason "MissingSeries" }}해당 대상의 지표가 더 이상 수집되지 않음{{ else if eq .Annotations.grafana_state_reason "NoData" }}평가할 지표가 없음{{ else }}{{ .Annotations.grafana_state_reason }}{{ end }}
+      정상 복구 여부는 확인되지 않았습니다. 지표 수집 상태를 확인하세요.
+      {{- else }}
+      {{- $hasValue := false }}
+      {{- range $ref, $value := .Values }}
+      {{- if eq $ref "A" }}
+      {{- $hasValue = true }}
+      {{- end }}
+      {{- end }}
+      {{- if $hasValue }}
+      {{- $value := index .Values "A" }}
+      {{- if eq .Annotations.value_kind "percent" }}
+      평가 시 {{ .Annotations.value_label }}: *{{ printf "%.1f" $value }}%*
+      {{- else if eq .Annotations.value_kind "count" }}
+      {{ .Annotations.value_label }}: *{{ printf "%.0f" $value }}건*
+      {{- else if eq .Annotations.value_kind "health" }}
+      헬스체크: {{ if eq $value 0.0 }}*정상 응답 확인*{{ else }}*정상 상태 확인 실패*{{ end }}
+      {{- end }}
+      {{- else }}
+      평가 값: 확인 불가
+      {{- end }}
+      {{- if eq .Status "resolved" }}
+      {{- with .Annotations.resolved_condition }}
+      해제 기준: {{ . }}{{ end }}
+      {{- else }}
+      {{- with .Annotations.firing_condition }}
+      발생 기준: {{ . }}{{ end }}
+      {{- with .Annotations.action }}
+      확인할 내용: {{ . }}{{ end }}
+      {{- end }}
+      {{- end }}
+      {{- if not .Annotations.display_name }}
+      {{- with .Annotations.summary }}
+      설명: {{ . }}{{ end }}
+      {{- end }}
+      {{- with .GeneratorURL }}
+      <{{ . }}|Grafana에서 확인>{{ end }}
+      {{ with .DashboardURL }}<{{ . }}|대시보드 열기>
+      {{ end }}
+      {{ end -}}
+      {{ end }}

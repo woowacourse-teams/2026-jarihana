@@ -26,6 +26,12 @@ groups:
       severity: warning
     annotations:
       summary: "{{ $labels.host_id }} {{ $labels.mountpoint }} 디스크 사용률 80% 이상이 5분 지속"
+      display_name: 디스크 사용률 높음
+      value_label: 디스크 사용률
+      value_kind: percent
+      firing_condition: 80% 이상 90% 미만이 5분 지속
+      resolved_condition: 80% 미만 또는 90% 이상 (90% 이상이면 긴급 알림 대상)
+      action: 해당 마운트의 로그·Docker 데이터·모니터링 저장 공간을 확인하세요.
       description: 일반 프로세스가 쓸 수 있는 avail 용량 기준입니다. 해당 마운트의 로그·Docker 데이터·Prometheus/Loki 저장량을 확인하세요. 80% 이상 90% 미만이 5분 지속될 때 알립니다.
     data:
     - refId: A
@@ -66,6 +72,12 @@ groups:
       severity: critical
     annotations:
       summary: "{{ $labels.host_id }} {{ $labels.mountpoint }} 디스크 사용률 90% 이상"
+      display_name: 디스크 사용률 높음
+      value_label: 디스크 사용률
+      value_kind: percent
+      firing_condition: 90% 이상 (추가 지속 시간 없이 평가)
+      resolved_condition: 90% 미만 (80% 이상이 5분 지속되면 주의 알림 대상)
+      action: 해당 마운트의 로그·Docker 데이터·모니터링 저장 공간을 확인하세요.
       description: 일반 프로세스가 쓸 수 있는 avail 용량 기준입니다. 해당 마운트의 로그·Docker 데이터·Prometheus/Loki 저장량을 확인하세요. 90% 이상이면 추가 지속 시간을 기다리지 않고 알립니다.
     data:
     - refId: A
@@ -106,6 +118,12 @@ groups:
       severity: warning
     annotations:
       summary: "{{ $labels.host_id }} {{ $labels.mountpoint }} inode 사용률 80% 이상이 5분 지속"
+      display_name: 파일 생성 여유 부족 (inode)
+      value_label: inode 사용률
+      value_kind: percent
+      firing_condition: 80% 이상 90% 미만이 5분 지속
+      resolved_condition: 80% 미만 또는 90% 이상 (90% 이상이면 긴급 알림 대상)
+      action: 해당 마운트에 작은 파일이 많이 쌓였는지 확인하세요.
       description: 파일 개수를 관리하는 inode의 사용률입니다. 용량이 남아 있어도 inode가 부족하면 파일을 만들 수 없습니다. 해당 마운트의 작은 파일 누적을 확인하세요. 80% 이상 90% 미만이 5분 지속될 때 알립니다.
     data:
     - refId: A
@@ -146,6 +164,12 @@ groups:
       severity: critical
     annotations:
       summary: "{{ $labels.host_id }} {{ $labels.mountpoint }} inode 사용률 90% 이상"
+      display_name: 파일 생성 여유 부족 (inode)
+      value_label: inode 사용률
+      value_kind: percent
+      firing_condition: 90% 이상 (추가 지속 시간 없이 평가)
+      resolved_condition: 90% 미만 (80% 이상이 5분 지속되면 주의 알림 대상)
+      action: 해당 마운트에 작은 파일이 많이 쌓였는지 확인하세요.
       description: 파일 개수를 관리하는 inode의 사용률입니다. 용량이 남아 있어도 inode가 부족하면 파일을 만들 수 없습니다. 해당 마운트의 작은 파일 누적을 확인하세요. 90% 이상이면 추가 지속 시간을 기다리지 않고 알립니다.
     data:
     - refId: A
@@ -187,6 +211,11 @@ groups:
       severity: critical
     annotations:
       summary: dev 백엔드의 정상 상태를 확인하지 못했습니다.
+      display_name: 백엔드 헬스체크
+      value_kind: health
+      firing_condition: /actuator/health 정상 응답 실패 또는 150초간 결과 미수신
+      resolved_condition: 최근 150초 이내의 헬스체크 결과가 모두 정상 (HTTP 200·UP)
+      action: 백엔드 로그·RDS 연결·Alloy 수집 및 전송 상태를 확인하세요.
       description: 1분마다 /actuator/health를 확인합니다. HTTP 200과 UP 응답을 받지 못했거나, 최근 150초 동안 헬스체크 결과가 도착하지 않았습니다. 앱·RDS 연결·Alloy·EC2 및 전송 경로를 확인하세요.
     data:
     - refId: A
@@ -228,6 +257,12 @@ groups:
       severity: critical
     annotations:
       summary: dev 백엔드에서 HTTP 500 오류가 발생했습니다.
+      display_name: HTTP 500 오류
+      value_label: 최근 5분 HTTP 500 오류
+      value_kind: count
+      firing_condition: 최근 5분 동안 HTTP 500 요청 완료 로그가 1건 이상
+      resolved_condition: 최근 5분 동안 해당 로그가 0건 (로그 수집 중단 여부도 확인 필요)
+      action: Loki에서 해당 환경의 오류 로그와 요청 ID를 확인하세요.
       description: 최근 5분 동안 HTTP 500 요청 완료 로그가 한 건 이상 수집됐습니다. Loki에서 같은 환경의 http.request.completed 로그와 request ID를 확인하세요. 알림 해제는 최근 5분에 해당 로그가 없다는 뜻입니다.
     data:
     - refId: A
@@ -268,6 +303,11 @@ groups:
       severity: critical
     annotations:
       summary: prod 백엔드의 정상 상태를 확인하지 못했습니다.
+      display_name: 백엔드 헬스체크
+      value_kind: health
+      firing_condition: /actuator/health 정상 응답 실패 또는 150초간 결과 미수신
+      resolved_condition: 최근 150초 이내의 헬스체크 결과가 모두 정상 (HTTP 200·UP)
+      action: 백엔드 로그·RDS 연결·Alloy 수집 및 전송 상태를 확인하세요.
       description: 1분마다 /actuator/health를 확인합니다. HTTP 200과 UP 응답을 받지 못했거나, 최근 150초 동안 헬스체크 결과가 도착하지 않았습니다. 앱·RDS 연결·Alloy·EC2 및 전송 경로를 확인하세요.
     data:
     - refId: A
@@ -309,6 +349,12 @@ groups:
       severity: critical
     annotations:
       summary: prod 백엔드에서 HTTP 500 오류가 발생했습니다.
+      display_name: HTTP 500 오류
+      value_label: 최근 5분 HTTP 500 오류
+      value_kind: count
+      firing_condition: 최근 5분 동안 HTTP 500 요청 완료 로그가 1건 이상
+      resolved_condition: 최근 5분 동안 해당 로그가 0건 (로그 수집 중단 여부도 확인 필요)
+      action: Loki에서 해당 환경의 오류 로그와 요청 ID를 확인하세요.
       description: 최근 5분 동안 HTTP 500 요청 완료 로그가 한 건 이상 수집됐습니다. Loki에서 같은 환경의 http.request.completed 로그와 request ID를 확인하세요. 알림 해제는 최근 5분에 해당 로그가 없다는 뜻입니다.
     data:
     - refId: A
@@ -348,6 +394,12 @@ groups:
       severity: warning
     annotations:
       summary: "{{ $labels.host_id }} EC2 CPU 사용률 80% 이상이 5분 지속"
+      display_name: CPU 사용률 높음
+      value_label: CPU 사용률
+      value_kind: percent
+      firing_condition: 80% 이상 90% 미만이 5분 지속
+      resolved_condition: 80% 미만 또는 90% 이상 (90% 이상이면 긴급 알림 대상)
+      action: EC2 전체 CPU 기준입니다. CPU를 많이 사용하는 프로세스를 확인하세요.
       description: CPU는 가장 최근 두 수집 사이의 사용률입니다. 80% 이상 90% 미만이 5분 지속될 때 알립니다. 앱·모니터링 EC2 각각의 호스트 전체 기준이며 컨테이너·JVM·RDS 사용률이 아닙니다.
     data:
     - refId: A
@@ -388,6 +440,12 @@ groups:
       severity: critical
     annotations:
       summary: "{{ $labels.host_id }} EC2 CPU 사용률 90% 이상"
+      display_name: CPU 사용률 높음
+      value_label: CPU 사용률
+      value_kind: percent
+      firing_condition: 90% 이상 (추가 지속 시간 없이 평가)
+      resolved_condition: 90% 미만 (80% 이상이 5분 지속되면 주의 알림 대상)
+      action: EC2 전체 CPU 기준입니다. CPU를 많이 사용하는 프로세스를 확인하세요.
       description: CPU는 가장 최근 두 수집 사이의 사용률입니다. 사용률이 90% 이상이면 추가 지속 시간을 기다리지 않고 알립니다. 앱·모니터링 EC2 각각의 호스트 전체 기준이며 컨테이너·JVM·RDS 사용률이 아닙니다.
     data:
     - refId: A
@@ -428,6 +486,12 @@ groups:
       severity: warning
     annotations:
       summary: "{{ $labels.host_id }} EC2 메모리 사용률 80% 이상이 5분 지속"
+      display_name: 메모리 사용률 높음
+      value_label: 메모리 사용률
+      value_kind: percent
+      firing_condition: 80% 이상 90% 미만이 5분 지속
+      resolved_condition: 80% 미만 또는 90% 이상 (90% 이상이면 긴급 알림 대상)
+      action: EC2 전체 메모리 기준입니다. 메모리를 많이 사용하는 프로세스를 확인하세요.
       description: 메모리는 MemAvailable 기준이며 회수 가능한 캐시는 여유 용량에 포함합니다. 80% 이상 90% 미만이 5분 지속될 때 알립니다. 앱·모니터링 EC2 각각의 호스트 전체 기준이며 컨테이너·JVM·RDS 사용률이 아닙니다.
     data:
     - refId: A
@@ -468,6 +532,12 @@ groups:
       severity: critical
     annotations:
       summary: "{{ $labels.host_id }} EC2 메모리 사용률 90% 이상"
+      display_name: 메모리 사용률 높음
+      value_label: 메모리 사용률
+      value_kind: percent
+      firing_condition: 90% 이상 (추가 지속 시간 없이 평가)
+      resolved_condition: 90% 미만 (80% 이상이 5분 지속되면 주의 알림 대상)
+      action: EC2 전체 메모리 기준입니다. 메모리를 많이 사용하는 프로세스를 확인하세요.
       description: 메모리는 MemAvailable 기준이며 회수 가능한 캐시는 여유 용량에 포함합니다. 사용률이 90% 이상이면 추가 지속 시간을 기다리지 않고 알립니다. 앱·모니터링 EC2 각각의 호스트 전체 기준이며 컨테이너·JVM·RDS 사용률이 아닙니다.
     data:
     - refId: A
