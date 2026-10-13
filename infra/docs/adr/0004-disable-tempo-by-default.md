@@ -36,6 +36,9 @@ DB 호출량과 DB p95는 백엔드의 Datasource Micrometer 계측으로 만든
 SQL 문장 개수나 특정 커넥션 하나의 처리량을 그대로 뜻하지 않으며, batch 실행은 JDBC 실행 단위로
 집계될 수 있다. 예약 작업이나 health check가 실제 SQL을 실행하면 포함될 수 있지만, 단순 connection
 validity 확인처럼 SQL을 실행하지 않는 검사는 `jdbc_query_seconds_*`를 만들지 않을 수 있다.
+최근 2분 집계에 남은 과거 샘플이 계측 누락을 가리지 않도록, 합산 전 각 JDBC 시계열이 존재하고
+마지막 샘플이 30초 미만인지 확인한다. 유효한 count가 없으면 호출량을 숨기고 흐름을 멈추며,
+유효한 bucket이 없으면 p95를 숨긴다. DB 직접 검사와 앱 DB 연결 상태의 판단 기준은 유지한다.
 
 HikariCP 지표는 계속 연결 풀 상태를 표현하는 데만 쓴다. `hikaricp_connections_active`,
 `hikaricp_connections_idle`, `hikaricp_connections_max`, `hikaricp_connections_pending`은 풀의 현재 상태이고,

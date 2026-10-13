@@ -157,7 +157,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(sum(rate(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}[2m])) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)",
+          "expr": "(sum((rate(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}[2m]) and (time() - timestamp(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}) < 30))) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)",
           "legendFormat": "db_rps",
           "range": false,
           "instant": true,
@@ -171,7 +171,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(clamp_min(((sum(rate(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}[2m])) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)), 0) * ((min((probe_success{job=\"jarihana-database\",environment=\"$environment\"} and (time() - timestamp(probe_success{job=\"jarihana-database\",environment=\"$environment\"}) < 150)) and on(environment,host_id) ((probe_success{job=\"jarihana-liveness\",environment=\"$environment\"} and (time() - timestamp(probe_success{job=\"jarihana-liveness\",environment=\"$environment\"}) < 150)) == 1)) or vector(-1)) == bool 1)) or vector(0)",
+          "expr": "(clamp_min(((sum((rate(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}[2m]) and (time() - timestamp(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}) < 30))) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)), 0) * ((min((probe_success{job=\"jarihana-database\",environment=\"$environment\"} and (time() - timestamp(probe_success{job=\"jarihana-database\",environment=\"$environment\"}) < 150)) and on(environment,host_id) ((probe_success{job=\"jarihana-liveness\",environment=\"$environment\"} and (time() - timestamp(probe_success{job=\"jarihana-liveness\",environment=\"$environment\"}) < 150)) == 1)) or vector(-1)) == bool 1)) or vector(0)",
           "legendFormat": "db_flow",
           "range": false,
           "instant": true,
@@ -395,7 +395,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "((1000 * histogram_quantile(0.95, sum by(le) (rate(jdbc_query_seconds_bucket{job=\"jarihana-backend\",environment=\"$environment\"}[2m]))) >= 0) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)",
+          "expr": "((1000 * histogram_quantile(0.95, sum by(le) ((rate(jdbc_query_seconds_bucket{job=\"jarihana-backend\",environment=\"$environment\"}[2m]) and (time() - timestamp(jdbc_query_seconds_bucket{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)))) >= 0) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)",
           "legendFormat": "db_p95",
           "range": false,
           "instant": true,
