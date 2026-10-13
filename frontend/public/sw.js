@@ -72,6 +72,7 @@ async function command(message) {
   throw new Error("INVALID_COMMAND");
 }
 const EVENT_COPY = {
+  INVITATION_RECEIVED: "새 모임 초대가 도착했어요.",
   GROUP_CREATED: "새로운 모임이 등록되었어요.",
   REGISTRATION_SUBMITTED: "모임에 새로운 신청이 도착했어요.",
   REGISTRATION_APPROVED: "모임 신청이 승인되었어요.",
@@ -107,7 +108,7 @@ async function receivePush(event) {
     const body = content ? EVENT_COPY[content.eventType] : "새 소식이 있어요. 알림함에서 확인해 주세요.";
     await self.registration.showNotification("자리하나?", {
       body, icon: "/icons/pwa-192.png", tag: `jarihana:${reference.notificationId}`,
-      data: { notificationId: content ? reference.notificationId : null, binding: current }
+      data: { notificationId: reference.notificationId, binding: current }
     });
     await notifyWindows();
   });
@@ -121,9 +122,13 @@ async function openNotification(notification) {
   const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
   const windowClient = windows.find((client) => new URL(client.url).origin === self.location.origin);
   if (windowClient) {
-    const navigated = await windowClient.navigate(url);
-    if (navigated) await navigated.focus();
-  } else { await self.clients.openWindow(url); }
+    const navigated = await windowClient.navigate(url).catch(() => null);
+    if (navigated) {
+      await navigated.focus();
+      return;
+    }
+  }
+  await self.clients.openWindow(url);
 }
 if (typeof ServiceWorkerGlobalScope !== "undefined") {
   self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));

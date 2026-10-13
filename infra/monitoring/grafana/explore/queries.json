@@ -1,0 +1,62 @@
+[
+  {
+    "key": "dev-all",
+    "title": "자리하나 · 개발 · 전체 · 모든 서버",
+    "expr": "{service_name=\"jarihana\",environment=\"dev\",host_id=~\".*\"}"
+  },
+  {
+    "key": "dev-error",
+    "title": "자리하나 · 개발 · ERROR · 모든 서버",
+    "expr": "{service_name=\"jarihana\",environment=\"dev\",host_id=~\".*\"} | json | __error__=\"\" | log_level=\"ERROR\""
+  },
+  {
+    "key": "dev-warn",
+    "title": "자리하나 · 개발 · WARN · 모든 서버",
+    "expr": "{service_name=\"jarihana\",environment=\"dev\",host_id=~\".*\"} | json | __error__=\"\" | log_level=\"WARN\""
+  },
+  {
+    "key": "dev-info",
+    "title": "자리하나 · 개발 · INFO · 모든 서버",
+    "expr": "{service_name=\"jarihana\",environment=\"dev\",host_id=~\".*\"} | json | __error__=\"\" | log_level=\"INFO\""
+  },
+  {
+    "key": "dev-debug-trace",
+    "title": "자리하나 · 개발 · DEBUG·TRACE · 모든 서버",
+    "expr": "{service_name=\"jarihana\",environment=\"dev\",host_id=~\".*\"} | json | __error__=\"\" | log_level=~\"DEBUG|TRACE\""
+  },
+  {
+    "key": "dev-warn-error",
+    "title": "자리하나 · 개발 · WARN·ERROR · 모든 서버",
+    "expr": "{service_name=\"jarihana\",environment=\"dev\",host_id=~\".*\"} | json | __error__=\"\" | log_level=~\"WARN|ERROR\""
+  },
+  {
+    "key": "prod-all",
+    "title": "자리하나 · 운영 · 전체 · 모든 서버",
+    "expr": "{service_name=\"jarihana\",environment=\"prod\",host_id=~\".*\"}"
+  },
+  {
+    "key": "prod-error",
+    "title": "자리하나 · 운영 · ERROR · 모든 서버",
+    "expr": "{service_name=\"jarihana\",environment=\"prod\",host_id=~\".*\"} | json | __error__=\"\" | log_level=\"ERROR\""
+  },
+  {
+    "key": "prod-warn",
+    "title": "자리하나 · 운영 · WARN · 모든 서버",
+    "expr": "{service_name=\"jarihana\",environment=\"prod\",host_id=~\".*\"} | json | __error__=\"\" | log_level=\"WARN\""
+  },
+  {
+    "key": "prod-info",
+    "title": "자리하나 · 운영 · INFO · 모든 서버",
+    "expr": "{service_name=\"jarihana\",environment=\"prod\",host_id=~\".*\"} | json | __error__=\"\" | log_level=\"INFO\""
+  },
+  {
+    "key": "prod-debug-trace",
+    "title": "자리하나 · 운영 · DEBUG·TRACE · 모든 서버",
+    "expr": "{service_name=\"jarihana\",environment=\"prod\",host_id=~\".*\"} | json | __error__=\"\" | log_level=~\"DEBUG|TRACE\""
+  },
+  {
+    "key": "prod-warn-error",
+    "title": "자리하나 · 운영 · WARN·ERROR · 모든 서버",
+    "expr": "{service_name=\"jarihana\",environment=\"prod\",host_id=~\".*\"} | json | __error__=\"\" | log_level=~\"WARN|ERROR\""
+  }
+]

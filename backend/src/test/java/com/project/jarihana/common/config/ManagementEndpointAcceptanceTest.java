@@ -9,6 +9,8 @@ import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -46,7 +48,42 @@ class ManagementEndpointAcceptanceTest extends IntegrationTestSupport {
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.OK.value());
         assertThat(response.jsonPath().getString("status")).isEqualTo("UP");
+        assertThat(response.jsonPath().getMap("$")).containsOnlyKeys("status", "groups");
+        assertThat(response.jsonPath().getList("groups", String.class))
+                .containsExactlyInAnyOrder("database", "liveness", "readiness");
+    }
+
+    @DisplayName("관리용 포트에서 모니터링 상태 그룹을 읽고 내부 구성은 숨긴다.")
+    @ParameterizedTest
+    @ValueSource(strings = {"database", "liveness", "readiness"})
+    void readHealthGroupWithoutAuthenticationAndHideDetails(String group) {
+        // Given
+        RequestSpecification request = managementRequest();
+
+        // When
+        ExtractableResponse<Response> response = request.get("/actuator/health/" + group).then().extract();
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.OK.value());
+        assertThat(response.jsonPath().getString("status")).isEqualTo("UP");
         assertThat(response.jsonPath().getMap("$")).containsOnlyKeys("status");
+    }
+
+    @DisplayName("공개 API 포트에서는 인증한 사용자도 모니터링 상태 그룹을 읽을 수 없다.")
+    @ParameterizedTest
+    @ValueSource(strings = {"database", "liveness", "readiness"})
+    void denyHealthGroupOnApplicationPortEvenWithAuthentication(String group) {
+        // Given
+        String accessToken = accessTokenProvider.issue(1L).value();
+
+        // When
+        ExtractableResponse<Response> response = RestAssured.given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .get("/actuator/health/" + group)
+                .then().extract();
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.FORBIDDEN.value());
     }
 
     @DisplayName("관리용 포트에서 JVM과 커넥션 풀 메트릭을 Prometheus 형식으로 읽는다.")

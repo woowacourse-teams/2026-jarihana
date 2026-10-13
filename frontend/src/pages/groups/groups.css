@@ -1796,6 +1796,23 @@
   color: var(--color-surface);
 }
 
+.group-profile__invitation-actions {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: var(--space-4);
+  inset-inline-end: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.group-profile__invitation-actions .group-profile__edit { position: static; }
+.group-members-list-panel__heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+
+@media (max-width: 47.9375rem) {
+  .group-profile:has(.group-profile__invitation-actions > button) .group-profile__copy { padding-block-start: var(--space-12); }
+}
+
 .group-profile__type-tag {
   margin-block: 0 var(--space-2);
 }

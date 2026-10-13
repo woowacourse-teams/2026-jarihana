@@ -1,0 +1,95 @@
+name: Monitoring Deploy
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "infra/monitoring/**"
+      - ".github/workflows/monitoring-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monitoring-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: [self-hosted, Linux, ARM64, jarihana-monitoring]
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+        working-directory: infra/monitoring
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js 준비
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: 토폴로지 대시보드 생성
+        run: node grafana/topology/sync-dashboard.mjs
+
+      - name: Canvas 대시보드 생성
+        run: node grafana/canvas/build-dashboard.mjs
+
+      - name: Canvas 쿼리 검증
+        run: node --test grafana/canvas/test-health.mjs grafana/canvas/test-jdbc-metrics.mjs
+
+      - name: Explore 쿼리 초기화 검증
+        run: node --test grafana/explore/sync-starred-queries.test.mjs
+
+      - name: 모니터링 설정 검증 및 배포
+        env:
+          HOST_ID: ${{ vars.MONITORING_HOST_ID }}
+          MONITORING_BIND_ADDRESS: ${{ vars.MONITORING_BIND_ADDRESS }}
+          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          for name in HOST_ID MONITORING_BIND_ADDRESS GRAFANA_ADMIN_PASSWORD SLACK_WEBHOOK_URL; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Repository monitoring variable or secret is missing ${name}"
+              exit 1
+            fi
+          done
+
+          compose=(docker compose --env-file /dev/null --project-name jarihana-monitoring --file docker-compose.yml)
+          docker compose version
+          "${compose[@]}" config --quiet
+          "${compose[@]}" pull
+
+          "${compose[@]}" run --rm --no-deps --entrypoint /bin/promtool prometheus \
+            check config /etc/prometheus/prometheus.yml
+          "${compose[@]}" run --rm --no-deps loki \
+            -config.file=/etc/loki/config.yaml -verify-config=true
+          "${compose[@]}" run --rm --no-deps alloy \
+            validate /etc/alloy/config.alloy
+
+          "${compose[@]}" --profile tracing stop tempo
+          "${compose[@]}" --profile tracing rm -f tempo
+
+          "${compose[@]}" up -d --no-build --force-recreate
+          "${compose[@]}" exec -T nginx nginx -t
+
+          for endpoint in \
+            "http://127.0.0.1:12345/-/ready" \
+            "http://127.0.0.1:9090/-/ready" \
+            "http://127.0.0.1:3100/ready" \
+            "http://${MONITORING_BIND_ADDRESS}/api/health"; do
+            curl --fail --silent --show-error \
+              --header "Host: grafana.jarihana.com" \
+              --retry 30 --retry-all-errors --retry-delay 3 --max-time 5 \
+              "${endpoint}" > /dev/null
+          done
+
+          node grafana/explore/sync-starred-queries.mjs
+
+          "${compose[@]}" ps

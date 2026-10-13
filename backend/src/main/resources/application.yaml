@@ -25,6 +25,13 @@ spring:
     exclude:
       - org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
 
+jdbc:
+  hikari:
+    enabled: false
+  includes: QUERY
+  opentelemetry:
+    enabled: false
+
 sentry:
   dsn: ${SENTRY_BACKEND_DSN:}
   environment: ${SENTRY_ENVIRONMENT:local}
@@ -34,6 +41,12 @@ sentry:
   enable-tracing: false
 
 jarihana:
+  invitation:
+    token:
+      active-key-id: ${INVITATION_TOKEN_ACTIVE_KEY_ID:primary}
+      keys:
+        primary: ${INVITATION_TOKEN_KEY_PRIMARY:}
+        previous: ${INVITATION_TOKEN_KEY_PREVIOUS:}
   group-calendar:
     legacy-recurring-write-enabled: ${GROUP_CALENDAR_LEGACY_RECURRING_WRITE_ENABLED:false}
   push:

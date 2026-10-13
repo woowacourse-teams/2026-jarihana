@@ -4,7 +4,8 @@
 
 `src/main/resources/db/migration/V1__baseline.sql`은 현재 엔티티와
 `db/migrations/`의 2026-10-12까지의 스키마 변경을 합친 출발점이다.
-Spring Session JDBC 4.1.0의 PostgreSQL 테이블, 기존 부분 인덱스와 검사 제약도 포함한다.
+Spring Session JDBC 4.1.0의 PostgreSQL 테이블, 초대와 수락 테이블, 신청 출처 및
+잠금 버전 컬럼, 기존 부분 인덱스와 검사 제약도 포함한다.
 dev/prod에서 추출한 스키마 덤프가 아니므로 실제 DB와 같다고 가정하지 않는다.
 
 빈 DB는 V1을 실행한다. 이력이 없는 기존 DB는 스키마 대조 후 버전 1을 baseline으로
@@ -25,7 +26,7 @@ Flyway 이력과 주요 부분 인덱스 및 제약은 `FlywayBaselineTest`에�
 실제 dev/prod의 스키마 차이는 별도 비교가 필요하다.
 임의의 미래 SQL, 데이터 충돌, DDL 권한과 잠금 문제로 인한 실패까지 보장하지 않는다.
 
-2026-10-14 로컬 검증에서는 `./gradlew test bootJar`의 전체 672개 테스트가 통과했다.
+2026-10-14 최신 develop 병합 후 `./gradlew test bootJar --no-daemon`의 전체 800개 테스트가 통과했다.
 배포 JAR에 V1이 포함되는 것을 확인했고, 별도 PostgreSQL 17 컨테이너에서 dev와 prod
 프로필의 실제 JAR 기동 및 health 응답도 확인했다. prod baseline 등록 후 버전 1의
 `BASELINE` 성공 이력과 테스트 회원의 보존을 확인했다. 실제 RDS와 GitHub Actions 실행은

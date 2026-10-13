@@ -1,0 +1,28 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+storage:
+  tsdb:
+    retention:
+      time: 7d
+      size: 2GB
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: loki
+    static_configs:
+      - targets: ["loki:3100"]
+
+  - job_name: grafana
+    static_configs:
+      - targets: ["grafana:3000"]
+
+  # Tempo is kept as an optional tracing profile, so the default Prometheus config
+  # does not scrape it. Re-enable this job together with the Compose tracing profile.
+  # - job_name: tempo
+  #   static_configs:
+  #     - targets: ["tempo:3200"]

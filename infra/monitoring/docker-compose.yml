@@ -1,0 +1,145 @@
+name: jarihana-monitoring
+
+x-logging: &local-logging
+  driver: local
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  nginx:
+    image: nginx:1.30.5-alpine
+    ports:
+      - "${MONITORING_BIND_ADDRESS:-127.0.0.1}:80:80"
+      - "${MONITORING_BIND_ADDRESS:-127.0.0.1}:8080:8080"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      grafana:
+        condition: service_started
+      prometheus:
+        condition: service_started
+      loki:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "--header=Host: grafana.jarihana.com", "http://127.0.0.1/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    stop_grace_period: 30s
+    logging: *local-logging
+
+  alloy:
+    image: grafana/alloy:v1.20.1
+    network_mode: host
+    command:
+      - run
+      - --server.http.listen-addr=127.0.0.1:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    environment:
+      HOST_ID: ${HOST_ID:?set HOST_ID to a stable monitoring-host identifier}
+      PROMETHEUS_REMOTE_WRITE_URL: "http://127.0.0.1:9090/api/v1/write"
+    volumes:
+      - ./alloy/monitoring.alloy:/etc/alloy/config.alloy:ro
+      - alloy-data:/var/lib/alloy/data
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro,rslave
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    stop_grace_period: 30s
+    logging: *local-logging
+
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-remote-write-receiver
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:9090/-/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    stop_grace_period: 30s
+    logging: *local-logging
+
+  loki:
+    image: grafana/loki:3.7.8
+    command:
+      - -config.file=/etc/loki/config.yaml
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - ./loki/loki.yaml:/etc/loki/config.yaml:ro
+      - loki-data:/loki
+    restart: unless-stopped
+    stop_grace_period: 60s
+    logging: *local-logging
+
+  tempo:
+    image: grafana/tempo:2.10.8
+    profiles:
+      - tracing
+    user: "10001:10001"
+    environment:
+      GOMEMLIMIT: 250MiB
+    command:
+      - -config.file=/etc/tempo/config.yaml
+    ports:
+      - "127.0.0.1:3200:3200"
+    volumes:
+      - ./tempo/tempo.yaml:/etc/tempo/config.yaml:ro
+      - tempo-data:/var/tempo
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    stop_grace_period: 60s
+    logging: *local-logging
+
+  grafana:
+    image: grafana/grafana:13.2.3
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: https://grafana.jarihana.com/
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_METRICS_ENABLED: "true"
+      GF_PLUGINS_PREINSTALL_SYNC: andrewbmchugh-flow-panel@1.20.1
+      GF_FEATURE_TOGGLES_ENABLE: canvasPanelPanZoom
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:?Set SLACK_WEBHOOK_URL}
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    stop_grace_period: 30s
+    logging: *local-logging
+
+volumes:
+  alloy-data:
+  prometheus-data:
+  loki-data:
+  tempo-data:
+  grafana-data:

@@ -17,6 +17,7 @@ import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.RecruitmentPhase;
 import com.project.jarihana.registration.command.repository.RegistrationCommandRepository;
 import com.project.jarihana.registration.domain.Registration;
+import com.project.jarihana.registration.domain.ApprovalOrigin;
 import com.project.jarihana.registration.domain.RegistrationStatus;
 import com.project.jarihana.registration.domain.event.RegistrationDecidedEvent;
 import com.project.jarihana.registration.domain.event.RegistrationDecidedEvent.SystemReason;
@@ -103,9 +104,10 @@ public class RecruitmentCommandService {
         if (recruitment.phaseAt(now) == RecruitmentPhase.CLOSED) {
             throw new BusinessException(ErrorCode.RECRUITMENT_ALREADY_CLOSED, "이미 마감된 모집 공고입니다.");
         }
-        long approvedCount = registrationRepository.countByRecruitmentIdAndStatus(
+        long approvedCount = registrationRepository.countByRecruitmentIdAndStatusAndApprovalOrigin(
                 recruitmentId,
-                RegistrationStatus.APPROVED
+                RegistrationStatus.APPROVED,
+                ApprovalOrigin.RECRUITMENT
         );
         if (command.capacity() < approvedCount) {
             throw new BusinessException(

@@ -16,12 +16,12 @@ public interface RegistrationJpaRepository extends JpaRepository<Registration, L
                    count(registration) as approvedCount
             from Registration registration
             where registration.recruitment.id in :recruitmentIds
-              and registration.status = :status
+              and registration.status = com.project.jarihana.registration.domain.RegistrationStatus.APPROVED
+              and registration.approvalOrigin = com.project.jarihana.registration.domain.ApprovalOrigin.RECRUITMENT
             group by registration.recruitment.id
             """)
-    List<ApprovedRegistrationCount> countByRecruitmentIdsAndStatus(
-            @Param("recruitmentIds") List<Long> recruitmentIds,
-            @Param("status") RegistrationStatus status
+    List<ApprovedRegistrationCount> countRecruitmentApprovalsByRecruitmentIds(
+            @Param("recruitmentIds") List<Long> recruitmentIds
     );
 
     @Query("""

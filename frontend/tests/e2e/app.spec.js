@@ -47,10 +47,10 @@ test("opens recruitment history from the recruitment management tab", async ({ p
   const descendingSortButton = page.getByRole("button", { name: "등록일 내림차순 정렬" });
   await expect(descendingSortButton).toHaveAttribute("aria-pressed", "true");
   await ascendingSortButton.click();
-  await expect(page.locator("tbody tr").first().locator("td").first()).toHaveText("2026. 7. 1.");
+  await expect(page.locator("tbody tr").first().locator("td").first()).toHaveText("등록일:2026. 7. 1.");
   await expect(ascendingSortButton).toHaveAttribute("aria-pressed", "true");
   await descendingSortButton.click();
-  await expect(page.locator("tbody tr").first().locator("td").first()).toHaveText("2026. 8. 12.");
+  await expect(page.locator("tbody tr").first().locator("td").first()).toHaveText("등록일:2026. 8. 12.");
   expect(await page.getByRole("row").count()).toBe(4);
   await expect(page.getByRole("cell", { name: "모집 중", exact: true })).toBeVisible();
   await expect(page.getByRole("cell", { name: "모집 예정", exact: true })).toBeVisible();

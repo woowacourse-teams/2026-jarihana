@@ -28,10 +28,23 @@ management:
       show-details: never
       show-components: never
       probes:
-        enabled: false
+        enabled: true
+      group:
+        database:
+          include: db
     prometheus:
       access: read-only
   metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        jdbc.query: true
+      minimum-expected-value:
+        http.server.requests: 1ms
+        jdbc.query: 1ms
+      maximum-expected-value:
+        http.server.requests: 10s
+        jdbc.query: 10s
     tags:
       application: ${spring.application.name}
       environment: prod

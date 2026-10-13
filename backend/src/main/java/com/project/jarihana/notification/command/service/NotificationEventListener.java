@@ -3,6 +3,7 @@ package com.project.jarihana.notification.command.service;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.group.domain.event.GroupCreatedEvent;
 import com.project.jarihana.member.domain.Member;
+import com.project.jarihana.invitation.domain.event.InvitationIssuedEvent;
 import com.project.jarihana.notification.command.repository.NotificationCommandRepository;
 import com.project.jarihana.notification.config.NotificationProperties;
 import com.project.jarihana.notification.domain.Notification;
@@ -78,9 +79,18 @@ public class NotificationEventListener {
             case PARTICIPANT_JOINED -> "joined";
             case REGISTRATION_APPROVED -> "approved";
             case REGISTRATION_REJECTED, REGISTRATION_SYSTEM_REJECTED -> "rejected";
+            case INVITATION_RECEIVED -> throw new IllegalStateException("초대 사건은 신청 사건과 구분해야 합니다.");
         };
         String key = "registration:" + registrationId + ":" + suffix;
         record(member, key, type, payload, now, subscriptions.findActiveByMemberId(memberId));
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT, fallbackExecution = false)
+    public void onInvitationIssued(InvitationIssuedEvent event) {
+        Member member = members.findById(event.targetMemberId()).orElseThrow();
+        record(member, "invitation:" + event.invitationId() + ":received", NotificationEventType.INVITATION_RECEIVED,
+                NotificationPayload.invitation(event.groupId(), event.invitationId()), event.occurredAt(),
+                subscriptions.findActiveByMemberId(event.targetMemberId()));
     }
 
     private void record(Member member, String key, NotificationEventType type, NotificationPayload payload,

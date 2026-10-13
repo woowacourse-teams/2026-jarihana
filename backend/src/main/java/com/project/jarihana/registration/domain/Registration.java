@@ -26,6 +26,10 @@ public class Registration extends BaseEntity {
     @Column(name = "id")
     private Long id;
 
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "recruitment_id", nullable = false)
     private GroupRecruitment recruitment;
@@ -40,6 +44,10 @@ public class Registration extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private RegistrationStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "approval_origin", nullable = false, length = 20)
+    private ApprovalOrigin approvalOrigin;
 
     @Column(name = "reject_reason", length = REJECT_REASON_MAX_LENGTH)
     private String rejectReason;
@@ -58,6 +66,7 @@ public class Registration extends BaseEntity {
 
     private Registration(
             Long id,
+            Long version,
             GroupRecruitment recruitment,
             Member member,
             String message,
@@ -66,10 +75,12 @@ public class Registration extends BaseEntity {
             LocalDateTime registeredAt,
             LocalDateTime decidedAt,
             DecisionActor decidedBy,
-            LocalDateTime leaderViewedAt
+            LocalDateTime leaderViewedAt,
+            ApprovalOrigin approvalOrigin
     ) {
         super(registeredAt);
         this.id = id;
+        this.version = version;
         this.recruitment = require(recruitment, "모집 공고");
         this.member = require(member, "회원");
         this.message = validateNullableLength(message, MESSAGE_MAX_LENGTH, "신청 메시지");
@@ -79,7 +90,12 @@ public class Registration extends BaseEntity {
         this.decidedAt = decidedAt;
         this.decidedBy = decidedBy;
         this.leaderViewedAt = leaderViewedAt;
+        this.approvalOrigin = require(approvalOrigin, "승인 출처");
         validateDecisionState(status, rejectReason, decidedAt, decidedBy);
+        if (approvalOrigin == ApprovalOrigin.INVITATION
+                && (status != RegistrationStatus.APPROVED || decidedBy.getType() != DecisionActorType.SYSTEM)) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "초대 출처는 시스템 승인 신청에만 기록할 수 있습니다.");
+        }
     }
 
     private static void validateDecisionState(
@@ -126,6 +142,7 @@ public class Registration extends BaseEntity {
         validateRecruitmentOpen(recruitment, registeredAt);
         return new Registration(
                 null,
+                null,
                 recruitment,
                 member,
                 message,
@@ -134,7 +151,8 @@ public class Registration extends BaseEntity {
                 registeredAt,
                 null,
                 null,
-                null
+                null,
+                ApprovalOrigin.RECRUITMENT
         );
     }
 
@@ -169,6 +187,7 @@ public class Registration extends BaseEntity {
         }
         return new Registration(
                 null,
+                null,
                 recruitment,
                 member,
                 message,
@@ -177,7 +196,8 @@ public class Registration extends BaseEntity {
                 registeredAt,
                 registeredAt,
                 DecisionActor.system(),
-                null
+                null,
+                ApprovalOrigin.RECRUITMENT
         );
     }
 
@@ -190,17 +210,25 @@ public class Registration extends BaseEntity {
         if (!recruitment.hasCapacity(approvedCount)) {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "모집 정원이 남아 있지 않습니다.");
         }
-        return decided(RegistrationStatus.APPROVED, null, require(decidedAt, "결정 시각"), requiredActor);
+        return decided(RegistrationStatus.APPROVED, null, require(decidedAt, "결정 시각"), requiredActor, approvalOrigin);
+    }
+
+    public Registration approveByInvitation(LocalDateTime decidedAt) {
+        requirePending();
+        return decided(RegistrationStatus.APPROVED, null, require(decidedAt, "결정 시각"),
+                DecisionActor.system(), ApprovalOrigin.INVITATION);
     }
 
     private Registration decided(
             RegistrationStatus status,
             String rejectReason,
             LocalDateTime decidedAt,
-            DecisionActor decidedBy
+            DecisionActor decidedBy,
+            ApprovalOrigin approvalOrigin
     ) {
         return new Registration(
                 id,
+                version,
                 recruitment,
                 member,
                 message,
@@ -209,13 +237,15 @@ public class Registration extends BaseEntity {
                 registeredAt,
                 decidedAt,
                 decidedBy,
-                leaderViewedAt
+                leaderViewedAt,
+                approvalOrigin
         );
     }
 
     public Registration viewByLeader(LocalDateTime viewedAt) {
         return new Registration(
                 id,
+                version,
                 recruitment,
                 member,
                 message,
@@ -224,7 +254,8 @@ public class Registration extends BaseEntity {
                 registeredAt,
                 decidedAt,
                 decidedBy,
-                require(viewedAt, "모임장 확인 시각")
+                require(viewedAt, "모임장 확인 시각"),
+                approvalOrigin
         );
     }
 
@@ -249,7 +280,8 @@ public class Registration extends BaseEntity {
                 RegistrationStatus.REJECTED,
                 validatedReason,
                 require(decidedAt, "결정 시각"),
-                actor
+                actor,
+                approvalOrigin
         );
     }
 
@@ -284,6 +316,10 @@ public class Registration extends BaseEntity {
 
     public RegistrationStatus getStatus() {
         return status;
+    }
+
+    public ApprovalOrigin getApprovalOrigin() {
+        return approvalOrigin;
     }
 
     public String getRejectReason() {

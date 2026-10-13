@@ -50,14 +50,17 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 select type from flyway_schema_history where version = '1' and success
                 """, String.class)).isEqualTo("SQL");
         assertThat(jdbc.queryForList("select tablename from pg_tables where schemaname = current_schema()", String.class))
-                .contains("spring_session", "spring_session_attributes", "group_event", "group_recurring_series");
+                .contains("spring_session", "spring_session_attributes", "group_event", "group_recurring_series",
+                        "invitation", "invitation_acceptance");
         assertThat(jdbc.queryForList("select indexname from pg_indexes where schemaname = current_schema()", String.class))
                 .contains("uk_member_coach_name", "idx_notifications_inbox", "uk_group_recurring_current_group",
-                        "uk_group_event_recurring_occurrence", "idx_activity_post_date_id");
+                        "uk_group_event_recurring_occurrence", "idx_activity_post_date_id",
+                        "idx_invitation_group_created", "idx_invitation_target_created", "idx_invitation_acceptance_member");
         assertThat(jdbc.queryForList("""
                 select conname from pg_constraint where connamespace = current_schema()::regnamespace
                 """, String.class)).contains("ck_member_profile_fields", "ck_notifications_payload",
-                        "ck_notifications_event_type", "ck_group_event_recurring_reference");
+                        "ck_notifications_event_type", "ck_group_event_recurring_reference",
+                        "ck_registration_approval_origin", "ck_invitation_type", "ck_invitation_status");
     }
 
     @Test

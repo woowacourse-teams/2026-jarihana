@@ -18,7 +18,7 @@ JAVA_HOME=/path/to/jdk-21 npm run test:push:local
 JAVA_HOME=/path/to/jdk-21 npm run test:push:local -- --real-provider
 ```
 
-실행 스크립트는 별도 PostgreSQL17 컨테이너·임시 VAPID/JWT 키·회원 두 명을 생성한다.
+실행 스크립트는 별도 PostgreSQL17 컨테이너·임시 VAPID/JWT/초대 암호화 키·회원 세 명을 생성한다.
 기존 `.env`의 DB와 인증값을 사용하지 않고 실제 Spring 서버와 동일 출처 API 프록시를 실행한다.
 생성한 회원의 유효한 테스트 쿠키로 인증하며, GitHub OAuth 로그인은 이 검증 대상에 포함하지 않는다.
 로컬 프로필이 스키마를 생성한다. 수동 SQL 적용·재적용·validate는 백엔드 테스트에서 따로 검증한다.
@@ -29,7 +29,7 @@ JAVA_HOME=/path/to/jdk-21 npm run test:push:local -- --real-provider
 `--real-provider`는 임시 일반 Chrome 프로필에 알림 권한을 미리 허용하고 실제 구독을 만든다.
 신청 사건을 외부 제공자에 전송해 SW가 받아 알림을 생성했는지 `getNotifications()`로 확인한 뒤
 현재 브라우저 로그아웃·서버 구독 비활성·브라우저 구독 해제를 검증한다.
-권한 팝업의 수동 선택과 OS 알림 센터에서 실제 클릭하는 동작은 이 자동화가 검증하지 않는다.
+기본 자동화는 권한 팝업의 수동 선택과 OS 알림 센터 클릭을 검증하지 않는다. 사용자가 알림을 직접 클릭하는 `WEB_PUSH_NATIVE_CLICK=1` 실행은 [초대 운영 가이드](invitations.md)를 따른다. 초대장 확인 뒤 임시 Chrome을 자동 종료한다.
 
 생성한 JWT/VAPID 키와 endpoint를 출력·커밋하지 않는다. 실패 trace에는 테스트 쿠키가 포함될 수 있으므로
 `frontend/test-results/`는 로컬 검증 산출물로 유지한다. 테스트 도중 강제 종료한 경우 직접 생성된
@@ -112,6 +112,9 @@ no-cache/no-store 헤더보다 우선할 수 있다. 초기 적용 시 기존 SW
 
 ## 구현과 검증 상태
 
+지정 초대의 알림·전송 대기는 기존 커밋 전 기록과 워커를 재사용한다. 업무 내용은 사건 종류에 따라 groupId·invitationId를 제공하며 저장·조회·전송 참조의 버전은 1을 유지한다.
+초대 알림의 DB 적용 순서·프론트/SW 연결과 배포 경계는 [초대 운영 가이드](invitations.md)를 따른다. 초대 작업에서 격리 서버와 임시 PC Chrome으로 INVITATION_RECEIVED의 실제 외부 수신·사건 ID·문구·로그아웃 해제를 별도로 확인했다. 사용자 수동 OS 알림 클릭 후 초대장·수락 버튼 표시도 통과했다. Safari/iOS 결과는 포함하지 않는다.
+
 알림 저장·알림함·브라우저 구독 API·푸시 워커·화면·Service Worker 연결을 구현했다.
 알림함은 현재 모임 이름과 사건 내용을 표시하고, 알림을 클릭하면 본인 알림과 목적지 접근 가능 여부를
 확인한 뒤 읽음 처리하고 사건별 관리 화면 또는 마이페이지의 해당 참여 모임·미승인 신청으로 이동한다. 승인·미승인은 모임 개별 조회가 필요 없다. 구체적인 동작 계약은 연결된 API·화면 문서를 따른다.
@@ -121,7 +124,7 @@ no-cache/no-store 헤더보다 우선할 수 있다. 초기 적용 시 기존 SW
 아래 항목은 아직 확인하지 않았다.
 
 - Safari와 iPhone·iPad 홈 화면 앱의 구독·수신·로그아웃
-- Chrome의 실제 권한 팝업 선택과 OS 알림 센터 클릭
+- Chrome의 실제 권한 팝업 선택과 초대 이외 사건의 OS 알림 센터 클릭
 - 공유·운영 DB SQL 적용, GitHub 환경 값 등록, 실제 S3/CDN 응답과 배포 리허설
 
 ## 실기기에서 확인할 항목
@@ -158,3 +161,5 @@ WHERE status = 'IN_FLIGHT' AND locked_until <= timezone('Asia/Seoul', now());
 외부 전송만 잠시 멈추려면 `PUSH_WORKER_ENABLED=false`로 재배포한다. 이때 기존 대기는 유효기간 안에서
 재개 후 처리될 수 있다. 새 푸시 사용까지 중단하려면 `PUSH_ENABLED=false`로 재배포한다.
 워커 중단이나 기능 비활성은 모든 기존 브라우저 구독을 삭제하는 동작이 아니며 알림함은 유지한다.
+
+초대 사건의 상태 변경·모임 삭제와 미완료 전송 취소, DB 적용 순서는 [초대 운영 가이드](invitations.md)를 따른다. 모임 삭제 뒤에도 수신자의 알림함은 유지하며 알림 클릭 시 현재 초대의 부재를 확인한다. 외부 제공자 수락·실제 OS 수신/클릭은 서버 대역 테스트나 Chromium의 SW 검증과 구분해 기록한다.

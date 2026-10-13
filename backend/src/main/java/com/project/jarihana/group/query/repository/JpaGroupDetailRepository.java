@@ -6,7 +6,6 @@ import com.project.jarihana.group.query.repository.dto.GroupDetailProjection;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
-import com.project.jarihana.registration.domain.RegistrationStatus;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -79,9 +78,8 @@ public class JpaGroupDetailRepository implements GroupDetailRepository {
         if (recruitment == null) {
             return 0;
         }
-        return registrationRepository.countByRecruitmentIdsAndStatus(
-                        List.of(recruitment.getId()),
-                        RegistrationStatus.APPROVED
+        return registrationRepository.countRecruitmentApprovalsByRecruitmentIds(
+                        List.of(recruitment.getId())
                 )
                 .stream()
                 .findFirst()
