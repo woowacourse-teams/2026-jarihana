@@ -13,6 +13,13 @@ http://localhost:13000/d/jarihana-canvas
 /d/jarihana-canvas
 ```
 
+모니터링 EC2의 메모리 부족으로 Tempo를 기본 실행에서 제외해도 이 화면의 노드·연결선·풀 표시는 유지한다.
+DB 호출량과 DB p95만 Tempo가 생성한 지표에서 `jdbc_query_seconds_*`로 바꾼다.
+HTTP req/s·p95·p99, 호스트 CPU·메모리와 HikariCP 지표는 기존 수집 경로를 사용한다.
+Flow와 [내장 Canvas](NATIVE-CANVAS.md)에 같은 원칙을 적용한다.
+요청별 trace 조회는 기본 구성에서 빠지며, 수치의 측정 범위와 결정 이유는
+[인프라 ADR 0004](../adr/0004-disable-tempo-by-default.md#기존-대시보드를-유지하는-방법)에 있다.
+
 이 화면은 Grafana 내장 Canvas가 아니라
 [Flow panel](https://grafana.com/grafana/plugins/andrewbmchugh-flow-panel/) `1.20.1`을 사용한다.
 Compose의 Grafana 설정은 `GF_PLUGINS_PREINSTALL_SYNC=andrewbmchugh-flow-panel@1.20.1`로 플러그인 버전을 고정한다.

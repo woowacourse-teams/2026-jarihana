@@ -112,6 +112,19 @@ Nginx는 `/prometheus` 접두사를 제거하고 Loki 경로는 그대로 전달
 최초 구축은 모니터링 스택을 먼저 배포하고 수신 경로를 확인한 뒤 backend·Alloy를 갱신한다.
 기존 Tempo 구성에서 전환할 때는 백엔드를 먼저 배포하고 `jdbc_query_seconds_*` 수집을 확인한 다음
 모니터링을 배포한다. Nginx 장애 중에는 앱 Alloy가 재시도하며 큐·원본 보관 한도를 넘으면 유실될 수 있다.
+
+Tempo 제외는 모니터링 EC2의 메모리 부족에 따른 결정이다. 전환 시 다음을 확인한다.
+
+- dev·prod 각각 실제 JDBC 호출 후 `jdbc_query_seconds_count`와 `jdbc_query_seconds_bucket`이 수집되는지 확인한다.
+  호출 표본이 없으면 DB p95는 `—`로 보일 수 있다.
+- 모니터링 workflow가 기존 Tempo 컨테이너를 중지·제거하고 기본 서비스만 실행하는지 확인한다.
+  선택 구성의 설정과 `tempo-data` 볼륨은 남긴다.
+- 기존 Flow·Canvas에서 DB 호출량·p95와 풀 상태·애니메이션, HTTP 지표와 호스트 자원 표시를 확인한다.
+- 비슷한 부하에서 전환 전후 EC2 가용 메모리·컨테이너 사용량·재시작 횟수를 비교한다.
+  메모리 절감량은 실측한 결과로 기록한다.
+
+유지되는 기능과 빠지는 trace 기능은 [인프라 ADR 0004](../adr/0004-disable-tempo-by-default.md)를 따른다.
+
 Grafana 관리자 사용자명은 `admin`으로 고정한다.
 포트·관리자 사용자명과 Grafana의 `GF_SERVER_ROOT_URL`은 `docker-compose.yml`의 고정값이다.
 공개 URL은 `https://grafana.jarihana.com/`이며 별도 환경변수를 추가하지 않는다.

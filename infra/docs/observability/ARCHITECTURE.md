@@ -4,6 +4,9 @@
 설명한다. 목표는 로컬 Alloy에서 별도 서버의 Prometheus·Loki로 보내고 Grafana에서 조회하는
 구조다. 기본 실행 경로는 Prometheus·Loki·Grafana를 중심으로 두고, Tempo trace 저장소는 선택 구성으로 남긴다.
 Nginx·Alloy·Prometheus·Loki·Grafana는 Docker Compose로 실행한다.
+모니터링 EC2의 메모리 부족을 계기로 Tempo 상시 실행을 중단하고, 기존 대시보드의 DB 호출량·DB p95는
+JDBC 메트릭으로 대체한다. 노드 배치·호스트 자원·HTTP 지표·커넥션 풀 표시는 유지한다.
+결정 배경과 유지 범위는 [인프라 ADR 0004](../adr/0004-disable-tempo-by-default.md)에 기록한다.
 **저장소는 Alloy·Prometheus·Loki·Grafana와 dev·prod RDS 연결을 반영했다.
 실제 AWS 배포·RDS 접속 검증·기존 Agent 제거와 외부 자원 정리는 아직 수행하지 않았다.**
 
