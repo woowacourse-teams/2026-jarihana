@@ -2,6 +2,7 @@ package com.project.jarihana.invitation;
 
 import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.token.AccessTokenProvider;
+import com.project.jarihana.invitation.command.repository.InvitationCommandRepository;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.recruitment.command.repository.GroupRecruitmentCommandRepository;
 import com.project.jarihana.registration.command.repository.RegistrationCommandRepository;
@@ -303,6 +304,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
     @MockitoSpyBean private RegistrationCommandRepository registrations;
     @Autowired private GroupCommandService groupCommands;
     @MockitoSpyBean private GroupMemberCommandRepository membershipWrites;
+    @MockitoSpyBean private InvitationCommandRepository invitationReads;
 
     @DynamicPropertySource
     static void tokenKeys(DynamicPropertyRegistry registry) {
@@ -1592,6 +1594,46 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
             assertThat(groupMembers.findByGroupIdAndMemberId(group.getId(), target.getId())).isEmpty();
             assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isZero();
         }
+        assertThat(auth(target).get("/invitations/{id}", id).jsonPath().getString("data.status")).isEqualTo("CANCELED");
+    }
+
+    @Test
+    @DisplayName("취소가 초대를 읽은 뒤 수락이 먼저 완료되면 최신 상태로 취소를 재시도하고 합류 이력을 보존한다.")
+    void revocationRetriesWhenAcceptanceCommitsAfterInvitationRead() throws Exception {
+        // Given
+        Member leader = member("101");
+        Member target = member("102");
+        Group group = group(leader);
+        long id = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+        CountDownLatch checked = new CountDownLatch(1);
+        CountDownLatch resume = new CountDownLatch(1);
+        AtomicBoolean firstRead = new AtomicBoolean(true);
+        doAnswer(invocation -> {
+            var invitation = mockingDetails(invitationReads).getMockCreationSettings().getDefaultAnswer().answer(invocation);
+            if (firstRead.compareAndSet(true, false)) {
+                checked.countDown();
+                assertThat(resume.await(5, TimeUnit.SECONDS)).isTrue();
+            }
+            return invitation;
+        }).when(invitationReads).findById(id);
+
+        // When
+        Response revoked;
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var revoking = executor.submit(() -> revoke(leader, id));
+            try {
+                assertThat(checked.await(5, TimeUnit.SECONDS)).isTrue();
+                assertThat(accept(target, id, Map.of()).statusCode()).isEqualTo(201);
+            } finally {
+                resume.countDown();
+            }
+            revoked = revoking.get(10, TimeUnit.SECONDS);
+        }
+
+        // Then
+        assertThat(revoked.statusCode()).isEqualTo(200);
+        assertThat(groupMembers.findByGroupIdAndMemberId(group.getId(), target.getId())).isPresent();
+        assertThat(jdbc.queryForObject("select count(*) from invitation_acceptance", Integer.class)).isEqualTo(1);
         assertThat(auth(target).get("/invitations/{id}", id).jsonPath().getString("data.status")).isEqualTo("CANCELED");
     }
 

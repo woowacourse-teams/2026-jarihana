@@ -158,8 +158,11 @@ public class InvitationCommandService {
         });
     }
 
-    @Transactional
     public RevokeInvitationResult revokeInvitation(long memberId, long invitationId) {
+        return concurrentCommands.execute(() -> revokeInvitationInTransaction(memberId, invitationId));
+    }
+
+    private RevokeInvitationResult revokeInvitationInTransaction(long memberId, long invitationId) {
         if (invitationId <= 0) throw new BusinessException(ErrorCode.INVALID_PARAMETER, "초대 식별자는 양수여야 합니다.");
         members.findById(memberId).filter(member -> member.getWithdrawnAt() == null)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHENTICATED, "인증 정보가 필요합니다."));
