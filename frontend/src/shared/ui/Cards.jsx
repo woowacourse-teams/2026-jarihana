@@ -24,8 +24,12 @@ export const Card = forwardRef(function Card(
   );
 });
 
-export function StatusBadge({ children, tone = "neutral" }) {
-  return <span className={`ui-badge ui-badge--${tone}`}>{children}</span>;
+export function StatusBadge({ children, className, placement, tone = "neutral" }) {
+  return (
+    <span className={classes("ui-badge", `ui-badge--${tone}`, placement === "overlay" && "ui-badge--overlay", className)}>
+      {children}
+    </span>
+  );
 }
 
 export function Avatar({ alt = "", className, fallback = "?", size = "md", src }) {
@@ -148,14 +152,15 @@ export function GroupCard({
       </div>
       <div className="ui-group-card__body">
         <div className="ui-card__meta ui-group-card__top-meta">
-          <span
+          <StatusBadge
             className={classes(
               "ui-group-card__type",
               `ui-group-card__type--${String(group.type).toLowerCase()}`
             )}
+            tone={`group-type-${String(group.type).toLowerCase()}`}
           >
             {readableType(group.type)}
-          </span>
+          </StatusBadge>
           {group.recruiting ? (
             <span className="ui-group-card__recruitment">
               <StatusBadge tone="brand">모집 중</StatusBadge>

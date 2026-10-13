@@ -4,7 +4,7 @@
 >
 > 구현·테스트와 충돌하면 임의로 해석하지 않고 차이를 보고한다.
 
-이 문서는 저장소에서 관리하는 활성 엔드포인트 54개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청, 응답, 오류는 Controller, 요청/응답 DTO, ErrorCode와 RestAssured 인수 테스트로 확인한다.
+이 문서는 저장소에서 관리하는 활성 엔드포인트 79개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청, 응답, 오류는 Controller, 요청/응답 DTO, ErrorCode와 RestAssured 인수 테스트로 확인한다.
 
 이 디렉터리는 API 엔드포인트의 전체 목록과 리소스별 상세 설계를 관리한다. 모든 엔드포인트는 [API 공통 설계](../common-contract.md)를 따르며, 상세 문서에는 엔드포인트 고유 내용만 둔다.
 
@@ -12,6 +12,15 @@
 
 | 분류 | Method | Endpoint | 권한 | 설명 |
 | --- | --- | --- | --- | --- |
+| 초대 | `POST` | `/api/groups/{groupId}/invitations` | `MEMBER + 현재 소속` | 활성 모임의 지정/공유 초대 발급과 요청 재시도 처리 |
+| 초대 | `GET` | `/api/groups/{groupId}/invitation-candidates` | `MEMBER + 현재 소속` | 활성 모임의 지정 초대 후보를 제한된 회원 정보로 검색 |
+| 초대 | `GET` | `/api/invitations/received` | `MEMBER` | 본인에게 온 지정 초대와 현재 상태 조회 |
+| 초대 | `GET` | `/api/groups/{groupId}/invitations` | `MEMBER + 현재 소속` | 본인 발급 초대 또는 모든 구성원이 볼 수 있는 모임의 공유 링크 목록 |
+| 초대 | `GET` | `/api/invitations/{invitationId}` | `MEMBER + 유형별 상세 권한` | 상태 조회와 권한 있는 공유 링크 재복사 |
+| 초대 | `GET` | `/api/invitations/links/{token}` | `PUBLIC` | 공유 초대의 제한된 공개 미리보기 |
+| 초대 | `PATCH` | `/api/invitations/{invitationId}/revoke` | `MEMBER + 현재 소속·유형별 취소 권한` | 초대와 미전송 푸시 작업 취소 |
+| 초대 | `PATCH` | `/api/invitations/{invitationId}/decline` | `MEMBER + DIRECT 지정 대상` | 거절 상태 저장·알림 유지·재수락 차단 |
+| 초대 | `POST` | `/api/invitations/{invitationId}/acceptances` | `MEMBER + 대상/토큰 자격` | 소속·수락 이력·기존 대기 신청 승인, 재수락은 기존 소속 반환 |
 | 활동 기록 | `GET` | `/api/activity-posts` | `PUBLIC` | 전체 공개 사진 활동 기록을 활동 날짜 최신순으로 조회 |
 | 활동 기록 | `GET` | `/api/groups/{groupId}/activity-posts` | `PUBLIC` | 그룹 사진 활동 기록 조회 |
 | 활동 기록 | `POST` | `/api/groups/{groupId}/activity-posts` | `MEMBER` | 활성 그룹 구성원의 사진 활동 기록 작성 |
@@ -42,6 +51,22 @@
 | 그룹 | `DELETE` | `/api/groups/{groupId}/recurring-schedule` | `LEADER` | 동아리·스터디를 유동적 일정으로 변경 |
 | 그룹 | `PUT` | `/api/groups/{groupId}/recurring-schedule` | `LEADER` | 동아리·스터디 반복 일정 등록 또는 교체 |
 | 그룹 | `PUT` | `/api/groups/{groupId}/session-schedule` | `LEADER` | 세션 일정 교체 |
+| 그룹 달력 | `GET` | `/api/groups/{groupId}/calendar` | `PUBLIC` | 모임 일정 제목·날짜·시각 조회 |
+| 그룹 달력 | `GET` | `/api/groups/{groupId}/calendar/schedule-details` | `MEMBER` | 정기·세션 일정의 당시 장소 조회 |
+| 그룹 달력 | `PUT` | `/api/groups/{groupId}/calendar/settings` | `LEADER` | 정기·세션 일정의 달력 표시 설정 |
+| 그룹 달력 | `POST` | `/api/groups/{groupId}/events` | `LEADER` | 개별 일정 등록 |
+| 그룹 달력 | `GET` | `/api/groups/{groupId}/events/{eventId}` | `MEMBER` | 개별 일정 상세 조회 |
+| 그룹 달력 | `PUT` | `/api/groups/{groupId}/events/{eventId}` | `LEADER` | 개별 일정 수정 |
+| 그룹 달력 | `DELETE` | `/api/groups/{groupId}/events/{eventId}` | `LEADER` | 개별 일정 삭제 |
+| 그룹 달력 | `POST` | `/api/groups/{groupId}/recurring-schedule/series` | `LEADER` | 첫 정기 규칙 등록 |
+| 그룹 달력 | `GET` | `/api/groups/{groupId}/recurring-schedule/manage` | `LEADER` | 현재 정기 일정 관리 정보 조회 |
+| 그룹 달력 | `GET` | `/api/groups/{groupId}/recurring-schedule/periods/{periodId}` | `LEADER` | 선택한 회차에 적용된 정기 규칙 조회 |
+| 그룹 달력 | `PUT` | `/api/groups/{groupId}/recurring-schedule/scoped` | `LEADER` | 정기 규칙 변경 범위 적용 |
+| 그룹 달력 | `DELETE` | `/api/groups/{groupId}/recurring-schedule/scoped` | `LEADER` | 정기 규칙 변경 범위 삭제 |
+| 그룹 달력 | `POST` | `/api/groups/{groupId}/recurring-schedule/occurrences` | `LEADER` | 반복 정기 모임의 한 회차 수정 |
+| 그룹 달력 | `DELETE` | `/api/groups/{groupId}/recurring-schedule/occurrences` | `LEADER` | 반복 정기 모임의 한 회차 숨김 |
+| 그룹 달력 | `PUT` | `/api/groups/{groupId}/recurring-schedule/periods/{periodId}` | `LEADER` | 구버전 화면 요청 거절 |
+| 그룹 달력 | `PUT` | `/api/groups/{groupId}/recurring-schedule/calendar-range` | `LEADER` | 정기 일정 전체 표시 기간 수정 |
 | 그룹 구성원 | `GET` | `/api/groups/{groupId}/members` | `PUBLIC` | 그룹 구성원 목록 조회 |
 | 그룹 구성원 | `PUT` | `/api/groups/{groupId}/leader` | `LEADER` | 모임장 역할 위임 |
 | 모집 공고 | `GET` | `/api/groups/{groupId}/recruitments` | `PUBLIC` | 그룹의 모집 공고 이력 조회 |
@@ -69,11 +94,15 @@
 
 ## 상세 문서
 
+### 활성 API 상세
+
 | 분류 | 문서 | 내용 |
 | --- | --- | --- |
+| 초대 | [invitations.md](invitations.md) | 발급·회원 후보·수신/발급 목록·상세·공개 미리보기·취소·거절·수락·대기 신청 승인 |
 | 피드백 | [feedbacks.md](feedbacks.md) | 피드백 작성 |
 | 인증·회원 | [auth-members.md](auth-members.md) | 인증과 회원 엔드포인트 |
 | 그룹 | [groups.md](groups.md) | 그룹과 일정 엔드포인트 |
+| 그룹 달력 | [group-calendar.md](group-calendar.md) | 공개 달력 조회, 개별 일정, 정기 규칙 이력·관리 |
 | 모집 공고 | [recruitments.md](recruitments.md) | 모집 공고 엔드포인트 |
 | 가입 신청 | [registrations.md](registrations.md) | 가입 신청 엔드포인트 |
 | 그룹 구성원 | [group-members.md](group-members.md) | 그룹 구성원 엔드포인트 |

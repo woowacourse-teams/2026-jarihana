@@ -341,10 +341,10 @@ export function ActivityPostDetail({ onClose, onNavigateGroup, onRequireLogin, p
 
   return (
     <Modal
-      className="activity-post-detail"
       closeAction="activity_post_detail_dismiss"
       onClose={closeDetail}
       open
+      panelClassName="activity-post-detail"
       title={post.group.name}
     >
       <div className="activity-post-detail__photo">

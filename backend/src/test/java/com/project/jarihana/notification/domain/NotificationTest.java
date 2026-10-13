@@ -99,4 +99,56 @@ class NotificationTest {
                 "registration:3:approved", NotificationEventType.REGISTRATION_APPROVED,
                 NotificationPayload.of(1, 2, 3, null), NOW);
     }
+
+    @Test
+    @DisplayName("초대 알림은 모집·신청 ID 없이 생성하며 사건 종류와 다른 식별자나 섞인 데이터를 거부한다.")
+    void validateRequiredIdentifiersForEachEventWithoutVersionSplit() {
+        // Given
+        Member member = Member.create("우주", 8, "123", Course.BACKEND);
+        NotificationPayload invitation = NotificationPayload.invitation(1, 501);
+
+        // When
+        Notification notification = Notification.create(member, "invitation:501:received",
+                NotificationEventType.INVITATION_RECEIVED, invitation, NOW);
+
+        // Then
+        assertThat(notification.getPayloadVersion()).isEqualTo(1);
+        assertThat(invitation.getRecruitmentId()).isNull();
+        assertThat(invitation.getRegistrationId()).isNull();
+        assertThat(invitation.getInvitationId()).isEqualTo(501);
+        assertThatThrownBy(() -> Notification.create(member, "invalid", NotificationEventType.REGISTRATION_APPROVED,
+                invitation, NOW)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> Notification.create(member, "invalid", NotificationEventType.INVITATION_RECEIVED,
+                NotificationPayload.of(1, 2, 3, null), NOW)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> NotificationPayload.from(1, 2L, 3L, 501L, null)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> NotificationPayload.from(1, null, null, 501L, SystemRejectionReason.GROUP_ENDED))
+                .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> NotificationPayload.from(1, 2L, null, null, null)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> Notification.create(member, "invalid", NotificationEventType.INVITATION_RECEIVED,
+                NotificationPayload.forGroup(1), NOW)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> Notification.create(member, "invalid", NotificationEventType.GROUP_CREATED,
+                invitation, NOW)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> NotificationPayload.invitation(1, 0)).isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    @DisplayName("모임 등록 알림만 모집과 신청 없이 모임 식별자만 저장한다.")
+    void groupCreatedPayloadContainsOnlyGroup() {
+        // Given
+        Member member = Member.create("우주", 8, "123", Course.BACKEND);
+        NotificationPayload group = NotificationPayload.forGroup(1);
+
+        // When
+        Notification created = Notification.create(member, "group:1:created", NotificationEventType.GROUP_CREATED, group, NOW);
+
+        // Then
+        assertThat(created.getPayload().getGroupId()).isEqualTo(1);
+        assertThat(created.getPayload().getRegistrationId()).isNull();
+        assertThatThrownBy(() -> Notification.create(member, "registration:1:approved",
+                NotificationEventType.REGISTRATION_APPROVED, group, NOW)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> Notification.create(member, "group:1:created", NotificationEventType.GROUP_CREATED,
+                NotificationPayload.of(1, 2, 3, null), NOW)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> NotificationPayload.from(1, 2L, null, null, null)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> NotificationPayload.forGroup(0)).isInstanceOf(BusinessException.class);
+    }
 }

@@ -98,10 +98,15 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
         Member owner = member("101");
         var recruitment = recruitment(owner, JoinMethod.APPROVAL, 5);
         var group = recruitment.getGroup();
+        NotificationPayload payload = switch (eventType) {
+            case GROUP_CREATED -> NotificationPayload.forGroup(group.getId());
+            case INVITATION_RECEIVED -> NotificationPayload.invitation(group.getId(), 123);
+            default -> NotificationPayload.of(group.getId(), recruitment.getId(), 123,
+                    eventType == NotificationEventType.REGISTRATION_SYSTEM_REJECTED
+                            ? SystemRejectionReason.RERECRUITMENT : null);
+        };
         Notification notification = notifications.save(Notification.create(owner, "named-event", eventType,
-                NotificationPayload.of(group.getId(), recruitment.getId(), 123,
-                        eventType == NotificationEventType.REGISTRATION_SYSTEM_REJECTED
-                                ? SystemRejectionReason.RERECRUITMENT : null), NOW));
+                payload, NOW));
 
         // When
         Response detail = authenticated(owner).get("/notifications/" + notification.getId());
@@ -111,15 +116,26 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
         assertThat(detail.statusCode()).isEqualTo(200);
         assertThat(detail.jsonPath().getString("data.body")).contains(group.getName());
         String expectedKind = switch (eventType) {
+            case GROUP_CREATED -> "GROUP_DETAIL";
             case REGISTRATION_SUBMITTED -> "LEADER_REGISTRATIONS";
             case PARTICIPANT_JOINED -> "LEADER_MEMBERS";
             case REGISTRATION_APPROVED -> "MY_GROUPS";
             case REGISTRATION_REJECTED, REGISTRATION_SYSTEM_REJECTED -> "MY_PAGE";
+            case INVITATION_RECEIVED -> "INVITATION";
         };
         assertThat(detail.jsonPath().getString("data.target.kind")).isEqualTo(expectedKind);
         assertThat(list.jsonPath().getString("data.items[0].target.kind")).isEqualTo(expectedKind);
         assertThat(detail.jsonPath().getLong("data.target.groupId")).isEqualTo(group.getId());
-        assertThat(detail.jsonPath().getLong("data.target.registrationId")).isEqualTo(123);
+        if (eventType == NotificationEventType.INVITATION_RECEIVED) {
+            assertThat(detail.jsonPath().getString("data.title")).isEqualTo("모임 초대");
+            assertThat(detail.jsonPath().getMap("data.target").keySet()).containsExactlyInAnyOrder("kind", "groupId", "invitationId");
+            assertThat(detail.jsonPath().getLong("data.target.invitationId")).isEqualTo(123);
+        } else if (eventType == NotificationEventType.GROUP_CREATED) {
+            assertThat(detail.jsonPath().getMap("data.target")).containsOnlyKeys("kind", "groupId");
+        } else {
+            assertThat(detail.jsonPath().getLong("data.target.registrationId")).isEqualTo(123);
+            assertThat(detail.jsonPath().getMap("data.target").keySet()).containsExactlyInAnyOrder("kind", "groupId", "recruitmentId", "registrationId");
+        }
         assertThat(list.jsonPath().getString("data.items[0].body"))
                 .isEqualTo(detail.jsonPath().getString("data.body"));
     }
@@ -378,6 +394,39 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
 
     private RequestSpecification authenticated(Member member) {
         return RestAssured.given().cookie(cookies.accessTokenName(), tokens.issue(member.getId()).value());
+    }
+
+    @Test
+    @DisplayName("모임 생성 API가 만든 알림은 알림함과 푸시 내용 API에서 새 모임 식별자로 조회된다.")
+    void createdGroupAppearsInInboxAndPushContent() {
+        // Given
+        Member creator = member("101");
+        Member recipient = member("102");
+        var subscription = subscription(recipient, "new-group");
+
+        // When
+        Response created = mutation(creator).contentType("application/json").body("""
+                {"type":"CLUB","name":"퇴근 후 독서","introduction":"함께 책을 읽어요","meetingType":"FLEXIBLE"}
+                """).post("/groups");
+        Response inbox = authenticated(recipient).get("/notifications");
+
+        // Then
+        assertThat(created.statusCode()).isEqualTo(201);
+        assertThat(inbox.statusCode()).isEqualTo(200);
+        assertThat(inbox.jsonPath().getList("data.items")).hasSize(1);
+        assertThat(inbox.jsonPath().getString("data.items[0].eventType")).isEqualTo("GROUP_CREATED");
+        assertThat(inbox.jsonPath().getString("data.items[0].body")).isEqualTo("‘퇴근 후 독서’ 모임이 새로 등록되었습니다.");
+        long notificationId = inbox.jsonPath().getLong("data.items[0].id");
+        long groupId = jdbc.queryForObject("select id from groups where name = '퇴근 후 독서'", Long.class);
+        assertThat(inbox.jsonPath().getLong("data.items[0].target.groupId")).isEqualTo(groupId);
+        assertThat(inbox.jsonPath().getString("data.items[0].target.kind")).isEqualTo("GROUP_DETAIL");
+        Response content = authenticated(recipient).queryParam("subscriptionId", subscription.getId())
+                .queryParam("generation", subscription.getGeneration()).get("/notifications/" + notificationId + "/push-content");
+        assertThat(content.statusCode()).isEqualTo(200);
+        assertThat(content.jsonPath().getString("data.eventType")).isEqualTo("GROUP_CREATED");
+        assertThat(content.jsonPath().getMap("data.payload")).containsOnlyKeys("groupId");
+        assertThat(content.jsonPath().getLong("data.payload.groupId")).isEqualTo(groupId);
+        assertThat(authenticated(creator).get("/notifications").jsonPath().getList("data.items")).isEmpty();
     }
 
     private RequestSpecification mutation(Member member) {

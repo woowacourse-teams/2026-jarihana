@@ -1,0 +1,499 @@
+---
+apiVersion: 1
+deleteRules:
+- orgId: 1
+  uid: jarihana-dev-backend
+- orgId: 1
+  uid: jarihana-dev-metrics
+- orgId: 1
+  uid: jarihana-prod-backend
+- orgId: 1
+  uid: jarihana-prod-metrics
+groups:
+- orgId: 1
+  name: jarihana-availability
+  folder: Jarihana
+  interval: 30s
+  rules:
+  - uid: jarihana-host-disk-warning
+    title: "[EC2] 디스크 사용률 주의"
+    condition: B
+    for: 5m
+    noDataState: OK
+    execErrState: Error
+    labels:
+      service_name: jarihana
+      severity: warning
+    annotations:
+      summary: "{{ $labels.host_id }} {{ $labels.mountpoint }} 디스크 사용률 80% 이상이 5분 지속"
+      description: 일반 프로세스가 쓸 수 있는 avail 용량 기준입니다. 해당 마운트의 로그·Docker 데이터·Prometheus/Loki 저장량을 확인하세요. 80% 이상 90% 미만이 5분 지속될 때 알립니다.
+    data:
+    - refId: A
+      datasourceUid: prometheus
+      relativeTimeRange:
+        from: 300
+        to: 0
+      model:
+        datasource:
+          type: prometheus
+          uid: prometheus
+        editorMode: code
+        expr: (100 * (1 - node_filesystem_avail_bytes{job="jarihana-host",fstype=~"ext2|ext3|ext4|xfs|btrfs"} / node_filesystem_size_bytes{job="jarihana-host",fstype=~"ext2|ext3|ext4|xfs|btrfs"})) and (node_filesystem_size_bytes{job="jarihana-host",fstype=~"ext2|ext3|ext4|xfs|btrfs"} > 0) and (node_filesystem_readonly{job="jarihana-host",fstype=~"ext2|ext3|ext4|xfs|btrfs"} == 0)
+        refId: A
+        instant: true
+        range: false
+    - refId: B
+      datasourceUid: __expr__
+      relativeTimeRange:
+        from: 0
+        to: 0
+      model:
+        datasource:
+          type: __expr__
+          uid: __expr__
+        expression: "$A >= 80 && $A < 90"
+        refId: B
+        type: math
+    isPaused: false
+  - uid: jarihana-host-disk-critical
+    title: "[EC2] 디스크 사용률 긴급"
+    condition: B
+    for: 0s
+    noDataState: OK
+    execErrState: Error
+    labels:
+      service_name: jarihana
+      severity: critical
+    annotations:
+      summary: "{{ $labels.host_id }} {{ $labels.mountpoint }} 디스크 사용률 90% 이상"
+      description: 일반 프로세스가 쓸 수 있는 avail 용량 기준입니다. 해당 마운트의 로그·Docker 데이터·Prometheus/Loki 저장량을 확인하세요. 90% 이상이면 추가 지속 시간을 기다리지 않고 알립니다.
+    data:
+    - refId: A
+      datasourceUid: prometheus
+      relativeTimeRange:
+        from: 300
+        to: 0
+      model:
+        datasource:
+          type: prometheus
+          uid: prometheus
+        editorMode: code
+        expr: (100 * (1 - node_filesystem_avail_bytes{job="jarihana-host",fstype=~"ext2|ext3|ext4|xfs|btrfs"} / node_filesystem_size_bytes{job="jarihana-host",fstype=~"ext2|ext3|ext4|xfs|btrfs"})) and (node_filesystem_size_bytes{job="jarihana-host",fstype=~"ext2|ext3|ext4|xfs|btrfs"} > 0) and (node_filesystem_readonly{job="jarihana-host",fstype=~"ext2|ext3|ext4|xfs|btrfs"} == 0)
+        refId: A
+        instant: true
+        range: false
+    - refId: B
+      datasourceUid: __expr__
+      relativeTimeRange:
+        from: 0
+        to: 0
+      model:
+        datasource:
+          type: __expr__
+          uid: __expr__
+        expression: "$A >= 90"
+        refId: B
+        type: math
+    isPaused: false
+  - uid: jarihana-host-inode-warning
+    title: "[EC2] inode 사용률 주의"
+    condition: B
+    for: 5m
+    noDataState: OK
+    execErrState: Error
+    labels:
+      service_name: jarihana
+      severity: warning
+    annotations:
+      summary: "{{ $labels.host_id }} {{ $labels.mountpoint }} inode 사용률 80% 이상이 5분 지속"
+      description: 파일 개수를 관리하는 inode의 사용률입니다. 용량이 남아 있어도 inode가 부족하면 파일을 만들 수 없습니다. 해당 마운트의 작은 파일 누적을 확인하세요. 80% 이상 90% 미만이 5분 지속될 때 알립니다.
+    data:
+    - refId: A
+      datasourceUid: prometheus
+      relativeTimeRange:
+        from: 300
+        to: 0
+      model:
+        datasource:
+          type: prometheus
+          uid: prometheus
+        editorMode: code
+        expr: (100 * (1 - node_filesystem_files_free{job="jarihana-host",fstype=~"ext2|ext3|ext4|xfs|btrfs"} / node_filesystem_files{job="jarihana-host",fstype=~"ext2|ext3|ext4|xfs|btrfs"})) and (node_filesystem_files{job="jarihana-host",fstype=~"ext2|ext3|ext4|xfs|btrfs"} > 0) and (node_filesystem_readonly{job="jarihana-host",fstype=~"ext2|ext3|ext4|xfs|btrfs"} == 0)
+        refId: A
+        instant: true
+        range: false
+    - refId: B
+      datasourceUid: __expr__
+      relativeTimeRange:
+        from: 0
+        to: 0
+      model:
+        datasource:
+          type: __expr__
+          uid: __expr__
+        expression: "$A >= 80 && $A < 90"
+        refId: B
+        type: math
+    isPaused: false
+  - uid: jarihana-host-inode-critical
+    title: "[EC2] inode 사용률 긴급"
+    condition: B
+    for: 0s
+    noDataState: OK
+    execErrState: Error
+    labels:
+      service_name: jarihana
+      severity: critical
+    annotations:
+      summary: "{{ $labels.host_id }} {{ $labels.mountpoint }} inode 사용률 90% 이상"
+      description: 파일 개수를 관리하는 inode의 사용률입니다. 용량이 남아 있어도 inode가 부족하면 파일을 만들 수 없습니다. 해당 마운트의 작은 파일 누적을 확인하세요. 90% 이상이면 추가 지속 시간을 기다리지 않고 알립니다.
+    data:
+    - refId: A
+      datasourceUid: prometheus
+      relativeTimeRange:
+        from: 300
+        to: 0
+      model:
+        datasource:
+          type: prometheus
+          uid: prometheus
+        editorMode: code
+        expr: (100 * (1 - node_filesystem_files_free{job="jarihana-host",fstype=~"ext2|ext3|ext4|xfs|btrfs"} / node_filesystem_files{job="jarihana-host",fstype=~"ext2|ext3|ext4|xfs|btrfs"})) and (node_filesystem_files{job="jarihana-host",fstype=~"ext2|ext3|ext4|xfs|btrfs"} > 0) and (node_filesystem_readonly{job="jarihana-host",fstype=~"ext2|ext3|ext4|xfs|btrfs"} == 0)
+        refId: A
+        instant: true
+        range: false
+    - refId: B
+      datasourceUid: __expr__
+      relativeTimeRange:
+        from: 0
+        to: 0
+      model:
+        datasource:
+          type: __expr__
+          uid: __expr__
+        expression: "$A >= 90"
+        refId: B
+        type: math
+    isPaused: false
+  - uid: jarihana-dev-health
+    title: "[dev] 백엔드 헬스체크 실패"
+    condition: B
+    for: 0s
+    noDataState: Alerting
+    execErrState: Error
+    labels:
+      service_name: jarihana
+      environment: dev
+      severity: critical
+    annotations:
+      summary: dev 백엔드의 정상 상태를 확인하지 못했습니다.
+      description: 1분마다 /actuator/health를 확인합니다. HTTP 200과 UP 응답을 받지 못했거나, 최근 150초 동안 헬스체크 결과가 도착하지 않았습니다. 앱·RDS 연결·Alloy·EC2 및 전송 경로를 확인하세요.
+    data:
+    - refId: A
+      datasourceUid: prometheus
+      relativeTimeRange:
+        from: 300
+        to: 0
+      model:
+        datasource:
+          type: prometheus
+          uid: prometheus
+        editorMode: code
+        expr: 1 - (min(probe_success{job="jarihana-health",environment="dev"} and (time() - timestamp(probe_success{job="jarihana-health",environment="dev"}) < 150)) or vector(0))
+        refId: A
+        instant: true
+        range: false
+    - refId: B
+      datasourceUid: __expr__
+      relativeTimeRange:
+        from: 0
+        to: 0
+      model:
+        datasource:
+          type: __expr__
+          uid: __expr__
+        expression: "$A > 0"
+        refId: B
+        type: math
+    isPaused: false
+  - uid: jarihana-dev-http500
+    title: "[dev] HTTP 500 오류"
+    condition: B
+    for: 0s
+    noDataState: OK
+    execErrState: Error
+    labels:
+      service_name: jarihana
+      environment: dev
+      severity: critical
+    annotations:
+      summary: dev 백엔드에서 HTTP 500 오류가 발생했습니다.
+      description: 최근 5분 동안 HTTP 500 요청 완료 로그가 한 건 이상 수집됐습니다. Loki에서 같은 환경의 http.request.completed 로그와 request ID를 확인하세요. 알림 해제는 최근 5분에 해당 로그가 없다는 뜻입니다.
+    data:
+    - refId: A
+      datasourceUid: loki
+      relativeTimeRange:
+        from: 300
+        to: 0
+      model:
+        datasource:
+          type: loki
+          uid: loki
+        editorMode: code
+        expr: sum(count_over_time({service_name="jarihana",environment="dev"} | json | log_logger="com.project.jarihana.common.logging.Events" | event_action="http.request.completed" | http_response_status_code=500 | __error__="" [5m])) or vector(0)
+        refId: A
+        queryType: instant
+    - refId: B
+      datasourceUid: __expr__
+      relativeTimeRange:
+        from: 0
+        to: 0
+      model:
+        datasource:
+          type: __expr__
+          uid: __expr__
+        expression: "$A > 0"
+        refId: B
+        type: math
+    isPaused: false
+  - uid: jarihana-prod-health
+    title: "[prod] 백엔드 헬스체크 실패"
+    condition: B
+    for: 0s
+    noDataState: Alerting
+    execErrState: Error
+    labels:
+      service_name: jarihana
+      environment: prod
+      severity: critical
+    annotations:
+      summary: prod 백엔드의 정상 상태를 확인하지 못했습니다.
+      description: 1분마다 /actuator/health를 확인합니다. HTTP 200과 UP 응답을 받지 못했거나, 최근 150초 동안 헬스체크 결과가 도착하지 않았습니다. 앱·RDS 연결·Alloy·EC2 및 전송 경로를 확인하세요.
+    data:
+    - refId: A
+      datasourceUid: prometheus
+      relativeTimeRange:
+        from: 300
+        to: 0
+      model:
+        datasource:
+          type: prometheus
+          uid: prometheus
+        editorMode: code
+        expr: 1 - (min(probe_success{job="jarihana-health",environment="prod"} and (time() - timestamp(probe_success{job="jarihana-health",environment="prod"}) < 150)) or vector(0))
+        refId: A
+        instant: true
+        range: false
+    - refId: B
+      datasourceUid: __expr__
+      relativeTimeRange:
+        from: 0
+        to: 0
+      model:
+        datasource:
+          type: __expr__
+          uid: __expr__
+        expression: "$A > 0"
+        refId: B
+        type: math
+    isPaused: false
+  - uid: jarihana-prod-http500
+    title: "[prod] HTTP 500 오류"
+    condition: B
+    for: 0s
+    noDataState: OK
+    execErrState: Error
+    labels:
+      service_name: jarihana
+      environment: prod
+      severity: critical
+    annotations:
+      summary: prod 백엔드에서 HTTP 500 오류가 발생했습니다.
+      description: 최근 5분 동안 HTTP 500 요청 완료 로그가 한 건 이상 수집됐습니다. Loki에서 같은 환경의 http.request.completed 로그와 request ID를 확인하세요. 알림 해제는 최근 5분에 해당 로그가 없다는 뜻입니다.
+    data:
+    - refId: A
+      datasourceUid: loki
+      relativeTimeRange:
+        from: 300
+        to: 0
+      model:
+        datasource:
+          type: loki
+          uid: loki
+        editorMode: code
+        expr: sum(count_over_time({service_name="jarihana",environment="prod"} | json | log_logger="com.project.jarihana.common.logging.Events" | event_action="http.request.completed" | http_response_status_code=500 | __error__="" [5m])) or vector(0)
+        refId: A
+        queryType: instant
+    - refId: B
+      datasourceUid: __expr__
+      relativeTimeRange:
+        from: 0
+        to: 0
+      model:
+        datasource:
+          type: __expr__
+          uid: __expr__
+        expression: "$A > 0"
+        refId: B
+        type: math
+    isPaused: false
+  - uid: jarihana-host-cpu-warning
+    title: "[EC2] CPU 사용률 주의"
+    condition: B
+    for: 5m
+    noDataState: OK
+    execErrState: Error
+    labels:
+      service_name: jarihana
+      severity: warning
+    annotations:
+      summary: "{{ $labels.host_id }} EC2 CPU 사용률 80% 이상이 5분 지속"
+      description: CPU는 가장 최근 두 수집 사이의 사용률입니다. 80% 이상 90% 미만이 5분 지속될 때 알립니다. 앱·모니터링 EC2 각각의 호스트 전체 기준이며 컨테이너·JVM·RDS 사용률이 아닙니다.
+    data:
+    - refId: A
+      datasourceUid: prometheus
+      relativeTimeRange:
+        from: 300
+        to: 0
+      model:
+        datasource:
+          type: prometheus
+          uid: prometheus
+        editorMode: code
+        expr: 100 * (1 - avg by (host_id) (irate(node_cpu_seconds_total{job="jarihana-host",mode="idle"}[2m])))
+        refId: A
+        instant: true
+        range: false
+    - refId: B
+      datasourceUid: __expr__
+      relativeTimeRange:
+        from: 0
+        to: 0
+      model:
+        datasource:
+          type: __expr__
+          uid: __expr__
+        expression: "$A >= 80 && $A < 90"
+        refId: B
+        type: math
+    isPaused: false
+  - uid: jarihana-host-cpu-critical
+    title: "[EC2] CPU 사용률 긴급"
+    condition: B
+    for: 0s
+    noDataState: OK
+    execErrState: Error
+    labels:
+      service_name: jarihana
+      severity: critical
+    annotations:
+      summary: "{{ $labels.host_id }} EC2 CPU 사용률 90% 이상"
+      description: CPU는 가장 최근 두 수집 사이의 사용률입니다. 사용률이 90% 이상이면 추가 지속 시간을 기다리지 않고 알립니다. 앱·모니터링 EC2 각각의 호스트 전체 기준이며 컨테이너·JVM·RDS 사용률이 아닙니다.
+    data:
+    - refId: A
+      datasourceUid: prometheus
+      relativeTimeRange:
+        from: 300
+        to: 0
+      model:
+        datasource:
+          type: prometheus
+          uid: prometheus
+        editorMode: code
+        expr: 100 * (1 - avg by (host_id) (irate(node_cpu_seconds_total{job="jarihana-host",mode="idle"}[2m])))
+        refId: A
+        instant: true
+        range: false
+    - refId: B
+      datasourceUid: __expr__
+      relativeTimeRange:
+        from: 0
+        to: 0
+      model:
+        datasource:
+          type: __expr__
+          uid: __expr__
+        expression: "$A >= 90"
+        refId: B
+        type: math
+    isPaused: false
+  - uid: jarihana-host-memory-warning
+    title: "[EC2] 메모리 사용률 주의"
+    condition: B
+    for: 5m
+    noDataState: OK
+    execErrState: Error
+    labels:
+      service_name: jarihana
+      severity: warning
+    annotations:
+      summary: "{{ $labels.host_id }} EC2 메모리 사용률 80% 이상이 5분 지속"
+      description: 메모리는 MemAvailable 기준이며 회수 가능한 캐시는 여유 용량에 포함합니다. 80% 이상 90% 미만이 5분 지속될 때 알립니다. 앱·모니터링 EC2 각각의 호스트 전체 기준이며 컨테이너·JVM·RDS 사용률이 아닙니다.
+    data:
+    - refId: A
+      datasourceUid: prometheus
+      relativeTimeRange:
+        from: 300
+        to: 0
+      model:
+        datasource:
+          type: prometheus
+          uid: prometheus
+        editorMode: code
+        expr: 100 * (1 - node_memory_MemAvailable_bytes{job="jarihana-host"} / node_memory_MemTotal_bytes{job="jarihana-host"})
+        refId: A
+        instant: true
+        range: false
+    - refId: B
+      datasourceUid: __expr__
+      relativeTimeRange:
+        from: 0
+        to: 0
+      model:
+        datasource:
+          type: __expr__
+          uid: __expr__
+        expression: "$A >= 80 && $A < 90"
+        refId: B
+        type: math
+    isPaused: false
+  - uid: jarihana-host-memory-critical
+    title: "[EC2] 메모리 사용률 긴급"
+    condition: B
+    for: 0s
+    noDataState: OK
+    execErrState: Error
+    labels:
+      service_name: jarihana
+      severity: critical
+    annotations:
+      summary: "{{ $labels.host_id }} EC2 메모리 사용률 90% 이상"
+      description: 메모리는 MemAvailable 기준이며 회수 가능한 캐시는 여유 용량에 포함합니다. 사용률이 90% 이상이면 추가 지속 시간을 기다리지 않고 알립니다. 앱·모니터링 EC2 각각의 호스트 전체 기준이며 컨테이너·JVM·RDS 사용률이 아닙니다.
+    data:
+    - refId: A
+      datasourceUid: prometheus
+      relativeTimeRange:
+        from: 300
+        to: 0
+      model:
+        datasource:
+          type: prometheus
+          uid: prometheus
+        editorMode: code
+        expr: 100 * (1 - node_memory_MemAvailable_bytes{job="jarihana-host"} / node_memory_MemTotal_bytes{job="jarihana-host"})
+        refId: A
+        instant: true
+        range: false
+    - refId: B
+      datasourceUid: __expr__
+      relativeTimeRange:
+        from: 0
+        to: 0
+      model:
+        datasource:
+          type: __expr__
+          uid: __expr__
+        expression: "$A >= 90"
+        refId: B
+        type: math
+    isPaused: false

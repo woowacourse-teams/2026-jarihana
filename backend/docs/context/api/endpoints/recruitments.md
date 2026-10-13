@@ -3,6 +3,8 @@
 ## 공통 규칙
 
 - 모집 상태는 저장하지 않고 `startsAt`, `endsAt`, 현재 시각으로 계산한다.
+- 목록·상세의 `approvedCount`와 정원 수정의 현재 승인 인원은 해당 공고의 모집으로 가입한 인원(APPROVED·RECRUITMENT)이다. 초대 출처 승인은 제외한다.
+- 상세의 `remainingSeats`는 `capacity - approvedCount`다. 모집 정원 10명·모집으로 가입한 9명·초대로 합류한 2명이면 남은 자리는 1명이다.
 
 ### `GET /api/groups/{groupId}/recruitments`
 

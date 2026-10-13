@@ -2,6 +2,7 @@ package com.project.jarihana.registration.command.service;
 
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.common.transaction.ConcurrentCommandExecutor;
 import com.project.jarihana.group.command.repository.GroupCommandRepository;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
@@ -10,7 +11,6 @@ import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.registration.command.repository.RegistrationCommandRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -23,10 +23,17 @@ public class RegistrationReadCommandService {
     private final GroupMemberCommandRepository groupMemberRepository;
     private final RegistrationCommandRepository registrationRepository;
     private final Clock clock;
+    private final ConcurrentCommandExecutor concurrentCommands;
 
-    @Transactional
     public void markRegistrationsRead(long memberId, long recruitmentId, long throughRegistrationId) {
-        Group group = groupRepository.findWithLockByRecruitmentId(recruitmentId)
+        concurrentCommands.execute(() -> {
+            markRegistrationsReadInTransaction(memberId, recruitmentId, throughRegistrationId);
+            return null;
+        });
+    }
+
+    private void markRegistrationsReadInTransaction(long memberId, long recruitmentId, long throughRegistrationId) {
+        Group group = groupRepository.findWithOptimisticLockByRecruitmentId(recruitmentId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RECRUITMENT_NOT_FOUND,
                         "모집 공고를 찾을 수 없습니다."

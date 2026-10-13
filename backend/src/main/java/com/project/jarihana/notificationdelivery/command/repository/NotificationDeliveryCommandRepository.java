@@ -15,6 +15,17 @@ public interface NotificationDeliveryCommandRepository extends Repository<Notifi
 
     Optional<NotificationDelivery> findById(long id);
 
+    @Modifying
+    @Query(value = """
+            update notification_deliveries
+            set status = 'CANCELLED', lease_token = null, locked_until = null, updated_at = :now
+            where status in ('PENDING', 'RETRY', 'IN_FLIGHT') and notification_id in (
+                select id from notifications where event_type = 'INVITATION_RECEIVED'
+                    and payload ->> 'groupId' = cast(:groupId as text)
+            )
+            """, nativeQuery = true)
+    int cancelInvitationsByGroupId(@Param("groupId") long groupId, @Param("now") LocalDateTime now);
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = """
             update notification_deliveries

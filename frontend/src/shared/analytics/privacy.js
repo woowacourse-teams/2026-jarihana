@@ -1,5 +1,12 @@
 const pathSegments = new Set([
   "api",
+  "invitations",
+  "link",
+  "links",
+  "acceptances",
+  "invitation-candidates",
+  "revoke",
+  "decline",
   "auth",
   "refresh",
   "logout",
@@ -46,11 +53,46 @@ export function sanitizePromotionId(value) {
 
 export const isPrivateRoute = (path = "") => {
   try {
-    return /^\/(?:api\/)?oauth(?:\/|$)/i.test(decodeURIComponent(path));
+    return /^\/(?:api\/)?(?:oauth|invitations\/links?)(?:\/|$)/i.test(decodeURIComponent(path));
   } catch {
     return true;
   }
 };
+
+export const isSharedInvitationRoute = (path = "") =>
+  /^\/invitations\/link\/[A-Za-z0-9_-]{43}$/.test(path);
+
+export const sharedInvitationEvents = new Set([
+  "invitation_viewed",
+  "invitation_accept_attempted",
+  "invitation_joined",
+  "invitation_already_joined"
+]);
+
+export function sanitizeSharedInvitationEvent(event, { projectToken, distinctId, identified }) {
+  if (!sharedInvitationEvents.has(event.event) || event.properties?.invitation_type !== "LINK") return null;
+  const safe = sanitizeProperties(event.properties);
+  const properties = {
+    // Existing PostHog ingestion protocol, not an invitation token or personal API key.
+    // https://posthog.com/docs/product-analytics/troubleshooting
+    token: projectToken,
+    distinct_id: distinctId,
+    $is_identified: identified,
+    $process_person_profile: identified
+  };
+  for (const key of ["group_id", "invitation_id"]) {
+    if (Number.isSafeInteger(safe[key]) && safe[key] > 0) properties[key] = safe[key];
+  }
+  if (["VALID", "ACCEPTED", "REJECTED", "EXPIRED", "CANCELED", "GROUP_ENDED"].includes(safe.status))
+    properties.status = safe.status;
+  properties.invitation_type = "LINK";
+  return {
+    event: event.event,
+    properties,
+    ...(event.timestamp instanceof Date ? { timestamp: event.timestamp } : {}),
+    ...(typeof event.uuid === "string" && /^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(event.uuid) ? { uuid: event.uuid } : {})
+  };
+}
 
 export function normalizePath(value = "/") {
   if (value === "storage_upload") return value;
@@ -61,7 +103,8 @@ export function normalizePath(value = "/") {
       path
         .split("/")
         .filter(Boolean)
-        .map((part) => {
+        .map((part, index, parts) => {
+          if (parts[index - 2] === "invitations" && ["link", "links"].includes(parts[index - 1])) return ":redacted";
           if (pathSegments.has(part) || [":id", ":redacted"].includes(part)) return part;
           return safeId(part) ? ":id" : ":redacted";
         })
@@ -88,6 +131,10 @@ export function sanitizeProperties(properties = {}) {
       ["group_id", "recruitment_id", "registration_id", "member_id", "activity_post_id"].includes(key) &&
       safeId(value)
     ) {
+      result[key] = value;
+    } else if (key === "invitation_id" && typeof value === "number" && Number.isSafeInteger(value) && value > 0) {
+      result[key] = value;
+    } else if (key === "invitation_type" && ["DIRECT", "LINK"].includes(value)) {
       result[key] = value;
     } else if (
       ["promotion_id", "attribution_promotion_id"].includes(key) &&

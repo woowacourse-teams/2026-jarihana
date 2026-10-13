@@ -52,9 +52,9 @@ function useFocusReturn(visible) {
 
 function OverlayPanel({
   children,
-  className = "",
   closeAction = "dialog_close",
   closeLabel = "닫기",
+  panelClassName = "",
   description,
   dismissible = true,
   headerActions,
@@ -122,7 +122,7 @@ function OverlayPanel({
         aria-describedby={description ? descriptionId : undefined}
         aria-labelledby={titleId}
         aria-modal="true"
-        className={[drawer ? "ui-drawer" : "ui-dialog", className].filter(Boolean).join(" ")}
+        className={drawer ? "ui-drawer" : ["ui-dialog", panelClassName].filter(Boolean).join(" ")}
         ref={panelReference}
         role="dialog"
         tabIndex={-1}
@@ -168,7 +168,6 @@ function Trigger({ children, expanded, onOpen }) {
 
 export function Modal({
   children,
-  className,
   closeLabel = "닫기",
   closeAction = "dialog_close",
   defaultOpen = false,
@@ -177,6 +176,7 @@ export function Modal({
   onClose,
   onOpenChange,
   open,
+  panelClassName,
   title,
   trigger
 }) {
@@ -201,12 +201,12 @@ export function Modal({
       ) : null}
       {visible ? (
         <OverlayPanel
-          className={className}
           closeAction={closeAction}
           closeLabel={closeLabel}
           description={description}
           dismissible={dismissible}
           onDismiss={dismiss}
+          panelClassName={panelClassName}
           title={title}
         >
           {children}
@@ -252,6 +252,7 @@ export function Drawer({
 }
 
 export function ConfirmDialog({
+  actionsClassName,
   cancelLabel = "취소",
   cancelAction,
   closeAction,
@@ -309,7 +310,7 @@ export function ConfirmDialog({
           요청을 완료하지 못했어요. 다시 시도해 주세요.
         </p>
       ) : null}
-      <div className="ui-dialog__actions">
+      <div className={`ui-dialog__actions${actionsClassName ? ` ${actionsClassName}` : ""}`}>
         <Button
           data-ph-capture-attribute-action={cancelAction}
           disabled={submitting}

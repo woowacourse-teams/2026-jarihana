@@ -7,6 +7,7 @@ const mockModifyGroup = jest.fn();
 const mockDeleteGroup = jest.fn();
 const mockTerminateGroup = jest.fn();
 const mockReplaceRecurringSchedule = jest.fn();
+const mockRegisterRecurringSeries = jest.fn();
 const mockRemoveRecurringSchedule = jest.fn();
 const mockReplaceSessionSchedule = jest.fn();
 const mockShowToast = jest.fn();
@@ -20,6 +21,7 @@ jest.mock("../../../src/features/group/index.js", () => ({
   useDeleteGroup: () => ({ mutateAsync: mockDeleteGroup, isPending: false }),
   useGroup: () => ({ data: mockGroupFixture, error: null, isLoading: false, refetch: jest.fn() }),
   useModifyGroup: () => ({ mutateAsync: mockModifyGroup, isPending: false }),
+  useRegisterGroupRecurringSeries: () => ({ mutateAsync: mockRegisterRecurringSeries, isPending: false }),
   useRemoveRecurringSchedule: () => ({
     mutateAsync: mockRemoveRecurringSchedule,
     isPending: false
@@ -30,6 +32,18 @@ jest.mock("../../../src/features/group/index.js", () => ({
   }),
   useReplaceSessionSchedule: () => ({ mutateAsync: mockReplaceSessionSchedule, isPending: false }),
   useTerminateGroup: () => ({ mutateAsync: mockTerminateGroup, isPending: false })
+}));
+
+jest.mock("../../../src/pages/groups/GroupRecurringManageDialog.jsx", () => ({
+  GroupRecurringManageDialog: ({ current }) => current
+    ? <div aria-label="정기 일정 관리" role="dialog">범위를 선택해 정기 일정을 저장해요.</div>
+    : null
+}));
+
+jest.mock("../../../src/pages/groups/GroupSessionManageDialog.jsx", () => ({
+  GroupSessionManageDialog: ({ open, schedule }) => open
+    ? <div aria-label="같이해요 일정 수정" role="dialog">{schedule.sessionDate}</div>
+    : null
 }));
 
 jest.mock("../../../src/features/registration/index.js", () => ({
@@ -495,6 +509,7 @@ describe("GroupManagePage", () => {
     mockDeleteGroup.mockResolvedValue(undefined);
     mockTerminateGroup.mockResolvedValue({ id: 17, status: "ENDED" });
     mockReplaceRecurringSchedule.mockResolvedValue(mockGroupFixture.recurringSchedule);
+    mockRegisterRecurringSeries.mockResolvedValue({ seriesId: 10, periodId: 11, version: 0 });
     mockRemoveRecurringSchedule.mockResolvedValue(undefined);
   });
 
@@ -536,9 +551,25 @@ describe("GroupManagePage", () => {
     expect(mockRemoveRecurringSchedule).not.toHaveBeenCalled();
   });
 
-  it("saves the overview and the changed schedule from one submission", async () => {
+  it("정기 일정 카드는 별도 관리 모달을 열고 모임 정보 저장에는 일정을 포함하지 않는다", async () => {
     // Given
     const user = userEvent.setup();
+    renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
+
+    // When
+    await openSchedule(user, "모임 일정 수정");
+    expect(screen.getByRole("dialog", { name: "정기 일정 관리" })).toBeInTheDocument();
+    submitForm("group-overview-form");
+
+    // Then
+    await waitFor(() => expect(mockModifyGroup).toHaveBeenCalledTimes(1));
+    expect(mockReplaceRecurringSchedule).not.toHaveBeenCalled();
+  });
+
+  it("첫 정기 일정 등록은 모임 정보 저장과 분리된다", async () => {
+    // Given
+    const user = userEvent.setup();
+    mockGroupFixture.recurringSchedule = null;
     renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
 
     // When
@@ -546,57 +577,35 @@ describe("GroupManagePage", () => {
     const dialog = scheduleDialog();
     await user.click(within(dialog).getByLabelText("수요일"));
     await user.click(within(dialog).getByRole("button", { name: "일정 저장" }));
-    submitForm("group-overview-form");
 
     // Then
     await waitFor(() =>
-      expect(mockReplaceRecurringSchedule).toHaveBeenCalledWith({
-        daysOfWeek: ["MONDAY", "WEDNESDAY"],
+      expect(mockRegisterRecurringSeries).toHaveBeenCalledWith({
+        daysOfWeek: ["WEDNESDAY"],
         startTime: "19:00",
         endTime: "21:00"
       })
     );
-    expect(mockModifyGroup).toHaveBeenCalledTimes(1);
+    expect(mockModifyGroup).not.toHaveBeenCalled();
   });
 
-  it("요일은 그대로 두고 시간만 유동적으로 바꿀 수 있다", async () => {
+  it("같이해요 일정은 별도 수정 모달을 열고 모임 정보 저장과 분리된다", async () => {
     // Given
     const user = userEvent.setup();
+    mockGroupFixture.type = "SESSION";
+    mockGroupFixture.recurringSchedule = null;
+    mockGroupFixture.sessionSchedule = { sessionDate: "2026-09-12", startTime: "19:00", endTime: "21:00" };
+    mockReplaceSessionSchedule.mockResolvedValue(mockGroupFixture.sessionSchedule);
     renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
 
     // When
     await openSchedule(user, "모임 일정 수정");
-    const dialog = scheduleDialog();
-    await user.click(within(dialog).getByLabelText("시간은 그때그때 정해요"));
-    await user.click(within(dialog).getByRole("button", { name: "일정 저장" }));
-    submitForm("group-overview-form");
-
-    // Then 일정을 지우지 않고 시간만 비운 채 교체한다.
-    await waitFor(() =>
-      expect(mockReplaceRecurringSchedule).toHaveBeenCalledWith({
-        daysOfWeek: ["MONDAY"],
-        startTime: null,
-        endTime: null
-      })
-    );
-    expect(mockRemoveRecurringSchedule).not.toHaveBeenCalled();
-  });
-
-  it("turns the group flexible when every day is cleared", async () => {
-    // Given
-    const user = userEvent.setup();
-    renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
-
-    // When
-    await openSchedule(user, "모임 일정 수정");
-    const dialog = scheduleDialog();
-    await user.click(within(dialog).getByRole("button", { name: "모두 지우기" }));
-    await user.click(within(dialog).getByRole("button", { name: "일정 저장" }));
+    expect(screen.getByRole("dialog", { name: "같이해요 일정 수정" })).toHaveTextContent("2026-09-12");
     submitForm("group-overview-form");
 
     // Then
-    await waitFor(() => expect(mockRemoveRecurringSchedule).toHaveBeenCalled());
-    expect(mockReplaceRecurringSchedule).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockModifyGroup).toHaveBeenCalledTimes(1));
+    expect(mockReplaceSessionSchedule).not.toHaveBeenCalled();
   });
 
   it("edits the meeting type and location alongside the overview", async () => {

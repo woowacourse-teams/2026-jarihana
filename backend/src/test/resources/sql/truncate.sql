@@ -1,4 +1,6 @@
 TRUNCATE TABLE
+    invitation_acceptance,
+    invitation,
     notification_deliveries,
     push_subscriptions,
     notifications,

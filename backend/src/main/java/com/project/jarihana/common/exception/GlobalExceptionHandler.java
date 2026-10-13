@@ -3,10 +3,13 @@ package com.project.jarihana.common.exception;
 import com.project.jarihana.common.response.ApiResponse;
 import com.project.jarihana.common.logging.RequestLogContext;
 import com.project.jarihana.common.logging.SafeExceptionLogFields;
+import io.sentry.Sentry;
 import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
+import jakarta.persistence.OptimisticLockException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
@@ -70,6 +73,12 @@ public class GlobalExceptionHandler {
         return handleUnexpectedException(exception);
     }
 
+    @ExceptionHandler({OptimisticLockingFailureException.class, OptimisticLockException.class})
+    public ResponseEntity<ApiResponse<Void>> handleOptimisticConflict(Exception exception) {
+        recordFailure(ErrorCode.CONCURRENT_MODIFICATION, exception);
+        return toResponse(ErrorCode.CONCURRENT_MODIFICATION, "다른 요청과 충돌했습니다. 다시 시도해 주세요.");
+    }
+
     private boolean isMemberNameConflict(DataIntegrityViolationException exception) {
         Throwable cause = exception;
         while (cause != null) {
@@ -101,6 +110,7 @@ public class GlobalExceptionHandler {
                 .addKeyValue("jarihana.error_code", errorCode.name());
         if (errorCode == ErrorCode.INTERNAL_ERROR) {
             SafeExceptionLogFields.from(exception).forEach(event::addKeyValue);
+            Sentry.captureException(exception);
         } else {
             event.addKeyValue("error.type", exception.getClass().getName());
         }

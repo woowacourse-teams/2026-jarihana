@@ -9,7 +9,6 @@ import com.project.jarihana.group.query.repository.dto.GroupListSearchCriteria;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
-import com.project.jarihana.registration.domain.RegistrationStatus;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Repository;
@@ -103,9 +102,8 @@ public class JpaGroupListRepository implements GroupListRepository {
             return Map.of();
         }
 
-        return registrationRepository.countByRecruitmentIdsAndStatus(
-                        recruitmentIds,
-                        RegistrationStatus.APPROVED
+        return registrationRepository.countRecruitmentApprovalsByRecruitmentIds(
+                        recruitmentIds
                 )
                 .stream()
                 .collect(Collectors.toMap(

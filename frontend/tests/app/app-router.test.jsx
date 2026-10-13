@@ -15,6 +15,7 @@ jest.mock("react-router", () => {
 });
 
 jest.mock("../../src/app/AnalyticsBridge", () => ({ AnalyticsBridge: () => null }));
+jest.mock("react-router/dom", () => ({ RouterProvider: () => null }));
 jest.mock("../../src/app/AppShell", () => ({ AppShell: () => null }));
 jest.mock("../../src/app/AuthGuard", () => ({ AuthGuard: ({ children }) => children }));
 jest.mock("../../src/app/LeaderGuard", () => ({ LeaderGuard: ({ children }) => children }));
@@ -48,6 +49,8 @@ it.each([
   ["/", "GroupsPage"],
   ["/groups", "GroupBrowsePage"],
   ["/activities", "ActivityPostsPage"],
+  ["/invitations/501", "InvitationPage"],
+  ["/invitations/link/token", "InvitationPage"],
   ["/groups/42", "GroupDetailPage"]
 ])("renders %s as %s", (path, page) => {
   renderRoutes([path]);
