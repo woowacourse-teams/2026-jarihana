@@ -53,8 +53,16 @@ Tempo가 화면 자체를 그리는 구조가 아니므로 DB 호출량·DB p95�
 | 서버 CPU·메모리·디스크 | Alloy 호스트 exporter의 `node_*` |
 | HikariCP 사용·유휴·최대·대기와 풀 애니메이션 | `hikaricp_connections_*`와 이전 수집값 비교 |
 | DB 호출량·DB p95와 호출 흐름 표시 | Datasource Micrometer의 `jdbc_query_seconds_count`·`jdbc_query_seconds_bucket` |
-| DB 직접 연결 상태·앱의 DB 점검 상태 | PostgreSQL exporter의 `pg_up`·`up`과 Actuator health probe |
+| DB 아이콘의 직접 연결 상태 | PostgreSQL exporter의 `pg_up`·`up` |
+| DB 연결선과 앱 DB 점검 상태 | Actuator database health probe와 앱 liveness |
 | 로그 조회 | Docker 로그 → Alloy → Loki |
+
+DB 아이콘과 앱에서 DB로 향하는 연결선은 서로 다른 경로를 나타낸다. 직접 접속이 가능해도
+앱 계정이나 연결 풀에 문제가 있을 수 있으므로 연결선의 색은 앱 DB 검사 결과를 따른다.
+선의 움직임은 앱 지표 수집과 앱 DB 검사가 모두 정상일 때만 JDBC 호출량으로 표현한다.
+백엔드만 중단되면 흐름은 멈추고 앱 연결 상태는 확인 불가가 되지만, Alloy의 직접 검사가
+정상이면 DB 아이콘은 정상으로 남는다. 반대로 직접 검사만 실패해도 앱의 연결 상태와 호출량이
+정상이면 선은 계속 움직인다. HikariCP 개별 풀 자리와 대여·반납 모션의 기준은 바꾸지 않는다.
 
 DB p95는 기존 span 집계에서 앱의 JDBC 실행 시간 집계로 측정 범위가 바뀐다.
 화면 항목은 유지하지만 전환 전후 숫자가 항상 일치한다는 뜻은 아니다.

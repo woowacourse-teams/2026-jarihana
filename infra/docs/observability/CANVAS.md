@@ -110,9 +110,16 @@ DB 상태와 DB 노드 색은 PostgreSQL exporter가 직접 수집한 `pg_up`을
 PostgreSQL 직접 점검 실패를 보고했다는 뜻이고, 회색은 같은 PostgreSQL exporter scrape가 실패했거나
 최근 값이 없어 DB 상태를 단정할 수 없다는 뜻이다.
 
-앱 DB 점검은 앱이 `/actuator/health/database`에서 확인한 연결 상태를 별도로 보여준다.
-이 값이 실패해도 DB 자체가 내려갔다고 단정하지 않는다. 예를 들어 앱 관리 경로가 `404`를 반환하면
-앱 DB 점검은 실패할 수 있지만, `pg_up`이 정상이면 DB 노드와 DB 흐름 색은 정상으로 유지된다.
+앱 DB 점검과 DB 앞의 공유 연결선은 앱이 `/actuator/health/database`에서 확인한 연결 상태를 따른다.
+검사가 실패하면 연결선은 빨간색으로 바뀌고 흐름이 멈춘다. 이때 직접 접속 검사가 정상이면 DB
+아이콘은 정상으로 유지된다. 앱 관리 경로의 `404`도 검사 실패에 해당하므로 빨간 선만으로 DB
+프로세스가 중단됐다고 단정하지 않는다.
+
+백엔드만 중단되면 앱 지표 수집 실패로 흐름이 멈추고, liveness 실패가 수집되면 연결선은 회색
+`확인 불가`가 된다. Alloy의 DB 직접 검사는 계속되므로 DB 아이콘은 정상일 수 있다. 반대로 모니터링
+계정의 접속이나 exporter 수집만 실패하면 DB 아이콘 상태가 바뀌지만, 앱 연결 검사와 지표 수집이
+정상이고 호출량이 있으면 연결선은 계속 움직인다. 앱 EC2 전체가 중단되면 같은 EC2의 Alloy도
+멈추므로 DB 직접 검사도 갱신되지 않으며, 기존 값의 유효기간이 지나면 `확인 불가`가 된다.
 
 `/actuator/health/database`는 dev·prod Spring 설정의 `database` health group에 `db` contributor만
 포함해 만든 앱 측 연결 검사다. Alloy는 앱 관리 주소를 사용해 `/actuator/health`와
@@ -142,10 +149,12 @@ HTTP 요청·응답선의 animation duration은 실제 2분 평균 호출량으�
 읽을 수 있도록 `biasPower: 0.4`를 사용한다. 선의 색은 health 상태를 따르고, Flow panel의 기본
 일시정지 버튼으로 애니메이션을 멈출 수 있다.
 
-DB 앞의 공유 trunk도 최근 2분 DB 호출량(`db_flow`)으로 animation duration을 정한다. 0 또는 확인
-불가이면 멈추고, 0.05rps는 약 2.4초, 30rps 이상은 약 0.25초로 보간한다. 색은 `db_health`를 따른다.
-이 trunk 속도는 DB 호출 집계의 표현이고 색은 직접 PostgreSQL health의 표현이다. HikariCP 자리 개수나
-대여·반납 모션은 별도의 풀 지표로 정하며 이 health 색 변경과 독립적으로 유지한다.
+DB 앞의 공유 trunk도 최근 2분 DB 호출량으로 animation duration을 정한다. `db_flow`는 앱 지표
+수집과 앱 DB 연결 검사(`db_connection_health`)가 모두 정상일 때만 호출량을 전달하며, 그 외에는
+`0`으로 멈춘다. 호출량이 0이거나 확인 불가일 때도 멈추고, 0.05rps는 약 2.4초, 30rps 이상은
+약 0.25초로 보간한다. 색은 `db_connection_health`를 따라 정상은 초록색, 실패는 빨간색,
+확인 불가는 회색이다. DB 직접 검사(`db_health`)는 이 선의 색이나 움직임을 결정하지 않는다.
+HikariCP 자리 개수나 대여·반납 모션은 별도의 풀 지표로 정하며 기존 표현을 유지한다.
 
 ## DB 연결 풀
 

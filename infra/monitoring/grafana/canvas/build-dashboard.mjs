@@ -90,8 +90,8 @@ const api = icon('api-node', 'server', 558, 282, 112, 112, C.blue, link('백엔�
 const poolAnchor = shape('pool-connection-anchor', 810, 306, 238, 64, 'transparent', 0);
 const databaseNode = icon('database-node', 'database', 1290, 282, 110, 112, C.purple, link('DB 연결 상세 보기'), 'db_health');
 connect(client, api, 'app_health', 'http_flow');
-connect(api, poolAnchor, 'db_health', 'db_flow', true);
-connect(poolAnchor, databaseNode, 'db_health', 'db_flow');
+connect(api, poolAnchor, 'db_connection_health', 'db_flow', true);
+connect(poolAnchor, databaseNode, 'db_connection_health', 'db_flow');
 text('jdbc-label', 'JDBC', 696, 292, 94, 24, 15, C.muted, 'center');
 
 text('client-title', '사용자', 48, 422, 188, 36, 27, C.text, 'center');
@@ -215,7 +215,7 @@ const dashboard = {
   }] },
   panels: [{
     id: 1, type: 'canvas', title: '서비스 관제도 · $environment', pluginVersion: '13.2.3',
-    description: 'API 아이콘은 liveness, 서비스 상태는 DB 포함 종합 health, DB 아이콘과 연결선은 Alloy의 직접 접속 검사입니다. 앱 DB 연결 검사는 별도로 표시합니다. 각 검사는 60초 주기이며 150초 넘게 갱신되지 않으면 확인 불가입니다. DB 호출량·p95는 앱의 JDBC 실행 지표를 사용합니다. CPU는 2분 평균, 메모리는 최근 호스트 수집값입니다. 연결 풀은 앱 소유입니다. 점선 속도는 고정이며 호출량은 숫자와 굵기로 표시합니다.',
+    description: 'API 아이콘은 liveness, 서비스 상태는 DB 포함 종합 health, DB 아이콘은 Alloy의 PostgreSQL 직접 접속 검사입니다. API-풀-DB 연결선은 백엔드 Actuator의 DB 연결 검사로 색을 정하고, JDBC 호출량이 있을 때만 움직입니다. 각 검사는 60초 주기이며 150초 넘게 갱신되지 않으면 확인 불가입니다. DB 호출량·p95는 앱의 JDBC 실행 지표를 사용합니다. CPU는 2분 평균, 메모리는 최근 호스트 수집값입니다. 연결 풀은 앱 소유입니다. 점선 속도는 고정이며 호출량은 숫자와 굵기로 표시합니다.',
     gridPos: { x: 0, y: 0, w: 24, h: 23 }, datasource: { type: 'prometheus', uid: 'prometheus' },
     targets, fieldConfig: { defaults: { color: { mode: 'thresholds' }, noValue: '—', mappings: unknown, thresholds: thresholds() }, overrides },
     options: { inlineEditing: false, showAdvancedTypes: false, panZoom: true, zoomToContent: true, tooltip: { mode: 'single' },

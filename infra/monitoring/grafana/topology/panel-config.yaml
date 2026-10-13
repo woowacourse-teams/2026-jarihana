@@ -349,7 +349,7 @@
     "db-line": {
       "dataRef": "db_flow",
       "strokeColor": {
-        "dataRef": "db_health",
+        "dataRef": "db_connection_health",
         "thresholds": [
           {
             "color": "#93a4bd",
@@ -366,7 +366,7 @@
         ]
       },
       "fillColor": {
-        "dataRef": "db_health",
+        "dataRef": "db_connection_health",
         "thresholds": [
           {
             "color": "#93a4bd",

@@ -9,6 +9,8 @@ const health = [
   { series: `up{${labels}}`, values: '1x60' },
   { series: 'pg_up{job="jarihana-postgres",environment="dev",instance="db"}', values: '1x60' },
   { series: 'up{job="jarihana-postgres",environment="dev",instance="db"}', values: '1x60' },
+  { series: 'probe_success{job="jarihana-liveness",environment="dev",instance="blackbox/backend"}', values: '1x60' },
+  { series: 'probe_success{job="jarihana-database",environment="dev",instance="blackbox/database"}', values: '1x60' },
 ];
 const histogram = (idle = false) => [
   { series: `jdbc_query_seconds_count{${labels}}`, values: idle ? '100x60' : '0+100x60' },
@@ -25,7 +27,11 @@ const cases = [
   { name: 'backend samples older than 30 seconds', series: [{ ...health[0], values: '1x50' }, ...health.slice(1), ...active], rps: -1, p95: -1, flow: 0 },
   { name: 'missing JDBC instrumentation is not zero traffic', series: health, rps: -1, p95: -1, flow: 0 },
   { name: 'other environment metrics cannot leak into dev', series: [...health, ...active.map(item => ({ ...item, series: item.series.replace('environment="dev"', 'environment="prod"') }))], rps: -1, p95: -1, flow: 0 },
-  { name: 'direct DB failure stops animation even with recent completed queries', series: [health[0], { ...health[1], values: '0x60' }, health[2], ...active], rps: 20, p95: 10, flow: 0 },
+  { name: 'direct DB failure does not stop app DB line when backend connection is healthy', series: [health[0], { ...health[1], values: '0x60' }, ...health.slice(2), ...active], rps: 20, p95: 10, flow: 20 },
+  { name: 'app DB probe failure stops animation even when direct DB is healthy', series: [...health.slice(0, 4), { ...health[4], values: '0x60' }, ...active], rps: 20, p95: 10, flow: 0 },
+  { name: 'missing app DB probe stops animation', series: [...health.slice(0, 4), ...active], rps: 20, p95: 10, flow: 0 },
+  { name: 'app DB probe older than 150 seconds stops animation', series: [...health.slice(0, 4), { ...health[4], values: '1x20' }, ...active], rps: 20, p95: 10, flow: 0 },
+  { name: 'failed liveness stops animation despite a fresh healthy app DB probe', series: [...health.slice(0, 3), { ...health[3], values: '0x60' }, health[4], ...active], rps: 20, p95: 10, flow: 0 },
 ];
 const tests = [];
 for (const [filename, type] of [['jarihana-canvas.json', 'andrewbmchugh-flow-panel'], ['jarihana-canvas-native.json', 'canvas']]) {

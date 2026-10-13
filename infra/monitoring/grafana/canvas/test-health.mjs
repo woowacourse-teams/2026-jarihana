@@ -29,11 +29,24 @@ const loadSurface = surface => {
   }
 
   if (surface.name === 'native') {
+    const databaseNode = panel.options.root.elements.find(item => item.name === 'database-node');
+    if (databaseNode?.config?.fill?.field !== 'db_health') {
+      throw new Error('Native database icon must use direct database health');
+    }
     for (const name of ['api-node', 'pool-connection-anchor']) {
       const element = panel.options.root.elements.find(item => item.name === name);
-      if (element?.connections?.length !== 2 || element.connections.some(connection => connection.color.field !== 'db_health')) {
-        throw new Error('Native DB connection must use direct database health: ' + name);
+      if (element?.connections?.length !== 2 || element.connections.some(connection => connection.color.field !== 'db_connection_health')) {
+        throw new Error('Native DB connection must use backend database connectivity: ' + name);
       }
+    }
+  } else if (surface.name === 'flow') {
+    const panelConfig = JSON.parse(panel.options.panelConfig);
+    if (panelConfig.cells.database?.dataRef !== 'db_health' || panelConfig.cells['db-health']?.dataRef !== 'db_health') {
+      throw new Error('Flow database icon/status must use direct database health');
+    }
+    const dbLine = panelConfig.cells['db-line'];
+    if (dbLine?.strokeColor?.dataRef !== 'db_connection_health' || dbLine?.fillColor?.dataRef !== 'db_connection_health') {
+      throw new Error('Flow DB line color must use backend database connectivity');
     }
   }
 
@@ -75,7 +88,8 @@ const requiredMatchers = [
   ['db_connection_health', /probe_success\{[^}]*job="jarihana-liveness"[^}]*environment="dev"/],
   ['db_flow', /jdbc_query_seconds_count\{[^}]*job="jarihana-backend"[^}]*environment="dev"/],
   ['db_flow', /up\{[^}]*job="jarihana-backend"[^}]*environment="dev"/],
-  ['db_flow', /pg_up\{[^}]*job="jarihana-postgres"[^}]*environment="dev"/],
+  ['db_flow', /probe_success\{[^}]*job="jarihana-database"[^}]*environment="dev"/],
+  ['db_flow', /probe_success\{[^}]*job="jarihana-liveness"[^}]*environment="dev"/],
 ];
 
 const surfaces = healthSurfaces.map(loadSurface);
@@ -128,7 +142,7 @@ const cases = [
     expected: { app_liveness: 0, db_health: 1, db_connection_health: -1, db_flow: 0 },
   },
   {
-    name: 'production 404 app database probe does not mark direct postgres down',
+    name: 'app database probe failure stops DB line but keeps direct postgres healthy',
     input: inputSeries([
       ['appLiveness', '1x6'],
       ['appDbProbe', '0x6'],
@@ -137,7 +151,42 @@ const cases = [
       ['backendUp', '1x6'],
       ['dbRequests', '0+60x6'],
     ]),
-    expected: { app_liveness: 1, db_health: 1, db_connection_health: 0, db_flow: 1 },
+    expected: { app_liveness: 1, db_health: 1, db_connection_health: 0, db_flow: 0 },
+  },
+  {
+    name: 'missing app database probe stops DB line but keeps direct postgres healthy',
+    input: inputSeries([
+      ['appLiveness', '1x6'],
+      ['directPgUp', '1x6'],
+      ['postgresScrapeUp', '1x6'],
+      ['backendUp', '1x6'],
+      ['dbRequests', '0+60x6'],
+    ]),
+    expected: { app_liveness: 1, db_health: 1, db_connection_health: -1, db_flow: 0 },
+  },
+  {
+    name: 'stale app database probe stops DB line but keeps direct postgres healthy',
+    input: inputSeries([
+      ['appLiveness', '1x6'],
+      ['appDbProbe', '1x1'],
+      ['directPgUp', '1x6'],
+      ['postgresScrapeUp', '1x6'],
+      ['backendUp', '1x6'],
+      ['dbRequests', '0+60x6'],
+    ]),
+    expected: { app_liveness: 1, db_health: 1, db_connection_health: -1, db_flow: 0 },
+  },
+  {
+    name: 'failed liveness invalidates a still-fresh healthy app database probe',
+    input: inputSeries([
+      ['appLiveness', '0x6'],
+      ['appDbProbe', '1x6'],
+      ['directPgUp', '1x6'],
+      ['postgresScrapeUp', '1x6'],
+      ['backendUp', '1x6'],
+      ['dbRequests', '0+60x6'],
+    ]),
+    expected: { app_liveness: 0, db_health: 1, db_connection_health: -1, db_flow: 0 },
   },
   {
     name: 'metrics scrape failure does not mask liveness or direct database probes',
@@ -164,7 +213,7 @@ const cases = [
     expected: { app_liveness: -1, db_health: -1, db_connection_health: -1, db_flow: 0 },
   },
   {
-    name: 'postgres exporter scrape failure makes direct database health unknown',
+    name: 'postgres exporter scrape failure does not stop app DB line',
     input: inputSeries([
       ['appLiveness', '1x6'],
       ['appDbProbe', '1x6'],
@@ -173,7 +222,7 @@ const cases = [
       ['backendUp', '1x6'],
       ['dbRequests', '0+60x6'],
     ]),
-    expected: { app_liveness: 1, db_health: -1, db_connection_health: 1, db_flow: 0 },
+    expected: { app_liveness: 1, db_health: -1, db_connection_health: 1, db_flow: 1 },
   },
   {
     name: 'no matching health samples are unknown',
@@ -196,7 +245,7 @@ const cases = [
       ['backendUp', '1x6'],
       ['dbRequests', '0+60x6'],
     ]),
-    expected: { app_liveness: 1, db_health: -1, db_connection_health: 1, db_flow: 0 },
+    expected: { app_liveness: 1, db_health: -1, db_connection_health: 1, db_flow: 1 },
   },
 ];
 
