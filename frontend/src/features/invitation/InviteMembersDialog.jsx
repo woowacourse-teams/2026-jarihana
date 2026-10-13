@@ -460,7 +460,9 @@ function InviteMembersDialogSession({ groupId, open, onClose }) {
                             <div className="invitation-issued__main">
                               <div className="invitation-issued__title-row"><strong>{isLink ? "공유 링크" : "회원 초대"}</strong>
                                 <span className={`invitation-status invitation-status--${invitation.status.toLowerCase()}`}>{statusLabel(invitation.status, invitation.type)}</span></div>
-                              <p>{invitation.inviter?.crewName ? `${invitation.inviter.crewName} · ` : ""}{isLink ? "모임에 참여 중인 회원이 복사할 수 있어요." : "회원에게 직접 보낸 초대예요."}</p>
+                              {isLink
+                                ? <p>{invitation.inviter?.crewName ? `${invitation.inviter.crewName} · ` : ""}모임에 참여 중인 회원이 복사할 수 있어요.</p>
+                                : <p className="invitation-issued__recipient">수신자: {invitation.targetMember?.crewName || "수신자 정보 없음"}</p>}
                               {invitation.expiresAt ? <time dateTime={invitation.expiresAt}>만료 {invitation.expiresAt.slice(0, 10).replaceAll("-", ".")}</time> : !isLink && <span className="invitation-issued__expiry">만료 없음</span>}
                             </div>
                             <div className="invitation-issued__actions">

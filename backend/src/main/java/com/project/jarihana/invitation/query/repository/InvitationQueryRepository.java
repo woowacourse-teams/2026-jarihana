@@ -3,6 +3,7 @@ package com.project.jarihana.invitation.query.repository;
 import com.project.jarihana.invitation.domain.Invitation;
 import com.project.jarihana.invitation.query.repository.dto.ReceivedInvitationProjection;
 import com.project.jarihana.invitation.query.repository.dto.InvitationDetailProjection;
+import com.project.jarihana.invitation.query.repository.dto.IssuedInvitationProjection;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.Query;
@@ -33,8 +34,8 @@ public interface InvitationQueryRepository extends Repository<Invitation, Long> 
     Optional<Long> findLinkIdByTokenHash(@Param("hash") String hash);
 
     @Query("""
-            select new com.project.jarihana.invitation.query.repository.dto.ReceivedInvitationProjection(
-                i.id, i.type, g.id, g.name, inviter.id, inviter.crewName, i.createdAt, i.expiresAt, i.revokedAt, g.status = com.project.jarihana.group.domain.GroupStatus.ACTIVE,
+            select new com.project.jarihana.invitation.query.repository.dto.IssuedInvitationProjection(
+                i.id, i.type, g.id, g.name, inviter.id, inviter.crewName, target.id, target.crewName, i.createdAt, i.expiresAt, i.revokedAt, g.status = com.project.jarihana.group.domain.GroupStatus.ACTIVE,
                 inviter.withdrawnAt is null and exists (
                     select gm.id from GroupMember gm where gm.group.id = g.id and gm.member.id = inviter.id),
                 exists (select a.id from InvitationAcceptance a where a.invitation.id = i.id and a.member.id = target.id), i.state)
@@ -44,7 +45,7 @@ public interface InvitationQueryRepository extends Repository<Invitation, Long> 
               and (cast(:createdAt as timestamp) is null or i.createdAt < :createdAt or (i.createdAt = :createdAt and i.id < :id))
             order by i.createdAt desc, i.id desc
             """)
-    Slice<ReceivedInvitationProjection> findIssued(@Param("groupId") long groupId, @Param("memberId") long memberId,
+    Slice<IssuedInvitationProjection> findIssued(@Param("groupId") long groupId, @Param("memberId") long memberId,
             @Param("managed") boolean managed, @Param("createdAt") LocalDateTime createdAt,
             @Param("id") Long id, Pageable pageable);
 

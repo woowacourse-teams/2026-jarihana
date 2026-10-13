@@ -36,6 +36,19 @@ test("취소 응답은 대상 초대와 상태를 검증한다", async () => {
   await expect(revokeInvitation(501, wire({ id: 502, revokedAt: time, status: "CANCELED" }).client)).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
   expect(await revokeInvitation(501, wire({ id: 501, revokedAt: time, status: "CANCELED" }).client)).toMatchObject({ id: 501 });
 });
+test("보낸 지정 초대의 수신자 이름은 API 검증 뒤에도 보존하고 공유 링크의 수신자는 null로 처리한다", async () => {
+  const direct = { ...invitation, targetMember: { id: 21, crewName: "노을" } };
+  const link = { ...invitation, id: 502, type: "LINK", targetMember: null };
+  const page = { items: [direct, link], nextCursor: null, hasNext: false };
+  const result = await fetchIssuedInvitations(10, { scope: "MINE" }, wire(page).client);
+  expect(result.items[0].targetMember).toEqual({ id: 21, crewName: "노을" });
+  expect(result.items[1].targetMember).toBeNull();
+});
+test("수신자 필드가 없는 이전 보낸 초대 응답도 조회할 수 있다", async () => {
+  const result = await fetchIssuedInvitations(10, { scope: "MINE" }, wire({ items: [invitation], nextCursor: null, hasNext: false }).client);
+  expect(result.items).toHaveLength(1);
+  expect(result.items[0].targetMember).toBeUndefined();
+});
 test("회원 후보와 보낸 초대의 첫 페이지 요청에는 null 커서를 보내지 않는다", async () => {
   const { client, requests } = wire({ items: [], nextCursor: null, hasNext: false });
   await fetchInvitationCandidates(10, { keyword: "", cursor: null, size: 20 }, client);

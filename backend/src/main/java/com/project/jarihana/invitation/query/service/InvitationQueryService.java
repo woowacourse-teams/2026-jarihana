@@ -60,7 +60,8 @@ public class InvitationQueryService {
             InvitationStatus status = InvitationStatus.resolve(item.type(), item.revokedAt(), item.groupActive(),
                     item.inviterPresent(), item.expiresAt(), item.accepted(), now, item.state());
             return new IssuedInvitationResult.Item(item.id(), item.type(), item.groupId(), item.groupName(),
-                    item.inviterId(), item.inviterCrewName(), item.createdAt(), item.expiresAt(), status, item.groupActive() && item.revokedAt() == null && status != InvitationStatus.CANCELED
+                    item.inviterId(), item.inviterCrewName(), item.targetMemberId(), item.targetMemberCrewName(),
+                    item.createdAt(), item.expiresAt(), status, item.groupActive() && item.revokedAt() == null && status != InvitationStatus.CANCELED
                     && (item.inviterId() == memberId || (item.type() == InvitationType.LINK && membership.getRole() == GroupMemberRole.LEADER)));
         }).toList(), next, page.hasNext());
     }

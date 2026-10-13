@@ -176,6 +176,38 @@ test("알림함의 초대 행은 기존 클릭 action으로 초대장에 연결�
   await expect(page.getByRole("button", { name: "수락" })).toBeVisible();
   expect(state.reads).toBe(1); expect(state.accepts).toEqual([]);
 });
+test("실제 Service Worker의 초대 알림 이동은 열린 창에서 해당 초대장을 연다", async ({ page, context }) => {
+  const { state } = await fixture(page);
+  await page.goto("/groups");
+  const binding = await page.evaluate(async () => {
+    await navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" });
+    const registration = await navigator.serviceWorker.ready;
+    const command = data => new Promise((resolve, reject) => {
+      const channel = new MessageChannel();
+      const timer = setTimeout(() => reject(new Error("SW command timeout")), 5000);
+      channel.port1.onmessage = event => { clearTimeout(timer); channel.port1.close(); resolve(event.data); };
+      registration.active.postMessage({ protocol: 1, ...data }, [channel.port2]);
+    });
+    const initial = await command({ type: "GET_STATE" });
+    const bound = await command({ type: "BIND", expectedRevision: initial.state.revision,
+      binding: { id: 8, memberId: 1, generation: 1 } });
+    if (!bound.ok) throw new Error("SW binding failed");
+    return bound.state;
+  });
+  const worker = context.serviceWorkers()[0];
+  await worker.evaluate(async binding => {
+    try {
+      await globalThis.openNotification({ data: { notificationId: 7, binding }, close() {} });
+    } catch (error) {
+      // OS 클릭 없이 호출한 테스트는 이동 후 창 focus에 필요한 사용자 활성화가 없다.
+      if (error.name !== "InvalidAccessError") throw error;
+    }
+  }, binding);
+  await expect(page).toHaveURL(/\/invitations\/501$/);
+  await expect(page.getByRole("button", { name: "수락" })).toBeVisible();
+  expect(state.order.slice(0, 3)).toEqual(["notification", "detail", "read"]);
+  expect(state.accepts).toEqual([]);
+});
 test("조회 뒤 취소된 초대의 수락 실패는 안내하고 버튼을 제거한다", async ({ page }) => {
   const { state } = await fixture(page); state.acceptanceCode = "INVITATION_CANCELED";
   await page.goto("/invitations/501"); await page.getByRole("button", { name: "수락" }).click();

@@ -39,6 +39,7 @@ export const invitationCandidatePageSchema = cursorPageSchema(z.object({
 }));
 export const issuedInvitationPageSchema = cursorPageSchema(z.object({
   id, type: z.enum(["DIRECT", "LINK"]), group: z.object({ id, name: z.string() }),
+  targetMember: z.object({ id, crewName: z.string() }).nullable().optional(),
   inviter: z.object({ id, crewName: z.string() }), createdAt: localDateTimeSchema,
   expiresAt: localDateTimeSchema.nullable(), status: invitationStatusSchema, canRevoke: z.boolean()
 }));

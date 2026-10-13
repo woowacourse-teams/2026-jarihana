@@ -755,6 +755,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         Member leader = member("101");
         Member inviter = member("102");
         Member target = member("103");
+        Member otherTarget = member("104");
         Group group = group(leader);
         groupMembers.save(GroupMember.createMember(group, inviter, NOW));
         long directId = issue(inviter, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
@@ -763,7 +764,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         long leaderLink = issue(leader, group.getId(), Map.of("type", "LINK", "requestId", UUID.randomUUID()))
                 .jsonPath().getLong("data.id");
         long leaderDirectId = issue(leader, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
-        long latestDirectId = issue(inviter, group.getId(), direct(target, UUID.randomUUID())).jsonPath().getLong("data.id");
+        long latestDirectId = issue(inviter, group.getId(), direct(otherTarget, UUID.randomUUID())).jsonPath().getLong("data.id");
 
         // When
         Response first = auth(inviter).queryParam("size", 1).get("/groups/{id}/invitations", group.getId());
@@ -775,16 +776,24 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         assertThat(first.statusCode()).isEqualTo(200);
         assertThat(first.jsonPath().getList("data.items.id", Long.class)).containsExactly(latestDirectId);
         assertThat(first.jsonPath().getString("data.items[0].type")).isEqualTo("DIRECT");
+        assertThat(first.jsonPath().getMap("data.items[0].targetMember"))
+                .containsOnlyKeys("id", "crewName");
+        assertThat(first.jsonPath().getLong("data.items[0].targetMember.id")).isEqualTo(otherTarget.getId());
+        assertThat(first.jsonPath().getString("data.items[0].targetMember.crewName")).isEqualTo(otherTarget.getCrewName());
         assertThat(first.jsonPath().getBoolean("data.hasNext")).isTrue();
         assertThat(first.jsonPath().getMap("data.items[0]")).doesNotContainKey("message");
         assertThat(next.jsonPath().getLong("data.items[0].id")).isEqualTo(directId);
         assertThat(next.jsonPath().getString("data.items[0].type")).isEqualTo("DIRECT");
+        assertThat(next.jsonPath().getLong("data.items[0].targetMember.id")).isEqualTo(target.getId());
+        assertThat(next.jsonPath().getString("data.items[0].targetMember.crewName")).isEqualTo(target.getCrewName());
         assertThat(next.jsonPath().getBoolean("data.hasNext")).isFalse();
         assertThat(next.jsonPath().getString("data.nextCursor")).isNull();
         assertThat(managed.statusCode()).isEqualTo(200);
         assertThat(leaderLink).isEqualTo(linkId);
         assertThat(managed.jsonPath().getList("data.items.id", Long.class)).containsExactly(linkId);
         assertThat(managed.jsonPath().getMap("data.items[0]")).doesNotContainKey("message");
+        assertThat(managed.jsonPath().getMap("data.items[0]")).containsKey("targetMember");
+        assertThat(managed.jsonPath().getMap("data.items[0].targetMember")).isNull();
         assertThat(managed.asString()).doesNotContain("message", "sharePath", "tokenHash", "encryptedToken");
         Response memberLinks = auth(inviter).queryParam("scope", "MANAGED_LINKS").get("/groups/{id}/invitations", group.getId());
         assertThat(memberLinks.statusCode()).isEqualTo(200);
