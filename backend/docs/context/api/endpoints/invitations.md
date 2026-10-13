@@ -155,6 +155,10 @@ Request Body는 없다.
           "id": 3,
           "crewName": "가온"
         },
+        "targetMember": {
+          "id": 21,
+          "crewName": "마루"
+        },
         "createdAt": "2026-10-11T14:00:00",
         "expiresAt": null,
         "status": "VALID",
@@ -169,7 +173,8 @@ Request Body는 없다.
 ```
 
 - MINE은 본인이 발급한 DIRECT만, MANAGED_LINKS는 모임의 LINK 전체다. 본인이 발급한 LINK도 MANAGED_LINKS에서만 조회한다. 두 scope 모두 현재 모임장과 일반 모임원이 조회할 수 있다. 타인 DIRECT는 어느 scope에도 제공하지 않는다.
-- items 필드: id·type·group(id,name)·inviter(id,crewName)·createdAt·expiresAt·status·canRevoke.
+- items 필드: id·type·group(id,name)·inviter(id,crewName)·targetMember(id,crewName)·createdAt·expiresAt·status·canRevoke.
+- targetMember는 DIRECT의 수신 회원 ID와 표시명만 제공하며 LINK에서는 null이다. 수신자 정보도 기존 목록 권한 안에서만 조회할 수 있다.
 - 모든 초대 요청·응답에는 개인 메시지 필드가 없다.
 - canRevoke는 현재 소속·유형별 권한이 있고 모임이 ACTIVE이며 아직 취소되지 않은 경우 true다. 시간 만료나 수락 이력이 있어도 이 조건을 충족하면 취소할 수 있다. 거절 상태를 우선 표시하는 DIRECT도 취소 시각이 있으면 false다. 취소 요청에서 권한을 다시 검사한다.
 - MANAGED_LINKS를 조회할 수 있다고 취소 권한이 생기는 것은 아니다. 타인 LINK의 canRevoke는 현재 모임장에게만 true다.

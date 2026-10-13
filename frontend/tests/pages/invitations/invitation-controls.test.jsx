@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useAuth } from "../../../src/features/auth";
-import { createInvitation, fetchInvitationCandidates } from "../../../src/features/invitation/api";
+import { createInvitation, fetchInvitationCandidates, fetchIssuedInvitations } from "../../../src/features/invitation/api";
 import { InviteMembersDialog } from "../../../src/features/invitation/InviteMembersDialog.jsx";
 import { ShareInvitationButton } from "../../../src/features/invitation/ShareInvitationButton.jsx";
 import { ToastProvider } from "../../../src/shared/ui/Toast.jsx";
@@ -24,6 +24,18 @@ beforeEach(() => {
   jest.clearAllMocks();
   useAuth.mockReturnValue({ member: { id: 1 }, sessionVersion: 1, status: "authenticated" });
   fetchInvitationCandidates.mockResolvedValue({ items: people, nextCursor: null, hasNext: false });
+});
+test("내가 보낸 초대에는 각 수신자 이름을 표시하고 발신자 이름을 표시하지 않는다", async () => {
+  fetchIssuedInvitations.mockResolvedValue({ items: people.map((person, index) => ({
+    id: 501 + index, type: "DIRECT", group: { id: 10, name: "스터디" },
+    inviter: { id: 1, crewName: "발신자" }, targetMember: { id: person.memberId, crewName: person.crewName },
+    status: index ? "ACCEPTED" : "VALID", canRevoke: true, expiresAt: null
+  })), nextCursor: null, hasNext: false });
+  setup(<InviteMembersDialog groupId="10" open onClose={jest.fn()} />);
+  await userEvent.click(screen.getByRole("tab", { name: "보낸 초대" }));
+  expect(await screen.findByText("수신자: 노을")).toBeInTheDocument();
+  expect(screen.getByText("수신자: 하늘")).toBeInTheDocument();
+  expect(screen.queryByText(/발신자/)).not.toBeInTheDocument();
 });
 async function selectBoth() {
   await userEvent.type(screen.getByRole("textbox", { name: "회원 이름 검색" }), "회원");

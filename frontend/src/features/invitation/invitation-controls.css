@@ -386,6 +386,10 @@
   gap: var(--space-1);
 }
 
+.invitation-issued__recipient {
+  overflow-wrap: anywhere;
+}
+
 .invitation-status {
   padding: 0.2rem 0.5rem;
   color: var(--color-muted-ink);

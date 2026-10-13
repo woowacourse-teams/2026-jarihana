@@ -14,7 +14,9 @@ async function selectCandidate(page, dialog, name) {
 }
 async function fixture(page, { role = "LEADER", ended = false, auth = "authenticated", failSecond = false } = {}) {
   await installApiFixture(page, { auth });
-  const row = (id, type, canRevoke) => ({ id, type, group: { id: 10, name: group.name }, inviter: { id: 2, crewName: "하늘" }, createdAt: time, expiresAt: type === "LINK" ? "2026-10-15T12:00:00" : null, status: "VALID", canRevoke });
+  const row = (id, type, canRevoke) => ({ id, type, group: { id: 10, name: group.name }, inviter: { id: 2, crewName: "하늘" },
+    targetMember: type === "DIRECT" ? { id: 21, crewName: "노을" } : null,
+    createdAt: time, expiresAt: type === "LINK" ? "2026-10-15T12:00:00" : null, status: "VALID", canRevoke });
   const state = { creates: [], candidates: [], revokes: [], failSecond,
     issued: [row(601, "DIRECT", true)], links: [row(501, "LINK", role === "LEADER")] };
   const reply = (route, data, status = 200) => route.fulfill({ status, json: { success: true, data, error: null } });
@@ -46,6 +48,23 @@ async function fixture(page, { role = "LEADER", ended = false, auth = "authentic
 }
 
 for (const width of [360, 768, 1440]) {
+  test(`보낸 초대 수신자 표시·긴 이름 줄바꿈·접근성 ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const state = await fixture(page);
+    const longName = "LongRecipientName".repeat(8);
+    state.issued.push({ ...state.issued[0], id: 602, targetMember: { id: 22, crewName: longName }, status: "ACCEPTED" });
+    await page.goto("/groups/10?tab=members");
+    await page.locator(".invitation-member-trigger").click();
+    await page.getByRole("tab", { name: "보낸 초대" }).click();
+    const dialog = page.getByRole("dialog", { name: "멤버 초대" });
+    await expect(dialog.getByText("수신자: 노을")).toBeVisible();
+    await expect(dialog.getByText(`수신자: ${longName}`)).toBeVisible();
+    await expect(dialog.getByText(/하늘/)).toHaveCount(0);
+    await expect(dialog.locator(".invitation-issued__recipient").first()).toHaveCSS("overflow-wrap", "anywhere");
+    expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    expect((await new AxeBuilder({ page }).include('[role="dialog"]').analyze()).violations).toEqual([]);
+    await page.screenshot({ path: `test-results/invitation-recipients-${width}.png` });
+  });
   test(`다수 선택·검색 유지·참여자 버튼 위치와 키보드 접근 ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     const state = await fixture(page);
