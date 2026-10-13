@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -277,6 +277,9 @@ const tempDir = mkdtempSync(join(tmpdir(), 'jarihana-health-promtool-'));
 try {
   const testFile = join(tempDir, 'health.yml');
   writeFileSync(testFile, yaml);
+  // promtool runs as nobody; Linux mkdtemp directories are owner-only.
+  chmodSync(tempDir, 0o755);
+  chmodSync(testFile, 0o644);
   const result = spawnSync('docker', [
     'run', '--rm',
     '--entrypoint', 'promtool',

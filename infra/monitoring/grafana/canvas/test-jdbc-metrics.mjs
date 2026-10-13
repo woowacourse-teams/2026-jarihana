@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -79,7 +79,11 @@ for (const [filename, type] of [['jarihana-canvas.json', 'andrewbmchugh-flow-pan
 const directory = mkdtempSync(join(tmpdir(), 'jarihana-jdbc-promtool-'));
 try {
   // JSON is valid YAML and avoids a test-only serialization dependency.
-  writeFileSync(join(directory, 'jdbc.yml'), JSON.stringify({ evaluation_interval: '5s', tests }));
+  const testFile = join(directory, 'jdbc.yml');
+  writeFileSync(testFile, JSON.stringify({ evaluation_interval: '5s', tests }));
+  // promtool runs as nobody; Linux mkdtemp directories are owner-only.
+  chmodSync(directory, 0o755);
+  chmodSync(testFile, 0o644);
   const result = spawnSync('docker', [
     'run', '--rm', '--entrypoint', 'promtool', '-v', `${directory}:/work:ro`,
     'prom/prometheus:v3.15.0', 'test', 'rules', '/work/jdbc.yml',
