@@ -30,6 +30,7 @@ public class SecurityConfig {
             "/groups/*/activity-posts",
             "/activity-posts",
             "/activity-posts/*/comments",
+            "/images/**",
             "/share/groups/*",
             "/invitations/links/*",
             "/assets/default-group.png"
