@@ -21,7 +21,7 @@ Webhook은 저장소 Settings → Secrets and variables → Actions의 repositor
 모니터링 서버 자동 배포 workflow가 이 값을 shell 환경변수로 주입하고 `--env-file /dev/null`로
 Compose를 실행하므로 EC2에 `.env` 파일을 둘 필요는 없다. [.env.example](../../monitoring/.env.example)은
 터미널에서 같은 명령을 임시로 재현할 때 확인하는 보조 자료다. URL 원문은 추적되는 설정·문서·커밋·작업 로그에 남기지 않는다.
-Secret 값만 바꾸면 push 이벤트가 없으므로 변경 직후에는 `workflow_dispatch`로 `main`의 모니터링 배포를 다시 실행한다.
+Secret 값만 바꾸면 push 이벤트가 없으므로 변경 직후에는 `workflow_dispatch`로 `develop`의 모니터링 배포를 다시 실행한다.
 
 ```dotenv
 # 실제 URL로 채운다. 아래 문자열은 형식 예시다.
@@ -154,7 +154,7 @@ docker compose --env-file infra/.env -f infra/docker-compose.dev.yml up -d --no-
 도착하고 값이 `1`인지 확인한 뒤 아래 Grafana 설정을 적용한다. 전체 앱 배포와 수집 확인은
 [앱과 Alloy 실행 절차](OPERATIONS.md#2-앱과-alloy-함께-실행)를 참고한다.
 
-`main` 브랜치에 알림 파일이나 모니터링 Compose 구성이 push되면
+`develop` 브랜치에 알림 파일이나 모니터링 Compose 구성이 push되면
 [모니터링 배포 workflow](OPERATIONS.md#1-모니터링-서버-실행과-자동-배포)가 모니터링 EC2에서
 자동으로 재생성한다. 별도 초기화 컨테이너나 호스트 스크립트는 필요하지 않다.
 
@@ -200,6 +200,6 @@ Alert rules에서 알림 정의 12개와 환경·호스트별 평가 상태를 �
 서비스 전체의 가용성이나 무중단을 보장하지 않는다. 모니터링 서버나 Grafana가 완전히 중단되면 같은 서버에서 알릴 수 없다. 호스트 수집을
 추가해도 이 한계는 남으며 외부 watchdog은 아직 구현하지 않았다.
 
-인프라 설정 적용은 모니터링 전용 workflow가 자동으로 시작한다. 이 workflow는 `main`의
+인프라 설정 적용은 모니터링 전용 workflow가 자동으로 시작한다. 이 workflow는 `develop`의
 `infra/monitoring/**` 또는 workflow 파일 변경에만 반응하며, backend 배포 workflow를 실행하지 않는다.
-`workflow_dispatch`는 같은 `main` revision을 다시 적용할 때 사용한다.
+`workflow_dispatch`는 같은 `develop` revision을 다시 적용할 때 사용한다.

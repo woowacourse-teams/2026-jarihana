@@ -46,7 +46,7 @@ JSON은 `canvas` 단일 패널 하나에 모든 Prometheus target을 둔다. 별
 | `백엔드 호스트` | EC2 호스트 | CPU·메모리 같은 서버 자원 상태 |
 | `애플리케이션` | Spring Boot 앱 | 앱 liveness와 종합 health, HTTP 요청량, p95·p99, 5xx |
 | `앱의 커넥션 풀` | 앱 프로세스의 HikariCP | active·idle·max·pending과 풀 사용률 |
-| `PostgreSQL` | 외부 RDS | Alloy의 직접 접속 검사와 trace 기반 DB 호출 |
+| `PostgreSQL` | 외부 RDS | Alloy의 직접 접속 검사와 JDBC 메트릭 기반 DB 호출 |
 
 HikariCP 수치는 RDS 서버의 전체 연결 수가 아니다. 앱 프로세스가 가진 JDBC 연결 풀 상태다.
 `대기`는 연결을 얻으려고 기다리는 스레드 수다. CPU·메모리는 선택한 환경의 호스트 중
@@ -85,8 +85,8 @@ liveness는 관리 포트 8081의 응답이다. 업무 포트 8080이나 실제 
 | --- | --- |
 | HTTP req/s | `http_server_requests_seconds_count`의 최근 2분 rate, `/actuator.*` 제외 |
 | HTTP p95·p99 | `http_server_requests_seconds_bucket`의 최근 2분 histogram quantile |
-| DB ops/s | Tempo service graph의 최근 2분 rate |
-| DB p95 | Tempo service graph client seconds bucket의 최근 2분 histogram quantile |
+| DB ops/s | `jdbc_query_seconds_count`의 최근 2분 rate |
+| DB p95 | `jdbc_query_seconds_bucket`의 최근 2분 histogram quantile |
 | CPU | `node_cpu_seconds_total`의 최근 2분 rate |
 | 메모리 | 가장 최근 host exporter sample |
 | HikariCP | 가장 최근 앱 metric sample |

@@ -1,9 +1,12 @@
-# Tempo 트레이스 수집
+# Tempo 트레이스 선택 구성
 
-요청 하나에서 HTTP 처리와 JDBC 호출에 걸린 시간을 확인하기 위한 구성이다.
+요청 하나에서 HTTP 처리와 JDBC 호출에 걸린 시간을 trace로 확인해야 할 때 켜는 선택 구성이다.
+기본 모니터링과 서비스 토폴로지는 Tempo 없이 동작한다. DB 호출량과 DB p95는 백엔드 Actuator의
+`jdbc_query_seconds_*` Prometheus 지표로 계산한다.
 이 문서는 데이터 생성·전송·저장과 Grafana 데이터 소스를 설명한다. Canvas 화면의 의미와
 한계는 [Grafana Canvas](CANVAS.md)에 둔다.
-선택 배경은 [인프라 ADR 0003](../adr/0003-tempo-tracing.md)에 있다.
+선택 배경은 [인프라 ADR 0003](../adr/0003-tempo-tracing.md), 기본 비활성 결정은
+[인프라 ADR 0004](../adr/0004-disable-tempo-by-default.md)에 있다.
 
 ## 데이터 흐름
 
@@ -16,10 +19,10 @@ flowchart LR
   TEMPO -->|"metrics-generator · remote write"| PROM["Prometheus"]
 ```
 
-Java Agent `2.32.0`은 [백엔드 Dockerfile](../../../backend/Dockerfile)에 버전과 SHA-256을 고정해
-포함한다. 실행 시 다운로드하지 않는다. Dockerfile의 `JAVA_TOOL_OPTIONS`가 컨테이너 이미지에서
-Agent를 활성화하며, 필요하면 실행 환경에서 `OTEL_SDK_DISABLED=true`로 전송을 끈다.
-IDE나 기존 `bootRun` 실행에는 자동으로 붙지 않는다. 애플리케이션 코드나 Gradle 의존성은 바꾸지 않는다.
+Java Agent `2.32.0`은 선택 구성에서만 사용한다. 백엔드 이미지에 Agent 파일이 포함되어 있더라도
+기본 실행에서는 `OTEL_SDK_DISABLED=true`로 Agent를 끄고 trace exporter와 Tempo 전송을 켜지 않는다.
+trace가 필요할 때만 실행 환경에서 `OTEL_SDK_DISABLED=false`와 OTLP trace 설정을 함께 지정한다.
+IDE나 기존 `bootRun` 실행에는 자동으로 붙지 않는다. trace를 켜기 위해 업무 코드에 별도 span을 먼저 추가하지는 않는다.
 
 Agent의 메트릭·로그 exporter는 `none`이다. 기존 Micrometer → Prometheus와 Docker 로그 → Loki
 경로를 그대로 사용하고 OTLP로는 트레이스만 보낸다. 지원하는 라이브러리를 자동 계측하는 방식이며,
@@ -34,8 +37,8 @@ payload를 전송하지 않는다. 헤더·본문 수집은 활성화하지 않�
 | 설정 | 값과 의미 |
 | --- | --- |
 | 앱 → Alloy | `http://host.docker.internal:4318`, OTLP `http/protobuf` |
-| Alloy → Nginx → Tempo | 필수 `TEMPO_OTLP_ENDPOINT=http://<monitoring-private-ip>:8080/tempo`, OTLP HTTP 기본 주소 |
-| Grafana → Tempo | Compose 내부 주소 `http://tempo:3200`, 데이터 소스 UID `tempo` |
+| Alloy → Nginx → Tempo | 선택 구성에서 `TEMPO_OTLP_ENDPOINT=http://<monitoring-private-ip>:8080/tempo`, OTLP HTTP 기본 주소 |
+| Grafana → Tempo | 선택 구성에서 Compose 내부 주소 `http://tempo:3200`, 데이터 소스 UID `tempo` |
 | `service.name` | `jarihana` |
 | `deployment.environment.name` | 앱 Compose에 고정한 `dev` 또는 `prod` |
 | `service.instance.id` | 해당 앱 EC2의 `HOST_ID` |
@@ -51,7 +54,8 @@ Alloy는 `otelcol.exporter.otlphttp`를 사용하며 `TEMPO_OTLP_ENDPOINT`에 `/
 추가한다. endpoint에는 `/tempo`까지 넣고 `/v1/traces`를 중복해서 넣지 않는다.
 모니터링 EC2의 Nginx `8080`을 `MONITORING_BIND_ADDRESS`의 사설 IP에 bind하고, 정확히 일치하는
 `POST /tempo/v1/traces`에서 `/tempo`를 제거해 Compose 내부 Tempo HTTP receiver `4318`의
-`/v1/traces`로 전달한다. Nginx는 RFC1918 사설 IPv4와 loopback만 허용하고 나머지 출발지를 거부한다.
+`/v1/traces`로 전달하는 설정을 선택 구성에서만 적용한다. 기본 Nginx 설정은 이 경로를 `404`로 막는다.
+Nginx는 RFC1918 사설 IPv4와 loopback만 허용하고 나머지 출발지를 거부한다.
 알 수 없는 경로는 `404`, 허용 경로의 POST 외 메서드는 `403`으로 응답한다.
 보안 그룹·라우팅도 앱 EC2의 사설 접근만 허용하는지 확인한다. 사설 IP bind만으로 인터넷 차단을 보장하지 않는다.
 초기 OTLP 구간에는 TLS·인증이 없으므로 신뢰하는 사설망에서만 사용한다. Tempo `4317`은 호스트에
@@ -59,13 +63,20 @@ publish하지 않으며 조회 API `3200`은 호스트 loopback에만 공개한�
 
 ## 실행 순서
 
-1. [모니터링 실행 가이드](OPERATIONS.md)의 환경변수로 Nginx를 포함한 모니터링 스택을 먼저 시작한다.
+1. 기본 모니터링 스택이 정상 동작하는지 먼저 확인한다. Tempo를 켜려면 Compose `tracing` profile로
+   Tempo 서비스를 올리는 것만으로는 부족하다. 기본 구성에서 빠져 있는 다음 항목을 같이 복원한다.
+
+   - Grafana provisioning의 `deleteDatasources`에서 Tempo를 제거하고 Tempo 데이터 소스를 다시 등록한다.
+   - Nginx의 `/tempo/v1/traces` 경로를 `404` 대신 `proxy_pass http://tempo:4318/v1/traces`로 되돌린다.
+   - Prometheus의 Tempo scrape job 주석을 해제한다.
+   - 앱 Alloy의 주석 처리된 OTLP receiver, privacy transform, batch, Tempo exporter pipeline을 되살린다.
+   - 앱 배포 환경에 `TEMPO_OTLP_ENDPOINT=http://<monitoring-private-ip>:8080/tempo`와 백엔드 OTel 설정을 넣는다.
 
    ```bash
    cd infra/monitoring
    docker compose config --quiet
    docker compose run --rm --no-deps tempo -config.file=/etc/tempo/config.yaml -config.verify=true
-   docker compose up -d
+   docker compose --profile tracing up -d
    curl --fail http://127.0.0.1:3200/ready
    ```
 
@@ -74,9 +85,21 @@ publish하지 않으며 조회 API `3200`은 호스트 loopback에만 공개한�
    기존 볼륨을 옮겨 사용하는 경우에는 소유권이 일치하는지 확인한다.
    Tempo 본체는 해당 non-root 사용자로 실행한다. 설정 파일은 읽기 전용 마운트다.
 
-2. 수동 실행 시 각 앱 EC2의 `infra/.env`에 `TEMPO_OTLP_ENDPOINT=http://<monitoring-private-ip>:8080/tempo`를
-   설정하고 **Agent가 포함된 새 이미지**를 준비한다.
-   기존 이미지에는 Agent 파일이 없으므로 Compose만 갱신하면 JVM이 시작하지 못한다.
+2. 수동 실행 시 각 앱 EC2의 `infra/.env`에 trace 관련 값을 추가하고 백엔드 이미지를 준비한다.
+   기본 모니터링 배포에는 이 변수들이 필요하지 않다.
+
+   ```env
+   TEMPO_OTLP_ENDPOINT=http://<monitoring-private-ip>:8080/tempo
+   OTEL_SDK_DISABLED=false
+   OTEL_TRACES_EXPORTER=otlp
+   OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4318
+   OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+   OTEL_SERVICE_NAME=jarihana
+   OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=<dev|prod>,service.instance.id=<HOST_ID>,service.version=<BACKEND_TAG>
+   ```
+
+   메트릭·로그는 기존 경로를 유지하므로 `OTEL_METRICS_EXPORTER=none`, `OTEL_LOGS_EXPORTER=none`을 함께
+   유지한다. 샘플링 정책을 바꾸려면 `OTEL_TRACES_SAMPLER`와 관련 인자를 별도로 조정한다.
 
    ```bash
    export BACKEND_TAG="$(git rev-parse HEAD)"
@@ -87,10 +110,11 @@ publish하지 않으며 조회 API `3200`은 호스트 loopback에만 공개한�
    ```
 
    prod는 이미지 이름 `jarihana-backend`와 `infra/docker-compose.yml`을 사용한다.
-   GitHub dev·prod 배포 workflow는 기존 repository variable `MONITORING_BIND_ADDRESS`와 `8080/tempo`로
-   `TEMPO_OTLP_ENDPOINT`를 만든다. 수집용 도메인·DNS·`extra_hosts`와 새 변수·시크릿은 필요 없다.
+   기본 GitHub dev·prod 배포 workflow는 Tempo 전송을 켜지 않는다. trace 선택 구성을 배포할 때만
+   기존 repository variable `MONITORING_BIND_ADDRESS`와 `8080/tempo`로 `TEMPO_OTLP_ENDPOINT`를 만들고,
+   위 OTel 변수들을 함께 주입한다. 수집용 도메인·DNS·`extra_hosts`는 필요 없다.
    앱 Compose·앱 Alloy 설정 변경은 백엔드 배포를 실행하며 `infra/docs/**`만 바뀌면 실행하지 않는다. 모니터링 스택은 별도
-   [자동 배포 workflow](../../../.github/workflows/monitoring-deploy.yml)가 `main`의
+   [자동 배포 workflow](../../../.github/workflows/monitoring-deploy.yml)가 `develop`의
    `infra/monitoring/**` 변경에 반응해 배포한다.
 
 ## 실제 요청으로 확인
@@ -112,14 +136,15 @@ Prometheus에서는 다음 쿼리로 span 지표의 전달을 확인한다.
 traces_spanmetrics_calls_total{service="jarihana"}
 ```
 
-service-graphs와 span-metrics processor를 켰고 환경 속성도 dimension으로 지정했다.
+선택 구성에서는 service-graphs와 span-metrics processor를 켜고 환경 속성도 dimension으로 지정한다.
 이 지표는 **Tempo가 받은 span의 집계**다. 전체 HTTP 요청률의 기준은 기존 Micrometer 지표이며,
-호출 오류가 DB 서버 자체의 장애를 증명하지는 않는다. Canvas는 최근 흐름을 요약하지만
+호출 오류가 DB 서버 자체의 장애를 증명하지는 않는다. 기본 Canvas는 `jdbc_query_seconds_*`와
+HikariCP 지표로 최근 흐름을 요약하지만
 자동 서비스맵과 별도 DB 내부 상태 점검은 후속 범위다.
 
 ## 보관과 유실 범위
 
-- Tempo `2.10.8`은 Kafka 없이 실행하는 단일 프로세스 구성이다. WAL·블록·metrics-generator WAL을
+- 선택 구성의 Tempo `2.10.8`은 Kafka 없이 실행하는 단일 프로세스 구성이다. WAL·블록·metrics-generator WAL을
   모두 `tempo-data:/var/tempo`에 보관한다. 컨테이너 교체 시 같은 프로젝트·볼륨을 유지한다.
 - 보관 기간은 `168h`(7일)이며 compactor 처리와 삭제 지연이 더해진다. 전체 디스크의 용량 상한은 아니다.
   로컬 디스크 소실에 대비한 백업·복원과 실제 AWS 수용량 검증은 별도로 필요하다.
@@ -130,7 +155,8 @@ service-graphs와 span-metrics processor를 켰고 환경 속성도 dimension으
 - Nginx가 중단되면 앱 Alloy의 전송 재시도가 발생한다. 모니터링 스택 배포·수신 확인 후 앱 Alloy를 갱신한다.
 - OTLP batch는 최대 512 span, 전송 큐는 128개 batch, 실패 재시도는 최대 5분이다. 큐는 메모리에 있으므로
   Alloy 종료·장애 장기화·한도 초과 시 유실될 수 있다. `alloy-data`가 트레이스 전송 큐까지 영속화하지는 않는다.
-- 모니터링 서비스에는 컨테이너별 메모리 제한을 추가하지 않았다. 트레이스 보관·색인·지표 생성에 드는
+- 모니터링 서비스에는 컨테이너별 메모리 제한을 추가하지 않았다. Tempo 선택 구성은
+  `GOMEMLIMIT: 250MiB`를 사용하지만 컨테이너 전체 메모리 강제 상한은 아니다. 트레이스 보관·색인·지표 생성에 드는
   자원은 기존 Prometheus·Loki·Grafana와 같은 EC2에서 나눠 쓴다.
 
 ## 로컬 검증 기록 — 2026-10-09

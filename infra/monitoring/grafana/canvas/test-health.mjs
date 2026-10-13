@@ -5,47 +5,80 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
 
-const dashboardUrl = new URL('../provisioning/dashboards/json/jarihana-canvas-native.json', import.meta.url);
-const dashboard = JSON.parse(readFileSync(dashboardUrl, 'utf8'));
-const canvasPanel = dashboard.panels.find(panel => panel.type === 'canvas');
-if (!canvasPanel) {
-  throw new Error('Missing native Canvas panel in ' + fileURLToPath(dashboardUrl));
-}
-
-const targets = new Map(canvasPanel.targets.map(target => [target.legendFormat, target]));
 const selectedTargetNames = ['app_liveness', 'db_health', 'db_connection_health'];
-const missingTargets = selectedTargetNames.filter(name => !targets.has(name));
-if (missingTargets.length > 0) {
-  const availableTargets = [...targets.keys()].sort().join(', ');
-  throw new Error(
-    'Missing native Canvas health target(s): ' + missingTargets.join(', ') +
-    '\nAvailable targets: ' + availableTargets,
-  );
-}
+const healthSurfaces = [
+  {
+    name: 'flow',
+    dashboardUrl: new URL('../provisioning/dashboards/json/jarihana-canvas.json', import.meta.url),
+    panelType: 'andrewbmchugh-flow-panel',
+    targetNames: ['db_health', 'db_connection_health', 'db_flow'],
+  },
+  {
+    name: 'native',
+    dashboardUrl: new URL('../provisioning/dashboards/json/jarihana-canvas-native.json', import.meta.url),
+    panelType: 'canvas',
+    targetNames: selectedTargetNames,
+  },
+];
 
-const renderExpression = name => {
+const loadSurface = surface => {
+  const dashboard = JSON.parse(readFileSync(surface.dashboardUrl, 'utf8'));
+  const panel = dashboard.panels.find(item => item.type === surface.panelType);
+  if (!panel) {
+    throw new Error('Missing ' + surface.name + ' health panel in ' + fileURLToPath(surface.dashboardUrl));
+  }
+
+  if (surface.name === 'native') {
+    for (const name of ['api-node', 'pool-connection-anchor']) {
+      const element = panel.options.root.elements.find(item => item.name === name);
+      if (element?.connections?.length !== 2 || element.connections.some(connection => connection.color.field !== 'db_health')) {
+        throw new Error('Native DB connection must use direct database health: ' + name);
+      }
+    }
+  }
+
+  const targets = new Map(panel.targets.map(target => [target.legendFormat, target]));
+  const missingTargets = surface.targetNames.filter(name => !targets.has(name));
+  if (missingTargets.length > 0) {
+    const availableTargets = [...targets.keys()].sort().join(', ');
+    throw new Error(
+      'Missing ' + surface.name + ' health target(s): ' + missingTargets.join(', ') +
+      '\nAvailable targets: ' + availableTargets,
+    );
+  }
+
+  const expressions = Object.fromEntries(surface.targetNames.map(name => [name, renderExpression(surface, targets, name)]));
+  for (const [name, pattern] of requiredMatchers) {
+    if (surface.targetNames.includes(name) && !pattern.test(expressions[name])) {
+      throw new Error(surface.name + ' health target ' + name + ' does not use the expected job/environment matcher:\n' + expressions[name]);
+    }
+  }
+
+  return { ...surface, expressions };
+};
+
+const renderExpression = (surface, targets, name) => {
   const rendered = targets.get(name).expr
     .replaceAll('$environment', 'dev')
     .replaceAll('${environment}', 'dev');
   if (rendered.includes('$')) {
-    throw new Error('Unrendered Grafana variable in ' + name + ': ' + rendered);
+    throw new Error('Unrendered Grafana variable in ' + surface.name + ' ' + name + ': ' + rendered);
   }
   return rendered;
 };
-
-const expressions = Object.fromEntries(selectedTargetNames.map(name => [name, renderExpression(name)]));
 
 const requiredMatchers = [
   ['app_liveness', /probe_success\{[^}]*job="jarihana-liveness"[^}]*environment="dev"/],
   ['db_health', /pg_up\{[^}]*job="jarihana-postgres"[^}]*environment="dev"/],
   ['db_health', /up\{[^}]*job="jarihana-postgres"[^}]*environment="dev"/],
   ['db_connection_health', /probe_success\{[^}]*job="jarihana-database"[^}]*environment="dev"/],
+  ['db_connection_health', /probe_success\{[^}]*job="jarihana-liveness"[^}]*environment="dev"/],
+  ['db_flow', /jdbc_query_seconds_count\{[^}]*job="jarihana-backend"[^}]*environment="dev"/],
+  ['db_flow', /up\{[^}]*job="jarihana-backend"[^}]*environment="dev"/],
+  ['db_flow', /pg_up\{[^}]*job="jarihana-postgres"[^}]*environment="dev"/],
 ];
-for (const [name, pattern] of requiredMatchers) {
-  if (!pattern.test(expressions[name])) {
-    throw new Error('Health target ' + name + ' does not use the expected job/environment matcher:\n' + expressions[name]);
-  }
-}
+
+const surfaces = healthSurfaces.map(loadSurface);
 
 const metric = (name, labels) => {
   const entries = Object.entries(labels).map(([key, value]) => key + '="' + value + '"');
@@ -58,11 +91,16 @@ const series = {
   directPgUp: metric('pg_up', { ...common, job: 'jarihana-postgres', instance: 'testhost:postgres' }),
   postgresScrapeUp: metric('up', { ...common, job: 'jarihana-postgres', instance: 'testhost:postgres' }),
   backendUp: metric('up', { ...common, job: 'jarihana-backend', instance: 'jarihana-backend' }),
+  dbRequests: metric('jdbc_query_seconds_count', { ...common, job: 'jarihana-backend', instance: 'jarihana-backend' }),
+  wrongEnvAppLiveness: metric('probe_success', { ...common, environment: 'prod', job: 'jarihana-liveness', instance: 'blackbox/backend' }),
+  wrongEnvDirectPgUp: metric('pg_up', { ...common, environment: 'prod', job: 'jarihana-postgres', instance: 'testhost:postgres' }),
+  wrongEnvPostgresScrapeUp: metric('up', { ...common, environment: 'prod', job: 'jarihana-postgres', instance: 'testhost:postgres' }),
+  wrongHostPostgresScrapeUp: metric('up', { ...common, host_id: 'otherhost', job: 'jarihana-postgres', instance: 'otherhost:postgres' }),
 };
 
 const inputSeries = items => items.map(([name, values]) => ({ series: series[name], values }));
 const expected = (expr, value) => ({ expr, eval_time: '5m', exp_samples: [{ labels: '{}', value }] });
-const checks = values => selectedTargetNames.map(name => expected(expressions[name], values[name]));
+const checks = (surface, values) => surface.targetNames.map(name => expected(surface.expressions[name], values[name]));
 
 const cases = [
   {
@@ -73,8 +111,9 @@ const cases = [
       ['directPgUp', '0x6'],
       ['postgresScrapeUp', '1x6'],
       ['backendUp', '1x6'],
+      ['dbRequests', '0+60x6'],
     ]),
-    expected: { app_liveness: 1, db_health: 0, db_connection_health: 0 },
+    expected: { app_liveness: 1, db_health: 0, db_connection_health: 0, db_flow: 0 },
   },
   {
     name: 'app down keeps direct database health independent',
@@ -84,8 +123,21 @@ const cases = [
       ['directPgUp', '1x6'],
       ['postgresScrapeUp', '1x6'],
       ['backendUp', '0x6'],
+      ['dbRequests', '0+60x6'],
     ]),
-    expected: { app_liveness: 0, db_health: 1, db_connection_health: -1 },
+    expected: { app_liveness: 0, db_health: 1, db_connection_health: -1, db_flow: 0 },
+  },
+  {
+    name: 'production 404 app database probe does not mark direct postgres down',
+    input: inputSeries([
+      ['appLiveness', '1x6'],
+      ['appDbProbe', '0x6'],
+      ['directPgUp', '1x6'],
+      ['postgresScrapeUp', '1x6'],
+      ['backendUp', '1x6'],
+      ['dbRequests', '0+60x6'],
+    ]),
+    expected: { app_liveness: 1, db_health: 1, db_connection_health: 0, db_flow: 1 },
   },
   {
     name: 'metrics scrape failure does not mask liveness or direct database probes',
@@ -95,8 +147,9 @@ const cases = [
       ['directPgUp', '1x6'],
       ['postgresScrapeUp', '1x6'],
       ['backendUp', '0x6'],
+      ['dbRequests', '0+60x6'],
     ]),
-    expected: { app_liveness: 1, db_health: 1, db_connection_health: 1 },
+    expected: { app_liveness: 1, db_health: 1, db_connection_health: 1, db_flow: 0 },
   },
   {
     name: 'collector samples older than 150 seconds are unknown',
@@ -106,8 +159,9 @@ const cases = [
       ['directPgUp', '1x1'],
       ['postgresScrapeUp', '1x1'],
       ['backendUp', '1x1'],
+      ['dbRequests', '0x1'],
     ]),
-    expected: { app_liveness: -1, db_health: -1, db_connection_health: -1 },
+    expected: { app_liveness: -1, db_health: -1, db_connection_health: -1, db_flow: 0 },
   },
   {
     name: 'postgres exporter scrape failure makes direct database health unknown',
@@ -117,8 +171,32 @@ const cases = [
       ['directPgUp', '1x6'],
       ['postgresScrapeUp', '0x6'],
       ['backendUp', '1x6'],
+      ['dbRequests', '0+60x6'],
     ]),
-    expected: { app_liveness: 1, db_health: -1, db_connection_health: 1 },
+    expected: { app_liveness: 1, db_health: -1, db_connection_health: 1, db_flow: 0 },
+  },
+  {
+    name: 'no matching health samples are unknown',
+    input: inputSeries([
+      ['wrongEnvAppLiveness', '1x6'],
+      ['wrongEnvDirectPgUp', '1x6'],
+      ['wrongEnvPostgresScrapeUp', '1x6'],
+      ['dbRequests', '0+60x6'],
+    ]),
+    expected: { app_liveness: -1, db_health: -1, db_connection_health: -1, db_flow: 0 },
+  },
+  {
+    name: 'wrong host postgres scrape does not satisfy direct database liveness',
+    input: inputSeries([
+      ['appLiveness', '1x6'],
+      ['appDbProbe', '1x6'],
+      ['directPgUp', '1x6'],
+      ['wrongEnvPostgresScrapeUp', '1x6'],
+      ['wrongHostPostgresScrapeUp', '1x6'],
+      ['backendUp', '1x6'],
+      ['dbRequests', '0+60x6'],
+    ]),
+    expected: { app_liveness: 1, db_health: -1, db_connection_health: 1, db_flow: 0 },
   },
 ];
 
@@ -126,8 +204,8 @@ const quote = value => "'" + String(value).replaceAll("'", "''") + "'";
 const yaml = [
   'evaluation_interval: 1m',
   'tests:',
-  ...cases.flatMap(testCase => [
-    '  - name: ' + quote(testCase.name),
+  ...surfaces.flatMap(surface => cases.flatMap(testCase => [
+    '  - name: ' + quote(surface.name + ' ' + testCase.name),
     '    interval: 1m',
     '    input_series:',
     ...testCase.input.flatMap(item => [
@@ -135,14 +213,14 @@ const yaml = [
       '        values: ' + quote(item.values),
     ]),
     '    promql_expr_test:',
-    ...checks(testCase.expected).flatMap(item => [
+    ...checks(surface, testCase.expected).flatMap(item => [
       '      - expr: ' + quote(item.expr),
       '        eval_time: ' + quote(item.eval_time),
       '        exp_samples:',
       '          - labels: ' + quote(item.exp_samples[0].labels),
       '            value: ' + item.exp_samples[0].value,
     ]),
-  ]),
+  ])),
   '',
 ].join('\n');
 

@@ -93,13 +93,6 @@
       "url": "/explore?schemaVersion=1&panes=%7B%22A%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22jarihana%5C%22%2Cenvironment%3D%5C%22${environment}%5C%22%7D%22%2C%22queryType%22%3A%22range%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D%7D",
       "targetBlank": false,
       "icon": "external link"
-    },
-    {
-      "title": "트레이스",
-      "type": "link",
-      "url": "/explore?schemaVersion=1&panes=%7B%22A%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22jarihana%5C%22%20%26%26%20resource.deployment.environment.name%20%3D%20%5C%22${environment}%5C%22%20%7D%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D%7D",
-      "targetBlank": false,
-      "icon": "external link"
     }
   ],
   "panels": [
@@ -108,7 +101,7 @@
       "type": "canvas",
       "title": "서비스 관제도 · $environment",
       "pluginVersion": "13.2.3",
-      "description": "API 아이콘은 liveness, 서비스 상태는 DB 포함 종합 health, DB 아이콘은 Alloy의 직접 접속 검사, DB 연결선은 앱의 DB 연결 검사입니다. 각 검사는 60초 주기이며 150초 넘게 갱신되지 않으면 확인 불가입니다. CPU는 2분 평균, 메모리는 최근 호스트 수집값입니다. 연결 풀은 앱 소유입니다. 점선 속도는 고정이며 호출량은 숫자와 굵기로 표시합니다.",
+      "description": "API 아이콘은 liveness, 서비스 상태는 DB 포함 종합 health, DB 아이콘과 연결선은 Alloy의 직접 접속 검사입니다. 앱 DB 연결 검사는 별도로 표시합니다. 각 검사는 60초 주기이며 150초 넘게 갱신되지 않으면 확인 불가입니다. DB 호출량·p95는 앱의 JDBC 실행 지표를 사용합니다. CPU는 2분 평균, 메모리는 최근 호스트 수집값입니다. 연결 풀은 앱 소유입니다. 점선 속도는 고정이며 호출량은 숫자와 굵기로 표시합니다.",
       "gridPos": {
         "x": 0,
         "y": 0,
@@ -197,7 +190,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(sum(rate(traces_service_graph_request_total{client=\"jarihana\",connection_type=\"database\",deployment_environment_name=\"$environment\"}[2m])) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1) and on() (min(up{job=\"tempo\"} and (time() - timestamp(up{job=\"tempo\"}) < 90)) == 1)) or vector(-1)",
+          "expr": "(sum(rate(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}[2m])) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)",
           "legendFormat": "db_rps",
           "range": false,
           "instant": true,
@@ -211,7 +204,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(clamp_max(2 + 2 * ln(1 + ((clamp_min(((sum(rate(traces_service_graph_request_total{client=\"jarihana\",connection_type=\"database\",deployment_environment_name=\"$environment\"}[2m])) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1) and on() (min(up{job=\"tempo\"} and (time() - timestamp(up{job=\"tempo\"}) < 90)) == 1)) or vector(-1)), 0) * (((min(probe_success{job=\"jarihana-database\",environment=\"$environment\"} and (time() - timestamp(probe_success{job=\"jarihana-database\",environment=\"$environment\"}) < 150)) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)) == bool 1)) or vector(0))), 9) * (((clamp_min(((sum(rate(traces_service_graph_request_total{client=\"jarihana\",connection_type=\"database\",deployment_environment_name=\"$environment\"}[2m])) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1) and on() (min(up{job=\"tempo\"} and (time() - timestamp(up{job=\"tempo\"}) < 90)) == 1)) or vector(-1)), 0) * (((min(probe_success{job=\"jarihana-database\",environment=\"$environment\"} and (time() - timestamp(probe_success{job=\"jarihana-database\",environment=\"$environment\"}) < 150)) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)) == bool 1)) or vector(0)) > bool 0)) * ${motion}",
+          "expr": "(clamp_max(2 + 2 * ln(1 + ((clamp_min(((sum(rate(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}[2m])) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)), 0) * ((min((pg_up{job=\"jarihana-postgres\",environment=\"$environment\"} and (time() - timestamp(pg_up{job=\"jarihana-postgres\",environment=\"$environment\"}) < 150)) and on(job,instance,environment,host_id) ((up{job=\"jarihana-postgres\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-postgres\",environment=\"$environment\"}) < 150)) == 1)) or vector(-1)) == bool 1)) or vector(0))), 9) * (((clamp_min(((sum(rate(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}[2m])) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)), 0) * ((min((pg_up{job=\"jarihana-postgres\",environment=\"$environment\"} and (time() - timestamp(pg_up{job=\"jarihana-postgres\",environment=\"$environment\"}) < 150)) and on(job,instance,environment,host_id) ((up{job=\"jarihana-postgres\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-postgres\",environment=\"$environment\"}) < 150)) == 1)) or vector(-1)) == bool 1)) or vector(0)) > bool 0)) * ${motion}",
           "legendFormat": "db_flow",
           "range": false,
           "instant": true,
@@ -345,20 +338,6 @@
           "interval": "5s"
         },
         {
-          "refId": "Q",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "min(up{job=\"tempo\"} and (time() - timestamp(up{job=\"tempo\"}) < 90)) or vector(-1)",
-          "legendFormat": "tempo_health",
-          "range": false,
-          "instant": true,
-          "format": "time_series",
-          "interval": "5s"
-        },
-        {
           "refId": "R",
           "datasource": {
             "type": "prometheus",
@@ -449,7 +428,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(((1000 * histogram_quantile(0.95, sum by(le) (rate(traces_service_graph_request_client_seconds_bucket{client=\"jarihana\",connection_type=\"database\",deployment_environment_name=\"$environment\"}[2m])))) >= 0) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1) and on() (min(up{job=\"tempo\"} and (time() - timestamp(up{job=\"tempo\"}) < 90)) == 1)) or vector(-1)",
+          "expr": "((1000 * histogram_quantile(0.95, sum by(le) (rate(jdbc_query_seconds_bucket{job=\"jarihana-backend\",environment=\"$environment\"}[2m]))) >= 0) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)",
           "legendFormat": "db_p95",
           "range": false,
           "instant": true,
@@ -1392,68 +1371,6 @@
               {
                 "id": "displayName",
                 "value": "loki_health"
-              },
-              {
-                "id": "decimals",
-                "value": 0
-              },
-              {
-                "id": "unit",
-                "value": "none"
-              },
-              {
-                "id": "mappings",
-                "value": [
-                  {
-                    "type": "value",
-                    "options": {
-                      "0": {
-                        "text": "연결 실패",
-                        "color": "#ff7586"
-                      },
-                      "1": {
-                        "text": "정상",
-                        "color": "#55d8b0"
-                      },
-                      "-1": {
-                        "text": "확인 불가",
-                        "color": "#8593a8"
-                      }
-                    }
-                  }
-                ]
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "value": null,
-                      "color": "#8593a8"
-                    },
-                    {
-                      "value": 0,
-                      "color": "#ff7586"
-                    },
-                    {
-                      "value": 1,
-                      "color": "#55d8b0"
-                    }
-                  ]
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "tempo_health"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "tempo_health"
               },
               {
                 "id": "decimals",
@@ -2668,7 +2585,7 @@
                   "targetName": "pool-connection-anchor",
                   "path": "straight",
                   "color": {
-                    "field": "db_connection_health",
+                    "field": "db_health",
                     "fixed": "#8593a8"
                   },
                   "size": {
@@ -2697,7 +2614,7 @@
                   "targetName": "pool-connection-anchor",
                   "path": "straight",
                   "color": {
-                    "field": "db_connection_health",
+                    "field": "db_health",
                     "fixed": "#8593a8"
                   },
                   "size": {
@@ -2763,7 +2680,7 @@
                   "targetName": "database-node",
                   "path": "straight",
                   "color": {
-                    "field": "db_connection_health",
+                    "field": "db_health",
                     "fixed": "#8593a8"
                   },
                   "size": {
@@ -2792,7 +2709,7 @@
                   "targetName": "database-node",
                   "path": "straight",
                   "color": {
-                    "field": "db_connection_health",
+                    "field": "db_health",
                     "fixed": "#8593a8"
                   },
                   "size": {
@@ -4405,7 +4322,7 @@
               "config": {
                 "text": {
                   "mode": "fixed",
-                  "fixed": "헬스체크 호출 포함"
+                  "fixed": "예약 작업 포함"
                 },
                 "color": {
                   "fixed": "#a6b6cc"
@@ -4778,7 +4695,7 @@
               "name": "loki_health-label",
               "type": "rectangle",
               "placement": {
-                "left": 636,
+                "left": 754,
                 "top": 734,
                 "width": 130,
                 "height": 26,
@@ -4817,7 +4734,7 @@
               "name": "loki_health-value",
               "type": "metric-value",
               "placement": {
-                "left": 770,
+                "left": 888,
                 "top": 734,
                 "width": 132,
                 "height": 26,
@@ -4847,86 +4764,6 @@
                 },
                 "color": {
                   "field": "loki_health",
-                  "fixed": "#e8effa"
-                },
-                "size": 18,
-                "align": "left",
-                "valign": "middle"
-              }
-            },
-            {
-              "name": "tempo_health-label",
-              "type": "rectangle",
-              "placement": {
-                "left": 874,
-                "top": 734,
-                "width": 130,
-                "height": 26,
-                "rotation": 0
-              },
-              "constraint": {
-                "horizontal": "left",
-                "vertical": "top"
-              },
-              "background": {
-                "color": {
-                  "fixed": "transparent"
-                }
-              },
-              "border": {
-                "width": 0,
-                "radius": 12,
-                "color": {
-                  "fixed": "#2e425c"
-                }
-              },
-              "config": {
-                "text": {
-                  "mode": "fixed",
-                  "fixed": "Tempo"
-                },
-                "color": {
-                  "fixed": "#a6b6cc"
-                },
-                "size": 18,
-                "align": "left",
-                "valign": "middle"
-              }
-            },
-            {
-              "name": "tempo_health-value",
-              "type": "metric-value",
-              "placement": {
-                "left": 1008,
-                "top": 734,
-                "width": 132,
-                "height": 26,
-                "rotation": 0
-              },
-              "constraint": {
-                "horizontal": "left",
-                "vertical": "top"
-              },
-              "background": {
-                "color": {
-                  "fixed": "transparent"
-                }
-              },
-              "border": {
-                "width": 0,
-                "radius": 12,
-                "color": {
-                  "fixed": "#2e425c"
-                }
-              },
-              "config": {
-                "text": {
-                  "mode": "field",
-                  "field": "tempo_health",
-                  "fixed": ""
-                },
-                "color": {
-                  "field": "tempo_health",
                   "fixed": "#e8effa"
                 },
                 "size": 18,

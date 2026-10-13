@@ -2,8 +2,9 @@
 
 이 문서는 [인프라 ADR 0001](../adr/0001-local-alloy-observability.md)의 실행 설계를
 설명한다. 목표는 로컬 Alloy에서 별도 서버의 Prometheus·Loki로 보내고 Grafana에서 조회하는
-구조다. 트레이스는 같은 앱 Alloy를 거쳐 Tempo에 저장한다. Nginx·Alloy·Prometheus·Loki·Tempo·Grafana는 Docker Compose로 실행한다.
-**저장소는 Alloy·Prometheus·Loki·Tempo·Grafana와 dev·prod RDS 연결을 반영했다.
+구조다. 기본 실행 경로는 Prometheus·Loki·Grafana를 중심으로 두고, Tempo trace 저장소는 선택 구성으로 남긴다.
+Nginx·Alloy·Prometheus·Loki·Grafana는 Docker Compose로 실행한다.
+**저장소는 Alloy·Prometheus·Loki·Grafana와 dev·prod RDS 연결을 반영했다.
 실제 AWS 배포·RDS 접속 검증·기존 Agent 제거와 외부 자원 정리는 아직 수행하지 않았다.**
 
 선택 배경은 ADR, 용어와 계산 방법은 [학습 노트](../learning/observability.md)에 있다.
@@ -18,9 +19,9 @@
 | 앱 메트릭 | Micrometer endpoint → 로컬 Alloy scrape → remote write → Prometheus | 지표·라벨·수집 누락 |
 | 호스트 메트릭 | Alloy unix exporter로 앱·모니터링 EC2 관측 | 호스트 마운트, 용량·권한과 실제 지표 |
 | 배포 DB | dev·prod 모두 외부 RDS PostgreSQL | RDS 접속, 스키마·권한, 백업·복원 |
-| 화면 | Grafana의 Prometheus·Loki·Tempo 데이터 소스, 운영 대시보드와 Canvas JSON | 운영 데이터 조회, 자동 서비스 그래프·인프라 지도 |
+| 화면 | Grafana의 Prometheus·Loki 데이터 소스, 운영 대시보드와 Canvas JSON | 운영 데이터 조회, 자동 서비스 그래프·인프라 지도 |
 | 알림 | health·HTTP 500·호스트 자원 알림 정의 12개와 Slack 정책 제공, 외부 감시 미구현 | 장애 발생·복구·데이터 없음과 전달 실패 |
-| 트레이스 | OTel Java Agent → 앱 Alloy → Tempo, trace 기반 지표 → Prometheus | 실제 EC2 전송·보관·자원 비용 |
+| 트레이스 | 기본 비활성. 필요할 때 OTel Java Agent → 앱 Alloy → Tempo 선택 구성 사용 | 실제 EC2 전송·보관·자원 비용 |
 
 [prod Compose](../../docker-compose.yml), [dev Compose](../../docker-compose.dev.yml),
 [Alloy 설정](../../monitoring/alloy/config.alloy)과 [DB 결정](../adr/0002-rds-deployment-database.md)을
@@ -33,13 +34,13 @@ flowchart LR
   subgraph DEV["dev EC2 · dev 앱 Compose"]
     DEVAPP["Spring Boot dev"]
     DEVALLOY["Alloy · 앱 Compose에 직접 정의"]
-    DEVAPP -->|"메트릭 · Docker 로그 · OTLP 트레이스"| DEVALLOY
+    DEVAPP -->|"메트릭 · Docker 로그"| DEVALLOY
     DEVHOST["dev 호스트 지표"] --> DEVALLOY
   end
   subgraph PROD["prod EC2 · prod 앱 Compose"]
     PRODAPP["Spring Boot prod"]
     PRODALLOY["Alloy · 앱 Compose에 직접 정의"]
-    PRODAPP -->|"메트릭 · Docker 로그 · OTLP 트레이스"| PRODALLOY
+    PRODAPP -->|"메트릭 · Docker 로그"| PRODALLOY
     PRODHOST["prod 호스트 지표"] --> PRODALLOY
   end
   DEVRDS["RDS PostgreSQL · dev DB/사용자"]
@@ -50,20 +51,17 @@ flowchart LR
     MONHOST["모니터링 호스트 지표"] --> MONALLOY["호스트 수집 Alloy"]
     MONALLOY -->|"remote write"| PROM["Prometheus"]
     LOKI["Loki"]
-    TEMPO["Tempo"]
+    TEMPO["Tempo · 선택 구성"]
     GRAF["Grafana"]
     NGINX["Nginx · :8080 수집 / :80 화면"]
     NGINX -->|"POST /api/v1/write"| PROM
     NGINX -->|"POST /loki/api/v1/push"| LOKI
-    NGINX -->|"POST /v1/traces · HTTP :4318"| TEMPO
     NGINX -->|"화면 · WebSocket"| GRAF
     PROM -->|"PromQL 조회 결과"| GRAF
     LOKI -->|"LogQL 조회 결과"| GRAF
-    TEMPO -->|"트레이스 조회"| GRAF
-    TEMPO -->|"trace 기반 메트릭"| PROM
   end
-  DEVALLOY -->|"remote write · Loki push · OTLP HTTP"| NGINX
-  PRODALLOY -->|"remote write · Loki push · OTLP HTTP"| NGINX
+  DEVALLOY -->|"remote write · Loki push"| NGINX
+  PRODALLOY -->|"remote write · Loki push"| NGINX
 ```
 
 dev·prod·모니터링은 각각 다른 EC2다. 각 앱 EC2에는 해당 앱과 Alloy 한 개를 둔다.
@@ -78,7 +76,7 @@ Alloy는 자기 환경의 앱 대상 한 곳과 호스트·자체 메트릭을 �
 | --- | --- | --- |
 | dev EC2 | dev 앱 프로젝트 | `infra/docker-compose.dev.yml`의 Spring Boot·Alloy 직접 정의 |
 | prod EC2 | prod 앱 프로젝트 | `infra/docker-compose.yml`의 Spring Boot·Alloy 직접 정의 |
-| 모니터링 EC2 | 모니터링 프로젝트 | Nginx·Prometheus·Loki·Tempo·Grafana·호스트 수집 Alloy와 각 저장 볼륨 |
+| 모니터링 EC2 | 모니터링 프로젝트 | Nginx·Prometheus·Loki·Grafana·호스트 수집 Alloy와 각 저장 볼륨. Tempo는 trace가 필요할 때 선택 실행 |
 
 각 EC2에서 해당 Compose를 실행한다. Compose가 서비스들을 다른 EC2에 자동으로 배치하지는 않는다.
 Alloy 서비스와 `alloy-data` 볼륨은 두 앱 Compose 파일에 각각 직접 정의한다.
@@ -107,14 +105,14 @@ EC2 runner 라벨은 dev `jarihana-dev`, prod `jarihana-prod`다.
 workflow의 라벨 조건은 작성했지만 실제 runner 등록·라벨 설정은 이 문서가 증명하지 않는다.
 
 모니터링 EC2는 별도 [monitoring-deploy.yml](../../../.github/workflows/monitoring-deploy.yml)로
-자동 배포한다. `main`에 `infra/monitoring/**` 또는 해당 workflow 변경이 반영되면
+자동 배포한다. `develop`에 `infra/monitoring/**` 또는 해당 workflow 변경이 반영되면
 `jarihana-monitoring` runner가 대시보드 생성, 설정 검증, Compose 재생성, 준비 상태 확인을 실행한다.
 repository-wide Actions variables `MONITORING_HOST_ID`·`MONITORING_BIND_ADDRESS`와 repository secret
 `GRAFANA_ADMIN_PASSWORD`·`SLACK_WEBHOOK_URL`을 주입한다. workflow는 `MONITORING_HOST_ID`를 컨테이너 `HOST_ID`로 매핑해
 backend dev/prod workflow의 `vars.HOST_ID`와 충돌하지 않게 한다. 이 값은 지표 라벨에 사용할
 안정적인 모니터링 호스트 이름이며 실제 AWS instance ID일 필요는 없다. `MONITORING_BIND_ADDRESS`는 Nginx `80`·`8080`을 bind할 모니터링 EC2의 실제 사설 IPv4다.
-Prometheus `9090`, Loki `3100`, Tempo 조회 `3200`, Grafana `3000`은 호스트 loopback 관리 포트로 유지하며
-Tempo OTLP `4317`은 호스트에 publish하지 않는다.
+Prometheus `9090`, Loki `3100`, Grafana `3000`은 호스트 loopback 관리 포트로 유지한다.
+Tempo 선택 구성을 켤 때도 조회 `3200`은 loopback으로 두고 OTLP `4317`은 호스트에 publish하지 않는다.
 Grafana의 `GF_SERVER_ROOT_URL`은 Compose에서 `https://grafana.jarihana.com/`으로 고정한다.
 CloudFront에서 HTTPS를 처리하고, CloudFront → Nginx → Grafana는 HTTP로 연결한다.
 도메인을 변경할 때는 Compose의 이 값과 Nginx Host 설정을 함께 맞춘다.
@@ -144,15 +142,16 @@ Linux EC2의 Alloy에는 **`network_mode: host`**를 사용한다. 호스트 네
 host 모드 Alloy에는 `ports`를 지정하지 않는다. Alloy의 관리 HTTP 주소는 호스트
 loopback으로 제한한다. 반면 Prometheus·Loki·Grafana는 모니터링 Compose의 bridge 네트워크를
 공유한다. 서비스 이름을 각각 `prometheus`, `loki`로 정하면 Grafana의 데이터 소스 주소는
-`http://prometheus:9090`, `http://loki:3100`, `http://tempo:3200`이다. Grafana 데이터 소스는
+`http://prometheus:9090`, `http://loki:3100`이다. Tempo 선택 구성을 켤 때만
+`http://tempo:3200` 데이터 소스를 추가한다. Grafana 데이터 소스는
 Nginx를 거치지 않으며 저장소를 `localhost`로 지정하지 않는다.
 
 앱 EC2의 Alloy는 모니터링 EC2의 **사설 주소와 Nginx `8080`**으로 전송한다.
-Nginx는 정확히 일치하는 `POST /prometheus/api/v1/write`, `POST /loki/api/v1/push`, `POST /tempo/v1/traces`만
-각각 Prometheus `9090`, Loki `3100`, Tempo OTLP HTTP `4318`로 전달한다. `/prometheus`·`/tempo` 접두사는
-제거해 저장소의 `/api/v1/write`·`/v1/traces`로 보내고 Loki 경로는 그대로 유지한다.
-앱 배포 workflow는 기존 `MONITORING_BIND_ADDRESS`와 이 경로로 URL을 만든다. `TEMPO_OTLP_ENDPOINT`는
-`http://<monitoring-private-ip>:8080/tempo`이며 exporter가 `/v1/traces`를 추가한다. 새 변수·시크릿은 없다.
+Nginx는 기본 구성에서 정확히 일치하는 `POST /prometheus/api/v1/write`, `POST /loki/api/v1/push`만
+각각 Prometheus `9090`, Loki `3100`으로 전달한다. `/prometheus` 접두사는 제거해 저장소의
+`/api/v1/write`로 보내고 Loki 경로는 그대로 유지한다.
+앱 배포 workflow는 기존 `MONITORING_BIND_ADDRESS`와 이 경로로 URL을 만든다. 기본 수집 주소용
+새 변수·시크릿은 없다.
 `8080`은 RFC1918 사설 IPv4와 loopback만 허용하며 다른 출발지를 거부한다.
 알 수 없는 경로는 `404`, 허용 경로의 POST 외 메서드는 `403`이다.
 Grafana 화면은 Nginx `80`의 루트 경로로 제공하며 WebSocket도 전달한다.
@@ -172,13 +171,14 @@ Compose 서비스 DNS는 서로 다른 EC2를 연결하지 않으며 host 모드
 | Alloy | 실행 인자 `--storage.path`로 지정한 경로. WAL·읽기 위치 등 구성 요소의 상태 |
 | Prometheus | 기본 `/prometheus`. `--storage.tsdb.path`를 바꾸면 볼륨도 맞춘다 |
 | Loki | 선택한 설정에서 사용하는 index·chunk·WAL·compactor 등의 데이터 경로 |
-| Tempo | `/var/tempo` 아래 trace WAL·블록·metrics-generator WAL. `tempo-data` 볼륨으로 보관 |
+| Tempo | 기본 비활성. 선택 구성으로 켤 때 `/var/tempo` 아래 trace WAL·블록·metrics-generator WAL을 `tempo-data` 볼륨으로 보관 |
 | Grafana | 기본 `/var/lib/grafana`. 데이터 소스·알림 provisioning 파일을 읽기 전용 마운트 |
 
 볼륨 경로와 컨테이너 실행 사용자의 쓰기 권한을 대조한다. 데이터가 컨테이너 내부에만
 쌓이지 않는지 재생성 후 확인한다. 데이터 볼륨을 지우는 `docker compose down -v`는 일반
 배포 절차에 넣지 않는다. restart 정책·healthcheck는 서비스마다 설정한다. 현재 모니터링
-Compose는 Grafana·Loki·Tempo·Prometheus와 모니터링 Alloy에 컨테이너별 메모리 상한을 걸지 않으며,
+Compose는 Grafana·Loki·Prometheus와 모니터링 Alloy에 컨테이너별 메모리 상한을 걸지 않으며,
+Tempo 선택 구성도 컨테이너별 메모리 상한 대신 `GOMEMLIMIT: 250MiB`만 둔다.
 실제 메모리는 같은 호스트에서 공유된다. 앱 Compose의 Alloy는 기존 메모리 상한을 유지한다.
 자동 재시작만으로 수집 연속성과 무중단 운영을 보장하지 않는다.
 [Alloy Docker 설치](https://grafana.com/docs/alloy/latest/set-up/install/docker/),
@@ -193,7 +193,7 @@ Compose는 Grafana·Loki·Tempo·Prometheus와 모니터링 Alloy에 컨테이�
 | Spring Boot | 업무 처리, 허용된 로그 필드 생성, Micrometer 메트릭 노출 |
 | Docker | 컨테이너 stdout 로그의 로컬 보관·회전 |
 | Alloy | 대상 발견, 수집, 라벨 정리, 가공, 제한된 버퍼·재시도와 전송 |
-| Nginx | Grafana 화면·WebSocket과 세 수집 API의 HTTP 진입점 |
+| Nginx | Grafana 화면·WebSocket과 기본 두 수집 API의 HTTP 진입점. Tempo 선택 구성에서는 trace 수집 경로를 추가 |
 | Prometheus·Loki | 신호별 저장·조회, 보관 정책 적용 |
 | Grafana | 화면·탐색·설정한 알림 평가와 전달 |
 | 운영 구성 | 영속 볼륨, 접근 제어, 백업·복구, 버전·자원 한도 관리 |
@@ -240,6 +240,16 @@ RED 지표의 기준은 HTTP 메트릭이다. 요청량은 카운터 증가율, 
 p95는 HTTP timer의 histogram으로 계산한다. 4xx는 별도 지표로 보며 모든 실패를 서버 오류로
 묶지 않는다. p95를 추가하려면 앱의 histogram 노출과 Alloy의 bucket 전달을 모두 확인해야 한다.
 계산식과 무트래픽·결측 처리는 [학습 노트](../learning/observability.md)에 있다.
+
+DB 호출량과 DB p95도 기본 구성에서는 trace가 아니라 Actuator Prometheus endpoint의 JDBC 메트릭을
+사용한다. 백엔드는 Datasource Micrometer 계측으로 `jdbc_query_seconds_count`와
+`jdbc_query_seconds_bucket`을 노출한다. Alloy는 다른 앱 메트릭과 같은 scrape 경로로 이 지표를
+Prometheus에 보낸다. 대시보드는 최근 2분 `rate(jdbc_query_seconds_count)`를 DB 호출량으로 보고,
+`histogram_quantile`로 p95를 계산한다. 이 값은 앱에서 실행한 JDBC 호출의 집계이며, SQL 문장 수나
+특정 커넥션 하나의 처리량을 그대로 뜻하지 않는다. 기준은 JDBC 실행이다. 예약 작업이나 health check가
+실제 SQL을 실행하면 포함될 수 있지만, 단순 connection validity 확인처럼 SQL을 실행하지 않는 검사는
+`jdbc_query_seconds_*`를 만들지 않을 수 있다. HikariCP usage 지표는 연결 대여 활동을 보여줄 뿐
+DB p95의 원천으로 쓰지 않는다.
 
 ### 호스트 메트릭
 
@@ -401,12 +411,14 @@ swap도 메모리 수용량과 처리량의 검증을 대신하지 않는다.
 dev·prod RDS 접속과 DB 백업·복원 확인도 수행하지 않았다. 이전 데이터를 지우는
 명령은 일반 배포에 넣지 않는다.
 
-## 트레이스 수집 구성
+## 선택적 트레이스 수집 구성
 
-[인프라 ADR 0003](../adr/0003-tempo-tracing.md)에 따라 다음 경로를 추가했다.
+[인프라 ADR 0003](../adr/0003-tempo-tracing.md)의 trace 경로는 [인프라 ADR 0004](../adr/0004-disable-tempo-by-default.md)에
+따라 기본 실행에서 제외했다. 요청 단위 span 분석이 필요할 때만 다음 경로를 선택 구성으로 켠다.
 실행·네트워크·샘플링·유실 범위는 [Tempo 가이드](TRACING.md)를 따른다.
-[Grafana Canvas](CANVAS.md)는 앱·DB health와 최근 2분 평균 흐름을 보여주는 저장소 화면으로
-추가했다. 자동 서비스 그래프나 인스턴스 증감을 모두 나타내는 인프라 지도는 후속 범위다.
+[Grafana Canvas](CANVAS.md)는 앱·DB health와 최근 2분 평균 흐름을 보여주는 화면이며,
+현재 DB 호출량·DB p95는 JDBC 메트릭으로 계산한다. 자동 서비스 그래프나 인스턴스 증감을 모두
+나타내는 인프라 지도는 후속 범위다.
 
 ```mermaid
 flowchart LR
@@ -421,7 +433,8 @@ flowchart LR
 
 Tempo에 trace를 저장하는 설정과 서비스 그래프용 메트릭 생성 설정은 별도다.
 DB 노드는 client span 속성으로 추론할 수 있지만 DB 내부 CPU·락·쿼리 상태까지 측정한 것은
-아니다. 간선별 bytes/s는 호스트 전체 송수신량으로 대신하지 않고 별도 네트워크 계측을 검토한다.
+아니다. 기본 대시보드는 Tempo service graph 지표에 의존하지 않는다. 간선별 bytes/s는 호스트 전체
+송수신량으로 대신하지 않고 별도 네트워크 계측을 검토한다.
 [Tempo 서비스 그래프 구성](https://grafana.com/docs/tempo/latest/metrics-from-traces/service_graphs/enable-service-graphs/)
 
 중앙 Alloy를 나중에 추가할 때도 프로토콜을 구분한다. 현재 메트릭은 remote write, 로그는
@@ -431,8 +444,9 @@ Loki push이며 모두 OTLP가 아니다. 중앙의 해당 receiver를 준비하
 ## 배포 전에 남은 결정
 
 [초기 실행 구성](OPERATIONS.md)에 모니터링 서버와 Alloy의 Compose·설정 파일을
-추가했다. 이미지 버전을 고정하고 Prometheus 7일·2GB, Loki 30일, Tempo 7일 보관과 앱 로그 회전 상한을
-초기값으로 지정했다. 이 값은 실제 수집량과 조회 부하를 측정한 운영 용량 산정 결과가 아니다.
+추가했다. 이미지 버전을 고정하고 Prometheus 7일·2GB, Loki 30일과 앱 로그 회전 상한을
+초기값으로 지정했다. Tempo 선택 구성을 켤 때의 trace 보관 기간은 7일이다.
+이 값은 실제 수집량과 조회 부하를 측정한 운영 용량 산정 결과가 아니다.
 
 EC2 디스크 크기, 허용 수집 지연·유실 범위, 외부 감시 방식과 알림 임계치는 배포 전에 결정한다.
 프로필은 dev·prod 앱 Compose의 backend·Alloy에 각각 `dev`·`prod`로 고정한다. 배포 workflow는

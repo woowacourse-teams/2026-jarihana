@@ -15,6 +15,13 @@ spring:
     exclude:
       - org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
 
+jdbc:
+  hikari:
+    enabled: false
+  includes: QUERY
+  opentelemetry:
+    enabled: false
+
 sentry:
   dsn: ${SENTRY_BACKEND_DSN:}
   environment: ${SENTRY_ENVIRONMENT:local}
