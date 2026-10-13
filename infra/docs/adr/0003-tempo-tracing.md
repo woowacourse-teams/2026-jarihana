@@ -1,8 +1,9 @@
 # ADR 0003. Java Agent와 로컬 Alloy로 수집한 트레이스를 Tempo에 저장한다
 
-- 상태: 채택 — 저장소 구성 반영, AWS 미배포
+- 상태: 채택 후 기본 비활성 — 저장소 구성 반영, AWS 미배포
 - 날짜: 2026-10-09
 - 보완: 2026-10-12 — 앱 Alloy의 원격 전송을 Nginx 경유 OTLP HTTP로 변경한다.
+- 보완: 2026-10-13 — [인프라 ADR 0004](0004-disable-tempo-by-default.md)에 따라 Tempo는 기본 실행 경로에서 제외하고 선택 구성으로 남긴다.
 - 범위: 트레이스 생성·수집·저장과 trace 기반 메트릭 생성
 - 대체 관계: [인프라 ADR 0001](0001-local-alloy-observability.md)의 트레이스 도입 보류를 해제한다.
 - 관련 문서: [트레이스 실행 가이드](../observability/TRACING.md), [아키텍처](../observability/ARCHITECTURE.md)
@@ -16,12 +17,15 @@ HTTP 처리와 DB 호출 중 어디에서 시간이 쓰였는지 확인하려면
 ## 결정
 
 Spring 이미지에 OpenTelemetry Java Agent `2.32.0`을 버전·체크섬을 고정해 넣고 dev·prod Compose에서
-활성화한다. 앱은 기존 OTLP HTTP `4318`로 같은 EC2의 Alloy에 보내며 Alloy는 OTLP HTTP로
+활성화하는 구성을 채택했다. 다만 현재 기본 배포에서는 [ADR 0004](0004-disable-tempo-by-default.md)에 따라
+`OTEL_SDK_DISABLED=true`로 Agent를 끄고 Tempo 전송도 제외한다. 이 ADR의 전송 경로는 trace 선택 구성을
+다시 켤 때 적용한다. 앱은 기존 OTLP HTTP `4318`로 같은 EC2의 Alloy에 보내며 Alloy는 OTLP HTTP로
 별도 모니터링 EC2의 Nginx `8080`을 거쳐 Tempo HTTP receiver `4318`에 전달한다.
 기존 `TEMPO_OTLP_ENDPOINT` 이름을 유지하되 값은 `http://<monitoring-private-ip>:8080/tempo`로 바꾼다.
 `otelcol.exporter.otlphttp`가 `/v1/traces`를 추가하고 Nginx는 정확히 일치하는 `POST /tempo/v1/traces`에서
 `/tempo`를 제거해 Tempo의 `/v1/traces`로 전달한다. 수집 주소는 기존 `MONITORING_BIND_ADDRESS`로 만들며
-수집용 도메인·DNS·`extra_hosts`나 새 변수·시크릿은 추가하지 않는다.
+수집용 도메인·DNS·`extra_hosts`는 추가하지 않는다. trace 선택 구성에서는 `TEMPO_OTLP_ENDPOINT`와
+백엔드 OTel 변수를 함께 켠다.
 기존 Micrometer와 Docker 로그 전송을 유지하기 위해 Agent는 트레이스만 내보낸다.
 
 OAuth callback의 인증 코드와 state가 URL 속성에 남지 않도록 Alloy에서 query·fragment를 제거한다.
@@ -45,6 +49,13 @@ dev·prod를 구분한다. Grafana에는 Tempo 데이터 소스와 내장 Canvas
 | 앱에서 Tempo로 직접 전송 | 목적지와 전송 제어를 기존 로컬 Alloy에서 함께 관리한다 |
 | 중앙 수집기 추가 | 현재 두 앱 EC2의 전송을 위해 수집 계층을 하나 더 운영할 필요는 없다 |
 | Kafka·분산 저장소를 포함한 확장 구성 | 초기 수집·조회 검증에 필요한 범위를 넘으므로 부하와 복구 요구가 생기면 재검토한다 |
+
+## 현재 적용 상태
+
+이 ADR은 trace가 필요할 때 선택할 수 있는 구성의 배경과 제약을 기록한다. 기본 모니터링 경로는
+[인프라 ADR 0004](0004-disable-tempo-by-default.md)에 따라 Tempo 없이 Prometheus·Loki·Grafana와
+JDBC 메트릭으로 운영한다. 따라서 DB 호출량·DB p95를 보기 위해 Tempo를 먼저 배포할 필요는 없다.
+Tempo를 다시 켤 때는 이 ADR의 전송·보관·보안 제약을 함께 검토한다.
 
 ## 결과와 재검토 조건
 

@@ -30,7 +30,7 @@
 | Sentry | 예외, 스택 트레이스, 오류별 이벤트 묶음, 배포 버전 | 애플리케이션 Error Monitoring |
 | CloudWatch | 기존 AWS 로그·메트릭 도구 | legacy 운영 도구로 보존 |
 | Prometheus | 시계열 메트릭 수집과 조회 | Alloy가 보낸 앱·호스트 메트릭 저장 |
-| Grafana | 메트릭과 로그를 조회하는 대시보드 | Prometheus·Loki·Tempo 데이터 소스와 알림 UI |
+| Grafana | 메트릭과 로그를 조회하는 대시보드 | Prometheus·Loki 데이터 소스와 알림 UI. Tempo는 선택 trace 구성에서만 추가 |
 | Loki | 로그 수집과 검색 | Docker `local` 로그를 Alloy가 전달하는 현재 backend 로그 저장소 |
 
 Prometheus·Grafana·Loki는 함께 구성해 쓸 수 있지만 Sentry의 Issue 묶기나 소스맵 기반 오류

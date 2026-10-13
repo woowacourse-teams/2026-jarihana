@@ -6,12 +6,12 @@
 ## 선택한 방향
 
 현재 구현은 Grafana Flow panel `1.20.1`로 만든 정적 SVG 기반 동적 토폴로지다. 브라우저, 자리하나
-API, PostgreSQL을 명시적인 아이콘으로 보여주고, Prometheus·Tempo 지표로 health, 호출량, 지연 시간,
+API, PostgreSQL을 명시적인 아이콘으로 보여주고, Prometheus 지표로 health, 호출량, 지연 시간,
 DB 연결 풀을 갱신한다.
 
 이 방향을 선택한 이유는 세 가지다.
 
-- 현재 관측 스택이 이미 Grafana, Prometheus, Tempo, Loki로 구성되어 있다.
+- 현재 관측 스택이 Grafana, Prometheus, Loki 중심으로 구성되어 있고 Tempo 없이도 DB 호출 지표를 수집할 수 있다.
 - Flow panel은 SVG의 셀 ID와 YAML 설정을 연결해 값, 색, fill level, flow animation을 지표로 구동할 수 있다.
 - 자리하나는 아직 작은 서비스 구성이므로 자동 탐색형 서비스 맵보다 직접 설계한 운영용 그림이 더 빠르게 검증된다.
 
@@ -39,15 +39,16 @@ DB 연결 풀을 갱신한다.
 | 화면 요소 | 데이터 의미 |
 | --- | --- |
 | 백엔드 노드 색 | 최근 앱 health probe 결과. 지표 수집 상태는 별도 문구로 표시 |
-| DB 노드 색 | 앱의 `/actuator/health/database` 결과와 최근 앱 지표 수집 상태 |
+| DB 노드 색 | PostgreSQL exporter의 직접 접속 검사와 최근 exporter 수집 상태 |
 | HTTP 선 속도 | `/actuator.*`를 제외한 최근 2분 평균 HTTP 요청률 |
-| DB 선 속도 | Tempo service graph가 만든 최근 2분 평균 DB client span 호출률 |
+| DB 선 속도 | JDBC query timer가 만든 최근 2분 평균 DB 호출률 |
 | HTTP p95/p99 | Micrometer HTTP histogram bucket으로 계산한 최근 2분 분위수 추정치 |
-| DB p95 | Tempo service graph client histogram bucket으로 계산한 최근 2분 분위수 추정치 |
+| DB p95 | JDBC query timer histogram bucket으로 계산한 최근 2분 분위수 추정치 |
 | DB 연결 풀 | 앱 프로세스의 HikariCP active, idle, max, pending, usage |
 
-DB 노드 색은 DB 머신의 생존 여부가 아니다. 앱에서 DB 연결 검사를 통과했는지 보여준다. DB 연결 풀도
-PostgreSQL 서버 내부 상태가 아니라 앱의 JDBC pool 상태다.
+DB 노드 색은 PostgreSQL exporter가 DB에 직접 접속해 확인한 결과다. 계정·네트워크·TLS 문제도 실패로
+보일 수 있으므로 DB 프로세스 중단만 뜻하지는 않는다. DB 연결 풀은 PostgreSQL 서버 내부 상태가 아니라
+앱의 JDBC pool 상태다.
 
 ## 실시간성 기준
 
@@ -56,7 +57,7 @@ PostgreSQL 서버 내부 상태가 아니라 앱의 JDBC pool 상태다.
 
 - Grafana 화면은 5초마다 갱신된다.
 - 앱 메트릭 scrape는 5초마다 실행된다.
-- 지표와 trace batch는 1초 단위로 전송된다.
+- 지표 batch는 1초 단위로 전송된다.
 - 호출량, p95, p99는 최근 2분 rolling window로 계산한다.
 - health probe는 60초, host 지표는 30초 주기다.
 

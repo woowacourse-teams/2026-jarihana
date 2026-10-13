@@ -27,13 +27,15 @@
 **애플리케이션 EC2마다 Grafana Alloy를 두고 별도 모니터링 EC2의 Nginx를 거쳐 Prometheus와 Loki로 보낸다.
 Grafana에서 두 저장소를 조회한다. 중앙 Collector는 초기 구성에 추가하지 않는다.**
 
-Nginx `80`은 Grafana 루트 경로·WebSocket을, `8080`은 정확히 일치하는 세 POST 수집 경로
-(`/prometheus/api/v1/write`, `/loki/api/v1/push`, `/tempo/v1/traces`)를 제공한다.
-Prometheus·Tempo는 `/prometheus`·`/tempo` 접두사를 제거해 저장소 경로로 전달하고 Loki 경로는 유지한다.
+Nginx `80`은 Grafana 루트 경로·WebSocket을, `8080`은 정확히 일치하는 기본 두 POST 수집 경로
+(`/prometheus/api/v1/write`, `/loki/api/v1/push`)를 제공한다. Tempo 선택 구성에서는
+`/tempo/v1/traces`도 추가한다.
+Prometheus는 `/prometheus` 접두사를 제거해 저장소 경로로 전달하고 Loki 경로는 유지한다.
+Tempo를 켤 때는 `/tempo` 접두사를 제거한다.
 `8080`은 RFC1918 사설 IPv4와 loopback만 허용하고 나머지 출발지를 거부한다.
 알 수 없는 경로는 `404`, 허용 경로의 POST 외 메서드는 `403`으로 응답한다.
 기존 `MONITORING_BIND_ADDRESS`로 두 포트를 bind하고 저장소 관리 포트는 loopback에만 둔다.
-앱 Alloy의 수집 주소는 이 사설 IP와 경로로 만들며 수집용 도메인·DNS·`extra_hosts`나 새 변수·시크릿은 추가하지 않는다.
+앱 Alloy의 기본 수집 주소는 이 사설 IP와 경로로 만들며 수집용 도메인·DNS·`extra_hosts`나 새 변수·시크릿은 추가하지 않는다.
 Nginx는 HTTP 전달을 맡으며 신호 가공·큐를 가진 중앙 Collector 역할은 추가하지 않는다.
 사설 IP bind와 별개로 AWS 보안 그룹·라우팅에서 운영자 화면 접근과 앱 EC2 수집 접근을 확인한다.
 
@@ -85,7 +87,8 @@ dev·prod 각 Compose가 `127.0.0.1:8081`로 고정해 전달한 `APP_METRICS_TA
 구조일 수 있다.
 
 초기 범위는 **Prometheus + Loki + Grafana**였고, 이후 [인프라 ADR 0003](0003-tempo-tracing.md)에서
-Tempo와 OTel Java Agent를 추가했다. Canvas 화면도 저장소 JSON으로 제공한다. 그래도 자동
+Tempo와 OTel Java Agent를 추가했다. [인프라 ADR 0004](0004-disable-tempo-by-default.md)에 따라
+Tempo는 기본 실행에서 제외하고 DB 호출량·DB p95는 JDBC 메트릭으로 본다. Canvas 화면도 저장소 JSON으로 제공한다. 그래도 자동
 서비스 그래프, 인스턴스 증감까지 나타내는 인프라 지도, 백엔드와 DB 사이의 실제 전송량을
 제공한다고 약속하지 않는다.
 
@@ -175,7 +178,7 @@ SigNoz·Datadog·Kiali는 수집기와 같은 층의 대안이 아니다. 각각
 | HTTP 요청량·5xx 비율·응답시간, JVM·Hikari | Micrometer → Alloy → Prometheus |
 | 애플리케이션 로그 | 기존 ECS JSON을 유지하고 로컬 로그 원본 → Alloy → Loki로 전환한다 |
 | 조회 화면 | Grafana 일반 대시보드와 [Canvas 시스템 흐름 화면](../observability/CANVAS.md)은 파일 provisioning으로 관리한다. [Explore 자주 쓰는 로그 쿼리](../observability/DASHBOARD.md#로그-조회와-explore)는 Query History API로 `admin` 계정에 등록한다 |
-| 트레이스·자동 서비스 그래프 | 초기에는 제외했으나 [인프라 ADR 0003](0003-tempo-tracing.md)에서 Agent·Tempo·지표 생성을 추가한다. 자동 서비스 그래프와 인프라 지도는 후속 범위다 |
+| 트레이스·자동 서비스 그래프 | 초기에는 제외했으며 [인프라 ADR 0003](0003-tempo-tracing.md)에서 Agent·Tempo·지표 생성을 검토했다. [인프라 ADR 0004](0004-disable-tempo-by-default.md)에 따라 기본 운영에서는 비활성화하고 필요할 때 선택 구성으로 켠다 |
 | DB 간선별 bytes/s | 초기 제외. 호스트 총 송수신량과 구별하며 별도 네트워크 계측이 필요하다 |
 | 알림 | [Slack 장애 알림](../observability/SLACK.md)은 Grafana 시작 시 health·HTTP 500·호스트 CPU·메모리·디스크·inode 알림 정의 12개와 전달 정책을 파일 provisioning으로 적용한다. 이후 변경도 파일에서 관리한다. 외부 장애 감시는 아직 없으며 실제 AWS·Slack 동작은 별도 검증한다 |
 | micro 모니터링 서버 | 검증 후보. 평상시와 부하 테스트의 수용량을 보장한 결정이 아니다 |

@@ -115,7 +115,6 @@ jobs:
       HOST_ID: ${{ vars.HOST_ID || 'jarihana-dev-ec2' }}
       PROMETHEUS_REMOTE_WRITE_URL: http://${{ vars.MONITORING_BIND_ADDRESS }}:8080/prometheus/api/v1/write
       LOKI_PUSH_URL: http://${{ vars.MONITORING_BIND_ADDRESS }}:8080/loki/api/v1/push
-      TEMPO_OTLP_ENDPOINT: http://${{ vars.MONITORING_BIND_ADDRESS }}:8080/tempo
       POSTGRES_MONITOR_DSN: ${{ secrets.POSTGRES_MONITOR_DSN }}
 
     steps:

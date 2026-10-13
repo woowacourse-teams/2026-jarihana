@@ -46,7 +46,7 @@ JSON은 `canvas` 단일 패널 하나에 모든 Prometheus target을 둔다. 별
 | `백엔드 호스트` | EC2 호스트 | CPU·메모리 같은 서버 자원 상태 |
 | `애플리케이션` | Spring Boot 앱 | 앱 liveness와 종합 health, HTTP 요청량, p95·p99, 5xx |
 | `앱의 커넥션 풀` | 앱 프로세스의 HikariCP | active·idle·max·pending과 풀 사용률 |
-| `PostgreSQL` | 외부 RDS | Alloy의 직접 접속 검사와 trace 기반 DB 호출 |
+| `PostgreSQL` | 외부 RDS | Alloy의 직접 접속 검사와 JDBC 메트릭 기반 DB 호출 |
 
 HikariCP 수치는 RDS 서버의 전체 연결 수가 아니다. 앱 프로세스가 가진 JDBC 연결 풀 상태다.
 `대기`는 연결을 얻으려고 기다리는 스레드 수다. CPU·메모리는 선택한 환경의 호스트 중
@@ -65,8 +65,12 @@ RDS CPU, 메모리, 스토리지, 락, 쿼리 플랜은 이 화면에서 직접 
 
 DB가 중단돼도 앱이 살아 있으면 API는 `응답 중`, 서비스는 `서비스 이상`, DB는 `접속 실패`가 된다.
 반대로 앱만 중단되면 API는 `응답 없음`이고 DB 직접 접속은 계속 확인한다. 앱에서 DB로 가는
-경로는 검사할 수 없으므로 `확인 불가`로 표시한다. 앱 metrics 수집 실패만으로 DB를 장애로
-판정하지 않는다.
+경로는 검사할 수 없으므로 liveness 실패가 수집되면 연결선을 회색 `확인 불가`로 표시한다.
+흐름은 앱 metrics 수집 실패만으로도 멈추며, DB 아이콘을 장애로 바꾸지는 않는다.
+
+앱이 살아 있어도 앱 DB 연결 검사가 실패하면 연결선은 빨간색으로 바뀌고 흐름이 멈춘다.
+직접 접속이 정상이면 DB 아이콘은 정상으로 유지된다. 반대로 모니터링 계정의 접속이나 exporter
+수집만 실패해도 앱 연결 검사와 지표 수집이 정상이고 호출량이 있으면 선은 계속 움직인다.
 
 직접 검사의 `pg_up`은 DB 접속/Ping 결과이며 `up{job="jarihana-postgres"}`는 exporter 수집 성공 여부다.
 exporter 수집에 실패했거나 DB 표본이 150초보다 오래됐으면 DB 아이콘은 `확인 불가`가 된다.
@@ -85,11 +89,17 @@ liveness는 관리 포트 8081의 응답이다. 업무 포트 8080이나 실제 
 | --- | --- |
 | HTTP req/s | `http_server_requests_seconds_count`의 최근 2분 rate, `/actuator.*` 제외 |
 | HTTP p95·p99 | `http_server_requests_seconds_bucket`의 최근 2분 histogram quantile |
-| DB ops/s | Tempo service graph의 최근 2분 rate |
-| DB p95 | Tempo service graph client seconds bucket의 최근 2분 histogram quantile |
+| DB ops/s | `jdbc_query_seconds_count`의 최근 2분 rate |
+| DB p95 | `jdbc_query_seconds_bucket`의 최근 2분 histogram quantile |
 | CPU | `node_cpu_seconds_total`의 최근 2분 rate |
 | 메모리 | 가장 최근 host exporter sample |
 | HikariCP | 가장 최근 앱 metric sample |
+
+DB ops/s와 DB p95는 최근 2분 rate를 계산하지만, 합산 전 각 count·bucket 시계열의 존재 여부와
+마지막 수집 시각을 확인한다. 해당 지표가 없거나 마지막 샘플이 30초 이상 지났으면 `—`로 표시한다.
+앱 수집과 health가 정상이어도 JDBC count만 사라지면 과거 호출량으로 선을 계속 움직이지 않는다.
+counter 값이 그대로여도 새 샘플이 수집되면 정상적인 유휴 상태다. 이 검사는 기존 5초 화면 갱신마다
+쿼리에서 수행하며 DB 아이콘과 연결선의 health 색은 각 검사 결과를 계속 따른다.
 
 대시보드는 5초마다 갱신한다. 종합 health, liveness, 앱→DB 검사와 DB 직접 검사는 각각 60초 주기로 수집된다.
 실행 시점이 서로 달라 한 검사 결과가 먼저 바뀔 수 있다. 150초는 실패 판정 대기 시간이 아니라
@@ -108,7 +118,9 @@ Native Canvas의 점선 애니메이션은 Flow panel의 duration 기반 속도 
 | API → HikariCP → PostgreSQL | DB 호출 | 앱→DB 연결 health | `db_flow` |
 
 `흐름 표시` 드롭다운을 `정지`로 바꾸면 `${motion}` 값이 `0`이 되어 점선 방향·굵기 표현이 멈춘다.
-수집값이 없거나 호출량이 0이거나 health를 신뢰할 수 없을 때도 흐름은 멈춘다.
+DB 흐름은 앱 지표 수집과 앱 DB 연결 검사(`db_connection_health`)가 모두 정상일 때만 표시한다.
+수집값이 없거나 오래됐을 때, 호출량이 0일 때, 앱 DB 연결 검사가 실패했을 때는 멈춘다.
+DB 아이콘의 직접 접속 결과(`db_health`)는 연결선의 색이나 움직임을 결정하지 않는다.
 
 값이 없으면 패널은 `—`를 표시한다. `—`는 0이 아니라 대상 시계열이 없거나, 필터에 맞는 환경이
 없거나, 수집 상태가 오래되어 값을 신뢰할 수 없다는 뜻이다. 최근 2분 동안 HTTP 요청이 없으면

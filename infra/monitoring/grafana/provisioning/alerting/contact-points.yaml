@@ -9,3 +9,5 @@ contactPoints:
         disableResolveMessage: false
         settings:
           url: $SLACK_WEBHOOK_URL
+          title: '{{ template "jarihana.slack.title" . }}'
+          text: '{{ template "jarihana.slack.text" . }}'
