@@ -268,6 +268,36 @@
 }
 
 @media (min-width: 64rem) and (height > 55rem) and (prefers-reduced-motion: no-preference) {
+  .landing-page .landing-section.landing-guide,
+  .landing-page .landing-section.landing-guide-host {
+    padding-block: 0;
+    scroll-margin-top: calc(var(--landing-header) - var(--header-height));
+  }
+
+  .landing-guide__intro {
+    min-height: calc(100svh - var(--landing-header));
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding-block: var(--space-16);
+    scroll-margin-top: calc(var(--landing-header) - var(--header-height));
+  }
+
+  .landing-guide__intro > * {
+    transform: translateY(var(--space-5));
+    transition: transform 420ms var(--landing-ease);
+  }
+
+  .landing-guide__intro[aria-current="step"] > *,
+  .landing-guide__intro:focus-within > * {
+    transform: none;
+  }
+
+  .landing-guide__layout {
+    margin-top: 0;
+  }
+
   .landing-guide--reversed .landing-guide__layout {
     grid-template-columns: minmax(34rem, 1.18fr) minmax(0, 0.82fr);
   }

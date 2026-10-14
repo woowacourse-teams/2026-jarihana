@@ -67,7 +67,20 @@ test("one controller owns every usage section and activates the matching demonst
   const sections = [...flowRef.current.querySelectorAll("[data-guide-sequence]")];
   expect(sections.map((section) => section.id)).toEqual(["guide", "guide-host", "guide-invite", "guide-activity"]);
   expect([...flowRef.current.querySelectorAll("[data-guide-chapter]")].map((chapter) => chapter.dataset.guideChapter))
-    .toEqual(["browse", "detail", "continue", "create", "manage", "invite", "activity"]);
+    .toEqual(["participate-intro", "browse", "detail", "continue", "host-intro", "create", "manage", "invite", "activity"]);
+
+  expect(container.querySelector('[data-guide-chapter="participate-intro"]')).toHaveAttribute("aria-current", "step");
+  expect(container.querySelector('#guide .landing-guide__showcase [data-screen="browse"]')).toHaveAttribute("inert");
+
+  act(() => setActiveChapter("browse"));
+  expect(container.querySelector('[data-guide-chapter="participate-intro"]')).not.toHaveAttribute("aria-current");
+  expect(container.querySelector('#guide .landing-guide__showcase [data-screen="browse"]')).toHaveAttribute("data-active", "true");
+
+  act(() => setActiveChapter("host-intro"));
+  expect(container.querySelector('[data-guide-chapter="host-intro"]')).toHaveAttribute("aria-current", "step");
+  for (const frame of container.querySelectorAll(".landing-guide__showcase .landing-guide-frame")) {
+    expect(frame).toHaveAttribute("inert");
+  }
 
   act(() => setActiveChapter("create"));
   expect(container.querySelector('#guide-host .landing-guide__showcase [data-screen="create"]')).toHaveAttribute("data-active", "true");

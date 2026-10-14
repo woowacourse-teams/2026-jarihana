@@ -209,7 +209,7 @@ function GuideSection({ id, titleId, className, chapters, activeChapter, childre
 }
 
 export function LandingGuide({ createAction = null }) {
-  const [activeChapter, setActiveChapter] = useState(guideChapters[0].id);
+  const [activeChapter, setActiveChapter] = useState("participate-intro");
   const flowRef = useRef(null);
   const snappingRef = useLandingGuideScroll(flowRef, setActiveChapter);
 
@@ -265,7 +265,12 @@ export function LandingGuide({ createAction = null }) {
         id="guide"
         titleId="guide-title"
       >
-        <div className="landing-guide__intro" data-landing-reveal="" id="how">
+        <div
+          aria-current={activeChapter === "participate-intro" ? "step" : undefined}
+          className="landing-guide__intro"
+          data-guide-chapter="participate-intro"
+          id="how"
+        >
           <p className="landing-eyebrow">01 · 모임에 참여하기</p>
           <h2 id="guide-title">
             관심 있는 모임을 찾았다면,
@@ -285,7 +290,11 @@ export function LandingGuide({ createAction = null }) {
         id="guide-host"
         titleId="guide-host-title"
       >
-        <div className="landing-guide__intro" data-landing-reveal="">
+        <div
+          aria-current={activeChapter === "host-intro" ? "step" : undefined}
+          className="landing-guide__intro"
+          data-guide-chapter="host-intro"
+        >
           <p className="landing-eyebrow">02 · 직접 만들고 운영하기</p>
           <h2 id="guide-host-title">
             찾던 모임이 없다면,

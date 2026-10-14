@@ -274,9 +274,14 @@ test("a deliberate reversal responds during the fading guide gesture", () => {
   expect(activate.mock.calls).toEqual([["detail"], ["browse"]]);
 });
 
-const allGuideSequences = [["browse", "detail", "continue"], ["create", "manage"], ["invite"], ["activity"]];
+const allGuideSequences = [
+  ["participate-intro", "browse", "detail", "continue"],
+  ["host-intro", "create", "manage"],
+  ["invite"],
+  ["activity"],
+];
 
-test("nested usage sections share one gesture lock from participation through activity in both directions", () => {
+test("all nine nested guide stops include both intros and hold inertial tails in both directions", () => {
   const { activate } = setup({ sequences: allGuideSequences });
   const ids = allGuideSequences.flat();
   window.scrollY = 850;
@@ -297,22 +302,27 @@ test("nested usage sections share one gesture lock from participation through ac
   }
 
   expect(wheel(-200, { momentum: false }).defaultPrevented).toBe(false);
+  expect(activate.mock.calls).toEqual(steps.map(({ id }) => [id]));
 });
 
-test("keyboard steps continuously across all four nested guide sections", () => {
+test("keyboard steps through both intros and all nine nested guide stops in both directions", () => {
   const { activate } = setup({ sequences: allGuideSequences });
   const ids = allGuideSequences.flat();
+  expect(fireEvent.keyDown(window, { key: "PageUp" })).toBe(true);
+  expect(activate).not.toHaveBeenCalled();
   for (let index = 1; index < ids.length; index += 1) {
-    fireEvent.keyDown(window, { key: "PageDown" });
+    expect(fireEvent.keyDown(window, { key: "PageDown" })).toBe(false);
     advance();
     expect(window.scrollY).toBe(1000 + index * 936);
     expect(activate).toHaveBeenLastCalledWith(ids[index]);
   }
+  expect(fireEvent.keyDown(window, { key: "PageDown" })).toBe(true);
   for (let index = ids.length - 2; index >= 0; index -= 1) {
-    fireEvent.keyDown(window, { key: "PageUp" });
+    expect(fireEvent.keyDown(window, { key: "PageUp" })).toBe(false);
     advance();
     expect(window.scrollY).toBe(1000 + index * 936);
     expect(activate).toHaveBeenLastCalledWith(ids[index]);
   }
-  expect(activate).toHaveBeenCalledTimes(12);
+  expect(fireEvent.keyDown(window, { key: "PageUp" })).toBe(true);
+  expect(activate.mock.calls).toEqual([...ids.slice(1), ...ids.slice(0, -1).reverse()].map((id) => [id]));
 });
