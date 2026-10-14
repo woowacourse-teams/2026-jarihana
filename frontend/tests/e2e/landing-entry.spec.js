@@ -8,6 +8,7 @@ for (const width of [390, 1440]) {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await installApiFixture(page, { auth: "anonymous" });
     await page.goto("/");
+    await expect(page).toHaveURL(/\/land$/);
     await expect(page.locator(".landing-page")).toBeVisible();
     await expect(page.getByRole("banner")).toHaveCount(1);
     await expect(page.locator("main")).toHaveCount(1);
@@ -30,6 +31,7 @@ for (const width of [390, 1440]) {
     await page.goBack();
     await expect(page).toHaveURL(/\/groups$/);
     await page.goBack();
+    await expect(page).toHaveURL(/\/land$/);
     await expect(page.locator(".landing-page")).toBeVisible();
     await page.goto("/land");
     await expect(page.locator(".landing-page")).toBeVisible();

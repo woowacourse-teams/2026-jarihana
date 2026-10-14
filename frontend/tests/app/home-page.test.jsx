@@ -13,9 +13,6 @@ jest.mock("react-router", () => {
   };
 });
 jest.mock("../../src/features/auth", () => ({ useAuth: jest.fn() }));
-jest.mock("../../src/pages/landing/LandingPage", () => ({
-  LandingPage: () => <h1>자리하나 소개</h1>
-}));
 
 function NavigationProbe() {
   const { pathname, search, hash } = useLocation();
@@ -31,17 +28,29 @@ function TestRoutes({ initialEntries = ["/"] }) {
     <NavigationProbe />
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/land" element={<h1>자리하나 소개</h1>} />
       <Route path="/home" element={<h1>기존 모임 홈</h1>} />
       <Route path="/groups" element={<h1>모임 탐색</h1>} />
     </Routes>
   </MemoryRouter>;
 }
 
-it.each(["anonymous", "signup-required", "unavailable"])("shows the landing for %s", async (status) => {
+it.each(["anonymous", "signup-required", "unavailable"])("replaces root with /land for %s without losing query, hash or back history", async (status) => {
+  useAuth.mockReturnValue({ status: "loading" });
+  const entries = ["/groups", "/?utm_source=crew#guide-host"];
+  const { rerender } = render(<TestRoutes initialEntries={entries} />);
+  expect(screen.getByText("홈 불러오는 중")).toHaveAttribute("role", "status");
+  expect(screen.getByLabelText("현재 경로")).toHaveTextContent("/?utm_source=crew#guide-host");
+  expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+
   useAuth.mockReturnValue({ status });
-  render(<TestRoutes />);
+  rerender(<TestRoutes initialEntries={entries} />);
   expect(await screen.findByRole("heading", { name: "자리하나 소개" })).toBeInTheDocument();
-  expect(screen.getByLabelText("현재 경로")).toHaveTextContent(/^\/$/);
+  expect(screen.getByLabelText("현재 경로")).toHaveTextContent("/land?utm_source=crew#guide-host");
+
+  fireEvent.click(screen.getByRole("button", { name: "뒤로" }));
+  expect(screen.getByRole("heading", { name: "모임 탐색" })).toBeInTheDocument();
+  expect(screen.getByLabelText("현재 경로")).toHaveTextContent(/^\/groups$/);
 });
 
 it("waits for authentication, then replaces root with home and preserves filters and history", async () => {
