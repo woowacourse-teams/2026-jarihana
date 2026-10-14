@@ -334,6 +334,11 @@ html:has(.landing-page) {
   line-height: 1.8;
   color: var(--color-muted-ink);
 }
+.landing-description,
+.landing-type__panel-inner > p,
+.landing-start-section__invitation {
+  text-wrap: balance;
+}
 .landing-together {
   padding-top: var(--space-16);
 }

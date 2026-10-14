@@ -12,7 +12,7 @@ const guideChapters = [
     number: "01",
     icon: Search,
     title: "나에게 맞는 자리 찾기",
-    description: "모임 이름으로 검색하고, 유형과 모집 상태로 골라보세요.",
+    description: "모임 이름으로 검색하고,\n유형과 모집 상태로 골라보세요.",
     alt: "모임 검색과 유형 필터로 함께 배우는 토요일을 찾는 이용 예시"
   },
   {
@@ -21,7 +21,7 @@ const guideChapters = [
     icon: CalendarDays,
     title: "이 모임, 나와 잘 맞을까?",
     description:
-      "소개와 일정, 모집 내용을 살펴보고 GitHub로 로그인해 참여를 신청하세요. 승인형 모임은 모임장의 확인을 거친 뒤 내 신청 현황에서 결과를 확인할 수 있어요.",
+      "소개와 일정, 모집 내용을 살펴보고\nGitHub로 로그인해 참여를 신청하세요.\n승인형 모임은 모임장의 확인을 거친 뒤\n내 신청 현황에서 결과를 확인할 수 있어요.",
     alt: "모임 소개와 일정, 모집 방식을 확인하고 참여를 신청하는 이용 예시",
     checks: ["모임 소개와 활동 일정 확인", "모집 방식에 따라 참여 신청"]
   },
@@ -31,7 +31,7 @@ const guideChapters = [
     icon: CheckCircle2,
     title: "만나는 순간부터, 다음 약속까지.",
     description:
-      "참여한 모임과 신청 상태는 한곳에서 확인해요. 다음 약속으로 이어지는 흐름도 놓치지 않게요.",
+      "참여한 모임과 신청 상태는 한곳에서 확인해요.\n다음 약속으로 이어지는 흐름도 놓치지 않게요.",
     alt: "내 모임과 신청 현황을 한곳에서 확인하는 이용 예시"
   }
 ];
@@ -42,7 +42,7 @@ const hostChapters = [
     number: "01",
     icon: Plus,
     title: "모임 만들기",
-    description: "이름과 소개, 장소와 일정을 정해 새로운 자리를 열어요.",
+    description: "이름과 소개, 장소와 일정을 정해\n새로운 자리를 열어요.",
     alt: "모임 종류와 이름, 소개, 장소와 일정을 정해 모임을 만드는 이용 예시"
   },
   {
@@ -50,7 +50,7 @@ const hostChapters = [
     number: "02",
     icon: ClipboardCheck,
     title: "참여 신청 관리",
-    description: "신청자를 확인하고 승인한 뒤, 모집 상태를 이어서 관리해요.",
+    description: "신청자를 확인하고 승인한 뒤,\n모집 상태를 이어서 관리해요.",
     alt: "모임장이 신청 내용을 읽고 승인 여부를 관리하는 이용 예시"
   }
 ];
@@ -60,7 +60,7 @@ const inviteChapters = [{
   number: "01",
   icon: UserPlus,
   title: "함께할 사람 초대하기",
-  description: "떠오르는 사람이 있나요? 모임의 참여자라면 회원을 검색해 직접 초대하거나 초대 링크를 보낼 수 있어요. 보낸 초대도 한곳에서 확인해요.",
+  description: "떠오르는 사람이 있나요?\n모임의 참여자라면 회원을 검색해\n직접 초대하거나 초대 링크를 보낼 수 있어요.\n보낸 초대도 한곳에서 확인해요.",
   alt: "회원을 검색해 함께할 사람을 선택하고 초대하거나 링크를 공유하는 이용 예시",
   checks: ["함께하고 싶은 회원을 골라 초대", "초대 링크 공유와 보낸 초대 확인"]
 }];
@@ -70,7 +70,7 @@ const activityChapters = [{
   number: "01",
   icon: Camera,
   title: "활동 기록 남기기",
-  description: "모임이 끝나도 이야기는 이어지니까. 사진과 짧은 글로 활동을 남기고, 댓글과 이모지로 서로의 순간에 답해 보세요. 피드에서 다른 모임의 일상도 만나보세요.",
+  description: "모임이 끝나도 이야기는 이어지니까.\n사진과 짧은 글로 활동을 남기고,\n댓글과 이모지로 서로의 순간에 답해 보세요.\n피드에서 다른 모임의 일상도 만나보세요.",
   alt: "활동 사진과 짧은 글을 올리고 댓글과 이모지로 대화하는 활동 피드 이용 예시",
   checks: ["사진과 이야기로 남기는 활동 기록", "댓글과 이모지로 이어지는 대화", "전체 기록과 내가 쓴 기록을 한곳에서"]
 }];
@@ -125,7 +125,11 @@ function GuideChapter({ chapter, active }) {
         <span>{chapter.number}</span>
       </div>
       <h3>{chapter.title}</h3>
-      <p>{chapter.description}</p>
+      <p className="landing-guide-chapter__description">
+        {chapter.description.split("\n").map((line) => (
+          <span key={line}>{line}{" "}</span>
+        ))}
+      </p>
       {chapter.checks ? (
         <ul className="landing-guide-checks">
           {chapter.checks.map((check) => (
@@ -200,7 +204,9 @@ export function LandingGuide({ createAction = null, activeChapter = "participate
             이렇게 참여해요.
           </h2>
           <p>
-            모임을 검색하고, 상세 내용을 확인한 뒤 참여를 신청하세요.
+            모임을 검색하고, 상세 내용을 확인한 뒤
+            <br />
+            참여를 신청하세요.
           </p>
         </div>
       </GuideSection>

@@ -101,6 +101,15 @@
   line-height: 1.75;
 }
 
+.landing-guide-chapter__description > span {
+  display: block;
+  text-wrap: balance;
+}
+
+.landing-guide__intro > p:not(.landing-eyebrow) {
+  text-wrap: balance;
+}
+
 .landing-guide-checks {
   list-style: none;
   padding: 0;
