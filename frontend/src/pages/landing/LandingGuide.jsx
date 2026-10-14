@@ -1,11 +1,9 @@
-import { useEffect, useRef, useState } from "react";
 import { ArrowRight, CalendarDays, Camera, CheckCircle2, ClipboardCheck, Plus, Search, UserPlus } from "lucide-react";
 import { Link } from "react-router";
 
 import { LandingProductScene } from "./LandingProductScene";
 import { LandingCreateDemo } from "./LandingCreateDemo";
 import { LandingProductDemo } from "./LandingProductDemo";
-import { useLandingGuideScroll } from "./useLandingGuideScroll";
 import "./landing-guide.css";
 
 const guideChapters = [
@@ -57,8 +55,25 @@ const hostChapters = [
   }
 ];
 
-const inviteChecks = ["함께하고 싶은 회원을 골라 초대", "초대 링크 공유와 보낸 초대 확인"];
-const activityChecks = ["사진과 이야기로 남기는 활동 기록", "댓글과 이모지로 이어지는 대화", "전체 기록과 내가 쓴 기록을 한곳에서"];
+const inviteChapters = [{
+  id: "invite",
+  number: "01",
+  icon: UserPlus,
+  title: "함께할 사람 초대하기",
+  description: "떠오르는 사람이 있나요? 모임의 참여자라면 회원을 검색해 직접 초대하거나 초대 링크를 보낼 수 있어요. 보낸 초대도 한곳에서 확인해요.",
+  alt: "회원을 검색해 함께할 사람을 선택하고 초대하거나 링크를 공유하는 이용 예시",
+  checks: ["함께하고 싶은 회원을 골라 초대", "초대 링크 공유와 보낸 초대 확인"]
+}];
+
+const activityChapters = [{
+  id: "activity",
+  number: "01",
+  icon: Camera,
+  title: "활동 기록 남기기",
+  description: "모임이 끝나도 이야기는 이어지니까. 사진과 짧은 글로 활동을 남기고, 댓글과 이모지로 서로의 순간에 답해 보세요. 피드에서 다른 모임의 일상도 만나보세요.",
+  alt: "활동 사진과 짧은 글을 올리고 댓글과 이모지로 대화하는 활동 피드 이용 예시",
+  checks: ["사진과 이야기로 남기는 활동 기록", "댓글과 이모지로 이어지는 대화", "전체 기록과 내가 쓴 기록을 한곳에서"]
+}];
 
 function ProductFrame({ chapter, isActive = true }) {
   return (
@@ -96,7 +111,7 @@ function GuideChapter({ chapter, active }) {
       aria-current={active ? "step" : undefined}
       className="landing-guide-chapter"
       data-guide-chapter={chapter.id}
-      id={`guide-${chapter.id}`}
+      id={`guide-${chapter.id}${["invite", "activity"].includes(chapter.id) ? "-demo" : ""}`}
     >
       <div className="landing-guide-chapter__number">
         <Icon aria-hidden="true" size={22} strokeWidth={1.7} />
@@ -131,64 +146,11 @@ function GuideChapter({ chapter, active }) {
   );
 }
 
-function GuideFeature({
-  action,
-  active,
-  reversed = false,
-  checks,
-  description,
-  eyebrow,
-  icon: Icon,
-  imageAlt,
-  title
-}) {
-  return (
-    <section
-      aria-labelledby={`${action}-title`}
-      className={`landing-guide-feature landing-guide-feature--${action}${reversed ? " landing-guide--reversed" : ""}`}
-      data-active-step={active ? action : undefined}
-      data-guide-sequence=""
-      id={`guide-${action}`}
-    >
-      <div
-        aria-current={active ? "step" : undefined}
-        className="landing-container landing-guide-feature__layout"
-        data-guide-chapter={action}
-      >
-        <div className="landing-guide-feature__copy" data-landing-reveal="">
-          <div className="landing-guide-feature__icon" aria-hidden="true">
-            <Icon size={26} strokeWidth={1.7} />
-          </div>
-          <p className="landing-eyebrow">{eyebrow}</p>
-          <h2 id={`${action}-title`}>{title}</h2>
-          <p>{description}</p>
-          <ul className="landing-guide-checks">
-            {checks.map((check) => (
-              <li key={check}>
-                <CheckCircle2 aria-hidden="true" size={18} />
-                {check}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="landing-guide-feature__media" data-landing-reveal="">
-          <ProductFrame
-            chapter={{
-              id: action,
-              alt: imageAlt
-            }}
-          />
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function GuideSection({ id, titleId, className, chapters, activeChapter, children }) {
   return (
     <section
       aria-labelledby={titleId}
-      className={`landing-section ${className}`}
+      className={`landing-section landing-guide-section ${className}`}
       data-active-step={activeChapter}
       data-guide-sequence=""
       id={id}
@@ -208,56 +170,9 @@ function GuideSection({ id, titleId, className, chapters, activeChapter, childre
   );
 }
 
-export function LandingGuide({ createAction = null }) {
-  const [activeChapter, setActiveChapter] = useState("participate-intro");
-  const flowRef = useRef(null);
-  const snappingRef = useLandingGuideScroll(flowRef, setActiveChapter);
-
-  useEffect(() => {
-    const root = flowRef.current;
-    if (!root) {
-      return undefined;
-    }
-
-    const chapters = Array.from(root.querySelectorAll("[data-guide-chapter]"));
-    if (!("IntersectionObserver" in window) || !chapters.length) {
-      return undefined;
-    }
-
-    const inset = Math.round(window.innerHeight * 0.35);
-    const visibleChapters = new Set();
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) visibleChapters.add(entry.target);
-          else visibleChapters.delete(entry.target);
-        });
-        if (snappingRef.current) return;
-        const center = window.innerHeight / 2;
-        const nearest = [...visibleChapters].sort((a, b) => {
-          const first = a.getBoundingClientRect();
-          const second = b.getBoundingClientRect();
-          return (
-            Math.abs(first.top + first.height / 2 - center) -
-            Math.abs(second.top + second.height / 2 - center)
-          );
-        })[0];
-        if (nearest) {
-          setActiveChapter(nearest.dataset.guideChapter);
-        }
-      },
-      {
-        rootMargin: `-${inset}px 0px -${inset}px 0px`,
-        threshold: [0, 0.35, 0.7]
-      }
-    );
-
-    chapters.forEach((chapter) => observer.observe(chapter));
-    return () => observer.disconnect();
-  }, [snappingRef]);
-
+export function LandingGuide({ createAction = null, activeChapter = "participate-intro" }) {
   return (
-    <div className="landing-guide-flow" ref={flowRef}>
+    <div className="landing-guide-flow">
       <GuideSection
         activeChapter={activeChapter}
         chapters={guideChapters}
@@ -310,28 +225,39 @@ export function LandingGuide({ createAction = null }) {
         </div>
       </GuideSection>
 
-      <GuideFeature
-        action="invite"
-        active={activeChapter === "invite"}
-        checks={inviteChecks}
-        description="떠오르는 사람이 있나요? 모임의 참여자라면 회원을 검색해 직접 초대하거나 초대 링크를 보낼 수 있어요. 보낸 초대도 한곳에서 확인해요."
-        eyebrow="03 · 초대하기"
-        icon={UserPlus}
-        imageAlt="회원을 검색해 함께할 사람을 선택하고 초대하거나 링크를 공유하는 이용 예시"
-        title="이 자리, 네가 함께하면 좋겠어."
-      />
+      <GuideSection
+        activeChapter={activeChapter}
+        chapters={inviteChapters}
+        className="landing-guide-invite"
+        id="guide-invite"
+        titleId="invite-title"
+      >
+        <div
+          aria-current={activeChapter === "invite-intro" ? "step" : undefined}
+          className="landing-guide__intro"
+          data-guide-chapter="invite-intro"
+        >
+          <p className="landing-eyebrow">03 · 초대하기</p>
+          <h2 id="invite-title">이 자리, 네가 함께하면 좋겠어.</h2>
+        </div>
+      </GuideSection>
 
-      <GuideFeature
-        action="activity"
-        active={activeChapter === "activity"}
-        reversed
-        checks={activityChecks}
-        description="모임이 끝나도 이야기는 이어지니까. 사진과 짧은 글로 활동을 남기고, 댓글과 이모지로 서로의 순간에 답해 보세요. 피드에서 다른 모임의 일상도 만나보세요."
-        eyebrow="04 · 활동 피드"
-        icon={Camera}
-        imageAlt="활동 사진과 짧은 글을 올리고 댓글과 이모지로 대화하는 활동 피드 이용 예시"
-        title="함께한 순간은, 우리의 기록으로."
-      />
+      <GuideSection
+        activeChapter={activeChapter}
+        chapters={activityChapters}
+        className="landing-guide-activity landing-guide--reversed"
+        id="guide-activity"
+        titleId="activity-title"
+      >
+        <div
+          aria-current={activeChapter === "activity-intro" ? "step" : undefined}
+          className="landing-guide__intro"
+          data-guide-chapter="activity-intro"
+        >
+          <p className="landing-eyebrow">04 · 활동 피드</p>
+          <h2 id="activity-title">함께한 순간은, 우리의 기록으로.</h2>
+        </div>
+      </GuideSection>
     </div>
   );
 }

@@ -584,6 +584,32 @@ html:has(.landing-page) {
   height: auto;
   transform: rotate(-8deg);
 }
+
+@media (min-width: 64rem) and (height > 52rem) and (prefers-reduced-motion: no-preference) {
+  .landing-page section.landing-about,
+  .landing-page section.landing-together,
+  .landing-page section.landing-start-section {
+    min-height: calc(100svh - var(--landing-header));
+    display: grid;
+    align-items: center;
+    padding-block: var(--space-8);
+    scroll-margin-top: calc(var(--landing-header) - var(--header-height));
+  }
+
+  .landing-together__visual {
+    height: min(38rem, calc(100svh - var(--landing-header) - var(--space-16)));
+  }
+
+  .landing-start-section__inner {
+    padding-block: 0;
+  }
+
+  .landing-start-section__chair {
+    max-height: calc(100svh - var(--landing-header) - var(--space-16));
+    object-fit: contain;
+  }
+}
+
 .landing-footer {
   padding: var(--space-16) 0;
   background: var(--color-surface);

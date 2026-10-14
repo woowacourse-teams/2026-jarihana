@@ -1,8 +1,13 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 
 import { useAuth } from "../../../src/features/auth";
 import { LandingPage } from "../../../src/pages/landing/LandingPage";
+import { useLandingGuideScroll } from "../../../src/pages/landing/useLandingGuideScroll";
+
+jest.mock("../../../src/pages/landing/useLandingGuideScroll", () => ({
+  useLandingGuideScroll: jest.fn(() => ({ current: false }))
+}));
 
 jest.mock("react-router", () => ({
   MemoryRouter: ({ children }) => children,
@@ -18,6 +23,26 @@ jest.mock("../../../src/features/auth", () => ({
 beforeEach(() => {
   jest.clearAllMocks();
   sessionStorage.clear();
+});
+
+test("one controller connects the service introduction, every guide and the final call to action", () => {
+  useAuth.mockReturnValue({ status: "anonymous", login: jest.fn() });
+  const { container } = render(<LandingPage />);
+  expect(useLandingGuideScroll).toHaveBeenCalledTimes(1);
+  const [pageRef, activate] = useLandingGuideScroll.mock.calls[0];
+  const stops = [...pageRef.current.querySelectorAll("[data-guide-chapter]")];
+  expect(stops.map((node) => node.dataset.guideChapter)).toEqual([
+    "about", "together", "participate-intro", "browse", "detail", "continue",
+    "host-intro", "create", "manage", "invite-intro", "invite", "activity-intro", "activity", "start"
+  ]);
+  expect(container.querySelector(".landing-hero [data-guide-chapter]")).toBeNull();
+  const ids = [...container.querySelectorAll("[id]")].map((node) => node.id);
+  expect(new Set(ids).size).toBe(ids.length);
+  for (const id of ["together", "host-intro", "invite", "activity", "start"]) {
+    act(() => activate(id));
+    expect(container.querySelector(`[data-guide-chapter="${id}"]`)).toHaveAttribute("aria-current", "step");
+    expect(container.querySelectorAll('[data-guide-chapter][aria-current="step"]')).toHaveLength(1);
+  }
 });
 
 test("keeps authentication actions disabled while checking the current session", () => {

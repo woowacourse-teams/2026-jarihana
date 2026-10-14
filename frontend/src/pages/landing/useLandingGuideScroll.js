@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { WheelGestures } from "wheel-gestures";
 
-const DESKTOP_GUIDE = "(min-width: 64rem) and (height > 55rem) and (prefers-reduced-motion: no-preference)";
+const DESKTOP_GUIDE = "(min-width: 64rem) and (height > 52rem) and (prefers-reduced-motion: no-preference)";
 const STEP_DURATION = 520;
 const WHEEL_THRESHOLD = 40;
 const INPUT_PAUSE = 180;
@@ -22,6 +22,25 @@ export function useLandingGuideScroll(sectionRef, setActiveChapter) {
     let consumed = false;
     let distance = 0;
     let previousDelta = 0;
+
+    const visibleChapters = new Set();
+    const inset = Math.round(window.innerHeight * 0.35);
+    const observer = "IntersectionObserver" in window ? new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) visibleChapters.add(entry.target);
+        else visibleChapters.delete(entry.target);
+      });
+      if (snappingRef.current) return;
+      const center = window.innerHeight / 2;
+      const nearest = [...visibleChapters].sort((a, b) => {
+        const first = a.getBoundingClientRect();
+        const second = b.getBoundingClientRect();
+        return Math.abs(first.top + first.height / 2 - center) -
+          Math.abs(second.top + second.height / 2 - center);
+      })[0];
+      if (nearest) setActiveChapter(nearest.dataset.guideChapter);
+    }, { rootMargin: `-${inset}px 0px -${inset}px 0px`, threshold: [0, 0.35, 0.7] }) : null;
+    chapters.forEach((chapter) => observer?.observe(chapter));
 
     function cancel() {
       if (frame !== null) cancelAnimationFrame(frame);
@@ -154,6 +173,7 @@ export function useLandingGuideScroll(sectionRef, setActiveChapter) {
     desktop.addEventListener("change", cancel);
     return () => {
       cancel();
+      observer?.disconnect();
       unsubscribe();
       gestures.disconnect();
       window.removeEventListener("wheel", onWheel);

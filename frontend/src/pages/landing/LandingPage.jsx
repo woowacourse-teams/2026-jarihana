@@ -15,6 +15,7 @@ import clubImage from "../../shared/assets/landing/default-group-club.webp";
 import sessionImage from "../../shared/assets/landing/default-group-session.webp";
 import { useLandingMotion } from "./useLandingMotion";
 import { useLandingQuestionScroll } from "./useLandingQuestionScroll";
+import { useLandingGuideScroll } from "./useLandingGuideScroll";
 import { LandingGuide } from "./LandingGuide";
 import "./landing-tokens.css";
 import "./landing.css";
@@ -276,12 +277,14 @@ function LandingHero() {
   );
 }
 
-function TogetherSection() {
+function TogetherSection({ active }) {
   const [selected, setSelected] = useState("study");
   return (
     <section
       aria-labelledby="together-title"
       className="landing-section landing-together"
+      aria-current={active ? "step" : undefined}
+      data-guide-chapter="together"
       id="together"
     >
       <div className="landing-container landing-together__layout">
@@ -352,7 +355,9 @@ function TogetherSection() {
 
 export function LandingPage() {
   const pageRef = useRef(null);
+  const [activeChapter, setActiveChapter] = useState("about");
   useLandingMotion(pageRef);
+  useLandingGuideScroll(pageRef, setActiveChapter);
   return (
     <div className="landing-page" id="landing-top" ref={pageRef}>
       <a
@@ -365,7 +370,13 @@ export function LandingPage() {
       <LandingHeader />
       <main id="main-content" tabIndex="-1">
         <LandingHero />
-        <section aria-labelledby="about-title" className="landing-section landing-about" id="about">
+        <section
+          aria-current={activeChapter === "about" ? "step" : undefined}
+          aria-labelledby="about-title"
+          className="landing-section landing-about"
+          data-guide-chapter="about"
+          id="about"
+        >
           <div className="landing-container landing-heading" data-landing-reveal="">
             <h2 id="about-title">크루들의 모임을<br />한곳에서 찾아보세요.</h2>
             <p className="landing-description">
@@ -374,15 +385,22 @@ export function LandingPage() {
             </p>
           </div>
         </section>
-        <TogetherSection />
+        <TogetherSection active={activeChapter === "together"} />
         <LandingGuide
+          activeChapter={activeChapter}
           createAction={
             <LandingStartButton className="landing-button--soft" target="/groups/new">
               모임 만들기 <ArrowRight aria-hidden="true" size={20} />
             </LandingStartButton>
           }
         />
-        <section aria-labelledby="start-title" className="landing-start-section" id="start">
+        <section
+          aria-current={activeChapter === "start" ? "step" : undefined}
+          aria-labelledby="start-title"
+          className="landing-start-section"
+          data-guide-chapter="start"
+          id="start"
+        >
           <div className="landing-container landing-start-section__inner">
             <div data-landing-reveal="">
               <p className="landing-eyebrow">함께할 준비, 되었나요?</p>

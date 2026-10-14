@@ -163,7 +163,7 @@ test("small deltas accumulate while zoom and horizontal gestures remain native",
 test("layouts outside the tall desktop motion query bypass stepping", () => {
   desktop.matches = false;
   setup();
-  expect(window.matchMedia).toHaveBeenCalledWith("(min-width: 64rem) and (height > 55rem) and (prefers-reduced-motion: no-preference)");
+  expect(window.matchMedia).toHaveBeenCalledWith("(min-width: 64rem) and (height > 52rem) and (prefers-reduced-motion: no-preference)");
   expect(wheel(100).defaultPrevented).toBe(false);
   fireEvent.keyDown(window, { key: "PageDown" });
   advance();
@@ -275,13 +275,16 @@ test("a deliberate reversal responds during the fading guide gesture", () => {
 });
 
 const allGuideSequences = [
+  ["about"],
+  ["together"],
   ["participate-intro", "browse", "detail", "continue"],
   ["host-intro", "create", "manage"],
-  ["invite"],
-  ["activity"],
+  ["invite-intro", "invite"],
+  ["activity-intro", "activity"],
+  ["start"],
 ];
 
-test("all nine nested guide stops include both intros and hold inertial tails in both directions", () => {
+test("all fourteen stops from service introduction through CTA hold inertial tails in both directions", () => {
   const { activate } = setup({ sequences: allGuideSequences });
   const ids = allGuideSequences.flat();
   window.scrollY = 850;
@@ -298,14 +301,14 @@ test("all nine nested guide stops include both intros and hold inertial tails in
     expect(activate).toHaveBeenCalledTimes(stepIndex + 1);
     expect(activate).toHaveBeenLastCalledWith(id);
     advance(240);
-    if (id === "activity") expect(wheel(200, { momentum: false }).defaultPrevented).toBe(false);
+    if (id === "start") expect(wheel(200, { momentum: false }).defaultPrevented).toBe(false);
   }
 
   expect(wheel(-200, { momentum: false }).defaultPrevented).toBe(false);
   expect(activate.mock.calls).toEqual(steps.map(({ id }) => [id]));
 });
 
-test("keyboard steps through both intros and all nine nested guide stops in both directions", () => {
+test("keyboard steps through every major introduction and demonstration in both directions", () => {
   const { activate } = setup({ sequences: allGuideSequences });
   const ids = allGuideSequences.flat();
   expect(fireEvent.keyDown(window, { key: "PageUp" })).toBe(true);
@@ -325,4 +328,18 @@ test("keyboard steps through both intros and all nine nested guide stops in both
   }
   expect(fireEvent.keyDown(window, { key: "PageUp" })).toBe(true);
   expect(activate.mock.calls).toEqual([...ids.slice(1), ...ids.slice(0, -1).reverse()].map((id) => [id]));
+});
+
+test("manual scrolling selects the visible chapter without interrupting a gesture transition", () => {
+  const { activate } = setup();
+  act(() => global.triggerIntersection());
+  expect(activate).toHaveBeenLastCalledWith("browse");
+  wheel(100);
+  expect(activate).toHaveBeenLastCalledWith("detail");
+  act(() => global.triggerIntersection());
+  expect(activate).toHaveBeenLastCalledWith("detail");
+  advance();
+  window.scrollY = 2872;
+  act(() => global.triggerIntersection());
+  expect(activate).toHaveBeenLastCalledWith("continue");
 });
