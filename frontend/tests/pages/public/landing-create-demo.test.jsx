@@ -90,3 +90,18 @@ test("backgrounding the tab pauses the demo and returning resumes it", () => {
     else delete document.hidden;
   }
 });
+
+
+test("a sticky creation scene resets when hidden and starts again when selected", () => {
+  const { container, rerender } = render(<LandingCreateDemo isActive />);
+  const scene = () => container.querySelector(".lpc-scene");
+  act(() => intersect([{ isIntersecting: true, intersectionRatio: 1 }]));
+  fireEvent.animationEnd(container.querySelector(".lpc-timeline-sentinel"));
+  expect(scene()).toHaveAttribute("data-state", "complete");
+
+  rerender(<LandingCreateDemo isActive={false} />);
+  expect(scene()).toHaveAttribute("data-state", "idle");
+  rerender(<LandingCreateDemo isActive />);
+  act(() => intersect([{ isIntersecting: true, intersectionRatio: 1 }]));
+  expect(scene()).toHaveAttribute("data-state", "running");
+});

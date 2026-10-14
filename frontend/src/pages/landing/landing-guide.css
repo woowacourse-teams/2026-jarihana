@@ -207,44 +207,6 @@
   font-weight: var(--font-weight-bold);
 }
 
-.landing-guide-host__screens {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-8);
-  align-items: start;
-  margin-top: var(--space-16);
-}
-
-.landing-guide-screen-card {
-  display: grid;
-  grid-template-rows: subgrid;
-  grid-row: span 2;
-  min-width: 0;
-  gap: var(--space-6);
-}
-
-.landing-guide-screen-card__copy {
-  max-width: 28rem;
-}
-
-.landing-guide-screen-card__copy h3 {
-  color: var(--color-ink);
-  font-size: var(--text-hero-body);
-  line-height: 1.45;
-}
-
-.landing-guide-screen-card__copy p {
-  margin-top: var(--space-3);
-  color: var(--color-muted-ink);
-  font-size: var(--text-body-lg);
-  line-height: 1.7;
-}
-
-.landing-guide-screen-card .landing-guide-frame {
-  width: 100%;
-  opacity: 1;
-}
-
 .landing-guide-feature {
   padding-block: calc(var(--landing-section-gap) * 0.8);
 }
@@ -305,6 +267,42 @@
 
   .landing-guide__showcase .landing-guide-frame {
     transition-duration: 420ms;
+  }
+
+  .landing-guide__showcase .lpc-scene {
+    gap: var(--space-2);
+    padding: var(--space-4);
+  }
+
+  .landing-guide__showcase .lpc-page-heading {
+    margin-bottom: 0;
+  }
+
+  .landing-guide__showcase .lpc-hero {
+    padding-block: var(--space-12) var(--space-4);
+  }
+
+  .landing-guide__showcase .lpc-hero__copy {
+    gap: var(--space-1);
+  }
+
+  .landing-guide__showcase .lpc-info-heading {
+    margin-block: var(--space-2) var(--space-1);
+  }
+
+  .landing-guide__showcase .lpc-editor,
+  .landing-guide__showcase .lpc-description-panel {
+    gap: var(--space-2);
+    padding-top: 0;
+  }
+
+  .landing-guide__showcase .lpc-tabs span {
+    padding-block: var(--space-1);
+  }
+
+  .landing-guide__showcase .lpc-textarea {
+    min-block-size: 0;
+    padding: var(--space-2);
   }
 }
 
@@ -376,15 +374,9 @@
     transform: none;
   }
 
-  .landing-guide-host__screens,
   .landing-guide-feature__layout {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-8);
-  }
-
-  .landing-guide-screen-card {
-    grid-template-rows: auto auto;
-    grid-row: auto;
   }
 
   .landing-guide-feature--activity .landing-guide-feature__copy {
@@ -397,8 +389,7 @@
     font-size: var(--landing-heading-size);
   }
 
-  .landing-guide__layout,
-  .landing-guide-host__screens {
+  .landing-guide__layout {
     margin-top: var(--space-12);
   }
 

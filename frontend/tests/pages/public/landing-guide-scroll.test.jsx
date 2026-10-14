@@ -15,17 +15,21 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  document.querySelectorAll("[data-guide-sequence]").forEach((node) => node.remove());
   jest.restoreAllMocks();
   jest.useRealTimers();
   Object.defineProperty(window, "matchMedia", originalMatchMedia);
 });
 
-function setup() {
+function setup({ ids = ["browse", "detail", "continue"], top = 1000 } = {}) {
   const root = document.createElement("section");
-  ["browse", "detail", "continue"].forEach((id, index) => {
+  root.dataset.guideSequence = "";
+  root.getBoundingClientRect = () => ({ top: top - 600 - window.scrollY, bottom: top + ids.length * 936 + 64 - window.scrollY });
+  document.body.append(root);
+  ids.forEach((id, index) => {
     const chapter = document.createElement("article");
     chapter.dataset.guideChapter = id;
-    chapter.getBoundingClientRect = () => ({ top: 1064 + index * 936 - window.scrollY, height: 936 });
+    chapter.getBoundingClientRect = () => ({ top: top + 64 + index * 936 - window.scrollY, height: 936 });
     root.append(chapter);
   });
   const sectionRef = { current: root };
@@ -187,3 +191,22 @@ test.each(["resize", "pointerdown", "hashchange", "Home", "End", "media", "navig
     expect(result.current.current).toBe(false);
   }
 );
+
+
+test("a large reverse gesture stays in the visible host guide instead of jumping to participation", () => {
+  const participation = setup();
+  const host = setup({ ids: ["create", "manage"], top: 6000 });
+  window.scrollY = 6936;
+  expect(wheel(-6000).defaultPrevented).toBe(true);
+  advance();
+  expect(window.scrollY).toBe(6000);
+  expect(host.activate).toHaveBeenLastCalledWith("create");
+  expect(participation.activate).not.toHaveBeenCalled();
+
+  window.scrollY = 1000;
+  wheel(6000);
+  advance();
+  expect(window.scrollY).toBe(1936);
+  expect(participation.activate).toHaveBeenLastCalledWith("detail");
+  expect(host.activate).toHaveBeenCalledTimes(1);
+});

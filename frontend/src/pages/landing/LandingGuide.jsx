@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, CalendarDays, Camera, CheckCircle2, Search, UserPlus } from "lucide-react";
+import { ArrowRight, CalendarDays, Camera, CheckCircle2, ClipboardCheck, Plus, Search, UserPlus } from "lucide-react";
 import { Link } from "react-router";
 
 import { LandingProductScene } from "./LandingProductScene";
@@ -38,15 +38,19 @@ const guideChapters = [
   }
 ];
 
-const hostScreens = [
+const hostChapters = [
   {
     id: "create",
+    number: "01",
+    icon: Plus,
     title: "모임 만들기",
     description: "이름과 소개, 장소와 일정을 정해 새로운 자리를 열어요.",
     alt: "모임 종류와 이름, 소개, 장소와 일정을 정해 모임을 만드는 이용 예시"
   },
   {
     id: "manage",
+    number: "02",
+    icon: ClipboardCheck,
     title: "참여 신청 관리",
     description: "신청자를 확인하고 승인한 뒤, 모집 상태를 이어서 관리해요.",
     alt: "모임장이 신청 내용을 읽고 승인 여부를 관리하는 이용 예시"
@@ -65,7 +69,7 @@ function ProductFrame({ chapter, isActive = true }) {
       data-screen={chapter.id}
       inert={!isActive}
     >
-      {chapter.id === "create" ? <LandingCreateDemo label={chapter.alt} /> : (
+      {chapter.id === "create" ? <LandingCreateDemo label={chapter.alt} isActive={isActive} /> : (
         <LandingProductDemo screen={chapter.id} label={chapter.alt} isActive={isActive}>
           <LandingProductScene screen={chapter.id} />
         </LandingProductDemo>
@@ -75,10 +79,10 @@ function ProductFrame({ chapter, isActive = true }) {
   );
 }
 
-function ProductShowcase({ activeChapter }) {
+function ProductShowcase({ chapters, activeChapter }) {
   return (
     <div className="landing-guide__showcase">
-      {guideChapters.map((chapter) => (
+      {chapters.map((chapter) => (
         <ProductFrame chapter={chapter} isActive={activeChapter === chapter.id} key={chapter.id} />
       ))}
     </div>
@@ -123,18 +127,6 @@ function GuideChapter({ chapter, active }) {
       <div className="landing-guide-chapter__mobile-shot">
         <ProductFrame chapter={chapter} />
       </div>
-    </article>
-  );
-}
-
-function GuideScreenCard({ screen }) {
-  return (
-    <article className="landing-guide-screen-card" data-landing-reveal="">
-      <div className="landing-guide-screen-card__copy">
-        <h3>{screen.title}</h3>
-        <p>{screen.description}</p>
-      </div>
-      <ProductFrame chapter={screen} />
     </article>
   );
 }
@@ -184,8 +176,8 @@ function GuideFeature({
   );
 }
 
-export function LandingGuide({ createAction = null }) {
-  const [activeChapter, setActiveChapter] = useState(guideChapters[0].id);
+function GuideSection({ id, titleId, className, chapters, children }) {
+  const [activeChapter, setActiveChapter] = useState(chapters[0].id);
   const sectionRef = useRef(null);
   const snappingRef = useLandingGuideScroll(sectionRef, setActiveChapter);
 
@@ -232,71 +224,73 @@ export function LandingGuide({ createAction = null }) {
     return () => observer.disconnect();
   }, [snappingRef]);
 
-  const active = guideChapters.find((chapter) => chapter.id === activeChapter) ?? guideChapters[0];
+  return (
+    <section
+      aria-labelledby={titleId}
+      className={`landing-section ${className}`}
+      data-active-step={activeChapter}
+      data-guide-sequence=""
+      id={id}
+      ref={sectionRef}
+    >
+      <div className="landing-container">
+        {children}
+        <div className="landing-guide__layout">
+          <div className="landing-guide__chapters">
+            {chapters.map((chapter) => (
+              <GuideChapter active={activeChapter === chapter.id} chapter={chapter} key={chapter.id} />
+            ))}
+          </div>
+          <ProductShowcase chapters={chapters} activeChapter={activeChapter} />
+        </div>
+      </div>
+    </section>
+  );
+}
 
+export function LandingGuide({ createAction = null }) {
   return (
     <>
-      <section
-        aria-labelledby="guide-title"
-        className="landing-section landing-guide"
-        data-active-step={active.id}
+      <GuideSection
+        chapters={guideChapters}
+        className="landing-guide"
         id="guide"
-        ref={sectionRef}
+        titleId="guide-title"
       >
-        <div className="landing-container">
-          <div className="landing-guide__intro" data-landing-reveal="" id="how">
-            <p className="landing-eyebrow">01 · 모임에 참여하기</p>
-            <h2 id="guide-title">
-              관심 있는 모임을 찾았다면,
-              <br />
-              이렇게 참여해요.
-            </h2>
-            <p>
-              모임을 검색하고, 상세 내용을 확인한 뒤 참여를 신청하세요.
-            </p>
-          </div>
-          <div className="landing-guide__layout">
-            <div className="landing-guide__chapters">
-              {guideChapters.map((chapter) => (
-                <GuideChapter
-                  active={activeChapter === chapter.id}
-                  chapter={chapter}
-                  key={chapter.id}
-                />
-              ))}
-            </div>
-            <ProductShowcase activeChapter={active.id} />
-          </div>
+        <div className="landing-guide__intro" data-landing-reveal="" id="how">
+          <p className="landing-eyebrow">01 · 모임에 참여하기</p>
+          <h2 id="guide-title">
+            관심 있는 모임을 찾았다면,
+            <br />
+            이렇게 참여해요.
+          </h2>
+          <p>
+            모임을 검색하고, 상세 내용을 확인한 뒤 참여를 신청하세요.
+          </p>
         </div>
-      </section>
+      </GuideSection>
 
-      <section
-        aria-labelledby="guide-host-title"
-        className="landing-section landing-guide-host"
+      <GuideSection
+        chapters={hostChapters}
+        className="landing-guide-host"
         id="guide-host"
+        titleId="guide-host-title"
       >
-        <div className="landing-container">
-          <div className="landing-guide__intro" data-landing-reveal="">
-            <p className="landing-eyebrow">02 · 직접 만들고 운영하기</p>
-            <h2 id="guide-host-title">
-              찾던 모임이 없다면,
-              <br />
-              내가 하나 만들면 되죠.
-            </h2>
-            <p>
-              모임을 소개하고, 일정과 장소를 정해 함께할 크루를 모집해요.
-              <br />
-              들어온 참여 신청도 한곳에서 확인하고 승인할 수 있어요.
-            </p>
-            {createAction ? <div className="landing-guide__actions">{createAction}</div> : null}
-          </div>
+        <div className="landing-guide__intro" data-landing-reveal="">
+          <p className="landing-eyebrow">02 · 직접 만들고 운영하기</p>
+          <h2 id="guide-host-title">
+            찾던 모임이 없다면,
+            <br />
+            내가 하나 만들면 되죠.
+          </h2>
+          <p>
+            모임을 소개하고, 일정과 장소를 정해 함께할 크루를 모집해요.
+            <br />
+            들어온 참여 신청도 한곳에서 확인하고 승인할 수 있어요.
+          </p>
+          {createAction ? <div className="landing-guide__actions">{createAction}</div> : null}
         </div>
-        <div className="landing-container landing-guide-host__screens">
-          {hostScreens.map((screen) => (
-            <GuideScreenCard key={screen.id} screen={screen} />
-          ))}
-        </div>
-      </section>
+      </GuideSection>
 
       <GuideFeature
         action="invite"
