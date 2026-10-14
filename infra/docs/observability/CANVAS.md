@@ -13,6 +13,13 @@ http://localhost:13000/d/jarihana-canvas
 /d/jarihana-canvas
 ```
 
+모니터링 EC2의 메모리 부족으로 Tempo를 기본 실행에서 제외해도 이 화면의 노드·연결선·풀 표시는 유지한다.
+DB 호출량과 DB p95만 Tempo가 생성한 지표에서 `jdbc_query_seconds_*`로 바꾼다.
+HTTP req/s·p95·p99, 호스트 CPU·메모리와 HikariCP 지표는 기존 수집 경로를 사용한다.
+Flow와 [내장 Canvas](NATIVE-CANVAS.md)에 같은 원칙을 적용한다.
+요청별 trace 조회는 기본 구성에서 빠지며, 수치의 측정 범위와 결정 이유는
+[인프라 ADR 0004](../adr/0004-disable-tempo-by-default.md#기존-대시보드를-유지하는-방법)에 있다.
+
 이 화면은 Grafana 내장 Canvas가 아니라
 [Flow panel](https://grafana.com/grafana/plugins/andrewbmchugh-flow-panel/) `1.20.1`을 사용한다.
 Compose의 Grafana 설정은 `GF_PLUGINS_PREINSTALL_SYNC=andrewbmchugh-flow-panel@1.20.1`로 플러그인 버전을 고정한다.
@@ -34,7 +41,7 @@ node infra/monitoring/grafana/topology/sync-dashboard.mjs
 ```
 
 모니터링 자동 배포 workflow도 Compose 적용 전에 Node 24로 이 스크립트를 실행한다.
-따라서 `infra/monitoring/grafana/topology/**` 변경이 `main`에 들어가면 생성된 dashboard JSON과
+따라서 `infra/monitoring/grafana/topology/**` 변경이 `develop`에 들어가면 생성된 dashboard JSON과
 Compose 설정 검사를 거쳐 모니터링 EC2에 적용된다.
 
 Grafana dashboard provider는 `Jarihana` 폴더의 JSON 파일을 시작 시 등록하고,
@@ -58,7 +65,8 @@ Grafana dashboard provider는 `Jarihana` 폴더의 JSON 파일을 시작 시 등
 사용한 최근 2분 호출량 요약이며 요청과 응답 패킷을 각각 추적한 애니메이션은 아니다.
 
 이 화면은 운영자가 앱, DB, 관측 수집 상태를 한눈에 보는 요약 화면이다. 원인 분석은
-[운영 대시보드](DASHBOARD.md), Grafana Explore, Tempo trace, Loki log에서 이어 본다. 백엔드와 DB
+[운영 대시보드](DASHBOARD.md), Grafana Explore, Loki log에서 이어 본다. Tempo trace는 선택 구성을 켰을 때만
+사용한다. 백엔드와 DB
 노드를 클릭하면 같은 환경과 시간 범위를 유지한 채 `jarihana-overview`로 이동한다.
 
 환경 필터는 `dev` 또는 `prod` 중 하나만 선택한다. 여러 앱 호스트가 같은 환경에 있으면 health와
@@ -68,7 +76,7 @@ Grafana dashboard provider는 `Jarihana` 폴더의 JSON 파일을 시작 시 등
 ## 실시간성
 
 이 토폴로지는 요청마다 이벤트를 밀어 넣는 실시간 화면이 아니다. Grafana 화면은 5초마다 새로고침하고,
-호출량과 지연 시간은 최근 2분 구간의 Prometheus·Tempo 지표로 계산한다. 따라서 사용자가 요청을 보낸
+호출량과 지연 시간은 최근 2분 구간의 Prometheus 지표로 계산한다. 따라서 사용자가 요청을 보낸
 순간의 개별 패킷을 보여주는 것이 아니라, 최근 흐름을 빠르게 반영하는 근실시간 요약이다.
 
 수집 주기는 신호마다 다르다.
@@ -77,12 +85,12 @@ Grafana dashboard provider는 `Jarihana` 폴더의 JSON 파일을 시작 시 등
 | --- | --- |
 | 앱 `/actuator/prometheus` scrape | 5초, timeout 4초 |
 | Alloy metric remote write | 1초 batch |
-| Trace batch | 1초 batch |
-| Tempo metrics-generator collection | 5초 |
-| Tempo metrics-generator remote write | 1초 batch |
 | 앱 health와 DB health probe | 60초 |
 | 호스트 지표 | 30초 |
 | Grafana dashboard refresh | 5초 |
+
+Tempo 선택 구성을 켜면 trace batch, metrics-generator collection, metrics-generator remote write 주기가
+추가된다. 기본 토폴로지의 DB 호출량·DB p95는 이 경로에 의존하지 않는다.
 
 호출량이 없으면 지연 시간은 `0ms`가 아니라 `—`로 표시한다. `—`는 최근 2분 구간에 계산할 표본이
 없거나 수집 상태를 신뢰할 수 없다는 뜻이다.
@@ -93,13 +101,25 @@ Grafana dashboard provider는 `Jarihana` 폴더의 JSON 파일을 시작 시 등
 | --- | --- | --- |
 | 백엔드 | `jarihana-health` job의 `/actuator/health` blackbox 결과 | 최근 150초 안의 값이 `1`이면 정상, `0`이면 앱 health 실패, 값이 없거나 오래되면 확인 불가 |
 | 앱 지표 수집 | `jarihana-backend` job의 `/actuator/prometheus` scrape 결과 | 최근 30초 안의 값이 `1`이면 Prometheus 지표 수집 정상 |
-| DB | `jarihana-database` job의 `/actuator/health/database` blackbox 결과와 앱 지표 수집 상태 | 앱 지표가 없거나 오래되면 확인 불가, probe가 `0`이면 앱에서 본 DB 연결 검사 실패 |
+| DB | `jarihana-postgres` job의 `pg_up`과 같은 scrape의 `up` 값 | 최근 150초 안의 `pg_up`이 `1`이고 같은 PostgreSQL exporter scrape가 살아 있으면 정상, `pg_up`이 `0`이면 DB 직접 점검 실패, 값이 없거나 scrape가 실패하면 확인 불가 |
+| 앱 DB 점검 | `jarihana-database` job의 `/actuator/health/database` blackbox 결과와 앱 liveness 상태 | 앱 liveness가 정상이고 최근 150초 안의 값이 `1`이면 정상, `0`이면 앱에서 본 DB 연결 검사 실패, 앱 liveness가 실패하거나 값이 없거나 오래되면 확인 불가 |
 | 자원 | `jarihana-host`의 CPU·메모리·디스크 사용률 | 80% 이상은 주의, 90% 이상은 긴급 기준 |
-| 관측 저장소 | `prometheus`, `loki`, `tempo`, `grafana` job의 `up` 값 | 최근 90초 안의 값이 `1`이면 수집·조회 대상이 살아 있음 |
+| 관측 저장소 | `prometheus`, `loki`, `grafana` job의 `up` 값 | 최근 90초 안의 값이 `1`이면 수집·조회 대상이 살아 있음. Tempo는 선택 구성에서만 포함 |
 
-DB 상태가 빨간색이라는 뜻은 앱이 `/actuator/health/database`에서 DB 연결을 정상으로 확인하지
-못했다는 뜻이다. DB 머신 자체가 죽었다는 증명은 아니다. 반대로 회색은 앱 metrics가 없거나 오래되어
-DB probe를 신뢰할 수 없다는 뜻이며, 정상이나 장애로 단정하지 않는다.
+DB 상태와 DB 노드 색은 PostgreSQL exporter가 직접 수집한 `pg_up`을 따른다. 빨간색은 exporter가
+PostgreSQL 직접 점검 실패를 보고했다는 뜻이고, 회색은 같은 PostgreSQL exporter scrape가 실패했거나
+최근 값이 없어 DB 상태를 단정할 수 없다는 뜻이다.
+
+앱 DB 점검과 DB 앞의 공유 연결선은 앱이 `/actuator/health/database`에서 확인한 연결 상태를 따른다.
+검사가 실패하면 연결선은 빨간색으로 바뀌고 흐름이 멈춘다. 이때 직접 접속 검사가 정상이면 DB
+아이콘은 정상으로 유지된다. 앱 관리 경로의 `404`도 검사 실패에 해당하므로 빨간 선만으로 DB
+프로세스가 중단됐다고 단정하지 않는다.
+
+백엔드만 중단되면 앱 지표 수집 실패로 흐름이 멈추고, liveness 실패가 수집되면 연결선은 회색
+`확인 불가`가 된다. Alloy의 DB 직접 검사는 계속되므로 DB 아이콘은 정상일 수 있다. 반대로 모니터링
+계정의 접속이나 exporter 수집만 실패하면 DB 아이콘 상태가 바뀌지만, 앱 연결 검사와 지표 수집이
+정상이고 호출량이 있으면 연결선은 계속 움직인다. 앱 EC2 전체가 중단되면 같은 EC2의 Alloy도
+멈추므로 DB 직접 검사도 갱신되지 않으며, 기존 값의 유효기간이 지나면 `확인 불가`가 된다.
 
 `/actuator/health/database`는 dev·prod Spring 설정의 `database` health group에 `db` contributor만
 포함해 만든 앱 측 연결 검사다. Alloy는 앱 관리 주소를 사용해 `/actuator/health`와
@@ -116,20 +136,32 @@ HTTP p95와 p99는 `http_server_requests_seconds_bucket` histogram으로 계산�
 `histogram_quantile` 추정치이므로 실제 요청 하나의 정확한 지연 시간이 아니라 bucket 분포로 계산한
 최근 2분 분위수다.
 
-DB 호출량과 DB p95 표시는 Tempo metrics-generator가 만든 service graph 지표를 사용한다.
-요청률은 `traces_service_graph_request_total{client="jarihana",connection_type="database"}`의 최근
-2분 평균이다. DB p95는 `traces_service_graph_request_client_seconds_bucket` histogram으로 계산한다.
-이 값은 앱에서 관측한 DB client span의 흐름과 지연 시간이지, DB 내부 CPU·락·쿼리 플랜 상태를 뜻하지
-않는다. Health check나 scheduled 작업에서 생긴 DB 호출도 포함될 수 있다.
+DB 호출량과 DB p95 표시는 백엔드 Actuator가 노출한 JDBC 메트릭을 사용한다.
+요청률은 `jdbc_query_seconds_count{job="jarihana-backend",environment="$environment"}`의 최근
+2분 평균 증가율이다. DB p95는 `jdbc_query_seconds_bucket` histogram으로 계산한다.
+이 값은 앱에서 실행한 JDBC 호출의 흐름과 지연 시간이지, DB 내부 CPU·락·쿼리 플랜 상태를 뜻하지
+않는다. SQL 문장 개수나 특정 커넥션 하나의 처리량도 아니다. 기준은 JDBC 실행이다. 예약 작업이나
+health check가 실제 SQL을 실행하면 포함될 수 있지만, 단순 connection validity 확인처럼 SQL을
+실행하지 않는 검사는 `jdbc_query_seconds_*`를 만들지 않을 수 있다.
+
+최근 2분 계산은 유지하되, 합산하기 전에 각 JDBC 시계열이 현재 존재하고 마지막 샘플이 30초
+미만인지 확인한다. 호출량은 count, p95는 bucket을 각각 검사하며 유효한 지표가 없으면 `—`로
+표시한다. 백엔드와 health가 정상이어도 JDBC 계측만 사라지면 과거 호출량으로 선을 계속 움직이지
+않는다. 이 조건은 기존 5초 화면 갱신 때 조회 쿼리에서 평가하며 별도 수집 주기를 추가하지 않는다.
+호출이 없어 counter 값이 그대로여도 새 샘플이 수집되면 정상 데이터다. 수집 중단만으로 DB 아이콘이나
+연결선의 health 색을 바꾸지는 않는다.
 
 HTTP 요청·응답선의 animation duration은 실제 2분 평균 호출량으로 정한다. 0 또는 확인 불가이면 점 이동을
 멈추고, 0.05rps는 약 2.4초, 30rps 이상은 약 0.25초로 보간한다. 보간은 낮은 호출량에서도 움직임을
 읽을 수 있도록 `biasPower: 0.4`를 사용한다. 선의 색은 health 상태를 따르고, Flow panel의 기본
 일시정지 버튼으로 애니메이션을 멈출 수 있다.
 
-DB 앞의 공유 trunk도 최근 2분 DB 호출량(`db_flow`)으로 animation duration을 정한다. 0 또는 확인
-불가이면 멈추고, 0.05rps는 약 2.4초, 30rps 이상은 약 0.25초로 보간한다. 색은 `db_health`를 따른다.
-이 trunk 속도와 색은 DB 호출 집계의 표현이며, HikariCP 자리 개수나 대여·반납 모션은 별도의 풀 지표로 정한다.
+DB 앞의 공유 trunk도 최근 2분 DB 호출량으로 animation duration을 정한다. `db_flow`는 앱 지표
+수집과 앱 DB 연결 검사(`db_connection_health`)가 정상이고 JDBC count가 유효할 때만 호출량을 전달하며, 그 외에는
+`0`으로 멈춘다. 호출량이 0이거나 확인 불가일 때도 멈추고, 0.05rps는 약 2.4초, 30rps 이상은
+약 0.25초로 보간한다. 색은 `db_connection_health`를 따라 정상은 초록색, 실패는 빨간색,
+확인 불가는 회색이다. DB 직접 검사(`db_health`)는 이 선의 색이나 움직임을 결정하지 않는다.
+HikariCP 자리 개수나 대여·반납 모션은 별도의 풀 지표로 정하며 기존 표현을 유지한다.
 
 ## DB 연결 풀
 
@@ -184,6 +216,14 @@ node infra/monitoring/grafana/topology/test-pool-nodes.mjs /tmp/jarihana-pool-ma
 연결 소멸, 표시 개수 제한을 확인한다.
 생성된 `index.html`에서는 같은 SVG와 계산 결과로 이동 방향을 확인할 수 있다.
 
+헬스 쿼리 검증은 Flow panel과 native Canvas의 DB health, 앱 DB 점검, Flow DB 흐름, native 앱 liveness 표현식을
+Prometheus `promtool` 합성 시계열로 실행한다. 아래 명령은 Docker의 `prom/prometheus:v3.15.0`
+이미지에서 `promtool test rules`를 실행한다.
+
+```bash
+node infra/monitoring/grafana/canvas/test-health.mjs
+```
+
 최대값이 바뀌면 표시 개수와 배열도 바뀐다. 화면에서는 100개까지 그리고 그보다 많으면 초과 수량을
 요약한다. 최대값을 수집하지 못하면 원을 숨기고, 최대만 있고 사용·유휴를 모르면 회색 원으로 표시한다.
 
@@ -207,8 +247,8 @@ node infra/monitoring/grafana/topology/test-pool-nodes.mjs /tmp/jarihana-pool-ma
 ## 운영할 때 주의할 점
 
 토폴로지는 장애 원인을 확정하는 화면이 아니다. 빨간색 노드나 빠르게 움직이는 선이 보이면 운영
-대시보드의 health 이력, HTTP 상태 코드, p95·p99, HikariCP 연결 풀, 최근 로그와 Tempo trace를 함께
-확인한다.
+대시보드의 health 이력, HTTP 상태 코드, p95·p99, HikariCP 연결 풀과 최근 로그를 함께 확인한다.
+Tempo 선택 구성을 켠 환경이라면 같은 시간대 trace도 이어서 본다.
 
 로컬 검증에서는 실제 API 읽기 요청 뒤 HTTP p95가 약 16ms, p99가 약 28ms, DB p95가 약 1.8ms로
 조회됐다. Flow 애니메이션은 실제 호출률에 따라 약 1.85초 duration으로 움직이는 것을 확인했다.

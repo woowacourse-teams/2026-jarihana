@@ -21,6 +21,8 @@ scrape_configs:
     static_configs:
       - targets: ["grafana:3000"]
 
-  - job_name: tempo
-    static_configs:
-      - targets: ["tempo:3200"]
+  # Tempo is kept as an optional tracing profile, so the default Prometheus config
+  # does not scrape it. Re-enable this job together with the Compose tracing profile.
+  # - job_name: tempo
+  #   static_configs:
+  #     - targets: ["tempo:3200"]
