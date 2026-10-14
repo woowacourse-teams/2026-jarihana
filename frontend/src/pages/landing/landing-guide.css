@@ -20,16 +20,16 @@
 .landing-page .landing-guide__intro h2 {
   margin-top: var(--space-5);
   font-size: var(--landing-heading-size);
-  line-height: 1.25;
-  font-weight: var(--font-weight-bold);
-  letter-spacing: -0.045em;
+  line-height: 1.35;
+  font-weight: var(--landing-heading-weight);
+  letter-spacing: var(--landing-heading-tracking);
 }
 
 .landing-page .landing-guide__intro p:not(.landing-eyebrow) {
   margin-top: var(--space-6);
   color: var(--color-muted-ink);
   font-size: var(--landing-body-size);
-  line-height: 1.8;
+  line-height: var(--landing-body-leading);
 }
 
 .landing-guide__actions {
@@ -83,22 +83,23 @@
   font-weight: var(--font-weight-bold);
 }
 
-.landing-guide-chapter h3 {
+.landing-guide-chapter > h3 {
   margin-top: var(--space-5);
   color: var(--color-ink);
   font-size: var(--landing-feature-size);
   line-height: 1.34;
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--landing-heading-weight);
+  letter-spacing: var(--landing-heading-tracking);
 }
 
 .landing-guide-chapter[aria-current="step"] h3 {
   color: var(--color-brand-ink);
 }
 
-.landing-guide-chapter p {
+.landing-guide-chapter > p {
   margin-top: var(--space-5);
-  font-size: var(--text-hero-body);
-  line-height: 1.75;
+  font-size: var(--landing-body-size);
+  line-height: var(--landing-body-leading);
 }
 
 .landing-guide-chapter__description > span {

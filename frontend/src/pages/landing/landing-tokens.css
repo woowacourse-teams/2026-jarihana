@@ -5,9 +5,12 @@
   --landing-radius: 2.5rem;
   --landing-section-gap: 10rem;
   --landing-hero-size: clamp(3rem, 5.56vw, 5rem);
-  --landing-heading-size: clamp(2.5rem, 4vw, 3.5rem);
-  --landing-feature-size: 2.5rem;
-  --landing-body-size: 1.25rem;
+  --landing-heading-size: clamp(2.25rem, 3.6vw, 3.25rem);
+  --landing-feature-size: clamp(2rem, 2.5vw, 2.25rem);
+  --landing-body-size: 1.125rem;
+  --landing-heading-weight: var(--font-weight-semibold);
+  --landing-heading-tracking: -0.025em;
+  --landing-body-leading: 1.7;
   --landing-dark: #112b29;
   --landing-dark-muted: #b5ccc9;
   --landing-mint: #e8f7f3;
