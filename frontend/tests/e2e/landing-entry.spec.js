@@ -18,6 +18,17 @@ for (const width of [390, 1440]) {
     await page.goto("/groups");
     await expect(page.locator(".app-shell")).toBeVisible();
     await expect(page.locator(".landing-page")).toHaveCount(0);
+    if (width < 768) {
+      await page.getByRole("button", { name: "메뉴 열기" }).click();
+      await page.getByRole("navigation", { name: "모바일 메뉴" }).getByRole("link", { name: "홈", exact: true }).click();
+    } else {
+      await page.getByRole("navigation", { name: "주요 메뉴" }).getByRole("link", { name: "홈", exact: true }).click();
+    }
+    await expect(page).toHaveURL(/\/home$/);
+    await expect(page.locator(".groups-page--home")).toBeVisible();
+    await expect(page.locator(".landing-page")).toHaveCount(0);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/groups$/);
     await page.goBack();
     await expect(page.locator(".landing-page")).toBeVisible();
     await page.goto("/land");
@@ -28,6 +39,7 @@ for (const width of [390, 1440]) {
 test("members keep the current home and may explicitly open the landing", async ({ page }) => {
   await installApiFixture(page);
   await page.goto("/");
+  await expect(page).toHaveURL(/\/home$/);
   await expect(page.locator(".groups-page--home")).toBeVisible();
   await expect(page.locator(".landing-page")).toHaveCount(0);
   await page.goto("/land");
@@ -35,9 +47,9 @@ test("members keep the current home and may explicitly open the landing", async 
   await expect(page.getByRole("banner")).toHaveCount(1);
   await expect(page.getByRole("button", { name: "GitHub로 시작하기" })).toHaveCount(0);
   const home = page.getByRole("banner").getByRole("link", { name: "홈으로 가기" });
-  await expect(home).toHaveAttribute("href", "/");
+  await expect(home).toHaveAttribute("href", "/home");
   await home.click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/home$/);
   await expect(page.locator(".groups-page--home")).toBeVisible();
   await page.goBack();
   await expect(page.locator(".landing-page")).toBeVisible();

@@ -344,13 +344,25 @@ test("handles a failed cross-tab authentication reload and removes its listener 
 });
 
 
-test.each([
-  ["authenticated", "GroupsPage"], ["anonymous", "LandingPage"]
-])("preserves the root analytics identity for %s", async (status, routeName) => {
-  useAuth.mockReturnValue({ status });
+test("records the anonymous root as the landing", async () => {
+  useAuth.mockReturnValue({ status: "anonymous" });
   useLocation.mockReturnValue({ pathname: "/", search: "" });
   matchRoutes.mockReturnValue([{ route: { page: "HomePage" }, params: {} }]);
   render(<AnalyticsBridge />);
   await waitFor(() => expect(trackPage).toHaveBeenCalledWith("/"));
-  expect(setAnalyticsRoute).toHaveBeenCalledWith("/", expect.objectContaining({ route_name: routeName }));
+  expect(setAnalyticsRoute).toHaveBeenCalledWith("/", expect.objectContaining({ route_name: "LandingPage" }));
+});
+
+test("records a member home visit once after the root redirect", async () => {
+  useAuth.mockReturnValue({ status: "authenticated" });
+  useLocation.mockReturnValue({ pathname: "/", search: "" });
+  matchRoutes.mockReturnValue([{ route: { page: "HomePage" }, params: {} }]);
+  const { rerender } = render(<AnalyticsBridge />);
+  expect(trackPage).not.toHaveBeenCalled();
+  useLocation.mockReturnValue({ pathname: "/home", search: "" });
+  matchRoutes.mockReturnValue([{ route: { page: "GroupsPage" }, params: {} }]);
+  rerender(<AnalyticsBridge />);
+  await waitFor(() => expect(trackPage).toHaveBeenCalledTimes(1));
+  expect(trackPage).toHaveBeenCalledWith("/home");
+  expect(setAnalyticsRoute).toHaveBeenCalledWith("/home", expect.objectContaining({ route_name: "GroupsPage" }));
 });

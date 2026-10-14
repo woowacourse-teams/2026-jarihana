@@ -47,6 +47,7 @@ function renderRoutes(initialEntries) {
 
 it.each([
   ["/", "HomePage"],
+  ["/home", "GroupsPage"],
   ["/land", "LandingPage"],
   ["/land/", "LandingPage"],
   ["/groups", "GroupBrowsePage"],

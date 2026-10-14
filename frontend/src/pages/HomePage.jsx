@@ -1,10 +1,8 @@
 import { lazy, Suspense } from "react";
+import { Navigate, useLocation } from "react-router";
 
 import { useAuth } from "../features/auth";
 
-const GroupsPage = lazy(() =>
-  import("./groups/GroupsPage").then((module) => ({ default: module.GroupsPage }))
-);
 const LandingPage = lazy(() =>
   import("./landing/LandingPage").then((module) => ({ default: module.LandingPage }))
 );
@@ -15,11 +13,13 @@ function HomeLoading() {
 
 export function HomePage() {
   const { status } = useAuth();
+  const { search, hash } = useLocation();
   if (status === "loading") return <HomeLoading />;
+  if (status === "authenticated") return <Navigate replace to={{ pathname: "/home", search, hash }} />;
 
   return (
     <Suspense fallback={<HomeLoading />}>
-      {status === "authenticated" ? <GroupsPage /> : <LandingPage />}
+      <LandingPage />
     </Suspense>
   );
 }

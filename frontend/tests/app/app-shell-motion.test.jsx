@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 
 import { AppShell } from "../../src/app/AppShell";
 
-let mockPathname = "/";
+let mockPathname = "/home";
 let mockSearch = "";
 const originalMatchMedia = window.matchMedia;
 
@@ -19,7 +19,7 @@ function page() {
 }
 
 beforeEach(() => {
-  mockPathname = "/";
+  mockPathname = "/home";
   mockSearch = "";
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
@@ -74,7 +74,7 @@ it("slides from the left when moving to an earlier tab, including nonadjacent ta
   const { rerender, unmount } = render(page());
   const { cancel, content } = prepareAnimation(screen.getByRole("main"));
 
-  mockPathname = "/";
+  mockPathname = "/home";
   rerender(page());
   expect(content.animate).toHaveBeenCalledWith(
     [
@@ -98,7 +98,7 @@ it("does not animate unchanged paths, feedback query updates, or detail destinat
   rerender(page());
   mockPathname = "/groups/121";
   rerender(page());
-  mockPathname = "/";
+  mockPathname = "/home";
   rerender(page());
   expect(content.animate).not.toHaveBeenCalled();
 });

@@ -68,7 +68,7 @@ test("lets signed-in visitors view the landing and continue without another logi
   const homeLinks = screen.getAllByRole("link", { name: "홈으로 가기" });
   expect(homeLinks).toHaveLength(2);
   for (const link of homeLinks) {
-    expect(link).toHaveAttribute("href", "/");
+    expect(link).toHaveAttribute("href", "/home");
     expect(link).toHaveAttribute("data-ph-capture-attribute-action", "group_home");
   }
   const create = screen.getByRole("link", { name: "모임 만들기", exact: true });
@@ -83,7 +83,7 @@ test("returns a new login to home while keeping a creation signup destination", 
   const { rerender } = render(<LandingPage />);
   fireEvent.click(screen.getByRole("button", { name: "시작하기", exact: true }));
   expect(login).toHaveBeenCalledTimes(1);
-  expect(sessionStorage.getItem("jarihana:auth:return-target")).toBe("/");
+  expect(sessionStorage.getItem("jarihana:auth:return-target")).toBe("/home");
 
   useAuth.mockReturnValue({ status: "signup-required", login });
   rerender(<LandingPage />);

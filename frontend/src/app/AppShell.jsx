@@ -1,13 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router";
 
-import { useAuth } from "../features/auth";
-
 import { AppHeader } from "./AppHeader";
 import { AppFooter } from "./AppFooter";
 import "./AppShell.css";
 
-const PRIMARY_PAGE_PATHS = ["/", "/groups", "/activities"];
+const PRIMARY_PAGE_PATHS = ["/home", "/groups", "/activities"];
 
 function scrollBehavior() {
   return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ? "auto" : "smooth";
@@ -48,7 +46,6 @@ function ScrollToTopButton() {
 
 export function AppShell({ children, headerAction = null, headerTitle = "" }) {
   const { pathname } = useLocation();
-  const { status } = useAuth();
   const pwaGuideReference = useRef(null);
   const pageReference = useRef(null);
   const previousPathname = useRef(pathname);
@@ -80,7 +77,7 @@ export function AppShell({ children, headerAction = null, headerTitle = "" }) {
     return () => animation.cancel();
   }, [pathname]);
 
-  if (pathname.replace(/\/$/, "") === "/land" || (pathname === "/" && status !== "authenticated")) {
+  if (pathname.replace(/\/$/, "") === "/land" || pathname === "/") {
     return children ?? <Outlet />;
   }
 

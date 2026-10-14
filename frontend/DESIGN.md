@@ -755,7 +755,7 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
   the existing main frame supplies its outer top rounding on tablet and desktop.
   A decorative pseudo-element fills the hero bounds without clipping action focus outlines.
   Use `홈`, `탐색`, `활동`, and `피드백` labels in desktop and mobile navigation.
-  `홈` opens `/` and is active only on `/`; `탐색` opens `/groups`
+  `홈` opens `/home` and is active only on `/home`; `탐색` opens `/groups`
   and is active only on that route. Reuse the existing header link and active styles.
   Both links close the mobile drawer without triggering login; browse opens unfiltered.
   Put two semantic CTA links beneath the hero copy, led by `자리찾기` opening
@@ -1017,6 +1017,6 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
 
 ## 공개 랜딩 진입
 
-`/`는 세션 확인 후 비회원에게 소개 랜딩, 회원에게 기존 홈을 제공한다. `/land`에서는 회원도 같은 랜딩을 볼 수 있다. 랜딩의 질문 도입부, 프레임 밖으로 나오는 민트 의자, 별도 서비스 설명, 유형 선택과 이용 가이드 순서를 유지한다. 이용 예시는 화면 재진입 시 초기화하고 1.5배 속도로 재생하며 동작 줄이기를 지원한다. 랜딩에서만 기본 rem 크기를 100%로 유지해 기존 홈의 데스크톱 87.5% 배율을 바꾸지 않는다. 로그인한 회원의 시작 CTA는 홈(`/`), 생성 CTA는 `/groups/new`로 연결한다.
+`/`는 세션 확인 후 비회원에게 소개 랜딩을 보여주고, 회원은 검색 조건과 해시를 유지해 `/home`으로 replace 이동한다. `/home`은 로그인 여부와 관계없이 기존 홈을 제공한다. `/land`에서는 회원도 같은 랜딩을 볼 수 있다. 랜딩의 질문 도입부, 프레임 밖으로 나오는 민트 의자, 별도 서비스 설명, 유형 선택과 이용 가이드 순서를 유지한다. 이용 예시는 화면 재진입 시 초기화하고 1.5배 속도로 재생하며 동작 줄이기를 지원한다. 랜딩에서만 기본 rem 크기를 100%로 유지해 기존 홈의 데스크톱 87.5% 배율을 바꾸지 않는다. 로그인한 회원의 시작 CTA는 홈(`/home`), 생성 CTA는 `/groups/new`로 연결한다.
 
-이용 가이드의 `01 · 모임에 참여하기`와 `02 · 직접 만들고 운영하기`는 같은 설명·데모 배치를 사용한다. 높이가 충분한 데스크톱에서는 왼쪽 단계와 오른쪽 고정 데모가 함께 전환되고, 모바일·낮은 창·모션 감소 설정에서는 각 설명 아래에 해당 화면을 표시한다. 생성 데모는 고정 영역에서만 여백을 줄여 제어 버튼과 하단 동작까지 한 화면에 담는다.
+이용 가이드의 `01 · 모임에 참여하기`와 `02 · 직접 만들고 운영하기`는 같은 설명·데모 배치를 사용한다. 높이가 충분한 데스크톱에서는 왼쪽 단계와 오른쪽 고정 데모가 함께 전환되고, 모바일·낮은 창·모션 감소 설정에서는 각 설명 아래에 해당 화면을 표시한다. 생성 데모는 고정 영역에서만 여백을 줄여 제어 버튼과 하단 동작까지 한 화면에 담는다. 두 이용 가이드 모두 도입부와 같은 `wheel-gestures`로 관성을 구분해 한 번의 입력에 한 단계만 이동한다. 관성의 작은 튐과 마지막 단계 뒤의 잔여 입력은 흡수하고, 새 입력이나 명확한 역방향 입력은 다시 받아들인다.

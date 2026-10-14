@@ -55,7 +55,7 @@ const groupTypes = [
   }
 ];
 
-function LandingStartButton({ children = "시작하기", className = "", target = "/" }) {
+function LandingStartButton({ children = "시작하기", className = "", target = "/home" }) {
   const { login, status } = useAuth();
   const [error, setError] = useState("");
   const classes = `landing-button ${className}`;

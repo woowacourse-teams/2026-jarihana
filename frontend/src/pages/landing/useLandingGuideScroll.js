@@ -1,8 +1,10 @@
 import { useEffect, useRef } from "react";
+import { WheelGestures } from "wheel-gestures";
 
 const DESKTOP_GUIDE = "(min-width: 64rem) and (height > 55rem) and (prefers-reduced-motion: no-preference)";
 const STEP_DURATION = 520;
-const WHEEL_IDLE = 220;
+const WHEEL_THRESHOLD = 40;
+const INPUT_PAUSE = 180;
 const POSITION_TOLERANCE = 80;
 
 export function useLandingGuideScroll(sectionRef, setActiveChapter) {
@@ -15,12 +17,11 @@ export function useLandingGuideScroll(sectionRef, setActiveChapter) {
     if (!chapters.length) return;
     const desktop = window.matchMedia(DESKTOP_GUIDE);
     let frame = null;
-    let lastWheel = -Infinity;
+    const gestures = WheelGestures({ preventWheelAction: false, reverseSign: false });
+    let lastWheelAt = -Infinity;
     let consumed = false;
     let distance = 0;
     let previousDelta = 0;
-    let peak = 0;
-    let decayed = false;
 
     function cancel() {
       if (frame !== null) cancelAnimationFrame(frame);
@@ -28,7 +29,8 @@ export function useLandingGuideScroll(sectionRef, setActiveChapter) {
       snappingRef.current = false;
       consumed = false;
       distance = 0;
-      lastWheel = -Infinity;
+      lastWheelAt = -Infinity;
+      previousDelta = 0;
     }
 
     function stops() {
@@ -88,36 +90,37 @@ export function useLandingGuideScroll(sectionRef, setActiveChapter) {
       frame = requestAnimationFrame(tick);
     }
 
+    function onGesture({ event, axisDelta, isStart, isEnding, isMomentum }) {
+      if (isEnding) return;
+      const delta = axisDelta[1];
+      const direction = Math.sign(delta);
+      const reversed = previousDelta !== 0 && direction !== Math.sign(previousDelta) && Math.abs(delta) >= WHEEL_THRESHOLD;
+      const renewed = !isMomentum && Math.abs(previousDelta) < WHEEL_THRESHOLD &&
+        Math.abs(delta) >= WHEEL_THRESHOLD && Math.abs(delta) >= Math.abs(previousDelta) * 2;
+      const separated = event.timeStamp - lastWheelAt >= INPUT_PAUSE && !isMomentum;
+      if ((isStart && !isMomentum) || reversed || renewed || separated) {
+        consumed = false;
+        distance = 0;
+      }
+      lastWheelAt = event.timeStamp;
+      previousDelta = delta;
+      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
+      const target = destination(direction, event.deltaY * unit);
+      if (!target && frame === null && !consumed) return;
+      event.preventDefault();
+      if (consumed || (isMomentum && !reversed)) return;
+      distance += delta;
+      if (frame !== null || Math.abs(distance) < WHEEL_THRESHOLD || !target) return;
+      consumed = true;
+      settle(target);
+    }
+
+    const unsubscribe = gestures.on("wheel", onGesture);
+
     function onWheel(event) {
       if (!desktop.matches || event.defaultPrevented || !event.cancelable || event.ctrlKey || event.metaKey ||
         Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
-      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
-      const delta = event.deltaY * unit;
-      const direction = Math.sign(delta);
-      const now = performance.now();
-      const magnitude = Math.abs(delta);
-      const previousMagnitude = Math.abs(previousDelta);
-      const reversed = direction !== Math.sign(previousDelta) && magnitude >= 8;
-      const renewed = decayed && magnitude >= 8 && magnitude >= previousMagnitude * 2 && magnitude - previousMagnitude >= 6;
-      if (now - lastWheel > WHEEL_IDLE || (consumed && (reversed || renewed))) {
-        consumed = false;
-        distance = 0;
-        peak = magnitude;
-        decayed = false;
-      } else {
-        peak = Math.max(peak, magnitude);
-        if (magnitude <= peak * 0.25) decayed = true;
-      }
-      lastWheel = now;
-      previousDelta = delta;
-      const target = destination(direction, delta);
-      if (!target && frame === null && !consumed) return;
-      event.preventDefault();
-      if (consumed) return;
-      distance += delta;
-      if (frame !== null || Math.abs(distance) < 40 || !target) return;
-      consumed = true;
-      settle(target);
+      gestures.feedWheel(event);
     }
 
     function onKeyDown(event) {
@@ -151,6 +154,8 @@ export function useLandingGuideScroll(sectionRef, setActiveChapter) {
     desktop.addEventListener("change", cancel);
     return () => {
       cancel();
+      unsubscribe();
+      gestures.disconnect();
       window.removeEventListener("wheel", onWheel);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("click", onClick);

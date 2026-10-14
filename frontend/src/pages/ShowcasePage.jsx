@@ -347,7 +347,7 @@ function ShowcaseContent() {
           />
           <ErrorState action={<Button variant="secondary">다시 시도</Button>} />
           <ForbiddenState action={<a href="/groups">모임으로 돌아가기</a>} />
-          <NotFoundState action={<a href="/">홈으로 돌아가기</a>} />
+          <NotFoundState action={<a data-ph-capture-attribute-action="group_home" href="/home">홈으로 돌아가기</a>} />
         </div>
       </section>
     </PageContainer>

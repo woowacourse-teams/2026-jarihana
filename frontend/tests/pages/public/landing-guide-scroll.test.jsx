@@ -40,6 +40,8 @@ function setup({ ids = ["browse", "detail", "continue"], top = 1000 } = {}) {
 
 function wheel(deltaY, options = {}) {
   const event = new WheelEvent("wheel", { deltaY, bubbles: true, cancelable: true, ...options });
+  Object.defineProperty(event, "timeStamp", { value: performance.now() });
+  if ("momentum" in options) Object.defineProperty(event, "momentum", { value: options.momentum });
   fireEvent(window, event);
   return event;
 }
@@ -115,6 +117,7 @@ test("boundaries and unrelated sections keep native scrolling", () => {
   for (const [top, delta] of [[1000, -100], [2872, 100], [0, 100], [4200, -100]]) {
     window.scrollY = top;
     expect(wheel(delta).defaultPrevented).toBe(false);
+    advance(20);
   }
   expect(window.scrollTo).not.toHaveBeenCalled();
 });
@@ -132,8 +135,11 @@ test("small deltas accumulate while zoom and horizontal gestures remain native",
   expect(wheel(100, { ctrlKey: true }).defaultPrevented).toBe(false);
   expect(wheel(100, { deltaX: 150 }).defaultPrevented).toBe(false);
   wheel(12);
+  advance(16);
   wheel(12);
+  advance(16);
   wheel(12);
+  advance(16);
   expect(window.scrollTo).not.toHaveBeenCalled();
   wheel(12);
   advance();
@@ -192,7 +198,6 @@ test.each(["resize", "pointerdown", "hashchange", "Home", "End", "media", "navig
   }
 );
 
-
 test("a large reverse gesture stays in the visible host guide instead of jumping to participation", () => {
   const participation = setup();
   const host = setup({ ids: ["create", "manage"], top: 6000 });
@@ -209,4 +214,48 @@ test("a large reverse gesture stays in the visible host guide instead of jumping
   expect(window.scrollY).toBe(1936);
   expect(participation.activate).toHaveBeenLastCalledWith("detail");
   expect(host.activate).toHaveBeenCalledTimes(1);
+});
+
+test.each([1, -1])("a spike in guide inertia does not consume another chapter (direction %i)", (direction) => {
+  const { activate } = setup();
+  if (direction < 0) window.scrollY = 2872;
+  for (const delta of [240, 160, 100, 60, 30, 12, 8, 4, 2, 1, 12, 11, 10, 9, 8, 7, 6, 5]) {
+    wheel(delta * direction);
+    advance(90);
+  }
+  expect(window.scrollY).toBe(1936);
+  expect(activate).toHaveBeenCalledTimes(1);
+});
+
+test("browser-marked momentum cannot skip a chapter after an input pause", () => {
+  const { activate } = setup();
+  wheel(100, { momentum: false });
+  advance(600);
+  for (let index = 0; index < 6; index += 1) {
+    expect(wheel(90, { momentum: true }).defaultPrevented).toBe(true);
+    advance(240);
+  }
+  expect(window.scrollY).toBe(1936);
+  expect(activate).toHaveBeenCalledTimes(1);
+  wheel(100, { momentum: false });
+  advance();
+  expect(window.scrollY).toBe(2872);
+  for (let index = 0; index < 3; index += 1) {
+    expect(wheel(90, { momentum: true }).defaultPrevented).toBe(true);
+    advance(240);
+  }
+  expect(activate).toHaveBeenCalledTimes(2);
+  expect(wheel(100, { momentum: false }).defaultPrevented).toBe(false);
+});
+
+test("a deliberate reversal responds during the fading guide gesture", () => {
+  const { activate } = setup();
+  for (let index = 0; index < 36; index += 1) {
+    wheel(240 * 0.88 ** index);
+    advance(20);
+  }
+  wheel(-80);
+  advance();
+  expect(window.scrollY).toBe(1000);
+  expect(activate.mock.calls).toEqual([["detail"], ["browse"]]);
 });
