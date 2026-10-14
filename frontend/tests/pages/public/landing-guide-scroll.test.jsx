@@ -1,0 +1,189 @@
+import { act, fireEvent, renderHook } from "@testing-library/react";
+
+import { useLandingGuideScroll } from "../../../src/pages/landing/useLandingGuideScroll";
+
+const originalMatchMedia = Object.getOwnPropertyDescriptor(window, "matchMedia");
+let desktop;
+
+beforeEach(() => {
+  jest.useFakeTimers();
+  jest.replaceProperty(window, "innerHeight", 1000);
+  jest.replaceProperty(window, "scrollY", 1000);
+  desktop = { matches: true, addEventListener: jest.fn(), removeEventListener: jest.fn() };
+  Object.defineProperty(window, "matchMedia", { configurable: true, value: jest.fn(() => desktop) });
+  jest.spyOn(window, "scrollTo").mockImplementation(({ top }) => { window.scrollY = top; });
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
+  jest.useRealTimers();
+  Object.defineProperty(window, "matchMedia", originalMatchMedia);
+});
+
+function setup() {
+  const root = document.createElement("section");
+  ["browse", "detail", "continue"].forEach((id, index) => {
+    const chapter = document.createElement("article");
+    chapter.dataset.guideChapter = id;
+    chapter.getBoundingClientRect = () => ({ top: 1064 + index * 936 - window.scrollY, height: 936 });
+    root.append(chapter);
+  });
+  const sectionRef = { current: root };
+  const activate = jest.fn();
+  const hook = renderHook(() => useLandingGuideScroll(sectionRef, activate));
+  return { ...hook, activate };
+}
+
+function wheel(deltaY, options = {}) {
+  const event = new WheelEvent("wheel", { deltaY, bubbles: true, cancelable: true, ...options });
+  fireEvent(window, event);
+  return event;
+}
+
+function advance(time = 600) {
+  act(() => jest.advanceTimersByTime(time));
+}
+
+test("each fresh gesture settles at one complete chapter in either direction", () => {
+  const { activate, result } = setup();
+  for (const [delta, id, top] of [[1600, "detail", 1936], [100, "continue", 2872], [-100, "detail", 1936], [-100, "browse", 1000]]) {
+    expect(wheel(delta).defaultPrevented).toBe(true);
+    expect(result.current.current).toBe(true);
+    advance(250);
+    expect(window.scrollY).not.toBe(top);
+    advance(350);
+    expect(window.scrollY).toBe(top);
+    expect(result.current.current).toBe(false);
+    expect(activate).toHaveBeenLastCalledWith(id);
+  }
+});
+
+test("long wheel momentum cannot skip a chapter or spill past the last stop", () => {
+  const { activate } = setup();
+  for (const expected of [1936, 2872]) {
+    wheel(1600);
+    for (let index = 0; index < 20; index += 1) {
+      advance(90);
+      expect(wheel(Math.max(3, 300 - index * 20)).defaultPrevented).toBe(true);
+    }
+    expect(window.scrollY).toBe(expected);
+    advance(230);
+  }
+  expect(activate.mock.calls).toEqual([["detail"], ["continue"]]);
+  expect(wheel(200).defaultPrevented).toBe(false);
+});
+
+test("a new swipe during a fading tail works without waiting for a complete idle gap", () => {
+  const { activate } = setup();
+  for (const delta of [240, 160, 100, 60, 30, 12, 8, 4, 2, 3, 15, 90, 160, 110, 70, 30, 8, 2]) {
+    wheel(delta);
+    advance(90);
+  }
+  expect(activate.mock.calls).toEqual([["detail"], ["continue"]]);
+  expect(window.scrollY).toBe(2872);
+});
+
+test("a new gesture during a transition is not queued and responds only to further input", () => {
+  const { activate } = setup();
+  wheel(100);
+  advance(300);
+  wheel(100);
+  advance(300);
+  expect(activate).toHaveBeenCalledTimes(1);
+  wheel(100);
+  advance();
+  expect(activate).toHaveBeenCalledTimes(2);
+  expect(window.scrollY).toBe(2872);
+});
+
+test.each([[850, 100, 1000], [3100, -100, 2872], [200, 1500, 1000], [3700, -1500, 2872]])(
+  "entry from %i with delta %i lands at the first encountered stop %i", (start, delta, end) => {
+    setup();
+    window.scrollY = start;
+    wheel(delta);
+    advance();
+    expect(window.scrollY).toBe(end);
+  }
+);
+
+test("boundaries and unrelated sections keep native scrolling", () => {
+  setup();
+  for (const [top, delta] of [[1000, -100], [2872, 100], [0, 100], [4200, -100]]) {
+    window.scrollY = top;
+    expect(wheel(delta).defaultPrevented).toBe(false);
+  }
+  expect(window.scrollTo).not.toHaveBeenCalled();
+});
+
+test("a chapter reached by an anchor advances immediately despite its small header offset", () => {
+  setup();
+  window.scrollY = 1000 - 52;
+  wheel(100);
+  advance();
+  expect(window.scrollY).toBe(1936);
+});
+
+test("small deltas accumulate while zoom and horizontal gestures remain native", () => {
+  setup();
+  expect(wheel(100, { ctrlKey: true }).defaultPrevented).toBe(false);
+  expect(wheel(100, { deltaX: 150 }).defaultPrevented).toBe(false);
+  wheel(12);
+  wheel(12);
+  wheel(12);
+  expect(window.scrollTo).not.toHaveBeenCalled();
+  wheel(12);
+  advance();
+  expect(window.scrollY).toBe(1936);
+});
+
+test("layouts outside the tall desktop motion query bypass stepping", () => {
+  desktop.matches = false;
+  setup();
+  expect(window.matchMedia).toHaveBeenCalledWith("(min-width: 64rem) and (height > 55rem) and (prefers-reduced-motion: no-preference)");
+  expect(wheel(100).defaultPrevented).toBe(false);
+  fireEvent.keyDown(window, { key: "PageDown" });
+  advance();
+  expect(window.scrollTo).not.toHaveBeenCalled();
+});
+
+test("keyboard steps once, ignores held keys and leaves focused controls alone", () => {
+  const { activate } = setup();
+  fireEvent.keyDown(window, { key: "PageDown" });
+  advance();
+  fireEvent.keyDown(window, { key: "PageDown", repeat: true });
+  advance();
+  expect(activate).toHaveBeenCalledTimes(1);
+  fireEvent.keyDown(window, { key: "ArrowUp" });
+  advance();
+  expect(window.scrollY).toBe(1000);
+  const button = document.createElement("button");
+  document.body.append(button);
+  fireEvent.keyDown(button, { key: " " });
+  button.remove();
+  expect(activate).toHaveBeenCalledTimes(2);
+});
+
+test.each(["resize", "pointerdown", "hashchange", "Home", "End", "media", "navigation", "anchor", "unmount"])(
+  "animation yields immediately to %s", (reason) => {
+    const { unmount, result } = setup();
+    wheel(100);
+    advance(200);
+    if (reason === "unmount") unmount();
+    else if (reason === "media") {
+      desktop.matches = false;
+      desktop.addEventListener.mock.calls[0][1]();
+    } else if (reason === "navigation") window.scrollY = 6000;
+    else if (reason === "Home" || reason === "End") fireEvent.keyDown(window, { key: reason });
+    else if (reason === "anchor") {
+      const link = document.createElement("a");
+      link.href = "#guide-invite";
+      document.body.append(link);
+      fireEvent.click(link);
+      link.remove();
+    } else fireEvent(window, new Event(reason));
+    const stopped = window.scrollY;
+    advance();
+    expect(window.scrollY).toBe(stopped);
+    expect(result.current.current).toBe(false);
+  }
+);

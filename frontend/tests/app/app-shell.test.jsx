@@ -493,7 +493,7 @@ it.each([
   ["/groups/41", null]
 ])("exposes public navigation on %s with matching active state", (pathname, activeName) => {
   mockPathname = pathname;
-  renderShell({ login: jest.fn(), logout: jest.fn(), status: "anonymous" });
+  renderShell({ login: jest.fn(), logout: jest.fn(), status: pathname === "/" ? "authenticated" : "anonymous" });
   expect(screen.getByRole("link", { name: "자리하나 홈" })).toHaveAttribute("href", "/");
   const navigation = within(screen.getByRole("navigation", { name: "주요 메뉴" }));
   for (const [name, href, action] of [
@@ -526,4 +526,26 @@ it.each([
   expect(navigationContinues).toBe(true);
   expect(screen.queryByRole("dialog", { name: "전체 메뉴" })).not.toBeInTheDocument();
   expect(login).not.toHaveBeenCalled();
+});
+
+
+it.each([
+  ["/", "anonymous"], ["/", "loading"], ["/", "signup-required"], ["/", "unavailable"],
+  ["/land", "anonymous"], ["/land", "authenticated"], ["/land", "loading"],
+  ["/land/", "authenticated"]
+])("leaves %s (%s) to the landing's own shell", (pathname, status) => {
+  mockPathname = pathname;
+  renderShell({ status });
+  expect(screen.getByRole("heading", { name: "현재 화면" })).toBeInTheDocument();
+  expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+  expect(screen.queryByRole("main")).not.toBeInTheDocument();
+  expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
+});
+
+it("keeps the original shell on the authenticated home", () => {
+  mockPathname = "/";
+  renderShell({ status: "authenticated", member: { crewName: "자리" } });
+  expect(screen.getByRole("banner")).toBeInTheDocument();
+  expect(screen.getByRole("main")).toBeInTheDocument();
+  expect(screen.getByRole("contentinfo")).toBeInTheDocument();
 });

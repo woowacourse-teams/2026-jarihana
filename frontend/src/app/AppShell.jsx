@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router";
 
+import { useAuth } from "../features/auth";
+
 import { AppHeader } from "./AppHeader";
 import { AppFooter } from "./AppFooter";
 import "./AppShell.css";
@@ -46,6 +48,7 @@ function ScrollToTopButton() {
 
 export function AppShell({ children, headerAction = null, headerTitle = "" }) {
   const { pathname } = useLocation();
+  const { status } = useAuth();
   const pwaGuideReference = useRef(null);
   const pageReference = useRef(null);
   const previousPathname = useRef(pathname);
@@ -76,6 +79,10 @@ export function AppShell({ children, headerAction = null, headerTitle = "" }) {
     );
     return () => animation.cancel();
   }, [pathname]);
+
+  if (pathname.replace(/\/$/, "") === "/land" || (pathname === "/" && status !== "authenticated")) {
+    return children ?? <Outlet />;
+  }
 
   return (
     <div className="app-shell">

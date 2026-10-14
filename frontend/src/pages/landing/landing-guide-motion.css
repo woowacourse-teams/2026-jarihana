@@ -1,0 +1,83 @@
+.landing-product-scene .lpm-swap {
+  display: inline-grid;
+  vertical-align: middle;
+}
+
+.landing-product-scene .lpm-swap > span {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: inherit;
+  gap: 0.4rem;
+}
+
+.landing-product-scene .lpm-before {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.landing-product-scene .lpm-type { display: block; }
+.landing-product-scene .lpm-submit { display: grid; }
+.landing-product-scene .lpm-submit > span { justify-content: center; }
+.landing-product-scene .lpm-decision { display: grid; }
+.landing-product-scene .lpm-decision > .lpm-before { justify-content: flex-end; }
+.landing-product-scene .lpm-decision .lps-decisions { display: flex; }
+.landing-product-scene .lps-person > .lpm-swap { margin-left: auto; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .landing-product-demo[data-state="idle"] .lpm-type { clip-path: inset(0 100% 0 0); }
+  .landing-product-demo[data-state="idle"] .lpm-arrive { opacity: 0; transform: translateY(0.75rem); }
+  .landing-product-demo[data-state="idle"] .lpm-after { opacity: 0; visibility: hidden; }
+  .landing-product-demo[data-state="idle"] .lpm-before { opacity: 1; visibility: visible; }
+  .landing-product-demo[data-state="idle"] .lpm-select { color: var(--color-muted-ink); background: var(--color-surface); border-color: var(--color-line); }
+  .landing-product-demo[data-state="idle"] .lpm-check svg { opacity: 0; }
+
+  .landing-product-demo[data-state="running"] .lpm-type {
+    animation: lpm-type calc(var(--type-duration, 1.15s) / var(--landing-demo-speed, 1.5)) steps(18, end) calc(var(--motion-delay, 0s) / var(--landing-demo-speed, 1.5)) both;
+  }
+  .landing-product-demo[data-state="running"] .lpm-arrive {
+    animation: lpm-arrive calc(700ms / var(--landing-demo-speed, 1.5)) var(--landing-ease) calc(var(--motion-delay, 0s) / var(--landing-demo-speed, 1.5)) both;
+  }
+  .landing-product-demo[data-state="running"] .lpm-swap > .lpm-before {
+    animation: lpm-state-before calc(300ms / var(--landing-demo-speed, 1.5)) var(--landing-ease) calc(var(--motion-delay, 0s) / var(--landing-demo-speed, 1.5)) both;
+  }
+  .landing-product-demo[data-state="running"] .lpm-swap > .lpm-after {
+    animation: lpm-state-after calc(400ms / var(--landing-demo-speed, 1.5)) var(--landing-ease) calc(var(--motion-delay, 0s) / var(--landing-demo-speed, 1.5)) both;
+  }
+  .landing-product-demo[data-state="running"] .lpm-select {
+    animation: lpm-select calc(450ms / var(--landing-demo-speed, 1.5)) ease calc(var(--motion-delay) / var(--landing-demo-speed, 1.5)) both;
+  }
+  .landing-product-demo[data-state="running"] .lpm-check svg {
+    animation: lpm-check calc(450ms / var(--landing-demo-speed, 1.5)) var(--landing-ease) calc(var(--motion-delay) / var(--landing-demo-speed, 1.5)) both;
+  }
+  .landing-product-demo[data-state="running"] .lpm-emphasis,
+  .landing-product-demo[data-state="running"] .lpm-tab-focus {
+    animation: lpm-emphasis calc(1.2s / var(--landing-demo-speed, 1.5)) ease calc(var(--motion-delay) / var(--landing-demo-speed, 1.5)) both;
+  }
+  .landing-product-demo[data-state="running"] .lpm-card-focus .ui-group-card {
+    animation: lpm-card-focus calc(1.5s / var(--landing-demo-speed, 1.5)) ease calc(3.5s / var(--landing-demo-speed, 1.5)) both;
+  }
+  .landing-product-demo[data-state="running"] .lpm-approve {
+    animation: lpm-press calc(650ms / var(--landing-demo-speed, 1.5)) ease calc(3.1s / var(--landing-demo-speed, 1.5)) both;
+  }
+  .landing-product-demo[data-state="running"] .lpm-submit {
+    animation: lpm-press calc(650ms / var(--landing-demo-speed, 1.5)) ease calc((var(--motion-delay) - 0.65s) / var(--landing-demo-speed, 1.5)) both;
+  }
+}
+
+@keyframes lpm-type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
+@keyframes lpm-arrive { from { opacity: 0; transform: translateY(0.75rem); } to { opacity: 1; transform: none; } }
+@keyframes lpm-state-before { from { opacity: 1; visibility: visible; } to { opacity: 0; visibility: hidden; } }
+@keyframes lpm-state-after { from { opacity: 0; visibility: hidden; transform: translateY(0.25rem); } to { opacity: 1; visibility: visible; transform: none; } }
+@keyframes lpm-select { from { color: var(--color-muted-ink); background: var(--color-surface); border-color: var(--color-line); } to { color: var(--color-surface); background: var(--color-brand-ink); border-color: var(--color-brand-ink); } }
+@keyframes lpm-check { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: none; } }
+@keyframes lpm-emphasis { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 35%, 70% { box-shadow: 0 0 0 3px var(--color-brand-soft); } }
+@keyframes lpm-card-focus { 0%, 100% { transform: none; } 40%, 70% { transform: translateY(-0.25rem); border-color: var(--color-brand); } }
+@keyframes lpm-press { 0%, 100% { transform: none; } 45% { transform: scale(0.97); } }
+
+@media (min-width: 64rem) and (min-height: 55.001rem) {
+  .landing-guide__showcase .landing-product-scene--detail { padding: 1.25rem; gap: 1rem; }
+  .landing-guide__showcase .landing-product-scene--continue { padding: 1rem; gap: 0.5rem; }
+  .landing-guide__showcase .lps-profile { padding: 0.75rem; }
+  .landing-guide__showcase .lps-count-tabs > span { padding-block: 0.4rem; }
+}

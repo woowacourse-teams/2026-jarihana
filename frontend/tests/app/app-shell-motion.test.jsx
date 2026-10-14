@@ -10,6 +10,7 @@ jest.mock("react-router", () => ({
   Outlet: () => null,
   useLocation: () => ({ pathname: mockPathname, search: mockSearch })
 }));
+jest.mock("../../src/features/auth", () => ({ useAuth: () => ({ status: "authenticated" }) }));
 jest.mock("../../src/app/AppHeader", () => ({ AppHeader: () => <header>헤더</header> }));
 jest.mock("../../src/app/AppFooter", () => ({ AppFooter: () => <footer>푸터</footer> }));
 

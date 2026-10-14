@@ -46,7 +46,9 @@ function renderRoutes(initialEntries) {
 }
 
 it.each([
-  ["/", "GroupsPage"],
+  ["/", "HomePage"],
+  ["/land", "LandingPage"],
+  ["/land/", "LandingPage"],
   ["/groups", "GroupBrowsePage"],
   ["/activities", "ActivityPostsPage"],
   ["/invitations/501", "InvitationPage"],
@@ -69,6 +71,6 @@ it("replaces the legacy browse URL while preserving query, hash and back navigat
   );
 
   fireEvent.click(screen.getByRole("button", { name: "뒤로" }));
-  expect(screen.getByRole("heading", { name: "GroupsPage" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "HomePage" })).toBeInTheDocument();
   expect(screen.getByLabelText("현재 경로")).toHaveTextContent("/?previous=1");
 });

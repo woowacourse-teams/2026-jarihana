@@ -342,3 +342,15 @@ test("handles a failed cross-tab authentication reload and removes its listener 
 
   expect(reload).toHaveBeenCalledTimes(1);
 });
+
+
+test.each([
+  ["authenticated", "GroupsPage"], ["anonymous", "LandingPage"]
+])("preserves the root analytics identity for %s", async (status, routeName) => {
+  useAuth.mockReturnValue({ status });
+  useLocation.mockReturnValue({ pathname: "/", search: "" });
+  matchRoutes.mockReturnValue([{ route: { page: "HomePage" }, params: {} }]);
+  render(<AnalyticsBridge />);
+  await waitFor(() => expect(trackPage).toHaveBeenCalledWith("/"));
+  expect(setAnalyticsRoute).toHaveBeenCalledWith("/", expect.objectContaining({ route_name: routeName }));
+});

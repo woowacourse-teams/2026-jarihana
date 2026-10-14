@@ -26,7 +26,9 @@ export function AnalyticsBridge() {
     );
     const promotionId = isPromotionRoute ? getPromotionEntryId(search) : undefined;
     const routeProperties = {
-      route_name: match?.route.page,
+      route_name: match?.route.page === "HomePage"
+        ? (status === "authenticated" ? "GroupsPage" : "LandingPage")
+        : match?.route.page,
       group_id: match?.params.groupId,
       recruitment_id: match?.params.recruitmentId
     };
