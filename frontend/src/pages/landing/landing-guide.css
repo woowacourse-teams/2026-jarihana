@@ -89,7 +89,7 @@
   font-size: var(--landing-feature-size);
   line-height: 1.34;
   font-weight: var(--landing-heading-weight);
-  letter-spacing: var(--landing-heading-tracking);
+  letter-spacing: var(--landing-text-tracking);
 }
 
 .landing-guide-chapter[aria-current="step"] h3 {

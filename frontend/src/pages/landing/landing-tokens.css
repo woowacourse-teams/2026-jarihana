@@ -9,7 +9,8 @@
   --landing-feature-size: clamp(2rem, 2.5vw, 2.25rem);
   --landing-body-size: 1.125rem;
   --landing-heading-weight: var(--font-weight-semibold);
-  --landing-heading-tracking: -0.025em;
+  --landing-text-tracking: 0;
+  --landing-heading-tracking: -0.01em;
   --landing-body-leading: 1.7;
   --landing-dark: #112b29;
   --landing-dark-muted: #b5ccc9;
@@ -43,6 +44,7 @@
     --landing-heading-size: 2.25rem;
     --landing-feature-size: 1.75rem;
     --landing-body-size: 1.0625rem;
+    --landing-heading-tracking: var(--landing-text-tracking);
     --landing-chair-rest: translate3d(0, -1%, 0) scale(0.72);
     --landing-chair-forward: perspective(100rem) translate3d(0, 3%, 4rem) rotateY(-8deg)
       rotateZ(-3deg) scale(0.86);

@@ -45,7 +45,7 @@
   display: block;
   font-size: clamp(1.25rem, 5cqi, 1.75rem);
   line-height: 1.45;
-  letter-spacing: -0.04em;
+  letter-spacing: var(--landing-text-tracking);
   word-break: keep-all;
 }
 .landing-product-scene .lps-search {
