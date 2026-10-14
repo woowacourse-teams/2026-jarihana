@@ -47,6 +47,7 @@ jobs:
       RDS_URL: ${{ vars.RDS_URL }}
       DB_USERNAME: ${{ vars.DB_USERNAME }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      FLYWAY_BASELINE_ON_MIGRATE: ${{ vars.FLYWAY_BASELINE_ON_MIGRATE || 'false' }}
       PUSH_ENABLED: ${{ vars.PUSH_ENABLED || 'false' }}
       INVITATION_TOKEN_ACTIVE_KEY_ID: ${{ vars.INVITATION_TOKEN_ACTIVE_KEY_ID || 'primary' }}
       INVITATION_TOKEN_KEY_PRIMARY: ${{ secrets.INVITATION_TOKEN_KEY_PRIMARY }}

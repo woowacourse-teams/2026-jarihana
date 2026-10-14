@@ -32,13 +32,20 @@ ADR 0006과 0007에 이르기까지의 기록이다.
 
 | 번호 | 제목 | 상태 | 날짜 | 작업 브랜치 |
 | --- | --- | --- | --- | --- |
-| 0015 | [알림함에 소식을 저장하고 웹푸시는 별도로 전송한다](0015-web-push-and-notification-inbox.md) | 채택 · 알림함·구독·푸시 전송·화면·SW 구현 | 2026-10-02 | `feat/web-push-notifications` |
-| 0017 | [모임 달력 일정과 정기 규칙 이력을 분리한다](0017-group-calendar-event-and-history-model.md) | 채택 · 모임 달력 구현 | 2026-10-12 | `feat/group-calendar` |
-| 0018 | [초대 합류 이력을 모집 신청과 분리한다](0018-separate-invitation-acceptance-history.md) | 채택 · 저장 기반·모집 집계·발급·수신 구현, 수락·소속·PENDING 승인 연결 구현 | 2026-10-11 | `feat/invitation` |
-| 0019 | [공유 초대 토큰의 해시와 암호문을 저장한다](0019-encrypted-invitation-token-storage.md) | 채택 · 발급·재시도·관리 상세 복원 구현 | 2026-10-11 | `feat/invitation` |
-| 0020 | [초대 합류는 unique 제약과 낙관적 잠금으로 충돌을 처리한다](0020-optimistic-invitation-acceptance.md) | 채택 · 병렬 합류·충돌 재시도·상태 롤백·DDL 검증 완료 | 2026-10-11 | `feat/invitation` |
+| 0015 | [알림함에 소식을 저장하고 웹푸시는 별도로 전송한다](0015-web-push-and-notification-inbox.md) | 채택, 알림함, 구독, 푸시 전송, 화면, SW 구현 | 2026-10-02 | `feat/web-push-notifications` |
+| 0017 | [모임 달력 일정과 정기 규칙 이력을 분리한다](0017-group-calendar-event-and-history-model.md) | 채택, 모임 달력 구현 | 2026-10-12 | `feat/group-calendar` |
+| 0018 | [초대 합류 이력을 모집 신청과 분리한다](0018-separate-invitation-acceptance-history.md) | 채택, 저장 기반, 모집 집계, 발급, 수신 구현, 수락, 소속, PENDING 승인 연결 구현 | 2026-10-11 | `feat/invitation` |
+| 0019 | [공유 초대 토큰의 해시와 암호문을 저장한다](0019-encrypted-invitation-token-storage.md) | 채택, 발급, 재시도, 관리 상세 복원 구현 | 2026-10-11 | `feat/invitation` |
+| 0020 | [초대 합류는 unique 제약과 낙관적 잠금으로 충돌을 처리한다](0020-optimistic-invitation-acceptance.md) | 채택, 병렬 합류, 충돌 재시도, 상태 롤백, DDL 검증 완료 | 2026-10-11 | `feat/invitation` |
+| 0021 | [Flyway로 스키마를 초기화하고 변경 이력을 관리한다](0021-flyway-schema-baseline.md) | 제안, 구현과 실제 스키마 검증 완료, 첫 등록 및 배포 대기 | 2026-10-14 | `chore/flyway-baseline` |
 
 ## 번호를 다시 매긴 이력
+
+2026-10-14에 Flyway ADR 번호가 먼저 병합된 초대 ADR과 겹쳐 변경했다.
+
+| 옛 번호 | 현재 번호 | 문서 |
+| --- | --- | --- |
+| 0018 (`chore/flyway-baseline`) | 0021 | [Flyway 스키마 baseline](0021-flyway-schema-baseline.md) |
 
 2026-10-12에 `develop`의 모임 달력 ADR 0017과 초대 브랜치의 번호가 겹쳐,
 나중에 병합하는 초대 ADR과 저장소 안의 참조를 함께 다시 매겼다.
