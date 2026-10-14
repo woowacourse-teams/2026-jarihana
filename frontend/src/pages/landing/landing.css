@@ -70,13 +70,11 @@ html:has(.landing-page) {
 .landing-brand img {
   object-fit: contain;
 }
-.landing-nav,
 .landing-header__actions {
   display: flex;
   align-items: center;
   gap: var(--space-8);
 }
-.landing-nav a,
 .landing-header__explore {
   display: inline-flex;
   align-items: center;
@@ -85,7 +83,6 @@ html:has(.landing-page) {
   font-size: var(--text-body);
   transition: color var(--duration-base);
 }
-.landing-nav a:hover,
 .landing-header__explore:hover {
   color: var(--color-ink);
 }
@@ -100,7 +97,7 @@ html:has(.landing-page) {
   justify-content: center;
   gap: var(--space-3);
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-pill);
   padding: var(--space-3) var(--space-5);
   color: var(--color-surface);
   background: var(--color-ink);
@@ -860,9 +857,6 @@ html:has(.landing-page) {
   .landing-container {
     width: calc(100% - var(--space-8) * 2);
   }
-  .landing-nav {
-    gap: var(--space-5);
-  }
   .landing-header__actions {
     gap: var(--space-4);
   }
@@ -898,13 +892,9 @@ html:has(.landing-page) {
   .landing-brand {
     font-size: var(--text-hero-body);
   }
-  .landing-nav {
-    display: none;
-  }
   .landing-button {
     font-size: var(--text-label);
     padding-inline: var(--space-4);
-    border-radius: var(--radius-sm);
   }
   .landing-hero__visual {
     min-height: 34rem;

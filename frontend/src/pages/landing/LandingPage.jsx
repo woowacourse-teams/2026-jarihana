@@ -147,17 +147,6 @@ function LandingHeader() {
           <img alt="" height="40" src={logo} width="40" />
           <span>자리하나</span>
         </a>
-        <nav aria-label="서비스 소개" className="landing-nav">
-          <a data-ph-capture-attribute-action="landing_about_view" href="#about">
-            자리하나 소개
-          </a>
-          <a data-ph-capture-attribute-action="landing_how_view" href="#how">
-            이용방법
-          </a>
-          <a data-ph-capture-attribute-action="landing_guide_view" href="#guide-invite">
-            초대와 활동
-          </a>
-        </nav>
         <div className="landing-header__actions">
           <Link
             className="landing-header__explore"
