@@ -140,6 +140,10 @@ docker rm -f jarihana-flyway-check
 Compose와 애플리케이션으로 전달한다. 기존 DB의 첫 도입 시에만, 위 검증을 마친 환경의
 `Settings > Environments > dev/prod > Variables`에 `true`를 설정한다.
 
+2026-10-14 실제 스키마와 배포 대상 RDS가 같음을 확인한 뒤 dev/prod의 Variable을
+첫 도입용 `true`로 설정했다. 실제 baseline 등록과 배포는 아직 실행하지 않았으며,
+각 환경의 첫 배포 성공 및 이력 확인 직후 Variable을 제거하거나 `false`로 변경해야 한다.
+
 기존 DB에 이력이 없는데 이 값을 설정하지 않으면 Flyway는 기동을 거부한다.
 따라서 실제 스키마 대조와 최초 도입 설정 없이 이 변경을 배포하지 않는다.
 
