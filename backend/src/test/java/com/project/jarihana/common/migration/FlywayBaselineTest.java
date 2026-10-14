@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
@@ -61,6 +62,19 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 """, String.class)).contains("ck_member_profile_fields", "ck_notifications_payload",
                         "ck_notifications_event_type", "ck_group_event_recurring_reference",
                         "ck_registration_approval_origin", "ck_invitation_type", "ck_invitation_status");
+    }
+
+    @Test
+    @DisplayName("실제 운영 스키마처럼 허용되지 않은 회원 과정은 DB에서 거절한다.")
+    void rejectMemberCourseOutsideLiveSchemaValues() {
+        // Given
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+
+        // When / Then
+        assertThatThrownBy(() -> jdbc.update("""
+                insert into member (crew_name, generation, github_id, member_type, course, created_at, updated_at)
+                values ('우주', 8, 'invalid-course', 'CREW', 'INVALID', localtimestamp, localtimestamp)
+                """)).isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
