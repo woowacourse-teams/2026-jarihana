@@ -1,6 +1,6 @@
 # ADR 0021. Flyway로 스키마를 초기화하고 변경 이력을 관리한다
 
-- 상태: 제안, 코드 구현 완료. 기존 dev/prod DB 대조와 첫 도입 검증은 대기 중이다.
+- 상태: 제안, 구현과 dev/prod 스키마 대조 및 격리 복원 DB 검증 완료. 실제 DB 등록과 첫 배포는 대기 중이다.
 - 날짜: 2026-10-14
 - 관련 결정: [백엔드 ADR 0012](0012-database-schema-management.md),
   [백엔드 ADR 0013](0013-testcontainers-test-database.md)
@@ -10,13 +10,14 @@
 
 현재 수동 SQL은 전체 스키마의 출발점이 없고 적용 이력을 기록하지 않는다.
 로컬의 Hibernate update와 테스트의 create-drop은 운영에 필요한 SQL 누락을 감춘다.
-실제 dev/prod 스키마에는 접속하지 못했으므로 저장소 SQL과 일치한다고 판단할 수 없다.
+2026-10-14 실제 dev/prod DB를 읽기 전용으로 조회해 두 스키마가 같음을 확인했다.
+기존 초안에 누락된 enum 검사 제약과 제약 이름 차이를 실제 덤프 기준으로 보완했다.
 
 ## 결정안과 구현
 
 - Spring Boot 4.1.0 Flyway starter와 PostgreSQL 모듈을 사용한다.
 - `src/main/resources/db/migration/V1__baseline.sql`로 빈 PostgreSQL 17에 현재 스키마와
-  Spring Session 테이블을 생성한다. 현재 엔티티 및 기존 SQL이 출처이며 실제 DB 덤프가 아니다.
+  Spring Session 테이블을 생성한다. 출처는 dev/prod PostgreSQL 17.11의 실제 schema-only 덤프이며 소유자와 권한은 제외한다.
 - 모든 환경에서 Flyway 실행 후 Hibernate validate를 수행하고 Spring Session의 별도 초기화를 끈다.
 - 기존 DB는 실제 스키마 비교 후에만 버전 1을 baseline으로 등록한다.
   자동 baseline은 기본적으로 끄고 첫 도입 환경에서만 일시적으로 허용한다.
@@ -41,8 +42,7 @@ Hibernate가 검사하지 않는 인덱스와 제약은 SQL 비교 또는 별도
 
 ## 후속 작업
 
-- dev/prod 스키마를 추출하고 V1 결과와 비교한 뒤 차이를 해소한다.
-- 운영 DB 계정의 DDL 권한과 복구 가능한 백업을 확인한다.
-- 격리된 복원 DB에서 해당 프로필의 실제 JAR 기동을 검증한다.
+- 실제 스키마 추출, V1 대조, 배포 계정의 CREATE 권한 및 테이블 소유권 확인과 격리 복원 DB 기동 검증을 완료했다.
+- 복구 가능한 백업을 확인하고 검증한 스키마 상태에서 첫 baseline 등록과 dev/prod 배포를 진행한다.
 - 첫 도입 성공 후 자동 baseline 설정을 끄고 채택 상태 및 백엔드 ADR 0012의 후속 작업을 갱신한다.
-- 실제 운영 스키마, 데이터와 이후 변경을 확인하기 전에는 배포 실패가 없다고 보장하지 않는다.
+- 이번 검증은 확인한 스키마 시점의 호환성을 검증하며 미래 SQL, 데이터 충돌과 잠금 실패까지 보장하지 않는다.

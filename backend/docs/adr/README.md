@@ -37,7 +37,7 @@ ADR 0006과 0007에 이르기까지의 기록이다.
 | 0018 | [초대 합류 이력을 모집 신청과 분리한다](0018-separate-invitation-acceptance-history.md) | 채택, 저장 기반, 모집 집계, 발급, 수신 구현, 수락, 소속, PENDING 승인 연결 구현 | 2026-10-11 | `feat/invitation` |
 | 0019 | [공유 초대 토큰의 해시와 암호문을 저장한다](0019-encrypted-invitation-token-storage.md) | 채택, 발급, 재시도, 관리 상세 복원 구현 | 2026-10-11 | `feat/invitation` |
 | 0020 | [초대 합류는 unique 제약과 낙관적 잠금으로 충돌을 처리한다](0020-optimistic-invitation-acceptance.md) | 채택, 병렬 합류, 충돌 재시도, 상태 롤백, DDL 검증 완료 | 2026-10-11 | `feat/invitation` |
-| 0021 | [Flyway로 스키마를 초기화하고 변경 이력을 관리한다](0021-flyway-schema-baseline.md) | 제안, 코드 구현 완료, 기존 DB 검증 대기 | 2026-10-14 | `chore/flyway-baseline` |
+| 0021 | [Flyway로 스키마를 초기화하고 변경 이력을 관리한다](0021-flyway-schema-baseline.md) | 제안, 구현과 실제 스키마 검증 완료, 첫 등록 및 배포 대기 | 2026-10-14 | `chore/flyway-baseline` |
 
 ## 번호를 다시 매긴 이력
 

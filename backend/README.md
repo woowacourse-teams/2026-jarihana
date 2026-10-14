@@ -121,7 +121,8 @@ docker compose -f docker-compose-local.yaml ps
 배포하면 기동이 실패한다. 첫 배포에서만 환경별 `FLYWAY_BASELINE_ON_MIGRATE=true`를
 설정하고 등록 확인 후 끈다. 새 변경은 V2 이후로 추가하며 기존 파일을 수정하지 않는다.
 
-현재 V1은 엔티티와 기존 SQL을 합친 것이며 실제 dev/prod 덤프와의 비교는 남아 있다.
+V1은 2026-10-14 dev/prod RDS의 스키마 덤프를 정리해 작성했다. 두 환경의 스키마와
+V1의 테이블, 컬럼, 제약, 인덱스 및 시퀀스를 대조했고, 격리 복원 DB에서 기동을 검증했다.
 SSM 접속, 스키마 대조, 복원 DB 검증 및 최초 도입 절차는
 [Flyway baseline 운영 가이드](docs/operations/flyway-baseline.md)를 따른다.
 기존 로컬 DB도 스키마 대조가 필요하며, 데이터 재생성이 가능한 경우에만 사용자가

@@ -2,11 +2,25 @@
 
 ## 현재 구현과 검증 범위
 
-`src/main/resources/db/migration/V1__baseline.sql`은 현재 엔티티와
-`db/migrations/`의 2026-10-12까지의 스키마 변경을 합친 출발점이다.
-Spring Session JDBC 4.1.0의 PostgreSQL 테이블, 초대와 수락 테이블, 신청 출처 및
-잠금 버전 컬럼, 기존 부분 인덱스와 검사 제약도 포함한다.
-dev/prod에서 추출한 스키마 덤프가 아니므로 실제 DB와 같다고 가정하지 않는다.
+`src/main/resources/db/migration/V1__baseline.sql`은 2026-10-14 dev/prod RDS PostgreSQL 17.11에서
+읽기 전용으로 추출한 스키마 덤프를 정리한 출발점이다. 세션 설정, psql 전용 명령과
+`public.` 접두사를 제거해 Flyway가 선택한 스키마에 적용할 수 있도록 했다.
+소유자, 권한과 실제 데이터는 포함하지 않는다.
+
+두 RDS의 21개 테이블, 컬럼, 제약, 인덱스와 시퀀스가 일치했다. 기존 V1에서 빠졌던
+회원 과정 등 enum 검사 제약 7개와 기존 PK, FK 및 unique 제약 이름을 실제 DB에 맞췄다.
+타입과 정밀도, null 허용, 기본값, identity 방식, 컬럼 순서, 제약 정의, 인덱스 정의 및
+시퀀스 설정을 빈 DB의 V1 결과와 비교했다.
+
+CHECK 제약 3개와 부분 인덱스 2개는 PostgreSQL이 varchar 배열 전체를 text 배열로
+변환하는 표현과 각 요소를 text로 변환하는 표현이 다르게 출력되었다. 상수와 순서가 같은
+이 배열 캐스트만 동등한 표현으로 정규화했고, 그 밖의 정의는 그대로 비교했다.
+이 정규화 후 구조 차이는 dev와 prod 모두 0건이었다.
+
+배포 계정은 각 DB의 21개 테이블을 직접 소유하고 `public` 스키마의 CREATE 및 USAGE
+권한을 갖고 있었다. 기본 스키마는 public이며 문자 인코딩은 UTF8, 정렬과 문자 분류는
+en_US.UTF-8로 같았다. 두 DB에는 아직 `flyway_schema_history`가 없었다.
+실제 DB에는 SELECT와 schema-only dump만 수행했으며 baseline 등록이나 데이터 변경은 수행하지 않았다.
 
 빈 DB는 V1을 실행한다. 이력이 없는 기존 DB는 스키마 대조 후 버전 1을 baseline으로
 등록하고 V2부터 실행한다. baseline 등록 자체는 기존 스키마를 고치거나 데이터를 이관하지 않는다.
@@ -23,14 +37,14 @@ prod는 dev에서 만든 같은 backend 트리의 이미지를 사용한다.
 
 Hibernate `validate`는 모든 인덱스, 제약과 기본값을 검사하지 않는다.
 Flyway 이력과 주요 부분 인덱스 및 제약은 `FlywayBaselineTest`에서도 검증하지만,
-실제 dev/prod의 스키마 차이는 별도 비교가 필요하다.
+이후 V1 또는 대상 DB가 변경되면 실제 dev/prod와의 대조를 다시 수행해야 한다.
 임의의 미래 SQL, 데이터 충돌, DDL 권한과 잠금 문제로 인한 실패까지 보장하지 않는다.
 
-2026-10-14 최신 develop 병합 후 `./gradlew test bootJar --no-daemon`의 전체 800개 테스트가 통과했다.
-배포 JAR에 V1이 포함되는 것을 확인했고, 별도 PostgreSQL 17 컨테이너에서 dev와 prod
-프로필의 실제 JAR 기동 및 health 응답도 확인했다. prod baseline 등록 후 버전 1의
-`BASELINE` 성공 이력과 테스트 회원의 보존을 확인했다. 실제 RDS와 GitHub Actions 실행은
-이 검증에 포함되지 않는다.
+2026-10-14 최신 develop 병합 후 `./gradlew test bootJar --no-daemon`의 전체 801개 테스트가 통과했다.
+배포 JAR에 V1이 포함되는 것을 확인했고, 실제 dev/prod 스키마를 복원한 격리 PostgreSQL 17 DB에서
+dev와 prod 프로필의 배포 JAR 기동, Hibernate validate 및 health 응답을 확인했다. prod baseline 등록 후 버전 1의
+`BASELINE` 성공 이력과 테스트 회원의 보존을 확인했다. 실제 RDS의 첫 baseline 등록과 배포, 백업 복구 및 GitHub Actions 실행은
+이 로컬 검증에 포함되지 않는다.
 
 ## 기존 DB 첫 도입 전에 확인할 것
 
