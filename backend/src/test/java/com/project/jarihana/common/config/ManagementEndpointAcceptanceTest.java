@@ -23,9 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "management.server.port=0",
         "management.server.address=127.0.0.1",
-        "spring.application.name=jarihana",
-        "spring.jpa.hibernate.ddl-auto=create-drop",
-        "spring.session.jdbc.initialize-schema=always"
+        "spring.application.name=jarihana"
 })
 class ManagementEndpointAcceptanceTest extends IntegrationTestSupport {
 

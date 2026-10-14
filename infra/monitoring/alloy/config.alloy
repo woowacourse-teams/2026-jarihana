@@ -1,3 +1,6 @@
+// Tempo tracing is disabled in the default runtime.
+// Re-enable this block together with TEMPO_OTLP_ENDPOINT when the monitoring stack runs the tracing profile.
+/*
 otelcol.receiver.otlp "app" {
 	http {
 		endpoint = "0.0.0.0:4318"
@@ -61,6 +64,7 @@ otelcol.exporter.otlphttp "tempo" {
 		max_elapsed_time = "5m"
 	}
 }
+*/
 
 prometheus.remote_write "monitoring" {
 	endpoint {

@@ -9,11 +9,28 @@ spring:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+  flyway:
+    locations: classpath:db/migration
+    validate-on-migrate: true
+    validate-migration-naming: true
+    baseline-on-migrate: false
   jpa:
+    hibernate:
+      ddl-auto: validate
     open-in-view: false
+  session:
+    jdbc:
+      initialize-schema: never # 세션 테이블도 마이그레이션이 만든다
   autoconfigure:
     exclude:
       - org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+
+jdbc:
+  hikari:
+    enabled: false
+  includes: QUERY
+  opentelemetry:
+    enabled: false
 
 sentry:
   dsn: ${SENTRY_BACKEND_DSN:}

@@ -34,9 +34,12 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation "io.sentry:sentry-spring-boot-4-starter:${sentryVersion}"
 	implementation 'io.micrometer:micrometer-registry-prometheus'
+	implementation 'net.ttddyy.observation:datasource-micrometer-spring-boot:2.3.0'
 	implementation platform("software.amazon.awssdk:bom:${awsSdkVersion}")
 	implementation 'software.amazon.awssdk:s3'
 	implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+	implementation 'org.springframework.boot:spring-boot-starter-flyway'
+	runtimeOnly 'org.flywaydb:flyway-database-postgresql'
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'org.postgresql:postgresql'
 	runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"

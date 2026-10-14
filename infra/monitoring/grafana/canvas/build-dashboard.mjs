@@ -3,7 +3,8 @@ import { fileURLToPath } from 'node:url';
 
 const dashboardDir = new URL('../provisioning/dashboards/json/', import.meta.url);
 const flow = JSON.parse(readFileSync(new URL('jarihana-canvas.json', dashboardDir), 'utf8'));
-const targets = structuredClone(flow.panels.find(panel => panel.type === 'andrewbmchugh-flow-panel').targets);
+const targets = structuredClone(flow.panels.find(panel => panel.type === 'andrewbmchugh-flow-panel').targets)
+  .filter(item => !item.refId.startsWith('POOL_'));
 const target = name => {
   const result = targets.find(item => item.legendFormat === name);
   if (!result) throw new Error('Missing topology metric: ' + name);
@@ -11,17 +12,9 @@ const target = name => {
 };
 const fresh = selector => `(${selector} and (time() - timestamp(${selector}) < 150))`;
 const liveness = 'probe_success{job="jarihana-liveness",environment="$environment"}';
-const database = 'pg_up{job="jarihana-postgres",environment="$environment"}';
-const databaseScrape = 'up{job="jarihana-postgres",environment="$environment"}';
-const connection = 'probe_success{job="jarihana-database",environment="$environment"}';
-target('db_health').expr = `min(${fresh(database)} and on(job,instance,environment,host_id) (${fresh(databaseScrape)} == 1)) or vector(-1)`;
-targets.push(
+targets.splice(targets.findIndex(item => item.legendFormat === 'db_connection_health'), 0,
   { ...structuredClone(target('app_health')), refId: 'Liveness', legendFormat: 'app_liveness', expr: `min(${fresh(liveness)}) or vector(-1)` },
-  { ...structuredClone(target('db_health')), refId: 'DbConnection', legendFormat: 'db_connection_health', expr: `min(${fresh(connection)} and on(environment,host_id) (${fresh(liveness)} == 1)) or vector(-1)` },
 );
-for (const name of ['db_rps', 'db_flow']) {
-  target(name).expr = target(name).expr.replace('min(up{job="tempo"})', 'min(up{job="tempo"} and (time() - timestamp(up{job="tempo"}) < 90))');
-}
 for (const name of ['http_flow', 'db_flow']) {
   const rate = target(name).expr;
   target(name).expr = '(clamp_max(2 + 2 * ln(1 + (' + rate + ')), 9) * ((' + rate + ') > bool 0)) * ${motion}';
@@ -143,7 +136,7 @@ text('db-p95-label', 'DB p95', 1104, 379, 160, 26, 17, C.muted, 'center');
 metric('db-p95-value', 'db_p95', 1104, 413, 160, 40, 29, 'center');
 metric('db-connection-health', 'db_connection_health', 1098, 457, 176, 24, 16, 'center');
 text('db-scope-1', '앱의 DB 호출 시간', 1098, 483, 176, 24, 14, C.muted, 'center');
-text('db-scope-2', '헬스체크 호출 포함', 1098, 509, 176, 24, 14, C.muted, 'center');
+text('db-scope-2', '예약 작업 포함', 1098, 509, 176, 24, 14, C.muted, 'center');
 
 text('cpu-label', 'CPU', 550, 544, 130, 28, 18, C.muted);
 text('memory-label', '메모리', 820, 544, 220, 28, 18, C.muted);
@@ -155,8 +148,7 @@ text('collection-label', '앱 지표 수집', 40, 734, 130, 26, 16);
 metric('collection-value', 'app_metrics', 174, 734, 150, 26, 16);
 const stores = [
   ['Prometheus', 'prometheus_health', 354],
-  ['Loki', 'loki_health', 636],
-  ['Tempo', 'tempo_health', 874],
+  ['Loki', 'loki_health', 754],
   ['Grafana', 'grafana_health', 1160],
 ];
 for (const [name, field, x] of stores) {
@@ -223,7 +215,7 @@ const dashboard = {
   }] },
   panels: [{
     id: 1, type: 'canvas', title: '서비스 관제도 · $environment', pluginVersion: '13.2.3',
-    description: 'API 아이콘은 liveness, 서비스 상태는 DB 포함 종합 health, DB 아이콘은 Alloy의 직접 접속 검사, DB 연결선은 앱의 DB 연결 검사입니다. 각 검사는 60초 주기이며 150초 넘게 갱신되지 않으면 확인 불가입니다. CPU는 2분 평균, 메모리는 최근 호스트 수집값입니다. 연결 풀은 앱 소유입니다. 점선 속도는 고정이며 호출량은 숫자와 굵기로 표시합니다.',
+    description: 'API 아이콘은 liveness, 서비스 상태는 DB 포함 종합 health, DB 아이콘은 Alloy의 PostgreSQL 직접 접속 검사입니다. API-풀-DB 연결선은 백엔드 Actuator의 DB 연결 검사로 색을 정하고, JDBC 호출량이 있을 때만 움직입니다. 각 검사는 60초 주기이며 150초 넘게 갱신되지 않으면 확인 불가입니다. DB 호출량·p95는 앱의 JDBC 실행 지표를 사용합니다. CPU는 2분 평균, 메모리는 최근 호스트 수집값입니다. 연결 풀은 앱 소유입니다. 점선 속도는 고정이며 호출량은 숫자와 굵기로 표시합니다.',
     gridPos: { x: 0, y: 0, w: 24, h: 23 }, datasource: { type: 'prometheus', uid: 'prometheus' },
     targets, fieldConfig: { defaults: { color: { mode: 'thresholds' }, noValue: '—', mappings: unknown, thresholds: thresholds() }, overrides },
     options: { inlineEditing: false, showAdvancedTypes: false, panZoom: true, zoomToContent: true, tooltip: { mode: 'single' },

@@ -28,7 +28,7 @@ async function fixture(t, { history = [], override } = {}) {
     if (req.method === 'GET') {
       const page = Number(url.searchParams.get('page'));
       const perPage = Number(url.searchParams.get('limit'));
-      return send({ result: { page, perPage, totalCount: history.length, queryHistory: history.slice((page - 1) * perPage, page * perPage) } });
+      return send({ result: { page, perPage, totalCount: history.length, queryHistory: history.length === 0 ? null : history.slice((page - 1) * perPage, page * perPage) } });
     }
     if (req.method === 'POST' && url.pathname === '/api/query-history') {
       const entry = { uid: String(nextId++), comment: '', starred: false, ...body };
@@ -70,10 +70,11 @@ test('manifest has twelve explicit dev/prod presets with all-host selectors and 
   }
 });
 
-test('creates twelve admin stars; repeat run makes no mutations and preserves unrelated history', async (t) => {
+test('creates twelve admin stars from null empty history; repeat run makes no mutations and preserves unrelated history', async (t) => {
   const unrelated = entry('user');
-  const f = await fixture(t, { history: [structuredClone(unrelated)] });
+  const f = await fixture(t);
   assert.deepEqual(await run(f), { created: 12, updated: 12, starred: 12, unstarred: 0, presets: 12 });
+  f.history.unshift(structuredClone(unrelated));
   assert.equal(f.history.filter((item) => item.starred).length, 13);
   assert.deepEqual(f.history[0], unrelated);
   const before = structuredClone(f.history);
@@ -164,6 +165,8 @@ test('HTTP auth failures and malformed responses fail before mutation, without s
     ['auth', ({ send }) => send({ message: password }, 401), /HTTP 401/],
     ['JSON', ({ res }) => res.end(password), /invalid JSON/],
     ['pagination', ({ send }) => send({ result: { queryHistory: [] } }), /invalid query history pagination/],
+    ['null nonempty history', ({ send }) => send({ result: { page: 1, perPage: 100, totalCount: 1, queryHistory: null } }), /invalid query history pagination/],
+    ['null history with invalid page', ({ send }) => send({ result: { page: 0, perPage: 100, totalCount: 0, queryHistory: null } }), /invalid query history pagination/],
     ['entry', ({ send }) => send({ result: { page: 1, perPage: 100, totalCount: 1, queryHistory: [{}] } }), /invalid query history entry/],
   ]) {
     await t.test(name, async (subtest) => {

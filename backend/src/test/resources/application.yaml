@@ -12,11 +12,16 @@ spring:
       minimum-idle: 0
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: validate
     open-in-view: false
   session:
     jdbc:
-      initialize-schema: always
+      initialize-schema: never
+  flyway:
+    locations: classpath:db/migration
+    validate-on-migrate: true
+    validate-migration-naming: true
+    baseline-on-migrate: false
 
 jarihana:
   image:

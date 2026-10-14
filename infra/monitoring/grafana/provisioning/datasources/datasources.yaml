@@ -1,5 +1,9 @@
 apiVersion: 1
 
+deleteDatasources:
+  - name: Tempo
+    orgId: 1
+
 datasources:
   - name: Prometheus
     uid: prometheus
@@ -20,10 +24,3 @@ datasources:
     editable: false
     jsonData:
       maxLines: 1000
-
-  - name: Tempo
-    uid: tempo
-    type: tempo
-    access: proxy
-    url: http://tempo:3200
-    editable: false

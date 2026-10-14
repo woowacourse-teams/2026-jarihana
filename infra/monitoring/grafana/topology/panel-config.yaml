@@ -51,6 +51,44 @@
         "url": "/d/jarihana-overview?var-environment=${environment}&from=${__from}&to=${__to}"
       }
     },
+    "db-health": {
+      "dataRef": "db_health",
+      "label": {
+        "separator": "replace",
+        "valueMappings": [
+          { "value": null, "text": "직접 접속 확인 불가" },
+          { "value": -1, "text": "직접 접속 확인 불가" },
+          { "value": 0, "text": "직접 접속 실패" },
+          { "value": 1, "text": "직접 접속 정상" }
+        ]
+      },
+      "labelColor": {
+        "thresholds": [
+          { "color": "#93a4bd", "level": -1 },
+          { "color": "#ff6b7a", "level": 0 },
+          { "color": "#b69cff", "level": 1 }
+        ]
+      }
+    },
+    "db-connection-health": {
+      "dataRef": "db_connection_health",
+      "label": {
+        "separator": "replace",
+        "valueMappings": [
+          { "value": null, "text": "앱 DB 점검 확인 불가" },
+          { "value": -1, "text": "앱 DB 점검 확인 불가" },
+          { "value": 0, "text": "앱 DB 점검 실패" },
+          { "value": 1, "text": "앱 DB 점검 정상" }
+        ]
+      },
+      "labelColor": {
+        "thresholds": [
+          { "color": "#93a4bd", "level": -1 },
+          { "color": "#ffc06e", "level": 0 },
+          { "color": "#4dd7ba", "level": 1 }
+        ]
+      }
+    },
     "http-rps": {
       "dataRef": "http_rps",
       "label": {
@@ -311,7 +349,7 @@
     "db-line": {
       "dataRef": "db_flow",
       "strokeColor": {
-        "dataRef": "db_health",
+        "dataRef": "db_connection_health",
         "thresholds": [
           {
             "color": "#93a4bd",
@@ -328,7 +366,7 @@
         ]
       },
       "fillColor": {
-        "dataRef": "db_health",
+        "dataRef": "db_connection_health",
         "thresholds": [
           {
             "color": "#93a4bd",

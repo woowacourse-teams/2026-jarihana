@@ -148,8 +148,9 @@ Loki가 Spring의 업무 흐름을 알아서 로그로 만들지는 않는다. S
 
 ### 트레이스에는 계측이 하나 더 필요하다
 
-현재 구성은 지원하는 HTTP·JDBC 호출을 OTel Java Agent로 계측한다. 생성한 span은 OTLP로
-앱 Alloy에 보내고 Tempo에 저장한다. 연결과 검증 방법은 [Tempo 가이드](../observability/TRACING.md)를 따른다.
+현재 기본 구성은 trace를 저장하지 않는다. HTTP와 JDBC의 집계 지표는 Micrometer와 Datasource
+Micrometer가 만든 Prometheus metric으로 본다. 요청 하나의 내부 span을 따라가야 할 때만 OTel Java Agent와
+Tempo를 선택 구성으로 켠다. 연결과 검증 방법은 [Tempo 가이드](../observability/TRACING.md)를 따른다.
 
 자동 계측이 모든 Controller·Service 메서드마다 span을 만든다고 가정하면 안 된다. 실제 지원
 라이브러리와 버전을 확인하고 필요한 업무 구간에만 별도 계측을 넣는다. 이미 있는 계측과
@@ -191,14 +192,15 @@ node_exporter 같은 별도 호스트 수집기로 수집할 수 있다.
 ### 전송 프로토콜도 별도로 구분한다
 
 선택한 초기 구조에서 메트릭은 Prometheus scrape·remote write, 로그는 Docker API·Loki push를
-사용한다. trace 경로는 Agent → Alloy와 Alloy → Nginx → Tempo 모두 OTLP HTTP를 사용한다.
-앱 Alloy는 Nginx `8080`의 `/prometheus/api/v1/write`, `/loki/api/v1/push`, `/tempo/v1/traces`로 각 신호를 보낸다.
-`TEMPO_OTLP_ENDPOINT`는 `http://<monitoring-private-ip>:8080/tempo`이며 `otelcol.exporter.otlphttp`가
-`/v1/traces`를 추가한다. Nginx는 `/prometheus`·`/tempo` 접두사를 제거해 저장소의 `/api/v1/write`·`/v1/traces`로
-전달하고 Loki 경로는 그대로 유지한다. 전체 그림의 화살표를 모두 OTLP로 적으면 실제 연결이 틀어진다.
+사용한다. 앱 Alloy는 Nginx `8080`의 `/prometheus/api/v1/write`, `/loki/api/v1/push`로 기본 두 신호를 보낸다.
+Nginx는 `/prometheus` 접두사를 제거해 저장소의 `/api/v1/write`로 전달하고 Loki 경로는 그대로 유지한다.
+trace 선택 구성을 켤 때만 Agent → Alloy와 Alloy → Nginx → Tempo 구간에 OTLP HTTP를 사용한다.
+이때 `TEMPO_OTLP_ENDPOINT`는 `http://<monitoring-private-ip>:8080/tempo`이며
+`otelcol.exporter.otlphttp`가 `/v1/traces`를 추가한다. 전체 그림의 화살표를 모두 OTLP로 적으면 실제 연결이 틀어진다.
 
 Nginx는 HTTP 요청을 정해진 저장소로 전달하는 진입점이다. `80`은 Grafana 루트 경로·WebSocket,
-`8080`은 정확히 일치하는 세 POST 수집 경로만 제공한다. 신호를 가공하거나 영속 큐에 보관하는
+`8080`은 정확히 일치하는 기본 두 POST 수집 경로만 제공한다. Tempo 선택 구성에서는 trace POST 경로가 하나 더 생긴다.
+신호를 가공하거나 영속 큐에 보관하는
 중앙 Collector와는 역할이 다르다. Nginx 장애 중에는 앱 Alloy가 재시도하며 보관 한도에 따라 유실될 수 있다.
 
 중앙 Collector를 추가할 때도 각 프로토콜을 받을 receiver와 필요한 변환을 준비해야 한다.
@@ -431,9 +433,9 @@ Head 단계에서 이미 버린 span을 나중의 tail sampler가 되살릴 수�
 작게 나온다. 느린 요청과 오류를 우선 보관했다면 그 표본의 오류율·p95도 전체 분포와 다르다.
 확률 기반 보정이나 샘플링 전 메트릭 생성 방식이 있지만 정책과 전제를 알아야 한다.
 
-자리하나에서는 HTTP의 전체 흐름을 Micrometer 메트릭으로 보고 trace는 개별 요청의 원인을
-조사하는 역할로 나눈다. 샘플링을 바꿔도 HTTP 메트릭 수집 정책까지 같이 바꾸지 않는다.
-trace 기반 서비스 그래프의 수치에는 별도의 측정 범위와 표본 조건을 붙인다.
+자리하나에서는 HTTP의 전체 흐름을 Micrometer 메트릭으로 보고 DB 호출량·DB p95는 JDBC 메트릭으로 본다.
+trace는 선택 구성에서 개별 요청의 원인을 조사하는 역할로 나눈다. 샘플링을 바꿔도 HTTP·JDBC 메트릭
+수집 정책까지 같이 바꾸지 않는다. trace 기반 서비스 그래프의 수치에는 별도의 측정 범위와 표본 조건을 붙인다.
 
 ## 관계를 보여주는 화면
 
@@ -443,8 +445,8 @@ trace 기반 서비스 그래프의 수치에는 별도의 측정 범위와 표�
 | --- | --- |
 | 백엔드 노드의 전체 HTTP RPS·5xx·p95 | HTTP 메트릭 |
 | EC2 노드의 CPU·메모리 | 호스트 메트릭 |
-| 백엔드 → DB 호출 관계 | client span 등 관계 데이터 또는 별도 명시한 관계 |
-| 백엔드 → DB 호출 횟수·시간·오류 | DB client 계측 또는 trace 기반 메트릭 |
+| 백엔드 → DB 호출 관계 | 현재 토폴로지에서는 명시한 앱→DB 관계와 health 검사. 선택 구성에서는 client span 관계 |
+| 백엔드 → DB 호출 횟수·시간·오류 | JDBC query 메트릭. 선택 구성에서는 trace 기반 메트릭도 보조로 사용 가능 |
 | 백엔드 → DB 실제 bytes/s | 해당 연결을 식별할 네트워크 관측 |
 | DB CPU·락·서버 내부 상태 | DB 자체 모니터링 경로 |
 | 특정 요청의 상세 기록 | 로그와 trace |
@@ -452,9 +454,21 @@ trace 기반 서비스 그래프의 수치에는 별도의 측정 범위와 표�
 백엔드 전체 HTTP p95를 DB 간선의 p95로 붙이면 측정 대상을 바꾼 것이다.
 EC2 전체 네트워크 송수신량에도 DB 외의 트래픽이 섞이므로 DB 간선의 전송량으로 사용할 수 없다.
 
+### Tempo를 빼도 지금 대시보드를 유지할 수 있는 이유
+
+이번에는 모니터링 EC2의 메모리가 부족해 Tempo를 기본 실행에서 제외했다.
+현재의 노드와 연결선 배치는 Grafana Flow·Canvas 설정에 들어 있고, 화면의 수치와 움직임은 메트릭을 읽어 바뀐다.
+따라서 Tempo 없이도 같은 토폴로지를 그릴 수 있다.
+
+다만 기존 DB 호출량·DB p95는 Tempo가 만든 지표에 의존했으므로, 저장소만 끄면 그 두 값은 더 이상 갱신되지 않는다.
+대신 앱에서 JDBC 실행 횟수와 시간 분포를 계측해 Actuator → Alloy → Prometheus로 보낸다.
+HTTP req/s·p95·p99, CPU·메모리와 HikariCP 풀 상태는 이미 다른 메트릭으로 수집하므로 계속 볼 수 있다.
+개별 요청의 HTTP span과 DB span을 따라가는 trace 조회는 기본 구성에서 사용할 수 없다.
+[인프라 ADR 0004](../adr/0004-disable-tempo-by-default.md)에 이 결정과 측정 범위의 차이를 기록했다.
+
 ### Tempo Service Graph
 
-Tempo는 trace 저장소이고 서비스 그래프 기능은 span 관계에서 서비스 간 호출 관계와 관련
+Tempo는 선택 구성의 trace 저장소이고 서비스 그래프 기능은 span 관계에서 서비스 간 호출 관계와 관련
 메트릭을 만든다. metrics-generator와 `service-graphs` processor, Prometheus 호환
 전송 목적지, Grafana의 데이터 소스 연결을 구성해야 한다. 설치만으로 모두 켜지는 기능은 아니다.
 
@@ -468,6 +482,7 @@ Tempo는 trace 저장소이고 서비스 그래프 기능은 span 관계에서 �
 DB 서버에 OTel을 설치하지 않아도 앱의 DB client span 속성으로 DB 노드가 나타날 수 있다.
 이는 DB 호출을 관찰했다는 뜻이며 DB 내부 CPU·락까지 수집했다는 증거가 아니다.
 서비스별 노드가 보이는 화면도 EC2 인스턴스별 지도를 자동으로 대신하지 않는다.
+현재 기본 토폴로지는 Tempo service graph 없이 `jdbc_query_seconds_*`와 HikariCP 지표를 사용한다.
 [Tempo 서비스 그래프](https://grafana.com/docs/tempo/latest/metrics-from-traces/service_graphs/),
 [활성화 절차](https://grafana.com/docs/tempo/latest/metrics-from-traces/service_graphs/enable-service-graphs/)
 
@@ -613,11 +628,14 @@ backend·Alloy에는 모두 `dev`, prod Compose에는 모두 `prod`로 고정한
 입력하지 않는다. 호스트 `8081` 포트는 backend 컨테이너의 관리 포트 `8081`로 연결하며
 호스트·Alloy 자체 메트릭도 계속 수집한다.
 모니터링 Compose 안의 Grafana는 같은 bridge에 있는 `prometheus:9090`과 `loki:3100`을 읽는다.
-Tempo 데이터 소스도 `tempo:3200`으로 직접 조회한다. 앱 Alloy는 모니터링 서버의 사설 주소와
+Tempo 선택 구성을 켜면 Tempo 데이터 소스도 `tempo:3200`으로 직접 조회한다. 앱 Alloy는 모니터링 서버의 사설 주소와
 Nginx `8080`으로 보낸다. 수집용 도메인·DNS·`extra_hosts`는 추가하지 않는다.
-앱 배포 workflow는 기존 `MONITORING_BIND_ADDRESS`와 신호별 경로로 세 목적지 URL을 만든다.
-새 변수·시크릿은 필요 없으며 같은 `MONITORING_BIND_ADDRESS`는 Nginx `80`·`8080` bind에 사용한다.
-Prometheus `9090`, Loki `3100`, Tempo `3200`, Grafana `3000`은 loopback 관리 포트로 유지한다.
+앱 배포 workflow는 기존 `MONITORING_BIND_ADDRESS`와 신호별 경로로 목적지 URL을 만든다.
+기본 메트릭·로그 수집 주소용 새 변수·시크릿은 필요 없으며 같은 `MONITORING_BIND_ADDRESS`는 Nginx
+`80`·`8080` bind에 사용한다. Tempo 선택 구성에서는 `TEMPO_OTLP_ENDPOINT`와 백엔드 OTel 변수도
+함께 켠다.
+Prometheus `9090`, Loki `3100`, Grafana `3000`은 loopback 관리 포트로 유지한다. Tempo 선택 구성의
+조회 포트 `3200`도 loopback으로 둔다.
 모니터링 호스트의 Alloy는 `http://127.0.0.1:9090/api/v1/write`로 직접 전송한다.
 `8080`의 사설 IPv4·loopback 허용 규칙과 별개로 AWS 보안 그룹·라우팅도 확인해야 한다.
 사설 주소에 bind했다는 사실만으로 인터넷 접근이 차단된다고 결론 내리지 않는다.
@@ -683,7 +701,7 @@ Blue/Green처럼 구버전과 신버전이 동시에 뜨면 환경·서비스·�
    복구 전후 건수·중복·누락을 비교하고 로컬 원본·큐·보관 한도와 연결해 설명한다.
 6. **용량 비교하기**: 일정 부하와 로그 조회를 함께 실행해 수집 지연·메모리·재시도를 기록한다.
    앱의 RPS가 유지됐어도 로그가 누락됐는지 따로 확인한다.
-7. **후속 trace 실습**: OTel·Tempo를 추가한 뒤 HTTP와 JDBC span의 부모·자식 관계를 읽는다.
+7. **후속 trace 실습**: Tempo 선택 구성을 켠 뒤 HTTP와 JDBC span의 부모·자식 관계를 읽는다.
    샘플링을 바꾸어 trace 개수와 Micrometer 요청 수가 어떻게 달라지는지 비교한다.
 
 이 과정을 마치면 도구 이름보다 데이터의 생성 위치, 수집 경로, 저장 위치와 손실 가능 구간을

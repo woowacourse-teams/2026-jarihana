@@ -21,8 +21,6 @@ services:
         condition: service_started
       loki:
         condition: service_started
-      tempo:
-        condition: service_started
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "--header=Host: grafana.jarihana.com", "http://127.0.0.1/api/health"]
       interval: 15s
@@ -92,7 +90,11 @@ services:
 
   tempo:
     image: grafana/tempo:2.10.8
+    profiles:
+      - tracing
     user: "10001:10001"
+    environment:
+      GOMEMLIMIT: 250MiB
     command:
       - -config.file=/etc/tempo/config.yaml
     ports:

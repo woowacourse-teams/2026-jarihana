@@ -47,6 +47,7 @@ jobs:
       RDS_URL: ${{ vars.RDS_URL }}
       DB_USERNAME: ${{ vars.DB_USERNAME }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      FLYWAY_BASELINE_ON_MIGRATE: ${{ vars.FLYWAY_BASELINE_ON_MIGRATE || 'false' }}
       PUSH_ENABLED: ${{ vars.PUSH_ENABLED || 'false' }}
       INVITATION_TOKEN_ACTIVE_KEY_ID: ${{ vars.INVITATION_TOKEN_ACTIVE_KEY_ID || 'primary' }}
       INVITATION_TOKEN_KEY_PRIMARY: ${{ secrets.INVITATION_TOKEN_KEY_PRIMARY }}
@@ -69,7 +70,6 @@ jobs:
       HOST_ID: ${{ vars.HOST_ID || 'jarihana-prod-ec2' }}
       PROMETHEUS_REMOTE_WRITE_URL: http://${{ vars.MONITORING_BIND_ADDRESS }}:8080/prometheus/api/v1/write
       LOKI_PUSH_URL: http://${{ vars.MONITORING_BIND_ADDRESS }}:8080/loki/api/v1/push
-      TEMPO_OTLP_ENDPOINT: http://${{ vars.MONITORING_BIND_ADDRESS }}:8080/tempo
       POSTGRES_MONITOR_DSN: ${{ secrets.POSTGRES_MONITOR_DSN }}
 
     steps:

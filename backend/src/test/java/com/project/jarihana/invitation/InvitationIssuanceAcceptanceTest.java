@@ -158,7 +158,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
     }
 
     @Test
-    @DisplayName("모임 삭제의 마지막 저장이 실패하면 초대·수락·전송 취소도 모두 롤백한다.")
+    @DisplayName("모임 삭제의 마지막 저장이 실패하면 초대, 수락, 전송 취소도 모두 롤백한다.")
     void groupDeletionFailureRollsBackInvitationCleanup() {
         // Given
         Member leader = member("101");
@@ -185,7 +185,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
     }
 
     @Test
-    @DisplayName("지정 초대 거절은 알림을 보존하고 재조회·재수락을 차단하며 모임장에게 알리지 않는다.")
+    @DisplayName("지정 초대 거절은 알림을 보존하고 재조회, 재수락을 차단하며 모임장에게 알리지 않는다.")
     void declinePreservesInboxAndBlocksAcceptance() {
         // Given
         Member leader = member("101");
@@ -209,7 +209,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    @DisplayName("거절한 지정 초대를 취소하면 상세·발급 목록은 거절 상태를 유지하고 추가 취소는 불가로 안내한다.")
+    @DisplayName("거절한 지정 초대를 취소하면 상세, 발급 목록은 거절 상태를 유지하고 추가 취소는 불가로 안내한다.")
     void revokedRejectedInvitationCannotBeRevokedAgainInDetailOrIssuedList(boolean issuedList) {
         // Given
         Member leader = member("101");
@@ -240,7 +240,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
     }
 
     @Test
-    @DisplayName("초대 거절은 지정 대상·인증·CSRF를 검증하고 수락된 초대나 공유 링크는 거절할 수 없다.")
+    @DisplayName("초대 거절은 지정 대상, 인증, CSRF를 검증하고 수락된 초대나 공유 링크는 거절할 수 없다.")
     void declineValidatesRecipientAndAcceptedState() {
         // Given
         Member leader = member("101");
@@ -382,7 +382,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
     }
 
     @Test
-    @DisplayName("모임원이 아닌 발급자·초대할 수 없는 대상·종료된 모임·잘못된 입력의 발급 요청은 거부하고 초대와 알림을 저장하지 않는다.")
+    @DisplayName("모임원이 아닌 발급자, 초대할 수 없는 대상, 종료된 모임, 잘못된 입력의 발급 요청은 거부하고 초대와 알림을 저장하지 않는다.")
     void invalidIssuanceDoesNotWriteRecords() {
         // Given
         Member leader = member("101");
@@ -522,7 +522,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
     }
 
     @Test
-    @DisplayName("회원 후보는 검색 없이 조회하거나 크루명으로 검색하며 본인·소속·탈퇴 회원을 제외하고 커서로 추가 조회한다.")
+    @DisplayName("회원 후보는 검색 없이 조회하거나 크루명으로 검색하며 본인, 소속, 탈퇴 회원을 제외하고 커서로 추가 조회한다.")
     void candidatesAreRestrictedAndPaginatedWithoutSensitiveFields() {
         // Given
         Member leader = member("101");
@@ -576,7 +576,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
     }
 
     @Test
-    @DisplayName("받은 초대는 인증된 대상의 지정 초대만 반환하며 이력 상태와 커서 조회가 업무·읽음 상태를 바꾸지 않는다.")
+    @DisplayName("받은 초대는 인증된 대상의 지정 초대만 반환하며 이력 상태와 커서 조회가 업무, 읽음 상태를 바꾸지 않는다.")
     void receivedInvitationsAreOwnerScopedAndHaveCurrentStatusesWithoutSideEffects() {
         // Given
         Member leader = member("101");
@@ -735,7 +735,8 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         long id = issued.jsonPath().getLong("data.id");
         String path = issued.jsonPath().getString("data.sharePath");
         String token = path.substring(path.lastIndexOf('/') + 1);
-        jdbc.update("update invitation set expires_at = ? where id = ?", NOW.plusSeconds(secondsUntilExpiry), id);
+        jdbc.update("update invitation set expires_at = ?, created_at = ? where id = ?",
+                NOW.plusSeconds(secondsUntilExpiry), NOW.minusDays(3), id);
 
         // When
         Response preview = RestAssured.get("/invitations/links/{token}", token);
@@ -966,7 +967,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
     }
 
     @Test
-    @DisplayName("공유 초대의 취소·모임 종료·발급자 탈퇴 상태는 공개 미리보기에서도 수락 불가로 안내하며 삭제된 초대는 찾을 수 없다.")
+    @DisplayName("공유 초대의 취소, 모임 종료, 발급자 탈퇴 상태는 공개 미리보기에서도 수락 불가로 안내하며 삭제된 초대는 찾을 수 없다.")
     void publicPreviewReportsInvalidStatesWithoutChangingRecords() {
         // Given
         Member leader = member("101");
@@ -1195,7 +1196,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
     }
 
     @Test
-    @DisplayName("초대 합류는 마감·정원 도달한 모집의 대기 신청도 시스템 승인하며 확인 시각과 과거 이력을 보존한다.")
+    @DisplayName("초대 합류는 마감, 정원 도달한 모집의 대기 신청도 시스템 승인하며 확인 시각과 과거 이력을 보존한다.")
     void invitationApprovesPendingAcrossRecruitmentsWithoutConsumingCapacity() {
         Member leader = member("101");
         Member target = member("102");
@@ -1233,7 +1234,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
 
     @ParameterizedTest
     @ValueSource(strings = {"expired", "departed", "withdrawn", "ended", "revoked"})
-    @DisplayName("만료·발급자 이탈·탈퇴·모임 종료·취소된 초대는 신규 소속과 수락 이력을 남기지 않는다.")
+    @DisplayName("만료, 발급자 이탈, 탈퇴, 모임 종료, 취소된 초대는 신규 소속과 수락 이력을 남기지 않는다.")
     void invalidInvitationsDoNotJoin(String state) {
         Member leader = member("101");
         Member target = member("102");
@@ -1243,7 +1244,8 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         String path = issued.jsonPath().getString("data.sharePath");
         String token = path.substring(path.lastIndexOf('/') + 1);
         switch (state) {
-            case "expired" -> jdbc.update("update invitation set expires_at = ? where id = ?", NOW, id);
+            case "expired" -> jdbc.update("update invitation set expires_at = ?, created_at = ? where id = ?",
+                    NOW, NOW.minusDays(3), id);
             case "departed" -> jdbc.update("delete from group_member where group_id = ? and member_id = ?", group.getId(), leader.getId());
             case "withdrawn" -> jdbc.update("update member set withdrawn_at = ? where id = ?", NOW, leader.getId());
             case "ended" -> jdbc.update("update groups set status = 'ENDED' where id = ?", group.getId());
@@ -1257,7 +1259,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
     }
 
     @Test
-    @DisplayName("이미 참여한 회원은 만료·취소 이후에도 자격을 확인한 뒤 기존 소속을 반환하며 다른 토큰은 거부한다.")
+    @DisplayName("이미 참여한 회원은 만료, 취소 이후에도 자격을 확인한 뒤 기존 소속을 반환하며 다른 토큰은 거부한다.")
     void existingMembershipIsReturnedAfterInvalidationWithoutExtraHistory() {
         Member leader = member("101");
         Member target = member("102");
@@ -1278,7 +1280,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
 
     @ParameterizedTest
     @ValueSource(strings = {"invitation_acceptance", "registration"})
-    @DisplayName("수락 이력이나 대기 신청 승인 저장에 실패하면 새 소속과 수락 이력·신청 변경을 모두 롤백한다.")
+    @DisplayName("수락 이력이나 대기 신청 승인 저장에 실패하면 새 소속과 수락 이력, 신청 변경을 모두 롤백한다.")
     void acceptanceFailureRollsBackMembershipHistoryAndPending(String failingTable) {
         Member leader = member("101");
         Member target = member("102");
@@ -1299,7 +1301,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
     }
 
     @Test
-    @DisplayName("수락 API는 회원 인증·CSRF와 유효한 요청을 요구하며 실패하면 합류하지 않는다.")
+    @DisplayName("수락 API는 회원 인증, CSRF와 유효한 요청을 요구하며 실패하면 합류하지 않는다.")
     void acceptanceRequiresAuthenticationCsrfAndValidInput() {
         Member leader = member("101");
         Member target = member("102");
@@ -1356,7 +1358,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
     }
 
     @Test
-    @DisplayName("상태 확인 후 초대가 취소되면 버전 충돌로 소속·수락 이력·대기 신청 승인을 모두 롤백한다.")
+    @DisplayName("상태 확인 후 초대가 취소되면 버전 충돌로 소속, 수락 이력, 대기 신청 승인을 모두 롤백한다.")
     void revocationAfterValidationRollsBackEntireAcceptance() throws Exception {
         // Given
         Member leader = member("101");
@@ -1694,7 +1696,7 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
 
     @ParameterizedTest
     @ValueSource(strings = {"expired", "canceled", "inviterLeft"})
-    @DisplayName("공유 링크가 만료·취소되거나 발급자가 이탈하면 새 요청으로 새 링크를 발급한다.")
+    @DisplayName("공유 링크가 만료, 취소되거나 발급자가 이탈하면 새 요청으로 새 링크를 발급한다.")
     void invalidSharedLinkAllowsReplacement(String reason) {
         // Given
         Member leader = member("101");
@@ -1703,7 +1705,8 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         groupMembers.save(GroupMember.createMember(group, inviter, NOW));
         Response first = issue(inviter, group.getId(), Map.of("type", "LINK", "requestId", UUID.randomUUID()));
         long id = first.jsonPath().getLong("data.id");
-        if (reason.equals("expired")) jdbc.update("update invitation set expires_at = ?, version = version + 1 where id = ?", Timestamp.valueOf(NOW), id);
+        if (reason.equals("expired")) jdbc.update("update invitation set expires_at = ?, created_at = ?, version = version + 1 where id = ?",
+                Timestamp.valueOf(NOW), Timestamp.valueOf(NOW.minusDays(3)), id);
         if (reason.equals("canceled")) jdbc.update("update invitation set revoked_at = ?, status = 'CANCELED', version = version + 1 where id = ?", Timestamp.valueOf(NOW), id);
         if (reason.equals("inviterLeft")) jdbc.update("delete from group_member where group_id = ? and member_id = ?", group.getId(), inviter.getId());
         // When
