@@ -18,6 +18,7 @@ RestAssured 인수 테스트로 계약을 검증한다. 알림함 API는 Control
 - 개인 목록·개별 조회·푸시 내용 응답에는 `Cache-Control: no-store`를 적용한다.
 - 푸시 수신 주소와 암호화 키는 로그·분석 및 일반 구독 목록에 노출하지 않는다.
 - 목록은 `createdAt DESC, id DESC` 기준 커서 페이지네이션을 사용한다. `size`의 기본값은 20이며 허용 범위는 1~100이다.
+- 알림함·구독 목록에서 `cursor` 생략은 첫 페이지이며 빈 문자열·공백이나 256자 초과는 `INVALID_PARAMETER`다. 커서는 버전·생성 시각·양수 ID를 인코딩하며 유효 기간이나 회원/필터 결합을 검사하지 않는다. 조회 데이터의 회원 소유권은 커서와 별도로 검증한다.
 
 ### 공통 예외
 
@@ -79,13 +80,15 @@ RestAssured 인수 테스트로 계약을 검증한다. 알림함 API는 Control
 | 사건 | target.kind | 이동 경로 |
 | --- | --- | --- |
 | 새 모임 등록 (`GROUP_CREATED`) | `GROUP_DETAIL` | `/groups/{groupId}` |
-| 새 가입 신청 | `LEADER_REGISTRATIONS` | `/groups/{groupId}/manage/registrations` |
-| 새 구성원 참여 | `LEADER_MEMBERS` | `/groups/{groupId}/manage/members` |
-| 신청 승인 | `MY_GROUPS` | `/my?focusGroup={groupId}` |
-| 수동 미승인·재모집 미승인·모임 종료 미승인 | `MY_PAGE` | `/my?registrationStatus=REJECTED&focusRegistration={registrationId}` |
+| 새 가입 신청 (`REGISTRATION_SUBMITTED`) | `LEADER_REGISTRATIONS` | `/groups/{groupId}/manage/registrations` |
+| 새 구성원 참여 (`PARTICIPANT_JOINED`) | `LEADER_MEMBERS` | `/groups/{groupId}/manage/members` |
+| 신청 승인 (`REGISTRATION_APPROVED`) | `MY_GROUPS` | `/my?focusGroup={groupId}` |
+| 수동 미승인 (`REGISTRATION_REJECTED`)·재모집/모임 종료 미승인 (`REGISTRATION_SYSTEM_REJECTED`) | `MY_PAGE` | `/my?registrationStatus=REJECTED&focusRegistration={registrationId}` |
+| 지정 초대 (`INVITATION_RECEIVED`) | `INVITATION` | `/invitations/{invitationId}` |
 
 - 클라이언트는 `target`을 내부 화면 경로로 해석한다. 외부 URL을 목적지로 전달하지 않는다.
 - `GROUP_CREATED`의 `target`에는 `kind`, `groupId`만 포함한다. 알림함 제목은 `새 모임`, 본문은 `‘모임 이름’ 모임이 새로 등록되었습니다.`다. 기존 신청·참여 알림의 모집·신청 식별자는 유지한다.
+- `target`의 nullable 식별자는 JSON `null` 대신 생략한다. 초대의 `target`에는 `kind`, `groupId`, `invitationId`만 포함한다.
 - 목록 조회나 알림함을 여는 동작만으로 읽음 처리하지 않는다.
 
 #### 예외
@@ -348,6 +351,7 @@ Request Body는 없다.
 ```
 
 - 구독 항목의 필드는 `id`, `generation`, `enabled`, `lastSeenAt`이다.
+- 해제된 구독도 `enabled = false`로 목록에 포함한다.
 - `endpoint`, `p256dh`, `auth`는 응답에 포함하지 않는다.
 - 접근 권한은 계정 기준이다. 클라이언트는 현재 브라우저에 보관한 구독 `id`·`generation`으로 현재 브라우저의 연결을 구분한다.
 
@@ -379,11 +383,12 @@ Request Body는 없다.
 | 필드 | 필수 | 규칙 |
 | --- | --- | --- |
 | `endpoint` | O | 허용 푸시 서비스 호스트의 HTTPS 주소. UTF-8 최대 2048바이트 |
-| `keys.p256dh` | O | Base64URL 디코딩 후 65바이트인 P-256 공개키 |
+| `keys.p256dh` | O | Base64URL 디코딩 후 65바이트이며 첫 바이트가 `0x04`인 비압축 P-256 공개키. 좌표가 곡선 위의 점이어야 함 |
 | `keys.auth` | O | Base64URL 디코딩 후 16바이트인 인증값 |
 
 - `endpoint`는 HTTPS 443, userinfo·fragment 없음 등 데이터 모델의 주소 검증 규칙을 따른다. 내부 주소 접근을 막는다.
 - 길이는 문자 수가 아닌 UTF-8 바이트 수로 검사한다. 검증 후 주소 원문을 저장하며 임의 재작성하지 않는다.
+- 암호화 키는 Base64URL 패딩을 허용하며 검증 후 패딩 없는 문자열로 정규화해 저장한다.
 - 회원 ID는 요청에서 받지 않는다.
 
 #### 응답 201 — 신규 등록
@@ -418,7 +423,7 @@ Request Body는 없다.
 | 상황 | 코드 | HTTP |
 | --- | --- | --- |
 | 주소 형식·호스트·길이 또는 암호화 키 검증 실패 | `INVALID_PARAMETER` | 400 |
-| 다른 회원의 endpoint 또는 허용되지 않는 재연결 | `PUSH_SUBSCRIPTION_CONFLICT` | 409 |
+| 다른 회원에게 연결된 endpoint | `PUSH_SUBSCRIPTION_CONFLICT` | 409 |
 | 서버 웹푸시 기능 비활성 | `PUSH_UNAVAILABLE` | 503 |
 
 ### `DELETE /api/push-subscriptions/{id}`
@@ -548,6 +553,7 @@ Request Body는 없다.
 두 필드는 함께 존재하거나 Request Body 자체가 없어야 한다. 회원 ID는 입력으로 받지 않는다.
 본문이 있다면 `Content-Type: application/json`을 사용한다. 빈 본문은 기존 호출 형식 그대로 허용한다.
 JSON `null`, 잘못된 JSON, 필수 값 누락·0·음수는 `400`이다.
+본문은 최대 1024바이트이며, JSON과 호환되지 않는 `Content-Type`이나 크기 초과도 `INVALID_PARAMETER`(400)다.
 
 #### 응답 204 No Content
 

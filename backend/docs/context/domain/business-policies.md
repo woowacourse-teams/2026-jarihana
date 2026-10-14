@@ -68,10 +68,10 @@ stateDiagram-v2
 ## 모집 공고의 계산 상태
 
 ```plain text
-endsAt IS NULL              상시 모집
-now < startsAt              모집 예정
-startsAt <= now < endsAt    모집 중
-endsAt <= now               마감
+now < startsAt                     모집 예정
+startsAt <= now && endsAt IS NULL   상시 모집
+startsAt <= now < endsAt            모집 중
+endsAt <= now                      마감
 ```
 
 - 조기 마감은 `startsAt = min(startsAt, now)`, `endsAt = now`로 처리한다.
@@ -79,7 +79,7 @@ endsAt <= now               마감
 - 모임장은 현재 모집 공고의 승인 방식, 정원, 모집 기간을 수정할 수 있다. 모집 공고는 삭제할 수 없고, 마감된 공고를 다시 활성화할 수 없다.
 - 새 공고를 생성하면 같은 그룹의 기존 활성 공고를 마감하고, 해당 공고의 `PENDING` 신청을 `SYSTEM` 주체로 즉시 `REJECTED` 처리한다.
 - 승인 인원이 `capacity`에 도달하면 `endsAt`을 현재 시각으로 변경하여 공고를 자동 마감하고 신규 신청을 막는다. 기존 `PENDING` 신청은 유지하며 모임장이 직접 처리한다. 승인은 정원이 남아 있을 때만 허용하고, 정원 초과 승인은 허용하지 않는다.
-- 모집 정원 수정으로 `capacity`가 현재 승인 인원과 같아져도 공고를 현재 시각에 마감하고, 기존 `PENDING` 신청은 유지한다. 모임장이 직접 처리하며 승인 인원보다 작은 정원으로는 수정할 수 없다.
+- 모집 정원 수정으로 `capacity`가 현재 승인 인원과 같아지면 아직 마감되지 않은 수정 결과를 현재 시각에 마감하고, 기존 `PENDING` 신청은 유지한다. 요청한 종료 시각이 이미 지난 경우에는 그 시각을 유지한다. 모임장이 직접 처리하며 승인 인원보다 작은 정원으로는 수정할 수 없다.
 - 정원 미달 상태에서 공고 기간이 만료된 경우 기존 `PENDING` 신청은 즉시 미승인하지 않고 마감 후 2주 정책을 적용한다.
 
 ## 그룹 삭제 정책

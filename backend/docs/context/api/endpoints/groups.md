@@ -5,13 +5,19 @@
 그룹 목록·상세 조회는 대표 이미지 키가 없거나 기본 이미지 키인 경우
 `images/default-group.png`를 반환한다. 업로드된 이미지 키가 연결된 경우에는
 설정된 공개 이미지 Base URL과 스토리지 키를 조합한 URL을 반환한다.
-현재 운영 버킷의 이미지 객체 prefix는 `jarihana/images`이며, 공개 Base URL은
-해당 prefix를 제외한 CloudFront 경로(예: `https://d1znkkaqfyz08f.cloudfront.net/images`)다.
+공개 Base URL이 비어 있으면 업로드 이미지의 스토리지 키를 그대로 반환한다.
 
 목록·상세의 `activeRecruitment.approvedCount`는 해당 공고의 모집으로 가입한 인원(APPROVED·RECRUITMENT)이다.
 초대 출처 승인은 제외한다. `memberCount`는 실제 GroupMember 수이며 모임장과 초대 합류자도 포함한다.
 `recruiting=true`는 기간상 열린 공고의 모집으로 가입한 인원이 정원보다 적은 그룹을,
 `recruiting=false`는 그런 공고가 없는 그룹을 조회한다.
+목록·상세의 `activeRecruitment`는 `startsAt <= now`이고 `endsAt`이 없거나
+`now < endsAt`인 공고 중 ID가 가장 큰 공고다. 모집 예정·마감 공고는 포함하지 않으며,
+해당 공고가 없으면 `null`이다. 정원 조건은 `recruiting` 필터에만 추가로 적용한다.
+모임장 정보의 `generation`은 `COACH`이면 `null`이며, 모임장 소속을 찾지 못하면 `leader`는 `null`이다.
+그룹 상세의 `description`, `location`과 모집의 `endsAt`도 nullable이다.
+그룹 생성·기본 정보 교체·삭제·종료·기존 일정 변경은 인증된 ID의 회원이 없으면
+`MEMBER_NOT_FOUND` (`404`)로 응답한다.
 
 ### `GET /api/groups`
 
@@ -30,10 +36,13 @@
 | `type` | GroupType | X | `CLUB`, `STUDY`, `SESSION` |
 | `excludedType` | GroupType | X | 제외할 그룹 유형. `CLUB`, `STUDY`, `SESSION` |
 | `sessionDate` | LocalDate | X | `YYYY-MM-DD`. SESSION의 일회성 일정 날짜 |
-| `recruiting` | Boolean | X | `true`이면 현재 모집 중인 공고가 있는 그룹만 |
-| `keyword` | String | X | 이름·한 줄 소개 부분 일치 |
+| `recruiting` | Boolean | X | `true`이면 기간상 열려 있고 모집 정원이 남은 공고가 있는 그룹만, `false`이면 그런 공고가 없는 그룹만 |
+| `keyword` | String | X | 이름·한 줄 소개 대소문자 구분 없는 부분 일치. 빈 값·공백만 있는 값은 필터 생략 |
 | `cursor` | String | X | 다음 페이지 커서 |
 | `size` | Integer | X | 기본 20, 최소 1, 최대 100 |
+
+목록은 `createdAt DESC, id DESC`로 정렬한다. 빈 값·공백만 있는 `cursor`는 첫 페이지로 처리한다.
+커서는 날짜·정수 ID 형식만 검증하며 현재 회원·조회 필터와 결합하지 않는다.
 
 ##### 관계 필터 예시
 - 내 소속 그룹: `GET /api/groups?relation=joined`
@@ -57,6 +66,12 @@
       "introduction": "매주 함께 문제를 풉니다.",
       "location": "서울 캠퍼스",
       "representativeImageUrl": "images/default-group.png",
+      "recurringSchedule": {
+        "daysOfWeek": ["MONDAY", "WEDNESDAY"],
+        "startTime": "19:00:00",
+        "endTime": "21:00:00"
+      },
+      "sessionSchedule": null,
       "leader": {"memberId": 3, "crewName": "크루A", "generation": 8, "memberType": "CREW", "avatarUrl": "https://avatars.githubusercontent.com/u/3"},
       "memberCount": 6,
       "activeRecruitment": {
@@ -75,11 +90,14 @@
 }
 ```
 
+목록의 일정 필드는 상세와 같은 형태다. 유동적 `CLUB`·`STUDY`는 두 일정이 모두
+`null`이고, `SESSION`은 `sessionSchedule`만 반환한다. `location`도 `null`일 수 있다.
+
 #### 예외
 
 | 상황 | 코드 | HTTP |
 | --- | --- | --- |
-| relation 또는 role 사용 시 인증 정보 없음 | `UNAUTHENTICATED` | 401 |
+| relation 사용 시 인증 정보 없음 | `UNAUTHENTICATED` | 401 |
 | relation 없이 role 사용 | `INVALID_PARAMETER` | 400 |
 | 정의되지 않은 필터 값 | `INVALID_PARAMETER` | 400 |
 | 잘못된 cursor 또는 size | `INVALID_PARAMETER` | 400 |
@@ -94,6 +112,8 @@
 - `meetingType`은 생성·수정 요청과 그룹 상세 응답에서 항상 포함한다.
 - `location`은 최대 255자의 nullable 문자열이다. 오프라인 장소 또는 온라인 접속 정보를 저장할 수 있다.
 - `representativeImageKey`는 nullable 스토리지 키이며, `null`이면 기본 대표 이미지를 사용한다.
+- `name`과 `introduction`은 공백만 있는 값을 허용하지 않으며 각각 최대 50자, 100자다.
+  `description`은 nullable이며 최대 10,000자, `representativeImageKey`는 최대 255자다.
 #### 요청 — CLUB 또는 STUDY
 
 ```json
@@ -173,12 +193,12 @@ Location: /api/groups/12
 | 상황 | 코드 | HTTP |
 | --- | --- | --- |
 | 그룹 이름 중복 | `GROUP_NAME_DUPLICATED` | 409 |
-| type·문자열 제약 위반 | `INVALID_PARAMETER` | 400 |
+| 필수 type·meetingType·이름·소개 누락 또는 값·문자열 제약 위반 | `INVALID_PARAMETER` | 400 |
 | CLUB·STUDY에 sessionSchedule 전달 | `SCHEDULE_TYPE_MISMATCH` | 400 |
 | SESSION에 sessionSchedule 누락 | `SCHEDULE_REQUIRED` | 400 |
 | 두 일정 동시 전달 | `SCHEDULE_TYPE_MISMATCH` | 400 |
-| 요일 비어 있음 또는 시작 시각이 종료 시각 이상 | `SCHEDULE_INVALID_RULE` | 400 |
-| 대표 이미지 키 없음 | `IMAGE_NOT_FOUND` | 400 |
+| 요일 누락·빈 배열·null 원소, 시각 한쪽만 지정, 세션 날짜·시각 누락 또는 시작 시각이 종료 시각 이상 | `SCHEDULE_INVALID_RULE` | 400 |
+| 대표 이미지 키가 비어 있거나 업로드 없음·만료·스토리지 객체 없음·확인 실패 | `IMAGE_NOT_FOUND` | 400 |
 
 ### `DELETE /api/groups/{groupId}`
 
@@ -192,8 +212,9 @@ Request Body는 없다.
 본문이 없다.
 
 #### 동작
-- `ACTIVE`이고 생성 후 24시간 이내인 경우에만 가능하다.
-- 그룹, 초대·수락 이력, 모집 공고, 신청, 구성원, 반복 일정 또는 세션 일정을 Hard Delete한다.
+- `ACTIVE`이고 생성 시각부터 정확히 24시간이 되는 시각까지 가능하다.
+- 그룹, 초대·수락 이력, 모집 공고, 신청, 구성원, 현재 일정, 달력의 개별 일정·정기 규칙 이력·장소 이력을 Hard Delete한다.
+- 사진 활동 기록은 숨김 처리한다.
 - 수신자의 초대 알림은 유지하고 PENDING·RETRY·IN_FLIGHT 초대 전송을 취소한다. 삭제된 초대의 상세·공유 미리보기·수락은 INVITATION_NOT_FOUND(404)로 안내한다. 이미 전달된 OS 알림은 회수하지 않는다.
 - `Group.status`를 변경하지 않는다.
 - 삭제 요청을 종료 요청으로 자동 전환하지 않는다.
@@ -249,13 +270,14 @@ Request Body는 없다.
 ```
 
 유동적 CLUB·STUDY는 두 일정이 모두 `null`이다. SESSION은 `sessionSchedule`만 반환한다. ENDED 그룹도 직접 조회할 수 있다.
-인증된 요청이면 `currentMemberRole`에 현재 사용자의 승인된 그룹 역할(`LEADER` 또는 `MEMBER`)을 반환하고, `currentMemberRegistrationId`와 `currentMemberRegistrationStatus`에 현재 모집 공고에 대한 본인 신청 식별자와 상태(`PENDING`, `APPROVED`, `REJECTED`)를 반환한다. 비로그인 사용자나 해당 신청이 없는 사용자는 각 값을 `null`로 반환한다.
+인증된 요청이면 `currentMemberRole`에 현재 사용자의 그룹 소속 역할(`LEADER` 또는 `MEMBER`)을 반환하고, `currentMemberRegistrationId`와 `currentMemberRegistrationStatus`에 `activeRecruitment`에 대한 본인 신청 식별자와 상태(`PENDING`, `APPROVED`, `REJECTED`)를 반환한다. 비로그인 사용자의 세 필드는 모두 `null`이다. 소속이 없으면 역할은 `null`이고, 현재 열린 공고나 해당 공고의 신청이 없으면 신청 식별자와 상태는 `null`이다. 마감 공고의 신청은 이 필드에 반환하지 않는다.
 
 #### 예외
 
 | 상황 | 코드 | HTTP |
 | --- | --- | --- |
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
+| groupId가 양수가 아님 | `INVALID_PARAMETER` | 400 |
 
 ### `PATCH /api/groups/{groupId}`
 
@@ -322,6 +344,7 @@ Request Body는 없다.
 
 - 수정 가능한 기본 정보의 전체 표현을 전달한다. 전달하지 않은 필드를 기존 값으로 보존하는 부분 수정은 지원하지 않는다.
 - `description`, `location`, `representativeImageKey`는 nullable 필드지만 요청에 반드시 포함해야 하며, 비우려면 각각 `null`을 명시한다.
+- 문자열 길이와 빈 이름·소개 제약은 그룹 생성과 같다. nullable 필드는 문자열 또는 `null`만 허용한다.
 - `type`, `status`, 일정은 이 API에서 수정하지 않는다.
 - `meetingType`과 `location`은 그룹의 모임 방식과 장소를 전체 교체한다. `meetingType`은 필수이며 `ONLINE`, `OFFLINE`, `FLEXIBLE` 중 하나를 보낸다. 장소를 비우려면 `null`을 명시한다.
 
@@ -337,7 +360,7 @@ Request Body는 없다.
 | ENDED 그룹 | `GROUP_ENDED` | 409 |
 | 그룹 이름 중복 | `GROUP_NAME_DUPLICATED` | 409 |
 | 필수 필드 누락 또는 값 제약 위반 | `INVALID_PARAMETER` | 400 |
-| 대표 이미지 키 없음 | `IMAGE_NOT_FOUND` | 400 |
+| 변경한 대표 이미지 키가 비어 있거나 업로드 없음·만료·스토리지 객체 없음·확인 실패 | `IMAGE_NOT_FOUND` | 400 |
 
 ### `DELETE /api/groups/{groupId}/recurring-schedule`
 
@@ -348,7 +371,8 @@ Request Body는 없다.
 Request Body는 없다.
 
 #### 응답 204 No Content
-반복 일정을 Hard Delete한다. 그룹 자체와 구성원·모집 이력은 유지한다.
+본문이 없다. 현재 반복 일정 값을 제거하고 오늘 이후의 반복 표시를 중단한다.
+정기 규칙 이력은 물리 삭제하지 않으며 과거 달력 표시와 그룹·구성원·모집 이력을 유지한다.
 
 #### 예외
 
@@ -359,6 +383,8 @@ Request Body는 없다.
 | SESSION 그룹 | `SCHEDULE_TYPE_MISMATCH` | 400 |
 | ENDED 그룹 | `GROUP_ENDED` | 409 |
 | 등록된 반복 일정 없음 | `RECURRING_SCHEDULE_NOT_FOUND` | 404 |
+| 구버전 정기 일정 변경 비활성 | `CALENDAR_CLIENT_OUTDATED` | 409 |
+| 정기 일정 이력의 동시 변경 | `GROUP_EVENT_CONFLICT` | 409 |
 
 ### `PUT /api/groups/{groupId}/recurring-schedule`
 
@@ -423,7 +449,11 @@ Request Body는 없다.
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
 | SESSION 그룹 | `SCHEDULE_TYPE_MISMATCH` | 400 |
 | ENDED 그룹 | `GROUP_ENDED` | 409 |
-| 요일 비어 있음, 시간 역전 또는 두 시각 중 한쪽만 지정 | `SCHEDULE_INVALID_RULE` | 400 |
+| 요일 누락·빈 배열·null 원소, 시간 역전 또는 두 시각 중 한쪽만 지정 | `SCHEDULE_INVALID_RULE` | 400 |
+| 구버전 정기 일정 변경 비활성 | `CALENDAR_CLIENT_OUTDATED` | 409 |
+| 정기 일정 이력 없음 | `RECURRING_SCHEDULE_NOT_FOUND` | 404 |
+| 수동 정기 모임과 반복 규칙 충돌 또는 정기 일정 이력의 동시 변경 | `GROUP_EVENT_CONFLICT` | 409 |
+| 오늘 이후에 적용할 정기 규칙 구간 없음 | `INVALID_PARAMETER` | 400 |
 
 ### `PUT /api/groups/{groupId}/session-schedule`
 
@@ -464,7 +494,7 @@ SESSION의 일정은 필수이므로 삭제 API를 제공하지 않는다.
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
 | CLUB·STUDY 그룹 | `SCHEDULE_TYPE_MISMATCH` | 400 |
 | ENDED 그룹 | `GROUP_ENDED` | 409 |
-| 날짜 누락 또는 시간 역전 | `SCHEDULE_INVALID_RULE` | 400 |
+| 날짜·시각 누락 또는 시작 시각이 종료 시각 이상 | `SCHEDULE_INVALID_RULE` | 400 |
 
 ### 캘린더를 통한 정기 일정 관리
 
