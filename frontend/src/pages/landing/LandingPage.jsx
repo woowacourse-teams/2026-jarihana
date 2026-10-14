@@ -398,11 +398,6 @@ export function LandingPage() {
                 <br />
                 자리 하나.
               </h2>
-              <p className="landing-start-section__invitation">
-                우리, 같이 자리할까요?
-                <br />
-                함께하고 싶은 마음 하나면 충분해요.
-              </p>
               <LandingStartButton className="landing-button--large">
                 <img alt="" height="20" src={githubMark} width="20" />
                 GitHub로 시작하기

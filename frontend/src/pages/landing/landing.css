@@ -336,8 +336,7 @@ html:has(.landing-page) {
   color: var(--color-muted-ink);
 }
 .landing-description,
-.landing-type__panel-inner > p,
-.landing-start-section__invitation {
+.landing-type__panel-inner > p {
   text-wrap: balance;
 }
 .landing-together {
@@ -553,12 +552,6 @@ html:has(.landing-page) {
   font-size: var(--text-body-lg);
   color: var(--color-muted-ink);
   line-height: 1.8;
-}
-.landing-start-section__invitation {
-  margin-bottom: var(--space-8) !important;
-  color: var(--color-brand-ink);
-  font-size: var(--landing-body-size);
-  line-height: 1.7;
 }
 .landing-host h2 {
   font-size: var(--landing-feature-size);
