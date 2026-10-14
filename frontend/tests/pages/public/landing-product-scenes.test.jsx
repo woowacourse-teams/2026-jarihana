@@ -19,6 +19,14 @@ test("every guide illustration uses readable service UI without screenshot asset
       expect(illustration).toHaveAccessibleName(/이용 예시/);
       expect(illustration.querySelector(".landing-product-scene")).toBeInTheDocument();
       expect(illustration.querySelector("a, button, input, select, textarea, [tabindex]")).toBeNull();
+      const windowFrame = frame.querySelector(".landing-guide-frame__window");
+      expect(windowFrame).toContainElement(illustration);
+      const chrome = windowFrame.querySelector(".landing-guide-frame__chrome");
+      expect(chrome).toHaveAttribute("aria-hidden", "true");
+      expect(chrome.querySelectorAll("span")).toHaveLength(3);
+      expect(chrome.querySelector("button, a, [tabindex]")).toBeNull();
+      expect(windowFrame.querySelectorAll("button[data-ph-capture-attribute-action]")).toHaveLength(2);
+      expect(windowFrame.querySelector("figcaption")).toBeNull();
       expect(frame.querySelector("figcaption")).toHaveTextContent("서비스 이용 예시");
     }
   }

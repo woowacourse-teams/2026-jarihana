@@ -84,11 +84,18 @@ function ProductFrame({ chapter, isActive = true }) {
       data-screen={chapter.id}
       inert={!isActive}
     >
-      {chapter.id === "create" ? <LandingCreateDemo label={chapter.alt} isActive={isActive} /> : (
-        <LandingProductDemo screen={chapter.id} label={chapter.alt} isActive={isActive}>
-          <LandingProductScene screen={chapter.id} />
-        </LandingProductDemo>
-      )}
+      <div className="landing-guide-frame__window">
+        <div className="landing-guide-frame__chrome" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+        {chapter.id === "create" ? <LandingCreateDemo label={chapter.alt} isActive={isActive} /> : (
+          <LandingProductDemo screen={chapter.id} label={chapter.alt} isActive={isActive}>
+            <LandingProductScene screen={chapter.id} />
+          </LandingProductDemo>
+        )}
+      </div>
       <figcaption>서비스 이용 예시</figcaption>
     </figure>
   );

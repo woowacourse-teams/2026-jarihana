@@ -7,6 +7,7 @@ const QUESTION_DURATION = 520;
 const CHAIR_REVEAL_DURATION = 1100;
 const WHEEL_THRESHOLD = 40;
 const INPUT_PAUSE = 180;
+const POSITION_TOLERANCE = 2;
 
 export function useLandingQuestionScroll(heroRef) {
   useEffect(() => {
@@ -56,20 +57,37 @@ export function useLandingQuestionScroll(heroRef) {
       const rect = hero.getBoundingClientRect();
       const distance = rect.height - window.innerHeight;
       const top = rect.top + window.scrollY;
-      return { top, distance, progress: (window.scrollY - top) / distance };
+      const about = hero.nextElementSibling;
+      const aboutRect = about?.matches('[data-guide-chapter="about"]') ? about.getBoundingClientRect() : null;
+      const headerHeight = document.querySelector(".landing-header")?.getBoundingClientRect().height ?? 64;
+      const aboutTop = aboutRect
+        ? window.scrollY + aboutRect.top + aboutRect.height / 2 - (window.innerHeight + headerHeight) / 2
+        : null;
+      return { top, distance, progress: (window.scrollY - top) / distance, aboutTop };
     }
 
     function canStep(direction) {
       if (reducedMotion.matches) return false;
-      const { top, distance, progress } = position();
-      if (distance <= 0 || window.scrollY < Math.max(0, top - 80) || progress > 1) return false;
+      const { top, distance, progress, aboutTop } = position();
+      const end = aboutTop ?? top + distance;
+      if (distance <= 0 || window.scrollY < Math.max(0, top - 80) || window.scrollY > end + POSITION_TOLERANCE) return false;
       if (animationFrame !== null) return true;
+      if (aboutTop !== null) return direction > 0 ? window.scrollY < aboutTop - POSITION_TOLERANCE : progress > 0.01;
       return direction > 0 ? progress < 0.73 : progress > 0.01;
     }
 
     function step(direction) {
       if (animationFrame !== null) return;
-      const { top, distance, progress } = position();
+      const { top, distance, progress, aboutTop } = position();
+      const chairTop = top + distance * STOPS.at(-1);
+      if (aboutTop !== null && direction > 0 && window.scrollY >= chairTop - POSITION_TOLERANCE) {
+        transitionTo(aboutTop, QUESTION_DURATION);
+        return;
+      }
+      if (aboutTop !== null && direction < 0 && window.scrollY > chairTop + POSITION_TOLERANCE) {
+        transitionTo(chairTop, QUESTION_DURATION);
+        return;
+      }
       const current = STOPS.reduce(
         (nearest, stop, index) =>
           Math.abs(stop - progress) < Math.abs(STOPS[nearest] - progress) ? index : nearest,
@@ -90,14 +108,14 @@ export function useLandingQuestionScroll(heroRef) {
         Math.abs(delta) >= WHEEL_THRESHOLD;
       const separated = event.timeStamp - lastWheelAt >= INPUT_PAUSE && !isMomentum;
       lastWheelAt = event.timeStamp;
-      if (isStart || reversed || separated) {
+      if ((isStart && !isMomentum) || reversed || separated) {
         wheelMoved = false;
         wheelCaptured = false;
         wheelDistance = 0;
       }
       wheelDirection = direction;
-      const { progress } = position();
-      if (reducedMotion.matches || progress > 1 || progress < -0.04) {
+      const { top, distance, progress, aboutTop } = position();
+      if (reducedMotion.matches || window.scrollY > (aboutTop ?? top + distance) + POSITION_TOLERANCE || progress < -0.04) {
         wheelCaptured = false;
         return;
       }
@@ -119,7 +137,7 @@ export function useLandingQuestionScroll(heroRef) {
 
     function onWheel(event) {
       if (
-        event.ctrlKey || event.metaKey || !event.cancelable ||
+        event.defaultPrevented || event.ctrlKey || event.metaKey || !event.cancelable ||
         Math.abs(event.deltaX) >= Math.abs(event.deltaY)
       ) return;
       gestures.feedWheel(event);
@@ -149,7 +167,7 @@ export function useLandingQuestionScroll(heroRef) {
 
     function onKeyDown(event) {
       if (
-        event.ctrlKey || event.metaKey || event.altKey ||
+        event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey ||
         event.target.closest("a, button, input, textarea, select, [contenteditable='true']")
       ) return;
       const direction = {

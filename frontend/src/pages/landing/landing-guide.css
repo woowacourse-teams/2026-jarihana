@@ -175,6 +175,52 @@
   transform: translateY(0) scale(1);
 }
 
+.landing-guide-frame__window {
+  position: relative;
+  overflow: hidden;
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-float);
+}
+
+.landing-guide-frame__chrome {
+  position: absolute;
+  z-index: 1;
+  top: calc(var(--space-2) + var(--touch-target) / 2 - var(--space-1));
+  left: var(--space-4);
+  display: flex;
+  gap: calc(var(--space-3) / 2);
+  pointer-events: none;
+}
+
+.landing-guide-frame__chrome span {
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-brand);
+}
+
+.landing-guide-frame__chrome span:first-child {
+  background: var(--color-cohort-2);
+}
+
+.landing-guide-frame__chrome span:nth-child(2) {
+  background: var(--color-cohort-5);
+}
+
+.landing-guide-frame__window > .landing-product-demo,
+.landing-guide-frame__window > .lpc-demo {
+  gap: 0;
+}
+
+.landing-guide-frame__window .landing-product-demo__controls,
+.landing-guide-frame__window .lpc-controls {
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-16);
+  border-bottom: var(--border-thin) solid var(--color-line);
+  background: var(--color-surface-sunken);
+}
+
 .landing-guide-frame__screen {
   position: relative;
   min-width: 0;
@@ -326,10 +372,6 @@
 
   .landing-guide__showcase .lps-count-tabs > span {
     padding-block: var(--space-1);
-  }
-
-  .landing-guide__showcase .landing-product-demo {
-    gap: var(--space-2);
   }
 
   .landing-guide__showcase .landing-guide-frame figcaption {

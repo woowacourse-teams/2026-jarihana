@@ -1,6 +1,7 @@
 import { act, fireEvent, renderHook } from "@testing-library/react";
 
 import { useLandingQuestionScroll } from "../../../src/pages/landing/useLandingQuestionScroll";
+import { useLandingGuideScroll } from "../../../src/pages/landing/useLandingGuideScroll";
 
 const originalCSS = window.CSS;
 const originalMatchMedia = Object.getOwnPropertyDescriptor(window, "matchMedia");
@@ -24,19 +25,47 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  document.querySelectorAll("[data-handoff-fixture]").forEach((node) => node.remove());
   jest.restoreAllMocks();
   jest.useRealTimers();
   Object.defineProperty(window, "CSS", { configurable: true, value: originalCSS });
   Object.defineProperty(window, "matchMedia", originalMatchMedia);
 });
 
-function setup() {
+function setup({ withAbout = false, withGuide = false } = {}) {
   const hero = document.createElement("section");
   hero.getBoundingClientRect = () => ({
     top: 64 - window.scrollY,
     bottom: 3664 - window.scrollY,
     height: 3600
   });
+  const root = document.createElement("main");
+  const activate = jest.fn();
+  if (withAbout) {
+    root.dataset.handoffFixture = "";
+    root.append(hero);
+    for (const [index, id] of ["about", "together"].entries()) {
+      const section = document.createElement("section");
+      section.dataset.guideChapter = id;
+      section.getBoundingClientRect = () => ({ top: 3664 + index * 836 - window.scrollY, height: 836 });
+      root.append(section);
+    }
+    document.body.append(root);
+  }
+  if (withGuide) {
+    window.matchMedia.mockImplementation((query) => ({
+      matches: query !== "(prefers-reduced-motion: reduce)",
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn()
+    }));
+    const heroRef = { current: hero };
+    const rootRef = { current: root };
+    const hook = renderHook(() => {
+      useLandingQuestionScroll(heroRef);
+      useLandingGuideScroll(rootRef, activate);
+    });
+    return { ...hook, activate };
+  }
   return renderHook(() => useLandingQuestionScroll({ current: hero }));
 }
 
@@ -174,6 +203,80 @@ test("browser-marked inertia cannot advance or escape the chair scene", () => {
   }
   expect(window.scrollY).toBeCloseTo(stops[4]);
   expect(wheel(80, { momentum: false }).defaultPrevented).toBe(false);
+});
+
+test.each([60, 1600])("a fresh %ipx gesture after the chair lands on About and hands the next input to the guide", (delta) => {
+  const { activate } = setup({ withAbout: true, withGuide: true });
+  window.scrollY = stops[4];
+  expect(wheel(delta, { momentum: false }).defaultPrevented).toBe(true);
+  advance(200);
+  expect(window.scrollY).toBeGreaterThan(stops[4]);
+  expect(window.scrollY).toBeLessThan(3600);
+  for (let index = 0; index < 12; index += 1) {
+    advance(90);
+    expect(wheel(20, { momentum: true }).defaultPrevented).toBe(true);
+  }
+  expect(window.scrollY).toBeCloseTo(3600);
+  expect(activate).not.toHaveBeenCalled();
+  expect(wheel(120, { momentum: false }).defaultPrevented).toBe(true);
+  advance();
+  expect(window.scrollY).toBeCloseTo(4436);
+  expect(activate).toHaveBeenLastCalledWith("together");
+  wheel(-120, { momentum: false });
+  advance();
+  expect(window.scrollY).toBeCloseTo(3600);
+  wheel(-120, { momentum: false });
+  advance();
+  expect(window.scrollY).toBeCloseTo(stops[4]);
+});
+
+test("the final question finishes the chair before a separate input reaches About", () => {
+  setup({ withAbout: true });
+  window.scrollY = stops[3];
+  wheel(1600, { momentum: false });
+  for (let index = 0; index < 15; index += 1) {
+    advance(90);
+    expect(wheel(15, { momentum: true }).defaultPrevented).toBe(true);
+  }
+  expect(window.scrollY).toBeCloseTo(stops[4]);
+  wheel(80, { momentum: false });
+  advance();
+  expect(window.scrollY).toBeCloseTo(3600);
+});
+
+test("delayed browser-marked momentum stays captured at About until a fresh gesture", () => {
+  setup({ withAbout: true });
+  window.scrollY = stops[4];
+  wheel(120, { momentum: false });
+  advance(900);
+  expect(window.scrollY).toBeCloseTo(3600);
+  expect(wheel(12, { momentum: true }).defaultPrevented).toBe(true);
+  advance(300);
+  expect(wheel(8, { momentum: true }).defaultPrevented).toBe(true);
+  expect(window.scrollY).toBeCloseTo(3600);
+  expect(wheel(120, { momentum: false }).defaultPrevented).toBe(false);
+});
+
+test("keyboard and touch can move between the chair and About without capturing later content", () => {
+  setup({ withAbout: true });
+  window.scrollY = stops[4];
+  expect(fireEvent.keyDown(document.body, { key: "PageDown" })).toBe(false);
+  advance();
+  expect(window.scrollY).toBeCloseTo(3600);
+  expect(fireEvent.keyDown(document.body, { key: "PageDown" })).toBe(true);
+  fireEvent.touchStart(window, { touches: [{ clientX: 180, clientY: 200 }] });
+  fireEvent.touchMove(window, { touches: [{ clientX: 180, clientY: 500 }] });
+  fireEvent.touchEnd(window);
+  advance();
+  expect(window.scrollY).toBeCloseTo(stops[4]);
+  fireEvent.touchStart(window, { touches: [{ clientX: 180, clientY: 700 }] });
+  fireEvent.touchMove(window, { touches: [{ clientX: 180, clientY: 500 }] });
+  advance();
+  expect(window.scrollY).toBeCloseTo(3600);
+  expect(fireEvent.touchMove(window, { touches: [{ clientX: 180, clientY: 100 }] })).toBe(false);
+  fireEvent.touchEnd(window);
+  window.scrollY = 4000;
+  expect(wheel(100)).toHaveProperty("defaultPrevented", false);
 });
 
 test.each(["navigation", "reduced motion", "unmount"])("animation yields to %s", (reason) => {
