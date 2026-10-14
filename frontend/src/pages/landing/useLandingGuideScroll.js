@@ -45,7 +45,7 @@ export function useLandingGuideScroll(sectionRef, setActiveChapter) {
     function destination(direction, delta = 0) {
       const center = window.innerHeight / 2;
       const anotherSequenceInView = [...document.querySelectorAll("[data-guide-sequence]")].some((sequence) => {
-        if (sequence === root) return false;
+        if (root.contains(sequence)) return false;
         const rect = sequence.getBoundingClientRect();
         return rect.top <= center && rect.bottom >= center;
       });

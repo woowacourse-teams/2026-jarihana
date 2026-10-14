@@ -1,6 +1,13 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 
 import { LandingGuide } from "../../../src/pages/landing/LandingGuide";
+import { useLandingGuideScroll } from "../../../src/pages/landing/useLandingGuideScroll";
+
+jest.mock("../../../src/pages/landing/useLandingGuideScroll", () => ({
+  useLandingGuideScroll: jest.fn(() => ({ current: false }))
+}));
+
+beforeEach(() => jest.clearAllMocks());
 
 jest.mock("react-router", () => ({
   Link: ({ children, to, ...props }) => (
@@ -50,4 +57,23 @@ test("account and activity examples keep the real product's tabs, photo and conv
   expect(activity.querySelectorAll(".lps-comment")).toHaveLength(2);
   expect(activity.querySelector(".lps-reactions")).toBeInTheDocument();
   expect(activity).toHaveTextContent("댓글을 남겨 보세요.");
+});
+
+
+test("one controller owns every usage section and activates the matching demonstration", () => {
+  const { container } = render(<LandingGuide />);
+  expect(useLandingGuideScroll).toHaveBeenCalledTimes(1);
+  const [flowRef, setActiveChapter] = useLandingGuideScroll.mock.calls[0];
+  const sections = [...flowRef.current.querySelectorAll("[data-guide-sequence]")];
+  expect(sections.map((section) => section.id)).toEqual(["guide", "guide-host", "guide-invite", "guide-activity"]);
+  expect([...flowRef.current.querySelectorAll("[data-guide-chapter]")].map((chapter) => chapter.dataset.guideChapter))
+    .toEqual(["browse", "detail", "continue", "create", "manage", "invite", "activity"]);
+
+  act(() => setActiveChapter("create"));
+  expect(container.querySelector('#guide-host .landing-guide__showcase [data-screen="create"]')).toHaveAttribute("data-active", "true");
+  expect(container.querySelector('#guide .landing-guide__showcase [data-screen="browse"]')).toHaveAttribute("inert");
+  for (const id of ["invite", "activity", "manage"]) {
+    act(() => setActiveChapter(id));
+    expect(container.querySelector(`[data-guide-chapter="${id}"]`)).toHaveAttribute("aria-current", "step");
+  }
 });

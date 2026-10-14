@@ -226,10 +226,6 @@
   align-items: center;
 }
 
-.landing-guide-feature--activity .landing-guide-feature__copy {
-  order: 2;
-}
-
 .landing-guide-feature__copy > p:not(.landing-eyebrow) {
   margin-top: var(--space-6);
   color: var(--color-muted-ink);
@@ -255,7 +251,58 @@
   transform: none;
 }
 
+@media (min-width: 64rem) {
+  .landing-guide-feature.landing-guide--reversed .landing-guide-feature__layout {
+    grid-template-columns: minmax(0, 1.18fr) minmax(20rem, 0.82fr);
+  }
+
+  .landing-guide-feature.landing-guide--reversed .landing-guide-feature__copy {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .landing-guide-feature.landing-guide--reversed .landing-guide-feature__media {
+    grid-column: 1;
+    grid-row: 1;
+  }
+}
+
 @media (min-width: 64rem) and (height > 55rem) and (prefers-reduced-motion: no-preference) {
+  .landing-guide--reversed .landing-guide__layout {
+    grid-template-columns: minmax(34rem, 1.18fr) minmax(0, 0.82fr);
+  }
+
+  .landing-guide--reversed .landing-guide__chapters {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .landing-guide--reversed .landing-guide__showcase {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .landing-guide-feature__layout {
+    min-height: calc(100svh - var(--landing-header));
+  }
+
+  .landing-guide-feature__media .landing-product-demo[data-demo="activity"] .landing-product-scene {
+    gap: var(--space-2);
+    padding: var(--space-4);
+  }
+
+  .landing-guide-feature__media .landing-product-demo[data-demo="activity"] .lpa-photo-image {
+    height: clamp(8rem, 18svh, 11rem);
+  }
+
+  .landing-guide-feature__media .landing-product-demo[data-demo="activity"] .lpa-conversation {
+    gap: var(--space-2);
+  }
+
+  .landing-guide-feature__media .landing-product-demo[data-demo="activity"] .lpa-comment {
+    margin-top: var(--space-2);
+  }
+
   .landing-guide__chapters {
     gap: 0;
   }
@@ -379,9 +426,6 @@
     gap: var(--space-8);
   }
 
-  .landing-guide-feature--activity .landing-guide-feature__copy {
-    order: 0;
-  }
 }
 
 @media (max-width: 47.9375rem) {

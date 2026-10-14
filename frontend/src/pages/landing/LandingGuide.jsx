@@ -133,6 +133,8 @@ function GuideChapter({ chapter, active }) {
 
 function GuideFeature({
   action,
+  active,
+  reversed = false,
   checks,
   description,
   eyebrow,
@@ -143,10 +145,16 @@ function GuideFeature({
   return (
     <section
       aria-labelledby={`${action}-title`}
-      className={`landing-guide-feature landing-guide-feature--${action}`}
+      className={`landing-guide-feature landing-guide-feature--${action}${reversed ? " landing-guide--reversed" : ""}`}
+      data-active-step={active ? action : undefined}
+      data-guide-sequence=""
       id={`guide-${action}`}
     >
-      <div className="landing-container landing-guide-feature__layout">
+      <div
+        aria-current={active ? "step" : undefined}
+        className="landing-container landing-guide-feature__layout"
+        data-guide-chapter={action}
+      >
         <div className="landing-guide-feature__copy" data-landing-reveal="">
           <div className="landing-guide-feature__icon" aria-hidden="true">
             <Icon size={26} strokeWidth={1.7} />
@@ -176,13 +184,37 @@ function GuideFeature({
   );
 }
 
-function GuideSection({ id, titleId, className, chapters, children }) {
-  const [activeChapter, setActiveChapter] = useState(chapters[0].id);
-  const sectionRef = useRef(null);
-  const snappingRef = useLandingGuideScroll(sectionRef, setActiveChapter);
+function GuideSection({ id, titleId, className, chapters, activeChapter, children }) {
+  return (
+    <section
+      aria-labelledby={titleId}
+      className={`landing-section ${className}`}
+      data-active-step={activeChapter}
+      data-guide-sequence=""
+      id={id}
+    >
+      <div className="landing-container">
+        {children}
+        <div className="landing-guide__layout">
+          <div className="landing-guide__chapters">
+            {chapters.map((chapter) => (
+              <GuideChapter active={activeChapter === chapter.id} chapter={chapter} key={chapter.id} />
+            ))}
+          </div>
+          <ProductShowcase chapters={chapters} activeChapter={activeChapter} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function LandingGuide({ createAction = null }) {
+  const [activeChapter, setActiveChapter] = useState(guideChapters[0].id);
+  const flowRef = useRef(null);
+  const snappingRef = useLandingGuideScroll(flowRef, setActiveChapter);
 
   useEffect(() => {
-    const root = sectionRef.current;
+    const root = flowRef.current;
     if (!root) {
       return undefined;
     }
@@ -225,33 +257,9 @@ function GuideSection({ id, titleId, className, chapters, children }) {
   }, [snappingRef]);
 
   return (
-    <section
-      aria-labelledby={titleId}
-      className={`landing-section ${className}`}
-      data-active-step={activeChapter}
-      data-guide-sequence=""
-      id={id}
-      ref={sectionRef}
-    >
-      <div className="landing-container">
-        {children}
-        <div className="landing-guide__layout">
-          <div className="landing-guide__chapters">
-            {chapters.map((chapter) => (
-              <GuideChapter active={activeChapter === chapter.id} chapter={chapter} key={chapter.id} />
-            ))}
-          </div>
-          <ProductShowcase chapters={chapters} activeChapter={activeChapter} />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-export function LandingGuide({ createAction = null }) {
-  return (
-    <>
+    <div className="landing-guide-flow" ref={flowRef}>
       <GuideSection
+        activeChapter={activeChapter}
         chapters={guideChapters}
         className="landing-guide"
         id="guide"
@@ -271,8 +279,9 @@ export function LandingGuide({ createAction = null }) {
       </GuideSection>
 
       <GuideSection
+        activeChapter={activeChapter}
         chapters={hostChapters}
-        className="landing-guide-host"
+        className="landing-guide-host landing-guide--reversed"
         id="guide-host"
         titleId="guide-host-title"
       >
@@ -294,6 +303,7 @@ export function LandingGuide({ createAction = null }) {
 
       <GuideFeature
         action="invite"
+        active={activeChapter === "invite"}
         checks={inviteChecks}
         description="떠오르는 사람이 있나요? 모임의 참여자라면 회원을 검색해 직접 초대하거나 초대 링크를 보낼 수 있어요. 보낸 초대도 한곳에서 확인해요."
         eyebrow="03 · 초대하기"
@@ -304,6 +314,8 @@ export function LandingGuide({ createAction = null }) {
 
       <GuideFeature
         action="activity"
+        active={activeChapter === "activity"}
+        reversed
         checks={activityChecks}
         description="모임이 끝나도 이야기는 이어지니까. 사진과 짧은 글로 활동을 남기고, 댓글과 이모지로 서로의 순간에 답해 보세요. 피드에서 다른 모임의 일상도 만나보세요."
         eyebrow="04 · 활동 피드"
@@ -311,6 +323,6 @@ export function LandingGuide({ createAction = null }) {
         imageAlt="활동 사진과 짧은 글을 올리고 댓글과 이모지로 대화하는 활동 피드 이용 예시"
         title="함께한 순간은, 우리의 기록으로."
       />
-    </>
+    </div>
   );
 }

@@ -15,22 +15,36 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  document.querySelectorAll("[data-guide-sequence]").forEach((node) => node.remove());
+  document.querySelectorAll("[data-guide-sequence], [data-guide-flow]").forEach((node) => node.remove());
   jest.restoreAllMocks();
   jest.useRealTimers();
   Object.defineProperty(window, "matchMedia", originalMatchMedia);
 });
 
-function setup({ ids = ["browse", "detail", "continue"], top = 1000 } = {}) {
+function setup({ ids = ["browse", "detail", "continue"], top = 1000, sequences } = {}) {
+  if (sequences) ids = sequences.flat();
   const root = document.createElement("section");
-  root.dataset.guideSequence = "";
+  if (sequences) root.dataset.guideFlow = "";
+  else root.dataset.guideSequence = "";
   root.getBoundingClientRect = () => ({ top: top - 600 - window.scrollY, bottom: top + ids.length * 936 + 64 - window.scrollY });
   document.body.append(root);
+  const sequenceRoots = sequences?.map((sequenceIds, sequenceIndex) => {
+    const sequence = document.createElement("section");
+    sequence.dataset.guideSequence = "";
+    const firstIndex = sequences.slice(0, sequenceIndex).flat().length;
+    sequence.getBoundingClientRect = () => ({
+      top: top + 64 + firstIndex * 936 - window.scrollY,
+      bottom: top + 64 + (firstIndex + sequenceIds.length) * 936 - window.scrollY,
+    });
+    root.append(sequence);
+    return sequence;
+  });
   ids.forEach((id, index) => {
     const chapter = document.createElement("article");
     chapter.dataset.guideChapter = id;
     chapter.getBoundingClientRect = () => ({ top: top + 64 + index * 936 - window.scrollY, height: 936 });
-    root.append(chapter);
+    const sequenceIndex = sequences?.findIndex((sequenceIds) => sequenceIds.includes(id));
+    (sequenceRoots?.[sequenceIndex] ?? root).append(chapter);
   });
   const sectionRef = { current: root };
   const activate = jest.fn();
@@ -258,4 +272,47 @@ test("a deliberate reversal responds during the fading guide gesture", () => {
   advance();
   expect(window.scrollY).toBe(1000);
   expect(activate.mock.calls).toEqual([["detail"], ["browse"]]);
+});
+
+const allGuideSequences = [["browse", "detail", "continue"], ["create", "manage"], ["invite"], ["activity"]];
+
+test("nested usage sections share one gesture lock from participation through activity in both directions", () => {
+  const { activate } = setup({ sequences: allGuideSequences });
+  const ids = allGuideSequences.flat();
+  window.scrollY = 850;
+  const steps = [...ids.map((id, index) => ({ id, index, direction: 1 })),
+    ...ids.slice(0, -1).map((id, index) => ({ id, index, direction: -1 })).reverse()];
+
+  for (const [stepIndex, { id, index, direction }] of steps.entries()) {
+    expect(wheel(1600 * direction, { momentum: false }).defaultPrevented).toBe(true);
+    for (let tick = 0; tick < 10; tick += 1) {
+      advance(90);
+      expect(wheel(Math.max(3, 300 - tick * 40) * direction, { momentum: true }).defaultPrevented).toBe(true);
+    }
+    expect(window.scrollY).toBe(1000 + index * 936);
+    expect(activate).toHaveBeenCalledTimes(stepIndex + 1);
+    expect(activate).toHaveBeenLastCalledWith(id);
+    advance(240);
+    if (id === "activity") expect(wheel(200, { momentum: false }).defaultPrevented).toBe(false);
+  }
+
+  expect(wheel(-200, { momentum: false }).defaultPrevented).toBe(false);
+});
+
+test("keyboard steps continuously across all four nested guide sections", () => {
+  const { activate } = setup({ sequences: allGuideSequences });
+  const ids = allGuideSequences.flat();
+  for (let index = 1; index < ids.length; index += 1) {
+    fireEvent.keyDown(window, { key: "PageDown" });
+    advance();
+    expect(window.scrollY).toBe(1000 + index * 936);
+    expect(activate).toHaveBeenLastCalledWith(ids[index]);
+  }
+  for (let index = ids.length - 2; index >= 0; index -= 1) {
+    fireEvent.keyDown(window, { key: "PageUp" });
+    advance();
+    expect(window.scrollY).toBe(1000 + index * 936);
+    expect(activate).toHaveBeenLastCalledWith(ids[index]);
+  }
+  expect(activate).toHaveBeenCalledTimes(12);
 });
