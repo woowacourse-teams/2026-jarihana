@@ -1,0 +1,122 @@
+# ADR 0024. JPA native 벌크 INSERT로 알림과 전송 대기 저장의 DB 왕복을 줄인다
+
+- 상태: **채택 — JPA 벌크 INSERT·서버 워커 전환 검증 완료 / 개선 전후 부하 측정 대기**
+- 날짜: 2026-10-15
+- 결정 범위: 모임 생성의 알림·전송 대기 저장과 서버 워커의 JPA 저장소 사용
+- 관련 결정: [백엔드 ADR 0015 · 알림함에 소식을 저장하고 웹푸시는 별도로 전송한다](0015-web-push-and-notification-inbox.md),
+  [백엔드 ADR 0011 · PostgreSQL 선택](0011-postgresql-rdbms-selection.md)
+- 관련 문서: [알림 모델](../context/domain/model/notification.md), [영속성 컨벤션](../conventions/persistence.md),
+  [백엔드 ADR 목록](README.md)
+
+## 배경과 문제
+
+모임 생성 시 생성자를 제외한 활성 구독 회원에게 알림을, 브라우저별로 전송 대기를 저장한다.
+이 저장은 `BEFORE_COMMIT`에서 수행하므로 **모임 생성 응답 시간에 포함된다.** 실제 푸시는 커밋 후 워커가 전송한다.
+
+부하 테스트에서 수신자 증가에 따른 생성 지연을 확인했다.
+기존 구현은 회원마다 **알림 INSERT → 같은 알림 SELECT → 브라우저별 전송 대기 INSERT**를 순차 실행했다.
+수신자 200명·1인 1구독·전부 신규라면 알림 INSERT 200회, 재조회 200회, 전송 대기 INSERT 200회로,
+수신 대상 조회와 모임 자체의 저장을 제외해도 600번의 SQL을 실행하는 구조였다.
+개별 쿼리가 짧아도 DB 왕복이 수백 번 누적되므로, 한 개의 느린 쿼리만으로는 전체 지연을 설명할 수 없었다.
+
+전송 대기는 `IDENTITY`로 ID를 받으므로 개별 `save()`에서 INSERT가 실행되고 일반적인 Hibernate INSERT 배치도 적용되지 않는다.
+반복적인 native SQL 실행 과정에서는 영속성 컨텍스트 동기화 여부 확인과 flush 처리 비용도 발생할 수 있다.
+이 저장 작업이 모두 끝나야 모임 생성이 커밋되므로, 수신자 증가가 생성 응답 지연으로 이어졌다.
+**병목 개선 대상은 외부 푸시 전송이 아니라, 응답 전에 반복하는 DB 저장·조회와 ORM 처리였다.**
+
+이후 단건 `ON CONFLICT DO NOTHING RETURNING`으로 알림 재조회는 제거했지만,
+같은 200명 조건에서 남아 있던 알림·전송 대기의 개별 INSERT 400회를 줄이기 위해 벌크 저장을 선택했다.
+
+## 유지할 기능과 제약
+
+- 회원별 알림함과 읽음·삭제, 브라우저별 재시도와 서버 재시작 후 전송 복구를 유지한다.
+- 중복 사건은 건너뛰고, 삭제된 알림 복원이나 신규 구독에 대한 과거 알림 재발송은 하지 않는다.
+- 모임·알림·전송 대기를 같은 트랜잭션으로 커밋·롤백한다.
+- 알림 생성과 서버 워커의 SQL 실행을 **JPA native `@Query`로 통일한다.** 브라우저 Service Worker는 변경하지 않는다.
+
+## 검토한 대안
+
+| 대안 | 장점 | 채택하지 않은 이유 또는 선택 이유 |
+| --- | --- | --- |
+| JPA `save()` | 엔티티 저장과 매핑 활용 | 유일 제약은 중복을 막지만, 충돌을 정상적으로 건너뛰지 않고 트랜잭션을 실패시킬 수 있다 |
+| `saveAll()` + Hibernate JDBC 배치 | 엔티티 저장 과정 유지 | 현재 `IDENTITY`에서는 INSERT 배치가 적용되지 않는다. `SEQUENCE` 전환·배치 설정과 별도 중복 무시 처리가 필요하다 |
+| 단건 native INSERT + `RETURNING` | 중복 무시·재조회 제거 | 이미 적용했지만 INSERT 실행 횟수는 그대로다 |
+| `JdbcTemplate` 배치·벌크 INSERT | SQL과 다중 행 입력 직접 제어 | 구현 가능하지만 이번 생성 경로는 JPA로 유지한다는 팀의 기준으로 제외한다 |
+| **JPA native 벌크 INSERT** | 중복 무시·재조회 제거·DB 왕복 감소 | **채택.** 기존 모델·트랜잭션·ID 생성 방식을 유지하며 저장만 개선한다 |
+| FCM 토픽·다른 푸시 서비스·즉시 발송 | 외부 분배 또는 전송 기록 생략 | 현재 알림함과 브라우저별 전송 복구 기록을 자동으로 대체하지 않아 저장 병목의 직접 해법이 아니다 |
+| 공통 공지 + 회원별 상태 | 공통 내용의 중복 저장 감소 | 수신 대상·조회·읽음·삭제·푸시 클릭 계약의 재설계가 필요하다 |
+| 비동기 생성·Spring Batch | 요청 경로 분리·작업 재시작 관리 | 동시 커밋 계약이 바뀌고 진행·중복 관리가 추가된다. 쓰기량은 남으며 다중 행 INSERT도 별도 구현해야 한다 |
+
+필요한 것은 **중복 행 방지와 충돌 시 정상적인 건너뛰기**다. 사전 조회는 동시 삽입을 막지 못하고,
+유일 제약 예외를 잡는 것만으로 같은 PostgreSQL 트랜잭션을 계속 사용할 수 있는 것도 아니다.
+
+## 결정
+
+**JPA 저장소의 native `@Query`에서 다중 행 INSERT와 `ON CONFLICT DO NOTHING RETURNING`을 사용한다.**
+
+1. 최초 구독 ID·`generation`을 보관하고, 알림을 묶어서 INSERT한다.
+   `(event_key, member_id)` 중복을 건너뛰고 새 알림만 `List<Notification>`으로 받는다. `@Modifying`은 붙이지 않는다.
+2. 반환 순서 대신 회원 ID·사건 키로 연결하고, **새 알림에만 최초 구독 기준으로 delivery를 생성**한다.
+   delivery도 묶어서 저장하며 `(notification_id, push_subscription_id, subscription_generation)` 중복을 건너뛴다.
+3. 모든 묶음은 같은 업무 트랜잭션에서 처리한다. 도메인 검증과 payload·시각·구독 세대·초기 전송 상태를 유지한다.
+4. 최대 **50건**씩 저장한다. 마지막 잔여분은 즉시 저장하고 빈 입력은 생략한다.
+   알림과 delivery는 각각 나누며, 50건은 초기 설정값이다. 최적 묶음 크기는 부하 측정으로 정한다.
+5. `PushDeliveryWorkRepository`도 JDBC에서 JPA native 쿼리로 옮긴다.
+   `SKIP LOCKED` 선점과 `UPDATE ... RETURNING`, lease 토큰·기한 조건과 갱신 건수를 유지한다.
+   서비스의 짧은 트랜잭션과 트랜잭션 밖 푸시 전송, 기존 재시도 정책은 바꾸지 않는다.
+
+다중 행 입력은 JSON을 바인딩한 `INSERT ... SELECT`로 구현한다.
+회원 ID 배열은 `jsonb_array_elements_text`, 전송 대상 목록은 `jsonb_to_recordset`으로 펼친다.
+알림은 회원 ID로 정렬해 저장하고, 반환 순서에 의존하지 않고 회원 ID로 최초 구독과 연결한다.
+객체 목록 전달만으로 자동 벌크 처리가 되지는 않으며, 커스텀 저장소 추가와 `IDENTITY` 변경은 하지 않는다.
+
+## 선택 이유
+
+**현재 알림함과 브라우저별 복구 보장을 유지하면서, JPA 안에서 중복 무시와 DB 왕복 감소를 함께 구현할 수 있기 때문이다.**
+FCM은 이 기록을 자동 대체하지 않는다. 공통 공지 모델로 행 수를 줄이는 대안도 있지만 이번에는 모델을 유지한다.
+
+수신자 200명·1인 1구독·전부 신규·50건 묶음이라면, 알림과 delivery의 INSERT 합계는 **400회에서 8회**로 줄어드는 계산이다.
+저장 행 수는 400행으로 같다. 다른 쿼리는 제외한 INSERT 횟수이며, 응답 시간·flush 개선은 별도 측정한다.
+
+## 감수하는 비용
+
+- 입력 바인딩·결과 매핑이 복잡해지고 PostgreSQL 의존성이 커진다.
+- 저장 콜백·cascade를 거치지 않으므로 도메인 검증과 필드 기본값을 직접 유지해야 한다.
+- 한 행의 오류가 묶음을 실패시킬 수 있어 진단이 필요하다. 같은 트랜잭션의 `clear()`·flush 정책은 임의로 바꾸지 않는다.
+- 전체 구독 조회·저장 행 수·트랜잭션 작업량은 남는다. 응답 2초 목표 달성이나 flush 제거는 보장하지 않는다.
+
+## 현재 구현과 검증·후속 작업
+
+현재 [알림 저장소](../../src/main/java/com/project/jarihana/notification/command/repository/NotificationCommandRepository.java)와
+[전송 대기 저장소](../../src/main/java/com/project/jarihana/notificationdelivery/command/repository/NotificationDeliveryCommandRepository.java)에
+JPA native 벌크 INSERT를 구현했다.
+[이벤트 리스너](../../src/main/java/com/project/jarihana/notification/command/service/NotificationEventListener.java)는 도메인 생성 검증을 거친 뒤
+알림과 전송 대기를 각각 50행씩 저장한다. 신청·초대처럼 한 회원에게 생긴 사건도 같은 저장 경로를 사용한다.
+모든 묶음은 기존 `BEFORE_COMMIT` 트랜잭션에 참여하며, 새로 INSERT된 알림에만 최초 구독 세대의 전송 대기를 만든다.
+**테스트 환경에서의 SQL 횟수와 동작 검증이며, dev 부하 조건에서의 응답 시간 비교는 아직 하지 않았다.**
+
+[서버 워커 저장소](../../src/main/java/com/project/jarihana/notificationdelivery/command/repository/PushDeliveryWorkRepository.java)는
+기존 SQL을 보존한 JPA native 쿼리로 전환했다. 이 변경은 저장소 방식의 통일이며, DB 왕복을 줄이는 벌크 개선과 구분한다.
+[워커 저장소 테스트](../../src/test/java/com/project/jarihana/notificationdelivery/PushDeliveryWorkRepositoryTest.java)로
+JPA 실행 경로, UUID·시간·빈 토큰 매핑, 빈 큐, 선점 롤백과 구독 해제 후 취소를 검증한다.
+
+2026-10-15 `./gradlew test --no-daemon`으로 PostgreSQL 통합 테스트를 포함한 백엔드 전체 **830개**가 통과했다.
+동시 워커의 서로 다른 작업 선점, 잠긴 행 건너뛰기, 만료된 lease 복구, 오래된 응답의 갱신 차단과 최대 5회 시도를 확인했다.
+실패·오류·건너뛴 테스트는 0개다. 이 결과는 동작 검증이며 응답 시간 개선 측정은 아니다.
+
+- 기존 [저장 테스트](../../src/test/java/com/project/jarihana/notification/repository/NotificationPersistenceTest.java)와
+  [생성 SQL 테스트](../../src/test/java/com/project/jarihana/notification/NotificationCreationQueryTest.java)의 중복·롤백·재조회 제거 검증을 유지한다.
+- [벌크 이벤트 테스트](../../src/test/java/com/project/jarihana/notification/NotificationBulkEventTest.java)는 여러 묶음의 저장,
+  일부·전체·동시 중복, 삭제 미복원·과거 알림 미보충·최초 구독 세대 보존과 뒤쪽 묶음 실패 시 업무 전체 롤백을 검증한다.
+- [벌크 저장소 테스트](../../src/test/java/com/project/jarihana/notification/repository/NotificationBulkPersistenceTest.java)는
+  새 알림만 반환하는 필드 매핑, 빈 입력, 업무 트랜잭션 필수 조건과 전송 대기의 중복·초기 상태를 검증한다.
+- [생성 SQL 테스트](../../src/test/java/com/project/jarihana/notification/NotificationCreationQueryTest.java)는 수신자 0·1·49·50·51·200명,
+  단일 회원의 51개 브라우저에서 INSERT 횟수와 알림 재조회 0회를 검증한다.
+  PostgreSQL에서 200명·200구독은 알림 INSERT 4회 + delivery INSERT 4회, 200명·201구독은 4회 + 5회를 확인했다.
+- 같은 환경·데이터·RPS·수신자 수에서 p95·p99·오류율과 JDBC·flush·commit 시간을 비교해 묶음 크기와 2초 목표를 평가한다.
+
+## 참고 자료
+
+- [PostgreSQL INSERT: 다중 행 입력, ON CONFLICT, RETURNING](https://www.postgresql.org/docs/17/sql-insert.html)
+- [Hibernate JDBC 배치와 IDENTITY 제한](https://docs.hibernate.org/orm/7.4/userguide/html_single/#batch)
+- [FCM 토픽 메시지의 분배 역할](https://firebase.google.com/docs/cloud-messaging/topic-messaging)

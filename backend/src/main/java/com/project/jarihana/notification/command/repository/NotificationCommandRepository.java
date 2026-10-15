@@ -5,8 +5,11 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface NotificationCommandRepository extends Repository<Notification, Long> {
@@ -38,14 +41,35 @@ public interface NotificationCommandRepository extends Repository<Notification, 
             """, nativeQuery = true)
     int softDelete(@Param("id") long id, @Param("memberId") long memberId, @Param("now") LocalDateTime now);
 
-    @Modifying
+    @Transactional(propagation = Propagation.MANDATORY)
     @Query(value = """
             insert into notifications (member_id, event_key, event_type, payload_version, payload, created_at, updated_at)
             values (:memberId, :eventKey, :eventType, :payloadVersion, cast(:payload as jsonb), :now, :now)
             on conflict (event_key, member_id) do nothing
+            returning id, member_id, event_key, event_type, payload_version, payload,
+                      read_at, deleted_at, created_at, updated_at
             """, nativeQuery = true)
-    int insertIfAbsent(
+    Optional<Notification> insertIfAbsentReturning(
             @Param("memberId") long memberId,
+            @Param("eventKey") String eventKey,
+            @Param("eventType") String eventType,
+            @Param("payloadVersion") int payloadVersion,
+            @Param("payload") String payload,
+            @Param("now") LocalDateTime now
+    );
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    @Query(value = """
+            insert into notifications (member_id, event_key, event_type, payload_version, payload, created_at, updated_at)
+            select cast(recipient.value as bigint), :eventKey, :eventType, :payloadVersion, cast(:payload as jsonb), :now, :now
+            from jsonb_array_elements_text(cast(:memberIds as jsonb)) as recipient(value)
+            order by cast(recipient.value as bigint)
+            on conflict (event_key, member_id) do nothing
+            returning id, member_id, event_key, event_type, payload_version, payload,
+                      read_at, deleted_at, created_at, updated_at
+            """, nativeQuery = true)
+    List<Notification> insertAllIfAbsentReturning(
+            @Param("memberIds") String memberIds,
             @Param("eventKey") String eventKey,
             @Param("eventType") String eventType,
             @Param("payloadVersion") int payloadVersion,
