@@ -1,16 +1,4 @@
-FROM amazoncorretto:21 AS builder
-
-WORKDIR /app
-
-RUN yum install -y findutils && \
-    yum clean all
-
-COPY . .
-
-RUN chmod +x gradlew
-RUN ./gradlew clean bootJar --no-daemon
-
-
+# jar는 이미지 안에서 빌드하지 않는다. 먼저 ./gradlew bootJar로 build/libs에 만든 jar를 복사한다.
 FROM amazoncorretto:21
 
 WORKDIR /app
@@ -33,9 +21,8 @@ RUN useradd --system \
     --shell /usr/sbin/nologin \
     app
 
-COPY --from=builder \
-    --chown=app:app \
-    /app/build/libs/*.jar \
+COPY --chown=app:app \
+    build/libs/*.jar \
     app.jar
 
 USER app
