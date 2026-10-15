@@ -1,3 +1,9 @@
+@media (max-width: 47.9375rem) {
+  .landing-guide-frame__screen {
+    zoom: var(--landing-mobile-demo-scale);
+  }
+}
+
 @media (max-width: 63.9375rem) and (min-height: 32rem) and (prefers-reduced-motion: no-preference) {
   .landing-page .landing-guide-chapter {
     block-size: calc(100svh - var(--landing-header));
