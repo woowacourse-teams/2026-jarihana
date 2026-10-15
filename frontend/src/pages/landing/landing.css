@@ -581,7 +581,7 @@ html:has(.landing-page) {
   transform: rotate(-8deg);
 }
 
-@media (min-width: 64rem) and (height > 52rem) and (prefers-reduced-motion: no-preference) {
+@media (prefers-reduced-motion: no-preference) {
   .landing-page section.landing-about,
   .landing-page section.landing-together,
   .landing-page section.landing-start-section {
@@ -591,7 +591,9 @@ html:has(.landing-page) {
     padding-block: var(--space-8);
     scroll-margin-top: calc(var(--landing-header) - var(--header-height));
   }
+}
 
+@media (min-width: 64rem) and (prefers-reduced-motion: no-preference) {
   .landing-together__visual {
     height: min(38rem, calc(100svh - var(--landing-header) - var(--space-16)));
   }
