@@ -49,7 +49,7 @@ class InvitationSchemaMigrationTest extends IntegrationTestSupport {
     @Autowired private PlatformTransactionManager transactionManager;
 
     @Test
-    @DisplayName("통합 DDL의 최초 적용·실패 롤백·구 로컬 데이터 보정·재적용과 Hibernate validate를 검증한다.")
+    @DisplayName("통합 DDL의 최초 적용, 실패 롤백, 구 로컬 데이터 보정, 재적용과 Hibernate validate를 검증한다.")
     void migrateExistingHistoryAndValidateActualSchema() throws SQLException {
         // Given
         seedExistingHistory();
@@ -67,7 +67,13 @@ class InvitationSchemaMigrationTest extends IntegrationTestSupport {
                 jdbc.execute("alter table registration drop column approval_origin");
                 jdbc.execute("alter table registration drop column version");
                 for (String table : List.of("member", "groups", "group_recruitment")) {
-                    jdbc.execute("insert into " + table + " select * from public." + table);
+                    List<String> columns = jdbc.queryForList("""
+                            select column_name from information_schema.columns
+                            where table_schema = ? and table_name = ? order by ordinal_position
+                            """, String.class, schema, table);
+                    String columnNames = String.join(", ", columns);
+                    jdbc.execute("insert into " + table + " (" + columnNames + ") select "
+                            + columnNames + " from public." + table);
                 }
                 jdbc.execute("""
                         insert into registration (id, recruitment_id, member_id, message, status, reject_reason,

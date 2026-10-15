@@ -39,7 +39,10 @@ SQL을 직접 사용해도 기능 구현은 가능하지만 객체 조회와 저
 ### 스키마 설정
 
 - 운영 환경: `ddl-auto: validate`
-- 로컬 환경: `ddl-auto: update`
+- 로컬 및 테스트 환경: `ddl-auto: validate`
+- 모든 환경의 스키마 생성과 변경은 Flyway가 수행하며 Spring Session의 별도 초기화는 끈다.
+- 새 스키마 변경은 `src/main/resources/db/migration/`의 버전 SQL에 추가한다. 기존 DB 도입은
+  [Flyway baseline 운영 가이드](../operations/flyway-baseline.md)를 따른다.
 
 운영 환경에서는 `ddl-auto: update`와 `create`로 애플리케이션 스키마를 변경하지 않는다.
 
@@ -73,8 +76,8 @@ ALTER TABLE groups ALTER COLUMN meeting_type SET NOT NULL;
 - 그룹 목록 조회의 운영 Repository는 `JpaGroupListRepository`다. 이 어댑터는
   Spring Data JPA의 `GroupJpaRepository`, `GroupMemberJpaRepository`,
   `GroupRecruitmentJpaRepository`, `RegistrationJpaRepository`를 조합해
-  그룹·구성원·활성 모집·승인 신청 집계를 가져와 `GroupListProjection`을 만든다.
-- 메서드 이름으로 표현할 수 있는 정렬·연관 조회는 Spring Data 파생 쿼리를 사용하고,
+  그룹, 구성원, 활성 모집, 승인 신청 집계를 가져와 `GroupListProjection`을 만든다.
+- 메서드 이름으로 표현할 수 있는 정렬, 연관 조회는 Spring Data 파생 쿼리를 사용하고,
   활성 모집과 승인 신청 집계처럼 조건이나 집계가 필요한 조회는 각 Repository의
   `@Query`로 선언한다. 조회 어댑터에서 `EntityManager`를 직접 호출하지 않는다.
 - 구성원별 Repository 호출을 반복하지 않고 `@EntityGraph`와 일괄 조회를 사용해

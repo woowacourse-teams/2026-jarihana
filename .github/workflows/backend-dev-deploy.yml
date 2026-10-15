@@ -44,6 +44,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Java 설정
+        uses: actions/setup-java@v5
+        with:
+          distribution: corretto
+          java-version: "21"
+          cache: gradle
+          cache-dependency-path: backend/**/*.gradle*
+
+      - name: Backend 마이그레이션 및 회귀 테스트
+        working-directory: backend
+        run: ./gradlew test --no-daemon
+
       - name: GHCR 로그인
         env:
           GHCR_USER: ${{ github.actor }}
@@ -93,6 +105,7 @@ jobs:
       RDS_URL: ${{ vars.RDS_URL }}
       DB_USERNAME: ${{ vars.DB_USERNAME }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      FLYWAY_BASELINE_ON_MIGRATE: ${{ vars.FLYWAY_BASELINE_ON_MIGRATE || 'false' }}
       INVITATION_TOKEN_ACTIVE_KEY_ID: ${{ vars.INVITATION_TOKEN_ACTIVE_KEY_ID || 'primary' }}
       INVITATION_TOKEN_KEY_PRIMARY: ${{ secrets.INVITATION_TOKEN_KEY_PRIMARY }}
       INVITATION_TOKEN_KEY_PREVIOUS: ${{ secrets.INVITATION_TOKEN_KEY_PREVIOUS }}
