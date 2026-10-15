@@ -33,7 +33,6 @@ public interface GroupCommandRepository extends Repository<Group, Long> {
             """)
     Optional<Group> findWithLockByRecruitmentId(@Param("recruitmentId") long recruitmentId);
 
-    // Registration requests can share this lock; group-wide updates still take an exclusive lock.
     @Lock(LockModeType.PESSIMISTIC_READ)
     @Query("""
             select targetGroup

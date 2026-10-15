@@ -58,7 +58,6 @@ public class RegistrationCommandService {
             long recruitmentId,
             CreateRegistrationCommand command
     ) {
-        // Keep the group stable without serializing every applicant in the group.
         Group group = groupRepository.findWithSharedLockByRecruitmentId(recruitmentId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RECRUITMENT_NOT_FOUND,
@@ -68,7 +67,6 @@ public class RegistrationCommandService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, "회원 정보를 찾을 수 없습니다."));
         validateApplicant(group, recruitmentId, memberId);
 
-        // Serialize capacity checks only for this recruitment.
         GroupRecruitment recruitment = recruitmentRepository.findWithLockById(recruitmentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RECRUITMENT_NOT_FOUND, "모집 공고를 찾을 수 없습니다."));
         LocalDateTime now = LocalDateTime.now(clock);

@@ -14,7 +14,6 @@ public interface MemberRepository extends Repository<Member, Long> {
 
     Optional<Member> findById(Long id);
 
-    // Serialize concurrent applications by the same member so duplicate checks remain valid.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Member> findWithLockById(long id);
 

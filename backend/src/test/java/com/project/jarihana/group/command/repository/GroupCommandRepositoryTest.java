@@ -3,6 +3,9 @@ package com.project.jarihana.group.command.repository;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
+import com.project.jarihana.recruitment.command.repository.GroupRecruitmentCommandRepository;
+import com.project.jarihana.recruitment.domain.GroupRecruitment;
+import com.project.jarihana.recruitment.domain.JoinMethod;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.TestSupportConfig;
 import org.junit.jupiter.api.DisplayName;
@@ -28,6 +31,9 @@ class GroupCommandRepositoryTest extends IntegrationTestSupport {
 
     @Autowired
     private GroupJpaRepository groupJpaRepository;
+
+    @Autowired
+    private GroupRecruitmentCommandRepository recruitmentRepository;
 
     @Autowired
     private PlatformTransactionManager transactionManager;
@@ -76,6 +82,61 @@ class GroupCommandRepositoryTest extends IntegrationTestSupport {
             releaseFirstLock.countDown();
             first.get(3, SECONDS);
             second.get(3, SECONDS);
+        } finally {
+            releaseFirstLock.countDown();
+            executor.shutdownNow();
+        }
+    }
+
+    @DisplayName("모집 공고에 대한 공유 잠금은 같은 그룹의 다음 공유 잠금과 함께 획득할 수 있다.")
+    @Test
+    void sharedLockAllowsConcurrentRegistrationAccess() throws Exception {
+        // Given
+        Group group = groupJpaRepository.save(Group.createStudy(
+                "공유 잠금 그룹",
+                "함께 활동해요",
+                null,
+                null,
+                RecurringGroupSchedule.of(
+                        Set.of(DayOfWeek.MONDAY),
+                        LocalTime.of(19, 0),
+                        LocalTime.of(21, 0)
+                ),
+                TestSupportConfig.FIXED_NOW
+        ));
+        GroupRecruitment recruitment = recruitmentRepository.save(GroupRecruitment.create(
+                group,
+                JoinMethod.APPROVAL,
+                2,
+                TestSupportConfig.FIXED_NOW.minusDays(1),
+                TestSupportConfig.FIXED_NOW.plusDays(7)
+        ));
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch firstLockAcquired = new CountDownLatch(1);
+        CountDownLatch secondLockAcquired = new CountDownLatch(1);
+        CountDownLatch releaseFirstLock = new CountDownLatch(1);
+
+        try {
+            Future<?> first = executor.submit(() -> transactionTemplate.executeWithoutResult(status -> {
+                groupCommandRepository.findWithSharedLockByRecruitmentId(recruitment.getId()).orElseThrow();
+                firstLockAcquired.countDown();
+                await(releaseFirstLock);
+            }));
+            assertThat(firstLockAcquired.await(3, SECONDS)).isTrue();
+
+            // When
+            Future<?> second = executor.submit(() -> transactionTemplate.executeWithoutResult(status -> {
+                groupCommandRepository.findWithSharedLockByRecruitmentId(recruitment.getId()).orElseThrow();
+                secondLockAcquired.countDown();
+            }));
+            boolean acquiredBeforeFirstTransactionEnded = secondLockAcquired.await(1, SECONDS);
+            releaseFirstLock.countDown();
+            first.get(3, SECONDS);
+            second.get(3, SECONDS);
+
+            // Then
+            assertThat(acquiredBeforeFirstTransactionEnded).isTrue();
         } finally {
             releaseFirstLock.countDown();
             executor.shutdownNow();
