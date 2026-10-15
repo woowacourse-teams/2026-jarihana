@@ -66,7 +66,7 @@ function setup({ withAbout = false, withGuide = false } = {}) {
     });
     return { ...hook, activate };
   }
-  return renderHook(() => useLandingQuestionScroll({ current: hero }));
+  return { ...renderHook(() => useLandingQuestionScroll({ current: hero })), hero };
 }
 
 function advance(milliseconds = 550) {
@@ -383,4 +383,173 @@ test("reduced motion, unsupported timelines and unmount leave native inputs alon
   window.CSS.supports.mockReturnValue(false);
   setup();
   expect(wheel(1500).defaultPrevented).toBe(false);
+});
+
+function unsupportedPhone({ width = 390, height = 844, coarse = true, reduced = false } = {}) {
+  window.CSS.supports.mockReturnValue(false);
+  jest.spyOn(window.screen, "width", "get").mockReturnValue(width);
+  jest.spyOn(window.screen, "height", "get").mockReturnValue(height);
+  const preference = new EventTarget();
+  preference.matches = reduced;
+  window.matchMedia.mockImplementation((query) => query === "(prefers-reduced-motion: reduce)"
+    ? preference
+    : { matches: coarse, addEventListener: jest.fn(), removeEventListener: jest.fn() });
+  return preference;
+}
+
+function swipe(from = 700, to = 200) {
+  fireEvent.touchStart(window, { touches: [{ clientX: 180, clientY: from }] });
+  fireEvent.touchMove(window, { touches: [{ clientX: 180, clientY: to }] });
+}
+
+test("an unsupported phone advances one question per swipe, reverses and reveals the chair", () => {
+  unsupportedPhone();
+  const { hero } = setup({ withAbout: true });
+  expect(hero).toHaveAttribute("data-phone-timeline");
+  expect(hero.style.getPropertyValue("--landing-phone-time")).toBe("0s");
+  swipe();
+  advance();
+  expect(window.scrollY).toBe(0);
+  fireEvent.touchMove(window, { touches: [{ clientX: 180, clientY: 50 }] });
+  advance();
+  expect(window.scrollY).toBe(0);
+  fireEvent.touchEnd(window);
+  advance();
+  expect(window.scrollY).toBeCloseTo(stops[1]);
+  expect(hero.style.getPropertyValue("--landing-phone-time")).toBe("0.26s");
+  swipe(200, 700);
+  fireEvent.touchEnd(window);
+  advance();
+  expect(window.scrollY).toBeCloseTo(stops[0]);
+  for (const stop of stops.slice(1)) {
+    swipe();
+    fireEvent.touchEnd(window);
+    advance(1150);
+    expect(window.scrollY).toBeCloseTo(stop);
+  }
+  expect(hero.style.getPropertyValue("--landing-phone-time")).toBe("0.9s");
+  swipe();
+  fireEvent.touchEnd(window);
+  advance();
+  expect(window.scrollY).toBeCloseTo(3600);
+  swipe(200, 700);
+  fireEvent.touchEnd(window);
+  advance();
+  expect(window.scrollY).toBeCloseTo(stops[4]);
+});
+
+test("phone short swipes settle after release despite delayed browser scroll updates", () => {
+  unsupportedPhone();
+  setup();
+  for (const stop of stops.slice(1, 4)) {
+    swipe(700, 670);
+    expect(window.scrollTo).not.toHaveBeenCalled();
+    fireEvent.touchEnd(window);
+    advance(100);
+    window.scrollY += 5;
+    advance();
+    expect(window.scrollY).toBeCloseTo(stop);
+    expect(window.scrollTo).toHaveBeenLastCalledWith({ top: stop, behavior: "auto" });
+    window.scrollTo.mockClear();
+  }
+});
+
+test("cancelled phone touches never advance a question", () => {
+  unsupportedPhone();
+  setup();
+  swipe(700, 670);
+  fireEvent.touchCancel(window);
+  advance();
+  expect(window.scrollTo).not.toHaveBeenCalled();
+});
+
+test("phone claims vertical navigation before the browser starts native scrolling", () => {
+  unsupportedPhone();
+  setup();
+  expect(fireEvent.touchStart(window, { touches: [{ clientX: 180, clientY: 700 }] })).toBe(false);
+  fireEvent.touchEnd(window);
+  advance();
+  expect(window.scrollTo).not.toHaveBeenCalled();
+  window.scrollY = 5000;
+  expect(fireEvent.touchStart(window, { touches: [{ clientX: 180, clientY: 700 }] })).toBe(true);
+});
+
+test("phone releases the About boundary to the guide's swipe controller", () => {
+  unsupportedPhone();
+  setup({ withAbout: true, withGuide: true });
+  window.scrollY = 3600;
+  swipe(700, 670);
+  fireEvent.touchEnd(window);
+  advance();
+  expect(window.scrollY).toBeCloseTo(4436);
+});
+
+test.each([
+  { width: 768, height: 1024 },
+  { width: 600, height: 960 },
+  { width: 1440, height: 900 },
+  { width: 390, height: 844, coarse: false }
+])("unsupported desktop and tablet keep native scrolling even in a narrow window: %j", (device) => {
+  unsupportedPhone(device);
+  jest.replaceProperty(window, "innerWidth", 390);
+  const { hero } = setup();
+  expect(hero).not.toHaveAttribute("data-phone-timeline");
+  swipe();
+  fireEvent.touchEnd(window);
+  advance();
+  expect(window.scrollY).toBe(0);
+  expect(wheel(1000).defaultPrevented).toBe(false);
+});
+
+test("phone rotation and browser toolbar resizing preserve the question position", () => {
+  unsupportedPhone({ width: 844, height: 390 });
+  const { hero } = setup();
+  window.scrollY = stops[2];
+  fireEvent.scroll(window);
+  expect(hero.style.getPropertyValue("--landing-phone-time")).toBe("0.44s");
+  jest.replaceProperty(window, "innerHeight", 780);
+  fireEvent.resize(window);
+  swipe();
+  fireEvent.touchEnd(window);
+  advance();
+  expect(window.scrollY).toBeCloseTo(stops[3]);
+  expect(hero.style.getPropertyValue("--landing-phone-time")).toBe("0.62s");
+});
+
+test("phone fallback yields to reduced motion, navigation and unmount", () => {
+  const preference = unsupportedPhone({ reduced: true });
+  const { hero, unmount } = setup();
+  expect(hero).not.toHaveAttribute("data-phone-timeline");
+  swipe();
+  fireEvent.touchEnd(window);
+  advance();
+  expect(window.scrollY).toBe(0);
+  preference.matches = false;
+  act(() => preference.dispatchEvent(new Event("change")));
+  expect(hero).toHaveAttribute("data-phone-timeline");
+  swipe();
+  fireEvent.touchEnd(window);
+  advance();
+  window.scrollY = 5000;
+  fireEvent.scroll(window);
+  expect(hero.style.getPropertyValue("--landing-phone-time")).toBe("1s");
+  expect(wheel(1000).defaultPrevented).toBe(false);
+  preference.matches = true;
+  act(() => preference.dispatchEvent(new Event("change")));
+  expect(hero).not.toHaveAttribute("data-phone-timeline");
+  expect(hero.style.getPropertyValue("--landing-phone-time")).toBe("");
+  unmount();
+  expect(wheel(-1000).defaultPrevented).toBe(false);
+});
+
+test("a phone with native timeline support keeps the original path", () => {
+  unsupportedPhone();
+  window.CSS.supports.mockReturnValue(true);
+  const { hero } = setup();
+  swipe();
+  fireEvent.touchEnd(window);
+  advance();
+  expect(window.scrollY).toBeCloseTo(stops[1]);
+  expect(hero).not.toHaveAttribute("data-phone-timeline");
+  expect(hero.style.getPropertyValue("--landing-phone-time")).toBe("");
 });

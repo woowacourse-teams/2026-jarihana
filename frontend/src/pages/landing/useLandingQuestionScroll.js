@@ -12,9 +12,15 @@ const POSITION_TOLERANCE = 2;
 export function useLandingQuestionScroll(heroRef) {
   useEffect(() => {
     const hero = heroRef.current;
-    if (!hero || !window.CSS?.supports?.("animation-timeline: view()")) return;
+    if (!hero) return;
+    const nativeTimeline = window.CSS?.supports?.("animation-timeline: view()");
+    const phoneInput = !nativeTimeline && window.matchMedia("(hover: none) and (pointer: coarse)");
+    // Use the device screen, not the window: a narrow tablet window must keep its current behavior.
+    const shortEdge = Math.min(window.screen.width, window.screen.height);
+    if (!nativeTimeline && !(phoneInput.matches && shortEdge > 0 && shortEdge < 600)) return;
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let phoneTimeline = false;
     const gestures = WheelGestures({ preventWheelAction: false, reverseSign: false });
     let wheelMoved = false;
     let wheelCaptured = false;
@@ -36,13 +42,14 @@ export function useLandingQuestionScroll(heroRef) {
       const startedAt = performance.now();
       let previousY = start;
       function tick(now) {
-        if (reducedMotion.matches || Math.abs(window.scrollY - previousY) > 2) {
+        if (reducedMotion.matches || (!phoneTimeline && Math.abs(window.scrollY - previousY) > 2)) {
           stopTransition();
           return;
         }
         const progress = Math.min(1, (now - startedAt) / duration);
         const eased = progress * progress * (3 - 2 * progress);
-        window.scrollTo({ top: start + (target - start) * eased, behavior: "instant" });
+        window.scrollTo({ top: start + (target - start) * eased, behavior: phoneTimeline ? "auto" : "instant" });
+        if (phoneTimeline) syncPhoneTimeline();
         previousY = window.scrollY;
         if (progress < 1) {
           animationFrame = requestAnimationFrame(tick);
@@ -55,7 +62,8 @@ export function useLandingQuestionScroll(heroRef) {
 
     function position() {
       const rect = hero.getBoundingClientRect();
-      const distance = rect.height - window.innerHeight;
+      // The fallback's 400svh track stays stable when Safari's address bar changes innerHeight.
+      const distance = phoneTimeline ? rect.height * 0.75 : rect.height - window.innerHeight;
       const top = rect.top + window.scrollY;
       const about = hero.nextElementSibling;
       const aboutRect = about?.matches('[data-guide-chapter="about"]') ? about.getBoundingClientRect() : null;
@@ -66,8 +74,23 @@ export function useLandingQuestionScroll(heroRef) {
       return { top, distance, progress: (window.scrollY - top) / distance, aboutTop };
     }
 
+    function syncPhoneTimeline() {
+      if (!phoneTimeline) return;
+      const { progress } = position();
+      hero.style.setProperty("--landing-phone-time", `${Math.max(0, Math.min(1, progress))}s`);
+    }
+
+    function updatePhoneTimeline() {
+      const enabled = phoneInput.matches && !reducedMotion.matches;
+      if (phoneTimeline !== enabled) stopTransition();
+      phoneTimeline = enabled;
+      hero.toggleAttribute("data-phone-timeline", enabled);
+      if (enabled) syncPhoneTimeline();
+      else hero.style.removeProperty("--landing-phone-time");
+    }
+
     function canStep(direction) {
-      if (reducedMotion.matches) return false;
+      if (reducedMotion.matches || (!nativeTimeline && !phoneTimeline)) return false;
       const { top, distance, progress, aboutTop } = position();
       const end = aboutTop ?? top + distance;
       if (distance <= 0 || window.scrollY < Math.max(0, top - 80) || window.scrollY > end + POSITION_TOLERANCE) return false;
@@ -115,7 +138,8 @@ export function useLandingQuestionScroll(heroRef) {
       }
       wheelDirection = direction;
       const { top, distance, progress, aboutTop } = position();
-      if (reducedMotion.matches || window.scrollY > (aboutTop ?? top + distance) + POSITION_TOLERANCE || progress < -0.04) {
+      if (reducedMotion.matches || (!nativeTimeline && !phoneTimeline) ||
+        window.scrollY > (aboutTop ?? top + distance) + POSITION_TOLERANCE || progress < -0.04) {
         wheelCaptured = false;
         return;
       }
@@ -147,6 +171,12 @@ export function useLandingQuestionScroll(heroRef) {
       touch = event.touches.length === 1
         ? { x: event.touches[0].clientX, y: event.touches[0].clientY, moved: false }
         : null;
+      if (!phoneTimeline || !touch) return;
+      if (event.target.closest?.("a, button, input, textarea, select, [contenteditable='true']")) {
+        touch = null;
+        return;
+      }
+      if (event.cancelable && canStep(1)) event.preventDefault();
     }
 
     function onTouchMove(event) {
@@ -156,12 +186,22 @@ export function useLandingQuestionScroll(heroRef) {
       if (Math.abs(dx) >= Math.abs(dy)) return;
       if (!canStep(Math.sign(dy)) && !touch.moved) return;
       event.preventDefault();
+      if (phoneTimeline) {
+        touch.direction = Math.abs(dy) >= 24 ? Math.sign(dy) : 0;
+        return;
+      }
       if (touch.moved || Math.abs(dy) < 40 || animationFrame !== null) return;
       step(Math.sign(dy));
       touch.moved = true;
     }
 
     function onTouchEnd() {
+      const direction = phoneTimeline && touch?.direction;
+      touch = null;
+      if (direction && canStep(direction)) step(direction);
+    }
+
+    function onTouchCancel() {
       touch = null;
     }
 
@@ -182,21 +222,36 @@ export function useLandingQuestionScroll(heroRef) {
       if (!event.repeat) step(direction);
     }
 
+    if (!nativeTimeline) {
+      updatePhoneTimeline();
+      window.addEventListener("scroll", syncPhoneTimeline, { passive: true });
+      window.addEventListener("resize", updatePhoneTimeline);
+      reducedMotion.addEventListener("change", updatePhoneTimeline);
+      phoneInput.addEventListener("change", updatePhoneTimeline);
+    }
     window.addEventListener("wheel", onWheel, { passive: false });
-    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchstart", onTouchStart, { passive: !!nativeTimeline });
     window.addEventListener("touchmove", onTouchMove, { passive: false });
     window.addEventListener("touchend", onTouchEnd);
-    window.addEventListener("touchcancel", onTouchEnd);
+    window.addEventListener("touchcancel", onTouchCancel);
     window.addEventListener("keydown", onKeyDown);
     return () => {
       unsubscribe();
       gestures.disconnect();
       stopTransition();
+      if (!nativeTimeline) {
+        window.removeEventListener("scroll", syncPhoneTimeline);
+        window.removeEventListener("resize", updatePhoneTimeline);
+        reducedMotion.removeEventListener("change", updatePhoneTimeline);
+        phoneInput.removeEventListener("change", updatePhoneTimeline);
+        hero.removeAttribute("data-phone-timeline");
+        hero.style.removeProperty("--landing-phone-time");
+      }
       window.removeEventListener("wheel", onWheel);
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("touchend", onTouchEnd);
-      window.removeEventListener("touchcancel", onTouchEnd);
+      window.removeEventListener("touchcancel", onTouchCancel);
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [heroRef]);

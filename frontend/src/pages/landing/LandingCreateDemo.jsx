@@ -2,6 +2,7 @@ import { ImagePlus } from "lucide-react";
 
 import studyImage from "../../shared/assets/landing/default-group-study.webp";
 import { useLandingDemo } from "./useLandingDemo";
+import { useLandingDemoViewport } from "./useLandingDemoViewport";
 import "./landing-create-demo.css";
 
 const DAYS = ["월", "화", "수", "목", "금", "토", "일"];
@@ -21,6 +22,7 @@ export function LandingCreateDemo({
     timelineComplete,
     togglePaused
   } = useLandingDemo({ active: isActive });
+  useLandingDemoViewport({ rootRef, screen: "create", state, paused, replayKey });
 
   return (
     <div className="lpc-demo" ref={rootRef}>
@@ -66,7 +68,7 @@ export function LandingCreateDemo({
                 <dt>모임 일정</dt>
                 <dd>
                   <span>매주 토요일<br />14:00–16:00</span>
-                  <em>수정</em>
+                  <em>설정</em>
                 </dd>
               </div>
               <div>
