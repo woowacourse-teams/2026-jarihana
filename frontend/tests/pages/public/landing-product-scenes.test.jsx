@@ -35,13 +35,46 @@ test("every guide illustration uses readable service UI without screenshot asset
       /landing-(browse|detail|my|create|manage|invite|activity)\./
     );
   }
-  expect(container.querySelector(".ui-group-card")).toBeInTheDocument();
-  expect(container.querySelector(".ui-recruitment-card")).toBeInTheDocument();
+  expect(container.querySelector(".discovery-group-card")).toBeInTheDocument();
+  expect(container.querySelector(".lps-recruitment")).toHaveTextContent("승인 5명 / 정원 6명");
   expect(screen.getByRole("link", { name: "모임 둘러보기" })).toHaveAttribute("href", "/groups");
   expect(screen.getByRole("link", { name: "모임 둘러보기" })).toHaveAttribute(
     "data-ph-capture-attribute-action",
     "landing_guide_groups"
   );
+});
+
+test("discovery examples reuse product cards, search and all three filters without fake navigation", () => {
+  const { container } = render(<LandingGuide />);
+  const browse = container.querySelector('.landing-product-scene--browse');
+  expect(browse).toHaveTextContent("자리 둘러보기");
+  expect(browse.querySelector(".groups-discovery-search__control")).toHaveTextContent("함께");
+  expect([...browse.querySelectorAll(".groups-discovery-filter__field > span")].map((label) => label.textContent))
+    .toEqual(["모임 유형", "모임 상태", "모집 상태"]);
+  const cards = browse.querySelectorAll(".discovery-group-card");
+  expect(cards).toHaveLength(2);
+  expect(cards[0]).toHaveTextContent("1자리 남음");
+  expect(cards[0].querySelector(".discovery-group-card__location")).toHaveTextContent("잠실 캠퍼스");
+  expect(cards[0].querySelector(".discovery-group-card__schedule")).toHaveTextContent("14:00");
+  expect(browse.querySelector("a, button, input, select")).toBeNull();
+});
+
+test("management and invitation examples preserve real status and dialog semantics", () => {
+  const { container } = render(<LandingGuide />);
+  const manage = container.querySelector('.landing-product-scene--manage');
+  expect(manage.querySelector('.lps-manage-toolbar')).toHaveTextContent("신청자 목록전체");
+  expect(manage.querySelector('.lps-manage-summary')).toHaveTextContent("정원 6명");
+  expect(manage).not.toHaveTextContent("전체 신청");
+  expect([...manage.querySelectorAll('.lps-decisions > span')].map((item) => item.textContent))
+    .toEqual(["승인", "미승인"]);
+  const invite = container.querySelector('.landing-product-scene--invite');
+  expect(invite.querySelector('.lps-search-submit')).toHaveTextContent("검색");
+  expect(invite.querySelector('.lps-dialog-actions')).toHaveTextContent("닫기");
+  expect(invite.querySelector('.lps-invite-context')).toHaveTextContent("초대 링크 복사");
+  expect(invite).toHaveTextContent("1명에게 초대를 보냈어요.");
+  const detail = container.querySelector('.landing-product-scene--detail');
+  expect(detail.querySelector('.lps-application-overlay')).toHaveTextContent("신청 메시지");
+  expect(detail.querySelector('.lps-tabs')).toHaveTextContent("소개캘린더활동 기록참여자");
 });
 
 test("account and activity examples keep the real product's tabs, photo and conversation structure", () => {
@@ -50,6 +83,8 @@ test("account and activity examples keep the real product's tabs, photo and conv
   expect(account).toHaveTextContent("나의 프로필");
   expect(account).toHaveTextContent("동아리·스터디");
   expect(account).toHaveTextContent("검토 중");
+  expect(account.querySelector('.lps-account-layout > .lps-profile')).toBeInTheDocument();
+  expect(account.querySelector('.lps-account-panels').querySelectorAll('.lps-dashboard-panel')).toHaveLength(2);
   expect(account.querySelectorAll(".lps-account-row")).toHaveLength(2);
   expect(account.querySelector(".lps-account-summary")).toBeNull();
 
@@ -118,5 +153,34 @@ test("the controlled active chapter selects one desktop demo and keeps the nativ
   for (const frame of container.querySelectorAll(".landing-guide-chapter__mobile-shot .landing-guide-frame")) {
     expect(frame).toHaveAttribute("data-active", "true");
     expect(frame).not.toHaveAttribute("inert");
+  }
+});
+
+test("every usage chapter has a heading, two feature checks and a demo without repeated prose", () => {
+  const { container } = render(<LandingGuide />);
+  const chapters = [...container.querySelectorAll(".landing-guide-chapter")];
+  expect(chapters).toHaveLength(7);
+  for (const chapter of chapters) {
+    expect(chapter.querySelector("h3")).toBeInTheDocument();
+    expect(chapter.querySelectorAll(".landing-guide-checks > li")).toHaveLength(2);
+    expect(chapter.querySelector(":scope > p")).toBeNull();
+    expect(chapter.querySelector(".landing-guide-checks").nextElementSibling)
+      .toHaveClass("landing-guide-chapter__mobile-shot");
+  }
+});
+
+test("inline demos play only in their selected chapter and reset when leaving it", () => {
+  const originalObserver = global.IntersectionObserver;
+  global.IntersectionObserver = undefined;
+  try {
+    const { container, rerender } = render(<LandingGuide activeChapter="browse" />);
+    const demo = (id) => container.querySelector(`#guide-${id} .landing-product-demo`);
+    expect(demo("browse")).toHaveAttribute("data-state", "running");
+    expect(demo("detail")).toHaveAttribute("data-state", "idle");
+    rerender(<LandingGuide activeChapter="detail" />);
+    expect(demo("browse")).toHaveAttribute("data-state", "idle");
+    expect(demo("detail")).toHaveAttribute("data-state", "running");
+  } finally {
+    global.IntersectionObserver = originalObserver;
   }
 });

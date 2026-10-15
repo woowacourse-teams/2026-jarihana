@@ -118,8 +118,7 @@
 
 .lpc-type::after,
 .lpc-title::after,
-.lpc-intro::after,
-.lpc-facts dd::after {
+.lpc-intro::after {
   display: block;
   inline-size: 100%;
   block-size: 2px;
@@ -154,7 +153,7 @@
   position: relative;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.9rem;
+  gap: var(--space-4);
   margin: 0;
   color: var(--color-surface);
 }
@@ -173,29 +172,46 @@
   margin: 0;
 }
 
+.lpc-facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
 .lpc-facts dt {
   color: rgb(255 255 255 / 68%);
-  font-size: 0.875rem;
+  font-size: var(--text-body);
 }
 
 .lpc-facts dd {
   min-block-size: 2.75rem;
-  display: grid;
-  align-items: center;
-  gap: 0.35rem;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 2px solid rgb(255 255 255 / 42%);
   color: var(--color-surface);
-  font-size: 0.875rem;
-  font-weight: 700;
+  font-size: var(--text-body-lg);
+  line-height: 1.5;
+  font-weight: var(--font-weight-semibold);
 }
 
 .lpc-schedule-fact dd span {
   display: block;
 }
 
+.lpc-schedule-fact dd {
+  flex-direction: row;
+  justify-content: space-between;
+}
+
 .lpc-schedule-fact em {
   color: var(--color-brand);
   font-style: normal;
-  font-size: 0.875rem;
+  font-size: var(--text-body);
+  white-space: nowrap;
 }
 
 .lpc-schedule-dialog {
@@ -383,14 +399,14 @@
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--color-surface) 94%, var(--color-brand-soft));
   color: var(--color-ink);
-  font-size: 0.9375rem;
+  font-size: var(--text-body-lg);
 }
 
 .lpc-textarea p {
   display: grid;
   gap: 0.35rem;
   margin: 0;
-  font-size: 0.9375rem;
+  font-size: var(--text-body-lg);
   line-height: 1.6;
 }
 
@@ -653,7 +669,7 @@
 
   .lpc-facts {
     grid-template-columns: 1fr;
-    gap: 0.45rem;
+    gap: var(--space-4);
   }
 
   .lpc-facts dd {

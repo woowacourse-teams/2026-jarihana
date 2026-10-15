@@ -21,6 +21,7 @@
   --landing-reveal: 700ms;
   --landing-scene: 900ms;
   --landing-demo-speed: 1.5;
+  --landing-mobile-demo-scale: 0.875;
   --landing-accordion: 500ms;
   --landing-chair-shadow: rgb(10 26 24 / 28%);
   --landing-chair-rest: translate3d(0, 2.5%, 0) scale(0.9);
