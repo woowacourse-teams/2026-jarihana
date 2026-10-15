@@ -3,6 +3,7 @@ import { act, fireEvent, renderHook } from "@testing-library/react";
 import { useLandingGuideScroll } from "../../../src/pages/landing/useLandingGuideScroll";
 
 const originalMatchMedia = Object.getOwnPropertyDescriptor(window, "matchMedia");
+const originalCSS = window.CSS;
 let desktop;
 
 beforeEach(() => {
@@ -19,6 +20,7 @@ afterEach(() => {
   jest.restoreAllMocks();
   jest.useRealTimers();
   Object.defineProperty(window, "matchMedia", originalMatchMedia);
+  Object.defineProperty(window, "CSS", { configurable: true, value: originalCSS });
 });
 
 function setup({ ids = ["browse", "detail", "continue"], top = 1000, sequences, height = 936 } = {}) {
@@ -396,4 +398,59 @@ test("manual scrolling selects the visible chapter without interrupting a gestur
   window.scrollY = 2872;
   act(() => global.triggerIntersection());
   expect(activate).toHaveBeenLastCalledWith("continue");
+});
+
+function unsupportedPhone(width = 390, height = 844) {
+  Object.defineProperty(window, "CSS", { configurable: true, value: { supports: () => false } });
+  jest.spyOn(window.screen, "width", "get").mockReturnValue(width);
+  jest.spyOn(window.screen, "height", "get").mockReturnValue(height);
+}
+
+test("phone swipes advance through every service and guide slide on release, in both directions", () => {
+  unsupportedPhone();
+  const { activate } = setup({ sequences: allGuideSequences });
+  const ids = allGuideSequences.flat();
+  const steps = [...ids.slice(1).map((id, index) => ({ id, index: index + 1, direction: 1 })),
+    ...ids.slice(0, -1).map((id, index) => ({ id, index, direction: -1 })).reverse()];
+  for (const { id, index, direction } of steps) {
+    const start = window.scrollY;
+    expect(fireEvent.touchStart(window, { touches: [{ clientX: 200, clientY: 500 }] })).toBe(false);
+    fireEvent.touchMove(window, { touches: [{ clientX: 200, clientY: 500 - 30 * direction }] });
+    advance();
+    expect(window.scrollY).toBe(start);
+    fireEvent.touchEnd(window);
+    advance(100);
+    window.scrollY += 5;
+    advance();
+    expect(window.scrollY).toBe(1000 + index * 936);
+    expect(activate).toHaveBeenLastCalledWith(id);
+    expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 1000 + index * 936, behavior: "auto" });
+  }
+});
+
+test("phone toolbar resizing does not cancel a slide, while cancelled touches do not advance", () => {
+  unsupportedPhone();
+  setup();
+  fireEvent.touchStart(window, { touches: [{ clientX: 200, clientY: 500 }] });
+  fireEvent.touchMove(window, { touches: [{ clientX: 200, clientY: 470 }] });
+  fireEvent.touchCancel(window);
+  advance();
+  expect(window.scrollTo).not.toHaveBeenCalled();
+  fireEvent.touchStart(window, { touches: [{ clientX: 200, clientY: 500 }] });
+  fireEvent.touchMove(window, { touches: [{ clientX: 200, clientY: 470 }] });
+  fireEvent.touchEnd(window);
+  advance(100);
+  jest.replaceProperty(window, "innerHeight", 900);
+  fireEvent.resize(window);
+  advance();
+  expect(window.scrollY).toBe(1936);
+});
+
+test.each([[768, 1024], [600, 960], [1440, 900]])("unsupported tablet and desktop retain their guide touch behavior: %s x %s", (width, height) => {
+  unsupportedPhone(width, height);
+  setup();
+  fireEvent.touchStart(window, { touches: [{ clientX: 200, clientY: 500 }] });
+  fireEvent.touchMove(window, { touches: [{ clientX: 200, clientY: 400 }] });
+  advance();
+  expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 1936, behavior: "instant" });
 });

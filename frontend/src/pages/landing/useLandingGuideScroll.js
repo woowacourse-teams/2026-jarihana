@@ -16,6 +16,11 @@ export function useLandingGuideScroll(sectionRef, setActiveChapter) {
     const chapters = [...root.querySelectorAll("[data-guide-chapter]")];
     if (!chapters.length) return;
     const motion = window.matchMedia(GUIDE_MOTION);
+    const shortEdge = Math.min(window.screen.width, window.screen.height);
+    const phoneTimeline = !window.CSS?.supports?.("animation-timeline: view()") &&
+      shortEdge > 0 && shortEdge < 600 && window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+    root.toggleAttribute("data-phone-guide", phoneTimeline);
+    let viewportWidth = window.innerWidth;
     let frame = null;
     let touch = null;
     const gestures = WheelGestures({ preventWheelAction: false, reverseSign: false });
@@ -101,13 +106,13 @@ export function useLandingGuideScroll(sectionRef, setActiveChapter) {
       snappingRef.current = true;
       setActiveChapter(target.id);
       function tick(now) {
-        if (!motion.matches || Math.abs(window.scrollY - previousY) > 2) {
+        if (!motion.matches || (!phoneTimeline && Math.abs(window.scrollY - previousY) > 2)) {
           cancel();
           return;
         }
         const progress = Math.min(1, (now - startedAt) / STEP_DURATION);
         const eased = progress * progress * (3 - 2 * progress);
-        window.scrollTo({ top: start + (target.top - start) * eased, behavior: "instant" });
+        window.scrollTo({ top: start + (target.top - start) * eased, behavior: phoneTimeline ? "auto" : "instant" });
         previousY = window.scrollY;
         if (progress < 1) {
           frame = requestAnimationFrame(tick);
@@ -153,9 +158,16 @@ export function useLandingGuideScroll(sectionRef, setActiveChapter) {
     }
 
     function onTouchStart(event) {
+      if (phoneTimeline && (!motion.matches || event.defaultPrevented ||
+        event.target.closest?.("a, button, input, textarea, select, [contenteditable='true']"))) {
+        touch = null;
+        return;
+      }
       touch = event.touches.length === 1
         ? { x: event.touches[0].clientX, y: event.touches[0].clientY, moved: false }
         : null;
+      if (phoneTimeline && touch && event.cancelable &&
+        (frame !== null || destination(1) || destination(-1))) event.preventDefault();
     }
 
     function onTouchMove(event) {
@@ -166,13 +178,31 @@ export function useLandingGuideScroll(sectionRef, setActiveChapter) {
       const target = destination(Math.sign(dy), dy);
       if (!target && frame === null && !touch.moved) return;
       event.preventDefault();
+      if (phoneTimeline) {
+        touch.direction = Math.abs(dy) >= 24 ? Math.sign(dy) : 0;
+        return;
+      }
       if (touch.moved || frame !== null || Math.abs(dy) < WHEEL_THRESHOLD || !target) return;
       touch.moved = true;
       settle(target);
     }
 
     function onTouchEnd() {
+      const direction = phoneTimeline && touch?.direction;
       touch = null;
+      if (!direction || !motion.matches || frame !== null) return;
+      const target = destination(direction);
+      if (target) settle(target);
+    }
+
+    function onTouchCancel() {
+      touch = null;
+    }
+
+    function onResize() {
+      if (phoneTimeline && window.innerWidth === viewportWidth) return;
+      viewportWidth = window.innerWidth;
+      cancel();
     }
 
     function onKeyDown(event) {
@@ -198,18 +228,19 @@ export function useLandingGuideScroll(sectionRef, setActiveChapter) {
     }
 
     window.addEventListener("wheel", onWheel, { passive: false });
-    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchstart", onTouchStart, { passive: !phoneTimeline });
     window.addEventListener("touchmove", onTouchMove, { passive: false });
     window.addEventListener("touchend", onTouchEnd);
-    window.addEventListener("touchcancel", onTouchEnd);
+    window.addEventListener("touchcancel", onTouchCancel);
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("click", onClick);
     window.addEventListener("pointerdown", cancel);
-    window.addEventListener("resize", cancel);
+    window.addEventListener("resize", onResize);
     window.addEventListener("hashchange", cancel);
     motion.addEventListener("change", cancel);
     return () => {
       cancel();
+      root.removeAttribute("data-phone-guide");
       observer?.disconnect();
       unsubscribe();
       gestures.disconnect();
@@ -217,11 +248,11 @@ export function useLandingGuideScroll(sectionRef, setActiveChapter) {
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("touchend", onTouchEnd);
-      window.removeEventListener("touchcancel", onTouchEnd);
+      window.removeEventListener("touchcancel", onTouchCancel);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("click", onClick);
       window.removeEventListener("pointerdown", cancel);
-      window.removeEventListener("resize", cancel);
+      window.removeEventListener("resize", onResize);
       window.removeEventListener("hashchange", cancel);
       motion.removeEventListener("change", cancel);
     };

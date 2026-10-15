@@ -1024,6 +1024,100 @@ html:has(.landing-page) {
   }
 }
 
+/* Unsupported phones reuse the same keyframes with a paused, scroll-positioned timeline. */
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.landing-hero[data-phone-timeline]),
+  html:has([data-phone-guide]) {
+    scroll-behavior: auto;
+  }
+  [data-phone-guide] [data-guide-chapter] {
+    touch-action: pan-x pinch-zoom;
+  }
+  .landing-hero[data-phone-timeline] {
+    height: 400svh;
+    touch-action: pan-x pinch-zoom;
+  }
+  .landing-hero[data-phone-timeline] .landing-hero__sticky {
+    position: sticky;
+    top: var(--landing-header);
+    height: calc(100svh - var(--landing-header));
+  }
+  .landing-hero[data-phone-timeline] .landing-hero__visual {
+    height: calc(100% - var(--landing-inset));
+    min-height: 0;
+    max-height: none;
+    animation-name: landing-scene-in;
+  }
+  .landing-hero[data-phone-timeline] .landing-hero__questions {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    padding: 0;
+    pointer-events: none;
+  }
+  .landing-hero[data-phone-timeline] .landing-question {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-bottom: var(--space-12);
+    opacity: 0;
+    animation-name: landing-question-pass;
+  }
+  .landing-hero[data-phone-timeline] .landing-hero__scroll-note {
+    position: absolute;
+    inset: auto 0 var(--space-12);
+    display: flex;
+    animation-name: landing-scroll-hint;
+  }
+  .landing-hero[data-phone-timeline] .landing-hero__frame {
+    animation-name: landing-frame;
+  }
+  .landing-hero[data-phone-timeline][data-ready="true"] .landing-hero__foreground,
+  .landing-hero[data-phone-timeline][data-ready="true"] .landing-hero__room {
+    visibility: visible;
+  }
+  .landing-hero[data-phone-timeline][data-ready="true"] .landing-hero__still {
+    visibility: hidden;
+  }
+  .landing-hero[data-phone-timeline] .landing-hero__chair-motion {
+    animation-name: landing-chair-offer;
+  }
+  .landing-hero[data-phone-timeline] .landing-hero__chair-shadow {
+    animation-name: landing-chair-shadow;
+  }
+  .landing-hero[data-phone-timeline] .landing-hero__title {
+    animation-name: landing-brand-in;
+  }
+  .landing-hero[data-phone-timeline] :is(
+    .landing-question, .landing-hero__scroll-note, .landing-hero__visual,
+    .landing-hero__frame, .landing-hero__chair-motion, .landing-hero__chair-shadow, .landing-hero__title
+  ) {
+    animation-duration: 1s;
+    animation-delay: calc(-1 * var(--landing-phone-time, 0s));
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-play-state: paused;
+  }
+  .landing-hero[data-phone-timeline] .landing-question--study {
+    animation-name: landing-question-first;
+    animation-duration: 0.16s;
+  }
+  .landing-hero[data-phone-timeline] .landing-question--lunch {
+    animation-duration: 0.18s;
+    animation-delay: calc(0.16s - var(--landing-phone-time, 0s));
+  }
+  .landing-hero[data-phone-timeline] .landing-question--growth {
+    animation-duration: 0.18s;
+    animation-delay: calc(0.34s - var(--landing-phone-time, 0s));
+  }
+  .landing-hero[data-phone-timeline] .landing-question--answer {
+    animation-duration: 0.2s;
+    animation-delay: calc(0.52s - var(--landing-phone-time, 0s));
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html:has(.landing-page) {
     scroll-behavior: auto;
