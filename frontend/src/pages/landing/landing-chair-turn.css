@@ -1,0 +1,89 @@
+.landing-hero__chair-turn {
+  position: absolute;
+  left: 33.1%;
+  top: 39.4%;
+  width: 32.7%;
+  height: 57.2%;
+  overflow: hidden;
+  visibility: hidden;
+  transform: translate(-5%, 2%) scale(1.12);
+}
+.landing-hero__chair-turn-frames {
+  display: block;
+  width: 400%;
+  height: 400%;
+  max-width: none;
+}
+
+@keyframes landing-chair-turn {
+  0%, 74% { transform: translate(0, 0); }
+  74.8% { transform: translate(-25%, 0); }
+  75.6% { transform: translate(-50%, 0); }
+  76.4% { transform: translate(-75%, 0); }
+  77.2% { transform: translate(0, -25%); }
+  78% { transform: translate(-25%, -25%); }
+  78.8% { transform: translate(-50%, -25%); }
+  79.6% { transform: translate(-75%, -25%); }
+  80.4% { transform: translate(0, -50%); }
+  81.2% { transform: translate(-25%, -50%); }
+  82% { transform: translate(-50%, -50%); }
+  82.8% { transform: translate(-75%, -50%); }
+  83.6% { transform: translate(0, -75%); }
+  84.4% { transform: translate(-25%, -75%); }
+  85.2% { transform: translate(-50%, -75%); }
+  86%, 100% { transform: translate(-75%, -75%); }
+}
+@keyframes landing-chair-turn-out {
+  0%, 88.99% { opacity: 1; }
+  89%, 100% { opacity: 0; }
+}
+@keyframes landing-chair-front-in {
+  0%, 86% { opacity: 0; }
+  89%, 100% { opacity: 1; }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .landing-hero[data-turn-ready="true"] .landing-hero__chair-turn {
+      visibility: inherit;
+      animation: landing-chair-turn-out linear both;
+      animation-timeline: --landing-hero;
+      animation-range: contain 0% contain 100%;
+    }
+    .landing-hero[data-turn-ready="true"] .landing-hero__chair-turn-frames {
+      animation: landing-chair-turn steps(1, end) both;
+      animation-timeline: --landing-hero;
+      animation-range: contain 0% contain 100%;
+    }
+    .landing-hero[data-turn-ready="true"] .landing-hero__chair {
+      animation: landing-chair-front-in linear both;
+      animation-timeline: --landing-hero;
+      animation-range: contain 0% contain 100%;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .landing-hero[data-phone-timeline][data-turn-ready="true"] .landing-hero__chair-turn {
+    visibility: inherit;
+    animation-name: landing-chair-turn-out;
+  }
+  .landing-hero[data-phone-timeline][data-turn-ready="true"] .landing-hero__chair-turn-frames {
+    animation-name: landing-chair-turn;
+  }
+  .landing-hero[data-phone-timeline][data-turn-ready="true"] .landing-hero__chair {
+    animation-name: landing-chair-front-in;
+  }
+  .landing-hero[data-phone-timeline][data-turn-ready="true"] :is(
+    .landing-hero__chair-turn, .landing-hero__chair-turn-frames, .landing-hero__chair
+  ) {
+    animation-duration: 1s;
+    animation-delay: calc(-1 * var(--landing-phone-time, 0s));
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-play-state: paused;
+  }
+  .landing-hero[data-phone-timeline][data-turn-ready="true"] .landing-hero__chair-turn-frames {
+    animation-timing-function: steps(1, end);
+  }
+}

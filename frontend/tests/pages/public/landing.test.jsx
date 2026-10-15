@@ -25,6 +25,25 @@ beforeEach(() => {
   sessionStorage.clear();
 });
 
+test("a failed chair turn asset keeps the original loaded hero available", () => {
+  useAuth.mockReturnValue({ status: "anonymous", login: jest.fn() });
+  const { container } = render(<LandingPage />);
+  const hero = container.querySelector(".landing-hero");
+  const turn = hero.querySelector(".landing-hero__chair-turn-frames");
+
+  fireEvent.load(hero.querySelector(".landing-hero__room"));
+  fireEvent.load(hero.querySelector(".landing-hero__chair"));
+  expect(hero).toHaveAttribute("data-ready", "true");
+  expect(hero).toHaveAttribute("data-turn-ready", "false");
+
+  fireEvent.load(turn);
+  expect(hero).toHaveAttribute("data-turn-ready", "true");
+  fireEvent.error(turn);
+  expect(hero).toHaveAttribute("data-turn-ready", "false");
+  expect(hero).toHaveAttribute("data-ready", "true");
+  expect(hero.querySelector(".landing-hero__still")).toBeInTheDocument();
+});
+
 test("one controller connects the service introduction, every guide and the final call to action", () => {
   useAuth.mockReturnValue({ status: "anonymous", login: jest.fn() });
   const { container } = render(<LandingPage />);

@@ -10,6 +10,7 @@ import heroRoomImage from "../../shared/assets/landing/landing-hero-room.webp";
 import heroMobileImage from "../../shared/assets/landing/landing-brand-hero-mobile.webp";
 import heroRoomMobileImage from "../../shared/assets/landing/landing-hero-room-mobile.webp";
 import heroChairImage from "../../shared/assets/landing/landing-hero-chair.webp";
+import heroChairTurnImage from "../../shared/assets/landing/landing-hero-chair-turn.webp";
 import studyImage from "../../shared/assets/landing/default-group-study.webp";
 import clubImage from "../../shared/assets/landing/default-group-club.webp";
 import sessionImage from "../../shared/assets/landing/default-group-session.webp";
@@ -19,6 +20,7 @@ import { useLandingGuideScroll } from "./useLandingGuideScroll";
 import { LandingGuide } from "./LandingGuide";
 import "./landing-tokens.css";
 import "./landing.css";
+import "./landing-chair-turn.css";
 
 const groupTypes = [
   {
@@ -167,12 +169,14 @@ function LandingHero() {
   useLandingQuestionScroll(heroRef);
   const [roomReady, setRoomReady] = useState(false);
   const [chairReady, setChairReady] = useState(false);
+  const [turnReady, setTurnReady] = useState(false);
   const motionReady = roomReady && chairReady;
   return (
     <section
       aria-label="함께하는 일상의 시작"
       className="landing-hero"
       data-ready={motionReady}
+      data-turn-ready={turnReady}
       ref={heroRef}
     >
       <div className="landing-hero__sticky">
@@ -209,7 +213,7 @@ function LandingHero() {
           <div className="landing-hero__frame">
             <div className="landing-hero__scene">
               <div
-                aria-label="스크롤하면 함께 이야기하는 친구들 앞의 민트색 의자가 사진 프레임 밖으로 다가오는 3D 장면"
+                aria-label="테이블을 향하던 민트색 의자가 우리 쪽으로 돌아서며 사진 프레임 밖으로 다가오는 장면"
                 className="landing-hero__media"
                 role="img"
               >
@@ -244,6 +248,17 @@ function LandingHero() {
             <div className="landing-hero__artwork">
               <div className="landing-hero__chair-motion">
                 <span className="landing-hero__chair-shadow" />
+                <span className="landing-hero__chair-turn">
+                  <img
+                    alt=""
+                    className="landing-hero__chair-turn-frames"
+                    height="1254"
+                    onLoad={() => setTurnReady(true)}
+                    onError={() => setTurnReady(false)}
+                    src={heroChairTurnImage}
+                    width="1254"
+                  />
+                </span>
                 <img
                   alt=""
                   className="landing-hero__chair"
