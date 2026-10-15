@@ -79,6 +79,7 @@ jobs:
       # runner는 매번 새로 만들어져 로컬 레이어 캐시가 없다. 그래서 레이어 캐시를 GitHub Actions 캐시에 둔다.
       # 캐시에서 꺼낸 레이어(yum, useradd, OTel agent)는 직전 이미지와 digest가 같아 push와 서버 pull에서 건너뛴다.
       # Dockerfile이 단일 단계라 mode=min으로 이미지의 모든 레이어를 저장한다.
+      # 캐시는 성능 최적화이므로 저장 실패나 rate limit 대기가 빌드와 배포를 막지 않게 오류를 무시하고 2분에 끊는다.
       # provenance를 끄면 이전과 같은 단일 이미지 manifest를 올린다.
       - name: Backend 이미지 빌드와 GHCR push
         uses: docker/build-push-action@v7
@@ -93,7 +94,7 @@ jobs:
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ env.BACKEND_TAG }}
           cache-from: type=gha
-          cache-to: type=gha,mode=min
+          cache-to: type=gha,mode=min,ignore-error=true,timeout=2m
 
   # dev EC2의 runner는 GHCR에서 이미지를 받아 컨테이너만 교체한다.
   # 교체 뒤 readiness 대기와 스모크 테스트를 하고, 실패하면 직전 성공 태그로 되돌린 뒤 실패로 끝낸다.
