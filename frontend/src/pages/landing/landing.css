@@ -1,5 +1,4 @@
 html:has(.landing-page) {
-  font-size: 100%;
   background: var(--color-surface);
   scroll-behavior: smooth;
 }
@@ -1025,7 +1024,6 @@ html:has(.landing-page) {
 
 @media (prefers-reduced-motion: reduce) {
   html:has(.landing-page) {
-  font-size: 100%;
     scroll-behavior: auto;
   }
   .landing-page *,
