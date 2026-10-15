@@ -755,7 +755,7 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
   the existing main frame supplies its outer top rounding on tablet and desktop.
   A decorative pseudo-element fills the hero bounds without clipping action focus outlines.
   Use `홈`, `탐색`, `활동`, and `피드백` labels in desktop and mobile navigation.
-  `홈` opens `/` and is active only on `/`; `탐색` opens `/groups`
+  `홈` opens `/home` and is active only on `/home`; `탐색` opens `/groups`
   and is active only on that route. Reuse the existing header link and active styles.
   Both links close the mobile drawer without triggering login; browse opens unfiltered.
   Put two semantic CTA links beneath the hero copy, led by `자리찾기` opening
@@ -1013,3 +1013,35 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
   합류 전에 모임 상세 API를 호출하지 않고 초대 미리보기 정보만 표시한다.
 - 새 색·크기·motion token 없이 기존 공통 토큰을 재사용한다. 초대 내용은 `data-ph-private`로
   녹화에서 가리고 공유 토큰 경로에서는 기존 개인정보 보호 방식으로 수집을 중단한다.
+
+
+## 공개 랜딩 진입
+
+`/`는 세션 확인 후 비회원은 `/land`, 회원은 `/home`으로 replace 이동하며 검색 조건과 해시를 유지한다. `/home`은 로그인 여부와 관계없이 기존 홈을 제공한다. `/land`에서는 회원도 같은 랜딩을 볼 수 있다. 랜딩의 질문 도입부, 프레임 밖으로 나오는 민트 의자, 별도 서비스 설명, 유형 선택과 이용 가이드 순서를 유지한다. 이용 예시는 화면 재진입 시 초기화하고 1.5배 속도로 재생하며 동작 줄이기를 지원한다. 랜딩에서만 기본 rem 크기를 100%로 유지해 기존 홈의 데스크톱 87.5% 배율을 바꾸지 않는다. 로그인한 회원의 시작 CTA는 홈(`/home`), 생성 CTA는 `/groups/new`로 연결한다.
+
+이용 가이드의 `01 · 모임에 참여하기`와 `02 · 직접 만들고 운영하기`는 같은 설명·데모 배치를 사용한다. 높이가 충분한 데스크톱에서는 왼쪽 단계와 오른쪽 고정 데모가 함께 전환되고, 모바일·낮은 창·모션 감소 설정에서는 각 설명 아래에 해당 화면을 표시한다. 생성 데모는 고정 영역에서만 여백을 줄여 제어 버튼과 하단 동작까지 한 화면에 담는다. 두 이용 가이드 모두 도입부와 같은 `wheel-gestures`로 관성을 구분해 한 번의 입력에 한 단계만 이동한다. 관성의 작은 튐과 마지막 단계 뒤의 잔여 입력은 흡수하고, 새 입력이나 명확한 역방향 입력은 다시 받아들인다.
+
+
+## Landing guide continuous flow
+
+- 의자 등장 완료 위치에서 다음 새 입력은 서비스 소개의 중앙 정착점으로 520ms 동안 이동한다.
+  도입부 제어기는 소개에 도착할 때까지 입력을 소유하고 남은 관성을 흡수한 뒤 다음 입력을
+  사용법 제어기에 넘긴다. 역방향 입력은 소개에서 완성된 의자 장면으로 돌아간다.
+- 사용법 데모는 공통 창 프레임 안에 표시한다. 둥근 경계·옅은 그림자·세 점 장식과 기존 재생
+  제어를 한 상단바에 배치해 높이를 절약하고, 장식은 접근성 트리에서 제외한다. 캡션은 창 밖에 둔다.
+- `/land` 의자 이후 서비스 소개부터 모임 종류, 사용법 01~04, 마지막 시작 안내까지 하나의 문서 스크롤과
+  하나의 제스처 제어기를 공유한다. 서비스 소개·모임 종류·참여 소개·검색·상세·내 모임·운영 소개·생성·관리·초대 소개·초대·활동 소개·활동·시작 안내의 14개 정착점을
+  순서대로 이동하며, 구간 경계에서도 같은 입력의 관성으로 다음 정착점을 건너뛰지 않는다.
+- 01~04 대분류 소개는 헤더 아래 한 화면으로 정착한다. 다음 입력에서
+  세부 사용법으로 이동하고 데모를 시작하며, 역방향에서도 소개를 같은 정착점으로 거친다.
+- 네 사용법 구간은 동일한 흰색·옅은 민트·흰색 그라데이션과 설명·데모 컴포넌트를 공유한다.
+  03·04에도 다른 사용법과 같은 번호·아이콘 행, 제목 크기, 데모 너비와 여백을 적용한다.
+- 넓고 높은 화면에서는 01·03의 설명을 왼쪽, 02·04의 설명을 오른쪽에 배치한다.
+  데모는 반대편의 넓은 열을 사용한다. 모바일 읽기 순서는 설명 다음 데모를 유지한다.
+- 기존 `landing-guide` 공간·색·타이포 토큰을 재사용한다. 독립 스크롤 영역이나 새 의존성을
+  추가하지 않는다. 너비 64rem 이상, 높이 52rem 초과에서 슬라이드를 사용한다.
+  높이 55rem 이하에서는 데모의 여백을 줄여 글자 크기를 유지하면서 화면 안에 담는다.
+  모바일·낮은 화면과 모션 감소 설정에서는 기존 일반 스크롤과 인라인 데모를 유지한다.
+- 레이아웃 참고: [StyleGallery sticky-aside](https://github.com/changeroa/StyleGallery/blob/main/patterns/split-sidebar/sticky-aside.md)의
+  문서 스크롤 소유권·명시적 grid 배치를 적용했다. [BEUI scroll-animation](https://beui.dev/r/scroll-animation/raw)의
+  공통 스크롤 제어 원칙은 기존 wheel-gestures 제어기로 구현하며 Lenis/Motion은 추가하지 않는다.

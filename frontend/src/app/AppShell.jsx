@@ -5,7 +5,7 @@ import { AppHeader } from "./AppHeader";
 import { AppFooter } from "./AppFooter";
 import "./AppShell.css";
 
-const PRIMARY_PAGE_PATHS = ["/", "/groups", "/activities"];
+const PRIMARY_PAGE_PATHS = ["/home", "/groups", "/activities"];
 
 function scrollBehavior() {
   return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ? "auto" : "smooth";
@@ -76,6 +76,10 @@ export function AppShell({ children, headerAction = null, headerTitle = "" }) {
     );
     return () => animation.cancel();
   }, [pathname]);
+
+  if (pathname.replace(/\/$/, "") === "/land" || pathname === "/") {
+    return children ?? <Outlet />;
+  }
 
   return (
     <div className="app-shell">
