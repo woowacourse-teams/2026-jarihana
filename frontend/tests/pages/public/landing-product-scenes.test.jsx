@@ -155,3 +155,32 @@ test("the controlled active chapter selects one desktop demo and keeps the nativ
     expect(frame).not.toHaveAttribute("inert");
   }
 });
+
+test("every usage chapter has a heading, two feature checks and a demo without repeated prose", () => {
+  const { container } = render(<LandingGuide />);
+  const chapters = [...container.querySelectorAll(".landing-guide-chapter")];
+  expect(chapters).toHaveLength(7);
+  for (const chapter of chapters) {
+    expect(chapter.querySelector("h3")).toBeInTheDocument();
+    expect(chapter.querySelectorAll(".landing-guide-checks > li")).toHaveLength(2);
+    expect(chapter.querySelector(":scope > p")).toBeNull();
+    expect(chapter.querySelector(".landing-guide-checks").nextElementSibling)
+      .toHaveClass("landing-guide-chapter__mobile-shot");
+  }
+});
+
+test("inline demos play only in their selected chapter and reset when leaving it", () => {
+  const originalObserver = global.IntersectionObserver;
+  global.IntersectionObserver = undefined;
+  try {
+    const { container, rerender } = render(<LandingGuide activeChapter="browse" />);
+    const demo = (id) => container.querySelector(`#guide-${id} .landing-product-demo`);
+    expect(demo("browse")).toHaveAttribute("data-state", "running");
+    expect(demo("detail")).toHaveAttribute("data-state", "idle");
+    rerender(<LandingGuide activeChapter="detail" />);
+    expect(demo("browse")).toHaveAttribute("data-state", "idle");
+    expect(demo("detail")).toHaveAttribute("data-state", "running");
+  } finally {
+    global.IntersectionObserver = originalObserver;
+  }
+});

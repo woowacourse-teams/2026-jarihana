@@ -2,6 +2,7 @@ import { ImagePlus } from "lucide-react";
 
 import studyImage from "../../shared/assets/landing/default-group-study.webp";
 import { useLandingDemo } from "./useLandingDemo";
+import { useLandingDemoViewport } from "./useLandingDemoViewport";
 import "./landing-create-demo.css";
 
 const DAYS = ["월", "화", "수", "목", "금", "토", "일"];
@@ -21,6 +22,7 @@ export function LandingCreateDemo({
     timelineComplete,
     togglePaused
   } = useLandingDemo({ active: isActive });
+  useLandingDemoViewport({ rootRef, screen: "create", state, paused, replayKey });
 
   return (
     <div className="lpc-demo" ref={rootRef}>

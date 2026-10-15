@@ -96,17 +96,6 @@
   color: var(--color-brand-ink);
 }
 
-.landing-guide-chapter > p {
-  margin-top: var(--space-5);
-  font-size: var(--landing-body-size);
-  line-height: var(--landing-body-leading);
-}
-
-.landing-guide-chapter__description > span {
-  display: block;
-  text-wrap: balance;
-}
-
 .landing-guide__intro > p:not(.landing-eyebrow) {
   text-wrap: balance;
 }
@@ -427,8 +416,7 @@
 
   .landing-guide-chapter__number { grid-row: 2; }
   .landing-guide-chapter > h3 { grid-row: 3; }
-  .landing-guide-chapter__description { grid-row: 4; }
-  .landing-guide-checks,
+  .landing-guide-checks { grid-row: 4; }
   .landing-guide-link { grid-row: 5; }
 
   .landing-guide-chapter__mobile-shot {
@@ -533,10 +521,6 @@
 
   .landing-guide-chapter > h3 {
     font-size: 1.75rem;
-  }
-
-  .landing-guide-chapter > p {
-    font-size: var(--text-body-lg);
   }
 
 }

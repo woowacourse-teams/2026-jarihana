@@ -5,6 +5,7 @@ import { LandingProductScene } from "./LandingProductScene";
 import { LandingCreateDemo } from "./LandingCreateDemo";
 import { LandingProductDemo } from "./LandingProductDemo";
 import "./landing-guide.css";
+import "./landing-demo-viewport.css";
 
 const guideChapters = [
   {
@@ -12,7 +13,7 @@ const guideChapters = [
     number: "01",
     icon: Search,
     title: "나에게 맞는 자리 찾기",
-    description: "모임 이름으로 검색하고,\n유형과 모집 상태로 골라보세요.",
+    checks: ["이름으로 검색", "유형·모집 상태로 필터"],
     alt: "모임 검색과 유형 필터로 함께 배우는 토요일을 찾는 이용 예시"
   },
   {
@@ -20,8 +21,7 @@ const guideChapters = [
     number: "02",
     icon: CalendarDays,
     title: "이 모임, 나와 잘 맞을까?",
-    description:
-      "모임 소개와 일정, 장소를 확인해요.\n나와 잘 맞는 모임이라면 참여를 신청해 보세요.",
+    checks: ["소개·일정·장소 확인", "참여 신청"],
     alt: "모임 소개와 일정, 모집 방식을 확인하고 참여를 신청하는 이용 예시"
   },
   {
@@ -29,8 +29,7 @@ const guideChapters = [
     number: "03",
     icon: CheckCircle2,
     title: "만나는 순간부터, 다음 약속까지.",
-    description:
-      "참여한 모임과 신청 상태는 한곳에서 확인해요.\n다음 약속으로 이어지는 흐름도 놓치지 않게요.",
+    checks: ["참여 중인 모임 확인", "신청 결과 확인"],
     alt: "내 모임과 신청 현황을 한곳에서 확인하는 이용 예시"
   }
 ];
@@ -41,7 +40,7 @@ const hostChapters = [
     number: "01",
     icon: Plus,
     title: "모임 만들기",
-    description: "이름과 소개, 장소와 일정을 정해\n새로운 자리를 열어요.",
+    checks: ["종류·이름·소개 입력", "장소·일정 설정"],
     alt: "모임 종류와 이름, 소개, 장소와 일정을 정해 모임을 만드는 이용 예시"
   },
   {
@@ -49,7 +48,7 @@ const hostChapters = [
     number: "02",
     icon: ClipboardCheck,
     title: "참여 신청 관리",
-    description: "신청자를 확인하고 승인한 뒤,\n모집 상태를 이어서 관리해요.",
+    checks: ["신청 내용 확인", "승인·모집 상태 관리"],
     alt: "모임장이 신청 내용을 읽고 승인 여부를 관리하는 이용 예시"
   }
 ];
@@ -59,7 +58,7 @@ const inviteChapters = [{
   number: "01",
   icon: UserPlus,
   title: "함께할 사람 초대하기",
-  description: "회원을 검색해 직접 초대하거나\n초대 링크를 공유해 보세요.",
+  checks: ["회원을 검색해 초대", "초대 링크 공유"],
   alt: "회원을 검색해 함께할 사람을 선택하고 초대하거나 링크를 공유하는 이용 예시"
 }];
 
@@ -68,11 +67,11 @@ const activityChapters = [{
   number: "01",
   icon: Camera,
   title: "활동 기록 남기기",
-  description: "사진과 글로 모임 활동을 기록해요.\n서로의 기록에 댓글과 이모지를 남겨보세요.",
+  checks: ["사진과 글 올리기", "댓글·이모지 남기기"],
   alt: "활동 사진과 짧은 글을 올리고 댓글과 이모지로 대화하는 활동 피드 이용 예시"
 }];
 
-function ProductFrame({ chapter, isActive = true }) {
+function ProductFrame({ chapter, isActive = true, playbackActive = isActive }) {
   return (
     <figure
       aria-hidden={isActive ? undefined : "true"}
@@ -87,8 +86,8 @@ function ProductFrame({ chapter, isActive = true }) {
           <span />
           <span />
         </div>
-        {chapter.id === "create" ? <LandingCreateDemo label={chapter.alt} isActive={isActive} /> : (
-          <LandingProductDemo screen={chapter.id} label={chapter.alt} isActive={isActive}>
+        {chapter.id === "create" ? <LandingCreateDemo label={chapter.alt} isActive={playbackActive} /> : (
+          <LandingProductDemo screen={chapter.id} label={chapter.alt} isActive={playbackActive}>
             <LandingProductScene screen={chapter.id} />
           </LandingProductDemo>
         )}
@@ -122,21 +121,17 @@ function GuideChapter({ chapter, active }) {
         <span>{chapter.number}</span>
       </div>
       <h3>{chapter.title}</h3>
-      <p className="landing-guide-chapter__description">
-        {chapter.description.split("\n").map((line) => (
-          <span key={line}>{line}{" "}</span>
+      <ul className="landing-guide-checks">
+        {chapter.checks.map((check) => (
+          <li key={check}>
+            <CheckCircle2 aria-hidden="true" size={18} />
+            {check}
+          </li>
         ))}
-      </p>
-      {chapter.checks ? (
-        <ul className="landing-guide-checks">
-          {chapter.checks.map((check) => (
-            <li key={check}>
-              <CheckCircle2 aria-hidden="true" size={18} />
-              {check}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      </ul>
+      <div className="landing-guide-chapter__mobile-shot">
+        <ProductFrame chapter={chapter} playbackActive={active} />
+      </div>
       {chapter.id === "browse" ? (
         <Link
           className="landing-guide-link"
@@ -147,9 +142,6 @@ function GuideChapter({ chapter, active }) {
           <ArrowRight aria-hidden="true" size={19} />
         </Link>
       ) : null}
-      <div className="landing-guide-chapter__mobile-shot">
-        <ProductFrame chapter={chapter} />
-      </div>
     </article>
   );
 }

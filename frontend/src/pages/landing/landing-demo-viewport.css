@@ -1,0 +1,103 @@
+@media (max-width: 63.9375rem) and (min-height: 32rem) and (prefers-reduced-motion: no-preference) {
+  .landing-page .landing-guide-chapter {
+    block-size: calc(100svh - var(--landing-header));
+    min-block-size: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    gap: var(--space-3);
+    padding-block: var(--space-4);
+  }
+
+  .landing-guide-chapter > h3,
+  .landing-guide-checks,
+  .landing-guide-link,
+  .landing-guide-chapter__mobile-shot {
+    margin: 0;
+  }
+
+  .landing-guide-checks {
+    gap: var(--space-2);
+  }
+
+  .landing-guide-checks li {
+    align-items: baseline;
+    font-size: var(--text-body-lg);
+    line-height: 1.5;
+  }
+
+  .landing-guide-checks svg {
+    align-self: center;
+  }
+
+  .landing-guide-chapter__mobile-shot {
+    min-block-size: 0;
+    min-inline-size: 0;
+  }
+
+  .landing-guide-chapter__mobile-shot .landing-guide-frame {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    block-size: 100%;
+    margin-inline: auto;
+  }
+
+  .landing-guide-frame__window {
+    min-block-size: 0;
+  }
+
+  .landing-guide-frame__window > :is(.landing-product-demo, .lpc-demo) {
+    block-size: 100%;
+    min-block-size: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .landing-guide-frame__screen {
+    grid-row: 2;
+    min-block-size: 0;
+    overflow: hidden;
+  }
+
+  .landing-guide-frame figcaption {
+    padding-top: var(--space-2);
+  }
+
+  .landing-guide-frame .landing-product-scene {
+    position: relative;
+    padding: var(--space-4);
+    gap: var(--space-4);
+  }
+
+  .landing-product-scene .lps-application-overlay,
+  .lpc-schedule-dialog {
+    block-size: var(--demo-viewport-height, 100%);
+    inset-block-end: auto;
+    padding: var(--space-3);
+    align-items: safe center;
+  }
+
+  .landing-product-scene .lps-application {
+    padding: var(--space-4);
+  }
+
+  .landing-product-scene .lps-application-message {
+    min-height: var(--touch-target);
+  }
+
+  .lpc-dialog-card {
+    gap: var(--space-3);
+    padding: var(--space-4);
+  }
+
+  .lpc-time-grid span {
+    padding: var(--space-2);
+  }
+
+  .landing-product-scene .lps-activity-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .landing-product-scene .lps-activity-toolbar .lps-tabs {
+    min-inline-size: max-content;
+  }
+}
