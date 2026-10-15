@@ -66,7 +66,7 @@ export function LandingCreateDemo({
                 <dt>모임 일정</dt>
                 <dd>
                   <span>매주 토요일<br />14:00–16:00</span>
-                  <em>수정</em>
+                  <em>설정</em>
                 </dd>
               </div>
               <div>

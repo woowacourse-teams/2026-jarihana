@@ -54,7 +54,7 @@
   .landing-product-demo[data-state="running"] .lpm-tab-focus {
     animation: lpm-emphasis calc(1.2s / var(--landing-demo-speed, 1.5)) ease calc(var(--motion-delay) / var(--landing-demo-speed, 1.5)) both;
   }
-  .landing-product-demo[data-state="running"] .lpm-card-focus .ui-group-card {
+  .landing-product-demo[data-state="running"] .lpm-card-focus .discovery-group-card {
     animation: lpm-card-focus calc(1.5s / var(--landing-demo-speed, 1.5)) ease calc(3.5s / var(--landing-demo-speed, 1.5)) both;
   }
   .landing-product-demo[data-state="running"] .lpm-approve {
@@ -63,6 +63,15 @@
   .landing-product-demo[data-state="running"] .lpm-submit {
     animation: lpm-press calc(650ms / var(--landing-demo-speed, 1.5)) ease calc((var(--motion-delay) - 0.65s) / var(--landing-demo-speed, 1.5)) both;
   }
+  .landing-product-demo[data-state="running"] .lps-application-overlay {
+    animation: lpm-application calc(3.2s / var(--landing-demo-speed, 1.5)) var(--landing-ease) calc(1.4s / var(--landing-demo-speed, 1.5)) both;
+  }
+}
+
+@keyframes lpm-application {
+  0% { visibility: hidden; opacity: 0; }
+  10%, 90% { visibility: visible; opacity: 1; }
+  100% { visibility: hidden; opacity: 0; }
 }
 
 @keyframes lpm-type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }

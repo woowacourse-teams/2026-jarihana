@@ -28,13 +28,13 @@ export function LandingActivityScene() {
         <div>
           <strong className="lps-title">활동 기록</strong>
         </div>
-        <span className="lps-upload">
-          <Camera size={16} /> 활동 올리기
-        </span>
       </div>
+      <div className="lps-activity-toolbar">
       <div className="lps-tabs lpa-tabs">
         <span className="lps-selected">전체 기록</span>
         <span>내가 쓴 기록</span>
+      </div>
+      <span className="lps-upload"><Camera size={16} /> 활동 올리기</span>
       </div>
       <div className="lps-feed-detail lps-enter lpa-feed-detail">
         <div className="lps-feed-photo lpa-photo">

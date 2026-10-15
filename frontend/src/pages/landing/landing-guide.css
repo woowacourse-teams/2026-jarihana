@@ -92,7 +92,7 @@
   letter-spacing: var(--landing-text-tracking);
 }
 
-.landing-guide-chapter[aria-current="step"] h3 {
+.landing-guide-chapter[aria-current="step"] > h3 {
   color: var(--color-brand-ink);
 }
 
@@ -486,11 +486,11 @@
     margin-top: var(--space-12);
   }
 
-  .landing-guide-chapter h3 {
+  .landing-guide-chapter > h3 {
     font-size: 1.75rem;
   }
 
-  .landing-guide-chapter p {
+  .landing-guide-chapter > p {
     font-size: var(--text-body-lg);
   }
 
