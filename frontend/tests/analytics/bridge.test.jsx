@@ -342,3 +342,38 @@ test("handles a failed cross-tab authentication reload and removes its listener 
 
   expect(reload).toHaveBeenCalledTimes(1);
 });
+
+
+test.each(["anonymous", "signup-required", "unavailable"])("records %s landing entry only after the root redirect", async (status) => {
+  useAuth.mockReturnValue({ status: "loading" });
+  useLocation.mockReturnValue({ pathname: "/", search: "" });
+  matchRoutes.mockReturnValue([{ route: { page: "HomePage" }, params: {} }]);
+  const { rerender } = render(<AnalyticsBridge />);
+  useAuth.mockReturnValue({ status });
+  rerender(<AnalyticsBridge />);
+  await act(async () => {});
+  expect(setAnalyticsRoute).not.toHaveBeenCalled();
+  expect(syncAnalyticsIdentity).not.toHaveBeenCalled();
+  expect(trackPage).not.toHaveBeenCalled();
+
+  useLocation.mockReturnValue({ pathname: "/land", search: "" });
+  matchRoutes.mockReturnValue([{ route: { page: "LandingPage" }, params: {} }]);
+  rerender(<AnalyticsBridge />);
+  await waitFor(() => expect(trackPage).toHaveBeenCalledTimes(1));
+  expect(trackPage).toHaveBeenCalledWith("/land");
+  expect(setAnalyticsRoute).toHaveBeenCalledWith("/land", expect.objectContaining({ route_name: "LandingPage" }));
+});
+
+test("records a member home visit once after the root redirect", async () => {
+  useAuth.mockReturnValue({ status: "authenticated" });
+  useLocation.mockReturnValue({ pathname: "/", search: "" });
+  matchRoutes.mockReturnValue([{ route: { page: "HomePage" }, params: {} }]);
+  const { rerender } = render(<AnalyticsBridge />);
+  expect(trackPage).not.toHaveBeenCalled();
+  useLocation.mockReturnValue({ pathname: "/home", search: "" });
+  matchRoutes.mockReturnValue([{ route: { page: "GroupsPage" }, params: {} }]);
+  rerender(<AnalyticsBridge />);
+  await waitFor(() => expect(trackPage).toHaveBeenCalledTimes(1));
+  expect(trackPage).toHaveBeenCalledWith("/home");
+  expect(setAnalyticsRoute).toHaveBeenCalledWith("/home", expect.objectContaining({ route_name: "GroupsPage" }));
+});

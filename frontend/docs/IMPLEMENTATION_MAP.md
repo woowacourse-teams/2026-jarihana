@@ -52,7 +52,8 @@ frontend/
 검은 bar를, 일부 frame은 white canvas 안에 inset된 검은 frame을 보여 준다. 이 차이는 route별
 header 구현으로 확대하지 않았다.
 
-- `AppShell`은 하나의 navigation/auth state와 skip link/main landmark를 모든 route에 적용한다.
+- `AppShell`은 앱 route에 공통 navigation/auth state와 skip link/main landmark를 적용한다.
+  `/land`는 로그인 여부와 관계없이 랜딩 자체의 header/main/footer를 사용한다. `/`는 인증 확인을 기다린 뒤 로그인 사용자를 `/home`, 그 외 상태를 `/land`로 replace 이동하며 검색 조건과 해시를 유지한다.
 - 공통 main은 밝은 surface와 `--app-body-radius`(태블릿·데스크톱 16px, 모바일 14px)를 사용해 검은 header/footer와 맞닿는 네 모서리를 통일한다.
   바깥 shell은 검은 배경이며 `overflow: clip`은 본문 경계만 자르고 문서 스크롤과 sticky 배치를 유지한다.
 - 360–767px에서는 full-bleed header + drawer를 사용해 44px 이상 touch target을 확보한다.
@@ -65,7 +66,10 @@ header 구현으로 확대하지 않았다.
 
 | Route                                                               | 권한                   | API                                      | 공통 레이아웃/컴포넌트                                               | 반드시 표시할 상태                                                               |
 | ------------------------------------------------------------------- | ---------------------- | ---------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `/` | 공개 | `GET /api/groups` | AppShell, ExploreHero, TodaySessionsHero, RecruitingSection, ArchiveSection | loading, empty, success, network |
+| `/` (비로그인) | 공개 | 인증 상태 확인 | HomePage, 검색 조건과 해시를 보존해 `/land`로 replace 이동 | auth loading, anonymous, signup-required, unavailable |
+| `/land` (로그인 여부 무관) | 공개 | 없음 | LandingPage, 질문·의자 모션, 서비스 소개·이용 가이드 | reduced motion |
+| `/` (로그인) | 회원 | 인증 상태 확인 | 검색 조건과 해시를 보존해 `/home`으로 replace 이동 | auth loading, authenticated |
+| `/home` | 공개 | `GET /api/groups` | AppShell, ExploreHero, TodaySessionsHero, RecruitingSection, ArchiveSection | loading, empty, success, network |
 | `/groups` | 공개 | `GET /api/groups` | AppShell, GroupBrowsePage, SearchField, FilterBar, GroupCard, CursorList | initial/background loading, empty, success, 400, network |
 | `/groups/explore` | 공개 | 없음 | 검색 조건과 해시를 보존해 `/groups`로 replace 이동 | 기존 링크 호환 |
 | `/activities`                                                       | 공개 (댓글과 반응은 회원) | `GET /api/activity-posts`, 활동 기록 작성, 수정, 숨김 API, 댓글 조회, 작성, 숨김과 이모지 반응 API | AppShell, ActivityPostBoard, PolaroidCard, ActivityPostDetail(Modal), ActivityReactionBar, infinite cursor list | loading, empty, error, public/mine filter, image upload and public-visibility notice, 상세의 댓글 loading, empty, error, 더 보기, 비로그인 로그인 안내 후 `?post=` 복귀, 사진 크게 보기 |
@@ -379,7 +383,7 @@ header 구현으로 확대하지 않았다.
 
 별도 공개 조회 화면 `GroupBrowsePage`는 `/groups`에서 develop의 검색·유형/상태/모집 필터와
 size=12 커서 목록을 재사용한다. `/groups/explore`는 검색 조건과 해시를 보존해 `/groups`로
-replace 이동한다. 헤더의 홈과 브랜드 링크는 `/`, 탐색 링크는 `/groups`로 이동하며
+replace 이동한다. 헤더의 홈과 브랜드 링크는 `/home`, 탐색 링크는 `/groups`로 이동하며
 각 경로에서 해당 메뉴만 활성화한다. `/groups/:groupId`는 개별 모임 상세 경로로 유지한다.
 
 

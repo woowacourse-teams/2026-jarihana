@@ -39,6 +39,8 @@ management:
       percentiles-histogram:
         http.server.requests: true
         jdbc.query: true
+      slo:
+        jdbc.query: 100ms,500ms,1s
       minimum-expected-value:
         http.server.requests: 1ms
         jdbc.query: 1ms

@@ -73,6 +73,8 @@ API 경로는 `/api/groups/:id`처럼 정규화하고 query·fragment를 제외�
 인증 갱신 요청은 `is_auth_refresh`로 구분한다. 주기적 조회도 API 요청에 포함되므로
 API 횟수를 사용자의 클릭 횟수로 해석하지 않는다.
 
+`/`는 인증 상태에 따른 이동 전용 경로이므로 페이지뷰를 기록하지 않는다. 실제 도착한 `/land` 또는 `/home`에서 한 번 기록한다.
+
 일반 화면의 이벤트에는 라우트 레지스트리의 `route_name`과 해당 화면의 `group_id`, `recruitment_id`를
 붙인다. 그룹 상세·모집 상세의 `$pageview`에는 현재 URL에 유효한 `promotion_id`가 있을 때만
 이를 붙인다. 신청 이벤트에는 같은 PostHog 세션에서 처음 확인한 홍보 식별자를

@@ -1,5 +1,7 @@
 const pathSegments = new Set([
   "api",
+  "land",
+  "home",
   "invitations",
   "link",
   "links",
