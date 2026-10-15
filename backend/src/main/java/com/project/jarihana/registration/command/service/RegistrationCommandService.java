@@ -58,11 +58,13 @@ public class RegistrationCommandService {
             long recruitmentId,
             CreateRegistrationCommand command
     ) {
-        Group group = groupRepository.findWithSharedLockByRecruitmentId(recruitmentId)
+        long groupId = groupRepository.findIdWithSharedLockByRecruitmentId(recruitmentId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RECRUITMENT_NOT_FOUND,
                         "모집 공고를 찾을 수 없습니다."
                 ));
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RECRUITMENT_NOT_FOUND, "모집 공고를 찾을 수 없습니다."));
         Member member = memberRepository.findWithLockById(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, "회원 정보를 찾을 수 없습니다."));
         validateApplicant(group, recruitmentId, memberId);

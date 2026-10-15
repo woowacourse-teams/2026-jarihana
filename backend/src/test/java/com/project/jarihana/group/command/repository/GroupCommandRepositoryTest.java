@@ -119,7 +119,7 @@ class GroupCommandRepositoryTest extends IntegrationTestSupport {
 
         try {
             Future<?> first = executor.submit(() -> transactionTemplate.executeWithoutResult(status -> {
-                groupCommandRepository.findWithSharedLockByRecruitmentId(recruitment.getId()).orElseThrow();
+                groupCommandRepository.findIdWithSharedLockByRecruitmentId(recruitment.getId()).orElseThrow();
                 firstLockAcquired.countDown();
                 await(releaseFirstLock);
             }));
@@ -127,7 +127,7 @@ class GroupCommandRepositoryTest extends IntegrationTestSupport {
 
             // When
             Future<?> second = executor.submit(() -> transactionTemplate.executeWithoutResult(status -> {
-                groupCommandRepository.findWithSharedLockByRecruitmentId(recruitment.getId()).orElseThrow();
+                groupCommandRepository.findIdWithSharedLockByRecruitmentId(recruitment.getId()).orElseThrow();
                 secondLockAcquired.countDown();
             }));
             boolean acquiredBeforeFirstTransactionEnded = secondLockAcquired.await(1, SECONDS);
