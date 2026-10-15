@@ -22,7 +22,6 @@
 .landing-product-scene .lpm-decision { display: grid; }
 .landing-product-scene .lpm-decision > .lpm-before { justify-content: flex-end; }
 .landing-product-scene .lpm-decision .lps-decisions { display: flex; }
-.landing-product-scene .lps-person > .lpm-swap { margin-left: auto; }
 
 @media (prefers-reduced-motion: no-preference) {
   .landing-product-demo[data-state="idle"] .lpm-type { clip-path: inset(0 100% 0 0); }
@@ -86,7 +85,7 @@
 
 @media (min-width: 64rem) and (min-height: 55.001rem) {
   .landing-guide__showcase .landing-product-scene--detail { padding: 1.25rem; gap: 1rem; }
-  .landing-guide__showcase .landing-product-scene--continue { padding: 1rem; gap: 0.5rem; }
-  .landing-guide__showcase .lps-profile { padding: 0.75rem; }
-  .landing-guide__showcase .lps-count-tabs > span { padding-block: 0.4rem; }
+  .landing-guide__showcase .landing-product-scene--continue { padding: var(--space-4); gap: var(--space-3); }
+  .landing-guide__showcase .lps-profile { padding: var(--space-4); }
+  .landing-guide__showcase .lps-count-tabs > span { padding-block: var(--space-2); }
 }

@@ -10,7 +10,7 @@
   color: var(--color-ink);
   background: var(--color-surface);
   font-family: var(--font-sans);
-  font-size: 0.875rem;
+  font-size: var(--text-body-lg);
   line-height: 1.6;
   text-align: left;
 }
@@ -223,7 +223,7 @@
 .landing-product-scene .lps-account-description {
   margin: -0.5rem 0 0;
   color: var(--color-muted-ink);
-  font-size: 0.875rem;
+  font-size: var(--text-body);
   line-height: 1.65;
 }
 .landing-product-scene .lps-profile {
@@ -275,7 +275,7 @@
 }
 .landing-product-scene .lps-account-row > div {
   min-width: 0;
-  padding: 0.6rem 0.75rem;
+  padding: var(--space-3) var(--space-4);
 }
 .landing-product-scene .lps-account-row strong {
   display: block;
@@ -285,7 +285,7 @@
 }
 .landing-product-scene .lps-account-row p {
   margin: 0.2rem 0 0.45rem;
-  font-size: 0.875rem;
+  font-size: var(--text-body);
   line-height: 1.6;
   color: var(--color-muted-ink);
 }
@@ -294,7 +294,7 @@
   align-items: center;
   gap: 0.35rem;
   color: var(--color-muted-ink);
-  font-size: 0.875rem;
+  font-size: var(--text-body);
 }
 .landing-product-scene .lps-type-study {
   padding: 0.15rem 0.35rem;
@@ -341,14 +341,18 @@
   gap: 0.75rem;
 }
 .landing-product-scene .lps-person > div {
+  display: grid;
   flex: 1;
+  min-width: 0;
+  justify-items: start;
+  gap: var(--space-1);
 }
-.landing-product-scene .lps-person strong,
-.landing-product-scene .lps-person > div > span {
+.landing-product-scene .lps-person strong {
   display: block;
 }
-.landing-product-scene .lps-person > div > span {
+.landing-product-scene .lps-person > div > span:not(.lpm-swap):not(.ui-badge) {
   color: var(--color-muted-ink);
+  font-size: var(--text-body);
 }
 .landing-product-scene .lps-decisions {
   display: flex;
@@ -578,7 +582,7 @@
 .landing-product-scene .lps-manage-toolbar,
 .landing-product-scene .lps-manage-summary > div { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
 .landing-product-scene .lps-manage-toolbar > span { display: flex; align-items: center; gap: var(--space-8); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-sm); }
-.landing-product-scene .lps-manage-tabs { gap: var(--space-3); font-size: var(--text-caption); }
+.landing-product-scene .lps-manage-tabs { gap: var(--space-4); font-size: var(--text-body); }
 .landing-product-scene .lps-invite-context { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .landing-product-scene .lps-share-button { padding: var(--space-2) var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-pill); }
 .landing-product-scene .lps-invite-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); }
