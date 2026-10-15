@@ -25,6 +25,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
+import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.json.JsonMapper;
@@ -33,6 +34,7 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -108,6 +110,42 @@ class NotificationPersistenceTest extends IntegrationTestSupport {
     }
 
     @Test
+    @DisplayName("알림 반환 저장은 기존 업무 트랜잭션 없이 실행할 수 없다.")
+    void returningInsertRequiresExistingTransaction() {
+        // Given
+        Member member = member("123");
+
+        // When & Then
+        assertThatThrownBy(() -> insertReturning(member, "registration:3:approved"))
+                .isInstanceOf(IllegalTransactionStateException.class);
+        assertThat(jdbc.queryForObject("select count(*) from notifications", Long.class)).isZero();
+    }
+
+    @Test
+    @DisplayName("중복 없는 알림을 저장하면 생성된 식별자와 모든 알림 필드를 바로 반환한다.")
+    void insertReturnsPersistedNotification() {
+        // Given
+        Member member = member("123");
+
+        // When
+        Notification inserted = new TransactionTemplate(transactions)
+                .execute(status -> insertReturning(member, "registration:3:approved").orElseThrow());
+
+        // Then
+        assertThat(inserted.getId()).isPositive();
+        assertThat(inserted.getMember().getId()).isEqualTo(member.getId());
+        assertThat(inserted.getEventKey()).isEqualTo("registration:3:approved");
+        assertThat(inserted.getEventType()).isEqualTo(NotificationEventType.REGISTRATION_APPROVED);
+        assertThat(inserted.getPayloadVersion()).isEqualTo(1);
+        assertThat(inserted.getPayload()).isEqualTo(NotificationPayload.of(1, 2, 3, null));
+        assertThat(inserted.getCreatedAt()).isEqualTo(NOW);
+        assertThat(inserted.getUpdatedAt()).isEqualTo(NOW);
+        assertThat(inserted.getReadAt()).isNull();
+        assertThat(inserted.getDeletedAt()).isNull();
+        assertThat(jdbc.queryForObject("select id from notifications", Long.class)).isEqualTo(inserted.getId());
+    }
+
+    @Test
     @DisplayName("회원과 사건 의미키의 중복은 삭제 후에도 새 행을 만들지 않고 트랜잭션을 계속 사용할 수 있다.")
     void duplicateDeletedEventDoesNotReviveOrAbortTransaction() {
         // Given
@@ -118,7 +156,7 @@ class NotificationPersistenceTest extends IntegrationTestSupport {
 
         // When
         transaction.executeWithoutResult(status -> {
-            assertThat(insert(member, "registration:3:approved")).isZero();
+            assertThat(insertReturning(member, "registration:3:approved")).isEmpty();
             assertThat(insert(member, "registration:4:approved")).isEqualTo(1);
         });
 
@@ -301,7 +339,7 @@ class NotificationPersistenceTest extends IntegrationTestSupport {
 
         // When
         new TransactionTemplate(transactions).executeWithoutResult(status -> {
-            Notification notification = notifications.save(notification(member, "registration:3:approved"));
+            Notification notification = insertReturning(member, "registration:3:approved").orElseThrow();
             deliveries.save(NotificationDelivery.create(notification, subscription, NOW, NOW.plusHours(24)));
             status.setRollbackOnly();
         });
@@ -334,7 +372,11 @@ class NotificationPersistenceTest extends IntegrationTestSupport {
     }
 
     private int insert(Member member, String eventKey) {
-        return notifications.insertIfAbsent(member.getId(), eventKey, NotificationEventType.REGISTRATION_APPROVED.name(),
+        return insertReturning(member, eventKey).isPresent() ? 1 : 0;
+    }
+
+    private Optional<Notification> insertReturning(Member member, String eventKey) {
+        return notifications.insertIfAbsentReturning(member.getId(), eventKey, NotificationEventType.REGISTRATION_APPROVED.name(),
                 1, jsonMapper.writeValueAsString(NotificationPayload.of(1, 2, 3, null)), NOW);
     }
 
