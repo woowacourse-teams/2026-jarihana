@@ -21,20 +21,20 @@ afterEach(() => {
   Object.defineProperty(window, "matchMedia", originalMatchMedia);
 });
 
-function setup({ ids = ["browse", "detail", "continue"], top = 1000, sequences } = {}) {
+function setup({ ids = ["browse", "detail", "continue"], top = 1000, sequences, height = 936 } = {}) {
   if (sequences) ids = sequences.flat();
   const root = document.createElement("section");
   if (sequences) root.dataset.guideFlow = "";
   else root.dataset.guideSequence = "";
-  root.getBoundingClientRect = () => ({ top: top - 600 - window.scrollY, bottom: top + ids.length * 936 + 64 - window.scrollY });
+  root.getBoundingClientRect = () => ({ top: top - 600 - window.scrollY, bottom: top + ids.length * height + 64 - window.scrollY });
   document.body.append(root);
   const sequenceRoots = sequences?.map((sequenceIds, sequenceIndex) => {
     const sequence = document.createElement("section");
     sequence.dataset.guideSequence = "";
     const firstIndex = sequences.slice(0, sequenceIndex).flat().length;
     sequence.getBoundingClientRect = () => ({
-      top: top + 64 + firstIndex * 936 - window.scrollY,
-      bottom: top + 64 + (firstIndex + sequenceIds.length) * 936 - window.scrollY,
+      top: top + 64 + firstIndex * height - window.scrollY,
+      bottom: top + 64 + (firstIndex + sequenceIds.length) * height - window.scrollY,
     });
     root.append(sequence);
     return sequence;
@@ -42,7 +42,7 @@ function setup({ ids = ["browse", "detail", "continue"], top = 1000, sequences }
   ids.forEach((id, index) => {
     const chapter = document.createElement("article");
     chapter.dataset.guideChapter = id;
-    chapter.getBoundingClientRect = () => ({ top: top + 64 + index * 936 - window.scrollY, height: 936 });
+    chapter.getBoundingClientRect = () => ({ top: top + 64 + index * height - window.scrollY, height });
     const sequenceIndex = sequences?.findIndex((sequenceIds) => sequenceIds.includes(id));
     (sequenceRoots?.[sequenceIndex] ?? root).append(chapter);
   });
@@ -160,12 +160,66 @@ test("small deltas accumulate while zoom and horizontal gestures remain native",
   expect(window.scrollY).toBe(1936);
 });
 
-test("layouts outside the tall desktop motion query bypass stepping", () => {
+test("reduced motion keeps native scrolling", () => {
   desktop.matches = false;
   setup();
-  expect(window.matchMedia).toHaveBeenCalledWith("(min-width: 64rem) and (height > 52rem) and (prefers-reduced-motion: no-preference)");
+  expect(window.matchMedia).toHaveBeenCalledWith("(prefers-reduced-motion: no-preference)");
   expect(wheel(100).defaultPrevented).toBe(false);
   fireEvent.keyDown(window, { key: "PageDown" });
+  advance();
+  expect(window.scrollTo).not.toHaveBeenCalled();
+});
+
+test.each([[468, 853], [1456, 768]])("guide stepping stays enabled at %ix%i", (width, height) => {
+  jest.replaceProperty(window, "innerWidth", width);
+  jest.replaceProperty(window, "innerHeight", height);
+  window.matchMedia.mockImplementation((query) => ({
+    ...desktop,
+    matches: (!query.includes("min-width") || width >= 1024) &&
+      (!query.includes("height >") || height > 832),
+  }));
+  const { activate } = setup({ height: height - 64 });
+  expect(wheel(1600).defaultPrevented).toBe(true);
+  advance();
+  expect(window.scrollY).toBe(1000 + height - 64);
+  expect(activate).toHaveBeenLastCalledWith("detail");
+});
+
+test("tall chapters are read from top to bottom before changing chapters", () => {
+  const { activate } = setup({ height: 2200 });
+  for (const [direction, top, id] of [
+    [1, 1632, "browse"], [1, 2264, "browse"], [1, 3200, "detail"],
+    [-1, 2264, "browse"], [-1, 1632, "browse"], [-1, 1000, "browse"],
+  ]) {
+    expect(wheel(1600 * direction).defaultPrevented).toBe(true);
+    advance();
+    expect(window.scrollY).toBe(top);
+    expect(activate).toHaveBeenLastCalledWith(id);
+  }
+});
+
+test("touch swipes move one stop, retain their tail, and allow reversing", () => {
+  const { activate } = setup();
+  fireEvent.touchStart(window, { touches: [{ clientX: 200, clientY: 600 }] });
+  expect(fireEvent.touchMove(window, { touches: [{ clientX: 200, clientY: 500 }] })).toBe(false);
+  advance();
+  expect(window.scrollY).toBe(1936);
+  expect(fireEvent.touchMove(window, { touches: [{ clientX: 200, clientY: 200 }] })).toBe(false);
+  advance();
+  expect(activate).toHaveBeenCalledTimes(1);
+  fireEvent.touchEnd(window, { touches: [] });
+  fireEvent.touchStart(window, { touches: [{ clientX: 200, clientY: 200 }] });
+  fireEvent.touchMove(window, { touches: [{ clientX: 200, clientY: 350 }] });
+  advance();
+  expect(window.scrollY).toBe(1000);
+});
+
+test("horizontal touch gestures and pinch zoom remain native", () => {
+  setup();
+  fireEvent.touchStart(window, { touches: [{ clientX: 200, clientY: 600 }] });
+  expect(fireEvent.touchMove(window, { touches: [{ clientX: 300, clientY: 590 }] })).toBe(true);
+  fireEvent.touchStart(window, { touches: [{ clientX: 100, clientY: 500 }, { clientX: 200, clientY: 600 }] });
+  expect(fireEvent.touchMove(window, { touches: [{ clientX: 100, clientY: 200 }, { clientX: 200, clientY: 300 }] })).toBe(true);
   advance();
   expect(window.scrollTo).not.toHaveBeenCalled();
 });

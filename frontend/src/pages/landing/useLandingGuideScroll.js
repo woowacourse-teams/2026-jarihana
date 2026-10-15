@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { WheelGestures } from "wheel-gestures";
 
-const DESKTOP_GUIDE = "(min-width: 64rem) and (height > 52rem) and (prefers-reduced-motion: no-preference)";
+const GUIDE_MOTION = "(prefers-reduced-motion: no-preference)";
 const STEP_DURATION = 520;
 const WHEEL_THRESHOLD = 40;
 const INPUT_PAUSE = 180;
@@ -15,8 +15,9 @@ export function useLandingGuideScroll(sectionRef, setActiveChapter) {
     if (!root) return;
     const chapters = [...root.querySelectorAll("[data-guide-chapter]")];
     if (!chapters.length) return;
-    const desktop = window.matchMedia(DESKTOP_GUIDE);
+    const motion = window.matchMedia(GUIDE_MOTION);
     let frame = null;
+    let touch = null;
     const gestures = WheelGestures({ preventWheelAction: false, reverseSign: false });
     let lastWheelAt = -Infinity;
     let consumed = false;
@@ -50,14 +51,23 @@ export function useLandingGuideScroll(sectionRef, setActiveChapter) {
       distance = 0;
       lastWheelAt = -Infinity;
       previousDelta = 0;
+      touch = null;
     }
 
     function stops() {
       const headerHeight = document.querySelector(".landing-header")?.getBoundingClientRect().height ?? 64;
       const center = (window.innerHeight + headerHeight) / 2;
-      return chapters.map((chapter) => {
+      const availableHeight = Math.max(1, window.innerHeight - headerHeight);
+      return chapters.flatMap((chapter) => {
         const rect = chapter.getBoundingClientRect();
-        return { id: chapter.dataset.guideChapter, top: window.scrollY + rect.top + rect.height / 2 - center };
+        const id = chapter.dataset.guideChapter;
+        const overflow = rect.height - availableHeight;
+        if (overflow <= POSITION_TOLERANCE) {
+          return [{ id, top: window.scrollY + rect.top + rect.height / 2 - center }];
+        }
+        const first = window.scrollY + rect.top - headerHeight;
+        const pages = Math.ceil(overflow / (availableHeight * 0.8));
+        return Array.from({ length: pages + 1 }, (_, index) => ({ id, top: first + overflow * index / pages }));
       });
     }
 
@@ -91,7 +101,7 @@ export function useLandingGuideScroll(sectionRef, setActiveChapter) {
       snappingRef.current = true;
       setActiveChapter(target.id);
       function tick(now) {
-        if (!desktop.matches || Math.abs(window.scrollY - previousY) > 2) {
+        if (!motion.matches || Math.abs(window.scrollY - previousY) > 2) {
           cancel();
           return;
         }
@@ -137,9 +147,32 @@ export function useLandingGuideScroll(sectionRef, setActiveChapter) {
     const unsubscribe = gestures.on("wheel", onGesture);
 
     function onWheel(event) {
-      if (!desktop.matches || event.defaultPrevented || !event.cancelable || event.ctrlKey || event.metaKey ||
+      if (!motion.matches || event.defaultPrevented || !event.cancelable || event.ctrlKey || event.metaKey ||
         Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
       gestures.feedWheel(event);
+    }
+
+    function onTouchStart(event) {
+      touch = event.touches.length === 1
+        ? { x: event.touches[0].clientX, y: event.touches[0].clientY, moved: false }
+        : null;
+    }
+
+    function onTouchMove(event) {
+      if (!motion.matches || !touch || event.defaultPrevented || !event.cancelable || event.touches.length !== 1) return;
+      const dy = touch.y - event.touches[0].clientY;
+      const dx = touch.x - event.touches[0].clientX;
+      if (Math.abs(dx) >= Math.abs(dy)) return;
+      const target = destination(Math.sign(dy), dy);
+      if (!target && frame === null && !touch.moved) return;
+      event.preventDefault();
+      if (touch.moved || frame !== null || Math.abs(dy) < WHEEL_THRESHOLD || !target) return;
+      touch.moved = true;
+      settle(target);
+    }
+
+    function onTouchEnd() {
+      touch = null;
     }
 
     function onKeyDown(event) {
@@ -147,7 +180,7 @@ export function useLandingGuideScroll(sectionRef, setActiveChapter) {
         cancel();
         return;
       }
-      if (!desktop.matches || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey ||
+      if (!motion.matches || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey ||
         event.target.closest?.("a, button, input, textarea, select, [contenteditable]:not([contenteditable='false'])")) return;
       const direction = event.key === "ArrowDown" || event.key === "PageDown" || (event.key === " " && !event.shiftKey)
         ? 1 : event.key === "ArrowUp" || event.key === "PageUp" || (event.key === " " && event.shiftKey) ? -1 : 0;
@@ -165,24 +198,32 @@ export function useLandingGuideScroll(sectionRef, setActiveChapter) {
     }
 
     window.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", onTouchEnd);
+    window.addEventListener("touchcancel", onTouchEnd);
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("click", onClick);
     window.addEventListener("pointerdown", cancel);
     window.addEventListener("resize", cancel);
     window.addEventListener("hashchange", cancel);
-    desktop.addEventListener("change", cancel);
+    motion.addEventListener("change", cancel);
     return () => {
       cancel();
       observer?.disconnect();
       unsubscribe();
       gestures.disconnect();
       window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener("touchcancel", onTouchEnd);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("click", onClick);
       window.removeEventListener("pointerdown", cancel);
       window.removeEventListener("resize", cancel);
       window.removeEventListener("hashchange", cancel);
-      desktop.removeEventListener("change", cancel);
+      motion.removeEventListener("change", cancel);
     };
   }, [sectionRef, setActiveChapter]);
 
