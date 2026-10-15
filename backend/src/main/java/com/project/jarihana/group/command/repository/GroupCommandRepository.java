@@ -33,6 +33,20 @@ public interface GroupCommandRepository extends Repository<Group, Long> {
             """)
     Optional<Group> findWithLockByRecruitmentId(@Param("recruitmentId") long recruitmentId);
 
+    // Registration requests can share this lock; group-wide updates still take an exclusive lock.
+    @Lock(LockModeType.PESSIMISTIC_READ)
+    @Query("""
+            select targetGroup
+            from Group targetGroup
+            where exists (
+                select recruitment.id
+                from GroupRecruitment recruitment
+                where recruitment.id = :recruitmentId
+                  and recruitment.group.id = targetGroup.id
+            )
+            """)
+    Optional<Group> findWithSharedLockByRecruitmentId(@Param("recruitmentId") long recruitmentId);
+
     boolean existsByName(String name);
 
     boolean existsByNameAndIdNot(String name, Long id);

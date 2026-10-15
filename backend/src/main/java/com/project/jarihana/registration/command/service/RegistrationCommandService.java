@@ -58,17 +58,21 @@ public class RegistrationCommandService {
             long recruitmentId,
             CreateRegistrationCommand command
     ) {
-        groupRepository.findWithLockByRecruitmentId(recruitmentId)
+        // Keep the group stable without serializing every applicant in the group.
+        Group group = groupRepository.findWithSharedLockByRecruitmentId(recruitmentId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RECRUITMENT_NOT_FOUND,
                         "모집 공고를 찾을 수 없습니다."
                 ));
+        Member member = memberRepository.findWithLockById(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, "회원 정보를 찾을 수 없습니다."));
+        validateApplicant(group, recruitmentId, memberId);
+
+        // Serialize capacity checks only for this recruitment.
         GroupRecruitment recruitment = recruitmentRepository.findWithLockById(recruitmentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RECRUITMENT_NOT_FOUND, "모집 공고를 찾을 수 없습니다."));
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, "회원 정보를 찾을 수 없습니다."));
         LocalDateTime now = LocalDateTime.now(clock);
-        int approvedCount = validateRegistration(recruitment, memberId, now);
+        int approvedCount = validateRecruitment(recruitment, now);
         Registration registration = switch (recruitment.getJoinMethod()) {
             case APPROVAL -> Registration.createPending(recruitment, member, command.message(), now);
             case AUTO -> createAutoApprovedRegistration(
@@ -89,15 +93,15 @@ public class RegistrationCommandService {
         return CreateRegistrationResult.from(registration);
     }
 
-    private int validateRegistration(GroupRecruitment recruitment, long memberId, LocalDateTime now) {
-        long groupId = recruitment.getGroup().getId();
-        if (!recruitment.getGroup().isActive()) {
+    private void validateApplicant(Group group, long recruitmentId, long memberId) {
+        long groupId = group.getId();
+        if (!group.isActive()) {
             throw new BusinessException(ErrorCode.GROUP_ENDED, "종료된 그룹에는 가입 신청할 수 없습니다.");
         }
         if (groupMemberRepository.findByGroupIdAndMemberId(groupId, memberId).isPresent()) {
             throw new BusinessException(ErrorCode.GROUP_MEMBER_ALREADY_EXISTS, "이미 가입한 그룹입니다.");
         }
-        if (registrationRepository.existsByRecruitmentIdAndMemberId(recruitment.getId(), memberId)) {
+        if (registrationRepository.existsByRecruitmentIdAndMemberId(recruitmentId, memberId)) {
             throw new BusinessException(ErrorCode.REGISTRATION_ALREADY_EXISTS, "이미 해당 모집 공고에 신청했습니다.");
         }
         if (registrationRepository.existsByRecruitmentGroupIdAndMemberIdAndStatus(
@@ -110,6 +114,9 @@ public class RegistrationCommandService {
                     "같은 그룹의 다른 모집 공고에 대기 중인 신청이 있습니다."
             );
         }
+    }
+
+    private int validateRecruitment(GroupRecruitment recruitment, LocalDateTime now) {
         int approvedCount = 0;
         if (recruitment.getJoinMethod() == JoinMethod.AUTO) {
             approvedCount = approvedCount(recruitment.getId());
