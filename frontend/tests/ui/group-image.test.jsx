@@ -25,13 +25,13 @@ it("recognizes the asset path as a default when editing a group", () => {
 });
 
 it("preserves uploaded image URLs and storage keys", () => {
-  const representativeImageUrl = "https://dev.jarihana.com/images/groups/tmp/upload.webp";
+  const representativeImageUrl = "https://dev.jarihana.com/api/images/groups/12/upload.webp";
 
   render(<GroupImage alt="업로드 이미지" group={{ representativeImageUrl }} />);
 
   expect(screen.getByRole("img")).toHaveAttribute("src", representativeImageUrl);
   expect(isDefaultGroupImageUrl(representativeImageUrl)).toBe(false);
-  expect(representativeImageKeyFromUrl(representativeImageUrl)).toBe("groups/tmp/upload.webp");
+  expect(representativeImageKeyFromUrl(representativeImageUrl)).toBe("groups/12/upload.webp");
 });
 
 it("uses the static asset if an uploaded image fails to load", () => {

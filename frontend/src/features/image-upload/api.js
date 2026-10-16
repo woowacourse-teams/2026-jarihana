@@ -114,9 +114,9 @@ export function isDefaultGroupImageUrl(imageUrl) {
 
 /**
  * The current group response exposes a public URL rather than the storage key.
- * Recover the key for the known CloudFront `/images` path so a full-replacement
- * group PUT can preserve an existing representative image. A future response
- * field can supersede this compatibility conversion.
+ * Recover the key from the service `/api/images` path and the legacy `/images`
+ * path so a full-replacement group PUT can preserve an existing representative
+ * image. A future response field can supersede this compatibility conversion.
  */
 export function representativeImageKeyFromUrl(imageUrl) {
   const path = imagePath(imageUrl);

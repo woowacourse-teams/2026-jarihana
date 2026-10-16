@@ -88,7 +88,7 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
                 .body("data.items[0].status", equalTo("ACTIVE"))
                 .body("data.items[0].name", equalTo("알고리즘 스터디"))
                 .body("data.items[0].representativeImageUrl",
-                        equalTo("https://cdn.example.test/images/groups/1.webp"))
+                        equalTo("https://service.example.test/api/images/groups/1.webp"))
                 .body("data.items[0].memberCount", equalTo(1))
                 .body("data.items[0].leader.crewName", equalTo("가온"))
                 .body("data.hasNext", equalTo(true))
@@ -460,7 +460,7 @@ class GroupQueryControllerTest extends IntegrationTestSupport {
                 .body("data.name", equalTo("알고리즘 스터디"))
                 .body("data.description", equalTo("문제 풀이와 코드 리뷰를 진행합니다."))
                 .body("data.representativeImageUrl",
-                        equalTo("https://cdn.example.test/images/groups/1.webp"))
+                        equalTo("https://service.example.test/api/images/groups/1.webp"))
                 .body("data.recurringSchedule.daysOfWeek", hasItems("MONDAY", "WEDNESDAY"))
                 .body("data.recurringSchedule.startTime", equalTo("19:00:00"))
                 .body("data.sessionSchedule", nullValue())

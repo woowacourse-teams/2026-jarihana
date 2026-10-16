@@ -82,7 +82,7 @@ class ActivityPostAcceptanceTest extends IntegrationTestSupport {
                 .body("success", equalTo(true))
                 .body("data.items[0].caption", equalTo("최근 기록"))
                 .body("data.items[0].authorNickname", equalTo("나래"))
-                .body("data.items[0].imageUrl", equalTo("https://cdn.example.test/images/photos/list-2.jpg"))
+                .body("data.items[0].imageUrl", equalTo("https://service.example.test/api/images/photos/list-2.jpg"))
                 .body("data.items[0].canModify", equalTo(false))
                 .body("data.hasNext", equalTo(true))
                 .extract();
