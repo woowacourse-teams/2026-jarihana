@@ -4,7 +4,7 @@
 
 ## 공통 규칙
 
-- 조회 API는 비로그인 방문자에게도 공개한다. 모든 게시물과 사진은 전체 공개다.
+- 조회 API는 비로그인 방문자에게도 공개한다. 숨김 처리되지 않은 게시물과 연결 사진은 전체 공개다.
 - 작성은 로그인한 활성 그룹 구성원만 가능하며, 종료된 그룹에는 새 기록을 작성할 수 없다.
 - 작성자 표시는 회원의 `crewName`이다. 응답의 `canModify`는 현재 요청자의 수정·숨김 권한이다.
 - 활동 날짜는 미입력 시 오늘이며 과거 날짜는 허용, 미래 날짜는 거부한다.
@@ -143,7 +143,8 @@
 | 그룹에 속하지 않은 회원의 작성 | `GROUP_ACCESS_DENIED` | 403 |
 | 종료된 그룹에 작성 | `GROUP_ENDED` | 409 |
 | 다른 작성자의 수정·숨김 | `ACTIVITY_POST_ACCESS_DENIED` | 403 |
-| 게시물·이미지 없음 또는 업로드 만료 | `ACTIVITY_POST_NOT_FOUND` 또는 `IMAGE_NOT_FOUND` | 404 |
+| 게시물이 없거나 숨김 처리됨 | `ACTIVITY_POST_NOT_FOUND` | 404 |
+| 이미지가 없거나 업로드가 만료됨 | `IMAGE_NOT_FOUND` | 400 |
 | 미래 날짜, 캡션 길이, 잘못된 커서·크기 | `INVALID_PARAMETER` | 400 |
 | 빈 댓글, 200자를 넘는 댓글, 지원하지 않는 이모지 | `INVALID_PARAMETER` | 400 |
 | 다른 회원 댓글을 모임장이 아닌 회원이 삭제 | `ACTIVITY_POST_COMMENT_ACCESS_DENIED` | 403 |
