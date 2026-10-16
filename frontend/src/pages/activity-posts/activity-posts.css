@@ -1107,7 +1107,8 @@
     overflow: auto;
     border-radius: 0;
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto auto;
+    /* 내용이 짧아도 대화 영역이 남은 높이를 채워 입력창이 아래에 붙는다. */
+    grid-template-rows: auto auto minmax(auto, 1fr);
   }
 
   .activity-post-detail .ui-dialog__title {
@@ -1125,7 +1126,9 @@
     top: calc(env(safe-area-inset-top, 0px) + var(--space-2));
   }
 
+  /* 데스크톱의 min-height: 0이 남으면 사진 행이 화면 높이에 맞춰 줄어 사진이 캡션을 덮는다. */
   .activity-post-detail__photo {
+    min-height: auto;
     padding: 0;
     grid-column: 1;
     grid-row: 2;
@@ -1136,9 +1139,10 @@
   }
 
   .activity-post-detail__side {
-    display: block;
+    min-height: auto;
     grid-column: 1;
     grid-row: 3;
+    grid-template-rows: 1fr auto;
   }
 
   .activity-post-detail__scroll {
