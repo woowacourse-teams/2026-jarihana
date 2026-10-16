@@ -14,7 +14,7 @@ datasources:
     editable: false
     jsonData:
       httpMethod: POST
-      timeInterval: 30s
+      timeInterval: 5s
 
   - name: Loki
     uid: loki
