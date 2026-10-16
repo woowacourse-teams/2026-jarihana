@@ -67,6 +67,7 @@ publish하지 않으며 조회 API `3200`은 호스트 loopback에만 공개한�
    Tempo 서비스를 올리는 것만으로는 부족하다. 기본 구성에서 빠져 있는 다음 항목을 같이 복원한다.
 
    - Grafana provisioning의 `deleteDatasources`에서 Tempo를 제거하고 Tempo 데이터 소스를 다시 등록한다.
+   - Grafana의 `GF_PLUGINS_DISABLE_PLUGINS`에서 `tempo`를 제외하고 Grafana를 재생성한다.
    - Nginx의 `/tempo/v1/traces` 경로를 `404` 대신 `proxy_pass http://tempo:4318/v1/traces`로 되돌린다.
    - Prometheus의 Tempo scrape job 주석을 해제한다.
    - 앱 Alloy의 주석 처리된 OTLP receiver, privacy transform, batch, Tempo exporter pipeline을 되살린다.
