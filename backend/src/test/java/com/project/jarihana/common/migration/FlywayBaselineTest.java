@@ -65,6 +65,34 @@ class FlywayBaselineTest extends IntegrationTestSupport {
     }
 
     @Test
+    @DisplayName("Flyway는 활동 기록 댓글과 반응 테이블, 인덱스와 하트 전용 제약을 생성한다.")
+    void applicationMigratesActivityPostInteractions() {
+        // Given
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+
+        // When
+        int appliedMigrations = flyway.migrate().migrationsExecuted;
+
+        // Then
+        assertThat(appliedMigrations).isZero();
+        assertThat(jdbc.queryForObject("""
+                select type from flyway_schema_history where version = '2' and success
+                """, String.class)).isEqualTo("SQL");
+        assertThat(jdbc.queryForList("select tablename from pg_tables where schemaname = current_schema()", String.class))
+                .contains("activity_post_comment", "activity_post_reaction", "activity_post_comment_reaction");
+        assertThat(jdbc.queryForList("select indexname from pg_indexes where schemaname = current_schema()", String.class))
+                .contains("idx_activity_post_comment_post_created_id", "uk_activity_post_reaction_post_member_emoji",
+                        "uk_activity_post_comment_reaction_comment_member_emoji");
+        assertThat(jdbc.queryForObject("""
+                select type from flyway_schema_history where version = '3' and success
+                """, String.class)).isEqualTo("SQL");
+        assertThat(jdbc.queryForList("""
+                select conname from pg_constraint where connamespace = current_schema()::regnamespace
+                """, String.class)).contains("ck_activity_post_reaction_emoji",
+                        "ck_activity_post_comment_reaction_emoji");
+    }
+
+    @Test
     @DisplayName("실제 운영 스키마처럼 허용되지 않은 회원 과정은 DB에서 거절한다.")
     void rejectMemberCourseOutsideLiveSchemaValues() {
         // Given
@@ -109,11 +137,17 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 int appliedMigrations = existing.migrate().migrationsExecuted;
 
                 // Then
-                assertThat(appliedMigrations).isEqualTo(1);
+                assertThat(appliedMigrations).isEqualTo(3);
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '1'", String.class))
                         .isEqualTo("BASELINE");
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '2'", String.class))
                         .isEqualTo("SQL");
+                assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '3'", String.class))
+                        .isEqualTo("SQL");
+                assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '999999'", String.class))
+                        .isEqualTo("SQL");
+                assertThat(jdbc.queryForList("select tablename from pg_tables where schemaname = current_schema()", String.class))
+                        .contains("activity_post_comment", "activity_post_reaction", "activity_post_comment_reaction");
                 assertThat(jdbc.queryForObject("select github_id from member", String.class)).isEqualTo("baseline-member");
                 assertThat(jdbc.queryForObject("select principal_name from spring_session", String.class))
                         .isEqualTo("baseline-member");

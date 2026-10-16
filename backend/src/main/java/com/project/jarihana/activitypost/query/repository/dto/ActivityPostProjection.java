@@ -11,11 +11,14 @@ public record ActivityPostProjection(
         String groupName,
         GroupType groupType,
         GroupStatus groupStatus,
+        boolean groupRecruiting,
+        boolean joined,
         String authorNickname,
         String imageKey,
         String caption,
         LocalDate activityDate,
         LocalDateTime createdAt,
-        boolean canModify
+        boolean canModify,
+        Long commentCount
 ) {
 }
