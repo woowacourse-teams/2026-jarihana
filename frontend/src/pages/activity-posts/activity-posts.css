@@ -848,6 +848,31 @@
   outline-offset: 0.125rem;
 }
 
+/* 반응한 사람 말풍선: 하트가 늘 줄 왼쪽에 있어 버튼 왼쪽 끝에 맞춰 위로 띄우고, 마우스 이벤트는 버튼에 넘긴다. */
+.activity-reaction-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.activity-reaction-tooltip {
+  position: absolute;
+  z-index: 3;
+  bottom: calc(100% + var(--space-2));
+  left: 0;
+  width: max-content;
+  max-width: 16rem;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-ink);
+  box-shadow: var(--shadow-float);
+  color: var(--color-surface);
+  font-size: var(--text-caption);
+  line-height: 1.4;
+  pointer-events: none;
+  white-space: normal;
+  word-break: keep-all;
+}
+
 .activity-reactions--sm .activity-reaction {
   min-width: 2rem;
   min-height: 1.6rem;
@@ -908,10 +933,11 @@
   grid-template-columns: auto minmax(0, 1fr);
 }
 
-.activity-comment__avatar {
+.activity-comment__avatar.ui-avatar {
   display: grid;
   width: 1.75rem;
   height: 1.75rem;
+  object-fit: cover;
   border-radius: 50%;
   background: var(--color-brand-soft);
   color: var(--color-brand-ink);
@@ -1107,7 +1133,8 @@
     overflow: auto;
     border-radius: 0;
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto auto;
+    /* 내용이 짧아도 대화 영역이 남은 높이를 채워 입력창이 아래에 붙는다. */
+    grid-template-rows: auto auto minmax(auto, 1fr);
   }
 
   .activity-post-detail .ui-dialog__title {
@@ -1125,7 +1152,9 @@
     top: calc(env(safe-area-inset-top, 0px) + var(--space-2));
   }
 
+  /* 데스크톱의 min-height: 0이 남으면 사진 행이 화면 높이에 맞춰 줄어 사진이 캡션을 덮는다. */
   .activity-post-detail__photo {
+    min-height: auto;
     padding: 0;
     grid-column: 1;
     grid-row: 2;
@@ -1136,9 +1165,10 @@
   }
 
   .activity-post-detail__side {
-    display: block;
+    min-height: auto;
     grid-column: 1;
     grid-row: 3;
+    grid-template-rows: 1fr auto;
   }
 
   .activity-post-detail__scroll {

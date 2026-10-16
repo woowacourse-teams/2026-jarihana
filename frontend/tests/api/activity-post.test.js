@@ -1,6 +1,7 @@
 import {
   ACTIVITY_REACTION_EMOJIS,
   activityPostSchema,
+  describeActivityReactors,
   toggleActivityReaction
 } from "../../src/entities/activity-post/index.js";
 import {
@@ -11,6 +12,7 @@ import {
   deleteActivityPost,
   fetchActivityComments,
   fetchActivityPosts,
+  fetchActivityReactors,
   modifyActivityPost,
   removeActivityReaction
 } from "../../src/features/activity-post/api.js";
@@ -95,6 +97,38 @@ describe("activity post API", () => {
     expect(apiRequest).toHaveBeenNthCalledWith(2, "activity-post-comments/7/reactions/HEART", {
       method: "delete"
     });
+  });
+});
+
+describe("activity reactors", () => {
+  it("reads who reacted from the same reaction path", async () => {
+    await fetchActivityReactors({ id: 7, type: "comment" }, "HEART");
+
+    expect(apiRequest).toHaveBeenCalledWith(
+      "activity-post-comments/7/reactions/HEART",
+      expect.objectContaining({ schema: expect.any(Object) })
+    );
+  });
+
+  it("summarizes reactors with me first and counts the rest", () => {
+    const reactors = [
+      { crewName: "바다", mine: false },
+      { crewName: "구름", mine: true }
+    ];
+
+    expect(describeActivityReactors({ count: 2, reactors }, "하트")).toBe("나, 바다가 하트를 남겼어요");
+    expect(describeActivityReactors({ count: 5, reactors }, "하트")).toBe("나, 바다 외 3명이 하트를 남겼어요");
+    expect(describeActivityReactors({ count: 1, reactors: [{ crewName: "하늘빛", mine: false }] }, "하트"))
+      .toBe("하늘빛이 하트를 남겼어요");
+    expect(describeActivityReactors({ count: 0, reactors: [] }, "하트")).toBeNull();
+  });
+
+  it("shows at most ten names", () => {
+    const reactors = Array.from({ length: 12 }, (_, index) => ({ crewName: `크루${index}`, mine: false }));
+
+    expect(describeActivityReactors({ count: 30, reactors }, "하트")).toBe(
+      "크루0, 크루1, 크루2, 크루3, 크루4, 크루5, 크루6, 크루7, 크루8, 크루9 외 20명이 하트를 남겼어요"
+    );
   });
 });
 

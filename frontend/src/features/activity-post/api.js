@@ -4,7 +4,8 @@ import {
   activityCommentCreateResponseSchema,
   activityCommentPageSchema,
   activityPostCreateResponseSchema,
-  activityPostPageSchema
+  activityPostPageSchema,
+  activityReactorListSchema
 } from "../../entities/activity-post/index.js";
 import { apiRequest } from "../../shared/api/index.js";
 
@@ -81,4 +82,8 @@ export function addActivityReaction(target, emoji) {
 
 export function removeActivityReaction(target, emoji) {
   return apiRequest(reactionPath(target, emoji), { method: "delete" });
+}
+
+export function fetchActivityReactors(target, emoji) {
+  return apiRequest(reactionPath(target, emoji), { schema: activityReactorListSchema });
 }

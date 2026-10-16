@@ -8,6 +8,7 @@ import com.project.jarihana.activitypost.query.service.dto.ActivityPostCommentLi
 import com.project.jarihana.activitypost.query.service.dto.ActivityPostCommentListResult;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.common.github.GithubAvatarUrl;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
@@ -54,6 +55,7 @@ public class ActivityPostCommentQueryService {
                 page.stream().map(comment -> new ActivityPostCommentListResult.Item(
                         comment.id(),
                         comment.authorNickname(),
+                        GithubAvatarUrl.from(comment.authorGithubId()),
                         comment.content(),
                         comment.createdAt(),
                         comment.canDelete(),

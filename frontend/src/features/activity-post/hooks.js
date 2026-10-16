@@ -1,4 +1,4 @@
-import { keepPreviousData, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { toggleActivityReaction } from "../../entities/activity-post/index.js";
 import { getSafeNextCursor } from "../../entities/cursor/index.js";
@@ -11,6 +11,7 @@ import {
   deleteActivityPost,
   fetchActivityComments,
   fetchActivityPosts,
+  fetchActivityReactors,
   modifyActivityPost,
   removeActivityReaction
 } from "./api.js";
@@ -26,8 +27,27 @@ export const activityPostKeys = {
     viewerKey
   ],
   comments: (postId) => ["activityPosts", "comments", String(postId)],
-  commentList: (postId, viewerKey = "anonymous") => ["activityPosts", "comments", String(postId), viewerKey]
+  commentList: (postId, viewerKey = "anonymous") => ["activityPosts", "comments", String(postId), viewerKey],
+  reactorsOf: (target) => ["activityPosts", "reactors", target.type, String(target.id)],
+  reactors: (target, emoji, viewerKey = "anonymous") => [
+    "activityPosts",
+    "reactors",
+    target.type,
+    String(target.id),
+    emoji,
+    viewerKey
+  ]
 };
+
+/** 반응 버튼에 올렸을 때만 반응한 사람을 불러온다. */
+export function useActivityReactors({ target, emoji, viewerKey = "anonymous", enabled = true }) {
+  return useQuery({
+    queryKey: activityPostKeys.reactors(target, emoji, viewerKey),
+    queryFn: () => fetchActivityReactors(target, emoji),
+    enabled,
+    staleTime: 30_000
+  });
+}
 
 export function useInfiniteActivityPosts({ groupId, mine = false, viewerKey = "anonymous" } = {}) {
   const filters = { groupId: groupId ? String(groupId) : null, mine };
@@ -155,6 +175,8 @@ export function useToggleActivityReaction() {
     onError: (_error, { post, target }) =>
       queryClient.invalidateQueries({
         queryKey: target.type === "post" ? activityPostKeys.feeds() : activityPostKeys.comments(post.id)
-      })
+      }),
+    onSettled: (_data, _error, { target }) =>
+      queryClient.invalidateQueries({ queryKey: activityPostKeys.reactorsOf(target) })
   });
 }

@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router";
 
 import { storeReturnTarget, useAuth } from "../../../src/features/auth/index.js";
 import {
+  useActivityReactors,
   useInfiniteActivityComments,
   useInfiniteActivityPosts,
   useToggleActivityReaction
@@ -34,6 +35,7 @@ jest.mock("../../../src/features/activity-post/hooks.js", () => ({
   useInfiniteActivityComments: jest.fn(),
   useInfiniteActivityPosts: jest.fn(),
   useModifyActivityPost: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  useActivityReactors: jest.fn(),
   useToggleActivityReaction: jest.fn()
 }));
 
@@ -174,6 +176,7 @@ function mockPhotoWallMeasurements() {
 
 const comments = [
   {
+    authorAvatarUrl: "https://avatars.githubusercontent.com/u/7",
     authorNickname: "나래",
     canDelete: false,
     content: "다음 모임에 저도 가고 싶어요",
@@ -185,11 +188,24 @@ const comments = [
 
 const toggleReaction = jest.fn(() => Promise.resolve());
 
+// jsdom에는 PointerEvent가 없어 pointerType을 전달하지 못한다. 마우스와 터치를 구분하는 테스트를 위해 채운다.
+class TestPointerEvent extends MouseEvent {
+  constructor(type, init = {}) {
+    super(type, init);
+    this.pointerType = init.pointerType ?? "";
+  }
+}
+
+beforeAll(() => {
+  if (!window.PointerEvent) window.PointerEvent = TestPointerEvent;
+});
+
 beforeEach(() => {
   jest.clearAllMocks();
   useSearchParams.mockReturnValue([new URLSearchParams(), jest.fn()]);
   useAuth.mockReturnValue({ isAuthenticated: false, login: jest.fn(), status: "anonymous" });
   useToggleActivityReaction.mockReturnValue({ mutateAsync: toggleReaction });
+  useActivityReactors.mockReturnValue({ data: undefined, isError: false });
   useInfiniteActivityComments.mockReturnValue({
     data: { pages: [{ hasNext: false, items: comments, nextCursor: null }] },
     fetchNextPage: jest.fn(),
@@ -319,6 +335,64 @@ it("shows the heart without a count before anyone reacts", () => {
   expect(heart).toHaveAttribute("data-ph-capture-attribute-action", "activity_reaction_toggle");
   expect(heart.querySelector(".activity-reaction__icon")).toBeInTheDocument();
   expect(heart.querySelector(".activity-reaction__count")).not.toBeInTheDocument();
+});
+
+it("shows who left a heart when the mouse rests on the heart", () => {
+  useActivityReactors.mockImplementation(({ enabled }) => ({
+    data: enabled
+      ? {
+          count: 3,
+          emoji: "HEART",
+          reactors: [
+            { crewName: "바다", mine: false },
+            { crewName: "구름", mine: true }
+          ]
+        }
+      : undefined,
+    isError: false
+  }));
+  renderBoard();
+  fireEvent.click(screen.getAllByRole("button", { name: /활동 사진/ })[0]);
+  const dialog = screen.getByRole("dialog", { name: "우아한 스터디" });
+  const heart = within(dialog).getByRole("button", { name: "하트 반응 3개, 내가 남김" });
+  expect(within(dialog).queryByRole("tooltip")).not.toBeInTheDocument();
+
+  fireEvent.pointerOver(heart, { pointerType: "mouse" });
+
+  expect(within(dialog).getByRole("tooltip")).toHaveTextContent("나, 바다 외 1명이 하트를 남겼어요");
+  expect(heart).toHaveAccessibleDescription("나, 바다 외 1명이 하트를 남겼어요");
+  expect(useActivityReactors).toHaveBeenLastCalledWith(
+    expect.objectContaining({ emoji: "HEART", enabled: true, target: { id: 2, type: "post" } })
+  );
+
+  fireEvent.pointerOut(heart, { pointerType: "mouse" });
+
+  expect(within(dialog).queryByRole("tooltip")).not.toBeInTheDocument();
+});
+
+it("does not ask who reacted for a touch tap", () => {
+  renderBoard();
+  fireEvent.click(screen.getAllByRole("button", { name: /활동 사진/ })[0]);
+  const dialog = screen.getByRole("dialog", { name: "우아한 스터디" });
+
+  fireEvent.pointerOver(within(dialog).getByRole("button", { name: "하트 반응 3개, 내가 남김" }), {
+    pointerType: "touch"
+  });
+
+  expect(within(dialog).queryByRole("tooltip")).not.toBeInTheDocument();
+  expect(useActivityReactors).not.toHaveBeenCalledWith(expect.objectContaining({ enabled: true }));
+});
+
+it("shows the comment author's GitHub profile image", () => {
+  renderBoard();
+  fireEvent.click(screen.getAllByRole("button", { name: /활동 사진/ })[0]);
+  const dialog = screen.getByRole("dialog", { name: "우아한 스터디" });
+
+  const comment = within(dialog).getByText("다음 모임에 저도 가고 싶어요").closest("li");
+  expect(comment.querySelector("img.activity-comment__avatar")).toHaveAttribute(
+    "src",
+    "https://avatars.githubusercontent.com/u/7"
+  );
 });
 
 it("closes the photo viewer with Escape while keeping the post detail open", () => {
