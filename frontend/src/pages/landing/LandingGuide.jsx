@@ -67,8 +67,8 @@ const activityChapters = [{
   number: "01",
   icon: Camera,
   title: "활동 기록 남기기",
-  checks: ["사진과 글 올리기", "댓글·이모지 남기기"],
-  alt: "활동 사진과 짧은 글을 올리고 댓글과 이모지로 대화하는 활동 피드 이용 예시"
+  checks: ["사진과 글 올리기", "댓글과 하트 남기기"],
+  alt: "활동 사진과 짧은 글을 올리고 댓글과 하트로 대화하는 활동 피드 이용 예시"
 }];
 
 function ProductFrame({ chapter, isActive = true, playbackActive = isActive }) {
