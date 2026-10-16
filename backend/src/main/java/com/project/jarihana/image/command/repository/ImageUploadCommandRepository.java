@@ -20,14 +20,19 @@ public interface ImageUploadCommandRepository extends Repository<ImageUpload, UU
     Optional<ImageUpload> findById(UUID id);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select upload from ImageUpload upload where upload.id = :id")
+    Optional<ImageUpload> findWithLockById(UUID id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select upload from ImageUpload upload where upload.imageKey = :imageKey")
     Optional<ImageUpload> findWithLockByImageKey(String imageKey);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select upload from ImageUpload upload
             where upload.status = com.project.jarihana.image.domain.ImageUploadStatus.TEMPORARY
               and upload.expiresAt <= :now
-            order by upload.createdAt asc
+            order by upload.createdAt asc, upload.id asc
             """)
     List<ImageUpload> findCleanupCandidates(LocalDateTime now, Pageable pageable);
 

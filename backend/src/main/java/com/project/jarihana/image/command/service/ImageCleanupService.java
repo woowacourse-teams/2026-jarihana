@@ -101,7 +101,7 @@ public class ImageCleanupService {
     private void reconcileExpiredUploads(LocalDateTime now) {
         transactions.executeWithoutResult(ignored -> uploadRepository
                 .findCleanupCandidates(now, PageRequest.of(0, properties.cleanupBatchSize()))
-                .forEach(upload -> lifecycleService.scheduleDeletionIfUnreferenced(upload, now)));
+                .forEach(upload -> lifecycleService.scheduleDeletionIfUnreferenced(upload.getId(), now)));
     }
 
     private void process(UUID taskId, LocalDateTime now) {

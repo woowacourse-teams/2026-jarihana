@@ -1,10 +1,8 @@
 package com.project.jarihana.image.command.service;
 
 import com.project.jarihana.image.command.repository.ImageReferenceRepository;
-import com.project.jarihana.image.command.repository.ImageUploadCommandRepository;
 import com.project.jarihana.image.domain.ImageReference;
 import com.project.jarihana.image.domain.ImageReferenceType;
-import com.project.jarihana.image.domain.ImageUpload;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -18,16 +16,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class ImageReferenceService {
 
     private final ImageReferenceRepository referenceRepository;
-    private final ImageUploadCommandRepository uploadRepository;
     private final ImageLifecycleService lifecycleService;
 
     public ImageReferenceService(
             ImageReferenceRepository referenceRepository,
-            ImageUploadCommandRepository uploadRepository,
             ImageLifecycleService lifecycleService
     ) {
         this.referenceRepository = referenceRepository;
-        this.uploadRepository = uploadRepository;
         this.lifecycleService = lifecycleService;
     }
 
@@ -48,10 +43,10 @@ public class ImageReferenceService {
                 .forEach(referenceRepository::save);
         previous.stream()
                 .map(ImageReference::getImageUploadId)
+                .distinct()
                 .filter(id -> !nextIds.contains(id))
-                .map(uploadRepository::findById)
-                .flatMap(java.util.Optional::stream)
-                .forEach(upload -> lifecycleService.scheduleDeletionIfUnreferenced(upload, now));
+                .sorted()
+                .forEach(uploadId -> lifecycleService.scheduleDeletionIfUnreferenced(uploadId, now));
     }
 
     @Transactional
@@ -79,9 +74,8 @@ public class ImageReferenceService {
                 .map(ImageReference::getImageUploadId)
                 .distinct()
                 .filter(id -> !nextIds.contains(id))
-                .map(uploadRepository::findById)
-                .flatMap(java.util.Optional::stream)
-                .forEach(upload -> lifecycleService.scheduleDeletionIfUnreferenced(upload, now));
+                .sorted()
+                .forEach(uploadId -> lifecycleService.scheduleDeletionIfUnreferenced(uploadId, now));
     }
 
     @Transactional
@@ -106,9 +100,8 @@ public class ImageReferenceService {
         references.stream()
                 .map(ImageReference::getImageUploadId)
                 .distinct()
-                .map(uploadRepository::findById)
-                .flatMap(java.util.Optional::stream)
-                .forEach(upload -> lifecycleService.scheduleDeletionIfUnreferenced(upload, now));
+                .sorted()
+                .forEach(uploadId -> lifecycleService.scheduleDeletionIfUnreferenced(uploadId, now));
     }
 
     private void saveAll(

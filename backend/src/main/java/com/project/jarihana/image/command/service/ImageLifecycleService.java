@@ -16,6 +16,7 @@ import com.project.jarihana.image.domain.ImageUpload;
 import com.project.jarihana.image.domain.ImagePromotionTask;
 import java.time.LocalDateTime;
 import java.util.Objects;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -89,7 +90,7 @@ public class ImageLifecycleService {
     }
 
     private void recordPromotionIntent(
-            java.util.UUID uploadId,
+            UUID uploadId,
             String sourceKey,
             String targetKey,
             LocalDateTime now
@@ -125,12 +126,17 @@ public class ImageLifecycleService {
     }
 
     @Transactional
-    public void scheduleDeletionIfUnreferenced(ImageUpload upload, LocalDateTime now) {
-        if (upload == null || imageReferenceRepository.existsByImageUploadId(upload.getId())) {
-            if (upload != null) {
-                upload.restoreAttachment(now);
-                cancelDeletion(upload);
-            }
+    public void scheduleDeletionIfUnreferenced(UUID uploadId, LocalDateTime now) {
+        if (uploadId == null) {
+            return;
+        }
+        ImageUpload upload = imageUploadRepository.findWithLockById(uploadId).orElse(null);
+        if (upload == null) {
+            return;
+        }
+        if (imageReferenceRepository.existsByImageUploadId(uploadId)) {
+            upload.restoreAttachment(now);
+            cancelDeletion(upload);
             return;
         }
         LocalDateTime executeAfter = now.plus(properties.cleanupGracePeriod());

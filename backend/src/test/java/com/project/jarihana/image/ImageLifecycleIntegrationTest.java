@@ -1,6 +1,7 @@
 package com.project.jarihana.image;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.project.jarihana.group.command.repository.GroupCommandRepository;
 import com.project.jarihana.group.domain.Group;
@@ -28,9 +29,17 @@ import java.time.LocalTime;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 class ImageLifecycleIntegrationTest extends IntegrationTestSupport {
 
@@ -60,6 +69,9 @@ class ImageLifecycleIntegrationTest extends IntegrationTestSupport {
 
     @Autowired
     private ImageStorageStub imageStorage;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @DisplayName("마지막 참조가 사라진 이미지는 7일 뒤 삭제하도록 예약한다.")
     @Test
@@ -145,6 +157,59 @@ class ImageLifecycleIntegrationTest extends IntegrationTestSupport {
                 .isEqualTo(ImageUploadStatus.ATTACHED);
     }
 
+    @DisplayName("만료 정리와 이미지 승격이 겹쳐도 승격된 이미지를 삭제 대상으로 덮어쓰지 않는다.")
+    @Test
+    void cleanupWaitsForConcurrentPromotion() throws Exception {
+        // Given
+        LocalDateTime now = TestSupportConfig.FIXED_NOW;
+        long groupId = createGroup();
+        String sourceKey = "groups/tmp/concurrent.webp";
+        String targetKey = "groups/" + groupId + "/concurrent.webp";
+        ImageUpload upload = uploadRepository.save(ImageUpload.create(
+                UUID.randomUUID(), "concurrent.webp", "image/webp", 1024,
+                sourceKey, now, now.minusMinutes(30)
+        ));
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch promotionLocked = new CountDownLatch(1);
+        CountDownLatch cleanupRequested = new CountDownLatch(1);
+        CountDownLatch allowPromotionCommit = new CountDownLatch(1);
+
+        try {
+            Future<?> promotion = executor.submit(() -> transaction.executeWithoutResult(ignored -> {
+                ImageUpload locked = uploadRepository.findWithLockById(upload.getId()).orElseThrow();
+                promotionLocked.countDown();
+                await(allowPromotionCommit);
+                locked.startPromotion(groupId, targetKey);
+                locked.completeAttachment(now);
+            }));
+            assertThat(promotionLocked.await(3, TimeUnit.SECONDS)).isTrue();
+
+            // When
+            Future<?> cleanup = executor.submit(() -> {
+                cleanupRequested.countDown();
+                cleanupService.cleanupBatch();
+            });
+            assertThat(cleanupRequested.await(3, TimeUnit.SECONDS)).isTrue();
+
+            // Then
+            assertThatThrownBy(() -> cleanup.get(300, TimeUnit.MILLISECONDS))
+                    .isInstanceOf(TimeoutException.class);
+
+            allowPromotionCommit.countDown();
+            promotion.get(3, TimeUnit.SECONDS);
+            cleanup.get(3, TimeUnit.SECONDS);
+
+            ImageUpload persisted = uploadRepository.findById(upload.getId()).orElseThrow();
+            assertThat(persisted.getStatus()).isEqualTo(ImageUploadStatus.ATTACHED);
+            assertThat(persisted.getImageKey()).isEqualTo(targetKey);
+            assertThat(deletionTaskRepository.findByImageUploadId(upload.getId())).isEmpty();
+        } finally {
+            allowPromotionCommit.countDown();
+            executor.shutdownNow();
+        }
+    }
+
     private ImageUpload attachedUpload(String imageKey, String sourceKey) {
         LocalDateTime now = TestSupportConfig.FIXED_NOW;
         ImageUpload upload = ImageUpload.create(
@@ -172,5 +237,16 @@ class ImageLifecycleIntegrationTest extends IntegrationTestSupport {
                 RecurringGroupSchedule.of(Set.of(DayOfWeek.MONDAY), LocalTime.NOON, LocalTime.of(13, 0)),
                 TestSupportConfig.FIXED_NOW
         )).getId();
+    }
+
+    private void await(CountDownLatch latch) {
+        try {
+            if (!latch.await(3, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("이미지 수명주기 동시성 테스트 대기 시간이 초과되었습니다.");
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("이미지 수명주기 동시성 테스트가 중단되었습니다.", exception);
+        }
     }
 }
