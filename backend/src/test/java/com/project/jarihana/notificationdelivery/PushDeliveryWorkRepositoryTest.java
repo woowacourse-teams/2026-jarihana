@@ -20,11 +20,17 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.sql.Types;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -146,6 +152,80 @@ class PushDeliveryWorkRepositoryTest extends PushIntegrationTestSupport {
     void emptyQueueReturnsEmptyClaim() {
         // Given & When & Then
         assertThat(leases.claimNext()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("대량 대기에서도 인덱스로 후보를 좁힌 뒤 알림을 조회한다.")
+    void claimUsesDueIndexBeforeJoiningLargeBacklog() throws Exception {
+        // Given
+        var owner = member("101");
+        var subscription = subscription(owner, "backlog");
+        jdbc.update("""
+                insert into notifications (member_id, event_key, event_type, payload_version, payload, created_at, updated_at)
+                select ?, 'claim-plan-' || series, 'REGISTRATION_APPROVED', 1, '{}'::jsonb, ?, ?
+                from generate_series(1, 20000) series
+                """, owner.getId(), NOW, NOW);
+        jdbc.update("""
+                insert into notification_deliveries (notification_id, push_subscription_id, subscription_generation,
+                    status, attempt_count, next_attempt_at, expires_at, created_at, updated_at)
+                select id, ?, 1, 'PENDING', 0, ?, ?, ?, ? from notifications
+                """, subscription.getId(), NOW, NOW.plusDays(1), NOW, NOW);
+        jdbc.execute("analyze notifications");
+        jdbc.execute("analyze notification_deliveries");
+        jdbc.execute("analyze push_subscriptions");
+        String sql = PushDeliveryWorkRepository.class
+                .getMethod("claimNextRow", LocalDateTime.class, LocalDateTime.class, UUID.class)
+                .getAnnotation(Query.class).value();
+        var parameters = new MapSqlParameterSource()
+                .addValue("now", NOW, Types.TIMESTAMP)
+                .addValue("lockedUntil", NOW.plusMinutes(1), Types.TIMESTAMP)
+                .addValue("token", UUID.randomUUID(), Types.OTHER);
+
+        // When
+        String plan = new NamedParameterJdbcTemplate(jdbc)
+                .queryForObject("explain (format json) " + sql, parameters, String.class);
+
+        // Then
+        assertThat(plan).contains("\"Index Name\": \"idx_notification_deliveries_due\"",
+                "\"Index Name\": \"notifications_pkey\"");
+        assertThat(jdbc.queryForObject("select count(*) from notification_deliveries where status = 'PENDING'", Long.class))
+                .isEqualTo(20000);
+    }
+
+    @Test
+    @DisplayName("대기와 재시도와 만료 선점을 발송 예정 시각과 ID 순서로 함께 선택한다.")
+    void claimKeepsGlobalOrderAcrossDueAndExpiredLeases() {
+        // Given
+        var owner = member("101");
+        var subscription = subscription(owner, "order");
+        var pending = deliveries.save(NotificationDelivery.create(notification(owner, "pending"), subscription, NOW, NOW.plusDays(1)));
+        var retry = deliveries.save(NotificationDelivery.create(notification(owner, "retry"), subscription, NOW, NOW.plusDays(1)));
+        var expired = deliveries.save(NotificationDelivery.create(notification(owner, "expired"), subscription, NOW, NOW.plusDays(1)));
+        var future = deliveries.save(NotificationDelivery.create(notification(owner, "future"), subscription, NOW, NOW.plusDays(1)));
+        var active = deliveries.save(NotificationDelivery.create(notification(owner, "active"), subscription, NOW, NOW.plusDays(1)));
+        jdbc.update("update notification_deliveries set next_attempt_at = ? where id = ?", NOW.minusMinutes(1), pending.getId());
+        jdbc.update("update notification_deliveries set status = 'RETRY', attempt_count = 1, next_attempt_at = ? where id = ?",
+                NOW.minusMinutes(1), retry.getId());
+        jdbc.update("""
+                update notification_deliveries set status = 'IN_FLIGHT', attempt_count = 1,
+                    lease_token = ?, locked_until = ?, next_attempt_at = ? where id = ?
+                """, UUID.randomUUID(), NOW.minusSeconds(1), NOW.minusMinutes(2), expired.getId());
+        jdbc.update("update notification_deliveries set next_attempt_at = ? where id = ?", NOW.plusMinutes(1), future.getId());
+        jdbc.update("""
+                update notification_deliveries set status = 'IN_FLIGHT', attempt_count = 1,
+                    lease_token = ?, locked_until = ?, next_attempt_at = ? where id = ?
+                """, UUID.randomUUID(), NOW.plusSeconds(1), NOW.minusMinutes(3), active.getId());
+
+        // When
+        var first = leases.claimNext().orElseThrow();
+        var second = leases.claimNext().orElseThrow();
+        var third = leases.claimNext().orElseThrow();
+
+        // Then
+        assertThat(List.of(first.id(), second.id(), third.id()))
+                .containsExactly(expired.getId(), pending.getId(), retry.getId());
+        assertThat(leases.claimNext()).isEmpty();
+        assertThat(work.attemptCount(expired.getId())).isEqualTo(2);
     }
 
     @Test

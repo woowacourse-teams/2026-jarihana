@@ -22,19 +22,35 @@ public interface PushDeliveryWorkRepository extends Repository<NotificationDeliv
     }
 
     @Query(value = """
-            with candidate as (
+            with due_candidate as materialized (
+                select d.id, d.next_attempt_at
+                from notification_deliveries d
+                where d.status in ('PENDING', 'RETRY') and d.next_attempt_at <= :now
+                order by d.next_attempt_at, d.id
+                for update of d skip locked limit 1
+            ), expired_candidate as materialized (
+                select d.id, d.next_attempt_at
+                from notification_deliveries d
+                where d.status = 'IN_FLIGHT' and d.locked_until <= :now
+                order by d.next_attempt_at, d.id
+                for update of d skip locked limit 1
+            ), selected_candidate as materialized (
+                select id from (
+                    select id, next_attempt_at from due_candidate
+                    union all
+                    select id, next_attempt_at from expired_candidate
+                ) candidates
+                order by next_attempt_at, id limit 1
+            ), candidate as (
                 select d.id, case
                     when n.deleted_at is not null or not s.enabled or d.subscription_generation <> s.generation
                         or n.member_id <> s.member_id then 'CANCELLED'
                     when d.expires_at <= :now or d.attempt_count >= 5 then 'FAILED'
                     else 'IN_FLIGHT' end as next_status
-                from notification_deliveries d
+                from selected_candidate selected
+                join notification_deliveries d on d.id = selected.id
                 join notifications n on n.id = d.notification_id
                 join push_subscriptions s on s.id = d.push_subscription_id
-                where (d.status in ('PENDING', 'RETRY') and d.next_attempt_at <= :now)
-                    or (d.status = 'IN_FLIGHT' and d.locked_until <= :now)
-                order by d.next_attempt_at, d.id
-                for update of d skip locked limit 1
             )
             update notification_deliveries d set
                 status = c.next_status,
