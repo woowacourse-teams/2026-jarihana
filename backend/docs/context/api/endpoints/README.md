@@ -21,11 +21,11 @@
 | 초대 | `PATCH` | `/api/invitations/{invitationId}/revoke` | `MEMBER + 현재 소속·유형별 취소 권한` | 초대와 미전송 푸시 작업 취소 |
 | 초대 | `PATCH` | `/api/invitations/{invitationId}/decline` | `MEMBER + DIRECT 지정 대상` | 거절 상태 저장·알림 유지·재수락 차단 |
 | 초대 | `POST` | `/api/invitations/{invitationId}/acceptances` | `MEMBER + 대상/토큰 자격` | 소속·수락 이력·기존 대기 신청 승인, 재수락은 기존 소속 반환 |
-| 활동 기록 | `GET` | `/api/activity-posts` | `PUBLIC` | 전체 공개 사진 활동 기록을 활동 날짜 최신순으로 조회 |
-| 활동 기록 | `GET` | `/api/groups/{groupId}/activity-posts` | `PUBLIC` | 그룹 사진 활동 기록 조회 |
-| 활동 기록 | `POST` | `/api/groups/{groupId}/activity-posts` | `MEMBER` | 활성 그룹 구성원의 사진 활동 기록 작성 |
-| 활동 기록 | `PUT` | `/api/activity-posts/{postId}` | `MEMBER` | 작성자 또는 현재 모임장이 사진 활동 기록 수정 |
-| 활동 기록 | `DELETE` | `/api/activity-posts/{postId}` | `MEMBER` | 작성자 또는 현재 모임장이 사진 활동 기록 숨김 |
+| 활동 기록 | `GET` | `/api/activity-posts` | `PUBLIC; mine=true는 인증 필수` | 전체 공개 사진 활동 기록을 활동 날짜 최신순으로 조회 |
+| 활동 기록 | `GET` | `/api/groups/{groupId}/activity-posts` | `PUBLIC; mine=true는 인증 필수` | 그룹 사진 활동 기록 조회 |
+| 활동 기록 | `POST` | `/api/groups/{groupId}/activity-posts` | `MEMBER + 현재 소속` | 활성 그룹 구성원의 사진 활동 기록 작성 |
+| 활동 기록 | `PUT` | `/api/activity-posts/{postId}` | `MEMBER + 작성자/현재 모임장` | 사진 활동 기록 수정 |
+| 활동 기록 | `DELETE` | `/api/activity-posts/{postId}` | `MEMBER + 작성자/현재 모임장` | 사진 활동 기록 숨김 (`200`, JSON 본문) |
 | 피드백 | `POST` | `/api/feedbacks` | `MEMBER` | 피드백 작성 |
 | 가입 신청 | `GET` | `/api/groups/{groupId}/registrations/summary` | `LEADER` | 그룹의 미확인·처리 대기 신청 요약 조회 |
 | 가입 신청 | `PATCH` | `/api/recruitments/{recruitmentId}/registrations/read` | `LEADER` | 확인한 마지막 신청까지 읽음 처리 |
@@ -34,7 +34,7 @@
 | 가입 신청 | `DELETE` | `/api/recruitments/{recruitmentId}/registrations/{registrationId}` | `MEMBER` | 내 대기 중 가입 신청 철회 |
 | 가입 신청 | `PATCH` | `/api/recruitments/{recruitmentId}/registrations/{registrationId}` | `LEADER` | 가입 신청 승인·미승인 |
 | 가입 신청 | `GET` | `/api/registrations?applicant=me` | `MEMBER` | 내 가입 신청 목록 조회 |
-| 그룹 | `GET` | `/api/groups` | `PUBLIC` | 그룹 목록 조회 — 관계·상태·유형 필터 지원 |
+| 그룹 | `GET` | `/api/groups` | `PUBLIC; relation은 인증 필수` | 그룹 목록 조회 — 관계·상태·유형 필터 지원 |
 | 그룹 | `POST` | `/api/groups` | `MEMBER` | 그룹 개설 |
 | 그룹 | `DELETE` | `/api/groups/{groupId}` | `LEADER` | 생성 후 24시간 이내 그룹 삭제 |
 | 그룹 | `GET` | `/api/groups/{groupId}` | `PUBLIC` | 그룹 상세 조회 |
@@ -45,13 +45,13 @@
 | 그룹 | `PUT` | `/api/groups/{groupId}/recurring-schedule` | `LEADER` | 동아리·스터디 반복 일정 등록 또는 교체 |
 | 그룹 | `PUT` | `/api/groups/{groupId}/session-schedule` | `LEADER` | 세션 일정 교체 |
 | 그룹 달력 | `GET` | `/api/groups/{groupId}/calendar` | `PUBLIC` | 모임 일정 제목·날짜·시각 조회 |
-| 그룹 달력 | `GET` | `/api/groups/{groupId}/calendar/schedule-details` | `MEMBER` | 정기·세션 일정의 당시 장소 조회 |
+| 그룹 달력 | `GET` | `/api/groups/{groupId}/calendar/schedule-details` | `MEMBER + 현재 소속` | 정기·세션 일정의 당시 장소 조회 |
 | 그룹 달력 | `PUT` | `/api/groups/{groupId}/calendar/settings` | `LEADER` | 정기·세션 일정의 달력 표시 설정 |
 | 그룹 달력 | `POST` | `/api/groups/{groupId}/events` | `LEADER` | 개별 일정 등록 |
-| 그룹 달력 | `GET` | `/api/groups/{groupId}/events/{eventId}` | `MEMBER` | 개별 일정 상세 조회 |
+| 그룹 달력 | `GET` | `/api/groups/{groupId}/events/{eventId}` | `MEMBER + 현재 소속` | 개별 일정 상세 조회 |
 | 그룹 달력 | `PUT` | `/api/groups/{groupId}/events/{eventId}` | `LEADER` | 개별 일정 수정 |
 | 그룹 달력 | `DELETE` | `/api/groups/{groupId}/events/{eventId}` | `LEADER` | 개별 일정 삭제 |
-| 그룹 달력 | `POST` | `/api/groups/{groupId}/recurring-schedule/series` | `LEADER` | 첫 정기 규칙 등록 |
+| 그룹 달력 | `POST` | `/api/groups/{groupId}/recurring-schedule/series` | `LEADER` | 현재 정기 규칙이 없는 모임에 새 정기 묶음 등록 |
 | 그룹 달력 | `GET` | `/api/groups/{groupId}/recurring-schedule/manage` | `LEADER` | 현재 정기 일정 관리 정보 조회 |
 | 그룹 달력 | `GET` | `/api/groups/{groupId}/recurring-schedule/periods/{periodId}` | `LEADER` | 선택한 회차에 적용된 정기 규칙 조회 |
 | 그룹 달력 | `PUT` | `/api/groups/{groupId}/recurring-schedule/scoped` | `LEADER` | 정기 규칙 변경 범위 적용 |
@@ -68,9 +68,9 @@
 | 모집 공고 | `PUT` | `/api/groups/{groupId}/recruitments/{recruitmentId}` | `LEADER` | 현재 모집의 기간·정원·승인 방식 수정 |
 | 모집 공고 | `PATCH` | `/api/groups/{groupId}/recruitments/{recruitmentId}` | `LEADER` | 모집 공고 조기 마감 |
 | 이미지 | `POST` | `/api/image-uploads` | `MEMBER` | 이미지 업로드 리소스 생성 |
-| 인증·회원 | `POST` | `/api/auth/logout` | `AUTH` | 가입 세션 또는 Refresh Token 무효화 |
+| 인증·회원 | `POST` | `/api/auth/logout` | `가입 세션/유효 Access Token/저장된 Refresh Token` | 가입 세션·전달된 Refresh Token 무효화와 인증 쿠키 만료 |
 | 인증·회원 | `POST` | `/api/auth/refresh` | `PUBLIC` | Access Token 재발급 |
-| 인증·회원 | `POST` | `/api/members` | `AUTH` | 회원 가입 완료 |
+| 인증·회원 | `POST` | `/api/members` | `AUTH + 가입 세션 필수` | 회원 가입 완료 |
 | 인증·회원 | `GET` | `/api/members/me` | `AUTH` | 내 정보와 가입 완료 여부 조회 |
 | 인증·회원 | `GET` | `/api/oauth/github/callback` | `PUBLIC` | GitHub OAuth 콜백 처리 |
 | 알림함 | `GET` | `/api/notifications` | `MEMBER` | 본인 알림 목록 조회 |

@@ -40,6 +40,9 @@
 
 공통 예외는 아래 오류 계약을 따른다. 모든 ID는 양수이며 형식 오류는 INVALID_PARAMETER다.
 목록 요청·응답·기본 정렬은 API 공통 계약의 커서 페이지네이션을 따른다.
+초대와 후보 목록은 `createdAt DESC, id DESC`로 정렬한다. 후보 목록의 `createdAt`·`id`는 회원의 가입 시각·회원 ID다.
+커서는 조회 회원과 모임·scope 또는 정규화한 검색어에 결합되며, 다른 조회 조건에 재사용할 수 없다.
+`cursor`를 생략하면 첫 페이지다. 빈 문자열·공백, 512자를 초과한 값이나 형식·조회 조건이 맞지 않는 값은 `INVALID_PARAMETER`다. 시간 경과에 따른 커서 만료는 없다.
 응답 status는 VALID·ACCEPTED·REJECTED·EXPIRED·CANCELED·GROUP_ENDED이며 의미와 표시 우선순위는 초대 모델을 따른다.
 ALREADY_JOINED는 현재 소속에 대한 수락 결과이며 초대 status와 구분한다.
 
@@ -188,7 +191,7 @@ Request Body는 없다.
 
 | 상황 | 코드 | HTTP |
 | --- | --- | --- |
-| 소속 또는 scope 권한 없음 | `ACCESS_DENIED` | 403 |
+| 현재 그룹 구성원이 아님 | `ACCESS_DENIED` | 403 |
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
 | scope·cursor·size 오류 | `INVALID_PARAMETER` | 400 |
 
@@ -236,6 +239,7 @@ Request Body는 없다.
 ```
 
 items는 memberId·crewName·generation·memberType·course만 제공한다. 이메일·GitHub ID·가입일은 제공하지 않는다.
+`memberType`은 `CREW` 또는 `COACH`다. `COACH`의 `generation`·`course`는 `null`로 반환한다.
 
 #### 부수 효과
 
@@ -379,7 +383,7 @@ LINK 상세는 모든 현재 구성원이 접근한다. 발급자는 이탈 후�
 
 #### Path Parameters
 
-- `token`: LINK의 원본 공유 토큰
+- `token`: LINK의 원본 공유 토큰. `[A-Za-z0-9_-]`로 구성된 43자이며 Base64URL 패딩은 없다.
 
 #### 요청
 
@@ -443,10 +447,11 @@ canAccept는 초대 자체의 상태만 나타낸다. PUBLIC 조회가 회원 �
 DIRECT의 요청은 위와 같이 빈 객체다. LINK는 다음과 같이 token을 전달한다.
 
 ```json
-{"token": "공유-토큰"}
+{"token": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}
 ```
 
 회원 ID와 그룹 ID는 클라이언트가 지정하지 않는다. token은 경로의 invitationId에 해당하는 LINK와 일치해야 한다.
+위 token은 43자 형식 예시다. 실제 요청에는 발급받은 공유 토큰을 사용한다. LINK에서 token을 생략하거나 형식은 맞지만 값이 다르면 `INVITATION_NOT_FOUND`(404), 형식이 잘못되면 `INVALID_PARAMETER`(400)다.
 대상 계정 또는 토큰 자격을 먼저 확인한다. ID만으로 공유 초대를 수락할 수 없다.
 
 #### 응답 201
@@ -484,6 +489,7 @@ DIRECT의 요청은 위와 같이 빈 객체다. LINK는 다음과 같이 token�
 
 기존 groupMemberId·joinedAt을 반환하고 registrationOrigin은 생략한다.
 대상/토큰 자격을 통과한 기존 구성원에게는 만료·취소 이후에도 새 합류와 구분해 안내한다.
+종료된 모임의 기존 구성원도 같은 `200` 결과를 받는다. 다만 거절한 지정 초대는 기존 소속 확인 전에 `INVITATION_REJECTED`(409)로 거절한다.
 
 #### 부수 효과
 
@@ -499,6 +505,7 @@ DIRECT의 요청은 위와 같이 빈 객체다. LINK는 다음과 같이 token�
 | 공유 토큰 불일치·초대 없음 | `INVITATION_NOT_FOUND` | 404 |
 | 시간 만료·발급자 소속 상실 | `INVITATION_EXPIRED` | 409 |
 | 취소된 초대 | `INVITATION_CANCELED` | 409 |
+| 거절한 지정 초대 | `INVITATION_REJECTED` | 409 |
 | 종료된 그룹의 신규 합류 | `GROUP_ENDED` | 409 |
 | 최초 요청을 포함한 세 번의 시도가 모두 동시성 충돌 | `CONCURRENT_MODIFICATION` | 409 |
 | 초대 ID·공유 토큰 형식 오류, DIRECT에 token 전달 | `INVALID_PARAMETER` | 400 |
@@ -545,10 +552,11 @@ Request Body는 없다.
 | 초대 없음 | `INVITATION_NOT_FOUND` | 404 |
 | 종료된 그룹 | `GROUP_ENDED` | 409 |
 | 초대 ID가 0·음수이거나 형식이 잘못됨 | `INVALID_PARAMETER` | 400 |
+| 재시도 한도까지 동시 변경 충돌 | `CONCURRENT_MODIFICATION` | 409 |
 
 ## 오류 계약
 
-아래 공통 예외와 각 엔드포인트의 개별 예외를 함께 적용한다. INVITATION_REQUEST_CONFLICT·INVITATION_UNAVAILABLE·INVITATION_NOT_FOUND·INVITATION_ACCESS_DENIED·INVITATION_EXPIRED·INVITATION_CANCELED를 구현했다.
+아래 공통 예외와 각 엔드포인트의 개별 예외를 함께 적용한다. INVITATION_REQUEST_CONFLICT·INVITATION_UNAVAILABLE·INVITATION_NOT_FOUND·INVITATION_ACCESS_DENIED·INVITATION_EXPIRED·INVITATION_CANCELED·INVITATION_REJECTED·INVITATION_ALREADY_ACCEPTED를 구현했다.
 권한 확인은 초대 유효 상태나 개인정보 상세를 제공하기 전에 수행한다.
 
 | 상황 | 코드 | HTTP |
@@ -598,6 +606,7 @@ REJECTED 상태를 저장한다. 알림을 보존하며 모임장·발급자에�
 | 상황 | 코드 | HTTP |
 | --- | --- | --- |
 | LINK 또는 지정 대상이 아닌 회원 | `INVITATION_ACCESS_DENIED` | 403 |
+| 초대 ID가 0·음수이거나 형식이 잘못됨 | `INVALID_PARAMETER` | 400 |
 | 초대 없음 | `INVITATION_NOT_FOUND` | 404 |
 | 이미 수락한 초대 | `INVITATION_ALREADY_ACCEPTED` | 409 |
 | 취소된 초대 | `INVITATION_CANCELED` | 409 |

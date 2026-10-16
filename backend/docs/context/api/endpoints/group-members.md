@@ -7,7 +7,11 @@
 
 #### Query Parameters
 - `cursor`: 다음 페이지 커서
-- `size`: 기본 20, 최대 100
+- `size`: 기본 20, 최소 1, 최대 100
+
+`joinedAt DESC, groupMemberId DESC`로 정렬한다. 모임장을 별도로 먼저 배치하지 않는다.
+빈 값·공백만 있는 `cursor`는 첫 페이지로 처리한다.
+커서는 날짜·양의 ID 형식을 검증하며 요청한 그룹이나 실제 소속 존재 여부와 결합하지 않는다.
 
 #### 응답 200
 
@@ -34,13 +38,15 @@
 ```
 
 현재 존재하는 `GroupMember`만 반환한다. 그룹에서 이탈한 구성원 관계는 Hard Delete되므로 목록에 포함되지 않는다.
+종료된 그룹도 조회할 수 있다. `memberType`은 `CREW` 또는 `COACH`이며, `COACH`의
+`generation`과 `course`는 `null`이다. `CREW`의 `course`는 `BACKEND`, `FRONTEND`, `ANDROID` 중 하나다.
 
 #### 예외
 
 | 상황 | 코드 | HTTP |
 | --- | --- | --- |
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
-| 잘못된 cursor 또는 size | `INVALID_PARAMETER` | 400 |
+| 잘못된 cursor·size 또는 양수가 아닌 groupId | `INVALID_PARAMETER` | 400 |
 
 ### `PUT /api/groups/{groupId}/leader`
 
@@ -82,5 +88,6 @@
 | 현재 모임장이 아님 | `GROUP_ACCESS_DENIED` | 403 |
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
 | ENDED 그룹 | `LEADER_DELEGATION_NOT_ALLOWED_FOR_ENDED_GROUP` | 422 |
-| 대상 GroupMember 없음 | `GROUP_MEMBER_NOT_FOUND` | 404 |
+| 대상 GroupMember 없음 또는 다른 그룹의 구성원 | `GROUP_MEMBER_NOT_FOUND` | 404 |
 | 자기 자신 또는 이미 LEADER인 대상 | `GROUP_MEMBER_ALREADY_LEADER` | 422 |
+| groupMemberId 누락 또는 양수가 아님 | `INVALID_PARAMETER` | 400 |
