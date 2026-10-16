@@ -21,16 +21,17 @@ erDiagram
 - 모든 기록은 전체 공개이며 그룹 이름·유형·상태와 작성자 `crewName`을 반환한다.
 - 그룹 삭제 전 게시물의 `group_id`를 비우고 `deleted_at`을 기록해 공개 조회에서 제외한다. 종료된 그룹 기록은 보존한다.
 
-## 댓글과 이모지 반응
+## 댓글과 하트 반응
 
 - `ActivityPostComment`: 기록, 작성 회원, 내용(앞뒤 공백 제거 후 1자 이상 200자 이하), 숨김 시각을 가진다.
   지우면 `deleted_at`을 기록하고 공개 조회와 댓글 수에서 제외한다.
 - `ActivityPostReaction`, `ActivityPostCommentReaction`: 대상(기록 또는 댓글), 회원, 이모지를 가진다.
   `(대상, 회원, 이모지)`가 유니크라 같은 회원은 같은 이모지를 한 번만 남긴다.
-- 이모지는 `ReactionEmoji` 9종이며 선언 순서가 응답의 배지 순서다.
+- 이모지는 `ReactionEmoji`이며 선언 순서가 응답의 배지 순서다. 피드에서는 단순한 공감만 반응으로 받도록
+  우선 `HEART` 하나만 둔다. DB의 `ck_*_reaction_emoji` 검사 제약도 같은 값만 허용한다.
 - 반응은 되돌리기 쉬운 토글이고 이력에 의미가 없으므로, 기본 soft delete 정책과 달리 취소하면 물리 삭제한다.
   유니크 제약과 soft delete 충돌을 피하려는 결정이기도 하다.
-- 단일 '좋아요' 수가 아니라 이모지별 개수 배지로 보여 준다.
+- 화면은 하트 이미지와 개수를 한 버튼으로 보여 주고, 눌러서 남기거나 취소한다.
 
 ## 권한
 
@@ -57,5 +58,5 @@ erDiagram
 - 댓글 작성 순서: `(activity_post_id, created_at, id)`
 - 반응 중복 방지: `(activity_post_id, member_id, emoji)`, `(activity_post_comment_id, member_id, emoji)` 유니크
 
-수동 마이그레이션은 `backend/db/migrations/2026-09-28-activity-post.sql`, 댓글과 반응은
-`backend/db/migrations/2026-10-08-activity-post-comment-reaction.sql`에 있다.
+수동 마이그레이션은 `backend/db/migrations/2026-09-28-activity-post.sql`에 있다. 댓글과 반응 테이블은 Flyway
+`src/main/resources/db/migration/V2__activity_post_comment_and_reaction.sql`이 만든다.

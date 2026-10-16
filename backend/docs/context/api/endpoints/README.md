@@ -29,10 +29,10 @@
 | 활동 기록 | `GET` | `/api/activity-posts/{postId}/comments` | `PUBLIC` | 활동 기록 댓글을 작성 순서대로 조회 |
 | 활동 기록 | `POST` | `/api/activity-posts/{postId}/comments` | `MEMBER` | 로그인 회원의 활동 기록 댓글 작성 |
 | 활동 기록 | `DELETE` | `/api/activity-post-comments/{commentId}` | `MEMBER` | 댓글 작성자 또는 현재 모임장이 댓글 숨김 |
-| 활동 기록 | `PUT` | `/api/activity-posts/{postId}/reactions/{emoji}` | `MEMBER` | 활동 기록에 이모지 반응 추가 |
-| 활동 기록 | `DELETE` | `/api/activity-posts/{postId}/reactions/{emoji}` | `MEMBER` | 활동 기록의 내 이모지 반응 취소 |
-| 활동 기록 | `PUT` | `/api/activity-post-comments/{commentId}/reactions/{emoji}` | `MEMBER` | 댓글에 이모지 반응 추가 |
-| 활동 기록 | `DELETE` | `/api/activity-post-comments/{commentId}/reactions/{emoji}` | `MEMBER` | 댓글의 내 이모지 반응 취소 |
+| 활동 기록 | `PUT` | `/api/activity-posts/{postId}/reactions/{emoji}` | `MEMBER` | 활동 기록에 하트 반응 추가 |
+| 활동 기록 | `DELETE` | `/api/activity-posts/{postId}/reactions/{emoji}` | `MEMBER` | 활동 기록의 내 하트 반응 취소 |
+| 활동 기록 | `PUT` | `/api/activity-post-comments/{commentId}/reactions/{emoji}` | `MEMBER` | 댓글에 하트 반응 추가 |
+| 활동 기록 | `DELETE` | `/api/activity-post-comments/{commentId}/reactions/{emoji}` | `MEMBER` | 댓글의 내 하트 반응 취소 |
 | 피드백 | `POST` | `/api/feedbacks` | `MEMBER` | 피드백 작성 |
 | 가입 신청 | `GET` | `/api/groups/{groupId}/registrations/summary` | `LEADER` | 그룹의 미확인·처리 대기 신청 요약 조회 |
 | 가입 신청 | `PATCH` | `/api/recruitments/{recruitmentId}/registrations/read` | `LEADER` | 확인한 마지막 신청까지 읽음 처리 |
@@ -107,6 +107,6 @@
 | 가입 신청 | [registrations.md](registrations.md) | 가입 신청 엔드포인트 |
 | 그룹 구성원 | [group-members.md](group-members.md) | 그룹 구성원 엔드포인트 |
 | 이미지 | [images.md](images.md) | 이미지 업로드 엔드포인트 |
-| 활동 기록 | [activity-posts.md](activity-posts.md) | 사진 활동 기록 조회, 작성, 수정, 숨김과 댓글, 이모지 반응 |
+| 활동 기록 | [activity-posts.md](activity-posts.md) | 사진 활동 기록 조회, 작성, 수정, 숨김과 댓글, 하트 반응 |
 | 공유 미리보기 | [share-preview.md](share-preview.md) | 그룹 공유 미리보기 HTML 엔드포인트 |
 | 알림함·웹푸시 | [notifications.md](notifications.md) | 알림함·구독·푸시 내용 조회·로그아웃 호환 확장 |

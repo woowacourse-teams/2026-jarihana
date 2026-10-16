@@ -221,7 +221,7 @@ class ActivityPostInteractionAcceptanceTest extends IntegrationTestSupport {
                 .body("data.items[0].commentCount", equalTo(0));
     }
 
-    @DisplayName("기록에 남긴 이모지 반응은 한 번만 세고, 요청자의 반응 여부와 함께 피드에 보인다.")
+    @DisplayName("기록에 남긴 하트 반응은 회원마다 한 번만 세고, 요청자의 반응 여부와 함께 피드에 보인다.")
     @Test
     void togglesPostReactionsIdempotently() {
         // Given
@@ -232,13 +232,11 @@ class ActivityPostInteractionAcceptanceTest extends IntegrationTestSupport {
         ActivityPost post = savePost(group, author, "photos/reaction.jpg");
 
         // When
-        authorized(reactor).when().put("/activity-posts/{postId}/reactions/{emoji}", post.getId(), "FIRE")
+        authorized(reactor).when().put("/activity-posts/{postId}/reactions/{emoji}", post.getId(), "HEART")
                 .then().statusCode(204);
-        authorized(reactor).when().put("/activity-posts/{postId}/reactions/{emoji}", post.getId(), "FIRE")
+        authorized(reactor).when().put("/activity-posts/{postId}/reactions/{emoji}", post.getId(), "HEART")
                 .then().statusCode(204);
-        authorized(author).when().put("/activity-posts/{postId}/reactions/{emoji}", post.getId(), "FIRE")
-                .then().statusCode(204);
-        authorized(author).when().put("/activity-posts/{postId}/reactions/{emoji}", post.getId(), "THUMBS_UP")
+        authorized(author).when().put("/activity-posts/{postId}/reactions/{emoji}", post.getId(), "HEART")
                 .then().statusCode(204);
 
         // Then
@@ -248,31 +246,50 @@ class ActivityPostInteractionAcceptanceTest extends IntegrationTestSupport {
                 .get("/activity-posts")
                 .then()
                 .statusCode(200)
-                .body("data.items[0].reactions.emoji", contains("THUMBS_UP", "FIRE"))
-                .body("data.items[0].reactions.count", contains(1, 2))
-                .body("data.items[0].reactions.reacted", contains(false, true));
+                .body("data.items[0].reactions.emoji", contains("HEART"))
+                .body("data.items[0].reactions.count", contains(2))
+                .body("data.items[0].reactions.reacted", contains(true));
         given()
                 .when()
                 .get("/activity-posts")
                 .then()
-                .body("data.items[0].reactions.reacted", contains(false, false));
+                .body("data.items[0].reactions.reacted", contains(false));
 
-        authorized(reactor).when().delete("/activity-posts/{postId}/reactions/{emoji}", post.getId(), "FIRE")
+        authorized(reactor).when().delete("/activity-posts/{postId}/reactions/{emoji}", post.getId(), "HEART")
                 .then().statusCode(204);
-        authorized(reactor).when().delete("/activity-posts/{postId}/reactions/{emoji}", post.getId(), "FIRE")
+        authorized(reactor).when().delete("/activity-posts/{postId}/reactions/{emoji}", post.getId(), "HEART")
                 .then().statusCode(204);
         given()
                 .when()
                 .get("/activity-posts")
                 .then()
-                .body("data.items[0].reactions.count", contains(1, 1));
-        authorized(reactor).when().put("/activity-posts/{postId}/reactions/{emoji}", post.getId(), "UNKNOWN")
+                .body("data.items[0].reactions.count", contains(1));
+    }
+
+    @DisplayName("하트가 아닌 반응은 거부한다.")
+    @Test
+    void rejectsReactionsOtherThanHeart() {
+        // Given
+        Group group = saveGroup("하트 전용 그룹");
+        Member author = saveMember("나래", "heart-only-author");
+        saveMemberOf(group, author);
+        ActivityPost post = savePost(group, author, "photos/heart-only.jpg");
+        int commentId = writeComment(author, post.getId(), "하트만 받아요").then().extract().path("data.id");
+
+        // When & Then
+        authorized(author).when().put("/activity-posts/{postId}/reactions/{emoji}", post.getId(), "THUMBS_UP")
+                .then()
+                .statusCode(400)
+                .body("error.code", equalTo("INVALID_PARAMETER"));
+        authorized(author)
+                .when()
+                .put("/activity-post-comments/{commentId}/reactions/{emoji}", commentId, "FIRE")
                 .then()
                 .statusCode(400)
                 .body("error.code", equalTo("INVALID_PARAMETER"));
     }
 
-    @DisplayName("댓글에도 이모지 반응을 남기고 지울 수 있다.")
+    @DisplayName("댓글에도 하트 반응을 남기고 지울 수 있다.")
     @Test
     void togglesCommentReactions() {
         // Given
@@ -286,7 +303,7 @@ class ActivityPostInteractionAcceptanceTest extends IntegrationTestSupport {
         // When
         authorized(reactor)
                 .when()
-                .put("/activity-post-comments/{commentId}/reactions/{emoji}", commentId, "QUESTION")
+                .put("/activity-post-comments/{commentId}/reactions/{emoji}", commentId, "HEART")
                 .then()
                 .statusCode(204);
 
@@ -296,12 +313,12 @@ class ActivityPostInteractionAcceptanceTest extends IntegrationTestSupport {
                 .when()
                 .get("/activity-posts/{postId}/comments", post.getId())
                 .then()
-                .body("data.items[0].reactions[0].emoji", equalTo("QUESTION"))
+                .body("data.items[0].reactions[0].emoji", equalTo("HEART"))
                 .body("data.items[0].reactions[0].count", equalTo(1))
                 .body("data.items[0].reactions[0].reacted", equalTo(true));
         authorized(reactor)
                 .when()
-                .delete("/activity-post-comments/{commentId}/reactions/{emoji}", commentId, "QUESTION")
+                .delete("/activity-post-comments/{commentId}/reactions/{emoji}", commentId, "HEART")
                 .then()
                 .statusCode(204);
         given()

@@ -35,12 +35,12 @@
 
 응답은 `{items, nextCursor, hasNext}` 구조다. `items` 각 항목은 그룹 요약, 작성자 닉네임,
 이미지 URL, 선택 캡션, 활동 날짜, 작성 시각, 요청자의 `canModify`, 숨기지 않은 댓글 수
-`commentCount`, 이모지 반응 요약 `reactions`를 포함한다.
+`commentCount`, 반응 요약 `reactions`를 포함한다.
 
 - `group.recruiting`: 그룹이 `ACTIVE`이고 지금 신청할 수 있는 모집 공고(시작했고 마감 전이거나 상시 모집)가 있으면 `true`다.
 - `group.joined`: 요청자가 그룹 구성원이면 `true`다. 비로그인 요청은 항상 `false`다.
-- `reactions`: 반응이 1개 이상인 이모지만 이모지 선언 순서(`THUMBS_UP`, `SAD`, `GRIN`, `HEART`, `EYES`, `FIRE`,
-  `CHECK`, `QUESTION`, `EXCLAMATION`)로 담는다. `reacted`는 요청자가 남긴 반응인지다.
+- `reactions`: 반응이 1개 이상인 이모지만 이모지 선언 순서로 담는다. 지금은 `HEART` 하나뿐이다.
+  `reacted`는 요청자가 남긴 반응인지다.
 
 ```json
 {
@@ -56,7 +56,7 @@
       "createdAt": "2026-09-28T10:15:30",
       "canModify": false,
       "commentCount": 2,
-      "reactions": [{"emoji": "THUMBS_UP", "count": 3, "reacted": true}]
+      "reactions": [{"emoji": "HEART", "count": 3, "reacted": true}]
     }],
     "nextCursor": "MjAyNi0wOS0xMnwxMDE",
     "hasNext": true
@@ -116,7 +116,7 @@
 - 물리 삭제 대신 `deletedAt`으로 숨긴다. 숨긴 댓글은 목록과 `commentCount`에서 빠진다.
 - 응답: `204 No Content`.
 
-## 이모지 반응
+## 하트 반응
 
 | Method | Endpoint | 설명 |
 | --- | --- | --- |
@@ -126,8 +126,9 @@
 | `DELETE` | `/api/activity-post-comments/{commentId}/reactions/{emoji}` | 댓글의 내 반응 취소 |
 
 - 권한: `MEMBER`. 그룹 구성원이 아니어도 로그인 회원이면 반응할 수 있고, 종료된 그룹의 기록에도 반응할 수 있다.
-- `emoji`는 `THUMBS_UP`(👍), `SAD`(😢), `GRIN`(😄), `HEART`(❤️), `EYES`(👀), `FIRE`(🔥), `CHECK`(✅),
-  `QUESTION`(❓), `EXCLAMATION`(❗) 중 하나다. 그 밖의 값은 `INVALID_PARAMETER`다.
+- `emoji`는 `HEART`만 허용한다. 피드는 단순한 공감만 반응으로 받고 더 깊은 의견은 댓글로 남기도록,
+  우선 하트 하나만 제공한다. 그 밖의 값은 `INVALID_PARAMETER`다. 경로의 `{emoji}`는 이후 반응 종류를
+  늘릴 때를 위해 유지한다.
 - 같은 회원은 대상별로 같은 이모지를 하나만 남긴다. 추가와 취소는 모두 멱등이며 `204 No Content`로 응답한다.
 - 숨겨진 기록과 댓글은 각각 `ACTIVITY_POST_NOT_FOUND`, `ACTIVITY_POST_COMMENT_NOT_FOUND`로 응답한다.
 
