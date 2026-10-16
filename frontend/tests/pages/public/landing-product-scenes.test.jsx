@@ -91,7 +91,10 @@ test("account and activity examples keep the real product's tabs, photo and conv
   const activity = container.querySelector('.landing-product-scene--activity');
   expect(activity.querySelector(".lps-feed-photo img")).toBeInTheDocument();
   expect(activity.querySelectorAll(".lps-comment")).toHaveLength(2);
-  expect(activity.querySelector(".lps-reactions")).toBeInTheDocument();
+  expect(activity.querySelectorAll(".lps-reactions .lpa-reaction")).toHaveLength(1);
+  expect(activity.querySelector(".lps-reactions .lpa-reaction-heart")).toHaveAttribute("alt", "");
+  expect(activity.querySelector(".lps-reactions svg")).toBeNull();
+  expect(activity.querySelector(".lps-reactions")).not.toHaveTextContent(/[👍🔥]/u);
   expect(activity).toHaveTextContent("댓글을 남겨 보세요.");
 });
 
