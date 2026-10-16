@@ -67,6 +67,87 @@ afterEach(() => {
   window.history.replaceState({}, "", "/");
 });
 
+test("초대 이벤트 추적은 계정 변경 후 이전 요청의 결과를 다음 회원에게 기록하지 않는다", async () => {
+  const { analytics, client } = setup();
+  await analytics.syncAnalyticsIdentity("authenticated", 42);
+  const tracking = analytics.startEventTracking();
+  tracking.captureEvent("invitation_issue_attempted", { group_id: 10, invitation_type: "DIRECT" });
+  await analytics.syncAnalyticsIdentity("authenticated", 51);
+  expect(tracking.captureEvent("invitation_created", { group_id: 10, invitation_id: 501, invitation_type: "DIRECT" })).toBe(false);
+  expect(client.capture.mock.calls.map(([event]) => event)).toEqual(["invitation_issue_attempted"]);
+});
+test("수집 차단 또는 SDK 실패는 초대 처리에 예외를 전달하지 않는다", async () => {
+  const disabled = setup({ config: { enabled: false } });
+  expect(disabled.analytics.startEventTracking().captureEvent("invitation_joined", {})).toBe(false);
+  const { analytics, client } = setup();
+  await analytics.syncAnalyticsIdentity("authenticated", 42);
+  client.capture.mockImplementation(() => { throw new Error("SDK error"); });
+  expect(analytics.startEventTracking().captureEvent("invitation_joined", { group_id: 10 })).toBe(false);
+});
+test("공유 초대 페이지는 회원 ID로 명시적 초대 이벤트만 수집하며 녹화와 자동 이벤트는 차단한다", async () => {
+  const path = `/invitations/link/${"A".repeat(43)}`;
+  const { analytics, client, options } = setup();
+  window.history.replaceState({}, "", path);
+  analytics.setAnalyticsRoute(path);
+  expect(await analytics.syncAnalyticsIdentity("authenticated", 42)).toBe(false);
+  expect(client.identify).toHaveBeenCalledWith("42");
+  expect(client.startSessionRecording).not.toHaveBeenCalled();
+  expect(options()).toMatchObject({ autocapture: false, disable_session_recording: true });
+  expect(analytics.startEventTracking().captureEvent("invitation_joined", { group_id: 10, invitation_id: 501, invitation_type: "LINK" })).toBe(true);
+  const event = options().before_send({ event: "invitation_joined", properties: {
+    group_id: 10, invitation_id: 501, invitation_type: "LINK", distinct_id: "wrong-account",
+    token: "invitation-token", $current_url: path, $set: { name: "private" }, $session_id: "unneeded"
+  }});
+  expect(event.properties).toEqual({ token: "phc_test", distinct_id: "42", $is_identified: true, $process_person_profile: true, group_id: 10, invitation_id: 501, invitation_type: "LINK" });
+  expect(JSON.stringify(event)).not.toMatch(/A{43}|private|wrong-account|invitation-token|unneeded/);
+  for (const event of ["$pageview", "$autocapture", "$snapshot", "$identify", "$exception", "api_request_completed", "group_created"]) {
+    expect(options().before_send({ event, properties: {} })).toBeNull();
+  }
+  expect(analytics.captureEvent("login_completed", { provider: "github" })).toBe(false);
+  expect(analytics.captureEvent("invitation_joined", { invitation_type: "DIRECT" })).toBe(false);
+  expect(options().before_send({ event: "invitation_joined", properties: { invitation_type: "DIRECT" } })).toBeNull();
+  analytics.trackPage(path);
+  analytics.startRequestTracking({ endpoint: path }).finish({ status: 200 });
+  expect(client.capture).toHaveBeenCalledTimes(1);
+});
+
+test("공유 초대는 SDK 준비를 기다려 조회를 기록하고 계정 전환 중의 조회와 수락 결과는 버린다", async () => {
+  let finish;
+  const initial = setup();
+  const { analytics } = setup({ loadClient: () => new Promise(resolve => { finish = resolve; }) });
+  const path = `/invitations/link/${"A".repeat(43)}`;
+  window.history.replaceState({}, "", path);
+  analytics.setAnalyticsRoute(path);
+  const sync = analytics.syncAnalyticsIdentity("authenticated", 42);
+  const view = analytics.captureEventWhenReady("invitation_viewed", { invitation_id: 501, group_id: 10, invitation_type: "LINK" });
+  await Promise.resolve();
+  finish(initial.client);
+  await sync;
+  expect(await view).toBe(true);
+  const tracking = analytics.startEventTracking();
+  const previousView = analytics.captureEventWhenReady("invitation_viewed", { invitation_id: 501 });
+  await analytics.syncAnalyticsIdentity("authenticated", 51);
+  expect(await previousView).toBe(false);
+  expect(tracking.captureEvent("invitation_joined", { invitation_id: 501 })).toBe(false);
+  expect(initial.client.capture).toHaveBeenCalledTimes(1);
+});
+
+test("공유 초대의 수집 거부는 유지하고 공개 화면으로 복귀하면 기존 분석 설정을 복원한다", async () => {
+  const { analytics, client } = setup();
+  const path = `/invitations/link/${"A".repeat(43)}`;
+  analytics.setAnalyticsRoute(path);
+  client.has_opted_out_capturing.mockReturnValue(true);
+  await analytics.syncAnalyticsIdentity("authenticated", 42);
+  expect(analytics.captureEvent("invitation_joined", {})).toBe(false);
+  expect(client.identify).not.toHaveBeenCalled();
+  client.has_opted_out_capturing.mockReturnValue(false);
+  await analytics.syncAnalyticsIdentity("authenticated", 42);
+  analytics.setAnalyticsRoute("/groups/10");
+  expect(await analytics.syncAnalyticsIdentity("authenticated", 42)).toBe(true);
+  expect(client.set_config).toHaveBeenLastCalledWith(expect.objectContaining({ capture_pageleave: true }));
+  expect(client.startSessionRecording).toHaveBeenCalledTimes(1);
+});
+
 test("disabled or missing environment does not load SDK", async () => {
   const { analytics, loadClient } = setup({ config: { enabled: false } });
   expect(await analytics.syncAnalyticsIdentity("authenticated", 42)).toBe(false);
@@ -249,14 +330,14 @@ test("registration_started is an allowed explicit business event", async () => {
   });
 });
 
-test("private callback prevents initialization and pauses an active recording", async () => {
+test.each(["/oauth/callback", "/api/invitations/links/" + "A".repeat(43), "/invitations/link/invalid", "/invitations/link/" + "A".repeat(43) + "/extra"])("private route %s prevents initialization and pauses an active recording", async (path) => {
   const { analytics, client } = setup();
-  analytics.setAnalyticsRoute("/oauth/callback");
+  analytics.setAnalyticsRoute(path);
   expect(await analytics.syncAnalyticsIdentity("anonymous")).toBe(false);
   expect(client.init).not.toHaveBeenCalled();
   analytics.setAnalyticsRoute("/groups");
   await analytics.syncAnalyticsIdentity("anonymous");
-  analytics.setAnalyticsRoute("/oauth/callback");
+  analytics.setAnalyticsRoute(path);
   analytics.captureEvent("group_created", { group_id: 1 });
   expect(client.capture).not.toHaveBeenCalled();
   expect(client.stopSessionRecording).toHaveBeenCalled();
@@ -444,6 +525,8 @@ test("network scrubber discards external signed URLs and strips same-origin payl
 test("path normalization is idempotent and removes arbitrary user-controlled segments", () => {
   expect(normalizePath(normalizePath("/groups/42?token=secret"))).toBe("/groups/:id");
   expect(normalizePath("/groups/explore?keyword=private")).toBe("/groups/explore");
+  expect(normalizePath("/land?private=secret#about")).toBe("/land");
+  expect(normalizePath("/home?homeKeyword=private#results")).toBe("/home");
   expect(normalizePath("/people/private@example.com")).toBe("/:redacted/:redacted");
   expect(isPrivateRoute("/api/oauth/github/callback")).toBe(true);
 });

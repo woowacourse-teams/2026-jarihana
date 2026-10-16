@@ -8,6 +8,11 @@
 현재 운영 버킷의 이미지 객체 prefix는 `jarihana/images`이며, 공개 Base URL은
 해당 prefix를 제외한 CloudFront 경로(예: `https://d1znkkaqfyz08f.cloudfront.net/images`)다.
 
+목록·상세의 `activeRecruitment.approvedCount`는 해당 공고의 모집으로 가입한 인원(APPROVED·RECRUITMENT)이다.
+초대 출처 승인은 제외한다. `memberCount`는 실제 GroupMember 수이며 모임장과 초대 합류자도 포함한다.
+`recruiting=true`는 기간상 열린 공고의 모집으로 가입한 인원이 정원보다 적은 그룹을,
+`recruiting=false`는 그런 공고가 없는 그룹을 조회한다.
+
 ### `GET /api/groups`
 
 - 설명: 그룹 목록 조회 — 관계·상태·유형 필터 지원
@@ -188,7 +193,8 @@ Request Body는 없다.
 
 #### 동작
 - `ACTIVE`이고 생성 후 24시간 이내인 경우에만 가능하다.
-- 그룹, 모집 공고, 신청, 구성원, 반복 일정 또는 세션 일정을 Hard Delete한다.
+- 그룹, 초대·수락 이력, 모집 공고, 신청, 구성원, 반복 일정 또는 세션 일정을 Hard Delete한다.
+- 수신자의 초대 알림은 유지하고 PENDING·RETRY·IN_FLIGHT 초대 전송을 취소한다. 삭제된 초대의 상세·공유 미리보기·수락은 INVITATION_NOT_FOUND(404)로 안내한다. 이미 전달된 OS 알림은 회수하지 않는다.
 - `Group.status`를 변경하지 않는다.
 - 삭제 요청을 종료 요청으로 자동 전환하지 않는다.
 
@@ -350,7 +356,7 @@ Request Body는 없다.
 | --- | --- | --- |
 | 모임장이 아님 | `GROUP_ACCESS_DENIED` | 403 |
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
-| SESSION 그룹 | `SCHEDULE_TYPE_MISMATCH` | 409 |
+| SESSION 그룹 | `SCHEDULE_TYPE_MISMATCH` | 400 |
 | ENDED 그룹 | `GROUP_ENDED` | 409 |
 | 등록된 반복 일정 없음 | `RECURRING_SCHEDULE_NOT_FOUND` | 404 |
 
@@ -415,7 +421,7 @@ Request Body는 없다.
 | --- | --- | --- |
 | 모임장이 아님 | `GROUP_ACCESS_DENIED` | 403 |
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
-| SESSION 그룹 | `SCHEDULE_TYPE_MISMATCH` | 409 |
+| SESSION 그룹 | `SCHEDULE_TYPE_MISMATCH` | 400 |
 | ENDED 그룹 | `GROUP_ENDED` | 409 |
 | 요일 비어 있음, 시간 역전 또는 두 시각 중 한쪽만 지정 | `SCHEDULE_INVALID_RULE` | 400 |
 
@@ -456,6 +462,15 @@ SESSION의 일정은 필수이므로 삭제 API를 제공하지 않는다.
 | --- | --- | --- |
 | 모임장이 아님 | `GROUP_ACCESS_DENIED` | 403 |
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
-| CLUB·STUDY 그룹 | `SCHEDULE_TYPE_MISMATCH` | 409 |
+| CLUB·STUDY 그룹 | `SCHEDULE_TYPE_MISMATCH` | 400 |
 | ENDED 그룹 | `GROUP_ENDED` | 409 |
 | 날짜 누락 또는 시간 역전 | `SCHEDULE_INVALID_RULE` | 400 |
+
+### 캘린더를 통한 정기 일정 관리
+
+신규 프론트엔드는 [그룹 달력 API](group-calendar.md)의 별도 정기 규칙 API를 사용한다. 기존
+`PUT/DELETE /api/groups/{groupId}/recurring-schedule`은 구버전 화면 호환용이며,
+`GROUP_CALENDAR_LEGACY_RECURRING_WRITE_ENABLED=true`일 때만 오늘 이후 범위로 이력을 함께
+수정한다. 기본값은 `false`다. 비활성 상태에서 기존 정기 일정 변경 요청은
+`CALENDAR_CLIENT_OUTDATED` (`409`)로 거절된다. 모임 기본 정보 수정과 `SESSION` 일정 수정은
+계속 허용한다.

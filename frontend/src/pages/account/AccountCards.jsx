@@ -19,7 +19,7 @@ export function GroupSummaryCard({ group }) {
       to={`/groups/${group.id}`}
     >
       <div className="account-card__meta">
-        <StatusBadge tone="brand">{GROUP_TYPE_LABELS[group.type] ?? group.type}</StatusBadge>
+        <StatusBadge tone={`group-type-${String(group.type).toLowerCase()}`}>{GROUP_TYPE_LABELS[group.type] ?? group.type}</StatusBadge>
         <span>
           <UsersRound aria-hidden="true" size={15} /> {group.memberCount}명
         </span>

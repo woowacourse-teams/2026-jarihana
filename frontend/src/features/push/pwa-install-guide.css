@@ -1,0 +1,685 @@
+.ui-dialog:has(.pwa-guide) {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    width: min(30rem, calc(100vw - 2rem));
+    max-width: none;
+    max-height: none;
+    height: min(34rem, calc(100dvh - 2.5rem));
+    overflow: hidden;
+    padding: 0;
+}
+
+.ui-dialog:has(.pwa-guide) > .ui-dialog__title {
+    min-width: 0;
+    margin: 0;
+    padding: var(--space-4) calc(var(--space-12) + var(--space-2)) var(--space-4) var(--space-5);
+    border-bottom: var(--border-thin) solid var(--color-line);
+    font-size: var(--text-label);
+    line-height: 1.4;
+}
+
+.ui-dialog:has(.pwa-guide) > .ui-dialog__close {
+    top: var(--space-2);
+}
+
+.ui-dialog:has(.pwa-guide) > .ui-dialog__content {
+    display: grid;
+    min-height: 0;
+    margin: 0;
+    overflow: hidden;
+    padding: 0;
+}
+
+.pwa-guide {
+    display: grid;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.pwa-guide__title {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: var(--space-2);
+    font-weight: var(--font-weight-semibold);
+}
+
+.pwa-guide__brand-mark {
+    width: var(--space-8);
+    height: var(--space-8);
+    flex: none;
+    border-radius: var(--radius-pill);
+}
+
+.pwa-guide__brand-name {
+    flex: none;
+    color: var(--color-ink);
+    font-weight: var(--font-weight-extrabold);
+    white-space: nowrap;
+}
+
+.pwa-guide__divider {
+    width: var(--border-thin);
+    height: var(--space-4);
+    flex: none;
+    background: var(--color-line-strong);
+}
+
+.pwa-guide__title-label {
+    min-width: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-caption);
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.pwa-guide__tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-1);
+    margin: var(--space-4) var(--space-5) 0;
+    padding: var(--space-1);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-sunken);
+}
+
+.pwa-guide__browser-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-1);
+    margin: var(--space-2) var(--space-5) 0;
+    padding: var(--space-1);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-sunken);
+}
+
+.pwa-guide__platform-panel {
+    display: grid;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+}
+
+.pwa-guide__tab {
+    display: inline-flex;
+    min-width: 0;
+    min-height: var(--touch-target);
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--color-text-muted);
+    font: inherit;
+    font-weight: var(--font-weight-bold);
+    cursor: pointer;
+}
+
+.pwa-guide__browser-tab {
+    display: inline-flex;
+    min-width: 0;
+    min-height: var(--touch-target);
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-2) var(--space-3);
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-muted);
+    font: inherit;
+    font-size: var(--text-caption);
+    font-weight: var(--font-weight-semibold);
+    cursor: pointer;
+}
+
+.pwa-guide__tab[aria-selected="true"] {
+    background: var(--color-surface);
+    color: var(--color-ink);
+    box-shadow: 0 1px 4px rgb(29 29 31 / 10%);
+}
+
+.pwa-guide__browser-tab[aria-selected="true"] {
+    background: var(--color-surface);
+    color: var(--color-ink);
+    box-shadow: 0 1px 4px rgb(29 29 31 / 10%);
+}
+
+.pwa-guide__tab:focus-visible,
+.pwa-guide__browser-tab:focus-visible,
+.pwa-guide__navigation button:focus-visible,
+.pwa-guide__reopen:focus-visible {
+    outline: var(--border-strong) solid var(--color-brand-ink);
+    outline-offset: var(--space-1);
+}
+
+.pwa-guide__panel {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
+.pwa-guide__panel:focus-visible {
+    outline: var(--border-strong) solid var(--color-brand-ink);
+    outline-offset: calc(var(--space-1) * -1);
+}
+
+.pwa-guide__progress-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    margin-bottom: var(--space-2);
+}
+
+.pwa-guide__count {
+    color: var(--color-text-muted);
+    font-size: var(--text-caption);
+    font-weight: var(--font-weight-bold);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.pwa-guide__progress {
+    height: var(--space-1);
+    margin-bottom: var(--space-4);
+    overflow: hidden;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-sunken);
+}
+
+.pwa-guide__progress > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--color-brand-ink);
+    transition: width var(--duration-base) var(--ease-standard);
+}
+
+.pwa-guide__step h3 {
+    margin: 0 0 var(--space-3);
+    font-size: var(--text-h3);
+    font-weight: var(--font-weight-bold);
+}
+
+.pwa-guide__screenshot {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-md);
+    background: var(--color-surface-sunken);
+}
+
+.pwa-guide__screenshot img {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.pwa-guide__screenshot--share {
+    aspect-ratio: 3.1 / 1;
+}
+
+.pwa-guide__screenshot--share img {
+    object-fit: cover;
+    object-position: center;
+}
+
+.pwa-guide__screenshot--safari-share {
+    aspect-ratio: 2.96 / 1;
+    container-type: inline-size;
+}
+
+.pwa-guide__screenshot--safari-share img {
+    object-fit: cover;
+    object-position: center;
+}
+
+.pwa-guide__safari-domain-cover {
+    position: absolute;
+    top: 18.5%;
+    left: 35.8%;
+    width: 35%;
+    height: 14%;
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    pointer-events: none;
+}
+
+.pwa-guide__safari-domain {
+    position: absolute;
+    top: 19.4%;
+    left: 36.3%;
+    color: var(--color-ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 3.7vw;
+    font-size: clamp(0.7rem, 4.4cqw, 2rem);
+    line-height: 1;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.pwa-guide__share-focus {
+    position: absolute;
+    top: 0.4%;
+    right: 1.5%;
+    width: clamp(2rem, 6vw, 2.625rem);
+    aspect-ratio: 1;
+    border: var(--border-strong) solid var(--color-brand-ink);
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--color-brand-soft) 28%, transparent);
+    box-shadow: 0 0 0 var(--space-1) color-mix(in srgb, var(--color-surface) 78%, transparent);
+    pointer-events: none;
+}
+
+.pwa-guide__safari-share-focus {
+    position: absolute;
+    top: 60.5%;
+    left: 50.7%;
+    width: clamp(2.75rem, 10cqw, 3.25rem);
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+    border: var(--border-strong) solid var(--color-brand-ink);
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--color-brand-soft) 28%, transparent);
+    box-shadow: 0 0 0 var(--space-1) color-mix(in srgb, var(--color-surface) 78%, transparent);
+    pointer-events: none;
+}
+
+.pwa-guide__screenshot--menu {
+    max-height: 15rem;
+    aspect-ratio: 2.35 / 1;
+}
+
+.pwa-guide__screenshot--menu img {
+    object-fit: cover;
+    object-position: center 58%;
+}
+
+.pwa-guide__menu-focus {
+    position: absolute;
+    inset: 56% 3% auto;
+    height: 34%;
+    border: var(--border-strong) solid var(--color-brand-ink);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--color-brand-soft) 15%, transparent);
+    box-shadow: 0 0 0 var(--space-1) color-mix(in srgb, var(--color-surface) 72%, transparent);
+    pointer-events: none;
+}
+
+.pwa-guide__screenshot--hamburger {
+    aspect-ratio: 5.45 / 1;
+}
+
+.pwa-guide__screenshot--hamburger img,
+.pwa-guide__screenshot--bell img {
+    object-fit: contain;
+}
+
+.pwa-guide__hamburger-focus {
+    position: absolute;
+    top: 20%;
+    right: 4.1%;
+    width: 11.4%;
+    height: 60%;
+    border: var(--border-strong) solid var(--color-brand);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--color-brand-soft) 22%, transparent);
+    pointer-events: none;
+}
+
+.pwa-guide__screenshot--bell {
+    aspect-ratio: 5.13 / 1;
+}
+
+.pwa-guide__bell-badge-cover {
+    position: absolute;
+    z-index: 1;
+    top: 12%;
+    left: 72%;
+    width: 11%;
+    height: 62%;
+    background: var(--color-surface);
+    pointer-events: none;
+}
+
+.pwa-guide__bell-restored {
+    position: absolute;
+    z-index: 2;
+    top: 36.5%;
+    left: 72%;
+    width: 6.5%;
+    height: 31%;
+    overflow: visible;
+    color: var(--color-ink);
+    stroke-width: 1.8;
+    pointer-events: none;
+}
+
+.pwa-guide__bell-focus {
+    position: absolute;
+    z-index: 3;
+    top: 30%;
+    right: 20.7%;
+    width: 8%;
+    aspect-ratio: 1;
+    border: var(--border-strong) solid var(--color-brand-ink);
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--color-brand-soft) 18%, transparent);
+    pointer-events: none;
+}
+
+.pwa-guide__screenshot--push img {
+    height: auto;
+}
+
+.pwa-guide__push-focus {
+    position: absolute;
+    top: 33%;
+    right: 4.2%;
+    width: 13.2%;
+    height: 34%;
+    border: var(--border-strong) solid var(--color-brand-ink);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--color-brand-soft) 16%, transparent);
+    pointer-events: none;
+}
+
+.pwa-guide__screenshot--samsung-menu { aspect-ratio: 2.45 / 1; }
+.pwa-guide__screenshot--samsung-install-options { aspect-ratio: 2.72 / 1; }
+.pwa-guide__screenshot--samsung-install-confirm { aspect-ratio: 2.83 / 1; }
+.pwa-guide__screenshot--samsung-play-protect-details { aspect-ratio: 2.88 / 1; }
+.pwa-guide__screenshot--samsung-play-protect-install { aspect-ratio: 2.8 / 1; }
+.pwa-guide__screenshot--samsung-home-screen-name { aspect-ratio: 2.83 / 1; }
+.pwa-guide__screenshot--samsung-home-screen-confirm { aspect-ratio: 3.64 / 1; }
+.pwa-guide__screenshot--android-chrome-menu-install { aspect-ratio: 2.2 / 1; }
+.pwa-guide__screenshot--android-chrome-install-choice { aspect-ratio: 2.35 / 1; }
+
+.pwa-guide__screenshot--samsung-menu img,
+.pwa-guide__screenshot--samsung-install-options img,
+.pwa-guide__screenshot--samsung-install-confirm img,
+.pwa-guide__screenshot--samsung-play-protect-details img,
+.pwa-guide__screenshot--samsung-play-protect-install img,
+.pwa-guide__screenshot--samsung-home-screen-name img,
+.pwa-guide__screenshot--samsung-home-screen-confirm img {
+    object-fit: cover;
+}
+
+.pwa-guide__screenshot--android-chrome-menu-install img,
+.pwa-guide__screenshot--android-chrome-install-choice img {
+    object-fit: cover;
+}
+
+.pwa-guide__screenshot--android-chrome-menu-install img {
+    object-position: center 61%;
+}
+
+.pwa-guide__screenshot--android-chrome-install-choice img {
+    object-position: center 90%;
+}
+
+.pwa-guide__screenshot--samsung-menu img {
+    object-position: center;
+}
+
+.pwa-guide__screenshot--samsung-install-options img {
+    object-fit: contain;
+    object-position: center;
+}
+
+.pwa-guide__samsung-focus {
+    position: absolute;
+    border: var(--border-strong) solid var(--color-brand-ink);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--color-brand-soft) 24%, transparent);
+    box-shadow: 0 0 0 var(--space-1) color-mix(in srgb, var(--color-surface) 78%, transparent);
+    pointer-events: none;
+}
+
+.pwa-guide__samsung-focus--samsung-menu {
+    top: 47%;
+    left: 34%;
+    width: 50%;
+    height: 32%;
+}
+
+.pwa-guide__samsung-focus--samsung-install-options-web-app,
+.pwa-guide__samsung-focus--samsung-install-options-home-screen {
+    left: 3%;
+    width: 46%;
+    height: 27%;
+}
+
+.pwa-guide__samsung-focus--samsung-install-options-web-app {
+    top: 53%;
+}
+
+.pwa-guide__samsung-focus--samsung-install-options-home-screen {
+    top: 11%;
+}
+
+.pwa-guide__samsung-focus--samsung-install-confirm {
+    top: 50%;
+    right: 20%;
+    width: 17%;
+    height: 38%;
+}
+
+.pwa-guide__samsung-focus--samsung-play-protect-details {
+    top: 4%;
+    left: 6%;
+    width: 34%;
+    height: 18%;
+}
+
+.pwa-guide__samsung-focus--samsung-play-protect-install {
+    top: 10%;
+    left: 5%;
+    width: 32%;
+    height: 42%;
+}
+
+.pwa-guide__samsung-focus--samsung-home-screen-name,
+.pwa-guide__samsung-focus--samsung-home-screen-confirm {
+    top: 43%;
+    left: 65%;
+    width: 14%;
+    height: 42%;
+}
+
+.pwa-guide__chrome-focus {
+    position: absolute;
+    border: var(--border-strong) solid var(--color-brand-ink);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--color-brand-soft) 24%, transparent);
+    box-shadow: 0 0 0 var(--space-1) color-mix(in srgb, var(--color-surface) 78%, transparent);
+    pointer-events: none;
+}
+
+.pwa-guide__chrome-focus--android-chrome-menu-install {
+    top: 31%;
+    right: 3%;
+    left: 23%;
+    height: 31%;
+}
+
+.pwa-guide__chrome-focus--android-chrome-install-choice {
+    right: 6%;
+    left: 6%;
+}
+
+.pwa-guide__chrome-focus--android-chrome-install-choice-install {
+    top: 5%;
+    height: 43%;
+}
+
+.pwa-guide__chrome-focus--android-chrome-install-choice-home-screen {
+    top: 52%;
+    height: 43%;
+}
+
+.pwa-guide__step-note {
+    margin: var(--space-2) 0 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-caption);
+    line-height: 1.5;
+}
+
+.pwa-guide__install-path {
+    display: grid;
+    gap: var(--space-2);
+    margin: var(--space-2) 0;
+}
+
+.pwa-guide__install-path .pwa-guide__step-note {
+    margin: 0;
+}
+
+.pwa-guide__install-path-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2);
+}
+
+.pwa-guide__install-path-option {
+    min-width: 0;
+    min-height: var(--touch-target);
+    padding: var(--space-2) var(--space-3);
+    border: var(--border-thin) solid var(--color-line);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+    font: inherit;
+    font-size: var(--text-caption);
+    font-weight: var(--font-weight-semibold);
+    cursor: pointer;
+}
+
+.pwa-guide__install-path-option[aria-pressed="true"] {
+    border-color: var(--color-brand-ink);
+    background: var(--color-brand-soft);
+    color: var(--color-brand-ink);
+}
+
+.pwa-guide__install-path-option:focus-visible {
+    outline: var(--border-strong) solid var(--color-brand-ink);
+    outline-offset: var(--space-1);
+}
+
+.pwa-guide__coming-soon {
+    display: grid;
+    min-height: 100%;
+    place-items: center;
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-h3);
+    font-weight: var(--font-weight-bold);
+}
+
+.pwa-guide__footer {
+    display: grid;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-5) var(--space-4);
+    border-top: var(--border-thin) solid var(--color-line);
+    background: var(--color-surface);
+}
+
+.pwa-guide__navigation {
+    display: flex;
+    gap: var(--space-3);
+}
+
+.pwa-guide__navigation button {
+    display: inline-flex;
+    min-width: 0;
+    min-height: var(--touch-target-lg);
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    border: var(--border-thin) solid var(--color-line);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font: inherit;
+    font-weight: var(--font-weight-bold);
+    cursor: pointer;
+}
+
+.pwa-guide__navigation button:disabled {
+    color: var(--color-muted);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.pwa-guide__navigation .pwa-guide__next {
+    border-color: var(--color-brand);
+    background: var(--color-brand);
+}
+
+.pwa-guide__navigation .pwa-guide__next:hover:not(:disabled) {
+    background: var(--color-brand-strong);
+}
+
+.pwa-guide__footer > .ui-field {
+    margin: 0;
+}
+
+.pwa-guide__footer .ui-check {
+    min-height: var(--touch-target);
+    align-items: center;
+    padding-inline: var(--space-1);
+}
+
+.pwa-guide__footer .ui-field__label {
+    color: var(--color-text-muted);
+    font-size: var(--text-caption);
+}
+
+.pwa-guide__reopen {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+}
+
+.pwa-guide__reopen:hover {
+    color: var(--color-surface);
+}
+
+@media (max-width: 30rem) {
+    .ui-dialog:has(.pwa-guide) {
+        width: calc(100vw - 2rem);
+        height: min(34rem, calc(100dvh - 2rem));
+    }
+
+    .ui-dialog:has(.pwa-guide) > .ui-dialog__title {
+        padding-left: var(--space-4);
+    }
+
+    .pwa-guide__tabs {
+        margin-inline: var(--space-4);
+    }
+
+    .pwa-guide__browser-tabs {
+        margin-inline: var(--space-4);
+    }
+
+    .pwa-guide__panel {
+        padding-inline: var(--space-4);
+    }
+
+    .pwa-guide__footer {
+        padding-inline: var(--space-4);
+    }
+
+    .pwa-guide__navigation {
+        gap: var(--space-2);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pwa-guide__progress > span {
+        transition: none;
+    }
+}

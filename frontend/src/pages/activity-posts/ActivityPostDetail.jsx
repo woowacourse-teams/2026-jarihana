@@ -341,7 +341,7 @@ export function ActivityPostDetail({ onClose, onNavigateGroup, onRequireLogin, p
 
   return (
     <Modal
-      className="activity-post-detail"
+      panelClassName="activity-post-detail"
       closeAction="activity_post_detail_dismiss"
       onClose={closeDetail}
       open

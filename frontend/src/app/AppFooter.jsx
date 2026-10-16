@@ -8,9 +8,10 @@ import {
   FeedbackLoginPrompt,
   getFeedbackReturnTarget
 } from "../features/feedback/index.js";
+import { PwaInstallGuide } from "../features/push/PwaInstallGuide.jsx";
 import { Button, Modal, useToast } from "../shared/ui/index.js";
 
-export function AppFooter() {
+export function AppFooter({ pwaGuideReference }) {
   const { login, status } = useAuth();
   const { hash, pathname, search } = useLocation();
   const navigate = useNavigate();
@@ -51,7 +52,7 @@ export function AppFooter() {
   return (
     <footer aria-labelledby="footer-origin-title" className="app-footer">
       <div className="app-footer__copy">
-        <a className="app-footer__brand" href="/">
+        <a className="app-footer__brand" data-ph-capture-attribute-action="group_home" href="/home">
           <img alt="" className="app-footer__brand-mark" src={faviconImage} />
           <h2 className="app-footer__brand-title">자리 하나?</h2>
         </a>
@@ -108,7 +109,7 @@ export function AppFooter() {
           />
         </section>
 
-        <nav aria-label="외부 링크" className="app-footer__social-links">
+        <nav aria-label="외부 링크와 앱 설치 안내" className="app-footer__social-links">
           <a
             aria-label="레포지토리로 이동"
             className="app-footer__social-link"
@@ -137,6 +138,7 @@ export function AppFooter() {
               <path d="M9 5h10v10" />
             </svg>
           </a>
+          <PwaInstallGuide ref={pwaGuideReference} triggerClassName="app-footer__social-link" />
         </nav>
       </div>
     </footer>

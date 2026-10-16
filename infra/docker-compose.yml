@@ -1,19 +1,28 @@
+name: jarihana-prod
+
 services:
   backend:
-    image: "jarihana-backend:${BACKEND_TAG:?BACKEND_TAG is required}"
+    image: "ghcr.io/woowacourse-teams/jarihana-backend:${BACKEND_TAG:?BACKEND_TAG is required}"
     container_name: jarihana-backend
 
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      FLYWAY_BASELINE_ON_MIGRATE: "${FLYWAY_BASELINE_ON_MIGRATE:-false}"
+      INVITATION_TOKEN_ACTIVE_KEY_ID: "${INVITATION_TOKEN_ACTIVE_KEY_ID:-primary}"
+      INVITATION_TOKEN_KEY_PRIMARY: "${INVITATION_TOKEN_KEY_PRIMARY:-}"
+      INVITATION_TOKEN_KEY_PREVIOUS: "${INVITATION_TOKEN_KEY_PREVIOUS:-}"
       PUSH_ENABLED: "${PUSH_ENABLED:-false}"
       PUSH_WORKER_ENABLED: "${PUSH_WORKER_ENABLED:-true}"
       PUSH_VAPID_PUBLIC_KEY: "${PUSH_VAPID_PUBLIC_KEY:-}"
       PUSH_VAPID_PRIVATE_KEY: "${PUSH_VAPID_PRIVATE_KEY:-}"
       PUSH_VAPID_SUBJECT: "${PUSH_VAPID_SUBJECT:-}"
       APP_VERSION: "${BACKEND_TAG:?BACKEND_TAG is required}"
-      DB_URL: "jdbc:postgresql://postgres:5432/jarihana"
-      DB_USERNAME: "jarihana"
-      DB_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+      OTEL_SDK_DISABLED: "true"
+      SENTRY_BACKEND_DSN: "${SENTRY_BACKEND_DSN:-}"
+      SENTRY_ENVIRONMENT: production
+      DB_URL: "jdbc:postgresql://${RDS_URL:?RDS_URL is required}:5432/jarihana_prod?sslmode=require"
+      DB_USERNAME: "${DB_USERNAME:?DB_USERNAME is required}"
+      DB_PASSWORD: "${DB_PASSWORD:?DB_PASSWORD is required}"
       FRONTEND_ORIGIN: "${FRONTEND_ORIGIN:?FRONTEND_ORIGIN is required}"
       ACCESS_TOKEN_SECRET: "${ACCESS_TOKEN_SECRET:?ACCESS_TOKEN_SECRET is required}"
       GITHUB_OAUTH_CLIENT_ID: "${GITHUB_OAUTH_CLIENT_ID:?GITHUB_OAUTH_CLIENT_ID is required}"
@@ -24,48 +33,57 @@ services:
       IMAGE_S3_KEY_PREFIX: "${IMAGE_S3_KEY_PREFIX:?IMAGE_S3_KEY_PREFIX is required}"
       IMAGE_S3_PUBLIC_BASE_URL: "${IMAGE_S3_PUBLIC_BASE_URL:?IMAGE_S3_PUBLIC_BASE_URL is required}"
 
+    labels:
+      com.jarihana.monitoring.logs: "true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     logging:
-      driver: awslogs
+      driver: local
       options:
-        awslogs-region: "${CLOUDWATCH_LOG_REGION:-ap-northeast-2}"
-        awslogs-group: "${CLOUDWATCH_LOG_GROUP:-/jarihana/prod/application}"
-        awslogs-create-group: "false"
-        tag: "${BACKEND_TAG:?BACKEND_TAG is required}/{{.ID}}"
-        mode: non-blocking
-        max-buffer-size: "4m"
+        max-size: 10m
+        max-file: "5"
 
     ports:
       - "8080:8080"
       - "127.0.0.1:8081:8081"
 
     depends_on:
-      postgres:
-        condition: service_healthy
-
+      alloy:
+        condition: service_started
     restart: unless-stopped
 
-  postgres:
-    image: postgres:17
-    container_name: jarihana-db-postgres
-
+  alloy:
+    image: grafana/alloy:v1.20.1
+    restart: unless-stopped
+    network_mode: host
+    stop_grace_period: 30s
+    command:
+      - run
+      - --server.http.listen-addr=127.0.0.1:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
     environment:
-      POSTGRES_DB: jarihana
-      POSTGRES_USER: jarihana
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
-
-    ports:
-      - "127.0.0.1:5432:5432"
-
+      SPRING_PROFILES_ACTIVE: prod
+      HOST_ID: ${HOST_ID:?set HOST_ID to a stable app-host identifier}
+      PROMETHEUS_REMOTE_WRITE_URL: ${PROMETHEUS_REMOTE_WRITE_URL:?set Prometheus remote_write URL}
+      LOKI_PUSH_URL: ${LOKI_PUSH_URL:?set Loki push URL}
+      APP_METRICS_TARGET: 127.0.0.1:8081
+      POSTGRES_MONITOR_DSN: ${POSTGRES_MONITOR_DSN:?set PostgreSQL monitoring DSN}
     volumes:
-      - postgres-data:/var/lib/postgresql/data
-
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U jarihana -d jarihana"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-    restart: unless-stopped
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy-data:/var/lib/alloy/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro,rslave
+    mem_limit: 256m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: "3"
 
 volumes:
-  postgres-data:
+  alloy-data:

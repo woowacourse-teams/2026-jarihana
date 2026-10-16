@@ -18,7 +18,7 @@ concurrency:
 jobs:
   drill:
     if: github.ref == 'refs/heads/develop' && inputs.expected_instance_id == 'i-0a1245eb20f7998b8'
-    runs-on: [self-hosted, Linux, ARM64]
+    runs-on: [self-hosted, Linux, ARM64, jarihana-legacy]
     environment: dev
     timeout-minutes: 25
     env:

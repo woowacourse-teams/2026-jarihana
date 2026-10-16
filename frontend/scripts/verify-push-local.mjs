@@ -67,10 +67,12 @@ try {
     cwd: path.join(root, "backend"), stdio: ["ignore", backendLog, backendLog],
     env: { ...environment, SPRING_PROFILES_ACTIVE: "local", DB_URL: "jdbc:postgresql://127.0.0.1:55436/jarihana_push_test",
       DB_USERNAME: "push_test", DB_PASSWORD: "push-test-local-only", ACCESS_TOKEN_SECRET: secret,
-      FRONTEND_ORIGIN: "http://127.0.0.1:4176", PUSH_ENABLED: "true", PUSH_WORKER_ENABLED: "true",
+      FRONTEND_ORIGIN: "http://127.0.0.1:4176", PUSH_ENABLED: "true", PUSH_WORKER_ENABLED: realProvider ? "true" : "false",
       PUSH_VAPID_PUBLIC_KEY: key.getPublicKey().toString("base64url"), PUSH_VAPID_PRIVATE_KEY: key.getPrivateKey().toString("base64url"),
       PUSH_VAPID_SUBJECT: "mailto:local-push@example.test", GITHUB_OAUTH_CLIENT_ID: "local-test",
-      GITHUB_OAUTH_CLIENT_SECRET: "local-test", GITHUB_OAUTH_REDIRECT_URI: "http://127.0.0.1:8086/api/oauth/github/callback" }
+      GITHUB_OAUTH_CLIENT_SECRET: "local-test", GITHUB_OAUTH_REDIRECT_URI: "http://127.0.0.1:8086/api/oauth/github/callback",
+      INVITATION_TOKEN_ACTIVE_KEY_ID: "primary", INVITATION_TOKEN_KEY_PRIMARY: randomBytes(32).toString("base64"),
+      INVITATION_TOKEN_KEY_PREVIOUS: "" }
   });
   backend.once("error", (error) => { backendError = error; });
   let ready = false;
@@ -82,14 +84,17 @@ try {
   }
   if (!ready) throw new Error("Local backend did not become ready.");
   const sql = "INSERT INTO member (crew_name,generation,member_type,github_id,course,created_at,updated_at) VALUES "
-    + "('모임장',8,'CREW','local-push-leader','BACKEND',now(),now()),('신청자',8,'CREW','local-push-applicant','FRONTEND',now(),now());";
+    + "('모임장',8,'CREW','local-push-leader','BACKEND',now(),now()),('신청자',8,'CREW','local-push-applicant','FRONTEND',now(),now()),"
+    + "('링크회원',8,'CREW','local-push-link','BACKEND',now(),now());";
   run("docker", ["exec", "-i", container, "psql", "-U", "push_test", "-d", "jarihana_push_test", "-v", "ON_ERROR_STOP=1"], { input: sql, stdio: ["pipe", "ignore", "inherit"] });
   const credentials = path.join(temporary, "credentials.json");
-  fs.writeFileSync(credentials, JSON.stringify({ leader: token(1, secret), applicant: token(2, secret) }), { mode: 0o600 });
+  fs.writeFileSync(credentials, JSON.stringify({ leader: token(1, secret), applicant: token(2, secret), linkMember: token(3, secret) }), { mode: 0o600 });
   process.stdout.write(`Running real-backend browser tests; external provider test ${realProvider ? "enabled" : "disabled"}.\n`);
   run("npm", ["run", "test:e2e", "--", "--config", "playwright.integration.config.js"], {
     cwd: path.join(root, "frontend"), env: { ...environment, WEB_PUSH_TEST_CREDENTIALS: credentials, WEB_PUSH_REAL_PROVIDER: realProvider ? "1" : "0" }
   });
 } catch (error) {
+  if (created) run("docker", ["exec", container, "psql", "-U", "push_test", "-d", "jarihana_push_test", "-c",
+    "select status, last_error_code, count(*) from notification_deliveries group by status, last_error_code order by status"], { stdio: "inherit" });
   process.stderr.write(`${error.message}\n`); process.exitCode = 1;
 } finally { await cleanup(); }

@@ -9,10 +9,13 @@ import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -21,9 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "management.server.port=0",
         "management.server.address=127.0.0.1",
-        "spring.application.name=jarihana",
-        "spring.jpa.hibernate.ddl-auto=create-drop",
-        "spring.session.jdbc.initialize-schema=always"
+        "spring.application.name=jarihana"
 })
 class ManagementEndpointAcceptanceTest extends IntegrationTestSupport {
 
@@ -35,6 +36,9 @@ class ManagementEndpointAcceptanceTest extends IntegrationTestSupport {
 
     @Autowired
     private AuthCookieProperties authCookieProperties;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @DisplayName("관리용 포트에서 인증 없이 상태를 읽고 내부 구성은 숨긴다.")
     @Test
@@ -48,7 +52,42 @@ class ManagementEndpointAcceptanceTest extends IntegrationTestSupport {
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.OK.value());
         assertThat(response.jsonPath().getString("status")).isEqualTo("UP");
+        assertThat(response.jsonPath().getMap("$")).containsOnlyKeys("status", "groups");
+        assertThat(response.jsonPath().getList("groups", String.class))
+                .containsExactlyInAnyOrder("database", "liveness", "readiness");
+    }
+
+    @DisplayName("관리용 포트에서 모니터링 상태 그룹을 읽고 내부 구성은 숨긴다.")
+    @ParameterizedTest
+    @ValueSource(strings = {"database", "liveness", "readiness"})
+    void readHealthGroupWithoutAuthenticationAndHideDetails(String group) {
+        // Given
+        RequestSpecification request = managementRequest();
+
+        // When
+        ExtractableResponse<Response> response = request.get("/actuator/health/" + group).then().extract();
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.OK.value());
+        assertThat(response.jsonPath().getString("status")).isEqualTo("UP");
         assertThat(response.jsonPath().getMap("$")).containsOnlyKeys("status");
+    }
+
+    @DisplayName("공개 API 포트에서는 인증한 사용자도 모니터링 상태 그룹을 읽을 수 없다.")
+    @ParameterizedTest
+    @ValueSource(strings = {"database", "liveness", "readiness"})
+    void denyHealthGroupOnApplicationPortEvenWithAuthentication(String group) {
+        // Given
+        String accessToken = accessTokenProvider.issue(1L).value();
+
+        // When
+        ExtractableResponse<Response> response = RestAssured.given()
+                .cookie(authCookieProperties.accessTokenName(), accessToken)
+                .get("/actuator/health/" + group)
+                .then().extract();
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.FORBIDDEN.value());
     }
 
     @DisplayName("관리용 포트에서 JVM과 커넥션 풀 메트릭을 Prometheus 형식으로 읽는다.")
@@ -70,6 +109,23 @@ class ManagementEndpointAcceptanceTest extends IntegrationTestSupport {
                 "application=\"jarihana\"",
                 "environment=\"prod\""
         );
+    }
+
+    @DisplayName("관리용 포트에서 실제 JDBC 쿼리의 100ms 경계 메트릭을 읽는다.")
+    @Test
+    void readSlowQueryBoundaryForJdbcExecution() {
+        // Given
+        jdbcTemplate.queryForObject("select ?::text", String.class, "slow-query-metrics-test");
+
+        // When
+        ExtractableResponse<Response> response = managementRequest()
+                .get("/actuator/prometheus").then().extract();
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.OK.value());
+        assertThat(response.asString()).containsPattern(
+                "(?m)^jdbc_query_seconds_bucket\\{[^\\n]*le=\"0\\.1\"");
+        assertThat(response.asString()).doesNotContain("slow-query-metrics-test", "query=");
     }
 
     @DisplayName("공개 API 포트에서는 인증한 사용자도 메트릭을 읽을 수 없다.")

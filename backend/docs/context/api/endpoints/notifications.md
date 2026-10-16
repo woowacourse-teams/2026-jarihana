@@ -78,12 +78,14 @@ RestAssured 인수 테스트로 계약을 검증한다. 알림함 API는 Control
 
 | 사건 | target.kind | 이동 경로 |
 | --- | --- | --- |
+| 새 모임 등록 (`GROUP_CREATED`) | `GROUP_DETAIL` | `/groups/{groupId}` |
 | 새 가입 신청 | `LEADER_REGISTRATIONS` | `/groups/{groupId}/manage/registrations` |
 | 새 구성원 참여 | `LEADER_MEMBERS` | `/groups/{groupId}/manage/members` |
 | 신청 승인 | `MY_GROUPS` | `/my?focusGroup={groupId}` |
 | 수동 미승인·재모집 미승인·모임 종료 미승인 | `MY_PAGE` | `/my?registrationStatus=REJECTED&focusRegistration={registrationId}` |
 
 - 클라이언트는 `target`을 내부 화면 경로로 해석한다. 외부 URL을 목적지로 전달하지 않는다.
+- `GROUP_CREATED`의 `target`에는 `kind`, `groupId`만 포함한다. 알림함 제목은 `새 모임`, 본문은 `‘모임 이름’ 모임이 새로 등록되었습니다.`다. 기존 신청·참여 알림의 모집·신청 식별자는 유지한다.
 - 목록 조회나 알림함을 여는 동작만으로 읽음 처리하지 않는다.
 
 #### 예외
@@ -489,7 +491,8 @@ Request Body는 없다.
 
 - 기존 `accessToken` 쿠키로 인증한다.
 - 본인의 미삭제 알림, 본인의 활성 구독, 현재 `generation`을 모두 검증한다.
-- payload 버전 1은 `groupId`, `recruitmentId`, `registrationId`를 포함하고 시스템 미승인에는 `reasonCode`를 추가한다.
+- payload 버전 1에서 `GROUP_CREATED`는 `groupId`만 포함한다. 기존 신청·참여 사건은 `groupId`, `recruitmentId`, `registrationId`를 포함하고 시스템 미승인에는 `reasonCode`를 추가한다.
+- 새 모임 등록 푸시는 제목 `자리하나?`, 본문 `새로운 모임이 등록되었어요.`로 표시한다. 알림함과 푸시 클릭은 동일한 본인 알림 확인 경로를 거쳐 새 모임 상세로 이동한다.
 - `reasonCode`는 `RERECRUITMENT` 또는 `GROUP_ENDED`다. 신청 본문·미승인 사유 문장·회원명은 포함하지 않는다.
 - Service Worker는 사건 종류와 payload로 표시 문구를 구성한다.
 
@@ -585,3 +588,30 @@ JSON `null`, 잘못된 JSON, 필수 값 누락·0·음수는 `400`이다.
 - endpoint의 UTF-8 길이 경계와 주소·암호화 키 검증
 - 계정 전환, Access Token 만료 시 Refresh Token만으로 로그아웃, 이전 연결 버전의 로그아웃
 - 웹푸시 비활성 상태와 민감값 미노출
+
+## 초대 알림 응답 확장 계약
+
+> 상태: 백엔드 알림 저장·목록·개별 조회·푸시 내용 조회·전송 대기를 구현했다.
+> 프론트 schema·초대 클릭·Service Worker의 전용 문구도 구현했다. 기존 알림 응답 형식은 유지한다.
+
+[초대 API](invitations.md)의 DIRECT 신규 발급은 대상 회원 알림을 생성한다.
+알림함 목록과 개별 조회는 다음 사건·표시 내용·target을 반환한다.
+표의 title·body는 서비스 안의 알림함 표시값이며 OS 푸시 알림의 제목·본문과 구분한다.
+
+| 응답 필드 | 초대 사건 |
+| --- | --- |
+| eventType | INVITATION_RECEIVED |
+| payloadVersion | 1; 기존 알림과 동일, 사건 종류로 필수 데이터를 구분 |
+| title | 모임 초대 |
+| body | ‘현재 모임 이름’ 모임에 초대되었습니다. |
+| target.kind | INVITATION |
+| target.groupId | 초대한 모임 ID |
+| target.invitationId | 초대 ID |
+
+- target에 모집·신청 ID의 가짜 값을 넣지 않는다. 초대 target에는 recruitmentId·registrationId를 요구하지 않는다.
+- 알림 목록·개별 조회의 회원 소유권 검사와 조회만으로 읽음 처리하지 않는 계약을 유지한다.
+- 푸시 내용 조회는 payload에 groupId·invitationId만 제공한다. 초대 메시지·원본 토큰은 포함하지 않는다. 실제 푸시 전송 참조의 payloadVersion과 push-config의 payloadVersions도 기존 1을 유지한다.
+- OS 푸시 알림은 Service Worker가 제목 '자리하나?'와 본문 '새 모임 초대가 도착했어요.'로 표시한다. 초대에는 개인 메시지가 없다.
+- 클릭·인증 복귀·대상 확인·읽음 처리 순서는 [프론트 초대 계약](../../../../../frontend/docs/IMPLEMENTATION_MAP.md#초대-기능-설계-계약)을 따른다.
+
+초대 알림도 기존 삭제 API를 사용한다. 삭제는 알림함 표시와 미전송 푸시를 취소하며 초대의 상태와 수락 이력은 변경하지 않는다. 거절 이력은 생성하지 않는다.

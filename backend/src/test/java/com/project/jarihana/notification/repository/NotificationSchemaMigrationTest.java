@@ -54,6 +54,9 @@ class NotificationSchemaMigrationTest extends IntegrationTestSupport {
                 ResourceDatabasePopulator migration = new ResourceDatabasePopulator(
                         new FileSystemResource("db/migrations/2026-10-03-notification.sql"));
                 migration.execute(isolated);
+                ResourceDatabasePopulator groupCreatedMigration = new ResourceDatabasePopulator(
+                        new FileSystemResource("db/migrations/2026-10-08-group-created-notification.sql"));
+                groupCreatedMigration.execute(isolated);
                 buildSchema(isolated, schema, "validate");
 
                 // Then
@@ -63,6 +66,30 @@ class NotificationSchemaMigrationTest extends IntegrationTestSupport {
                 assertSubscriptionAccessPaths(jdbc);
                 migration.execute(isolated);
                 assertThat(jdbc.queryForObject("select count(*) from notifications", Long.class)).isEqualTo(1);
+                groupCreatedMigration.execute(isolated);
+                jdbc.update("update notifications set event_type = 'GROUP_CREATED', payload = '{\"groupId\":1}' where id = 1");
+                assertThat(jdbc.queryForObject("select event_type from notifications where id = 1", String.class))
+                        .isEqualTo("GROUP_CREATED");
+                ResourceDatabasePopulator invitationMigration = new ResourceDatabasePopulator(
+                        new FileSystemResource("db/migrations/2026-10-11-invitation.sql"));
+                invitationMigration.execute(isolated);
+                invitationMigration.execute(isolated);
+                jdbc.update("""
+                        insert into notifications (member_id, event_key, event_type, payload_version, payload, created_at, updated_at)
+                        select member_id, 'invitation:501:received', 'INVITATION_RECEIVED', 1,
+                            '{"groupId":12,"invitationId":501}'::jsonb, created_at, updated_at from notifications limit 1
+                        """);
+                buildSchema(isolated, schema, "validate");
+                assertThat(jdbc.queryForList("select event_type from notifications", String.class))
+                        .containsExactlyInAnyOrder("GROUP_CREATED", "INVITATION_RECEIVED");
+                invitationMigration.execute(isolated);
+                assertThat(jdbc.queryForList("select event_type from notifications", String.class))
+                        .containsExactlyInAnyOrder("GROUP_CREATED", "INVITATION_RECEIVED");
+                assertThatThrownBy(() -> jdbc.update("""
+                        insert into notifications (member_id, event_key, event_type, payload_version, payload, created_at, updated_at)
+                        select member_id, 'invalid-event', 'UNKNOWN_EVENT', 1, '{}'::jsonb, created_at, updated_at
+                        from notifications limit 1
+                        """)).isInstanceOf(DataIntegrityViolationException.class);
             } finally {
                 connection.setSchema(originalSchema);
                 administrative.execute("drop schema " + schema + " cascade");

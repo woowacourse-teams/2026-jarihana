@@ -3,6 +3,7 @@
 | 필드 | 타입 | 제약 | 설명 |
 | --- | --- | --- | --- |
 | `id` | Long | PK | 그룹 식별자 |
+| `version` | Long | NOT NULL, 영속화 전 null | 상태 변경의 낙관적 잠금 버전 |
 | `type` | Enum | NOT NULL | `CLUB`, `STUDY`, `SESSION` |
 | `meetingType` | Enum (`MeetingType`) | NOT NULL | 모임 진행 방식. `ONLINE`, `OFFLINE`, `FLEXIBLE` |
 | `location` | String | nullable, 최대 255자 | 오프라인 모임 장소 또는 온라인 접속 정보 |
@@ -19,6 +20,7 @@
 ## 모델 경계
 
 - 그룹 전체 인원에는 제한을 두지 않는다. 모집할 인원 제한은 `GroupRecruitment`가 소유한다.
+- 상태 전이로 만든 새 인스턴스는 읽은 버전을 보존한다. 초대 수락은 모임 상태의 버전을 검증하되 수락만으로 모임 버전을 증가시키지 않는다. 동시성 선택은 [백엔드 ADR 0020](../../../adr/0020-optimistic-invitation-acceptance.md)를 따른다.
 
 ## GroupType
 

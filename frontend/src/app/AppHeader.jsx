@@ -14,20 +14,21 @@ import { COURSE_LABELS, generationLabel } from "../pages/account/accountUtils";
 import { Avatar, Drawer, Modal, useToast } from "../shared/ui";
 import githubMark from "../shared/assets/brand/github-mark.svg";
 import logoMark from "../shared/assets/brand/jarihana-favicon.png";
+import createChairImage from "../shared/assets/brand/jarihana-chair-create.png";
 import { ProfileMenu } from "./ProfileMenu";
 
 const HOME_LINK = {
   action: "group_home",
-  isActive: (pathname) => pathname === "/",
+  isActive: (pathname) => pathname === "/home",
   label: "홈",
   requiresAuth: false,
-  to: "/"
+  to: "/home"
 };
 
 const EXPLORE_LINK = {
   action: "group_browse",
   isActive: (pathname) => pathname === "/groups",
-  label: "모임 탐색",
+  label: "탐색",
   requiresAuth: false,
   to: "/groups"
 };
@@ -35,7 +36,7 @@ const EXPLORE_LINK = {
 const ACTIVITY_LINK = {
   action: "browse_activity_posts",
   isActive: (pathname) => pathname === "/activities",
-  label: "활동 기록",
+  label: "활동",
   requiresAuth: false,
   to: "/activities"
 };
@@ -113,7 +114,7 @@ function FeedbackLink({ onClick, onNavigate, open, status }) {
       }}
       type="button"
     >
-      피드백 남기기
+      피드백
     </button>
   );
 }
@@ -173,7 +174,7 @@ function AuthAction({ onNavigate, status }) {
   );
 }
 
-export function AppHeader({ action = null, title = "" }) {
+export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
   const { avatarUrl, login, logout, logoutError, logoutPending, member, status } = useAuth();
   const unreadCount = useUnreadCount();
   const hasUnread = status === "authenticated" && unreadCount.data?.unreadCount > 0;
@@ -182,6 +183,7 @@ export function AppHeader({ action = null, title = "" }) {
     ? "코치"
     : `${generationLabel(member?.generation)}${member?.course ? ` / ${COURSE_LABELS[member.course]}` : ""}`;
   const { hash, pathname, search } = useLocation();
+  const activeMenuIndex = DESKTOP_MEMBER_LINKS.findIndex((link) => link.isActive(pathname));
   const navigate = useNavigate();
   const { success } = useToast();
   const [isMenuOpen, setMenuOpen] = useState(false);
@@ -252,6 +254,12 @@ export function AppHeader({ action = null, title = "" }) {
     handleFeedbackOpenChange(false);
   }
 
+  function handleOpenPwaGuideFromInbox() {
+    setMobileNotificationOpen(false);
+    setMenuOpen(false);
+    window.requestAnimationFrame(() => onOpenPwaGuide?.());
+  }
+
   return (
     <>
       <header className="app-header">
@@ -261,14 +269,19 @@ export function AppHeader({ action = null, title = "" }) {
               aria-label="자리하나 홈"
               className="app-header__brand"
               data-ph-capture-attribute-action="group_home"
-              to="/"
+              to="/home"
             >
               <img alt="" aria-hidden="true" className="app-header__brand-mark" src={logoMark} />
               <span className="app-header__brand-text">자리하나?</span>
             </Link>
           </div>
 
-          <nav aria-label="주요 메뉴" className="app-header__primary-nav">
+          <nav
+            aria-label="주요 메뉴"
+            className="app-header__primary-nav"
+            data-active={activeMenuIndex >= 0}
+            style={{ "--header-active-index": Math.max(0, activeMenuIndex) }}
+          >
             <HeaderLinks
               links={DESKTOP_MEMBER_LINKS}
               onNavigate={() => {}}
@@ -285,8 +298,29 @@ export function AppHeader({ action = null, title = "" }) {
           <div className="app-header__desktop-action">
             {title ? <span className="app-header__context">{title}</span> : null}
             {action}
+            <Link
+              className="app-header__auth app-header__create"
+              data-ph-capture-attribute-action="group_create"
+              onClick={(event) => {
+                if (status === "anonymous") {
+                  event.preventDefault();
+                  redirectToLogin("/groups/new");
+                }
+              }}
+              to="/groups/new"
+            >
+              <img
+                alt=""
+                aria-hidden="true"
+                className="app-header__create-chair"
+                height="24"
+                src={createChairImage}
+                width="24"
+              />
+              자리 만들기
+            </Link>
             {status === "authenticated" ? (
-              <div className="notification-header-actions"><NotificationBell /><ProfileMenu /></div>
+              <div className="notification-header-actions"><NotificationBell onOpenPwaGuide={onOpenPwaGuide} /><ProfileMenu /></div>
             ) : (
               <AuthAction onNavigate={() => {}} status={status} />
             )}
@@ -408,7 +442,7 @@ export function AppHeader({ action = null, title = "" }) {
           menuButtonReference.current?.focus();
           setMenuOpen(true);
         }
-      }} onOpenNotification={() => setMobileNotificationOpen(false)} /> : null}
+      }} onOpenNotification={() => setMobileNotificationOpen(false)} onOpenPwaGuide={handleOpenPwaGuideFromInbox} /> : null}
     </>
   );
 }

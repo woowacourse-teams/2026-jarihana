@@ -2,6 +2,7 @@ package com.project.jarihana.registration.command.service;
 
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.common.transaction.ConcurrentCommandExecutor;
 import com.project.jarihana.group.command.repository.GroupCommandRepository;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
@@ -20,13 +21,13 @@ import com.project.jarihana.registration.command.service.dto.DecideRegistrationC
 import com.project.jarihana.registration.command.service.dto.DecideRegistrationResult;
 import com.project.jarihana.registration.domain.DecisionActor;
 import com.project.jarihana.registration.domain.Registration;
+import com.project.jarihana.registration.domain.ApprovalOrigin;
 import com.project.jarihana.registration.domain.RegistrationStatus;
 import com.project.jarihana.registration.domain.event.RegistrationSubmittedEvent;
 import com.project.jarihana.registration.domain.event.RegistrationDecidedEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -42,24 +43,36 @@ public class RegistrationCommandService {
     private final MemberRepository memberRepository;
     private final Clock clock;
     private final ApplicationEventPublisher events;
+    private final ConcurrentCommandExecutor concurrentCommands;
 
-    @Transactional
     public CreateRegistrationResult createRegistration(
             long memberId,
             long recruitmentId,
             CreateRegistrationCommand command
     ) {
-        groupRepository.findWithLockByRecruitmentId(recruitmentId)
+        return concurrentCommands.execute(() -> createRegistrationInTransaction(memberId, recruitmentId, command));
+    }
+
+    private CreateRegistrationResult createRegistrationInTransaction(
+            long memberId,
+            long recruitmentId,
+            CreateRegistrationCommand command
+    ) {
+        long groupId = groupRepository.findIdWithSharedLockByRecruitmentId(recruitmentId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RECRUITMENT_NOT_FOUND,
                         "모집 공고를 찾을 수 없습니다."
                 ));
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RECRUITMENT_NOT_FOUND, "모집 공고를 찾을 수 없습니다."));
+        Member member = memberRepository.findWithLockById(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, "회원 정보를 찾을 수 없습니다."));
+        validateApplicant(group, recruitmentId, memberId);
+
         GroupRecruitment recruitment = recruitmentRepository.findWithLockById(recruitmentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RECRUITMENT_NOT_FOUND, "모집 공고를 찾을 수 없습니다."));
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, "회원 정보를 찾을 수 없습니다."));
         LocalDateTime now = LocalDateTime.now(clock);
-        int approvedCount = validateRegistration(recruitment, memberId, now);
+        int approvedCount = validateRecruitment(recruitment, now);
         Registration registration = switch (recruitment.getJoinMethod()) {
             case APPROVAL -> Registration.createPending(recruitment, member, command.message(), now);
             case AUTO -> createAutoApprovedRegistration(
@@ -80,15 +93,15 @@ public class RegistrationCommandService {
         return CreateRegistrationResult.from(registration);
     }
 
-    private int validateRegistration(GroupRecruitment recruitment, long memberId, LocalDateTime now) {
-        long groupId = recruitment.getGroup().getId();
-        if (!recruitment.getGroup().isActive()) {
+    private void validateApplicant(Group group, long recruitmentId, long memberId) {
+        long groupId = group.getId();
+        if (!group.isActive()) {
             throw new BusinessException(ErrorCode.GROUP_ENDED, "종료된 그룹에는 가입 신청할 수 없습니다.");
         }
         if (groupMemberRepository.findByGroupIdAndMemberId(groupId, memberId).isPresent()) {
             throw new BusinessException(ErrorCode.GROUP_MEMBER_ALREADY_EXISTS, "이미 가입한 그룹입니다.");
         }
-        if (registrationRepository.existsByRecruitmentIdAndMemberId(recruitment.getId(), memberId)) {
+        if (registrationRepository.existsByRecruitmentIdAndMemberId(recruitmentId, memberId)) {
             throw new BusinessException(ErrorCode.REGISTRATION_ALREADY_EXISTS, "이미 해당 모집 공고에 신청했습니다.");
         }
         if (registrationRepository.existsByRecruitmentGroupIdAndMemberIdAndStatus(
@@ -101,6 +114,9 @@ public class RegistrationCommandService {
                     "같은 그룹의 다른 모집 공고에 대기 중인 신청이 있습니다."
             );
         }
+    }
+
+    private int validateRecruitment(GroupRecruitment recruitment, LocalDateTime now) {
         int approvedCount = 0;
         if (recruitment.getJoinMethod() == JoinMethod.AUTO) {
             approvedCount = approvedCount(recruitment.getId());
@@ -115,9 +131,10 @@ public class RegistrationCommandService {
     }
 
     private int approvedCount(long recruitmentId) {
-        return Math.toIntExact(registrationRepository.countByRecruitmentIdAndStatus(
+        return Math.toIntExact(registrationRepository.countByRecruitmentIdAndStatusAndApprovalOrigin(
                 recruitmentId,
-                RegistrationStatus.APPROVED
+                RegistrationStatus.APPROVED,
+                ApprovalOrigin.RECRUITMENT
         ));
     }
 
@@ -153,9 +170,15 @@ public class RegistrationCommandService {
         }
     }
 
-    @Transactional
     public void withdrawRegistration(long memberId, long recruitmentId, long registrationId) {
-        groupRepository.findWithLockByRecruitmentId(recruitmentId)
+        concurrentCommands.execute(() -> {
+            withdrawRegistrationInTransaction(memberId, recruitmentId, registrationId);
+            return null;
+        });
+    }
+
+    private void withdrawRegistrationInTransaction(long memberId, long recruitmentId, long registrationId) {
+        groupRepository.findWithOptimisticLockByRecruitmentId(recruitmentId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RECRUITMENT_NOT_FOUND,
                         "모집 공고를 찾을 수 없습니다."
@@ -185,14 +208,22 @@ public class RegistrationCommandService {
         registrationRepository.delete(registration);
     }
 
-    @Transactional
     public DecideRegistrationResult decideRegistration(
             long memberId,
             long recruitmentId,
             long registrationId,
             DecideRegistrationCommand command
     ) {
-        Group group = groupRepository.findWithLockByRecruitmentId(recruitmentId)
+        return concurrentCommands.execute(() -> decideRegistrationInTransaction(memberId, recruitmentId, registrationId, command));
+    }
+
+    private DecideRegistrationResult decideRegistrationInTransaction(
+            long memberId,
+            long recruitmentId,
+            long registrationId,
+            DecideRegistrationCommand command
+    ) {
+        Group group = groupRepository.findWithOptimisticLockByRecruitmentId(recruitmentId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.REGISTRATION_NOT_FOUND,
                         "가입 신청을 찾을 수 없습니다."
@@ -203,7 +234,7 @@ public class RegistrationCommandService {
                         "가입 신청을 찾을 수 없습니다."
                 ));
         validateDecisionAuthority(group, memberId);
-        Registration registration = registrationRepository.findWithLockByIdAndRecruitmentId(
+        Registration registration = registrationRepository.findByIdAndRecruitmentId(
                         registrationId,
                         recruitmentId
                 )
@@ -261,6 +292,7 @@ public class RegistrationCommandService {
         Registration approvedRegistration = registrationRepository.save(
                 registration.approve(DecisionActor.member(memberId), now, approvedCount)
         );
+        registrationRepository.flush();
         groupMemberRepository.save(GroupMember.createMember(recruitment.getGroup(), applicant, now));
         closeRecruitmentIfFull(recruitment, approvedCount + 1, now);
         return approvedRegistration;

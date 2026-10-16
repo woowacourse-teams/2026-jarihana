@@ -1,3 +1,30 @@
+import AxeBuilder from "@axe-core/playwright";
+import { expect } from "playwright/test";
+
+export async function prepareVisualCapture(pageInstance) {
+  await pageInstance.evaluate(async () => {
+    await document.fonts.ready;
+    await Promise.all(
+      [...document.images]
+        .filter((image) => image.loading !== "lazy" || image.complete)
+        .map((image) => image.decode())
+    );
+  });
+}
+
+export async function assertSurface(pageInstance, state, { axe = false } = {}) {
+  expect(state.unexpectedResponses).toEqual([]);
+  expect(await pageInstance.evaluate(
+    () => document.documentElement.scrollWidth <= window.innerWidth
+  )).toBe(true);
+  if (axe) {
+    const accessibility = await new AxeBuilder({ page: pageInstance })
+      .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+      .analyze();
+    expect(accessibility.violations).toEqual([]);
+  }
+}
+
 const now = "2026-08-21T19:00:00";
 const later = "2026-09-21T19:00:00";
 

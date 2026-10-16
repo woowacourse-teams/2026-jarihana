@@ -97,6 +97,18 @@ it("starts GitHub login from the anonymous header action", () => {
   expect(login).toHaveBeenCalledTimes(1);
 });
 
+it("returns to group creation after login from the desktop create action", () => {
+  const login = jest.fn();
+  renderShell({ login, status: "anonymous" });
+  const createLink = within(screen.getByRole("banner")).getByRole("link", { name: "자리 만들기" });
+
+  expect(createLink).toHaveAttribute("href", "/groups/new");
+  expect(createLink).toHaveAttribute("data-ph-capture-attribute-action", "group_create");
+  expect(fireEvent.click(createLink)).toBe(false);
+  expect(sessionStorage.getItem("jarihana:auth:return-target")).toBe("/groups/new");
+  expect(login).toHaveBeenCalledTimes(1);
+});
+
 it("starts GitHub login from the mobile account area and closes the drawer", () => {
   const login = jest.fn();
   renderShell({ login, status: "anonymous" });
@@ -126,7 +138,7 @@ it.each(["header", "mobile menu", "footer"])(
       fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
       feedbackButton = within(screen.getByRole("navigation", { name: "모바일 메뉴" })).getByRole(
         "button",
-        { name: "피드백 남기기" }
+        { name: "피드백" }
       );
     } else if (surface === "footer") {
       feedbackButton = within(screen.getByRole("region", { name: "Contact us" })).getByRole(
@@ -136,7 +148,7 @@ it.each(["header", "mobile menu", "footer"])(
     } else {
       feedbackButton = within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole(
         "button",
-        { name: "피드백 남기기" }
+        { name: "피드백" }
       );
     }
     fireEvent.click(feedbackButton);
@@ -169,7 +181,7 @@ it.each(["header", "mobile menu", "footer"])(
       fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
       feedbackButton = within(screen.getByRole("navigation", { name: "모바일 메뉴" })).getByRole(
         "button",
-        { name: "피드백 남기기" }
+        { name: "피드백" }
       );
     } else if (surface === "footer") {
       feedbackButton = within(screen.getByRole("region", { name: "Contact us" })).getByRole(
@@ -179,7 +191,7 @@ it.each(["header", "mobile menu", "footer"])(
     } else {
       feedbackButton = within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole(
         "button",
-        { name: "피드백 남기기" }
+        { name: "피드백" }
       );
     }
     fireEvent.click(feedbackButton);
@@ -205,7 +217,7 @@ it.each(["header", "mobile menu", "footer"])(
       fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
       feedbackButton = within(screen.getByRole("navigation", { name: "모바일 메뉴" })).getByRole(
         "button",
-        { name: "피드백 남기기" }
+        { name: "피드백" }
       );
     } else if (surface === "footer") {
       feedbackButton = within(screen.getByRole("region", { name: "Contact us" })).getByRole(
@@ -215,7 +227,7 @@ it.each(["header", "mobile menu", "footer"])(
     } else {
       feedbackButton = within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole(
         "button",
-        { name: "피드백 남기기" }
+        { name: "피드백" }
       );
     }
     fireEvent.click(feedbackButton);
@@ -257,7 +269,7 @@ it.each(["header", "mobile menu", "footer"])(
       fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
       feedbackButton = within(screen.getByRole("navigation", { name: "모바일 메뉴" })).getByRole(
         "button",
-        { name: "피드백 남기기" }
+        { name: "피드백" }
       );
     } else if (surface === "footer") {
       feedbackButton = within(screen.getByRole("region", { name: "Contact us" })).getByRole(
@@ -267,7 +279,7 @@ it.each(["header", "mobile menu", "footer"])(
     } else {
       feedbackButton = within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole(
         "button",
-        { name: "피드백 남기기" }
+        { name: "피드백" }
       );
     }
     fireEvent.click(feedbackButton);
@@ -325,7 +337,7 @@ it("reveals logout only after opening the profile menu", () => {
     within(screen.getByRole("navigation", { name: "주요 메뉴" }))
       .getAllByRole("link")
       .map((link) => link.getAttribute("href"))
-  ).toEqual(["/", "/groups", "/activities"]);
+  ).toEqual(["/home", "/groups", "/activities"]);
   expect(logout).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("navigation", { name: "계정 메뉴" })).not.toBeInTheDocument();
 });
@@ -453,7 +465,7 @@ it("places feedback after discovery links in desktop and mobile navigation", () 
   renderShell({ login: jest.fn(), logout: jest.fn(), status: "authenticated" });
 
   // Then
-  const expectedOrder = ["홈", "모임 탐색", "활동 기록", "피드백 남기기"];
+  const expectedOrder = ["홈", "탐색", "활동", "피드백"];
   const desktopNavigation = screen.getByRole("navigation", { name: "주요 메뉴" });
   expect(
     Array.from(desktopNavigation.querySelectorAll("a, button")).map((item) =>
@@ -465,7 +477,7 @@ it("places feedback after discovery links in desktop and mobile navigation", () 
   fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
   const mobileNavigation = screen.getByRole("navigation", { name: "모바일 메뉴" });
   const mobileLinks = mobileNavigation.querySelector(".app-header__mobile-links");
-  const expectedMobileOrder = ["홈", "모임 탐색", "활동 기록", "모임 만들기", "피드백 남기기"];
+  const expectedMobileOrder = ["홈", "탐색", "활동", "모임 만들기", "피드백"];
   expect(mobileLinks).not.toBeNull();
   expect(
     Array.from(mobileLinks.querySelectorAll("a, button"))
@@ -475,19 +487,19 @@ it("places feedback after discovery links in desktop and mobile navigation", () 
 });
 
 it.each([
-  ["/", "홈"],
-  ["/groups", "모임 탐색"],
-  ["/activities", "활동 기록"],
+  ["/home", "홈"],
+  ["/groups", "탐색"],
+  ["/activities", "활동"],
   ["/groups/41", null]
 ])("exposes public navigation on %s with matching active state", (pathname, activeName) => {
   mockPathname = pathname;
   renderShell({ login: jest.fn(), logout: jest.fn(), status: "anonymous" });
-  expect(screen.getByRole("link", { name: "자리하나 홈" })).toHaveAttribute("href", "/");
+  expect(screen.getByRole("link", { name: "자리하나 홈" })).toHaveAttribute("href", "/home");
   const navigation = within(screen.getByRole("navigation", { name: "주요 메뉴" }));
   for (const [name, href, action] of [
-    ["홈", "/", "group_home"],
-    ["모임 탐색", "/groups", "group_browse"],
-    ["활동 기록", "/activities", "browse_activity_posts"]
+    ["홈", "/home", "group_home"],
+    ["탐색", "/groups", "group_browse"],
+    ["활동", "/activities", "browse_activity_posts"]
   ]) {
     const link = navigation.getByRole("link", { name, exact: true });
     expect(link).toHaveAttribute("href", href);
@@ -498,9 +510,9 @@ it.each([
 });
 
 it.each([
-  ["홈", "/"],
-  ["모임 탐색", "/groups"],
-  ["활동 기록", "/activities"]
+  ["홈", "/home"],
+  ["탐색", "/groups"],
+  ["활동", "/activities"]
 ])("closes the mobile menu and opens %s without requiring login", (name, href) => {
   const login = jest.fn();
   renderShell({ login, logout: jest.fn(), status: "anonymous" });
@@ -514,4 +526,26 @@ it.each([
   expect(navigationContinues).toBe(true);
   expect(screen.queryByRole("dialog", { name: "전체 메뉴" })).not.toBeInTheDocument();
   expect(login).not.toHaveBeenCalled();
+});
+
+
+it.each([
+  ["/", "authenticated"], ["/", "anonymous"], ["/", "loading"], ["/", "signup-required"], ["/", "unavailable"],
+  ["/land", "anonymous"], ["/land", "authenticated"], ["/land", "loading"],
+  ["/land/", "authenticated"]
+])("leaves %s (%s) to the landing's own shell", (pathname, status) => {
+  mockPathname = pathname;
+  renderShell({ status });
+  expect(screen.getByRole("heading", { name: "현재 화면" })).toBeInTheDocument();
+  expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+  expect(screen.queryByRole("main")).not.toBeInTheDocument();
+  expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
+});
+
+it.each(["anonymous", "authenticated"])("keeps the original shell on the public home for %s", (status) => {
+  mockPathname = "/home";
+  renderShell({ status, member: { crewName: "자리" } });
+  expect(screen.getByRole("banner")).toBeInTheDocument();
+  expect(screen.getByRole("main")).toBeInTheDocument();
+  expect(screen.getByRole("contentinfo")).toBeInTheDocument();
 });

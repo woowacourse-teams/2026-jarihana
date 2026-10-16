@@ -3,9 +3,23 @@ package com.project.jarihana.group.command.service;
 import com.project.jarihana.activitypost.command.service.ActivityPostCommandService;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.common.transaction.ConcurrentCommandExecutor;
 import com.project.jarihana.group.command.repository.GroupCommandRepository;
 import com.project.jarihana.group.command.service.dto.*;
+import com.project.jarihana.group.calendar.GroupEventRepository;
+import com.project.jarihana.group.calendar.GroupRecurringPeriod;
+import com.project.jarihana.group.calendar.GroupRecurringPeriodRepository;
+import com.project.jarihana.group.calendar.GroupRecurringSeries;
+import com.project.jarihana.group.calendar.GroupRecurringSeriesRepository;
+import com.project.jarihana.group.calendar.GroupLocationHistory;
+import com.project.jarihana.group.calendar.GroupLocationHistoryRepository;
+import com.project.jarihana.group.calendar.GroupCalendarProperties;
+import com.project.jarihana.group.calendar.GroupRecurringService;
+import com.project.jarihana.group.calendar.RuleRegistrationRequest;
+import com.project.jarihana.group.calendar.ScopedRuleRequest;
+import com.project.jarihana.group.calendar.DeleteRuleRequest;
 import com.project.jarihana.group.domain.*;
+import com.project.jarihana.group.domain.event.GroupCreatedEvent;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
@@ -13,6 +27,7 @@ import com.project.jarihana.image.client.ImageStorage;
 import com.project.jarihana.image.client.ImageStorageException;
 import com.project.jarihana.image.command.repository.ImageUploadCommandRepository;
 import com.project.jarihana.image.domain.ImageUpload;
+import com.project.jarihana.invitation.command.service.InvitationCommandService;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.recruitment.command.repository.GroupRecruitmentCommandRepository;
@@ -28,6 +43,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
@@ -48,6 +64,12 @@ public class GroupCommandService {
 
     private final MemberRepository memberRepository;
     private final GroupCommandRepository groupCommandRepository;
+    private final GroupEventRepository groupEventRepository;
+    private final GroupRecurringSeriesRepository recurringSeriesRepository;
+    private final GroupRecurringPeriodRepository recurringPeriodRepository;
+    private final GroupLocationHistoryRepository locationHistoryRepository;
+    private final GroupCalendarProperties calendarProperties;
+    private final GroupRecurringService recurringService;
     private final GroupMemberCommandRepository groupMemberCommandRepository;
     private final GroupRecruitmentCommandRepository groupRecruitmentCommandRepository;
     private final RegistrationCommandRepository registrationCommandRepository;
@@ -56,10 +78,18 @@ public class GroupCommandService {
     private final ImageStorage imageStorage;
     private final Clock clock;
     private final ApplicationEventPublisher events;
+    private final ConcurrentCommandExecutor concurrentCommands;
+    private final InvitationCommandService invitationCommandService;
 
     public GroupCommandService(
             MemberRepository memberRepository,
             GroupCommandRepository groupCommandRepository,
+            GroupEventRepository groupEventRepository,
+            GroupRecurringSeriesRepository recurringSeriesRepository,
+            GroupRecurringPeriodRepository recurringPeriodRepository,
+            GroupLocationHistoryRepository locationHistoryRepository,
+            GroupCalendarProperties calendarProperties,
+            GroupRecurringService recurringService,
             GroupMemberCommandRepository groupMemberCommandRepository,
             GroupRecruitmentCommandRepository groupRecruitmentCommandRepository,
             RegistrationCommandRepository registrationCommandRepository,
@@ -67,10 +97,18 @@ public class GroupCommandService {
             ImageUploadCommandRepository imageUploadCommandRepository,
             ImageStorage imageStorage,
             Clock clock,
-            ApplicationEventPublisher events
+            ApplicationEventPublisher events,
+            ConcurrentCommandExecutor concurrentCommands,
+            InvitationCommandService invitationCommandService
     ) {
         this.memberRepository = memberRepository;
         this.groupCommandRepository = groupCommandRepository;
+        this.groupEventRepository = groupEventRepository;
+        this.recurringSeriesRepository = recurringSeriesRepository;
+        this.recurringPeriodRepository = recurringPeriodRepository;
+        this.locationHistoryRepository = locationHistoryRepository;
+        this.calendarProperties = calendarProperties;
+        this.recurringService = recurringService;
         this.groupMemberCommandRepository = groupMemberCommandRepository;
         this.groupRecruitmentCommandRepository = groupRecruitmentCommandRepository;
         this.registrationCommandRepository = registrationCommandRepository;
@@ -79,6 +117,8 @@ public class GroupCommandService {
         this.imageStorage = imageStorage;
         this.clock = clock;
         this.events = events;
+        this.concurrentCommands = concurrentCommands;
+        this.invitationCommandService = invitationCommandService;
     }
 
     @Transactional
@@ -92,8 +132,18 @@ public class GroupCommandService {
         LocalDateTime now = LocalDateTime.now(clock);
         validateRepresentativeImageKey(command.representativeImageKey(), now);
         Group group = groupCommandRepository.save(createGroup(command, now));
+        locationHistoryRepository.save(GroupLocationHistory.create(group, group.getLocation(), now));
+        if (group.getRecurringSchedule() != null) {
+            GroupRecurringSeries series = recurringSeriesRepository.save(GroupRecurringSeries.create(
+                    group, now.toLocalDate(), null, now));
+            RecurringGroupSchedule schedule = group.getRecurringSchedule();
+            recurringPeriodRepository.save(GroupRecurringPeriod.create(series,
+                    schedule.getActivityDays().values(), schedule.getStartTime(), schedule.getEndTime(),
+                    now.toLocalDate(), null, now));
+        }
         GroupMember leader = GroupMember.createLeader(group, member, now);
         groupMemberCommandRepository.save(leader);
+        events.publishEvent(GroupCreatedEvent.from(group, memberId));
         return new CreateGroupResult(group.getId(), group.getStatus());
     }
 
@@ -189,7 +239,7 @@ public class GroupCommandService {
 
     @Transactional
     public void modifyGroup(Long memberId, Long groupId, ModifyGroupCommand command) {
-        Group group = groupCommandRepository.findById(groupId)
+        Group group = groupCommandRepository.findWithLockById(groupId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND, GROUP_NOT_FOUND_MESSAGE));
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, MEMBER_NOT_FOUND_MESSAGE));
@@ -207,6 +257,9 @@ public class GroupCommandService {
         if (!Objects.equals(group.getRepresentativeImageKey(), command.representativeImageKey())) {
             validateRepresentativeImageKey(command.representativeImageKey(), LocalDateTime.now(clock));
         }
+        if (!Objects.equals(group.getLocation(), command.location())) {
+            recordLocationChange(group, command.location(), LocalDateTime.now(clock));
+        }
         groupCommandRepository.save(group.modify(
                 command.name(),
                 command.introduction(),
@@ -219,9 +272,24 @@ public class GroupCommandService {
         ));
     }
 
+    private void recordLocationChange(Group group, String nextLocation, LocalDateTime now) {
+        var current = locationHistoryRepository
+                .findFirstByGroupIdAndEffectiveUntilAtIsNullOrderByEffectiveFromAtDesc(group.getId());
+        if (current.isPresent()) {
+            GroupLocationHistory previous = current.get();
+            if (now.isAfter(previous.getEffectiveFromAt())) {
+                locationHistoryRepository.save(previous.closeAt(now));
+            } else {
+                locationHistoryRepository.delete(previous);
+                locationHistoryRepository.flush();
+            }
+        }
+        locationHistoryRepository.save(GroupLocationHistory.create(group, nextLocation, now));
+    }
+
     @Transactional
     public void deleteGroup(Long memberId, Long groupId) {
-        Group group = groupCommandRepository.findById(groupId)
+        Group group = groupCommandRepository.findWithLockById(groupId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND, GROUP_NOT_FOUND_MESSAGE));
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, MEMBER_NOT_FOUND_MESSAGE));
@@ -239,16 +307,26 @@ public class GroupCommandService {
                     GROUP_DELETE_WINDOW_EXPIRED_MESSAGE
             );
         }
+        invitationCommandService.removeGroupInvitations(groupId);
         registrationCommandRepository.deleteAllByRecruitmentGroupId(groupId);
         groupRecruitmentCommandRepository.deleteAllByGroupId(groupId);
         activityPostCommandService.hideAllByGroupId(groupId);
         groupMemberCommandRepository.deleteAllByGroupId(groupId);
+        locationHistoryRepository.deleteAllByGroupId(groupId);
+        groupEventRepository.deleteAllByGroupId(groupId);
+        for (GroupRecurringSeries series : recurringSeriesRepository.findAllByGroupIdOrderByCalendarStartDateAsc(groupId)) {
+            recurringPeriodRepository.deleteAllBySeriesId(series.getId());
+        }
+        recurringSeriesRepository.deleteAllByGroupId(groupId);
         groupCommandRepository.delete(group);
     }
 
-    @Transactional
     public TerminateGroupResult terminateGroup(Long memberId, Long groupId, TerminateGroupCommand command) {
-        Group group = groupCommandRepository.findById(groupId)
+        return concurrentCommands.execute(() -> terminateGroupInTransaction(memberId, groupId, command));
+    }
+
+    private TerminateGroupResult terminateGroupInTransaction(Long memberId, Long groupId, TerminateGroupCommand command) {
+        Group group = groupCommandRepository.findWithLockById(groupId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND, GROUP_NOT_FOUND_MESSAGE));
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, MEMBER_NOT_FOUND_MESSAGE));
@@ -294,7 +372,7 @@ public class GroupCommandService {
             Long groupId,
             ReplaceRecurringScheduleCommand command
     ) {
-        Group group = groupCommandRepository.findById(groupId)
+        Group group = groupCommandRepository.findWithLockById(groupId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND, GROUP_NOT_FOUND_MESSAGE));
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, MEMBER_NOT_FOUND_MESSAGE));
@@ -316,17 +394,28 @@ public class GroupCommandService {
         } catch (BusinessException exception) {
             throw new BusinessException(ErrorCode.SCHEDULE_INVALID_RULE, exception.getMessage());
         }
-        Group saved = groupCommandRepository.save(group.replaceRecurringSchedule(schedule));
+        requireLegacyRecurringWrite();
+        GroupRecurringSeries current = recurringSeriesRepository.findFirstByGroupIdAndCurrentTrue(groupId)
+                .orElse(null);
+        if (group.getRecurringSchedule() == null && current == null) {
+            recurringService.register(memberId, groupId,
+                    new RuleRegistrationRequest(schedule.getActivityDays().values(),
+                            schedule.getStartTime(), schedule.getEndTime()));
+        } else {
+            current = ensureLegacyRecurringHistory(group, current);
+            recurringService.replaceScoped(memberId, groupId,
+                    new ScopedRuleRequest(schedule.getActivityDays().values(),
+                            schedule.getStartTime(), schedule.getEndTime(),
+                            ScopedRuleRequest.ApplyScope.FROM_TODAY, LocalDate.now(clock), null, current.getVersion()));
+        }
         return new ReplaceRecurringScheduleResult(
-                saved.getRecurringSchedule().getActivityDays().values(),
-                saved.getRecurringSchedule().getStartTime(),
-                saved.getRecurringSchedule().getEndTime()
+                schedule.getActivityDays().values(), schedule.getStartTime(), schedule.getEndTime()
         );
     }
 
     @Transactional
     public void removeRecurringSchedule(Long memberId, Long groupId) {
-        Group group = groupCommandRepository.findById(groupId)
+        Group group = groupCommandRepository.findWithLockById(groupId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND, GROUP_NOT_FOUND_MESSAGE));
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, MEMBER_NOT_FOUND_MESSAGE));
@@ -341,7 +430,36 @@ public class GroupCommandService {
         if (!group.isActive()) {
             throw new BusinessException(ErrorCode.GROUP_ENDED, GROUP_ENDED_MESSAGE);
         }
-        groupCommandRepository.save(group.removeRecurringSchedule());
+        requireLegacyRecurringWrite();
+        if (group.getRecurringSchedule() == null) {
+            throw new BusinessException(ErrorCode.RECURRING_SCHEDULE_NOT_FOUND, "등록된 정기 일정이 없습니다.");
+        }
+        GroupRecurringSeries current = ensureLegacyRecurringHistory(group,
+                recurringSeriesRepository.findFirstByGroupIdAndCurrentTrue(groupId).orElse(null));
+        recurringService.deleteScoped(memberId, groupId,
+                new DeleteRuleRequest(ScopedRuleRequest.ApplyScope.FROM_TODAY,
+                        LocalDate.now(clock), null, current.getVersion()));
+    }
+
+    private void requireLegacyRecurringWrite() {
+        if (!calendarProperties.legacyRecurringWriteEnabled()) {
+            throw new BusinessException(ErrorCode.CALENDAR_CLIENT_OUTDATED,
+                    "화면이 오래되었습니다. 새로고침한 뒤 일정을 다시 저장해 주세요.");
+        }
+    }
+
+    private GroupRecurringSeries ensureLegacyRecurringHistory(Group group, GroupRecurringSeries current) {
+        if (current != null) return current;
+        LocalDateTime now = LocalDateTime.now(clock);
+        LocalDateTime firstDate = recurringSeriesRepository.findAllByGroupIdOrderByCalendarStartDateAsc(group.getId())
+                .isEmpty() ? group.getCreatedAt() : now;
+        GroupRecurringSeries seeded = recurringSeriesRepository.save(GroupRecurringSeries.create(
+                group, firstDate.toLocalDate(), null, now));
+        RecurringGroupSchedule before = group.getRecurringSchedule();
+        recurringPeriodRepository.save(GroupRecurringPeriod.create(seeded,
+                before.getActivityDays().values(), before.getStartTime(), before.getEndTime(),
+                firstDate.toLocalDate(), null, now));
+        return seeded;
     }
 
     @Transactional
@@ -350,7 +468,7 @@ public class GroupCommandService {
             Long groupId,
             ReplaceSessionScheduleCommand command
     ) {
-        Group group = groupCommandRepository.findById(groupId)
+        Group group = groupCommandRepository.findWithLockById(groupId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND, GROUP_NOT_FOUND_MESSAGE));
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, MEMBER_NOT_FOUND_MESSAGE));

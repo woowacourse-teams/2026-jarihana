@@ -15,6 +15,7 @@ jest.mock("react-router", () => {
 });
 
 jest.mock("../../src/app/AnalyticsBridge", () => ({ AnalyticsBridge: () => null }));
+jest.mock("react-router/dom", () => ({ RouterProvider: () => null }));
 jest.mock("../../src/app/AppShell", () => ({ AppShell: () => null }));
 jest.mock("../../src/app/AuthGuard", () => ({ AuthGuard: ({ children }) => children }));
 jest.mock("../../src/app/LeaderGuard", () => ({ LeaderGuard: ({ children }) => children }));
@@ -45,9 +46,14 @@ function renderRoutes(initialEntries) {
 }
 
 it.each([
-  ["/", "GroupsPage"],
+  ["/", "HomePage"],
+  ["/home", "GroupsPage"],
+  ["/land", "LandingPage"],
+  ["/land/", "LandingPage"],
   ["/groups", "GroupBrowsePage"],
   ["/activities", "ActivityPostsPage"],
+  ["/invitations/501", "InvitationPage"],
+  ["/invitations/link/token", "InvitationPage"],
   ["/groups/42", "GroupDetailPage"]
 ])("renders %s as %s", (path, page) => {
   renderRoutes([path]);
@@ -66,6 +72,6 @@ it("replaces the legacy browse URL while preserving query, hash and back navigat
   );
 
   fireEvent.click(screen.getByRole("button", { name: "뒤로" }));
-  expect(screen.getByRole("heading", { name: "GroupsPage" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "HomePage" })).toBeInTheDocument();
   expect(screen.getByLabelText("현재 경로")).toHaveTextContent("/?previous=1");
 });

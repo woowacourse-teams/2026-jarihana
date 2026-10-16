@@ -3,6 +3,10 @@ package com.project.jarihana.group.command.controller;
 import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.group.domain.Group;
+import com.project.jarihana.group.calendar.GroupRecurringSeriesRepository;
+import com.project.jarihana.group.calendar.GroupRecurringPeriodRepository;
+import com.project.jarihana.group.calendar.GroupLocationHistoryRepository;
+import com.project.jarihana.group.calendar.GroupLocationHistory;
 import com.project.jarihana.group.domain.MeetingType;
 import com.project.jarihana.group.domain.RecurringGroupSchedule;
 import com.project.jarihana.group.domain.SessionGroupSchedule;
@@ -24,6 +28,8 @@ import io.restassured.response.Response;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.TestPropertySource;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -35,10 +41,20 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
+@TestPropertySource(properties = "jarihana.group-calendar.legacy-recurring-write-enabled=true")
 class GroupCommandControllerTest extends IntegrationTestSupport {
 
     @Autowired
     private GroupJpaRepository groupRepository;
+
+    @Autowired
+    private GroupRecurringSeriesRepository recurringSeriesRepository;
+
+    @Autowired
+    private GroupRecurringPeriodRepository recurringPeriodRepository;
+
+    @Autowired
+    private GroupLocationHistoryRepository locationHistoryRepository;
 
     @Autowired
     private GroupMemberJpaRepository groupMemberRepository;
@@ -57,6 +73,34 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
 
     @Autowired
     private AuthCookieProperties authCookieProperties;
+
+    @Autowired
+    private JdbcTemplate jdbc;
+
+    @DisplayName("전환기 구형 요청도 기존 규칙을 초기 이력으로 남기고 오늘부터 새 규칙을 적용한다.")
+    @Test
+    void legacyRuleWriteRecordsHistoryBeforeBackfill() {
+        Member leader = memberRepository.save(Member.create("가온", 8, "legacy-history-leader", Course.BACKEND));
+        Group group = createGroup(leader, "전환기 이력 모임");
+        jdbc.update("UPDATE groups SET created_at = ? WHERE id = ?",
+                java.sql.Timestamp.valueOf(TestSupportConfig.FIXED_NOW.minusDays(30)), group.getId());
+        String accessToken = accessTokenProvider.issue(leader.getId()).value();
+        String csrfToken = csrfToken(group.getId());
+
+        given().cookie(authCookieProperties.accessTokenName(), accessToken)
+                .cookie("XSRF-TOKEN", csrfToken).header("X-XSRF-TOKEN", csrfToken)
+                .contentType("application/json")
+                .body("{\"daysOfWeek\":[\"THURSDAY\"],\"startTime\":null,\"endTime\":null}")
+                .put("/groups/{groupId}/recurring-schedule", group.getId())
+                .then().statusCode(200);
+
+        var history = recurringSeriesRepository.findAllByGroupIdOrderByCalendarStartDateAsc(group.getId());
+        assertThat(history).hasSize(1);
+        var rules = recurringPeriodRepository.findAllBySeriesIdOrderByEffectiveFromAsc(history.getFirst().getId());
+        assertThat(rules).hasSize(2);
+        assertThat(rules.getFirst().getEffectiveUntil()).isEqualTo(LocalDate.of(2026, 8, 18));
+        assertThat(rules.getLast().getEffectiveFrom()).isEqualTo(LocalDate.of(2026, 8, 19));
+    }
 
     @DisplayName("회원이 그룹을 개설하면 모임 방식과 장소를 저장한다.")
     @Test
@@ -111,6 +155,13 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
         assertThat(group.getMeetingType()).isEqualTo(MeetingType.OFFLINE);
         assertThat(group.getLocation()).isEqualTo("서울 캠퍼스");
         assertThat(group.getRepresentativeImageKey()).isEqualTo("groups/tmp/controller.webp");
+        var series = recurringSeriesRepository.findAllByGroupIdOrderByCalendarStartDateAsc(groupId);
+        assertThat(series).hasSize(1);
+        assertThat(series.getFirst().getCalendarStartDate()).isEqualTo(TestSupportConfig.FIXED_NOW.toLocalDate());
+        assertThat(recurringPeriodRepository.findAllBySeriesIdOrderByEffectiveFromAsc(series.getFirst().getId()))
+                .hasSize(1);
+        assertThat(locationHistoryRepository.findAllByGroupIdOrderByEffectiveFromAtAscIdAsc(groupId))
+                .singleElement().extracting("location").isEqualTo("서울 캠퍼스");
     }
 
     @DisplayName("업로드되지 않은 대표 이미지 키로 그룹을 개설할 수 없다.")
@@ -195,6 +246,68 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                 .body("error", nullValue());
 
         assertThat(groupRepository.findById(group.getId()).orElseThrow().getRepresentativeImageKey()).isNull();
+    }
+
+    @DisplayName("모임 장소를 수정하면 이전 장소와 새 장소의 적용 시각을 함께 저장한다.")
+    @Test
+    void recordsLocationHistoryWhenGroupLocationChanges() {
+        // Given
+        Member leader = memberRepository.save(Member.create("가온", 8, "location-history-leader", Course.BACKEND));
+        Group group = groupRepository.save(Group.createStudy("장소 변경 모임", "기존 소개", null, null,
+                MeetingType.OFFLINE, "기존 장소", null, TestSupportConfig.FIXED_NOW.minusDays(1)));
+        groupMemberRepository.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW.minusDays(1)));
+        locationHistoryRepository.save(GroupLocationHistory.create(group, "기존 장소",
+                TestSupportConfig.FIXED_NOW.minusDays(1)));
+        String token = accessTokenProvider.issue(leader.getId()).value();
+        String csrf = csrfToken(group.getId());
+
+        // When
+        given().cookie(authCookieProperties.accessTokenName(), token)
+                .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .contentType("application/json")
+                .body("""
+                        {"name":"장소 변경 모임","introduction":"기존 소개","description":null,
+                         "meetingType":"OFFLINE","location":"새 장소","representativeImageKey":null}
+                        """)
+                .put("/groups/{groupId}", group.getId())
+                .then().statusCode(200);
+
+        // Then
+        var history = locationHistoryRepository.findAllByGroupIdOrderByEffectiveFromAtAscIdAsc(group.getId());
+        assertThat(history).hasSize(2);
+        assertThat(history.get(0).getLocation()).isEqualTo("기존 장소");
+        assertThat(history.get(0).getEffectiveUntilAt()).isEqualTo(TestSupportConfig.FIXED_NOW);
+        assertThat(history.get(1).getLocation()).isEqualTo("새 장소");
+        assertThat(history.get(1).getEffectiveUntilAt()).isNull();
+    }
+
+    @DisplayName("기존 장소 이력이 없으면 수정 전 장소의 과거 시작일을 만들어내지 않는다.")
+    @Test
+    void doesNotInventStartDateForLegacyLocationWithoutHistory() {
+        // Given
+        Member leader = memberRepository.save(Member.create("가온", 8, "location-history-legacy-leader", Course.BACKEND));
+        Group group = groupRepository.save(Group.createStudy("이력 없는 장소 모임", "소개", null, null,
+                MeetingType.OFFLINE, "기존 장소", null, TestSupportConfig.FIXED_NOW.minusDays(1)));
+        groupMemberRepository.save(GroupMember.createLeader(group, leader, TestSupportConfig.FIXED_NOW.minusDays(1)));
+        String token = accessTokenProvider.issue(leader.getId()).value();
+        String csrf = csrfToken(group.getId());
+
+        // When
+        given().cookie(authCookieProperties.accessTokenName(), token)
+                .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .contentType("application/json")
+                .body("""
+                        {"name":"이력 없는 장소 모임","introduction":"소개","description":null,
+                         "meetingType":"OFFLINE","location":"새 장소","representativeImageKey":null}
+                        """)
+                .put("/groups/{groupId}", group.getId())
+                .then().statusCode(200);
+
+        // Then
+        var history = locationHistoryRepository.findAllByGroupIdOrderByEffectiveFromAtAscIdAsc(group.getId());
+        assertThat(history).hasSize(1);
+        assertThat(history.getFirst().getLocation()).isEqualTo("새 장소");
+        assertThat(history.getFirst().getEffectiveFromAt()).isEqualTo(TestSupportConfig.FIXED_NOW);
     }
 
     @DisplayName("그룹 기본 정보 전체 교체 요청에서 대표 이미지 키가 누락되면 거부한다.")

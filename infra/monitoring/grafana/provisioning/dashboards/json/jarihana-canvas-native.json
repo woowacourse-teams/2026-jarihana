@@ -1,0 +1,4947 @@
+{
+  "uid": "jarihana-canvas-native",
+  "title": "자리하나 · Canvas 관제도",
+  "description": "Grafana 기본 Canvas. HTTP 연결의 req/s·p95·p99, 앱의 HikariCP, 백엔드 호스트의 CPU·메모리를 소속에 맞게 배치합니다. 호출량·지연시간·CPU는 최근 2분, 나머지는 최근 유효한 수집값입니다.",
+  "tags": [
+    "jarihana",
+    "observability",
+    "native-canvas"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "5s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "environment",
+        "label": "환경",
+        "type": "custom",
+        "query": "dev,prod",
+        "current": {
+          "text": "dev",
+          "value": "dev"
+        },
+        "options": [
+          {
+            "text": "dev",
+            "value": "dev",
+            "selected": true
+          },
+          {
+            "text": "prod",
+            "value": "prod",
+            "selected": false
+          }
+        ],
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "skipUrlSync": false
+      },
+      {
+        "name": "motion",
+        "label": "흐름 표시",
+        "type": "custom",
+        "query": "재생 : 1, 정지 : 0",
+        "current": {
+          "text": "재생",
+          "value": "1"
+        },
+        "options": [
+          {
+            "text": "재생",
+            "value": "1",
+            "selected": true
+          },
+          {
+            "text": "정지",
+            "value": "0",
+            "selected": false
+          }
+        ],
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "skipUrlSync": false
+      }
+    ]
+  },
+  "links": [
+    {
+      "title": "기존 Flow 보기",
+      "type": "link",
+      "url": "/d/jarihana-canvas?var-environment=${environment}&from=${__from}&to=${__to}",
+      "targetBlank": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "운영 상세",
+      "type": "link",
+      "url": "/d/jarihana-overview?var-environment=${environment}&from=${__from}&to=${__to}",
+      "targetBlank": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "로그",
+      "type": "link",
+      "url": "/explore?schemaVersion=1&panes=%7B%22A%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22jarihana%5C%22%2Cenvironment%3D%5C%22${environment}%5C%22%7D%22%2C%22queryType%22%3A%22range%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D%7D",
+      "targetBlank": false,
+      "icon": "external link"
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "canvas",
+      "title": "서비스 관제도 · $environment",
+      "pluginVersion": "13.2.3",
+      "description": "API 아이콘은 liveness, 서비스 상태는 DB 포함 종합 health, DB 아이콘은 Alloy의 PostgreSQL 직접 접속 검사입니다. API-풀-DB 연결선은 백엔드 Actuator의 DB 연결 검사로 색을 정하고, JDBC 호출량이 있을 때만 움직입니다. 각 검사는 60초 주기이며 150초 넘게 갱신되지 않으면 확인 불가입니다. DB 호출량·p95는 앱의 JDBC 실행 지표를 사용합니다. CPU는 2분 평균, 메모리는 최근 호스트 수집값입니다. 연결 풀은 앱 소유입니다. 점선 속도는 고정이며 호출량은 숫자와 굵기로 표시합니다.",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 23
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "min(probe_success{job=\"jarihana-health\",environment=\"$environment\"} and (time() - timestamp(probe_success{job=\"jarihana-health\",environment=\"$environment\"}) < 150)) or vector(-1)",
+          "legendFormat": "app_health",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) or vector(-1)",
+          "legendFormat": "app_metrics",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "min((pg_up{job=\"jarihana-postgres\",environment=\"$environment\"} and (time() - timestamp(pg_up{job=\"jarihana-postgres\",environment=\"$environment\"}) < 150)) and on(job,instance,environment,host_id) ((up{job=\"jarihana-postgres\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-postgres\",environment=\"$environment\"}) < 150)) == 1)) or vector(-1)",
+          "legendFormat": "db_health",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((sum(rate(http_server_requests_seconds_count{job=\"jarihana-backend\",environment=\"$environment\",uri!~\"/actuator.*\"}[2m])) or vector(0)) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)",
+          "legendFormat": "http_rps",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "E",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(clamp_max(2 + 2 * ln(1 + ((clamp_min((((sum(rate(http_server_requests_seconds_count{job=\"jarihana-backend\",environment=\"$environment\",uri!~\"/actuator.*\"}[2m])) or vector(0)) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)), 0) * ((min(probe_success{job=\"jarihana-health\",environment=\"$environment\"} and (time() - timestamp(probe_success{job=\"jarihana-health\",environment=\"$environment\"}) < 150)) or vector(-1)) == bool 1)) or vector(0))), 9) * (((clamp_min((((sum(rate(http_server_requests_seconds_count{job=\"jarihana-backend\",environment=\"$environment\",uri!~\"/actuator.*\"}[2m])) or vector(0)) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)), 0) * ((min(probe_success{job=\"jarihana-health\",environment=\"$environment\"} and (time() - timestamp(probe_success{job=\"jarihana-health\",environment=\"$environment\"}) < 150)) or vector(-1)) == bool 1)) or vector(0)) > bool 0)) * ${motion}",
+          "legendFormat": "http_flow",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "F",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(sum((rate(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}[2m]) and (time() - timestamp(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}) < 30))) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)",
+          "legendFormat": "db_rps",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "G",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(clamp_max(2 + 2 * ln(1 + ((clamp_min(((sum((rate(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}[2m]) and (time() - timestamp(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}) < 30))) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)), 0) * ((min((probe_success{job=\"jarihana-database\",environment=\"$environment\"} and (time() - timestamp(probe_success{job=\"jarihana-database\",environment=\"$environment\"}) < 150)) and on(environment,host_id) ((probe_success{job=\"jarihana-liveness\",environment=\"$environment\"} and (time() - timestamp(probe_success{job=\"jarihana-liveness\",environment=\"$environment\"}) < 150)) == 1)) or vector(-1)) == bool 1)) or vector(0))), 9) * (((clamp_min(((sum((rate(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}[2m]) and (time() - timestamp(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}) < 30))) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)), 0) * ((min((probe_success{job=\"jarihana-database\",environment=\"$environment\"} and (time() - timestamp(probe_success{job=\"jarihana-database\",environment=\"$environment\"}) < 150)) and on(environment,host_id) ((probe_success{job=\"jarihana-liveness\",environment=\"$environment\"} and (time() - timestamp(probe_success{job=\"jarihana-liveness\",environment=\"$environment\"}) < 150)) == 1)) or vector(-1)) == bool 1)) or vector(0)) > bool 0)) * ${motion}",
+          "legendFormat": "db_flow",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "H",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((sum(rate(http_server_requests_seconds_count{job=\"jarihana-backend\",environment=\"$environment\",uri!~\"/actuator.*\",status=~\"5..\"}[2m])) or vector(0)) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)",
+          "legendFormat": "http_5xx",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "I",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((1000 * sum(rate(http_server_requests_seconds_sum{job=\"jarihana-backend\",environment=\"$environment\",uri!~\"/actuator.*\"}[2m])) / sum(rate(http_server_requests_seconds_count{job=\"jarihana-backend\",environment=\"$environment\",uri!~\"/actuator.*\"}[2m]))) and on() (sum(rate(http_server_requests_seconds_count{job=\"jarihana-backend\",environment=\"$environment\",uri!~\"/actuator.*\"}[2m])) > 0) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)",
+          "legendFormat": "http_ms",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "J",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(sum(hikaricp_connections_active{job=\"jarihana-backend\",environment=\"$environment\"}) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)",
+          "legendFormat": "db_active",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "K",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(sum(hikaricp_connections_pending{job=\"jarihana-backend\",environment=\"$environment\"}) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)",
+          "legendFormat": "db_pending",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "L",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max((100 * (1 - avg by (host_id) (rate(node_cpu_seconds_total{job=\"jarihana-host\",mode=\"idle\"}[2m])))) and on(host_id) (up{job=\"jarihana-host\"} == 1 and (time() - timestamp(up{job=\"jarihana-host\"}) < 90)) and on(host_id) max by (host_id) (probe_success{job=\"jarihana-health\",environment=\"$environment\"} and (time() - timestamp(probe_success{job=\"jarihana-health\",environment=\"$environment\"}) < 150))) or vector(-1)",
+          "legendFormat": "cpu",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "M",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max((100 * (1 - node_memory_MemAvailable_bytes{job=\"jarihana-host\"} / node_memory_MemTotal_bytes{job=\"jarihana-host\"})) and on(host_id) (up{job=\"jarihana-host\"} == 1 and (time() - timestamp(up{job=\"jarihana-host\"}) < 90)) and on(host_id) max by (host_id) (probe_success{job=\"jarihana-health\",environment=\"$environment\"} and (time() - timestamp(probe_success{job=\"jarihana-health\",environment=\"$environment\"}) < 150))) or vector(-1)",
+          "legendFormat": "memory",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "N",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(((100 * (1 - node_filesystem_avail_bytes{job=\"jarihana-host\",fstype=~\"ext2|ext3|ext4|xfs|btrfs\"} / node_filesystem_size_bytes{job=\"jarihana-host\",fstype=~\"ext2|ext3|ext4|xfs|btrfs\"})) and (node_filesystem_size_bytes{job=\"jarihana-host\",fstype=~\"ext2|ext3|ext4|xfs|btrfs\"} > 0) and (node_filesystem_readonly{job=\"jarihana-host\",fstype=~\"ext2|ext3|ext4|xfs|btrfs\"} == 0)) and on(host_id) (up{job=\"jarihana-host\"} == 1 and (time() - timestamp(up{job=\"jarihana-host\"}) < 90)) and on(host_id) max by (host_id) (probe_success{job=\"jarihana-health\",environment=\"$environment\"} and (time() - timestamp(probe_success{job=\"jarihana-health\",environment=\"$environment\"}) < 150))) or vector(-1)",
+          "legendFormat": "disk",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "O",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "min(up{job=\"prometheus\"} and (time() - timestamp(up{job=\"prometheus\"}) < 90)) or vector(-1)",
+          "legendFormat": "prometheus_health",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "P",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "min(up{job=\"loki\"} and (time() - timestamp(up{job=\"loki\"}) < 90)) or vector(-1)",
+          "legendFormat": "loki_health",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "R",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "min(up{job=\"grafana\"} and (time() - timestamp(up{job=\"grafana\"}) < 90)) or vector(-1)",
+          "legendFormat": "grafana_health",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "S",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(((1000 * histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"jarihana-backend\",environment=\"$environment\",uri!~\"/actuator.*\"}[2m])))) >= 0) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)",
+          "legendFormat": "http_p95",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "T",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(((1000 * histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"jarihana-backend\",environment=\"$environment\",uri!~\"/actuator.*\"}[2m])))) >= 0) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)",
+          "legendFormat": "http_p99",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "U",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((sum(hikaricp_connections_max{job=\"jarihana-backend\",environment=\"$environment\"})) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)",
+          "legendFormat": "db_max",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "V",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((sum(hikaricp_connections_idle{job=\"jarihana-backend\",environment=\"$environment\"})) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)",
+          "legendFormat": "db_idle",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "W",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((100 * sum(hikaricp_connections_active{job=\"jarihana-backend\",environment=\"$environment\"}) / sum(hikaricp_connections_max{job=\"jarihana-backend\",environment=\"$environment\"})) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)",
+          "legendFormat": "db_usage",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "X",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((1000 * histogram_quantile(0.95, sum by(le) ((rate(jdbc_query_seconds_bucket{job=\"jarihana-backend\",environment=\"$environment\"}[2m]) and (time() - timestamp(jdbc_query_seconds_bucket{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)))) >= 0) and on() (min(up{job=\"jarihana-backend\",environment=\"$environment\"} and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) == 1)) or vector(-1)",
+          "legendFormat": "db_p95",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "Liveness",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "min((probe_success{job=\"jarihana-liveness\",environment=\"$environment\"} and (time() - timestamp(probe_success{job=\"jarihana-liveness\",environment=\"$environment\"}) < 150))) or vector(-1)",
+          "legendFormat": "app_liveness",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        },
+        {
+          "refId": "DbConnection",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "min((probe_success{job=\"jarihana-database\",environment=\"$environment\"} and (time() - timestamp(probe_success{job=\"jarihana-database\",environment=\"$environment\"}) < 150)) and on(environment,host_id) ((probe_success{job=\"jarihana-liveness\",environment=\"$environment\"} and (time() - timestamp(probe_success{job=\"jarihana-liveness\",environment=\"$environment\"}) < 150)) == 1)) or vector(-1)",
+          "legendFormat": "db_connection_health",
+          "range": false,
+          "instant": true,
+          "format": "time_series",
+          "interval": "5s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "—",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "text": "—",
+                  "color": "#8593a8"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "#8593a8"
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "app_health"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "app_health"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "서비스 이상",
+                        "color": "#ffc06e"
+                      },
+                      "1": {
+                        "text": "서비스 정상",
+                        "color": "#55d8b0"
+                      },
+                      "-1": {
+                        "text": "확인 불가",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#ffc06e"
+                    },
+                    {
+                      "value": 1,
+                      "color": "#55d8b0"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "app_metrics"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "app_metrics"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "연결 실패",
+                        "color": "#ff7586"
+                      },
+                      "1": {
+                        "text": "정상",
+                        "color": "#55d8b0"
+                      },
+                      "-1": {
+                        "text": "확인 불가",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#ff7586"
+                    },
+                    {
+                      "value": 1,
+                      "color": "#55d8b0"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "db_health"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "db_health"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "접속 실패",
+                        "color": "#ff7586"
+                      },
+                      "1": {
+                        "text": "접속 정상",
+                        "color": "#55d8b0"
+                      },
+                      "-1": {
+                        "text": "확인 불가",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#ff7586"
+                    },
+                    {
+                      "value": 1,
+                      "color": "#55d8b0"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "http_rps"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "http_rps"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "unit",
+                "value": "reqps"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "-1": {
+                        "text": "—",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#e8effa"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "http_flow"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "http_flow"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "-1": {
+                        "text": "—",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#e8effa"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 9
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "db_rps"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "db_rps"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "unit",
+                "value": "ops"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "-1": {
+                        "text": "—",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#e8effa"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "db_flow"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "db_flow"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "-1": {
+                        "text": "—",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#e8effa"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 9
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "http_5xx"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "http_5xx"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "unit",
+                "value": "reqps"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "-1": {
+                        "text": "—",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#55d8b0"
+                    },
+                    {
+                      "value": 0.000001,
+                      "color": "#ff7586"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "http_ms"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "http_ms"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "-1": {
+                        "text": "—",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#7abaff"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "db_active"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "db_active"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "-1": {
+                        "text": "—",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#e8effa"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "db_pending"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "db_pending"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "-1": {
+                        "text": "—",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#55d8b0"
+                    },
+                    {
+                      "value": 1,
+                      "color": "#ff7586"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cpu"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "cpu"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "-1": {
+                        "text": "—",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#55d8b0"
+                    },
+                    {
+                      "value": 80,
+                      "color": "#ffc06e"
+                    },
+                    {
+                      "value": 90,
+                      "color": "#ff7586"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "memory"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "memory"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "-1": {
+                        "text": "—",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#55d8b0"
+                    },
+                    {
+                      "value": 80,
+                      "color": "#ffc06e"
+                    },
+                    {
+                      "value": 90,
+                      "color": "#ff7586"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "disk"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "disk"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "-1": {
+                        "text": "—",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#55d8b0"
+                    },
+                    {
+                      "value": 80,
+                      "color": "#ffc06e"
+                    },
+                    {
+                      "value": 90,
+                      "color": "#ff7586"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "prometheus_health"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "prometheus_health"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "연결 실패",
+                        "color": "#ff7586"
+                      },
+                      "1": {
+                        "text": "정상",
+                        "color": "#55d8b0"
+                      },
+                      "-1": {
+                        "text": "확인 불가",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#ff7586"
+                    },
+                    {
+                      "value": 1,
+                      "color": "#55d8b0"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "loki_health"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "loki_health"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "연결 실패",
+                        "color": "#ff7586"
+                      },
+                      "1": {
+                        "text": "정상",
+                        "color": "#55d8b0"
+                      },
+                      "-1": {
+                        "text": "확인 불가",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#ff7586"
+                    },
+                    {
+                      "value": 1,
+                      "color": "#55d8b0"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "grafana_health"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "grafana_health"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "연결 실패",
+                        "color": "#ff7586"
+                      },
+                      "1": {
+                        "text": "정상",
+                        "color": "#55d8b0"
+                      },
+                      "-1": {
+                        "text": "확인 불가",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#ff7586"
+                    },
+                    {
+                      "value": 1,
+                      "color": "#55d8b0"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "http_p95"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "http_p95"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "-1": {
+                        "text": "—",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#7abaff"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "http_p99"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "http_p99"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "-1": {
+                        "text": "—",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#c0a4ff"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "db_max"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "db_max"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "-1": {
+                        "text": "—",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#e8effa"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "db_idle"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "db_idle"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "-1": {
+                        "text": "—",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#e8effa"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "db_usage"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "db_usage"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "-1": {
+                        "text": "—",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#55d8b0"
+                    },
+                    {
+                      "value": 80,
+                      "color": "#ffc06e"
+                    },
+                    {
+                      "value": 90,
+                      "color": "#ff7586"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "db_p95"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "db_p95"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "-1": {
+                        "text": "—",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#7abaff"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "app_liveness"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "app_liveness"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "응답 없음",
+                        "color": "#ff7586"
+                      },
+                      "1": {
+                        "text": "응답 중",
+                        "color": "#55d8b0"
+                      },
+                      "-1": {
+                        "text": "확인 불가",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#ff7586"
+                    },
+                    {
+                      "value": 1,
+                      "color": "#55d8b0"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "db_connection_health"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "db_connection_health"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "앱 연결 실패",
+                        "color": "#ff7586"
+                      },
+                      "1": {
+                        "text": "앱 연결 정상",
+                        "color": "#55d8b0"
+                      },
+                      "-1": {
+                        "text": "앱 연결 미확인",
+                        "color": "#8593a8"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "value": null,
+                      "color": "#8593a8"
+                    },
+                    {
+                      "value": 0,
+                      "color": "#ff7586"
+                    },
+                    {
+                      "value": 1,
+                      "color": "#55d8b0"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "inlineEditing": false,
+        "showAdvancedTypes": false,
+        "panZoom": true,
+        "zoomToContent": true,
+        "tooltip": {
+          "mode": "single"
+        },
+        "root": {
+          "name": "Root",
+          "type": "frame",
+          "background": {
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "elements": [
+            {
+              "name": "artboard",
+              "type": "rectangle",
+              "placement": {
+                "left": 0,
+                "top": 0,
+                "width": 1480,
+                "height": 820,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#0b111b"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                }
+              }
+            },
+            {
+              "name": "eyebrow",
+              "type": "rectangle",
+              "placement": {
+                "left": 40,
+                "top": 26,
+                "width": 800,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "JARIHANA   /   SERVICE OPERATIONS"
+                },
+                "color": {
+                  "fixed": "#7abaff"
+                },
+                "size": 18,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "heading",
+              "type": "rectangle",
+              "placement": {
+                "left": 40,
+                "top": 60,
+                "width": 980,
+                "height": 44,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "서비스 요청과 자원 상태"
+                },
+                "color": {
+                  "fixed": "#e8effa"
+                },
+                "size": 30,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "refresh-note",
+              "type": "rectangle",
+              "placement": {
+                "left": 1100,
+                "top": 34,
+                "width": 340,
+                "height": 28,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "5초 갱신 · 헬스체크 60초"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "right",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "scope-note",
+              "type": "rectangle",
+              "placement": {
+                "left": 1080,
+                "top": 69,
+                "width": 360,
+                "height": 28,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "호출량·지연시간: 최근 2분"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "right",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "host-boundary",
+              "type": "rectangle",
+              "placement": {
+                "left": 512,
+                "top": 154,
+                "width": 580,
+                "height": 518,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#111e30"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 22,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                }
+              }
+            },
+            {
+              "name": "host-label",
+              "type": "rectangle",
+              "placement": {
+                "left": 542,
+                "top": 174,
+                "width": 248,
+                "height": 28,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "백엔드 호스트"
+                },
+                "color": {
+                  "fixed": "#e8effa"
+                },
+                "size": 20,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "host-sub",
+              "type": "rectangle",
+              "placement": {
+                "left": 782,
+                "top": 177,
+                "width": 280,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "EC2 · 환경 내 호스트 집계"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "right",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "app-boundary",
+              "type": "rectangle",
+              "placement": {
+                "left": 532,
+                "top": 220,
+                "width": 540,
+                "height": 276,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#14243a"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 16,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                }
+              }
+            },
+            {
+              "name": "application-label",
+              "type": "rectangle",
+              "placement": {
+                "left": 554,
+                "top": 234,
+                "width": 124,
+                "height": 26,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "애플리케이션"
+                },
+                "color": {
+                  "fixed": "#7abaff"
+                },
+                "size": 18,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "service-health",
+              "type": "metric-value",
+              "placement": {
+                "left": 682,
+                "top": 234,
+                "width": 118,
+                "height": 26,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "app_health",
+                  "fixed": ""
+                },
+                "color": {
+                  "field": "app_health",
+                  "fixed": "#e8effa"
+                },
+                "size": 18,
+                "align": "right",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "pool-label",
+              "type": "rectangle",
+              "placement": {
+                "left": 825,
+                "top": 234,
+                "width": 222,
+                "height": 26,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "앱의 커넥션 풀"
+                },
+                "color": {
+                  "fixed": "#c0a4ff"
+                },
+                "size": 18,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "pool-surface",
+              "type": "rectangle",
+              "placement": {
+                "left": 810,
+                "top": 277,
+                "width": 238,
+                "height": 198,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1a2940"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 14,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                }
+              }
+            },
+            {
+              "name": "client-node",
+              "type": "icon",
+              "placement": {
+                "left": 84,
+                "top": 282,
+                "width": 116,
+                "height": 112,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "path": {
+                  "mode": "fixed",
+                  "fixed": "img/icons/unicons/browser.svg"
+                },
+                "fill": {
+                  "fixed": "#a6b6cc"
+                }
+              },
+              "connections": [
+                {
+                  "source": {
+                    "x": 1,
+                    "y": 0
+                  },
+                  "target": {
+                    "x": -1,
+                    "y": 0
+                  },
+                  "targetName": "api-node",
+                  "path": "straight",
+                  "color": {
+                    "field": "app_health",
+                    "fixed": "#8593a8"
+                  },
+                  "size": {
+                    "fixed": 1.5,
+                    "min": 0,
+                    "max": 2
+                  },
+                  "direction": {
+                    "mode": "fixed",
+                    "fixed": "forward"
+                  },
+                  "lineStyle": {
+                    "style": "solid",
+                    "animate": false
+                  }
+                },
+                {
+                  "source": {
+                    "x": 1,
+                    "y": 0
+                  },
+                  "target": {
+                    "x": -1,
+                    "y": 0
+                  },
+                  "targetName": "api-node",
+                  "path": "straight",
+                  "color": {
+                    "field": "app_health",
+                    "fixed": "#8593a8"
+                  },
+                  "size": {
+                    "field": "http_flow",
+                    "fixed": 0,
+                    "min": 0,
+                    "max": 9
+                  },
+                  "direction": {
+                    "mode": "field",
+                    "field": "http_flow",
+                    "fixed": "none"
+                  },
+                  "lineStyle": {
+                    "style": "dotted",
+                    "animate": true
+                  }
+                }
+              ]
+            },
+            {
+              "name": "api-node",
+              "type": "icon",
+              "placement": {
+                "left": 558,
+                "top": 282,
+                "width": 112,
+                "height": 112,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "path": {
+                  "mode": "fixed",
+                  "fixed": "img/icons/unicons/server.svg"
+                },
+                "fill": {
+                  "field": "app_liveness",
+                  "fixed": "#7abaff"
+                }
+              },
+              "links": [
+                {
+                  "title": "백엔드 상세 보기",
+                  "url": "/d/jarihana-overview?var-environment=${environment}&from=${__from}&to=${__to}",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ],
+              "connections": [
+                {
+                  "source": {
+                    "x": 1,
+                    "y": 0
+                  },
+                  "target": {
+                    "x": -1,
+                    "y": 0
+                  },
+                  "targetName": "pool-connection-anchor",
+                  "path": "straight",
+                  "color": {
+                    "field": "db_connection_health",
+                    "fixed": "#8593a8"
+                  },
+                  "size": {
+                    "fixed": 1.5,
+                    "min": 0,
+                    "max": 2
+                  },
+                  "direction": {
+                    "mode": "fixed",
+                    "fixed": "forward"
+                  },
+                  "lineStyle": {
+                    "style": "dashed",
+                    "animate": false
+                  }
+                },
+                {
+                  "source": {
+                    "x": 1,
+                    "y": 0
+                  },
+                  "target": {
+                    "x": -1,
+                    "y": 0
+                  },
+                  "targetName": "pool-connection-anchor",
+                  "path": "straight",
+                  "color": {
+                    "field": "db_connection_health",
+                    "fixed": "#8593a8"
+                  },
+                  "size": {
+                    "field": "db_flow",
+                    "fixed": 0,
+                    "min": 0,
+                    "max": 9
+                  },
+                  "direction": {
+                    "mode": "field",
+                    "field": "db_flow",
+                    "fixed": "none"
+                  },
+                  "lineStyle": {
+                    "style": "dotted",
+                    "animate": true
+                  }
+                }
+              ]
+            },
+            {
+              "name": "pool-connection-anchor",
+              "type": "rectangle",
+              "placement": {
+                "left": 810,
+                "top": 306,
+                "width": 238,
+                "height": 64,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 0,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                }
+              },
+              "connections": [
+                {
+                  "source": {
+                    "x": 1,
+                    "y": 0
+                  },
+                  "target": {
+                    "x": -1,
+                    "y": 0
+                  },
+                  "targetName": "database-node",
+                  "path": "straight",
+                  "color": {
+                    "field": "db_connection_health",
+                    "fixed": "#8593a8"
+                  },
+                  "size": {
+                    "fixed": 1.5,
+                    "min": 0,
+                    "max": 2
+                  },
+                  "direction": {
+                    "mode": "fixed",
+                    "fixed": "forward"
+                  },
+                  "lineStyle": {
+                    "style": "solid",
+                    "animate": false
+                  }
+                },
+                {
+                  "source": {
+                    "x": 1,
+                    "y": 0
+                  },
+                  "target": {
+                    "x": -1,
+                    "y": 0
+                  },
+                  "targetName": "database-node",
+                  "path": "straight",
+                  "color": {
+                    "field": "db_connection_health",
+                    "fixed": "#8593a8"
+                  },
+                  "size": {
+                    "field": "db_flow",
+                    "fixed": 0,
+                    "min": 0,
+                    "max": 9
+                  },
+                  "direction": {
+                    "mode": "field",
+                    "field": "db_flow",
+                    "fixed": "none"
+                  },
+                  "lineStyle": {
+                    "style": "dotted",
+                    "animate": true
+                  }
+                }
+              ]
+            },
+            {
+              "name": "database-node",
+              "type": "icon",
+              "placement": {
+                "left": 1290,
+                "top": 282,
+                "width": 110,
+                "height": 112,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "path": {
+                  "mode": "fixed",
+                  "fixed": "img/icons/unicons/database.svg"
+                },
+                "fill": {
+                  "field": "db_health",
+                  "fixed": "#c0a4ff"
+                }
+              },
+              "links": [
+                {
+                  "title": "DB 연결 상세 보기",
+                  "url": "/d/jarihana-overview?var-environment=${environment}&from=${__from}&to=${__to}",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "name": "jdbc-label",
+              "type": "rectangle",
+              "placement": {
+                "left": 696,
+                "top": 292,
+                "width": 94,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "JDBC"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "client-title",
+              "type": "rectangle",
+              "placement": {
+                "left": 48,
+                "top": 422,
+                "width": 188,
+                "height": 36,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "사용자"
+                },
+                "color": {
+                  "fixed": "#e8effa"
+                },
+                "size": 27,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "client-sub",
+              "type": "rectangle",
+              "placement": {
+                "left": 48,
+                "top": 462,
+                "width": 188,
+                "height": 26,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "브라우저 · 앱"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "api-title",
+              "type": "rectangle",
+              "placement": {
+                "left": 550,
+                "top": 407,
+                "width": 240,
+                "height": 34,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "자리하나 API"
+                },
+                "color": {
+                  "fixed": "#e8effa"
+                },
+                "size": 24,
+                "align": "left",
+                "valign": "middle"
+              },
+              "links": [
+                {
+                  "title": "백엔드 상세 보기",
+                  "url": "/d/jarihana-overview?var-environment=${environment}&from=${__from}&to=${__to}",
+                  "targetBlank": false,
+                  "oneClick": true
+                }
+              ]
+            },
+            {
+              "name": "api-sub",
+              "type": "rectangle",
+              "placement": {
+                "left": 550,
+                "top": 447,
+                "width": 130,
+                "height": 25,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Spring Boot"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "api-health",
+              "type": "metric-value",
+              "placement": {
+                "left": 674,
+                "top": 447,
+                "width": 118,
+                "height": 25,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "app_liveness",
+                  "fixed": ""
+                },
+                "color": {
+                  "field": "app_liveness",
+                  "fixed": "#e8effa"
+                },
+                "size": 18,
+                "align": "right",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "database-title",
+              "type": "rectangle",
+              "placement": {
+                "left": 1244,
+                "top": 422,
+                "width": 196,
+                "height": 36,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "PostgreSQL"
+                },
+                "color": {
+                  "fixed": "#e8effa"
+                },
+                "size": 26,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "database-sub",
+              "type": "rectangle",
+              "placement": {
+                "left": 1216,
+                "top": 462,
+                "width": 240,
+                "height": 26,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "RDS · 외부 데이터베이스"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "database-health",
+              "type": "metric-value",
+              "placement": {
+                "left": 1216,
+                "top": 510,
+                "width": 240,
+                "height": 30,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "db_health",
+                  "fixed": ""
+                },
+                "color": {
+                  "field": "db_health",
+                  "fixed": "#e8effa"
+                },
+                "size": 20,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "database-health-note",
+              "type": "rectangle",
+              "placement": {
+                "left": 1216,
+                "top": 545,
+                "width": 240,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Alloy → DB 직접 검사"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "database-scope-note",
+              "type": "rectangle",
+              "placement": {
+                "left": 1216,
+                "top": 580,
+                "width": 240,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "모니터링 계정 기준"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "http-label",
+              "type": "rectangle",
+              "placement": {
+                "left": 246,
+                "top": 243,
+                "width": 240,
+                "height": 28,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "HTTP 요청"
+                },
+                "color": {
+                  "fixed": "#7abaff"
+                },
+                "size": 19,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "http-request-rate",
+              "type": "metric-value",
+              "placement": {
+                "left": 240,
+                "top": 277,
+                "width": 246,
+                "height": 46,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "http_rps",
+                  "fixed": ""
+                },
+                "color": {
+                  "field": "http_rps",
+                  "fixed": "#e8effa"
+                },
+                "size": 34,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "latency-heading",
+              "type": "rectangle",
+              "placement": {
+                "left": 262,
+                "top": 379,
+                "width": 218,
+                "height": 26,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "응답 시간"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "http-p95-label",
+              "type": "rectangle",
+              "placement": {
+                "left": 262,
+                "top": 423,
+                "width": 92,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "p95"
+                },
+                "color": {
+                  "fixed": "#7abaff"
+                },
+                "size": 18,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "http-p99-label",
+              "type": "rectangle",
+              "placement": {
+                "left": 380,
+                "top": 423,
+                "width": 106,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "p99"
+                },
+                "color": {
+                  "fixed": "#c0a4ff"
+                },
+                "size": 18,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "http-p95-value",
+              "type": "metric-value",
+              "placement": {
+                "left": 256,
+                "top": 453,
+                "width": 128,
+                "height": 42,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "http_p95",
+                  "fixed": ""
+                },
+                "color": {
+                  "field": "http_p95",
+                  "fixed": "#e8effa"
+                },
+                "size": 28,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "http-p99-value",
+              "type": "metric-value",
+              "placement": {
+                "left": 376,
+                "top": 453,
+                "width": 130,
+                "height": 42,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "http_p99",
+                  "fixed": ""
+                },
+                "color": {
+                  "field": "http_p99",
+                  "fixed": "#e8effa"
+                },
+                "size": 28,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "http-error-label",
+              "type": "rectangle",
+              "placement": {
+                "left": 262,
+                "top": 522,
+                "width": 118,
+                "height": 28,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "5xx / 초"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "http-errors",
+              "type": "metric-value",
+              "placement": {
+                "left": 380,
+                "top": 519,
+                "width": 120,
+                "height": 32,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "http_5xx",
+                  "fixed": ""
+                },
+                "color": {
+                  "field": "http_5xx",
+                  "fixed": "#e8effa"
+                },
+                "size": 20,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "http-scope",
+              "type": "rectangle",
+              "placement": {
+                "left": 250,
+                "top": 559,
+                "width": 245,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Actuator 요청 제외"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "pool-name",
+              "type": "rectangle",
+              "placement": {
+                "left": 830,
+                "top": 294,
+                "width": 200,
+                "height": 26,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "HikariCP"
+                },
+                "color": {
+                  "fixed": "#e8effa"
+                },
+                "size": 20,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "pool-utilization",
+              "type": "metric-value",
+              "placement": {
+                "left": 830,
+                "top": 326,
+                "width": 200,
+                "height": 48,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "db_usage",
+                  "fixed": ""
+                },
+                "color": {
+                  "field": "db_usage",
+                  "fixed": "#e8effa"
+                },
+                "size": 36,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "pool-utilization-label",
+              "type": "rectangle",
+              "placement": {
+                "left": 830,
+                "top": 376,
+                "width": 200,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "사용 / 최대 연결 비율"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "pool-active-label",
+              "type": "rectangle",
+              "placement": {
+                "left": 826,
+                "top": 413,
+                "width": 52,
+                "height": 20,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "사용"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "pool-active-value",
+              "type": "metric-value",
+              "placement": {
+                "left": 826,
+                "top": 438,
+                "width": 52,
+                "height": 28,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "db_active",
+                  "fixed": ""
+                },
+                "color": {
+                  "field": "db_active",
+                  "fixed": "#e8effa"
+                },
+                "size": 22,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "pool-idle-label",
+              "type": "rectangle",
+              "placement": {
+                "left": 880,
+                "top": 413,
+                "width": 52,
+                "height": 20,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "유휴"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "pool-idle-value",
+              "type": "metric-value",
+              "placement": {
+                "left": 880,
+                "top": 438,
+                "width": 52,
+                "height": 28,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "db_idle",
+                  "fixed": ""
+                },
+                "color": {
+                  "field": "db_idle",
+                  "fixed": "#e8effa"
+                },
+                "size": 22,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "pool-max-label",
+              "type": "rectangle",
+              "placement": {
+                "left": 934,
+                "top": 413,
+                "width": 52,
+                "height": 20,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "최대"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "pool-max-value",
+              "type": "metric-value",
+              "placement": {
+                "left": 934,
+                "top": 438,
+                "width": 52,
+                "height": 28,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "db_max",
+                  "fixed": ""
+                },
+                "color": {
+                  "field": "db_max",
+                  "fixed": "#e8effa"
+                },
+                "size": 22,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "pool-pending-label",
+              "type": "rectangle",
+              "placement": {
+                "left": 988,
+                "top": 413,
+                "width": 52,
+                "height": 20,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "대기"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "pool-pending-value",
+              "type": "metric-value",
+              "placement": {
+                "left": 988,
+                "top": 438,
+                "width": 52,
+                "height": 28,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "db_pending",
+                  "fixed": ""
+                },
+                "color": {
+                  "field": "db_pending",
+                  "fixed": "#e8effa"
+                },
+                "size": 22,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "db-rate-label",
+              "type": "rectangle",
+              "placement": {
+                "left": 1104,
+                "top": 243,
+                "width": 158,
+                "height": 28,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "DB 호출"
+                },
+                "color": {
+                  "fixed": "#c0a4ff"
+                },
+                "size": 19,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "db-rate",
+              "type": "metric-value",
+              "placement": {
+                "left": 1102,
+                "top": 277,
+                "width": 166,
+                "height": 46,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "db_rps",
+                  "fixed": ""
+                },
+                "color": {
+                  "field": "db_rps",
+                  "fixed": "#e8effa"
+                },
+                "size": 29,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "db-p95-label",
+              "type": "rectangle",
+              "placement": {
+                "left": 1104,
+                "top": 379,
+                "width": 160,
+                "height": 26,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "DB p95"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "db-p95-value",
+              "type": "metric-value",
+              "placement": {
+                "left": 1104,
+                "top": 413,
+                "width": 160,
+                "height": 40,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "db_p95",
+                  "fixed": ""
+                },
+                "color": {
+                  "field": "db_p95",
+                  "fixed": "#e8effa"
+                },
+                "size": 29,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "db-connection-health",
+              "type": "metric-value",
+              "placement": {
+                "left": 1098,
+                "top": 457,
+                "width": 176,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "db_connection_health",
+                  "fixed": ""
+                },
+                "color": {
+                  "field": "db_connection_health",
+                  "fixed": "#e8effa"
+                },
+                "size": 18,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "db-scope-1",
+              "type": "rectangle",
+              "placement": {
+                "left": 1098,
+                "top": 483,
+                "width": 176,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "앱의 DB 호출 시간"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "db-scope-2",
+              "type": "rectangle",
+              "placement": {
+                "left": 1098,
+                "top": 509,
+                "width": 176,
+                "height": 24,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "예약 작업 포함"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "center",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "cpu-label",
+              "type": "rectangle",
+              "placement": {
+                "left": 550,
+                "top": 544,
+                "width": 130,
+                "height": 28,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "CPU"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "memory-label",
+              "type": "rectangle",
+              "placement": {
+                "left": 820,
+                "top": 544,
+                "width": 220,
+                "height": 28,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "메모리"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "cpu-value",
+              "type": "metric-value",
+              "placement": {
+                "left": 550,
+                "top": 577,
+                "width": 242,
+                "height": 54,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "cpu",
+                  "fixed": ""
+                },
+                "color": {
+                  "field": "cpu",
+                  "fixed": "#e8effa"
+                },
+                "size": 44,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "memory-value",
+              "type": "metric-value",
+              "placement": {
+                "left": 820,
+                "top": 577,
+                "width": 242,
+                "height": 54,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "memory",
+                  "fixed": ""
+                },
+                "color": {
+                  "field": "memory",
+                  "fixed": "#e8effa"
+                },
+                "size": 44,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "host-resource-note",
+              "type": "rectangle",
+              "placement": {
+                "left": 550,
+                "top": 638,
+                "width": 512,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "호스트 기준 · 80% 주의 / 90% 긴급"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "collection-label",
+              "type": "rectangle",
+              "placement": {
+                "left": 40,
+                "top": 734,
+                "width": 130,
+                "height": 26,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "앱 지표 수집"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "collection-value",
+              "type": "metric-value",
+              "placement": {
+                "left": 174,
+                "top": 734,
+                "width": 150,
+                "height": 26,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "app_metrics",
+                  "fixed": ""
+                },
+                "color": {
+                  "field": "app_metrics",
+                  "fixed": "#e8effa"
+                },
+                "size": 18,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "prometheus_health-label",
+              "type": "rectangle",
+              "placement": {
+                "left": 354,
+                "top": 734,
+                "width": 130,
+                "height": 26,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Prometheus"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "prometheus_health-value",
+              "type": "metric-value",
+              "placement": {
+                "left": 488,
+                "top": 734,
+                "width": 132,
+                "height": 26,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "prometheus_health",
+                  "fixed": ""
+                },
+                "color": {
+                  "field": "prometheus_health",
+                  "fixed": "#e8effa"
+                },
+                "size": 18,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "loki_health-label",
+              "type": "rectangle",
+              "placement": {
+                "left": 754,
+                "top": 734,
+                "width": 130,
+                "height": 26,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Loki"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "loki_health-value",
+              "type": "metric-value",
+              "placement": {
+                "left": 888,
+                "top": 734,
+                "width": 132,
+                "height": 26,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "loki_health",
+                  "fixed": ""
+                },
+                "color": {
+                  "field": "loki_health",
+                  "fixed": "#e8effa"
+                },
+                "size": 18,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "grafana_health-label",
+              "type": "rectangle",
+              "placement": {
+                "left": 1160,
+                "top": 734,
+                "width": 130,
+                "height": 26,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Grafana"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "grafana_health-value",
+              "type": "metric-value",
+              "placement": {
+                "left": 1294,
+                "top": 734,
+                "width": 132,
+                "height": 26,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "grafana_health",
+                  "fixed": ""
+                },
+                "color": {
+                  "field": "grafana_health",
+                  "fixed": "#e8effa"
+                },
+                "size": 18,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "motion-note",
+              "type": "rectangle",
+              "placement": {
+                "left": 40,
+                "top": 784,
+                "width": 860,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "점선: 호출 방향 · 굵기: 호출량 · 0건/장애/확인 불가 시 정지"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "left",
+                "valign": "middle"
+              }
+            },
+            {
+              "name": "interaction-note",
+              "type": "rectangle",
+              "placement": {
+                "left": 900,
+                "top": 784,
+                "width": 540,
+                "height": 22,
+                "rotation": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0,
+                "radius": 12,
+                "color": {
+                  "fixed": "#2e425c"
+                }
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "노드 클릭 → 상세 분석   |   Ctrl + 휠 → 확대"
+                },
+                "color": {
+                  "fixed": "#a6b6cc"
+                },
+                "size": 18,
+                "align": "right",
+                "valign": "middle"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m"
+    ]
+  },
+  "id": null
+}

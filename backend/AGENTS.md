@@ -20,7 +20,7 @@ Compose 명령은 이 디렉터리에서 실행한다.
 
 | 작업 범위 | 추가로 읽을 문서 |
 | --- | --- |
-| API, Controller, 요청·응답, Swagger | `context/api/common-contract.md`, `context/api/endpoints/README.md`, 관련 `context/api/endpoints/` 상세 문서, `context/domain/model/README.md`, 관련 `context/domain/model/` 상세 문서, `conventions/api.md` |
+| API, Controller, 요청·응답, API 문서 | `context/api/common-contract.md`, `context/api/endpoints/README.md`, 관련 `context/api/endpoints/` 상세 문서, `context/domain/model/README.md`, 관련 `context/domain/model/` 상세 문서, `conventions/api.md` |
 | 기능·유스케이스 변경 | 관련 `context/domain/model/` 문서, `context/domain/invariants.md`, `context/domain/business-policies.md`, API 변경 시 관련 `context/api/` 문서와 해당 컨벤션 |
 | 도메인 전체 관계·용어·생명주기 | `context/domain/model/README.md` |
 | 회원 모델·회원 정책 | `context/domain/model/member.md` |
@@ -44,7 +44,7 @@ Compose 명령은 이 디렉터리에서 실행한다.
 ## 적용과 검증
 
 - 현재 사용자의 요청, 루트 `AGENTS.md`, 이 파일, 구속력 있는 컨벤션 순서로 판단한다.
-- 설계 문서·컨벤션·코드·테스트·Swagger/OpenAPI가 충돌하면 차이를 보고하고 임의로
+- 설계 문서·컨벤션·코드·테스트가 충돌하면 차이를 보고하고 임의로
   관련 없는 코드를 정규화하지 않는다.
 - 기존 변경사항을 보존하고 요청 범위를 벗어난 이동·리팩터링·의존성 변경을 하지 않는다.
 - 실행 명령, 버전, 환경 변수와 endpoint는 저장소 파일에서 확인한 뒤 사용한다.

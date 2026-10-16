@@ -1,0 +1,385 @@
+// Tempo tracing is disabled in the default runtime.
+// Re-enable this block together with TEMPO_OTLP_ENDPOINT when the monitoring stack runs the tracing profile.
+/*
+otelcol.receiver.otlp "app" {
+	http {
+		endpoint = "0.0.0.0:4318"
+	}
+
+	output {
+		traces = [otelcol.processor.memory_limiter.traces.input]
+	}
+}
+
+otelcol.processor.memory_limiter "traces" {
+	check_interval = "1s"
+	limit          = "192MiB"
+	spike_limit    = "48MiB"
+
+	output {
+		traces = [otelcol.processor.transform.trace_privacy.input]
+	}
+}
+
+otelcol.processor.transform "trace_privacy" {
+	error_mode = "propagate"
+
+	trace_statements {
+		context = "span"
+		statements = [
+			`delete_key(attributes, "url.query")`,
+			`delete_key(attributes, "url.fragment")`,
+			`replace_pattern(attributes["url.full"], "[?#].*", "") where attributes["url.full"] != nil`,
+			`replace_pattern(attributes["http.url"], "[?#].*", "") where attributes["http.url"] != nil`,
+			`replace_pattern(attributes["http.target"], "[?#].*", "") where attributes["http.target"] != nil`,
+		]
+	}
+
+	output {
+		traces = [otelcol.processor.batch.traces.input]
+	}
+}
+
+otelcol.processor.batch "traces" {
+	timeout             = "1s"
+	send_batch_size     = 256
+	send_batch_max_size = 512
+
+	output {
+		traces = [otelcol.exporter.otlphttp.tempo.input]
+	}
+}
+
+otelcol.exporter.otlphttp "tempo" {
+	client {
+		endpoint = sys.env("TEMPO_OTLP_ENDPOINT")
+	}
+
+	sending_queue {
+		queue_size    = 128
+		num_consumers = 2
+	}
+
+	retry_on_failure {
+		max_elapsed_time = "5m"
+	}
+}
+*/
+
+prometheus.remote_write "monitoring" {
+	endpoint {
+		url = sys.env("PROMETHEUS_REMOTE_WRITE_URL")
+
+		queue_config {
+			batch_send_deadline = "1s"
+		}
+	}
+}
+
+prometheus.scrape "app" {
+	job_name        = "jarihana-backend"
+	scrape_interval = "5s"
+	scrape_timeout  = "4s"
+	metrics_path    = "/actuator/prometheus"
+
+	targets = [
+		{
+			"__address__" = sys.env("APP_METRICS_TARGET"),
+			"application" = "jarihana",
+			"environment" = sys.env("SPRING_PROFILES_ACTIVE"),
+			"instance"    = sys.env("HOST_ID") + ":" + sys.env("SPRING_PROFILES_ACTIVE"),
+		},
+	]
+
+	forward_to = [prometheus.remote_write.monitoring.receiver]
+}
+
+prometheus.exporter.blackbox "app_health" {
+	config = encoding.to_json({
+		modules = {
+			http_health = {
+				prober  = "http",
+				timeout = "5s",
+				http = {
+					method                        = "GET",
+					valid_status_codes            = [200],
+					follow_redirects              = false,
+					preferred_ip_protocol         = "ip4",
+					fail_if_body_not_matches_regexp = [`"status"\s*:\s*"UP"`],
+				},
+			},
+		},
+	})
+
+	target {
+		name    = "backend"
+		address = "http://" + sys.env("APP_METRICS_TARGET") + "/actuator/health"
+		module  = "http_health"
+		labels = {
+			"application" = "jarihana",
+			"environment" = sys.env("SPRING_PROFILES_ACTIVE"),
+			"host_id"     = sys.env("HOST_ID"),
+		}
+	}
+}
+
+discovery.relabel "app_health" {
+	targets = prometheus.exporter.blackbox.app_health.targets
+
+	rule {
+		target_label = "job"
+		replacement  = "jarihana-health"
+	}
+}
+
+prometheus.scrape "app_health" {
+	targets         = discovery.relabel.app_health.output
+	scrape_interval = "60s"
+	scrape_timeout  = "10s"
+	forward_to      = [prometheus.remote_write.monitoring.receiver]
+}
+
+prometheus.exporter.blackbox "database_health" {
+	config = encoding.to_json({
+		modules = {
+			http_health = {
+				prober  = "http",
+				timeout = "5s",
+				http = {
+					method                        = "GET",
+					valid_status_codes            = [200],
+					follow_redirects              = false,
+					preferred_ip_protocol         = "ip4",
+					fail_if_body_not_matches_regexp = [`"status"\s*:\s*"UP"`],
+				},
+			},
+		},
+	})
+
+	target {
+		name    = "database"
+		address = "http://" + sys.env("APP_METRICS_TARGET") + "/actuator/health/database"
+		module  = "http_health"
+		labels = {
+			"service_name" = "jarihana",
+			"environment"  = sys.env("SPRING_PROFILES_ACTIVE"),
+			"host_id"      = sys.env("HOST_ID"),
+		}
+	}
+}
+
+discovery.relabel "database_health" {
+	targets = prometheus.exporter.blackbox.database_health.targets
+
+	rule {
+		target_label = "job"
+		replacement  = "jarihana-database"
+	}
+}
+
+prometheus.scrape "database_health" {
+	targets         = discovery.relabel.database_health.output
+	scrape_interval = "60s"
+	scrape_timeout  = "10s"
+	forward_to      = [prometheus.remote_write.monitoring.receiver]
+}
+
+prometheus.exporter.blackbox "app_liveness" {
+	config = encoding.to_json({
+		modules = {
+			http_health = {
+				prober  = "http",
+				timeout = "5s",
+				http = {
+					method                        = "GET",
+					valid_status_codes            = [200],
+					follow_redirects              = false,
+					preferred_ip_protocol         = "ip4",
+					fail_if_body_not_matches_regexp = [`"status"\s*:\s*"UP"`],
+				},
+			},
+		},
+	})
+
+	target {
+		name    = "backend"
+		address = "http://" + sys.env("APP_METRICS_TARGET") + "/actuator/health/liveness"
+		module  = "http_health"
+		labels = {
+			"application" = "jarihana",
+			"environment" = sys.env("SPRING_PROFILES_ACTIVE"),
+			"host_id"     = sys.env("HOST_ID"),
+		}
+	}
+}
+
+discovery.relabel "app_liveness" {
+	targets = prometheus.exporter.blackbox.app_liveness.targets
+
+	rule {
+		target_label = "job"
+		replacement  = "jarihana-liveness"
+	}
+}
+
+prometheus.scrape "app_liveness" {
+	targets         = discovery.relabel.app_liveness.output
+	scrape_interval = "60s"
+	scrape_timeout  = "10s"
+	forward_to      = [prometheus.remote_write.monitoring.receiver]
+}
+
+prometheus.exporter.postgres "database" {
+	data_source_names       = [sys.env("POSTGRES_MONITOR_DSN")]
+	disable_settings_metrics = true
+	enabled_collectors     = ["database"]
+}
+
+discovery.relabel "postgres" {
+	targets = prometheus.exporter.postgres.database.targets
+
+	rule {
+		target_label = "job"
+		replacement  = "jarihana-postgres"
+	}
+
+	rule {
+		target_label = "application"
+		replacement  = "jarihana"
+	}
+
+	rule {
+		target_label = "service_name"
+		replacement  = "postgres"
+	}
+
+	rule {
+		target_label = "environment"
+		replacement  = sys.env("SPRING_PROFILES_ACTIVE")
+	}
+
+	rule {
+		target_label = "host_id"
+		replacement  = sys.env("HOST_ID")
+	}
+
+	rule {
+		target_label = "instance"
+		replacement  = sys.env("HOST_ID") + ":postgres"
+	}
+}
+
+prometheus.scrape "postgres" {
+	targets         = discovery.relabel.postgres.output
+	scrape_interval = "60s"
+	scrape_timeout  = "10s"
+	forward_to      = [prometheus.remote_write.monitoring.receiver]
+}
+
+prometheus.exporter.unix "host" {
+	procfs_path = "/host/proc"
+	sysfs_path  = "/host/sys"
+	rootfs_path = "/host/root"
+
+	// Docker 데이터 디스크가 /var/lib/docker 아래에 있어도 수집한다.
+	filesystem {
+		mount_points_exclude = "^/(dev|proc|run/credentials/.+|sys)($|/)"
+	}
+}
+
+prometheus.scrape "host" {
+	job_name        = "jarihana-host"
+	scrape_interval = "30s"
+	targets         = prometheus.exporter.unix.host.targets
+	forward_to      = [prometheus.relabel.host_labels.receiver]
+}
+
+prometheus.relabel "host_labels" {
+	forward_to = [prometheus.remote_write.monitoring.receiver]
+
+	rule {
+		target_label = "job"
+		replacement  = "jarihana-host"
+	}
+
+	rule {
+		target_label = "host_id"
+		replacement  = sys.env("HOST_ID")
+	}
+
+	rule {
+		target_label = "instance"
+		replacement  = sys.env("HOST_ID")
+	}
+}
+
+prometheus.scrape "alloy" {
+	job_name        = "jarihana-alloy"
+	scrape_interval = "30s"
+
+	targets = [
+		{
+			"__address__" = "127.0.0.1:12345",
+			"host_id"     = sys.env("HOST_ID"),
+			"instance"    = sys.env("HOST_ID") + ":alloy",
+		},
+	]
+
+	forward_to = [prometheus.remote_write.monitoring.receiver]
+}
+
+discovery.docker "local" {
+	host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "backend_logs" {
+	targets = discovery.docker.local.targets
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+		action        = "keep"
+		regex         = "backend"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_jarihana_monitoring_logs"]
+		action        = "keep"
+		regex         = "true"
+	}
+
+	rule {
+		target_label = "environment"
+		replacement  = sys.env("SPRING_PROFILES_ACTIVE")
+	}
+
+	rule {
+		target_label = "service_name"
+		replacement  = "jarihana"
+	}
+
+	rule {
+		target_label = "host_id"
+		replacement  = sys.env("HOST_ID")
+	}
+}
+
+loki.source.docker "backend" {
+	host       = "unix:///var/run/docker.sock"
+	targets    = discovery.relabel.backend_logs.output
+	forward_to = [loki.relabel.backend.receiver]
+}
+
+loki.relabel "backend" {
+	forward_to = [loki.write.monitoring.receiver]
+
+	rule {
+		action = "labelkeep"
+		regex  = "service_name|environment|host_id"
+	}
+}
+
+loki.write "monitoring" {
+	endpoint {
+		url = sys.env("LOKI_PUSH_URL")
+	}
+}

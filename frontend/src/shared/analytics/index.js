@@ -33,8 +33,12 @@ export const syncAnalyticsIdentity = (status, id) =>
 export const trackPage = (path) => safely("trackPage", [path]);
 export const captureEvent = (event, properties) =>
   safely("captureEvent", [event, properties], false);
+export const captureEventWhenReady = (event, properties) =>
+  safely("captureEventWhenReady", [event, properties], Promise.resolve(false));
 export const startRequestTracking = (metadata) =>
   safely("startRequestTracking", [metadata], { finish() {} });
+export const startEventTracking = () =>
+  safely("startEventTracking", [], { captureEvent() { return false; } });
 
 export const syncPromotionAttribution = (groupId, search) =>
   synchronizePromotionAttribution(groupId, search, safely("getSessionId", [], undefined));

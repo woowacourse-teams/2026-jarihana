@@ -200,6 +200,39 @@ class RegistrationTest {
         );
     }
 
+    @Test
+    @DisplayName("일반 신청은 기존 승인·미승인·확인 상태 전이에서 모집 출처를 유지한다.")
+    void ordinaryRegistrationKeepsRecruitmentOrigin() {
+        // Given
+        Registration pending = pendingRegistration();
+        // When
+        Registration approved = pending.approve(DecisionActor.member(10L), REGISTERED_AT.plusDays(1), 0);
+        Registration rejected = pending.rejectBySystem(null, REGISTERED_AT.plusDays(1));
+        // Then
+        assertThat(pending.getApprovalOrigin()).isEqualTo(ApprovalOrigin.RECRUITMENT);
+        assertThat(approved.getApprovalOrigin()).isEqualTo(ApprovalOrigin.RECRUITMENT);
+        assertThat(rejected.getApprovalOrigin()).isEqualTo(ApprovalOrigin.RECRUITMENT);
+        assertThat(approved.viewByLeader(REGISTERED_AT.plusDays(2)).getApprovalOrigin()).isEqualTo(ApprovalOrigin.RECRUITMENT);
+    }
+
+    @Test
+    @DisplayName("초대 승인은 모집 정원·마감과 독립적으로 출처와 시스템 주체를 기록하고 확인 시각을 유지한다.")
+    void invitationApprovalPreservesHistoryAndUsesInvitationOrigin() {
+        // Given
+        LocalDateTime viewedAt = REGISTERED_AT.plusHours(1);
+        Registration pending = pendingRegistration().viewByLeader(viewedAt);
+        // When
+        Registration approved = pending.approveByInvitation(ENDS_AT.plusDays(1));
+        // Then
+        assertThat(approved.getStatus()).isEqualTo(RegistrationStatus.APPROVED);
+        assertThat(approved.getApprovalOrigin()).isEqualTo(ApprovalOrigin.INVITATION);
+        assertThat(approved.getDecidedBy()).isEqualTo(DecisionActor.system());
+        assertThat(approved.getLeaderViewedAt()).isEqualTo(viewedAt);
+        assertThat(approved.viewByLeader(ENDS_AT.plusDays(2)).getApprovalOrigin()).isEqualTo(ApprovalOrigin.INVITATION);
+        assertThat(pending.getStatus()).isEqualTo(RegistrationStatus.PENDING);
+        assertThatThrownBy(() -> approved.approveByInvitation(ENDS_AT.plusDays(2))).isInstanceOf(BusinessException.class);
+    }
+
     @DisplayName("시스템은 대기 신청을 수동 승인할 수 없다.")
     @Test
     void systemCannotManuallyApprove() {
