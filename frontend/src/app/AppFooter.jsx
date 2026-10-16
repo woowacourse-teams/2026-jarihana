@@ -52,7 +52,7 @@ export function AppFooter({ pwaGuideReference }) {
   return (
     <footer aria-labelledby="footer-origin-title" className="app-footer">
       <div className="app-footer__copy">
-        <a className="app-footer__brand" href="/">
+        <a className="app-footer__brand" data-ph-capture-attribute-action="group_home" href="/home">
           <img alt="" className="app-footer__brand-mark" src={faviconImage} />
           <h2 className="app-footer__brand-title">자리 하나?</h2>
         </a>

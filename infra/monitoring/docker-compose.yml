@@ -120,6 +120,7 @@ services:
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
       GF_METRICS_ENABLED: "true"
       GF_PLUGINS_PREINSTALL_SYNC: andrewbmchugh-flow-panel@1.20.1
+      GF_PLUGINS_DISABLE_PLUGINS: elasticsearch,tempo,zipkin,opentsdb,stackdriver,mssql,jaeger,mysql,influxdb,grafana-postgresql-datasource,grafana-pyroscope-datasource
       GF_FEATURE_TOGGLES_ENABLE: canvasPanelPanZoom
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:?Set SLACK_WEBHOOK_URL}
     ports:
