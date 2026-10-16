@@ -1,0 +1,957 @@
+{
+  "date": "2026-10-16",
+  "environment": "isolated local postgres:17; not dev RDS",
+  "row_counts": {
+    "notification_deliveries": 2883146,
+    "notifications": 2883146,
+    "push_subscriptions": 1006,
+    "PENDING": 2870474,
+    "FAILED": 12672
+  },
+  "settings": {
+    "shared_buffers": "90MB",
+    "work_mem": "4MB",
+    "network": "none"
+  },
+  "schema_scope": "Three tables copied from V1 baseline column/check definitions; primary keys and CREATE INDEX statements retained. Other tables, foreign keys and additional unique constraints omitted.",
+  "before_source": "850eb7cf0da5b7a5a17cee997b231614690dfaf4",
+  "after_source": "working tree fix/push-delivery-claim-index",
+  "method": "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) of actual UPDATE in BEGIN/ROLLBACK, six alternating runs on same fixture; no external push transport",
+  "median_ms": {
+    "before": 3157.775,
+    "after": 0.266
+  },
+  "results": [
+    {
+      "variant": "before",
+      "execution_ms": 6906.295,
+      "planning_ms": 1.372,
+      "shared_hit_blocks": 5497,
+      "shared_read_blocks": 99830,
+      "temp_read_blocks": 65111,
+      "temp_written_blocks": 85757,
+      "nodes": [
+        {
+          "node": "ModifyTable",
+          "relation": "notification_deliveries",
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Limit",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "LockRows",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Sort",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": "external merge"
+        },
+        {
+          "node": "Hash Join",
+          "relation": null,
+          "index": null,
+          "rows": 2870474,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Hash Join",
+          "relation": null,
+          "index": null,
+          "rows": 2870474,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Seq Scan",
+          "relation": "notification_deliveries",
+          "index": null,
+          "rows": 2870474,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Hash",
+          "relation": null,
+          "index": null,
+          "rows": 2883146,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Seq Scan",
+          "relation": "notifications",
+          "index": null,
+          "rows": 2883146,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Hash",
+          "relation": null,
+          "index": null,
+          "rows": 1006,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Seq Scan",
+          "relation": "push_subscriptions",
+          "index": null,
+          "rows": 1006,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Nested Loop",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "CTE Scan",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Index Scan",
+          "relation": "notification_deliveries",
+          "index": "notification_deliveries_pkey",
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        }
+      ]
+    },
+    {
+      "variant": "after",
+      "execution_ms": 116.127,
+      "planning_ms": 10.458,
+      "shared_hit_blocks": 52,
+      "shared_read_blocks": 3,
+      "temp_read_blocks": 0,
+      "temp_written_blocks": 0,
+      "nodes": [
+        {
+          "node": "ModifyTable",
+          "relation": "notification_deliveries",
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Limit",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "LockRows",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Index Scan",
+          "relation": "notification_deliveries",
+          "index": "idx_notification_deliveries_due",
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Limit",
+          "relation": null,
+          "index": null,
+          "rows": 0,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "LockRows",
+          "relation": null,
+          "index": null,
+          "rows": 0,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Sort",
+          "relation": null,
+          "index": null,
+          "rows": 0,
+          "loops": 1,
+          "sort": "quicksort"
+        },
+        {
+          "node": "Index Scan",
+          "relation": "notification_deliveries",
+          "index": "idx_notification_deliveries_expired_lease",
+          "rows": 0,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Limit",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Sort",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": "quicksort"
+        },
+        {
+          "node": "Append",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "CTE Scan",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "CTE Scan",
+          "relation": null,
+          "index": null,
+          "rows": 0,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Nested Loop",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Nested Loop",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Nested Loop",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Nested Loop",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "CTE Scan",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Index Scan",
+          "relation": "notification_deliveries",
+          "index": "notification_deliveries_pkey",
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Index Scan",
+          "relation": "notification_deliveries",
+          "index": "notification_deliveries_pkey",
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Index Scan",
+          "relation": "notifications",
+          "index": "notifications_pkey",
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Index Scan",
+          "relation": "push_subscriptions",
+          "index": "push_subscriptions_pkey",
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        }
+      ]
+    },
+    {
+      "variant": "after",
+      "execution_ms": 0.266,
+      "planning_ms": 0.569,
+      "shared_hit_blocks": 55,
+      "shared_read_blocks": 0,
+      "temp_read_blocks": 0,
+      "temp_written_blocks": 0,
+      "nodes": [
+        {
+          "node": "ModifyTable",
+          "relation": "notification_deliveries",
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Limit",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "LockRows",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Index Scan",
+          "relation": "notification_deliveries",
+          "index": "idx_notification_deliveries_due",
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Limit",
+          "relation": null,
+          "index": null,
+          "rows": 0,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "LockRows",
+          "relation": null,
+          "index": null,
+          "rows": 0,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Sort",
+          "relation": null,
+          "index": null,
+          "rows": 0,
+          "loops": 1,
+          "sort": "quicksort"
+        },
+        {
+          "node": "Index Scan",
+          "relation": "notification_deliveries",
+          "index": "idx_notification_deliveries_expired_lease",
+          "rows": 0,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Limit",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Sort",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": "quicksort"
+        },
+        {
+          "node": "Append",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "CTE Scan",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "CTE Scan",
+          "relation": null,
+          "index": null,
+          "rows": 0,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Nested Loop",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Nested Loop",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Nested Loop",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Nested Loop",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "CTE Scan",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Index Scan",
+          "relation": "notification_deliveries",
+          "index": "notification_deliveries_pkey",
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Index Scan",
+          "relation": "notification_deliveries",
+          "index": "notification_deliveries_pkey",
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Index Scan",
+          "relation": "notifications",
+          "index": "notifications_pkey",
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Index Scan",
+          "relation": "push_subscriptions",
+          "index": "push_subscriptions_pkey",
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        }
+      ]
+    },
+    {
+      "variant": "before",
+      "execution_ms": 3157.775,
+      "planning_ms": 0.487,
+      "shared_hit_blocks": 5565,
+      "shared_read_blocks": 99762,
+      "temp_read_blocks": 65111,
+      "temp_written_blocks": 85757,
+      "nodes": [
+        {
+          "node": "ModifyTable",
+          "relation": "notification_deliveries",
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Limit",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "LockRows",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Sort",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": "external merge"
+        },
+        {
+          "node": "Hash Join",
+          "relation": null,
+          "index": null,
+          "rows": 2870474,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Hash Join",
+          "relation": null,
+          "index": null,
+          "rows": 2870474,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Seq Scan",
+          "relation": "notification_deliveries",
+          "index": null,
+          "rows": 2870474,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Hash",
+          "relation": null,
+          "index": null,
+          "rows": 2883146,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Seq Scan",
+          "relation": "notifications",
+          "index": null,
+          "rows": 2883146,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Hash",
+          "relation": null,
+          "index": null,
+          "rows": 1006,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Seq Scan",
+          "relation": "push_subscriptions",
+          "index": null,
+          "rows": 1006,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Nested Loop",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "CTE Scan",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Index Scan",
+          "relation": "notification_deliveries",
+          "index": "notification_deliveries_pkey",
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        }
+      ]
+    },
+    {
+      "variant": "before",
+      "execution_ms": 3070.818,
+      "planning_ms": 0.531,
+      "shared_hit_blocks": 5629,
+      "shared_read_blocks": 99698,
+      "temp_read_blocks": 65111,
+      "temp_written_blocks": 85757,
+      "nodes": [
+        {
+          "node": "ModifyTable",
+          "relation": "notification_deliveries",
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Limit",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "LockRows",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Sort",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": "external merge"
+        },
+        {
+          "node": "Hash Join",
+          "relation": null,
+          "index": null,
+          "rows": 2870474,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Hash Join",
+          "relation": null,
+          "index": null,
+          "rows": 2870474,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Seq Scan",
+          "relation": "notification_deliveries",
+          "index": null,
+          "rows": 2870474,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Hash",
+          "relation": null,
+          "index": null,
+          "rows": 2883146,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Seq Scan",
+          "relation": "notifications",
+          "index": null,
+          "rows": 2883146,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Hash",
+          "relation": null,
+          "index": null,
+          "rows": 1006,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Seq Scan",
+          "relation": "push_subscriptions",
+          "index": null,
+          "rows": 1006,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Nested Loop",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "CTE Scan",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Index Scan",
+          "relation": "notification_deliveries",
+          "index": "notification_deliveries_pkey",
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        }
+      ]
+    },
+    {
+      "variant": "after",
+      "execution_ms": 0.264,
+      "planning_ms": 0.679,
+      "shared_hit_blocks": 55,
+      "shared_read_blocks": 0,
+      "temp_read_blocks": 0,
+      "temp_written_blocks": 0,
+      "nodes": [
+        {
+          "node": "ModifyTable",
+          "relation": "notification_deliveries",
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Limit",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "LockRows",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Index Scan",
+          "relation": "notification_deliveries",
+          "index": "idx_notification_deliveries_due",
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Limit",
+          "relation": null,
+          "index": null,
+          "rows": 0,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "LockRows",
+          "relation": null,
+          "index": null,
+          "rows": 0,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Sort",
+          "relation": null,
+          "index": null,
+          "rows": 0,
+          "loops": 1,
+          "sort": "quicksort"
+        },
+        {
+          "node": "Index Scan",
+          "relation": "notification_deliveries",
+          "index": "idx_notification_deliveries_expired_lease",
+          "rows": 0,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Limit",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Sort",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": "quicksort"
+        },
+        {
+          "node": "Append",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "CTE Scan",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "CTE Scan",
+          "relation": null,
+          "index": null,
+          "rows": 0,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Nested Loop",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Nested Loop",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Nested Loop",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Nested Loop",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "CTE Scan",
+          "relation": null,
+          "index": null,
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Index Scan",
+          "relation": "notification_deliveries",
+          "index": "notification_deliveries_pkey",
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Index Scan",
+          "relation": "notification_deliveries",
+          "index": "notification_deliveries_pkey",
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Index Scan",
+          "relation": "notifications",
+          "index": "notifications_pkey",
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        },
+        {
+          "node": "Index Scan",
+          "relation": "push_subscriptions",
+          "index": "push_subscriptions_pkey",
+          "rows": 1,
+          "loops": 1,
+          "sort": null
+        }
+      ]
+    }
+  ],
+  "cleanup": "Temporary container jarihana-claim-bench-9c73c5eb removed"
+}
