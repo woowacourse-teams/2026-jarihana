@@ -59,13 +59,13 @@ function createQueryClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 30_000 } } });
 }
 
-function renderRoutes(entry = "/?homeType=STUDY#results", { linkProps } = {}) {
+function renderRoutes(entry = "/home?homeType=STUDY#results", { linkProps } = {}) {
   const queryClient = createQueryClient();
   const result = render(<QueryClientProvider client={queryClient}>
     <MemoryRouter initialEntries={[entry]}>
       <GroupTransitionProvider>
         <Routes>
-          <Route path="/" element={<Cards linkProps={linkProps} />} />
+          <Route path="/home" element={<Cards linkProps={linkProps} />} />
           <Route path="/groups" element={<Cards linkProps={linkProps} />} />
           <Route path="/groups/:groupId" element={<Detail />} />
         </Routes>
@@ -86,7 +86,7 @@ beforeEach(() => {
   mockFetchGroup.mockClear();
 });
 
-test.each(["/?homeType=STUDY#results", "/groups?type=STUDY&keyword=react#results"])(
+test.each(["/home?homeType=STUDY#results", "/groups?type=STUDY&keyword=react#results"])(
   "restores the clicked card and preserves origin %s", async (origin) => {
     renderRoutes(origin);
     fireEvent.click(screen.getByRole("link", { name: "모집 카드" }));
@@ -114,7 +114,7 @@ test("prefetches the group detail query on mouse intent, focus, and touch intent
     onPointerDown: jest.fn(),
     onPointerEnter: jest.fn()
   };
-  const { queryClient } = renderRoutes("/?homeType=STUDY#results", { linkProps: callbacks });
+  const { queryClient } = renderRoutes("/home?homeType=STUDY#results", { linkProps: callbacks });
   const todayCard = screen.getByRole("link", { name: "오늘 카드" });
 
   fireEvent.pointerEnter(todayCard, { pointerType: "mouse" });
@@ -156,11 +156,11 @@ test("a failed intent request does not block normal detail navigation", async ()
   fireEvent.pointerEnter(card);
   await waitFor(() => expect(queryClient.getQueryState(["groups", "detail", "42"]).status).toBe("error"));
   fireEvent.click(card);
-  expect(screen.getByLabelText("출발 경로")).toHaveTextContent("/?homeType=STUDY#results");
+  expect(screen.getByLabelText("출발 경로")).toHaveTextContent("/home?homeType=STUDY#results");
 });
 
 test("an existing intent callback can prevent prefetch", () => {
-  renderRoutes("/", { linkProps: { onFocus: (event) => event.preventDefault() } });
+  renderRoutes("/home", { linkProps: { onFocus: (event) => event.preventDefault() } });
   fireEvent.focus(screen.getByRole("link", { name: "오늘 카드" }));
   expect(mockFetchGroup).not.toHaveBeenCalled();
 });

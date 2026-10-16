@@ -5,14 +5,14 @@ import { GroupImage, StatusBadge } from "../../../shared/ui/index.js";
 import { groupScheduleLabel, groupSeatsLabel, scheduleDuration } from "./groupCardMetadata.js";
 import { typeBadgeTone, typeLabel } from "../pageUtils.js";
 
-export function DiscoveryGroupCard({ group, recruiting }) {
+export function DiscoveryGroupCard({ as: Component = GroupDetailLink, group, recruiting }) {
   const isEnded = group.status === "ENDED";
   const duration = group.type === "SESSION" ? scheduleDuration(group.sessionSchedule) : null;
   const seats = isEnded ? null : groupSeatsLabel(group);
   const location = group.location?.trim();
 
   return (
-    <GroupDetailLink
+    <Component
       className={`discovery-group-card discovery-group-card--${group.type.toLowerCase()}${isEnded ? " discovery-group-card--ended" : ""}`}
       data-ph-capture-attribute-action="group_view"
       groupId={group.id}
@@ -70,6 +70,6 @@ export function DiscoveryGroupCard({ group, recruiting }) {
           {seats ? <span className="discovery-group-card__seats">{seats}</span> : null}
         </div>
       </div>
-    </GroupDetailLink>
+    </Component>
   );
 }

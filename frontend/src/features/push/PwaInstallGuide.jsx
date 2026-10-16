@@ -326,7 +326,7 @@ export const PwaInstallGuide = forwardRef(function PwaInstallGuide({ triggerClas
   const panelReference = useRef(null);
 
   useEffect(() => {
-    if (pathname !== "/" || !isMobileDevice()
+    if (pathname !== "/home" || !isMobileDevice()
       || !["anonymous", "signup-required", "authenticated"].includes(authStatus)) return undefined;
     let current = true;
     const timer = window.setTimeout(() => {

@@ -19,10 +19,10 @@ import { ProfileMenu } from "./ProfileMenu";
 
 const HOME_LINK = {
   action: "group_home",
-  isActive: (pathname) => pathname === "/",
+  isActive: (pathname) => pathname === "/home",
   label: "홈",
   requiresAuth: false,
-  to: "/"
+  to: "/home"
 };
 
 const EXPLORE_LINK = {
@@ -269,7 +269,7 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
               aria-label="자리하나 홈"
               className="app-header__brand"
               data-ph-capture-attribute-action="group_home"
-              to="/"
+              to="/home"
             >
               <img alt="" aria-hidden="true" className="app-header__brand-mark" src={logoMark} />
               <span className="app-header__brand-text">자리하나?</span>
