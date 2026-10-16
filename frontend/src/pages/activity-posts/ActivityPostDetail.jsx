@@ -10,7 +10,7 @@ import {
   useToggleActivityReaction
 } from "../../features/activity-post/hooks.js";
 import { toUserMessage } from "../../shared/api/index.js";
-import { Button, Modal, Skeleton } from "../../shared/ui/index.js";
+import { Avatar, Button, Modal, Skeleton } from "../../shared/ui/index.js";
 import { useToast } from "../../shared/ui/Toast.jsx";
 import { ActivityReactionBar } from "./ActivityReactionBar.jsx";
 
@@ -200,9 +200,12 @@ function CommentList({ onRequireLogin, onToggleReaction, post, signedIn, viewerK
       <ul aria-label="댓글" className="activity-comments__list">
         {comments.map((comment) => (
           <li className="activity-comment" key={comment.id}>
-            <span aria-hidden="true" className="activity-comment__avatar">
-              {comment.authorNickname.charAt(0)}
-            </span>
+            <Avatar
+              className="activity-comment__avatar"
+              fallback={comment.authorNickname.charAt(0)}
+              size="sm"
+              src={comment.authorAvatarUrl}
+            />
             <div className="activity-comment__body">
               <p className="activity-comment__meta">
                 <strong>{comment.authorNickname}</strong>
@@ -230,6 +233,8 @@ function CommentList({ onRequireLogin, onToggleReaction, post, signedIn, viewerK
                 reactions={comment.reactions}
                 signedIn={signedIn}
                 size="sm"
+                target={{ id: comment.id, type: "comment" }}
+                viewerKey={viewerKey}
               />
             </div>
           </li>
@@ -378,6 +383,8 @@ export function ActivityPostDetail({ onClose, onNavigateGroup, onRequireLogin, p
             onToggle={(emoji, reacted) => onToggleReaction({ id: post.id, type: "post" }, emoji, reacted)}
             reactions={post.reactions}
             signedIn={signedIn}
+            target={{ id: post.id, type: "post" }}
+            viewerKey={viewerKey}
           />
           <section aria-label="댓글" className="activity-post-detail__comments">
             <h3 className="activity-post-detail__comments-title">
