@@ -48,10 +48,7 @@ const posts = [
     group: { id: 41, joined: false, name: "우아한 스터디", recruiting: true, status: "ACTIVE", type: "STUDY" },
     id: 2,
     imageUrl: "https://cdn.example.test/photo-2.jpg",
-    reactions: [
-      { count: 3, emoji: "THUMBS_UP", reacted: false },
-      { count: 1, emoji: "FIRE", reacted: true }
-    ]
+    reactions: [{ count: 3, emoji: "HEART", reacted: true }]
   },
   {
     activityDate: "2026-08-10",
@@ -234,8 +231,9 @@ it("shows public photo posts in the server's date order with reaction and commen
   expect(cards[0].querySelector(".activity-photo-card__date")).toHaveTextContent("2026. 8. 18.");
   expect(cards[0].querySelector(".activity-photo-card__date svg")).not.toBeInTheDocument();
   expect(cards[0].querySelector("img")).toHaveAttribute("src", posts[0].imageUrl);
-  expect(cards[0].querySelector(".activity-photo-card__signals")).toHaveTextContent("👍3🔥12");
-  expect(within(cards[0]).getByText("반응과 댓글: 좋아요 3개, 불 1개, 댓글 2개")).toHaveClass("ui-sr-only");
+  expect(cards[0].querySelector(".activity-photo-card__signals")).toHaveTextContent("32");
+  expect(cards[0].querySelector(".activity-photo-card__reaction-icon")).toHaveAttribute("alt", "");
+  expect(within(cards[0]).getByText("반응과 댓글: 하트 3개, 댓글 2개")).toHaveClass("ui-sr-only");
   expect(cards[1].querySelector(".activity-photo-card__signals")).not.toBeInTheDocument();
 });
 
@@ -258,11 +256,11 @@ it("opens the post detail with its group, reactions and comments when a card is 
   expect(within(dialog).getByText("모두 함께한 하루")).toBeVisible();
   expect(within(dialog).getByRole("link", { name: /모임 둘러보기/ })).toHaveAttribute("href", "/groups/41");
   expect(within(dialog).getByText("모집 중")).toBeVisible();
-  expect(within(dialog).getByRole("button", { name: "좋아요 반응 3개" })).toHaveAttribute("aria-pressed", "false");
-  expect(within(dialog).getByRole("button", { name: "불 반응 1개, 내가 남김" })).toHaveAttribute(
+  expect(within(dialog).getByRole("button", { name: "하트 반응 3개, 내가 남김" })).toHaveAttribute(
     "aria-pressed",
     "true"
   );
+  expect(within(dialog).getByRole("button", { name: "하트 반응 1개" })).toHaveAttribute("aria-pressed", "false");
   expect(within(dialog).getByText("다음 모임에 저도 가고 싶어요")).toBeVisible();
   expect(useInfiniteActivityComments).toHaveBeenLastCalledWith({ postId: 2, viewerKey: "anonymous" });
 });
@@ -274,7 +272,7 @@ it("asks visitors to log in before reacting or commenting and returns them to th
   fireEvent.click(screen.getAllByRole("button", { name: /활동 사진/ })[0]);
   const dialog = screen.getByRole("dialog", { name: "우아한 스터디" });
 
-  fireEvent.click(within(dialog).getByRole("button", { name: "좋아요 반응 3개" }));
+  fireEvent.click(within(dialog).getByRole("button", { name: "하트 반응 3개, 내가 남김" }));
   fireEvent.click(within(dialog).getByRole("button", { name: "로그인하고 댓글 남기기" }));
 
   expect(toggleReaction).not.toHaveBeenCalled();
@@ -283,31 +281,44 @@ it("asks visitors to log in before reacting or commenting and returns them to th
   expect(login).toHaveBeenCalledTimes(2);
 });
 
-it("toggles post reactions for signed-in members with the viewer relation", async () => {
+it("toggles hearts on the post and its comments for signed-in members", async () => {
   useAuth.mockReturnValue({ isAuthenticated: true, member: { id: 9 }, status: "authenticated" });
   renderBoard();
   fireEvent.click(screen.getAllByRole("button", { name: /활동 사진/ })[0]);
   const dialog = screen.getByRole("dialog", { name: "우아한 스터디" });
 
   await act(async () => {
-    fireEvent.click(within(dialog).getByRole("button", { name: "불 반응 1개, 내가 남김" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "하트 반응 3개, 내가 남김" }));
   });
-  fireEvent.click(within(dialog).getByRole("button", { name: "활동 기록 반응 추가" }));
+  const commentReactions = within(dialog).getByRole("group", { name: "나래님의 댓글 반응" });
   await act(async () => {
-    fireEvent.click(within(dialog).getByRole("button", { name: "체크" }));
+    fireEvent.click(within(commentReactions).getByRole("button", { name: "하트 반응 1개" }));
   });
 
   expect(toggleReaction).toHaveBeenNthCalledWith(1, expect.objectContaining({
-    emoji: "FIRE",
+    emoji: "HEART",
     reacted: true,
     target: { id: 2, type: "post" },
     viewerRelation: "non_member"
   }));
   expect(toggleReaction).toHaveBeenNthCalledWith(2, expect.objectContaining({
-    emoji: "CHECK",
+    emoji: "HEART",
     reacted: false,
-    target: { id: 2, type: "post" }
+    target: { id: 7, type: "comment" }
   }));
+});
+
+it("shows the heart without a count before anyone reacts", () => {
+  renderBoard();
+  fireEvent.click(screen.getAllByRole("button", { name: /활동 사진/ })[1]);
+
+  const dialog = screen.getByRole("dialog", { name: "사진 동아리" });
+  const postReactions = within(dialog).getByRole("group", { name: "활동 기록 반응" });
+  const heart = within(postReactions).getByRole("button", { name: "하트 반응 0개" });
+  expect(heart).toHaveAttribute("aria-pressed", "false");
+  expect(heart).toHaveAttribute("data-ph-capture-attribute-action", "activity_reaction_toggle");
+  expect(heart.querySelector(".activity-reaction__icon")).toBeInTheDocument();
+  expect(heart.querySelector(".activity-reaction__count")).not.toBeInTheDocument();
 });
 
 it("closes the photo viewer with Escape while keeping the post detail open", () => {

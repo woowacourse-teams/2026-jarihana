@@ -20,7 +20,7 @@ const post = {
   commentCount: 1,
   group: { id: 41, joined: true, name: "우아한 스터디", recruiting: false, status: "ACTIVE", type: "STUDY" },
   id: 2,
-  reactions: [{ count: 1, emoji: "FIRE", reacted: false }]
+  reactions: [{ count: 1, emoji: "HEART", reacted: false }]
 };
 const feedKey = activityPostKeys.feed({ groupId: null, mine: false, viewerKey: 9 });
 
@@ -43,7 +43,7 @@ it("adds a post reaction optimistically and records the success event", async ()
 
   // When
   await act(() => result.current.mutateAsync({
-    emoji: "THUMBS_UP",
+    emoji: "HEART",
     post,
     reacted: false,
     target: { id: 2, type: "post" },
@@ -51,14 +51,11 @@ it("adds a post reaction optimistically and records the success event", async ()
   }));
 
   // Then
-  expect(addActivityReaction).toHaveBeenCalledWith({ id: 2, type: "post" }, "THUMBS_UP");
-  expect(feedPost(queryClient).reactions).toEqual([
-    { count: 1, emoji: "THUMBS_UP", reacted: true },
-    { count: 1, emoji: "FIRE", reacted: false }
-  ]);
+  expect(addActivityReaction).toHaveBeenCalledWith({ id: 2, type: "post" }, "HEART");
+  expect(feedPost(queryClient).reactions).toEqual([{ count: 2, emoji: "HEART", reacted: true }]);
   expect(captureEvent).toHaveBeenCalledWith("activity_reaction_added", {
     activity_post_id: 2,
-    emoji: "thumbs_up",
+    emoji: "heart",
     group_id: 41,
     target_type: "post",
     viewer_relation: "member"
@@ -75,8 +72,8 @@ it("reloads the feed from the server when removing a reaction fails", async () =
   // When
   await act(async () => {
     await expect(result.current.mutateAsync({
-      emoji: "FIRE",
-      post: { ...post, reactions: [{ count: 1, emoji: "FIRE", reacted: true }] },
+      emoji: "HEART",
+      post: { ...post, reactions: [{ count: 1, emoji: "HEART", reacted: true }] },
       reacted: true,
       target: { id: 2, type: "post" },
       viewerRelation: "member"

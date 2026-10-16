@@ -322,6 +322,12 @@
   color: var(--color-muted-ink);
 }
 
+.activity-photo-card__reaction-icon {
+  width: 0.85rem;
+  height: 0.85rem;
+  object-fit: contain;
+}
+
 /* 종료된 모임의 기록: 배지 대신 바랜 사진, 누렇게 변한 인화지, 테이프로 붙인 앨범 사진처럼 보여 준다. */
 .activity-photo-card.is-ended .activity-photo-card__paper {
   border-color: rgb(120 92 40 / 16%);
@@ -361,6 +367,10 @@
 .activity-photo-card.is-ended .activity-photo-card__reaction {
   border-color: rgb(120 92 40 / 22%);
   color: #4b4132;
+}
+
+.activity-photo-card.is-ended .activity-photo-card__reaction-icon {
+  filter: grayscale(0.6) sepia(0.4);
 }
 
 .activity-photo-card__actions {
@@ -772,26 +782,20 @@
   color: var(--color-surface);
 }
 
-/* 이모지 반응: 이모지별 개수 배지 */
+/* 하트 반응: 하트 이미지와 개수를 담은 토글 버튼 */
 .activity-reactions {
-  position: relative;
-  display: grid;
-  gap: var(--space-2);
-}
-
-.activity-reactions__row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1);
 }
 
-.activity-reaction,
-.activity-reaction-add {
+.activity-reaction {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.3rem;
+  min-width: 2.4rem;
   min-height: 2rem;
   padding: 0 0.65rem;
   border: var(--border-thin) solid var(--color-line);
@@ -801,6 +805,20 @@
   cursor: pointer;
   font: inherit;
   font-size: var(--text-body);
+}
+
+/* 남기기 전에는 흐린 회색 하트로 두고, 남기면 원래 색으로 보여 준다. */
+.activity-reaction__icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  object-fit: contain;
+  filter: grayscale(1);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.activity-reaction:hover:not(:disabled) .activity-reaction__icon {
+  opacity: 0.7;
 }
 
 .activity-reaction__count {
@@ -815,61 +833,31 @@
   color: var(--color-brand-ink);
 }
 
+.activity-reaction[aria-pressed="true"] .activity-reaction__icon {
+  filter: none;
+  opacity: 1;
+}
+
 .activity-reaction:disabled {
   cursor: progress;
   opacity: 0.7;
 }
 
-.activity-reaction-add {
-  min-width: 2.4rem;
-  border-style: dashed;
-  color: var(--color-muted-ink);
-}
-
-.activity-reaction:focus-visible,
-.activity-reaction-add:focus-visible,
-.activity-reaction-picker button:focus-visible {
+.activity-reaction:focus-visible {
   outline: 0.125rem solid var(--color-brand-ink);
   outline-offset: 0.125rem;
 }
 
-.activity-reactions--sm .activity-reaction,
-.activity-reactions--sm .activity-reaction-add {
+.activity-reactions--sm .activity-reaction {
+  min-width: 2rem;
   min-height: 1.6rem;
   padding: 0 0.45rem;
   font-size: var(--text-label);
 }
 
-.activity-reactions--sm .activity-reaction-add {
-  min-width: 2rem;
-}
-
-.activity-reaction-picker {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.1rem;
-  width: fit-content;
-  max-width: 100%;
-  padding: var(--space-1);
-  border: var(--border-thin) solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-float);
-}
-
-.activity-reaction-picker button {
-  width: 2.25rem;
-  height: 2.25rem;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  cursor: pointer;
-  font-size: 1.1rem;
-}
-
-.activity-reaction-picker button:hover,
-.activity-reaction-picker button[aria-pressed="true"] {
-  background: var(--color-surface-sunken);
+.activity-reactions--sm .activity-reaction__icon {
+  width: 0.95rem;
+  height: 0.95rem;
 }
 
 /* 댓글 */
@@ -1082,11 +1070,16 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .activity-reaction,
-  .activity-reaction-add {
+  .activity-reaction {
     transition:
       background-color var(--duration-fast) var(--ease-standard),
       border-color var(--duration-fast) var(--ease-standard);
+  }
+
+  .activity-reaction__icon {
+    transition:
+      filter var(--duration-fast) var(--ease-standard),
+      opacity var(--duration-fast) var(--ease-standard);
   }
 
   .activity-photo-viewer {

@@ -3,18 +3,8 @@ import { z } from "zod";
 import { cursorPageSchema, entityIdSchema, localDateSchema, localDateTimeSchema } from "../common/schemas.js";
 import { groupStatusSchema, groupTypeSchema } from "../group/index.js";
 
-/** 서버 `ReactionEmoji` 선언 순서와 같다. 배지와 고르기 창이 이 순서를 따른다. */
-export const ACTIVITY_REACTION_EMOJIS = Object.freeze([
-  { code: "THUMBS_UP", symbol: "👍", label: "좋아요" },
-  { code: "SAD", symbol: "😢", label: "슬픔" },
-  { code: "GRIN", symbol: "😄", label: "함박웃음" },
-  { code: "HEART", symbol: "❤️", label: "하트" },
-  { code: "EYES", symbol: "👀", label: "눈" },
-  { code: "FIRE", symbol: "🔥", label: "불" },
-  { code: "CHECK", symbol: "✅", label: "체크" },
-  { code: "QUESTION", symbol: "❓", label: "물음표" },
-  { code: "EXCLAMATION", symbol: "❗", label: "느낌표" }
-]);
+/** 서버 `ReactionEmoji` 선언 순서와 같다. 피드는 우선 하트 하나만 반응으로 받는다. */
+export const ACTIVITY_REACTION_EMOJIS = Object.freeze([{ code: "HEART", label: "하트" }]);
 
 const reactionCodes = new Set(ACTIVITY_REACTION_EMOJIS.map((emoji) => emoji.code));
 

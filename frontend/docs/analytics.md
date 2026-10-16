@@ -159,7 +159,7 @@ PostHog에서는 생성 성공(`invitation_created`)과 수락 시도→합류(`
 가입 완료는 회원 생성 응답의 ID로 먼저 사용자를 식별한 뒤 전송한다.
 피드백 제출 이벤트에는 입력 내용이나 작성자 ID를 포함하지 않는다.
 활동 기록 댓글과 반응 이벤트의 `viewer_relation`은 기록 그룹 기준 `member`, `non_member`, `anonymous`이고,
-`target_type`은 `post`(기록) 또는 `comment`(댓글), `emoji`는 `thumbs_up`처럼 소문자 이모지 코드다.
+`target_type`은 `post`(기록) 또는 `comment`(댓글), `emoji`는 소문자 이모지 코드이며 지금은 `heart`뿐이다.
 댓글 원문은 보내지 않는다. 반응 이벤트는 반응 API가 성공한 뒤에 기록하며, 화면의 낙관적 갱신만으로 기록하지 않는다.
 활동 기록 카드 클릭은 상세를 여는 `activity_post_detail_open`, 상세의 그룹 줄은
 `activity_post_detail_group_open`, 사진 크게 보기는 `activity_post_photo_zoom` 식별자로 수집한다.

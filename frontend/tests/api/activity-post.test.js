@@ -88,21 +88,19 @@ describe("activity post API", () => {
   });
 
   it("toggles reactions on posts and comments with the emoji code in the path", async () => {
-    await addActivityReaction({ id: 55, type: "post" }, "THUMBS_UP");
-    await removeActivityReaction({ id: 7, type: "comment" }, "QUESTION");
+    await addActivityReaction({ id: 55, type: "post" }, "HEART");
+    await removeActivityReaction({ id: 7, type: "comment" }, "HEART");
 
-    expect(apiRequest).toHaveBeenNthCalledWith(1, "activity-posts/55/reactions/THUMBS_UP", { method: "put" });
-    expect(apiRequest).toHaveBeenNthCalledWith(2, "activity-post-comments/7/reactions/QUESTION", {
+    expect(apiRequest).toHaveBeenNthCalledWith(1, "activity-posts/55/reactions/HEART", { method: "put" });
+    expect(apiRequest).toHaveBeenNthCalledWith(2, "activity-post-comments/7/reactions/HEART", {
       method: "delete"
     });
   });
 });
 
 describe("activity reactions", () => {
-  it("supports the nine emoji in the server order", () => {
-    expect(ACTIVITY_REACTION_EMOJIS.map((emoji) => emoji.symbol)).toEqual([
-      "👍", "😢", "😄", "❤️", "👀", "🔥", "✅", "❓", "❗"
-    ]);
+  it("offers only the heart reaction for now", () => {
+    expect(ACTIVITY_REACTION_EMOJIS).toEqual([{ code: "HEART", label: "하트" }]);
   });
 
   it("defaults missing counts and skips emoji the screen does not know", () => {
@@ -116,7 +114,7 @@ describe("activity reactions", () => {
       id: 2,
       imageUrl: "photos/2.jpg",
       reactions: [
-        { count: 2, emoji: "UNKNOWN", reacted: false },
+        { count: 2, emoji: "THUMBS_UP", reacted: false },
         { count: 1, emoji: "HEART", reacted: true }
       ]
     });
@@ -126,18 +124,12 @@ describe("activity reactions", () => {
     expect(parsed.reactions).toEqual([{ count: 1, emoji: "HEART", reacted: true }]);
   });
 
-  it("keeps emoji order when adding and drops a badge whose count reaches zero", () => {
-    const reactions = [{ count: 1, emoji: "FIRE", reacted: false }];
+  it("counts my heart once and drops the badge when its count reaches zero", () => {
+    const others = [{ count: 2, emoji: "HEART", reacted: false }];
 
-    const added = toggleActivityReaction(reactions, "THUMBS_UP", true);
-    const removed = toggleActivityReaction(
-      [{ count: 1, emoji: "THUMBS_UP", reacted: true }, ...reactions],
-      "THUMBS_UP",
-      false
-    );
-
-    expect(added).toEqual([{ count: 1, emoji: "THUMBS_UP", reacted: true }, ...reactions]);
-    expect(removed).toEqual(reactions);
-    expect(toggleActivityReaction(reactions, "FIRE", false)).toBe(reactions);
+    expect(toggleActivityReaction([], "HEART", true)).toEqual([{ count: 1, emoji: "HEART", reacted: true }]);
+    expect(toggleActivityReaction(others, "HEART", true)).toEqual([{ count: 3, emoji: "HEART", reacted: true }]);
+    expect(toggleActivityReaction([{ count: 1, emoji: "HEART", reacted: true }], "HEART", false)).toEqual([]);
+    expect(toggleActivityReaction(others, "HEART", false)).toBe(others);
   });
 });

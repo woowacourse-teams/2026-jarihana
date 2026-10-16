@@ -29,6 +29,7 @@ import { useToast } from "../../shared/ui/Toast.jsx";
 import { useInfiniteScroll } from "../account/useInfiniteScroll.js";
 import { ActivityPostComposer } from "./ActivityPostComposer.jsx";
 import { ActivityPostDetail, formatActivityDate } from "./ActivityPostDetail.jsx";
+import { ActivityReactionIcon } from "./ActivityReactionBar.jsx";
 import { calculateActivityPhotoWallLayout } from "./activity-photo-wall-layout.js";
 import "./activity-posts.css";
 
@@ -51,7 +52,7 @@ function ActivityPostSignals({ post }) {
       <span aria-hidden="true" className="activity-photo-card__signals">
         {reactions.map((reaction) => (
           <span className="activity-photo-card__reaction" key={reaction.emoji.code}>
-            <span>{reaction.emoji.symbol}</span>
+            <ActivityReactionIcon className="activity-photo-card__reaction-icon" code={reaction.emoji.code} />
             {reaction.count}
           </span>
         ))}
