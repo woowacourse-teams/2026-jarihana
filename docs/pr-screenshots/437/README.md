@@ -2,7 +2,7 @@
 
 - 캡처 날짜: 2026-10-20
 - 변경 전 커밋: ea4004bc (develop)
-- 변경 후 커밋: 97578f67 (PR #437)
+- 변경 후 커밋: 204ba268 (PR #437, 100명 초과 문구 변경 반영)
 - 데스크톱 화면: 1440 x 1000, 모바일 화면: 390 x 1000
 - 브라우저: Playwright로 구동한 Chrome, 한국어, Asia/Seoul
 - 실행 방식: 프로덕션 빌드, 브라우저 API fixture
@@ -11,7 +11,7 @@
 | 파일 | 화면 |
 | --- | --- |
 | before-inbox-desktop.png | 변경 전 데스크톱 알림함, 활동 기록 알림 없음 |
-| after-inbox-desktop.png | 변경 후 데스크톱 알림함, 좋아요 묶음, 새 댓글, 100명 초과 문구 |
+| after-inbox-desktop.png | 변경 후 데스크톱 알림함, 좋아요 묶음, 새 댓글, 100명 초과 문구(회원님의 댓글이 무수한 관심을 받고 있어요.) |
 | before-inbox-mobile.png | 변경 전 모바일 알림함 |
 | after-inbox-mobile.png | 변경 후 모바일 알림함 |
 | before-post-link-desktop.png | 변경 전 `/activities?mine=true&post=77` 진입, 2번째 페이지 기록이라 상세가 열리지 않고 주소만 지워짐 |
