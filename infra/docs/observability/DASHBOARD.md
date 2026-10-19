@@ -20,6 +20,7 @@ http://localhost:13000/d/jarihana-overview
 | [jarihana.yaml](../../monitoring/grafana/provisioning/dashboards/jarihana.yaml) | Grafana dashboard provider 설정 |
 | [jarihana-overview.json](../../monitoring/grafana/provisioning/dashboards/json/jarihana-overview.json) | 실제 대시보드 정의 |
 | [jarihana-canvas.json](../../monitoring/grafana/provisioning/dashboards/json/jarihana-canvas.json) | [시스템 흐름 Canvas](CANVAS.md) 정의 |
+| [jarihana-load-test-local.json](../../monitoring/grafana/provisioning/dashboards/json/jarihana-load-test-local.json) | [로컬 스트레스 테스트](LOAD-TEST-DASHBOARD.md) 정의·수집 전제·SQL 통계 해석 |
 
 Grafana는 시작할 때 provider가 가리키는 JSON 파일을 읽고, 이후 `updateIntervalSeconds: 30`
 설정에 따라 30초마다 파일 변경을 확인한다. provider 설정은 Grafana가 읽는 provisioning
