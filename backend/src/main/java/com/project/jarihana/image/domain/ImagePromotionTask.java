@@ -77,6 +77,10 @@ public class ImagePromotionTask extends BaseEntity {
         return targetImageKey;
     }
 
+    public boolean canReconcileAt(LocalDateTime now) {
+        return !reconcileAfter.isAfter(now);
+    }
+
     public void retarget(
             String sourceImageKey,
             String targetImageKey,
@@ -92,5 +96,10 @@ public class ImagePromotionTask extends BaseEntity {
         reconcileAfter = retryAt;
         attempts++;
         lastError = error == null ? null : error.substring(0, Math.min(error.length(), 1000));
+    }
+
+    public void refreshReconciliation(LocalDateTime reconcileAfter) {
+        this.reconcileAfter = reconcileAfter;
+        this.lastError = null;
     }
 }

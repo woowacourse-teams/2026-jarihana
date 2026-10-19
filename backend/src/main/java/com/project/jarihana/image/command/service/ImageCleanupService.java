@@ -76,20 +76,26 @@ public class ImageCleanupService {
     }
 
     private void reconcilePromotion(UUID taskId, LocalDateTime now) {
-        ImagePromotionTask task = promotionTaskRepository.findById(taskId).orElse(null);
-        if (task == null) {
+        ImagePromotionTask candidate = promotionTaskRepository.findById(taskId).orElse(null);
+        if (candidate == null) {
             return;
         }
         try {
-            ImageUpload upload = uploadRepository.findById(task.getImageUploadId()).orElse(null);
-            boolean promotedToTarget = upload != null
-                    && task.getTargetImageKey().equals(upload.getImageKey());
-            imageStorage.delete(promotedToTarget ? task.getSourceImageKey() : task.getTargetImageKey());
-            transactions.executeWithoutResult(ignored -> promotionTaskRepository.deleteById(taskId));
+            transactions.executeWithoutResult(ignored -> {
+                ImageUpload upload = uploadRepository.findWithLockById(candidate.getImageUploadId()).orElse(null);
+                ImagePromotionTask task = promotionTaskRepository.findById(taskId).orElse(null);
+                if (task == null || !task.canReconcileAt(now)) {
+                    return;
+                }
+                boolean promotedToTarget = upload != null
+                        && task.getTargetImageKey().equals(upload.getImageKey());
+                imageStorage.delete(promotedToTarget ? task.getSourceImageKey() : task.getTargetImageKey());
+                promotionTaskRepository.delete(task);
+            });
         } catch (RuntimeException exception) {
             String error = exception.getClass().getSimpleName();
             transactions.executeWithoutResult(ignored -> promotionTaskRepository.findById(taskId)
-                    .ifPresent(candidate -> candidate.retryAt(now.plusMinutes(1), error)));
+                    .ifPresent(pendingTask -> pendingTask.retryAt(now.plusMinutes(1), error)));
             log.atWarn()
                     .addKeyValue("event.action", "image.promotion.reconcile_failed")
                     .addKeyValue("image.task_id", taskId)

@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ImageAccessService {
 
     private static final Pattern STORED_IMAGE_URL = Pattern.compile(
-            "(?:https?://[^\\s)]+)?/?images/(groups/(?:tmp|[1-9][0-9]*)/"
+            "(?:https?://[^\\s)]+)?/?(?:api/)?images/(groups/(?:tmp|[1-9][0-9]*)/"
                     + "[A-Za-z0-9][A-Za-z0-9._-]{0,199}\\.(?:jpg|png|webp))"
     );
 
@@ -80,7 +80,12 @@ public class ImageAccessService {
                     .atZone(clock.getZone())
                     .toInstant();
         } else if (upload.canBePreviewedBy(memberId, now)) {
-            expiresAt = upload.getExpiresAt().atZone(clock.getZone()).toInstant();
+            LocalDateTime previewExpiresAt = now.plus(properties.accessUrlExpiration());
+            LocalDateTime uploadExpiresAt = upload.getExpiresAt();
+            if (uploadExpiresAt.isBefore(previewExpiresAt)) {
+                previewExpiresAt = uploadExpiresAt;
+            }
+            expiresAt = previewExpiresAt.atZone(clock.getZone()).toInstant();
         } else {
             throw notFound();
         }

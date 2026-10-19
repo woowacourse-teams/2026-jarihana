@@ -38,6 +38,7 @@ import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -134,6 +135,80 @@ class ImageLifecycleIntegrationTest extends IntegrationTestSupport {
         ImageDeletionTask abandoned = deletionTaskRepository.findByImageKey(abandonedTarget).orElseThrow();
         assertThat(abandoned.getExecuteAfter()).isEqualTo(now.plusDays(7));
         assertThat(deletionTaskRepository.findByImageKey(nextTarget)).isEmpty();
+    }
+
+    @DisplayName("같은 그룹으로 승격을 재시도하면 복구 작업의 유예 시각을 다시 설정한다.")
+    @Test
+    void refreshesPromotionReconciliationLeaseOnSameGroupRetry() {
+        LocalDateTime now = TestSupportConfig.FIXED_NOW;
+        long groupId = createGroup();
+        String sourceKey = "groups/tmp/same-group-retry.webp";
+        String targetKey = "groups/" + groupId + "/same-group-retry.webp";
+        ImageUpload upload = uploadRepository.save(ImageUpload.create(
+                UUID.randomUUID(), "same-group-retry.webp", "image/webp", 1024,
+                sourceKey, now.plusMinutes(30), now
+        ));
+        promotionTaskRepository.save(ImagePromotionTask.create(
+                upload.getId(), sourceKey, targetKey, now.minusSeconds(1), now.minusMinutes(20)));
+
+        lifecycleService.promote(null, groupId, sourceKey, now);
+
+        assertThat(promotionTaskRepository.findByImageUploadId(upload.getId())).isPresent();
+        assertThat(promotionTaskRepository.findDue(now.plusMinutes(1), PageRequest.of(0, 100)))
+                .isEmpty();
+    }
+
+    @DisplayName("승격과 복구 작업이 겹치면 복구 작업은 승격 트랜잭션이 끝날 때까지 기다린다.")
+    @Test
+    void promotionReconciliationWaitsForConcurrentPromotion() throws Exception {
+        LocalDateTime now = TestSupportConfig.FIXED_NOW;
+        long groupId = createGroup();
+        String sourceKey = "groups/tmp/concurrent-retry.webp";
+        String targetKey = "groups/" + groupId + "/concurrent-retry.webp";
+        ImageUpload upload = uploadRepository.save(ImageUpload.create(
+                UUID.randomUUID(), "concurrent-retry.webp", "image/webp", 1024,
+                sourceKey, now.plusMinutes(30), now.minusMinutes(30)
+        ));
+        promotionTaskRepository.save(ImagePromotionTask.create(
+                upload.getId(), sourceKey, targetKey, now.minusSeconds(1), now.minusMinutes(20)));
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch promotionLocked = new CountDownLatch(1);
+        CountDownLatch cleanupRequested = new CountDownLatch(1);
+        CountDownLatch allowPromotionCommit = new CountDownLatch(1);
+
+        try {
+            Future<?> promotion = executor.submit(() -> transaction.executeWithoutResult(ignored -> {
+                ImageUpload locked = uploadRepository.findWithLockById(upload.getId()).orElseThrow();
+                promotionLocked.countDown();
+                await(allowPromotionCommit);
+                locked.startPromotion(groupId, targetKey);
+                locked.completeAttachment(now);
+            }));
+            assertThat(promotionLocked.await(3, TimeUnit.SECONDS)).isTrue();
+
+            Future<?> cleanup = executor.submit(() -> {
+                cleanupRequested.countDown();
+                cleanupService.cleanupBatch();
+            });
+            assertThat(cleanupRequested.await(3, TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> cleanup.get(300, TimeUnit.MILLISECONDS))
+                    .isInstanceOf(TimeoutException.class);
+
+            allowPromotionCommit.countDown();
+            promotion.get(3, TimeUnit.SECONDS);
+            cleanup.get(3, TimeUnit.SECONDS);
+
+            ImageUpload persisted = uploadRepository.findById(upload.getId()).orElseThrow();
+            assertThat(persisted.getStatus()).isEqualTo(ImageUploadStatus.ATTACHED);
+            assertThat(persisted.getImageKey()).isEqualTo(targetKey);
+            assertThat(imageStorage.metadata(targetKey)).isNotNull();
+            assertThat(imageStorage.metadata(sourceKey)).isNull();
+            assertThat(promotionTaskRepository.findByImageUploadId(upload.getId())).isEmpty();
+        } finally {
+            allowPromotionCommit.countDown();
+            executor.shutdownNow();
+        }
     }
 
     @DisplayName("같은 이미지를 대표에서 소개로 옮겨도 삭제 대상으로 예약하지 않는다.")

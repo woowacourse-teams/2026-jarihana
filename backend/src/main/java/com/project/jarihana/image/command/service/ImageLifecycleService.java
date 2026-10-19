@@ -113,6 +113,8 @@ public class ImageLifecycleService {
                     now
             );
             existing.retarget(sourceKey, targetKey, now.plus(properties.cleanupLease()));
+        } else {
+            existing.refreshReconciliation(now.plus(properties.cleanupLease()));
         }
     }
 
