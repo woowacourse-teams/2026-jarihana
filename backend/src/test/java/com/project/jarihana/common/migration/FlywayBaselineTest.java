@@ -104,7 +104,7 @@ class FlywayBaselineTest extends IntegrationTestSupport {
         // Then
         assertThat(appliedMigrations).isZero();
         assertThat(jdbc.queryForObject("""
-                select type from flyway_schema_history where version = '5' and success
+                select type from flyway_schema_history where version = '6' and success
                 """, String.class)).isEqualTo("SQL");
         assertThat(jdbc.queryForObject("""
                 select pg_get_constraintdef(oid) from pg_constraint
@@ -112,6 +112,26 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 """, String.class)).contains("GROUP_CREATED", "REGISTRATION_SUBMITTED", "PARTICIPANT_JOINED",
                 "REGISTRATION_APPROVED", "REGISTRATION_REJECTED", "REGISTRATION_SYSTEM_REJECTED", "INVITATION_RECEIVED",
                 "ACTIVITY_POST_COMMENTED", "ACTIVITY_POST_REACTED");
+    }
+
+    @Test
+    @DisplayName("Flyway는 SQL 통계 확장을 public에 생성하고 재실행해도 유지한다.")
+    void applicationInstallsQueryStatisticsOnlyOnce() {
+        // Given
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+
+        // When
+        int appliedMigrations = flyway.migrate().migrationsExecuted;
+
+        // Then
+        assertThat(appliedMigrations).isZero();
+        assertThat(jdbc.queryForObject("""
+                select count(*) from pg_extension
+                where extname = 'pg_stat_statements' and extnamespace = 'public'::regnamespace
+                """, Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+                select type from flyway_schema_history where version = '5' and success
+                """, String.class)).isEqualTo("SQL");
     }
 
     @Test
@@ -159,7 +179,7 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 int appliedMigrations = existing.migrate().migrationsExecuted;
 
                 // Then
-                assertThat(appliedMigrations).isEqualTo(5);
+                assertThat(appliedMigrations).isEqualTo(6);
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '1'", String.class))
                         .isEqualTo("BASELINE");
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '2'", String.class))
@@ -169,6 +189,8 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '4'", String.class))
                         .isEqualTo("SQL");
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '5'", String.class))
+                        .isEqualTo("SQL");
+                assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '6'", String.class))
                         .isEqualTo("SQL");
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '999999'", String.class))
                         .isEqualTo("SQL");

@@ -8,6 +8,7 @@ on:
       - "backend/**"
       - "infra/docker-compose.yml"
       - "infra/monitoring/alloy/config.alloy"
+      - "infra/monitoring/alloy/postgres-queries.yaml"
       - "infra/scripts/verify-backend.sh"
       - ".github/workflows/backend-prod-deploy.yml"
   workflow_dispatch:

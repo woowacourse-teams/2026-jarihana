@@ -63,4 +63,4 @@ erDiagram
 기본 스키마는 `backend/src/main/resources/db/migration/V1__baseline.sql`, 댓글과 반응은
 `backend/src/main/resources/db/migration/V2__activity_post_comment_reaction.sql`로 생성하고,
 하트만 허용하는 반응 검사 제약은 `backend/src/main/resources/db/migration/V3__activity_post_reaction_heart_only.sql`이 더한다.
-댓글과 좋아요 알림 사건 종류는 `backend/src/main/resources/db/migration/V5__activity_post_interaction_notification.sql`이 알림 검사 제약에 더한다.
+댓글과 좋아요 알림 사건 종류는 `backend/src/main/resources/db/migration/V6__activity_post_interaction_notification.sql`이 알림 검사 제약에 더한다.
