@@ -24,6 +24,7 @@
 | 0014 | [초기 관찰 플랫폼으로 Amazon CloudWatch를 사용한다](0014-cloudwatch-observability-platform.md) | 채택 | 2026-09-23 | |
 | 0015 | [dev와 prod를 별도 EC2로 나누고 데이터베이스는 RDS 한 대에서 계정으로 나눈다](0015-separate-ec2-and-shared-rds.md) | 제안 | 2026-10-05 | 채택되면 0009의 단일 EC2와 RDS 미채택 결정을 대체 |
 | 0016 | [백엔드 이미지를 GitHub 호스팅 runner에서 빌드하고 GHCR로 전달한다](0016-github-hosted-build-and-ghcr.md) | 제안 | 2026-10-08 | 채택되면 0015의 결정 4(서버마다 빌드)를 대체 |
+| 0023 | [롤백은 직전 성공 릴리스의 설정까지 되돌리고, prod는 dev 점검을 통과한 digest만 배포한다](0023-release-rollback-and-dev-verified-promotion.md) | 제안(합의 항목 결정, 구현 전) | 2026-10-15 | 채택되면 0016의 결정 4(롤백 범위)와 결정 5(prod 이미지 선택)를 바꾼다 |
 
 관련 회고: [`/api` 접두사는 누가 떼는가](../retrospectives/api-prefix-troubleshooting.md)는
 ADR 0006과 0007에 이르기까지의 기록이다.
@@ -32,14 +33,30 @@ ADR 0006과 0007에 이르기까지의 기록이다.
 
 | 번호 | 제목 | 상태 | 날짜 | 작업 브랜치 |
 | --- | --- | --- | --- | --- |
-| 0015 | [알림함에 소식을 저장하고 웹푸시는 별도로 전송한다](0015-web-push-and-notification-inbox.md) | 채택, 알림함, 구독, 푸시 전송, 화면, SW 구현 | 2026-10-02 | `feat/web-push-notifications` |
-| 0017 | [모임 달력 일정과 정기 규칙 이력을 분리한다](0017-group-calendar-event-and-history-model.md) | 채택, 모임 달력 구현 | 2026-10-12 | `feat/group-calendar` |
-| 0018 | [초대 합류 이력을 모집 신청과 분리한다](0018-separate-invitation-acceptance-history.md) | 채택, 저장 기반, 모집 집계, 발급, 수신 구현, 수락, 소속, PENDING 승인 연결 구현 | 2026-10-11 | `feat/invitation` |
-| 0019 | [공유 초대 토큰의 해시와 암호문을 저장한다](0019-encrypted-invitation-token-storage.md) | 채택, 발급, 재시도, 관리 상세 복원 구현 | 2026-10-11 | `feat/invitation` |
-| 0020 | [초대 합류는 unique 제약과 낙관적 잠금으로 충돌을 처리한다](0020-optimistic-invitation-acceptance.md) | 채택, 병렬 합류, 충돌 재시도, 상태 롤백, DDL 검증 완료 | 2026-10-11 | `feat/invitation` |
+| 0015 | [알림함에 소식을 저장하고 웹푸시는 별도로 전송한다](0015-web-push-and-notification-inbox.md) | 채택 · 알림함·구독·푸시 전송·화면·SW 구현 | 2026-10-02 | `feat/web-push-notifications` |
+| 0017 | [모임 달력 일정과 정기 규칙 이력을 분리한다](0017-group-calendar-event-and-history-model.md) | 채택 · 모임 달력 구현 | 2026-10-12 | `feat/group-calendar` |
+| 0018 | [초대 합류 이력을 모집 신청과 분리한다](0018-separate-invitation-acceptance-history.md) | 채택 · 저장 기반·모집 집계·발급·수신 구현, 수락·소속·PENDING 승인 연결 구현 | 2026-10-11 | `feat/invitation` |
+| 0019 | [공유 초대 토큰의 해시와 암호문을 저장한다](0019-encrypted-invitation-token-storage.md) | 채택 · 발급·재시도·관리 상세 복원 구현 | 2026-10-11 | `feat/invitation` |
+| 0020 | [초대 합류는 unique 제약과 낙관적 잠금으로 충돌을 처리한다](0020-optimistic-invitation-acceptance.md) | 채택 · 병렬 합류·충돌 재시도·상태 롤백·DDL 검증 완료 | 2026-10-11 | `feat/invitation` |
 | 0021 | [Flyway로 스키마를 초기화하고 변경 이력을 관리한다](0021-flyway-schema-baseline.md) | 제안, 구현과 실제 스키마 검증 완료, 첫 등록 및 배포 대기 | 2026-10-14 | `chore/flyway-baseline` |
+| 0024 | [JPA native 벌크 INSERT로 알림과 전송 대기 저장의 DB 왕복을 줄인다](0024-jpa-native-bulk-notification-inserts.md) | 채택, JPA 벌크 INSERT·서버 워커 전환 검증 완료 / 개선 전후 부하 측정 대기 | 2026-10-15 | `refactor/notification-bulk-insert` |
+| 0025 | [Push claim은 index로 후보를 좁힌 뒤 JOIN한다](0025-push-claim-indexed-candidates.md) | 채택, 구현·로컬 검증 완료 / PR review·dev 배포 대기 | 2026-10-16 | `fix/push-delivery-claim-index` |
+| 0026 | [이미지의 참조 수명주기와 조회 접근을 함께 관리한다](0026-image-lifecycle-and-access.md) | 채택, Flyway V4 구현·검증 완료 / PR #405 develop 반영 대기 | 2026-10-14 | `feat/image-lifecycle` |
 
 ## 번호를 다시 매긴 이력
+
+2026-10-19에 최신 `develop`의 Push claim ADR이 0025를 사용하고 있어 이미지 수명주기 ADR을
+0026으로 다시 매겼다.
+
+| 옛 번호 | 새 번호 | 문서 |
+| --- | --- | --- |
+| 0025 (`feat/image-lifecycle`) | 0026 | [이미지 수명주기와 접근](0026-image-lifecycle-and-access.md) |
+
+2026-10-14에는 이미지 수명주기 ADR 번호가 Flyway ADR 0021과 겹쳐 0025로 변경되었다.
+
+| 옛 번호 | 당시 번호 | 문서 |
+| --- | --- | --- |
+| 0021 (`feat/image-lifecycle`) | 0025 | [이미지 수명주기와 접근](0026-image-lifecycle-and-access.md) |
 
 2026-10-14에 Flyway ADR 번호가 먼저 병합된 초대 ADR과 겹쳐 변경했다.
 

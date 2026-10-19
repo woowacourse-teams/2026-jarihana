@@ -1,4 +1,57 @@
-# CloudFront 그룹 공유 미리보기
+# CloudFront 경로 운영
+
+## 비공개 그룹 이미지 전달
+
+그룹 대표·소개·활동 사진은 기존 서비스 도메인에서 두 경로로 나눠 전달한다.
+
+| 경로 | 원본 | 역할 |
+| --- | --- | --- |
+| `/api/images/groups/*` | 백엔드 EC2 | 참조·업로더·만료 시각을 확인하고 302 응답 |
+| `/images/groups/*` | 이미지 S3 Origin | CloudFront 서명 URL이 있을 때만 이미지 바이트 전달 |
+
+운영 환경의 예시는 다음과 같다. 개발 환경은 운영 도메인 대신 개발 서비스 도메인을 사용한다.
+
+```text
+IMAGE_S3_PUBLIC_BASE_URL=https://jarihana.com/api/images
+IMAGE_CDN_DELIVERY_BASE_URL=https://jarihana.com/images
+IMAGE_CLOUDFRONT_KEY_PAIR_ID=<trusted key group의 public key id>
+IMAGE_CLOUDFRONT_PRIVATE_KEY=<PKCS#8 RSA private key PEM>
+IMAGE_CLEANUP_ENABLED=false
+```
+
+CloudFront에서 다음을 설정한다.
+
+1. 공개 키와 trusted key group을 만들고 애플리케이션이 대응하는 PKCS#8 개인 키를 GitHub Environment
+   secret `IMAGE_CLOUDFRONT_PRIVATE_KEY`로 받게 한다. 개인 키를 저장소나 EC2 파일에 커밋하지 않는다.
+2. `/images/groups/*` 캐시 동작을 이미지 S3 Origin에 연결하고 trusted key group을 요구한다.
+   서명 없는 요청을 허용하지 않는다. 기본 이미지 `/images/default-group.png`는 이 동작에 포함하지 않는다.
+3. 기존 `/api/*` 동작이 `/api/images/groups/*`를 백엔드에 전달하는지 확인한다. 이 응답은
+   `Cache-Control: private, no-store`이며 CloudFront에서 캐시하지 않는다.
+4. 이미지 S3 Origin이 실제 객체 prefix `jarihana/images`를 가리키는지 확인한다. 애플리케이션의
+   `groups/...` 키가 최종 S3 키 `jarihana/images/groups/...`와 정확히 한 번만 결합되어야 한다.
+5. 배포 도메인(`*.cloudfront.net`) 대신 환경별 기존 서비스 도메인으로 두 Base URL을 설정한다.
+   백엔드가 반환하는 서명 URL의 호스트도 기존 서비스 도메인이어야 한다.
+6. 새 경로에서 연결 이미지 조회, 업로더 임시 프리뷰, 비업로더 거부, 서명 만료를 확인한다. 기존의
+   서명 없는 이미지 URL이 거부되는지도 확인한다.
+7. DB 백필과 IAM Role의 `s3:GetObject`(HEAD·복사 원본), `s3:PutObject`(복사 대상),
+   `s3:DeleteObject` 권한을 확인한 뒤에만 `IMAGE_CLEANUP_ENABLED=true`로 바꾼다. 최초 배포에서는
+   `false`를 유지한다.
+
+백엔드가 발급한 전달 URL은 최대 5분 동안만 유효하다. 활동기록을 숨기거나 이미지 참조를 해제하면 새 URL은
+즉시 발급되지 않지만, 이미 발급된 URL은 남은 유효 시간 동안 접근될 수 있다.
+
+## PWA 설치 안내 이미지
+
+PWA 설치 안내 이미지는 사용자 업로드가 아닌 공개 정적 자산이다. 프론트엔드는 CloudFront 배포 도메인을
+하드코딩하지 않고 `/images/push-guide/*` 상대 경로를 사용하므로, 브라우저에는 환경별 기존 서비스 도메인이
+표시된다.
+
+CloudFront에서 `/images/push-guide/*` 캐시 동작을 이미지 S3 Origin에 연결한다. 이 경로에는 trusted key
+group을 요구하지 않고 공개 `GET`·`HEAD`를 허용한다. 사용자 업로드를 전달하는 `/images/groups/*`에는
+계속 trusted key group을 요구해야 하며, 두 경로의 접근 정책을 같은 캐시 동작으로 합치지 않는다. 배포 후
+개발·운영 서비스 도메인에서 안내 이미지가 열리고 `*.cloudfront.net`으로 리다이렉트되지 않는지 확인한다.
+
+## 그룹 공유 미리보기
 
 `group-share-preview.js`는 `/groups/{groupId}` 요청을 백엔드의
 `/api/share/groups/{groupId}`로 연결하는 CloudFront viewer-request 함수다.

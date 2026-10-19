@@ -5,6 +5,8 @@ import org.springframework.data.repository.Repository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -14,6 +16,21 @@ public interface NotificationDeliveryCommandRepository extends Repository<Notifi
     NotificationDelivery save(NotificationDelivery delivery);
 
     Optional<NotificationDelivery> findById(long id);
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    @Modifying
+    @Query(value = """
+            insert into notification_deliveries (notification_id, push_subscription_id, subscription_generation,
+                status, attempt_count, next_attempt_at, expires_at, created_at, updated_at)
+            select target."notificationId", target."subscriptionId", target."generation",
+                'PENDING', 0, :now, :expiresAt, :now, :now
+            from jsonb_to_recordset(cast(:targets as jsonb))
+                as target("notificationId" bigint, "subscriptionId" bigint, "generation" bigint)
+            order by target."notificationId", target."subscriptionId", target."generation"
+            on conflict (notification_id, push_subscription_id, subscription_generation) do nothing
+            """, nativeQuery = true)
+    int insertAllIfAbsent(@Param("targets") String targets, @Param("now") LocalDateTime now,
+                          @Param("expiresAt") LocalDateTime expiresAt);
 
     @Modifying
     @Query(value = """

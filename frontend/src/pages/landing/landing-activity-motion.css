@@ -142,6 +142,11 @@
   opacity: 0;
 }
 
+.landing-product-demo[data-demo="activity"] .lpa-reaction-heart {
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+
 .landing-product-demo[data-demo="activity"] .lpa-reaction-count,
 .landing-product-demo[data-demo="activity"] .lpa-comment-count {
   position: relative;
@@ -270,7 +275,13 @@
 }
 
 .landing-product-demo[data-demo="activity"][data-state="running"] .lpa-reaction {
-  animation: lpa-reaction-pop calc(640ms / var(--landing-demo-speed, 1.5)) var(--landing-ease) calc(8.05s / var(--landing-demo-speed, 1.5)) both;
+  animation:
+    lpa-reaction-pop calc(640ms / var(--landing-demo-speed, 1.5)) var(--landing-ease) calc(8.05s / var(--landing-demo-speed, 1.5)) both,
+    lpa-reaction-select calc(320ms / var(--landing-demo-speed, 1.5)) var(--landing-ease) calc(8.05s / var(--landing-demo-speed, 1.5)) both;
+}
+
+.landing-product-demo[data-demo="activity"][data-state="running"] .lpa-reaction-heart {
+  animation: lpa-heart-fill calc(320ms / var(--landing-demo-speed, 1.5)) var(--landing-ease) calc(8.05s / var(--landing-demo-speed, 1.5)) both;
 }
 
 .landing-product-demo[data-demo="activity"][data-state="complete"] .lpa-upload-card,
@@ -292,6 +303,17 @@
 .landing-product-demo[data-demo="activity"][data-state="complete"] .lpa-composer {
   opacity: 1;
   transform: none;
+}
+
+.landing-product-demo[data-demo="activity"][data-state="complete"] .lpa-reaction {
+  border-color: var(--color-brand);
+  color: var(--color-brand-ink);
+  background: var(--color-brand-soft);
+}
+
+.landing-product-demo[data-demo="activity"][data-state="complete"] .lpa-reaction-heart {
+  filter: none;
+  opacity: 1;
 }
 
 @keyframes lpa-progress {
@@ -429,6 +451,21 @@
   }
 }
 
+@keyframes lpa-reaction-select {
+  to {
+    border-color: var(--color-brand);
+    color: var(--color-brand-ink);
+    background: var(--color-brand-soft);
+  }
+}
+
+@keyframes lpa-heart-fill {
+  to {
+    filter: none;
+    opacity: 1;
+  }
+}
+
 @keyframes lpa-reaction-pop {
   0%,
   100% {
@@ -491,5 +528,16 @@
   .landing-product-demo[data-demo="activity"] .lpa-count-two {
     opacity: 1;
     transform: none;
+  }
+
+  .landing-product-demo[data-demo="activity"] .lpa-reaction {
+    border-color: var(--color-brand);
+    color: var(--color-brand-ink);
+    background: var(--color-brand-soft);
+  }
+
+  .landing-product-demo[data-demo="activity"] .lpa-reaction-heart {
+    filter: none;
+    opacity: 1;
   }
 }

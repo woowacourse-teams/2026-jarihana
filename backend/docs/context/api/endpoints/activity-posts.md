@@ -4,13 +4,14 @@
 
 ## 공통 규칙
 
-- 조회 API는 비로그인 방문자에게도 공개한다. 모든 게시물과 사진은 전체 공개다.
+- 조회 API는 비로그인 방문자에게도 공개한다. 숨김 처리되지 않은 게시물과 연결 사진은 전체 공개다.
 - 작성은 로그인한 활성 그룹 구성원만 가능하며, 종료된 그룹에는 새 기록을 작성할 수 없다.
 - 작성자 표시는 회원의 `crewName`이다. 응답의 `canModify`는 현재 요청자의 수정·숨김 권한이다.
 - 활동 날짜는 미입력 시 오늘이며 과거 날짜는 허용, 미래 날짜는 거부한다.
 - 목록은 `activityDate DESC, id DESC` 순서다. `createdAt`은 작성 시각이며 정렬에 사용하지 않는다.
 - 현재 게시물당 사진은 한 장이지만 `activity_post_photo` 테이블로 분리되어 있다.
 - 그룹 삭제 시 게시물은 숨기고, 그룹 종료 시 게시물을 보존한다.
+- 숨김 처리된 게시물의 사진은 즉시 새 조회 URL 발급을 중단하고 7일 뒤 물리 삭제한다.
 
 ## 조회
 
@@ -34,7 +35,13 @@
 | `mine` | Boolean | X | `false` | `true`이면 현재 회원 작성 기록만 조회하며 인증 필요 |
 
 응답은 `{items, nextCursor, hasNext}` 구조다. `items` 각 항목은 그룹 요약, 작성자 닉네임,
-이미지 URL, 선택 캡션, 활동 날짜, 작성 시각, 요청자의 `canModify`를 포함한다.
+이미지 URL, 선택 캡션, 활동 날짜, 작성 시각, 요청자의 `canModify`, 숨기지 않은 댓글 수
+`commentCount`, 반응 요약 `reactions`를 포함한다.
+
+- `group.recruiting`: 그룹이 `ACTIVE`이고 지금 신청할 수 있는 모집 공고(시작했고 마감 전이거나 상시 모집)가 있으면 `true`다.
+- `group.joined`: 요청자가 그룹 구성원이면 `true`다. 비로그인 요청은 항상 `false`다.
+- `reactions`: 반응이 1개 이상인 이모지만 이모지 선언 순서로 담는다. 지금은 `HEART` 하나뿐이다.
+  `reacted`는 요청자가 남긴 반응인지다.
 
 ```json
 {
@@ -42,13 +49,15 @@
   "data": {
     "items": [{
       "id": 101,
-      "group": {"id": 12, "name": "알고리즘 스터디", "type": "STUDY", "status": "ACTIVE"},
+      "group": {"id": 12, "name": "알고리즘 스터디", "type": "STUDY", "status": "ACTIVE", "recruiting": true, "joined": false},
       "authorNickname": "크루A",
-      "imageUrl": "https://cdn.example.test/images/activity.webp",
+      "imageUrl": "https://jarihana.com/api/images/groups/12/activity.webp",
       "caption": "함께한 문제 풀이 모임",
       "activityDate": "2026-09-12",
       "createdAt": "2026-09-28T10:15:30",
-      "canModify": false
+      "canModify": false,
+      "commentCount": 2,
+      "reactions": [{"emoji": "HEART", "count": 3, "reacted": true}]
     }],
     "nextCursor": "MjAyNi0wOS0xMnwxMDE",
     "hasNext": true
@@ -68,7 +77,8 @@
 - 요청: `imageKey` 필수(최대 255자), `caption` 선택(최대 50자), `activityDate` 선택(`yyyy-MM-dd`).
 - 응답: `201 Created`, `{ "id": 101 }`.
 - 그룹은 `ACTIVE`여야 하고 요청 회원의 `GroupMember`가 있어야 한다.
-- 이미지 키는 만료되지 않은 이미지 업로드 기록과 실제 스토리지 객체를 확인한다.
+- 이미지 키는 만료되지 않은 본인 업로드 기록과 실제 스토리지 객체의 크기·콘텐츠 타입을 확인한다.
+- 저장 시 이미지를 `groups/{groupId}/...` 최종 경로로 이동한다. 새 업로드를 다른 그룹과 공유할 수 없다.
 
 ### `PUT /api/activity-posts/{postId}`
 
@@ -83,7 +93,47 @@
 - 권한: `MEMBER`
 - 작성자 또는 현재 그룹 모임장이 수행할 수 있다. 물리 삭제 대신 `deletedAt`으로 숨긴다.
 - 그룹 삭제 전에도 연결을 끊고 숨김 처리하므로 공개 피드에서 조회되지 않는다.
+- 숨김 직후 새 이미지 조회 URL 발급을 중단하며, 사진 객체는 7일 유예 후 삭제한다.
 - 응답: `200 OK`, `data: null`.
+
+## 댓글
+
+### `GET /api/activity-posts/{postId}/comments`
+
+- 권한: `PUBLIC`
+- 설명: 숨기지 않은 댓글을 대화 순서대로 `createdAt ASC, id ASC`로 조회한다.
+- query parameter: `cursor`(선택), `size`(기본 20, 1 이상 100 이하). 커서는 URL-safe Base64로 인코딩한 `createdAt|id`다.
+- 각 항목: `id`, `authorNickname`(작성자 `crewName`), `content`, `createdAt`, 요청자의 `canDelete`, 댓글 반응 요약 `reactions`.
+- 숨겨진 기록이나 없는 기록은 `ACTIVITY_POST_NOT_FOUND`로 응답한다.
+
+### `POST /api/activity-posts/{postId}/comments`
+
+- 권한: `MEMBER`. 그룹 구성원이 아니어도 로그인 회원이면 쓸 수 있다.
+- 요청: `content` 필수. 앞뒤 공백을 지운 뒤 1자 이상 200자 이하여야 한다.
+- 종료된 그룹의 기록에도 댓글을 남길 수 있다.
+- 응답: `201 Created`, `{ "id": 7 }`.
+
+### `DELETE /api/activity-post-comments/{commentId}`
+
+- 권한: `MEMBER`. 댓글 작성자 또는 기록 그룹의 현재 모임장이 지울 수 있다.
+- 물리 삭제 대신 `deletedAt`으로 숨긴다. 숨긴 댓글은 목록과 `commentCount`에서 빠진다.
+- 응답: `204 No Content`.
+
+## 하트 반응
+
+| Method | Endpoint | 설명 |
+| --- | --- | --- |
+| `PUT` | `/api/activity-posts/{postId}/reactions/{emoji}` | 기록에 반응 추가 |
+| `DELETE` | `/api/activity-posts/{postId}/reactions/{emoji}` | 기록의 내 반응 취소 |
+| `PUT` | `/api/activity-post-comments/{commentId}/reactions/{emoji}` | 댓글에 반응 추가 |
+| `DELETE` | `/api/activity-post-comments/{commentId}/reactions/{emoji}` | 댓글의 내 반응 취소 |
+
+- 권한: `MEMBER`. 그룹 구성원이 아니어도 로그인 회원이면 반응할 수 있고, 종료된 그룹의 기록에도 반응할 수 있다.
+- `emoji`는 `HEART`만 허용한다. 피드는 단순한 공감만 반응으로 받고 더 깊은 의견은 댓글로 남기도록,
+  우선 하트 하나만 제공한다. 그 밖의 값은 `INVALID_PARAMETER`다. 경로의 `{emoji}`는 이후 반응 종류를
+  늘릴 때를 위해 유지한다.
+- 같은 회원은 대상별로 같은 이모지를 하나만 남긴다. 추가와 취소는 모두 멱등이며 `204 No Content`로 응답한다.
+- 숨겨진 기록과 댓글은 각각 `ACTIVITY_POST_NOT_FOUND`, `ACTIVITY_POST_COMMENT_NOT_FOUND`로 응답한다.
 
 ## 주요 오류
 
@@ -93,5 +143,9 @@
 | 그룹에 속하지 않은 회원의 작성 | `GROUP_ACCESS_DENIED` | 403 |
 | 종료된 그룹에 작성 | `GROUP_ENDED` | 409 |
 | 다른 작성자의 수정·숨김 | `ACTIVITY_POST_ACCESS_DENIED` | 403 |
-| 게시물·이미지 없음 또는 업로드 만료 | `ACTIVITY_POST_NOT_FOUND` 또는 `IMAGE_NOT_FOUND` | 404 |
+| 게시물이 없거나 숨김 처리됨 | `ACTIVITY_POST_NOT_FOUND` | 404 |
+| 이미지가 없거나 업로드가 만료됨 | `IMAGE_NOT_FOUND` | 400 |
 | 미래 날짜, 캡션 길이, 잘못된 커서·크기 | `INVALID_PARAMETER` | 400 |
+| 빈 댓글, 200자를 넘는 댓글, 지원하지 않는 이모지 | `INVALID_PARAMETER` | 400 |
+| 다른 회원 댓글을 모임장이 아닌 회원이 삭제 | `ACTIVITY_POST_COMMENT_ACCESS_DENIED` | 403 |
+| 댓글 없음 또는 이미 숨긴 댓글 | `ACTIVITY_POST_COMMENT_NOT_FOUND` | 404 |

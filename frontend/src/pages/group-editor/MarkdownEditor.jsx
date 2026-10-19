@@ -166,7 +166,7 @@ export function MarkdownEditor({
     const to = Math.min(selection?.to ?? from, current.length);
     const snippets = uploads.map((upload) => {
       const imageUrl =
-        upload?.publicImageUrl || (upload?.imageKey ? `/images/${upload.imageKey}` : "");
+        upload?.publicImageUrl || (upload?.imageKey ? `/api/images/${upload.imageKey}` : "");
       if (!imageUrl) throw new Error(IMAGE_UPLOAD_FAILURE_MESSAGE);
       return `![본문 이미지](${imageUrl})`;
     });

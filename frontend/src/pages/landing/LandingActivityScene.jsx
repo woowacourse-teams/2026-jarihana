@@ -1,18 +1,20 @@
-import { ArrowRight, Camera, ImagePlus, MessageCircle, SmilePlus } from "lucide-react";
+import { ArrowRight, Camera, ImagePlus, MessageCircle } from "lucide-react";
 
 import { Avatar } from "../../shared/ui";
 import activityPhoto from "../../shared/assets/landing/activity-study-photo.webp";
 import studyImage from "../../shared/assets/landing/default-group-study.webp";
+import heartImage from "../../shared/assets/reactions/heart.webp";
 import "./landing-activity-motion.css";
 
 const studyGroup = {
   name: "함께 배우는 토요일"
 };
 
-function Reaction({ before, after, children, selected = false }) {
+// 실제 피드처럼 다른 사람이 남긴 회색 하트 2개에 내 하트를 더해 색이 채워지고 3이 된다.
+function HeartReaction({ before, after }) {
   return (
-    <span className={selected ? "lps-selected lpa-reaction" : "lpa-reaction"}>
-      {children}
+    <span className="lpa-reaction">
+      <img alt="" className="lpa-reaction-heart" src={heartImage} width="96" height="96" />
       <span className="lpa-reaction-count" aria-hidden="true">
         <span className="lpa-reaction-before">{before}</span>
         <span className="lpa-reaction-after">{after}</span>
@@ -28,13 +30,13 @@ export function LandingActivityScene() {
         <div>
           <strong className="lps-title">활동 기록</strong>
         </div>
-        <span className="lps-upload">
-          <Camera size={16} /> 활동 올리기
-        </span>
       </div>
+      <div className="lps-activity-toolbar">
       <div className="lps-tabs lpa-tabs">
         <span className="lps-selected">전체 기록</span>
         <span>내가 쓴 기록</span>
+      </div>
+      <span className="lps-upload"><Camera size={16} /> 활동 올리기</span>
       </div>
       <div className="lps-feed-detail lps-enter lpa-feed-detail">
         <div className="lps-feed-photo lpa-photo">
@@ -73,9 +75,7 @@ export function LandingActivityScene() {
             <ArrowRight size={16} />
           </div>
           <div className="lps-reactions lpa-reactions">
-            <Reaction before="0" after="3" selected>👍</Reaction>
-            <Reaction before="0" after="2">🔥</Reaction>
-            <span><SmilePlus size={17} /></span>
+            <HeartReaction before="2" after="3" />
           </div>
           <div className="lps-feed-comments lpa-comments">
             <strong>

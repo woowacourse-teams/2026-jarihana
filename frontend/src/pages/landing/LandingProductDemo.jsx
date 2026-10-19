@@ -1,4 +1,5 @@
 import { useLandingDemo } from "./useLandingDemo";
+import { useLandingDemoViewport } from "./useLandingDemoViewport";
 import "./landing-product-demo.css";
 
 const demoDurations = {
@@ -58,6 +59,7 @@ export function LandingProductDemo({ children, isActive = true, label, screen })
     timelineComplete,
     togglePaused
   } = useLandingDemo({ active: isActive });
+  useLandingDemoViewport({ rootRef, screen, state, paused, replayKey });
   const actions = analyticsActions[screen] ?? analyticsActions.browse;
   const duration = demoDurations[screen] ?? demoDurations.browse;
 
