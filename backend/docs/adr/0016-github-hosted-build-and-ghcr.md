@@ -43,10 +43,18 @@ runner는 워크플로의 `GITHUB_TOKEN`만으로 이미지를 빌드해 GHCR에
 - jar는 runner가 회귀 테스트 뒤 `./gradlew bootJar`로 만들고, Dockerfile은 그 jar만 복사한다. 이전에는
   Dockerfile 안의 빈 환경에서 Gradle 배포판과 의존성을 다시 받고 테스트 단계에서 이미 한 컴파일을
   반복했다(2026-10-15 변경).
-- 이미지는 Buildx로 빌드하고 레이어 캐시를 GitHub Actions 캐시(`type=gha,mode=min`)에 둔다. 호스팅
+- 이미지는 Buildx로 빌드하고 레이어 캐시는 이미지 안에 함께 담는다(`cache-to: type=inline`). 다음 빌드는
+  `buildcache` 태그가 가리키는 직전 develop 이미지에서 캐시를 읽는다(`cache-from: type=registry`). 호스팅
   runner는 매번 새로 만들어져 로컬 캐시가 없으므로, 캐시가 없으면 yum 설치와 같은 레이어가 매번 새
-  digest로 만들어져 GHCR push와 서버 pull을 다시 거친다. 캐시에서 꺼낸 레이어는 직전 이미지와 digest가
-  같아 건너뛴다(2026-10-15 추가).
+  digest로 만들어져 GHCR push와 서버 pull을 다시 거친다. 캐시가 맞은 레이어는 직전 이미지와 digest가
+  같아 건너뛴다(2026-10-15 추가, 2026-10-19 inline으로 변경).
+- 처음에는 GitHub Actions 캐시(`type=gha,mode=min`)를 썼다. 이 캐시는 7일 동안 쓰이지 않으면 지워지는데,
+  develop의 backend 빌드는 2026-10-19까지 60일 동안 최장 11일 비었고 최근 6주 중 2주는 한 번도 없었다.
+  저장소의 GitHub Actions 캐시도 이미 10 GB 한도 중 6.5 GB를 쓰고 있었다. 캐시가 지워진 뒤 첫 빌드는
+  OTel, yum, useradd와 의존성 레이어를 새 digest로 다시 올리므로, PR #420 리뷰 제안에 따라 캐시를 GHCR
+  이미지에 함께 두는 inline으로 바꿨다. inline은 레이어를 따로 저장하지 않아 GHCR 용량이 늘지 않고,
+  최종 이미지의 레이어만 캐시한다. 로컬 레지스트리에서 빈 builder로 앱 코드만 바꾼 빌드를 두 번 비교하자
+  두 번째 이미지에서 새로 생긴 레이어는 애플리케이션 계층 0.8 MB 하나였다(2026-10-19).
 - Dockerfile은 jar를 통째로 복사하지 않고 Spring Boot 계층형 jar(`-Djarmode=tools extract --layers`)로
   풀어 의존성, 로더, 스냅숏 의존성, 애플리케이션 순서로 따로 복사한다. jar 하나를 복사하면 코드만
   바뀌어도 의존성을 포함한 약 75 MB 레이어가 빌드마다 GHCR에 새로 쌓였다. 빈 builder에 직전 빌드의
@@ -58,13 +66,15 @@ runner는 워크플로의 `GITHUB_TOKEN`만으로 이미지를 빌드해 GHCR에
 
 - dev와 prod는 같은 이미지 `ghcr.io/woowacourse-teams/jarihana-backend`를 쓴다. 이미지는 develop
   병합 때 한 번만 빌드한다.
-- 태그는 두 개를 붙인다.
+- 배포에 쓰는 태그는 두 개를 붙인다.
   - `<커밋 SHA>`: 지금처럼 `BACKEND_TAG`가 되어 `APP_VERSION`과 로그 태그로 이어진다. 커밋 SHA는
     `org.opencontainers.image.revision` 라벨에도 남긴다.
   - `tree-<backend 트리 해시>`: `git rev-parse HEAD:backend`의 값이다. main에는 squash 병합과 merge
     commit이 섞여 있어 main의 커밋 SHA로는 develop에서 만든 이미지를 찾을 수 없다. 트리 해시는 릴리스
     방식과 상관없이 backend 코드가 같으면 같은 값이고, Dockerfile도 `backend/` 안에 있어 빌드 정의까지
     포함한다.
+- 레이어 캐시를 읽기 위한 `buildcache` 태그를 하나 더 붙인다. 가장 최근 develop 빌드를 가리키며 배포에는
+  쓰지 않는다(2026-10-19 추가).
 - 이미지에 `org.opencontainers.image.source` 라벨로 저장소를 기록해 GHCR 패키지를 저장소에 연결한다.
   같은 저장소의 `GITHUB_TOKEN`이 push와 pull 권한을 얻는다.
 
@@ -147,10 +157,11 @@ runner는 워크플로의 `GITHUB_TOKEN`만으로 이미지를 빌드해 GHCR에
 - 재생성 방식이라 교체와 롤백 동안 짧은 중단이 있다. 직전 성공 태그는 서버 파일에만
   있어 서버를 새로 만들면 첫 배포는 되돌릴 곳이 없다.
 - GHCR에 이미지가 계속 쌓이므로 보존 기간을 정해야 한다.
-- 의존성이 바뀌면 의존성 계층(약 75 MB)이 다시 올라간다. 레이어 캐시가 만료된 뒤의 첫 빌드도 모든
-  계층을 새로 만든다.
-- 레이어 캐시가 맞으면 yum 설치를 다시 실행하지 않는다. 런타임 패키지는 베이스 이미지 digest가 바뀌거나
-  캐시가 만료될 때 새로 설치된다.
+- 의존성이 바뀌면 의존성 계층(약 75 MB)이 다시 올라간다. `buildcache` 태그가 가리키는 이미지가 없으면
+  (첫 빌드, 태그 삭제) 모든 계층을 새로 만든다.
+- 레이어 캐시가 맞으면 yum 설치를 다시 실행하지 않는다. inline 캐시는 만료되지 않으므로, 런타임 패키지는
+  베이스 이미지 digest가 바뀔 때만 새로 설치된다.
+- GHCR 정리에서 `buildcache` 태그가 붙은 최신 develop 이미지는 지우지 않아야 한다.
 - Dockerfile만으로는 이미지를 만들 수 없다. 로컬에서 이미지를 빌드하려면 먼저 `./gradlew bootJar`로
   jar를 만든다.
 - GitHub에 장애가 나면 빌드와 배포가 함께 멈춘다. 이는 지금의 runner 방식과 같다.

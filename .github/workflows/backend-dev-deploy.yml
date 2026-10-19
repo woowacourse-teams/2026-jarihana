@@ -76,10 +76,12 @@ jobs:
       - name: Backend 트리 해시 계산
         run: echo "BACKEND_TREE=$(git rev-parse HEAD:backend)" >> "${GITHUB_ENV}"
 
-      # runner는 매번 새로 만들어져 로컬 레이어 캐시가 없다. 그래서 레이어 캐시를 GitHub Actions 캐시에 둔다.
-      # 캐시에서 꺼낸 레이어(yum, useradd, OTel agent)는 직전 이미지와 digest가 같아 push와 서버 pull에서 건너뛴다.
-      # mode=min은 최종 이미지의 레이어만 저장한다. jar를 푸는 앞 단계는 jar가 바뀔 때마다 다시 실행되므로 저장할 이유가 없다.
-      # 캐시는 성능 최적화이므로 저장 실패나 rate limit 대기가 빌드와 배포를 막지 않게 오류를 무시하고 2분에 끊는다.
+      # runner는 매번 새로 만들어져 로컬 레이어 캐시가 없다. 그래서 이미지 안에 캐시 정보를 담고(inline),
+      # 다음 빌드는 buildcache 태그가 가리키는 직전 develop 이미지에서 그 정보를 읽는다.
+      # buildcache 태그는 캐시를 읽는 데만 쓰고 배포에는 쓰지 않는다. 태그가 없으면 캐시 없이 빌드한다.
+      # 캐시가 맞은 레이어(yum, useradd, OTel agent, 의존성)는 직전 이미지와 digest가 같아 push와 서버 pull에서 건너뛴다.
+      # inline은 최종 이미지의 레이어만 캐시한다. jar를 푸는 앞 단계는 jar가 바뀔 때마다 다시 실행되므로 캐시할 이유가 없다.
+      # 캐시가 GHCR 이미지에 함께 있어 GitHub Actions 캐시처럼 7일 동안 안 쓰면 지워지거나 따로 용량을 쓰지 않는다.
       # provenance를 끄면 이전과 같은 단일 이미지 manifest를 올린다.
       - name: Backend 이미지 빌드와 GHCR push
         uses: docker/build-push-action@v7
@@ -90,11 +92,12 @@ jobs:
           tags: |
             ${{ env.BACKEND_IMAGE }}:${{ env.BACKEND_TAG }}
             ${{ env.BACKEND_IMAGE }}:tree-${{ env.BACKEND_TREE }}
+            ${{ env.BACKEND_IMAGE }}:buildcache
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ env.BACKEND_TAG }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=min,ignore-error=true,timeout=2m
+          cache-from: type=registry,ref=${{ env.BACKEND_IMAGE }}:buildcache
+          cache-to: type=inline
 
   # dev EC2의 runner는 GHCR에서 이미지를 받아 컨테이너만 교체한다.
   # 교체 뒤 readiness 대기와 스모크 테스트를 하고, 실패하면 직전 성공 태그로 되돌린 뒤 실패로 끝낸다.
