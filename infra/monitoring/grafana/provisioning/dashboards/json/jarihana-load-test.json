@@ -1,6 +1,6 @@
 {
-  "uid": "jarihana-load-test-local",
-  "title": "자리하나 · 로컬 스트레스 테스트",
+  "uid": "jarihana-load-test",
+  "title": "자리하나 · 부하 테스트",
   "tags": [
     "jarihana",
     "load-test"
@@ -26,9 +26,9 @@
       "targetBlank": false
     },
     {
-      "title": "스트레스 테스트",
+      "title": "부하 테스트",
       "type": "link",
-      "url": "/d/jarihana-load-test-local?var-environment=${environment}&from=${__from}&to=${__to}",
+      "url": "/d/jarihana-load-test?var-environment=${environment}&var-database=${database}&from=${__from}&to=${__to}",
       "targetBlank": false
     }
   ],
@@ -37,16 +37,16 @@
       {
         "name": "environment",
         "label": "환경",
-        "type": "custom",
-        "query": "local-load-test",
+        "type": "textbox",
+        "query": "dev",
         "current": {
-          "text": "local-load-test",
-          "value": "local-load-test"
+          "text": "dev",
+          "value": "dev"
         },
         "options": [
           {
-            "text": "local-load-test",
-            "value": "local-load-test",
+            "text": "dev",
+            "value": "dev",
             "selected": true
           }
         ],
@@ -54,18 +54,37 @@
         "includeAll": false
       },
       {
-        "name": "testid",
-        "label": "k6 testid",
+        "name": "database",
+        "label": "DB 이름",
         "type": "textbox",
-        "query": "local-read",
+        "query": "jarihana_dev",
         "current": {
-          "text": "local-read",
-          "value": "local-read"
+          "text": "jarihana_dev",
+          "value": "jarihana_dev"
         },
         "options": [
           {
-            "text": "local-read",
-            "value": "local-read",
+            "text": "jarihana_dev",
+            "value": "jarihana_dev",
+            "selected": true
+          }
+        ],
+        "hide": 0,
+        "skipUrlSync": false
+      },
+      {
+        "name": "testid",
+        "label": "k6 testid",
+        "type": "textbox",
+        "query": "read-api",
+        "current": {
+          "text": "read-api",
+          "value": "read-api"
+        },
+        "options": [
+          {
+            "text": "read-api",
+            "value": "read-api",
             "selected": true
           }
         ],
@@ -97,7 +116,7 @@
     {
       "id": 1,
       "type": "text",
-      "title": "스트레스 테스트 · 수집 범위와 해석",
+      "title": "부하 테스트 · 수집 범위와 해석",
       "gridPos": {
         "x": 0,
         "y": 0,
@@ -106,7 +125,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "## 로컬 스트레스 테스트\n\n원본 19개 패널을 로컬 수집원에 맞추고 PostgreSQL SQL별 통계 3개 패널을 추가했습니다.\n\n앱/JVM 5초, DB/컨테이너 10초 수집. testid는 k6 TEST_ID와 일치시킵니다.\n\nCPU는 컨테이너 할당 코어 대비, 메모리는 inactive file cache를 뺀 사용량/제한입니다.\n\npg_stat_io는 단일 PostgreSQL 클러스터 통계이며 WAL I/O를 포함하지 않습니다.\n\nRDS DiskQueueDepth는 로컬 미지원으로 블록 I/O 전송량을 표시합니다.\n\n누락된 수집값은 0으로 채우지 않습니다. 데드락은 4분 이상 범위를 권장합니다.\n\nk6는 현재 공개 읽기 경로만 준비되어 있으며 쓰기/동시 정원 경쟁은 별도 시나리오가 필요합니다."
+        "content": "## 부하 테스트\n\n요청 처리량·API 응답 시간·오류율과 백엔드·DB 상태를 한 화면에서 비교해 병목을 확인합니다. 환경은 수집된 environment 라벨, DB 이름은 datname 라벨과 일치시킵니다.\n\nCPU는 컨테이너 할당 코어 대비, 메모리는 inactive file cache를 뺀 사용량/제한입니다. 컨테이너·DB 사용자 정의 메트릭은 해당 수집기를 연결해야 표시됩니다.\n\npg_stat_io는 단일 PostgreSQL 클러스터 통계이며 WAL I/O를 포함하지 않습니다. 블록 I/O 전송량은 RDS DiskQueueDepth와 다른 지표입니다.\n\n누락된 수집값은 0으로 채우지 않습니다. 데드락은 4분 이상 범위를 권장합니다. SQL 표는 통계 초기화 이후 누적 값입니다.\n\nk6 결과를 별도로 보관하면 k6 패널은 비어 있을 수 있습니다. 연동 시 testid를 TEST_ID와 일치시킵니다."
       }
     },
     {
@@ -1089,7 +1108,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "jarihana_pg_activity_lock_waiting_sessions{job=\"jarihana-postgres\",environment=\"$environment\",datname=\"jarihana\"}",
+          "expr": "jarihana_pg_activity_lock_waiting_sessions{job=\"jarihana-postgres\",environment=\"$environment\",datname=\"$database\"}",
           "legendFormat": "{{datname}} 락 대기 세션",
           "instant": false,
           "range": true,
@@ -1160,7 +1179,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(increase(pg_stat_database_deadlocks{job=\"jarihana-postgres\",environment=\"$environment\",datname=\"jarihana\"}[$__range]))",
+          "expr": "sum(increase(pg_stat_database_deadlocks{job=\"jarihana-postgres\",environment=\"$environment\",datname=\"$database\"}[$__range]))",
           "legendFormat": "데드락",
           "instant": true,
           "range": false,
@@ -1567,7 +1586,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "topk(20, jarihana_pg_statements_mean_exec_time{environment=\"$environment\",job=\"jarihana-postgres\",datname=\"jarihana\"})",
+          "expr": "topk(20, jarihana_pg_statements_mean_exec_time{environment=\"$environment\",job=\"jarihana-postgres\",datname=\"$database\"})",
           "legendFormat": "{{queryid}} user={{userid}} top={{toplevel}}",
           "range": false,
           "instant": true,
@@ -1677,7 +1696,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "topk(20, jarihana_pg_statements_max_exec_time{environment=\"$environment\",job=\"jarihana-postgres\",datname=\"jarihana\"})",
+          "expr": "topk(20, jarihana_pg_statements_max_exec_time{environment=\"$environment\",job=\"jarihana-postgres\",datname=\"$database\"})",
           "legendFormat": "{{queryid}} user={{userid}} top={{toplevel}}",
           "range": false,
           "instant": true,
@@ -1787,7 +1806,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "topk(20, jarihana_pg_statements_calls{environment=\"$environment\",job=\"jarihana-postgres\",datname=\"jarihana\"})",
+          "expr": "topk(20, jarihana_pg_statements_calls{environment=\"$environment\",job=\"jarihana-postgres\",datname=\"$database\"})",
           "legendFormat": "{{queryid}} user={{userid}} top={{toplevel}}",
           "range": false,
           "instant": true,
