@@ -14,6 +14,8 @@ import com.project.jarihana.pushsubscription.command.service.dto.RegisterPushSub
 import com.project.jarihana.pushsubscription.support.PushIntegrationTestSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -23,6 +25,7 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.Map;
+import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Import(PushTransportTestConfig.class)
@@ -63,13 +66,24 @@ class PushDeliveryConcurrencyTest extends PushIntegrationTestSupport {
         assertThat(jdbc.queryForObject("select count(*) from notification_deliveries where status = 'ACCEPTED' and attempt_count = 1", Long.class)).isEqualTo(2);
     }
 
-    @Test
-    void claimSkipsRowLockedByAnotherTransaction() throws Exception {
+    @ParameterizedTest
+    @EnumSource(value = DeliveryStatus.class, names = {"PENDING", "RETRY", "IN_FLIGHT"})
+    void claimSkipsRowLockedByAnotherTransaction(DeliveryStatus deliveryStatus) throws Exception {
         // Given
         var owner = member("101");
         var subscription = subscription(owner, "one");
         var first = deliveries.save(NotificationDelivery.create(notification(owner, "first"), subscription, NOW, NOW.plusDays(1)));
         var second = deliveries.save(NotificationDelivery.create(notification(owner, "second"), subscription, NOW, NOW.plusDays(1)));
+        if (deliveryStatus == DeliveryStatus.RETRY) {
+            jdbc.update("update notification_deliveries set status = 'RETRY', attempt_count = 1 where id in (?, ?)",
+                    first.getId(), second.getId());
+        }
+        if (deliveryStatus == DeliveryStatus.IN_FLIGHT) {
+            jdbc.update("""
+                    update notification_deliveries set status = 'IN_FLIGHT', attempt_count = 1,
+                        lease_token = ?, locked_until = ? where id in (?, ?)
+                    """, UUID.randomUUID(), NOW.minusSeconds(1), first.getId(), second.getId());
+        }
         var locked = new CountDownLatch(1);
         var release = new CountDownLatch(1);
         try (var executor = Executors.newFixedThreadPool(2)) {
