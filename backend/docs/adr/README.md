@@ -40,6 +40,7 @@ ADR 0006과 0007에 이르기까지의 기록이다.
 | 0020 | [초대 합류는 unique 제약과 낙관적 잠금으로 충돌을 처리한다](0020-optimistic-invitation-acceptance.md) | 채택, 병렬 합류, 충돌 재시도, 상태 롤백, DDL 검증 완료 | 2026-10-11 | `feat/invitation` |
 | 0021 | [Flyway로 스키마를 초기화하고 변경 이력을 관리한다](0021-flyway-schema-baseline.md) | 제안, 구현과 실제 스키마 검증 완료, 첫 등록 및 배포 대기 | 2026-10-14 | `chore/flyway-baseline` |
 | 0024 | [JPA native 벌크 INSERT로 알림과 전송 대기 저장의 DB 왕복을 줄인다](0024-jpa-native-bulk-notification-inserts.md) | 채택, JPA 벌크 INSERT·서버 워커 전환 검증 완료 / 개선 전후 부하 측정 대기 | 2026-10-15 | `refactor/notification-bulk-insert` |
+| 0025 | [Push claim은 index로 후보를 좁힌 뒤 JOIN한다](0025-push-claim-indexed-candidates.md) | 채택, 구현·로컬 검증 완료 / PR review·dev 배포 대기 | 2026-10-16 | `fix/push-delivery-claim-index` |
 
 ## 번호를 다시 매긴 이력
 
