@@ -9,6 +9,7 @@ import com.project.jarihana.activitypost.domain.ActivityPostComment;
 import com.project.jarihana.activitypost.domain.ActivityPostCommentReaction;
 import com.project.jarihana.activitypost.domain.ActivityPostReaction;
 import com.project.jarihana.activitypost.domain.ReactionEmoji;
+import com.project.jarihana.activitypost.domain.event.ActivityPostReactedEvent;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.member.command.repository.MemberRepository;
@@ -16,6 +17,7 @@ import com.project.jarihana.member.domain.Member;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +33,7 @@ public class ActivityPostReactionCommandService {
     private final ActivityPostReactionCommandRepository activityPostReactionCommandRepository;
     private final ActivityPostCommentReactionCommandRepository activityPostCommentReactionCommandRepository;
     private final MemberRepository memberRepository;
+    private final ApplicationEventPublisher events;
     private final Clock clock;
 
     @Transactional
@@ -39,9 +42,10 @@ public class ActivityPostReactionCommandService {
         if (activityPostReactionCommandRepository.existsByPostIdAndMemberIdAndEmoji(postId, memberId, emoji)) {
             return;
         }
-        activityPostReactionCommandRepository.save(
+        ActivityPostReaction reaction = activityPostReactionCommandRepository.save(
                 ActivityPostReaction.create(post, getMember(memberId), emoji, LocalDateTime.now(clock))
         );
+        events.publishEvent(ActivityPostReactedEvent.from(reaction));
     }
 
     @Transactional

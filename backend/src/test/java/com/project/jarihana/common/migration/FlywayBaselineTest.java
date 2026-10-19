@@ -93,6 +93,28 @@ class FlywayBaselineTest extends IntegrationTestSupport {
     }
 
     @Test
+    @DisplayName("Flyway는 기존 알림 사건 종류를 유지한 채 활동 기록 댓글과 좋아요 알림을 허용한다.")
+    void applicationMigratesActivityPostCommentNotificationType() {
+        // Given
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+
+        // When
+        int appliedMigrations = flyway.migrate().migrationsExecuted;
+
+        // Then
+        assertThat(appliedMigrations).isZero();
+        assertThat(jdbc.queryForObject("""
+                select type from flyway_schema_history where version = '5' and success
+                """, String.class)).isEqualTo("SQL");
+        assertThat(jdbc.queryForObject("""
+                select pg_get_constraintdef(oid) from pg_constraint
+                where conname = 'ck_notifications_event_type' and connamespace = current_schema()::regnamespace
+                """, String.class)).contains("GROUP_CREATED", "REGISTRATION_SUBMITTED", "PARTICIPANT_JOINED",
+                "REGISTRATION_APPROVED", "REGISTRATION_REJECTED", "REGISTRATION_SYSTEM_REJECTED", "INVITATION_RECEIVED",
+                "ACTIVITY_POST_COMMENTED", "ACTIVITY_POST_REACTED");
+    }
+
+    @Test
     @DisplayName("실제 운영 스키마처럼 허용되지 않은 회원 과정은 DB에서 거절한다.")
     void rejectMemberCourseOutsideLiveSchemaValues() {
         // Given
@@ -137,7 +159,7 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 int appliedMigrations = existing.migrate().migrationsExecuted;
 
                 // Then
-                assertThat(appliedMigrations).isEqualTo(4);
+                assertThat(appliedMigrations).isEqualTo(5);
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '1'", String.class))
                         .isEqualTo("BASELINE");
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '2'", String.class))
@@ -145,6 +167,8 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '3'", String.class))
                         .isEqualTo("SQL");
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '4'", String.class))
+                        .isEqualTo("SQL");
+                assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '5'", String.class))
                         .isEqualTo("SQL");
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '999999'", String.class))
                         .isEqualTo("SQL");

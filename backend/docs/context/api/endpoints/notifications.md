@@ -83,6 +83,7 @@ RestAssured 인수 테스트로 계약을 검증한다. 알림함 API는 Control
 | 새 구성원 참여 | `LEADER_MEMBERS` | `/groups/{groupId}/manage/members` |
 | 신청 승인 | `MY_GROUPS` | `/my?focusGroup={groupId}` |
 | 수동 미승인·재모집 미승인·모임 종료 미승인 | `MY_PAGE` | `/my?registrationStatus=REJECTED&focusRegistration={registrationId}` |
+| 내 활동 기록의 새 댓글, 좋아요 | `ACTIVITY_POST` | `/activities?mine=true&post={activityPostId}` |
 
 - 클라이언트는 `target`을 내부 화면 경로로 해석한다. 외부 URL을 목적지로 전달하지 않는다.
 - `GROUP_CREATED`의 `target`에는 `kind`, `groupId`만 포함한다. 알림함 제목은 `새 모임`, 본문은 `‘모임 이름’ 모임이 새로 등록되었습니다.`다. 기존 신청·참여 알림의 모집·신청 식별자는 유지한다.
@@ -494,6 +495,7 @@ Request Body는 없다.
 - payload 버전 1에서 `GROUP_CREATED`는 `groupId`만 포함한다. 기존 신청·참여 사건은 `groupId`, `recruitmentId`, `registrationId`를 포함하고 시스템 미승인에는 `reasonCode`를 추가한다.
 - 새 모임 등록 푸시는 제목 `자리하나?`, 본문 `새로운 모임이 등록되었어요.`로 표시한다. 알림함과 푸시 클릭은 동일한 본인 알림 확인 경로를 거쳐 새 모임 상세로 이동한다.
 - `reasonCode`는 `RERECRUITMENT` 또는 `GROUP_ENDED`다. 신청 본문·미승인 사유 문장·회원명은 포함하지 않는다.
+- 예외로 좋아요 알림(`ACTIVITY_POST_REACTED`)은 OS 알림 문구를 위해 `reactionSummary`에 가장 최근에 누른 회원의 `crewName`을 담는다. 자세한 형식은 아래 [활동 기록 알림 응답 확장 계약](#활동-기록-알림-응답-확장-계약)을 따른다.
 - Service Worker는 사건 종류와 payload로 표시 문구를 구성한다.
 
 #### 예외
@@ -615,3 +617,50 @@ JSON `null`, 잘못된 JSON, 필수 값 누락·0·음수는 `400`이다.
 - 클릭·인증 복귀·대상 확인·읽음 처리 순서는 [프론트 초대 계약](../../../../../frontend/docs/IMPLEMENTATION_MAP.md#초대-기능-설계-계약)을 따른다.
 
 초대 알림도 기존 삭제 API를 사용한다. 삭제는 알림함 표시와 미전송 푸시를 취소하며 초대의 상태와 수락 이력은 변경하지 않는다. 거절 이력은 생성하지 않는다.
+
+## 활동 기록 알림 응답 확장 계약
+
+> 상태: 댓글과 좋아요 알림의 저장, 목록, 개별 조회, 푸시 내용 조회, 전송 대기를 구현했다.
+> 프론트 schema, 기록 상세로 이동, Service Worker 문구도 구현했다. 기존 알림 응답 형식은 유지한다.
+
+[활동 기록 API](activity-posts.md)의 댓글 작성과 하트 추가는 기록 작성자의 알림을 만든다.
+저장과 묶음 규칙은 [알림 모델](../../domain/model/notification.md)을 따른다.
+
+| 응답 필드 | 새 댓글 | 좋아요 |
+| --- | --- | --- |
+| eventType | `ACTIVITY_POST_COMMENTED` | `ACTIVITY_POST_REACTED` |
+| payloadVersion | 1 | 1 |
+| title | `새 댓글` | `좋아요` |
+| body | `‘현재 모임 이름’ 모임 활동 기록에 새 댓글이 달렸습니다.` | 아래 좋아요 문구 |
+| target.kind | `ACTIVITY_POST` | `ACTIVITY_POST` |
+| target.groupId | 기록의 모임 ID | 기록의 모임 ID |
+| target.activityPostId | 활동 기록 ID | 활동 기록 ID |
+
+좋아요 문구는 조회할 때 기록의 현재 하트로 만든다. 인원은 기록 작성자 본인의 하트를 뺀 수다.
+
+| 현재 인원 | body |
+| --- | --- |
+| 1명 | `가온님이 좋아요를 눌렀어요.` |
+| 2명 이상 100명 이하 | `가온 외 2명이 좋아요를 눌렀어요.`(가장 최근에 누른 회원과 나머지 인원) |
+| 100명 초과 | `회원님의 기록이 무수한 관심을 받고 있어요.` |
+| 0명(모두 취소) | `‘현재 모임 이름’ 모임 활동 기록의 좋아요가 모두 취소되었습니다.` |
+
+- target에는 모집, 신청, 초대 ID를 넣지 않는다. 기존 사건의 target에는 activityPostId를 추가하지 않는다.
+- 푸시 내용 조회의 payload는 `groupId`, `activityPostId`만 담는다. 댓글 내용은 담지 않는다.
+- 좋아요 알림의 푸시 내용 조회에는 `reactionSummary`를 더한다. 하트가 모두 취소됐으면 이 필드를 생략한다. 다른 사건에는 넣지 않는다.
+
+```json
+{
+  "notificationId": 601,
+  "eventType": "ACTIVITY_POST_REACTED",
+  "payloadVersion": 1,
+  "payload": { "groupId": 12, "activityPostId": 77 },
+  "reactionSummary": { "latestReactorName": "가온", "otherReactorCount": 2 }
+}
+```
+
+- 하트를 누른 회원 목록은 활동 기록 화면에서도 공개되는 정보라, 이 사건에 한해 OS 알림에 이름을 표시한다.
+  이름은 암호화 푸시 본문이 아니라 연결과 소유권을 확인한 푸시 내용 조회 응답으로만 전달한다.
+- OS 푸시 알림의 제목은 `자리하나?`다. 본문은 새 댓글이면 `내 활동 기록에 새 댓글이 달렸어요.`이고, 좋아요는
+  `reactionSummary`로 위 표와 같은 문구를 만든다. 요약이 없거나 형식이 맞지 않으면 `내 활동 기록에 좋아요가 도착했어요.`를 쓴다.
+- 클릭하면 `/notifications/open/:id`에서 본인 알림과 모임을 확인하고 읽음 처리한 뒤 내가 쓴 기록 피드의 해당 기록 상세를 연다.
