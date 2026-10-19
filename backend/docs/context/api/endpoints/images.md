@@ -24,23 +24,44 @@
     "id": "550e8400-e29b-41d4-a716-446655440000",
     "imageKey": "groups/tmp/550e8400-e29b-41d4-a716-446655440000.webp",
     "uploadUrl": "https://storage.example.com/presigned-upload",
-    "publicImageUrl": "https://cdn.example.com/images/groups/tmp/550e8400-e29b-41d4-a716-446655440000.webp",
-    "expiresAt": "2026-08-13T12:10:00"
+    "publicImageUrl": "https://jarihana.com/api/images/groups/tmp/550e8400-e29b-41d4-a716-446655440000.webp",
+    "expiresAt": "2026-08-13T12:30:00"
   },
   "error": null
 }
 ```
 
-- 클라이언트는 제한된 시간과 객체 키에만 유효한 Presigned URL로 스토리지에 이미지 바이트를 직접 업로드한다.
-- 업로드가 끝나면 `publicImageUrl`을 마크다운 이미지 주소로 사용한다.
+- 클라이언트는 30분 동안 해당 객체 키에만 유효한 Presigned URL로 스토리지에 이미지 바이트를 직접 업로드한다.
+- 업로드가 끝나면 `publicImageUrl`을 프리뷰와 마크다운 이미지 주소로 사용한다. 임시 이미지 프리뷰는
+  업로더의 로그인 쿠키가 있는 경우에만 업로드 만료 시각까지 허용한다.
 - 그룹 생성·수정 API에는 URL이 아니라 `representativeImageKey`를 전달한다.
 - 그룹 생성·수정 요청의 `representativeImageKey`는 아직 만료되지 않은 업로드 기록과 실제 스토리지 객체가 모두 존재해야 한다.
-- 모임 소개 본문에 삽입한 이미지는 `publicImageUrl`이 마크다운에 저장되므로, 이미지 정리 작업은 본문에 남아 있는 이미지 키도 참조 중인 이미지로 취급해야 한다.
+- 모임 소개 본문에 삽입한 이미지는 `publicImageUrl`이 마크다운에 저장되며, 서버는 본문의 이미지 키도
+  참조로 기록한다.
 
 #### 생명주기
-- 그룹에 연결된 `representativeImageKey`만 대표 이미지로 확정한다.
-- 만료 시점까지 그룹에 연결되지 않은 임시 객체와 ImageUpload 기록은 정리 작업으로 삭제한다.
+- 새 업로드는 `groups/tmp/{uuid}`에 저장하고, 그룹에 연결될 때 대표·소개·활동 사진 모두
+  `groups/{groupId}/{uuid}`로 이동한다.
+- 기존에 연결된 이미지는 경로를 일괄 변경하지 않는다.
+- 새 업로드 하나는 한 그룹에만 연결할 수 있다.
+- 종료된 그룹은 대표·소개·활동 사진 참조를 유지한다.
+- 숨김 활동기록, 삭제된 그룹, 만료된 미연결 업로드는 새 조회 URL을 발급하지 않고 7일 뒤 물리 삭제한다.
+- 정리 작업은 배포 직후 기본 비활성화하며, 백필과 IAM 권한을 확인한 뒤 별도로 활성화한다.
 - Presigned URL은 스토리지 키나 장기 자격 증명을 노출하지 않는다.
+
+### `GET /api/images/{imageKey}`
+
+- 설명: 안정적인 서비스 도메인 이미지 주소를 짧게 유효한 CDN 전달 URL로 교환
+- 권한: 연결된 이미지 `PUBLIC`, 임시 이미지 `UPLOADER`
+- 응답: 접근 가능하면 `302 Found`; `Location`은 최대 5분 동안 유효한 CloudFront 서명 URL이다.
+- 연결된 이미지는 비로그인 사용자도 조회할 수 있다.
+- 임시 이미지는 업로더만 업로드 만료 시각까지 조회할 수 있다.
+- 숨김·미연결·삭제 대기 이미지는 새 전달 URL을 받을 수 없다. 이미 발급된 URL은 최대 5분 뒤 만료된다.
+- 응답은 `Cache-Control: private, no-store`를 사용해 접근 판정 결과를 공유 캐시에 남기지 않는다.
+
+브라우저에 노출되는 두 URL은 모두 환경별 기존 서비스 도메인을 사용한다. 접근 판정 주소는
+`/api/images/groups/...`, 실제 S3 이미지 전달 주소는 `/images/groups/...`이며 CloudFront의 서로 다른
+동작으로 라우팅한다. CloudFront 배포 도메인은 API 응답에 직접 사용하지 않는다.
 
 #### 예외
 
@@ -49,3 +70,4 @@
 | 허용하지 않는 콘텐츠 타입 | `IMAGE_CONTENT_TYPE_NOT_ALLOWED` | 400 |
 | 파일 크기 제한 초과 | `IMAGE_FILE_TOO_LARGE` | 400 |
 | 스토리지 URL 발급 실패 | `IMAGE_UPLOAD_URL_ISSUE_FAILED` | 502 |
+| 이미지가 없거나 조회 권한·활성 참조가 없음 | `IMAGE_NOT_FOUND` | 400 |
