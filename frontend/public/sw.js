@@ -87,7 +87,7 @@ function reactionCopy(summary) {
   const name = summary?.latestReactorName;
   const others = summary?.otherReactorCount;
   if (typeof name !== "string" || !name || !Number.isSafeInteger(others) || others < 0) return EVENT_COPY.ACTIVITY_POST_REACTED;
-  if (others + 1 > NAMED_REACTOR_LIMIT) return "회원님의 기록이 무수한 관심을 받고 있어요.";
+  if (others + 1 > NAMED_REACTOR_LIMIT) return "회원님의 댓글이 무수한 관심을 받고 있어요.";
   return others === 0 ? `${name}님이 좋아요를 눌렀어요.` : `${name} 외 ${others}명이 좋아요를 눌렀어요.`;
 }
 function pushBody(content) {

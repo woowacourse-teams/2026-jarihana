@@ -540,7 +540,7 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
         assertThat(hundred.jsonPath().getString("data.items[0].body"))
                 .isEqualTo(latest.getCrewName() + " 외 99명이 좋아요를 눌렀어요.");
         assertThat(overHundred.jsonPath().getString("data.items[0].body"))
-                .isEqualTo("회원님의 기록이 무수한 관심을 받고 있어요.");
+                .isEqualTo("회원님의 댓글이 무수한 관심을 받고 있어요.");
     }
 
     private void heartsFromNewMembers(ActivityPost post, int from, int to) {

@@ -66,7 +66,7 @@ test.each([
   [{ latestReactorName: "가온", otherReactorCount: 0 }, "가온님이 좋아요를 눌렀어요."],
   [{ latestReactorName: "가온", otherReactorCount: 2 }, "가온 외 2명이 좋아요를 눌렀어요."],
   [{ latestReactorName: "가온", otherReactorCount: 99 }, "가온 외 99명이 좋아요를 눌렀어요."],
-  [{ latestReactorName: "가온", otherReactorCount: 100 }, "회원님의 기록이 무수한 관심을 받고 있어요."],
+  [{ latestReactorName: "가온", otherReactorCount: 100 }, "회원님의 댓글이 무수한 관심을 받고 있어요."],
   [undefined, "내 활동 기록에 좋아요가 도착했어요."],
   [{ latestReactorName: "", otherReactorCount: -1 }, "내 활동 기록에 좋아요가 도착했어요."]
 ])("heart push summary %p is shown as %s", async (reactionSummary, body) => {

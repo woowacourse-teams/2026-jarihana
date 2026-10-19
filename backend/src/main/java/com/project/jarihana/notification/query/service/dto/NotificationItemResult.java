@@ -66,7 +66,7 @@ public record NotificationItemResult(long id, NotificationEventType eventType, i
             return group + " 활동 기록의 좋아요가 모두 취소되었습니다.";
         }
         if (reactions.reactorCount() > NAMED_REACTOR_LIMIT) {
-            return "회원님의 기록이 무수한 관심을 받고 있어요.";
+            return "회원님의 댓글이 무수한 관심을 받고 있어요.";
         }
         if (reactions.reactorCount() == 1) {
             return reactions.latestReactorName() + "님이 좋아요를 눌렀어요.";
