@@ -79,6 +79,7 @@ services:
       POSTGRES_MONITOR_DSN: ${POSTGRES_MONITOR_DSN:?set PostgreSQL monitoring DSN}
     volumes:
       - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - ./monitoring/alloy/postgres-queries.yaml:/etc/alloy/postgres-queries.yaml:ro
       - alloy-data:/var/lib/alloy/data
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /proc:/host/proc:ro
