@@ -4,13 +4,14 @@
 
 ## 공통 규칙
 
-- 조회 API는 비로그인 방문자에게도 공개한다. 모든 게시물과 사진은 전체 공개다.
+- 조회 API는 비로그인 방문자에게도 공개한다. 숨김 처리되지 않은 게시물과 연결 사진은 전체 공개다.
 - 작성은 로그인한 활성 그룹 구성원만 가능하며, 종료된 그룹에는 새 기록을 작성할 수 없다.
 - 작성자 표시는 회원의 `crewName`이다. 응답의 `canModify`는 현재 요청자의 수정·숨김 권한이다.
 - 활동 날짜는 미입력 시 오늘이며 과거 날짜는 허용, 미래 날짜는 거부한다.
 - 목록은 `activityDate DESC, id DESC` 순서다. `createdAt`은 작성 시각이며 정렬에 사용하지 않는다.
 - 현재 게시물당 사진은 한 장이지만 `activity_post_photo` 테이블로 분리되어 있다.
 - 그룹 삭제 시 게시물은 숨기고, 그룹 종료 시 게시물을 보존한다.
+- 숨김 처리된 게시물의 사진은 즉시 새 조회 URL 발급을 중단하고 7일 뒤 물리 삭제한다.
 
 ## 조회
 
@@ -50,7 +51,7 @@
       "id": 101,
       "group": {"id": 12, "name": "알고리즘 스터디", "type": "STUDY", "status": "ACTIVE", "recruiting": true, "joined": false},
       "authorNickname": "크루A",
-      "imageUrl": "https://cdn.example.test/images/activity.webp",
+      "imageUrl": "https://jarihana.com/api/images/groups/12/activity.webp",
       "caption": "함께한 문제 풀이 모임",
       "activityDate": "2026-09-12",
       "createdAt": "2026-09-28T10:15:30",
@@ -76,7 +77,8 @@
 - 요청: `imageKey` 필수(최대 255자), `caption` 선택(최대 50자), `activityDate` 선택(`yyyy-MM-dd`).
 - 응답: `201 Created`, `{ "id": 101 }`.
 - 그룹은 `ACTIVE`여야 하고 요청 회원의 `GroupMember`가 있어야 한다.
-- 이미지 키는 만료되지 않은 이미지 업로드 기록과 실제 스토리지 객체를 확인한다.
+- 이미지 키는 만료되지 않은 본인 업로드 기록과 실제 스토리지 객체의 크기·콘텐츠 타입을 확인한다.
+- 저장 시 이미지를 `groups/{groupId}/...` 최종 경로로 이동한다. 새 업로드를 다른 그룹과 공유할 수 없다.
 
 ### `PUT /api/activity-posts/{postId}`
 
@@ -91,6 +93,7 @@
 - 권한: `MEMBER`
 - 작성자 또는 현재 그룹 모임장이 수행할 수 있다. 물리 삭제 대신 `deletedAt`으로 숨긴다.
 - 그룹 삭제 전에도 연결을 끊고 숨김 처리하므로 공개 피드에서 조회되지 않는다.
+- 숨김 직후 새 이미지 조회 URL 발급을 중단하며, 사진 객체는 7일 유예 후 삭제한다.
 - 응답: `200 OK`, `data: null`.
 
 ## 댓글
@@ -150,7 +153,8 @@
 | 그룹에 속하지 않은 회원의 작성 | `GROUP_ACCESS_DENIED` | 403 |
 | 종료된 그룹에 작성 | `GROUP_ENDED` | 409 |
 | 다른 작성자의 수정·숨김 | `ACTIVITY_POST_ACCESS_DENIED` | 403 |
-| 게시물·이미지 없음 또는 업로드 만료 | `ACTIVITY_POST_NOT_FOUND` 또는 `IMAGE_NOT_FOUND` | 404 |
+| 게시물이 없거나 숨김 처리됨 | `ACTIVITY_POST_NOT_FOUND` | 404 |
+| 이미지가 없거나 업로드가 만료됨 | `IMAGE_NOT_FOUND` | 400 |
 | 미래 날짜, 캡션 길이, 잘못된 커서·크기 | `INVALID_PARAMETER` | 400 |
 | 빈 댓글, 200자를 넘는 댓글, 지원하지 않는 이모지 | `INVALID_PARAMETER` | 400 |
 | 다른 회원 댓글을 모임장이 아닌 회원이 삭제 | `ACTIVITY_POST_COMMENT_ACCESS_DENIED` | 403 |

@@ -4,7 +4,7 @@
 >
 > 구현·테스트와 충돌하면 임의로 해석하지 않고 차이를 보고한다.
 
-이 문서는 저장소에서 관리하는 활성 엔드포인트 81개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청, 응답, 오류는 Controller, 요청/응답 DTO, ErrorCode와 RestAssured 인수 테스트로 확인한다.
+이 문서는 저장소에서 관리하는 활성 엔드포인트 82개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청, 응답, 오류는 Controller, 요청/응답 DTO, ErrorCode와 RestAssured 인수 테스트로 확인한다.
 
 이 디렉터리는 API 엔드포인트의 전체 목록과 리소스별 상세 설계를 관리한다. 모든 엔드포인트는 [API 공통 설계](../common-contract.md)를 따르며, 상세 문서에는 엔드포인트 고유 내용만 둔다.
 
@@ -21,8 +21,8 @@
 | 초대 | `PATCH` | `/api/invitations/{invitationId}/revoke` | `MEMBER + 현재 소속·유형별 취소 권한` | 초대와 미전송 푸시 작업 취소 |
 | 초대 | `PATCH` | `/api/invitations/{invitationId}/decline` | `MEMBER + DIRECT 지정 대상` | 거절 상태 저장·알림 유지·재수락 차단 |
 | 초대 | `POST` | `/api/invitations/{invitationId}/acceptances` | `MEMBER + 대상/토큰 자격` | 소속·수락 이력·기존 대기 신청 승인, 재수락은 기존 소속 반환 |
-| 활동 기록 | `GET` | `/api/activity-posts` | `PUBLIC` | 전체 공개 사진 활동 기록을 활동 날짜 최신순으로 조회 |
-| 활동 기록 | `GET` | `/api/groups/{groupId}/activity-posts` | `PUBLIC` | 그룹 사진 활동 기록 조회 |
+| 활동 기록 | `GET` | `/api/activity-posts` | `PUBLIC` | 숨김 처리되지 않은 사진 활동 기록을 활동 날짜 최신순으로 조회 |
+| 활동 기록 | `GET` | `/api/groups/{groupId}/activity-posts` | `PUBLIC` | 그룹의 숨김 처리되지 않은 사진 활동 기록 조회 |
 | 활동 기록 | `POST` | `/api/groups/{groupId}/activity-posts` | `MEMBER` | 활성 그룹 구성원의 사진 활동 기록 작성 |
 | 활동 기록 | `PUT` | `/api/activity-posts/{postId}` | `MEMBER` | 작성자 또는 현재 모임장이 사진 활동 기록 수정 |
 | 활동 기록 | `DELETE` | `/api/activity-posts/{postId}` | `MEMBER` | 작성자 또는 현재 모임장이 사진 활동 기록 숨김 |
@@ -77,6 +77,7 @@
 | 모집 공고 | `PUT` | `/api/groups/{groupId}/recruitments/{recruitmentId}` | `LEADER` | 현재 모집의 기간·정원·승인 방식 수정 |
 | 모집 공고 | `PATCH` | `/api/groups/{groupId}/recruitments/{recruitmentId}` | `LEADER` | 모집 공고 조기 마감 |
 | 이미지 | `POST` | `/api/image-uploads` | `MEMBER` | 이미지 업로드 리소스 생성 |
+| 이미지 | `GET` | `/api/images/{imageKey}` | 연결 이미지: `PUBLIC`, 임시 이미지: 업로더 | 이미지 접근을 판정한 뒤 CDN 서명 URL로 리다이렉트 |
 | 인증·회원 | `POST` | `/api/auth/logout` | `AUTH` | 가입 세션 또는 Refresh Token 무효화 |
 | 인증·회원 | `POST` | `/api/auth/refresh` | `PUBLIC` | Access Token 재발급 |
 | 인증·회원 | `POST` | `/api/members` | `AUTH` | 회원 가입 완료 |
@@ -108,7 +109,7 @@
 | 모집 공고 | [recruitments.md](recruitments.md) | 모집 공고 엔드포인트 |
 | 가입 신청 | [registrations.md](registrations.md) | 가입 신청 엔드포인트 |
 | 그룹 구성원 | [group-members.md](group-members.md) | 그룹 구성원 엔드포인트 |
-| 이미지 | [images.md](images.md) | 이미지 업로드 엔드포인트 |
+| 이미지 | [images.md](images.md) | 이미지 업로드·접근 엔드포인트 |
 | 활동 기록 | [activity-posts.md](activity-posts.md) | 사진 활동 기록 조회, 작성, 수정, 숨김과 댓글, 하트 반응 |
 | 공유 미리보기 | [share-preview.md](share-preview.md) | 그룹 공유 미리보기 HTML 엔드포인트 |
 | 알림함·웹푸시 | [notifications.md](notifications.md) | 알림함·구독·푸시 내용 조회·로그아웃 호환 확장 |

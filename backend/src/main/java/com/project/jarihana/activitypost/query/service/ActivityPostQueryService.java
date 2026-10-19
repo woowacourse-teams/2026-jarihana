@@ -8,7 +8,7 @@ import com.project.jarihana.activitypost.query.service.dto.ActivityPostListResul
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
-import com.project.jarihana.image.config.ImageProperties;
+import com.project.jarihana.image.query.service.ImageAccessService;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -28,20 +28,20 @@ public class ActivityPostQueryService {
     private final ActivityPostQueryRepository activityPostQueryRepository;
     private final ActivityPostReactionQueryRepository activityPostReactionQueryRepository;
     private final GroupJpaRepository groupRepository;
-    private final String publicBaseUrl;
+    private final ImageAccessService imageAccessService;
     private final Clock clock;
 
     public ActivityPostQueryService(
             ActivityPostQueryRepository activityPostQueryRepository,
             ActivityPostReactionQueryRepository activityPostReactionQueryRepository,
             GroupJpaRepository groupRepository,
-            ImageProperties imageProperties,
+            ImageAccessService imageAccessService,
             Clock clock
     ) {
         this.activityPostQueryRepository = activityPostQueryRepository;
         this.activityPostReactionQueryRepository = activityPostReactionQueryRepository;
         this.groupRepository = groupRepository;
-        this.publicBaseUrl = imageProperties.publicBaseUrl();
+        this.imageAccessService = imageAccessService;
         this.clock = clock;
     }
 
@@ -115,10 +115,7 @@ public class ActivityPostQueryService {
     }
 
     private String toImageUrl(String imageKey) {
-        if (publicBaseUrl.isBlank()) {
-            return imageKey;
-        }
-        return publicBaseUrl.replaceAll("/+$", "") + "/" + imageKey.replaceFirst("^/+", "");
+        return imageAccessService.publicUrl(imageKey);
     }
 
     private static String encodeCursor(ActivityPostProjection projection) {
