@@ -1,0 +1,64 @@
+jarihana_pg_statements:
+  query: |
+    SELECT d.datname, s.userid::text AS userid, s.queryid::text AS queryid,
+           s.toplevel::text AS toplevel,
+           s.mean_exec_time, s.max_exec_time, s.calls
+    FROM pg_stat_statements s
+    JOIN pg_database d ON d.oid = s.dbid
+    WHERE d.datname = current_database() AND s.calls > 0
+  metrics:
+    - datname:
+        usage: LABEL
+        description: Database name
+    - userid:
+        usage: LABEL
+        description: Executing role OID
+    - queryid:
+        usage: LABEL
+        description: Normalized SQL identifier
+    - toplevel:
+        usage: LABEL
+        description: Whether the SQL was executed as a top-level statement
+    - mean_exec_time:
+        usage: GAUGE
+        description: Mean execution time since statistics reset in milliseconds
+    - max_exec_time:
+        usage: GAUGE
+        description: Maximum execution time since min-max statistics reset in milliseconds
+    - calls:
+        usage: COUNTER
+        description: Completed executions since statistics reset
+jarihana_pg_activity:
+  query: |
+    SELECT current_database() AS datname,
+           count(*) FILTER (WHERE wait_event_type = 'Lock') AS lock_waiting_sessions
+    FROM pg_stat_activity WHERE datname = current_database()
+  metrics:
+    - datname:
+        usage: LABEL
+        description: Connected database
+    - lock_waiting_sessions:
+        usage: GAUGE
+        description: Sessions currently waiting for a database lock
+jarihana_pg_io:
+  min_version: 160000
+  query: |
+    SELECT sum(reads) AS reads, sum(writes) AS writes,
+           sum(read_time) / 1000.0 AS read_seconds,
+           sum(write_time) / 1000.0 AS write_seconds
+    FROM pg_stat_io
+    WHERE current_setting('track_io_timing')::boolean
+    HAVING count(*) > 0
+  metrics:
+    - reads:
+        usage: COUNTER
+        description: PostgreSQL cluster read operations excluding WAL
+    - writes:
+        usage: COUNTER
+        description: PostgreSQL cluster write operations excluding WAL
+    - read_seconds:
+        usage: COUNTER
+        description: PostgreSQL cluster read time in seconds
+    - write_seconds:
+        usage: COUNTER
+        description: PostgreSQL cluster write time in seconds
