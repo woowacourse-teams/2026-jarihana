@@ -20,6 +20,7 @@ http://localhost:13000/d/jarihana-overview
 | [jarihana.yaml](../../monitoring/grafana/provisioning/dashboards/jarihana.yaml) | Grafana dashboard provider 설정 |
 | [jarihana-overview.json](../../monitoring/grafana/provisioning/dashboards/json/jarihana-overview.json) | 실제 대시보드 정의 |
 | [jarihana-canvas.json](../../monitoring/grafana/provisioning/dashboards/json/jarihana-canvas.json) | [시스템 흐름 Canvas](CANVAS.md) 정의 |
+| [jarihana-load-test.json](../../monitoring/grafana/provisioning/dashboards/json/jarihana-load-test.json) | [부하 테스트](LOAD-TEST-DASHBOARD.md) 정의·사용 방법·수집 조건 |
 
 Grafana는 시작할 때 provider가 가리키는 JSON 파일을 읽고, 이후 `updateIntervalSeconds: 30`
 설정에 따라 30초마다 파일 변경을 확인한다. provider 설정은 Grafana가 읽는 provisioning
@@ -77,8 +78,8 @@ CPU·메모리·디스크·inode 패널은 서버 필터로 본다. 로컬 Docke
 | `분당 요청 · HTTP 상태 코드` | Actuator의 `http_server_requests_seconds_count`를 HTTP status별 분당 요청 수로 표시 |
 | `평균 응답 시간` | `http_server_requests_seconds_sum / count` 기반 평균 응답 시간 |
 
-현재 백엔드 메트릭에는 지연 시간 histogram bucket 기준이 없다. 따라서 p95·p99가 아니라 평균
-응답 시간만 제공한다.
+이 HTTP 응답 영역은 p95·p99가 아니라 평균 응답 시간을 제공한다. 아래 JDBC 실행 지표와는
+측정 대상이 다르다.
 
 `서버 자원 · 서버 필터 적용` 영역은 host exporter 메트릭을 본다.
 
@@ -93,15 +94,51 @@ CPU·메모리·디스크·inode는 80% 이상에서 주의 색상, 90% 이상�
 Slack 알림은 80% 이상 90% 미만이 5분 지속되면 주의, 90% 이상이면 추가 대기 없이 다음
 평가에서 긴급으로 판단한다. 대시보드 색은 현재 값이며 Slack 알림 상태 자체는 아니다.
 
-`백엔드 내부 · 환경 필터 적용` 영역은 JVM과 DB 연결 풀을 본다.
+`백엔드 내부 · 환경 필터 적용` 영역은 JVM, DB 연결 풀과 JDBC 실행을 본다.
 
 | 패널 | 기준 |
 | --- | --- |
 | `JVM 힙 메모리` | heap 사용량과 committed 크기 |
 | `DB 연결 풀` | HikariCP active, pending, max 연결 수 |
+| `느린 JDBC 실행 · 100ms 초과 · 5분` | 최근 5분간 완료된 JDBC 실행 중 **100ms 초과** 실행 수의 추정값 |
+| `느린 JDBC 비율 · 100ms 초과 · 5분` | 같은 기간의 100ms 초과 실행 수 / 전체 JDBC 실행 수 × 100 (%) |
+| `JDBC 실행 횟수 · 최근 5분` | 각 시점 직전 5분간 전체 JDBC 실행 수의 추정값을 시계열로 표시 |
 
-RDS 자체 CPU·메모리·스토리지 지표는 이 대시보드에 포함하지 않는다. 여기의 DB 패널은 앱
-프로세스가 보는 HikariCP 연결 풀 상태다.
+느린 JDBC 실행은 `jdbc_query_seconds_count`의 5분 증가량에서
+`jdbc_query_seconds_bucket{le="0.1"}`의 5분 증가량을 뺀다. bucket은 100ms **이하**를 포함하므로
+정확히 100ms인 실행은 느린 실행에 포함하지 않는다.
+`increase`는 수집 간격을 기준으로 추정하므로 실행 수에 소수가 표시될 수 있으며, counter가
+리셋되면 각 시계열에서 증가량을 계산한 뒤 합산한다.
+
+느린 실행 두 패널은 `job="jarihana-backend",environment="$environment"`에만 적용된다. count와 100ms
+bucket의 최신 샘플, 같은 인스턴스의 성공한 `up` 샘플이 모두 30초 미만이어야 계산에 참여한다.
+중단되거나 수집이 실패한 인스턴스의 과거 값은 합계에서 제외된다. 유효한 시계열이 전혀 없으면
+`No data`이며, 정상 수집 중 최근 5분 실행이 없으면 건수와 비율 모두 `0`이다.
+
+측정 대상은 애플리케이션에서 관측한 JDBC 실행 시간이다. SQL 문장별 통계나 DB 서버 내부
+실행 시간은 아니며, RDS 자체 CPU·메모리·스토리지 지표도 이 대시보드에 포함하지 않는다.
+
+개별 실행이 빨라도 수천 번 반복되면 API 전체가 느려질 수 있다. 예를 들어 수신자 999명 조건의
+모임 생성 요청은 서버 로그상 약 15.6초였고, 같은 1분 구간의 JDBC 실행 수는 약 3천 건이었다.
+이는 요청별 SQL 수나 ORM 비용을 직접 측정한 값은 아니다. 실행 횟수 패널과 기존 HTTP 응답
+시간을 함께 비교해, 개별 SQL 지연과 과도한 반복 호출을 구분한다.
+
+dev/prod의 `management.metrics.distribution.slo.jdbc.query`에 `100ms,500ms,1s` 경계를
+추가한다. 백엔드 배포 후 정확한 `le="0.1"` 버킷을 확인하고 대시보드를 반영해야 한다.
+설정만 Git에 추가해도 실행 중인 앱에는 적용되지 않는다. 새 패널은 기존 JDBC 지표를 재사용하며
+SQL 원문·회원 ID·요청 ID별 라벨을 추가하지 않는다.
+
+`increase` 기반 패널은 최초 수집값이 이미 양수이면 첫 실행을 놓칠 수 있다. 유휴 `0`은 실제
+실행이 전혀 없었다는 증명이 아니며, 장시간 단건은 HTTP 완료 로그로 교차 확인한다. 또한
+100ms 미만 쿼리의 반복과 ORM 처리 비용은 느린 쿼리 수만으로 드러나지 않는다.
+
+실제 패널의 PromQL은 다음 명령으로 검증한다. Docker에서 저장소와 같은 Prometheus 버전의
+`promtool`을 실행하며, 혼합·빠른 실행·유휴·누락·오래된 샘플·수집 실패·중단된 인스턴스·환경
+필터·counter 리셋 시나리오를 검사한다. `EVIDENCE_DIR`를 지정하면 fixture와 실행 로그를 보존한다.
+
+```bash
+EVIDENCE_DIR=.omo/evidence/slow-query-dashboard node infra/monitoring/grafana/test-slow-queries.mjs
+```
 
 `수집 경로 확인` 영역은 관측 시스템 자체가 데이터를 받고 있는지 본다.
 

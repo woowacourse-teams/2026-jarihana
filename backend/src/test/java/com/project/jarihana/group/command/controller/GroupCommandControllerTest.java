@@ -154,7 +154,7 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
         Group group = groupRepository.findById(groupId).orElseThrow();
         assertThat(group.getMeetingType()).isEqualTo(MeetingType.OFFLINE);
         assertThat(group.getLocation()).isEqualTo("서울 캠퍼스");
-        assertThat(group.getRepresentativeImageKey()).isEqualTo("groups/tmp/controller.webp");
+        assertThat(group.getRepresentativeImageKey()).isEqualTo("groups/" + groupId + "/controller.webp");
         var series = recurringSeriesRepository.findAllByGroupIdOrderByCalendarStartDateAsc(groupId);
         assertThat(series).hasSize(1);
         assertThat(series.getFirst().getCalendarStartDate()).isEqualTo(TestSupportConfig.FIXED_NOW.toLocalDate());

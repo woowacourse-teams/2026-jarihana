@@ -1361,7 +1361,7 @@
       "gridPos": {
         "x": 0,
         "y": 34,
-        "w": 12,
+        "w": 8,
         "h": 7
       },
       "datasource": {
@@ -1456,9 +1456,9 @@
       "type": "timeseries",
       "description": "백엔드가 관리하는 DB 연결 풀입니다. 대기가 계속 쌓이면 DB 응답 시간이나 연결 부족을 확인합니다. RDS 서버 자원 지표는 아닙니다.",
       "gridPos": {
-        "x": 12,
+        "x": 8,
         "y": 34,
-        "w": 12,
+        "w": 8,
         "h": 7
       },
       "datasource": {
@@ -1560,13 +1560,234 @@
       }
     },
     {
+      "id": 26,
+      "title": "느린 JDBC 실행 · 100ms 초과 · 5분",
+      "type": "stat",
+      "description": "최근 5분 동안 완료된 JDBC 실행 중 100ms를 초과한 실행 수의 추정값입니다. 정확히 100ms인 실행은 제외합니다. JDBC count와 100ms bucket, 동일 인스턴스의 성공한 scrape가 모두 30초 미만일 때만 계산합니다. 유휴 상태는 0, 수집 누락은 No data입니다.",
+      "gridPos": {
+        "x": 16,
+        "y": 34,
+        "w": 8,
+        "h": 3
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "transparent": false,
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "mappings": [],
+          "unit": "short",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(clamp_min(((increase(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}[5m]) and (time() - timestamp(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) - max without(le) ((increase(jdbc_query_seconds_bucket{job=\"jarihana-backend\",environment=\"$environment\",le=\"0.1\"}[5m]) and (time() - timestamp(jdbc_query_seconds_bucket{job=\"jarihana-backend\",environment=\"$environment\",le=\"0.1\"}) < 30)))) and on(job,instance,environment) (up{job=\"jarihana-backend\",environment=\"$environment\"} == 1 and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)), 0))",
+          "instant": true,
+          "range": false,
+          "legendFormat": ""
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "last"
+          ],
+          "fields": ""
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 27,
+      "title": "느린 JDBC 비율 · 100ms 초과 · 5분",
+      "type": "stat",
+      "description": "최근 5분의 100ms 초과 JDBC 실행 수 / 전체 JDBC 실행 수 × 100입니다. 동일한 최신 수집 대상끼리 계산하며, 유휴 상태는 0%, 수집 누락은 No data입니다. SQL 문장별 통계나 DB 서버 실행 시간은 아닙니다.",
+      "gridPos": {
+        "x": 16,
+        "y": 37,
+        "w": 8,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "transparent": false,
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "mappings": [],
+          "unit": "percent",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "100 * ((sum(clamp_min(((increase(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}[5m]) and (time() - timestamp(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) - max without(le) ((increase(jdbc_query_seconds_bucket{job=\"jarihana-backend\",environment=\"$environment\",le=\"0.1\"}[5m]) and (time() - timestamp(jdbc_query_seconds_bucket{job=\"jarihana-backend\",environment=\"$environment\",le=\"0.1\"}) < 30)))) and on(job,instance,environment) (up{job=\"jarihana-backend\",environment=\"$environment\"} == 1 and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)), 0)) / (sum(((increase(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}[5m]) and (time() - timestamp(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) and max without(le) ((increase(jdbc_query_seconds_bucket{job=\"jarihana-backend\",environment=\"$environment\",le=\"0.1\"}[5m]) and (time() - timestamp(jdbc_query_seconds_bucket{job=\"jarihana-backend\",environment=\"$environment\",le=\"0.1\"}) < 30)))) and on(job,instance,environment) (up{job=\"jarihana-backend\",environment=\"$environment\"} == 1 and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30))) > 0)) or (sum(((increase(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}[5m]) and (time() - timestamp(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) and max without(le) ((increase(jdbc_query_seconds_bucket{job=\"jarihana-backend\",environment=\"$environment\",le=\"0.1\"}[5m]) and (time() - timestamp(jdbc_query_seconds_bucket{job=\"jarihana-backend\",environment=\"$environment\",le=\"0.1\"}) < 30)))) and on(job,instance,environment) (up{job=\"jarihana-backend\",environment=\"$environment\"} == 1 and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30))) == 0))",
+          "instant": true,
+          "range": false,
+          "legendFormat": ""
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "last"
+          ],
+          "fields": ""
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 28,
+      "title": "JDBC 실행 횟수 · 최근 5분",
+      "type": "timeseries",
+      "description": "각 시점 직전 5분간 완료된 JDBC 실행 수의 추정값입니다. 환경별 백엔드 전체 합계이며 API별 횟수가 아닙니다. 유휴는 0, 수집 누락은 No data입니다. 최초 표본부터 양수인 실행은 증가량 계산에서 누락될 수 있습니다.",
+      "gridPos": {
+        "x": 0,
+        "y": 41,
+        "w": 24,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "transparent": false,
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "unit": "short",
+          "decimals": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum((increase(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}[5m]) and (time() - timestamp(jdbc_query_seconds_count{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)) and on(job,instance,environment) (up{job=\"jarihana-backend\",environment=\"$environment\"} == 1 and (time() - timestamp(up{job=\"jarihana-backend\",environment=\"$environment\"}) < 30)))",
+          "instant": false,
+          "range": true,
+          "legendFormat": "JDBC 실행 수"
+        }
+      ],
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ],
+          "showLegend": true
+        }
+      }
+    },
+    {
       "id": 20,
       "title": "수집 경로 확인",
       "type": "row",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 41,
+        "y": 48,
         "w": 24,
         "h": 1
       },
@@ -1579,7 +1800,7 @@
       "description": "선택 서버의 호스트 exporter와 Alloy 자체 지표 수집 상태입니다. 최근 90초 안의 결과만 표시합니다. 서버가 목록에서 사라지면 수집 경로를 확인하세요. 로그 전송 성공 여부를 직접 증명하지는 않습니다.",
       "gridPos": {
         "x": 0,
-        "y": 42,
+        "y": 49,
         "w": 12,
         "h": 5
       },
@@ -1687,7 +1908,7 @@
       "description": "Prometheus가 각 서비스의 /metrics를 읽었는지 표시합니다. Loki의 로그 수신·검색 전체가 정상이라는 뜻은 아닙니다. 모든 환경에서 공통입니다.",
       "gridPos": {
         "x": 12,
-        "y": 42,
+        "y": 49,
         "w": 12,
         "h": 5
       },
@@ -1783,7 +2004,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 47,
+        "y": 54,
         "w": 24,
         "h": 1
       },
@@ -1796,7 +2017,7 @@
       "description": "화면의 조회 시간 내 HTTP 500 완료 로그를 최신 100건까지 표시합니다. 로그 상세를 열어 원본 필드를 확인할 수 있습니다. 결과가 없으면 수집된 해당 오류가 없는 것입니다.",
       "gridPos": {
         "x": 0,
-        "y": 48,
+        "y": 55,
         "w": 24,
         "h": 8
       },
@@ -1837,7 +2058,7 @@
       "description": "환경에 해당하는 JSON 로그를 최신 100건까지 표시합니다. 로그 행의 상세에서 파싱된 request_id, logger, 오류 필드를 확인합니다.",
       "gridPos": {
         "x": 0,
-        "y": 56,
+        "y": 63,
         "w": 24,
         "h": 10
       },

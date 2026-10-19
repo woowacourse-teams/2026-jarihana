@@ -6,6 +6,9 @@ import org.springframework.stereotype.Component;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
@@ -55,6 +58,50 @@ public class S3ImageStorage implements ImageStorage {
                 return false;
             }
             throw new ImageStorageException(exception);
+        } catch (SdkException exception) {
+            throw new ImageStorageException(exception);
+        }
+    }
+
+    @Override
+    public ImageObjectMetadata metadata(String imageKey) {
+        try {
+            HeadObjectResponse response = s3Client.headObject(HeadObjectRequest.builder()
+                    .bucket(properties.bucket())
+                    .key(toObjectKey(imageKey))
+                    .build());
+            return new ImageObjectMetadata(response.contentLength(), response.contentType());
+        } catch (S3Exception exception) {
+            if (exception.statusCode() == 404) {
+                return null;
+            }
+            throw new ImageStorageException(exception);
+        } catch (SdkException exception) {
+            throw new ImageStorageException(exception);
+        }
+    }
+
+    @Override
+    public void copy(String sourceImageKey, String targetImageKey) {
+        try {
+            s3Client.copyObject(CopyObjectRequest.builder()
+                    .sourceBucket(properties.bucket())
+                    .sourceKey(toObjectKey(sourceImageKey))
+                    .destinationBucket(properties.bucket())
+                    .destinationKey(toObjectKey(targetImageKey))
+                    .build());
+        } catch (SdkException exception) {
+            throw new ImageStorageException(exception);
+        }
+    }
+
+    @Override
+    public void delete(String imageKey) {
+        try {
+            s3Client.deleteObject(DeleteObjectRequest.builder()
+                    .bucket(properties.bucket())
+                    .key(toObjectKey(imageKey))
+                    .build());
         } catch (SdkException exception) {
             throw new ImageStorageException(exception);
         }

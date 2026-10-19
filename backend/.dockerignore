@@ -1,0 +1,4 @@
+# 이미지에는 bootJar 결과물만 들어간다. 나머지는 빌드 컨텍스트로 보내지 않는다.
+*
+!build/libs/*.jar
+build/libs/*-plain.jar

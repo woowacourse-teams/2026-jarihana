@@ -143,7 +143,9 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
 
         // Then
         Group group = groupCommandRepository.findById(result.id()).orElseThrow();
-        assertThat(group.getRepresentativeImageKey()).isEqualTo(imageKey);
+        assertThat(group.getRepresentativeImageKey()).isEqualTo(
+                "groups/" + group.getId() + "/uploaded-image.webp"
+        );
     }
 
     @DisplayName("존재하지 않는 이미지 키로 그룹을 개설할 수 없다.")
@@ -312,7 +314,9 @@ class GroupCommandServiceTest extends IntegrationTestSupport {
                 "이미지 교체 그룹", "소개", null, MeetingType.FLEXIBLE, null, imageKey));
 
         Group modified = groupCommandRepository.findById(group.getId()).orElseThrow();
-        assertThat(modified.getRepresentativeImageKey()).isEqualTo(imageKey);
+        assertThat(modified.getRepresentativeImageKey()).isEqualTo(
+                "groups/" + group.getId() + "/modified-image.webp"
+        );
     }
 
     @DisplayName("만료된 기존 대표 이미지를 유지한 채 그룹 기본 정보를 수정할 수 있다.")

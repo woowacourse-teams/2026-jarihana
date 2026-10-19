@@ -23,7 +23,9 @@ public record ActivityPostListResponse(List<Item> items, String nextCursor, bool
             String caption,
             LocalDate activityDate,
             LocalDateTime createdAt,
-            boolean canModify
+            boolean canModify,
+            long commentCount,
+            List<ActivityReactionResponse> reactions
     ) {
 
         private static Item from(ActivityPostListResult.Item item) {
@@ -35,15 +37,24 @@ public record ActivityPostListResponse(List<Item> items, String nextCursor, bool
                     item.caption(),
                     item.activityDate(),
                     item.createdAt(),
-                    item.canModify()
+                    item.canModify(),
+                    item.commentCount(),
+                    item.reactions().stream().map(ActivityReactionResponse::from).toList()
             );
         }
     }
 
-    public record Group(Long id, String name, String type, String status) {
+    public record Group(Long id, String name, String type, String status, boolean recruiting, boolean joined) {
 
         private static Group from(ActivityPostListResult.Group group) {
-            return new Group(group.id(), group.name(), group.type(), group.status());
+            return new Group(
+                    group.id(),
+                    group.name(),
+                    group.type(),
+                    group.status(),
+                    group.recruiting(),
+                    group.joined()
+            );
         }
     }
 }

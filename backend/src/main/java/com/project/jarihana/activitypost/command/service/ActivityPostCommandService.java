@@ -13,10 +13,10 @@ import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
-import com.project.jarihana.image.client.ImageStorage;
-import com.project.jarihana.image.client.ImageStorageException;
-import com.project.jarihana.image.command.repository.ImageUploadCommandRepository;
-import com.project.jarihana.image.domain.ImageUpload;
+import com.project.jarihana.image.command.service.ImageLifecycleService;
+import com.project.jarihana.image.command.service.ImageReferenceService;
+import com.project.jarihana.image.command.service.PromotedImage;
+import com.project.jarihana.image.domain.ImageReferenceType;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Member;
 import java.time.Clock;
@@ -37,8 +37,8 @@ public class ActivityPostCommandService {
     private final GroupCommandRepository groupCommandRepository;
     private final GroupMemberCommandRepository groupMemberCommandRepository;
     private final MemberRepository memberRepository;
-    private final ImageUploadCommandRepository imageUploadCommandRepository;
-    private final ImageStorage imageStorage;
+    private final ImageLifecycleService imageLifecycleService;
+    private final ImageReferenceService imageReferenceService;
     private final Clock clock;
 
     public ActivityPostCommandService(
@@ -47,8 +47,8 @@ public class ActivityPostCommandService {
             GroupCommandRepository groupCommandRepository,
             GroupMemberCommandRepository groupMemberCommandRepository,
             MemberRepository memberRepository,
-            ImageUploadCommandRepository imageUploadCommandRepository,
-            ImageStorage imageStorage,
+            ImageLifecycleService imageLifecycleService,
+            ImageReferenceService imageReferenceService,
             Clock clock
     ) {
         this.activityPostCommandRepository = activityPostCommandRepository;
@@ -56,8 +56,8 @@ public class ActivityPostCommandService {
         this.groupCommandRepository = groupCommandRepository;
         this.groupMemberCommandRepository = groupMemberCommandRepository;
         this.memberRepository = memberRepository;
-        this.imageUploadCommandRepository = imageUploadCommandRepository;
-        this.imageStorage = imageStorage;
+        this.imageLifecycleService = imageLifecycleService;
+        this.imageReferenceService = imageReferenceService;
         this.clock = clock;
     }
 
@@ -76,12 +76,22 @@ public class ActivityPostCommandService {
         LocalDateTime now = LocalDateTime.now(clock);
         LocalDate activityDate = command.activityDate() == null ? LocalDate.now(clock) : command.activityDate();
         validateActivityDate(activityDate);
-        validateImageKey(command.imageKey(), now, null);
+        PromotedImage image = imageLifecycleService.promote(memberId, groupId, command.imageKey(), now);
+        if (activityPostPhotoCommandRepository.findByImageKey(image.imageKey()).isPresent()) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "이미 게시된 사진은 다시 사용할 수 없습니다.");
+        }
 
         ActivityPost post = activityPostCommandRepository.save(
                 ActivityPost.create(group, author, command.caption(), activityDate, now)
         );
-        activityPostPhotoCommandRepository.save(ActivityPostPhoto.create(post, command.imageKey()));
+        activityPostPhotoCommandRepository.save(ActivityPostPhoto.create(post, image.imageKey()));
+        imageReferenceService.replace(
+                ImageReferenceType.ACTIVITY_POST,
+                post.getId(),
+                groupId,
+                java.util.List.of(image),
+                now
+        );
         return new SaveActivityPostResult(post.getId());
     }
 
@@ -99,8 +109,27 @@ public class ActivityPostCommandService {
             nextImageKey = photo.getImageKey();
         }
         if (!photo.getImageKey().equals(nextImageKey)) {
-            validateImageKey(nextImageKey, LocalDateTime.now(clock), postId);
-            photo.replaceImageKey(nextImageKey);
+            LocalDateTime now = LocalDateTime.now(clock);
+            PromotedImage image = imageLifecycleService.promote(
+                    memberId,
+                    post.getGroup().getId(),
+                    nextImageKey,
+                    now
+            );
+            boolean alreadyUsed = activityPostPhotoCommandRepository.findByImageKey(image.imageKey())
+                    .map(existing -> !existing.getPost().getId().equals(postId))
+                    .orElse(false);
+            if (alreadyUsed) {
+                throw new BusinessException(ErrorCode.INVALID_PARAMETER, "이미 게시된 사진은 다시 사용할 수 없습니다.");
+            }
+            photo.replaceImageKey(image.imageKey());
+            imageReferenceService.replace(
+                    ImageReferenceType.ACTIVITY_POST,
+                    postId,
+                    post.getGroup().getId(),
+                    java.util.List.of(image),
+                    now
+            );
         }
         post.modify(command.caption(), activityDate);
     }
@@ -109,7 +138,9 @@ public class ActivityPostCommandService {
     public void delete(long memberId, long postId) {
         ActivityPost post = findActivePost(postId);
         validateCanModify(memberId, post);
-        post.deleteAt(LocalDateTime.now(clock));
+        LocalDateTime now = LocalDateTime.now(clock);
+        post.deleteAt(now);
+        imageReferenceService.removeActivityPost(postId, now);
     }
 
     @Transactional
@@ -145,25 +176,4 @@ public class ActivityPostCommandService {
         }
     }
 
-    private void validateImageKey(String imageKey, LocalDateTime now, Long currentPostId) {
-        if (imageKey == null || imageKey.isBlank()) {
-            throw new BusinessException(ErrorCode.IMAGE_NOT_FOUND, "활동 사진을 선택해 주세요.");
-        }
-        ImageUpload upload = imageUploadCommandRepository.findByImageKey(imageKey)
-                .filter(candidate -> !candidate.isExpiredAt(now))
-                .orElseThrow(() -> new BusinessException(ErrorCode.IMAGE_NOT_FOUND, "활동 사진을 찾을 수 없습니다."));
-        boolean alreadyUsed = activityPostPhotoCommandRepository.findByImageKey(imageKey)
-                .map(photo -> currentPostId == null || !photo.getPost().getId().equals(currentPostId))
-                .orElse(false);
-        if (alreadyUsed) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "이미 게시된 사진은 다시 사용할 수 없습니다.");
-        }
-        try {
-            if (!imageStorage.exists(upload.getImageKey())) {
-                throw new BusinessException(ErrorCode.IMAGE_NOT_FOUND, "활동 사진을 찾을 수 없습니다.");
-            }
-        } catch (ImageStorageException exception) {
-            throw new BusinessException(ErrorCode.IMAGE_NOT_FOUND, "활동 사진을 확인할 수 없습니다.", exception);
-        }
-    }
 }

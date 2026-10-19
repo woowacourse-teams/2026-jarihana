@@ -19,6 +19,7 @@ export function AnalyticsBridge() {
   const memberId = member?.id;
 
   useLayoutEffect(() => {
+    if (pathname === "/") return undefined;
     let cancelled = false;
     const match = matchRoutes(routeRegistry, pathname)?.at(-1);
     const isPromotionRoute = ["GroupDetailPage", "RecruitmentDetailPage"].includes(

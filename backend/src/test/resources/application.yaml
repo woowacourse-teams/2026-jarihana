@@ -25,7 +25,8 @@ spring:
 
 jarihana:
   image:
-    public-base-url: https://cdn.example.test/images
+    public-base-url: https://service.example.test/api/images
+    delivery-base-url: https://service.example.test/images
   auth:
     frontend-origin: http://localhost:5173
     oauth-state-cookie-name: oauthState

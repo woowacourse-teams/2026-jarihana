@@ -46,7 +46,7 @@ public record GroupDetailResponse(
                 group.getStatus().name(),
                 group.getName(),
                 group.getIntroduction(),
-                group.getDescription(),
+                result.description(),
                 result.representativeImageUrl(),
                 RecurringSchedule.from(group.getRecurringSchedule()),
                 SessionSchedule.from(group.getSessionSchedule()),
