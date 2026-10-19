@@ -52,11 +52,9 @@ jobs:
           cache: gradle
           cache-dependency-path: backend/**/*.gradle*
 
-      - name: Backend 마이그레이션 및 회귀 테스트
-        working-directory: backend
-        run: ./gradlew test --no-daemon
-
-      # Dockerfile은 이 jar를 복사하기만 한다. 테스트가 컴파일한 결과와 Gradle 캐시를 그대로 쓰므로 jar로 묶는 일만 남는다.
+      # 회귀 테스트는 여기서 다시 돌리지 않는다. PR CI(ci.yml의 Backend Test)가 병합 전에 같은 코드로 돌리고,
+      # develop 규칙(ci-rule)이 이 검사를 필수로 하며 최신 develop에 맞춘 PR만 병합하게 한다. 규칙을 우회할 수 있는 대상도 없다.
+      # Dockerfile은 이 jar를 복사하기만 한다.
       - name: Backend jar 빌드
         working-directory: backend
         run: ./gradlew bootJar --no-daemon
