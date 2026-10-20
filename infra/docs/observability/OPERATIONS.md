@@ -250,8 +250,21 @@ SELECT extname FROM pg_extension WHERE extname = 'pg_stat_statements';
 ```
 
 SQL 통계 확장은 백엔드 Flyway `V5__enable_query_statistics.sql`이 각 DB의 `public` 스키마에
-생성한다. 이미 생성된 확장은 유지한다. 배포 전에 Flyway 접속 계정의 확장 생성 권한과
-RDS의 확장 허용 설정을 확인한다. 권한이 없으면 마이그레이션과 앱 기동이 실패한다.
+생성을 시도한다. 이미 생성된 확장은 유지한다. 설치 권한이 없으면 경고를 남기고 앱 기동을
+계속한다. 권한 부족 이외의 SQL 오류는 마이그레이션 실패로 처리한다.
+V5 성공 이력만으로 확장 설치를 판단하지 않고 위의 `pg_extension` 조회로 확인한다.
+확장이 없으면 SQL별 통계 패널은 미수집 상태로 남는다. 통계가 필요할 때 DB 관리자가
+RDS 확장 허용 설정을 확인하고 대상 DB에서 다음 SQL을 별도로 실행한다. 앱 계정에
+`rds_superuser`를 부여하지 않는다.
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements WITH SCHEMA public;
+```
+
+이 권한 처리 보완은 개발 배포 실패로 V5가 롤백된 상태에서 추가됐다. 기존 V5를 이미
+성공 적용한 다른 DB에는 체크섬이 달라지므로, 배포 전에 이력과 확장 상태를 대조한다.
+그런 DB의 이력을 자동 수정하거나 검증을 끄지 않는다. 일회용 로컬 DB는 재생성하고,
+보존할 DB는 별도 이력 복구 검토 후 진행한다.
 Flyway는 수집 계정 권한을 부여하거나 통계를 초기화하지 않는다. 수집 계정은
 `POSTGRES_MONITOR_DSN`의 사용자이며 백엔드 계정과 같다고 가정하지 않는다.
 
