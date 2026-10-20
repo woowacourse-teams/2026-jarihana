@@ -62,6 +62,17 @@ jarihana:
     request-timeout: ${PUSH_REQUEST_TIMEOUT:PT10S}
     connect-timeout: ${PUSH_CONNECT_TIMEOUT:PT5S}
     retry-delay: ${PUSH_RETRY_DELAY:PT5S}
+    delivery:
+      max-in-flight: ${PUSH_MAX_IN_FLIGHT:4}
+      io-threads: ${PUSH_HTTP_IO_THREADS:1}
+      dns-threads: ${PUSH_DNS_THREADS:2}
+      dns-queue-capacity: ${PUSH_DNS_QUEUE_CAPACITY:4}
+      max-connections-per-route: ${PUSH_HTTP_MAX_CONNECTIONS_PER_ROUTE:4}
+      max-connections: ${PUSH_HTTP_MAX_CONNECTIONS:12}
+      pool-wait-timeout: ${PUSH_HTTP_POOL_WAIT_TIMEOUT:PT1S}
+      idle-timeout: ${PUSH_HTTP_IDLE_TIMEOUT:PT1M}
+      connection-time-to-live: ${PUSH_HTTP_CONNECTION_TTL:PT5M}
+      shutdown-timeout: ${PUSH_SHUTDOWN_TIMEOUT:PT15S}
   image:
     bucket: ${IMAGE_S3_BUCKET:techcourse-project-2026}
     region: ${IMAGE_S3_REGION:ap-northeast-2}
