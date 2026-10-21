@@ -1,0 +1,53 @@
+.landing-page {
+  --landing-content: 75rem;
+  --landing-header: 4rem;
+  --landing-inset: 1rem;
+  --landing-radius: 2.5rem;
+  --landing-section-gap: 10rem;
+  --landing-hero-size: clamp(3rem, 5.56vw, 5rem);
+  --landing-heading-size: clamp(2.25rem, 3.6vw, 3.25rem);
+  --landing-feature-size: clamp(2rem, 2.5vw, 2.25rem);
+  --landing-body-size: 1.125rem;
+  --landing-heading-weight: var(--font-weight-semibold);
+  --landing-text-tracking: 0;
+  --landing-heading-tracking: -0.01em;
+  --landing-body-leading: 1.7;
+  --landing-dark: #112b29;
+  --landing-dark-muted: #b5ccc9;
+  --landing-mint: #e8f7f3;
+  --landing-warm: #f5f3ef;
+  --landing-overlay: rgb(10 26 24 / 44%);
+  --landing-header-glass: rgb(255 255 255 / 94%);
+  --landing-reveal: 700ms;
+  --landing-scene: 900ms;
+  --landing-demo-speed: 1.5;
+  --landing-mobile-demo-scale: 0.875;
+  --landing-accordion: 500ms;
+  --landing-chair-shadow: rgb(10 26 24 / 28%);
+  --landing-chair-rest: translate3d(0, 2.5%, 0) scale(0.9);
+  --landing-chair-forward: perspective(100rem) translate3d(14%, -2%, 7rem) rotateY(-12deg)
+    rotateZ(-6deg) scale(1.05);
+  --landing-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --landing-statement-size: clamp(2.25rem, 4.45vw, 4rem);
+  --landing-depth-shadow: 0 2rem 5rem rgb(17 43 41 / 12%);
+  --journey-duration: 18s;
+  --journey-chair-light: #8de0d4;
+  --journey-chair-dark: #137e79;
+  --journey-shadow: rgb(17 43 41 / 14%);
+}
+
+@media (max-width: 47.9375rem) {
+  .landing-page {
+    --landing-inset: 0.5rem;
+    --landing-radius: 1.5rem;
+    --landing-section-gap: 5.5rem;
+    --landing-hero-size: 2.75rem;
+    --landing-heading-size: 2.25rem;
+    --landing-feature-size: 1.75rem;
+    --landing-body-size: 1.0625rem;
+    --landing-heading-tracking: var(--landing-text-tracking);
+    --landing-chair-rest: translate3d(0, -1%, 0) scale(0.72);
+    --landing-chair-forward: perspective(100rem) translate3d(0, 3%, 4rem) rotateY(-8deg)
+      rotateZ(-3deg) scale(0.86);
+  }
+}

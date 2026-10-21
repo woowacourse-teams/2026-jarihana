@@ -10,6 +10,7 @@ import java.util.List;
 
 public record GroupDetailResult(
         Group group,
+        String description,
         String representativeImageUrl,
         List<GroupDetailMember> members,
         GroupRecruitment activeRecruitment,

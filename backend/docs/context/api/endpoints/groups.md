@@ -4,9 +4,13 @@
 
 그룹 목록·상세 조회는 대표 이미지 키가 없거나 기본 이미지 키인 경우
 `images/default-group.png`를 반환한다. 업로드된 이미지 키가 연결된 경우에는
-설정된 공개 이미지 Base URL과 스토리지 키를 조합한 URL을 반환한다.
-현재 운영 버킷의 이미지 객체 prefix는 `jarihana/images`이며, 공개 Base URL은
-해당 prefix를 제외한 CloudFront 경로(예: `https://d1znkkaqfyz08f.cloudfront.net/images`)다.
+환경별 기존 서비스 도메인의 이미지 접근 주소(예: `https://jarihana.com/api/images`)와 키를 조합한
+URL을 반환한다. 이 주소는 백엔드의 접근 확인을 거쳐 같은 서비스 도메인의 최대 5분짜리 CloudFront
+서명 URL로 이동한다. CloudFront 배포 도메인은 API 응답에 직접 노출하지 않는다.
+
+새 대표·소개 이미지는 그룹 생성·수정 시 `groups/tmp/{uuid}`에서 `groups/{groupId}/{uuid}`로
+이동한다. 기존 이미지는 원래 경로를 유지한다. 그룹 종료는 삭제가 아니므로 `ENDED` 그룹의 모든 이미지
+참조와 조회 권한을 보존한다.
 
 목록·상세의 `activeRecruitment.approvedCount`는 해당 공고의 모집으로 가입한 인원(APPROVED·RECRUITMENT)이다.
 초대 출처 승인은 제외한다. `memberCount`는 실제 GroupMember 수이며 모임장과 초대 합류자도 포함한다.
@@ -194,6 +198,7 @@ Request Body는 없다.
 #### 동작
 - `ACTIVE`이고 생성 후 24시간 이내인 경우에만 가능하다.
 - 그룹, 초대·수락 이력, 모집 공고, 신청, 구성원, 반복 일정 또는 세션 일정을 Hard Delete한다.
+- 그룹의 대표·소개·활동 사진 참조를 제거하고 7일 뒤 정리 대상으로 예약한다.
 - 수신자의 초대 알림은 유지하고 PENDING·RETRY·IN_FLIGHT 초대 전송을 취소한다. 삭제된 초대의 상세·공유 미리보기·수락은 INVITATION_NOT_FOUND(404)로 안내한다. 이미 전달된 OS 알림은 회수하지 않는다.
 - `Group.status`를 변경하지 않는다.
 - 삭제 요청을 종료 요청으로 자동 전환하지 않는다.
@@ -271,6 +276,7 @@ Request Body는 없다.
 ```
 
 `ACTIVE → ENDED` 단방향 상태 전이만 허용한다.
+그룹 종료 시 대표·소개·활동 사진은 삭제하거나 정리 대상으로 만들지 않고 그대로 보존한다.
 
 #### 응답 200
 

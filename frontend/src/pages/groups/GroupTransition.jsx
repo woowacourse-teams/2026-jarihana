@@ -17,7 +17,7 @@ export function isPlainLinkClick(event) {
 
 export function groupTransitionOrigin(state) {
   const origin = state?.groupTransition?.origin;
-  return typeof origin === "string" && /^(?:\/|\/groups)(?:[?#]|$)/.test(origin)
+  return typeof origin === "string" && /^(?:\/|\/home|\/groups)(?:[?#]|$)/.test(origin)
     ? origin
     : null;
 }
@@ -36,7 +36,7 @@ export function GroupTransitionProvider({ children }) {
 
   useLayoutEffect(() => {
     const returning = /^\/groups\/\d+$/.test(previousPath.current) &&
-      (location.pathname === "/" || location.pathname === "/groups");
+      ["/", "/home", "/groups"].includes(location.pathname);
     previousPath.current = location.pathname;
     if (!returning || !source) return;
 

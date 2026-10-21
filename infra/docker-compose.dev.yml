@@ -30,6 +30,14 @@ services:
       IMAGE_S3_REGION: "${IMAGE_S3_REGION:?IMAGE_S3_REGION is required}"
       IMAGE_S3_KEY_PREFIX: "${IMAGE_S3_KEY_PREFIX:?IMAGE_S3_KEY_PREFIX is required}"
       IMAGE_S3_PUBLIC_BASE_URL: "${IMAGE_S3_PUBLIC_BASE_URL:?IMAGE_S3_PUBLIC_BASE_URL is required}"
+      IMAGE_CDN_DELIVERY_BASE_URL: "${IMAGE_CDN_DELIVERY_BASE_URL:?IMAGE_CDN_DELIVERY_BASE_URL is required}"
+      IMAGE_CLOUDFRONT_KEY_PAIR_ID: "${IMAGE_CLOUDFRONT_KEY_PAIR_ID:?IMAGE_CLOUDFRONT_KEY_PAIR_ID is required}"
+      IMAGE_CLOUDFRONT_PRIVATE_KEY: "${IMAGE_CLOUDFRONT_PRIVATE_KEY:?IMAGE_CLOUDFRONT_PRIVATE_KEY is required}"
+      IMAGE_CLEANUP_ENABLED: "${IMAGE_CLEANUP_ENABLED:-false}"
+      IMAGE_CLEANUP_GRACE_PERIOD: "${IMAGE_CLEANUP_GRACE_PERIOD:-P7D}"
+      IMAGE_CLEANUP_LEASE: "${IMAGE_CLEANUP_LEASE:-PT15M}"
+      IMAGE_CLEANUP_BATCH_SIZE: "${IMAGE_CLEANUP_BATCH_SIZE:-100}"
+      IMAGE_CLEANUP_INTERVAL_MS: "${IMAGE_CLEANUP_INTERVAL_MS:-3600000}"
     labels:
       com.jarihana.monitoring.logs: "true"
     extra_hosts:
@@ -67,6 +75,7 @@ services:
       POSTGRES_MONITOR_DSN: ${POSTGRES_MONITOR_DSN:?set PostgreSQL monitoring DSN}
     volumes:
       - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - ./monitoring/alloy/postgres-queries.yaml:/etc/alloy/postgres-queries.yaml:ro
       - alloy-data:/var/lib/alloy/data
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /proc:/host/proc:ro

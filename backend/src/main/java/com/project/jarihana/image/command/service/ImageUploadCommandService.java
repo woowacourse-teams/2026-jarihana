@@ -9,6 +9,7 @@ import com.project.jarihana.image.command.service.dto.CreateImageUploadCommand;
 import com.project.jarihana.image.command.service.dto.CreateImageUploadResult;
 import com.project.jarihana.image.config.ImageProperties;
 import com.project.jarihana.image.domain.ImageUpload;
+import com.project.jarihana.image.query.service.ImageAccessService;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -29,6 +30,7 @@ public class ImageUploadCommandService {
     private final ImageUploadCommandRepository imageUploadCommandRepository;
     private final ImageStorage imageStorage;
     private final ImageProperties imageProperties;
+    private final ImageAccessService imageAccessService;
     private final Clock clock;
 
     public ImageUploadCommandService(
@@ -36,12 +38,14 @@ public class ImageUploadCommandService {
             ImageUploadCommandRepository imageUploadCommandRepository,
             ImageStorage imageStorage,
             ImageProperties imageProperties,
+            ImageAccessService imageAccessService,
             Clock clock
     ) {
         this.memberRepository = memberRepository;
         this.imageUploadCommandRepository = imageUploadCommandRepository;
         this.imageStorage = imageStorage;
         this.imageProperties = imageProperties;
+        this.imageAccessService = imageAccessService;
         this.clock = clock;
     }
 
@@ -72,23 +76,16 @@ public class ImageUploadCommandService {
                 command.fileSize(),
                 imageKey,
                 expiresAt,
-                now
+                now,
+                memberId
         ));
         return new CreateImageUploadResult(
                 id,
                 imageKey,
                 uploadUrl,
-                toPublicImageUrl(imageKey),
+                imageAccessService.publicUrl(imageKey),
                 expiresAt
         );
-    }
-
-    private String toPublicImageUrl(String imageKey) {
-        String baseUrl = imageProperties.publicBaseUrl();
-        if (baseUrl == null || baseUrl.isBlank()) {
-            return "/images/" + imageKey;
-        }
-        return baseUrl.replaceAll("/+$", "") + "/" + imageKey;
     }
 
     private void validateContentType(String contentType) {
