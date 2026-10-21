@@ -93,6 +93,26 @@ class FlywayBaselineTest extends IntegrationTestSupport {
     }
 
     @Test
+    @DisplayName("Flyway는 인프라가 관리하는 SQL 통계 확장을 설치하지 않는다.")
+    void applicationDoesNotInstallQueryStatistics() {
+        // Given
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+
+        // When
+        int appliedMigrations = flyway.migrate().migrationsExecuted;
+
+        // Then
+        assertThat(appliedMigrations).isZero();
+        assertThat(jdbc.queryForObject("""
+                select count(*) from pg_extension
+                where extname = 'pg_stat_statements' and extnamespace = 'public'::regnamespace
+                """, Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("""
+                select count(*) from flyway_schema_history where version = '5'
+                """, Integer.class)).isZero();
+    }
+
+    @Test
     @DisplayName("실제 운영 스키마처럼 허용되지 않은 회원 과정은 DB에서 거절한다.")
     void rejectMemberCourseOutsideLiveSchemaValues() {
         // Given
