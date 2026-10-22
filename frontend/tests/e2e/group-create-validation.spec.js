@@ -61,7 +61,20 @@ for (const width of [360, 1440]) {
         await expect(name).toHaveValue("테스트 모임");
         if (type === "SESSION") {
           await intro.fill("함께 만나요");
+          await submit.scrollIntoViewIfNeeded();
+          const beforeSchedule = await page.evaluate(() => window.scrollY);
           await submit.click();
+          const scheduleButton = page.getByRole("button", { name: "모임 일정 설정" });
+          await expect(scheduleButton).toBeFocused();
+          await waitForScrollToSettle(page);
+          await expect(scheduleButton).toBeInViewport();
+          await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(beforeSchedule);
+          await expect(page.getByRole("dialog", { name: "활동 일정" })).toHaveCount(0);
+          expect(await page.evaluate(() => window.validationScrolls.at(-1).behavior))
+            .toBe(reducedMotion === "reduce" ? "auto" : "smooth");
+          await page.screenshot({ path: testInfo.outputPath("session-schedule-error.png") });
+
+          await scheduleButton.click();
           const dialog = page.getByRole("dialog", { name: "활동 일정" });
           await expect(dialog).toBeVisible();
           await expect(dialog.getByLabel("진행 날짜")).toBeFocused();

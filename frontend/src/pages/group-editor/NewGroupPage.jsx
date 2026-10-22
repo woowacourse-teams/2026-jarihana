@@ -199,8 +199,9 @@ export function NewGroupPage() {
   const flexibleTime = values.flexibleTime ?? false;
 
   useEffect(() => {
-    if (!focusRequest || SCHEDULE_FIELDS.includes(focusRequest.name)) return;
-    const frame = window.requestAnimationFrame(() => focusInvalidField(formReference.current, focusRequest.name));
+    if (!focusRequest) return;
+    const name = SCHEDULE_FIELDS.includes(focusRequest.name) ? "schedule" : focusRequest.name;
+    const frame = window.requestAnimationFrame(() => focusInvalidField(formReference.current, name));
     return () => window.cancelAnimationFrame(frame);
   }, [focusRequest]);
 
@@ -208,7 +209,6 @@ export function NewGroupPage() {
     const name = FIELD_ORDER.find((field) => formErrors[field]);
     if (!name) return;
     if (name === "description") setContentTab("intro");
-    if (SCHEDULE_FIELDS.includes(name)) setScheduleOpen(true);
     setFocusRequest({ name });
   }
 
@@ -326,6 +326,7 @@ export function NewGroupPage() {
                   actionLabel="설정"
                   error={scheduleError}
                   lines={draftSummary({ ...values, daysOfWeek, flexibleTime, type })}
+                  name="schedule"
                   onEdit={() => setScheduleOpen(true)}
                 />
                 <div className="group-fact group-fact--field">
