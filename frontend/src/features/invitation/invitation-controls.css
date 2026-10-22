@@ -97,22 +97,15 @@
 .invitation-search {
   --invitation-search-control-height: calc(var(--space-12) + var(--space-1));
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   align-items: end;
   gap: var(--space-2);
 }
 
-.invitation-search .ui-field__control,
-.invitation-search__submit {
+.invitation-search .ui-field__control {
   height: var(--invitation-search-control-height);
   min-height: var(--invitation-search-control-height);
   border-radius: var(--radius-sm);
-}
-
-.invitation-search__submit > span {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
 }
 
 .invitation-selected {
@@ -418,8 +411,6 @@
 
 @media (max-width: 30rem) {
   .invitation-dialog { max-height: min(66vh, 38rem); }
-  .invitation-search { grid-template-columns: minmax(0, 1fr); }
-  .invitation-search__submit { width: 100%; }
   .invitation-candidate__label { grid-template-columns: 1.25rem minmax(0, 1fr); }
   .invitation-candidate__meta { grid-column: 2; margin-top: -0.375rem; }
   .invitation-issued { flex-direction: column; }

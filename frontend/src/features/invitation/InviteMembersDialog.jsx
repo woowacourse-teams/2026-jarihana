@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, LoaderCircle, Search, UserPlus, X } from "lucide-react";
+import { Check, Copy, LoaderCircle, UserPlus, X } from "lucide-react";
 
 import { getSafeNextCursor, mergeCursorPages } from "../../entities/cursor";
 import { useAuth } from "../auth";
@@ -371,12 +371,10 @@ function InviteMembersDialogSession({ groupId, open, onClose }) {
 
           {invitePanel ? (
             <section aria-labelledby="invitation-tab-invite" className="invitation-dialog__panel" id="invitation-panel" role="tabpanel" tabIndex={0}>
-              <form className="invitation-search" onSubmit={handleSearch} role="search">
+              <form className="invitation-search" data-ph-capture-attribute-action="invitation_search_submit" onSubmit={handleSearch} role="search">
                 <TextField autoComplete="off" aria-label="회원 이름 검색" aria-describedby={searchHint ? "invitation-search-hint" : undefined} data-ph-capture-attribute-action="invitation_search"
                   disabled={sending} id="invitation-member-search" maxLength={50}
                   onChange={(event) => setKeyword(event.target.value)} placeholder="크루 이름을 입력해 주세요" value={keyword} />
-                <Button aria-label="회원 검색" className="invitation-search__submit" data-ph-capture-attribute-action="invitation_search_submit"
-                  disabled={sending || searchLength === 1 || searchLength > 50} type="submit" variant="secondary"><Search aria-hidden="true" size={18} />검색</Button>
               </form>
               {searchHint && <p className="invitation-dialog__hint" id="invitation-search-hint">{searchHint}</p>}
 
