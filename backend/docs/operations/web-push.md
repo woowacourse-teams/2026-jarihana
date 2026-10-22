@@ -46,6 +46,10 @@ JAVA_HOME=/path/to/jdk-21 npm run test:push:local -- --real-provider
 | --- | --- | --- |
 | `PUSH_ENABLED` | `false` | 공개 설정·새 구독 등록·전송 활성화 |
 | `PUSH_WORKER_ENABLED` | `true` | 활성화된 환경에서 자동 워커 실행 여부 |
+| `PUSH_WORKER_START_PAUSED` | `false` | worker의 초기 상태를 대기로 설정. DB 제어 모드에서는 항상 대기로 시작 |
+| `PUSH_WORKER_CONTROL_ENABLED` | `false` | DB 권한 제어 모드. 활성화하면 시작 대기 설정과 무관하게 PAUSED로 기동 |
+| `PUSH_WORKER_HOST_ID` | 빈 값 | 제어 모드의 고정 호스트 ID. 예: `prod-a`, `prod-b` |
+| `PUSH_WORKER_ENVIRONMENT` | 빈 값 | DB 권한을 공유할 환경 ID. prod A/B는 같은 `prod` 값 사용 |
 | `PUSH_VAPID_PUBLIC_KEY` | 빈 값 | 브라우저에 제공할 공개키 |
 | `PUSH_VAPID_PRIVATE_KEY` | 빈 값 | 서버 서명용 비밀키. 저장소·로그에 남기지 않음 |
 | `PUSH_VAPID_SUBJECT` | 빈 값 | `mailto:담당자주소` 또는 HTTPS 연락처 |
@@ -56,6 +60,73 @@ JAVA_HOME=/path/to/jdk-21 npm run test:push:local -- --real-provider
 | `PUSH_REQUEST_TIMEOUT` | `PT10S` | 외부 HTTP 요청의 전체 제한시간 |
 | `PUSH_CONNECT_TIMEOUT` | `PT5S` | DNS·TCP·TLS 연결 제한시간 |
 | `PUSH_RETRY_DELAY` | `PT5S` | 재시도 간격의 시작값 |
+
+`PUSH_WORKER_ENABLED=false`는 scheduler를 생성하지 않는 설정이고,
+`PUSH_WORKER_START_PAUSED=true`는 worker가 호출되어도 새 작업을 선점하지 않게 한다.
+앱 내부의 `WorkerAdmissionController`로 실행 중 pause/resume을 제어한다.
+pause는 신규 처리 허가를 막고, 이미 허가한 작업을 중단시키지 않는다. 진행 중 허가가 있으면
+`DRAINING`, 모두 반환되면 `PAUSED`이며, `DRAINING` 동안 resume은 거부한다.
+worker는 batch의 각 항목을 선점하기 전에 허가를 받으므로 batch 중에도 중단을 반영한다.
+시작 설정은 초기화에만 쓰므로 대기 후보도 재시작 없이 재개할 수 있다.
+
+`drainStatus()`는 상태·진행 중 허가 수(`inFlight`)·불명확한 결과 수(`unresolved`)를 한 번에 조회한다.
+`isDrained()`는 PAUSED이고 두 수가 모두 0일 때만 참이다. 작업 허가는 claim 직전부터
+prepare·외부 send·finish 트랜잭션 커밋이 끝나 프록시 호출이 반환될 때까지 유지한다.
+빈 조회·전송하지 않은 작업도 정상 반환되면 허가를 반환한다. 대기열이 비었다는 뜻은 아니다.
+
+선점·준비·결과 저장 중 예외가 발생하면 `BLOCKED`로 전환하여 신규 처리와 resume을 차단한다.
+finish 갱신이 0건일 때도 DB에 기존 취소가 확정되어 있으면 정상 종료하지만,
+lease 만료·교체 등으로 결과 저장을 확인하지 못하면 차단한다.
+다른 작업이 정상 완료하거나 pause를 반복해도 불명확한 결과를 지우지 않는다.
+외부 전송 오류가 기존 정책대로 RETRY/FAILED로 정상 저장된 경우에는 차단하지 않는다.
+
+차단 시 DB 작업 상태·lease와 발송 기록을 확인해야 한다. 현재 강제 해제 API는 없으며
+배포 자동화는 이 상태를 성공으로 간주하거나 기존 EC2를 자동 중지해서는 안 된다.
+로컬 BLOCKED·작업 개수는 메모리에만 있다. 재시작을 불명확한 결과의 해결로 취급하지 않는다.
+제어 모드의 DB owner는 이전 boot ID를 유지하므로 새 프로세스가 대신 인계할 수 없다.
+worker의 drain만으로 HTTP 요청까지 종료되었거나 EC2를 중지해도 된다는 뜻은 아니다.
+A/B 처리 권한 제어는 아래 내부 서비스를 사용한다. 외부 제어 API·workflow/Compose 전달은 아직 연결하지 않았으므로
+후보 배포 자동화가 완성된 것으로 사용하지 않는다. 기존 환경의 초기 기본 동작은 `false`로 유지한다.
+
+### DB 기반 worker 처리 권한
+
+`PUSH_WORKER_CONTROL_ENABLED=true`이면 host ID와 environment가 필수다.
+두 값은 영문·숫자로 시작하고 영문·숫자·`_`·`-`로 구성한 1~64자여야 한다.
+boot ID는 JVM 기동 시 새 UUID로 생성하며 파일이나 환경 변수에서 복원하지 않는다.
+제어 모드에서는 일반 `resume()`으로 활성화할 수 없다.
+제어 모드를 끈 기존 앱은 이 DB fencing을 사용하지 않으므로, 구형 앱과의 최초 이관은 별도 검토가 필요하다.
+
+Flyway `V4__worker_authority.sql`의 `worker_authority`는 환경당 한 행을 둔다.
+배포 ID·epoch·phase·명령 revision과 worker owner(host/boot)·authority revision을 같은 행에 저장하여
+배포 명령과 선점을 같은 행 잠금으로 직렬화한다. epoch와 authority revision은 별개다.
+새 배포 시작·명령 deadline 만료가 정상 운영 중인 worker의 권한을 만료시키지는 않는다.
+
+내부 `WorkerAuthorityService`의 정상 인계 순서는 다음과 같다. 아직 호출용 운영 API는 없다.
+
+```text
+begin: 새 배포 PREPARE (기존 worker 권한 유지)
+  → HANDOFF 단계
+  → A pause: 신규 허가 차단 + DB owner를 DRAINING으로 표시
+  → A의 로컬 작업 완료 확인
+  → A release: 같은 host/boot의 PAUSED·inFlight0·unresolved0 확인 후 owner 반납
+  → B activate: owner 없음·B 대기 확인 → DB 커밋 → B 로컬 활성화
+  → OBSERVE → COMPLETE (B의 처리 권한은 유지)
+```
+
+초기 owner가 없을 때의 명시적 활성화도 지원하지만, legacy worker의 종료 확인을 대신하지 않는다.
+명령은 deployment ID·epoch·command ID·대상 host/boot·expected phase·deadline·expected revision을 포함한다.
+행 잠금을 얻은 뒤에도 deadline과 현재 상태를 확인한다. 같은 마지막 명령의 정확한 재요청은
+부작용 없이 반환하고, 이전 revision/phase/epoch의 지연 요청은 거부한다.
+활성화 재요청으로 pause를 취소하지 않으며 동일 command ID의 다른 내용도 거부한다.
+
+실제 `claimNext` 트랜잭션은 권한 행을 잠근 상태에서 owner host/boot·ACTIVE를 확인하고 작업을 선점한다.
+외부 푸시 전송까지 이 행 잠금을 유지하지 않는다. A에서 이미 허가된 작업은 로컬 in-flight로 추적하므로
+DB 신규 선점을 막았다는 사실만으로 B를 활성화하지 않는다. DB 전체 IN_FLIGHT 수를 A의 작업 수로 쓰지 않는다.
+
+이전 프로세스가 사라지거나 BLOCKED여서 완료 증명을 얻지 못하면 owner를 자동 탈취하지 않는다.
+재시작한 같은 호스트도 이전 boot를 대신해 pause/release할 수 없다. 미완료 배포를 시간 경과만으로
+덮어쓰지 않으며, 불명확한 상태의 수동 복구 절차·관리 API·알림은 이후 단계에서 연결한다.
+현재 DB phase는 worker 인계를 위한 단계이며 Nginx 전환·15분 관찰·EC2 중지 자체를 실행하거나 증명하지 않는다.
 
 DNS는 최대 두 건만 동시에 조회하고 기다리는 요청을 쌓지 않습니다. 공개 주소를 검사한 뒤 해당 주소에
 연결하며, 원래 호스트의 TLS 인증서 검증을 유지합니다. redirect와 HTTP 클라이언트 자체 재시도는 끕니다.

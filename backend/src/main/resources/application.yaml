@@ -52,6 +52,10 @@ jarihana:
   push:
     enabled: ${PUSH_ENABLED:false}
     worker-enabled: ${PUSH_WORKER_ENABLED:true}
+    worker-start-paused: ${PUSH_WORKER_START_PAUSED:false}
+    worker-control-enabled: ${PUSH_WORKER_CONTROL_ENABLED:false}
+    worker-host-id: ${PUSH_WORKER_HOST_ID:}
+    worker-environment: ${PUSH_WORKER_ENVIRONMENT:}
     vapid-public-key: ${PUSH_VAPID_PUBLIC_KEY:}
     vapid-private-key: ${PUSH_VAPID_PRIVATE_KEY:}
     vapid-subject: ${PUSH_VAPID_SUBJECT:}

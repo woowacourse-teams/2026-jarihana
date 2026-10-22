@@ -1,4 +1,5 @@
 TRUNCATE TABLE
+    worker_authority,
     invitation_acceptance,
     invitation,
     notification_deliveries,
