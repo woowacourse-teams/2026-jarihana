@@ -75,12 +75,13 @@
 | `flexibleBeforeFirstRecurring.fromDate` | string (날짜) | 그룹 개설일 |
 | `flexibleBeforeFirstRecurring.untilDate` | string (날짜) | 첫 표시 묶음 시작 전날. 종료 그룹은 종료일까지 |
 | `flexibleBeforeFirstRecurring.registeredOn` | string (날짜) | 첫 표시 묶음의 현재 `startDate`; 별도 등록 시각 필드가 아니다 |
-| `flexibleAfterRecurring` | object[] | 유동적 운영 기간. 반복 규칙을 한 번도 등록하지 않은 유동적 그룹도 이 배열을 사용 |
+| `flexibleAfterRecurring` | object[] | 유동적 운영 기간. 정기 묶음을 한 번도 만들지 않은 경우에는 `CLUB`·`STUDY`이면서 `meetingType=FLEXIBLE`인 그룹만 개설일부터의 기간을 이 배열로 반환 |
 | `flexibleAfterRecurring[].fromDate` | string (날짜) | 기간 시작일 |
 | `flexibleAfterRecurring[].untilDate` | string (날짜) 또는 null | 기간 종료일. 종료 제한이 없으면 null |
 | `events` | object[] | 조회 범위에 걸치는 이벤트. 없으면 빈 배열 |
 
 유동적 기간은 조회 범위와 겹칠 때 반환되지만 `fromDate`·`untilDate`를 요청 범위로 잘라내지 않는다. `showBaseSchedule=false`이면 유동적 기간도 반환하지 않는다.
+현재 구현은 정기 묶음 이력이 없는 그룹의 최초 유동적 기간을 `meetingType`으로 판별한다. `ONLINE`·`OFFLINE` 그룹은 `recurringSchedule`이 없어도 이 최초 기간 안내를 반환하지 않는다.
 
 | `events[]` 필드 | JSON 타입 | 설명 |
 | --- | --- | --- |

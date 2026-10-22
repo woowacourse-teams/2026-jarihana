@@ -34,7 +34,11 @@ const pathSegments = new Set([
   "sessions",
   "terminate",
   "close",
-  "decision"
+  "decision",
+  "activity-posts",
+  "activity-post-comments",
+  "comments",
+  "reactions"
 ]);
 const safeId = (value) =>
   (typeof value === "number" && Number.isSafeInteger(value)) ||
@@ -126,7 +130,7 @@ export function sanitizeProperties(properties = {}) {
   const result = {};
   for (const [key, value] of Object.entries(properties)) {
     if (
-      ["group_id", "recruitment_id", "registration_id", "member_id"].includes(key) &&
+      ["group_id", "recruitment_id", "registration_id", "member_id", "activity_post_id"].includes(key) &&
       safeId(value)
     ) {
       result[key] = value;
@@ -151,7 +155,10 @@ export function sanitizeProperties(properties = {}) {
         "outcome",
         "error_code",
         "method",
-        "environment"
+        "environment",
+        "target_type",
+        "emoji",
+        "viewer_relation"
       ].includes(key) &&
       safeLabel(value)
     ) {

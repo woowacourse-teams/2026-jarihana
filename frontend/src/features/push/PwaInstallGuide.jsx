@@ -10,7 +10,7 @@ import "./pwa-install-guide.css";
 
 const snoozeKey = "jarihana:pwa-guide:hidden-until";
 const sevenDays = 7 * 24 * 60 * 60 * 1000;
-const pushGuideImageBaseUrl = "https://d2lab72n5rrvlq.cloudfront.net/images/push-guide";
+const pushGuideImageBaseUrl = "/images/push-guide";
 const iosChromeSteps = [
   {
     alt: "Chrome 주소창 오른쪽의 공유 버튼",

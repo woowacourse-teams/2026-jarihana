@@ -509,10 +509,10 @@
   border: 1px solid var(--color-line);
   border-radius: var(--radius-pill);
 }
-.landing-product-scene .lps-reactions .lps-selected {
-  border-color: var(--color-brand);
-  color: var(--color-brand-ink);
-  background: var(--color-brand-soft);
+.landing-product-scene .lps-reactions img {
+  width: 1rem;
+  height: 1rem;
+  object-fit: contain;
 }
 .landing-product-scene .lps-feed-comments > strong {
   display: flex;

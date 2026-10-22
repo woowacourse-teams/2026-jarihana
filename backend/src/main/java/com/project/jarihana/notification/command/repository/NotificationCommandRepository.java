@@ -20,6 +20,17 @@ public interface NotificationCommandRepository extends Repository<Notification, 
 
     Optional<Notification> findByEventKeyAndMemberId(String eventKey, long memberId);
 
+    @Query(value = """
+            select exists (
+                select 1 from notifications
+                where member_id = :memberId and event_type = 'ACTIVITY_POST_REACTED'
+                  and read_at is null and deleted_at is null
+                  and cast(payload ->> 'activityPostId' as bigint) = :activityPostId
+            )
+            """, nativeQuery = true)
+    boolean existsUnreadActivityPostReaction(@Param("memberId") long memberId,
+                                             @Param("activityPostId") long activityPostId);
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = """
             update notifications set read_at = :now, updated_at = :now

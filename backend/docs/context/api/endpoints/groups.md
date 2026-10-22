@@ -4,8 +4,14 @@
 
 그룹 목록·상세 조회는 대표 이미지 키가 없거나 기본 이미지 키인 경우
 `images/default-group.png`를 반환한다. 업로드된 이미지 키가 연결된 경우에는
-설정된 공개 이미지 Base URL과 스토리지 키를 조합한 URL을 반환한다.
-공개 Base URL이 비어 있으면 업로드 이미지의 스토리지 키를 그대로 반환한다.
+환경별 기존 서비스 도메인의 이미지 접근 주소(예: `https://jarihana.com/api/images`)와 키를 조합한
+URL을 반환한다. 이 주소는 백엔드의 접근 확인을 거쳐 같은 서비스 도메인의 전달 URL로 이동한다.
+CDN 서명 키가 모두 설정되어 있으면 기본 5분짜리 CloudFront 서명 URL을 사용한다. 서명 키가 비어 있을 때의 현재 동작은 [이미지 조회 계약](images.md#get-apiimagesimagekey)을 따른다. CloudFront 배포 도메인은 API 응답에 직접 노출하지 않는다.
+공개 Base URL이 비어 있으면 `/api/images/{imageKey}`를 반환한다.
+
+새 대표·소개 이미지는 그룹 생성·수정 시 `groups/tmp/{uuid}`에서 `groups/{groupId}/{uuid}`로
+이동한다. 기존 이미지는 원래 경로를 유지한다. 그룹 종료는 삭제가 아니므로 `ENDED` 그룹의 모든 이미지
+참조와 조회 권한을 보존한다.
 
 목록·상세의 `activeRecruitment.approvedCount`는 해당 공고의 모집으로 가입한 인원(APPROVED·RECRUITMENT)이다.
 초대 출처 승인은 제외한다. `memberCount`는 실제 GroupMember 수이며 모임장과 초대 합류자도 포함한다.
@@ -114,6 +120,7 @@
 - `representativeImageKey`는 nullable 스토리지 키이며, `null`이면 기본 대표 이미지를 사용한다.
 - `name`과 `introduction`은 공백만 있는 값을 허용하지 않으며 각각 최대 50자, 100자다.
   `description`은 nullable이며 최대 10,000자, `representativeImageKey`는 최대 255자다.
+- 새 대표 이미지와 소개 본문의 관리 대상 이미지 키는 업로더·연결 그룹·상태와 스토리지의 실제 크기·콘텐츠 타입을 검증한다. 저장 시 경로 승격과 참조 등록을 수행하며, 상세 규칙은 [이미지 계약](images.md)을 따른다.
 #### 요청 — CLUB 또는 STUDY
 
 ```json
@@ -198,7 +205,7 @@ Location: /api/groups/12
 | SESSION에 sessionSchedule 누락 | `SCHEDULE_REQUIRED` | 400 |
 | 두 일정 동시 전달 | `SCHEDULE_TYPE_MISMATCH` | 400 |
 | 요일 누락·빈 배열·null 원소, 시각 한쪽만 지정, 세션 날짜·시각 누락 또는 시작 시각이 종료 시각 이상 | `SCHEDULE_INVALID_RULE` | 400 |
-| 대표 이미지 키가 비어 있거나 업로드 없음·만료·스토리지 객체 없음·확인 실패 | `IMAGE_NOT_FOUND` | 400 |
+| 대표·소개 이미지 키가 잘못되거나 업로드 없음·연결 자격 없음·임시 업로드 만료·스토리지 크기/콘텐츠 타입 불일치·확인 실패 | `IMAGE_NOT_FOUND` | 400 |
 
 ### `DELETE /api/groups/{groupId}`
 
@@ -215,6 +222,7 @@ Request Body는 없다.
 - `ACTIVE`이고 생성 시각부터 정확히 24시간이 되는 시각까지 가능하다.
 - 그룹, 초대·수락 이력, 모집 공고, 신청, 구성원, 현재 일정, 달력의 개별 일정·정기 규칙 이력·장소 이력을 Hard Delete한다.
 - 사진 활동 기록은 숨김 처리한다.
+- 그룹의 대표·소개·활동 사진 참조를 제거한다. 다른 활성 참조가 없는 이미지는 기본 7일 유예 후 정리 대상으로 예약하며, 실제 삭제는 정리 작업이 활성화되어야 수행한다.
 - 수신자의 초대 알림은 유지하고 PENDING·RETRY·IN_FLIGHT 초대 전송을 취소한다. 삭제된 초대의 상세·공유 미리보기·수락은 INVITATION_NOT_FOUND(404)로 안내한다. 이미 전달된 OS 알림은 회수하지 않는다.
 - `Group.status`를 변경하지 않는다.
 - 삭제 요청을 종료 요청으로 자동 전환하지 않는다.
@@ -293,6 +301,7 @@ Request Body는 없다.
 ```
 
 `ACTIVE → ENDED` 단방향 상태 전이만 허용한다.
+그룹 종료 시 대표·소개·활동 사진은 삭제하거나 정리 대상으로 만들지 않고 그대로 보존한다.
 
 #### 응답 200
 
@@ -347,6 +356,7 @@ Request Body는 없다.
 - 문자열 길이와 빈 이름·소개 제약은 그룹 생성과 같다. nullable 필드는 문자열 또는 `null`만 허용한다.
 - `type`, `status`, 일정은 이 API에서 수정하지 않는다.
 - `meetingType`과 `location`은 그룹의 모임 방식과 장소를 전체 교체한다. `meetingType`은 필수이며 `ONLINE`, `OFFLINE`, `FLEXIBLE` 중 하나를 보낸다. 장소를 비우려면 `null`을 명시한다.
+- 기존 대표·소개 이미지 참조를 유지하면 업로더·만료·스토리지 검증을 반복하지 않는다. 새 이미지에는 생성과 같은 검증·승격을 적용하고, 제거된 마지막 참조의 이미지는 유예 삭제를 예약한다.
 
 #### 응답 200
 수정된 그룹 상세 응답을 반환한다.
@@ -360,7 +370,7 @@ Request Body는 없다.
 | ENDED 그룹 | `GROUP_ENDED` | 409 |
 | 그룹 이름 중복 | `GROUP_NAME_DUPLICATED` | 409 |
 | 필수 필드 누락 또는 값 제약 위반 | `INVALID_PARAMETER` | 400 |
-| 변경한 대표 이미지 키가 비어 있거나 업로드 없음·만료·스토리지 객체 없음·확인 실패 | `IMAGE_NOT_FOUND` | 400 |
+| 변경한 대표·소개 이미지 키가 잘못되거나 업로드 없음·연결 자격 없음·임시 업로드 만료·스토리지 크기/콘텐츠 타입 불일치·확인 실패 | `IMAGE_NOT_FOUND` | 400 |
 
 ### `DELETE /api/groups/{groupId}/recurring-schedule`
 

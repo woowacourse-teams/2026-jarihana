@@ -14,6 +14,8 @@
 | `description` | String | nullable, 최대 10000자 | 상세 소개 |
 | `representativeImageKey` | String | nullable | 이미지 URL이 아닌 스토리지 키 |
 | `status` | Enum (`GroupStatus`) | NOT NULL, 기본값 `ACTIVE` | 그룹의 활동 상태. `ACTIVE`는 활동 중인 모임, `ENDED`는 종료된 모임 |
+| `showBaseScheduleInCalendar` | boolean | NOT NULL, 기본값 `true` | 기본 정기·세션 일정과 유동적 기간 안내의 달력 표시 여부. 공개 달력에서는 `showBaseSchedule`로 반환 |
+| `endedOn` | LocalDate | nullable | 그룹 종료일. 종료 후 달력의 조회·표시 상한으로 사용 |
 | `createdAt` | LocalDateTime | NOT NULL | 그룹 생성 시각 |
 | `updatedAt` | LocalDateTime | NOT NULL | 최종 수정 시각 |
 

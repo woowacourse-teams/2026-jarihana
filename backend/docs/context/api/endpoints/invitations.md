@@ -226,6 +226,7 @@ Request Body는 없다.
       {
         "memberId": 21,
         "crewName": "마루",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/12345",
         "generation": 8,
         "memberType": "CREW",
         "course": "FRONTEND"
@@ -238,7 +239,9 @@ Request Body는 없다.
 }
 ```
 
-items는 memberId·crewName·generation·memberType·course만 제공한다. 이메일·GitHub ID·가입일은 제공하지 않는다.
+items는 memberId·crewName·avatarUrl·generation·memberType·course만 제공한다.
+avatarUrl은 기존 참여자 목록과 동일하게 GitHub ID로 생성한 프로필 사진 URL이다.
+이메일·GitHub ID·가입일은 별도 필드로 제공하지 않는다.
 `memberType`은 `CREW` 또는 `COACH`다. `COACH`의 `generation`·`course`는 `null`로 반환한다.
 
 #### 부수 효과

@@ -1,5 +1,7 @@
 import { Button, Modal } from "../../shared/ui/index.js";
+import { useEffect, useRef } from "react";
 import { UnderlineField } from "./EditorFields.jsx";
+import { focusInvalidField } from "./focusInvalidField.js";
 
 export const DAYS = [
   ["MONDAY", "월요일", "월"],
@@ -152,6 +154,7 @@ export function SessionScheduleFields({ errors, register }) {
 
 export function ScheduleDialog({
   errors,
+  focusRequest,
   flexibleTime,
   isSession,
   onClose,
@@ -164,6 +167,13 @@ export function ScheduleDialog({
   requestError,
   selectedDays
 }) {
+  const formReference = useRef(null);
+  useEffect(() => {
+    if (!open || !focusRequest) return;
+    const frame = window.requestAnimationFrame(() => focusInvalidField(formReference.current, focusRequest.name));
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusRequest, open]);
+
   return (
     <Modal
       closeAction={isSession ? "session_schedule_dismiss" : "recurring_schedule_dismiss"}
@@ -176,7 +186,7 @@ export function ScheduleDialog({
       open={open}
       title="활동 일정"
     >
-      <form className="group-editor__schedule-dialog" onSubmit={onSubmit} noValidate>
+      <form className="group-editor__schedule-dialog" onSubmit={onSubmit} ref={formReference} noValidate>
         {requestError ? (
           <p className="group-editor__error" role="alert">
             {requestError}
