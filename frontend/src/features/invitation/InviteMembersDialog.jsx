@@ -4,7 +4,7 @@ import { Check, Copy, LoaderCircle, Search, UserPlus, X } from "lucide-react";
 
 import { getSafeNextCursor, mergeCursorPages } from "../../entities/cursor";
 import { useAuth } from "../auth";
-import { Button, ConfirmDialog, Modal, TextField, useToast } from "../../shared/ui";
+import { Avatar, Button, ConfirmDialog, Modal, TextField, useToast } from "../../shared/ui";
 import {
   createInvitation,
   fetchInvitation,
@@ -410,6 +410,8 @@ function InviteMembersDialogSession({ groupId, open, onClose }) {
                                   <input checked={checked} data-ph-capture-attribute-action="invitation_member_select" disabled={sending}
                                     onChange={() => toggleCandidate(candidate)} type="checkbox" />
                                   <span aria-hidden="true" className="invitation-candidate__check">{checked && <Check size={14} />}</span>
+                                  <Avatar alt={`${candidate.crewName} 프로필`} className="invitation-candidate__avatar"
+                                    fallback={candidate.crewName.slice(0, 1)} size="sm" src={candidate.avatarUrl} />
                                   <span className="invitation-candidate__name">{candidate.crewName}</span>
                                   <span className="invitation-candidate__meta">{candidate.generation ? `${candidate.generation}기 · ` : ""}
                                     {roleLabel(candidate.memberType)}{courseLabel(candidate.course) ? ` · ${courseLabel(candidate.course)}` : ""}</span>
