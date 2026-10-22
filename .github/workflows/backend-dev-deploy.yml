@@ -8,6 +8,7 @@ on:
       - "backend/**"
       - "infra/docker-compose.dev.yml"
       - "infra/monitoring/alloy/config.alloy"
+      - "infra/monitoring/alloy/postgres-queries.yaml"
       - "infra/scripts/verify-backend.sh"
       - ".github/workflows/backend-dev-deploy.yml"
   workflow_dispatch:
@@ -52,11 +53,9 @@ jobs:
           cache: gradle
           cache-dependency-path: backend/**/*.gradle*
 
-      - name: Backend 마이그레이션 및 회귀 테스트
-        working-directory: backend
-        run: ./gradlew test --no-daemon
-
-      # Dockerfile은 이 jar를 복사하기만 한다. 테스트가 컴파일한 결과와 Gradle 캐시를 그대로 쓰므로 jar로 묶는 일만 남는다.
+      # 회귀 테스트는 PR CI(ci.yml의 Backend Test)에서 실행한다.
+      # develop 규칙(ci-rule)은 최신 develop을 반영한 PR의 테스트 통과를 병합 조건으로 요구하며, 우회 대상은 없다.
+      # 배포에서는 테스트를 반복하지 않고 jar를 빌드한다. Dockerfile은 이 jar를 복사한다.
       - name: Backend jar 빌드
         working-directory: backend
         run: ./gradlew bootJar --no-daemon
