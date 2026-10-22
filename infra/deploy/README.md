@@ -2,7 +2,8 @@
 
 별도 Nginx EC2가 고정된 앱 A/B의 준비·전환·관찰·종료 순서를 조정하기 위한 코드다.
 현재는 **제어 로직, Nginx·Docker 종료·GitHub API 어댑터, 로컬 검증**까지 구현했다. AWS 어댑터와 workflow 연결,
-runner·권한·서버 설치는 다음 작업이다. 이 파일의 설정을 복사하는 것만으로 운영 배포가 활성화되지 않는다.
+runner·권한·상시 서비스 연결은 다음 작업이다. 신규 두 EC2의 Docker 준비와 사설 통신 검증은
+[SSM 서버 준비 기록](server-preparation.md)에 정리했다. 이 파일의 설정을 복사하는 것만으로 운영 배포가 활성화되지 않는다.
 설계 배경은 [인프라 ADR 0005](../docs/adr/0005-nginx-ec2-blue-green-deployment.md)를 따른다.
 
 ## 동작 순서
