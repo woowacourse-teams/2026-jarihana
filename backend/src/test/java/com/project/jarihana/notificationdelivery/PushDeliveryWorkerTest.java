@@ -22,8 +22,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 @Import(PushTransportTestConfig.class)
 class PushDeliveryWorkerTest extends PushIntegrationTestSupport {
@@ -51,6 +53,7 @@ class PushDeliveryWorkerTest extends PushIntegrationTestSupport {
         // When
         worker.processDue();
         // Then
+        awaitDeliveryProcessing();
         assertThat(transport.requests()).hasSize(2);
         assertThat(status(first)).isEqualTo(DeliveryStatus.ACCEPTED);
         assertThat(status(second)).isEqualTo(DeliveryStatus.RETRY);
@@ -70,6 +73,7 @@ class PushDeliveryWorkerTest extends PushIntegrationTestSupport {
         // When
         worker.processDue();
         // Then
+        awaitDeliveryProcessing();
         assertThat(status(pending)).isEqualTo(DeliveryStatus.FAILED);
         assertThat(deliveries.findById(pending.getId()).orElseThrow().getAttemptCount()).isZero();
         assertThat(transport.requests()).isEmpty();
@@ -86,6 +90,7 @@ class PushDeliveryWorkerTest extends PushIntegrationTestSupport {
         // When
         worker.processDue();
         // Then
+        awaitDeliveryProcessing();
         assertThat(status(pending)).isEqualTo(DeliveryStatus.CANCELLED);
         assertThat(transport.requests()).isEmpty();
     }
@@ -100,10 +105,12 @@ class PushDeliveryWorkerTest extends PushIntegrationTestSupport {
         // When
         for (int i = 0; i < 5; i++) {
             worker.processDue();
+            awaitDeliveryProcessing();
             jdbc.update("update notification_deliveries set next_attempt_at = ? where id = ?", NOW, pending.getId());
         }
         worker.processDue();
         // Then
+        awaitDeliveryProcessing();
         assertThat(transport.requests()).hasSize(5);
         assertThat(status(pending)).isEqualTo(DeliveryStatus.FAILED);
         assertThat(deliveries.findById(pending.getId()).orElseThrow().getAttemptCount()).isEqualTo(5);
@@ -117,16 +124,27 @@ class PushDeliveryWorkerTest extends PushIntegrationTestSupport {
         var subscription = subscription(owner, "one");
         var other = subscription(owner, "other");
         var first = deliveries.save(NotificationDelivery.create(notification(owner, "first"), subscription, NOW, NOW.plusDays(1)));
+        for (int i = 0; i < 3; i++) {
+            deliveries.save(NotificationDelivery.create(notification(owner, "blocker" + i), other, NOW, NOW.plusDays(1)));
+        }
         var remaining = deliveries.save(NotificationDelivery.create(notification(owner, "second"), subscription, NOW, NOW.plusDays(1)));
-        transport.respond(request -> new PushResult(Outcome.GONE, "HTTP_410", null));
+        var gone = new CompletableFuture<PushResult>();
+        var blocked = new CompletableFuture<PushResult>();
+        transport.respondAsync(request -> request.deliveryId() == first.getId() ? gone : blocked);
         // When
         worker.processDue();
+        assertThat(transport.requests()).hasSize(4);
+        assertThat(status(remaining)).isEqualTo(DeliveryStatus.PENDING);
+        gone.complete(new PushResult(Outcome.GONE, "HTTP_410", null));
+        await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(status(remaining)).isEqualTo(DeliveryStatus.CANCELLED));
+        blocked.complete(PushResult.accepted());
+        awaitDeliveryProcessing();
         // Then
         assertThat(status(first)).isEqualTo(DeliveryStatus.FAILED);
         assertThat(status(remaining)).isEqualTo(DeliveryStatus.CANCELLED);
         assertThat(subscriptions.findByIdAndMemberId(subscription.getId(), owner.getId()).orElseThrow().isEnabled()).isFalse();
         assertThat(subscriptions.findByIdAndMemberId(other.getId(), owner.getId()).orElseThrow().isEnabled()).isTrue();
-        assertThat(transport.requests()).hasSize(1);
+        assertThat(transport.requests()).hasSize(4).noneMatch(request -> request.deliveryId() == remaining.getId());
     }
 
     @ParameterizedTest
@@ -144,6 +162,7 @@ class PushDeliveryWorkerTest extends PushIntegrationTestSupport {
         // When
         worker.processDue();
         // Then
+        awaitDeliveryProcessing();
         assertThat(status(pending)).isEqualTo(expected);
         assertThat(deliveries.findById(pending.getId()).orElseThrow().getAttemptCount()).isEqualTo(count);
         assertThat(transport.requests()).hasSize(expected == DeliveryStatus.ACCEPTED ? 1 : 0);
@@ -158,6 +177,7 @@ class PushDeliveryWorkerTest extends PushIntegrationTestSupport {
         // When
         worker.processDue();
         // Then
+        awaitDeliveryProcessing();
         assertThat(status(pending)).isEqualTo(DeliveryStatus.FAILED);
         assertThat(deliveries.findById(pending.getId()).orElseThrow().getAttemptCount()).isEqualTo(1);
         assertThat(transport.requests()).hasSize(1);
@@ -177,6 +197,7 @@ class PushDeliveryWorkerTest extends PushIntegrationTestSupport {
         // When
         worker.processDue();
         // Then
+        awaitDeliveryProcessing();
         assertThat(status(deleted)).isEqualTo(DeliveryStatus.CANCELLED);
         assertThat(status(retry)).isEqualTo(DeliveryStatus.FAILED);
         assertThat(transport.requests()).hasSize(1);

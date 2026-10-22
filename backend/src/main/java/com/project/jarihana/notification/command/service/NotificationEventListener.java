@@ -1,5 +1,8 @@
 package com.project.jarihana.notification.command.service;
 
+import com.project.jarihana.activitypost.domain.ReactionEmoji;
+import com.project.jarihana.activitypost.domain.event.ActivityPostCommentedEvent;
+import com.project.jarihana.activitypost.domain.event.ActivityPostReactedEvent;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.group.domain.event.GroupCreatedEvent;
 import com.project.jarihana.member.domain.Member;
@@ -86,6 +89,8 @@ public class NotificationEventListener {
             case REGISTRATION_APPROVED -> "approved";
             case REGISTRATION_REJECTED, REGISTRATION_SYSTEM_REJECTED -> "rejected";
             case INVITATION_RECEIVED -> throw new IllegalStateException("초대 사건은 신청 사건과 구분해야 합니다.");
+            case ACTIVITY_POST_COMMENTED, ACTIVITY_POST_REACTED ->
+                    throw new IllegalStateException("활동 기록 사건은 신청 사건과 구분해야 합니다.");
         };
         String key = "registration:" + registrationId + ":" + suffix;
         record(member, key, type, payload, now, subscriptions.findActiveByMemberId(memberId));
@@ -97,6 +102,41 @@ public class NotificationEventListener {
         record(member, "invitation:" + event.invitationId() + ":received", NotificationEventType.INVITATION_RECEIVED,
                 NotificationPayload.invitation(event.groupId(), event.invitationId()), event.occurredAt(),
                 subscriptions.findActiveByMemberId(event.targetMemberId()));
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT, fallbackExecution = false)
+    public void onActivityPostCommented(ActivityPostCommentedEvent event) {
+        if (event.commenterMemberId() == event.postAuthorMemberId()) {
+            return;
+        }
+        Member author = members.findById(event.postAuthorMemberId()).orElseThrow();
+        if (author.getWithdrawnAt() != null) {
+            return;
+        }
+        record(author, "activity-post-comment:" + event.commentId() + ":created",
+                NotificationEventType.ACTIVITY_POST_COMMENTED,
+                NotificationPayload.activityPost(event.groupId(), event.activityPostId()), event.occurredAt(),
+                subscriptions.findActiveByMemberId(author.getId()));
+    }
+
+    /**
+     * 작성자가 아직 읽지 않은 좋아요 알림이 있으면 새 알림과 푸시를 만들지 않고 그 알림에 모은다.
+     * 알림함 문구는 조회할 때 현재 좋아요로 계산하므로 모인 인원이 그대로 보인다.
+     */
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT, fallbackExecution = false)
+    public void onActivityPostReacted(ActivityPostReactedEvent event) {
+        if (event.emoji() != ReactionEmoji.HEART || event.reactorMemberId() == event.postAuthorMemberId()) {
+            return;
+        }
+        Member author = members.findById(event.postAuthorMemberId()).orElseThrow();
+        if (author.getWithdrawnAt() != null
+                || notifications.existsUnreadActivityPostReaction(author.getId(), event.activityPostId())) {
+            return;
+        }
+        record(author, "activity-post-reaction:" + event.reactionId() + ":created",
+                NotificationEventType.ACTIVITY_POST_REACTED,
+                NotificationPayload.activityPost(event.groupId(), event.activityPostId()), event.occurredAt(),
+                subscriptions.findActiveByMemberId(author.getId()));
     }
 
     private void record(Member member, String key, NotificationEventType type, NotificationPayload payload,

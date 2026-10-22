@@ -1,9 +1,12 @@
 package com.project.jarihana.notification.query.service;
 
+import com.project.jarihana.activitypost.domain.ReactionEmoji;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.member.command.repository.MemberRepository;
+import com.project.jarihana.notification.domain.NotificationEventType;
 import com.project.jarihana.notification.query.repository.NotificationQueryRepository;
+import com.project.jarihana.notification.query.repository.dto.ActivityPostReactionSummaryProjection;
 import com.project.jarihana.notification.query.repository.dto.NotificationProjection;
 import com.project.jarihana.notification.query.repository.dto.NotificationGroupProjection;
 import com.project.jarihana.notification.query.service.dto.NotificationItemResult;
@@ -41,8 +44,10 @@ public class NotificationQueryService {
         List<NotificationProjection> items = page.getContent();
         String next = page.hasNext() ? encode(items.getLast()) : null;
         Map<Long, String> groupNames = findGroupNames(items);
+        Map<Long, ActivityPostReactionSummaryProjection> reactions = findReactionSummaries(items);
         return new NotificationListResult(items.stream()
-                .map(item -> NotificationItemResult.from(item, groupNames.get(item.payload().getGroupId())))
+                .map(item -> NotificationItemResult.from(item, groupNames.get(item.payload().getGroupId()),
+                        reactionOf(reactions, item)))
                 .toList(), next, page.hasNext());
     }
 
@@ -54,7 +59,30 @@ public class NotificationQueryService {
         NotificationProjection item = notifications.findActiveByIdAndMemberId(id, memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOTIFICATION_NOT_FOUND, "알림을 찾을 수 없습니다."));
         Map<Long, String> groupNames = findGroupNames(List.of(item));
-        return NotificationItemResult.from(item, groupNames.get(item.payload().getGroupId()));
+        Map<Long, ActivityPostReactionSummaryProjection> reactions = findReactionSummaries(List.of(item));
+        return NotificationItemResult.from(item, groupNames.get(item.payload().getGroupId()), reactionOf(reactions, item));
+    }
+
+    private static ActivityPostReactionSummaryProjection reactionOf(
+            Map<Long, ActivityPostReactionSummaryProjection> reactions, NotificationProjection item) {
+        if (item.eventType() != NotificationEventType.ACTIVITY_POST_REACTED) {
+            return null;
+        }
+        return reactions.get(item.payload().getActivityPostId());
+    }
+
+    /**
+     * 좋아요 알림만 활동 기록별 현재 좋아요 요약을 한 번에 조회한다.
+     */
+    private Map<Long, ActivityPostReactionSummaryProjection> findReactionSummaries(List<NotificationProjection> items) {
+        List<Long> activityPostIds = items.stream()
+                .filter(item -> item.eventType() == NotificationEventType.ACTIVITY_POST_REACTED)
+                .map(item -> item.payload().getActivityPostId()).distinct().toList();
+        if (activityPostIds.isEmpty()) {
+            return Map.of();
+        }
+        return notifications.findReactionSummaries(activityPostIds, ReactionEmoji.HEART).stream()
+                .collect(Collectors.toMap(ActivityPostReactionSummaryProjection::activityPostId, summary -> summary));
     }
 
     private Map<Long, String> findGroupNames(List<NotificationProjection> items) {
