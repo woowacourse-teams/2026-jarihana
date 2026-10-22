@@ -1,7 +1,7 @@
 # 운영 Blue-Green 배포 제어
 
 별도 Nginx EC2가 고정된 앱 A/B의 준비·전환·관찰·종료 순서를 조정하기 위한 코드다.
-현재는 **제어 로직, 실제 Nginx·Docker 종료 어댑터, 로컬 검증**까지 구현했다. AWS/GitHub 운영 어댑터와 workflow 연결,
+현재는 **제어 로직, Nginx·Docker 종료·GitHub API 어댑터, 로컬 검증**까지 구현했다. AWS 어댑터와 workflow 연결,
 runner·권한·서버 설치는 다음 작업이다. 이 파일의 설정을 복사하는 것만으로 운영 배포가 활성화되지 않는다.
 설계 배경은 [인프라 ADR 0005](../docs/adr/0005-nginx-ec2-blue-green-deployment.md)를 따른다.
 
@@ -39,12 +39,17 @@ A worker를 활성화하지 않는다. `SEALED` 이후에는 이전 서버를 �
 | `scripts/deploy/bluegreen/github_operations.py` | control ref/SHA/event/attempt, 명령·artifact·인스턴스 일치 검사 |
 | `scripts/deploy/bluegreen/child_execution.py` | child의 최신 허가·실제 실행·머신·프로세스 대조 |
 | `scripts/deploy/bluegreen/child_artifacts.py` | 정확한 명령/run과 종료 증거를 묶은 엄격한 결과 JSON |
+| `scripts/deploy/bluegreen/github_applications.py` | GitHub dispatch·정확한 run 조회·poll·취소와 최신 저널 검사 |
+| `scripts/deploy/bluegreen/github_runs.py` | 고정 저장소·control tag/SHA·workflow·실행 차수·명령 이름 대조 |
+| `scripts/deploy/bluegreen/github_http.py` | 제한된 HTTP 전송·POST 재시도 금지·인증 분리 다운로드 |
+| `scripts/deploy/bluegreen/github_artifacts.py` | artifact 출처·만료·SHA-256·ZIP 검사 |
 | `scripts/deploy/bluegreen/nginx_switch.py` | 실제 Nginx 설정 검사·적용·복구, 기존 worker 세대 추적 |
 | `scripts/deploy/bluegreen/docker_shutdown.py` | 같은 컨테이너 세대·사전 drain·종료 코드·OOM·재시작 검사와 종료 증거 생성 |
 | `scripts/deploy/bluegreen/docker_runtime.py` | 비밀값 없는 제한 inspect와 강제 종료 없는 고정 SIGTERM 명령 |
 | `scripts/deploy/watchdog.py` | stale heartbeat를 attention으로 기록하는 제한된 CLI |
 
-위 경로는 `infra/` 기준이다. AWS/GitHub 전송은 `ports.py`의 인터페이스이며 **아직 운영 구현이 없다**.
+위 경로는 `infra/` 기준이다. GitHub 전송 라이브러리와 로컬 HTTP 검증은 구현했지만 실제 workflow에는 아직 연결하지 않았다.
+AWS 전송·서버 신원·원격 허가 조회도 남아 있다. [GitHub 연결 계약](github-actions-adapter.md)에 현재 범위와 연결 조건을 정리했다.
 child 실행 검사·결과 계약·읽기 전용 CLI의 범위는 [서버별 작업 계약](child-contract.md)을 따른다.
 배포 입력의 `rollback_compatible=true`는 개발자가 구·신버전의 DB/데이터 호환성을 확인했다는 명시적 확인이다.
 이 값이 스키마나 데이터의 호환성을 자동 분석하거나 DB를 원복하지 않는다.
@@ -113,11 +118,13 @@ Compose·runner의 종료/재시작 정책, 경쟁 배포·외부 재시작 방�
 
 ## 로컬 검증
 
-Python 3.12+와 `pydantic==2.14.0`을 사용한다. 다음 `uv --with` 실행은 프로젝트의 기존 표준 라이브러리
-unittest 테스트 구성을 유지하며 controller의 입력 검사 의존성만 공급한다. 서버 설치와 runtime 캐시 준비는 다음 단계다.
+Python 3.12+와 Pydantic·httpx2를 사용한다. 테스트 실행 파일에 의존성 버전을 고정했으며,
+기존 표준 라이브러리 unittest 구성을 유지한다. GitHub 테스트는 임시 localhost HTTP 포트를 열고,
+서명된 다운로드 응답은 HTTP transport fixture를 사용한다. 실제 GitHub/AWS 접근은 없다.
+서버 설치와 runtime 캐시 준비는 다음 단계다.
 
 ```sh
-uv run --with pydantic==2.14.0 python -m unittest discover -s infra/tests/deploy -v
+uv run infra/tests/deploy/run_tests.py
 
 # 실제 Nginx + HTTP fixture 두 개: 긴 요청 보존·설정 오류 거부
 uv run infra/tests/deploy/run_nginx_drain_e2e.py

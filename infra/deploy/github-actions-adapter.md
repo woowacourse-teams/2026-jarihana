@@ -1,0 +1,87 @@
+# GitHub Actions 배포 작업 연결
+
+`GitHubApplications`는 coordinator가 앱 서버 runner에게 작업을 요청하고 결과를 받는 라이브러리다.
+**현재 workflow에 연결하거나 실제 GitHub 배포를 실행한 상태는 아니다.** 기존 prod workflow는 변경하지 않았다.
+EC2 IMDS 신원·인증된 원격 최신 허가 조회·child 작업 workflow·Compose·AWS·관측 연결이 남아 있다.
+
+## 요청 흐름
+
+```text
+coordinator의 현재 pending 명령
+  → 저장소 ID·이름 / control tag → 승인된 SHA / workflow 경로 확인
+  → dispatch POST 한 번
+  → 정확한 run ID와 첫 attempt 확인 → Session이 저널에 pending_run 저장
+  → child가 최신 허가를 확인하고 작업 실행 [workflow·원격 조회는 후속 작업]
+  → 같은 run/attempt의 success + 정확한 artifact 이름 확인
+  → ZIP 내려받기 → 크기·SHA-256·단일 JSON 검사
+  → run 재확인 + 최신 pending 허가 확인 → accept_artifact → Receipt 반환
+```
+
+dispatch 응답을 잃으면 같은 명령을 다시 POST하지 않는다. 고유한 run-name으로 모든 조회 페이지를 확인하며,
+정확히 한 실행일 때만 기존 `Session`이 연결한다. 없거나 여러 개면 보류한다. 검색이 잘리거나 조회 중 총수가
+바뀌어도 결과를 추측하지 않는다. API의 일시적인 반영 지연도 첫 도입에서는 보류할 수 있다.
+
+200 응답의 `workflow_run_id`를 사용한다. 204·해석할 수 없는 200·POST 통신 유실·5xx는 실행 여부가
+불명확한 결과다. 403 등 권한 오류는 실패이며, 성공한 조회만으로 dispatch 권한을 입증하지 않는다.
+읽기 연결 오류만 제한된 transport 재시도를 사용하고 POST는 자동 재시도하지 않는다.
+429·조회 실패·시간 초과를 정상으로 바꾸지 않으므로 실제 API 지연이나 사용량 제한 때 보류될 수 있다.
+
+## 후속 workflow가 지켜야 할 계약
+
+| 항목 | 값 |
+| --- | --- |
+| 이벤트 | `workflow_dispatch` |
+| 실행 ref | topology의 `refs/tags/...`에서 `refs/tags/`를 뺀 tag 이름 |
+| 입력 | `command` 전체 JSON, `deployment_id`, `command_id`, `slot` |
+| run-name | `bg-<deployment_id>-<command_id>` |
+| artifact 이름 | `child-result-<deployment_id>-<command_id>-<run_id>-1` |
+| artifact 내용 | 루트의 `child-result.json` 한 개, 기존 ChildArtifact 계약 |
+| 재실행 | 첫 attempt만 허용. UI에서 rerun한 attempt 2 결과는 거부 |
+
+child는 실행 ID·차수·SHA를 실제 GitHub 정보와 대조하고, 저널에 자기 `pending_run`이 저장되기 전에는
+부작용을 실행하면 안 된다. 이 대기·원격 허가 확인은 후속 workflow/reader 작업이다.
+runner를 고르는 `slot` 입력만으로 머신 신원을 증명하지 않으며 실제 instance ID와 로컬 boot 검사가 필요하다.
+작업 실패를 `continue-on-error`로 숨기거나 결과 파일만으로 성공 처리하면 안 된다.
+자동 취소 요청의 202도 작업이 이미 종료됐다는 증거가 아니므로 즉시 EC2를 중지할 근거가 아니다.
+
+제어 코드는 보호된 tag/SHA로 배포하고 tag 이동 권한을 제한해야 한다. 앱 이미지 digest와 제어 코드 SHA는
+별개다. tag를 바꾸면 전송 전에 중단하며, 전송 직후 이동하더라도 다른 SHA의 실행 결과를 수용하지 않는다.
+이 검사가 GitHub의 tag 보호 설정이나 runner 격리를 대신하지 않는다.
+
+## 설정과 인증 경계
+
+운영 조립 코드에서 `github_clients()` context manager로 HTTP 클라이언트를 만들고,
+`GitHubHttp(clients, SecretStr(token), clock)`과 `GitHubContext(repository_pin, topology)`를
+`GitHubApplications(api, context, journal)`에 전달한다. 여기서 journal은 coordinator의 실제 StateStore다.
+현재는 이를 설치·실행하는 coordinator CLI나 workflow를 추가하지 않았다.
+
+- `RepositoryPin`에 저장소 `owner/repo`와 변경되지 않는 숫자 repository ID를 함께 지정한다.
+- API 주소는 production factory에서 `https://api.github.com`으로 고정한다. 토큰은 파일 예시나 저널에 쓰지 않는다.
+- 앱 설치 토큰 또는 제한된 토큰에 Actions read/write와 control tag 조회에 필요한 Contents read를 준비한다.
+  실제 토큰 종류·조직 정책·GitHub Actions 자체 dispatch 제약은 dev에서 확인해야 한다.
+- 다운로드 host는 실제 GitHub가 반환한 URL의 host를 확인해 정확한 이름으로 허용한다. wildcard나 임의 URL은 받지 않는다.
+  로컬 fixture의 `results.example`은 운영 주소가 아니다. 이 목록이 없거나 다르면 다운로드가 실패한다.
+- GitHub API의 redirect는 따라가지 않는다. ZIP의 302 Location은 HTTPS·허용 host·사용자 정보/명시적 포트 없음만 허용한다.
+  별도의 인증 없는 클라이언트로 내려받고 추가 redirect도 거부하므로 GitHub 토큰을 전달하지 않는다.
+- JSON 응답은 2 MiB, ZIP은 256 KiB, 결과 JSON은 64 KiB로 제한한다. 검색은 최대 1,000개이며 초과하면 보류한다.
+  이 값들은 작은 child 결과를 위한 초기 제한이다. 실제 결과 크기·API 형태를 dev에서 확인한다.
+- artifact 만료·저장소/run/SHA 불일치·중복·digest 누락/불일치·경로 이탈·symlink·다중 파일을 거부한다.
+  ZIP은 메모리에서 제한적으로 읽으며 디스크에 풀지 않는다. 수집 중 rerun·watchdog 허가 철회도 실패다.
+- 토큰, 서명 URL, 응답 원문은 오류 메시지에 포함하지 않는다. TLS 검증과 HTTP/2를 사용한다.
+  `Accept-Encoding: identity`를 요청하고 인코딩된 응답은 거부해 입력 크기 제한을 명확하게 유지한다.
+
+## 검증 범위
+
+```sh
+uv run infra/tests/deploy/run_tests.py
+```
+
+실제 localhost HTTP 서버로 dispatch·실행 조회·artifact metadata·취소 요청을 처리한다. 서명된 HTTPS 다운로드는
+httpx2의 HTTP transport fixture로 응답하며 실제 GitHub 저장소나 다운로드 서비스에는 접근하지 않는다.
+따라서 GitHub 권한·실제 서비스 응답 형태·tag 보호·runner 선택·실제 artifact 업로드 digest를 증명하지 않는다.
+로컬 테스트 환경은 종료 시 정리하고 테스트 코드는 회귀 검증을 위해 유지한다.
+
+API 계약은 [GitHub workflow 문서](https://docs.github.com/en/rest/actions/workflows?apiVersion=2026-03-10),
+[실행 조회·취소 문서](https://docs.github.com/en/rest/actions/workflow-runs?apiVersion=2026-03-10),
+[artifact 문서](https://docs.github.com/en/rest/actions/artifacts?apiVersion=2026-03-10)를 기준으로 했다.
+실제 child workflow를 붙일 때 해당 API 버전·응답·권한을 다시 확인한다.

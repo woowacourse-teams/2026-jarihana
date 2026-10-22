@@ -2,7 +2,7 @@
 
 이 문서는 coordinator가 앱 A/B의 child 작업을 호출할 때 사용할 코드 계약이다.
 현재는 라이브러리·읽기 전용 검증 CLI·로컬 앱 e2e에 연결했다.
-**실제 GitHub dispatch/download, EC2 신원 조회, 원격 최신 허가 조회와 workflow는 아직 미연결이다.**
+**GitHub dispatch/download 라이브러리는 로컬 HTTP로 검증했다. EC2 신원 조회, 원격 최신 허가 조회와 workflow는 아직 미연결이다.**
 기존 prod workflow는 계속 기존 배포 방식이며, 이 코드만으로 운영 배포가 바뀌지 않는다.
 
 ## 요청과 결과 흐름
@@ -68,7 +68,8 @@ artifact 검증은 실제 Docker 조회를 대신하지 않는다. 종료 증거
 
 JSON 내부의 ID 검사는 파일의 출처 검증과 별개다. 실제 GitHub 어댑터는 정확한 child run/attempt의
 성공 conclusion·artifact ID·만료 여부를 확인하고, ZIP의 크기·파일 수·경로도 제한해야 한다.
-이 다운로드 경로와 producer/consumer workflow는 아직 없다.
+다운로드 어댑터는 [GitHub 연결 계약](github-actions-adapter.md)에 구현 범위를 기록했다.
+producer/consumer workflow의 실제 연결과 GitHub 권한 검증은 아직 남아 있다.
 
 ## 읽기 전용 검증 CLI
 
@@ -90,6 +91,6 @@ coordinator 쪽 `accept_artifact()`로 수용한 결과만 반환한다.
 실제 Docker 종료 시각과 비교할 수 있도록 가상 관찰 시계는 실행 시작의 실제 UTC에 맞춘다.
 900초 관찰은 여전히 가상 시간이며, 실제 GitHub·AWS·telemetry는 fixture다.
 
-다음은 GitHub의 실제 실행 정보·artifact 전송과 앱의 실제 신원·최신 허가 조회를 연결하는 작업이다.
+GitHub 전송 어댑터의 로컬 HTTP 검증 다음은 앱의 실제 신원·인증된 최신 허가 조회를 연결하는 작업이다.
 그 뒤 Compose·coordinator/child workflow·관측을 연결한다. 실제 두 EC2 시작·중지는 별도 비운영 리허설에서
 검증하고, 추가 dev EC2가 필요한 시점에 준비 사항을 안내한다.
