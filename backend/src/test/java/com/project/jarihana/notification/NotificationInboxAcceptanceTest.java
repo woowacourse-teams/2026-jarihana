@@ -1,7 +1,10 @@
 package com.project.jarihana.notification;
 
+import com.project.jarihana.activitypost.command.repository.ActivityPostCommandRepository;
+import com.project.jarihana.activitypost.domain.ActivityPost;
 import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.token.AccessTokenProvider;
+import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.notification.domain.SystemRejectionReason;
 import com.project.jarihana.recruitment.domain.JoinMethod;
@@ -32,6 +35,7 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
     @Autowired private AccessTokenProvider tokens;
     @Autowired private AuthCookieProperties cookies;
     @Autowired private NotificationDeliveryCommandRepository deliveries;
+    @Autowired private ActivityPostCommandRepository posts;
 
     @Test
     @DisplayName("알림 목록은 본인의 미삭제 항목을 읽음 여부와 무관하게 최신순 커서로 반환한다.")
@@ -101,6 +105,7 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
         NotificationPayload payload = switch (eventType) {
             case GROUP_CREATED -> NotificationPayload.forGroup(group.getId());
             case INVITATION_RECEIVED -> NotificationPayload.invitation(group.getId(), 123);
+            case ACTIVITY_POST_COMMENTED, ACTIVITY_POST_REACTED -> NotificationPayload.activityPost(group.getId(), 77);
             default -> NotificationPayload.of(group.getId(), recruitment.getId(), 123,
                     eventType == NotificationEventType.REGISTRATION_SYSTEM_REJECTED
                             ? SystemRejectionReason.RERECRUITMENT : null);
@@ -122,6 +127,7 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
             case REGISTRATION_APPROVED -> "MY_GROUPS";
             case REGISTRATION_REJECTED, REGISTRATION_SYSTEM_REJECTED -> "MY_PAGE";
             case INVITATION_RECEIVED -> "INVITATION";
+            case ACTIVITY_POST_COMMENTED, ACTIVITY_POST_REACTED -> "ACTIVITY_POST";
         };
         assertThat(detail.jsonPath().getString("data.target.kind")).isEqualTo(expectedKind);
         assertThat(list.jsonPath().getString("data.items[0].target.kind")).isEqualTo(expectedKind);
@@ -130,6 +136,12 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
             assertThat(detail.jsonPath().getString("data.title")).isEqualTo("모임 초대");
             assertThat(detail.jsonPath().getMap("data.target").keySet()).containsExactlyInAnyOrder("kind", "groupId", "invitationId");
             assertThat(detail.jsonPath().getLong("data.target.invitationId")).isEqualTo(123);
+        } else if (eventType == NotificationEventType.ACTIVITY_POST_COMMENTED
+                || eventType == NotificationEventType.ACTIVITY_POST_REACTED) {
+            assertThat(detail.jsonPath().getString("data.title"))
+                    .isEqualTo(eventType == NotificationEventType.ACTIVITY_POST_COMMENTED ? "새 댓글" : "좋아요");
+            assertThat(detail.jsonPath().getMap("data.target")).containsOnlyKeys("kind", "groupId", "activityPostId");
+            assertThat(detail.jsonPath().getLong("data.target.activityPostId")).isEqualTo(77);
         } else if (eventType == NotificationEventType.GROUP_CREATED) {
             assertThat(detail.jsonPath().getMap("data.target")).containsOnlyKeys("kind", "groupId");
         } else {
@@ -427,6 +439,150 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
         assertThat(content.jsonPath().getMap("data.payload")).containsOnlyKeys("groupId");
         assertThat(content.jsonPath().getLong("data.payload.groupId")).isEqualTo(groupId);
         assertThat(authenticated(creator).get("/notifications").jsonPath().getList("data.items")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("댓글 API가 만든 알림은 알림함과 푸시 내용 API에서 활동 기록 식별자로 조회된다.")
+    void commentAppearsInAuthorInboxAndPushContent() {
+        // Given
+        Member author = member("101");
+        Member commenter = member("102");
+        var subscription = subscription(author, "comment");
+        Group group = groups.save(Group.createClub("퇴근 후 독서", "함께 책을 읽어요", null, null, null, NOW.minusDays(10)));
+        ActivityPost post = posts.save(ActivityPost.create(group, author, "첫 모임", NOW.toLocalDate(), NOW.minusDays(1)));
+
+        // When
+        Response created = mutation(commenter).contentType("application/json").body("""
+                {"content":"다음 모임에 저도 갈게요"}
+                """).post("/activity-posts/" + post.getId() + "/comments");
+        Response inbox = authenticated(author).get("/notifications");
+
+        // Then
+        assertThat(created.statusCode()).isEqualTo(201);
+        assertThat(inbox.statusCode()).isEqualTo(200);
+        assertThat(inbox.jsonPath().getList("data.items")).hasSize(1);
+        assertThat(inbox.jsonPath().getString("data.items[0].eventType")).isEqualTo("ACTIVITY_POST_COMMENTED");
+        assertThat(inbox.jsonPath().getString("data.items[0].title")).isEqualTo("새 댓글");
+        assertThat(inbox.jsonPath().getString("data.items[0].body"))
+                .isEqualTo("‘퇴근 후 독서’ 모임 활동 기록에 새 댓글이 달렸습니다.");
+        assertThat(inbox.jsonPath().getString("data.items[0].target.kind")).isEqualTo("ACTIVITY_POST");
+        assertThat(inbox.jsonPath().getLong("data.items[0].target.groupId")).isEqualTo(group.getId());
+        assertThat(inbox.jsonPath().getLong("data.items[0].target.activityPostId")).isEqualTo(post.getId());
+        assertThat(inbox.asString()).doesNotContain("다음 모임에 저도 갈게요", commenter.getCrewName());
+        long notificationId = inbox.jsonPath().getLong("data.items[0].id");
+        Response content = authenticated(author).queryParam("subscriptionId", subscription.getId())
+                .queryParam("generation", subscription.getGeneration()).get("/notifications/" + notificationId + "/push-content");
+        assertThat(content.statusCode()).isEqualTo(200);
+        assertThat(content.jsonPath().getString("data.eventType")).isEqualTo("ACTIVITY_POST_COMMENTED");
+        assertThat(content.jsonPath().getMap("data.payload")).containsOnlyKeys("groupId", "activityPostId");
+        assertThat(content.jsonPath().getLong("data.payload.activityPostId")).isEqualTo(post.getId());
+        assertThat(authenticated(commenter).get("/notifications").jsonPath().getList("data.items")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("좋아요 알림은 가장 최근에 누른 회원과 나머지 인원을 묶어 알림함과 푸시 내용 API에 보여 준다.")
+    void heartsAppearAsOneSummaryInInboxAndPushContent() {
+        // Given
+        Member author = member("101");
+        Member first = member("102");
+        Member second = member("103");
+        Member latest = member("104");
+        var subscription = subscription(author, "heart");
+        Group group = groups.save(Group.createClub("퇴근 후 독서", "함께 책을 읽어요", null, null, null, NOW.minusDays(10)));
+        ActivityPost post = posts.save(ActivityPost.create(group, author, "첫 모임", NOW.toLocalDate(), NOW.minusDays(1)));
+        String path = "/activity-posts/" + post.getId() + "/reactions/HEART";
+
+        // When
+        mutation(first).put(path);
+        Response single = authenticated(author).get("/notifications");
+        mutation(author).put(path);
+        mutation(second).put(path);
+        mutation(latest).put(path);
+        Response summary = authenticated(author).get("/notifications");
+
+        // Then
+        assertThat(single.jsonPath().getString("data.items[0].title")).isEqualTo("좋아요");
+        assertThat(single.jsonPath().getString("data.items[0].body"))
+                .isEqualTo(first.getCrewName() + "님이 좋아요를 눌렀어요.");
+        assertThat(summary.jsonPath().getList("data.items")).hasSize(1);
+        assertThat(summary.jsonPath().getString("data.items[0].eventType")).isEqualTo("ACTIVITY_POST_REACTED");
+        assertThat(summary.jsonPath().getString("data.items[0].body"))
+                .isEqualTo(latest.getCrewName() + " 외 2명이 좋아요를 눌렀어요.");
+        assertThat(summary.jsonPath().getString("data.items[0].target.kind")).isEqualTo("ACTIVITY_POST");
+        assertThat(summary.jsonPath().getLong("data.items[0].target.activityPostId")).isEqualTo(post.getId());
+        long notificationId = summary.jsonPath().getLong("data.items[0].id");
+        Response content = authenticated(author).queryParam("subscriptionId", subscription.getId())
+                .queryParam("generation", subscription.getGeneration()).get("/notifications/" + notificationId + "/push-content");
+        assertThat(content.statusCode()).isEqualTo(200);
+        assertThat(content.jsonPath().getString("data.eventType")).isEqualTo("ACTIVITY_POST_REACTED");
+        assertThat(content.jsonPath().getMap("data.payload")).containsOnlyKeys("groupId", "activityPostId");
+        assertThat(content.jsonPath().getString("data.reactionSummary.latestReactorName")).isEqualTo(latest.getCrewName());
+        assertThat(content.jsonPath().getInt("data.reactionSummary.otherReactorCount")).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("좋아요를 누른 사람이 20명이면 이름으로 묶고, 20명을 넘으면 무수한 관심 문구로 바꾼다.")
+    void heartsOverTwentyUseAttentionMessage() {
+        // Given
+        Member author = member("101");
+        Member latest = member("102");
+        Group group = groups.save(Group.createClub("퇴근 후 독서", "함께 책을 읽어요", null, null, null, NOW.minusDays(10)));
+        ActivityPost post = posts.save(ActivityPost.create(group, author, "첫 모임", NOW.toLocalDate(), NOW.minusDays(1)));
+        heartsFromNewMembers(post, 1, 19);
+        mutation(latest).put("/activity-posts/" + post.getId() + "/reactions/HEART");
+
+        // When
+        Response twenty = authenticated(author).get("/notifications");
+        heartsFromNewMembers(post, 20, 20);
+        Response overTwenty = authenticated(author).get("/notifications");
+
+        // Then
+        assertThat(twenty.jsonPath().getString("data.items[0].body"))
+                .isEqualTo(latest.getCrewName() + " 외 19명이 좋아요를 눌렀어요.");
+        assertThat(overTwenty.jsonPath().getString("data.items[0].body"))
+                .isEqualTo("회원님의 댓글이 무수한 관심을 받고 있어요.");
+    }
+
+    private void heartsFromNewMembers(ActivityPost post, int from, int to) {
+        jdbc.update("""
+                insert into member (crew_name, generation, github_id, member_type, course, created_at, updated_at)
+                select 'r' || n, 9, 'heart-' || n, 'CREW', 'BACKEND', ?, ?
+                from generate_series(?, ?) as n
+                """, NOW, NOW, from, to);
+        jdbc.update("""
+                insert into activity_post_reaction (activity_post_id, member_id, emoji, created_at, updated_at)
+                select ?, id, 'HEART', ?, ? from member where github_id like 'heart-%'
+                on conflict do nothing
+                """, post.getId(), NOW.minusHours(1), NOW.minusHours(1));
+    }
+
+    @Test
+    @DisplayName("좋아요가 모두 취소된 알림은 누른 사람 없이 취소됐다고 안내하고 다른 사건의 푸시 내용에는 요약을 넣지 않는다.")
+    void cancelledHeartsFallBackToGroupMessage() {
+        // Given
+        Member author = member("101");
+        Member reactor = member("102");
+        var subscription = subscription(author, "heart");
+        Group group = groups.save(Group.createClub("퇴근 후 독서", "함께 책을 읽어요", null, null, null, NOW.minusDays(10)));
+        ActivityPost post = posts.save(ActivityPost.create(group, author, "첫 모임", NOW.toLocalDate(), NOW.minusDays(1)));
+        String path = "/activity-posts/" + post.getId() + "/reactions/HEART";
+        mutation(reactor).put(path);
+        mutation(reactor).delete(path);
+        Notification approved = notification(author, "approved");
+
+        // When
+        Response inbox = authenticated(author).get("/notifications");
+        long heartId = inbox.jsonPath().getLong("data.items.find { it.eventType == 'ACTIVITY_POST_REACTED' }.id");
+        Response heartContent = authenticated(author).queryParam("subscriptionId", subscription.getId())
+                .queryParam("generation", subscription.getGeneration()).get("/notifications/" + heartId + "/push-content");
+        Response approvedContent = authenticated(author).queryParam("subscriptionId", subscription.getId())
+                .queryParam("generation", subscription.getGeneration()).get("/notifications/" + approved.getId() + "/push-content");
+
+        // Then
+        assertThat(inbox.jsonPath().getString("data.items.find { it.eventType == 'ACTIVITY_POST_REACTED' }.body"))
+                .isEqualTo("‘퇴근 후 독서’ 모임 활동 기록의 좋아요가 모두 취소되었습니다.");
+        assertThat(heartContent.jsonPath().getMap("data")).doesNotContainKey("reactionSummary");
+        assertThat(approvedContent.jsonPath().getMap("data")).doesNotContainKey("reactionSummary");
     }
 
     private RequestSpecification mutation(Member member) {

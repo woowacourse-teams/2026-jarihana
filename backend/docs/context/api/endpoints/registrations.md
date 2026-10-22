@@ -307,7 +307,7 @@ Request Body는 없다.
       "group": {
         "id": 12,
         "name": "알고리즘 스터디",
-        "representativeImageUrl": "https://cdn.example.test/images/groups/algorithm.webp"
+        "representativeImageUrl": "https://jarihana.com/api/images/groups/12/algorithm.webp"
       },
       "recruitmentId": 45,
       "message": "함께 활동하고 싶습니다.",

@@ -54,7 +54,7 @@ class ImageUploadCommandControllerTest extends IntegrationTestSupport {
                 .body("data.imageKey", containsString("groups/tmp/"))
                 .body("data.imageKey", containsString(".webp"))
                 .body("data.uploadUrl", containsString("https://upload.example.test/"))
-                .body("data.expiresAt", equalTo("2026-08-19T10:10:00"))
+                .body("data.expiresAt", equalTo("2026-08-19T10:30:00"))
                 .body("error", equalTo(null));
     }
 

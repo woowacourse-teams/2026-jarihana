@@ -23,10 +23,11 @@ import com.project.jarihana.group.domain.event.GroupCreatedEvent;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
-import com.project.jarihana.image.client.ImageStorage;
-import com.project.jarihana.image.client.ImageStorageException;
-import com.project.jarihana.image.command.repository.ImageUploadCommandRepository;
-import com.project.jarihana.image.domain.ImageUpload;
+import com.project.jarihana.image.client.ImageKeyPolicy;
+import com.project.jarihana.image.command.service.ImageLifecycleService;
+import com.project.jarihana.image.command.service.ImageMarkdown;
+import com.project.jarihana.image.command.service.ImageReferenceService;
+import com.project.jarihana.image.command.service.PromotedImage;
 import com.project.jarihana.invitation.command.service.InvitationCommandService;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Member;
@@ -46,6 +47,11 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Objects;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 public class GroupCommandService {
@@ -74,8 +80,8 @@ public class GroupCommandService {
     private final GroupRecruitmentCommandRepository groupRecruitmentCommandRepository;
     private final RegistrationCommandRepository registrationCommandRepository;
     private final ActivityPostCommandService activityPostCommandService;
-    private final ImageUploadCommandRepository imageUploadCommandRepository;
-    private final ImageStorage imageStorage;
+    private final ImageLifecycleService imageLifecycleService;
+    private final ImageReferenceService imageReferenceService;
     private final Clock clock;
     private final ApplicationEventPublisher events;
     private final ConcurrentCommandExecutor concurrentCommands;
@@ -94,8 +100,8 @@ public class GroupCommandService {
             GroupRecruitmentCommandRepository groupRecruitmentCommandRepository,
             RegistrationCommandRepository registrationCommandRepository,
             ActivityPostCommandService activityPostCommandService,
-            ImageUploadCommandRepository imageUploadCommandRepository,
-            ImageStorage imageStorage,
+            ImageLifecycleService imageLifecycleService,
+            ImageReferenceService imageReferenceService,
             Clock clock,
             ApplicationEventPublisher events,
             ConcurrentCommandExecutor concurrentCommands,
@@ -113,8 +119,8 @@ public class GroupCommandService {
         this.groupRecruitmentCommandRepository = groupRecruitmentCommandRepository;
         this.registrationCommandRepository = registrationCommandRepository;
         this.activityPostCommandService = activityPostCommandService;
-        this.imageUploadCommandRepository = imageUploadCommandRepository;
-        this.imageStorage = imageStorage;
+        this.imageLifecycleService = imageLifecycleService;
+        this.imageReferenceService = imageReferenceService;
         this.clock = clock;
         this.events = events;
         this.concurrentCommands = concurrentCommands;
@@ -130,8 +136,27 @@ public class GroupCommandService {
         }
 
         LocalDateTime now = LocalDateTime.now(clock);
-        validateRepresentativeImageKey(command.representativeImageKey(), now);
         Group group = groupCommandRepository.save(createGroup(command, now));
+        GroupImages images = promoteGroupImages(
+                memberId,
+                group.getId(),
+                command.representativeImageKey(),
+                command.description(),
+                Set.of(),
+                true,
+                now
+        );
+        group = groupCommandRepository.save(group.modify(
+                group.getName(),
+                group.getIntroduction(),
+                images.description(),
+                images.representativeImageKey(),
+                group.getMeetingType(),
+                group.getLocation(),
+                group.getRecurringSchedule(),
+                group.getSessionSchedule()
+        ));
+        replaceGroupImageReferences(group.getId(), images, now);
         locationHistoryRepository.save(GroupLocationHistory.create(group, group.getLocation(), now));
         if (group.getRecurringSchedule() != null) {
             GroupRecurringSeries series = recurringSeriesRepository.save(GroupRecurringSeries.create(
@@ -176,28 +201,60 @@ public class GroupCommandService {
         return representativeImageKey == null ? DEFAULT_REPRESENTATIVE_IMAGE_KEY : representativeImageKey;
     }
 
-    private void validateRepresentativeImageKey(String representativeImageKey, LocalDateTime now) {
-        if (representativeImageKey == null || DEFAULT_REPRESENTATIVE_IMAGE_KEY.equals(representativeImageKey)) {
-            return;
+    private GroupImages promoteGroupImages(
+            Long memberId,
+            long groupId,
+            String representativeImageKey,
+            String description,
+            Set<String> existingKeys,
+            boolean useDefaultForNull,
+            LocalDateTime now
+    ) {
+        Map<String, PromotedImage> promotedByOriginalKey = new LinkedHashMap<>();
+        List<String> keys = new ArrayList<>(ImageMarkdown.imageKeys(description));
+        if (representativeImageKey != null
+                && !ImageKeyPolicy.DEFAULT_IMAGE_KEY.equals(representativeImageKey)) {
+            keys.add(representativeImageKey);
         }
-        if (representativeImageKey.isBlank()) {
-            throw new BusinessException(ErrorCode.IMAGE_NOT_FOUND, "대표 이미지를 찾을 수 없습니다.");
-        }
-
-        ImageUpload imageUpload = imageUploadCommandRepository.findByImageKey(representativeImageKey)
-                .filter(upload -> !upload.isExpiredAt(now))
-                .orElseThrow(() -> new BusinessException(ErrorCode.IMAGE_NOT_FOUND, "대표 이미지를 찾을 수 없습니다."));
-        try {
-            if (!imageStorage.exists(imageUpload.getImageKey())) {
-                throw new BusinessException(ErrorCode.IMAGE_NOT_FOUND, "대표 이미지를 찾을 수 없습니다.");
-            }
-        } catch (ImageStorageException exception) {
-            throw new BusinessException(
-                    ErrorCode.IMAGE_NOT_FOUND,
-                    "대표 이미지를 확인할 수 없습니다.",
-                    exception
+        for (String key : keys) {
+            promotedByOriginalKey.computeIfAbsent(
+                    key,
+                    ignored -> existingKeys.contains(key)
+                            ? imageLifecycleService.preserveExistingReference(key, now)
+                            : imageLifecycleService.promote(memberId, groupId, key, now)
             );
         }
+        String nextRepresentativeKey = representativeImageKey == null
+                ? useDefaultForNull ? DEFAULT_REPRESENTATIVE_IMAGE_KEY : null
+                : promotedByOriginalKey.getOrDefault(
+                        representativeImageKey,
+                        new PromotedImage(null, representativeImageKey, representativeImageKey)
+                ).imageKey();
+        String nextDescription = ImageMarkdown.replaceKeys(
+                description,
+                key -> promotedByOriginalKey.getOrDefault(
+                        key,
+                        new PromotedImage(null, key, key)
+                ).imageKey()
+        );
+        List<PromotedImage> descriptionImages = ImageMarkdown.imageKeys(description).stream()
+                .map(promotedByOriginalKey::get)
+                .filter(Objects::nonNull)
+                .toList();
+        PromotedImage representative = representativeImageKey == null
+                || ImageKeyPolicy.DEFAULT_IMAGE_KEY.equals(representativeImageKey)
+                ? null
+                : promotedByOriginalKey.get(representativeImageKey);
+        return new GroupImages(nextRepresentativeKey, nextDescription, representative, descriptionImages);
+    }
+
+    private void replaceGroupImageReferences(long groupId, GroupImages images, LocalDateTime now) {
+        imageReferenceService.replaceGroup(
+                groupId,
+                images.representative() == null ? List.of() : List.of(images.representative()),
+                images.descriptionImages(),
+                now
+        );
     }
 
     private void validateSessionSchedule(CreateGroupCommand command) {
@@ -254,22 +311,30 @@ public class GroupCommandService {
         if (groupCommandRepository.existsByNameAndIdNot(command.name(), groupId)) {
             throw new BusinessException(ErrorCode.GROUP_NAME_DUPLICATED, GROUP_NAME_DUPLICATED_MESSAGE);
         }
-        if (!Objects.equals(group.getRepresentativeImageKey(), command.representativeImageKey())) {
-            validateRepresentativeImageKey(command.representativeImageKey(), LocalDateTime.now(clock));
-        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        GroupImages images = promoteGroupImages(
+                memberId,
+                groupId,
+                command.representativeImageKey(),
+                command.description(),
+                existingImageKeys(group),
+                false,
+                now
+        );
         if (!Objects.equals(group.getLocation(), command.location())) {
-            recordLocationChange(group, command.location(), LocalDateTime.now(clock));
+            recordLocationChange(group, command.location(), now);
         }
         groupCommandRepository.save(group.modify(
                 command.name(),
                 command.introduction(),
-                command.description(),
-                command.representativeImageKey(),
+                images.description(),
+                images.representativeImageKey(),
                 command.meetingType(),
                 command.location(),
                 group.getRecurringSchedule(),
                 group.getSessionSchedule()
         ));
+        replaceGroupImageReferences(groupId, images, now);
     }
 
     private void recordLocationChange(Group group, String nextLocation, LocalDateTime now) {
@@ -285,6 +350,15 @@ public class GroupCommandService {
             }
         }
         locationHistoryRepository.save(GroupLocationHistory.create(group, nextLocation, now));
+    }
+
+    private Set<String> existingImageKeys(Group group) {
+        Set<String> keys = new java.util.LinkedHashSet<>(ImageMarkdown.imageKeys(group.getDescription()));
+        if (group.getRepresentativeImageKey() != null
+                && !ImageKeyPolicy.DEFAULT_IMAGE_KEY.equals(group.getRepresentativeImageKey())) {
+            keys.add(group.getRepresentativeImageKey());
+        }
+        return keys;
     }
 
     @Transactional
@@ -311,6 +385,7 @@ public class GroupCommandService {
         registrationCommandRepository.deleteAllByRecruitmentGroupId(groupId);
         groupRecruitmentCommandRepository.deleteAllByGroupId(groupId);
         activityPostCommandService.hideAllByGroupId(groupId);
+        imageReferenceService.removeGroup(groupId, LocalDateTime.now(clock));
         groupMemberCommandRepository.deleteAllByGroupId(groupId);
         locationHistoryRepository.deleteAllByGroupId(groupId);
         groupEventRepository.deleteAllByGroupId(groupId);
@@ -496,5 +571,13 @@ public class GroupCommandService {
                 saved.getSessionSchedule().getStartTime(),
                 saved.getSessionSchedule().getEndTime()
         );
+    }
+
+    private record GroupImages(
+            String representativeImageKey,
+            String description,
+            PromotedImage representative,
+            List<PromotedImage> descriptionImages
+    ) {
     }
 }

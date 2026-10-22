@@ -105,7 +105,7 @@ class MyRegistrationQueryControllerTest extends IntegrationTestSupport {
                 .body("data.items[0].group.id", equalTo(firstGroup.getId().intValue()))
                 .body("data.items[0].group.name", equalTo("my-registration-group-1"))
                 .body("data.items[0].group.representativeImageUrl",
-                        equalTo("https://cdn.example.test/images/groups/my-registration.webp"))
+                        equalTo("https://service.example.test/api/images/groups/my-registration.webp"))
                 .body("data.items[0].recruitmentId", equalTo(firstRecruitment.getId().intValue()))
                 .body("data.items[0].message", equalTo("대기 메시지"))
                 .body("data.items[0].status", equalTo("PENDING"))

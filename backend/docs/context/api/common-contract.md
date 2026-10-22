@@ -70,7 +70,8 @@ URL에 버전 경로를 붙이지 않는다.
 `3xx` 리다이렉트 응답은 JSON 응답 봉투를 사용하지 않는다.
 이동 위치는 `Location` 헤더로 전달하며 응답 본문은 없다.
 
-현재 리다이렉트 응답을 사용하는 엔드포인트는 `GET /api/oauth/github/callback`이다.
+현재 리다이렉트 응답을 사용하는 엔드포인트는 `GET /api/oauth/github/callback`과
+이미지 접근 판정 후 CDN 전달 URL로 이동하는 `GET /api/images/{imageKey}`다.
 
 ## 날짜·시간 형식
 - 기준 시간대: `Asia/Seoul`

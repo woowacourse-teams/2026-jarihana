@@ -32,6 +32,8 @@ erDiagram
 - 반응은 되돌리기 쉬운 토글이고 이력에 의미가 없으므로, 기본 soft delete 정책과 달리 취소하면 물리 삭제한다.
   유니크 제약과 soft delete 충돌을 피하려는 결정이기도 하다.
 - 화면은 하트 이미지와 개수를 한 버튼으로 보여 주고, 눌러서 남기거나 취소한다.
+- 다른 회원이 내 기록에 댓글이나 하트를 남기면 기록 작성자에게 알린다. 하트는 작성자가 읽기 전까지 한 알림에 모은다.
+  세부 규칙은 [알림 모델](notification.md)을 따른다.
 
 ## 권한
 
@@ -61,3 +63,4 @@ erDiagram
 기본 스키마는 `backend/src/main/resources/db/migration/V1__baseline.sql`, 댓글과 반응은
 `backend/src/main/resources/db/migration/V2__activity_post_comment_reaction.sql`로 생성하고,
 하트만 허용하는 반응 검사 제약은 `backend/src/main/resources/db/migration/V3__activity_post_reaction_heart_only.sql`이 더한다.
+댓글과 좋아요 알림 사건 종류는 `backend/src/main/resources/db/migration/V6__activity_post_interaction_notification.sql`이 알림 검사 제약에 더한다.
