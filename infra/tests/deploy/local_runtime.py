@@ -1,5 +1,6 @@
 """Disposable Docker/JVM resources used only by the explicit local e2e command."""
 from pathlib import Path
+from datetime import datetime, timedelta
 from ipaddress import ip_network
 from typing import assert_never
 from uuid import uuid4
@@ -8,11 +9,22 @@ import time
 
 from controller_fakes import FakeApps, FakeCloud, FakeClock, FakeTelemetry, OLD_IMAGE
 from local_spring import SpringNode
-from bluegreen.models import (Action, AppStatus, Command, ControlRelease, Host, Phase, Slot, Topology)
+from bluegreen.models import (Action, AppStatus, Command, ControlRelease, Host, Phase, Receipt, RunIdentity, Slot, Topology)
 from bluegreen.nginx_switch import NginxRuntime, NginxSettings, NginxSwitch, ProcessRunner
 from bluegreen.ports import Adapters, DeploymentFailure, SystemClock
 from bluegreen.state_store import StateStore
-from bluegreen.github_operations import authorize, authorize_local_process
+from bluegreen.child_execution import ChildContext, ChildGate, MachineIdentity
+from bluegreen.child_artifacts import ArtifactExpectation, accept_artifact, serialize_artifact
+
+
+class LocalClock(FakeClock):
+    """Virtual elapsed observation anchored to the real process evidence wall clock."""
+    def __init__(self) -> None:
+        super().__init__()
+        self.origin = SystemClock().now()
+
+    def now(self) -> datetime:
+        return self.origin + timedelta(seconds=self.elapsed + self.wall_shift)
 
 
 class FixtureRunner(ProcessRunner):
@@ -34,17 +46,27 @@ class LocalApps(FakeApps):
         super().__init__(topology, store, clock)
         self.processes: dict[Slot, SpringNode] = {}
 
-    def check(self, command: Command, actual: AppStatus) -> None:
-        state = self.store.read()
-        if state is None:
-            raise DeploymentFailure("local stop grant journal is missing")
-        authorize(command, state, self.clock.now())
-        authorize_local_process(command, actual)
-
-    def _apply(self, command: Command):
+    def poll(self, run: RunIdentity) -> Receipt | None:
+        queued_run, command = self.runs[run.run_id]
+        if queued_run != run:
+            raise DeploymentFailure("local fixture run does not match the queued run")
         node = self.processes[command.host.slot]
-        if command.action is not Action.PREPARE:
-            authorize_local_process(command, node.snapshot())
+        machine = MachineIdentity(environment=self.topology.environment, host_id=node.host.host_id,
+                                   instance_id=node.host.instance_id)
+        gate = ChildGate(ChildContext(self.topology, run, machine), self.store, self.clock)
+        gate.state(command)
+        if run.run_id not in self.results:
+            gate.check(command, None if command.action is Action.PREPARE else node.snapshot())
+            status = self._execute(command, gate)
+            gate.check(command, status)
+            self.results[run.run_id] = Receipt(schema_version=1, command=command, run=run, success=True, status=status)
+        proof = node.shutdown_evidence if command.action is Action.STOP_APP else None
+        payload = serialize_artifact(self.results[run.run_id], proof)
+        (node.directory / f"child-{command.command_id}.json").write_bytes(payload)
+        return accept_artifact(payload, ArtifactExpectation(gate.state(command), self.topology, self.clock.now()))
+
+    def _execute(self, command: Command, gate: ChildGate) -> AppStatus:
+        node = self.processes[command.host.slot]
         match command.action:
             case Action.STATUS:
                 return node.snapshot()
@@ -52,9 +74,9 @@ class LocalApps(FakeApps):
                 node.start(command.image)
                 return node.snapshot()
             case Action.STOP_APP:
-                return node.stop(command, self)
+                return node.stop(command, gate)
             case Action.BEGIN | Action.HANDOFF | Action.PAUSE | Action.RELEASE | Action.ACTIVATE | Action.OBSERVE | Action.COMPLETE:
-                return node.control(command)
+                return node.control(command, gate)
             case Action.START_EC2 | Action.STOP_EC2 | Action.SWITCH:
                 raise DeploymentFailure("not a local application operation")
             case unreachable:
@@ -107,7 +129,7 @@ class LocalRuntime:
         self.nodes[Slot.A].start(OLD_IMAGE)
         self._bootstrap(self.nodes[Slot.A])
         store = StateStore(self.directory / "state")
-        clock = FakeClock()
+        clock = LocalClock()
         apps = LocalApps(topology, store, clock)
         apps.processes = self.nodes
         proxy, public_port = self.start_proxy(topology)

@@ -37,12 +37,15 @@ A worker를 활성화하지 않는다. `SEALED` 이후에는 이전 서버를 �
 | `scripts/deploy/bluegreen/controller.py` | 준비·인계·전환·900초 관찰·안전 종료 순서 |
 | `scripts/deploy/bluegreen/recovery.py` | HTTP 복구와 역방향 worker 인계 |
 | `scripts/deploy/bluegreen/github_operations.py` | control ref/SHA/event/attempt, 명령·artifact·인스턴스 일치 검사 |
+| `scripts/deploy/bluegreen/child_execution.py` | child의 최신 허가·실제 실행·머신·프로세스 대조 |
+| `scripts/deploy/bluegreen/child_artifacts.py` | 정확한 명령/run과 종료 증거를 묶은 엄격한 결과 JSON |
 | `scripts/deploy/bluegreen/nginx_switch.py` | 실제 Nginx 설정 검사·적용·복구, 기존 worker 세대 추적 |
 | `scripts/deploy/bluegreen/docker_shutdown.py` | 같은 컨테이너 세대·사전 drain·종료 코드·OOM·재시작 검사와 종료 증거 생성 |
 | `scripts/deploy/bluegreen/docker_runtime.py` | 비밀값 없는 제한 inspect와 강제 종료 없는 고정 SIGTERM 명령 |
 | `scripts/deploy/watchdog.py` | stale heartbeat를 attention으로 기록하는 제한된 CLI |
 
 위 경로는 `infra/` 기준이다. AWS/GitHub 전송은 `ports.py`의 인터페이스이며 **아직 운영 구현이 없다**.
+child 실행 검사·결과 계약·읽기 전용 CLI의 범위는 [서버별 작업 계약](child-contract.md)을 따른다.
 배포 입력의 `rollback_compatible=true`는 개발자가 구·신버전의 DB/데이터 호환성을 확인했다는 명시적 확인이다.
 이 값이 스키마나 데이터의 호환성을 자동 분석하거나 DB를 원복하지 않는다.
 

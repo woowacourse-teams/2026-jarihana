@@ -12,7 +12,7 @@ from bluegreen.models import Action, AppStatus, Authority, Command, Counter, Hos
 from bluegreen.nginx_switch import ApiProbe, ProcessRunner
 from bluegreen.ports import DeploymentFailure, SystemClock
 from bluegreen.docker_runtime import DockerRuntime
-from bluegreen.docker_shutdown import ContainerPin, DockerStopper, StopGrant, StopRuntime
+from bluegreen.docker_shutdown import ContainerPin, DockerStopper, ShutdownEvidence, StopGrant, StopRuntime
 
 TOKEN = "local-e2e-machine-token-fixture-0123456789abcdef"
 
@@ -66,12 +66,14 @@ class SpringNode:
         self.runner = ProcessRunner()
         self.docker = DockerRuntime(self.runner)
         self.pin: ContainerPin | None = None
+        self.shutdown_evidence: ShutdownEvidence | None = None
 
     def start(self, image: str) -> None:
         java_image = os.environ.get("JARIHANA_E2E_JAVA_IMAGE", "")
         if not java_image.startswith("sha256:"):
             raise DeploymentFailure("set JARIHANA_E2E_JAVA_IMAGE to a locally verified Java 21 image ID")
         self.image = image
+        self.shutdown_evidence = None
         environment = {"DB_URL": self.database, "DB_USERNAME": "fixture", "DB_PASSWORD": "fixture",
                        "APP_VERSION": image, "PUSH_ENABLED": "false", "PUSH_WORKER_ENABLED": "false",
                        "PUSH_WORKER_CONTROL_ENABLED": "true", "PUSH_WORKER_HOST_ID": self.host.host_id,
@@ -127,7 +129,7 @@ class SpringNode:
                          http_in_flight=raw.activity.httpInFlight,
                          background_drained=raw.activity.backgroundDrained and raw.activity.backgroundInFlight == 0)
 
-    def control(self, command: Command) -> AppStatus:
+    def control(self, command: Command, grant: StopGrant | None = None) -> AppStatus:
         status = self.snapshot()
         authority = command.authority
         if authority is None:
@@ -141,6 +143,8 @@ class SpringNode:
                    "deadline": (datetime.now(ZoneInfo("Asia/Seoul")) + timedelta(seconds=30)).replace(tzinfo=None).isoformat()}
         if command.action in phases:
             payload["nextPhase"] = phases[command.action]
+        if grant is not None:
+            grant.check(command, status)
         self.runner.run(("curl", "--fail", "--silent", "--max-time", "3", "--header", "Content-Type: application/json",
                          "--header", f"X-Jarihana-Worker-Control-Token: {TOKEN}", "--data", json.dumps(payload),
                          f"http://127.0.0.1:{self.management_port}/actuator/workercontrol/{operation}"))
@@ -150,6 +154,7 @@ class SpringNode:
         if self.pin is None:
             raise DeploymentFailure("fixture container generation was not captured at startup")
         result = DockerStopper(StopRuntime(self.docker, SystemClock(), grant)).stop(command, self.snapshot(), self.pin)
+        self.shutdown_evidence = result.evidence
         (self.directory / f"shutdown-{command.command_id}.json").write_text(result.evidence.model_dump_json(indent=2))
         self._remove()
         return result.status
