@@ -543,23 +543,31 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
         assertThat(page.header("Cache-Control")).contains("no-store");
         assertThat(page.jsonPath().getList("data.items.memberId", Long.class)).containsExactly(second.getId());
         assertThat(page.jsonPath().getMap("data.items[0]").keySet())
-                .containsExactlyInAnyOrder("memberId", "crewName", "generation", "memberType", "course");
+                .containsExactlyInAnyOrder("memberId", "crewName", "generation", "memberType", "course", "avatarUrl");
+        assertThat(page.jsonPath().getString("data.items[0].avatarUrl"))
+                .isEqualTo("https://avatars.githubusercontent.com/u/104");
         assertThat(page.jsonPath().getBoolean("data.hasNext")).isTrue();
         Response last = auth(leader).queryParam("keyword", "크루").queryParam("size", 1)
                 .queryParam("cursor", page.jsonPath().getString("data.nextCursor"))
                 .get("/groups/{id}/invitation-candidates", group.getId());
         assertThat(last.jsonPath().getList("data.items.memberId", Long.class)).containsExactly(first.getId());
+        assertThat(last.jsonPath().getString("data.items[0].avatarUrl"))
+                .isEqualTo("https://avatars.githubusercontent.com/u/103");
         assertThat(last.jsonPath().getBoolean("data.hasNext")).isFalse();
         assertThat(last.jsonPath().getString("data.nextCursor")).isNull();
         assertError(auth(first).queryParam("keyword", "크루").get("/groups/{id}/invitation-candidates", group.getId()), 403, "ACCESS_DENIED");
         Response all = auth(leader).queryParam("size", 1).get("/groups/{id}/invitation-candidates", group.getId());
         assertThat(all.statusCode()).isEqualTo(200);
         assertThat(all.jsonPath().getList("data.items.memberId", Long.class)).containsExactly(second.getId());
+        assertThat(all.jsonPath().getString("data.items[0].avatarUrl"))
+                .isEqualTo("https://avatars.githubusercontent.com/u/104");
         Response allLast = auth(leader).queryParam("keyword", " ").queryParam("size", 1)
                 .queryParam("cursor", all.jsonPath().getString("data.nextCursor"))
                 .get("/groups/{id}/invitation-candidates", group.getId());
         assertThat(allLast.statusCode()).isEqualTo(200);
         assertThat(allLast.jsonPath().getList("data.items.memberId", Long.class)).containsExactly(first.getId());
+        assertThat(allLast.jsonPath().getString("data.items[0].avatarUrl"))
+                .isEqualTo("https://avatars.githubusercontent.com/u/103");
         assertThat(allLast.jsonPath().getBoolean("data.hasNext")).isFalse();
         assertError(auth(leader).queryParam("keyword", "크루").queryParam("cursor", all.jsonPath().getString("data.nextCursor"))
                 .get("/groups/{id}/invitation-candidates", group.getId()), 400, "INVALID_PARAMETER");
