@@ -1,7 +1,9 @@
 import {
   ACTIVITY_REACTION_EMOJIS,
   activityPostSchema,
+  activityReactorPageSchema,
   describeActivityReactors,
+  formatReactorMeta,
   toggleActivityReaction
 } from "../../src/entities/activity-post/index.js";
 import {
@@ -101,13 +103,41 @@ describe("activity post API", () => {
 });
 
 describe("activity reactors", () => {
-  it("reads who reacted from the same reaction path", async () => {
-    await fetchActivityReactors({ id: 7, type: "comment" }, "HEART");
+  it("reads who reacted from the same reaction path, 30 at a time with a cursor", async () => {
+    await fetchActivityReactors({ emoji: "HEART", target: { id: 7, type: "comment" } });
+    await fetchActivityReactors({ cursor: "next", emoji: "HEART", target: { id: 3, type: "post" } });
 
     expect(apiRequest).toHaveBeenCalledWith(
       "activity-post-comments/7/reactions/HEART",
-      expect.objectContaining({ schema: expect.any(Object) })
+      expect.objectContaining({ schema: expect.any(Object), searchParams: { size: 30 } })
     );
+    expect(apiRequest).toHaveBeenCalledWith(
+      "activity-posts/3/reactions/HEART",
+      expect.objectContaining({ searchParams: { cursor: "next", size: 30 } })
+    );
+  });
+
+  it("reads a reactor page with member details and defaults the missing ones", () => {
+    const page = activityReactorPageSchema.parse({
+      count: 2,
+      emoji: "HEART",
+      reactors: [{ crewName: "바다", mine: false }]
+    });
+
+    expect(page).toEqual({
+      count: 2,
+      emoji: "HEART",
+      hasNext: false,
+      nextCursor: null,
+      reactors: [{ avatarUrl: null, course: null, crewName: "바다", generation: null, memberType: null, mine: false }]
+    });
+  });
+
+  it("labels each reactor with the cohort and course, or as a coach", () => {
+    expect(formatReactorMeta({ course: "FRONTEND", generation: 8, memberType: "CREW" })).toBe("8기 프론트엔드");
+    expect(formatReactorMeta({ course: null, generation: 7, memberType: "CREW" })).toBe("7기");
+    expect(formatReactorMeta({ course: null, generation: null, memberType: "COACH" })).toBe("코치");
+    expect(formatReactorMeta({ course: null, generation: null, memberType: "CREW" })).toBe("크루");
   });
 
   it("summarizes reactors with me first and counts the rest", () => {
@@ -121,6 +151,7 @@ describe("activity reactors", () => {
     expect(describeActivityReactors({ count: 1, reactors: [{ crewName: "하늘빛", mine: false }] }, "하트"))
       .toBe("하늘빛이 하트를 남겼어요");
     expect(describeActivityReactors({ count: 0, reactors: [] }, "하트")).toBeNull();
+    expect(describeActivityReactors({ count: 5, reactors }, "하트", 1)).toBe("나 외 4명이 하트를 남겼어요");
   });
 
   it("shows at most ten names", () => {

@@ -1,4 +1,4 @@
-import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { toggleActivityReaction } from "../../entities/activity-post/index.js";
 import { getSafeNextCursor } from "../../entities/cursor/index.js";
@@ -39,12 +39,16 @@ export const activityPostKeys = {
   ]
 };
 
-/** 반응 버튼에 올렸을 때만 반응한 사람을 불러온다. */
-export function useActivityReactors({ target, emoji, viewerKey = "anonymous", enabled = true }) {
-  return useQuery({
+/**
+ * 반응한 사람을 30명씩 이어서 불러온다. 첫 페이지는 말풍선과 요약, 이어지는 페이지는 전체 목록이 쓴다.
+ */
+export function useInfiniteActivityReactors({ target, emoji, viewerKey = "anonymous", enabled = true }) {
+  return useInfiniteQuery({
     queryKey: activityPostKeys.reactors(target, emoji, viewerKey),
-    queryFn: () => fetchActivityReactors(target, emoji),
     enabled,
+    initialPageParam: null,
+    queryFn: ({ pageParam }) => fetchActivityReactors({ target, emoji, cursor: pageParam }),
+    getNextPageParam: getSafeNextCursor,
     staleTime: 30_000
   });
 }

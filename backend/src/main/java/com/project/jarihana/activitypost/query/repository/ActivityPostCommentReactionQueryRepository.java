@@ -4,6 +4,7 @@ import com.project.jarihana.activitypost.domain.ActivityPostCommentReaction;
 import com.project.jarihana.activitypost.domain.ReactionEmoji;
 import com.project.jarihana.activitypost.query.repository.dto.ReactionCountProjection;
 import com.project.jarihana.activitypost.query.repository.dto.ReactorProjection;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import org.springframework.data.domain.Pageable;
@@ -32,18 +33,31 @@ public interface ActivityPostCommentReactionQueryRepository
 
     @Query("""
             select new com.project.jarihana.activitypost.query.repository.dto.ReactorProjection(
+                reaction.id,
+                reaction.createdAt,
                 member.id,
-                member.crewName
+                member.crewName,
+                member.githubId,
+                member.memberType,
+                member.generation,
+                member.course
             )
             from ActivityPostCommentReaction reaction
             join reaction.member member
             where reaction.comment.id = :commentId
               and reaction.emoji = :emoji
+              and (
+                  cast(:cursorReactedAt as LocalDateTime) is null
+                  or reaction.createdAt > :cursorReactedAt
+                  or (reaction.createdAt = :cursorReactedAt and reaction.id > :cursorId)
+              )
             order by reaction.createdAt asc, reaction.id asc
             """)
     List<ReactorProjection> findReactors(
             @Param("commentId") long commentId,
             @Param("emoji") ReactionEmoji emoji,
+            @Param("cursorReactedAt") LocalDateTime cursorReactedAt,
+            @Param("cursorId") Long cursorId,
             Pageable pageable
     );
 

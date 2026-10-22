@@ -357,7 +357,13 @@ class ActivityPostInteractionAcceptanceTest extends IntegrationTestSupport {
                 .body("data.emoji", equalTo("HEART"))
                 .body("data.count", equalTo(2))
                 .body("data.reactors.crewName", contains("바다", "구름"))
-                .body("data.reactors.mine", contains(false, true));
+                .body("data.reactors.mine", contains(false, true))
+                .body("data.reactors[0].avatarUrl", equalTo("https://avatars.githubusercontent.com/u/reactors-first"))
+                .body("data.reactors[0].memberType", equalTo("CREW"))
+                .body("data.reactors[0].generation", equalTo(20))
+                .body("data.reactors[0].course", equalTo("BACKEND"))
+                .body("data.hasNext", equalTo(false))
+                .body("data.nextCursor", nullValue());
         given()
                 .when()
                 .get("/activity-posts/{postId}/reactions/{emoji}", post.getId(), "HEART")
@@ -371,6 +377,59 @@ class ActivityPostInteractionAcceptanceTest extends IntegrationTestSupport {
                 .statusCode(200)
                 .body("data.count", equalTo(1))
                 .body("data.reactors.crewName", contains("구름"));
+    }
+
+    @DisplayName("하트를 남긴 회원은 커서로 나눠 이어서 조회한다.")
+    @Test
+    void pagesReactorsWithCursor() {
+        // Given
+        Group group = saveGroup("반응 페이지 그룹");
+        Member author = saveMember("하나", "reactor-page-author");
+        saveMemberOf(group, author);
+        ActivityPost post = savePost(group, author, "photos/reactor-page.jpg");
+        for (String name : new String[]{"가람", "나리", "다올"}) {
+            Member reactor = saveMember(name, "reactor-page-" + name.hashCode());
+            authorized(reactor).when().put("/activity-posts/{postId}/reactions/{emoji}", post.getId(), "HEART")
+                    .then().statusCode(204);
+        }
+
+        // When
+        String cursor = given()
+                .queryParam("size", 2)
+                .when()
+                .get("/activity-posts/{postId}/reactions/{emoji}", post.getId(), "HEART")
+                .then()
+                .statusCode(200)
+                .body("data.count", equalTo(3))
+                .body("data.reactors.crewName", contains("가람", "나리"))
+                .body("data.hasNext", equalTo(true))
+                .extract()
+                .path("data.nextCursor");
+
+        // Then
+        given()
+                .queryParam("size", 2)
+                .queryParam("cursor", cursor)
+                .when()
+                .get("/activity-posts/{postId}/reactions/{emoji}", post.getId(), "HEART")
+                .then()
+                .statusCode(200)
+                .body("data.count", equalTo(3))
+                .body("data.reactors.crewName", contains("다올"))
+                .body("data.hasNext", equalTo(false));
+        given()
+                .queryParam("cursor", "not-a-cursor")
+                .when()
+                .get("/activity-posts/{postId}/reactions/{emoji}", post.getId(), "HEART")
+                .then()
+                .statusCode(400)
+                .body("error.code", equalTo("INVALID_PARAMETER"));
+        given()
+                .queryParam("size", 101)
+                .when()
+                .get("/activity-posts/{postId}/reactions/{emoji}", post.getId(), "HEART")
+                .then()
+                .statusCode(400);
     }
 
     @DisplayName("없는 기록이나 댓글, 하트가 아닌 반응의 회원 목록은 조회할 수 없다.")

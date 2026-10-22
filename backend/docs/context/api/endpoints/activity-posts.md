@@ -145,9 +145,12 @@
 
 ### 반응한 회원 조회
 
-- 권한: `PUBLIC`. 하트 버튼에 올렸을 때 누가 반응했는지 보여 주는 용도다.
-- 응답: `{ "emoji": "HEART", "count": 12, "reactors": [{ "crewName": "바다", "mine": false }] }`.
-  `count`는 전체 반응 수, `reactors`는 먼저 반응한 순서로 최대 20명이다. `mine`은 로그인한 요청자 본인인지이며 비로그인 요청은 항상 `false`다.
+- 권한: `PUBLIC`. 하트 말풍선과 요약, 좋아요한 사람 전체 목록에 쓴다.
+- query parameter: `cursor`(선택), `size`(기본 30, 1 이상 100 이하). 먼저 반응한 순서(`createdAt ASC, id ASC`)이며
+  커서는 URL-safe Base64로 인코딩한 반응의 `createdAt|id`다. 잘못된 커서나 크기는 `INVALID_PARAMETER`다.
+- 응답: `{ "emoji": "HEART", "count": 128, "reactors": [...], "nextCursor": "...", "hasNext": true }`.
+  `count`는 전체 반응 수다. 각 `reactors` 항목은 `crewName`, `avatarUrl`(GitHub 프로필 이미지), `memberType`,
+  `generation`, `course`, `mine`이다. `mine`은 로그인한 요청자 본인인지이며 비로그인 요청은 항상 `false`다.
 - 숨겨진 기록과 댓글, 지원하지 않는 이모지는 추가와 취소와 같은 오류로 응답한다.
 
 ## 주요 오류

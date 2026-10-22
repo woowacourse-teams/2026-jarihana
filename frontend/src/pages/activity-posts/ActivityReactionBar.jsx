@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
 
 import { ACTIVITY_REACTION_EMOJIS, describeActivityReactors } from "../../entities/activity-post/index.js";
-import { useActivityReactors } from "../../features/activity-post/hooks.js";
+import { useInfiniteActivityReactors } from "../../features/activity-post/hooks.js";
 import heartImage from "../../shared/assets/reactions/heart.webp";
 
 const REACTION_IMAGES = Object.freeze({ HEART: heartImage });
@@ -20,13 +20,14 @@ export function ActivityReactionIcon({ className = "activity-reaction__icon", co
 function ReactionButton({ count, disabled, emoji, onToggle, reacted, target, viewerKey }) {
   const [peeking, setPeeking] = useState(false);
   const tooltipId = useId();
-  const reactorsQuery = useActivityReactors({
+  const reactorsQuery = useInfiniteActivityReactors({
     target,
     emoji: emoji.code,
     viewerKey,
     enabled: peeking && count > 0
   });
-  const summary = reactorsQuery.data ? describeActivityReactors(reactorsQuery.data, emoji.label) : null;
+  const firstPage = reactorsQuery.data?.pages[0];
+  const summary = firstPage ? describeActivityReactors(firstPage, emoji.label) : null;
   const showTooltip = peeking && count > 0;
 
   return (

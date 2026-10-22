@@ -70,11 +70,35 @@ export const activityCommentPageSchema = cursorPageSchema(activityCommentSchema)
 
 export const activityCommentCreateResponseSchema = z.object({ id: entityIdSchema });
 
-export const activityReactorListSchema = z.object({
+const activityReactorSchema = z.object({
+  crewName: z.string().min(1),
+  avatarUrl: z.string().nullable().default(null),
+  memberType: z.string().nullable().default(null),
+  generation: z.number().int().positive().nullable().default(null),
+  course: z.string().nullable().default(null),
+  mine: z.boolean()
+});
+
+/** 반응한 회원 한 페이지다. 먼저 반응한 순서이며 `count`는 전체 반응 수다. */
+export const activityReactorPageSchema = z.object({
   emoji: z.string(),
   count: z.number().int().nonnegative(),
-  reactors: z.array(z.object({ crewName: z.string().min(1), mine: z.boolean() })).default([])
+  reactors: z.array(activityReactorSchema).default([]),
+  nextCursor: z.string().nullable().default(null),
+  hasNext: z.boolean().default(false)
 });
+
+export const ACTIVITY_REACTOR_PAGE_SIZE = 30;
+
+const COURSE_LABELS = Object.freeze({ ANDROID: "안드로이드", BACKEND: "백엔드", FRONTEND: "프론트엔드" });
+
+/** 좋아요 목록의 보조 줄이다. "8기 프론트엔드"처럼 기수와 과정을, 코치는 "코치"를 보여 준다. */
+export function formatReactorMeta(reactor) {
+  if (reactor.memberType === "COACH") return "코치";
+  const parts = [reactor.generation ? `${reactor.generation}기` : null, COURSE_LABELS[reactor.course] ?? null];
+  const meta = parts.filter(Boolean).join(" ");
+  return meta || "크루";
+}
 
 const REACTOR_NAME_LIMIT = 10;
 
@@ -87,13 +111,14 @@ function withSubjectParticle(word) {
 
 /**
  * Slack처럼 반응한 사람을 "나, 바다 외 3명이 하트를 남겼어요"로 요약한다. 내 반응은 맨 앞에 "나"로 둔다.
+ * 말풍선은 이름을 10명까지, 하트 옆 요약은 2명까지만 쓴다.
  */
-export function describeActivityReactors({ count, reactors }, emojiLabel) {
+export function describeActivityReactors({ count, reactors }, emojiLabel, nameLimit = REACTOR_NAME_LIMIT) {
   if (count === 0 || reactors.length === 0) return null;
   const names = [
     ...reactors.filter((reactor) => reactor.mine).map(() => "나"),
     ...reactors.filter((reactor) => !reactor.mine).map((reactor) => reactor.crewName)
-  ].slice(0, REACTOR_NAME_LIMIT);
+  ].slice(0, nameLimit);
   const others = count - names.length;
   const subject = others > 0 ? `${names.join(", ")} 외 ${others}명` : names.join(", ");
   return `${withSubjectParticle(subject)} ${emojiLabel}를 남겼어요`;

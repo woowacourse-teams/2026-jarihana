@@ -1,13 +1,16 @@
 package com.project.jarihana.activitypost.query.controller;
 
 import com.project.jarihana.activitypost.domain.ReactionEmoji;
+import com.project.jarihana.activitypost.query.controller.dto.ActivityReactorListRequest;
 import com.project.jarihana.activitypost.query.controller.dto.ActivityReactorListResponse;
 import com.project.jarihana.activitypost.query.service.ActivityPostReactorQueryService;
 import com.project.jarihana.common.auth.LoginMemberReader;
 import com.project.jarihana.common.response.ApiResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -21,12 +24,14 @@ public class ActivityPostReactionQueryController {
     @GetMapping("/activity-posts/{postId}/reactions/{emoji}")
     public ResponseEntity<ApiResponse<ActivityReactorListResponse>> findPostReactors(
             @PathVariable long postId,
-            @PathVariable ReactionEmoji emoji
+            @PathVariable ReactionEmoji emoji,
+            @Valid @ModelAttribute ActivityReactorListRequest request
     ) {
         ActivityReactorListResponse response = ActivityReactorListResponse.from(
                 activityPostReactorQueryService.findForPost(
                         postId,
                         emoji,
+                        request.toQuery(),
                         loginMemberReader.currentMemberId().orElse(null)
                 )
         );
@@ -36,12 +41,14 @@ public class ActivityPostReactionQueryController {
     @GetMapping("/activity-post-comments/{commentId}/reactions/{emoji}")
     public ResponseEntity<ApiResponse<ActivityReactorListResponse>> findCommentReactors(
             @PathVariable long commentId,
-            @PathVariable ReactionEmoji emoji
+            @PathVariable ReactionEmoji emoji,
+            @Valid @ModelAttribute ActivityReactorListRequest request
     ) {
         ActivityReactorListResponse response = ActivityReactorListResponse.from(
                 activityPostReactorQueryService.findForComment(
                         commentId,
                         emoji,
+                        request.toQuery(),
                         loginMemberReader.currentMemberId().orElse(null)
                 )
         );
