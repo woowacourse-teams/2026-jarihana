@@ -55,6 +55,11 @@ test("회원 후보와 보낸 초대의 첫 페이지 요청에는 null 커서�
   await fetchIssuedInvitations(10, { scope: "MINE", cursor: null, size: 20 }, client);
   for (const request of requests) expect(new URL(request.url).searchParams.has("cursor")).toBe(false);
 });
+test.each(["https://avatars.githubusercontent.com/u/21", null, undefined])("후보 응답은 프로필 사진과 사진이 없는 회원을 전달한다: %s", async (avatarUrl) => {
+  const candidate = { memberId: 21, crewName: "노을", avatarUrl, generation: 8, memberType: "CREW", course: "BACKEND" };
+  const result = await fetchInvitationCandidates(10, {}, wire({ items: [candidate], nextCursor: null, hasNext: false }).client);
+  expect(result.items[0]).toEqual(candidate);
+});
 test("거절은 CSRF를 포함한 서버 요청을 보내고 204를 처리하며 알림을 삭제하지 않는다", async () => {
   const requests = [];
   const client = createApiClient({ baseUrl: "https://app.test/api/", cookieSource: () => "XSRF-TOKEN=csrf",
