@@ -1,6 +1,7 @@
 # 웹푸시 실행·배포·검증
 
 구조와 선택 이유는 [백엔드 ADR 0015](../adr/0015-web-push-and-notification-inbox.md)와
+[백엔드 ADR 0027 · 비동기 전송](../adr/0027-bounded-async-push-delivery.md),
 [프론트엔드 ADR 0002](../../../frontend/docs/adr/0002-notification-inbox-and-service-worker.md),
 API는 [알림함·웹푸시 계약](../context/api/endpoints/notifications.md), 화면 동작은
 [프론트 연결 계약](../../../frontend/docs/IMPLEMENTATION_MAP.md#웹푸시알림함-구현)을 따른다.
@@ -50,17 +51,34 @@ JAVA_HOME=/path/to/jdk-21 npm run test:push:local -- --real-provider
 | `PUSH_VAPID_PRIVATE_KEY` | 빈 값 | 서버 서명용 비밀키. 저장소·로그에 남기지 않음 |
 | `PUSH_VAPID_SUBJECT` | 빈 값 | `mailto:담당자주소` 또는 HTTPS 연락처 |
 | `PUSH_ALLOWED_HOSTS` | `fcm.googleapis.com,updates.push.services.mozilla.com,web.push.apple.com` | 정확한 제공자 호스트 목록 |
-| `PUSH_BATCH_SIZE` | `50` | 한 실행에서 처리할 최대 작업 수, 1~100 |
+| `PUSH_BATCH_SIZE` | `50` | 한 번의 선점·전송 시작 루프가 처리할 최대 작업 수, 1~100. 동시에 50건을 미리 선점하지 않음 |
 | `PUSH_POLL_DELAY` | `1000` | 실행이 끝난 뒤 다음 실행까지 기다리는 밀리초 |
 | `PUSH_LEASE_DURATION` | `PT1M` | 워커 선점 유효기간 |
 | `PUSH_REQUEST_TIMEOUT` | `PT10S` | 외부 HTTP 요청의 전체 제한시간 |
 | `PUSH_CONNECT_TIMEOUT` | `PT5S` | DNS·TCP·TLS 연결 제한시간 |
 | `PUSH_RETRY_DELAY` | `PT5S` | 재시도 간격의 시작값 |
+| `PUSH_MAX_IN_FLIGHT` | `4` | 선점부터 개별 결과 저장까지 동시에 처리할 최대 작업 수 |
+| `PUSH_HTTP_IO_THREADS` | `1` | 비동기 HTTP 이벤트 루프 스레드 수 |
+| `PUSH_DNS_THREADS` | `2` | DNS·암호화 준비 스레드 수 |
+| `PUSH_DNS_QUEUE_CAPACITY` | `4` | 준비 작업 대기열 상한 |
+| `PUSH_HTTP_MAX_CONNECTIONS_PER_ROUTE` | `4` | 대상 route별 HTTP 연결 상한 |
+| `PUSH_HTTP_MAX_CONNECTIONS` | `12` | 전체 HTTP 연결 상한. 필요한 연결만 생성 |
+| `PUSH_HTTP_POOL_WAIT_TIMEOUT` | `PT1S` | 풀에서 연결을 기다리는 최대 시간 |
+| `PUSH_HTTP_IDLE_TIMEOUT` | `PT1M` | 유휴 연결 정리 기준 |
+| `PUSH_HTTP_CONNECTION_TTL` | `PT5M` | 연결 최대 수명 |
+| `PUSH_SHUTDOWN_TIMEOUT` | `PT15S` | 새 선점을 멈춘 뒤 진행 중인 결과 저장을 기다리는 시간 |
 
-DNS는 최대 두 건만 동시에 조회하고 기다리는 요청을 쌓지 않습니다. 공개 주소를 검사한 뒤 해당 주소에
+DNS·암호화 준비는 기본 두 건, 대기열은 최대 네 건으로 제한합니다. JVM의 DNS 캐시를 그대로 사용하므로
+조회 함수 호출이 매번 실제 DNS 통신을 뜻하지는 않습니다. 공개 주소를 검사한 뒤 해당 주소에
 연결하며, 원래 호스트의 TLS 인증서 검증을 유지합니다. redirect와 HTTP 클라이언트 자체 재시도는 끕니다.
 선점 시간은 HTTP 제한시간과 연결 제한시간 두 번의 합보다 커야 하며, 네트워크 제한시간은 최소 1ms입니다.
 비밀키·구독 endpoint·암호화 키·원격 응답 본문은 운영 로그에 남기지 않습니다.
+
+워커는 빈 슬롯만큼 선점·전송 준비를 배치 처리하고 HTTP 응답 대기를 겹칩니다.
+먼저 끝난 요청은 별도 결과 저장 스레드에서 반영한 뒤 해당 슬롯을 바로 채웁니다.
+I/O·DNS 스레드 외에 결과 저장(최대 2개)과 타이머·연결 관리 스레드가 있습니다.
+제한시간 내 종료되지 못하거나 강제로 종료된 작업은 기존 lease 만료 후 복구합니다.
+외부 수락 직후 DB 저장 전에 종료되면 중복 전송이 발생할 수 있습니다.
 
 ## 배포 설정
 
@@ -142,6 +160,10 @@ PC Chrome 로컬 수신 결과를 Safari와 모바일 결과로 대신하지 않
 ## 장애 확인과 일시 중단
 
 `jarihana.push.requests` 카운터는 외부 요청 결과를 `ACCEPTED`, `RETRY`, `GONE`, `FAILED`로 구분합니다.
+`jarihana.push.request.duration`은 DNS·암호화 준비를 포함한 전송 완료까지의 시간이며 결과 저장 시간은 제외합니다.
+`jarihana.push.inflight`는 선점·준비·전송·결과 저장 중인 작업 수입니다. 요청시간의 count/sum과
+전송 결과 카운터는 저장 완료 여부와 구별해서 읽습니다. 배포 후 동일 대상 수·제공자 분포에서 처리량,
+생성부터 수락까지 지연, 요청시간, 재시도율과 DB 쿼리 수·시간을 비교할 예정입니다.
 외부 수락은 실제 기기 표시·사용자 읽음과 다릅니다. `push.request.failed` 로그에는 전송 작업 ID와
 제한된 오류 코드만, `push.worker.failed`에는 예외 타입만 남깁니다. 재시도·만료 선점이 쌓이는지는
 다음 조회로 확인할 수 있습니다. DB 연결의 시간대와 무관하게 서버의 서울 기준 시각과 비교합니다.
