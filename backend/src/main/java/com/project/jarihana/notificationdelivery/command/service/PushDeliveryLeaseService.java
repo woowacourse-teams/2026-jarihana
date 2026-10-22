@@ -15,7 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -28,15 +30,29 @@ public class PushDeliveryLeaseService {
 
     @Transactional
     public Optional<DeliveryClaim> claimNext() {
+        return claimNext(1).stream().findFirst();
+    }
+
+    @Transactional
+    public List<DeliveryClaim> claimNext(int limit) {
+        if (limit < 0) {
+            throw new IllegalArgumentException("Claim limit must not be negative");
+        }
         LocalDateTime now = LocalDateTime.now(clock);
-        return work.claimNext(now, now.plus(properties.leaseDuration()));
+        return work.claimNext(now, now.plus(properties.leaseDuration()), limit);
     }
 
     @Transactional
     public Optional<PushRequest> prepare(DeliveryClaim claim) {
+        return prepare(List.of(claim)).stream().findFirst();
+    }
+
+    @Transactional
+    public List<PushRequest> prepare(List<DeliveryClaim> claims) {
         LocalDateTime now = LocalDateTime.now(clock);
-        var result = work.findSendable(claim, now);
-        if (result.isEmpty()) { work.cancelUnsendable(claim, now); }
+        var result = work.findSendable(claims, now);
+        var sendableIds = result.stream().map(PushRequest::deliveryId).collect(Collectors.toSet());
+        work.cancelUnsendable(claims.stream().filter(claim -> !sendableIds.contains(claim.id())).toList(), now);
         return result;
     }
 
@@ -48,7 +64,7 @@ public class PushDeliveryLeaseService {
             work.finish(claim, DeliveryStatus.CANCELLED, now, "STALE_TARGET", now);
             return;
         }
-        int attempts = work.attemptCount(claim.id());
+        int attempts = claim.attemptCount();
         Duration delay = properties.retryDelay().multipliedBy(1L << Math.min(attempts - 1, 4));
         if (result.retryAfter() != null && result.retryAfter().compareTo(delay) > 0) { delay = result.retryAfter(); }
         boolean canRetry = attempts < 5 && delay.compareTo(Duration.between(now, request.expiresAt())) < 0;
