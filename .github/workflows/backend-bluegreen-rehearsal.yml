@@ -52,6 +52,13 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: ${{ env.BACKEND_IMAGE }}:rehearsal-${{ github.sha }}
+      - name: 앱 계정의 JVM 및 agent 기동 검사
+        env:
+          BACKEND_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          docker pull "${BACKEND_IMAGE}@${BACKEND_DIGEST}"
+          docker run --rm --network none -e OTEL_SDK_DISABLED=true \
+            --entrypoint java "${BACKEND_IMAGE}@${BACKEND_DIGEST}" -version
 
   prepare-b:
     needs: build
