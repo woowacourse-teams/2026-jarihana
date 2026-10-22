@@ -1,6 +1,8 @@
 package com.project.jarihana.notification.query.repository;
 
+import com.project.jarihana.activitypost.domain.ReactionEmoji;
 import com.project.jarihana.notification.domain.Notification;
+import com.project.jarihana.notification.query.repository.dto.ActivityPostReactionSummaryProjection;
 import com.project.jarihana.notification.query.repository.dto.NotificationProjection;
 import com.project.jarihana.notification.query.repository.dto.NotificationGroupProjection;
 import org.springframework.data.domain.Pageable;
@@ -51,6 +53,25 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
             from Group g where g.id in :groupIds
             """)
     List<NotificationGroupProjection> findGroupNames(@Param("groupIds") Collection<Long> groupIds);
+
+    @Query("""
+            select new com.project.jarihana.notification.query.repository.dto.ActivityPostReactionSummaryProjection(
+                reaction.post.id, reaction.member.crewName,
+                (select count(counted) from ActivityPostReaction counted
+                 where counted.post.id = reaction.post.id and counted.emoji = :emoji
+                   and counted.member.id <> counted.post.author.id))
+            from ActivityPostReaction reaction
+            where reaction.post.id in :activityPostIds
+              and reaction.id = (
+                  select max(latest.id) from ActivityPostReaction latest
+                  where latest.post.id = reaction.post.id and latest.emoji = :emoji
+                    and latest.member.id <> latest.post.author.id
+              )
+            """)
+    List<ActivityPostReactionSummaryProjection> findReactionSummaries(
+            @Param("activityPostIds") Collection<Long> activityPostIds,
+            @Param("emoji") ReactionEmoji emoji
+    );
 
     @Query("""
             select count(notification)

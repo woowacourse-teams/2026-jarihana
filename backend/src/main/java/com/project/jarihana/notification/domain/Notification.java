@@ -76,7 +76,11 @@ public class Notification extends BaseEntity {
         if ((eventType == NotificationEventType.INVITATION_RECEIVED) != (payload.getInvitationId() != null)) {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "알림 종류와 업무 식별자가 일치해야 합니다.");
         }
-        boolean groupPayload = payload.getRegistrationId() == null && payload.getInvitationId() == null;
+        if (eventType.isActivityPostEvent() != (payload.getActivityPostId() != null)) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "활동 기록 알림에만 활동 기록 식별자가 필요합니다.");
+        }
+        boolean groupPayload = payload.getRegistrationId() == null && payload.getInvitationId() == null
+                && payload.getActivityPostId() == null;
         if ((eventType == NotificationEventType.GROUP_CREATED) != groupPayload) {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "모임 등록 알림 외에는 모집과 신청 식별자가 필요합니다.");
         }

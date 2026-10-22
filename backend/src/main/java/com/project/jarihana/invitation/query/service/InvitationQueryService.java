@@ -2,6 +2,7 @@ package com.project.jarihana.invitation.query.service;
 
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.common.github.GithubAvatarUrl;
 import com.project.jarihana.group.command.repository.GroupCommandRepository;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
@@ -128,7 +129,7 @@ public class InvitationQueryService {
         var items = page.getContent();
         String next = page.hasNext() ? InvitationCursor.encode(scope, items.getLast().createdAt(), items.getLast().memberId()) : null;
         return new InvitationCandidateResult(items.stream().map(item -> new InvitationCandidateResult.Item(
-                item.memberId(), item.crewName(), item.generation(), item.memberType(), item.course())).toList(), next, page.hasNext());
+                item.memberId(), item.crewName(), GithubAvatarUrl.from(item.githubId()), item.generation(), item.memberType(), item.course())).toList(), next, page.hasNext());
     }
 
     public ReceivedInvitationResult findReceived(long memberId, ReceivedInvitationQuery query) {

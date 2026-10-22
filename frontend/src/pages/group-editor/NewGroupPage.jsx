@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { useNavigate, useSearchParams } from "react-router";
 import { z } from "zod";
@@ -21,9 +21,12 @@ import { GroupMembersPanel } from "./GroupMembersPanel.jsx";
 import { MarkdownEditor } from "./MarkdownEditor.jsx";
 import { ScheduleDialog } from "./ScheduleDialog.jsx";
 import { useSubmissionLock } from "./useSubmissionLock.js";
+import { focusInvalidField } from "./focusInvalidField.js";
 import "../groups/groups.css";
 
 const timeSchema = z.string().regex(/^\d{2}:\d{2}$/, "시간을 입력해 주세요.");
+const SCHEDULE_FIELDS = ["sessionDate", "daysOfWeek", "startTime", "endTime"];
+const FIELD_ORDER = ["type", "name", "introduction", "meetingType", ...SCHEDULE_FIELDS, "location", "description"];
 
 const baseSchema = z.object({
   type: z.enum(["CLUB", "STUDY", "SESSION"]),
@@ -151,6 +154,8 @@ export function NewGroupPage() {
   const createLock = useSubmissionLock();
   const toast = useToast();
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const formReference = useRef(null);
+  const [focusRequest, setFocusRequest] = useState(null);
   const [contentTab, setContentTab] = useState("intro");
   const [representativeImageKey, setRepresentativeImageKey] = useState(null);
   const [representativeImagePreview, setRepresentativeImagePreview] = useState(null);
@@ -171,6 +176,7 @@ export function NewGroupPage() {
     trigger
   } = useForm({
     resolver: zodResolver(newGroupSchema),
+    shouldFocusError: false,
     defaultValues: {
       type: searchParams.get("type") === "SESSION" ? "SESSION" : "STUDY",
       name: "",
@@ -191,6 +197,20 @@ export function NewGroupPage() {
   const description = values.description ?? "";
   const daysOfWeek = values.daysOfWeek ?? [];
   const flexibleTime = values.flexibleTime ?? false;
+
+  useEffect(() => {
+    if (!focusRequest) return;
+    const name = SCHEDULE_FIELDS.includes(focusRequest.name) ? "schedule" : focusRequest.name;
+    const frame = window.requestAnimationFrame(() => focusInvalidField(formReference.current, name));
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusRequest]);
+
+  function handleInvalid(formErrors) {
+    const name = FIELD_ORDER.find((field) => formErrors[field]);
+    if (!name) return;
+    if (name === "description") setContentTab("intro");
+    setFocusRequest({ name });
+  }
 
   /* 일정 오류는 모달 안에만 두면 닫는 순간 사라지므로 히어로에도 함께 보여준다. */
   const scheduleError =
@@ -232,7 +252,7 @@ export function NewGroupPage() {
         });
       }
     });
-  });
+  }, handleInvalid);
 
   return (
     <div className="group-editor group-editor--create page-container">
@@ -246,6 +266,7 @@ export function NewGroupPage() {
       <form
         data-ph-capture-attribute-action="group_create_form"
         id="group-create-form"
+        ref={formReference}
         onSubmit={submit}
         noValidate
       >
@@ -305,6 +326,7 @@ export function NewGroupPage() {
                   actionLabel="설정"
                   error={scheduleError}
                   lines={draftSummary({ ...values, daysOfWeek, flexibleTime, type })}
+                  name="schedule"
                   onEdit={() => setScheduleOpen(true)}
                 />
                 <div className="group-fact group-fact--field">
@@ -394,9 +416,10 @@ export function NewGroupPage() {
 
       <ScheduleDialog
         errors={errors}
+        focusRequest={focusRequest && SCHEDULE_FIELDS.includes(focusRequest.name) ? focusRequest : null}
         flexibleTime={flexibleTime}
         isSession={type === "SESSION"}
-        onClose={() => setScheduleOpen(false)}
+        onClose={() => { setScheduleOpen(false); setFocusRequest(null); }}
         onFlexibleTimeChange={selectFlexibleTime}
         onPresetSelect={selectPreset}
         onSubmit={confirmSchedule}

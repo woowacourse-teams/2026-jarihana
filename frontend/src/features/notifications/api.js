@@ -4,6 +4,7 @@ import { apiClient } from "../../shared/api";
 const id = z.number().int().positive().safe();
 const notificationTargetSchema = z.union([
   z.object({ kind: z.literal("INVITATION"), groupId: id, invitationId: id }),
+  z.object({ kind: z.literal("ACTIVITY_POST"), groupId: id, activityPostId: id }),
   z.object({ kind: z.literal("GROUP_DETAIL"), groupId: id, recruitmentId: id.optional(), registrationId: id.optional() }),
   z.object({ kind: z.enum(["LEADER_REGISTRATIONS", "MY_REGISTRATIONS", "LEADER_MEMBERS", "MY_PAGE", "MY_GROUPS"]), groupId: id, recruitmentId: id, registrationId: id.optional() })
 ]);
@@ -13,9 +14,11 @@ export const notificationSchema = z.object({
   target: notificationTargetSchema
 }).refine((notification) => notification.eventType === "INVITATION_RECEIVED"
   ? notification.target.kind === "INVITATION"
-  : notification.eventType === "GROUP_CREATED"
-    ? notification.target.kind === "GROUP_DETAIL" && notification.target.recruitmentId === undefined && notification.target.registrationId === undefined
-    : notification.target.kind !== "INVITATION" && notification.target.recruitmentId !== undefined,
+  : notification.eventType === "ACTIVITY_POST_COMMENTED" || notification.eventType === "ACTIVITY_POST_REACTED"
+    ? notification.target.kind === "ACTIVITY_POST"
+    : notification.eventType === "GROUP_CREATED"
+      ? notification.target.kind === "GROUP_DETAIL" && notification.target.recruitmentId === undefined && notification.target.registrationId === undefined
+      : notification.target.kind !== "INVITATION" && notification.target.recruitmentId !== undefined,
   { message: "알림 종류에 맞는 이동 대상이 필요합니다." }
 ).transform((notification) => notification.eventType === "REGISTRATION_APPROVED" && notification.target.kind === "GROUP_DETAIL"
   ? { ...notification, target: { ...notification.target, kind: "MY_GROUPS" } } : notification);
@@ -37,8 +40,9 @@ export const readAllNotifications = (client = apiClient) => client.request("noti
   method: "PATCH", schema: z.object({ updatedCount: z.number().int().nonnegative(), readAt: z.string() })
 });
 export const deleteNotification = (notificationId, client = apiClient) => client.request(`notifications/${notificationId}`, { method: "DELETE" });
-export const notificationTargetPath = ({ kind, groupId, recruitmentId, registrationId, invitationId }, notificationId) => {
+export const notificationTargetPath = ({ kind, groupId, recruitmentId, registrationId, invitationId, activityPostId }, notificationId) => {
   if (kind === "INVITATION") return `/invitations/${invitationId}`;
+  if (kind === "ACTIVITY_POST") return `/activities?mine=true&post=${activityPostId}`;
   const context = notificationId ? `&notification=${notificationId}` : "";
   if (kind === "MY_GROUPS") return `/my?focusGroup=${groupId}${context}`;
   if (kind === "MY_PAGE" || kind === "MY_REGISTRATIONS") {

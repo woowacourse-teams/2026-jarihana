@@ -1,13 +1,19 @@
 package com.project.jarihana.notification.query.service;
+import com.project.jarihana.activitypost.domain.ReactionEmoji;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.member.command.repository.MemberRepository;
+import com.project.jarihana.notification.domain.NotificationEventType;
 import com.project.jarihana.notification.query.repository.NotificationQueryRepository;
+import com.project.jarihana.notification.query.repository.dto.ActivityPostReactionSummaryProjection;
+import com.project.jarihana.notification.query.repository.dto.NotificationProjection;
 import com.project.jarihana.notification.query.service.dto.PushContentQuery;
 import com.project.jarihana.notification.query.service.dto.PushContentResult;
 import com.project.jarihana.pushsubscription.query.repository.PushSubscriptionQueryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -23,7 +29,16 @@ public class PushContentQueryService {
         }
         subscriptions.findActive(query.subscriptionId(), memberId, query.generation()).orElseThrow(PushContentQueryService::notFound);
         var notification = notifications.findActiveByIdAndMemberId(id, memberId).orElseThrow(PushContentQueryService::notFound);
-        return new PushContentResult(notification.id(), notification.eventType(), notification.payloadVersion(), notification.payload());
+        return new PushContentResult(notification.id(), notification.eventType(), notification.payloadVersion(), notification.payload(),
+                findReactionSummary(notification));
+    }
+
+    private ActivityPostReactionSummaryProjection findReactionSummary(NotificationProjection notification) {
+        if (notification.eventType() != NotificationEventType.ACTIVITY_POST_REACTED) {
+            return null;
+        }
+        return notifications.findReactionSummaries(List.of(notification.payload().getActivityPostId()), ReactionEmoji.HEART)
+                .stream().findFirst().orElse(null);
     }
 
     private static BusinessException notFound() {
