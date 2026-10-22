@@ -25,6 +25,25 @@ beforeEach(() => {
   useAuth.mockReturnValue({ member: { id: 1 }, sessionVersion: 1, status: "authenticated" });
   fetchInvitationCandidates.mockResolvedValue({ items: people, nextCursor: null, hasNext: false });
 });
+test("검색 버튼 없이 입력·Enter로 검색하고 선택한 회원을 유지한다", async () => {
+  fetchInvitationCandidates.mockImplementation(async (_groupId, { keyword }) => ({
+    items: people.filter(person => person.crewName.includes(keyword)), nextCursor: null, hasNext: false
+  }));
+  setup(<InviteMembersDialog groupId="10" open onClose={jest.fn()} />);
+  await userEvent.click(await screen.findByRole("checkbox", { name: /노을/ }));
+  expect(screen.queryByRole("button", { name: "회원 검색" })).not.toBeInTheDocument();
+  const input = screen.getByRole("textbox", { name: "회원 이름 검색" });
+  expect(input).toHaveAttribute("data-ph-capture-attribute-action", "invitation_search");
+  await userEvent.type(input, "하늘");
+  await screen.findByRole("checkbox", { name: /하늘/ });
+  await waitFor(() => expect(fetchInvitationCandidates).toHaveBeenCalledWith("10", expect.objectContaining({ keyword: "하늘" }), undefined, expect.any(AbortSignal)));
+  await userEvent.keyboard("{Enter}");
+  expect(screen.getByRole("dialog")).toBeInTheDocument();
+  expect(createInvitation).not.toHaveBeenCalled();
+  await userEvent.clear(input);
+  expect(await screen.findByRole("checkbox", { name: /노을/ })).toBeChecked();
+});
+
 test("기본·추가·검색 목록의 사진을 표시하고 사진 누락·실패에도 선택을 유지해 초대한다", async () => {
   const first = { ...people[0], avatarUrl: "https://avatars.githubusercontent.com/u/21" };
   const second = { ...people[1], avatarUrl: "https://avatars.githubusercontent.com/u/22" };

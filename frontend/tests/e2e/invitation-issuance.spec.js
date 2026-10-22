@@ -137,7 +137,17 @@ for (const width of [360, 768, 1440]) {
     await expect(dialog.getByText("회원에게 직접 초대하거나 보낸 초대와 공유 링크를 관리할 수 있어요.")).toHaveCount(0);
     await expect(dialog.getByText("초대할 회원을 검색하고 선택해 주세요. 한 번에 여러 명에게 보낼 수 있어요.")).toHaveCount(0);
     const search = dialog.getByRole("textbox").or(dialog.getByRole("searchbox")).first();
+    await expect(dialog.getByRole("button", { name: "회원 검색", exact: true })).toHaveCount(0);
+    const searchWidths = await dialog.locator(".invitation-search").evaluate(form => ({
+      input: form.querySelector("input").getBoundingClientRect().width,
+      area: form.getBoundingClientRect().width
+    }));
+    expect(searchWidths.input).toBeCloseTo(searchWidths.area, 0);
+    await expect(search).toHaveAttribute("data-ph-capture-attribute-action", "invitation_search");
     await search.fill("노을");
+    await search.press("Enter");
+    await expect(dialog).toBeVisible();
+    expect(state.creates).toHaveLength(0);
     await selectCandidate(page, dialog, "노을");
     await search.fill("하늘");
     await selectCandidate(page, dialog, "하늘");
