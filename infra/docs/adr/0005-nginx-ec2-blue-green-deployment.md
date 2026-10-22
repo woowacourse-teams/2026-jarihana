@@ -1,10 +1,11 @@
 # ADR 0005. 별도 Nginx와 고정된 운영 EC2 두 대로 Blue-Green 배포한다
 
-- 상태: 채택 — 설계 결정. 구현과 AWS 배포·운영 검증은 아직 하지 않았다.
+- 상태: 채택 — worker 제어와 배포 제어기의 로컬 구현·검증 완료. 운영 연동과 AWS 배포·검증 전.
 - 날짜: 2026-10-21
 - 개정: 2026-10-22 — 15분 관찰·자동 롤백, worker 인계와 DB 변경 정책 확정
 - 범위: prod 백엔드의 트래픽 전환, 배포 자동화와 운영 EC2 시작·중지
 - 관련 결정: [인프라 ADR 0002](0002-rds-deployment-database.md), [백엔드 ADR 0015](../../../backend/docs/adr/0015-separate-ec2-and-shared-rds.md), [백엔드 ADR 0016](../../../backend/docs/adr/0016-github-hosted-build-and-ghcr.md)
+- 구현 범위·실행법·운영 전 남은 연결: [Blue-Green 배포 제어](../../deploy/README.md)
 
 ## 배경
 
@@ -162,7 +163,7 @@ A/B가 같은 DB를 사용하므로 구버전과 신버전 모두 동작할 수 
   [백엔드 ADR 0002](../../../backend/docs/adr/0002-access-token-cookie.md)를 따른다.
 - 구·신버전이 동시에 DB를 사용하므로 스키마는 Expand-Contract 등으로 호환성을 유지한다.
   Flyway 실행도 이 호환성을 대신 보장하지 않는다.
-- worker를 실행 중에 멈추고 인계하는 제어는 추가 구현이 필요하다. 단일 worker로 인계해도
+- worker를 실행 중에 멈추고 인계하는 제어는 배포 파이프라인에 추가 연결해야 한다. 단일 worker로 인계해도
   외부 발송 성공 직후 DB 기록 전 장애가 나면 재시도로 중복 발송될 수 있다. 앱 롤백으로
   이미 발송한 알림을 회수할 수는 없다.
 - 현재 구버전에는 이 인계 제어가 없으므로 최초 운영 이관과 이후 반복 배포를 구분한다.

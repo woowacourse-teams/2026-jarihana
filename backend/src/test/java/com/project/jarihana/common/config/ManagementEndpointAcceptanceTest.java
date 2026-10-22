@@ -17,16 +17,27 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+
+import java.io.IOException;
+import java.net.ServerSocket;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ActiveProfiles("prod")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
-        "management.server.port=0",
         "management.server.address=127.0.0.1",
         "spring.application.name=jarihana"
 })
 class ManagementEndpointAcceptanceTest extends IntegrationTestSupport {
+
+    private static final int MANAGEMENT_SERVER_PORT = findAvailablePort();
+
+    @DynamicPropertySource
+    static void configureManagementServerPort(DynamicPropertyRegistry registry) {
+        registry.add("management.server.port", () -> MANAGEMENT_SERVER_PORT);
+    }
 
     @Value("${local.management.port}")
     private int managementPort;
@@ -187,5 +198,13 @@ class ManagementEndpointAcceptanceTest extends IntegrationTestSupport {
 
     private RequestSpecification managementRequest() {
         return RestAssured.given().port(managementPort).basePath("");
+    }
+
+    private static int findAvailablePort() {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        } catch (IOException exception) {
+            throw new IllegalStateException("테스트용 관리 포트를 할당하지 못했습니다.", exception);
+        }
     }
 }

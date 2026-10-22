@@ -1,0 +1,21 @@
+{
+  "environment": "prod",
+  "coordinator_instance_id": "i-00000000000000000",
+  "a": {
+    "slot": "A",
+    "host_id": "prod-a",
+    "instance_id": "i-aaaaaaaaaaaaaaaaa",
+    "upstream": "10.0.1.10:8080"
+  },
+  "b": {
+    "slot": "B",
+    "host_id": "prod-b",
+    "instance_id": "i-bbbbbbbbbbbbbbbbb",
+    "upstream": "10.0.2.10:8080"
+  },
+  "control": {
+    "workflow": "backend-app-operation.yml",
+    "ref": "refs/tags/deployment-control-v1",
+    "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}

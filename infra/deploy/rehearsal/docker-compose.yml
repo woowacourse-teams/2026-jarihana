@@ -1,0 +1,45 @@
+name: jarihana-bluegreen-rehearsal-b
+
+services:
+  backend:
+    image: "ghcr.io/woowacourse-teams/jarihana-backend@${BACKEND_DIGEST:?digest is required}"
+    restart: "no"
+    mem_limit: 896m
+    stop_grace_period: 45s
+    ports:
+      - "10.0.3.184:18080:8080"
+      - "127.0.0.1:18081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_URL: jdbc:postgresql://jarihana-db.cqsc6pyqhwww.ap-northeast-2.rds.amazonaws.com:5432/jarihana_dev?sslmode=require
+      DB_USERNAME: "${DB_USERNAME:?dev DB username is required}"
+      DB_PASSWORD: "${DB_PASSWORD:?dev DB password is required}"
+      FLYWAY_BASELINE_ON_MIGRATE: "false"
+      INVITATION_TOKEN_ACTIVE_KEY_ID: "${INVITATION_TOKEN_ACTIVE_KEY_ID:-primary}"
+      INVITATION_TOKEN_KEY_PRIMARY: "${INVITATION_TOKEN_KEY_PRIMARY:?dev invitation key is required}"
+      INVITATION_TOKEN_KEY_PREVIOUS: "${INVITATION_TOKEN_KEY_PREVIOUS:-}"
+      ACCESS_TOKEN_SECRET: "${ACCESS_TOKEN_SECRET:?dev JWT secret is required}"
+      FRONTEND_ORIGIN: "${FRONTEND_ORIGIN:?dev frontend origin is required}"
+      GITHUB_OAUTH_CLIENT_ID: "${GITHUB_OAUTH_CLIENT_ID:?dev OAuth client ID is required}"
+      GITHUB_OAUTH_CLIENT_SECRET: "${GITHUB_OAUTH_CLIENT_SECRET:?dev OAuth secret is required}"
+      GITHUB_OAUTH_REDIRECT_URI: "${GITHUB_OAUTH_REDIRECT_URI:?dev OAuth redirect is required}"
+      PUSH_ENABLED: "false"
+      PUSH_WORKER_ENABLED: "false"
+      PUSH_WORKER_START_PAUSED: "true"
+      PUSH_WORKER_CONTROL_ENABLED: "true"
+      PUSH_WORKER_HOST_ID: jarihana-rehearsal-b
+      PUSH_WORKER_ENVIRONMENT: dev-rehearsal
+      WORKER_CONTROL_TOKEN: "${WORKER_CONTROL_TOKEN:?machine token is required}"
+      APP_VERSION: "${BACKEND_DIGEST:?digest is required}"
+      SERVER_SHUTDOWN: graceful
+      SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE: 30s
+      JDK_JAVA_OPTIONS: -Xms128m -Xmx384m
+      OTEL_SDK_DISABLED: "true"
+      SENTRY_BACKEND_DSN: ""
+      AWS_EC2_METADATA_DISABLED: "true"
+      IMAGE_S3_KEY_PREFIX: jarihana/dev-bluegreen-rehearsal/images
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: "3"

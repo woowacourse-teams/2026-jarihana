@@ -66,6 +66,9 @@ jarihana:
     request-timeout: ${PUSH_REQUEST_TIMEOUT:PT10S}
     connect-timeout: ${PUSH_CONNECT_TIMEOUT:PT5S}
     retry-delay: ${PUSH_RETRY_DELAY:PT5S}
+  worker-control:
+    token: ${WORKER_CONTROL_TOKEN:}
+    version: ${APP_VERSION:unknown}
   image:
     bucket: ${IMAGE_S3_BUCKET:techcourse-project-2026}
     region: ${IMAGE_S3_REGION:ap-northeast-2}

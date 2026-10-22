@@ -1,0 +1,154 @@
+import json
+import subprocess
+import sys
+from pathlib import Path
+from typing import final
+
+from bluegreen.github_models import Repository
+from bluegreen.models import AppStatus, Authority, RunIdentity, Slot
+from bluegreen.ports import DeploymentFailure
+from bluegreen.worker_parent_settings import (
+    WorkerParentSettings,
+    WorkerScenario,
+    verify_worker_parent,
+)
+from github_fixture import GitHubFixture
+from github_server import Reply
+from pydantic import ValidationError
+from test_worker_settings import settings
+
+
+def parent_settings(slot: Slot = Slot.B) -> WorkerParentSettings:
+    child = settings(slot)
+    before = AppStatus(environment=child.topology.environment, host_id=child.host.host_id,
+        instance_id=child.host.instance_id, boot_id=child.expected_boot, image=child.expected_image,
+        worker="PAUSED", in_flight=0, unresolved=0, healthy=True, running=True, http_in_flight=0,
+        background_drained=True, authority=Authority())
+    return WorkerParentSettings(repository=child.repository, topology=child.topology, before=before, target_slot=slot,
+        state_directory="/var/lib/jarihana-deploy/worker-rehearsal", parent_ref="refs/heads/feat/blue-green-deployment")
+
+
+@final
+class WorkerParentSettingsTest(GitHubFixture):
+    def test_round_trip_requires_explicit_matching_a_and_b_snapshots(self) -> None:
+        # Given
+        a, b = parent_settings(Slot.A), parent_settings(Slot.B)
+        # When
+        value = WorkerParentSettings.model_validate({**a.model_dump(), "round_trip": {
+            "a": a.before, "b": b.before, "completion_contract": "released-handoff-v1"}})
+        # Then
+        self.assertIsNotNone(value.round_trip)
+
+    def test_scenario_must_match_administrator_opt_in(self) -> None:
+        # Given
+        a, b = parent_settings(Slot.A), parent_settings(Slot.B)
+        full = WorkerParentSettings.model_validate({**a.model_dump(), "round_trip": {
+            "a": a.before, "b": b.before, "completion_contract": "released-handoff-v1"}})
+        # When / Then
+        a.select(WorkerScenario.SMOKE)
+        full.select(WorkerScenario.ROUND_TRIP)
+        with self.assertRaises(DeploymentFailure):
+            a.select(WorkerScenario.ROUND_TRIP)
+        with self.assertRaises(DeploymentFailure):
+            full.select(WorkerScenario.SMOKE)
+
+    def test_round_trip_rejects_mismatched_peer_identity_health_image_or_authority(self) -> None:
+        # Given
+        a, b = parent_settings(Slot.A), parent_settings(Slot.B)
+        for changes in ({"host_id": a.before.host_id}, {"boot_id": a.before.boot_id}, {"healthy": False},
+                        {"image": "sha256:" + "f" * 64}, {"in_flight": 1},
+                        {"authority": b.before.authority.model_copy(update={"revision": 7})}):
+            # When / Then
+            with self.subTest(changes=changes), self.assertRaises(DeploymentFailure):
+                _ = WorkerParentSettings.model_validate({**a.model_dump(), "round_trip": {
+                    "a": a.before, "b": b.before.model_copy(update=changes), "completion_contract": "released-handoff-v1"}})
+
+    def test_round_trip_requires_completion_contract_and_bounded_budget(self) -> None:
+        # Given
+        a, b = parent_settings(Slot.A), parent_settings(Slot.B)
+        for plan in ({"a": a.before, "b": b.before}, {"a": a.before, "b": b.before,
+                "completion_contract": "released-handoff-v1", "total_seconds": 2701}):
+            # When / Then
+            with self.subTest(plan=plan), self.assertRaises(ValidationError):
+                _ = WorkerParentSettings.model_validate({**a.model_dump(), "round_trip": plan})
+
+    def test_a_target_selects_only_the_a_process(self) -> None:
+        value = parent_settings(Slot.A)
+
+        self.assertEqual(value.topology.a.instance_id, value.before.instance_id)
+        self.assertEqual(value.topology.a, value.host)
+
+    def test_a_target_with_b_snapshot_is_rejected(self) -> None:
+        value = parent_settings()
+
+        with self.assertRaises(DeploymentFailure):
+            _ = WorkerParentSettings.model_validate({**value.model_dump(), "target_slot": Slot.A})
+
+    def test_running_parent_is_verified_against_actual_repository_metadata(self) -> None:
+        value = parent_settings()
+        parent = self.parent(value)
+        self.routes(value, parent)
+
+        verify_worker_parent(self.api, value, parent, self.command.deadline)
+
+        self.assertEqual(2, len(self.server.requests))
+
+    def test_rerun_wrong_workflow_and_wrong_ref_are_rejected_before_http(self) -> None:
+        value = parent_settings()
+        parent = self.parent(value)
+
+        for changes in ({"attempt": 2}, {"workflow": "backend-bluegreen-status-coordinator.yml"},
+                        {"ref": "refs/heads/main"}, {"event": "push"}):
+            with self.subTest(changes=changes), self.assertRaises(DeploymentFailure):
+                verify_worker_parent(self.api, value, parent.model_copy(update=changes), self.command.deadline)
+
+        self.assertEqual([], self.server.requests)
+
+    def test_completed_parent_cannot_issue_commands(self) -> None:
+        value = parent_settings()
+        parent = self.parent(value)
+        self.routes(value, parent, completed=True)
+
+        with self.assertRaises(DeploymentFailure):
+            verify_worker_parent(self.api, value, parent, self.command.deadline)
+
+    def test_active_owner_or_undrained_b_cannot_start_smoke(self) -> None:
+        value = parent_settings()
+
+        for changed in ({"worker": "ACTIVE"}, {"in_flight": 1}, {"healthy": False},
+                        {"authority": value.before.authority.model_copy(update={"owner_host": value.before.host_id})}):
+            with self.subTest(changed=changed), self.assertRaises(DeploymentFailure):
+                _ = WorkerParentSettings.model_validate({**value.model_dump(),
+                    "before": value.before.model_copy(update=changed)})
+
+    def test_other_environment_and_status_child_are_rejected(self) -> None:
+        value = parent_settings()
+        for changed in ({"environment": "prod"}, {"control": value.topology.control.model_copy(update={
+                "workflow": "backend-bluegreen-status-child.yml"})}):
+            with self.subTest(changed=changed), self.assertRaises(DeploymentFailure):
+                _ = WorkerParentSettings.model_validate({**value.model_dump(),
+                    "topology": value.topology.model_copy(update=changed)})
+
+    def test_cli_rejects_arguments_without_remote_access(self) -> None:
+        script = Path(__file__).parents[2] / "scripts/deploy/worker-coordinator.py"
+
+        result = subprocess.run((sys.executable, str(script), "unexpected"), capture_output=True, text=True, check=False)
+
+        self.assertEqual(1, result.returncode)
+
+    @staticmethod
+    def parent(value: WorkerParentSettings) -> RunIdentity:
+        return RunIdentity(run_id=100, attempt=1, workflow="backend-bluegreen-worker-coordinator.yml",
+            ref=value.parent_ref, sha="c" * 40, event="workflow_dispatch")
+
+    def routes(self, value: WorkerParentSettings, parent: RunIdentity, *, completed: bool = False) -> None:
+        root = f"/repos/{value.repository.full_name}"
+        path = f".github/workflows/{parent.workflow}"
+        repository = Repository(id=value.repository.id, full_name=value.repository.full_name)
+        actual = self.api_run.model_copy(update={"id": parent.run_id, "path": path,
+            "head_branch": "feat/blue-green-deployment", "head_sha": parent.sha,
+            "repository": repository, "head_repository": repository,
+            "status": "completed" if completed else "in_progress", "conclusion": "success" if completed else None})
+        self.server.route("GET", f"{root}/actions/workflows/{parent.workflow}", Reply(body=json.dumps({
+            "id": actual.workflow_id, "path": path, "state": "active"}).encode()))
+        self.server.route("GET", f"{root}/actions/runs/{parent.run_id}", Reply(body=actual.model_dump_json().encode()))

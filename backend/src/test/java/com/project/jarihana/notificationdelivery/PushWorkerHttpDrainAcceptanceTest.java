@@ -38,7 +38,8 @@ import static org.mockito.Mockito.doAnswer;
 @TestPropertySource(properties = {
         "jarihana.push.worker-control-enabled=true",
         "jarihana.push.worker-host-id=A",
-        "jarihana.push.worker-environment=http-drain-test"
+        "jarihana.push.worker-environment=http-drain-test",
+        "jarihana.worker-control.token=http-drain-test-token-0123456789abcdef"
 })
 class PushWorkerHttpDrainAcceptanceTest extends PushIntegrationTestSupport {
     @Autowired private PushDeliveryWorker worker;

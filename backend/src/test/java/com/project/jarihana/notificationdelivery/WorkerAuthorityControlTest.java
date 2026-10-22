@@ -60,6 +60,118 @@ class WorkerAuthorityControlTest extends PushIntegrationTestSupport {
     }
 
     @Test
+    @DisplayName("작업을 끝내고 권한까지 반납한 인계는 다른 worker를 켜지 않고 종료할 수 있다.")
+    void releasedHandoffCompletesWithoutActivatingAnotherWorker() {
+        // Given
+        var a = node("A");
+        var active = activateFirst(a);
+        var draining = a.control().pause(command(a, active));
+        var released = a.control().release(command(a, draining));
+
+        // When
+        var complete = a.control().advance(command(a, released), DeploymentPhase.COMPLETE);
+
+        // Then
+        assertThat(complete.phase()).isEqualTo(DeploymentPhase.COMPLETE);
+        assertThat(complete.status()).isEqualTo(WorkerAuthority.Status.UNASSIGNED);
+        assertThat(complete.owner()).isNull();
+        assertThat(complete.revision()).isEqualTo(released.revision() + 1);
+        assertThat(a.admission().drainStatus().isDrained()).isTrue();
+        assertThat(canClaim(a)).isFalse();
+    }
+
+    @Test
+    @DisplayName("처리 권한이 남아 있거나 반납되지 않은 인계는 완료 단계로 건너뛸 수 없다.")
+    void handoffCannotCompleteWhileOwnerIsActiveOrDraining() {
+        // Given
+        var a = node("A");
+        var active = activateFirst(a);
+
+        // When / Then
+        assertThatIllegalStateException().isThrownBy(() -> a.control().advance(command(a, active), DeploymentPhase.COMPLETE));
+        var draining = a.control().pause(command(a, active));
+        assertThatIllegalStateException().isThrownBy(() -> a.control().advance(command(a, draining), DeploymentPhase.COMPLETE));
+        assertThat(repository.find("authority-test").orElseThrow()).isEqualTo(draining);
+    }
+
+    @Test
+    @DisplayName("아무 worker도 활성화하지 않은 인계를 정리하면 다음 시험을 새 세대로 시작할 수 있다.")
+    void unassignedHandoffCanCloseAndStartNewDeployment() {
+        // Given
+        var a = node("A");
+        var preparing = begin(a);
+        var handoff = a.control().advance(command(a, preparing), DeploymentPhase.HANDOFF);
+
+        // When
+        var complete = a.control().advance(command(a, handoff), DeploymentPhase.COMPLETE);
+        var next = a.control().begin(new WorkerControlCommand(UUID.randomUUID(), complete.epoch(), UUID.randomUUID(),
+                a.identity(), complete.phase(), NOW.plusMinutes(5), complete.revision()));
+
+        // Then
+        assertThat(next.epoch()).isEqualTo(complete.epoch() + 1);
+        assertThat(next.owner()).isNull();
+        assertThat(next.status()).isEqualTo(WorkerAuthority.Status.UNASSIGNED);
+        assertThat(canClaim(a)).isFalse();
+    }
+
+    @Test
+    @DisplayName("결과가 불명확한 작업이 남으면 시험 완료로 건너뛰어 권한을 정리할 수 없다.")
+    void unresolvedWorkCannotBeHiddenByCompletion() {
+        // Given
+        var a = node("A");
+        var active = activateFirst(a);
+        a.admission().tryAcquire().orElseThrow().close();
+        var draining = a.control().pause(command(a, active));
+
+        // When / Then
+        assertThatIllegalStateException().isThrownBy(() -> a.control().advance(command(a, draining), DeploymentPhase.COMPLETE));
+        assertThat(repository.find("authority-test").orElseThrow()).isEqualTo(draining);
+        assertThat(a.admission().drainStatus().unresolved()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("시험 종료와 새 worker 활성화가 겹쳐도 하나만 적용되고 오래된 명령은 차단된다.")
+    void completionAndActivationCannotBothApply() throws Exception {
+        // Given
+        var a = node("A");
+        var b = node("B");
+        var active = activateFirst(a);
+        var draining = a.control().pause(command(a, active));
+        var released = a.control().release(command(a, draining));
+        var barrier = new CyclicBarrier(2);
+
+        // When
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var completing = executor.submit(() -> {
+                barrier.await(5, TimeUnit.SECONDS);
+                try {
+                    a.control().advance(command(a, released), DeploymentPhase.COMPLETE);
+                    return true;
+                } catch (IllegalStateException exception) {
+                    return false;
+                }
+            });
+            var activating = executor.submit(() -> activateAtBarrier(b, command(b, released), barrier));
+            boolean completed = completing.get(10, TimeUnit.SECONDS);
+            boolean activated = activating.get(10, TimeUnit.SECONDS);
+
+            // Then
+            assertThat(completed ^ activated).isTrue();
+            var row = repository.find("authority-test").orElseThrow();
+            assertThat(row.revision()).isEqualTo(released.revision() + 1);
+            if (completed) {
+                assertThat(row.phase()).isEqualTo(DeploymentPhase.COMPLETE);
+                assertThat(row.owner()).isNull();
+                assertThat(canClaim(b)).isFalse();
+            } else {
+                assertThat(row.phase()).isEqualTo(DeploymentPhase.HANDOFF);
+                assertThat(row.owner()).isEqualTo(b.identity());
+                assertThat(canClaim(b)).isTrue();
+            }
+        }
+    }
+
+    @Test
     @DisplayName("동시 활성화 요청 중 한 프로세스만 DB 권한과 신규 선점을 허용받는다.")
     void concurrentActivationGrantsOnlyOneOwner() throws Exception {
         // Given

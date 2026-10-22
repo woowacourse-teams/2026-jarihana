@@ -49,7 +49,8 @@ import static org.mockito.Mockito.doAnswer;
 
 @Import(PushTransportTestConfig.class)
 @TestPropertySource(properties = {"jarihana.push.worker-control-enabled=true",
-        "jarihana.push.worker-host-id=A", "jarihana.push.worker-environment=authority-test"})
+        "jarihana.push.worker-host-id=A", "jarihana.push.worker-environment=authority-test",
+        "jarihana.worker-control.token=worker-authority-test-token-0123456789abcdef"})
 class WorkerAuthorityIntegrationTest extends PushIntegrationTestSupport {
     @Autowired private PushDeliveryWorker worker;
     @Autowired private NotificationDeliveryCommandRepository deliveries;

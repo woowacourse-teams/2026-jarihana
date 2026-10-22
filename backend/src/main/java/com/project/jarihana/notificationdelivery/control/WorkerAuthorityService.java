@@ -109,7 +109,10 @@ public class WorkerAuthorityService {
                 phase = DeploymentPhase.PREPARE;
             }
             case ADVANCE -> {
-                if (!canAdvance(phase, nextPhase) || (nextPhase == DeploymentPhase.OBSERVE && status != Status.ACTIVE)) {
+                boolean releasedCompletion = phase == DeploymentPhase.HANDOFF && nextPhase == DeploymentPhase.COMPLETE
+                        && status == Status.UNASSIGNED && owner == null && admission.drainStatus().isDrained();
+                if ((!canAdvance(phase, nextPhase) && !releasedCompletion)
+                        || (nextPhase == DeploymentPhase.OBSERVE && status != Status.ACTIVE)) {
                     throw new IllegalStateException("허용되지 않은 배포 단계 전환입니다.");
                 }
                 phase = nextPhase;

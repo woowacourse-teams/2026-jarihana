@@ -85,7 +85,7 @@ lease 만료·교체 등으로 결과 저장을 확인하지 못하면 차단한
 로컬 BLOCKED·작업 개수는 메모리에만 있다. 재시작을 불명확한 결과의 해결로 취급하지 않는다.
 제어 모드의 DB owner는 이전 boot ID를 유지하므로 새 프로세스가 대신 인계할 수 없다.
 worker의 drain만으로 HTTP 요청까지 종료되었거나 EC2를 중지해도 된다는 뜻은 아니다.
-A/B 처리 권한 제어는 아래 내부 서비스를 사용한다. 외부 제어 API·workflow/Compose 전달은 아직 연결하지 않았으므로
+A/B 처리 권한 제어는 아래 내부 서비스와 [관리 포트의 worker 제어 API](worker-control-api.md)를 사용한다. workflow/Compose 전달은 아직 연결하지 않았으므로
 후보 배포 자동화가 완성된 것으로 사용하지 않는다. 기존 환경의 초기 기본 동작은 `false`로 유지한다.
 
 ### DB 기반 worker 처리 권한
@@ -96,12 +96,13 @@ boot ID는 JVM 기동 시 새 UUID로 생성하며 파일이나 환경 변수에
 제어 모드에서는 일반 `resume()`으로 활성화할 수 없다.
 제어 모드를 끈 기존 앱은 이 DB fencing을 사용하지 않으므로, 구형 앱과의 최초 이관은 별도 검토가 필요하다.
 
-Flyway `V4__worker_authority.sql`의 `worker_authority`는 환경당 한 행을 둔다.
+Flyway `V7__worker_authority.sql`의 `worker_authority`는 환경당 한 행을 둔다.
+시험 DB에 예전 worker V4가 적용되어 있다면 [버전 충돌 정리 절차](flyway-worker-version-reconciliation.md)를 먼저 따른다.
 배포 ID·epoch·phase·명령 revision과 worker owner(host/boot)·authority revision을 같은 행에 저장하여
 배포 명령과 선점을 같은 행 잠금으로 직렬화한다. epoch와 authority revision은 별개다.
 새 배포 시작·명령 deadline 만료가 정상 운영 중인 worker의 권한을 만료시키지는 않는다.
 
-내부 `WorkerAuthorityService`의 정상 인계 순서는 다음과 같다. 아직 호출용 운영 API는 없다.
+내부 `WorkerAuthorityService`의 정상 인계 순서는 다음과 같다. 자동화의 호출 계약은 [worker 제어 API](worker-control-api.md)를 따른다.
 
 ```text
 begin: 새 배포 PREPARE (기존 worker 권한 유지)
@@ -125,7 +126,7 @@ DB 신규 선점을 막았다는 사실만으로 B를 활성화하지 않는다.
 
 이전 프로세스가 사라지거나 BLOCKED여서 완료 증명을 얻지 못하면 owner를 자동 탈취하지 않는다.
 재시작한 같은 호스트도 이전 boot를 대신해 pause/release할 수 없다. 미완료 배포를 시간 경과만으로
-덮어쓰지 않으며, 불명확한 상태의 수동 복구 절차·관리 API·알림은 이후 단계에서 연결한다.
+덮어쓰지 않으며, 불명확한 상태의 수동 복구 절차·알림은 이후 단계에서 연결한다.
 현재 DB phase는 worker 인계를 위한 단계이며 Nginx 전환·15분 관찰·EC2 중지 자체를 실행하거나 증명하지 않는다.
 
 DNS는 최대 두 건만 동시에 조회하고 기다리는 요청을 쌓지 않습니다. 공개 주소를 검사한 뒤 해당 주소에
