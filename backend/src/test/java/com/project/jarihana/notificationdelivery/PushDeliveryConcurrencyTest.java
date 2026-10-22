@@ -21,7 +21,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.Map;
@@ -48,18 +49,18 @@ class PushDeliveryConcurrencyTest extends PushIntegrationTestSupport {
         var subscription = subscription(owner, "one");
         deliveries.save(NotificationDelivery.create(notification(owner, "first"), subscription, NOW, NOW.plusDays(1)));
         deliveries.save(NotificationDelivery.create(notification(owner, "second"), subscription, NOW, NOW.plusDays(1)));
-        var barrier = new CyclicBarrier(2);
-        transport.respond(request -> {
-            try { barrier.await(10, TimeUnit.SECONDS); }
-            catch (Exception exception) { throw new AssertionError(exception); }
-            return PushResult.accepted();
-        });
+        var sent = new CountDownLatch(2);
+        var response = new CompletableFuture<PushResult>();
+        transport.respondAsync(request -> { sent.countDown(); return response; });
         // When
         try (var executor = Executors.newFixedThreadPool(2)) {
             var first = executor.submit(worker::processDue);
             var second = executor.submit(worker::processDue);
             first.get(15, TimeUnit.SECONDS);
             second.get(15, TimeUnit.SECONDS);
+            await(sent);
+            response.complete(PushResult.accepted());
+            awaitDeliveryProcessing();
         }
         // Then
         assertThat(transport.requests()).hasSize(2).extracting(request -> request.deliveryId()).doesNotHaveDuplicates();
@@ -95,7 +96,7 @@ class PushDeliveryConcurrencyTest extends PushIntegrationTestSupport {
             await(locked);
             try {
                 // When
-                var claim = executor.submit(leases::claimNext).get(5, TimeUnit.SECONDS).orElseThrow();
+                var claim = executor.submit(() -> leases.claimNext()).get(5, TimeUnit.SECONDS).orElseThrow();
                 // Then
                 assertThat(claim.id()).isEqualTo(second.getId());
             } finally { release.countDown(); }
@@ -125,6 +126,36 @@ class PushDeliveryConcurrencyTest extends PushIntegrationTestSupport {
     }
 
     @Test
+    void delayedAsyncGoneCannotOverwriteRecoveredLease() {
+        // Given
+        var owner = member("101");
+        var subscription = subscription(owner, "one");
+        var pending = deliveries.save(NotificationDelivery.create(notification(owner, "event"), subscription, NOW, NOW.plusDays(1)));
+        var responses = new CopyOnWriteArrayList<CompletableFuture<PushResult>>();
+        transport.respondAsync(request -> {
+            var response = new CompletableFuture<PushResult>();
+            responses.add(response);
+            return response;
+        });
+        worker.processDue();
+        var oldToken = deliveries.findById(pending.getId()).orElseThrow().getLeaseToken();
+        jdbc.update("update notification_deliveries set locked_until = ? where id = ?", NOW.minusSeconds(1), pending.getId());
+        // When
+        worker.processDue();
+        assertThat(responses).hasSize(2);
+        assertThat(deliveries.findById(pending.getId()).orElseThrow().getLeaseToken()).isNotEqualTo(oldToken);
+        responses.get(1).complete(PushResult.accepted());
+        org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(5)).untilAsserted(() ->
+                assertThat(deliveries.findById(pending.getId()).orElseThrow().getStatus()).isEqualTo(DeliveryStatus.ACCEPTED));
+        responses.get(0).complete(new PushResult(PushResult.Outcome.GONE, "HTTP_410", null));
+        awaitDeliveryProcessing();
+        // Then
+        assertThat(deliveries.findById(pending.getId()).orElseThrow().getStatus()).isEqualTo(DeliveryStatus.ACCEPTED);
+        assertThat(deliveries.findById(pending.getId()).orElseThrow().getAttemptCount()).isEqualTo(2);
+        assertThat(subscriptions.findByEndpoint(subscription.getEndpoint()).orElseThrow().isEnabled()).isTrue();
+    }
+
+    @Test
     void deletionDuringSendPreventsAcknowledgementFromRestoringDelivery() {
         // Given
         var owner = member("101");
@@ -134,6 +165,7 @@ class PushDeliveryConcurrencyTest extends PushIntegrationTestSupport {
         // When
         worker.processDue();
         // Then
+        awaitDeliveryProcessing();
         assertThat(deliveries.findById(pending.getId()).orElseThrow().getStatus()).isEqualTo(DeliveryStatus.CANCELLED);
         assertThat(transport.requests()).hasSize(1);
     }
@@ -152,6 +184,7 @@ class PushDeliveryConcurrencyTest extends PushIntegrationTestSupport {
         // When
         worker.processDue();
         // Then
+        awaitDeliveryProcessing();
         var current = subscriptions.findByEndpoint(subscription.getEndpoint()).orElseThrow();
         assertThat(current.isEnabled()).isTrue();
         assertThat(current.getGeneration()).isEqualTo(2);
@@ -164,17 +197,24 @@ class PushDeliveryConcurrencyTest extends PushIntegrationTestSupport {
         var owner = member("101");
         var subscription = subscription(owner, "one");
         deliveries.save(NotificationDelivery.create(notification(owner, "first"), subscription, NOW, NOW.plusDays(1)));
+        var other = subscription(owner, "other");
+        for (int i = 0; i < 3; i++) {
+            deliveries.save(NotificationDelivery.create(notification(owner, "blocker" + i), other, NOW, NOW.plusDays(1)));
+        }
         deliveries.save(NotificationDelivery.create(notification(owner, "second"), subscription, NOW, NOW.plusDays(1)));
-        transport.respond(request -> {
-            assertThat(mutation(owner).contentType("application/json").body(Map.of("pushSubscriptionId", subscription.getId(),
-                    "generation", 1)).post("/auth/logout").statusCode()).isEqualTo(204);
-            return PushResult.accepted();
-        });
+        var response = new CompletableFuture<PushResult>();
+        transport.respondAsync(request -> response);
         // When
         worker.processDue();
+        assertThat(transport.requests()).hasSize(4);
+        assertThat(mutation(owner).contentType("application/json").body(Map.of("pushSubscriptionId", subscription.getId(),
+                "generation", 1)).post("/auth/logout").statusCode()).isEqualTo(204);
+        response.complete(PushResult.accepted());
+        awaitDeliveryProcessing();
         // Then
-        assertThat(transport.requests()).hasSize(1);
+        assertThat(transport.requests()).hasSize(4);
         assertThat(jdbc.queryForObject("select count(*) from notification_deliveries where status = 'CANCELLED'", Long.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select count(*) from notification_deliveries where status = 'ACCEPTED'", Long.class)).isEqualTo(3);
     }
 
     private static void await(CountDownLatch latch) {

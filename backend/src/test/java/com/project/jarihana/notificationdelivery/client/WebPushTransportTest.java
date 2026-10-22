@@ -1,6 +1,7 @@
 package com.project.jarihana.notificationdelivery.client;
 
 import com.project.jarihana.notificationdelivery.client.dto.PushRequest;
+import com.project.jarihana.notificationdelivery.client.dto.PushResult;
 import com.project.jarihana.notificationdelivery.client.dto.PushResult.Outcome;
 import com.project.jarihana.pushsubscription.config.PushProperties;
 import com.project.jarihana.pushsubscription.domain.PushEndpointPolicy;
@@ -30,6 +31,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.AfterEach;
 import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.DisplayName;
 import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -52,7 +56,47 @@ class WebPushTransportTest {
     void closeTransports() { transports.forEach(WebPushTransport::close); }
 
     @Test
-    void repeatedUninterruptibleDnsLookupsCannotCreateUnboundedTasks() {
+    @DisplayName("DNS 대기 중에도 호출 스레드를 반환하며 대기열 크기를 제한한다")
+    void dnsWaitReturnsImmediatelyAndSaturationIsBounded() throws Exception {
+        // Given
+        var entered = new CountDownLatch(2);
+        var release = new CountDownLatch(1);
+        var lookups = new AtomicInteger();
+        try (var transport = new WebPushTransport(properties, new PushEndpointPolicy(properties), CLOCK, client, host -> {
+            lookups.incrementAndGet();
+            entered.countDown();
+            try {
+                release.await();
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+            }
+            return new InetAddress[]{InetAddress.getLoopbackAddress()};
+        })) {
+            try {
+                // When
+                var first = transport.send(request());
+                var second = transport.send(request());
+                assertThat(entered.await(1, TimeUnit.SECONDS)).isTrue();
+                var queued = new ArrayList<CompletableFuture<PushResult>>();
+                for (int index = 0; index < 4; index++) queued.add(transport.send(request()));
+                var rejected = transport.send(request());
+                // Then
+                assertThat(first).isNotDone();
+                assertThat(second).isNotDone();
+                assertThat(rejected.get(1, TimeUnit.SECONDS).outcome()).isEqualTo(Outcome.RETRY);
+                assertThat(lookups).hasValue(2);
+                first.cancel(true);
+                second.cancel(true);
+                queued.forEach(future -> future.cancel(true));
+                verifyNoInteractions(client);
+            } finally {
+                release.countDown();
+            }
+        }
+    }
+
+    @Test
+    void repeatedUninterruptibleDnsLookupsCannotCreateUnboundedTasks() throws Exception {
         // Given
         var blocked = new CountDownLatch(1);
         var lookups = new AtomicInteger();
@@ -68,7 +112,7 @@ class WebPushTransportTest {
         });
         try {
             // When
-            for (int i = 0; i < 3; i++) assertThat(transport.send(request()).outcome()).isEqualTo(Outcome.RETRY);
+            for (int i = 0; i < 10; i++) assertThat(transport.send(request()).get(2, TimeUnit.SECONDS).outcome()).isEqualTo(Outcome.RETRY);
             // Then
             assertThat(lookups).hasValue(2);
             verifyNoInteractions(client);
@@ -76,7 +120,7 @@ class WebPushTransportTest {
     }
 
     @Test
-    void dnsResolutionTimeoutDoesNotOccupyWorkerIndefinitely() {
+    void dnsResolutionTimeoutDoesNotOccupyWorkerIndefinitely() throws Exception {
         // Given
         var bounded = new PushProperties(true, false, KEY, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE",
                 "mailto:push@example.test", null, null, null, null, Duration.ofMillis(100), null);
@@ -87,7 +131,7 @@ class WebPushTransportTest {
         })) {
             long started = System.nanoTime();
             // When
-            var result = transport.send(request());
+            var result = transport.send(request()).get(2, TimeUnit.SECONDS);
             // Then
             assertThat(result.outcome()).isEqualTo(Outcome.RETRY);
             assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(1));
@@ -100,9 +144,9 @@ class WebPushTransportTest {
     void classifyProviderStatus(int status, Outcome expected) throws Exception {
         // Given
         HttpResponse<Void> response = response(status, Map.of("Retry-After", List.of("60")));
-        when(client.send(any(), any(HttpResponse.BodyHandler.class))).thenReturn(response);
+        when(client.sendAsync(any(), any(HttpResponse.BodyHandler.class))).thenReturn(CompletableFuture.completedFuture(response));
         // When
-        var result = transport("8.8.8.8").send(request());
+        var result = transport("8.8.8.8").send(request()).get(2, TimeUnit.SECONDS);
         // Then
         assertThat(result.outcome()).isEqualTo(expected);
         if (expected == Outcome.RETRY) assertThat(result.retryAfter()).isEqualTo(Duration.ofSeconds(60));
@@ -122,15 +166,15 @@ class WebPushTransportTest {
         });
         server.start();
         try (var actualClient = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build()) {
-            when(client.send(any(), any(HttpResponse.BodyHandler.class))).thenAnswer(invocation -> {
+            when(client.sendAsync(any(), any(HttpResponse.BodyHandler.class))).thenAnswer(invocation -> {
                 HttpRequest prepared = invocation.getArgument(0);
                 var redirectedToFixture = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/push"))
                         .POST(prepared.bodyPublisher().orElseThrow()).timeout(prepared.timeout().orElseThrow());
                 prepared.headers().map().forEach((name, values) -> values.forEach(value -> redirectedToFixture.header(name, value)));
-                return actualClient.send(redirectedToFixture.build(), HttpResponse.BodyHandlers.discarding());
+                return actualClient.sendAsync(redirectedToFixture.build(), HttpResponse.BodyHandlers.discarding());
             });
             // When
-            var result = transport("8.8.8.8").send(request());
+            var result = transport("8.8.8.8").send(request()).get(2, TimeUnit.SECONDS);
             // Then
             assertThat(result.outcome()).isEqualTo(Outcome.ACCEPTED);
             var json = JsonMapper.builder().build();
@@ -148,9 +192,9 @@ class WebPushTransportTest {
     void retryAfterSupportsDatesInvalidValuesAndLargeSeconds(String header) throws Exception {
         // Given
         var response = response(429, Map.of("Retry-After", List.of(header)));
-        when(client.send(any(), any(HttpResponse.BodyHandler.class))).thenReturn(response);
+        when(client.sendAsync(any(), any(HttpResponse.BodyHandler.class))).thenReturn(CompletableFuture.completedFuture(response));
         // When
-        var result = transport("8.8.8.8").send(request());
+        var result = transport("8.8.8.8").send(request()).get(2, TimeUnit.SECONDS);
         // Then
         if (header.equals("broken")) assertThat(result.retryAfter()).isNull();
         else assertThat(result.retryAfter()).isEqualTo(Duration.ofSeconds(header.startsWith("Wed") ? 60 : Long.parseLong(header)));
@@ -171,12 +215,12 @@ class WebPushTransportTest {
     void buildEncryptedRequestWithRemainingTtlAndVapid() throws Exception {
         // Given
         var response = response(201, Map.of());
-        when(client.send(any(), any(HttpResponse.BodyHandler.class))).thenReturn(response);
+        when(client.sendAsync(any(), any(HttpResponse.BodyHandler.class))).thenReturn(CompletableFuture.completedFuture(response));
         // When
-        transport("8.8.8.8").send(request());
+        transport("8.8.8.8").send(request()).get(2, TimeUnit.SECONDS);
         // Then
         var capture = ArgumentCaptor.forClass(HttpRequest.class);
-        verify(client).send(capture.capture(), any(HttpResponse.BodyHandler.class));
+        verify(client).sendAsync(capture.capture(), any(HttpResponse.BodyHandler.class));
         var sent = capture.getValue();
         assertThat(sent.headers().firstValue("Content-Encoding")).contains("aes128gcm");
         assertThat(sent.headers().firstValue("TTL")).contains("3600");
@@ -189,7 +233,7 @@ class WebPushTransportTest {
     @ValueSource(strings = {"127.0.0.1", "10.0.0.1", "169.254.169.254", "192.168.0.1", "100.64.0.1", "::1", "fc00::1", "fe80::1", "224.0.0.1"})
     void refuseNonPublicDnsWithoutSending(String address) throws Exception {
         // Given / When
-        var result = transport(address).send(request());
+        var result = transport(address).send(request()).get(2, TimeUnit.SECONDS);
         // Then
         assertThat(result.outcome()).isEqualTo(Outcome.FAILED);
         verifyNoInteractions(client);
@@ -198,9 +242,10 @@ class WebPushTransportTest {
     @Test
     void retryNetworkFailureWithoutRetainingExceptionMessage() throws Exception {
         // Given
-        when(client.send(any(), any(HttpResponse.BodyHandler.class))).thenThrow(new IOException("secret endpoint"));
+        when(client.sendAsync(any(), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(CompletableFuture.failedFuture(new IOException("secret endpoint")));
         // When
-        var result = transport("8.8.8.8").send(request());
+        var result = transport("8.8.8.8").send(request()).get(2, TimeUnit.SECONDS);
         // Then
         assertThat(result.outcome()).isEqualTo(Outcome.RETRY);
         assertThat(result.errorCode()).isEqualTo("NETWORK_ERROR");
