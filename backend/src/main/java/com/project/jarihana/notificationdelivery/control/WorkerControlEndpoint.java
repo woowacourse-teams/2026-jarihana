@@ -1,5 +1,6 @@
 package com.project.jarihana.notificationdelivery.control;
 
+import com.project.jarihana.common.deployment.ApplicationActivity;
 import com.project.jarihana.notificationdelivery.config.PushWorkerControlProperties;
 import com.project.jarihana.notificationdelivery.config.WorkerControlApiProperties;
 import org.jspecify.annotations.Nullable;
@@ -31,13 +32,15 @@ public class WorkerControlEndpoint {
     private final PushWorkerControlProperties workerProperties;
     private final WorkerControlApiProperties apiProperties;
     private final WorkerIdentity identity;
+    private final ApplicationActivity activity;
 
     public WorkerControlEndpoint(WorkerAuthorityService authorityService,
                                  WorkerAuthorityRepository authorityRepository,
                                  WorkerAdmissionController admission,
                                  PushWorkerControlProperties workerProperties,
                                  WorkerControlApiProperties apiProperties,
-                                 WorkerIdentity identity) {
+                                 WorkerIdentity identity,
+                                 ApplicationActivity activity) {
         if (apiProperties.token().getBytes(StandardCharsets.UTF_8).length < 32) {
             throw new IllegalArgumentException("worker 제어 API를 사용하려면 32바이트 이상의 머신 토큰이 필요합니다.");
         }
@@ -47,16 +50,20 @@ public class WorkerControlEndpoint {
         this.workerProperties = workerProperties;
         this.apiProperties = apiProperties;
         this.identity = identity;
+        this.activity = activity;
     }
 
     @ReadOperation
     public StatusResponse status() {
         var local = admission.drainStatus();
+        var activities = activity.snapshot();
         var authority = authorityRepository.find(workerProperties.workerEnvironment())
                 .map(AuthorityResponse::from)
                 .orElse(null);
         return new StatusResponse(apiProperties.version(), workerProperties.workerEnvironment(), identity,
-                new LocalWorkerState(local.state(), local.inFlight(), local.unresolved()), authority);
+                new LocalWorkerState(local.state(), local.inFlight(), local.unresolved()), authority,
+                new ActivityResponse(activities.httpInFlight(), activities.backgroundInFlight(),
+                        local.isDrained() && activities.backgroundInFlight() == 0));
     }
 
     @WriteOperation
@@ -126,7 +133,9 @@ public class WorkerControlEndpoint {
     }
 
     public record StatusResponse(String version, String environment, WorkerIdentity identity,
-                                 LocalWorkerState worker, AuthorityResponse authority) { }
+                                 LocalWorkerState worker, AuthorityResponse authority, ActivityResponse activity) { }
+
+    public record ActivityResponse(int httpInFlight, int backgroundInFlight, boolean backgroundDrained) { }
 
     public record LocalWorkerState(WorkerAdmissionController.State state, int inFlight, int unresolved) { }
 

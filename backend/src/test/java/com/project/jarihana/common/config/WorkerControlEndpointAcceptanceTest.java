@@ -2,6 +2,7 @@ package com.project.jarihana.common.config;
 
 import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.token.AccessTokenProvider;
+import com.project.jarihana.common.deployment.ApplicationActivity;
 import com.project.jarihana.notificationdelivery.control.DeploymentPhase;
 import com.project.jarihana.notificationdelivery.control.WorkerAdmissionController;
 import com.project.jarihana.notificationdelivery.control.WorkerIdentity;
@@ -73,6 +74,9 @@ class WorkerControlEndpointAcceptanceTest extends IntegrationTestSupport {
     @Autowired
     private Clock clock;
 
+    @Autowired
+    private ApplicationActivity activity;
+
     @DisplayName("관리 포트의 worker 상태 조회는 머신 토큰이 있어야 하며 현재 프로세스 정보를 반환한다.")
     @Test
     void readWorkerStatusWithMachineToken() {
@@ -94,6 +98,30 @@ class WorkerControlEndpointAcceptanceTest extends IntegrationTestSupport {
         assertThat(response.jsonPath().getString("worker.state")).isEqualTo("PAUSED");
         assertThat(response.jsonPath().getInt("worker.inFlight")).isZero();
         assertThat(response.jsonPath().getInt("worker.unresolved")).isZero();
+        assertThat(response.jsonPath().getInt("activity.httpInFlight")).isZero();
+        assertThat(response.jsonPath().getInt("activity.backgroundInFlight")).isZero();
+        assertThat(response.jsonPath().getBoolean("activity.backgroundDrained")).isTrue();
+    }
+
+    @DisplayName("worker가 PAUSED여도 스케줄러 실행이 남아 있으면 백그라운드 종료 완료로 응답하지 않는다.")
+    @Test
+    void backgroundActivityPreventsDrainedStatus() {
+        // Given
+        admission.pause();
+
+        try (var scheduledCycle = activity.beginBackground()) {
+            // When
+            var response = managementRequest().header("X-Jarihana-Worker-Control-Token", CONTROL_TOKEN)
+                    .get("/actuator/workercontrol").then().statusCode(200).extract();
+
+            // Then
+            assertThat(response.jsonPath().getInt("activity.backgroundInFlight")).isEqualTo(1);
+            assertThat(response.jsonPath().getBoolean("activity.backgroundDrained")).isFalse();
+        }
+        var idle = managementRequest().header("X-Jarihana-Worker-Control-Token", CONTROL_TOKEN)
+                .get("/actuator/workercontrol").then().statusCode(200).extract();
+        assertThat(idle.jsonPath().getInt("activity.backgroundInFlight")).isZero();
+        assertThat(idle.jsonPath().getBoolean("activity.backgroundDrained")).isTrue();
     }
 
     @DisplayName("일반 JWT와 잘못된 머신 토큰으로는 worker 제어를 호출할 수 없다.")
@@ -193,6 +221,8 @@ class WorkerControlEndpointAcceptanceTest extends IntegrationTestSupport {
                 DeploymentPhase.PREPARE, 1, DeploymentPhase.HANDOFF));
         var activate = send("activate", command(deploymentId, UUID.randomUUID(), 1,
                 DeploymentPhase.HANDOFF, 2, null));
+        var activeStatus = managementRequest().header("X-Jarihana-Worker-Control-Token", CONTROL_TOKEN)
+                .get("/actuator/workercontrol").then().statusCode(200).extract();
 
         // When
         var pause = send("pause", command(deploymentId, UUID.randomUUID(), 1,
@@ -207,6 +237,7 @@ class WorkerControlEndpointAcceptanceTest extends IntegrationTestSupport {
         assertThat(begin.statusCode()).isEqualTo(HttpStatus.OK.value());
         assertThat(handoff.statusCode()).isEqualTo(HttpStatus.OK.value());
         assertThat(activate.statusCode()).isEqualTo(HttpStatus.OK.value());
+        assertThat(activeStatus.jsonPath().getBoolean("activity.backgroundDrained")).isFalse();
         assertThat(pause.statusCode()).isEqualTo(HttpStatus.OK.value());
         assertThat(status.jsonPath().getString("worker.state")).isEqualTo("PAUSED");
         assertThat(status.jsonPath().getInt("worker.inFlight")).isZero();

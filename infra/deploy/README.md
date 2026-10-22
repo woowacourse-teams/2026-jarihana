@@ -105,9 +105,12 @@ uv run infra/tests/deploy/run_local_e2e.py
 따라서 과거 바이너리·DB 호환성, 외부 푸시 전송, 실제 15분 경과, CloudFront·IAM·실제 runner를 검증한 것은 아니다.
 900초는 가상 시계이며 AWS·GitHub·telemetry는 테스트 어댑터다.
 
-**HTTP/백그라운드 종료 수치는 현재 앱의 관리 API에 없다.** 로컬 어댑터는 통제된 fixture의 종료 증거만 공급한다.
-운영 어댑터에서는 실제 HTTP/백그라운드 측정과 SIGTERM/정상 종료 증거를 추가해야 한다. 값이 없으면 controller는
-cleanup을 허가하지 않는다. 실제 푸시 처리와 commit 경계는 별도 백엔드 통합 테스트로 검증한다.
+**HTTP/업무 스케줄러 활동 수치는 앱 관리 API의 `activity`에서 측정한다.** 로컬 어댑터도
+`httpInFlight`, `backgroundInFlight`, `backgroundDrained`를 필수 입력으로 사용한다.
+범위와 종료 판단의 제약은 [내부 API 계약](../../backend/docs/operations/worker-control-api.md)을 따른다.
+운영 어댑터와 SIGTERM/정상 종료 증거는 아직 미연결이며, 값이 없으면 controller는 cleanup을 허가하지 않는다.
+로컬 fixture의 exit code 판정을 운영의 정상 종료 증거로 재사용하지 않는다.
+실제 푸시 처리와 commit 경계는 별도 백엔드 통합 테스트로 검증한다.
 
 ## Watchdog 설치 전제
 

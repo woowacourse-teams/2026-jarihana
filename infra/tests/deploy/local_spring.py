@@ -6,9 +6,9 @@ from zoneinfo import ZoneInfo
 import json
 import os
 import time
-from pydantic import ValidationError
+from pydantic import StrictBool, ValidationError
 
-from bluegreen.models import Action, AppStatus, Authority, Command, Host, Record
+from bluegreen.models import Action, AppStatus, Authority, Command, Counter, Host, Record
 from bluegreen.nginx_switch import ApiProbe, ProcessRunner
 from bluegreen.ports import DeploymentFailure
 
@@ -37,12 +37,19 @@ class EndpointAuthority(Record):
     status: str
 
 
+class EndpointActivity(Record):
+    httpInFlight: Counter
+    backgroundInFlight: Counter
+    backgroundDrained: StrictBool
+
+
 class EndpointStatus(Record):
     version: str
     environment: str
     identity: EndpointIdentity
     worker: EndpointWorker
     authority: EndpointAuthority | None
+    activity: EndpointActivity
 
 
 class SpringNode:
@@ -112,8 +119,8 @@ class SpringNode:
                          boot_id=raw.identity.bootId, image=raw.version, worker=raw.worker.state,
                          in_flight=raw.worker.inFlight, unresolved=raw.worker.unresolved, authority=authority,
                          healthy=healthy, running=True,
-                         # Fixture-only witness: no other clients/background work exists; nginx drain is checked separately.
-                         http_in_flight=0, background_drained=True)
+                         http_in_flight=raw.activity.httpInFlight,
+                         background_drained=raw.activity.backgroundDrained and raw.activity.backgroundInFlight == 0)
 
     def control(self, command: Command) -> AppStatus:
         status = self.snapshot()
@@ -136,7 +143,7 @@ class SpringNode:
 
     def stop(self) -> AppStatus:
         status = self.snapshot()
-        if not status.drained():
+        if not status.requests_drained():
             raise DeploymentFailure("cannot safely stop fixture process")
         self.runner.run(("docker", "stop", "--time", "30", self.container))
         code = int(self.runner.run(("docker", "inspect", "--format", "{{.State.ExitCode}}", self.container)).strip())

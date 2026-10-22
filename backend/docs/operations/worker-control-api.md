@@ -25,6 +25,34 @@ X-Jarihana-Worker-Control-Token: <secret>
 drain 완료는 `worker.state=PAUSED`, `worker.inFlight=0`, `worker.unresolved=0`일 때만 확인한다.
 `pause` 응답 자체나 HTTP reload 완료를 drain 완료로 취급하지 않는다.
 
+`activity`는 종료 판단에 필요한 현재 JVM의 활동을 반환한다.
+
+```json
+{
+  "activity": {
+    "httpInFlight": 0,
+    "backgroundInFlight": 0,
+    "backgroundDrained": true
+  }
+}
+```
+
+- `httpInFlight`: 앱 ServletContext에 진입해 아직 종료되지 않은 요청 수다. 비동기 요청은 최초
+  Servlet 메서드 반환이 아니라 최종 요청 종료까지 센다. 별도 관리 서버의 조회는 포함하지 않는다.
+- `backgroundInFlight`: 현재 실행 중인 push 스케줄러 회차 수다. 성공·예외 모두 회차가 반환돼야 줄어든다.
+- `backgroundDrained`: worker가 PAUSED·inFlight 0·unresolved 0이고 스케줄러 회차도 0일 때만 true다.
+  단순히 할 일이 없는 ACTIVE worker는 false다.
+
+이 값은 조회 순간의 측정이지 신규 HTTP 유입을 차단하는 명령이 아니다. Nginx의 이전 worker 종료와
+해당 앱의 worker 권한 반납을 함께 확인하고, 종료 직전에도 대상 boot와 상태를 다시 검사해야 한다.
+HTTP 수치에는 Nginx에 남은 연결·네트워크 버퍼·업그레이드된 WebSocket 세션이 포함되지 않는다.
+백그라운드 수치는 현재 업무 스케줄러인 push 회차 범위다. Spring Session 정리 등 프레임워크 내부 작업,
+별도 executor에 남은 작업이나 이후 추가할 비동기 작업 전체의 종료를 보장하지 않는다.
+새 업무 스케줄러·fire-and-forget 작업을 추가하면 계측과 종료 대기 계약도 함께 확장해야 한다.
+
+실행 중 API의 수치로 `normal_exit=true`를 만들지 않는다. SIGTERM 이후 정상 종료·OOM/강제 종료 여부를
+확인하는 실행 어댑터는 아직 미연결이며, 누락된 종료 증거를 0 또는 true로 대체해서는 안 된다.
+
 ## 상태 변경
 
 ```http
