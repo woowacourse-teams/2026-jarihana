@@ -82,7 +82,7 @@ const EVENT_COPY = {
   ACTIVITY_POST_COMMENTED: "내 활동 기록에 새 댓글이 달렸어요.",
   ACTIVITY_POST_REACTED: "내 활동 기록에 좋아요가 도착했어요."
 };
-const NAMED_REACTOR_LIMIT = 100;
+const NAMED_REACTOR_LIMIT = 20;
 function reactionCopy(summary) {
   const name = summary?.latestReactorName;
   const others = summary?.otherReactorCount;

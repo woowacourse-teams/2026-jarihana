@@ -521,25 +521,25 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
     }
 
     @Test
-    @DisplayName("좋아요를 누른 사람이 100명이면 이름으로 묶고, 100명을 넘으면 무수한 관심 문구로 바꾼다.")
-    void heartsOverHundredUseAttentionMessage() {
+    @DisplayName("좋아요를 누른 사람이 20명이면 이름으로 묶고, 20명을 넘으면 무수한 관심 문구로 바꾼다.")
+    void heartsOverTwentyUseAttentionMessage() {
         // Given
         Member author = member("101");
         Member latest = member("102");
         Group group = groups.save(Group.createClub("퇴근 후 독서", "함께 책을 읽어요", null, null, null, NOW.minusDays(10)));
         ActivityPost post = posts.save(ActivityPost.create(group, author, "첫 모임", NOW.toLocalDate(), NOW.minusDays(1)));
-        heartsFromNewMembers(post, 1, 99);
+        heartsFromNewMembers(post, 1, 19);
         mutation(latest).put("/activity-posts/" + post.getId() + "/reactions/HEART");
 
         // When
-        Response hundred = authenticated(author).get("/notifications");
-        heartsFromNewMembers(post, 100, 100);
-        Response overHundred = authenticated(author).get("/notifications");
+        Response twenty = authenticated(author).get("/notifications");
+        heartsFromNewMembers(post, 20, 20);
+        Response overTwenty = authenticated(author).get("/notifications");
 
         // Then
-        assertThat(hundred.jsonPath().getString("data.items[0].body"))
-                .isEqualTo(latest.getCrewName() + " 외 99명이 좋아요를 눌렀어요.");
-        assertThat(overHundred.jsonPath().getString("data.items[0].body"))
+        assertThat(twenty.jsonPath().getString("data.items[0].body"))
+                .isEqualTo(latest.getCrewName() + " 외 19명이 좋아요를 눌렀어요.");
+        assertThat(overTwenty.jsonPath().getString("data.items[0].body"))
                 .isEqualTo("회원님의 댓글이 무수한 관심을 받고 있어요.");
     }
 

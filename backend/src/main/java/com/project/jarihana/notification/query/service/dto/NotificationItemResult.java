@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 public record NotificationItemResult(long id, NotificationEventType eventType, int payloadVersion, String title,
                                      String body, LocalDateTime createdAt, LocalDateTime readAt, Target target) {
 
-    private static final int NAMED_REACTOR_LIMIT = 100;
+    private static final int NAMED_REACTOR_LIMIT = 20;
 
     public enum TargetKind { GROUP_DETAIL, LEADER_REGISTRATIONS, LEADER_MEMBERS, MY_PAGE, MY_GROUPS, INVITATION, ACTIVITY_POST }
     public record Target(TargetKind kind, long groupId, Long recruitmentId, Long registrationId, Long invitationId,
