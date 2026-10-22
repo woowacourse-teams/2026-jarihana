@@ -1,0 +1,121 @@
+name: Backend Blue-Green B Rehearsal
+
+on:
+  push:
+    branches: [feat/blue-green-deployment]
+    paths:
+      - .github/workflows/backend-bluegreen-rehearsal.yml
+      - infra/deploy/rehearsal/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-bluegreen-rehearsal-b
+  cancel-in-progress: false
+
+env:
+  BACKEND_IMAGE: ghcr.io/woowacourse-teams/jarihana-backend
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: corretto
+          java-version: '21'
+          cache: gradle
+          cache-dependency-path: backend/**/*.gradle*
+      - name: Backend 테스트
+        working-directory: backend
+        run: ./gradlew test --no-daemon
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v3
+      - name: 시험 이미지 빌드 및 업로드
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          # Git context는 checkout의 로컬 비밀 파일을 빌드에 포함하지 않는다.
+          context: '{{defaultContext}}:backend'
+          platforms: linux/arm64
+          push: true
+          tags: ${{ env.BACKEND_IMAGE }}:rehearsal-${{ github.sha }}
+
+  prepare-b:
+    needs: build
+    runs-on: [jarihana-bluegreen-rehearsal-b]
+    environment: dev
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      packages: read
+    env:
+      BACKEND_DIGEST: ${{ needs.build.outputs.digest }}
+      DB_USERNAME: ${{ vars.DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      INVITATION_TOKEN_ACTIVE_KEY_ID: ${{ vars.INVITATION_TOKEN_ACTIVE_KEY_ID || 'primary' }}
+      INVITATION_TOKEN_KEY_PRIMARY: ${{ secrets.INVITATION_TOKEN_KEY_PRIMARY }}
+      INVITATION_TOKEN_KEY_PREVIOUS: ${{ secrets.INVITATION_TOKEN_KEY_PREVIOUS }}
+      ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
+      FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
+      GITHUB_OAUTH_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
+      GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
+      GITHUB_OAUTH_REDIRECT_URI: ${{ vars.OAUTH_GITHUB_REDIRECT_URI }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: prod2 인스턴스 신원 확인
+        shell: bash
+        run: |
+          set -euo pipefail
+          token="$(curl --fail --silent --show-error --max-time 3 -X PUT \
+            -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' \
+            http://169.254.169.254/latest/api/token)"
+          instance="$(curl --fail --silent --show-error --max-time 3 \
+            -H "X-aws-ec2-metadata-token: ${token}" \
+            http://169.254.169.254/latest/meta-data/instance-id)"
+          [[ "$instance" == i-0430ff91d1af2fb37 ]]
+          [[ "$BACKEND_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+      - name: 임시 인증 파일 디렉터리 준비
+        shell: bash
+        run: |
+          auth_dir="$(mktemp -d "${RUNNER_TEMP}/rehearsal-auth.XXXXXX")"
+          echo "DOCKER_CONFIG=${auth_dir}" >> "$GITHUB_ENV"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: 앱 실행 및 대기 상태 확인
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          token_file="$(mktemp "${RUNNER_TEMP}/rehearsal-token.XXXXXX")"
+          trap 'rm -f "$token_file"' EXIT
+          openssl rand -hex 32 > "$token_file"
+          WORKER_CONTROL_TOKEN="$(< "$token_file")"
+          export WORKER_CONTROL_TOKEN
+          echo "::add-mask::${WORKER_CONTROL_TOKEN}"
+          unset COMPOSE_PROJECT_NAME COMPOSE_FILE
+          docker compose -f infra/deploy/rehearsal/docker-compose.yml config --quiet
+          docker compose -f infra/deploy/rehearsal/docker-compose.yml pull backend
+          docker compose -f infra/deploy/rehearsal/docker-compose.yml up -d --no-build backend
+          bash infra/deploy/rehearsal/verify-b.sh
+      - name: 임시 Docker 인증 정보 삭제
+        if: always() && env.DOCKER_CONFIG != ''
+        shell: bash
+        run: |
+          docker logout ghcr.io
+          rm -rf -- "$DOCKER_CONFIG"
