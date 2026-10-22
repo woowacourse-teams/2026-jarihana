@@ -4,12 +4,17 @@ import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.notification.support.NotificationIntegrationTestSupport;
+import com.project.jarihana.notificationdelivery.command.service.PushDeliveryWorker;
 import io.restassured.RestAssured;
 import io.restassured.specification.RequestSpecification;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
 
 import java.util.Map;
+import java.time.Duration;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 @TestPropertySource(properties = {
         "jarihana.push.enabled=true", "jarihana.push.worker-enabled=false",
@@ -21,6 +26,17 @@ public abstract class PushIntegrationTestSupport extends NotificationIntegration
 
     @Autowired protected AccessTokenProvider tokens;
     @Autowired protected AuthCookieProperties cookies;
+    @Autowired private PushDeliveryWorker deliveryWorker;
+
+    protected void awaitDeliveryProcessing() {
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
+            assertThat(deliveryWorker.isIdle()).isTrue();
+            assertThat(jdbc.queryForObject("""
+                select count(*) from notification_deliveries
+                where status = 'IN_FLIGHT' or (status in ('PENDING', 'RETRY') and next_attempt_at <= ?)
+                """, Long.class, NOW)).isZero();
+        });
+    }
 
     protected RequestSpecification authenticated(Member owner) {
         return RestAssured.given().cookie(cookies.accessTokenName(), tokens.issue(owner.getId()).value());

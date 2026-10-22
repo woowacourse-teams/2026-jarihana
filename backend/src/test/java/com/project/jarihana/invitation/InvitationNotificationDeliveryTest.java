@@ -95,6 +95,7 @@ class InvitationNotificationDeliveryTest extends PushIntegrationTestSupport {
         worker.processDue();
 
         // Then
+        awaitDeliveryProcessing();
         assertThat(transport.requests()).hasSize(2).allSatisfy(request -> assertThat(request.payloadVersion()).isEqualTo(1));
         assertThat(jdbc.queryForList("select status from notification_deliveries", String.class))
                 .containsExactlyInAnyOrder("ACCEPTED", "RETRY");

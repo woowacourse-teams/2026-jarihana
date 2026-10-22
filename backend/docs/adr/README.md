@@ -42,6 +42,7 @@ ADR 0006과 0007에 이르기까지의 기록이다.
 | 0024 | [JPA native 벌크 INSERT로 알림과 전송 대기 저장의 DB 왕복을 줄인다](0024-jpa-native-bulk-notification-inserts.md) | 채택, JPA 벌크 INSERT·서버 워커 전환 검증 완료 / 개선 전후 부하 측정 대기 | 2026-10-15 | `refactor/notification-bulk-insert` |
 | 0025 | [Push claim은 index로 후보를 좁힌 뒤 JOIN한다](0025-push-claim-indexed-candidates.md) | 채택, 구현·로컬 검증 완료 / PR review·dev 배포 대기 | 2026-10-16 | `fix/push-delivery-claim-index` |
 | 0026 | [이미지의 참조 수명주기와 조회 접근을 함께 관리한다](0026-image-lifecycle-and-access.md) | 채택, Flyway V4 구현·검증 완료 / PR #405 develop 반영 대기 | 2026-10-14 | `feat/image-lifecycle` |
+| 0027 | [푸시 전송을 제한된 동시성으로 비동기 처리한다](0027-bounded-async-push-delivery.md) | 제안, 구현·로컬 검증 완료 / PR 검토·배포 후 성능 측정 예정 | 2026-10-21 | `feat/push-async-delivery` |
 
 ## 번호를 다시 매긴 이력
 

@@ -78,8 +78,21 @@ const EVENT_COPY = {
   REGISTRATION_APPROVED: "모임 신청이 승인되었어요.",
   REGISTRATION_REJECTED: "모임 신청 결과를 확인해 주세요.",
   REGISTRATION_SYSTEM_REJECTED: "모집 상태 변경으로 신청이 마감되었어요.",
-  PARTICIPANT_JOINED: "모임 참여가 완료되었어요."
+  PARTICIPANT_JOINED: "모임 참여가 완료되었어요.",
+  ACTIVITY_POST_COMMENTED: "내 활동 기록에 새 댓글이 달렸어요.",
+  ACTIVITY_POST_REACTED: "내 활동 기록에 좋아요가 도착했어요."
 };
+const NAMED_REACTOR_LIMIT = 20;
+function reactionCopy(summary) {
+  const name = summary?.latestReactorName;
+  const others = summary?.otherReactorCount;
+  if (typeof name !== "string" || !name || !Number.isSafeInteger(others) || others < 0) return EVENT_COPY.ACTIVITY_POST_REACTED;
+  if (others + 1 > NAMED_REACTOR_LIMIT) return "회원님의 댓글이 무수한 관심을 받고 있어요.";
+  return others === 0 ? `${name}님이 좋아요를 눌렀어요.` : `${name} 외 ${others}명이 좋아요를 눌렀어요.`;
+}
+function pushBody(content) {
+  return content.eventType === "ACTIVITY_POST_REACTED" ? reactionCopy(content.reactionSummary) : EVENT_COPY[content.eventType];
+}
 async function receivePush(event) {
   let reference;
   try { reference = event.data?.json(); } catch { return; }
@@ -105,7 +118,7 @@ async function receivePush(event) {
   await serial(async () => {
     const current = await readState();
     if (!sameBinding(initial, current)) return;
-    const body = content ? EVENT_COPY[content.eventType] : "새 소식이 있어요. 알림함에서 확인해 주세요.";
+    const body = content ? pushBody(content) : "새 소식이 있어요. 알림함에서 확인해 주세요.";
     await self.registration.showNotification("자리하나?", {
       body, icon: "/icons/pwa-192.png", tag: `jarihana:${reference.notificationId}`,
       data: { notificationId: reference.notificationId, binding: current }

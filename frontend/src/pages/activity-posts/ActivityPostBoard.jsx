@@ -37,6 +37,7 @@ const ACTIVE_GROUP_FILTERS = Object.freeze({ relation: "JOINED", status: "ACTIVE
 const LONG_PRESS_DURATION_MS = 500;
 const LONG_PRESS_MOVE_THRESHOLD_PX = 12;
 const SUPPRESS_CLICK_DURATION_MS = 1000;
+const REQUESTED_POST_SEARCH_PAGES = 5;
 
 function ActivityPostSignals({ post }) {
   const reactions = post.reactions
@@ -552,13 +553,22 @@ export function ActivityPostBoard({ group = null }) {
     setSearchParams(next, { replace: true });
   }
 
-  // 불러온 목록에 없는 기록이면 주소만 정리한다.
+  // 알림으로 연 오래된 기록은 다음 페이지에서 이어 찾고, 정한 범위 안에 없으면 주소만 정리한다.
+  const loadedPageCount = postsQuery.data?.pages.length ?? 0;
+  const searchingRequestedPost = requestedPostId !== null && !requestedPostLoaded && hasNextPage
+    && loadedPageCount < REQUESTED_POST_SEARCH_PAGES;
+  const { fetchNextPage, isFetchingNextPage } = postsQuery;
   useEffect(() => {
     if (requestedPostId === null || postsQuery.isLoading || requestedPostLoaded) return;
+    if (searchingRequestedPost) {
+      if (!isFetchingNextPage) void fetchNextPage();
+      return;
+    }
     const next = new URLSearchParams(searchParams);
     next.delete("post");
     setSearchParams(next, { replace: true });
-  }, [postsQuery.isLoading, requestedPostId, requestedPostLoaded, searchParams, setSearchParams]);
+  }, [fetchNextPage, isFetchingNextPage, postsQuery.isLoading, requestedPostId, requestedPostLoaded,
+    searchParams, searchingRequestedPost, setSearchParams]);
 
   function closeDetail() {
     setDetailPostId(null);

@@ -1734,9 +1734,19 @@ class InvitationIssuanceAcceptanceTest extends NotificationIntegrationTestSuppor
                     expires_at, created_at, updated_at, version, status from invitation where id = ? returning id
                 """, Long.class, UUID.randomUUID(), original);
         var migration = new ResourceDatabasePopulator(new FileSystemResource("db/migrations/2026-10-11-invitation.sql"));
+        String eventTypeCheck = jdbc.queryForObject("""
+                select pg_get_constraintdef(oid) from pg_constraint
+                where conname = 'ck_notifications_event_type' and connamespace = current_schema()::regnamespace
+                """, String.class);
         // When
-        migration.execute(dataSource);
-        migration.execute(dataSource);
+        try {
+            migration.execute(dataSource);
+            migration.execute(dataSource);
+        } finally {
+            // 수동 SQL은 알림 사건 종류를 당시 값으로 되돌리므로, 공유 스키마는 Flyway가 만든 정의로 복구한다.
+            jdbc.execute("alter table notifications drop constraint if exists ck_notifications_event_type");
+            jdbc.execute("alter table notifications add constraint ck_notifications_event_type " + eventTypeCheck);
+        }
         // Then
         assertThat(jdbc.queryForObject("select status from invitation where id = ?", String.class, original)).isEqualTo("VALID");
         assertThat(jdbc.queryForObject("select status from invitation where id = ?", String.class, duplicate)).isEqualTo("CANCELED");
