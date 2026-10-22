@@ -72,7 +72,7 @@ header 구현으로 확대하지 않았다.
 | `/home` | 공개 | `GET /api/groups` | AppShell, ExploreHero, TodaySessionsHero, RecruitingSection, ArchiveSection | loading, empty, success, network |
 | `/groups` | 공개 | `GET /api/groups` | AppShell, GroupBrowsePage, SearchField, FilterBar, GroupCard, CursorList | initial/background loading, empty, success, 400, network |
 | `/groups/explore` | 공개 | 없음 | 검색 조건과 해시를 보존해 `/groups`로 replace 이동 | 기존 링크 호환 |
-| `/activities`                                                       | 공개 (댓글과 반응은 회원) | `GET /api/activity-posts`, 활동 기록 작성, 수정, 숨김 API, 댓글 조회, 작성, 숨김과 하트 반응 API | AppShell, ActivityPostBoard, PolaroidCard, ActivityPostDetail(Modal), ActivityReactionBar, infinite cursor list | loading, empty, error, public/mine filter, image upload and public-visibility notice, 상세의 댓글 loading, empty, error, 더 보기, 비로그인 로그인 안내 후 `?post=` 복귀, 사진 크게 보기 |
+| `/activities`                                                       | 공개 (댓글과 반응은 회원) | `GET /api/activity-posts`, 활동 기록 작성, 수정, 숨김 API, 댓글 조회, 작성, 숨김과 하트 반응 API | AppShell, ActivityPostBoard, PolaroidCard, ActivityPostDetail(Modal), ActivityReactionBar, infinite cursor list | loading, empty, error, public/mine filter, image upload and public-visibility notice, 상세의 댓글 loading, empty, error, 더 보기, 비로그인 로그인 안내 후 `?post=` 복귀, 알림의 `?mine=true&post=` 진입과 최대 5페이지 이어 찾기, 사진 크게 보기 |
 | `/groups/:groupId`                                                  | 그룹 정보와 달력 제목·날짜·시각은 공개, 일정 상세는 그룹원 | 그룹 상세, 모집·참여자·활동 기록, `/api/groups/{groupId}/calendar`와 그룹원 일정 상세 API | DetailLayout, Tabs(소개·캘린더·활동 기록), GroupCalendarTab, InfoRow, RecruitmentCard, PersonRow, ActivityPostBoard | loading, empty section, calendar range/error, leader calendar actions, 403, 404, 409 conflict, network |
 | `/groups/:groupId/recruitments/:recruitmentId`                      | 조회 공개, 신청은 회원 | 모집 상세, 신청 생성/철회                | DetailLayout, RecruitmentPanel, Modal, Toast                         | closed/ended, validation, 401, 403, 404, 409, mutation pending/success/failure   |
 | `/oauth/callback`                                                   | 공개                   | `GET /api/members/me`                    | CenteredStateLayout                                                  | callback loading, invalid callback, signup required, authenticated, 401, network |
@@ -184,6 +184,8 @@ header 구현으로 확대하지 않았다.
 ### 웹푸시·알림함 구현
 
 새 모임 등록(`GROUP_CREATED`)은 알림함과 푸시 클릭 모두 `/groups/:groupId`로 이동한다. 이 사건의 target은 `kind: GROUP_DETAIL`, `groupId`만 가지며 모집·신청 식별자는 없다. 생성 당시 활성 푸시 구독 회원 중 생성자를 제외하고 알림함에 한 건씩 남긴다. SW 표시 제목은 `자리하나?`, 본문은 `새로운 모임이 등록되었어요.`다.
+
+내 활동 기록의 새 댓글(`ACTIVITY_POST_COMMENTED`)과 좋아요(`ACTIVITY_POST_REACTED`)는 target이 `kind: ACTIVITY_POST`, `groupId`, `activityPostId`이며, 알림함과 푸시 클릭 모두 `/activities?mine=true&post=:activityPostId`로 이동해 내가 쓴 기록 피드에서 해당 기록 상세를 연다. 기록이 불러온 페이지에 없으면 피드가 최대 5페이지까지 다음 페이지를 이어 찾고, 그래도 없으면 `post` 값만 지운다. 좋아요 알림 본문은 서버가 만든 `가온 외 2명이 좋아요를 눌렀어요.` 형식을 그대로 표시한다. SW는 댓글에 `내 활동 기록에 새 댓글이 달렸어요.`를, 좋아요에는 푸시 내용 조회의 `reactionSummary`로 `가온님이 좋아요를 눌렀어요.`, `가온 외 2명이 좋아요를 눌렀어요.`, 20명 초과 시 `회원님의 댓글이 무수한 관심을 받고 있어요.`를 표시한다. 요약이 없으면 `내 활동 기록에 좋아요가 도착했어요.`를 쓴다. 계약은 [알림 API의 활동 기록 알림 절](../../backend/docs/context/api/endpoints/notifications.md#활동-기록-알림-응답-확장-계약)을 따른다.
 
 알림함은 헤더의 종 버튼이 여는 Drawer로 제공하며 독립된 `/notifications` 페이지는 없다.
 [백엔드 ADR 0015](../../backend/docs/adr/0015-web-push-and-notification-inbox.md)와

@@ -4,6 +4,7 @@ import com.project.jarihana.activitypost.command.repository.ActivityPostCommandR
 import com.project.jarihana.activitypost.command.repository.ActivityPostCommentCommandRepository;
 import com.project.jarihana.activitypost.domain.ActivityPost;
 import com.project.jarihana.activitypost.domain.ActivityPostComment;
+import com.project.jarihana.activitypost.domain.event.ActivityPostCommentedEvent;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
@@ -13,6 +14,7 @@ import com.project.jarihana.member.domain.Member;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +26,7 @@ public class ActivityPostCommentCommandService {
     private final ActivityPostCommentCommandRepository activityPostCommentCommandRepository;
     private final GroupMemberCommandRepository groupMemberCommandRepository;
     private final MemberRepository memberRepository;
+    private final ApplicationEventPublisher events;
     private final Clock clock;
 
     @Transactional
@@ -35,6 +38,7 @@ public class ActivityPostCommentCommandService {
         ActivityPostComment comment = activityPostCommentCommandRepository.save(
                 ActivityPostComment.create(post, author, content, LocalDateTime.now(clock))
         );
+        events.publishEvent(ActivityPostCommentedEvent.from(comment));
         return comment.getId();
     }
 
