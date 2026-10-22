@@ -150,6 +150,8 @@ health 규칙의 데이터 없음 상태는 `Alerting`, HTTP 500과 호스트 �
 알림을 묶으며 호스트도 구분한다(`grafana_folder`, `alertname`, `environment`, `host_id`, `mountpoint`).
 기본 첫 통지 대기는 30초이며 `severity=critical` 하위 경로는 `group_wait: 0s`로 설정한다.
 health·HTTP 500·자원 critical 알림에는 의도적인 첫 통지 대기를 추가하지 않는다.
+첫 통지 이후의 발생·해제 등 상태 변경은 `group_interval: 10s`에 따라 전달한다.
+HTTP 500은 마지막 오류 이후 최근 5분 구간에 오류 로그가 없어야 해제되므로, 이 전송 간격과 별개다.
 
 **정책 파일은 조직 1의 notification policy 트리 전체를 관리하며 적용 시 기존 트리를 덮어쓴다.**
 기존 Grafana를 사용한다면 현재 정책을 확인하고 필요한 경로를 파일에 함께 반영한 뒤 적용한다.
@@ -175,7 +177,7 @@ UID 4개를 `deleteRules`로 명시해 중복 평가를 제거한다. 실제 AWS
 | 호스트 자원 warning | 80% 이상 90% 미만 / 5분 | 일시적인 부하와 지속 과부하 구분 |
 | 호스트 자원 critical | 90% 이상 / 추가 대기 0초 | 수집·평가·전송 시간은 여전히 필요 |
 | 첫 알림 대기 `group_wait` | 기본 30초 / critical 0초 | 같은 그룹의 초기 알림을 모으는 시간 |
-| 변경 알림 간격 `group_interval` | 5분 | 이미 보낸 그룹의 변경 사항을 다시 알리는 간격 |
+| 변경 알림 간격 `group_interval` | 10초 | 이미 보낸 그룹의 발생·해제 등 변경 사항을 다시 알리는 간격 |
 | 지속 장애 재통지 `repeat_interval` | 4시간 | 변화 없는 장애의 반복 알림 간격 |
 
 ## 적용과 확인

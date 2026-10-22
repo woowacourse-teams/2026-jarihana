@@ -1,6 +1,6 @@
 import { cloneElement } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useAuth } from "../../../src/features/auth";
 import { createInvitation, fetchInvitationCandidates, fetchIssuedInvitations } from "../../../src/features/invitation/api";
@@ -24,6 +24,33 @@ beforeEach(() => {
   jest.clearAllMocks();
   useAuth.mockReturnValue({ member: { id: 1 }, sessionVersion: 1, status: "authenticated" });
   fetchInvitationCandidates.mockResolvedValue({ items: people, nextCursor: null, hasNext: false });
+});
+test("기본·추가·검색 목록의 사진을 표시하고 사진 누락·실패에도 선택을 유지해 초대한다", async () => {
+  const first = { ...people[0], avatarUrl: "https://avatars.githubusercontent.com/u/21" };
+  const second = { ...people[1], avatarUrl: "https://avatars.githubusercontent.com/u/22" };
+  const noPhoto = { ...people[1], memberId: 23, crewName: "바다", avatarUrl: null };
+  fetchInvitationCandidates.mockImplementation(async (_groupId, params) => {
+    if (params.keyword) return { items: [second], nextCursor: null, hasNext: false };
+    if (params.cursor) return { items: [second, noPhoto], nextCursor: null, hasNext: false };
+    return { items: [first], nextCursor: "next", hasNext: true };
+  });
+  createInvitation.mockResolvedValue({ id: 501 });
+  setup(<InviteMembersDialog groupId="10" open onClose={jest.fn()} />);
+  expect(await screen.findByRole("img", { name: "노을 프로필" })).toHaveAttribute("src", first.avatarUrl);
+  fireEvent.error(screen.getByRole("img", { name: "노을 프로필" }));
+  expect(screen.getByLabelText("노을 프로필")).toHaveTextContent("노");
+  await userEvent.click(screen.getByRole("checkbox", { name: /노을/ }));
+  await userEvent.click(screen.getByRole("button", { name: "더 보기" }));
+  expect(await screen.findByRole("img", { name: "하늘 프로필" })).toHaveAttribute("src", second.avatarUrl);
+  expect(screen.getByLabelText("바다 프로필")).toHaveTextContent("바");
+  await userEvent.click(screen.getByRole("checkbox", { name: /바다/ }));
+  await userEvent.type(screen.getByRole("textbox", { name: "회원 이름 검색" }), "하늘");
+  await waitFor(() => expect(screen.queryByRole("checkbox", { name: /노을/ })).not.toBeInTheDocument());
+  expect(await screen.findByRole("img", { name: "하늘 프로필" })).toHaveAttribute("src", second.avatarUrl);
+  await userEvent.click(screen.getByRole("checkbox", { name: /하늘/ }));
+  await userEvent.click(screen.getByRole("button", { name: /3명 초대/ }));
+  await waitFor(() => expect(createInvitation).toHaveBeenCalledTimes(3));
+  expect(createInvitation.mock.calls.map(([, command]) => command.targetMemberId)).toEqual([21, 23, 22]);
 });
 test("내가 보낸 초대에는 각 수신자 이름을 표시하고 발신자 이름을 표시하지 않는다", async () => {
   fetchIssuedInvitations.mockResolvedValue({ items: people.map((person, index) => ({

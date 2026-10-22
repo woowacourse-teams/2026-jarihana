@@ -82,7 +82,7 @@ header 구현으로 확대하지 않았다.
 | `/my`                                                               | 회원                   | 내 정보, 내 그룹, 내 신청                | MyPageLayout, ProfileCard, SummaryCard                               | bootstrap loading, partial empty, 401, network                                   |
 | `/my/groups`                                                        | 회원                   | `GET /api/groups?relation=JOINED`        | ListLayout, GroupCard, CursorList                                    | loading, empty, cursor, 401, network                                             |
 | `/my/registrations`                                                 | 회원                   | 내 신청 목록, 신청 철회                  | ListLayout, StatusBadge, ConfirmDialog                               | loading, empty, cursor, 401/403/404/409, mutation states                         |
-| `/groups/new`                                                       | 회원                   | 이미지 업로드·그룹 생성                  | FormLayout, ImagePicker, schedule fields                             | image validation/upload, conditional schedule validation, 401/409, mutation states |
+| `/groups/new`                                                       | 회원                   | 이미지 업로드·그룹 생성                  | FormLayout, ImagePicker, schedule fields                             | image validation/upload, conditional schedule validation, 첫 오류로 smooth scroll·포커스(모션 감소 시 즉시 이동), 일정 오류는 본문 일정 설정 버튼으로 이동·직접 선택 시 모달 열기, 소개 탭 오류 입력 표시, 401/409, mutation states |
 | `/groups/:groupId/manage`                                           | 해당 그룹 리더         | 그룹/참여자/모집 조회, 이미지 업로드, 그룹 수정/종료/삭제 | ManageLayout, ManageNav, ImagePicker, Stats, ConfirmDialog | image preservation/replace, loading, 403, 404, lifecycle conflict, mutation states |
 | `/groups/:groupId/manage/members`                                   | 해당 그룹 리더         | 참여자 목록, 리더 위임                     | ManageLayout, PersonRow, ConfirmDialog                               | loading, empty, 403/404/409/422, mutation states                                 |
 | `/groups/:groupId/manage/recruitments`                              | 해당 그룹 리더         | 모집 목록/생성/마감                      | ManageLayout, RecruitmentCard, Modal                                 | loading, empty, validation, 403/404/409, mutation states                         |
@@ -132,7 +132,7 @@ header 구현으로 확대하지 않았다.
 | `/invitations/:invitationId` | 지정 대상 회원; 비회원은 로그인 안내 | ID 상세·수락 | 로딩·가입 필요·대상 불일치·만료·취소·종료·이미 참여 중·수락 중/성공/실패 |
 | `/invitations/link/:token` | 조회 공개, 수락은 가입 완료 회원 | 공개 링크 조회·수락(token) | 모임·발급자·만료·인증 필요·중복·네트워크 오류 |
 | 모임 상세 히어로의 초대 링크 복사 | ACTIVE 모임의 현재 모임장·모임원 | LINK 생성·유효 링크 재사용 | 준비 중·복사 완료·직접 복사·권한/네트워크 오류 |
-| 참여자 목록 제목 오른쪽 + 초대 | ACTIVE 모임의 현재 모임장·모임원 | 기본 회원 후보 목록·선택적 이름 검색·DIRECT 개별 생성 | 다수 선택·검색 유지·부분 실패·실패 대상 재시도·페이지·빈 결과 |
+| 참여자 목록 제목 오른쪽 + 초대 | ACTIVE 모임의 현재 모임장·모임원 | 기본 회원 후보 목록·선택적 이름 검색·DIRECT 개별 생성 | 후보 avatarUrl을 공통 Avatar로 표시(누락·null·로딩 실패 시 이름 첫 글자 대체)·다수 선택·검색 유지·부분 실패·실패 대상 재시도·페이지·빈 결과 |
 | 회원 초대 모달의 보낸 초대 | 현재 모임장·모임원 | MINE(DIRECT만)/MANAGED_LINKS(LINK만) 목록·상세·취소 | 본인 지정 초대와 모임 공유 이력 분리·canRevoke별 취소·모든 구성원 링크 복사 |
 | `/notifications/open/:id` | 본인 알림의 회원 | 본인 알림·초대 상세·읽음 | 로그인 복귀·잘못된 계정·없는 대상·현재 상태 안내 |
 
