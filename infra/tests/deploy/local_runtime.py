@@ -8,11 +8,11 @@ import time
 
 from controller_fakes import FakeApps, FakeCloud, FakeClock, FakeTelemetry, OLD_IMAGE
 from local_spring import SpringNode
-from bluegreen.models import (Action, Command, ControlRelease, Host, Phase, Slot, Topology)
+from bluegreen.models import (Action, AppStatus, Command, ControlRelease, Host, Phase, Slot, Topology)
 from bluegreen.nginx_switch import NginxRuntime, NginxSettings, NginxSwitch, ProcessRunner
 from bluegreen.ports import Adapters, DeploymentFailure, SystemClock
 from bluegreen.state_store import StateStore
-from bluegreen.github_operations import authorize_local_process
+from bluegreen.github_operations import authorize, authorize_local_process
 
 
 class FixtureRunner(ProcessRunner):
@@ -34,6 +34,13 @@ class LocalApps(FakeApps):
         super().__init__(topology, store, clock)
         self.processes: dict[Slot, SpringNode] = {}
 
+    def check(self, command: Command, actual: AppStatus) -> None:
+        state = self.store.read()
+        if state is None:
+            raise DeploymentFailure("local stop grant journal is missing")
+        authorize(command, state, self.clock.now())
+        authorize_local_process(command, actual)
+
     def _apply(self, command: Command):
         node = self.processes[command.host.slot]
         if command.action is not Action.PREPARE:
@@ -45,7 +52,7 @@ class LocalApps(FakeApps):
                 node.start(command.image)
                 return node.snapshot()
             case Action.STOP_APP:
-                return node.stop()
+                return node.stop(command, self)
             case Action.BEGIN | Action.HANDOFF | Action.PAUSE | Action.RELEASE | Action.ACTIVATE | Action.OBSERVE | Action.COMPLETE:
                 return node.control(command)
             case Action.START_EC2 | Action.STOP_EC2 | Action.SWITCH:

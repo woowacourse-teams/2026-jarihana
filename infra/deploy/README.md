@@ -1,7 +1,7 @@
 # 운영 Blue-Green 배포 제어
 
 별도 Nginx EC2가 고정된 앱 A/B의 준비·전환·관찰·종료 순서를 조정하기 위한 코드다.
-현재는 **제어 로직, 실제 Nginx 어댑터, 로컬 검증**까지 구현했다. AWS/GitHub 운영 어댑터와 workflow 연결,
+현재는 **제어 로직, 실제 Nginx·Docker 종료 어댑터, 로컬 검증**까지 구현했다. AWS/GitHub 운영 어댑터와 workflow 연결,
 runner·권한·서버 설치는 다음 작업이다. 이 파일의 설정을 복사하는 것만으로 운영 배포가 활성화되지 않는다.
 설계 배경은 [인프라 ADR 0005](../docs/adr/0005-nginx-ec2-blue-green-deployment.md)를 따른다.
 
@@ -38,6 +38,8 @@ A worker를 활성화하지 않는다. `SEALED` 이후에는 이전 서버를 �
 | `scripts/deploy/bluegreen/recovery.py` | HTTP 복구와 역방향 worker 인계 |
 | `scripts/deploy/bluegreen/github_operations.py` | control ref/SHA/event/attempt, 명령·artifact·인스턴스 일치 검사 |
 | `scripts/deploy/bluegreen/nginx_switch.py` | 실제 Nginx 설정 검사·적용·복구, 기존 worker 세대 추적 |
+| `scripts/deploy/bluegreen/docker_shutdown.py` | 같은 컨테이너 세대·사전 drain·종료 코드·OOM·재시작 검사와 종료 증거 생성 |
+| `scripts/deploy/bluegreen/docker_runtime.py` | 비밀값 없는 제한 inspect와 강제 종료 없는 고정 SIGTERM 명령 |
 | `scripts/deploy/watchdog.py` | stale heartbeat를 attention으로 기록하는 제한된 CLI |
 
 위 경로는 `infra/` 기준이다. AWS/GitHub 전송은 `ports.py`의 인터페이스이며 **아직 운영 구현이 없다**.
@@ -83,6 +85,29 @@ Compose를 실행한다. 이후 파일 하나를 개별 bind mount하지 말고 
 Nginx reload가 새 worker를 시작하면서 기존 연결을 이전 worker에 남긴다는 동작은
 [공식 제어 문서](https://nginx.org/en/docs/control.html)에 근거한다.
 
+## 앱 종료 증거
+
+`DockerStopper`는 **운영 CLI가 아닌 라이브러리**다. 실제 앱 e2e의 `LocalApps`가 저널의 sealed STOP_APP
+허가를 매번 재검사하도록 연결했다. 운영 child가 이 허가를 안전하게 전달·재검사하는 경로는 아직 없다.
+
+- 시작 때 전체 container ID·Docker image ID·StartedAt·RestartCount를 고정하고 앱 boot와 함께 사용한다.
+  Docker image ID는 실행 이미지의 config digest이며 레지스트리 manifest digest 검증을 대체하지 않는다.
+- STOP_APP·정확한 boot, HTTP/worker/scheduler drain과 worker 권한 반납을 확인한다. auto-remove 컨테이너는 거부한다.
+- `docker stop --signal SIGTERM --timeout -1 -- <전체 ID>`를 **한 번만** 실행한다. 이름으로 대상을 다시 선택하지 않는다.
+- 별도 관찰 상한(초안 120초, polling 0.25초)과 명령 기한을 검사한다. 취소·허가 철회·응답 유실·시간 초과는
+  성공으로 바꾸지 않으며 EC2를 중지하지 않는다. Docker의 강제 SIGKILL을 예약하지 않는다.
+- 시간 초과 시 대기 중인 로컬 Docker CLI만 종료한다. daemon이 이미 받은 SIGTERM은 취소할 수 없어 앱이 나중에
+  종료될 수 있다. 따라서 두 EC2를 보존하고 실제 상태를 확인해야 하며, 같은 명령을 자동 재전송하지 않는다.
+- 같은 컨테이너 세대, 재시작 없음, OOMKilled=false, 실제 프로세스 종료, Docker stop 성공과 exit 0/143을 모두
+  확인한 뒤에만 normal_exit를 반환한다. 137만 보고 OOM이라고 단정하지 않으며 SIGKILL도 정상 종료로 인정하지 않는다.
+- `ShutdownEvidence`는 command·boot·컨테이너 세대·종료 시각과 코드를 담는다. 로컬 앱 e2e는 `shutdown-*.json`으로
+  저장한다. 운영 child artifact에 이 증거를 전달하는 연결과 실제 EC2 중지 직전의 재검증은 후속 작업이다.
+
+이 증거는 사전 drain 후 프로세스가 정상적인 종료 코드로 끝났다는 범위다. 모든 사용자 정의 shutdown hook이나
+프레임워크 내부 작업 완료를 인증하지 않는다. 운영에는 JVM의 exec entrypoint, Spring graceful shutdown의 실제 설정,
+Compose·runner의 종료/재시작 정책, 경쟁 배포·외부 재시작 방지까지 함께 연결해야 한다.
+원리는 [Docker stop 문서](https://docs.docker.com/reference/cli/docker/container/stop/)를 따른다.
+
 ## 로컬 검증
 
 Python 3.12+와 `pydantic==2.14.0`을 사용한다. 다음 `uv --with` 실행은 프로젝트의 기존 표준 라이브러리
@@ -93,6 +118,9 @@ uv run --with pydantic==2.14.0 python -m unittest discover -s infra/tests/deploy
 
 # 실제 Nginx + HTTP fixture 두 개: 긴 요청 보존·설정 오류 거부
 uv run infra/tests/deploy/run_nginx_drain_e2e.py
+
+# 실제 Docker: 정상 TERM·외부 SIGKILL 거부·TERM 무시 시 프로세스 보존
+uv run infra/tests/deploy/run_shutdown_e2e.py
 
 # 먼저 backend/에서 ./gradlew bootJar로 현재 jar를 만든다.
 # JARIHANA_E2E_JAVA_IMAGE에는 Java 21이 확인된 로컬 Docker 이미지 ID를 설정한다.
@@ -108,8 +136,8 @@ uv run infra/tests/deploy/run_local_e2e.py
 **HTTP/업무 스케줄러 활동 수치는 앱 관리 API의 `activity`에서 측정한다.** 로컬 어댑터도
 `httpInFlight`, `backgroundInFlight`, `backgroundDrained`를 필수 입력으로 사용한다.
 범위와 종료 판단의 제약은 [내부 API 계약](../../backend/docs/operations/worker-control-api.md)을 따른다.
-운영 어댑터와 SIGTERM/정상 종료 증거는 아직 미연결이며, 값이 없으면 controller는 cleanup을 허가하지 않는다.
-로컬 fixture의 exit code 판정을 운영의 정상 종료 증거로 재사용하지 않는다.
+SIGTERM 종료 어댑터는 로컬 앱 시험에 연결했고, 운영 child·AWS와 증거 artifact 전달은 아직 미연결이다.
+값이 없으면 controller는 cleanup을 허가하지 않으며 과거 fixture의 exit code 단독 판정은 사용하지 않는다.
 실제 푸시 처리와 commit 경계는 별도 백엔드 통합 테스트로 검증한다.
 
 ## Watchdog 설치 전제

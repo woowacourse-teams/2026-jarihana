@@ -10,7 +10,9 @@ from pydantic import StrictBool, ValidationError
 
 from bluegreen.models import Action, AppStatus, Authority, Command, Counter, Host, Record
 from bluegreen.nginx_switch import ApiProbe, ProcessRunner
-from bluegreen.ports import DeploymentFailure
+from bluegreen.ports import DeploymentFailure, SystemClock
+from bluegreen.docker_runtime import DockerRuntime
+from bluegreen.docker_shutdown import ContainerPin, DockerStopper, StopGrant, StopRuntime
 
 TOKEN = "local-e2e-machine-token-fixture-0123456789abcdef"
 
@@ -62,6 +64,8 @@ class SpringNode:
         self.network = ""
         self.image = ""
         self.runner = ProcessRunner()
+        self.docker = DockerRuntime(self.runner)
+        self.pin: ContainerPin | None = None
 
     def start(self, image: str) -> None:
         java_image = os.environ.get("JARIHANA_E2E_JAVA_IMAGE", "")
@@ -84,6 +88,7 @@ class SpringNode:
                          java_image, "-Xmx256m", "-jar", "/tmp/fixture-backend.jar", "--spring.profiles.active=prod"))
         self.http_port = int(self.runner.run(("docker", "port", self.container, "8080/tcp")).strip().rsplit(":", 1)[1])
         self.management_port = int(self.runner.run(("docker", "port", self.container, "8081/tcp")).strip().rsplit(":", 1)[1])
+        self.pin = self.docker.inspect(self.container).pin()
         deadline = time.monotonic() + 90
         while time.monotonic() < deadline:
             if self.runner.run(("docker", "inspect", "--format", "{{.State.Running}}", self.container)).strip() != "true":
@@ -141,14 +146,13 @@ class SpringNode:
                          f"http://127.0.0.1:{self.management_port}/actuator/workercontrol/{operation}"))
         return self.snapshot()
 
-    def stop(self) -> AppStatus:
-        status = self.snapshot()
-        if not status.requests_drained():
-            raise DeploymentFailure("cannot safely stop fixture process")
-        self.runner.run(("docker", "stop", "--time", "30", self.container))
-        code = int(self.runner.run(("docker", "inspect", "--format", "{{.State.ExitCode}}", self.container)).strip())
+    def stop(self, command: Command, grant: StopGrant) -> AppStatus:
+        if self.pin is None:
+            raise DeploymentFailure("fixture container generation was not captured at startup")
+        result = DockerStopper(StopRuntime(self.docker, SystemClock(), grant)).stop(command, self.snapshot(), self.pin)
+        (self.directory / f"shutdown-{command.command_id}.json").write_text(result.evidence.model_dump_json(indent=2))
         self._remove()
-        return status.model_copy(update={"running": False, "normal_exit": code in (0, 143)})
+        return result.status
 
     def close(self) -> None:
         if self.container:
