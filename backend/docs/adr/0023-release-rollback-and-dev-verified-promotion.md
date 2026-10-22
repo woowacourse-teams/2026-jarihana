@@ -124,7 +124,7 @@ DB 비밀번호 같은 실행 값은 GitHub Environment(dev, prod)의 Variables�
 
 | 단계 | 실행 위치 | 하는 일 |
 | --- | --- | --- |
-| dev build | GitHub 호스팅 runner | 테스트와 jar 빌드 후 이미지를 올리고, digest와 backend 트리 해시를 출력한다 |
+| dev build | GitHub 호스팅 runner | jar와 Docker 이미지를 빌드해 GHCR에 올리고, digest와 backend 트리 해시를 출력한다 |
 | dev deploy | dev EC2 runner | 그 digest로 배포하고 점검한다. 성공하면 이미지와 설정을 기록하고, 실패하면 직전 성공 조합으로 돌아간다 |
 | dev promote(승격) | GitHub 호스팅 runner | 빌드한 이미지와 dev에서 점검한 이미지가 같은지 확인하고 검증 태그를 붙인다 |
 | prod deploy | prod EC2 runner | main의 backend 트리에 해당하는 검증 태그로 digest를 정하고, dev deploy와 같은 순서로 배포한다 |
