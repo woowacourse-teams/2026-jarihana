@@ -224,6 +224,9 @@ for (const [eventType, title, body] of [
       const url = new URL(route.request().url());
       const reply = (data) => route.fulfill({ json: { success: true, data, error: null } });
       if (url.pathname.endsWith("/comments")) return reply({ items: [], hasNext: false, nextCursor: null });
+      if (url.pathname.endsWith("/reactions/HEART")) {
+        return reply({ emoji: "HEART", count: 3, reactors: [], hasNext: false, nextCursor: null });
+      }
       feedQueries.push(url.search);
       return url.searchParams.get("cursor") === "page-2"
         ? reply({ items: [post(77, "알림으로 찾은 기록")], hasNext: false, nextCursor: null })
