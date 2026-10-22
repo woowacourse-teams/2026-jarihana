@@ -1,0 +1,15 @@
+[Unit]
+Description=Inspect the Jarihana deployment heartbeat
+
+[Service]
+Type=oneshot
+User=jarihana-deploy
+WorkingDirectory=/opt/jarihana-deploy
+ExecStart=/usr/local/bin/uv run --offline --script /opt/jarihana-deploy/infra/scripts/deploy/watchdog.py /etc/jarihana-deploy/watchdog.json
+TimeoutStartSec=5
+SuccessExitStatus=1
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/jarihana-deploy /var/cache/jarihana-deploy
+Environment=UV_CACHE_DIR=/var/cache/jarihana-deploy

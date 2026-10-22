@@ -1,0 +1,16 @@
+services:
+  nginx:
+    image: "${NGINX_IMAGE:?set a verified nginx image digest}"
+    command: [nginx, -c, /etc/nginx/deploy/current.conf, -g, "daemon off;"]
+    restart: unless-stopped
+    ports:
+      - "${NGINX_LISTEN_ADDRESS:-127.0.0.1}:${NGINX_HTTP_PORT:-8080}:8080"
+      - "127.0.0.1:${NGINX_PROBE_PORT:-18082}:8082"
+    volumes:
+      - "${NGINX_DEPLOY_DIRECTORY:?set the absolute config generation directory}:/etc/nginx/deploy:ro"
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: "5"
+    # No worker_shutdown_timeout: an old connection must not be killed by deployment.

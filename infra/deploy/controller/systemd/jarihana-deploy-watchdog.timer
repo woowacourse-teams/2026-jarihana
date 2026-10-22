@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodically inspect the Jarihana deployment heartbeat
+
+[Timer]
+OnBootSec=30
+OnUnitActiveSec=10
+AccuracySec=1
+
+[Install]
+WantedBy=timers.target
