@@ -281,6 +281,67 @@ it("opens the post detail with its group, reactions and comments when a card is 
   expect(useInfiniteActivityComments).toHaveBeenLastCalledWith({ postId: 2, viewerKey: "anonymous" });
 });
 
+it("keeps loading later pages until a post requested from a notification is found", () => {
+  const fetchNextPage = jest.fn();
+  const setSearchParams = jest.fn();
+  useSearchParams.mockReturnValue([new URLSearchParams("mine=true&post=1"), setSearchParams]);
+  useInfiniteActivityPosts.mockReturnValue({
+    data: { pages: [{ hasNext: true, items: [posts[0]], nextCursor: "next" }] },
+    fetchNextPage,
+    hasNextPage: true,
+    isError: false,
+    isFetchingNextPage: false,
+    isLoading: false,
+    refetch: jest.fn()
+  });
+  const view = renderBoard();
+
+  expect(fetchNextPage).toHaveBeenCalledTimes(1);
+  expect(setSearchParams).not.toHaveBeenCalled();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+  useInfiniteActivityPosts.mockReturnValue({
+    data: {
+      pages: [
+        { hasNext: true, items: [posts[0]], nextCursor: "next" },
+        { hasNext: false, items: [posts[1]], nextCursor: null }
+      ]
+    },
+    fetchNextPage,
+    hasNextPage: false,
+    isError: false,
+    isFetchingNextPage: false,
+    isLoading: false,
+    refetch: jest.fn()
+  });
+  view.rerender(createBoardTree(view.queryClient));
+
+  expect(screen.getByRole("dialog", { name: "사진 동아리" })).toBeVisible();
+  expect(fetchNextPage).toHaveBeenCalledTimes(1);
+  expect(setSearchParams).not.toHaveBeenCalled();
+});
+
+it("stops searching for a requested post after a few pages and only clears the address", () => {
+  const fetchNextPage = jest.fn();
+  const setSearchParams = jest.fn();
+  useSearchParams.mockReturnValue([new URLSearchParams("mine=true&post=99"), setSearchParams]);
+  useInfiniteActivityPosts.mockReturnValue({
+    data: { pages: Array.from({ length: 5 }, () => ({ hasNext: true, items: posts, nextCursor: "next" })) },
+    fetchNextPage,
+    hasNextPage: true,
+    isError: false,
+    isFetchingNextPage: false,
+    isLoading: false,
+    refetch: jest.fn()
+  });
+
+  renderBoard();
+
+  expect(fetchNextPage).not.toHaveBeenCalled();
+  expect(setSearchParams).toHaveBeenCalledWith(new URLSearchParams("mine=true"), { replace: true });
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
 it("asks visitors to log in before reacting or commenting and returns them to the same post", () => {
   const login = jest.fn();
   useAuth.mockReturnValue({ isAuthenticated: false, login, status: "anonymous" });
