@@ -163,6 +163,8 @@ PostHog에서는 생성 성공(`invitation_created`)과 수락 시도→합류(`
 댓글 원문은 보내지 않는다. 반응 이벤트는 반응 API가 성공한 뒤에 기록하며, 화면의 낙관적 갱신만으로 기록하지 않는다.
 활동 기록 카드 클릭은 상세를 여는 `activity_post_detail_open`, 상세의 그룹 줄은
 `activity_post_detail_group_open`, 사진 크게 보기는 `activity_post_photo_zoom` 식별자로 수집한다.
+좋아요한 사람 목록을 여는 하트 옆 요약은 `activity_reactors_open`, 데스크톱 목록 닫기는 `activity_reactors_close`,
+모바일 탭은 `activity_post_comments_tab_open`과 `activity_post_likes_tab_open`이다. 좌우로 쓸어 넘기는 동작은 수집하지 않는다.
 
 ## 사용자와 재방문
 

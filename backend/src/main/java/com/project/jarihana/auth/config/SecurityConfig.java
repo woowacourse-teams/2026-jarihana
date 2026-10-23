@@ -31,6 +31,8 @@ public class SecurityConfig {
             "/groups/*/activity-posts",
             "/activity-posts",
             "/activity-posts/*/comments",
+            "/activity-posts/*/reactions/*",
+            "/activity-post-comments/*/reactions/*",
             "/images/**",
             "/share/groups/*",
             "/invitations/links/*",

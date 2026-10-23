@@ -1,21 +1,42 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Maximize2, X } from "lucide-react";
 import { Link } from "react-router";
 
-import { ACTIVITY_COMMENT_MAX_LENGTH } from "../../entities/activity-post/index.js";
+import { ACTIVITY_COMMENT_MAX_LENGTH, describeActivityReactors } from "../../entities/activity-post/index.js";
 import {
   useCreateActivityComment,
   useDeleteActivityComment,
   useInfiniteActivityComments,
+  useInfiniteActivityReactors,
   useToggleActivityReaction
 } from "../../features/activity-post/hooks.js";
 import { toUserMessage } from "../../shared/api/index.js";
-import { Button, Modal, Skeleton } from "../../shared/ui/index.js";
+import { Avatar, Button, Modal, Skeleton } from "../../shared/ui/index.js";
 import { useToast } from "../../shared/ui/Toast.jsx";
 import { ActivityReactionBar } from "./ActivityReactionBar.jsx";
+import { ActivityReactorList } from "./ActivityReactorList.jsx";
 
 const GROUP_TYPE_LABELS = Object.freeze({ CLUB: "동아리", SESSION: "세션", STUDY: "스터디" });
 const SWIPE_CLOSE_DISTANCE_PX = 100;
+const SWIPE_TAB_DISTANCE_PX = 56;
+// activity-posts.css의 모바일 전체 화면 상세와 같은 기준이다.
+const COMPACT_LAYOUT_QUERY = "(max-width: 39.9375rem)";
+const NO_REACTORS_TEXT = "아직 하트를 남긴 사람이 없어요.";
+
+function useCompactLayout() {
+  const [compact, setCompact] = useState(() => Boolean(window.matchMedia?.(COMPACT_LAYOUT_QUERY)?.matches));
+
+  useEffect(() => {
+    const media = window.matchMedia?.(COMPACT_LAYOUT_QUERY);
+    if (!media) return undefined;
+    const update = () => setCompact(media.matches);
+    update();
+    media.addEventListener?.("change", update);
+    return () => media.removeEventListener?.("change", update);
+  }, []);
+
+  return compact;
+}
 
 export function formatActivityDate(date) {
   return new Intl.DateTimeFormat("ko-KR", {
@@ -200,9 +221,12 @@ function CommentList({ onRequireLogin, onToggleReaction, post, signedIn, viewerK
       <ul aria-label="댓글" className="activity-comments__list">
         {comments.map((comment) => (
           <li className="activity-comment" key={comment.id}>
-            <span aria-hidden="true" className="activity-comment__avatar">
-              {comment.authorNickname.charAt(0)}
-            </span>
+            <Avatar
+              className="activity-comment__avatar"
+              fallback={comment.authorNickname.charAt(0)}
+              size="sm"
+              src={comment.authorAvatarUrl}
+            />
             <div className="activity-comment__body">
               <p className="activity-comment__meta">
                 <strong>{comment.authorNickname}</strong>
@@ -230,6 +254,8 @@ function CommentList({ onRequireLogin, onToggleReaction, post, signedIn, viewerK
                 reactions={comment.reactions}
                 signedIn={signedIn}
                 size="sm"
+                target={{ id: comment.id, type: "comment" }}
+                viewerKey={viewerKey}
               />
             </div>
           </li>
@@ -247,6 +273,63 @@ function CommentList({ onRequireLogin, onToggleReaction, post, signedIn, viewerK
         </Button>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * 데스크톱에서 하트 옆 요약을 누르면 그 아래에 여는 좋아요 목록이다. 바깥을 누르거나 Escape로 닫고,
+ * Escape는 상세 다이얼로그까지 닫히지 않도록 여기서 멈춘다.
+ */
+function ReactorPopover({ onClose, query, total }) {
+  const popoverRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
+  useEffect(() => {
+    const popover = popoverRef.current;
+    // 오른쪽 패널 아래로 넘치면 잘리므로, 카드 전체가 보이도록 패널을 필요한 만큼만 내린다.
+    popover?.focus({ preventScroll: true });
+    popover?.scrollIntoView?.({ block: "nearest" });
+    function closeWhenOutside(event) {
+      if (popover?.contains(event.target) || event.target.closest?.("[data-reactors-trigger]")) return;
+      onCloseRef.current();
+    }
+    function closeOnEscape(event) {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      onCloseRef.current({ restoreFocus: true });
+    }
+    document.addEventListener("pointerdown", closeWhenOutside);
+    popover?.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeWhenOutside);
+      popover?.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
+
+  return (
+    <section aria-label="좋아요한 사람" className="activity-reactors-popover" ref={popoverRef} tabIndex={-1}>
+      <div className="activity-reactors-popover__header">
+        <h4>
+          좋아요 <span>{total}</span>명
+        </h4>
+        <button
+          aria-label="좋아요한 사람 닫기"
+          className="activity-reactors-popover__close"
+          data-ph-capture-attribute-action="activity_reactors_close"
+          onClick={() => onClose({ restoreFocus: true })}
+          type="button"
+        >
+          <X aria-hidden="true" size={16} />
+        </button>
+      </div>
+      <div className="activity-reactors-popover__body">
+        <ActivityReactorList emptyText={NO_REACTORS_TEXT} query={query} />
+      </div>
+    </section>
   );
 }
 
@@ -315,11 +398,63 @@ function CommentComposer({ onRequireLogin, onSubmitted, post, signedIn, viewerRe
  */
 export function ActivityPostDetail({ onClose, onNavigateGroup, onRequireLogin, post, signedIn, viewerKey }) {
   const [photoOpen, setPhotoOpen] = useState(false);
+  const [tab, setTab] = useState("comments");
+  const [reactorsOpen, setReactorsOpen] = useState(false);
   const photoButtonRef = useRef(null);
   const scrollRef = useRef(null);
+  const reactorsTriggerRef = useRef(null);
+  const swipeStartRef = useRef(null);
+  const ids = useId();
+  const compact = useCompactLayout();
   const toggleReaction = useToggleActivityReaction();
   const viewerRelation = signedIn ? (post.group.joined ? "member" : "non_member") : "anonymous";
   const requireLogin = () => onRequireLogin(post);
+  const heartCount = post.reactions.find((reaction) => reaction.emoji === "HEART")?.count ?? 0;
+  const reactorsQuery = useInfiniteActivityReactors({
+    target: { id: post.id, type: "post" },
+    emoji: "HEART",
+    viewerKey,
+    enabled: heartCount > 0
+  });
+  const firstReactorPage = reactorsQuery.data?.pages[0];
+  const reactorSummary = heartCount > 0 && firstReactorPage ? describeActivityReactors(firstReactorPage, "하트", 2) : null;
+  const showLikes = compact && tab === "likes";
+  const tabIds = {
+    comments: `${ids}-comments-tab`,
+    commentsPanel: `${ids}-comments-panel`,
+    likes: `${ids}-likes-tab`,
+    likesPanel: `${ids}-likes-panel`
+  };
+
+  function closeReactors({ restoreFocus = false } = {}) {
+    setReactorsOpen(false);
+    if (restoreFocus) reactorsTriggerRef.current?.focus();
+  }
+
+  // 모바일은 좋아요 탭으로 넘기고, 데스크톱은 하트 아래에 목록을 연다.
+  function openReactors() {
+    if (compact) {
+      setTab("likes");
+      return;
+    }
+    setReactorsOpen((open) => !open);
+  }
+
+  // 모바일 탭 영역을 좌우로 쓸면 댓글과 좋아요를 오간다. 세로 스크롤은 그대로 둔다.
+  function startSwipe(event) {
+    if (event.pointerType === "mouse") return;
+    swipeStartRef.current = { x: event.clientX, y: event.clientY };
+  }
+
+  function endSwipe(event) {
+    const start = swipeStartRef.current;
+    swipeStartRef.current = null;
+    if (!start) return;
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    if (Math.abs(dx) < SWIPE_TAB_DISTANCE_PX || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    setTab(dx < 0 ? "likes" : "comments");
+  }
 
   function closePhoto() {
     setPhotoOpen(false);
@@ -330,6 +465,10 @@ export function ActivityPostDetail({ onClose, onNavigateGroup, onRequireLogin, p
     // Escape가 크게 보기에서 시작되지 않은 경우에도 크게 보기부터 닫는다.
     if (photoOpen) {
       closePhoto();
+      return;
+    }
+    if (reactorsOpen) {
+      closeReactors({ restoreFocus: true });
       return;
     }
     onClose();
@@ -372,37 +511,117 @@ export function ActivityPostDetail({ onClose, onNavigateGroup, onRequireLogin, p
             </p>
           </div>
           <GroupRow group={post.group} onNavigate={onNavigateGroup} />
-          <ActivityReactionBar
-            label="활동 기록 반응"
-            onRequireLogin={requireLogin}
-            onToggle={(emoji, reacted) => onToggleReaction({ id: post.id, type: "post" }, emoji, reacted)}
-            reactions={post.reactions}
-            signedIn={signedIn}
-          />
-          <section aria-label="댓글" className="activity-post-detail__comments">
-            <h3 className="activity-post-detail__comments-title">
-              댓글 <span>{post.commentCount}</span>
-            </h3>
-            <CommentList
+          <div className="activity-post-detail__reactions">
+            <ActivityReactionBar
+              label="활동 기록 반응"
               onRequireLogin={requireLogin}
-              onToggleReaction={onToggleReaction}
-              post={post}
+              onToggle={(emoji, reacted) => onToggleReaction({ id: post.id, type: "post" }, emoji, reacted)}
+              reactions={post.reactions}
               signedIn={signedIn}
+              target={{ id: post.id, type: "post" }}
               viewerKey={viewerKey}
-              viewerRelation={viewerRelation}
             />
-          </section>
+            {reactorSummary ? (
+              <button
+                aria-controls={compact ? tabIds.likesPanel : undefined}
+                aria-expanded={compact ? undefined : reactorsOpen}
+                className="activity-reactors-summary"
+                data-ph-capture-attribute-action="activity_reactors_open"
+                data-reactors-trigger=""
+                onClick={openReactors}
+                ref={reactorsTriggerRef}
+                type="button"
+              >
+                {reactorSummary}
+              </button>
+            ) : null}
+            {reactorsOpen && !compact ? (
+              <ReactorPopover onClose={closeReactors} query={reactorsQuery} total={heartCount} />
+            ) : null}
+          </div>
+          {compact ? (
+            <div aria-label="댓글과 좋아요" className="activity-post-detail__tabs" role="tablist">
+              <button
+                aria-controls={tabIds.commentsPanel}
+                aria-selected={tab === "comments"}
+                className="activity-post-detail__tab"
+                data-ph-capture-attribute-action="activity_post_comments_tab_open"
+                id={tabIds.comments}
+                onClick={() => setTab("comments")}
+                role="tab"
+                type="button"
+              >
+                댓글 <span>{post.commentCount}</span>
+              </button>
+              <button
+                aria-controls={tabIds.likesPanel}
+                aria-selected={tab === "likes"}
+                className="activity-post-detail__tab"
+                data-ph-capture-attribute-action="activity_post_likes_tab_open"
+                id={tabIds.likes}
+                onClick={() => setTab("likes")}
+                role="tab"
+                type="button"
+              >
+                좋아요 <span>{heartCount}</span>
+              </button>
+            </div>
+          ) : null}
+          <div
+            className="activity-post-detail__panels"
+            onPointerCancel={() => {
+              swipeStartRef.current = null;
+            }}
+            onPointerDown={compact ? startSwipe : undefined}
+            onPointerUp={compact ? endSwipe : undefined}
+          >
+            <section
+              aria-label={compact ? undefined : "댓글"}
+              aria-labelledby={compact ? tabIds.comments : undefined}
+              className="activity-post-detail__comments"
+              hidden={showLikes}
+              id={tabIds.commentsPanel}
+              role={compact ? "tabpanel" : undefined}
+            >
+              {compact ? null : (
+                <h3 className="activity-post-detail__comments-title">
+                  댓글 <span>{post.commentCount}</span>
+                </h3>
+              )}
+              <CommentList
+                onRequireLogin={requireLogin}
+                onToggleReaction={onToggleReaction}
+                post={post}
+                signedIn={signedIn}
+                viewerKey={viewerKey}
+                viewerRelation={viewerRelation}
+              />
+            </section>
+            {compact ? (
+              <section
+                aria-labelledby={tabIds.likes}
+                className="activity-post-detail__likes"
+                hidden={!showLikes}
+                id={tabIds.likesPanel}
+                role="tabpanel"
+              >
+                <ActivityReactorList emptyText={NO_REACTORS_TEXT} query={reactorsQuery} />
+              </section>
+            ) : null}
+          </div>
         </div>
-        <CommentComposer
-          onRequireLogin={requireLogin}
-          onSubmitted={() => {
-            const scroller = scrollRef.current;
-            if (scroller) scroller.scrollTop = scroller.scrollHeight;
-          }}
-          post={post}
-          signedIn={signedIn}
-          viewerRelation={viewerRelation}
-        />
+        {showLikes ? null : (
+          <CommentComposer
+            onRequireLogin={requireLogin}
+            onSubmitted={() => {
+              const scroller = scrollRef.current;
+              if (scroller) scroller.scrollTop = scroller.scrollHeight;
+            }}
+            post={post}
+            signedIn={signedIn}
+            viewerRelation={viewerRelation}
+          />
+        )}
       </div>
       {photoOpen ? <PhotoViewer onClose={closePhoto} post={post} /> : null}
     </Modal>

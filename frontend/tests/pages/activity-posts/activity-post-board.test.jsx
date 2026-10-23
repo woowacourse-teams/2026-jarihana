@@ -5,6 +5,7 @@ import { useSearchParams } from "react-router";
 import { storeReturnTarget, useAuth } from "../../../src/features/auth/index.js";
 import {
   useInfiniteActivityComments,
+  useInfiniteActivityReactors,
   useInfiniteActivityPosts,
   useToggleActivityReaction
 } from "../../../src/features/activity-post/hooks.js";
@@ -34,6 +35,7 @@ jest.mock("../../../src/features/activity-post/hooks.js", () => ({
   useInfiniteActivityComments: jest.fn(),
   useInfiniteActivityPosts: jest.fn(),
   useModifyActivityPost: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  useInfiniteActivityReactors: jest.fn(),
   useToggleActivityReaction: jest.fn()
 }));
 
@@ -174,6 +176,7 @@ function mockPhotoWallMeasurements() {
 
 const comments = [
   {
+    authorAvatarUrl: "https://avatars.githubusercontent.com/u/7",
     authorNickname: "나래",
     canDelete: false,
     content: "다음 모임에 저도 가고 싶어요",
@@ -185,11 +188,75 @@ const comments = [
 
 const toggleReaction = jest.fn(() => Promise.resolve());
 
+const reactorPage = {
+  count: 3,
+  emoji: "HEART",
+  hasNext: false,
+  nextCursor: null,
+  reactors: [
+    {
+      avatarUrl: "https://avatars.githubusercontent.com/u/11",
+      course: "FRONTEND",
+      crewName: "바다",
+      generation: 8,
+      memberType: "CREW",
+      mine: false
+    },
+    {
+      avatarUrl: "https://avatars.githubusercontent.com/u/12",
+      course: null,
+      crewName: "구름",
+      generation: null,
+      memberType: "COACH",
+      mine: true
+    }
+  ]
+};
+
+function reactorQuery(overrides = {}) {
+  return {
+    data: { pageParams: [null], pages: [reactorPage] },
+    fetchNextPage: jest.fn(),
+    hasNextPage: false,
+    isError: false,
+    isFetchingNextPage: false,
+    isLoading: false,
+    refetch: jest.fn(),
+    ...overrides
+  };
+}
+
+function mockCompactLayout(compact) {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: (query) => ({
+      addEventListener: jest.fn(),
+      matches: query.includes("max-width") ? compact : false,
+      removeEventListener: jest.fn()
+    })
+  });
+}
+
+// jsdom에는 PointerEvent가 없어 pointerType을 전달하지 못한다. 마우스와 터치를 구분하는 테스트를 위해 채운다.
+class TestPointerEvent extends MouseEvent {
+  constructor(type, init = {}) {
+    super(type, init);
+    this.pointerType = init.pointerType ?? "";
+  }
+}
+
+beforeAll(() => {
+  if (!window.PointerEvent) window.PointerEvent = TestPointerEvent;
+});
+
 beforeEach(() => {
   jest.clearAllMocks();
   useSearchParams.mockReturnValue([new URLSearchParams(), jest.fn()]);
   useAuth.mockReturnValue({ isAuthenticated: false, login: jest.fn(), status: "anonymous" });
   useToggleActivityReaction.mockReturnValue({ mutateAsync: toggleReaction });
+  useInfiniteActivityReactors.mockImplementation(({ enabled }) =>
+    reactorQuery(enabled ? {} : { data: undefined })
+  );
   useInfiniteActivityComments.mockReturnValue({
     data: { pages: [{ hasNext: false, items: comments, nextCursor: null }] },
     fetchNextPage: jest.fn(),
@@ -380,6 +447,141 @@ it("shows the heart without a count before anyone reacts", () => {
   expect(heart).toHaveAttribute("data-ph-capture-attribute-action", "activity_reaction_toggle");
   expect(heart.querySelector(".activity-reaction__icon")).toBeInTheDocument();
   expect(heart.querySelector(".activity-reaction__count")).not.toBeInTheDocument();
+});
+
+it("shows who left a heart when the mouse rests on the heart", () => {
+  renderBoard();
+  fireEvent.click(screen.getAllByRole("button", { name: /활동 사진/ })[0]);
+  const dialog = screen.getByRole("dialog", { name: "우아한 스터디" });
+  const heart = within(dialog).getByRole("button", { name: "하트 반응 3개, 내가 남김" });
+  expect(within(dialog).queryByRole("tooltip")).not.toBeInTheDocument();
+
+  fireEvent.pointerOver(heart, { pointerType: "mouse" });
+
+  expect(within(dialog).getByRole("tooltip")).toHaveTextContent("나, 바다 외 1명이 하트를 남겼어요");
+  expect(heart).toHaveAccessibleDescription("나, 바다 외 1명이 하트를 남겼어요");
+  expect(useInfiniteActivityReactors).toHaveBeenCalledWith(
+    expect.objectContaining({ emoji: "HEART", enabled: true, target: { id: 2, type: "post" } })
+  );
+
+  fireEvent.pointerOut(heart, { pointerType: "mouse" });
+
+  expect(within(dialog).queryByRole("tooltip")).not.toBeInTheDocument();
+});
+
+it("does not ask who reacted for a touch tap", () => {
+  renderBoard();
+  fireEvent.click(screen.getAllByRole("button", { name: /활동 사진/ })[0]);
+  const dialog = screen.getByRole("dialog", { name: "우아한 스터디" });
+
+  fireEvent.pointerOver(within(dialog).getByRole("button", { name: "하트 반응 3개, 내가 남김" }), {
+    pointerType: "touch"
+  });
+
+  expect(within(dialog).queryByRole("tooltip")).not.toBeInTheDocument();
+});
+
+it("opens everyone who left a heart under the summary on a wide screen", () => {
+  mockCompactLayout(false);
+  renderBoard();
+  fireEvent.click(screen.getAllByRole("button", { name: /활동 사진/ })[0]);
+  const dialog = screen.getByRole("dialog", { name: "우아한 스터디" });
+  expect(within(dialog).queryByRole("tablist")).not.toBeInTheDocument();
+
+  const summary = within(dialog).getByRole("button", { name: "나, 바다 외 1명이 하트를 남겼어요" });
+  expect(summary).toHaveAttribute("aria-expanded", "false");
+  expect(summary).toHaveAttribute("data-ph-capture-attribute-action", "activity_reactors_open");
+  fireEvent.click(summary);
+
+  const popover = within(dialog).getByRole("region", { name: "좋아요한 사람" });
+  expect(summary).toHaveAttribute("aria-expanded", "true");
+  expect(popover).toHaveTextContent("좋아요 3명");
+  const rows = within(popover).getAllByRole("listitem");
+  expect(rows[0]).toHaveTextContent("바다8기 프론트엔드");
+  expect(rows[0].querySelector("img")).toHaveAttribute("src", "https://avatars.githubusercontent.com/u/11");
+  expect(rows[1]).toHaveTextContent("구름코치나");
+  expect(within(popover).getByText("모두 확인했어요")).toBeVisible();
+
+  fireEvent.keyDown(popover, { key: "Escape" });
+
+  expect(within(dialog).queryByRole("region", { name: "좋아요한 사람" })).not.toBeInTheDocument();
+  expect(screen.getByRole("dialog", { name: "우아한 스터디" })).toBeInTheDocument();
+  expect(summary).toHaveFocus();
+});
+
+it("loads the next people when the end of the likes list comes into view", () => {
+  const observers = [];
+  const originalObserver = window.IntersectionObserver;
+  window.IntersectionObserver = class {
+    constructor(callback) {
+      observers.push(callback);
+    }
+    observe() {}
+    disconnect() {}
+  };
+  const fetchNextPage = jest.fn();
+  useInfiniteActivityReactors.mockImplementation(() => reactorQuery({ fetchNextPage, hasNextPage: true }));
+  mockCompactLayout(false);
+  try {
+    renderBoard();
+    fireEvent.click(screen.getAllByRole("button", { name: /활동 사진/ })[0]);
+    const dialog = screen.getByRole("dialog", { name: "우아한 스터디" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "나, 바다 외 1명이 하트를 남겼어요" }));
+
+    act(() => observers.at(-1)([{ isIntersecting: true }]));
+
+    expect(fetchNextPage).toHaveBeenCalledTimes(1);
+    expect(within(dialog).queryByText("모두 확인했어요")).not.toBeInTheDocument();
+  } finally {
+    window.IntersectionObserver = originalObserver;
+  }
+});
+
+it("switches between comments and likes with tabs and side swipes on a phone", () => {
+  mockCompactLayout(true);
+  renderBoard();
+  fireEvent.click(screen.getAllByRole("button", { name: /활동 사진/ })[0]);
+  const dialog = screen.getByRole("dialog", { name: "우아한 스터디" });
+  const commentsTab = within(dialog).getByRole("tab", { name: "댓글 2" });
+  const likesTab = within(dialog).getByRole("tab", { name: "좋아요 3" });
+  expect(commentsTab).toHaveAttribute("aria-selected", "true");
+  expect(likesTab).toHaveAttribute("data-ph-capture-attribute-action", "activity_post_likes_tab_open");
+  expect(within(dialog).getByText("다음 모임에 저도 가고 싶어요")).toBeVisible();
+
+  const panels = dialog.querySelector(".activity-post-detail__panels");
+  fireEvent.pointerDown(panels, { clientX: 240, clientY: 300, pointerType: "touch" });
+  fireEvent.pointerUp(panels, { clientX: 120, clientY: 310, pointerType: "touch" });
+
+  expect(likesTab).toHaveAttribute("aria-selected", "true");
+  expect(within(dialog).getByRole("tabpanel", { name: "좋아요 3" })).toBeVisible();
+  expect(within(dialog).getByText("구름")).toBeVisible();
+  expect(within(dialog).getByText("다음 모임에 저도 가고 싶어요")).not.toBeVisible();
+  expect(within(dialog).queryByRole("button", { name: "로그인하고 댓글 남기기" })).not.toBeInTheDocument();
+
+  fireEvent.pointerDown(panels, { clientX: 100, clientY: 300, pointerType: "touch" });
+  fireEvent.pointerUp(panels, { clientX: 150, clientY: 420, pointerType: "touch" });
+  expect(likesTab).toHaveAttribute("aria-selected", "true");
+
+  fireEvent.pointerDown(panels, { clientX: 100, clientY: 300, pointerType: "touch" });
+  fireEvent.pointerUp(panels, { clientX: 220, clientY: 305, pointerType: "touch" });
+  expect(commentsTab).toHaveAttribute("aria-selected", "true");
+  expect(within(dialog).getByRole("button", { name: "로그인하고 댓글 남기기" })).toBeVisible();
+
+  fireEvent.click(within(dialog).getByRole("button", { name: "나, 바다 외 1명이 하트를 남겼어요" }));
+  expect(likesTab).toHaveAttribute("aria-selected", "true");
+  expect(within(dialog).queryByRole("region", { name: "좋아요한 사람" })).not.toBeInTheDocument();
+});
+
+it("shows the comment author's GitHub profile image", () => {
+  renderBoard();
+  fireEvent.click(screen.getAllByRole("button", { name: /활동 사진/ })[0]);
+  const dialog = screen.getByRole("dialog", { name: "우아한 스터디" });
+
+  const comment = within(dialog).getByText("다음 모임에 저도 가고 싶어요").closest("li");
+  expect(comment.querySelector("img.activity-comment__avatar")).toHaveAttribute(
+    "src",
+    "https://avatars.githubusercontent.com/u/7"
+  );
 });
 
 it("closes the photo viewer with Escape while keeping the post detail open", () => {
