@@ -9,6 +9,17 @@ from github_server import Reply
 
 
 class GitHubApplicationsTest(GitHubFixture):
+    def test_initial_run_metadata_delay_is_rechecked_without_second_dispatch(self) -> None:
+        # Given
+        incomplete = self.api_run.model_copy(update={"display_title": "initializing"})
+        self.server.route("GET", f"{self.root}/actions/runs/11", Reply(
+            body=incomplete.model_dump_json().encode(), next_reply=Reply(body=self.api_run.model_dump_json().encode())))
+        # When
+        actual = self.apps.dispatch(self.command)
+        # Then
+        self.assertEqual(self.run, actual)
+        self.assertEqual(1, sum(request.method == "POST" for request in self.server.requests))
+
     def test_dispatch_returns_exact_identity_and_sends_bound_command(self) -> None:
         # Given / When
         result = self.apps.dispatch(self.command)

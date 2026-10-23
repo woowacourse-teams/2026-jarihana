@@ -1,13 +1,23 @@
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass
+from itertools import chain, repeat
 from uuid import uuid4
 
 from bluegreen.child_artifacts import ChildArtifact
 from bluegreen.child_execution import ChildContext, MachineIdentity
 from bluegreen.child_status import status_artifact
 from bluegreen.github_runs import GitHubRuns
-from bluegreen.models import Action, AppStatus, Phase
+from bluegreen.models import Action, AppStatus, DeploymentState, Phase
 from bluegreen.ports import DeploymentFailure
 from github_fixture import GitHubFixture
+
+
+@dataclass(frozen=True, slots=True)
+class BindingJournal:
+    states: Iterator[DeploymentState]
+
+    def read(self) -> DeploymentState:
+        return next(self.states)
 
 
 class ChildStatusTest(GitHubFixture):
@@ -31,6 +41,28 @@ class ChildStatusTest(GitHubFixture):
         self.assertEqual(self.command, result.receipt.command)
         self.assertEqual(self.receipt.status.model_dump(), result.receipt.status.model_dump())
         self.assertIsNone(result.shutdown)
+
+    def test_parent_binding_delay_is_waited_before_reading_status(self) -> None:
+        # Given
+        context = self.prepare_context()
+        unbound = self.state.model_copy(update={"pending_run": None})
+        journal = BindingJournal(chain((unbound,), repeat(self.state)))
+        # When
+        payload = status_artifact(self.command, context, GitHubRuns(self.api, self.apps.context),
+                                  journal, lambda: self.receipt.status, self.clock)
+        # Then
+        self.assertEqual(context.run, ChildArtifact.model_validate_json(payload).receipt.run)
+
+    def test_revocation_while_waiting_for_parent_binding_is_rejected(self) -> None:
+        # Given
+        context = self.prepare_context()
+        unbound = self.state.model_copy(update={"pending_run": None})
+        revoked = unbound.model_copy(update={"phase": Phase.ATTENTION})
+        journal = BindingJournal(iter((unbound, revoked)))
+        # When / Then
+        with self.assertRaises(DeploymentFailure):
+            _ = status_artifact(self.command, context, GitHubRuns(self.api, self.apps.context), journal,
+                                lambda: self.fail("status source must not run"), self.clock)
 
     def test_mutation_is_rejected_before_any_status_request(self) -> None:
         # Given

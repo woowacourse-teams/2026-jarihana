@@ -48,13 +48,20 @@ class GitHubApplications:
         release = self.context.topology.control
         run = RunIdentity(run_id=result.workflow_run_id, attempt=1, workflow=release.workflow,
                           ref=release.ref, sha=release.sha, event="workflow_dispatch")
-        try:
-            _ = self.runs.exact(run, command, workflow)
-        except GitHubError as error:
-            if error.status == 404:
-                return None
-            raise
-        return run
+        for index in range(3):
+            try:
+                _ = self.runs.exact(run, command, workflow)
+                return run
+            except GitHubError as error:
+                if error.status == 404:
+                    return None
+                raise
+            except DeploymentFailure:
+                if index == 2:
+                    raise
+                self.api.clock.sleep(1)
+                _ = self._grant(command)
+        raise DeploymentFailure("dispatched GitHub execution could not be verified")
 
     def find(self, command: Command) -> tuple[RunIdentity, ...]:
         _ = self._grant(command)

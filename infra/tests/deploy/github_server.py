@@ -13,6 +13,7 @@ class Reply:
     body: bytes = b"{}"
     location: str | None = None
     disconnect: bool = False
+    next_reply: "Reply | None" = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +42,8 @@ class ApiServer(AbstractContextManager["ApiServer"]):
                 body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
                 owner.requests.append(Request(self.command, self.path, self.headers.get("Authorization"), body))
                 reply = owner.routes.get((self.command, self.path), Reply(404))
+                if reply.next_reply is not None:
+                    owner.routes[(self.command, self.path)] = reply.next_reply
                 if reply.disconnect:
                     self.close_connection = True
                     self.connection.shutdown(socket.SHUT_RDWR)
