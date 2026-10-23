@@ -6,6 +6,8 @@ Nginx 전용 runner의 실제 Actions 검사와 B→Nginx의 IMDSv2·읽기 전�
 읽기 전용 STATUS child workflow의 실제 B 실행과 부모의 run/artifact 검증도 통과했다.
 STATUS 전용 coordinator workflow의 실제 Nginx 실행과 B 요청·결과 수집·영속 저널 일치까지 검증했다.
 상태 변경 작업, AWS 실행 어댑터·관측·상시 서비스 연결은 남아 있다.
+worker 상태 변경의 명령 변환·실행 허가·로컬 관리 API 호출·결과 검증 라이브러리도 구현했다.
+이 경로의 [범위와 격리 검증](child-contract.md#worker-상태-변경-실행-경로)을 실제 상태 변경 workflow 연결과 구분한다.
 이 파일의 설정을 복사하는 것만으로 운영 배포가 활성화되지 않는다.
 설계 배경은 [인프라 ADR 0005](../docs/adr/0005-nginx-ec2-blue-green-deployment.md)를 따른다.
 

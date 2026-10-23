@@ -9,6 +9,59 @@ STATUS 전용 Nginx 부모의 실제 Actions 실행과 B 결과 수집·영속 �
 부모의 요청·실패 보존 동작은 [Actions 연결 문서](github-actions-adapter.md#status-전용-nginx-부모)를 따른다.
 기존 prod workflow는 계속 기존 배포 방식이며, 이 코드만으로 운영 배포가 바뀌지 않는다.
 
+## Worker 상태 변경 실행 경로
+
+`child_worker.worker_artifact()`와 `SpringWorker`는 worker 상태 변경을 연결하는 라이브러리다.
+현재는 로컬 HTTP 검증과 격리된 실제 Spring·PostgreSQL 검증에 연결했다.
+상태 변경 전용 CLI·GitHub workflow·관리자 설정과 실제 EC2/Actions 실행은 다음 연결 작업이다.
+기존 STATUS workflow는 계속 조회만 허용하며 이번 코드로 상태 변경 권한이 생기지 않는다.
+
+```text
+정확한 child run/attempt·control SHA·최신 pending 허가 확인
+  -> 로컬 관리 GET: host/boot·현재 authority 확인
+  -> command의 authority와 일치 확인
+  -> 최신 허가 + 실행 중인 GitHub run 재확인
+  -> 고정 loopback POST 한 번
+  -> 응답 authority + 후속 관리 GET 대조
+  -> 최신 허가·run·boot 재확인 -> 명령에 묶인 결과 artifact
+```
+
+- 허용 동작은 `BEGIN`, `HANDOFF`, `PAUSE`, `RELEASE`, `ACTIVATE`, `OBSERVE`, `COMPLETE`다.
+  phase 동작만 Spring의 `phase` 경로와 고정 `nextPhase`로 변환한다. EC2·Nginx·앱 종료·임의 경로는 거부한다.
+- 명령의 deployment/command ID, epoch, expected revision, host/boot와 deadline을 전달한다.
+  새로운 GET에서 읽은 revision으로 오래된 명령을 자동 보정하지 않는다. BEGIN만 기존 세대에서 새 배포로 진입한다.
+- deadline은 백엔드 `ClockConfig`의 `Asia/Seoul` 기준 `LocalDateTime`으로 변환한다.
+  매 요청마다 시간을 늘리지 않고 원래 명령의 만료 시각을 유지한다.
+- `PAUSE` 뒤 `DRAINING`·in-flight가 남은 상태를 그대로 반환한다. 성공 응답이 drain 완료를 의미하지 않는다.
+  `RELEASE`는 현재 owner·HANDOFF·DRAINING 권한·로컬 PAUSED/in-flight 0/unresolved 0을 확인한 뒤에만 전송한다.
+- `ACTIVATE`는 readiness 정상, 기존 권한 UNASSIGNED, owner 없음과 로컬 drain을 확인한다.
+  서버의 DB CAS 검증도 유지하므로 조회 뒤 다른 명령이 들어오면 성공으로 추측하지 않는다.
+- 성공 응답의 authority는 예상 revision+1·epoch·phase·owner/status와 일치해야 한다.
+  후속 GET도 같은 authority를 보여야 하며 활성화는 ACTIVE, 중단은 PAUSED/DRAINING을 확인한다.
+  이 상태로 프로세스 정상 종료를 증명하거나 `normal_exit=true`를 만들지 않는다.
+- 상태 변경 전용 HTTP client는 proxy·redirect·transport retry를 사용하지 않는다.
+  전송 유실, 5xx·redirect·잘못된 200·응답 크기 초과·응답 후 조회 실패는 불명확한 결과로 취급한다.
+  같은 명령이나 새로운 ID로 자동 재전송하지 않고 저널을 조정해야 한다.
+- 응답 후 허가 철회·GitHub 종료·boot 변경이 확인되면 성공 artifact를 만들지 않는다.
+  이미 실행된 POST를 취소했다는 뜻은 아니며 실제 상태를 확인해야 한다.
+
+`child_github.py`는 STATUS와 worker 작업이 함께 쓰는 run·binding 검사다.
+동작 허용 범위는 각 진입 함수에서 따로 검사한다. 기존 `app-operation.py`는 호환성을 위해 유지했으며
+이 새 실행 경로에서 호출하지 않는다.
+
+격리된 실제 JVM 검증은 저장소 루트에서 다음 명령으로 실행한다. 로컬 Java 21 이미지의 digest를 먼저 확인해야 한다.
+기존 로컬 backend bootJar와 Docker의 PostgreSQL·Nginx 이미지를 사용한다. 운영 DB/토큰 입력은 받지 않는다.
+
+```sh
+PYTHONPATH=infra/scripts/deploy:infra/tests/deploy \
+JARIHANA_E2E_JAVA_IMAGE=sha256:<검증한-로컬-Java21-이미지-ID> \
+uv run --no-project --script infra/tests/deploy/run_local_worker_control_e2e.py
+```
+
+시험은 실제 Spring 두 개에서 A→B→A 권한 변경 14회, 각 명령 뒤 HTTP 응답 14회와 오래된 명령 거부를 확인한다.
+외부 push와 scheduler는 비활성화하며 생성한 컨테이너만 정리하고 JSON·로그를 `local-plans/`에 남긴다.
+같은 로컬 JAR의 권한 인계 검증으로, 버전 간 DB 호환성·실제 알림 전송·지속 부하·실제 GitHub 실행 검증은 아니다.
+
 ## 요청과 결과 흐름
 
 ```text
