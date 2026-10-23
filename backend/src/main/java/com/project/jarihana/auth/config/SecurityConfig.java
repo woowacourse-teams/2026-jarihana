@@ -21,6 +21,7 @@ public class SecurityConfig {
 
     private static final String[] PUBLIC_PATHS = {"/oauth/**"};
     private static final String[] PUBLIC_GET_PATHS = {
+            "/home",
             "/groups",
             "/groups/*",
             "/groups/*/calendar",

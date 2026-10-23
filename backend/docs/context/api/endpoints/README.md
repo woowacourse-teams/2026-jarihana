@@ -4,7 +4,7 @@
 >
 > 구현·테스트와 충돌하면 임의로 해석하지 않고 차이를 보고한다.
 
-이 문서는 저장소에서 관리하는 활성 엔드포인트 82개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청, 응답, 오류는 Controller, 요청/응답 DTO, ErrorCode와 RestAssured 인수 테스트로 확인한다.
+이 문서는 저장소에서 관리하는 활성 엔드포인트 83개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청, 응답, 오류는 Controller, 요청/응답 DTO, ErrorCode와 RestAssured 인수 테스트로 확인한다.
 
 이 디렉터리는 API 엔드포인트의 전체 목록과 리소스별 상세 설계를 관리한다. 모든 엔드포인트는 [API 공통 설계](../common-contract.md)를 따르며, 상세 문서에는 엔드포인트 고유 내용만 둔다.
 
@@ -44,6 +44,7 @@
 | 가입 신청 | `PATCH` | `/api/recruitments/{recruitmentId}/registrations/{registrationId}` | `LEADER` | 가입 신청 승인·미승인 |
 | 가입 신청 | `GET` | `/api/registrations?applicant=me` | `MEMBER` | 내 가입 신청 목록 조회 |
 | 그룹 | `GET` | `/api/groups` | `PUBLIC` | 그룹 목록 조회 — 관계·상태·유형 필터 지원 |
+| 홈 | `GET` | `/api/home` | `PUBLIC` | 오늘 세션·모집 중·종료 모임의 초기 목록 조회 |
 | 그룹 | `POST` | `/api/groups` | `MEMBER` | 그룹 개설 |
 | 그룹 | `DELETE` | `/api/groups/{groupId}` | `LEADER` | 생성 후 24시간 이내 그룹 삭제 |
 | 그룹 | `GET` | `/api/groups/{groupId}` | `PUBLIC` | 그룹 상세 조회 |

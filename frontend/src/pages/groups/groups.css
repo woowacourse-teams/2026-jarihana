@@ -2036,3 +2036,8 @@
     padding-inline: var(--space-5);
   }
 }
+.group-editor--create .group-editor__field,
+.group-editor--create .ui-field,
+.group-editor__schedule-dialog .group-editor__field {
+  scroll-margin-block: calc(var(--header-height) + var(--space-4)) var(--space-4);
+}

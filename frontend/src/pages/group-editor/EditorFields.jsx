@@ -98,7 +98,7 @@ export function UnderlineSelect({
  * 일정은 모달에서 고치므로, 일정 오류를 모달 안에서만 보여주면 모달을 닫는 순간
  * 사라진다. 제출이 막히는데 이유가 화면에 없으니 여기에도 함께 드러낸다.
  */
-export function ScheduleFact({ actionLabel = "수정", error, lines, onEdit }) {
+export function ScheduleFact({ actionLabel = "수정", error, lines, name, onEdit }) {
   return (
     <div className="group-fact group-fact--schedule">
       <div>
@@ -107,7 +107,9 @@ export function ScheduleFact({ actionLabel = "수정", error, lines, onEdit }) {
           <button
             aria-label={`모임 일정 ${onEdit ? actionLabel : "종료됨"}`}
             className="group-editor__schedule-row"
+            data-ph-capture-attribute-action="group_schedule_edit"
             disabled={!onEdit}
+            name={name}
             onClick={onEdit}
             type="button"
           >

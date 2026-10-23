@@ -436,6 +436,11 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   대표 이미지는 선택한 모임 종류의 기본 이미지를 표시하고, 업로드 이후에는 선택한 사진을 유지한다.
   hero의 본문 폭과 이미지 배치는 상세의 `.group-profile` 규칙을 공유한다.
   mobile day picker와 설명 편집기의 `작성`·`미리보기` 도구는 2열로 유지한다.
+- 모임 생성 폼은 제출 검증 실패 시 화면 순서상 첫 오류 필드로 포커스와 스크롤을 이동한다.
+  기본 포커스의 즉시 스크롤은 막고, 고정 헤더 여백을 확보한 필드를 화면 중앙으로 부드럽게 이동한다.
+  일정 오류는 본문의 모임 일정 설정 버튼으로 이동하고 오류 안내를 표시한다. 일정 모달은 사용자가 설정 버튼을 눌렀을 때 연다.
+  소개 오류는 소개 탭을 열고 입력을 표시한다.
+  동작 줄이기 환경에서는 애니메이션 없이 이동하며 입력값과 다른 오류 안내를 유지한다.
 - `MyPageLayout`: profile column + activity panel의 desktop split, 3개 count link, 2-column
   summary cards를 사용한다. tablet/mobile에서는 각 grid를 정보 순서대로 한 column으로 접는다.
   dashboard surface의 좌우 확장과 내부 여백은 page gutter 이하로 제한해 모바일 가로 넘침을 막는다.
