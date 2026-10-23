@@ -3,7 +3,8 @@
 이 문서는 coordinator가 앱 A/B의 child 작업을 호출할 때 사용할 코드 계약이다.
 현재는 라이브러리·읽기 전용 검증 CLI·로컬 앱 e2e에 연결했다.
 **EC2 IMDSv2 신원 조회와 SSH 최신 허가 조회를 구현하고 실제 B→Nginx 격리 시험을 통과했다.
-읽기 전용 STATUS child workflow와 실행 경계를 구현했으며 실제 GitHub 실행 검증은 남아 있다.**
+읽기 전용 STATUS child workflow의 실제 B 실행과 부모의 artifact 검증까지 통과했다.
+전체 배포 coordinator 연결과 상태 변경 작업은 남아 있다.**
 기존 prod workflow는 계속 기존 배포 방식이며, 이 코드만으로 운영 배포가 바뀌지 않는다.
 
 ## 요청과 결과 흐름
@@ -108,13 +109,23 @@ readiness DOWN은 healthy=false로 기록하고, 인증·파싱 오류는 STATUS
 coordinator 사용자로 인자 없이 실행하는 권한 하나만 허용한다. 관리용 shell·일반 sudo·Docker 권한은 없다.
 키의 forced command는 `sudo -n -u jarihana-coordinator /usr/local/libexec/jarihana-read-status-grant`로 고정한다.
 helper는 `/var/lib/jarihana-deploy/status-rehearsal/state.json` 한 개만 읽는다.
-서버에 계정·키·helper·sudoers·설정·실제 pending/run journal을 설치하는 작업은 아직 실행하지 않았다.
+dev 리허설 B/Nginx에 계정·키·helper·sudoers·고정 태그 설정과 실제 pending/run journal을 설치했다.
+보호된 0600 journal 조회와 다른 sudo 명령 거부를 확인했다. 시험 완료 후 pending/run은 비워
+해당 명령이 더 실행되지 않도록 닫았다. 이 설정은 prod 적용 설정이 아니다.
 
 feature push의 register job은 GitHub-hosted runner에서 등록 표식만 출력하며 앱 서버에서 작업하지 않는다.
 STATUS job은 승인된 태그의 dispatch에서만 실행한다. GitHub 공식 문서상 dispatch에는 기본 브랜치
 등록 전제가 있으며, 한 번 실행된 workflow의 branch/tag dispatch도 지원한다. feature push 등록 이후
 실제 API 허용 여부를 확인해야 한다. 등록이 거부되면 main 변경이나 기본 브랜치 변경으로 우회하지 않는다.
-커밋·push·태그 승인 후 등록과 exact run/artifact를 검증하기 전까지는 실제 child 연결 완료로 표시하지 않는다.
+2026-10-23에는 feature push 등록 후 태그 dispatch가 실제로 허용됐다.
+`bluegreen-status-rehearsal-20261023-02`(SHA `1ff51384f80c6a12913506af3508c87b9efcfc43`)의
+[run 39954155638](https://github.com/woowacourse-teams/2026-jarihana/actions/runs/39954155638)이
+B 전용 runner29에서 성공했다. 실제 GitHub run/attempt·artifact 출처·ZIP digest·내용과 최신 허가를
+기존 GitHubApplications 검증기로 확인했고, 반환된 worker는 PAUSED·healthy=true였다.
+부모 역할은 승인된 로컬 시험 도구가 Nginx의 저널을 관리하며 수행했다. Nginx coordinator workflow가
+이 과정을 자동 실행한 것은 아니며, 전체 자동 배포 연결은 후속 작업이다.
+완료 전환 순간 두 API 조회의 status/conclusion 차이로 부모 수집이 한 차례 보류됐고,
+안정된 상태를 다시 조회해 검증을 완료했다. 자동 수집의 이 상태 전환 경계는 후속 보완 항목이다.
 
 ## 결과 파일 계약
 
@@ -171,7 +182,7 @@ coordinator 쪽 `accept_artifact()`로 수용한 결과만 반환한다.
 실제 Docker 종료 시각과 비교할 수 있도록 가상 관찰 시계는 실행 시작의 실제 UTC에 맞춘다.
 900초 관찰은 여전히 가상 시간이며, 실제 GitHub·AWS·telemetry는 fixture다.
 
-실제 신원·인증된 최신 허가 조회의 격리 시험 다음은 이 어댑터를 GitHub child workflow에 연결하고
-실제 run/attempt·앱 boot 및 로컬 작업 직전 재검사를 함께 검증하는 작업이다.
-그 뒤 Compose·coordinator workflow·관측을 연결한다. 실제 두 EC2 시작·중지는 별도 비운영 리허설에서
+읽기 전용 STATUS의 실제 run/attempt·앱 boot·최신 허가·artifact 검증 다음은
+상태 전환 시 조회 일관성을 보완하고 Nginx coordinator 및 상태 변경 child 작업에 연결하는 작업이다.
+그 뒤 Compose·관측을 연결한다. 실제 두 EC2 시작·중지는 별도 비운영 리허설에서
 검증하고, 추가 dev EC2가 필요한 시점에 준비 사항을 안내한다.

@@ -1,9 +1,9 @@
 # GitHub Actions 배포 작업 연결
 
 `GitHubApplications`는 coordinator가 앱 서버 runner에게 작업을 요청하고 결과를 받는 라이브러리다.
-**현재 workflow에 연결하거나 실제 GitHub 배포를 실행한 상태는 아니다.** 기존 prod workflow는 변경하지 않았다.
+**읽기 전용 STATUS를 검증했으며 전체 GitHub 배포 workflow는 아직 연결하지 않았다.** 기존 prod workflow는 변경하지 않았다.
 EC2 IMDS 신원·인증된 원격 최신 허가 조회는 별도 어댑터와 실제 B→Nginx 격리 시험까지 구현했다.
-읽기 전용 STATUS child workflow와 실행 검사는 구현했으며 실제 GitHub run/artifact 시험이 남아 있다.
+읽기 전용 STATUS child workflow는 실제 B runner에서 성공했고 부모의 GitHub run/artifact 검증도 통과했다.
 상태 변경 child 작업과 Compose·AWS·관측 연결은 후속 작업이다.
 
 ## 요청 흐름
