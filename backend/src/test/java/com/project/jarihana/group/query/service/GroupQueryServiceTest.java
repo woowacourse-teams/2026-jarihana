@@ -93,7 +93,7 @@ class GroupQueryServiceTest {
                 1L,
                 study,
                 2,
-                List.of(GroupListMember.of(10L, member("가온"), GroupMemberRole.LEADER)),
+                List.of(GroupListMember.of(1L, 10L, member("가온"), GroupMemberRole.LEADER)),
                 GroupRecruitment.create(
                         study,
                         JoinMethod.APPROVAL,
@@ -107,7 +107,7 @@ class GroupQueryServiceTest {
                 2L,
                 study("주말 동아리", "취미를 함께 나눠요.", NOW.minusHours(1)),
                 4,
-                List.of(GroupListMember.of(20L, member("바다"), GroupMemberRole.MEMBER)),
+                List.of(GroupListMember.of(2L, 20L, member("바다"), GroupMemberRole.MEMBER)),
                 null,
                 0
         ));
