@@ -1,8 +1,11 @@
 # 운영 Blue-Green 배포 제어
 
 별도 Nginx EC2가 고정된 앱 A/B의 준비·전환·관찰·종료 순서를 조정하기 위한 코드다.
-현재는 **제어 로직, Nginx·Docker 종료·GitHub API 어댑터, 로컬 검증**까지 구현했다. AWS 어댑터와 workflow 연결,
-runner·권한·상시 서비스 연결은 다음 작업이다. 이 파일의 설정을 복사하는 것만으로 운영 배포가 활성화되지 않는다.
+현재는 **제어 로직, Nginx·Docker 종료·GitHub API 어댑터, 로컬 검증**을 구현했다.
+Nginx 전용 runner의 실제 Actions 검사와 B→Nginx의 IMDSv2·읽기 전용 SSH 허가 조회도 검증했다.
+읽기 전용 STATUS child workflow와 실행 검사를 구현했고 실제 GitHub 실행은 아직 검증하지 않았다.
+coordinator workflow, AWS 실행 어댑터·관측·상시 서비스 연결은 남아 있다.
+이 파일의 설정을 복사하는 것만으로 운영 배포가 활성화되지 않는다.
 설계 배경은 [인프라 ADR 0005](../docs/adr/0005-nginx-ec2-blue-green-deployment.md)를 따른다.
 
 ## 동작 순서
@@ -38,6 +41,10 @@ A worker를 활성화하지 않는다. `SEALED` 이후에는 이전 서버를 �
 | `scripts/deploy/bluegreen/recovery.py` | HTTP 복구와 역방향 worker 인계 |
 | `scripts/deploy/bluegreen/github_operations.py` | control ref/SHA/event/attempt, 명령·artifact·인스턴스 일치 검사 |
 | `scripts/deploy/bluegreen/child_execution.py` | child의 최신 허가·실제 실행·머신·프로세스 대조 |
+| `scripts/deploy/bluegreen/ec2_identity.py` | IMDSv2로 실제 로컬 EC2 instance ID 조회 |
+| `scripts/deploy/bluegreen/ssh_journal.py` | 고정 host key·읽기 전용 키로 최신 coordinator journal 조회 |
+| `scripts/deploy/bluegreen/child_status.py` | 실제 GitHub 실행·최신 허가·앱 boot를 확인한 STATUS 결과 생성 |
+| `scripts/deploy/bluegreen/spring_status.py` | 로컬 Spring 관리 API의 worker·HTTP·background 상태 조회 |
 | `scripts/deploy/bluegreen/child_artifacts.py` | 정확한 명령/run과 종료 증거를 묶은 엄격한 결과 JSON |
 | `scripts/deploy/bluegreen/github_applications.py` | GitHub dispatch·정확한 run 조회·poll·취소와 최신 저널 검사 |
 | `scripts/deploy/bluegreen/github_runs.py` | 고정 저장소·control tag/SHA·workflow·실행 차수·명령 이름 대조 |
@@ -49,7 +56,8 @@ A worker를 활성화하지 않는다. `SEALED` 이후에는 이전 서버를 �
 | `scripts/deploy/watchdog.py` | stale heartbeat를 attention으로 기록하는 제한된 CLI |
 
 위 경로는 `infra/` 기준이다. GitHub 전송 라이브러리와 로컬 HTTP 검증은 구현했지만 실제 workflow에는 아직 연결하지 않았다.
-AWS 전송·서버 신원·원격 허가 조회도 남아 있다. [GitHub 연결 계약](github-actions-adapter.md)에 현재 범위와 연결 조건을 정리했다.
+AWS 전송과 서버 신원·원격 허가 조회의 실제 child workflow 연결도 남아 있다.
+[GitHub 연결 계약](github-actions-adapter.md)에 현재 범위와 연결 조건을 정리했다.
 child 실행 검사·결과 계약·읽기 전용 CLI의 범위는 [서버별 작업 계약](child-contract.md)을 따른다.
 배포 입력의 `rollback_compatible=true`는 개발자가 구·신버전의 DB/데이터 호환성을 확인했다는 명시적 확인이다.
 이 값이 스키마나 데이터의 호환성을 자동 분석하거나 DB를 원복하지 않는다.

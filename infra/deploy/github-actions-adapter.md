@@ -2,7 +2,9 @@
 
 `GitHubApplications`는 coordinator가 앱 서버 runner에게 작업을 요청하고 결과를 받는 라이브러리다.
 **현재 workflow에 연결하거나 실제 GitHub 배포를 실행한 상태는 아니다.** 기존 prod workflow는 변경하지 않았다.
-EC2 IMDS 신원·인증된 원격 최신 허가 조회·child 작업 workflow·Compose·AWS·관측 연결이 남아 있다.
+EC2 IMDS 신원·인증된 원격 최신 허가 조회는 별도 어댑터와 실제 B→Nginx 격리 시험까지 구현했다.
+읽기 전용 STATUS child workflow와 실행 검사는 구현했으며 실제 GitHub run/artifact 시험이 남아 있다.
+상태 변경 child 작업과 Compose·AWS·관측 연결은 후속 작업이다.
 
 ## 요청 흐름
 
@@ -11,7 +13,7 @@ coordinator의 현재 pending 명령
   → 저장소 ID·이름 / control tag → 승인된 SHA / workflow 경로 확인
   → dispatch POST 한 번
   → 정확한 run ID와 첫 attempt 확인 → Session이 저널에 pending_run 저장
-  → child가 최신 허가를 확인하고 작업 실행 [workflow·원격 조회는 후속 작업]
+  → child가 최신 허가를 확인하고 작업 실행 [원격 조회 어댑터 구현, workflow 연결은 후속 작업]
   → 같은 run/attempt의 success + 정확한 artifact 이름 확인
   → ZIP 내려받기 → 크기·SHA-256·단일 JSON 검사
   → run 재확인 + 최신 pending 허가 확인 → accept_artifact → Receipt 반환

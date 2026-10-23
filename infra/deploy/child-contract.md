@@ -2,7 +2,8 @@
 
 이 문서는 coordinator가 앱 A/B의 child 작업을 호출할 때 사용할 코드 계약이다.
 현재는 라이브러리·읽기 전용 검증 CLI·로컬 앱 e2e에 연결했다.
-**GitHub dispatch/download 라이브러리는 로컬 HTTP로 검증했다. EC2 신원 조회, 원격 최신 허가 조회와 workflow는 아직 미연결이다.**
+**EC2 IMDSv2 신원 조회와 SSH 최신 허가 조회를 구현하고 실제 B→Nginx 격리 시험을 통과했다.
+읽기 전용 STATUS child workflow와 실행 경계를 구현했으며 실제 GitHub 실행 검증은 남아 있다.**
 기존 prod workflow는 계속 기존 배포 방식이며, 이 코드만으로 운영 배포가 바뀌지 않는다.
 
 ## 요청과 결과 흐름
@@ -35,6 +36,85 @@ EC2 시작·중지와 Nginx 전환은 앱 child에서 수행할 수 없다.
 확인해야 한다. 로컬 e2e에서는 이 두 값이 명시적인 fixture다.
 원격 `JournalReader`에는 인증·출발지 제한·요청 timeout·최신 조회가 필요하다.
 오래된 state.json 복사본을 앱 서버에 전달하는 것으로 대체하지 않는다.
+
+### 실제 머신과 원격 허가 읽기
+
+`ec2_identity.local_machine()`은 고정 IMDS 주소에 PUT으로 토큰을 요청하고,
+그 토큰으로 실제 instance ID를 읽는다. IMDSv1 대체, proxy 환경변수, redirect는 사용하지 않는다.
+환경과 host ID는 설정값이며, 실제 instance ID와의 조합은 기존 `ChildGate`가 topology와 대조한다.
+`metadata_client()`의 context 안에서 사용한다. 토큰이나 응답 원문을 오류 로그에 남기지 않는다.
+
+`ssh_journal.SshJournal`은 각 `read()`마다 새 SSH 연결로 현재 journal을 읽는다.
+별도 키, 고정 coordinator 사설 IP, 관리 경로로 확인한 host key를 담은 known_hosts가 필요하다.
+host key 자동 수락, SSH agent, 사용자 SSH 설정, multiplex 재사용, 포트 전달은 차단한다.
+조회·파싱 실패, 64KiB 초과 응답, 10초 초과 연결은 허가가 없는 것으로 처리한다.
+SSH 성공은 실행 승인이 아니며, 받은 상태를 `ChildGate`가 다시 검사해야 한다.
+
+서버 쪽 키는 `jarihana-grant` 전용 계정에서 다음처럼 제한해야 한다.
+아래 경로와 출발지 IP는 설명용이며 시험 경로를 운영에 재사용하지 않는다.
+
+```text
+from="APP_PRIVATE_IP",restrict,command="/usr/bin/head -c 65537 -- /FIXED/ENVIRONMENT/state.json" ssh-ed25519 PUBLIC_KEY
+```
+
+계정에는 journal을 읽을 권한만 부여하고 Docker·sudo·journal 쓰기 권한을 부여하지 않는다.
+authorized_keys와 상위 설정은 관리자 소유로 유지하고 키마다 출발지를 제한한다.
+실제 `StateStore`는 파일을 0600으로 새로 만들기 때문에 운영 연결에는 전용 읽기 ACL이나
+최소 권한의 고정 읽기 helper가 추가로 필요하다. 권한 문제를 해결하려고 journal을 공개하지 않는다.
+연결 가능한 네트워크와 SSH 포트, 고정 host key, 키 교체 절차도 운영 준비 항목이다.
+
+`run_cloud_grant_e2e.py`는 실제 B의 전용 runner 계정에서 IMDSv2 조회 후 임시 키로 Nginx에 접속한다.
+합성 STATUS 허가의 승인과 같은 프로세스에서의 철회 반영, 임의 SSH 명령이 forced command를
+우회하지 못함을 확인한다. 임시 계정과 키·경로는 종료 시 제거한다. 시험 journal은 비밀 없는
+합성 데이터이며 실제 journal의 파일 권한 구성 검증을 대신하지 않는다.
+실제 GitHub run 확인, 앱 boot/status 확인, 앱 작업 실행은 이 시험의 범위가 아니다.
+
+### STATUS child workflow
+
+`backend-bluegreen-status-child.yml`은 B의 전용 runner만 사용한다.
+`workflow_dispatch`의 명령 JSON과 UUID·slot은 환경변수로 전달하며 shell 코드에 삽입하지 않는다.
+`status-child.py`는 관리자 소유 `/etc/jarihana-deploy/status-child.json`을 읽고
+저장소·시험용 A/B/coordinator·관리 포트·전용 키·known_hosts·토큰 파일을 확인한다.
+현재 설정 모델은 `dev-rehearsal`과 실제 시험 인스턴스만 허용한다.
+
+설정에는 다음 필드가 필요하다. topology/control은 검토·커밋한 SHA와 그 커밋을 가리키는
+`refs/tags/bluegreen-status-...` 태그를 사용한다. 입력에서 topology나 실행 코드를 선택하지 않는다.
+
+```text
+repository: 기존 RepositoryPin(id, full_name, download_hosts)
+topology: 기존 Topology(environment, coordinator_instance_id, a, b, control)
+coordinator_address: 10.0.3.51
+journal_key: 관리자가 설치한 B 전용 키의 절대 경로
+known_hosts: 관리 경로로 확인한 Nginx host key 파일의 절대 경로
+worker_token_file: 현재 B 앱의 제어 토큰을 보관한 관리자 소유 파일의 절대 경로
+management_port: 18081
+```
+
+설정과 비밀 파일은 root 소유이며 group/others 쓰기를 금지한다. 토큰은 others 읽기도 금지하고
+runner의 전용 그룹에만 읽기를 허용한다. 토큰이나 설정 원문을 로그·artifact에 넣지 않는다.
+현재 CLI는 STATUS와 정확한 앱 boot만 허용한다. 실제 GitHub API에서 저장소·control tag/SHA·workflow·
+run/attempt·명령 이름과 `in_progress`를 확인한다. 최신 허가 검사 후 localhost 관리 API를 GET으로 읽고,
+앱 환경·host·boot를 대조한 뒤 GitHub 실행과 허가를 다시 확인한다. 취소·철회 시 결과를 발급하지 않는다.
+반환 파일은 기존 `ChildArtifact`와 동일하며 shutdown은 null이다.
+
+`spring_status.py`는 실제 worker/HTTP/background 수치를 보존한다. 누락된 activity를 0으로 채우지 않는다.
+readiness DOWN은 healthy=false로 기록하고, 인증·파싱 오류는 STATUS 작업 실패다.
+이 모듈의 실제 B 관리 API 조회는 `run_cloud_status_probe.py`로 검증했다.
+해당 시험은 앱 재시작·제어 POST 없이 수행하며 GitHub child 실행 성공을 의미하지 않는다.
+
+0600 journal의 읽기 권한을 위해 [고정 helper](status-child/read-status-grant.sh)와
+[최소 sudoers 예시](status-child/read-status-grant.sudoers)를 준비했다. helper는 root 소유·쓰기 금지로
+`/usr/local/libexec/jarihana-read-status-grant`에 설치한다. grant 계정에는 이 helper를
+coordinator 사용자로 인자 없이 실행하는 권한 하나만 허용한다. 관리용 shell·일반 sudo·Docker 권한은 없다.
+키의 forced command는 `sudo -n -u jarihana-coordinator /usr/local/libexec/jarihana-read-status-grant`로 고정한다.
+helper는 `/var/lib/jarihana-deploy/status-rehearsal/state.json` 한 개만 읽는다.
+서버에 계정·키·helper·sudoers·설정·실제 pending/run journal을 설치하는 작업은 아직 실행하지 않았다.
+
+feature push의 register job은 GitHub-hosted runner에서 등록 표식만 출력하며 앱 서버에서 작업하지 않는다.
+STATUS job은 승인된 태그의 dispatch에서만 실행한다. GitHub 공식 문서상 dispatch에는 기본 브랜치
+등록 전제가 있으며, 한 번 실행된 workflow의 branch/tag dispatch도 지원한다. feature push 등록 이후
+실제 API 허용 여부를 확인해야 한다. 등록이 거부되면 main 변경이나 기본 브랜치 변경으로 우회하지 않는다.
+커밋·push·태그 승인 후 등록과 exact run/artifact를 검증하기 전까지는 실제 child 연결 완료로 표시하지 않는다.
 
 ## 결과 파일 계약
 
@@ -91,6 +171,7 @@ coordinator 쪽 `accept_artifact()`로 수용한 결과만 반환한다.
 실제 Docker 종료 시각과 비교할 수 있도록 가상 관찰 시계는 실행 시작의 실제 UTC에 맞춘다.
 900초 관찰은 여전히 가상 시간이며, 실제 GitHub·AWS·telemetry는 fixture다.
 
-GitHub 전송 어댑터의 로컬 HTTP 검증 다음은 앱의 실제 신원·인증된 최신 허가 조회를 연결하는 작업이다.
-그 뒤 Compose·coordinator/child workflow·관측을 연결한다. 실제 두 EC2 시작·중지는 별도 비운영 리허설에서
+실제 신원·인증된 최신 허가 조회의 격리 시험 다음은 이 어댑터를 GitHub child workflow에 연결하고
+실제 run/attempt·앱 boot 및 로컬 작업 직전 재검사를 함께 검증하는 작업이다.
+그 뒤 Compose·coordinator workflow·관측을 연결한다. 실제 두 EC2 시작·중지는 별도 비운영 리허설에서
 검증하고, 추가 dev EC2가 필요한 시점에 준비 사항을 안내한다.
