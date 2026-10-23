@@ -96,7 +96,8 @@ boot ID는 JVM 기동 시 새 UUID로 생성하며 파일이나 환경 변수에
 제어 모드에서는 일반 `resume()`으로 활성화할 수 없다.
 제어 모드를 끈 기존 앱은 이 DB fencing을 사용하지 않으므로, 구형 앱과의 최초 이관은 별도 검토가 필요하다.
 
-Flyway `V4__worker_authority.sql`의 `worker_authority`는 환경당 한 행을 둔다.
+Flyway `V7__worker_authority.sql`의 `worker_authority`는 환경당 한 행을 둔다.
+시험 DB에 예전 worker V4가 적용되어 있다면 [버전 충돌 정리 절차](flyway-worker-version-reconciliation.md)를 먼저 따른다.
 배포 ID·epoch·phase·명령 revision과 worker owner(host/boot)·authority revision을 같은 행에 저장하여
 배포 명령과 선점을 같은 행 잠금으로 직렬화한다. epoch와 authority revision은 별개다.
 새 배포 시작·명령 deadline 만료가 정상 운영 중인 worker의 권한을 만료시키지는 않는다.
