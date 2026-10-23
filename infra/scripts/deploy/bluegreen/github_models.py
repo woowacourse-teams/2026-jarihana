@@ -1,7 +1,14 @@
 """Typed GitHub API boundaries; unrelated upstream fields may evolve."""
 from typing import Annotated, ClassVar, Final, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, ValidationError
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    ValidationError,
+)
 
 from .models import Command, Digest, Record
 from .ports import DeploymentFailure
@@ -19,6 +26,7 @@ class RepositoryPin(Record):
     full_name: Annotated[str, Field(pattern=r"^[A-Za-z0-9_-]+/[A-Za-z0-9_.-]+$")]
     id: PositiveId
     download_hosts: tuple[Annotated[str, Field(pattern=r"^[a-z0-9]+(?:[.-][a-z0-9]+)*$")], ...]
+    allow_github_result_storage: StrictBool = False
 
 
 class Repository(GitHubRecord):

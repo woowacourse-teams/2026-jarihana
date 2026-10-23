@@ -40,11 +40,18 @@ POST 응답을 잃으면 고유 실행을 기한 안에서 찾고 재전송하�
 별도 작성자가 허가를 철회하면 그 기록도 덮어쓰지 않는다. 이 시험의 저널에는 아직 watchdog을 설치하지 않았다.
 부모가 강제 종료되어 PREPARING이 남아도 자동 재실행은 차단되며 앱 상태 변경은 수행하지 않는다.
 
-artifact 다운로드는 직전 실제 검증에서 확인한 정확한 저장소 호스트만 허용한다. GitHub가 다른 저장소 호스트를
-반환하면 실패로 보존한다. 서명 URL을 출력하거나 임의 호스트를 자동 허용하지 않는다.
+artifact 다운로드는 기본적으로 관리자 설정의 정확한 호스트만 허용한다. 실제 시험에서 인증된 GitHub API가
+반환한 서버가 `productionresultssa2`에서 `productionresultssa8`로 바뀌어 수집이 차단됐다.
+이를 위해 부모 관리자 설정에서만 `allow_github_result_storage: true`를 사용한다. 이 설정은
+`productionresultssa[0-9]+.blob.core.windows.net` 형식만 추가 허용하며, 임의 Azure 계정·유사 도메인·HTTP·
+사용자정보·명시적 port·fragment는 계속 거부한다. GitHub API가 정확한 run의 artifact에 반환한 URL만 사용한다.
+다운로드는 인증정보 없는 별도 client를 사용하고 추가 redirect를 따라가지 않으며 ZIP 크기·digest 검사도 유지한다.
+[GitHub 공식 문서](https://docs.github.com/en/actions/reference/runners/self-hosted-runners)는 artifact 통신에
+`*.blob.core.windows.net`이 필요하다고 명시한다. 위 숫자형 prefix는 실제 응답에 근거해 더 좁힌 정책이며,
+GitHub가 향후 다른 형식을 쓰면 자동 허용하지 않고 실패로 보존한다. 서명 URL은 출력하지 않는다.
 완료 결과는 영속 저널과 부모의 `state.json`·`receipt.json` artifact에 남긴다.
 
-로컬 150개 테스트, 새 workflow 정적 검사와 실제 B 상태 조회는 통과했다.
+저장소 호스트 변경 회귀를 포함한 로컬 154개 테스트, 새 workflow 정적 검사와 실제 B 상태 조회는 통과했다.
 새 부모 workflow의 실행·토큰 권한·부모 artifact 업로드까지 통과한 것으로 간주하지 않는다.
 
 ## 요청 흐름

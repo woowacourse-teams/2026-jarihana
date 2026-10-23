@@ -1,4 +1,5 @@
 """Bounded GitHub HTTP calls, with isolated unauthenticated artifact downloads."""
+import re
 import socket
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -98,7 +99,10 @@ class GitHubHttp:
             parsed = urlsplit(url)
         except ValueError:
             raise DeploymentFailure("artifact download location could not be parsed") from None
-        if (parsed.scheme != "https" or parsed.hostname not in repository.download_hosts
+        allowed = (parsed.hostname in repository.download_hosts
+                   or (repository.allow_github_result_storage
+                       and re.fullmatch(r"productionresultssa[0-9]+\.blob\.core\.windows\.net", parsed.hostname or "") is not None))
+        if (parsed.scheme != "https" or not allowed
                 or parsed.username is not None or parsed.password is not None or parsed.fragment
                 or parsed.netloc != parsed.hostname):
             raise DeploymentFailure("artifact download location is not allowlisted HTTPS")

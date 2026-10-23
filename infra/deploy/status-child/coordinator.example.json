@@ -2,7 +2,8 @@
   "repository": {
     "full_name": "woowacourse-teams/2026-jarihana",
     "id": 1321030074,
-    "download_hosts": ["productionresultssa2.blob.core.windows.net"]
+    "download_hosts": ["productionresultssa2.blob.core.windows.net"],
+    "allow_github_result_storage": true
   },
   "topology": {
     "environment": "dev-rehearsal",
