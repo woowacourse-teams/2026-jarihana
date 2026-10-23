@@ -25,7 +25,7 @@ main 병합 배포와는 연결하지 않았다. push 이벤트는 hosted runner
 부모 job에만 `actions: write`를 부여하고 실행 중의 `github.token`을 환경변수로 전달한다.
 별도 장기 토큰을 서버 설정에 저장하지 않는다. `GITHUB_TOKEN`으로 `workflow_dispatch`를 발생시킬 수 있다는
 근거는 [GitHub 공식 문서](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)다.
-이 새 부모의 토큰으로 실제 dispatch되는지는 아직 실행 검증 전이다.
+실제 Nginx 부모의 `github.token`으로 B child dispatch와 결과 수집이 성공했다.
 
 Nginx의 `/etc/jarihana-deploy/status-coordinator.json`은 root 소유·coordinator 그룹 읽기(0640)로 준비한다.
 기준은 [현재 dev 시험 설정](status-child/coordinator.example.json)이며 prod용 설정이 아니다.
@@ -52,7 +52,14 @@ GitHub가 향후 다른 형식을 쓰면 자동 허용하지 않고 실패로 �
 완료 결과는 영속 저널과 부모의 `state.json`·`receipt.json` artifact에 남긴다.
 
 저장소 호스트 변경 회귀를 포함한 로컬 154개 테스트, 새 workflow 정적 검사와 실제 B 상태 조회는 통과했다.
-새 부모 workflow의 실행·토큰 권한·부모 artifact 업로드까지 통과한 것으로 간주하지 않는다.
+실제 부모 [39959099088](https://github.com/woowacourse-teams/2026-jarihana/actions/runs/39959099088)는
+수정 SHA `b253ec6b90c08900b1b00038feb7db9014ee1681`의 첫 attempt로 Nginx runner 30에서 성공했다.
+부모가 요청한 child [39959136131](https://github.com/woowacourse-teams/2026-jarihana/actions/runs/39959136131)는
+기존 고정 tag/SHA의 첫 attempt로 B runner 29에서 성공했다. 두 실행의 실제 metadata·runner를 대조했고,
+자식 artifact와 부모 artifact의 크기·digest·내용을 검증해 Nginx의 영속 저널·receipt와 일치함을 확인했다.
+최종 저널은 `COMPLETE`, pending·pending_run은 비었고 기존 B 컨테이너·boot·이미지와 `PAUSED` 상태가 유지됐다.
+이는 읽기 전용 STATUS 자동화의 검증이다. 앱 상태 변경·worker 인계·Nginx 전환·EC2 기동/중지·15분 관찰·
+자동 rollback을 이 부모 workflow로 검증한 것은 아니다.
 
 ## 요청 흐름
 

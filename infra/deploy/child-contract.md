@@ -5,7 +5,7 @@
 **EC2 IMDSv2 신원 조회와 SSH 최신 허가 조회를 구현하고 실제 B→Nginx 격리 시험을 통과했다.
 읽기 전용 STATUS child workflow의 실제 B 실행과 부모의 artifact 검증까지 통과했다.
 전체 배포 coordinator 연결과 상태 변경 작업은 남아 있다.**
-STATUS 전용 Nginx 부모의 코드·workflow·로컬 검증과 서버 설정 준비는 완료했으며 실제 Actions 실행은 남아 있다.
+STATUS 전용 Nginx 부모의 실제 Actions 실행과 B 결과 수집·영속 저널 일치도 검증했다.
 부모의 요청·실패 보존 동작은 [Actions 연결 문서](github-actions-adapter.md#status-전용-nginx-부모)를 따른다.
 기존 prod workflow는 계속 기존 배포 방식이며, 이 코드만으로 운영 배포가 바뀌지 않는다.
 

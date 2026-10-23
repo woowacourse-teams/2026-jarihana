@@ -4,8 +4,8 @@
 현재는 **제어 로직, Nginx·Docker 종료·GitHub API 어댑터, 로컬 검증**을 구현했다.
 Nginx 전용 runner의 실제 Actions 검사와 B→Nginx의 IMDSv2·읽기 전용 SSH 허가 조회도 검증했다.
 읽기 전용 STATUS child workflow의 실제 B 실행과 부모의 run/artifact 검증도 통과했다.
-STATUS 전용 coordinator workflow와 저널 생성·실행 연결·결과 수집을 구현하고 로컬 검증했다.
-새 부모 workflow의 실제 GitHub 실행, 상태 변경 작업, AWS 실행 어댑터·관측·상시 서비스 연결은 남아 있다.
+STATUS 전용 coordinator workflow의 실제 Nginx 실행과 B 요청·결과 수집·영속 저널 일치까지 검증했다.
+상태 변경 작업, AWS 실행 어댑터·관측·상시 서비스 연결은 남아 있다.
 이 파일의 설정을 복사하는 것만으로 운영 배포가 활성화되지 않는다.
 설계 배경은 [인프라 ADR 0005](../docs/adr/0005-nginx-ec2-blue-green-deployment.md)를 따른다.
 
