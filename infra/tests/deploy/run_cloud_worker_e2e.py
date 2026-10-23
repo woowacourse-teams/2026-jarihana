@@ -50,6 +50,7 @@ class Node:
     port: int
     host_id: str
     token: SecretStr
+    image: str = IMAGE
 
     def status(self, client: httpx2.Client) -> EndpointStatus:
         response = client.get(f"http://127.0.0.1:{self.port}/actuator/workercontrol",
@@ -57,7 +58,7 @@ class Node:
         _ = response.raise_for_status()
         status = EndpointStatus.model_validate_json(response.content)
         if (status.environment != "dev-rehearsal" or status.identity.hostId != self.host_id
-                or status.version != IMAGE):
+                or status.version != self.image):
             raise DeploymentFailure("worker identity, environment or image differs")
         return status
 
