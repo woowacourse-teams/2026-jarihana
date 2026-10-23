@@ -17,7 +17,7 @@ prometheus.exporter.unix "host" {
 
 prometheus.scrape "host" {
 	job_name        = "jarihana-host"
-	scrape_interval = "30s"
+	scrape_interval = "10s"
 	targets         = prometheus.exporter.unix.host.targets
 	forward_to      = [prometheus.relabel.host_labels.receiver]
 }
@@ -43,7 +43,7 @@ prometheus.relabel "host_labels" {
 
 prometheus.scrape "alloy" {
 	job_name        = "jarihana-alloy"
-	scrape_interval = "30s"
+	scrape_interval = "10s"
 
 	targets = [
 		{
