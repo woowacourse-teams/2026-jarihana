@@ -70,15 +70,19 @@ class GitHubRuns:
 
     def exact(self, run: RunIdentity, command: Command, workflow: Workflow) -> WorkflowRun:
         root = self.context.root
-        current = parse_response(self.api.get(f"{root}/actions/runs/{run.run_id}", command.deadline), WorkflowRun)
-        self.validate(current, command, workflow)
-        attempt = parse_response(self.api.get(f"{root}/actions/runs/{run.run_id}/attempts/{run.attempt}",
-                                             command.deadline), WorkflowRun)
-        self.validate(attempt, command, workflow)
-        if (current.id != run.run_id or attempt.id != run.run_id or self.identity(current) != run
-                or current.status != attempt.status or current.conclusion != attempt.conclusion):
-            raise DeploymentFailure("GitHub execution identity changed")
-        return attempt
+        for index in range(3):
+            current = parse_response(self.api.get(f"{root}/actions/runs/{run.run_id}", command.deadline), WorkflowRun)
+            self.validate(current, command, workflow)
+            attempt = parse_response(self.api.get(f"{root}/actions/runs/{run.run_id}/attempts/{run.attempt}",
+                                                 command.deadline), WorkflowRun)
+            self.validate(attempt, command, workflow)
+            if self.identity(current) != run or self.identity(attempt) != run:
+                raise DeploymentFailure("GitHub execution identity changed")
+            if current.status == attempt.status and current.conclusion == attempt.conclusion:
+                return attempt
+            if index < 2:
+                self.api.clock.sleep(1)
+        raise DeploymentFailure("GitHub execution state did not stabilize")
 
     def find(self, command: Command, workflow: Workflow) -> tuple[RunIdentity, ...]:
         """Search all bounded pages; never select the newest or an ambiguous result."""
