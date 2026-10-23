@@ -3,6 +3,12 @@ package com.project.jarihana.group.query.repository;
 import com.project.jarihana.group.query.repository.dto.GroupListPage;
 import com.project.jarihana.group.query.repository.dto.GroupListProjection;
 import com.project.jarihana.group.query.repository.dto.GroupListSearchCriteria;
+import com.project.jarihana.group.query.repository.dto.HomeGroupPages;
+import com.project.jarihana.group.domain.GroupStatus;
+import com.project.jarihana.group.domain.GroupType;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import java.util.Comparator;
 import java.util.List;
@@ -11,6 +17,17 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class InMemoryGroupListRepository implements GroupListRepository {
 
     private final List<GroupListProjection> groups = new CopyOnWriteArrayList<>();
+
+    @Override
+    public HomeGroupPages findHomePages(LocalDate sessionDate, LocalDateTime now) {
+        return new HomeGroupPages(
+                findPage(new GroupListSearchCriteria(GroupStatus.ACTIVE, GroupType.SESSION, null, sessionDate,
+                        null, false, null, null, null, now, null, null), 100),
+                findPage(new GroupListSearchCriteria(GroupStatus.ACTIVE, null, null, null,
+                        null, false, true, null, null, now, null, null), 4),
+                findPage(new GroupListSearchCriteria(GroupStatus.ENDED, null, null, null,
+                        null, false, null, null, null, now, null, null), 4));
+    }
 
     @Override
     public GroupListPage findPage(
