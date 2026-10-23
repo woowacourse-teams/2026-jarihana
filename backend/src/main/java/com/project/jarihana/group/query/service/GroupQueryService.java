@@ -12,6 +12,8 @@ import com.project.jarihana.group.query.repository.dto.*;
 import com.project.jarihana.group.query.service.dto.GroupDetailResult;
 import com.project.jarihana.group.query.service.dto.GroupListQuery;
 import com.project.jarihana.group.query.service.dto.GroupListResult;
+import com.project.jarihana.group.query.service.dto.HomeQuery;
+import com.project.jarihana.group.query.service.dto.HomeResult;
 import com.project.jarihana.group.query.service.dto.GroupListResult.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -112,6 +114,15 @@ public class GroupQueryService {
                 criteria,
                 query.size()
         );
+        return toListResult(page);
+    }
+
+    public HomeResult findHome(HomeQuery query) {
+        HomeGroupPages pages = groupListRepository.findHomePages(query.sessionDate(), LocalDateTime.now(clock));
+        return new HomeResult(toListResult(pages.today()), toListResult(pages.recruiting()), toListResult(pages.ended()));
+    }
+
+    private GroupListResult toListResult(GroupListPage page) {
         List<GroupListProjection> itemProjections = page.items();
         String nextCursor = page.hasNext()
                 ? encodeCursor(itemProjections.get(itemProjections.size() - 1))
@@ -152,10 +163,10 @@ public class GroupQueryService {
                         ? null
                         : new Leader(
                         leader.memberId(),
-                        leader.member().getCrewName(),
-                        leader.member().getGeneration(),
-                        leader.member().getMemberType(),
-                        GithubAvatarUrl.from(leader.member().getGithubId())
+                        leader.crewName(),
+                        leader.generation(),
+                        leader.memberType(),
+                        GithubAvatarUrl.from(leader.githubId())
                 ),
                 projection.memberCount(),
                 projection.activeRecruitment() == null

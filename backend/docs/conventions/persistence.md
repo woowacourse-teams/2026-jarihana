@@ -80,8 +80,8 @@ ALTER TABLE groups ALTER COLUMN meeting_type SET NOT NULL;
 - 메서드 이름으로 표현할 수 있는 정렬, 연관 조회는 Spring Data 파생 쿼리를 사용하고,
   활성 모집과 승인 신청 집계처럼 조건이나 집계가 필요한 조회는 각 Repository의
   `@Query`로 선언한다. 조회 어댑터에서 `EntityManager`를 직접 호출하지 않는다.
-- 구성원별 Repository 호출을 반복하지 않고 `@EntityGraph`와 일괄 조회를 사용해
-  N+1 조회를 만들지 않는다.
+- 구성원은 목록에 필요한 값만 DTO로 일괄 조회해 N+1 조회를 만들지 않는다.
+  목록 응답에 쓰지 않는 `Member`, `GroupMember` 엔티티는 초기화하지 않는다.
 - 그룹 목록의 필터링과 cursor 조건은 DB 쿼리에 포함한다. 애플리케이션에서 전체
   목록을 가져온 뒤 메모리에서 페이지네이션하지 않는다.
 - 무한 스크롤 목록은 `Page` 대신 Spring Data JPA `Slice`를 사용한다. `Pageable`은
