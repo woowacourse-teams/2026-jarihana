@@ -6,6 +6,47 @@ EC2 IMDS 신원·인증된 원격 최신 허가 조회는 별도 어댑터와 �
 읽기 전용 STATUS child workflow는 실제 B runner에서 성공했고 부모의 GitHub run/artifact 검증도 통과했다.
 상태 변경 child 작업과 Compose·AWS·관측 연결은 후속 작업이다.
 
+## STATUS 전용 Nginx 부모
+
+`backend-bluegreen-status-coordinator.yml`은 전용 coordinator runner에서
+`status-coordinator.py`를 실행한다. 현재는 feature 브랜치에서 수동으로 시작하는 읽기 시험이며,
+main 병합 배포와는 연결하지 않았다. push 이벤트는 hosted runner의 workflow 등록 작업만 실행한다.
+
+```text
+수동 workflow_dispatch
+  -> Nginx runner: IMDSv2 + 실제 GitHub 부모 run/attempt/ref/SHA 확인
+  -> 관리자 설정의 B boot/image로 STATUS 명령 생성
+  -> 로컬 저널 기록 -> child dispatch 1회 -> 정확한 child run 연결
+  -> B: 최신 허가와 신원 확인 -> 앱 관리 GET -> 결과 artifact 업로드
+  -> Nginx: run/attempt + ZIP digest + 결과 + 최신 허가 검증
+  -> COMPLETE / pending 제거 / receipt 보존
+```
+
+부모 job에만 `actions: write`를 부여하고 실행 중의 `github.token`을 환경변수로 전달한다.
+별도 장기 토큰을 서버 설정에 저장하지 않는다. `GITHUB_TOKEN`으로 `workflow_dispatch`를 발생시킬 수 있다는
+근거는 [GitHub 공식 문서](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)다.
+이 새 부모의 토큰으로 실제 dispatch되는지는 아직 실행 검증 전이다.
+
+Nginx의 `/etc/jarihana-deploy/status-coordinator.json`은 root 소유·coordinator 그룹 읽기(0640)로 준비한다.
+기준은 [현재 dev 시험 설정](status-child/coordinator.example.json)이며 prod용 설정이 아니다.
+실제 child의 기존 고정 tag/SHA를 유지하고, 부모는 고정 feature ref와 실행 중인 GitHub 메타데이터를 대조한다.
+B의 boot/image는 직전 실제 검증값으로 고정한다. 앱을 재시작·교체했다면 먼저 새 신원을 확인하고 관리자 설정을
+갱신해야 하며 입력값이나 마지막 성공값을 무조건 새 신원으로 수용하지 않는다.
+
+`StatusCoordinator`는 기존 `StateStore`·`GitHubApplications`를 사용한다. controller lock과 CAS로
+동시 부모와 기록 덮어쓰기를 차단하며, 대기 중 heartbeat를 갱신한다. 명령 상한은 300초, polling은 5초다.
+POST 응답을 잃으면 고유 실행을 기한 안에서 찾고 재전송하지 않는다. 실패·시간 초과·중복 실행은
+`NEEDS_ATTENTION`으로 pending과 run을 보존한다. 다음 실행과 UI rerun으로 덮어쓸 수 없으며 사람이 조정해야 한다.
+별도 작성자가 허가를 철회하면 그 기록도 덮어쓰지 않는다. 이 시험의 저널에는 아직 watchdog을 설치하지 않았다.
+부모가 강제 종료되어 PREPARING이 남아도 자동 재실행은 차단되며 앱 상태 변경은 수행하지 않는다.
+
+artifact 다운로드는 직전 실제 검증에서 확인한 정확한 저장소 호스트만 허용한다. GitHub가 다른 저장소 호스트를
+반환하면 실패로 보존한다. 서명 URL을 출력하거나 임의 호스트를 자동 허용하지 않는다.
+완료 결과는 영속 저널과 부모의 `state.json`·`receipt.json` artifact에 남긴다.
+
+로컬 150개 테스트, 새 workflow 정적 검사와 실제 B 상태 조회는 통과했다.
+새 부모 workflow의 실행·토큰 권한·부모 artifact 업로드까지 통과한 것으로 간주하지 않는다.
+
 ## 요청 흐름
 
 ```text
@@ -28,6 +69,8 @@ dispatch 응답을 잃으면 같은 명령을 다시 POST하지 않는다. 고�
 읽기 연결 오류만 제한된 transport 재시도를 사용하고 POST는 자동 재시도하지 않는다.
 200 dispatch 응답 직후 run 정보가 아직 완성되지 않은 경우 exact run 조회를 최대3회 수행한다.
 각 재조회 전에도 현재 허가를 검사하며, 불일치가 지속되면 실패한다. 다른 run을 선택하거나 POST를 반복하지 않는다.
+current run과 attempt 조회 사이의 정상적인 상태 변경은 최대3쌍의 조회로 확인한다.
+상태·결론만 엇갈렸을 때 1초 간격으로 재조회하며, run ID·attempt·ref·SHA 등 신원 불일치는 즉시 거부한다.
 429·조회 실패·시간 초과를 정상으로 바꾸지 않으므로 실제 API 지연이나 사용량 제한 때 보류될 수 있다.
 
 ## 후속 workflow가 지켜야 할 계약

@@ -1,0 +1,32 @@
+{
+  "repository": {
+    "full_name": "woowacourse-teams/2026-jarihana",
+    "id": 1321030074,
+    "download_hosts": ["productionresultssa2.blob.core.windows.net"]
+  },
+  "topology": {
+    "environment": "dev-rehearsal",
+    "coordinator_instance_id": "i-01449d708ceef309b",
+    "a": {
+      "slot": "A",
+      "host_id": "jarihana-rehearsal-a",
+      "instance_id": "i-0a43bb4e0154e0f1f",
+      "upstream": "10.0.3.232:8080"
+    },
+    "b": {
+      "slot": "B",
+      "host_id": "jarihana-rehearsal-b",
+      "instance_id": "i-0430ff91d1af2fb37",
+      "upstream": "10.0.3.184:18080"
+    },
+    "control": {
+      "workflow": "backend-bluegreen-status-child.yml",
+      "ref": "refs/tags/bluegreen-status-rehearsal-20261023-02",
+      "sha": "1ff51384f80c6a12913506af3508c87b9efcfc43"
+    }
+  },
+  "expected_boot": "b254a2be-3f56-4fd1-8735-13ddd09f78b9",
+  "expected_image": "sha256:16068322d45c10c99724439ebfdc85201a463110b58782aacbfe7c99d3867cb8",
+  "state_directory": "/var/lib/jarihana-deploy/status-rehearsal",
+  "parent_ref": "refs/heads/feat/blue-green-deployment"
+}
