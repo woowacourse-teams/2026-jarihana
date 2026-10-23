@@ -241,6 +241,22 @@ class ChildWorkerTest(GitHubFixture):
 
         self.assert_no_post()
 
+    def test_profile_recheck_failure_blocks_post(self) -> None:
+        _ = self.prepare()
+        checks: list[bool] = []
+
+        def verify_local() -> None:
+            checks.append(True)
+            if len(checks) == 2:
+                raise DeploymentFailure("local profile changed")
+
+        with self.assertRaises(DeploymentFailure):
+            _ = worker_artifact(self.command, self.context, GitHubRuns(self.api, self.apps.context),
+                                self.store, self.control, self.clock, verify_local=verify_local)
+
+        self.assert_no_post()
+        self.assertEqual(2, len(checks))
+
     def assert_no_post(self) -> None:
         self.assertFalse(any(request.method == "POST" for request in self.management.requests))
 

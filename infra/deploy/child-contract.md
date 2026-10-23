@@ -13,7 +13,8 @@ STATUS 전용 Nginx 부모의 실제 Actions 실행과 B 결과 수집·영속 �
 
 `child_worker.worker_artifact()`와 `SpringWorker`는 worker 상태 변경을 연결하는 라이브러리다.
 현재는 로컬 HTTP 검증과 격리된 실제 Spring·PostgreSQL 검증에 연결했다.
-상태 변경 전용 CLI·GitHub workflow·관리자 설정과 실제 EC2/Actions 실행은 다음 연결 작업이다.
+상태 변경 전용 CLI·GitHub workflow·관리자 설정 스키마와 격리 프로필 검사는 로컬 구현·검증했다.
+[B 전용 연결 준비](worker-child/README.md)를 따르며 서버 설치와 실제 EC2/Actions 실행은 아직 남아 있다.
 기존 STATUS workflow는 계속 조회만 허용하며 이번 코드로 상태 변경 권한이 생기지 않는다.
 
 ```text

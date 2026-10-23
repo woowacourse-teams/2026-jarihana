@@ -1,0 +1,72 @@
+name: Backend Blue-Green Worker Child
+run-name: bg-${{ inputs.deployment_id }}-${{ inputs.command_id }}
+
+on:
+  push:
+    branches: [feat/blue-green-deployment]
+    paths:
+      - .github/workflows/backend-bluegreen-worker-child.yml
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 승인된 worker 명령 JSON
+        type: string
+        required: true
+      deployment_id:
+        description: 배포 UUID
+        type: string
+        required: true
+      command_id:
+        description: 명령 UUID
+        type: string
+        required: true
+      slot:
+        description: 시험 대상
+        type: choice
+        options: [B]
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  register:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: printf 'WORKER_CHILD_REGISTERED\n'
+
+  worker:
+    if: >-
+      github.repository == 'woowacourse-teams/2026-jarihana' &&
+      github.event_name == 'workflow_dispatch' && inputs.slot == 'B' &&
+      startsWith(github.ref, 'refs/tags/bluegreen-worker-rehearsal-') && github.run_attempt == 1
+    runs-on: [jarihana-bluegreen-rehearsal-b]
+    timeout-minutes: 5
+    concurrency:
+      group: backend-bluegreen-worker-child-b
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: '0.13.5'
+          enable-cache: false
+      - name: 최신 허가와 격리 설정으로 worker 명령 실행
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BG_COMMAND: ${{ inputs.command }}
+          BG_DEPLOYMENT_ID: ${{ inputs.deployment_id }}
+          BG_COMMAND_ID: ${{ inputs.command_id }}
+          BG_SLOT: ${{ inputs.slot }}
+        run: uv run --no-project --script infra/scripts/deploy/worker-child.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: child-result-${{ inputs.deployment_id }}-${{ inputs.command_id }}-${{ github.run_id }}-1
+          path: ${{ runner.temp }}/bg-worker-${{ github.run_id }}-${{ github.run_attempt }}/child-result.json
+          if-no-files-found: error
+          retention-days: 3

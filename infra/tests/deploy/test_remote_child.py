@@ -78,6 +78,22 @@ class SshJournalFailureTest(unittest.TestCase):
     def reader(self) -> SshJournal:
         return SshJournal(IPv4Address("10.0.3.51"), Path("key"), Path("known_hosts"))
 
+    def test_worker_grant_uses_its_separate_forced_command_account(self) -> None:
+        initial = DeploymentState(deployment_id=uuid4(), session_id=uuid4())
+
+        def respond(command: tuple[str, ...], *, stdout: BinaryIO,
+                    **_options: int | bool) -> subprocess.CompletedProcess[bytes]:
+            self.assertIn("jarihana-worker-grant@10.0.3.51", command)
+            self.assertNotIn("jarihana-grant@10.0.3.51", command)
+            _ = stdout.write(initial.model_dump_json().encode())
+            return subprocess.CompletedProcess(command, 0)
+
+        reader = SshJournal(IPv4Address("10.0.3.51"), Path("key"), Path("known_hosts"), account="jarihana-worker-grant")
+        with patch("bluegreen.ssh_journal.subprocess.run", side_effect=respond):
+            actual = reader.read()
+
+        self.assertEqual(initial, actual)
+
     def test_authentication_host_key_or_transport_failure_cannot_authorize(self) -> None:
         # Given
         with patch("bluegreen.ssh_journal.subprocess.run", return_value=subprocess.CompletedProcess((), 255)):

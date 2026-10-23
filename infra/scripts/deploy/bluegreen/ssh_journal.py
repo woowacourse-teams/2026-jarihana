@@ -4,7 +4,7 @@ import tempfile
 from dataclasses import dataclass
 from ipaddress import IPv4Address
 from pathlib import Path
-from typing import Final
+from typing import Final, Literal
 
 from pydantic import ValidationError
 
@@ -19,6 +19,7 @@ class SshJournal:
     address: IPv4Address
     key: Path
     known_hosts: Path
+    account: Literal["jarihana-grant", "jarihana-worker-grant"] = "jarihana-grant"
 
     def read(self) -> DeploymentState:
         """Open a new authenticated connection for every gate check; never reuse a snapshot."""
@@ -29,7 +30,7 @@ class SshJournal:
             "-o", "GlobalKnownHostsFile=/dev/null", "-o", "ClearAllForwardings=yes",
             "-o", "ConnectTimeout=3", "-o", "ConnectionAttempts=1",
             "-o", "ControlMaster=no", "-o", "ControlPath=none",
-            f"jarihana-grant@{self.address}", "read-current-grant",
+            f"{self.account}@{self.address}", "read-current-grant",
         )
         try:
             with tempfile.TemporaryFile() as output:

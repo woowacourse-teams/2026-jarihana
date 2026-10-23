@@ -8,6 +8,7 @@ STATUS 전용 coordinator workflow의 실제 Nginx 실행과 B 요청·결과 �
 상태 변경 작업, AWS 실행 어댑터·관측·상시 서비스 연결은 남아 있다.
 worker 상태 변경의 명령 변환·실행 허가·로컬 관리 API 호출·결과 검증 라이브러리도 구현했다.
 이 경로의 [범위와 격리 검증](child-contract.md#worker-상태-변경-실행-경로)을 실제 상태 변경 workflow 연결과 구분한다.
+[B worker child의 CLI·workflow·서버 설정 준비](worker-child/README.md)도 로컬에서 검증했다. 원격 설치·실행은 아직 하지 않았다.
 이 파일의 설정을 복사하는 것만으로 운영 배포가 활성화되지 않는다.
 설계 배경은 [인프라 ADR 0005](../docs/adr/0005-nginx-ec2-blue-green-deployment.md)를 따른다.
 
