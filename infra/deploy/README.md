@@ -8,10 +8,11 @@ STATUS 전용 coordinator workflow의 실제 Nginx 실행과 B 요청·결과 �
 상태 변경 작업, AWS 실행 어댑터·관측·상시 서비스 연결은 남아 있다.
 worker 상태 변경의 명령 변환·실행 허가·로컬 관리 API 호출·결과 검증 라이브러리도 구현했다.
 이 경로의 [범위와 격리 검증](child-contract.md#worker-상태-변경-실행-경로)을 실제 상태 변경 workflow 연결과 구분한다.
-[B worker child의 CLI·workflow·서버 설정](worker-child/README.md)은 로컬 검증과 시험 서버 설치를 마쳤다.
-B runner의 격리 프로필·사설 허가 조회를 확인했으며, worker 상태 변경은 현재 허용하지 않는다.
-별도 worker 부모 CLI·workflow의 실제 Nginx 실행과 B의 `BEGIN → COMPLETE` 결과 회수를 확인했다.
-B는 계속 대기 상태였으며, A/B 권한 인계·HTTP 전환·15분 관찰은 아직 검증하지 않았다.
+[A/B worker child의 CLI·workflow·서버 설정](worker-child/README.md)은 로컬 검증과 시험 서버 설치를 마쳤다.
+각 전용 runner의 격리 프로필·사설 허가 조회를 확인했고,
+별도 Nginx 부모에서 B와 A 각각의 `BEGIN → COMPLETE` 실행·결과 회수를 검증했다.
+시험 후 두 서버의 worker 명령 허용 목록은 닫았다.
+각 시험에서 worker는 대기 상태를 유지했다. A/B 권한 인계·HTTP 전환·15분 관찰은 아직 검증하지 않았다.
 이 파일의 설정을 복사하는 것만으로 운영 배포가 활성화되지 않는다.
 설계 배경은 [인프라 ADR 0005](../docs/adr/0005-nginx-ec2-blue-green-deployment.md)를 따른다.
 

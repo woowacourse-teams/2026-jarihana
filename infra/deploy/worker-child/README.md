@@ -1,9 +1,9 @@
 # Worker child 연결 준비
 
 상태 변경 전용 `backend-bluegreen-worker-child.yml`과 `worker-child.py`의 A/B 서버 시험 설정이다.
-코드·workflow·설정 경계를 로컬에서 검증하고, B 설정과 Nginx의 별도 읽기 계정을 시험 서버에 설치했다.
-실제 B runner 계정으로 컨테이너 격리 설정·현재 관리 상태·Nginx 사설 허가 조회를 확인했다.
-`BEGIN → COMPLETE`의 실제 부모·자식 실행과 결과 회수를 검증했다.
+코드·workflow·설정 경계를 로컬에서 검증하고, A/B 설정과 Nginx의 별도 읽기 계정을 시험 서버에 설치했다.
+각 전용 runner 계정으로 컨테이너 격리 설정·현재 관리 상태·Nginx 사설 허가 조회를 확인했다.
+A와 B 각각 `BEGIN → COMPLETE`의 실제 부모·자식 실행과 결과 회수를 검증했다.
 시험 후 `allowed_actions`는 다시 빈 목록으로 닫았다. A/B 자동 인계는 아직 검증하지 않았다.
 기존 STATUS 설정·태그·읽기 계정·저널은 그대로 사용하며 worker 실행 권한으로 확대하지 않는다.
 
@@ -134,11 +134,24 @@ DB 제어 행은 시험 배포 `15bd5a06-cd40-4333-8f1d-a463a7eb1398`, epoch 1/r
 SHA는 `e2f784f428036d71ac8a6d04122324ff898fc7dd`다.
 부모 코드의 검증 커밋은 `23a660f1bdab6dbda06d04303ae5a595698ae422`다.
 현재 STATUS 부모는 worker 명령을 요청하지 않는다.
-다음은 A의 전용 worker 실행 경로와 설정을 준비하고,
-실제 푸시가 차단된 A/B가 같은 DB에서 권한을 주고받는 과정을 검증하는 것이다.
-현재 사용자가 dev 서버 시험 가능 상태를 확인했지만, 시험 직전 원래 앱·DB·재시작 정책을 기록하고 종료 후 복구해야 한다.
+
+A 후속 시험 부모 [40066410302](https://github.com/woowacourse-teams/2026-jarihana/actions/runs/40066410302)는
+Nginx runner 30에서 A runner 31의 BEGIN 40066426744, COMPLETE 40066471282를 요청했다.
+부모 SHA는 `425b1ab62eafc6dc3958ac9234055cd036bafb26`, 두 child는 새 고정 태그
+`bluegreen-worker-rehearsal-20261024-02`의 `ff6a3ea77d205a768ff966fcef9ea6bcba78f346`으로 성공했다.
+child receipt와 부모 결과가 일치했고, 업로드한 저널과 Nginx 실제 파일의 SHA256은
+`218f2353bdedaf5e1739da54dc5d20576b0c64cc9f479805a54aadb40fc3f545`으로 같았다.
+A는 같은 부팅 ID로 정상·대기·작업 0을 유지했고, 최종 DB 제어 행은
+`50976c03-a0b1-4f30-a689-921c70be046c`, epoch 2/revision 4, `COMPLETE/UNASSIGNED`다.
+A의 명령 허용 목록도 시험 후 닫았다. 현재 부모 설정의 `before`는 시험 전 상태이므로 재사용하지 않는다.
+시험 앱을 정상 종료한 뒤 기존 dev 컨테이너·이미지·`unless-stopped` 정책·temporal DB 연결·
+푸시 설정과 일반 dev runner를 복구했다. readiness `UP`과 용도를 모르는 PostgreSQL 컨테이너 유지도 확인했다.
+
+다음은 실제 푸시가 차단된 A/B가 같은 DB에서 권한을 주고받는 과정을 검증하는 것이다.
+dev 사용 여부를 매번 확인하고 시험 직전 원래 앱·DB·재시작 정책을 기록한 뒤 종료 후 복구해야 한다.
 기존 dev가 자동으로 시험 DB로 바뀌거나 이번 workflow push로 앱이 재시작되는 구조는 아니다.
-# dev A 시험 앱 교체와 복구
+
+## dev A 시험 앱 교체와 복구
 
 `infra/tests/deploy/run_cloud_prepare_a.py`와 `run_cloud_restore_a.py`는 확인한
 dev A 인스턴스와 컨테이너에만 사용하는 실습 도구다. 운영 서버용 설치 도구가 아니다.
@@ -146,7 +159,8 @@ dev A 인스턴스와 컨테이너에만 사용하는 실습 도구다. 운영 �
 사용해야 한다. 복구 도구와 의존성을 먼저 준비한 다음 실행한다.
 
 준비 도구는 원래 dev runner를 잠시 멈추고 원래 앱을 정상 종료한 뒤,
-같은 인증 정보를 메모리에서 전달하여 main RDS의 `jarihana_dev`에 시험 앱을 실행한다.
+같은 인증 정보를 프로세스 환경으로 전달하여 main RDS의 `jarihana_dev`에 시험 앱을 실행한다.
+여러 줄 값을 보존하도록 Docker의 `--env KEY` 상속을 사용하며, 값을 명령 인자나 로그로 출력하지 않는다.
 실제 푸시와 스케줄러는 비활성화한다. 원래 컨테이너를 보존하며 root 전용 복구 기록을
 먼저 디스크에 저장한다. 다른 PostgreSQL 컨테이너에는 손대지 않는다.
 
