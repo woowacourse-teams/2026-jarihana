@@ -28,7 +28,7 @@ class WorkerSettings(StatusSettings):
                 or self.worker_token_file != Path("/etc/jarihana-deploy/worker-control-token")
                 or self.management_port != (8081 if self.local_slot is Slot.A else 18081)
                 or self.container.image_id != self.expected_image
-                or not set(self.allowed_actions).issubset(WORKER_ACTIONS)):
+                or not set(self.allowed_actions).issubset(WORKER_ACTIONS | {Action.STATUS})):
             raise DeploymentFailure("worker settings are not the isolated A/B rehearsal contract")
         return self
 

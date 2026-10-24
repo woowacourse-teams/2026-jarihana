@@ -3,9 +3,11 @@ from collections.abc import Callable
 from .child_artifacts import serialize_artifact
 from .child_execution import ChildContext, JournalReader
 from .child_github import check_running, open_child
+from .child_status import status_artifact
 from .github_runs import GitHubRuns
-from .models import AppStatus, Command, Receipt
+from .models import Action, AppStatus, Command, Receipt
 from .ports import Clock, DeploymentFailure
+from .spring_status import snapshot
 from .spring_worker import SpringWorker
 from .worker_command import payload
 
@@ -13,9 +15,19 @@ from .worker_command import payload
 def worker_artifact(command: Command, context: ChildContext, runs: GitHubRuns,
                     journal: JournalReader, control: SpringWorker, clock: Clock,
                     *, verify_local: Callable[[], None] | None = None) -> bytes:
-    _ = payload(command)
     if control.machine != context.machine:
         raise DeploymentFailure("worker transport is not on the approved machine")
+    if command.action is Action.STATUS:
+        def read() -> AppStatus:
+            if verify_local is not None:
+                verify_local()
+            actual = snapshot(control.client, control.port, control.token, control.machine)
+            if verify_local is not None:
+                verify_local()
+            return actual
+
+        return status_artifact(command, context, runs, journal, read, clock)
+    _ = payload(command)
     if verify_local is not None:
         verify_local()
     gate, workflow = open_child(command, context, runs, journal, clock)

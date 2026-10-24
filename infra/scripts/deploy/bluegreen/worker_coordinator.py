@@ -30,7 +30,8 @@ class WorkerCoordinator:
         self.state: DeploymentState | None = None
 
     def execute(self, command: Command) -> Receipt:
-        _ = payload(command)
+        if command.action is not Action.STATUS:
+            _ = payload(command)
         with self.store.lock():
             state = self.store.read()
             if state is None:
@@ -44,9 +45,10 @@ class WorkerCoordinator:
             before = state.old_app if command.host.slot is state.old else state.target_app
             if (before is None or before.boot_id != command.boot_id or before.host_id != command.host.host_id
                     or before.instance_id != command.host.instance_id or before.environment != self.topology.environment
-                    or state.authority != before.authority):
+                    or state.authority is None or command.authority != state.authority
+                    or (command.action is not Action.STATUS and state.authority != before.authority)):
                 raise DeploymentFailure("worker intent requires the exact previous process snapshot")
-            expected = expected_authority(command, before)
+            expected = state.authority if command.action is Action.STATUS else expected_authority(command, before)
             self.state = state
             try:
                 run = self.apps.dispatch(command) if self._claim_dispatch(command) else None

@@ -121,9 +121,23 @@ class WorkerSettingsTest(unittest.TestCase):
     def test_status_key_or_non_worker_action_cannot_enable_mutations(self) -> None:
         value = settings()
         for changed in ({"journal_key": Path("/etc/jarihana-deploy/status-grant-key")},
-                        {"allowed_actions": (Action.STOP_EC2,)}, {"allowed_actions": (Action.STATUS,)}):
+                        {"allowed_actions": (Action.STOP_EC2,)}, {"allowed_actions": (Action.PREPARE,)}):
             with self.subTest(changed=changed), self.assertRaises((DeploymentFailure, ValidationError)):
                 _ = WorkerSettings.model_validate({**value.model_dump(), **changed})
+
+    def test_status_requires_explicit_worker_route_opt_in_on_each_slot(self) -> None:
+        # Given
+        for slot in Slot:
+            base = settings(slot)
+            command = self.command(base).model_copy(update={"action": Action.STATUS})
+            value = WorkerSettings.model_validate({**base.model_dump(), "allowed_actions": (Action.STATUS,)})
+            # When
+            worker_route(value, command, self.run_identity(value), value.repository.full_name,
+                         str(command.deployment_id), str(command.command_id), slot.value)
+            # Then
+            with self.assertRaises(DeploymentFailure):
+                worker_route(base, command, self.run_identity(base), base.repository.full_name,
+                             str(command.deployment_id), str(command.command_id), slot.value)
 
     def test_stale_boot_other_run_or_rerun_cannot_execute(self) -> None:
         value = settings()
