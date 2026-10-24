@@ -13,6 +13,7 @@ import socket
 import subprocess
 import sys
 import time
+from collections.abc import Mapping
 from ipaddress import IPv4Address
 from pathlib import Path
 
@@ -29,6 +30,15 @@ from bluegreen.worker_settings import WorkerSettings
 from cloud_worker_runtime import IMAGE, Inspect
 from pydantic import SecretStr, TypeAdapter
 from run_cloud_restore_a import Recovery
+
+
+def create_candidate(environment: Mapping[str, str]) -> str:
+    """Let Docker inherit values, including multiline keys, without secret arguments."""
+    arguments = tuple(argument for key in environment for argument in ("--env", key))
+    return subprocess.run(("docker", "create", "--name", "jarihana-worker-rehearsal-a", "--memory", "896m",
+        "--restart=no", *arguments, "-p", "8080:8080", "-p", "127.0.0.1:8081:8081",
+        "--log-driver", "local", "--log-opt", "max-size=10m", "--log-opt", "max-file=3", IMAGE),
+        env={**os.environ, **environment}, capture_output=True, text=True, check=True, timeout=15).stdout.strip()
 
 
 def main() -> None:
@@ -61,8 +71,6 @@ def main() -> None:
         "APP_VERSION": IMAGE, "PUSH_ENABLED": "false", "PUSH_WORKER_ENABLED": "false",
         "PUSH_WORKER_CONTROL_ENABLED": "true", "PUSH_WORKER_ENVIRONMENT": "dev-rehearsal",
         "PUSH_WORKER_HOST_ID": "jarihana-rehearsal-a", "WORKER_CONTROL_TOKEN": secrets.token_hex(32)})
-    if any("\n" in value or "\r" in value for value in environment.values()):
-        raise DeploymentFailure("multiline environment is not allowed")
     _ = runner.run(("systemctl", "stop", service))
     _ = runner.run(("docker", "update", "--restart=no", original.Id))
     _ = runner.run(("docker", "kill", "--signal=TERM", original.Id))
@@ -71,11 +79,7 @@ def main() -> None:
         if time.monotonic() >= deadline:
             raise DeploymentFailure("original app did not stop; restore without forced kill")
         time.sleep(1)
-    body = "\n".join(f"{key}={value}" for key, value in environment.items()) + "\n"
-    created = subprocess.run(("docker", "create", "--name", "jarihana-worker-rehearsal-a", "--memory", "896m",
-        "--restart=no", "--env-file", "/dev/stdin", "-p", "8080:8080", "-p", "127.0.0.1:8081:8081",
-        "--log-driver", "local", "--log-opt", "max-size=10m", "--log-opt", "max-file=3", IMAGE),
-        input=body, capture_output=True, text=True, check=True, timeout=15).stdout.strip()
+    created = create_candidate(environment)
     _ = runner.run(("docker", "start", created))
     machine = MachineIdentity(environment="dev-rehearsal", host_id="jarihana-rehearsal-a", instance_id="i-0a43bb4e0154e0f1f")
     token = SecretStr(environment["WORKER_CONTROL_TOKEN"])
