@@ -16,6 +16,8 @@ STATUS 전용 Nginx 부모의 실제 Actions 실행과 B 결과 수집·영속 �
 상태 변경 전용 CLI·GitHub workflow·관리자 설정 스키마와 격리 프로필 검사는 로컬 구현·검증했다.
 [B 전용 연결](worker-child/README.md)의 시험 서버 설치와 실제 runner의 격리 프로필·사설 허가 조회는 확인했다.
 정상 상태 변경을 요청할 부모 실행 경로와 실제 A/B 자동 인계 검증은 남아 있다.
+`WorkerCoordinator`와 별도 부모 CLI·workflow는 로컬에서 연결했으며,
+실제 실행 전 설정과 제한 시험 범위는 [worker 연결 문서](worker-child/README.md#다음-실제-검증)를 따른다.
 기존 STATUS workflow는 계속 조회만 허용하며 이번 코드로 상태 변경 권한이 생기지 않는다.
 
 ```text

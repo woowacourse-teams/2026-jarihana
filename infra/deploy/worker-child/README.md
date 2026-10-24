@@ -81,6 +81,39 @@ runner는 root 설정의 별도 키·known_hosts로 매번 새 SSH 연결을 연
 
 ## 다음 실제 검증
 
+`backend-bluegreen-worker-coordinator.yml`과 `worker-coordinator.py`는 Nginx에서 실행하는
+별도 worker 부모 경로다. 현재는 로컬 구현 단계이며 아직 원격에 설치하거나 실행하지 않았다.
+첫 시험은 B를 `PAUSED`로 유지하면서 `BEGIN → COMPLETE` 두 명령의 요청·결과 회수만 확인한다.
+worker 활성화·발송·A/B 인계·HTTP 전환·EC2 종료를 수행하지 않는다.
+
+```text
+Nginx 부모의 실제 GitHub 실행·IMDS 신원 확인
+  -> root 설정에 고정한 B의 이전 상태로 저널 생성
+  -> 명령과 일회성 발행 기록을 디스크에 저장
+  -> 고정 태그의 B child를 한 번 요청
+  -> 정확한 child run을 저널에 연결
+  -> artifact의 명령·실행·권한 변경 결과 검증
+  -> 성공한 명령만 닫고 다음 명령으로 진행
+```
+
+발행 응답이 유실되면 같은 명령의 실행을 검색한다. 발행 기록이 있는 상태로 부모가 재시작해도
+다시 POST하지 않는다. 실행을 찾지 못하거나 결과가 불명확하면 명령·실행 정보를 보존하고
+`NEEDS_ATTENTION`으로 멈춘다. `dispatch-<command UUID>.json`은 자동 삭제하거나 재시도를 위해 지우지 않는다.
+외부에서 철회한 저널도 부모가 덮어쓰지 않는다.
+
+실행 전 Nginx의 root 소유 `/etc/jarihana-deploy/worker-coordinator.json`을 설치해야 한다.
+`WorkerParentSettings`의 `repository`, `topology`, `before`, `state_directory`, `parent_ref`를 사용한다.
+`before`는 설치 직전 실제 B 관리 GET으로 읽은 `AppStatus` 전체 값이며,
+정상·대기·작업 종료·권한 미할당·DB 단계 IDLE 또는 COMPLETE여야 한다. 오래된 값을 자동으로 보정하지 않는다.
+저널 경로는 기존 worker 전용 디렉터리, 부모 ref는 기능 브랜치로 고정한다.
+B의 허용 목록도 이 시험에 필요한 `begin`, `phase_complete`만 별도로 열어야 한다.
+설정 파일은 root 소유로 coordinator 그룹에 읽기만 허용하고, 기존 STATUS 설정을 변경하지 않는다.
+
+정상 시험 후 DB의 `dev-rehearsal` 제어 행에는 시험 배포 ID와 `COMPLETE/UNASSIGNED`가 남는다.
+이는 초기 `IDLE`로 DB를 되돌렸다는 뜻이 아니다. 푸시·업무 데이터·스키마를 변경하는 시험은 아니며,
+실패하면 DB와 영속 저널의 실제 상태를 먼저 대조한다. 자동 DB 삭제·임의 롤백·명령 재전송은 하지 않는다.
+이후 전체 A/B 시험에는 각 서버의 실제 상태를 새로 확인해야 한다.
+
 설치한 코드의 고정 태그는 `bluegreen-worker-rehearsal-20261024-01`,
 SHA는 `e2f784f428036d71ac8a6d04122324ff898fc7dd`다.
 이후 worker 부모가 저널 기록·exact child run 연결·결과 수집을 수행하도록 연결해야 한다.

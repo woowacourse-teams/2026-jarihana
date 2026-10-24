@@ -1,0 +1,51 @@
+name: Backend Blue-Green Worker Coordinator
+
+on:
+  push:
+    branches: [feat/blue-green-deployment]
+    paths:
+      - .github/workflows/backend-bluegreen-worker-coordinator.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  register:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: printf 'WORKER_COORDINATOR_REGISTERED\n'
+
+  worker-smoke:
+    if: >-
+      github.repository == 'woowacourse-teams/2026-jarihana' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/feat/blue-green-deployment' && github.run_attempt == 1
+    runs-on: [jarihana-bluegreen-coordinator]
+    timeout-minutes: 14
+    permissions:
+      contents: read
+      actions: write
+    concurrency:
+      group: backend-bluegreen-worker-coordinator
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: '0.13.5'
+          enable-cache: false
+      - name: 대기 중인 B에서 배포 시작·완료 명령 검증
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: uv run --no-project --script infra/scripts/deploy/worker-coordinator.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: worker-coordinator-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/bg-worker-coordinator-${{ github.run_id }}-${{ github.run_attempt }}/state.json
+          if-no-files-found: error
+          retention-days: 3
