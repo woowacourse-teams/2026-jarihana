@@ -10,8 +10,8 @@ worker 상태 변경의 명령 변환·실행 허가·로컬 관리 API 호출·
 이 경로의 [범위와 격리 검증](child-contract.md#worker-상태-변경-실행-경로)을 실제 상태 변경 workflow 연결과 구분한다.
 [B worker child의 CLI·workflow·서버 설정](worker-child/README.md)은 로컬 검증과 시험 서버 설치를 마쳤다.
 B runner의 격리 프로필·사설 허가 조회를 확인했으며, worker 상태 변경은 현재 허용하지 않는다.
-별도 worker 부모 CLI·workflow는 `BEGIN → COMPLETE` 제한 시험용으로 로컬 구현했다.
-원격 부모 설정 설치·실행과 정상 worker 명령 검증은 남아 있다.
+별도 worker 부모 CLI·workflow의 실제 Nginx 실행과 B의 `BEGIN → COMPLETE` 결과 회수를 확인했다.
+B는 계속 대기 상태였으며, A/B 권한 인계·HTTP 전환·15분 관찰은 아직 검증하지 않았다.
 이 파일의 설정을 복사하는 것만으로 운영 배포가 활성화되지 않는다.
 설계 배경은 [인프라 ADR 0005](../docs/adr/0005-nginx-ec2-blue-green-deployment.md)를 따른다.
 

@@ -3,7 +3,8 @@
 상태 변경 전용 `backend-bluegreen-worker-child.yml`과 `worker-child.py`의 B 서버 시험 설정이다.
 코드·workflow·설정 경계를 로컬에서 검증하고, B 설정과 Nginx의 별도 읽기 계정을 시험 서버에 설치했다.
 실제 B runner 계정으로 컨테이너 격리 설정·현재 관리 상태·Nginx 사설 허가 조회를 확인했다.
-설치한 `allowed_actions`는 빈 목록이다. 정상 worker 상태 변경과 A/B 자동 인계는 아직 검증하지 않았다.
+`BEGIN → COMPLETE`의 실제 부모·자식 실행과 결과 회수를 검증했다.
+시험 후 `allowed_actions`는 다시 빈 목록으로 닫았다. A/B 자동 인계는 아직 검증하지 않았다.
 기존 STATUS 설정·태그·읽기 계정·저널은 그대로 사용하며 worker 실행 권한으로 확대하지 않는다.
 
 ## 실행 순서
@@ -82,7 +83,7 @@ runner는 root 설정의 별도 키·known_hosts로 매번 새 SSH 연결을 연
 ## 다음 실제 검증
 
 `backend-bluegreen-worker-coordinator.yml`과 `worker-coordinator.py`는 Nginx에서 실행하는
-별도 worker 부모 경로다. 현재는 로컬 구현 단계이며 아직 원격에 설치하거나 실행하지 않았다.
+별도 worker 부모 경로다. 원격 설정을 설치하고 실제 Actions 실행을 확인했다.
 첫 시험은 B를 `PAUSED`로 유지하면서 `BEGIN → COMPLETE` 두 명령의 요청·결과 회수만 확인한다.
 worker 활성화·발송·A/B 인계·HTTP 전환·EC2 종료를 수행하지 않는다.
 
@@ -109,6 +110,16 @@ Nginx 부모의 실제 GitHub 실행·IMDS 신원 확인
 B의 허용 목록도 이 시험에 필요한 `begin`, `phase_complete`만 별도로 열어야 한다.
 설정 파일은 root 소유로 coordinator 그룹에 읽기만 허용하고, 기존 STATUS 설정을 변경하지 않는다.
 
+실제 검증 부모는 [40046513294](https://github.com/woowacourse-teams/2026-jarihana/actions/runs/40046513294)다.
+Nginx runner 30에서 B runner 29의 BEGIN 실행 40046539183, COMPLETE 실행 40046588177을 요청했다.
+세 실행 모두 성공했고 두 child receipt가 부모 결과와 일치했다.
+업로드한 `state.json`과 Nginx 영속 저널의 SHA256은
+`42788d46e93903d16fd931d51b3e0deae859af21aa28e30d856ef4aed982abb6`으로 같았다.
+B는 같은 부팅 ID로 정상·PAUSED·진행 중 작업 0을 유지했다.
+DB 제어 행은 시험 배포 `15bd5a06-cd40-4333-8f1d-a463a7eb1398`, epoch 1/revision 2,
+`COMPLETE/UNASSIGNED`로 남겼다. 시험을 마친 뒤 B의 명령 허용 목록은 다시 닫았다.
+기존 부모 root 설정의 `before`는 시험 전 IDLE 상태이므로 다음 시험에 그대로 재사용하지 않는다.
+
 정상 시험 후 DB의 `dev-rehearsal` 제어 행에는 시험 배포 ID와 `COMPLETE/UNASSIGNED`가 남는다.
 이는 초기 `IDLE`로 DB를 되돌렸다는 뜻이 아니다. 푸시·업무 데이터·스키마를 변경하는 시험은 아니며,
 실패하면 DB와 영속 저널의 실제 상태를 먼저 대조한다. 자동 DB 삭제·임의 롤백·명령 재전송은 하지 않는다.
@@ -116,9 +127,9 @@ B의 허용 목록도 이 시험에 필요한 `begin`, `phase_complete`만 별�
 
 설치한 코드의 고정 태그는 `bluegreen-worker-rehearsal-20261024-01`,
 SHA는 `e2f784f428036d71ac8a6d04122324ff898fc7dd`다.
-이후 worker 부모가 저널 기록·exact child run 연결·결과 수집을 수행하도록 연결해야 한다.
+부모 코드의 검증 커밋은 `23a660f1bdab6dbda06d04303ae5a595698ae422`다.
 현재 STATUS 부모는 worker 명령을 요청하지 않는다.
-부모 연결과 시험 후 정리 절차를 갖춘 뒤 필요한 동작만 허용하여,
-실제 푸시가 차단된 B의 정상 명령 시험부터 수행하고 준비된 dev A와 같은 DB로 인계를 검증한다.
+다음은 A의 전용 worker 실행 경로와 설정을 준비하고,
+실제 푸시가 차단된 A/B가 같은 DB에서 권한을 주고받는 과정을 검증하는 것이다.
 현재 사용자가 dev 서버 시험 가능 상태를 확인했지만, 시험 직전 원래 앱·DB·재시작 정책을 기록하고 종료 후 복구해야 한다.
 기존 dev가 자동으로 시험 DB로 바뀌거나 이번 workflow push로 앱이 재시작되는 구조는 아니다.
