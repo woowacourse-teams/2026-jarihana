@@ -9,16 +9,21 @@ from ipaddress import IPv4Address
 from pathlib import Path
 from uuid import uuid4
 
+from bluegreen.child_execution import MachineIdentity
 from bluegreen.coordinator_settings import CoordinatorSettings
 from bluegreen.docker_shutdown import ContainerPin
-from bluegreen.models import Action, Authority, Command, Phase, RunIdentity
+from bluegreen.models import Action, Authority, Command, Phase, RunIdentity, Slot
 from bluegreen.ports import DeploymentFailure
 from bluegreen.worker_profile import DB_URL, PROFILE_FORMAT, verify_profile
-from bluegreen.worker_settings import WorkerSettings, worker_route
+from bluegreen.worker_settings import (
+    WorkerSettings,
+    authorize_worker_machine,
+    worker_route,
+)
 from pydantic import ValidationError
 
 
-def settings() -> WorkerSettings:
+def settings(slot: Slot = Slot.B) -> WorkerSettings:
     base = CoordinatorSettings.model_validate_json((Path(__file__).parents[2]
         / "deploy/status-child/coordinator.example.json").read_bytes())
     control = base.topology.control.model_copy(update={"workflow": "backend-bluegreen-worker-child.yml",
@@ -26,7 +31,8 @@ def settings() -> WorkerSettings:
     return WorkerSettings(repository=base.repository, topology=base.topology.model_copy(update={"control": control}),
         coordinator_address=IPv4Address("10.0.3.51"), journal_key=Path("/etc/jarihana-deploy/worker-grant-key"),
         known_hosts=Path("/etc/jarihana-deploy/worker-known-hosts"),
-        worker_token_file=Path("/etc/jarihana-deploy/worker-control-token"), management_port=18081,
+        worker_token_file=Path("/etc/jarihana-deploy/worker-control-token"),
+        local_slot=slot, management_port=8081 if slot is Slot.A else 18081,
         expected_boot=uuid4(), expected_image=base.expected_image, allowed_actions=(Action.PAUSE,),
         container=ContainerPin(container_id="f" * 64, image_id=base.expected_image,
                                started_at=datetime.now(UTC), restart_count=0))
@@ -46,13 +52,55 @@ class ProfileRunner:
 def profile_body(value: WorkerSettings, changes: Mapping[str, str] | None = None) -> str:
     environment = {"DB_URL": DB_URL, "APP_VERSION": value.expected_image, "PUSH_ENABLED": "false",
         "PUSH_WORKER_ENABLED": "false", "PUSH_WORKER_CONTROL_ENABLED": "true",
-        "PUSH_WORKER_ENVIRONMENT": value.topology.environment, "PUSH_WORKER_HOST_ID": value.topology.b.host_id}
+        "PUSH_WORKER_ENVIRONMENT": value.topology.environment, "PUSH_WORKER_HOST_ID": value.host.host_id}
     environment.update(changes or {})
     return json.dumps({**value.container.model_dump(mode="json"), "running": True,
                       "environment": [f"{name}={entry}" for name, entry in environment.items()]})
 
 
 class WorkerSettingsTest(unittest.TestCase):
+    def test_a_command_and_profile_use_the_a_machine(self) -> None:
+        value = settings(Slot.A)
+        command = self.command(value)
+        run = self.run_identity(value)
+
+        worker_route(value, command, run, value.repository.full_name, str(command.deployment_id), str(command.command_id), "A")
+        verify_profile(value, ProfileRunner(value, profile_body(value)))
+        authorize_worker_machine(value, MachineIdentity(environment=value.topology.environment,
+            host_id=value.host.host_id, instance_id=value.host.instance_id))
+
+        self.assertEqual(value.topology.a, command.host)
+
+    def test_other_slot_command_cannot_execute_on_the_local_machine(self) -> None:
+        for slot in Slot:
+            value = settings(slot)
+            command = self.command(value).model_copy(update={"host": value.topology.host(slot.other())})
+
+            with self.subTest(slot=slot), self.assertRaises(DeploymentFailure):
+                worker_route(value, command, self.run_identity(value), value.repository.full_name,
+                    str(command.deployment_id), str(command.command_id), slot.value)
+
+    def test_other_instance_cannot_impersonate_the_a_runner(self) -> None:
+        value = settings(Slot.A)
+        machine = MachineIdentity(environment=value.topology.environment, host_id=value.host.host_id,
+            instance_id=value.topology.b.instance_id)
+
+        with self.assertRaises(DeploymentFailure):
+            authorize_worker_machine(value, machine)
+
+    def test_a_profile_cannot_reuse_the_b_host_identity(self) -> None:
+        value = settings(Slot.A)
+
+        with self.assertRaises(DeploymentFailure):
+            verify_profile(value, ProfileRunner(value, profile_body(value, {"PUSH_WORKER_HOST_ID": value.topology.b.host_id})))
+
+    def test_slot_cannot_use_the_other_management_port(self) -> None:
+        for slot in Slot:
+            value = settings(slot)
+
+            with self.subTest(slot=slot), self.assertRaises(DeploymentFailure):
+                _ = WorkerSettings.model_validate({**value.model_dump(), "management_port": 18081 if slot is Slot.A else 8081})
+
     def test_exact_release_command_and_process_are_accepted(self) -> None:
         value = settings()
         command = self.command(value)
@@ -125,7 +173,7 @@ class WorkerSettingsTest(unittest.TestCase):
     @staticmethod
     def command(value: WorkerSettings) -> Command:
         return Command(command_id=uuid4(), deployment_id=uuid4(), parent_run_id=100, parent_attempt=1,
-            phase=Phase.HANDOFF, action=Action.PAUSE, host=value.topology.b, boot_id=value.expected_boot,
+            phase=Phase.HANDOFF, action=Action.PAUSE, host=value.host, boot_id=value.expected_boot,
             image=value.expected_image, deadline=datetime.now(UTC) + timedelta(seconds=60), authority=Authority())
 
     @staticmethod

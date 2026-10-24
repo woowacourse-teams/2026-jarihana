@@ -1,6 +1,6 @@
 # Worker child 연결 준비
 
-상태 변경 전용 `backend-bluegreen-worker-child.yml`과 `worker-child.py`의 B 서버 시험 설정이다.
+상태 변경 전용 `backend-bluegreen-worker-child.yml`과 `worker-child.py`의 A/B 서버 시험 설정이다.
 코드·workflow·설정 경계를 로컬에서 검증하고, B 설정과 Nginx의 별도 읽기 계정을 시험 서버에 설치했다.
 실제 B runner 계정으로 컨테이너 격리 설정·현재 관리 상태·Nginx 사설 허가 조회를 확인했다.
 `BEGIN → COMPLETE`의 실제 부모·자식 실행과 결과 회수를 검증했다.
@@ -10,7 +10,7 @@
 ## 실행 순서
 
 ```text
-고정 worker 태그의 workflow_dispatch / B 전용 runner
+고정 worker 태그의 workflow_dispatch / A 또는 B 전용 runner
   -> root 소유 설정 + 허용 동작 + 정확한 boot/ref/SHA 확인
   -> IMDSv2로 실제 B EC2 확인
   -> 고정 컨테이너의 DB·푸시 차단·이미지·시작 시각·재시작 횟수 확인
@@ -21,8 +21,10 @@
 ```
 
 feature 브랜치의 workflow 파일을 push하면 hosted runner에서 등록 작업만 수행한다.
-실제 worker job은 `refs/tags/bluegreen-worker-rehearsal-…`, `workflow_dispatch`, 첫 attempt, B slot만 받는다.
-job은 `jarihana-bluegreen-rehearsal-b` runner에서 최대 5분 실행하고 `contents: read`, `actions: read`만 사용한다.
+실제 worker job은 `refs/tags/bluegreen-worker-rehearsal-…`, `workflow_dispatch`, 첫 attempt, A/B slot만 받는다.
+slot A는 `jarihana-bluegreen-rehearsal-a`, B는 `jarihana-bluegreen-rehearsal-b` 전용 runner를 선택한다.
+두 슬롯의 실행 잠금은 분리하며 B의 기존 잠금 이름을 유지한다.
+job은 최대 5분 실행하고 `contents: read`, `actions: read`만 사용한다.
 명령은 셸 문자열로 삽입하지 않고 환경변수의 JSON으로 전달한다. 실패하면 결과 업로드를 성공으로 처리하지 않는다.
 
 ## 관리자 설정
@@ -36,12 +38,12 @@ job은 `jarihana-bluegreen-rehearsal-b` runner에서 최대 5분 실행하고 `c
 | `repository` | 저장소 이름 `woowacourse-teams/2026-jarihana`, ID `1321030074` |
 | `topology` | `dev-rehearsal`, coordinator `i-01449d708ceef309b`, A=기존 dev, B=`i-0430ff91d1af2fb37` |
 | `topology.control` | 이번 worker workflow 코드가 포함된 새 고정 태그와 실제 SHA. STATUS 태그 재사용·이동 금지 |
-| `local_slot` | 현재 구현은 B만 지원. A는 별도 runner·설정 준비 후 연결 |
+| `local_slot` | A/B 중 해당 머신만 지정. 기존 B 설정과의 호환을 위해 생략 시 B. A는 반드시 A로 명시 |
 | `coordinator_address` | 사설 주소 `10.0.3.51`; 실제 접근성과 host key 재확인 |
 | `journal_key` | `/etc/jarihana-deploy/worker-grant-key`; B에서 생성하고 private key를 출력·반출하지 않음 |
 | `known_hosts` | `/etc/jarihana-deploy/worker-known-hosts`; 신뢰된 관리 연결로 확인한 Nginx host key |
 | `worker_token_file` | `/etc/jarihana-deploy/worker-control-token`; 앱에 주입된 머신 토큰과 일치. 값 출력 금지 |
-| `management_port` | 실제 B의 loopback 관리 포트 확인. 기존 시험은 18081 |
+| `management_port` | A=8081, B=18081로 제한. 해당 loopback 관리 포트와 앱 세대를 실제 확인 |
 | `expected_boot` | 새 설정 설치 직전 관리 GET으로 확인한 B 앱의 실제 부팅 UUID |
 | `expected_image` | 실제 Docker image ID와 앱 `APP_VERSION`이 같은 값 |
 | `container` | 전체 container ID·image ID·StartedAt·RestartCount를 실제 inspect로 고정 |
@@ -52,7 +54,7 @@ Docker 환경 값은 파싱 과정에서 비밀 문자열로 보관하며 오류
 
 - `DB_URL=jdbc:postgresql://jarihana-db.cqsc6pyqhwww.ap-northeast-2.rds.amazonaws.com:5432/jarihana_dev?sslmode=require`
 - `PUSH_ENABLED=false`, `PUSH_WORKER_ENABLED=false`, `PUSH_WORKER_CONTROL_ENABLED=true`
-- `PUSH_WORKER_ENVIRONMENT=dev-rehearsal`, `PUSH_WORKER_HOST_ID=topology.b.host_id`
+- `PUSH_WORKER_ENVIRONMENT=dev-rehearsal`, `PUSH_WORKER_HOST_ID=topology.host(local_slot).host_id`
 - `APP_VERSION=expected_image`, 관리자 설정과 같은 실제 컨테이너 세대, 실행 중 상태
 
 운영·temporal RDS나 실제 푸시 설정을 허용하는 일반 배포 CLI가 아니다.
@@ -70,7 +72,8 @@ Nginx에 아래 별도 경로를 설치했다. 초기 저널에는 실행 중인
 | worker 저널 | `/var/lib/jarihana-deploy/worker-rehearsal/state.json` |
 | 저널 소유·권한 | coordinator 소유 0600, 전용 상위 디렉터리 0700 |
 
-`authorized_keys`는 root 소유로 유지하고 B 사설 IP `10.0.3.184`로 출발지를 제한한다.
+`authorized_keys`는 root 소유로 유지하고 A=`10.0.3.232`, B=`10.0.3.184` 각각의 키에 출발지를 제한한다.
+한 키의 출발지 제한을 넓히지 않고 머신별 공개키 항목을 추가한다.
 `restrict`와 다음 고정 명령만 허용한다.
 
 ```text
@@ -104,6 +107,8 @@ Nginx 부모의 실제 GitHub 실행·IMDS 신원 확인
 
 실행 전 Nginx의 root 소유 `/etc/jarihana-deploy/worker-coordinator.json`을 설치해야 한다.
 `WorkerParentSettings`의 `repository`, `topology`, `before`, `state_directory`, `parent_ref`를 사용한다.
+`target_slot`은 관리자 설정에서 A/B 중 하나로 고정하며, 생략 시 기존 B 동작을 유지한다.
+`before`의 host·instance가 그 슬롯과 다르면 실행을 거부한다. GitHub 입력으로 임의 대상을 선택하지 않는다.
 `before`는 설치 직전 실제 B 관리 GET으로 읽은 `AppStatus` 전체 값이며,
 정상·대기·작업 종료·권한 미할당·DB 단계 IDLE 또는 COMPLETE여야 한다. 오래된 값을 자동으로 보정하지 않는다.
 저널 경로는 기존 worker 전용 디렉터리, 부모 ref는 기능 브랜치로 고정한다.

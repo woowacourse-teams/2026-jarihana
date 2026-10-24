@@ -5,7 +5,7 @@ from pydantic import model_validator
 
 from .github_http import GitHubHttp
 from .github_models import RepositoryPin, Workflow, WorkflowRun, parse_response
-from .models import AppStatus, Record, RunIdentity, Topology
+from .models import AppStatus, Host, Record, RunIdentity, Slot, Topology
 from .ports import DeploymentFailure
 
 
@@ -13,27 +13,32 @@ class WorkerParentSettings(Record):
     repository: RepositoryPin
     topology: Topology
     before: AppStatus
+    target_slot: Slot = Slot.B
     state_directory: Literal["/var/lib/jarihana-deploy/worker-rehearsal"]
     parent_ref: Literal["refs/heads/feat/blue-green-deployment"]
 
     @model_validator(mode="after")
-    def isolated_b_smoke(self) -> "WorkerParentSettings":
-        b = self.topology.b
+    def isolated_app_smoke(self) -> "WorkerParentSettings":
+        host = self.host
         status = self.before
         if (self.repository.id != 1321030074 or self.repository.full_name != "woowacourse-teams/2026-jarihana"
                 or self.topology.environment != "dev-rehearsal"
                 or self.topology.coordinator_instance_id != "i-01449d708ceef309b"
                 or self.topology.a.instance_id != "i-0a43bb4e0154e0f1f"
-                or b.instance_id != "i-0430ff91d1af2fb37"
+                or self.topology.b.instance_id != "i-0430ff91d1af2fb37"
                 or self.topology.control.workflow != "backend-bluegreen-worker-child.yml"
                 or not self.topology.control.ref.startswith("refs/tags/bluegreen-worker-rehearsal-")
-                or status.environment != self.topology.environment or status.host_id != b.host_id
-                or status.instance_id != b.instance_id or not status.healthy or not status.running
+                or status.environment != self.topology.environment or status.host_id != host.host_id
+                or status.instance_id != host.instance_id or not status.healthy or not status.running
                 or not status.requests_drained() or status.authority.phase not in ("IDLE", "COMPLETE")
                 or status.authority.status != "UNASSIGNED" or status.authority.owner_host is not None
                 or status.authority.owner_boot is not None):
-            raise DeploymentFailure("worker parent requires the isolated paused B smoke-test profile")
+            raise DeploymentFailure("worker parent requires the isolated paused app smoke-test profile")
         return self
+
+    @property
+    def host(self) -> Host:
+        return self.topology.host(self.target_slot)
 
 
 def verify_worker_parent(api: GitHubHttp, settings: WorkerParentSettings, run: RunIdentity, deadline: datetime) -> None:

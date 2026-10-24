@@ -39,7 +39,7 @@ def verify_profile(settings: WorkerSettings, runner: Runner) -> None:
         "DB_URL": DB_URL, "APP_VERSION": settings.expected_image, "PUSH_ENABLED": "false",
         "PUSH_WORKER_ENABLED": "false", "PUSH_WORKER_CONTROL_ENABLED": "true",
         "PUSH_WORKER_ENVIRONMENT": settings.topology.environment,
-        "PUSH_WORKER_HOST_ID": settings.topology.b.host_id,
+        "PUSH_WORKER_HOST_ID": settings.host.host_id,
     }
     if any(values.get(name) != value for name, value in expected.items()):
         raise DeploymentFailure("worker rehearsal requires the fixed dev DB and disabled delivery/scheduler")

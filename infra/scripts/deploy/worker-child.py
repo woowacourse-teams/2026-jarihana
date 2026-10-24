@@ -22,7 +22,11 @@ from bluegreen.spring_worker import SpringWorker, worker_client
 from bluegreen.ssh_journal import SshJournal
 from bluegreen.status_settings import root_file, worker_token
 from bluegreen.worker_profile import verify_profile
-from bluegreen.worker_settings import WorkerSettings, worker_route
+from bluegreen.worker_settings import (
+    WorkerSettings,
+    authorize_worker_machine,
+    worker_route,
+)
 from pydantic import SecretStr, ValidationError
 
 
@@ -40,9 +44,8 @@ def main() -> int:
         token = worker_token(settings)
         clock = SystemClock()
         with metadata_client() as client:
-            machine = local_machine(client, settings.topology.environment, settings.topology.b.host_id)
-        if machine.instance_id != settings.topology.b.instance_id:
-            raise DeploymentFailure("worker child is not on the approved B EC2")
+            machine = local_machine(client, settings.topology.environment, settings.host.host_id)
+        authorize_worker_machine(settings, machine)
         journal = SshJournal(settings.coordinator_address, settings.journal_key, settings.known_hosts,
                              account="jarihana-worker-grant")
         with github_clients() as clients, worker_client() as control_client:

@@ -39,7 +39,7 @@ jobs:
         with:
           version: '0.13.5'
           enable-cache: false
-      - name: 대기 중인 B에서 배포 시작·완료 명령 검증
+      - name: root 설정에 고정한 대기 앱에서 배포 시작·완료 명령 검증
         env:
           GH_TOKEN: ${{ github.token }}
         run: uv run --no-project --script infra/scripts/deploy/worker-coordinator.py

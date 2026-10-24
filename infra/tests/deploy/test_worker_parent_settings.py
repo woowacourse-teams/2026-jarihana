@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import final
 
 from bluegreen.github_models import Repository
-from bluegreen.models import AppStatus, Authority, RunIdentity
+from bluegreen.models import AppStatus, Authority, RunIdentity, Slot
 from bluegreen.ports import DeploymentFailure
 from bluegreen.worker_parent_settings import WorkerParentSettings, verify_worker_parent
 from github_fixture import GitHubFixture
@@ -13,18 +13,30 @@ from github_server import Reply
 from test_worker_settings import settings
 
 
-def parent_settings() -> WorkerParentSettings:
-    child = settings()
-    before = AppStatus(environment=child.topology.environment, host_id=child.topology.b.host_id,
-        instance_id=child.topology.b.instance_id, boot_id=child.expected_boot, image=child.expected_image,
+def parent_settings(slot: Slot = Slot.B) -> WorkerParentSettings:
+    child = settings(slot)
+    before = AppStatus(environment=child.topology.environment, host_id=child.host.host_id,
+        instance_id=child.host.instance_id, boot_id=child.expected_boot, image=child.expected_image,
         worker="PAUSED", in_flight=0, unresolved=0, healthy=True, running=True, http_in_flight=0,
         background_drained=True, authority=Authority())
-    return WorkerParentSettings(repository=child.repository, topology=child.topology, before=before,
+    return WorkerParentSettings(repository=child.repository, topology=child.topology, before=before, target_slot=slot,
         state_directory="/var/lib/jarihana-deploy/worker-rehearsal", parent_ref="refs/heads/feat/blue-green-deployment")
 
 
 @final
 class WorkerParentSettingsTest(GitHubFixture):
+    def test_a_target_selects_only_the_a_process(self) -> None:
+        value = parent_settings(Slot.A)
+
+        self.assertEqual(value.topology.a.instance_id, value.before.instance_id)
+        self.assertEqual(value.topology.a, value.host)
+
+    def test_a_target_with_b_snapshot_is_rejected(self) -> None:
+        value = parent_settings()
+
+        with self.assertRaises(DeploymentFailure):
+            _ = WorkerParentSettings.model_validate({**value.model_dump(), "target_slot": Slot.A})
+
     def test_running_parent_is_verified_against_actual_repository_metadata(self) -> None:
         value = parent_settings()
         parent = self.parent(value)

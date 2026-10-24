@@ -48,6 +48,7 @@ def main() -> int:
             verify_worker_parent(api, settings, run, clock.now() + timedelta(seconds=30))
             with store.lock():
                 state = store.create(DeploymentState(deployment_id=uuid4(), session_id=uuid4(),
+                    target=settings.target_slot, old=settings.target_slot.other(),
                     image=settings.before.image, parent_run_id=run.run_id, parent_attempt=run.attempt,
                     topology_digest=hashlib.sha256(settings.topology.model_dump_json().encode()).hexdigest(),
                     target_app=settings.before, authority=settings.before.authority, heartbeat=clock.now()))
@@ -61,7 +62,7 @@ def main() -> int:
                         raise StateConflict("worker smoke journal changed")
                     command = Command(command_id=uuid4(), deployment_id=latest.deployment_id,
                         parent_run_id=run.run_id, parent_attempt=run.attempt, phase=Phase.PREPARING, action=action,
-                        host=settings.topology.b, boot_id=settings.before.boot_id, image=settings.before.image,
+                        host=settings.host, boot_id=settings.before.boot_id, image=settings.before.image,
                         deadline=clock.now() + timedelta(seconds=300), authority=latest.authority)
                     _ = store.save(latest, latest.model_copy(update={"revision": latest.revision + 1,
                         "pending": command, "heartbeat": clock.now()}))

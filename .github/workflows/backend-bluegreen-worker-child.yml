@@ -23,7 +23,7 @@ on:
       slot:
         description: 시험 대상
         type: choice
-        options: [B]
+        options: [A, B]
         required: true
 
 permissions:
@@ -41,12 +41,12 @@ jobs:
   worker:
     if: >-
       github.repository == 'woowacourse-teams/2026-jarihana' &&
-      github.event_name == 'workflow_dispatch' && inputs.slot == 'B' &&
+      github.event_name == 'workflow_dispatch' && (inputs.slot == 'A' || inputs.slot == 'B') &&
       startsWith(github.ref, 'refs/tags/bluegreen-worker-rehearsal-') && github.run_attempt == 1
-    runs-on: [jarihana-bluegreen-rehearsal-b]
+    runs-on: ["${{ inputs.slot == 'A' && 'jarihana-bluegreen-rehearsal-a' || 'jarihana-bluegreen-rehearsal-b' }}"]
     timeout-minutes: 5
     concurrency:
-      group: backend-bluegreen-worker-child-b
+      group: "${{ inputs.slot == 'A' && 'backend-bluegreen-worker-child-a' || 'backend-bluegreen-worker-child-b' }}"
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
