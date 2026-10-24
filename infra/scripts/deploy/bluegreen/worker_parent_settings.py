@@ -1,12 +1,25 @@
 from datetime import datetime
+from enum import StrEnum
 from typing import Literal
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 
 from .github_http import GitHubHttp
 from .github_models import RepositoryPin, Workflow, WorkflowRun, parse_response
 from .models import AppStatus, Host, Record, RunIdentity, Slot, Topology
 from .ports import DeploymentFailure
+
+
+class WorkerScenario(StrEnum):
+    SMOKE = "smoke"
+    ROUND_TRIP = "round-trip"
+
+
+class WorkerRoundTripPlan(Record):
+    a: AppStatus
+    b: AppStatus
+    completion_contract: Literal["released-handoff-v1"]
+    total_seconds: int = Field(default=2700, strict=True, ge=300, le=2700)
 
 
 class WorkerParentSettings(Record):
@@ -16,6 +29,7 @@ class WorkerParentSettings(Record):
     target_slot: Slot = Slot.B
     state_directory: Literal["/var/lib/jarihana-deploy/worker-rehearsal"]
     parent_ref: Literal["refs/heads/feat/blue-green-deployment"]
+    round_trip: WorkerRoundTripPlan | None = None
 
     @model_validator(mode="after")
     def isolated_app_smoke(self) -> "WorkerParentSettings":
@@ -34,7 +48,20 @@ class WorkerParentSettings(Record):
                 or status.authority.status != "UNASSIGNED" or status.authority.owner_host is not None
                 or status.authority.owner_boot is not None):
             raise DeploymentFailure("worker parent requires the isolated paused app smoke-test profile")
+        if self.round_trip is not None:
+            plan = self.round_trip
+            peer = plan.b
+            if (self.target_slot is not Slot.A or plan.a != self.before
+                    or peer.host_id != self.topology.b.host_id or peer.instance_id != self.topology.b.instance_id
+                    or peer.environment != self.topology.environment or peer.authority != plan.a.authority
+                    or peer.image != plan.a.image or peer.boot_id == plan.a.boot_id
+                    or not peer.healthy or not peer.running or not peer.requests_drained()):
+                raise DeploymentFailure("round-trip requires matching paused A/B processes and shared authority")
         return self
+
+    def select(self, scenario: WorkerScenario) -> None:
+        if (scenario is WorkerScenario.ROUND_TRIP) != (self.round_trip is not None):
+            raise DeploymentFailure("workflow scenario and administrator round-trip opt-in differ")
 
     @property
     def host(self) -> Host:

@@ -6,6 +6,13 @@ on:
     paths:
       - .github/workflows/backend-bluegreen-worker-coordinator.yml
   workflow_dispatch:
+    inputs:
+      scenario:
+        description: 'smoke=시작·완료, round-trip=초기 준비·A/B 왕복·종료 정리 (서버 관리자 허용 필요)'
+        type: choice
+        required: true
+        default: smoke
+        options: [smoke, round-trip]
 
 permissions:
   contents: read
@@ -24,7 +31,7 @@ jobs:
       github.event_name == 'workflow_dispatch' &&
       github.ref == 'refs/heads/feat/blue-green-deployment' && github.run_attempt == 1
     runs-on: [jarihana-bluegreen-coordinator]
-    timeout-minutes: 14
+    timeout-minutes: 55
     permissions:
       contents: read
       actions: write
@@ -39,13 +46,15 @@ jobs:
         with:
           version: '0.13.5'
           enable-cache: false
-      - name: root 설정에 고정한 대기 앱에서 배포 시작·완료 명령 검증
+      - name: 관리자 설정과 일치하는 worker 시험 실행
         env:
           GH_TOKEN: ${{ github.token }}
+          BG_SCENARIO: ${{ inputs.scenario }}
         run: uv run --no-project --script infra/scripts/deploy/worker-coordinator.py
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: worker-coordinator-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/bg-worker-coordinator-${{ github.run_id }}-${{ github.run_attempt }}/state.json
-          if-no-files-found: error
+          path: ${{ runner.temp }}/bg-worker-coordinator-${{ github.run_id }}-${{ github.run_attempt }}/
+          if-no-files-found: warn
           retention-days: 3

@@ -7,9 +7,14 @@ from typing import final
 from bluegreen.github_models import Repository
 from bluegreen.models import AppStatus, Authority, RunIdentity, Slot
 from bluegreen.ports import DeploymentFailure
-from bluegreen.worker_parent_settings import WorkerParentSettings, verify_worker_parent
+from bluegreen.worker_parent_settings import (
+    WorkerParentSettings,
+    WorkerScenario,
+    verify_worker_parent,
+)
 from github_fixture import GitHubFixture
 from github_server import Reply
+from pydantic import ValidationError
 from test_worker_settings import settings
 
 
@@ -25,6 +30,48 @@ def parent_settings(slot: Slot = Slot.B) -> WorkerParentSettings:
 
 @final
 class WorkerParentSettingsTest(GitHubFixture):
+    def test_round_trip_requires_explicit_matching_a_and_b_snapshots(self) -> None:
+        # Given
+        a, b = parent_settings(Slot.A), parent_settings(Slot.B)
+        # When
+        value = WorkerParentSettings.model_validate({**a.model_dump(), "round_trip": {
+            "a": a.before, "b": b.before, "completion_contract": "released-handoff-v1"}})
+        # Then
+        self.assertIsNotNone(value.round_trip)
+
+    def test_scenario_must_match_administrator_opt_in(self) -> None:
+        # Given
+        a, b = parent_settings(Slot.A), parent_settings(Slot.B)
+        full = WorkerParentSettings.model_validate({**a.model_dump(), "round_trip": {
+            "a": a.before, "b": b.before, "completion_contract": "released-handoff-v1"}})
+        # When / Then
+        a.select(WorkerScenario.SMOKE)
+        full.select(WorkerScenario.ROUND_TRIP)
+        with self.assertRaises(DeploymentFailure):
+            a.select(WorkerScenario.ROUND_TRIP)
+        with self.assertRaises(DeploymentFailure):
+            full.select(WorkerScenario.SMOKE)
+
+    def test_round_trip_rejects_mismatched_peer_identity_health_image_or_authority(self) -> None:
+        # Given
+        a, b = parent_settings(Slot.A), parent_settings(Slot.B)
+        for changes in ({"host_id": a.before.host_id}, {"boot_id": a.before.boot_id}, {"healthy": False},
+                        {"image": "sha256:" + "f" * 64}, {"in_flight": 1},
+                        {"authority": b.before.authority.model_copy(update={"revision": 7})}):
+            # When / Then
+            with self.subTest(changes=changes), self.assertRaises(DeploymentFailure):
+                _ = WorkerParentSettings.model_validate({**a.model_dump(), "round_trip": {
+                    "a": a.before, "b": b.before.model_copy(update=changes), "completion_contract": "released-handoff-v1"}})
+
+    def test_round_trip_requires_completion_contract_and_bounded_budget(self) -> None:
+        # Given
+        a, b = parent_settings(Slot.A), parent_settings(Slot.B)
+        for plan in ({"a": a.before, "b": b.before}, {"a": a.before, "b": b.before,
+                "completion_contract": "released-handoff-v1", "total_seconds": 2701}):
+            # When / Then
+            with self.subTest(plan=plan), self.assertRaises(ValidationError):
+                _ = WorkerParentSettings.model_validate({**a.model_dump(), "round_trip": plan})
+
     def test_a_target_selects_only_the_a_process(self) -> None:
         value = parent_settings(Slot.A)
 

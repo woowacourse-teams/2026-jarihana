@@ -86,9 +86,10 @@ runner는 root 설정의 별도 키·known_hosts로 매번 새 SSH 연결을 연
 ## 다음 실제 검증
 
 `backend-bluegreen-worker-coordinator.yml`과 `worker-coordinator.py`는 Nginx에서 실행하는
-별도 worker 부모 경로다. 원격 설정을 설치하고 실제 Actions 실행을 확인했다.
-첫 시험은 B를 `PAUSED`로 유지하면서 `BEGIN → COMPLETE` 두 명령의 요청·결과 회수만 확인한다.
-worker 활성화·발송·A/B 인계·HTTP 전환·EC2 종료를 수행하지 않는다.
+별도 worker 부모 경로다. 기존 `scenario=smoke`는 원격 설정 설치와 실제 Actions 실행을 확인했다.
+기본 smoke 시험은 선택한 앱을 `PAUSED`로 유지하면서 `BEGIN → COMPLETE` 두 명령의 왕복만 확인한다.
+smoke는 worker 활성화·발송·A/B 인계·HTTP 전환·EC2 종료를 수행하지 않는다.
+추가한 `round-trip` 모드는 아래 전체 시험 절의 관리자 허용이 필요하며 아직 실제 Actions에서 실행하지 않았다.
 
 ```text
 Nginx 부모의 실제 GitHub 실행·IMDS 신원 확인
@@ -109,7 +110,7 @@ Nginx 부모의 실제 GitHub 실행·IMDS 신원 확인
 `WorkerParentSettings`의 `repository`, `topology`, `before`, `state_directory`, `parent_ref`를 사용한다.
 `target_slot`은 관리자 설정에서 A/B 중 하나로 고정하며, 생략 시 기존 B 동작을 유지한다.
 `before`의 host·instance가 그 슬롯과 다르면 실행을 거부한다. GitHub 입력으로 임의 대상을 선택하지 않는다.
-`before`는 설치 직전 실제 B 관리 GET으로 읽은 `AppStatus` 전체 값이며,
+`before`는 설치 직전 선택한 슬롯의 관리 GET으로 읽은 `AppStatus` 전체 값이며,
 정상·대기·작업 종료·권한 미할당·DB 단계 IDLE 또는 COMPLETE여야 한다. 오래된 값을 자동으로 보정하지 않는다.
 저널 경로는 기존 worker 전용 디렉터리, 부모 ref는 기능 브랜치로 고정한다.
 B의 허용 목록도 이 시험에 필요한 `begin`, `phase_complete`만 별도로 열어야 한다.
@@ -191,7 +192,7 @@ DB 권한 변경이 확인되면 성공 결과를 채택하지 않는다. 불명
 
 이 경로는 로컬 HTTP·저널·artifact 경계에서 검증했다. 기존 고정 태그에는 이 추가 코드가
 포함되지 않으며, 원격 적용 전 새 고정 태그와 관리자 허용 목록을 별도로 준비해야 한다.
-현재 부모 CLI는 여전히 `BEGIN → COMPLETE` 시험용이다.
+부모 CLI는 기본 `smoke`와 명시적으로 허용한 `round-trip`을 구분한다.
 
 ## Worker 양방향 인계 실습 로직
 
@@ -226,7 +227,7 @@ GitHub 실제 실행·원격 A/B 인계·HTTP 전환·자동 롤백 검증도 �
 
 `bluegreen/worker_trial.py`의 `WorkerTrial`은 동일한 명령·결과 회수 경로로 초기 권한을
 준비하거나 시험을 정리한다. 두 프로세스의 정확한 상태를 새 저널에 기록한 뒤 호출한다.
-`WorkerHandoff`와 같은 격리 환경 제한을 적용하며, 현재 부모 CLI에는 아직 연결하지 않았다.
+`WorkerHandoff`와 같은 격리 환경 제한을 적용하며, 전체 시험 부모의 `round-trip` 모드에 연결했다.
 
 ```text
 BOOTSTRAP: 양쪽 최신 STATUS·대기·권한 미할당 확인
@@ -251,3 +252,43 @@ DB를 직접 수정하거나 권한 행을 삭제하지 않으며, 이력을 보
 실제 EC2에서 실행하려면 새 종료 계약을 포함한 **A/B 앱 이미지**, 새 worker 제어 태그,
 양쪽 root 설정과 부모 CLI 연결이 필요하다. 기존 고정 이미지·태그를 그대로 사용하지 않는다.
 권한 정리가 확인되어도 HTTP·백그라운드 활동 확인과 원래 dev 복구는 별도로 수행한다.
+
+## 부모의 전체 A/B 시험 모드
+
+GitHub Actions 입력 `scenario=round-trip`과 root 설정의 `round_trip`이 **둘 다** 있어야 실행한다.
+기본 `smoke` 설정으로 전체 시험을 요청하거나, 전체 시험 관리자 설정에서 smoke를 요청하면 거부한다.
+feature 브랜치의 첫 `workflow_dispatch`만 허용하며 push는 기존처럼 등록 작업만 실행한다.
+main 배포 workflow는 변경하지 않는다.
+
+| 관리자 설정 | 조건 |
+| --- | --- |
+| `target_slot`, `before` | A 및 설치 직전 A의 전체 AppStatus |
+| `round_trip.a` | `before`와 같은 AppStatus |
+| `round_trip.b` | 실제 B의 AppStatus. A와 다른 boot, 정상·실행 중·대기·작업 종료 상태 |
+| 양쪽 권한·이미지 | 같은 최신 미할당 권한과 같은 새 앱 이미지. 이전 상태를 자동 보정하지 않음 |
+| `round_trip.completion_contract` | `released-handoff-v1` 명시. 관리자가 새 앱의 종료 계약을 확인했다는 표시이며 자동 지원 탐지가 아님 |
+| `round_trip.total_seconds` | 시험 한도 초안. 300~2700초, 기본2700초. 실제 dev 실측 후 조정 |
+
+앱별 컨테이너 세대·boot·이미지·실푸시 차단은 각 서버의 worker child root 설정과 프로필 검사로
+계속 확인한다. 부모 설정만으로 child의 빈 명령 허용 목록이 열리지 않는다.
+이 시험은 같은 새 이미지로 제어 기능을 검증한다. 신구 버전 혼재·DB 호환성 검증을 대신하지 않는다.
+
+```text
+입력·root 허용 일치 -> 실제 부모 run/ref/SHA/attempt 및 Nginx IMDS 확인
+  -> 한 부모의 일회성 시험 시작 기록
+  -> BOOTSTRAP -> A-to-B -> B-to-A -> CLEANUP
+  -> 각 단계 완료 상태를 저장한 뒤에만 다음 저널 생성
+```
+
+부모가 계속 실행 중인지와 전체 시간 한도를 명령 발행·조회·결과 회수 전후에 확인한다.
+명령의 원래 기한이 전체 한도 안에 들어오지 않으면 새로 발행하지 않는다. 벽시계가 뒤로 움직여도
+monotonic 한도는 늘어나지 않는다. workflow 상한은 준비 시간을 포함한55분이다.
+
+완료된 단계는 각각 `bootstrap.json`, `A-to-B.json`, `B-to-A.json`, `cleanup.json`으로 보존한다.
+실패하면 가능한 경우 `interrupted.json`도 남기고, 마지막 Nginx 저널과 pending/run을 유지한다.
+이미 발행된 명령은 부모 취소 직전에 적용됐을 수도 있으므로 추측으로 되돌리거나 재전송하지 않는다.
+다음 단계·자동 cleanup은 시작하지 않는다. 같은 부모의 재시작은 `round-trip-<run>-<attempt>.json`
+기록으로 차단하며, 이를 자동 삭제하지 않는다. 새 부모를 실행할 때도 실제 상태와 root 핀을 다시 확인한다.
+
+새 전체 부모 순서는 로컬의 실제 Spring 두 개와 PostgreSQL에서 검증했다. 실제 GitHub 왕복 인계와
+새 root 설정 설치는 아직 하지 않았다. 운영 HTTP 전환·900초 관찰·자동 롤백·EC2 시작/중지는 별도다.

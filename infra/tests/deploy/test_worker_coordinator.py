@@ -1,10 +1,12 @@
 import hashlib
+from datetime import datetime
 from typing import final
 from uuid import uuid4
 
 from bluegreen.child_artifacts import serialize_artifact
 from bluegreen.github_models import Runs, command_name
 from bluegreen.models import Action, Authority, Phase
+from bluegreen.parent_applications import ParentApplications
 from bluegreen.ports import DeploymentFailure
 from bluegreen.state_store import StateConflict
 from bluegreen.worker_command import expected_authority
@@ -15,6 +17,37 @@ from github_server import Reply
 
 @final
 class WorkerCoordinatorTest(GitHubFixture):
+    def test_parent_rejection_before_dispatch_preserves_intent_without_http(self) -> None:
+        # Given
+        coordinator = self.ready()
+
+        def verify(_deadline: datetime | None) -> None:
+            raise DeploymentFailure("parent is no longer running")
+
+        coordinator.apps = ParentApplications(self.apps, verify)
+        # When / Then
+        with self.assertRaises(DeploymentFailure):
+            _ = coordinator.execute(self.command)
+        self.assert_attention(bound=False)
+        self.assertEqual([], self.server.requests)
+
+    def test_parent_revocation_during_download_preserves_exact_bound_command(self) -> None:
+        # Given
+        coordinator = self.ready()
+        cancelled: list[bool] = []
+        self.download_hook = lambda: cancelled.append(True)
+
+        def verify(_deadline: datetime | None) -> None:
+            if cancelled:
+                raise DeploymentFailure("parent cancelled during collection")
+
+        coordinator.apps = ParentApplications(self.apps, verify)
+        # When / Then
+        with self.assertRaises(DeploymentFailure):
+            _ = coordinator.execute(self.command)
+        self.assert_attention(bound=True)
+        self.assertEqual(1, sum(request.method == "POST" for request in self.server.requests))
+
     def ready_status(self) -> WorkerCoordinator:
         coordinator = self.ready()
         authority = self.command.authority

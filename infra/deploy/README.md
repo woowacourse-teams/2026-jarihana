@@ -13,6 +13,9 @@ worker 상태 변경의 명령 변환·실행 허가·로컬 관리 API 호출·
 별도 Nginx 부모에서 B와 A 각각의 `BEGIN → COMPLETE` 실행·결과 회수를 검증했다.
 시험 후 두 서버의 worker 명령 허용 목록은 닫았다.
 각 시험에서 worker는 대기 상태를 유지했다. A/B 권한 인계·HTTP 전환·15분 관찰은 아직 검증하지 않았다.
+전체 worker 시험의 `round-trip` 부모 모드는 코드에 연결했고, 로컬의 실제 Spring 두 개에서
+초기 권한 준비·양방향 인계·종료 정리를 검증했다. GitHub 입력과 양쪽 AppStatus를 고정한 root 허용이
+모두 필요하며, 이 모드의 실제 Actions 실행과 운영 반영은 아직 하지 않았다.
 이 파일의 설정을 복사하는 것만으로 운영 배포가 활성화되지 않는다.
 설계 배경은 [인프라 ADR 0005](../docs/adr/0005-nginx-ec2-blue-green-deployment.md)를 따른다.
 

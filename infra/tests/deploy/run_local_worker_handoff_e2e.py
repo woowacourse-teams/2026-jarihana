@@ -6,7 +6,6 @@
 # Run with both infra/scripts/deploy and this directory in PYTHONPATH:
 # JARIHANA_E2E_JAVA_IMAGE=<verified Java 21 digest> uv run --script this-file.py
 # Uses the existing local bootJar and unique disposable Docker resources only.
-import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -14,12 +13,12 @@ from threading import Event
 from typing import final, override
 from uuid import uuid4
 
-from bluegreen.models import DeploymentState, Phase, Slot
+from bluegreen.models import Phase, RunIdentity, Slot
 from bluegreen.nginx_switch import ApiProbe, ProcessRunner
 from bluegreen.ports import DeploymentFailure
 from bluegreen.worker_coordinator import WorkerCoordinator
-from bluegreen.worker_handoff import WorkerHandoff
-from bluegreen.worker_trial import TrialOperation, WorkerTrial
+from bluegreen.worker_parent_settings import WorkerRoundTripPlan
+from bluegreen.worker_round_trip import RoundTripContext, WorkerRoundTrip
 from controller_fakes import OLD_IMAGE
 from local_runtime import LocalRuntime
 from local_spring import SpringNode
@@ -54,39 +53,34 @@ def main() -> None:
                 _ = finished.wait(0.05)
 
         counts: list[int] = []
+
+        def verify_stage() -> None:
+            current = store.read()
+            if current is None or current.phase is not Phase.COMPLETE:
+                return
+            a, b = runtime.nodes[Slot.A].snapshot(), runtime.nodes[Slot.B].snapshot()
+            if a.authority != b.authority or current.authority != a.authority or a.authority.phase != "COMPLETE":
+                raise DeploymentFailure("real JVMs disagree about the completed authority")
+            if a.authority.owner_host is None:
+                if not a.drained() or not b.drained() or a.authority.owner_boot is not None:
+                    raise DeploymentFailure("trial cleanup did not prove both workers paused and released")
+            else:
+                live = a if a.authority.owner_host == a.host_id else b
+                previous = b if live is a else a
+                if (live.worker != "ACTIVE" or not previous.drained() or live.authority.owner_host != live.host_id
+                        or live.authority.owner_boot != live.boot_id):
+                    raise DeploymentFailure("real JVMs disagree about the transferred exclusive owner")
+
         with ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(request_loop)
             try:
-                stages: tuple[tuple[str, Slot, TrialOperation | None, Slot | None], ...] = (
-                    ("bootstrap", Slot.A, TrialOperation.BOOTSTRAP, Slot.A),
-                    ("A-to-B", Slot.A, None, Slot.B),
-                    ("B-to-A", Slot.B, None, Slot.A),
-                    ("cleanup", Slot.A, TrialOperation.CLEANUP, None),
-                )
-                for name, old, operation, expected_owner in stages:
-                    target = old.other()
-                    before = runtime.nodes[old].snapshot()
-                    standby = runtime.nodes[target].snapshot()
-                    _ = store.create(DeploymentState(deployment_id=uuid4(), session_id=uuid4(), old=old, target=target,
-                        parent_run_id=100, parent_attempt=1, old_app=before, target_app=standby,
-                        authority=before.authority, heartbeat=adapters.clock.now(),
-                        topology_digest=hashlib.sha256(topology.model_dump_json().encode()).hexdigest()))
-                    handoff = WorkerHandoff(WorkerCoordinator(store, topology, adapters.apps, adapters.clock))
-                    final = handoff.run() if operation is None else WorkerTrial(handoff).run(operation)
-                    a, b = runtime.nodes[Slot.A].snapshot(), runtime.nodes[Slot.B].snapshot()
-                    if final.phase is not Phase.COMPLETE or a.authority != b.authority or a.authority.phase != "COMPLETE":
-                        raise DeploymentFailure("real JVMs disagree about the completed authority")
-                    if expected_owner is None:
-                        if not a.drained() or not b.drained() or a.authority.owner_host is not None or a.authority.owner_boot is not None:
-                            raise DeploymentFailure("trial cleanup did not prove both workers paused and released")
-                    else:
-                        live = a if expected_owner is Slot.A else b
-                        previous = b if expected_owner is Slot.A else a
-                        if (live.worker != "ACTIVE" or not previous.drained() or live.authority.owner_host != live.host_id
-                                or live.authority.owner_boot != live.boot_id):
-                            raise DeploymentFailure("real JVMs disagree about the transferred exclusive owner")
-                    counts.append(len(final.receipts))
-                    _ = (directory / f"{name}.json").write_text(final.model_dump_json(indent=2))
+                plan = WorkerRoundTripPlan(a=runtime.nodes[Slot.A].snapshot(), b=runtime.nodes[Slot.B].snapshot(),
+                    completion_contract="released-handoff-v1")
+                parent = RunIdentity(run_id=100, attempt=1, workflow="backend-bluegreen-worker-coordinator.yml",
+                    ref="refs/heads/feat/blue-green-deployment", sha="b" * 40, event="workflow_dispatch")
+                context = RoundTripContext(parent, plan, directory / "parent", verify_stage)
+                states = WorkerRoundTrip(WorkerCoordinator(store, topology, adapters.apps, adapters.clock), context).run()
+                counts = [len(state.receipts) for state in states]
             finally:
                 finished.set()
             _ = future.result(timeout=10)
@@ -97,6 +91,7 @@ def main() -> None:
             "stages": ["bootstrap", "A-to-B", "B-to-A", "cleanup"],
             "commands_per_stage": counts, "http_samples": len(samples), "http_failures": samples.count(False),
             "final_workers_paused": True, "final_authority_unassigned": True,
+            "round_trip_parent_driver_verified": True,
             "external_push_enabled": False, "github_execution_verified": False,
             "http_switch_tested": False, "observation_900_seconds_tested": False,
         }, indent=2))
