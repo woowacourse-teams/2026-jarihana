@@ -255,6 +255,14 @@ DB를 직접 수정하거나 권한 행을 삭제하지 않으며, 이력을 보
 
 ## 부모의 전체 A/B 시험 모드
 
+새 앱은 `backend-bluegreen-image.yml`을 기능 브랜치에서 수동 실행해 먼저 빌드한다.
+이 workflow는 GitHub ARM64 runner에서 백엔드 테스트·이미지 업로드·JVM 기동 검사만 수행한다.
+push에서는 등록 작업만 실행하며 EC2, RDS, 앱 컨테이너 설정은 변경하지 않는다.
+실행 artifact `worker-trial-image-<run ID>`에 소스 commit, 레지스트리 manifest digest,
+Docker image ID를 별도로 기록한다. 성공 후 두 서버에서 실제로 pull한 이미지와 대조하고
+새 worker 고정 태그 및 root 설정을 준비한 뒤 전체 시험을 시작한다.
+JVM 기동 검사는 Spring readiness나 DB 연결 검증을 대신하지 않는다.
+
 GitHub Actions 입력 `scenario=round-trip`과 root 설정의 `round_trip`이 **둘 다** 있어야 실행한다.
 기본 `smoke` 설정으로 전체 시험을 요청하거나, 전체 시험 관리자 설정에서 smoke를 요청하면 거부한다.
 feature 브랜치의 첫 `workflow_dispatch`만 허용하며 push는 기존처럼 등록 작업만 실행한다.
