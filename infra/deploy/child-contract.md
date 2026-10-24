@@ -41,6 +41,8 @@ STATUS 전용 Nginx 부모의 실제 Actions 실행과 B 결과 수집·영속 �
   `RELEASE`는 현재 owner·HANDOFF·DRAINING 권한·로컬 PAUSED/in-flight 0/unresolved 0을 확인한 뒤에만 전송한다.
 - `ACTIVATE`는 readiness 정상, 기존 권한 UNASSIGNED, owner 없음과 로컬 drain을 확인한다.
   서버의 DB CAS 검증도 유지하므로 조회 뒤 다른 명령이 들어오면 성공으로 추측하지 않는다.
+- `HANDOFF → COMPLETE` 시험 정리는 권한 UNASSIGNED·owner 없음·로컬 drain일 때만 허용한다.
+  처리 권한 반납 전에 완료로 건너뛰지 않는다. 이 경로는 900초 운영 관찰 완료를 증명하지 않는다.
 - 성공 응답의 authority는 예상 revision+1·epoch·phase·owner/status와 일치해야 한다.
   후속 GET도 같은 authority를 보여야 하며 활성화는 ACTIVE, 중단은 PAUSED/DRAINING을 확인한다.
   이 상태로 프로세스 정상 종료를 증명하거나 `normal_exit=true`를 만들지 않는다.

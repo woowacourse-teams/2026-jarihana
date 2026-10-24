@@ -151,7 +151,9 @@ class FakeApps:
         if command.action in (Action.PAUSE, Action.RELEASE) and (
                 self.authority.owner_host != node.host_id or self.authority.owner_boot != node.boot_id):
             raise DeploymentFailure("worker operation requires matching owner")
-        if command.action is Action.COMPLETE and self.authority.phase not in ("OBSERVE", "PREPARE"):
+        released_completion = (self.authority.phase == "HANDOFF" and self.authority.status == "UNASSIGNED"
+                               and self.authority.owner_host is None and self.authority.owner_boot is None and node.drained())
+        if command.action is Action.COMPLETE and self.authority.phase not in ("OBSERVE", "PREPARE") and not released_completion:
             raise DeploymentFailure("COMPLETE cannot skip the observation phase")
         changes = {}
         match command.action:

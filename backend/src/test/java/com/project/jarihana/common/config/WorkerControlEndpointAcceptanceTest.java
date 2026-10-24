@@ -246,6 +246,37 @@ class WorkerControlEndpointAcceptanceTest extends IntegrationTestSupport {
         assertThat(http.statusCode()).isEqualTo(HttpStatus.OK.value());
     }
 
+    @Test
+    @DisplayName("관리 API는 권한 반납이 끝난 시험을 대기 상태로 종료하고 다음 begin을 허용한다.")
+    void completeReleasedRehearsalAndAllowNextBegin() {
+        // Given
+        admission.pause();
+        UUID deploymentId = UUID.randomUUID();
+        send("begin", command(deploymentId, UUID.randomUUID(), 0, DeploymentPhase.IDLE, 0, null))
+                .then().statusCode(200);
+        send("phase", command(deploymentId, UUID.randomUUID(), 1, DeploymentPhase.PREPARE, 1, DeploymentPhase.HANDOFF))
+                .then().statusCode(200);
+        send("activate", command(deploymentId, UUID.randomUUID(), 1, DeploymentPhase.HANDOFF, 2, null))
+                .then().statusCode(200);
+        send("pause", command(deploymentId, UUID.randomUUID(), 1, DeploymentPhase.HANDOFF, 3, null))
+                .then().statusCode(200);
+        send("release", command(deploymentId, UUID.randomUUID(), 1, DeploymentPhase.HANDOFF, 4, null))
+                .then().statusCode(200);
+
+        // When
+        var completed = send("phase", command(deploymentId, UUID.randomUUID(), 1,
+                DeploymentPhase.HANDOFF, 5, DeploymentPhase.COMPLETE));
+
+        // Then
+        assertThat(completed.statusCode()).isEqualTo(HttpStatus.OK.value());
+        assertThat(completed.jsonPath().getString("authority.status")).isEqualTo("UNASSIGNED");
+        assertThat(completed.jsonPath().getString("authority.phase")).isEqualTo("COMPLETE");
+        assertThat(completed.jsonPath().getString("authority.owner")).isNull();
+        assertThat(admission.drainStatus().isDrained()).isTrue();
+        send("begin", command(UUID.randomUUID(), UUID.randomUUID(), 1, DeploymentPhase.COMPLETE, 6, null))
+                .then().statusCode(200);
+    }
+
     private Map<String, Object> command(UUID deploymentId, UUID commandId,
                                         long epoch, DeploymentPhase expectedPhase, long expectedRevision,
                                         DeploymentPhase nextPhase) {

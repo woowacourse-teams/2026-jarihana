@@ -92,6 +92,22 @@ epoch, phase, revision, deadline을 검사한다. 정확히 같은 `commandId`�
 | `activate` | 현재 프로세스를 DB 처리 권한 owner로 승인하고 worker를 재개 |
 | `release` | 신규 선점 차단과 in-flight 0을 확인한 뒤 현재 프로세스의 DB 권한을 반납 |
 
+### 권한 반납 후 시험 종료
+
+`phase`의 `HANDOFF → COMPLETE`는 DB 권한이 `UNASSIGNED`, owner가 없고,
+요청을 받는 프로세스가 `PAUSED`·inFlight 0·unresolved 0인 경우에만 허용한다.
+먼저 기존 owner의 `pause → drain 확인 → release`를 끝내야 한다.
+ACTIVE 또는 DRAINING owner가 남아 있는 상태에서 완료 단계로 건너뛸 수 없다.
+
+종료와 다른 프로세스의 활성화가 겹치면 DB 행 잠금·expected revision으로 하나만 적용한다.
+완료 후에는 `COMPLETE/UNASSIGNED`와 이전 deployment·epoch·revision 이력을 남긴다.
+다음 시험은 새로운 `begin`으로 시작하며 DB 행 삭제나 직접 수정이 필요하지 않다.
+정상 서비스의 `OBSERVE → COMPLETE`는 기존처럼 ACTIVE owner를 유지한다.
+
+`COMPLETE/UNASSIGNED`는 worker를 멈춘 시험의 정리 결과다. 사용자 트래픽 전환이나
+운영 배포 성공, 15분 관찰 완료를 뜻하지 않는다. 이전 바이너리는 이 종료 경로를
+거부하므로 실제 시험 전에 A/B 모두 해당 계약을 지원하는 이미지인지 확인한다.
+
 예상 상태·대상·기한·revision 충돌은 HTTP 409 `WORKER_CONTROL_CONFLICT`, 잘못된 요청은 HTTP 400,
 머신 토큰 누락·오류 또는 공개 포트 접근은 HTTP 403이다. 내부 예외 상세와 비밀값은 응답에 포함하지 않는다.
 

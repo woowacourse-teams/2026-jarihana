@@ -222,7 +222,32 @@ A/B 최신 STATUS -> A가 실제 소유자이고 B가 정상 대기 상태인지
 이 실습의 `OBSERVE`는 worker 제어 단계 변경이며 **900초 운영 관찰 검증이 아니다**.
 GitHub 실제 실행·원격 A/B 인계·HTTP 전환·자동 롤백 검증도 별도로 남아 있다.
 
-실서버 실행 전에 부모 CLI와 A/B root 설정을 연결하고, 현재 권한이 미할당인 시험 DB에서
-초기 소유권을 만드는 절차와 시험 후 안전하게 정리하는 절차를 마련해야 한다.
-현재 Spring API는 `HANDOFF → COMPLETE` 직접 전환을 허용하지 않으므로, 반납 후 DB 단계가
-자동으로 완료된다고 가정하거나 DB 행을 직접 삭제해서 정리하지 않는다.
+## 시험 시작과 종료 정리
+
+`bluegreen/worker_trial.py`의 `WorkerTrial`은 동일한 명령·결과 회수 경로로 초기 권한을
+준비하거나 시험을 정리한다. 두 프로세스의 정확한 상태를 새 저널에 기록한 뒤 호출한다.
+`WorkerHandoff`와 같은 격리 환경 제한을 적용하며, 현재 부모 CLI에는 아직 연결하지 않았다.
+
+```text
+BOOTSTRAP: 양쪽 최신 STATUS·대기·권한 미할당 확인
+  -> BEGIN -> HANDOFF -> A ACTIVATE -> OBSERVE -> COMPLETE -> B STATUS
+
+A → B → A 인계 시험
+
+CLEANUP: 양쪽 최신 STATUS·A 소유권·B 대기 확인
+  -> BEGIN -> HANDOFF -> A PAUSE -> drain 대기 -> A RELEASE
+  -> B STATUS -> B에서 COMPLETE -> A STATUS
+  -> 양쪽 PAUSED·같은 COMPLETE/UNASSIGNED 권한 확인
+```
+
+Spring은 owner가 없고 로컬 작업이 모두 끝난 경우에만 `HANDOFF → COMPLETE` 시험 정리를
+허용한다. ACTIVE·DRAINING owner나 미확정 작업을 완료 처리로 숨기지 않는다.
+DB를 직접 수정하거나 권한 행을 삭제하지 않으며, 이력을 보존한 채 다음 `begin`을 받을 수 있다.
+기존 owner가 남으면 BOOTSTRAP을 거부한다. 초기 활성화의 응답이 유실되거나 종료 대기가
+실패하면 그 명령과 실행을 보존하고 자동 정리·재전송·다른 서버 활성화를 하지 않는다.
+이 절차는 legacy worker가 실제로 멈췄는지 대신 확인해 주지 않는다.
+
+로컬의 새 JAR로 초기 권한 준비·왕복 인계·종료 정리를 모두 실행해 검증했다.
+실제 EC2에서 실행하려면 새 종료 계약을 포함한 **A/B 앱 이미지**, 새 worker 제어 태그,
+양쪽 root 설정과 부모 CLI 연결이 필요하다. 기존 고정 이미지·태그를 그대로 사용하지 않는다.
+권한 정리가 확인되어도 HTTP·백그라운드 활동 확인과 원래 dev 복구는 별도로 수행한다.

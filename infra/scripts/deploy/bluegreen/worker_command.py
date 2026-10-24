@@ -55,6 +55,10 @@ def expected_authority(command: Command, before: AppStatus) -> Authority:
             return changed.model_copy(update={"deployment_id": command.deployment_id,
                                                "epoch": authority.epoch + 1, "phase": "PREPARE"})
         case Action.HANDOFF | Action.OBSERVE | Action.COMPLETE:
+            if command.action is Action.COMPLETE and authority.phase == "HANDOFF" and (
+                    authority.status != "UNASSIGNED" or authority.owner_host is not None
+                    or authority.owner_boot is not None or not before.drained()):
+                raise DeploymentFailure("handoff completion requires released authority and a fully paused worker")
             phase = {Action.HANDOFF: "HANDOFF", Action.OBSERVE: "OBSERVE", Action.COMPLETE: "COMPLETE"}[command.action]
             return changed.model_copy(update={"phase": phase})
         case Action.PAUSE:
