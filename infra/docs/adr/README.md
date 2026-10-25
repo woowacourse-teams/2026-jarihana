@@ -12,7 +12,7 @@
 | 0002 | [dev·prod DB는 RDS PostgreSQL을 사용한다](0002-rds-deployment-database.md) | 채택(2026-10-12 최신 develop 통합에서 재개정) | 2026-10-05 | [백엔드 ADR 0009](../../../backend/docs/adr/0009-aws-deployment-topology.md)의 dev/prod 호스트 공유 결정을 대체 |
 | 0003 | [Java Agent와 로컬 Alloy로 수집한 트레이스를 Tempo에 저장한다](0003-tempo-tracing.md) | 채택 후 기본 비활성(ADR 0004) | 2026-10-09 | ADR 0001의 트레이스 도입 보류를 해제, 이후 선택 구성으로 변경 |
 | 0004 | [Tempo는 기본 모니터링 경로에서 비활성화하고 DB 호출 지표는 JDBC 메트릭으로 본다](0004-disable-tempo-by-default.md) | 채택(저장소 구성 반영, AWS 미배포) | 2026-10-13 | 메모리 부족으로 ADR 0003의 상시 실행을 중단하고 JDBC 지표로 대시보드 유지 |
-| 0005 | [별도 Nginx와 고정된 운영 EC2 두 대로 Blue-Green 배포한다](0005-nginx-ec2-blue-green-deployment.md) | 채택(worker·배포 제어 로컬 검증 완료, 운영 연동·AWS 검증 전) | 2026-10-21 | A/B 교대, 15분 관찰·롤백, worker 인계와 호환 DB 변경. 기존 이미지 공급 방식은 유지 |
+| 0005 | [별도 Nginx와 고정된 운영 EC2 두 대로 Blue-Green 배포한다](0005-nginx-ec2-blue-green-deployment.md) | 채택(worker·Actions/Bash 로컬 검증 완료, 운영 연동·AWS 검증 전) | 2026-10-21 | A/B 교대, 15분 관찰·롤백, worker 인계와 호환 DB 변경. 기존 이미지 공급 방식은 유지 |
 
 ## 병합 대기 중인 ADR
 
@@ -21,8 +21,8 @@ Tempo 기본 비활성화와 대시보드 유지 결정을 기록한다. ADR 000
 병합할 때 번호 충돌 여부를 다시 확인한다.
 
 인프라 ADR 0005는 `feat/blue-green-deployment` 브랜치에서 최종 설계 결정을 기록한다.
-2026-10-22 인터뷰의 운영 정책을 반영했으며 PR 생성 전이다. 구현·운영 검증은 후속 작업으로,
-병합 전 번호 충돌을 다시 확인한다.
+2026-10-22 인터뷰의 운영 정책과 Actions·Bash 및 worker 제어의 로컬 구현·검증을 반영했다.
+운영 호스트 설정과 GitHub·AWS 연동 검증은 남아 있다. 병합 전 번호 충돌을 다시 확인한다.
 
 ## 문서 이동 이력
 
