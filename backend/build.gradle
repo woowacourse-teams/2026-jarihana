@@ -59,21 +59,3 @@ dependencies {
 tasks.named('test') {
 	useJUnitPlatform()
 }
-
-sourceSets {
-	workerRehearsal {
-		compileClasspath += sourceSets.main.output + configurations.runtimeClasspath
-		runtimeClasspath += output + compileClasspath
-	}
-	test {
-		compileClasspath += sourceSets.workerRehearsal.output
-		runtimeClasspath += sourceSets.workerRehearsal.output
-	}
-}
-
-tasks.register('workerRehearsalJar', org.springframework.boot.gradle.tasks.bundling.BootJar) {
-	archiveClassifier = 'worker-rehearsal'
-	mainClass = 'com.project.rehearsal.WorkerFinishRehearsal'
-	targetJavaVersion = JavaVersion.VERSION_21
-	classpath = sourceSets.workerRehearsal.runtimeClasspath
-}

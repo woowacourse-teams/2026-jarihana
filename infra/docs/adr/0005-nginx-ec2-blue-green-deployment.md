@@ -3,6 +3,7 @@
 - 상태: 채택 — worker 제어와 배포 제어기의 로컬 구현·검증 완료. 운영 연동과 AWS 배포·검증 전.
 - 날짜: 2026-10-21
 - 개정: 2026-10-22 — 15분 관찰·자동 롤백, worker 인계와 DB 변경 정책 확정
+- 개정: 2026-10-25 — 팀이 읽고 수정할 수 있도록 GitHub Actions 단계와 Bash로 배포 자동화를 구성
 - 범위: prod 백엔드의 트래픽 전환, 배포 자동화와 운영 EC2 시작·중지
 - 관련 결정: [인프라 ADR 0002](0002-rds-deployment-database.md), [백엔드 ADR 0015](../../../backend/docs/adr/0015-separate-ec2-and-shared-rds.md), [백엔드 ADR 0016](../../../backend/docs/adr/0016-github-hosted-build-and-ghcr.md)
 - 구현 범위·실행법·운영 전 남은 연결: [Blue-Green 배포 제어](../../deploy/README.md)
@@ -103,6 +104,12 @@ CloudFront 설정을 바꾸지 않고 Nginx upstream 변경과 reload로 전환�
 GitHub Actions workflow가 작업 순서를 연결하고, job별 `runs-on`으로 실행할 runner를 고른다.
 Nginx와 prod A/B에 각각 구분된 runner 라벨을 사용하므로 서버 사이 SSH 배포는 필요하지 않다.
 Nginx에서 앱으로 향하는 HTTP 통신은 별도로 허용되어야 한다.
+
+팀이 직접 읽고 수정할 수 있도록 배포 순서를 native `workflow_call`·`needs`·job output으로
+표현하고, 실제 서버 명령은 Bash 파일로 분리한다. 별도 Python 배포 제어 프로그램을 운영하지 않는다.
+앱의 관리 API는 각 서버 loopback으로 유지하며 앱 runner가 직접 호출한다. 앱에서 Nginx로
+향하는 SSH는 최신 배포 허가를 읽는 전용 경로로만 사용하고 원격 명령 실행 권한을 주지 않는다.
+runner 대기·취소·응답 유실에 대비한 영속 기록과 종료 증거는 언어를 바꿔도 유지한다.
 
 A가 서비스 중인 경우 다음 순서로 배포한다.
 

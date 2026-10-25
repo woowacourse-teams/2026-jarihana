@@ -1,2 +1,0 @@
-Defaults:jarihana-worker-grant !setenv
-jarihana-worker-grant ALL=(jarihana-coordinator) NOPASSWD: /usr/local/libexec/jarihana-read-worker-grant ""
