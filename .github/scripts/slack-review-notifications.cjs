@@ -30,7 +30,7 @@ async function githubGet(apiPath) {
   if (!token) throw new Error("GITHUB_TOKEN is not available");
   const response = await fetch(`${GITHUB_API}${apiPath}`, {
     headers: {
-      Accept: "application/vnd.github>json",
+      Accept: "application/vnd.github+json",
       Authorization: `Bearer ${token}`,
       "X-GitHub-Api-Version": "2022-11-28",
       "User-Agent": "jarihana-review-notifications",
@@ -143,7 +143,7 @@ const holidayCache = new Map();
 
 async function publicHolidays(year) {
   if (holidayCache.has(year)) return holidayCache.get(year);
-  const url = `https://nagerholidays.com/api/v4/Holidays/KR/${year}`;
+  const url = `https://date.nager.at/api/v3/PublicHolidays/${year}/KR`;
   const response = await fetch(url, {
     headers: { Accept: "application/json" },
     signal: AbortSignal.timeout(15000),
@@ -153,7 +153,7 @@ async function publicHolidays(year) {
   if (!Array.isArray(items)) throw new Error(`Korean public-holiday calendar returned invalid data for ${year}`);
   const holidays = new Set(
     items
-      .filter((item) => item.nationalHoliday === true && Array.isArray(item.holidayTypes) && item.holidayTypes.includes("Public"))
+            .filter((item) => item.global === true && Array.isArray(item.types) && item.types.includes("Public"))
       .map((item) => item.date)
       .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(String(date))),
   );
