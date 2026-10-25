@@ -125,6 +125,8 @@ export RDS_URL=$PREFIX-db BLUE_GREEN_RDS_URL=$PREFIX-db DB_USERNAME=fixture DB_P
 export INVITATION_TOKEN_KEY_PRIMARY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY= ACCESS_TOKEN_SECRET=local-fixture-jwt-secret-0123456789abcdef
 export FRONTEND_ORIGIN=http://localhost GITHUB_OAUTH_CLIENT_ID=fixture GITHUB_OAUTH_CLIENT_SECRET=fixture GITHUB_OAUTH_REDIRECT_URI=http://localhost/oauth
 export IMAGE_S3_BUCKET=fixture IMAGE_S3_REGION=ap-northeast-2 IMAGE_S3_KEY_PREFIX=fixture IMAGE_S3_PUBLIC_BASE_URL=http://localhost/fixture
+export IMAGE_CDN_DELIVERY_BASE_URL=https://fixture.example.test/images IMAGE_CLOUDFRONT_KEY_PAIR_ID=local-fixture-key-id
+export IMAGE_CLOUDFRONT_PRIVATE_KEY=$'-----BEGIN PRIVATE KEY-----\nlocal-compose-fixture\n-----END PRIVATE KEY-----'
 write_grant() {
  local image=$1 now
  now=$(date +%s)
@@ -158,6 +160,12 @@ record installed-compose-modification-rejected
 write_grant "$DIGEST"
 if ! runner "$DIGEST" prepare; then cat "$DIR/logs/prepare.log" >&2; exit 1; fi
 record production-pull-prepare-profile-ready-paused
+docker inspect "$CONTAINER" | jq -e '
+  .[0].Config.Env | map(split("=") | {key:.[0], value:.[1:]|join("=")}) | from_entries |
+  .IMAGE_CDN_DELIVERY_BASE_URL==env.IMAGE_CDN_DELIVERY_BASE_URL and
+  .IMAGE_CLOUDFRONT_KEY_PAIR_ID==env.IMAGE_CLOUDFRONT_KEY_PAIR_ID and
+  .IMAGE_CLOUDFRONT_PRIVATE_KEY==env.IMAGE_CLOUDFRONT_PRIVATE_KEY' >/dev/null
+record image-cdn-and-multiline-signing-config-preserved
 docker exec "$PREFIX-db" psql -U fixture -d jarihana_dev -Atc 'select count(*) from pg_stat_ssl where ssl and pid<>pg_backend_pid()' > "$DIR/db-tls-sessions.txt"
 (( $(cat "$DIR/db-tls-sessions.txt") > 0 ))
 # Save only sanitized metadata: environment includes fixture secrets and must not be persisted.
@@ -178,5 +186,5 @@ docker inspect "$CONTAINER" | jq '.[0]|{State,RestartCount}' > "$DIR/shutdown.js
 jq -e '(.State.Running|not) and (.State.OOMKilled|not) and (.State.ExitCode==0 or .State.ExitCode==143) and .RestartCount==0' "$DIR/shutdown.json" >/dev/null
 record graceful-sigterm-normal-exit
 sha256sum "$ROOT/infra/deploy/controller/app-compose.yml" "$DIR/etc/app-compose.yml" > "$DIR/compose-sha256.txt"
-jq -cn --arg image "$IMAGE_REPOSITORY@$DIGEST" '{success:true,image:$image,scenarios:["evicted-image-real-pull","invalid-digest-no-promotion","modified-compose-rejected","ready-paused-production-profile","unsafe-standby-blocked","graceful-SIGTERM"],fixture_boundaries:["isolated privileged Linux Docker daemon with private Unix socket, no host ports","local registry instead of GHCR","Postgres with self-signed TLS instead of RDS","host identity/config bootstrap","GitHub read API","read-only SSH grant transport"],production_unchanged:["app_prepare","app_profile","app_snapshot","bg_grant","app-compose.yml"],remote_deployment:false}' > "$DIR/summary.json"
+jq -cn --arg image "$IMAGE_REPOSITORY@$DIGEST" '{success:true,image:$image,scenarios:["evicted-image-real-pull","invalid-digest-no-promotion","modified-compose-rejected","ready-paused-production-profile","image-signing-config-preserved","unsafe-standby-blocked","graceful-SIGTERM"],fixture_boundaries:["isolated privileged Linux Docker daemon with private Unix socket, no host ports","local registry instead of GHCR","Postgres with self-signed TLS instead of RDS","host identity/config bootstrap","GitHub read API","read-only SSH grant transport"],production_unchanged:["app_prepare","app_profile","app_snapshot","bg_grant","app-compose.yml"],remote_deployment:false}' > "$DIR/summary.json"
 cat "$DIR/summary.json"
