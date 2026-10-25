@@ -153,7 +153,7 @@ async function publicHolidays(year) {
   if (!Array.isArray(items)) throw new Error(`Korean public-holiday calendar returned invalid data for ${year}`);
   const holidays = new Set(
     items
-            .filter((item) => item.global === true && Array.isArray(item.types) && item.types.includes("Public"))
+      .filter((item) => item.global === true && Array.isArray(item.types) && item.types.includes("Public"))
       .map((item) => item.date)
       .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(String(date))),
   );
