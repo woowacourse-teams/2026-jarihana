@@ -1,6 +1,6 @@
 package com.project.jarihana.notificationdelivery.config;
 
-import com.project.jarihana.notificationdelivery.control.WorkerIdentity;
+import com.project.jarihana.notificationdelivery.domain.WorkerIdentity;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 

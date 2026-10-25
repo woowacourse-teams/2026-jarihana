@@ -1,8 +1,20 @@
-package com.project.jarihana.notificationdelivery.control;
+package com.project.jarihana.notificationdelivery.command.controller;
 
 import com.project.jarihana.common.deployment.ApplicationActivity;
+import com.project.jarihana.notificationdelivery.command.controller.dto.ActivityResponse;
+import com.project.jarihana.notificationdelivery.command.controller.dto.AuthorityResponse;
+import com.project.jarihana.notificationdelivery.command.controller.dto.CommandResponse;
+import com.project.jarihana.notificationdelivery.command.controller.dto.StatusResponse;
+import com.project.jarihana.notificationdelivery.command.controller.dto.WorkerStateResponse;
+import com.project.jarihana.notificationdelivery.command.repository.WorkerAuthorityRepository;
+import com.project.jarihana.notificationdelivery.command.service.WorkerAdmissionController;
+import com.project.jarihana.notificationdelivery.command.service.WorkerAuthorityService;
+import com.project.jarihana.notificationdelivery.command.service.dto.WorkerControlCommand;
 import com.project.jarihana.notificationdelivery.config.PushWorkerControlProperties;
 import com.project.jarihana.notificationdelivery.config.WorkerControlApiProperties;
+import com.project.jarihana.notificationdelivery.domain.DeploymentPhase;
+import com.project.jarihana.notificationdelivery.domain.WorkerAuthority;
+import com.project.jarihana.notificationdelivery.domain.WorkerIdentity;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
 import org.springframework.boot.actuate.endpoint.annotation.Selector;
@@ -61,7 +73,7 @@ public class WorkerControlEndpoint {
                 .map(AuthorityResponse::from)
                 .orElse(null);
         return new StatusResponse(apiProperties.version(), workerProperties.workerEnvironment(), identity,
-                new LocalWorkerState(local.state(), local.inFlight(), local.unresolved()), authority,
+                new WorkerStateResponse(local.state(), local.inFlight(), local.unresolved()), authority,
                 new ActivityResponse(activities.httpInFlight(), activities.backgroundInFlight(),
                         local.isDrained() && activities.backgroundInFlight() == 0));
     }
@@ -132,22 +144,4 @@ public class WorkerControlEndpoint {
                 .log("Worker control command processed");
     }
 
-    public record StatusResponse(String version, String environment, WorkerIdentity identity,
-                                 LocalWorkerState worker, AuthorityResponse authority, ActivityResponse activity) { }
-
-    public record ActivityResponse(int httpInFlight, int backgroundInFlight, boolean backgroundDrained) { }
-
-    public record LocalWorkerState(WorkerAdmissionController.State state, int inFlight, int unresolved) { }
-
-    public record AuthorityResponse(String environment, UUID deploymentId, long epoch, DeploymentPhase phase,
-                                    long revision, long authorityRevision, WorkerIdentity owner,
-                                    WorkerAuthority.Status status) {
-        private static AuthorityResponse from(WorkerAuthority authority) {
-            return new AuthorityResponse(authority.environment(), authority.deploymentId(), authority.epoch(),
-                    authority.phase(), authority.revision(), authority.authorityRevision(), authority.owner(),
-                    authority.status());
-        }
-    }
-
-    public record CommandResponse(boolean success, String code, String message, AuthorityResponse authority) { }
 }

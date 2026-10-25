@@ -1,13 +1,13 @@
 package com.project.jarihana.notificationdelivery;
 
 import com.project.jarihana.notificationdelivery.config.PushWorkerControlProperties;
-import com.project.jarihana.notificationdelivery.control.DeploymentPhase;
-import com.project.jarihana.notificationdelivery.control.WorkerAdmissionController;
-import com.project.jarihana.notificationdelivery.control.WorkerAuthority;
-import com.project.jarihana.notificationdelivery.control.WorkerAuthorityRepository;
-import com.project.jarihana.notificationdelivery.control.WorkerAuthorityService;
-import com.project.jarihana.notificationdelivery.control.WorkerControlCommand;
-import com.project.jarihana.notificationdelivery.control.WorkerIdentity;
+import com.project.jarihana.notificationdelivery.domain.DeploymentPhase;
+import com.project.jarihana.notificationdelivery.command.service.WorkerAdmissionController;
+import com.project.jarihana.notificationdelivery.domain.WorkerAuthority;
+import com.project.jarihana.notificationdelivery.command.repository.WorkerAuthorityRepository;
+import com.project.jarihana.notificationdelivery.command.service.WorkerAuthorityService;
+import com.project.jarihana.notificationdelivery.command.service.dto.WorkerControlCommand;
+import com.project.jarihana.notificationdelivery.domain.WorkerIdentity;
 import com.project.jarihana.pushsubscription.support.PushIntegrationTestSupport;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

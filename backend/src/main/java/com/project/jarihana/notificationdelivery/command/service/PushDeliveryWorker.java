@@ -2,7 +2,6 @@ package com.project.jarihana.notificationdelivery.command.service;
 import com.project.jarihana.notificationdelivery.client.PushTransport;
 import com.project.jarihana.notificationdelivery.client.dto.PushResult;
 import com.project.jarihana.notificationdelivery.client.dto.PushResult.Outcome;
-import com.project.jarihana.notificationdelivery.control.WorkerAdmissionController;
 import com.project.jarihana.notificationdelivery.domain.DeliveryStatus;
 import com.project.jarihana.pushsubscription.config.PushProperties;
 import lombok.RequiredArgsConstructor;

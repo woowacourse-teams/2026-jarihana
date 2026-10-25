@@ -1,4 +1,4 @@
-package com.project.jarihana.notificationdelivery.control;
+package com.project.jarihana.notificationdelivery.domain;
 
 import java.util.UUID;
 

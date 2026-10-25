@@ -7,7 +7,6 @@ import com.project.jarihana.notificationdelivery.command.repository.PushDelivery
 import com.project.jarihana.notificationdelivery.command.repository.NotificationDeliveryCommandRepository;
 import com.project.jarihana.notificationdelivery.command.repository.dto.DeliveryClaim;
 import com.project.jarihana.notificationdelivery.domain.DeliveryStatus;
-import com.project.jarihana.notificationdelivery.control.WorkerAuthorityService;
 import com.project.jarihana.pushsubscription.command.repository.PushSubscriptionCommandRepository;
 import com.project.jarihana.pushsubscription.config.PushProperties;
 import lombok.RequiredArgsConstructor;

@@ -3,7 +3,7 @@ package com.project.jarihana.notificationdelivery;
 import com.project.jarihana.notificationdelivery.command.repository.NotificationDeliveryCommandRepository;
 import com.project.jarihana.notificationdelivery.command.service.PushDeliveryWorker;
 import com.project.jarihana.notificationdelivery.client.dto.PushResult;
-import com.project.jarihana.notificationdelivery.control.WorkerAdmissionController;
+import com.project.jarihana.notificationdelivery.command.service.WorkerAdmissionController;
 import com.project.jarihana.notificationdelivery.domain.DeliveryStatus;
 import com.project.jarihana.notificationdelivery.domain.NotificationDelivery;
 import com.project.jarihana.notificationdelivery.support.PushTransportStub;

@@ -1,7 +1,12 @@
-package com.project.jarihana.notificationdelivery.control;
+package com.project.jarihana.notificationdelivery.command.service;
 
+import com.project.jarihana.notificationdelivery.command.repository.WorkerAuthorityRepository;
+import com.project.jarihana.notificationdelivery.command.service.dto.WorkerControlCommand;
 import com.project.jarihana.notificationdelivery.config.PushWorkerControlProperties;
-import com.project.jarihana.notificationdelivery.control.WorkerAuthority.Status;
+import com.project.jarihana.notificationdelivery.domain.DeploymentPhase;
+import com.project.jarihana.notificationdelivery.domain.WorkerAuthority;
+import com.project.jarihana.notificationdelivery.domain.WorkerAuthority.Status;
+import com.project.jarihana.notificationdelivery.domain.WorkerIdentity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;

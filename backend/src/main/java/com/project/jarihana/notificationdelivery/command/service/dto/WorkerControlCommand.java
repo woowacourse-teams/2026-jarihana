@@ -1,4 +1,7 @@
-package com.project.jarihana.notificationdelivery.control;
+package com.project.jarihana.notificationdelivery.command.service.dto;
+
+import com.project.jarihana.notificationdelivery.domain.DeploymentPhase;
+import com.project.jarihana.notificationdelivery.domain.WorkerIdentity;
 
 import java.time.LocalDateTime;
 import java.util.Objects;

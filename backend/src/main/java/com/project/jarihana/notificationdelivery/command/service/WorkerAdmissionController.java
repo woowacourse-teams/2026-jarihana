@@ -1,4 +1,4 @@
-package com.project.jarihana.notificationdelivery.control;
+package com.project.jarihana.notificationdelivery.command.service;
 
 import com.project.jarihana.notificationdelivery.config.PushWorkerControlProperties;
 import org.springframework.stereotype.Component;

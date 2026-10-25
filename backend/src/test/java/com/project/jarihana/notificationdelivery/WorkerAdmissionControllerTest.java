@@ -1,7 +1,7 @@
 package com.project.jarihana.notificationdelivery;
 
 import com.project.jarihana.notificationdelivery.config.PushWorkerControlProperties;
-import com.project.jarihana.notificationdelivery.control.WorkerAdmissionController;
+import com.project.jarihana.notificationdelivery.command.service.WorkerAdmissionController;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

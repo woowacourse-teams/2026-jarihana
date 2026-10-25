@@ -11,6 +11,25 @@
 - 제어 endpoint는 `PUSH_WORKER_CONTROL_ENABLED=true`일 때만 등록된다. Blue-Green용 Compose는 이 값과 기본 대기 설정을 전달한다. 기존 배포 방식의 앱에 자동으로 활성화됐다고 가정하지 않는다.
 - 토큰을 URL, 명령행 인자, 로그 또는 JSON 요청 본문에 넣지 않는다. `infra/scripts/deploy/actions/app.sh`는 대상 호스트의 관리자 소유 파일에서 토큰을 읽고, curl의 표준입력 설정으로 loopback API에 전달한다.
 
+## 코드 배치
+
+worker 제어는 `notificationdelivery` 기능이 소유한다. 배포용이라는 이유로 별도 `control`
+패키지에 계층을 섞지 않고 [아키텍처 컨벤션](../conventions/architecture.md)에 따라 나눈다.
+
+- `command/controller/WorkerControlEndpoint`: Actuator 관리 API 어댑터
+- `command/controller/dto`: 상태·명령 결과의 응답 record
+- `command/service`: DB 처리 권한 변경과 현재 프로세스의 작업 진입 제어
+- `command/service/dto/WorkerControlCommand`: 권한 변경 명령 입력
+- `command/repository/WorkerAuthorityRepository`: 처리 권한 행의 조회·잠금·저장
+- `domain`: 처리 권한·프로세스 신원·배포 단계의 값 모델
+- `config`: worker 설정과 프로세스 신원 Bean 구성
+
+`workercontrol`은 일반 업무 REST API와 달리 Actuator ID 하나에 상태 조회와 관리 명령을
+등록하는 기술 어댑터다. 기존 `/actuator/workercontrol` 계약을 유지하기 위해 하나의 Endpoint를
+두며, HTTP 경로나 JSON을 바꾸는 Controller 분리는 하지 않는다. 업무 API의 CQRS-lite 경계는
+변경하지 않는다. 앱 전체의 HTTP·백그라운드 활동 계측은 특정 기능에 종속되지 않으므로
+`common/deployment`에 유지한다.
+
 ## 상태 조회
 
 ```http
