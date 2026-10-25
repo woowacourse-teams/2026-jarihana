@@ -25,7 +25,7 @@ modules:
   B:
     name: 그룹 명령·일정·이미지
     primary: choubung
-    backup: RealTake
+    backup: Sauter001
     candidate_paths:
       - backend/src/main/java/com/project/jarihana/group/**
       - backend/src/main/java/com/project/jarihana/image/**
@@ -43,7 +43,7 @@ modules:
   D:
     name: 조회·검색·집계
     primary: 5jonyuk
-    backup: Sauter001
+    backup: RealTake
     applies_when: 여러 도메인을 가로지르는 조회·검색·집계 동작이 실제로 변경될 때
     candidate_paths: []
 shared_areas:
