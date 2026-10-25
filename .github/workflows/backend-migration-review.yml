@@ -1,0 +1,23 @@
+name: Backend Migration Review Hints
+on:
+  pull_request:
+    paths:
+      - backend/src/main/resources/db/migration/**
+      - infra/scripts/deploy/migration-review.sh
+      - .github/workflows/backend-migration-review.yml
+permissions:
+  contents: read
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: DB 호환성과 잠금 검토 알림
+        env:
+          MIGRATION_BASE: ${{ github.event.pull_request.base.sha }}
+          MIGRATION_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: bash infra/scripts/deploy/migration-review.sh

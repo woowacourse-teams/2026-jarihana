@@ -1,0 +1,14 @@
+[Unit]
+Description=Inspect Jarihana %i deployment lease
+
+[Service]
+Type=oneshot
+User=jarihana-coordinator
+WorkingDirectory=/opt/jarihana-deploy
+Environment=BG_ENVIRONMENT=%i
+ExecStart=/bin/bash /opt/jarihana-deploy/infra/scripts/deploy/actions/coordinator.sh watchdog
+TimeoutStartSec=10
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/jarihana-deploy/%i
