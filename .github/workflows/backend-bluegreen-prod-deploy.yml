@@ -1,0 +1,129 @@
+name: Backend Blue-Green Production Deploy (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "develop에서 빌드해 검증한 기존 이미지의 전체 커밋 SHA"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-prod-deploy
+  cancel-in-progress: false
+
+env:
+  BACKEND_IMAGE: ghcr.io/woowacourse-teams/jarihana-backend
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: [jarihana-prod]
+    environment: prod
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+    env:
+      BACKEND_TAG: ${{ inputs.image_tag }}
+      RDS_URL: ${{ vars.RDS_URL }}
+      DB_USERNAME: ${{ vars.DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      FLYWAY_BASELINE_ON_MIGRATE: ${{ vars.FLYWAY_BASELINE_ON_MIGRATE || 'false' }}
+      PUSH_ENABLED: ${{ vars.PUSH_ENABLED || 'false' }}
+      INVITATION_TOKEN_ACTIVE_KEY_ID: ${{ vars.INVITATION_TOKEN_ACTIVE_KEY_ID || 'primary' }}
+      INVITATION_TOKEN_KEY_PRIMARY: ${{ secrets.INVITATION_TOKEN_KEY_PRIMARY }}
+      INVITATION_TOKEN_KEY_PREVIOUS: ${{ secrets.INVITATION_TOKEN_KEY_PREVIOUS }}
+      PUSH_WORKER_ENABLED: ${{ vars.PUSH_WORKER_ENABLED || 'true' }}
+      PUSH_VAPID_PUBLIC_KEY: ${{ vars.PUSH_VAPID_PUBLIC_KEY }}
+      PUSH_VAPID_PRIVATE_KEY: ${{ secrets.PUSH_VAPID_PRIVATE_KEY }}
+      PUSH_VAPID_SUBJECT: ${{ vars.PUSH_VAPID_SUBJECT }}
+      SENTRY_BACKEND_DSN: ${{ vars.SENTRY_BACKEND_DSN }}
+      FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
+      ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
+      GITHUB_OAUTH_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
+      GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
+      GITHUB_OAUTH_REDIRECT_URI: ${{ vars.OAUTH_GITHUB_REDIRECT_URI }}
+      IMAGE_S3_BUCKET: ${{ vars.IMAGE_S3_BUCKET }}
+      IMAGE_S3_REGION: ${{ vars.IMAGE_S3_REGION }}
+      IMAGE_S3_KEY_PREFIX: ${{ vars.IMAGE_S3_KEY_PREFIX }}
+      IMAGE_S3_PUBLIC_BASE_URL: ${{ vars.IMAGE_S3_PUBLIC_BASE_URL }}
+      IMAGE_CDN_DELIVERY_BASE_URL: ${{ vars.IMAGE_CDN_DELIVERY_BASE_URL }}
+      IMAGE_CLOUDFRONT_KEY_PAIR_ID: ${{ vars.IMAGE_CLOUDFRONT_KEY_PAIR_ID }}
+      IMAGE_CLOUDFRONT_PRIVATE_KEY: ${{ secrets.IMAGE_CLOUDFRONT_PRIVATE_KEY }}
+      IMAGE_CLEANUP_ENABLED: ${{ vars.IMAGE_CLEANUP_ENABLED || 'false' }}
+      IMAGE_CLEANUP_GRACE_PERIOD: P7D
+      MONITORING_BIND_ADDRESS: ${{ vars.MONITORING_BIND_ADDRESS }}
+      HOST_ID: ${{ vars.HOST_ID || 'jarihana-prod-ec2' }}
+      PROMETHEUS_REMOTE_WRITE_URL: http://${{ vars.MONITORING_BIND_ADDRESS }}:8080/prometheus/api/v1/write
+      LOKI_PUSH_URL: http://${{ vars.MONITORING_BIND_ADDRESS }}:8080/loki/api/v1/push
+      POSTGRES_MONITOR_DSN: ${{ secrets.POSTGRES_MONITOR_DSN }}
+      CHAT_SMOKE_ACCESS_TOKEN: ${{ secrets.CHAT_SMOKE_ACCESS_TOKEN }}
+      CHAT_SMOKE_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
+      CHAT_SMOKE_GROUP_ID: ${{ vars.CHAT_SMOKE_GROUP_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 이미지와 호스트 이전 상태 확인
+        run: |
+          set -euo pipefail
+          [[ "${BACKEND_TAG}" =~ ^[0-9a-f]{40}$ ]]
+          state_dir="${HOME}/.jarihana/bluegreen"
+          test -f "${state_dir}/migration-approved"
+          test -f "${state_dir}/state.json"
+          test -f "${state_dir}/proxy/nginx.conf"
+          for name in MONITORING_BIND_ADDRESS HOST_ID POSTGRES_MONITOR_DSN CHAT_SMOKE_ACCESS_TOKEN CHAT_SMOKE_ORIGIN CHAT_SMOKE_GROUP_ID; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::prod environment is missing ${name}"
+              exit 1
+            fi
+          done
+          echo "BLUEGREEN_STATE_DIR=${state_dir}" >> "${GITHUB_ENV}"
+          echo "BLUE_TAG=${BACKEND_TAG}" >> "${GITHUB_ENV}"
+          echo "GREEN_TAG=${BACKEND_TAG}" >> "${GITHUB_ENV}"
+
+      - name: GHCR 로그인
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+
+      - name: 기존 이미지 받기와 Compose 검증
+        run: |
+          set -euo pipefail
+          unset COMPOSE_PROJECT_NAME
+          docker pull "${BACKEND_IMAGE}:${BACKEND_TAG}"
+          docker compose -f infra/docker-compose.bluegreen.yml config --quiet
+
+      - name: Alloy 설정과 실행 상태 검증
+        run: |
+          set -euo pipefail
+          unset COMPOSE_PROJECT_NAME
+          docker compose -f infra/docker-compose.bluegreen.yml pull alloy
+          docker compose -f infra/docker-compose.bluegreen.yml run --rm --no-deps alloy validate /etc/alloy
+          curl --fail --silent --show-error \
+            --retry 20 --retry-all-errors --retry-delay 3 --max-time 5 \
+            http://127.0.0.1:12345/-/ready > /dev/null
+
+      - name: 준비 확인, 전환 검증, 실패 시 롤백, 이전 서버 드레인
+        id: deploy
+        run: |
+          python3 infra/scripts/deploy-bluegreen.py \
+            --state-dir "${BLUEGREEN_STATE_DIR}" \
+            --tag "${BACKEND_TAG}"
+
+      - name: 실패 진단 로그
+        if: failure() && steps.deploy.outcome == 'failure'
+        run: |
+          unset COMPOSE_PROJECT_NAME
+          docker compose -f infra/docker-compose.bluegreen.yml \
+            logs --no-color --tail 80 backend-blue backend-green proxy alloy || true
+
+      - name: GHCR 로그아웃
+        if: always()
+        run: docker logout ghcr.io

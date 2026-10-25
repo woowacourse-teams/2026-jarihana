@@ -30,6 +30,8 @@ management:
       probes:
         enabled: true
       group:
+        readiness:
+          include: readinessState,db,chatListener
         database:
           include: db
     prometheus:

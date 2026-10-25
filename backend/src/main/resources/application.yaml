@@ -2,6 +2,13 @@ server:
   servlet:
     context-path: /api
 
+chat:
+  allowed-origins: ${CHAT_ALLOWED_ORIGINS:${FRONTEND_ORIGIN:http://localhost:5173}}
+  listener:
+    enabled: ${CHAT_LISTENER_ENABLED:true}
+    reconnect-delay-ms: ${CHAT_LISTENER_RECONNECT_DELAY_MS:1000}
+    application-name: ${CHAT_LISTENER_APPLICATION_NAME:jarihana-chat-listener}
+
 spring:
   application:
     name: jarihana

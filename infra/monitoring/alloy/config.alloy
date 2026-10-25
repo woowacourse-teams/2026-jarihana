@@ -339,7 +339,7 @@ discovery.relabel "backend_logs" {
 	rule {
 		source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
 		action        = "keep"
-		regex         = "backend"
+		regex         = "backend(-blue|-green)?"
 	}
 
 	rule {
@@ -359,6 +359,13 @@ discovery.relabel "backend_logs" {
 	}
 
 	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+		regex = "backend-(blue|green)"
+		target_label = "color"
+		replacement = "$1"
+	}
+
+	rule {
 		target_label = "host_id"
 		replacement  = sys.env("HOST_ID")
 	}
@@ -375,7 +382,7 @@ loki.relabel "backend" {
 
 	rule {
 		action = "labelkeep"
-		regex  = "service_name|environment|host_id"
+		regex  = "service_name|environment|host_id|color"
 	}
 }
 
