@@ -43,6 +43,9 @@ X-Jarihana-Worker-Control-Token: <secret>
 
 drain 완료는 `worker.state=PAUSED`, `worker.inFlight=0`, `worker.unresolved=0`일 때만 확인한다.
 `pause` 응답 자체나 HTTP reload 완료를 drain 완료로 취급하지 않는다.
+비동기 발송에서도 `processDue()`가 반환된 것만으로 종료되지 않는다. `worker.inFlight`는
+선점 전에 확보한 처리 허가를 세며, 이미 승인한 묶음의 외부 응답과 결과 저장 트랜잭션 커밋이
+모두 끝나야 줄어든다. 중단 이후 새 허가는 주지 않고 이미 승인한 작업은 끝까지 기다린다.
 
 `activity`는 종료 판단에 필요한 현재 JVM의 활동을 반환한다.
 

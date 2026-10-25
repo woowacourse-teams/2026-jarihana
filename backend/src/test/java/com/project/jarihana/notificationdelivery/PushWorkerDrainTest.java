@@ -5,6 +5,7 @@ import com.project.jarihana.notificationdelivery.command.repository.Notification
 import com.project.jarihana.notificationdelivery.command.service.PushDeliveryLeaseService;
 import com.project.jarihana.notificationdelivery.command.service.PushDeliveryWorker;
 import com.project.jarihana.notificationdelivery.config.PushWorkerControlProperties;
+import com.project.jarihana.notificationdelivery.config.PushDeliveryProperties;
 import com.project.jarihana.notificationdelivery.command.service.WorkerAdmissionController;
 import com.project.jarihana.notificationdelivery.domain.DeliveryStatus;
 import com.project.jarihana.notificationdelivery.domain.NotificationDelivery;
@@ -13,7 +14,9 @@ import com.project.jarihana.notificationdelivery.support.PushTransportTestConfig
 import com.project.jarihana.pushsubscription.config.PushProperties;
 import com.project.jarihana.pushsubscription.support.PushIntegrationTestSupport;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -24,13 +27,17 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 
@@ -51,7 +58,12 @@ class PushWorkerDrainTest extends PushIntegrationTestSupport {
         transport.reset();
         // 차단 상태는 지우지 않는다. 각 테스트는 새 프로세스에 해당하는 제어 객체를 사용한다.
         admission = new WorkerAdmissionController(new PushWorkerControlProperties(false));
-        worker = new PushDeliveryWorker(leases, transport, properties, admission, metrics);
+        worker = new PushDeliveryWorker(leases, transport, properties, PushDeliveryProperties.defaults(), admission, metrics);
+    }
+
+    @AfterEach
+    void closeWorker() {
+        worker.close();
     }
 
     @Test
@@ -87,7 +99,7 @@ class PushWorkerDrainTest extends PushIntegrationTestSupport {
                 assertThat(admission.state()).isEqualTo(WorkerAdmissionController.State.DRAINING);
                 assertThat(admission.drainStatus().inFlight()).isEqualTo(1);
                 assertThat(admission.drainStatus().isDrained()).isFalse();
-                assertThat(running.isDone()).isFalse();
+                assertThat(running.get(5, TimeUnit.SECONDS)).isEqualTo(1);
                 assertThat(deliveries.findById(pending.getId()).orElseThrow().getStatus()).isEqualTo(DeliveryStatus.IN_FLIGHT);
                 assertThatIllegalStateException().isThrownBy(admission::resume);
             } finally {
@@ -95,6 +107,7 @@ class PushWorkerDrainTest extends PushIntegrationTestSupport {
             }
             assertThat(running.get(10, TimeUnit.SECONDS)).isEqualTo(1);
         }
+        awaitSettled();
         assertThat(admission.state()).isEqualTo(WorkerAdmissionController.State.PAUSED);
         assertThat(admission.drainStatus().isDrained()).isTrue();
         assertThat(deliveries.findById(pending.getId()).orElseThrow().getStatus()).isEqualTo(DeliveryStatus.ACCEPTED);
@@ -118,7 +131,8 @@ class PushWorkerDrainTest extends PushIntegrationTestSupport {
         }).when(leases).finish(any(), any(), any());
 
         // When
-        assertThatIllegalStateException().isThrownBy(worker::processDue).withMessage("테스트 커밋 실패");
+        assertThat(worker.processDue()).isEqualTo(1);
+        awaitBlocked();
         admission.pause();
 
         // Then
@@ -137,13 +151,15 @@ class PushWorkerDrainTest extends PushIntegrationTestSupport {
         var owner = member("101");
         var pending = deliveries.save(NotificationDelivery.create(
                 notification(owner, "expired"), subscription(owner, "expired"), NOW, NOW.plusDays(1)));
-        transport.respond(request -> {
-            jdbc.update("update notification_deliveries set locked_until = ? where id = ?", NOW.minusSeconds(1), request.deliveryId());
-            return PushResult.accepted();
-        });
+        var response = new CompletableFuture<PushResult>();
+        transport.respondAsync(request -> response);
 
         // When
-        assertThatIllegalStateException().isThrownBy(worker::processDue);
+        assertThat(worker.processDue()).isEqualTo(1);
+        jdbc.update("update notification_deliveries set locked_until = ? where id = ?",
+                NOW.minusSeconds(1), pending.getId());
+        response.complete(PushResult.accepted());
+        awaitBlocked();
         admission.pause();
 
         // Then
@@ -164,9 +180,9 @@ class PushWorkerDrainTest extends PushIntegrationTestSupport {
         deliveries.save(NotificationDelivery.create(
                 notification(owner, "failure"), subscription(owner, "failure"), NOW, NOW.plusDays(1)));
         if (phase == FailurePhase.CLAIM) {
-            doThrow(new IllegalStateException("테스트 선점 실패")).when(leases).claimNext();
+            doThrow(new IllegalStateException("테스트 선점 실패")).when(leases).claimNext(anyInt());
         } else {
-            doThrow(new IllegalStateException("테스트 준비 실패")).when(leases).prepare(any());
+            doThrow(new IllegalStateException("테스트 준비 실패")).when(leases).prepare(anyList());
         }
 
         // When
@@ -175,7 +191,7 @@ class PushWorkerDrainTest extends PushIntegrationTestSupport {
         // Then
         assertThat(transport.requests()).isEmpty();
         assertThat(admission.drainStatus()).isEqualTo(new WorkerAdmissionController.DrainStatus(
-                WorkerAdmissionController.State.BLOCKED, 0, 1));
+                WorkerAdmissionController.State.BLOCKED, 0, phase == FailurePhase.CLAIM ? 4 : 1));
         admission.pause();
         assertThatIllegalStateException().isThrownBy(admission::resume);
         assertThat(worker.processDue()).isZero();
@@ -187,15 +203,17 @@ class PushWorkerDrainTest extends PushIntegrationTestSupport {
         // Given
         var owner = member("101");
         var subscription = subscription(owner, "before-claim");
-        deliveries.save(NotificationDelivery.create(notification(owner, "first"), subscription, NOW, NOW.plusDays(1)));
-        deliveries.save(NotificationDelivery.create(notification(owner, "second"), subscription, NOW, NOW.plusDays(1)));
+        for (int index = 0; index < 5; index++) {
+            deliveries.save(NotificationDelivery.create(notification(owner, "claim-" + index), subscription,
+                    NOW, NOW.plusDays(1)));
+        }
         var claiming = new CountDownLatch(1);
         var release = new CountDownLatch(1);
         doAnswer(invocation -> {
             claiming.countDown();
             await(release);
             return invocation.callRealMethod();
-        }).when(leases).claimNext();
+        }).when(leases).claimNext(anyInt());
 
         try (var executor = Executors.newSingleThreadExecutor()) {
             var running = executor.submit(worker::processDue);
@@ -206,17 +224,18 @@ class PushWorkerDrainTest extends PushIntegrationTestSupport {
                 admission.pause();
 
                 // Then
-                assertThat(admission.drainStatus().inFlight()).isEqualTo(1);
+                assertThat(admission.drainStatus().inFlight()).isEqualTo(4);
                 assertThat(admission.drainStatus().isDrained()).isFalse();
                 assertThat(transport.requests()).isEmpty();
                 assertThat(worker.processDue()).isZero();
             } finally {
                 release.countDown();
             }
-            assertThat(running.get(10, TimeUnit.SECONDS)).isEqualTo(1);
+            assertThat(running.get(10, TimeUnit.SECONDS)).isEqualTo(4);
         }
+        awaitSettled();
         assertThat(admission.drainStatus().isDrained()).isTrue();
-        assertThat(transport.requests()).hasSize(1);
+        assertThat(transport.requests()).hasSize(4);
         assertThat(jdbc.queryForObject("select count(*) from notification_deliveries where status = 'PENDING' and attempt_count = 0", Long.class))
                 .isEqualTo(1);
     }
@@ -237,6 +256,7 @@ class PushWorkerDrainTest extends PushIntegrationTestSupport {
         admission.pause();
 
         // Then
+        awaitSettled();
         assertThat(transport.requests()).isEmpty();
         assertThat(admission.drainStatus().isDrained()).isTrue();
     }
@@ -260,9 +280,23 @@ class PushWorkerDrainTest extends PushIntegrationTestSupport {
         assertThat(worker.processDue()).isEqualTo(1);
 
         // Then
+        awaitSettled();
         assertThat(transport.requests()).hasSize(1);
         assertThat(deliveries.findById(pending.getId()).orElseThrow().getStatus()).isEqualTo(DeliveryStatus.CANCELLED);
         assertThat(admission.drainStatus().isDrained()).isTrue();
+    }
+
+    private void awaitSettled() {
+        Awaitility.await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
+            assertThat(worker.isIdle()).isTrue();
+            assertThat(admission.drainStatus().inFlight()).isZero();
+        });
+    }
+
+    private void awaitBlocked() {
+        Awaitility.await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
+                assertThat(admission.state()).isEqualTo(WorkerAdmissionController.State.BLOCKED));
+        awaitSettled();
     }
 
     private static void await(CountDownLatch latch) {

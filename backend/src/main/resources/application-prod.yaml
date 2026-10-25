@@ -56,7 +56,7 @@ management:
 logging:
   structured:
     format:
-      console: ecs
+      console: com.project.jarihana.common.logging.Utf8EcsStructuredLogFormatter
     ecs:
       service:
         environment: prod

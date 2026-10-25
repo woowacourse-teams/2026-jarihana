@@ -5,12 +5,24 @@
 | 프로필 | stdout 형식 | 서비스 환경 | SQL 직접 출력 |
 | --- | --- | --- | --- |
 | `local` | Spring Boot 기본 텍스트 | 해당 없음 | 기존 로컬 설정 유지 |
-| `dev` | Spring Boot 네이티브 ECS JSON | `dev` | 끔 |
-| `prod` | Spring Boot 네이티브 ECS JSON | `prod` | 끔 |
+| `dev` | Spring Boot ECS JSON + UTF-8 일괄 인코딩 | `dev` | 끔 |
+| `prod` | Spring Boot ECS JSON + UTF-8 일괄 인코딩 | `prod` | 끔 |
 
 여기서 ECS는 Elastic Common Schema이며, AWS ECS 배포를 뜻하지 않는다.
 dev/prod에서는 콘솔 배너도 꺼서 일반 시작 출력에 텍스트 배너가 섞이지 않게 한다.
-별도 JSON encoder 의존성 없이 `logging.structured.format.console=ecs`를 사용한다.
+별도 JSON encoder 의존성 없이 `logging.structured.format.console`에
+`com.project.jarihana.common.logging.Utf8EcsStructuredLogFormatter`를 지정한다.
+필드 구성과 JSON 렌더링은 Boot ECS formatter에 위임하고, UTF-8 출력만 완성한 문자열을
+한 번 인코딩한다. 조각별 인코딩의 임시 버퍼 할당을 줄이기 위한 변경이며 HTTP 시작·완료
+이벤트를 줄이거나 샘플링하지 않는다. UTF-8 이외의 charset은 Boot의 원래 경로를 사용한다.
+
+UTF-8 출력에서 이모지 등 보조 평면 문자를 원문대로 보존한다. Boot의 기존 바이트 출력이
+이 문자를 `?`로 바꾸던 경우와는 의도적으로 다르다. 일반 한글·ASCII·이스케이프와 필드
+타입은 호환성 테스트로 확인한다.
+
+ECS formatter 생성에는 Boot 내부 클래스 이름을 사용하므로 Boot 업그레이드 시
+`Utf8EcsStructuredLogFormatterTest`를 실행하고 실제 JSON 출력을 확인한다.
+필요하면 `LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs`로 기존 인코딩 경로로 복귀할 수 있다.
 `service.name`은 `spring.application.name`(`jarihana`), `service.version`은
 `APP_VERSION`이다. 직접 실행에서 버전을 주입하지 않으면 `unknown`을 기록한다.
 배포 Compose는 이미지 태그 `BACKEND_TAG`를 `APP_VERSION`으로 전달하며, 기존

@@ -51,7 +51,7 @@ class GroupSharePreviewControllerTest extends IntegrationTestSupport {
                 .body(containsString("<meta property=\"og:title\" content=\"알고리즘 스터디 | 자리하나\""))
                 .body(containsString("<meta property=\"og:description\" content=\"매주 함께 문제를 풉니다.\""))
                 .body(containsString("<meta property=\"og:url\" content=\"http://localhost:5173/groups/" + group.getId() + "\""))
-                .body(containsString("<meta property=\"og:image\" content=\"https://cdn.example.test/images/groups/1.webp\""))
+                .body(containsString("<meta property=\"og:image\" content=\"https://service.example.test/api/images/groups/1.webp\""))
                 .body(containsString("http://localhost:5173/groups/" + group.getId() + "?preview=1"))
                 .body(containsString("getAll(\"promotion_id\")"))
                 .body(containsString("promotionValues.length === 1"));

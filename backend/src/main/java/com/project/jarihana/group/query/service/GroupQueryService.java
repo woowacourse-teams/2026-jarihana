@@ -5,12 +5,15 @@ import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.common.github.GithubAvatarUrl;
 import com.project.jarihana.image.config.ImageProperties;
+import com.project.jarihana.image.query.service.ImageAccessService;
 import com.project.jarihana.group.query.repository.GroupDetailRepository;
 import com.project.jarihana.group.query.repository.GroupListRepository;
 import com.project.jarihana.group.query.repository.dto.*;
 import com.project.jarihana.group.query.service.dto.GroupDetailResult;
 import com.project.jarihana.group.query.service.dto.GroupListQuery;
 import com.project.jarihana.group.query.service.dto.GroupListResult;
+import com.project.jarihana.group.query.service.dto.HomeQuery;
+import com.project.jarihana.group.query.service.dto.HomeResult;
 import com.project.jarihana.group.query.service.dto.GroupListResult.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -35,6 +38,7 @@ public class GroupQueryService {
     private final LoginMemberReader loginMemberReader;
     private final Clock clock;
     private final String publicBaseUrl;
+    private final ImageAccessService imageAccessService;
 
     public GroupQueryService(
             GroupListRepository groupListRepository,
@@ -60,9 +64,15 @@ public class GroupQueryService {
             GroupDetailRepository groupDetailRepository,
             LoginMemberReader loginMemberReader,
             Clock clock,
-            ImageProperties imageProperties
+            ImageProperties imageProperties,
+            ImageAccessService imageAccessService
     ) {
-        this(groupListRepository, groupDetailRepository, loginMemberReader, clock, imageProperties.publicBaseUrl());
+        this.groupListRepository = groupListRepository;
+        this.groupDetailRepository = groupDetailRepository;
+        this.loginMemberReader = loginMemberReader;
+        this.clock = clock;
+        this.publicBaseUrl = imageProperties.publicBaseUrl();
+        this.imageAccessService = imageAccessService;
     }
 
     GroupQueryService(
@@ -77,6 +87,7 @@ public class GroupQueryService {
         this.loginMemberReader = loginMemberReader;
         this.clock = clock;
         this.publicBaseUrl = publicBaseUrl == null ? "" : publicBaseUrl;
+        this.imageAccessService = null;
     }
 
     public GroupListResult findGroups(GroupListQuery query) {
@@ -103,6 +114,15 @@ public class GroupQueryService {
                 criteria,
                 query.size()
         );
+        return toListResult(page);
+    }
+
+    public HomeResult findHome(HomeQuery query) {
+        HomeGroupPages pages = groupListRepository.findHomePages(query.sessionDate(), LocalDateTime.now(clock));
+        return new HomeResult(toListResult(pages.today()), toListResult(pages.recruiting()), toListResult(pages.ended()));
+    }
+
+    private GroupListResult toListResult(GroupListPage page) {
         List<GroupListProjection> itemProjections = page.items();
         String nextCursor = page.hasNext()
                 ? encodeCursor(itemProjections.get(itemProjections.size() - 1))
@@ -143,10 +163,10 @@ public class GroupQueryService {
                         ? null
                         : new Leader(
                         leader.memberId(),
-                        leader.member().getCrewName(),
-                        leader.member().getGeneration(),
-                        leader.member().getMemberType(),
-                        GithubAvatarUrl.from(leader.member().getGithubId())
+                        leader.crewName(),
+                        leader.generation(),
+                        leader.memberType(),
+                        GithubAvatarUrl.from(leader.githubId())
                 ),
                 projection.memberCount(),
                 projection.activeRecruitment() == null
@@ -213,6 +233,9 @@ public class GroupQueryService {
                 ));
         return new GroupDetailResult(
                 projection.group(),
+                imageAccessService == null
+                        ? projection.group().getDescription()
+                        : imageAccessService.rewriteMarkdown(projection.group().getDescription()),
                 toRepresentativeImageUrl(projection.group().getRepresentativeImageKey()),
                 projection.members(),
                 projection.activeRecruitment(),
@@ -226,6 +249,9 @@ public class GroupQueryService {
     private String toRepresentativeImageUrl(String imageKey) {
         if (imageKey == null || DEFAULT_REPRESENTATIVE_IMAGE_URL.equals(imageKey)) {
             return DEFAULT_REPRESENTATIVE_IMAGE_URL;
+        }
+        if (imageAccessService != null) {
+            return imageAccessService.publicUrl(imageKey);
         }
         if (publicBaseUrl.isBlank()) {
             return imageKey;

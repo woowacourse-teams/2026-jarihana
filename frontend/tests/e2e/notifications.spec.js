@@ -208,6 +208,40 @@ for (const [kind, destination] of Object.entries({ GROUP_DETAIL: "/my?focusGroup
     });
   }
 }
+for (const [eventType, title, body] of [
+  ["ACTIVITY_POST_COMMENTED", "새 댓글", "‘테스트 모임’ 모임 활동 기록에 새 댓글이 달렸습니다."],
+  ["ACTIVITY_POST_REACTED", "좋아요", "가온 외 2명이 좋아요를 눌렀어요."]
+]) {
+  test(`@core ${eventType} notification opens my post detail even from a later feed page`, async ({ page }) => {
+    const { state } = await fixture(page);
+    state.rows[0] = { ...state.rows[0], eventType, title, body, target: { kind: "ACTIVITY_POST", groupId: 10, activityPostId: 77 } };
+    const post = (id, caption) => ({ id, caption, authorNickname: "리더", imageUrl: "/images/activity.jpg",
+      activityDate: "2026-10-05", createdAt: "2026-10-05T12:00:00", canModify: true, commentCount: 1,
+      reactions: [{ emoji: "HEART", count: 3, reacted: false }],
+      group: { id: 10, name: "테스트 모임", type: "STUDY", status: "ACTIVE", recruiting: false, joined: true } });
+    const feedQueries = [];
+    await page.route("**/api/activity-posts**", (route) => {
+      const url = new URL(route.request().url());
+      const reply = (data) => route.fulfill({ json: { success: true, data, error: null } });
+      if (url.pathname.endsWith("/comments")) return reply({ items: [], hasNext: false, nextCursor: null });
+      feedQueries.push(url.search);
+      return url.searchParams.get("cursor") === "page-2"
+        ? reply({ items: [post(77, "알림으로 찾은 기록")], hasNext: false, nextCursor: null })
+        : reply({ items: [post(1, "가장 최근 기록")], hasNext: true, nextCursor: "page-2" });
+    });
+
+    await openInbox(page);
+    await expect(page.getByText(body, { exact: true })).toBeVisible();
+    await page.getByRole("link", { name: new RegExp(title) }).click();
+
+    await expect(page).toHaveURL((url) => url.pathname + url.search === "/activities?mine=true&post=77");
+    const detail = page.getByRole("dialog", { name: "테스트 모임" });
+    await expect(detail.getByText("알림으로 찾은 기록")).toBeVisible();
+    expect(feedQueries.every((search) => new URLSearchParams(search).get("mine") === "true")).toBe(true);
+    expect(feedQueries.some((search) => new URLSearchParams(search).get("cursor") === "page-2")).toBe(true);
+    expect(state.reads).toBeGreaterThan(0);
+  });
+}
 test("@core former leader cannot open notification management target or mark it read", async ({ page }) => {
   const { state } = await fixture(page);
   state.rows[0].target = { kind: "LEADER_REGISTRATIONS", groupId: 11, recruitmentId: 20 };

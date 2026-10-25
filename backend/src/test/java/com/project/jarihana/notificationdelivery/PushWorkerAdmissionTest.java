@@ -9,6 +9,7 @@ import com.project.jarihana.notificationdelivery.domain.NotificationDelivery;
 import com.project.jarihana.notificationdelivery.support.PushTransportStub;
 import com.project.jarihana.notificationdelivery.support.PushTransportTestConfig;
 import com.project.jarihana.pushsubscription.support.PushIntegrationTestSupport;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,7 +17,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 
-import java.util.concurrent.CountDownLatch;
+import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -72,6 +74,7 @@ class PushWorkerAdmissionTest extends PushIntegrationTestSupport {
 
         // Then
         assertThat(processed).isEqualTo(1);
+        awaitDeliveryProcessing();
         assertThat(transport.requests()).hasSize(1);
         assertThat(deliveries.findById(pending.getId()).orElseThrow().getStatus()).isEqualTo(DeliveryStatus.ACCEPTED);
     }
@@ -82,8 +85,10 @@ class PushWorkerAdmissionTest extends PushIntegrationTestSupport {
         // Given
         var owner = member("101");
         var subscription = subscription(owner, "candidate");
-        deliveries.save(NotificationDelivery.create(notification(owner, "first"), subscription, NOW, NOW.plusDays(1)));
-        deliveries.save(NotificationDelivery.create(notification(owner, "second"), subscription, NOW, NOW.plusDays(1)));
+        for (int index = 0; index < 5; index++) {
+            deliveries.save(NotificationDelivery.create(notification(owner, "batch-" + index), subscription,
+                    NOW, NOW.plusDays(1)));
+        }
         admission.resume();
         transport.respond(request -> {
             admission.pause();
@@ -94,10 +99,12 @@ class PushWorkerAdmissionTest extends PushIntegrationTestSupport {
         int processed = worker.processDue();
 
         // Then
-        assertThat(processed).isEqualTo(1);
-        assertThat(transport.requests()).hasSize(1);
+        assertThat(processed).isEqualTo(4);
+        Awaitility.await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
+                assertThat(admission.drainStatus().inFlight()).isZero());
+        assertThat(transport.requests()).hasSize(4);
         assertThat(jdbc.queryForObject("select count(*) from notification_deliveries where status = 'ACCEPTED'", Long.class))
-                .isEqualTo(1);
+                .isEqualTo(4);
         assertThat(jdbc.queryForObject("select count(*) from notification_deliveries where status = 'PENDING' and attempt_count = 0 and lease_token is null", Long.class))
                 .isEqualTo(1);
         assertThat(admission.state()).isEqualTo(WorkerAdmissionController.State.PAUSED);
@@ -111,24 +118,13 @@ class PushWorkerAdmissionTest extends PushIntegrationTestSupport {
         var subscription = subscription(owner, "candidate");
         deliveries.save(NotificationDelivery.create(notification(owner, "first"), subscription, NOW, NOW.plusDays(1)));
         deliveries.save(NotificationDelivery.create(notification(owner, "second"), subscription, NOW, NOW.plusDays(1)));
-        var sending = new CountDownLatch(1);
-        var release = new CountDownLatch(1);
+        var response = new CompletableFuture<PushResult>();
         admission.resume();
-        transport.respond(request -> {
-            sending.countDown();
+        transport.respondAsync(request -> response);
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            // Given: scheduling returns while both transport responses remain outstanding.
+            assertThat(executor.submit(worker::processDue).get(5, TimeUnit.SECONDS)).isEqualTo(2);
             try {
-                if (!release.await(10, TimeUnit.SECONDS)) { throw new AssertionError("발송 해제 시간 초과"); }
-            } catch (InterruptedException exception) {
-                Thread.currentThread().interrupt();
-                throw new AssertionError(exception);
-            }
-            return PushResult.accepted();
-        });
-        try (var executor = Executors.newFixedThreadPool(2)) {
-            var running = executor.submit(worker::processDue);
-            try {
-                assertThat(sending.await(10, TimeUnit.SECONDS)).isTrue();
-
                 // When
                 admission.pause();
                 int processed = executor.submit(worker::processDue).get(5, TimeUnit.SECONDS);
@@ -136,13 +132,14 @@ class PushWorkerAdmissionTest extends PushIntegrationTestSupport {
                 // Then
                 assertThat(processed).isZero();
                 assertThat(admission.state()).isEqualTo(WorkerAdmissionController.State.DRAINING);
-                assertThat(running.isDone()).isFalse();
-                assertThat(transport.requests()).hasSize(1);
+                assertThat(admission.drainStatus().inFlight()).isEqualTo(2);
+                assertThat(response.isDone()).isFalse();
+                assertThat(transport.requests()).hasSize(2);
             } finally {
-                release.countDown();
+                response.complete(PushResult.accepted());
             }
-            assertThat(running.get(10, TimeUnit.SECONDS)).isEqualTo(1);
         }
+        awaitDeliveryProcessing();
         assertThat(admission.state()).isEqualTo(WorkerAdmissionController.State.PAUSED);
     }
 }

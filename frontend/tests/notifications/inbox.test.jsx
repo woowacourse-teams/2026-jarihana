@@ -86,3 +86,15 @@ test("new group notifications need only a group id and open the group detail", (
   expect(original.notificationSchema.safeParse({ ...notification,
     eventType: "REGISTRATION_SUBMITTED" }).success).toBe(false);
 });
+
+test.each(["ACTIVITY_POST_COMMENTED", "ACTIVITY_POST_REACTED"])("%s needs the post id and opens that post among my records", (eventType) => {
+  const notification = original.notificationSchema.parse({ ...row(1), payloadVersion: 1,
+    eventType, target: { kind: "ACTIVITY_POST", groupId: 10, activityPostId: 77 } });
+  expect(original.notificationTargetPath(notification.target, notification.id)).toBe("/activities?mine=true&post=77");
+  expect(original.notificationSchema.safeParse({ ...notification,
+    target: { kind: "ACTIVITY_POST", groupId: 10 } }).success).toBe(false);
+  expect(original.notificationSchema.safeParse({ ...notification,
+    target: { kind: "GROUP_DETAIL", groupId: 10 } }).success).toBe(false);
+  expect(original.notificationSchema.safeParse({ ...notification,
+    eventType: "REGISTRATION_SUBMITTED" }).success).toBe(false);
+});

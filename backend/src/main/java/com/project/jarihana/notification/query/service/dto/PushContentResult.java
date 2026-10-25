@@ -1,4 +1,6 @@
 package com.project.jarihana.notification.query.service.dto;
 import com.project.jarihana.notification.domain.NotificationEventType;
 import com.project.jarihana.notification.domain.NotificationPayload;
-public record PushContentResult(long notificationId, NotificationEventType eventType, int payloadVersion, NotificationPayload payload) { }
+import com.project.jarihana.notification.query.repository.dto.ActivityPostReactionSummaryProjection;
+public record PushContentResult(long notificationId, NotificationEventType eventType, int payloadVersion, NotificationPayload payload,
+                                ActivityPostReactionSummaryProjection reactionSummary) { }

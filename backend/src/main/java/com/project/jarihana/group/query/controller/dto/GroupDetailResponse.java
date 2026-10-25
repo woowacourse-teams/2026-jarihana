@@ -46,7 +46,7 @@ public record GroupDetailResponse(
                 group.getStatus().name(),
                 group.getName(),
                 group.getIntroduction(),
-                group.getDescription(),
+                result.description(),
                 result.representativeImageUrl(),
                 RecurringSchedule.from(group.getRecurringSchedule()),
                 SessionSchedule.from(group.getSessionSchedule()),
@@ -110,10 +110,10 @@ public record GroupDetailResponse(
             }
             return new GroupLeader(
                     member.memberId(),
-                    member.member().getCrewName(),
-                    member.member().getGeneration(),
-                    member.member().getMemberType().name(),
-                    GithubAvatarUrl.from(member.member().getGithubId())
+                    member.crewName(),
+                    member.generation(),
+                    member.memberType().name(),
+                    GithubAvatarUrl.from(member.githubId())
             );
         }
     }

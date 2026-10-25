@@ -60,10 +60,10 @@ docker network connect "$NETWORK" "$HOSTNAME"
 docker run -d --name "$PREFIX-postgres" "${label[@]}" --network "$NETWORK" \
   -e POSTGRES_USER=fixture -e POSTGRES_PASSWORD=fixture -e POSTGRES_DB=bluegreen_fixture postgres:17 > "$DIR/postgres-id"
 for ((attempt=0;attempt<60;attempt++)); do
-  if docker exec "$PREFIX-postgres" pg_isready -U fixture >/dev/null 2>&1; then break; fi
+  if docker exec "$PREFIX-postgres" pg_isready -h 127.0.0.1 -U fixture -d bluegreen_fixture >/dev/null 2>&1; then break; fi
   sleep 0.5
 done
-docker exec "$PREFIX-postgres" pg_isready -U fixture >/dev/null
+docker exec "$PREFIX-postgres" pg_isready -h 127.0.0.1 -U fixture -d bluegreen_fixture >/dev/null
 
 # These two executable doubles are the complete external process boundary.
 cat > "$DIR/bin/ssh" <<'SH'

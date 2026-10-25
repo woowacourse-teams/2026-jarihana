@@ -5,6 +5,7 @@ import com.project.jarihana.notificationdelivery.command.repository.PushDelivery
 import com.project.jarihana.notificationdelivery.command.service.PushDeliveryWorker;
 import com.project.jarihana.notificationdelivery.command.service.PushDeliveryLeaseService;
 import com.project.jarihana.notificationdelivery.config.PushWorkerControlProperties;
+import com.project.jarihana.notificationdelivery.config.PushDeliveryProperties;
 import com.project.jarihana.notificationdelivery.domain.DeploymentPhase;
 import com.project.jarihana.notificationdelivery.command.service.WorkerAdmissionController;
 import com.project.jarihana.notificationdelivery.domain.WorkerAuthority;
@@ -23,8 +24,10 @@ import com.project.jarihana.pushsubscription.command.repository.PushSubscription
 import com.project.jarihana.pushsubscription.config.PushProperties;
 import com.project.jarihana.pushsubscription.support.PushIntegrationTestSupport;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
@@ -36,7 +39,9 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Clock;
-import java.util.Optional;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.sql.SQLException;
 import java.util.concurrent.CountDownLatch;
@@ -46,6 +51,7 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.ArgumentMatchers.anyInt;
 
 @Import(PushTransportTestConfig.class)
 @TestPropertySource(properties = {"jarihana.push.worker-control-enabled=true",
@@ -66,6 +72,13 @@ class WorkerAuthorityIntegrationTest extends PushIntegrationTestSupport {
     @Autowired private Clock clock;
     @Autowired private MeterRegistry metrics;
     @MockitoSpyBean private PushDeliveryLeaseService leases;
+
+    private final List<PushDeliveryWorker> independentWorkers = new ArrayList<>();
+
+    @AfterEach
+    void closeIndependentWorkers() {
+        independentWorkers.forEach(PushDeliveryWorker::close);
+    }
 
     @BeforeEach
     void resetWorker() {
@@ -105,6 +118,7 @@ class WorkerAuthorityIntegrationTest extends PushIntegrationTestSupport {
 
         // Then
         assertThat(processed).isEqualTo(1);
+        awaitDeliveryProcessing();
         assertThat(transport.requests()).hasSize(1);
     }
 
@@ -152,7 +166,7 @@ class WorkerAuthorityIntegrationTest extends PushIntegrationTestSupport {
                 }
             });
             return result;
-        }).when(leases).claimNext();
+        }).when(leases).claimNext(anyInt());
 
         try (var executor = Executors.newSingleThreadExecutor()) {
             var running = executor.submit(worker::processDue);
@@ -171,6 +185,7 @@ class WorkerAuthorityIntegrationTest extends PushIntegrationTestSupport {
             }
             assertThat(running.get(10, TimeUnit.SECONDS)).isEqualTo(1);
         }
+        awaitDeliveryProcessing();
         assertThat(transport.requests()).hasSize(1);
     }
 
@@ -183,7 +198,7 @@ class WorkerAuthorityIntegrationTest extends PushIntegrationTestSupport {
         var first = deliveries.save(NotificationDelivery.create(
                 notification(owner, "from-a"), subscription, NOW, NOW.plusDays(1)));
         var second = deliveries.save(NotificationDelivery.create(
-                notification(owner, "from-b"), subscription, NOW, NOW.plusDays(1)));
+                notification(owner, "from-b"), subscription, NOW.plusMinutes(1), NOW.plusDays(1)));
         var activeA = activate();
         var b = workerNode("B");
         var committing = new CountDownLatch(1);
@@ -205,6 +220,8 @@ class WorkerAuthorityIntegrationTest extends PushIntegrationTestSupport {
             var runningA = executor.submit(worker::processDue);
             try {
                 assertThat(committing.await(10, TimeUnit.SECONDS)).isTrue();
+                assertThat(runningA.get(5, TimeUnit.SECONDS)).isEqualTo(1);
+                jdbc.update("update notification_deliveries set next_attempt_at = ? where id = ?", NOW, second.getId());
                 assertThat(transport.requests()).hasSize(1);
 
                 // A는 외부 발송을 마쳤지만 finish DB 트랜잭션은 아직 commit되지 않았다.
@@ -216,6 +233,8 @@ class WorkerAuthorityIntegrationTest extends PushIntegrationTestSupport {
                         .isInstanceOf(IllegalStateException.class);
                 assertThat(b.worker().processDue()).isZero();
                 assertThat(b.transport().requests()).isEmpty();
+                assertThat(deliveries.findById(second.getId()).orElseThrow().getStatus())
+                        .isEqualTo(DeliveryStatus.PENDING);
                 assertThat(deliveries.findById(first.getId()).orElseThrow().getStatus())
                         .isEqualTo(DeliveryStatus.IN_FLIGHT);
             } finally {
@@ -225,6 +244,12 @@ class WorkerAuthorityIntegrationTest extends PushIntegrationTestSupport {
             assertThat(runningA.get(10, TimeUnit.SECONDS)).isEqualTo(1);
         }
 
+        Awaitility.await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
+            assertThat(worker.isIdle()).isTrue();
+            assertThat(admission.drainStatus().isDrained()).isTrue();
+            assertThat(deliveries.findById(first.getId()).orElseThrow().getStatus())
+                    .isEqualTo(DeliveryStatus.ACCEPTED);
+        });
         // A의 finish commit과 local drain이 모두 끝나야 DB owner를 넘길 수 있다.
         var drainingA = authorityRepository.find("authority-test").orElseThrow();
         assertThat(admission.drainStatus().isDrained()).isTrue();
@@ -234,6 +259,10 @@ class WorkerAuthorityIntegrationTest extends PushIntegrationTestSupport {
         var activeB = b.authority().activate(command(b, releasedA));
         assertThat(activeB.owner()).isEqualTo(b.identity());
         assertThat(b.worker().processDue()).isEqualTo(1);
+        Awaitility.await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
+            assertThat(b.worker().isIdle()).isTrue();
+            assertThat(b.admission().drainStatus().inFlight()).isZero();
+        });
         assertThat(b.transport().requests()).hasSize(1);
         assertThat(deliveries.findById(second.getId()).orElseThrow().getStatus())
                 .isEqualTo(DeliveryStatus.ACCEPTED);
@@ -247,6 +276,7 @@ class WorkerAuthorityIntegrationTest extends PushIntegrationTestSupport {
         assertThat(returnedA.owner()).isEqualTo(identity);
         assertThat(admission.state()).isEqualTo(WorkerAdmissionController.State.ACTIVE);
         assertThat(worker.processDue()).isEqualTo(1);
+        awaitDeliveryProcessing();
         assertThat(transport.requests()).hasSize(2);
         assertThat(deliveries.findById(third.getId()).orElseThrow().getStatus())
                 .isEqualTo(DeliveryStatus.ACCEPTED);
@@ -265,7 +295,8 @@ class WorkerAuthorityIntegrationTest extends PushIntegrationTestSupport {
         var nodeTransport = new PushTransportStub();
         var nodeLeases = new TransactionalLeaseService(work, deliveries, subscriptions, pushProperties, clock,
                 nodeAuthority, transactions);
-        var nodeWorker = new PushDeliveryWorker(nodeLeases, nodeTransport, pushProperties, nodeAdmission, metrics);
+        var nodeWorker = new PushDeliveryWorker(nodeLeases, nodeTransport, pushProperties, PushDeliveryProperties.defaults(), nodeAdmission, metrics);
+        independentWorkers.add(nodeWorker);
         return new WorkerNode(nodeIdentity, nodeAdmission, nodeAuthority, nodeWorker, nodeTransport);
     }
 
@@ -310,13 +341,13 @@ class WorkerAuthorityIntegrationTest extends PushIntegrationTestSupport {
         }
 
         @Override
-        public Optional<DeliveryClaim> claimNext() {
-            return transactions.execute(status -> super.claimNext());
+        public List<DeliveryClaim> claimNext(int limit) {
+            return transactions.execute(status -> super.claimNext(limit));
         }
 
         @Override
-        public Optional<PushRequest> prepare(DeliveryClaim claim) {
-            return transactions.execute(status -> super.prepare(claim));
+        public List<PushRequest> prepare(List<DeliveryClaim> claims) {
+            return transactions.execute(status -> super.prepare(claims));
         }
 
         @Override

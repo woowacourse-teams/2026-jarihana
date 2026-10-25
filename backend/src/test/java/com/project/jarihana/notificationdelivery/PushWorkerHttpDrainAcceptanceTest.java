@@ -85,6 +85,7 @@ class PushWorkerHttpDrainAcceptanceTest extends PushIntegrationTestSupport {
             var runningWorker = executor.submit(worker::processDue);
             try {
                 assertThat(committing.await(10, TimeUnit.SECONDS)).isTrue();
+                assertThat(runningWorker.get(5, TimeUnit.SECONDS)).isEqualTo(1);
                 var draining = authority.pause(command(active));
 
                 // Then: HTTP는 실제 랜덤 포트에서 응답하고, 기존 작업은 아직 진행 중이어야 한다.
@@ -102,6 +103,7 @@ class PushWorkerHttpDrainAcceptanceTest extends PushIntegrationTestSupport {
             assertThat(runningWorker.get(10, TimeUnit.SECONDS)).isEqualTo(1);
         }
 
+        awaitDeliveryProcessing();
         assertThat(admission.drainStatus().isDrained()).isTrue();
         assertThat(deliveries.findById(pending.getId()).orElseThrow().getStatus())
                 .isEqualTo(DeliveryStatus.ACCEPTED);

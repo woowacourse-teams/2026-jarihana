@@ -8,6 +8,7 @@ on:
       - "backend/**"
       - "infra/docker-compose.dev.yml"
       - "infra/monitoring/alloy/config.alloy"
+      - "infra/monitoring/alloy/postgres-queries.yaml"
       - "infra/scripts/verify-backend.sh"
       - "infra/scripts/deploy/**"
       - "infra/deploy/controller/**"
@@ -62,9 +63,12 @@ jobs:
           cache: gradle
           cache-dependency-path: backend/**/*.gradle*
 
-      - name: Backend 마이그레이션 및 회귀 테스트
+      # 회귀 테스트는 PR CI(ci.yml의 Backend Test)에서 실행한다.
+      # develop 규칙(ci-rule)은 최신 develop을 반영한 PR의 테스트 통과를 병합 조건으로 요구하며, 우회 대상은 없다.
+      # 배포에서는 테스트를 반복하지 않고 jar를 빌드한다. Dockerfile은 이 jar를 복사한다.
+      - name: Backend jar 빌드
         working-directory: backend
-        run: ./gradlew test --no-daemon
+        run: ./gradlew bootJar --no-daemon
 
       - name: GHCR 로그인
         env:
@@ -72,24 +76,37 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
 
+      - name: Docker Buildx 설정
+        uses: docker/setup-buildx-action@v4
+
       # 커밋 SHA 태그는 실행 중인 컨테이너를 커밋에 잇는다.
       # 트리 해시 태그는 squash나 merge commit으로 main에 들어가도 backend 코드가 같으면 같은 값이라,
       # prod가 다시 빌드하지 않고 이 이미지를 찾는 데 쓴다.
-      - name: Backend 이미지 빌드
-        run: |
-          BACKEND_TREE="$(git rev-parse HEAD:backend)"
-          echo "BACKEND_TREE=${BACKEND_TREE}" >> "${GITHUB_ENV}"
-          docker build \
-            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
-            --label "org.opencontainers.image.revision=${BACKEND_TAG}" \
-            -t "${BACKEND_IMAGE}:${BACKEND_TAG}" \
-            -t "${BACKEND_IMAGE}:tree-${BACKEND_TREE}" \
-            ./backend
+      - name: Backend 트리 해시 계산
+        run: echo "BACKEND_TREE=$(git rev-parse HEAD:backend)" >> "${GITHUB_ENV}"
 
-      - name: GHCR에 이미지 push
-        run: |
-          docker push "${BACKEND_IMAGE}:${BACKEND_TAG}"
-          docker push "${BACKEND_IMAGE}:tree-${BACKEND_TREE}"
+      # runner는 매번 새로 만들어져 로컬 레이어 캐시가 없다. 그래서 이미지 안에 캐시 정보를 담고(inline),
+      # 다음 빌드는 buildcache 태그가 가리키는 직전 develop 이미지에서 그 정보를 읽는다.
+      # buildcache 태그는 캐시를 읽는 데만 쓰고 배포에는 쓰지 않는다. 태그가 없으면 캐시 없이 빌드한다.
+      # 캐시가 맞은 레이어(yum, useradd, OTel agent, 의존성)는 직전 이미지와 digest가 같아 push와 서버 pull에서 건너뛴다.
+      # inline은 최종 이미지의 레이어만 캐시한다. jar를 푸는 앞 단계는 jar가 바뀔 때마다 다시 실행되므로 캐시할 이유가 없다.
+      # 캐시가 GHCR 이미지에 함께 있어 GitHub Actions 캐시처럼 7일 동안 안 쓰면 지워지거나 따로 용량을 쓰지 않는다.
+      # provenance를 끄면 이전과 같은 단일 이미지 manifest를 올린다.
+      - name: Backend 이미지 빌드와 GHCR push
+        uses: docker/build-push-action@v7
+        with:
+          context: ./backend
+          push: true
+          provenance: false
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:${{ env.BACKEND_TAG }}
+            ${{ env.BACKEND_IMAGE }}:tree-${{ env.BACKEND_TREE }}
+            ${{ env.BACKEND_IMAGE }}:buildcache
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ env.BACKEND_TAG }}
+          cache-from: type=registry,ref=${{ env.BACKEND_IMAGE }}:buildcache
+          cache-to: type=inline
 
   # dev EC2의 runner는 GHCR에서 이미지를 받아 컨테이너만 교체한다.
   # 교체 뒤 readiness 대기와 스모크 테스트를 하고, 실패하면 직전 성공 태그로 되돌린 뒤 실패로 끝낸다.
@@ -135,6 +152,11 @@ jobs:
       IMAGE_S3_REGION: ${{ vars.IMAGE_S3_REGION }}
       IMAGE_S3_KEY_PREFIX: ${{ vars.IMAGE_S3_KEY_PREFIX }}
       IMAGE_S3_PUBLIC_BASE_URL: ${{ vars.IMAGE_S3_PUBLIC_BASE_URL }}
+      IMAGE_CDN_DELIVERY_BASE_URL: ${{ vars.IMAGE_CDN_DELIVERY_BASE_URL }}
+      IMAGE_CLOUDFRONT_KEY_PAIR_ID: ${{ vars.IMAGE_CLOUDFRONT_KEY_PAIR_ID }}
+      IMAGE_CLOUDFRONT_PRIVATE_KEY: ${{ secrets.IMAGE_CLOUDFRONT_PRIVATE_KEY }}
+      IMAGE_CLEANUP_ENABLED: ${{ vars.IMAGE_CLEANUP_ENABLED || 'false' }}
+      IMAGE_CLEANUP_GRACE_PERIOD: P7D
       MONITORING_BIND_ADDRESS: ${{ vars.MONITORING_BIND_ADDRESS }}
       HOST_ID: ${{ vars.HOST_ID || 'jarihana-dev-ec2' }}
       PROMETHEUS_REMOTE_WRITE_URL: http://${{ vars.MONITORING_BIND_ADDRESS }}:8080/prometheus/api/v1/write
