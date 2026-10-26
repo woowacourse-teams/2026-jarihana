@@ -56,24 +56,36 @@ workflow·Bash의 소비 코드와 함께 정리하고, 이 값만 먼저 삭제
 1. **코드부터 반영한다.** dev flag가 false/미설정인지 확인하고 develop PR을 머지한다.
    기존 dev 배포와 이미지 빌드 성공을 확인한다. 이 머지 자체는 실제 경로를 바꾸지 않는다.
 2. **배포가 없는 전환 시간을 확보한다.** 팀의 dev 사용과 develop 머지를 잠시 멈추고,
-   기존 legacy/BG/모니터링 배포가 모두 종료됐는지 확인한다. 진행 중 실행에서 활성화 변수를
+   기존 legacy/BG/모니터링 배포와 queue guardian의 queued/in_progress 실행이 모두 없는지 확인한다.
+   새 control checkout을 교체하기 전에 dev watchdog timer를 멈추고 실행 중인 oneshot service도
+   끝났는지 확인한다. prod timer·저널은 건드리지 않는다. 진행 중 실행에서 활성화 변수를
    바꾸지 않는다. 이전 이미지 digest·기존 A 실행 설정·CloudFront 설정/ETag를 보호된 위치에
    보관한다. 비밀값이 포함된 설정을 실행 로그나 PR에 붙이지 않는다.
 3. **제어 코드를 갱신한다.** 리뷰한 커밋으로 새 immutable control tag를 만든다. 기존 태그는
    이동하지 않는다. GitHub `BLUE_GREEN_CONTROL_REF`, A/B/Nginx root JSON의 control ref/SHA,
    watchdog 코드 checkout을 같은 release로 맞춘다. 설치 Compose도 해당 release의 원본과
    byte 단위로 일치해야 한다. 이전 control tag를 그대로 쓰면 이번 푸시 설정 처리가 적용되지 않는다.
-4. **실제 경로를 준비한다.** Nginx는 A private app port를 가리킨다. dev watchdog·Alloy·
-   Prometheus 조회·A/B 전용 runner·읽기 전용 SSH 허가 조회가 정상인지 확인한다.
-   B는 stopped, 기존 저널은 미해결 pending/ATTENTION 없음, DB 처리 권한은 UNASSIGNED여야 한다.
+   기존 terminal 저널도 control SHA와 control ref/SHA를 포함한 topology digest에 묶인다.
+   pin만 바꾸면 bootstrap의 plan이 거부되므로 아래의 명시적 기록 조정을 함께 준비한다.
+4. **실제 경로를 준비한다.** Nginx는 A private app port를 가리킨다. 정지한 dev watchdog의
+   설치 설정을 확인하고 Alloy·Prometheus 조회·A/B 전용 runner·읽기 전용 SSH 허가 조회가
+   정상인지 확인한다. B는 stopped이며 기존 저널에 미해결 pending/ATTENTION이 없어야 한다.
+   현재 DB 처리 권한은 검증된 조회로 확인하고, 아래 순서로 기존 owner 해소와 새 A의
+   PAUSED/UNASSIGNED를 검증한다. legacy 앱의 관리 API 거부를 UNASSIGNED의 증거로 삼지 않는다.
    불일치는 원인을 확인한다. 저널 삭제나 임의 SQL 초기화로 통과시키지 않는다.
-5. **A를 live dev 설정으로 최초 설치한다.** 기존 legacy 앱의 신규 작업을 중단하고 처리 중
-   작업을 마친 뒤 정상 종료한다. 기존 dev Variables·Secrets와 승인 digest로 A를 제어 모드로
+5. **A를 live dev 설정으로 최초 설치한다.** 교체 전에 기존 처리 권한을 확인한다. ACTIVE owner가
+   있으면 반드시 그 owner 프로세스에서 검토된 관리 API 절차로 begin → HANDOFF → pause/drain →
+   release → COMPLETE를 수행한다. 현재 boot·epoch·revision·기한을 대조하며 신규 boot가 이전
+   owner의 권한을 강제로 반납하지 않는다. 상태를 확인하거나 안전하게 해소할 수 없으면 중단한다.
+   기존 legacy 앱의 신규 작업을 중단하고 처리 중 작업을 마친 뒤 정상 종료한다.
+   기존 dev Variables·Secrets와 승인 digest로 A를 제어 모드로
    설치한다. `PUSH_ENABLED=true`, `PUSH_WORKER_ENABLED=true`여도
    `PUSH_WORKER_CONTROL_ENABLED=true`, `PUSH_WORKER_START_PAUSED=true`여야 한다.
    loopback 관리 API의 READY·PAUSED·inFlight/unresolved=0과 실제 컨테이너의 푸시 설정을 확인한다.
    환경 전체를 출력하지 않고 필요한 비밀 아닌 항목만 비교한다. 기존 legacy 앱을 동시에
    실행하지 않는다. 이 최초 교체에는 일시 중단이 생길 수 있다.
+   새 A에서 실제 상태를 확인한 뒤 [기존 dev terminal 기록 조정](#기존-dev-terminal-기록-조정)을
+   수행한다. 새 release의 dev watchdog을 재개·확인한 뒤에만 다음 bootstrap으로 진행한다.
 6. **최초 worker를 등록한다.** 새 develop 머지를 계속 막은 상태에서 dev flag를 true로 설정한다.
    `Backend Development Deploy`를 develop에서 수동 실행하고 `blue_green_mode=bootstrap`,
    `image_tag=<현재 A 이미지를 만든 40자리 SHA>`를 선택한다. 새 빌드를 생략하고 A의 처리 권한을
@@ -89,6 +101,39 @@ workflow·Bash의 소비 코드와 함께 정리하고, 이 값만 먼저 삭제
 
 수동 배포가 필요하면 `blue_green_mode=deploy`와 승인 image_tag를 지정한다.
 자동화 활성 중 기본값 `legacy`로 실행하면 명시적으로 실패한다.
+
+## 기존 dev terminal 기록 조정
+
+이 절은 새 A의 제어 모드 설치 확인 뒤, 최초 bootstrap 직전에 수행하는 관리자 조정 절차다.
+이전 control release의 `/var/lib/jarihana-deploy/dev/state.json`이 남아 있으면 새 pin의 plan은
+`Previous deployment requires reconciliation`로 거부한다. 단순히 phase가 terminal이거나
+pending이 null이라는 이유로 파일을 지우거나 control SHA·topology 필드를 고치지 않는다.
+
+1. step 2의 실행 중단과 dev watchdog timer/oneshot 종료를 재확인한다. 기존 release의 근거와
+   대조해 저널이 schema 2·environment dev·phase COMPLETE 또는 ROLLED_BACK·pending null인지
+   확인한다. ATTENTION·미확정 상태·cleanup_deferred·종료되지 않은 부모 run은 archive하지 않는다.
+2. terminal 표시와 별도로 실제 Nginx가 A를 가리키고 A가 running/readiness UP인지 확인한다.
+   **새 A의 관리 API**에서 worker PAUSED·inFlight/unresolved 0, HTTP/background drained,
+   DB authority owner null·status UNASSIGNED·phase IDLE 또는 COMPLETE를 확인하고 B EC2가
+   stopped인지 대조한다. ACTIVE owner는 step 5처럼 기존 owner를 교체하기 전에 해소해야 한다.
+3. A/B의 `app-*/worker-intent.json`·`stop-intent.json`이 없거나 resolved=true이고 실제 프로세스·
+   정상 종료 증거와 모순 없는지 확인한다. 미확정 intent는 먼저 해소하며 파일은 보존한다.
+   B가 stopped라 증거를 확인할 수 없으면 이를 통과로 간주하지 않고 조정을 보류한다.
+4. coordinator 계정으로 **기존 `state.json.lock` inode를 유지한 채 `flock -n`을 획득**한다.
+   잠금 아래 `state.json`이 symlink가 아닌 정규 파일이며 coordinator 소유·0600인지 확인하고,
+   위 JSON 조건과 실제 상태를 다시 대조한다. 원본 SHA256·이전 control ref/SHA·run/deployment를
+   보호된 기록에 남긴다. 같은 dev 0700 디렉터리 안의 UTC 시각·run ID·이전 SHA를 포함한 새 고유
+   archive 이름으로만, 기존 대상을 덮어쓰지 않는 동일 filesystem의 atomic rename을 수행한다.
+   원본 owner/0600 유지·archive hash 일치·active `state.json` 부재를 확인하고 archive와 디렉터리를
+   동기화한다. lock 파일을 삭제·교체하지 않으며 app intent/lock, Nginx current/generation/증거,
+   DB 처리 권한도 archive·삭제·직접 수정하지 않는다. 저널이 원래 없으면 archive만 생략한다.
+5. 새 immutable tag·root 설정·설치 Compose·watchdog checkout의 일치와 새 A의 live push/PAUSED
+   profile을 다시 확인한다. dev watchdog을 새 release로 재개·확인한 뒤 step 6의 bootstrap을
+   한 번 실행한다. 저널 부재 시 watchdog은 아무 작업을 하지 않고 허가 조회는 실패하므로,
+   archive 자체가 새 배포 허가나 호스트 전체 초기화를 의미하지 않는다.
+
+archive는 과거 감사 증거다. 이후 bootstrap이 실패하면 새 저널과 intent를 보존하고 원인을
+확인한다. 이전 archive를 active 경로에 복원·덮어쓰거나 SQL·저널 필드 수정으로 통과시키지 않는다.
 
 ## CloudFront에서 바꾸는 항목
 
