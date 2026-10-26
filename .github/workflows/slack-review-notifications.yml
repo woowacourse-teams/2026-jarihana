@@ -1,0 +1,105 @@
+name: Slack Review Notifications
+
+on:
+  pull_request_target:
+    types: [review_requested]
+    branches:
+      - develop
+      - main
+  schedule:
+    - cron: "30 1,8 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  review-request-notification:
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the trusted PR base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          persist-credentials: false
+
+      - name: Notify the requested reviewer in Slack
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_REVIEW_CHANNEL_ID: ${{ vars.SLACK_REVIEW_CHANNEL_ID }}
+          SLACK_REVIEW_USER_IDS: ${{ vars.SLACK_REVIEW_USER_IDS }}
+        run: node .github/scripts/slack-review-notifications.cjs requested
+
+  scan-deadlines:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref_name == github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+      issues: read
+      pull-requests: read
+    outputs:
+      matrix: ${{ steps.scan.outputs.matrix }}
+      has_reminders: ${{ steps.scan.outputs.has_reminders }}
+    steps:
+      - name: Check out the trusted default branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Find overdue PR reviews that require approval
+        id: scan
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GITHUB_TOKEN: ${{ github.token }}
+          SLACK_REVIEW_USER_IDS: ${{ vars.SLACK_REVIEW_USER_IDS }}
+        run: node .github/scripts/slack-review-notifications.cjs deadline-scan
+
+  deadline-reminder:
+    needs: scan-deadlines
+    if: needs.scan-deadlines.outputs.has_reminders == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      issues: read
+      pull-requests: read
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.scan-deadlines.outputs.matrix) }}
+    concurrency:
+      group: slack-review-deadline-${{ matrix.pr_number }}
+      cancel-in-progress: false
+    steps:
+      - name: Check out the trusted default branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Send one reminder if approval is still missing
+        id: reminder
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GITHUB_TOKEN: ${{ github.token }}
+          REVIEW_REMINDER: ${{ toJSON(matrix) }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_REVIEW_CHANNEL_ID: ${{ vars.SLACK_REVIEW_CHANNEL_ID }}
+          SLACK_REVIEW_USER_IDS: ${{ vars.SLACK_REVIEW_USER_IDS }}
+        run: node .github/scripts/slack-review-notifications.cjs deadline-notification
+
+      - name: Save a reminder marker to prevent duplicate mentions
+        if: steps.reminder.outputs.sent == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.reminder.outputs.artifact_name }}
+          path: ${{ steps.reminder.outputs.marker_path }}
+          retention-days: 90
