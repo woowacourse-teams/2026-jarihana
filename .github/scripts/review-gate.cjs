@@ -1,5 +1,9 @@
 const HIGH_RISK_PATH_RULES = [
   {
+    reason: "review approval or notification automation",
+    pattern: /^\.github\/scripts\/(?:review-gate|publish-review-gate|auto-assign-reviewer|slack-review-notifications)\.cjs$/i,
+  },
+  {
     reason: "DB migration",
     pattern: /^backend\/(?:db\/migrations\/|src\/main\/resources\/db\/migration\/)/i,
   },
