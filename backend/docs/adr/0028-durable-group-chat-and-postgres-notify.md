@@ -294,7 +294,7 @@ NOTIFY는 두 서버 사이의 변경 전달을 맡고, 프록시는 새 연결�
 | 로컬 필터·개인 발행 | [ChatEventDispatcher](../../src/main/java/com/project/jarihana/chat/client/ChatEventDispatcher.java) |
 | NOTIFY 수신·재접속 | [ChatPostgresListener](../../src/main/java/com/project/jarihana/chat/client/ChatPostgresListener.java) |
 | 연결·구독 제한 | [ChatWebSocketConfig](../../src/main/java/com/project/jarihana/chat/config/ChatWebSocketConfig.java), [ChatInboundInterceptor](../../src/main/java/com/project/jarihana/chat/config/ChatInboundInterceptor.java) |
-| 테이블·unique 제약 | [Flyway V7](../../src/main/resources/db/migration/V7__group_chat.sql) |
+| 테이블·unique 제약 | [Flyway V8](../../src/main/resources/db/migration/V8__group_chat.sql) |
 | 동시 저장·가입 기준·읽음 | [ChatPersistenceTest](../../src/test/java/com/project/jarihana/chat/ChatPersistenceTest.java) |
 | 이전 로컬 통합·부하·브라우저 확인 | [채팅 검증 결과](../../../infra/chat-verification/RESULTS.md) |
 

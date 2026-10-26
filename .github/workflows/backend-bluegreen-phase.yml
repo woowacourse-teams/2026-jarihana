@@ -1,0 +1,65 @@
+name: Backend Blue-Green Coordinator Phase
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+      mode:
+        type: string
+        required: true
+      digest:
+        type: string
+        required: true
+      phase:
+        type: string
+        required: true
+      app_result:
+        type: string
+        default: ''
+      target_result:
+        type: string
+        default: ''
+    outputs:
+      old:
+        value: ${{ jobs.phase.outputs.old }}
+      target:
+        value: ${{ jobs.phase.outputs.target }}
+      deployment_id:
+        value: ${{ jobs.phase.outputs.deployment_id }}
+      rollback_ready:
+        value: ${{ jobs.phase.outputs.rollback_ready }}
+      cleanup_deferred:
+        value: ${{ jobs.phase.outputs.cleanup_deferred }}
+permissions:
+  contents: read
+  actions: read
+jobs:
+  phase:
+    runs-on: [jarihana-bluegreen-coordinator]
+    environment: ${{ inputs.environment }}
+    timeout-minutes: ${{ inputs.phase == 'observe' && 20 || inputs.phase == 'plan' && 15 || (inputs.phase == 'grant-handoff' || inputs.phase == 'stop') && 12 || 8 }}
+    outputs:
+      old: ${{ steps.phase.outputs.old }}
+      target: ${{ steps.phase.outputs.target }}
+      deployment_id: ${{ steps.phase.outputs.deployment_id }}
+      rollback_ready: ${{ steps.phase.outputs.rollback_ready }}
+      cleanup_deferred: ${{ steps.phase.outputs.cleanup_deferred }}
+    env:
+      BG_ENVIRONMENT: ${{ inputs.environment }}
+      BG_MODE: ${{ inputs.mode }}
+      BG_IMAGE_DIGEST: ${{ inputs.digest }}
+      BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
+      BG_PHASE: ${{ inputs.phase }}
+      APP_RESULT: ${{ inputs.app_result }}
+      TARGET_RESULT: ${{ inputs.target_result }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ vars.BLUE_GREEN_CONTROL_REF }}
+          persist-credentials: false
+      - name: 배포 저널·실제 상태를 확인하고 단계 실행
+        id: phase
+        shell: bash
+        run: bash infra/scripts/deploy/actions/coordinator.sh "$BG_PHASE"

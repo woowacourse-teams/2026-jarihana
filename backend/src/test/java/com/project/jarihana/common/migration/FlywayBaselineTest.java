@@ -5,6 +5,7 @@ import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.FlywayException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.io.ClassPathResource;
@@ -15,6 +16,9 @@ import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.test.context.ActiveProfiles;
 
 import javax.sql.DataSource;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.UUID;
@@ -179,7 +183,7 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 int appliedMigrations = existing.migrate().migrationsExecuted;
 
                 // Then
-                assertThat(appliedMigrations).isEqualTo(6);
+                assertThat(appliedMigrations).isEqualTo(7);
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '1'", String.class))
                         .isEqualTo("BASELINE");
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '2'", String.class))
@@ -194,10 +198,12 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                         .isEqualTo("SQL");
                 assertThat(jdbc.queryForList("select tablename from pg_tables where schemaname = current_schema()", String.class))
                         .contains("chat_room", "chat_message", "chat_read_state");
+                assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '8'", String.class))
+                        .isEqualTo("V8__group_chat.sql");
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '999999'", String.class))
                         .isEqualTo("SQL");
                 assertThat(jdbc.queryForList("select tablename from pg_tables where schemaname = current_schema()", String.class))
-                        .contains("activity_post_comment", "activity_post_reaction", "activity_post_comment_reaction");
+                        .contains("activity_post_comment", "activity_post_reaction", "activity_post_comment_reaction", "worker_authority");
                 assertThat(jdbc.queryForList("select tablename from pg_tables where schemaname = current_schema()", String.class))
                         .contains("image_reference", "image_deletion_task", "image_promotion_task");
                 assertThat(jdbc.queryForObject("select github_id from member", String.class)).isEqualTo("baseline-member");
@@ -205,6 +211,106 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                         .isEqualTo("baseline-member");
                 assertThat(jdbc.queryForObject("select count(*) from baseline_test_marker", Long.class)).isZero();
                 assertThat(existing.migrate().migrationsExecuted).isZero();
+            } finally {
+                connection.setSchema(originalSchema);
+            }
+        } finally {
+            administrative.execute("drop schema " + schema + " cascade");
+        }
+    }
+
+    @Test
+    @DisplayName("기존 V6 DB에 worker 테이블을 추가해도 회원 데이터와 기존 마이그레이션 이력을 보존한다.")
+    void addWorkerAuthorityAfterExistingDevMigrations() throws SQLException {
+        // Given
+        String schema = "worker_upgrade_" + UUID.randomUUID().toString().replace("-", "");
+        JdbcTemplate administrative = new JdbcTemplate(dataSource);
+        administrative.execute("create schema " + schema);
+        try (Connection connection = dataSource.getConnection()) {
+            String originalSchema = connection.getSchema();
+            try {
+                connection.setSchema(schema);
+                SingleConnectionDataSource isolated = new SingleConnectionDataSource(connection, true);
+                Flyway.configure().dataSource(isolated).schemas(schema)
+                        .locations("classpath:db/migration").target("6").load().migrate();
+                JdbcTemplate jdbc = new JdbcTemplate(isolated);
+                jdbc.update("""
+                        insert into member (crew_name, generation, github_id, member_type, course, created_at, updated_at)
+                        values ('우주', 8, 'worker-upgrade-member', 'CREW', 'BACKEND', localtimestamp, localtimestamp)
+                        """);
+                var history = jdbc.queryForList("select * from flyway_schema_history order by installed_rank");
+                Flyway upgraded = Flyway.configure().dataSource(isolated).schemas(schema)
+                        .locations("classpath:db/migration").load();
+
+                // When
+                int appliedMigrations = upgraded.migrate().migrationsExecuted;
+
+                // Then
+                assertThat(appliedMigrations).isEqualTo(2);
+                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('7', '8') order by installed_rank"))
+                        .isEqualTo(history);
+                assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '4'", String.class))
+                        .isEqualTo("V4__image_lifecycle.sql");
+                assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '7'", String.class))
+                        .isEqualTo("V7__worker_authority.sql");
+                assertThat(jdbc.queryForObject("select count(*) from worker_authority", Long.class)).isZero();
+                assertThat(jdbc.queryForObject("select github_id from member", String.class))
+                        .isEqualTo("worker-upgrade-member");
+                assertThat(upgraded.migrate().migrationsExecuted).isZero();
+            } finally {
+                connection.setSchema(originalSchema);
+            }
+        } finally {
+            administrative.execute("drop schema " + schema + " cascade");
+        }
+    }
+
+    @Test
+    @DisplayName("시험 DB에 잘못 사용한 worker V4 번호를 정정해도 테이블을 재생성하거나 데이터를 잃지 않는다.")
+    void reconcileRehearsalWorkerVersionWithoutRecreatingTable(@TempDir Path legacy) throws SQLException, IOException {
+        // Given
+        for (String file : new String[]{"V1__baseline.sql", "V2__activity_post_comment_reaction.sql",
+                "V3__activity_post_reaction_heart_only.sql", "V7__worker_authority.sql"}) {
+            try (var input = new ClassPathResource("db/migration/" + file).getInputStream()) {
+                Files.copy(input, legacy.resolve(file.replace("V7__", "V4__")));
+            }
+        }
+        String schema = "worker_reconcile_" + UUID.randomUUID().toString().replace("-", "");
+        JdbcTemplate administrative = new JdbcTemplate(dataSource);
+        administrative.execute("create schema " + schema);
+        try (Connection connection = dataSource.getConnection()) {
+            String originalSchema = connection.getSchema();
+            try {
+                connection.setSchema(schema);
+                SingleConnectionDataSource isolated = new SingleConnectionDataSource(connection, true);
+                Flyway.configure().dataSource(isolated).schemas(schema)
+                        .locations("filesystem:" + legacy).load().migrate();
+                JdbcTemplate jdbc = new JdbcTemplate(isolated);
+                jdbc.update("insert into worker_authority(environment) values ('migration-test')");
+                var worker = jdbc.queryForList("select * from worker_authority");
+
+                // When
+                int corrected = jdbc.update("""
+                        update flyway_schema_history set version = '7', script = 'V7__worker_authority.sql'
+                        where version = '4' and script = 'V4__worker_authority.sql'
+                          and description = 'worker authority' and type = 'SQL'
+                          and checksum = 1532855250 and success
+                        """);
+                int appliedMigrations = Flyway.configure().dataSource(isolated).schemas(schema)
+                        .locations("classpath:db/migration").outOfOrder(true).load().migrate().migrationsExecuted;
+
+                // Then
+                assertThat(corrected).isEqualTo(1);
+                assertThat(appliedMigrations).isEqualTo(3);
+                assertThat(jdbc.queryForList("select * from worker_authority")).isEqualTo(worker);
+                assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '4'", String.class))
+                        .isEqualTo("V4__image_lifecycle.sql");
+                assertThat(jdbc.queryForObject("select checksum from flyway_schema_history where version = '7'", Integer.class))
+                        .isEqualTo(1532855250);
+                Flyway normal = Flyway.configure().dataSource(isolated).schemas(schema)
+                        .locations("classpath:db/migration").load();
+                normal.validate();
+                assertThat(normal.migrate().migrationsExecuted).isZero();
             } finally {
                 connection.setSchema(originalSchema);
             }

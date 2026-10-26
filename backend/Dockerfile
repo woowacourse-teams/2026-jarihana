@@ -23,7 +23,8 @@ ADD --chmod=0644 --checksum=sha256:f787eb6c7f3d18e69a431e108a15278d25ee37f83d68b
 
 ENV JAVA_TOOL_OPTIONS="-javaagent:/opt/opentelemetry/opentelemetry-javaagent.jar"
 
-RUN yum install -y shadow-utils && \
+RUN chmod 0755 /opt/opentelemetry && \
+    yum install -y shadow-utils && \
     yum clean all
 
 RUN useradd --system \

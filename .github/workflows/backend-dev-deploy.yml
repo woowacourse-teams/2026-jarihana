@@ -10,9 +10,19 @@ on:
       - "infra/monitoring/alloy/config.alloy"
       - "infra/monitoring/alloy/postgres-queries.yaml"
       - "infra/scripts/verify-backend.sh"
+      - "infra/scripts/deploy/**"
+      - "infra/deploy/controller/**"
       - ".github/workflows/backend-dev-deploy.yml"
+      - ".github/workflows/backend-bluegreen-deploy.yml"
+      - ".github/workflows/backend-app-operation.yml"
+      - ".github/workflows/backend-bluegreen-phase.yml"
   workflow_dispatch:
     inputs:
+      blue_green_mode:
+        description: 'legacy=기존 배포, bootstrap=최초 권한 등록, deploy=수동 Blue-Green 검증'
+        type: choice
+        options: [legacy, bootstrap, deploy]
+        default: legacy
       image_tag:
         description: "다시 배포할 기존 이미지 태그(커밋 SHA). 비우면 현재 커밋을 빌드해 배포한다."
         required: false
@@ -106,6 +116,7 @@ jobs:
     if: >-
       always()
       && github.ref == 'refs/heads/develop'
+      && inputs.blue_green_mode != 'bootstrap' && inputs.blue_green_mode != 'deploy'
       && (needs.build.result == 'success'
         || (needs.build.result == 'skipped' && inputs.image_tag != ''))
     runs-on: [jarihana-dev]
@@ -260,3 +271,20 @@ jobs:
           docker image prune -af \
             --filter "until=168h" \
             --filter "label=org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}"
+
+  blue-green:
+    needs: build
+    if: >-
+      always() && github.ref == 'refs/heads/develop' && github.event_name == 'workflow_dispatch' &&
+      (inputs.blue_green_mode == 'bootstrap' || inputs.blue_green_mode == 'deploy') &&
+      (needs.build.result == 'success' || (needs.build.result == 'skipped' && inputs.image_tag != ''))
+    permissions:
+      contents: read
+      packages: read
+      actions: write
+    uses: ./.github/workflows/backend-bluegreen-deploy.yml
+    with:
+      environment: dev
+      image_tag: ${{ inputs.image_tag || github.sha }}
+      mode: ${{ inputs.blue_green_mode }}
+    secrets: inherit
