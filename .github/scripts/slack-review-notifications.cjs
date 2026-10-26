@@ -318,7 +318,7 @@ async function activeReviewRequests(owner, repo, pr) {
 function requiresApproval(body, changedFiles) {
   const declaration = parseDeclaredRisk(body);
   const highRiskPaths = findHighRiskPaths(changedFiles.paths);
-  return changedFiles.filesTruncated || highRiskPaths.length > 0 || !declaration.valid || declaration.risk === "high";
+  return changedFiles.filesTruncated || highRiskPaths.length > 0 || (declaration.valid && declaration.risk === "high");
 }
 
 async function hasCurrentHeadApproval(owner, repo, pr, reviews) {

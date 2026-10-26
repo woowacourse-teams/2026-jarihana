@@ -15,6 +15,11 @@ let afterDelay;
 let calendarUnavailable;
 let githubCalls;
 let slackMessages;
+let pr;
+let reviews;
+let artifacts;
+let timeline;
+let changedPaths;
 
 beforeEach(() => {
   directory = fs.mkdtempSync(path.join(os.tmpdir(), "review-business-day-test-"));
@@ -23,6 +28,10 @@ beforeEach(() => {
   calendarUnavailable = false;
   githubCalls = [];
   slackMessages = [];
+  reviews = [];
+  artifacts = [];
+  timeline = null;
+  changedPaths = ["backend/src/main/java/com/project/jarihana/group/GroupService.java"];
   global.Date = class extends RealDate {
     constructor(...args) { super(...(args.length ? args : [now])); }
     static now() { return now; }
@@ -49,7 +58,7 @@ beforeEach(() => {
     }),
   });
   fs.writeFileSync(process.env.GITHUB_OUTPUT, "");
-  const pr = {
+  pr = {
     number: 987, state: "open", draft: false, body: "- 위험도: high",
     title: "이미지 정리 정책", html_url: "https://github.com/example/repo/pull/987",
     created_at: "2026-10-08T11:00:00+09:00",
@@ -73,17 +82,19 @@ beforeEach(() => {
       assert.equal(url.hostname, "api.github.com");
       githubCalls.push(raw);
       if (url.pathname.endsWith("/actions/artifacts")) {
-        data = { artifacts: [] };
+        data = { artifacts };
       } else if (url.pathname.endsWith("/pulls")) {
         data = url.searchParams.get("base") === "develop" ? [pr] : [];
       } else if (url.pathname.endsWith("/pulls/987")) {
         data = pr;
       } else if (url.pathname.endsWith("/timeline")) {
-        data = [{ event: "review_requested", created_at: pr.created_at, requested_reviewer: { login: "Sauter001" } }];
+        data = timeline || [{ event: "review_requested", created_at: pr.created_at, requested_reviewer: { login: "Sauter001" } }];
       } else if (url.pathname.endsWith("/reviews")) {
-        data = [];
+        data = reviews;
       } else if (url.pathname.endsWith("/files")) {
-        data = [{ filename: "backend/src/main/java/com/project/jarihana/group/GroupService.java" }];
+        data = changedPaths.map((filename) => ({ filename }));
+      } else if (url.pathname.endsWith("/collaborators/Sauter001/permission")) {
+        data = { permission: "write" };
       } else {
         throw new Error("Unexpected business-day fixture request " + raw);
       }
@@ -121,6 +132,76 @@ for (const [label, instant] of [
     await main("deadline-notification");
     assert.match(output(), /sent=false/);
     assert.equal(githubCalls.length, 0);
+    assert.equal(slackMessages.length, 0);
+    assert.equal(markerExists(), false);
+  });
+}
+
+test("an invalid risk declaration alone requires a body correction rather than an approval reminder", async () => {
+  now = RealDate.parse("2026-10-12T10:30:00+09:00");
+  pr.body = "- 위험도: low | medium | high";
+  await main("deadline-scan");
+  assert.match(output(), /has_reminders=false/);
+  await main("deadline-notification");
+  assert.match(output(), /sent=false/);
+  assert.equal(slackMessages.length, 0);
+});
+
+test("a protected path still requires an approval reminder when the risk declaration is invalid", async () => {
+  now = RealDate.parse("2026-10-12T10:30:00+09:00");
+  pr.body = "missing risk declaration";
+  changedPaths = ["infra/review-policy.yml"];
+  await main("deadline-scan");
+  assert.match(output(), /has_reminders=true/);
+});
+
+test("an approval for the current head suppresses both scan and delivery", async () => {
+  now = RealDate.parse("2026-10-12T10:30:00+09:00");
+  reviews = [{ id: 1, state: "APPROVED", commit_id: pr.head.sha, submitted_at: "2026-10-08T07:00:00Z", user: { login: "Sauter001" } }];
+  await main("deadline-scan");
+  assert.match(output(), /has_reminders=false/);
+  await main("deadline-notification");
+  assert.match(output(), /sent=false/);
+  assert.equal(slackMessages.length, 0);
+});
+
+test("an approval for an older head does not suppress an overdue reminder", async () => {
+  now = RealDate.parse("2026-10-12T10:30:00+09:00");
+  reviews = [{ id: 1, state: "APPROVED", commit_id: "older-head", submitted_at: "2026-10-08T07:00:00Z", user: { login: "Sauter001" } }];
+  await main("deadline-scan");
+  assert.match(output(), /has_reminders=true/);
+});
+
+test("a persisted reminder marker prevents another scan and delivery", async () => {
+  now = RealDate.parse("2026-10-12T10:30:00+09:00");
+  artifacts = [{ name: "slack-review-reminder-pr-987-20261008-1730", expired: false, workflow_run: { head_branch: "main" } }];
+  await main("deadline-scan");
+  assert.match(output(), /has_reminders=false/);
+  await main("deadline-notification");
+  assert.match(output(), /sent=false/);
+  assert.equal(slackMessages.length, 0);
+});
+
+test("a removed review request is not mentioned by a previously queued reminder", async () => {
+  now = RealDate.parse("2026-10-12T10:30:00+09:00");
+  pr.requested_reviewers = [];
+  timeline = [
+    { event: "review_requested", created_at: pr.created_at, requested_reviewer: { login: "Sauter001" } },
+    { event: "review_request_removed", created_at: "2026-10-08T08:00:00Z", requested_reviewer: { login: "Sauter001" } },
+  ];
+  await main("deadline-notification");
+  assert.match(output(), /sent=false/);
+  assert.equal(slackMessages.length, 0);
+});
+
+for (const state of ["closed", "draft", "low"]) {
+  test("a queued reminder skips a PR that has become " + state, async () => {
+    now = RealDate.parse("2026-10-12T10:30:00+09:00");
+    if (state === "closed") pr.state = "closed";
+    if (state === "draft") pr.draft = true;
+    if (state === "low") pr.body = "- 위험도: low";
+    await main("deadline-notification");
+    assert.match(output(), /sent=false/);
     assert.equal(slackMessages.length, 0);
     assert.equal(markerExists(), false);
   });
