@@ -15,6 +15,7 @@ public interface ActivityPostCommentQueryRepository extends JpaRepository<Activi
             select new com.project.jarihana.activitypost.query.repository.dto.ActivityPostCommentProjection(
                 comment.id,
                 author.crewName,
+                author.githubId,
                 comment.content,
                 comment.createdAt,
                 case when :memberId is not null and (
@@ -45,4 +46,6 @@ public interface ActivityPostCommentQueryRepository extends JpaRepository<Activi
             @Param("cursorId") Long cursorId,
             Pageable pageable
     );
+
+    boolean existsByIdAndDeletedAtIsNullAndPostDeletedAtIsNull(long id);
 }

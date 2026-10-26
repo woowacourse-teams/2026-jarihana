@@ -103,7 +103,8 @@
 - 권한: `PUBLIC`
 - 설명: 숨기지 않은 댓글을 대화 순서대로 `createdAt ASC, id ASC`로 조회한다.
 - query parameter: `cursor`(선택), `size`(기본 20, 1 이상 100 이하). 커서는 URL-safe Base64로 인코딩한 `createdAt|id`다.
-- 각 항목: `id`, `authorNickname`(작성자 `crewName`), `content`, `createdAt`, 요청자의 `canDelete`, 댓글 반응 요약 `reactions`.
+- 각 항목: `id`, `authorNickname`(작성자 `crewName`), `authorAvatarUrl`(작성자 GitHub 프로필 이미지), `content`, `createdAt`,
+  요청자의 `canDelete`, 댓글 반응 요약 `reactions`.
 - 숨겨진 기록이나 없는 기록은 `ACTIVITY_POST_NOT_FOUND`로 응답한다.
 
 ### `POST /api/activity-posts/{postId}/comments`
@@ -129,6 +130,8 @@
 | `DELETE` | `/api/activity-posts/{postId}/reactions/{emoji}` | 기록의 내 반응 취소 |
 | `PUT` | `/api/activity-post-comments/{commentId}/reactions/{emoji}` | 댓글에 반응 추가 |
 | `DELETE` | `/api/activity-post-comments/{commentId}/reactions/{emoji}` | 댓글의 내 반응 취소 |
+| `GET` | `/api/activity-posts/{postId}/reactions/{emoji}` | 기록에 반응한 회원 조회 |
+| `GET` | `/api/activity-post-comments/{commentId}/reactions/{emoji}` | 댓글에 반응한 회원 조회 |
 
 - 권한: `MEMBER`. 그룹 구성원이 아니어도 로그인 회원이면 반응할 수 있고, 종료된 그룹의 기록에도 반응할 수 있다.
 - `emoji`는 `HEART`만 허용한다. 피드는 단순한 공감만 반응으로 받고 더 깊은 의견은 댓글로 남기도록,
@@ -139,6 +142,16 @@
   작성자가 아직 읽지 않은 같은 기록의 좋아요 알림이 있으면 새로 만들지 않고 그 알림의 문구에 모은다.
   댓글 하트와 취소는 알림을 만들지 않는다. 형식은 [알림 API](notifications.md#활동-기록-알림-응답-확장-계약)를 따른다.
 - 숨겨진 기록과 댓글은 각각 `ACTIVITY_POST_NOT_FOUND`, `ACTIVITY_POST_COMMENT_NOT_FOUND`로 응답한다.
+
+### 반응한 회원 조회
+
+- 권한: `PUBLIC`. 하트 말풍선과 요약, 좋아요한 사람 전체 목록에 쓴다.
+- query parameter: `cursor`(선택), `size`(기본 30, 1 이상 100 이하). 먼저 반응한 순서(`createdAt ASC, id ASC`)이며
+  커서는 URL-safe Base64로 인코딩한 반응의 `createdAt|id`다. 잘못된 커서나 크기는 `INVALID_PARAMETER`다.
+- 응답: `{ "emoji": "HEART", "count": 128, "reactors": [...], "nextCursor": "...", "hasNext": true }`.
+  `count`는 전체 반응 수다. 각 `reactors` 항목은 `crewName`, `avatarUrl`(GitHub 프로필 이미지), `memberType`,
+  `generation`, `course`, `mine`이다. `mine`은 로그인한 요청자 본인인지이며 비로그인 요청은 항상 `false`다.
+- 숨겨진 기록과 댓글, 지원하지 않는 이모지는 추가와 취소와 같은 오류로 응답한다.
 
 ## 주요 오류
 

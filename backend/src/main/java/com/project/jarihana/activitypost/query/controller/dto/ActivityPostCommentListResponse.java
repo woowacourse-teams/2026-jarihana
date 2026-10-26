@@ -17,6 +17,7 @@ public record ActivityPostCommentListResponse(List<Item> items, String nextCurso
     public record Item(
             Long id,
             String authorNickname,
+            String authorAvatarUrl,
             String content,
             LocalDateTime createdAt,
             boolean canDelete,
@@ -27,6 +28,7 @@ public record ActivityPostCommentListResponse(List<Item> items, String nextCurso
             return new Item(
                     item.id(),
                     item.authorNickname(),
+                    item.authorAvatarUrl(),
                     item.content(),
                     item.createdAt(),
                     item.canDelete(),
