@@ -1,5 +1,9 @@
 import { compareSequence, mergeMessages } from "../../entities/chat";
 
+function compareRoomActivity(a, b) {
+  return b.updatedAt.localeCompare(a.updatedAt) || compareSequence(b.groupId, a.groupId);
+}
+
 export function mergeRoomSnapshot(snapshot, current = []) {
   return snapshot.map((room) => {
     const existing = current.find((item) => item.groupId === room.groupId);
@@ -16,12 +20,15 @@ export function mergeRoomSnapshot(snapshot, current = []) {
       unreadThrough: preserveCount ? unreadThrough : room.latestSequence,
       status: existing.status === "ENDED" ? "ENDED" : room.status
     };
-  }).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || compareSequence(b.groupId, a.groupId));
+  }).sort(compareRoomActivity);
 }
 
 export function applyChatReadState(client, scope, state) {
   let reconcile = false;
-  client.setQueryData([...scope, "messages", state.groupId], (old) => old && compareSequence(state.lastReadSequence, old.lastReadSequence) > 0 ? { ...old, lastReadSequence: state.lastReadSequence } : old);
+  client.setQueryData([...scope, "messages", state.groupId], (history) => {
+    if (!history || compareSequence(state.lastReadSequence, history.lastReadSequence) <= 0) return history;
+    return { ...history, lastReadSequence: state.lastReadSequence };
+  });
   client.setQueryData([...scope, "rooms"], (rooms) => rooms?.map((room) => {
     if (room.groupId !== state.groupId) return room;
     const unreadThrough = room.unreadThrough ?? room.latestSequence;
@@ -62,10 +69,17 @@ export function applyChatMessage(client, scope, message, memberId) {
       if (message.sequence !== String(BigInt(room.latestSequence) + 1n)) gap = true;
       const unreadThrough = room.unreadThrough ?? room.latestSequence;
       const beyondCount = compareSequence(message.sequence, unreadThrough) > 0;
-      return { ...room, lastMessage: message, latestSequence: message.sequence, updatedAt: message.createdAt,
+      const addsUnread = beyondCount && message.senderId !== memberId &&
+        compareSequence(message.sequence, room.lastReadSequence) > 0;
+      return {
+        ...room,
+        lastMessage: message,
+        latestSequence: message.sequence,
+        updatedAt: message.createdAt,
         unreadThrough: beyondCount ? message.sequence : unreadThrough,
-        unreadCount: room.unreadCount + (beyondCount && message.senderId !== memberId && compareSequence(message.sequence, room.lastReadSequence) > 0 ? 1 : 0) };
-    }).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || compareSequence(b.groupId, a.groupId));
+        unreadCount: room.unreadCount + (addsUnread ? 1 : 0)
+      };
+    }).sort(compareRoomActivity);
   });
   return gap || missingRoom;
 }

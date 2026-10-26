@@ -25,8 +25,18 @@ export function mergeMessages(existing, incoming) {
   for (const message of incoming) {
     const index = messages.findIndex((item) => item.id === message.id ||
       (item.clientMessageId === message.clientMessageId && item.senderId === message.senderId));
-    if (index < 0) messages.push(message);
-    else if (!message.pending && !message.failed || messages[index].pending || messages[index].failed) messages[index] = message;
+    if (index < 0) {
+      messages.push(message);
+      continue;
+    }
+    const confirmed = !message.pending && !message.failed;
+    const existingMessage = messages[index];
+    if (confirmed || existingMessage.pending || existingMessage.failed) messages[index] = message;
   }
-  return messages.sort((a, b) => a.sequence && b.sequence ? compareSequence(a.sequence, b.sequence) : a.sequence ? -1 : b.sequence ? 1 : 0);
+  return messages.sort((a, b) => {
+    if (a.sequence && b.sequence) return compareSequence(a.sequence, b.sequence);
+    if (a.sequence) return -1;
+    if (b.sequence) return 1;
+    return 0;
+  });
 }
