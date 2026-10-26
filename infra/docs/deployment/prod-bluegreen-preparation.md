@@ -1,9 +1,9 @@
 # prod Stage 1 준비
 
-Stage 1은 저장소 변경과 적용 계획을 검토하는 단계다. 현재 prod 일반 배포와 dev
-Blue-Green을 유지한다. 이 문서의 준비 완료가 실제 prod 전환 완료를 뜻하지 않는다.
-EC2·IAM·runner 라벨·GitHub Variables/Secrets·CloudFront·DB·앱·watchdog을 변경하거나
-bootstrap/deploy를 실행하지 않는다. commit/push/PR과 실제 적용은 각각 승인한 범위에서 진행한다.
+이 PR은 prod 프론트 배포의 runner 선택과 공유 잠금, 최초 전환 절차를 준비한다.
+기존 prod runner를 기본값으로 유지하며, 이 PR을 반영하는 것만으로 Blue-Green이 켜지지는 않는다.
+EC2·IAM·runner 라벨·GitHub Variables/Secrets·CloudFront·DB·앱·watchdog의 실제 변경과
+bootstrap/deploy는 아래 조건을 확인한 뒤 승인된 적용 범위에서 별도로 진행한다.
 운영 관리 접속과 읽기 전용 점검은 SSM을 사용한다. 기존 앱→coordinator의 내부 읽기 전용
 SSH grant 조회는 관리 접속과 별개인 기존 제어 계약이며 이 준비에서 변경하지 않는다.
 
@@ -34,32 +34,12 @@ S3 sync는 원자적 배포가 아니므로 진행 중 업로드를 취소하거
 후보 호스트에서 아키텍처, CLI, curl/unzip/sha256sum과 임시 디렉터리 쓰기 권한을 실제 확인한다.
 ARM64가 아니면서 CLI가 없는 호스트는 공통 라벨을 활성화하지 않는다.
 
-## 2026-10-26 읽기 전용 현장 확인
-
-SSM 조회에서 기존 물리 prod는 ARM64, AWS CLI v2.31.35가 설치되어 있고 앱은
-prod 프로필/readiness UP이며 runner 서비스가 실행 중이었다. 앱 public 8080과 관리
-loopback 8081을 확인했다. curl/sha256sum은 있으며 unzip은 없지만, 기존 CLI를 재사용하므로
-이 호스트에서 설치 분기를 실행하지 않는다. 이후 재확인과 반환받은 prod2의 도구 검증은 별도다.
-
-기존 앱은 PUSH/PUSH_WORKER가 true이고 제어 모드/시작 PAUSED 환경변수가 없는 legacy
-설정이었다. 실제 Hikari 최대/idle/active는 10/10/0이었다. DB 조회의 prod role 연결 한도는
-20, DB 한도는 -1, 전역 max_connections는 79, reserved_connections는 2,
-superuser_reserved_connections는 별도로 3이었다. 조회 시점 전역 연결은
-21, prod role은 조회 세션 1개를 포함해 13이었다. prod JDBC 10개 외에 chat listener 1개와
-이름 없는 idle 연결 1개가 보였다. prod 두 풀을 10씩 잡으면 role 한도 20을 이미 소진해
-listener/추가 연결/운영 여유를 담지 못한다. **현재 설정 그대로는 동시 prod 앱 준비 게이트가
-막혀 있다.** 전역 여유가 보여도 role 한도를 대신하지 않는다. 기타 8개 연결의 피크·복구된 dev
-예산과 예약 슬롯 사용 자격별 실제 가용 범위는 미확인이다. 풀이나 role 한도를 임의로 25로 바꾸지 않는다.
-최대 연결 설정의 조정안은 측정과 별도 검토가 필요하며 이 단계에서는 변경하지 않는다.
-DB worker_authority의 prod 행은 없었다. 무인증 관리 API 조회는 403이었으므로 이 두 관찰로
-legacy worker의 PAUSED·inFlight·drain 완료를 판단하지 않는다. Nginx prod site는 미확인이다.
-
 ## 실제 적용 전 통과해야 할 게이트
 
-1. **공유 B 반환:** dev는 B를 사용 중이므로 현재 B를 prod로 사용할 수 없다.
+1. **공유 B 반환:** prod2를 사용하던 dev Blue-Green을 해제하고 기존 dev를 복구한다.
    [dev 해제 순서](../../deploy/controller/dev-automatic-deployment.md#실패-시와-prod-이관)에 따라 dev A의
    HTTP/worker 복귀, 기존 dev 앱·runner 복구, 실제 dev API 확인, 모든 관련 실행 종료를
-   먼저 검증한다. 그 뒤 dev flag를 false로 하고 B의 dev 앱·라벨·설정·watchdog을 정리한다.
+   먼저 검증한다. dev flag를 false로 유지하고 B의 dev 앱·라벨·설정·watchdog을 정리한다.
    dev/prod 동시 활성화는 금지한다. flag만 false로 바꾸거나 B를 강제로 중지하지 않는다.
    기존 해제 문서만으로 독립 teardown 명령이 제공되지는 않는다. 실제 관리 API 단계와
    terminal 저널/control pin 조정·복구 명령을 별도로 검토하기 전에는 반환 실행 준비도 미완료다.
@@ -73,6 +53,8 @@ legacy worker의 PAUSED·inFlight·drain 완료를 판단하지 않는다. Nginx
    신원이 일치하는지 확인한다. FE 공통 라벨은 두 앱 runner의 기존 EC2 IAM으로 prod S3
    head/sync/delete/PWA 메타데이터 권한을 확인한 뒤에만 부여하고 FE 변수를 설정한다.
    Nginx 역할의 Describe 및 해당 prod A/B 한정 Start/Stop 권한도 실제 확인한다.
+   앱·runner·관측 수집기가 함께 실행될 때의 RAM 여유도 확인한다. CLI 다운로드·압축 해제·
+   설치는 디스크의 `RUNNER_TEMP`에서 수행하고, 메모리 파일시스템에 대용량 임시 파일을 만들지 않는다.
 4. **DB 동시 연결 예산:** 승인된 읽기 전용 경로로 `max_connections`, reserved connection
    설정과 `pg_stat_activity`의 환경/사용자/애플리케이션별 연결을 측정한다. 실제 JVM의
    Hikari 최대 풀, 앱의 별도 HTTP/worker 풀과 다른 서비스/모니터링 연결도 확인한다.
