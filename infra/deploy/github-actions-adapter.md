@@ -23,6 +23,44 @@ prod Blue-Green 역시 dev 활성화 상태에서는 거부한다. 이는 공유
 
 실제 도메인 전환·최초 등록·해제 순서는 [dev 자동화 적용 순서](controller/dev-automatic-deployment.md)에 있다.
 
+## 프론트엔드 dev S3 배포
+
+`frontend-dev-deploy.yml`의 build는 GitHub 호스팅 runner에서 실행하고, deploy는
+A/B 앱 EC2의 runner에만 부여한 공통 라벨 `jarihana-frontend-dev-deploy`를 사용한다.
+기존 `jarihana-dev` 라벨이 붙은 A가 중지돼도 실행 중인 B가 업로드를 받을 수 있다.
+A/B별 Blue-Green 전용 라벨은 그대로 유지하며, 공통 라벨을 prod·Nginx 등 다른 runner에
+부여하지 않는다. 공통 라벨을 받는 두 runner 모두 기존 EC2 IAM으로 dev S3 버킷의
+사전 확인·동기화·PWA 메타데이터 업로드를 수행할 수 있어야 한다.
+
+호스트에 AWS CLI가 없어도 deploy 첫 단계가 Linux ARM64를 확인한 뒤 공식 AWS CLI
+`2.38.5` ARM64 설치본을 다운로드하고 고정 SHA256을 검사한다. `RUNNER_TEMP`의 고유
+디렉터리에 runner 사용자 권한으로 설치하고 `GITHUB_PATH`에 우선 등록하므로 기존
+호스트 CLI·sudo·새 AWS 자격 증명에 의존하지 않는다. 고정 해시는 공식 HTTPS 다운로드로
+확인한 값이며 PGP 서명 검증은 수행하지 않았다. runner 사용자가 만든 임시 파일은
+[GitHub의 job 시작·종료 시 정리 대상](https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#runner-context)이다.
+
+FE deploy job만 `jarihana-observed-deployment` concurrency 그룹에 참여해 Blue-Green
+전체 workflow 및 monitoring workflow와 직렬화한다. `cancel-in-progress: false`와
+`queue: max`로 기존 배포를 취소하거나 공유 그룹의 대기 배포를 교체하지 않는다.
+Blue-Green 전환부터 이전 EC2 중지까지 FE 업로드가 끼어들지 않으며, FE 업로드 중에도
+Blue-Green이 호스트를 중지하지 않는다. FE build는 이 공유 그룹에 참여하지 않는다.
+FE workflow 전체의 기존 `frontend-dev-deploy` 그룹과 `cancel-in-progress: false`는
+유지하므로 새 push가 실행 중 S3 동기화를 취소하지 않는다. 이 바깥 그룹의 기본 대기는
+한 개이며 추가 push는 아직 시작하지 않은 대기 FE 실행을 최신 것으로 교체할 수 있다.
+
+인증은 기존 `dev` environment와 EC2 IAM을 유지한다. S3 대상
+`techcourse-project-2026/jarihana-dev/frontend`와 FE prod workflow도 유지한다.
+배포 후 어느 A/B runner가 선택됐는지, S3 sync와 PWA 메타데이터 단계 및 실제 dev 화면을
+확인한다. 이전 workflow로 이미 대기 중인 실행에는 새 라벨·동시성 설정이 적용되지 않는다.
+S3 sync는 원자적 배포가 아니므로 업로드 중 수동 취소·호스트 중지를 피한다.
+
+기존 A 전용 라벨에서 대기한 실행은 다음 순서로 복구한다.
+
+1. A/B 공통 라벨과 실행 중인 runner의 온라인 상태·기존 S3 IAM을 확인한다.
+2. 변경된 workflow를 develop에 반영한 뒤 기존 실행이 실제 업로드 전 queued 상태인지
+   확인하고 그 실행만 취소한다. 진행 중 S3 쓰기를 대기 실행으로 간주하지 않는다.
+3. 새 코드로 develop workflow를 실행하고 공유 그룹 대기 뒤 선택된 runner와 배포 결과를 확인한다.
+
 ## 실행 순서
 
 ```text

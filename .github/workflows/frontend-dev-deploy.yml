@@ -87,12 +87,17 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # S3 쓰기 권한은 EC2의 IAM 역할에만 있으므로 올리는 일만 self-hosted runner에 남긴다.
+  # A/B의 공통 runner 라벨로 실행 중인 dev EC2에서 S3 업로드만 수행한다.
+  # Blue-Green 전체와 같은 그룹을 사용해 업로드 중 runner 호스트가 중지되지 않게 한다.
   deploy:
     needs: build
     if: github.ref == 'refs/heads/develop'
     environment: dev
-    runs-on: [jarihana-dev]
+    runs-on: [jarihana-frontend-dev-deploy]
+    concurrency:
+      group: jarihana-observed-deployment
+      cancel-in-progress: false
+      queue: max
     timeout-minutes: 10
     defaults:
       run:
@@ -104,6 +109,25 @@ jobs:
       S3_DESTINATION: s3://techcourse-project-2026/jarihana-dev/frontend
 
     steps:
+      - name: 고정 버전 AWS CLI 준비
+        run: |
+          set -euo pipefail
+          if [[ "$(uname -s)" != Linux || "$(uname -m)" != aarch64 ]]; then
+            echo "::error::dev 배포 runner는 Linux ARM64여야 합니다."
+            exit 1
+          fi
+          cli_temp="$(mktemp -d "${RUNNER_TEMP}/frontend-awscli.XXXXXX")"
+          curl --fail --silent --show-error --location --retry 3 \
+            https://awscli.amazonaws.com/awscli-exe-linux-aarch64-2.38.5.zip \
+            --output "${cli_temp}/awscliv2.zip"
+          echo "07711a936e9d271045ab937d2c2c5390c25f419e4ba9e25adb9e996031e3f6be  ${cli_temp}/awscliv2.zip" | sha256sum --check
+          unzip -q "${cli_temp}/awscliv2.zip" -d "${cli_temp}"
+          "${cli_temp}/aws/install" --install-dir "${cli_temp}/install" --bin-dir "${cli_temp}/bin"
+          cli_version="$("${cli_temp}/bin/aws" --version)"
+          echo "${cli_version}"
+          [[ "${cli_version}" == aws-cli/2.38.5\ * ]]
+          echo "${cli_temp}/bin" >> "${GITHUB_PATH}"
+
       - name: AWS 배포 대상 확인
         run: |
           set -euo pipefail
