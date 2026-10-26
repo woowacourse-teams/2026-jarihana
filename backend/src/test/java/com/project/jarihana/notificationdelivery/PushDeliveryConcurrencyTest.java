@@ -5,6 +5,11 @@ import com.project.jarihana.notificationdelivery.client.dto.PushResult;
 import com.project.jarihana.notificationdelivery.command.repository.NotificationDeliveryCommandRepository;
 import com.project.jarihana.notificationdelivery.command.service.PushDeliveryLeaseService;
 import com.project.jarihana.notificationdelivery.command.service.PushDeliveryWorker;
+import com.project.jarihana.notificationdelivery.command.service.WorkerAdmissionController;
+import com.project.jarihana.notificationdelivery.config.PushDeliveryProperties;
+import com.project.jarihana.notificationdelivery.config.PushWorkerControlProperties;
+import com.project.jarihana.pushsubscription.config.PushProperties;
+import io.micrometer.core.instrument.MeterRegistry;
 import com.project.jarihana.notificationdelivery.domain.DeliveryStatus;
 import com.project.jarihana.notificationdelivery.domain.NotificationDelivery;
 import com.project.jarihana.notificationdelivery.support.PushTransportStub;
@@ -12,6 +17,7 @@ import com.project.jarihana.notificationdelivery.support.PushTransportTestConfig
 import com.project.jarihana.pushsubscription.command.service.PushSubscriptionCommandService;
 import com.project.jarihana.pushsubscription.command.service.dto.RegisterPushSubscriptionCommand;
 import com.project.jarihana.pushsubscription.support.PushIntegrationTestSupport;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -20,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -38,6 +45,8 @@ class PushDeliveryConcurrencyTest extends PushIntegrationTestSupport {
     @Autowired private NotificationCommandService inbox;
     @Autowired private PushSubscriptionCommandService bindings;
     @Autowired private PlatformTransactionManager transactions;
+    @Autowired private PushProperties properties;
+    @Autowired private MeterRegistry metrics;
 
     @BeforeEach
     void resetTransport() { transport.reset(); }
@@ -137,22 +146,33 @@ class PushDeliveryConcurrencyTest extends PushIntegrationTestSupport {
             responses.add(response);
             return response;
         });
-        worker.processDue();
-        var oldToken = deliveries.findById(pending.getId()).orElseThrow().getLeaseToken();
-        jdbc.update("update notification_deliveries set locked_until = ? where id = ?", NOW.minusSeconds(1), pending.getId());
-        // When
-        worker.processDue();
-        assertThat(responses).hasSize(2);
-        assertThat(deliveries.findById(pending.getId()).orElseThrow().getLeaseToken()).isNotEqualTo(oldToken);
-        responses.get(1).complete(PushResult.accepted());
-        org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(5)).untilAsserted(() ->
-                assertThat(deliveries.findById(pending.getId()).orElseThrow().getStatus()).isEqualTo(DeliveryStatus.ACCEPTED));
-        responses.get(0).complete(new PushResult(PushResult.Outcome.GONE, "HTTP_410", null));
-        awaitDeliveryProcessing();
-        // Then
-        assertThat(deliveries.findById(pending.getId()).orElseThrow().getStatus()).isEqualTo(DeliveryStatus.ACCEPTED);
-        assertThat(deliveries.findById(pending.getId()).orElseThrow().getAttemptCount()).isEqualTo(2);
-        assertThat(subscriptions.findByEndpoint(subscription.getEndpoint()).orElseThrow().isEnabled()).isTrue();
+        var admission = new WorkerAdmissionController(new PushWorkerControlProperties(false));
+        var isolatedWorker = new PushDeliveryWorker(leases, transport, properties,
+                PushDeliveryProperties.defaults(), admission, metrics);
+        try {
+            isolatedWorker.processDue();
+            var oldToken = deliveries.findById(pending.getId()).orElseThrow().getLeaseToken();
+            jdbc.update("update notification_deliveries set locked_until = ? where id = ?", NOW.minusSeconds(1), pending.getId());
+            // When
+            isolatedWorker.processDue();
+            assertThat(responses).hasSize(2);
+            assertThat(deliveries.findById(pending.getId()).orElseThrow().getLeaseToken()).isNotEqualTo(oldToken);
+            responses.get(1).complete(PushResult.accepted());
+            Awaitility.await().atMost(Duration.ofSeconds(5)).untilAsserted(() ->
+                    assertThat(deliveries.findById(pending.getId()).orElseThrow().getStatus()).isEqualTo(DeliveryStatus.ACCEPTED));
+            responses.get(0).complete(new PushResult(PushResult.Outcome.GONE, "HTTP_410", null));
+            Awaitility.await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+                assertThat(isolatedWorker.isIdle()).isTrue();
+                assertThat(admission.state()).isEqualTo(WorkerAdmissionController.State.BLOCKED);
+            });
+            // Then
+            assertThat(deliveries.findById(pending.getId()).orElseThrow().getStatus()).isEqualTo(DeliveryStatus.ACCEPTED);
+            assertThat(deliveries.findById(pending.getId()).orElseThrow().getAttemptCount()).isEqualTo(2);
+            assertThat(subscriptions.findByEndpoint(subscription.getEndpoint()).orElseThrow().isEnabled()).isTrue();
+        } finally {
+            responses.forEach(response -> response.complete(PushResult.accepted()));
+            isolatedWorker.close();
+        }
     }
 
     @Test

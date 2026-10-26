@@ -5,6 +5,7 @@ import com.project.jarihana.notificationdelivery.client.dto.PushRequest;
 import com.project.jarihana.notificationdelivery.client.dto.PushResult;
 import com.project.jarihana.notificationdelivery.command.repository.dto.DeliveryClaim;
 import com.project.jarihana.notificationdelivery.config.PushDeliveryProperties;
+import com.project.jarihana.notificationdelivery.config.PushWorkerControlProperties;
 import com.project.jarihana.notificationdelivery.domain.DeliveryStatus;
 import com.project.jarihana.pushsubscription.config.PushProperties;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -43,9 +44,52 @@ class PushDeliveryPipelineTest {
     private final PushDeliveryLeaseService leases = mock(PushDeliveryLeaseService.class);
     private final PushTransport transport = mock(PushTransport.class);
     private final SimpleMeterRegistry metrics = new SimpleMeterRegistry();
+    private final WorkerAdmissionController admission = new WorkerAdmissionController(new PushWorkerControlProperties(false));
     private final Map<Long, CompletableFuture<PushResult>> responses = new ConcurrentHashMap<>();
     private final List<Integer> limits = new CopyOnWriteArrayList<>();
     private PushDeliveryWorker worker;
+
+    @Test
+    @DisplayName("대기 후보는 비동기 전송용 배치 선점도 시작하지 않는다.")
+    void pausedCandidateDoesNotClaimBatch() {
+        // Given
+        worker = workerWithDeliveries(5, Duration.ofSeconds(2));
+        admission.pause();
+
+        // When
+        assertThat(worker.processDue()).isZero();
+
+        // Then
+        verify(leases, never()).claimNext(anyInt());
+        assertThat(responses).isEmpty();
+        assertThat(admission.drainStatus().isDrained()).isTrue();
+    }
+
+    @Test
+    @DisplayName("함수가 반환돼도 비동기 응답이 남아 있으면 인계를 기다리고 다음 배치를 선점하지 않는다.")
+    void pauseWaitsForEveryAsyncCompletionWithoutRefill() {
+        // Given
+        worker = workerWithDeliveries(5, Duration.ofSeconds(2));
+        assertThat(worker.processDue()).isEqualTo(4);
+
+        // When
+        admission.pause();
+        responses.get(1L).complete(PushResult.accepted());
+
+        // Then
+        await().atMost(Duration.ofSeconds(3)).untilAsserted(() -> {
+            assertThat(admission.drainStatus().inFlight()).isEqualTo(3);
+            assertThat(admission.state()).isEqualTo(WorkerAdmissionController.State.DRAINING);
+        });
+        assertThat(worker.processDue()).isZero();
+        assertThat(responses).hasSize(4);
+        responses.values().forEach(response -> response.complete(PushResult.accepted()));
+        await().atMost(Duration.ofSeconds(3)).untilAsserted(() -> {
+            assertThat(admission.drainStatus().isDrained()).isTrue();
+            assertThat(worker.isIdle()).isTrue();
+        });
+        assertThat(limits).containsExactly(4);
+    }
 
     @AfterEach
     void drainWorker() {
@@ -89,7 +133,7 @@ class PushDeliveryPipelineTest {
             finishingThread.set(Thread.currentThread().getName());
             finishing.countDown();
             assertThat(release.await(3, TimeUnit.SECONDS)).isTrue();
-            return null;
+            return true;
         }).when(leases).finish(any(), any(), any());
         worker.processDue();
         try {
@@ -107,20 +151,26 @@ class PushDeliveryPipelineTest {
     }
 
     @Test
-    @DisplayName("결과 저장이 실패해도 다른 요청을 계속 처리하고 실패한 lease는 복구 대상으로 남긴다.")
+    @DisplayName("결과 저장이 실패하면 진행 중 요청은 정리하고 신규 선점과 인계를 차단한다.")
     void persistenceFailureDoesNotStrandCapacity() {
         // Given
         worker = workerWithDeliveries(5, Duration.ofSeconds(2));
         var failures = new AtomicInteger();
         doAnswer(invocation -> {
             if (failures.getAndIncrement() == 0) throw new IllegalStateException("database unavailable");
-            return null;
+            return true;
         }).when(leases).finish(any(), any(), any());
         worker.processDue();
         // When
         responses.get(1L).complete(PushResult.accepted());
         // Then
-        await().atMost(Duration.ofSeconds(3)).untilAsserted(() -> assertThat(responses).hasSize(5));
+        await().atMost(Duration.ofSeconds(3)).untilAsserted(() -> {
+            assertThat(admission.state()).isEqualTo(WorkerAdmissionController.State.BLOCKED);
+            assertThat(admission.drainStatus().unresolved()).isEqualTo(1);
+            assertThat(metrics.get("jarihana.push.inflight").gauge().value()).isEqualTo(3);
+        });
+        assertThat(worker.processDue()).isZero();
+        assertThat(responses).hasSize(4);
         assertThat(responses.get(2L)).isNotCompleted();
     }
 
@@ -172,9 +222,13 @@ class PushDeliveryPipelineTest {
         responses.values().forEach(response -> response.complete(PushResult.accepted()));
         verify(leases, never()).finish(any(), any(), any());
         assertThat(worker.processDue()).isZero();
+        assertThat(admission.state()).isEqualTo(WorkerAdmissionController.State.BLOCKED);
+        assertThat(admission.drainStatus().unresolved()).isEqualTo(4);
+        assertThat(admission.drainStatus().isDrained()).isFalse();
     }
 
     private PushDeliveryWorker workerWithDeliveries(int count, Duration shutdownTimeout) {
+        when(leases.finish(any(), any(), any())).thenReturn(true);
         var nextId = new AtomicLong(1);
         when(leases.claimNext(anyInt())).thenAnswer(invocation -> {
             int limit = invocation.getArgument(0);
@@ -200,6 +254,6 @@ class PushDeliveryPipelineTest {
         when(push.enabled()).thenReturn(true);
         when(push.batchSize()).thenReturn(50);
         var delivery = new PushDeliveryProperties(null, null, null, null, null, null, null, null, null, shutdownTimeout);
-        return new PushDeliveryWorker(leases, transport, push, delivery, metrics);
+        return new PushDeliveryWorker(leases, transport, push, delivery, admission, metrics);
     }
 }
