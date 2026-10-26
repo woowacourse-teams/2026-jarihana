@@ -2,7 +2,7 @@
 
 const fs = require("node:fs");
 const { randomInt } = require("node:crypto");
-const { findHighRiskPaths, parseDeclaredRisk, isTitleOnlyEdit } = require("./review-gate.cjs");
+const { findHighRiskPaths, parseDeclaredRisk, isTitleOnlyEdit, latestSubmittedReviews } = require("./review-gate.cjs");
 
 const API_ROOT = "https://api.github.com";
 const API_VERSION = "2022-11-28";
@@ -226,6 +226,21 @@ function mappedModuleReviewer(module, team, author) {
   return null;
 }
 
+async function hasCurrentHeadApproval(owner, repo, pull) {
+  const reviews = await githubPages(`/repos/${owner}/${repo}/pulls/${pull.number}/reviews`);
+  const author = String(pull.user.login).toLowerCase();
+  for (const review of latestSubmittedReviews(reviews)) {
+    const login = review.user.login;
+    if (String(review.state).toUpperCase() !== "APPROVED" ||
+        review.commit_id !== pull.head.sha || login.toLowerCase() === author) continue;
+    const result = await githubRequest(
+      "GET", `/repos/${owner}/${repo}/collaborators/${encodeURIComponent(login)}/permission`,
+    );
+    if (["admin", "maintain", "write"].includes(result.permission)) return true;
+  }
+  return false;
+}
+
 async function main() {
   const eventPath = process.env.GITHUB_EVENT_PATH;
   if (!eventPath) throw new Error("GITHUB_EVENT_PATH is not available");
@@ -269,6 +284,18 @@ async function main() {
   );
   if ((currentRequests.users || []).length > 0 || (currentRequests.teams || []).length > 0) {
     console.log("A reviewer is already requested; preserving the existing request.");
+    return;
+  }
+
+  // Pending requests disappear after a submitted review. Check the live PR head,
+  // not the event's potentially older head, before asking for another review.
+  const livePull = await githubRequest("GET", `/repos/${owner}/${repo}/pulls/${pull.number}`);
+  if (livePull.state !== "open" || livePull.draft) {
+    console.log("The PR is no longer open and ready; no reviewer request created.");
+    return;
+  }
+  if (await hasCurrentHeadApproval(owner, repo, livePull)) {
+    console.log("The current PR head already has a valid approval; no reviewer request created.");
     return;
   }
 

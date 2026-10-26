@@ -12,6 +12,11 @@ let requests;
 let currentRequests;
 let failRequest;
 let changedPaths;
+let reviews;
+let reviewerPermission;
+let approvalReadFails;
+let permissionReadFails;
+let currentHead;
 
 beforeEach(() => {
   directory = fs.mkdtempSync(path.join(os.tmpdir(), "review-assignment-test-"));
@@ -24,6 +29,11 @@ beforeEach(() => {
   requests = [];
   currentRequests = [];
   failRequest = false;
+  reviews = [];
+  reviewerPermission = "write";
+  approvalReadFails = false;
+  permissionReadFails = false;
+  currentHead = "current-head";
   changedPaths = ["backend/src/main/java/com/project/jarihana/group/command/GroupService.java"];
   global.fetch = async (raw, options) => {
     const url = new URL(raw);
@@ -36,6 +46,15 @@ beforeEach(() => {
       data = changedPaths.map((filename) => ({ filename }));
     } else if (url.pathname.endsWith("/requested_reviewers")) {
       data = { users: currentRequests.map((login) => ({ login })), teams: [] };
+    } else if (url.pathname.endsWith("/pulls/987")) {
+      const pull = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, "utf8")).pull_request;
+      data = { ...pull, state: "open", head: { sha: currentHead } };
+    } else if (url.pathname.endsWith("/reviews")) {
+      if (approvalReadFails) return { ok: false, status: 503, json: async () => ({ message: "review lookup failed" }) };
+      data = reviews;
+    } else if (url.pathname.endsWith("/permission")) {
+      if (permissionReadFails) return { ok: false, status: 503, json: async () => ({ message: "permission lookup failed" }) };
+      data = { permission: reviewerPermission };
     } else {
       throw new Error("Unexpected fixture request " + raw);
     }
@@ -57,10 +76,57 @@ function event(risk, recommendation, metadata = {}) {
       draft: false,
       body: "- 위험도: " + risk + (recommendation ? "\n- 자동 배정 리뷰어: @" + recommendation : ""),
       user: { login: "choubung" },
+      head: { sha: "event-head" },
     },
   }));
 }
 const output = () => fs.readFileSync(process.env.GITHUB_OUTPUT, "utf8");
+
+function submittedReview(overrides = {}) {
+  return { id: 1, state: "APPROVED", commit_id: currentHead, submitted_at: "2026-10-26T01:00:00Z", user: { login: "Sauter001" }, ...overrides };
+}
+
+test("a valid approval on the live PR head prevents another request and Slack output", async () => {
+  event("high", "RealTake", { action: "edited", changes: { body: { from: "old body" } } });
+  reviews = [submittedReview()];
+  await main();
+  assert.equal(requests.length, 0);
+  assert.equal(output(), "");
+});
+
+for (const scenario of ["stale", "author", "dismissed", "read-only", "superseded"]) {
+  test("a " + scenario + " approval does not suppress a required reviewer request", async () => {
+    event("high");
+    reviews = [submittedReview()];
+    if (scenario === "stale") reviews[0].commit_id = "event-head";
+    if (scenario === "author") reviews[0].user.login = "choubung";
+    if (scenario === "dismissed") reviews[0].state = "DISMISSED";
+    if (scenario === "read-only") reviewerPermission = "read";
+    if (scenario === "superseded") reviews.push(submittedReview({ id: 2, state: "CHANGES_REQUESTED", submitted_at: "2026-10-26T02:00:00Z" }));
+    await main();
+    assert.deepEqual(requests, [{ reviewers: ["Sauter001"] }]);
+  });
+}
+
+test("another valid reviewer approval still suppresses a new request", async () => {
+  event("high", "RealTake");
+  reviews = [submittedReview({ state: "DISMISSED" }), submittedReview({ id: 2, user: { login: "5jonyuk" } })];
+  await main();
+  assert.equal(requests.length, 0);
+  assert.equal(output(), "");
+});
+
+for (const lookup of ["review", "permission"]) {
+  test("a failed " + lookup + " lookup cannot create an unnecessary request", async () => {
+    event("high");
+    reviews = [submittedReview()];
+    approvalReadFails = lookup === "review";
+    permissionReadFails = lookup === "permission";
+    await assert.rejects(main(), /lookup failed/);
+    assert.equal(requests.length, 0);
+    assert.equal(output(), "");
+  });
+}
 
 test("a title-only edit cannot request a reviewer or emit a Slack output", async () => {
   event("high", "Sauter001", { action: "edited", changes: { title: { from: "old title" } } });
