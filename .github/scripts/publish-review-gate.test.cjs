@@ -19,13 +19,13 @@ function fixture() {
       external_id: "conditional-review-gate:987:same-head",
       conclusion: "success",
     }],
-    writes: [], errors: [], warnings: [], reads: 0,
+    writes: [], errors: [], warnings: [], reads: 0, listReads: 0,
   };
   const github = {
     paginate: async (fn, args) => fn(args),
     rest: {
       pulls: {
-        list: async () => [{ number: 987 }],
+        list: async () => { state.listReads++; return [{ number: 987 }]; },
         get: async () => {
           state.reads++;
           if (state.beforePullRead) state.beforePullRead(state);
@@ -60,7 +60,26 @@ function fixture() {
     warning: (message) => state.warnings.push(message),
     setFailed: (message) => state.errors.push(message),
   };
-  return { state, run: () => publishReviewGate({ github, core, context: { repo: { owner: "example", repo: "repo" } } }) };
+  return { state, run: (payload) => publishReviewGate({ github, core, context: { repo: { owner: "example", repo: "repo" }, eventName: payload ? "pull_request_target" : undefined, payload } }) };
+}
+
+test("a title-only edit leaves existing gate checks untouched without scanning any PR", async () => {
+  const { state, run } = fixture();
+  await run({ action: "edited", changes: { title: { from: "old title" } } });
+  assert.equal(state.listReads, 0);
+  assert.equal(state.reads, 0);
+  assert.equal(state.writes.length, 0);
+  assert.equal(state.checks[0].conclusion, "success");
+});
+
+for (const field of ["body", "base"]) {
+  test("a title edit accompanied by a " + field + " edit still re-evaluates the gate", async () => {
+    const { state, run } = fixture();
+    state.pull.body = "- 위험도: high";
+    await run({ action: "edited", changes: { title: { from: "old title" }, [field]: { from: "old value" } } });
+    assert.equal(state.checks[0].conclusion, "failure");
+    assert.equal(state.checks[0].output.title, "Approval required");
+  });
 }
 function approval(state) {
   state.pull.body = "- 위험도: high";

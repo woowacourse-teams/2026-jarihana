@@ -49,8 +49,9 @@ afterEach(() => {
   fs.rmSync(directory, { recursive: true, force: true });
 });
 
-function event(risk, recommendation) {
+function event(risk, recommendation, metadata = {}) {
   fs.writeFileSync(process.env.GITHUB_EVENT_PATH, JSON.stringify({
+    ...metadata,
     pull_request: {
       number: 987,
       draft: false,
@@ -60,6 +61,22 @@ function event(risk, recommendation) {
   }));
 }
 const output = () => fs.readFileSync(process.env.GITHUB_OUTPUT, "utf8");
+
+test("a title-only edit cannot request a reviewer or emit a Slack output", async () => {
+  event("high", "Sauter001", { action: "edited", changes: { title: { from: "old title" } } });
+  global.fetch = async () => { throw new Error("A title edit must not read or write GitHub data"); };
+  await main();
+  assert.equal(requests.length, 0);
+  assert.equal(output(), "");
+});
+
+for (const field of ["body", "base"]) {
+  test("a title edit accompanied by a " + field + " edit still evaluates assignment", async () => {
+    event("high", "Sauter001", { action: "edited", changes: { title: { from: "old title" }, [field]: { from: "old value" } } });
+    await main();
+    assert.deepEqual(requests, [{ reviewers: ["Sauter001"] }]);
+  });
+}
 
 test("successful high-risk assignment emits the actual backup reviewer for direct Slack delivery", async () => {
   event("high");

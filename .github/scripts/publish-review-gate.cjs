@@ -1,6 +1,6 @@
 "use strict";
 
-const { evaluateReviewGate, latestSubmittedReviews } = require("./review-gate.cjs");
+const { evaluateReviewGate, latestSubmittedReviews, isTitleOnlyEdit } = require("./review-gate.cjs");
 
 const CHECK_NAME = "Conditional Review Gate";
 const BASE_BRANCHES = ["develop", "main"];
@@ -150,6 +150,10 @@ async function evaluatePull({ github, core, owner, repo, pullNumber }) {
 }
 
 async function publishReviewGate({ github, context, core }) {
+  if (context.eventName === "pull_request_target" && isTitleOnlyEdit(context.payload)) {
+    core.info("Title-only edit; existing review policy checks are unchanged.");
+    return;
+  }
   const { owner, repo } = context.repo;
   const lists = await Promise.all(BASE_BRANCHES.map((base) =>
     github.paginate(github.rest.pulls.list, { owner, repo, state: "open", base, per_page: 100 }),

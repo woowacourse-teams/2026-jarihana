@@ -35,6 +35,11 @@ const HIGH_RISK_PATH_RULES = [
 
 const VALID_RISKS = new Set(["low", "medium", "high"]);
 
+function isTitleOnlyEdit(event) {
+  return event?.action === "edited" && Boolean(event.changes?.title) &&
+    !event.changes.body && !event.changes.base;
+}
+
 function parseDeclaredRisk(body) {
   const matchingLines = String(body || "")
     .split(/\r?\n/)
@@ -175,4 +180,5 @@ module.exports = {
   findHighRiskPaths,
   latestSubmittedReviews,
   parseDeclaredRisk,
+  isTitleOnlyEdit,
 };

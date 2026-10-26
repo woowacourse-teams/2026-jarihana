@@ -10,12 +10,13 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: auto-assign-reviewer-${{ github.event.pull_request.number }}
+  # Ignored title edits must not replace a pending meaningful assignment run.
+  group: ${{ github.event.action == 'edited' && github.event.changes.title != null && github.event.changes.body == null && github.event.changes.base == null && format('title-only-auto-assign-{0}', github.run_id) || format('auto-assign-reviewer-{0}', github.event.pull_request.number) }}
   cancel-in-progress: false
 
 jobs:
   assign-reviewer:
-    if: github.event.pull_request.draft == false
+    if: github.event.pull_request.draft == false && (github.event.action != 'edited' || github.event.changes.title == null || github.event.changes.body != null || github.event.changes.base != null)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:

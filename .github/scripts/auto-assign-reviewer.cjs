@@ -2,7 +2,7 @@
 
 const fs = require("node:fs");
 const { randomInt } = require("node:crypto");
-const { findHighRiskPaths, parseDeclaredRisk } = require("./review-gate.cjs");
+const { findHighRiskPaths, parseDeclaredRisk, isTitleOnlyEdit } = require("./review-gate.cjs");
 
 const API_ROOT = "https://api.github.com";
 const API_VERSION = "2022-11-28";
@@ -230,6 +230,10 @@ async function main() {
   const eventPath = process.env.GITHUB_EVENT_PATH;
   if (!eventPath) throw new Error("GITHUB_EVENT_PATH is not available");
   const event = JSON.parse(fs.readFileSync(eventPath, "utf8"));
+  if (isTitleOnlyEdit(event)) {
+    console.log("Title-only edit; reviewer assignment is unchanged.");
+    return;
+  }
   const pull = event.pull_request;
   if (!pull || !pull.number) throw new Error("This event does not contain a pull request");
   if (pull.draft) {
