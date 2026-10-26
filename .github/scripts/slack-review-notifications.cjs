@@ -12,8 +12,6 @@ const TIME_ZONE = "Asia/Seoul";
 const MAX_REMINDER_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 const ARTIFACT_PREFIX = "slack-review-reminder-";
 
-const [mode] = process.argv.slice(2);
-
 function output(name, value) {
   if (!process.env.GITHUB_OUTPUT) return;
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `${name}=${value}\n`);
@@ -222,12 +220,12 @@ function requiredSlackId(login, map) {
   return map.get(String(login || "").toLowerCase());
 }
 
-async function requestedNotification() {
+async function requestedNotification(assignedReviewer) {
   const eventPath = process.env.GITHUB_EVENT_PATH;
   if (!eventPath) throw new Error("GITHUB_EVENT_PATH is not available");
   const event = JSON.parse(fs.readFileSync(eventPath, "utf8"));
   const pr = event.pull_request;
-  const reviewer = event.requested_reviewer && event.requested_reviewer.login;
+  const reviewer = assignedReviewer || (event.requested_reviewer && event.requested_reviewer.login);
   if (!pr || !reviewer) {
     console.log("No individual reviewer was included in this review_requested event");
     return;
@@ -464,14 +462,23 @@ async function deadlineNotification() {
   console.log(`Sent a Slack deadline reminder for PR #${prNumber}`);
 }
 
-async function main() {
+async function main(mode = process.argv[2]) {
   if (mode === "requested") return requestedNotification();
+  if (mode === "assigned") {
+    const reviewer = process.env.ASSIGNED_REVIEWER;
+    if (!reviewer) throw new Error("ASSIGNED_REVIEWER is required for a direct assignment notification");
+    return requestedNotification(reviewer);
+  }
   if (mode === "deadline-scan") return deadlineScan();
   if (mode === "deadline-notification") return deadlineNotification();
-  throw new Error("Expected mode: requested, deadline-scan, or deadline-notification");
+  throw new Error("Expected mode: requested, assigned, deadline-scan, or deadline-notification");
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error.message);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { main, requestedNotification };
