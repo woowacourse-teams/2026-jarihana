@@ -6,6 +6,23 @@
 앱은 `backend-app-operation.yml`, Nginx는 `backend-bluegreen-phase.yml`을 재사용한다.
 상태 검사마다 workflow를 dispatch하거나 artifact를 다운로드하지 않는다.
 
+## dev 자동 배포 경로 선택
+
+dev 부모 workflow의 hosted `route` job이 빌드 전에 실행된다. 기본값은 기존 배포이며,
+repository 변수 `BLUE_GREEN_DEV_ENABLED=true`일 때 develop push를 Blue-Green `deploy`로 선택한다.
+push에는 수동 input이 없으므로 선택한 mode를 job output으로 reusable workflow에 넘긴다.
+수동 `bootstrap`·`deploy`는 여전히 명시할 수 있지만, dev 자동화 활성 상태의 수동 `legacy`는
+실패한다. 실패한 Blue-Green을 기존 방식으로 자동 재시도하지 않는다.
+
+`route` 성공 후 빌드하며, image_tag가 있는 수동 실행은 빌드를 건너뛴다. 배포 job은
+route와 build 결과를 함께 확인해 선택된 한 경로만 실행한다. 경로 선택 실패·빌드 실패·취소 시
+배포하지 않는다. dev/prod 활성화 변수는 true/false만 허용하며 environment에 중복 등록하지 않는다.
+두 변수 모두 true이면 dev 배포를 거부하고, prod가 활성화됐으면 수동 dev Blue-Green도 거부한다.
+prod Blue-Green 역시 dev 활성화 상태에서는 거부한다. 이는 공유 prod2의 물리적 격리를 대신하지
+않으므로 환경 전환 때는 진행 중 실행을 마치고 dev 앱·runner 설정도 정리해야 한다.
+
+실제 도메인 전환·최초 등록·해제 순서는 [dev 자동화 적용 순서](controller/dev-automatic-deployment.md)에 있다.
+
 ## 실행 순서
 
 ```text
@@ -44,7 +61,10 @@ GitHub의 `always()`는 runner 전원 장애나 연결 단절 시 실행을 보�
 - 환경별 A/B runner 라벨은 서로 달라야 한다. 각 job에서 IMDSv2로 실제 EC2를 대조한다.
   앱은 loopback 관리 API만 호출하며 coordinator가 앱 관리 포트나 SSH 명령으로 제어하지 않는다.
 - 업무 설정과 Secrets는 각 job의 GitHub `dev`/`prod` environment에서 전달한다.
-  dev는 `BLUE_GREEN_RDS_URL`을 명시하고 push·scheduler를 false로 강제한다.
+  dev는 `BLUE_GREEN_RDS_URL`을 명시한다. dev 자동화 비활성 상태의 수동 실습은
+  push·scheduler를 false로 강제한다. 활성 상태는 기존 dev의 `PUSH_ENABLED`·
+  `PUSH_WORKER_ENABLED`를 사용하되 후보는 제어 활성·START_PAUSED를 유지한다.
+  실제 컨테이너의 푸시 설정도 prepare/profile에서 확인한다. 운영 중 변수를 바꾸지 않는다.
 - 앱과 coordinator의 GitHub 권한은 Contents/Actions/Packages read다. 별도 hosted
   `queue-guardian` job만 Actions write를 사용해 현재 run을 취소할 수 있다.
   reusable 호출자가 그 권한을 허용해야 하므로 dev/prod 호출 경계도 Actions write다.

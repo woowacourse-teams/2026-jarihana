@@ -1,5 +1,13 @@
 # PostHog 행동 분석
 
+## 채팅 동작
+
+채팅 영역 전체를 `data-ph-private`로 마스킹한다. 메시지 본문·작성자 이름·인증 쿠키·헤더는 분석에 보내지 않는다.
+고정 action은 `chat_inbox_open`, `group_chat_open`, `chat_room_open`, `chat_room_search`,
+`chat_list_back`, `chat_sidebar_resize`, `chat_history_load`, `chat_scroll_latest`, `chat_message_input`,
+`chat_message_submit`, `chat_message_send`, `chat_message_retry`,
+`chat_group_open`, `chat_refresh`, `chat_list_retry`, `chat_dismiss`다. 클릭과 전송 완료를 혼동하지 않으며 별도 전송 성공 이벤트는 추가하지 않는다.
+
 자리하나 프론트엔드에서 방문·클릭·요청·처리 결과를 PostHog로 전송한다.
 분석과 녹화 조회는 PostHog 관리자 화면에서 수행한다. 자리하나의 서비스 화면이나
 DB 테이블·스키마는 추가하지 않는다.

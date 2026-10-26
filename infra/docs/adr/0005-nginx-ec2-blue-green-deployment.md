@@ -1,9 +1,10 @@
 # ADR 0005. 별도 Nginx와 고정된 운영 EC2 두 대로 Blue-Green 배포한다
 
-- 상태: 채택 — worker 제어와 Actions·Bash 배포 경로의 로컬 구현·검증 완료. 운영 호스트 설정과 GitHub·AWS 연동 검증 전.
+- 상태: 채택 — 별도 dev Nginx 경로의 실환경 시험 완료. 실제 dev 도메인의 자동 배포와 prod 적용은 별도 전환 예정.
 - 날짜: 2026-10-21
 - 개정: 2026-10-22 — 15분 관찰·자동 롤백, worker 인계와 DB 변경 정책 확정
 - 개정: 2026-10-25 — 팀이 읽고 수정할 수 있도록 GitHub Actions 단계와 Bash로 배포 자동화를 구성
+- 개정: 2026-10-26 — 실제 dev 도메인 자동 배포의 활성화 경계와 공유 prod2의 운영 이관 순서 명시
 - 범위: prod 백엔드의 트래픽 전환, 배포 자동화와 운영 EC2 시작·중지
 - 관련 결정: [인프라 ADR 0002](0002-rds-deployment-database.md), [백엔드 ADR 0015](../../../backend/docs/adr/0015-separate-ec2-and-shared-rds.md), [백엔드 ADR 0016](../../../backend/docs/adr/0016-github-hosted-build-and-ghcr.md)
 - 구현 범위·실행법·운영 전 남은 연결: [Blue-Green 배포 제어](../../deploy/README.md)
@@ -70,6 +71,16 @@ dev EC2 -----------------> 같은 RDS 안의 dev DB
 서버를 함께 실행한다. CloudFront의 API Origin은 최초 도입 때 Nginx로 바꾸고, 이후 배포는
 CloudFront 설정을 바꾸지 않고 Nginx upstream 변경과 reload로 전환한다.
 
+prod 적용 전에는 기존 dev EC2를 A, prod2를 B로 사용해 실제 dev 도메인에서 develop 머지에
+따른 자동 배포를 검증한다. `BLUE_GREEN_DEV_ENABLED`는 기본 비활성으로 두고, CloudFront의
+dev API Origin과 최초 worker 등록을 준비한 뒤 활성화한다. 이 기간의 실제 푸시는 기존 dev
+설정을 유지하며, 검증 중인 후보의 발송은 PAUSED와 DB 처리 권한으로 막는다.
+
+prod2는 dev와 prod가 동시에 사용할 수 없다. dev 자동 배포 검증이 끝나면 A로 복귀하고,
+진행 중 배포 종료·기존 dev 방식 복구·dev 자동화 해제·B의 dev 설정 정리를 마친 뒤 prod B로
+전환한다. prod 적용 확인 후 dev 전용 Blue-Green 설정을 제거한다. 자세한 절차는
+[dev 자동화 적용 순서](../../deploy/controller/dev-automatic-deployment.md)에 둔다.
+
 운영 API용 Nginx는 기존 모니터링 EC2의 Nginx와 별도다. 앱 EC2에는 JVM 하나씩만 실행하며,
 빌드·이미지 공급은 기존 GitHub-hosted ARM runner와 GHCR 경로를 유지한다.
 
@@ -113,9 +124,10 @@ runner 대기·취소·응답 유실에 대비한 영속 기록과 종료 증거
 
 A가 서비스 중인 경우 다음 순서로 배포한다.
 
-첫 dev 검증은 수동 `bootstrap`과 `deploy`로 수행한다. develop push는 기존 배포 방식을 유지한다.
-운영 검증 후 `BLUE_GREEN_PROD_ENABLED=true`를 설정하면 이후 main push에서 Blue-Green을
-자동 선택한다. 최초 초기화는 이미 제어 기능을 갖춘 A가 정상 실행·대기 상태이고 DB 처리 권한이
+첫 dev 검증은 수동 `bootstrap`과 `deploy`로 수행했다. 이후 실제 dev 도메인과 최초 등록을
+준비하고 `BLUE_GREEN_DEV_ENABLED=true`로 설정하면 develop push에서 Blue-Green을 자동 선택한다.
+dev 자동화를 해제하고 운영 이관·검증 후 `BLUE_GREEN_PROD_ENABLED=true`를 설정하면 이후
+main push에서 Blue-Green을 자동 선택한다. 최초 초기화는 이미 제어 기능을 갖춘 A가 정상 실행·대기 상태이고 DB 처리 권한이
 미할당인 상태에서 한 번 수행한다. 기존 운영 앱을 자동으로 초기화하는 절차는 아니다.
 
 1. 운영 자동 배포가 활성화된 뒤 PR이 `main`에 머지되어 workflow가 시작되면, 기존 이미지 선택 절차로 배포할

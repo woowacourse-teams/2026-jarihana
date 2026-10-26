@@ -58,6 +58,8 @@ jobs:
           BG_B_RUNNER: ${{ vars[format('BLUE_GREEN_{0}_B_RUNNER', inputs.environment == 'dev' && 'DEV' || 'PROD')] }}
           BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
           BG_DEV_RDS: ${{ vars.BLUE_GREEN_RDS_URL }}
+          BG_DEV_AUTO_ENABLED: ${{ vars.BLUE_GREEN_DEV_ENABLED || 'false' }}
+          BG_PROD_AUTO_ENABLED: ${{ vars.BLUE_GREEN_PROD_ENABLED || 'false' }}
         shell: bash
         working-directory: source
         run: |
@@ -66,18 +68,28 @@ jobs:
           [[ "$BG_CONTROL_REF" =~ ^refs/tags/deployment-control-[A-Za-z0-9._-]+$ ]]
           [[ "$BG_ENVIRONMENT" == dev || "$BG_ENVIRONMENT" == prod ]]
           [[ "$BG_MODE" == deploy || "$BG_MODE" == bootstrap ]]
+          [[ "$BG_DEV_AUTO_ENABLED" == true || "$BG_DEV_AUTO_ENABLED" == false ]]
+          [[ "$BG_PROD_AUTO_ENABLED" == true || "$BG_PROD_AUTO_ENABLED" == false ]]
           [[ -n "$BG_A_RUNNER" && -n "$BG_B_RUNNER" && "$BG_A_RUNNER" != "$BG_B_RUNNER" ]] || {
             echo '::error::환경별 A/B runner 라벨을 서로 다른 전용 라벨로 설정해야 합니다.'
             exit 1
           }
           if [[ "$BG_ENVIRONMENT" == dev ]]; then
             [[ "$GITHUB_REF" == refs/heads/develop ]]
+            [[ "$BG_PROD_AUTO_ENABLED" != true ]] || {
+              echo '::error::prod2는 운영에 사용 중입니다. dev Blue-Green을 실행할 수 없습니다.'
+              exit 1
+            }
             [[ -n "$BG_DEV_RDS" ]] || {
               echo '::error::dev 시험 DB는 BLUE_GREEN_RDS_URL로 명시해야 합니다.'
               exit 1
             }
           else
             [[ "$GITHUB_REF" == refs/heads/main ]]
+            [[ "$BG_DEV_AUTO_ENABLED" != true ]] || {
+              echo '::error::공유 대기 EC2를 prod로 전환하기 전에 dev Blue-Green을 비활성화해야 합니다.'
+              exit 1
+            }
           fi
           if [[ "$BG_MODE" == bootstrap ]]; then
             [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && -n "$INPUT_TAG" ]]

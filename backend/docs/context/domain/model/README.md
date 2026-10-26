@@ -130,6 +130,7 @@ erDiagram
 
 | 영역 | 문서 | 포함 내용 |
 | --- | --- | --- |
+| 채팅 | [Chat](chat.md) | 모임별 순번·메시지·읽음·가입 및 삭제 경계 |
 | 회원 | [Member](member.md) | 회원 모델과 추가 결정 |
 | 그룹 | [Group](group.md) | 그룹 모델과 일정 연결 |
 | 모집 | [GroupRecruitment](grouprecruitment.md) | 모집 공고 모델 |

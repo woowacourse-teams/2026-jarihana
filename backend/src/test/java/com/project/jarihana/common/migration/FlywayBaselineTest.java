@@ -183,7 +183,7 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 int appliedMigrations = existing.migrate().migrationsExecuted;
 
                 // Then
-                assertThat(appliedMigrations).isEqualTo(7);
+                assertThat(appliedMigrations).isEqualTo(8);
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '1'", String.class))
                         .isEqualTo("BASELINE");
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '2'", String.class))
@@ -196,7 +196,11 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                         .isEqualTo("SQL");
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '7'", String.class))
                         .isEqualTo("SQL");
-                assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '8'", String.class))
+                assertThat(jdbc.queryForList("select tablename from pg_tables where schemaname = current_schema()", String.class))
+                        .contains("chat_room", "chat_message", "chat_read_state", "announcements");
+                assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '8'", String.class))
+                        .isEqualTo("V8__group_chat.sql");
+                assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '9'", String.class))
                         .isEqualTo("SQL");
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '999999'", String.class))
                         .isEqualTo("SQL");
@@ -245,15 +249,17 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 int appliedMigrations = upgraded.migrate().migrationsExecuted;
 
                 // Then
-                assertThat(appliedMigrations).isEqualTo(2);
-                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('7', '8') order by installed_rank"))
+                assertThat(appliedMigrations).isEqualTo(3);
+                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('7', '8', '9') order by installed_rank"))
                         .isEqualTo(history);
                 assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '4'", String.class))
                         .isEqualTo("V4__image_lifecycle.sql");
                 assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '7'", String.class))
                         .isEqualTo("V7__worker_authority.sql");
                 assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '8'", String.class))
-                        .isEqualTo("V8__group_announcements.sql");
+                        .isEqualTo("V8__group_chat.sql");
+                assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '9'", String.class))
+                        .isEqualTo("V9__group_announcements.sql");
                 assertThat(jdbc.queryForObject("select count(*) from worker_authority", Long.class)).isZero();
                 assertThat(jdbc.queryForObject("select github_id from member", String.class))
                         .isEqualTo("worker-upgrade-member");
@@ -302,12 +308,16 @@ class FlywayBaselineTest extends IntegrationTestSupport {
 
                 // Then
                 assertThat(corrected).isEqualTo(1);
-                assertThat(appliedMigrations).isEqualTo(3);
+                assertThat(appliedMigrations).isEqualTo(4);
                 assertThat(jdbc.queryForList("select * from worker_authority")).isEqualTo(worker);
                 assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '4'", String.class))
                         .isEqualTo("V4__image_lifecycle.sql");
                 assertThat(jdbc.queryForObject("select checksum from flyway_schema_history where version = '7'", Integer.class))
                         .isEqualTo(1532855250);
+                assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '8'", String.class))
+                        .isEqualTo("V8__group_chat.sql");
+                assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '9'", String.class))
+                        .isEqualTo("V9__group_announcements.sql");
                 Flyway normal = Flyway.configure().dataSource(isolated).schemas(schema)
                         .locations("classpath:db/migration").load();
                 normal.validate();
