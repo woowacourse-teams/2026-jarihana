@@ -1,0 +1,19 @@
+name: Review Policy Review Events
+
+on:
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+
+# This PR-context workflow is only an event signal. It has no write token,
+# secrets, checkout, artifact, cache, or PR code execution.
+permissions: {}
+
+jobs:
+  signal:
+    if: contains(fromJSON('["develop", "main"]'), github.event.pull_request.base.ref)
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Signal a review-state change to the trusted gate workflow
+        run: ":"
+
