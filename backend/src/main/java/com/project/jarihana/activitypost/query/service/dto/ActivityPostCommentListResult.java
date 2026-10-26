@@ -8,6 +8,7 @@ public record ActivityPostCommentListResult(List<Item> items, String nextCursor,
     public record Item(
             Long id,
             String authorNickname,
+            String authorAvatarUrl,
             String content,
             LocalDateTime createdAt,
             boolean canDelete,

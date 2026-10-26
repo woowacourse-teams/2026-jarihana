@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 public record ActivityPostCommentProjection(
         Long id,
         String authorNickname,
+        String authorGithubId,
         String content,
         LocalDateTime createdAt,
         boolean canDelete
