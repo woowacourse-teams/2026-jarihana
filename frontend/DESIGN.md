@@ -515,7 +515,8 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   화살표로 연결한다. 날짜와 시간 모두
   visible label을 underline control 위에 배치하고 현재 선택 중인 endpoint는 label과 underline의 selected
   state로 표시한다. 날짜 trigger를 누르면 해당 trigger 아래에 한 달짜리 달력 하나를 popover로 띄우고,
-  날짜를 선택하거나 바깥 영역을 누르면 닫는다. 달력 날짜는 semantic button grid로 제공하며
+  날짜를 선택하거나 바깥 영역을 누르면 닫는다. 본문 하단 경계를 넘는 날짜·시간 popover는
+  해당 field 위로 열어 본문의 clipping에 잘리지 않게 한다. 달력 날짜는 semantic button grid로 제공하며
   마감 선택 중에는 시작일 이전 날짜를 실제 disabled state로 막는다. 같은 날짜의 마감 시간은 시작
   시각보다 최소 1분 뒤만 허용한다. 시간 trigger는 날짜 popover와 같은 surface·shadow·open/close 규칙을
   쓰는 단일 시간 popover를 연다. 브라우저 기본 시간 입력처럼 오전/오후·시·분을 한 줄에 배치하되,
