@@ -18,8 +18,17 @@ MOCK_API_BODY=$(jq -cn --arg sha "$GITHUB_SHA" --arg repo "$REPO" '{id:100,run_a
 bg_github() { printf '%s\n' "$MOCK_API_BODY"; }
 bg_live; pass 'approved live parent accepted'
 original=$MOCK_API_BODY
+for status in queued waiting pending requested; do
+  MOCK_API_BODY=$(jq -c --arg status "$status" '.status=$status' <<< "$original")
+  bg_live; pass "approved nonterminal parent accepted ($status)"
+  MOCK_API_BODY=$(jq -c '.head_sha="wrong"' <<< "$MOCK_API_BODY")
+  reject bg_live; pass "nonterminal parent still checks SHA ($status)"
+done
 for mutation in '.run_attempt=2' '.head_sha="wrong"' '.head_branch="main"' '.status="completed"' '.repository.id=1' '.head_repository.id=1' '.workflow_id=1' '.path=".github/workflows/other.yml"' '.conclusion="cancelled"'; do
   MOCK_API_BODY=$(jq -c "$mutation" <<< "$original"); reject bg_live; pass "different parent rejected ($mutation)"
+done
+for mutation in '.status="unknown"' '.status=null' 'del(.status)' 'del(.conclusion)' '.status="queued" | .conclusion="cancelled"'; do
+  MOCK_API_BODY=$(jq -c "$mutation" <<< "$original"); reject bg_live; pass "invalid lifecycle rejected ($mutation)"
 done
 MOCK_API_BODY=$original; BG_MODE=bootstrap
 MOCK_API_BODY=$(jq -c '.event="push"' <<< "$original"); reject bg_live; pass 'push cannot bootstrap'
