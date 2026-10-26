@@ -168,6 +168,13 @@ async function holidaysFor(...years) {
   return all;
 }
 
+async function isBusinessDay(instant) {
+  const parts = kstParts(new Date(instant));
+  const date = `${parts.year}-${parts.month}-${parts.day}`;
+  if (isWeekend(date)) return false;
+  return !(await publicHolidays(Number(parts.year))).has(date);
+}
+
 function nextBusinessDate(date, holidayDates) {
   let candidate = date;
   do {
@@ -345,6 +352,13 @@ async function publicPullRequests(owner, repo) {
 }
 
 async function deadlineScan() {
+  const now = Date.now();
+  if (!(await isBusinessDay(now))) {
+    output("matrix", JSON.stringify({ include: [] }));
+    output("has_reminders", "false");
+    console.log("Skipping deadline scan on a KST weekend or public holiday");
+    return;
+  }
   const { owner, repo } = repoParts();
   const defaultBranch = process.env.DEFAULT_BRANCH || "main";
   const userMap = parseSlackUserMap();
@@ -357,7 +371,6 @@ async function deadlineScan() {
       .filter((artifact) => artifact.expired !== true && artifact.workflow_run && artifact.workflow_run.head_branch === defaultBranch)
       .map((artifact) => artifact.name),
   );
-  const now = Date.now();
   const reminders = [];
 
   for (const listedPr of pullRequests) {
@@ -406,6 +419,11 @@ async function deadlineNotification() {
   const reminder = JSON.parse(process.env.REVIEW_REMINDER || "{}");
   const prNumber = Number(reminder.pr_number);
   if (!Number.isInteger(prNumber) || prNumber <= 0) throw new Error("REVIEW_REMINDER has an invalid PR number");
+  if (!(await isBusinessDay(Date.now()))) {
+    output("sent", "false");
+    console.log("Skipping deadline delivery on a KST weekend or public holiday");
+    return;
+  }
   const defaultBranch = process.env.DEFAULT_BRANCH || "main";
   const artifactName = `${ARTIFACT_PREFIX}pr-${prNumber}-${reminder.deadline_key}`;
   const existingArtifacts = await listArtifacts(owner, repo);
@@ -449,6 +467,11 @@ async function deadlineNotification() {
   }
 
   await sleep(1100);
+  if (!(await isBusinessDay(Date.now()))) {
+    output("sent", "false");
+    console.log("The KST date changed to a non-business day; skipping deadline delivery");
+    return;
+  }
   const mentions = reviewers.map((login) => `<@${requiredSlackId(login, userMap)}>`).join(" ");
   const title = escapeSlackText(pr.title);
   const text = `${mentions} 리뷰 마감 시각입니다. 현재 head 커밋에 승인 리뷰가 없습니다: <${pr.html_url}|#${pr.number} ${title}>\n마감: ${reminder.deadline_label}`;
