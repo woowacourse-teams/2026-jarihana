@@ -53,3 +53,15 @@ test("loading older messages preserves distance from existing content", () => {
   rerender(<MemoryRouter><ChatConversation {...props} room={{ ...room, messages: [{ ...message, id: "9", sequence: "9" }, message] }} /></MemoryRouter>);
   expect(history.scrollTop).toBe(320);
 });
+
+test("server confirmation removes retry only for the confirmed message", () => {
+  const first = { ...message, id: "pending-1", failed: true };
+  const second = { ...message, id: "pending-2", clientMessageId: "other-key", text: "두 번째", failed: true };
+  const { props, rerender } = mount({ room: { ...room, messages: [first, second] } });
+  expect(screen.getAllByRole("button", { name: "전송 실패 · 다시 보내기" })).toHaveLength(2);
+  rerender(<MemoryRouter><ChatConversation {...props} room={{ ...room, messages: [message, second] }} /></MemoryRouter>);
+  const retry = screen.getByRole("button", { name: "전송 실패 · 다시 보내기" });
+  expect(retry).toHaveAttribute("data-ph-capture-attribute-action", "chat_message_retry");
+  fireEvent.click(retry);
+  expect(props.onRetry).toHaveBeenCalledWith(second);
+});

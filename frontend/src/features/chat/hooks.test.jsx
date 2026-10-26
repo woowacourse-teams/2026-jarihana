@@ -150,6 +150,7 @@ test("a socket-confirmed message survives a later failed HTTP response", async (
   const confirmed = queryClient.getQueryData(key).items.find((item) => item.clientMessageId === payload.clientMessageId);
   expect(confirmed.id).toBe("11");
   expect(confirmed.failed).toBeUndefined();
+  expect(hook.result.current.actionError).toBeNull();
   hook.unmount();
 });
 
@@ -217,4 +218,53 @@ test.each(["event", "response"])("delayed read %s preserves newer message count 
   expect(fetchAllRooms.mock.calls.length).toBeGreaterThan(calls);
   hook.unmount();
   focus.mockRestore();
+});
+
+test.each(["socket", "recovery"])("HTTP failure followed by %s confirmation clears only that message failure", async (transport) => {
+  postMessage.mockRejectedValue(new Error("response lost"));
+  const hook = setup();
+  await waitFor(() => expect(hook.result.current.history.data).toBeDefined());
+  await act(async () => { config.onConnect(); });
+  await waitFor(() => expect(catchUp).toHaveBeenCalled());
+  await act(async () => { await hook.result.current.send("첫 번째"); });
+  await act(async () => { await hook.result.current.send("두 번째"); });
+  const first = postMessage.mock.calls[0][1];
+  const second = postMessage.mock.calls[1][1];
+  expect(queryClient.getQueryData(key).items.filter((item) => item.failed)).toHaveLength(2);
+  expect(hook.result.current.actionError).toBeNull();
+
+  const confirmed = saved("11", first);
+  if (transport === "socket") {
+    await act(async () => {
+      receive({ body: JSON.stringify({ version: 1, type: "MESSAGE_CREATED", groupId: "1", message: confirmed }) });
+    });
+  } else {
+    catchUp.mockImplementationOnce(async (_room, _cursor, onPage) => {
+      onPage({ items: [confirmed], latestSequence: "11", lastReadSequence: "0", status: "ACTIVE" });
+      return "11";
+    });
+    await act(async () => { await hook.result.current.sync(); });
+  }
+  const items = queryClient.getQueryData(key).items;
+  expect(items.find((item) => item.clientMessageId === first.clientMessageId)).toEqual(confirmed);
+  expect(items.find((item) => item.clientMessageId === second.clientMessageId).failed).toBe(true);
+  expect(hook.result.current.actionError).toBeNull();
+  hook.unmount();
+});
+
+test("history loading errors remain visible when a message is confirmed", async () => {
+  fetchMessages.mockResolvedValue({ items: [saved("10")], latestSequence: "10", lastReadSequence: "0", hasNext: true, nextCursor: "10", status: "ACTIVE" });
+  const hook = setup();
+  await waitFor(() => expect(hook.result.current.history.data).toBeDefined());
+  await act(async () => { config.onConnect(); });
+  await waitFor(() => expect(catchUp).toHaveBeenCalled());
+  fetchMessages.mockRejectedValueOnce(new Error("history unavailable"));
+  await act(async () => { await hook.result.current.loadOlder(); });
+  const error = hook.result.current.actionError;
+  expect(error).toBe("이전 대화를 불러오지 못했어요. 다시 시도해 주세요.");
+  await act(async () => {
+    receive({ body: JSON.stringify({ version: 1, type: "MESSAGE_CREATED", groupId: "1", message: saved("11") }) });
+  });
+  expect(hook.result.current.actionError).toBe(error);
+  hook.unmount();
 });

@@ -177,7 +177,6 @@ export function useChat(roomId) {
     } catch {
       if (!controller.signal.aborted) {
         client.setQueryData(historyKey, (old) => old ? { ...old, items: mergeMessages(old.items, [{ ...message, pending: false, failed: true }]) } : old);
-        setActionError("메시지를 보내지 못했어요. 실패한 메시지에서 다시 보내기를 눌러 주세요.");
         void synchronize.current();
       }
     }
