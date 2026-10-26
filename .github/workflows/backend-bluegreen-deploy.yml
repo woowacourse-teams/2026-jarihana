@@ -16,8 +16,10 @@ permissions:
   actions: read
   packages: read
 concurrency:
-  group: backend-bluegreen-deployment
+  # Monitoring recreates the query gateway; keep it outside the observation window.
+  group: jarihana-observed-deployment
   cancel-in-progress: false
+  queue: max
 jobs:
   resolve:
     runs-on: ubuntu-24.04-arm
