@@ -67,6 +67,9 @@ Prometheus 9090은 모니터링 호스트 loopback으로 유지한다. 읽기 �
 query_range·관리 API·다른 Prometheus 경로를 열지 않으며 공개 80 서버의 라우팅은 바꾸지 않는다.
 조회 URL 예시는 `http://<모니터링 private IP>:8080/prometheus`다. 설정 소스만 추가했으며 실제
 모니터링 서버의 Nginx reload·보안 그룹 변경은 이번 로컬 단계에서 수행하지 않는다.
+`Monitoring Deploy`의 컨테이너 재생성은 이 조회 경로도 중단한다. Blue-Green과 모니터링 workflow의
+공유 concurrency group으로 배포를 직렬화한다. 대기열·최초 적용과 수동 재시작 제한은
+[Actions 계약](../github-actions-adapter.md#모니터링-배포와-동시-실행-방지)을 따른다.
 
 ### 파일·계정 경계
 
