@@ -33,6 +33,28 @@ public class ChatCommandService {
 
     @Transactional(timeout = 10)
     public SendChatResult sendMessage(long memberId, long groupId, UUID requestId, String content) {
+        recordWriteOnCompletion();
+        ChatMessage.validate(requestId, content);
+        String status = repository.lockGroup(groupId);
+        repository.requireMember(groupId, memberId);
+        var existing = repository.findRequest(groupId, memberId, requestId);
+        if (existing.isPresent()) {
+            ChatMessage existingMessage = existing.orElseThrow();
+            if (!existingMessage.content().equals(content))
+                throw new BusinessException(
+                        ErrorCode.CONCURRENT_MODIFICATION, "같은 요청 식별자에 다른 메시지를 사용할 수 없습니다.");
+            metrics.counter("chat.message.idempotent").increment();
+            return new SendChatResult(existingMessage, false);
+        }
+        if (!"ACTIVE".equals(status))
+            throw new BusinessException(ErrorCode.GROUP_ENDED, "종료된 모임에는 메시지를 보낼 수 없습니다.");
+        ChatMessage message =
+                repository.save(groupId, memberId, requestId, content, LocalDateTime.now(clock));
+        repository.notifyEvent("MESSAGE_CREATED", groupId, null, message.id());
+        return new SendChatResult(message, true);
+    }
+
+    private void recordWriteOnCompletion() {
         long started = System.nanoTime();
         TransactionSynchronizationManager.registerSynchronization(
                 new TransactionSynchronization() {
@@ -45,23 +67,6 @@ public class ChatCommandService {
                                 .record(System.nanoTime() - started, TimeUnit.NANOSECONDS);
                     }
                 });
-        ChatMessage.validate(requestId, content);
-        String status = repository.lockGroup(groupId);
-        repository.requireMember(groupId, memberId);
-        var existing = repository.findRequest(groupId, memberId, requestId);
-        if (existing.isPresent()) {
-            if (!existing.orElseThrow().content().equals(content))
-                throw new BusinessException(
-                        ErrorCode.CONCURRENT_MODIFICATION, "같은 요청 식별자에 다른 메시지를 사용할 수 없습니다.");
-            metrics.counter("chat.message.idempotent").increment();
-            return new SendChatResult(existing.orElseThrow(), false);
-        }
-        if (!"ACTIVE".equals(status))
-            throw new BusinessException(ErrorCode.GROUP_ENDED, "종료된 모임에는 메시지를 보낼 수 없습니다.");
-        ChatMessage message =
-                repository.save(groupId, memberId, requestId, content, LocalDateTime.now(clock));
-        repository.notifyEvent("MESSAGE_CREATED", groupId, null, message.id());
-        return new SendChatResult(message, true);
     }
 
     @Transactional(timeout = 10)

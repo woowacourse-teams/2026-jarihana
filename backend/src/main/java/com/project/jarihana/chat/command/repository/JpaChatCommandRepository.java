@@ -3,6 +3,9 @@ package com.project.jarihana.chat.command.repository;
 import com.project.jarihana.chat.domain.ChatMessage;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.member.domain.Member;
+
+import jakarta.persistence.EntityManager;
 
 import lombok.RequiredArgsConstructor;
 
@@ -15,8 +18,11 @@ import java.util.UUID;
 
 @Repository
 @RequiredArgsConstructor
-public class JdbcChatCommandRepository implements ChatCommandRepository {
+public class JpaChatCommandRepository implements ChatCommandRepository {
     private final JdbcTemplate jdbc;
+    private final ChatMessageCommandJpaRepository messages;
+    private final ChatMemberCommandJpaRepository members;
+    private final EntityManager entityManager;
 
     @Override
     public String lockGroup(long groupId) {
@@ -35,42 +41,16 @@ public class JdbcChatCommandRepository implements ChatCommandRepository {
 
     @Override
     public void requireMember(long groupId, long memberId) {
-        Boolean allowed =
-                jdbc.queryForObject(
-                        """
-                        select exists(select 1 from group_member gm join member m on m.id = gm.member_id
-                        where gm.group_id = ? and gm.member_id = ? and m.withdrawn_at is null)
-                        """,
-                        Boolean.class,
-                        groupId,
-                        memberId);
-        if (!Boolean.TRUE.equals(allowed))
-            throw new BusinessException(ErrorCode.GROUP_ACCESS_DENIED, "모임 채팅에 접근할 수 없습니다.");
+        members.findActiveMember(groupId, memberId)
+                .orElseThrow(
+                        () ->
+                                new BusinessException(
+                                        ErrorCode.GROUP_ACCESS_DENIED, "모임 채팅에 접근할 수 없습니다."));
     }
 
     @Override
     public Optional<ChatMessage> findRequest(long groupId, long memberId, UUID requestId) {
-        return jdbc
-                .query(
-                        """
-                        select c.*, m.crew_name from chat_message c join member m on m.id = c.sender_id
-                        where c.group_id = ? and c.sender_id = ? and c.client_message_id = ?
-                        """,
-                        (rs, row) ->
-                                new ChatMessage(
-                                        rs.getLong("id"),
-                                        rs.getLong("group_id"),
-                                        rs.getLong("sequence"),
-                                        rs.getLong("sender_id"),
-                                        rs.getString("crew_name"),
-                                        rs.getObject("client_message_id", UUID.class),
-                                        rs.getString("content"),
-                                        rs.getObject("created_at", LocalDateTime.class)),
-                        groupId,
-                        memberId,
-                        requestId)
-                .stream()
-                .findFirst();
+        return messages.findRequest(groupId, memberId, requestId);
     }
 
     @Override
@@ -83,18 +63,20 @@ public class JdbcChatCommandRepository implements ChatCommandRepository {
                                 + " returning last_sequence",
                         Long.class,
                         groupId);
-        jdbc.update(
-                """
-                insert into chat_message(group_id, sequence, sender_id, client_message_id, content, created_at)
-                values (?, ?, ?, ?, ?, ?)
-                """,
-                groupId,
-                sequence,
-                memberId,
-                requestId,
-                content,
-                now);
-        return findRequest(groupId, memberId, requestId).orElseThrow();
+        ChatMessage message =
+                messages.save(
+                        ChatMessage.create(
+                                groupId,
+                                sequence,
+                                entityManager.getReference(Member.class, memberId),
+                                requestId,
+                                content,
+                                now));
+        // Return the timestamp(6) value stored by PostgreSQL, including its rounding.
+        entityManager.refresh(message);
+        // Initialize the author while the service transaction is still open.
+        message.author();
+        return message;
     }
 
     @Override
@@ -126,13 +108,8 @@ public class JdbcChatCommandRepository implements ChatCommandRepository {
 
     @Override
     public long unreadCount(long groupId, long memberId, long sequence) {
-        return jdbc.queryForObject(
-                "select count(*) from chat_message where group_id = ? and sequence > ? and"
-                        + " sender_id <> ?",
-                Long.class,
-                groupId,
-                sequence,
-                memberId);
+        return messages.countByGroupIdAndSequenceGreaterThanAndSenderIdNot(
+                groupId, sequence, memberId);
     }
 
     @Override
@@ -165,10 +142,7 @@ public class JdbcChatCommandRepository implements ChatCommandRepository {
 
     @Override
     public void notifyRemoval(long groupId) {
-        jdbc.query(
-                        "select member_id from group_member where group_id = ?",
-                        (rs, row) -> rs.getLong(1),
-                        groupId)
+        members.findMemberIds(groupId)
                 .forEach(memberId -> notifyEvent("ROOM_REMOVED", groupId, memberId, null));
     }
 }

@@ -1,8 +1,9 @@
 package com.project.jarihana.chat.query.service;
 
-import com.project.jarihana.chat.domain.ChatMessage;
 import com.project.jarihana.chat.query.repository.ChatQueryRepository;
+import com.project.jarihana.chat.query.repository.dto.ChatMessageProjection;
 import com.project.jarihana.chat.query.service.dto.ChatHistoryResult;
+import com.project.jarihana.chat.query.service.dto.ChatMessageResult;
 import com.project.jarihana.chat.query.service.dto.ChatRoomResult;
 import com.project.jarihana.chat.query.service.dto.ChatRoomsResult;
 import com.project.jarihana.common.exception.BusinessException;
@@ -44,13 +45,18 @@ public class ChatQueryService {
         boolean more = fetched.size() > size;
         var items = new ArrayList<>(fetched.subList(0, Math.min(size, fetched.size())));
         String next = more ? Long.toString(items.getLast().sequence()) : null;
-        items.sort(Comparator.comparingLong(ChatMessage::sequence));
+        items.sort(Comparator.comparingLong(ChatMessageProjection::sequence));
         if (after != null) {
             metrics.counter("chat.catchup.requests").increment();
             metrics.counter("chat.catchup.messages").increment(items.size());
         }
         return new ChatHistoryResult(
-                items, next, more, room.latestSequence(), room.lastReadSequence(), room.status());
+                items.stream().map(ChatMessageResult::from).toList(),
+                next,
+                more,
+                room.latestSequence(),
+                room.lastReadSequence(),
+                room.status());
     }
 
     public ChatRoomsResult rooms(long memberId, String cursor, int size, String query) {
@@ -78,15 +84,19 @@ public class ChatQueryService {
                         ? Base64.getUrlEncoder()
                                 .withoutPadding()
                                 .encodeToString(
-                                        (items.getLast().updatedAt()
+                                        (items.getLast().createdAt()
                                                         + "|"
                                                         + items.getLast().groupId())
                                                 .getBytes(StandardCharsets.UTF_8))
                         : null;
         return new ChatRoomsResult(
                 items.stream()
-                        .map(room -> ChatRoomResult.from(
-                                room, imageAccessService.publicUrl(room.representativeImageKey())))
+                        .map(
+                                room ->
+                                        ChatRoomResult.from(
+                                                room,
+                                                imageAccessService.publicUrl(
+                                                        room.representativeImageKey())))
                         .toList(),
                 next,
                 more);

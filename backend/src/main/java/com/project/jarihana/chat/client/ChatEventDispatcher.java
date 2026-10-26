@@ -2,6 +2,7 @@ package com.project.jarihana.chat.client;
 
 import com.project.jarihana.chat.command.controller.dto.ChatMessageResponse;
 import com.project.jarihana.chat.query.repository.ChatQueryRepository;
+import com.project.jarihana.chat.query.service.dto.ChatMessageResult;
 import com.project.jarihana.common.exception.BusinessException;
 
 import io.micrometer.core.instrument.MeterRegistry;
@@ -56,7 +57,7 @@ public class ChatEventDispatcher {
         if ("MESSAGE_CREATED".equals(type)) {
             var message = repository.findMessage(notification.path("messageId").asLong());
             if (message == null) return;
-            event.put("message", ChatMessageResponse.from(message));
+            event.put("message", ChatMessageResponse.from(ChatMessageResult.from(message)));
         } else if (!"ROOM_CLOSED".equals(type)) return;
         var members = repository.members(groupId);
         metrics.counter("chat.fanout.members").increment(members.size());

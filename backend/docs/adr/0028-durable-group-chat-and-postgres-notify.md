@@ -172,8 +172,31 @@ HTTP 응답을 잃으면 같은 `clientMessageId`와 원문으로 다시 요청�
 `ChatPersistenceTest.membershipInsertProtectsBaselineUntilCommit`을 함께 확인해야 한다.
 관련 결정은 [백엔드 ADR 0020](0020-optimistic-invitation-acceptance.md)에 있다.
 
-채팅 repository는 `RETURNING`, `ON CONFLICT`, `pg_notify`, 커서 집계를 직접 표현하려고 JDBC를 사용한다.
-기존 JPA와 같은 DataSource의 트랜잭션에 참여하며 SQL은 repository 안에 둔다.
+메시지 저장·중복 요청 확인·이력·참여자 조회는 기존 프로젝트처럼 Spring Data JPA를 사용한다.
+메시지는 불변 JPA 엔티티로 저장하고, 이력은 작성자 이름까지 JPQL projection으로 가져온다.
+작성자마다 별도 쿼리가 실행되지 않도록 명령 조회는 fetch join, 이력 조회는 조인된 projection을 쓴다.
+
+| 처리 | 구현 | 이유 |
+| --- | --- | --- |
+| 메시지 저장·조회 | JPA 엔티티·Spring Data repository | 일반 SQL과 수동 결과 매핑을 줄이고 기존 코드와 맞춘다 |
+| 모임 잠금 | 명시적 `FOR UPDATE` SQL | 가입 INSERT의 FK 잠금과 경쟁하는 기존 순서를 유지한다 |
+| 순번·읽음·가입 기준·알림 | `RETURNING`, `ON CONFLICT`, `pg_notify` SQL | 원자 갱신과 커밋 후 알림을 그대로 유지한다 |
+| 방 목록 | 단일 집계 SQL | 최근 메시지·미확인 수와 모임 생성 시각 커서를 같은 조회에서 계산한다 |
+| LISTEN | 전용 JDBC 연결 | PostgreSQL 알림을 계속 수신한다 |
+
+JPA와 JDBC는 같은 DataSource와 서비스 트랜잭션을 사용한다.
+메시지의 `created_at`은 서비스 Clock으로 정하며 저장 뒤 DB 값을 다시 읽어
+`timestamp(6)`의 반올림까지 응답에 반영한다. 메시지는 수정 시각이 없는 기존 테이블이므로
+`BaseEntity`를 상속하거나 `updated_at` 컬럼을 추가하지 않는다.
+JPA 조회에도 기존 10초 제한을 유지한다. 이번 변경은 코드 일관성을 위한 선택이며,
+JDBC와 JPA의 처리 성능은 같은 부하에서 별도로 비교해야 한다.
+
+### 목록 페이지를 나누는 기준
+
+목록 API는 모임 생성 시각과 ID의 내림차순으로 페이지를 나눈다. 최근 메시지 시각으로
+커서를 만들면 다음 페이지의 방에 새 메시지가 왔을 때 이미 지난 범위로 이동해 누락될 수 있다.
+응답의 `updatedAt`은 최근 활동 시각을 유지하고, 화면에서 모든 페이지를 모아 최근 활동순으로 정렬한다.
+조회 중 새 가입·탈퇴는 다음 목록 동기화에서 반영하며 각 요청은 현재 소속을 확인한다.
 
 ## 강퇴 방안 비교
 
@@ -289,8 +312,8 @@ NOTIFY는 두 서버 사이의 변경 전달을 맡고, 프록시는 새 연결�
 
 | 확인 대상 | 코드·기록 |
 | --- | --- |
-| 저장·멱등·생명주기 | [ChatCommandService](../../src/main/java/com/project/jarihana/chat/command/service/ChatCommandService.java), [JDBC 쓰기](../../src/main/java/com/project/jarihana/chat/command/repository/JdbcChatCommandRepository.java) |
-| 목록·이력·참여자 조회 | [ChatQueryService](../../src/main/java/com/project/jarihana/chat/query/service/ChatQueryService.java), [JDBC 조회](../../src/main/java/com/project/jarihana/chat/query/repository/JdbcChatQueryRepository.java) |
+| 저장·멱등·생명주기 | [ChatCommandService](../../src/main/java/com/project/jarihana/chat/command/service/ChatCommandService.java), [JPA 쓰기·원자 SQL](../../src/main/java/com/project/jarihana/chat/command/repository/JpaChatCommandRepository.java) |
+| 목록·이력·참여자 조회 | [ChatQueryService](../../src/main/java/com/project/jarihana/chat/query/service/ChatQueryService.java), [JPA 조회·목록 SQL](../../src/main/java/com/project/jarihana/chat/query/repository/JpaChatQueryRepository.java) |
 | 로컬 필터·개인 발행 | [ChatEventDispatcher](../../src/main/java/com/project/jarihana/chat/client/ChatEventDispatcher.java) |
 | NOTIFY 수신·재접속 | [ChatPostgresListener](../../src/main/java/com/project/jarihana/chat/client/ChatPostgresListener.java) |
 | 연결·구독 제한 | [ChatWebSocketConfig](../../src/main/java/com/project/jarihana/chat/config/ChatWebSocketConfig.java), [ChatInboundInterceptor](../../src/main/java/com/project/jarihana/chat/config/ChatInboundInterceptor.java) |

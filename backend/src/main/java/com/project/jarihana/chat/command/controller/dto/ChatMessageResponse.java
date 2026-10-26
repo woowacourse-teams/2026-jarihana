@@ -1,6 +1,7 @@
 package com.project.jarihana.chat.command.controller.dto;
 
 import com.project.jarihana.chat.domain.ChatMessage;
+import com.project.jarihana.chat.query.service.dto.ChatMessageResult;
 
 import java.time.LocalDateTime;
 
@@ -25,5 +26,19 @@ public record ChatMessageResponse(
                         m.clientMessageId().toString(),
                         m.content(),
                         m.createdAt());
+    }
+
+    public static ChatMessageResponse from(ChatMessageResult message) {
+        return message == null
+                ? null
+                : new ChatMessageResponse(
+                        Long.toString(message.id()),
+                        Long.toString(message.groupId()),
+                        Long.toString(message.sequence()),
+                        Long.toString(message.senderId()),
+                        message.author(),
+                        message.clientMessageId().toString(),
+                        message.content(),
+                        message.createdAt());
     }
 }

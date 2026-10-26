@@ -12,9 +12,13 @@ import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.notification.support.NotificationIntegrationTestSupport;
 
+import io.micrometer.core.instrument.MeterRegistry;
+
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -34,6 +38,53 @@ class ChatPersistenceTest extends NotificationIntegrationTestSupport {
     @Autowired ChatQueryService queries;
     @Autowired PlatformTransactionManager transactions;
     @Autowired ApplicationEventPublisher events;
+    @Autowired MeterRegistry metrics;
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName("메시지 저장 지표는 외부 트랜잭션이 끝난 뒤 커밋 또는 롤백으로 기록한다")
+    void recordsWriteMetricOnlyAfterTransactionCompletion(boolean rollback) {
+        // Given
+        Member owner = member("209");
+        Group group = room(owner);
+        var timer =
+                metrics.timer(
+                        "chat.message.write", "outcome", rollback ? "rolled_back" : "committed");
+        long before = timer.count();
+
+        // When
+        new TransactionTemplate(transactions)
+                .executeWithoutResult(
+                        status -> {
+                            commands.sendMessage(
+                                    owner.getId(), group.getId(), UUID.randomUUID(), "지표 확인");
+                            assertThat(timer.count()).isEqualTo(before);
+                            if (rollback) status.setRollbackOnly();
+                        });
+
+        // Then
+        assertThat(timer.count()).isEqualTo(before + 1);
+    }
+
+    @Test
+    @DisplayName("본문 검증에 실패한 요청도 롤백 지표에 기록한다")
+    void recordsRollbackMetricForInvalidContent() {
+        // Given
+        Member owner = member("210");
+        Group group = room(owner);
+        var timer = metrics.timer("chat.message.write", "outcome", "rolled_back");
+        long before = timer.count();
+
+        // When
+        assertThatThrownBy(
+                        () ->
+                                commands.sendMessage(
+                                        owner.getId(), group.getId(), UUID.randomUUID(), " "))
+                .isInstanceOf(BusinessException.class);
+
+        // Then
+        assertThat(timer.count()).isEqualTo(before + 1);
+    }
 
     @Test
     @DisplayName("동일 요청 20개는 한 번 저장하고 동시 메시지는 커밋 순번으로 복구한다")

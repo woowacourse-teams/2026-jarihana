@@ -21,7 +21,10 @@ Room:
 
 status와 type은 기존 Group enum 문자열이다. 빈 방도 포함한다.
 representativeImageUrl은 모임 목록과 같은 이미지 공개 접근 URL이며, 대표 이미지가 없으면 `images/default-group.png`다.
-updatedAt 내림차순, groupId 내림차순이며 커서는 이 정렬 키를 포함한다.
+API는 모임 생성 시각 내림차순, groupId 내림차순으로 조회하며 커서는 이 고정 정렬 키를 포함한다.
+메시지 도착으로 페이지 경계가 바뀌지 않도록 활동 시각은 커서에서 제외한다.
+화면은 전체 페이지를 모은 뒤 updatedAt 내림차순, groupId 내림차순으로 정렬한다.
+updatedAt은 최근 메시지 시각이며 메시지가 없으면 모임 생성 시각이다.
 query는 모임 이름 검색이다. 응답에 전체 메시지 배열은 넣지 않는다.
 
 ### GET /api/groups/{groupId}/chat/messages

@@ -1,11 +1,9 @@
 package com.project.jarihana.chat.query.service.dto;
 
-import com.project.jarihana.chat.domain.ChatMessage;
-
 import java.util.List;
 
 public record ChatHistoryResult(
-        List<ChatMessage> items,
+        List<ChatMessageResult> items,
         String nextCursor,
         boolean hasNext,
         long latestSequence,

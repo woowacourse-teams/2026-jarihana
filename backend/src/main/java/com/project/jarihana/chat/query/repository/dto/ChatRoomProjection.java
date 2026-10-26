@@ -1,7 +1,5 @@
 package com.project.jarihana.chat.query.repository.dto;
 
-import com.project.jarihana.chat.domain.ChatMessage;
-
 import java.time.LocalDateTime;
 
 public record ChatRoomProjection(
@@ -15,5 +13,6 @@ public record ChatRoomProjection(
         long latestSequence,
         long lastReadSequence,
         long unreadCount,
-        ChatMessage lastMessage,
-        LocalDateTime updatedAt) {}
+        ChatMessageProjection lastMessage,
+        LocalDateTime updatedAt,
+        LocalDateTime createdAt) {}

@@ -13,7 +13,9 @@ HTTP 응답은 기존 success/data/error 봉투다. ID와 순번은 10진수 문
 | PUT | /api/groups/{groupId}/chat/read | groupId / lastReadSequence / latestSequence / unreadCount |
 
 size 범위는 1~100이다. beforeSequence와 afterSequence를 동시에 지정하면 400이다.
-목록 커서는 마지막 활동 시각과 groupId를 인코딩하며 검색은 모임 이름의 부분 일치다.
+목록 커서는 모임 생성 시각과 groupId를 인코딩한다. 새 메시지가 와도 조회 중인 페이지 경계는 유지된다.
+화면은 모든 페이지를 모은 뒤 응답의 updatedAt과 groupId로 최근 활동순으로 정렬한다.
+검색은 모임 이름의 부분 일치다.
 시간은 Asia/Seoul 기준 LocalDateTime이다. 빈 방의 활동 시각은 모임 생성 시각이다.
 각 목록 항목의 `representativeImageUrl`은 모임 목록과 동일한 이미지 공개 접근 URL이다.
 대표 이미지가 없으면 `images/default-group.png`를 반환하며, 업로드 이미지는 기존 이미지 접근·서명 전달 경로를 이용한다.

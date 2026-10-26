@@ -1,6 +1,6 @@
 package com.project.jarihana.chat.query.repository;
 
-import com.project.jarihana.chat.domain.ChatMessage;
+import com.project.jarihana.chat.query.repository.dto.ChatMessageProjection;
 import com.project.jarihana.chat.query.repository.dto.ChatRoomProjection;
 
 import java.time.LocalDateTime;
@@ -17,9 +17,9 @@ public interface ChatQueryRepository {
             int size,
             Long groupId);
 
-    List<ChatMessage> messages(long groupId, Long before, Long after, int size);
+    List<ChatMessageProjection> messages(long groupId, Long before, Long after, int size);
 
-    ChatMessage findMessage(long id);
+    ChatMessageProjection findMessage(long id);
 
     List<Long> members(long groupId);
 }
