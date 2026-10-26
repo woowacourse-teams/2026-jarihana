@@ -1,8 +1,9 @@
 import { NotificationBell, NotificationBellTrigger, NotificationDrawer } from "../features/notifications/NotificationInbox";
+import { ChatLink } from "../features/chat/ChatLink";
 import { useId, useRef, useState } from "react";
 import { useUnreadCount } from "../features/notifications/hooks";
 import { Link, useLocation, useNavigate } from "react-router";
-import { UserRound } from "lucide-react";
+import { MessageCircle, UserRound } from "lucide-react";
 
 import { storeReturnTarget, useAuth } from "../features/auth";
 import {
@@ -319,6 +320,7 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
               />
               자리 만들기
             </Link>
+            {status === "authenticated" && <ChatLink aria-label="채팅" title="채팅" className="app-header__chat" data-ph-capture-attribute-action="chat_inbox_open"><MessageCircle aria-hidden="true" /></ChatLink>}
             {status === "authenticated" ? (
               <div className="notification-header-actions"><NotificationBell onOpenPwaGuide={onOpenPwaGuide} /><ProfileMenu /></div>
             ) : (
@@ -326,6 +328,7 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
             )}
           </div>
 
+          {status === "authenticated" && <ChatLink aria-label="채팅" className="app-header__chat app-header__chat--mobile" data-ph-capture-attribute-action="chat_inbox_open"><MessageCircle aria-hidden="true" /></ChatLink>}
           <button
             aria-expanded={isMenuOpen}
             aria-label="메뉴 열기"
@@ -432,6 +435,7 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
               status={status}
             />
             {status === "authenticated" ? <MyPageLink onNavigate={closeMenu} /> : null}
+            {status === "authenticated" && <ChatLink className="app-header__link" onClick={closeMenu} data-ph-capture-attribute-action="chat_inbox_open">채팅</ChatLink>}
             {action}
           </div>
         </nav>

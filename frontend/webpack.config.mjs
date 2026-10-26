@@ -143,6 +143,7 @@ export default (_, arguments_) => {
         {
           changeOrigin: true,
           context: ["/api"],
+          ws: true,
           target: "http://localhost:8080"
         }
       ],

@@ -1,5 +1,13 @@
 # PostHog 행동 분석
 
+## 채팅 동작
+
+채팅 영역 전체를 `data-ph-private`로 마스킹한다. 메시지 본문·작성자 이름·인증 쿠키·헤더는 분석에 보내지 않는다.
+고정 action은 `chat_inbox_open`, `group_chat_open`, `chat_room_open`, `chat_room_search`,
+`chat_list_back`, `chat_sidebar_resize`, `chat_history_load`, `chat_scroll_latest`, `chat_message_input`,
+`chat_message_submit`, `chat_message_send`, `chat_message_retry`,
+`chat_group_open`, `chat_refresh`, `chat_list_retry`, `chat_dismiss`다. 클릭과 전송 완료를 혼동하지 않으며 별도 전송 성공 이벤트는 추가하지 않는다.
+
 자리하나 프론트엔드에서 방문·클릭·요청·처리 결과를 PostHog로 전송한다.
 분석과 녹화 조회는 PostHog 관리자 화면에서 수행한다. 자리하나의 서비스 화면이나
 DB 테이블·스키마는 추가하지 않는다.
@@ -164,6 +172,9 @@ PostHog에서는 생성 성공(`invitation_created`)과 수락 시도→합류(`
 댓글 원문은 보내지 않는다. 반응 이벤트는 반응 API가 성공한 뒤에 기록하며, 화면의 낙관적 갱신만으로 기록하지 않는다.
 활동 기록 카드 클릭은 상세를 여는 `activity_post_detail_open`, 상세의 그룹 줄은
 `activity_post_detail_group_open`, 사진 크게 보기는 `activity_post_photo_zoom` 식별자로 수집한다.
+좋아요한 사람 목록을 여는 하트 옆 요약은 `activity_reactors_open`이다. 데스크톱 시안 D의 목록 닫기와
+모바일 시안 A의 시트 닫기 버튼, 시트 바깥 영역은 기존 `activity_reactors_close`를 함께 사용한다.
+모바일의 댓글과 좋아요 탭은 제거하여 `activity_post_comments_tab_open`과 `activity_post_likes_tab_open`은 더 이상 발생하지 않는다.
 
 ## 사용자와 재방문
 

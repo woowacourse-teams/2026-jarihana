@@ -1,5 +1,6 @@
 package com.project.jarihana.invitation.command.service;
 
+import com.project.jarihana.chat.domain.ChatLifecycleEvent;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.common.transaction.ConcurrentCommandExecutor;
@@ -113,6 +114,7 @@ public class InvitationCommandService {
         approvePendingRegistrations(groupId, memberId, now);
         registrations.flush();
         GroupMember membership = groupMembers.save(GroupMember.createMember(group, member, now));
+        events.publishEvent(new ChatLifecycleEvent(ChatLifecycleEvent.Type.JOINED, groupId, memberId));
         approvePendingRegistrations(groupId, memberId, now);
         acceptances.save(InvitationAcceptance.create(invitation, member, now));
         return new AcceptInvitationResult(true, invitationId, groupId, membership.getId(), membership.getJoinedAt());

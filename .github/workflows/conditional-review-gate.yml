@@ -1,150 +1,46 @@
 name: Conditional Review Gate
 
 on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited, ready_for_review]
+    branches: [develop, main]
+  workflow_run:
+    workflows: [Review Policy Review Events]
+    types: [completed]
   schedule:
     - cron: "3,13,23,33,43,53 * * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
   pull-requests: read
   checks: write
 
+# Serialize scans so an older evaluation cannot overwrite a newer result.
+# Each run reads all open PRs, including events coalesced while a run was pending.
 concurrency:
-  group: conditional-review-gate
-  cancel-in-progress: true
+  # Ignored title edits must not replace a pending meaningful gate evaluation.
+  group: ${{ github.event.action == 'edited' && github.event.changes.title != null && github.event.changes.body == null && github.event.changes.base == null && format('title-only-review-gate-{0}', github.run_id) || 'conditional-review-gate' }}
+  cancel-in-progress: false
 
 jobs:
   evaluate:
     name: Evaluate review policy
+    if: (github.event_name != 'workflow_dispatch' || github.ref_name == github.event.repository.default_branch) && (github.event.action != 'edited' || github.event.changes.title == null || github.event.changes.body != null || github.event.changes.base != null)
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
       - name: Check out the trusted default branch
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
 
-      - name: Evaluate open PR risk and publish required checks
+      - name: Invalidate prior results and re-evaluate open PRs
         uses: actions/github-script@v7
         with:
           script: |
-            const policy = require(process.env.GITHUB_WORKSPACE + "/.github/scripts/review-gate.cjs");
-            const { owner, repo } = context.repo;
-            const pullNumbers = [];
-
-            for (const base of ["develop", "main"]) {
-              const pulls = await github.paginate(github.rest.pulls.list, {
-                owner,
-                repo,
-                state: "open",
-                base,
-                per_page: 100,
-              });
-              pullNumbers.push(...pulls.map((pull) => pull.number));
-            }
-
-            const uniquePullNumbers = [...new Set(pullNumbers)];
-            if (uniquePullNumbers.length === 0) {
-              core.info("No open PRs target develop or main.");
-              return;
-            }
-
-            for (const pullNumber of uniquePullNumbers) {
-              const pull = (await github.rest.pulls.get({
-                owner,
-                repo,
-                pull_number: pullNumber,
-              })).data;
-              if (pull.state !== "open") continue;
-
-              const files = await github.paginate(github.rest.pulls.listFiles, {
-                owner,
-                repo,
-                pull_number: pullNumber,
-                per_page: 100,
-              });
-              const reviews = await github.paginate(github.rest.pulls.listReviews, {
-                owner,
-                repo,
-                pull_number: pullNumber,
-                per_page: 100,
-              });
-              const latestApprovers = new Set(
-                reviews
-                  .filter((review) =>
-                    review.state === "APPROVED" &&
-                    review.commit_id === pull.head.sha &&
-                    review.user?.login &&
-                    review.user.login.toLowerCase() !== pull.user.login.toLowerCase()
-                  )
-                  .map((review) => review.user.login.toLowerCase())
-              );
-              const reviewersWithWriteAccess = new Set();
-              for (const login of latestApprovers) {
-                try {
-                  const permission = await github.rest.repos.getCollaboratorPermissionLevel({
-                    owner,
-                    repo,
-                    username: login,
-                  });
-                  if (["admin", "maintain", "write"].includes(permission.data.permission)) {
-                    reviewersWithWriteAccess.add(login);
-                  }
-                } catch (error) {
-                  core.warning("Could not verify reviewer permissions; the approval will not count.");
-                }
-              }
-
-              const result = policy.evaluateReviewGate({
-                body: pull.body,
-                changedPaths: files.map((file) => file.filename),
-                filesTruncated: files.length >= 3000,
-                headSha: pull.head.sha,
-                author: pull.user.login,
-                reviews,
-                reviewersWithWriteAccess,
-              });
-              const conclusion = result.passed ? "success" : "failure";
-              const title = !result.classificationValid
-                ? "Risk declaration needs correction"
-                : result.approvalRequired
-                  ? (result.passed ? "Required approval found" : "Approval required")
-                  : "Self-merge allowed";
-              const summary = result.reasons.map((reason) => "- " + reason).join("\n");
-              const externalId = "conditional-review-gate:" + pull.number + ":" + pull.head.sha;
-              const existing = await github.paginate(github.rest.checks.listForRef, {
-                owner,
-                repo,
-                ref: pull.head.sha,
-                per_page: 100,
-              });
-              const prior = existing.find((check) => check.external_id === externalId);
-              const checkData = {
-                owner,
-                repo,
-                name: "Conditional Review Gate",
-                head_sha: pull.head.sha,
-                external_id: externalId,
-                status: "completed",
-                conclusion,
-                details_url: pull.html_url,
-                output: { title, summary },
-              };
-              if (prior) {
-                await github.rest.checks.update({
-                  owner,
-                  repo,
-                  check_run_id: prior.id,
-                  name: checkData.name,
-                  external_id: checkData.external_id,
-                  status: checkData.status,
-                  conclusion: checkData.conclusion,
-                  details_url: checkData.details_url,
-                  output: checkData.output,
-                });
-              } else {
-                await github.rest.checks.create(checkData);
-              }
-
-              core.info("Published " + conclusion + " for PR #" + pull.number + ".");
-            }
+            const { publishReviewGate } = require(
+              process.env.GITHUB_WORKSPACE + "/.github/scripts/publish-review-gate.cjs"
+            );
+            await publishReviewGate({ github, context, core });

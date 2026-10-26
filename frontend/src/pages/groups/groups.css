@@ -711,6 +711,25 @@
   overflow-y: hidden;
 }
 
+.group-detail-chat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  padding-inline: var(--space-3);
+  color: var(--color-brand-ink);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+.group-detail-chat svg { width: var(--space-4); height: var(--space-4); }
+.group-detail-chat:hover { background: var(--color-brand-soft); }
+.group-detail-chat:focus-visible { outline: var(--border-strong) solid var(--color-brand); outline-offset: calc(-1 * var(--border-strong)); }
+.group-recruitment-entry { gap: var(--space-3); }
+
 .group-detail-page .group-detail-tabs .ui-tabs__list {
   margin-top: var(--space-2);
 }
@@ -1924,6 +1943,9 @@
   .group-rail--empty {
     block-size: var(--group-profile-height);
     grid-template-rows: auto minmax(0, 1fr);
+  }
+  .group-rail--empty:has(.group-detail-chat) {
+    grid-template-rows: auto minmax(0, 1fr) auto;
   }
 
   .group-rail--empty .group-recruitment-info {

@@ -848,6 +848,31 @@
   outline-offset: 0.125rem;
 }
 
+/* 반응한 사람 말풍선: 하트가 늘 줄 왼쪽에 있어 버튼 왼쪽 끝에 맞춰 위로 띄우고, 마우스 이벤트는 버튼에 넘긴다. */
+.activity-reaction-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.activity-reaction-tooltip {
+  position: absolute;
+  z-index: 3;
+  bottom: calc(100% + var(--space-2));
+  left: 0;
+  width: max-content;
+  max-width: 16rem;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-ink);
+  box-shadow: var(--shadow-float);
+  color: var(--color-surface);
+  font-size: var(--text-caption);
+  line-height: 1.4;
+  pointer-events: none;
+  white-space: normal;
+  word-break: keep-all;
+}
+
 .activity-reactions--sm .activity-reaction {
   min-width: 2rem;
   min-height: 1.6rem;
@@ -858,6 +883,234 @@
 .activity-reactions--sm .activity-reaction__icon {
   width: 0.95rem;
   height: 0.95rem;
+}
+
+/* 하트 옆 요약과 좋아요한 사람 목록 */
+.activity-post-detail__reactions {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.activity-reactors-summary {
+  min-height: 2rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-muted-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-caption);
+  text-align: left;
+  word-break: keep-all;
+}
+
+.activity-reactors-summary:hover {
+  color: var(--color-ink);
+  text-decoration: underline;
+}
+
+.activity-reactors-summary:focus-visible,
+.activity-reactors-popover__close:focus-visible,
+.activity-reactors-popover__body:focus-visible,
+.activity-reactors-sheet__body:focus-visible {
+  outline: 0.125rem solid var(--color-brand-ink);
+  outline-offset: 0.125rem;
+}
+
+.activity-reactors-popover {
+  position: absolute;
+  z-index: 4;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  display: grid;
+  width: min(22rem, 100%);
+  max-height: 22rem;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-float);
+}
+
+.activity-reactors-popover:focus {
+  outline: none;
+}
+
+.activity-reactors-popover__header {
+  display: flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-4);
+  border-bottom: var(--border-thin) solid var(--color-line);
+}
+
+.activity-reactors-popover__header h4,
+.activity-reactors-popover__header h3 {
+  flex: 1;
+  margin: 0;
+  font-size: var(--text-label);
+}
+
+.activity-reactors-popover__header h4 span,
+.activity-reactors-popover__header h3 span {
+  color: var(--color-brand-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.activity-reactors-popover__close {
+  display: grid;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--color-ink);
+  cursor: pointer;
+  place-items: center;
+}
+
+.activity-reactors-popover__body {
+  min-height: 0;
+  padding: var(--space-2) var(--space-4);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.activity-reactors__list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity-reactor {
+  display: grid;
+  align-items: center;
+  gap: var(--space-3);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.activity-reactor__avatar.ui-avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-bold);
+  object-fit: cover;
+}
+
+.activity-reactor__text {
+  display: grid;
+  min-width: 0;
+}
+
+.activity-reactor__text strong {
+  overflow: hidden;
+  font-size: var(--text-label);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-reactor__text span {
+  color: var(--color-muted-ink);
+  font-size: var(--text-caption);
+}
+
+.activity-reactor__mine {
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-brand-soft);
+  color: var(--color-brand-ink);
+  font-size: var(--text-badge);
+  font-weight: var(--font-weight-bold);
+}
+
+.activity-reactors__loading {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.activity-reactors__list + .activity-reactors__loading {
+  margin-top: var(--space-3);
+}
+
+.activity-reactors__skeleton {
+  height: 2.25rem;
+}
+
+.activity-reactors__sentinel {
+  min-height: 1px;
+  padding: var(--space-3) 0 var(--space-1);
+  color: var(--color-muted-ink);
+  font-size: var(--text-caption);
+  text-align: center;
+}
+
+.activity-reactors__empty,
+.activity-reactors__error p {
+  margin: 0;
+  color: var(--color-muted-ink);
+  font-size: var(--text-caption);
+}
+
+.activity-reactors__error {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+}
+
+/* 시안 A: 상세와 댓글 초안 위에 독립적으로 스크롤하는 하단 시트를 연다. */
+.activity-reactors-sheet-overlay {
+  position: fixed;
+  z-index: 5;
+  inset: 0;
+  display: grid;
+  align-items: end;
+}
+
+.activity-reactors-sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: var(--color-overlay);
+}
+
+.activity-reactors-sheet {
+  position: relative;
+  display: grid;
+  height: 74%;
+  max-height: calc(100% - env(safe-area-inset-top, 0px) - var(--space-4));
+  overflow: hidden;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-float);
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.activity-reactors-sheet__handle {
+  width: var(--space-8);
+  height: var(--space-1);
+  margin: var(--space-2) auto 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-line-strong);
+}
+
+.activity-reactors-sheet__body {
+  min-height: 0;
+  padding: var(--space-4) var(--space-5) calc(env(safe-area-inset-bottom, 0px) + var(--space-4));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.activity-post-detail:has(.activity-reactors-sheet-overlay) {
+  overflow: hidden;
 }
 
 /* 댓글 */
@@ -908,10 +1161,11 @@
   grid-template-columns: auto minmax(0, 1fr);
 }
 
-.activity-comment__avatar {
+.activity-comment__avatar.ui-avatar {
   display: grid;
   width: 1.75rem;
   height: 1.75rem;
+  object-fit: cover;
   border-radius: 50%;
   background: var(--color-brand-soft);
   color: var(--color-brand-ink);
@@ -1085,6 +1339,16 @@
   .activity-photo-viewer {
     animation: activity-photo-viewer-in var(--duration-base) var(--ease-standard);
   }
+
+  .activity-reactors-sheet {
+    animation: activity-reactors-sheet-in var(--duration-base) var(--ease-standard);
+  }
+}
+
+@keyframes activity-reactors-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
 }
 
 @keyframes activity-photo-viewer-in {
@@ -1095,6 +1359,10 @@
 
 /* 모바일: 전체 화면 상세, 사진과 대화를 함께 스크롤하고 입력창은 아래에 고정한다. */
 @media (max-width: 39.9375rem) {
+  .activity-reactors-summary {
+    min-height: var(--touch-target);
+  }
+
   .ui-overlay:has(> .activity-post-detail) {
     padding: 0;
   }
@@ -1107,7 +1375,8 @@
     overflow: auto;
     border-radius: 0;
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto auto;
+    /* 내용이 짧아도 대화 영역이 남은 높이를 채워 입력창이 아래에 붙는다. */
+    grid-template-rows: auto auto minmax(auto, 1fr);
   }
 
   .activity-post-detail .ui-dialog__title {
@@ -1125,7 +1394,9 @@
     top: calc(env(safe-area-inset-top, 0px) + var(--space-2));
   }
 
+  /* 데스크톱의 min-height: 0이 남으면 사진 행이 화면 높이에 맞춰 줄어 사진이 캡션을 덮는다. */
   .activity-post-detail__photo {
+    min-height: auto;
     padding: 0;
     grid-column: 1;
     grid-row: 2;
@@ -1136,9 +1407,10 @@
   }
 
   .activity-post-detail__side {
-    display: block;
+    min-height: auto;
     grid-column: 1;
     grid-row: 3;
+    grid-template-rows: 1fr auto;
   }
 
   .activity-post-detail__scroll {

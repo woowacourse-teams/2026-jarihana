@@ -1,0 +1,26 @@
+name: Review Automation Tests
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - ".github/scripts/**"
+      - ".github/workflows/**"
+      - "docs/repository-conventions/review-owners.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  review-automation:
+    name: Review Automation Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Run review-policy regression tests
+        run: node --test .github/scripts/*.test.cjs

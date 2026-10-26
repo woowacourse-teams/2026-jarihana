@@ -11,6 +11,7 @@ import {
   deleteActivityPost,
   fetchActivityComments,
   fetchActivityPosts,
+  fetchActivityReactors,
   modifyActivityPost,
   removeActivityReaction
 } from "./api.js";
@@ -26,8 +27,31 @@ export const activityPostKeys = {
     viewerKey
   ],
   comments: (postId) => ["activityPosts", "comments", String(postId)],
-  commentList: (postId, viewerKey = "anonymous") => ["activityPosts", "comments", String(postId), viewerKey]
+  commentList: (postId, viewerKey = "anonymous") => ["activityPosts", "comments", String(postId), viewerKey],
+  reactorsOf: (target) => ["activityPosts", "reactors", target.type, String(target.id)],
+  reactors: (target, emoji, viewerKey = "anonymous") => [
+    "activityPosts",
+    "reactors",
+    target.type,
+    String(target.id),
+    emoji,
+    viewerKey
+  ]
 };
+
+/**
+ * 반응한 사람을 30명씩 이어서 불러온다. 첫 페이지는 말풍선과 요약, 이어지는 페이지는 전체 목록이 쓴다.
+ */
+export function useInfiniteActivityReactors({ target, emoji, viewerKey = "anonymous", enabled = true }) {
+  return useInfiniteQuery({
+    queryKey: activityPostKeys.reactors(target, emoji, viewerKey),
+    enabled,
+    initialPageParam: null,
+    queryFn: ({ pageParam }) => fetchActivityReactors({ target, emoji, cursor: pageParam }),
+    getNextPageParam: getSafeNextCursor,
+    staleTime: 30_000
+  });
+}
 
 export function useInfiniteActivityPosts({ groupId, mine = false, viewerKey = "anonymous" } = {}) {
   const filters = { groupId: groupId ? String(groupId) : null, mine };
@@ -155,6 +179,8 @@ export function useToggleActivityReaction() {
     onError: (_error, { post, target }) =>
       queryClient.invalidateQueries({
         queryKey: target.type === "post" ? activityPostKeys.feeds() : activityPostKeys.comments(post.id)
-      })
+      }),
+    onSettled: (_data, _error, { target }) =>
+      queryClient.invalidateQueries({ queryKey: activityPostKeys.reactorsOf(target) })
   });
 }
