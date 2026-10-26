@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from "reac
 
 import { useAuth } from "../../features/auth/index.js";
 import { useGroup } from "../../features/group/index.js";
+import { GroupAnnouncementTab } from "./GroupAnnouncementTab.jsx";
 import { isDefaultGroupImageUrl } from "../../features/image-upload/index.js";
 import { useInfiniteGroupMembers } from "../../features/member/index.js";
 import { InviteMembersDialog } from "../../features/invitation/InviteMembersDialog.jsx";
@@ -55,7 +56,8 @@ const tabs = [
   { label: "소개", value: "intro" },
   { label: "캘린더", value: "calendar" },
   { label: "활동 기록", value: "activities" },
-  { label: "참여자", value: "members" }
+  { label: "참여자", value: "members" },
+  { label: "공지", value: "announcements", dataAction: "group_announcement_tab_open" }
 ];
 
 /* 도착한 화면을 먼저 보여 준 뒤 묻는 정도의 짧은 간격이다. */
@@ -343,6 +345,14 @@ export function GroupDetailPage() {
                   label: tabs[3].label,
                   value: tabs[3].value,
                   content: selectedTab === "members" ? <MemberTab groupId={groupId} leader={group.leader} canInvite={canInvite} onInvite={() => setInvitationOpenScope(invitationScope)} /> : null
+                },
+                {
+                  label: tabs[4].label,
+                  value: tabs[4].value,
+                  dataAction: tabs[4].dataAction,
+                  content: selectedTab === "announcements"
+                    ? <GroupAnnouncementTab group={group} isLeader={isLeader} />
+                    : null
                 }
               ]}
             />

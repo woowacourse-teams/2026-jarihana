@@ -39,6 +39,7 @@ export const lazyPageRegistry = Object.freeze({
   InvitationPage: lazyNamed(() => import("../pages/invitations/index.jsx"), "InvitationPage"),
   NotificationOpenPage: lazyNamed(loadNotificationPages, "NotificationOpenPage"),
   ActivityPostsPage: lazyNamed(loadActivityPostPages, "ActivityPostsPage"),
+  AnnouncementDetailPage: lazyNamed(loadGroupPages, "AnnouncementDetailPage"),
   GroupBrowsePage: lazyNamed(loadGroupPages, "GroupBrowsePage"),
   GroupCreatePage: lazyNamed(loadGroupEditorPages, "NewGroupPage"),
   GroupDetailPage: lazyNamed(loadGroupPages, "GroupDetailPage"),
