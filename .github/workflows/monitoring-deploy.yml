@@ -13,8 +13,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: monitoring-deploy
+  # Shared with Blue-Green for dev/prod. Queued changes wait instead of replacing each other.
+  group: jarihana-observed-deployment
   cancel-in-progress: false
+  queue: max
 
 jobs:
   deploy:

@@ -34,7 +34,7 @@ main() {
   [[ ${GITHUB_REPOSITORY:-} == woowacourse-teams/2026-jarihana && ${GITHUB_RUN_ID:-} =~ ^[1-9][0-9]*$ &&
      ${GITHUB_RUN_ATTEMPT:-} == 1 && ${GITHUB_SHA:-} =~ ^[a-f0-9]{40}$ &&
      ${GH_TOKEN:-} =~ ^[A-Za-z0-9_.-]+$ ]] || { echo 'Invalid guardian context' >&2; return 1; }
-  local run jobs now started previous id label terminal_count
+  local run jobs now started previous id label terminal_count identity_errors
   declare -A first_seen=() queued=()
   started=$(q_now); previous=$started
   while true; do
@@ -42,12 +42,21 @@ main() {
     if (( now<previous || now-started>=7200 )); then q_fail 'Clock changed or whole-run observation expired'; return 1; fi
     previous=$now
     run=$(q_request GET '' 200) || { q_fail 'Parent run query failed'; return 1; }
-    if ! jq -e --argjson id "$GITHUB_RUN_ID" --arg sha "$GITHUB_SHA" --arg repo "$GITHUB_REPOSITORY" '
-      .id==$id and .head_sha==$sha and .run_attempt==1 and
-      .repository.id==1321030074 and .repository.full_name==$repo and
-      .head_repository.id==1321030074 and .head_repository.full_name==$repo and
-      (.status=="in_progress" or .status=="completed")' <<<"$run" >/dev/null; then
-      q_fail 'Parent run identity is unknown'; return 1
+    identity_errors=$(jq -r --argjson id "$GITHUB_RUN_ID" --arg sha "$GITHUB_SHA" --arg repo "$GITHUB_REPOSITORY" '
+      [if .id!=$id then "run_id" else empty end,
+       if .head_sha!=$sha then "head_sha" else empty end,
+       if .run_attempt!=1 then "run_attempt" else empty end,
+       if .repository.id!=1321030074 or .repository.full_name!=$repo then "repository" else empty end,
+       if .head_repository.id!=1321030074 or .head_repository.full_name!=$repo then "head_repository" else empty end] | join(",")' <<<"$run") || {
+      q_fail 'Parent run identity is malformed'; return 1
+    }
+    if [[ -n $identity_errors ]]; then
+      q_fail "Parent run identity differs: $identity_errors"; return 1
+    fi
+    # A parent may be queued/waiting between reusable jobs while this guardian runs.
+    if ! jq -e 'has("conclusion") and (.status|IN("queued","in_progress","waiting","pending","requested","completed")) and
+      (.status=="completed" or .conclusion==null)' <<<"$run" >/dev/null; then
+      q_fail 'Parent run lifecycle is unknown or already concluded'; return 1
     fi
     if [[ $(jq -r '.status' <<<"$run") == completed ]]; then return 0; fi
     jobs=$(q_request GET '/attempts/1/jobs?per_page=100' 200) || { q_fail 'Jobs query failed'; return 1; }
