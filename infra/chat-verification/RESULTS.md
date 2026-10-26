@@ -21,12 +21,10 @@
 | --- | --- |
 | 백엔드 전체 | 122 suites, 948 tests, 실패·오류·skip 0 |
 | 프론트 전체 | 93 suites, 995 tests 통과, lint/typecheck 통과, production build 통과 |
-| 배포 실패 주입 | 12개 테스트, readiness/reload/smoke/drain/state/stop 실패 경로와 롤백 통과 |
 | 실제 두 서버 API·WS | 개인 전달, 비참여자 차단, 동시 멱등 20개, 동시 쓰기 100개, 읽음·종료·삭제 통과 |
 | 브라우저 | 두 사용자, IME, 실패 재시도, 오프라인 복구, 이력 스크롤, 종료 읽기 전용, 로그아웃 소켓 종료 통과 |
 | 반응형·접근성 | 1440/768/360px 수평 overflow 없음, 목록 너비 조절·underline 확인, 채팅 영역 axe WCAG A/AA 위반 0 |
 | 실제 전환·복구 | LISTEN 강제 단절 후 RESYNC/REST, nginx 전환 100건, 기존 소켓 유지, 종료 코드 1001, 재시작 저장 이력 통과 |
-| 배포 인증 smoke | 최종 로컬 서버에서 배포용 chat-smoke.py의 HTTP·STOMP CONNECT·구독 전송·이력 조회 통과 |
 | 로컬 5분 부하 | 2서버/100소켓/10모임, 초당10건, 3,000건 저장·300,000회 수신, 누락·중복 없음 |
 
 부하 시험은 300.55초, HTTP 저장 응답 완료→WS 수신 p95 12.35ms / p99 17.68ms였다.
@@ -39,9 +37,9 @@ WS가 HTTP 응답보다 먼저 도착한 값은 0ms로 처리한다. 이는 전�
 `5d4564bc3d26ecf3e3a2e46f2261661dee9a4bb3ebb34139f1619c873b3c0eda`.
 
 프론트 build의 번들 크기 경고 2개는 남아 있다. 테스트나 lint 실패는 없다.
-기존 운영 배포 workflow는 보존했으며 별도 수동 블루그린 workflow를 추가했다.
+운영 배포 workflow와 모니터링 수집 설정은 develop 구성을 따른다.
 운영 배포, 실제 TLS/호스트 자원 검증과 최초 호스트 이전은 수행하지 않았다.
-재현 명령과 fixture 범위는 [README](README.md), 운영 이전 조건은 [배포 안내](../BLUEGREEN.md)를 따른다.
+재현 명령과 fixture 범위는 [README](README.md)를 따른다.
 
 ## 로컬 직접 테스트 계정
 

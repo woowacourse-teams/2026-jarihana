@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { localChatProxyConfig as config } from "./proxy-fixture.mjs";
 import { execFileSync, spawn } from "node:child_process";
 import { createWriteStream } from "node:fs";
 import { mkdtemp, writeFile } from "node:fs/promises";
@@ -42,10 +43,6 @@ async function stop() {
   processHandle.kill("SIGTERM");
   await until(() => processHandle.exitCode !== null || processHandle.signalCode !== null, "owned backend graceful shutdown", 45000);
 }
-
-const config = (color) => execFileSync("python3", ["-c", "import importlib.util,sys; s=importlib.util.spec_from_file_location('d','infra/scripts/deploy-bluegreen.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m);print(m.nginx_config(sys.argv[1]))", color], { encoding: "utf8" })
-  .replace("http://127.0.0.1:18080", "http://host.docker.internal:8097")
-  .replace("http://127.0.0.1:28080", "http://host.docker.internal:8096");
 
 try {
   await start();

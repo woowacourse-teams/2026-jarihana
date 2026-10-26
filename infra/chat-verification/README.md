@@ -100,7 +100,6 @@ node infra/chat-verification/verify.mjs
 node infra/chat-verification/browser.mjs
 node infra/chat-verification/verify.mjs --load
 CHAT_TEST_JAR=/tmp/jarihana-chat-verification.jar node infra/chat-verification/continuity.mjs
-python3 -m unittest discover -s infra/scripts -p 'test_deploy_bluegreen.py' -v
 ```
 
 - `verify.mjs`: 두 서버/여러 창 전송, 비참여자 차단, 20개 동시 멱등 요청, 잘못된 구독·CSRF·SEND 거절,
@@ -120,4 +119,4 @@ python3 -m unittest discover -s infra/scripts -p 'test_deploy_bluegreen.py' -v
 
 부하 시험 중에는 다른 검증이나 빌드를 겹치지 않는 것이 재현성에 좋다.
 검증은 합성 메시지를 전용 DB에 남긴다. 전용 DB의 삭제는 사용자가 필요 없다고 판단한 뒤 별도로 한다.
-운영 호스트의 TLS·보안그룹·리소스 및 최초 블루그린 이전은 [배포 문서](../BLUEGREEN.md)의 별도 절차다.
+`proxy-fixture.mjs`는 이 검증에서만 사용하는 임시 nginx 설정이다. 배포 구성은 [기존 배포 문서](../deploy/README.md)에서 관리한다.

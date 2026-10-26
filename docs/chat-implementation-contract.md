@@ -90,7 +90,7 @@ READ는 활성 방에서 실제 최신 메시지가 표시된 경우에만 갱�
 
 - 백엔드: backend 전체 변경, 도메인 생명주기 통합, migration, API/ADR, Java21 테스트.
 - 프론트엔드: frontend 전체 변경, UI 재사용, STOMP/API 통합, Jest/lint/build. 브라우저 QA는 주 담당자.
-- 배포: infra 및 별도 수동 backend-bluegreen-prod-deploy workflow, blue/green 전환·드레인·롤백과 로컬 시험.
+- 채팅 검증: 두 서버 간 전달, 연결 단절·서버 전환 후 복구를 로컬 fixture로 확인한다. 운영 배포와 모니터링 수집 구성은 기존 infra에서 관리한다.
 - 주 담당자: 계약 조정, 로컬 두 서버/두 사용자 통합 검증, 최종 diff 확인.
 
 메시지 저장과 방 종료/삭제는 같은 group 행 잠금 순서를 지킨다.
