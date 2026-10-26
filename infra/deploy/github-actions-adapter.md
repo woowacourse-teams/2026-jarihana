@@ -60,6 +60,10 @@ v2 저널은 coordinator 전용 0700 디렉터리의 0600 `state.json`이다.
 각 허가 조회는 실제 부모 run이 살아 있는지와 전체 만료·pending deadline을 함께 검증한다.
 읽기 전용 관찰에서 성공한 부모 run 조회만 프로세스 안에서 최대 30초 재사용한다.
 모든 상태 변경의 부모 검증은 캐시 없이 수행하고, SSH 저널 허가는 관찰 때도 매번 새로 읽는다.
+부모 run의 `queued`·`waiting`·`pending`·`requested`는 재사용 job 사이에도 나타날 수 있는
+진행 상태다. 실행 ID·SHA·attempt·저장소와 작업 경로를 검증하고 `conclusion=null`인 경우에만
+유효한 run으로 취급한다. 종료·취소된 run과 알 수 없는 상태는 허용하지 않는다.
+guardian은 실행 식별값 불일치와 lifecycle 오류를 구분하고, 식별값이 다르면 실패한 필드 이름만 기록한다.
 
 전체 기한은 7200초, prepare 허가는 EC2 running 확인 후 1500초, observe는 1800초,
 그 밖의 앱 허가는 600초다. 앱 job 제한은 prepare 22분, observe 20분, 그 밖에는 8분이다.
@@ -102,3 +106,20 @@ worker 상태·활동 수치·관찰 시각을 검사한다. 비밀값과 worker
 
 설치와 수동 dev 검증은 [배포 적용 절차](controller/full-deployment.md)를 따른다.
 로컬 검증은 실제 GitHub 권한·runner 가용성·보호 규칙·15분 관찰을 증명하지 않는다.
+
+## 모니터링 배포와 동시 실행 방지
+
+Blue-Green 재사용 workflow와 `Monitoring Deploy`는 workflow 수준의
+`jarihana-observed-deployment` concurrency group을 공유한다. 모니터링 배포는 Prometheus와
+조회용 Nginx를 재생성하므로 Blue-Green 시작부터 결과·롤백 처리까지 겹쳐 실행하지 않는다.
+dev/prod가 같은 관측 서버를 사용하므로 환경별로 group을 나누지 않는다.
+호출하는 dev/prod 부모와 phase/app 자식에는 이 group을 중복 설정하지 않는다.
+
+`cancel-in-progress: false`와 `queue: max`로 진행 중 작업을 취소하지 않고 후속 작업을 기다리게 한다.
+GitHub의 [확장 대기열](https://github.blog/changelog/2026-05-07-github-actions-concurrency-groups-now-allow-larger-queues/)은
+최대 100개를 대기시키며, 가득 찬 뒤 들어온 작업은 취소되므로 실행 결과를 확인해야 한다.
+수동 서버 재시작은 이 잠금을 거치지 않으므로 배포 관찰 중에는 수행하지 않는다.
+관측 데이터가 없거나 오래되면 실패시키는 정책은 유지한다.
+
+첫 적용은 두 workflow 변경을 같은 develop PR로 반영하고, 이전 버전으로 시작한 배포가 없는 상태에서
+검증한다. 관찰 중 공유 모니터링 서버를 다시 배포하는 실험은 팀 사용 여부를 확인한 뒤 별도로 수행한다.
