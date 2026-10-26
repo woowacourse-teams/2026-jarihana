@@ -87,6 +87,7 @@ prometheus.scrape "app" {
 			"__address__" = sys.env("APP_METRICS_TARGET"),
 			"application" = "jarihana",
 			"environment" = sys.env("SPRING_PROFILES_ACTIVE"),
+			"host_id"     = sys.env("HOST_ID"),
 			"instance"    = sys.env("HOST_ID") + ":" + sys.env("SPRING_PROFILES_ACTIVE"),
 		},
 	]

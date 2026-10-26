@@ -1,0 +1,10 @@
+[Unit]
+Description=Inspect Jarihana %i deployment every ten seconds
+
+[Timer]
+OnBootSec=30
+OnUnitActiveSec=10
+AccuracySec=1
+
+[Install]
+WantedBy=timers.target

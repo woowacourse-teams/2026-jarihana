@@ -3,7 +3,6 @@ package com.project.jarihana.group.query.repository;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.query.repository.dto.GroupDetailMember;
 import com.project.jarihana.group.query.repository.dto.GroupDetailProjection;
-import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
 import org.springframework.stereotype.Repository;
@@ -39,11 +38,7 @@ public class JpaGroupDetailRepository implements GroupDetailRepository {
             return Optional.empty();
         }
 
-        List<GroupDetailMember> members = groupMemberRepository
-                .findAllByGroupIdInOrderById(List.of(groupId))
-                .stream()
-                .map(JpaGroupDetailRepository::toMember)
-                .toList();
+        List<GroupDetailMember> members = groupMemberRepository.findDetailMembersByGroupId(groupId);
         GroupRecruitment activeRecruitment = recruitmentRepository.findCurrentByGroupId(groupId, now)
                 .stream()
                 .findFirst()
@@ -85,13 +80,5 @@ public class JpaGroupDetailRepository implements GroupDetailRepository {
                 .findFirst()
                 .map(count -> (int) count.getApprovedCount())
                 .orElse(0);
-    }
-
-    private static GroupDetailMember toMember(GroupMember member) {
-        return GroupDetailMember.of(
-                member.getMember().getId(),
-                member.getMember(),
-                member.getRole()
-        );
     }
 }
