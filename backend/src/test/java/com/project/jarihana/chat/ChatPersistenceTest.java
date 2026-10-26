@@ -239,6 +239,123 @@ class ChatPersistenceTest extends NotificationIntegrationTestSupport {
                 .isEqualTo(content);
     }
 
+    @Test
+    @DisplayName("같은 트랜잭션의 연속 저장과 읽음은 최신 순번을 사용하고 중복 가입 이벤트는 읽음을 덮어쓰지 않는다")
+    void repeatedCommandsInOneTransactionKeepSequenceAndReadStateCurrent() {
+        Member owner = member("211");
+        Group group = room(owner);
+        new TransactionTemplate(transactions)
+                .executeWithoutResult(
+                        status -> {
+                            assertThat(
+                                            commands.sendMessage(
+                                                            owner.getId(),
+                                                            group.getId(),
+                                                            UUID.randomUUID(),
+                                                            "첫 번째")
+                                                    .message()
+                                                    .sequence())
+                                    .isEqualTo(1);
+                            assertThat(
+                                            commands.sendMessage(
+                                                            owner.getId(),
+                                                            group.getId(),
+                                                            UUID.randomUUID(),
+                                                            "두 번째")
+                                                    .message()
+                                                    .sequence())
+                                    .isEqualTo(2);
+                            assertThat(
+                                            commands.markRead(owner.getId(), group.getId(), 1)
+                                                    .lastReadSequence())
+                                    .isEqualTo(1);
+                            events.publishEvent(
+                                    new ChatLifecycleEvent(
+                                            ChatLifecycleEvent.Type.JOINED,
+                                            group.getId(),
+                                            owner.getId()));
+                            assertThat(
+                                            commands.markRead(owner.getId(), group.getId(), 0)
+                                                    .lastReadSequence())
+                                    .isEqualTo(1);
+                            assertThat(
+                                            commands.sendMessage(
+                                                            owner.getId(),
+                                                            group.getId(),
+                                                            UUID.randomUUID(),
+                                                            "세 번째")
+                                                    .message()
+                                                    .sequence())
+                                    .isEqualTo(3);
+                            assertThat(
+                                            commands.markRead(owner.getId(), group.getId(), 3)
+                                                    .lastReadSequence())
+                                    .isEqualTo(3);
+                            assertThat(
+                                            commands.markRead(owner.getId(), group.getId(), 2)
+                                                    .lastReadSequence())
+                                    .isEqualTo(3);
+                        });
+        var room = queries.rooms(owner.getId(), null, 20, "").items().getFirst();
+        assertThat(room.latestSequence()).isEqualTo(3);
+        assertThat(room.lastReadSequence()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("기존 방에서 전송과 읽음 갱신을 롤백하면 원래 순번과 읽음 위치를 유지한다")
+    void rollbackRestoresExistingRoomAndReadState() {
+        Member owner = member("212");
+        Group group = room(owner);
+        commands.sendMessage(owner.getId(), group.getId(), UUID.randomUUID(), "기존");
+        commands.markRead(owner.getId(), group.getId(), 1);
+        new TransactionTemplate(transactions)
+                .executeWithoutResult(
+                        status -> {
+                            commands.sendMessage(
+                                    owner.getId(), group.getId(), UUID.randomUUID(), "취소");
+                            commands.markRead(owner.getId(), group.getId(), 2);
+                            status.setRollbackOnly();
+                        });
+        var room = queries.rooms(owner.getId(), null, 20, "").items().getFirst();
+        assertThat(room.latestSequence()).isEqualTo(1);
+        assertThat(room.lastReadSequence()).isEqualTo(1);
+        assertThat(
+                        commands.sendMessage(owner.getId(), group.getId(), UUID.randomUUID(), "다음")
+                                .message()
+                                .sequence())
+                .isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("첫 읽음 요청이 동시에 도착해도 읽음 행은 하나이고 가장 큰 순번을 유지한다")
+    void concurrentFirstReadsKeepHighestSequence() throws Exception {
+        Member owner = member("213");
+        Group group = room(owner);
+        for (int index = 0; index < 4; index++)
+            commands.sendMessage(owner.getId(), group.getId(), UUID.randomUUID(), "메시지" + index);
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            var reads = new ArrayList<Callable<Long>>();
+            for (int index = 0; index < 20; index++) {
+                long sequence = index % 4 + 1;
+                reads.add(
+                        () ->
+                                commands.markRead(owner.getId(), group.getId(), sequence)
+                                        .lastReadSequence());
+            }
+            for (var result : executor.invokeAll(reads)) assertThat(result.get()).isBetween(1L, 4L);
+        }
+        assertThat(queries.rooms(owner.getId(), null, 20, "").items().getFirst().lastReadSequence())
+                .isEqualTo(4);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from chat_read_state where group_id=? and"
+                                        + " member_id=?",
+                                Long.class,
+                                group.getId(),
+                                owner.getId()))
+                .isEqualTo(1);
+    }
+
     private Group room(Member owner) {
         Group group =
                 groups.save(Group.createClub("채팅" + owner.getId(), "소개", null, null, null, NOW));
