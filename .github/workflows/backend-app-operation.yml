@@ -40,6 +40,7 @@ jobs:
       BG_OPERATION: ${{ inputs.operation }}
       BG_IMAGE_DIGEST: ${{ inputs.digest }}
       BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
+      BG_DEV_AUTO_ENABLED: ${{ vars.BLUE_GREEN_DEV_ENABLED || 'false' }}
       GH_TOKEN: ${{ github.token }}
       RDS_URL: ${{ vars.BLUE_GREEN_RDS_URL || vars.RDS_URL }}
       BLUE_GREEN_RDS_URL: ${{ vars.BLUE_GREEN_RDS_URL || (inputs.environment == 'prod' && vars.RDS_URL) }}
@@ -54,8 +55,8 @@ jobs:
       GITHUB_OAUTH_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
       GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
       GITHUB_OAUTH_REDIRECT_URI: ${{ vars.OAUTH_GITHUB_REDIRECT_URI }}
-      PUSH_ENABLED: ${{ inputs.environment == 'dev' && 'false' || vars.PUSH_ENABLED || 'false' }}
-      PUSH_WORKER_ENABLED: ${{ inputs.environment == 'dev' && 'false' || vars.PUSH_WORKER_ENABLED || 'true' }}
+      PUSH_ENABLED: ${{ vars.PUSH_ENABLED || 'false' }}
+      PUSH_WORKER_ENABLED: ${{ vars.PUSH_WORKER_ENABLED || 'true' }}
       PUSH_VAPID_PUBLIC_KEY: ${{ vars.PUSH_VAPID_PUBLIC_KEY }}
       PUSH_VAPID_PRIVATE_KEY: ${{ secrets.PUSH_VAPID_PRIVATE_KEY }}
       PUSH_VAPID_SUBJECT: ${{ vars.PUSH_VAPID_SUBJECT }}

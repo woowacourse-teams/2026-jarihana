@@ -1,15 +1,15 @@
 # 전체 배포 경로와 dev 적용 절차
 
-이 문서는 로컬 구현·검증 뒤 develop PR로 반영할 때 사용하는 설치·실행 기준이다.
+이 문서는 Blue-Green 호스트 설치와 실행의 공통 기준이다.
 예시를 복사한 것만으로 서버가 준비되거나 운영 배포가 활성화되지는 않는다.
-현재 단계에서는 파일을 선별·삭제하거나 실제 서버에 적용하지 않는다.
+실제 dev 도메인을 자동 배포로 바꾸는 순서는 [dev 자동화 적용 순서](dev-automatic-deployment.md)를 따른다.
 
 ## 확정된 실행 방식
 
 ```text
-develop 머지 -> 기존 이미지 빌드와 기존 dev 배포 유지
-               수동 bootstrap: 최초 worker 권한 등록
-               수동 deploy: dev Blue-Green 전체 검증
+develop 머지 -> BLUE_GREEN_DEV_ENABLED=false/미설정: 기존 dev 배포
+               BLUE_GREEN_DEV_ENABLED=true: 아래 Blue-Green 순서
+               최초 bootstrap은 별도 수동 실행
 
 main 머지 -> BLUE_GREEN_PROD_ENABLED=true인 경우
   GitHub ARM runner: develop에서 만든 backend tree 이미지의 digest 확인
@@ -27,9 +27,11 @@ main 머지 -> BLUE_GREEN_PROD_ENABLED=true인 경우
 
 업무용 DB·JWT·OAuth·푸시·S3 설정은 기존 GitHub `dev`/`prod` Variables·Secrets를 사용한다.
 앱 작업 workflow가 해당 environment를 선택하며 EC2의 영구 앱 설정 파일로 복사하지 않는다.
-dev 검증은 실제 푸시와 주기적 delivery 선점을 강제로 비활성화하고 제어 권한 인계를 시험한다.
-실제 작업의 finish commit 직렬화는 기존 전용 검증과 구분하며, 이 dev 배포만으로 발송 부하까지
-검증했다고 표시하지 않는다. prod는 기존 환경의 푸시 설정을 사용한다.
+dev 자동화 비활성 상태의 수동 실습은 실제 푸시와 주기적 delivery 선점을 강제로 비활성화한다.
+실제 도메인의 dev 자동화는 기존 dev의 PUSH_ENABLED·PUSH_WORKER_ENABLED를 유지한다.
+두 방식 모두 후보는 제어 활성·START_PAUSED로 시작하고 이전 worker의 발송·finish commit과
+처리 권한 반납 후 활성화한다. 발송을 꺼 둔 실습 결과만으로 실제 발송을 검증했다고 표시하지 않는다.
+prod는 기존 prod 환경의 푸시 설정을 사용한다.
 기계 간 제어 토큰과 SSH 허가 조회 키는 별도 관리자 소유 파일로 보관한다.
 비밀값을 명령 인자·로그·artifact에 넣지 않는다. Docker 접근 권한은 컨테이너 환경을 읽을 수 있는
 강한 권한이므로 runner 계정을 신뢰할 수 있는 배포 작업에만 사용한다.
@@ -65,8 +67,9 @@ Prometheus 9090은 모니터링 호스트 loopback으로 유지한다. 읽기 �
 `/prometheus/api/v1/query` 한 개만 사용하며, 현재 확인된 배포 Nginx private IP `10.0.3.51`만 허용한다.
 실제 적용 전 IP·보안 그룹을 다시 확인하고 coordinator를 바꾸면 이 정확한 allowlist도 바꾼다.
 query_range·관리 API·다른 Prometheus 경로를 열지 않으며 공개 80 서버의 라우팅은 바꾸지 않는다.
-조회 URL 예시는 `http://<모니터링 private IP>:8080/prometheus`다. 설정 소스만 추가했으며 실제
-모니터링 서버의 Nginx reload·보안 그룹 변경은 이번 로컬 단계에서 수행하지 않는다.
+조회 URL 예시는 `http://<모니터링 private IP>:8080/prometheus`다. dev 실환경 시험에서 조회를
+확인했더라도 재설치 때는 실제 경로와 allowlist를 확인한다. 문서를 읽거나 머지했다고 서버에
+설정이 자동 설치되는 것은 아니다.
 `Monitoring Deploy`의 컨테이너 재생성은 이 조회 경로도 중단한다. Blue-Green과 모니터링 workflow의
 공유 concurrency group으로 배포를 직렬화한다. 대기열·최초 적용과 수동 재시작 제한은
 [Actions 계약](../github-actions-adapter.md#모니터링-배포와-동시-실행-방지)을 따른다.
@@ -119,6 +122,7 @@ repository Variables에 다음 전용 runner 라벨을 등록한다. 여러 호�
 ```text
 BLUE_GREEN_DEV_A_RUNNER / BLUE_GREEN_DEV_B_RUNNER
 BLUE_GREEN_PROD_A_RUNNER / BLUE_GREEN_PROD_B_RUNNER
+BLUE_GREEN_DEV_ENABLED (repository 변수, 초기 false 또는 미설정)
 BLUE_GREEN_PROD_ENABLED (초기 false 또는 미설정)
 BLUE_GREEN_CONTROL_REF (repository 변수, refs/tags/deployment-control-...)
 BLUE_GREEN_RDS_URL (environment 변수, 필요할 때 기존 RDS_URL 대신 사용하는 시험 DB endpoint)
@@ -129,9 +133,11 @@ Variables·Secrets가 사용된다. environment 배포 제한은 dev/prod 부모
 checkout은 별도로 보호된 control tag를 사용한다. environment에 매 job 승인 규칙이 있으면 각 단계가
 승인을 기다리므로, 허가 기한과 자동
 배포라는 목표와 보호 규칙을 함께 검토한다. 이 작업에서 보호 규칙을 임의로 변경하지 않는다.
-현재 합의한 dev 시험 DB는 `jarihana-db.cqsc6pyqhwww.ap-northeast-2.rds.amazonaws.com`의
-`jarihana_dev`다. 원래 dev가 temporal RDS를 사용했으므로 기존 `RDS_URL`을 추정하거나 바꾸지 말고
-dev의 `BLUE_GREEN_RDS_URL`을 별도로 확인·설정한다. prod에는 dev endpoint를 복사하지 않는다.
+dev 앱 A/B는 승인한 개발 RDS의 `jarihana_dev`를 사용한다.
+dev의 `RDS_URL`과 `BLUE_GREEN_RDS_URL`을 같은 endpoint로 유지한다.
+`BLUE_GREEN_RDS_URL`은 과거 실습 DB를 명시하던 임시 설정이며, 코드가 아직 필수로 검사하므로
+dev 자동화 해제·정리 때 소비 코드를 함께 정리한다. 임의로 변수만 삭제하지 않는다.
+prod에는 dev DB 이름·계정·endpoint 설정 묶음을 복사하지 않는다.
 
 검토·반영한 코드에 새 `deployment-control-...` immutable tag를 만들고, 실제 SHA와 tag를
 Nginx/A/B 세 설정과 `BLUE_GREEN_CONTROL_REF`에 동일하게 고정한다. 기존 태그를 이동하지 않는다.
@@ -145,15 +151,17 @@ DB 권한은 UNASSIGNED이며, Nginx가 A를 가리키는 상태에서만 가능
 발송 중인 상태에서 B를 먼저 활성화하지 않는다. 최초 bootstrap의 B EC2는 stopped여야 한다.
 두 버전의 인증 키·세션 DB·payload·스키마 호환성도 이때 확인한다.
 
-1. develop PR을 반영하고 기존 이미지 빌드가 성공한 것을 확인한다. PR 머지만으로 Blue-Green이
-   실행되지는 않는다. 기존 dev 배포는 유지된다.
+1. dev 자동화 변수는 false/미설정으로 두고 PR을 반영한다. 기존 이미지 빌드와 dev 배포 성공을 확인한다.
 2. 서버·Nginx·관측·보호된 설정·현재 A 앱을 준비한다. prod 설정이나 기존 prod origin은 바꾸지 않는다.
 3. Development Deploy를 수동 실행한다. `blue_green_mode=bootstrap`, `image_tag`에는 현재 A의
    이미지를 만든 40자리 SHA를 넣는다. 초기 등록은 반복 실행할 수 없으며 이미 owner가 있으면 거부한다.
-4. Development Deploy를 `blue_green_mode=deploy`로 수동 실행해 A→B→A, 장애·롤백을 검증한다.
-5. dev 시험 종료 후에는 A로 정상 복귀하고 원래 dev 설정·runner를 복구하는 계획을 따로 수행한다.
+4. 수동 실습은 `blue_green_mode=deploy`로 A→B→A, 장애·롤백을 검증한다. 실제 도메인의 자동화는
+   [별도 전환 절차](dev-automatic-deployment.md)에 따라 live 푸시 설정·최초 등록·CloudFront를
+   준비한다. 비활성 실습 앱에서 변수만 true로 바꾸는 것으로 설치를 대신하지 않는다.
+5. prod 이관 전에 A로 정상 복귀하고 원래 dev 설정·runner를 복구한다.
    특히 A EC2를 중지한 채로 기존 dev runner 배포를 재개하지 않는다. DB 권한은 임의 SQL 삭제로
-   초기화하지 않고 관리 API로 안전하게 정리한다. 실제 복구 설정은 적용 전 사용자와 확인한다.
+   초기화하지 않고 관리 API로 안전하게 정리한다. 모든 dev 배포가 종료되고 복구된 뒤
+   `BLUE_GREEN_DEV_ENABLED=false`로 바꾸고 B의 dev 설정을 정리한다.
 6. prod도 실제 환경에 맞춰 별도 초기 등록·검증한다. 마지막에 `BLUE_GREEN_PROD_ENABLED=true`를
    설정하면 이후 main push는 기존 Recreate job 대신 Blue-Green job을 실행한다.
 
@@ -230,4 +238,5 @@ READY/PAUSED, 이미지·포트·메모리 설정, 잘못된 digest·Compose 변
 실제 15분 관찰은 로컬 결과에 포함하지 않는다.
 과거 Python 통합 결과를 새 Bash runtime의 검증으로 간주하지 않는다.
 로컬 API 대역과 가속 시계는 실제 AWS 역할·네트워크·GitHub native jobs·권한·runner 선택·
-배포 보호·실제 15분 관찰을 증명하지 않는다. develop 반영 후 수동 dev 검증으로 확인한다.
+배포 보호·실제 15분 관찰을 증명하지 않는다. 별도 dev Nginx 경로의 실환경 시험 뒤에도 실제
+dev 도메인의 develop push 자동 배포는 추가 검증해야 한다. 실제 발송을 켠 검증도 별도로 확인한다.
