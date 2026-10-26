@@ -166,4 +166,3 @@ async function publishReviewGate({ github, context, core }) {
 }
 
 module.exports = { publishReviewGate };
-

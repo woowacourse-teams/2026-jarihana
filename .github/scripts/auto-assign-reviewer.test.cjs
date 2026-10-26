@@ -94,4 +94,3 @@ test("the workflow directly consumes assignment output rather than waiting for a
   assert.match(workflow, /run: node \.github\/scripts\/slack-review-notifications\.cjs assigned/);
   assert.match(workflow, /cancel-in-progress: false/);
 });
-

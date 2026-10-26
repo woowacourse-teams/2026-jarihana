@@ -24,4 +24,3 @@ jobs:
           node-version: "24"
       - name: Run review-policy regression tests
         run: node --test .github/scripts/*.test.cjs
-

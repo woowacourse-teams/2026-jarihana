@@ -143,4 +143,3 @@ test("event configuration re-evaluates edits and review state using only trusted
   assert.match(signal, /permissions: \{\}/);
   assert.doesNotMatch(signal, /actions\/checkout|secrets\.|upload-artifact|download-artifact/);
 });
-
