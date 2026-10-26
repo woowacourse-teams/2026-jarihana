@@ -38,6 +38,8 @@
 | 활동 기록 | `DELETE` | `/api/activity-posts/{postId}/reactions/{emoji}` | `MEMBER` | 활동 기록의 내 하트 반응 취소 |
 | 활동 기록 | `PUT` | `/api/activity-post-comments/{commentId}/reactions/{emoji}` | `MEMBER` | 댓글에 하트 반응 추가 |
 | 활동 기록 | `DELETE` | `/api/activity-post-comments/{commentId}/reactions/{emoji}` | `MEMBER` | 댓글의 내 하트 반응 취소 |
+| 활동 기록 | `GET` | `/api/activity-posts/{postId}/reactions/{emoji}` | `PUBLIC` | 활동 기록에 하트를 남긴 회원 조회 |
+| 활동 기록 | `GET` | `/api/activity-post-comments/{commentId}/reactions/{emoji}` | `PUBLIC` | 댓글에 하트를 남긴 회원 조회 |
 | 피드백 | `POST` | `/api/feedbacks` | `MEMBER` | 피드백 작성 |
 | 가입 신청 | `GET` | `/api/groups/{groupId}/registrations/summary` | `LEADER` | 그룹의 미확인·처리 대기 신청 요약 조회 |
 | 가입 신청 | `PATCH` | `/api/recruitments/{recruitmentId}/registrations/read` | `LEADER` | 확인한 마지막 신청까지 읽음 처리 |
