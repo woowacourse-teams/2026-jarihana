@@ -12,12 +12,13 @@ DB 테이블·스키마는 추가하지 않는다.
 | --- | --- |
 | 참여자 영역에서 초대 모달 열기 | `invitation_create` |
 | 공유 링크 복사·직접 주소 선택 | `invitation_link_copy`, `invitation_link_copy_select` |
-| 회원 검색·검색 제출·선택·선택 제거 | `invitation_search`, `invitation_search_submit`, `invitation_member_select`, `invitation_chip_remove` |
+| 회원 검색·Enter 검색 제출·선택·선택 제거 | `invitation_search`, `invitation_search_submit`, `invitation_member_select`, `invitation_chip_remove` |
 | 선택 회원에게 발급 요청 | `invitation_send` |
 | 보낸 초대 관리·조회 범위 변경 | `invitation_management_open`, `invitation_management_scope_change` |
 | 취소 확인 창 열기·취소 실행 | `invitation_revoke_open`, `invitation_revoke` |
 
 검색·선택 회원·보낸 초대·공유 주소가 표시되는 모달 내용은 `data-ph-private`로 마스킹한다.
+회원 검색 버튼은 제거하고, `invitation_search_submit`은 검색 폼의 Enter 제출에 유지한다.
 위 action은 사용자 조작 식별자이며 발급 성공·복사 성공을 보장하는 이벤트는 아니다.
 초대 전용 성공 이벤트와 전환 연결은 아래 계약을 따른다. 공유 초대 페이지에서도 명시적 초대 이벤트만 수집한다. 실제 PostHog 수신은 별도 검증이 필요하다.
 
