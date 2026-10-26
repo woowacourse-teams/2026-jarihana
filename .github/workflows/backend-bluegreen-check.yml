@@ -8,6 +8,7 @@ on:
       - infra/deploy/controller/**
       - .github/workflows/backend-bluegreen-*.yml
       - .github/workflows/backend-app-operation.yml
+      - .github/workflows/backend-dev-deploy.yml
       - .github/workflows/backend-migration-review.yml
 permissions:
   contents: read

@@ -7,6 +7,7 @@ source "$ROOT/infra/scripts/deploy/actions/app.sh"
 fixture() {
   APP_DIR=$(mktemp -d); trap 'rm -rf "$APP_DIR"' EXIT
   ENVIRONMENT=dev BG_SLOT=A RUN_ID=123 HOST_ID=dev-a INSTANCE_ID=i-aaaaaaaaaaaaaaaaa
+  BG_DEV_AUTO_ENABLED=false
   DEPLOYMENT_ID=11111111-1111-4111-8111-111111111111 GRANT_ID=22222222-2222-4222-8222-222222222222
   BOOT_ID=33333333-3333-4333-8333-333333333333
   BG_IMAGE_DIGEST=sha256:$(printf 'a%.0s' {1..64})
@@ -217,6 +218,61 @@ case_profile_dev_scheduler() {
   profile_fixture
   reject app_profile "$(jq '.Config.Env += ["PUSH_WORKER_ENABLED=true"]' "$APP_DIR/profile")"
 }
+live_profile() {
+  BG_DEV_AUTO_ENABLED=true
+  export PUSH_ENABLED=true PUSH_WORKER_ENABLED=true
+  profile_fixture
+  jq '.Config.Env |= map(if .=="PUSH_ENABLED=false" then "PUSH_ENABLED=true"
+    elif .=="PUSH_WORKER_ENABLED=false" then "PUSH_WORKER_ENABLED=true" else . end)' \
+    "$APP_DIR/profile" > "$APP_DIR/live-profile"
+}
+case_profile_live_dev() { live_profile; app_profile "$(cat "$APP_DIR/live-profile")"; }
+case_profile_live_dev_starts_paused() {
+  live_profile
+  reject app_profile "$(jq '.Config.Env |= map(if .=="PUSH_WORKER_START_PAUSED=true" then "PUSH_WORKER_START_PAUSED=false" else . end)' "$APP_DIR/live-profile")"
+  reject app_profile "$(jq '.Config.Env |= map(if .=="PUSH_WORKER_CONTROL_ENABLED=true" then "PUSH_WORKER_CONTROL_ENABLED=false" else . end)' "$APP_DIR/live-profile")"
+}
+case_profile_live_dev_mismatched_push() {
+  live_profile
+  reject app_profile "$(cat "$APP_DIR/profile")"
+  reject app_profile "$(jq '.Config.Env |= map(if .=="PUSH_WORKER_ENABLED=true" then "PUSH_WORKER_ENABLED=false" else . end)' "$APP_DIR/live-profile")"
+}
+case_push_settings_rehearsal() {
+  export PUSH_ENABLED=true PUSH_WORKER_ENABLED=true
+  app_push_settings
+  [[ $PUSH_ENABLED == false && $PUSH_WORKER_ENABLED == false ]]
+}
+case_push_settings_live() {
+  BG_DEV_AUTO_ENABLED=true
+  for push in true false; do
+    for worker in true false; do
+      export PUSH_ENABLED=$push PUSH_WORKER_ENABLED=$worker
+      app_push_settings
+      [[ $PUSH_ENABLED == "$push" && $PUSH_WORKER_ENABLED == "$worker" ]]
+    done
+  done
+}
+case_push_settings_invalid() {
+  BG_DEV_AUTO_ENABLED=typo; reject app_push_settings
+  BG_DEV_AUTO_ENABLED=true; unset PUSH_ENABLED PUSH_WORKER_ENABLED; reject app_push_settings
+  export PUSH_ENABLED=true PUSH_WORKER_ENABLED=typo; reject app_push_settings
+}
+case_push_settings_prod_unchanged() {
+  ENVIRONMENT=prod BG_DEV_AUTO_ENABLED=false
+  export PUSH_ENABLED=true PUSH_WORKER_ENABLED=true
+  app_push_settings
+  [[ $PUSH_ENABLED == true && $PUSH_WORKER_ENABLED == true ]]
+}
+case_live_push_handoff() {
+  BG_DEV_AUTO_ENABLED=true
+  export PUSH_ENABLED=true PUSH_WORKER_ENABLED=true
+  case_handoff
+}
+case_live_push_cannot_take_owned_authority() {
+  BG_DEV_AUTO_ENABLED=true
+  export PUSH_ENABLED=true PUSH_WORKER_ENABLED=true
+  case_no_activation_with_owner
+}
 case_profile_wrong_db() {
   profile_fixture
   reject app_profile "$(jq '.Config.Env |= map(if startswith("DB_URL=") then "DB_URL=jdbc:postgresql://prod:5432/jarihana_prod" else . end)' "$APP_DIR/profile")"
@@ -288,7 +344,7 @@ case_shutdown_generation_change() {
 
 if [[ ${1:-} == --case ]]; then fixture; "case_$2"; exit; fi
 passed=0
-for scenario in handoff activation_and_completion response_loss cas_race_before cas_race_after grant_and_deadline boot_change initial_idle_snapshot bad_counter wrong_environment no_release_with_work no_activation_with_owner rollback_target rollback_unhealthy_target rollback_wrong_owner handoff_unhealthy activation_unhealthy rollback_old rollback_already_released observation observation_clock_jump observation_readiness status_requires_grant mutation_grant_mismatch profile profile_public_management profile_dev_scheduler profile_wrong_db profile_wrong_token receipt shutdown shutdown_abnormal shutdown_http_work shutdown_generation_change; do
+for scenario in handoff activation_and_completion response_loss cas_race_before cas_race_after grant_and_deadline boot_change initial_idle_snapshot bad_counter wrong_environment no_release_with_work no_activation_with_owner rollback_target rollback_unhealthy_target rollback_wrong_owner handoff_unhealthy activation_unhealthy rollback_old rollback_already_released observation observation_clock_jump observation_readiness status_requires_grant mutation_grant_mismatch profile profile_public_management profile_dev_scheduler profile_live_dev profile_live_dev_starts_paused profile_live_dev_mismatched_push push_settings_rehearsal push_settings_live push_settings_invalid push_settings_prod_unchanged live_push_handoff live_push_cannot_take_owned_authority profile_wrong_db profile_wrong_token receipt shutdown shutdown_abnormal shutdown_http_work shutdown_generation_change; do
   bash "$0" --case "$scenario"
   printf 'PASS %s\n' "$scenario"
   passed=$((passed+1))
