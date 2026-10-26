@@ -236,7 +236,7 @@ Compose에서 Prometheus의 `command`를 지정하면 이미지의 기본 실행
 수신 옵션을 추가할 때 설정 파일 경로와 TSDB 저장 경로 등 필요한 인자도 명시적으로 유지한다.
 [Prometheus 실행 인자](https://prometheus.io/docs/prometheus/latest/installation/#setting-command-line-parameters)
 
-Alloy 앱 scrape는 30초 주기다. 실제 endpoint에 노출된 지표와 Prometheus의 시계열을 대조한다.
+Alloy 앱 scrape는 5초 주기다. 실제 endpoint에 노출된 지표와 Prometheus의 시계열을 대조한다.
 부하 테스트용 간격은 필요한 시간 해상도와 수집 비용을 보고 조정한다.
 
 RED 지표의 기준은 HTTP 메트릭이다. 요청량은 카운터 증가율, 오류율은 전체 요청 대비 5xx,
@@ -359,7 +359,7 @@ Actuator는 기존 loopback 범위를 유지한다. Nginx `8080` 수신 포트�
 
 Grafana Alerting의 [Slack 장애 알림](SLACK.md)은 dev·prod health·HTTP 500 규칙 4개와
 호스트 CPU·메모리·디스크·inode 규칙 8개, 연락처와 전달 정책을 시작 시 파일 provisioning으로 등록한다.
-Alloy는 앱 health를 60초마다 확인하며 Grafana는 30초마다 평가한다. 호스트 자원 알림은
+Alloy는 앱 health를 10초마다 확인하며 Grafana는 10초마다 평가한다. 호스트 자원 알림은
 `host_id`별로 평가하고 디스크·inode는 `mountpoint`도 구분한다. environment 라벨은 별도로 추가하지 않는다. 이후 변경도 파일에서
 관리하며 시작 시 다시 적용한다. GC·RDS 내부 상태와 모니터링 서버 밖의 장애 감시는
 현재 규칙 범위에 없다. 모니터링 EC2도 호스트 알림 대상이지만 서버나 Grafana 완전 중단은
