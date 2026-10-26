@@ -112,7 +112,8 @@ bg_live() {
       (.event == "push" or .event == "workflow_dispatch") and
       .repository.id == 1321030074 and .head_repository.id == 1321030074 and
       .repository.full_name == $repo and .head_repository.full_name == $repo and
-      .status == "in_progress" and .conclusion == null
+      (.status | IN("queued", "in_progress", "waiting", "pending", "requested")) and
+      has("conclusion") and .conclusion == null
     ' <<< "$actual" >/dev/null || bg_die 'The approved deployment run is no longer live.'
     if [[ "$BG_MODE" == bootstrap ]]; then
         jq -e '.event == "workflow_dispatch"' <<< "$actual" >/dev/null || bg_die 'Bootstrap must be manual.'
