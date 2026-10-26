@@ -1,18 +1,21 @@
 package com.project.jarihana.group.query.repository;
 
 import com.project.jarihana.group.domain.Group;
+import com.project.jarihana.group.domain.GroupStatus;
+import com.project.jarihana.group.domain.GroupType;
 import com.project.jarihana.group.query.repository.RegistrationJpaRepository.ApprovedRegistrationCount;
 import com.project.jarihana.group.query.repository.dto.GroupListMember;
 import com.project.jarihana.group.query.repository.dto.GroupListPage;
 import com.project.jarihana.group.query.repository.dto.GroupListProjection;
 import com.project.jarihana.group.query.repository.dto.GroupListSearchCriteria;
-import com.project.jarihana.groupmember.domain.GroupMember;
+import com.project.jarihana.group.query.repository.dto.HomeGroupPages;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -42,8 +45,27 @@ public class JpaGroupListRepository implements GroupListRepository {
 
     @Override
     public GroupListPage findPage(GroupListSearchCriteria criteria, int size) {
+        return hydratePages(List.of(findGroups(criteria, size)), criteria.now()).getFirst();
+    }
+
+    @Override
+    public HomeGroupPages findHomePages(LocalDate sessionDate, LocalDateTime now) {
+        Slice<Group> today = findGroups(new GroupListSearchCriteria(
+                GroupStatus.ACTIVE, GroupType.SESSION, null, sessionDate, null, false,
+                null, null, null, now, null, null), 100);
+        Slice<Group> recruiting = findGroups(new GroupListSearchCriteria(
+                GroupStatus.ACTIVE, null, null, null, null, false,
+                true, null, null, now, null, null), 4);
+        Slice<Group> ended = findGroups(new GroupListSearchCriteria(
+                GroupStatus.ENDED, null, null, null, null, false,
+                null, null, null, now, null, null), 4);
+        List<GroupListPage> pages = hydratePages(List.of(today, recruiting, ended), now);
+        return new HomeGroupPages(pages.get(0), pages.get(1), pages.get(2));
+    }
+
+    private Slice<Group> findGroups(GroupListSearchCriteria criteria, int size) {
         Pageable pageable = Pageable.ofSize(size);
-        Slice<Group> groups = groupRepository.findPage(
+        return groupRepository.findPage(
                 criteria.status(),
                 criteria.type(),
                 criteria.excludedType(),
@@ -58,30 +80,36 @@ public class JpaGroupListRepository implements GroupListRepository {
                 criteria.now(),
                 pageable
         );
-        if (groups.isEmpty()) {
-            return new GroupListPage(List.of(), false);
+    }
+
+    private List<GroupListPage> hydratePages(List<Slice<Group>> pages, LocalDateTime now) {
+        List<Long> groupIds = pages.stream()
+                .flatMap(page -> page.getContent().stream())
+                .map(Group::getId)
+                .distinct()
+                .toList();
+        if (groupIds.isEmpty()) {
+            return pages.stream().map(page -> new GroupListPage(List.of(), false)).toList();
         }
 
-        List<Long> groupIds = groups.getContent().stream().map(Group::getId).toList();
-        Map<Long, List<GroupMember>> membersByGroup = findMembers(groupIds);
-        Map<Long, GroupRecruitment> recruitmentByGroup = findActiveRecruitments(groupIds, criteria.now());
+        Map<Long, List<GroupListMember>> membersByGroup = findMembers(groupIds);
+        Map<Long, GroupRecruitment> recruitmentByGroup = findActiveRecruitments(groupIds, now);
         Map<Long, Integer> approvedCounts = findApprovedCounts(recruitmentByGroup.values());
 
-        List<GroupListProjection> projections = groups.getContent().stream()
+        return pages.stream().map(page -> new GroupListPage(page.getContent().stream()
                 .map(group -> toProjection(
                         group,
                         membersByGroup.getOrDefault(group.getId(), List.of()),
                         recruitmentByGroup.get(group.getId()),
                         approvedCounts
                 ))
-                .toList();
-        return new GroupListPage(projections, groups.hasNext());
+                .toList(), page.hasNext())).toList();
     }
 
-    private Map<Long, List<GroupMember>> findMembers(List<Long> groupIds) {
-        return groupMemberRepository.findAllByGroupIdInOrderById(groupIds)
+    private Map<Long, List<GroupListMember>> findMembers(List<Long> groupIds) {
+        return groupMemberRepository.findListMembersByGroupIds(groupIds)
                 .stream()
-                .collect(Collectors.groupingBy(member -> member.getGroup().getId()));
+                .collect(Collectors.groupingBy(GroupListMember::groupId));
     }
 
     private Map<Long, GroupRecruitment> findActiveRecruitments(List<Long> groupIds, LocalDateTime now) {
@@ -114,25 +142,18 @@ public class JpaGroupListRepository implements GroupListRepository {
 
     private static GroupListProjection toProjection(
             Group group,
-            List<GroupMember> members,
+            List<GroupListMember> members,
             GroupRecruitment recruitment,
             Map<Long, Integer> approvedCounts
     ) {
-        List<GroupListMember> groupMembers = members.stream()
-                .map(member -> GroupListMember.of(
-                        member.getMember().getId(),
-                        member.getMember(),
-                        member.getRole()
-                ))
-                .toList();
         int approvedCount = recruitment == null
                 ? 0
                 : approvedCounts.getOrDefault(recruitment.getId(), 0);
         return GroupListProjection.of(
                 group.getId(),
                 group,
-                groupMembers.size(),
-                groupMembers,
+                members.size(),
+                members,
                 recruitment,
                 approvedCount
         );

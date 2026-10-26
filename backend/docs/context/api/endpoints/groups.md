@@ -17,6 +17,52 @@ URL을 반환한다. 이 주소는 백엔드의 접근 확인을 거쳐 같은 �
 `recruiting=true`는 기간상 열린 공고의 모집으로 가입한 인원이 정원보다 적은 그룹을,
 `recruiting=false`는 그런 공고가 없는 그룹을 조회한다.
 
+### `GET /api/home`
+
+- 설명: 홈 초기 화면의 오늘 세션, 모집 중 모임, 종료 모임을 한 응답으로 조회
+- 권한: `PUBLIC`
+
+#### Query Parameters
+
+| 이름 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `sessionDate` | LocalDate | X | `YYYY-MM-DD`. 생략 시 주입된 Clock의 서울 오늘 날짜 |
+
+#### 응답 200
+
+`data.today`, `data.recruiting`, `data.ended`는 각각 기존 그룹 목록의
+`items`, `nextCursor`, `hasNext` 구조와 모든 항목 필드를 사용한다.
+
+| 필드 | 기존 목록과 동일한 조회 조건 |
+| --- | --- |
+| `today` | `status=ACTIVE&type=SESSION&sessionDate={sessionDate}&size=100` |
+| `recruiting` | `status=ACTIVE&recruiting=true&size=4` |
+| `ended` | `status=ENDED&size=4` |
+
+```json
+{
+  "success": true,
+  "data": {
+    "today": {"items": [], "nextCursor": null, "hasNext": false},
+    "recruiting": {"items": [], "nextCursor": null, "hasNext": false},
+    "ended": {"items": [], "nextCursor": null, "hasNext": false}
+  },
+  "error": null
+}
+```
+
+- 세 목록 모두 `createdAt DESC, id DESC` 정렬이며, 각 목록의 크기 제한과 다음 페이지 여부는 독립적이다.
+- 오늘 세션과 모집 중 모임에 같은 그룹이 포함될 수 있다.
+- 다음 페이지는 해당 목록의 조건과 `nextCursor`를 유지해 기존 `GET /api/groups`로 조회한다. 홈 API는 초기 페이지만 제공한다.
+- 세 기본 목록은 기존 목록 쿼리로 각각 조회하고, 반환할 그룹 ID 합집합에 대해 구성원·활성 모집·승인 인원을 일괄 조회한다.
+- 모집 판정에는 한 요청에서 구한 동일한 현재 시각을 사용한다. 기존 목록과 같이 단순 읽기에 추가 트랜잭션을 적용하지 않으므로, 동시 변경 중 세 목록의 단일 DB 스냅샷을 보장하지 않는다.
+
+#### 예외
+
+| 상황 | 코드 | HTTP |
+| --- | --- | --- |
+| 날짜 형식이 올바르지 않음 | `INVALID_PARAMETER` | 400 |
+
 ### `GET /api/groups`
 
 - 설명: 그룹 목록 조회 — 관계·상태·유형 필터 지원

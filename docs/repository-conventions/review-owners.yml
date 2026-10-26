@@ -1,0 +1,62 @@
+# AI-assisted PR authoring uses this as a reviewer-selection map.
+# It does not configure GitHub CODEOWNERS or enforce approvals.
+timezone: Asia/Seoul
+pilot:
+  starts_on: 2026-10-26
+  ends_on: 2026-10-30
+team:
+  - github: Sauter001
+    name: 요크 (이승준)
+  - github: choubung
+    name: 파도 (이수연)
+  - github: RealTake
+    name: 에덴 (최원상)
+  - github: 5jonyuk
+    name: 이삭 (오종혁)
+modules:
+  A:
+    name: 인증·회원·공통 기반
+    primary: Sauter001
+    backup: 5jonyuk
+    candidate_paths:
+      - backend/src/main/java/com/project/jarihana/auth/**
+      - backend/src/main/java/com/project/jarihana/member/**
+      - backend/src/main/java/com/project/jarihana/common/**
+  B:
+    name: 그룹 명령·일정·이미지
+    primary: choubung
+    backup: Sauter001
+    candidate_paths:
+      - backend/src/main/java/com/project/jarihana/group/**
+      - backend/src/main/java/com/project/jarihana/image/**
+      - backend/src/main/java/com/project/jarihana/share/**
+      - backend/src/main/java/com/project/jarihana/activitypost/**
+  C:
+    name: 모집·신청·멤버십 명령
+    primary: RealTake
+    backup: choubung
+    candidate_paths:
+      - backend/src/main/java/com/project/jarihana/recruitment/**
+      - backend/src/main/java/com/project/jarihana/registration/**
+      - backend/src/main/java/com/project/jarihana/groupmember/**
+      - backend/src/main/java/com/project/jarihana/invitation/**
+  D:
+    name: 조회·검색·집계
+    primary: 5jonyuk
+    backup: RealTake
+    applies_when: 여러 도메인을 가로지르는 조회·검색·집계 동작이 실제로 변경될 때
+    candidate_paths: []
+shared_areas:
+  frontend:
+    strategy: least_open_review_load_then_random_tie
+    candidates: [Sauter001, choubung, RealTake, 5jonyuk]
+  infrastructure:
+    strategy: least_open_review_load_then_random_tie
+    candidates: [Sauter001, choubung, RealTake, 5jonyuk]
+unmapped_backend_paths:
+  instruction: 실제 API와 도메인 흐름으로 담당 영역을 확인한다. 명확하지 않으면 추측 배정하지 말고 PR에 담당 영역 확인 필요라고 표시한다.
+  candidate_paths:
+    - backend/src/main/java/com/project/jarihana/feedback/**
+    - backend/src/main/java/com/project/jarihana/notification/**
+    - backend/src/main/java/com/project/jarihana/notificationdelivery/**
+    - backend/src/main/java/com/project/jarihana/pushsubscription/**

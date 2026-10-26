@@ -1,5 +1,6 @@
 package com.project.jarihana.group.command.service;
 
+import com.project.jarihana.chat.domain.ChatLifecycleEvent;
 import com.project.jarihana.activitypost.command.service.ActivityPostCommandService;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
@@ -168,6 +169,7 @@ public class GroupCommandService {
         }
         GroupMember leader = GroupMember.createLeader(group, member, now);
         groupMemberCommandRepository.save(leader);
+        events.publishEvent(new ChatLifecycleEvent(ChatLifecycleEvent.Type.JOINED, group.getId(), member.getId()));
         events.publishEvent(GroupCreatedEvent.from(group, memberId));
         return new CreateGroupResult(group.getId(), group.getStatus());
     }
@@ -381,6 +383,7 @@ public class GroupCommandService {
                     GROUP_DELETE_WINDOW_EXPIRED_MESSAGE
             );
         }
+        events.publishEvent(new ChatLifecycleEvent(ChatLifecycleEvent.Type.REMOVED, groupId, 0));
         invitationCommandService.removeGroupInvitations(groupId);
         registrationCommandRepository.deleteAllByRecruitmentGroupId(groupId);
         groupRecruitmentCommandRepository.deleteAllByGroupId(groupId);
@@ -438,6 +441,7 @@ public class GroupCommandService {
             }
         }
         groupCommandRepository.save(group.endAt(now));
+        events.publishEvent(new ChatLifecycleEvent(ChatLifecycleEvent.Type.CLOSED, groupId, 0));
         return new TerminateGroupResult(groupId, GroupStatus.ENDED, now);
     }
 

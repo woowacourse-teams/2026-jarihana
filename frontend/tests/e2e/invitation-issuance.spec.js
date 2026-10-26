@@ -48,6 +48,61 @@ async function fixture(page, { role = "LEADER", ended = false, auth = "authentic
 }
 
 for (const width of [360, 768, 1440]) {
+  test(`후보 프로필·대체 아바타·검색·추가 페이지·초대 ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const state = await fixture(page);
+    const photo = { ...candidate(21, "노을"), avatarUrl: "https://avatars.githubusercontent.com/u/21" };
+    const broken = { ...candidate(22, "하늘"), avatarUrl: "https://avatars.githubusercontent.com/u/22" };
+    const missing = { ...candidate(23, "바다"), avatarUrl: null };
+    const longName = { ...candidate(24, "아주긴회원이름".repeat(8)), avatarUrl: null };
+    await page.route("https://avatars.githubusercontent.com/u/21", route => route.fulfill({
+      contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44"><rect width="44" height="44" fill="#80cbb4"/><circle cx="22" cy="17" r="8" fill="#222"/><path d="M8 44a14 17 0 0 1 28 0" fill="#222"/></svg>'
+    }));
+    await page.route("https://avatars.githubusercontent.com/u/22", route => route.abort());
+    await page.route("**/api/groups/10/invitation-candidates**", route => {
+      const params = new URL(route.request().url()).searchParams;
+      const data = params.get("keyword") ? { items: [broken], nextCursor: null, hasNext: false }
+        : params.get("cursor") ? { items: [broken, missing, longName], nextCursor: null, hasNext: false }
+          : { items: [photo], nextCursor: "avatar-page-2", hasNext: true };
+      return route.fulfill({ json: { success: true, data, error: null } });
+    });
+    await page.goto("/groups/10?tab=members");
+    await page.locator(".invitation-member-trigger").click();
+    const dialog = page.getByRole("dialog", { name: "멤버 초대" });
+    const avatar = dialog.getByRole("img", { name: "노을 프로필" });
+    await expect(avatar).toBeVisible();
+    await expect.poll(() => avatar.evaluate(image => image.complete && image.naturalWidth > 0)).toBe(true);
+    await selectCandidate(page, dialog, "노을");
+    await dialog.getByRole("button", { name: "더 보기" }).click();
+    await expect(dialog.locator('[aria-label="하늘 프로필"]')).toHaveText("하");
+    await expect(dialog.locator('[aria-label="바다 프로필"]')).toHaveText("바");
+    const search = dialog.getByRole("textbox", { name: "회원 이름 검색" });
+    await search.fill("하늘");
+    await expect(dialog.getByRole("checkbox", { name: /노을/ })).toHaveCount(0);
+    await selectCandidate(page, dialog, "하늘");
+    await search.fill("");
+    await expect(dialog.getByRole("checkbox", { name: /노을/ })).toBeChecked();
+    await dialog.getByRole("button", { name: "더 보기" }).click();
+    await expect(dialog.getByRole("checkbox", { name: /하늘/ })).toBeChecked();
+    await selectCandidate(page, dialog, "바다");
+    for (const scheme of ["light", "dark"]) {
+      await page.emulateMedia({ colorScheme: scheme });
+      expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+      for (const row of await dialog.locator(".invitation-candidate__label").all()) {
+        const checkbox = await row.locator(".invitation-candidate__check").boundingBox();
+        const image = await row.locator(".ui-avatar").boundingBox();
+        const name = await row.locator(".invitation-candidate__name").boundingBox();
+        expect(checkbox.x + checkbox.width).toBeLessThanOrEqual(image.x);
+        expect(image.x + image.width).toBeLessThanOrEqual(name.x);
+        expect(await row.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+      }
+      await page.screenshot({ path: `test-results/invitation-avatars-${width}-${scheme}.png` });
+    }
+    expect((await new AxeBuilder({ page }).include('[role="dialog"]').analyze()).violations).toEqual([]);
+    await dialog.getByRole("button", { name: /3명.*초대/ }).click();
+    await expect.poll(() => state.creates.filter(item => item.type === "DIRECT").length).toBe(3);
+    expect(state.creates.map(item => item.targetMemberId)).toEqual([21, 22, 23]);
+  });
   test(`보낸 초대 수신자 표시·긴 이름 줄바꿈·접근성 ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     const state = await fixture(page);
@@ -82,7 +137,17 @@ for (const width of [360, 768, 1440]) {
     await expect(dialog.getByText("회원에게 직접 초대하거나 보낸 초대와 공유 링크를 관리할 수 있어요.")).toHaveCount(0);
     await expect(dialog.getByText("초대할 회원을 검색하고 선택해 주세요. 한 번에 여러 명에게 보낼 수 있어요.")).toHaveCount(0);
     const search = dialog.getByRole("textbox").or(dialog.getByRole("searchbox")).first();
+    await expect(dialog.getByRole("button", { name: "회원 검색", exact: true })).toHaveCount(0);
+    const searchWidths = await dialog.locator(".invitation-search").evaluate(form => ({
+      input: form.querySelector("input").getBoundingClientRect().width,
+      area: form.getBoundingClientRect().width
+    }));
+    expect(searchWidths.input).toBeCloseTo(searchWidths.area, 0);
+    await expect(search).toHaveAttribute("data-ph-capture-attribute-action", "invitation_search");
     await search.fill("노을");
+    await search.press("Enter");
+    await expect(dialog).toBeVisible();
+    expect(state.creates).toHaveLength(0);
     await selectCandidate(page, dialog, "노을");
     await search.fill("하늘");
     await selectCandidate(page, dialog, "하늘");

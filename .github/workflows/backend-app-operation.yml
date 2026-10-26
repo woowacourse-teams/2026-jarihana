@@ -1,0 +1,94 @@
+name: Backend Application Operation
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+      slot:
+        type: string
+        required: true
+      operation:
+        type: string
+        required: true
+      mode:
+        type: string
+        required: true
+      digest:
+        type: string
+        required: true
+    outputs:
+      result:
+        value: ${{ jobs.operation.outputs.result }}
+permissions:
+  contents: read
+  actions: read
+  packages: read
+jobs:
+  operation:
+    runs-on: ["${{ vars[format('BLUE_GREEN_{0}_{1}_RUNNER', inputs.environment == 'dev' && 'DEV' || 'PROD', inputs.slot)] }}"]
+    environment: ${{ inputs.environment }}
+    # Coordinator leases: prepare 1500s, observe 1800s, other operations 600s.
+    # Queue/checkout time also consumes the lease; expired grants fail closed.
+    timeout-minutes: ${{ inputs.operation == 'prepare' && 22 || inputs.operation == 'observe' && 20 || 8 }}
+    outputs:
+      result: ${{ steps.operation.outputs.result }}
+    env:
+      BG_ENVIRONMENT: ${{ inputs.environment }}
+      BG_SLOT: ${{ inputs.slot }}
+      BG_MODE: ${{ inputs.mode }}
+      BG_OPERATION: ${{ inputs.operation }}
+      BG_IMAGE_DIGEST: ${{ inputs.digest }}
+      BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
+      GH_TOKEN: ${{ github.token }}
+      RDS_URL: ${{ vars.BLUE_GREEN_RDS_URL || vars.RDS_URL }}
+      BLUE_GREEN_RDS_URL: ${{ vars.BLUE_GREEN_RDS_URL || (inputs.environment == 'prod' && vars.RDS_URL) }}
+      BG_APPROVED_RDS_URL: ${{ vars.BLUE_GREEN_RDS_URL }}
+      DB_USERNAME: ${{ vars.DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      INVITATION_TOKEN_ACTIVE_KEY_ID: ${{ vars.INVITATION_TOKEN_ACTIVE_KEY_ID || 'primary' }}
+      INVITATION_TOKEN_KEY_PRIMARY: ${{ secrets.INVITATION_TOKEN_KEY_PRIMARY }}
+      INVITATION_TOKEN_KEY_PREVIOUS: ${{ secrets.INVITATION_TOKEN_KEY_PREVIOUS }}
+      ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
+      FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
+      GITHUB_OAUTH_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
+      GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
+      GITHUB_OAUTH_REDIRECT_URI: ${{ vars.OAUTH_GITHUB_REDIRECT_URI }}
+      PUSH_ENABLED: ${{ inputs.environment == 'dev' && 'false' || vars.PUSH_ENABLED || 'false' }}
+      PUSH_WORKER_ENABLED: ${{ inputs.environment == 'dev' && 'false' || vars.PUSH_WORKER_ENABLED || 'true' }}
+      PUSH_VAPID_PUBLIC_KEY: ${{ vars.PUSH_VAPID_PUBLIC_KEY }}
+      PUSH_VAPID_PRIVATE_KEY: ${{ secrets.PUSH_VAPID_PRIVATE_KEY }}
+      PUSH_VAPID_SUBJECT: ${{ vars.PUSH_VAPID_SUBJECT }}
+      SENTRY_BACKEND_DSN: ${{ vars.SENTRY_BACKEND_DSN }}
+      IMAGE_S3_BUCKET: ${{ vars.IMAGE_S3_BUCKET }}
+      IMAGE_S3_REGION: ${{ vars.IMAGE_S3_REGION }}
+      IMAGE_S3_KEY_PREFIX: ${{ vars.IMAGE_S3_KEY_PREFIX }}
+      IMAGE_S3_PUBLIC_BASE_URL: ${{ vars.IMAGE_S3_PUBLIC_BASE_URL }}
+      IMAGE_CDN_DELIVERY_BASE_URL: ${{ vars.IMAGE_CDN_DELIVERY_BASE_URL }}
+      IMAGE_CLOUDFRONT_KEY_PAIR_ID: ${{ vars.IMAGE_CLOUDFRONT_KEY_PAIR_ID }}
+      IMAGE_CLOUDFRONT_PRIVATE_KEY: ${{ secrets.IMAGE_CLOUDFRONT_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ vars.BLUE_GREEN_CONTROL_REF }}
+          persist-credentials: false
+      - name: 임시 Docker 인증 디렉터리
+        if: inputs.operation == 'prepare'
+        shell: bash
+        run: echo "DOCKER_CONFIG=$(mktemp -d "$RUNNER_TEMP/bg-auth.XXXXXX")" >> "$GITHUB_ENV"
+      - uses: docker/login-action@v3
+        if: inputs.operation == 'prepare'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: 로컬 앱의 허가·신원을 확인하고 작업 실행
+        id: operation
+        shell: bash
+        run: bash infra/scripts/deploy/actions/app.sh "$BG_OPERATION"
+      - name: 임시 Docker 인증 정리
+        if: always() && env.DOCKER_CONFIG != ''
+        shell: bash
+        run: |
+          docker logout ghcr.io || true
+          rm -rf -- "$DOCKER_CONFIG"

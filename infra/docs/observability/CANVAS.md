@@ -85,8 +85,8 @@ Grafana dashboard provider는 `Jarihana` 폴더의 JSON 파일을 시작 시 등
 | --- | --- |
 | 앱 `/actuator/prometheus` scrape | 5초, timeout 4초 |
 | Alloy metric remote write | 1초 batch |
-| 앱 health와 DB health probe | 60초 |
-| 호스트 지표 | 30초 |
+| 앱 health와 DB health probe | 10초 |
+| 호스트 지표 | 10초 |
 | Grafana dashboard refresh | 5초 |
 
 Tempo 선택 구성을 켜면 trace batch, metrics-generator collection, metrics-generator remote write 주기가

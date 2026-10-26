@@ -234,6 +234,34 @@ POSTGRES_MONITOR_DSN=postgresql://postgres_monitor:<encoded-password>@<rds-endpo
 시퀀스·권한·복원 검증은 별도로 필요하다. [인프라 ADR 0002](../adr/0002-rds-deployment-database.md)를
 따라 dev·prod 모두 RDS를 사용한다.
 
+부하 테스트 대시보드의 락 대기·SQL별 통계·I/O는 기존 Alloy PostgreSQL exporter가
+`postgres-queries.yaml`의 SELECT 쿼리로 RDS에서 직접 읽는다. dev·prod Compose가 같은
+쿼리 파일을 마운트하며, 파일을 바꾸면 해당 환경의 Alloy를 다시 반영해야 한다.
+
+모니터링 계정으로 다음 읽기 전용 조회를 실행해 사전 조건을 확인한다.
+
+```sql
+SELECT current_database(), current_setting('server_version_num'),
+       current_setting('track_io_timing');
+SHOW shared_preload_libraries;
+SHOW compute_query_id;
+SELECT pg_has_role(current_user, 'pg_monitor', 'member');
+SELECT extname FROM pg_extension WHERE extname = 'pg_stat_statements';
+```
+
+SQL 통계 확장은 백엔드 Flyway `V5__enable_query_statistics.sql`이 각 DB의 `public` 스키마에
+생성한다. 이미 생성된 확장은 유지한다. 배포 전에 Flyway 접속 계정의 확장 생성 권한과
+RDS의 확장 허용 설정을 확인한다. 권한이 없으면 마이그레이션과 앱 기동이 실패한다.
+Flyway는 수집 계정 권한을 부여하거나 통계를 초기화하지 않는다. 수집 계정은
+`POSTGRES_MONITOR_DSN`의 사용자이며 백엔드 계정과 같다고 가정하지 않는다.
+
+RDS 파라미터 그룹에는 `pg_stat_statements`가 미리 로드되고 `compute_query_id`가 `auto` 또는
+`on`이어야 한다. preload 설정을 추가해야 한다면 기존 라이브러리 목록을 보존하고 RDS를
+재부팅한 후 Alloy 수집을 확인한다. I/O 시간 통계는 PostgreSQL 16 이상과 `track_io_timing=on`이
+필요하다. 이 파라미터와 계정 권한은 자동 변경하지 않는다. 타이밍 수집과 SQL 통계 수집에는
+추가 비용이 있으므로 성능 비교 시 같은 설정을 유지하고 `pg_stat_statements.track_planning`은
+필요하지 않으면 기본값 `off`를 유지한다. DSN 비밀번호나 SQL 원문을 메트릭 라벨로 내보내지 않는다.
+
 ## 2. 앱과 Alloy 함께 실행
 
 앱 EC2의 저장소 루트에서 환경변수 파일을 준비한다. dev EC2와 prod EC2에 각각 준비하며
@@ -262,10 +290,31 @@ profile, Grafana Tempo 데이터 소스 복원, Nginx trace 경로 복원, Prome
 `APP_METRICS_TARGET`은 dev·prod 각 Compose에서 `127.0.0.1:8081`로 고정해 Alloy 컨테이너에 전달한다.
 셸이나 `.env`의 값으로 치환하지 않는다. 호스트 `8081`은 컨테이너 관리 포트 `8081`로 연결한다. Alloy는 해당 앱 하나를
 `/actuator/prometheus` 경로로 읽고 같은 포트의 `/actuator/health`, `/actuator/health/liveness`,
-`/actuator/health/database`를 각각 60초마다 확인한다. 이 경로에는 업무 API의 `/api` 접두사를
-붙이지 않는다. Alloy의 PostgreSQL exporter도 별도 계정으로 DB에 직접 접속해 60초마다 수집한다.
+`/actuator/health/database`를 각각 10초마다 확인한다. 이 경로에는 업무 API의 `/api` 접두사를
+붙이지 않는다. Alloy의 PostgreSQL exporter도 별도 계정으로 DB에 직접 접속해 10초마다 수집한다.
 exporter는 연결 상태와 기본 통계를 함께 수집한다. 설정 통계는 끄고 추가 collector는 `database`로
 제한했지만, `SELECT 1` 한 번만 실행하는 구성은 아니다. 운영 DB에서의 부하는 별도 확인이 필요하다.
+
+health와 DB 직접 검사 주기를 바꾸면 모니터링 EC2만으로는 전체 반영이 끝나지 않는다. dev·prod
+백엔드 EC2의 Alloy도 같은 설정 파일을 사용하므로 각 백엔드 배포 파이프라인에서 함께 갱신해야 한다.
+
+| 대상 | 수집자 | 주기 |
+| --- | --- | --- |
+| 백엔드 요청 수·응답 시간·JVM·HikariCP·JDBC 지표 | dev·prod 백엔드 EC2의 Alloy | 5초 |
+| 백엔드 health·liveness·Actuator DB health | dev·prod 백엔드 EC2의 Alloy blackbox exporter | 10초 |
+| PostgreSQL 직접 접속 검사와 DB 지표 | dev·prod 백엔드 EC2의 Alloy PostgreSQL exporter | 10초 |
+| dev·prod EC2 CPU·메모리·디스크·inode | dev·prod 백엔드 EC2의 Alloy node exporter | 10초 |
+| 모니터링 EC2 CPU·메모리·디스크·inode | 모니터링 EC2의 Alloy node exporter | 10초 |
+| Prometheus·Loki·Grafana 자체 지표 | 모니터링 EC2의 Prometheus | 10초 |
+| Alloy 자체 지표 | 각 EC2의 Alloy | 10초 |
+| 백엔드 로그 | dev·prod 백엔드 EC2의 Alloy | Docker 로그를 계속 읽어 전송 |
+
+Prometheus와 Grafana 알림 평가는 10초마다 실행한다. Grafana의 Prometheus 데이터 소스
+`timeInterval`은 가장 짧은 백엔드 수집 주기에 맞춰 5초로 둔다. 이는 쿼리 간격을 계산할 때 쓰는
+설정이며, 수집 주기를 바꾸는 설정은 아니다.
+
+`develop`에 병합되면 모니터링 EC2 배포와 dev 백엔드 EC2 Alloy 배포가 각각 트리거된다.
+prod 백엔드 EC2 Alloy는 `main`에 반영된 뒤 prod 백엔드 배포에서 갱신된다.
 
 직접 검사 실패는 해당 계정·네트워크에서 접속하지 못했다는 뜻이며, 앱 계정의 연결 검사는
 Actuator로 따로 확인한다. 두 토폴로지 모두 DB 아이콘은 직접 검사 결과를, DB 연결선은 앱 연결

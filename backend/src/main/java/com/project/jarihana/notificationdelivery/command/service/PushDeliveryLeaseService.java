@@ -15,7 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -25,30 +27,46 @@ public class PushDeliveryLeaseService {
     private final PushSubscriptionCommandRepository subscriptions;
     private final PushProperties properties;
     private final Clock clock;
+    private final WorkerAuthorityService authority;
 
     @Transactional
     public Optional<DeliveryClaim> claimNext() {
+        return claimNext(1).stream().findFirst();
+    }
+
+    @Transactional
+    public List<DeliveryClaim> claimNext(int limit) {
+        if (limit < 0) {
+            throw new IllegalArgumentException("Claim limit must not be negative");
+        }
+        if (!authority.claimAllowed()) { return List.of(); }
         LocalDateTime now = LocalDateTime.now(clock);
-        return work.claimNext(now, now.plus(properties.leaseDuration()));
+        return work.claimNext(now, now.plus(properties.leaseDuration()), limit);
     }
 
     @Transactional
     public Optional<PushRequest> prepare(DeliveryClaim claim) {
+        return prepare(List.of(claim)).stream().findFirst();
+    }
+
+    @Transactional
+    public List<PushRequest> prepare(List<DeliveryClaim> claims) {
         LocalDateTime now = LocalDateTime.now(clock);
-        var result = work.findSendable(claim, now);
-        if (result.isEmpty()) { work.cancelUnsendable(claim, now); }
+        var result = work.findSendable(claims, now);
+        var sendableIds = result.stream().map(PushRequest::deliveryId).collect(Collectors.toSet());
+        work.cancelUnsendable(claims.stream().filter(claim -> !sendableIds.contains(claim.id())).toList(), now);
         return result;
     }
 
     @Transactional
-    public void finish(DeliveryClaim claim, PushRequest request, PushResult result) {
+    public boolean finish(DeliveryClaim claim, PushRequest request, PushResult result) {
         var subscription = subscriptions.findWithLockById(request.subscriptionId()).orElseThrow();
         LocalDateTime now = LocalDateTime.now(clock);
         if (!subscription.isEnabled() || subscription.getGeneration() != request.generation()) {
-            work.finish(claim, DeliveryStatus.CANCELLED, now, "STALE_TARGET", now);
-            return;
+            int updated = work.finish(claim, DeliveryStatus.CANCELLED, now, "STALE_TARGET", now);
+            return isResultConfirmed(claim, updated);
         }
-        int attempts = work.attemptCount(claim.id());
+        int attempts = claim.attemptCount();
         Duration delay = properties.retryDelay().multipliedBy(1L << Math.min(attempts - 1, 4));
         if (result.retryAfter() != null && result.retryAfter().compareTo(delay) > 0) { delay = result.retryAfter(); }
         boolean canRetry = attempts < 5 && delay.compareTo(Duration.between(now, request.expiresAt())) < 0;
@@ -64,5 +82,14 @@ public class PushDeliveryLeaseService {
             var disabled = subscriptions.save(subscription.disable(now));
             deliveries.cancelBySubscriptionBeforeGeneration(disabled.getId(), disabled.getGeneration(), now);
         }
+        return isResultConfirmed(claim, updated);
+    }
+
+    private boolean isResultConfirmed(DeliveryClaim claim, int updated) {
+        if (updated == 1) { return true; }
+        // 로그아웃·알림 삭제가 먼저 취소한 작업은 기존 취소 상태를 유지하며 정상 종료한다.
+        return deliveries.findById(claim.id())
+                .map(delivery -> delivery.getStatus() == DeliveryStatus.CANCELLED)
+                .orElse(false);
     }
 }

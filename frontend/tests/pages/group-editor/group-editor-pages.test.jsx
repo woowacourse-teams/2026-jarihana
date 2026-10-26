@@ -188,9 +188,68 @@ const openSchedule = async (user, name) =>
 const scheduleDialog = () => screen.getByRole("dialog", { name: "활동 일정" });
 
 describe("NewGroupPage", () => {
+  const originalScrollIntoView = Element.prototype.scrollIntoView;
+  beforeAll(() => {
+    Element.prototype.scrollIntoView = jest.fn();
+  });
+  afterAll(() => {
+    if (originalScrollIntoView) Element.prototype.scrollIntoView = originalScrollIntoView;
+    else delete Element.prototype.scrollIntoView;
+  });
   beforeEach(() => {
     jest.clearAllMocks();
     mockCreateGroup.mockResolvedValue({ id: 73, status: "ACTIVE" });
+  });
+
+  it("첫 오류 필드에 포커스하고 수정 후 다음 오류로 부드럽게 이동한다", async () => {
+    const user = userEvent.setup();
+    renderPage(<NewGroupPage />);
+    submitForm("group-create-form");
+    await waitFor(() => expect(screen.getByLabelText("모임 이름")).toHaveFocus());
+    expect(Element.prototype.scrollIntoView).toHaveBeenLastCalledWith({ behavior: "smooth", block: "center" });
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(mockCreateGroup).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText("모임 이름"), "테스트 모임");
+    submitForm("group-create-form");
+    await waitFor(() => expect(screen.getByLabelText("한 줄 소개")).toHaveFocus());
+    expect(screen.getByLabelText("모임 이름")).toHaveValue("테스트 모임");
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(2);
+    expect(mockCreateGroup).not.toHaveBeenCalled();
+  });
+
+  it("같이해요의 날짜 누락은 모달을 열지 않고 본문의 일정 설정으로 이동한다", async () => {
+    const user = userEvent.setup();
+    renderPage(<NewGroupPage />);
+    await user.selectOptions(screen.getByLabelText("모임 종류"), "SESSION");
+    await user.type(screen.getByLabelText("모임 이름"), "하루 모임");
+    await user.type(screen.getByLabelText("한 줄 소개"), "같이 만나요");
+    submitForm("group-create-form");
+    const scheduleButton = screen.getByRole("button", { name: "모임 일정 설정" });
+    expect(scheduleButton).toHaveAttribute("data-ph-capture-attribute-action", "group_schedule_edit");
+    await waitFor(() => expect(scheduleButton).toHaveFocus());
+    expect(screen.queryByRole("dialog", { name: "활동 일정" })).not.toBeInTheDocument();
+    expect(Element.prototype.scrollIntoView).toHaveBeenLastCalledWith({ behavior: "smooth", block: "center" });
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(mockCreateGroup).not.toHaveBeenCalled();
+
+    submitForm("group-create-form");
+    await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("dialog", { name: "활동 일정" })).not.toBeInTheDocument();
+
+    await user.click(scheduleButton);
+    await waitFor(() => expect(within(scheduleDialog()).getByLabelText("진행 날짜")).toHaveFocus());
+  });
+
+  it("동작 줄이기 설정이면 스크롤 애니메이션 없이 오류로 이동한다", async () => {
+    const media = Object.getOwnPropertyDescriptor(window, "matchMedia");
+    Object.defineProperty(window, "matchMedia", { configurable: true, value: query => ({ ...media.value(query), matches: true }) });
+    try {
+      renderPage(<NewGroupPage />);
+      submitForm("group-create-form");
+      await waitFor(() => expect(screen.getByLabelText("모임 이름")).toHaveFocus());
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({ behavior: "auto", block: "center" });
+    } finally { Object.defineProperty(window, "matchMedia", media); }
   });
 
   it("submits the exact SESSION create body when the session form is valid", async () => {

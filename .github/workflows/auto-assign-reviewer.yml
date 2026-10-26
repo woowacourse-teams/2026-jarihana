@@ -1,0 +1,61 @@
+name: Auto Assign High-Risk Reviewer
+
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review, synchronize, edited]
+    branches: [develop, main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  # Ignored title edits must not replace a pending meaningful assignment run.
+  group: ${{ github.event.action == 'edited' && github.event.changes.title != null && github.event.changes.body == null && github.event.changes.base == null && format('title-only-auto-assign-{0}', github.run_id) || format('auto-assign-reviewer-{0}', github.event.pull_request.number) }}
+  cancel-in-progress: false
+
+jobs:
+  assign-reviewer:
+    if: github.event.pull_request.draft == false && (github.event.action != 'edited' || github.event.changes.title == null || github.event.changes.body != null || github.event.changes.base != null)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      assigned_reviewer: ${{ steps.assign.outputs.assigned_reviewer }}
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Check out the trusted default branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Request one reviewer for a high-risk PR
+        id: assign
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node .github/scripts/auto-assign-reviewer.cjs
+
+  notify-assigned-reviewer:
+    needs: assign-reviewer
+    if: needs.assign-reviewer.outputs.assigned_reviewer != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the trusted default branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      # GITHUB_TOKEN review requests do not trigger another review_requested workflow.
+      - name: Notify the reviewer selected by this workflow
+        env:
+          ASSIGNED_REVIEWER: ${{ needs.assign-reviewer.outputs.assigned_reviewer }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_REVIEW_CHANNEL_ID: ${{ vars.SLACK_REVIEW_CHANNEL_ID }}
+          SLACK_REVIEW_USER_IDS: ${{ vars.SLACK_REVIEW_USER_IDS }}
+        run: node .github/scripts/slack-review-notifications.cjs assigned
