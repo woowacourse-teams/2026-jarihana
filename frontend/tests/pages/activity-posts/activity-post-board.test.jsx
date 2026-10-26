@@ -537,39 +537,61 @@ it("loads the next people when the end of the likes list comes into view", () =>
   }
 });
 
-it("switches between comments and likes with tabs and side swipes on a phone", () => {
+it("opens a bottom sheet on a phone and restores the comment draft and focus when dismissed", () => {
   mockCompactLayout(true);
+  useAuth.mockReturnValue({ isAuthenticated: true, login: jest.fn(), member: { id: 9 } });
   renderBoard();
   fireEvent.click(screen.getAllByRole("button", { name: /활동 사진/ })[0]);
   const dialog = screen.getByRole("dialog", { name: "우아한 스터디" });
-  const commentsTab = within(dialog).getByRole("tab", { name: "댓글 2" });
-  const likesTab = within(dialog).getByRole("tab", { name: "좋아요 3" });
-  expect(commentsTab).toHaveAttribute("aria-selected", "true");
-  expect(likesTab).toHaveAttribute("data-ph-capture-attribute-action", "activity_post_likes_tab_open");
+  expect(within(dialog).queryByRole("tablist")).not.toBeInTheDocument();
   expect(within(dialog).getByText("다음 모임에 저도 가고 싶어요")).toBeVisible();
+  const composer = within(dialog).getByRole("textbox", { name: "댓글" });
+  fireEvent.change(composer, { target: { value: "작성 중인 댓글" } });
+  const summary = within(dialog).getByRole("button", { name: "나, 바다 외 1명이 하트를 남겼어요" });
+  expect(summary).toHaveAttribute("aria-haspopup", "dialog");
+  fireEvent.click(summary);
 
-  const panels = dialog.querySelector(".activity-post-detail__panels");
-  fireEvent.pointerDown(panels, { clientX: 240, clientY: 300, pointerType: "touch" });
-  fireEvent.pointerUp(panels, { clientX: 120, clientY: 310, pointerType: "touch" });
+  const sheet = within(dialog).getByRole("dialog", { name: "좋아요한 사람" });
+  const close = within(sheet).getByRole("button", { name: "좋아요한 사람 닫기" });
+  expect(summary).toHaveAttribute("aria-controls", sheet.id);
+  expect(sheet).toHaveAttribute("aria-modal", "true");
+  expect(close).toHaveFocus();
+  expect(dialog.querySelector(".activity-post-detail__side").inert).toBe(true);
+  expect(within(sheet).getByText("구름")).toBeVisible();
+  const scrollArea = within(sheet).getByRole("region", { name: "좋아요 목록" });
+  scrollArea.focus();
+  fireEvent.keyDown(scrollArea, { key: "Tab" });
+  expect(close).toHaveFocus();
+  fireEvent.keyDown(close, { key: "Tab", shiftKey: true });
+  expect(scrollArea).toHaveFocus();
+  fireEvent.keyDown(scrollArea, { key: "Escape" });
 
-  expect(likesTab).toHaveAttribute("aria-selected", "true");
-  expect(within(dialog).getByRole("tabpanel", { name: "좋아요 3" })).toBeVisible();
-  expect(within(dialog).getByText("구름")).toBeVisible();
-  expect(within(dialog).getByText("다음 모임에 저도 가고 싶어요")).not.toBeVisible();
-  expect(within(dialog).queryByRole("button", { name: "로그인하고 댓글 남기기" })).not.toBeInTheDocument();
-
-  fireEvent.pointerDown(panels, { clientX: 100, clientY: 300, pointerType: "touch" });
-  fireEvent.pointerUp(panels, { clientX: 150, clientY: 420, pointerType: "touch" });
-  expect(likesTab).toHaveAttribute("aria-selected", "true");
-
-  fireEvent.pointerDown(panels, { clientX: 100, clientY: 300, pointerType: "touch" });
-  fireEvent.pointerUp(panels, { clientX: 220, clientY: 305, pointerType: "touch" });
-  expect(commentsTab).toHaveAttribute("aria-selected", "true");
-  expect(within(dialog).getByRole("button", { name: "로그인하고 댓글 남기기" })).toBeVisible();
-
-  fireEvent.click(within(dialog).getByRole("button", { name: "나, 바다 외 1명이 하트를 남겼어요" }));
-  expect(likesTab).toHaveAttribute("aria-selected", "true");
+  expect(within(dialog).queryByRole("dialog", { name: "좋아요한 사람" })).not.toBeInTheDocument();
+  expect(composer).toHaveValue("작성 중인 댓글");
+  expect(summary).toHaveFocus();
+  expect(dialog.querySelector(".activity-post-detail__side").inert).not.toBe(true);
+  expect(dialog).toBeVisible();
+  fireEvent.click(summary);
+  fireEvent.click(within(dialog).getByRole("button", { name: "좋아요 목록 닫기" }));
+  expect(within(dialog).queryByRole("dialog", { name: "좋아요한 사람" })).not.toBeInTheDocument();
+  expect(summary).toHaveFocus();
   expect(within(dialog).queryByRole("region", { name: "좋아요한 사람" })).not.toBeInTheDocument();
+});
+
+it("allows retrying a failed reactor query from the mobile sheet", () => {
+  mockCompactLayout(true);
+  const refetch = jest.fn();
+  useInfiniteActivityReactors.mockImplementation(() =>
+    reactorQuery({ data: undefined, isError: true, refetch })
+  );
+  renderBoard();
+  fireEvent.click(screen.getAllByRole("button", { name: /활동 사진/ })[0]);
+  const detail = screen.getByRole("dialog", { name: "우아한 스터디" });
+  fireEvent.click(within(detail).getByRole("button", { name: "3명이 하트를 남겼어요" }));
+  const sheet = within(detail).getByRole("dialog", { name: "좋아요한 사람" });
+  expect(within(sheet).getByText("좋아요한 사람을 불러오지 못했어요.")).toBeVisible();
+  fireEvent.click(within(sheet).getByRole("button", { name: "다시 시도" }));
+  expect(refetch).toHaveBeenCalledTimes(1);
 });
 
 it("shows the comment author's GitHub profile image", () => {
