@@ -914,7 +914,8 @@
 
 .activity-reactors-summary:focus-visible,
 .activity-reactors-popover__close:focus-visible,
-.activity-post-detail__tab:focus-visible {
+.activity-reactors-popover__body:focus-visible,
+.activity-reactors-sheet__body:focus-visible {
   outline: 0.125rem solid var(--color-brand-ink);
   outline-offset: 0.125rem;
 }
@@ -946,21 +947,23 @@
   border-bottom: var(--border-thin) solid var(--color-line);
 }
 
-.activity-reactors-popover__header h4 {
+.activity-reactors-popover__header h4,
+.activity-reactors-popover__header h3 {
   flex: 1;
   margin: 0;
   font-size: var(--text-label);
 }
 
-.activity-reactors-popover__header h4 span {
+.activity-reactors-popover__header h4 span,
+.activity-reactors-popover__header h3 span {
   color: var(--color-brand-ink);
   font-variant-numeric: tabular-nums;
 }
 
 .activity-reactors-popover__close {
   display: grid;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: var(--touch-target);
+  height: var(--touch-target);
   border: 0;
   border-radius: 50%;
   background: none;
@@ -1060,44 +1063,54 @@
   gap: var(--space-2);
 }
 
-/* 모바일 댓글과 좋아요 탭: 좌우로 쓸어도 넘어가도록 세로 스크롤만 브라우저에 맡긴다. */
-.activity-post-detail__tabs {
+/* 시안 A: 상세와 댓글 초안 위에 독립적으로 스크롤하는 하단 시트를 연다. */
+.activity-reactors-sheet-overlay {
+  position: fixed;
+  z-index: 5;
+  inset: 0;
   display: grid;
-  margin: 0 calc(var(--space-5) * -1);
-  border-bottom: var(--border-thin) solid var(--color-line);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
 }
 
-.activity-post-detail__tab {
-  min-height: 2.75rem;
+.activity-reactors-sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
   border: 0;
-  border-bottom: 0.125rem solid transparent;
-  background: none;
-  color: var(--color-muted-ink);
-  cursor: pointer;
-  font: inherit;
-  font-size: var(--text-label);
-  font-weight: var(--font-weight-bold);
+  background: var(--color-overlay);
 }
 
-.activity-post-detail__tab span {
-  font-variant-numeric: tabular-nums;
-}
-
-.activity-post-detail__tab[aria-selected="true"] {
-  border-bottom-color: var(--color-ink);
-  color: var(--color-ink);
-}
-
-.activity-post-detail__panels {
+.activity-reactors-sheet {
+  position: relative;
   display: grid;
-  min-height: 12rem;
-  touch-action: pan-y;
+  height: 74%;
+  max-height: calc(100% - env(safe-area-inset-top, 0px) - var(--space-4));
+  overflow: hidden;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-float);
+  grid-template-rows: auto auto minmax(0, 1fr);
 }
 
-.activity-post-detail__comments[hidden],
-.activity-post-detail__likes[hidden] {
-  display: none;
+.activity-reactors-sheet__handle {
+  width: var(--space-8);
+  height: var(--space-1);
+  margin: var(--space-2) auto 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-line-strong);
+}
+
+.activity-reactors-sheet__body {
+  min-height: 0;
+  padding: var(--space-4) var(--space-5) calc(env(safe-area-inset-bottom, 0px) + var(--space-4));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.activity-post-detail:has(.activity-reactors-sheet-overlay) {
+  overflow: hidden;
 }
 
 /* 댓글 */
@@ -1326,6 +1339,16 @@
   .activity-photo-viewer {
     animation: activity-photo-viewer-in var(--duration-base) var(--ease-standard);
   }
+
+  .activity-reactors-sheet {
+    animation: activity-reactors-sheet-in var(--duration-base) var(--ease-standard);
+  }
+}
+
+@keyframes activity-reactors-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
 }
 
 @keyframes activity-photo-viewer-in {
@@ -1336,6 +1359,10 @@
 
 /* 모바일: 전체 화면 상세, 사진과 대화를 함께 스크롤하고 입력창은 아래에 고정한다. */
 @media (max-width: 39.9375rem) {
+  .activity-reactors-summary {
+    min-height: var(--touch-target);
+  }
+
   .ui-overlay:has(> .activity-post-detail) {
     padding: 0;
   }
