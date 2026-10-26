@@ -1,0 +1,37 @@
+{
+  "repository": {
+    "full_name": "woowacourse-teams/2026-jarihana",
+    "id": 1321030074
+  },
+  "topology": {
+    "environment": "dev",
+    "coordinator_instance_id": "i-00000000000000000",
+    "a": {
+      "slot": "A",
+      "host_id": "dev-a",
+      "instance_id": "i-aaaaaaaaaaaaaaaaa",
+      "upstream": "10.0.0.10:8080"
+    },
+    "b": {
+      "slot": "B",
+      "host_id": "dev-b",
+      "instance_id": "i-bbbbbbbbbbbbbbbbb",
+      "upstream": "10.0.0.11:8080"
+    },
+    "control": {
+      "ref": "refs/tags/deployment-control-v1",
+      "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  "local_slot": "A",
+  "coordinator_address": "10.0.0.5",
+  "journal_key": "/etc/jarihana-deploy/dev/grant-key",
+  "known_hosts": "/etc/jarihana-deploy/dev/known-hosts",
+  "worker_token_file": "/etc/jarihana-deploy/dev/worker-token",
+  "compose_file": "/etc/jarihana-deploy/dev/app-compose.yml",
+  "container_name": "jarihana-dev-backend-1",
+  "project": "jarihana-dev",
+  "management_port": 8081,
+  "app_port": 8080,
+  "image_repository": "ghcr.io/woowacourse-teams/jarihana-backend"
+}
