@@ -40,9 +40,14 @@ runner는 워크플로의 `GITHUB_TOKEN`만으로 이미지를 빌드해 GHCR에
   저장소가 공개 저장소라 이 runner에 추가 비용이 없다(2026-10-08 확인).
 - 빌드 job에는 Environment를 붙이지 않는다. 받는 권한은 `contents: read`와 `packages: write`뿐이며,
   실행 값 시크릿은 빌드 job에 들어가지 않는다.
-- jar는 runner가 회귀 테스트 뒤 `./gradlew bootJar`로 만들고, Dockerfile은 그 jar만 복사한다. 이전에는
+- jar는 runner가 `./gradlew bootJar`로 만들고, Dockerfile은 그 jar만 복사한다. 이전에는
   Dockerfile 안의 빈 환경에서 Gradle 배포판과 의존성을 다시 받고 테스트 단계에서 이미 한 컴파일을
   반복했다(2026-10-15 변경).
+- 회귀 테스트는 PR CI(`ci.yml`의 Backend Test)에서 실행한다. 배포 빌드에서는 같은 테스트를 반복하지 않는다.
+  develop과 main의 `ci-rule`은 최신 기준 브랜치를 반영한 PR이 테스트를 통과해야 병합되도록 한다.
+  이 규칙의 우회 대상은 없으며, 작업 브랜치는 squash 병합한다. 따라서 병합된 코드는 PR CI에서 검증한 코드와 같다.
+  배포 빌드에서 이 테스트를 다시 실행하는 데 125~146초가 걸렸으며, 전체 빌드 시간의 약 70%를 차지했다
+  (2026-10-19 변경).
 - 이미지는 Buildx로 빌드하고 레이어 캐시는 이미지 안에 함께 담는다(`cache-to: type=inline`). 다음 빌드는
   `buildcache` 태그가 가리키는 직전 develop 이미지에서 캐시를 읽는다(`cache-from: type=registry`). 호스팅
   runner는 매번 새로 만들어져 로컬 캐시가 없으므로, 캐시가 없으면 yum 설치와 같은 레이어가 매번 새
@@ -164,6 +169,9 @@ runner는 워크플로의 `GITHUB_TOKEN`만으로 이미지를 빌드해 GHCR에
 - GHCR 정리에서 `buildcache` 태그가 붙은 최신 develop 이미지는 지우지 않아야 한다.
 - Dockerfile만으로는 이미지를 만들 수 없다. 로컬에서 이미지를 빌드하려면 먼저 `./gradlew bootJar`로
   jar를 만든다.
+- 배포 빌드에서는 테스트를 실행하지 않으므로, 병합 전 테스트는 PR CI와 develop의 브랜치 규칙으로 보장한다.
+  Backend Test를 필수 검사에서 제외하거나 규칙 우회를 허용하면, 테스트를 거치지 않은 코드도 이미지로
+  빌드될 수 있다.
 - GitHub에 장애가 나면 빌드와 배포가 함께 멈춘다. 이는 지금의 runner 방식과 같다.
 - main에만 넣은 백엔드 핫픽스는 이미지가 없어 prod에 배포되지 않는다. 핫픽스도 develop을 거쳐야 한다.
 

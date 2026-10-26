@@ -21,7 +21,7 @@ management:
       discovery:
         enabled: false
       exposure:
-        include: health,prometheus
+        include: health,prometheus,workercontrol
   endpoint:
     health:
       access: read-only
@@ -30,10 +30,14 @@ management:
       probes:
         enabled: true
       group:
+        readiness:
+          include: readinessState,db,chatListener
         database:
           include: db
     prometheus:
       access: read-only
+    workercontrol:
+      access: unrestricted
   metrics:
     distribution:
       percentiles-histogram:
@@ -54,7 +58,7 @@ management:
 logging:
   structured:
     format:
-      console: ecs
+      console: com.project.jarihana.common.logging.Utf8EcsStructuredLogFormatter
     ecs:
       service:
         environment: dev

@@ -110,10 +110,10 @@ public record GroupDetailResponse(
             }
             return new GroupLeader(
                     member.memberId(),
-                    member.member().getCrewName(),
-                    member.member().getGeneration(),
-                    member.member().getMemberType().name(),
-                    GithubAvatarUrl.from(member.member().getGithubId())
+                    member.crewName(),
+                    member.generation(),
+                    member.memberType().name(),
+                    GithubAvatarUrl.from(member.githubId())
             );
         }
     }

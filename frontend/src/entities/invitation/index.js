@@ -35,6 +35,7 @@ export const createdInvitationSchema = z.object({
 });
 export const invitationCandidatePageSchema = cursorPageSchema(z.object({
   memberId: id, crewName: z.string(), generation: z.number().int().positive().nullable(),
+  avatarUrl: z.string().url().nullish(),
   memberType: memberTypeSchema, course: courseSchema.nullable()
 }));
 export const issuedInvitationPageSchema = cursorPageSchema(z.object({

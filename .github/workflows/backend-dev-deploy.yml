@@ -8,10 +8,21 @@ on:
       - "backend/**"
       - "infra/docker-compose.dev.yml"
       - "infra/monitoring/alloy/config.alloy"
+      - "infra/monitoring/alloy/postgres-queries.yaml"
       - "infra/scripts/verify-backend.sh"
+      - "infra/scripts/deploy/**"
+      - "infra/deploy/controller/**"
       - ".github/workflows/backend-dev-deploy.yml"
+      - ".github/workflows/backend-bluegreen-deploy.yml"
+      - ".github/workflows/backend-app-operation.yml"
+      - ".github/workflows/backend-bluegreen-phase.yml"
   workflow_dispatch:
     inputs:
+      blue_green_mode:
+        description: 'legacy=자동화 비활성 상태의 기존 배포, bootstrap=최초 권한 등록, deploy=Blue-Green 배포'
+        type: choice
+        options: [legacy, bootstrap, deploy]
+        default: legacy
       image_tag:
         description: "다시 배포할 기존 이미지 태그(커밋 SHA). 비우면 현재 커밋을 빌드해 배포한다."
         required: false
@@ -29,9 +40,29 @@ env:
   BACKEND_IMAGE: ghcr.io/woowacourse-teams/jarihana-backend
 
 jobs:
+  route:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      route: ${{ steps.route.outputs.route }}
+      mode: ${{ steps.route.outputs.mode }}
+    env:
+      BG_DEV_AUTO_ENABLED: ${{ vars.BLUE_GREEN_DEV_ENABLED || 'false' }}
+      BG_PROD_AUTO_ENABLED: ${{ vars.BLUE_GREEN_PROD_ENABLED || 'false' }}
+      BG_REQUESTED_MODE: ${{ inputs.blue_green_mode }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: dev 배포 경로를 한 개만 선택
+        id: route
+        run: bash infra/scripts/deploy/actions/dev-route.sh
+
   # 이미지는 GitHub 호스팅 ARM runner에서 빌드해 GHCR에 올린다. 서버는 빌드하지 않는다.
   build:
-    if: github.ref == 'refs/heads/develop' && inputs.image_tag == ''
+    needs: route
+    if: needs.route.result == 'success' && inputs.image_tag == ''
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     permissions:
@@ -52,11 +83,9 @@ jobs:
           cache: gradle
           cache-dependency-path: backend/**/*.gradle*
 
-      - name: Backend 마이그레이션 및 회귀 테스트
-        working-directory: backend
-        run: ./gradlew test --no-daemon
-
-      # Dockerfile은 이 jar를 복사하기만 한다. 테스트가 컴파일한 결과와 Gradle 캐시를 그대로 쓰므로 jar로 묶는 일만 남는다.
+      # 회귀 테스트는 PR CI(ci.yml의 Backend Test)에서 실행한다.
+      # develop 규칙(ci-rule)은 최신 develop을 반영한 PR의 테스트 통과를 병합 조건으로 요구하며, 우회 대상은 없다.
+      # 배포에서는 테스트를 반복하지 않고 jar를 빌드한다. Dockerfile은 이 jar를 복사한다.
       - name: Backend jar 빌드
         working-directory: backend
         run: ./gradlew bootJar --no-daemon
@@ -103,10 +132,11 @@ jobs:
   # 교체 뒤 readiness 대기와 스모크 테스트를 하고, 실패하면 직전 성공 태그로 되돌린 뒤 실패로 끝낸다.
   # image_tag를 넣어 수동 실행하면 빌드를 건너뛰고 그 태그로 다시 배포한다. 없는 태그면 받기에서 실패한다.
   deploy:
-    needs: build
+    needs: [route, build]
     if: >-
       always()
-      && github.ref == 'refs/heads/develop'
+      && !cancelled() && needs.route.result == 'success'
+      && needs.route.outputs.route == 'legacy'
       && (needs.build.result == 'success'
         || (needs.build.result == 'skipped' && inputs.image_tag != ''))
     runs-on: [jarihana-dev]
@@ -261,3 +291,20 @@ jobs:
           docker image prune -af \
             --filter "until=168h" \
             --filter "label=org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}"
+
+  blue-green:
+    needs: [route, build]
+    if: >-
+      always() && !cancelled() && needs.route.result == 'success' &&
+      needs.route.outputs.route == 'blue-green' &&
+      (needs.build.result == 'success' || (needs.build.result == 'skipped' && inputs.image_tag != ''))
+    permissions:
+      contents: read
+      packages: read
+      actions: write
+    uses: ./.github/workflows/backend-bluegreen-deploy.yml
+    with:
+      environment: dev
+      image_tag: ${{ inputs.image_tag || github.sha }}
+      mode: ${{ needs.route.outputs.mode }}
+    secrets: inherit

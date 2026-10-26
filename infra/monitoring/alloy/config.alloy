@@ -87,6 +87,7 @@ prometheus.scrape "app" {
 			"__address__" = sys.env("APP_METRICS_TARGET"),
 			"application" = "jarihana",
 			"environment" = sys.env("SPRING_PROFILES_ACTIVE"),
+			"host_id"     = sys.env("HOST_ID"),
 			"instance"    = sys.env("HOST_ID") + ":" + sys.env("SPRING_PROFILES_ACTIVE"),
 		},
 	]
@@ -134,7 +135,7 @@ discovery.relabel "app_health" {
 
 prometheus.scrape "app_health" {
 	targets         = discovery.relabel.app_health.output
-	scrape_interval = "60s"
+	scrape_interval = "10s"
 	scrape_timeout  = "10s"
 	forward_to      = [prometheus.remote_write.monitoring.receiver]
 }
@@ -179,7 +180,7 @@ discovery.relabel "database_health" {
 
 prometheus.scrape "database_health" {
 	targets         = discovery.relabel.database_health.output
-	scrape_interval = "60s"
+	scrape_interval = "10s"
 	scrape_timeout  = "10s"
 	forward_to      = [prometheus.remote_write.monitoring.receiver]
 }
@@ -224,15 +225,16 @@ discovery.relabel "app_liveness" {
 
 prometheus.scrape "app_liveness" {
 	targets         = discovery.relabel.app_liveness.output
-	scrape_interval = "60s"
+	scrape_interval = "10s"
 	scrape_timeout  = "10s"
 	forward_to      = [prometheus.remote_write.monitoring.receiver]
 }
 
 prometheus.exporter.postgres "database" {
 	data_source_names       = [sys.env("POSTGRES_MONITOR_DSN")]
+	custom_queries_config_path = "/etc/alloy/postgres-queries.yaml"
 	disable_settings_metrics = true
-	enabled_collectors     = ["database"]
+	enabled_collectors     = ["database", "stat_database"]
 }
 
 discovery.relabel "postgres" {
@@ -271,7 +273,7 @@ discovery.relabel "postgres" {
 
 prometheus.scrape "postgres" {
 	targets         = discovery.relabel.postgres.output
-	scrape_interval = "60s"
+	scrape_interval = "10s"
 	scrape_timeout  = "10s"
 	forward_to      = [prometheus.remote_write.monitoring.receiver]
 }
@@ -289,7 +291,7 @@ prometheus.exporter.unix "host" {
 
 prometheus.scrape "host" {
 	job_name        = "jarihana-host"
-	scrape_interval = "30s"
+	scrape_interval = "10s"
 	targets         = prometheus.exporter.unix.host.targets
 	forward_to      = [prometheus.relabel.host_labels.receiver]
 }
@@ -315,7 +317,7 @@ prometheus.relabel "host_labels" {
 
 prometheus.scrape "alloy" {
 	job_name        = "jarihana-alloy"
-	scrape_interval = "30s"
+	scrape_interval = "10s"
 
 	targets = [
 		{

@@ -53,11 +53,26 @@ test.each([
   ["PARTICIPANT_JOINED", "모임 참여가 완료되었어요."],
   ["REGISTRATION_APPROVED", "모임 신청이 승인되었어요."],
   ["REGISTRATION_REJECTED", "모임 신청 결과를 확인해 주세요."],
-  ["REGISTRATION_SYSTEM_REJECTED", "모집 상태 변경으로 신청이 마감되었어요."]
+  ["REGISTRATION_SYSTEM_REJECTED", "모집 상태 변경으로 신청이 마감되었어요."],
+  ["ACTIVITY_POST_COMMENTED", "내 활동 기록에 새 댓글이 달렸어요."]
 ])("%s uses the app title and preserves its event body", async (eventType, body) => {
   const w = worker(); await bind(w);
   w.fetcher.mockResolvedValueOnce({ ok: true, json: async () => ({ success: true,
     data: { notificationId: 5, payloadVersion: 1, eventType } }) });
+  await w.push();
+  expect(w.self.registration.showNotification).toHaveBeenCalledWith("자리하나?", expect.objectContaining({ body }));
+});
+test.each([
+  [{ latestReactorName: "가온", otherReactorCount: 0 }, "가온님이 좋아요를 눌렀어요."],
+  [{ latestReactorName: "가온", otherReactorCount: 2 }, "가온 외 2명이 좋아요를 눌렀어요."],
+  [{ latestReactorName: "가온", otherReactorCount: 19 }, "가온 외 19명이 좋아요를 눌렀어요."],
+  [{ latestReactorName: "가온", otherReactorCount: 20 }, "회원님의 댓글이 무수한 관심을 받고 있어요."],
+  [undefined, "내 활동 기록에 좋아요가 도착했어요."],
+  [{ latestReactorName: "", otherReactorCount: -1 }, "내 활동 기록에 좋아요가 도착했어요."]
+])("heart push summary %p is shown as %s", async (reactionSummary, body) => {
+  const w = worker(); await bind(w);
+  w.fetcher.mockResolvedValueOnce({ ok: true, json: async () => ({ success: true,
+    data: { notificationId: 5, payloadVersion: 1, eventType: "ACTIVITY_POST_REACTED", reactionSummary } }) });
   await w.push();
   expect(w.self.registration.showNotification).toHaveBeenCalledWith("자리하나?", expect.objectContaining({ body }));
 });
