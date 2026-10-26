@@ -96,20 +96,28 @@ export function DateRangePicker({
   useLayoutEffect(() => {
     if (!calendarOpen && !activeTimeEndpoint) return;
 
-    const dialog = rootReference.current?.closest('[role="dialog"]');
+    const root = rootReference.current;
+    const dialog = root?.closest('[role="dialog"]');
+    const container = dialog || root?.closest("#main-content");
     const popover = popoverReference.current;
-    if (!dialog || !popover) return;
+    if (!container || !popover) return;
 
-    const dialogRect = dialog.getBoundingClientRect();
+    delete popover.dataset.placement;
+    const containerRect = container.getBoundingClientRect();
     const popoverRect = popover.getBoundingClientRect();
-    const visibleTop = dialogRect.top + dialog.clientTop;
-    const visibleBottom = visibleTop + dialog.clientHeight;
+    const visibleTop = containerRect.top + container.clientTop;
+    const visibleBottom = visibleTop + container.clientHeight;
     const overflowBelow = popoverRect.bottom - visibleBottom;
     const overflowAbove = visibleTop - popoverRect.top;
 
+    if (!dialog) {
+      if (overflowBelow > 0) popover.dataset.placement = "above";
+      return;
+    }
+
     if (overflowBelow > 0) dialog.scrollTop += overflowBelow;
     else if (overflowAbove > 0) dialog.scrollTop -= overflowAbove;
-  }, [activeTimeEndpoint, calendarOpen]);
+  }, [activeEndpoint, activeTimeEndpoint, calendarOpen, visibleMonth]);
 
   function changeEndpoint(endpoint) {
     const selectedDate = endpoint === "start" ? start.date : end.date || start.date;
