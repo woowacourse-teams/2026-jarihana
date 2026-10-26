@@ -10,9 +10,19 @@ on:
       - "infra/monitoring/alloy/config.alloy"
       - "infra/monitoring/alloy/postgres-queries.yaml"
       - "infra/scripts/verify-backend.sh"
+      - "infra/scripts/deploy/**"
+      - "infra/deploy/controller/**"
       - ".github/workflows/backend-prod-deploy.yml"
+      - ".github/workflows/backend-bluegreen-deploy.yml"
+      - ".github/workflows/backend-app-operation.yml"
+      - ".github/workflows/backend-bluegreen-phase.yml"
   workflow_dispatch:
     inputs:
+      blue_green_mode:
+        description: 'legacy=기존 배포, bootstrap=최초 권한 등록, deploy=수동 Blue-Green 배포'
+        type: choice
+        options: [legacy, bootstrap, deploy]
+        default: legacy
       image_tag:
         description: "다시 배포할 기존 이미지 태그(커밋 SHA). 비우면 main의 backend 코드에 해당하는 이미지를 찾아 배포한다."
         required: false
@@ -33,7 +43,9 @@ jobs:
   # prod는 빌드하지 않는다. develop 배포가 GHCR에 올린 이미지를 받아 컨테이너만 교체한다.
   # 교체 뒤 readiness 대기와 스모크 테스트를 하고, 실패하면 직전 성공 태그로 되돌린 뒤 실패로 끝낸다.
   deploy:
-    if: github.ref == 'refs/heads/main'
+    if: >-
+      github.ref == 'refs/heads/main' && vars.BLUE_GREEN_PROD_ENABLED != 'true' &&
+      inputs.blue_green_mode != 'bootstrap' && inputs.blue_green_mode != 'deploy'
     runs-on: [jarihana-prod]
     environment: prod
     timeout-minutes: 20
@@ -210,3 +222,20 @@ jobs:
           docker image prune -af \
             --filter "until=168h" \
             --filter "label=org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}"
+
+  blue-green:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      ((github.event_name == 'push' && vars.BLUE_GREEN_PROD_ENABLED == 'true') ||
+      (github.event_name == 'workflow_dispatch' &&
+      (inputs.blue_green_mode == 'bootstrap' || inputs.blue_green_mode == 'deploy')))
+    permissions:
+      contents: read
+      packages: read
+      actions: write
+    uses: ./.github/workflows/backend-bluegreen-deploy.yml
+    with:
+      environment: prod
+      image_tag: ${{ inputs.image_tag }}
+      mode: ${{ inputs.blue_green_mode || 'deploy' }}
+    secrets: inherit
