@@ -263,7 +263,7 @@ async function main() {
   }
 
   const author = String(pull.user && pull.user.login || "");
-  const sharedAreaOnly = paths.length > 0 && paths.every(isFrontendOrInfrastructure);
+  const sharedAreaOnly = !filesTruncated && paths.length > 0 && paths.every(isFrontendOrInfrastructure);
   const suggested = extractRecommendation(pull.body, owners.team);
   let reviewer = null;
   let reason = "";
@@ -275,7 +275,7 @@ async function main() {
     reviewer = suggested;
     reason = "PR authoring AI recommendation";
   } else {
-    const module = routeToModule(paths, owners.modules);
+    const module = filesTruncated ? null : routeToModule(paths, owners.modules);
     if (module) {
       reviewer = mappedModuleReviewer(module, owners.team, author);
       reason = "module " + module.id + " primary/backup mapping";
