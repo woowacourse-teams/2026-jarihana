@@ -4,7 +4,9 @@ import {
   activityCommentCreateResponseSchema,
   activityCommentPageSchema,
   activityPostCreateResponseSchema,
-  activityPostPageSchema
+  activityPostPageSchema,
+  ACTIVITY_REACTOR_PAGE_SIZE,
+  activityReactorPageSchema
 } from "../../entities/activity-post/index.js";
 import { apiRequest } from "../../shared/api/index.js";
 
@@ -81,4 +83,11 @@ export function addActivityReaction(target, emoji) {
 
 export function removeActivityReaction(target, emoji) {
   return apiRequest(reactionPath(target, emoji), { method: "delete" });
+}
+
+export function fetchActivityReactors({ target, emoji, cursor, size = ACTIVITY_REACTOR_PAGE_SIZE }) {
+  return apiRequest(reactionPath(target, emoji), {
+    searchParams: { ...(cursor ? { cursor } : {}), size },
+    schema: activityReactorPageSchema
+  });
 }

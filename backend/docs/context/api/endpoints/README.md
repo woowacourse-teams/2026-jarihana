@@ -4,7 +4,7 @@
 >
 > 구현·테스트와 충돌하면 임의로 해석하지 않고 차이를 보고한다.
 
-이 문서는 저장소에서 관리하는 활성 엔드포인트 81개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청, 응답, 오류는 Controller, 요청/응답 DTO, ErrorCode와 RestAssured 인수 테스트로 확인한다.
+이 문서는 저장소에서 관리하는 활성 엔드포인트 83개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청, 응답, 오류는 Controller, 요청/응답 DTO, ErrorCode와 RestAssured 인수 테스트로 확인한다.
 
 이 디렉터리는 API 엔드포인트의 전체 목록과 리소스별 상세 설계를 관리한다. 모든 엔드포인트는 [API 공통 설계](../common-contract.md)를 따르며, 상세 문서에는 엔드포인트 고유 내용만 둔다.
 
@@ -33,6 +33,8 @@
 | 활동 기록 | `DELETE` | `/api/activity-posts/{postId}/reactions/{emoji}` | `MEMBER` | 활동 기록의 내 하트 반응 취소 |
 | 활동 기록 | `PUT` | `/api/activity-post-comments/{commentId}/reactions/{emoji}` | `MEMBER` | 댓글에 하트 반응 추가 |
 | 활동 기록 | `DELETE` | `/api/activity-post-comments/{commentId}/reactions/{emoji}` | `MEMBER` | 댓글의 내 하트 반응 취소 |
+| 활동 기록 | `GET` | `/api/activity-posts/{postId}/reactions/{emoji}` | `PUBLIC` | 활동 기록에 하트를 남긴 회원 조회 |
+| 활동 기록 | `GET` | `/api/activity-post-comments/{commentId}/reactions/{emoji}` | `PUBLIC` | 댓글에 하트를 남긴 회원 조회 |
 | 피드백 | `POST` | `/api/feedbacks` | `MEMBER` | 피드백 작성 |
 | 가입 신청 | `GET` | `/api/groups/{groupId}/registrations/summary` | `LEADER` | 그룹의 미확인·처리 대기 신청 요약 조회 |
 | 가입 신청 | `PATCH` | `/api/recruitments/{recruitmentId}/registrations/read` | `LEADER` | 확인한 마지막 신청까지 읽음 처리 |
