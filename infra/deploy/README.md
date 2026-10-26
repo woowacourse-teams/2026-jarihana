@@ -13,12 +13,14 @@
 [인프라 ADR 0005](../docs/adr/0005-nginx-ec2-blue-green-deployment.md),
 [배포 적용 절차](controller/full-deployment.md), [Actions 계약](github-actions-adapter.md),
 [서버별 작업 계약](child-contract.md)을 함께 확인한다.
+실제 dev 도메인의 자동 배포 전환은 [dev 자동화 적용 순서](controller/dev-automatic-deployment.md)를 따른다.
 
 ## 실행 경로
 
 | 위치 (`infra/` 기준) | 역할 |
 | --- | --- |
 | `scripts/deploy/actions/common.sh` | root 설정·실제 GitHub/EC2·최신 허가·atomic 저널 공통 경계 |
+| `scripts/deploy/actions/dev-route.sh` | develop push·수동 실행의 배포 경로 선택과 공유 대기 EC2 활성화 충돌 차단 |
 | `scripts/deploy/actions/app.sh` | 앱 전용 runner의 prepare/handoff/activate/observe/complete/stop/rollback/bootstrap |
 | `scripts/deploy/actions/coordinator.sh` | Nginx runner의 plan/grant/switch/observe/seal/EC2/rollback/interrupt/watchdog |
 | `scripts/deploy/actions/cloud.sh` | 계정·VPC·IP를 대조한 EC2 시작·정상 중지 |
@@ -33,9 +35,13 @@ GitHub native `workflow_call`·`needs`·outputs가 전체 순서를 연결한다
 workflow를 dispatch하지 않으며 Python/uv를 배포 runtime으로 사용하지 않는다.
 앱 업무 Secrets는 선택한 GitHub environment에서만 전달한다.
 
-develop push는 기존 dev 배포를 유지한다. 첫 Blue-Green 검증은 수동 `bootstrap`과
-`deploy`로 수행한다. prod 자동 배포는 실제 검증 뒤 `BLUE_GREEN_PROD_ENABLED=true`로
-활성화한다. 예시 파일 복사나 develop 머지만으로 prod 배포 방식이 바뀌지 않는다.
+`BLUE_GREEN_DEV_ENABLED`가 false 또는 미설정이면 develop push는 기존 dev 배포를 유지한다.
+실제 요청 경로와 최초 worker 등록을 준비하고 true로 설정하면 이후 배포 대상 develop push는
+Blue-Green을 실행한다. 활성화 중에는 수동 `legacy`를 거부한다. 실제 dev 푸시는 기존 dev
+Variables를 따르고, 자동화 비활성 상태의 수동 실습은 발송과 scheduler를 false로 강제한다.
+prod 자동 배포는 별도 검증 뒤 `BLUE_GREEN_PROD_ENABLED=true`로 활성화한다.
+두 환경이 prod2를 공유하므로 dev·prod Blue-Green을 동시에 활성화할 수 없다.
+이 변수는 repository 범위에서 관리한다. 예시 복사나 코드 머지만으로 변수를 활성화하지 않는다.
 
 ## 안전 경계
 
