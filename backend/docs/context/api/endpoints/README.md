@@ -4,7 +4,7 @@
 >
 > 구현·테스트와 충돌하면 임의로 해석하지 않고 차이를 보고한다.
 
-이 문서는 저장소에서 관리하는 활성 엔드포인트 83개를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청, 응답, 오류는 Controller, 요청/응답 DTO, ErrorCode와 RestAssured 인수 테스트로 확인한다.
+이 문서는 저장소에서 관리하는 활성 엔드포인트를 하나의 AI 맥락 문서로 정리한 것이다. 세부 요청, 응답, 오류는 Controller, 요청/응답 DTO, ErrorCode와 RestAssured 인수 테스트로 확인한다.
 
 이 디렉터리는 API 엔드포인트의 전체 목록과 리소스별 상세 설계를 관리한다. 모든 엔드포인트는 [API 공통 설계](../common-contract.md)를 따르며, 상세 문서에는 엔드포인트 고유 내용만 둔다.
 
@@ -12,6 +12,11 @@
 
 | 분류 | Method | Endpoint | 권한 | 설명 |
 | --- | --- | --- | --- | --- |
+| 채팅 | `GET` | `/api/chats` | `MEMBER` | 현재 소속 모임의 채팅 요약 |
+| 채팅 | `GET` | `/api/groups/{groupId}/chat/messages` | `MEMBER + 현재 소속` | 과거 이력·이후 복구 |
+| 채팅 | `POST` | `/api/groups/{groupId}/chat/messages` | `MEMBER + 현재 소속` | 멱등 메시지 저장 |
+| 채팅 | `PUT` | `/api/groups/{groupId}/chat/read` | `MEMBER + 현재 소속` | 단조 읽음 갱신 |
+| 채팅 | `GET Upgrade` | `/api/ws/chat` | `MEMBER` | 인증된 개인 STOMP 경로 |
 | 초대 | `POST` | `/api/groups/{groupId}/invitations` | `MEMBER + 현재 소속` | 활성 모임의 지정/공유 초대 발급과 요청 재시도 처리 |
 | 초대 | `GET` | `/api/groups/{groupId}/invitation-candidates` | `MEMBER + 현재 소속` | 활성 모임의 지정 초대 후보를 제한된 회원 정보로 검색 |
 | 초대 | `GET` | `/api/invitations/received` | `MEMBER` | 본인에게 온 지정 초대와 현재 상태 조회 |
@@ -102,6 +107,7 @@
 
 | 분류 | 문서 | 내용 |
 | --- | --- | --- |
+| 채팅 | [chats.md](chats.md) | 영속 메시지·읽음·복구·개인 WebSocket 경로 |
 | 초대 | [invitations.md](invitations.md) | 발급·회원 후보·수신/발급 목록·상세·공개 미리보기·취소·거절·수락·대기 신청 승인 |
 | 피드백 | [feedbacks.md](feedbacks.md) | 피드백 작성 |
 | 인증·회원 | [auth-members.md](auth-members.md) | 인증과 회원 엔드포인트 |

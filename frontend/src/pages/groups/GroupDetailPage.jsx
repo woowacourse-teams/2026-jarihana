@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChevronLeft, Plus, Settings, Users } from "lucide-react";
+import { ChevronLeft, MessageCircle, Plus, Settings, Users } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { useAuth } from "../../features/auth/index.js";
+import { ChatLink } from "../../features/chat/ChatLink";
 import { useGroup } from "../../features/group/index.js";
 import { isDefaultGroupImageUrl } from "../../features/image-upload/index.js";
 import { useInfiniteGroupMembers } from "../../features/member/index.js";
@@ -306,6 +307,11 @@ export function GroupDetailPage() {
                   />
                 </div>
               </Modal>
+              {auth.status === "authenticated" && isApprovedMember ? (
+                <ChatLink className="group-detail-chat ui-button ui-button--secondary" roomId={group.id} data-ph-capture-attribute-action="group_chat_open">
+                  <MessageCircle aria-hidden="true" /> 모임 채팅
+                </ChatLink>
+              ) : null}
             </div>
           </section>
 
@@ -363,6 +369,11 @@ export function GroupDetailPage() {
             isArchived={isArchived}
             isLeader={isLeader}
           />
+          {auth.status === "authenticated" && isApprovedMember ? (
+            <ChatLink className="group-detail-chat ui-button ui-button--secondary" roomId={group.id} data-ph-capture-attribute-action="group_chat_open">
+              <MessageCircle aria-hidden="true" /> 모임 채팅
+            </ChatLink>
+          ) : null}
         </GroupDetailRail>
       </div>
 

@@ -3,6 +3,7 @@ import { Outlet, useLocation } from "react-router";
 
 import { AppHeader } from "./AppHeader";
 import { AppFooter } from "./AppFooter";
+import { ChatModal } from "../pages/chat/ChatModal";
 import "./AppShell.css";
 
 const PRIMARY_PAGE_PATHS = ["/home", "/groups", "/activities"];
@@ -78,7 +79,7 @@ export function AppShell({ children, headerAction = null, headerTitle = "" }) {
   }, [pathname]);
 
   if (pathname.replace(/\/$/, "") === "/land" || pathname === "/") {
-    return children ?? <Outlet />;
+    return <>{children ?? <Outlet />}<ChatModal /></>;
   }
 
   return (
@@ -96,6 +97,7 @@ export function AppShell({ children, headerAction = null, headerTitle = "" }) {
 
       <AppFooter pwaGuideReference={pwaGuideReference} />
       <ScrollToTopButton />
+      <ChatModal />
     </div>
   );
 }

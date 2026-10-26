@@ -1,0 +1,54 @@
+.ui-dialog.chat-modal {
+  display: flex;
+  flex-direction: column;
+  width: calc(100vw - var(--space-12));
+  height: min(56rem, calc(100dvh - var(--space-12)));
+  max-width: var(--chat-modal-width);
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+}
+
+.chat-modal > .ui-dialog__title {
+  flex: none;
+  margin: 0;
+  padding: var(--space-5) var(--space-16) var(--space-5) var(--space-6);
+  border-bottom: var(--border-thin) solid var(--color-line);
+  font-size: var(--text-body);
+}
+
+.chat-modal > .ui-dialog__close {
+  top: var(--space-2);
+  right: var(--space-3);
+}
+
+.chat-modal > .ui-dialog__content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  margin-top: 0;
+  overflow: hidden;
+}
+
+.chat-modal .chat-layout { border: 0; max-width: none; }
+.ui-overlay:has(> .chat-modal) { padding: 0; }
+.chat-modal__loading { margin: auto; padding: var(--space-6); }
+
+/* Keep the background detail in the root snapshot during chat-only transitions. */
+:root:has(.chat-modal) .group-detail-page :is(
+  .group-profile, .group-profile__art, .group-profile__shade,
+  .group-profile__copy, .group-detail-tabs, .group-rail--desktop
+) {
+  view-transition-name: none;
+}
+
+@media (max-width: 767px) {
+  .ui-dialog.chat-modal {
+    width: 100vw;
+    height: 100dvh;
+    border-radius: 0;
+  }
+  .chat-modal > .ui-dialog__title {
+    padding-top: max(var(--space-5), env(safe-area-inset-top));
+  }
+}
