@@ -296,10 +296,17 @@ async function main() {
     "/repos/" + owner + "/" + repo + "/pulls/" + pull.number + "/requested_reviewers",
     { reviewers: [reviewer] },
   );
+  if (process.env.GITHUB_OUTPUT) {
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, "assigned_reviewer=" + reviewer + "\n");
+  }
   console.log("Requested reviewer " + reviewer + " for high-risk PR #" + pull.number + " (" + reason + ").");
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error.message);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { main };
