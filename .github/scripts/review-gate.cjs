@@ -1,5 +1,9 @@
 const HIGH_RISK_PATH_RULES = [
   {
+    reason: "review approval or notification automation",
+    pattern: /^\.github\/scripts\/(?:review-gate|publish-review-gate|auto-assign-reviewer|slack-review-notifications)\.cjs$/i,
+  },
+  {
     reason: "DB migration",
     pattern: /^backend\/(?:db\/migrations\/|src\/main\/resources\/db\/migration\/)/i,
   },
@@ -30,6 +34,11 @@ const HIGH_RISK_PATH_RULES = [
 ];
 
 const VALID_RISKS = new Set(["low", "medium", "high"]);
+
+function isTitleOnlyEdit(event) {
+  return event?.action === "edited" && Boolean(event.changes?.title) &&
+    !event.changes.body && !event.changes.base;
+}
 
 function parseDeclaredRisk(body) {
   const matchingLines = String(body || "")
@@ -171,4 +180,5 @@ module.exports = {
   findHighRiskPaths,
   latestSubmittedReviews,
   parseDeclaredRisk,
+  isTitleOnlyEdit,
 };

@@ -913,3 +913,12 @@
         transform var(--duration-fast) var(--ease-standard);
     }
 }
+.app-header__chat { display: inline-grid; place-items: center; width: var(--touch-target); height: var(--touch-target); flex-shrink: 0; color: var(--color-surface); border-radius: var(--radius-pill); text-decoration: none; }
+.app-header__chat:hover { background: var(--color-header-line); }
+.app-header__chat + .notification-header-actions { margin-inline-start: calc(-1 * var(--space-2)); }
+.app-header__chat svg { width: var(--space-5); height: var(--space-5); }
+.app-header__chat--mobile { display: none; }
+@media (max-width: 767px) {
+  .app-header__chat--mobile { display: inline-grid; margin-left: auto; }
+  .app-header__chat--mobile + .app-header__menu-button { margin-left: 0; }
+}

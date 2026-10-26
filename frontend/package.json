@@ -25,6 +25,7 @@
   "dependencies": {
     "@hookform/resolvers": "5.9.1",
     "@sentry/react": "11.4.0",
+    "@stomp/stompjs": "7.5.0",
     "@tanstack/react-query": "5.101.4",
     "ky": "2.0.2",
     "lucide-react": "1.33.0",

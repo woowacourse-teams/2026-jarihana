@@ -4,9 +4,22 @@ const {
   evaluateReviewGate,
   findHighRiskPaths,
   parseDeclaredRisk,
+  isTitleOnlyEdit,
 } = require("./review-gate.cjs");
 
 const validBody = (risk) => "- 위험도: " + risk + "\n- 위험도 판단 근거: 테스트";
+
+test("only title edits are ignored; body, base, and non-edit events are preserved", () => {
+  assert.equal(isTitleOnlyEdit({ action: "edited", changes: { title: { from: "old" } } }), true);
+  for (const event of [
+    { action: "edited", changes: { title: { from: "" }, body: { from: "" } } },
+    { action: "edited", changes: { title: { from: "old" }, base: { ref: { from: "main" } } } },
+    { action: "edited", changes: { body: { from: "" } } },
+    { action: "edited" },
+    { action: "synchronize" },
+    {},
+  ]) assert.equal(isTitleOnlyEdit(event), false);
+});
 
 function evaluate(overrides = {}) {
   return evaluateReviewGate({
@@ -133,4 +146,18 @@ test("critical path rules cover production migrations, auth, infra, and workflow
     ".github/workflows/ci.yml",
     "docs/repository-conventions/git.md",
   ]);
+});
+
+test("production review automation cannot self-merge by declaring low risk", () => {
+  for (const script of ["review-gate", "publish-review-gate", "auto-assign-reviewer", "slack-review-notifications"]) {
+    const result = evaluate({ body: "- 위험도: low", changedPaths: [".github/scripts/" + script + ".cjs"] });
+    assert.equal(result.approvalRequired, true, script);
+    assert.equal(result.passed, false, script);
+  }
+});
+
+test("regression-test-only changes keep the ordinary risk policy", () => {
+  const result = evaluate({ body: "- 위험도: low", changedPaths: [".github/scripts/review-gate.test.cjs"] });
+  assert.equal(result.approvalRequired, false);
+  assert.equal(result.passed, true);
 });
