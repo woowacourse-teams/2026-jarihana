@@ -179,12 +179,18 @@ function isFrontendOrInfrastructure(path) {
 }
 
 function routeToModule(paths, modules) {
-  const matched = modules.filter((module) =>
-    paths.some((changedPath) =>
-      module.candidatePaths.some((pattern) => matchesGlob(changedPath, pattern)),
-    ),
-  );
-  return matched.length === 1 ? matched[0] : null;
+  let selected = null;
+  for (const changedPath of paths) {
+    // Corresponding Java tests belong to the same module as the production package.
+    const candidatePath = changedPath.replace(/^backend\/src\/test\/java\//, "backend/src/main/java/");
+    const matched = modules.filter((module) =>
+      module.candidatePaths.some((pattern) => matchesGlob(candidatePath, pattern)),
+    );
+    // An unmapped path or an overlap must not disappear from the ownership decision.
+    if (matched.length !== 1 || (selected && selected !== matched[0])) return null;
+    selected = matched[0];
+  }
+  return selected;
 }
 
 async function leastLoadedReviewer(owner, repo, team, author) {

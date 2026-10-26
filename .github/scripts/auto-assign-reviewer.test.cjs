@@ -11,6 +11,7 @@ let directory;
 let requests;
 let currentRequests;
 let failRequest;
+let changedPaths;
 
 beforeEach(() => {
   directory = fs.mkdtempSync(path.join(os.tmpdir(), "review-assignment-test-"));
@@ -23,6 +24,7 @@ beforeEach(() => {
   requests = [];
   currentRequests = [];
   failRequest = false;
+  changedPaths = ["backend/src/main/java/com/project/jarihana/group/command/GroupService.java"];
   global.fetch = async (raw, options) => {
     const url = new URL(raw);
     let data;
@@ -31,7 +33,7 @@ beforeEach(() => {
       requests.push(JSON.parse(options.body));
       data = {};
     } else if (url.pathname.endsWith("/files")) {
-      data = [{ filename: "backend/src/main/java/com/project/jarihana/group/command/GroupService.java" }];
+      data = changedPaths.map((filename) => ({ filename }));
     } else if (url.pathname.endsWith("/requested_reviewers")) {
       data = { users: currentRequests.map((login) => ({ login })), teams: [] };
     } else {
@@ -47,9 +49,14 @@ afterEach(() => {
   fs.rmSync(directory, { recursive: true, force: true });
 });
 
-function event(risk) {
+function event(risk, recommendation) {
   fs.writeFileSync(process.env.GITHUB_EVENT_PATH, JSON.stringify({
-    pull_request: { number: 987, draft: false, body: "- 위험도: " + risk, user: { login: "choubung" } },
+    pull_request: {
+      number: 987,
+      draft: false,
+      body: "- 위험도: " + risk + (recommendation ? "\n- 자동 배정 리뷰어: @" + recommendation : ""),
+      user: { login: "choubung" },
+    },
   }));
 }
 const output = () => fs.readFileSync(process.env.GITHUB_OUTPUT, "utf8");
@@ -83,6 +90,50 @@ test("failed review requests cannot emit a misleading assignment notification", 
   failRequest = true;
   await assert.rejects(main(), /fixture failure/);
   assert.equal(output(), "");
+});
+
+test("a mapped module mixed with unowned backend code is not guessed", async () => {
+  event("high");
+  changedPaths.push("backend/src/main/java/com/project/jarihana/notificationdelivery/Worker.java");
+  await main();
+  assert.equal(requests.length, 0);
+  assert.equal(output(), "");
+});
+
+test("an unowned path cannot be hidden by file ordering or a shared configuration file", async () => {
+  event("high");
+  changedPaths.unshift("backend/src/main/resources/application-prod.yaml");
+  await main();
+  assert.equal(requests.length, 0);
+  assert.equal(output(), "");
+});
+
+test("a module and its corresponding Java tests still select the same backup", async () => {
+  event("high");
+  changedPaths.push("backend/src/test/java/com/project/jarihana/group/command/GroupServiceTest.java");
+  await main();
+  assert.deepEqual(requests, [{ reviewers: ["Sauter001"] }]);
+});
+
+test("tests from an unowned module cannot be ignored during fallback", async () => {
+  event("high");
+  changedPaths.push("backend/src/test/java/com/project/jarihana/notificationdelivery/WorkerTest.java");
+  await main();
+  assert.equal(requests.length, 0);
+});
+
+test("two mapped modules without an explicit recommendation remain unassigned", async () => {
+  event("high");
+  changedPaths.push("backend/src/main/java/com/project/jarihana/registration/RegistrationService.java");
+  await main();
+  assert.equal(requests.length, 0);
+});
+
+test("an explicit team recommendation can resolve mixed mapped and unowned code", async () => {
+  event("high", "RealTake");
+  changedPaths.push("backend/src/main/java/com/project/jarihana/notificationdelivery/Worker.java");
+  await main();
+  assert.deepEqual(requests, [{ reviewers: ["RealTake"] }]);
 });
 
 test("the workflow directly consumes assignment output rather than waiting for another event", () => {
