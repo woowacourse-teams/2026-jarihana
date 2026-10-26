@@ -262,23 +262,6 @@
   color: var(--color-text-muted);
   font-size: var(--text-badge);
 }
-.chat-preview-note {
-  display: flex;
-  gap: var(--space-2);
-  align-items: flex-start;
-  margin: 0;
-  padding: var(--space-5) var(--space-6);
-  font-size: var(--text-badge);
-  line-height: 1.6;
-  color: var(--color-text-muted);
-  border-top: var(--border-thin) solid var(--color-line);
-}
-.chat-preview-note svg {
-  flex-shrink: 0;
-  width: var(--space-4);
-  height: var(--space-4);
-  margin-top: var(--space-1);
-}
 .chat-search-empty {
   padding: var(--space-10) var(--space-6);
   text-align: center;
@@ -673,9 +656,6 @@
   }
   .chat-composer__hint {
     font-size: var(--text-badge);
-  }
-  .chat-preview-note {
-    padding-bottom: max(var(--space-5), env(safe-area-inset-bottom));
   }
 }
 

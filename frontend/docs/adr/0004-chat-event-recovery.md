@@ -121,7 +121,3 @@ Enter로 전송하고 Shift+Enter로 줄을 바꾸며, 한글 조합 중 Enter�
 - [hooks](../../src/features/chat/hooks.js), [API](../../src/features/chat/api.js), [cache](../../src/features/chat/cache.js): 연결·전송·복구·병합
 - [ChatConversation](../../src/pages/chat/ChatConversation.jsx): 입력·스크롤·읽음
 - [hooks 테스트](../../src/features/chat/hooks.test.jsx), [cache 테스트](../../src/features/chat/cache.test.js): 비동기 응답·순번·계정 경계
-- [로컬 검증 기록](../../../infra/chat-verification/RESULTS.md): 두 사용자 송수신, 전환, 브라우저·접근성 시험
-
-2026-10-26 문서 보완은 현재 코드와 대화에서 확정한 화면 결정을 대조했다.
-이번 문서 작업에서 앱 테스트를 다시 실행하지 않았으며 이전 시험의 범위와 결과는 링크한 기록에 남아 있다.

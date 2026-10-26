@@ -296,11 +296,8 @@ NOTIFY는 두 서버 사이의 변경 전달을 맡고, 프록시는 새 연결�
 | 연결·구독 제한 | [ChatWebSocketConfig](../../src/main/java/com/project/jarihana/chat/config/ChatWebSocketConfig.java), [ChatInboundInterceptor](../../src/main/java/com/project/jarihana/chat/config/ChatInboundInterceptor.java) |
 | 테이블·unique 제약 | [Flyway V8](../../src/main/resources/db/migration/V8__group_chat.sql) |
 | 동시 저장·가입 기준·읽음 | [ChatPersistenceTest](../../src/test/java/com/project/jarihana/chat/ChatPersistenceTest.java) |
-| 이전 로컬 통합·부하·브라우저 확인 | [채팅 검증 결과](../../../infra/chat-verification/RESULTS.md) |
 
-2026-10-26 보완에서는 위 코드와 대화 기록을 대조했다. 테스트 수와 부하 수치는 기존 검증 기록을
-따르며 문서 보완 중 성능 시험을 새로 실행하지 않았다. 기록된 로컬 부하 시험 뒤에도 코드가 바뀌었으므로
-현재 버전의 용량 판단에는 동일 조건의 재측정이 필요하다.
+처리 용량은 배포 환경과 같은 조건에서 별도로 측정한다.
 
 ## 논의 출처
 

@@ -32,4 +32,3 @@ SIGTERM 시 가장 높은 SmartLifecycle 단계에서 socket에 1001 GOING_AWAY�
 Java21 검증 명령:
 `./gradlew test --tests '*Chat*Test'`, `./gradlew test`, `./gradlew bootJar`.
 테스트는 Testcontainers PostgreSQL17을 사용하며 외부 DB에 연결하지 않는다.
-두 서버·프록시 전환 검증은 저장소의 infra/chat-verification에서 별도 수행한다.
