@@ -37,7 +37,7 @@ target('db_rps').expr = `(sum(${jdbcRate('jdbc_query_seconds_count')}) and on() 
 target('db_p95').expr = `((1000 * histogram_quantile(0.95, sum by(le) (${jdbcRate('jdbc_query_seconds_bucket')})) >= 0) and on() ${backendHealthy}) or vector(-1)`;
 target('db_flow').expr = `(clamp_min((${target('db_rps').expr}), 0) * ((${connectionHealth.expr}) == bool 1)) or vector(0)`;
 panel.targets = panel.targets.filter(item => item.legendFormat !== 'tempo_health');
-panel.description = '아이콘은 사용자·앱·DB를 나타냅니다. 움직이는 점은 최근 2분 평균 호출량에 따라 빨라집니다. 0건 또는 확인 불가면 정지합니다. 실제 패킷 재생은 아닙니다. 화면 갱신 5초, 앱 지표 수집 5초, 헬스체크 60초. DB 아이콘은 Alloy의 PostgreSQL 직접 접속 검사, DB 연결선은 백엔드 Actuator의 DB 연결 검사입니다. DB 호출량·p95는 앱의 JDBC 실행 지표입니다.';
+panel.description = '아이콘은 사용자·앱·DB를 나타냅니다. 움직이는 점은 최근 2분 평균 호출량에 따라 빨라집니다. 0건 또는 확인 불가면 정지합니다. 실제 패킷 재생은 아닙니다. 화면 갱신 5초, 앱 지표 수집 5초, 헬스체크 10초. DB 아이콘은 Alloy의 PostgreSQL 직접 접속 검사, DB 연결선은 백엔드 Actuator의 DB 연결 검사입니다. DB 호출량·p95는 앱의 JDBC 실행 지표입니다.';
 dashboard.links = dashboard.links.filter(link => link.title !== '트레이스');
 for (const item of dashboard.panels) {
   if (item.id === 8) item.targets = item.targets.filter(query => query.refId !== 'tempo_health');

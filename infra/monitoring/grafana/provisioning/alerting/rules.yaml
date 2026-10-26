@@ -13,7 +13,7 @@ groups:
 - orgId: 1
   name: jarihana-availability
   folder: Jarihana
-  interval: 30s
+  interval: 10s
   rules:
   - uid: jarihana-host-disk-warning
     title: "[EC2] 디스크 사용률 주의"
@@ -216,7 +216,7 @@ groups:
       firing_condition: /actuator/health 정상 응답 실패 또는 150초간 결과 미수신
       resolved_condition: 최근 150초 이내의 헬스체크 결과가 모두 정상 (HTTP 200·UP)
       action: 백엔드 로그·RDS 연결·Alloy 수집 및 전송 상태를 확인하세요.
-      description: 1분마다 /actuator/health를 확인합니다. HTTP 200과 UP 응답을 받지 못했거나, 최근 150초 동안 헬스체크 결과가 도착하지 않았습니다. 앱·RDS 연결·Alloy·EC2 및 전송 경로를 확인하세요.
+      description: 10초마다 /actuator/health를 확인합니다. HTTP 200과 UP 응답을 받지 못했거나, 최근 150초 동안 헬스체크 결과가 도착하지 않았습니다. 앱·RDS 연결·Alloy·EC2 및 전송 경로를 확인하세요.
     data:
     - refId: A
       datasourceUid: prometheus
@@ -308,7 +308,7 @@ groups:
       firing_condition: /actuator/health 정상 응답 실패 또는 150초간 결과 미수신
       resolved_condition: 최근 150초 이내의 헬스체크 결과가 모두 정상 (HTTP 200·UP)
       action: 백엔드 로그·RDS 연결·Alloy 수집 및 전송 상태를 확인하세요.
-      description: 1분마다 /actuator/health를 확인합니다. HTTP 200과 UP 응답을 받지 못했거나, 최근 150초 동안 헬스체크 결과가 도착하지 않았습니다. 앱·RDS 연결·Alloy·EC2 및 전송 경로를 확인하세요.
+      description: 10초마다 /actuator/health를 확인합니다. HTTP 200과 UP 응답을 받지 못했거나, 최근 150초 동안 헬스체크 결과가 도착하지 않았습니다. 앱·RDS 연결·Alloy·EC2 및 전송 경로를 확인하세요.
     data:
     - refId: A
       datasourceUid: prometheus
