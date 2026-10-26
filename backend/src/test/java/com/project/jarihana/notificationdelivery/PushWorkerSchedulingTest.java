@@ -1,8 +1,10 @@
 package com.project.jarihana.notificationdelivery;
 
+import com.project.jarihana.common.deployment.ApplicationActivity;
 import com.project.jarihana.notificationdelivery.command.service.PushDeliveryWorker;
 import com.project.jarihana.notificationdelivery.config.PushWorkerSchedulingConfig;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -16,6 +18,28 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class PushWorkerSchedulingTest {
+    @Test
+    @DisplayName("푸시 스케줄러가 실행 중이면 활동 한 건을 기록하고 정상 반환과 예외 모두에서 활동을 마친다.")
+    void trackScheduledActivityThroughSuccessAndFailure() {
+        // Given
+        var worker = mock(PushDeliveryWorker.class);
+        var activity = new ApplicationActivity();
+        var scheduler = new PushWorkerSchedulingConfig(worker, activity);
+        when(worker.processDue()).thenAnswer(invocation -> {
+            assertThat(activity.snapshot().backgroundInFlight()).isEqualTo(1);
+            return 0;
+        }).thenAnswer(invocation -> {
+            assertThat(activity.snapshot().backgroundInFlight()).isEqualTo(1);
+            throw new IllegalStateException("test cycle failed");
+        });
+
+        // When / Then
+        scheduler.dispatchDuePushes();
+        assertThat(activity.snapshot().backgroundInFlight()).isZero();
+        scheduler.dispatchDuePushes();
+        assertThat(activity.snapshot().backgroundInFlight()).isZero();
+    }
+
     @ParameterizedTest
     @CsvSource({"false,true,false", "true,false,false", "true,true,true"})
     void scheduleOnlyWhenFeatureAndWorkerAreBothEnabled(boolean enabled, boolean workerEnabled, boolean scheduled) {
@@ -50,6 +74,7 @@ class PushWorkerSchedulingTest {
         context.getEnvironment().getPropertySources().addFirst(new MapPropertySource("push-test", Map.of(
                 "jarihana.push.enabled", enabled, "jarihana.push.worker-enabled", workerEnabled, "jarihana.push.poll-delay", delay)));
         context.registerBean(PushDeliveryWorker.class, () -> worker);
+        context.registerBean(ApplicationActivity.class);
         context.register(PushWorkerSchedulingConfig.class);
         context.refresh();
         return context;

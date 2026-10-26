@@ -1,0 +1,391 @@
+name: Backend Blue-Green Deployment
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+      image_tag:
+        type: string
+        default: ''
+      mode:
+        type: string
+        default: deploy
+permissions:
+  contents: read
+  actions: read
+  packages: read
+concurrency:
+  # Monitoring recreates the query gateway; keep it outside the observation window.
+  group: jarihana-observed-deployment
+  cancel-in-progress: false
+  queue: max
+jobs:
+  resolve:
+    runs-on: ubuntu-24.04-arm
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
+    env:
+      BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
+    steps:
+      - name: 보호된 배포 제어 코드 checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ vars.BLUE_GREEN_CONTROL_REF }}
+          path: deployment-control
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          path: source
+          persist-credentials: false
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: 검증된 이미지의 고정 digest 선택
+        id: image
+        env:
+          INPUT_TAG: ${{ inputs.image_tag }}
+          BG_ENVIRONMENT: ${{ inputs.environment }}
+          BG_MODE: ${{ inputs.mode }}
+          BG_A_RUNNER: ${{ vars[format('BLUE_GREEN_{0}_A_RUNNER', inputs.environment == 'dev' && 'DEV' || 'PROD')] }}
+          BG_B_RUNNER: ${{ vars[format('BLUE_GREEN_{0}_B_RUNNER', inputs.environment == 'dev' && 'DEV' || 'PROD')] }}
+          BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
+          BG_DEV_RDS: ${{ vars.BLUE_GREEN_RDS_URL }}
+        shell: bash
+        working-directory: source
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REPOSITORY" == woowacourse-teams/2026-jarihana && "$GITHUB_RUN_ATTEMPT" == 1 ]]
+          [[ "$BG_CONTROL_REF" =~ ^refs/tags/deployment-control-[A-Za-z0-9._-]+$ ]]
+          [[ "$BG_ENVIRONMENT" == dev || "$BG_ENVIRONMENT" == prod ]]
+          [[ "$BG_MODE" == deploy || "$BG_MODE" == bootstrap ]]
+          [[ -n "$BG_A_RUNNER" && -n "$BG_B_RUNNER" && "$BG_A_RUNNER" != "$BG_B_RUNNER" ]] || {
+            echo '::error::환경별 A/B runner 라벨을 서로 다른 전용 라벨로 설정해야 합니다.'
+            exit 1
+          }
+          if [[ "$BG_ENVIRONMENT" == dev ]]; then
+            [[ "$GITHUB_REF" == refs/heads/develop ]]
+            [[ -n "$BG_DEV_RDS" ]] || {
+              echo '::error::dev 시험 DB는 BLUE_GREEN_RDS_URL로 명시해야 합니다.'
+              exit 1
+            }
+          else
+            [[ "$GITHUB_REF" == refs/heads/main ]]
+          fi
+          if [[ "$BG_MODE" == bootstrap ]]; then
+            [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && -n "$INPUT_TAG" ]]
+          fi
+          if [[ -n "$INPUT_TAG" ]]; then
+            [[ "$INPUT_TAG" =~ ^[a-f0-9]{40}$ ]]
+            tag="$INPUT_TAG"
+          elif [[ "$BG_ENVIRONMENT" == dev ]]; then
+            tag="$GITHUB_SHA"
+          else
+            tag="tree-$(git rev-parse HEAD:backend)"
+          fi
+          image=ghcr.io/woowacourse-teams/jarihana-backend
+          docker pull "${image}:${tag}"
+          resolved="$(docker image inspect --format '{{json .RepoDigests}}' "${image}:${tag}")"
+          digest="$(jq -er --arg image "$image" '[.[] | select(startswith($image + "@"))] | unique | if length == 1 then .[0] | split("@")[1] else error("ambiguous digest") end' <<< "$resolved")"
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+  plan:
+    name: plan
+    needs: [resolve]
+    uses: ./.github/workflows/backend-bluegreen-phase.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      mode: ${{ inputs.mode }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      phase: plan
+  queue-guardian:
+    name: deployment-queue-guardian
+    needs: [resolve]
+    runs-on: ubuntu-latest
+    timeout-minutes: 125
+    permissions:
+      contents: read
+      actions: write
+    env:
+      BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ vars.BLUE_GREEN_CONTROL_REF }}
+          persist-credentials: false
+      - name: 전용 runner queue와 전체 실행 기한 감시
+        shell: bash
+        run: bash infra/scripts/deploy/actions/queue-guard.sh
+  bootstrap:
+    name: bootstrap
+    needs: [resolve, plan]
+    if: inputs.mode == 'bootstrap'
+    uses: ./.github/workflows/backend-app-operation.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      mode: ${{ inputs.mode }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      operation: bootstrap
+      slot: ${{ needs.plan.outputs.old }}
+  finish-bootstrap:
+    name: finish-bootstrap
+    needs: [resolve, plan, bootstrap]
+    if: inputs.mode == 'bootstrap'
+    uses: ./.github/workflows/backend-bluegreen-phase.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      mode: ${{ inputs.mode }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      phase: finish-bootstrap
+      app_result: ${{ needs.bootstrap.outputs.result }}
+  prepare:
+    name: prepare
+    needs: [resolve, plan]
+    if: inputs.mode == 'deploy'
+    uses: ./.github/workflows/backend-app-operation.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      mode: ${{ inputs.mode }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      operation: prepare
+      slot: ${{ needs.plan.outputs.target }}
+  grant-handoff:
+    name: grant-handoff
+    needs: [resolve, plan, prepare]
+    uses: ./.github/workflows/backend-bluegreen-phase.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      mode: ${{ inputs.mode }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      phase: grant-handoff
+      app_result: ${{ needs.prepare.outputs.result }}
+  handoff:
+    name: handoff
+    needs: [resolve, plan, grant-handoff]
+    uses: ./.github/workflows/backend-app-operation.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      mode: ${{ inputs.mode }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      operation: handoff
+      slot: ${{ needs.plan.outputs.old }}
+  switch:
+    name: switch
+    needs: [resolve, plan, handoff]
+    uses: ./.github/workflows/backend-bluegreen-phase.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      mode: ${{ inputs.mode }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      phase: switch
+      app_result: ${{ needs.handoff.outputs.result }}
+  activate:
+    name: activate
+    needs: [resolve, plan, switch]
+    uses: ./.github/workflows/backend-app-operation.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      mode: ${{ inputs.mode }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      operation: activate
+      slot: ${{ needs.plan.outputs.target }}
+  grant-observe:
+    name: grant-observe
+    needs: [resolve, plan, activate]
+    uses: ./.github/workflows/backend-bluegreen-phase.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      mode: ${{ inputs.mode }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      phase: grant-observe
+      app_result: ${{ needs.activate.outputs.result }}
+  observe-app:
+    name: candidate-worker-observation
+    needs: [resolve, plan, grant-observe]
+    uses: ./.github/workflows/backend-app-operation.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      mode: ${{ inputs.mode }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      operation: observe
+      slot: ${{ needs.plan.outputs.target }}
+  observe-http:
+    name: api-metrics-observation
+    needs: [resolve, plan, grant-observe]
+    uses: ./.github/workflows/backend-bluegreen-phase.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      mode: ${{ inputs.mode }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      phase: observe
+  seal:
+    name: seal
+    needs: [resolve, plan, observe-app, observe-http]
+    uses: ./.github/workflows/backend-bluegreen-phase.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      mode: ${{ inputs.mode }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      phase: seal
+      target_result: ${{ needs.observe-app.outputs.result }}
+  complete-target:
+    name: complete-target
+    needs: [resolve, plan, seal]
+    if: needs.seal.outputs.cleanup_deferred == 'false'
+    uses: ./.github/workflows/backend-app-operation.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      mode: ${{ inputs.mode }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      operation: complete
+      slot: ${{ needs.plan.outputs.target }}
+  grant-stop:
+    name: grant-stop
+    needs: [resolve, plan, complete-target]
+    uses: ./.github/workflows/backend-bluegreen-phase.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      mode: ${{ inputs.mode }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      phase: grant-stop
+      app_result: ${{ needs.complete-target.outputs.result }}
+  stop-old:
+    name: stop-old
+    needs: [resolve, plan, grant-stop]
+    uses: ./.github/workflows/backend-app-operation.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      mode: ${{ inputs.mode }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      operation: stop
+      slot: ${{ needs.plan.outputs.old }}
+  stop-ec2:
+    name: stop-ec2
+    needs: [resolve, plan, stop-old]
+    uses: ./.github/workflows/backend-bluegreen-phase.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      mode: ${{ inputs.mode }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      phase: stop
+      app_result: ${{ needs.stop-old.outputs.result }}
+  rollback-http:
+    name: rollback-http
+    needs: [resolve, plan, switch, activate, grant-observe, observe-app, observe-http, seal]
+    if: always() && !cancelled() && needs.plan.result == 'success' && inputs.mode == 'deploy' && needs.seal.result != 'success' && needs.seal.outputs.cleanup_deferred != 'true' && contains(needs.*.result, 'failure')
+    uses: ./.github/workflows/backend-bluegreen-phase.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      mode: ${{ inputs.mode }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      phase: rollback-http
+  release-candidate:
+    name: release-candidate
+    needs: [resolve, plan, rollback-http]
+    if: always() && !cancelled() && needs.rollback-http.result == 'success' && needs.rollback-http.outputs.rollback_ready == 'true'
+    uses: ./.github/workflows/backend-app-operation.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      mode: ${{ inputs.mode }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      operation: rollback
+      slot: ${{ needs.plan.outputs.target }}
+  grant-rollback-old:
+    name: grant-rollback-old
+    needs: [resolve, plan, release-candidate]
+    if: always() && !cancelled() && needs.release-candidate.result == 'success'
+    uses: ./.github/workflows/backend-bluegreen-phase.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      mode: ${{ inputs.mode }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      phase: grant-rollback-old
+      app_result: ${{ needs.release-candidate.outputs.result }}
+  resume-old:
+    name: resume-old
+    needs: [resolve, plan, grant-rollback-old]
+    if: always() && !cancelled() && needs.grant-rollback-old.result == 'success'
+    uses: ./.github/workflows/backend-app-operation.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      mode: ${{ inputs.mode }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      operation: rollback
+      slot: ${{ needs.plan.outputs.old }}
+  finish-rollback:
+    name: finish-rollback
+    needs: [resolve, plan, resume-old]
+    if: always() && !cancelled() && needs.resume-old.result == 'success'
+    uses: ./.github/workflows/backend-bluegreen-phase.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      mode: ${{ inputs.mode }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      phase: finish-rollback
+      app_result: ${{ needs.resume-old.outputs.result }}
+  interrupt:
+    name: interrupt
+    needs: [resolve, plan, finish-bootstrap, stop-ec2, finish-rollback, rollback-http, release-candidate, grant-rollback-old, resume-old]
+    if: always() && needs.plan.result == 'success' && needs.finish-bootstrap.result != 'success' && needs.stop-ec2.result != 'success' && needs.finish-rollback.result != 'success'
+    uses: ./.github/workflows/backend-bluegreen-phase.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      mode: ${{ inputs.mode }}
+      digest: ${{ needs.resolve.outputs.digest }}
+      phase: interrupt
+  result:
+    # The parallel guardian exits when this job completes; do not depend on the guardian here.
+    name: deployment-result
+    if: always()
+    needs: [resolve, plan, finish-bootstrap, stop-ec2, finish-rollback, interrupt, seal]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
+    steps:
+      - name: 성공·롤백·확인 필요 결과 보고
+        env:
+          BOOTSTRAP: ${{ needs.finish-bootstrap.result }}
+          DEPLOY: ${{ needs.stop-ec2.result }}
+          ROLLBACK: ${{ needs.finish-rollback.result }}
+          CLEANUP_DEFERRED: ${{ needs.seal.outputs.cleanup_deferred }}
+        shell: bash
+        run: |
+          printf '초기 등록: %s / 배포: %s / 롤백: %s\n' "$BOOTSTRAP" "$DEPLOY" "$ROLLBACK" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$CLEANUP_DEFERRED" == true ]]; then
+            echo '확인 필요: 신규 서버는 정상이며 계속 서비스합니다. 이전 연결 종료가 확인되지 않아 롤백·앱 종료·EC2 중지를 보류했습니다. 양쪽 EC2와 배포 저널을 확인하세요.' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          if [[ "$BOOTSTRAP" == success || "$DEPLOY" == success ]]; then exit 0; fi
+          echo '배포 실패: 롤백 성공 여부와 Nginx 저널을 확인하세요. 미확정 작업·두 EC2를 보존하며 같은 실행을 재실행하지 마세요.' >> "$GITHUB_STEP_SUMMARY"
+          exit 1
