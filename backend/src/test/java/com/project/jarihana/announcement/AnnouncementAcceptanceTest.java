@@ -54,8 +54,8 @@ class AnnouncementAcceptanceTest extends IntegrationTestSupport {
     @DisplayName("모임원 공개 공지는 현재 구성원에게만 보이고 전체 공개 공지는 비로그인 방문자에게도 보인다.")
     void filtersAnnouncementScopeForListAndDetail() {
         Group group = saveGroup("공지 공개 범위 모임");
-        Member leader = saveMember("공개범위방장", "announcement-scope-leader");
-        Member member = saveMember("공개범위구성원", "announcement-scope-member");
+        Member leader = saveMember("공개방장", "announcement-scope-leader");
+        Member member = saveMember("공개회원", "announcement-scope-member");
         saveLeader(group, leader);
         saveMemberOf(group, member);
         Announcement membersOnly = announcements.save(Announcement.create(group, leader, "모임원 공지", "구성원 본문",
@@ -88,8 +88,8 @@ class AnnouncementAcceptanceTest extends IntegrationTestSupport {
     void createsAnnouncementAndNotifiesCurrentMembers() {
         Group group = saveGroup("공지 알림 모임");
         Member leader = saveMember("공지방장", "announcement-notification-leader");
-        Member member = saveMember("공지구성원", "announcement-notification-member");
-        Member outsider = saveMember("공지외부인", "announcement-notification-outsider");
+        Member member = saveMember("공지회원", "announcement-notification-member");
+        Member outsider = saveMember("외부회원", "announcement-notification-outsider");
         saveLeader(group, leader);
         saveMemberOf(group, member);
         subscriptions.save(PushSubscription.create(member, "https://fcm.googleapis.com/announcement-member", PUBLIC_KEY,
@@ -136,11 +136,11 @@ class AnnouncementAcceptanceTest extends IntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("일반 구성원은 공지를 등록할 수 없고 종료된 모임의 방장도 새 공지를 등록할 수 없다.")
-    void rejectsAnnouncementCreationWithoutLeaderOrActiveGroup() {
+    @DisplayName("비로그인 방문자와 일반 구성원은 공지를 등록할 수 없고 종료된 모임의 방장도 새 공지를 등록할 수 없다.")
+    void rejectsAnnouncementCreationWithoutAuthenticationLeaderOrActiveGroup() {
         Group group = saveGroup("공지 권한 모임");
         Member leader = saveMember("권한방장", "announcement-permission-leader");
-        Member member = saveMember("권한구성원", "announcement-permission-member");
+        Member member = saveMember("권한회원", "announcement-permission-member");
         saveLeader(group, leader);
         saveMemberOf(group, member);
         String csrf = csrfToken();
@@ -148,15 +148,23 @@ class AnnouncementAcceptanceTest extends IntegrationTestSupport {
                 {"title":"공지","content":"내용","scope":"MEMBERS"}
                 """;
 
+        Response visitor = RestAssured.given().cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .contentType("application/json").body(body)
+                .post("/groups/{groupId}/announcements", group.getId());
         Response nonLeader = mutation(member, csrf).contentType("application/json").body(body)
                 .post("/groups/{groupId}/announcements", group.getId());
         Group endedGroup = saveGroup("종료 공지 모임");
         Member endedLeader = saveMember("종료방장", "announcement-ended-leader");
         saveLeader(endedGroup, endedLeader);
+        jdbc.update("update groups set created_at = ? where id = ?",
+                TestSupportConfig.FIXED_NOW.minusDays(3), endedGroup.getId());
+        endedGroup = groups.findById(endedGroup.getId()).orElseThrow();
         endedGroup = groups.save(endedGroup.endAt(TestSupportConfig.FIXED_NOW));
         Response ended = mutation(endedLeader, csrf).contentType("application/json").body(body)
                 .post("/groups/{groupId}/announcements", endedGroup.getId());
 
+        assertThat(visitor.statusCode()).isEqualTo(401);
+        assertThat(visitor.jsonPath().getString("error.code")).isEqualTo("UNAUTHENTICATED");
         assertThat(nonLeader.statusCode()).isEqualTo(403);
         assertThat(nonLeader.jsonPath().getString("error.code")).isEqualTo("GROUP_ACCESS_DENIED");
         assertThat(ended.statusCode()).isEqualTo(409);
