@@ -1,5 +1,6 @@
 package com.project.jarihana.registration.command.service;
 
+import com.project.jarihana.chat.domain.ChatLifecycleEvent;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.common.transaction.ConcurrentCommandExecutor;
@@ -153,6 +154,7 @@ public class RegistrationCommandService {
                 approvedCount
         );
         groupMemberRepository.save(GroupMember.createMember(recruitment.getGroup(), member, now));
+        events.publishEvent(new ChatLifecycleEvent(ChatLifecycleEvent.Type.JOINED, recruitment.getGroup().getId(), member.getId()));
         closeRecruitmentIfFull(recruitment, approvedCount + 1, now);
         return registration;
     }
@@ -294,6 +296,7 @@ public class RegistrationCommandService {
         );
         registrationRepository.flush();
         groupMemberRepository.save(GroupMember.createMember(recruitment.getGroup(), applicant, now));
+        events.publishEvent(new ChatLifecycleEvent(ChatLifecycleEvent.Type.JOINED, groupId, applicant.getId()));
         closeRecruitmentIfFull(recruitment, approvedCount + 1, now);
         return approvedRegistration;
     }

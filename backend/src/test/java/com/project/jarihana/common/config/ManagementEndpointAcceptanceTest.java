@@ -117,6 +117,8 @@ class ManagementEndpointAcceptanceTest extends IntegrationTestSupport {
                 "jvm_memory_used_bytes",
                 "jvm_threads_live_threads",
                 "hikaricp_connections_active",
+                "chat_listener_connected",
+                "chat_listener_connections_total",
                 "application=\"jarihana\"",
                 "environment=\"prod\""
         );

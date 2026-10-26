@@ -8,6 +8,7 @@ const originalMatchMedia = window.matchMedia;
 
 jest.mock("react-router", () => ({
   Outlet: () => null,
+  useNavigate: () => jest.fn(),
   useLocation: () => ({ pathname: mockPathname, search: mockSearch })
 }));
 jest.mock("../../src/features/auth", () => ({ useAuth: () => ({ status: "authenticated" }) }));

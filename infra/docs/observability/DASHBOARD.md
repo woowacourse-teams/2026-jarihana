@@ -20,6 +20,7 @@ http://localhost:13000/d/jarihana-overview
 | [jarihana.yaml](../../monitoring/grafana/provisioning/dashboards/jarihana.yaml) | Grafana dashboard provider 설정 |
 | [jarihana-overview.json](../../monitoring/grafana/provisioning/dashboards/json/jarihana-overview.json) | 실제 대시보드 정의 |
 | [jarihana-canvas.json](../../monitoring/grafana/provisioning/dashboards/json/jarihana-canvas.json) | [시스템 흐름 Canvas](CANVAS.md) 정의 |
+| [jarihana-chat.json](../../monitoring/grafana/provisioning/dashboards/json/jarihana-chat.json) | [채팅](CHAT.md) 연결·전송·복구 지표와 개발·운영 필터 |
 | [jarihana-load-test.json](../../monitoring/grafana/provisioning/dashboards/json/jarihana-load-test.json) | [부하 테스트](LOAD-TEST-DASHBOARD.md) 정의·사용 방법·수집 조건 |
 
 Grafana는 시작할 때 provider가 가리키는 JSON 파일을 읽고, 이후 `updateIntervalSeconds: 30`

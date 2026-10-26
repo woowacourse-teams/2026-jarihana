@@ -19,8 +19,13 @@ const focusableSelector = [
   '[tabindex]:not([tabindex="-1"])'
 ].join(",");
 
+let openPanelCount = 0;
+let originalBodyOverflow = "";
+
 function focusableElements(root) {
-  return [...root.querySelectorAll(focusableSelector)].filter((element) => element.tabIndex >= 0);
+  return [...root.querySelectorAll(focusableSelector)].filter((element) =>
+    element.tabIndex >= 0 && (element.checkVisibility?.({ visibilityProperty: true }) ?? true)
+  );
 }
 
 function useOpenState(open, defaultOpen, onOpenChange, onClose) {
@@ -43,7 +48,7 @@ function useFocusReturn(visible) {
 
   useLayoutEffect(() => {
     if (visible && !wasVisible.current) openerReference.current = document.activeElement;
-    if (!visible && wasVisible.current) openerReference.current?.focus();
+    if (!visible && wasVisible.current) openerReference.current?.focus({ preventScroll: true });
     wasVisible.current = visible;
   }, [visible]);
 
@@ -74,11 +79,14 @@ function OverlayPanel({
   });
 
   useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
+    if (openPanelCount === 0) originalBodyOverflow = document.body.style.overflow;
+    openPanelCount += 1;
     document.body.style.overflow = "hidden";
     focusableElements(panelReference.current)[0]?.focus();
 
     function handleKeyDown(event) {
+      const panels = document.querySelectorAll('.ui-overlay > [role="dialog"]');
+      if (panels[panels.length - 1] !== panelReference.current) return;
       if (event.key === "Escape" && dismissibleReference.current) {
         event.preventDefault();
         dismissReference.current();
@@ -105,7 +113,8 @@ function OverlayPanel({
     document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
+      openPanelCount -= 1;
+      if (openPanelCount === 0) document.body.style.overflow = originalBodyOverflow;
     };
   }, []);
 

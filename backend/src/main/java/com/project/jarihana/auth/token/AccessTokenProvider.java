@@ -48,6 +48,15 @@ public class AccessTokenProvider {
         }
     }
 
+    public Instant parseExpiresAt(String accessToken) {
+        try {
+            return Jwts.parser().verifyWith(signingKey).clock(() -> Date.from(clock.instant()))
+                    .build().parseSignedClaims(accessToken).getPayload().getExpiration().toInstant();
+        } catch (JwtException | IllegalArgumentException exception) {
+            throw new BusinessException(ErrorCode.UNAUTHENTICATED, "인증 정보가 올바르지 않습니다.", exception);
+        }
+    }
+
     private String parseSubject(String accessToken) {
         return Jwts.parser()
                 .verifyWith(signingKey)
