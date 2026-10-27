@@ -1,6 +1,8 @@
 package com.project.jarihana.chat.command.repository;
 
 import com.project.jarihana.chat.domain.ChatMessage;
+import com.project.jarihana.chat.domain.ChatReadState;
+import com.project.jarihana.chat.domain.ChatRoom;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.member.domain.Member;
@@ -9,7 +11,6 @@ import jakarta.persistence.EntityManager;
 
 import lombok.RequiredArgsConstructor;
 
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -19,20 +20,15 @@ import java.util.UUID;
 @Repository
 @RequiredArgsConstructor
 public class JpaChatCommandRepository implements ChatCommandRepository {
-    private final JdbcTemplate jdbc;
+    private final ChatRoomCommandJpaRepository rooms;
+    private final ChatReadStateCommandJpaRepository readStates;
     private final ChatMessageCommandJpaRepository messages;
     private final ChatMemberCommandJpaRepository members;
     private final EntityManager entityManager;
 
     @Override
     public String lockGroup(long groupId) {
-        return jdbc
-                .query(
-                        "select status from groups where id = ? for update",
-                        (rs, row) -> rs.getString(1),
-                        groupId)
-                .stream()
-                .findFirst()
+        return rooms.lockGroupStatus(groupId)
                 .orElseThrow(
                         () ->
                                 new BusinessException(
@@ -56,13 +52,8 @@ public class JpaChatCommandRepository implements ChatCommandRepository {
     @Override
     public ChatMessage save(
             long groupId, long memberId, UUID requestId, String content, LocalDateTime now) {
-        jdbc.update("insert into chat_room(group_id) values (?) on conflict do nothing", groupId);
-        long sequence =
-                jdbc.queryForObject(
-                        "update chat_room set last_sequence = last_sequence + 1 where group_id = ?"
-                                + " returning last_sequence",
-                        Long.class,
-                        groupId);
+        ChatRoom room = rooms.findById(groupId).orElseGet(() -> ChatRoom.create(groupId));
+        long sequence = rooms.save(room.nextMessage()).lastSequence();
         ChatMessage message =
                 messages.save(
                         ChatMessage.create(
@@ -81,29 +72,15 @@ public class JpaChatCommandRepository implements ChatCommandRepository {
 
     @Override
     public long latestSequence(long groupId) {
-        return jdbc
-                .query(
-                        "select last_sequence from chat_room where group_id = ?",
-                        (rs, row) -> rs.getLong(1),
-                        groupId)
-                .stream()
-                .findFirst()
-                .orElse(0L);
+        return rooms.findById(groupId).map(ChatRoom::lastSequence).orElse(0L);
     }
 
     @Override
     public long advanceRead(long groupId, long memberId, long sequence) {
-        return jdbc.queryForObject(
-                """
-                insert into chat_read_state(group_id, member_id, last_read_sequence) values (?, ?, ?)
-                on conflict (group_id, member_id) do update
-                set last_read_sequence = greatest(chat_read_state.last_read_sequence, excluded.last_read_sequence)
-                returning last_read_sequence
-                """,
-                Long.class,
-                groupId,
-                memberId,
-                sequence);
+        // The service holds the group's FOR UPDATE lock before loading this state.
+        var id = new ChatReadState.Id(groupId, memberId);
+        ChatReadState state = readStates.findById(id).orElseGet(() -> ChatReadState.create(id));
+        return readStates.save(state.advanceTo(sequence)).lastReadSequence();
     }
 
     @Override
@@ -114,30 +91,12 @@ public class JpaChatCommandRepository implements ChatCommandRepository {
 
     @Override
     public void initializeRead(long groupId, long memberId) {
-        jdbc.update(
-                """
-                insert into chat_read_state(group_id, member_id, last_read_sequence)
-                values (?, ?, coalesce((select last_sequence from chat_room where group_id = ?), 0))
-                on conflict do nothing
-                """,
-                groupId,
-                memberId,
-                groupId);
+        readStates.initializeRead(groupId, memberId);
     }
 
     @Override
     public void notifyEvent(String type, long groupId, Long memberId, Long messageId) {
-        jdbc.queryForObject(
-                """
-                select pg_notify('jarihana_chat', json_build_object(
-                'version', 1, 'type', cast(? as text), 'groupId', cast(? as bigint),
-                'memberId', cast(? as bigint), 'messageId', cast(? as bigint))::text)
-                """,
-                String.class,
-                type,
-                groupId,
-                memberId,
-                messageId);
+        rooms.notifyEvent(type, groupId, memberId, messageId);
     }
 
     @Override

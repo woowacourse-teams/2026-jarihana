@@ -43,10 +43,19 @@ const ACTIVITY_LINK = {
   to: "/activities"
 };
 
+const BOARD_LINK = {
+  action: "browse_proposals",
+  isActive: (pathname) => pathname === "/board" || pathname.startsWith("/board/"),
+  label: "게시판",
+  requiresAuth: false,
+  to: "/board"
+};
+
 const MEMBER_LINKS = [
   HOME_LINK,
   EXPLORE_LINK,
   ACTIVITY_LINK,
+  BOARD_LINK,
   {
     action: "group_create",
     isActive: (pathname) => pathname === "/groups/new",
@@ -56,7 +65,7 @@ const MEMBER_LINKS = [
   }
 ];
 
-const DESKTOP_MEMBER_LINKS = [HOME_LINK, EXPLORE_LINK, ACTIVITY_LINK];
+const DESKTOP_MEMBER_LINKS = [HOME_LINK, EXPLORE_LINK, ACTIVITY_LINK, BOARD_LINK];
 
 function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, status }) {
   const { pathname } = useLocation();
