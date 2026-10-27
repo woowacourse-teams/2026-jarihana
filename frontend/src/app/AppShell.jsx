@@ -6,7 +6,7 @@ import { AppFooter } from "./AppFooter";
 import { ChatModal } from "../pages/chat/ChatModal";
 import "./AppShell.css";
 
-const PRIMARY_PAGE_PATHS = ["/home", "/groups", "/activities"];
+const PRIMARY_PAGE_PATHS = ["/home", "/groups", "/activities", "/board"];
 
 function scrollBehavior() {
   return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ? "auto" : "smooth";

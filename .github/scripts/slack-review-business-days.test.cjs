@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { test, beforeEach, afterEach } = require("node:test");
-const { main } = require("./slack-review-notifications.cjs");
+const { main, calculateDeadlines } = require("./slack-review-notifications.cjs");
 
 const RealDate = Date;
 const originalFetch = global.fetch;
@@ -23,7 +23,7 @@ let changedPaths;
 
 beforeEach(() => {
   directory = fs.mkdtempSync(path.join(os.tmpdir(), "review-business-day-test-"));
-  now = RealDate.parse("2026-10-09T10:30:00+09:00");
+  now = RealDate.parse("2026-10-09T14:00:00+09:00");
   afterDelay = null;
   calendarUnavailable = false;
   githubCalls = [];
@@ -52,8 +52,8 @@ beforeEach(() => {
     SLACK_REVIEW_USER_IDS: JSON.stringify({ Sauter001: "U123" }),
     REVIEW_REMINDER: JSON.stringify({
       pr_number: 987,
-      deadline_key: "20261008-1730",
-      deadline_label: "2026-10-08 17:30 KST",
+      deadline_key: "20261008-1400",
+      deadline_label: "2026-10-08 14:00 KST",
       reviewers: ["Sauter001"],
     }),
   });
@@ -114,9 +114,51 @@ afterEach(() => {
 const output = () => fs.readFileSync(process.env.GITHUB_OUTPUT, "utf8");
 const markerExists = () => fs.existsSync(path.join(directory, "slack-review-reminder.json"));
 
+test("slot boundaries distinguish required and recommended deadlines and skip holidays", async () => {
+  for (const [created, expected] of [
+    ["2026-10-08T13:59:59+09:00", [["2026-10-08", "14:00", "required"]]],
+    ["2026-10-08T14:00:00+09:00", [["2026-10-08", "21:00", "recommended"], ["2026-10-12", "14:00", "required"]]],
+    ["2026-10-08T20:59:59+09:00", [["2026-10-08", "21:00", "recommended"], ["2026-10-12", "14:00", "required"]]],
+    ["2026-10-08T21:00:00+09:00", [["2026-10-12", "14:00", "required"]]],
+    ["2026-10-09T15:00:00+09:00", [["2026-10-12", "14:00", "required"]]],
+  ]) {
+    const deadlines = await calculateDeadlines(created);
+    assert.deepEqual(deadlines.map(({ date, time, kind }) => [date, time, kind]), expected);
+  }
+});
+
+test("an afternoon PR gets an optional 21:00 reminder and a distinct mandatory next-business-day reminder", async () => {
+  pr.created_at = "2026-10-08T15:00:00+09:00";
+  now = RealDate.parse("2026-10-08T21:00:00+09:00");
+  await main("deadline-scan");
+  assert.match(output(), /20261008-2100/);
+  assert.doesNotMatch(output(), /20261012-1400/);
+  process.env.REVIEW_REMINDER = JSON.stringify({ pr_number: 987, deadline_key: "20261008-2100", deadline_label: "2026-10-08 21:00 KST", reviewers: ["Sauter001"] });
+  await main("deadline-notification");
+  assert.match(slackMessages[0].text, /권장 리뷰 시각입니다 \(필수 아님\)/);
+
+  fs.writeFileSync(process.env.GITHUB_OUTPUT, "");
+  now = RealDate.parse("2026-10-12T14:00:00+09:00");
+  await main("deadline-scan");
+  assert.match(output(), /20261012-1400/);
+  assert.doesNotMatch(output(), /20261008-2100/);
+  process.env.REVIEW_REMINDER = JSON.stringify({ pr_number: 987, deadline_key: "20261012-1400", deadline_label: "2026-10-12 14:00 KST", reviewers: ["Sauter001"] });
+  await main("deadline-notification");
+  assert.match(slackMessages[1].text, /필수 리뷰 마감 시각입니다/);
+});
+
+test("an approval before the optional slot prevents the evening notification", async () => {
+  pr.created_at = "2026-10-08T15:00:00+09:00";
+  now = RealDate.parse("2026-10-08T21:00:00+09:00");
+  reviews = [{ id: 1, state: "APPROVED", commit_id: pr.head.sha, submitted_at: "2026-10-08T12:00:00Z", user: { login: "Sauter001" } }];
+  await main("deadline-scan");
+  assert.match(output(), /has_reminders=false/);
+  assert.equal(slackMessages.length, 0);
+});
+
 for (const [label, instant] of [
-  ["holiday", "2026-10-09T10:30:00+09:00"],
-  ["weekend", "2026-10-10T10:30:00+09:00"],
+  ["holiday", "2026-10-09T14:00:00+09:00"],
+  ["weekend", "2026-10-10T14:00:00+09:00"],
 ]) {
   test("deadline scan skips overdue PRs on a " + label, async () => {
     now = RealDate.parse(instant);
@@ -138,7 +180,7 @@ for (const [label, instant] of [
 }
 
 test("an invalid risk declaration alone requires a body correction rather than an approval reminder", async () => {
-  now = RealDate.parse("2026-10-12T10:30:00+09:00");
+  now = RealDate.parse("2026-10-12T14:00:00+09:00");
   pr.body = "- 위험도: low | medium | high";
   await main("deadline-scan");
   assert.match(output(), /has_reminders=false/);
@@ -148,7 +190,7 @@ test("an invalid risk declaration alone requires a body correction rather than a
 });
 
 test("a protected path still requires an approval reminder when the risk declaration is invalid", async () => {
-  now = RealDate.parse("2026-10-12T10:30:00+09:00");
+  now = RealDate.parse("2026-10-12T14:00:00+09:00");
   pr.body = "missing risk declaration";
   changedPaths = ["infra/review-policy.yml"];
   await main("deadline-scan");
@@ -156,7 +198,7 @@ test("a protected path still requires an approval reminder when the risk declara
 });
 
 test("an approval for the current head suppresses both scan and delivery", async () => {
-  now = RealDate.parse("2026-10-12T10:30:00+09:00");
+  now = RealDate.parse("2026-10-12T14:00:00+09:00");
   reviews = [{ id: 1, state: "APPROVED", commit_id: pr.head.sha, submitted_at: "2026-10-08T07:00:00Z", user: { login: "Sauter001" } }];
   await main("deadline-scan");
   assert.match(output(), /has_reminders=false/);
@@ -166,15 +208,15 @@ test("an approval for the current head suppresses both scan and delivery", async
 });
 
 test("an approval for an older head does not suppress an overdue reminder", async () => {
-  now = RealDate.parse("2026-10-12T10:30:00+09:00");
+  now = RealDate.parse("2026-10-12T14:00:00+09:00");
   reviews = [{ id: 1, state: "APPROVED", commit_id: "older-head", submitted_at: "2026-10-08T07:00:00Z", user: { login: "Sauter001" } }];
   await main("deadline-scan");
   assert.match(output(), /has_reminders=true/);
 });
 
 test("a persisted reminder marker prevents another scan and delivery", async () => {
-  now = RealDate.parse("2026-10-12T10:30:00+09:00");
-  artifacts = [{ name: "slack-review-reminder-pr-987-20261008-1730", expired: false, workflow_run: { head_branch: "main" } }];
+  now = RealDate.parse("2026-10-12T14:00:00+09:00");
+  artifacts = [{ name: "slack-review-reminder-pr-987-20261008-1400", expired: false, workflow_run: { head_branch: "main" } }];
   await main("deadline-scan");
   assert.match(output(), /has_reminders=false/);
   await main("deadline-notification");
@@ -183,7 +225,7 @@ test("a persisted reminder marker prevents another scan and delivery", async () 
 });
 
 test("a removed review request is not mentioned by a previously queued reminder", async () => {
-  now = RealDate.parse("2026-10-12T10:30:00+09:00");
+  now = RealDate.parse("2026-10-12T14:00:00+09:00");
   pr.requested_reviewers = [];
   timeline = [
     { event: "review_requested", created_at: pr.created_at, requested_reviewer: { login: "Sauter001" } },
@@ -196,7 +238,7 @@ test("a removed review request is not mentioned by a previously queued reminder"
 
 for (const state of ["closed", "draft", "low"]) {
   test("a queued reminder skips a PR that has become " + state, async () => {
-    now = RealDate.parse("2026-10-12T10:30:00+09:00");
+    now = RealDate.parse("2026-10-12T14:00:00+09:00");
     if (state === "closed") pr.state = "closed";
     if (state === "draft") pr.draft = true;
     if (state === "low") pr.body = "- 위험도: low";
@@ -215,7 +257,7 @@ test("the business-day guard uses the KST date rather than the UTC date", async 
 });
 
 test("a missed overdue reminder can still be selected on the next business day", async () => {
-  now = RealDate.parse("2026-10-12T10:30:00+09:00");
+  now = RealDate.parse("2026-10-12T14:00:00+09:00");
   await main("deadline-scan");
   assert.match(output(), /has_reminders=true/);
   assert.match(output(), /"pr_number":987/);
@@ -223,7 +265,7 @@ test("a missed overdue reminder can still be selected on the next business day",
 });
 
 test("business-day delivery sends one mention and saves a marker", async () => {
-  now = RealDate.parse("2026-10-12T10:30:00+09:00");
+  now = RealDate.parse("2026-10-12T14:00:00+09:00");
   await main("deadline-notification");
   assert.match(output(), /sent=true/);
   assert.equal(slackMessages.length, 1);
@@ -242,7 +284,7 @@ test("a job crossing midnight into a holiday rechecks before posting", async () 
 
 for (const mode of ["deadline-scan", "deadline-notification"]) {
   test(mode + " does not guess a working day when the current calendar is unavailable", async () => {
-    now = RealDate.parse("2028-01-03T10:30:00+09:00");
+    now = RealDate.parse("2028-01-03T14:00:00+09:00");
     calendarUnavailable = true;
     await assert.rejects(main(mode), /Korean public-holiday calendar returned 503 for 2028/);
     assert.equal(githubCalls.length, 0);

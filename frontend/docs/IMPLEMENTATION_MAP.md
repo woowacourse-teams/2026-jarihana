@@ -90,6 +90,9 @@ header 구현으로 확대하지 않았다.
 | `/groups` | 공개 | `GET /api/groups` | AppShell, GroupBrowsePage, SearchField, FilterBar, GroupCard, CursorList | initial/background loading, empty, success, 400, network |
 | `/groups/explore` | 공개 | 없음 | 검색 조건과 해시를 보존해 `/groups`로 replace 이동 | 기존 링크 호환 |
 | `/activities`                                                       | 공개 (댓글과 반응은 회원) | `GET /api/activity-posts`, 활동 기록 작성, 수정, 숨김 API, 댓글 조회, 작성, 숨김과 하트 반응, 반응한 회원 커서 조회(30명씩) API | AppShell, ActivityPostBoard, PolaroidCard, ActivityPostDetail(Modal), ActivityReactionBar, infinite cursor list | loading, empty, error, public/mine filter, image upload and public-visibility notice, 상세의 댓글 loading, empty, error, 더 보기, 비로그인 로그인 안내 후 `?post=` 복귀, 알림의 `?mine=true&post=` 진입과 최대 5페이지 이어 찾기, 사진 크게 보기 |
+| `/board` | 공개 (함께하고 싶어요는 회원) | `GET /api/proposals`, `PUT/DELETE /api/proposals/{proposalId}/interest` | AppShell, ProposalBoardPage, 분야 필터, 제안 카드, infinite cursor list | loading, empty(전체, 분야별), error와 다시 불러오기, 분야를 `?category=`로 유지, 카드의 함께하고 싶어요 낙관적 토글과 실패 시 서버 값 복원, 비로그인 로그인 안내 후 `/board` 복귀 |
+| `/board/new` | 회원 | `POST /api/proposals` | ProposalCreatePage, 분야 칩, TextField, Textarea, 분위기 선택지 0~3개를 칩으로 입력(Enter나 쉼표 뒤 띄어쓰기로 더하기, 빈 입력에서 Backspace로 마지막 칩 지우기, 한글 조합 중 Enter는 조합이 끝난 뒤 더하기) | 필드 검증과 첫 오류 포커스, 서버 오류, 작성 중, 성공 시 상세로 replace 이동 |
+| `/board/:proposalId` | 공개 (응답과 코멘트는 회원) | 제안 상세, 응답 저장과 취소, 코멘트 조회, 작성, 숨김과 제안 숨김 | 새 페이지 상세, 조건 칩 응답 패널(1024px 이상 sticky 오른쪽 rail, 미만은 본문 바로 아래), 모인 조건 요약 칩(가장 많이 고른 선택지, 마우스를 올리거나 누르면 선택지별 인원 드롭다운), 코멘트 | loading, 404(지운 제안), error, 비로그인 안내, 마음만 보낸 응답의 조건 더하기, 응답 고치기와 취소, 목록에서 왔으면 뒤로 가기로 분야와 스크롤 복원 |
 | `/groups/:groupId`                                                  | 그룹 정보와 달력 제목·날짜·시각은 공개, 일정 상세는 그룹원 | 그룹 상세, 모집·참여자·활동 기록, `/api/groups/{groupId}/calendar`와 그룹원 일정 상세 API | DetailLayout, Tabs(소개·캘린더·활동 기록), GroupCalendarTab, InfoRow, RecruitmentCard, PersonRow, ActivityPostBoard | loading, empty section, calendar range/error, leader calendar actions, 403, 404, 409 conflict, network |
 | `/groups/:groupId/recruitments/:recruitmentId`                      | 조회 공개, 신청은 회원 | 모집 상세, 신청 생성/철회                | DetailLayout, RecruitmentPanel, Modal, Toast                         | closed/ended, validation, 401, 403, 404, 409, mutation pending/success/failure   |
 | `/oauth/callback`                                                   | 공개                   | `GET /api/members/me`                    | CenteredStateLayout                                                  | callback loading, invalid callback, signup required, authenticated, 401, network |
@@ -133,6 +136,16 @@ header 구현으로 확대하지 않았다.
 모든 cursor 목록은 첫 요청에서 cursor를 생략하고 다음 요청은 응답의 `nextCursor`만 사용한다.
 그룹 탐색은 카드 밀도 때문에 `size=12`를 명시하고, 나머지는 backend default `size=20`을
 사용한다. 허용 범위는 1–100이다. 같은 cursor 재요청과 중복 item 병합을 막는다.
+
+### 자유게시판 모임 제안 (2차 시안 A안)
+
+- 목록은 1차 1번 카드 목록을 따르고, 글은 모달 대신 `/board/:proposalId` 새 페이지로 연다. 상세는 1차 3번 조건 맞추기를 따른다.
+- 응답 조건은 시간 4개와 진행 방식 2개가 모든 제안에 같고, 분위기 선택지만 제안자가 작성 때 0~3개 정한다. 조건은 모두 비워도 된다.
+- 목록의 함께하고 싶어요는 조건 없는 응답을 보내고, 상세에서 조건을 더하거나 고친다. 같은 회원의 응답은 하나다.
+- 상세의 모인 조건은 조건마다 가장 많이 고른 선택지 하나(동률이면 함께)만 칩으로 보인다. 칩의 아래 화살표와 손가락 커서로 더 볼 수 있음을 알리고, 마우스는 올리면 열리고 누르면 고정되며 터치는 누를 때 열고 닫는다. Esc와 바깥 누르기로 닫는다.
+- 응답은 모임 신청이 아니다. 화면 문구로 이를 알리고 그룹 소속이나 모집 신청을 만들지 않는다.
+- 서버 계약: [자유게시판 모임 제안 API](../../backend/docs/context/api/endpoints/proposals.md). `entities/proposal`이 응답을 검증하고 `features/proposal`이 공통 API client와 React Query로 호출한다.
+- 이번 범위 밖: 제안 수정, 관심 많은 순 정렬, 알림, 분석 성공 이벤트. 클릭 식별자는 [분석 문서](analytics.md#자유게시판-모임-제안)를 따른다.
 
 ## 실제 API 계약 요약
 
