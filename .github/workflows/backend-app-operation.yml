@@ -42,9 +42,10 @@ jobs:
       BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
       BG_DEV_AUTO_ENABLED: ${{ vars.BLUE_GREEN_DEV_ENABLED || 'false' }}
       GH_TOKEN: ${{ github.token }}
-      RDS_URL: ${{ vars.BLUE_GREEN_RDS_URL || vars.RDS_URL }}
-      BLUE_GREEN_RDS_URL: ${{ vars.BLUE_GREEN_RDS_URL || (inputs.environment == 'prod' && vars.RDS_URL) }}
-      BG_APPROVED_RDS_URL: ${{ vars.BLUE_GREEN_RDS_URL }}
+      RDS_URL: ${{ vars.RDS_URL }}
+      # Older immutable control releases still require this process environment alias.
+      # Both names use RDS_URL; no separate GitHub variable or DB override is read.
+      BLUE_GREEN_RDS_URL: ${{ vars.RDS_URL }}
       DB_USERNAME: ${{ vars.DB_USERNAME }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
       INVITATION_TOKEN_ACTIVE_KEY_ID: ${{ vars.INVITATION_TOKEN_ACTIVE_KEY_ID || 'primary' }}

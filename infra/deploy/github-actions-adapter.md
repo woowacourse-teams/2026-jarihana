@@ -61,7 +61,9 @@ GitHub의 `always()`는 runner 전원 장애나 연결 단절 시 실행을 보�
 - 환경별 A/B runner 라벨은 서로 달라야 한다. 각 job에서 IMDSv2로 실제 EC2를 대조한다.
   앱은 loopback 관리 API만 호출하며 coordinator가 앱 관리 포트나 SSH 명령으로 제어하지 않는다.
 - 업무 설정과 Secrets는 각 job의 GitHub `dev`/`prod` environment에서 전달한다.
-  dev는 `BLUE_GREEN_RDS_URL`을 명시한다. dev 자동화 비활성 상태의 수동 실습은
+  DB endpoint는 일반 배포와 동일한 environment의 `RDS_URL`만 읽는다. 옛 고정 제어 코드용
+  `BLUE_GREEN_RDS_URL` 프로세스 별칭도 이 값에서 전달하며 별도 GitHub 변수는 읽지 않는다.
+  dev 자동화 비활성 상태의 수동 실습은
   push·scheduler를 false로 강제한다. 활성 상태는 기존 dev의 `PUSH_ENABLED`·
   `PUSH_WORKER_ENABLED`를 사용하되 후보는 제어 활성·START_PAUSED를 유지한다.
   실제 컨테이너의 푸시 설정도 prepare/profile에서 확인한다. 운영 중 변수를 바꾸지 않는다.

@@ -121,7 +121,8 @@ main prepare
 EOF
 chmod 700 "$DIR/command.sh"
 export DIR BG_ENVIRONMENT=dev BG_MODE=deploy BG_SLOT=B
-export RDS_URL=$PREFIX-db BLUE_GREEN_RDS_URL=$PREFIX-db DB_USERNAME=fixture DB_PASSWORD=fixture
+export RDS_URL=$PREFIX-db DB_USERNAME=fixture DB_PASSWORD=fixture
+unset BLUE_GREEN_RDS_URL
 export INVITATION_TOKEN_KEY_PRIMARY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY= ACCESS_TOKEN_SECRET=local-fixture-jwt-secret-0123456789abcdef
 export FRONTEND_ORIGIN=http://localhost GITHUB_OAUTH_CLIENT_ID=fixture GITHUB_OAUTH_CLIENT_SECRET=fixture GITHUB_OAUTH_REDIRECT_URI=http://localhost/oauth
 export IMAGE_S3_BUCKET=fixture IMAGE_S3_REGION=ap-northeast-2 IMAGE_S3_KEY_PREFIX=fixture IMAGE_S3_PUBLIC_BASE_URL=http://localhost/fixture

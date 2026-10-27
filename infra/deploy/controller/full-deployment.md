@@ -125,7 +125,7 @@ BLUE_GREEN_PROD_A_RUNNER / BLUE_GREEN_PROD_B_RUNNER
 BLUE_GREEN_DEV_ENABLED (repository 변수, 초기 false 또는 미설정)
 BLUE_GREEN_PROD_ENABLED (초기 false 또는 미설정)
 BLUE_GREEN_CONTROL_REF (repository 변수, refs/tags/deployment-control-...)
-BLUE_GREEN_RDS_URL (environment 변수, 필요할 때 기존 RDS_URL 대신 사용하는 시험 DB endpoint)
+RDS_URL (dev/prod environment 변수, 해당 환경의 RDS endpoint)
 ```
 
 coordinator 라벨은 `jarihana-bluegreen-coordinator`다. 앱 workflow에는 선택한 dev/prod의 기존
@@ -134,9 +134,13 @@ checkout은 별도로 보호된 control tag를 사용한다. environment에 매 
 승인을 기다리므로, 허가 기한과 자동
 배포라는 목표와 보호 규칙을 함께 검토한다. 이 작업에서 보호 규칙을 임의로 변경하지 않는다.
 dev 앱 A/B는 승인한 개발 RDS의 `jarihana_dev`를 사용한다.
-dev의 `RDS_URL`과 `BLUE_GREEN_RDS_URL`을 같은 endpoint로 유지한다.
-`BLUE_GREEN_RDS_URL`은 과거 실습 DB를 명시하던 임시 설정이며, 코드가 아직 필수로 검사하므로
-dev 자동화 해제·정리 때 소비 코드를 함께 정리한다. 임의로 변수만 삭제하지 않는다.
+일반 배포와 Blue-Green 모두 해당 environment의 `RDS_URL` 하나를 사용한다.
+endpoint만 설정하며 JDBC 접두사·포트·DB 이름은 붙이지 않는다.
+옛 immutable control release는 프로세스 환경 변수 `BLUE_GREEN_RDS_URL`도 요구하므로
+앱 workflow가 같은 `RDS_URL` 값을 호환용 별칭으로 전달한다. 별도 GitHub 변수는 읽지 않는다.
+이 workflow 변경을 develop/main에 반영하고 기존 실행이 끝난 뒤 임시 GitHub 변수
+`BLUE_GREEN_RDS_URL`을 삭제한다. 호환 별칭 제거는 옛 release가 실행되지 않는 것을
+확인한 뒤 별도 변경으로 진행하며, 기존 control tag를 이동하지 않는다.
 prod에는 dev DB 이름·계정·endpoint 설정 묶음을 복사하지 않는다.
 
 검토·반영한 코드에 새 `deployment-control-...` immutable tag를 만들고, 실제 SHA와 tag를
