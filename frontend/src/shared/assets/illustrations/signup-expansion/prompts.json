@@ -1,0 +1,47 @@
+{
+  "mode": "built-in image_gen",
+  "createdAt": "2026-10-27",
+  "purpose": "Jarihana signup expansion illustration assets",
+  "assets": [
+    {
+      "file": "signup-bootcamp.png",
+      "prompt": "Use case: style-transfer. Asset type: standalone transparent signup choice character for Jarihana. Input image 1 is the edit target and rendering style reference, the existing crew character. Create a new derivative character by changing the clothing and prop while preserving the exact visual family: friendly young adult Korean-inspired toy figure, rounded black oval eyes, small curved smile, subtle blush, large soft head, compact rounded hands and limbs, matte clay and softly textured fabric, soft upper-left studio light, gentle 3/4 view. Change outfit to a muted mint hoodie with hood down, warm ivory relaxed trousers and white sneakers. Replace the backpack and book with one charcoal tablet held against the body and a short white stylus held naturally in the other hand. Add subtle charcoal over-ear headphones resting around the neck as a coding learner cue. Give the character a slightly different short dark hairstyle, simple and rounded. This represents a bootcamp learner, learning by doing. No backpack, no books, no lanyard, no laptop, no logo or text or watermark. Show one single character, entire full body including both shoes, centered in a square canvas, same head-to-body ratio and camera distance as input. Leave at least 6 percent clear padding on every edge. Background must be genuinely transparent alpha, no white rectangle, no checkerboard printed into image, no environment, no floor plane, no pedestal. Keep a subtle localized contact shadow if needed, with transparent surrounding area. Clean isolated production PNG cutout. Do not redraw or return the original crew image.",
+      "references": [
+        "signup-crew.png"
+      ],
+      "transparent_background": true
+    },
+    {
+      "file": "signup-company.png",
+      "prompt": "Use case: style-transfer. Asset type: standalone transparent signup choice character for Jarihana. Input image 1 is the edit target and rendering style reference, the existing coach character. Create a new derivative young adult working professional in the same exact toy clay visual family, preserving the rounded facial proportions, simple black oval eyes, small friendly smile, subtly rosy cheeks, large rounded head and softly rounded hands and body, matte clay surface, gently textured clothing, soft upper-left studio light and slight 3/4 camera angle. Change to a character with rounded dark chin-length bob hair, a pale powder-blue button-down shirt with sleeves rolled to forearms and a visible simple collar, warm sand straight trousers and off-white casual shoes. Replace the laptop and lanyard with a single mint reusable travel tumbler held upright naturally at mid torso in one hand. Other arm hangs in a relaxed welcoming position with a slightly open hand. The tumbler is the distinguishing prop. Keep the design approachable and gender-inclusive. No dark uniform, no lanyard or badge, no laptop, no backpack, no books, no logos, no text, no watermark. Entire full body including both shoes, one character centered in a square frame, same head-to-body ratio and camera distance as input, at least 6 percent transparent padding around all edges. Genuinely transparent alpha background, no white rectangle, no printed checkerboard, no environment, no floor plane or pedestal; only a subtle localized contact shadow if needed. Clean isolated production PNG cutout. Do not return the original coach image.",
+      "references": [
+        "signup-coach.png"
+      ],
+      "transparent_background": true
+    },
+    {
+      "file": "signup-others.png",
+      "prompt": "Use case: compositing. Asset type: standalone transparent group illustration for the 'other affiliations' signup card in Jarihana. Supporting images: image 1 is the existing coach character, image 2 is the newly approved bootcamp character, image 3 is the newly approved company professional character. Create ONE cohesive new group illustration containing EXACTLY these three characters, no crew student, no fourth person. Preserve each identity, recognizable outfit, hairstyle and props from the respective reference. Coach wears a black crewneck and black trousers with mint lanyard and holds a closed plain silver laptop with no logo. Bootcamp learner wears muted mint hoodie, warm ivory trousers, headphones around neck and holds charcoal tablet and white stylus. Company professional has dark bob hair, pale blue rolled-sleeve shirt, sand trousers and mint tumbler. They stand side by side in a friendly shallow arc: coach on left, learner in center, company professional on right; all looking gently toward the viewer. Preserve the same rounded simple smiling toy faces, matte clay rendering, fabric texture, head-to-body proportion and soft upper-left studio light as the references. Keep all three complete full bodies and both shoes of each visible. Keep faces, props and silhouettes readable and separated with minimal overlap, similar character heights, feet on a shared baseline. Composition compact and centered within a square canvas, about 85 percent canvas width, at least 7 percent clear padding at all edges. This must work inside a small signup selection card, so prioritize clean silhouettes and few details over a busy scene. Genuinely transparent alpha background with clean edges. No backdrop, no white rectangle, no printed checkerboard, no floor plane, no pedestal, no cropped legs, no extra chairs, no symbols, no letters, no text, no speech balloons, no logo or watermark. Small subtle contact shadows only. Deliver one finished PNG cutout, not a collage board or multiple panels.",
+      "references": [
+        "signup-coach.png",
+        "signup-bootcamp.png",
+        "signup-company.png"
+      ],
+      "transparent_background": true
+    },
+    {
+      "file": "signup-complete.png",
+      "prompt": "Use case: precise-object-edit. Asset type: signup completion illustration for the Jarihana community. Input image 1 is an edit target and brand shape reference: the existing mint chair with a white plus. Create a new derivative illustration for successful signup. Preserve the chair's recognizable rounded back with a horizontal slot, rounded seat, four chunky legs, welcoming 3/4 perspective and mint color near #2ac1bc, but soften its shiny plastic highlights into refined matte clay to match the signup character family. Remove the floating plus and replace it with one clear ivory round success token floating near the upper-right side of the chair, with a bold mint check mark inset on its front, readable at 96 CSS pixels. Include only four small rounded confetti pieces in muted mint, pale warm gold and ivory above the chair, to imply a quiet celebration. The concept is 'a seat is ready for you'. Show the whole chair and all visible legs, one chair only. Square canvas, centered balanced compact composition, generous transparent padding of at least 8 percent. Soft studio lighting from upper left, clean edges, subtle contact shadow only. Genuinely transparent alpha background, no floor plane or environment, no white rectangle, no printed checkerboard, no text, logos, lettering, watermark, people, additional chairs, ribbon banners, large confetti cloud or excessive sparkles. Deliver a finished standalone PNG cutout.",
+      "references": [
+        "jarihana-chair-create.png"
+      ],
+      "transparent_background": true
+    }
+  ],
+  "icons": {
+    "method": "Hand-authored SVG",
+    "viewBox": "0 0 24 24",
+    "strokeWidth": 1.75,
+    "color": "currentColor"
+  }
+}
