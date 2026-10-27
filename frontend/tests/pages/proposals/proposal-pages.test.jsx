@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useLocation, useParams, useSearchParams } from "react-router";
 
 import { storeReturnTarget, useAuth } from "../../../src/features/auth/index.js";
@@ -314,13 +314,45 @@ describe("ProposalCreatePage", () => {
     fireEvent.click(screen.getByRole("button", { name: "운동" }));
     fireEvent.change(screen.getByLabelText(/제목/), { target: { value: "  아침 러닝  " } });
     fireEvent.change(screen.getByLabelText(/어떤 모임인가요/), { target: { value: "같이 뛰어요" } });
-    fireEvent.click(screen.getByRole("button", { name: /선택지 더하기/ }));
-    fireEvent.change(screen.getByLabelText("분위기 선택지 1"), { target: { value: " 초보 환영 " } });
+    fireEvent.change(screen.getByLabelText("분위기 선택지 입력"), { target: { value: " 초보 환영 " } });
     fireEvent.click(screen.getByRole("button", { name: "제안 올리기" }));
 
     expect(create.mutate).toHaveBeenCalledWith(
       { category: "SPORT", content: "같이 뛰어요", moodOptions: ["초보 환영"], title: "아침 러닝" },
       expect.any(Object)
     );
+  });
+
+  it("adds mood options as chips with Enter or a comma followed by a space", async () => {
+    useCreateProposal.mockReturnValue({ isPending: false, mutate: jest.fn() });
+    renderWithToast(<ProposalCreatePage />);
+    const input = screen.getByLabelText("분위기 선택지 입력");
+    const chips = () =>
+      within(screen.queryByRole("list", { name: "더한 분위기 선택지" }) ?? document.createElement("ul"))
+        .queryAllByRole("listitem")
+        .map((item) => item.textContent);
+
+    fireEvent.change(input, { target: { value: "초보 환영" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(chips()).toEqual(["초보 환영"]);
+    expect(input).toHaveValue("");
+
+    fireEvent.change(input, { target: { value: "자유 도서, " } });
+    expect(chips()).toEqual(["초보 환영", "자유 도서"]);
+    expect(input).toHaveValue("");
+
+    fireEvent.change(input, { target: { value: "초보 환영" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(screen.getByRole("alert")).toHaveTextContent("이미 더한 선택지예요.");
+    expect(chips()).toEqual(["초보 환영", "자유 도서"]);
+
+    fireEvent.keyDown(input, { key: "Backspace" });
+    expect(chips()).toEqual(["초보 환영"]);
+
+    fireEvent.change(input, { target: { value: "끝나고 커피" } });
+    fireEvent.keyDown(input, { isComposing: true, key: "Enter", keyCode: 229 });
+    expect(chips()).toEqual(["초보 환영"]);
+    fireEvent.compositionEnd(input);
+    await waitFor(() => expect(chips()).toEqual(["초보 환영", "끝나고 커피"]));
   });
 });

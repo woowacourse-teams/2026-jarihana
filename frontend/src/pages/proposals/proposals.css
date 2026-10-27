@@ -823,24 +823,57 @@
 .proposal-form__mood {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    align-items: end;
+    align-items: start;
     gap: var(--space-2);
 }
 
-.proposal-form__mood-remove {
+.proposal-form__mood > .ui-button {
+    margin-block-start: calc((var(--touch-target) - var(--button-height-sm)) / 2);
+}
+
+.proposal-form__mood > .ui-button > span {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+}
+
+.proposal-form__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.proposal-form__tag {
+    display: inline-flex;
+    min-height: var(--button-height-sm);
+    align-items: center;
+    gap: var(--space-1);
+    padding-inline: var(--space-3) var(--space-1);
+    border: var(--border-thin) solid var(--color-brand);
+    border-radius: var(--radius-pill);
+    background: var(--color-brand-soft);
+    color: var(--color-brand-ink);
+    font-size: var(--text-label);
+    font-weight: var(--font-weight-semibold);
+}
+
+.proposal-form__tag-remove {
     display: inline-grid;
-    min-width: var(--touch-target);
-    min-height: var(--touch-target);
+    inline-size: 1.75rem;
+    block-size: 1.75rem;
     place-items: center;
     border: 0;
     border-radius: var(--radius-pill);
     background: transparent;
-    color: var(--color-text-muted);
+    color: inherit;
     cursor: pointer;
 }
 
-.proposal-form__mood-remove:hover {
-    background: var(--color-surface-sunken);
+.proposal-form__tag-remove:hover {
+    background: var(--color-surface);
 }
 
 .proposal-form__group > .ui-button {
