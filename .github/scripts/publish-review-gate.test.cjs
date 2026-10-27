@@ -19,7 +19,7 @@ function fixture() {
       external_id: "conditional-review-gate:987:same-head",
       conclusion: "success", check_suite: { id: 1 },
     }],
-    suiteId: 2, nextCheckId: 2, writes: [], statuses: [], statusWrites: [],
+    suiteId: 2, nextCheckId: 2, writes: [], statuses: [], statusWrites: [], statusWriteAttempts: [],
     errors: [], warnings: [], reads: 0, listReads: 0,
   };
   const github = {
@@ -51,6 +51,8 @@ function fixture() {
           return { data: { statuses: [...new Map(state.statuses.filter((item) => item.sha === ref).map((item) => [item.context, item])).values()] } };
         },
         createCommitStatus: async (data) => {
+          state.statusWriteAttempts.push(clone(data));
+          if (state.failStatusWrite?.(data)) throw new Error("fixture status limit reached");
           state.statusWrites.push(clone(data));
           state.statuses.push({ ...clone(data), creator: { login: "github-actions[bot]" } });
           return { data };
@@ -284,6 +286,70 @@ test("a high-risk PR at a different SHA does not block a low-risk commit", async
   await run();
   assert.equal(state.statusWrites.filter((item) => item.sha === "same-head").at(-1).state, "success");
   assert.equal(state.statusWrites.filter((item) => item.sha === "another-head").at(-1).state, "failure");
+});
+
+function addOtherHead(state) {
+  state.otherPull = { ...clone(state.pull), number: 988, head: { sha: "another-head" } };
+}
+
+function latestStatus(state, sha) {
+  return state.statuses.filter((item) => item.sha === sha && item.context === STATUS_CONTEXT).at(-1);
+}
+
+test("an initial publication failure for one SHA does not abort other heads", async () => {
+  const { state, run } = fixture();
+  addOtherHead(state);
+  await run();
+  state.statuses = state.statuses.filter((item) => item.sha !== "same-head");
+  state.otherPull.body = "- 위험도: high";
+  state.failStatusWrite = ({ sha }) => sha === "same-head";
+  const attemptsBefore = state.statusWriteAttempts.filter((item) => item.sha === "same-head").length;
+  await run();
+  assert.equal(latestStatus(state, "another-head").state, "failure");
+  assert.ok(state.errors.some((message) => /same-head.*status limit/.test(message)));
+  assert.equal(state.statusWriteAttempts.filter((item) => item.sha === "same-head").length - attemptsBefore, 1);
+});
+
+test("a final publication failure cannot leave a later unapproved SHA successful", async () => {
+  const { state, run } = fixture();
+  addOtherHead(state);
+  approval(state);
+  state.otherPull.body = "- 위험도: high";
+  state.otherReviews = clone(state.reviews);
+  state.otherReviews[0].commit_id = "another-head";
+  await run();
+  assert.equal(latestStatus(state, "same-head").state, "success");
+  assert.equal(latestStatus(state, "another-head").state, "success");
+  state.reviews[0].state = "DISMISSED";
+  state.otherReviews[0].state = "DISMISSED";
+  state.failStatusWrite = ({ sha }) => sha === "same-head";
+  await run();
+  assert.equal(latestStatus(state, "another-head").state, "failure");
+  assert.ok(state.errors.some((message) => /same-head.*status limit/.test(message)));
+  // GitHub rejected writes for this head: do not pretend its prior success was reset.
+  assert.equal(latestStatus(state, "same-head").state, "success");
+});
+
+test("fallback failure publication continues after another SHA rejects writes", async () => {
+  const { state, run } = fixture();
+  addOtherHead(state);
+  await run();
+  state.failStatusWrite = ({ sha }) => sha === "same-head";
+  state.listErrorAt = state.listReads + 3;
+  await run();
+  assert.equal(latestStatus(state, "another-head").state, "failure");
+  assert.match(latestStatus(state, "another-head").description, /recheck open PRs/);
+  assert.ok(state.errors.some((message) => /same-head.*status limit/.test(message)));
+  assert.ok(state.errors.some((message) => /list outage/.test(message)));
+});
+
+test("failure to publish after the initial list outage is recorded without an unhandled rejection", async () => {
+  const { state, run } = fixture();
+  state.listErrorAt = 1;
+  state.failStatusWrite = () => true;
+  await run({ action: "edited" });
+  assert.ok(state.errors.some((message) => /same-head.*status limit/.test(message)));
+  assert.ok(state.errors.some((message) => /list outage/.test(message)));
 });
 
 test("closing the unapproved PR re-evaluates the remaining PR sharing the SHA", async () => {

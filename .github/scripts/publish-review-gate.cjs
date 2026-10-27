@@ -170,34 +170,43 @@ async function publishReviewGate({ github, context, core, legacyChecks = process
   const runUrl = context.runId
     ? `${process.env.GITHUB_SERVER_URL || "https://github.com"}/${owner}/${repo}/actions/runs/${context.runId}`
     : context.payload?.pull_request?.html_url;
+  let groups = new Map();
+  const results = new Map();
+  const latest = new Map();
+  const publicationFailures = new Set();
+
+  async function status(sha, state, description) {
+    // A rejected SHA must not abort writes for other PRs. Do not repeatedly
+    // retry a quota-exhausted SHA during this scan or cache an unposted result.
+    if (publicationFailures.has(sha)) return false;
+    const previous = latest.get(sha);
+    // Ignore target_url: unchanged scans must not exhaust the status quota.
+    if (previous?.creator?.login === "github-actions[bot]" &&
+        previous.state === state && previous.description === description) return true;
+    try {
+      await github.rest.repos.createCommitStatus({
+        owner, repo, sha, state, context: STATUS_CONTEXT, description,
+        target_url: runUrl || groups.get(sha)?.[0]?.html_url,
+      });
+      latest.set(sha, { state, description, creator: { login: "github-actions[bot]" } });
+      return true;
+    } catch (error) {
+      publicationFailures.add(sha);
+      core.setFailed("Could not publish review policy for SHA " + sha + ": " + error.message);
+      return false;
+    }
+  }
+
   let pulls;
   try {
     pulls = await openPulls(github, owner, repo);
   } catch (error) {
     // A change event identifies its affected head even when listing PRs fails.
-    if (changedHead) await github.rest.repos.createCommitStatus({
-      owner, repo, sha: changedHead, context: STATUS_CONTEXT, state: "failure",
-      description: "Could not list open PRs for the changed head", target_url: runUrl,
-    });
+    if (changedHead) await status(changedHead, "failure", "Could not list open PRs for the changed head");
     core.setFailed("Could not list open PRs: " + error.message);
     return;
   }
-  const groups = groupsByHead(pulls);
-  const results = new Map();
-  const latest = new Map();
-
-  async function status(sha, state, description) {
-    // Ignore target_url when comparing: scheduled scans must not exhaust GitHub's
-    // 1,000-status limit for a SHA/context just because the run URL changed.
-    const previous = latest.get(sha);
-    if (previous?.creator?.login === "github-actions[bot]" &&
-        previous.state === state && previous.description === description) return;
-    await github.rest.repos.createCommitStatus({
-      owner, repo, sha, state, context: STATUS_CONTEXT, description,
-      target_url: runUrl || groups.get(sha)[0].html_url,
-    });
-    latest.set(sha, { state, description, creator: { login: "github-actions[bot]" } });
-  }
+  groups = groupsByHead(pulls);
 
   // Invalidate only the PR head affected by a change event. Unchanged recovery
   // scans publish only state changes; any read/evaluation error still blocks.
