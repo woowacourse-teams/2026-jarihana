@@ -130,6 +130,40 @@ async function assertPeriodFieldAlignment(page) {
   ).toBeLessThanOrEqual(1);
 }
 
+async function assertPopoverVisibleWithinContent(page, selector) {
+  const popover = page.locator(selector);
+  await popover.scrollIntoViewIfNeeded();
+  const geometry = await popover.evaluate((element) => {
+    const content = document.querySelector("#main-content").getBoundingClientRect();
+    const obscuredControls = [...element.querySelectorAll("button:not(:disabled)")]
+      .filter((control) => {
+        const bounds = control.getBoundingClientRect();
+        return !control.contains(document.elementFromPoint(
+          bounds.left + bounds.width / 2,
+          bounds.top + bounds.height / 2
+        ));
+      })
+      .map((control) => control.getAttribute("aria-label") || control.textContent);
+    const bounds = element.getBoundingClientRect();
+    return {
+      bottom: bounds.bottom,
+      contentBottom: content.bottom,
+      contentTop: content.top,
+      left: bounds.left,
+      obscuredControls,
+      right: bounds.right,
+      top: bounds.top,
+      viewportWidth: window.innerWidth
+    };
+  });
+
+  expect(geometry.top).toBeGreaterThanOrEqual(geometry.contentTop);
+  expect(geometry.bottom).toBeLessThanOrEqual(geometry.contentBottom);
+  expect(geometry.obscuredControls).toEqual([]);
+  expect(geometry.left).toBeGreaterThanOrEqual(0);
+  expect(geometry.right).toBeLessThanOrEqual(geometry.viewportWidth);
+}
+
 for (const viewport of viewports) {
   test(`recruitment period works at ${viewport.label}`, async ({ page }) => {
     const browserFailures = [];
@@ -212,7 +246,17 @@ for (const viewport of viewports) {
 
     await endEndpoint.click();
     await expect(page.getByRole("region", { name: "모집 마감일 달력" })).toBeVisible();
+    await assertPopoverVisibleWithinContent(page, ".ui-date-range__calendar-popover");
+    if (viewport.width >= 1024) {
+      const calendar = await page.locator(".ui-date-range__calendar-popover").boundingBox();
+      const trigger = await endEndpoint.boundingBox();
+      expect(calendar.y + calendar.height).toBeLessThan(trigger.y);
+    }
     await expect(page.getByRole("button", { name: "2026년 9월 1일" })).toBeDisabled();
+    await page.getByRole("button", { name: "다음 달" }).click();
+    await assertPopoverVisibleWithinContent(page, ".ui-date-range__calendar-popover");
+    await page.getByRole("button", { name: "이전 달" }).click();
+    await page.getByRole("button", { name: "2026년 9월 30일" }).click({ trial: true });
 
     if (viewport.label === "desktop-1280") {
       const calendar = page.getByRole("region", { name: "모집 마감일 달력" });
@@ -277,6 +321,10 @@ for (const viewport of viewports) {
     await page.keyboard.press("Escape");
     await expect(page.getByRole("region", { name: "모집 마감일 달력" })).toBeHidden();
     await expect(endEndpoint).toBeFocused();
+    await page.getByRole("button", { name: "모집 마감 시간 선택" }).click();
+    await assertPopoverVisibleWithinContent(page, ".ui-date-range__time-popover");
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#main-content")).toHaveCSS("overflow", "clip");
     await page.getByRole("button", { name: "모집 생성" }).click();
     const request = state.requests.find(
       (entry) => entry.method === "POST" && entry.path === "/groups/10/recruitments"
