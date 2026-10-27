@@ -17,9 +17,9 @@ function fixture() {
     checks: [{
       id: 1, name: "Conditional Review Gate",
       external_id: "conditional-review-gate:987:same-head",
-      conclusion: "success",
+      conclusion: "success", check_suite: { id: 1 },
     }],
-    writes: [], errors: [], warnings: [], reads: 0, listReads: 0,
+    suiteId: 2, nextCheckId: 2, writes: [], errors: [], warnings: [], reads: 0, listReads: 0,
   };
   const github = {
     paginate: async (fn, args) => fn(args),
@@ -32,7 +32,7 @@ function fixture() {
           return { data: clone(state.pull) };
         },
         listFiles: async () => {
-          assert.equal(state.checks[0].conclusion, "failure", "invalidate before fetching dependencies");
+          assert.equal(state.checks.at(-1).conclusion, "failure", "invalidate before fetching dependencies");
           if (state.fileError) throw new Error("fixture API outage");
           return [{ filename: "frontend/src/Home.jsx" }];
         },
@@ -40,14 +40,13 @@ function fixture() {
       },
       repos: { getCollaboratorPermissionLevel: async () => ({ data: { permission: "write" } }) },
       checks: {
-        listForRef: async () => clone(state.checks),
         update: async (data) => {
           state.writes.push(clone(data));
           Object.assign(state.checks.find((check) => check.id === data.check_run_id), clone(data));
           return { data: clone(data) };
         },
         create: async (data) => {
-          const check = { ...clone(data), id: 2 };
+          const check = { ...clone(data), id: state.nextCheckId++, check_suite: { id: state.suiteId } };
           state.checks.push(check);
           state.writes.push(clone(data));
           return { data: check };
@@ -63,13 +62,14 @@ function fixture() {
   return { state, run: (payload) => publishReviewGate({ github, core, context: { repo: { owner: "example", repo: "repo" }, eventName: payload ? "pull_request_target" : undefined, payload } }) };
 }
 
-test("a title-only edit leaves existing gate checks untouched without scanning any PR", async () => {
+test("a title-only edit publishes a fresh gate check instead of hiding the prior result", async () => {
   const { state, run } = fixture();
   await run({ action: "edited", changes: { title: { from: "old title" } } });
-  assert.equal(state.listReads, 0);
-  assert.equal(state.reads, 0);
-  assert.equal(state.writes.length, 0);
-  assert.equal(state.checks[0].conclusion, "success");
+  assert.equal(state.listReads, 2);
+  assert.equal(state.reads, 2);
+  assert.equal(state.writes.length, 2);
+  assert.equal(state.checks.at(-1).conclusion, "success");
+  assert.equal(state.checks.at(-1).check_suite.id, state.suiteId);
 });
 
 for (const field of ["body", "base"]) {
@@ -77,8 +77,8 @@ for (const field of ["body", "base"]) {
     const { state, run } = fixture();
     state.pull.body = "- 위험도: high";
     await run({ action: "edited", changes: { title: { from: "old title" }, [field]: { from: "old value" } } });
-    assert.equal(state.checks[0].conclusion, "failure");
-    assert.equal(state.checks[0].output.title, "Approval required");
+    assert.equal(state.checks.at(-1).conclusion, "failure");
+    assert.equal(state.checks.at(-1).output.title, "Approval required");
   });
 }
 function approval(state) {
@@ -89,7 +89,7 @@ function approval(state) {
   }];
 }
 
-test("invalidates old success before evaluating a stable low-risk PR", async () => {
+test("publishes a blocked check before evaluating a stable low-risk PR", async () => {
   const { state, run } = fixture();
   await run();
   assert.equal(state.writes[0].conclusion, "failure");
@@ -102,25 +102,25 @@ test("a low-to-high body edit on the same head replaces success with failure", a
   await run();
   state.pull.body = "- 위험도: high";
   await run();
-  assert.equal(state.checks[0].conclusion, "failure");
-  assert.equal(state.checks[0].output.title, "Approval required");
+  assert.equal(state.checks.at(-1).conclusion, "failure");
+  assert.equal(state.checks.at(-1).output.title, "Approval required");
 });
 
 test("dismissed approval on the same head replaces prior success", async () => {
   const { state, run } = fixture();
   approval(state);
   await run();
-  assert.equal(state.checks[0].conclusion, "success");
+  assert.equal(state.checks.at(-1).conclusion, "success");
   state.reviews[0].state = "DISMISSED";
   await run();
-  assert.equal(state.checks[0].conclusion, "failure");
+  assert.equal(state.checks.at(-1).conclusion, "failure");
 });
 
-test("an API error after invalidation keeps the gate blocked", async () => {
+test("an API error after creating a blocked check keeps the gate blocked", async () => {
   const { state, run } = fixture();
   state.fileError = true;
   await run();
-  assert.equal(state.checks[0].conclusion, "failure");
+  assert.equal(state.checks.at(-1).conclusion, "failure");
   assert.equal(state.errors.length, 1);
   assert.equal(state.writes.some((write) => write.conclusion === "success"), false);
 });
@@ -136,8 +136,8 @@ for (const mutation of ["body", "head", "review"]) {
       if (mutation === "review") current.reviews[0].state = "DISMISSED";
     };
     await run();
-    assert.equal(state.checks[0].conclusion, "failure");
-    assert.equal(state.checks[0].output.title, "Review policy inputs changed");
+    assert.equal(state.checks.at(-1).conclusion, "failure");
+    assert.equal(state.checks.at(-1).output.title, "Review policy inputs changed");
     assert.equal(state.writes.some((write) => write.conclusion === "success"), false);
   });
 }
@@ -147,7 +147,42 @@ test("creates an initially blocked check when no previous result exists", async 
   state.checks = [];
   await run();
   assert.equal(state.writes[0].conclusion, "failure");
-  assert.equal(state.checks[0].conclusion, "success");
+  assert.equal(state.checks.at(-1).conclusion, "success");
+});
+
+for (const action of ["edited", "reopened"]) {
+  test("a same-head " + action + " creates a check in the new workflow suite", async () => {
+    const { state, run } = fixture();
+    approval(state);
+    await run();
+    const previous = clone(state.checks.at(-1));
+    state.suiteId++;
+    await run({ action, changes: { body: { from: "previous body" } } });
+    const current = state.checks.at(-1);
+    assert.notEqual(current.id, previous.id);
+    assert.equal(current.check_suite.id, state.suiteId);
+    assert.equal(current.head_sha, "same-head");
+    assert.equal(current.conclusion, "success");
+    assert.equal(current.output.title, "Required approval found");
+    assert.deepEqual(state.checks.at(-2), previous, "do not update a check in an older suite");
+    assert.equal(state.errors.length, 0);
+  });
+}
+
+test("a repeated scan publishes a new failed check after approval is dismissed", async () => {
+  const { state, run } = fixture();
+  approval(state);
+  await run();
+  const previous = clone(state.checks.at(-1));
+  state.suiteId++;
+  state.reviews[0].state = "DISMISSED";
+  state.fileError = true;
+  await run();
+  const current = state.checks.at(-1);
+  assert.notEqual(current.id, previous.id);
+  assert.equal(current.check_suite.id, state.suiteId);
+  assert.equal(current.conclusion, "failure");
+  assert.equal(state.errors.length, 1);
 });
 
 test("event configuration re-evaluates edits and review state using only trusted code", () => {
@@ -157,7 +192,9 @@ test("event configuration re-evaluates edits and review state using only trusted
   assert.match(gate, /pull_request_target:\s+types: \[opened, reopened, synchronize, edited, ready_for_review\]/);
   assert.match(gate, /workflow_run:\s+workflows: \[Review Policy Review Events\]/);
   assert.match(gate, /ref: \$\{\{ github\.event\.repository\.default_branch \}\}/);
+  assert.match(gate, /group: conditional-review-gate/);
   assert.match(gate, /cancel-in-progress: false/);
+  assert.doesNotMatch(gate, /github\.event\.changes\.title/);
   assert.match(signal, /types: \[submitted, edited, dismissed\]/);
   assert.match(signal, /permissions: \{\}/);
   assert.doesNotMatch(signal, /actions\/checkout|secrets\.|upload-artifact|download-artifact/);
