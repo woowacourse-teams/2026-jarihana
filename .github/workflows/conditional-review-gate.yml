@@ -19,14 +19,13 @@ permissions:
 # Serialize scans so an older evaluation cannot overwrite a newer result.
 # Each run reads all open PRs, including events coalesced while a run was pending.
 concurrency:
-  # Ignored title edits must not replace a pending meaningful gate evaluation.
-  group: ${{ github.event.action == 'edited' && github.event.changes.title != null && github.event.changes.body == null && github.event.changes.base == null && format('title-only-review-gate-{0}', github.run_id) || 'conditional-review-gate' }}
+  group: conditional-review-gate
   cancel-in-progress: false
 
 jobs:
   evaluate:
     name: Evaluate review policy
-    if: (github.event_name != 'workflow_dispatch' || github.ref_name == github.event.repository.default_branch) && (github.event.action != 'edited' || github.event.changes.title == null || github.event.changes.body != null || github.event.changes.base != null)
+    if: github.event_name != 'workflow_dispatch' || github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
