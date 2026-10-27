@@ -62,6 +62,24 @@ Nginx 이미지에는 `curl`, `sh`, `tr`, `awk`가 있어야 한다. 로컬 검�
 Alloy app scrape는 `host_id=HOST_ID`를 `up`과 HTTP 지표에 함께 부여한다.
 기존 Alloy 설정에도 이 라벨을 반영해야 배포 coordinator의 호스트별 조회가 동작한다.
 이전 모니터링 Compose를 함께 쓰는 경우 앱 준비 작업이 Alloy를 삭제하거나 재시작하지 않는다.
+Blue-Green 전용 호스트는 [독립 Alloy Compose](observability-compose.yml)로 공통
+[`config.alloy`](../../monitoring/alloy/config.alloy)와
+[`postgres-queries.yaml`](../../monitoring/alloy/postgres-queries.yaml)을 설치한다.
+앱 scrape만 있는 임시 설정으로 대체하면 health·DB·호스트·로그 수집이 빠진다.
+보호된 env 파일에 `DEPLOY_ENVIRONMENT`, `DEPLOY_HOST_ID`, `PROMETHEUS_REMOTE_WRITE_URL`,
+`LOKI_PUSH_URL`, `POSTGRES_MONITOR_DSN`, 두 설정 파일의 절대 경로인 `ALLOY_CONFIG_FILE`·
+`POSTGRES_QUERIES_FILE`, 기존 WAL 볼륨명인 `ALLOY_STORAGE_VOLUME`을 지정한다.
+신규 호스트에서는 시작 전에 `docker volume create <ALLOY_STORAGE_VOLUME>`으로 외부 볼륨을
+생성한다. 기존 수집기를 교체할 때는 기존 WAL 볼륨을 그대로 지정하고 삭제하지 않는다.
+기존 Alloy가 있으면 설정 검증 후 해당 수집기만 중지하고 전환하며, 같은 host_id의 앱 지표를
+두 수집기가 중복 전송하지 않게 한다. backend 배포 Compose와 프로젝트는 분리한다.
+관리 HTTP와 자체 메트릭은 loopback `12345`를 사용한다. `docker compose --env-file
+<보호된-env> -p jarihana-observability-prod -f <observability-compose.yml> run --rm --no-deps
+alloy validate /etc/alloy/config.alloy` 검증 후 같은 인자로 `up -d alloy`를 실행한다.
+A/B 양쪽에서 재부팅 후 자동 시작과 `jarihana-backend`, `jarihana-health`, `jarihana-liveness`,
+`jarihana-database`, `jarihana-postgres`, `jarihana-host`, `jarihana-alloy`의 최신 `up=1`,
+health probe·`pg_up=1`, 해당 host_id의 Loki 로그 도착을 확인한다. 정상 대기 서버의
+앱이 중지돼 있으면 앱 scrape·probe 실패는 정상이며 실제 활성 서버와 구분한다.
 용도를 모르는 PostgreSQL 컨테이너나 다른 팀 작업을 정리 대상으로 삼지 않는다.
 Prometheus 9090은 모니터링 호스트 loopback으로 유지한다. 읽기 경로는 기존 사설 8080의
 `/prometheus/api/v1/query` 한 개만 사용하며, 현재 확인된 배포 Nginx private IP `10.0.3.51`만 허용한다.

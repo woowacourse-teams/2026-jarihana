@@ -46,6 +46,9 @@ jobs:
       - name: Canvas 쿼리 검증
         run: node --test grafana/canvas/test-health.mjs grafana/canvas/test-jdbc-metrics.mjs
 
+      - name: 운영 헬스 알림 쿼리 검증
+        run: node grafana/test-health-alerts.mjs
+
       - name: Explore 쿼리 초기화 검증
         run: node --test grafana/explore/sync-starred-queries.test.mjs
 

@@ -59,6 +59,14 @@ API 인증에는 같은 `GRAFANA_ADMIN_PASSWORD`를 사용하므로 이 Secret�
 일치해야 한다. Compose만 직접 실행할 때의 등록 명령은 [실행 가이드](../docs/observability/OPERATIONS.md)에 있다.
 Compose는 Alloy를 포함한 모니터링 서비스에 컨테이너별 메모리 상한을 걸지 않는다.
 실제 메모리는 같은 호스트의 Docker·OS·다른 프로세스와 공유한다.
+prod 헬스 알림은 기존 중앙 배포 수집기의 `jarihana_nginx_route`와 Nginx source 성공·관측 시각을
+사용해 실제 활성 호스트의 앱 Alloy 헬스 결과를 평가한다. 수집기·Nginx 관측 정보는 45초,
+앱 헬스 결과는 150초 이내여야 하며 활성 경로 또는 해당 결과가 없으면 장애로 알린다.
+대기 호스트 중지는 알리지 않는다. 수집기가 없거나 오래된 textfile만 반복 수집되는 경우에도
+알림이 발생하므로 중앙 배포 수집기와 앱 Alloy 양쪽을 확인한다.
+로컬 검증은 Docker가 실행 중일 때 `node grafana/test-health-alerts.mjs`로 수행한다
+(`infra/monitoring` 디렉터리 기준).
+
 모니터링 스택을 `docker compose up -d`로 시작하면 Grafana가 알림 파일을 읽어 적용한다.
 이후 변경도 파일에서 관리하며 로그와 UI에서 적용 상태를 확인한다. 알림 파일 변경은 자동 배포로
 적용한다. GitHub 변수·시크릿만 수정하면 push 이벤트가 없으므로 `Monitoring Deploy`의
