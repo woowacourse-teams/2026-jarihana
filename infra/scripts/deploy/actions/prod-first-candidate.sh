@@ -58,7 +58,10 @@ project=$(jq -r '.project' <<<"$CONFIG")
 [[ -z $(docker ps -aq --no-trunc --filter "name=^/$container$") ]] || bg_die 'Candidate container already exists; do not replace it.'
 [[ -z $(ss -H -ltn | awk '$4 ~ /:(8080|8081)$/ {print}') ]] || bg_die 'Candidate port is already in use.'
 available_kib=$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)
-(( available_kib >= 1048576 )) || bg_die 'Less than 1 GiB RAM available; do not start candidate.'
+swap_free_kib=$(awk '/^SwapFree:/ {print $2}' /proc/meminfo)
+# The pinned Compose caps the app at 896 MiB; keep another 256 MiB available across RAM and swap.
+printf 'Candidate memory budget: available_ram=%s KiB free_swap=%s KiB app_cap=917504 KiB host_reserve=262144 KiB\n' "$available_kib" "$swap_free_kib"
+(( available_kib >= 917504 && available_kib + swap_free_kib >= 1179648 )) || bg_die 'Insufficient RAM and swap for the capped candidate and host reserve; do not start candidate.'
 
 export BACKEND_IMAGE=ghcr.io/woowacourse-teams/jarihana-backend
 export BACKEND_DIGEST=sha256:a35efadd43277149f29641b2cbb26b2999411da84fa3bbb29eb311ce93461e32
