@@ -710,6 +710,12 @@ textarea {
     width: min(calc(100vw - var(--space-8)), calc(var(--date-calendar-grid-width) + var(--space-8)));
 }
 
+.ui-date-range__calendar-popover[data-placement="above"],
+.ui-date-range__time-popover[data-placement="above"] {
+    inset-block-start: auto;
+    inset-block-end: calc(100% + var(--space-2));
+}
+
 @keyframes ui-date-range-enter {
     from {
         opacity: 0;

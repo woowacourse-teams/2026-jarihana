@@ -140,8 +140,21 @@ app_inspect() {
   docker inspect --format '{{json .}}' -- "$CONTAINER" 2>/dev/null
 }
 app_pin() { jq -c '{container_id:.Id,image_id:.Image,started_at:.State.StartedAt,restart_count:.RestartCount}' <<<"$1"; }
+app_push_settings() {
+  [[ $ENVIRONMENT == dev ]] || return 0
+  case ${BG_DEV_AUTO_ENABLED:-false} in
+    false) export PUSH_ENABLED=false PUSH_WORKER_ENABLED=false ;;
+    true)
+      [[ ${PUSH_ENABLED:-} == true || ${PUSH_ENABLED:-} == false ]] || bg_die 'Dev PUSH_ENABLED must be true or false'
+      [[ ${PUSH_WORKER_ENABLED:-} == true || ${PUSH_WORKER_ENABLED:-} == false ]] || bg_die 'Dev PUSH_WORKER_ENABLED must be true or false'
+      export PUSH_ENABLED PUSH_WORKER_ENABLED
+      ;;
+    *) bg_die 'Dev automatic deployment flag must be true or false' ;;
+  esac
+}
 app_profile() {
   local inspected=$1 digest=${2:-$BG_IMAGE_DIGEST}
+  app_push_settings
   # Environment is consumed on stdin and is never written to an artifact.
   jq -e --arg host "$HOST_ID" --arg env "$ENVIRONMENT" --arg digest "$digest" --arg repo "$IMAGE_REPOSITORY" \
     --arg db "jdbc:postgresql://${RDS_URL}:5432/jarihana_${ENVIRONMENT}?sslmode=require" --arg port "$MANAGEMENT_PORT" '
@@ -155,7 +168,7 @@ app_profile() {
     and $e.PUSH_WORKER_HOST_ID==$host and $e.PUSH_WORKER_ENVIRONMENT==$env
     and $e.WORKER_CONTROL_TOKEN==env.WORKER_CONTROL_TOKEN
     and ($c.HostConfig.PortBindings["8081/tcp"]==[{HostIp:"127.0.0.1",HostPort:$port}])
-    and ($env!="dev" or ($e.PUSH_ENABLED=="false" and $e.PUSH_WORKER_ENABLED=="false"))' <<<"$inspected" >/dev/null || bg_die 'Container profile, digest, database or management binding differs'
+    and ($env!="dev" or ($e.PUSH_ENABLED==env.PUSH_ENABLED and $e.PUSH_WORKER_ENABLED==env.PUSH_WORKER_ENABLED))' <<<"$inspected" >/dev/null || bg_die 'Container profile, digest, database or management binding differs'
 }
 
 app_stop_container() {
@@ -210,7 +223,7 @@ app_prepare() {
   export BACKEND_IMAGE="$IMAGE_REPOSITORY" BACKEND_DIGEST="$BG_IMAGE_DIGEST" DEPLOY_ENVIRONMENT="$ENVIRONMENT"
   export DEPLOY_HOST_ID="$HOST_ID" APP_BIND_ADDRESS="$(jq -r '.upstream|split(":")[0]' <<<"$HOST")"
   export APP_PORT="$(jq -r '.app_port' <<<"$CONFIG")" MANAGEMENT_PORT DEPLOY_CONTAINER="$CONTAINER" DEPLOY_DB_NAME="jarihana_$ENVIRONMENT"
-  if [[ $ENVIRONMENT == dev ]]; then export PUSH_ENABLED=false PUSH_WORKER_ENABLED=false; fi
+  app_push_settings
   app_check
   existing=$(docker ps -aq --no-trunc --filter "name=^/$CONTAINER$") || bg_die 'Cannot enumerate application containers'
   if [[ -n "$existing" ]]; then
