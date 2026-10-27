@@ -15,8 +15,8 @@ import {
   useSignupMember
 } from "../../features/member/index.js";
 import profileAvatar from "../../shared/assets/brand/jarihana-favicon.png";
-import signupBootcamp from "../../shared/assets/illustrations/signup-expansion/signup-bootcamp.png";
-import signupCompany from "../../shared/assets/illustrations/signup-expansion/signup-company.png";
+import signupBootcamp from "../../shared/assets/illustrations/signup-expansion/signup-bootcamp.webp";
+import signupCompany from "../../shared/assets/illustrations/signup-expansion/signup-company.webp";
 import { Button, Checkbox, ErrorState, Modal, Select, Skeleton, TextField } from "../../shared/ui/index.js";
 import { AccountLayout } from "./AccountLayout.jsx";
 
