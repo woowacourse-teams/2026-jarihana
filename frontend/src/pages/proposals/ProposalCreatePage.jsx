@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 
@@ -22,16 +22,88 @@ export function ProposalCreatePage() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [moodOptions, setMoodOptions] = useState([]);
+  const [moodDraft, setMoodDraft] = useState("");
+  const [moodError, setMoodError] = useState(null);
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState(null);
+  const commitAfterCompositionRef = useRef(false);
+  const moodInputRef = useRef(null);
 
-  function changeMoodOption(index, value) {
-    setMoodOptions((current) => current.map((option, position) => (position === index ? value : option)));
+  /** 입력한 선택지를 칩으로 더한다. 빈 값은 건너뛰고, 겹치거나 길거나 3개를 넘으면 더하지 않고 알린다. */
+  function addMoodOptions(candidates) {
+    if (!candidates.some((candidate) => candidate.replace(/,+$/, "").trim())) return;
+    const next = [...moodOptions];
+    let error = null;
+    for (const candidate of candidates) {
+      const option = candidate.replace(/,+$/, "").trim();
+      if (!option) continue;
+      if (option.length > PROPOSAL_MOOD_OPTION_MAX_LENGTH) {
+        error = "분위기 선택지는 20자 이하여야 해요.";
+      } else if (next.includes(option)) {
+        error = "이미 더한 선택지예요.";
+      } else if (next.length >= PROPOSAL_MOOD_OPTION_MAX_COUNT) {
+        error = "분위기 선택지는 3개까지 정할 수 있어요.";
+      } else {
+        next.push(option);
+      }
+    }
+    setMoodOptions(next);
+    setMoodError(error);
+    setErrors((current) => ({ ...current, moodOptions: undefined }));
+  }
+
+  // 쉼표 뒤에 띄어 쓰면 쉼표 앞까지를 선택지로 더하고, 붙여 넣은 "가, 나, 다"도 한 번에 나눈다.
+  function changeMoodDraft(value) {
+    if (!/,\s/.test(value)) {
+      setMoodDraft(value);
+      return;
+    }
+    const parts = value.split(/,\s+/);
+    const rest = parts.pop();
+    addMoodOptions(parts);
+    setMoodDraft(rest);
+  }
+
+  function commitMoodDraft(value = moodDraft) {
+    addMoodOptions([value]);
+    setMoodDraft("");
+  }
+
+  function handleMoodKeyDown(event) {
+    if (event.key === "Enter") {
+      // 폼 제출로 이어지지 않게 막는다. 한글 조합 중이면 조합이 끝난 뒤에 더한다.
+      event.preventDefault();
+      if (event.nativeEvent.isComposing || event.keyCode === 229) {
+        commitAfterCompositionRef.current = true;
+        return;
+      }
+      commitMoodDraft(event.currentTarget.value);
+      return;
+    }
+    if (event.key === "Backspace" && !moodDraft && moodOptions.length) {
+      setMoodOptions((current) => current.slice(0, -1));
+      setMoodError(null);
+    }
+  }
+
+  // 브라우저마다 조합이 끝난 뒤 입력이나 Enter 이벤트가 한 번 더 올 수 있어, 한 틱 뒤의 실제 입력값으로 더한다.
+  // 그 사이 다른 경로로 이미 더했다면 입력값이 비어 있어 아무 일도 하지 않는다.
+  function handleMoodCompositionEnd() {
+    if (!commitAfterCompositionRef.current) return;
+    commitAfterCompositionRef.current = false;
+    window.setTimeout(() => commitMoodDraft(moodInputRef.current?.value ?? ""));
   }
 
   function submit(event) {
     event.preventDefault();
-    const { errors: nextErrors, values } = validateProposalForm({ category, content, moodOptions, title });
+    // 칩으로 더하지 않고 입력창에 남긴 선택지도 함께 올린다.
+    const pendingOption = moodDraft.replace(/,+$/, "").trim();
+    const { errors: nextErrors, values } = validateProposalForm({
+      category,
+      content,
+      moodOptions: pendingOption ? [...moodOptions, pendingOption] : moodOptions,
+      title
+    });
     setErrors(nextErrors);
     setSubmitError(null);
     if (Object.keys(nextErrors).length) {
@@ -117,38 +189,58 @@ export function ProposalCreatePage() {
           <p className="proposal-note">
             응답하는 사람이 고를 수 있는 선택지예요. 올린 뒤에는 바꿀 수 없어요. 시간과 진행 방식은 따로 묻지 않아도 함께 물어봐요.
           </p>
-          {moodOptions.map((option, index) => (
-            <div className="proposal-form__mood" key={index}>
-              <TextField
-                aria-label={`분위기 선택지 ${index + 1}`}
-                data-ph-capture-attribute-action="proposal_create_mood_option"
-                data-proposal-field={index === 0 ? "moodOptions" : undefined}
-                maxLength={PROPOSAL_MOOD_OPTION_MAX_LENGTH}
-                onChange={(event) => changeMoodOption(index, event.target.value)}
-                placeholder="예: 초보 환영"
-                value={option}
-              />
-              <button
-                aria-label={`분위기 선택지 ${index + 1} 지우기`}
-                className="proposal-form__mood-remove"
-                data-ph-capture-attribute-action="proposal_create_mood_remove"
-                onClick={() => setMoodOptions((current) => current.filter((_, position) => position !== index))}
-                type="button"
-              >
-                <X aria-hidden="true" size={16} />
-              </button>
-            </div>
-          ))}
+          {moodOptions.length ? (
+            <ul aria-label="더한 분위기 선택지" className="proposal-form__tags">
+              {moodOptions.map((option) => (
+                <li className="proposal-form__tag" key={option}>
+                  {option}
+                  <button
+                    aria-label={`${option} 선택지 지우기`}
+                    className="proposal-form__tag-remove"
+                    data-ph-capture-attribute-action="proposal_create_mood_remove"
+                    onClick={() => {
+                      setMoodOptions((current) => current.filter((item) => item !== option));
+                      setMoodError(null);
+                    }}
+                    type="button"
+                  >
+                    <X aria-hidden="true" size={14} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           {moodOptions.length < PROPOSAL_MOOD_OPTION_MAX_COUNT ? (
-            <Button
-              data-ph-capture-attribute-action="proposal_create_mood_add"
-              onClick={() => setMoodOptions((current) => [...current, ""])}
-              size="sm"
-              variant="secondary"
-            >
-              <Plus aria-hidden="true" size={15} />
-              선택지 더하기
-            </Button>
+            <div className="proposal-form__mood">
+              <TextField
+                aria-label="분위기 선택지 입력"
+                data-ph-capture-attribute-action="proposal_create_mood_option"
+                data-proposal-field="moodOptions"
+                description="Enter를 누르거나 쉼표 뒤에 띄어 쓰면 선택지로 더해져요."
+                maxLength={PROPOSAL_MOOD_OPTION_MAX_LENGTH + 2}
+                onChange={(event) => changeMoodDraft(event.target.value)}
+                onCompositionEnd={handleMoodCompositionEnd}
+                onKeyDown={handleMoodKeyDown}
+                placeholder="예: 초보 환영, 끝나고 커피 한 잔"
+                ref={moodInputRef}
+                value={moodDraft}
+              />
+              <Button
+                data-ph-capture-attribute-action="proposal_create_mood_add"
+                disabled={!moodDraft.trim()}
+                onClick={() => commitMoodDraft()}
+                size="sm"
+                variant="secondary"
+              >
+                <Plus aria-hidden="true" size={15} />
+                더하기
+              </Button>
+            </div>
+          ) : null}
+          {moodError ? (
+            <p className="ui-field__error" role="alert">
+              {moodError}
+            </p>
           ) : null}
           {errors.moodOptions ? <p className="ui-field__error">{errors.moodOptions}</p> : null}
         </fieldset>
