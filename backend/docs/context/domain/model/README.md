@@ -73,6 +73,8 @@ flowchart TD
 | 그룹 삭제 | Hard Delete | 그룹과 연관 데이터를 물리적으로 제거하는 명령 |
 | 그룹 종료 | `Group.status = ENDED` | 그룹 활동을 종료하고 이력을 보존하는 상태 전환 |
 | 마감 | `GroupRecruitment.endsAt` | 모집 종료를 표현하는 값 |
+| 모임 제안 | `Proposal` | 아직 그룹이 없는 모임에 함께할 사람이 있는지 묻는 자유게시판 글 |
+| 함께하고 싶어요 | `ProposalInterest` | 모임 제안에 보낸 응답. 모임 신청이 아니며 그룹 소속을 만들지 않는다 |
 
 ## 엔티티 목록과 생명주기
 
@@ -93,6 +95,9 @@ flowchart TD
 | `ActivityPostPhoto` | 게시물 사진 | 게시물과 분리된 사진 참조이며 현재는 게시물당 사진 한 장이다 |
 | `ActivityPostComment` | 활동 기록 댓글 | 로그인 회원 누구나 남기며 숨김 시각으로 지운다 |
 | `ActivityPostReaction`, `ActivityPostCommentReaction` | 기록과 댓글의 하트 반응 | 회원별, 이모지별로 하나만 남기며 취소하면 물리 삭제한다 |
+| `Proposal` | 자유게시판의 모임 제안 | 공개 목록에 노출되며 제안한 회원이 숨긴다 |
+| `ProposalInterest` | 모임 제안에 보낸 함께하고 싶어요 응답과 조건 | 회원마다 제안 하나에 하나만 두며 취소하면 물리 삭제한다 |
+| `ProposalComment` | 모임 제안 코멘트 | 로그인 회원 누구나 남기며 숨김 시각으로 지운다 |
 | `Notification` | 회원별 알림 기록 | 읽음·삭제 시각을 기록하며 삭제 후에도 사건 중복 방지 행을 유지한다 |
 | `PushSubscription` | 브라우저 푸시 연결 | 해제·재연결·키 교체 시 연결 버전을 증가시킨다 |
 | `NotificationDelivery` | 구독별 전송 대기 | 생성 당시 연결 버전과 전송 상태를 기록하며 워커가 선점·전송·재시도를 수행한다 |
@@ -132,4 +137,5 @@ erDiagram
 | 소속 | [GroupMember](groupmember.md) | 그룹 소속 모델 |
 | 피드백 | [Feedback](feedback.md) | 피드백 내용과 필수 작성 회원 |
 | 사진 활동 기록 | [ActivityPost](activitypost.md) | 공개 범위, 사진 참조, 활동 날짜와 생명주기, 댓글과 하트 반응 |
+| 자유게시판 | [Proposal](proposal.md) | 모임 제안, 함께하고 싶어요 응답과 조건, 코멘트 |
 | 알림·구독·전송 | [Notification](notification.md) | 데이터 모델·업무 이벤트·알림함·구독 API·푸시 워커·화면·SW 연결 구현 |
