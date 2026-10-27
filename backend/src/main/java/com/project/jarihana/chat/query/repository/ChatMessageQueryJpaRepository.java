@@ -18,7 +18,7 @@ public interface ChatMessageQueryJpaRepository extends Repository<ChatMessage, L
     @Query(
             """
             select new com.project.jarihana.chat.query.repository.dto.ChatMessageProjection(
-                c.id, c.groupId, c.sequence, sender.id, sender.crewName,
+                c.id, c.groupId, c.sequence, sender.id, sender.crewName, sender.githubId,
                 c.clientMessageId, c.content, c.createdAt)
             from ChatMessage c join c.sender sender
             where c.groupId = :groupId
@@ -35,7 +35,7 @@ public interface ChatMessageQueryJpaRepository extends Repository<ChatMessage, L
     @Query(
             """
             select new com.project.jarihana.chat.query.repository.dto.ChatMessageProjection(
-                c.id, c.groupId, c.sequence, sender.id, sender.crewName,
+                c.id, c.groupId, c.sequence, sender.id, sender.crewName, sender.githubId,
                 c.clientMessageId, c.content, c.createdAt)
             from ChatMessage c join c.sender sender
             where c.id = :id
