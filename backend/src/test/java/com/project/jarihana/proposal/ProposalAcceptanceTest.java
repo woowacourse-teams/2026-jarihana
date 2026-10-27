@@ -372,6 +372,40 @@ class ProposalAcceptanceTest extends IntegrationTestSupport {
                 .statusCode(401);
     }
 
+    @DisplayName("분위기 선택지나 응답 조건에 빈 값이 섞이면 서버 오류가 아니라 잘못된 요청으로 거부한다.")
+    @Test
+    void rejectsNullElementsAsInvalidParameter() {
+        // Given
+        Member author = saveMember("모카", "null-element-author");
+        long proposalId = createProposal(author, "CULTURE", "독서 모임", List.of("자유 도서"));
+
+        // When & Then
+        authorized(author)
+                .contentType("application/json")
+                .body("""
+                        {"category": "STUDY", "title": "제목", "content": "내용", "moodOptions": [null]}
+                        """)
+                .when()
+                .post("/proposals")
+                .then()
+                .statusCode(400)
+                .body("error.code", equalTo("INVALID_PARAMETER"));
+        for (String conditions : List.of(
+                "{\"timeSlots\": [null]}",
+                "{\"meetingModes\": [null]}",
+                "{\"moodIndexes\": [null]}"
+        )) {
+            authorized(author)
+                    .contentType("application/json")
+                    .body(conditions)
+                    .when()
+                    .put("/proposals/{proposalId}/interest", proposalId)
+                    .then()
+                    .statusCode(400)
+                    .body("error.code", equalTo("INVALID_PARAMETER"));
+        }
+    }
+
     private long createProposal(Member author, String category, String title, List<String> moodOptions) {
         return authorized(author)
                 .contentType("application/json")
