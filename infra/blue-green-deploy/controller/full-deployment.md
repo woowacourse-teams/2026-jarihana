@@ -126,7 +126,7 @@ Nginx EC2 역할에는 DescribeInstances와 **해당 환경의 A/B 인스턴스�
 운영 활성화 전 역할 신원과 EC2 dry-run을 별도로 확인해야 한다.
 
 관리자가 root 설정의 A upstream·host ID와 맞는 최초 `current.conf`를 한 번 설치하고,
-기존 `infra/deploy/nginx/docker-compose.yml`로 Nginx를 시작한다. 환경 변수의 설정 디렉터리·컨테이너
+기존 `infra/blue-green-deploy/nginx/docker-compose.yml`로 Nginx를 시작한다. 환경 변수의 설정 디렉터리·컨테이너
 이름·probe port를 coordinator JSON과 일치시킨다. 예시 container 이름은 프로젝트 이름을
 `jarihana-edge`로 시작했을 때의 `jarihana-edge-nginx-1`이다. 실제 이름이 다르면 설정을 바꾼다.
 설정 디렉터리는 Nginx에 read-only로 mount하며 공개 리스닝 주소·포트와 보안 그룹은 실제 경로에

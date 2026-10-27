@@ -7,7 +7,7 @@ set -Eeuo pipefail
 [[ $BG_E2E_DIR == /private/tmp/jarihana-actions-e2e.* && $BG_E2E_PREFIX == jarihana-actions-e2e-* ]] || exit 2
 ROLE=$1 COMMAND=$2
 ROOT=/repo
-if [[ $ROLE == app ]]; then source "$ROOT/infra/scripts/deploy/actions/app.sh"; else source "$ROOT/infra/scripts/deploy/actions/coordinator.sh"; fi
+if [[ $ROLE == app ]]; then source "$ROOT/infra/blue-green-deploy/scripts/actions/app.sh"; else source "$ROOT/infra/blue-green-deploy/scripts/actions/coordinator.sh"; fi
 
 # Replace external host identity/bootstrap only. Production grant/context/lease checks remain active.
 bg_init() {

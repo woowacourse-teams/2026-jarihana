@@ -17,7 +17,7 @@ if [[ ${BG_E2E_INNER:-false} != true ]]; then
   docker run --rm --name "$BG_E2E_PREFIX-runner" \
     -v "$ROOT:/repo:ro" -v "$BG_E2E_DIR:$BG_E2E_DIR" -v /var/run/docker.sock:/var/run/docker.sock \
     -e BG_E2E_INNER=true -e BG_E2E_DIR="$BG_E2E_DIR" -e BG_E2E_PREFIX="$BG_E2E_PREFIX" -e BG_E2E_HOST_ROOT="$ROOT" \
-    "$TOOLS_IMAGE" bash /repo/infra/tests/deploy/actions/run-local-e2e.sh 2>&1 | tee "$evidence/run.log"
+    "$TOOLS_IMAGE" bash /repo/infra/blue-green-deploy/tests/actions/run-local-e2e.sh 2>&1 | tee "$evidence/run.log"
   exit
 fi
 
@@ -125,7 +125,7 @@ A_IP=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}
 # Reserve B's address with a harmless fixture placeholder until the first candidate starts.
 docker run -d --name "$PREFIX-reserve-B" "${label[@]}" --network "$NETWORK" --entrypoint sleep "$TOOLS_IMAGE" infinity > /dev/null
 B_IP=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$PREFIX-reserve-B")
-sed -e "s/@UPSTREAM@/$A_IP:8080/g" -e 's/@SLOT@/A/g' "$ROOT/infra/deploy/nginx/nginx.conf.template" > "$DIR/nginx/current.conf"
+sed -e "s/@UPSTREAM@/$A_IP:8080/g" -e 's/@SLOT@/A/g' "$ROOT/infra/blue-green-deploy/nginx/nginx.conf.template" > "$DIR/nginx/current.conf"
 chmod 600 "$DIR/nginx/current.conf"
 docker run -d --name "$PREFIX-nginx" "${label[@]}" --network "$NETWORK" \
   -v "$DIR/nginx:/etc/nginx/deploy:ro" nginx:1.30.5-alpine nginx -c /etc/nginx/deploy/current.conf -g 'daemon off;' > "$DIR/nginx-id"
@@ -163,7 +163,7 @@ jq --arg a "$A_IP:8080" --arg b "$B_IP:8080" --arg prefix "$PREFIX" --arg dir "$
   .worker_token_file="/etc/jarihana-deploy/dev/worker-token"|
   .journal_key="/etc/jarihana-deploy/dev/grant-key"|.known_hosts="/etc/jarihana-deploy/dev/known-hosts"|
   .coordinator_address="127.0.0.1"|.management_port=8081|
-  .image_repository="ghcr.io/local-fixture/backend"' "$ROOT/infra/deploy/controller/full-coordinator.example.json" > "$DIR/config.json"
+  .image_repository="ghcr.io/local-fixture/backend"' "$ROOT/infra/blue-green-deploy/controller/full-coordinator.example.json" > "$DIR/config.json"
 chmod 600 "$DIR/config.json"
 
 runner() {
@@ -179,7 +179,7 @@ runner() {
     -e BG_ENVIRONMENT=dev -e BG_MODE="$MODE" -e BG_SLOT="$slot" -e BG_IMAGE_DIGEST="$DIGEST" \
     -e BG_E2E_VIRTUAL_OBSERVATION="${VIRTUAL:-false}" -e BG_E2E_PREPARE_STOP_ONLY="${STOP_ONLY:-false}" \
     -e GITHUB_OUTPUT="$DIR/receipts/$output.output" -e APP_RESULT="${APP_RESULT:-}" -e TARGET_RESULT="${TARGET_RESULT:-}" \
-    "$TOOLS_IMAGE" bash /repo/infra/tests/deploy/actions/local-e2e-command.sh "$role" "$command" > "$DIR/logs/$output.log" 2>&1 || {
+    "$TOOLS_IMAGE" bash /repo/infra/blue-green-deploy/tests/actions/local-e2e-command.sh "$role" "$command" > "$DIR/logs/$output.log" 2>&1 || {
       cat "$DIR/logs/$output.log" >&2; return 1;
     }
   awk 'begin{body=0} /^result<</{body=1;next} body&&/^bg-/{exit} body{print}' "$DIR/receipts/$output.output" > "$DIR/receipts/$output.json"
