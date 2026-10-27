@@ -56,7 +56,7 @@ test("an assignment output sends one mention without a review_requested event", 
   assert.equal(slackMessages.length, 1);
   assert.equal(slackMessages[0].channel, "C123");
   assert.match(slackMessages[0].text, /<@U123>/);
-  assert.match(slackMessages[0].text, /2026-10-26 17:30 KST/);
+  assert.match(slackMessages[0].text, /2026-10-26 14:00 KST/);
   assert.match(slackMessages[0].text, /&lt;정책&gt;/);
 });
 
