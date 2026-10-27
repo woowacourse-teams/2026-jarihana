@@ -183,7 +183,7 @@ function nextBusinessDate(date, holidayDates) {
   return candidate;
 }
 
-async function calculateDeadline(instant) {
+async function calculateDeadlines(instant) {
   const parts = kstParts(new Date(instant));
   let date = `${parts.year}-${parts.month}-${parts.day}`;
   let holidays = await holidaysFor(Number(parts.year), Number(parts.year) + 1);
@@ -196,23 +196,24 @@ async function calculateDeadline(instant) {
       date = nextBusinessDate(date, holidays);
       holidays = await holidaysFor(Number(date.slice(0, 4)));
     }
-    return { date, time: "10:30", epoch: Date.parse(`${date}T10:30:00+09:00`) };
+    return [{ date, time: "14:00", kind: "required", epoch: Date.parse(`${date}T14:00:00+09:00`) }];
   }
 
-  if (minuteOfDay < 10 * 60 + 30) {
-    return { date, time: "10:30", epoch: Date.parse(`${date}T10:30:00+09:00`) };
-  }
-  if (minuteOfDay < 17 * 60 + 30) {
-    return { date, time: "17:30", epoch: Date.parse(`${date}T17:30:00+09:00`) };
+  if (minuteOfDay < 14 * 60) {
+    return [{ date, time: "14:00", kind: "required", epoch: Date.parse(`${date}T14:00:00+09:00`) }];
   }
 
+  const recommended = minuteOfDay < 21 * 60
+    ? { date, time: "21:00", kind: "recommended", epoch: Date.parse(`${date}T21:00:00+09:00`) }
+    : null;
   date = nextBusinessDate(date, holidays);
   holidays = await holidaysFor(Number(date.slice(0, 4)));
   while (isWeekend(date) || holidays.has(date)) {
     date = nextBusinessDate(date, holidays);
     holidays = await holidaysFor(Number(date.slice(0, 4)));
   }
-  return { date, time: "10:30", epoch: Date.parse(`${date}T10:30:00+09:00`) };
+  const required = { date, time: "14:00", kind: "required", epoch: Date.parse(`${date}T14:00:00+09:00`) };
+  return recommended ? [recommended, required] : [required];
 }
 
 function deadlineKey(deadline) {
@@ -248,7 +249,9 @@ async function requestedNotification(assignedReviewer) {
 
   let dueText = "PR 본문 확인";
   try {
-    dueText = deadlineLabel(await calculateDeadline(pr.created_at));
+    dueText = (await calculateDeadlines(pr.created_at))
+      .map((deadline) => `${deadlineLabel(deadline)} (${deadline.kind === "recommended" ? "권장" : "필수"})`)
+      .join(" / ");
   } catch (error) {
     console.warn(`Could not calculate the KST deadline: ${error.message}`);
   }
@@ -390,19 +393,20 @@ async function deadlineScan() {
     );
     if (eligible.length === 0) continue;
 
-    const deadline = await calculateDeadline(pr.created_at);
-    if (deadline.epoch > now || now - deadline.epoch > MAX_REMINDER_AGE_MS) continue;
-    const key = deadlineKey(deadline);
-    const artifactName = `${ARTIFACT_PREFIX}pr-${pr.number}-${key}`;
-    if (artifactNames.has(artifactName)) continue;
+    for (const deadline of await calculateDeadlines(pr.created_at)) {
+      if (!reminderIsDue(deadline, now)) continue;
+      const key = deadlineKey(deadline);
+      const artifactName = `${ARTIFACT_PREFIX}pr-${pr.number}-${key}`;
+      if (artifactNames.has(artifactName)) continue;
 
-    reminders.push({
-      artifact_name: artifactName,
-      deadline_key: key,
-      deadline_label: deadlineLabel(deadline),
-      pr_number: pr.number,
-      reviewers: eligible.map((request) => request.login),
-    });
+      reminders.push({
+        artifact_name: artifactName,
+        deadline_key: key,
+        deadline_label: deadlineLabel(deadline),
+        pr_number: pr.number,
+        reviewers: eligible.map((request) => request.login),
+      });
+    }
   }
 
   output("matrix", JSON.stringify({ include: reminders }));
@@ -412,6 +416,13 @@ async function deadlineScan() {
 
 function sleep(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function reminderIsDue(deadline, now) {
+  if (deadline.epoch > now || now - deadline.epoch > MAX_REMINDER_AGE_MS) return false;
+  const parts = kstParts(new Date(now));
+  const today = `${parts.year}-${parts.month}-${parts.day}`;
+  return deadline.kind !== "recommended" || deadline.date === today;
 }
 
 async function deadlineNotification() {
@@ -450,8 +461,9 @@ async function deadlineNotification() {
     return;
   }
 
-  const currentDeadline = await calculateDeadline(pr.created_at);
-  if (deadlineKey(currentDeadline) !== reminder.deadline_key || Date.now() - currentDeadline.epoch > MAX_REMINDER_AGE_MS) {
+  const currentDeadline = (await calculateDeadlines(pr.created_at))
+    .find((deadline) => deadlineKey(deadline) === reminder.deadline_key);
+  if (!currentDeadline || !reminderIsDue(currentDeadline, Date.now())) {
     console.log(`PR #${prNumber} no longer belongs to the scanned review slot`);
     output("sent", "false");
     return;
@@ -474,7 +486,8 @@ async function deadlineNotification() {
   }
   const mentions = reviewers.map((login) => `<@${requiredSlackId(login, userMap)}>`).join(" ");
   const title = escapeSlackText(pr.title);
-  const text = `${mentions} 리뷰 마감 시각입니다. 현재 head 커밋에 승인 리뷰가 없습니다: <${pr.html_url}|#${pr.number} ${title}>\n마감: ${reminder.deadline_label}`;
+  const label = currentDeadline.kind === "recommended" ? "권장 리뷰 시각입니다 (필수 아님)" : "필수 리뷰 마감 시각입니다";
+  const text = `${mentions} ${label}. 현재 head 커밋에 승인 리뷰가 없습니다: <${pr.html_url}|#${pr.number} ${title}>\n${currentDeadline.kind === "recommended" ? "권장" : "마감"}: ${reminder.deadline_label}`;
   await postSlackMessage(text);
 
   const markerPath = path.join(process.env.RUNNER_TEMP || ".", "slack-review-reminder.json");
@@ -504,4 +517,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { main, requestedNotification };
+module.exports = { main, requestedNotification, calculateDeadlines };

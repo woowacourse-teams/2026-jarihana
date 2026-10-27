@@ -40,6 +40,15 @@
 | 활동 기록 | `DELETE` | `/api/activity-post-comments/{commentId}/reactions/{emoji}` | `MEMBER` | 댓글의 내 하트 반응 취소 |
 | 활동 기록 | `GET` | `/api/activity-posts/{postId}/reactions/{emoji}` | `PUBLIC` | 활동 기록에 하트를 남긴 회원 조회 |
 | 활동 기록 | `GET` | `/api/activity-post-comments/{commentId}/reactions/{emoji}` | `PUBLIC` | 댓글에 하트를 남긴 회원 조회 |
+| 자유게시판 | `GET` | `/api/proposals` | `PUBLIC` | 모임 제안을 최신순으로 조회, 분야 필터 지원 |
+| 자유게시판 | `GET` | `/api/proposals/{proposalId}` | `PUBLIC` | 모임 제안 본문과 조건별 응답 인원 조회 |
+| 자유게시판 | `POST` | `/api/proposals` | `MEMBER` | 모임 제안 작성 |
+| 자유게시판 | `DELETE` | `/api/proposals/{proposalId}` | `MEMBER` | 제안한 회원이 모임 제안 숨김 |
+| 자유게시판 | `PUT` | `/api/proposals/{proposalId}/interest` | `MEMBER` | 함께하고 싶어요 응답과 조건 저장 |
+| 자유게시판 | `DELETE` | `/api/proposals/{proposalId}/interest` | `MEMBER` | 함께하고 싶어요 응답 취소 |
+| 자유게시판 | `GET` | `/api/proposals/{proposalId}/comments` | `PUBLIC` | 모임 제안 코멘트를 작성 순서대로 조회 |
+| 자유게시판 | `POST` | `/api/proposals/{proposalId}/comments` | `MEMBER` | 모임 제안 코멘트 작성 |
+| 자유게시판 | `DELETE` | `/api/proposal-comments/{commentId}` | `MEMBER` | 코멘트 작성자 또는 제안한 회원이 코멘트 숨김 |
 | 피드백 | `POST` | `/api/feedbacks` | `MEMBER` | 피드백 작성 |
 | 가입 신청 | `GET` | `/api/groups/{groupId}/registrations/summary` | `LEADER` | 그룹의 미확인·처리 대기 신청 요약 조회 |
 | 가입 신청 | `PATCH` | `/api/recruitments/{recruitmentId}/registrations/read` | `LEADER` | 확인한 마지막 신청까지 읽음 처리 |
@@ -118,5 +127,6 @@
 | 그룹 구성원 | [group-members.md](group-members.md) | 그룹 구성원 엔드포인트 |
 | 이미지 | [images.md](images.md) | 이미지 업로드·접근 엔드포인트 |
 | 활동 기록 | [activity-posts.md](activity-posts.md) | 사진 활동 기록 조회, 작성, 수정, 숨김과 댓글, 하트 반응 |
+| 자유게시판 | [proposals.md](proposals.md) | 모임 제안 조회, 작성, 숨김과 함께하고 싶어요 응답, 코멘트 |
 | 공유 미리보기 | [share-preview.md](share-preview.md) | 그룹 공유 미리보기 HTML 엔드포인트 |
 | 알림함·웹푸시 | [notifications.md](notifications.md) | 알림함·구독·푸시 내용 조회·로그아웃 호환 확장 |

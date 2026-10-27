@@ -164,7 +164,7 @@ HTTP 응답을 잃으면 같은 `clientMessageId`와 원문으로 다시 요청�
 
 `chat_message.id`는 메시지 식별과 중복 병합에 쓰고, `sequence`는 방 안의 정렬·누락 조회에 쓴다.
 이력은 `REPEATABLE READ`에서 소속·최신 순번·메시지를 같은 snapshot으로 읽는다.
-읽음은 현재 저장된 순번 이하만 허용하고 `greatest`로 갱신해 오래된 요청이 읽음 위치를 되돌리지 않게 한다.
+읽음은 현재 저장된 순번 이하만 허용하고 기존 값과 요청 값 중 큰 값을 저장한다.
 미확인 수는 읽음 위치 뒤의 다른 사람 메시지만 센다.
 
 초대 수락의 기존 낙관적 잠금은 유지한다. 현재 IDENTITY 소속 INSERT의 group FK `KEY SHARE`와
@@ -172,19 +172,29 @@ HTTP 응답을 잃으면 같은 `clientMessageId`와 원문으로 다시 요청�
 `ChatPersistenceTest.membershipInsertProtectsBaselineUntilCommit`을 함께 확인해야 한다.
 관련 결정은 [백엔드 ADR 0020](0020-optimistic-invitation-acceptance.md)에 있다.
 
-메시지 저장·중복 요청 확인·이력·참여자 조회는 기존 프로젝트처럼 Spring Data JPA를 사용한다.
+메시지·방 순번·읽음 상태의 저장과 조회, 중복 요청 확인·이력·참여자 조회는 Spring Data JPA를 사용한다.
 메시지는 불변 JPA 엔티티로 저장하고, 이력은 작성자 이름까지 JPQL projection으로 가져온다.
 작성자마다 별도 쿼리가 실행되지 않도록 명령 조회는 fetch join, 이력 조회는 조인된 projection을 쓴다.
 
 | 처리 | 구현 | 이유 |
 | --- | --- | --- |
 | 메시지 저장·조회 | JPA 엔티티·Spring Data repository | 일반 SQL과 수동 결과 매핑을 줄이고 기존 코드와 맞춘다 |
-| 모임 잠금 | 명시적 `FOR UPDATE` SQL | 가입 INSERT의 FK 잠금과 경쟁하는 기존 순서를 유지한다 |
-| 순번·읽음·가입 기준·알림 | `RETURNING`, `ON CONFLICT`, `pg_notify` SQL | 원자 갱신과 커밋 후 알림을 그대로 유지한다 |
+| 방 순번·읽음 갱신 | `ChatRoom`·`ChatReadState` 조회 후 새 상태를 JPA로 저장 | 기존 모임 잠금 안에서 순번 증가와 읽음 단조 증가를 처리한다 |
+| 모임 잠금 | Spring Data native `FOR UPDATE` | 가입 INSERT의 FK 잠금과 경쟁하는 기존 순서를 유지한다 |
+| 가입 기준 | Spring Data native `ON CONFLICT DO NOTHING` | 가입 초기화가 겹쳐도 기존 읽음 위치를 유지한다 |
+| 알림 발행 | Spring Data native `pg_notify` | 쓰기와 같은 트랜잭션에서 커밋 후 알림을 보낸다 |
 | 방 목록 | 단일 집계 SQL | 최근 메시지·미확인 수와 모임 생성 시각 커서를 같은 조회에서 계산한다 |
 | LISTEN | 전용 JDBC 연결 | PostgreSQL 알림을 계속 수신한다 |
 
-JPA와 JDBC는 같은 DataSource와 서비스 트랜잭션을 사용한다.
+명령 저장소에서 `JdbcTemplate`을 제거했다. 방 순번과 읽음 위치는 모임 잠금을 잡은 뒤
+처음 조회하고, 상태를 바꾼 새 엔티티를 저장한다. 읽음 갱신에서 모임 잠금을 제거하려면
+조회와 저장 사이에 다른 요청이 끼어들 수 있으므로 동시성 제어도 함께 바꿔야 한다.
+가입 초기화에는 `clearAutomatically`를 사용하지 않아 호출한 가입 트랜잭션의 엔티티를 유지한다.
+
+`chat_room`과 `chat_read_state`는 기존 테이블에 맞춰 매핑했다. 읽음 상태의 ID는
+기존 `(group_id, member_id)` 복합 키를 사용한다. 두 테이블에는 생성·수정 시각이 없어
+`BaseEntity`를 상속하지 않는다. 이번 변경에는 스키마 변경이 없다.
+방 목록의 JDBC 집계와 JPA 명령은 같은 DataSource와 서비스 트랜잭션을 사용한다.
 메시지의 `created_at`은 서비스 Clock으로 정하며 저장 뒤 DB 값을 다시 읽어
 `timestamp(6)`의 반올림까지 응답에 반영한다. 메시지는 수정 시각이 없는 기존 테이블이므로
 `BaseEntity`를 상속하거나 `updated_at` 컬럼을 추가하지 않는다.
