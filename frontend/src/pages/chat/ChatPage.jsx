@@ -17,7 +17,9 @@ export function ChatPage() {
 
 export function ChatContent({ roomId }) {
   const auth = useAuth();
+  const session = useChatSession();
   if (auth.logoutPending) return <p role="status">채팅 연결을 정리하고 있어요.</p>;
+  if (!session?.chat) return <p role="status">대화를 불러오는 중이에요.</p>;
   return <ChatSession key={`${auth.member.id}:${auth.sessionVersion}`} roomId={roomId} />;
 }
 

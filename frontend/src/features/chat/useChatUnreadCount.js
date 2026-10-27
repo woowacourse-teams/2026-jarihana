@@ -2,7 +2,7 @@ import { useChatSession } from "./ChatSessionProvider";
 
 export function useChatUnreadCount() {
   const session = useChatSession();
-  if (!session) return 0;
+  if (!session?.chat) return 0;
   const { chat, roomId, viewing } = session;
   return (chat.rooms.data ?? []).reduce((total, room) => {
     const readingLatest = room.groupId === roomId && viewing?.id === roomId && viewing.latest;

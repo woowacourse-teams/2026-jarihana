@@ -1,4 +1,5 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Client } from "@stomp/stompjs";
 import { useAuth, getMe } from "../auth";
@@ -84,4 +85,28 @@ test("로그아웃 시 연결과 캐시를 정리하고 새 계정에는 이전 
   await waitFor(() => expect(hook.result.current.session.chat.rooms.data).toEqual([]));
   expect(Client).toHaveBeenCalledTimes(2);
   hook.unmount();
+});
+
+test("인증 상태와 세션 버전이 바뀌어도 하위 페이지를 다시 마운트하지 않는다", async () => {
+  const mounted = jest.fn();
+  const unmounted = jest.fn();
+  function Page() {
+    const [text, setText] = useState("작성 중");
+    useEffect(() => { mounted(); return unmounted; }, []);
+    return <button onClick={() => setText("유지됨")}>{text}</button>;
+  }
+  const view = render(<QueryClientProvider client={client}><ChatSessionProvider><Page /></ChatSessionProvider></QueryClientProvider>);
+  await waitFor(() => expect(fetchAllRooms).toHaveBeenCalled());
+  act(() => screen.getByRole("button").click());
+  useAuth.mockReturnValue({ status: "authenticated", member: { id: 2 }, sessionVersion: 2 });
+  view.rerender(<QueryClientProvider client={client}><ChatSessionProvider><Page /></ChatSessionProvider></QueryClientProvider>);
+  useAuth.mockReturnValue({ status: "loading", member: null, sessionVersion: 2 });
+  view.rerender(<QueryClientProvider client={client}><ChatSessionProvider><Page /></ChatSessionProvider></QueryClientProvider>);
+  useAuth.mockReturnValue({ status: "authenticated", member: { id: 3 }, sessionVersion: 3 });
+  view.rerender(<QueryClientProvider client={client}><ChatSessionProvider><Page /></ChatSessionProvider></QueryClientProvider>);
+  expect(screen.getByRole("button")).toHaveTextContent("유지됨");
+  expect(mounted).toHaveBeenCalledTimes(1);
+  expect(unmounted).not.toHaveBeenCalled();
+  view.unmount();
+  expect(unmounted).toHaveBeenCalledTimes(1);
 });
