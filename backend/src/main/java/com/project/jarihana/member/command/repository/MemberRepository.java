@@ -26,4 +26,6 @@ public interface MemberRepository extends Repository<Member, Long> {
     boolean existsByCrewName(String crewName);
 
     boolean existsByCrewNameAndMemberType(String crewName, MemberType memberType);
+
+    boolean existsByCrewNameAndMemberTypeNot(String crewName, MemberType memberType);
 }

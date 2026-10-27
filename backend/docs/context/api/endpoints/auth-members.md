@@ -76,9 +76,32 @@ Refresh Token을 인증 계약에서 확정한 위치로 전달한다. Request B
 ```
 
 - `githubId`는 Request Body가 아니라 가입 세션에서 읽는다.
-- `memberType`은 `CREW` 또는 `COACH` 중 하나다.
+- `memberType`은 `CREW`, `COACH`, `BOOTCAMP`, `PROFESSIONAL` 중 하나다. 가입 화면은 `COACH`를 더 이상 제공하지 않지만 API는 그대로 받는다.
 - `memberType = CREW`이면 `course`는 `BACKEND`, `FRONTEND`, `ANDROID` 중 하나이고 `generation`은 양수 필수다.
 - `memberType = COACH`이면 `course`와 `generation`을 생략한다.
+- `memberType = BOOTCAMP`이면 `bootcamp`(`name` 30자 이하, `status`는 `IN_PROGRESS` 또는 `COMPLETED`, `cohort` 선택 20자 이하)와 `field`가 필수다. 캠프 이름이 우아한테크코스(우테코)이면 거부한다.
+- `memberType = PROFESSIONAL`이면 `field`와 `career`가 필수이고 `company`(`name` 50자 이하, `visible`)는 선택이다. `company`를 보내면 `visible`도 필수다.
+- `field`는 `FRONTEND`, `BACKEND`, `ANDROID`, `IOS`, `DATA_AI`, `DESIGN`, `PRODUCT`, `ETC`, `career`는 `UNDER_1`, `YEARS_1_3`, `YEARS_4_6`, `YEARS_7_PLUS` 중 하나다.
+- 유형과 맞지 않는 소속 필드는 저장하지 않는다.
+
+```json
+{
+  "memberType": "BOOTCAMP",
+  "crewName": "도담",
+  "bootcamp": { "name": "SSAFY", "status": "IN_PROGRESS", "cohort": "12기" },
+  "field": "BACKEND"
+}
+```
+
+```json
+{
+  "memberType": "PROFESSIONAL",
+  "crewName": "하나",
+  "field": "FRONTEND",
+  "career": "YEARS_1_3",
+  "company": { "name": "자리하나", "visible": false }
+}
+```
 
 #### 응답 201
 
@@ -91,6 +114,10 @@ Refresh Token을 인증 계약에서 확정한 위치로 전달한다. Request B
     "memberType": "CREW",
     "generation": 8,
     "course": "BACKEND",
+    "bootcamp": null,
+    "field": null,
+    "career": null,
+    "company": null,
     "joinedAt": "2026-08-13T10:00:00"
   },
   "error": null
@@ -113,7 +140,8 @@ Location: /api/members/12
 | 이미 가입한 GitHub 사용자 | `MEMBER_ALREADY_EXISTS` | 409 |
 | crewName 형식 오류 | `INVALID_PARAMETER` | 400 |
 | 같은 기수의 크루명 중복 또는 코치명·크루명 충돌 | `MEMBER_CREW_DUPLICATED` | 409 |
-| memberType/course/generation 조합 오류 | `INVALID_PARAMETER` | 400 |
+| 기수가 없는 회원(코치, 부트캠프, 현직자)끼리 닉네임 중복 | `MEMBER_CREW_DUPLICATED` | 409 |
+| memberType과 소속 필드 조합 오류, 우아한테크코스를 부트캠프로 입력 | `INVALID_PARAMETER` | 400 |
 
 ### `GET /api/members/me`
 
@@ -150,7 +178,11 @@ Location: /api/members/12
       "memberType": "CREW",
       "generation": 8,
       "course": "BACKEND",
-      "avatarUrl": "https://avatars.githubusercontent.com/u/123456"
+      "avatarUrl": "https://avatars.githubusercontent.com/u/123456",
+      "bootcamp": null,
+      "field": null,
+      "career": null,
+      "company": null
     }
   },
   "error": null
@@ -160,6 +192,8 @@ Location: /api/members/12
 프로필 이미지 URL은 저장하지 않고 `githubId`로 구성한다.
 
 `memberType = COACH`인 회원은 `generation`과 `course`가 `null`이다.
+
+`BOOTCAMP`, `PROFESSIONAL` 회원은 `generation`과 `course`가 `null`이고 `bootcamp`, `field`, `career`, `company`를 가입 요청과 같은 모양으로 담는다. 회사명은 본인 조회에만 포함한다.
 
 #### 예외
 
