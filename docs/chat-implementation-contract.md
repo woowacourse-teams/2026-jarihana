@@ -40,7 +40,7 @@ latestSequence와 items는 같은 DB snapshot을 사용한다. 최초 latestSequ
 이후 복구는 페이지를 끝까지 따라간다. WebSocket 이벤트만으로 누락 구간을 건너뛰지 않는다.
 
 Message:
-`{id, groupId, sequence, senderId, author, clientMessageId, content, createdAt}`
+`{id, groupId, sequence, senderId, author, avatarUrl, clientMessageId, content, createdAt}`
 
 ### POST /api/groups/{groupId}/chat/messages
 
@@ -85,6 +85,7 @@ convertAndSendToUser를 호출한다. 분산 사용자 registry/미해결 destin
 실제 로그인 사용자의 ID로 mine을 판단한다. 메시지 ID로 병합하고 clientMessageId로 낙관적 항목을 치환한다.
 전송 실패 시 원문과 키를 유지하여 동일 요청을 재시도한다.
 구독 직후/재연결/online/탭 활성화와 활성 화면 30초 주기로 목록과 열린 방의 이후 메시지를 동기화한다.
+로그인 세션당 하나의 웹소켓을 헤더와 채팅 모달이 공유한다. 모달이 닫혀 있어도 수신·읽음 이벤트로 헤더 미읽음 합계를 즉시 갱신하며, 모달과 방 전환은 연결을 재생성하지 않는다.
 READ는 활성 방에서 실제 최신 메시지가 표시된 경우에만 갱신한다. 배경 수신으로 읽지 않는다.
 로그아웃과 계정 변경 시 연결·채팅 캐시를 정리한다.
 

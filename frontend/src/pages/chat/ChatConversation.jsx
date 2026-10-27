@@ -12,7 +12,7 @@ import { Avatar, Button } from "../../shared/ui";
 import { messageDay, messageTime } from "./format.js";
 import { ChatLink } from "../../features/chat/ChatLink";
 
-export function ChatConversation({ room, draft, onDraftChange, onSend, sending, sendDisabled, error, onRetry, onRead, hasOlder, loadingHistory, onLoadOlder, syncCursor, connection }) {
+export function ChatConversation({ room, draft, onDraftChange, onSend, sending, sendDisabled, error, onRetry, onRead, hasOlder, loadingHistory, onLoadOlder, syncCursor, connection, onViewingLatestChange }) {
   const [awayFromBottom, setAwayFromBottom] = useState(false);
   const scrollRef = useRef(null);
   const headingRef = useRef(null);
@@ -38,36 +38,50 @@ export function ChatConversation({ room, draft, onDraftChange, onSend, sending, 
   }, [room.id, latestMessage?.id, room.messages.length, loadingHistory]);
 
   useEffect(() => {
+    const element = scrollRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return undefined;
+    const observer = new ResizeObserver(() => {
+      if (!awayRef.current && !anchorRef.current) element.scrollTop = element.scrollHeight;
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [room.id]);
+
+  useEffect(() => {
     function observeRead() {
       const element = scrollRef.current;
-      if (element && element.scrollHeight - element.scrollTop - element.clientHeight < 2 && document.visibilityState === "visible" && document.hasFocus()) {
-        const saved = room.messages.filter((message) => message.sequence).at(-1);
-        if (saved?.sequence === syncCursor) void onRead(saved.sequence);
-      }
+      const saved = room.messages.filter((message) => message.sequence).at(-1);
+      const viewingLatest = Boolean(element && element.scrollHeight - element.scrollTop - element.clientHeight < 2 &&
+        document.visibilityState === "visible" && document.hasFocus() && (!saved || saved.sequence === syncCursor));
+      onViewingLatestChange?.(room.id, viewingLatest);
+      if (viewingLatest && saved) void onRead(saved.sequence);
     }
     observeRead();
     const element = scrollRef.current;
     element.addEventListener("scroll", observeRead);
     window.addEventListener("focus", observeRead);
+    const onBlur = () => onViewingLatestChange?.(room.id, false);
+    window.addEventListener("blur", onBlur);
     document.addEventListener("visibilitychange", observeRead);
     const timer = window.setInterval(observeRead, 30000);
     return () => {
       element.removeEventListener("scroll", observeRead);
       window.removeEventListener("focus", observeRead);
+      window.removeEventListener("blur", onBlur);
       document.removeEventListener("visibilitychange", observeRead);
       window.clearInterval(timer);
     };
-  }, [room.messages, syncCursor, onRead]);
+  }, [room.id, room.messages, syncCursor, onRead, onViewingLatestChange]);
 
   useEffect(() => {
-    if (window.matchMedia("(max-width: 767px)").matches) headingRef.current?.focus();
+    if (window.matchMedia("(max-width: 767px)").matches) headingRef.current?.focus({ preventScroll: true });
   }, [room.id]);
 
   function sendMessage(event) {
     event.preventDefault();
     if (ended || sendDisabled || !draft.trim()) return;
     onSend();
-    inputRef.current?.focus();
+    inputRef.current?.focus({ preventScroll: true });
   }
 
   function scrollToBottom() {
@@ -163,7 +177,7 @@ export function ChatConversation({ room, draft, onDraftChange, onSend, sending, 
                       {!message.mine && (
                         <div className="chat-message__avatar">
                           {!grouped && (
-                            <Avatar alt="" fallback={message.author.slice(0, 1)} size="sm" />
+                            <Avatar alt="" src={message.avatarUrl} fallback={message.author.slice(0, 1)} size="sm" />
                           )}
                         </div>
                       )}

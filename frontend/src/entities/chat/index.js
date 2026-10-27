@@ -3,7 +3,7 @@ import { z } from "zod";
 export const sequenceSchema = z.string().regex(/^(0|[1-9]\d*)$/);
 export const messageSchema = z.object({
   id: sequenceSchema, groupId: sequenceSchema, sequence: sequenceSchema,
-  senderId: sequenceSchema, author: z.string(), clientMessageId: z.string(),
+  senderId: sequenceSchema, author: z.string(), avatarUrl: z.string().url().nullable().optional(), clientMessageId: z.string(),
   content: z.string(), createdAt: z.string()
 });
 export const readSchema = z.object({ groupId: sequenceSchema, lastReadSequence: sequenceSchema, latestSequence: sequenceSchema, unreadCount: z.number().int().nonnegative() });
