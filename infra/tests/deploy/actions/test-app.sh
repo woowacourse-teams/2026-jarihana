@@ -281,6 +281,40 @@ case_profile_wrong_token() {
   profile_fixture
   reject app_profile "$(jq '.Config.Env |= map(if startswith("WORKER_CONTROL_TOKEN=") then "WORKER_CONTROL_TOKEN=other" else . end)' "$APP_DIR/profile")"
 }
+
+prepare_db_fixture() {
+  cp "$ROOT/infra/deploy/controller/app-compose.yml" "$APP_DIR/compose.yml"
+  CONFIG=$(jq --arg compose "$APP_DIR/compose.yml" '. + {compose_file:$compose,app_port:8080}' <<< "$CONFIG")
+  HOST='{"upstream":"10.0.3.2:8080"}'
+  docker() { printf '%s\n' "$*" >> "$APP_DIR/docker-calls"; return 1; }
+}
+case_prepare_single_rds() {
+  prepare_db_fixture
+  unset BLUE_GREEN_RDS_URL
+  for ENVIRONMENT in dev prod; do
+    rm -f "$APP_DIR/docker-calls"
+    if (app_prepare) > "$APP_DIR/prepare.log" 2>&1; then exit 1; fi
+    grep -q 'Cannot enumerate application containers' "$APP_DIR/prepare.log"
+    [[ $(cat "$APP_DIR/docker-calls") == "ps -aq --no-trunc --filter name=^/$CONTAINER$" ]]
+  done
+}
+case_prepare_ignores_legacy_rds() {
+  prepare_db_fixture
+  BLUE_GREEN_RDS_URL=obsolete-db.internal
+  if (app_prepare) > "$APP_DIR/prepare.log" 2>&1; then exit 1; fi
+  grep -q 'Cannot enumerate application containers' "$APP_DIR/prepare.log"
+  [[ -s "$APP_DIR/docker-calls" ]]
+}
+case_prepare_invalid_rds() {
+  prepare_db_fixture
+  unset BLUE_GREEN_RDS_URL RDS_URL
+  if (app_prepare) > "$APP_DIR/prepare.log" 2>&1; then exit 1; fi
+  [[ ! -e "$APP_DIR/docker-calls" ]]
+  for RDS_URL in '' 'jdbc:postgresql://db.internal' 'db.internal:5432' 'db.internal/jarihana_dev' 'db.internal?sslmode=require' 'db internal'; do
+    if (app_prepare) > "$APP_DIR/prepare.log" 2>&1; then exit 1; fi
+    [[ ! -e "$APP_DIR/docker-calls" ]]
+  done
+}
 case_receipt() {
   STOPPED=false OPERATION=observe OBSERVED_STARTED_AT=1000 OBSERVED_FINISHED_AT=1900
   bg_output() { [[ $1 == result ]]; printf '%s\n' "$2" > "$APP_DIR/receipt"; }
@@ -344,7 +378,7 @@ case_shutdown_generation_change() {
 
 if [[ ${1:-} == --case ]]; then fixture; "case_$2"; exit; fi
 passed=0
-for scenario in handoff activation_and_completion response_loss cas_race_before cas_race_after grant_and_deadline boot_change initial_idle_snapshot bad_counter wrong_environment no_release_with_work no_activation_with_owner rollback_target rollback_unhealthy_target rollback_wrong_owner handoff_unhealthy activation_unhealthy rollback_old rollback_already_released observation observation_clock_jump observation_readiness status_requires_grant mutation_grant_mismatch profile profile_public_management profile_dev_scheduler profile_live_dev profile_live_dev_starts_paused profile_live_dev_mismatched_push push_settings_rehearsal push_settings_live push_settings_invalid push_settings_prod_unchanged live_push_handoff live_push_cannot_take_owned_authority profile_wrong_db profile_wrong_token receipt shutdown shutdown_abnormal shutdown_http_work shutdown_generation_change; do
+for scenario in handoff activation_and_completion response_loss cas_race_before cas_race_after grant_and_deadline boot_change initial_idle_snapshot bad_counter wrong_environment no_release_with_work no_activation_with_owner rollback_target rollback_unhealthy_target rollback_wrong_owner handoff_unhealthy activation_unhealthy rollback_old rollback_already_released observation observation_clock_jump observation_readiness status_requires_grant mutation_grant_mismatch profile profile_public_management profile_dev_scheduler profile_live_dev profile_live_dev_starts_paused profile_live_dev_mismatched_push push_settings_rehearsal push_settings_live push_settings_invalid push_settings_prod_unchanged live_push_handoff live_push_cannot_take_owned_authority profile_wrong_db profile_wrong_token prepare_single_rds prepare_ignores_legacy_rds prepare_invalid_rds receipt shutdown shutdown_abnormal shutdown_http_work shutdown_generation_change; do
   bash "$0" --case "$scenario"
   printf 'PASS %s\n' "$scenario"
   passed=$((passed+1))
