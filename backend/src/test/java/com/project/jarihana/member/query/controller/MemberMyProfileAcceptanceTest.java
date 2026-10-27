@@ -3,8 +3,11 @@ package com.project.jarihana.member.query.controller;
 import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.member.command.repository.MemberRepository;
+import com.project.jarihana.member.domain.Bootcamp;
+import com.project.jarihana.member.domain.BootcampStatus;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
+import com.project.jarihana.member.domain.MemberField;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.SignupSessionFixture;
 import io.restassured.RestAssured;
@@ -67,6 +70,30 @@ class MemberMyProfileAcceptanceTest extends IntegrationTestSupport {
         assertThat(response.jsonPath().getString("data.member.avatarUrl"))
                 .isEqualTo("https://avatars.githubusercontent.com/u/" + GITHUB_ID);
         assertThat((Object) response.jsonPath().get("error")).isNull();
+    }
+
+    @DisplayName("부트캠프 회원도 Access Token으로 자신의 정보를 조회한다.")
+    @Test
+    void respondProfileToBootcampMember() {
+        // Given
+        Member member = memberRepository.save(Member.createBootcamp(
+                "도담", GITHUB_ID, Bootcamp.of("SSAFY", BootcampStatus.IN_PROGRESS, null), MemberField.BACKEND
+        ));
+
+        // When
+        ExtractableResponse<Response> response = RestAssured.given()
+                .cookie(authCookieProperties.accessTokenName(), accessTokenOf(member))
+                .when()
+                .get(MY_PROFILE_PATH)
+                .then()
+                .extract();
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.OK.value());
+        assertThat(response.jsonPath().getString("data.member.crewName")).isEqualTo("도담");
+        assertThat(response.jsonPath().getString("data.member.memberType")).isEqualTo("BOOTCAMP");
+        assertThat((Object) response.jsonPath().get("data.member.generation")).isNull();
+        assertThat((Object) response.jsonPath().get("data.member.course")).isNull();
     }
 
     private String accessTokenOf(Member member) {

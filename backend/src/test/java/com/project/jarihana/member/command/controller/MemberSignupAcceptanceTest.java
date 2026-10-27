@@ -16,6 +16,8 @@ import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -291,6 +293,25 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.BAD_REQUEST.value());
         assertThat(response.jsonPath().getString("error.code")).isEqualTo("INVALID_PARAMETER");
+    }
+
+    @DisplayName("부트캠프와 현직자 회원 가입은 소속 정보 없이 받지 않는다.")
+    @ParameterizedTest
+    @ValueSource(strings = {"BOOTCAMP", "PROFESSIONAL"})
+    void rejectAffiliationSignupWithoutAffiliation(String memberType) {
+        // Given
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
+
+        // When
+        ExtractableResponse<Response> response = signup(
+                sessionId,
+                Map.of("crewName", "도담", "memberType", memberType)
+        );
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+        assertThat(response.jsonPath().getString("error.code")).isEqualTo("INVALID_PARAMETER");
+        assertThat(memberRepository.findByGithubId(GITHUB_ID)).isEmpty();
     }
 
     @DisplayName("지원하지 않는 코스는 거부한다.")

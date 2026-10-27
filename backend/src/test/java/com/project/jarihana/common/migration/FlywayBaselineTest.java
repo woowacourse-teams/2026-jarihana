@@ -152,6 +152,88 @@ class FlywayBaselineTest extends IntegrationTestSupport {
     }
 
     @Test
+    @DisplayName("Flyway는 부트캠프와 현직자 회원의 소속 정보를 저장하고 기존 크루, 코치 저장 방식은 그대로 허용한다.")
+    void applicationMigratesMemberAffiliation() {
+        // Given
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+
+        // When
+        jdbc.update("""
+                insert into member (crew_name, generation, github_id, member_type, course, created_at, updated_at)
+                values ('우주', 8, 'legacy-crew', 'CREW', 'BACKEND', localtimestamp, localtimestamp)
+                """);
+        jdbc.update("""
+                insert into member (crew_name, github_id, member_type, created_at, updated_at)
+                values ('코치', 'legacy-coach', 'COACH', localtimestamp, localtimestamp)
+                """);
+        jdbc.update("""
+                insert into member (crew_name, github_id, member_type, bootcamp_name, bootcamp_status,
+                                    bootcamp_cohort, field, created_at, updated_at)
+                values ('도담', 'bootcamp-member', 'BOOTCAMP', 'SSAFY', 'IN_PROGRESS', '12기', 'BACKEND',
+                        localtimestamp, localtimestamp)
+                """);
+        jdbc.update("""
+                insert into member (crew_name, github_id, member_type, field, career, company_name,
+                                    company_visible, created_at, updated_at)
+                values ('하나', 'professional-member', 'PROFESSIONAL', 'FRONTEND', 'YEARS_1_3', '자리하나', true,
+                        localtimestamp, localtimestamp)
+                """);
+
+        // Then
+        assertThat(jdbc.queryForObject("select count(*) from member", Integer.class)).isEqualTo(4);
+        assertThat(jdbc.queryForList("select indexname from pg_indexes where schemaname = current_schema()", String.class))
+                .contains("uk_member_coach_name", "uk_member_non_crew_name");
+    }
+
+    @Test
+    @DisplayName("회원 유형별 소속 정보가 맞지 않으면 DB에서 거절한다.")
+    void rejectMemberAffiliationOutsideMemberType() {
+        // Given
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+
+        // When / Then
+        assertThatThrownBy(() -> jdbc.update("""
+                insert into member (crew_name, generation, github_id, member_type, course, bootcamp_name,
+                                    created_at, updated_at)
+                values ('우주', 8, 'crew-with-bootcamp', 'CREW', 'BACKEND', 'SSAFY', localtimestamp, localtimestamp)
+                """)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update("""
+                insert into member (crew_name, github_id, member_type, bootcamp_name, bootcamp_status,
+                                    created_at, updated_at)
+                values ('도담', 'bootcamp-without-field', 'BOOTCAMP', 'SSAFY', 'COMPLETED',
+                        localtimestamp, localtimestamp)
+                """)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update("""
+                insert into member (crew_name, github_id, member_type, field, career, company_name,
+                                    created_at, updated_at)
+                values ('하나', 'company-without-visibility', 'PROFESSIONAL', 'DESIGN', 'UNDER_1', '자리하나',
+                        localtimestamp, localtimestamp)
+                """)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update("""
+                insert into member (crew_name, github_id, member_type, field, career, created_at, updated_at)
+                values ('하나', 'invalid-career', 'PROFESSIONAL', 'DESIGN', 'INVALID', localtimestamp, localtimestamp)
+                """)).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("코치, 부트캠프, 현직자 회원끼리는 같은 닉네임을 DB에서 거절한다.")
+    void rejectDuplicatedNonCrewName() {
+        // Given
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        jdbc.update("""
+                insert into member (crew_name, github_id, member_type, created_at, updated_at)
+                values ('도담', 'coach-member', 'COACH', localtimestamp, localtimestamp)
+                """);
+
+        // When / Then
+        assertThatThrownBy(() -> jdbc.update("""
+                insert into member (crew_name, github_id, member_type, field, career, created_at, updated_at)
+                values ('도담', 'duplicated-professional', 'PROFESSIONAL', 'BACKEND', 'UNDER_1',
+                        localtimestamp, localtimestamp)
+                """)).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
     @DisplayName("기존 스키마는 V1을 baseline으로 등록하고 후속 migration을 적용해도 데이터를 보존한다.")
     void existingSchemaSkipsV1AndPreservesData() throws SQLException {
         // Given
@@ -183,7 +265,7 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 int appliedMigrations = existing.migrate().migrationsExecuted;
 
                 // Then
-                assertThat(appliedMigrations).isEqualTo(7);
+                assertThat(appliedMigrations).isEqualTo(8);
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '1'", String.class))
                         .isEqualTo("BASELINE");
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '2'", String.class))
@@ -200,6 +282,8 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                         .contains("chat_room", "chat_message", "chat_read_state");
                 assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '8'", String.class))
                         .isEqualTo("V8__group_chat.sql");
+                assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '11'", String.class))
+                        .isEqualTo("V11__member_affiliation.sql");
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '999999'", String.class))
                         .isEqualTo("SQL");
                 assertThat(jdbc.queryForList("select tablename from pg_tables where schemaname = current_schema()", String.class))
@@ -246,8 +330,8 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 int appliedMigrations = upgraded.migrate().migrationsExecuted;
 
                 // Then
-                assertThat(appliedMigrations).isEqualTo(2);
-                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('7', '8') order by installed_rank"))
+                assertThat(appliedMigrations).isEqualTo(3);
+                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('7', '8', '11') order by installed_rank"))
                         .isEqualTo(history);
                 assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '4'", String.class))
                         .isEqualTo("V4__image_lifecycle.sql");
@@ -301,7 +385,7 @@ class FlywayBaselineTest extends IntegrationTestSupport {
 
                 // Then
                 assertThat(corrected).isEqualTo(1);
-                assertThat(appliedMigrations).isEqualTo(3);
+                assertThat(appliedMigrations).isEqualTo(4);
                 assertThat(jdbc.queryForList("select * from worker_authority")).isEqualTo(worker);
                 assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '4'", String.class))
                         .isEqualTo("V4__image_lifecycle.sql");

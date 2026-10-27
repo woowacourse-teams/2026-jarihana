@@ -439,6 +439,8 @@ it("closes the mobile drawer when selecting my page", () => {
 
 it.each([
   ["COACH", "코치"],
+  ["BOOTCAMP", "부트캠프"],
+  ["PROFESSIONAL", "현직자"],
   ["CREW", "기수 미정"]
 ])("shows the appropriate member label when %s has no generation", (memberType, label) => {
   renderShell({ member: { crewName: "자리", generation: null, memberType }, status: "authenticated" });
