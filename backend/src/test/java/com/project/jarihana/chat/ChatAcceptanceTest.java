@@ -172,6 +172,13 @@ class ChatAcceptanceTest extends NotificationIntegrationTestSupport {
         assertThat(empty.jsonPath().getList("data.items")).hasSize(1);
         assertThat(first.statusCode()).isEqualTo(201);
         assertThat(retry.statusCode()).isEqualTo(200);
+        String avatar = "https://avatars.githubusercontent.com/u/101";
+        assertThat(first.jsonPath().getString("data.avatarUrl")).isEqualTo(avatar);
+        assertThat(retry.jsonPath().getString("data.avatarUrl")).isEqualTo(avatar);
+        assertThat(authenticated(owner).get(path).jsonPath().getString("data.items[0].avatarUrl"))
+                .isEqualTo(avatar);
+        assertThat(authenticated(owner).get("/chats").jsonPath().getString("data.items[0].lastMessage.avatarUrl"))
+                .isEqualTo(avatar);
         assertThat(first.jsonPath().getString("data.id"))
                 .isEqualTo(retry.jsonPath().getString("data.id"));
         assertThat(

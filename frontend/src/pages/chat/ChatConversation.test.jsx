@@ -54,6 +54,33 @@ test("loading older messages preserves distance from existing content", () => {
   expect(history.scrollTop).toBe(320);
 });
 
+test("화면 높이가 바뀔 때 최신 메시지를 보고 있었다면 최신 위치를 유지한다", () => {
+  const previous = global.ResizeObserver;
+  let onResize;
+  const disconnect = jest.fn();
+  global.ResizeObserver = class {
+    constructor(callback) { onResize = callback; }
+    observe() {}
+    disconnect() { disconnect(); }
+  };
+  try {
+    const { unmount } = mount();
+    const history = screen.getByRole("region", { name: "대화 스크롤 영역" });
+    Object.defineProperty(history, "scrollHeight", { configurable: true, value: 600 });
+    Object.defineProperty(history, "clientHeight", { configurable: true, value: 200 });
+    onResize();
+    expect(history.scrollTop).toBe(600);
+    history.scrollTop = 50;
+    fireEvent.scroll(history);
+    onResize();
+    expect(history.scrollTop).toBe(50);
+    unmount();
+    expect(disconnect).toHaveBeenCalled();
+  } finally {
+    global.ResizeObserver = previous;
+  }
+});
+
 test("server confirmation removes retry only for the confirmed message", () => {
   const first = { ...message, id: "pending-1", failed: true };
   const second = { ...message, id: "pending-2", clientMessageId: "other-key", text: "두 번째", failed: true };
@@ -64,4 +91,30 @@ test("server confirmation removes retry only for the confirmed message", () => {
   expect(retry).toHaveAttribute("data-ph-capture-attribute-action", "chat_message_retry");
   fireEvent.click(retry);
   expect(props.onRetry).toHaveBeenCalledWith(second);
+});
+
+test("displays the sender's GitHub avatar", () => {
+  mount({ room: { ...room, messages: [{ ...message, mine: false, avatarUrl: "https://avatars.githubusercontent.com/u/123" }] } });
+  expect(document.querySelector(".chat-message__avatar img")).toHaveAttribute("src", "https://avatars.githubusercontent.com/u/123");
+});
+
+test("reports whether the focused conversation is showing the synchronized latest message", () => {
+  const focus = jest.spyOn(document, "hasFocus").mockReturnValue(true);
+  const onViewingLatestChange = jest.fn();
+  const { props, rerender } = mount({ onViewingLatestChange });
+  const history = screen.getByRole("region", { name: "대화 스크롤 영역" });
+  expect(onViewingLatestChange).toHaveBeenLastCalledWith("1", true);
+  Object.defineProperty(history, "scrollHeight", { configurable: true, value: 600 });
+  Object.defineProperty(history, "clientHeight", { configurable: true, value: 200 });
+  history.scrollTop = 0;
+  fireEvent.scroll(history);
+  expect(onViewingLatestChange).toHaveBeenLastCalledWith("1", false);
+  history.scrollTop = 400;
+  fireEvent.scroll(history);
+  expect(onViewingLatestChange).toHaveBeenLastCalledWith("1", true);
+  fireEvent.blur(window);
+  expect(onViewingLatestChange).toHaveBeenLastCalledWith("1", false);
+  rerender(<MemoryRouter><ChatConversation {...props} syncCursor="9" /></MemoryRouter>);
+  expect(onViewingLatestChange).toHaveBeenLastCalledWith("1", false);
+  focus.mockRestore();
 });

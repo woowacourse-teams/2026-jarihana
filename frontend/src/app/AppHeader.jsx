@@ -1,5 +1,6 @@
 import { NotificationBell, NotificationBellTrigger, NotificationDrawer } from "../features/notifications/NotificationInbox";
 import { ChatLink } from "../features/chat/ChatLink";
+import { useChatUnreadCount } from "../features/chat/useChatUnreadCount";
 import { useId, useRef, useState } from "react";
 import { useUnreadCount } from "../features/notifications/hooks";
 import { Link, useLocation, useNavigate } from "react-router";
@@ -184,6 +185,15 @@ function AuthAction({ onNavigate, status }) {
   );
 }
 
+function HeaderChatLink({ unread, mobile = false }) {
+  return <ChatLink aria-label={`채팅${unread > 0 ? `, 안 읽은 메시지 ${unread}개` : ""}`} title="채팅"
+    className={`app-header__chat${mobile ? " app-header__chat--mobile" : ""}`}
+    data-ph-capture-attribute-action="chat_inbox_open">
+    <MessageCircle aria-hidden="true" />
+    {unread > 0 && <span className="app-header__chat-count" aria-hidden="true">{unread > 99 ? "99+" : unread}</span>}
+  </ChatLink>;
+}
+
 export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
   const { avatarUrl, login, logout, logoutError, logoutPending, member, status } = useAuth();
   const unreadCount = useUnreadCount();
@@ -193,6 +203,7 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
     ? "코치"
     : `${generationLabel(member?.generation)}${member?.course ? ` / ${COURSE_LABELS[member.course]}` : ""}`;
   const { hash, pathname, search } = useLocation();
+  const chatUnread = useChatUnreadCount();
   const activeMenuIndex = DESKTOP_MEMBER_LINKS.findIndex((link) => link.isActive(pathname));
   const navigate = useNavigate();
   const { success } = useToast();
@@ -329,7 +340,7 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
               />
               자리 만들기
             </Link>
-            {status === "authenticated" && <ChatLink aria-label="채팅" title="채팅" className="app-header__chat" data-ph-capture-attribute-action="chat_inbox_open"><MessageCircle aria-hidden="true" /></ChatLink>}
+            {status === "authenticated" && <HeaderChatLink unread={chatUnread} />}
             {status === "authenticated" ? (
               <div className="notification-header-actions"><NotificationBell onOpenPwaGuide={onOpenPwaGuide} /><ProfileMenu /></div>
             ) : (
@@ -337,7 +348,7 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
             )}
           </div>
 
-          {status === "authenticated" && <ChatLink aria-label="채팅" className="app-header__chat app-header__chat--mobile" data-ph-capture-attribute-action="chat_inbox_open"><MessageCircle aria-hidden="true" /></ChatLink>}
+          {status === "authenticated" && <HeaderChatLink unread={chatUnread} mobile />}
           <button
             aria-expanded={isMenuOpen}
             aria-label="메뉴 열기"

@@ -31,3 +31,12 @@ test("only offers retry when the list failed", () => {
   fireEvent.click(screen.getByRole("button", { name: "목록 다시 불러오기" }));
   expect(retry).toHaveBeenCalledTimes(1);
 });
+
+test("hides only the badge for the room whose latest messages are being viewed", () => {
+  const withUnread = [rooms[0], { ...rooms[1], unreadCount: 3 }];
+  const { rerender } = render(<ChatRoomList rooms={withUnread} selectedId="1" viewingLatest />);
+  expect(screen.queryByLabelText("안 읽은 메시지 2개")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("안 읽은 메시지 3개")).toBeInTheDocument();
+  rerender(<ChatRoomList rooms={withUnread} selectedId="1" viewingLatest={false} />);
+  expect(screen.getByLabelText("안 읽은 메시지 2개")).toBeInTheDocument();
+});
