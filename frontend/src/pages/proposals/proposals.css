@@ -1,0 +1,859 @@
+/* 자유게시판: 1차 1번 카드 목록과 새 페이지로 여는 조건 맞추기 상세(2차 A안) */
+
+.proposal-page {
+    display: grid;
+    gap: var(--space-6);
+    padding-block: var(--space-8) var(--space-16);
+}
+
+/* 한국어 제목이 단어 중간에서 줄바꿈되지 않게 한다. */
+.proposal-hero__title,
+.proposal-card__title,
+.proposal-detail__title,
+.proposal-guide__title {
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+}
+
+.proposal-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin: 0;
+    color: var(--color-text-brand);
+    font-size: var(--text-caption);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: 0.02em;
+}
+
+.proposal-eyebrow--done {
+    color: var(--color-success);
+}
+
+.proposal-note {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-caption);
+}
+
+.proposal-section-title {
+    margin: 0;
+    font-size: var(--text-h3);
+    font-weight: var(--font-weight-bold);
+}
+
+.proposal-section-title b {
+    color: var(--color-text-brand);
+}
+
+/* ---------- 목록 ---------- */
+
+.proposal-hero {
+    position: relative;
+    display: grid;
+    gap: var(--space-3);
+    overflow: hidden;
+    padding: var(--space-8) var(--space-6);
+    border-radius: var(--radius-lg);
+    background: var(--color-brand-soft);
+}
+
+.proposal-hero__title {
+    position: relative;
+    z-index: 1;
+    margin: 0;
+    font-size: var(--text-h1);
+    font-weight: var(--font-weight-extrabold);
+    line-height: 1.25;
+    text-wrap: balance;
+}
+
+.proposal-hero__lead {
+    position: relative;
+    z-index: 1;
+    margin: 0;
+    color: var(--color-text-brand);
+    font-size: var(--text-body);
+}
+
+.proposal-hero__chair {
+    position: absolute;
+    inset-block-end: calc(var(--space-4) * -1);
+    inset-inline-end: var(--space-6);
+    inline-size: 7.5rem;
+    opacity: 0.9;
+}
+
+.proposal-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+}
+
+.proposal-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.proposal-filter,
+.proposal-chip {
+    display: inline-flex;
+    min-height: var(--button-height-sm);
+    align-items: center;
+    gap: var(--space-1);
+    padding-inline: var(--space-4);
+    border: var(--border-thin) solid var(--color-line);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--text-label);
+    font-weight: var(--font-weight-semibold);
+    transition: background var(--duration-fast) var(--ease-standard),
+        border-color var(--duration-fast) var(--ease-standard);
+}
+
+.proposal-filter:hover,
+.proposal-chip:hover {
+    border-color: var(--color-brand);
+}
+
+.proposal-filter[aria-pressed="true"],
+.proposal-chip[aria-pressed="true"] {
+    border-color: var(--color-brand);
+    background: var(--color-brand-soft);
+    color: var(--color-brand-ink);
+}
+
+.proposal-bar__create {
+    gap: var(--space-1);
+}
+
+/* 버튼 모양 링크는 밑줄 없이 버튼처럼 보인다. */
+.proposal-page a.ui-button {
+    text-decoration: none;
+}
+
+.proposal-layout {
+    display: grid;
+    gap: var(--space-6);
+    align-items: start;
+}
+
+.proposal-cards {
+    display: grid;
+    gap: var(--space-4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.proposal-card__body {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    block-size: 100%;
+    padding: var(--space-5);
+    border: var(--border-thin) solid var(--color-line);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    transition: box-shadow var(--duration-base) var(--ease-standard),
+        transform var(--duration-base) var(--ease-standard);
+}
+
+.proposal-card__body:hover,
+.proposal-card__body:focus-within {
+    box-shadow: var(--shadow-card);
+    transform: translateY(-0.125rem);
+}
+
+.proposal-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-caption);
+}
+
+.proposal-card__author {
+    color: var(--color-ink);
+    font-weight: var(--font-weight-semibold);
+}
+
+.proposal-card__title {
+    margin: 0;
+    font-size: var(--text-h3);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.4;
+}
+
+.proposal-card__link {
+    color: inherit;
+    text-decoration: none;
+}
+
+/* 카드 어디를 눌러도 글로 이동하고, 함께하고 싶어요 버튼만 위에 올린다. */
+.proposal-card__link::after {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    content: "";
+}
+
+.proposal-card__summary {
+    display: -webkit-box;
+    margin: 0;
+    overflow: hidden;
+    color: var(--color-text-muted);
+    font-size: var(--text-body);
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.proposal-card__foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-4);
+    margin-block-start: auto;
+    padding-block-start: var(--space-3);
+    border-block-start: var(--border-thin) solid var(--color-line);
+    color: var(--color-text-muted);
+    font-size: var(--text-caption);
+}
+
+.proposal-card__foot > * {
+    white-space: nowrap;
+}
+
+.proposal-card__stat {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+}
+
+.proposal-card__time {
+    margin-inline-start: auto;
+}
+
+.proposal-pill {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    min-height: var(--button-height-sm);
+    align-items: center;
+    gap: var(--space-2);
+    padding-inline: var(--space-3);
+    border: var(--border-thin) solid transparent;
+    border-radius: var(--radius-pill);
+    background: var(--color-brand-soft);
+    color: var(--color-brand-ink);
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--text-label);
+    font-weight: var(--font-weight-bold);
+}
+
+.proposal-pill b {
+    font-variant-numeric: tabular-nums;
+}
+
+.proposal-pill:hover:not(:disabled) {
+    border-color: var(--color-brand);
+}
+
+.proposal-pill--on {
+    background: var(--color-brand-ink);
+    color: var(--color-surface);
+}
+
+.proposal-pill:disabled {
+    cursor: progress;
+    opacity: 0.7;
+}
+
+.proposal-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-self: start;
+    padding: var(--space-0) var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-badge);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.6;
+    white-space: nowrap;
+}
+
+.proposal-badge--study {
+    background: var(--color-activity-study-soft);
+    color: var(--color-activity-study-ink);
+}
+
+.proposal-badge--culture {
+    background: var(--color-activity-club-soft);
+    color: var(--color-activity-club-ink);
+}
+
+.proposal-badge--sport {
+    background: var(--color-success-soft);
+    color: var(--color-success);
+}
+
+.proposal-badge--etc {
+    background: var(--color-surface-sunken);
+    color: var(--color-muted-ink);
+}
+
+.proposal-guide {
+    display: grid;
+    gap: var(--space-3);
+    padding: var(--space-6);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface-sunken);
+}
+
+.proposal-guide__title {
+    margin: 0;
+    font-size: var(--text-h3);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.4;
+}
+
+.proposal-guide__steps {
+    display: grid;
+    gap: var(--space-2);
+    margin: 0;
+    padding-inline-start: var(--space-5);
+    font-size: var(--text-label);
+}
+
+.proposal-sentinel {
+    block-size: var(--space-1);
+}
+
+.proposal-more {
+    display: flex;
+    justify-content: center;
+    margin-block-start: var(--space-4);
+}
+
+/* ---------- 상세 ---------- */
+
+.proposal-detail__top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-4);
+}
+
+.proposal-back {
+    display: inline-flex;
+    min-height: var(--touch-target);
+    align-items: center;
+    gap: var(--space-1);
+    color: var(--color-ink);
+    font-size: var(--text-label);
+    font-weight: var(--font-weight-semibold);
+    text-decoration: none;
+}
+
+.proposal-back:hover {
+    color: var(--color-text-brand);
+}
+
+.proposal-crumb {
+    color: var(--color-text-muted);
+    font-size: var(--text-caption);
+}
+
+.proposal-detail__grid {
+    display: grid;
+    gap: var(--space-6);
+    grid-template-areas:
+        "post"
+        "side"
+        "gathered"
+        "comments";
+    align-items: start;
+}
+
+.proposal-detail__post {
+    display: grid;
+    gap: var(--space-4);
+    grid-area: post;
+}
+
+.proposal-detail__side {
+    grid-area: side;
+}
+
+.proposal-detail__gathered {
+    grid-area: gathered;
+}
+
+.proposal-detail__comments {
+    grid-area: comments;
+}
+
+.proposal-detail__title {
+    margin: 0;
+    font-size: var(--text-h2);
+    font-weight: var(--font-weight-extrabold);
+    line-height: 1.35;
+    text-wrap: balance;
+}
+
+.proposal-detail__title:focus {
+    outline: none;
+}
+
+.proposal-byline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--color-text-muted);
+    font-size: var(--text-caption);
+}
+
+.proposal-byline b {
+    color: var(--color-ink);
+    font-size: var(--text-label);
+}
+
+.proposal-byline__delete {
+    margin-inline-start: auto;
+}
+
+.proposal-byline__delete > span {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+}
+
+.proposal-detail__content {
+    display: grid;
+    gap: var(--space-3);
+    font-size: var(--text-body-lg);
+    line-height: 1.75;
+}
+
+.proposal-detail__content p {
+    margin: 0;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
+.proposal-panel {
+    display: grid;
+    gap: var(--space-4);
+    padding: var(--space-6);
+    border: var(--border-thin) solid var(--color-line);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+}
+
+.proposal-panel__title {
+    margin: 0;
+    font-size: var(--text-h3);
+    font-weight: var(--font-weight-bold);
+}
+
+.proposal-panel__desc {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-label);
+}
+
+.proposal-panel__row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.proposal-panel__cta {
+    display: grid;
+    gap: var(--space-2);
+    justify-items: center;
+    text-align: center;
+}
+
+.proposal-panel__cta .ui-button > span {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.proposal-chips {
+    display: grid;
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.proposal-chips__label {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    margin-block-end: var(--space-2);
+    padding: 0;
+    font-size: var(--text-label);
+    font-weight: var(--font-weight-bold);
+}
+
+.proposal-chips__label span {
+    color: var(--color-text-muted);
+    font-size: var(--text-caption);
+    font-weight: var(--font-weight-semibold);
+}
+
+.proposal-chips__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.proposal-mine {
+    display: grid;
+    gap: var(--space-2);
+    margin: 0;
+}
+
+.proposal-mine > div {
+    display: grid;
+    grid-template-columns: 3rem minmax(0, 1fr);
+    gap: var(--space-2);
+    font-size: var(--text-label);
+}
+
+.proposal-mine dt {
+    color: var(--color-text-muted);
+}
+
+.proposal-mine dd {
+    margin: 0;
+    font-weight: var(--font-weight-semibold);
+}
+
+.proposal-gathered {
+    display: grid;
+    gap: var(--space-4);
+    padding: var(--space-6);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface-sunken);
+}
+
+.proposal-gathered__desc {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-label);
+}
+
+.proposal-bars {
+    display: grid;
+    gap: var(--space-2);
+}
+
+.proposal-bars__title {
+    margin: 0;
+    font-size: var(--text-label);
+    font-weight: var(--font-weight-bold);
+}
+
+.proposal-bars__list {
+    display: grid;
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.proposal-bar-row {
+    display: grid;
+    grid-template-columns: minmax(6.5rem, 9rem) minmax(0, 1fr) 3rem;
+    align-items: center;
+    gap: var(--space-3);
+    font-size: var(--text-label);
+}
+
+.proposal-bar-row__label {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+}
+
+.proposal-bar-row__label em {
+    padding: var(--space-0) var(--space-1);
+    border-radius: var(--radius-sm);
+    background: var(--color-brand-soft);
+    color: var(--color-brand-ink);
+    font-size: var(--text-badge);
+    font-style: normal;
+    font-weight: var(--font-weight-bold);
+}
+
+.proposal-bar-row__track {
+    position: relative;
+    block-size: 0.625rem;
+    overflow: hidden;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+}
+
+.proposal-bar-row__track i {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    border-radius: inherit;
+    background: var(--color-line-strong);
+}
+
+.proposal-bar-row--lead .proposal-bar-row__track i {
+    background: var(--color-brand);
+}
+
+.proposal-bar-row__count {
+    color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
+    text-align: end;
+}
+
+.proposal-bar-row--lead .proposal-bar-row__count {
+    color: var(--color-ink);
+    font-weight: var(--font-weight-bold);
+}
+
+.proposal-comments {
+    display: grid;
+    gap: var(--space-4);
+}
+
+.proposal-comments__list {
+    display: grid;
+    gap: var(--space-4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.proposal-comment {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: var(--space-3);
+    align-items: start;
+}
+
+.proposal-comment__body {
+    display: grid;
+    gap: var(--space-1);
+}
+
+.proposal-comment__who {
+    display: flex;
+    gap: var(--space-2);
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-caption);
+}
+
+.proposal-comment__who b {
+    color: var(--color-ink);
+}
+
+.proposal-comment__text {
+    margin: 0;
+    font-size: var(--text-body);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
+.proposal-comment__delete {
+    display: inline-grid;
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    place-items: center;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+}
+
+.proposal-comment__delete:hover:not(:disabled) {
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+}
+
+.proposal-comments__error {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    color: var(--color-danger);
+    font-size: var(--text-label);
+}
+
+.proposal-comments__error p {
+    margin: 0;
+}
+
+.proposal-comment-form {
+    display: grid;
+    gap: var(--space-2);
+}
+
+.proposal-comment-form__row {
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* ---------- 작성 ---------- */
+
+.proposal-form {
+    display: grid;
+    gap: var(--space-6);
+    max-inline-size: 45rem;
+}
+
+.proposal-form__group {
+    display: grid;
+    gap: var(--space-3);
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.proposal-form__legend {
+    margin-block-end: var(--space-2);
+    padding: 0;
+    font-size: var(--text-label);
+    font-weight: var(--font-weight-bold);
+}
+
+.proposal-form__mood {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: var(--space-2);
+}
+
+.proposal-form__mood-remove {
+    display: inline-grid;
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    place-items: center;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+}
+
+.proposal-form__mood-remove:hover {
+    background: var(--color-surface-sunken);
+}
+
+.proposal-form__group > .ui-button {
+    justify-self: start;
+}
+
+.proposal-form__group > .ui-button > span {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+}
+
+.proposal-form__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--space-2);
+}
+
+/* ---------- 반응형 ---------- */
+
+@media (max-width: 599px) {
+    /* 좁은 화면에서는 의자 그림이 소개 문장을 가리므로 숨긴다. */
+    .proposal-hero__chair {
+        display: none;
+    }
+}
+
+@media (min-width: 768px) {
+    .proposal-hero {
+        padding: var(--space-10) var(--space-10);
+    }
+
+    .proposal-hero__chair {
+        inline-size: 9.5rem;
+        inset-inline-end: var(--space-10);
+    }
+}
+
+@media (min-width: 1024px) {
+    .proposal-layout {
+        grid-template-columns: minmax(0, 1fr) 18rem;
+    }
+
+    .proposal-cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .proposal-guide {
+        position: sticky;
+        top: calc(var(--header-height) + var(--space-4));
+    }
+
+    .proposal-detail__grid {
+        grid-template-columns: minmax(0, 1fr) 22rem;
+        grid-template-rows: auto auto 1fr;
+        grid-template-areas:
+            "post side"
+            "gathered side"
+            "comments side";
+        column-gap: var(--space-8);
+    }
+
+    .proposal-detail__side {
+        position: sticky;
+        top: calc(var(--header-height) + var(--space-4));
+    }
+}
+
+@media (pointer: coarse) {
+    .proposal-filter,
+    .proposal-chip,
+    .proposal-pill {
+        min-height: var(--touch-target);
+    }
+}
+
+@media (max-width: 479px) {
+    .proposal-bar-row {
+        grid-template-columns: minmax(5.5rem, 7rem) minmax(0, 1fr) 2.5rem;
+        gap: var(--space-2);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .proposal-card__body,
+    .proposal-filter,
+    .proposal-chip {
+        transition: none;
+    }
+
+    .proposal-card__body:hover,
+    .proposal-card__body:focus-within {
+        transform: none;
+    }
+}

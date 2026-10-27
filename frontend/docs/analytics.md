@@ -30,6 +30,21 @@ DB 테이블·스키마는 추가하지 않는다.
 위 action은 사용자 조작 식별자이며 발급 성공·복사 성공을 보장하는 이벤트는 아니다.
 초대 전용 성공 이벤트와 전환 연결은 아래 계약을 따른다. 공유 초대 페이지에서도 명시적 초대 이벤트만 수집한다. 실제 PostHog 수신은 별도 검증이 필요하다.
 
+## 자유게시판 모임 제안
+
+자유게시판의 조작은 다음 action으로 구분한다. 제안 제목, 내용, 코멘트, 분위기 선택지 문구를 action에 넣지 않는다.
+제안, 응답, 코멘트 처리 성공 이벤트는 아직 보내지 않으며, 성공 여부는 `api_request_completed`로만 확인한다.
+
+| 동작 | action |
+| --- | --- |
+| 헤더 게시판 메뉴, 분야 필터, 제안 열기, 더 보기, 다시 불러오기 | `browse_proposals`, `proposal_category_filter`, `proposal_open`, `proposal_list_load_more`, `proposal_list_retry` |
+| 목록의 함께하고 싶어요 켜고 끄기 | `proposal_interest_toggle` |
+| 상세의 조건 칩, 응답 보내기, 고치기, 고치기 취소, 응답 취소 | `proposal_condition_select`, `proposal_interest_submit`, `proposal_interest_edit`, `proposal_interest_edit_cancel`, `proposal_interest_cancel` |
+| 비로그인 로그인 안내 | `proposal_login_to_interest`, `proposal_login_to_comment` |
+| 코멘트 입력, 남기기, 지우기, 더 보기, 다시 불러오기 | `proposal_comment_form`, `proposal_comment_input`, `proposal_comment_submit`, `proposal_comment_delete`, `proposal_comment_load_more`, `proposal_comment_retry` |
+| 상세의 목록으로, 다시 불러오기, 제안 지우기와 확인 창 | `proposal_back_to_board`, `proposal_detail_retry`, `proposal_delete`, `proposal_delete_confirm`, `proposal_delete_cancel`, `proposal_delete_close` |
+| 제안 작성 시작, 분야, 제목, 내용, 분위기 선택지 입력, 더하기, 지우기, 올리기, 취소 | `proposal_create_start`, `proposal_create_form`, `proposal_create_category`, `proposal_create_title`, `proposal_create_content`, `proposal_create_mood_option`, `proposal_create_mood_add`, `proposal_create_mood_remove`, `proposal_create_submit`, `proposal_create_cancel` |
+
 ## 활성화 설정
 
 Webpack 빌드 시 아래 환경변수를 주입한다. 값이 번들에 반영되므로 변경 후 다시 빌드해야 한다.
