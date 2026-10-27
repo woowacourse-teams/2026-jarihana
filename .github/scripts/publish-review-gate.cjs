@@ -1,6 +1,6 @@
 "use strict";
 
-const { evaluateReviewGate, latestSubmittedReviews, isTitleOnlyEdit } = require("./review-gate.cjs");
+const { evaluateReviewGate, latestSubmittedReviews } = require("./review-gate.cjs");
 
 const CHECK_NAME = "Conditional Review Gate";
 const BASE_BRANCHES = ["develop", "main"];
@@ -40,33 +40,21 @@ async function writeCheck(github, check, data) {
   });
 }
 
-async function invalidatePreviousCheck({ github, owner, repo, pull }) {
+async function createBlockedCheck({ github, owner, repo, pull }) {
   const externalId = "conditional-review-gate:" + pull.number + ":" + pull.head.sha;
-  const existing = await github.paginate(github.rest.checks.listForRef, {
-    owner, repo, ref: pull.head.sha, per_page: 100,
-  });
-  const prior = existing.find((check) =>
-    check.name === CHECK_NAME && check.external_id === externalId,
-  );
-  const pending = {
+  // A check from an older workflow run can disappear from the PR's required checks
+  // when a newer run replaces its suite. Publish a new check for every evaluation.
+  const created = await github.rest.checks.create({
+    owner, repo, name: CHECK_NAME, head_sha: pull.head.sha,
+    external_id: externalId, details_url: pull.html_url,
+    status: "completed",
     conclusion: "failure",
     output: {
       title: "Re-evaluating review policy",
       summary: "Risk and approval state are being checked again. The previous success is no longer valid.",
     },
-  };
-  const check = { owner, repo, externalId, url: pull.html_url, id: prior?.id };
-  if (prior) {
-    await writeCheck(github, check, pending);
-  } else {
-    const created = await github.rest.checks.create({
-      owner, repo, name: CHECK_NAME, head_sha: pull.head.sha,
-      external_id: externalId, details_url: pull.html_url,
-      status: "completed", ...pending,
-    });
-    check.id = created.data.id;
-  }
-  return check;
+  });
+  return { owner, repo, externalId, url: pull.html_url, id: created.data.id };
 }
 
 async function evaluatePull({ github, core, owner, repo, pullNumber }) {
@@ -76,7 +64,7 @@ async function evaluatePull({ github, core, owner, repo, pullNumber }) {
   if (pull.state !== "open" || !BASE_BRANCHES.includes(pull.base.ref)) return;
 
   // Set failure before reading dependencies so an error cannot leave the old success in place.
-  const check = await invalidatePreviousCheck({ github, owner, repo, pull });
+  const check = await createBlockedCheck({ github, owner, repo, pull });
   const [files, reviews] = await Promise.all([
     github.paginate(github.rest.pulls.listFiles, {
       owner, repo, pull_number: pullNumber, per_page: 100,
@@ -150,10 +138,6 @@ async function evaluatePull({ github, core, owner, repo, pullNumber }) {
 }
 
 async function publishReviewGate({ github, context, core }) {
-  if (context.eventName === "pull_request_target" && isTitleOnlyEdit(context.payload)) {
-    core.info("Title-only edit; existing review policy checks are unchanged.");
-    return;
-  }
   const { owner, repo } = context.repo;
   const lists = await Promise.all(BASE_BRANCHES.map((base) =>
     github.paginate(github.rest.pulls.list, { owner, repo, state: "open", base, per_page: 100 }),

@@ -33,7 +33,7 @@ Slack 앱에 `chat:write` Bot scope를 주고 워크스페이스에 설치한 �
 | 확인 상황 | 기대 결과 |
 | --- | --- |
 | 일반 경로의 `low`와 `medium` PR | `Conditional Review Gate` 성공, 자동 리뷰 요청 없음 |
-| 제목만 수정 | 자동 배정·게이트 평가 job 건너뜀. 기존 리뷰 요청·승인·체크 유지 |
+| 제목만 수정 | 자동 배정 건너뜀. 게이트는 새 실행에 체크를 생성하고 현재 head의 기존 유효 승인을 인정 |
 | 제목과 본문 또는 base를 함께 수정 | 위험도와 변경 범위를 정상 평가 |
 | 일반 경로의 `high` PR | 작성자 외 추천 리뷰어 요청 1명, 그 사람을 Slack으로 멘션, 승인 전 게이트 실패 |
 | `low` 선언이지만 자동 고위험 경로 수정 | 게이트가 승인 요구, 명확한 추천 또는 담당자 매핑으로 리뷰 요청 |
@@ -64,6 +64,7 @@ Slack 앱에 `chat:write` Bot scope를 주고 워크스페이스에 설치한 �
 | 자동 배정이 없음 | Draft 여부, 위험도, 기존 리뷰 요청, 추천 GitHub 아이디, 변경 경로 매핑을 `assign-reviewer` 로그에서 확인 |
 | 배정은 됐지만 Slack이 안 옴 | `notify-assigned-reviewer`의 사용자 매핑·채널·봇 권한 오류 확인. 실패한 job만 재실행해 기존 배정 output으로 재시도 |
 | 수동 요청 알림이 안 옴 | `review-request-notification` 로그와 Slack 매핑 확인. 개인 리뷰 요청만 지원하며 팀 요청은 멘션하지 않음 |
+| 게이트는 성공했지만 필수 체크가 Expected로 남음 | 최신 게이트 실행에 `Conditional Review Gate` 체크가 있는지 확인. 예전 실행의 체크만 갱신하는 버전이라면 기본 브랜치에 수정 반영 후 재평가. 게이트 필수 요건을 임의 해제하지 않음 |
 | 게이트가 갱신되지 않음 | PR 이벤트 실행 및 `Review Policy Review Events` → `Conditional Review Gate` 연결 확인. 필요하면 main에서 게이트를 수동 실행 |
 | 공휴일 API 실패 | 알림을 보내지 않은 채 실패함. 복구 후 다음 영업일에 스캔을 재실행 |
 | 마감 알림 job 실패 | Slack 전송 여부와 완료 artifact 저장 여부부터 확인하고 재시도. 전송 성공 후 artifact만 실패했다면 재실행으로 중복 멘션될 수 있음 |
