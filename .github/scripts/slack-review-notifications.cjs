@@ -203,8 +203,8 @@ async function calculateDeadlines(instant) {
     return [{ date, time: "14:00", kind: "required", epoch: Date.parse(`${date}T14:00:00+09:00`) }];
   }
 
-  const recommended = minuteOfDay < 22 * 60
-    ? { date, time: "22:00", kind: "recommended", epoch: Date.parse(`${date}T22:00:00+09:00`) }
+  const recommended = minuteOfDay < 21 * 60
+    ? { date, time: "21:00", kind: "recommended", epoch: Date.parse(`${date}T21:00:00+09:00`) }
     : null;
   date = nextBusinessDate(date, holidays);
   holidays = await holidaysFor(Number(date.slice(0, 4)));

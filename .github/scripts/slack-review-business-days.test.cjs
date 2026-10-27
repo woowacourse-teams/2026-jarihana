@@ -117,9 +117,9 @@ const markerExists = () => fs.existsSync(path.join(directory, "slack-review-remi
 test("slot boundaries distinguish required and recommended deadlines and skip holidays", async () => {
   for (const [created, expected] of [
     ["2026-10-08T13:59:59+09:00", [["2026-10-08", "14:00", "required"]]],
-    ["2026-10-08T14:00:00+09:00", [["2026-10-08", "22:00", "recommended"], ["2026-10-12", "14:00", "required"]]],
-    ["2026-10-08T21:59:59+09:00", [["2026-10-08", "22:00", "recommended"], ["2026-10-12", "14:00", "required"]]],
-    ["2026-10-08T22:00:00+09:00", [["2026-10-12", "14:00", "required"]]],
+    ["2026-10-08T14:00:00+09:00", [["2026-10-08", "21:00", "recommended"], ["2026-10-12", "14:00", "required"]]],
+    ["2026-10-08T20:59:59+09:00", [["2026-10-08", "21:00", "recommended"], ["2026-10-12", "14:00", "required"]]],
+    ["2026-10-08T21:00:00+09:00", [["2026-10-12", "14:00", "required"]]],
     ["2026-10-09T15:00:00+09:00", [["2026-10-12", "14:00", "required"]]],
   ]) {
     const deadlines = await calculateDeadlines(created);
@@ -127,13 +127,13 @@ test("slot boundaries distinguish required and recommended deadlines and skip ho
   }
 });
 
-test("an afternoon PR gets an optional 22:00 reminder and a distinct mandatory next-business-day reminder", async () => {
+test("an afternoon PR gets an optional 21:00 reminder and a distinct mandatory next-business-day reminder", async () => {
   pr.created_at = "2026-10-08T15:00:00+09:00";
-  now = RealDate.parse("2026-10-08T22:00:00+09:00");
+  now = RealDate.parse("2026-10-08T21:00:00+09:00");
   await main("deadline-scan");
-  assert.match(output(), /20261008-2200/);
+  assert.match(output(), /20261008-2100/);
   assert.doesNotMatch(output(), /20261012-1400/);
-  process.env.REVIEW_REMINDER = JSON.stringify({ pr_number: 987, deadline_key: "20261008-2200", deadline_label: "2026-10-08 22:00 KST", reviewers: ["Sauter001"] });
+  process.env.REVIEW_REMINDER = JSON.stringify({ pr_number: 987, deadline_key: "20261008-2100", deadline_label: "2026-10-08 21:00 KST", reviewers: ["Sauter001"] });
   await main("deadline-notification");
   assert.match(slackMessages[0].text, /권장 리뷰 시각입니다 \(필수 아님\)/);
 
@@ -141,7 +141,7 @@ test("an afternoon PR gets an optional 22:00 reminder and a distinct mandatory n
   now = RealDate.parse("2026-10-12T14:00:00+09:00");
   await main("deadline-scan");
   assert.match(output(), /20261012-1400/);
-  assert.doesNotMatch(output(), /20261008-2200/);
+  assert.doesNotMatch(output(), /20261008-2100/);
   process.env.REVIEW_REMINDER = JSON.stringify({ pr_number: 987, deadline_key: "20261012-1400", deadline_label: "2026-10-12 14:00 KST", reviewers: ["Sauter001"] });
   await main("deadline-notification");
   assert.match(slackMessages[1].text, /필수 리뷰 마감 시각입니다/);
@@ -149,7 +149,7 @@ test("an afternoon PR gets an optional 22:00 reminder and a distinct mandatory n
 
 test("an approval before the optional slot prevents the evening notification", async () => {
   pr.created_at = "2026-10-08T15:00:00+09:00";
-  now = RealDate.parse("2026-10-08T22:00:00+09:00");
+  now = RealDate.parse("2026-10-08T21:00:00+09:00");
   reviews = [{ id: 1, state: "APPROVED", commit_id: pr.head.sha, submitted_at: "2026-10-08T12:00:00Z", user: { login: "Sauter001" } }];
   await main("deadline-scan");
   assert.match(output(), /has_reminders=false/);

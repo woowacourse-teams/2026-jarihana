@@ -52,7 +52,7 @@ Slack 앱에 `chat:write` Bot scope를 주고 워크스페이스에 설치한 �
 
 - 마감은 **PR 생성 시각**에서 계산한다. 초안 해제·리뷰 요청·재요청 시각으로 다시 시작하지 않는다. PR 댓글에서 합의한 새 마감도 자동으로 읽지 않으므로 별도 조정이 필요하다.
 - 즉시 요청 알림은 주말·공휴일에도 보낸다. 영업일 제외 규칙은 마감 계산과 마감 알림에 적용한다. 한국 전국 공휴일은 Nager.Date 공개 API를 사용하며 회사 휴무일은 별도로 반영하지 않는다.
-- 마감 검사는 KST 평일 14:00·22:00에 예약되어 있지만 GitHub 실행 대기로 늦어지거나 누락될 수 있다. 복구가 필요하면 `Slack Review Notifications`를 **main 기준**으로 수동 실행한다. 수동 실행도 현재 영업일과 실제 마감 경과 여부를 확인한다. 22:00 권장 알림은 해당 날짜에만 보낸다. [GitHub 예약 실행 설명](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)
+- 마감 검사는 KST 평일 14:00·21:00에 예약되어 있지만 GitHub 실행 대기로 늦어지거나 누락될 수 있다. 복구가 필요하면 `Slack Review Notifications`를 **main 기준**으로 수동 실행한다. 수동 실행도 현재 영업일과 실제 마감 경과 여부를 확인한다. 21:00 권장 알림은 해당 날짜에만 보낸다. [GitHub 예약 실행 설명](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)
 - 마감 알림은 PR과 각 슬롯별 1회를 목표로 하며 새 커밋마다 다시 보내지 않는다. 필수 마감이 14일 넘게 지난 PR은 자동 리마인더 대상에서 제외되므로 작성자가 직접 재조정한다.
 - Slack 전송 후 Actions artifact에 완료 표시를 남긴다. 전송은 성공했지만 완료 표시 저장이 실패한 경우나 관리자가 artifact를 삭제한 경우에는 중복 알림이 가능하다. 정확히 한 번의 전송을 보장하지는 않는다.
 - 본문·리뷰 변경과 게이트 체크 갱신은 원자적이지 않다. 이벤트 전달·runner 대기 중 이전 성공이 잠시 보일 수 있으므로 최신 입력의 재평가 결과를 확인한 뒤 병합한다. AI가 의미상 위험을 낮게 잘못 분류한 경우도 경로 검사만으로 모두 잡을 수는 없다.

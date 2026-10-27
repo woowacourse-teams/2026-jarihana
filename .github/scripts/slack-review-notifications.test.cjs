@@ -35,7 +35,7 @@ afterEach(() => {
   fs.rmSync(fixtureDirectory, { recursive: true, force: true });
 });
 
-function event(requestedReviewer) {
+function event(requestedReviewer, createdAt = "2026-10-26T11:00:00+09:00") {
   fs.writeFileSync(process.env.GITHUB_EVENT_PATH, JSON.stringify({
     pull_request: {
       number: 123,
@@ -43,7 +43,7 @@ function event(requestedReviewer) {
       html_url: "https://github.com/example/repo/pull/123",
       body: "- 위험도: high",
       user: { login: "choubung" },
-      created_at: "2026-10-26T11:00:00+09:00",
+      created_at: createdAt,
     },
     ...(requestedReviewer ? { requested_reviewer: { login: requestedReviewer } } : {}),
   }));
@@ -58,6 +58,18 @@ test("an assignment output sends one mention without a review_requested event", 
   assert.match(slackMessages[0].text, /<@U123>/);
   assert.match(slackMessages[0].text, /2026-10-26 14:00 KST/);
   assert.match(slackMessages[0].text, /&lt;정책&gt;/);
+});
+
+test("an afternoon review request states both the 21:00 optional slot and the next-day mandatory deadline", async () => {
+  event("Sauter001", "2026-10-26T15:00:00+09:00");
+  await main("requested");
+  assert.match(slackMessages[0].text, /2026-10-26 21:00 KST \(권장\)/);
+  assert.match(slackMessages[0].text, /2026-10-27 14:00 KST \(필수\)/);
+});
+
+test("deadline scan schedule targets 14:00 and 21:00 KST", () => {
+  const workflow = fs.readFileSync(path.join(__dirname, "../workflows/slack-review-notifications.yml"), "utf8");
+  assert.match(workflow, /cron:\s*["']0 5,12 \* \* 1-5["']/);
 });
 
 test("manual review requests still send one mention", async () => {
