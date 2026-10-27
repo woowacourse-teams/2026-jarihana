@@ -9,6 +9,7 @@ public record ChatMessageProjection(
         long sequence,
         long senderId,
         String author,
+        String githubId,
         UUID clientMessageId,
         String content,
         LocalDateTime createdAt) {}

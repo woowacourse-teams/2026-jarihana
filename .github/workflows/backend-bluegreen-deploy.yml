@@ -57,7 +57,7 @@ jobs:
           BG_A_RUNNER: ${{ vars[format('BLUE_GREEN_{0}_A_RUNNER', inputs.environment == 'dev' && 'DEV' || 'PROD')] }}
           BG_B_RUNNER: ${{ vars[format('BLUE_GREEN_{0}_B_RUNNER', inputs.environment == 'dev' && 'DEV' || 'PROD')] }}
           BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
-          BG_DEV_RDS: ${{ vars.BLUE_GREEN_RDS_URL }}
+          RDS_URL: ${{ vars.RDS_URL }}
           BG_DEV_AUTO_ENABLED: ${{ vars.BLUE_GREEN_DEV_ENABLED || 'false' }}
           BG_PROD_AUTO_ENABLED: ${{ vars.BLUE_GREEN_PROD_ENABLED || 'false' }}
         shell: bash
@@ -74,14 +74,14 @@ jobs:
             echo '::error::환경별 A/B runner 라벨을 서로 다른 전용 라벨로 설정해야 합니다.'
             exit 1
           }
+          [[ "$RDS_URL" =~ ^[a-zA-Z0-9.-]+$ ]] || {
+            echo '::error::RDS_URL에는 해당 환경의 RDS endpoint만 설정해야 합니다.'
+            exit 1
+          }
           if [[ "$BG_ENVIRONMENT" == dev ]]; then
             [[ "$GITHUB_REF" == refs/heads/develop ]]
             [[ "$BG_PROD_AUTO_ENABLED" != true ]] || {
               echo '::error::prod2는 운영에 사용 중입니다. dev Blue-Green을 실행할 수 없습니다.'
-              exit 1
-            }
-            [[ -n "$BG_DEV_RDS" ]] || {
-              echo '::error::dev 시험 DB는 BLUE_GREEN_RDS_URL로 명시해야 합니다.'
               exit 1
             }
           else

@@ -55,7 +55,7 @@ public class JpaChatQueryRepository implements ChatQueryRepository {
                   (select count(*) from group_member gm2 where gm2.group_id = g.id) as member_count,
                   (select count(*) from chat_message u where u.group_id = g.id
                     and u.sequence > coalesce(s.last_read_sequence,0) and u.sender_id <> ?) as unread_count,
-                  coalesce(c.created_at, g.created_at) as activity_at, g.created_at as room_created_at, c.*, m.crew_name
+                  coalesce(c.created_at, g.created_at) as activity_at, g.created_at as room_created_at, c.*, m.crew_name, m.github_id
                 from group_member gm join groups g on g.id = gm.group_id
                 join member owner on owner.id = gm.member_id and owner.withdrawn_at is null
                 left join chat_room r on r.group_id = g.id
@@ -117,6 +117,7 @@ public class JpaChatQueryRepository implements ChatQueryRepository {
                 rs.getLong("sequence"),
                 rs.getLong("sender_id"),
                 rs.getString("crew_name"),
+                rs.getString("github_id"),
                 rs.getObject("client_message_id", UUID.class),
                 rs.getString("content"),
                 rs.getObject("created_at", LocalDateTime.class));

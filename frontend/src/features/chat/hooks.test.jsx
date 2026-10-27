@@ -7,7 +7,7 @@ import { getMe } from "../auth";
 
 jest.mock("@stomp/stompjs", () => ({ Client: jest.fn() }));
 jest.mock("./api", () => ({ catchUp: jest.fn(), fetchAllRooms: jest.fn(), fetchMessages: jest.fn(), markRead: jest.fn(), postMessage: jest.fn() }));
-jest.mock("../auth", () => ({ useAuth: () => ({ member: { id: 2, crewName: "크루" }, sessionVersion: 1, reload: mockReload }), getMe: jest.fn() }));
+jest.mock("../auth", () => ({ useAuth: () => ({ status: "authenticated", member: { id: 2, crewName: "크루" }, sessionVersion: 1, reload: mockReload }), getMe: jest.fn() }));
 const mockReload = jest.fn();
 const saved = (sequence, extra = {}) => ({ id: sequence, sequence, groupId: "1", senderId: "2", author: "크루", content: "안녕", clientMessageId: `key-${sequence}`, createdAt: "2026-10-25T12:00:00", ...extra });
 let config, receive, socket, queryClient;
@@ -26,6 +26,19 @@ function setup() {
   const wrapper = ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   return renderHook(({ roomId }) => useChat(roomId), { wrapper, initialProps: { roomId: "1" } });
 }
+
+test("방 열기·이동·닫기는 같은 웹소켓을 유지하고 세션 종료 때만 해제한다", async () => {
+  const hook = setup();
+  await waitFor(() => expect(hook.result.current.history.data).toBeDefined());
+  hook.rerender({ roomId: "2" });
+  await waitFor(() => expect(hook.result.current.history.data).toBeDefined());
+  hook.rerender({ roomId: undefined });
+  expect(Client).toHaveBeenCalledTimes(1);
+  expect(socket.activate).toHaveBeenCalledTimes(1);
+  expect(socket.deactivate).not.toHaveBeenCalled();
+  hook.unmount();
+  expect(socket.deactivate).toHaveBeenCalledTimes(1);
+});
 
 test("inbox without a selected room has no history loading state", () => {
   const hook = setup();
@@ -106,6 +119,25 @@ test("failed send retries the exact original body and idempotency key", async ()
   expect(postMessage.mock.calls[0].slice(0, 2)).toEqual(postMessage.mock.calls[1].slice(0, 2));
   expect(queryClient.getQueryData(key).items.filter((item) => item.clientMessageId === failed.clientMessageId)).toHaveLength(1);
   hook.unmount();
+});
+
+test("sends a message when randomUUID is unavailable on an HTTP origin", async () => {
+  const original = Object.getOwnPropertyDescriptor(crypto, "randomUUID");
+  Object.defineProperty(crypto, "randomUUID", { configurable: true, value: undefined });
+  postMessage.mockImplementation(async (_room, payload) => saved("11", payload));
+  const hook = setup();
+  try {
+    await waitFor(() => expect(hook.result.current.history.data).toBeDefined());
+    await act(async () => { await hook.result.current.send("테스트"); });
+    expect(postMessage).toHaveBeenCalledWith("1", expect.objectContaining({
+      content: "테스트",
+      clientMessageId: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+    }), expect.any(AbortSignal));
+  } finally {
+    hook.unmount();
+    if (original) Object.defineProperty(crypto, "randomUUID", original);
+    else delete crypto.randomUUID;
+  }
 });
 
 test("contiguous message and private read events update caches without REST per message", async () => {

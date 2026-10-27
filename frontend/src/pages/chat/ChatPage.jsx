@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { Navigate, useParams } from "react-router";
 import { MessageCircle } from "lucide-react";
 import { useAuth } from "../../features/auth";
-import { useChat } from "../../features/chat/hooks";
+import { useChatSession } from "../../features/chat/ChatSessionProvider";
 import { ChatLink, chatLocation } from "../../features/chat/ChatLink";
 import { ChatConversation } from "./ChatConversation";
 import { ChatRoomList } from "./ChatRoomList";
@@ -17,19 +17,21 @@ export function ChatPage() {
 
 export function ChatContent({ roomId }) {
   const auth = useAuth();
+  const session = useChatSession();
   if (auth.logoutPending) return <p role="status">채팅 연결을 정리하고 있어요.</p>;
+  if (!session?.chat) return <p role="status">대화를 불러오는 중이에요.</p>;
   return <ChatSession key={`${auth.member.id}:${auth.sessionVersion}`} roomId={roomId} />;
 }
 
 function ChatSession({ roomId }) {
   const { member } = useAuth();
-  const chat = useChat(roomId);
+  const { chat, roomId: activeRoomId, viewing, onViewingLatestChange } = useChatSession();
   const [drafts, setDrafts] = useState({});
   const [sidebarWidth, setSidebarWidth] = useState(null);
   const layoutRef = useRef(null);
   const rooms = (chat.rooms.data ?? []).map((room) => ({ ...room, id: room.groupId }));
   const selected = rooms.find((room) => room.id === roomId);
-  const room = selected && chat.history.data && !chat.history.isError ? {
+  const room = selected && activeRoomId === roomId && chat.history.data && !chat.history.isError ? {
     ...selected, status: chat.history.data.status,
     messages: chat.history.data.items.map((message) => ({ ...message, at: message.createdAt, text: message.content, mine: message.senderId === String(member.id) }))
   } : null;
@@ -41,12 +43,12 @@ function ChatSession({ roomId }) {
   }
   return <div className={`chat-layout${roomId ? " chat-layout--room" : ""}`} ref={layoutRef}
     style={sidebarWidth === null ? undefined : { "--chat-list-resized-width": `${sidebarWidth}px` }} data-ph-private>
-    <ChatRoomList rooms={rooms} selectedId={roomId} loading={chat.rooms.isPending} error={chat.rooms.isError} onRetry={chat.sync} />
+    <ChatRoomList rooms={rooms} selectedId={roomId} viewingLatest={viewing?.id === roomId && viewing?.latest} loading={chat.rooms.isPending} error={chat.rooms.isError} onRetry={chat.sync} />
     <ChatSidebarResizer layoutRef={layoutRef} onResize={setSidebarWidth} />
     <div className="chat-panel">
     {room ? <ChatConversation key={roomId} room={room} draft={drafts[roomId] ?? ""}
       onDraftChange={(value) => setDrafts((old) => ({ ...old, [roomId]: value }))}
-      onSend={send} onRetry={(message) => chat.send(message.content, message)} onRead={chat.read}
+      onSend={send} onViewingLatestChange={onViewingLatestChange} onRetry={(message) => chat.send(message.content, message)} onRead={chat.read}
       hasOlder={chat.history.data.hasNext} loadingHistory={chat.loadingHistory} onLoadOlder={chat.loadOlder}
       syncCursor={chat.history.data.syncCursor} connection={chat.connection} error={chat.actionError} /> :
       <section className="chat-welcome" aria-label="대화 선택">

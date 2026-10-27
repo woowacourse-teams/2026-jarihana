@@ -11,6 +11,7 @@ public record ChatMessageResult(
         long sequence,
         long senderId,
         String author,
+        String githubId,
         UUID clientMessageId,
         String content,
         LocalDateTime createdAt) {
@@ -22,6 +23,7 @@ public record ChatMessageResult(
                 message.sequence(),
                 message.senderId(),
                 message.author(),
+                message.githubId(),
                 message.clientMessageId(),
                 message.content(),
                 message.createdAt());
