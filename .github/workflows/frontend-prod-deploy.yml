@@ -89,12 +89,17 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # S3 쓰기 권한은 EC2의 IAM 역할에만 있으므로 올리는 일만 self-hosted runner에 남긴다.
+  # prod A/B 공통 라벨 준비 전에는 기존 runner를 유지한다. 인증은 EC2 IAM을 쓴다.
+  # 업로드 도중 Blue-Green이 runner 호스트를 중지하지 않도록 같은 잠금을 사용한다.
   deploy:
     needs: build
     if: github.ref == 'refs/heads/main'
     environment: prod
-    runs-on: [jarihana-prod]
+    runs-on: ${{ vars.FRONTEND_PROD_DEPLOY_RUNNER || 'jarihana-prod' }}
+    concurrency:
+      group: jarihana-observed-deployment
+      cancel-in-progress: false
+      queue: max
     timeout-minutes: 10
     defaults:
       run:
@@ -106,6 +111,34 @@ jobs:
       S3_DESTINATION: s3://techcourse-project-2026/jarihana/frontend
 
     steps:
+      - name: AWS CLI 확인과 누락 시 고정 버전 준비
+        run: |
+          set -euo pipefail
+          if command -v aws >/dev/null 2>&1; then
+            cli_version="$(aws --version)"
+            echo "${cli_version}"
+            if [[ "${cli_version}" != aws-cli/2.* ]]; then
+              echo "::error::기존 AWS CLI는 v2여야 합니다."
+              exit 1
+            fi
+            exit 0
+          fi
+          if [[ "$(uname -s)" != Linux || "$(uname -m)" != aarch64 ]]; then
+            echo "::error::prod 배포 runner는 Linux ARM64여야 합니다."
+            exit 1
+          fi
+          cli_temp="$(mktemp -d "${RUNNER_TEMP}/frontend-awscli.XXXXXX")"
+          curl --fail --silent --show-error --location --retry 3 \
+            https://awscli.amazonaws.com/awscli-exe-linux-aarch64-2.38.5.zip \
+            --output "${cli_temp}/awscliv2.zip"
+          echo "07711a936e9d271045ab937d2c2c5390c25f419e4ba9e25adb9e996031e3f6be  ${cli_temp}/awscliv2.zip" | sha256sum --check
+          unzip -q "${cli_temp}/awscliv2.zip" -d "${cli_temp}"
+          "${cli_temp}/aws/install" --install-dir "${cli_temp}/install" --bin-dir "${cli_temp}/bin"
+          cli_version="$("${cli_temp}/bin/aws" --version)"
+          echo "${cli_version}"
+          [[ "${cli_version}" == aws-cli/2.38.5\ * ]]
+          echo "${cli_temp}/bin" >> "${GITHUB_PATH}"
+
       - name: AWS 배포 대상 확인
         run: |
           set -euo pipefail

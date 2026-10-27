@@ -14,6 +14,7 @@
 [배포 적용 절차](controller/full-deployment.md), [Actions 계약](github-actions-adapter.md),
 [서버별 작업 계약](child-contract.md)을 함께 확인한다.
 실제 dev 도메인의 자동 배포 전환은 [dev 자동화 적용 순서](controller/dev-automatic-deployment.md)를 따른다.
+prod 적용 전 준비 범위와 실행 게이트는 [prod Stage 1 준비](../docs/deployment/prod-bluegreen-preparation.md)를 따른다.
 
 ## 실행 경로
 
