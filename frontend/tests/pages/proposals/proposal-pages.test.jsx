@@ -78,6 +78,13 @@ function renderWithToast(element) {
   return render(<ToastProvider duration={0}>{element}</ToastProvider>);
 }
 
+// jsdom에는 PointerEvent가 없어 마우스 포인터 이벤트를 직접 만든다. React는 over/out으로 enter/leave를 만든다.
+function firePointer(type, target) {
+  const event = new Event(type, { bubbles: true });
+  Object.defineProperty(event, "pointerType", { value: "mouse" });
+  fireEvent(target, event);
+}
+
 function authenticated() {
   useAuth.mockReturnValue({ login: jest.fn(), member: { id: 7 }, status: "authenticated" });
 }
@@ -182,7 +189,7 @@ describe("ProposalDetailPage", () => {
     renderWithToast(<ProposalDetailPage />);
 
     expect(screen.getByRole("heading", { level: 1, name: proposal.title })).toBeInTheDocument();
-    expect(screen.getByText("응답 2명 기준이에요. 여러 개 고른 응답도 있고, 조건 없이 마음만 보낸 사람도 인원에 들어가요.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "지금 가장 잘 맞는 모습" })).toBeInTheDocument();
     const panel = screen.getByRole("complementary", { name: "함께하고 싶어요 응답" });
     expect(within(panel).getByRole("button", { name: /조건 없이 함께하고 싶어요/ })).toBeInTheDocument();
 
@@ -198,6 +205,53 @@ describe("ProposalDetailPage", () => {
       },
       expect.any(Object)
     );
+  });
+
+  it("summarizes the leading conditions and drops down every option count from a chip", () => {
+    authenticated();
+    useProposal.mockReturnValue({ data: proposal, isError: false, isLoading: false });
+    renderWithToast(<ProposalDetailPage />);
+
+    const gathered = screen.getByRole("region", { name: "지금 가장 잘 맞는 모습" });
+    const timeChip = within(gathered).getByRole("button", { name: /가능한 시간: 평일 저녁 2명/ });
+    expect(within(gathered).getByRole("button", { name: /함께 기대하는 분위기: 자유 도서, 초보 환영 1명/ })).toBeInTheDocument();
+    expect(timeChip).toHaveAttribute("aria-expanded", "false");
+
+    firePointer("pointerover", timeChip.parentElement);
+    const dropdown = screen.getByRole("region", { name: "가능한 시간 선택지별 인원" });
+    expect(timeChip).toHaveAttribute("aria-expanded", "true");
+    expect(within(dropdown).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "평일 아침0명",
+      "평일 저녁2명",
+      "주말 오전0명",
+      "주말 오후1명"
+    ]);
+
+    fireEvent.click(timeChip);
+    firePointer("pointerout", timeChip.parentElement);
+    expect(screen.getByRole("region", { name: "가능한 시간 선택지별 인원" })).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("region", { name: "가능한 시간 선택지별 인원" })).not.toBeInTheDocument();
+  });
+
+  it("invites the first response when nobody has answered yet", () => {
+    authenticated();
+    useProposal.mockReturnValue({
+      data: {
+        ...proposal,
+        interestCount: 0,
+        meetingModeCounts: proposal.meetingModeCounts.map((item) => ({ ...item, count: 0 })),
+        moodCounts: [0, 0, 0],
+        timeSlotCounts: proposal.timeSlotCounts.map((item) => ({ ...item, count: 0 }))
+      },
+      isError: false,
+      isLoading: false
+    });
+    renderWithToast(<ProposalDetailPage />);
+
+    expect(screen.getByText("아직 응답이 없어요. 첫 번째로 함께하고 싶어요를 보내 보세요.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /가능한 시간:/ })).not.toBeInTheDocument();
   });
 
   it("asks a member who only sent interest to add conditions and lets them cancel", () => {

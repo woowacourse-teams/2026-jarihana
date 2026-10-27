@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Check, Hand, Trash2 } from "lucide-react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { ArrowLeft, Check, ChevronDown, Clock, Hand, Laptop, Smile, Trash2 } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 
 import {
@@ -260,76 +260,208 @@ function InterestPanel({ proposal, viewer }) {
   );
 }
 
-function CountBars({ counts, mine, title, total }) {
+function leadingLabels(counts) {
   const max = Math.max(0, ...counts.map((item) => item.count));
+  if (max === 0) return { labels: [], max };
+  return { labels: counts.filter((item) => item.count === max).map((item) => item.label), max };
+}
+
+/**
+ * 가장 많이 고른 선택지를 칩으로 보여 주고, 마우스를 올리거나 누르면 같은 조건의 다른 선택지 인원을 펼친다.
+ * 마우스는 올리기만 해도 열리고 누르면 고정된다. 터치는 누를 때마다 열고 닫는다.
+ */
+function ConditionSummaryChip({ counts, icon: Icon, mine, title, total }) {
+  const [hovered, setHovered] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const [panelPosition, setPanelPosition] = useState(null);
+  const rootRef = useRef(null);
+  const buttonRef = useRef(null);
+  const panelRef = useRef(null);
+  const closeTimerRef = useRef(null);
+  const panelId = useId();
+  const open = hovered || pinned;
+  const { labels, max } = leadingLabels(counts);
+  const summary = labels.length ? labels.join(", ") : "아직 고른 사람이 없어요";
+
+  useEffect(() => () => window.clearTimeout(closeTimerRef.current), []);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    function closeOnEscape(event) {
+      if (event.key !== "Escape") return;
+      setPinned(false);
+      setHovered(false);
+      buttonRef.current?.focus();
+    }
+    function closeOnOutsidePointer(event) {
+      if (!rootRef.current?.contains(event.target)) {
+        setPinned(false);
+        setHovered(false);
+      }
+    }
+    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+    };
+  }, [open]);
+
+  // 드롭다운이 모인 조건 카드 밖으로 나가지 않게, 넘치는 만큼만 왼쪽으로 옮기고 카드보다 넓어지지 않게 한다.
+  useLayoutEffect(() => {
+    if (!open || !rootRef.current || !panelRef.current) return;
+    const card = (rootRef.current.closest(".proposal-gathered") ?? rootRef.current.parentElement).getBoundingClientRect();
+    const chip = rootRef.current.getBoundingClientRect();
+    const width = Math.min(panelRef.current.offsetWidth, card.width);
+    const overflow = chip.left + width - card.right;
+    setPanelPosition({
+      insetInlineStart: overflow > 0 ? Math.max(-overflow, card.left - chip.left) : 0,
+      maxInlineSize: card.width
+    });
+  }, [open]);
+
+  function hoverOpen(event) {
+    if (event.pointerType !== "mouse") return;
+    window.clearTimeout(closeTimerRef.current);
+    setHovered(true);
+  }
+
+  function hoverClose(event) {
+    if (event.pointerType !== "mouse") return;
+    window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = window.setTimeout(() => setHovered(false), 120);
+  }
+
   return (
-    <div className="proposal-bars">
-      <h3 className="proposal-bars__title">{title}</h3>
-      <ul className="proposal-bars__list">
-        {counts.map((item) => {
-          const ratio = total > 0 ? Math.round((item.count / total) * 100) : 0;
-          const lead = max > 0 && item.count === max;
-          return (
-            <li className={lead ? "proposal-bar-row proposal-bar-row--lead" : "proposal-bar-row"} key={item.key}>
-              <span className="proposal-bar-row__label">
-                {item.label}
-                {mine.includes(item.key) ? <em>내 선택</em> : null}
-              </span>
-              <span aria-hidden="true" className="proposal-bar-row__track">
-                <i style={{ inlineSize: `${ratio}%` }} />
-              </span>
-              <span className="proposal-bar-row__count">{item.count}명</span>
-            </li>
-          );
-        })}
-      </ul>
+    <div
+      className="proposal-summary-chip"
+      onBlur={(event) => {
+        if (!rootRef.current?.contains(event.relatedTarget)) setPinned(false);
+      }}
+      onPointerEnter={hoverOpen}
+      onPointerLeave={hoverClose}
+      ref={rootRef}
+    >
+      <button
+        aria-controls={panelId}
+        aria-expanded={open}
+        className={open ? "proposal-summary-chip__button proposal-summary-chip__button--open" : "proposal-summary-chip__button"}
+        data-ph-capture-attribute-action="proposal_condition_summary_open"
+        onClick={() => {
+          // 올려서 열린 상태에서 누르면 고정하고, 고정된 상태에서 다시 누르면 닫는다.
+          if (pinned) {
+            setPinned(false);
+            setHovered(false);
+            return;
+          }
+          setPinned(true);
+        }}
+        ref={buttonRef}
+        type="button"
+      >
+        <Icon aria-hidden="true" size={15} />
+        <span className="ui-sr-only">{title}: </span>
+        <span className="proposal-summary-chip__value">{summary}</span>
+        {max > 0 ? <b className="proposal-summary-chip__count">{max}명</b> : null}
+        <ChevronDown aria-hidden="true" className="proposal-summary-chip__chevron" size={15} />
+      </button>
+      {open ? (
+        <div
+          aria-label={`${title} 선택지별 인원`}
+          className="proposal-summary-chip__panel"
+          id={panelId}
+          ref={panelRef}
+          role="region"
+          style={panelPosition ?? undefined}
+        >
+          <p className="proposal-summary-chip__title">{title}</p>
+          <ul className="proposal-summary-chip__list">
+            {counts.map((item, index) => {
+              const ratio = total > 0 ? Math.round((item.count / total) * 100) : 0;
+              const lead = max > 0 && item.count === max;
+              return (
+                <li
+                  className={lead ? "proposal-bar-row proposal-bar-row--lead" : "proposal-bar-row"}
+                  key={item.key}
+                  style={{ "--row-index": index }}
+                >
+                  <span className="proposal-bar-row__label">
+                    {item.label}
+                    {mine.includes(item.key) ? <em>내 선택</em> : null}
+                  </span>
+                  <span aria-hidden="true" className="proposal-bar-row__track">
+                    <i style={{ inlineSize: `${ratio}%` }} />
+                  </span>
+                  <span className="proposal-bar-row__count">{item.count}명</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }
 
 function GatheredConditions({ proposal }) {
   const mine = proposal.myInterest ?? EMPTY_DRAFT;
+  const groups = [
+    {
+      counts: proposal.timeSlotCounts.map((item) => ({
+        count: item.count,
+        key: item.timeSlot,
+        label: proposalTimeSlotLabel(item.timeSlot)
+      })),
+      icon: Clock,
+      mine: mine.timeSlots,
+      title: "가능한 시간"
+    },
+    {
+      counts: proposal.meetingModeCounts.map((item) => ({
+        count: item.count,
+        key: item.meetingMode,
+        label: proposalMeetingModeLabel(item.meetingMode)
+      })),
+      icon: Laptop,
+      mine: mine.meetingModes,
+      title: "진행 방식"
+    },
+    ...(proposal.moodOptions.length
+      ? [
+          {
+            counts: proposal.moodOptions.map((label, index) => ({
+              count: proposal.moodCounts[index] ?? 0,
+              key: index,
+              label
+            })),
+            icon: Smile,
+            mine: mine.moodIndexes,
+            title: "함께 기대하는 분위기"
+          }
+        ]
+      : [])
+  ];
+
   return (
     <section aria-labelledby="proposal-gathered-title" className="proposal-gathered">
       <p className="proposal-eyebrow">모인 조건</p>
       <h2 className="proposal-section-title" id="proposal-gathered-title">
-        이런 조건이 잘 맞고 있어요
+        지금 가장 잘 맞는 모습
       </h2>
-      <p className="proposal-gathered__desc">
-        응답 {proposal.interestCount}명 기준이에요. 여러 개 고른 응답도 있고, 조건 없이 마음만 보낸 사람도 인원에 들어가요.
-      </p>
-      <CountBars
-        counts={proposal.timeSlotCounts.map((item) => ({
-          count: item.count,
-          key: item.timeSlot,
-          label: proposalTimeSlotLabel(item.timeSlot)
-        }))}
-        mine={mine.timeSlots}
-        title="가능한 시간"
-        total={proposal.interestCount}
-      />
-      <CountBars
-        counts={proposal.meetingModeCounts.map((item) => ({
-          count: item.count,
-          key: item.meetingMode,
-          label: proposalMeetingModeLabel(item.meetingMode)
-        }))}
-        mine={mine.meetingModes}
-        title="진행 방식"
-        total={proposal.interestCount}
-      />
-      {proposal.moodOptions.length ? (
-        <CountBars
-          counts={proposal.moodOptions.map((label, index) => ({
-            count: proposal.moodCounts[index] ?? 0,
-            key: index,
-            label
-          }))}
-          mine={mine.moodIndexes}
-          title="함께 기대하는 분위기"
-          total={proposal.interestCount}
-        />
-      ) : null}
+      {proposal.interestCount === 0 ? (
+        <p className="proposal-gathered__desc">아직 응답이 없어요. 첫 번째로 함께하고 싶어요를 보내 보세요.</p>
+      ) : (
+        <>
+          <p className="proposal-gathered__desc">
+            응답 {proposal.interestCount}명 기준이에요. 칩에 마우스를 올리거나 누르면 선택지별 인원이 보여요.
+          </p>
+          <div className="proposal-summary">
+            {groups.map((group) => (
+              <ConditionSummaryChip key={group.title} total={proposal.interestCount} {...group} />
+            ))}
+          </div>
+        </>
+      )}
     </section>
   );
 }

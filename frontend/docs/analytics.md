@@ -39,7 +39,7 @@ DB 테이블·스키마는 추가하지 않는다.
 | --- | --- |
 | 헤더 게시판 메뉴, 분야 필터, 제안 열기, 더 보기, 다시 불러오기 | `browse_proposals`, `proposal_category_filter`, `proposal_open`, `proposal_list_load_more`, `proposal_list_retry` |
 | 목록의 함께하고 싶어요 켜고 끄기 | `proposal_interest_toggle` |
-| 상세의 조건 칩, 응답 보내기, 고치기, 고치기 취소, 응답 취소 | `proposal_condition_select`, `proposal_interest_submit`, `proposal_interest_edit`, `proposal_interest_edit_cancel`, `proposal_interest_cancel` |
+| 상세의 조건 칩, 모인 조건 요약 칩 열기, 응답 보내기, 고치기, 고치기 취소, 응답 취소 | `proposal_condition_select`, `proposal_condition_summary_open`, `proposal_interest_submit`, `proposal_interest_edit`, `proposal_interest_edit_cancel`, `proposal_interest_cancel` |
 | 비로그인 로그인 안내 | `proposal_login_to_interest`, `proposal_login_to_comment` |
 | 코멘트 입력, 남기기, 지우기, 더 보기, 다시 불러오기 | `proposal_comment_form`, `proposal_comment_input`, `proposal_comment_submit`, `proposal_comment_delete`, `proposal_comment_load_more`, `proposal_comment_retry` |
 | 상세의 목록으로, 다시 불러오기, 제안 지우기와 확인 창 | `proposal_back_to_board`, `proposal_detail_retry`, `proposal_delete`, `proposal_delete_confirm`, `proposal_delete_cancel`, `proposal_delete_close` |

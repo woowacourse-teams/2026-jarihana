@@ -558,23 +558,103 @@
     font-size: var(--text-label);
 }
 
-.proposal-bars {
-    display: grid;
+.proposal-summary {
+    display: flex;
+    flex-wrap: wrap;
     gap: var(--space-2);
 }
 
-.proposal-bars__title {
-    margin: 0;
+.proposal-summary-chip {
+    position: relative;
+}
+
+/* 아래 화살표, 손가락 커서, 테두리 강조로 눌러서 더 볼 수 있다는 단서를 준다. */
+.proposal-summary-chip__button {
+    display: inline-flex;
+    min-height: var(--button-height-md);
+    align-items: center;
+    gap: var(--space-2);
+    padding-inline: var(--space-3) var(--space-2);
+    border: var(--border-thin) solid var(--color-brand);
+    border-radius: var(--radius-pill);
+    background: var(--color-brand-soft);
+    color: var(--color-brand-ink);
+    cursor: pointer;
+    font: inherit;
     font-size: var(--text-label);
+    font-weight: var(--font-weight-semibold);
+    transition: background var(--duration-fast) var(--ease-standard),
+        box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.proposal-summary-chip__button:hover,
+.proposal-summary-chip__button--open {
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+}
+
+.proposal-summary-chip__count {
+    font-variant-numeric: tabular-nums;
+}
+
+.proposal-summary-chip__chevron {
+    transition: transform var(--duration-base) var(--ease-standard);
+}
+
+.proposal-summary-chip__button--open .proposal-summary-chip__chevron {
+    transform: rotate(180deg);
+}
+
+.proposal-summary-chip__panel {
+    position: absolute;
+    z-index: 5;
+    inset-block-start: calc(100% + var(--space-2));
+    inset-inline-start: 0;
+    display: grid;
+    gap: var(--space-2);
+    inline-size: min(20rem, calc(100vw - 2 * var(--page-gutter)));
+    padding: var(--space-4);
+    border: var(--border-thin) solid var(--color-line);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-float);
+    animation: proposal-dropdown-in var(--duration-base) var(--ease-standard) both;
+    transform-origin: top left;
+}
+
+.proposal-summary-chip__title {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-caption);
     font-weight: var(--font-weight-bold);
 }
 
-.proposal-bars__list {
+.proposal-summary-chip__list {
     display: grid;
     gap: var(--space-2);
     margin: 0;
     padding: 0;
     list-style: none;
+}
+
+/* 줄이 위에서부터 차례로 쏟아지듯 나타난다. */
+.proposal-summary-chip__list > li {
+    animation: proposal-dropdown-row-in var(--duration-base) var(--ease-standard) both;
+    animation-delay: calc(var(--row-index, 0) * 45ms);
+}
+
+@keyframes proposal-dropdown-in {
+    from {
+        opacity: 0;
+        transform: translateY(calc(var(--space-1) * -1)) scaleY(0.96);
+    }
+}
+
+@keyframes proposal-dropdown-row-in {
+    from {
+        opacity: 0;
+        transform: translateY(calc(var(--space-2) * -1));
+    }
 }
 
 .proposal-bar-row {
@@ -604,10 +684,10 @@
 
 .proposal-bar-row__track {
     position: relative;
-    block-size: 0.625rem;
+    block-size: 0.5rem;
     overflow: hidden;
     border-radius: var(--radius-pill);
-    background: var(--color-surface);
+    background: var(--color-surface-sunken);
 }
 
 .proposal-bar-row__track i {
@@ -848,8 +928,15 @@
 @media (prefers-reduced-motion: reduce) {
     .proposal-card__body,
     .proposal-filter,
-    .proposal-chip {
+    .proposal-chip,
+    .proposal-summary-chip__button,
+    .proposal-summary-chip__chevron {
         transition: none;
+    }
+
+    .proposal-summary-chip__panel,
+    .proposal-summary-chip__list > li {
+        animation: none;
     }
 
     .proposal-card__body:hover,
