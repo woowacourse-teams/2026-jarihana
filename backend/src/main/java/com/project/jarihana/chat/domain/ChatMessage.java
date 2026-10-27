@@ -85,6 +85,10 @@ public class ChatMessage {
         return sender.getCrewName();
     }
 
+    public String githubId() {
+        return sender.getGithubId();
+    }
+
     @Override
     public boolean equals(Object other) {
         if (this == other) return true;
