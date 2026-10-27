@@ -33,6 +33,7 @@ const loadActivityPostPages = () => import("../pages/activity-posts/index.js");
 const loadGroupEditorPages = () => import("../pages/group-editor/index.jsx");
 const loadGroupPages = () => import("../pages/groups/index.js");
 const loadManagePages = () => import("../pages/manage/index.js");
+const loadProposalPages = () => import("../pages/proposals/index.js");
 
 const loadNotificationPages = () => import("../pages/notifications/index.jsx");
 export const lazyPageRegistry = Object.freeze({
@@ -58,6 +59,9 @@ export const lazyPageRegistry = Object.freeze({
   MyRegistrationsPage: lazyNamed(loadAccountPages, "MyRegistrationsPage"),
   NotFoundPage: lazyNamed(() => import("../pages/index.js"), "NotFoundPage"),
   OAuthCallbackPage: lazyNamed(loadAccountPages, "OAuthCallbackPage"),
+  ProposalBoardPage: lazyNamed(loadProposalPages, "ProposalBoardPage"),
+  ProposalCreatePage: lazyNamed(loadProposalPages, "ProposalCreatePage"),
+  ProposalDetailPage: lazyNamed(loadProposalPages, "ProposalDetailPage"),
   RecruitmentDetailPage: lazyNamed(loadGroupPages, "RecruitmentDetailPage"),
   RegistrationManagePage: lazyNamed(loadManagePages, "ManageRegistrationsPage"),
   ShowcasePage: lazyNamed(() => import("../pages/ShowcasePage.jsx"), "ShowcasePage"),
