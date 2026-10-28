@@ -32,3 +32,9 @@
 ## 등록 알림
 
 공지 등록은 `AnnouncementCreatedEvent`를 발행한다. BEFORE_COMMIT 알림 리스너가 같은 트랜잭션에서 작성자를 제외한 모든 현재 구성원의 알림함 행을 만들고, 당시 활성 브라우저 구독별 `NotificationDelivery`를 만든다. 구독이 없어도 알림함 행은 저장하며, 나중에 구독한 브라우저에 과거 공지를 다시 보내지 않는다.
+
+## 스키마 적용
+
+공지는 이미 적용된 모임 제안 V10 이후의 `V11__group_announcements.sql`로 추가한다.
+기존 촬영용 공지 V9 적용 DB의 데이터 보존과 이력 정정은
+[모임 공지 마이그레이션 적용](../../../operations/announcement-migration-rollout.md)을 따른다.
