@@ -7,8 +7,9 @@ Nginx·Alloy·Prometheus·Loki·Grafana는 Docker Compose로 실행한다.
 모니터링 EC2의 메모리 부족을 계기로 Tempo 상시 실행을 중단하고, 기존 대시보드의 DB 호출량·DB p95는
 JDBC 메트릭으로 대체한다. 노드 배치·호스트 자원·HTTP 지표·커넥션 풀 표시는 유지한다.
 결정 배경과 유지 범위는 [인프라 ADR 0004](../adr/0004-disable-tempo-by-default.md)에 기록한다.
-**저장소는 Alloy·Prometheus·Loki·Grafana와 dev·prod RDS 연결을 반영했다.
-실제 AWS 배포·RDS 접속 검증·기존 Agent 제거와 외부 자원 정리는 아직 수행하지 않았다.**
+2026-10-28 운영 조회에서 prod Blue-Green 앱 수집기와 Nginx 중앙 배포 수집기의 실행,
+라우트 지표의 Prometheus 수신을 확인했다. 저장소 기본 Compose와 현재 운영 배치는 구분한다.
+이 조회는 RDS 권한, 장애 전환, Slack 전달, 백업/복원을 검증한 기록은 아니다.
 
 선택 배경은 ADR, 용어와 계산 방법은 [학습 노트](../learning/observability.md)에 있다.
 실행 명령은 [모니터링 실행 가이드](OPERATIONS.md), 로그 필드와 검색은
@@ -30,63 +31,66 @@ JDBC 메트릭으로 대체한다. 노드 배치·호스트 자원·HTTP 지표�
 [Alloy 설정](../../monitoring/alloy/config.alloy)과 [DB 결정](../adr/0002-rds-deployment-database.md)을
 기준으로 작성했다. 이 파일들이 실제 AWS 상태를 증명하지는 않는다.
 
-## 배포 구성
+## 현재 prod Blue-Green 배치
+
+운영 prod는 앱 A, 앱 B, 배포 Nginx, 모니터링 EC2로 나뉜다. dev의 기본 Compose를
+포함한 모든 환경을 세 서버 구성으로 설명하지 않는다. 대기 슬롯의 앱 EC2는 중지될 수 있다.
 
 ```mermaid
 flowchart LR
-  subgraph DEV["dev EC2 · dev 앱 Compose"]
-    DEVAPP["Spring Boot dev"]
-    DEVALLOY["Alloy · 앱 Compose에 직접 정의"]
-    DEVAPP -->|"메트릭 · Docker 로그"| DEVALLOY
-    DEVHOST["dev 호스트 지표"] --> DEVALLOY
+  subgraph A["prod 앱 A EC2"]
+    APP_A["Spring Boot A"] --> ALLOY_A["앱 Alloy A"]
   end
-  subgraph PROD["prod EC2 · prod 앱 Compose"]
-    PRODAPP["Spring Boot prod"]
-    PRODALLOY["Alloy · 앱 Compose에 직접 정의"]
-    PRODAPP -->|"메트릭 · Docker 로그"| PRODALLOY
-    PRODHOST["prod 호스트 지표"] --> PRODALLOY
+  subgraph B["prod 앱 B EC2"]
+    APP_B["Spring Boot B"] --> ALLOY_B["앱 Alloy B"]
   end
-  DEVRDS["RDS PostgreSQL · dev DB/사용자"]
-  PRODRDS["RDS PostgreSQL · prod DB/사용자"]
-  DEVAPP -->|"JDBC sslmode=require"| DEVRDS
-  PRODAPP -->|"JDBC sslmode=require"| PRODRDS
-  subgraph MON["별도 모니터링 EC2 · 모니터링 Compose"]
-    MONHOST["모니터링 호스트 지표"] --> MONALLOY["호스트 수집 Alloy"]
-    MONALLOY -->|"remote write"| PROM["Prometheus"]
-    LOKI["Loki"]
-    TEMPO["Tempo · 선택 구성"]
-    GRAF["Grafana"]
-    NGINX["Nginx · :8080 수집 / :80 화면"]
-    NGINX -->|"POST /api/v1/write"| PROM
-    NGINX -->|"POST /loki/api/v1/push"| LOKI
-    NGINX -->|"화면 · WebSocket"| GRAF
-    PROM -->|"PromQL 조회 결과"| GRAF
-    LOKI -->|"LogQL 조회 결과"| GRAF
+  subgraph EDGE["배포 Nginx EC2"]
+    NGINX["Nginx 실제 upstream"] --> COLLECT["systemd timer / collect.sh"]
+    COLLECT --> TEXT["deployment.prom"] --> CENTRAL["중앙 배포 수집 Alloy"]
   end
-  DEVALLOY -->|"remote write · Loki push"| NGINX
-  PRODALLOY -->|"remote write · Loki push"| NGINX
+  NGINX -->|"선택된 upstream 하나로 전달"| APP_A
+  NGINX -->|"선택된 upstream 하나로 전달"| APP_B
+  APP_A --> RDS["prod RDS PostgreSQL"]
+  APP_B --> RDS
+  subgraph MON["모니터링 EC2"]
+    INGEST["수신 Nginx :8080"] --> PROM["Prometheus"]
+    INGEST --> LOKI["Loki"]
+    MONALLOY["모니터링 호스트 Alloy"] --> PROM
+    PROM --> GRAF["Grafana"]
+    LOKI --> GRAF
+  end
+  ALLOY_A --> INGEST
+  ALLOY_B --> INGEST
+  CENTRAL -->|"remote write"| INGEST
 ```
 
-dev·prod·모니터링은 각각 다른 EC2다. 각 앱 EC2에는 해당 앱과 Alloy 한 개를 둔다.
-Alloy는 자기 환경의 앱 대상 한 곳과 호스트·자체 메트릭을 수집한다.
-새 앱 EC2를 추가할 때도 해당 호스트의 Alloy를 함께 준비한다. 모니터링 EC2에는
-[monitoring.alloy](../../monitoring/alloy/monitoring.alloy)를 사용하는 Alloy를 두어 호스트·자체
-메트릭만 수집한다. 이 수집기는 앱 scrape나 Docker 로그 수집을 하지 않는다.
+Alloy는 네 위치에 서로 다른 컨테이너로 설치된다. 대기 앱 EC2가 중지되면 해당 Alloy도 중지된다. 앱 A/B는 같은
+[앱 공통 설정](../../monitoring/alloy/config.alloy)을 사용하고 `HOST_ID`로 구분한다.
+이 설정은 앱 메트릭, health/liveness/DB probe, PostgreSQL 직접 검사, 호스트/자체 메트릭,
+Docker 로그를 이미 포함한다. 이번 변경은 공통 설정에 이 기능을 새로 추가하는 변경이 아니다.
+모니터링 EC2는 [monitoring.alloy](../../monitoring/alloy/monitoring.alloy)로 자기 호스트와
+Alloy 자체 메트릭만 수집한다. Nginx EC2의 중앙 Alloy는 배포 textfile 전용 별도 설정이다.
+공통 설정 재사용은 앱 호스트끼리 같은 파일을 사용한다는 뜻이며, 컨테이너 공유를 뜻하지 않는다.
+
+2026-10-28 prod2의 실행 Alloy 설정 `/opt/jarihana-observability-prod/config.alloy`는 저장소
+앱 설정과 SHA256이 일치했다. 이 일치는 현재 설치에 저장소의 Compose 템플릿을 사용했다는
+증거는 아니다. 중앙 수집기의 설치본과 실제 관측, 재설치 원본의 공백은
+[중앙 배포 수집기](CENTRAL-DEPLOYMENT-COLLECTOR.md)에 따로 기록한다.
 
 ## Docker Compose 배포 단위
 
-| 실행 위치 | Compose 프로젝트 | 서비스와 배포 범위 |
-| --- | --- | --- |
-| dev EC2 | dev 앱 프로젝트 | `infra/docker-compose.dev.yml`의 Spring Boot·Alloy 직접 정의 |
-| prod EC2 | prod 앱 프로젝트 | `infra/docker-compose.yml`의 Spring Boot·Alloy 직접 정의 |
-| 모니터링 EC2 | 모니터링 프로젝트 | Nginx·Prometheus·Loki·Grafana·호스트 수집 Alloy와 각 저장 볼륨. Tempo는 trace가 필요할 때 선택 실행 |
+| 실행 위치/방식 | Compose 프로젝트와 수명 |
+| --- | --- |
+| 기본 dev, legacy prod | `infra/docker-compose.dev.yml`, `infra/docker-compose.yml`에 backend와 Alloy, `alloy-data`를 함께 정의 |
+| Blue-Green 앱 A/B 저장소 템플릿 | [app-compose.yml](../../deploy/controller/app-compose.yml)은 앱 전용. [observability-compose.yml](../../deploy/controller/observability-compose.yml)은 앱 Alloy를 별도 프로젝트로 실행해 앱 drain/stop과 분리 |
+| 배포 Nginx EC2 | 서버에 별도 설치된 중앙 배포 수집기와 textfile 전용 Alloy. 해당 설치 소스는 이 저장소에 없음 |
+| 모니터링 EC2 | [모니터링 Compose](../../monitoring/docker-compose.yml)의 수신 Nginx, Prometheus, Loki, Grafana, 호스트 Alloy. Tempo는 선택 구성 |
 
-각 EC2에서 해당 Compose를 실행한다. Compose가 서비스들을 다른 EC2에 자동으로 배치하지는 않는다.
-Alloy 서비스와 `alloy-data` 볼륨은 두 앱 Compose 파일에 각각 직접 정의한다.
-include·extends로 별도 파일을 연결하지 않고 한 앱 Compose 파일에서 배포 구성을 읽도록 했다.
-이 단순함을 위해 서비스 선언의 중복을 받아들인다. 수집 규칙은 공통
-`./monitoring/alloy/config.alloy`를 마운트하므로 두 환경이 같은 설정을 사용한다.
-독립 collector Compose는 없으며 Alloy와 볼륨은 각 앱 프로젝트에 속한다.
+Compose가 서비스들을 다른 EC2로 자동 배치하지는 않는다. Blue-Green 앱 Alloy 설치와 외부 WAL
+볼륨 재사용은 [전체 배포 절차](../../deploy/controller/full-deployment.md)를 따른다.
+기본 dev/legacy prod Compose에서는 수집 규칙 `./monitoring/alloy/config.alloy`를 공통으로
+마운트하고 Alloy 서비스 선언은 각 파일에 직접 둔다. 아래 앱 동시 실행/재생성 설명은
+이 기본 Compose 경로에 해당하며, Blue-Green 앱 배포가 독립 Alloy를 갱신한다는 뜻은 아니다.
 
 dev·prod backend의 `depends_on`은 Alloy의 `service_started`만 사용한다. 외부 RDS에는 Compose의
 시작 순서·health 의존성이 적용되지 않으므로 DB 연결과 앱 health를 별도로 확인한다.
@@ -95,7 +99,7 @@ dev·prod backend의 `depends_on`은 Alloy의 `service_started`만 사용한다.
 backend만 갱신할 때 설정이 바뀌지 않은 정상 Alloy는 유지할 수 있지만, 프로젝트 전체 `down`은
 Alloy도 내린다. 일반 배포에 `down -v`를 넣지 않는다.
 
-현재 백엔드 배포 workflow는 `up -d --no-build --force-recreate backend alloy`를 사용한다.
+기본 dev/legacy prod 백엔드 배포 경로는 `up -d --no-build --force-recreate backend alloy`를 사용한다.
 bind mount 원본인 `config.alloy`의 체크아웃 내용을 다시 읽게 하려는 선택이다.
 `infra/docs/**`만 바뀌면 백엔드는 자동 배포하지 않는다. 다만 dev/prod workflow 모두
 `backend/**`를 path로 보므로 backend 하위 문서 변경은 앱 배포 조건에 포함된다.
@@ -122,11 +126,11 @@ CloudFront에서 HTTPS를 처리하고, CloudFront → Nginx → Grafana는 HTTP
 Nginx `80`은 `grafana.jarihana.com` Host만 받고 다른 Host는 `404`로 응답한다.
 `grafana.jarihana.com`의 공개 DNS는 CloudFront 배포에 연결하며 루트 `jarihana.com`의 기존 서비스는 변경하지 않는다.
 앱 Alloy는 사설 IP의 `8080`으로 수집 데이터를 보낸다. 수집용 도메인·DNS·`extra_hosts`는 추가하지 않는다.
-공개 Grafana DNS 변경과 AWS 배포는 아직 수행하지 않았다.
+CloudFront/DNS 변경 절차와 실제 적용 여부는 운영 자원에서 별도로 확인한다.
 프로젝트 이름은 `jarihana-monitoring`으로 고정하고
 named volume을 유지한다. 등록 방법은 [실행 가이드](OPERATIONS.md)를 따른다.
 
-프로젝트 이름은 기존 앱과 같게 유지한다. `alloy-data`는 각 앱 프로젝트의 볼륨이며,
+기본 dev/legacy prod 프로젝트 이름은 기존 앱과 같게 유지한다. 이 경로의 `alloy-data`는 각 앱 프로젝트의 볼륨이며,
 과거 독립 `jarihana-collector` 프로젝트의 볼륨과는 이름·소유 프로젝트가 다르다.
 이전 구성이 실제 EC2에 배포되었다는 확인은 없다. 만약 기존 수집기를 운영 중이라면 먼저
 실제 프로젝트·볼륨과 WAL·읽기 위치를 확인하고 중지·백업·이관 절차를 정한다.
@@ -135,8 +139,8 @@ named volume을 유지한다. 등록 방법은 [실행 가이드](OPERATIONS.md)
 
 ### 컨테이너 사이와 EC2 사이의 주소
 
-Linux EC2의 Alloy에는 **`network_mode: host`**를 사용한다. 호스트 네트워크를 공유하므로
-각 호스트에 공개된 관리 포트에 접근한다. `APP_METRICS_TARGET`은 dev·prod 각 Compose에서
+저장소의 앱/모니터링 EC2 Alloy에는 **`network_mode: host`**를 사용한다. 호스트 네트워크를 공유하므로
+각 호스트에 공개된 관리 포트에 접근한다. 기본 dev/legacy prod의 `APP_METRICS_TARGET`은 각 Compose에서
 `127.0.0.1:8081`로 고정해 Alloy 컨테이너에 전달한다. 셸이나 `.env`에서 치환하지 않는다.
 두 호스트의 `8081` 포트는 각 backend 컨테이너의 관리 포트 `8081`로 연결한다.
 일반 bridge 컨테이너의 `127.0.0.1`은 그 컨테이너 자신을 가리킨다. `host.docker.internal`
@@ -201,8 +205,9 @@ Tempo 선택 구성도 컨테이너별 메모리 상한 대신 `GOMEMLIMIT: 250M
 | Grafana | 화면·탐색·설정한 알림 평가와 전달 |
 | 운영 구성 | 영속 볼륨, 접근 제어, 백업·복구, 버전·자원 한도 관리 |
 
-수동으로 backend만 갱신하면 Alloy를 유지할 수 있다. 자동 배포는 설정 반영을 위해
-backend와 Alloy를 함께 재생성한다. 프로젝트 전체 종료도 Alloy를 중단하므로 배포·종료의
+기본 dev/legacy prod에서는 수동으로 backend만 갱신하면 Alloy를 유지할 수 있다. 자동 배포는
+설정 반영을 위해 backend와 Alloy를 함께 재생성한다. Blue-Green은 독립 Alloy를 유지한다.
+기본 앱 프로젝트 전체 종료도 Alloy를 중단하므로 배포/종료의
 수집 중단 시간을 운영 절차에 반영한다. 로그 수집 대상은 배포마다 바뀌는 컨테이너 ID를 설정에 박아 넣기보다 서비스·환경 식별 정보를 기준으로
 찾는다. 수집 대상 허용 목록을 두어 같은 호스트의 모든 컨테이너 로그를 무조건 가져오지 않는다.
 
@@ -210,7 +215,8 @@ backend와 Alloy를 함께 재생성한다. 프로젝트 전체 종료도 Alloy�
 
 ### 애플리케이션 메트릭
 
-현재 호스트의 관리 주소는 dev·prod 모두 `127.0.0.1:8081/actuator/prometheus`다. 업무 API의 `/api` 경로를 이 관리 주소 앞에
+기본 관리 주소는 `127.0.0.1:8081/actuator/prometheus`다. Blue-Green 독립 Alloy는
+`MANAGEMENT_PORT`(기본 `8081`)를 앱 설정의 `management_port`와 맞춘다. 업무 API의 `/api` 경로를 이 관리 주소 앞에
 붙이지 않는다. Alloy가 로컬에서 읽으므로 외부 서버에 Actuator 포트를 공개할 필요가 없다.
 이 주소는 위에서 선택한 host 네트워크 Alloy를 기준으로 한다. `APP_METRICS_TARGET`으로
 해당 EC2의 대상 한 곳만 수집하며 dev·prod를 동시에 scrape하지 않는다.
@@ -359,6 +365,10 @@ Actuator는 기존 loopback 범위를 유지한다. Nginx `8080` 수신 포트�
 
 Grafana Alerting의 [Slack 장애 알림](SLACK.md)은 dev·prod health·HTTP 500 규칙 4개와
 호스트 CPU·메모리·디스크·inode 규칙 8개, 연락처와 전달 정책을 시작 시 파일 provisioning으로 등록한다.
+prod health는 중앙 배포 수집기의 route와 Nginx 관측, 앱 Alloy의 health를 결합한다.
+유효한 활성 호스트는 정확히 하나여야 하며 collector/Nginx 관측은 45초, 해당 앱 health는
+150초 이내여야 한다. drain 중 두 앱이 모두 정상이어도 활성 route는 하나다.
+[중앙 배포 수집기](CENTRAL-DEPLOYMENT-COLLECTOR.md)의 설치 의존성과 최신성 검사를 참고한다.
 Alloy는 앱 health를 10초마다 확인하며 Grafana는 10초마다 평가한다. 호스트 자원 알림은
 `host_id`별로 평가하고 디스크·inode는 `mountpoint`도 구분한다. environment 라벨은 별도로 추가하지 않는다. 이후 변경도 파일에서
 관리하며 시작 시 다시 적용한다. GC·RDS 내부 상태와 모니터링 서버 밖의 장애 감시는
@@ -440,7 +450,8 @@ DB 노드는 client span 속성으로 추론할 수 있지만 DB 내부 CPU·락
 송수신량으로 대신하지 않고 별도 네트워크 계측을 검토한다.
 [Tempo 서비스 그래프 구성](https://grafana.com/docs/tempo/latest/metrics-from-traces/service_graphs/enable-service-graphs/)
 
-중앙 Alloy를 나중에 추가할 때도 프로토콜을 구분한다. 현재 메트릭은 remote write, 로그는
+별도 집계 gateway를 추가할 때도 프로토콜을 구분한다. 현재 중앙 배포 Alloy는 배포 textfile만
+전송하며 앱 데이터를 중계하는 gateway가 아니다. 현재 메트릭은 remote write, 로그는
 Loki push이며 모두 OTLP가 아니다. 중앙의 해당 receiver를 준비하거나 변환 경로를 검증해야 한다.
 서비스 그래프는 서비스 관계이고 인스턴스 증감을 모두 나타내는 인프라 지도와도 다르다.
 
@@ -452,6 +463,6 @@ Loki push이며 모두 OTLP가 아니다. 중앙의 해당 receiver를 준비하
 이 값은 실제 수집량과 조회 부하를 측정한 운영 용량 산정 결과가 아니다.
 
 EC2 디스크 크기, 허용 수집 지연·유실 범위, 외부 감시 방식과 알림 임계치는 배포 전에 결정한다.
-프로필은 dev·prod 앱 Compose의 backend·Alloy에 각각 `dev`·`prod`로 고정한다. 배포 workflow는
-메트릭 대상과 모니터링 접속 변수를 넘기지만 실제 AWS 배포는 하지 않았다. 실제 EC2의 네트워크·호스트 지표·로그 수신,
-dev·prod RDS 연결과 부하 검증이 남아 있다.
+기본 dev/legacy prod Compose의 프로필은 각각 `dev`, `prod`로 고정한다. Blue-Green은
+보호된 입력으로 환경과 호스트를 지정한다. 현재 운영 조회와 별개로 새 설치 시에는 실제 EC2의
+네트워크, 호스트 지표, 로그 수신, RDS 연결과 부하를 검증한다.

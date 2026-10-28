@@ -1,7 +1,10 @@
 # 자리하나 모니터링 실행 구성
 
-dev·prod는 각각 별도 EC2에서 실행하며 각 앱의 Alloy가 메트릭과 허용한 로그를
-세 번째 서버인 모니터링 EC2로 보낸다. Nginx·Prometheus·Loki·Grafana와 호스트 수집 Alloy는
+기본 dev/legacy prod는 각 앱 EC2의 Alloy가 메트릭과 허용한 로그를 모니터링 EC2로 보낸다.
+현재 prod Blue-Green은 앱 A/B, 배포 Nginx, 모니터링 EC2로 분리된다. 앱 A/B Alloy는 같은
+공통 설정에 서로 다른 `HOST_ID`를 사용하며, 배포 Nginx의 중앙 배포 Alloy와 모니터링 EC2의
+호스트 Alloy는 별도 설정/컨테이너다. [현재 배치도](ARCHITECTURE.md#현재-prod-blue-green-배치)를 참고한다.
+Nginx, Prometheus, Loki, Grafana와 호스트 수집 Alloy는
 모니터링 서버의 Compose 프로젝트로 실행한다. health·HTTP 500·호스트 CPU·메모리·디스크·inode 알림 정의
 12개와 Slack 연락처·전달 정책을 제공한다. Tempo trace 저장소는 기본 실행에서 제외하고,
 요청 단위 span 분석이 필요할 때만 [Tempo 가이드](TRACING.md)의 선택 절차로 켠다.
@@ -10,7 +13,9 @@ dev·prod는 각각 별도 EC2에서 실행하며 각 앱의 Alloy가 메트릭�
 | 파일 | 실행 위치와 역할 |
 | --- | --- |
 | [docker-compose.yml](../../monitoring/docker-compose.yml) | 모니터링 EC2: Nginx·Prometheus·Loki·Grafana·호스트 수집 Alloy. Tempo는 선택 구성 |
-| [prod 앱 Compose](../../docker-compose.yml)·[dev 앱 Compose](../../docker-compose.dev.yml) | 각 EC2: 앱·Alloy 서비스와 `alloy-data` 볼륨 직접 정의 |
+| [legacy prod 앱 Compose](../../docker-compose.yml), [기본 dev 앱 Compose](../../docker-compose.dev.yml) | 각 EC2: 앱과 Alloy, `alloy-data`를 함께 정의 |
+| [Blue-Green 독립 앱 Alloy Compose](../../deploy/controller/observability-compose.yml) | 앱 A/B: 공통 앱 설정 사용, 앱 교체/drain/stop과 수명 분리 |
+| [중앙 배포 수집기 운영 설치본](CENTRAL-DEPLOYMENT-COLLECTOR.md) | 배포 Nginx EC2: systemd 수집 스크립트와 textfile 전용 Alloy. 설치 소스는 저장소에 없음 |
 | [앱 환경변수 예시](../../.env.example) | 각 앱 EC2: 앱·Alloy 공통 입력 |
 | [alloy/config.alloy](../../monitoring/alloy/config.alloy) | HTTP·호스트 메트릭 수집, health 확인, Docker 로그 전송 |
 | [alloy/monitoring.alloy](../../monitoring/alloy/monitoring.alloy) | 모니터링 EC2: 호스트·Alloy 자체 메트릭 수집 |
@@ -42,7 +47,8 @@ dev·prod는 각각 별도 EC2에서 실행하며 각 앱의 Alloy가 메트릭�
 모니터링 서버의 기본 배포 경로는 GitHub Actions의 `monitoring-deploy.yml`이다. 이 workflow는
 `develop` 브랜치에 `infra/monitoring/**` 또는 workflow 파일 자체가 push되면 자동 실행된다.
 `workflow_dispatch`는 같은 `develop` revision을 다시 적용할 때만 사용한다. 앱 배포는 별도 backend
-dev/prod workflow가 담당하며 앱 Compose와 앱 Alloy 설정 변경도 해당 앱 배포를 실행한다.
+dev/prod workflow가 담당한다. 기본 dev/legacy prod는 앱 Compose와 Alloy를 함께 갱신하지만,
+Blue-Green 독립 Alloy와 서버 설치본 중앙 수집기는 별도 운영 대상이다.
 
 workflow는 저장소 전체 Actions 변수와 시크릿을 사용한다. 저장소 Settings → Secrets and variables → Actions에
 다음 값을 등록한다.
@@ -180,7 +186,8 @@ distroless 이미지이므로 위의 외부 `/ready` 확인을 사용한다. 컨
 `grafana.jarihana.com`의 DNS를 CloudFront 배포에 연결하고 `https://grafana.jarihana.com/`으로
 Grafana를 연다. CloudFront에서 HTTPS를 처리하고, CloudFront → Nginx → Grafana는 HTTP로 연결한다.
 CloudFront의 원본 요청은 `Host: grafana.jarihana.com`을 유지해야 한다.
-루트 `jarihana.com`의 기존 서비스 레코드는 변경하지 않는다. CloudFront·DNS의 실제 설정은 아직 수행하지 않았다.
+루트 `jarihana.com`의 기존 서비스 레코드는 변경하지 않는다. CloudFront/DNS의 실제 적용 상태는
+운영 자원에서 별도로 확인한다.
 수집 주소는 모니터링 EC2의 사설 IP `8080`을 사용하며 수집용 도메인·DNS·`extra_hosts`는 필요 없다.
 Grafana의 도메인을 변경한다면
 Compose의 `GF_SERVER_ROOT_URL`과 `nginx/default.conf`의 Host 설정을 함께 수정한다.
@@ -209,9 +216,10 @@ dev·prod 배포 DB는 모두 외부 RDS PostgreSQL이다. workflow는 `RDS_URL`
 마운트는 사용하지 않는다. RDS endpoint, 보안 그룹, 스키마와 계정은 배포 전에 준비한다.
 로컬 개발과 테스트 PostgreSQL은 기존 방식을 유지한다.
 
-모니터링 전용 DB 계정은 앱 계정과 분리하는 것을 권장한다. 실제 등록된 DSN은 배포 환경별
-`POSTGRES_MONITOR_DSN` Secret으로 전달되며, 현재 작업에서는 접속 성공과 `pg_monitor` 권한을
-검증하지 않았다. 관리자 계정을 모니터링 DSN에 넣지 않는다.
+모니터링 전용 DB 계정은 앱 계정과 분리하는 것을 권장한다. 기본 dev/legacy prod는 배포 환경별
+`POSTGRES_MONITOR_DSN` Secret을 사용하고, Blue-Green 독립 Alloy는 보호된 observability env의
+동명 값을 사용한다. 이번 조회에서는 DSN 계정의 `pg_monitor` 권한을 검증하지 않았다.
+관리자 계정을 모니터링 DSN에 넣지 않는다.
 
 ```sql
 CREATE ROLE postgres_monitor LOGIN PASSWORD '<별도로 정한 비밀번호>';
@@ -262,7 +270,47 @@ RDS 파라미터 그룹에는 `pg_stat_statements`가 미리 로드되고 `compu
 추가 비용이 있으므로 성능 비교 시 같은 설정을 유지하고 `pg_stat_statements.track_planning`은
 필요하지 않으면 기본값 `off`를 유지한다. DSN 비밀번호나 SQL 원문을 메트릭 라벨로 내보내지 않는다.
 
-## 2. 앱과 Alloy 함께 실행
+<a id="2-앱과-alloy-함께-실행"></a>
+
+## 2. 앱 Alloy 배포 경로 선택
+
+Blue-Green 앱 A/B를 설치할 때의 저장소 기준은
+[전체 배포 절차](../../deploy/controller/full-deployment.md)의 독립 Alloy Compose다.
+현재 prod2에서는 별도 프로젝트의 전체 앱 Alloy가 실행 중이고 마운트된 설정이 저장소
+공통 설정과 일치함을 확인했다. 현재 운영 설치가 이 Compose 템플릿에서 만들어졌다는
+의미는 아니다. 공통 `config.alloy`와 `postgres-queries.yaml`을 설치하고,
+보호된 observability env에 환경/호스트, 수신 URL, DB DSN, 설정 경로, 기존 외부 WAL 볼륨을 지정한다.
+`MANAGEMENT_PORT`는 생략 시 `8081`이며 앱 설정의 `management_port`와 같아야 한다.
+앱 env와 observability env는 서로 다른 파일이므로 한쪽 포트를 바꿔도 자동 동기화되지 않는다.
+앱 배포의 backend 교체/중지는 독립 Alloy를 재생성하지 않는다. 공통 Alloy 설정을 바꾸면
+실행 중인 각 앱 호스트의 수집기에 별도 적용/수신 확인이 필요하며, 중지된 대기 EC2도 다음
+기동 때 검토한 설정으로 자동 시작하는지 확인한다. 전체 설정은 health, DB, 호스트, 자체 메트릭,
+로그를 이미 포함하므로 앱 scrape만 있는 임시 설정으로 대체하지 않는다.
+
+배포 Nginx의 중앙 수집기는 이 앱 Compose로 설치하지 않는다. 실행 상태, 실제 경로 확인 방법,
+45초 관측 최신성, 저장소에 없는 재설치 원본은 [중앙 배포 수집기](CENTRAL-DEPLOYMENT-COLLECTOR.md)를 따른다.
+
+### prod2 임시 수집기 교체와 정리 기록
+
+2026-10-27 03:01 KST의 Blue-Green 준비 당시 prod DB의 연결 상한은 25, 앱 풀 최대치는 10이었다.
+추가 PostgreSQL exporter 연결을 만들지 않고 앱 메트릭과 호스트 식별을 먼저 관측하기 위해
+앱 scrape만 있는 임시 Alloy를 설치했다. 공통 앱 설정의 기능 부족 때문은 아니었다.
+2026-10-27에는 공통 전체 설정을 사용하는 Alloy로 교체됐으며, 2026-10-28 조회에서도
+`/opt/jarihana-observability-prod/config.alloy`가 저장소 앱 설정과 일치함을 확인했다.
+
+2026-10-28 23:55 KST에는 이미 중지된 임시 컨테이너 `jarihana-prod-bluegreen-metrics-a`와
+유일한 임시 설정 파일, 비어 있는 `/opt/jarihana-prod-bluegreen-metrics` 디렉터리만 정리했다.
+전체 Alloy와 backend는 재시작하지 않았고, 정리 후 앱 health `UP`, Alloy readiness HTTP `200`을
+확인했다. 이는 별도 운영 작업의 결과이며 PR 적용 시 자동 실행되는 정리 절차가 아니다.
+
+**`jarihana-prod-bluegreen-metrics-data` 볼륨은 현재 전체 Alloy가 사용하는 활성 WAL이다.**
+옛 이름이 남아 있다는 이유로 삭제하지 않는다. 임시 컨테이너 삭제 때도 볼륨은 제거하지 않았으며,
+실제 마운트와 사용 중인 데이터를 확인한 뒤 수명주기를 판단한다.
+
+### 기본 dev/legacy prod: 앱과 Alloy 함께 실행
+
+이하 `infra/.env`와 앱 Compose 명령은 기본 dev/legacy prod 경로에만 적용한다.
+운영 Blue-Green 앱 호스트에서 이 명령을 실행해 별도 앱 프로젝트를 추가하지 않는다.
 
 앱 EC2의 저장소 루트에서 환경변수 파일을 준비한다. dev EC2와 prod EC2에 각각 준비하며
 기존 `infra/.env`가 있다면 덮어쓰지 않고 예시와 비교해 필요한 항목을 채운다.
@@ -295,8 +343,9 @@ profile, Grafana Tempo 데이터 소스 복원, Nginx trace 경로 복원, Prome
 exporter는 연결 상태와 기본 통계를 함께 수집한다. 설정 통계는 끄고 추가 collector는 `database`로
 제한했지만, `SELECT 1` 한 번만 실행하는 구성은 아니다. 운영 DB에서의 부하는 별도 확인이 필요하다.
 
-health와 DB 직접 검사 주기를 바꾸면 모니터링 EC2만으로는 전체 반영이 끝나지 않는다. dev·prod
-백엔드 EC2의 Alloy도 같은 설정 파일을 사용하므로 각 백엔드 배포 파이프라인에서 함께 갱신해야 한다.
+health와 DB 직접 검사 주기를 바꾸면 모니터링 EC2만으로는 전체 반영이 끝나지 않는다.
+앱 EC2 Alloy에도 적용한다. 기본 dev/legacy prod는 backend 배포와 함께 갱신하며,
+Blue-Green은 각 독립 Alloy 프로젝트를 별도로 갱신한다.
 
 | 대상 | 수집자 | 주기 |
 | --- | --- | --- |
@@ -313,8 +362,8 @@ Prometheus와 Grafana 알림 평가는 10초마다 실행한다. Grafana의 Prom
 `timeInterval`은 가장 짧은 백엔드 수집 주기에 맞춰 5초로 둔다. 이는 쿼리 간격을 계산할 때 쓰는
 설정이며, 수집 주기를 바꾸는 설정은 아니다.
 
-`develop`에 병합되면 모니터링 EC2 배포와 dev 백엔드 EC2 Alloy 배포가 각각 트리거된다.
-prod 백엔드 EC2 Alloy는 `main`에 반영된 뒤 prod 백엔드 배포에서 갱신된다.
+해당 workflow의 path 조건을 만족하면 모니터링 배포와 기본 dev/legacy prod 앱 배포가
+각각 실행된다. 이 자동화가 Blue-Green 독립 Alloy나 Nginx 중앙 수집기 설치본을 갱신하지는 않는다.
 
 직접 검사 실패는 해당 계정·네트워크에서 접속하지 못했다는 뜻이며, 앱 계정의 연결 검사는
 Actuator로 따로 확인한다. 두 토폴로지 모두 DB 아이콘은 직접 검사 결과를, DB 연결선은 앱 연결
@@ -327,7 +376,7 @@ DB 직접 검사와 앱 DB 점검을 각각 확인한다. 중단 검증은 로�
 진행한다. 앱 지표 수집 실패 후 DB 흐름이 멈추는지, 다음 liveness 검사 후 선이 확인 불가로
 바뀌는지, 그동안 DB 직접 검사는 정상인지 확인한 뒤 백엔드를 다시 실행한다.
 
-### 앱 실행
+### 기본 dev/legacy prod 앱 실행
 
 프로필은 위 외부 입력과 별도로 각 앱 Compose에 고정한다. `SPRING_PROFILES_ACTIVE`는
 dev Compose의 backend·Alloy에서 모두 `dev`, prod Compose에서는 모두 `prod`다.
@@ -353,7 +402,8 @@ curl --fail http://127.0.0.1:12345/-/ready
 Alloy 시작 역시 저장소 수신을 뜻하지 않으므로 앱 health·DB 연결과 아래 수집 확인을 수행한다.
 
 `depends_on.restart: true`는 설정하지 않는다. backend 대상 갱신은 변경이 없는 정상 Alloy를
-매번 재시작하지 않지만 앱 프로젝트 전체 `down`은 Alloy도 내린다. 별도 collector Compose는 없다.
+매번 재시작하지 않지만 앱 프로젝트 전체 `down`은 Alloy도 내린다. 이 기본 경로에서는
+Alloy가 앱 프로젝트에 속하며 Blue-Green 독립 Alloy Compose와 구분한다.
 `alloy-data`는 각 앱 파일에 직접 선언하며 해당 앱 프로젝트에 속한다. 공통 수집 규칙은
 `./monitoring/alloy/config.alloy`를 마운트한다. include·extends 대신 한 앱 파일에서 구성을
 바로 읽는 단순함을 택했으므로 Alloy 서비스 선언은 dev/prod 두 파일에 함께 유지한다.
@@ -517,8 +567,10 @@ Prometheus remote write 샘플 `42`를 확인했다. 다른 Host와 조회 경�
 이 쿼리 검증은 직접 전송한 테스트 데이터이며 위 Alloy 로그 전송 검증과 구분한다.
 
 실제 Spring 연결, dev·prod RDS TLS, 호스트 지표와 DB 계정 권한을 이 테스트로 검증한 것은 아니다.
-실제 EC2 배포·호스트 지표·RDS 스키마와 데이터 준비, 백업·복원, 운영 부하·장기 보관 삭제·알림은
-별도 확인이 필요하다. 기존 Agent 제거와 AWS 자원 정리는 수행하지 않았다.
+현재 prod 운영 설치본과 중앙 route의 읽기 전용 확인은
+[중앙 수집기 기록](CENTRAL-DEPLOYMENT-COLLECTOR.md)에 구분해 적었다. 이 로컬 시험으로는
+실제 EC2 호스트 지표, RDS 스키마/권한, 백업/복원, 운영 부하, 장기 보관 삭제, Slack 전달을
+증명하지 않는다. 기존 Agent와 외부 AWS 자원 정리도 별도 운영 범위다.
 
 공식 참고: [Compose 서비스](https://docs.docker.com/reference/compose-file/services/),
 [Prometheus 설정](https://prometheus.io/docs/prometheus/latest/configuration/configuration/),
