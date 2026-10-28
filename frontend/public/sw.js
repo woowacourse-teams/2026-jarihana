@@ -80,7 +80,8 @@ const EVENT_COPY = {
   REGISTRATION_SYSTEM_REJECTED: "모집 상태 변경으로 신청이 마감되었어요.",
   PARTICIPANT_JOINED: "모임 참여가 완료되었어요.",
   ACTIVITY_POST_COMMENTED: "내 활동 기록에 새 댓글이 달렸어요.",
-  ACTIVITY_POST_REACTED: "내 활동 기록에 좋아요가 도착했어요."
+  ACTIVITY_POST_REACTED: "내 활동 기록에 좋아요가 도착했어요.",
+  GROUP_ANNOUNCEMENT_CREATED: "모임에 새 공지가 등록되었어요."
 };
 const NAMED_REACTOR_LIMIT = 20;
 function reactionCopy(summary) {
@@ -105,7 +106,7 @@ async function receivePush(event) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
     try {
-      const response = await fetch(`/api/notifications/${reference.notificationId}/push-content?subscriptionId=${initial.id}&generation=${initial.generation}`, {
+      const response = await fetch(`/api/notifications/${reference.notificationId}/push-content?subscriptionId=${initial.id}&generation=${initial.generation}&clientVersion=2`, {
         credentials: "include", cache: "no-store", redirect: "error", signal: controller.signal
       });
       if (response.ok) {

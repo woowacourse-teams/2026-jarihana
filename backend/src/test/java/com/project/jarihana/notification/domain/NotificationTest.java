@@ -120,10 +120,10 @@ class NotificationTest {
                 invitation, NOW)).isInstanceOf(BusinessException.class);
         assertThatThrownBy(() -> Notification.create(member, "invalid", NotificationEventType.INVITATION_RECEIVED,
                 NotificationPayload.of(1, 2, 3, null), NOW)).isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> NotificationPayload.from(1, 2L, 3L, 501L, null, null)).isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> NotificationPayload.from(1, null, null, 501L, null, SystemRejectionReason.GROUP_ENDED))
+        assertThatThrownBy(() -> NotificationPayload.from(1, 2L, 3L, 501L, null, null, null)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> NotificationPayload.from(1, null, null, 501L, null, null, SystemRejectionReason.GROUP_ENDED))
                 .isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> NotificationPayload.from(1, 2L, null, null, null, null)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> NotificationPayload.from(1, 2L, null, null, null, null, null)).isInstanceOf(BusinessException.class);
         assertThatThrownBy(() -> Notification.create(member, "invalid", NotificationEventType.INVITATION_RECEIVED,
                 NotificationPayload.forGroup(1), NOW)).isInstanceOf(BusinessException.class);
         assertThatThrownBy(() -> Notification.create(member, "invalid", NotificationEventType.GROUP_CREATED,
@@ -148,7 +148,7 @@ class NotificationTest {
                 NotificationEventType.REGISTRATION_APPROVED, group, NOW)).isInstanceOf(BusinessException.class);
         assertThatThrownBy(() -> Notification.create(member, "group:1:created", NotificationEventType.GROUP_CREATED,
                 NotificationPayload.of(1, 2, 3, null), NOW)).isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> NotificationPayload.from(1, 2L, null, null, null, null)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> NotificationPayload.from(1, 2L, null, null, null, null, null)).isInstanceOf(BusinessException.class);
         assertThatThrownBy(() -> NotificationPayload.forGroup(0)).isInstanceOf(BusinessException.class);
     }
 
@@ -179,8 +179,8 @@ class NotificationTest {
                 NotificationPayload.invitation(1, 501), NOW)).isInstanceOf(BusinessException.class);
         assertThatThrownBy(() -> Notification.create(member, "invalid", NotificationEventType.ACTIVITY_POST_COMMENTED,
                 NotificationPayload.of(1, 2, 3, null), NOW)).isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> NotificationPayload.from(1, 2L, 3L, null, 77L, null)).isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> NotificationPayload.from(1, null, null, 501L, 77L, null)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> NotificationPayload.from(1, 2L, 3L, null, 77L, null, null)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> NotificationPayload.from(1, null, null, 501L, 77L, null, null)).isInstanceOf(BusinessException.class);
         assertThatThrownBy(() -> NotificationPayload.activityPost(1, 0)).isInstanceOf(BusinessException.class);
     }
 }
