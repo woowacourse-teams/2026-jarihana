@@ -922,6 +922,7 @@ html:has(.landing-page) {
   }
   .landing-about h2 {
     font-size: clamp(1.875rem, 7.5vw, 2.25rem);
+    text-wrap: balance;
   }
   .landing-description {
     margin-top: var(--space-6) !important;

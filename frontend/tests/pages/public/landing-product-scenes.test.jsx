@@ -54,7 +54,7 @@ test("discovery examples reuse product cards, search and all three filters witho
   const cards = browse.querySelectorAll(".discovery-group-card");
   expect(cards).toHaveLength(2);
   expect(cards[0]).toHaveTextContent("1자리 남음");
-  expect(cards[0].querySelector(".discovery-group-card__location")).toHaveTextContent("잠실 캠퍼스");
+  expect(cards[0].querySelector(".discovery-group-card__location")).toHaveTextContent("강남역 스터디룸");
   expect(cards[0].querySelector(".discovery-group-card__schedule")).toHaveTextContent("14:00");
   expect(browse.querySelector("a, button, input, select")).toBeNull();
 });

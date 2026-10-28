@@ -25,7 +25,7 @@ const studyGroup = {
   name: "함께 배우는 토요일",
   introduction: "같은 목표, 서로 다른 생각.",
   recruiting: true,
-  location: "잠실 캠퍼스",
+  location: "강남역 스터디룸",
   recurringSchedule: { daysOfWeek: ["SATURDAY"], startTime: "14:00:00", endTime: "16:00:00" },
   activeRecruitment: { capacity: 6, approvedCount: 5 }
 };
@@ -35,7 +35,7 @@ const bookGroup = {
   type: "CLUB",
   name: "책으로 만나는 사이",
   introduction: "좋아하는 문장을 나눠요.",
-  location: "선릉 캠퍼스",
+  location: "성수 북카페",
   recurringSchedule: { daysOfWeek: ["SATURDAY"], startTime: "16:00:00", endTime: "18:00:00" }
 };
 
@@ -114,7 +114,7 @@ function DetailScene() {
         <strong>모임 정보</strong>
         <div className="lps-detail-info">
           <span><CalendarDays size={16} /> 매주 토 · 14:00–16:00</span>
-          <span><MapPin size={16} /> 잠실 캠퍼스</span>
+          <span><MapPin size={16} /> 강남역 스터디룸</span>
           <span><UsersRound size={16} /> 참여 5명</span>
         </div>
       </div>

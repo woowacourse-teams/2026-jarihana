@@ -219,7 +219,7 @@ export function LandingGuide({ createAction = null, activeChapter = "participate
             내가 하나 만들면 되죠.
           </h2>
           <p>
-            모임을 소개하고, 일정과 장소를 정해 함께할 크루를 모집해요.
+            모임을 소개하고, 일정과 장소를 정해 함께할 사람을 모집해요.
             <br />
             들어온 참여 신청도 한곳에서 확인하고 승인할 수 있어요.
           </p>
