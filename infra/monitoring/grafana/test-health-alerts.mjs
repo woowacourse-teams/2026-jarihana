@@ -29,6 +29,10 @@ const health = (old, next, env = 'prod') => [
 ];
 const cases = [
   ['inactive old fails; active new healthy', [...collector(), ...routes('0x30', '1x30'), ...health('0x30', '1x30')], 0],
+  ['both hosts healthy; only old route active', [...collector(), ...routes('1x30', '0x30'), ...health('1x30', '1x30')], 0],
+  ['two active routes with both hosts healthy', [...collector(), ...routes('1x30', '1x30'), ...health('1x30', '1x30')], 1],
+  ['two active routes with one failed health', [...collector(), ...routes('1x30', '1x30'), ...health('1x30', '0x30')], 1],
+  ['both routes explicitly inactive', [...collector(), ...routes('0x30', '0x30'), ...health('1x30', '1x30')], 1],
   ['active fails; standby healthy', [...collector(), ...routes('0x30', '1x30'), ...health('1x30', '0x30')], 1],
   ['active health missing', [...collector(), ...routes('0x30', '1x30'), ...health('1x30', null)], 1],
   ['all health missing', [...collector(), ...routes('0x30', '1x30')], 1],
