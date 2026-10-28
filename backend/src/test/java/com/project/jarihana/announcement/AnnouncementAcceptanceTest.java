@@ -84,15 +84,22 @@ class AnnouncementAcceptanceTest extends IntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("모임장이 공지를 등록하면 현재 구성원에게 알림함 항목을 만들고 활성 구독에만 푸시를 대기한다.")
+    @DisplayName("모임장이 공지를 등록하면 현재 구성원에게 알림함 항목을 만들고 공지 지원 구독에만 푸시를 대기한다.")
     void createsAnnouncementAndNotifiesCurrentMembers() {
         Group group = saveGroup("공지 알림 모임");
         Member leader = saveMember("공지방장", "announcement-notification-leader");
         Member member = saveMember("공지회원", "announcement-notification-member");
         Member outsider = saveMember("외부회원", "announcement-notification-outsider");
+        Member legacyOnly = saveMember("레거시", "announcement-notification-legacy");
         saveLeader(group, leader);
         saveMemberOf(group, member);
-        subscriptions.save(PushSubscription.create(member, "https://fcm.googleapis.com/announcement-member", PUBLIC_KEY,
+        saveMemberOf(group, legacyOnly);
+        subscriptions.save(PushSubscription.create(legacyOnly, "https://fcm.googleapis.com/announcement-legacy-only", PUBLIC_KEY,
+                AUTH_KEY, TestSupportConfig.FIXED_NOW));
+        var supported = PushSubscription.create(member, "https://fcm.googleapis.com/announcement-member", PUBLIC_KEY,
+                AUTH_KEY, TestSupportConfig.FIXED_NOW);
+        supported = subscriptions.save(supported.reconnect(PUBLIC_KEY, AUTH_KEY, 2, TestSupportConfig.FIXED_NOW));
+        subscriptions.save(PushSubscription.create(member, "https://fcm.googleapis.com/announcement-legacy", PUBLIC_KEY,
                 AUTH_KEY, TestSupportConfig.FIXED_NOW));
         subscriptions.save(PushSubscription.create(outsider, "https://fcm.googleapis.com/announcement-outsider", PUBLIC_KEY,
                 AUTH_KEY, TestSupportConfig.FIXED_NOW));
@@ -108,6 +115,9 @@ class AnnouncementAcceptanceTest extends IntegrationTestSupport {
         Response leaderInbox = authenticated(leader).queryParam("clientVersion", 2).get("/notifications");
         Response outsiderInbox = authenticated(outsider).queryParam("clientVersion", 2).get("/notifications");
 
+        Response legacyInbox = authenticated(legacyOnly).queryParam("clientVersion", 2).get("/notifications");
+        assertThat(legacyInbox.jsonPath().getList("data.items")).hasSize(1);
+        assertThat(authenticated(legacyOnly).get("/notifications").jsonPath().getList("data.items")).isEmpty();
         assertThat(memberInbox.statusCode()).isEqualTo(200);
         assertThat(memberInbox.jsonPath().getList("data.items")).hasSize(1);
         assertThat(memberInbox.jsonPath().getString("data.items[0].eventType")).isEqualTo("GROUP_ANNOUNCEMENT_CREATED");
@@ -119,7 +129,7 @@ class AnnouncementAcceptanceTest extends IntegrationTestSupport {
         assertThat(outsiderInbox.jsonPath().getList("data.items")).isEmpty();
 
         long notificationId = memberInbox.jsonPath().getLong("data.items[0].id");
-        long subscriptionId = jdbc.queryForObject("select id from push_subscriptions where member_id = ?", Long.class, member.getId());
+        long subscriptionId = supported.getId();
         Response pushContent = authenticated(member).queryParam("subscriptionId", subscriptionId)
                 .queryParam("generation", 1).queryParam("clientVersion", 2)
                 .get("/notifications/{notificationId}/push-content", notificationId);
@@ -134,6 +144,8 @@ class AnnouncementAcceptanceTest extends IntegrationTestSupport {
         assertThat(pushContent.jsonPath().getMap("data.payload")).containsOnlyKeys("groupId", "announcementId");
         assertThat(pushContent.jsonPath().getLong("data.payload.announcementId")).isEqualTo(announcementId);
         assertThat(deliveryCount).isEqualTo(1);
+        assertThat(jdbc.queryForList("select push_subscription_id from notification_deliveries", Long.class))
+                .containsExactly(supported.getId());
     }
 
     @Test

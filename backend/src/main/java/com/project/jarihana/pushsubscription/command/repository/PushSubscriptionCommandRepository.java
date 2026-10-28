@@ -54,9 +54,10 @@ public interface PushSubscriptionCommandRepository extends Repository<PushSubscr
             where subscription.member.id in :memberIds
               and subscription.enabled = true
               and subscription.member.withdrawnAt is null
+              and subscription.clientVersion >= 2
             order by subscription.member.id, subscription.id
             """)
-    List<PushSubscription> findActiveByMemberIds(@Param("memberIds") List<Long> memberIds);
+    List<PushSubscription> findAnnouncementCapableByMemberIds(@Param("memberIds") List<Long> memberIds);
 
     @EntityGraph(attributePaths = "member")
     @Query("""

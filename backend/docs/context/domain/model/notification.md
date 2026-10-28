@@ -48,7 +48,7 @@
 
 타입: GROUP_CREATED, REGISTRATION_SUBMITTED, PARTICIPANT_JOINED, REGISTRATION_APPROVED,
 REGISTRATION_REJECTED, REGISTRATION_SYSTEM_REJECTED, INVITATION_RECEIVED, ACTIVITY_POST_COMMENTED,
-ACTIVITY_POST_REACTED, GROUP_ANNOUNCEMENT_CREATED. DB의 `ck_notifications_event_type`은 `V11__group_announcements.sql`이 같은 값으로 맞춘다.
+ACTIVITY_POST_REACTED, GROUP_ANNOUNCEMENT_CREATED. DB의 `ck_notifications_event_type`은 `V12__group_announcements.sql`이 같은 값으로 맞춘다.
 시스템 미승인 원인: RERECRUITMENT 또는 GROUP_ENDED. 사유 본문·신청 내용·토큰은 payload에 넣지 않는다.
 
 payloadVersion은 기존 사건과 초대 사건 모두 1이다. eventType이 데이터 의미를 구분하므로 초대 추가만으로 버전을 나누지 않는다.

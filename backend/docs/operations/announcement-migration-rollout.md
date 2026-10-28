@@ -1,20 +1,20 @@
 # 모임 공지 마이그레이션 적용
 
-## 일반 적용: 기존 V10 DB에서 V11 추가
+## 일반 적용: 기존 V10 DB에서 V12 추가
 
 모임 제안 V10이 이미 적용된 DB에 공지 V9를 나중에 추가하면 기본 Flyway 검증이
 `Detected resolved migration not applied to database: 9`로 실패한다. 공지는
-`V11__group_announcements.sql`로 추가한다. V9는 비어 있어도 정상이며,
+`V12__group_announcements.sql`로 추가한다. V9는 비어 있어도 정상이며,
 애플리케이션의 `out-of-order` 설정을 켜거나 검증을 생략하지 않는다.
 
-V11의 SQL 내용은 이 PR에서 사용했던 공지 V9와 동일하다. 공지 V9를 적용하지 않은
-DB에는 기존 마이그레이션 이력을 수정하지 않고 일반 배포로 V11만 추가한다.
-공유 개발·운영에 공지 V9를 별도로 적용했다면 아래 로컬 절차를 그대로 실행하지 말고,
+V12의 SQL 내용은 이 PR에서 사용했던 공지 V9와 동일하다. 공지 V9를 적용하지 않은
+DB에는 선행 #490의 V11(구독 지원 버전)을 적용한 뒤 일반 배포로 V12를 추가한다. V10에서 직접 검증할 때는 V11·V12 두 건이 순서대로 적용된다.
+공유 개발·운영에 공지 V9 또는 이전 PR의 공지 V11을 별도로 적용했다면 아래 로컬 절차를 그대로 실행하지 말고,
 대상 DB·스키마·체크섬과 적용 시점을 확인한 별도의 이력 정정 계획을 검토한다.
 
 `FlywayBaselineTest.addAnnouncementsAfterExistingV10`은 실제 PostgreSQL에 기존
-마이그레이션 집합(V1~V10, 공지 V9 제외)을 먼저 적용한 뒤 V11을 추가한다. 기존 회원과
-제안 데이터·이력 보존, V11 적용, 기본 설정의 validate 및 재실행 0건을 확인한다.
+마이그레이션 집합(V1~V10, 공지 V9 제외)을 먼저 적용한 뒤 V11·V12를 추가한다. 기존 회원과
+제안 데이터·이력 보존, V11·V12 적용, 기본 설정의 validate 및 재실행 0건을 확인한다.
 
 ## 공유 배포 경로 확인
 
@@ -30,13 +30,17 @@ DB에는 기존 마이그레이션 이력을 수정하지 않고 일반 배포�
 이번 작업에서 생성한 컨테이너 `jarihana-announcements-preview-db`의
 `jarihana_preview.public`에는 공지 V9가 적용돼 있다. 아래 절차의 대상은 이 DB 하나다.
 기존 공지나 DB 볼륨을 삭제하지 않는다. 화면 촬영 중인 서버는 이 절차 때문에
-자동 재시작하지 않으며, V11 코드로 다시 실행하기 전에 수행한다.
+자동 재시작하지 않으며, V12 코드로 다시 실행하기 전에 수행한다.
 
 1. 해당 로컬 서버를 중지하고 DB 이름, 기존 이력과 공지 행을 기록한다.
-2. 성공한 공지 이력이 V9, script `V9__group_announcements.sql`, description
+2. V9 SQL을 그대로 보관한 임시 Flyway 리소스 집합(V1~V10, 공지 V9 포함)에
+   `V11__push_subscription_client_version.sql`만 추가하고 그 위치로 일회성 migrate를 실행한다.
+   V12 공지 SQL은 이 집합에 넣지 않는다. 기존 V9 검증 후 V11 한 건이 적용되어야 한다.
+   이 경로는 아래 PostgreSQL 테스트로 검증하며, 전역 out-of-order 설정은 바꾸지 않는다.
+3. 성공한 공지 이력이 V9, script `V9__group_announcements.sql`, description
    `group announcements`, checksum `-1253084773`인지 확인한다.
-3. 다음 트랜잭션으로 이름과 버전만 바꾼다. DB 이름·기존 이력·체크섬이 다르거나
-   V11이 이미 있으면 중단한다. 체크섬이나 실제 공지 데이터를 덮어쓰지 않는다.
+4. V11 이력이 `V11__push_subscription_client_version.sql`로 적용됐음을 확인한 뒤 다음 트랜잭션으로 이름과 버전만 바꾼다. DB 이름·기존 이력·체크섬이 다르거나
+   V12가 이미 있으면 중단한다. 체크섬이나 실제 공지 데이터를 덮어쓰지 않는다.
 
    ```sql
    BEGIN;
@@ -50,11 +54,15 @@ DB에는 기존 마이그레이션 이력을 수정하지 않고 일반 배포�
        IF current_database() <> 'jarihana_preview' THEN
            RAISE EXCEPTION '이 절차는 촬영용 jarihana_preview DB 전용입니다.';
        END IF;
-       IF EXISTS (SELECT 1 FROM public.flyway_schema_history WHERE version = '11') THEN
-           RAISE EXCEPTION 'V11 이력이 이미 존재합니다. 자동 정정하지 않습니다.';
+       IF NOT EXISTS (SELECT 1 FROM public.flyway_schema_history
+                      WHERE version = '11' AND script = 'V11__push_subscription_client_version.sql' AND success) THEN
+           RAISE EXCEPTION '구독 지원 버전 V11을 먼저 적용해야 합니다.';
+       END IF;
+       IF EXISTS (SELECT 1 FROM public.flyway_schema_history WHERE version = '12') THEN
+           RAISE EXCEPTION 'V12 이력이 이미 존재합니다. 자동 정정하지 않습니다.';
        END IF;
        UPDATE public.flyway_schema_history
-       SET version = '11', script = 'V11__group_announcements.sql'
+       SET version = '12', script = 'V12__group_announcements.sql'
        WHERE version = '9'
          AND script = 'V9__group_announcements.sql'
          AND description = 'group announcements'
@@ -69,12 +77,12 @@ DB에는 기존 마이그레이션 이력을 수정하지 않고 일반 배포�
    COMMIT;
    ```
 
-4. 이름이 바뀐 리소스가 남지 않도록 `./gradlew clean classes` 후 local 프로필로 실행한다.
+5. 이름이 바뀐 리소스가 남지 않도록 `./gradlew clean classes` 후 local 프로필로 실행한다.
    기본 Flyway 검증 통과와 기존 공지·모임·회원 보존을 확인한다. 전역 `repair`나
    `out-of-order` 설정 변경은 사용하지 않는다.
 
 `FlywayBaselineTest.reconcilePreviewAnnouncementV9WithoutLosingData`는 기존 V9 집합으로
-만든 격리 DB에서 같은 체크섬 조건의 정정을 수행하고 공지와 나머지 이력 보존,
+만든 격리 DB에 먼저 V11을 추가한 뒤 같은 체크섬 조건의 V12 정정을 수행하고 공지와 나머지 이력 보존,
 기본 설정의 validate 및 재실행 0건을 검증한다.
 
 이 문서는 마이그레이션 순서만 다룬다. 신규 알림 저장 데이터의 구버전 해석과

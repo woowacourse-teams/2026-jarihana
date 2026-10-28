@@ -67,7 +67,7 @@ public class NotificationEventListener {
         Map<Long, List<PushSubscription>> activeByMember = new LinkedHashMap<>();
         recipients.forEach(member -> activeByMember.put(member.getId(), new ArrayList<>()));
         List<Long> recipientIds = recipients.stream().map(Member::getId).toList();
-        subscriptions.findActiveByMemberIds(recipientIds).forEach(subscription ->
+        subscriptions.findAnnouncementCapableByMemberIds(recipientIds).forEach(subscription ->
                 activeByMember.get(subscription.getMember().getId()).add(subscription));
         recordAll(recipients, "announcement:" + event.announcementId() + ":created",
                 NotificationEventType.GROUP_ANNOUNCEMENT_CREATED,
