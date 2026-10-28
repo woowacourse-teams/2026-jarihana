@@ -28,19 +28,19 @@ export const notificationSchema = z.object({
 export const notificationPageSchema = z.object({
   items: z.array(notificationSchema), nextCursor: z.string().nullable(), hasNext: z.boolean()
 }).refine((page) => !page.hasNext || Boolean(page.nextCursor));
-const pageParams = (cursor) => ({ size: 20, ...(cursor ? { cursor } : {}) });
+const pageParams = (cursor) => ({ clientVersion: 2, size: 20, ...(cursor ? { cursor } : {}) });
 export const fetchNotifications = (cursor, client = apiClient, signal) => client.request("notifications", {
   schema: notificationPageSchema, searchParams: pageParams(cursor), signal
 });
 export const fetchUnreadCount = (client = apiClient, signal) => client.request("notifications/unread-count", {
-  schema: z.object({ unreadCount: z.number().int().nonnegative().safe() }), signal
+  schema: z.object({ unreadCount: z.number().int().nonnegative().safe() }), searchParams: { clientVersion: 2 }, signal
 });
-export const fetchNotification = (notificationId, client = apiClient, signal) => client.request(`notifications/${notificationId}`, { schema: notificationSchema, signal });
+export const fetchNotification = (notificationId, client = apiClient, signal) => client.request(`notifications/${notificationId}`, { schema: notificationSchema, searchParams: { clientVersion: 2 }, signal });
 export const readNotification = (notificationId, client = apiClient) => client.request(`notifications/${notificationId}/read`, {
   method: "PATCH", schema: z.object({ id, readAt: z.string() })
 });
 export const readAllNotifications = (client = apiClient) => client.request("notifications/read-all", {
-  method: "PATCH", schema: z.object({ updatedCount: z.number().int().nonnegative(), readAt: z.string() })
+  method: "PATCH", schema: z.object({ updatedCount: z.number().int().nonnegative(), readAt: z.string() }), searchParams: { clientVersion: 2 }
 });
 export const deleteNotification = (notificationId, client = apiClient) => client.request(`notifications/${notificationId}`, { method: "DELETE" });
 export const notificationTargetPath = ({ kind, groupId, recruitmentId, registrationId, invitationId, activityPostId, announcementId }, notificationId) => {

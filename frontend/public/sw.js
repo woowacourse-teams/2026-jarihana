@@ -106,7 +106,7 @@ async function receivePush(event) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
     try {
-      const response = await fetch(`/api/notifications/${reference.notificationId}/push-content?subscriptionId=${initial.id}&generation=${initial.generation}`, {
+      const response = await fetch(`/api/notifications/${reference.notificationId}/push-content?subscriptionId=${initial.id}&generation=${initial.generation}&clientVersion=2`, {
         credentials: "include", cache: "no-store", redirect: "error", signal: controller.signal
       });
       if (response.ok) {

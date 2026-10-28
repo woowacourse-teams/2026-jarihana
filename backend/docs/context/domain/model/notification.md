@@ -22,6 +22,12 @@
 
 ## Notification (`notifications`)
 
+공지 기능의 후속 배포에 앞서 `GROUP_ANNOUNCEMENT_CREATED`와
+`groupId`·`announcementId` payload의 읽기를 지원한다. 이 선배포 자체는 공지 알림을
+생성하지 않고 운영 스키마를 바꾸지 않는다. 기존 클라이언트에는 신규 사건을 제외하고,
+`clientVersion=2`를 요청한 클라이언트에만 공지 target을 반환한다.
+배포와 롤백 기준은 [공지 알림 호환성 전환](../../../operations/announcement-notification-compatibility-rollout.md)을 따른다.
+
 회원이 알림함에서 확인하는 사건 기록이다. 신청·참여 사건은 푸시 허용 여부와 무관하게 저장한다.
 새 모임 등록 사건은 생성자를 제외한 활성 푸시 구독 회원에게만 저장한다.
 공지 등록 사건은 작성자를 제외한 현재 모임 구성원 전체에게 저장하며, 활성 푸시 구독이 있는 회원에게만 전송 대기를 만든다.
