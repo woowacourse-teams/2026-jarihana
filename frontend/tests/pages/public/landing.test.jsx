@@ -32,13 +32,13 @@ test("one controller connects the service introduction, every guide and the fina
   const [pageRef, activate] = useLandingGuideScroll.mock.calls[0];
   const stops = [...pageRef.current.querySelectorAll("[data-guide-chapter]")];
   expect(stops.map((node) => node.dataset.guideChapter)).toEqual([
-    "about", "together", "participate-intro", "browse", "detail", "continue",
+    "about", "together", "participate-intro", "browse", "detail", "continue", "proposal-intro", "proposal",
     "host-intro", "create", "manage", "invite-intro", "invite", "activity-intro", "activity", "start"
   ]);
   expect(container.querySelector(".landing-hero [data-guide-chapter]")).toBeNull();
   const ids = [...container.querySelectorAll("[id]")].map((node) => node.id);
   expect(new Set(ids).size).toBe(ids.length);
-  for (const id of ["together", "host-intro", "invite", "activity", "start"]) {
+  for (const id of ["together", "proposal-intro", "host-intro", "invite", "activity", "start"]) {
     act(() => activate(id));
     expect(container.querySelector(`[data-guide-chapter="${id}"]`)).toHaveAttribute("aria-current", "step");
     expect(container.querySelectorAll('[data-guide-chapter][aria-current="step"]')).toHaveLength(1);

@@ -10,7 +10,7 @@ jest.mock("react-router", () => ({
 
 test("every guide illustration uses readable service UI without screenshot assets or pretend controls", () => {
   const { container } = render(<LandingGuide />);
-  const scenes = ["browse", "detail", "continue", "create", "manage", "invite", "activity"];
+  const scenes = ["browse", "detail", "continue", "proposal", "create", "manage", "invite", "activity"];
   for (const name of scenes) {
     const frames = container.querySelectorAll(`[data-screen="${name}"]`);
     expect(frames.length).toBeGreaterThan(0);
@@ -98,13 +98,41 @@ test("account and activity examples keep the real product's tabs, photo and conv
   expect(activity).toHaveTextContent("댓글을 남겨 보세요.");
 });
 
+test("proposal example reuses the board card and gathered conditions without real controls", () => {
+  const { container } = render(<LandingGuide />);
+  const proposal = container.querySelector(".landing-product-scene--proposal");
+  expect(proposal).toHaveTextContent("자유게시판");
+  const card = proposal.querySelector(".proposal-card__body");
+  expect(card.querySelector(".proposal-badge--study")).toHaveTextContent("스터디");
+  expect(card.querySelector(".proposal-card__title")).toHaveTextContent("주말에 같이 공부할 사람 있나요?");
+  expect(card.querySelector(".lpm-before .proposal-pill")).toHaveTextContent("함께하고 싶어요4");
+  expect(card.querySelector(".lpm-after .proposal-pill--on")).toHaveTextContent("함께하고 싶어요5");
+  expect([...proposal.querySelectorAll(".proposal-summary-chip__button")].map((chip) => chip.textContent))
+    .toEqual(["주말 오후5명", "오프라인4명", "초보 환영4명"]);
+  const rows = [...proposal.querySelectorAll(".lps-proposal-rows .proposal-bar-row")];
+  expect(rows.map((row) => row.textContent)).toEqual(["주말 오후5명", "평일 저녁2명", "주말 오전1명"]);
+  expect(rows[0]).toHaveClass("proposal-bar-row--lead");
+  expect(proposal.querySelector("a, button, input, select, textarea")).toBeNull();
+
+  const board = screen.getByRole("link", { name: "자유게시판 둘러보기" });
+  expect(board).toHaveAttribute("href", "/board");
+  expect(board).toHaveAttribute("data-ph-capture-attribute-action", "landing_board_explore");
+  expect(container.querySelector("#guide-proposal .landing-guide__intro")).toContainElement(board);
+});
+
 
 test("all usage sections expose the same intro, chapter and showcase structure with unique anchors", () => {
   const { container } = render(<LandingGuide createAction={<a href="/groups/new">모임 만들기</a>} />);
   const sections = [...container.querySelectorAll("[data-guide-sequence]")];
-  expect(sections.map((section) => section.id)).toEqual(["guide", "guide-host", "guide-invite", "guide-activity"]);
+  expect(sections.map((section) => section.id))
+    .toEqual(["guide", "guide-proposal", "guide-host", "guide-invite", "guide-activity"]);
   expect([...container.querySelectorAll("[data-guide-chapter]")].map((chapter) => chapter.dataset.guideChapter))
-    .toEqual(["participate-intro", "browse", "detail", "continue", "host-intro", "create", "manage", "invite-intro", "invite", "activity-intro", "activity"]);
+    .toEqual([
+      "participate-intro", "browse", "detail", "continue", "proposal-intro", "proposal", "host-intro", "create",
+      "manage", "invite-intro", "invite", "activity-intro", "activity"
+    ]);
+  expect([...container.querySelectorAll(".landing-guide__intro .landing-eyebrow")].map((eyebrow) => eyebrow.textContent))
+    .toEqual(["01 모임에 참여하기", "02 자유게시판", "03 직접 만들고 운영하기", "04 초대하기", "05 활동 피드"]);
   for (const section of sections) {
     expect(section).toHaveClass("landing-guide-section");
     expect(section.querySelector(".landing-guide__intro h2")).toBeInTheDocument();
@@ -112,12 +140,14 @@ test("all usage sections expose the same intro, chapter and showcase structure w
     expect(section.querySelector(".landing-guide__showcase .landing-guide-frame")).toBeInTheDocument();
   }
   expect(sections.map((section) => section.classList.contains("landing-guide--reversed")))
-    .toEqual([false, true, false, true]);
+    .toEqual([false, true, false, true, false]);
+  expect(screen.getByRole("heading", { level: 2, name: "이런 모임, 같이할 사람?" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { level: 3, name: "함께할 마음 모으기" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { level: 2, name: "이 자리, 네가 함께하면 좋겠어." })).toBeInTheDocument();
   expect(screen.getByRole("heading", { level: 2, name: "함께한 순간은, 우리의 기록으로." })).toBeInTheDocument();
   expect(screen.getByRole("heading", { level: 3, name: "함께할 사람 초대하기" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { level: 3, name: "활동 기록 남기기" })).toBeInTheDocument();
-  expect(within(sections[1]).getByRole("link", { name: "모임 만들기" })).toHaveAttribute("href", "/groups/new");
+  expect(within(sections[2]).getByRole("link", { name: "모임 만들기" })).toHaveAttribute("href", "/groups/new");
   const ids = [...container.querySelectorAll("[id]")].map((element) => element.id);
   expect(new Set(ids).size).toBe(ids.length);
 });
@@ -127,7 +157,7 @@ test("the controlled active chapter selects one desktop demo and keeps the nativ
 
   expect(container.querySelector('[data-guide-chapter="participate-intro"]')).toHaveAttribute("aria-current", "step");
   const desktopFrames = [...container.querySelectorAll(".landing-guide__showcase .landing-guide-frame")];
-  for (const intro of ["participate-intro", "host-intro", "invite-intro", "activity-intro"]) {
+  for (const intro of ["participate-intro", "proposal-intro", "host-intro", "invite-intro", "activity-intro"]) {
     rerender(<LandingGuide activeChapter={intro} />);
     expect(container.querySelector(`[data-guide-chapter="${intro}"]`)).toHaveAttribute("aria-current", "step");
     for (const frame of desktopFrames) {
@@ -137,7 +167,7 @@ test("the controlled active chapter selects one desktop demo and keeps the nativ
     }
   }
 
-  for (const id of ["browse", "detail", "continue", "create", "manage", "invite", "activity"]) {
+  for (const id of ["browse", "detail", "continue", "proposal", "create", "manage", "invite", "activity"]) {
     rerender(<LandingGuide activeChapter={id} />);
     expect(container.querySelector(`[data-guide-chapter="${id}"]`)).toHaveAttribute("aria-current", "step");
     expect(container.querySelectorAll('[data-guide-chapter][aria-current="step"]')).toHaveLength(1);
@@ -162,7 +192,7 @@ test("the controlled active chapter selects one desktop demo and keeps the nativ
 test("every usage chapter has a heading, two feature checks and a demo without repeated prose", () => {
   const { container } = render(<LandingGuide />);
   const chapters = [...container.querySelectorAll(".landing-guide-chapter")];
-  expect(chapters).toHaveLength(7);
+  expect(chapters).toHaveLength(8);
   for (const chapter of chapters) {
     expect(chapter.querySelector("h3")).toBeInTheDocument();
     expect(chapter.querySelectorAll(".landing-guide-checks > li")).toHaveLength(2);

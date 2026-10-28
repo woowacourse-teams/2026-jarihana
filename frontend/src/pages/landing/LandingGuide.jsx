@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarDays, Camera, CheckCircle2, ClipboardCheck, Plus, Search, UserPlus } from "lucide-react";
+import { ArrowRight, CalendarDays, Camera, CheckCircle2, ClipboardCheck, Hand, Plus, Search, UserPlus } from "lucide-react";
 import { Link } from "react-router";
 
 import { LandingProductScene } from "./LandingProductScene";
@@ -33,6 +33,15 @@ const guideChapters = [
     alt: "내 모임과 신청 현황을 한곳에서 확인하는 이용 예시"
   }
 ];
+
+const proposalChapters = [{
+  id: "proposal",
+  number: "01",
+  icon: Hand,
+  title: "함께할 마음 모으기",
+  checks: ["모임 제안 올리기", "가능한 시간, 방식, 분위기 모으기"],
+  alt: "모임 제안에 함께하고 싶어요가 모이고 가능한 시간과 진행 방식, 분위기가 정리되는 자유게시판 이용 예시"
+}];
 
 const hostChapters = [
   {
@@ -114,7 +123,7 @@ function GuideChapter({ chapter, active }) {
       aria-current={active ? "step" : undefined}
       className="landing-guide-chapter"
       data-guide-chapter={chapter.id}
-      id={`guide-${chapter.id}${["invite", "activity"].includes(chapter.id) ? "-demo" : ""}`}
+      id={`guide-${chapter.id}${["proposal", "invite", "activity"].includes(chapter.id) ? "-demo" : ""}`}
     >
       <div className="landing-guide-chapter__number">
         <Icon aria-hidden="true" size={22} strokeWidth={1.7} />
@@ -186,7 +195,7 @@ export function LandingGuide({ createAction = null, activeChapter = "participate
           data-guide-chapter="participate-intro"
           id="how"
         >
-          <p className="landing-eyebrow">01 · 모임에 참여하기</p>
+          <p className="landing-eyebrow">01 모임에 참여하기</p>
           <h2 id="guide-title">
             관심 있는 모임을 찾았다면,
             <br />
@@ -202,8 +211,43 @@ export function LandingGuide({ createAction = null, activeChapter = "participate
 
       <GuideSection
         activeChapter={activeChapter}
+        chapters={proposalChapters}
+        className="landing-guide-proposal landing-guide--reversed"
+        id="guide-proposal"
+        titleId="proposal-title"
+      >
+        <div
+          aria-current={activeChapter === "proposal-intro" ? "step" : undefined}
+          className="landing-guide__intro"
+          data-guide-chapter="proposal-intro"
+        >
+          <p className="landing-eyebrow">02 자유게시판</p>
+          <h2 id="proposal-title">
+            이런 모임,
+            <br />
+            같이할 사람?
+          </h2>
+          <p>
+            아직 작은 생각이어도 좋아요.
+            <br />
+            같이하겠다는 사람과 가능한 시간이 모이면, 그때 모임으로 열어요.
+          </p>
+          <div className="landing-guide__actions">
+            <Link
+              className="landing-button landing-button--soft"
+              data-ph-capture-attribute-action="landing_board_explore"
+              to="/board"
+            >
+              자유게시판 둘러보기 <ArrowRight aria-hidden="true" size={20} />
+            </Link>
+          </div>
+        </div>
+      </GuideSection>
+
+      <GuideSection
+        activeChapter={activeChapter}
         chapters={hostChapters}
-        className="landing-guide-host landing-guide--reversed"
+        className="landing-guide-host"
         id="guide-host"
         titleId="guide-host-title"
       >
@@ -212,7 +256,7 @@ export function LandingGuide({ createAction = null, activeChapter = "participate
           className="landing-guide__intro"
           data-guide-chapter="host-intro"
         >
-          <p className="landing-eyebrow">02 · 직접 만들고 운영하기</p>
+          <p className="landing-eyebrow">03 직접 만들고 운영하기</p>
           <h2 id="guide-host-title">
             찾던 모임이 없다면,
             <br />
@@ -230,7 +274,7 @@ export function LandingGuide({ createAction = null, activeChapter = "participate
       <GuideSection
         activeChapter={activeChapter}
         chapters={inviteChapters}
-        className="landing-guide-invite"
+        className="landing-guide-invite landing-guide--reversed"
         id="guide-invite"
         titleId="invite-title"
       >
@@ -239,7 +283,7 @@ export function LandingGuide({ createAction = null, activeChapter = "participate
           className="landing-guide__intro"
           data-guide-chapter="invite-intro"
         >
-          <p className="landing-eyebrow">03 · 초대하기</p>
+          <p className="landing-eyebrow">04 초대하기</p>
           <h2 id="invite-title">이 자리, 네가 함께하면 좋겠어.</h2>
         </div>
       </GuideSection>
@@ -247,7 +291,7 @@ export function LandingGuide({ createAction = null, activeChapter = "participate
       <GuideSection
         activeChapter={activeChapter}
         chapters={activityChapters}
-        className="landing-guide-activity landing-guide--reversed"
+        className="landing-guide-activity"
         id="guide-activity"
         titleId="activity-title"
       >
@@ -256,7 +300,7 @@ export function LandingGuide({ createAction = null, activeChapter = "participate
           className="landing-guide__intro"
           data-guide-chapter="activity-intro"
         >
-          <p className="landing-eyebrow">04 · 활동 피드</p>
+          <p className="landing-eyebrow">05 활동 피드</p>
           <h2 id="activity-title">함께한 순간은, 우리의 기록으로.</h2>
         </div>
       </GuideSection>

@@ -2,9 +2,14 @@ import {
   CalendarDays,
   Check,
   ChevronDown,
+  Clock,
+  Hand,
+  Laptop,
   Link2,
   MapPin,
+  MessageCircle,
   Search,
+  Smile,
   UserPlus,
   UsersRound,
   X
@@ -13,6 +18,7 @@ import {
 import { Avatar, GroupImage, StatusBadge } from "../../shared/ui";
 import { DiscoveryGroupCard } from "../groups/home/DiscoveryGroupCard";
 import "../groups/home/discovery.css";
+import "../proposals/proposals.css";
 import recruitmentImage from "../../shared/assets/illustrations/group-recruitment-open.webp";
 import studyImage from "../../shared/assets/landing/default-group-study.webp";
 import { LandingActivityScene } from "./LandingActivityScene";
@@ -190,6 +196,89 @@ function ContinueScene() {
   );
 }
 
+// 응답 5명 기준의 모인 조건이다. 실제 상세 화면처럼 가장 많이 고른 선택지를 칩에 보여 준다.
+const gatheredChips = [
+  { icon: Clock, label: "주말 오후", count: 5, delay: "3.1s" },
+  { icon: Laptop, label: "오프라인", count: 4, delay: "3.3s" },
+  { icon: Smile, label: "초보 환영", count: 4, delay: "3.5s" }
+];
+
+const timeSlotRows = [
+  { label: "주말 오후", count: 5 },
+  { label: "평일 저녁", count: 2 },
+  { label: "주말 오전", count: 1 }
+];
+
+function ProposalPill({ count, on = false }) {
+  return (
+    <span className={on ? "proposal-pill proposal-pill--on" : "proposal-pill"}>
+      <Hand size={16} />
+      함께하고 싶어요
+      <b>{count}</b>
+    </span>
+  );
+}
+
+function ProposalScene() {
+  return (
+    <>
+      <SceneHeading eyebrow="작은 생각이 모임이 되는 곳">자유게시판</SceneHeading>
+      <div className="proposal-card__body lpm-arrive" style={{ "--motion-delay": "0.3s" }}>
+        <p className="proposal-card__meta">
+          <span className="proposal-badge proposal-badge--study">스터디</span>
+          <span className="proposal-card__author">하루</span>
+          <span>모임 제안</span>
+        </p>
+        <strong className="proposal-card__title">주말에 같이 공부할 사람 있나요?</strong>
+        <p className="proposal-card__summary">각자 공부한 내용을 짧게 나누고, 막히는 부분은 같이 풀어 봐요.</p>
+        <div className="proposal-card__foot">
+          <MotionSwap
+            className="lps-proposal-pill"
+            delay="1.9s"
+            before={<ProposalPill count={4} />}
+            after={<ProposalPill count={5} on />}
+          />
+          <span className="proposal-card__stat"><MessageCircle size={15} /> 코멘트 2</span>
+          <span className="proposal-card__time">1시간 전</span>
+        </div>
+      </div>
+      <div className="proposal-gathered lpm-arrive" style={{ "--motion-delay": "2.7s" }}>
+        <span className="proposal-eyebrow">모인 조건</span>
+        <strong className="proposal-section-title">지금 가장 잘 맞는 모습</strong>
+        <p className="proposal-gathered__desc">응답 5명 기준이에요.</p>
+        <div className="proposal-summary">
+          {gatheredChips.map(({ icon: Icon, label, count, delay }) => (
+            <span className="proposal-summary-chip__button lpm-arrive" key={label} style={{ "--motion-delay": delay }}>
+              <Icon size={15} />
+              <span className="proposal-summary-chip__value">{label}</span>
+              <b className="proposal-summary-chip__count">{count}명</b>
+              <ChevronDown className="proposal-summary-chip__chevron" size={15} />
+            </span>
+          ))}
+        </div>
+        <div className="proposal-summary-chip__panel lps-proposal-rows lpm-arrive" style={{ "--motion-delay": "4s" }}>
+          <span className="proposal-summary-chip__title">가능한 시간</span>
+          <ul className="proposal-summary-chip__list">
+            {timeSlotRows.map((row, index) => (
+              <li
+                className={index === 0 ? "proposal-bar-row proposal-bar-row--lead" : "proposal-bar-row"}
+                key={row.label}
+                style={{ "--motion-delay": `${4.4 + index * 0.15}s` }}
+              >
+                <span className="proposal-bar-row__label">{row.label}</span>
+                <span className="proposal-bar-row__track">
+                  <i style={{ inlineSize: `${(row.count / 5) * 100}%` }} />
+                </span>
+                <span className="proposal-bar-row__count">{row.count}명</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function Applicant({ name, approved, children }) {
   return (
     <div className="lps-applicant lps-enter">
@@ -288,6 +377,7 @@ const scenes = {
   browse: BrowseScene,
   detail: DetailScene,
   continue: ContinueScene,
+  proposal: ProposalScene,
   manage: ManageScene,
   invite: InviteScene,
   activity: LandingActivityScene

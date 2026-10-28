@@ -62,6 +62,10 @@
   .landing-product-demo[data-state="running"] .lpm-submit {
     animation: lpm-press calc(650ms / var(--landing-demo-speed, 1.5)) ease calc((var(--motion-delay) - 0.65s) / var(--landing-demo-speed, 1.5)) both;
   }
+  .landing-product-demo[data-state="idle"] .lps-proposal-rows .proposal-bar-row__track i { transform: scaleX(0); }
+  .landing-product-demo[data-state="running"] .lps-proposal-rows .proposal-bar-row__track i {
+    animation: lpm-fill calc(800ms / var(--landing-demo-speed, 1.5)) var(--landing-ease) calc(var(--motion-delay, 0s) / var(--landing-demo-speed, 1.5)) both;
+  }
   .landing-product-demo[data-state="running"] .lps-application-overlay {
     animation: lpm-application calc(3.2s / var(--landing-demo-speed, 1.5)) var(--landing-ease) calc(1.4s / var(--landing-demo-speed, 1.5)) both;
   }
@@ -82,6 +86,7 @@
 @keyframes lpm-emphasis { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 35%, 70% { box-shadow: 0 0 0 3px var(--color-brand-soft); } }
 @keyframes lpm-card-focus { 0%, 100% { transform: none; } 40%, 70% { transform: translateY(-0.25rem); border-color: var(--color-brand); } }
 @keyframes lpm-press { 0%, 100% { transform: none; } 45% { transform: scale(0.97); } }
+@keyframes lpm-fill { from { transform: scaleX(0); } to { transform: none; } }
 
 @media (min-width: 64rem) and (min-height: 55.001rem) {
   .landing-guide__showcase .landing-product-scene--detail { padding: 1.25rem; gap: 1rem; }

@@ -591,6 +591,22 @@
 .landing-product-scene .lps-dialog-actions { display: flex; justify-content: flex-end; align-items: center; gap: var(--space-3); }
 .landing-product-scene .lps-dialog-actions > span { padding: var(--space-2) var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-pill); }
 
+/* 자유게시판 예시는 실제 제안 카드와 모인 조건 스타일을 쓰되, 누를 수 없는 정적인 화면으로 둔다. */
+.landing-product-scene .proposal-card__body { pointer-events: none; }
+.landing-product-scene .proposal-card__title { display: block; }
+.landing-product-scene .proposal-pill,
+.landing-product-scene .proposal-summary-chip__button { cursor: default; }
+.landing-product-scene .lps-proposal-pill { justify-content: start; }
+.landing-product-scene .proposal-gathered { gap: var(--space-3); }
+.landing-product-scene .proposal-summary-chip__panel {
+  position: static;
+  inline-size: auto;
+  box-shadow: none;
+  animation: none;
+}
+.landing-product-scene .proposal-summary-chip__list > li { animation: none; }
+.landing-product-scene .proposal-bar-row__track i { transform-origin: left center; }
+
 @container (min-width: 31rem) {
   .landing-product-scene .lps-account-layout { grid-template-columns: minmax(8rem, 0.8fr) minmax(0, 2.2fr); }
   .landing-product-scene .lps-manage-layout { grid-template-columns: minmax(0, 1.7fr) minmax(10rem, 1fr); }

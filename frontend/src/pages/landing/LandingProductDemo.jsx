@@ -6,6 +6,7 @@ const demoDurations = {
   browse: "5.5s",
   detail: "6.5s",
   continue: "5.5s",
+  proposal: "6.5s",
   manage: "6s",
   invite: "6.5s",
   activity: "10s"
@@ -15,6 +16,7 @@ const demoLabels = {
   browse: "모임 둘러보기 화면 데모 제어",
   detail: "모임 상세 화면 데모 제어",
   continue: "마이페이지 화면 데모 제어",
+  proposal: "자유게시판 화면 데모 제어",
   manage: "신청 관리 화면 데모 제어",
   invite: "초대하기 화면 데모 제어",
   activity: "활동 피드 화면 데모 제어"
@@ -32,6 +34,10 @@ const analyticsActions = {
   continue: {
     pause: "landing_continue_demo_pause_toggle",
     replay: "landing_continue_demo_replay"
+  },
+  proposal: {
+    pause: "landing_proposal_demo_pause_toggle",
+    replay: "landing_proposal_demo_replay"
   },
   manage: {
     pause: "landing_manage_demo_pause_toggle",
