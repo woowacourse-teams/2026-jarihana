@@ -150,7 +150,7 @@ if (typeof ServiceWorkerGlobalScope !== "undefined") {
     if (event.data?.protocol !== 1 || !event.ports[0] || !event.source?.url
       || new URL(event.source.url).origin !== self.location.origin) return;
     event.waitUntil(serial(() => command(event.data)).then(
-      (state) => event.ports[0].postMessage({ ok: true, state }),
+      (state) => event.ports[0].postMessage({ ok: true, state: { ...state, clientVersion: 2 } }),
       () => event.ports[0].postMessage({ ok: false })
     ));
   });

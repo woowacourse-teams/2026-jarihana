@@ -10,6 +10,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.SingleConnectionDataSource;
@@ -57,6 +58,8 @@ class NotificationSchemaMigrationTest extends IntegrationTestSupport {
                 ResourceDatabasePopulator groupCreatedMigration = new ResourceDatabasePopulator(
                         new FileSystemResource("db/migrations/2026-10-08-group-created-notification.sql"));
                 groupCreatedMigration.execute(isolated);
+                new ResourceDatabasePopulator(new ClassPathResource("db/migration/V11__push_subscription_client_version.sql"))
+                        .execute(isolated);
                 buildSchema(isolated, schema, "validate");
 
                 // Then

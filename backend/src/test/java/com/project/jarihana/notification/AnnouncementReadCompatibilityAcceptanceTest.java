@@ -5,6 +5,16 @@ import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.notification.support.NotificationIntegrationTestSupport;
 import com.project.jarihana.recruitment.domain.JoinMethod;
+import com.project.jarihana.notificationdelivery.command.repository.NotificationDeliveryCommandRepository;
+import com.project.jarihana.notificationdelivery.command.repository.PushDeliveryWorkRepository;
+import com.project.jarihana.notificationdelivery.command.service.PushDeliveryLeaseService;
+import com.project.jarihana.notificationdelivery.domain.NotificationDelivery;
+import com.project.jarihana.notificationdelivery.domain.DeliveryStatus;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
@@ -26,6 +36,53 @@ class AnnouncementReadCompatibilityAcceptanceTest extends NotificationIntegratio
     @Autowired private AccessTokenProvider tokens;
     @Autowired private AuthCookieProperties cookies;
 
+    @Autowired private NotificationDeliveryCommandRepository deliveries;
+    @Autowired private PushDeliveryWorkRepository work;
+    @Autowired private PushDeliveryLeaseService leases;
+    @Autowired private PlatformTransactionManager transactions;
+
+    @Test
+    @DisplayName("기존 SW 구독에 남아 있는 공지 전송 작업은 선점 시 취소하고 일반 알림은 계속 보낸다.")
+    void cancelsAnnouncementForLegacySubscriptionAtClaim() {
+        // Given
+        Member owner = member("101");
+        long id = futureAnnouncement(owner);
+        var subscription = subscription(owner, "legacy-queued");
+        var announcement = notifications.findByIdAndMemberId(id, owner.getId()).orElseThrow();
+        var hidden = deliveries.save(NotificationDelivery.create(announcement, subscription, NOW, NOW.plusDays(1)));
+        var normal = deliveries.save(NotificationDelivery.create(notification(owner, "normal"), subscription, NOW, NOW.plusDays(1)));
+        // When
+        var claims = new TransactionTemplate(transactions).execute(status -> work.claimNext(NOW, NOW.plusMinutes(1), 2));
+        var requests = leases.prepare(claims);
+        // Then
+        assertThat(deliveries.findById(hidden.getId()).orElseThrow().getStatus()).isEqualTo(DeliveryStatus.CANCELLED);
+        assertThat(requests).extracting(request -> request.deliveryId()).containsExactly(normal.getId());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName("공지 지원 구독도 선점 후 지원 상태가 바뀌면 전송 준비에서 제외한다.")
+    void checksWorkerSupportAgainBeforeSending(boolean downgrade) {
+        // Given
+        Member owner = member("101");
+        long id = futureAnnouncement(owner);
+        var subscription = subscription(owner, "current-queued");
+        jdbc.update("update push_subscriptions set client_version = 2 where id = ?", subscription.getId());
+        var announcement = notifications.findByIdAndMemberId(id, owner.getId()).orElseThrow();
+        var pending = deliveries.save(NotificationDelivery.create(announcement, subscription, NOW, NOW.plusDays(1)));
+        var claims = new TransactionTemplate(transactions).execute(status -> work.claimNext(NOW, NOW.plusMinutes(1), 1));
+        // When
+        if (downgrade) jdbc.update("update push_subscriptions set client_version = 1 where id = ?", subscription.getId());
+        var requests = leases.prepare(claims);
+        // Then
+        if (downgrade) {
+            assertThat(requests).isEmpty();
+            assertThat(deliveries.findById(pending.getId()).orElseThrow().getStatus()).isEqualTo(DeliveryStatus.CANCELLED);
+        } else {
+            assertThat(requests).extracting(request -> request.deliveryId()).containsExactly(pending.getId());
+        }
+    }
+
     @Autowired private Flyway flyway;
 
     @TestConfiguration(proxyBeanMethods = false)
@@ -33,7 +90,7 @@ class AnnouncementReadCompatibilityAcceptanceTest extends NotificationIntegratio
         @Bean
         FlywayMigrationStrategy migrateFutureSchemaBeforeCompatibilityApp() {
             return original -> {
-                String[] locations = new ClassPathResource("db/migration/V11__group_announcements.sql").exists()
+                String[] locations = new ClassPathResource("db/migration/V12__group_announcements.sql").exists()
                         ? new String[]{"classpath:db/migration"}
                         : new String[]{"classpath:db/migration", "classpath:db/announcement-compatibility"};
                 Flyway.configure().configuration(original.getConfiguration()).locations(locations).load().migrate();
@@ -43,7 +100,7 @@ class AnnouncementReadCompatibilityAcceptanceTest extends NotificationIntegratio
     }
 
     @Test
-    @DisplayName("호환 앱은 후속 V11 스키마에서도 기본 Flyway 검증을 통과하고 이력을 바꾸지 않는다.")
+    @DisplayName("호환 앱은 후속 V12 스키마에서도 기본 Flyway 검증을 통과하고 이력을 바꾸지 않는다.")
     void compatibilityAppAcceptsFutureAnnouncementSchema() {
         // Given
         var history = jdbc.queryForList("select * from flyway_schema_history order by installed_rank");
@@ -56,8 +113,8 @@ class AnnouncementReadCompatibilityAcceptanceTest extends NotificationIntegratio
         assertThat(flyway.getConfiguration().isOutOfOrder()).isFalse();
         assertThat(applied).isZero();
         assertThat(jdbc.queryForList("select * from flyway_schema_history order by installed_rank")).isEqualTo(history);
-        assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '11'", String.class))
-                .isEqualTo("V11__group_announcements.sql");
+        assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '12'", String.class))
+                .isEqualTo("V12__group_announcements.sql");
     }
 
     @Test
