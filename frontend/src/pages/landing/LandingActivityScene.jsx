@@ -1,14 +1,49 @@
-import { ArrowRight, Camera, ImagePlus, MessageCircle } from "lucide-react";
+import { ArrowRight, Bell, Camera, ImagePlus, MessageCircle } from "lucide-react";
 
 import { Avatar } from "../../shared/ui";
 import activityPhoto from "../../shared/assets/landing/activity-study-photo.webp";
 import studyImage from "../../shared/assets/landing/default-group-study.webp";
 import heartImage from "../../shared/assets/reactions/heart.webp";
+import "../../features/notifications/notifications.css";
 import "./landing-activity-motion.css";
 
 const studyGroup = {
   name: "함께 배우는 토요일"
 };
+
+// 서버가 만드는 실제 알림 문구다. 하트는 읽기 전 알림을 하나로 묶어 "외 N명"으로 보여 준다.
+const notifications = [
+  { id: "heart", title: "좋아요", body: "모아 외 2명이 좋아요를 눌렀어요.", time: "10월 10일 오후 4:20" },
+  {
+    id: "comment",
+    title: "새 댓글",
+    body: `‘${studyGroup.name}’ 모임 활동 기록에 새 댓글이 달렸습니다.`,
+    time: "10월 10일 오후 4:12"
+  }
+];
+
+function ActivityNotifications() {
+  return (
+    <div className="lpa-notifications">
+      <div className="lpa-notifications__head">
+        <Bell size={18} />
+        <strong>알림함</strong>
+        <span className="lpa-notifications__count">{notifications.length}</span>
+      </div>
+      <ul className="notification-list">
+        {notifications.map((item) => (
+          <li className={`notification-row lpa-notification lpa-notification--${item.id}`} key={item.id}>
+            <span className="notification-row__link">
+              <strong>{item.title}</strong>
+              <span>{item.body}</span>
+              <time>{item.time}</time>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 // 실제 피드처럼 다른 사람이 남긴 회색 하트 2개에 내 하트를 더해 색이 채워지고 3이 된다.
 function HeartReaction({ before, after }) {
@@ -108,6 +143,7 @@ export function LandingActivityScene() {
           </div>
         </div>
       </div>
+      <ActivityNotifications />
     </>
   );
 }

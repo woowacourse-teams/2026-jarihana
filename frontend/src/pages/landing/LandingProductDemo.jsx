@@ -9,7 +9,7 @@ const demoDurations = {
   proposal: "6.5s",
   manage: "6s",
   invite: "6.5s",
-  activity: "10s"
+  activity: "12s"
 };
 
 const demoLabels = {

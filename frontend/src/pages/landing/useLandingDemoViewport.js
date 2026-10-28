@@ -77,7 +77,7 @@ export function useLandingDemoViewport({ rootRef, screen, state, paused, replayK
       }
 
       animate(scene, -1);
-      const overlay = scene.querySelector(".lps-application-overlay, .lpc-schedule-dialog");
+      const overlay = scene.querySelector(".lps-application-overlay, .lpc-schedule-dialog, .lpa-notifications");
       if (overlay) {
         animate(overlay, 1);
         const dialog = overlay.querySelector(".lps-application, .lpc-dialog-card");

@@ -96,6 +96,14 @@ test("account and activity examples keep the real product's tabs, photo and conv
   expect(activity.querySelector(".lps-reactions svg")).toBeNull();
   expect(activity.querySelector(".lps-reactions")).not.toHaveTextContent(/[👍🔥]/u);
   expect(activity).toHaveTextContent("댓글을 남겨 보세요.");
+
+  const inbox = activity.querySelector(".lpa-notifications");
+  expect(inbox).toHaveTextContent("알림함2");
+  expect([...inbox.querySelectorAll(".notification-row")].map((row) => row.querySelector("strong").textContent))
+    .toEqual(["좋아요", "새 댓글"]);
+  expect(inbox).toHaveTextContent("모아 외 2명이 좋아요를 눌렀어요.");
+  expect(inbox).toHaveTextContent("‘함께 배우는 토요일’ 모임 활동 기록에 새 댓글이 달렸습니다.");
+  expect(inbox.querySelector("a, button")).toBeNull();
 });
 
 test("proposal example reuses the board card and gathered conditions without real controls", () => {
