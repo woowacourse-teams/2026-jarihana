@@ -95,7 +95,7 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
     }
 
     @ParameterizedTest
-    @EnumSource(value = NotificationEventType.class, names = "GROUP_ANNOUNCEMENT_CREATED", mode = EnumSource.Mode.EXCLUDE)
+    @EnumSource(NotificationEventType.class)
     @DisplayName("모든 사건은 모임 이름과 사건별 이동 대상을 반환한다.")
     void showGroupNameAndTargetForEveryEvent(NotificationEventType eventType) {
         // Given
@@ -411,7 +411,8 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
     }
 
     private RequestSpecification authenticated(Member member) {
-        return RestAssured.given().cookie(cookies.accessTokenName(), tokens.issue(member.getId()).value());
+        return RestAssured.given().cookie(cookies.accessTokenName(), tokens.issue(member.getId()).value())
+                .queryParam("clientVersion", 2);
     }
 
     @Test

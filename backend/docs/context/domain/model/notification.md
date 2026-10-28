@@ -23,8 +23,8 @@
 ## Notification (`notifications`)
 
 공지 기능의 후속 배포에 앞서 `GROUP_ANNOUNCEMENT_CREATED`와
-`groupId`·`announcementId` payload의 읽기를 지원한다. 이 선배포 자체는 공지 알림을
-생성하지 않고 운영 스키마를 바꾸지 않는다. 기존 클라이언트에는 신규 사건을 제외하고,
+`groupId`·`announcementId` payload의 읽기를 지원한다. 선행 호환 PR #490 자체는 공지 알림을
+생성하지 않고 운영 스키마를 바꾸지 않는다. 공지 기능은 이 선행 배포 이후에 활성화한다. 기존 클라이언트에는 신규 사건을 제외하고,
 `clientVersion=2`를 요청한 클라이언트에만 공지 target을 반환한다.
 배포와 롤백 기준은 [공지 알림 호환성 전환](../../../operations/announcement-notification-compatibility-rollout.md)을 따른다.
 

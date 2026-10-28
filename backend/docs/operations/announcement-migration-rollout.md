@@ -16,6 +16,15 @@ DB에는 기존 마이그레이션 이력을 수정하지 않고 일반 배포�
 마이그레이션 집합(V1~V10, 공지 V9 제외)을 먼저 적용한 뒤 V11을 추가한다. 기존 회원과
 제안 데이터·이력 보존, V11 적용, 기본 설정의 validate 및 재실행 0건을 확인한다.
 
+## 공유 배포 경로 확인
+
+2026-10-28 기준 공지 최초 커밋 `0f0ee011`은 원격 develop·main에 포함되지 않았고,
+두 브랜치의 운영 migration 디렉터리에도 공지 V9가 없다. 최근 성공한 push 배포는
+개발 `a063514d`([실행](https://github.com/woowacourse-teams/2026-jarihana/actions/runs/40503842679)),
+운영 `5b9a3461`([실행](https://github.com/woowacourse-teams/2026-jarihana/actions/runs/40476742678))다.
+따라서 정상 배포 경로로 공지 V9가 공유 DB에 도달한 상태는 아니다. DB 이력 자체를
+조회하거나 별도 수동 적용 유무까지 검증한 것은 아니다.
+
 ## 촬영용 로컬 DB에 공지 V9가 이미 있는 경우
 
 이번 작업에서 생성한 컨테이너 `jarihana-announcements-preview-db`의

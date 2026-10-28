@@ -104,9 +104,9 @@ class AnnouncementAcceptanceTest extends IntegrationTestSupport {
 
         assertThat(created.statusCode()).isEqualTo(201);
         long announcementId = created.jsonPath().getLong("data.id");
-        Response memberInbox = authenticated(member).get("/notifications");
-        Response leaderInbox = authenticated(leader).get("/notifications");
-        Response outsiderInbox = authenticated(outsider).get("/notifications");
+        Response memberInbox = authenticated(member).queryParam("clientVersion", 2).get("/notifications");
+        Response leaderInbox = authenticated(leader).queryParam("clientVersion", 2).get("/notifications");
+        Response outsiderInbox = authenticated(outsider).queryParam("clientVersion", 2).get("/notifications");
 
         assertThat(memberInbox.statusCode()).isEqualTo(200);
         assertThat(memberInbox.jsonPath().getList("data.items")).hasSize(1);
@@ -121,7 +121,8 @@ class AnnouncementAcceptanceTest extends IntegrationTestSupport {
         long notificationId = memberInbox.jsonPath().getLong("data.items[0].id");
         long subscriptionId = jdbc.queryForObject("select id from push_subscriptions where member_id = ?", Long.class, member.getId());
         Response pushContent = authenticated(member).queryParam("subscriptionId", subscriptionId)
-                .queryParam("generation", 1).get("/notifications/{notificationId}/push-content", notificationId);
+                .queryParam("generation", 1).queryParam("clientVersion", 2)
+                .get("/notifications/{notificationId}/push-content", notificationId);
         Integer deliveryCount = jdbc.queryForObject("""
                 select count(*) from notification_deliveries delivery
                 join notifications notification on notification.id = delivery.notification_id

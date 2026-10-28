@@ -48,7 +48,7 @@ RestAssured 인수 테스트로 계약을 검증한다. 알림함 API는 Control
 - 프론트 API와 새 Service Worker는 `clientVersion=2`를 보낸다. 호환 선배포 단계의
   공지 알림 클릭은 모임 상세로 이동한다. 공지 기능 배포 후에는 별도 공지 권한 확인과
   상세 URL 이동으로 전환한다.
-- 이 호환 배포는 읽기만 준비하며 공지를 등록하거나 새 종류의 알림을 생성하지 않는다.
+- 선행 호환 PR #490은 읽기만 준비하며 공지를 등록하거나 새 종류의 알림을 생성하지 않는다.
   DB event type 허용 범위를 바꾸는 운영 마이그레이션도 포함하지 않는다.
 
 배포·롤백 순서는 [공지 알림 호환성 전환](../../../operations/announcement-notification-compatibility-rollout.md)을 따른다.
