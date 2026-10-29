@@ -4,7 +4,7 @@
 - [모니터링 자동 배포](../../.github/workflows/monitoring-deploy.yml): `develop`의 모니터링 설정 변경을 전용 EC2 runner에서 배포
 - [Tempo 트레이스 선택 구성](../docs/observability/TRACING.md): trace가 필요할 때 Java Agent → 앱 Alloy → Nginx → Tempo, 7일 보관과 검증
 - [legacy prod 앱 Compose](../docker-compose.yml), [기본 dev 앱 Compose](../docker-compose.dev.yml): 앱과 Alloy를 함께 정의
-- [Blue-Green 독립 앱 Alloy Compose](../deploy/controller/observability-compose.yml): 앱 A/B에서 공통 설정을 사용하고 앱 배포와 수명을 분리
+- [Blue-Green 독립 앱 Alloy Compose](../blue-green-deploy/controller/observability-compose.yml): 앱 A/B에서 공통 설정을 사용하고 앱 배포와 수명을 분리
 - [중앙 배포 수집기](../docs/observability/CENTRAL-DEPLOYMENT-COLLECTOR.md): 배포 Nginx EC2의 systemd/textfile 전용 Alloy, 서버 설치본과 재설치 의존성
 - [Slack 장애 알림](../docs/observability/SLACK.md): Grafana 파일 provisioning, health·HTTP 500·호스트 자원 알림 정의 12개와 전달 정책
 - [Grafana 운영 대시보드](../docs/observability/DASHBOARD.md): `Jarihana` 폴더의 `jarihana-overview` 대시보드와 필터·패널 해석
@@ -20,7 +20,7 @@
 
 기본 dev/legacy prod의 환경변수 예시는 [infra/.env.example](../.env.example)에 있다. 이 경로는
 앱 Compose의 `up -d --no-build backend`로 Alloy도 함께 시작한다. Blue-Green 앱 호스트는
-[전체 배포 절차](../deploy/controller/full-deployment.md)의 보호된 env와 독립 Alloy Compose를 사용한다.
+[전체 배포 절차](../blue-green-deploy/controller/full-deployment.md)의 보호된 env와 독립 Alloy Compose를 사용한다.
 이하 backend/Alloy 동시 재생성 설명은 기본 dev/legacy prod 배포 경로다.
 dev·prod DB는 모두 RDS PostgreSQL이다. backend 로그는 기본 `local` driver와 허용 라벨로 수집한다.
 배포 실행은 `--force-recreate backend alloy`로 체크아웃된 설정을 적용한다.

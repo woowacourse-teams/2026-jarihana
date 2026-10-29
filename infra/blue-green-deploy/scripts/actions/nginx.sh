@@ -66,7 +66,7 @@ bg_switch_http() {
     previous_slot=$(bg_route) || return 1
   fi
   generation="$(bg_uuid).conf"
-  content=$(sed -e "s/@UPSTREAM@/$(bg_host "$slot" | jq -r '.upstream')/g" -e "s/@SLOT@/$slot/g" "$SCRIPT_ROOT/../../../deploy/nginx/nginx.conf.template") || return 1
+  content=$(sed -e "s/@UPSTREAM@/$(bg_host "$slot" | jq -r '.upstream')/g" -e "s/@SLOT@/$slot/g" "$SCRIPT_ROOT/../../nginx/nginx.conf.template") || return 1
   mkdir -p "$directory/generations"
   bg_owned_directory "$directory/generations"
   (set -o noclobber; printf '%s\n' "$content" > "$directory/generations/$generation") || return 1

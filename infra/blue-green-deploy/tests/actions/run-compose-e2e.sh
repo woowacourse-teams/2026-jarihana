@@ -29,7 +29,7 @@ if [[ ${BG_COMPOSE_INNER:-false} != true ]]; then
     -v "$ROOT:/repo:ro" -v "$DIR:$DIR" -v "$PREFIX-socket:/socket" -e DOCKER_HOST=unix:///socket/docker.sock \
     -v "$DIR/etc:/etc/jarihana-deploy/dev" -v "$DIR/app:/var/lib/jarihana-deploy/dev/app-B" \
     -e BG_COMPOSE_IMAGE -e BG_COMPOSE_INNER=true -e DIR="$DIR" -e PREFIX="$PREFIX" -e HOST_ROOT="$ROOT" \
-    "$TOOLS_IMAGE" bash /repo/infra/tests/deploy/actions/run-compose-e2e.sh 2>&1 | tee "$evidence/run.log"
+    "$TOOLS_IMAGE" bash /repo/infra/blue-green-deploy/tests/actions/run-compose-e2e.sh 2>&1 | tee "$evidence/run.log"
   exit
 fi
 : "${DIR:?}" "${PREFIX:?}" "${HOST_ROOT:?}"
@@ -91,7 +91,7 @@ docker run -d --name "$PREFIX-ports" "${label[@]}" -p 127.0.0.1::8080 -p 127.0.0
 APP_PORT=$(docker inspect "$PREFIX-ports" --format '{{(index (index .NetworkSettings.Ports "8080/tcp") 0).HostPort}}')
 MANAGEMENT_PORT=$(docker inspect "$PREFIX-ports" --format '{{(index (index .NetworkSettings.Ports "8081/tcp") 0).HostPort}}')
 docker rm -f "$PREFIX-ports" >/dev/null
-cp "$ROOT/infra/deploy/controller/app-compose.yml" "$DIR/etc/app-compose.yml"
+cp "$ROOT/infra/blue-green-deploy/controller/app-compose.yml" "$DIR/etc/app-compose.yml"
 printf 'local-compose-fixture-machine-token-0123456789abcdef\n' > "$DIR/etc/worker-token"
 printf 'fixture\n' > "$DIR/etc/grant-key"; printf 'fixture\n' > "$DIR/etc/known-hosts"
 chmod 600 "$DIR/etc/"*
@@ -102,11 +102,11 @@ cat "$DIR/state.json"
 EOF
 chmod 700 "$DIR/bin/ssh"
 jq --arg image "$IMAGE_REPOSITORY" --arg name "$CONTAINER" --arg project "$PROJECT" --argjson app "$APP_PORT" --argjson management "$MANAGEMENT_PORT" '
- .image_repository=$image|.container_name=$name|.project=$project|.app_port=$app|.management_port=$management|.topology.b.upstream=("127.0.0.1:"+($app|tostring))|.coordinator_address="127.0.0.1"' "$ROOT/infra/deploy/controller/full-app-B.example.json" > "$DIR/config.json"
+ .image_repository=$image|.container_name=$name|.project=$project|.app_port=$app|.management_port=$management|.topology.b.upstream=("127.0.0.1:"+($app|tostring))|.coordinator_address="127.0.0.1"' "$ROOT/infra/blue-green-deploy/controller/full-app-B.example.json" > "$DIR/config.json"
 cat > "$DIR/command.sh" <<'EOF'
 #!/usr/bin/env bash
 set -Eeuo pipefail
-source /repo/infra/scripts/deploy/actions/app.sh
+source /repo/infra/blue-green-deploy/scripts/actions/app.sh
 bg_init() {
  ENVIRONMENT=dev RUN_ID=101 ATTEMPT=1 BRANCH=develop
  GITHUB_SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa CONTROL_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
@@ -155,7 +155,7 @@ write_grant "$DIGEST"
 if runner "$DIGEST" modified-compose; then exit 1; fi
 grep -q 'Installed Compose differs' "$DIR/logs/modified-compose.log"
 if docker inspect "$CONTAINER" >/dev/null 2>&1; then exit 1; fi
-cp "$ROOT/infra/deploy/controller/app-compose.yml" "$DIR/etc/app-compose.yml"; chmod 600 "$DIR/etc/app-compose.yml"
+cp "$ROOT/infra/blue-green-deploy/controller/app-compose.yml" "$DIR/etc/app-compose.yml"; chmod 600 "$DIR/etc/app-compose.yml"
 record installed-compose-modification-rejected
 write_grant "$DIGEST"
 if ! runner "$DIGEST" prepare; then cat "$DIR/logs/prepare.log" >&2; exit 1; fi
@@ -185,6 +185,6 @@ docker stop --time 120 "$CONTAINER" > "$DIR/stop-result"
 docker inspect "$CONTAINER" | jq '.[0]|{State,RestartCount}' > "$DIR/shutdown.json"
 jq -e '(.State.Running|not) and (.State.OOMKilled|not) and (.State.ExitCode==0 or .State.ExitCode==143) and .RestartCount==0' "$DIR/shutdown.json" >/dev/null
 record graceful-sigterm-normal-exit
-sha256sum "$ROOT/infra/deploy/controller/app-compose.yml" "$DIR/etc/app-compose.yml" > "$DIR/compose-sha256.txt"
+sha256sum "$ROOT/infra/blue-green-deploy/controller/app-compose.yml" "$DIR/etc/app-compose.yml" > "$DIR/compose-sha256.txt"
 jq -cn --arg image "$IMAGE_REPOSITORY@$DIGEST" '{success:true,image:$image,scenarios:["evicted-image-real-pull","invalid-digest-no-promotion","modified-compose-rejected","ready-paused-production-profile","image-signing-config-preserved","unsafe-standby-blocked","graceful-SIGTERM"],fixture_boundaries:["isolated privileged Linux Docker daemon with private Unix socket, no host ports","local registry instead of GHCR","Postgres with self-signed TLS instead of RDS","host identity/config bootstrap","GitHub read API","read-only SSH grant transport"],production_unchanged:["app_prepare","app_profile","app_snapshot","bg_grant","app-compose.yml"],remote_deployment:false}' > "$DIR/summary.json"
 cat "$DIR/summary.json"

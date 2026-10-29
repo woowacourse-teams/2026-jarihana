@@ -14,7 +14,7 @@ Nginx, Prometheus, Loki, Grafana와 호스트 수집 Alloy는
 | --- | --- |
 | [docker-compose.yml](../../monitoring/docker-compose.yml) | 모니터링 EC2: Nginx·Prometheus·Loki·Grafana·호스트 수집 Alloy. Tempo는 선택 구성 |
 | [legacy prod 앱 Compose](../../docker-compose.yml), [기본 dev 앱 Compose](../../docker-compose.dev.yml) | 각 EC2: 앱과 Alloy, `alloy-data`를 함께 정의 |
-| [Blue-Green 독립 앱 Alloy Compose](../../deploy/controller/observability-compose.yml) | 앱 A/B: 공통 앱 설정 사용, 앱 교체/drain/stop과 수명 분리 |
+| [Blue-Green 독립 앱 Alloy Compose](../../blue-green-deploy/controller/observability-compose.yml) | 앱 A/B: 공통 앱 설정 사용, 앱 교체/drain/stop과 수명 분리 |
 | [중앙 배포 수집기 운영 설치본](CENTRAL-DEPLOYMENT-COLLECTOR.md) | 배포 Nginx EC2: systemd 수집 스크립트와 textfile 전용 Alloy. 설치 소스는 저장소에 없음 |
 | [앱 환경변수 예시](../../.env.example) | 각 앱 EC2: 앱·Alloy 공통 입력 |
 | [alloy/config.alloy](../../monitoring/alloy/config.alloy) | HTTP·호스트 메트릭 수집, health 확인, Docker 로그 전송 |
@@ -275,7 +275,7 @@ RDS 파라미터 그룹에는 `pg_stat_statements`가 미리 로드되고 `compu
 ## 2. 앱 Alloy 배포 경로 선택
 
 Blue-Green 앱 A/B를 설치할 때의 저장소 기준은
-[전체 배포 절차](../../deploy/controller/full-deployment.md)의 독립 Alloy Compose다.
+[전체 배포 절차](../../blue-green-deploy/controller/full-deployment.md)의 독립 Alloy Compose다.
 현재 prod2에서는 별도 프로젝트의 전체 앱 Alloy가 실행 중이고 마운트된 설정이 저장소
 공통 설정과 일치함을 확인했다. 현재 운영 설치가 이 Compose 템플릿에서 만들어졌다는
 의미는 아니다. 공통 `config.alloy`와 `postgres-queries.yaml`을 설치하고,

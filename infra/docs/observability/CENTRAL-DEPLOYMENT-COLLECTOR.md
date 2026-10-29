@@ -3,7 +3,7 @@
 이 문서는 2026-10-28 AWS Session Manager의 읽기 전용 조회로 확인한 운영 설치본을 설명한다.
 앱 A/B의 공통 `config.alloy`, 모니터링 EC2의 `monitoring.alloy`와 별개로 배포 Nginx EC2에
 중앙 배포 수집기와 전용 Alloy가 있다. 앱 호스트용
-[observability-compose.yml](../../deploy/controller/observability-compose.yml)로 설치하는 대상이 아니다.
+[observability-compose.yml](../../blue-green-deploy/controller/observability-compose.yml)로 설치하는 대상이 아니다.
 
 ## 수집 경로와 실제 설치 위치
 
