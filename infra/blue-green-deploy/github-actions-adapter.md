@@ -37,7 +37,7 @@ resolve → plan → prepare(target) → grant-handoff → handoff(old)
 현재 앱 A가 승인 digest로 PAUSED·drained이고 DB 권한 UNASSIGNED, HTTP 대상 A,
 대기 B EC2가 stopped일 때만 최초 등록을 허용한다.
 
-전환 후 봉인 전 실패는 모든 선행 앱 job이 끝난 뒤 다음 순서로 복구한다.
+전환 후 배포 확정 전 실패는 모든 선행 앱 job이 끝난 뒤 다음 순서로 복구한다.
 
 ```text
 rollback-http → release-candidate → grant-rollback-old → resume-old → finish-rollback
@@ -120,7 +120,7 @@ watchdog은 `NEEDS_ATTENTION`만 기록하며 허가 재발급·worker 인계·�
 worker 상태·활동 수치·관찰 시각을 검사한다. 비밀값과 worker token은 출력하지 않는다.
 세부 결과 필드는 [서버별 작업 계약](child-contract.md)을 따른다.
 
-`seal`은 별도 native output `cleanup_deferred`를 전달한다. 정상 봉인은 `false`이며
+`seal`은 별도 native output `cleanup_deferred`를 전달한다. 배포 확정이 정상적으로 끝나면 `false`이며
 `complete-target`은 이 값이 명시적으로 `false`인 경우에만 진행한다. 정상 후보에서 이전 연결만
 종료되지 않으면 `true`를 출력하고 저널을 `NEEDS_ATTENTION`으로 남긴다. 후속 종료·자동 롤백을
 건너뛰고 결과 job은 신규 서버 유지·양쪽 EC2 확인을 요청하며 실패로 끝낸다. 출력이 유실돼도

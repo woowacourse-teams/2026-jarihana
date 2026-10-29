@@ -20,7 +20,7 @@ main 머지 -> BLUE_GREEN_PROD_ENABLED=true인 경우
     -> A 신규 푸시 선점 중단 -> 작업 완료 -> DB 권한 반납
     -> Nginx 검증/reload -> 실제 B API 확인 -> B worker 활성화
     -> 앱 worker와 HTTP 관측 job 병렬 최소 900초: readiness/실제 API/5xx/응답 지연
-    -> A HTTP·백그라운드 종료 -> 롤백 창 봉인
+    -> A HTTP/백그라운드 종료 -> 배포 확정(자동 롤백 구간 종료)
     -> A 앱 SIGTERM 정상 종료 증거 확인 -> A EC2 중지
   다음 배포: 같은 순서로 B -> A
 ```

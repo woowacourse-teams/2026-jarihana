@@ -107,6 +107,7 @@ app_command() {
   bg_atomic "$INTENT_FILE" "$(jq -cn --argjson p "$payload" --argjson b "$before" --argjson a "$expected" --arg operation "$operation" --arg grant "$GRANT_ID" '{resolved:false,operation:$operation,grant:$grant,payload:$p,before:$b,after:$a}')"
   body=$(mktemp "$APP_DIR/body.XXXXXX"); chmod 600 "$body"; printf '%s' "$payload" >"$body"
   app_check
+  bg_live
   if ! response=$(app_http POST "/actuator/workercontrol/$operation" "$body"); then
     rm -f "$body"; bg_die 'Worker command response uncertain; preserved intent, never retry'
   fi
@@ -189,6 +190,7 @@ app_stop_container() {
   stop_id=$(bg_uuid)
   bg_atomic "$STOP_FILE" "$(jq -cn --arg id "$stop_id" --arg boot "$BOOT_ID" --argjson pin "$pin" '{resolved:false,command_id:$id,boot_id:$boot,container:$pin}')"
   app_check
+  bg_live
   docker stop --signal SIGTERM --time -1 -- "$(jq -r '.container_id' <<<"$pin")" >"$APP_DIR/stop.log" 2>&1 &
   stop_pid=$!; deadline=$(( $(bg_now)+120 ))
   while :; do
@@ -244,13 +246,14 @@ app_prepare() {
     fi
     pin=$(app_pin "$(app_inspect)")
     app_check
+    bg_live
     docker rm -- "$(jq -r '.container_id' <<<"$pin")" >/dev/null || bg_die 'Cannot remove normally stopped standby'
   fi
   BOOT_ID=; STOPPED=false
   local args=(docker compose --project-name "$(jq -r '.project' <<<"$CONFIG")" --env-file /dev/null -f "$compose")
   app_check; "${args[@]}" config --quiet >/dev/null 2>&1 || bg_die 'Compose configuration invalid'
   app_check; timeout 150 "${args[@]}" pull backend >"$APP_DIR/compose.log" 2>&1 || bg_die 'Image pull failed'
-  app_check; timeout 150 "${args[@]}" up -d --no-build --pull never backend >>"$APP_DIR/compose.log" 2>&1 || bg_die 'Candidate startup uncertain; preserve container'
+  app_check; bg_live; timeout 150 "${args[@]}" up -d --no-build --pull never backend >>"$APP_DIR/compose.log" 2>&1 || bg_die 'Candidate startup uncertain; preserve container'
   deadline=$(( $(bg_now)+600 ))
   while :; do
     app_check
@@ -339,7 +342,9 @@ main() {
   else
     [[ "$GRANT_OPERATION" == "$OPERATION" ]] || bg_die 'Mutation must use its matching grant operation'
   fi
+  bg_api_context "$OPERATION"
   bg_init app
+  [[ $OPERATION != bootstrap ]] || bg_api_context deploy
   HOST=$(jq -c --arg slot "$BG_SLOT" 'if $slot=="A" then .topology.a else .topology.b end' <<<"$CONFIG")
   HOST_ID=$(jq -r '.host_id' <<<"$HOST"); INSTANCE_ID=$(jq -r '.instance_id' <<<"$HOST")
   MANAGEMENT_PORT=$(jq -r '.management_port' <<<"$CONFIG"); CONTAINER=$(jq -r '.container_name' <<<"$CONFIG")
@@ -363,6 +368,7 @@ main() {
   if [[ "$OPERATION" != prepare ]]; then app_read; BOOT_ID=$(jq -r '.identity.bootId' <<<"$SNAPSHOT"); fi
   app_run
   app_check
+  bg_live
   app_result
 }
 if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi
