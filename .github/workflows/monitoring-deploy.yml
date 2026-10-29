@@ -43,11 +43,23 @@ jobs:
       - name: Canvas 대시보드 생성
         run: node grafana/canvas/build-dashboard.mjs
 
+      - name: 배포 관제 대시보드 생성
+        run: node grafana/deployment/build-dashboard.mjs
+
       - name: Canvas 쿼리 검증
         run: node --test grafana/canvas/test-health.mjs grafana/canvas/test-jdbc-metrics.mjs
 
       - name: 운영 헬스 알림 쿼리 검증
         run: node grafana/test-health-alerts.mjs
+
+      - name: 배포 관제 쿼리 검증
+        run: node grafana/deployment/test-queries.mjs
+
+      - name: 배포 관제 구조 및 파일 프로비저닝 검증
+        run: |
+          node --test grafana/deployment/test-dashboard.mjs
+          docker pull grafana/grafana:13.2.3
+          node grafana/deployment/test-provisioning.mjs
 
       - name: Explore 쿼리 초기화 검증
         run: node --test grafana/explore/sync-starred-queries.test.mjs
