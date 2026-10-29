@@ -1,6 +1,6 @@
 # 서버별 배포 작업의 실행 허가와 결과
 
-`infra/scripts/deploy/actions/app.sh`가 앱 A/B의 로컬 진입점이다.
+`infra/blue-green-deploy/scripts/actions/app.sh`가 앱 A/B의 로컬 진입점이다.
 `backend-app-operation.yml`이 해당 앱의 전용 runner와 GitHub environment를 선택한다.
 전체 native DAG는 [Actions 계약](github-actions-adapter.md), 설치는
 [배포 적용 절차](controller/full-deployment.md)를 따른다.

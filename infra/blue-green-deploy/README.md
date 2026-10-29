@@ -14,27 +14,30 @@
 [배포 적용 절차](controller/full-deployment.md), [Actions 계약](github-actions-adapter.md),
 [서버별 작업 계약](child-contract.md)을 함께 확인한다.
 실제 dev 도메인의 자동 배포 전환은 [dev 자동화 적용 순서](controller/dev-automatic-deployment.md)를 따른다.
-prod 적용 전 준비 범위와 실행 게이트는 [prod Stage 1 준비](../docs/deployment/prod-bluegreen-preparation.md)를 따른다.
+prod 적용 전 준비 범위와 실행 게이트는 [prod Stage 1 준비](docs/prod-bluegreen-preparation.md)를 따른다.
 
 ## 실행 경로
 
-| 위치 (`infra/` 기준) | 역할 |
+| 위치 (`infra/blue-green-deploy/` 기준) | 역할 |
 | --- | --- |
-| `scripts/deploy/actions/common.sh` | root 설정·실제 GitHub/EC2·최신 허가·atomic 저널 공통 경계 |
-| `scripts/deploy/actions/dev-route.sh` | develop push·수동 실행의 배포 경로 선택과 공유 대기 EC2 활성화 충돌 차단 |
-| `scripts/deploy/actions/app.sh` | 앱 전용 runner의 prepare/handoff/activate/observe/complete/stop/rollback/bootstrap |
-| `scripts/deploy/actions/coordinator.sh` | Nginx runner의 plan/grant/switch/observe/seal/EC2/rollback/interrupt/watchdog |
-| `scripts/deploy/actions/cloud.sh` | 계정·VPC·IP를 대조한 EC2 시작·정상 중지 |
-| `scripts/deploy/actions/nginx.sh` | 설정 검사·atomic 전환·실제 경로 및 이전 worker 세대 확인 |
-| `scripts/deploy/actions/queue-guard.sh` | Hosted runner의 300초 queued job·7200초 전체 기한 감시와 현재 run 취소 1회 요청 |
-| `scripts/deploy/migration-review.sh` | PR migration 호환성·잠금 위험 검토 알림 |
-| `deploy/controller/app-compose.yml` | 승인 digest·기본 PAUSED 앱 템플릿 |
-| `deploy/controller/full-*.example.json` | root 소유 coordinator/A/B 설정 예시 |
-| `deploy/controller/systemd/jarihana-deploy-watchdog@.*` | Bash watchdog; 만료 상태 기록만 수행 |
+| `scripts/actions/common.sh` | root 설정·실제 GitHub/EC2·최신 허가·atomic 저널 공통 경계 |
+| `scripts/actions/dev-route.sh` | develop push·수동 실행의 배포 경로 선택과 공유 대기 EC2 활성화 충돌 차단 |
+| `scripts/actions/app.sh` | 앱 전용 runner의 prepare/handoff/activate/observe/complete/stop/rollback/bootstrap |
+| `scripts/actions/coordinator.sh` | Nginx runner의 plan/grant/switch/observe/seal/EC2/rollback/interrupt/watchdog |
+| `scripts/actions/cloud.sh` | 계정·VPC·IP를 대조한 EC2 시작·정상 중지 |
+| `scripts/actions/nginx.sh` | 설정 검사·atomic 전환·실제 경로 및 이전 worker 세대 확인 |
+| `scripts/actions/queue-guard.sh` | Hosted runner의 300초 queued job·7200초 전체 기한 감시와 현재 run 취소 1회 요청 |
+| `scripts/migration-review.sh` | PR migration 호환성·잠금 위험 검토 알림 |
+| `controller/app-compose.yml` | 승인 digest·기본 PAUSED 앱 템플릿 |
+| `controller/full-*.example.json` | root 소유 coordinator/A/B 설정 예시 |
+| `controller/systemd/jarihana-deploy-watchdog@.*` | Bash watchdog; 만료 상태 기록만 수행 |
 
 GitHub native `workflow_call`·`needs`·outputs가 전체 순서를 연결한다. 상태 검사마다
 workflow를 dispatch하지 않으며 Python/uv를 배포 runtime으로 사용하지 않는다.
 앱 업무 Secrets는 선택한 GitHub environment에서만 전달한다.
+이전 경로를 사용하는 immutable control tag도 workflow의 경로 fallback으로 실행한다.
+새 control tag를 설치할 때는 같은 release의 checkout과 새 경로를 사용하는 watchdog unit을
+함께 설치한다. 기존 tag나 실행 중인 서버는 이 패키지 이동만으로 변경하지 않는다.
 
 `BLUE_GREEN_DEV_ENABLED`가 false 또는 미설정이면 develop push는 기존 dev 배포를 유지한다.
 실제 요청 경로와 최초 worker 등록을 준비하고 true로 설정하면 이후 배포 대상 develop push는
@@ -64,19 +67,20 @@ DB 스키마·데이터 자동 복구는 없으며 [DB 변경 규칙](../../docs
 ## 검증
 
 ```sh
-bash -n infra/scripts/deploy/actions/common.sh \
-  infra/scripts/deploy/actions/app.sh infra/scripts/deploy/actions/coordinator.sh \
-  infra/scripts/deploy/migration-review.sh
+for file in infra/blue-green-deploy/scripts/actions/*.sh \
+  infra/blue-green-deploy/scripts/migration-review.sh infra/blue-green-deploy/tests/actions/*.sh; do
+  bash -n "$file"
+done
 # Linux에서 root 소유 보호파일 fixture를 포함한 격리 계약 테스트
-sudo bash infra/tests/deploy/actions/run-tests.sh
+sudo bash infra/blue-green-deploy/tests/actions/run-tests.sh
 # Docker·Java 21·backend bootJar·Alloy 이미지를 준비한 뒤 실제 JVM/Alloy 통합 검증
-bash infra/tests/deploy/actions/run-local-e2e.sh
+bash infra/blue-green-deploy/tests/actions/run-local-e2e.sh
 # 정식 backend/Dockerfile로 빌드한 이미지의 실제 pull·Compose 기동 검증
 # jarihana-actions-test:local, postgres:17, registry:2, docker:27-dind 이미지를 먼저 준비한다.
 BG_COMPOSE_IMAGE=<로컬에서-빌드한-백엔드-이미지> \
-  bash infra/tests/deploy/actions/run-compose-e2e.sh
+  bash infra/blue-green-deploy/tests/actions/run-compose-e2e.sh
 # 실제 격리 Nginx에서 coordinator 조회 ACL 6개 확인
-bash infra/tests/deploy/actions/run-monitoring-acl.sh
+bash infra/blue-green-deploy/tests/actions/run-monitoring-acl.sh
 # actionlint가 설치된 환경에서 저장소 self-hosted 라벨 설정을 사용한다.
 actionlint .github/workflows/backend-bluegreen-deploy.yml \
   .github/workflows/backend-bluegreen-phase.yml \
