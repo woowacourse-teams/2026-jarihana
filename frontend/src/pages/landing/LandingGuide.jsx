@@ -1,4 +1,16 @@
-import { ArrowRight, CalendarDays, Camera, CheckCircle2, ClipboardCheck, Hand, Plus, Search, UserPlus } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarDays,
+  CalendarRange,
+  Camera,
+  CheckCircle2,
+  ClipboardCheck,
+  Hand,
+  MessageCircle,
+  Plus,
+  Search,
+  UserPlus
+} from "lucide-react";
 import { Link } from "react-router";
 
 import { LandingProductScene } from "./LandingProductScene";
@@ -71,6 +83,25 @@ const inviteChapters = [{
   alt: "회원을 검색해 함께할 사람을 선택하고 초대하거나 링크를 공유하는 이용 예시"
 }];
 
+const chatChapters = [
+  {
+    id: "chat",
+    number: "01",
+    icon: MessageCircle,
+    title: "모임 사람들과 바로 대화하기",
+    checks: ["모임마다 열리는 대화방", "안 읽은 메시지 표시"],
+    alt: "참여한 모임의 대화방에서 안 읽은 메시지를 확인하고 바로 답장하는 채팅 이용 예시"
+  },
+  {
+    id: "calendar",
+    number: "02",
+    icon: CalendarRange,
+    title: "다음 일정 한눈에 보기",
+    checks: ["정기 모임과 개별 일정 보기", "날짜를 골라 일정 확인"],
+    alt: "모임 캘린더에서 정기 모임과 개별 일정을 보고 날짜를 골라 그날 일정을 확인하는 이용 예시"
+  }
+];
+
 const activityChapters = [{
   id: "activity",
   number: "01",
@@ -123,7 +154,7 @@ function GuideChapter({ chapter, active }) {
       aria-current={active ? "step" : undefined}
       className="landing-guide-chapter"
       data-guide-chapter={chapter.id}
-      id={`guide-${chapter.id}${["proposal", "invite", "activity"].includes(chapter.id) ? "-demo" : ""}`}
+      id={`guide-${chapter.id}${["proposal", "invite", "chat", "activity"].includes(chapter.id) ? "-demo" : ""}`}
     >
       <div className="landing-guide-chapter__number">
         <Icon aria-hidden="true" size={22} strokeWidth={1.7} />
@@ -290,8 +321,34 @@ export function LandingGuide({ createAction = null, activeChapter = "participate
 
       <GuideSection
         activeChapter={activeChapter}
+        chapters={chatChapters}
+        className="landing-guide-chat"
+        id="guide-chat"
+        titleId="chat-title"
+      >
+        <div
+          aria-current={activeChapter === "chat-intro" ? "step" : undefined}
+          className="landing-guide__intro"
+          data-guide-chapter="chat-intro"
+        >
+          <p className="landing-eyebrow">05 모임 채팅과 일정</p>
+          <h2 id="chat-title">
+            모임 단톡방,
+            <br />
+            따로 만들 필요 없어요.
+          </h2>
+          <p>
+            모임에 참여하면 대화방이 바로 열려요.
+            <br />
+            정기 모임과 개별 일정도 캘린더에서 함께 확인해요.
+          </p>
+        </div>
+      </GuideSection>
+
+      <GuideSection
+        activeChapter={activeChapter}
         chapters={activityChapters}
-        className="landing-guide-activity"
+        className="landing-guide-activity landing-guide--reversed"
         id="guide-activity"
         titleId="activity-title"
       >
@@ -300,8 +357,13 @@ export function LandingGuide({ createAction = null, activeChapter = "participate
           className="landing-guide__intro"
           data-guide-chapter="activity-intro"
         >
-          <p className="landing-eyebrow">05 활동 피드</p>
+          <p className="landing-eyebrow">06 활동 피드</p>
           <h2 id="activity-title">함께한 순간은, 우리의 기록으로.</h2>
+          <p>
+            내 기록에 달린 댓글과 하트는 알림함으로 알려 드려요.
+            <br />
+            휴대폰 홈 화면에 추가하고 알림을 켜면 푸시로도 받을 수 있어요.
+          </p>
         </div>
       </GuideSection>
     </div>

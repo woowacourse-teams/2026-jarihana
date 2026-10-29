@@ -10,7 +10,7 @@ jest.mock("react-router", () => ({
 
 test("every guide illustration uses readable service UI without screenshot assets or pretend controls", () => {
   const { container } = render(<LandingGuide />);
-  const scenes = ["browse", "detail", "continue", "proposal", "create", "manage", "invite", "activity"];
+  const scenes = ["browse", "detail", "continue", "proposal", "create", "manage", "invite", "chat", "calendar", "activity"];
   for (const name of scenes) {
     const frames = container.querySelectorAll(`[data-screen="${name}"]`);
     expect(frames.length).toBeGreaterThan(0);
@@ -106,6 +106,34 @@ test("account and activity examples keep the real product's tabs, photo and conv
   expect(inbox.querySelector("a, button")).toBeNull();
 });
 
+test("chat and calendar examples reuse the real room list, conversation and month grid without controls", () => {
+  const { container } = render(<LandingGuide />);
+  const chat = container.querySelector(".landing-product-scene--chat");
+  const rows = [...chat.querySelectorAll(".chat-room-row")];
+  expect(rows.map((row) => row.querySelector(".chat-room-row__title strong").textContent))
+    .toEqual(["함께 배우는 토요일", "책으로 만나는 사이"]);
+  expect(rows[0].querySelector(".lpm-before .chat-unread")).toHaveTextContent("2");
+  expect(rows[0].querySelector(".chat-room-row__meta")).toHaveTextContent("스터디참여자 6명");
+  expect(chat.querySelector(".chat-date")).toHaveTextContent("10월 24일 토요일");
+  expect([...chat.querySelectorAll(".chat-message:not(.chat-message--mine) .chat-message__author")]
+    .map((author) => author.textContent)).toEqual(["모아", "바다"]);
+  expect(chat.querySelector(".chat-message--mine .chat-message__bubble")).toHaveTextContent("3번 방이에요. 천천히 오세요!");
+  expect(chat.querySelector(".lps-chat-composer")).toHaveTextContent("모임에 이야기를 건네보세요");
+  expect(chat.querySelector("a, button, input, select, textarea")).toBeNull();
+
+  const calendar = container.querySelector(".landing-product-scene--calendar");
+  expect(calendar.querySelector(".lps-calendar-month")).toHaveTextContent("2026년 10월");
+  expect([...calendar.querySelectorAll(".group-calendar__legend > span")].map((item) => item.textContent.trim()))
+    .toEqual(["정기 모임", "개별 일정", "같이해요"]);
+  expect(calendar.querySelectorAll(".group-calendar__day")).toHaveLength(35);
+  expect(calendar.querySelectorAll(".group-calendar__dot--recurring")).toHaveLength(5);
+  expect(calendar.querySelectorAll(".group-calendar__dot--group_event")).toHaveLength(1);
+  expect(calendar.querySelector(".is-today")).toHaveTextContent("22");
+  expect(calendar.querySelector(".lpm-before .group-calendar__agenda-heading")).toHaveTextContent("10월 22일 목요일");
+  expect(calendar.querySelector(".lpm-after .group-calendar__event--recurring")).toHaveTextContent("14:00-16:00함께 배우는 토요일");
+  expect(calendar.querySelector("a, button, input, select, textarea")).toBeNull();
+});
+
 test("proposal example reuses the board card and gathered conditions without real controls", () => {
   const { container } = render(<LandingGuide />);
   const proposal = container.querySelector(".landing-product-scene--proposal");
@@ -133,14 +161,16 @@ test("all usage sections expose the same intro, chapter and showcase structure w
   const { container } = render(<LandingGuide createAction={<a href="/groups/new">모임 만들기</a>} />);
   const sections = [...container.querySelectorAll("[data-guide-sequence]")];
   expect(sections.map((section) => section.id))
-    .toEqual(["guide", "guide-proposal", "guide-host", "guide-invite", "guide-activity"]);
+    .toEqual(["guide", "guide-proposal", "guide-host", "guide-invite", "guide-chat", "guide-activity"]);
   expect([...container.querySelectorAll("[data-guide-chapter]")].map((chapter) => chapter.dataset.guideChapter))
     .toEqual([
       "participate-intro", "browse", "detail", "continue", "proposal-intro", "proposal", "host-intro", "create",
-      "manage", "invite-intro", "invite", "activity-intro", "activity"
+      "manage", "invite-intro", "invite", "chat-intro", "chat", "calendar", "activity-intro", "activity"
     ]);
   expect([...container.querySelectorAll(".landing-guide__intro .landing-eyebrow")].map((eyebrow) => eyebrow.textContent))
-    .toEqual(["01 모임에 참여하기", "02 자유게시판", "03 직접 만들고 운영하기", "04 초대하기", "05 활동 피드"]);
+    .toEqual([
+      "01 모임에 참여하기", "02 자유게시판", "03 직접 만들고 운영하기", "04 초대하기", "05 모임 채팅과 일정", "06 활동 피드"
+    ]);
   for (const section of sections) {
     expect(section).toHaveClass("landing-guide-section");
     expect(section.querySelector(".landing-guide__intro h2")).toBeInTheDocument();
@@ -148,8 +178,11 @@ test("all usage sections expose the same intro, chapter and showcase structure w
     expect(section.querySelector(".landing-guide__showcase .landing-guide-frame")).toBeInTheDocument();
   }
   expect(sections.map((section) => section.classList.contains("landing-guide--reversed")))
-    .toEqual([false, true, false, true, false]);
+    .toEqual([false, true, false, true, false, true]);
   expect(screen.getByRole("heading", { level: 2, name: "이런 모임, 같이할 사람?" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { level: 2, name: "모임 단톡방, 따로 만들 필요 없어요." })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { level: 3, name: "모임 사람들과 바로 대화하기" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { level: 3, name: "다음 일정 한눈에 보기" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { level: 3, name: "함께할 마음 모으기" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { level: 2, name: "이 자리, 네가 함께하면 좋겠어." })).toBeInTheDocument();
   expect(screen.getByRole("heading", { level: 2, name: "함께한 순간은, 우리의 기록으로." })).toBeInTheDocument();
@@ -165,7 +198,7 @@ test("the controlled active chapter selects one desktop demo and keeps the nativ
 
   expect(container.querySelector('[data-guide-chapter="participate-intro"]')).toHaveAttribute("aria-current", "step");
   const desktopFrames = [...container.querySelectorAll(".landing-guide__showcase .landing-guide-frame")];
-  for (const intro of ["participate-intro", "proposal-intro", "host-intro", "invite-intro", "activity-intro"]) {
+  for (const intro of ["participate-intro", "proposal-intro", "host-intro", "invite-intro", "chat-intro", "activity-intro"]) {
     rerender(<LandingGuide activeChapter={intro} />);
     expect(container.querySelector(`[data-guide-chapter="${intro}"]`)).toHaveAttribute("aria-current", "step");
     for (const frame of desktopFrames) {
@@ -175,7 +208,7 @@ test("the controlled active chapter selects one desktop demo and keeps the nativ
     }
   }
 
-  for (const id of ["browse", "detail", "continue", "proposal", "create", "manage", "invite", "activity"]) {
+  for (const id of ["browse", "detail", "continue", "proposal", "create", "manage", "invite", "chat", "calendar", "activity"]) {
     rerender(<LandingGuide activeChapter={id} />);
     expect(container.querySelector(`[data-guide-chapter="${id}"]`)).toHaveAttribute("aria-current", "step");
     expect(container.querySelectorAll('[data-guide-chapter][aria-current="step"]')).toHaveLength(1);
@@ -200,7 +233,7 @@ test("the controlled active chapter selects one desktop demo and keeps the nativ
 test("every usage chapter has a heading, two feature checks and a demo without repeated prose", () => {
   const { container } = render(<LandingGuide />);
   const chapters = [...container.querySelectorAll(".landing-guide-chapter")];
-  expect(chapters).toHaveLength(8);
+  expect(chapters).toHaveLength(10);
   for (const chapter of chapters) {
     expect(chapter.querySelector("h3")).toBeInTheDocument();
     expect(chapter.querySelectorAll(".landing-guide-checks > li")).toHaveLength(2);

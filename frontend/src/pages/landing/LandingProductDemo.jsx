@@ -9,6 +9,8 @@ const demoDurations = {
   proposal: "6.5s",
   manage: "6s",
   invite: "6.5s",
+  chat: "7.5s",
+  calendar: "6s",
   activity: "12s"
 };
 
@@ -19,6 +21,8 @@ const demoLabels = {
   proposal: "자유게시판 화면 데모 제어",
   manage: "신청 관리 화면 데모 제어",
   invite: "초대하기 화면 데모 제어",
+  chat: "채팅 화면 데모 제어",
+  calendar: "모임 캘린더 화면 데모 제어",
   activity: "활동 피드 화면 데모 제어"
 };
 
@@ -46,6 +50,14 @@ const analyticsActions = {
   invite: {
     pause: "landing_invite_demo_pause_toggle",
     replay: "landing_invite_demo_replay"
+  },
+  chat: {
+    pause: "landing_chat_demo_pause_toggle",
+    replay: "landing_chat_demo_replay"
+  },
+  calendar: {
+    pause: "landing_calendar_demo_pause_toggle",
+    replay: "landing_calendar_demo_replay"
   },
   activity: {
     pause: "landing_activity_demo_pause_toggle",

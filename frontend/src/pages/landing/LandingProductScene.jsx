@@ -11,6 +11,7 @@ import {
   Search,
   Smile,
   UserPlus,
+  Users,
   UsersRound,
   X
 } from "lucide-react";
@@ -18,6 +19,8 @@ import {
 import { Avatar, GroupImage, StatusBadge } from "../../shared/ui";
 import { DiscoveryGroupCard } from "../groups/home/DiscoveryGroupCard";
 import "../groups/home/discovery.css";
+import "../groups/groupCalendar.css";
+import "../chat/chat.css";
 import "../proposals/proposals.css";
 import recruitmentImage from "../../shared/assets/illustrations/group-recruitment-open.webp";
 import studyImage from "../../shared/assets/landing/default-group-study.webp";
@@ -279,6 +282,234 @@ function ProposalScene() {
   );
 }
 
+// 채팅 예시: 안 읽은 메시지 2개가 있는 대화방을 열어 읽고, 바로 답장한다.
+const chatRooms = [
+  {
+    group: studyGroup,
+    type: "study",
+    typeLabel: "스터디",
+    members: 6,
+    time: "13:12",
+    preview: "저 조금 늦어요. 먼저 시작해 주세요!",
+    unread: 2
+  },
+  {
+    group: bookGroup,
+    type: "club",
+    typeLabel: "동아리",
+    members: 8,
+    time: "어제",
+    preview: "다음 책은 투표로 정해요."
+  }
+];
+
+const chatMessages = [
+  { id: "moa", author: "모아", text: "오늘 2시 강남역 스터디룸 맞죠?", time: "13:05", delay: "2.2s" },
+  { id: "bada", author: "바다", text: "저 조금 늦어요. 먼저 시작해 주세요!", time: "13:12", delay: "2.5s" }
+];
+
+const myReply = "3번 방이에요. 천천히 오세요!";
+
+function ChatRoomRow({ room, active = false }) {
+  return (
+    <li>
+      <div
+        className={`chat-room-row chat-room-row--${room.type}${active ? " lpm-emphasis" : ""}`}
+        style={active ? { "--motion-delay": "1.2s" } : undefined}
+      >
+        <span className="chat-room-row__cover">
+          <GroupImage alt="" group={room.group} height="64" width="64" />
+        </span>
+        <div className="chat-room-row__body">
+          <div className="chat-room-row__title">
+            <strong>{room.group.name}</strong>
+            <time>{room.time}</time>
+          </div>
+          <div className="chat-room-row__preview">
+            <p>{room.preview}</p>
+            {room.unread ? (
+              <MotionSwap
+                after={null}
+                before={<span className="chat-unread">{room.unread}</span>}
+                className="lps-chat-unread"
+                delay="1.6s"
+              />
+            ) : null}
+          </div>
+          <span className="chat-room-row__meta">
+            <span className="chat-room-type">{room.typeLabel}</span>
+            <span>참여자 {room.members}명</span>
+          </span>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function ChatScene() {
+  return (
+    <>
+      <div className="lps-chat-list lpm-arrive" style={{ "--motion-delay": "0.3s" }}>
+        <div className="lps-chat-list__heading">
+          <strong className="lps-title">채팅</strong>
+          <span>내 모임 {chatRooms.length}</span>
+        </div>
+        <ul className="chat-room-list">
+          {chatRooms.map((room, index) => (
+            <ChatRoomRow active={index === 0} key={room.group.id} room={room} />
+          ))}
+        </ul>
+      </div>
+      <div className="lps-chat-room lpm-arrive" style={{ "--motion-delay": "1.8s" }}>
+        <div className="chat-conversation__header">
+          <div className="chat-conversation__identity">
+            <strong className="lps-chat-room__title">{studyGroup.name}</strong>
+            <span><Users size={12} /> 참여자 6명</span>
+          </div>
+        </div>
+        <div className="chat-thread lps-chat-thread">
+          <div className="chat-date"><span>10월 24일 토요일</span></div>
+          {chatMessages.map((message) => (
+            <div className="chat-message lpm-arrive" key={message.id} style={{ "--motion-delay": message.delay }}>
+              <div className="chat-message__avatar">
+                <Avatar fallback={message.author.slice(0, 1)} size="sm" />
+              </div>
+              <div className="chat-message__content">
+                <span className="chat-message__author">{message.author}</span>
+                <div className="chat-message__line">
+                  <p className="chat-message__bubble">{message.text}</p>
+                  <time>{message.time}</time>
+                </div>
+              </div>
+            </div>
+          ))}
+          <div className="chat-message chat-message--mine lpm-arrive" style={{ "--motion-delay": "4.7s" }}>
+            <div className="chat-message__content">
+              <div className="chat-message__line">
+                <p className="chat-message__bubble">{myReply}</p>
+                <time>13:14</time>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="chat-composer lps-chat-composer">
+          <div className="chat-composer__field">
+            <span className="lps-chat-input">
+              <MotionSwap
+                after={<span className="lps-chat-placeholder">모임에 이야기를 건네보세요</span>}
+                before={<span className="lpm-type" style={{ "--motion-delay": "3.1s", "--type-duration": "1.3s" }}>{myReply}</span>}
+                delay="4.7s"
+              />
+            </span>
+            <span className="ui-button ui-button--primary ui-button--md chat-send lpm-submit" style={{ "--motion-delay": "4.7s" }}>
+              전송
+            </span>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// 캘린더 예시: 2026년 10월(1일이 목요일)을 실제 휴대폰 화면처럼 점으로 보여 주고, 22일에서 24일로 날짜를 옮긴다.
+const CALENDAR_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+const calendarDays = [
+  ...[27, 28, 29, 30].map((day) => ({ day, outside: true })),
+  ...Array.from({ length: 31 }, (_, index) => ({ day: index + 1, outside: false }))
+];
+
+function calendarDots(day, outside) {
+  if (outside) return [];
+  const dots = [];
+  if ((day - 3) % 7 === 0) dots.push("recurring");
+  if (day === 22) dots.push("group_event");
+  return dots;
+}
+
+function CalendarEvent({ kind, time, title }) {
+  return (
+    <span className={`group-calendar__event group-calendar__event--${kind}`}>
+      <span className="group-calendar__event-copy">
+        <span className="group-calendar__event-time">{time}</span>
+        <span className="group-calendar__event-title">{title}</span>
+      </span>
+    </span>
+  );
+}
+
+function CalendarAgenda({ label, children }) {
+  return (
+    <span className="lps-calendar-agenda">
+      <span className="group-calendar__agenda-heading">
+        <strong>{label}</strong>
+        <span>일정 1개</span>
+      </span>
+      {children}
+    </span>
+  );
+}
+
+function CalendarScene() {
+  return (
+    <div className="group-calendar lpm-arrive" style={{ "--motion-delay": "0.3s" }}>
+      <div className="group-calendar__toolbar">
+        <div className="group-calendar__navigation">
+          <strong className="lps-calendar-month">2026년 10월</strong>
+          <span className="group-calendar__today-button lps-calendar-chip">오늘</span>
+        </div>
+      </div>
+      <div className="group-calendar__legend">
+        <span><i className="group-calendar__swatch group-calendar__swatch--recurring" /> 정기 모임</span>
+        <span><i className="group-calendar__swatch group-calendar__swatch--group-event" /> 개별 일정</span>
+        <span><i className="group-calendar__swatch group-calendar__swatch--session" /> 같이해요</span>
+      </div>
+      <div className="group-calendar__grid">
+        <div className="group-calendar__weekdays">
+          {CALENDAR_WEEKDAYS.map((label) => <span key={label}>{label}</span>)}
+        </div>
+        <div className="group-calendar__days">
+          {calendarDays.map(({ day, outside }, index) => {
+            const dots = calendarDots(day, outside);
+            const pick = day === 22 && !outside ? " lps-calendar-day--from" : day === 24 && !outside ? " lps-calendar-day--to" : "";
+            return (
+              <div className={`group-calendar__day${outside ? " is-outside" : ""}${pick}`} key={`${outside ? "prev" : "oct"}-${day}`}>
+                <span className={`group-calendar__date${day === 22 && !outside ? " is-today" : ""}`}>
+                  <span className="group-calendar__date-number">{day}</span>
+                </span>
+                {dots.length ? (
+                  <span
+                    className="group-calendar__dots lpm-arrive"
+                    style={{ "--motion-delay": `${0.8 + Math.floor(index / 7) * 0.15}s` }}
+                  >
+                    {dots.map((kind) => <i className={`group-calendar__dot group-calendar__dot--${kind}`} key={kind} />)}
+                  </span>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div className="group-calendar__agenda">
+        <MotionSwap
+          after={(
+            <CalendarAgenda label="10월 24일 토요일">
+              <CalendarEvent kind="recurring" time="14:00-16:00" title={studyGroup.name} />
+            </CalendarAgenda>
+          )}
+          before={(
+            <CalendarAgenda label="10월 22일 목요일">
+              <CalendarEvent kind="group_event" time="20:00" title="온라인 중간 점검" />
+            </CalendarAgenda>
+          )}
+          className="lps-calendar-swap"
+          delay="2.8s"
+        />
+        <p className="group-calendar__privacy-note">장소와 설명은 모임원에게만 보여요.</p>
+      </div>
+    </div>
+  );
+}
+
 function Applicant({ name, approved, children }) {
   return (
     <div className="lps-applicant lps-enter">
@@ -380,6 +611,8 @@ const scenes = {
   proposal: ProposalScene,
   manage: ManageScene,
   invite: InviteScene,
+  chat: ChatScene,
+  calendar: CalendarScene,
   activity: LandingActivityScene
 };
 
