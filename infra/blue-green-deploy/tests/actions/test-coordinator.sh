@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)
-source "$ROOT/infra/scripts/deploy/actions/coordinator.sh"
+source "$ROOT/infra/blue-green-deploy/scripts/actions/coordinator.sh"
 TEST_DIR=$(mktemp -d "${TMPDIR:-/tmp}/bg-coordinator.XXXXXX")
 TEST_DIR=$(cd "$TEST_DIR" && pwd -P)
 trap 'rm -rf "$TEST_DIR"' EXIT
@@ -53,7 +53,7 @@ setup() {
   mkdir -p "$TEST_DIR/state/nginx"
   chmod 700 "$TEST_DIR/state" "$TEST_DIR/state/nginx"
   export STATE_FILE="$TEST_DIR/state/state.json"
-  CONFIG=$(jq -c --arg directory "$TEST_DIR/state/nginx" '.nginx.directory=$directory' "$ROOT/infra/deploy/controller/full-coordinator.example.json")
+  CONFIG=$(jq -c --arg directory "$TEST_DIR/state/nginx" '.nginx.directory=$directory' "$ROOT/infra/blue-green-deploy/controller/full-coordinator.example.json")
   ENVIRONMENT=dev; RUN_ID=123; GITHUB_SHA=bbbb; CONTROL_SHA=aaaa; REPO=woowacourse-teams/2026-jarihana
   STATE=$(jq -cn '{schema_version:2,revision:0,environment:"dev",run_id:123,attempt:1,sha:"bbbb",control_sha:"aaaa",mode:"deploy",deployment_id:"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",phase:"PREPARING",target:"B",old:"A",image:"sha256:test",heartbeat:900,expires_at:8000,pending:{id:"grant-1",operation:"prepare",slot:"B",deadline:2500},old_status:null,target_status:null,switched:false,sealed:false}')
   STATE=$(jq -c --arg topology "$(bg_topology_digest)" '.topology_digest=$topology' <<<"$STATE")

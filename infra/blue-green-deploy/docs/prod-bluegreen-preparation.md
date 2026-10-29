@@ -12,7 +12,7 @@ SSH grant 조회는 관리 접속과 별개인 기존 제어 계약이며 이 �
 `backend-prod-deploy.yml`에는 이미 main push와 `BLUE_GREEN_PROD_ENABLED=true`의
 자동 Blue-Green 경로가 있다. `backend-bluegreen-deploy.yml`의 기존 controller·worker
 인계·관찰·롤백을 재사용한다. 새 controller나 prod 전용 orchestration을 만들지 않는다.
-호스트 설치 계약은 [공통 설치 기준](../../deploy/controller/full-deployment.md)을 따른다.
+호스트 설치 계약은 [공통 설치 기준](../controller/full-deployment.md)을 따른다.
 
 `frontend-prod-deploy.yml`은 hosted build를 유지하고 S3 업로드 job만 기존 EC2 IAM으로
 실행한다. `FRONTEND_PROD_DEPLOY_RUNNER`가 없으면 기존 `jarihana-prod`를 사용한다.
@@ -37,7 +37,7 @@ ARM64가 아니면서 CLI가 없는 호스트는 공통 라벨을 활성화하�
 ## 실제 적용 전 통과해야 할 게이트
 
 1. **공유 B 반환:** prod2를 사용하던 dev Blue-Green을 해제하고 기존 dev를 복구한다.
-   [dev 해제 순서](../../deploy/controller/dev-automatic-deployment.md#실패-시와-prod-이관)에 따라 dev A의
+   [dev 해제 순서](../controller/dev-automatic-deployment.md#실패-시와-prod-이관)에 따라 dev A의
    HTTP/worker 복귀, 기존 dev 앱·runner 복구, 실제 dev API 확인, 모든 관련 실행 종료를
    먼저 검증한다. dev flag를 false로 유지하고 B의 dev 앱·라벨·설정·watchdog을 정리한다.
    dev/prod 동시 활성화는 금지한다. flag만 false로 바꾸거나 B를 강제로 중지하지 않는다.
@@ -73,7 +73,7 @@ ARM64가 아니면서 CLI가 없는 호스트는 공통 라벨을 활성화하�
    한다. 최초 bootstrap은 승인한 시간에 한 번 수행한다. 실제 인증·쓰기·이미지·푸시와
    CloudFront Deployed를 확인한 뒤 prod 자동화 flag를 켠다. 수동 실행에는 `deploy`를 명시한다.
    첫 교대와 역방향 교대, 관찰·정상 종료·EC2 중지를 실제 확인하기 전에는 검증 완료로
-   기록하지 않는다. [관찰과 복구 계약](../../deploy/controller/full-deployment.md#관찰과-복구)의 최소 900초 관찰·
+   기록하지 않는다. [관찰과 복구 계약](../controller/full-deployment.md#관찰과-복구)의 최소 900초 관찰·
    연속 실패/UNKNOWN 판정·봉인 전 자동 롤백을 유지한다. 봉인 후 장애는 별도 복구 대상이며
    `cleanup_deferred`나 미확정 상태이면 양쪽 호스트를 보존한다.
 
@@ -81,7 +81,7 @@ ARM64가 아니면서 CLI가 없는 호스트는 공통 라벨을 활성화하�
 
 HTTP 경로를 먼저 준비할 수 있는 후보로 **물리 prod2를 논리 A, 기존 물리 prod를 논리 B**로
 매핑한다. 현재 dev에서 쓰는 A/B 명칭과 별개이며 아직 실제 매핑/설정 변경은 없다.
-기존 [공통 bootstrap 설명](../../deploy/controller/full-deployment.md#github-설정과-최초-초기화)의 A가 기존 prod
+기존 [공통 bootstrap 설명](../controller/full-deployment.md#github-설정과-최초-초기화)의 A가 기존 prod
 물리 호스트를 강제한다는 뜻은 아니다. `coordinator.sh`의 `bg_plan`은 실제 Nginx 대상에서
 old slot을 읽고 반대 target EC2가 stopped인지 검사한다. `app.sh`의 bootstrap은 그 old
 slot 앱의 drained·UNASSIGNED·승인 digest를 검사한 뒤 권한을 등록한다. 물리 호스트의

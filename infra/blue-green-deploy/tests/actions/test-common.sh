@@ -2,7 +2,7 @@
 # Execute boundary checks without AWS/GitHub credentials or production access.
 set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)
-source "$ROOT/infra/scripts/deploy/actions/common.sh"
+source "$ROOT/infra/blue-green-deploy/scripts/actions/common.sh"
 TEST_DIR=$(mktemp -d)
 trap 'rm -rf -- "$TEST_DIR"' EXIT
 passed=0
@@ -76,18 +76,18 @@ if [[ $(uname -s) == Linux ]]; then
     reject bg_root_file "$TEST_DIR/state/protected.json" 2
     pass 'real Linux permissions reject public secrets, writable and oversized configuration'
     for example in full-app-A.example.json full-coordinator.example.json; do
-      cp "$ROOT/infra/deploy/controller/$example" "$TEST_DIR/state/config.json"
+      cp "$ROOT/infra/blue-green-deploy/controller/$example" "$TEST_DIR/state/config.json"
       chmod 640 "$TEST_DIR/state/config.json"
       bg_config "$TEST_DIR/state/config.json"
       pass "valid root example accepted ($example)"
     done
     for mutation in '.management_port=8081.5' '.app_port=.management_port' '.compose_file="/etc/jarihana-deploy/prod/app-compose.yml"' '.worker_token_file="/etc/jarihana-deploy/prod/worker-token"'; do
-      jq "$mutation" "$ROOT/infra/deploy/controller/full-app-A.example.json" > "$TEST_DIR/state/config.json"
+      jq "$mutation" "$ROOT/infra/blue-green-deploy/controller/full-app-A.example.json" > "$TEST_DIR/state/config.json"
       reject bg_config "$TEST_DIR/state/config.json"
       pass "invalid app configuration rejected ($mutation)"
     done
     for mutation in '.nginx.directory="/var/lib/jarihana-deploy/prod/nginx"' '.telemetry.url="http://user:password@host/prometheus"' '.ec2.region="other"'; do
-      jq "$mutation" "$ROOT/infra/deploy/controller/full-coordinator.example.json" > "$TEST_DIR/state/config.json"
+      jq "$mutation" "$ROOT/infra/blue-green-deploy/controller/full-coordinator.example.json" > "$TEST_DIR/state/config.json"
       reject bg_config "$TEST_DIR/state/config.json"
       pass "invalid coordinator configuration rejected ($mutation)"
     done
