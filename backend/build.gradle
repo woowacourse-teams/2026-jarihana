@@ -60,4 +60,6 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	// 함께 보관하는 통합 테스트 컨텍스트와 커넥션 풀의 수를 제한한다.
+	systemProperty 'spring.test.context.cache.maxSize', '8'
 }

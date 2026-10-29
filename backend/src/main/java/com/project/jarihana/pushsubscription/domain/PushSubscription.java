@@ -68,6 +68,9 @@ public class PushSubscription extends BaseEntity {
     @Column(name = "generation", nullable = false)
     private long generation;
 
+    @Column(name = "client_version", nullable = false)
+    private int clientVersion;
+
     @Column(name = "last_seen_at", nullable = false)
     private LocalDateTime lastSeenAt;
 
@@ -75,7 +78,7 @@ public class PushSubscription extends BaseEntity {
     private LocalDateTime disabledAt;
 
     private PushSubscription(Long id, Member member, String endpoint, String p256dh, String auth, boolean enabled,
-                             long generation, LocalDateTime lastSeenAt, LocalDateTime disabledAt, LocalDateTime createdAt) {
+                             long generation, int clientVersion, LocalDateTime lastSeenAt, LocalDateTime disabledAt, LocalDateTime createdAt) {
         super(Objects.requireNonNull(createdAt));
         this.id = id;
         this.member = Objects.requireNonNull(member);
@@ -84,21 +87,29 @@ public class PushSubscription extends BaseEntity {
         this.auth = validateKey(auth, 16);
         this.enabled = enabled;
         this.generation = generation;
+        if (clientVersion < 1 || clientVersion > 2) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "지원하지 않는 푸시 클라이언트 버전입니다.");
+        }
+        this.clientVersion = clientVersion;
         this.lastSeenAt = Objects.requireNonNull(lastSeenAt);
         this.disabledAt = disabledAt;
     }
 
     public static PushSubscription create(Member member, String endpoint, String p256dh, String auth, LocalDateTime now) {
-        return new PushSubscription(null, member, endpoint, p256dh, auth, true, 1, now, null, now);
+        return new PushSubscription(null, member, endpoint, p256dh, auth, true, 1, 1, now, null, now);
     }
 
     public PushSubscription reconnect(String p256dh, String auth, LocalDateTime now) {
+        return reconnect(p256dh, auth, 1, now);
+    }
+
+    public PushSubscription reconnect(String p256dh, String auth, int clientVersion, LocalDateTime now) {
         String validatedPublicKey = validateKey(p256dh, 65);
         String validatedAuth = validateKey(auth, 16);
         boolean connectionChanged = !enabled || !this.p256dh.equals(validatedPublicKey) || !this.auth.equals(validatedAuth);
         long nextGeneration = connectionChanged ? Math.incrementExact(generation) : generation;
         return new PushSubscription(id, member, endpoint, validatedPublicKey, validatedAuth, true,
-                nextGeneration, now, null, getCreatedAt());
+                nextGeneration, clientVersion, now, null, getCreatedAt());
     }
 
     public PushSubscription disable(LocalDateTime now) {
@@ -106,7 +117,7 @@ public class PushSubscription extends BaseEntity {
             return this;
         }
         return new PushSubscription(id, member, endpoint, p256dh, auth, false,
-                Math.incrementExact(generation), lastSeenAt, Objects.requireNonNull(now), getCreatedAt());
+                Math.incrementExact(generation), clientVersion, lastSeenAt, Objects.requireNonNull(now), getCreatedAt());
     }
 
     private static String validateEndpoint(String endpoint) {

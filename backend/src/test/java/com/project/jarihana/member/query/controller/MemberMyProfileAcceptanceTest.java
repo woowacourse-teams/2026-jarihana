@@ -3,8 +3,13 @@ package com.project.jarihana.member.query.controller;
 import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.member.command.repository.MemberRepository;
+import com.project.jarihana.member.domain.Bootcamp;
+import com.project.jarihana.member.domain.BootcampStatus;
+import com.project.jarihana.member.domain.Career;
+import com.project.jarihana.member.domain.Company;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
+import com.project.jarihana.member.domain.MemberField;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.SignupSessionFixture;
 import io.restassured.RestAssured;
@@ -67,6 +72,61 @@ class MemberMyProfileAcceptanceTest extends IntegrationTestSupport {
         assertThat(response.jsonPath().getString("data.member.avatarUrl"))
                 .isEqualTo("https://avatars.githubusercontent.com/u/" + GITHUB_ID);
         assertThat((Object) response.jsonPath().get("error")).isNull();
+    }
+
+    @DisplayName("부트캠프 회원도 Access Token으로 자신의 정보를 조회한다.")
+    @Test
+    void respondProfileToBootcampMember() {
+        // Given
+        Member member = memberRepository.save(Member.createBootcamp(
+                "도담", GITHUB_ID, Bootcamp.of("SSAFY", BootcampStatus.IN_PROGRESS, null), MemberField.BACKEND
+        ));
+
+        // When
+        ExtractableResponse<Response> response = RestAssured.given()
+                .cookie(authCookieProperties.accessTokenName(), accessTokenOf(member))
+                .when()
+                .get(MY_PROFILE_PATH)
+                .then()
+                .extract();
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.OK.value());
+        assertThat(response.jsonPath().getString("data.member.crewName")).isEqualTo("도담");
+        assertThat(response.jsonPath().getString("data.member.memberType")).isEqualTo("BOOTCAMP");
+        assertThat((Object) response.jsonPath().get("data.member.generation")).isNull();
+        assertThat((Object) response.jsonPath().get("data.member.course")).isNull();
+        assertThat(response.jsonPath().getString("data.member.bootcamp.name")).isEqualTo("SSAFY");
+        assertThat(response.jsonPath().getString("data.member.bootcamp.status")).isEqualTo("IN_PROGRESS");
+        assertThat((Object) response.jsonPath().get("data.member.bootcamp.cohort")).isNull();
+        assertThat(response.jsonPath().getString("data.member.field")).isEqualTo("BACKEND");
+        assertThat((Object) response.jsonPath().get("data.member.company")).isNull();
+    }
+
+    @DisplayName("현직자는 자신의 직무, 연차와 회사 공개 여부를 조회한다.")
+    @Test
+    void respondProfileToProfessionalMember() {
+        // Given
+        Member member = memberRepository.save(Member.createProfessional(
+                "하나", GITHUB_ID, MemberField.DATA_AI, Career.YEARS_4_6, Company.of("자리하나", false)
+        ));
+
+        // When
+        ExtractableResponse<Response> response = RestAssured.given()
+                .cookie(authCookieProperties.accessTokenName(), accessTokenOf(member))
+                .when()
+                .get(MY_PROFILE_PATH)
+                .then()
+                .extract();
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.OK.value());
+        assertThat(response.jsonPath().getString("data.member.memberType")).isEqualTo("PROFESSIONAL");
+        assertThat(response.jsonPath().getString("data.member.field")).isEqualTo("DATA_AI");
+        assertThat(response.jsonPath().getString("data.member.career")).isEqualTo("YEARS_4_6");
+        assertThat(response.jsonPath().getString("data.member.company.name")).isEqualTo("자리하나");
+        assertThat(response.jsonPath().getBoolean("data.member.company.visible")).isFalse();
+        assertThat((Object) response.jsonPath().get("data.member.bootcamp")).isNull();
     }
 
     private String accessTokenOf(Member member) {

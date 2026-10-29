@@ -72,6 +72,20 @@
 - 보류 제안은 `docs/proposals/convention-review.md`에 기록하며, 수락 전에는 구현에 적용하지
   않는다.
 
+## 백엔드 테스트
+
+```bash
+./gradlew test --no-daemon
+```
+
+CI와 로컬에서 같은 전체 테스트 명령을 사용한다. `build.gradle`의 test task는
+`spring.test.context.cache.maxSize=8`을 테스트 JVM에 전달한다. 서로 다른 설정의
+Spring 컨텍스트가 누적되어 전체 테스트 후반에 heap이 부족해지는 것을 방지한다.
+캐시 안에서는 컨텍스트를 재사용하며, 한도를 넘으면 오래 사용하지 않은 컨텍스트와
+그 자원을 닫는다. `@DirtiesContext`로 테스트마다 초기화하지 않는다.
+이 값은 운영 앱의 설정이나 JVM 메모리를 바꾸지 않는다.
+설정 근거는 [Spring TestContext 캐시 문서](https://docs.spring.io/spring-framework/reference/testing/testcontext-framework/ctx-management/caching.html)를 따른다.
+
 ## 애플리케이션 로그
 
 로컬 콘솔, dev/prod ECS JSON, 현재 Docker `local` → Alloy → Loki 경로와 legacy CloudWatch 조회 방법은

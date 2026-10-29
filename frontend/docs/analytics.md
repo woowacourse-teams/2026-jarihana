@@ -12,6 +12,17 @@
 분석과 녹화 조회는 PostHog 관리자 화면에서 수행한다. 자리하나의 서비스 화면이나
 DB 테이블·스키마는 추가하지 않는다.
 
+## 모임 공지 UI의 고정 식별자
+
+| 동작 | action |
+| --- | --- |
+| 공지 탭 열기·목록에서 공지 열기·상세에서 모임 열기 | `group_announcement_tab_open`, `group_announcement_open`, `group_announcement_group_open` |
+| 공지 작성 모달 열기·닫기·취소 | `group_announcement_create_open`, `group_announcement_create_dismiss`, `group_announcement_create_cancel` |
+| 제목·본문 입력과 공개 범위 변경 | `group_announcement_title_change`, `group_announcement_content_change`, `group_announcement_scope_change` |
+| 공지 등록·목록 다시 시도·더 보기·상세 다시 시도·목록 복귀 | `group_announcement_create_submit`, `group_announcement_list_retry`, `group_announcement_load_more`, `group_announcement_detail_retry`, `group_announcement_list_return` |
+
+입력 폼과 공지 본문은 `data-ph-private`로 가리고, action 식별자에는 제목·본문·모임원 이름·공지 ID를 넣지 않는다. 공지 작성 성공 전용 PostHog 이벤트는 정의하지 않았으며, 자동 수집으로 API 성공을 추정하지 않는다.
+
 ## 초대 UI의 고정 식별자
 
 모임 상세의 초대 흐름은 다음 action으로 구분한다. 회원 이름·검색어·선택 대상 ID·초대 토큰·공유 주소를 action에 포함하지 않는다.
@@ -29,6 +40,23 @@ DB 테이블·스키마는 추가하지 않는다.
 회원 검색 버튼은 제거하고, `invitation_search_submit`은 검색 폼의 Enter 제출에 유지한다.
 위 action은 사용자 조작 식별자이며 발급 성공·복사 성공을 보장하는 이벤트는 아니다.
 초대 전용 성공 이벤트와 전환 연결은 아래 계약을 따른다. 공유 초대 페이지에서도 명시적 초대 이벤트만 수집한다. 실제 PostHog 수신은 별도 검증이 필요하다.
+
+## 회원가입 UI의 고정 식별자
+
+가입 화면은 첫 화면에서 부트캠프 또는 회사를 고른 뒤 한 화면에 질문 하나씩 묻는다. 단계별 action으로 어느 질문에서 이탈하는지 구분한다. 닉네임, 캠프 이름, 회사명 같은 입력값은 action에 넣지 않는다.
+
+| 동작 | action |
+| --- | --- |
+| 첫 화면에서 부트캠프, 회사 선택 | `signup_member_type_select` |
+| 이전 단계, 다음 단계 | `signup_step_back`, `signup_step_next` |
+| 부트캠프 선택, 직접 입력한 캠프 이름, 캠프 기수 | `signup_bootcamp_select`, `signup_bootcamp_name_input`, `signup_bootcamp_cohort_input` |
+| 우아한테크코스를 고른 뒤 크루 인증 시작 | `signup_crew_verification_start` |
+| 수강 상태, 공부 분야, 직무, 연차 선택 | `signup_bootcamp_status_select`, `signup_field_select`, `signup_job_select`, `signup_career_select` |
+| 닉네임, 크루 과정, 크루 기수 | `signup_name_input`, `signup_course_select`, `signup_generation_select` |
+| 회사명, 회사명 공개 여부 | `signup_company_input`, `signup_company_public_toggle` |
+| 가입 완료하기, 확인, 확인 창 닫기와 취소 | `signup_submit`, `signup_confirm`, `signup_confirmation_dismiss` |
+
+가입 성공은 기존처럼 회원 생성 응답 뒤 `signup_completed`로 따로 기록한다. 크루 인증 방법이 정해지기 전까지 `signup_crew_verification_start`는 크루 프로필 입력으로 바로 넘어가는 클릭이며, 인증 성공을 뜻하지 않는다.
 
 ## 자유게시판 모임 제안
 

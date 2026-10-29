@@ -14,6 +14,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.Map;
 import java.nio.charset.StandardCharsets;
 
@@ -22,6 +23,43 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PushSubscriptionAcceptanceTest extends PushIntegrationTestSupport {
 
     @Autowired private NotificationDeliveryCommandRepository deliveries;
+
+    @Test
+    @DisplayName("구독은 활성 SW가 확인한 버전을 저장하고 미전달 재등록은 구버전으로 되돌린다.")
+    void persistsExplicitWorkerVersionAndDefaultsMissingVersionToLegacy() {
+        // Given
+        Member owner = member("101");
+        var legacy = body(owner, "legacy-worker");
+        var current = new HashMap<>(legacy);
+        current.put("clientVersion", 2);
+        long id = subscriptions.findByEndpoint((String) legacy.get("endpoint")).orElseThrow().getId();
+
+        // When
+        Response upgraded = mutation(owner).contentType("application/json").body(current).post("/push-subscriptions");
+        Integer storedVersion = jdbc.queryForObject("select client_version from push_subscriptions where id = ?", Integer.class, id);
+        Response downgraded = mutation(owner).contentType("application/json").body(legacy).post("/push-subscriptions");
+
+        // Then
+        assertThat(upgraded.statusCode()).isEqualTo(200);
+        assertThat(storedVersion).isEqualTo(2);
+        assertThat(downgraded.statusCode()).isEqualTo(200);
+        assertThat(jdbc.queryForObject("select client_version from push_subscriptions where id = ?", Integer.class, id)).isEqualTo(1);
+        assertThat(downgraded.jsonPath().getLong("data.generation")).isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 3})
+    @DisplayName("지원 범위 밖의 SW 버전으로 구독을 등록할 수 없다.")
+    void rejectsUnsupportedWorkerVersion(int version) {
+        // Given
+        Member owner = member("101");
+        var request = new HashMap<>(body(owner, "unsupported-worker"));
+        request.put("clientVersion", version);
+        // When
+        Response response = mutation(owner).contentType("application/json").body(request).post("/push-subscriptions");
+        // Then
+        assertThat(response.statusCode()).isEqualTo(400);
+    }
 
     @Test
     @DisplayName("푸시 설정은 공개키와 활성 상태만 제공하며 인증을 요구한다.")

@@ -12,7 +12,9 @@ public interface MemberQueryRepository extends Repository<Member, Long> {
 
     @Query("""
             select new com.project.jarihana.member.query.repository.dto.MemberProfileProjection(
-                m.id, m.crewName, m.generation, m.memberType, m.course, m.githubId
+                m.id, m.crewName, m.generation, m.memberType, m.course, m.githubId,
+                m.bootcamp.name, m.bootcamp.status, m.bootcamp.cohort, m.field, m.career,
+                m.company.name, m.company.visible
             )
             from Member m
             where m.id = :memberId

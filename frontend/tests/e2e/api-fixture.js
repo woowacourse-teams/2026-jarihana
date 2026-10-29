@@ -288,6 +288,9 @@ export async function installApiFixture(pageInstance, options = {}) {
     auth: options.auth ?? "authenticated",
     errorPath: options.errorPath ?? null,
     errorStatus: options.errorStatus ?? null,
+    expireMemberProfileAfterBootstrap: Boolean(options.expireMemberProfileAfterBootstrap),
+    expiredMemberProfile: false,
+    memberProfileReads: 0,
     recruitments: options.recruitments ?? recruitmentItems,
     registrationPresent: true,
     registrationUnread: true,
@@ -310,11 +313,15 @@ export async function installApiFixture(pageInstance, options = {}) {
         state.auth === "anonymous" &&
         ["/api/members/me", "/api/auth/refresh"].includes(url.pathname) &&
         response.status() === 401;
+      const expectedExpiredMemberProfile =
+        state.expiredMemberProfile &&
+        url.pathname === "/api/members/me" &&
+        response.status() === 401;
       const expectedInjectedFailure =
         state.errorPath &&
         url.pathname === state.errorPath &&
         response.status() === state.errorStatus;
-      if (!expectedAuthFailure && !expectedInjectedFailure) {
+      if (!expectedAuthFailure && !expectedExpiredMemberProfile && !expectedInjectedFailure) {
         state.unexpectedResponses.push(`${response.status()} ${url.pathname}`);
       }
     }
@@ -372,11 +379,23 @@ export async function installApiFixture(pageInstance, options = {}) {
     }
 
     if (path === "/members/me" && method === "GET") {
+      state.memberProfileReads += 1;
+      if (state.expireMemberProfileAfterBootstrap && state.memberProfileReads === 2) {
+        state.expiredMemberProfile = true;
+        return json(route, failure("UNAUTHENTICATED"), 401);
+      }
       if (state.auth === "anonymous") return json(route, failure("UNAUTHENTICATED"), 401);
       if (state.auth === "signup-required") {
         return json(route, success({ member: null, signupCompleted: false }));
       }
-      return json(route, success({ member: leader, signupCompleted: true }));
+      // 실제 응답처럼 크루의 소속 필드는 null로 내려 준다.
+      return json(
+        route,
+        success({
+          member: { ...leader, bootcamp: null, career: null, company: null, field: null },
+          signupCompleted: true
+        })
+      );
     }
     if (path === "/auth/refresh" && method === "POST") {
       return state.auth === "anonymous"

@@ -45,7 +45,14 @@ public class MemberQueryService {
                 projection.generation(),
                 projection.memberType(),
                 projection.course(),
-                projection.githubId()
+                projection.githubId(),
+                projection.bootcampName(),
+                projection.bootcampStatus(),
+                projection.bootcampCohort(),
+                projection.field(),
+                projection.career(),
+                projection.companyName(),
+                projection.companyVisible()
         ));
     }
 }

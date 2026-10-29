@@ -20,6 +20,7 @@ import {
   formatDate,
   generationLabel,
   memberTypeLabel,
+  nonCrewMemberTypeLabel,
   roleLabel,
   statusTone
 } from "./manageUtils.js";
@@ -45,7 +46,7 @@ export function ManageMembersPage() {
   const members = flattenPages(membersQuery.data);
   const normalizedSearch = search.trim().toLocaleLowerCase("ko-KR");
   const visibleMembers = members.filter((member) => {
-    const matchesCourse = !course || (course === "COACH" ? member.memberType === "COACH" : member.course === course);
+    const matchesCourse = !course || (nonCrewMemberTypeLabel(course) ? member.memberType === course : member.course === course);
     const searchable = `${member.crewName} ${generationLabel(member.generation)} ${memberTypeLabel(member.memberType)} ${courseLabel(member.course) ?? ""}`;
     return matchesCourse && searchable.toLocaleLowerCase("ko-KR").includes(normalizedSearch);
   });
@@ -140,7 +141,9 @@ export function ManageMembersPage() {
             ["BACKEND", "백엔드"],
             ["FRONTEND", "프론트엔드"],
             ["ANDROID", "안드로이드"],
-            ["COACH", "코치"]
+            ["COACH", "코치"],
+            ["BOOTCAMP", "부트캠프"],
+            ["PROFESSIONAL", "현직자"]
           ].map(([value, label]) => (
             <button
               aria-pressed={course === value}
@@ -206,9 +209,11 @@ export function ManageMembersPage() {
                     </div>
                   </td>
                   <td data-label="과정">
-                    {member.memberType === "COACH" ? memberTypeLabel(member.memberType) : courseLabel(member.course)}
+                    {nonCrewMemberTypeLabel(member.memberType) ?? courseLabel(member.course)}
                   </td>
-                  <td data-label="기수">{generationLabel(member.generation)}</td>
+                  <td data-label="기수">
+                    {nonCrewMemberTypeLabel(member.memberType) ? "-" : generationLabel(member.generation)}
+                  </td>
                   <td data-label="역할">
                     <StatusBadge tone={statusTone(member.role)}>
                       {roleLabel(member.role)}
