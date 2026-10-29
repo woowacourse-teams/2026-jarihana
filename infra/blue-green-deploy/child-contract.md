@@ -34,7 +34,7 @@ SIGTERM 정상 종료 후 교체한다. 알 수 없는 컨테이너를 지우지
 `handoff`는 현재 owner 확인 → BEGIN/HANDOFF → PAUSE → drain → RELEASE 순서다.
 PAUSE 성공은 작업 종료를 뜻하지 않는다. 실제 발송과 finish commit이 끝나야 RELEASE하며,
 DB UNASSIGNED와 로컬 drain을 확인한 뒤 후보를 ACTIVATE한다.
-관찰 뒤 COMPLETE하고 봉인된 허가로 이전 앱을 중지한다.
+관찰 뒤 COMPLETE하고, 배포가 확정된 뒤 발급한 허가로 이전 앱을 중지한다.
 롤백은 후보 PAUSE/drain/RELEASE 성공 뒤에만 이전 앱을 ACTIVATE/OBSERVE/COMPLETE한다.
 후보 readiness가 DOWN이어도 관리 API의 신원·worker 권한·활동 상태가 확실하면 후보 반납을
 진행할 수 있다. 관리 상태가 미확정이면 이전 HTTP만 복구하고 이전 worker는 재개하지 않는다.

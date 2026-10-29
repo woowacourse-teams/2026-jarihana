@@ -117,8 +117,9 @@ SSH
   done
   printf '%s\n' "$grant" > "$BG_TEST_GRANT_FILE"
   MOCK_API_BODY=$(jq -c '.status="completed"' <<< "$original")
+  FAKE_NOW=1010
   reject bg_grant prepare B
-  pass 'a fresh journal cannot authorize an ended GitHub run'
+  pass 'a fresh journal cannot authorize an ended GitHub run after the 10-second check boundary'
   MOCK_API_BODY=$original
 fi
 bg_uuid() { printf '11111111-1111-1111-1111-111111111111\n'; }

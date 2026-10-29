@@ -198,6 +198,20 @@ case_observation_readiness() {
   printf '{"status":"DOWN"}\n' > "$APP_DIR/health"
   reject app_observe
 }
+case_command_rechecks_cached_parent() {
+  bg_grant() { STATE=$(cat "$APP_DIR/grant"); }
+  bg_live() { bg_die 'Cancelled before worker mutation'; }
+  reject app_command begin
+  [[ ! -s "$APP_DIR/posts" ]]
+  jq -e '.resolved==false' "$INTENT_FILE" >/dev/null
+}
+case_shutdown_rechecks_cached_parent() {
+  docker_fixture
+  bg_grant() { STATE=$(cat "$APP_DIR/grant"); }
+  bg_live() { bg_die 'Cancelled before SIGTERM'; }
+  reject app_stop_container
+  [[ ! -f "$APP_DIR/docker-command" ]]
+}
 case_status_requires_grant() { unset BG_GRANT_OPERATION; reject main status; }
 case_mutation_grant_mismatch() { BG_GRANT_OPERATION=observe; reject main prepare; }
 
@@ -378,7 +392,7 @@ case_shutdown_generation_change() {
 
 if [[ ${1:-} == --case ]]; then fixture; "case_$2"; exit; fi
 passed=0
-for scenario in handoff activation_and_completion response_loss cas_race_before cas_race_after grant_and_deadline boot_change initial_idle_snapshot bad_counter wrong_environment no_release_with_work no_activation_with_owner rollback_target rollback_unhealthy_target rollback_wrong_owner handoff_unhealthy activation_unhealthy rollback_old rollback_already_released observation observation_clock_jump observation_readiness status_requires_grant mutation_grant_mismatch profile profile_public_management profile_dev_scheduler profile_live_dev profile_live_dev_starts_paused profile_live_dev_mismatched_push push_settings_rehearsal push_settings_live push_settings_invalid push_settings_prod_unchanged live_push_handoff live_push_cannot_take_owned_authority profile_wrong_db profile_wrong_token prepare_single_rds prepare_ignores_legacy_rds prepare_invalid_rds receipt shutdown shutdown_abnormal shutdown_http_work shutdown_generation_change; do
+for scenario in command_rechecks_cached_parent shutdown_rechecks_cached_parent handoff activation_and_completion response_loss cas_race_before cas_race_after grant_and_deadline boot_change initial_idle_snapshot bad_counter wrong_environment no_release_with_work no_activation_with_owner rollback_target rollback_unhealthy_target rollback_wrong_owner handoff_unhealthy activation_unhealthy rollback_old rollback_already_released observation observation_clock_jump observation_readiness status_requires_grant mutation_grant_mismatch profile profile_public_management profile_dev_scheduler profile_live_dev profile_live_dev_starts_paused profile_live_dev_mismatched_push push_settings_rehearsal push_settings_live push_settings_invalid push_settings_prod_unchanged live_push_handoff live_push_cannot_take_owned_authority profile_wrong_db profile_wrong_token prepare_single_rds prepare_ignores_legacy_rds prepare_invalid_rds receipt shutdown shutdown_abnormal shutdown_http_work shutdown_generation_change; do
   bash "$0" --case "$scenario"
   printf 'PASS %s\n' "$scenario"
   passed=$((passed+1))
