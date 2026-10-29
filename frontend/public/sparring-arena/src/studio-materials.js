@@ -10,7 +10,7 @@ export function studioMaterial(parameters = {}) {
 
 export function createStudioEnvironment(renderer) {
   const studio = new THREE.Scene();
-  studio.background = new THREE.Color(0xe9e6de);
+  studio.background = new THREE.Color(0xe9edf0);
   const panels = [
     { position: [-6, 8, 6], size: [8, 10], intensity: 3 },
     { position: [8, 4, 1], size: [6, 8], intensity: 1.7 },

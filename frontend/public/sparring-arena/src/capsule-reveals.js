@@ -29,7 +29,7 @@ export function createCapsuleReveals(container, onSelect) {
       if (!note) {
         const card = document.createElement('button');
         card.type = 'button';
-        card.dataset.phCaptureAttributeAction = 'sparring_capsule_select';
+        card.dataset.phCaptureAttributeAction = 'sparring_reply_start';
         card.className = `capsule-note ${entry.post.side}${entry.fresh ? ' fresh' : ''}`;
         card.dataset.postId = entry.post.id;
         card.dataset.fresh = String(entry.fresh);
@@ -39,7 +39,7 @@ export function createCapsuleReveals(container, onSelect) {
         const text = document.createElement('span');
         text.className = 'capsule-note-text'; text.textContent = entry.post.text;
         const action = document.createElement('span');
-        action.className = 'capsule-note-action'; action.textContent = '눌러서 펼쳐보기 ↗';
+        action.className = 'capsule-note-action'; action.textContent = '↩ 받아치기';
         card.append(meta, text, action);
         card.setAttribute('aria-label', `${meta.textContent}: ${entry.post.text}`);
         card.addEventListener('click', () => onSelect(entry.post.id));
@@ -73,14 +73,18 @@ export function createCapsuleReveals(container, onSelect) {
     for (const entry of tracking) {
       let flight = flights.get(entry.post.id);
       if (!flight) {
-        flight = document.createElement('span');
+        flight = document.createElement('button');
+        flight.type = 'button';
         flight.className = 'capsule-flight-tag ' + entry.post.side;
+        flight.dataset.phCaptureAttributeAction = 'sparring_reply_start';
         const label = document.createElement('strong');
         label.textContent = entry.post.name === '나' ? '내 한마디' : `방금 · ${entry.post.name}`;
         const preview = document.createElement('span');
         preview.textContent = entry.post.text;
         flight.append(label, preview);
         flight.dataset.postId = entry.post.id;
+        flight.setAttribute('aria-label', `${label.textContent}: ${entry.post.text}. 눌러서 받아치기`);
+        flight.addEventListener('click', () => onSelect(entry.post.id));
         layer.append(flight); flights.set(entry.post.id, flight);
       }
       const point = project(entry.body, camera, width, height);

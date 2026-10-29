@@ -188,7 +188,7 @@ export function createClash(scene, container, camera, onReveal = () => {}, { onI
     }
     if (!active.reduced && afterImpact < 0) {
       const time = Math.min(1, active.elapsed / flightDuration);
-      const progress = time < 0.18 ? -0.06 * Math.sin(time / 0.18 * Math.PI / 2) : -0.06 + 1.06 * Math.pow((time - 0.18) / 0.82, 1.65);
+      const progress = time;
       const squeeze = active.elapsed < flightDuration ? 0 : Math.sin(Math.min(1, (active.elapsed - flightDuration) / squeezeDuration) * Math.PI);
       [active.post.replyTo, active.post].forEach((post, index) => {
         const side = pipeSide(post, index), sign = side === 'a' ? -1 : 1;

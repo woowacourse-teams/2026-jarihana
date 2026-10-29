@@ -1,7 +1,7 @@
 const CHANNEL = 'jarihana-sparring';
 
 export async function connectRoom() {
-  if (window.parent === window) throw new Error('스파링 목록에서 경기장에 들어와 주세요.');
+  if (window.parent === window) throw new Error('토론 목록에서 경기장에 들어와 주세요.');
   let state, resolveInitial;
   const initial = new Promise(resolve => { resolveInitial = resolve; });
   const requests = new Map(), listeners = new Set();
@@ -10,6 +10,12 @@ export async function connectRoom() {
     if (event.source !== window.parent || event.origin !== location.origin || event.data?.channel !== CHANNEL) return;
     const message = event.data;
     if (message.kind === 'hello') send({ kind: 'ready' });
+    if (message.kind === 'viewport' && Number.isFinite(message.height) && message.height > 0) {
+      document.documentElement.style.setProperty('--arena-available-height', `${Math.round(message.height)}px`);
+    }
+    if (message.kind === 'viewport' && Number.isFinite(message.contentWidth) && message.contentWidth > 0) {
+      document.documentElement.style.setProperty('--detail-content-width', `${message.contentWidth}px`);
+    }
     if (message.kind === 'snapshot') {
       state = message.state; resolveInitial();
       for (const listener of listeners) listener(message.fresh ?? []);
@@ -21,7 +27,7 @@ export async function connectRoom() {
     }
     if (message.kind === 'failure') {
       const status = document.querySelector('#composer-note');
-      if (status) status.textContent = message.message;
+      if (status) { status.textContent = message.message; status.hidden = false; }
     }
     if (message.kind === 'result') {
       const request = requests.get(message.requestId);

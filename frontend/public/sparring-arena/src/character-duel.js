@@ -31,7 +31,10 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
     byline.className = 'duel-byline';
     const author = document.createElement('strong');
     const context = document.createElement('span');
-    byline.append(author, context);
+    const action = document.createElement('span');
+    action.className = 'speech-reply-action';
+    action.textContent = '↩ 받아치기';
+    byline.append(author, context, action);
     const text = document.createElement('span');
     text.className = 'duel-speech-text';
     bubble.append(byline, text);
@@ -61,6 +64,7 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
   field.append(versus, status); stage.append(field);
   let posts = [], active = null, paused = false, disposed = false;
   let destinations = [{ x: 0, y: 0 }, { x: 0, y: 0 }];
+  let stageWidth = stage.clientWidth;
   const wake = () => stage.dispatchEvent(new Event('duelwake'));
   const pinned = () => field.contains(document.activeElement);
   const landed = () => !!active && slots.every(item => !item.post || item.arrival?.elapsed >= ENTRY_SECONDS);
@@ -76,6 +80,7 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
 
   function present(item, post, caption) {
     item.post = post;
+    delete item.bubble.dataset.replySelected;
     item.arrival = null;
     item.bubble.hidden = item.figure.hidden = item.ground.hidden = true;
     item.slot.dataset.speaking = 'false';
@@ -86,8 +91,8 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
     item.context.textContent = caption;
     item.text.textContent = post.text;
     item.bubble.dataset.postId = post.id;
-    item.bubble.setAttribute('aria-label', `${post.name}, ${caption}: ${post.text}. 눌러서 의견 보기`);
-    item.bubble.dataset.phCaptureAttributeAction = active.post.replyTo ? 'sparring_clash_expand' : 'sparring_capsule_select';
+    item.bubble.setAttribute('aria-label', `${post.name}, ${caption}: ${post.text}. 눌러서 받아치기`);
+    item.bubble.dataset.phCaptureAttributeAction = 'sparring_reply_start';
   }
 
   function prepare(post, fresh, reduced = false) {
@@ -133,7 +138,8 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
       const origin = item.arrival.origin();
       const end = destinations[index];
       const walk = ease((p - 0.18) / 0.82);
-      item.slot.style.left = mix(origin.x, end.x, walk) + 'px';
+      const x = mix(origin.x, end.x, walk);
+      item.slot.style.left = x + 'px';
       item.slot.style.top = (mix(origin.y, end.y, ease(p)) - Math.sin(p * Math.PI) * 56) + 'px';
       item.slot.dataset.speaking = String(speaking);
       item.sprite.dataset.pose = speaking ? 'protest' : 'listen';
@@ -141,6 +147,14 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
       item.figure.style.transform = `translate(${direction * push}px, ${bounce}px) rotate(${direction * tilt}deg) scale(${mix(0.18, 1, ease(p))})`;
       item.ground.style.opacity = String(ease((p - 0.65) / 0.35));
       item.bubble.hidden = p < 1;
+      if (stageWidth > 0) {
+        const width = Math.min(240, Math.max(0, stageWidth / 2 - 24));
+        const headX = x + direction * push;
+        const center = Math.max(width / 2 + 8, Math.min(stageWidth - width / 2 - 8, headX));
+        item.bubble.style.width = width + 'px';
+        item.bubble.style.left = center - x + 'px';
+        item.bubble.style.setProperty('--duel-tail-x', Math.max(12, Math.min(width - 12, headX - center + width / 2)) + 'px');
+      }
       if (index === active.speaker && p >= 1 && !active.revealed) {
         active.revealed = true;
         onReveal(active.post, active.fresh);
@@ -167,8 +181,9 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
       if (reduced) active.elapsed = DISPLAY_SECONDS;
       paint();
     },
-    setLayout(nextDestinations) {
+    setLayout(nextDestinations, width = stage.clientWidth) {
       destinations = nextDestinations;
+      stageWidth = width;
       const centerX = (destinations[0].x + destinations[1].x) / 2;
       const centerY = (destinations[0].y + destinations[1].y) / 2;
       field.style.setProperty('--duel-center-x', centerX + 'px');

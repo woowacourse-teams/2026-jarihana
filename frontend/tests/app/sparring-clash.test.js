@@ -55,6 +55,15 @@ describe('받아치기 발사와 충돌', () => {
     clash.step(0.3);
     expect(onReveal).toHaveBeenCalledTimes(1);
   });
+  it('파이프 입구에서 뒤로 물러나는 재장전 없이 곧바로 충돌 방향으로 날아간다', () => {
+    const positions = [];
+    batch.draw.mockImplementation((index, entry) => positions.push({ index, x: entry.body.position.x }));
+    clash.start(reply, true); clash.step(0);
+    expect(positions.slice(-2).map(item => item.x)).toEqual([-8, 8]);
+    clash.step(0.05);
+    expect(positions.at(-2).x).toBeGreaterThan(-8);
+    expect(positions.at(-1).x).toBeLessThan(8);
+  });
 
   it('의견에 포커스가 있으면 유지하고 닫으면 다음 연출을 허용한다', () => {
     clash.start(reply, false);

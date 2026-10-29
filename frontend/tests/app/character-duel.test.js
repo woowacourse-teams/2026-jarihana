@@ -63,6 +63,20 @@ describe('미끄럼틀에서 나온 캐릭터 대치', () => {
     expect(stage.querySelector('.left .duel-sprite')).toHaveAttribute('data-pose', 'listen');
   });
 
+  it('모바일 가장자리의 캐릭터 말풍선은 화면 안에 두고 꼬리는 캐릭터를 가리킨다', () => {
+    duel.setLayout([{ x: 48, y: 350 }, { x: 342, y: 350 }], 390);
+    land(reply, true, true);
+    for (const side of ['left', 'right']) {
+      const slotX = parseFloat(stage.querySelector('.' + side).style.left);
+      const speech = bubble(side);
+      const width = parseFloat(speech.style.width);
+      const center = slotX + parseFloat(speech.style.left);
+      expect(center - width / 2).toBeGreaterThanOrEqual(8);
+      expect(center + width / 2).toBeLessThanOrEqual(382);
+      expect(center - width / 2 + parseFloat(speech.style.getPropertyValue('--duel-tail-x'))).toBe(slotX);
+    }
+  });
+
   it('같은 편의 받아치기도 서로 다른 캡슐 역할과 원래 색을 유지한다', () => {
     const participants = land({ ...reply, side: 'a' });
     expect(participants.map(item => item.role)).toEqual([1, 0]);
@@ -119,7 +133,7 @@ describe('미끄럼틀에서 나온 캐릭터 대치', () => {
     land(original);
     bubble('left').focus(); bubble('left').click();
     expect(onSelect).toHaveBeenCalledWith(original.id);
-    expect(bubble('left')).toHaveAttribute('data-ph-capture-attribute-action', 'sparring_capsule_select');
+    expect(bubble('left')).toHaveAttribute('data-ph-capture-attribute-action', 'sparring_reply_start');
     expect(duel.canReplace(true)).toBe(false);
     expect(duel.prepare(reply, true)).toEqual([]);
     duel.step(10);
@@ -127,7 +141,7 @@ describe('미끄럼틀에서 나온 캐릭터 대치', () => {
     bubble('left').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     expect(duel.canReplace()).toBe(true);
     land(reply, true);
-    expect(bubble('right')).toHaveAttribute('data-ph-capture-attribute-action', 'sparring_clash_expand');
+    expect(bubble('right')).toHaveAttribute('data-ph-capture-attribute-action', 'sparring_reply_start');
   });
 
   it('새 글은 과거 장면보다 우선하지만 재생 중인 새 글은 끝까지 보여준다', () => {

@@ -2,22 +2,28 @@ import * as CANNON from '../vendor/cannon-es.js';
 
 export const CAPACITY = 240;
 export const RADIUS = 0.5;
+export const FRESH_CAPSULE_SCALE = 1.28;
 export const TANK = Object.freeze({ width: 18, depth: 4.4, bottom: -4.4, rim: 4.4 });
 
-// Rendering and physics share the actual pipe mouth, not an approximate launch point.
+// The 5:24 front-view elevation keeps this nozzle axis horizontal on screen.
+// The mouth is shared; the capsule retains its downward discharge velocity.
 export function nozzlePose(side) {
   const sign = side === 'a' ? -1 : 1;
-  return { mouth: [sign * (TANK.width / 2 - 0.7), 3.2, 0.12], direction: [-sign * 0.965, -0.15, 0.215] };
+  return {
+    mouth: [sign * (TANK.width / 2 - 0.7), 3.2, 0.12],
+    direction: [-sign * 0.92, 0.08, 0.384],
+    launchDirection: [-sign * 0.965, -0.15, 0.215],
+  };
 }
 
 export function createCapsulePhysics({ capacity = CAPACITY, seed = 19 } = {}) {
   let state = seed >>> 0;
   const random = () => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state / 4294967296; };
-  const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -10, 0), allowSleep: true });
+  const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -22, 0), allowSleep: true });
   world.broadphase = new CANNON.SAPBroadphase(world);
   world.solver.iterations = 8;
   world.defaultContactMaterial.friction = 0.48;
-  world.defaultContactMaterial.restitution = 0.16;
+  world.defaultContactMaterial.restitution = 0.08;
   world.defaultContactMaterial.contactEquationStiffness = 1e6;
   const floor = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(TANK.width / 2 + 0.2, 0.12, TANK.depth / 2 + 0.2)), position: new CANNON.Vec3(0, TANK.bottom - 0.12, 0) });
   world.addBody(floor);
@@ -75,7 +81,7 @@ export function createCapsulePhysics({ capacity = CAPACITY, seed = 19 } = {}) {
         const direction = distance > 0.01 ? dx / distance : (index % 2 ? 0.15 : -0.15);
         body.wakeUp();
         body.velocity.x += direction * strength * 3.2;
-        body.velocity.y = Math.max(body.velocity.y, 0.9 + strength * 4.8);
+        body.velocity.y = Math.max(body.velocity.y, 0.9 + strength * 6.2);
         body.velocity.z += dz / Math.max(distance, 0.5) * strength * 1.2;
         body.angularVelocity.z += direction * strength * 1.2;
       }
@@ -103,15 +109,15 @@ export function createCapsulePhysics({ capacity = CAPACITY, seed = 19 } = {}) {
     return targets.length;
   }
   function launch(post, { mode = 'pressure', fresh = false, skipProtected = false, speed = 2.1 } = {}) {
-    const sameSide = entries.filter(e => e.visualSide === post.side);
-    const pool = sameSide.length ? sameSide : entries;
-    const eligible = pool.filter(e => world.time > e.protectedUntil);
+    const eligible = entries.filter(e => world.time > e.protectedUntil);
     if (skipProtected && !eligible.length) return null;
-    const item = (eligible.length ? eligible : pool).reduce((lowest, e) => e.body.position.y < lowest.body.position.y ? e : lowest);
+    // Retire the oldest capsule regardless of color; only its replacement gets the new side.
+    const item = (eligible.length ? eligible : entries).reduce((oldest, e) =>
+      e.born < oldest.born || (e.born === oldest.born && e.body.position.y < oldest.body.position.y) ? e : oldest);
     if (mode === 'pressure') {
       const pose = nozzlePose(post.side);
       item.body.position.set(...pose.mouth);
-      item.body.velocity.set(...pose.direction.map(value => value * speed));
+      item.body.velocity.set(...pose.launchDirection.map(value => value * speed));
     } else {
       item.body.position.set((random() - 0.5) * (TANK.width - RADIUS * 2 - 0.4), TANK.rim - RADIUS - 0.08, (random() - 0.5) * (TANK.depth - RADIUS * 2 - 0.4));
       item.body.velocity.set((random() - 0.5) * 0.35, -0.4, 0);
@@ -124,7 +130,7 @@ export function createCapsulePhysics({ capacity = CAPACITY, seed = 19 } = {}) {
     item.body.angularVelocity.set((random() - 0.5) * 2, (random() - 0.5) * 2, (random() - 0.5) * 2);
     item.body.force.setZero(); item.body.torque.setZero(); item.body.aabbNeedsUpdate = true;
     item.body.wakeUp();
-    Object.assign(item, { post, born: world.time, fresh, landedAt: null, openedAt: null, revealed: false, protectedUntil: world.time + (fresh ? 16 : 5) });
+    Object.assign(item, { post, visualSide: post.side, born: world.time, fresh, landedAt: null, openedAt: null, revealed: false, protectedUntil: world.time + (fresh ? 16 : 5) });
     exchanges++;
     return item;
   }

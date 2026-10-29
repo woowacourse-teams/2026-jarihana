@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { characterVariant } from './character-motion.js';
 
-// These transparent image planes preserve the actual brand faces/materials inside a physical 3D scene.
+// Alpha-cutout image planes preserve the brand faces without competing with transparent capsule lids for draw order.
 // Atlas regions exclude the neighboring character, without altering the generated alpha channel.
 const regions = [[369, 31, 432, 846], [947, 34, 428, 843]];
 let maps;
@@ -26,7 +26,7 @@ export function createCharacters(scene, capacity) {
   const textures = characterMaps();
   const geometry = new THREE.PlaneGeometry(1.08, 2.1);
   const meshes = textures.map(map => {
-    const material = new THREE.MeshBasicMaterial({ map, transparent: true, alphaTest: 0.1, side: THREE.DoubleSide, depthWrite: true, toneMapped: false });
+    const material = new THREE.MeshBasicMaterial({ map, transparent: false, alphaTest: 0.1, side: THREE.DoubleSide, depthWrite: true, toneMapped: false });
     const mesh = new THREE.InstancedMesh(geometry, material, capacity);
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.frustumCulled = false;
     scene.add(mesh); return mesh;

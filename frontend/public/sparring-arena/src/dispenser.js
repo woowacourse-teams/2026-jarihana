@@ -12,8 +12,8 @@ const PAIR_SLIDE_SECONDS = 1.4;
 const OPEN_SHELL_POSE = { stage: 'empty-shell', scale: 1, shrink: 1, closing: 0 };
 
 export function createDispenser(scene, onReveal, { onOpened = () => {} } = {}) {
-  const cream = studioMaterial({ color: 0xf5efe2, roughness: 0.65, side: THREE.DoubleSide });
-  const rim = studioMaterial({ color: 0xd9e8dd, roughness: 0.5 });
+  const cream = studioMaterial({ color: 0xf8fafb, roughness: 0.65, side: THREE.DoubleSide });
+  const rim = studioMaterial({ color: 0xe4e9ec, roughness: 0.5 });
   function box(size, position, material) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
     mesh.position.set(...position); mesh.receiveShadow = true; scene.add(mesh);

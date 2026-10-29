@@ -1,7 +1,7 @@
 import { historyWalkPose, WALKOUT_SECONDS } from './history-walk.js';
 
 const ENTRY_SECONDS = WALKOUT_SECONDS;
-const EXIT_SECONDS = 0.28;
+const EXIT_SECONDS = 0.18;
 const TURN_SECONDS = 3.2;
 
 export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
@@ -9,12 +9,6 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
   field.className = 'history-conversation';
   field.setAttribute('aria-label', '미끄럼틀에서 나온 지난 대화');
   field.dataset.phPrivate = 'true';
-  const caption = document.createElement('span');
-  caption.className = 'history-conversation-caption';
-  caption.textContent = '지난 대화';
-  caption.hidden = true;
-  field.append(caption);
-
   const slots = ['a', 'a', 'b', 'b'].map((side, index) => {
     const slot = document.createElement('div');
     slot.className = 'history-character';
@@ -26,22 +20,26 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
       order: 0, elapsed: 0, departure: null, origin: null, revealed: false };
   });
 
-  const bubbles = ['a', 'b'].map(side => {
+  const bubbles = slots.map(character => {
+    const side = character.side;
     const bubble = document.createElement('button');
     bubble.type = 'button';
     bubble.className = 'history-conversation-speech';
     bubble.dataset.side = side;
-    bubble.dataset.phCaptureAttributeAction = 'sparring_history_character_select';
+    bubble.dataset.phCaptureAttributeAction = 'sparring_reply_start';
     bubble.hidden = true;
     const byline = document.createElement('span');
     byline.className = 'history-conversation-byline';
     const author = document.createElement('strong');
     const context = document.createElement('span');
-    byline.append(author, context);
+    const action = document.createElement('span');
+    action.className = 'speech-reply-action';
+    action.textContent = '↩ 받아치기';
+    byline.append(author, context, action);
     const text = document.createElement('span');
     text.className = 'history-conversation-text';
     bubble.append(byline, text); field.append(bubble);
-    const item = { side, bubble, author, context, text, post: null };
+    const item = { side, character, bubble, author, context, text, post: null };
     bubble.addEventListener('click', () => { if (item.post) onSelect(item.post.id); });
     return item;
   });
@@ -59,14 +57,6 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
   field.addEventListener('keydown', event => {
     if (event.key === 'Escape') { document.activeElement?.blur(); wake(); }
   });
-
-  function anchor(side) {
-    const point = side === 'a' ? layout.left : layout.right;
-    const half = layout.width / 2;
-    const inset = Math.min(145, half / 2);
-    return { x: side === 'a' ? Math.max(inset, Math.min(half - inset, point.x))
-      : Math.min(layout.width - inset, Math.max(half + inset, point.x)), y: point.y };
-  }
 
   function begin(item, entry) {
     item.post = entry.post;
@@ -92,9 +82,6 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
     const speaker = shown[speakingSide] ?? shown.a ?? shown.b;
     field.dataset.reduced = String(reduced);
     field.dataset.speakingId = speaker ? String(speaker.post.id) : '';
-    caption.hidden = !slots.some(item => item.post);
-    caption.style.left = layout.width / 2 + 'px';
-    caption.style.top = Math.min(layout.left.y, layout.right.y) - 12 + 'px';
 
     for (const [index, item] of slots.entries()) {
       if (!item.post || !visible) { visuals.hide(index); continue; }
@@ -106,6 +93,7 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
         departure: item.departure === null ? 0 : item.departure / EXIT_SECONDS });
       visuals.draw(index, item.post, frame.position, 1, frame.pose, frame.yaw);
       const point = visuals.project(frame.position);
+      item.speechAnchor = visuals.project({ ...frame.position, y: frame.position.y + 2.1 * frame.pose.scale });
       item.slot.style.left = point.x + 'px';
       item.slot.style.top = point.y + 'px';
       item.slot.dataset.speaking = String(item === speaker);
@@ -113,20 +101,27 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
     }
 
     for (const item of bubbles) {
-      const character = shown[item.side];
-      item.post = character?.post ?? null;
-      item.bubble.hidden = !item.post;
-      if (!item.post) continue;
-      const end = anchor(item.side);
-      item.bubble.style.left = end.x + 'px';
-      item.bubble.style.top = end.y + 12 + 'px';
-      item.bubble.style.setProperty('--history-bubble-width', Math.min(280, Math.max(0, layout.width / 2 - 20)) + 'px');
+      const character = item.character;
+      item.post = character.post && character.elapsed >= ENTRY_SECONDS && character.departure === null ? character.post : null;
+      item.bubble.hidden = !item.post || !visible;
+      if (item.bubble.hidden) continue;
+      const head = character.speechAnchor;
+      const width = Math.min(240, Math.max(0, layout.width / 2 - 16));
+      const direction = item.side === 'a' ? -1 : 1;
+      const minimum = item.side === 'a' ? width / 2 + 8 : layout.width / 2 + width / 2 + 4;
+      const maximum = item.side === 'a' ? layout.width / 2 - width / 2 - 4 : layout.width - width / 2 - 8;
+      const center = Math.max(minimum, Math.min(maximum, head.x + direction * (width / 2 - 24)));
+      item.bubble.style.left = center + 'px';
+      item.bubble.style.top = head.y - 12 + 'px';
+      item.bubble.style.setProperty('--history-bubble-width', width + 'px');
+      item.bubble.style.setProperty('--history-tail-x', Math.max(12, Math.min(width - 12, head.x - center + width / 2)) + 'px');
+      if (item.bubble.dataset.postId !== String(item.post.id)) delete item.bubble.dataset.replySelected;
       item.bubble.dataset.postId = String(item.post.id);
       item.bubble.dataset.speaking = String(character === speaker);
       item.author.textContent = item.post.name;
       item.context.textContent = item.post.replyTo ? '지난 받아치기' : '지난 한마디';
       item.text.textContent = item.post.text;
-      item.bubble.setAttribute('aria-label', `${item.post.name}, ${item.context.textContent}: ${item.post.text}. 눌러서 의견 보기`);
+      item.bubble.setAttribute('aria-label', `${item.post.name}, ${item.context.textContent}: ${item.post.text}. 눌러서 받아치기`);
     }
   }
 

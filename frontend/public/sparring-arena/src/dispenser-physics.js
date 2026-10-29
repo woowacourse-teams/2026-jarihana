@@ -8,7 +8,7 @@ export const SLIDE = Object.freeze({ points: [
   [2.2, -0.08, 1.4], [2.55, -0.16, 1.5], [2.95, -0.35, 1.6],
   [3.4, -0.6, 1.7], [3.95, -0.9, 1.9], [4.45, -1.2, 2.05], [5.2, -1.35, 2.2],
 ].map(([z, y, width]) => [z, TANK.bottom + y, width]) });
-export const TRAY = Object.freeze({ y: TANK.bottom - 1.47, frontY: TANK.bottom - 2.12, back: 5.1, front: 10.8, backWidth: 2.8, frontWidth: 14.0 });
+export const TRAY = Object.freeze({ y: TANK.bottom - 1.47, frontY: TANK.bottom - 2.12, back: 5.1, front: 10.8, backWidth: 2.8, frontWidth: 10.0 });
 
 export function createDispenserPhysics({ seed = 73 } = {}) {
   let state = seed >>> 0;

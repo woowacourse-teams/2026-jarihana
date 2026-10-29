@@ -7,7 +7,6 @@ export function createCapsuleBatch(scene, capacity, characterFactory = createCha
   const pieces = [
     [new THREE.SphereGeometry(0.48, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2), studioMaterial({ color: 0xf4fff9, transparent: true, opacity: 0.18, roughness: 0.24, clearcoat: 0.5, side: THREE.DoubleSide, depthWrite: false })],
     [new THREE.SphereGeometry(0.48, 24, 14, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), studioMaterial({ roughness: 0.48, side: THREE.DoubleSide })],
-    [new THREE.TorusGeometry(0.48, 0.018, 4, 24), studioMaterial({ color: 0xffffff, roughness: 0.4 })],
   ];
   const meshes = pieces.map(([geometry, material]) => {
     const mesh = new THREE.InstancedMesh(geometry, material, capacity);
@@ -19,7 +18,6 @@ export function createCapsuleBatch(scene, capacity, characterFactory = createCha
   meshes[1].castShadow = meshes[1].receiveShadow = true;
   const characters = characterFactory(scene, capacity);
   const transform = new THREE.Object3D();
-  const equator = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
   const identity = new THREE.Quaternion();
   const offset = new THREE.Vector3(), origin = new THREE.Vector3(), closedLid = new THREE.Vector3();
   const shellColors = { a: new THREE.Color(0x4ac5b8), b: new THREE.Color(0xf2907f) };
@@ -64,13 +62,11 @@ export function createCapsuleBatch(scene, capacity, characterFactory = createCha
         transform.rotateZ(opening * (side === 'a' ? -0.5 : 0.5));
       }
       if (part === 1) transform.position.y -= opening * size * 0.18;
-      if (part === 2) transform.quaternion.multiply(equator);
       if (burst && opening > 0) {
         if (part === 0) {
           transform.position.x += (side === 'a' ? -1 : 1) * opening * size * 0.5;
           transform.scale.multiplyScalar(1 - opening);
         }
-        if (part === 2) transform.scale.multiplyScalar(1 - opening);
       }
       transform.updateMatrix();
       meshes[part].setMatrixAt(index, transform.matrix);
