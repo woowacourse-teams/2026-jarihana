@@ -217,7 +217,7 @@ app_prepare() {
   local compose existing inspected deadline pin
   compose=$(jq -r '.compose_file' <<<"$CONFIG")
   bg_root_file "$compose"
-  cmp -s "$compose" "$SCRIPT_ROOT/../../../deploy/controller/app-compose.yml" || bg_die 'Installed Compose differs from immutable checkout'
+  cmp -s "$compose" "$SCRIPT_ROOT/../../controller/app-compose.yml" || bg_die 'Installed Compose differs from immutable checkout'
   : "${RDS_URL:?GitHub RDS_URL is required}"
   [[ "$RDS_URL" =~ ^[a-zA-Z0-9.-]+$ ]] || bg_die 'RDS_URL must contain only the environment DB endpoint'
   export BACKEND_IMAGE="$IMAGE_REPOSITORY" BACKEND_DIGEST="$BG_IMAGE_DIGEST" DEPLOY_ENVIRONMENT="$ENVIRONMENT"

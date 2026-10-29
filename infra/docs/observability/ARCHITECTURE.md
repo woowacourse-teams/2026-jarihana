@@ -82,12 +82,12 @@ Alloy 자체 메트릭만 수집한다. Nginx EC2의 중앙 Alloy는 배포 text
 | 실행 위치/방식 | Compose 프로젝트와 수명 |
 | --- | --- |
 | 기본 dev, legacy prod | `infra/docker-compose.dev.yml`, `infra/docker-compose.yml`에 backend와 Alloy, `alloy-data`를 함께 정의 |
-| Blue-Green 앱 A/B 저장소 템플릿 | [app-compose.yml](../../deploy/controller/app-compose.yml)은 앱 전용. [observability-compose.yml](../../deploy/controller/observability-compose.yml)은 앱 Alloy를 별도 프로젝트로 실행해 앱 drain/stop과 분리 |
+| Blue-Green 앱 A/B 저장소 템플릿 | [app-compose.yml](../../blue-green-deploy/controller/app-compose.yml)은 앱 전용. [observability-compose.yml](../../blue-green-deploy/controller/observability-compose.yml)은 앱 Alloy를 별도 프로젝트로 실행해 앱 drain/stop과 분리 |
 | 배포 Nginx EC2 | 서버에 별도 설치된 중앙 배포 수집기와 textfile 전용 Alloy. 해당 설치 소스는 이 저장소에 없음 |
 | 모니터링 EC2 | [모니터링 Compose](../../monitoring/docker-compose.yml)의 수신 Nginx, Prometheus, Loki, Grafana, 호스트 Alloy. Tempo는 선택 구성 |
 
 Compose가 서비스들을 다른 EC2로 자동 배치하지는 않는다. Blue-Green 앱 Alloy 설치와 외부 WAL
-볼륨 재사용은 [전체 배포 절차](../../deploy/controller/full-deployment.md)를 따른다.
+볼륨 재사용은 [전체 배포 절차](../../blue-green-deploy/controller/full-deployment.md)를 따른다.
 기본 dev/legacy prod Compose에서는 수집 규칙 `./monitoring/alloy/config.alloy`를 공통으로
 마운트하고 Alloy 서비스 선언은 각 파일에 직접 둔다. 아래 앱 동시 실행/재생성 설명은
 이 기본 Compose 경로에 해당하며, Blue-Green 앱 배포가 독립 Alloy를 갱신한다는 뜻은 아니다.

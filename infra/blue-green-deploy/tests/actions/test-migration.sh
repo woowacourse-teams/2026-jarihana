@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)
-source "$ROOT/infra/scripts/deploy/migration-review.sh"
+source "$ROOT/infra/blue-green-deploy/scripts/migration-review.sh"
 for sql in 'ALTER TABLE member DROP COLUMN name;' 'alter table member rename name to display_name;' \
   $'ALTER TABLE t ALTER\n COLUMN x TYPE bigint;' 'TRUNCATE member;' 'UPDATE member SET name=display_name;' \
   '-- DROP postponed' 'ALTER TABLE t ADD COLUMN x integer NOT NULL;' 'DELETE FROM member;' \

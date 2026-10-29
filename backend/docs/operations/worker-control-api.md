@@ -9,7 +9,7 @@
 - Compose의 호스트 포트는 `127.0.0.1:8081`에만 게시한다. 공개 API 포트 8080에서는 이 경로를 거부한다.
 - `X-Jarihana-Worker-Control-Token` 헤더에 `WORKER_CONTROL_TOKEN` 환경 변수로 주입한 32바이트 이상의 별도 비밀값을 보낸다. 사용자 JWT나 VAPID 값과 공유하지 않는다.
 - 제어 endpoint는 `PUSH_WORKER_CONTROL_ENABLED=true`일 때만 등록된다. Blue-Green용 Compose는 이 값과 기본 대기 설정을 전달한다. 기존 배포 방식의 앱에 자동으로 활성화됐다고 가정하지 않는다.
-- 토큰을 URL, 명령행 인자, 로그 또는 JSON 요청 본문에 넣지 않는다. `infra/scripts/deploy/actions/app.sh`는 대상 호스트의 관리자 소유 파일에서 토큰을 읽고, curl의 표준입력 설정으로 loopback API에 전달한다.
+- 토큰을 URL, 명령행 인자, 로그 또는 JSON 요청 본문에 넣지 않는다. `infra/blue-green-deploy/scripts/actions/app.sh`는 대상 호스트의 관리자 소유 파일에서 토큰을 읽고, curl의 표준입력 설정으로 loopback API에 전달한다.
 
 ## 코드 배치
 
@@ -75,7 +75,7 @@ HTTP 수치에는 Nginx에 남은 연결·네트워크 버퍼·업그레이드�
 실행 중 API의 수치로 `normal_exit=true`를 만들지 않는다. 앱 전용 Actions job의 Bash 실행기는
 SIGTERM 이후 실제 Docker 종료 코드·OOM·컨테이너 세대를 확인해 종료 증거를 만든다.
 결과는 native job output으로 coordinator job에 전달하며 누락된 증거를 0 또는 true로 대체하지 않는다.
-실행 계약은 [서버별 배포 작업 계약](../../../infra/deploy/child-contract.md)을 따른다.
+실행 계약은 [서버별 배포 작업 계약](../../../infra/blue-green-deploy/child-contract.md)을 따른다.
 
 ## 상태 변경
 

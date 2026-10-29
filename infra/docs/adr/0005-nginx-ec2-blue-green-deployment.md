@@ -7,7 +7,7 @@
 - 개정: 2026-10-26 — 실제 dev 도메인 자동 배포의 활성화 경계와 공유 prod2의 운영 이관 순서 명시
 - 범위: prod 백엔드의 트래픽 전환, 배포 자동화와 운영 EC2 시작·중지
 - 관련 결정: [인프라 ADR 0002](0002-rds-deployment-database.md), [백엔드 ADR 0015](../../../backend/docs/adr/0015-separate-ec2-and-shared-rds.md), [백엔드 ADR 0016](../../../backend/docs/adr/0016-github-hosted-build-and-ghcr.md)
-- 구현 범위·실행법·운영 전 남은 연결: [Blue-Green 배포 제어](../../deploy/README.md)
+- 구현 범위·실행법·운영 전 남은 연결: [Blue-Green 배포 제어](../../blue-green-deploy/README.md)
 
 ## 배경
 
@@ -79,7 +79,7 @@ dev API Origin과 최초 worker 등록을 준비한 뒤 활성화한다. 이 기
 prod2는 dev와 prod가 동시에 사용할 수 없다. dev 자동 배포 검증이 끝나면 A로 복귀하고,
 진행 중 배포 종료·기존 dev 방식 복구·dev 자동화 해제·B의 dev 설정 정리를 마친 뒤 prod B로
 전환한다. prod 적용 확인 후 dev 전용 Blue-Green 설정을 제거한다. 자세한 절차는
-[dev 자동화 적용 순서](../../deploy/controller/dev-automatic-deployment.md)에 둔다.
+[dev 자동화 적용 순서](../../blue-green-deploy/controller/dev-automatic-deployment.md)에 둔다.
 
 운영 API용 Nginx는 기존 모니터링 EC2의 Nginx와 별도다. 앱 EC2에는 JVM 하나씩만 실행하며,
 빌드·이미지 공급은 기존 GitHub-hosted ARM runner와 GHCR 경로를 유지한다.
@@ -164,7 +164,7 @@ B를 유지하고 A/B를 모두 켜 둔 채 종료 절차를 멈추고 알린다
 현재 구현은 검사 사이 5초 대기·연속 3회 실패·각 관찰 최소 900초·관찰 후 이전 연결 추가 대기
 300초를 초기값으로 사용한다. GitHub 조회와 SSH·API 처리 시간이 검사 간격에 더해지므로
 정확히 5초 주기를 보장하는 값은 아니다. 상세 임계값과 단계별 기한은
-[운영 절차](../../deploy/controller/full-deployment.md#관찰과-복구)에 두고, dev에서 실제 배포를 시험해
+[운영 절차](../../blue-green-deploy/controller/full-deployment.md#관찰과-복구)에 두고, dev에서 실제 배포를 시험해
 결과와 근거를 설명한 뒤 운영 기준을 확정한다. 15분 관찰과 강제 종료 금지 원칙은 유지한다.
 
 ## DB 변경과 기존 컬럼 삭제
