@@ -143,6 +143,9 @@ class PinnedPushHttpSenderTest {
     @Test
     void connectOnlyToPinnedAddressRetainHostAndRefuseRedirect() throws Exception {
         // Given
+        // 이 테스트는 주소·Host·리다이렉트 정책을 검증한다. 200ms 제한은 별도 deadline 테스트에서 검증한다.
+        var routingProperties = new PushProperties(false, false, null, null, null, null, null, null,
+                Duration.ofSeconds(3), Duration.ofSeconds(1), null);
         var count = new AtomicInteger();
         var host = new AtomicReference<String>();
         var bytes = new AtomicReference<byte[]>();
@@ -157,11 +160,11 @@ class PinnedPushHttpSenderTest {
         });
         server.start();
         try {
-            try (var sender = new PinnedPushHttpSender(properties)) {
+            try (var sender = new PinnedPushHttpSender(routingProperties)) {
             HttpRequest prepared = HttpRequest.newBuilder(URI.create("http://push-test.invalid:" + server.getAddress().getPort() + "/push"))
                     .POST(HttpRequest.BodyPublishers.ofString("encrypted-fixture")).build();
             // When
-            var response = sender.send(prepared, new InetAddress[]{InetAddress.getByName("127.0.0.1")}).get(2, TimeUnit.SECONDS);
+            var response = sender.send(prepared, new InetAddress[]{InetAddress.getByName("127.0.0.1")}).get(5, TimeUnit.SECONDS);
             // Then
             assertThat(response.status()).isEqualTo(302);
             assertThat(count).hasValue(1);

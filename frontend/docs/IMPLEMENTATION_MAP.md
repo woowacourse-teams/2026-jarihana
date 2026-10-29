@@ -91,10 +91,11 @@ header 구현으로 확대하지 않았다.
 | `/groups` | 공개 | `GET /api/groups` | AppShell, GroupBrowsePage, SearchField, FilterBar, GroupCard, CursorList | initial/background loading, empty, success, 400, network |
 | `/groups/explore` | 공개 | 없음 | 검색 조건과 해시를 보존해 `/groups`로 replace 이동 | 기존 링크 호환 |
 | `/activities`                                                       | 공개 (댓글과 반응은 회원) | `GET /api/activity-posts`, 활동 기록 작성, 수정, 숨김 API, 댓글 조회, 작성, 숨김과 하트 반응, 반응한 회원 커서 조회(30명씩) API | AppShell, ActivityPostBoard, PolaroidCard, ActivityPostDetail(Modal), ActivityReactionBar, infinite cursor list | loading, empty, error, public/mine filter, image upload and public-visibility notice, 상세의 댓글 loading, empty, error, 더 보기, 비로그인 로그인 안내 후 `?post=` 복귀, 알림의 `?mine=true&post=` 진입과 최대 5페이지 이어 찾기, 사진 크게 보기 |
+| `/groups/:groupId`                                                  | 그룹 정보, 공지 목록, 달력 제목·날짜·시각은 공개; 일정 상세는 그룹원 | 그룹 상세, 모집·참여자·활동 기록, 공지 목록, `/api/groups/{groupId}/calendar`와 그룹원 일정 상세 API | DetailLayout, Tabs(소개·캘린더·활동 기록·참여자·공지), GroupCalendarTab, GroupAnnouncementTab, InfoRow, RecruitmentCard, PersonRow, ActivityPostBoard | loading, empty section, cursor, leader announcement creation, calendar range/error, 403, 404, 409 conflict, network |
+| `/groups/:groupId/announcements/:announcementId`                   | 공개 범위에 따라 전체 공개 또는 현재 모임원 | 공지 상세 조회 | PageContainer, AnnouncementDetailPage, plain text article | loading, 404 for missing/private notice, retryable network error, list return |
 | `/board` | 공개 (함께하고 싶어요는 회원) | `GET /api/proposals`, `PUT/DELETE /api/proposals/{proposalId}/interest` | AppShell, ProposalBoardPage, 분야 필터, 제안 카드, infinite cursor list | loading, empty(전체, 분야별), error와 다시 불러오기, 분야를 `?category=`로 유지, 카드의 함께하고 싶어요 낙관적 토글과 실패 시 서버 값 복원, 비로그인 로그인 안내 후 `/board` 복귀 |
 | `/board/new` | 회원 | `POST /api/proposals` | ProposalCreatePage, 분야 칩, TextField, Textarea, 분위기 선택지 0~3개를 칩으로 입력(Enter나 쉼표 뒤 띄어쓰기로 더하기, 빈 입력에서 Backspace로 마지막 칩 지우기, 한글 조합 중 Enter는 조합이 끝난 뒤 더하기) | 필드 검증과 첫 오류 포커스, 서버 오류, 작성 중, 성공 시 상세로 replace 이동 |
 | `/board/:proposalId` | 공개 (응답과 코멘트는 회원) | 제안 상세, 응답 저장과 취소, 코멘트 조회, 작성, 숨김과 제안 숨김 | 새 페이지 상세, 조건 칩 응답 패널(1024px 이상 sticky 오른쪽 rail, 미만은 본문 바로 아래), 모인 조건 요약 칩(가장 많이 고른 선택지, 마우스를 올리거나 누르면 선택지별 인원 드롭다운), 코멘트 | loading, 404(지운 제안), error, 비로그인 안내, 마음만 보낸 응답의 조건 더하기, 응답 고치기와 취소, 목록에서 왔으면 뒤로 가기로 분야와 스크롤 복원 |
-| `/groups/:groupId`                                                  | 그룹 정보와 달력 제목·날짜·시각은 공개, 일정 상세는 그룹원 | 그룹 상세, 모집·참여자·활동 기록, `/api/groups/{groupId}/calendar`와 그룹원 일정 상세 API | DetailLayout, Tabs(소개·캘린더·활동 기록), GroupCalendarTab, InfoRow, RecruitmentCard, PersonRow, ActivityPostBoard | loading, empty section, calendar range/error, leader calendar actions, 403, 404, 409 conflict, network |
 | `/groups/:groupId/recruitments/:recruitmentId`                      | 조회 공개, 신청은 회원 | 모집 상세, 신청 생성/철회                | DetailLayout, RecruitmentPanel, Modal, Toast                         | closed/ended, validation, 401, 403, 404, 409, mutation pending/success/failure   |
 | `/oauth/callback`                                                   | 공개                   | `GET /api/members/me`                    | CenteredStateLayout                                                  | callback loading, invalid callback, signup required, authenticated, 401, network |
 | `/invitations/:invitationId` | 상세는 지정 대상 또는 발급자 회원 | 초대 ID 상세·수락 | PageContainer·Card·상태 컴포넌트 | 로그인/가입 필요, 대상 불일치, 만료/취소/종료, 수락 중/결과/재시도 |
@@ -150,6 +151,17 @@ header 구현으로 확대하지 않았다.
 
 ## 실제 API 계약 요약
 
+### 모임 공지 기능
+
+공지 탭은 공개 모임 상세에 표시한다. 로그인 여부와 현재 모임원 여부에 따라 백엔드가 반환한 목록만 보여 준다. 비회원·비구성원은 전체 공개 공지만 확인하고, 모임원은 두 공개 범위를 모두 확인한다. 목록과 상세 응답은 viewer membership에 따라 달라져 서버에서 `Cache-Control: no-store`를 사용한다.
+
+- 방장은 ACTIVE 모임에서 공지 탭의 `공지 추가`를 눌러 모달을 연다. 제목과 일반 텍스트 본문을 입력하고 `MEMBERS` 또는 `PUBLIC` 공개 범위를 선택한다. 종료된 모임에는 작성 UI를 숨기고 서버도 등록을 거부한다.
+- 목록은 `GET /api/groups/{groupId}/announcements?size=20&cursor=...`로 최신순 cursor 조회를 한다. 다음 페이지 오류는 기존 목록을 유지하고 다시 불러올 수 있다.
+- 공지 상세는 `/groups/:groupId/announcements/:announcementId`의 공개 URL이다. 본문은 Markdown을 해석하지 않고 개행을 보존한다. 목록으로 돌아갈 때 `/groups/:groupId?tab=announcements`를 연다. MEMBERS 공지는 비구성원이 상세 URL을 알아도 API 404를 받아 본문을 표시하지 않는다.
+- 로그인 상태에서 공지 목록·상세를 요청하기 직전에는 `GET /api/members/me`로 세션을 확인한다. 공개 공지 API는 만료된 Access Token을 401로 드러내지 않으므로, 기존 API client의 401 재발급·재시도 흐름을 먼저 거쳐 MEMBERS 범위가 올바르게 조회되도록 한다. 인증 bootstrap이 끝날 때까지 공지 조회를 시작하지 않는다.
+- 등록 성공 시 현재 목록을 다시 조회하고 공지 탭에 머문다. 알림함/푸시 알림은 작성자를 뺀 현재 모임원에게만 생성되며, 알림 클릭은 본인 알림 확인·읽음 처리 후 공지 상세 URL로 이동한다. 모임이 종료된 뒤에도 기존 공지는 계속 읽을 수 있다.
+- 작성 요청·응답과 목록·상세 schema는 [백엔드 공지 API 계약](../../backend/docs/context/api/endpoints/announcements.md)을 따른다. UI 입력과 공지 텍스트는 세션 녹화에서 `data-ph-private`로 가린다.
+
 ### 초대 기능 설계 계약
 
 > 상태: 초대 수신 페이지·API/schema·수락·인증 복귀·알림 클릭을 구현했다.
@@ -165,7 +177,9 @@ header 구현으로 확대하지 않았다.
 | 모임 상세 히어로의 초대 링크 복사 | ACTIVE 모임의 현재 모임장·모임원 | LINK 생성·유효 링크 재사용 | 준비 중·복사 완료·직접 복사·권한/네트워크 오류 |
 | 참여자 목록 제목 오른쪽 + 초대 | ACTIVE 모임의 현재 모임장·모임원 | 기본 회원 후보 목록·선택적 이름 검색·DIRECT 개별 생성 | 후보 Avatar(누락·null·로딩 실패 시 이름 첫 글자 대체)·검색 버튼 없는 전체 너비 입력·250ms debounce·Enter 제출·다수 선택·검색 유지·부분 실패·실패 대상 재시도·페이지·빈 결과 |
 | 회원 초대 모달의 보낸 초대 | 현재 모임장·모임원 | MINE(DIRECT만)/MANAGED_LINKS(LINK만) 목록·상세·취소 | 본인 지정 초대와 모임 공유 이력 분리·canRevoke별 취소·모든 구성원 링크 복사 |
-| `/notifications/open/:id` | 본인 알림의 회원 | 본인 알림·초대 상세·읽음 | 로그인 복귀·잘못된 계정·없는 대상·현재 상태 안내 |
+| `/notifications/open/:id` | 본인 알림의 회원 | 본인 알림·초대/공지 대상 조회·읽음 | 로그인 복귀·잘못된 계정·없는 대상·현재 상태 안내 |
+| 모임 공지 작성 | 현재 모임장, ACTIVE 모임 | `POST /api/groups/{groupId}/announcements` | 제목·일반 텍스트 본문·MEMBERS/PUBLIC 범위, pending·validation·409·403 |
+| 모임 공지 목록 | 공개; 비회원·비구성원은 PUBLIC만 | `GET /api/groups/{groupId}/announcements?size=20&cursor=` | 최신순 목록, cursor, 로딩·빈 결과·재시도 |
 
 - MEMBER는 서비스 가입 완료 권한이다. 생성·공유 링크 조회·재복사는 현재 모임 소속을 따로 검사한다. 신청 승인 등 모임장 전용 관리 route는 일반 모임원에게 열지 않는다.
 - `내가 보낸 초대`는 각 DIRECT의 targetMember.crewName을 수신자로 표시한다. 발신자는 표시하지 않는다. 백엔드가 아직 수신자 필드를 제공하지 않으면 목록을 유지하고 `수신자 정보 없음`으로 안내한다. LINK의 targetMember는 null이며 기존 발급자 안내를 유지한다.
@@ -215,6 +229,16 @@ header 구현으로 확대하지 않았다.
 
 ### 웹푸시·알림함 구현
 
+알림 API의 목록·상세·안 읽은 수·전체 읽음과 SW 푸시 내용 조회는 `clientVersion=2`를 전송한다.
+공지 알림(`GROUP_ANNOUNCEMENT_CREATED`)은 target에 `kind: GROUP_ANNOUNCEMENT`, `groupId`, `announcementId`를 가진다. 알림함 본문은 `새 공지`와 모임 이름, 푸시 본문은 `모임에 새 공지가 등록되었어요.`다. 작성자를 제외한 현재 모임원에게 알림을 저장한다. 선행 호환 버전(#490)은 공지 알림을 해석해 모임 상세로 보내며, 공지 기능 버전(#459)은 `/notifications/open/:id`에서 본인 알림과 현재 공지 공개 범위를 확인한 뒤 읽음 처리하고 `/groups/:groupId/announcements/:announcementId`로 이동한다.
+
+기존 계약에는 백엔드가 공지 알림을 제외해 목록·커서·카운트를 유지하고 전체 읽음도 공지를 건드리지 않는다. 상세와 푸시 내용도 기존 클라이언트에는 노출하지 않는다. 클라이언트 계약은 인증·구독 소유권·공개 범위 검사를 대신하지 않는다.
+
+구독 등록의 `clientVersion`은 별도로 실제 활성 SW에 GET_STATE 메시지를 보내 확인한다.
+새 SW는 응답에 2를 포함하고 구버전 SW의 필드 누락은 1로 전송한다. 설치·대기 중 SW는 기준으로 삼지 않는다.
+서버는 2인 구독에만 공지 푸시를 보내며, 기존 구독은 기본 1이므로 사이트를 다시 열지 않은 구버전 SW에도 공지를 보내지 않는다.
+
+
 새 모임 등록(`GROUP_CREATED`)은 알림함과 푸시 클릭 모두 `/groups/:groupId`로 이동한다. 이 사건의 target은 `kind: GROUP_DETAIL`, `groupId`만 가지며 모집·신청 식별자는 없다. 생성 당시 활성 푸시 구독 회원 중 생성자를 제외하고 알림함에 한 건씩 남긴다. SW 표시 제목은 `자리하나?`, 본문은 `새로운 모임이 등록되었어요.`다.
 
 내 활동 기록의 새 댓글(`ACTIVITY_POST_COMMENTED`)과 좋아요(`ACTIVITY_POST_REACTED`)는 target이 `kind: ACTIVITY_POST`, `groupId`, `activityPostId`이며, 알림함과 푸시 클릭 모두 `/activities?mine=true&post=:activityPostId`로 이동해 내가 쓴 기록 피드에서 해당 기록 상세를 연다. 기록이 불러온 페이지에 없으면 피드가 최대 5페이지까지 다음 페이지를 이어 찾고, 그래도 없으면 `post` 값만 지운다. 좋아요 알림 본문은 서버가 만든 `가온 외 2명이 좋아요를 눌렀어요.` 형식을 그대로 표시한다. SW는 댓글에 `내 활동 기록에 새 댓글이 달렸어요.`를, 좋아요에는 푸시 내용 조회의 `reactionSummary`로 `가온님이 좋아요를 눌렀어요.`, `가온 외 2명이 좋아요를 눌렀어요.`, 20명 초과 시 `회원님의 댓글이 무수한 관심을 받고 있어요.`를 표시한다. 요약이 없으면 `내 활동 기록에 좋아요가 도착했어요.`를 쓴다. 계약은 [알림 API의 활동 기록 알림 절](../../backend/docs/context/api/endpoints/notifications.md#활동-기록-알림-응답-확장-계약)을 따른다.
@@ -229,6 +253,7 @@ header 구현으로 확대하지 않았다.
 - DELETE204 뒤에만 해당 행을 240ms 슬라이드 후 제거한다. 실패 행 유지, reduced-motion 이동 생략, 키보드 focus 보존.
 - 신규 진입 `/notifications/open/:id`는 기존 AuthGuard/returnTarget 흐름으로 인증 복귀하고,
   GET `/notifications/{id}`로 본인·target을 확인한 뒤 PATCH read와 내부 경로 이동을 수행한다.
+- `GROUP_ANNOUNCEMENT_CREATED` 알림은 작성자를 제외한 현재 모임원에게 저장한다. 알림함·푸시 클릭은 `/notifications/open/:id`에서 본인 알림과 공지 상세 권한을 확인하고, 공개 범위 통과 후 읽음 처리한 뒤 `/groups/:groupId/announcements/:announcementId`로 이동한다. 탈퇴한 회원이나 비회원에게 MEMBERS 공지 본문은 노출되지 않는다. SW는 payload에 들어 있는 URL을 사용하지 않고 공통 알림 확인 경로로 연다.
 - 알림함과 푸시 클릭은 `/notifications/open/:id`를 공유한다. 새 신청은 `/groups/:groupId/manage/registrations`, 새 참여는 `/groups/:groupId/manage/members`, 승인은 `/my?focusGroup=:groupId`, 모든 미승인은 `/my?registrationStatus=REJECTED&focusRegistration=:registrationId`로 이동한다. 관리 화면은 현재 모임장 여부를 확인한다. 관리 대상 조회 403/404는 읽음 처리 없이 안내한다. 승인·미승인은 읽음 처리 후 목록 캐시를 갱신하고 마이페이지로 이동한다. 해당 유형/미승인 탭을 선택하고 다음 페이지도 조회하여 정확한 카드에 스크롤·키보드 focus·3초 강조를 적용한다. 대상이 없으면 안내하며 reduced-motion에서는 즉시 스크롤한다. 이전 백엔드의 승인 알림 `GROUP_DETAIL` 응답도 프론트 API 경계에서 `MY_GROUPS`로 변환해 같은 카드 강조 경로를 사용한다. 알림함 본문에는 현재 모임 이름과 사건 내용을 표시한다.
 - 이 브라우저 push setting은 명시적 동작에 따른 권한 요청/등록/해제. iPhone·iPad의 일반 브라우저는 홈 화면 설치 안내를 표시한다. 설치 이벤트를 제공하는 브라우저는 설치 버튼을 표시한다.
 - 홈(`/`)에 진입하면 모바일에서 PWA 설치·알림 설정 가이드를 모달로 자동 표시한다. 기기 탭 안에서 브라우저를 선택하며, iOS는 Chrome·Safari, Android는 Chrome·삼성 브라우저를 제공한다. iOS는 실제 화면 이미지로 구성된 5단계 안내를 제공하고 Safari는 첫 공유 화면만 전용 이미지로 사용한 뒤 나머지 단계를 공유한다. Android Chrome은 Chrome 메뉴의 `설치 및 바로가기 만들기`와 설치 선택 화면을 전용 이미지로 안내한다. 2단계에서 `설치` 또는 `홈 화면에 추가`를 고른 뒤 삼성 브라우저와 같은 설치 후속 경로와 공통 푸시 설정 단계를 이어서 사용한다. 삼성 브라우저는 `현재 페이지 추가` 뒤 `웹 앱으로 설치` 경로와 `홈 화면 추가` 경로 중 하나를 따라가며, Play Protect 확인과 푸시 설정 화면은 해당 단계 이미지를 사용하고 목록 버튼·종·푸시 설정 화면은 iOS 이미지를 재사용한다. Samsung Browser로 접속하면 Android 삼성 브라우저 탭을 기본 선택한다. `7일간 보지 않기`는 만료 시각을 브라우저 localStorage에 저장한다. 로그인한 계정에 `GET /api/push-subscriptions` 기준 `enabled=true`인 활성 구독이 있으면 자동 표시하지 않으며, 계정·구독 확인이 실패한 경우에도 팝업을 보류한다. 닫기만 한 경우 홈에 다시 진입하면 다시 표시할 수 있다. 푸터와 알림함의 `설치 안내 보기`에서 수동으로 다시 열 수 있다. 이미지는 서비스 도메인의 공개 정적 경로 `/images/push-guide/`에서 제공하며, 원본 객체는 `s3://techcourse-project-2026/jarihana-dev/images/push-guide/`의 브라우저별 하위 경로에 둔다.

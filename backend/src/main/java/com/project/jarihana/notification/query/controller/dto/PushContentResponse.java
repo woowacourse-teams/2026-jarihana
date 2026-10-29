@@ -12,11 +12,12 @@ public record PushContentResponse(long notificationId, String eventType, int pay
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record PayloadResponse(long groupId, Long recruitmentId, Long registrationId, Long invitationId, Long activityPostId,
-                                  String reasonCode) {
+    public record PayloadResponse(long groupId, Long recruitmentId, Long registrationId, Long invitationId,
+                                  Long activityPostId, Long announcementId, String reasonCode) {
         static PayloadResponse from(NotificationPayload payload) {
             return new PayloadResponse(payload.getGroupId(), payload.getRecruitmentId(), payload.getRegistrationId(), payload.getInvitationId(),
-                    payload.getActivityPostId(), payload.getReasonCode() == null ? null : payload.getReasonCode().name());
+                    payload.getActivityPostId(), payload.getAnnouncementId(),
+                    payload.getReasonCode() == null ? null : payload.getReasonCode().name());
         }
     }
 
