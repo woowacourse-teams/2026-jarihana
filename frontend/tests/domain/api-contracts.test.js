@@ -95,6 +95,25 @@ describe("domain API adapters", () => {
     );
   });
 
+  it("sends the bootcamp signup body unchanged", async () => {
+    // Given
+    const values = {
+      crewName: "도담",
+      memberType: "BOOTCAMP",
+      bootcamp: { name: "SSAFY", status: "IN_PROGRESS", cohort: "12기" },
+      field: "BACKEND"
+    };
+
+    // When
+    await signupMember(values);
+
+    // Then
+    expect(apiRequest).toHaveBeenCalledWith(
+      "members",
+      expect.objectContaining({ method: "post", json: values, skipAuthRefresh: true })
+    );
+  });
+
   it("rejects an invalid crew name before member signup reaches HTTP", () => {
     // Given
     const values = {

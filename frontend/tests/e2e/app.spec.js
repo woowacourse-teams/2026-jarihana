@@ -138,21 +138,24 @@ test(
     );
 
     await page.goto("/signup");
-    const crewOption = page.getByRole("radio", { name: "크루" });
-    const coachOption = page.getByRole("radio", { name: "코치" });
-    await expect(crewOption).toBeVisible();
-    await expect(coachOption).toBeVisible();
-    await expect(page.getByText("안녕하세요. 크루인가요? 코치인가요?")).toBeVisible();
+    const bootcampOption = page.getByRole("radio", { name: /부트캠프/ });
+    await expect(bootcampOption).toBeVisible();
+    await expect(page.getByRole("radio", { name: /회사/ })).toBeVisible();
+    await expect(page.getByRole("radio", { name: /코치/ })).toHaveCount(0);
+    await expect(page.getByText("안녕하세요. 어떤 분이신가요?")).toBeVisible();
 
-    await coachOption.click();
-    await expect(page.locator(".signup-form__profile-panel")).toBeVisible();
-    await expect(page.getByText("안녕하세요 코치님 프로필을 입력해주세요")).toBeVisible();
+    await bootcampOption.click();
+    await expect(page.getByRole("heading", { name: "어느 부트캠프인가요?" })).toBeVisible();
+    await page.getByRole("radio", { name: "우아한테크코스" }).click();
+    const crewVerification = page.getByRole("button", { name: "우테코 크루 인증" });
+    await expect(crewVerification).toBeVisible();
+    await crewVerification.click();
+    await expect(page.getByRole("heading", { name: "안녕하세요 크루님 프로필을 작성해주세요" })).toBeVisible();
 
-    await page.getByRole("button", { name: "유형 변경" }).click();
-    await expect(crewOption).toBeVisible();
-    await crewOption.click();
-    await expect(page.locator(".signup-form__profile-panel")).toBeVisible();
-    await expect(page.getByText("안녕하세요 크루님 프로필을 작성해주세요")).toBeVisible();
+    await page.getByRole("button", { name: "이전" }).click();
+    await expect(crewVerification).toBeVisible();
+    await crewVerification.click();
+    await expect(page.getByRole("heading", { name: "안녕하세요 크루님 프로필을 작성해주세요" })).toBeVisible();
 
     await page.getByLabel("크루 이름").fill("자리");
     await page.getByLabel("과정").selectOption("FRONTEND");

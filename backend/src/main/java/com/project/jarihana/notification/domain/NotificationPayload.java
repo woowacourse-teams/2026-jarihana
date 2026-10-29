@@ -18,19 +18,22 @@ public final class NotificationPayload {
     private final Long registrationId;
     private final Long invitationId;
     private final Long activityPostId;
+    private final Long announcementId;
     private final SystemRejectionReason reasonCode;
 
     private NotificationPayload(long groupId, Long recruitmentId, Long registrationId, Long invitationId,
-                                Long activityPostId, SystemRejectionReason reasonCode) {
+                                Long activityPostId, Long announcementId, SystemRejectionReason reasonCode) {
         boolean registration = recruitmentId != null && recruitmentId > 0 && registrationId != null
-                && registrationId > 0 && invitationId == null && activityPostId == null;
+                && registrationId > 0 && invitationId == null && activityPostId == null && announcementId == null;
         boolean invitation = invitationId != null && invitationId > 0 && recruitmentId == null
-                && registrationId == null && activityPostId == null && reasonCode == null;
+                && registrationId == null && activityPostId == null && announcementId == null && reasonCode == null;
         boolean activityPost = activityPostId != null && activityPostId > 0 && recruitmentId == null
-                && registrationId == null && invitationId == null && reasonCode == null;
+                && registrationId == null && invitationId == null && announcementId == null && reasonCode == null;
+        boolean announcement = announcementId != null && announcementId > 0 && recruitmentId == null
+                && registrationId == null && invitationId == null && activityPostId == null && reasonCode == null;
         boolean group = recruitmentId == null && registrationId == null && invitationId == null
-                && activityPostId == null && reasonCode == null;
-        if (groupId <= 0 || (!registration && !invitation && !activityPost && !group)) {
+                && activityPostId == null && announcementId == null && reasonCode == null;
+        if (groupId <= 0 || (!registration && !invitation && !activityPost && !announcement && !group)) {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "알림의 업무 식별자는 양수여야 합니다.");
         }
         this.groupId = groupId;
@@ -38,23 +41,28 @@ public final class NotificationPayload {
         this.registrationId = registrationId;
         this.invitationId = invitationId;
         this.activityPostId = activityPostId;
+        this.announcementId = announcementId;
         this.reasonCode = reasonCode;
     }
 
     public static NotificationPayload of(long groupId, long recruitmentId, long registrationId, SystemRejectionReason reasonCode) {
-        return new NotificationPayload(groupId, recruitmentId, registrationId, null, null, reasonCode);
+        return new NotificationPayload(groupId, recruitmentId, registrationId, null, null, null, reasonCode);
     }
 
     public static NotificationPayload invitation(long groupId, long invitationId) {
-        return new NotificationPayload(groupId, null, null, invitationId, null, null);
+        return new NotificationPayload(groupId, null, null, invitationId, null, null, null);
     }
 
     public static NotificationPayload activityPost(long groupId, long activityPostId) {
-        return new NotificationPayload(groupId, null, null, null, activityPostId, null);
+        return new NotificationPayload(groupId, null, null, null, activityPostId, null, null);
+    }
+
+    public static NotificationPayload announcement(long groupId, long announcementId) {
+        return new NotificationPayload(groupId, null, null, null, null, announcementId, null);
     }
 
     public static NotificationPayload forGroup(long groupId) {
-        return new NotificationPayload(groupId, null, null, null, null, null);
+        return new NotificationPayload(groupId, null, null, null, null, null, null);
     }
 
     @JsonCreator
@@ -64,8 +72,10 @@ public final class NotificationPayload {
             @JsonProperty("registrationId") Long registrationId,
             @JsonProperty("invitationId") Long invitationId,
             @JsonProperty("activityPostId") Long activityPostId,
+            @JsonProperty("announcementId") Long announcementId,
             @JsonProperty("reasonCode") SystemRejectionReason reasonCode
     ) {
-        return new NotificationPayload(groupId, recruitmentId, registrationId, invitationId, activityPostId, reasonCode);
+        return new NotificationPayload(groupId, recruitmentId, registrationId, invitationId, activityPostId,
+                announcementId, reasonCode);
     }
 }

@@ -544,6 +544,11 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   쓰는 단일 시간 popover를 연다. 브라우저 기본 시간 입력처럼 오전/오후·시·분을 한 줄에 배치하되,
   platform별 select 잘림을 피하도록 underline control과 custom listbox를 product theme로 제공한다.
   시와 분은 키보드로 직접 입력하거나 custom 목록에서 선택할 수 있고, 분 목록은 10분 단위로 제공한다.
+  오전/오후, 시, 분 목록은 열릴 때 본문 또는 모달과 화면 경계 안의 여유 높이를 측정하고,
+  일반 본문에서는 고정 헤더에 가려지는 영역을 제외한다.
+  위쪽 경계에는 목록이 나타나는 이동 거리만큼 여유 간격을 남긴다.
+  아래 공간이 부족하면 위로 열고, 목록 높이는 기존 14rem 상한과 실제 여유 높이 중 작은 값으로 제한해
+  남은 선택지는 목록 안에서 스크롤한다. 실제 여유 높이는 `--time-options-available-height`로 전달한다.
   목록의 scrollbar는 투명한 track과 둥근 brand thumb를 사용해 native 사각형 scrollbar가 드러나지 않게 한다.
   popover 안에는 같은 정보를 반복하는 제목·설명·완료
   action을 두지 않는다. 값은 각 field 입력을 마칠 때 반영하고 바깥 영역 선택으로 panel을 닫는다.

@@ -3,10 +3,13 @@ package com.project.jarihana.notification.command.controller;
 import com.project.jarihana.common.auth.LoginMember;
 import com.project.jarihana.common.response.ApiResponse;
 import com.project.jarihana.notification.command.controller.dto.NotificationReadAllResponse;
+import com.project.jarihana.notification.command.controller.dto.NotificationReadAllRequest;
 import com.project.jarihana.notification.command.controller.dto.NotificationReadResponse;
 import com.project.jarihana.notification.command.service.NotificationCommandService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,8 +29,10 @@ public class NotificationCommandController {
     }
 
     @PatchMapping("/read-all")
-    public ResponseEntity<ApiResponse<NotificationReadAllResponse>> readAllNotifications(@LoginMember long memberId) {
-        return ResponseEntity.ok(ApiResponse.success(NotificationReadAllResponse.from(notifications.readAllNotifications(memberId))));
+    public ResponseEntity<ApiResponse<NotificationReadAllResponse>> readAllNotifications(
+            @LoginMember long memberId, @Validated @ModelAttribute NotificationReadAllRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(NotificationReadAllResponse.from(
+                notifications.readAllNotifications(memberId, request.includesAnnouncements()))));
     }
 
     @DeleteMapping("/{id}")

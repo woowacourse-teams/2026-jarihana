@@ -28,7 +28,8 @@ public class PushContentQueryService {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "알림·구독 식별자와 연결 버전은 양수여야 합니다.");
         }
         subscriptions.findActive(query.subscriptionId(), memberId, query.generation()).orElseThrow(PushContentQueryService::notFound);
-        var notification = notifications.findActiveByIdAndMemberId(id, memberId).orElseThrow(PushContentQueryService::notFound);
+        var notification = notifications.findActiveByIdAndMemberId(id, memberId, query.clientVersion().includesAnnouncements())
+                .orElseThrow(PushContentQueryService::notFound);
         return new PushContentResult(notification.id(), notification.eventType(), notification.payloadVersion(), notification.payload(),
                 findReactionSummary(notification));
     }

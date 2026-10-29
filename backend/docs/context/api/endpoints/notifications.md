@@ -31,6 +31,28 @@ RestAssured 인수 테스트로 계약을 검증한다. 알림함 API는 Control
 
 ## 알림함
 
+### 공지 알림의 클라이언트 읽기 계약
+
+목록, 상세, 안 읽은 수·푸시 내용 조회와 전체 읽음은 선택 쿼리 `clientVersion`을 받는다.
+생략하거나 `1`이면 기존 계약이고, `2`이면 공지 알림을 포함한다. 그 외 값은
+`400 INVALID_PARAMETER`로 거부한다. 저장된 `payloadVersion`은 계속 1이며
+클라이언트의 이해 범위를 고르는 이 파라미터와 별개다.
+
+- 기존 계약에서는 `GROUP_ANNOUNCEMENT_CREATED`를 DB 쿼리에서 제외한 뒤 커서와
+  안 읽은 수를 계산한다. 이 종류의 상세·푸시 내용을 직접 요청하면 404다.
+- 계약 2의 공지 알림은 제목 `새 공지`, 모임 이름이 들어간 안내와
+  `target: {kind: GROUP_ANNOUNCEMENT, groupId, announcementId}`를 반환한다.
+  푸시 payload에는 `groupId`, `announcementId`만 넣는다. 공지 제목·본문은 넣지 않는다.
+- 양쪽 계약 모두 기존 인증·본인 알림·활성 구독·generation 검증을 유지한다.
+  구버전에 표시하지 않는 공지 알림을 삭제하거나 읽음 처리하지 않는다.
+- 프론트 API와 새 Service Worker는 `clientVersion=2`를 보낸다. 호환 선배포 단계의
+  공지 알림 클릭은 모임 상세로 이동한다. 공지 기능 배포 후에는 별도 공지 권한 확인과
+  상세 URL 이동으로 전환한다.
+- 이 호환 배포는 읽기만 준비하며 공지를 등록하거나 새 종류의 알림을 생성하지 않는다.
+  DB event type 허용 범위를 바꾸는 운영 마이그레이션도 포함하지 않는다.
+
+배포·롤백 순서는 [공지 알림 호환성 전환](../../../operations/announcement-notification-compatibility-rollout.md)을 따른다.
+
 ### `GET /api/notifications`
 
 - 설명: 본인의 알림함 목록 조회
@@ -382,6 +404,7 @@ Request Body는 없다.
 | `endpoint` | O | 허용 푸시 서비스 호스트의 HTTPS 주소. UTF-8 최대 2048바이트 |
 | `keys.p256dh` | O | Base64URL 디코딩 후 65바이트인 P-256 공개키 |
 | `keys.auth` | O | Base64URL 디코딩 후 16바이트인 인증값 |
+| `clientVersion` | X | 실제 활성 SW가 확인한 푸시 지원 버전. 1(기본) 또는 2(공지 지원), null도 1. 범위 밖은 400 |
 
 - `endpoint`는 HTTPS 443, userinfo·fragment 없음 등 데이터 모델의 주소 검증 규칙을 따른다. 내부 주소 접근을 막는다.
 - 길이는 문자 수가 아닌 UTF-8 바이트 수로 검사한다. 검증 후 주소 원문을 저장하며 임의 재작성하지 않는다.
@@ -413,6 +436,10 @@ Request Body는 없다.
 - 비활성 구독 재연결·키 교체 시 `generation`을 증가시켜 과거 연결의 작업을 무효화한다.
 - 다른 회원의 `endpoint`는 자동 양도하지 않는다. 계정 전환 시 브라우저의 기존 구독을 해제하고 새 구독을 생성해 현재 회원으로 등록한다.
 - 구독을 새로 켜도 과거 알림함 기록의 전송 작업을 추가하지 않는다.
+- 기존 구독의 `clientVersion`도 요청 값으로 갱신한다. 누락 시 1로 되돌리며 버전만 바뀌어도 `generation`은 유지한다.
+- 새 프론트는 `registration.active`의 메시지 응답에 `clientVersion: 2`가 있을 때만 2를 전송한다. 페이지나 설치·대기 중 SW 버전으로 추정하지 않는다.
+- 공지 푸시는 지원 버전 2인 구독에만 대기 작업을 만들며, 워커가 선점과 전송 준비 시 다시 검사한다. 미지원 구독의 기존 공지 작업은 취소한다. 일반 알림 전송에는 영향을 주지 않는다.
+- 조회용 `clientVersion=2`나 push-content 404만으로 구버전 SW의 일반 OS 알림을 막을 수 없다. 서버 전송 대상 제한을 함께 사용한다.
 
 #### 예외
 

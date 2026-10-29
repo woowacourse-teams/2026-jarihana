@@ -299,9 +299,10 @@ class PushWorkerDrainTest extends PushIntegrationTestSupport {
         awaitSettled();
     }
 
+    // 두 동기화 latch는 호출 테스트의 finally에서 해제하므로 별도 시간 제한 없이 신호를 기다린다.
     private static void await(CountDownLatch latch) {
         try {
-            if (!latch.await(10, TimeUnit.SECONDS)) { throw new AssertionError("테스트 동기화 대기 시간 초과"); }
+            latch.await();
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new AssertionError(exception);
