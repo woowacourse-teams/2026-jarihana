@@ -3,7 +3,7 @@
 - 상태: 채택, 로컬 구현 / 운영 적용 대기
 - 결정일: 2026-10-25
 - 보완일: 2026-10-26
-- 관련 문서: [공통 채팅 계약](../../../docs/chat-implementation-contract.md), [프론트엔드 ADR 0004](../../../frontend/docs/adr/0004-chat-event-recovery.md), [블루그린 배포 절차](../../../infra/deploy/README.md)
+- 관련 문서: [공통 채팅 계약](../../../docs/chat-implementation-contract.md), [프론트엔드 ADR 0004](../../../frontend/docs/adr/0004-chat-event-recovery.md), [블루그린 배포 절차](../../../infra/blue-green-deploy/README.md)
 
 ## 배경
 
@@ -282,7 +282,7 @@ PostgreSQL은 트랜잭션이 커밋되면 알림을 전달하고 롤백하면 �
 NOTIFY는 두 서버 사이의 변경 전달을 맡고, 프록시는 새 연결의 목적지를 바꾼다.
 기존 소켓은 구 서버에 남아 있다가 종료되므로 사용자는 짧은 재접속 상태를 볼 수 있다.
 신·구 버전이 함께 읽을 스키마와 이벤트를 유지하고 DB 파괴적 변경은 롤백 기간 뒤로 미룬다.
-배포 순서·health·드레인·롤백은 [블루그린 운영 문서](../../../infra/deploy/README.md)가 관리한다.
+배포 순서·health·드레인·롤백은 [블루그린 운영 문서](../../../infra/blue-green-deploy/README.md)가 관리한다.
 운영 호스트 이전과 실제 운영 전환은 아직 수행하지 않았다.
 
 ## 규모가 커질 때 다시 볼 지점

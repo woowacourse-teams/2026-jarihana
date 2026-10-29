@@ -1,11 +1,20 @@
 import { Client } from "@stomp/stompjs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { compareSequence, mergeMessages, messageSchema, readSchema } from "../../entities/chat";
 import { getCookieValue } from "../../shared/api/cookies";
 import { getMe, useAuth } from "../auth";
 import { catchUp, fetchAllRooms, fetchMessages, markRead, postMessage } from "./api";
 import { applyChatMessage, applyChatReadState, mergeRoomSnapshot } from "./cache";
+
+function messageUuid() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
 
 export function useChat(roomId) {
   const auth = useAuth();
@@ -14,6 +23,9 @@ export function useChat(roomId) {
   const scope = useMemo(() => ["chat", memberId, auth.sessionVersion], [memberId, auth.sessionVersion]);
   const roomsKey = useMemo(() => [...scope, "rooms"], [scope]);
   const historyKey = useMemo(() => [...scope, "messages", roomId], [scope, roomId]);
+  const activeRoom = useRef({ roomId, historyKey });
+  const previousRoom = useRef(roomId);
+  useLayoutEffect(() => { activeRoom.current = { roomId, historyKey }; }, [roomId, historyKey]);
   const client = useQueryClient();
   const lifetime = useRef(null);
   const synchronize = useRef(() => {});
@@ -54,7 +66,7 @@ export function useChat(roomId) {
     let again = false;
     let reconnectTimer;
     const active = () => !controller.signal.aborted;
-    const updateHistory = (page) => {
+    const updateHistory = (historyKey, page) => {
       if (!active()) return;
       client.setQueryData(historyKey, (old) => old ? {
         ...old, items: mergeMessages(old.items, page.items), status: old.status === "ENDED" ? "ENDED" : page.status,
@@ -66,9 +78,12 @@ export function useChat(roomId) {
       if (!active() || document.visibilityState === "hidden") return;
       if (running) { again = true; return; }
       running = true;
+      let syncingRoom;
       try {
         do {
           again = false;
+          syncingRoom = activeRoom.current;
+          const { roomId, historyKey } = syncingRoom;
           await client.invalidateQueries({ queryKey: roomsKey });
           if (roomId) {
             // Wait for the initial snapshot; only contiguous socket messages advance its cursor.
@@ -76,14 +91,14 @@ export function useChat(roomId) {
               const page = await fetchMessages(roomId, {}, controller.signal);
               return { ...page, syncCursor: page.latestSequence };
             } });
-            const cursor = await catchUp(roomId, initial.syncCursor, updateHistory, controller.signal);
+            const cursor = await catchUp(roomId, initial.syncCursor, (page) => updateHistory(historyKey, page), controller.signal);
             if (active()) client.setQueryData(historyKey, (old) => old ? { ...old, syncCursor: compareSequence(old.syncCursor, cursor) > 0 ? old.syncCursor : cursor } : old);
           }
         } while (again && active());
       } catch (error) {
-        if (active() && [403, 404].includes(error.status)) {
-          client.removeQueries({ queryKey: historyKey, exact: true });
-          client.setQueryData(roomsKey, (old) => old?.filter((room) => room.groupId !== roomId));
+        if (active() && syncingRoom?.roomId && [403, 404].includes(error.status)) {
+          client.removeQueries({ queryKey: syncingRoom.historyKey, exact: true });
+          client.setQueryData(roomsKey, (old) => old?.filter((room) => room.groupId !== syncingRoom.roomId));
         }
       } finally { running = false; }
     }
@@ -150,20 +165,26 @@ export function useChat(roomId) {
     document.addEventListener("visibilitychange", sync);
     return () => {
       controller.abort();
-      client.setQueryData(historyKey, (old) => old ? { ...old, items: old.items.map((message) => message.pending ? { ...message, pending: false, failed: true } : message) } : old);
+      client.setQueriesData({ queryKey: [...scope, "messages"] }, (old) => old ? { ...old, items: old.items.map((message) => message.pending ? { ...message, pending: false, failed: true } : message) } : old);
       window.clearTimeout(reconnectTimer);
       void socket.deactivate({ force: true });
       window.clearInterval(interval);
       window.removeEventListener("online", sync);
       document.removeEventListener("visibilitychange", sync);
     };
-  }, [client, historyKey, roomId, roomsKey, scope, memberId, reloadAuth]);
+  }, [client, roomsKey, scope, memberId, reloadAuth]);
+
+  useEffect(() => {
+    if (previousRoom.current === roomId) return;
+    previousRoom.current = roomId;
+    void synchronize.current();
+  }, [roomId]);
 
   const send = useCallback(async (content, retryMessage) => {
     const controller = lifetime.current;
     if (!controller || controller.signal.aborted) return;
     const message = retryMessage ?? {
-      id: `pending-${crypto.randomUUID()}`, clientMessageId: crypto.randomUUID(),
+      id: `pending-${messageUuid()}`, clientMessageId: messageUuid(),
       groupId: roomId, senderId: memberId, author: auth.member.crewName ?? "나",
       content, createdAt: new Date().toISOString()
     };

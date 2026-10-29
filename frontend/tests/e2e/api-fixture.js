@@ -295,6 +295,14 @@ export async function installApiFixture(pageInstance, options = {}) {
     requests: []
   };
 
+  await pageInstance.routeWebSocket("**/api/ws/chat", (socket) => {
+    socket.onMessage((frame) => {
+      if (String(frame).startsWith("CONNECT")) {
+        socket.send("CONNECTED\nversion:1.2\nheart-beat:0,0\n\n\u0000");
+      }
+    });
+  });
+
   pageInstance.on("response", (response) => {
     const url = new URL(response.url());
     if (url.pathname.startsWith("/api/") && response.status() >= 400) {
@@ -345,6 +353,7 @@ export async function installApiFixture(pageInstance, options = {}) {
     state.requests.push({ method, path, postData: request.postDataJSON?.() });
 
     if (path === "/notifications/unread-count") return json(route, success({ unreadCount: 0 }));
+    if (path === "/chats" && method === "GET") return json(route, success(page([])));
     if (path === "/push-config") return json(route, success({ enabled: false, vapidPublicKey: null, payloadVersions: [1] }));
     if (path.startsWith("/images/") && method === "GET") {
       return route.fulfill({

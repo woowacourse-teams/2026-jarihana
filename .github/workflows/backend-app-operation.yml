@@ -42,9 +42,10 @@ jobs:
       BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
       BG_DEV_AUTO_ENABLED: ${{ vars.BLUE_GREEN_DEV_ENABLED || 'false' }}
       GH_TOKEN: ${{ github.token }}
-      RDS_URL: ${{ vars.BLUE_GREEN_RDS_URL || vars.RDS_URL }}
-      BLUE_GREEN_RDS_URL: ${{ vars.BLUE_GREEN_RDS_URL || (inputs.environment == 'prod' && vars.RDS_URL) }}
-      BG_APPROVED_RDS_URL: ${{ vars.BLUE_GREEN_RDS_URL }}
+      RDS_URL: ${{ vars.RDS_URL }}
+      # Older immutable control releases still require this process environment alias.
+      # Both names use RDS_URL; no separate GitHub variable or DB override is read.
+      BLUE_GREEN_RDS_URL: ${{ vars.RDS_URL }}
       DB_USERNAME: ${{ vars.DB_USERNAME }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
       INVITATION_TOKEN_ACTIVE_KEY_ID: ${{ vars.INVITATION_TOKEN_ACTIVE_KEY_ID || 'primary' }}
@@ -86,7 +87,14 @@ jobs:
       - name: 로컬 앱의 허가·신원을 확인하고 작업 실행
         id: operation
         shell: bash
-        run: bash infra/scripts/deploy/actions/app.sh "$BG_OPERATION"
+        run: |
+          script=infra/blue-green-deploy/scripts/actions/app.sh
+          # The immutable control checkout may predate the package move.
+          if [[ ! -f "$script" ]]; then
+            script=infra/scripts/deploy/actions/app.sh
+          fi
+          [[ -f "$script" ]] || { echo '::error::Control release app entrypoint is missing'; exit 1; }
+          exec bash "$script" "$BG_OPERATION"
       - name: 임시 Docker 인증 정리
         if: always() && env.DOCKER_CONFIG != ''
         shell: bash
