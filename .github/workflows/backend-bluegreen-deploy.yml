@@ -136,7 +136,14 @@ jobs:
           persist-credentials: false
       - name: 전용 runner queue와 전체 실행 기한 감시
         shell: bash
-        run: bash infra/scripts/deploy/actions/queue-guard.sh
+        run: |
+          script=infra/blue-green-deploy/scripts/actions/queue-guard.sh
+          # The immutable control checkout may predate the package move.
+          if [[ ! -f "$script" ]]; then
+            script=infra/scripts/deploy/actions/queue-guard.sh
+          fi
+          [[ -f "$script" ]] || { echo '::error::Control release queue guardian entrypoint is missing'; exit 1; }
+          exec bash "$script"
   bootstrap:
     name: bootstrap
     needs: [resolve, plan]

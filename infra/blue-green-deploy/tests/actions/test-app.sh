@@ -2,7 +2,7 @@
 # Behavioral tests: execute the production Bash functions against a stateful API/Docker double.
 set -Eeuo pipefail
 ROOT=$(cd "$(dirname "$0")/../../../.." && pwd)
-source "$ROOT/infra/scripts/deploy/actions/app.sh"
+source "$ROOT/infra/blue-green-deploy/scripts/actions/app.sh"
 
 fixture() {
   APP_DIR=$(mktemp -d); trap 'rm -rf "$APP_DIR"' EXIT
@@ -283,7 +283,7 @@ case_profile_wrong_token() {
 }
 
 prepare_db_fixture() {
-  cp "$ROOT/infra/deploy/controller/app-compose.yml" "$APP_DIR/compose.yml"
+  cp "$ROOT/infra/blue-green-deploy/controller/app-compose.yml" "$APP_DIR/compose.yml"
   CONFIG=$(jq --arg compose "$APP_DIR/compose.yml" '. + {compose_file:$compose,app_port:8080}' <<< "$CONFIG")
   HOST='{"upstream":"10.0.3.2:8080"}'
   docker() { printf '%s\n' "$*" >> "$APP_DIR/docker-calls"; return 1; }

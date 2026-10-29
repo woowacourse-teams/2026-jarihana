@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)
-source "$ROOT/infra/scripts/deploy/actions/queue-guard.sh"
+source "$ROOT/infra/blue-green-deploy/scripts/actions/queue-guard.sh"
 TEST_DIR=$(mktemp -d "${TMPDIR:-/tmp}/bg-queue-guard.XXXXXX")
 trap 'rm -rf "$TEST_DIR"' EXIT
 mkdir "$TEST_DIR/bin"

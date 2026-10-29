@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../../../.." && pwd)
-SCRIPT=$ROOT/infra/scripts/deploy/actions/dev-route.sh
+SCRIPT=$ROOT/infra/blue-green-deploy/scripts/actions/dev-route.sh
 TEST_DIR=$(mktemp -d)
 trap 'rm -rf -- "$TEST_DIR"' EXIT
 passed=0

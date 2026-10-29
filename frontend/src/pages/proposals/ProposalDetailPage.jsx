@@ -33,6 +33,7 @@ import {
   Textarea
 } from "../../shared/ui/index.js";
 import { useToast } from "../../shared/ui/Toast.jsx";
+import { ProposalCategoryIcon } from "./ProposalCategoryIcon.jsx";
 import { useProposalViewer } from "./proposalAuth.js";
 import "./proposals.css";
 
@@ -699,6 +700,7 @@ export function ProposalDetailPage() {
       <div className="proposal-detail__grid">
         <article className="proposal-detail__post">
           <span className={`proposal-badge proposal-badge--${proposal.category.toLowerCase()}`}>
+            <ProposalCategoryIcon code={proposal.category} size={14} />
             {proposalCategoryLabel(proposal.category)} 모임 제안
           </span>
           <h1 className="proposal-detail__title" ref={titleRef} tabIndex={-1}>
