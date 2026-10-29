@@ -569,7 +569,7 @@ textarea {
     z-index: calc(var(--z-overlay) + 1);
     inset-block-start: calc(100% + var(--space-1));
     inset-inline: 0;
-    max-height: 14rem;
+    max-height: min(14rem, var(--time-options-available-height, 14rem));
     overflow-y: auto;
     padding: var(--space-1);
     border: var(--border-thin) solid var(--color-line);
@@ -583,6 +583,11 @@ textarea {
 
 .ui-time-picker__options::-webkit-scrollbar {
     width: var(--space-2);
+}
+
+.ui-time-picker__options[data-placement="above"] {
+    inset-block-start: auto;
+    inset-block-end: calc(100% + var(--space-1));
 }
 
 .ui-time-picker__options::-webkit-scrollbar-track {
