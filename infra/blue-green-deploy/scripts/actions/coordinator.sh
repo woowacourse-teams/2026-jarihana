@@ -41,6 +41,11 @@ bg_guard() {
   if [[ ${BG_COORDINATOR_READ_ONLY:-false} == true ]]; then bg_live_readonly; else bg_live; fi
   bg_guard_local
 }
+bg_file_guard() {
+  if [[ ${BG_COORDINATOR_READ_ONLY:-false} == true ]]; then bg_live_readonly; else bg_live_cached; fi
+  bg_guard_local
+}
+bg_poll_touch() { bg_file_guard; bg_touch_local; }
 bg_guard_local() {
   local latest
   bg_state_file
@@ -179,7 +184,7 @@ bg_grant_handoff() {
   deadline=$(( $(bg_now)+600 ))
   while ! { bg_direct "$target" && bg_metrics "$target"; }; do
     (( $(bg_now)<deadline )) || bg_die 'Candidate telemetry warmup timed out'
-    bg_touch; sleep 5
+    bg_poll_touch; sleep 5
   done
   bg_issue handoff "$(jq -r '.old' <<<"$STATE")" HANDOFF
 }
@@ -265,7 +270,7 @@ bg_seal() {
       bg_output cleanup_deferred true
       return 0
     fi
-    bg_touch; sleep 5
+    bg_poll_touch; sleep 5
   done
   bg_target_ready || bg_die 'Target is not healthy before seal'
   if fe_enabled; then fe_finalize; fi
@@ -311,7 +316,7 @@ bg_finish_rollback() {
   deadline=$(( $(bg_now)+300 ))
   while ! bg_drained "$(jq -c '.rollback_drain_ticket' <<<"$STATE")"; do
     (( $(bg_now)<deadline )) || bg_die 'Candidate HTTP generation did not drain'
-    bg_touch; sleep 5
+    bg_poll_touch; sleep 5
   done
   [[ $(bg_route) == "$(jq -r '.old' <<<"$STATE")" ]] || bg_die 'Old HTTP recovery lost'
   if fe_enabled; then
@@ -372,6 +377,7 @@ bg_watchdog() {
 }
 main() {
   local command=${1:-}
+  bg_api_context "$command"
   if [[ $command == watchdog ]]; then
     ENVIRONMENT=${BG_ENVIRONMENT:?}
     [[ $ENVIRONMENT == dev || $ENVIRONMENT == prod ]] || bg_die 'Invalid watchdog environment'
@@ -381,6 +387,7 @@ main() {
     RUN_ID=0
   else
     bg_init coordinator
+    [[ $command != plan ]] || bg_api_context deploy
   fi
   BG_COORDINATOR_READ_ONLY=false
   [[ $command != observe ]] || BG_COORDINATOR_READ_ONLY=true

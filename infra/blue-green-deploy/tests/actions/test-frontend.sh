@@ -62,6 +62,7 @@ fe_aws() {
       printf '%s\n' "$key" >>"$CASE_DIR/writes"
       mkdir -p "$(dirname "$file")"; cp "$body" "$file"
       if [[ ${REVOKE_AFTER_WRITE:-} == "$key" ]]; then : >"$CASE_DIR/revoked"; fi
+      if [[ ${ADVANCE_AFTER_WRITE:-} == "$key" ]]; then echo "$(( $(bg_now)+10 ))" >"$CASE_DIR/clock"; fi
       if [[ ${EXPIRE_AFTER_WRITE:-} == "$key" ]]; then echo 5000 >"$CASE_DIR/clock"; fi
       if [[ ${TAMPER_AFTER_WRITE:-} == "$key" ]]; then
         jq '.reason="external change"' "$STATE_FILE" >"$CASE_DIR/tampered"
@@ -100,6 +101,7 @@ setup() {
   mkdir -m700 "$CASE_DIR/state"
   STATE_FILE="$CASE_DIR/state/state.json"
   echo 1000 >"$CASE_DIR/clock"
+  BG_LIVE_CACHED_AT=0
   ENVIRONMENT=prod; BG_MODE=deploy; BG_FRONTEND_ONLY=false
   RUN_ID=123; GITHUB_SHA=$(printf '%040d' 2); CONTROL_SHA=$(printf '%040d' 3)
   BG_IMAGE_DIGEST="sha256:$(printf '%064d' 2)"; OLD_DIGEST="sha256:$(printf '%064d' 1)"
@@ -108,7 +110,7 @@ setup() {
   bg_atomic "$STATE_FILE" "$STATE"
   fixture_files "$CASE_DIR/s3/$FE_LIVE" old
   BG_FRONTEND_DIST="$CASE_DIR/dist"; fixture_files "$BG_FRONTEND_DIST" new
-  unset FAIL_KEY POINTER_ERROR BAD_PUBLIC REVOKED CACHE_TTL REVOKE_AFTER_WRITE EXPIRE_AFTER_WRITE TAMPER_AFTER_WRITE REVOKE_AFTER_PUBLIC
+  unset FAIL_KEY POINTER_ERROR BAD_PUBLIC REVOKED CACHE_TTL REVOKE_AFTER_WRITE ADVANCE_AFTER_WRITE EXPIRE_AFTER_WRITE TAMPER_AFTER_WRITE REVOKE_AFTER_PUBLIC
 }
 rejects() {
   local status=0
@@ -135,7 +137,7 @@ file_operations_bound_remote_reads() {
   (( reads<=2*FILE_COUNT+1 )) || { echo 'Duplicate GitHub reads per frontend file' >&2; return 1; }
   : >"$CASE_DIR/github-reads"
   fe_public_check "$FILE_MANIFEST"
-  (( $(github_read_count)==FILE_COUNT+1 ))
+  (( $(github_read_count)>=1 && $(github_read_count)<=FILE_COUNT+1 ))
 }
 archive_operations_bound_remote_reads() {
   file_operation_fixture
@@ -147,6 +149,7 @@ archive_operations_bound_remote_reads() {
 cancellation_stops_next_file() {
   file_operation_fixture
   REVOKE_AFTER_WRITE="$FE_LIVE/$(jq -r '.files[0].path' "$FILE_MANIFEST")"
+  ADVANCE_AFTER_WRITE=$REVOKE_AFTER_WRITE
   rejects fe_publish_files "$BG_FRONTEND_DIST" "$FILE_MANIFEST"
   [[ $(write_count) == 1 ]]
   grep -q 'Parent run revoked' "$CASE_DIR/rejection.log"
@@ -390,6 +393,7 @@ frontend_after_backend_only_uses_actual_pair() {
   [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *old* ]]
   jq -e --arg image "$BG_IMAGE_DIGEST" '.current=="baseline-123" and .backend_image==$image and .pending==null' "$CASE_DIR/s3/$FE_ARCHIVE/state.json" >/dev/null
 }
+if [[ ${1:-} == --fixtures-only ]]; then return 0; fi
 for test in file_operations_bound_remote_reads archive_operations_bound_remote_reads cancellation_stops_next_file cancellation_after_last_public_file cancellation_prevents_release_commit local_lease_checked_after_file local_state_change_preserved_after_file backend_only_observation_and_seal backend_only_keeps_frontend_files backend_only_rollback_keeps_frontend_files frontend_after_backend_only_uses_actual_pair full_round_trip partial_publish public_fallback_detected missing_baseline pointer_permission_not_absent cache_preflight symlink_artifact traversal_manifest archive_checksum_mismatch wrong_manifest_release stale_recovery cas_conflict recovery_failure_preserves_intent revocation_no_replay independent_worker_recovery frontend_only_full_observation observation_before_publish_rejected archive_immutable zero_length_file_rejected missing_referenced_asset public_failure_during_observation final_check_before_pointer_commit frontend_only_recovery_refreshes_lease; do
   ( setup "$test"; "$test" )
   printf 'PASS frontend %s\n' "$test"

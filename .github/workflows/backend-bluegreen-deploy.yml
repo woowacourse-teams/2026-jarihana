@@ -110,7 +110,7 @@ jobs:
           }
           if [[ "$BG_ENVIRONMENT" == prod && "$BG_MODE" == deploy ]]; then
             control=../deployment-control/infra/blue-green-deploy/scripts/actions
-            [[ -f "$control/frontend.sh" ]] && grep -qx 'FE_RELEASE_CAPABILITY=2' "$control/frontend.sh" || {
+            [[ -f "$control/frontend.sh" ]] && grep -qx 'FE_RELEASE_CAPABILITY=3' "$control/frontend.sh" || {
               echo '::error::Approved control tag lacks coordinated frontend release capability'
               exit 1
             }

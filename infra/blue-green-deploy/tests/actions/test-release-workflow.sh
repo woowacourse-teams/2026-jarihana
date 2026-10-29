@@ -59,6 +59,10 @@ if (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh") >"$TEST_DIR/old.log" 2
 grep -q 'lacks coordinated frontend release capability' "$TEST_DIR/old.log"
 echo 'PASS release-workflow old_control_rejected_before_mutation'
 echo 'FE_RELEASE_CAPABILITY=2' >"$TEST_DIR/deployment-control/infra/blue-green-deploy/scripts/actions/frontend.sh"
+if (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh") >"$TEST_DIR/v2.log" 2>&1; then exit 1; fi
+[[ ! -e $DOCKER_TRACE ]]
+echo 'PASS release-workflow control_without_api_budget_rejected'
+echo 'FE_RELEASE_CAPABILITY=3' >"$TEST_DIR/deployment-control/infra/blue-green-deploy/scripts/actions/frontend.sh"
 (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh")
 grep -qx frontend_only=true "$GITHUB_OUTPUT"
 [[ ! -e $DOCKER_TRACE ]]

@@ -38,3 +38,12 @@ jobs:
       - name: 격리된 로컬 계약 테스트
         # Protected-file tests create root-owned temporary fixtures, without business secrets.
         run: sudo bash infra/blue-green-deploy/tests/actions/run-tests.sh
+  api-budget:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: 전체 배포와 롤백의 GitHub 요청 예산 검증
+        run: sudo bash infra/blue-green-deploy/tests/actions/run-api-budget.sh
