@@ -29,7 +29,6 @@ import {
   EmptyState,
   ErrorState,
   GroupImage,
-  MarkdownContent,
   Modal,
   PageContainer,
   Skeleton,
@@ -38,6 +37,7 @@ import {
   Textarea,
   useToast
 } from "../../shared/ui/index.js";
+import { MarkdownContent } from "../../shared/ui/MarkdownContent.jsx";
 import {
   flattenPages,
   formatCompactLocalDateTime,

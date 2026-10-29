@@ -17,7 +17,8 @@ import {
   IMAGE_ALLOWED_CONTENT_TYPES,
   validateImageFile
 } from "../../features/image-upload/api.js";
-import { MarkdownContent, Textarea } from "../../shared/ui/index.js";
+import { Textarea } from "../../shared/ui/index.js";
+import { MarkdownContent } from "../../shared/ui/MarkdownContent.jsx";
 
 const WRAPPERS = {
   bold: { after: "**", before: "**", placeholder: "강조할 내용" },

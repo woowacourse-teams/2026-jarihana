@@ -79,7 +79,12 @@ export default (_, arguments_) => {
         },
         {
           test: /\.css$/,
-          use: ["style-loader", "css-loader", "postcss-loader"]
+          use: [
+            "style-loader",
+            // style-loader embeds CSS maps in runtime JS even with hidden-source-map.
+            { loader: "css-loader", options: { sourceMap: !isProduction } },
+            { loader: "postcss-loader", options: { sourceMap: !isProduction } }
+          ]
         },
         {
           generator: {
