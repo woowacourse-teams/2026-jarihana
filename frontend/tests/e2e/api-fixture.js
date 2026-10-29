@@ -388,7 +388,14 @@ export async function installApiFixture(pageInstance, options = {}) {
       if (state.auth === "signup-required") {
         return json(route, success({ member: null, signupCompleted: false }));
       }
-      return json(route, success({ member: leader, signupCompleted: true }));
+      // 실제 응답처럼 크루의 소속 필드는 null로 내려 준다.
+      return json(
+        route,
+        success({
+          member: { ...leader, bootcamp: null, career: null, company: null, field: null },
+          signupCompleted: true
+        })
+      );
     }
     if (path === "/auth/refresh" && method === "POST") {
       return state.auth === "anonymous"
