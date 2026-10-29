@@ -1,4 +1,5 @@
 import { mergeCursorPages } from "../../entities/cursor/index.js";
+import { nonCrewMemberTypeLabel } from "../../entities/member/index.js";
 
 const typeLabels = {
   CLUB: "동아리",
@@ -131,7 +132,8 @@ export function courseLabel(course) {
 }
 
 export function memberMetaLabel(member) {
-  if (member.memberType === "COACH") return "코치";
+  const typeLabel = nonCrewMemberTypeLabel(member.memberType);
+  if (typeLabel) return typeLabel;
   return `${Number.isInteger(member.generation) ? `${member.generation}기` : "기수 미정"} 크루`;
 }
 

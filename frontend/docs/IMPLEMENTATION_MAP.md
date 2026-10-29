@@ -99,7 +99,7 @@ header 구현으로 확대하지 않았다.
 | `/oauth/callback`                                                   | 공개                   | `GET /api/members/me`                    | CenteredStateLayout                                                  | callback loading, invalid callback, signup required, authenticated, 401, network |
 | `/invitations/:invitationId` | 상세는 지정 대상 또는 발급자 회원 | 초대 ID 상세·수락 | PageContainer·Card·상태 컴포넌트 | 로그인/가입 필요, 대상 불일치, 만료/취소/종료, 수락 중/결과/재시도 |
 | `/invitations/link/:token` | 공개 조회·회원 수락 | 공개 초대 미리보기·token 수락 | PageContainer·Card·상태 컴포넌트 | 공개 소개, 인증 복귀, 잘못된 주소, 만료/취소/종료, 중복 합류 |
-| `/signup`                                                           | 가입 세션              | 내 정보 조회, 회원 생성                  | FormLayout, FormField, Select                                        | field/server validation, missing session, 409, pending/success/failure           |
+| `/signup`                                                           | 가입 세션              | 내 정보 조회, 회원 생성                  | 첫 화면 유형 카드(부트캠프, 회사), 단계별 질문, FormField, Select, Checkbox | 단계별 validation, 우아한테크코스 크루 인증 진입, server validation, missing session, 409, pending/success/failure |
 | `/my`                                                               | 회원                   | 내 정보, 내 그룹, 내 신청                | MyPageLayout, ProfileCard, SummaryCard                               | bootstrap loading, partial empty, 401, network                                   |
 | `/my/groups`                                                        | 회원                   | `GET /api/groups?relation=JOINED`        | ListLayout, GroupCard, CursorList                                    | loading, empty, cursor, 401, network                                             |
 | `/my/registrations`                                                 | 회원                   | 내 신청 목록, 신청 철회                  | ListLayout, StatusBadge, ConfirmDialog                               | loading, empty, cursor, 401/403/404/409, mutation states                         |
@@ -199,6 +199,7 @@ header 구현으로 확대하지 않았다.
   조회는 no-store, 명시적 수락 요청만 POST한다. 수락 성공 후 모임·구성원·신청·초대 캐시를 갱신한다.
   초대 조회 캐시는 회원 ID·세션 버전으로 구분하고 이전 계정의 조회를 취소·제거한다.
   화면도 세션별로 분리해 이전 계정의 뒤늦은 수락 결과를 표시하지 않는다.
+- 회원가입 첫 화면은 부트캠프와 회사 두 장 카드다. 이후 한 화면에 질문 하나씩 묻는다. 부트캠프는 캠프, 수강 상태, 분야, 닉네임을, 회사는 직무, 연차, 닉네임과 선택 회사명을 묻는다. 부트캠프 목록에서 우아한테크코스를 고르면 '우테코 크루 인증' 버튼을 거쳐 기존 크루 입력(크루 이름, 과정, 기수)으로 이어진다. 크루 인증 방법이 정해지기 전까지 이 버튼은 크루 입력으로 바로 넘어간다. 코치 선택지는 없다.
 - 회원가입 성공 후 고정 `/my` 대신 저장한 안전한 복귀 경로로 이동한다. 가입 실패와 가입 대기 중에는
   경로를 소모하지 않는다. 기존 OAuthCallbackPage와 SignupGuard의 가입 세션 처리도 유지한다.
 - 공유 토큰 경로의 자동 수집·녹화는 차단한다. 유효한 공유 초대 페이지에서는 정제한

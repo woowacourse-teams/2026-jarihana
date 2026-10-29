@@ -8,7 +8,7 @@ import {
   localTimeSchema
 } from "../common/schemas.js";
 
-const memberTypeSchema = z.enum(["CREW", "COACH"]);
+const memberTypeSchema = z.enum(["CREW", "COACH", "BOOTCAMP", "PROFESSIONAL"]);
 
 export const groupTypeSchema = z.enum(["CLUB", "STUDY", "SESSION"]);
 export const groupMeetingTypeSchema = z.enum(["ONLINE", "OFFLINE", "FLEXIBLE"]);
