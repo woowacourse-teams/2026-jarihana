@@ -164,7 +164,7 @@ class NotificationPersistenceTest extends IntegrationTestSupport {
         assertThat(jdbc.queryForObject("select count(*) from notifications", Long.class)).isEqualTo(2);
         assertThat(notifications.findByEventKeyAndMemberId(saved.getEventKey(), member.getId()).orElseThrow().getDeletedAt())
                 .isEqualTo(NOW);
-        assertThat(queries.countUnread(member.getId())).isEqualTo(1);
+        assertThat(queries.countUnread(member.getId(), false)).isEqualTo(1);
         Integer anotherOwnerInsert = new TransactionTemplate(transactions)
                 .execute(status -> insert(member("456"), "registration:3:approved"));
         assertThat(anotherOwnerInsert).isEqualTo(1);
@@ -207,9 +207,9 @@ class NotificationPersistenceTest extends IntegrationTestSupport {
         notifications.save(notification(member("456"), "registration:5:approved"));
 
         // When
-        var first = queries.findPage(member.getId(), null, null, PageRequest.of(0, 2));
+        var first = queries.findPage(member.getId(), null, null, false, PageRequest.of(0, 2));
         var cursor = first.getContent().getLast();
-        var next = queries.findPage(member.getId(), cursor.createdAt(), cursor.id(), PageRequest.of(0, 2));
+        var next = queries.findPage(member.getId(), cursor.createdAt(), cursor.id(), false, PageRequest.of(0, 2));
 
         // Then
         assertThat(first.getContent().stream().map(item -> item.id())).containsExactly(latest.getId(), middle.getId());
@@ -217,7 +217,7 @@ class NotificationPersistenceTest extends IntegrationTestSupport {
         assertThat(first.getContent().getFirst().readAt()).isEqualTo(NOW);
         assertThat(next.getContent().stream().map(item -> item.id())).containsExactly(oldest.getId());
         assertThat(next.hasNext()).isFalse();
-        assertThat(queries.countUnread(member.getId())).isEqualTo(2);
+        assertThat(queries.countUnread(member.getId(), false)).isEqualTo(2);
     }
 
     @Test
@@ -230,7 +230,7 @@ class NotificationPersistenceTest extends IntegrationTestSupport {
         jdbc.update("update notifications set created_at = ? where id = ?", NOW.minusHours(1), old.getId());
 
         // When
-        var result = queries.findPage(member.getId(), recent.getCreatedAt(), recent.getId(), PageRequest.of(0, 20));
+        var result = queries.findPage(member.getId(), recent.getCreatedAt(), recent.getId(), false, PageRequest.of(0, 20));
 
         // Then
         assertThat(result.getContent().stream().map(item -> item.id())).containsExactly(old.getId());

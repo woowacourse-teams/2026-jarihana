@@ -76,7 +76,10 @@ export async function enableBrowserPush(memberId, registration, config, snapshot
   checkSession();
   subscription ??= await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
   checkSession();
-  const result = await registerPush(subscription);
+  // 설치 중/대기 중인 SW나 페이지 버전으로 지원 여부를 추측하지 않는다.
+  const activeState = await workerCommand("GET_STATE", {}, registration);
+  checkSession();
+  const result = await registerPush(subscription, activeState.clientVersion === 2 ? 2 : 1);
   checkSession();
   if (!result.enabled) throw new Error("푸시 연결이 비활성 상태예요.");
   return workerCommand("BIND", { expectedRevision: state.revision,

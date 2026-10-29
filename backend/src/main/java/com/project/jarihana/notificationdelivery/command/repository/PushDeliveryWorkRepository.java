@@ -58,7 +58,8 @@ public interface PushDeliveryWorkRepository extends Repository<NotificationDeliv
             ), candidate as (
                 select d.id, case
                     when n.deleted_at is not null or not s.enabled or d.subscription_generation <> s.generation
-                        or n.member_id <> s.member_id then 'CANCELLED'
+                        or n.member_id <> s.member_id
+                        or (n.event_type = 'GROUP_ANNOUNCEMENT_CREATED' and s.client_version < 2) then 'CANCELLED'
                     when d.expires_at <= :now or d.attempt_count >= 5 then 'FAILED'
                     else 'IN_FLIGHT' end as next_status
                 from selected_candidate selected
@@ -112,6 +113,7 @@ public interface PushDeliveryWorkRepository extends Repository<NotificationDeliv
             where d.status = 'IN_FLIGHT' and d.locked_until > :now
                 and d.expires_at > :now and n.deleted_at is null and s.enabled
                 and d.subscription_generation = s.generation and n.member_id = s.member_id
+                and (n.event_type <> 'GROUP_ANNOUNCEMENT_CREATED' or s.client_version >= 2)
             """, nativeQuery = true)
     List<SendableProjection> findSendableRows(@Param("claims") String claims, @Param("now") LocalDateTime now);
 

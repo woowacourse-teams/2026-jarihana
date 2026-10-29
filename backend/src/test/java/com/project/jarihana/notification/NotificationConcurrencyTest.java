@@ -58,7 +58,7 @@ class NotificationConcurrencyTest extends NotificationIntegrationTestSupport {
                 // When
                 var reading = executor.submit(() -> transaction().execute(status -> {
                     updatePid.set(jdbc.queryForObject("select pg_backend_pid()", Integer.class));
-                    return service.readAllNotifications(owner.getId());
+                    return service.readAllNotifications(owner.getId(), false);
                 }));
                 awaitBlocked(updatePid);
                 commitLate.countDown();
@@ -137,7 +137,7 @@ class NotificationConcurrencyTest extends NotificationIntegrationTestSupport {
 
     private void read(long memberId, long id, boolean all) {
         if (all) {
-            service.readAllNotifications(memberId);
+            service.readAllNotifications(memberId, false);
             return;
         }
         service.readNotification(memberId, id);

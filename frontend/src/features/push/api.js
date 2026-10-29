@@ -6,8 +6,8 @@ const subscriptionPage = z.object({ items: z.array(binding), nextCursor: z.strin
 export const fetchPushConfig = () => apiClient.request("push-config", {
   schema: z.object({ enabled: z.boolean(), vapidPublicKey: z.string().nullable(), payloadVersions: z.array(z.number().int()) })
 });
-export const registerPush = (subscription) => apiClient.request("push-subscriptions", {
-  method: "POST", json: subscription.toJSON(), schema: binding
+export const registerPush = (subscription, clientVersion = 1) => apiClient.request("push-subscriptions", {
+  method: "POST", json: { ...subscription.toJSON(), clientVersion }, schema: binding
 });
 export const disconnectPush = (id) => apiClient.request(`push-subscriptions/${id}`, { method: "DELETE" });
 

@@ -289,4 +289,78 @@ describe("backend DTO schemas", () => {
     expect(me.member.memberType).toBe(memberType);
     expect(page.items[0].memberType).toBe(memberType);
   });
+
+  it("accepts the affiliation fields that /members/me returns as null for a crew", () => {
+    // Given
+    const member = {
+      id: 1,
+      crewName: "가온",
+      generation: 8,
+      memberType: "CREW",
+      course: "BACKEND",
+      avatarUrl: "https://avatars.githubusercontent.com/u/1",
+      bootcamp: null,
+      field: null,
+      career: null,
+      company: null
+    };
+
+    // When
+    const me = meSchema.parse({ signupCompleted: true, member });
+
+    // Then
+    expect(me.member.crewName).toBe("가온");
+  });
+
+  it("accepts a bootcamp member and a professional with their affiliation in /members/me", () => {
+    // Given
+    const base = { generation: null, course: null, avatarUrl: "https://avatars.githubusercontent.com/u/3" };
+    const bootcamp = {
+      ...base,
+      id: 3,
+      crewName: "도담",
+      memberType: "BOOTCAMP",
+      bootcamp: { name: "SSAFY", status: "IN_PROGRESS", cohort: null },
+      field: "BACKEND",
+      career: null,
+      company: null
+    };
+    const professional = {
+      ...base,
+      id: 4,
+      crewName: "하나",
+      memberType: "PROFESSIONAL",
+      bootcamp: null,
+      field: "DATA_AI",
+      career: "YEARS_4_6",
+      company: { name: "자리하나", visible: false }
+    };
+
+    // When
+    const bootcampMe = meSchema.parse({ signupCompleted: true, member: bootcamp });
+    const professionalMe = meSchema.parse({ signupCompleted: true, member: professional });
+
+    // Then
+    expect(bootcampMe.member.bootcamp).toEqual({ name: "SSAFY", status: "IN_PROGRESS", cohort: null });
+    expect(professionalMe.member.company).toEqual({ name: "자리하나", visible: false });
+  });
+
+  it("still rejects an unknown member field in /members/me", () => {
+    // Given
+    const member = {
+      id: 1,
+      crewName: "가온",
+      generation: 8,
+      memberType: "CREW",
+      course: "BACKEND",
+      avatarUrl: "https://avatars.githubusercontent.com/u/1",
+      nickname: "가온"
+    };
+
+    // When
+    const result = meSchema.safeParse({ signupCompleted: true, member });
+
+    // Then
+    expect(result.success).toBe(false);
+  });
 });

@@ -3,6 +3,7 @@ package com.project.jarihana.notification.query.controller;
 import com.project.jarihana.common.auth.LoginMember;
 import com.project.jarihana.common.response.ApiResponse;
 import com.project.jarihana.notification.query.controller.dto.NotificationItemResponse;
+import com.project.jarihana.notification.query.controller.dto.NotificationClientRequest;
 import com.project.jarihana.notification.query.controller.dto.NotificationListRequest;
 import com.project.jarihana.notification.query.controller.dto.NotificationListResponse;
 import com.project.jarihana.notification.query.controller.dto.NotificationUnreadCountResponse;
@@ -33,14 +34,16 @@ public class NotificationQueryController {
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<NotificationItemResponse>> findNotification(
-            @LoginMember long memberId, @PathVariable long id) {
+            @LoginMember long memberId, @PathVariable long id,
+            @Validated @ModelAttribute NotificationClientRequest request) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponse.success(
-                NotificationItemResponse.from(notifications.findNotification(memberId, id))));
+                NotificationItemResponse.from(notifications.findNotification(memberId, id, request.toVersion()))));
     }
 
     @GetMapping("/unread-count")
-    public ResponseEntity<ApiResponse<NotificationUnreadCountResponse>> countUnreadNotifications(@LoginMember long memberId) {
+    public ResponseEntity<ApiResponse<NotificationUnreadCountResponse>> countUnreadNotifications(
+            @LoginMember long memberId, @Validated @ModelAttribute NotificationClientRequest request) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponse.success(
-                new NotificationUnreadCountResponse(notifications.countUnreadNotifications(memberId))));
+                new NotificationUnreadCountResponse(notifications.countUnreadNotifications(memberId, request.toVersion()))));
     }
 }

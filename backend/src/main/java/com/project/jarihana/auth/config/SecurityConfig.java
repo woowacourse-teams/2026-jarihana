@@ -29,6 +29,8 @@ public class SecurityConfig {
             "/groups/*/recruitments",
             "/groups/*/recruitments/*",
             "/groups/*/activity-posts",
+            "/groups/*/announcements",
+            "/groups/*/announcements/*",
             "/activity-posts",
             "/activity-posts/*/comments",
             "/activity-posts/*/reactions/*",
