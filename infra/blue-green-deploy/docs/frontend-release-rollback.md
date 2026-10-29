@@ -170,7 +170,7 @@ bash infra/blue-green-deploy/tests/actions/run-api-budget.sh
    완료 저널도 control SHA와 topology digest를 대조하므로 tag/설정만 바꿔 이전 저널을
    자동 채택하지 않는다. 최초 bootstrap 또는 기존 완료 저널의 검토된 이관을 별도로 준비한다.
 3. Nginx coordinator의 기존 IAM 역할에서 버킷 조회와 두 prefix에 한정된 `ListBucket`,
-   `GetObject`, `PutObject` 및 `GetDistributionConfig`, `GetCachePolicy` 읽기 권한을 확인한다.
+   `GetObject`, `PutObject` 및 `GetDistributionConfig`, `GetCachePolicy`, `GetFunction` 읽기 권한을 확인한다.
    `ListBucket`은 버킷 리소스와 prefix 조건으로 제한하고 객체 권한은 공개/보관 prefix에 한정한다.
    CloudFront 쓰기나 invalidation, 버킷 전체 삭제 권한은 요구하지 않는다.
 4. S3 원본과 공개 `https://jarihana.com` 접근, AWS CLI의 조건부 쓰기 지원, 임시 디스크 공간과
@@ -212,6 +212,14 @@ CLI 설치와 실제 권한 및 원본 보관 검증은 적용 게이트에 남�
 기본 경로 캐시가 비활성인 조건에서 CloudFront 변경이나 invalidation 없이 공개 바이트를
 검사한다. 이 조건이 달라지면 배포를 중단하고 캐시 정책과 복구 계약을 먼저 재검토한다.
 S3 캐시 메타데이터만 바꿨다는 이유로 엣지와 브라우저 캐시가 모두 해제됐다고 판단하지 않는다.
+
+기본 behavior의 함수가 없거나, 계정 `843255971531`의 `jarihana-group-share-preview` 하나가
+`viewer-request`에 연결된 경우만 허용한다. 함수가 있으면 `LIVE` 코드를 읽어 SHA-256
+`43f5a2aba54c74c4ffc7dba57ec43ebc2b270890f03b7a82fc2d761eb287b828`과 비교한다.
+이는 저장소 `infra/cloudfront/group-share-preview.js`에서 맨 앞 설명 주석과 마지막 줄바꿈만
+제외한 운영 코드다. 정적 파일을 그대로 전달하고 공유 미리보기와 SPA 경로를 처리한다.
+다른 함수, 이벤트, 추가 함수, Lambda@Edge, 읽기 실패나 코드 변경은 게시 전에 차단한다.
+함수를 갱신할 때는 동작을 검토한 새 코드 해시와 제어 release를 함께 반영해야 한다.
 
 ## 최초 baseline을 읽고 확인하는 순서
 
