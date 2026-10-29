@@ -22,6 +22,11 @@
 - 이전 대화 추가 로딩은 기존 내용의 스크롤 위치를 보존한다. 최신 위치에서 벗어나면 새 메시지 수신으로 강제 이동하지 않고 최근 메시지 버튼을 제공한다.
 - 미확인 수는 서버 읽음 커서와 실제 메시지 이벤트로 갱신한다. 현재 방의 최신 확정 메시지가 보이는 활성 창에서만 읽음 요청을 보낸다.
 
+## 스파링 목록
+
+- 가로 대결 카드에서 양쪽 입장과 호스 장면, 캡슐 연출, 실제 참여 수와 투표 비율을 표시한다.
+- 모션 감소 설정에서는 캡슐 이동과 흔들림을 생략한다.
+
 ## 0. Research log
 
 - 일반 화면 시각 기준: Figma `자리하나 디자인 (복사)` 파일의 `최종 디자인 2` 페이지
@@ -1145,3 +1150,27 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
 - 레이아웃 참고: [StyleGallery sticky-aside](https://github.com/changeroa/StyleGallery/blob/main/patterns/split-sidebar/sticky-aside.md)의
   문서 스크롤 소유권·명시적 grid 배치를 적용했다. [BEUI scroll-animation](https://beui.dev/r/scroll-animation/raw)의
   공통 스크롤 제어 원칙은 기존 wheel-gestures 제어기로 구현하며 Lenis/Motion은 추가하지 않는다.
+
+### Sparring live integration
+
+#### 캐릭터 대치 (2026-10-29)
+
+- 주 동작은 한마디 보내기다. 주제와 양쪽 입장 → 서로 마주 보는 캐릭터와 실제 의견 → 입력과 기록 순서로 읽는다.
+- Layout: 스파링 상세 - 투표 통과 대화 인물을 분리 -> overlay-stack (https://every-layout.dev/layouts/stack/); scroll owner: 부모 document; anti-patterns: 캡슐 반구를 인물 받침으로 사용, 말풍선과 투표 버튼 겹침, iframe 안의 중첩 스크롤.
+- 통 속 캡슐은 투표 색 비율을 표시한다. 대화는 바닥에 서 있는 크루·코치가 손을 내밀어 항의하고 상대가 팔짱·고개 젓기로 반응한다. 오른쪽 인물은 좌우 반전해 안쪽을 바라본다.
+- 좌우 말풍선은 서버에 저장된 실제 글이다. 받아치기는 실제 원문과 답글을 짝지으며 같은 편끼리의 대화도 원래 편 색을 보존한다. 대화 없는 쪽에 가짜 반박을 넣지 않는다.
+- 동작 토큰: turn 1.4s, response 1.4s, settle 0.7s, display 6.4s, crossfade 140ms; 전진 18px, 반동 8px, 기울임 5deg 이내. beui action-swap의 상태별 교차 전환을 참고하고 인물 몸짓은 이 화면의 전용 모션으로 구현한다.
+- 모션 감소에서는 위치·회전을 없애고 말하는 자세만 바꾼다. 화면 밖·일시정지는 시계를 멈추며, 말풍선 포커스 중에는 교체하지 않는다. 긴 글은 말풍선 3줄을 유지하고 선택한 의견 영역에서 전문을 읽는다. 키보드 Escape로 읽기를 마치면 대기한 새 대화가 이어진다.
+- 무대 높이: 넓은 화면 340px, 좁은 화면 320px. 인물 240px/200px, 말풍선 본문 16px/14px, 보조 12px. 색은 기존 mint/coral/ink/canvas/line을 사용한다.
+- 별도 승패 점수·가짜 실시간 참여자·게임 조작 버튼은 추가하지 않는다.
+
+- 크루/코치: 기존 signup 이미지와 같은 검정 머리, 둥근 얼굴, 니트/배낭과 민트 명찰.
+  투표 통과 분리한 바닥에 마주 보는 2.5D 스프라이트를 배치한다.
+- 민트 `--color-brand`, 코랄 `--color-cohort-2`, 본문/배경은 기존 ink/surface 토큰.
+- 경기장 최대 폭 1600px, 바깥 gutter 16px(좁은 화면)/24px(넓은 화면),
+  통/파이프/작성창은 그 폭 안에서 연결된다. 기록은 960px 안에서 읽는다.
+- Layout: 스파링 상세 - 경기장과 기록을 자연스럽게 이어 배치 -> stack + content-limiter
+  (https://every-layout.dev/layouts/stack/); scroll owner: 부모 document;
+  anti-patterns: 중첩 스크롤, 중복 서비스 헤더, 진영 선택 카드.
+- 연결 상태는 연결 중/연결됨/재연결/오프라인으로 표시한다. 지난 대화는 리플레이로 구분한다.
+- 사용자가 입력/기록을 읽을 때 자동 재생으로 선택한 글을 빼앗지 않는다.

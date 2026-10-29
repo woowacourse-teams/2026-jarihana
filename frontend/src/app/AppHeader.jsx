@@ -51,11 +51,20 @@ const BOARD_LINK = {
   to: "/board"
 };
 
+const SPARRING_LINK = {
+  action: "sparring_view",
+  isActive: (pathname) => pathname === "/sparring" || pathname.startsWith("/sparring/"),
+  label: "스파링",
+  requiresAuth: false,
+  to: "/sparring"
+};
+
 const MEMBER_LINKS = [
   HOME_LINK,
   EXPLORE_LINK,
   ACTIVITY_LINK,
   BOARD_LINK,
+  SPARRING_LINK,
   {
     action: "group_create",
     isActive: (pathname) => pathname === "/groups/new",
@@ -65,7 +74,7 @@ const MEMBER_LINKS = [
   }
 ];
 
-const DESKTOP_MEMBER_LINKS = [HOME_LINK, EXPLORE_LINK, ACTIVITY_LINK, BOARD_LINK];
+const DESKTOP_MEMBER_LINKS = [HOME_LINK, EXPLORE_LINK, ACTIVITY_LINK, BOARD_LINK, SPARRING_LINK];
 
 function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, status }) {
   const { pathname } = useLocation();

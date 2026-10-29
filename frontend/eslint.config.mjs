@@ -8,6 +8,7 @@ import globals from "globals";
 export default [
   {
     ignores: [
+      "public/sparring-arena/vendor/**",
       "coverage/**",
       "dist/**",
       "node_modules/**",

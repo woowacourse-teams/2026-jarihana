@@ -95,6 +95,8 @@ header 구현으로 확대하지 않았다.
 | `/board/new` | 회원 | `POST /api/proposals` | ProposalCreatePage, 분야 칩, TextField, Textarea, 분위기 선택지 0~3개를 칩으로 입력(Enter나 쉼표 뒤 띄어쓰기로 더하기, 빈 입력에서 Backspace로 마지막 칩 지우기, 한글 조합 중 Enter는 조합이 끝난 뒤 더하기) | 필드 검증과 첫 오류 포커스, 서버 오류, 작성 중, 성공 시 상세로 replace 이동 |
 | `/board/:proposalId` | 공개 (응답과 코멘트는 회원) | 제안 상세, 응답 저장과 취소, 코멘트 조회, 작성, 숨김과 제안 숨김 | 새 페이지 상세, 조건 칩 응답 패널(1024px 이상 sticky 오른쪽 rail, 미만은 본문 바로 아래), 모인 조건 요약 칩(가장 많이 고른 선택지, 마우스를 올리거나 누르면 선택지별 인원 드롭다운), 코멘트 | loading, 404(지운 제안), error, 비로그인 안내, 마음만 보낸 응답의 조건 더하기, 응답 고치기와 취소, 목록에서 왔으면 뒤로 가기로 분야와 스크롤 복원 |
 | `/groups/:groupId`                                                  | 그룹 정보와 달력 제목·날짜·시각은 공개, 일정 상세는 그룹원 | 그룹 상세, 모집·참여자·활동 기록, `/api/groups/{groupId}/calendar`와 그룹원 일정 상세 API | DetailLayout, Tabs(소개·캘린더·활동 기록), GroupCalendarTab, InfoRow, RecruitmentCard, PersonRow, ActivityPostBoard | loading, empty section, calendar range/error, leader calendar actions, 403, 404, 409 conflict, network |
+| `/sparring` | 공개 (주제 생성은 회원) | 스파링 목록, 검색, 주제 생성 | AppShell, 스파링 목록과 가로 대결 카드 | loading, empty, error, 로그인 안내 |
+| `/sparring/:topicId` | 공개 (투표와 의견은 회원) | 스파링 상세, 투표, 의견, 실시간 이벤트 | 경기장과 대화 기록 | loading, 연결 상태, 인증 안내, 저장 실패 |
 | `/groups/:groupId/recruitments/:recruitmentId`                      | 조회 공개, 신청은 회원 | 모집 상세, 신청 생성/철회                | DetailLayout, RecruitmentPanel, Modal, Toast                         | closed/ended, validation, 401, 403, 404, 409, mutation pending/success/failure   |
 | `/oauth/callback`                                                   | 공개                   | `GET /api/members/me`                    | CenteredStateLayout                                                  | callback loading, invalid callback, signup required, authenticated, 401, network |
 | `/invitations/:invitationId` | 상세는 지정 대상 또는 발급자 회원 | 초대 ID 상세·수락 | PageContainer·Card·상태 컴포넌트 | 로그인/가입 필요, 대상 불일치, 만료/취소/종료, 수락 중/결과/재시도 |
@@ -435,3 +437,17 @@ replace 이동한다. 헤더의 홈과 브랜드 링크는 `/home`, 탐색 링�
   `group-transition.css`는 대표 이미지와 상세 hero를 native View Transition으로 연결한다.
 - `GroupDetailPage`의 목록 링크와 `ScrollRestoration`이 필터·스크롤을 복원한다. 상세 내부 탭은 origin state를 유지한다.
   `TodaySessionsHero`는 history에 보관한 캐러셀 index로 초기 배치한다. 수정키 클릭은 기존 브라우저 동작을 유지한다.
+
+## 스파링 서비스 통합 (2026-10-29)
+
+- `/sparring`: 공개 서버 목록/검색/필터/이전 페이지, 로그인 후 주제 등록 모달
+- `/sparring/:topicId`: 공개 투표 현황·캡슐 경기장·영구 의견. 회원 편 선택 후 POST 의견/받아치기
+- `src/features/sparring/api.js`: 공통 API client + Zod 응답 검증
+- `useArenaBridge.js`: 인증/HTTP/SSE, 재접속 catch-up, ID 중복 제거, 출처/스키마 검증
+- `public/sparring-arena`: 기존 물리 연출을 보존한 같은 출처 iframe. 인증 토큰을 전달하지 않는다
+- iframe 내부 스크롤/키보드 고정 작성을 쓰지 않고 부모 문서의 일반 스크롤을 사용한다
+- 원래 예시 목록·localStorage 데모는 서비스 데이터를 대신하지 않는다
+- 주제 생성·투표·의견 저장은 실제 서버 응답 이후 표시하고 실패 시 입력을 보존한다
+
+[API 계약](../../backend/docs/context/api/endpoints/sparrings.md),
+[전체 기획/복원/검증 맥락](../../docs/sparring/INTEGRATION.md)

@@ -65,6 +65,8 @@ export const lazyPageRegistry = Object.freeze({
   RecruitmentDetailPage: lazyNamed(loadGroupPages, "RecruitmentDetailPage"),
   RegistrationManagePage: lazyNamed(loadManagePages, "ManageRegistrationsPage"),
   ShowcasePage: lazyNamed(() => import("../pages/ShowcasePage.jsx"), "ShowcasePage"),
+  SparringDetailPage: lazyNamed(() => import("../pages/sparring/SparringDetailPage.jsx"), "SparringDetailPage"),
+  SparringPage: lazy(() => import("../pages/sparring/SparringPage.jsx")),
   SignupPage: lazyNamed(loadAccountPages, "SignupPage")
 });
 

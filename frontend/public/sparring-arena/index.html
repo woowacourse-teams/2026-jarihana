@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ffffff"><title>자리하나 스파링 · 자리하나</title>
+<link rel="icon" href="data:,"><link rel="stylesheet" href="./style.css"><link rel="stylesheet" href="./composer.css"><link rel="stylesheet" href="./character-duel.css">
+<script type="importmap">{"imports":{"three":"./vendor/three.module.js","three/examples/jsm/":"./vendor/addons/","cannon-es":"./vendor/cannon-es.js"}}</script>
+<script type="module" src="./src/app.js"></script>
+</head>
+<body>
+<main class="page">
+<section class="topic" aria-labelledby="topic-title"><h1 id="topic-title"></h1><p id="topic-description" class="intro"></p></section>
+<section class="arena" aria-label="자리하나 스파링">
+<svg class="transport-pipes" aria-hidden="true">
+<g data-route="a"><path class="pipe-shadow"/><path class="pipe-rim"/><path class="pipe-body"/><path class="transport-route"/></g>
+<g data-route="b"><path class="pipe-shadow"/><path class="pipe-rim"/><path class="pipe-body"/><path class="transport-route"/></g>
+</svg>
+<div class="stage">
+<p id="seat-instruction">어느 쪽 생각에 가까워요?</p>
+<div id="scene" role="group" aria-label="투표 비율을 보여주는 캡슐 통"></div>
+<div class="vote-section" role="group" aria-label="내 편 고르기">
+<div class="pipe-station a" id="station-a">
+<div class="pipe-meter" aria-live="off"><strong id="percent-a">0%</strong><span id="count-a">0표</span></div>
+<button class="vote-flag vote-option a" data-side="a" aria-pressed="false" type="button"><span class="claim-check" aria-hidden="true">✓</span><strong id="option-a"></strong><span class="seat-state">이쪽 선택</span></button>
+</div>
+<div class="pipe-station b" id="station-b">
+<div class="pipe-meter" aria-live="off"><strong id="percent-b">0%</strong><span id="count-b">0표</span></div>
+<button class="vote-flag vote-option b" data-side="b" aria-pressed="false" type="button"><span class="claim-check" aria-hidden="true">✓</span><strong id="option-b"></strong><span class="seat-state">이쪽 선택</span></button>
+</div>
+</div>
+<div class="tank-caption"><span id="balance-label">첫 번째 자리가 비어 있어요</span><span class="sr-only">통 속 캡슐 색 비율은 투표 비율입니다</span></div>
+
+<p id="empty-stage" hidden>아직 모인 이야기가 없어요.<br>먼저 한마디 건네보세요.</p>
+</div>
+<div class="composer-dock">
+<form id="composer" class="composer">
+<div id="reply-target" class="reply-target" hidden><div><strong>받아칠 의견</strong><p id="reply-target-text"></p></div><button type="button" id="cancel-reply" class="quiet-button" aria-label="받아치기 취소">×</button></div>
+<div class="composer-top"><label id="composer-label" for="message">내 편을 고르고 한마디 넣어볼까요?</label><span id="char-count">0 / 160</span></div>
+<div class="inlet-shell"><span class="inlet-mouth" aria-hidden="true"><i></i></span><div class="input-row"><textarea id="message" rows="2" maxlength="160" placeholder="위에서 내 편을 골라주세요" disabled required></textarea><button type="submit" id="send" disabled><span class="send-capsule" aria-hidden="true"><span class="capsule-paper"></span></span><span id="send-label">보내기</span></button></div></div>
+<p id="composer-note" role="status">한마디를 보내면 내 캐릭터가 나서요.</p>
+</form></div>
+<div class="slide-controls"><div class="replay-control"><button id="flow-toggle" type="button" aria-pressed="false" aria-label="흐름 멈추기"><span class="flow-lever" aria-hidden="true"><i></i></span><span id="flow-action">멈추기</span></button><span id="flow-label">지난 대화 재생 중</span></div><span id="slide-status">지난 대화 리플레이</span><button id="spill" class="quiet-button">다음 대화 보기 →</button></div>
+<div class="current-post" id="current-post"><div class="post-avatar" id="post-avatar"></div><div class="post-copy"><span id="post-meta"></span><p id="post-text"></p></div><div class="post-actions"><button class="quiet-button" id="reply-selected">받아치기 ↩</button><button class="quiet-button" id="view-selected">기록에서 보기</button></div></div>
+
+</section>
+<section class="history-section" aria-labelledby="history-title"><div class="history-heading"><h2 id="history-title">모인 대화 <span id="total-count">0</span></h2><div class="history-tabs" role="group" aria-label="대화 보기"><button data-filter="all" aria-pressed="true">전체</button><button data-filter="mine" aria-pressed="false">내 대화</button></div></div><p class="history-help">흘러간 말도 여기에 남아요. 눌러서 다시 펼쳐보세요.</p><div id="history-list"></div><button id="more-history" class="quiet-button" hidden>이전 대화 더 보기</button></section>
+<p id="stage-status" class="sr-only" aria-live="polite"></p>
+<footer><p id="storage-note">서버에 연결하고 있어요.</p></footer>
+</main></body></html>

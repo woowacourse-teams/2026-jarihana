@@ -1,0 +1,10 @@
+[
+  {
+    "route": "/sparring",
+    "violations": []
+  },
+  {
+    "route": "/sparring/2",
+    "violations": []
+  }
+]

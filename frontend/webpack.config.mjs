@@ -109,6 +109,13 @@ export default (_, arguments_) => {
             to: "assets/[name][ext]"
           },
           {
+            from: path.resolve(directory, "public/sparring-arena"),
+            to: "sparring-arena",
+            // The standalone renderer uses native modules, including top-level await.
+            info: ({ absoluteFilename }) =>
+              absoluteFilename.endsWith(".js") ? { javascriptModule: true } : {}
+          },
+          {
             from: path.resolve(directory, "src/shared/assets/brand/jarihana-favicon.png"),
             to: "favicon.png"
           },
@@ -144,7 +151,7 @@ export default (_, arguments_) => {
           changeOrigin: true,
           context: ["/api"],
           ws: true,
-          target: "http://localhost:8080"
+          target: process.env.API_PROXY_TARGET || "http://localhost:8080"
         }
       ],
       setupMiddlewares: (middlewares) => {

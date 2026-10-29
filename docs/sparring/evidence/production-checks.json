@@ -1,0 +1,100 @@
+{
+  "checks": [
+    "Production build: topic created through service UI, empty arena and vote gating",
+    "HTTP failure preserves draft; retry persists one post",
+    "Minified native ESM, brand character atlas, single VS collision and 50:50 vote rendering",
+    "Reload retains votes, posts and reply context from database",
+    "390px and 320px layouts, reduced motion and stable input placement",
+    "35 persisted posts paginate 20→30→35 without omission or duplication",
+    "Without WebGL the public history and vote controls remain available",
+    "Missing topic has explicit error and retry rather than a blank game"
+  ],
+  "errors": [],
+  "topicId": 2,
+  "bulkTopicId": 3,
+  "composer": {
+    "x": 20,
+    "y": 775.1875,
+    "width": 350,
+    "height": 148
+  },
+  "input": {
+    "x": 123,
+    "y": 815.1875,
+    "width": 234,
+    "height": 60
+  },
+  "stats": {
+    "bodies": 242,
+    "physicalCapsules": 240,
+    "sleeping": 33,
+    "contacts": 274,
+    "seconds": 5.627,
+    "exchanges": 4,
+    "finite": true,
+    "minY": -3.901,
+    "maxY": -0.066,
+    "capsules": 240,
+    "visibleCapsules": 240,
+    "mintCapsules": 120,
+    "coralCapsules": 120,
+    "historyExchanges": 0,
+    "pipeReplays": 2,
+    "pipeReplaysA": 0,
+    "pipeReplaysB": 2,
+    "speedA": 12,
+    "speedB": 12,
+    "pendingFresh": 0,
+    "drawReady": true,
+    "queuedId": null,
+    "mintShare": 0.5,
+    "mode": "pressure",
+    "paused": true,
+    "dispenserPhase": "open",
+    "dispenserOpened": 2,
+    "dispenserPostId": "14",
+    "dispenserPhysics": {
+      "elapsed": 2.1903999999880783,
+      "contacts": 1,
+      "x": -0.11690215529311718,
+      "y": -5.163879246375517,
+      "z": 6.328543901928806,
+      "speed": 0,
+      "impact": {
+        "elapsed": 0.24129999998807944,
+        "speed": 9.652905199793185,
+        "x": -0.07226943120763364,
+        "z": 5.970123896919888,
+        "target": "capsule"
+      },
+      "fragments": 2
+    },
+    "outputCapsules": 2,
+    "outputContacts": 38,
+    "outputRolling": 0,
+    "outputCapacity": 24,
+    "outputLimit": 4,
+    "characters": [
+      {
+        "postId": "13",
+        "variant": 1,
+        "fresh": true,
+        "stage": "speaking",
+        "elapsed": 2.1903999999880783,
+        "scale": 0.54
+      },
+      {
+        "postId": "14",
+        "variant": 0,
+        "fresh": true,
+        "stage": "greeting",
+        "elapsed": 1.9073999999999995,
+        "scale": 0.54
+      }
+    ],
+    "clashCharacters": 2,
+    "spillQueue": 0,
+    "draws": 67,
+    "geometries": 44
+  }
+}

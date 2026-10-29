@@ -139,3 +139,7 @@ erDiagram
 | 사진 활동 기록 | [ActivityPost](activitypost.md) | 공개 범위, 사진 참조, 활동 날짜와 생명주기, 댓글과 하트 반응 |
 | 자유게시판 | [Proposal](proposal.md) | 모임 제안, 함께하고 싶어요 응답과 조건, 코멘트 |
 | 알림·구독·전송 | [Notification](notification.md) | 데이터 모델·업무 이벤트·알림함·구독 API·푸시 워커·화면·SW 연결 구현 |
+
+## 스파링
+
+[Sparring](sparring.md): 공개 주제와 두 주장, 회원당 한 표, 여러 영구 의견과 받아치기 관계.

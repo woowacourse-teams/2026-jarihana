@@ -1,0 +1,104 @@
+:root {
+  --duel-height: 340px;
+  --duel-figure-size: 240px;
+  --duel-crossfade: 140ms;
+}
+.stage { height: 620px; }
+.composer-dock { margin-top: 0; }
+.stage #scene { inset: 32px 0 auto; height: 270px; }
+.character-duel {
+  position: absolute;
+  inset: auto 0 12px;
+  height: var(--duel-height);
+  max-width: 900px;
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 72px;
+  isolation: isolate;
+}
+.duel-contender { position: relative; min-width: 0; --duel-color: var(--deep); --duel-wash: var(--mint-soft); }
+.duel-contender[data-side="b"] { --duel-color: #9d4036; --duel-wash: var(--coral-soft); }
+.duel-speech {
+  position: absolute;
+  bottom: 218px;
+  inset-inline: 12px;
+  min-height: 92px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: start;
+  padding: 14px 18px;
+  color: var(--ink);
+  background: var(--duel-wash);
+  border: 0;
+  border-radius: 24px;
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--duel-color) 15%, transparent);
+  z-index: 2;
+  cursor: pointer;
+  transition: transform var(--duel-crossfade) ease-out, opacity var(--duel-crossfade) ease-out;
+}
+.duel-speech[hidden] { display: none; }
+.duel-speech::after {
+  content: "";
+  position: absolute;
+  bottom: -12px;
+  right: 28%;
+  width: 24px;
+  height: 18px;
+  background: var(--duel-wash);
+  clip-path: polygon(0 0, 100% 0, 75% 100%);
+}
+.right .duel-speech::after { right: auto; left: 28%; transform: scaleX(-1); }
+.duel-contender[data-speaking="true"] .duel-speech { transform: translateY(-4px) rotate(-1deg); }
+.duel-contender.right[data-speaking="true"] .duel-speech { transform: translateY(-4px) rotate(1deg); }
+.duel-speech:hover:not(:disabled) { filter: brightness(.98); }
+.duel-speech:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+.duel-byline { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; font-size: 12px; color: var(--duel-color); }
+.duel-byline strong { overflow-wrap: anywhere; font-size: inherit; }
+.duel-speech-text { font-size: 16px; line-height: 1.5; font-weight: 650; white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.duel-figure { position: absolute; bottom: 4px; left: calc(50% - var(--duel-figure-size) / 2); width: var(--duel-figure-size); height: var(--duel-figure-size); transform-origin: 50% 95%; pointer-events: none; }
+.duel-facing, .duel-sprite, .duel-pose { position: absolute; inset: 0; }
+.right .duel-facing { transform: scaleX(-1); }
+.duel-pose { background-image: url('./assets/character-duel-atlas.png'); background-repeat: no-repeat; background-size: 200% 200%; transition: opacity var(--duel-crossfade) ease-out; }
+.duel-pose.protest { background-position: 0 0; transform: translateX(-10%); }
+.duel-pose.listen { background-position: 100% 0; transform: translateX(4%); }
+.duel-sprite[data-variant="1"] .protest { background-position: 0 100%; }
+.duel-sprite[data-variant="1"] .listen { background-position: 100% 100%; }
+.duel-sprite[data-pose="listen"] .protest, .duel-sprite[data-pose="protest"] .listen { opacity: 0; }
+.duel-ground { position: absolute; width: 148px; height: 18px; bottom: 0; left: calc(50% - 74px); border-radius: 50%; background: color-mix(in srgb, var(--duel-color) 12%, transparent); }
+.duel-versus { position: absolute; left: 50%; top: 54%; transform: translate(-50%, -50%) rotate(-8deg); font-size: 40px; font-weight: 900; font-style: italic; color: var(--ink); letter-spacing: -3px; }
+.duel-status { position: absolute; top: 42%; inset-inline: 0; text-align: center; font-size: 12px; color: var(--muted); }
+.character-duel[data-fresh="true"] .duel-status { color: var(--deep); font-weight: 700; }
+.character-duel[data-reduced="true"] .duel-speech { transform: none; }
+@media (max-width: 1000px) {
+  .character-duel { gap: 40px; }
+  .duel-speech { inset-inline: 8px; }
+}
+@media (max-width: 700px) {
+  :root { --duel-height: 320px; --duel-figure-size: 200px; }
+  .stage { height: 650px; }
+  .stage #scene { inset: 108px 0 auto; height: 220px; }
+  .character-duel { inset-inline: -4px; bottom: 12px; gap: 20px; }
+  .duel-speech { inset-inline: 0; bottom: 192px; min-height: 100px; padding: 12px; border-radius: 20px; }
+  .duel-speech-text { font-size: 14px; -webkit-line-clamp: 3; }
+  .duel-byline { gap: 4px; font-size: 12px; }
+  .duel-byline span { width: 100%; }
+  .duel-versus { top: 66%; font-size: 28px; }
+  .duel-status { top: 52%; font-size: 11px; }
+  .duel-ground { width: 110px; left: calc(50% - 55px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .duel-speech, .duel-contender[data-speaking="true"] .duel-speech { transform: none; }
+}
+
+@media (min-width: 1001px) {
+  .pipe-station.a .vote-flag { left: auto; right: 24px; align-items: flex-end; text-align: right; }
+  .pipe-station.b .vote-flag { left: 24px; right: auto; align-items: flex-start; text-align: left; }
+}
+
+@media (min-width: 701px) and (max-width: 1000px) {
+  .stage #scene { inset: 80px 0 auto; height: 235px; }
+  .pipe-station.a .vote-flag { top: -90px; bottom: auto; left: -30px; }
+  .pipe-station.b .vote-flag { top: -90px; bottom: auto; right: -30px; }
+}
