@@ -22,6 +22,7 @@ import "../groups/home/discovery.css";
 import "../groups/groupCalendar.css";
 import "../chat/chat.css";
 import "../proposals/proposals.css";
+import { ProposalCategoryIcon } from "../proposals/ProposalCategoryIcon";
 import recruitmentImage from "../../shared/assets/illustrations/group-recruitment-open.webp";
 import studyImage from "../../shared/assets/landing/default-group-study.webp";
 import { LandingActivityScene } from "./LandingActivityScene";
@@ -158,7 +159,7 @@ function ContinueScene() {
         <span className="lps-eyebrow">나의 프로필</span>
         <Avatar fallback="하" />
         <strong>하루</strong>
-        <span>8기 · 백엔드</span>
+        <span>부트캠프</span>
       </div>
       <div className="lps-account-panels">
       <div className="lps-dashboard-panel lps-enter">
@@ -228,7 +229,10 @@ function ProposalScene() {
       <SceneHeading eyebrow="작은 생각이 모임이 되는 곳">자유게시판</SceneHeading>
       <div className="proposal-card__body lpm-arrive" style={{ "--motion-delay": "0.3s" }}>
         <p className="proposal-card__meta">
-          <span className="proposal-badge proposal-badge--study">스터디</span>
+          <span className="proposal-badge proposal-badge--study">
+            <ProposalCategoryIcon code="STUDY" size={13} />
+            스터디
+          </span>
           <span className="proposal-card__author">하루</span>
           <span>모임 제안</span>
         </p>
@@ -510,7 +514,7 @@ function CalendarScene() {
   );
 }
 
-function Applicant({ name, approved, children }) {
+function Applicant({ name, typeLabel, approved, children }) {
   return (
     <div className="lps-applicant lps-enter">
       <div className="lps-person">
@@ -522,7 +526,7 @@ function Applicant({ name, approved, children }) {
             after={<StatusBadge tone="brand">승인</StatusBadge>} />
         )}
           <strong>{name}</strong>
-          <span>8기 · 백엔드 · 신청 2026. 10. 10.</span>
+          <span>{typeLabel} / 신청 2026. 10. 10.</span>
         </div>
       </div>
       <p className="lps-body">{children}</p>
@@ -550,8 +554,8 @@ function ManageScene() {
       <div className="lps-manage-layout">
       <div>
       <div className="lps-manage-toolbar"><strong>신청자 목록</strong><span>전체 <ChevronDown size={14} /></span></div>
-      <Applicant name="하루">혼자 공부하던 내용을 함께 나누고 싶어요.</Applicant>
-      <Applicant name="모아" approved>
+      <Applicant typeLabel="부트캠프" name="하루">혼자 공부하던 내용을 함께 나누고 싶어요.</Applicant>
+      <Applicant typeLabel="현직자" name="모아" approved>
         매주 작은 목표를 정하고 꾸준히 공부하고 싶어요.
       </Applicant>
       </div>
@@ -592,7 +596,7 @@ function InviteScene() {
             after={<span className="lps-checkbox lps-checkbox--empty" />} />
           <div>
             <strong>하루</strong>
-            <span>8기 · 크루 · 백엔드</span>
+            <span>부트캠프</span>
           </div>
         </div>
         <span className="lps-invite-summary lpm-arrive" style={{ "--motion-delay": "4.2s" }}>1명에게 초대를 보냈어요.</span>

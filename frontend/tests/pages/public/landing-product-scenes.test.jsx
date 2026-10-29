@@ -67,7 +67,12 @@ test("management and invitation examples preserve real status and dialog semanti
   expect(manage).not.toHaveTextContent("전체 신청");
   expect([...manage.querySelectorAll('.lps-decisions > span')].map((item) => item.textContent))
     .toEqual(["승인", "미승인"]);
+  const applicants = [...manage.querySelectorAll(".lps-applicant .lps-person > div")];
+  expect(applicants.map((applicant) => applicant.querySelector(":scope > strong").textContent)).toEqual(["하루", "모아"]);
+  expect(applicants[0]).toHaveTextContent("부트캠프 / 신청 2026. 10. 10.");
+  expect(applicants[1]).toHaveTextContent("현직자 / 신청 2026. 10. 10.");
   const invite = container.querySelector('.landing-product-scene--invite');
+  expect(invite.querySelector(".lps-candidate")).toHaveTextContent("하루부트캠프");
   expect(invite.querySelector('.lps-search-submit')).toHaveTextContent("검색");
   expect(invite.querySelector('.lps-dialog-actions')).toHaveTextContent("닫기");
   expect(invite.querySelector('.lps-invite-context')).toHaveTextContent("초대 링크 복사");
@@ -83,7 +88,7 @@ test("account and activity examples keep the real product's tabs, photo and conv
   expect(account).toHaveTextContent("나의 프로필");
   expect(account).toHaveTextContent("동아리·스터디");
   expect(account).toHaveTextContent("검토 중");
-  expect(account.querySelector('.lps-account-layout > .lps-profile')).toBeInTheDocument();
+  expect(account.querySelector('.lps-account-layout > .lps-profile')).toHaveTextContent("하루부트캠프");
   expect(account.querySelector('.lps-account-panels').querySelectorAll('.lps-dashboard-panel')).toHaveLength(2);
   expect(account.querySelectorAll(".lps-account-row")).toHaveLength(2);
   expect(account.querySelector(".lps-account-summary")).toBeNull();
@@ -140,6 +145,7 @@ test("proposal example reuses the board card and gathered conditions without rea
   expect(proposal).toHaveTextContent("자유게시판");
   const card = proposal.querySelector(".proposal-card__body");
   expect(card.querySelector(".proposal-badge--study")).toHaveTextContent("스터디");
+  expect(card.querySelector('.proposal-badge--study [data-category-icon="STUDY"]')).toHaveAttribute("aria-hidden", "true");
   expect(card.querySelector(".proposal-card__title")).toHaveTextContent("주말에 같이 공부할 사람 있나요?");
   expect(card.querySelector(".lpm-before .proposal-pill")).toHaveTextContent("함께하고 싶어요4");
   expect(card.querySelector(".lpm-after .proposal-pill--on")).toHaveTextContent("함께하고 싶어요5");

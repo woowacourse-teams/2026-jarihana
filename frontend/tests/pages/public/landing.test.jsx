@@ -37,6 +37,8 @@ test("one controller connects the service introduction, every guide and the fina
     "activity-intro", "activity", "start"
   ]);
   expect(container.querySelector(".landing-hero [data-guide-chapter]")).toBeNull();
+  expect(container.querySelector("#start .landing-start-section__note"))
+    .toHaveTextContent("부트캠프 수강생도, 현직자도 가입할 수 있어요.");
   const ids = [...container.querySelectorAll("[id]")].map((node) => node.id);
   expect(new Set(ids).size).toBe(ids.length);
   for (const id of ["together", "proposal-intro", "host-intro", "invite", "chat-intro", "calendar", "activity", "start"]) {

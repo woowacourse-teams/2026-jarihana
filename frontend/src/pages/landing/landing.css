@@ -569,11 +569,18 @@ html:has(.landing-page) {
   padding-block: 6rem;
 }
 .landing-start-section h2 {
-  margin: var(--space-5) 0 var(--space-10);
+  margin: var(--space-5) 0 var(--space-4);
   font-size: var(--landing-heading-size);
   letter-spacing: var(--landing-heading-tracking);
   line-height: 1.35;
   font-weight: var(--landing-heading-weight);
+}
+.landing-start-section .landing-start-section__note {
+  margin: 0 0 var(--space-10);
+  font-size: var(--landing-body-size);
+  line-height: var(--landing-body-leading);
+  color: var(--color-muted-ink);
+  text-wrap: balance;
 }
 .landing-start-section__chair {
   width: 100%;
