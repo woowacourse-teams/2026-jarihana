@@ -79,7 +79,7 @@ jobs:
         run: |
           set -euo pipefail
           script=infra/blue-green-deploy/scripts/actions/frontend.sh
-          [[ -f "$script" ]] && grep -qx 'FE_RELEASE_CAPABILITY=2' "$script"
+          [[ -f "$script" ]] && grep -qx 'FE_RELEASE_CAPABILITY=3' "$script"
           bash infra/blue-green-deploy/scripts/actions/install-awscli.sh
       - name: 프론트엔드 artifact 디렉터리 준비
         if: inputs.environment == 'prod' && inputs.mode == 'deploy' && inputs.phase == 'plan' && !inputs.backend_only

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Sourced by the coordinator: every mutation requires its live journal lease.
 set -euo pipefail
-FE_RELEASE_CAPABILITY=2
+FE_RELEASE_CAPABILITY=3
 FE_BUCKET=techcourse-project-2026
 FE_LIVE=jarihana/frontend
 FE_ARCHIVE=jarihana/frontend-releases
@@ -132,7 +132,7 @@ fe_verify_files() {
 fe_public_check() {
   local manifest=$1 path expected
   while IFS=$'\t' read -r path expected; do
-    bg_guard
+    bg_file_guard
     curl -q --fail --silent --show-error --proto '=https' --max-redirs 0 --connect-timeout 3 --max-time 30 --max-filesize 67108864 \
       --header 'Accept-Encoding: identity' --header 'Cache-Control: no-cache' \
       "$FE_PUBLIC/$path" --output "$FE_TEMP/public-file" || bg_die 'Frontend public HTTP check failed'
@@ -146,7 +146,7 @@ fe_archive() {
   release=$(jq -r .release_id "$manifest"); fe_id "$release"
   fe_verify_files "$manifest" "$directory"
   while IFS= read -r path; do
-    bg_guard
+    bg_file_guard
     fe_aws s3api put-object --bucket "$FE_BUCKET" --key "$FE_ARCHIVE/$release/files/$path" --body "$directory/$path" --if-none-match '*' >/dev/null || bg_die 'Immutable frontend file upload failed or uncertain'
     fe_get "$FE_ARCHIVE/$release/files/$path" "$FE_TEMP/verify-file" >/dev/null || bg_die 'Frontend archive readback failed'
     cmp -s "$directory/$path" "$FE_TEMP/verify-file" || bg_die 'Frontend archive readback differs'
@@ -163,7 +163,7 @@ fe_download_release() {
   fe_validate_manifest "$FE_TEMP/download-manifest.json"
   [[ $(jq -r .release_id "$FE_TEMP/download-manifest.json") == "$release" ]] || bg_die 'Archive identity differs'
   while IFS= read -r path; do
-    bg_guard
+    bg_file_guard
     mkdir -p "$(dirname "$directory/$path")"
     fe_get "$FE_ARCHIVE/$release/files/$path" "$directory/$path" >/dev/null || bg_die 'Archived frontend file missing'
     bg_touch_local
@@ -177,7 +177,7 @@ fe_capture_baseline() {
   jq -e '.IsTruncated==false and (.Contents|length)>0 and ([.Contents[].Size]|add<=536870912) and ([.Contents[].Size<=67108864]|all)' <<<"$listing" >/dev/null || bg_die 'Current frontend is absent or exceeds capture limits'
   mkdir "$FE_TEMP/baseline"
   while IFS=$'\t' read -r path expected; do
-    bg_guard
+    bg_file_guard
     path=${path#"$FE_LIVE/"}; fe_path "$path"
     mkdir -p "$(dirname "$FE_TEMP/baseline/$path")"
     metadata=$(fe_get "$FE_LIVE/$path" "$FE_TEMP/baseline/$path") || bg_die 'Current frontend capture failed'
@@ -229,7 +229,7 @@ fe_publish_files() {
   while IFS= read -r path; do
     type=application/octet-stream
     case $path in *.html) type='text/html; charset=utf-8';; *.js) type='text/javascript; charset=utf-8';; *.css) type='text/css; charset=utf-8';; *.json) type=application/json;; *.webmanifest) type=application/manifest+json;; *.png) type=image/png;; *.svg) type=image/svg+xml;; *.ico) type=image/x-icon;; *.jpg|*.jpeg) type=image/jpeg;; *.webp) type=image/webp;; *.woff2) type=font/woff2;; *.txt) type='text/plain; charset=utf-8';; esac
-    bg_guard; fe_owned_pointer
+    bg_file_guard; fe_owned_pointer
     fe_aws s3api put-object --bucket "$FE_BUCKET" --key "$FE_LIVE/$path" --body "$directory/$path" --content-type "$type" --cache-control 'no-cache, max-age=0, must-revalidate' >/dev/null || bg_die 'Frontend publication failed or uncertain'
     fe_get "$FE_LIVE/$path" "$FE_TEMP/verify-file" >/dev/null || bg_die 'Frontend live readback failed'
     cmp -s "$directory/$path" "$FE_TEMP/verify-file" || bg_die 'Frontend live readback differs'

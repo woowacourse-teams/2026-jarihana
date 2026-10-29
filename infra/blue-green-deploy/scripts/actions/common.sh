@@ -5,6 +5,36 @@ set +x
 
 SCRIPT_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 BG_READ_ONLY_VERIFIED_AT=0
+BG_LIVE_CACHED_AT=0
+
+bg_api_context() {
+    BG_API_MIN_REMAINING=500
+    case $1 in
+        plan|bootstrap) BG_API_MIN_REMAINING=900 ;;
+        rollback-http|frontend-recover|grant-rollback-old|finish-rollback|rollback|interrupt) BG_API_MIN_REMAINING=10 ;;
+    esac
+}
+
+bg_rate_header() {
+    awk -F ':' -v name="$2" 'tolower($1)==name {sub(/^[^:]*:[ \t]*/, ""); sub(/\r$/, ""); sub(/[ \t]+$/, ""); print}' "$1"
+}
+
+bg_api_budget() {
+    local headers=$1 limit remaining reset resource floor=${BG_API_MIN_REMAINING:-500}
+    limit=$(bg_rate_header "$headers" x-ratelimit-limit)
+    remaining=$(bg_rate_header "$headers" x-ratelimit-remaining)
+    reset=$(bg_rate_header "$headers" x-ratelimit-reset)
+    resource=$(bg_rate_header "$headers" x-ratelimit-resource)
+    if [[ ! $limit =~ ^[1-9][0-9]{0,5}$ || ! $remaining =~ ^(0|[1-9][0-9]{0,5})$ ||
+          ! $reset =~ ^[1-9][0-9]{0,11}$ || $resource != core ]] || (( remaining>limit )); then
+        printf '::error::GitHub rate-limit headers are absent or invalid.\n' >&2
+        return 1
+    fi
+    if (( remaining<floor )); then
+        printf '::error::GitHub API budget: %s remaining, require %s; reset at %s. Preserve the rollback reserve.\n' "$remaining" "$floor" "$reset" >&2
+        return 1
+    fi
+}
 
 bg_die() { printf '::error::%s\n' "$*" >&2; exit 1; }
 bg_require() { local message=$1; shift; "$@" || bg_die "$message"; }
@@ -75,33 +105,39 @@ bg_config() {
 }
 
 bg_github() {
-    local path=$1 body status temporary
+    local path=$1 body status temporary headers
     [[ "$path" == /* && "$path" != *$'\n'* && "$path" != *$'\r'* ]] || bg_die 'Invalid fixed GitHub API path.'
     [[ "${GH_TOKEN:-}" =~ ^[A-Za-z0-9_.-]+$ ]] || bg_die 'GitHub token is missing or malformed.'
     temporary=$(mktemp)
-    chmod 600 "$temporary"
+    headers=$(mktemp)
+    chmod 600 "$temporary" "$headers"
     # A private stdin curl configuration keeps Authorization out of process arguments.
     if ! status=$(printf 'header = "Authorization: Bearer %s"\n' "$GH_TOKEN" |
         curl -q --config - --silent --noproxy '*' --proto '=https' --max-redirs 0 \
           --connect-timeout 3 --max-time 10 --max-filesize 2097152 \
           --header 'Accept: application/vnd.github+json' --header 'X-GitHub-Api-Version: 2022-11-28' \
-          --header 'Accept-Encoding: identity' --output "$temporary" --write-out '%{http_code}' \
+          --header 'Accept-Encoding: identity' --output "$temporary" --dump-header "$headers" --write-out '%{http_code}' \
           "https://api.github.com$path"); then
-        rm -f -- "$temporary"
+        rm -f -- "$temporary" "$headers"
         bg_die 'GitHub read failed; preserve deployment state.'
     fi
     if [[ "$status" != 200 ]] || (( $(wc -c < "$temporary") > 2097152 )); then
-        rm -f -- "$temporary"
+        rm -f -- "$temporary" "$headers"
         bg_die 'GitHub read was rejected or oversized; preserve deployment state.'
     fi
+    if ! bg_api_budget "$headers"; then
+        rm -f -- "$temporary" "$headers"
+        bg_die 'GitHub API budget does not authorize this phase.'
+    fi
     body=$(cat -- "$temporary")
-    rm -f -- "$temporary"
+    rm -f -- "$temporary" "$headers"
     jq -es 'length == 1 and (.[0] | type == "object")' <<< "$body" >/dev/null || bg_die 'GitHub returned invalid JSON.'
     printf '%s\n' "$body"
 }
 
 bg_live() {
-    local actual path
+    local actual path checked_at
+    checked_at=$(bg_now)
     path=".github/workflows/backend-$ENVIRONMENT-deploy.yml"
     # The actual filenames use dev/prod, not the display environment name.
     actual=$(bg_github "/repos/$REPO/actions/runs/$RUN_ID")
@@ -118,6 +154,15 @@ bg_live() {
     if [[ "$BG_MODE" == bootstrap ]]; then
         jq -e '.event == "workflow_dispatch"' <<< "$actual" >/dev/null || bg_die 'Bootstrap must be manual.'
     fi
+    BG_LIVE_CACHED_AT=$checked_at
+}
+
+bg_live_cached() {
+    local now
+    now=$(bg_now)
+    if (( BG_LIVE_CACHED_AT>0 && now>=BG_LIVE_CACHED_AT && now-BG_LIVE_CACHED_AT<10 )); then return 0; fi
+    bg_live || bg_die 'Cached parent verification failed.'
+    BG_LIVE_CACHED_AT=$now
 }
 
 # Observation performs no server mutations. Bound successful parent-read reuse to
@@ -239,7 +284,7 @@ bg_grant() {
        else false end) and
       (.observation_failed != true or $operation != "observe")
     ' <<< "$STATE" >/dev/null || bg_die 'Deployment grant expired, was revoked, or belongs to another operation.'
-    if [[ "$operation" == observe ]]; then bg_live_readonly; else bg_live; fi
+    if [[ "$operation" == observe ]]; then bg_live_readonly; else bg_live_cached; fi
 }
 
 bg_output() {

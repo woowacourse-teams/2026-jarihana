@@ -43,9 +43,9 @@ bg_ec2_change() {
 bg_ec2_wait() {
   local slot=$1 expected=$2 deadline=$(( $(bg_now)+600 ))
   while (( $(bg_now)<deadline )); do
-    bg_guard
+    bg_file_guard
     [[ $(bg_ec2_state "$slot") == "$expected" ]] && return 0
-    bg_touch; sleep 5
+    bg_touch_local; sleep 5
   done
   return 1
 }

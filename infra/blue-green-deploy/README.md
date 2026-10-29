@@ -87,6 +87,8 @@ for file in infra/blue-green-deploy/scripts/actions/*.sh \
 done
 # Linux에서 root 소유 보호파일 fixture를 포함한 격리 계약 테스트
 sudo bash infra/blue-green-deploy/tests/actions/run-tests.sh
+# GitHub 요청 대역으로 전체 배포, 900초 관찰, guardian과 롤백의 1,000회 예산 확인
+bash infra/blue-green-deploy/tests/actions/run-api-budget.sh
 # Docker·Java 21·backend bootJar·Alloy 이미지를 준비한 뒤 실제 JVM/Alloy 통합 검증
 bash infra/blue-green-deploy/tests/actions/run-local-e2e.sh
 # 정식 backend/Dockerfile로 빌드한 이미지의 실제 pull·Compose 기동 검증
