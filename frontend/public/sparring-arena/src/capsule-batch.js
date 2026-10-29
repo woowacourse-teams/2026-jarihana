@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { characterPose } from './character-motion.js';
+import { createCharacters } from './characters.js';
 import { studioMaterial } from './studio-materials.js';
 
 export function createCapsuleBatch(scene, capacity) {
@@ -16,6 +17,7 @@ export function createCapsuleBatch(scene, capacity) {
     return mesh;
   });
   meshes[1].castShadow = meshes[1].receiveShadow = true;
+  const characters = createCharacters(scene, capacity);
   const transform = new THREE.Object3D();
   const equator = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
   const identity = new THREE.Quaternion();
@@ -27,6 +29,7 @@ export function createCapsuleBatch(scene, capacity) {
     postIds[index] = post?.id ?? null;
     meshes[0].boundingSphere = null; meshes[1].boundingSphere = null;
     const pose = entry.characterPose ?? characterPose({ ...entry, mine: post?.name === '나' });
+    const shellScale = pose.shrink * (entry.shellScale ?? 1);
     origin.copy(body.position);
     if (entry.parts) origin.y += 0.24;
     const side = entry.visualSide ?? post?.side ?? 'a';
@@ -35,10 +38,12 @@ export function createCapsuleBatch(scene, capacity) {
       meshes[1].setColorAt(index, shellColors[side]);
       meshes[1].instanceColor.needsUpdate = true;
     }
+    if (entry.phase === 'open') characters.hide(index);
+    else characters.draw(index, post, origin, size, pose);
     for (let part = 0; part < meshes.length; part++) {
       if (entry.parts) {
         const fragment = [entry.parts.top, entry.parts.bottom][part];
-        transform.scale.setScalar(fragment ? size * pose.shrink : 0);
+        transform.scale.setScalar(fragment ? size * shellScale : 0);
         if (fragment) {
           transform.position.copy(fragment.position); transform.quaternion.copy(fragment.quaternion);
           if (part === 0 && pose.closing > 0) {
@@ -51,7 +56,7 @@ export function createCapsuleBatch(scene, capacity) {
         continue;
       }
       transform.position.copy(body.position);
-      transform.scale.setScalar(size * pose.shrink);
+      transform.scale.setScalar(size * shellScale);
       transform.quaternion.copy(body.quaternion).slerp(identity, opening);
       if (part === 0) {
         transform.position.y += opening * size * 0.88;
@@ -74,6 +79,7 @@ export function createCapsuleBatch(scene, capacity) {
   }
   function hide(index) {
     postIds[index] = null;
+    characters.hide(index);
     transform.position.set(0, 0, 0); transform.quaternion.identity(); transform.scale.setScalar(0);
     transform.updateMatrix();
     for (const mesh of meshes) { mesh.setMatrixAt(index, transform.matrix); mesh.instanceMatrix.needsUpdate = true; }

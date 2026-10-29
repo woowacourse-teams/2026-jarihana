@@ -6,8 +6,11 @@ import { studioMaterial } from './studio-materials.js';
 import { characterPose, characterVariant } from './character-motion.js';
 
 const VISIBLE_LIMIT = 4;
+const SHELL_LIFETIME = 2.5, SHELL_FADE = 0.35;
+const PAIR_SLIDE_SECONDS = 1.4;
+const OPEN_SHELL_POSE = { stage: 'empty-shell', scale: 1, shrink: 1, closing: 0 };
 
-export function createDispenser(scene, onReveal) {
+export function createDispenser(scene, onReveal, { onOpened = () => {} } = {}) {
   const cream = studioMaterial({ color: 0xf5efe2, roughness: 0.65, side: THREE.DoubleSide });
   const rim = studioMaterial({ color: 0xd9e8dd, roughness: 0.5 });
   function box(size, position, material) {
@@ -40,7 +43,7 @@ export function createDispenser(scene, onReveal) {
   const batch = createCapsuleBatch(scene, OUTPUT_CAPACITY), physics = createDispenserPhysics();
   const slots = Array(OUTPUT_CAPACITY).fill(null);
   for (let i = 0; i < OUTPUT_CAPACITY; i++) batch.hide(i);
-  let opened = 0, serial = 0, latest = null;
+  let opened = 0, serial = 0, latest = null, pair = null;
   const busy = () => slots.some(entry => entry && (entry.phase !== 'open' || entry.elapsed < 1.8));
   function available(priority = false) {
     if (slots.filter(Boolean).length < VISIBLE_LIMIT) return slots.findIndex(entry => entry === null);
@@ -56,15 +59,16 @@ export function createDispenser(scene, onReveal) {
     if (entry === latest) latest = null;
     slots[index] = null; physics.release(index); batch.hide(index);
   }
+  function clearAll() { pair = null; for (let index = 0; index < slots.length; index++) clear(index); }
   function reveal(entry) {
     if (entry.revealed) return;
     entry.revealed = true; entry.openedAt = 0; opened++;
     const keepPersonal = latest?.post.name === '나' && latest.elapsed < 4 && entry.post.name !== '나';
     if (!keepPersonal) { latest = entry; onReveal(entry.post, entry.fresh); }
   }
-  function start(selection, reduced = false) {
+  function start(selection, reduced = false, paired = false) {
     const index = available(selection?.fresh);
-    if (index < 0 || !selection || (!reduced && !selection.fresh && !physics.inletClear())) return false;
+    if (index < 0 || !selection || (!paired && !reduced && !selection.fresh && !physics.inletClear())) return false;
     if (slots[index]) clear(index);
     const entry = { ...selection, body: physics.reset(index), born: ++serial, openedAt: null, dispensed: true, phase: 'rolling', elapsed: 0, revealed: false, reduced };
     slots[index] = entry;
@@ -74,25 +78,50 @@ export function createDispenser(scene, onReveal) {
     } else batch.draw(index, entry, RADIUS / 0.48);
     return true;
   }
+  function startPair(selections, reduced = false) {
+    if (reduced || selections.length !== 2 || slots.filter(entry => !entry).length < 2 || slots.filter(Boolean).length > VISIBLE_LIMIT - 2) return false;
+    const indexes = [];
+    for (const selection of selections) {
+      if (!start(selection, false, true)) { indexes.forEach(clear); return false; }
+      indexes.push(slots.findIndex(entry => entry?.born === serial));
+    }
+    pair = { indexes, elapsed: 0 };
+    physics.positionPair(indexes, 0);
+    indexes.forEach(index => batch.draw(index, slots[index], RADIUS / 0.48));
+    return true;
+  }
   function open(index, entry, reduced) {
+    if (entry.phase === 'open') return;
     entry.parts = physics.breakApart(index, reduced);
     entry.body = entry.parts.bottom;
     entry.phase = 'open'; entry.elapsed = 0; entry.reduced = reduced;
-    entry.characterPose = characterPose({ ...entry, mine: entry.post.name === '나' });
+    entry.characterPose = OPEN_SHELL_POSE; entry.shellScale = 1;
+    onOpened(entry);
     if (reduced) reveal(entry);
   }
   function step(delta, reduced = false) {
     if (slots.every(entry => !entry)) return;
+    if (pair) {
+      pair.elapsed += delta;
+      const progress = Math.min(1, pair.elapsed / PAIR_SLIDE_SECONDS);
+      physics.positionPair(pair.indexes, progress * progress);
+      if (reduced || pair.elapsed >= PAIR_SLIDE_SECONDS) {
+        physics.releasePair(pair.indexes);
+        pair = null;
+      }
+    }
     if (!reduced) physics.step(delta);
     for (let index = 0; index < slots.length; index++) {
       const entry = slots[index];
       if (!entry) continue;
       entry.elapsed += delta;
       entry.reduced = reduced;
-      if (entry.phase === 'rolling' && (reduced || physics.ready(index))) open(index, entry, reduced);
-      else if (entry.phase === 'open' && entry.elapsed > (entry.fresh ? 9 : 5)) { clear(index); continue; }
-      entry.characterPose = characterPose({ ...entry, mine: entry.post.name === '나' });
-      if (entry.phase === 'open' && entry.characterPose.speaking) reveal(entry);
+      if (entry.phase === 'rolling' && !pair?.indexes.includes(index) && (reduced || physics.ready(index))) open(index, entry, reduced);
+      else if (entry.phase === 'open' && entry.elapsed >= SHELL_LIFETIME) { clear(index); continue; }
+      if (entry.phase === 'open') {
+        entry.shellScale = reduced ? 1 : Math.max(0, Math.min(1, (SHELL_LIFETIME - entry.elapsed) / SHELL_FADE));
+        if (reduced || entry.elapsed >= 0.42) reveal(entry);
+      } else entry.characterPose = characterPose({ ...entry, mine: entry.post.name === '나' });
       batch.draw(index, entry, RADIUS / 0.48);
     }
   }
@@ -112,5 +141,5 @@ export function createDispenser(scene, onReveal) {
       outputCapsules: active.length, outputContacts: physics.capsuleContacts(), outputRolling: active.filter(entry => entry.phase === 'rolling').length, outputCapacity: OUTPUT_CAPACITY, outputLimit: VISIBLE_LIMIT,
       characters: active.map(entry => ({ postId: entry.post.id, variant: characterVariant(entry.post), fresh: entry.fresh, stage: entry.characterPose?.stage ?? 'bracing', elapsed: entry.elapsed, scale: entry.characterPose?.scale ?? 0.31 })) };
   }
-  return { start, step, busy, pick, readyForNext: (priority, reduced = false) => available(priority) >= 0 && (reduced || (!slots.some(entry => entry?.phase === 'rolling') && physics.inletClear())), entries: () => slots.filter(entry => entry?.revealed).sort((a, b) => Number(b.fresh && b.elapsed < 5) - Number(a.fresh && a.elapsed < 5) || b.born - a.born).slice(0, 4), stats };
+  return { start, startPair, step, busy, pick, clearAll, outputs: () => slots.filter(Boolean), readyForNext: (priority, reduced = false) => available(priority) >= 0 && (reduced || (!slots.some(entry => entry?.phase === 'rolling') && physics.inletClear())), entries: () => slots.filter(entry => entry?.revealed).sort((a, b) => Number(b.fresh && b.elapsed < 5) - Number(a.fresh && a.elapsed < 5) || b.born - a.born).slice(0, 4), stats };
 }

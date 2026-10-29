@@ -56,6 +56,7 @@ export function createDispenserPhysics({ seed = 73 } = {}) {
   function reset(index) {
     const body = bodies[index];
     release(index);
+    body.type = CANNON.Body.DYNAMIC;
     const speed = ROLL_SPEED * between(0.78, 1.16);
     body.mass = between(0.55, 0.9); body.updateMassProperties();
     body.position.set(between(-0.3, 0.3), OUTLET.y + between(0, 0.12), OUTLET.z);
@@ -67,6 +68,34 @@ export function createDispenserPhysics({ seed = 73 } = {}) {
     body.force.setZero(); body.torque.setZero(); body.aabbNeedsUpdate = true; body.wakeUp();
     contacts[index] = 0; age[index] = 0; impacts[index] = null; active[index] = true; world.addBody(body);
     return body;
+  }
+  function positionPair(indexes, progress) {
+    const scaled = Math.max(0, Math.min(1, progress)) * (SLIDE.points.length - 1);
+    const segment = Math.min(SLIDE.points.length - 2, Math.floor(scaled));
+    const local = scaled - segment;
+    const [fromZ, fromY] = SLIDE.points[segment], [toZ, toY] = SLIDE.points[segment + 1];
+    const z = fromZ + (toZ - fromZ) * local;
+    const y = fromY + (toY - fromY) * local + RADIUS + 0.12;
+    const rub = Math.sin(progress * Math.PI * 7);
+    indexes.forEach((index, side) => {
+      const body = bodies[index], sign = side ? 1 : -1;
+      body.type = CANNON.Body.KINEMATIC;
+      body.position.set(sign * (0.39 + rub * 0.055), y + sign * rub * 0.055, z + sign * rub * 0.13);
+      body.velocity.setZero(); body.angularVelocity.setZero();
+      body.quaternion.setFromEuler(progress * 15 + sign * rub * 0.12, 0, sign * (0.2 + rub * 0.22));
+      body.previousPosition.copy(body.position); body.interpolatedPosition.copy(body.position);
+      body.previousQuaternion.copy(body.quaternion); body.interpolatedQuaternion.copy(body.quaternion);
+      body.aabbNeedsUpdate = true;
+    });
+  }
+  function releasePair(indexes) {
+    indexes.forEach((index, side) => {
+      const body = bodies[index];
+      body.type = CANNON.Body.DYNAMIC; body.updateMassProperties();
+      body.velocity.set(side ? 0.75 : -0.75, -1, 4.5);
+      body.angularVelocity.set(9, 0, side ? -2 : 2);
+      body.wakeUp();
+    });
   }
   function release(index) {
     if (active[index]) {
@@ -84,7 +113,7 @@ export function createDispenserPhysics({ seed = 73 } = {}) {
       const lid = name === 'top', sign = index % 2 ? -1 : 1;
       const group = 1 << (index + 1);
       const part = new CANNON.Body({ mass: lid ? 0.15 : 0.5, shape: new CANNON.Box(new CANNON.Vec3(0.44, 0.24, 0.44)), linearDamping: lid ? 0.3 : 0.7, angularDamping: 0.4, fixedRotation: !lid, sleepSpeedLimit: 0.2, sleepTimeLimit: 0.7, collisionFilterGroup: group, collisionFilterMask: ~group });
-      // The lower half carries the upright speaker; the lid tumbles independently.
+      // The two empty shell pieces separate as the occupant emerges.
       part.position.set(source.position.x + (lid ? sign * 0.12 : 0), source.position.y + (lid ? 0.3 : -0.2), source.position.z);
       part.velocity.set(source.velocity.x * 0.2 + (lid ? sign * 2.2 : 0), lid ? 3 : 0.5, source.velocity.z * 0.2);
       if (lid) part.angularVelocity.set(between(-5, 5), between(-4, 4), sign * 5);
@@ -120,5 +149,5 @@ export function createDispenserPhysics({ seed = 73 } = {}) {
     const body = fragments[index]?.bottom ?? bodies[index];
     return body ? { elapsed: age[index], contacts: contacts[index], x: body.position.x, y: body.position.y, z: body.position.z, speed: body.velocity.length(), impact: impacts[index], fragments: fragments[index] ? 2 : 0 } : null;
   }
-  return { world, bodies, reset, release, breakApart, step, ready, inletClear, stats, capsuleContacts: () => capsuleContacts };
+  return { world, bodies, reset, release, positionPair, releasePair, breakApart, step, ready, inletClear, stats, capsuleContacts: () => capsuleContacts };
 }

@@ -4,16 +4,18 @@ import { nozzlePose } from './physics.js';
 import { characterPose } from './character-motion.js';
 
 // Linked opinions share one collision; the representative vote capsules stay intact.
-export function createClash(scene, container, camera) {
+export function createClash(scene, container, camera, onReveal = () => {}, { onImpact = null, onImpactComplete = null } = {}) {
   const batch = createCapsuleBatch(scene, 2);
   const bodies = [0, 1].map(() => ({ position: new THREE.Vector3(), quaternion: new THREE.Quaternion() }));
   const impactPoint = new THREE.Vector3(0, -0.2, 0.3), projected = new THREE.Vector3(), rotation = new THREE.Euler();
-  const flightDuration = 0.78, squeezeDuration = 0.12, fadeDuration = 0.48;
+  const flightDuration = 0.78, squeezeDuration = 0.12, rubDuration = 0.9, burstDuration = 0.7, fadeDuration = 0.48;
   batch.hide(0); batch.hide(1);
   const layer = document.createElement('div'); layer.className = 'clash-field';
   const flights = [0, 1].map(() => { const marker = document.createElement('span'); marker.className = 'clash-flight'; marker.hidden = true; layer.append(marker); return marker; });
+  const shock = document.createElement('div'); shock.className = 'clash-shock'; shock.hidden = true; shock.setAttribute('aria-hidden', 'true'); layer.append(shock);
   const impact = document.createElement('div'); impact.className = 'clash-impact'; impact.hidden = true;
   impact.setAttribute('role', 'region'); impact.setAttribute('aria-label', '맞붙은 두 의견');
+  if (onImpactComplete) impact.setAttribute('aria-hidden', 'true');
   const burst = document.createElement('div'); burst.className = 'clash-pop'; burst.setAttribute('aria-hidden', 'true');
   for (let i = 0; i < 12; i++) {
     const piece = document.createElement('i'); piece.className = i < 6 ? 'clash-puff' : 'clash-confetti';
@@ -52,10 +54,12 @@ export function createClash(scene, container, camera) {
       }
     }
     const p = point(impactPoint);
-    impact.style.left = `${p.x}px`; impact.style.top = `${p.y}px`;
+    impact.style.left = shock.style.left = `${p.x}px`; impact.style.top = shock.style.top = `${p.y}px`;
+    const edge = point(new THREE.Vector3(impactPoint.x + 8.5, impactPoint.y, impactPoint.z));
+    shock.style.setProperty('--shock-size', `${Math.abs(edge.x - p.x) * 2}px`);
   }
   function clear() {
-    active = null; pinned = false; impact.hidden = true; impact.style.opacity = '';
+    active = null; pinned = false; impact.hidden = shock.hidden = true; impact.style.opacity = '';
     batch.hide(0); batch.hide(1); flights.forEach(marker => { marker.hidden = true; });
     container.dataset.clashState = 'idle';
   }
@@ -105,6 +109,15 @@ export function createClash(scene, container, camera) {
     impact.classList.toggle('reduced', active.reduced);
     reposition(); impact.hidden = false;
     container.dataset.clashState = 'pair';
+    onReveal(active.post, active.fresh);
+  }
+  function showImpact() {
+    if (!active || active.shown) return;
+    active.shown = true;
+    versus.hidden = label.hidden = close.hidden = cards.hidden = true;
+    impact.classList.toggle('reduced', active.reduced);
+    reposition(); impact.hidden = false;
+    container.dataset.clashState = 'impact';
   }
   function start(post, fresh, reduced = false) {
     if (!post.replyTo) return;
@@ -115,15 +128,64 @@ export function createClash(scene, container, camera) {
   function next() {
     const item = queue.shift();
     if (!item) return;
-    active = { ...item, elapsed: 0, shown: false, exitElapsed: null };
+    active = { ...item, elapsed: 0, shown: false, contacted: false, transferred: false, exitElapsed: null };
     container.dataset.clashState = 'flying';
-    if (item.reduced) showPair();
+    if (item.reduced && !onImpactComplete) showPair();
   }
   function step(delta) {
     if (!active) { next(); if (!active) return; }
     active.elapsed += delta;
     const collisionAt = flightDuration + squeezeDuration;
     const afterImpact = active.elapsed - collisionAt;
+    if (onImpactComplete && !active.reduced && !active.contacted && active.elapsed >= flightDuration) {
+      active.contacted = true;
+      container.dataset.clashState = 'pressing';
+      reposition(); shock.hidden = false;
+      onImpact?.({ post: active.post, fresh: active.fresh, point: { x: impactPoint.x, y: impactPoint.y, z: impactPoint.z } });
+    }
+    if (active.contacted) {
+      const waveProgress = Math.min(1, Math.max(0, (active.elapsed - flightDuration) / 0.85));
+      shock.style.setProperty('--wave-progress', String(waveProgress));
+      shock.style.opacity = String(1 - waveProgress);
+    }
+    if (onImpactComplete && active.reduced) {
+      const selection = { post: active.post, fresh: active.fresh };
+      clear();
+      onImpactComplete(selection);
+      next();
+      return;
+    }
+    if (onImpactComplete && afterImpact >= 0) {
+      flights.forEach(marker => { marker.hidden = true; });
+      if (afterImpact < rubDuration) {
+        const strength = Math.min(1, afterImpact / 0.12);
+        const fall = 3.4 * Math.pow(afterImpact / rubDuration, 2);
+        const push = Math.sin(afterImpact * 9) * 0.09 * strength;
+        const shudder = Math.sin(afterImpact * 31) * strength;
+        [active.post.replyTo, active.post].forEach((post, index) => {
+          const sign = pipeSide(post, index) === 'a' ? -1 : 1;
+          bodies[index].position.copy(impactPoint);
+          bodies[index].position.x += sign * (0.58 + push);
+          bodies[index].position.y += sign * shudder * 0.12 - fall;
+          rotation.set(5 + shudder * 0.12, 2, sign * (5 + shudder * 0.25));
+          bodies[index].quaternion.setFromEuler(rotation);
+          batch.draw(index, { body: bodies[index], post, phase: 'rolling', elapsed: active.elapsed }, 1.72 + Math.abs(shudder) * 0.08);
+        });
+        return;
+      }
+      const burstTime = afterImpact - rubDuration;
+      showImpact();
+      container.dataset.clashState = 'burst';
+      const burstPoint = point(new THREE.Vector3().copy(impactPoint).addScaledVector(new THREE.Vector3(0, -1, 0), 3.4));
+      impact.style.left = `${burstPoint.x}px`; impact.style.top = `${burstPoint.y}px`;
+      if (!active.transferred) {
+        active.transferred = true;
+        batch.hide(0); batch.hide(1);
+        onImpactComplete({ post: active.post, fresh: active.fresh });
+      }
+      if (burstTime >= burstDuration) { clear(); next(); }
+      return;
+    }
     if (!active.reduced && afterImpact < 0) {
       const time = Math.min(1, active.elapsed / flightDuration);
       const progress = time < 0.18 ? -0.06 * Math.sin(time / 0.18 * Math.PI / 2) : -0.06 + 1.06 * Math.pow((time - 0.18) / 0.82, 1.65);
@@ -174,5 +236,5 @@ export function createClash(scene, container, camera) {
       if (active.exitElapsed >= fadeDuration) { clear(); next(); }
     }
   }
-  return { start, step, reposition, busy: () => !!active || queue.length > 0, needsFrame: () => !!active && (!pinned || active.exitElapsed !== null), stats: () => ({ clashCharacters: active?.shown ? 2 : 0 }) };
+  return { start, step, reposition, busy: () => !!active || queue.length > 0, needsFrame: () => !!active && (!pinned || active.exitElapsed !== null), stats: () => ({ clashCharacters: active?.shown && !onImpactComplete ? 2 : 0 }), dispose() { queue.length = 0; clear(); layer.remove(); } };
 }

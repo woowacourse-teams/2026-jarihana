@@ -3,23 +3,57 @@ import { createCharacterDuel } from '../../public/sparring-arena/src/character-d
 const original = { id: '1', side: 'a', memberType: 'CREW', name: '크루', text: '맛있으면 기다릴래요' };
 const reply = { id: '2', side: 'b', memberType: 'COACH', name: '코치', text: '점심시간이 더 아까워요', replyTo: original };
 
-describe('캐릭터 대치', () => {
+describe('미끄럼틀에서 나온 캐릭터 대치', () => {
   let stage, duel, onSelect, onReveal;
   const field = () => stage.querySelector('.character-duel');
   const bubble = side => stage.querySelector(`.${side} .duel-speech`);
+  function land(post = reply, fresh = false, reduced = false) {
+    duel.updateState([original, post]);
+    const participants = duel.prepare(post, fresh, reduced);
+    participants.forEach(({ role }) => duel.emerge(role, { x: 200, y: 250 }, reduced));
+    duel.step(1, reduced);
+    return participants;
+  }
 
   beforeEach(() => {
     stage = document.createElement('div');
     document.body.append(stage);
-    onSelect = jest.fn();
-    onReveal = jest.fn();
+    onSelect = jest.fn(); onReveal = jest.fn();
     duel = createCharacterDuel(stage, onSelect, onReveal);
+    duel.setLayout([{ x: 100, y: 350 }, { x: 300, y: 350 }]);
   });
-
   afterEach(() => { duel.dispose(); stage.remove(); });
 
-  it('실제 원문과 답장을 마주 배치하고 원문부터 번갈아 말한다', () => {
+  it('캡슐이 열리기 전에는 캐릭터나 말풍선을 보여주지 않는다', () => {
     duel.updateState([original, reply]);
+    const participants = duel.prepare(reply, true);
+    expect(participants.map(item => item.post.id)).toEqual(['1', '2']);
+    expect([...stage.querySelectorAll('.duel-figure')].every(item => item.hidden)).toBe(true);
+    expect(bubble('left')).not.toBeVisible();
+    expect(bubble('right')).not.toBeVisible();
+    expect(onReveal).not.toHaveBeenCalled();
+  });
+
+  it('개봉한 위치에서 작게 나온 뒤 양옆에 도착해야 대치를 시작한다', () => {
+    duel.updateState([original, reply]);
+    duel.prepare(reply, true);
+    duel.emerge(0, { x: 200, y: 250 });
+    expect(stage.querySelector('.left').style.left).toBe('200px');
+    expect(stage.querySelector('.left .duel-figure').style.transform).toContain('scale(0.18)');
+    duel.step(1);
+    expect(stage.querySelector('.left').style.left).toBe('100px');
+    expect(field()).toHaveAttribute('data-phase', 'emerging');
+    expect(stage.querySelector('.duel-versus')).not.toBeVisible();
+    duel.emerge(1, { x: 190, y: 255 });
+    duel.step(1);
+    expect(stage.querySelector('.right').style.left).toBe('300px');
+    expect(field()).toHaveAttribute('data-phase', 'argue');
+    expect(stage.querySelector('.duel-versus')).toBeVisible();
+    expect(onReveal).toHaveBeenCalledWith(reply, true);
+  });
+
+  it('실제 원문부터 말하고 답장 캐릭터가 받아친다', () => {
+    land();
     expect(bubble('left')).toHaveTextContent(original.text);
     expect(bubble('right')).toHaveTextContent(reply.text);
     expect(field()).toHaveAttribute('data-turn', 'left');
@@ -27,12 +61,11 @@ describe('캐릭터 대치', () => {
     expect(field()).toHaveAttribute('data-turn', 'right');
     expect(stage.querySelector('.right .duel-sprite')).toHaveAttribute('data-pose', 'protest');
     expect(stage.querySelector('.left .duel-sprite')).toHaveAttribute('data-pose', 'listen');
-    expect(onReveal).toHaveBeenCalledWith(reply, false);
   });
 
-  it('같은 편의 받아치기도 원문의 편 색과 회원 유형을 보존한다', () => {
-    const sameSide = { ...reply, side: 'a' };
-    duel.updateState([original, sameSide]);
+  it('같은 편의 받아치기도 서로 다른 캡슐 역할과 원래 색을 유지한다', () => {
+    const participants = land({ ...reply, side: 'a' });
+    expect(participants.map(item => item.role)).toEqual([1, 0]);
     expect(stage.querySelector('.left')).toHaveAttribute('data-side', 'a');
     expect(stage.querySelector('.right')).toHaveAttribute('data-side', 'a');
     expect(stage.querySelector('.left .duel-sprite')).toHaveAttribute('data-variant', '1');
@@ -40,70 +73,69 @@ describe('캐릭터 대치', () => {
     expect(bubble('right')).toHaveTextContent(original.text);
   });
 
-  it('반대편 글이 없으면 가짜 반박을 만들지 않는다', () => {
-    duel.updateState([original]);
+  it('상대 글이 없으면 캡슐 하나만 내려보내고 가짜 상대는 만들지 않는다', () => {
+    const participants = land(original, true);
+    expect(participants).toHaveLength(1);
     expect(bubble('left')).toBeVisible();
     expect(bubble('right')).not.toBeVisible();
-    expect(bubble('right')).toHaveTextContent('');
+    expect(stage.querySelector('.right .duel-figure')).not.toBeVisible();
+    expect(stage.querySelector('.duel-versus')).not.toBeVisible();
   });
 
-  it('빈 판의 첫 새 글도 지난 대화가 아닌 새 한마디로 보여준다', () => {
+  it('빈 판의 첫 새 글은 실제 개봉 후 새 한마디로 알린다', () => {
     duel.updateState([]);
     duel.updateState([original]);
-    duel.start(original, true);
+    duel.prepare(original, true);
+    expect(onReveal).not.toHaveBeenCalled();
+    duel.emerge(0, { x: 200, y: 250 });
+    duel.step(1);
+    duel.emerge(0, { x: 200, y: 250 });
+    duel.step(1);
     expect(onReveal).toHaveBeenCalledTimes(1);
     expect(onReveal).toHaveBeenCalledWith(original, true);
-    expect(field()).toHaveAttribute('data-fresh', 'true');
   });
 
-  it('모션 감소에서는 이동과 회전을 생략하고 실제 의견은 남긴다', () => {
-    duel.start(reply, true, true);
-    duel.step(0.6, true);
+  it('모션 감소에서는 확대나 이동 없이 실제 의견을 바로 표시한다', () => {
+    land(reply, true, true);
     for (const figure of stage.querySelectorAll('.duel-figure')) {
-      expect(figure.style.transform).toBe('translate(0px, 0px) rotate(0deg)');
+      expect(figure.style.transform).toBe('translate(0px, 0px) rotate(0deg) scale(1)');
     }
     expect(bubble('right')).toHaveTextContent(reply.text);
-  });
-
-  it('일시정지 동안 동작 시계를 멈추고 재생하면 이어간다', () => {
-    duel.start(reply, false);
-    duel.step(0.5);
-    const transform = stage.querySelector('.left .duel-figure').style.transform;
-    duel.setPaused(true);
-    duel.step(3);
     expect(duel.needsFrame()).toBe(false);
-    expect(field()).toHaveAttribute('data-turn', 'left');
-    expect(stage.querySelector('.left .duel-figure').style.transform).toBe(transform);
-    duel.setPaused(false);
-    duel.step(1);
-    expect(field()).toHaveAttribute('data-turn', 'right');
   });
 
-  it('말풍선을 읽는 동안 새 글을 보류하고 Escape 후 이어간다', () => {
-    duel.updateState([original]);
-    bubble('left').focus();
-    bubble('left').click();
+  it('등장 중 일시정지하면 위치를 고정하고 재생하면 이어간다', () => {
+    duel.prepare(original, true);
+    duel.emerge(0, { x: 200, y: 250 });
+    duel.step(0.3);
+    const left = stage.querySelector('.left').style.left;
+    duel.setPaused(true); duel.step(3);
+    expect(stage.querySelector('.left').style.left).toBe(left);
+    duel.setPaused(false); duel.step(1);
+    expect(stage.querySelector('.left').style.left).toBe('100px');
+  });
+
+  it('말풍선 포커스 중 새 장면을 보류하고 Escape 뒤 교체를 허용한다', () => {
+    land(original);
+    bubble('left').focus(); bubble('left').click();
     expect(onSelect).toHaveBeenCalledWith(original.id);
     expect(bubble('left')).toHaveAttribute('data-ph-capture-attribute-action', 'sparring_capsule_select');
-    duel.start(reply, true);
+    expect(duel.canReplace(true)).toBe(false);
+    expect(duel.prepare(reply, true)).toEqual([]);
     duel.step(10);
     expect(bubble('right')).not.toBeVisible();
-    expect(duel.needsFrame()).toBe(false);
     bubble('left').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    duel.step(0.1);
-    expect(bubble('right')).toHaveTextContent(reply.text);
+    expect(duel.canReplace()).toBe(true);
+    land(reply, true);
     expect(bubble('right')).toHaveAttribute('data-ph-capture-attribute-action', 'sparring_clash_expand');
-    expect(duel.stats().duelQueued).toBe(0);
   });
 
-  it('같은 새 글의 중복 수신은 재생 대기열에 다시 넣지 않는다', () => {
-    duel.start(original, true);
-    duel.start(reply, true);
-    duel.start(reply, true);
-    expect(duel.stats().duelQueued).toBe(1);
+  it('새 글은 과거 장면보다 우선하지만 재생 중인 새 글은 끝까지 보여준다', () => {
+    land(original);
+    expect(duel.canReplace(true)).toBe(true);
+    land(reply, true);
+    expect(duel.canReplace(true)).toBe(false);
     duel.step(6.5);
-    expect(onReveal).toHaveBeenCalledTimes(2);
-    duel.start(reply, true);
-    expect(duel.stats().duelQueued).toBe(0);
+    expect(duel.canReplace(true)).toBe(true);
   });
 });

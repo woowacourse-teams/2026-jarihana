@@ -93,5 +93,6 @@ export function createCapsules(scene, onSelect, onReady) {
       queuedId: pending[0]?.post.id ?? selectedForDraw?.id ?? null, mintShare: ratio, mode, paused };
   }
   return { updateState, launch, replayPipe, step, pick, nudge, presentation, stats, takeForDraw, takeHistorical, takeCollision: physics.takeCollision,
+    shockwave(point) { return populated && !paused ? physics.shockwave(point) : 0; },
     setMode(next) { mode = next; }, setPaused(value) { paused = value; } };
 }

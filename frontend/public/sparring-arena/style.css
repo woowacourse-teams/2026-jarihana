@@ -85,6 +85,9 @@ dialog{width:min(480px,calc(100% - 32px));max-height:90dvh;overflow:auto;border:
 
 /* A soft capsule pop stays attached to the impact point inside the tank. */
 .clash-field{position:absolute;inset:0;z-index:5;pointer-events:none;overflow:visible}
+.clash-shock{position:absolute;width:0;height:0;pointer-events:none}
+.clash-shock::before,.clash-shock::after{content:"";position:absolute;width:var(--shock-size,320px);height:calc(var(--shock-size,320px) * .45);border:3px solid rgba(42,193,188,.65);border-radius:50%;transform:translate(-50%,-50%) scale(var(--wave-progress,0));pointer-events:none}
+.clash-shock::after{border-color:rgba(237,106,90,.4);width:calc(var(--shock-size,320px) * .86);height:calc(var(--shock-size,320px) * .38)}
 .clash-flight{position:absolute;left:0;top:0;width:38px;height:38px;border:2px solid var(--white);border-radius:50%;box-shadow:0 0 0 3px #2ac1bc70,0 0 20px #2ac1bc50;pointer-events:none;will-change:transform,opacity}
 .clash-flight.side-b{box-shadow:0 0 0 3px #ed6a5a70,0 0 20px #ed6a5a50}
 .clash-flight::before{content:"";position:absolute;top:12px;right:100%;width:56px;height:6px;border-radius:50%;background:linear-gradient(90deg,transparent,var(--mint));transform:translateX(-5px)}

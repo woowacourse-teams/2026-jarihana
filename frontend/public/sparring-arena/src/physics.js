@@ -59,9 +59,49 @@ export function createCapsulePhysics({ capacity = CAPACITY, seed = 19 } = {}) {
     });
     return entry;
   });
-  let exchanges = 0;
-  function step(delta) { world.step(1 / 120, Math.min(delta, 0.05), 6); }
+  let exchanges = 0, shockwaves = 0;
+  const waves = [];
+  function step(delta) {
+    const elapsed = Math.min(delta, 0.05);
+    for (let i = waves.length - 1; i >= 0; i--) {
+      const wave = waves[i];
+      wave.elapsed += elapsed;
+      while (wave.next < wave.targets.length && wave.targets[wave.next].distance <= wave.elapsed * 10) {
+        const { entry, born, post, distance, dx, dz, index } = wave.targets[wave.next++];
+        if (entry.born !== born || entry.post !== post) continue;
+        const { body } = entry;
+        if (!Number.isFinite(body.position.y) || body.position.y >= TANK.rim - 1.3) continue;
+        const strength = 1 - distance / 8.5;
+        const direction = distance > 0.01 ? dx / distance : (index % 2 ? 0.15 : -0.15);
+        body.wakeUp();
+        body.velocity.x += direction * strength * 3.2;
+        body.velocity.y = Math.max(body.velocity.y, 0.9 + strength * 4.8);
+        body.velocity.z += dz / Math.max(distance, 0.5) * strength * 1.2;
+        body.angularVelocity.z += direction * strength * 1.2;
+      }
+      if (wave.next === wave.targets.length) waves.splice(i, 1);
+    }
+    world.step(1 / 120, elapsed, 6);
+  }
   function settle(seconds = 2.4) { for (let i = 0; i < seconds * 120; i++) world.step(1 / 120); }
+  function shockwave({ x = 0, z = 0.3 } = {}) {
+    if (!Number.isFinite(x) || !Number.isFinite(z)) return 0;
+    const targets = [];
+    for (const [index, entry] of entries.entries()) {
+      const { body } = entry;
+      const dx = body.position.x - x, dz = body.position.z - z;
+      const distance = Math.hypot(dx, dz);
+      if (!Number.isFinite(distance) || !Number.isFinite(body.position.y) || distance >= 8.5 || body.position.y >= TANK.rim - 1.3 ||
+          (entry.landedAt === null && world.time - entry.born < 2)) continue;
+      targets.push({ entry, born: entry.born, post: entry.post, distance, dx, dz, index });
+    }
+    if (!targets.length) return 0;
+    targets.sort((a, b) => a.distance - b.distance);
+    if (waves.length >= 3) waves.shift();
+    waves.push({ targets, elapsed: 0, next: 0 });
+    shockwaves++;
+    return targets.length;
+  }
   function launch(post, { mode = 'pressure', fresh = false, skipProtected = false, speed = 2.1 } = {}) {
     const sameSide = entries.filter(e => e.visualSide === post.side);
     const pool = sameSide.length ? sameSide : entries;
@@ -91,9 +131,9 @@ export function createCapsulePhysics({ capacity = CAPACITY, seed = 19 } = {}) {
   function stats() {
     const bodies = entries.map(e => e.body);
     return { bodies: world.bodies.length, physicalCapsules: entries.length, sleeping: bodies.filter(b => b.sleepState === CANNON.Body.SLEEPING).length,
-      contacts: world.contacts.filter(c => c.bi.mass > 0 && c.bj.mass > 0).length, seconds: Number(world.time.toFixed(3)), exchanges,
+      contacts: world.contacts.filter(c => c.bi.mass > 0 && c.bj.mass > 0).length, seconds: Number(world.time.toFixed(3)), exchanges, shockwaves,
       finite: bodies.every(b => [b.position.x, b.position.y, b.position.z, b.quaternion.w].every(Number.isFinite)),
       minY: Number(Math.min(...bodies.map(b => b.position.y)).toFixed(3)), maxY: Number(Math.max(...bodies.map(b => b.position.y)).toFixed(3)) };
   }
-  return { world, entries, step, settle, launch, stats, takeCollision() { const event = collisionEvent; collisionEvent = null; return event; } };
+  return { world, entries, step, settle, launch, shockwave, stats, takeCollision() { const event = collisionEvent; collisionEvent = null; return event; } };
 }

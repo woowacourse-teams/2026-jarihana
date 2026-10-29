@@ -310,7 +310,10 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
             aria-label="주요 메뉴"
             className="app-header__primary-nav"
             data-active={activeMenuIndex >= 0}
-            style={{ "--header-active-index": Math.max(0, activeMenuIndex) }}
+            style={{
+              "--header-active-index": Math.max(0, activeMenuIndex),
+              "--header-nav-item-count": DESKTOP_MEMBER_LINKS.length + 1
+            }}
           >
             <HeaderLinks
               links={DESKTOP_MEMBER_LINKS}
