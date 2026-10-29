@@ -90,14 +90,14 @@ it("exposes the public sparring menu in the header and mobile drawer", () => {
   renderShell({ login: jest.fn(), logout: jest.fn(), status: "anonymous" });
 
   const desktopMenu = screen.getByRole("navigation", { name: "주요 메뉴" });
-  const desktopLink = within(desktopMenu).getByRole("link", { name: "스파링" });
+  const desktopLink = within(desktopMenu).getByRole("link", { name: "토론해요" });
   expect(desktopLink).toHaveAttribute("href", "/sparring");
   expect(desktopLink).toHaveAttribute("aria-current", "page");
   expect(desktopLink).toHaveAttribute("data-ph-capture-attribute-action", "sparring_view");
 
   fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
   const mobileMenu = screen.getByRole("navigation", { name: "모바일 메뉴" });
-  expect(within(mobileMenu).getByRole("link", { name: "스파링" })).toHaveAttribute("href", "/sparring");
+  expect(within(mobileMenu).getByRole("link", { name: "토론해요" })).toHaveAttribute("href", "/sparring");
 });
 
 it("starts GitHub login from the anonymous header action", () => {
@@ -480,7 +480,7 @@ it("places feedback after discovery links in desktop and mobile navigation", () 
   renderShell({ login: jest.fn(), logout: jest.fn(), status: "authenticated" });
 
   // Then
-  const expectedOrder = ["홈", "탐색", "활동", "게시판", "스파링", "피드백"];
+  const expectedOrder = ["홈", "탐색", "활동", "게시판", "토론해요", "피드백"];
   const desktopNavigation = screen.getByRole("navigation", { name: "주요 메뉴" });
   expect(
     Array.from(desktopNavigation.querySelectorAll("a, button")).map((item) =>
@@ -492,7 +492,7 @@ it("places feedback after discovery links in desktop and mobile navigation", () 
   fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
   const mobileNavigation = screen.getByRole("navigation", { name: "모바일 메뉴" });
   const mobileLinks = mobileNavigation.querySelector(".app-header__mobile-links");
-  const expectedMobileOrder = ["홈", "탐색", "활동", "게시판", "스파링", "모임 만들기", "피드백"];
+  const expectedMobileOrder = ["홈", "탐색", "활동", "게시판", "토론해요", "모임 만들기", "피드백"];
   expect(mobileLinks).not.toBeNull();
   expect(
     Array.from(mobileLinks.querySelectorAll("a, button"))

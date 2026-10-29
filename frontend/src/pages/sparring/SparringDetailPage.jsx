@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router";
+import { ArrowLeft } from "lucide-react";
 import { useAuth } from "../../features/auth";
 import { useArenaBridge } from "../../features/sparring/useArenaBridge";
 import { Button } from "../../shared/ui";
@@ -17,9 +18,11 @@ function Room({ topicId, member, login }) {
   return (
     <div className="sparring-detail">
       <div className="sparring-detail__rail">
-        <Link to="/sparring" data-ph-capture-attribute-action="sparring_back">
-          ← 다른 스파링
-        </Link>
+        <nav className="sparring-detail__navigation" aria-label="토론 위치">
+          <Link className="sparring-detail__back" to="/sparring" aria-label="토론 목록으로" title="토론 목록으로" data-ph-capture-attribute-action="sparring_back">
+            <ArrowLeft size={22} aria-hidden="true" />
+          </Link>
+        </nav>
         <span role="status" className="sparring-connection" data-connection={status}>
           {statuses[status]}
         </span>
@@ -60,7 +63,7 @@ function Room({ topicId, member, login }) {
 export function SparringDetailPage() {
   const { topicId } = useParams();
   const { status, member, login } = useAuth();
-  if (!/^[1-9]\d*$/.test(topicId)) return <p role="alert">스파링 주소가 올바르지 않아요.</p>;
+  if (!/^[1-9]\d*$/.test(topicId)) return <p role="alert">토론 주소가 올바르지 않아요.</p>;
   if (status === "loading") return <p role="status">경기장을 준비하고 있어요.</p>;
   return (
     <Room

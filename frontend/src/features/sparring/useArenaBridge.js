@@ -9,7 +9,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
   const [view, setView] = useState({
     error: null,
     status: "connecting",
-    title: "스파링",
+    title: "토론해요",
     loaded: false
   });
   useEffect(() => {
@@ -20,9 +20,10 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       refreshAgain = false;
     let topic = null,
       connection = "connecting",
-      posting = false,
+      posting = 0,
       source;
     let lastPostId = 0;
+    let mutationQueue = Promise.resolve();
     const posts = new Map(),
       seen = new Set(),
       cursors = { all: null, mine: null },
@@ -52,6 +53,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
           },
           mySide: topic.mySide === "MINT" ? "a" : topic.mySide === "CORAL" ? "b" : null,
           actorId: member ? String(member.id) : "guest",
+          actorMemberType: member?.memberType ?? "CREW",
           postCount: topic.postCount,
           posts: [...posts.values()].sort((a, b) => Number(a.id) - Number(b.id)),
           more,
@@ -141,14 +143,27 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       });
     }
     function start() {
+      updateViewport();
       if (ready) return;
       ready = true;
       void refresh();
       connect();
     }
+    function updateViewport() {
+      if (!frame.current) return;
+      const frameTop = frame.current.getBoundingClientRect().top + window.scrollY;
+      const rail = frame.current.closest?.(".sparring-detail")?.querySelector(".sparring-detail__rail");
+      const contentWidth = rail?.getBoundingClientRect().width;
+      send({
+        kind: "viewport",
+        height: Math.max(0, window.innerHeight - frameTop),
+        ...(Number.isFinite(contentWidth) && contentWidth > 0 ? { contentWidth } : {})
+      });
+    }
     async function command(message) {
       const respond = (result, error) =>
         send({ kind: "result", requestId: message.requestId, result, error });
+      let countedPost = false;
       try {
         if (message.action === "login" || (!member && message.action !== "history")) {
           storeReturnTarget(`/sparring/${topicId}`);
@@ -182,7 +197,8 @@ export function useArenaBridge({ topicId, member, login, retry }) {
           respond(true);
           return;
         }
-        posting = true;
+        posting++;
+        countedPost = true;
         const result = await postSparring(topicId, {
           text: message.payload.text,
           replyToId: message.payload.replyToId ? Number(message.payload.replyToId) : null,
@@ -201,7 +217,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       } catch (error) {
         respond(null, error instanceof Error ? error.message : "전송하지 못했어요.");
       } finally {
-        if (message.action === "post") posting = false;
+        if (countedPost) posting--;
       }
     }
     function receive(event) {
@@ -222,7 +238,18 @@ export function useArenaBridge({ topicId, member, login, retry }) {
         captureEvent("sparring_interaction", { action: message.action });
       else if (message.kind === "height") {
         if (frame.current) frame.current.style.height = `${Math.ceil(message.height)}px`;
-      } else if (message.kind === "command") void command(message);
+        updateViewport();
+      } else if (message.kind === "command") {
+        if (message.action === "post" || message.action === "vote") {
+          // Keep server writes in input order; the composer can accept another draft immediately.
+          // A timed-out iframe request must not let a later vote overtake its unfinished post.
+          mutationQueue = mutationQueue.then(() => {
+            if (!disposed) return command(message);
+          });
+        } else {
+          void command(message);
+        }
+      }
     }
     const online = () => {
       connect();
@@ -235,6 +262,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
     window.addEventListener("message", receive);
     window.addEventListener("online", online);
     window.addEventListener("offline", offline);
+    window.addEventListener("resize", updateViewport);
     send({ kind: "hello" });
     return () => {
       disposed = true;
@@ -242,6 +270,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       window.removeEventListener("message", receive);
       window.removeEventListener("online", online);
       window.removeEventListener("offline", offline);
+      window.removeEventListener("resize", updateViewport);
     };
   }, [topicId, member, login, retry]);
   return { frame, ...view };

@@ -1,12 +1,22 @@
 .sparring-wide-card {
-  --sparring-paper: #faf7f2;
+  --sparring-paper: var(--color-surface);
   --sparring-coral: var(--color-cohort-2);
   --sparring-coral-ink: #a94332;
+  position: relative;
+  isolation: isolate;
   overflow: hidden;
   border: 1px solid var(--color-line);
   border-radius: var(--radius-lg);
   background: var(--sparring-paper);
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
+
+.sparring-wide-card:hover { border-color: var(--color-brand); box-shadow: var(--shadow-card); }
+.sparring-wide-card__link { display: inline-flex; align-items: center; gap: var(--space-2); color: inherit; text-decoration: none; }
+.sparring-wide-card__link svg { flex-shrink: 0; color: var(--color-muted-ink); }
+.sparring-wide-card__link::after { content: ""; position: absolute; inset: 0; z-index: 1; border-radius: inherit; }
+.sparring-wide-card:has(.sparring-wide-card__link:focus-visible) { outline: 2px solid var(--color-brand-ink); outline-offset: 3px; }
+.sparring-wide-card__link:focus-visible { outline: none; }
 
 .sparring-wide-card__heading {
   display: flex;
@@ -69,7 +79,7 @@
 .sparring-wide-card__coral { color: var(--sparring-coral-ink); }
 
 .sparring-wide-card__vs {
-  color: #84745c;
+  color: var(--color-muted-ink);
   font-size: 1.4rem;
   font-weight: 900;
   font-style: italic;
@@ -145,6 +155,8 @@
 }
 
 .sparring-wide-card__replay {
+  position: relative;
+  z-index: 2;
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;

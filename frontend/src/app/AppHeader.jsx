@@ -54,7 +54,7 @@ const BOARD_LINK = {
 const SPARRING_LINK = {
   action: "sparring_view",
   isActive: (pathname) => pathname === "/sparring" || pathname.startsWith("/sparring/"),
-  label: "스파링",
+  label: "토론해요",
   requiresAuth: false,
   to: "/sparring"
 };

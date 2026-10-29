@@ -10,12 +10,14 @@ export const topicSchema = z.object({
   a: z.string(),
   b: z.string(),
   description: z.string(),
+  representativeImageUrl: z.string().nullable().optional(),
   votesA: z.number().int().nonnegative(),
   votesB: z.number().int().nonnegative(),
   postCount: z.number().int().nonnegative(),
   revision: z.number().int().positive(),
   mySide: side.nullable(),
-  createdAt: z.string()
+  createdAt: z.string(),
+  closesAt: z.string().nullable().optional()
 });
 const replySchema = z.object({
   id,

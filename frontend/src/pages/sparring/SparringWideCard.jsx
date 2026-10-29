@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { RotateCcw } from "lucide-react";
+import { ArrowUpRight, RotateCcw } from "lucide-react";
+import { Link } from "react-router";
 
 import hoseDuel from "../../shared/assets/illustrations/sparring-hose-duel.webp";
 import capsule from "../../shared/assets/illustrations/sparring-capsule.webp";
@@ -18,7 +19,16 @@ export default function SparringWideCard({ topic }) {
   return (
     <article className="sparring-wide-card">
       <header className="sparring-wide-card__heading">
-        <h2>{topic.title}</h2>
+        <h2>
+          <Link
+            className="sparring-wide-card__link"
+            to={`/sparring/${topic.id}`}
+            data-ph-capture-attribute-action="sparring_join"
+          >
+            {topic.title}
+            <ArrowUpRight size={20} aria-hidden="true" />
+          </Link>
+        </h2>
         <span className="sparring-wide-card__example">
           {topic.postCount} 한마디 · {topic.votesA + topic.votesB}명 참여
         </span>
