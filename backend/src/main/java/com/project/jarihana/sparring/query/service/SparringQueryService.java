@@ -2,7 +2,9 @@ package com.project.jarihana.sparring.query.service;
 
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.image.query.service.ImageAccessService;
 import com.project.jarihana.sparring.query.repository.SparringQueryRepository;
+import com.project.jarihana.sparring.query.repository.dto.SparringTopicProjection;
 import com.project.jarihana.sparring.query.service.dto.SparringListQuery;
 import com.project.jarihana.sparring.query.service.dto.SparringPageResult;
 import com.project.jarihana.sparring.query.service.dto.SparringPostResult;
@@ -14,17 +16,21 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class SparringQueryService {
     private final SparringQueryRepository repository;
+    private final ImageAccessService images;
+    private final Clock clock;
 
     public SparringTopicResult topic(long id, Long memberId) {
         return repository
                 .topic(id, memberId)
-                .map(SparringTopicResult::from)
+                .map(this::topicResult)
                 .orElseThrow(
                         () ->
                                 new BusinessException(
@@ -42,11 +48,12 @@ public class SparringQueryService {
                                 memberId,
                                 query.keyword(),
                                 query.filter(),
+                                LocalDateTime.now(clock),
                                 cursor.at(),
                                 cursor.id(),
                                 PageRequest.ofSize(query.size() + 1))
                         .stream()
-                        .map(SparringTopicResult::from)
+                        .map(this::topicResult)
                         .toList();
         boolean more = rows.size() > query.size();
         List<SparringTopicResult> items = rows.stream().limit(query.size()).toList();
@@ -83,5 +90,10 @@ public class SparringQueryService {
         SparringPostResult last = items.isEmpty() ? null : items.getLast();
         return new SparringPageResult<>(
                 items, more ? SparringCursor.encode(last.createdAt(), last.id()) : null, more);
+    }
+
+    private SparringTopicResult topicResult(SparringTopicProjection topic) {
+        String key = topic.getRepresentativeImageKey();
+        return SparringTopicResult.from(topic, key == null ? null : images.publicUrl(key));
     }
 }

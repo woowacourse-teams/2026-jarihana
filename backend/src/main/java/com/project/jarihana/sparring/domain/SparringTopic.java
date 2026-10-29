@@ -46,6 +46,9 @@ public class SparringTopic extends BaseEntity {
     @Column(nullable = false, length = 240)
     private String description;
 
+    @Column(name = "closes_at")
+    private LocalDateTime closesAt;
+
     @Column(nullable = false)
     private long revision;
 
@@ -59,8 +62,13 @@ public class SparringTopic extends BaseEntity {
             String b,
             String description,
             Member creator,
-            LocalDateTime now) {
+            LocalDateTime now,
+            LocalDateTime closesAt) {
         super(now);
+        if (closesAt != null && !closesAt.isAfter(now)) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "마감 일시는 현재보다 이후여야 해요.");
+        }
+        this.closesAt = closesAt;
         this.title = SparringText.required(title, 80);
         this.claimA = SparringText.required(a, 32);
         this.claimB = SparringText.required(b, 32);
@@ -80,7 +88,24 @@ public class SparringTopic extends BaseEntity {
             String description,
             Member creator,
             LocalDateTime now) {
-        return new SparringTopic(title, a, b, description, creator, now);
+        return create(title, a, b, description, creator, now, null);
+    }
+
+    public static SparringTopic create(
+            String title,
+            String a,
+            String b,
+            String description,
+            Member creator,
+            LocalDateTime now,
+            LocalDateTime closesAt) {
+        return new SparringTopic(title, a, b, description, creator, now, closesAt);
+    }
+
+    public void requireOpen(LocalDateTime now) {
+        if (closesAt != null && !now.isBefore(closesAt)) {
+            throw new BusinessException(ErrorCode.SPARRING_CLOSED, "마감된 토론이에요.");
+        }
     }
 
     @Override

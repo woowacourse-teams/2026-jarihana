@@ -16,7 +16,9 @@ public interface SparringQueryRepository extends Repository<SparringTopic, Long>
     String TOPIC_SELECT =
             """
             select t.id, t.title, t.claim_a as claimA, t.claim_b as claimB, t.description,
-                   t.revision, t.created_at as createdAt,
+                   t.revision, t.created_at as createdAt, t.closes_at as closesAt,
+                   (select i.image_key from image_reference r join image_upload i on i.id=r.image_upload_id
+                    where r.reference_type='SPARRING_REPRESENTATIVE' and r.owner_id=t.id) as representativeImageKey,
                    (select count(*) from sparring_vote v where v.topic_id=t.id and v.side='MINT') as votesA,
                    (select count(*) from sparring_vote v where v.topic_id=t.id and v.side='CORAL') as votesB,
                    (select count(*) from sparring_post p where p.topic_id=t.id) as postCount,
@@ -33,7 +35,9 @@ public interface SparringQueryRepository extends Repository<SparringTopic, Long>
                             + """
                             where (cast(:beforeAt as timestamp) is null or t.created_at < :beforeAt or (t.created_at=:beforeAt and t.id < :beforeId))
                               and position(lower(:keyword) in lower(t.title)) > 0
-                              and (:filter <> 'active' or exists(select 1 from sparring_post p where p.topic_id=t.id))
+                              and (:filter not in ('active', 'open_active', 'closed_active') or exists(select 1 from sparring_post p where p.topic_id=t.id))
+                              and (:filter not in ('open', 'open_active') or t.closes_at is null or t.closes_at > :now)
+                              and (:filter not in ('closed', 'closed_active') or (t.closes_at is not null and t.closes_at <= :now))
                               and (:filter <> 'mine' or exists(select 1 from sparring_vote v where v.topic_id=t.id and v.member_id=:memberId))
                             order by t.created_at desc, t.id desc
                             """,
@@ -42,6 +46,7 @@ public interface SparringQueryRepository extends Repository<SparringTopic, Long>
             Long memberId,
             String keyword,
             String filter,
+            LocalDateTime now,
             LocalDateTime beforeAt,
             Long beforeId,
             Pageable pageable);

@@ -19,18 +19,160 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
-
-import javax.sql.DataSource;
 
 import java.util.Map;
 import java.util.UUID;
+
+import javax.sql.DataSource;
 
 class SparringAcceptanceTest extends IntegrationTestSupport {
     @Autowired MemberRepository members;
     @Autowired AccessTokenProvider tokens;
     @Autowired AuthCookieProperties cookies;
     @Autowired DataSource dataSource;
+
+    @Test
+    @DisplayName("마감 일시를 저장하고 마감 이후 투표와 새 메시지를 거절한다")
+    void storesDeadlineAndRejectsParticipationAfterClosing() {
+        // Given
+        String token = member("마감", "deadline");
+        long id =
+                request(token)
+                        .body(
+                                Map.of(
+                                        "title",
+                                        "마감 토론",
+                                        "a",
+                                        "찬성",
+                                        "b",
+                                        "반대",
+                                        "closesAt",
+                                        "2099-01-01T00:00:00Z"))
+                        .post("/sparrings")
+                        .then()
+                        .statusCode(201)
+                        .extract()
+                        .jsonPath()
+                        .getLong("data.id");
+        given().get("/sparrings/" + id)
+                .then()
+                .statusCode(200)
+                .body("data.closesAt", equalTo("2099-01-01T09:00:00+09:00"));
+        request(token)
+                .body(Map.of("side", "MINT"))
+                .post("/sparrings/" + id + "/votes")
+                .then()
+                .statusCode(204);
+        // When
+        new JdbcTemplate(dataSource)
+                .update(
+                        "update sparring_topic set closes_at = timestamp '2000-01-01 00:00:00'"
+                            + " where id = ?",
+                        id);
+        // Then
+        request(token)
+                .body(Map.of("side", "CORAL"))
+                .post("/sparrings/" + id + "/votes")
+                .then()
+                .statusCode(409);
+        post(token, id, "마감 후 메시지", null, UUID.randomUUID()).then().statusCode(409);
+        given().get("/sparrings/" + id)
+                .then()
+                .statusCode(200)
+                .body("data.votesA", equalTo(1))
+                .body("data.postCount", equalTo(0));
+    }
+
+    @Test
+    @DisplayName("진행 및 마감 주제를 의견 여부와 커서로 조회한다")
+    void filtersOpenAndClosedTopicsAcrossPages() {
+        String token = member("목록", "sparring-filter-deadline");
+        createTopic(token);
+        long openActive = createTopic(token);
+        long closed = createTopic(token);
+        long closedActive = createTopic(token);
+        for (long id : new long[] {openActive, closedActive}) {
+            request(token).body(Map.of("side", "MINT"))
+                    .post("/sparrings/" + id + "/votes").then().statusCode(204);
+            post(token, id, "의견", null, UUID.randomUUID()).then().statusCode(201);
+        }
+        new JdbcTemplate(dataSource).update(
+                "update sparring_topic set closes_at = timestamp '2000-01-01 00:00:00' where id in (?, ?)", closed, closedActive);
+        given().queryParam("keyword", "점심").queryParam("filter", "open")
+                .get("/sparrings").then().statusCode(200).body("data.items", hasSize(2));
+        given().queryParam("keyword", "점심").queryParam("filter", "open_active")
+                .get("/sparrings").then().statusCode(200).body("data.items", hasSize(1))
+                .body("data.items[0].id", equalTo((int) openActive));
+        given().queryParam("keyword", "점심").queryParam("filter", "closed_active")
+                .get("/sparrings").then().statusCode(200).body("data.items", hasSize(1))
+                .body("data.items[0].id", equalTo((int) closedActive));
+        String cursor = given().queryParam("keyword", "점심").queryParam("filter", "closed")
+                .queryParam("size", 1).get("/sparrings").then().statusCode(200)
+                .body("data.items[0].id", equalTo((int) closedActive))
+                .body("data.hasNext", equalTo(true)).extract().path("data.nextCursor");
+        given().queryParam("keyword", "점심").queryParam("filter", "closed")
+                .queryParam("size", 1).queryParam("cursor", cursor).get("/sparrings")
+                .then().statusCode(200).body("data.items[0].id", equalTo((int) closed))
+                .body("data.hasNext", equalTo(false));
+    }
+
+    @Test
+    @DisplayName("토론 생성 시 마감 일시를 생략하거나 null로 지정할 수 없다")
+    void requiresDeadlineOnCreation() {
+        String token = member("필수", "required-deadline");
+        request(token)
+                .body(Map.of("title", "마감 토론", "a", "찬성", "b", "반대"))
+                .post("/sparrings")
+                .then()
+                .statusCode(400);
+        request(token)
+                .body("{\"title\":\"마감 토론\",\"a\":\"찬성\",\"b\":\"반대\",\"closesAt\":null}")
+                .post("/sparrings")
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    @DisplayName("기존 마감 없는 토론은 조회하고 참여할 수 있다")
+    void preservesExistingTopicWithoutDeadline() {
+        String token = member("기존", "legacy-deadline");
+        long id = createTopic(token);
+        new JdbcTemplate(dataSource)
+                .update("update sparring_topic set closes_at = null where id = ?", id);
+        given().get("/sparrings/" + id)
+                .then()
+                .statusCode(200)
+                .body("data.closesAt", nullValue());
+        request(token)
+                .body(Map.of("side", "MINT"))
+                .post("/sparrings/" + id + "/votes")
+                .then()
+                .statusCode(204);
+    }
+
+    @Test
+    @DisplayName("과거 마감 일시로 토론을 만들 수 없다")
+    void rejectsPastDeadline() {
+        // Given
+        String token = member("과거", "past-deadline");
+        // When / Then
+        request(token)
+                .body(
+                        Map.of(
+                                "title",
+                                "마감 토론",
+                                "a",
+                                "찬성",
+                                "b",
+                                "반대",
+                                "closesAt",
+                                "2000-01-01T00:00:00Z"))
+                .post("/sparrings")
+                .then()
+                .statusCode(400);
+    }
 
     @Test
     @DisplayName("기존 스파링 테이블이 있어도 Flyway 스키마 적용은 기존 주제를 보존한다")
@@ -333,7 +475,9 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
                 "b",
                 "시간이 더 소중해",
                 "description",
-                "점심시간 이야기");
+                "점심시간 이야기",
+                "closesAt",
+                "2099-01-01T00:00:00Z");
     }
 
     private long createTopic(String token) {

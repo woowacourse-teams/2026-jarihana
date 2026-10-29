@@ -12,7 +12,7 @@ paths:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Size'
         - {name: keyword, in: query, schema: {type: string, maxLength: 80}}
-        - {name: filter, in: query, schema: {type: string, enum: [all, active, mine], default: all}, description: mine requires member authentication}
+        - {name: filter, in: query, schema: {type: string, enum: [all, active, mine, open, closed, open_active, closed_active], default: all}, description: mine requires member authentication}
       responses:
         '200':
           description: Topics ordered by creation time and ID descending
@@ -37,12 +37,14 @@ paths:
           application/json:
             schema:
               type: object
-              required: [title, a, b]
+              required: [title, a, b, closesAt]
               properties:
                 title: {type: string, minLength: 1, maxLength: 80}
                 a: {type: string, minLength: 1, maxLength: 32}
                 b: {type: string, minLength: 1, maxLength: 32}
                 description: {type: [string, 'null'], maxLength: 240}
+                representativeImageKey: {type: [string, 'null'], maxLength: 255, description: Optional image key from the existing image-uploads API after uploading the file; only the uploader can attach it}
+                closesAt: {type: string, format: date-time, description: Required future deadline with timezone offset}
       responses:
         '201': {$ref: '#/components/responses/Created'}
         '400': {$ref: '#/components/responses/Invalid'}
@@ -77,6 +79,7 @@ paths:
               properties: {side: {$ref: '#/components/schemas/Side'}}
       responses:
         '204': {description: Vote recorded or moved; no response body}
+        '409': {description: SPARRING_CLOSED; deadline reached}
         '400': {$ref: '#/components/responses/Invalid'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '403': {$ref: '#/components/responses/Forbidden'}
@@ -126,7 +129,7 @@ paths:
         '401': {$ref: '#/components/responses/Unauthorized'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
-        '409': {description: SPARRING_VOTE_REQUIRED; member must first choose a side, content: {application/json: {schema: {$ref: '#/components/schemas/Envelope'}}}}
+        '409': {description: SPARRING_VOTE_REQUIRED or SPARRING_CLOSED, content: {application/json: {schema: {$ref: '#/components/schemas/Envelope'}}}}
   /sparrings/{topicId}/events:
     parameters: [{$ref: '#/components/parameters/TopicId'}]
     get:
@@ -179,11 +182,13 @@ components:
         a: {type: string}
         b: {type: string}
         description: {type: string}
+        representativeImageUrl: {type: [string, 'null'], description: Public stable image URL, null when no representative photo was supplied}
         votesA: {type: integer, minimum: 0}
         votesB: {type: integer, minimum: 0}
         postCount: {type: integer, minimum: 0}
         revision: {type: integer, format: int64, minimum: 1}
         mySide: {type: [string, 'null'], enum: [MINT, CORAL, null]}
+        closesAt: {type: [string, 'null'], format: date-time, description: Deadline returned with Asia/Seoul offset}
         createdAt: {type: string, description: Asia/Seoul LocalDateTime without offset, example: '2026-10-29T12:00:00'}
     Reply:
       type: object

@@ -15,8 +15,10 @@ public record SparringTopicResult(
         long postCount,
         long revision,
         String mySide,
-        LocalDateTime createdAt) {
-    public static SparringTopicResult from(SparringTopicProjection p) {
+        LocalDateTime createdAt,
+        LocalDateTime closesAt,
+        String representativeImageUrl) {
+    public static SparringTopicResult from(SparringTopicProjection p, String representativeImageUrl) {
         return new SparringTopicResult(
                 p.getId(),
                 p.getTitle(),
@@ -28,6 +30,8 @@ public record SparringTopicResult(
                 p.getPostCount(),
                 p.getRevision(),
                 p.getMySide(),
-                p.getCreatedAt());
+                p.getCreatedAt(),
+                p.getClosesAt(),
+                representativeImageUrl);
     }
 }

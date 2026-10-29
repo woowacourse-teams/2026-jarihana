@@ -2,6 +2,9 @@ package com.project.jarihana.sparring.command.service;
 
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.image.command.service.ImageLifecycleService;
+import com.project.jarihana.image.command.service.ImageReferenceService;
+import com.project.jarihana.image.command.service.PromotedImage;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.sparring.command.repository.SparringPostCommandRepository;
@@ -31,10 +34,13 @@ public class SparringCommandService {
     private final SparringVoteCommandRepository votes;
     private final SparringPostCommandRepository posts;
     private final MemberRepository members;
+    private final ImageLifecycleService imageLifecycle;
+    private final ImageReferenceService imageReferences;
     private final Clock clock;
 
     @Transactional
     public SparringCommandResult create(long memberId, CreateSparringCommand command) {
+        LocalDateTime now = LocalDateTime.now(clock);
         SparringTopic topic =
                 SparringTopic.create(
                         command.title(),
@@ -42,13 +48,21 @@ public class SparringCommandService {
                         command.b(),
                         command.description(),
                         member(memberId),
-                        LocalDateTime.now(clock));
-        return new SparringCommandResult(topics.save(topic).getId());
+                        now,
+                        command.closesAt());
+        long topicId = topics.save(topic).getId();
+        if (command.representativeImageKey() != null) {
+            PromotedImage image = imageLifecycle.promoteForSparring(
+                    memberId, topicId, command.representativeImageKey(), now);
+            imageReferences.attachSparringRepresentative(topicId, image, now);
+        }
+        return new SparringCommandResult(topicId);
     }
 
     @Transactional
     public void vote(long topicId, long memberId, SparringSide side) {
         SparringTopic topic = lock(topicId);
+        topic.requireOpen(LocalDateTime.now(clock));
         SparringVote previous = votes.findByTopicIdAndMemberId(topicId, memberId).orElse(null);
         if (previous != null && previous.getSide() == side) return;
         votes.save(
@@ -61,7 +75,7 @@ public class SparringCommandService {
 
     @Transactional
     public SparringCommandResult post(long topicId, long memberId, PostSparringCommand command) {
-        lock(topicId);
+        SparringTopic topic = lock(topicId);
         SparringPost previous =
                 posts.findByTopicIdAndMemberIdAndRequestId(topicId, memberId, command.requestId())
                         .orElse(null);
@@ -74,6 +88,7 @@ public class SparringCommandService {
             }
             return new SparringCommandResult(previous.getId());
         }
+        topic.requireOpen(LocalDateTime.now(clock));
         SparringVote vote =
                 votes.findByTopicIdAndMemberId(topicId, memberId)
                         .orElseThrow(

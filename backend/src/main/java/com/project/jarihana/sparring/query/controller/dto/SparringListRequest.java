@@ -11,7 +11,7 @@ public record SparringListRequest(
         String cursor,
         @Min(1) @Max(100) Integer size,
         @Size(max = 80) String keyword,
-        @Pattern(regexp = "all|active|mine") String filter) {
+        @Pattern(regexp = "all|active|mine|open|closed|open_active|closed_active") String filter) {
     public SparringListQuery toQuery() {
         return new SparringListQuery(
                 cursor,

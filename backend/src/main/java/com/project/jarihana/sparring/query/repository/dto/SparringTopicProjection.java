@@ -13,6 +13,8 @@ public interface SparringTopicProjection {
 
     String getDescription();
 
+    String getRepresentativeImageKey();
+
     long getRevision();
 
     long getVotesA();
@@ -24,4 +26,6 @@ public interface SparringTopicProjection {
     String getMySide();
 
     LocalDateTime getCreatedAt();
+
+    LocalDateTime getClosesAt();
 }

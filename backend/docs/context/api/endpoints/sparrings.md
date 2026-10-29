@@ -14,8 +14,8 @@
 | GET | `/sparrings/{topicId}/events` | PUBLIC | `text/event-stream`, revision 알림 |
 
 목록: `size` 1..100(기본20), `keyword` 제목 부분 검색(80자),
-`filter=all|active|mine`(기본all), `cursor`. active는 의견이 한 개 이상 있는 주제,
-mine은 내가 투표한 주제이며 로그인해야 조회할 수 있다. 생성 시각/ID 내림차순이다.
+`filter=all|active|mine|open|closed|open_active|closed_active`(기본all), `cursor`. active는 의견이 한 개 이상 있는 주제,
+mine은 내가 투표한 주제이며 로그인해야 조회할 수 있다. open은 마감이 없거나 마감 전인 주제, closed는 마감 시각에 도달한 주제다. open_active와 closed_active는 각각 해당 상태 중 의견이 있는 주제다. 생성 시각/ID 내림차순이다.
 
 의견: `size` 1..100(기본20), `cursor`, `mine`(기본false).
 이전 대화는 ID 내림차순, 재접속 복구 `afterId=0..`는 ID 오름차순이다.
@@ -25,6 +25,14 @@ mine은 내가 투표한 주제이며 로그인해야 조회할 수 있다. 생�
 부모 글이 현재 페이지 밖에 있어도 두 주장을 함께 표시할 수 있다.
 
 등록 입력: title 1..80자, a/b 각 1..32자, description 선택 0..240자.
+대표사진은 선택이다. 기존 `POST /api/image-uploads`로 업로드 정보를 받고 파일 전송을 마친 뒤,
+반환된 `imageKey`를 `representativeImageKey`(최대 255자)로 전달한다. URL을 전달하지 않는다.
+업로더 본인의 만료 전 임시 이미지와 실제 파일만 연결할 수 있으며, 없거나 다른 회원·그룹·토론의
+이미지이면 `IMAGE_NOT_FOUND`(400)로 생성 전체를 취소한다. 목록·상세의 `representativeImageUrl`은
+안정적인 공개 접근 주소이며, 대표사진 없이 생성한 경우 null이다.
+토론 생성 시 `closesAt`은 필수이며 미래의 ISO 8601 오프셋 포함 일시다. 기존에 마감 없이 생성된 토론은 그대로 유지된다.
+목록·상세 응답은 `closesAt`을 +09:00 오프셋으로 반환한다.
+마감 시각부터 새 투표·의견은 `SPARRING_CLOSED`(409)로 거절한다. 읽기는 유지하며 저장된 의견의 동일 requestId 재시도는 기존 ID를 반환한다.
 공백을 제거한 a/b는 대소문자 무시 기준 서로 달라야 한다.
 의견 입력: text 1..160자, replyToId(선택), requestId(UUID, 필수).
 같은 회원/주제/requestId의 재시도는 같은 ID를 반환한다. 내용이나 부모가 달라지면 400이다.
