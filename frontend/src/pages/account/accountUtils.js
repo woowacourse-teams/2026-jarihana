@@ -1,3 +1,5 @@
+import { nonCrewMemberTypeLabel } from "../../entities/member/index.js";
+
 export const COURSE_LABELS = {
   ANDROID: "안드로이드",
   BACKEND: "백엔드",
@@ -6,8 +8,10 @@ export const COURSE_LABELS = {
 };
 
 export const MEMBER_TYPE_LABELS = {
+  BOOTCAMP: "부트캠프",
   COACH: "코치",
-  CREW: "크루"
+  CREW: "크루",
+  PROFESSIONAL: "현직자"
 };
 
 export const GROUP_TYPE_LABELS = {
@@ -52,6 +56,7 @@ export function generationLabel(generation) {
 }
 
 export function memberMetaLabel(member) {
-  if (member.memberType === "COACH") return MEMBER_TYPE_LABELS.COACH;
+  const typeLabel = nonCrewMemberTypeLabel(member.memberType);
+  if (typeLabel) return typeLabel;
   return `${generationLabel(member.generation)} / ${COURSE_LABELS[member.course] ?? member.course}`;
 }

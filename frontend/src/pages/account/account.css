@@ -521,6 +521,356 @@
   width: auto;
 }
 
+.signup-type-option__description {
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* 첫 화면 다음부터는 한 화면에 질문 하나를 묻는다. */
+.signup-form.signup-flow {
+  aspect-ratio: auto;
+  align-content: start;
+  gap: var(--space-5);
+  width: min(100%, 32rem);
+  padding: var(--space-5);
+  overflow: visible;
+}
+
+.signup-flow__top {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.signup-flow__back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--touch-target);
+  padding: var(--space-0) var(--space-2) var(--space-0) var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-label);
+}
+
+.signup-flow__back:hover {
+  background: var(--color-surface-sunken);
+}
+
+.signup-flow__back:focus-visible {
+  outline: var(--border-strong) solid var(--color-brand);
+  outline-offset: var(--border-thin);
+}
+
+.signup-flow__progress {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.signup-flow__progress span {
+  flex: 1;
+  height: 0.25rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-line);
+  transition: background-color var(--duration-base) var(--ease-standard);
+}
+
+.signup-flow__progress span.is-done {
+  background: var(--color-brand);
+}
+
+.signup-flow__count {
+  min-width: 3em;
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.signup-flow__trail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-height: 1.5rem;
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.signup-flow__trail li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0.125rem var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-size: var(--text-badge);
+}
+
+.signup-step {
+  display: grid;
+  gap: var(--space-4);
+  animation: signup-step-enter var(--duration-deliberate) var(--ease-standard) both;
+}
+
+@keyframes signup-step-enter {
+  from {
+    opacity: 0;
+    transform: translateX(var(--space-4));
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.signup-step__question {
+  margin: var(--space-0);
+  color: var(--color-ink);
+  font-size: var(--text-h2);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.45;
+  text-wrap: balance;
+}
+
+.signup-step__question:focus {
+  outline: 0;
+}
+
+.signup-step__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.signup-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  padding: var(--space-1) var(--space-4);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-label);
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
+}
+
+.signup-chip:hover {
+  border-color: var(--color-brand);
+  color: var(--color-brand-ink);
+}
+
+.signup-chip[aria-checked="true"] {
+  border-color: var(--color-brand);
+  background: var(--color-brand-soft);
+  color: var(--color-brand-ink);
+  font-weight: var(--font-weight-bold);
+}
+
+.signup-chip:focus-visible,
+.signup-choice:focus-visible,
+.signup-verify__button:focus-visible {
+  outline: var(--border-strong) solid var(--color-brand);
+  outline-offset: var(--border-strong);
+}
+
+.signup-wooteco-logo {
+  display: block;
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  overflow: visible;
+}
+
+.signup-verify {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+
+.signup-verify p {
+  flex: 1 1 10rem;
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+  line-height: 1.55;
+}
+
+.signup-verify strong {
+  color: var(--color-ink);
+}
+
+.signup-verify__button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  margin-left: auto;
+  padding: var(--space-1) var(--space-5) var(--space-1) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-nav);
+  color: var(--color-surface);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-bold);
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+.signup-verify__button:hover {
+  background: var(--color-header-line);
+}
+
+.signup-verify__button .signup-wooteco-logo {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.signup-step__rows {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.signup-step__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.signup-choice {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--touch-target-lg);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
+}
+
+.signup-choice--compact {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  text-align: center;
+}
+
+.signup-choice__copy {
+  display: grid;
+  gap: 0.125rem;
+}
+
+.signup-choice__copy strong {
+  font-size: var(--text-body);
+}
+
+.signup-choice__copy small {
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+  line-height: 1.5;
+}
+
+.signup-choice__chevron {
+  color: var(--color-muted);
+}
+
+.signup-choice:hover,
+.signup-choice[aria-checked="true"] {
+  border-color: var(--color-brand);
+  background: var(--color-brand-soft);
+}
+
+.signup-choice[aria-checked="true"] {
+  box-shadow: inset 0 0 0 var(--border-thin) var(--color-brand);
+}
+
+.signup-step__foot {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.signup-step__panel {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  text-align: center;
+}
+
+.signup-step__panel > .ui-field,
+.signup-step__panel .signup-form__selects {
+  width: min(100%, 17rem);
+}
+
+.signup-step .signup-form__selects {
+  transform: none;
+  gap: var(--space-2);
+}
+
+.signup-step__avatar {
+  width: 5.25rem;
+  aspect-ratio: 1;
+  padding: var(--space-1);
+  border: var(--border-thin) solid var(--account-line);
+  border-radius: var(--radius-pill);
+  background: var(--color-canvas);
+  object-fit: contain;
+}
+
+.signup-step__company {
+  display: grid;
+  gap: var(--space-2);
+  width: min(100%, 17rem);
+  text-align: left;
+}
+
+.signup-form .signup-step__submit,
+.signup-form .signup-step__submit:hover:not(:disabled),
+.signup-form .signup-step__submit:active:not(:disabled) {
+  margin-top: var(--space-0);
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .signup-step {
+    animation: none;
+  }
+}
+
+@media (max-width: 47.9375rem) {
+  .signup-form.signup-flow {
+    padding: var(--space-4);
+  }
+
+  .signup-step__question {
+    font-size: var(--text-h3);
+  }
+}
+
 .form-alert {
   margin: var(--space-0);
   padding: var(--space-3) var(--space-4);
