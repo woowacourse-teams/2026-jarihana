@@ -104,18 +104,31 @@ fe_pointer_write() {
   bg_touch
 }
 fe_preflight() {
-  local distribution policy
+  local distribution policy edge_code edge_sha
   command -v aws >/dev/null || bg_die 'AWS CLI v2 with conditional S3 put support is required'
   [[ $(fe_aws --version) == aws-cli/2.* ]] || bg_die 'AWS CLI v2 is required'
   (( $(df -Pk "$(dirname "$STATE_FILE")" | awk 'NR==2 {print $4}')>=2097152 )) || bg_die 'Frontend staging requires 2 GiB free disk'
   distribution=$(fe_aws cloudfront get-distribution-config --id "$FE_DISTRIBUTION") || bg_die 'Cannot verify frontend CDN configuration'
   jq -e --arg bucket "$FE_BUCKET" --arg prefix "/$FE_LIVE" '
     .DistributionConfig as $d | $d.Enabled==true and ($d.Aliases.Items|index("jarihana.com"))!=null and
-    ($d.DefaultCacheBehavior.FunctionAssociations.Quantity // 0)==0 and
+    (($d.DefaultCacheBehavior.FunctionAssociations // {Quantity:0}) |
+      (.Quantity==0 and ((.Items // [])|length)==0) or
+      (.Quantity==1 and (.Items|length)==1 and .Items[0].EventType=="viewer-request" and
+        .Items[0].FunctionARN=="arn:aws:cloudfront::843255971531:function/jarihana-group-share-preview")) and
     ($d.DefaultCacheBehavior.LambdaFunctionAssociations.Quantity // 0)==0 and
     ([$d.CacheBehaviors.Items[]? | .PathPattern | IN("/api/*","api/*","/images/*","images/*")]|all) and
     ([$d.Origins.Items[]|select(.Id==$d.DefaultCacheBehavior.TargetOriginId and .OriginPath==$prefix and (.DomainName==($bucket+".s3.ap-northeast-2.amazonaws.com") or .DomainName==($bucket+".s3.amazonaws.com")))]|length==1)
   ' <<<"$distribution" >/dev/null || bg_die 'Frontend CDN origin or edge transformations differ'
+  if [[ $(jq -r '.DistributionConfig.DefaultCacheBehavior.FunctionAssociations.Quantity // 0' <<<"$distribution") == 1 ]]; then
+    edge_code=$(mktemp "$FE_TEMP/edge-function.XXXXXX")
+    if ! fe_aws cloudfront get-function --name jarihana-group-share-preview --stage LIVE "$edge_code" >/dev/null; then
+      rm -f -- "$edge_code"; bg_die 'Cannot verify frontend edge function code'
+    fi
+    edge_sha=$(sha256sum "$edge_code" | cut -d ' ' -f1)
+    rm -f -- "$edge_code"
+    # Reviewed LIVE bytes: repository group-share-preview.js without its opening doc comment or final LF.
+    [[ $edge_sha == 43f5a2aba54c74c4ffc7dba57ec43ebc2b270890f03b7a82fc2d761eb287b828 ]] || bg_die 'Frontend edge function code differs'
+  fi
   policy=$(fe_aws cloudfront get-cache-policy --id "$(jq -er .DistributionConfig.DefaultCacheBehavior.CachePolicyId <<<"$distribution")") || bg_die 'Cannot verify frontend cache policy'
   jq -e '.CachePolicy.CachePolicyConfig | .MinTTL==0 and .DefaultTTL==0 and .MaxTTL==0' <<<"$policy" >/dev/null || bg_die 'Frontend publication requires disabled CDN caching'
   fe_aws s3api head-bucket --bucket "$FE_BUCKET" >/dev/null || bg_die 'Frontend bucket is inaccessible'
