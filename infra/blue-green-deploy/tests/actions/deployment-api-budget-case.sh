@@ -26,6 +26,8 @@ bg_atomic() { printf '%s\n' "$2" >"$1"; }
 eval "$(declare -f bg_touch_local | sed '1s/bg_touch_local/actual_touch_local/')"
 bg_touch_local() { actual_touch_local; if (( IO_SECONDS>0 )); then echo "$(( $(bg_now)+IO_SECONDS ))" >"$CASE_DIR/clock"; fi; }
 bg_root_file() { :; }
+# ACL/ownership checks run in the contract suite; keep journal identity and lease checks real here.
+bg_state_file() { [[ -f $STATE_FILE && ! -L $STATE_FILE ]] || bg_die 'Missing test journal'; }
 bg_uuid() { local n; n=$(( $(cat "$CASE_DIR/uuid")+1 )); echo "$n" >"$CASE_DIR/uuid"; printf 'aaaaaaaa-aaaa-aaaa-aaaa-%012d\n' "$n"; }
 bg_output() { if [[ $1 == result && ${ACTOR:-} == app ]]; then printf '%s\n' "$2" >"$CASE_DIR/receipt"; fi; }
 timeout() { shift; "$@"; }
