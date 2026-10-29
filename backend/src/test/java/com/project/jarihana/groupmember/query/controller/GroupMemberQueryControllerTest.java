@@ -6,8 +6,12 @@ import com.project.jarihana.group.query.repository.GroupJpaRepository;
 import com.project.jarihana.group.query.repository.GroupMemberJpaRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.member.command.repository.MemberRepository;
+import com.project.jarihana.member.domain.Bootcamp;
+import com.project.jarihana.member.domain.BootcampStatus;
+import com.project.jarihana.member.domain.Career;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
+import com.project.jarihana.member.domain.MemberField;
 import com.project.jarihana.support.IntegrationTestSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -105,6 +109,37 @@ class GroupMemberQueryControllerTest extends IntegrationTestSupport {
                 .body("data.items[0].role", equalTo("LEADER"))
                 .body("data.nextCursor", nullValue())
                 .body("data.hasNext", equalTo(false));
+    }
+
+    @DisplayName("부트캠프와 현직자 구성원도 회원 유형과 함께 조회하고 기수와 과정은 비워 둔다.")
+    @Test
+    void findsAffiliationMembers() {
+        // Given
+        Member leader = saveMember("가온", Course.BACKEND, "github-1");
+        Member bootcampMember = memberRepository.save(Member.createBootcamp(
+                "도담", "github-2", Bootcamp.of("SSAFY", BootcampStatus.IN_PROGRESS, null), MemberField.BACKEND
+        ));
+        Member professionalMember = memberRepository.save(Member.createProfessional(
+                "하나", "github-3", MemberField.FRONTEND, Career.YEARS_1_3, null
+        ));
+        groupMemberRepository.save(GroupMember.createLeader(group, leader, JOINED_AT));
+        groupMemberRepository.save(GroupMember.createMember(group, bootcampMember, JOINED_AT.plusHours(1)));
+        groupMemberRepository.save(GroupMember.createMember(group, professionalMember, JOINED_AT.plusHours(2)));
+
+        // When & Then
+        given()
+                .when()
+                .get("/groups/{groupId}/members", group.getId())
+                .then()
+                .statusCode(200)
+                .body("data.items.size()", equalTo(3))
+                .body("data.items[0].crewName", equalTo("하나"))
+                .body("data.items[0].memberType", equalTo("PROFESSIONAL"))
+                .body("data.items[0].generation", nullValue())
+                .body("data.items[0].course", nullValue())
+                .body("data.items[1].crewName", equalTo("도담"))
+                .body("data.items[1].memberType", equalTo("BOOTCAMP"))
+                .body("data.items[1].generation", nullValue());
     }
 
     private Member saveMember(String crewName, Course course, String githubId) {

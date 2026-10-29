@@ -3,6 +3,7 @@ import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, LoaderCircle, UserPlus, X } from "lucide-react";
 
 import { getSafeNextCursor, mergeCursorPages } from "../../entities/cursor";
+import { nonCrewMemberTypeLabel } from "../../entities/member/index.js";
 import { useAuth } from "../auth";
 import { Avatar, Button, ConfirmDialog, Modal, TextField, useToast } from "../../shared/ui";
 import {
@@ -31,7 +32,8 @@ function makeRequestId() {
 }
 
 function roleLabel(type) {
-  if (type === "COACH") return "코치";
+  const typeLabel = nonCrewMemberTypeLabel(type);
+  if (typeLabel) return typeLabel;
   if (type === "CREW") return "크루";
   return "회원";
 }

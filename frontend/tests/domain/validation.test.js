@@ -30,6 +30,57 @@ describe("member form validation", () => {
   });
 });
 
+describe("member signup form for bootcamp and professional members", () => {
+  const bootcampValues = {
+    memberType: "BOOTCAMP",
+    crewName: " 도담 ",
+    bootcampName: "CUSTOM",
+    bootcampCustomName: " 우리동네 개발캠프 ",
+    bootcampStatus: "COMPLETED",
+    bootcampCohort: "   ",
+    field: "DATA_AI"
+  };
+
+  it("turns bootcamp answers into the bootcamp request body", () => {
+    // When
+    const result = memberSignupFormSchema.safeParse(bootcampValues);
+
+    // Then
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({
+      crewName: "도담",
+      memberType: "BOOTCAMP",
+      bootcamp: { name: "우리동네 개발캠프", status: "COMPLETED" },
+      field: "DATA_AI"
+    });
+  });
+
+  it.each([
+    [{ bootcampName: "우아한테크코스", bootcampCustomName: "" }, "bootcampName"],
+    [{ bootcampName: "CUSTOM", bootcampCustomName: "우 테코" }, "bootcampCustomName"]
+  ])("rejects Woowahan Tech Course as a bootcamp: %o", (bootcamp, path) => {
+    // When
+    const result = memberSignupFormSchema.safeParse({ ...bootcampValues, ...bootcamp });
+
+    // Then
+    expect(result.success).toBe(false);
+    expect(result.error.issues.map((issue) => issue.path[0])).toContain(path);
+  });
+
+  it("sends the company only when a professional enters its name", () => {
+    // Given
+    const professional = { memberType: "PROFESSIONAL", crewName: "하나", field: "DESIGN", career: "UNDER_1" };
+
+    // When
+    const withoutCompany = memberSignupFormSchema.parse({ ...professional, companyName: "  " });
+    const withCompany = memberSignupFormSchema.parse({ ...professional, companyName: "자리하나" });
+
+    // Then
+    expect(withoutCompany).toEqual({ ...professional, memberType: "PROFESSIONAL" });
+    expect(withCompany.company).toEqual({ name: "자리하나", visible: false });
+  });
+});
+
 describe("group form validation", () => {
   it("accepts a CLUB or STUDY without a recurring schedule as a flexible group", () => {
     // Given

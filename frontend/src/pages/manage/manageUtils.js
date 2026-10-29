@@ -1,3 +1,7 @@
+import { NON_CREW_MEMBER_TYPE_LABELS, nonCrewMemberTypeLabel } from "../../entities/member/index.js";
+
+export { nonCrewMemberTypeLabel };
+
 const dateFormatter = new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium" });
 const dateTimeFormatter = new Intl.DateTimeFormat("ko-KR", {
   dateStyle: "medium",
@@ -39,7 +43,7 @@ export function courseLabel(course) {
 }
 
 export function memberTypeLabel(memberType) {
-  return { COACH: "코치", CREW: "크루" }[memberType] ?? memberType;
+  return { CREW: "크루", ...NON_CREW_MEMBER_TYPE_LABELS }[memberType] ?? memberType;
 }
 
 export function generationLabel(generation) {
