@@ -1,0 +1,40 @@
+# Run separately from app-compose.yml so deployment keeps Alloy alive through drain/stop.
+services:
+  alloy:
+    image: grafana/alloy:v1.20.1
+    restart: unless-stopped
+    network_mode: host
+    mem_limit: 256m
+    stop_grace_period: 30s
+    command:
+      - run
+      - --server.http.listen-addr=127.0.0.1:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${DEPLOY_ENVIRONMENT:?}
+      HOST_ID: ${DEPLOY_HOST_ID:?}
+      APP_METRICS_TARGET: "127.0.0.1:${MANAGEMENT_PORT:-8081}"
+      PROMETHEUS_REMOTE_WRITE_URL: ${PROMETHEUS_REMOTE_WRITE_URL:?}
+      LOKI_PUSH_URL: ${LOKI_PUSH_URL:?}
+      POSTGRES_MONITOR_DSN: ${POSTGRES_MONITOR_DSN:?}
+    volumes:
+      - ${ALLOY_CONFIG_FILE:?}:/etc/alloy/config.alloy:ro
+      - ${POSTGRES_QUERIES_FILE:?}:/etc/alloy/postgres-queries.yaml:ro
+      - alloy-data:/var/lib/alloy/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro,rslave
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  alloy-data:
+    external: true
+    name: ${ALLOY_STORAGE_VOLUME:?}

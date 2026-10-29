@@ -62,4 +62,11 @@ jobs:
       - name: 배포 저널·실제 상태를 확인하고 단계 실행
         id: phase
         shell: bash
-        run: bash infra/scripts/deploy/actions/coordinator.sh "$BG_PHASE"
+        run: |
+          script=infra/blue-green-deploy/scripts/actions/coordinator.sh
+          # The immutable control checkout may predate the package move.
+          if [[ ! -f "$script" ]]; then
+            script=infra/scripts/deploy/actions/coordinator.sh
+          fi
+          [[ -f "$script" ]] || { echo '::error::Control release coordinator entrypoint is missing'; exit 1; }
+          exec bash "$script" "$BG_PHASE"

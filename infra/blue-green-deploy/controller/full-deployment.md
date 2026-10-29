@@ -49,7 +49,7 @@ dev A가 prod A라고 가정하지 않으며, dev 검증에 사용한 prod2를 �
 | --- | --- |
 | Nginx | Bash 5+, jq, curl, util-linux(flock), GNU coreutils, Git, Docker, AWS CLI v2, 전용 `jarihana-coordinator` runner, 고정된 Nginx 이미지 |
 | 각 앱 | Bash 5+, jq, curl, GNU coreutils, tzdata(Asia/Seoul), Git, OpenSSH, Docker Compose v2, 전용 `jarihana-runner` runner, RDS/레지스트리 접근 |
-| 관측 | 각 앱 호스트의 Alloy, Prometheus 조회 경로, 정확한 environment·host_id 라벨 |
+| 관측 | 각 앱 호스트의 Alloy, Nginx 중앙 배포 수집기와 전용 Alloy, Prometheus 조회 경로, 정확한 environment/host_id 라벨 |
 | 네트워크 | Nginx→앱 private app port, 앱→Nginx 허가 조회 SSH, 앱→RDS, outbound GitHub/GHCR |
 
 앱 관리 포트는 host loopback으로만 게시한다. public app port는 Nginx에서만 접근 가능하게 한다.
@@ -62,7 +62,41 @@ Nginx 이미지에는 `curl`, `sh`, `tr`, `awk`가 있어야 한다. 로컬 검�
 Alloy app scrape는 `host_id=HOST_ID`를 `up`과 HTTP 지표에 함께 부여한다.
 기존 Alloy 설정에도 이 라벨을 반영해야 배포 coordinator의 호스트별 조회가 동작한다.
 이전 모니터링 Compose를 함께 쓰는 경우 앱 준비 작업이 Alloy를 삭제하거나 재시작하지 않는다.
+Blue-Green 전용 호스트는 [독립 Alloy Compose](observability-compose.yml)로 공통
+[`config.alloy`](../../monitoring/alloy/config.alloy)와
+[`postgres-queries.yaml`](../../monitoring/alloy/postgres-queries.yaml)을 설치한다.
+이 공통 설정은 기존부터 health, DB, 호스트, 자체 메트릭, 로그 수집을 포함한다.
+앱 scrape만 있는 임시 설정으로 대체하면 이 관측이 빠지므로 전체 설정을 재사용한다.
+보호된 env 파일에 `DEPLOY_ENVIRONMENT`, `DEPLOY_HOST_ID`, `PROMETHEUS_REMOTE_WRITE_URL`,
+`LOKI_PUSH_URL`, `POSTGRES_MONITOR_DSN`, 두 설정 파일의 절대 경로인 `ALLOY_CONFIG_FILE`·
+`POSTGRES_QUERIES_FILE`, 기존 WAL 볼륨명인 `ALLOY_STORAGE_VOLUME`을 지정한다.
+선택 입력 `MANAGEMENT_PORT`는 기본 `8081`이며 해당 호스트 앱 설정의 `management_port`와
+같아야 한다. 앱 env와 observability env는 별도 파일이라 포트 변경이 자동 동기화되지 않는다.
+신규 호스트에서는 시작 전에 `docker volume create <ALLOY_STORAGE_VOLUME>`으로 외부 볼륨을
+생성한다. 기존 수집기를 교체할 때는 기존 WAL 볼륨을 그대로 지정하고 삭제하지 않는다.
+기존 Alloy가 있으면 설정 검증 후 해당 수집기만 중지하고 전환하며, 같은 host_id의 앱 지표를
+두 수집기가 중복 전송하지 않게 한다. backend 배포 Compose와 프로젝트는 분리한다.
+관리 HTTP와 자체 메트릭은 loopback `12345`를 사용한다. `docker compose --env-file
+<보호된-env> -p jarihana-observability-prod -f <observability-compose.yml> run --rm --no-deps
+alloy validate /etc/alloy/config.alloy` 검증 후 같은 인자로 `up -d alloy`를 실행한다.
+A/B 양쪽에서 재부팅 후 자동 시작과 `jarihana-backend`, `jarihana-health`, `jarihana-liveness`,
+`jarihana-database`, `jarihana-postgres`, `jarihana-host`, `jarihana-alloy`의 최신 `up=1`,
+health probe·`pg_up=1`, 해당 host_id의 Loki 로그 도착을 확인한다. 정상 대기 서버의
+앱이 중지돼 있으면 앱 scrape·probe 실패는 정상이며 실제 활성 서버와 구분한다.
 용도를 모르는 PostgreSQL 컨테이너나 다른 팀 작업을 정리 대상으로 삼지 않는다.
+
+prod health 알림은 앱 A/B의 health뿐 아니라 배포 Nginx EC2의 중앙 배포 수집기에 의존한다.
+이 수집기는 systemd timer가 실제 Nginx `/__deployment`와 설정/상태를 읽어 textfile을 만들고,
+Nginx 호스트의 별도 Alloy가 Prometheus로 전송한다. 앱 A/B의 공통 설정이나 모니터링 EC2의
+호스트 Alloy와는 별도다. 정상 route는 A/B 중 하나만 `1`이며 다른 하나는 `0`이다.
+drain 중 두 앱이 동시에 정상이어도 활성 경로는 하나여야 한다. 알림은 유효한 활성 호스트가
+정확히 하나인지, collector/Nginx 관측이 45초 이내인지, 해당 앱 health가 150초 이내이며
+정상인지 확인한다. 대기 서버 중지와 활성 경로 관측 실패를 구분한다.
+실제 서버의 timer, 전용 Alloy, 점검 방법은
+[중앙 배포 수집기](../../docs/observability/CENTRAL-DEPLOYMENT-COLLECTOR.md)에 기록한다.
+현재 이 중앙 수집기 설치 소스와 재설치 절차는 저장소에 없으므로 앱/모니터링 Compose만으로
+복구되지 않는다. 운영 활성화/서버 교체 전에 검토 가능한 원본과 설치 절차를 확보해야 한다.
+
 Prometheus 9090은 모니터링 호스트 loopback으로 유지한다. 읽기 경로는 기존 사설 8080의
 `/prometheus/api/v1/query` 한 개만 사용하며, 현재 확인된 배포 Nginx private IP `10.0.3.51`만 허용한다.
 실제 적용 전 IP·보안 그룹을 다시 확인하고 coordinator를 바꾸면 이 정확한 allowlist도 바꾼다.
@@ -108,7 +142,7 @@ Nginx EC2 역할에는 DescribeInstances와 **해당 환경의 A/B 인스턴스�
 운영 활성화 전 역할 신원과 EC2 dry-run을 별도로 확인해야 한다.
 
 관리자가 root 설정의 A upstream·host ID와 맞는 최초 `current.conf`를 한 번 설치하고,
-기존 `infra/deploy/nginx/docker-compose.yml`로 Nginx를 시작한다. 환경 변수의 설정 디렉터리·컨테이너
+기존 `infra/blue-green-deploy/nginx/docker-compose.yml`로 Nginx를 시작한다. 환경 변수의 설정 디렉터리와 컨테이너
 이름·probe port를 coordinator JSON과 일치시킨다. 예시 container 이름은 프로젝트 이름을
 `jarihana-edge`로 시작했을 때의 `jarihana-edge-nginx-1`이다. 실제 이름이 다르면 설정을 바꾼다.
 설정 디렉터리는 Nginx에 read-only로 mount하며 공개 리스닝 주소·포트와 보안 그룹은 실제 경로에
