@@ -9,7 +9,7 @@
 | 액터 | 설명 | 주요 행위 |
 | --- | --- | --- |
 | 탐색 크루 | 참여할 활동을 찾는 서비스 사용자 | 목록 탐색, 상세 조회, 가입 신청, 신청 취소 |
-| 운영 크루 | 활동을 개설하고 운영하는 서비스 사용자 | 그룹 개설, 모집 공고 등록, 신청 심사, 모임장 위임, 그룹 삭제 |
+| 운영 크루 | 활동을 개설하고 운영하는 서비스 사용자 | 그룹 개설, 모집 공고·모임 공지 등록, 신청 심사, 모임장 위임, 그룹 삭제 |
 
 한 사용자가 두 역할을 모두 수행할 수 있다. 역할은 `Member` 자체의 속성이 아니라 특정 그룹과의 관계이므로 `GroupMember.role`로 표현한다.
 
@@ -28,6 +28,7 @@ flowchart TD
     GRS["GroupRecurringSeries<br/>정기 일정 전체 기간과 안정 ID"]
     GRP["GroupRecurringPeriod<br/>요일·시각 변경 이력 구간"]
     GLH["GroupLocationHistory<br/>모임 장소 변경 이력"]
+    AN["Announcement<br/>그룹 공지<br/>공개 범위와 본문"]
     AP["ActivityPost<br/>그룹 사진 활동 기록<br/>활동 날짜·작성자·캡션"]
     APP["ActivityPostPhoto<br/>게시물 사진 참조<br/>v1 게시물당 한 장"]
 
@@ -40,10 +41,12 @@ flowchart TD
     G -->|"0..N"| GRS
     GRS -->|"1..N"| GRP
     G -->|"0..N"| GLH
+    G -->|"0..N"| AN
     G -->|"1..N"| GM
     R -->|"0..N"| Reg
     M -->|"작성"| AP
     G -->|"기록 대상"| AP
+    M -->|"작성"| AN
     AP -->|"1..1 (v1)"| APP
 ```
 
@@ -53,6 +56,7 @@ flowchart TD
 - `GroupRecruitment`는 그룹에 속한 한 번의 모집 공고다.
 - `Registration`은 특정 모집 공고에 대한 신청과 의사결정 이력이다.
 - `GroupMember`는 회원과 그룹 사이의 실제 소속 관계다.
+- `Announcement`는 모임장이 등록하는 모임 공지이며, `MEMBERS` 또는 `PUBLIC` 범위를 가진다.
 - `RecurringGroupSchedule`과 `SessionGroupSchedule`은 현재 일정 값을 표현한다. 달력의 개별 일정과 정기 규칙 이력은 `GroupEvent`, `GroupRecurringSeries`, `GroupRecurringPeriod`로 보관한다.
 이 분리를 통해 같은 그룹이 시기별로 여러 번 모집하거나, 모집이 끝난 뒤에도 활동을 계속하거나, 모집 공고 없이 과거 활동을 보존하는 구조를 표현할 수 있다.
 
@@ -62,6 +66,7 @@ flowchart TD
 | --- | --- | --- |
 | 회원 | `Member` | 자리하나 서비스의 사용자 |
 | 그룹 | `Group` | 동아리, 스터디 또는 일회성 세션 등 활동의 단위 |
+| 모임 공지 | `Announcement` | 모임장이 등록하고 공개 범위에 따라 노출되는 제목·본문 |
 | 모임 일정 | `GroupEvent` | 모임장이 등록한 개별 일정, 날짜별 정기 모임 또는 반복 회차 예외 |
 | 정기 일정 묶음 | `GroupRecurringSeries` | 정기 일정의 전체 표시 기간과 안정적인 묶음 ID |
 | 정기 규칙 구간 | `GroupRecurringPeriod` | 정기 일정의 요일·시각이 적용되는 이력 구간 |
@@ -91,6 +96,7 @@ flowchart TD
 | `GroupLocationHistory` | 당시 장소 조회를 위한 모임 장소 이력 | 현재 장소와 별도로 변경 시각 구간을 보관한다 |
 | `Registration` | 모집 공고에 대한 가입 신청 | `PENDING`, `APPROVED`, `REJECTED` 상태를 가진다 |
 | `GroupMember` | 그룹 소속과 역할 | 회원과 그룹 사이의 소속 상태를 표현한다 |
+| `Announcement` | 모임 공지 | 작성 모임장, 제목, 일반 텍스트 본문, 공개 범위를 보존한다. 그룹 삭제 때 함께 삭제하고 종료된 그룹에서는 읽기만 허용한다 |
 | `ActivityPost` | 그룹의 사진 활동 기록 | 공개 피드에 노출되는 게시물. `activityDate` 기준 최신순으로 조회한다 |
 | `ActivityPostPhoto` | 게시물 사진 | 게시물과 분리된 사진 참조이며 현재는 게시물당 사진 한 장이다 |
 | `ActivityPostComment` | 활동 기록 댓글 | 로그인 회원 누구나 남기며 숨김 시각으로 지운다 |
@@ -115,7 +121,9 @@ erDiagram
     GROUP ||--o{ GROUP_RECURRING_SERIES : "정기 일정 이력"
     GROUP_RECURRING_SERIES ||--|{ GROUP_RECURRING_PERIOD : "규칙 구간"
     GROUP ||--o{ GROUP_LOCATION_HISTORY : "장소 변경 이력"
+    GROUP ||--o{ ANNOUNCEMENT : "공지한다"
     GROUP ||--o{ GROUP_MEMBER : "구성원을 가진다"
+    MEMBER ||--o{ ANNOUNCEMENT : "작성한다"
     GROUP_RECRUITMENT ||--o{ REGISTRATION : "신청을 받는다"
 ```
 
@@ -135,6 +143,7 @@ erDiagram
 | 신청 | [Registration](registration.md) | 신청 모델 |
 | 초대 | [Invitation · InvitationAcceptance](invitation.md) | 저장·발급·조회·취소·수락·합류를 구현한 모델·규칙·관계 |
 | 소속 | [GroupMember](groupmember.md) | 그룹 소속 모델 |
+| 모임 공지 | [Announcement](announcement.md) | 공개 범위, 등록·조회 권한과 생명주기 |
 | 피드백 | [Feedback](feedback.md) | 피드백 내용과 필수 작성 회원 |
 | 사진 활동 기록 | [ActivityPost](activitypost.md) | 공개 범위, 사진 참조, 활동 날짜와 생명주기, 댓글과 하트 반응 |
 | 자유게시판 | [Proposal](proposal.md) | 모임 제안, 함께하고 싶어요 응답과 조건, 코멘트 |

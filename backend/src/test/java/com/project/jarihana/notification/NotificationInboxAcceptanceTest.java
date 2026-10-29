@@ -95,7 +95,7 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
     }
 
     @ParameterizedTest
-    @EnumSource(NotificationEventType.class)
+    @EnumSource(value = NotificationEventType.class, names = "GROUP_ANNOUNCEMENT_CREATED", mode = EnumSource.Mode.EXCLUDE)
     @DisplayName("모든 사건은 모임 이름과 사건별 이동 대상을 반환한다.")
     void showGroupNameAndTargetForEveryEvent(NotificationEventType eventType) {
         // Given
@@ -106,6 +106,7 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
             case GROUP_CREATED -> NotificationPayload.forGroup(group.getId());
             case INVITATION_RECEIVED -> NotificationPayload.invitation(group.getId(), 123);
             case ACTIVITY_POST_COMMENTED, ACTIVITY_POST_REACTED -> NotificationPayload.activityPost(group.getId(), 77);
+            case GROUP_ANNOUNCEMENT_CREATED -> NotificationPayload.announcement(group.getId(), 77);
             default -> NotificationPayload.of(group.getId(), recruitment.getId(), 123,
                     eventType == NotificationEventType.REGISTRATION_SYSTEM_REJECTED
                             ? SystemRejectionReason.RERECRUITMENT : null);
@@ -128,6 +129,7 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
             case REGISTRATION_REJECTED, REGISTRATION_SYSTEM_REJECTED -> "MY_PAGE";
             case INVITATION_RECEIVED -> "INVITATION";
             case ACTIVITY_POST_COMMENTED, ACTIVITY_POST_REACTED -> "ACTIVITY_POST";
+            case GROUP_ANNOUNCEMENT_CREATED -> "GROUP_ANNOUNCEMENT";
         };
         assertThat(detail.jsonPath().getString("data.target.kind")).isEqualTo(expectedKind);
         assertThat(list.jsonPath().getString("data.items[0].target.kind")).isEqualTo(expectedKind);
@@ -142,6 +144,10 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
                     .isEqualTo(eventType == NotificationEventType.ACTIVITY_POST_COMMENTED ? "새 댓글" : "좋아요");
             assertThat(detail.jsonPath().getMap("data.target")).containsOnlyKeys("kind", "groupId", "activityPostId");
             assertThat(detail.jsonPath().getLong("data.target.activityPostId")).isEqualTo(77);
+        } else if (eventType == NotificationEventType.GROUP_ANNOUNCEMENT_CREATED) {
+            assertThat(detail.jsonPath().getString("data.title")).isEqualTo("새 공지");
+            assertThat(detail.jsonPath().getMap("data.target")).containsOnlyKeys("kind", "groupId", "announcementId");
+            assertThat(detail.jsonPath().getLong("data.target.announcementId")).isEqualTo(77);
         } else if (eventType == NotificationEventType.GROUP_CREATED) {
             assertThat(detail.jsonPath().getMap("data.target")).containsOnlyKeys("kind", "groupId");
         } else {
@@ -405,7 +411,8 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
     }
 
     private RequestSpecification authenticated(Member member) {
-        return RestAssured.given().cookie(cookies.accessTokenName(), tokens.issue(member.getId()).value());
+        return RestAssured.given().cookie(cookies.accessTokenName(), tokens.issue(member.getId()).value())
+                .queryParam("clientVersion", 2);
     }
 
     @Test
