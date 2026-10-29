@@ -4,7 +4,7 @@ import {
   transferLeaderResponseSchema
 } from "../../entities/member/index.js";
 import { apiRequest } from "../../shared/api/index.js";
-import { memberSignupFormSchema } from "./validation.js";
+import { memberSignupRequestSchema } from "./validation.js";
 
 function buildPageParams(filters = {}) {
   return Object.fromEntries(
@@ -30,7 +30,7 @@ export function transferLeader(groupId, groupMemberId) {
 }
 
 export function signupMember(values) {
-  const signup = memberSignupFormSchema.parse(values);
+  const signup = memberSignupRequestSchema.parse(values);
   return apiRequest("members", {
     method: "post",
     json: signup,

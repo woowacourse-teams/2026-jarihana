@@ -12,6 +12,7 @@ import {
   FeedbackLoginPrompt,
   getFeedbackReturnTarget
 } from "../features/feedback/index.js";
+import { nonCrewMemberTypeLabel } from "../entities/member/index.js";
 import { COURSE_LABELS, generationLabel } from "../pages/account/accountUtils";
 import { Avatar, Drawer, Modal, useToast } from "../shared/ui";
 import githubMark from "../shared/assets/brand/github-mark.svg";
@@ -208,9 +209,8 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
   const unreadCount = useUnreadCount();
   const hasUnread = status === "authenticated" && unreadCount.data?.unreadCount > 0;
   const unreadDescriptionId = useId();
-  const memberDetails = member?.memberType === "COACH"
-    ? "코치"
-    : `${generationLabel(member?.generation)}${member?.course ? ` / ${COURSE_LABELS[member.course]}` : ""}`;
+  const memberDetails = nonCrewMemberTypeLabel(member?.memberType)
+    ?? `${generationLabel(member?.generation)}${member?.course ? ` / ${COURSE_LABELS[member.course]}` : ""}`;
   const { hash, pathname, search } = useLocation();
   const chatUnread = useChatUnreadCount();
   const activeMenuIndex = DESKTOP_MEMBER_LINKS.findIndex((link) => link.isActive(pathname));

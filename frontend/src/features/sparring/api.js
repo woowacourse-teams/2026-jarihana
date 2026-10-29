@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { memberTypeSchema } from "../../entities/member";
 import { captureEvent } from "../../shared/analytics";
 import { apiClient } from "../../shared/api";
 
@@ -23,7 +24,7 @@ const replySchema = z.object({
   id,
   authorId: id,
   name: z.string(),
-  memberType: z.enum(["CREW", "COACH"]),
+  memberType: memberTypeSchema,
   side,
   text: z.string()
 });
@@ -31,7 +32,7 @@ export const postSchema = z.object({
   id,
   authorId: id,
   name: z.string(),
-  memberType: z.enum(["CREW", "COACH"]),
+  memberType: memberTypeSchema,
   side,
   text: z.string(),
   createdAt: z.string(),

@@ -14,6 +14,15 @@ on:
       phase:
         type: string
         required: true
+      frontend_only:
+        type: boolean
+        default: false
+      backend_only:
+        type: boolean
+        default: false
+      frontend_artifact_id:
+        type: string
+        default: ''
       app_result:
         type: string
         default: ''
@@ -21,6 +30,8 @@ on:
         type: string
         default: ''
     outputs:
+      digest:
+        value: ${{ jobs.phase.outputs.digest }}
       old:
         value: ${{ jobs.phase.outputs.old }}
       target:
@@ -38,8 +49,9 @@ jobs:
   phase:
     runs-on: [jarihana-bluegreen-coordinator]
     environment: ${{ inputs.environment }}
-    timeout-minutes: ${{ inputs.phase == 'observe' && 20 || inputs.phase == 'plan' && 15 || (inputs.phase == 'grant-handoff' || inputs.phase == 'stop') && 12 || 8 }}
+    timeout-minutes: ${{ inputs.phase == 'observe' && 25 || (inputs.phase == 'plan' || inputs.phase == 'switch' || inputs.phase == 'frontend-publish' || inputs.phase == 'frontend-recover') && 25 || (inputs.phase == 'grant-handoff' || inputs.phase == 'stop') && 12 || 8 }}
     outputs:
+      digest: ${{ steps.phase.outputs.digest }}
       old: ${{ steps.phase.outputs.old }}
       target: ${{ steps.phase.outputs.target }}
       deployment_id: ${{ steps.phase.outputs.deployment_id }}
@@ -48,6 +60,8 @@ jobs:
     env:
       BG_ENVIRONMENT: ${{ inputs.environment }}
       BG_MODE: ${{ inputs.mode }}
+      BG_FRONTEND_ONLY: ${{ inputs.frontend_only }}
+      BG_BACKEND_ONLY: ${{ inputs.backend_only }}
       BG_IMAGE_DIGEST: ${{ inputs.digest }}
       BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
       BG_PHASE: ${{ inputs.phase }}
@@ -59,7 +73,53 @@ jobs:
         with:
           ref: ${{ vars.BLUE_GREEN_CONTROL_REF }}
           persist-credentials: false
+      - name: 운영 프론트엔드 제어 기능 확인과 AWS CLI 준비
+        if: inputs.environment == 'prod' && inputs.mode == 'deploy' && contains(fromJSON('["plan","switch","observe","seal","frontend-publish","frontend-seal","frontend-recover"]'), inputs.phase)
+        shell: bash
+        run: |
+          set -euo pipefail
+          script=infra/blue-green-deploy/scripts/actions/frontend.sh
+          [[ -f "$script" ]] && grep -qx 'FE_RELEASE_CAPABILITY=3' "$script"
+          bash infra/blue-green-deploy/scripts/actions/install-awscli.sh
+      - name: 프론트엔드 artifact 디렉터리 준비
+        if: inputs.environment == 'prod' && inputs.mode == 'deploy' && inputs.phase == 'plan' && !inputs.backend_only
+        shell: bash
+        env:
+          ARTIFACT_ID: ${{ inputs.frontend_artifact_id }}
+        run: |
+          set -euo pipefail
+          [[ "$ARTIFACT_ID" =~ ^[1-9][0-9]*$ && "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          BG_FRONTEND_DIST="$RUNNER_TEMP/frontend-release-$GITHUB_RUN_ID"
+          printf 'BG_FRONTEND_DIST=%s\n' "$BG_FRONTEND_DIST" >> "$GITHUB_ENV"
+          [[ "$BG_FRONTEND_DIST" == "$RUNNER_TEMP/frontend-release-$GITHUB_RUN_ID" ]]
+          rm -rf -- "$BG_FRONTEND_DIST"
+          mkdir -m 700 -- "$BG_FRONTEND_DIST"
+      - name: 동일 실행의 정확한 프론트엔드 artifact 받기
+        if: inputs.environment == 'prod' && inputs.mode == 'deploy' && inputs.phase == 'plan' && !inputs.backend_only
+        uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ inputs.frontend_artifact_id }}
+          path: ${{ env.BG_FRONTEND_DIST }}
+          merge-multiple: true
       - name: 배포 저널·실제 상태를 확인하고 단계 실행
         id: phase
         shell: bash
-        run: bash infra/scripts/deploy/actions/coordinator.sh "$BG_PHASE"
+        run: |
+          script=infra/blue-green-deploy/scripts/actions/coordinator.sh
+          # The immutable control checkout may predate the package move.
+          if [[ ! -f "$script" ]]; then
+            script=infra/scripts/deploy/actions/coordinator.sh
+          fi
+          [[ -f "$script" ]] || { echo '::error::Control release coordinator entrypoint is missing'; exit 1; }
+          exec bash "$script" "$BG_PHASE"
+      - name: 임시 프론트엔드 CLI와 artifact 정리
+        if: always() && inputs.environment == 'prod' && inputs.mode == 'deploy'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${FE_AWSCLI_TEMP:-}" && "$FE_AWSCLI_TEMP" == "$RUNNER_TEMP"/frontend-awscli.* ]]; then
+            rm -rf -- "$FE_AWSCLI_TEMP"
+          fi
+          if [[ "$BG_PHASE" == plan && "${BG_FRONTEND_DIST:-}" == "$RUNNER_TEMP/frontend-release-$GITHUB_RUN_ID" ]]; then
+            rm -rf -- "$BG_FRONTEND_DIST"
+          fi

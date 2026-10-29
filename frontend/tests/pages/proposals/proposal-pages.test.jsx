@@ -160,6 +160,23 @@ describe("ProposalBoardPage", () => {
     expect(login).toHaveBeenCalled();
   });
 
+  it("shows a vector icon for every category except the catch-all ones", () => {
+    authenticated();
+    renderWithToast(<ProposalBoardPage />);
+
+    const filters = within(screen.getByRole("group", { name: "분야" }));
+    const iconOf = (name) => filters.getByRole("button", { name }).querySelector("svg[data-category-icon]");
+    expect(iconOf("스터디")).toHaveAttribute("data-category-icon", "STUDY");
+    expect(iconOf("문화")).toHaveAttribute("data-category-icon", "CULTURE");
+    expect(iconOf("운동")).toHaveAttribute("data-category-icon", "SPORT");
+    expect(iconOf("기타")).toBeNull();
+    expect(iconOf("전체")).toBeNull();
+    expect(screen.getByText("문화", { selector: ".proposal-badge" }).querySelector("svg")).toHaveAttribute(
+      "aria-hidden",
+      "true"
+    );
+  });
+
   it("keeps the selected category in the address", () => {
     authenticated();
     const setSearchParams = jest.fn();

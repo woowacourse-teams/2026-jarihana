@@ -51,6 +51,17 @@ public interface PushSubscriptionCommandRepository extends Repository<PushSubscr
     @EntityGraph(attributePaths = "member")
     @Query("""
             select subscription from PushSubscription subscription
+            where subscription.member.id in :memberIds
+              and subscription.enabled = true
+              and subscription.member.withdrawnAt is null
+              and subscription.clientVersion >= 2
+            order by subscription.member.id, subscription.id
+            """)
+    List<PushSubscription> findAnnouncementCapableByMemberIds(@Param("memberIds") List<Long> memberIds);
+
+    @EntityGraph(attributePaths = "member")
+    @Query("""
+            select subscription from PushSubscription subscription
             where subscription.enabled = true and subscription.member.id <> :creatorMemberId
                 and subscription.member.withdrawnAt is null
             order by subscription.member.id, subscription.id

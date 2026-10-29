@@ -41,7 +41,7 @@ public class PushSubscriptionCommandService {
             throw new BusinessException(ErrorCode.PUSH_SUBSCRIPTION_CONFLICT, "다른 계정에 연결된 푸시 주소입니다.");
         }
         long previousGeneration = existing.getGeneration();
-        PushSubscription updated = subscriptions.save(existing.reconnect(command.p256dh(), command.auth(), now));
+        PushSubscription updated = subscriptions.save(existing.reconnect(command.p256dh(), command.auth(), command.clientVersion(), now));
         if (updated.getGeneration() != previousGeneration) {
             deliveries.cancelBySubscriptionBeforeGeneration(updated.getId(), updated.getGeneration(), now);
         }

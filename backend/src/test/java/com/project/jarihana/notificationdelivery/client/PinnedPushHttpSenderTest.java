@@ -1,5 +1,6 @@
 package com.project.jarihana.notificationdelivery.client;
 
+import com.project.jarihana.notificationdelivery.config.PushDeliveryProperties;
 import com.project.jarihana.pushsubscription.config.PushProperties;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
@@ -69,21 +70,39 @@ class PinnedPushHttpSenderTest {
     @DisplayName("같은 호스트와 검증된 IP의 연결을 재사용한다")
     void reuseConnectionAcrossRequestsToSamePinnedHost() throws Exception {
         // Given
+        var testProperties = new PushProperties(false, false, null, null, null, null, null, null,
+                Duration.ofSeconds(3), Duration.ofSeconds(1), null);
+        // 응답 완료 후 연결이 풀에 반환될 때까지 다음 요청이 기다리게 한다.
+        var delivery = new PushDeliveryProperties(null, null, null, null, 1, 1,
+                null, null, null, null);
         var ports = new CopyOnWriteArrayList<Integer>();
+        var releaseResponse = new CountDownLatch(1);
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/push", exchange -> {
             exchange.getRequestBody().readAllBytes();
             ports.add(exchange.getRemoteAddress().getPort());
+            try {
+                if (!releaseResponse.await(2, TimeUnit.SECONDS)) {
+                    throw new IOException("응답 게이트 제한 시간 초과");
+                }
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                throw new IOException(exception);
+            }
             exchange.sendResponseHeaders(201, -1);
             exchange.close();
         });
         server.start();
-        try (var sender = new PinnedPushHttpSender(properties)) {
+        try (var sender = new PinnedPushHttpSender(testProperties, delivery)) {
             var prepared = HttpRequest.newBuilder(URI.create("http://push-test.invalid:" + server.getAddress().getPort() + "/push"))
                     .POST(HttpRequest.BodyPublishers.ofString("x")).build();
             // When
-            sender.send(prepared, new InetAddress[]{InetAddress.getLoopbackAddress()}).get(2, TimeUnit.SECONDS);
-            sender.send(prepared, new InetAddress[]{InetAddress.getLoopbackAddress()}).get(2, TimeUnit.SECONDS);
+            var addresses = new InetAddress[]{InetAddress.getLoopbackAddress()};
+            // 풀 반환 전에 다음 요청을 시작해 반환된 연결의 재사용을 검증한다.
+            var requests = sender.send(prepared, addresses)
+                    .thenCompose(response -> sender.send(prepared, addresses));
+            releaseResponse.countDown();
+            requests.get(5, TimeUnit.SECONDS);
             // Then
             assertThat(ports).hasSize(2);
             assertThat(ports.get(0)).isEqualTo(ports.get(1));
@@ -143,6 +162,9 @@ class PinnedPushHttpSenderTest {
     @Test
     void connectOnlyToPinnedAddressRetainHostAndRefuseRedirect() throws Exception {
         // Given
+        // 이 테스트는 주소·Host·리다이렉트 정책을 검증한다. 200ms 제한은 별도 deadline 테스트에서 검증한다.
+        var routingProperties = new PushProperties(false, false, null, null, null, null, null, null,
+                Duration.ofSeconds(3), Duration.ofSeconds(1), null);
         var count = new AtomicInteger();
         var host = new AtomicReference<String>();
         var bytes = new AtomicReference<byte[]>();
@@ -157,11 +179,11 @@ class PinnedPushHttpSenderTest {
         });
         server.start();
         try {
-            try (var sender = new PinnedPushHttpSender(properties)) {
+            try (var sender = new PinnedPushHttpSender(routingProperties)) {
             HttpRequest prepared = HttpRequest.newBuilder(URI.create("http://push-test.invalid:" + server.getAddress().getPort() + "/push"))
                     .POST(HttpRequest.BodyPublishers.ofString("encrypted-fixture")).build();
             // When
-            var response = sender.send(prepared, new InetAddress[]{InetAddress.getByName("127.0.0.1")}).get(2, TimeUnit.SECONDS);
+            var response = sender.send(prepared, new InetAddress[]{InetAddress.getByName("127.0.0.1")}).get(5, TimeUnit.SECONDS);
             // Then
             assertThat(response.status()).isEqualTo(302);
             assertThat(count).hasValue(1);

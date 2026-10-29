@@ -1,5 +1,5 @@
 -- Historical manual migration; do not apply alongside Flyway.
--- The application now uses src/main/resources/db/migration/V11__sparring.sql.
+-- The application now uses src/main/resources/db/migration/V14__sparring.sql.
 -- Preserved for historical reference only; Flyway applies the equivalent migration automatically.
 BEGIN;
 CREATE TABLE sparring_topic (

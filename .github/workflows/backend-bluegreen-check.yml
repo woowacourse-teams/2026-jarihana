@@ -2,14 +2,15 @@ name: Backend Blue-Green Bash Checks
 on:
   pull_request:
     paths:
-      - infra/scripts/deploy/actions/**
-      - infra/scripts/deploy/migration-review.sh
-      - infra/tests/deploy/actions/**
-      - infra/deploy/controller/**
+      - infra/blue-green-deploy/**
       - .github/workflows/backend-bluegreen-*.yml
       - .github/workflows/backend-app-operation.yml
       - .github/workflows/backend-dev-deploy.yml
+      - .github/workflows/backend-prod-deploy.yml
+      - .github/workflows/frontend-prod-deploy.yml
       - .github/workflows/backend-migration-review.yml
+      - '!infra/blue-green-deploy/**/*.md'
+      - '!infra/blue-green-deploy/docs/**'
 permissions:
   contents: read
 jobs:
@@ -31,11 +32,35 @@ jobs:
       - name: Bash 구문과 실행 오류 정적 검사
         shell: bash
         run: |
-          for file in infra/scripts/deploy/actions/*.sh infra/scripts/deploy/migration-review.sh infra/tests/deploy/actions/*.sh; do
+          for file in infra/blue-green-deploy/scripts/actions/*.sh infra/blue-green-deploy/scripts/migration-review.sh infra/blue-green-deploy/tests/actions/*.sh; do
             bash -n "$file"
           done
           shellcheck --severity=error --external-sources --source-path=SCRIPTDIR \
-            infra/scripts/deploy/actions/*.sh infra/scripts/deploy/migration-review.sh
+            infra/blue-green-deploy/scripts/actions/*.sh infra/blue-green-deploy/scripts/migration-review.sh
       - name: 격리된 로컬 계약 테스트
         # Protected-file tests create root-owned temporary fixtures, without business secrets.
-        run: sudo bash infra/tests/deploy/actions/run-tests.sh
+        run: sudo bash infra/blue-green-deploy/tests/actions/run-tests.sh
+  api-budget-shard:
+    name: api-budget shard ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: 전체 배포와 롤백의 GitHub 요청 예산 검증
+        run: sudo bash infra/blue-green-deploy/tests/actions/run-api-budget.sh "${{ matrix.shard }}" 4
+  api-budget:
+    needs: api-budget-shard
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: 모든 호출량 검증 결과 확인
+        env:
+          RESULT: ${{ needs.api-budget-shard.result }}
+        run: test "$RESULT" = success

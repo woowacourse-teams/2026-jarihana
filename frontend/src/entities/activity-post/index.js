@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { cursorPageSchema, entityIdSchema, localDateSchema, localDateTimeSchema } from "../common/schemas.js";
 import { groupStatusSchema, groupTypeSchema } from "../group/index.js";
+import { nonCrewMemberTypeLabel } from "../member/index.js";
 
 /** 서버 `ReactionEmoji` 선언 순서와 같다. 피드는 우선 하트 하나만 반응으로 받는다. */
 export const ACTIVITY_REACTION_EMOJIS = Object.freeze([{ code: "HEART", label: "하트" }]);
@@ -92,9 +93,10 @@ export const ACTIVITY_REACTOR_PAGE_SIZE = 30;
 
 const COURSE_LABELS = Object.freeze({ ANDROID: "안드로이드", BACKEND: "백엔드", FRONTEND: "프론트엔드" });
 
-/** 좋아요 목록의 보조 줄이다. "8기 프론트엔드"처럼 기수와 과정을, 코치는 "코치"를 보여 준다. */
+/** 좋아요 목록의 보조 줄이다. "8기 프론트엔드"처럼 기수와 과정을, 코치, 부트캠프, 현직자는 유형 이름을 보여 준다. */
 export function formatReactorMeta(reactor) {
-  if (reactor.memberType === "COACH") return "코치";
+  const typeLabel = nonCrewMemberTypeLabel(reactor.memberType);
+  if (typeLabel) return typeLabel;
   const parts = [reactor.generation ? `${reactor.generation}기` : null, COURSE_LABELS[reactor.course] ?? null];
   const meta = parts.filter(Boolean).join(" ");
   return meta || "크루";

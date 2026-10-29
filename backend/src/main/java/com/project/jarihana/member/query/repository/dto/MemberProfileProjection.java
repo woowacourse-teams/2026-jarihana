@@ -1,6 +1,9 @@
 package com.project.jarihana.member.query.repository.dto;
 
+import com.project.jarihana.member.domain.BootcampStatus;
+import com.project.jarihana.member.domain.Career;
 import com.project.jarihana.member.domain.Course;
+import com.project.jarihana.member.domain.MemberField;
 import com.project.jarihana.member.domain.MemberType;
 
 public record MemberProfileProjection(
@@ -9,6 +12,13 @@ public record MemberProfileProjection(
         Integer generation,
         MemberType memberType,
         Course course,
-        String githubId
+        String githubId,
+        String bootcampName,
+        BootcampStatus bootcampStatus,
+        String bootcampCohort,
+        MemberField field,
+        Career career,
+        String companyName,
+        Boolean companyVisible
 ) {
 }

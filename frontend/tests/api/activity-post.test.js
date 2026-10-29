@@ -140,6 +140,11 @@ describe("activity reactors", () => {
     expect(formatReactorMeta({ course: null, generation: null, memberType: "CREW" })).toBe("크루");
   });
 
+  it("labels bootcamp and professional reactors by member type", () => {
+    expect(formatReactorMeta({ course: null, generation: null, memberType: "BOOTCAMP" })).toBe("부트캠프");
+    expect(formatReactorMeta({ course: null, generation: null, memberType: "PROFESSIONAL" })).toBe("현직자");
+  });
+
   it("summarizes reactors with me first and counts the rest", () => {
     const reactors = [
       { crewName: "바다", mine: false },

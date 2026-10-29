@@ -13,6 +13,7 @@ import {
 import { useCreateProposal } from "../../features/proposal/hooks.js";
 import { toUserMessage } from "../../shared/api/index.js";
 import { Button, PageContainer, PageHeader, Textarea, TextField } from "../../shared/ui/index.js";
+import { ProposalCategoryIcon } from "./ProposalCategoryIcon.jsx";
 import "./proposals.css";
 
 export function ProposalCreatePage() {
@@ -148,6 +149,7 @@ export function ProposalCreatePage() {
                 onClick={() => setCategory(item.code)}
                 type="button"
               >
+                <ProposalCategoryIcon code={item.code} />
                 {item.label}
               </button>
             ))}

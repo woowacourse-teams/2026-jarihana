@@ -73,7 +73,7 @@ export function LandingCreateDemo({
               </div>
               <div>
                 <dt>장소</dt>
-                <dd>잠실 캠퍼스</dd>
+                <dd>강남역 스터디룸</dd>
               </div>
             </dl>
           </section>

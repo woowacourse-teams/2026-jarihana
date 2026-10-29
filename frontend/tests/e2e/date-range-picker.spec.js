@@ -164,6 +164,50 @@ async function assertPopoverVisibleWithinContent(page, selector) {
   expect(geometry.right).toBeLessThanOrEqual(geometry.viewportWidth);
 }
 
+async function assertTimeOptionListsVisible(page, timeLabel = "모집 마감 시간") {
+  for (const [trigger, label] of [
+    ["오전 오후", "오전 오후 선택"],
+    ["시 목록 열기", "시 선택"],
+    ["분 목록 열기", "분 선택"]
+  ]) {
+    await page.getByRole("button", { name: trigger, exact: true }).click();
+    const list = page.getByRole("listbox", { name: label, exact: true });
+    const geometry = await list.evaluate((element) => {
+      const container = element.closest(".ui-dialog, #main-content");
+      const bounds = element.getBoundingClientRect();
+      const frame = container.getBoundingClientRect();
+      const headerBottom = container.id === "main-content"
+        ? document.querySelector(".app-header").getBoundingClientRect().bottom
+        : 0;
+      return {
+        bottom: bounds.bottom,
+        left: bounds.left,
+        right: bounds.right,
+        top: bounds.top,
+        visibleBottom: Math.min(window.innerHeight, frame.top + container.clientTop + container.clientHeight),
+        visibleTop: Math.max(headerBottom, frame.top + container.clientTop, 0),
+        viewportWidth: window.innerWidth
+      };
+    });
+    expect(geometry.top).toBeGreaterThanOrEqual(geometry.visibleTop - 1);
+    expect(geometry.bottom).toBeLessThanOrEqual(geometry.visibleBottom + 1);
+    expect(geometry.left).toBeGreaterThanOrEqual(0);
+    expect(geometry.right).toBeLessThanOrEqual(geometry.viewportWidth);
+
+    await page.keyboard.press("End");
+    const lastOption = list.locator('[role="option"]:not(:disabled)').last();
+    await expect(lastOption).toBeFocused();
+    await lastOption.click({ trial: true });
+    await page.keyboard.press("Home");
+    const firstOption = list.locator('[role="option"]:not(:disabled)').first();
+    await expect(firstOption).toBeFocused();
+    await firstOption.click({ trial: true });
+    await page.keyboard.press("Escape");
+    await expect(list).toBeHidden();
+    await expect(page.getByRole("dialog", { name: timeLabel, exact: true })).toBeVisible();
+  }
+}
+
 for (const viewport of viewports) {
   test(`recruitment period works at ${viewport.label}`, async ({ page }) => {
     const browserFailures = [];
@@ -323,6 +367,10 @@ for (const viewport of viewports) {
     await expect(endEndpoint).toBeFocused();
     await page.getByRole("button", { name: "모집 마감 시간 선택" }).click();
     await assertPopoverVisibleWithinContent(page, ".ui-date-range__time-popover");
+    await assertTimeOptionListsVisible(page);
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "모집 시작 시간 선택" }).click();
+    await assertTimeOptionListsVisible(page, "모집 시작 시간");
     await page.keyboard.press("Escape");
     await expect(page.locator("#main-content")).toHaveCSS("overflow", "clip");
     await page.getByRole("button", { name: "모집 생성" }).click();
@@ -337,3 +385,27 @@ for (const viewport of viewports) {
     });
   });
 }
+
+for (const width of [375, 1280]) {
+  test(`recruitment edit time options remain visible at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 700 });
+    await installApiFixture(page);
+    await page.goto("/groups/10/manage/recruitments");
+    await page.getByRole("button", { name: "모집 수정하기" }).click();
+    await page.getByRole("button", { name: "모집 마감 시간 선택" }).click();
+    await assertTimeOptionListsVisible(page);
+  });
+}
+
+test("time options fit between the sticky header and a short viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 360 });
+  await page.clock.setFixedTime(new Date("2026-09-02T03:34:00Z"));
+  await installApiFixture(page, { recruitments: [] });
+  await page.goto("/groups/10/manage/recruitments");
+  await page.getByRole("button", { name: "새 모집 만들기" }).click();
+  await page.getByRole("button", { name: "다음" }).click();
+  await page.getByRole("button", { name: "다음" }).click();
+  await page.getByRole("button", { name: "1주 뒤" }).click();
+  await page.getByRole("button", { name: "모집 마감 시간 선택" }).click();
+  await assertTimeOptionListsVisible(page);
+});

@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const arenaActions = [
   "sparring_vote",
+  "sparring_composer_toggle",
   "sparring_post_submit",
   "sparring_message_edit",
   "sparring_reply_cancel",
@@ -14,6 +15,7 @@ export const arenaActions = [
   "sparring_history_select",
   "sparring_capsule_select",
   "sparring_clash_expand",
+  "sparring_clash_replay",
   "sparring_clash_close"
 ];
 const base = { channel: z.literal("jarihana-sparring") };

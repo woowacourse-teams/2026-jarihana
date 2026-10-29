@@ -7,7 +7,7 @@
 - 개정: 2026-10-26 — 실제 dev 도메인 자동 배포의 활성화 경계와 공유 prod2의 운영 이관 순서 명시
 - 범위: prod 백엔드의 트래픽 전환, 배포 자동화와 운영 EC2 시작·중지
 - 관련 결정: [인프라 ADR 0002](0002-rds-deployment-database.md), [백엔드 ADR 0015](../../../backend/docs/adr/0015-separate-ec2-and-shared-rds.md), [백엔드 ADR 0016](../../../backend/docs/adr/0016-github-hosted-build-and-ghcr.md)
-- 구현 범위·실행법·운영 전 남은 연결: [Blue-Green 배포 제어](../../deploy/README.md)
+- 구현 범위·실행법·운영 전 남은 연결: [Blue-Green 배포 제어](../../blue-green-deploy/README.md)
 
 ## 배경
 
@@ -79,7 +79,7 @@ dev API Origin과 최초 worker 등록을 준비한 뒤 활성화한다. 이 기
 prod2는 dev와 prod가 동시에 사용할 수 없다. dev 자동 배포 검증이 끝나면 A로 복귀하고,
 진행 중 배포 종료·기존 dev 방식 복구·dev 자동화 해제·B의 dev 설정 정리를 마친 뒤 prod B로
 전환한다. prod 적용 확인 후 dev 전용 Blue-Green 설정을 제거한다. 자세한 절차는
-[dev 자동화 적용 순서](../../deploy/controller/dev-automatic-deployment.md)에 둔다.
+[dev 자동화 적용 순서](../../blue-green-deploy/controller/dev-automatic-deployment.md)에 둔다.
 
 운영 API용 Nginx는 기존 모니터링 EC2의 Nginx와 별도다. 앱 EC2에는 JVM 하나씩만 실행하며,
 빌드·이미지 공급은 기존 GitHub-hosted ARM runner와 GHCR 경로를 유지한다.
@@ -145,7 +145,7 @@ main push에서 Blue-Green을 자동 선택한다. 최초 초기화는 이미 �
 6. B에 worker 처리를 인계한다. A의 worker는 대기 상태로 두고, A를 켜 둔 채 B의 worker와
    HTTP·메트릭을 병렬로 각각 **최소 15분** 관찰한다. 정상 응답·5xx 비율·평균 응답 시간과
    worker 상태를 확인한다. 호스트별 관측은 Alloy가 수집하는 `host_id` 라벨로 구분한다.
-7. 두 관찰이 끝나고 A의 이전 Nginx 연결 종료도 확인하면 배포를 봉인한다. B의 worker 권한을
+7. 두 관찰이 끝나고 A의 이전 Nginx 연결 종료도 확인하면 배포를 확정한다. B의 worker 권한을
    완료 상태로 확정하고 A의 요청·백그라운드 작업 종료를 확인해 SIGTERM으로 정상 종료한 뒤,
    Nginx runner가 EC2 A를 중지한다.
    다음 배포에서는 A/B의 역할을 바꾼다.
@@ -155,7 +155,7 @@ B를 유지하고 A/B를 모두 켜 둔 채 종료 절차를 멈추고 알린다
 이전 연결 대기 상한을 넘겨 종료가 보류된 경우에는 자동 롤백도 하지 않는다. 배포 저널에
 확인 필요 상태를 남기고 GitHub Actions 실패 결과와 실행 요약으로 확인을 요청한다.
 
-전환 전 실패하면 A를 유지한다. 자동 롤백은 HTTP 전환 후 봉인 전까지다. 이 구간에 B가 실패하면 A의 정상 상태와 호환성을
+전환 전 실패하면 A를 유지한다. 자동 롤백은 HTTP 전환 후 배포 확정 전까지다. 이 구간에 B가 실패하면 A의 정상 상태와 호환성을
 확인한 뒤 트래픽과 worker 처리를 되돌린다. B의 작업 종료가 불확실하면 A의 worker까지
 무조건 재개하지 않고 미완료 상태를 알린다. 복구에 성공해도 해당 배포는 실패로 남긴다.
 배포 완료 후 장애는 감지·알림을 받고 사람이 복구를 시작한다. 중지된 A를 다시 사용하려면
@@ -164,7 +164,7 @@ B를 유지하고 A/B를 모두 켜 둔 채 종료 절차를 멈추고 알린다
 현재 구현은 검사 사이 5초 대기·연속 3회 실패·각 관찰 최소 900초·관찰 후 이전 연결 추가 대기
 300초를 초기값으로 사용한다. GitHub 조회와 SSH·API 처리 시간이 검사 간격에 더해지므로
 정확히 5초 주기를 보장하는 값은 아니다. 상세 임계값과 단계별 기한은
-[운영 절차](../../deploy/controller/full-deployment.md#관찰과-복구)에 두고, dev에서 실제 배포를 시험해
+[운영 절차](../../blue-green-deploy/controller/full-deployment.md#관찰과-복구)에 두고, dev에서 실제 배포를 시험해
 결과와 근거를 설명한 뒤 운영 기준을 확정한다. 15분 관찰과 강제 종료 금지 원칙은 유지한다.
 
 ## DB 변경과 기존 컬럼 삭제

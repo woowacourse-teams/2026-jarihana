@@ -3,7 +3,7 @@ on:
   pull_request:
     paths:
       - backend/src/main/resources/db/migration/**
-      - infra/scripts/deploy/migration-review.sh
+      - infra/blue-green-deploy/scripts/migration-review.sh
       - .github/workflows/backend-migration-review.yml
 permissions:
   contents: read
@@ -20,4 +20,4 @@ jobs:
         env:
           MIGRATION_BASE: ${{ github.event.pull_request.base.sha }}
           MIGRATION_HEAD: ${{ github.event.pull_request.head.sha }}
-        run: bash infra/scripts/deploy/migration-review.sh
+        run: bash infra/blue-green-deploy/scripts/migration-review.sh

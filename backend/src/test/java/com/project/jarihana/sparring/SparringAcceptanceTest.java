@@ -182,7 +182,7 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
         long id = createTopic(token);
 
         // When
-        new ResourceDatabasePopulator(new ClassPathResource("db/migration/V11__sparring.sql"))
+        new ResourceDatabasePopulator(new ClassPathResource("db/migration/V14__sparring.sql"))
                 .execute(dataSource);
 
         // Then

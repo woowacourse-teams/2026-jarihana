@@ -12,6 +12,9 @@
 
 | 분류 | Method | Endpoint | 권한 | 설명 |
 | --- | --- | --- | --- | --- |
+| 공지 | `GET` | `/api/groups/{groupId}/announcements` | `PUBLIC + 공개 범위` | 모임 구성원 공개와 전체 공개 공지를 최신순으로 조회 |
+| 공지 | `POST` | `/api/groups/{groupId}/announcements` | `LEADER` | 활동 중인 모임에 공개 범위를 지정해 공지 등록 |
+| 공지 | `GET` | `/api/groups/{groupId}/announcements/{announcementId}` | `PUBLIC + 공개 범위` | 공개 범위를 확인해 공지 상세 조회 |
 | 채팅 | `GET` | `/api/chats` | `MEMBER` | 현재 소속 모임의 채팅 요약 |
 | 채팅 | `GET` | `/api/groups/{groupId}/chat/messages` | `MEMBER + 현재 소속` | 과거 이력·이후 복구 |
 | 채팅 | `POST` | `/api/groups/{groupId}/chat/messages` | `MEMBER + 현재 소속` | 멱등 메시지 저장 |
@@ -116,6 +119,7 @@
 
 | 분류 | 문서 | 내용 |
 | --- | --- | --- |
+| 공지 | [announcements.md](announcements.md) | 공개 범위, 공지 등록·목록·상세 조회와 알림 |
 | 채팅 | [chats.md](chats.md) | 영속 메시지·읽음·복구·개인 WebSocket 경로 |
 | 초대 | [invitations.md](invitations.md) | 발급·회원 후보·수신/발급 목록·상세·공개 미리보기·취소·거절·수락·대기 신청 승인 |
 | 피드백 | [feedbacks.md](feedbacks.md) | 피드백 작성 |

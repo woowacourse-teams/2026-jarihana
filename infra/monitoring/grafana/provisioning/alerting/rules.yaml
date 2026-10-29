@@ -302,13 +302,13 @@ groups:
       environment: prod
       severity: critical
     annotations:
-      summary: prod 백엔드의 정상 상태를 확인하지 못했습니다.
+      summary: prod 활성 경로의 백엔드 정상 상태 또는 라우팅 정보를 확인하지 못했습니다.
       display_name: 백엔드 헬스체크
       value_kind: health
-      firing_condition: /actuator/health 정상 응답 실패 또는 150초간 결과 미수신
-      resolved_condition: 최근 150초 이내의 헬스체크 결과가 모두 정상 (HTTP 200·UP)
-      action: 백엔드 로그·RDS 연결·Alloy 수집 및 전송 상태를 확인하세요.
-      description: 10초마다 /actuator/health를 확인합니다. HTTP 200과 UP 응답을 받지 못했거나, 최근 150초 동안 헬스체크 결과가 도착하지 않았습니다. 앱·RDS 연결·Alloy·EC2 및 전송 경로를 확인하세요.
+      firing_condition: 활성 경로의 /actuator/health 실패·150초간 결과 미수신 또는 라우팅 정보 확인 실패
+      resolved_condition: 최신 Nginx 라우팅 정보가 유효하고 활성 경로의 최근 헬스체크가 정상 (HTTP 200·UP)
+      action: 활성 백엔드 로그·RDS 연결·앱 Alloy와 중앙 배포 수집기의 Nginx 라우팅 수집 상태를 확인하세요.
+      description: 중앙 배포 수집기의 Nginx 활성 경로와 해당 호스트의 /actuator/health를 확인합니다. 활성 호스트의 HTTP 200·UP 결과가 없거나 150초보다 오래됐거나, 라우팅 수집이 실패하거나 90초 이상 오래되면 알립니다. 앱·RDS·Alloy·중앙 수집기 및 전송 경로를 확인하세요.
     data:
     - refId: A
       datasourceUid: prometheus
@@ -320,7 +320,7 @@ groups:
           type: prometheus
           uid: prometheus
         editorMode: code
-        expr: 1 - (min(probe_success{job="jarihana-health",environment="prod"} and (time() - timestamp(probe_success{job="jarihana-health",environment="prod"}) < 150)) or vector(0))
+        expr: 1 - (((count((min by(environment,host_id) (probe_success{job="jarihana-health",environment="prod"} and (time() - timestamp(probe_success{job="jarihana-health",environment="prod"}) < 150)) == 1) and on(environment,host_id) (max by(environment,host_id) (jarihana_nginx_route{environment="prod"} == 1 and (time() - timestamp(jarihana_nginx_route{environment="prod"}) < 90) and on(environment,instance,job) (time() - jarihana_deployment_collector_timestamp_seconds{environment="prod"} < 90) and on(environment,instance,job) (time() - timestamp(jarihana_deployment_collector_timestamp_seconds{environment="prod"}) < 90) and on(environment,instance,job) (jarihana_deployment_source_success{environment="prod",source="nginx"} == 1) and on(environment,instance,job) (time() - timestamp(jarihana_deployment_source_success{environment="prod",source="nginx"}) < 90) and on(environment,instance,job) (time() - jarihana_deployment_source_observed_timestamp_seconds{environment="prod",source="nginx"} < 90) and on(environment,instance,job) (time() - timestamp(jarihana_deployment_source_observed_timestamp_seconds{environment="prod",source="nginx"}) < 90)))) == 1) == bool count(max by(environment,host_id) (jarihana_nginx_route{environment="prod"} == 1 and (time() - timestamp(jarihana_nginx_route{environment="prod"}) < 90) and on(environment,instance,job) (time() - jarihana_deployment_collector_timestamp_seconds{environment="prod"} < 90) and on(environment,instance,job) (time() - timestamp(jarihana_deployment_collector_timestamp_seconds{environment="prod"}) < 90) and on(environment,instance,job) (jarihana_deployment_source_success{environment="prod",source="nginx"} == 1) and on(environment,instance,job) (time() - timestamp(jarihana_deployment_source_success{environment="prod",source="nginx"}) < 90) and on(environment,instance,job) (time() - jarihana_deployment_source_observed_timestamp_seconds{environment="prod",source="nginx"} < 90) and on(environment,instance,job) (time() - timestamp(jarihana_deployment_source_observed_timestamp_seconds{environment="prod",source="nginx"}) < 90)))) or vector(0))
         refId: A
         instant: true
         range: false

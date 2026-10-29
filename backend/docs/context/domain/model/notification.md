@@ -22,8 +22,16 @@
 
 ## Notification (`notifications`)
 
+공지 기능의 후속 배포에 앞서 `GROUP_ANNOUNCEMENT_CREATED`와
+`groupId`·`announcementId` payload의 읽기를 지원한다. 선행 호환 PR #490 자체는 공지 알림을
+생성하지 않는다. V12는 기존 구독을 1로 보존하는 `push_subscriptions.client_version` 컬럼을 추가한다.
+공지 사건 생성은 이 선행 배포 이후 #459의 V13 기능 배포에서 시작한다. 기존 클라이언트에는 신규 사건을 제외하고,
+`clientVersion=2`를 요청한 클라이언트에만 공지 target을 반환한다.
+배포와 롤백 기준은 [공지 알림 호환성 전환](../../../operations/announcement-notification-compatibility-rollout.md)을 따른다.
+
 회원이 알림함에서 확인하는 사건 기록이다. 신청·참여 사건은 푸시 허용 여부와 무관하게 저장한다.
 새 모임 등록 사건은 생성자를 제외한 활성 푸시 구독 회원에게만 저장한다.
+공지 등록 사건은 작성자를 제외한 현재 모임 구성원 전체에게 저장하며, 활성 푸시 구독이 있는 회원에게만 전송 대기를 만든다.
 활동 기록 댓글과 좋아요 사건은 기록 작성자에게만 저장하고, 작성자 본인이 남긴 댓글과 좋아요, 탈퇴한 작성자는 제외한다.
 
 | 필드 | 타입/DB | 규칙 | 왜 필요한가 · 예시 |
@@ -33,7 +41,7 @@
 | eventKey | String / varchar(160) | 서버가 생성하는 사건 의미키, NOT NULL | 같은 사건을 두 번 처리해도 알림을 중복 생성하지 않기 위한 이름이다. 예: `registration:123:approved`. `member`와 묶어서 회원당 한 건만 허용한다. |
 | eventType | enum / varchar(50) | 사건 종류, NOT NULL | 새 신청인지 승인 결과인지 구분해 표시 문구와 이동할 화면을 결정한다. `eventKey`가 특정 사건의 이름이라면 이 값은 사건의 종류다. |
 | payloadVersion | int / smallint | 최초1, 양수 | 저장된 알림 내용의 형식 번호다. 나중에 내용 구조를 바꾸더라도 예전 형식의 알림을 올바르게 해석할 수 있다. |
-| payload | JSON object / jsonb | 사건별 업무 식별자; 새 모임은 groupId, 신청은 groupId, recruitmentId, registrationId, 초대는 groupId, invitationId, 활동 기록 댓글과 좋아요는 groupId, activityPostId | 관련 업무와 이동 대상을 식별한다. 시스템 미승인에만 원인 분류를 넣는다. |
+| payload | JSON object / jsonb | 사건별 업무 식별자; 새 모임은 groupId, 신청은 groupId, recruitmentId, registrationId, 초대는 groupId, invitationId, 활동 기록 댓글과 좋아요는 groupId, activityPostId, 공지 등록은 groupId, announcementId | 관련 업무와 이동 대상을 식별한다. 시스템 미승인에만 원인 분류를 넣는다. |
 | readAt | LocalDateTime | nullable, 최초 읽음 시각 | 비어 있으면 안 읽음, 값이 있으면 읽음이다. 안 읽은 개수와 표시를 계산하며 전체 읽음도 이 값만 채운다. |
 | deletedAt | LocalDateTime | nullable, 일반 조회 제외 시각 | 사용자가 삭제했는지 기록한다. 값이 있으면 목록에서 숨기되 행은 남겨서 같은 사건 재처리로 알림이 다시 생기는 것을 막는다. |
 | createdAt | LocalDateTime | BaseEntity, NOT NULL | 소식이 저장된 시각이다. 알림함을 최신순으로 정렬하고 다음 페이지를 조회하는 기준으로 쓴다. |
@@ -41,16 +49,18 @@
 
 타입: GROUP_CREATED, REGISTRATION_SUBMITTED, PARTICIPANT_JOINED, REGISTRATION_APPROVED,
 REGISTRATION_REJECTED, REGISTRATION_SYSTEM_REJECTED, INVITATION_RECEIVED, ACTIVITY_POST_COMMENTED,
-ACTIVITY_POST_REACTED. DB의 `ck_notifications_event_type`은 `V6__activity_post_interaction_notification.sql`이 같은 값으로 맞춘다.
+ACTIVITY_POST_REACTED, GROUP_ANNOUNCEMENT_CREATED. DB의 `ck_notifications_event_type`은 `V13__group_announcements.sql`이 같은 값으로 맞춘다.
 시스템 미승인 원인: RERECRUITMENT 또는 GROUP_ENDED. 사유 본문·신청 내용·토큰은 payload에 넣지 않는다.
 
 payloadVersion은 기존 사건과 초대 사건 모두 1이다. eventType이 데이터 의미를 구분하므로 초대 추가만으로 버전을 나누지 않는다.
-새 모임 알림에는 groupId만, 신청 알림에는 모집·신청 ID가, 초대 알림에는 invitationId가 필요하다. 서로 다른 형태를 섞거나 필수 식별자를 누락하면 거절하며, 알림 생성 시 사건 종류와 payload 형태가 일치하는지 확인한다.
+새 모임 알림에는 groupId만, 신청 알림에는 모집·신청 ID가, 초대 알림에는 invitationId가, 공지 알림에는 announcementId가 필요하다. 서로 다른 형태를 섞거나 필수 식별자를 누락하면 거절하며, 알림 생성 시 사건 종류와 payload 형태가 일치하는지 확인한다.
 초대 payload·target은 모집·신청 ID를 생략하고 기존 사건에는 invitationId를 추가하지 않아 기존 응답 형태를 유지한다.
 지정 초대는 `invitation:{id}:received` 의미키를 사용한다. 초대·알림·활성 구독별 전송 대기는 같은 트랜잭션에 저장한다.
 공유 링크 발급은 수신 알림을 만들지 않는다.
 
 활동 기록 알림은 payload에 `groupId`, `activityPostId`만 저장하며 댓글 내용과 누른 회원은 저장하지 않는다.
+
+공지 알림은 `groupId`, `announcementId`만 저장하고 `announcement:{id}:created` 의미키를 사용한다. 작성자를 제외한 현재 모임 구성원 전체에게 알림함 행을 저장한다. 본문과 공개 범위는 payload에 복사하지 않는다.
 
 - 댓글(`ACTIVITY_POST_COMMENTED`)은 댓글마다 `activity-post-comment:{commentId}:created` 의미키로 한 건씩 알린다.
   댓글을 지워도 이미 만든 알림은 남긴다.
@@ -77,6 +87,7 @@ payloadVersion은 기존 사건과 초대 사건 모두 1이다. eventType이 �
 좋아요 알림 본문도 저장하지 않고 조회할 때 기록의 현재 하트로 만든다. 작성자 본인 하트를 뺀 인원과 가장 최근에 누른
 회원의 `crewName`을 목록 단위로 일괄 조회한다. 같은 기록의 이전 좋아요 알림도 현재 인원으로 보인다.
 활동 기록 댓글과 좋아요 알림을 누르면 내가 쓴 기록 피드에서 해당 기록 상세를 연다.
+공지 알림을 누르면 모임 공지 상세로 이동한다.
 클릭 목적지는 사건별로 신청 관리·참여자 관리·마이페이지의 해당 참여 모임·미승인 신청·지정 초대장으로 나뉜다. 구체적인 경로는 알림 API 계약을 따른다. 관리 화면의 접근 확인이나 지정 초대 조회가 실패하면 읽음 처리 없이 복귀를 안내한다. 승인·미승인은 모임 개별 조회 없이 마이페이지의 본인 목록에서 해당 모임·신청을 찾아 강조한다.
 
 ## PushSubscription (`push_subscriptions`)
@@ -157,6 +168,7 @@ status·attemptCount·lease 필드 일관성을 DB check 제약과 도메인 테
 - 실제 업무 변경 성공 후 동기 BEFORE_COMMIT 리스너가 알림과 전송 대기를 같은 TX에 기록한다.
 - 신청·참여 사건은 구독0개여도 알림을 저장한다. 모임 등록 사건은 당시 활성 구독이 있는 회원만 대상으로 하며 생성자와 탈퇴 회원은 제외한다. 회원당 알림 1건, 활성 브라우저 구독당 전송 1건을 생성한다. 이후 등록한 구독에 과거 알림을 소급 전송하지 않는다.
 - 활동 기록 댓글과 좋아요 사건은 구독이 없어도 기록 작성자의 알림을 저장한다. 좋아요는 읽지 않은 같은 기록 알림이 있으면 새로 저장하지 않는다.
+- 공지 등록은 구독이 없어도 작성자를 제외한 현재 모임 구성원에게 알림함 행을 저장한다. 당시 활성 구독별 전송 대기는 같은 트랜잭션에서 만들며, 비회원과 이후 등록한 구독에는 알리지 않는다.
 - 외부 HTTP는 TX 밖에서 수행한다. SKIP LOCKED 선점 + 만료 lease 복구 + leaseToken 조건부 결과 저장을 사용한다.
 - 빈 동시 처리 슬롯만큼 선점·전송 준비를 배치별 짧은 TX로 처리하고 HTTP는 비동기로 전송한다.
   개별 결과 저장까지 슬롯을 유지한다. 결과 반영은 구독 행을 먼저 잠그고,

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useAuth } from "../../features/auth";
 import { fetchGroup } from "../../features/group/api";
+import { fetchAnnouncement } from "../../features/announcement/api.js";
 import { fetchInvitation } from "../../features/invitation/api";
 import { ApiError } from "../../shared/api";
 import { NotificationDrawer } from "../../features/notifications/NotificationInbox";
@@ -28,6 +29,8 @@ export function NotificationOpenPage() {
         if (invitation.type !== "DIRECT" || invitation.id !== notification.target.invitationId || invitation.group.id !== groupId) {
           throw new ApiError({ code: "INVITATION_NOT_FOUND", status: 404 });
         }
+      } else if (kind === "GROUP_ANNOUNCEMENT") {
+        await fetchAnnouncement(groupId, notification.target.announcementId, signal);
       } else if (kind !== "MY_PAGE" && kind !== "MY_REGISTRATIONS" && kind !== "MY_GROUPS") {
         const group = await fetchGroup(groupId);
         if ((kind === "LEADER_REGISTRATIONS" || kind === "LEADER_MEMBERS") && group.leader.memberId !== member?.id) {
