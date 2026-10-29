@@ -158,6 +158,7 @@ header 구현으로 확대하지 않았다.
 - 방장은 ACTIVE 모임에서 공지 탭의 `공지 추가`를 눌러 모달을 연다. 제목과 일반 텍스트 본문을 입력하고 `MEMBERS` 또는 `PUBLIC` 공개 범위를 선택한다. 종료된 모임에는 작성 UI를 숨기고 서버도 등록을 거부한다.
 - 목록은 `GET /api/groups/{groupId}/announcements?size=20&cursor=...`로 최신순 cursor 조회를 한다. 다음 페이지 오류는 기존 목록을 유지하고 다시 불러올 수 있다.
 - 공지 상세는 `/groups/:groupId/announcements/:announcementId`의 공개 URL이다. 본문은 Markdown을 해석하지 않고 개행을 보존한다. 목록으로 돌아갈 때 `/groups/:groupId?tab=announcements`를 연다. MEMBERS 공지는 비구성원이 상세 URL을 알아도 API 404를 받아 본문을 표시하지 않는다.
+- 로그인 상태에서 공지 목록·상세를 요청하기 직전에는 `GET /api/members/me`로 세션을 확인한다. 공개 공지 API는 만료된 Access Token을 401로 드러내지 않으므로, 기존 API client의 401 재발급·재시도 흐름을 먼저 거쳐 MEMBERS 범위가 올바르게 조회되도록 한다. 인증 bootstrap이 끝날 때까지 공지 조회를 시작하지 않는다.
 - 등록 성공 시 현재 목록을 다시 조회하고 공지 탭에 머문다. 알림함/푸시 알림은 작성자를 뺀 현재 모임원에게만 생성되며, 알림 클릭은 본인 알림 확인·읽음 처리 후 공지 상세 URL로 이동한다. 모임이 종료된 뒤에도 기존 공지는 계속 읽을 수 있다.
 - 작성 요청·응답과 목록·상세 schema는 [백엔드 공지 API 계약](../../backend/docs/context/api/endpoints/announcements.md)을 따른다. UI 입력과 공지 텍스트는 세션 녹화에서 `data-ph-private`로 가린다.
 

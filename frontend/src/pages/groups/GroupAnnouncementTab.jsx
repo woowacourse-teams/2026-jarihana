@@ -178,7 +178,12 @@ function AnnouncementRow({ announcement, groupId }) {
 export function GroupAnnouncementTab({ group, isLeader }) {
   const auth = useAuth();
   const [createOpen, setCreateOpen] = useState(false);
-  const list = useAnnouncementList(group.id, auth.member?.id, auth.sessionVersion);
+  const list = useAnnouncementList(
+    group.id,
+    auth.member?.id,
+    auth.sessionVersion,
+    auth.status !== "loading"
+  );
   const announcements = useMemo(
     () => list.data?.pages.flatMap((page) => page.items) ?? [],
     [list.data]
@@ -203,7 +208,7 @@ export function GroupAnnouncementTab({ group, isLeader }) {
           </Button>
         ) : null}
       </div>
-      {list.isLoading ? (
+      {auth.status === "loading" || list.isLoading ? (
         <div aria-label="공지 불러오는 중" className="group-announcement-list-skeleton" role="status">
           <Skeleton count={3} />
         </div>

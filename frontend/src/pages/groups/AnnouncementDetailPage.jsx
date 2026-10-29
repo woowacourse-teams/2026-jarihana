@@ -28,11 +28,12 @@ export function AnnouncementDetailPage() {
     groupId,
     validAnnouncementId ? announcementId : null,
     auth.member?.id,
-    auth.sessionVersion
+    auth.sessionVersion,
+    auth.status !== "loading"
   );
   const listPath = `/groups/${groupId}?tab=announcements`;
 
-  if (announcement.isLoading) {
+  if (auth.status === "loading" || announcement.isLoading) {
     return (
       <PageContainer className="group-announcement-detail">
         <Skeleton aria-label="공지 불러오는 중" className="group-announcement-detail__skeleton" />
