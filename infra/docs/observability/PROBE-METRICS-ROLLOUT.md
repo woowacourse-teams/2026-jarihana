@@ -7,7 +7,7 @@
 | 운영 Nginx 내부 점검 표시, 공개 요청의 표시 제거 | SSH 선반영 완료 | 기존 활성 설정을 백업하고 검사 후 graceful reload |
 | PROD 배포 관측 주기 | SSH 선반영 완료 | `jarihana-observability@prod.timer`의 prod 전용 drop-in에서 수집 완료 후 30초 대기 |
 | Grafana 수집기/라우팅 관측 만료 | 이 PR 배포 대기 | `develop` 머지 후 모니터링 자동 배포로 45초에서 90초로 변경 |
-| HTTP 요청 수/오류율/응답 시간에서 점검 제외 | 별도 백엔드 PR 배포 대기 | `main` 머지 후 운영 백엔드 자동 배포 |
+| HTTP 요청 수/오류율/응답 시간에서 점검 제외 | 별도 백엔드 develop PR 병합 대기 | develop 통합 후 `develop → main` 릴리스 PR과 운영 자동 배포 |
 | Nginx 템플릿, 직접 점검 스크립트, 타이머 설치 정의의 영구 코드화 | 후속 작업 | 서버 설정을 저장소/고정 제어 릴리스로 일치시켜야 함 |
 
 Nginx는 내부 `/__deployment` 요청을 `GET /api/groups?size=1`로 전달할 때
