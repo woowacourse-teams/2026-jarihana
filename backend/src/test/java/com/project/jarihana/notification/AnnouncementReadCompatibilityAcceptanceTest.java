@@ -113,7 +113,7 @@ class AnnouncementReadCompatibilityAcceptanceTest extends NotificationIntegratio
         assertThat(flyway.getConfiguration().isOutOfOrder()).isFalse();
         assertThat(applied).isZero();
         assertThat(jdbc.queryForList("select * from flyway_schema_history order by installed_rank")).isEqualTo(history);
-        assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '12'", String.class))
+        assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '13'", String.class))
                 .isEqualTo("V13__group_announcements.sql");
     }
 
