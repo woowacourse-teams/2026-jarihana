@@ -12,6 +12,17 @@
 분석과 녹화 조회는 PostHog 관리자 화면에서 수행한다. 자리하나의 서비스 화면이나
 DB 테이블·스키마는 추가하지 않는다.
 
+## 모임 공지 UI의 고정 식별자
+
+| 동작 | action |
+| --- | --- |
+| 공지 탭 열기·목록에서 공지 열기·상세에서 모임 열기 | `group_announcement_tab_open`, `group_announcement_open`, `group_announcement_group_open` |
+| 공지 작성 모달 열기·닫기·취소 | `group_announcement_create_open`, `group_announcement_create_dismiss`, `group_announcement_create_cancel` |
+| 제목·본문 입력과 공개 범위 변경 | `group_announcement_title_change`, `group_announcement_content_change`, `group_announcement_scope_change` |
+| 공지 등록·목록 다시 시도·더 보기·상세 다시 시도·목록 복귀 | `group_announcement_create_submit`, `group_announcement_list_retry`, `group_announcement_load_more`, `group_announcement_detail_retry`, `group_announcement_list_return` |
+
+입력 폼과 공지 본문은 `data-ph-private`로 가리고, action 식별자에는 제목·본문·모임원 이름·공지 ID를 넣지 않는다. 공지 작성 성공 전용 PostHog 이벤트는 정의하지 않았으며, 자동 수집으로 API 성공을 추정하지 않는다.
+
 ## 초대 UI의 고정 식별자
 
 모임 상세의 초대 흐름은 다음 action으로 구분한다. 회원 이름·검색어·선택 대상 ID·초대 토큰·공유 주소를 action에 포함하지 않는다.

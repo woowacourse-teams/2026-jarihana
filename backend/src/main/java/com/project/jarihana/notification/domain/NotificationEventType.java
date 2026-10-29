@@ -9,9 +9,14 @@ public enum NotificationEventType {
     REGISTRATION_SYSTEM_REJECTED,
     INVITATION_RECEIVED,
     ACTIVITY_POST_COMMENTED,
-    ACTIVITY_POST_REACTED;
+    ACTIVITY_POST_REACTED,
+    GROUP_ANNOUNCEMENT_CREATED;
 
     public boolean isActivityPostEvent() {
         return this == ACTIVITY_POST_COMMENTED || this == ACTIVITY_POST_REACTED;
+    }
+
+    public boolean isAnnouncementEvent() {
+        return this == GROUP_ANNOUNCEMENT_CREATED;
     }
 }
