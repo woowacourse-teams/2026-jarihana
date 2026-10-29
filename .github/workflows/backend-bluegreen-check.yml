@@ -7,6 +7,7 @@ on:
       - .github/workflows/backend-app-operation.yml
       - .github/workflows/backend-dev-deploy.yml
       - .github/workflows/backend-prod-deploy.yml
+      - .github/workflows/frontend-prod-deploy.yml
       - .github/workflows/backend-migration-review.yml
 permissions:
   contents: read

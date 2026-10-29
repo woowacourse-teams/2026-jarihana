@@ -262,4 +262,69 @@ rollback_http_unknown_preserves_grant() {
   rejects bg_rollback_http
   jq -e '.pending.id=="grant-1" and .pending.operation=="observe" and .http_recovered==false' "$STATE_FILE" >/dev/null
 }
-for test in valid_receipt wrong_grant fractional_activity wrong_boot private_state symlink_state writable_dir cancel_guard active_lease expired_lease watchdog_active watchdog_expired cloud_start cloud_mismatch cloud_unknown cloud_stop_unsealed cloud_stop_sealed nginx_failed_test nginx_switch nginx_unknown_reload nginx_drain nginx_bad_current scalar_nan scalar_multiple observation_minimum observation_clock_jump stop_requires_evidence unknown_blocks_plan rollback_unhealthy_released rollback_unknown rollback_malformed rollback_owned stop_valid_receipt stop_wrong_target_boot stop_wrong_grant topology_load topology_load_mismatch topology_guard_mismatch topology_completed_mismatch topology_missing_completed topology_plan readonly_guard_cache cloud_mutation_uncached nginx_reload_uncached observation_job_cadence rollback_http_unknown_preserves_grant seal_undrained_keeps_target seal_drained_completes_normally seal_unhealthy_still_allows_rollback seal_unknown_target_not_deferred; do run "$test" "$test"; done
+combined_switch_orders_frontend() {
+  ENVIRONMENT=prod; BG_MODE=deploy
+  STATE=$(jq '.phase="HANDOFF" | .previous_backend_image="sha256:old"' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
+  APP_RESULT='{"image":"sha256:old"}'
+  bg_accept() { bg_save "$(jq -c --argjson receipt "$1" '.old_status=$receipt' <<<"$STATE")"; }
+  bg_unassigned() { :; }
+  bg_switch_http() { echo http >>"$EVENTS"; TICKET='{}'; }
+  fe_publish() { echo frontend >>"$EVENTS"; }
+  bg_switch
+  [[ $(cat "$EVENTS") == $'http\nfrontend' ]]
+  jq -e '.pending.operation=="activate"' "$STATE_FILE" >/dev/null
+}
+combined_switch_rejects_changed_image() {
+  ENVIRONMENT=prod; BG_MODE=deploy
+  STATE=$(jq '.phase="HANDOFF" | .previous_backend_image="sha256:old"' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
+  APP_RESULT='{"image":"sha256:unexpected"}'
+  bg_accept() { bg_save "$(jq -c --argjson receipt "$1" '.old_status=$receipt' <<<"$STATE")"; }
+  bg_unassigned() { :; }
+  bg_switch_http() { echo unexpected >>"$EVENTS"; }
+  rejects bg_switch
+  [[ ! -e "$EVENTS" ]]
+}
+combined_seal_requires_frontend() {
+  seal_fixture; ENVIRONMENT=prod; BG_MODE=deploy
+  STATE=$(jq '.frontend={published:false,published_at:100}' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
+  rejects bg_seal
+  jq -e '.sealed==false' "$STATE_FILE" >/dev/null
+}
+combined_seal_requires_full_worker_window() {
+  seal_fixture; ENVIRONMENT=prod; BG_MODE=deploy
+  STATE=$(jq '.frontend={published:true,published_at:100}' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
+  APP_RESULT=$(jq '.observed_started_at=101' <<<"$APP_RESULT")
+  rejects bg_seal
+  jq -e '.sealed==false' "$STATE_FILE" >/dev/null
+}
+combined_seal_finalizes_before_cleanup() {
+  seal_fixture; ENVIRONMENT=prod; BG_MODE=deploy
+  STATE=$(jq '.frontend={published:true,published_at:100}' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
+  bg_drained() { return 0; }
+  fe_finalize() {
+    jq -e '.sealed==false and .pending.operation=="observe"' <<<"$STATE" >/dev/null
+    bg_save "$(jq '.frontend.finalized=true' <<<"$STATE")"
+  }
+  bg_seal
+  jq -e '.frontend.finalized==true and .sealed==true and .pending.operation=="complete"' "$STATE_FILE" >/dev/null
+}
+combined_frontend_finalization_failure() {
+  seal_fixture; ENVIRONMENT=prod; BG_MODE=deploy
+  STATE=$(jq '.frontend={published:true,published_at:100}' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
+  bg_drained() { return 0; }
+  fe_finalize() { bg_die 'Public content changed'; }
+  rejects bg_seal
+  jq -e '.sealed==false and .pending.operation=="observe"' "$STATE_FILE" >/dev/null
+}
+api_recovery_independent_of_s3() {
+  bg_output() { :; }
+  ENVIRONMENT=prod; BG_MODE=deploy
+  STATE=$(jq '.switched=true | .http_recovered=false | .phase="OBSERVING" | .frontend={finalized:false}' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
+  fe_owned_pointer() { bg_die 'S3 unavailable'; }
+  fe_aws() { bg_die 'S3 unavailable'; }
+  bg_switch_http() { echo recovered >>"$EVENTS"; TICKET='{}'; }
+  bg_rollback_http
+  jq -e '.http_recovered==true and .pending.operation=="rollback" and .pending.slot=="B" and .pending.deadline==3400' "$STATE_FILE" >/dev/null
+  [[ $(cat "$EVENTS") == recovered ]]
+}
+for test in valid_receipt wrong_grant fractional_activity wrong_boot private_state symlink_state writable_dir cancel_guard active_lease expired_lease watchdog_active watchdog_expired cloud_start cloud_mismatch cloud_unknown cloud_stop_unsealed cloud_stop_sealed nginx_failed_test nginx_switch nginx_unknown_reload nginx_drain nginx_bad_current scalar_nan scalar_multiple observation_minimum observation_clock_jump stop_requires_evidence unknown_blocks_plan rollback_unhealthy_released rollback_unknown rollback_malformed rollback_owned stop_valid_receipt stop_wrong_target_boot stop_wrong_grant topology_load topology_load_mismatch topology_guard_mismatch topology_completed_mismatch topology_missing_completed topology_plan readonly_guard_cache cloud_mutation_uncached nginx_reload_uncached observation_job_cadence rollback_http_unknown_preserves_grant seal_undrained_keeps_target seal_drained_completes_normally seal_unhealthy_still_allows_rollback seal_unknown_target_not_deferred combined_switch_orders_frontend combined_switch_rejects_changed_image combined_seal_requires_frontend combined_seal_requires_full_worker_window combined_seal_finalizes_before_cleanup combined_frontend_finalization_failure api_recovery_independent_of_s3; do run "$test" "$test"; done
