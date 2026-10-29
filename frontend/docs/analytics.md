@@ -41,6 +41,23 @@ DB 테이블·스키마는 추가하지 않는다.
 위 action은 사용자 조작 식별자이며 발급 성공·복사 성공을 보장하는 이벤트는 아니다.
 초대 전용 성공 이벤트와 전환 연결은 아래 계약을 따른다. 공유 초대 페이지에서도 명시적 초대 이벤트만 수집한다. 실제 PostHog 수신은 별도 검증이 필요하다.
 
+## 회원가입 UI의 고정 식별자
+
+가입 화면은 첫 화면에서 부트캠프 또는 회사를 고른 뒤 한 화면에 질문 하나씩 묻는다. 단계별 action으로 어느 질문에서 이탈하는지 구분한다. 닉네임, 캠프 이름, 회사명 같은 입력값은 action에 넣지 않는다.
+
+| 동작 | action |
+| --- | --- |
+| 첫 화면에서 부트캠프, 회사 선택 | `signup_member_type_select` |
+| 이전 단계, 다음 단계 | `signup_step_back`, `signup_step_next` |
+| 부트캠프 선택, 직접 입력한 캠프 이름, 캠프 기수 | `signup_bootcamp_select`, `signup_bootcamp_name_input`, `signup_bootcamp_cohort_input` |
+| 우아한테크코스를 고른 뒤 크루 인증 시작 | `signup_crew_verification_start` |
+| 수강 상태, 공부 분야, 직무, 연차 선택 | `signup_bootcamp_status_select`, `signup_field_select`, `signup_job_select`, `signup_career_select` |
+| 닉네임, 크루 과정, 크루 기수 | `signup_name_input`, `signup_course_select`, `signup_generation_select` |
+| 회사명, 회사명 공개 여부 | `signup_company_input`, `signup_company_public_toggle` |
+| 가입 완료하기, 확인, 확인 창 닫기와 취소 | `signup_submit`, `signup_confirm`, `signup_confirmation_dismiss` |
+
+가입 성공은 기존처럼 회원 생성 응답 뒤 `signup_completed`로 따로 기록한다. 크루 인증 방법이 정해지기 전까지 `signup_crew_verification_start`는 크루 프로필 입력으로 바로 넘어가는 클릭이며, 인증 성공을 뜻하지 않는다.
+
 ## 자유게시판 모임 제안
 
 자유게시판의 조작은 다음 action으로 구분한다. 제안 제목, 내용, 코멘트, 분위기 선택지 문구를 action에 넣지 않는다.

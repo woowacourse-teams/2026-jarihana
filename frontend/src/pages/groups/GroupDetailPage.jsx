@@ -2,6 +2,12 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronLeft, MessageCircle, Plus, Settings, Users } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 
+import {
+  compareMemberCohortKeys,
+  memberCohortKey,
+  memberCohortLabel,
+  nonCrewMemberTypeLabel
+} from "../../entities/member/index.js";
 import { useAuth } from "../../features/auth/index.js";
 import { ChatLink } from "../../features/chat/ChatLink";
 import { useGroup } from "../../features/group/index.js";
@@ -838,7 +844,7 @@ function MemberList({ items, query, canInvite, onInvite }) {
                   <strong>{member.crewName}</strong>
                 </div>
                 <div className="group-member-card__meta">
-                  <span>{member.memberType === "COACH" ? "코치" : generationLabel(member.generation)}</span>
+                  <span>{nonCrewMemberTypeLabel(member.memberType) ?? generationLabel(member.generation)}</span>
                   {member.role === "LEADER" ? (
                     <span className="group-member-card__role">운영자</span>
                   ) : null}
@@ -865,21 +871,16 @@ function generationLabel(generation) {
 function cohortItems(members) {
   const counts = new Map();
   for (const member of members) {
-    const generation =
-      Number.isInteger(member.generation) && member.generation > 0 ? member.generation : "unknown";
-    counts.set(generation, (counts.get(generation) ?? 0) + 1);
+    const key = memberCohortKey(member);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
   }
 
   return [...counts.entries()]
-    .sort(([left], [right]) => {
-      if (left === "unknown") return 1;
-      if (right === "unknown") return -1;
-      return left - right;
-    })
+    .sort(([left], [right]) => compareMemberCohortKeys(left, right))
     .map(([generation, count], index) => ({
       count,
       generation,
-      label: generation === "unknown" ? "기수 미정" : `${generation}기`,
+      label: memberCohortLabel(generation),
       tone: (index % 5) + 1
     }));
 }

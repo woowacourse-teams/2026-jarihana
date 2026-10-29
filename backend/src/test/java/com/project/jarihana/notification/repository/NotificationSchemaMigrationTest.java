@@ -58,7 +58,7 @@ class NotificationSchemaMigrationTest extends IntegrationTestSupport {
                 ResourceDatabasePopulator groupCreatedMigration = new ResourceDatabasePopulator(
                         new FileSystemResource("db/migrations/2026-10-08-group-created-notification.sql"));
                 groupCreatedMigration.execute(isolated);
-                new ResourceDatabasePopulator(new ClassPathResource("db/migration/V11__push_subscription_client_version.sql"))
+                new ResourceDatabasePopulator(new ClassPathResource("db/migration/V12__push_subscription_client_version.sql"))
                         .execute(isolated);
                 buildSchema(isolated, schema, "validate");
 

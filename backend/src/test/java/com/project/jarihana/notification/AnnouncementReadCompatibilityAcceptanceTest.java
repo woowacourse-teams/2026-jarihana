@@ -90,7 +90,7 @@ class AnnouncementReadCompatibilityAcceptanceTest extends NotificationIntegratio
         @Bean
         FlywayMigrationStrategy migrateFutureSchemaBeforeCompatibilityApp() {
             return original -> {
-                String[] locations = new ClassPathResource("db/migration/V12__group_announcements.sql").exists()
+                String[] locations = new ClassPathResource("db/migration/V13__group_announcements.sql").exists()
                         ? new String[]{"classpath:db/migration"}
                         : new String[]{"classpath:db/migration", "classpath:db/announcement-compatibility"};
                 Flyway.configure().configuration(original.getConfiguration()).locations(locations).load().migrate();
@@ -100,7 +100,7 @@ class AnnouncementReadCompatibilityAcceptanceTest extends NotificationIntegratio
     }
 
     @Test
-    @DisplayName("호환 앱은 후속 V12 스키마에서도 기본 Flyway 검증을 통과하고 이력을 바꾸지 않는다.")
+    @DisplayName("호환 앱은 후속 V13 스키마에서도 기본 Flyway 검증을 통과하고 이력을 바꾸지 않는다.")
     void compatibilityAppAcceptsFutureAnnouncementSchema() {
         // Given
         var history = jdbc.queryForList("select * from flyway_schema_history order by installed_rank");
@@ -114,7 +114,7 @@ class AnnouncementReadCompatibilityAcceptanceTest extends NotificationIntegratio
         assertThat(applied).isZero();
         assertThat(jdbc.queryForList("select * from flyway_schema_history order by installed_rank")).isEqualTo(history);
         assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '12'", String.class))
-                .isEqualTo("V12__group_announcements.sql");
+                .isEqualTo("V13__group_announcements.sql");
     }
 
     @Test

@@ -35,6 +35,6 @@
 
 ## 스키마 적용
 
-공지는 모임 제안 V10과 구독 지원 버전 V11 이후의 `V12__group_announcements.sql`로 추가한다.
+공지는 회원 소속 V11과 구독 지원 V12 이후의 `V13__group_announcements.sql`로 추가한다.
 기존 촬영용 공지 V9 적용 DB의 데이터 보존과 이력 정정은
 [모임 공지 마이그레이션 적용](../../../operations/announcement-migration-rollout.md)을 따른다.

@@ -24,7 +24,7 @@
 
 공지 기능의 후속 배포에 앞서 `GROUP_ANNOUNCEMENT_CREATED`와
 `groupId`·`announcementId` payload의 읽기를 지원한다. 선행 호환 PR #490 자체는 공지 알림을
-생성하지 않는다. V11은 기존 구독을 1로 보존하는 `push_subscriptions.client_version` 컬럼을 추가한다. 공지 기능은 이 선행 배포 이후에 활성화한다. 기존 클라이언트에는 신규 사건을 제외하고,
+생성하지 않는다. V12는 기존 구독을 1로 보존하는 `push_subscriptions.client_version` 컬럼을 추가한다. 공지 기능은 이 선행 배포 이후에 활성화한다. 기존 클라이언트에는 신규 사건을 제외하고,
 `clientVersion=2`를 요청한 클라이언트에만 공지 target을 반환한다.
 배포와 롤백 기준은 [공지 알림 호환성 전환](../../../operations/announcement-notification-compatibility-rollout.md)을 따른다.
 
@@ -48,7 +48,7 @@
 
 타입: GROUP_CREATED, REGISTRATION_SUBMITTED, PARTICIPANT_JOINED, REGISTRATION_APPROVED,
 REGISTRATION_REJECTED, REGISTRATION_SYSTEM_REJECTED, INVITATION_RECEIVED, ACTIVITY_POST_COMMENTED,
-ACTIVITY_POST_REACTED, GROUP_ANNOUNCEMENT_CREATED. DB의 `ck_notifications_event_type`은 `V12__group_announcements.sql`이 같은 값으로 맞춘다.
+ACTIVITY_POST_REACTED, GROUP_ANNOUNCEMENT_CREATED. DB의 `ck_notifications_event_type`은 `V13__group_announcements.sql`이 같은 값으로 맞춘다.
 시스템 미승인 원인: RERECRUITMENT 또는 GROUP_ENDED. 사유 본문·신청 내용·토큰은 payload에 넣지 않는다.
 
 payloadVersion은 기존 사건과 초대 사건 모두 1이다. eventType이 데이터 의미를 구분하므로 초대 추가만으로 버전을 나누지 않는다.

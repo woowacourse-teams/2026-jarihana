@@ -1,5 +1,6 @@
 import { groupDetailSchema, groupListPageSchema } from "../../src/entities/group/index.js";
-import { memberProfileSchema } from "../../src/entities/member/index.js";
+import { meSchema } from "../../src/features/auth/index.js";
+import { groupMemberPageSchema, memberProfileSchema } from "../../src/entities/member/index.js";
 import {
   recruitmentCloseResponseSchema,
   recruitmentDetailSchema
@@ -261,5 +262,31 @@ describe("backend DTO schemas", () => {
 
     // Then
     expect(result.signupCompleted).toBe(false);
+  });
+
+  it.each(["BOOTCAMP", "PROFESSIONAL"])("parses a %s member without generation or course", (memberType) => {
+    // Given
+    const member = {
+      id: 3,
+      crewName: "도담",
+      memberType,
+      generation: null,
+      course: null,
+      avatarUrl: "https://avatars.githubusercontent.com/u/3"
+    };
+
+    // When
+    const profile = memberProfileSchema.parse({ signupCompleted: true, member });
+    const me = meSchema.parse({ signupCompleted: true, member });
+    const page = groupMemberPageSchema.parse({
+      items: [{ ...member, groupMemberId: 9, memberId: 3, role: "MEMBER", joinedAt: "2026-10-27T10:00:00" }],
+      nextCursor: null,
+      hasNext: false
+    });
+
+    // Then
+    expect(profile.member.memberType).toBe(memberType);
+    expect(me.member.memberType).toBe(memberType);
+    expect(page.items[0].memberType).toBe(memberType);
   });
 });
