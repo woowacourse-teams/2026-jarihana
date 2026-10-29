@@ -17,6 +17,9 @@ on:
       frontend_only:
         type: boolean
         default: false
+      backend_only:
+        type: boolean
+        default: false
       frontend_artifact_id:
         type: string
         default: ''
@@ -58,6 +61,7 @@ jobs:
       BG_ENVIRONMENT: ${{ inputs.environment }}
       BG_MODE: ${{ inputs.mode }}
       BG_FRONTEND_ONLY: ${{ inputs.frontend_only }}
+      BG_BACKEND_ONLY: ${{ inputs.backend_only }}
       BG_IMAGE_DIGEST: ${{ inputs.digest }}
       BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
       BG_PHASE: ${{ inputs.phase }}
@@ -75,10 +79,10 @@ jobs:
         run: |
           set -euo pipefail
           script=infra/blue-green-deploy/scripts/actions/frontend.sh
-          [[ -f "$script" ]] && grep -qx 'FE_RELEASE_CAPABILITY=1' "$script"
+          [[ -f "$script" ]] && grep -qx 'FE_RELEASE_CAPABILITY=2' "$script"
           bash infra/blue-green-deploy/scripts/actions/install-awscli.sh
       - name: 프론트엔드 artifact 디렉터리 준비
-        if: inputs.environment == 'prod' && inputs.mode == 'deploy' && inputs.phase == 'plan'
+        if: inputs.environment == 'prod' && inputs.mode == 'deploy' && inputs.phase == 'plan' && !inputs.backend_only
         shell: bash
         env:
           ARTIFACT_ID: ${{ inputs.frontend_artifact_id }}
@@ -91,7 +95,7 @@ jobs:
           rm -rf -- "$BG_FRONTEND_DIST"
           mkdir -m 700 -- "$BG_FRONTEND_DIST"
       - name: 동일 실행의 정확한 프론트엔드 artifact 받기
-        if: inputs.environment == 'prod' && inputs.mode == 'deploy' && inputs.phase == 'plan'
+        if: inputs.environment == 'prod' && inputs.mode == 'deploy' && inputs.phase == 'plan' && !inputs.backend_only
         uses: actions/download-artifact@v4
         with:
           artifact-ids: ${{ inputs.frontend_artifact_id }}

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Sourced by the coordinator: every mutation requires its live journal lease.
 set -euo pipefail
-FE_RELEASE_CAPABILITY=1
+FE_RELEASE_CAPABILITY=2
 FE_BUCKET=techcourse-project-2026
 FE_LIVE=jarihana/frontend
 FE_ARCHIVE=jarihana/frontend-releases
@@ -10,6 +10,7 @@ FE_DISTRIBUTION=E1YDHL1SDC4C1C
 
 fe_aws() { AWS_MAX_ATTEMPTS=1 aws --region ap-northeast-2 --cli-connect-timeout 3 --cli-read-timeout 30 --no-cli-pager "$@"; }
 fe_enabled() { [[ ${ENVIRONMENT:-} == prod && ${BG_MODE:-} == deploy ]]; }
+fe_changed() { [[ $(jq -r 'if (.frontend // {} | has("changed")) then .frontend.changed else (.backend_only != true) end' <<<"$STATE") == true ]]; }
 fe_id() { [[ $1 =~ ^(baseline-[1-9][0-9]*|[a-f0-9]{40}-[1-9][0-9]*)$ ]] || bg_die 'Invalid frontend release ID'; }
 fe_path() {
   [[ $1 =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ && $1 != */ && $1 != *//* && /$1/ != */../* && /$1/ != */./* ]] || bg_die 'Unsafe frontend path'
@@ -80,7 +81,7 @@ fe_pointer_read() {
   if metadata=$(fe_get "$FE_ARCHIVE/state.json" "$FE_TEMP/state.json" 2>"$error"); then
     FE_ETAG=$(jq -er '.ETag|select(type=="string" and length>0)' <<<"$metadata")
     FE_POINTER=$(cat "$FE_TEMP/state.json")
-    jq -e '.schema_version==1 and has("previous") and has("pending") and (.current|type=="string") and (.previous==null or (.previous|type=="string")) and (.pending==null or (.pending|type=="object"))' <<<"$FE_POINTER" >/dev/null || bg_die 'Malformed frontend pointer'
+    jq -e '.schema_version==1 and has("previous") and has("pending") and (.current|type=="string") and (.previous==null or (.previous|type=="string")) and (.pending==null or (.pending|type=="object")) and (.backend_image==null or (.backend_image|type=="string" and test("^sha256:[a-f0-9]{64}$")))' <<<"$FE_POINTER" >/dev/null || bg_die 'Malformed frontend pointer'
     fe_id "$(jq -r .current <<<"$FE_POINTER")"
     [[ $(jq -r .previous <<<"$FE_POINTER") == null ]] || fe_id "$(jq -r .previous <<<"$FE_POINTER")"
   elif grep -q 'An error occurred (NoSuchKey)' "$error"; then
@@ -184,21 +185,27 @@ fe_capture_baseline() {
   fe_manifest "$FE_TEMP/baseline" "$baseline" "$(jq -r .previous_backend_image <<<"$STATE")" ''
   fe_public_check "$FE_TEMP/release.json"
   fe_archive "$FE_TEMP/baseline" "$FE_TEMP/release.json"
-  fe_pointer_write "$(jq -cn --arg current "$baseline" '{schema_version:1,current:$current,previous:null,pending:null}')"
+  fe_pointer_write "$(jq -cn --arg current "$baseline" --arg backend "$(jq -r .previous_backend_image <<<"$STATE")" '{schema_version:1,current:$current,previous:null,pending:null,backend_image:$backend}')"
 }
 fe_stage() {
-  local release="$GITHUB_SHA-$RUN_ID" previous
+  local release="$GITHUB_SHA-$RUN_ID" previous backend changed=true
   fe_temp; fe_preflight; fe_pointer_read
   [[ $FE_POINTER != null ]] || fe_capture_baseline
   jq -e '.pending==null' <<<"$FE_POINTER" >/dev/null || bg_die 'Frontend transaction requires reconciliation'
   previous=$(jq -r .current <<<"$FE_POINTER")
   fe_download_release "$previous" "$FE_TEMP/previous"
-  [[ $(jq -r .backend_image "$FE_TEMP/download-manifest.json") == "$(jq -r .previous_backend_image <<<"$STATE")" ]] || bg_die 'Current frontend/backend pair differs'
+  backend=$(jq -r '.backend_image // empty' <<<"$FE_POINTER")
+  [[ -n $backend ]] || backend=$(jq -r .backend_image "$FE_TEMP/download-manifest.json")
+  [[ $backend == "$(jq -r .previous_backend_image <<<"$STATE")" ]] || bg_die 'Current frontend/backend pair differs'
   fe_public_check "$FE_TEMP/download-manifest.json"
-  fe_manifest "${BG_FRONTEND_DIST:?}" "$release" "$(jq -r .image <<<"$STATE")" "$GITHUB_SHA"
-  fe_archive "$BG_FRONTEND_DIST" "$FE_TEMP/release.json"
-  fe_pointer_write "$(jq -c --arg release "$release" --argjson state "$STATE" '.pending={release_id:$release,previous_release_id:.current,run_id:$state.run_id,source_commit:$state.sha,control_sha:$state.control_sha,deployment_id:$state.deployment_id,status:"staged"}' <<<"$FE_POINTER")"
-  bg_save "$(jq -c --arg release "$release" --arg previous "$previous" --arg etag "$FE_ETAG" '.frontend={release_id:$release,previous_release_id:$previous,etag:$etag,published:false,recovered:false,finalized:false}' <<<"$STATE")"
+  if [[ $(jq -r '.backend_only // false' <<<"$STATE") == true ]]; then
+    changed=false; release=$previous
+  else
+    fe_manifest "${BG_FRONTEND_DIST:?}" "$release" "$(jq -r .image <<<"$STATE")" "$GITHUB_SHA"
+    fe_archive "$BG_FRONTEND_DIST" "$FE_TEMP/release.json"
+  fi
+  fe_pointer_write "$(jq -c --arg release "$release" --arg previous_backend "$backend" --argjson changed "$changed" --argjson state "$STATE" '.pending={release_id:$release,previous_release_id:.current,backend_image:$state.image,previous_backend_image:$previous_backend,frontend_changed:$changed,run_id:$state.run_id,source_commit:$state.sha,control_sha:$state.control_sha,deployment_id:$state.deployment_id,status:"staged"}' <<<"$FE_POINTER")"
+  bg_save "$(jq -c --arg release "$release" --arg previous "$previous" --arg etag "$FE_ETAG" --argjson changed "$changed" '.frontend={release_id:$release,previous_release_id:$previous,changed:$changed,etag:$etag,published:false,recovered:false,finalized:false}' <<<"$STATE")"
   rm -rf -- "$FE_TEMP"
 }
 fe_owned_pointer() {
@@ -206,7 +213,9 @@ fe_owned_pointer() {
   jq -e --argjson state "$STATE" '.current==$state.frontend.previous_release_id and
     .pending.release_id==$state.frontend.release_id and .pending.previous_release_id==$state.frontend.previous_release_id and
     .pending.run_id==$state.run_id and .pending.source_commit==$state.sha and
-    .pending.control_sha==$state.control_sha and .pending.deployment_id==$state.deployment_id' <<<"$FE_POINTER" >/dev/null || bg_die 'Frontend pointer belongs to another release'
+    .pending.control_sha==$state.control_sha and .pending.deployment_id==$state.deployment_id and
+    .pending.backend_image==$state.image and .pending.previous_backend_image==$state.previous_backend_image and
+    .pending.frontend_changed==$state.frontend.changed' <<<"$FE_POINTER" >/dev/null || bg_die 'Frontend pointer belongs to another release'
   [[ $FE_ETAG == "$(jq -r .frontend.etag <<<"$STATE")" ]] || bg_die 'Frontend pointer ETag changed'
 }
 fe_publish_files() {
@@ -225,6 +234,12 @@ fe_publish_files() {
 }
 fe_publish() {
   fe_temp; fe_owned_pointer
+  if ! fe_changed; then
+    fe_pointer_write "$(jq -c '.pending.status="paired"' <<<"$FE_POINTER")"
+    bg_save "$(jq -c --arg etag "$FE_ETAG" '.frontend.etag=$etag | .frontend.pair_ready=true' <<<"$STATE")"
+    rm -rf -- "$FE_TEMP"
+    return
+  fi
   fe_download_release "$(jq -r .frontend.release_id <<<"$STATE")" "$FE_TEMP/candidate"
   jq -e --argjson state "$STATE" '.backend_image==$state.image and .source_commit==$state.sha and .run_id==$state.run_id and .deployment_id==$state.deployment_id and .control_sha==$state.control_sha' "$FE_TEMP/download-manifest.json" >/dev/null || bg_die 'Candidate frontend manifest context differs'
   fe_pointer_write "$(jq -c '.pending.status="publishing"' <<<"$FE_POINTER")"
@@ -247,19 +262,22 @@ fe_observe_check() {
 }
 fe_finalize() {
   fe_temp; fe_owned_pointer
-  jq -e '.frontend.published==true and .frontend.recovered==false' <<<"$STATE" >/dev/null || bg_die 'Frontend was not verified'
-  fe_download_release "$(jq -r .frontend.release_id <<<"$STATE")" "$FE_TEMP/final"
-  fe_public_check "$FE_TEMP/download-manifest.json"
-  fe_pointer_write "$(jq -c '.previous=.current | .current=.pending.release_id | .pending=null' <<<"$FE_POINTER")"
+  jq -e '(.frontend.published==true or (.frontend.changed==false and .frontend.pair_ready==true)) and .frontend.recovered==false' <<<"$STATE" >/dev/null || bg_die 'Frontend or backend pair was not verified'
+  if fe_changed; then
+    fe_download_release "$(jq -r .frontend.release_id <<<"$STATE")" "$FE_TEMP/final"
+    fe_public_check "$FE_TEMP/download-manifest.json"
+  fi
+  fe_pointer_write "$(jq -c 'if .pending.frontend_changed then .previous=.current | .current=.pending.release_id else . end | .backend_image=.pending.backend_image | .pending=null' <<<"$FE_POINTER")"
   bg_save "$(jq -c --arg etag "$FE_ETAG" '.frontend.etag=$etag | .frontend.finalized=true' <<<"$STATE")"
   rm -rf -- "$FE_TEMP"
 }
 fe_recover() {
   fe_temp; fe_owned_pointer
-  fe_download_release "$(jq -r .frontend.previous_release_id <<<"$STATE")" "$FE_TEMP/previous"
-  [[ $(jq -r .backend_image "$FE_TEMP/download-manifest.json") == "$(jq -r .previous_backend_image <<<"$STATE")" ]] || bg_die 'Rollback backend pair differs'
-  fe_publish_files "$FE_TEMP/previous" "$FE_TEMP/download-manifest.json"
-  fe_pointer_write "$(jq -c '.pending=null' <<<"$FE_POINTER")"
+  if fe_changed; then
+    fe_download_release "$(jq -r .frontend.previous_release_id <<<"$STATE")" "$FE_TEMP/previous"
+    fe_publish_files "$FE_TEMP/previous" "$FE_TEMP/download-manifest.json"
+  fi
+  fe_pointer_write "$(jq -c '.backend_image=.pending.previous_backend_image | .pending=null' <<<"$FE_POINTER")"
   bg_save "$(jq -c --arg etag "$FE_ETAG" '.frontend.etag=$etag | .frontend.recovered=true' <<<"$STATE")"
   rm -rf -- "$FE_TEMP"
 }

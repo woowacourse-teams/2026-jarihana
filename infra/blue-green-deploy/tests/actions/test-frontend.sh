@@ -270,7 +270,54 @@ frontend_only_recovery_refreshes_lease() {
   main frontend-recover
   jq -e '.phase=="ROLLED_BACK" and .frontend.recovered==true' "$STATE_FILE" >/dev/null
 }
-for test in full_round_trip partial_publish public_fallback_detected missing_baseline pointer_permission_not_absent cache_preflight symlink_artifact traversal_manifest archive_checksum_mismatch wrong_manifest_release stale_recovery cas_conflict recovery_failure_preserves_intent revocation_no_replay independent_worker_recovery frontend_only_full_observation observation_before_publish_rejected archive_immutable zero_length_file_rejected missing_referenced_asset public_failure_during_observation final_check_before_pointer_commit frontend_only_recovery_refreshes_lease; do
+backend_only_fixture() {
+  fe_temp; fe_pointer_read; fe_capture_baseline; rm -rf -- "$FE_TEMP"
+  : >"$CASE_DIR/writes"
+  STATE=$(jq '.backend_only=true' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
+  unset BG_FRONTEND_DIST
+}
+backend_only_keeps_frontend_files() {
+  backend_only_fixture
+  fe_stage; fe_publish; fe_finalize
+  [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *old* ]]
+  [[ ! -e $(manifest_file) ]]
+  ! grep -qvFx "$FE_ARCHIVE/state.json" "$CASE_DIR/writes"
+  jq -e --arg image "$BG_IMAGE_DIGEST" '.current=="baseline-123" and .pending==null and .backend_image==$image' "$CASE_DIR/s3/$FE_ARCHIVE/state.json" >/dev/null
+  jq -e '.frontend.changed==false and .frontend.published==false and .frontend.finalized==true' "$STATE_FILE" >/dev/null
+}
+backend_only_rollback_keeps_frontend_files() {
+  backend_only_fixture
+  fe_stage; fe_publish; fe_recover
+  [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *old* ]]
+  ! grep -qvFx "$FE_ARCHIVE/state.json" "$CASE_DIR/writes"
+  jq -e --arg image "$OLD_DIGEST" '.current=="baseline-123" and .pending==null and .backend_image==$image' "$CASE_DIR/s3/$FE_ARCHIVE/state.json" >/dev/null
+}
+backend_only_observation_and_seal() {
+  backend_only_fixture
+  REPO=woowacourse-teams/2026-jarihana
+  fe_stage; fe_publish
+  STATE=$(jq '.phase="OBSERVING" | .pending.operation="observe" | .pending.issued_at=1000 | .pending.deadline=5000' <<<"$STATE")
+  bg_atomic "$STATE_FILE" "$STATE"
+  bg_github() { echo '{"jobs":[{"name":"candidate-worker-observation","conclusion":null}]}'; }
+  bg_observe
+  TARGET_RESULT='{"observed_started_at":1000,"observed_finished_at":1900}'
+  bg_accept() { bg_save "$(jq -c --argjson status "$1" '.target_status=$status' <<<"$STATE")"; }
+  bg_owner() { :; }; bg_drained() { return 0; }
+  bg_seal
+  jq -e '.sealed==true and .frontend.published==false and .frontend.finalized==true and .http_observed_finished_at-.http_observed_started_at==900' "$STATE_FILE" >/dev/null
+  ! grep -qvFx "$FE_ARCHIVE/state.json" "$CASE_DIR/writes"
+}
+frontend_after_backend_only_uses_actual_pair() {
+  backend_only_fixture
+  fe_stage; fe_publish; fe_finalize
+  STATE=$(jq --arg image "$BG_IMAGE_DIGEST" '.backend_only=false | .previous_backend_image=$image | .image="sha256:0000000000000000000000000000000000000000000000000000000000000003" | .frontend=null' <<<"$STATE")
+  bg_atomic "$STATE_FILE" "$STATE"
+  BG_FRONTEND_DIST="$CASE_DIR/dist"
+  fe_stage; fe_publish; fe_recover
+  [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *old* ]]
+  jq -e --arg image "$BG_IMAGE_DIGEST" '.current=="baseline-123" and .backend_image==$image and .pending==null' "$CASE_DIR/s3/$FE_ARCHIVE/state.json" >/dev/null
+}
+for test in backend_only_observation_and_seal backend_only_keeps_frontend_files backend_only_rollback_keeps_frontend_files frontend_after_backend_only_uses_actual_pair full_round_trip partial_publish public_fallback_detected missing_baseline pointer_permission_not_absent cache_preflight symlink_artifact traversal_manifest archive_checksum_mismatch wrong_manifest_release stale_recovery cas_conflict recovery_failure_preserves_intent revocation_no_replay independent_worker_recovery frontend_only_full_observation observation_before_publish_rejected archive_immutable zero_length_file_rejected missing_referenced_asset public_failure_during_observation final_check_before_pointer_commit frontend_only_recovery_refreshes_lease; do
   ( setup "$test"; "$test" )
   printf 'PASS frontend %s\n' "$test"
 done

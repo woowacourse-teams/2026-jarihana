@@ -41,6 +41,18 @@ GitHub Actions artifact는 runner 간 전달에 사용한다. Nginx coordinator�
 GitHub artifact의 7일 보존은 S3 복구 원본의 보관 기간을 뜻하지 않는다.
 
 main push의 backend/infra 및 백엔드 배포 workflow 변경이 없으면 frontend-only를 선택한다.
+frontend 변경이 없고 backend만 변경되면 backend-only를 선택한다. infra 또는 공동 배포 workflow
+변경은 양쪽 배포로 취급한다. 수동 `backend_only=true`와 `frontend_only=true`는 함께 지정할 수 없다.
+backend-only에서는 프론트 빌드와 공개 파일 게시/복원을 하지 않고 `state.json`의 백엔드 조합만
+조건부 갱신한다. manifest의 `backend_image`는 최초 보관 당시 값이고, 현재 조합은 pointer의
+`backend_image`가 소유한다. 뒤이은 프론트 배포도 이 현재 조합을 확인한다.
+
+| 이번 배포 대상 | 관찰 중 실패 시 복구 범위 |
+| --- | --- |
+| 프론트와 백엔드 | 이전 백엔드와 이전 프론트 파일 |
+| 프론트만 | 이전 프론트 파일, 현재 백엔드 유지 |
+| 백엔드만 | 이전 백엔드, 현재 프론트 파일 유지 |
+
 수동으로는 `frontend_only=true`, `blue_green_mode=deploy`를 사용하고 `image_tag`를 비운다.
 이 경우에도 `BG_MODE`는 `deploy`이고 coordinator에는 `BG_FRONTEND_ONLY`를 전달한다.
 현재 `frontend-prod-deploy.yml`만 별도로 실행하는 운영 경로는 없다.
@@ -78,9 +90,10 @@ S3 게시나 HTTP 전환을 하지 않는다. 기존 control tag가 새 기능�
 `release.json`을 마지막에 쓴다. 원본이 있더라도 manifest가 완성되지 않았으면 완료된
 복구 원본으로 취급하지 않는다. Secrets와 환경 변수 원문은 manifest에 기록하지 않는다.
 
-`state.json`은 `schema_version: 1`, `current`, `previous`, `pending`을 기록한다.
+`state.json`은 `schema_version: 1`, `current`, `previous`, `pending`, 현재 조합의 `backend_image`를 기록한다.
 `pending`에는 `run_id`, `source_commit`, `control_sha`, `deployment_id`, `release_id`,
-`previous_release_id`, `status`가 있어 해당 작업과 복구 대상을 연결한다. 갱신은 읽은 ETag에
+`previous_release_id`, `backend_image`, `previous_backend_image`, `frontend_changed`, `status`가 있어
+해당 작업의 변경 범위와 복구 대상을 연결한다. 갱신은 읽은 ETag에
 대한 조건부 쓰기(CAS)를 사용한다. 릴리스 객체 생성은 기존 객체가 없는 경우에만 허용한다.
 Actions 직렬화만 믿고 오래된 실행의 상태 덮어쓰기를 허용하지 않는다.
 
@@ -90,6 +103,14 @@ Actions 직렬화만 믿고 오래된 실행의 상태 덮어쓰기를 허용하
 등록하지 않는다. 릴리스 보관과 공개 자산 모두 별도 수명 정책 합의 전에는 자동 삭제하지 않는다.
 
 ## 실제 적용 전 준비
+
+앱과 프론트 파일을 복구해도 DB 스키마와 배포 중 저장한 데이터는 돌아가지 않는다.
+새 enum 값 등 기존 앱이 읽지 못하는 변경은 [DB 변경 규칙](../../../docs/database-changes.md)에 따라
+별도로 준비한다. 이 배포 제어 코드는 특정 회원 유형의 호환성을 검사하거나 가입 기능을 제어하지 않는다.
+이전 화면을 계속 열어둔 사용자에게는 새로고침이 필요할 수 있다.
+제어 코드 버전은 세 가지 배포 범위를 지원하는 `FE_RELEASE_CAPABILITY=2`를 사용한다.
+
+### 공통 적용 순서
 
 1. [prod Stage 1 준비](prod-bluegreen-preparation.md)의 dev 반환, DB 연결 예산, 최초 worker
    등록과 호스트 보호 설정 게이트를 먼저 따른다. 프론트엔드 보관 기능이 legacy worker를

@@ -30,6 +30,10 @@ on:
         description: '현재 백엔드를 유지하고 프론트엔드만 배포 (Blue-Green deploy 전용)'
         type: boolean
         default: false
+      backend_only:
+        description: '현재 프론트엔드를 유지하고 백엔드만 배포 (Blue-Green deploy 전용)'
+        type: boolean
+        default: false
       image_tag:
         description: "기존 이미지 태그(커밋 SHA). deploy에서는 현재 main backend 트리와 같은 digest만 허용한다. bootstrap은 실제 실행 중인 이미지 태그를 지정한다."
         required: false
@@ -75,6 +79,7 @@ jobs:
     with:
       environment: prod
       frontend_only: ${{ inputs.frontend_only || false }}
+      backend_only: ${{ inputs.backend_only || false }}
       image_tag: ${{ inputs.image_tag }}
       mode: ${{ inputs.blue_green_mode || 'deploy' }}
     secrets: inherit

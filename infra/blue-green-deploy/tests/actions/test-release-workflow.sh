@@ -38,23 +38,49 @@ fi
 MOCK
 cat >"$TEST_DIR/bin/git" <<'MOCK'
 #!/usr/bin/env bash
-if [[ $1 == rev-parse ]]; then printf '%040d\n' 4; fi
+case $1 in
+  rev-parse) printf '%040d\n' 4;;
+  diff)
+    case ${CHANGE_SCOPE:-both} in
+      backend) [[ " $* " != *' backend '* ]];;
+      frontend) [[ " $* " != *' frontend '* ]];;
+      both|infra) exit 1;;
+    esac;;
+esac
 MOCK
 chmod +x "$TEST_DIR/bin/"*
 export PATH="$TEST_DIR/bin:$PATH" DOCKER_TRACE="$TEST_DIR/docker.log"
 export GITHUB_REPOSITORY=woowacourse-teams/2026-jarihana GITHUB_RUN_ATTEMPT=1 GITHUB_REF=refs/heads/main
 export BG_CONTROL_REF=refs/tags/deployment-control-test BG_ENVIRONMENT=prod BG_MODE=deploy BG_A_RUNNER=prod-A BG_B_RUNNER=prod-B
-export BG_DEV_AUTO_ENABLED=false BG_PROD_AUTO_ENABLED=true RDS_URL=rds.example INPUT_TAG='' INPUT_FRONTEND_ONLY=true BEFORE_SHA=''
+export BG_DEV_AUTO_ENABLED=false BG_PROD_AUTO_ENABLED=true RDS_URL=rds.example INPUT_TAG='' INPUT_FRONTEND_ONLY=true INPUT_BACKEND_ONLY=false BEFORE_SHA=''
 export GITHUB_OUTPUT="$TEST_DIR/output" GITHUB_SHA=2222222222222222222222222222222222222222
 if (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh") >"$TEST_DIR/old.log" 2>&1; then exit 1; fi
 [[ ! -e $DOCKER_TRACE ]]
 grep -q 'lacks coordinated frontend release capability' "$TEST_DIR/old.log"
 echo 'PASS release-workflow old_control_rejected_before_mutation'
-echo 'FE_RELEASE_CAPABILITY=1' >"$TEST_DIR/deployment-control/infra/blue-green-deploy/scripts/actions/frontend.sh"
+echo 'FE_RELEASE_CAPABILITY=2' >"$TEST_DIR/deployment-control/infra/blue-green-deploy/scripts/actions/frontend.sh"
 (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh")
 grep -qx frontend_only=true "$GITHUB_OUTPUT"
 [[ ! -e $DOCKER_TRACE ]]
 echo 'PASS release-workflow frontend_only_does_not_resolve_source_backend'
+INPUT_BACKEND_ONLY=true
+if (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh") >"$TEST_DIR/conflict.log" 2>&1; then exit 1; fi
+[[ ! -e $DOCKER_TRACE ]]
+echo 'PASS release-workflow conflicting_scopes_rejected_before_mutation'
+INPUT_FRONTEND_ONLY=false INPUT_BACKEND_ONLY=false BEFORE_SHA=1111111111111111111111111111111111111111
+GITHUB_EVENT_NAME=push
+for scope in backend frontend both infra; do
+  export CHANGE_SCOPE=$scope
+  : >"$GITHUB_OUTPUT"
+  (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh")
+  case $scope in
+    backend) grep -qx backend_only=true "$GITHUB_OUTPUT"; grep -qx frontend_only=false "$GITHUB_OUTPUT";;
+    frontend) grep -qx frontend_only=true "$GITHUB_OUTPUT"; grep -qx backend_only=false "$GITHUB_OUTPUT";;
+    both|infra) grep -qx frontend_only=false "$GITHUB_OUTPUT"; grep -qx backend_only=false "$GITHUB_OUTPUT";;
+  esac
+  echo "PASS release-workflow automatic_scope_$scope"
+done
+BEFORE_SHA=''
 INPUT_FRONTEND_ONLY=false INPUT_TAG=1111111111111111111111111111111111111111
 if (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh") >"$TEST_DIR/mismatch.log" 2>&1; then exit 1; fi
 grep -q 'must match the caller backend tree' "$TEST_DIR/mismatch.log"

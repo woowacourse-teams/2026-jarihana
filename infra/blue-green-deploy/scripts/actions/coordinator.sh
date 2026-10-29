@@ -118,6 +118,8 @@ bg_metrics() {
 bg_target_ready() { [[ $(bg_route) == "$(jq -r '.target' <<<"$STATE")" ]] && bg_metrics "$(jq -r '.target' <<<"$STATE")"; }
 bg_plan() {
   local old target now previous_status=null previous_image=""
+  [[ ${BG_FRONTEND_ONLY:-false} != true || ${BG_BACKEND_ONLY:-false} != true ]] || bg_die 'A release cannot be frontend-only and backend-only'
+  [[ ${BG_BACKEND_ONLY:-false} != true || ( $ENVIRONMENT == prod && $BG_MODE == deploy ) ]] || bg_die 'Backend-only scope is production deploy only'
   if [[ -e $STATE_FILE ]]; then
     bg_state_file
     jq -e --arg env "$ENVIRONMENT" --arg control "$CONTROL_SHA" --arg topology "$(bg_topology_digest)" '.schema_version==2 and .environment==$env and .control_sha==$control and .topology_digest==$topology and (.phase=="COMPLETE" or .phase=="ROLLED_BACK")' "$STATE_FILE" >/dev/null || bg_die 'Previous deployment requires reconciliation'
@@ -140,7 +142,7 @@ bg_plan() {
   fi
   now=$(bg_now)
   STATE=$(jq -cn --arg env "$ENVIRONMENT" --arg dep "$(bg_uuid)" --argjson run "$RUN_ID" --arg sha "$GITHUB_SHA" --arg control "$CONTROL_SHA" --arg topology "$(bg_topology_digest)" --arg mode "$BG_MODE" --arg old "$old" --arg target "$target" --arg image "$BG_IMAGE_DIGEST" --argjson now "$now" '{schema_version:2,revision:0,environment:$env,deployment_id:$dep,run_id:$run,attempt:1,sha:$sha,control_sha:$control,topology_digest:$topology,mode:$mode,phase:"PREPARING",old:$old,target:$target,image:$image,created_at:$now,heartbeat:$now,expires_at:($now+7200),pending:null,old_status:null,target_status:null,drain_ticket:null,switched:false,sealed:false,http_recovered:false,worker_recovered:false,observation_failed:false,reason:null}')
-  STATE=$(jq -c --arg previous "$previous_image" --argjson frontend_only "${BG_FRONTEND_ONLY:-false}" --argjson previous_status "$previous_status" '.previous_backend_image=$previous | .frontend_only=$frontend_only | .previous_backend_status=$previous_status' <<<"$STATE")
+  STATE=$(jq -c --arg previous "$previous_image" --argjson frontend_only "${BG_FRONTEND_ONLY:-false}" --argjson backend_only "${BG_BACKEND_ONLY:-false}" --argjson previous_status "$previous_status" '.previous_backend_image=$previous | .frontend_only=$frontend_only | .backend_only=$backend_only | .release_scope=(if $frontend_only then "frontend" elif $backend_only then "backend" else "both" end) | .previous_backend_status=$previous_status' <<<"$STATE")
   bg_atomic "$STATE_FILE" "$STATE"
   if fe_enabled; then
     bg_issue frontend-stage "$old" PREPARING 1500
@@ -189,7 +191,7 @@ bg_switch() {
 }
 bg_grant_observe() {
   bg_phase SWITCHING
-  if fe_enabled; then
+  if fe_enabled && fe_changed; then
     jq -e '.frontend.published==true and .frontend.finalized==false' <<<"$STATE" >/dev/null || bg_die 'Frontend must be published before observation'
   fi
   bg_accept "$APP_RESULT" activate "$(jq -r '.target' <<<"$STATE")" target_status; bg_owner "$APP_RESULT" OBSERVE
@@ -200,7 +202,7 @@ bg_observe() {
   local start last now elapsed failures=0 status jobs jobs_checked_at=-15 frontend_checked_at=-30
   local monotonic_start
   bg_phase OBSERVING
-  if fe_enabled; then
+  if fe_enabled && fe_changed; then
     jq -e '.frontend.published==true' <<<"$STATE" >/dev/null || bg_die 'Frontend publication must precede observation'
     fe_observe_prepare
   fi
@@ -219,7 +221,7 @@ bg_observe() {
       jq -e '[.jobs[] | select(.name|contains("candidate-worker-observation")) | select(.conclusion!=null and .conclusion!="success")] | length==0' <<<"$jobs" >/dev/null || bg_die 'App observation failed'
       jobs_checked_at=$elapsed
     fi
-    if fe_enabled && (( elapsed-frontend_checked_at>=30 )); then
+    if fe_enabled && fe_changed && (( elapsed-frontend_checked_at>=30 )); then
       fe_observe_check
       frontend_checked_at=$elapsed
     fi
@@ -228,13 +230,13 @@ bg_observe() {
     sleep 5
   done
   bg_save "$(jq -c --argjson now "$(bg_now)" '.http_observed_finished_at=$now' <<<"$STATE")"
-  if fe_enabled; then rm -rf -- "$FE_TEMP"; fi
+  if fe_enabled && fe_changed; then rm -rf -- "$FE_TEMP"; fi
 }
 bg_seal() {
   APP_RESULT=${TARGET_RESULT:-${APP_RESULT:-}}
   local deadline
   bg_phase OBSERVING
-  if fe_enabled; then
+  if fe_enabled && fe_changed; then
     jq -e '.frontend.published==true and .http_observed_started_at>=.frontend.published_at and
       (.frontend_only or .frontend.published_at>0)' <<<"$STATE" >/dev/null || bg_die 'Observation must follow frontend publication'
   fi
@@ -243,7 +245,7 @@ bg_seal() {
     ([.http_observed_started_at,.http_observed_finished_at,.target_status.observed_started_at,.target_status.observed_finished_at] | all(type=="number" and floor==. and .>0 and .<=($now+5))) and
     .target_status.observed_started_at>=.pending.issued_at and
     (.http_observed_finished_at-.http_observed_started_at)>=900 and (.target_status.observed_finished_at-.target_status.observed_started_at)>=900' <<<"$STATE" >/dev/null || bg_die 'Both observation periods must finish'
-  if fe_enabled; then
+  if fe_enabled && fe_changed; then
     jq -e '.target_status.observed_started_at>=.frontend.published_at' <<<"$STATE" >/dev/null || bg_die 'Worker observation started before frontend publication'
   fi
   deadline=$(( $(bg_now)+300 ))

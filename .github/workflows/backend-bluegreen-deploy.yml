@@ -8,6 +8,9 @@ on:
       frontend_only:
         type: boolean
         default: false
+      backend_only:
+        type: boolean
+        default: false
       image_tag:
         type: string
         default: ''
@@ -34,6 +37,7 @@ jobs:
     outputs:
       digest: ${{ steps.image.outputs.digest }}
       frontend_only: ${{ steps.image.outputs.frontend_only }}
+      backend_only: ${{ steps.image.outputs.backend_only }}
     env:
       BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
     steps:
@@ -58,6 +62,7 @@ jobs:
         env:
           INPUT_TAG: ${{ inputs.image_tag }}
           INPUT_FRONTEND_ONLY: ${{ inputs.frontend_only }}
+          INPUT_BACKEND_ONLY: ${{ inputs.backend_only }}
           BEFORE_SHA: ${{ github.event.before }}
           BG_ENVIRONMENT: ${{ inputs.environment }}
           BG_MODE: ${{ inputs.mode }}
@@ -99,22 +104,31 @@ jobs:
             }
           fi
           frontend_only=false
+          backend_only=false
+          [[ "$INPUT_FRONTEND_ONLY" != true || "$INPUT_BACKEND_ONLY" != true ]] || {
+            echo '::error::frontend_only와 backend_only는 함께 선택할 수 없습니다.'; exit 1;
+          }
           if [[ "$BG_ENVIRONMENT" == prod && "$BG_MODE" == deploy ]]; then
             control=../deployment-control/infra/blue-green-deploy/scripts/actions
-            [[ -f "$control/frontend.sh" ]] && grep -qx 'FE_RELEASE_CAPABILITY=1' "$control/frontend.sh" || {
+            [[ -f "$control/frontend.sh" ]] && grep -qx 'FE_RELEASE_CAPABILITY=2' "$control/frontend.sh" || {
               echo '::error::Approved control tag lacks coordinated frontend release capability'
               exit 1
             }
             if [[ "$INPUT_FRONTEND_ONLY" == true ]]; then
               frontend_only=true
+            elif [[ "$INPUT_BACKEND_ONLY" == true ]]; then
+              backend_only=true
             elif [[ "$GITHUB_EVENT_NAME" == push && "$BEFORE_SHA" =~ ^[a-f0-9]{40}$ && "$BEFORE_SHA" != 0000000000000000000000000000000000000000 ]]; then
               git cat-file -e "$BEFORE_SHA^{commit}"
               if git diff --quiet "$BEFORE_SHA" "$GITHUB_SHA" -- backend infra .github/workflows/backend-prod-deploy.yml .github/workflows/backend-bluegreen-deploy.yml .github/workflows/backend-app-operation.yml .github/workflows/backend-bluegreen-phase.yml; then
                 frontend_only=true
+              elif git diff --quiet "$BEFORE_SHA" "$GITHUB_SHA" -- frontend .github/workflows/frontend-prod-deploy.yml infra .github/workflows/backend-prod-deploy.yml .github/workflows/backend-bluegreen-deploy.yml .github/workflows/backend-app-operation.yml .github/workflows/backend-bluegreen-phase.yml; then
+                backend_only=true
               fi
             fi
           fi
           echo "frontend_only=$frontend_only" >> "$GITHUB_OUTPUT"
+          echo "backend_only=$backend_only" >> "$GITHUB_OUTPUT"
           if [[ "$frontend_only" == true ]]; then
             [[ -z "$INPUT_TAG" ]] || { echo '::error::Frontend-only releases cannot select another backend image'; exit 1; }
             # The coordinator resolves the actual digest from its protected completed journal.
@@ -147,7 +161,7 @@ jobs:
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
   frontend-build:
     needs: [resolve]
-    if: inputs.environment == 'prod' && inputs.mode == 'deploy'
+    if: inputs.environment == 'prod' && inputs.mode == 'deploy' && needs.resolve.outputs.backend_only != 'true'
     uses: ./.github/workflows/frontend-prod-deploy.yml
     secrets: inherit
     with:
@@ -164,6 +178,7 @@ jobs:
       digest: ${{ needs.resolve.outputs.digest }}
       phase: plan
       frontend_only: ${{ needs.resolve.outputs.frontend_only == 'true' }}
+      backend_only: ${{ needs.resolve.outputs.backend_only == 'true' }}
       frontend_artifact_id: ${{ needs.frontend-build.outputs.artifact_id }}
   queue-guardian:
     name: deployment-queue-guardian
@@ -479,6 +494,7 @@ jobs:
     steps:
       - name: 성공·롤백·확인 필요 결과 보고
         env:
+          RELEASE_SCOPE: ${{ needs.resolve.outputs.frontend_only == 'true' && 'frontend' || needs.resolve.outputs.backend_only == 'true' && 'backend' || 'both' }}
           FRONTEND: ${{ needs.frontend-seal.result }}
           FRONTEND_RECOVERY: ${{ needs.frontend-recover.result }}
           BOOTSTRAP: ${{ needs.finish-bootstrap.result }}
@@ -487,6 +503,7 @@ jobs:
           CLEANUP_DEFERRED: ${{ needs.seal.outputs.cleanup_deferred }}
         shell: bash
         run: |
+          printf '이번 배포/롤백 대상: %s\n' "$RELEASE_SCOPE" >> "$GITHUB_STEP_SUMMARY"
           printf '초기 등록: %s / 백엔드 배포: %s / 백엔드 롤백: %s\n' "$BOOTSTRAP" "$DEPLOY" "$ROLLBACK" >> "$GITHUB_STEP_SUMMARY"
           printf '프론트엔드 전용 배포: %s / 프론트엔드 복구: %s / 릴리스: %s-%s\n' "$FRONTEND" "$FRONTEND_RECOVERY" "$GITHUB_SHA" "$GITHUB_RUN_ID" >> "$GITHUB_STEP_SUMMARY"
           if [[ "$CLEANUP_DEFERRED" == true ]]; then
