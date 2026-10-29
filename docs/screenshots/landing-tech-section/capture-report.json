@@ -1,0 +1,64 @@
+[
+  {
+    "device": "desktop",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "errors": [],
+    "overflow": false,
+    "states": {
+      "tech-intro": {
+        "active": "step",
+        "state": null,
+        "chapterHeight": 844
+      },
+      "tech-time": {
+        "active": "step",
+        "state": "complete",
+        "chapterHeight": 844
+      },
+      "tech-size": {
+        "active": "step",
+        "state": "complete",
+        "chapterHeight": 844
+      },
+      "tech-runs": {
+        "active": "step",
+        "state": "complete",
+        "chapterHeight": 844
+      }
+    }
+  },
+  {
+    "device": "mobile",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "errors": [],
+    "overflow": false,
+    "states": {
+      "tech-intro": {
+        "active": "step",
+        "state": null,
+        "chapterHeight": 748
+      },
+      "tech-time": {
+        "active": "step",
+        "state": "complete",
+        "chapterHeight": 869
+      },
+      "tech-size": {
+        "active": "step",
+        "state": "complete",
+        "chapterHeight": 939
+      },
+      "tech-runs": {
+        "active": "step",
+        "state": "complete",
+        "chapterHeight": 748
+      }
+    }
+  }
+]
