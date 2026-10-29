@@ -28,6 +28,7 @@ import {
   formatDateTime,
   generationLabel,
   memberTypeLabel,
+  nonCrewMemberTypeLabel,
   statusLabel,
   statusTone
 } from "./manageUtils.js";
@@ -979,7 +980,7 @@ function ApprovedMembersSnapshot({ query }) {
                   <span>
                     <strong>{registration.member.crewName}</strong>
                     <small>
-                      {registration.member.memberType === "COACH"
+                      {nonCrewMemberTypeLabel(registration.member.memberType)
                         ? memberTypeLabel(registration.member.memberType)
                         : `${generationLabel(registration.member.generation)} · ${courseLabel(registration.member.course)}`}
                     </small>

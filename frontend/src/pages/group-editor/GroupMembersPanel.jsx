@@ -1,6 +1,12 @@
 import { UsersRound } from "lucide-react";
 import { useId, useState } from "react";
 
+import {
+  compareMemberCohortKeys,
+  memberCohortKey,
+  memberCohortLabel,
+  nonCrewMemberTypeLabel
+} from "../../entities/member/index.js";
 import { useInfiniteGroupMembers } from "../../features/member/index.js";
 import { Avatar, Button, EmptyState, ErrorState, Skeleton, StatusBadge } from "../../shared/ui/index.js";
 
@@ -21,20 +27,15 @@ function memberItems(data) {
 function cohortItems(members) {
   const counts = new Map();
   for (const member of members) {
-    const generation =
-      Number.isInteger(member.generation) && member.generation > 0 ? member.generation : "unknown";
-    counts.set(generation, (counts.get(generation) ?? 0) + 1);
+    const key = memberCohortKey(member);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
   }
   return [...counts.entries()]
-    .sort(([left], [right]) => {
-      if (left === "unknown") return 1;
-      if (right === "unknown") return -1;
-      return left - right;
-    })
+    .sort(([left], [right]) => compareMemberCohortKeys(left, right))
     .map(([generation, count], index) => ({
       count,
       generation,
-      label: generation === "unknown" ? "기수 미정" : `${generation}기`,
+      label: memberCohortLabel(generation),
       tone: (index % 5) + 1
     }));
 }
@@ -85,8 +86,8 @@ function MemberInsights({ members }) {
                   {member.role === "LEADER" ? <StatusBadge tone="neutral">모임장</StatusBadge> : null}
                 </span>
                 <small>
-                  {member.memberType === "COACH"
-                    ? "코치"
+                  {nonCrewMemberTypeLabel(member.memberType)
+                    ? nonCrewMemberTypeLabel(member.memberType)
                     : `${generationLabel(member.generation)} · ${COURSE_LABEL[member.course] ?? member.course}`}
                 </small>
               </span>

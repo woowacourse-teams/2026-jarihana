@@ -5,9 +5,13 @@ import com.project.jarihana.auth.session.SignupSession;
 import com.project.jarihana.common.response.ApiResponse;
 import com.project.jarihana.common.response.LocationUri;
 import com.project.jarihana.member.command.controller.dto.MemberSignupRequest;
+import com.project.jarihana.member.command.controller.dto.MemberSignupRequest.BootcampRequest;
+import com.project.jarihana.member.command.controller.dto.MemberSignupRequest.CompanyRequest;
 import com.project.jarihana.member.command.controller.dto.MemberSignupResponse;
 import com.project.jarihana.member.command.service.MemberCommandService;
 import com.project.jarihana.member.command.service.dto.MemberSignupCommand;
+import com.project.jarihana.member.command.service.dto.MemberSignupCommand.BootcampCommand;
+import com.project.jarihana.member.command.service.dto.MemberSignupCommand.CompanyCommand;
 import com.project.jarihana.member.command.service.dto.MemberSignupResult;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -50,7 +54,11 @@ public class MemberCommandController {
                 request.crewName(),
                 request.generation(),
                 request.course(),
-                request.memberType()
+                request.memberType(),
+                toBootcampCommand(request.bootcamp()),
+                request.field(),
+                request.career(),
+                toCompanyCommand(request.company())
         );
         MemberSignupResult result = memberCommandService.signup(command);
         signupSession.invalidate(servletRequest);
@@ -59,5 +67,19 @@ public class MemberCommandController {
                 .header(HttpHeaders.SET_COOKIE, authCookieFactory.accessToken(result.accessToken()).toString())
                 .header(HttpHeaders.SET_COOKIE, authCookieFactory.refreshToken(result.refreshToken()).toString())
                 .body(ApiResponse.success(MemberSignupResponse.from(result)));
+    }
+
+    private static BootcampCommand toBootcampCommand(BootcampRequest bootcamp) {
+        if (bootcamp == null) {
+            return null;
+        }
+        return new BootcampCommand(bootcamp.name(), bootcamp.status(), bootcamp.cohort());
+    }
+
+    private static CompanyCommand toCompanyCommand(CompanyRequest company) {
+        if (company == null) {
+            return null;
+        }
+        return new CompanyCommand(company.name(), company.visible());
     }
 }

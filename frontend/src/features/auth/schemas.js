@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const memberTypeSchema = z.enum(["CREW", "COACH"]);
+export const memberTypeSchema = z.enum(["CREW", "COACH", "BOOTCAMP", "PROFESSIONAL"]);
 export const courseSchema = z.enum(["BACKEND", "FRONTEND", "ANDROID"]);
 
 export const memberSchema = z
