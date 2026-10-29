@@ -15,13 +15,15 @@
 .composer[data-side=b] .inlet-mouth{order:2;transform:scaleX(-1)}
 .composer[data-side=b] .input-row{flex-direction:row}
 .transport-pipes{position:fixed;inset:0;width:100%;height:100%;z-index:1;overflow:hidden;pointer-events:none;fill:none;stroke-linejoin:round}
-.transport-pipes g{--pipe-tone:#c5e8de;--pipe-edge:#adcfc1}
-.transport-pipes g[data-route=b]{--pipe-tone:#f5d4ca;--pipe-edge:#dab9ac}
-.pipe-shadow{stroke:#173b3612;stroke-width:38;transform:translateY(4px)}
-.pipe-rim{stroke:var(--pipe-edge);stroke-width:36}
-.pipe-body{stroke:#fffdf5;stroke-width:32}
-.transport-route{stroke:var(--pipe-tone);stroke-width:25}
+.transport-pipes g{--pipe-tone:#4bc9bf;--pipe-edge:#2da99f;--pipe-light:#89e1d5}
+.transport-pipes g[data-route=b]{--pipe-tone:#ed8b77;--pipe-edge:#d46c5c;--pipe-light:#f6b4a2}
+.pipe-shadow{stroke:#173b3615;stroke-width:calc(var(--pipe-width) + 4px);transform:translateY(3px)}
+.pipe-rim{stroke:var(--pipe-edge);stroke-width:var(--pipe-width)}
+.pipe-body{stroke:var(--pipe-tone);stroke-width:calc(var(--pipe-width) * .9)}
+.transport-route{stroke:var(--pipe-light);stroke-width:calc(var(--pipe-width) * .52)}
 #scene{z-index:2}
+.pipe-meter.vote-option{padding:0;border:0;background:transparent;pointer-events:auto;min-width:48px;min-height:44px}
+.pipe-meter.vote-option:active:not(:disabled){transform:translate(-50%,-50%) scale(.96)}
 .composer .input-row button{position:relative;flex:none;width:66px;min-width:66px;max-width:none;height:66px;min-height:66px;padding:0;border-radius:50%;background:transparent;color:var(--deep);box-shadow:none}
 .composer .input-row button:disabled{background:transparent;color:#71817a;box-shadow:none}
 .composer .input-row button:disabled .send-capsule{--inlet-color:#b8c8c0;opacity:.7}
@@ -43,11 +45,8 @@
 .slide-controls{flex-wrap:wrap;margin-top:8px}
 .slide-controls #slide-status{margin-left:auto}
 @media(max-width:700px){
-  .pipe-shadow{stroke-width:20;transform:translateY(2px)}
-  .pipe-rim{stroke-width:18}
-  .pipe-body{stroke-width:15}
-  .transport-route{stroke-width:11}
-  .composer-dock{margin-top:-28px;padding:0 4px 16px}
+  .pipe-shadow{transform:translateY(2px)}
+  .composer-dock{margin-top:-28px;padding:0 22px 16px}
   .composer{padding:10px 4px}
   .composer .composer-top{margin:0 10px 8px;gap:8px}
   .composer .composer-top label{font-size:11px}

@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { createCapsules } from './capsules.js';
 import { createCharacterDuel } from './character-duel.js';
+import { createHistoryConversation } from './history-conversation.js';
+import { createWalkingCharacters } from './walking-characters.js';
+import { createCapsuleReveals } from './capsule-reveals.js';
 import { createClash } from './clash.js';
 import { createDispenser } from './dispenser.js';
 import { TRAY } from './dispenser-physics.js';
@@ -80,18 +83,26 @@ export function createArena(container, onSelect, onReveal) {
   const stage = container.parentElement;
   const duel = createCharacterDuel(stage, onSelect, onReveal);
   const duelField = stage.querySelector('.character-duel');
+  duelField.hidden = true;
+  const historyModels = createWalkingCharacters(scene, 4);
+  const history = createHistoryConversation(stage, onSelect, onReveal, {
+    ...historyModels,
+    project: point => project([point.x, point.y, point.z]),
+  });
+  const reveals = createCapsuleReveals(container, onSelect);
   const clash = createClash(scene, container, camera, () => {}, {
     onImpact: ({ point }) => { if (!reduced.matches) capsules.shockwave(point); },
     onImpactComplete: startGroup
   });
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   let groupId = 0, outputQueue = [], outputClock = 0, seeded = false;
-  let deferredReply = null;
   const replyQueue = [];
   const dispenser = createDispenser(scene, () => {}, {
     onOpened(entry) {
       if (entry.groupId !== groupId) return;
-      duel.emerge(entry.role, () => project([entry.body.position.x, entry.body.position.y + 0.25, entry.body.position.z]), reduced.matches);
+      const origin = () => project([entry.body.position.x, entry.body.position.y + 0.25, entry.body.position.z]);
+      if (entry.kind === 'history') history.emerge(entry.post, entry.characterOrigin, reduced.matches);
+      else duel.emerge(entry.role, origin, reduced.matches);
     }
   });
   function project(position) {
@@ -110,13 +121,22 @@ export function createArena(container, onSelect, onReveal) {
     releaseClock = 0;
   }
   function startSelection(selection) {
-    if (!selection.post.replyTo) { startGroup(selection); return; }
+    if (!selection.post.replyTo || !selection.fresh && !selection.replayClash) {
+      duel.clear();
+      duelField.hidden = true;
+      history.setVisible(true);
+      outputQueue.push({ post: selection.post, fresh: false, kind: 'history', groupId });
+      outputClock = 1;
+      releaseClock = 0;
+      return;
+    }
     // Keep the earlier slide presentation intact until it is finished, then replace it.
     outputQueue = [];
     groupId++;
     dispenser.clearAll();
     duel.clear();
     duelField.hidden = true;
+    history.setVisible(false);
     clash.reposition();
     clash.start(selection.post, selection.fresh, reduced.matches);
     pipes.a.until = pipes.b.until = performance.now() + 1000;
@@ -124,7 +144,11 @@ export function createArena(container, onSelect, onReveal) {
   }
   let releaseClock = 0, pipeClock = 0, allowPausedRelease = false, spillQueue = 0;
   let disposed = false, controlKey = '', frame = 0, awakeUntil = 0, last = performance.now(), isVisible = true, paused = false, statsAt = 0;
-  function syncMotionPause() { duel.setPaused((paused && !allowPausedRelease) || !isVisible || document.hidden); }
+  function syncMotionPause() {
+    const stopped = (paused && !allowPausedRelease) || !isVisible || document.hidden;
+    duel.setPaused(stopped);
+    history.setPaused(stopped);
+  }
   function wake() {
     if (disposed) return;
     syncMotionPause();
@@ -148,17 +172,17 @@ export function createArena(container, onSelect, onReveal) {
     }
     releaseClock += delta;
     const waiting = capsules.stats();
-    const priority = waiting.queuedId !== null || replyQueue.length > 0 || !!deferredReply;
+    const priority = waiting.queuedId !== null || replyQueue.length > 0;
     const userSpill = spillQueue > 0;
-    const due = reduced.matches || releaseClock >= (priority ? 0.55 : userSpill ? 0.1 : 10);
-    const canMove = (!paused || allowPausedRelease) && !duel.pinned();
-    const replaceReady = deferredReply ? duel.canReplace(false) : duel.canReplace(priority || userSpill);
+    const due = reduced.matches || releaseClock >= (priority ? 0.55 : userSpill ? 0.1 : 3.2);
+    const canMove = (!paused || allowPausedRelease) && !duel.pinned() && !history.pinned();
+    const replaceReady = duel.canReplace(false) && !outputQueue.length &&
+      !history.stats().historyArriving && dispenser.readyForNext(true, reduced.matches);
     if (canMove && !clash.busy() && replaceReady && due && (priority || userSpill || (!paused && !reduced.matches))) {
-      const selection = deferredReply ?? (replyQueue.length ? replyQueue.shift() : waiting.queuedId !== null ? (waiting.drawReady ? capsules.takeForDraw() : null) : capsules.takeHistorical());
+      const selection = replyQueue.length ? replyQueue.shift() : waiting.queuedId !== null ? (waiting.drawReady ? capsules.takeForDraw() : null) : capsules.takeHistorical();
       if (selection) {
         if (userSpill && !priority) spillQueue--;
-        if (selection.post.replyTo && !duel.canReplace(false)) deferredReply = selection;
-        else { deferredReply = null; startSelection(selection); }
+        startSelection(selection);
       }
     }
     if (canMove) {
@@ -168,10 +192,15 @@ export function createArena(container, onSelect, onReveal) {
       }
       dispenser.step(delta, reduced.matches);
       duel.step(delta, reduced.matches);
+      history.step(delta, reduced.matches);
       clash.step(delta);
     }
+    if (!reduced.matches && !duelField.hidden && duel.canReplace(false) && !clash.busy()) {
+      duel.clear(); duelField.hidden = true; history.setVisible(true);
+    }
+    reveals.update([], capsules.presentation().tracking, camera);
     const outputActive = outputQueue.length > 0 || dispenser.outputs().length > 0;
-    if (paused && !capsules.stats().pendingFresh && !replyQueue.length && !deferredReply && !spillQueue && !outputActive && !duel.needsFrame() && !clash.busy()) {
+    if (paused && !replyQueue.length && !spillQueue && !outputActive && !duel.needsFrame() && !history.stats().historyArriving && !clash.busy()) {
       allowPausedRelease = false;
       syncMotionPause();
     }
@@ -184,15 +213,15 @@ export function createArena(container, onSelect, onReveal) {
     syncControls();
     if (now - statsAt > 250) {
       statsAt = now;
-      container.dataset.renderStats = JSON.stringify({ ...capsules.stats(), ...dispenser.stats(), ...duel.stats(), ...clash.stats(), outputQueued: outputQueue.length, replyQueued: replyQueue.length + Number(!!deferredReply), spillQueue, draws: renderer.info.render.calls, geometries: renderer.info.memory.geometries });
+      container.dataset.renderStats = JSON.stringify({ ...capsules.stats(), ...dispenser.stats(), ...duel.stats(), ...history.stats(), ...clash.stats(), outputQueued: outputQueue.length, replyQueued: replyQueue.length, spillQueue, draws: renderer.info.render.calls, geometries: renderer.info.memory.geometries });
       container.dataset.flowState = reduced.matches ? 'reduced' : paused ? 'paused' : 'running';
     }
-    const pendingRelease = (waiting.pendingFresh || replyQueue.length || deferredReply || spillQueue) && !clash.busy() && duel.canReplace(true);
-    if ((!paused && !reduced.matches) || ((allowPausedRelease || (!paused && reduced.matches)) && (pendingRelease || outputActive || duel.needsFrame() || clash.needsFrame())) || now < awakeUntil) frame = requestAnimationFrame(tick);
+    const pendingRelease = (waiting.queuedId !== null || replyQueue.length || spillQueue) && !clash.busy() && duel.canReplace(false);
+    if ((!paused && !reduced.matches) || ((allowPausedRelease || (!paused && reduced.matches)) && (pendingRelease || outputActive || duel.needsFrame() || history.needsFrame() || clash.needsFrame())) || now < awakeUntil) frame = requestAnimationFrame(tick);
   }
   function syncControls() {
     const stats = capsules.stats(), busy = duel.busy() || clash.busy();
-    const detail = { phase: dispenser.stats().outputRolling ? 'rolling' : busy ? 'open' : 'idle', ready: stats.drawReady && !busy, pending: stats.pendingFresh > 0 || replyQueue.length > 0 || !!deferredReply };
+    const detail = { phase: dispenser.stats().outputRolling ? 'rolling' : busy ? 'open' : 'idle', ready: stats.drawReady && !busy, pending: replyQueue.length > 0 };
     const key = JSON.stringify(detail);
     if (key !== controlKey) { controlKey = key; container.dispatchEvent(new CustomEvent('slidestate', { detail })); }
   }
@@ -216,9 +245,19 @@ export function createArena(container, onSelect, onReveal) {
     camera.setViewOffset(width, height, 0, -centerY * height / 2, width, height);
     const anchors = {};
     for (const side of ['a', 'b']) {
-      const pose = nozzlePose(side);
-      const rear = new THREE.Vector3(...pose.mouth).addScaledVector(new THREE.Vector3(...pose.direction).normalize(), -PIPE_LENGTH);
-      anchors[side] = project(rear.toArray());
+      const pose = nozzlePose(side), direction = new THREE.Vector3(...pose.direction).normalize();
+      const rear = new THREE.Vector3(...pose.mouth).addScaledVector(direction, -PIPE_LENGTH);
+      const rearPoint = project(rear.toArray()), mouthPoint = project(pose.mouth);
+      const axisX = mouthPoint.x - rearPoint.x, axisY = mouthPoint.y - rearPoint.y;
+      const axisLength = Math.hypot(axisX, axisY);
+      const crossSection = new THREE.Vector3().crossVectors(direction, camera.position.clone().sub(rear)).normalize().multiplyScalar(0.8);
+      const rimA = project(rear.clone().add(crossSection).toArray());
+      const rimB = project(rear.clone().sub(crossSection).toArray());
+      anchors[side] = {
+        ...rearPoint,
+        direction: { x: axisX / axisLength, y: axisY / axisLength },
+        width: Math.hypot(rimA.x - rimB.x, rimA.y - rimB.y)
+      };
       const station = stage.querySelector('#station-' + side), p = project(nozzlePose(side).mouth);
       if (station) {
         station.style.left = p.x + 'px'; station.style.top = p.y + 'px';
@@ -233,8 +272,11 @@ export function createArena(container, onSelect, onReveal) {
     const caption = stage.querySelector('.tank-caption');
     if (caption) { caption.style.left = tankLabel.x + 'px'; caption.style.top = tankLabel.y + 'px'; }
     const landingZ = 10.1;
-    const landingY = TRAY.y + (TRAY.frontY - TRAY.y) * (landingZ - TRAY.back) / (TRAY.front - TRAY.back) + 0.2;
-    duel.setLayout([-4.4, 4.4].map(x => project([x, landingY, landingZ])));
+    const landingY = TRAY.y + (TRAY.frontY - TRAY.y) * (landingZ - TRAY.back) / (TRAY.front - TRAY.back) + 0.12;
+    const worldDestinations = [-4.4, 4.4].map(x => ({ x, y: landingY, z: landingZ }));
+    const destinations = worldDestinations.map(point => project([point.x, point.y, point.z]));
+    duel.setLayout(destinations);
+    history.setLayout({ left: destinations[0], right: destinations[1], worldLeft: worldDestinations[0], worldRight: worldDestinations[1], width });
     clash.reposition();
     if (clash.busy()) clash.step(0);
     wake();
@@ -250,6 +292,7 @@ export function createArena(container, onSelect, onReveal) {
   reduced.addEventListener('change', wake);
   const duelWake = () => wake();
   stage.addEventListener('duelwake', duelWake);
+  stage.addEventListener('historywake', duelWake);
   const clashWake = () => { allowPausedRelease = paused; wake(); };
   container.addEventListener('clashwake', clashWake);
   renderer.domElement.addEventListener('click', event => {
@@ -265,8 +308,9 @@ export function createArena(container, onSelect, onReveal) {
       document.removeEventListener('visibilitychange', visibilityChanged);
       window.removeEventListener('sparringassetsready', wake);
       stage.removeEventListener('duelwake', duelWake);
+      stage.removeEventListener('historywake', duelWake);
       container.removeEventListener('clashwake', clashWake);
-      outputQueue = []; replyQueue.length = 0; deferredReply = null; dispenser.clearAll(); duel.dispose(); clash.dispose();
+      outputQueue = []; replyQueue.length = 0; dispenser.clearAll(); duel.dispose(); history.dispose(); reveals.dispose(); clash.dispose();
       const geometries = new Set(), materials = new Set(), textures = new Set();
       scene.traverse(object => {
         if (object.geometry) geometries.add(object.geometry);
@@ -281,6 +325,11 @@ export function createArena(container, onSelect, onReveal) {
     },
     chooseSide(side) { pipes[side].until = performance.now() + 600; wake(); },
     spill() { spillQueue = Math.min(spillQueue + 1, 4); allowPausedRelease = paused; wake(); },
+    replayReply(post) {
+      if (!post.replyTo) return;
+      if (!replyQueue.some(item => item.post.id === post.id)) replyQueue.push({ post, fresh: false, replayClash: true });
+      allowPausedRelease = paused; wake();
+    },
     launch(post) {
       allowPausedRelease = paused;
       if (post.replyTo) replyQueue.push({ post, fresh: true });
@@ -289,13 +338,14 @@ export function createArena(container, onSelect, onReveal) {
         pipes[post.side].until = performance.now() + 600;
       }
       wake();
+      awakeUntil = performance.now() + 5000;
     },
     celebrate(id) { if (!reduced.matches) capsules.nudge(id); wake(); },
     updateState(posts, balance) {
       capsules.updateState(posts, balance); duel.updateState(posts);
       if (!seeded) {
         seeded = true;
-        if (posts.length) startSelection({ post: posts.at(-1), fresh: false });
+        if (posts.length) startSelection(capsules.takeHistorical());
       }
       wake();
     },

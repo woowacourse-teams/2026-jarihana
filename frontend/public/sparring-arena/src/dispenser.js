@@ -4,6 +4,7 @@ import { createDispenserPhysics, OUTPUT_CAPACITY, SLIDE, TRAY } from './dispense
 import { TANK, RADIUS } from './physics.js';
 import { studioMaterial } from './studio-materials.js';
 import { characterPose, characterVariant } from './character-motion.js';
+import { createWalkingCharacters } from './walking-characters.js';
 
 const VISIBLE_LIMIT = 4;
 const SHELL_LIFETIME = 2.5, SHELL_FADE = 0.35;
@@ -40,7 +41,7 @@ export function createDispenser(scene, onReveal, { onOpened = () => {} } = {}) {
     rail.castShadow = true; scene.add(rail);
   }
   box([TRAY.frontWidth, 0.32, 0.16], [0, TRAY.frontY + 0.16, TRAY.front], rim);
-  const batch = createCapsuleBatch(scene, OUTPUT_CAPACITY), physics = createDispenserPhysics();
+  const batch = createCapsuleBatch(scene, OUTPUT_CAPACITY, createWalkingCharacters), physics = createDispenserPhysics();
   const slots = Array(OUTPUT_CAPACITY).fill(null);
   for (let i = 0; i < OUTPUT_CAPACITY; i++) batch.hide(i);
   let opened = 0, serial = 0, latest = null, pair = null;
@@ -70,7 +71,7 @@ export function createDispenser(scene, onReveal, { onOpened = () => {} } = {}) {
     const index = available(selection?.fresh);
     if (index < 0 || !selection || (!paired && !reduced && !selection.fresh && !physics.inletClear())) return false;
     if (slots[index]) clear(index);
-    const entry = { ...selection, body: physics.reset(index), born: ++serial, openedAt: null, dispensed: true, phase: 'rolling', elapsed: 0, revealed: false, reduced };
+    const entry = { ...selection, body: physics.reset(index, selection.kind === 'history' ? 5.2 : undefined), born: ++serial, openedAt: null, dispensed: true, phase: 'rolling', elapsed: 0, revealed: false, reduced };
     slots[index] = entry;
     if (reduced) {
       for (let i = 0; i < 900 && !physics.ready(index); i++) physics.step(1 / 120);
@@ -92,6 +93,9 @@ export function createDispenser(scene, onReveal, { onOpened = () => {} } = {}) {
   }
   function open(index, entry, reduced) {
     if (entry.phase === 'open') return;
+    const { x, y, z } = entry.body.position;
+    entry.characterOrigin = { x, y: y - 0.34 * RADIUS / 0.48, z,
+      floorY: TRAY.y + (TRAY.frontY - TRAY.y) * (z - TRAY.back) / (TRAY.front - TRAY.back) + 0.12 };
     entry.parts = physics.breakApart(index, reduced);
     entry.body = entry.parts.bottom;
     entry.phase = 'open'; entry.elapsed = 0; entry.reduced = reduced;

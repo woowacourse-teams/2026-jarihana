@@ -4,6 +4,7 @@ import { TRAY } from './dispenser-physics.js';
 export function createCapsuleReveals(container, onSelect) {
   const layer = document.createElement('div');
   layer.className = 'capsule-notes';
+  layer.dataset.phPrivate = 'true';
   const lines = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   lines.classList.add('capsule-connectors');
   layer.append(lines);
@@ -94,5 +95,5 @@ export function createCapsuleReveals(container, onSelect) {
     burst.addEventListener('animationend', () => burst.remove(), { once: true });
     layer.append(burst);
   }
-  return { update, spark };
+  return { update, spark, dispose() { layer.remove(); notes.clear(); flights.clear(); } };
 }

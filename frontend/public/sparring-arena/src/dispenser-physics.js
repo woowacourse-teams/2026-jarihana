@@ -53,11 +53,11 @@ export function createDispenserPhysics({ seed = 73 } = {}) {
       impacts[index] = { elapsed: age[index], speed, x: body.position.x, z: body.position.z, target: event.body === bumper ? 'bumper' : event.body.mass > 0 ? 'capsule' : 'tray' };
     }
   }));
-  function reset(index) {
+  function reset(index, rollSpeed = ROLL_SPEED) {
     const body = bodies[index];
     release(index);
     body.type = CANNON.Body.DYNAMIC;
-    const speed = ROLL_SPEED * between(0.78, 1.16);
+    const speed = rollSpeed * between(0.78, 1.16);
     body.mass = between(0.55, 0.9); body.updateMassProperties();
     body.position.set(between(-0.3, 0.3), OUTLET.y + between(0, 0.12), OUTLET.z);
     body.velocity.set(between(-1.8, 1.8), between(-1.4, -0.5), speed);

@@ -10,7 +10,6 @@ export function createCapsules(scene, onSelect, onReady) {
   let pipeCredit = 0;
   const replayCounts = { a: 0, b: 0 };
   const pipeCursors = { a: 0, b: 0 };
-  const pending = [];
   function historical() {
     if (!posts.length) return null;
     historyExchanges++;
@@ -35,8 +34,8 @@ export function createCapsules(scene, onSelect, onReady) {
     initialized = true; draw();
   }
   function launch(post, { reduced = false } = {}) {
-    physics.launch(post, { mode, fresh: true, speed: speedFor(post.side) });
-    pending.push({ post, fresh: true });
+    const entry = physics.launch(post, { mode, fresh: true, speed: speedFor(post.side) });
+    entry.flightUntil = performance.now() + 4500;
     if (reduced || paused) physics.settle(1);
     draw();
   }
@@ -75,7 +74,6 @@ export function createCapsules(scene, onSelect, onReady) {
     selectedForDraw = post; onSelect(post.id); return true;
   }
   function takeForDraw() {
-    if (pending.length) return pending.shift();
     if (selectedForDraw) { const post = selectedForDraw; selectedForDraw = null; return { post, fresh: false }; }
     return takeHistorical();
   }
@@ -84,13 +82,13 @@ export function createCapsules(scene, onSelect, onReady) {
     const entry = physics.entries.find(entry => entry.post?.id === id);
     if (entry) { entry.body.wakeUp(); entry.body.velocity.y += 1; }
   }
-  function presentation() { return { tracking: physics.entries.filter(entry => entry.fresh && physics.world.time - entry.born < 4.5).sort((a, b) => b.born - a.born).slice(0, 4) }; }
+  function presentation() { return { tracking: physics.entries.filter(entry => entry.fresh && performance.now() < entry.flightUntil).sort((a, b) => b.flightUntil - a.flightUntil).slice(0, 4) }; }
   function stats() {
     return { ...physics.stats(), capsules: CAPACITY, visibleCapsules: populated ? CAPACITY : 0,
       mintCapsules: populated ? physics.entries.filter(entry => entry.visualSide === 'a').length : 0,
       coralCapsules: populated ? physics.entries.filter(entry => entry.visualSide === 'b').length : 0,
-      historyExchanges, pipeReplays, pipeReplaysA: replayCounts.a, pipeReplaysB: replayCounts.b, speedA: speedFor('a'), speedB: speedFor('b'), pendingFresh: pending.length, drawReady: initialized,
-      queuedId: pending[0]?.post.id ?? selectedForDraw?.id ?? null, mintShare: ratio, mode, paused };
+      historyExchanges, pipeReplays, pipeReplaysA: replayCounts.a, pipeReplaysB: replayCounts.b, speedA: speedFor('a'), speedB: speedFor('b'), drawReady: initialized,
+      queuedId: selectedForDraw?.id ?? null, mintShare: ratio, mode, paused };
   }
   return { updateState, launch, replayPipe, step, pick, nudge, presentation, stats, takeForDraw, takeHistorical, takeCollision: physics.takeCollision,
     shockwave(point) { return populated && !paused ? physics.shockwave(point) : 0; },

@@ -3,7 +3,7 @@ import { characterPose } from './character-motion.js';
 import { createCharacters } from './characters.js';
 import { studioMaterial } from './studio-materials.js';
 
-export function createCapsuleBatch(scene, capacity) {
+export function createCapsuleBatch(scene, capacity, characterFactory = createCharacters) {
   const pieces = [
     [new THREE.SphereGeometry(0.48, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2), studioMaterial({ color: 0xf4fff9, transparent: true, opacity: 0.18, roughness: 0.24, clearcoat: 0.5, side: THREE.DoubleSide, depthWrite: false })],
     [new THREE.SphereGeometry(0.48, 24, 14, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), studioMaterial({ roughness: 0.48, side: THREE.DoubleSide })],
@@ -17,7 +17,7 @@ export function createCapsuleBatch(scene, capacity) {
     return mesh;
   });
   meshes[1].castShadow = meshes[1].receiveShadow = true;
-  const characters = createCharacters(scene, capacity);
+  const characters = characterFactory(scene, capacity);
   const transform = new THREE.Object3D();
   const equator = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
   const identity = new THREE.Quaternion();

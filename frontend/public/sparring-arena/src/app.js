@@ -8,6 +8,7 @@ const store = await connectRoom();
 const roomId = store.snapshot().topic.id;
 let state = store.snapshot();
 let submitting = false, voting = false, shipment = null;
+let pendingSide = null, voteError = '';
 let selectedId = state.posts.at(-1)?.id ?? null;
 let selectedUntil = 0, filter = 'all', historyLimit = 20, flowPaused = false, replyToId = null, arena;
 const own = post => String(post.authorId) === state.actorId;
@@ -38,6 +39,7 @@ function selectPost(id, manual = false) {
   const post = state.posts.find(post => post.id === id);
   if (!post) return;
   selectedId = id;
+  $('#replay-reply').hidden = !scenePost(post).replyTo;
   if (manual) selectedUntil = Infinity;
   $('#current-post').hidden = false;
   $('#post-avatar').textContent = displayName(post).slice(0, 2);
@@ -85,16 +87,17 @@ function renderCounts() {
   $('#percent-a').textContent = (result.total ? percent : 0) + '%';
   $('#percent-b').textContent = (result.total ? 100 - percent : 0) + '%';
   $('#balance-label').textContent = result.total ? '총 ' + result.total + '명 참여 · 캡슐 색 = 투표 비율' : '첫 자리를 기다려요';
-  $('#seat-instruction').textContent = side ? sideNames[side] + '으로 참여 중 · 다른 주장을 누르면 바꿀 수 있어요' : '어느 쪽 생각에 가까워요?';
+  $('#seat-instruction').textContent = voteError || (voting ? sideNames[pendingSide] + ' 선택을 저장하고 있어요…' : side ? sideNames[side] + '으로 참여 중 · 아래에서 한마디를 보낼 수 있어요' : '어느 쪽 생각에 가까워요?');
   for (const choice of ['a', 'b']) $('#station-' + choice).classList.toggle('chosen', choice === side);
-  document.querySelectorAll('button[data-side]').forEach(button => {
+  document.querySelectorAll('.vote-option[data-side]').forEach(button => {
     const chosen = button.dataset.side === side;
     button.disabled = voting || submitting;
+    button.setAttribute('aria-busy', String(voting && button.dataset.side === pendingSide));
     button.setAttribute('aria-pressed', String(chosen));
-    const label = chosen ? '선택한 편' : side ? '이쪽으로 변경' : '이쪽 선택';
+    const label = voting && button.dataset.side === pendingSide ? '선택 중…' : chosen ? '선택한 편' : side ? '이쪽으로 변경' : '이쪽 선택';
     const seat = button.querySelector('.seat-state');
     if (seat) seat.textContent = label;
-    button.setAttribute('aria-label', state.topic[button.dataset.side] + ' · ' + sideNames[button.dataset.side] + ' · ' + label);
+    button.setAttribute('aria-label', state.topic[button.dataset.side] + ' · ' + sideNames[button.dataset.side] + (button.classList.contains('pipe-meter') ? ' 파이프' : '') + ' · ' + label);
   });
   $('#total-count').textContent = state.postCount;
   $('#empty-stage').hidden = !!state.posts.length;
@@ -138,17 +141,22 @@ function renderHistory() {
   $('#more-history').hidden = posts.length <= historyLimit && !state.more[filter === 'mine' ? 'mine' : 'all'];
 }
 function sync() { state = store.snapshot(roomId); renderCounts(); renderHistory(); flowLabel(); }
-document.querySelectorAll('button[data-side]').forEach(button => button.addEventListener('click', async () => {
+document.querySelectorAll('.vote-option[data-side]').forEach(button => button.addEventListener('click', async () => {
   const side = button.dataset.side;
   if (mySide() === side || voting || submitting) return;
-  voting = true; renderCounts();
+  voting = true; pendingSide = side; voteError = '';
   try {
+    renderCounts();
     await store.vote(roomId, state.actorId, '', side); sync();
     arena?.chooseSide(side);
     $('#composer-note').textContent = sideNames[side] + '을 골랐어요. 이제 자유롭게 이야기해요.';
     announce(sideNames[side] + '으로 투표했어요');
-  } catch (error) { $('#composer-note').textContent = error.message; }
-  finally { voting = false; sync(); }
+  } catch (error) {
+    voteError = error.message;
+    $('#composer-note').textContent = voteError;
+    announce(voteError);
+  }
+  finally { voting = false; pendingSide = null; sync(); }
 }));
 setupComposer($('#composer'));
 $('#message').addEventListener('input', renderInput);
@@ -194,7 +202,7 @@ $('#composer').addEventListener('submit', async event => {
     store.reveal(); sync();
     selectedUntil = Date.now() + 8000; selectPost(post.id);
     animateCapsuleSend($('#composer'), post, () => arena?.launch(scenePost(post)));
-    $('#composer-note').textContent = post.replyToId ? '두 의견이 맞붙어요. 받아친 말도 내 대화에 남았어요.' : '내 한마디를 보냈어요. 캐릭터가 곧 나서요.';
+    $('#composer-note').textContent = post.replyToId ? '두 의견이 맞붙어요. 받아친 말도 내 대화에 남았어요.' : '내 한마디를 보냈어요. 파이프에서 말풍선으로 보여요.';
     announce('한마디를 보냈어요. ' + post.text);
   } catch (error) { $('#composer-note').textContent = error.message; }
   finally { submitting = false; sync(); }
@@ -209,6 +217,12 @@ function flowLabel() {
 $('#flow-toggle').addEventListener('click', () => { flowPaused = !flowPaused; arena?.setPaused(flowPaused); flowLabel(); });
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', flowLabel);
 $('#spill').addEventListener('click', () => arena?.spill());
+$('#replay-reply').addEventListener('click', () => {
+  const post = state.posts.find(item => item.id === selectedId);
+  if (!post) return;
+  arena?.replayReply(scenePost(post));
+  $('.stage').scrollIntoView({ block: 'start', behavior: 'smooth' });
+});
 document.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', async () => {
   filter = button.dataset.filter; historyLimit = 20;
   document.querySelectorAll('[data-filter]').forEach(other => other.setAttribute('aria-pressed', String(other === button)));
@@ -242,11 +256,11 @@ store.subscribe(fresh => {
 const actions = {
   composer: 'sparring_post_submit', message: 'sparring_message_edit', send: 'sparring_post_submit',
   'cancel-reply': 'sparring_reply_cancel', 'reply-selected': 'sparring_reply_start',
-  'view-selected': 'sparring_history_locate', 'flow-toggle': 'sparring_flow_toggle',
+  'replay-reply': 'sparring_clash_replay', 'view-selected': 'sparring_history_locate', 'flow-toggle': 'sparring_flow_toggle',
   spill: 'sparring_capsule_release', 'more-history': 'sparring_history_more'
 };
 for (const [id, action] of Object.entries(actions)) $('#' + id).dataset.phCaptureAttributeAction = action;
-for (const button of document.querySelectorAll('[data-side]')) button.dataset.phCaptureAttributeAction = 'sparring_vote';
+for (const button of document.querySelectorAll('.vote-option[data-side]')) button.dataset.phCaptureAttributeAction = 'sparring_vote';
 for (const button of document.querySelectorAll('[data-filter]')) button.dataset.phCaptureAttributeAction = 'sparring_history_filter';
 let height = 0;
 new ResizeObserver(() => {

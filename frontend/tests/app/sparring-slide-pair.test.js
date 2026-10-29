@@ -18,3 +18,16 @@ it('두 캡슐이 함께 미끄럼틀을 내려온 뒤 기존 물리 흐름으�
   expect(physics.ready(0)).toBe(true);
   expect(physics.ready(1)).toBe(true);
 });
+
+it('지난 대화 캡슐은 천천히 굴러도 실제 착지 충돌 후에 열린다', () => {
+  const physics = createDispenserPhysics();
+  const body = physics.reset(0, 5.2), start = body.position.z;
+  expect(physics.ready(0)).toBe(false);
+  for (let i = 0; i < 24; i++) physics.step(1 / 120);
+  expect(body.position.z).toBeGreaterThan(start);
+  expect(physics.ready(0)).toBe(false);
+  for (let i = 0; i < 900 && !physics.ready(0); i++) physics.step(1 / 120);
+  expect(physics.ready(0)).toBe(true);
+  expect(physics.stats(0).impact.speed).toBeGreaterThan(2.2);
+  expect(physics.stats(0).impact.z).toBeGreaterThan(5.5);
+});
