@@ -38,8 +38,11 @@ bg_load() {
     .schema_version==2 and .environment==$env and .run_id==$run and .attempt==1 and .sha==$sha and .control_sha==$control and .topology_digest==$topology and (.revision|type)=="number"' <<<"$STATE" >/dev/null || bg_die 'Journal context differs; manual reconciliation required'
 }
 bg_guard() {
-  local latest
   if [[ ${BG_COORDINATOR_READ_ONLY:-false} == true ]]; then bg_live_readonly; else bg_live; fi
+  bg_guard_local
+}
+bg_guard_local() {
+  local latest
   bg_state_file
   latest=$(cat "$STATE_FILE")
   [[ $latest == "$STATE" ]] || bg_die 'Journal changed while executing this phase'
@@ -53,6 +56,12 @@ bg_save() {
   bg_atomic "$STATE_FILE" "$STATE"
 }
 bg_touch() { bg_save "$STATE"; }
+# File completion may refresh only the heartbeat after its entry guard checked GitHub.
+bg_touch_local() {
+  bg_guard_local
+  STATE=$(jq -c --argjson now "$(bg_now)" '.revision+=1 | .heartbeat=$now' <<<"$STATE")
+  bg_atomic "$STATE_FILE" "$STATE"
+}
 bg_phase() { jq -e --arg phase "$1" '.phase==$phase' <<<"$STATE" >/dev/null || bg_die "Expected phase $1"; }
 bg_pending() {
   jq -e --arg op "$1" --arg slot "$2" --argjson now "$(bg_now)" '.pending.operation==$op and .pending.slot==$slot and .pending.deadline>$now' <<<"$STATE" >/dev/null || bg_die 'Operation grant differs or expired'
