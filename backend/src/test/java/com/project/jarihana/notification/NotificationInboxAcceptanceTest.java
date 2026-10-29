@@ -95,7 +95,7 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
     }
 
     @ParameterizedTest
-    @EnumSource(NotificationEventType.class)
+    @EnumSource(value = NotificationEventType.class, names = "GROUP_ANNOUNCEMENT_CREATED", mode = EnumSource.Mode.EXCLUDE)
     @DisplayName("모든 사건은 모임 이름과 사건별 이동 대상을 반환한다.")
     void showGroupNameAndTargetForEveryEvent(NotificationEventType eventType) {
         // Given

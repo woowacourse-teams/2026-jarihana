@@ -2,7 +2,7 @@
 
 ## Flyway 순서
 
-회원 소속 확장 PR [#481](https://github.com/woowacourse-teams/2026-jarihana/pull/481)의 V11을 먼저 반영합니다. #484는 이미 #481 브랜치에 병합되어 있으며 별도 migration을 추가하지 않습니다. 이후 호환성 PR #490의 V12 구독 지원 버전, 이 공지 PR #459의 V13 공지 스키마를 순서대로 반영합니다. **#481 V11 → #490 V12 → #459 V13** 순서를 지킵니다.
+회원 소속 확장 PR [#481](https://github.com/woowacourse-teams/2026-jarihana/pull/481)의 V11을 먼저 반영합니다. #484는 이미 #481 브랜치에 병합되어 있으며 별도 migration을 추가하지 않습니다. 이후 선행 호환성 PR [#490](https://github.com/woowacourse-teams/2026-jarihana/pull/490)의 V12 구독 지원 버전과 후속 공지 기능 PR [#459](https://github.com/woowacourse-teams/2026-jarihana/pull/459)의 V13 공지 스키마를 순서대로 반영합니다. **#481 V11 → #490 V12 → #459 V13** 순서를 지킵니다.
 
 ## 두 번 나누어 배포하는 이유
 
