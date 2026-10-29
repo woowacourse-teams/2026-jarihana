@@ -1,5 +1,5 @@
 import { Check, ChevronDown } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 const PERIODS = [
   { label: "오전", value: "am" },
@@ -28,6 +28,7 @@ function combineTime(period, hour, minute) {
 }
 
 function TimeOptionList({ id, label, onClose, onSelect, options, selectedValue }) {
+  const listReference = useRef(null);
   const optionReferences = useRef([]);
   const enabledIndexes = options.reduce((indexes, option, index) => {
     if (!option.disabled) indexes.push(index);
@@ -37,6 +38,32 @@ function TimeOptionList({ id, label, onClose, onSelect, options, selectedValue }
     (option) => option.value === selectedValue && !option.disabled
   );
   const initialIndex = selectedIndex >= 0 ? selectedIndex : enabledIndexes[0];
+
+  useLayoutEffect(() => {
+    const list = listReference.current;
+    const field = list.parentElement;
+    const container = list.closest(".ui-dialog, #main-content");
+    const containerBounds = container?.getBoundingClientRect();
+    const headerBottom = container?.id === "main-content"
+      ? document.querySelector(".app-header")?.getBoundingClientRect().bottom ?? 0
+      : 0;
+    const visibleTop = Math.max(headerBottom, (containerBounds?.top ?? 0) + (container?.clientTop ?? 0), 0);
+    const visibleBottom = Math.min(
+      window.innerHeight,
+      container ? containerBounds.top + container.clientTop + container.clientHeight : window.innerHeight
+    );
+    const fieldBounds = field.getBoundingClientRect();
+    const gap = list.offsetTop - field.clientHeight;
+    const spaceBelow = Math.max(0, visibleBottom - fieldBounds.bottom - gap);
+    const spaceAbove = Math.max(0, fieldBounds.top - visibleTop - gap * 2);
+    const opensAbove = list.offsetHeight > spaceBelow && spaceAbove > spaceBelow;
+
+    list.dataset.placement = opensAbove ? "above" : "below";
+    list.style.setProperty(
+      "--time-options-available-height",
+      `${opensAbove ? spaceAbove : spaceBelow}px`
+    );
+  }, []);
 
   useEffect(() => {
     optionReferences.current[initialIndex]?.focus();
@@ -55,6 +82,7 @@ function TimeOptionList({ id, label, onClose, onSelect, options, selectedValue }
       aria-label={label}
       className="ui-time-picker__options"
       id={id}
+      ref={listReference}
       role="listbox"
     >
       {options.map((option, index) => (
