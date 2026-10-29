@@ -1,4 +1,16 @@
-import { ArrowRight, CalendarDays, Camera, CheckCircle2, ClipboardCheck, Plus, Search, UserPlus } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarDays,
+  CalendarRange,
+  Camera,
+  CheckCircle2,
+  ClipboardCheck,
+  Hand,
+  MessageCircle,
+  Plus,
+  Search,
+  UserPlus
+} from "lucide-react";
 import { Link } from "react-router";
 
 import { LandingProductScene } from "./LandingProductScene";
@@ -34,6 +46,15 @@ const guideChapters = [
   }
 ];
 
+const proposalChapters = [{
+  id: "proposal",
+  number: "01",
+  icon: Hand,
+  title: "함께할 마음 모으기",
+  checks: ["모임 제안 올리기", "가능한 시간, 방식, 분위기 모으기"],
+  alt: "모임 제안에 함께하고 싶어요가 모이고 가능한 시간과 진행 방식, 분위기가 정리되는 자유게시판 이용 예시"
+}];
+
 const hostChapters = [
   {
     id: "create",
@@ -62,13 +83,32 @@ const inviteChapters = [{
   alt: "회원을 검색해 함께할 사람을 선택하고 초대하거나 링크를 공유하는 이용 예시"
 }];
 
+const chatChapters = [
+  {
+    id: "chat",
+    number: "01",
+    icon: MessageCircle,
+    title: "모임 사람들과 바로 대화하기",
+    checks: ["모임마다 열리는 대화방", "안 읽은 메시지 표시"],
+    alt: "참여한 모임의 대화방에서 안 읽은 메시지를 확인하고 바로 답장하는 채팅 이용 예시"
+  },
+  {
+    id: "calendar",
+    number: "02",
+    icon: CalendarRange,
+    title: "다음 일정 한눈에 보기",
+    checks: ["정기 모임과 개별 일정 보기", "날짜를 골라 일정 확인"],
+    alt: "모임 캘린더에서 정기 모임과 개별 일정을 보고 날짜를 골라 그날 일정을 확인하는 이용 예시"
+  }
+];
+
 const activityChapters = [{
   id: "activity",
   number: "01",
   icon: Camera,
   title: "활동 기록 남기기",
   checks: ["사진과 글 올리기", "댓글과 하트 남기기"],
-  alt: "활동 사진과 짧은 글을 올리고 댓글과 하트로 대화하는 활동 피드 이용 예시"
+  alt: "활동 사진과 짧은 글을 올리고 댓글과 하트로 대화한 뒤 새 반응을 알림함에서 확인하는 활동 피드 이용 예시"
 }];
 
 function ProductFrame({ chapter, isActive = true, playbackActive = isActive }) {
@@ -114,7 +154,7 @@ function GuideChapter({ chapter, active }) {
       aria-current={active ? "step" : undefined}
       className="landing-guide-chapter"
       data-guide-chapter={chapter.id}
-      id={`guide-${chapter.id}${["invite", "activity"].includes(chapter.id) ? "-demo" : ""}`}
+      id={`guide-${chapter.id}${["proposal", "invite", "chat", "activity"].includes(chapter.id) ? "-demo" : ""}`}
     >
       <div className="landing-guide-chapter__number">
         <Icon aria-hidden="true" size={22} strokeWidth={1.7} />
@@ -186,7 +226,7 @@ export function LandingGuide({ createAction = null, activeChapter = "participate
           data-guide-chapter="participate-intro"
           id="how"
         >
-          <p className="landing-eyebrow">01 · 모임에 참여하기</p>
+          <p className="landing-eyebrow">01 모임에 참여하기</p>
           <h2 id="guide-title">
             관심 있는 모임을 찾았다면,
             <br />
@@ -202,8 +242,43 @@ export function LandingGuide({ createAction = null, activeChapter = "participate
 
       <GuideSection
         activeChapter={activeChapter}
+        chapters={proposalChapters}
+        className="landing-guide-proposal landing-guide--reversed"
+        id="guide-proposal"
+        titleId="proposal-title"
+      >
+        <div
+          aria-current={activeChapter === "proposal-intro" ? "step" : undefined}
+          className="landing-guide__intro"
+          data-guide-chapter="proposal-intro"
+        >
+          <p className="landing-eyebrow">02 자유게시판</p>
+          <h2 id="proposal-title">
+            이런 모임,
+            <br />
+            같이할 사람?
+          </h2>
+          <p>
+            아직 작은 생각이어도 좋아요.
+            <br />
+            같이하겠다는 사람과 가능한 시간이 모이면, 그때 모임으로 열어요.
+          </p>
+          <div className="landing-guide__actions">
+            <Link
+              className="landing-button landing-button--soft"
+              data-ph-capture-attribute-action="landing_board_explore"
+              to="/board"
+            >
+              자유게시판 둘러보기 <ArrowRight aria-hidden="true" size={20} />
+            </Link>
+          </div>
+        </div>
+      </GuideSection>
+
+      <GuideSection
+        activeChapter={activeChapter}
         chapters={hostChapters}
-        className="landing-guide-host landing-guide--reversed"
+        className="landing-guide-host"
         id="guide-host"
         titleId="guide-host-title"
       >
@@ -212,14 +287,14 @@ export function LandingGuide({ createAction = null, activeChapter = "participate
           className="landing-guide__intro"
           data-guide-chapter="host-intro"
         >
-          <p className="landing-eyebrow">02 · 직접 만들고 운영하기</p>
+          <p className="landing-eyebrow">03 직접 만들고 운영하기</p>
           <h2 id="guide-host-title">
             찾던 모임이 없다면,
             <br />
             내가 하나 만들면 되죠.
           </h2>
           <p>
-            모임을 소개하고, 일정과 장소를 정해 함께할 크루를 모집해요.
+            모임을 소개하고, 일정과 장소를 정해 함께할 사람을 모집해요.
             <br />
             들어온 참여 신청도 한곳에서 확인하고 승인할 수 있어요.
           </p>
@@ -230,7 +305,7 @@ export function LandingGuide({ createAction = null, activeChapter = "participate
       <GuideSection
         activeChapter={activeChapter}
         chapters={inviteChapters}
-        className="landing-guide-invite"
+        className="landing-guide-invite landing-guide--reversed"
         id="guide-invite"
         titleId="invite-title"
       >
@@ -239,8 +314,34 @@ export function LandingGuide({ createAction = null, activeChapter = "participate
           className="landing-guide__intro"
           data-guide-chapter="invite-intro"
         >
-          <p className="landing-eyebrow">03 · 초대하기</p>
+          <p className="landing-eyebrow">04 초대하기</p>
           <h2 id="invite-title">이 자리, 네가 함께하면 좋겠어.</h2>
+        </div>
+      </GuideSection>
+
+      <GuideSection
+        activeChapter={activeChapter}
+        chapters={chatChapters}
+        className="landing-guide-chat"
+        id="guide-chat"
+        titleId="chat-title"
+      >
+        <div
+          aria-current={activeChapter === "chat-intro" ? "step" : undefined}
+          className="landing-guide__intro"
+          data-guide-chapter="chat-intro"
+        >
+          <p className="landing-eyebrow">05 모임 채팅과 일정</p>
+          <h2 id="chat-title">
+            모임 단톡방,
+            <br />
+            따로 만들 필요 없어요.
+          </h2>
+          <p>
+            모임에 참여하면 대화방이 바로 열려요.
+            <br />
+            정기 모임과 개별 일정도 캘린더에서 함께 확인해요.
+          </p>
         </div>
       </GuideSection>
 
@@ -256,8 +357,13 @@ export function LandingGuide({ createAction = null, activeChapter = "participate
           className="landing-guide__intro"
           data-guide-chapter="activity-intro"
         >
-          <p className="landing-eyebrow">04 · 활동 피드</p>
+          <p className="landing-eyebrow">06 활동 피드</p>
           <h2 id="activity-title">함께한 순간은, 우리의 기록으로.</h2>
+          <p>
+            내 기록에 달린 댓글과 하트는 알림함으로 알려 드려요.
+            <br />
+            휴대폰 홈 화면에 추가하고 알림을 켜면 푸시로도 받을 수 있어요.
+          </p>
         </div>
       </GuideSection>
     </div>
