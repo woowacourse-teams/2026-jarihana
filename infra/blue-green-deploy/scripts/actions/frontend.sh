@@ -137,21 +137,22 @@ fe_public_check() {
       --header 'Accept-Encoding: identity' --header 'Cache-Control: no-cache' \
       "$FE_PUBLIC/$path" --output "$FE_TEMP/public-file" || bg_die 'Frontend public HTTP check failed'
     [[ $(sha256sum "$FE_TEMP/public-file" | cut -d ' ' -f1) == "$expected" ]] || bg_die 'Frontend public content differs'
-    bg_touch
+    bg_touch_local
   done < <(jq -r '.files[]|[.path,.sha256]|@tsv' "$manifest")
+  bg_guard
 }
 fe_archive() {
   local directory=$1 manifest=$2 release path
   release=$(jq -r .release_id "$manifest"); fe_id "$release"
   fe_verify_files "$manifest" "$directory"
   while IFS= read -r path; do
-    bg_guard; bg_live
+    bg_guard
     fe_aws s3api put-object --bucket "$FE_BUCKET" --key "$FE_ARCHIVE/$release/files/$path" --body "$directory/$path" --if-none-match '*' >/dev/null || bg_die 'Immutable frontend file upload failed or uncertain'
     fe_get "$FE_ARCHIVE/$release/files/$path" "$FE_TEMP/verify-file" >/dev/null || bg_die 'Frontend archive readback failed'
     cmp -s "$directory/$path" "$FE_TEMP/verify-file" || bg_die 'Frontend archive readback differs'
-    bg_touch
+    bg_touch_local
   done < <(jq -r '.files[].path' "$manifest")
-  bg_guard; bg_live
+  bg_guard
   fe_aws s3api put-object --bucket "$FE_BUCKET" --key "$FE_ARCHIVE/$release/release.json" --body "$manifest" --content-type application/json --if-none-match '*' >/dev/null || bg_die 'Frontend completion manifest upload uncertain'
   bg_touch
 }
@@ -162,11 +163,13 @@ fe_download_release() {
   fe_validate_manifest "$FE_TEMP/download-manifest.json"
   [[ $(jq -r .release_id "$FE_TEMP/download-manifest.json") == "$release" ]] || bg_die 'Archive identity differs'
   while IFS= read -r path; do
+    bg_guard
     mkdir -p "$(dirname "$directory/$path")"
     fe_get "$FE_ARCHIVE/$release/files/$path" "$directory/$path" >/dev/null || bg_die 'Archived frontend file missing'
-    bg_touch
+    bg_touch_local
   done < <(jq -r '.files[].path' "$FE_TEMP/download-manifest.json")
   fe_verify_files "$FE_TEMP/download-manifest.json" "$directory"
+  bg_guard
 }
 fe_capture_baseline() {
   local listing again path expected metadata baseline="baseline-$RUN_ID"
@@ -174,12 +177,14 @@ fe_capture_baseline() {
   jq -e '.IsTruncated==false and (.Contents|length)>0 and ([.Contents[].Size]|add<=536870912) and ([.Contents[].Size<=67108864]|all)' <<<"$listing" >/dev/null || bg_die 'Current frontend is absent or exceeds capture limits'
   mkdir "$FE_TEMP/baseline"
   while IFS=$'\t' read -r path expected; do
+    bg_guard
     path=${path#"$FE_LIVE/"}; fe_path "$path"
     mkdir -p "$(dirname "$FE_TEMP/baseline/$path")"
     metadata=$(fe_get "$FE_LIVE/$path" "$FE_TEMP/baseline/$path") || bg_die 'Current frontend capture failed'
     [[ $(jq -r .ETag <<<"$metadata") == "$expected" ]] || bg_die 'Current frontend changed during capture'
-    bg_touch
+    bg_touch_local
   done < <(jq -r '.Contents[]|[.Key,.ETag]|@tsv' <<<"$listing")
+  bg_guard
   again=$(fe_aws s3api list-objects-v2 --bucket "$FE_BUCKET" --prefix "$FE_LIVE/" --no-paginate --max-keys 1000) || bg_die 'Cannot recheck current frontend'
   [[ $(jq -Sc '[.Contents[]|{Key,ETag,Size}]|sort_by(.Key)' <<<"$listing") == "$(jq -Sc '[.Contents[]|{Key,ETag,Size}]|sort_by(.Key)' <<<"$again")" ]] || bg_die 'Current frontend changed during capture'
   fe_manifest "$FE_TEMP/baseline" "$baseline" "$(jq -r .previous_backend_image <<<"$STATE")" ''
@@ -224,11 +229,11 @@ fe_publish_files() {
   while IFS= read -r path; do
     type=application/octet-stream
     case $path in *.html) type='text/html; charset=utf-8';; *.js) type='text/javascript; charset=utf-8';; *.css) type='text/css; charset=utf-8';; *.json) type=application/json;; *.webmanifest) type=application/manifest+json;; *.png) type=image/png;; *.svg) type=image/svg+xml;; *.ico) type=image/x-icon;; *.jpg|*.jpeg) type=image/jpeg;; *.webp) type=image/webp;; *.woff2) type=font/woff2;; *.txt) type='text/plain; charset=utf-8';; esac
-    bg_guard; bg_live; fe_owned_pointer
+    bg_guard; fe_owned_pointer
     fe_aws s3api put-object --bucket "$FE_BUCKET" --key "$FE_LIVE/$path" --body "$directory/$path" --content-type "$type" --cache-control 'no-cache, max-age=0, must-revalidate' >/dev/null || bg_die 'Frontend publication failed or uncertain'
     fe_get "$FE_LIVE/$path" "$FE_TEMP/verify-file" >/dev/null || bg_die 'Frontend live readback failed'
     cmp -s "$directory/$path" "$FE_TEMP/verify-file" || bg_die 'Frontend live readback differs'
-    bg_touch
+    bg_touch_local
   done < <(jq -r '.files[].path|select(.!="index.html")' "$manifest"; printf '%s\n' index.html)
   fe_public_check "$manifest"
 }
