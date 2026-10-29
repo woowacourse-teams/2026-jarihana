@@ -38,7 +38,9 @@ function worker() {
 }
 async function bind(w) { return w.message("BIND", { expectedRevision: 0, binding: { id: 8, generation: 1, memberId: 12 } }); }
 test("valid push checks binding, uses private no-store lookup and reference-only click data", async () => {
-  const w = worker(); await bind(w); await w.push();
+  const w = worker(); await bind(w);
+  expect((await w.message("GET_STATE")).state.clientVersion).toBe(2);
+  await w.push();
   expect(w.fetcher).toHaveBeenCalledWith(expect.stringContaining("subscriptionId=8&generation=1"), expect.objectContaining({ credentials: "include", cache: "no-store", redirect: "error" }));
   expect(w.self.registration.showNotification).toHaveBeenCalledWith("자리하나?", expect.objectContaining({ body: "모임 신청이 승인되었어요.", tag: "jarihana:5", data: expect.objectContaining({ notificationId: 5 }) }));
 });

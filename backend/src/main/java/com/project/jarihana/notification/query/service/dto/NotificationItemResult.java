@@ -11,9 +11,9 @@ public record NotificationItemResult(long id, NotificationEventType eventType, i
 
     private static final int NAMED_REACTOR_LIMIT = 20;
 
-    public enum TargetKind { GROUP_DETAIL, LEADER_REGISTRATIONS, LEADER_MEMBERS, MY_PAGE, MY_GROUPS, INVITATION, ACTIVITY_POST }
+    public enum TargetKind { GROUP_DETAIL, LEADER_REGISTRATIONS, LEADER_MEMBERS, MY_PAGE, MY_GROUPS, INVITATION, ACTIVITY_POST, GROUP_ANNOUNCEMENT }
     public record Target(TargetKind kind, long groupId, Long recruitmentId, Long registrationId, Long invitationId,
-                         Long activityPostId) { }
+                         Long activityPostId, Long announcementId) { }
 
     /**
      * 좋아요 알림 문구는 저장하지 않고 현재 좋아요 요약으로 만든다. 다른 사건은 요약을 쓰지 않는다.
@@ -29,6 +29,7 @@ public record NotificationItemResult(long id, NotificationEventType eventType, i
             case INVITATION_RECEIVED -> "모임 초대";
             case ACTIVITY_POST_COMMENTED -> "새 댓글";
             case ACTIVITY_POST_REACTED -> "좋아요";
+            case GROUP_ANNOUNCEMENT_CREATED -> "새 공지";
         };
         String group = groupName == null ? "삭제된 모임" : "‘" + groupName + "’ 모임";
         String body = switch (projection.eventType()) {
@@ -39,6 +40,7 @@ public record NotificationItemResult(long id, NotificationEventType eventType, i
             case INVITATION_RECEIVED -> group + "에 초대되었습니다.";
             case ACTIVITY_POST_COMMENTED -> group + " 활동 기록에 새 댓글이 달렸습니다.";
             case ACTIVITY_POST_REACTED -> reactionBody(group, reactions);
+            case GROUP_ANNOUNCEMENT_CREATED -> group + "에 새 공지가 등록되었습니다.";
             case REGISTRATION_REJECTED -> group + "의 신청이 미승인되었습니다.";
             case REGISTRATION_SYSTEM_REJECTED -> switch (projection.payload().getReasonCode()) {
                 case RERECRUITMENT -> group + "에 새 모집 공고가 등록되어 이전 신청이 미승인되었습니다.";
@@ -53,12 +55,13 @@ public record NotificationItemResult(long id, NotificationEventType eventType, i
             case REGISTRATION_REJECTED, REGISTRATION_SYSTEM_REJECTED -> TargetKind.MY_PAGE;
             case INVITATION_RECEIVED -> TargetKind.INVITATION;
             case ACTIVITY_POST_COMMENTED, ACTIVITY_POST_REACTED -> TargetKind.ACTIVITY_POST;
+            case GROUP_ANNOUNCEMENT_CREATED -> TargetKind.GROUP_ANNOUNCEMENT;
         };
         return new NotificationItemResult(projection.id(), projection.eventType(), projection.payloadVersion(), title,
                 body, projection.createdAt(), projection.readAt(),
                 new Target(targetKind, projection.payload().getGroupId(), projection.payload().getRecruitmentId(),
                         projection.payload().getRegistrationId(), projection.payload().getInvitationId(),
-                        projection.payload().getActivityPostId()));
+                        projection.payload().getActivityPostId(), projection.payload().getAnnouncementId()));
     }
 
     private static String reactionBody(String group, ActivityPostReactionSummaryProjection reactions) {

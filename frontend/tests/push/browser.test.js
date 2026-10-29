@@ -43,7 +43,8 @@ test("another account's endpoint is unsubscribed before a new subscription is re
   await enableBrowserPush(2, registration, { vapidPublicKey: "AQID" }, { ...state });
   expect(registration.pushManager.subscribe).toHaveBeenCalledWith(expect.objectContaining({ userVisibleOnly: true }));
   expect(state.memberId).toBe(2); expect(state.id).toBe(9);
-  expect(events).toEqual(["DISARM", "unsubscribe", "BIND"]);
+  expect(registerPush).toHaveBeenCalledWith(expect.anything(), 1);
+  expect(events).toEqual(["DISARM", "unsubscribe", "GET_STATE", "BIND"]);
 });
 test("account change during subscribe prevents server registration and rearming", async () => {
   let resolve; let current = true;

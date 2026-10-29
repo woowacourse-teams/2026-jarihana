@@ -24,8 +24,12 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
                 notification.payload, notification.readAt, notification.createdAt)
             from Notification notification
             where notification.id = :id and notification.member.id = :memberId and notification.deletedAt is null
+              and (:includeAnnouncements = true or notification.eventType <>
+                   com.project.jarihana.notification.domain.NotificationEventType.GROUP_ANNOUNCEMENT_CREATED)
             """)
-    Optional<NotificationProjection> findActiveByIdAndMemberId(@Param("id") long id, @Param("memberId") long memberId);
+    Optional<NotificationProjection> findActiveByIdAndMemberId(
+            @Param("id") long id, @Param("memberId") long memberId,
+            @Param("includeAnnouncements") boolean includeAnnouncements);
 
     @Query("""
             select new com.project.jarihana.notification.query.repository.dto.NotificationProjection(
@@ -34,6 +38,8 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
             from Notification notification
             where notification.member.id = :memberId
               and notification.deletedAt is null
+              and (:includeAnnouncements = true or notification.eventType <>
+                   com.project.jarihana.notification.domain.NotificationEventType.GROUP_ANNOUNCEMENT_CREATED)
               and (
                   cast(:cursorCreatedAt as LocalDateTime) is null
                   or notification.createdAt < :cursorCreatedAt
@@ -45,6 +51,7 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
             @Param("memberId") long memberId,
             @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
             @Param("cursorId") Long cursorId,
+            @Param("includeAnnouncements") boolean includeAnnouncements,
             Pageable pageable
     );
 
@@ -79,6 +86,9 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
             where notification.member.id = :memberId
               and notification.deletedAt is null
               and notification.readAt is null
+              and (:includeAnnouncements = true or notification.eventType <>
+                   com.project.jarihana.notification.domain.NotificationEventType.GROUP_ANNOUNCEMENT_CREATED)
             """)
-    long countUnread(@Param("memberId") long memberId);
+    long countUnread(@Param("memberId") long memberId,
+                     @Param("includeAnnouncements") boolean includeAnnouncements);
 }

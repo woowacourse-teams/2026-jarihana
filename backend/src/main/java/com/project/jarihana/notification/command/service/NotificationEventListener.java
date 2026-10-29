@@ -91,6 +91,8 @@ public class NotificationEventListener {
             case INVITATION_RECEIVED -> throw new IllegalStateException("초대 사건은 신청 사건과 구분해야 합니다.");
             case ACTIVITY_POST_COMMENTED, ACTIVITY_POST_REACTED ->
                     throw new IllegalStateException("활동 기록 사건은 신청 사건과 구분해야 합니다.");
+            case GROUP_ANNOUNCEMENT_CREATED ->
+                    throw new IllegalStateException("공지 사건은 신청 사건과 구분해야 합니다.");
         };
         String key = "registration:" + registrationId + ":" + suffix;
         record(member, key, type, payload, now, subscriptions.findActiveByMemberId(memberId));
