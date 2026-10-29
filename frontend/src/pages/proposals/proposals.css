@@ -117,6 +117,12 @@
         border-color var(--duration-fast) var(--ease-standard);
 }
 
+/* 분야 아이콘은 글자 색을 따라가고 줄어들지 않는다. */
+.proposal-category-icon {
+    flex: none;
+    stroke-width: 2.25;
+}
+
 .proposal-filter:hover,
 .proposal-chip:hover {
     border-color: var(--color-brand);
@@ -282,6 +288,7 @@
 .proposal-badge {
     display: inline-flex;
     align-items: center;
+    gap: var(--space-1);
     justify-self: start;
     padding: var(--space-0) var(--space-2);
     border-radius: var(--radius-sm);

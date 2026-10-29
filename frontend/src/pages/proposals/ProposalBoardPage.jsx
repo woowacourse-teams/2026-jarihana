@@ -12,6 +12,7 @@ import createChairImage from "../../shared/assets/brand/jarihana-chair-create.pn
 import { Button, EmptyState, ErrorState, PageContainer, Skeleton } from "../../shared/ui/index.js";
 import { useToast } from "../../shared/ui/Toast.jsx";
 import { useInfiniteScroll } from "../account/useInfiniteScroll.js";
+import { ProposalCategoryIcon } from "./ProposalCategoryIcon.jsx";
 import { useProposalViewer } from "./proposalAuth.js";
 import "./proposals.css";
 
@@ -24,6 +25,7 @@ function ProposalCard({ onToggleInterest, pending, proposal, returnSearch }) {
       <article className="proposal-card__body">
         <p className="proposal-card__meta">
           <span className={`proposal-badge proposal-badge--${proposal.category.toLowerCase()}`}>
+            <ProposalCategoryIcon code={proposal.category} size={13} />
             {proposalCategoryLabel(proposal.category)}
           </span>
           <span className="proposal-card__author">{proposal.authorNickname}</span>
@@ -231,6 +233,7 @@ export function ProposalBoardPage() {
               onClick={() => selectCategory(item.code)}
               type="button"
             >
+              <ProposalCategoryIcon code={item.code} />
               {item.label}
             </button>
           ))}
