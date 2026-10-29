@@ -218,8 +218,8 @@ app_prepare() {
   compose=$(jq -r '.compose_file' <<<"$CONFIG")
   bg_root_file "$compose"
   cmp -s "$compose" "$SCRIPT_ROOT/../../../deploy/controller/app-compose.yml" || bg_die 'Installed Compose differs from immutable checkout'
-  : "${RDS_URL:?GitHub RDS_URL is required}" "${BLUE_GREEN_RDS_URL:?Approved blue-green DB endpoint required}"
-  [[ "$RDS_URL" == "$BLUE_GREEN_RDS_URL" && "$RDS_URL" =~ ^[a-zA-Z0-9.-]+$ ]] || bg_die 'DB endpoint differs from approved environment'
+  : "${RDS_URL:?GitHub RDS_URL is required}"
+  [[ "$RDS_URL" =~ ^[a-zA-Z0-9.-]+$ ]] || bg_die 'RDS_URL must contain only the environment DB endpoint'
   export BACKEND_IMAGE="$IMAGE_REPOSITORY" BACKEND_DIGEST="$BG_IMAGE_DIGEST" DEPLOY_ENVIRONMENT="$ENVIRONMENT"
   export DEPLOY_HOST_ID="$HOST_ID" APP_BIND_ADDRESS="$(jq -r '.upstream|split(":")[0]' <<<"$HOST")"
   export APP_PORT="$(jq -r '.app_port' <<<"$CONFIG")" MANAGEMENT_PORT DEPLOY_CONTAINER="$CONTAINER" DEPLOY_DB_NAME="jarihana_$ENVIRONMENT"

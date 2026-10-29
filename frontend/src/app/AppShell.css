@@ -913,7 +913,8 @@
         transform var(--duration-fast) var(--ease-standard);
     }
 }
-.app-header__chat { display: inline-grid; place-items: center; width: var(--touch-target); height: var(--touch-target); flex-shrink: 0; color: var(--color-surface); border-radius: var(--radius-pill); text-decoration: none; }
+.app-header__chat { position: relative; display: inline-grid; place-items: center; width: var(--touch-target); height: var(--touch-target); flex-shrink: 0; color: var(--color-surface); border-radius: var(--radius-pill); text-decoration: none; }
+.app-header__chat-count { position: absolute; top: 0; right: 0; min-width: var(--space-5); padding: var(--space-1); border-radius: var(--radius-pill); background: var(--color-danger); color: var(--color-surface); font-size: var(--text-badge); line-height: 1; text-align: center; }
 .app-header__chat:hover { background: var(--color-header-line); }
 .app-header__chat + .notification-header-actions { margin-inline-start: calc(-1 * var(--space-2)); }
 .app-header__chat svg { width: var(--space-5); height: var(--space-5); }

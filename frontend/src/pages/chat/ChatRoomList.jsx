@@ -5,7 +5,7 @@ import { GroupImage } from "../../shared/ui";
 
 import { messageTime } from "./format.js";
 
-export function ChatRoomList({ rooms, selectedId, loading, error, onRetry }) {
+export function ChatRoomList({ rooms, selectedId, viewingLatest, loading, error, onRetry }) {
   const [search, setSearch] = useState("");
   const previousRoom = useRef(selectedId);
   const listRef = useRef(null);
@@ -65,7 +65,7 @@ export function ChatRoomList({ rooms, selectedId, loading, error, onRetry }) {
                     </div>
                     <div className="chat-room-row__preview">
                       <p>{last?.content ?? "첫 이야기를 나눠보세요"}</p>
-                      {room.unreadCount > 0 && <span className="chat-unread" aria-label={`안 읽은 메시지 ${room.unreadCount}개`}>{room.unreadCount > 99 ? "99+" : room.unreadCount}</span>}
+                      {room.unreadCount > 0 && !(viewingLatest && room.id === selectedId) && <span className="chat-unread" aria-label={`안 읽은 메시지 ${room.unreadCount}개`}>{room.unreadCount > 99 ? "99+" : room.unreadCount}</span>}
                     </div>
                     <span className="chat-room-row__meta">
                       {room.status === "ENDED" ? <span className="chat-room-ended"><LockKeyhole aria-hidden="true" />종료</span> : <><span className="chat-room-type">{room.type === "SESSION" ? "같이해요" : room.type === "STUDY" ? "스터디" : "동아리"}</span><span>참여자 {room.memberCount}명</span></>}

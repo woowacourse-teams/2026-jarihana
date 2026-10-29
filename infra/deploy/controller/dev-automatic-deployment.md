@@ -38,14 +38,16 @@ GitHub 설정은 다음과 같이 준비한다.
 | repository | `BLUE_GREEN_PROD_ENABLED` | dev 자동화 기간 false/미설정 |
 | repository | `BLUE_GREEN_CONTROL_REF` | 이번 코드를 포함한 새 `refs/tags/deployment-control-*` |
 | repository | `BLUE_GREEN_DEV_A_RUNNER`, `BLUE_GREEN_DEV_B_RUNNER` | 해당 EC2 한 대에만 붙은 서로 다른 전용 라벨 |
-| dev environment | `RDS_URL`, `BLUE_GREEN_RDS_URL` | 둘 다 승인한 개발 RDS endpoint. JDBC 접두사·DB 이름을 붙이지 않음 |
+| dev environment | `RDS_URL` | 승인한 개발 RDS endpoint. JDBC 접두사·DB 이름을 붙이지 않음 |
 | dev environment | `DB_USERNAME` | 기존 dev 계정 `jarihana_dev` |
 | dev environment | `PUSH_ENABLED`, `PUSH_WORKER_ENABLED` | 기존 dev처럼 실제 발송을 유지할 때 둘 다 true |
 
 비밀번호·JWT·OAuth·VAPID·이미지 서명 비밀값은 기존 dev Secrets로 전달한다. prod 값을
 복사하지 않는다. 앱 Compose가 `jarihana_dev` DB 이름과 TLS JDBC URL을 구성한다.
-`BLUE_GREEN_RDS_URL`은 현재 필수 검사 때문에 남긴 임시 변수다. dev 전용 자동화 제거 시
-workflow·Bash의 소비 코드와 함께 정리하고, 이 값만 먼저 삭제하지 않는다.
+일반 배포와 Blue-Green은 같은 dev environment의 `RDS_URL`을 사용하며 별도 DB 덮어쓰기는 없다.
+이 변경의 workflow가 develop/main에 반영되고 기존 실행이 끝난 뒤 임시 GitHub 변수
+`BLUE_GREEN_RDS_URL`을 삭제한다. 옛 고정 제어 코드에 필요한 동명 프로세스 환경 변수는
+workflow가 `RDS_URL`에서 전달하므로 별도 GitHub 설정이 필요하지 않다.
 
 활성화 변수는 repository 한 곳에서 관리하고 dev/prod environment에 같은 이름으로 등록하지
 않는다. 둘 다 true이면 배포가 실패한다. prod가 활성화됐으면 dev의 수동 Blue-Green도 거부한다.
@@ -182,7 +184,7 @@ B가 실제 서비스를 맡거나 A가 중지 상태일 수 있으므로 **아�
 4. B의 dev 앱·runner 라벨/서비스·설정과 dev watchdog을 정리한 뒤에만 B를 prod B로 준비한다.
    prod 자동화를 켜기 전에 dev BG 실행이 남아 있지 않은지 다시 확인한다.
 5. prod 적용·검증 후 dev CloudFront를 현재 A DNS로 복구하고 Deployed·실제 API를 확인한 뒤
-   dev 전용 Nginx·설정·runner·임시 `BLUE_GREEN_RDS_URL` 소비 코드를 제거한다.
+   dev 전용 Nginx·설정·runner를 제거한다.
    dev와 prod의 Nginx 컨테이너·경로·포트·저널은 구분하고 prod 자원은 보존한다.
 
 최초 적용 실패도 같은 원칙으로 실제 프로세스·요청 경로·처리 권한을 맞춰 복구한다.

@@ -20,6 +20,8 @@ size 범위는 1~100이다. beforeSequence와 afterSequence를 동시에 지정�
 각 목록 항목의 `representativeImageUrl`은 모임 목록과 동일한 이미지 공개 접근 URL이다.
 대표 이미지가 없으면 `images/default-group.png`를 반환하며, 업로드 이미지는 기존 이미지 접근·서명 전달 경로를 이용한다.
 
+메시지의 `avatarUrl`은 작성자의 GitHub 프로필 이미지 URL이며 이력, 전송 응답, 목록의 마지막 메시지와 실시간 이벤트에 동일하게 포함된다.
+
 POST는 clientMessageId(UUID), content를 받는다. 원문을 보존하며 공백 본문과 UTF-16 2,000단위 초과는 400이다.
 동일 키의 다른 본문은 CONCURRENT_MODIFICATION 409, 종료 후 새 메시지는 GROUP_ENDED 409다.
 현재 소속이 없거나 모임이 삭제되면 GROUP_ACCESS_DENIED 403이다.

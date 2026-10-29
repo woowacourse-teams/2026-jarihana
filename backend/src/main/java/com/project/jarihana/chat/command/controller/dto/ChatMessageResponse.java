@@ -2,6 +2,7 @@ package com.project.jarihana.chat.command.controller.dto;
 
 import com.project.jarihana.chat.domain.ChatMessage;
 import com.project.jarihana.chat.query.service.dto.ChatMessageResult;
+import com.project.jarihana.common.github.GithubAvatarUrl;
 
 import java.time.LocalDateTime;
 
@@ -11,6 +12,7 @@ public record ChatMessageResponse(
         String sequence,
         String senderId,
         String author,
+        String avatarUrl,
         String clientMessageId,
         String content,
         LocalDateTime createdAt) {
@@ -23,6 +25,7 @@ public record ChatMessageResponse(
                         Long.toString(m.sequence()),
                         Long.toString(m.senderId()),
                         m.author(),
+                        GithubAvatarUrl.from(m.githubId()),
                         m.clientMessageId().toString(),
                         m.content(),
                         m.createdAt());
@@ -37,6 +40,7 @@ public record ChatMessageResponse(
                         Long.toString(message.sequence()),
                         Long.toString(message.senderId()),
                         message.author(),
+                        GithubAvatarUrl.from(message.githubId()),
                         message.clientMessageId().toString(),
                         message.content(),
                         message.createdAt());
