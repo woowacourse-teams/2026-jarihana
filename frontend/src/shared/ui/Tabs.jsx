@@ -71,6 +71,7 @@ export function Tabs({ animated = false, defaultValue, items, onValueChange, val
               aria-controls={panelId}
               aria-selected={selected}
               className="ui-tabs__tab"
+              data-ph-capture-attribute-action={item.dataAction}
               id={tabId}
               key={item.value}
               onClick={() => select(item.value, index)}

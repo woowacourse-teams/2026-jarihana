@@ -43,10 +43,10 @@ export const readAllNotifications = (client = apiClient) => client.request("noti
   method: "PATCH", schema: z.object({ updatedCount: z.number().int().nonnegative(), readAt: z.string() }), searchParams: { clientVersion: 2 }
 });
 export const deleteNotification = (notificationId, client = apiClient) => client.request(`notifications/${notificationId}`, { method: "DELETE" });
-export const notificationTargetPath = ({ kind, groupId, recruitmentId, registrationId, invitationId, activityPostId }, notificationId) => {
+export const notificationTargetPath = ({ kind, groupId, recruitmentId, registrationId, invitationId, activityPostId, announcementId }, notificationId) => {
   if (kind === "INVITATION") return `/invitations/${invitationId}`;
   if (kind === "ACTIVITY_POST") return `/activities?mine=true&post=${activityPostId}`;
-  if (kind === "GROUP_ANNOUNCEMENT") return `/groups/${groupId}`;
+  if (kind === "GROUP_ANNOUNCEMENT") return `/groups/${groupId}/announcements/${announcementId}`;
   const context = notificationId ? `&notification=${notificationId}` : "";
   if (kind === "MY_GROUPS") return `/my?focusGroup=${groupId}${context}`;
   if (kind === "MY_PAGE" || kind === "MY_REGISTRATIONS") {

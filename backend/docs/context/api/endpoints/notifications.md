@@ -48,8 +48,8 @@ RestAssured 인수 테스트로 계약을 검증한다. 알림함 API는 Control
 - 프론트 API와 새 Service Worker는 `clientVersion=2`를 보낸다. 호환 선배포 단계의
   공지 알림 클릭은 모임 상세로 이동한다. 공지 기능 배포 후에는 별도 공지 권한 확인과
   상세 URL 이동으로 전환한다.
-- 이 호환 배포는 읽기만 준비하며 공지를 등록하거나 새 종류의 알림을 생성하지 않는다.
-  DB event type 허용 범위를 바꾸는 운영 마이그레이션도 포함하지 않는다.
+- 선행 호환 PR #490은 읽기 호환성만 준비하며 공지를 등록하거나 새 종류의 알림을 생성하지 않는다.
+  DB event type 허용 범위 변경도 포함하지 않으며, 공지 사건 생성은 후속 #459의 V13 배포부터 시작한다.
 
 배포·롤백 순서는 [공지 알림 호환성 전환](../../../operations/announcement-notification-compatibility-rollout.md)을 따른다.
 
@@ -106,9 +106,11 @@ RestAssured 인수 테스트로 계약을 검증한다. 알림함 API는 Control
 | 신청 승인 | `MY_GROUPS` | `/my?focusGroup={groupId}` |
 | 수동 미승인·재모집 미승인·모임 종료 미승인 | `MY_PAGE` | `/my?registrationStatus=REJECTED&focusRegistration={registrationId}` |
 | 내 활동 기록의 새 댓글, 좋아요 | `ACTIVITY_POST` | `/activities?mine=true&post={activityPostId}` |
+| 모임 공지 등록 | `GROUP_ANNOUNCEMENT` | `/groups/{groupId}/announcements/{announcementId}` |
 
 - 클라이언트는 `target`을 내부 화면 경로로 해석한다. 외부 URL을 목적지로 전달하지 않는다.
 - `GROUP_CREATED`의 `target`에는 `kind`, `groupId`만 포함한다. 알림함 제목은 `새 모임`, 본문은 `‘모임 이름’ 모임이 새로 등록되었습니다.`다. 기존 신청·참여 알림의 모집·신청 식별자는 유지한다.
+- `GROUP_ANNOUNCEMENT_CREATED`의 `target`에는 `kind`, `groupId`, `announcementId`를 포함한다. 알림함 제목은 `새 공지`, 본문은 `‘모임 이름’ 모임에 새 공지가 등록되었습니다.`다.
 - 목록 조회나 알림함을 여는 동작만으로 읽음 처리하지 않는다.
 
 #### 예외
@@ -519,7 +521,7 @@ Request Body는 없다.
 
 - 기존 `accessToken` 쿠키로 인증한다.
 - 본인의 미삭제 알림, 본인의 활성 구독, 현재 `generation`을 모두 검증한다.
-- payload 버전 1에서 `GROUP_CREATED`는 `groupId`만 포함한다. 기존 신청·참여 사건은 `groupId`, `recruitmentId`, `registrationId`를 포함하고 시스템 미승인에는 `reasonCode`를 추가한다.
+- payload 버전 1에서 `GROUP_CREATED`는 `groupId`만, `GROUP_ANNOUNCEMENT_CREATED`는 `groupId`, `announcementId`를 포함한다. 기존 신청·참여 사건은 `groupId`, `recruitmentId`, `registrationId`를 포함하고 시스템 미승인에는 `reasonCode`를 추가한다.
 - 새 모임 등록 푸시는 제목 `자리하나?`, 본문 `새로운 모임이 등록되었어요.`로 표시한다. 알림함과 푸시 클릭은 동일한 본인 알림 확인 경로를 거쳐 새 모임 상세로 이동한다.
 - `reasonCode`는 `RERECRUITMENT` 또는 `GROUP_ENDED`다. 신청 본문·미승인 사유 문장·회원명은 포함하지 않는다.
 - 예외로 좋아요 알림(`ACTIVITY_POST_REACTED`)은 OS 알림 문구를 위해 `reactionSummary`에 가장 최근에 누른 회원의 `crewName`을 담는다. 자세한 형식은 아래 [활동 기록 알림 응답 확장 계약](#활동-기록-알림-응답-확장-계약)을 따른다.
@@ -691,3 +693,32 @@ JSON `null`, 잘못된 JSON, 필수 값 누락·0·음수는 `400`이다.
 - OS 푸시 알림의 제목은 `자리하나?`다. 본문은 새 댓글이면 `내 활동 기록에 새 댓글이 달렸어요.`이고, 좋아요는
   `reactionSummary`로 위 표와 같은 문구를 만든다. 요약이 없거나 형식이 맞지 않으면 `내 활동 기록에 좋아요가 도착했어요.`를 쓴다.
 - 클릭하면 `/notifications/open/:id`에서 본인 알림과 모임을 확인하고 읽음 처리한 뒤 내가 쓴 기록 피드의 해당 기록 상세를 연다.
+
+## 모임 공지 알림 응답 확장 계약
+
+> 상태: 공지 등록 알림의 저장, 알림함 응답, 푸시 내용 조회와 전송 대기를 구현했다.
+> 알림 확인 경로의 공지 권한 검사·읽음 처리·상세 이동과 Service Worker 표시 문구도 프론트엔드에 연결했다.
+
+공지 등록은 작성자를 제외한 현재 모임 구성원에게 알린다. 알림함 행은 푸시 구독 여부와 관계없이 저장하며, 당시 활성 구독별 전송 대기를 만든다.
+
+| 응답 필드 | 값 |
+| --- | --- |
+| eventType | `GROUP_ANNOUNCEMENT_CREATED` |
+| payloadVersion | 1 |
+| title | `새 공지` |
+| body | `‘현재 모임 이름’ 모임에 새 공지가 등록되었습니다.` |
+| target.kind | `GROUP_ANNOUNCEMENT` |
+| target.groupId | 공지가 속한 모임 ID |
+| target.announcementId | 공지 ID |
+
+- 푸시 내용 조회의 payload에는 `groupId`, `announcementId`만 포함한다. 공지 제목·본문과 공개 범위는 알림 payload에 복사하지 않는다.
+- 공개 범위가 `PUBLIC`이어도 알림 수신자는 공지 모임의 현재 구성원으로 한정한다.
+
+```json
+{
+  "notificationId": 701,
+  "eventType": "GROUP_ANNOUNCEMENT_CREATED",
+  "payloadVersion": 1,
+  "payload": { "groupId": 12, "announcementId": 101 }
+}
+```

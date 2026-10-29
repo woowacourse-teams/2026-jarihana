@@ -411,7 +411,8 @@ class NotificationInboxAcceptanceTest extends NotificationIntegrationTestSupport
     }
 
     private RequestSpecification authenticated(Member member) {
-        return RestAssured.given().cookie(cookies.accessTokenName(), tokens.issue(member.getId()).value());
+        return RestAssured.given().cookie(cookies.accessTokenName(), tokens.issue(member.getId()).value())
+                .queryParam("clientVersion", 2);
     }
 
     @Test
