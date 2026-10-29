@@ -3,8 +3,11 @@ package com.project.jarihana.member.command.controller;
 import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.member.command.repository.MemberRepository;
+import com.project.jarihana.member.domain.Bootcamp;
+import com.project.jarihana.member.domain.BootcampStatus;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
+import com.project.jarihana.member.domain.MemberField;
 import com.project.jarihana.member.domain.MemberType;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.SignupSessionFixture;
@@ -22,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -147,6 +151,178 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.CONFLICT.value());
         assertThat(response.jsonPath().getString("error.code")).isEqualTo("MEMBER_CREW_DUPLICATED");
+    }
+
+    @DisplayName("부트캠프 회원은 캠프 정보와 분야로 가입한다.")
+    @Test
+    void completeBootcampSignup() {
+        // Given
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
+
+        // When
+        ExtractableResponse<Response> response = signup(sessionId, bootcampBody("도담", "SSAFY"));
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.CREATED.value());
+        assertThat(response.jsonPath().getString("data.memberType")).isEqualTo("BOOTCAMP");
+        assertThat(response.jsonPath().getString("data.bootcamp.name")).isEqualTo("SSAFY");
+        assertThat(response.jsonPath().getString("data.bootcamp.status")).isEqualTo("IN_PROGRESS");
+        assertThat(response.jsonPath().getString("data.bootcamp.cohort")).isEqualTo("12기");
+        assertThat(response.jsonPath().getString("data.field")).isEqualTo("BACKEND");
+        assertThat((Object) response.jsonPath().get("data.generation")).isNull();
+        assertThat((Object) response.jsonPath().get("data.company")).isNull();
+        assertThat(memberRepository.findByGithubId(GITHUB_ID)).get()
+                .extracting(Member::getMemberType)
+                .isEqualTo(MemberType.BOOTCAMP);
+    }
+
+    @DisplayName("현직자는 직무와 연차, 선택한 회사 정보로 가입한다.")
+    @Test
+    void completeProfessionalSignupWithCompany() {
+        // Given
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
+
+        // When
+        ExtractableResponse<Response> response = signup(sessionId, professionalBody(
+                "하나", Map.of("name", "자리하나", "visible", false)
+        ));
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.CREATED.value());
+        assertThat(response.jsonPath().getString("data.memberType")).isEqualTo("PROFESSIONAL");
+        assertThat(response.jsonPath().getString("data.field")).isEqualTo("FRONTEND");
+        assertThat(response.jsonPath().getString("data.career")).isEqualTo("YEARS_1_3");
+        assertThat(response.jsonPath().getString("data.company.name")).isEqualTo("자리하나");
+        assertThat(response.jsonPath().getBoolean("data.company.visible")).isFalse();
+        assertThat((Object) response.jsonPath().get("data.bootcamp")).isNull();
+    }
+
+    @DisplayName("현직자는 회사 정보 없이도 가입한다.")
+    @Test
+    void completeProfessionalSignupWithoutCompany() {
+        // Given
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
+
+        // When
+        ExtractableResponse<Response> response = signup(sessionId, professionalBody("하나", null));
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.CREATED.value());
+        assertThat((Object) response.jsonPath().get("data.company")).isNull();
+    }
+
+    @DisplayName("회사명을 보내면 공개 여부도 함께 보내야 한다.")
+    @Test
+    void rejectCompanyWithoutVisibility() {
+        // Given
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
+
+        // When
+        ExtractableResponse<Response> response = signup(sessionId, professionalBody("하나", Map.of("name", "자리하나")));
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+        assertThat(response.jsonPath().getString("error.code")).isEqualTo("INVALID_PARAMETER");
+        assertThat(memberRepository.findByGithubId(GITHUB_ID)).isEmpty();
+    }
+
+    @DisplayName("우아한테크코스는 부트캠프로 가입할 수 없다.")
+    @Test
+    void rejectWoowahanTechCourseAsBootcamp() {
+        // Given
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
+
+        // When
+        ExtractableResponse<Response> response = signup(sessionId, bootcampBody("도담", "우아한테크코스"));
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+        assertThat(response.jsonPath().getString("error.code")).isEqualTo("INVALID_PARAMETER");
+        assertThat(memberRepository.findByGithubId(GITHUB_ID)).isEmpty();
+    }
+
+    @DisplayName("부트캠프 회원은 분야 없이 가입할 수 없다.")
+    @Test
+    void rejectBootcampSignupWithoutField() {
+        // Given
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
+        Map<String, Object> body = new HashMap<>(bootcampBody("도담", "SSAFY"));
+        body.remove("field");
+
+        // When
+        ExtractableResponse<Response> response = signup(sessionId, body);
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+        assertThat(response.jsonPath().getString("error.code")).isEqualTo("INVALID_PARAMETER");
+    }
+
+    @DisplayName("기수가 없는 코치, 부트캠프, 현직자끼리는 같은 닉네임을 사용할 수 없다.")
+    @Test
+    void rejectDuplicatedNonCrewName() {
+        // Given
+        memberRepository.save(Member.create("도담", null, "other-github-id", MemberType.COACH, null));
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
+
+        // When
+        ExtractableResponse<Response> response = signup(sessionId, bootcampBody("도담", "SSAFY"));
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.CONFLICT.value());
+        assertThat(response.jsonPath().getString("error.code")).isEqualTo("MEMBER_CREW_DUPLICATED");
+    }
+
+    @DisplayName("현직자는 부트캠프 회원과 같은 닉네임을 사용할 수 없다.")
+    @Test
+    void rejectProfessionalNameDuplicatedWithBootcampMember() {
+        // Given
+        memberRepository.save(Member.createBootcamp(
+                "도담", "other-github-id", Bootcamp.of("SSAFY", BootcampStatus.COMPLETED, null), MemberField.BACKEND
+        ));
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
+
+        // When
+        ExtractableResponse<Response> response = signup(sessionId, professionalBody("도담", null));
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.CONFLICT.value());
+        assertThat(response.jsonPath().getString("error.code")).isEqualTo("MEMBER_CREW_DUPLICATED");
+    }
+
+    @DisplayName("부트캠프 회원은 크루와 같은 닉네임을 사용할 수 있다.")
+    @Test
+    void allowBootcampNameSameAsCrewName() {
+        // Given
+        memberRepository.save(Member.create("도담", 8, "other-github-id", Course.BACKEND));
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
+
+        // When
+        ExtractableResponse<Response> response = signup(sessionId, bootcampBody("도담", "SSAFY"));
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.CREATED.value());
+    }
+
+    private Map<String, Object> bootcampBody(String crewName, String bootcampName) {
+        return Map.of(
+                "crewName", crewName,
+                "memberType", "BOOTCAMP",
+                "bootcamp", Map.of("name", bootcampName, "status", "IN_PROGRESS", "cohort", "12기"),
+                "field", "BACKEND"
+        );
+    }
+
+    private Map<String, Object> professionalBody(String crewName, Map<String, Object> company) {
+        Map<String, Object> body = new HashMap<>(Map.of(
+                "crewName", crewName,
+                "memberType", "PROFESSIONAL",
+                "field", "FRONTEND",
+                "career", "YEARS_1_3"
+        ));
+        if (company != null) {
+            body.put("company", company);
+        }
+        return body;
     }
 
     private Map<String, Object> body(String crewName, int generation, String course) {

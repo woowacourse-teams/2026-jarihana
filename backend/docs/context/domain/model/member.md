@@ -23,4 +23,4 @@
 - `memberType = CREW`이면 `course`와 양수 `generation`을 저장하고, `memberType = COACH`이면 둘 다 저장하지 않는다.
 - `BOOTCAMP`는 부트캠프 정보와 분야를, `PROFESSIONAL`은 직무와 연차를 저장하고 회사 정보는 선택이다. 두 유형 모두 `course`와 `generation`을 저장하지 않는다.
 - 크루와 코치는 부트캠프, 분야, 연차, 회사 정보를 저장하지 않는다. DB의 `ck_member_profile_fields`가 유형별 조합을 함께 강제한다.
-- 현재 가입 API는 `CREW`, `COACH`만 받는다. `BOOTCAMP`, `PROFESSIONAL` 가입은 구버전 앱이 새 유형을 읽을 수 있게 된 뒤 별도 변경으로 연다.
+- 가입 화면은 우테코 크루를 부트캠프 목록의 우아한테크코스와 크루 인증 단계로만 받는다. 코치 선택지는 없지만 가입 API는 `COACH`를 그대로 받는다.
