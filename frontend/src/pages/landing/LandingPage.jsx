@@ -17,6 +17,7 @@ import { useLandingMotion } from "./useLandingMotion";
 import { useLandingQuestionScroll } from "./useLandingQuestionScroll";
 import { useLandingGuideScroll } from "./useLandingGuideScroll";
 import { LandingGuide } from "./LandingGuide";
+import { LandingTechSection } from "./LandingTechSection";
 import "./landing-tokens.css";
 import "./landing.css";
 
@@ -383,6 +384,7 @@ export function LandingPage() {
             </LandingStartButton>
           }
         />
+        <LandingTechSection activeChapter={activeChapter} />
         <section
           aria-current={activeChapter === "start" ? "step" : undefined}
           aria-labelledby="start-title"
