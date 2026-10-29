@@ -17,6 +17,7 @@ import { useLandingMotion } from "./useLandingMotion";
 import { useLandingQuestionScroll } from "./useLandingQuestionScroll";
 import { useLandingGuideScroll } from "./useLandingGuideScroll";
 import { LandingGuide } from "./LandingGuide";
+import { LandingTechSection } from "./LandingTechSection";
 import "./landing-tokens.css";
 import "./landing.css";
 
@@ -37,7 +38,7 @@ const groupTypes = [
     type: "CLUB",
     label: "동아리",
     title: "러닝 · 밴드 · 독서",
-    description: "같은 취미를 가진 크루들과 꾸준히 활동해요.",
+    description: "취미가 같은 사람들과 꾸준히 활동해요.",
     image: clubImage,
     imageAlt: "기타를 연주하며 취미를 나누는 동아리 대표 이미지",
     action: "landing_club_explore",
@@ -47,7 +48,7 @@ const groupTypes = [
     id: "session",
     type: "SESSION",
     label: "같이해요",
-    title: "점심 약속 · 기술 공유 모임",
+    title: "저녁 번개, 기술 공유 모임",
     description: "날짜를 정해 한 번 함께해요.",
     image: sessionImage,
     imageAlt: "반갑게 하이파이브하는 같이해요 대표 이미지",
@@ -182,7 +183,7 @@ function LandingHero() {
             <strong>누군가에게 물어보고 싶었던 적 있나요?</strong>
           </p>
           <p className="landing-question landing-question--lunch">
-            <span>점심 먹고 돌아왔는데,</span>
+            <span>금요일 저녁,</span>
             <strong>다들 어디 모였는지 궁금했던 적 있나요?</strong>
           </p>
           <p className="landing-question landing-question--growth">
@@ -367,7 +368,7 @@ export function LandingPage() {
           id="about"
         >
           <div className="landing-container landing-heading" data-landing-reveal="">
-            <h2 id="about-title">크루들의 모임을<br />한곳에서 찾아보세요.</h2>
+            <h2 id="about-title">일하는 사람도 배우는 사람도,<br />모임은 여기서 찾아요.</h2>
             <p className="landing-description">
               함께 공부할 스터디부터 취미를 나눌 동아리까지.
               <br />모집 중인 모임을 살펴보고, 원하는 모임에 참여를 신청해요.
@@ -383,6 +384,7 @@ export function LandingPage() {
             </LandingStartButton>
           }
         />
+        <LandingTechSection activeChapter={activeChapter} />
         <section
           aria-current={activeChapter === "start" ? "step" : undefined}
           aria-labelledby="start-title"
@@ -398,6 +400,7 @@ export function LandingPage() {
                 <br />
                 자리 하나.
               </h2>
+              <p className="landing-start-section__note">부트캠프 수강생도, 현직자도 가입할 수 있어요.</p>
               <LandingStartButton className="landing-button--large">
                 <img alt="" height="20" src={githubMark} width="20" />
                 GitHub로 시작하기

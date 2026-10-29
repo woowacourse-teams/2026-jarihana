@@ -591,6 +591,89 @@
 .landing-product-scene .lps-dialog-actions { display: flex; justify-content: flex-end; align-items: center; gap: var(--space-3); }
 .landing-product-scene .lps-dialog-actions > span { padding: var(--space-2) var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-pill); }
 
+/* 자유게시판 예시는 실제 제안 카드와 모인 조건 스타일을 쓰되, 누를 수 없는 정적인 화면으로 둔다. */
+.landing-product-scene .proposal-card__body { pointer-events: none; }
+.landing-product-scene .proposal-card__title { display: block; }
+.landing-product-scene .proposal-pill,
+.landing-product-scene .proposal-summary-chip__button { cursor: default; }
+.landing-product-scene .lps-proposal-pill { justify-content: start; }
+.landing-product-scene .proposal-gathered { gap: var(--space-3); }
+.landing-product-scene .proposal-summary-chip__panel {
+  position: static;
+  inline-size: auto;
+  box-shadow: none;
+  animation: none;
+}
+.landing-product-scene .proposal-summary-chip__list > li { animation: none; }
+.landing-product-scene .proposal-bar-row__track i { transform-origin: left center; }
+
+/* 채팅 예시는 실제 채팅 목록과 대화 스타일을 쓰되, 시연창 높이에 맞춰 목록과 대화를 위아래로 쌓는다. */
+.landing-product-scene--chat { gap: var(--space-3); }
+.landing-product-scene .lps-chat-list__heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+}
+.landing-product-scene .lps-chat-list__heading .lps-title { color: var(--color-ink); }
+.landing-product-scene .chat-room-list { padding: 0; }
+.landing-product-scene .chat-room-row {
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  background: var(--color-surface);
+  pointer-events: none;
+}
+.landing-product-scene .chat-room-row__body { gap: var(--space-1); padding: var(--space-2) var(--space-3); }
+.landing-product-scene .lps-chat-unread { flex: 0 0 auto; }
+.landing-product-scene .lps-chat-room {
+  overflow: hidden;
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.landing-product-scene .chat-conversation__header { min-height: 0; }
+.landing-product-scene .lps-chat-room__title {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-size: var(--text-body-lg);
+}
+.landing-product-scene .lps-chat-thread { padding: var(--space-4) var(--space-3) var(--space-1); }
+.landing-product-scene .chat-date { margin: 0 0 var(--space-4); }
+.landing-product-scene .chat-message { margin-bottom: var(--space-3); }
+.landing-product-scene .lps-chat-composer { padding: var(--space-3); }
+.landing-product-scene .lps-chat-input {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+  min-height: var(--touch-target);
+  border-bottom: var(--border-thin) solid var(--color-line-strong);
+  font-size: var(--text-body);
+}
+.landing-product-scene .lps-chat-placeholder { color: var(--color-text-muted); }
+
+/* 캘린더 예시는 실제 모임 캘린더의 휴대폰 화면처럼 날짜 칸에 점만 표시하고 아래에 선택한 날의 일정을 보여 준다. */
+.landing-product-scene .group-calendar__toolbar { margin-bottom: var(--space-3); }
+.landing-product-scene .lps-calendar-month { font-size: var(--text-h3); }
+.landing-product-scene .lps-calendar-chip { display: inline-flex; align-items: center; min-height: 2rem; }
+.landing-product-scene .group-calendar__day { min-height: 3.25rem; padding: var(--space-1); }
+.landing-product-scene .group-calendar__date { padding: var(--space-1); cursor: default; }
+.landing-product-scene .group-calendar__date-number { width: 2rem; height: 2rem; margin: 0 auto; }
+.landing-product-scene .group-calendar__dots {
+  display: flex;
+  justify-content: center;
+  gap: 3px;
+  padding-top: calc(2rem + var(--space-1));
+}
+.landing-product-scene .group-calendar__dot { width: 6px; height: 6px; }
+.landing-product-scene .lps-calendar-day--to { box-shadow: inset 0 0 0 var(--border-strong) var(--color-brand); }
+.landing-product-scene .group-calendar__agenda { margin-top: var(--space-4); }
+.landing-product-scene .lpm-swap.lps-calendar-swap { display: grid; }
+.landing-product-scene .lpm-swap.lps-calendar-swap > span,
+.landing-product-scene .lps-calendar-agenda { display: grid; gap: var(--space-2); }
+.landing-product-scene .group-calendar__agenda-heading strong { font-size: var(--text-h3); }
+
 @container (min-width: 31rem) {
   .landing-product-scene .lps-account-layout { grid-template-columns: minmax(8rem, 0.8fr) minmax(0, 2.2fr); }
   .landing-product-scene .lps-manage-layout { grid-template-columns: minmax(0, 1.7fr) minmax(10rem, 1fr); }

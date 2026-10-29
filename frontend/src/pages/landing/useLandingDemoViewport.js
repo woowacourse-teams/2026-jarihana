@@ -6,9 +6,12 @@ const cameraPaths = {
   browse: [[0, "top"], [0.34, "top"], [0.46, "focus"], [0.72, "focus"], [0.9, "end"], [1, "end"]],
   detail: [[0, "top"], [0.13, "top"], [0.25, "end"], [1, "end"]],
   continue: [[0, "top"], [0.15, "top"], [0.28, "focus"], [0.47, "focus"], [0.6, "end"], [1, "end"]],
+  proposal: [[0, "top"], [0.4, "top"], [0.56, "end"], [1, "end"]],
   create: [[0, "top"], [0.58, "top"], [0.69, "focus"], [0.83, "focus"], [0.93, "end"], [1, "end"]],
   manage: [[0, "top"], [0.25, "top"], [0.38, "focus"], [0.72, "focus"], [0.88, "end"], [1, "end"]],
   invite: [[0, "top"], [0.18, "top"], [0.33, "end"], [0.69, "end"], [0.81, "top"], [1, "top"]],
+  chat: [[0, "top"], [0.22, "top"], [0.32, "end"], [1, "end"]],
+  calendar: [[0, "top"], [0.4, "top"], [0.55, "end"], [1, "end"]],
   activity: [[0, "top"], [0.28, "top"], [0.4, "end"], [1, "end"]]
 };
 
@@ -76,7 +79,7 @@ export function useLandingDemoViewport({ rootRef, screen, state, paused, replayK
       }
 
       animate(scene, -1);
-      const overlay = scene.querySelector(".lps-application-overlay, .lpc-schedule-dialog");
+      const overlay = scene.querySelector(".lps-application-overlay, .lpc-schedule-dialog, .lpa-notifications");
       if (overlay) {
         animate(overlay, 1);
         const dialog = overlay.querySelector(".lps-application, .lpc-dialog-card");
