@@ -1,0 +1,16 @@
+{
+  "background": "#0b111b",
+  "node": "#111e30",
+  "app": "#14243a",
+  "detail": "#1a2940",
+  "line": "#2e425c",
+  "text": "#e8effa",
+  "muted": "#a6b6cc",
+  "blue": "#7abaff",
+  "purple": "#c0a4ff",
+  "good": "#55d8b0",
+  "warning": "#ffc06e",
+  "bad": "#ff7586",
+  "unknown": "#8593a8",
+  "inactive": "#68788e"
+}

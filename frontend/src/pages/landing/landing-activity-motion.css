@@ -1,5 +1,82 @@
 .landing-product-demo[data-demo="activity"] {
-  --demo-duration: 10s;
+  --demo-duration: 12s;
+}
+
+/* 반응이 모두 쌓인 뒤 시연창 위쪽에 알림함 카드가 내려온다. 모바일 카메라 이동과 반대로 움직여 화면 위에 머문다. */
+.landing-product-demo[data-demo="activity"] .lpa-notifications {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: var(--space-3);
+  inset-inline-end: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+  inline-size: min(calc(100% - var(--space-6)), 22rem);
+  padding: var(--space-3);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-float);
+  pointer-events: none;
+}
+
+.landing-product-demo[data-demo="activity"] .lpa-notifications__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-body);
+}
+
+.landing-product-demo[data-demo="activity"] .lpa-notifications__count {
+  min-inline-size: var(--space-5);
+  padding: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--color-danger);
+  color: var(--color-surface);
+  font-size: var(--text-badge);
+  line-height: 1;
+  text-align: center;
+}
+
+.landing-product-demo[data-demo="activity"] .lpa-notification {
+  padding: var(--space-1) 0;
+}
+
+.landing-product-demo[data-demo="activity"] .lpa-notification:last-child {
+  border-bottom: 0;
+}
+
+.landing-product-demo[data-demo="activity"] .lpa-notification .notification-row__link {
+  padding: var(--space-1) var(--space-2);
+}
+
+.landing-product-demo[data-demo="activity"][data-state="idle"] .lpa-notifications {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.landing-product-demo[data-demo="activity"][data-state="running"] .lpa-notifications {
+  animation: lpa-notice-in calc(560ms / var(--landing-demo-speed, 1.5)) var(--landing-ease) calc(8.8s / var(--landing-demo-speed, 1.5)) both;
+}
+
+.landing-product-demo[data-demo="activity"][data-state="running"] .lpa-notification--heart {
+  animation: lpa-small-rise calc(480ms / var(--landing-demo-speed, 1.5)) var(--landing-ease) calc(9.1s / var(--landing-demo-speed, 1.5)) both;
+}
+
+.landing-product-demo[data-demo="activity"][data-state="running"] .lpa-notification--comment {
+  animation: lpa-small-rise calc(480ms / var(--landing-demo-speed, 1.5)) var(--landing-ease) calc(9.3s / var(--landing-demo-speed, 1.5)) both;
+}
+
+@keyframes lpa-notice-in {
+  from {
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-0.75rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+  }
 }
 
 .landing-product-demo[data-demo="activity"] .lpa-feed-detail {
