@@ -90,7 +90,7 @@ export default (_, arguments_) => {
           generator: {
             filename: "assets/[name].[contenthash:8][ext]"
           },
-          test: /\.(avif|gif|jpe?g|png|svg|webp)$/i,
+          test: /\.(avif|gif|jpe?g|mp4|png|svg|webp)$/i,
           type: "asset/resource"
         }
       ]
