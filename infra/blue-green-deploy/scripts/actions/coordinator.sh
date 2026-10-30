@@ -31,6 +31,15 @@ bg_owned_file() {
   [[ $uid == "$(id -u)" && $mode =~ ^[0-7]{3,4}$ && $size -le $maximum ]] && (( (8#$mode & 0077)==0 )) || bg_die 'Coordinator file ownership, mode or size differs'
 }
 bg_state_file() { bg_owned_file "$STATE_FILE"; }
+bg_lock() {
+  local command=$1 status
+  if [[ $command == watchdog ]]; then
+    if flock -n -E 75 9; then return 0; else status=$?; fi
+    (( status==75 )) && return 1
+    bg_die 'Cannot acquire the watchdog deployment lock'
+  fi
+  flock -w 15 9 || bg_die 'Timed out waiting 15 seconds for the deployment lock'
+}
 bg_load() {
   bg_state_file
   STATE=$(cat "$STATE_FILE")
@@ -394,7 +403,8 @@ main() {
   umask 077
   bg_owned_directory "$(dirname "$STATE_FILE")"
   [[ ! -e $STATE_FILE.lock && ! -L $STATE_FILE.lock ]] || bg_owned_file "$STATE_FILE.lock"
-  exec 9>"$STATE_FILE.lock"; flock -n 9 || bg_die 'Another coordinator phase holds the deployment lock'
+  exec 9>"$STATE_FILE.lock"
+  bg_lock "$command" || return 0
   trap 'code=$?; if (( code!=0 )); then bg_attention "Coordinator phase failed; inspect preserved intent" || true; fi' EXIT
   if [[ $command != plan && $command != watchdog ]]; then bg_load; fi
   case "$command" in
