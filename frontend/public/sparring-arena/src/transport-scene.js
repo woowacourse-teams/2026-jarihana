@@ -51,11 +51,10 @@ export function createTransportScene(environment) {
       return pixel(point.x, point.y);
     });
   }
-  function hose(group, points, radius, material, offset) {
+  function hose(group, points, radius, material) {
     const curve = addTube(group, points, radius, material.wall);
     addTube(group, points, radius * (0.65 / 0.8), material.inner);
-    if (curve) addPipeRings(group, curve, radius * 2, material.solid, offset);
-    return curve?.getLength() ?? 0;
+    return curve;
   }
   function nozzle(group, inlet, diameter, side, material) {
     const inward = side === 'a' ? 1 : -1;
@@ -77,7 +76,6 @@ export function createTransportScene(environment) {
       lip.position.z = z;
       body.add(lip);
     }
-    addPipeRings(body, new THREE.LineCurve3(new THREE.Vector3(0, 0, length / 2), new THREE.Vector3(0, 0, -length / 2)), diameter, material.solid);
     group.add(body);
     return { rear, projectedLength: length * NOZZLE_HORIZONTAL };
   }
@@ -103,13 +101,19 @@ export function createTransportScene(environment) {
       const material = materials[side];
       const { rear, projectedLength } = nozzle(foreground, inlet, diameter, side, material);
       const points = pathPoints(frontPath, projectedLength);
-      let distance = diameter * NOZZLE_LENGTH_RATIO;
+      let frontCurve;
       if (points.length) {
         // The barrel owns the first straight run; avoid a second tube inside it.
         points[0] = rear;
-        distance += hose(foreground, points, diameter / 2, material, distance);
+        frontCurve = hose(foreground, points, diameter / 2, material);
       }
-      hose(background, pathPoints(backPath), diameter / 2, material, distance);
+      const backCurve = hose(background, pathPoints(backPath), diameter / 2, material);
+      const frontLength = frontCurve?.getLength() ?? 0;
+      // The last 18% of a diameter overlaps the tank nozzle, whose rim already closes this run.
+      const length = frontLength + (backCurve?.getLength() ?? 0) - (backCurve ? diameter * 0.18 : 0);
+      const spacing = length / Math.max(1, Math.round(length / (diameter * 1.8)));
+      if (frontCurve) addPipeRings(foreground, frontCurve, diameter, material.solid, { spacing, end: length });
+      if (backCurve) addPipeRings(background, backCurve, diameter, material.solid, { offset: frontLength, spacing, end: length });
       groups.set(side, { key, front: foreground, back: background });
     }
     for (const [side, group] of groups) {
