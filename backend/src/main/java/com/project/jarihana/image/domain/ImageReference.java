@@ -45,7 +45,7 @@ public class ImageReference extends BaseEntity {
     @Column(name = "owner_id", nullable = false)
     private Long ownerId;
 
-    @Column(name = "group_id", nullable = false)
+    @Column(name = "group_id")
     private Long groupId;
 
     private ImageReference(

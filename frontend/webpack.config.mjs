@@ -79,13 +79,18 @@ export default (_, arguments_) => {
         },
         {
           test: /\.css$/,
-          use: ["style-loader", "css-loader", "postcss-loader"]
+          use: [
+            "style-loader",
+            // style-loader embeds CSS maps in runtime JS even with hidden-source-map.
+            { loader: "css-loader", options: { sourceMap: !isProduction } },
+            { loader: "postcss-loader", options: { sourceMap: !isProduction } }
+          ]
         },
         {
           generator: {
             filename: "assets/[name].[contenthash:8][ext]"
           },
-          test: /\.(avif|gif|jpe?g|png|svg|webp)$/i,
+          test: /\.(avif|gif|jpe?g|mp4|png|svg|webp)$/i,
           type: "asset/resource"
         }
       ]
@@ -107,6 +112,13 @@ export default (_, arguments_) => {
             context: path.resolve(directory, "src/shared/assets/illustrations"),
             from: "default-group-*-3d.png",
             to: "assets/[name][ext]"
+          },
+          {
+            from: path.resolve(directory, "public/sparring-arena"),
+            to: "sparring-arena",
+            // The standalone renderer uses native modules, including top-level await.
+            info: ({ absoluteFilename }) =>
+              absoluteFilename.endsWith(".js") ? { javascriptModule: true } : {}
           },
           {
             from: path.resolve(directory, "src/shared/assets/brand/jarihana-favicon.png"),
@@ -144,7 +156,7 @@ export default (_, arguments_) => {
           changeOrigin: true,
           context: ["/api"],
           ws: true,
-          target: "http://localhost:8080"
+          target: process.env.API_PROXY_TARGET || "http://localhost:8080"
         }
       ],
       setupMiddlewares: (middlewares) => {

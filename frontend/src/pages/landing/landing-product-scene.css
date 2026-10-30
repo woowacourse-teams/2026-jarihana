@@ -690,3 +690,16 @@
     padding: 1rem;
   }
 }
+
+/* 토론해요: 3D 경기장을 녹화한 영상을 장면 전체에 채운다. 경기장 배경이 흰색이라 남는 공간도 흰색으로 둔다. */
+.landing-product-scene--sparring,
+.landing-guide-frame .landing-product-scene.landing-product-scene--sparring { height: 100%; padding: 0; gap: 0; background: #fff; }
+.landing-product-scene .lps-sparring-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1146 / 1090;
+  object-fit: contain;
+  background: #fff;
+  pointer-events: none;
+}

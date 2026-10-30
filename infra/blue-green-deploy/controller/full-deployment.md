@@ -19,7 +19,7 @@ main 머지 -> BLUE_GREEN_PROD_ENABLED=true인 경우
     -> 고정 digest B 기동, 기본 PAUSED, readiness·관측 준비 확인
     -> A 신규 푸시 선점 중단 -> 작업 완료 -> DB 권한 반납
     -> Nginx 검증/reload -> 실제 B API 확인 -> B worker 활성화
-    -> 앱 worker와 HTTP 관측 job 병렬 최소 900초: readiness/실제 API/5xx/응답 지연
+    -> 앱 worker와 HTTP 관측 job 병렬 최소 300초: readiness/실제 API/5xx/응답 지연
     -> A HTTP/백그라운드 종료 -> 배포 확정(자동 롤백 구간 종료)
     -> A 앱 SIGTERM 정상 종료 증거 확인 -> A EC2 중지
   다음 배포: 같은 순서로 B -> A
@@ -209,7 +209,7 @@ prod를 활성화한 뒤 수동 배포는 `blue_green_mode=deploy`를 명시한�
 
 ## 관찰과 복구
 
-초안은 5초 간격, 연속 3회 실패, 최소 900초 관찰이다. Prometheus는 호스트별 fresh up과
+초안은 5초 간격, 연속 3회 실패, 최소 300초 관찰이다. Prometheus는 호스트별 fresh up과
 최근 2분의 요청 수·5xx 비율·평균 요청 시간을 조회한다. 초안 기준은 sample age 45초,
 5xx 1%, 평균 1초이며 root 설정에서 바꿀 수 있다. **p95 지표가 아니다.** dev 결과를 설명한 뒤
 확정해야 한다. 요청이 없다는 값과 지표가 없다는 상태는 구분한다. 없는 값·NaN·경고·불명확한
@@ -232,7 +232,7 @@ prod를 활성화한 뒤 수동 배포는 `blue_green_mode=deploy`를 명시한�
   종료와 DB finish commit 상태를 확인하는 별도 절차가 필요하며 임의 SQL 삭제로 재활성화하지 않는다.
 - 기존 연결·푸시 finish commit이 끝났는지 확인할 수 없으면 강제 종료나 EC2 중지를 하지 않는다.
   WebSocket·장시간 연결도 이 경우에 포함된다.
-- 전환 후 양쪽 15분 관찰은 통과했지만 이전 Nginx 연결이 300초 더 기다려도 남아 있고
+- 전환 후 양쪽 5분 관찰은 통과했지만 이전 Nginx 연결이 300초 더 기다려도 남아 있고
   B의 API·지표는 정상이라면, `cleanup_deferred=true`와 `NEEDS_ATTENTION`을 기록한다.
   B의 서비스와 worker 권한을 유지하고 양쪽 EC2를 켜 둔다. 자동 롤백·complete·이전 앱 종료·
   EC2 중지는 진행하지 않으며 Actions는 실패와 실행 요약으로 확인을 요청한다.
@@ -248,7 +248,12 @@ prod를 활성화한 뒤 수동 배포는 `blue_green_mode=deploy`를 명시한�
 `BG_ENVIRONMENT=%i`와 `coordinator.sh watchdog`을 사용하며 Python/uv나 GitHub token이 필요 없다.
 별도 watchdog.json 없이 root 소유 환경별 coordinator.json을 읽는다.
 dev/prod timer를 필요한 환경에만 활성화한다. watchdog과 coordinator는 같은 사용자로 실행해야
-0600 저널을 읽을 수 있다. pending이 있으면 operation deadline, 없으면 60초 heartbeat를 확인하고,
+0600 저널을 읽을 수 있다. 모든 coordinator 단계와 watchdog은 같은 `state.json.lock`으로 직렬화한다.
+배포 단계는 잠금을 최대 15초 기다리고 시간 초과 시 실패한다. watchdog은 대기 없이 시도하며,
+다른 실행이 잠금을 보유한 경우에만 검사를 건너뛰고 다음 timer tick에서 다시 확인한다.
+잠금의 실제 오류는 실패로 처리한다. 저널은 잠금을 얻은 뒤 읽고 검증하며, 잠금 대기로 기존
+기한을 연장하거나 저널을 병렬 변경하지 않는다.
+pending이 있으면 operation deadline, 없으면 60초 heartbeat를 확인하고,
 항상 전체 7200초 만료도 확인한다. 긴 native 앱 job 동안 coordinator heartbeat 갱신이 필요하지 않다.
 prepare는 EC2 running 확인 후 1500초, observe는 1800초, 그 외 앱 허가는 600초다.
 queue와 checkout도 이 기한을 소비하므로 runner가 늦게 시작하면 허가를 늘리지 않고 실패한다.
@@ -273,8 +278,8 @@ GitHub·AWS·호스트 신원·SSH 전송과 로컬 JAR 후보 준비는 격리 
 변경 없는 Compose/prepare/profile을 검증한다. 격리된 Docker 데몬과 TLS PostgreSQL에서
 READY/PAUSED, 이미지·포트·메모리 설정, 잘못된 digest·Compose 변조·안전하지 않은 교체 차단과
 정상 SIGTERM을 확인한다. 이 시험도 외부 GitHub/AWS·호스트 설정·SSH 전송은 대역이다.
-실제 15분 관찰은 로컬 결과에 포함하지 않는다.
+실제 5분 관찰은 로컬 결과에 포함하지 않는다.
 과거 Python 통합 결과를 새 Bash runtime의 검증으로 간주하지 않는다.
 로컬 API 대역과 가속 시계는 실제 AWS 역할·네트워크·GitHub native jobs·권한·runner 선택·
-배포 보호·실제 15분 관찰을 증명하지 않는다. 별도 dev Nginx 경로의 실환경 시험 뒤에도 실제
+배포 보호, 실제 5분 관찰을 증명하지 않는다. 별도 dev Nginx 경로의 실환경 시험 뒤에도 실제
 dev 도메인의 develop push 자동 배포는 추가 검증해야 한다. 실제 발송을 켠 검증도 별도로 확인한다.

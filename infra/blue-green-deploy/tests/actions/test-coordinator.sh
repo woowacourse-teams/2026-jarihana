@@ -91,12 +91,18 @@ observation_minimum() {
   echo 1000 >"$TEST_DIR/clock"; echo 500 >"$TEST_DIR/mono"
   bg_now() { cat "$TEST_DIR/clock"; }
   bg_uptime() { cat "$TEST_DIR/mono"; }
-  sleep() { echo "$(( $(cat "$TEST_DIR/clock")+300 ))" >"$TEST_DIR/clock"; echo "$(( $(cat "$TEST_DIR/mono")+300 ))" >"$TEST_DIR/mono"; }
+  sleep() {
+    local elapsed=$(( $(bg_now)-1000 )) advance=1
+    (( elapsed<300 )) || return 1
+    (( elapsed!=0 )) || advance=299
+    echo "$(( $(bg_now)+advance ))" >"$TEST_DIR/clock"
+    echo "$(( $(cat "$TEST_DIR/mono")+advance ))" >"$TEST_DIR/mono"
+  }
   bg_github() { echo '{"jobs":[]}'; }
   bg_target_ready() { return 0; }
   STATE=$(jq '.phase="OBSERVING" | .pending.operation="observe"' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
   bg_observe
-  jq -e '.http_observed_finished_at-.http_observed_started_at==900' "$STATE_FILE" >/dev/null
+  jq -e '.http_observed_finished_at-.http_observed_started_at==300' "$STATE_FILE" >/dev/null
 }
 observation_clock_jump() {
   bg_uptime() { echo 1; }
@@ -224,9 +230,9 @@ seal_fixture() {
   bg_drained() { return 1; }
   STATE=$(jq '.phase="OBSERVING" | .switched=true | .observation_failed=false |
     .pending.operation="observe" | .pending.issued_at=100 | .pending.deadline=5000 |
-    .http_observed_started_at=100 | .http_observed_finished_at=1000' <<<"$STATE")
+    .http_observed_started_at=100 | .http_observed_finished_at=400' <<<"$STATE")
   bg_atomic "$STATE_FILE" "$STATE"
-  APP_RESULT=$(jq '.operation="observe" | .observed_started_at=100 | .observed_finished_at=1000 |
+  APP_RESULT=$(jq '.operation="observe" | .observed_started_at=100 | .observed_finished_at=400 |
     .worker.state="ACTIVE" | .authority={environment:"dev",deploymentId:.deployment_id,status:"ACTIVE",phase:"OBSERVE",owner:.identity}' <<<"$RECEIPT")
 }
 seal_undrained_keeps_target() {
@@ -248,6 +254,13 @@ seal_drained_completes_normally() {
   bg_seal
   jq -e '.phase=="SEALED" and .sealed==true and .pending.operation=="complete" and .pending.slot=="B" and .cleanup_deferred!=true' "$STATE_FILE" >/dev/null
   grep -qx 'cleanup_deferred=false' "$TEST_DIR/seal-outputs"
+}
+seal_requires_full_http_window() {
+  seal_fixture
+  STATE=$(jq '.http_observed_finished_at=399' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
+  bg_drained() { return 0; }
+  rejects bg_seal
+  jq -e '.sealed==false and .pending.operation=="observe"' "$STATE_FILE" >/dev/null
 }
 seal_unhealthy_still_allows_rollback() {
   seal_fixture
@@ -338,4 +351,4 @@ api_recovery_independent_of_s3() {
   jq -e '.http_recovered==true and .pending.operation=="rollback" and .pending.slot=="B" and .pending.deadline==3400' "$STATE_FILE" >/dev/null
   [[ $(cat "$EVENTS") == recovered ]]
 }
-for test in waiting_poll_budget valid_receipt wrong_grant fractional_activity wrong_boot private_state symlink_state writable_dir cancel_guard active_lease expired_lease watchdog_active watchdog_expired cloud_start cloud_mismatch cloud_unknown cloud_stop_unsealed cloud_stop_sealed nginx_failed_test nginx_switch nginx_unknown_reload nginx_drain nginx_bad_current scalar_nan scalar_multiple observation_minimum observation_clock_jump stop_requires_evidence unknown_blocks_plan rollback_unhealthy_released rollback_unknown rollback_malformed rollback_owned stop_valid_receipt stop_wrong_target_boot stop_wrong_grant topology_load topology_load_mismatch topology_guard_mismatch topology_completed_mismatch topology_missing_completed topology_plan readonly_guard_cache cloud_mutation_uncached nginx_reload_uncached observation_job_cadence rollback_http_unknown_preserves_grant seal_undrained_keeps_target seal_drained_completes_normally seal_unhealthy_still_allows_rollback seal_unknown_target_not_deferred combined_switch_orders_frontend combined_switch_rejects_changed_image combined_seal_requires_frontend combined_seal_requires_full_worker_window combined_seal_finalizes_before_cleanup combined_frontend_finalization_failure api_recovery_independent_of_s3; do run "$test" "$test"; done
+for test in waiting_poll_budget valid_receipt wrong_grant fractional_activity wrong_boot private_state symlink_state writable_dir cancel_guard active_lease expired_lease watchdog_active watchdog_expired cloud_start cloud_mismatch cloud_unknown cloud_stop_unsealed cloud_stop_sealed nginx_failed_test nginx_switch nginx_unknown_reload nginx_drain nginx_bad_current scalar_nan scalar_multiple observation_minimum observation_clock_jump stop_requires_evidence unknown_blocks_plan rollback_unhealthy_released rollback_unknown rollback_malformed rollback_owned stop_valid_receipt stop_wrong_target_boot stop_wrong_grant topology_load topology_load_mismatch topology_guard_mismatch topology_completed_mismatch topology_missing_completed topology_plan readonly_guard_cache cloud_mutation_uncached nginx_reload_uncached observation_job_cadence rollback_http_unknown_preserves_grant seal_undrained_keeps_target seal_drained_completes_normally seal_requires_full_http_window seal_unhealthy_still_allows_rollback seal_unknown_target_not_deferred combined_switch_orders_frontend combined_switch_rejects_changed_image combined_seal_requires_frontend combined_seal_requires_full_worker_window combined_seal_finalizes_before_cleanup combined_frontend_finalization_failure api_recovery_independent_of_s3; do run "$test" "$test"; done

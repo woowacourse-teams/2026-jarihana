@@ -274,7 +274,7 @@ app_uptime() { local elapsed rest; read -r elapsed rest < /proc/uptime; printf '
 
 app_observe() {
   OBSERVED_STARTED_AT=$(bg_now)
-  local deadline=$(( OBSERVED_STARTED_AT+900 )) expected failures=0 monotonic_start now elapsed drift previous
+  local deadline=$(( OBSERVED_STARTED_AT+300 )) expected failures=0 monotonic_start now elapsed drift previous
   monotonic_start=$(app_uptime); previous=$OBSERVED_STARTED_AT
   app_owner; app_deployment; app_assert '.authority.phase=="OBSERVE"'
   expected=$(app_authority "$SNAPSHOT")
@@ -288,7 +288,7 @@ app_observe() {
     now=$(bg_now); elapsed=$(( $(app_uptime)-monotonic_start )); drift=$(( now-OBSERVED_STARTED_AT-elapsed ))
     (( now>=previous && elapsed>=0 && drift>=-5 && drift<=5 )) || bg_die 'Clock changed during application observation'
     previous=$now
-    if (( now>=deadline && elapsed>=900 )); then
+    if (( now>=deadline && elapsed>=300 )); then
       app_read; app_owner; app_assert '.worker.unresolved==0'
       app_equal "$expected" "$(app_authority "$SNAPSHOT")" || bg_die 'Authority changed at observation completion'
       break
