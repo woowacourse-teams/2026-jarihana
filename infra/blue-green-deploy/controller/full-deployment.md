@@ -248,7 +248,12 @@ prod를 활성화한 뒤 수동 배포는 `blue_green_mode=deploy`를 명시한�
 `BG_ENVIRONMENT=%i`와 `coordinator.sh watchdog`을 사용하며 Python/uv나 GitHub token이 필요 없다.
 별도 watchdog.json 없이 root 소유 환경별 coordinator.json을 읽는다.
 dev/prod timer를 필요한 환경에만 활성화한다. watchdog과 coordinator는 같은 사용자로 실행해야
-0600 저널을 읽을 수 있다. pending이 있으면 operation deadline, 없으면 60초 heartbeat를 확인하고,
+0600 저널을 읽을 수 있다. 모든 coordinator 단계와 watchdog은 같은 `state.json.lock`으로 직렬화한다.
+배포 단계는 잠금을 최대 15초 기다리고 시간 초과 시 실패한다. watchdog은 대기 없이 시도하며,
+다른 실행이 잠금을 보유한 경우에만 검사를 건너뛰고 다음 timer tick에서 다시 확인한다.
+잠금의 실제 오류는 실패로 처리한다. 저널은 잠금을 얻은 뒤 읽고 검증하며, 잠금 대기로 기존
+기한을 연장하거나 저널을 병렬 변경하지 않는다.
+pending이 있으면 operation deadline, 없으면 60초 heartbeat를 확인하고,
 항상 전체 7200초 만료도 확인한다. 긴 native 앱 job 동안 coordinator heartbeat 갱신이 필요하지 않다.
 prepare는 EC2 running 확인 후 1500초, observe는 1800초, 그 외 앱 허가는 600초다.
 queue와 checkout도 이 기한을 소비하므로 runner가 늦게 시작하면 허가를 늘리지 않고 실패한다.
