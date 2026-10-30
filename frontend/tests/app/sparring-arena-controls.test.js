@@ -19,6 +19,7 @@ it('편을 고르기 전에 누른 말풍선도 받아치기 대상으로 유지
   global.ResizeObserver = class { observe() {} disconnect() {} };
   Element.prototype.scrollIntoView = jest.fn();
   let cast;
+  store.reportScene = jest.fn();
   const createArena = (container, onSelect, onReveal, onReply) => {
     cast = createHistoryConversation(container.parentElement, onReply, onReveal, { draw() {}, hide() {}, project: point => point });
     cast.setLayout({ left: { x: 100, y: 200 }, right: { x: 300, y: 200 }, worldLeft: { x: -4.4, y: -6, z: 10 }, worldRight: { x: 4.4, y: -6, z: 10 }, width: 400 });
@@ -27,7 +28,7 @@ it('편을 고르기 전에 누른 말풍선도 받아치기 대상으로 유지
   try {
     const source = readFileSync(path.join(base, 'src/app.js'), 'utf8').replace(/^import .*;\n/gm, '');
     const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-    await new AsyncFunction('setupComposer', 'animateCapsuleSend', 'createArena', 'connectRoom', 'revealComposer', source)(jest.fn(), jest.fn(), createArena, async () => store, revealComposer);
+    await new AsyncFunction('setupComposer', 'animateCapsuleSend', 'createArena', 'connectRoom', 'revealComposer', source)(jest.fn(), jest.fn(), (...args) => ({ ...createArena(...args), ready: Promise.resolve() }), async () => store, revealComposer);
     cast.emerge(first, { x: 0, y: -6, z: 9 }, true);
     const bubble = document.querySelector('.history-conversation-speech[data-side="a"]');
     bubble.click();
@@ -67,7 +68,7 @@ it('지난 대화와 대치 말풍선은 각각 누른 실제 의견을 받아�
   const second = { id: '2', side: 'b', authorId: 'coach', name: '하나', text: '반대편 의견', createdAt: 2, replyToId: '1', replyTo: first };
   const state = { actorId: 'me', mySide: 'a', topic: { id: 'topic', title: '점심', a: '맛', b: '시간' },
     posts: [second], postCount: 1, connection: 'live', balance: { total: 1, a: 1, b: 0, ratio: 1 }, more: { all: false, mine: false } };
-  const store = { snapshot: () => state, subscribe: jest.fn(), reportHeight: jest.fn(), reveal: jest.fn(), post: jest.fn(async () => second) };
+  const store = { snapshot: () => state, subscribe: jest.fn(), reportHeight: jest.fn(), reportScene: jest.fn(), reveal: jest.fn(), post: jest.fn(async () => second) };
   const base = path.join(__dirname, '../../public/sparring-arena');
   document.body.innerHTML = readFileSync(path.join(base, 'index.html'), 'utf8').match(/<body>([\s\S]*)<\/body>/)[1];
   const media = Object.getOwnPropertyDescriptor(window, 'matchMedia'), observer = global.ResizeObserver, scroll = Element.prototype.scrollIntoView;
@@ -79,7 +80,7 @@ it('지난 대화와 대치 말풍선은 각각 누른 실제 의견을 받아�
     history = createHistoryConversation(stage, onReply, onReveal, { draw() {}, hide() {}, project: point => point });
     history.setLayout({ left: { x: 100, y: 200 }, right: { x: 300, y: 200 }, worldLeft: { x: -4, y: -6, z: 10 }, worldRight: { x: 4, y: -6, z: 10 }, width: 400 });
     duel = createCharacterDuel(stage, onReply, onReveal);
-    return { updateState() {}, launch() {}, dispose() {} };
+    return { ready: Promise.resolve(), updateState() {}, launch() {}, dispose() {} };
   };
   try {
     const source = readFileSync(path.join(base, 'src/app.js'), 'utf8').replace(/^import .*;\n/gm, '');
@@ -117,13 +118,13 @@ it('지난 대화와 대치 말풍선은 각각 누른 실제 의견을 받아�
 async function setupVoting() {
   const state = { actorId: '1', mySide: null, topic: { id: '1', title: '점심', a: '맛', b: '시간' }, posts: [], postCount: 0,
     connection: 'live', balance: { total: 0, a: 0, b: 0, ratio: 0.5 }, more: { all: false, mine: false } };
-  const store = { snapshot: () => state, subscribe: jest.fn(), reportHeight: jest.fn(), vote: jest.fn() };
+  const store = { snapshot: () => state, subscribe: jest.fn(), reportHeight: jest.fn(), reportScene: jest.fn(), vote: jest.fn() };
   const base = path.join(__dirname, '../../public/sparring-arena');
   document.body.innerHTML = readFileSync(path.join(base, 'index.html'), 'utf8').match(/<body>([\s\S]*)<\/body>/)[1];
   const media = Object.getOwnPropertyDescriptor(window, 'matchMedia'), observer = global.ResizeObserver;
   Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: true, addEventListener() {} }) });
   global.ResizeObserver = class { observe() {} disconnect() {} };
-  const arena = { updateState: jest.fn(), chooseSide: jest.fn(), launch: jest.fn(), dispose() {} };
+  const arena = { ready: Promise.resolve(), updateState: jest.fn(), chooseSide: jest.fn(), launch: jest.fn(), dispose() {} };
   const source = readFileSync(path.join(base, 'src/app.js'), 'utf8').replace(/^import .*;\n/gm, '');
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
   await new AsyncFunction('setupComposer', 'animateCapsuleSend', 'createArena', 'connectRoom', 'revealComposer', source)(jest.fn(), jest.fn(), () => arena, async () => store, revealComposer);
