@@ -11,7 +11,8 @@ const demoDurations = {
   invite: "6.5s",
   chat: "7.5s",
   calendar: "6s",
-  activity: "12s"
+  activity: "12s",
+  sparring: "7s"
 };
 
 const demoLabels = {
@@ -23,7 +24,8 @@ const demoLabels = {
   invite: "초대하기 화면 데모 제어",
   chat: "채팅 화면 데모 제어",
   calendar: "모임 캘린더 화면 데모 제어",
-  activity: "활동 피드 화면 데모 제어"
+  activity: "활동 피드 화면 데모 제어",
+  sparring: "토론해요 화면 데모 제어"
 };
 
 const analyticsActions = {
@@ -62,6 +64,10 @@ const analyticsActions = {
   activity: {
     pause: "landing_activity_demo_pause_toggle",
     replay: "landing_activity_demo_replay"
+  },
+  sparring: {
+    pause: "landing_sparring_demo_pause_toggle",
+    replay: "landing_sparring_demo_replay"
   }
 };
 
