@@ -1,3 +1,4 @@
+import { LandingDemoPlaybackContext } from "./landingDemoPlayback";
 import { useLandingDemo } from "./useLandingDemo";
 import { useLandingDemoViewport } from "./useLandingDemoViewport";
 import "./landing-product-demo.css";
@@ -12,7 +13,8 @@ const demoDurations = {
   chat: "7.5s",
   calendar: "6s",
   activity: "12s",
-  sparring: "7s"
+  // 녹화 영상 길이 16.43초에 데모 재생 속도 1.5를 곱한 값이라 진행 막대가 영상과 함께 끝난다.
+  sparring: "24.65s"
 };
 
 const demoLabels = {
@@ -104,7 +106,9 @@ export function LandingProductDemo({ children, isActive = true, label, screen })
         aria-label={label}
       >
         <div className="landing-product-demo__timeline" onAnimationEnd={finish} />
-        {children}
+        <LandingDemoPlaybackContext.Provider value={{ paused, reducedMotion, state }}>
+          {children}
+        </LandingDemoPlaybackContext.Provider>
       </div>
 
       <div
