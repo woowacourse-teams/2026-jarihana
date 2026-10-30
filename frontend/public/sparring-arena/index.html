@@ -41,11 +41,10 @@
 </div>
 <div class="composer-dock">
 <form id="composer" class="composer">
-<div id="reply-target" class="reply-target" hidden><div><strong>↩ 받아치기 선택됨</strong><p id="reply-target-text"></p></div><button type="button" id="cancel-reply" class="quiet-button" aria-label="받아치기 취소">×</button></div>
 <div class="composer-devices" role="group" aria-label="각 편의 의견 입력">
 <div class="composer-device" data-composer-side="a">
 <label id="composer-label" class="sr-only" for="message">왼쪽 편에 한마디</label>
-<span class="inlet-mouth" aria-hidden="true"><b></b><i></i></span><button class="composer-avatar vote-option" data-side="a" type="button" aria-pressed="false" aria-expanded="false"><span class="composer-hint" aria-hidden="true">눌러서 한마디</span></button><div class="composer-drawer" inert><div class="drawer-clip"><div class="input-row"><div class="composer-field"><textarea id="message" data-input-side="a" rows="2" maxlength="160" placeholder="내 생각은…"></textarea><span class="char-count" id="char-count">0 / 160</span></div><button type="submit" id="send" data-send-side="a" disabled><span class="send-capsule" aria-hidden="true"><span class="capsule-paper"></span></span><span class="send-label" id="send-label">보내기</span></button></div></div></div>
+<span class="inlet-mouth" aria-hidden="true"><b></b><i></i></span><button class="composer-avatar vote-option" data-side="a" type="button" aria-pressed="false" aria-expanded="false"><span class="composer-hint" aria-hidden="true">눌러서 한마디</span></button><div class="composer-drawer" inert><div class="drawer-clip"><div class="input-row"><div class="composer-field"><div id="reply-target" class="reply-target" hidden><div><strong id="reply-target-author">받아치기</strong><p id="reply-target-text"></p></div><button type="button" id="cancel-reply" class="quiet-button" aria-label="받아치기 취소">×</button></div><textarea id="message" data-input-side="a" rows="2" maxlength="160" placeholder="내 생각은…"></textarea><span class="char-count" id="char-count">0 / 160</span></div><button type="submit" id="send" data-send-side="a" disabled><span class="send-capsule" aria-hidden="true"><span class="capsule-paper"></span></span><span class="send-label" id="send-label">보내기</span></button></div></div></div>
 </div>
 <div class="composer-device" data-composer-side="b">
 <label id="composer-label-b" class="sr-only" for="message-b">오른쪽 편에 한마디</label>

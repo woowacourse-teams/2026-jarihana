@@ -13,17 +13,18 @@ export function createPipeSurfaces(color) {
   };
 }
 
-// Measure along the whole hose so curved and straight sections keep the same spacing.
-export function addPipeRings(group, curve, diameter, material, offset = 0) {
-  const length = curve.getLength(), spacing = diameter * 1.8;
-  const first = spacing / 2 + Math.ceil((offset - spacing / 2) / spacing) * spacing - offset;
-  const count = Math.max(0, Math.ceil((length - first) / spacing));
+// Continue one spacing between the nozzle rims, including across the render-layer seam.
+export function addPipeRings(group, curve, diameter, material, { offset = 0, spacing, end }) {
+  const curveLength = curve.getLength(), length = Math.min(curveLength, end - offset);
+  if (length <= 0 || spacing <= 0) return;
+  const first = Math.max(1, Math.ceil(offset / spacing - 1e-6)) * spacing - offset;
+  const count = Math.max(0, Math.ceil((length - first) / spacing - 1e-6));
   if (!count) return;
-  const geometry = new THREE.TorusGeometry(diameter * 0.51, diameter * 0.04, 8, 32);
+  const geometry = new THREE.TorusGeometry(diameter * 0.51, diameter * (0.095 / 1.6), 8, 32);
   const rings = new THREE.InstancedMesh(geometry, material, count);
   const transform = new THREE.Object3D(), axis = new THREE.Vector3(0, 0, 1);
   for (let index = 0; index < count; index++) {
-    const along = (first + index * spacing) / length;
+    const along = (first + index * spacing) / curveLength;
     transform.position.copy(curve.getPointAt(along));
     transform.quaternion.setFromUnitVectors(axis, curve.getTangentAt(along).normalize());
     transform.updateMatrix();

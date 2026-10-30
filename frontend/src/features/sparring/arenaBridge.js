@@ -22,6 +22,7 @@ const base = { channel: z.literal("jarihana-sparring") };
 const rpc = { ...base, kind: z.literal("command"), requestId: z.string().max(80) };
 export const arenaMessageSchema = z.union([
   z.object({ ...base, kind: z.literal("ready") }),
+  z.object({ ...base, kind: z.literal("scene"), status: z.enum(["ready", "error"]) }),
   z.object({ ...base, kind: z.literal("reveal") }),
   z.object({ ...base, kind: z.literal("interaction"), action: z.enum(arenaActions) }),
   z.object({ ...base, kind: z.literal("height"), height: z.number().min(200).max(50000) }),

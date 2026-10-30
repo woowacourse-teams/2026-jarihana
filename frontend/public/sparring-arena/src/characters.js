@@ -4,7 +4,11 @@ import { characterVariant } from './character-motion.js';
 // Alpha-cutout image planes preserve the brand faces without competing with transparent capsule lids for draw order.
 // Atlas regions exclude the neighboring character, without altering the generated alpha channel.
 const regions = [[369, 31, 432, 846], [947, 34, 428, 843]];
-let maps;
+let maps, assetsReady;
+export function whenCharacterAssetsReady() {
+  characterMaps();
+  return assetsReady;
+}
 function characterMaps() {
   if (maps) return maps;
   maps = regions.map(([x, y, width, height]) => {
@@ -14,11 +18,17 @@ function characterMaps() {
     texture.offset.set(x / 1774, 1 - (y + height) / 887);
     return texture;
   });
-  new THREE.TextureLoader().load(new URL('../assets/crew-coach-atlas.png', import.meta.url).href, texture => {
-    for (const map of maps) { map.image = texture.image; map.needsUpdate = true; }
-    window.dispatchEvent(new Event('sparringassetsready'));
-    texture.dispose();
-  }, undefined, () => window.dispatchEvent(new Event('sparringasseterror')));
+  assetsReady = new Promise((resolve, reject) => {
+    new THREE.TextureLoader().load(new URL('../assets/crew-coach-atlas.png', import.meta.url).href, texture => {
+      for (const map of maps) { map.image = texture.image; map.needsUpdate = true; }
+      window.dispatchEvent(new Event('sparringassetsready'));
+      texture.dispose();
+      resolve();
+    }, undefined, () => {
+      window.dispatchEvent(new Event('sparringasseterror'));
+      reject(new Error('캐릭터 이미지를 불러오지 못했어요.'));
+    });
+  });
   return maps;
 }
 
