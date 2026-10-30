@@ -77,6 +77,22 @@
   .landing-product-demo[data-state="running"] .lps-application-overlay {
     animation: lpm-application calc(3.2s / var(--landing-demo-speed, 1.5)) var(--landing-ease) calc(1.4s / var(--landing-demo-speed, 1.5)) both;
   }
+  .landing-product-demo[data-state="idle"] .lps-sparring-vote { width: 44%; }
+  .landing-product-demo[data-state="running"] .lps-sparring-vote {
+    animation: lps-sparring-vote calc(700ms / var(--landing-demo-speed, 1.5)) var(--landing-ease) calc(1s / var(--landing-demo-speed, 1.5)) both;
+  }
+  .landing-product-demo[data-state="running"] .lps-sparring-ready {
+    animation: lps-sparring-ready calc(4.2s / var(--landing-demo-speed, 1.5)) linear calc(1.9s / var(--landing-demo-speed, 1.5)) both;
+  }
+  .landing-product-demo[data-state="running"] .lps-sparring-shot {
+    animation: sparring-capsule-flight calc(1.4s / var(--landing-demo-speed, 1.5)) linear calc(var(--motion-delay, 0s) / var(--landing-demo-speed, 1.5)) both;
+  }
+  .landing-product-demo[data-state="running"] .lps-sparring-scene .sparring-wide-card__scene-art--mint {
+    animation: sparring-hose-recoil calc(1.4s / var(--landing-demo-speed, 1.5)) ease-out calc(2s / var(--landing-demo-speed, 1.5)) both;
+  }
+  .landing-product-demo[data-state="running"] .lps-sparring-scene .sparring-wide-card__scene-art--coral {
+    animation: sparring-hose-recoil calc(1.4s / var(--landing-demo-speed, 1.5)) ease-out calc(4.4s / var(--landing-demo-speed, 1.5)) both;
+  }
 }
 
 @keyframes lpm-application {
@@ -87,6 +103,8 @@
 
 @keyframes lpm-type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
 @keyframes lpm-arrive { from { opacity: 0; transform: translateY(0.75rem); } to { opacity: 1; transform: none; } }
+@keyframes lps-sparring-vote { from { width: 44%; } to { width: 46%; } }
+@keyframes lps-sparring-ready { 0%, 100% { opacity: 1; } 5%, 95% { opacity: 0; } }
 @keyframes lpm-state-before { from { opacity: 1; visibility: visible; } to { opacity: 0; visibility: hidden; } }
 @keyframes lpm-state-after { from { opacity: 0; visibility: hidden; transform: translateY(0.25rem); } to { opacity: 1; visibility: visible; transform: none; } }
 @keyframes lpm-select { from { color: var(--color-muted-ink); background: var(--color-surface); border-color: var(--color-line); } to { color: var(--color-surface); background: var(--color-brand-ink); border-color: var(--color-brand-ink); } }

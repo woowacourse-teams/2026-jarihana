@@ -90,7 +90,7 @@ test("completion holds the final scene and replay remounts the whole sequence", 
   expect(screen.getByRole("img")).not.toBe(oldScene);
 });
 
-test.each(["browse", "detail", "continue", "proposal", "manage", "invite", "chat", "calendar", "activity"])("%s controls retain fixed analytics actions", (kind) => {
+test.each(["browse", "detail", "continue", "proposal", "manage", "invite", "chat", "calendar", "activity", "sparring"])("%s controls retain fixed analytics actions", (kind) => {
   render(<Demo kind={kind} />);
   expect(screen.getByRole("button", { name: "다시보기" })).toHaveAttribute(
     "data-ph-capture-attribute-action", `landing_${kind}_demo_replay`

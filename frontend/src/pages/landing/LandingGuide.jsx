@@ -9,6 +9,7 @@ import {
   MessageCircle,
   Plus,
   Search,
+  Swords,
   UserPlus
 } from "lucide-react";
 import { Link } from "react-router";
@@ -111,6 +112,15 @@ const activityChapters = [{
   alt: "활동 사진과 짧은 글을 올리고 댓글과 하트로 대화한 뒤 새 반응을 알림함에서 확인하는 활동 피드 이용 예시"
 }];
 
+const sparringChapters = [{
+  id: "sparring",
+  number: "01",
+  icon: Swords,
+  title: "내 편 고르고 한마디 건네기",
+  checks: ["두 입장 중 내 생각 고르기", "한마디와 받아치기 주고받기"],
+  alt: "토론 주제에서 민트 편을 고르고 한마디를 캡슐로 보낸 뒤 코랄 편의 받아치기를 받는 토론해요 이용 예시"
+}];
+
 function ProductFrame({ chapter, isActive = true, playbackActive = isActive }) {
   return (
     <figure
@@ -154,7 +164,7 @@ function GuideChapter({ chapter, active }) {
       aria-current={active ? "step" : undefined}
       className="landing-guide-chapter"
       data-guide-chapter={chapter.id}
-      id={`guide-${chapter.id}${["proposal", "invite", "chat", "activity"].includes(chapter.id) ? "-demo" : ""}`}
+      id={`guide-${chapter.id}${["proposal", "invite", "chat", "activity", "sparring"].includes(chapter.id) ? "-demo" : ""}`}
     >
       <div className="landing-guide-chapter__number">
         <Icon aria-hidden="true" size={22} strokeWidth={1.7} />
@@ -364,6 +374,37 @@ export function LandingGuide({ createAction = null, activeChapter = "participate
             <br />
             휴대폰 홈 화면에 추가하고 알림을 켜면 푸시로도 받을 수 있어요.
           </p>
+        </div>
+      </GuideSection>
+
+      <GuideSection
+        activeChapter={activeChapter}
+        chapters={sparringChapters}
+        className="landing-guide-sparring"
+        id="guide-sparring"
+        titleId="sparring-title"
+      >
+        <div
+          aria-current={activeChapter === "sparring-intro" ? "step" : undefined}
+          className="landing-guide__intro"
+          data-guide-chapter="sparring-intro"
+        >
+          <p className="landing-eyebrow">07 토론해요</p>
+          <h2 id="sparring-title">누구 말이 맞을까?</h2>
+          <p>
+            두 입장 중 내 생각을 고르고, 한마디를 캡슐에 담아 보내요.
+            <br />
+            마음에 걸리는 한마디에는 받아치기로 답해요.
+          </p>
+          <div className="landing-guide__actions">
+            <Link
+              className="landing-button landing-button--soft"
+              data-ph-capture-attribute-action="landing_sparring_explore"
+              to="/sparring"
+            >
+              토론 둘러보기 <ArrowRight aria-hidden="true" size={20} />
+            </Link>
+          </div>
         </div>
       </GuideSection>
     </div>
