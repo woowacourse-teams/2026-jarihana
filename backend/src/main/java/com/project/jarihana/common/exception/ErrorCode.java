@@ -3,7 +3,10 @@ package com.project.jarihana.common.exception;
 import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
-
+    SPARRING_STREAM_BUSY(HttpStatus.SERVICE_UNAVAILABLE),
+    SPARRING_CLOSED(HttpStatus.CONFLICT),
+    SPARRING_NOT_FOUND(HttpStatus.NOT_FOUND),
+    SPARRING_VOTE_REQUIRED(HttpStatus.CONFLICT),
     INVALID_PARAMETER(HttpStatus.BAD_REQUEST),
     CONCURRENT_MODIFICATION(HttpStatus.CONFLICT),
     UNAUTHENTICATED(HttpStatus.UNAUTHORIZED),
@@ -82,5 +85,4 @@ public enum ErrorCode {
     public HttpStatus getStatus() {
         return status;
     }
-
 }

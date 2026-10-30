@@ -1,0 +1,84 @@
+{
+  "checks": [
+    "POST saved once and SSE delivered to another authenticated browser",
+    "Reply uses a single VS collision with original and reply visible; no ordinary launch queue",
+    "Switching sides updates votes on another browser without adding a vote",
+    "Offline reconnect retrieves missed posts exactly once",
+    "Own history remains available after repeated posting and side changes",
+    "390px layout, reduced motion, composer entry and no horizontal page overflow",
+    "Guest can view persisted history and must choose a side after login to send",
+    "Service list and topic creation modal are reachable within existing shell"
+  ],
+  "errors": [],
+  "stats": {
+    "bodies": 242,
+    "physicalCapsules": 240,
+    "sleeping": 5,
+    "contacts": 303,
+    "seconds": 3.582,
+    "exchanges": 2,
+    "finite": true,
+    "minY": -3.901,
+    "maxY": 3.216,
+    "capsules": 240,
+    "visibleCapsules": 240,
+    "mintCapsules": 240,
+    "coralCapsules": 0,
+    "historyExchanges": 0,
+    "pipeReplays": 1,
+    "pipeReplaysA": 1,
+    "pipeReplaysB": 0,
+    "speedA": 15,
+    "speedB": 9,
+    "pendingFresh": 0,
+    "drawReady": true,
+    "queuedId": null,
+    "mintShare": 1,
+    "mode": "pressure",
+    "paused": true,
+    "dispenserPhase": "open",
+    "dispenserOpened": 1,
+    "dispenserPostId": "10",
+    "dispenserPhysics": {
+      "elapsed": 2.9849999999999994,
+      "contacts": 1,
+      "x": -0.4189168633034188,
+      "y": -5.630467021590154,
+      "z": 6.6028638713262024,
+      "speed": 0,
+      "impact": {
+        "elapsed": 0.31829999999999997,
+        "speed": 6.006153399865405,
+        "x": -0.38509410562743757,
+        "z": 6.2766210887745615,
+        "target": "tray"
+      },
+      "fragments": 2
+    },
+    "outputCapsules": 1,
+    "outputContacts": 0,
+    "outputRolling": 0,
+    "outputCapacity": 24,
+    "outputLimit": 4,
+    "characters": [
+      {
+        "postId": "10",
+        "variant": 0,
+        "fresh": true,
+        "stage": "speaking",
+        "elapsed": 2.6330999999999998,
+        "scale": 0.54
+      }
+    ],
+    "clashCharacters": 2,
+    "spillQueue": 0,
+    "draws": 67,
+    "geometries": 44
+  },
+  "phoneInput": {
+    "x": 123,
+    "y": 830.1875,
+    "width": 234,
+    "height": 60
+  }
+}

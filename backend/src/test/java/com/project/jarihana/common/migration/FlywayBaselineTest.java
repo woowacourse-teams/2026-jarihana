@@ -94,6 +94,71 @@ class FlywayBaselineTest extends IntegrationTestSupport {
     }
 
     @Test
+    @DisplayName("V14~V16은 기존 그룹 이미지와 구버전 INSERT, 기존 스키마 이력을 보존한다.")
+    void addSparringAfterV13PreservesGroupImages() throws SQLException {
+        // Given
+        String schema = "sparring_upgrade_" + UUID.randomUUID().toString().replace("-", "");
+        JdbcTemplate administrative = new JdbcTemplate(dataSource);
+        administrative.execute("create schema " + schema);
+        try (Connection connection = dataSource.getConnection()) {
+            String originalSchema = connection.getSchema();
+            try {
+                connection.setSchema(schema);
+                SingleConnectionDataSource isolated = new SingleConnectionDataSource(connection, true);
+                Flyway.configure().dataSource(isolated).schemas(schema)
+                        .locations("classpath:db/migration").target("13").load().migrate();
+                JdbcTemplate jdbc = new JdbcTemplate(isolated);
+                jdbc.update("""
+                        insert into groups (id, name, introduction, status, type, meeting_type, created_at, updated_at)
+                        values (1, '이미지 모임', '기존 이미지 보존', 'ACTIVE', 'STUDY', 'ONLINE', localtimestamp, localtimestamp)
+                        """);
+                String oldUploadInsert = """
+                        insert into image_upload (id, file_name, content_type, file_size, image_key, expires_at,
+                            status, attached_group_id, created_at, updated_at)
+                        values (?, 'photo.png', 'image/png', 100, ?, localtimestamp + interval '1 day',
+                            'ATTACHED', 1, localtimestamp, localtimestamp)
+                        """;
+                String oldReferenceInsert = """
+                        insert into image_reference (image_upload_id, reference_type, owner_id, group_id, created_at, updated_at)
+                        values (?, 'GROUP_REPRESENTATIVE', 1, 1, localtimestamp, localtimestamp)
+                        """;
+                UUID existingUpload = UUID.randomUUID();
+                jdbc.update(oldUploadInsert, existingUpload, "groups/1/existing.png");
+                jdbc.update(oldReferenceInsert, existingUpload);
+                var uploads = jdbc.queryForList("select id, image_key, status, attached_group_id from image_upload");
+                var references = jdbc.queryForList("select * from image_reference");
+                var history = jdbc.queryForList("select * from flyway_schema_history order by installed_rank");
+                Flyway upgraded = Flyway.configure().dataSource(isolated).schemas(schema)
+                        .locations("classpath:db/migration").load();
+
+                // When
+                int applied = upgraded.migrate().migrationsExecuted;
+
+                // Then
+                assertThat(applied).isEqualTo(3);
+                assertThat(jdbc.queryForList("select id, image_key, status, attached_group_id from image_upload"))
+                        .isEqualTo(uploads);
+                assertThat(jdbc.queryForList("select * from image_reference")).isEqualTo(references);
+                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('14', '15', '16') order by installed_rank"))
+                        .isEqualTo(history);
+                UUID oldAppUpload = UUID.randomUUID();
+                jdbc.update(oldUploadInsert, oldAppUpload, "groups/1/old-app.png");
+                jdbc.update(oldReferenceInsert, oldAppUpload);
+                assertThat(jdbc.queryForObject("select count(*) from image_upload where attached_group_id = 1 and attached_sparring_id is null", Long.class))
+                        .isEqualTo(2L);
+                assertThat(jdbc.queryForObject("select count(*) from image_reference where reference_type = 'GROUP_REPRESENTATIVE' and group_id = 1", Long.class))
+                        .isEqualTo(2L);
+                upgraded.validate();
+                assertThat(upgraded.migrate().migrationsExecuted).isZero();
+            } finally {
+                connection.setSchema(originalSchema);
+            }
+        } finally {
+            administrative.execute("drop schema " + schema + " cascade");
+        }
+    }
+
+    @Test
     @DisplayName("애플리케이션은 V1으로 스키마와 세션 테이블을 만들고 재기동 시 다시 적용하지 않는다.")
     void applicationMigratesBaselineOnlyOnce() {
         // Given
@@ -318,7 +383,7 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 int appliedMigrations = existing.migrate().migrationsExecuted;
 
                 // Then
-                assertThat(appliedMigrations).isEqualTo(migrationCountIncludingMemberAffiliation(10));
+                assertThat(appliedMigrations).isEqualTo(migrationCountIncludingMemberAffiliation(13));
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '1'", String.class))
                         .isEqualTo("BASELINE");
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '2'", String.class))
@@ -391,8 +456,8 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 int appliedMigrations = upgraded.migrate().migrationsExecuted;
 
                 // Then
-                assertThat(appliedMigrations).isEqualTo(migrationCountIncludingMemberAffiliation(5));
-                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('7', '8', '10', '11', '12', '13') order by installed_rank"))
+                assertThat(appliedMigrations).isEqualTo(migrationCountIncludingMemberAffiliation(8));
+                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('7', '8', '10', '11', '12', '13', '14', '15', '16') order by installed_rank"))
                         .isEqualTo(history);
                 assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '4'", String.class))
                         .isEqualTo("V4__image_lifecycle.sql");
@@ -459,8 +524,8 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 int appliedMigrations = upgraded.migrate().migrationsExecuted;
 
                 // Then
-                assertThat(appliedMigrations).isEqualTo(migrationCountIncludingMemberAffiliation(2));
-                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('11', '12', '13') order by installed_rank"))
+                assertThat(appliedMigrations).isEqualTo(migrationCountIncludingMemberAffiliation(5));
+                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('11', '12', '13', '14', '15', '16') order by installed_rank"))
                         .isEqualTo(history);
                 assertThat(jdbc.queryForList("select * from proposal")).isEqualTo(proposals);
                 assertThat(jdbc.queryForList("select tablename from pg_tables where schemaname = current_schema()", String.class))
@@ -540,14 +605,15 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                         """);
                 Flyway normal = Flyway.configure().dataSource(isolated).schemas(schema)
                         .locations("classpath:db/migration").load();
-                normal.validate();
 
                 // Then
                 assertThat(corrected).isEqualTo(1);
                 assertThat(normal.getConfiguration().isOutOfOrder()).isFalse();
+                assertThat(normal.migrate().migrationsExecuted).isEqualTo(3);
+                normal.validate();
                 assertThat(normal.migrate().migrationsExecuted).isZero();
                 assertThat(jdbc.queryForList("select * from announcements")).isEqualTo(announcements);
-                assertThat(jdbc.queryForList("select * from flyway_schema_history where version <> '13' order by installed_rank"))
+                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('13', '14', '15', '16') order by installed_rank"))
                         .isEqualTo(history);
                 assertThat(jdbc.queryForObject("select checksum from flyway_schema_history where version = '13'", Integer.class))
                         .isEqualTo(-1253084773);
@@ -595,7 +661,7 @@ class FlywayBaselineTest extends IntegrationTestSupport {
 
                 // Then
                 assertThat(corrected).isEqualTo(1);
-                assertThat(appliedMigrations).isEqualTo(migrationCountIncludingMemberAffiliation(6));
+                assertThat(appliedMigrations).isEqualTo(migrationCountIncludingMemberAffiliation(9));
                 assertThat(jdbc.queryForList("select * from worker_authority")).isEqualTo(worker);
                 assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '4'", String.class))
                         .isEqualTo("V4__image_lifecycle.sql");

@@ -1,6 +1,9 @@
 const messages = Object.freeze({
   ACTIVITY_POST_ACCESS_DENIED: "작성자 또는 모임장만 활동 기록을 수정하거나 내릴 수 있어요.",
   ACTIVITY_POST_NOT_FOUND: "활동 기록을 찾을 수 없어요.",
+  SPARRING_NOT_FOUND: "토론을 찾을 수 없어요.",
+  SPARRING_VOTE_REQUIRED: "먼저 내 편을 골라주세요.",
+  SPARRING_STREAM_BUSY: "실시간 연결이 많아요. 잠시 후 다시 연결할게요.",
   ACCESS_DENIED: "이 작업을 수행할 권한이 없어요.",
   ANNOUNCEMENT_NOT_FOUND: "공지를 찾을 수 없어요.",
   GROUP_ALREADY_ENDED: "이미 종료된 모임이에요.",

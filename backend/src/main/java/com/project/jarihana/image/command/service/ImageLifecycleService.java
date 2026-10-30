@@ -70,23 +70,46 @@ public class ImageLifecycleService {
         String previousKey = upload.getImageKey();
         if (ImageKeyPolicy.isTemporary(previousKey)) {
             String targetKey = ImageKeyPolicy.finalKey(groupId, previousKey);
-            requiresNew.executeWithoutResult(ignored -> recordPromotionIntent(
-                    upload.getId(),
-                    previousKey,
-                    targetKey,
-                    now
-            ));
-            try {
-                imageStorage.copy(previousKey, targetKey);
-            } catch (ImageStorageException exception) {
-                throw new BusinessException(ErrorCode.IMAGE_NOT_FOUND, "이미지를 최종 경로로 이동할 수 없습니다.", exception);
-            }
+            copyForPromotion(upload, targetKey, now);
             upload.startPromotion(groupId, targetKey);
             validateObject(upload, targetKey);
         }
         upload.completeAttachment(now);
         cancelDeletion(upload);
         return new PromotedImage(upload.getId(), previousKey, upload.getImageKey());
+    }
+
+    @Transactional
+    public PromotedImage promoteForSparring(long memberId, long topicId, String imageKey, LocalDateTime now) {
+        if (!ImageKeyPolicy.isManaged(imageKey)) {
+            throw notFound();
+        }
+        ImageUpload upload = imageUploadRepository.findWithLockByImageKey(imageKey)
+                .orElseThrow(ImageLifecycleService::notFound);
+        if (!upload.canAttachToSparring(memberId, topicId, now)) {
+            throw notFound();
+        }
+        validateObject(upload, imageKey);
+        String previousKey = upload.getImageKey();
+        if (ImageKeyPolicy.isTemporary(previousKey)) {
+            String targetKey = ImageKeyPolicy.sparringKey(topicId, previousKey);
+            copyForPromotion(upload, targetKey, now);
+            upload.startSparringPromotion(topicId, targetKey);
+            validateObject(upload, targetKey);
+        }
+        upload.completeAttachment(now);
+        cancelDeletion(upload);
+        return new PromotedImage(upload.getId(), previousKey, upload.getImageKey());
+    }
+
+    private void copyForPromotion(ImageUpload upload, String targetKey, LocalDateTime now) {
+        requiresNew.executeWithoutResult(ignored -> recordPromotionIntent(
+                upload.getId(), upload.getImageKey(), targetKey, now));
+        try {
+            imageStorage.copy(upload.getImageKey(), targetKey);
+        } catch (ImageStorageException exception) {
+            throw new BusinessException(ErrorCode.IMAGE_NOT_FOUND, "이미지를 최종 경로로 이동할 수 없습니다.", exception);
+        }
     }
 
     private void recordPromotionIntent(
