@@ -11,6 +11,10 @@ import {
 import { clearPromotionAttribution } from "./promotion";
 
 const businessEvents = new Set([
+  "sparring_interaction",
+  "sparring_created",
+  "sparring_vote_saved",
+  "sparring_post_saved",
   "login_completed",
   "signup_completed",
   "registration_started",

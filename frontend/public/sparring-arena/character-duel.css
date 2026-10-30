@@ -1,0 +1,114 @@
+:root {
+  --duel-figure-size: 180px;
+  --duel-crossfade: 140ms;
+}
+.stage { height: clamp(640px, 64vw, 1088px); }
+.composer-dock { margin-top: 0; }
+.stage #scene { inset: var(--scene-top, 128px) 0 0; height: auto; }
+.character-duel {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  isolation: isolate;
+  z-index: 5;
+}
+.duel-contender { position: absolute; width: 0; height: 0; --duel-color: var(--deep); --duel-wash: var(--mint-soft); }
+.duel-contender[data-side="b"] { --duel-color: #9d4036; --duel-wash: var(--coral-soft); }
+.duel-speech {
+  position: absolute;
+  top: calc(var(--duel-figure-size) * -.9 - 12px);
+  left: 0;
+  width: min(240px, calc(50vw - 24px));
+  transform: translate(-50%, -100%);
+  pointer-events: auto;
+  min-height: 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: start;
+  padding: 10px 14px;
+  color: var(--ink);
+  background: var(--duel-wash);
+  border: 0;
+  border-radius: 14px;
+  box-shadow: 0 3px 12px #1d1d1f0d;
+  z-index: 2;
+  cursor: pointer;
+  transition: transform var(--duel-crossfade) ease-out, opacity var(--duel-crossfade) ease-out;
+}
+.duel-speech[hidden] { display: none; }
+.duel-speech::after {
+  content: "";
+  position: absolute;
+  bottom: -10px;
+  left: calc(var(--duel-tail-x, 50%) - 10px);
+  width: 20px;
+  height: 12px;
+  background: var(--duel-wash);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+.duel-contender[data-speaking="true"] .duel-speech { transform: translate(-50%, calc(-100% - 3px)); }
+.duel-speech:active:not(:disabled) { transform: translate(-50%, -100%); }
+.duel-contender[data-speaking="true"] .duel-speech:active:not(:disabled) { transform: translate(-50%, calc(-100% - 3px)); }
+.duel-speech:hover:not(:disabled) { filter: brightness(.98); }
+.duel-speech:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+.duel-byline { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; font-size: 12px; color: var(--duel-color); }
+.duel-byline strong { overflow-wrap: anywhere; font-size: inherit; }
+.duel-speech-text { font-size: 16px; line-height: 1.5; font-weight: 650; white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.duel-figure { position: absolute; bottom: 0; left: calc(var(--duel-figure-size) / -2); width: var(--duel-figure-size); height: var(--duel-figure-size); transform-origin: 50% 95%; pointer-events: none; }
+.duel-facing, .duel-sprite, .duel-pose { position: absolute; inset: 0; }
+.right .duel-facing { transform: scaleX(-1); }
+.duel-pose { background-image: url('./assets/character-duel-atlas.png'); background-repeat: no-repeat; background-size: 200% 200%; transition: opacity var(--duel-crossfade) ease-out; }
+.duel-pose.protest { background-position: 0 0; transform: translateX(-10%); }
+.duel-pose.listen { background-position: 100% 0; transform: translateX(4%); }
+.duel-sprite[data-variant="1"] .protest { background-position: 0 100%; }
+.duel-sprite[data-variant="1"] .listen { background-position: 100% 100%; }
+.duel-sprite[data-pose="listen"] .protest, .duel-sprite[data-pose="protest"] .listen { opacity: 0; }
+.duel-ground { position: absolute; width: 148px; height: 18px; bottom: -5px; left: -74px; border-radius: 50%; background: color-mix(in srgb, var(--duel-color) 12%, transparent); }
+.duel-versus { position: absolute; left: var(--duel-center-x); top: calc(var(--duel-center-y) - var(--duel-figure-size) * .52); transform: translate(-50%, -50%) rotate(-8deg); font-size: 36px; font-weight: 900; font-style: italic; color: var(--ink); letter-spacing: -3px; }
+.duel-status { position: absolute; left: var(--duel-center-x); top: calc(var(--duel-center-y) - var(--duel-figure-size) * .76); transform: translateX(-50%); text-align: center; white-space: nowrap; font-size: 11px; color: var(--muted); }
+.character-duel:is([data-phase="rolling"], [data-phase="emerging"]) .duel-status { top: calc(var(--duel-center-y) - 24px); }
+.character-duel[data-fresh="true"] .duel-status { color: var(--deep); font-weight: 700; }
+.character-duel[data-reduced="true"] .duel-speech { transform: translate(-50%, -100%); }
+.character-duel[data-reduced="true"] .duel-speech:active:not(:disabled) { transform: translate(-50%, -100%); }
+@media (max-width: 1000px) {
+  :root { --duel-figure-size: 166px; }
+}
+@media (max-width: 700px) {
+  :root { --duel-figure-size: 132px; }
+  .stage { height: 520px; }
+  .composer-dock { margin-top: 0; }
+  .pipe-station .vote-flag { top:calc(var(--scene-top, 240px) - var(--station-y, 300px) - 80px); bottom:auto; min-height:76px; }
+  .duel-speech { padding: 9px 11px; border-radius: 20px; }
+  .duel-speech-text { font-size: 14px; -webkit-line-clamp: 2; }
+  .duel-byline { gap: 4px; font-size: 11px; }
+  .duel-versus { font-size: 26px; }
+  .duel-status { font-size: 10px; }
+  .duel-ground { width: 100px; left: -50px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .duel-pose, .duel-speech { transition: none; }
+  .duel-speech, .duel-contender[data-speaking="true"] .duel-speech { transform: translate(-50%, -100%); }
+}
+@media (min-width: 1001px) {
+  .stage #scene { top:calc(var(--scene-top, 128px) + 64px); bottom:-64px; }
+  footer { margin-top: 32px; }
+  .composer-dock { padding-bottom: 0; }
+  .composer { padding-block: 4px; }
+  .composer #composer-note { margin-top: 4px; }
+}
+@media (min-width: 701px) {
+  .stage .topic { position:absolute; top:0; left:50%; transform:translateX(-50%); padding-top:20px; pointer-events:none; }
+  .composer-dock { margin-top:-140px; }
+  .pipe-station .vote-flag { top:auto; bottom:-12px; min-height:76px; padding-block:4px; }
+  .pipe-station.a .vote-flag { left:64px; right:auto; }
+  .pipe-station.b .vote-flag { left:auto; right:64px; }
+  .vote-flag strong { font-size:clamp(18px, 1.5vw, 24px); }
+}
+@media (min-width: 1001px) {
+  .stage .topic { top:var(--topic-row-top, 20px); width:var(--topic-row-width, 32%); padding-top:0; }
+  .topic h1 { font-size:clamp(22px, 1.8vw, 28px); }
+  .pipe-station .vote-flag { width:min(220px, 18vw); transform:translateY(var(--claim-row-shift, 0px)); }
+  .pipe-station.a .vote-flag { left:24px; }
+  .pipe-station.b .vote-flag { right:24px; }
+}

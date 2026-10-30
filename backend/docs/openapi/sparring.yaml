@@ -1,0 +1,223 @@
+openapi: 3.1.0
+info:
+  title: 자리하나 스파링 API
+  version: 1.0.0
+servers:
+  - url: /api
+paths:
+  /sparrings:
+    get:
+      operationId: listSparrings
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Size'
+        - {name: keyword, in: query, schema: {type: string, maxLength: 80}}
+        - {name: filter, in: query, schema: {type: string, enum: [all, active, mine, open, closed, open_active, closed_active], default: all}, description: mine requires member authentication}
+      responses:
+        '200':
+          description: Topics ordered by creation time and ID descending
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        allOf:
+                          - $ref: '#/components/schemas/Page'
+                          - properties: {items: {type: array, items: {$ref: '#/components/schemas/Topic'}}}
+        '400': {$ref: '#/components/responses/Invalid'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+    post:
+      operationId: createSparring
+      security: [{accessCookie: [], csrfHeader: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, a, b, closesAt]
+              properties:
+                title: {type: string, minLength: 1, maxLength: 80}
+                a: {type: string, minLength: 1, maxLength: 32}
+                b: {type: string, minLength: 1, maxLength: 32}
+                description: {type: [string, 'null'], maxLength: 240}
+                representativeImageKey: {type: [string, 'null'], maxLength: 255, description: Optional image key from the existing image-uploads API after uploading the file; only the uploader can attach it}
+                closesAt: {type: string, format: date-time, description: Required future deadline with timezone offset}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '400': {$ref: '#/components/responses/Invalid'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /sparrings/{topicId}:
+    parameters: [{$ref: '#/components/parameters/TopicId'}]
+    get:
+      operationId: getSparring
+      responses:
+        '200':
+          description: Current topic, votes and current member side (null for guests)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties: {data: {$ref: '#/components/schemas/Topic'}}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /sparrings/{topicId}/votes:
+    parameters: [{$ref: '#/components/parameters/TopicId'}]
+    post:
+      operationId: voteSparring
+      security: [{accessCookie: [], csrfHeader: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [side]
+              properties: {side: {$ref: '#/components/schemas/Side'}}
+      responses:
+        '204': {description: Vote recorded or moved; no response body}
+        '409': {description: SPARRING_CLOSED; deadline reached}
+        '400': {$ref: '#/components/responses/Invalid'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /sparrings/{topicId}/posts:
+    parameters: [{$ref: '#/components/parameters/TopicId'}]
+    get:
+      operationId: getSparringPosts
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Size'
+        - {name: mine, in: query, schema: {type: boolean, default: false}, description: true requires member authentication}
+        - {name: afterId, in: query, schema: {type: integer, format: int64, minimum: 0}, description: Ascending catch-up; cannot combine with cursor or mine=true}
+      responses:
+        '200':
+          description: Descending history or ascending catch-up
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        allOf:
+                          - $ref: '#/components/schemas/Page'
+                          - properties: {items: {type: array, items: {$ref: '#/components/schemas/Post'}}}
+        '400': {$ref: '#/components/responses/Invalid'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    post:
+      operationId: postSparring
+      security: [{accessCookie: [], csrfHeader: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text, requestId]
+              properties:
+                text: {type: string, minLength: 1, maxLength: 160}
+                requestId: {type: string, format: uuid, description: Stable across retries of the same draft}
+                replyToId: {type: [integer, 'null'], format: int64, minimum: 1}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '400': {$ref: '#/components/responses/Invalid'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {description: SPARRING_VOTE_REQUIRED or SPARRING_CLOSED, content: {application/json: {schema: {$ref: '#/components/schemas/Envelope'}}}}
+  /sparrings/{topicId}/events:
+    parameters: [{$ref: '#/components/parameters/TopicId'}]
+    get:
+      operationId: streamSparring
+      description: Current and changed DB revision; 1s polling shared per active topic, 15s heartbeat, 120s connection rotation. Reconnect then fetch summary and posts after last known ID.
+      responses:
+        '200':
+          description: SSE revision events; no JSON response envelope
+          headers:
+            Cache-Control: {schema: {type: string, const: 'no-cache, no-transform'}}
+            X-Accel-Buffering: {schema: {type: string, const: 'no'}}
+          content:
+            text/event-stream:
+              schema: {type: string}
+              example: "id:2\nevent:revision\nretry:2000\ndata:{\"revision\":2}\n\n"
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {description: SPARRING_STREAM_BUSY; process has 500 active streams, content: {application/json: {schema: {$ref: '#/components/schemas/Envelope'}}}}
+components:
+  securitySchemes:
+    accessCookie: {type: apiKey, in: cookie, name: accessToken}
+    csrfHeader: {type: apiKey, in: header, name: X-XSRF-TOKEN, description: Must match XSRF-TOKEN cookie}
+  parameters:
+    TopicId: {name: topicId, in: path, required: true, schema: {type: integer, format: int64, minimum: 1}}
+    Cursor: {name: cursor, in: query, schema: {type: string}, description: Opaque nextCursor from previous page}
+    Size: {name: size, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+  schemas:
+    Envelope:
+      type: object
+      required: [success, data, error]
+      properties:
+        success: {type: boolean}
+        data: {}
+        error:
+          type: [object, 'null']
+          properties: {code: {type: string}, message: {type: string}}
+    Page:
+      type: object
+      required: [items, nextCursor, hasNext]
+      properties:
+        items: {type: array, items: {}}
+        nextCursor: {type: [string, 'null']}
+        hasNext: {type: boolean}
+    Side: {type: string, enum: [MINT, CORAL]}
+    Topic:
+      type: object
+      required: [id, title, a, b, description, votesA, votesB, postCount, revision, mySide, createdAt]
+      properties:
+        id: {type: integer, format: int64}
+        title: {type: string}
+        a: {type: string}
+        b: {type: string}
+        description: {type: string}
+        representativeImageUrl: {type: [string, 'null'], description: Public stable image URL, null when no representative photo was supplied}
+        votesA: {type: integer, minimum: 0}
+        votesB: {type: integer, minimum: 0}
+        postCount: {type: integer, minimum: 0}
+        revision: {type: integer, format: int64, minimum: 1}
+        mySide: {type: [string, 'null'], enum: [MINT, CORAL, null]}
+        closesAt: {type: [string, 'null'], format: date-time, description: Deadline returned with Asia/Seoul offset}
+        createdAt: {type: string, description: Asia/Seoul LocalDateTime without offset, example: '2026-10-29T12:00:00'}
+    Reply:
+      type: object
+      required: [id, authorId, name, memberType, side, text]
+      properties:
+        id: {type: integer, format: int64}
+        authorId: {type: integer, format: int64}
+        name: {type: string}
+        memberType: {type: string, enum: [CREW, COACH, BOOTCAMP, PROFESSIONAL]}
+        side: {$ref: '#/components/schemas/Side'}
+        text: {type: string}
+    Post:
+      allOf:
+        - $ref: '#/components/schemas/Reply'
+        - type: object
+          required: [createdAt, replyTo]
+          properties:
+            createdAt: {type: string, description: Asia/Seoul LocalDateTime without offset}
+            replyTo: {oneOf: [{$ref: '#/components/schemas/Reply'}, {type: 'null'}]}
+  responses:
+    Created:
+      description: Committed resource ID; retries of the same post return its existing ID
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - properties: {data: {type: object, required: [id], properties: {id: {type: integer, format: int64}}}}
+    Invalid: {description: INVALID_PARAMETER, content: {application/json: {schema: {$ref: '#/components/schemas/Envelope'}}}}
+    Unauthorized: {description: UNAUTHENTICATED, content: {application/json: {schema: {$ref: '#/components/schemas/Envelope'}}}}
+    Forbidden: {description: Missing or invalid CSRF token, content: {application/json: {schema: {$ref: '#/components/schemas/Envelope'}}}}
+    NotFound: {description: SPARRING_NOT_FOUND, content: {application/json: {schema: {$ref: '#/components/schemas/Envelope'}}}}

@@ -1,4 +1,9 @@
 const pathSegments = new Set([
+  "sparring",
+  "sparrings",
+  "posts",
+  "votes",
+  "events",
   "api",
   "chat",
   "chats",

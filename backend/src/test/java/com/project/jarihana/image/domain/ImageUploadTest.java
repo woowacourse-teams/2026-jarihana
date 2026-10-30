@@ -54,4 +54,43 @@ class ImageUploadTest {
                 uploaderId
         );
     }
+
+    @Test
+    @DisplayName("토론 사진은 업로더만 연결하고 만료된 임시 사진은 거절한다")
+    void allowsSparringImageOnlyForUploaderBeforeExpiration() {
+        // Given
+        ImageUpload upload = upload("groups/tmp/discussion.webp", 10L);
+
+        // When / Then
+        assertThat(upload.canAttachToSparring(10L, 3L, NOW)).isTrue();
+        assertThat(upload.canAttachToSparring(11L, 3L, NOW)).isFalse();
+        assertThat(upload.canAttachToSparring(10L, 3L, NOW.plusHours(1))).isFalse();
+        assertThat(upload("groups/tmp/legacy.webp", null).canAttachToSparring(10L, 3L, NOW)).isFalse();
+    }
+
+    @Test
+    @DisplayName("토론 사진은 같은 번호의 그룹이나 다른 토론에 다시 연결할 수 없다")
+    void isolatesSparringAttachmentFromGroupAndOtherTopics() {
+        // Given
+        ImageUpload upload = upload("groups/tmp/discussion.webp", 10L);
+        upload.startSparringPromotion(3L, "sparrings/3/discussion.webp");
+        upload.completeAttachment(NOW);
+
+        // When / Then
+        assertThat(upload.canAttachTo(10L, 3L, NOW)).isFalse();
+        assertThat(upload.canAttachToSparring(10L, 4L, NOW)).isFalse();
+        assertThat(upload.canAttachToSparring(10L, 3L, NOW.plusHours(1))).isTrue();
+    }
+
+    @Test
+    @DisplayName("그룹 사진은 같은 번호의 토론에 연결할 수 없다")
+    void rejectsGroupImageForSparring() {
+        // Given
+        ImageUpload upload = upload("groups/tmp/group.webp", 10L);
+        upload.startPromotion(3L, "groups/3/group.webp");
+        upload.completeAttachment(NOW);
+
+        // When / Then
+        assertThat(upload.canAttachToSparring(10L, 3L, NOW)).isFalse();
+    }
 }

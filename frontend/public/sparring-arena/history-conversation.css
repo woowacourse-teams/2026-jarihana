@@ -1,0 +1,99 @@
+.history-conversation {
+  position: absolute;
+  inset: 0;
+  isolation: isolate;
+  pointer-events: none;
+  z-index: 3;
+}
+.history-conversation[hidden],
+.history-conversation [hidden] { display: none; }
+.history-character { position: absolute; width: 0; height: 0; }
+.history-conversation-caption {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.history-conversation-speech {
+  --history-color: var(--deep);
+  --history-wash: var(--mint-soft);
+  position: absolute;
+  width: var(--history-bubble-width, 240px);
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 14px;
+  min-height: 64px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--history-wash);
+  color: var(--ink);
+  text-align: start;
+  box-shadow: 0 3px 12px #1d1d1f0d;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform 140ms ease-out, box-shadow 140ms ease-out;
+  z-index: 2;
+}
+.history-conversation-speech[data-side="b"] { --history-color: #9d4036; --history-wash: var(--coral-soft); }
+.history-conversation-speech::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--history-tail-x, 50%) - 10px);
+  bottom: -10px;
+  width: 20px;
+  height: 12px;
+  background: var(--history-wash);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+.history-conversation-speech[data-speaking="true"] {
+  transform: translate(-50%, calc(-100% - 3px));
+  box-shadow: 0 5px 16px #1d1d1f12;
+}
+.history-conversation-speech:active:not(:disabled) { transform: translate(-50%, -100%); }
+.history-conversation-speech[data-speaking="true"]:active:not(:disabled) { transform: translate(-50%, calc(-100% - 3px)); }
+.history-conversation-speech:hover,
+.history-conversation-speech:focus-visible { z-index: 10; }
+.history-conversation-speech:hover { filter: brightness(.98); }
+.history-conversation-speech:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+.history-conversation-byline {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  color: var(--history-color);
+  font-size: 11px;
+  line-height: 1.3;
+}
+.history-conversation-byline strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-conversation-byline span { flex-shrink: 0; font-size: 10px; }
+.history-conversation-byline .speech-reply-action,
+.duel-byline .speech-reply-action { margin-left: auto; font-weight: 700; white-space: nowrap; }
+.history-conversation-speech[data-reply-selected="true"],
+.duel-speech[data-reply-selected="true"],
+.capsule-note[data-reply-selected="true"] { outline: 2px solid var(--deep); outline-offset: 2px; }
+.history-conversation-speech[data-reply-selected="true"] .speech-reply-action,
+.duel-speech[data-reply-selected="true"] .speech-reply-action { font-size: 0; }
+.history-conversation-speech[data-reply-selected="true"] .speech-reply-action::after,
+.duel-speech[data-reply-selected="true"] .speech-reply-action::after { content: '✓ 선택됨'; font-size: 10px; }
+.history-conversation-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 650;
+}
+@media (max-width: 700px) {
+  .history-conversation-speech { padding: 9px 11px; min-height: 64px; border-radius: 18px; }
+  .history-conversation-text { font-size: 13px; }
+}
+.history-conversation[data-reduced="true"] .history-conversation-speech { transform: translate(-50%, -100%); transition: none; }
+.history-conversation[data-reduced="true"] .history-conversation-speech:active:not(:disabled) { transform: translate(-50%, -100%); }
+@media (prefers-reduced-motion: reduce) {
+  .history-conversation-speech { transition: none; }
+}
