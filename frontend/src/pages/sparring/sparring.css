@@ -344,9 +344,20 @@
 .sparring-connection { color: var(--color-muted-ink); font-size: var(--text-caption); display: inline-flex; gap: var(--space-2); align-items: center; max-width: 40%; }
 .sparring-connection::before { content: ""; width: var(--space-2); height: var(--space-2); border-radius: var(--radius-pill); background: var(--color-muted); }
 .sparring-connection[data-connection="live"]::before { background: var(--color-success); }
-.sparring-arena-frame { display: block; width: 100%; height: 1500px; border: 0; background: var(--color-surface); }
+.sparring-detail__viewport { position: relative; }
+.sparring-arena-frame { display: block; width: 100%; height: calc(100svh - var(--header-height)); border: 0; background: var(--color-surface); transition: opacity 240ms ease; }
+.sparring-detail__viewport[data-ready="false"] .sparring-arena-frame { opacity: 0; pointer-events: none; }
+.sparring-detail__auth-loading { height: calc(100svh - var(--header-height)); }
+.sparring-preview { position: absolute; inset: 0; z-index: 1; overflow: hidden; background: var(--color-surface); }
+.sparring-preview picture { display: block; opacity: .38; }
+.sparring-preview img { display: block; width: 100%; height: auto; }
+.sparring-preview__status { position: absolute; top: min(34%, 260px); inset-inline: var(--page-gutter); display: flex; flex-direction: column; align-items: center; gap: var(--space-3); text-align: center; color: var(--color-muted-ink); font-size: var(--text-label); }
+.sparring-preview__status p { margin: 0; }
+.sparring-preview__capsule { width: 28px; height: 28px; border: 1px solid var(--color-brand); border-radius: 50%; background: linear-gradient(to bottom, var(--color-surface) 49%, var(--color-brand) 50%); animation: sparring-preview-roll 1.6s ease-in-out infinite; }
+@keyframes sparring-preview-roll { 0%, 100% { transform: translateX(-8px) rotate(-25deg); } 50% { transform: translateX(8px) rotate(25deg); } }
+@media (prefers-reduced-motion: reduce) { .sparring-arena-frame { transition: none; } .sparring-preview__capsule { animation: none; } }
 .sparring-detail__error { background: var(--color-danger-soft); color: var(--color-danger); padding: var(--space-4); }
-.sparring-detail__loading, .sparring-detail__error { padding-top: 72px; }
+.sparring-detail__error { padding-top: 72px; }
 @media (max-width: 640px) { .sparring-detail__rail { gap: var(--space-2); } }
 
 /* 토론을 이미지로 소개하고 아래에서 전체 목록을 빠르게 살펴본다. */

@@ -55,6 +55,7 @@ export async function connectRoom() {
     post: (_id, post) => command('post', { text: post.text, replyToId: post.replyToId, postId: post.postId }),
     loadHistory: (mine, reset = false) => command('history', { mine, reset }),
     reveal() { send({ kind: 'reveal' }); },
-    reportHeight(height) { send({ kind: 'height', height }); }
+    reportHeight(height) { send({ kind: 'height', height }); },
+    reportScene(status) { send({ kind: 'scene', status }); }
   };
 }

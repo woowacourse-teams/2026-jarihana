@@ -11,10 +11,13 @@ import { TANK, RADIUS, FRESH_CAPSULE_SCALE, nozzlePose } from './physics.js';
 import { studioMaterial, createStudioEnvironment } from './studio-materials.js';
 import { createTransportScene } from './transport-scene.js';
 import { createPipeSurfaces } from './pipe-surfaces.js';
+import { whenCharacterAssetsReady } from './characters.js';
 
 const PIPE_LENGTH = 2.35;
 
 export function createArena(container, onSelect, onReveal, onReply = onSelect) {
+  let assetsLoaded = false, layoutReady = false, presented = false, resolveReady;
+  const firstFrame = new Promise(resolve => { resolveReady = resolve; });
   const scene = new THREE.Scene();
   const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true, powerPreference: 'low-power' });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.7));
@@ -57,6 +60,10 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     renderer.clearDepth();
     renderer.setViewport(0, 0, width, height);
     renderer.render(transportScene.front, transportScene.camera);
+    if (!presented && assetsLoaded && layoutReady) {
+      presented = true;
+      resolveReady();
+    }
   }
   scene.add(new THREE.HemisphereLight(0xffffff, 0xe5e7eb, 0.35));
   const sun = new THREE.DirectionalLight(0xffffff, 2.3);
@@ -111,6 +118,11 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
   }
   const pipes = { a: pipe('a', 0x2ac1bc), b: pipe('b', 0xed6a5a) };
   const capsules = createCapsules(scene, onSelect, post => container.dispatchEvent(new CustomEvent('capsuleready', { detail: { id: post.id } })));
+  const ready = whenCharacterAssetsReady().then(() => {
+    assetsLoaded = true;
+    wake();
+    return firstFrame;
+  });
   const stage = container.parentElement;
   const duel = createCharacterDuel(stage, onReply, onReveal);
   const duelField = stage.querySelector('.character-duel');
@@ -360,6 +372,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
   });
   const updateHoses = event => {
     transportScene.update(event.detail, document.documentElement.clientWidth, innerHeight);
+    layoutReady = true;
     document.documentElement.classList.add('transport-webgl-ready');
     wake();
   };
@@ -374,6 +387,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
   renderer.domElement.addEventListener('webglcontextlost', event => { event.preventDefault(); document.documentElement.classList.remove('transport-webgl-ready'); container.dispatchEvent(new CustomEvent('sceneerror')); });
   resize();
   return {
+    ready,
     dispose() {
       disposed = true; suspend();
       sizeObserver.disconnect(); visibilityObserver.disconnect();

@@ -5,6 +5,9 @@ import { createHistoryConversation } from '../../public/sparring-arena/src/histo
 import { createCapsuleReveals } from '../../public/sparring-arena/src/capsule-reveals.js';
 import { createClash } from '../../public/sparring-arena/src/clash.js';
 import { createDispenser } from '../../public/sparring-arena/src/dispenser.js';
+import { whenCharacterAssetsReady } from '../../public/sparring-arena/src/characters.js';
+
+jest.mock('../../public/sparring-arena/src/characters.js', () => ({ whenCharacterAssetsReady: jest.fn(() => Promise.resolve()) }));
 
 jest.mock('../../public/sparring-arena/src/composer-characters.js', () => ({ createComposerCharacters: () => ({ update() {}, step() {}, ship() {}, dispose() {} }) }));
 
@@ -37,6 +40,7 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
   }
   beforeEach(() => {
     jest.clearAllMocks(); now = 0; nextFrame = null;
+    whenCharacterAssetsReady.mockResolvedValue();
     jest.spyOn(performance, 'now').mockImplementation(() => now);
     jest.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => { nextFrame = callback; return 1; });
     jest.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => { nextFrame = null; });
@@ -58,6 +62,27 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     arena = createArena(container, noop, noop);
   });
   afterEach(() => { arena?.dispose(); stage.remove(); jest.restoreAllMocks(); });
+  it('캐릭터 이미지와 호스 배치가 끝난 첫 렌더 뒤에만 준비 완료를 알린다', async () => {
+    arena.dispose(); stage.replaceChildren(container);
+    let finishAssets;
+    whenCharacterAssetsReady.mockImplementationOnce(() => new Promise(resolve => { finishAssets = resolve; }));
+    arena = createArena(container, noop, noop);
+    const ready = jest.fn();
+    arena.ready.then(ready);
+    advance(.1);
+    await Promise.resolve();
+    expect(ready).not.toHaveBeenCalled();
+    finishAssets();
+    await Promise.resolve();
+    advance(.1);
+    await Promise.resolve();
+    expect(ready).not.toHaveBeenCalled();
+    container.dispatchEvent(new CustomEvent('transportlayout', { detail: [] }));
+    expect(ready).not.toHaveBeenCalled();
+    advance(.1);
+    await arena.ready;
+    expect(ready).toHaveBeenCalledTimes(1);
+  });
   it('낙하감을 조정해도 파이프의 빠른 연속 발사 간격은 유지한다', () => {
     arena.updateState([original, reply], {}); advance(6);
     expect(capsules.replayPipe.mock.calls.length).toBeGreaterThanOrEqual(58);

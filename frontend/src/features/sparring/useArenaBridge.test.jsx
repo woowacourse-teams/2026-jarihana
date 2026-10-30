@@ -105,7 +105,7 @@ it("sends the available height and remeasures the shared content width on resize
   act(() => window.dispatchEvent(new Event("resize")));
   expect(target.postMessage).not.toHaveBeenCalled();
 });
-it("remeasures space after the loading message above the arena disappears", async () => {
+it("remeasures space after the arena reports its height", async () => {
   const { receive, target, result } = setup();
   result.current.frame.current.getBoundingClientRect = () => ({ top: 148 });
   receive({ kind: "ready" });
@@ -121,7 +121,8 @@ it("remeasures space after the loading message above the arena disappears", asyn
 it("rejects foreign origins, validates payloads and closes the stream on unmount", async () => {
   const { receive, target, unmount } = setup();
   receive({ kind: "ready" }, "https://untrusted.example");
-  expect(getSparring).not.toHaveBeenCalled();
+  expect(Stream.instances).toHaveLength(0);
+  expect(target.postMessage).not.toHaveBeenCalled();
   receive({ kind: "ready" });
   await waitFor(() =>
     expect(target.postMessage).toHaveBeenCalledWith(
@@ -134,6 +135,59 @@ it("rejects foreign origins, validates payloads and closes the stream on unmount
   const stream = Stream.instances.at(-1);
   unmount();
   expect(stream.close).toHaveBeenCalled();
+});
+
+it("starts both initial requests before iframe readiness and delivers buffered data on handshake", async () => {
+  let finishTopic, finishPosts;
+  getSparring.mockImplementationOnce(() => new Promise(resolve => { finishTopic = resolve; }));
+  getSparringPosts.mockImplementationOnce(() => new Promise(resolve => { finishPosts = resolve; }));
+  const { result, target, receive } = setup();
+  expect(getSparring).toHaveBeenCalledWith("1");
+  expect(getSparringPosts).toHaveBeenCalledWith("1", { size: 30 });
+  await act(async () => finishPosts({ items: [post], nextCursor: "older", hasNext: true }));
+  expect(result.current.loaded).toBe(false);
+  await act(async () => finishTopic(topic));
+  expect(result.current.loaded).toBe(true);
+  expect(result.current.sceneReady).toBe(false);
+  expect(target.postMessage).not.toHaveBeenCalled();
+  receive({ kind: "ready" });
+  expect(target.postMessage).toHaveBeenCalledWith(expect.objectContaining({
+    kind: "snapshot",
+    state: expect.objectContaining({ posts: [expect.objectContaining({ id: "1" })], more: { all: true, mine: false } })
+  }), window.location.origin);
+  receive({ kind: "scene", status: "ready" }, "https://untrusted.example");
+  expect(result.current.sceneReady).toBe(false);
+  receive({ kind: "scene", status: "ready" });
+  expect(result.current.sceneReady).toBe(true);
+});
+
+it("keeps the preview pending until both initial responses and the first rendered scene arrive", async () => {
+  let finishPosts;
+  getSparringPosts.mockImplementationOnce(() => new Promise(resolve => { finishPosts = resolve; }));
+  const { result, target, receive } = setup();
+  receive({ kind: "ready" });
+  await act(async () => {});
+  expect(result.current.loaded).toBe(false);
+  expect(target.postMessage.mock.calls.some(([message]) => message.kind === "snapshot")).toBe(false);
+  await act(async () => finishPosts({ items: [], nextCursor: null, hasNext: false }));
+  expect(result.current.loaded).toBe(true);
+  expect(result.current.sceneReady).toBe(false);
+  receive({ kind: "scene", status: "error" });
+  expect(result.current.sceneError).toContain("3D 화면");
+  receive({ kind: "scene", status: "ready" });
+  expect(result.current.sceneReady).toBe(true);
+  expect(result.current.sceneError).toBeNull();
+});
+
+it("offers recovery when the renderer never signals readiness and clears the timeout on unmount", async () => {
+  jest.useFakeTimers();
+  const { result, unmount } = setup();
+  await act(async () => {});
+  act(() => jest.advanceTimersByTime(30000));
+  expect(result.current.sceneError).toContain("늦어지고");
+  unmount();
+  expect(jest.getTimerCount()).toBe(0);
+  jest.useRealTimers();
 });
 it("catches up an initially empty room and never re-emits an acknowledged own post", async () => {
   const { receive, target } = setup();
