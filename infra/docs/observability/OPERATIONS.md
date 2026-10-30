@@ -274,38 +274,11 @@ RDS 파라미터 그룹에는 `pg_stat_statements`가 미리 로드되고 `compu
 
 ## 2. 앱 Alloy 배포 경로 선택
 
-Blue-Green 앱 A/B를 설치할 때의 저장소 기준은
-[전체 배포 절차](../../blue-green-deploy/controller/full-deployment.md)의 독립 Alloy Compose다.
-현재 prod2에서는 별도 프로젝트의 전체 앱 Alloy가 실행 중이고 마운트된 설정이 저장소
-공통 설정과 일치함을 확인했다. 현재 운영 설치가 이 Compose 템플릿에서 만들어졌다는
-의미는 아니다. 공통 `config.alloy`와 `postgres-queries.yaml`을 설치하고,
-보호된 observability env에 환경/호스트, 수신 URL, DB DSN, 설정 경로, 기존 외부 WAL 볼륨을 지정한다.
-`MANAGEMENT_PORT`는 생략 시 `8081`이며 앱 설정의 `management_port`와 같아야 한다.
-앱 env와 observability env는 서로 다른 파일이므로 한쪽 포트를 바꿔도 자동 동기화되지 않는다.
-앱 배포의 backend 교체/중지는 독립 Alloy를 재생성하지 않는다. 공통 Alloy 설정을 바꾸면
-실행 중인 각 앱 호스트의 수집기에 별도 적용/수신 확인이 필요하며, 중지된 대기 EC2도 다음
-기동 때 검토한 설정으로 자동 시작하는지 확인한다. 전체 설정은 health, DB, 호스트, 자체 메트릭,
-로그를 이미 포함하므로 앱 scrape만 있는 임시 설정으로 대체하지 않는다.
+Blue-Green 앱 A/B의 독립 Alloy Compose, 필수 입력과 WAL 보존은
+[배포 환경 구성](../../blue-green-deploy/controller/environment.md#앱-alloy와-조회-경로)을 따른다.
 
 배포 Nginx의 중앙 수집기는 이 앱 Compose로 설치하지 않는다. 실행 상태, 실제 경로 확인 방법,
 45초 관측 최신성, 저장소에 없는 재설치 원본은 [중앙 배포 수집기](CENTRAL-DEPLOYMENT-COLLECTOR.md)를 따른다.
-
-### prod2 임시 수집기 교체와 정리 기록
-
-2026-10-27 03:01 KST의 Blue-Green 준비 당시 prod DB의 연결 상한은 25, 앱 풀 최대치는 10이었다.
-추가 PostgreSQL exporter 연결을 만들지 않고 앱 메트릭과 호스트 식별을 먼저 관측하기 위해
-앱 scrape만 있는 임시 Alloy를 설치했다. 공통 앱 설정의 기능 부족 때문은 아니었다.
-2026-10-27에는 공통 전체 설정을 사용하는 Alloy로 교체됐으며, 2026-10-28 조회에서도
-`/opt/jarihana-observability-prod/config.alloy`가 저장소 앱 설정과 일치함을 확인했다.
-
-2026-10-28 23:55 KST에는 이미 중지된 임시 컨테이너 `jarihana-prod-bluegreen-metrics-a`와
-유일한 임시 설정 파일, 비어 있는 `/opt/jarihana-prod-bluegreen-metrics` 디렉터리만 정리했다.
-전체 Alloy와 backend는 재시작하지 않았고, 정리 후 앱 health `UP`, Alloy readiness HTTP `200`을
-확인했다. 이는 별도 운영 작업의 결과이며 PR 적용 시 자동 실행되는 정리 절차가 아니다.
-
-**`jarihana-prod-bluegreen-metrics-data` 볼륨은 현재 전체 Alloy가 사용하는 활성 WAL이다.**
-옛 이름이 남아 있다는 이유로 삭제하지 않는다. 임시 컨테이너 삭제 때도 볼륨은 제거하지 않았으며,
-실제 마운트와 사용 중인 데이터를 확인한 뒤 수명주기를 판단한다.
 
 ### 기본 dev/legacy prod: 앱과 Alloy 함께 실행
 

@@ -193,7 +193,7 @@ docker compose --env-file infra/.env -f infra/docker-compose.dev.yml up -d --no-
 재생성 중에는 수집이 잠시 멈춘다. Grafana Explore의 Prometheus에서
 `probe_success{job="jarihana-health",environment="dev"}`(prod는 `prod`)의 최신 샘플이
 도착하고 값이 `1`인지 확인한 뒤 아래 Grafana 설정을 적용한다. 전체 앱 배포와 수집 확인은
-[앱과 Alloy 실행 절차](OPERATIONS.md#2-앱과-alloy-함께-실행)를 참고한다.
+[앱 Alloy 실행 절차](OPERATIONS.md#2-앱-alloy-배포-경로-선택)를 참고한다.
 
 `develop` 브랜치에 알림 파일이나 모니터링 Compose 구성이 push되면
 [모니터링 배포 workflow](OPERATIONS.md#1-모니터링-서버-실행과-자동-배포)가 모니터링 EC2에서
