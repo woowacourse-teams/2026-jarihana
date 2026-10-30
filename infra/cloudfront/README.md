@@ -42,14 +42,14 @@ CloudFront에서 다음을 설정한다.
 
 ## PWA 설치 안내 이미지
 
-PWA 설치 안내 이미지는 사용자 업로드가 아닌 공개 정적 자산이다. 프론트엔드는 CloudFront 배포 도메인을
-하드코딩하지 않고 `/images/push-guide/*` 상대 경로를 사용하므로, 브라우저에는 환경별 기존 서비스 도메인이
-표시된다.
+PWA 설치 안내 이미지는 사용자 업로드가 아닌 공개 정적 자산이다. 프론트엔드는 공개 S3 경로
+`https://techcourse-project-2026.s3.ap-northeast-2.amazonaws.com/jarihana-dev/images/push-guide/`의
+브라우저별 하위 경로를 직접 사용한다. 서비스 도메인의 `/images/push-guide/*` 요청은 403을 반환해
+가이드 이미지를 전달하지 못하므로 현재 프론트엔드에서는 사용하지 않는다.
 
-CloudFront에서 `/images/push-guide/*` 캐시 동작을 이미지 S3 Origin에 연결한다. 이 경로에는 trusted key
-group을 요구하지 않고 공개 `GET`·`HEAD`를 허용한다. 사용자 업로드를 전달하는 `/images/groups/*`에는
-계속 trusted key group을 요구해야 하며, 두 경로의 접근 정책을 같은 캐시 동작으로 합치지 않는다. 배포 후
-개발·운영 서비스 도메인에서 안내 이미지가 열리고 `*.cloudfront.net`으로 리다이렉트되지 않는지 확인한다.
+향후 서비스 도메인으로 옮기려면 `/images/push-guide/*` 캐시 동작이 실제 안내 이미지의 S3 prefix를
+가리키도록 연결하고, trusted key group 없이 공개 GET/HEAD가 가능한지 확인해야 한다. 사용자 업로드를
+전달하는 `/images/groups/*`에는 계속 trusted key group을 요구하며 두 경로의 접근 정책을 합치지 않는다.
 
 ## 그룹 공유 미리보기
 
