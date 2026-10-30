@@ -19,7 +19,8 @@
   --history-color: var(--deep);
   --history-wash: var(--mint-soft);
   position: absolute;
-  width: var(--history-bubble-width, 240px);
+  width: max-content;
+  max-width: 280px;
   transform: translate(-50%, -100%);
   display: flex;
   flex-direction: column;
@@ -54,8 +55,8 @@
 }
 .history-conversation-speech:active:not(:disabled) { transform: translate(-50%, -100%); }
 .history-conversation-speech[data-speaking="true"]:active:not(:disabled) { transform: translate(-50%, calc(-100% - 3px)); }
-.history-conversation-speech:hover,
 .history-conversation-speech:focus-visible { z-index: 10; }
+.history-conversation-speech:hover { z-index: 20; }
 .history-conversation-speech:hover { filter: brightness(.98); }
 .history-conversation-speech:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
 .history-conversation-byline {
