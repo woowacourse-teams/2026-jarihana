@@ -475,5 +475,4 @@ replace 이동한다. 헤더의 홈과 브랜드 링크는 `/home`, 탐색 링�
 - 원래 예시 목록·localStorage 데모는 서비스 데이터를 대신하지 않는다
 - 주제 생성·투표·의견 저장은 실제 서버 응답 이후 표시하고 실패 시 입력을 보존한다
 
-[API 계약](../../backend/docs/context/api/endpoints/sparrings.md),
-[전체 기획/복원/검증 맥락](../../docs/sparring/INTEGRATION.md)
+[API 계약](../../backend/docs/context/api/endpoints/sparrings.md)
