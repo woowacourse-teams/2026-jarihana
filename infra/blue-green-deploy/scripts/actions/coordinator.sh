@@ -249,7 +249,7 @@ bg_observe() {
       frontend_checked_at=$elapsed
     fi
     bg_touch
-    if (( now-start>=900 && elapsed>=900 && failures==0 )); then break; fi
+    if (( now-start>=300 && elapsed>=300 && failures==0 )); then break; fi
     sleep 5
   done
   bg_save "$(jq -c --argjson now "$(bg_now)" '.http_observed_finished_at=$now' <<<"$STATE")"
@@ -267,7 +267,7 @@ bg_seal() {
   jq -e --argjson now "$(bg_now)" '.observation_failed==false and
     ([.http_observed_started_at,.http_observed_finished_at,.target_status.observed_started_at,.target_status.observed_finished_at] | all(type=="number" and floor==. and .>0 and .<=($now+5))) and
     .target_status.observed_started_at>=.pending.issued_at and
-    (.http_observed_finished_at-.http_observed_started_at)>=900 and (.target_status.observed_finished_at-.target_status.observed_started_at)>=900' <<<"$STATE" >/dev/null || bg_die 'Both observation periods must finish'
+    (.http_observed_finished_at-.http_observed_started_at)>=300 and (.target_status.observed_finished_at-.target_status.observed_started_at)>=300' <<<"$STATE" >/dev/null || bg_die 'Both observation periods must finish'
   if fe_enabled && fe_changed; then
     jq -e '.target_status.observed_started_at>=.frontend.published_at' <<<"$STATE" >/dev/null || bg_die 'Worker observation started before frontend publication'
   fi
@@ -344,7 +344,7 @@ bg_frontend_only_seal() {
   bg_phase OBSERVING
   jq -e --argjson now "$(bg_now)" '.frontend_only==true and .frontend.published==true and .observation_failed==false and
     .http_observed_started_at>=.frontend.published_at and
-    (.http_observed_finished_at-.http_observed_started_at)>=900 and .http_observed_finished_at<=($now+5)' <<<"$STATE" >/dev/null || bg_die 'Frontend-only observation is incomplete'
+    (.http_observed_finished_at-.http_observed_started_at)>=300 and .http_observed_finished_at<=($now+5)' <<<"$STATE" >/dev/null || bg_die 'Frontend-only observation is incomplete'
   bg_target_ready || bg_die 'Current backend health is unknown'
   fe_finalize
   bg_save "$(jq -c '.sealed=true | .phase="COMPLETE" | .pending=null | .old_status=.previous_backend_status' <<<"$STATE")"
