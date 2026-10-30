@@ -1,15 +1,15 @@
 # Blue-Green 배포
 
 별도 Nginx EC2가 앱 A/B 중 현재 서버로 요청을 보낸다. 배포할 때만 대기 EC2를 시작하고,
-전환 후 최소 15분 관찰과 기존 작업 종료 확인을 마치면 이전 EC2를 중지한다.
+전환 후 최소 5분 관찰과 기존 작업 종료 확인을 마치면 이전 EC2를 중지한다.
 다음 배포에서는 A/B 역할을 바꾼다. 단일 Nginx 장애까지 해결하는 구조는 아니다.
 
 ```text
 사용자 → CloudFront → Nginx EC2 → 현재 앱 → RDS
 배포: 대기 시작 → PAUSED 후보 준비 → 이전 worker 반납 → HTTP 전환 → 후보 활성화
-      → 앱/HTTP 병렬 15분 관찰 → 배포 확정 → 이전 앱 SIGTERM 정상 종료 → 이전 EC2 중지
+      → 앱/HTTP 병렬 5분 관찰 → 배포 확정 → 이전 앱 SIGTERM 정상 종료 → 이전 EC2 중지
 prod: 이전 FE 원본 보관 → 후보 준비 → HTTP 전환 → 같은 릴리스 FE 게시/검증
-      → worker 활성화 → 전체 15분 관찰 → FE 상태 반영 / 배포 확정 → 이전 EC2 정리
+      → worker 활성화 → 전체 5분 관찰 → FE 상태 반영 / 배포 확정 → 이전 EC2 정리
 ```
 
 [인프라 ADR 0005](../docs/adr/0005-nginx-ec2-blue-green-deployment.md),
@@ -71,7 +71,7 @@ Nginx 설정 atomic 교체·reload와 실제 경로, 이전 Nginx 세대의 연�
 후보가 미확정이면 이전 HTTP를 복구하고 worker 재개를 보류한다.
 prod 프론트엔드는 보관한 이전 파일의 복구를 별도로 시도하고 공개 바이트를 검증한다.
 프론트엔드 복구 실패 시 새 배포와 정리를 차단한다. 프론트엔드만 변경된 main 배포는
-현재 백엔드를 유지하고 EC2나 worker 교대 없이 900초 HTTP 관찰 후 새 릴리스 쌍을 확정한다.
+현재 백엔드를 유지하고 EC2나 worker 교대 없이 300초 HTTP 관찰 후 새 릴리스 쌍을 확정한다.
 응답 유실·취소·만료·drain 미확인은 `NEEDS_ATTENTION`으로 남기며 pending과 양쪽 EC2를
 보존한다. `always()` finalizer는 runner 장애 때 실행을 보장하지 않는다.
 watchdog은 pending deadline/전체 만료를 검사하며 pending 없는 경우에만 60초 heartbeat를
@@ -87,7 +87,7 @@ for file in infra/blue-green-deploy/scripts/actions/*.sh \
 done
 # Linux에서 root 소유 보호파일 fixture를 포함한 격리 계약 테스트
 sudo bash infra/blue-green-deploy/tests/actions/run-tests.sh
-# GitHub 요청 대역으로 전체 배포, 900초 관찰, guardian과 롤백의 1,000회 예산 확인
+# GitHub 요청 대역으로 전체 배포, 300초 관찰, guardian과 롤백의 1,000회 예산 확인
 bash infra/blue-green-deploy/tests/actions/run-api-budget.sh
 # Docker·Java 21·backend bootJar·Alloy 이미지를 준비한 뒤 실제 JVM/Alloy 통합 검증
 bash infra/blue-green-deploy/tests/actions/run-local-e2e.sh
@@ -112,5 +112,5 @@ Compose 시험은 임시 privileged Docker-in-Docker 데몬에서만 실행하�
 기록을 보존한다. 외부 GitHub/AWS·호스트 설정·SSH 전송은 대역이며 실제 인프라 검증과 구분한다.
 Bash 전환 뒤 경계 테스트와 격리 통합 결과는 해당 테스트의 실행 기록으로 확인한다.
 PR의 `Backend Blue-Green Bash Checks`는 구문·ShellCheck error·격리 계약 테스트를 실행한다.
-실제 IAM·보안 그룹·CloudFront·environment 보호·runner 선택·실제 15분 관찰·과거 앱과
+실제 IAM, 보안 그룹, CloudFront, environment 보호, runner 선택, 실제 5분 관찰, 과거 앱과
 새 DB 스키마 호환성은 별도 dev 검증 대상이다. 로컬 테스트만으로 성공했다고 표시하지 않는다.

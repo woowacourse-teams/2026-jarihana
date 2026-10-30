@@ -55,7 +55,7 @@ loopback 상태 변경 POST는 원본 CAS payload와 명령 ID를 로컬 저널�
 | pending_id, grant_id | 같은 pending UUID를 나타내는 두 필드 |
 | image | 승인 digest와 연결된 실제 앱 version |
 | healthy, running, normal_exit | Boolean 상태; normal_exit 기본 false |
-| observed_started_at, observed_finished_at | observe의 Unix 시각; 최소 900초 검증 |
+| observed_started_at, observed_finished_at | observe의 Unix 시각; 최소 300초 검증 |
 
 Spring 원본의 boot·host·환경·authority·worker와 activity 카운터를 함께 검증한다.
 없는 카운터를 0으로 채우거나 문자열 true를 Boolean으로 바꾸지 않는다.

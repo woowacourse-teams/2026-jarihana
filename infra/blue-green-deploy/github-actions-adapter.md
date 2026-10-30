@@ -32,7 +32,7 @@ resolve → plan → prepare(target) → grant-handoff → handoff(old)
         → seal → complete(target) → grant-stop → stop(old) → stop-ec2
 ```
 
-두 관찰 job은 각각 최소 900초를 확인한다. `seal`은 두 job의 성공을 모두 기다린다.
+두 관찰 job은 각각 최소 300초를 확인한다. `seal`은 두 job의 성공을 모두 기다린다.
 처음 수동 bootstrap은 `plan → bootstrap(old) → finish-bootstrap`만 수행한다.
 현재 앱 A가 승인 digest로 PAUSED·drained이고 DB 권한 UNASSIGNED, HTTP 대상 A,
 대기 B EC2가 stopped일 때만 최초 등록을 허용한다.
@@ -127,7 +127,7 @@ worker 상태·활동 수치·관찰 시각을 검사한다. 비밀값과 worker
 저널의 `cleanup_deferred=true` 검사가 HTTP 롤백을 차단한다.
 
 설치와 수동 dev 검증은 [배포 적용 절차](controller/full-deployment.md)를 따른다.
-로컬 검증은 실제 GitHub 권한·runner 가용성·보호 규칙·15분 관찰을 증명하지 않는다.
+로컬 검증은 실제 GitHub 권한, runner 가용성, 보호 규칙, 5분 관찰을 증명하지 않는다.
 
 ## 모니터링 배포와 동시 실행 방지
 

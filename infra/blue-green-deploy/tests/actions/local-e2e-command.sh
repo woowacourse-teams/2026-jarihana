@@ -25,7 +25,7 @@ bg_github() {
   jq -cn --argjson run "$BG_E2E_RUN" '{id:$run,run_attempt:1,head_sha:"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",head_branch:"develop",workflow_id:9,path:".github/workflows/backend-dev-deploy.yml",event:"workflow_dispatch",repository:{id:1321030074,full_name:"woowacourse-teams/2026-jarihana"},head_repository:{id:1321030074,full_name:"woowacourse-teams/2026-jarihana"},status:"in_progress",conclusion:null}'
 }
 
-# Virtual duration is explicit: actual JVM/API/Nginx evidence is real; this is not a 15-minute soak.
+# Virtual duration is explicit: actual JVM/API/Nginx evidence is real; this is not a 5-minute soak.
 fixture_offset() { (flock -s 8; cat "$BG_E2E_DIR/clock") 8>"$BG_E2E_DIR/clock.lock"; }
 bg_now() { printf '%s\n' "$(( $(date +%s)+$(fixture_offset) ))"; }
 fixture_uptime() { local value rest; read -r value rest < /proc/uptime; printf '%s\n' "$(( ${value%%.*}+$(fixture_offset) ))"; }
