@@ -10,14 +10,21 @@ export function useArenaBridge({ topicId, member, login, retry }) {
     error: null,
     status: "connecting",
     title: "토론해요",
-    loaded: false
+    loaded: false,
+    sceneReady: false,
+    sceneError: null
   });
   useEffect(() => {
     let disposed = false,
       ready = false,
       initialized = false,
       refreshing = false,
-      refreshAgain = false;
+      refreshAgain = false,
+      sceneReady = false;
+    setView({ error: null, status: "connecting", title: "토론해요", loaded: false, sceneReady: false, sceneError: null });
+    const loadingTimeout = setTimeout(() => {
+      if (!disposed && !sceneReady) setView(current => ({ ...current, sceneError: "화면 준비가 늦어지고 있어요. 다시 불러와 주세요." }));
+    }, 30000);
     let topic = null,
       connection = "connecting",
       posting = 0,
@@ -39,7 +46,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       if (!topic || updated.revision >= topic.revision) topic = updated;
     }
     function snapshot(fresh = []) {
-      if (!topic) return;
+      if (!ready || !initialized || !topic) return;
       const total = topic.votesA + topic.votesB;
       send({
         kind: "snapshot",
@@ -74,7 +81,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       }
     }
     async function refresh() {
-      if (!ready || disposed) return;
+      if (disposed) return;
       if (refreshing) {
         refreshAgain = true;
         return;
@@ -84,15 +91,20 @@ export function useArenaBridge({ topicId, member, login, retry }) {
         do {
           refreshAgain = false;
           const fresh = [];
-          const updated = await getSparring(topicId);
-          if (disposed) return;
+          let updated;
           if (!initialized) {
-            const history = await getSparringPosts(topicId, { size: 30 });
+            let history;
+            [updated, history] = await Promise.all([
+              getSparring(topicId),
+              getSparringPosts(topicId, { size: 30 })
+            ]);
             if (disposed) return;
             merge(history.items, fresh);
             cursors.all = history.nextCursor;
             more.all = history.hasNext;
           } else {
+            updated = await getSparring(topicId);
+            if (disposed) return;
             let page;
             do {
               page = await getSparringPosts(topicId, { size: 100, afterId: lastPostId });
@@ -103,7 +115,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
           // A concurrent command can move the topic forward while catch-up is running; its SSE revision triggers another refresh.
           acceptTopic(updated);
           initialized = true;
-          setView({ error: null, status: connection, title: topic.title, loaded: true });
+          setView(current => ({ ...current, error: null, status: connection, title: topic.title, loaded: true }));
           snapshot(fresh);
         } while (refreshAgain && !disposed);
       } catch (error) {
@@ -146,7 +158,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       updateViewport();
       if (ready) return;
       ready = true;
-      void refresh();
+      snapshot();
       connect();
     }
     function updateViewport() {
@@ -227,6 +239,16 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       if (!parsed.success) return;
       const message = parsed.data;
       if (message.kind === "ready") start();
+      else if (message.kind === "scene" && ready && initialized) {
+        if (message.status === "ready") {
+          sceneReady = true;
+          clearTimeout(loadingTimeout);
+          setView(current => ({ ...current, sceneReady: true, sceneError: null }));
+        } else if (!sceneReady) {
+          clearTimeout(loadingTimeout);
+          setView(current => ({ ...current, sceneError: "3D 화면을 불러오지 못했어요. 다시 시도해 주세요." }));
+        }
+      }
       else if (message.kind === "reveal")
         frame.current?.scrollIntoView({
           block: "start",
@@ -263,9 +285,11 @@ export function useArenaBridge({ topicId, member, login, retry }) {
     window.addEventListener("online", online);
     window.addEventListener("offline", offline);
     window.addEventListener("resize", updateViewport);
+    void refresh();
     send({ kind: "hello" });
     return () => {
       disposed = true;
+      clearTimeout(loadingTimeout);
       source?.close();
       window.removeEventListener("message", receive);
       window.removeEventListener("online", online);

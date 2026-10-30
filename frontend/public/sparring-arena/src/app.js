@@ -85,8 +85,11 @@ function showReveal(post, fresh) {
     selectPost(post.id);
   } else if (!replyToId && Date.now() > selectedUntil && !document.activeElement?.matches('[data-input-side]')) selectPost(post.id);
 }
-try { arena = createArena($('#scene'), id => selectPost(id, true), showReveal, startReply); }
-catch (error) { console.error(error); fallback(); }
+try {
+  arena = createArena($('#scene'), id => selectPost(id, true), showReveal, startReply);
+  arena.ready.then(() => store.reportScene('ready'), () => { fallback(); store.reportScene('error'); });
+}
+catch (error) { console.error(error); fallback(); store.reportScene('error'); }
 $('#scene').addEventListener('sceneerror', fallback);
 
 const isClosed = () => !!state.topic.closesAt && Date.now() >= new Date(state.topic.closesAt).getTime();
