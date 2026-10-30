@@ -162,22 +162,19 @@ test("proposal example reuses the board card and gathered conditions without rea
   expect(container.querySelector("#guide-proposal .landing-guide__intro")).toContainElement(board);
 });
 
-test("sparring example reuses the debate wide card with both sides, capsule shots and a reply without controls", () => {
+test("sparring example shows a muted recording of the real debate arena without controls", () => {
   const { container } = render(<LandingGuide />);
   const sparring = container.querySelector(".landing-product-scene--sparring");
-  expect(sparring).toHaveTextContent("토론해요");
-  const card = sparring.querySelector(".sparring-wide-card");
-  expect(card.querySelector(".lps-sparring-title")).toHaveTextContent("개발 공부, 강의부터? 만들면서?");
-  expect([...card.querySelectorAll(".sparring-wide-card__side")].map((side) => side.querySelector("strong").textContent))
-    .toEqual(["강의부터", "만들면서"]);
-  expect(card.querySelector(".sparring-wide-card__side--mint .lpm-after")).toHaveTextContent("내 편");
-  expect(card.querySelectorAll(".lps-sparring-shot .sparring-wide-card__flying-capsule")).toHaveLength(2);
-  expect(card.querySelector(".sparring-wide-card__message--mint")).toHaveTextContent("기초가 있어야 덜 막혀요.");
-  expect(card.querySelector(".sparring-wide-card__message--coral")).toHaveTextContent("받아치기");
-  expect(card.querySelector(".sparring-wide-card__mint .lpm-before")).toHaveTextContent("44%");
-  expect(card.querySelector(".sparring-wide-card__mint .lpm-after")).toHaveTextContent("46%");
-  expect(card.querySelector(".sparring-wide-card__coral .lpm-after")).toHaveTextContent("54%");
-  expect(sparring.querySelector("a, button, input, select, textarea")).toBeNull();
+  const video = sparring.querySelector("video.lps-sparring-video");
+  expect(video).toBeInTheDocument();
+  expect(video.muted).toBe(true);
+  expect(video).toHaveAttribute("playsinline");
+  expect(video).toHaveAttribute("poster");
+  expect(video).toHaveAttribute("preload", "metadata");
+  expect(video).not.toHaveAttribute("controls");
+  expect(video).not.toHaveAttribute("autoplay");
+  expect(sparring.closest('[role="img"]')).toHaveAccessibleName(/받아치기/);
+  expect(sparring.querySelector("a, button, input, select, textarea, [tabindex]")).toBeNull();
 
   const explore = screen.getByRole("link", { name: "토론 둘러보기" });
   expect(explore).toHaveAttribute("href", "/sparring");

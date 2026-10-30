@@ -12,8 +12,7 @@ const cameraPaths = {
   invite: [[0, "top"], [0.18, "top"], [0.33, "end"], [0.69, "end"], [0.81, "top"], [1, "top"]],
   chat: [[0, "top"], [0.22, "top"], [0.32, "end"], [1, "end"]],
   calendar: [[0, "top"], [0.4, "top"], [0.55, "end"], [1, "end"]],
-  activity: [[0, "top"], [0.28, "top"], [0.4, "end"], [1, "end"]],
-  sparring: [[0, "top"], [0.42, "top"], [0.58, "end"], [1, "end"]]
+  activity: [[0, "top"], [0.28, "top"], [0.4, "end"], [1, "end"]]
 };
 
 const focusSelectors = {

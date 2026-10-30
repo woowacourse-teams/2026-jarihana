@@ -15,6 +15,7 @@ import {
   UsersRound,
   X
 } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 import { Avatar, GroupImage, StatusBadge } from "../../shared/ui";
 import { DiscoveryGroupCard } from "../groups/home/DiscoveryGroupCard";
@@ -23,13 +24,13 @@ import "../groups/groupCalendar.css";
 import "../chat/chat.css";
 import "../proposals/proposals.css";
 import { ProposalCategoryIcon } from "../proposals/ProposalCategoryIcon";
-import "../sparring/sparring-wide-card.css";
-import hoseDuelImage from "../../shared/assets/illustrations/sparring-hose-duel.webp";
-import mintCapsuleImage from "../../shared/assets/illustrations/sparring-capsule.webp";
-import coralCapsuleImage from "../../shared/assets/illustrations/sparring-capsule-coral.webp";
 import recruitmentImage from "../../shared/assets/illustrations/group-recruitment-open.webp";
 import studyImage from "../../shared/assets/landing/default-group-study.webp";
+import sparringArenaVideo from "../../shared/assets/landing/sparring-arena-demo.mp4";
+import sparringArenaStart from "../../shared/assets/landing/sparring-arena-demo-start.webp";
+import sparringArenaEnd from "../../shared/assets/landing/sparring-arena-demo-end.webp";
 import { LandingActivityScene } from "./LandingActivityScene";
+import { useLandingDemoPlayback } from "./landingDemoPlayback";
 import "./landing-product-scene.css";
 import "./landing-guide-motion.css";
 
@@ -612,89 +613,41 @@ function InviteScene() {
   );
 }
 
-const sparringTopic = {
-  title: "개발 공부, 강의부터? 만들면서?",
-  mint: "강의부터",
-  coral: "만들면서",
-  mintMessage: "기초가 있어야 덜 막혀요.",
-  coralReply: "막혀 봐야 무엇을 배울지 알게 돼요."
-};
-
-// 토론해요의 넓은 카드(SparringWideCard) 구조와 스타일을 그대로 쓰되, 누를 수 있는 요소는 정적인 글자로 바꾼다.
+// 토론해요는 3D 경기장이라 DOM으로 옮기지 않고, 실제 경기장을 예시 데이터로 녹화한 영상을 데모 재생 상태에 맞춰 튼다.
 function SparringScene() {
+  const { paused, reducedMotion, state } = useLandingDemoPlayback();
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (state === "idle") {
+      video.pause();
+      video.currentTime = 0;
+    } else if (paused) {
+      video.pause();
+    } else if (state === "running") {
+      video.muted = true;
+      video.play()?.catch?.(() => {});
+    }
+  }, [paused, state]);
+
+  if (reducedMotion) {
+    return <img alt="" className="lps-sparring-video" height="1090" src={sparringArenaEnd} width="1146" />;
+  }
+
   return (
-    <>
-      <SceneHeading eyebrow="누구 말이 맞을까?">토론해요</SceneHeading>
-      <div className="sparring-wide-card lps-sparring-card lps-enter">
-        <div className="sparring-wide-card__heading">
-          <strong className="lps-sparring-title">{sparringTopic.title}</strong>
-          <span className="sparring-wide-card__example">
-            <MotionSwap
-              after={<MotionSwap after="11" before="10" className="lps-sparring-count" delay="5.7s" />}
-              before="9"
-              className="lps-sparring-count"
-              delay="3.3s"
-            /> 한마디,{" "}
-            <MotionSwap after="26" before="25" delay="1s" />명 참여
-          </span>
-        </div>
-        <div className="sparring-wide-card__matchup">
-          <div className="sparring-wide-card__side sparring-wide-card__side--mint">
-            <span className="sparring-wide-card__side-label">민트 편</span>
-            <strong>{sparringTopic.mint}</strong>
-            <MotionSwap
-              after={<><Check size={13} />내 편</>}
-              before={null}
-              className="lps-sparring-pick"
-              delay="1s"
-            />
-          </div>
-          <span className="sparring-wide-card__vs">VS</span>
-          <div className="sparring-wide-card__side sparring-wide-card__side--coral">
-            <span className="sparring-wide-card__side-label">코랄 편</span>
-            <strong>{sparringTopic.coral}</strong>
-          </div>
-        </div>
-        <div className="sparring-wide-card__scene lps-sparring-scene">
-          <img alt="" className="sparring-wide-card__scene-art sparring-wide-card__scene-art--mint" height="605" src={hoseDuelImage} width="1800" />
-          <img alt="" className="sparring-wide-card__scene-art sparring-wide-card__scene-art--coral" height="605" src={hoseDuelImage} width="1800" />
-          <div className="lps-sparring-ready">
-            <img alt="" className="sparring-wide-card__ready-capsule sparring-wide-card__ready-capsule--mint" src={mintCapsuleImage} />
-            <img alt="" className="sparring-wide-card__ready-capsule sparring-wide-card__ready-capsule--coral" src={coralCapsuleImage} />
-          </div>
-          <div className="sparring-wide-card__flight lps-sparring-shot lps-sparring-shot--mint" style={{ "--motion-delay": "2s" }}>
-            <img alt="" className="sparring-wide-card__flying-capsule" src={mintCapsuleImage} />
-          </div>
-          <div className="sparring-wide-card__flight lps-sparring-shot lps-sparring-shot--coral" style={{ "--motion-delay": "4.4s" }}>
-            <img alt="" className="sparring-wide-card__flying-capsule" src={coralCapsuleImage} />
-          </div>
-        </div>
-        <div className="sparring-wide-card__preview-bar">
-          <span className="sparring-wide-card__preview-copy">한마디가 캡슐이 되어 날아가요</span>
-        </div>
-        <div className="sparring-wide-card__footer">
-          <div className="sparring-wide-card__messages">
-            <p className="sparring-wide-card__message sparring-wide-card__message--mint lpm-arrive" style={{ "--motion-delay": "3.3s" }}>
-              “{sparringTopic.mintMessage}”
-            </p>
-            <p className="sparring-wide-card__message sparring-wide-card__message--coral lpm-arrive" style={{ "--motion-delay": "5.7s" }}>
-              <span className="lps-sparring-reply">↩ 받아치기</span>
-              “{sparringTopic.coralReply}”
-            </p>
-          </div>
-          <div className="sparring-wide-card__votes">
-            <div className="sparring-wide-card__vote-labels">
-              <strong className="sparring-wide-card__mint"><MotionSwap after="46%" before="44%" delay="1s" /></strong>
-              <span>투표 비율</span>
-              <strong className="sparring-wide-card__coral"><MotionSwap after="54%" before="56%" delay="1s" /></strong>
-            </div>
-            <div className="sparring-wide-card__vote-track">
-              <span className="lps-sparring-vote" />
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
+    <video
+      className="lps-sparring-video"
+      height="1090"
+      muted
+      playsInline
+      poster={sparringArenaStart}
+      preload="metadata"
+      ref={videoRef}
+      src={sparringArenaVideo}
+      width="1146"
+    />
   );
 }
 

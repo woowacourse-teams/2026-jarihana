@@ -26,6 +26,18 @@ if (typeof window !== "undefined") {
   });
 }
 
+// jsdom은 영상 재생을 구현하지 않아 호출할 때마다 오류를 남긴다. 재생 요청과 멈춤만 기록하는 대체 함수를 둔다.
+if (typeof window !== "undefined" && window.HTMLMediaElement) {
+  Object.defineProperty(window.HTMLMediaElement.prototype, "play", {
+    configurable: true,
+    value: jest.fn(() => Promise.resolve())
+  });
+  Object.defineProperty(window.HTMLMediaElement.prototype, "pause", {
+    configurable: true,
+    value: jest.fn()
+  });
+}
+
 if (typeof window !== "undefined" && typeof window.IntersectionObserver === "undefined") {
   const observers = new Set();
 
