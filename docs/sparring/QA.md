@@ -33,18 +33,9 @@ Chromium의 격리된 두 컨텍스트와 전용 DB 회원을 사용했다. 사�
 - 없는 주제의 오류/다시 불러오기
 - WCAG A/AA axe 검사: 목록·상세에서 검출 위반 0. 낮은 VS/답장 인용 색 대비 두 곳을 수정했다
 
-원본 결과: [실시간](evidence/live-interactions.json), [production 시나리오](evidence/production-checks.json),
-[접근성](evidence/accessibility.json). 렌더러 수치는 해당 짧은 시나리오의 진단값이며 부하/성능 보장이 아니다.
-
-## 화면
-
-![투표 비율과 캐릭터 캡슐](evidence/desktop-arena.png)
-
-![원문과 받아치기 충돌](evidence/desktop-reply.png)
-
-![실제 서비스 주제 등록](evidence/topic-create.png)
-
-![모바일 문서 흐름](evidence/phone-arena.png)
+로컬 캡처와 JSON 검증 산출물은 저장소에 포함하지 않는다.
+서비스 통합 시점의 화면과 최종 검증 결과는 [PR #519](https://github.com/woowacourse-teams/2026-jarihana/pull/519)에 기록했다.
+렌더러 수치는 해당 짧은 시나리오의 진단값이며 부하/성능 보장이 아니다.
 
 ## 남은 확인
 
