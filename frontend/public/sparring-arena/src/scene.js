@@ -10,7 +10,7 @@ import { TRAY } from './dispenser-physics.js';
 import { TANK, RADIUS, FRESH_CAPSULE_SCALE, nozzlePose } from './physics.js';
 import { studioMaterial, createStudioEnvironment } from './studio-materials.js';
 import { createTransportScene } from './transport-scene.js';
-import { addPipeRings, createPipeSurfaces } from './pipe-surfaces.js';
+import { createPipeSurfaces } from './pipe-surfaces.js';
 
 const PIPE_LENGTH = 2.35;
 
@@ -106,7 +106,6 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     for (const z of [-length / 2, length / 2]) {
       const lip = new THREE.Mesh(new THREE.TorusGeometry(0.73, 0.095, 10, 36), material); lip.position.z = z; group.add(lip);
     }
-    addPipeRings(group, new THREE.LineCurve3(new THREE.Vector3(0, 0, length / 2), new THREE.Vector3(0, 0, -length / 2)), 1.6, material);
     scene.add(group);
     return { group, material, until: 0 };
   }
