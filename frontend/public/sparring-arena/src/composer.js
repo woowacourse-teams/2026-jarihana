@@ -6,16 +6,25 @@ export function fitArenaViewport(form) {
   if (!stage || !Number.isFinite(available) || available <= 0) return;
   const topic = stage.querySelector('.topic');
   const mobile = innerWidth <= 700;
-  const sceneTop = mobile && topic ? topic.offsetHeight + 80 : 0;
+  const sceneTop = mobile && topic ? topic.offsetHeight + 48 : 0;
   stage.style.setProperty('--scene-top', `${sceneTop}px`);
   const top = stage.getBoundingClientRect().top + window.scrollY;
-  const dockMargin = parseFloat(getComputedStyle(dock).marginTop) || 0;
+  const dockStyle = getComputedStyle(dock), formStyle = getComputedStyle(form);
+  const dockMargin = parseFloat(dockStyle.marginTop) || 0;
+  const devices = form.querySelector('.composer-devices');
+  const devicesMinHeight = devices && parseFloat(getComputedStyle(devices).minHeight);
+  const verticalSpace = style => ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth']
+    .reduce((sum, property) => sum + (parseFloat(style[property]) || 0), 0);
+  // Reserve the collapsed composer's space so opening a reply cannot resize the 3D scene.
+  const dockHeight = Number.isFinite(devicesMinHeight)
+    ? devicesMinHeight + verticalSpace(formStyle) + verticalSpace(dockStyle)
+    : dock.offsetHeight;
   // A short viewport can scroll rather than hiding the stage or the composer.
   const minimum = mobile
     ? sceneTop + Math.max(240, Math.ceil(stage.clientWidth * 0.62 + 16))
     : 380 + Math.max(0, (topic?.offsetHeight || 0) - 100);
   const height = mobile ? minimum : Math.max(
-    minimum, Math.floor(available - top - dock.offsetHeight - dockMargin - 8),
+    minimum, Math.floor(available - top - dockHeight - dockMargin - 8),
   );
   if (stage.style.height !== `${height}px`) stage.style.height = `${height}px`;
 }

@@ -1,4 +1,5 @@
 import { historyWalkPose, WALKOUT_SECONDS } from './history-walk.js';
+import { placeSpeechBubbles } from './speech-layout.js';
 
 const ENTRY_SECONDS = WALKOUT_SECONDS;
 const EXIT_SECONDS = 0.18;
@@ -100,29 +101,36 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
       item.slot.dataset.phase = item.departure === null ? frame.phase : 'leaving';
     }
 
+    const visibleBubbles = [];
     for (const item of bubbles) {
       const character = item.character;
       item.post = character.post && character.elapsed >= ENTRY_SECONDS && character.departure === null ? character.post : null;
       item.bubble.hidden = !item.post || !visible;
       if (item.bubble.hidden) continue;
-      const head = character.speechAnchor;
-      const width = Math.min(240, Math.max(0, layout.width / 2 - 16));
-      const direction = item.side === 'a' ? -1 : 1;
-      const minimum = item.side === 'a' ? width / 2 + 8 : layout.width / 2 + width / 2 + 4;
-      const maximum = item.side === 'a' ? layout.width / 2 - width / 2 - 4 : layout.width - width / 2 - 8;
-      const center = Math.max(minimum, Math.min(maximum, head.x + direction * (width / 2 - 24)));
-      item.bubble.style.left = center + 'px';
-      item.bubble.style.top = head.y - 12 + 'px';
-      item.bubble.style.setProperty('--history-bubble-width', width + 'px');
-      item.bubble.style.setProperty('--history-tail-x', Math.max(12, Math.min(width - 12, head.x - center + width / 2)) + 'px');
       if (item.bubble.dataset.postId !== String(item.post.id)) delete item.bubble.dataset.replySelected;
       item.bubble.dataset.postId = String(item.post.id);
       item.bubble.dataset.speaking = String(character === speaker);
-      item.author.textContent = item.post.name;
-      item.context.textContent = item.post.replyTo ? '지난 받아치기' : '지난 한마디';
-      item.text.textContent = item.post.text;
+      if (item.author.textContent !== item.post.name) item.author.textContent = item.post.name;
+      const caption = item.post.replyTo ? '지난 받아치기' : '지난 한마디';
+      if (item.context.textContent !== caption) item.context.textContent = caption;
+      if (item.text.textContent !== item.post.text) item.text.textContent = item.post.text;
       item.bubble.setAttribute('aria-label', `${item.post.name}, ${item.context.textContent}: ${item.post.text}. 눌러서 받아치기`);
+      item.bubble.style.maxWidth = Math.max(0, Math.min(280, layout.width - 16)) + 'px';
+      visibleBubbles.push(item);
     }
+    const measurements = visibleBubbles.map(item => ({
+      headX: item.character.speechAnchor.x, headY: item.character.speechAnchor.y - 12,
+      width: item.bubble.offsetWidth || Math.min(240, Math.max(0, layout.width / 2 - 16)),
+      height: item.bubble.offsetHeight || 64, direction: item.side === 'a' ? -1 : 1,
+    }));
+    const positions = placeSpeechBubbles(measurements, layout.width);
+    visibleBubbles.forEach((item, index) => {
+      const width = measurements[index].width;
+      item.bubble.style.left = positions[index].center + 'px';
+      item.bubble.style.top = item.character.speechAnchor.y - 12 + 'px';
+      item.bubble.style.setProperty('--history-bubble-width', width + 'px');
+      item.bubble.style.setProperty('--history-tail-x', positions[index].tail + 'px');
+    });
   }
 
   return {

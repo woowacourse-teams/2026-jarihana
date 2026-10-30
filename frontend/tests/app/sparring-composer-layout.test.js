@@ -28,13 +28,17 @@ describe('스파링 화면 높이 배분', () => {
     expect(parseFloat(stage.style.height)).toBeGreaterThanOrEqual(380);
   });
 
-  it('받아칠 의견으로 입력창이 길어지면 경기장을 줄여 화면 안에 유지한다', () => {
+  it('받아칠 의견으로 입력창이 길어져도 경기장 크기를 유지하고 화면 크기는 반영한다', () => {
+    form.innerHTML = '<div class="composer-devices" style="min-height: 154px"></div>';
     document.documentElement.style.setProperty('--arena-available-height', '900px');
     fitArenaViewport(form);
     const before = parseFloat(stage.style.height);
     Object.defineProperty(dock, 'offsetHeight', { value: 194 });
     fitArenaViewport(form);
-    expect(parseFloat(stage.style.height)).toBe(before - 40);
+    expect(parseFloat(stage.style.height)).toBe(before);
+    document.documentElement.style.setProperty('--arena-available-height', '960px');
+    fitArenaViewport(form);
+    expect(parseFloat(stage.style.height)).toBe(before + 60);
   });
 
   it('부모 화면 높이를 받기 전에는 기본 레이아웃을 유지한다', () => {

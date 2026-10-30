@@ -69,7 +69,7 @@ describe('미끄럼틀에서 나온 캐릭터 대치', () => {
     for (const side of ['left', 'right']) {
       const slotX = parseFloat(stage.querySelector('.' + side).style.left);
       const speech = bubble(side);
-      const width = parseFloat(speech.style.width);
+      const width = parseFloat(speech.style.getPropertyValue('--duel-bubble-width'));
       const center = slotX + parseFloat(speech.style.left);
       expect(center - width / 2).toBeGreaterThanOrEqual(8);
       expect(center + width / 2).toBeLessThanOrEqual(382);

@@ -60,7 +60,7 @@ describe('지난 메시지 캐릭터 모임', () => {
     const previousLeft = Number.parseFloat(bubble('a').style.left);
     add('a2');
     const nextBubble = stage.querySelector('.history-conversation-speech[data-post-id="a2"]');
-    expect(Number.parseFloat(nextBubble.style.left)).toBeLessThan(previousLeft);
+    expect(Number.parseFloat(nextBubble.style.left)).toBeGreaterThan(previousLeft);
     expect(Number.parseFloat(bubble('a').style.left)).toBe(previousLeft);
   });
   it('좁은 화면에서도 말풍선이 양쪽 화면 경계 안에 머문다', () => {

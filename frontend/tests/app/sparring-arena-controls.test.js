@@ -4,12 +4,12 @@ import { createHistoryConversation } from '../../public/sparring-arena/src/histo
 import { createCharacterDuel } from '../../public/sparring-arena/src/character-duel.js';
 import { revealComposer } from '../../public/sparring-arena/src/composer.js';
 
-it('편을 고르지 않았을 때 캐릭터 말풍선을 누르면 투표 안내를 보여준다', async () => {
+it('편을 고르기 전에 누른 말풍선도 받아치기 대상으로 유지하고 편 선택 후 전송한다', async () => {
   const first = { id: '1', side: 'a', authorId: 'crew', name: '크루', text: '기다리면 금방이야', createdAt: 1 };
   const second = { id: '2', side: 'b', authorId: 'coach', name: '코치', text: '점심시간이 더 소중해', createdAt: 2 };
   const state = { actorId: null, mySide: null, topic: { id: 'topic', title: '점심', a: '맛', b: '시간' },
     posts: [first, second], postCount: 2, connection: 'connected', balance: { total: 2, a: 1, b: 1, ratio: 0.5 }, more: { all: false, mine: false } };
-  const store = { snapshot: () => state, subscribe: jest.fn(), reportHeight: jest.fn(), vote: jest.fn() };
+  const store = { snapshot: () => state, subscribe: jest.fn(), reportHeight: jest.fn(), vote: jest.fn(async (_room, _actor, _name, side) => { state.mySide = side; }), post: jest.fn(async () => second) };
   const base = path.join(__dirname, '../../public/sparring-arena');
   const html = readFileSync(path.join(base, 'index.html'), 'utf8');
   document.body.innerHTML = html.match(/<body>([\s\S]*)<\/body>/)[1];
@@ -22,7 +22,7 @@ it('편을 고르지 않았을 때 캐릭터 말풍선을 누르면 투표 안�
   const createArena = (container, onSelect, onReveal, onReply) => {
     cast = createHistoryConversation(container.parentElement, onReply, onReveal, { draw() {}, hide() {}, project: point => point });
     cast.setLayout({ left: { x: 100, y: 200 }, right: { x: 300, y: 200 }, worldLeft: { x: -4.4, y: -6, z: 10 }, worldRight: { x: 4.4, y: -6, z: 10 }, width: 400 });
-    return { updateState() {}, dispose() {} };
+    return { updateState() {}, chooseSide() {}, launch() {}, dispose() {} };
   };
   try {
     const source = readFileSync(path.join(base, 'src/app.js'), 'utf8').replace(/^import .*;\n/gm, '');
@@ -33,11 +33,30 @@ it('편을 고르지 않았을 때 캐릭터 말풍선을 누르면 투표 안�
     bubble.click();
     expect(store.vote).not.toHaveBeenCalled();
     expect(document.querySelector('#post-text')).toHaveTextContent(first.text);
-    expect(document.querySelector('#seat-instruction')).toHaveTextContent('받아치려면 먼저 내 편을 골라주세요');
+    expect(document.querySelector('#composer-note')).toHaveTextContent('받아치려면 아래 캐릭터를 눌러 내 편을 골라주세요.');
     expect(document.querySelector('#reply-target')).not.toBeVisible();
+    expect(document.querySelector('#reply-target-text')).toHaveTextContent(first.text);
     expect(bubble).toHaveAttribute('data-ph-capture-attribute-action', 'sparring_reply_start');
     expect(bubble).not.toHaveAttribute('aria-pressed');
     expect(document.querySelector('.vote-option')).toHaveAttribute('data-ph-capture-attribute-action', 'sparring_vote');
+    document.querySelector('.composer-avatar[data-side="b"]').click();
+    await Promise.resolve(); await Promise.resolve();
+    const input = document.querySelector('#message-b');
+    expect(input).toHaveFocus();
+    expect(document.querySelector('#reply-target')).toBeVisible();
+    expect(input.parentElement).toContainElement(document.querySelector('#reply-target'));
+    expect(document.querySelector('#reply-target-author')).toHaveTextContent('크루에게 받아치기');
+    expect(document.querySelector('#composer-note')).not.toBeVisible();
+    document.querySelector('.composer-avatar[data-side="a"]').click();
+    await Promise.resolve(); await Promise.resolve();
+    expect(document.querySelector('#message').parentElement).toContainElement(document.querySelector('#reply-target'));
+    document.querySelector('.composer-avatar[data-side="b"]').click();
+    await Promise.resolve(); await Promise.resolve();
+    expect(input.parentElement).toContainElement(document.querySelector('#reply-target'));
+    input.value = '내 반박'; input.dispatchEvent(new Event('input'));
+    document.querySelector('#send-b').click();
+    expect(store.post).toHaveBeenCalledWith('topic', expect.objectContaining({ text: '내 반박', replyToId: first.id }));
+    await Promise.resolve(); await Promise.resolve();
   } finally {
     cast?.dispose(); document.body.replaceChildren(); Object.defineProperty(window, 'matchMedia', originalMatchMedia); global.ResizeObserver = originalResizeObserver; Element.prototype.scrollIntoView = originalScrollIntoView;
   }
@@ -70,10 +89,15 @@ it('지난 대화와 대치 말풍선은 각각 누른 실제 의견을 받아�
     const historyBubble = document.querySelector('.history-conversation-speech[data-side="b"]');
     historyBubble.click();
     expect(document.querySelector('#reply-target-text')).toHaveTextContent(second.text);
-    expect(document.querySelector('#reply-target')).toHaveTextContent('받아치기 선택됨');
+    expect(document.querySelector('#reply-target')).toHaveTextContent('하나에게 받아치기');
+    expect(document.querySelector('#message').parentElement).toContainElement(document.querySelector('#reply-target'));
     expect(historyBubble).toHaveAttribute('data-reply-selected', 'true');
     expect(document.querySelector('#message')).toHaveFocus();
     expect(document.querySelector('#send-label')).toHaveTextContent('받아치기');
+    document.querySelector('#cancel-reply').click();
+    expect(document.querySelector('#reply-target')).not.toBeVisible();
+    expect(document.querySelector('#message')).toHaveFocus();
+    historyBubble.click();
     duel.updateState([second]);
     duel.prepare(second, true, true).forEach(({ role }) => duel.emerge(role, { x: 100, y: 200 }, true));
     const duelBubble = document.querySelector('.left .duel-speech');
@@ -387,6 +411,36 @@ it('내 캐릭터를 누르면 투표 없이 말풍선을 열고 접으며 초�
     expect(input).toHaveFocus();
     expect(input).toHaveValue('잠깐 접어둘 글');
     expect(store.vote).not.toHaveBeenCalled();
+  } finally { cleanup(); }
+});
+
+it.each(['a', 'b'])('%s 캐릭터로 말풍선을 접어도 초안과 받아치기 대상을 보존한다', async side => {
+  const { state, store, cleanup } = await setupVoting();
+  state.mySide = side;
+  const post = { id: '1', side: 'b', authorId: 'other', name: '다른 사람', text: '받아칠 의견', createdAt: 1 };
+  state.posts.push(post); store.subscribe.mock.calls[0][0]([]);
+  store.post = jest.fn(async () => post);
+  try {
+    document.querySelector('.history-item').click();
+    const device = document.querySelector(`[data-composer-side="${side}"]`);
+    const avatar = device.querySelector('.composer-avatar'), input = device.querySelector('textarea');
+    input.value = '접었다 이어서 쓸 답변'; input.dispatchEvent(new Event('input'));
+    expect(avatar).toHaveAttribute('data-ph-capture-attribute-action', 'sparring_composer_toggle');
+    expect(input.parentElement).toContainElement(document.querySelector('#reply-target'));
+    avatar.click();
+    expect(avatar).toHaveAttribute('aria-expanded', 'false');
+    expect(avatar).toHaveFocus();
+    expect(device.querySelector('.composer-drawer').inert).toBe(true);
+    expect(store.post).not.toHaveBeenCalled();
+    store.subscribe.mock.calls[0][0]([]);
+    expect(avatar).toHaveAttribute('aria-expanded', 'false');
+    avatar.click();
+    expect(input).toHaveFocus();
+    expect(input).toHaveValue('접었다 이어서 쓸 답변');
+    expect(document.querySelector('#reply-target-text')).toHaveTextContent(post.text);
+    device.querySelector('[type=submit]').click();
+    expect(store.post).toHaveBeenCalledWith('1', expect.objectContaining({ text: '접었다 이어서 쓸 답변', replyToId: post.id }));
+    await Promise.resolve(); await Promise.resolve();
   } finally { cleanup(); }
 });
 
