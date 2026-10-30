@@ -20,6 +20,16 @@ describe('지난 메시지 캐릭터 모임', () => {
     expect(Number.parseFloat(figure.style.left)).toBeCloseTo(225); expect(bubble('a')).toBeVisible(); expect(bubble('b')).not.toBeVisible();
     expect(reveal).toHaveBeenCalledWith(post('1'), false);
   });
+  it('가운데 두 캐릭터는 말풍선을 각자의 안쪽 방향으로 우선 배치한다', () => {
+    visuals.project = point => ({ x: point.x * 100 + 600, y: 300 - (point.y + 6.3) * 40 });
+    history.setLayout({ left: { x: 160, y: 300 }, right: { x: 1040, y: 300 }, worldLeft: { x: -4.4, y: -6.3, z: 10.1 }, worldRight: { x: 4.4, y: -6.3, z: 10.1 }, width: 1200 });
+    add('a1'); add('b1', 'b');
+    for (const [side, sign] of [['a', 1], ['b', -1]]) {
+      const speech = bubble(side);
+      const character = stage.querySelector(`.history-character[data-post-id="${side}1"]`);
+      expect((parseFloat(speech.style.left) - parseFloat(character.style.left)) * sign).toBeGreaterThan(0);
+    }
+  });
   it('편당 2명을 유지하고 새 글은 같은 편의 가장 오래된 자리를 교체한다', () => {
     add('a1'); add('b1', 'b'); add('a2'); add('b2', 'b');
     expect(history.stats().historyCharacters).toBe(4);
@@ -60,7 +70,7 @@ describe('지난 메시지 캐릭터 모임', () => {
     const previousLeft = Number.parseFloat(bubble('a').style.left);
     add('a2');
     const nextBubble = stage.querySelector('.history-conversation-speech[data-post-id="a2"]');
-    expect(Number.parseFloat(nextBubble.style.left)).toBeGreaterThan(previousLeft);
+    expect(Number.parseFloat(nextBubble.style.left)).toBeLessThan(previousLeft);
     expect(Number.parseFloat(bubble('a').style.left)).toBe(previousLeft);
   });
   it('좁은 화면에서도 말풍선이 양쪽 화면 경계 안에 머문다', () => {

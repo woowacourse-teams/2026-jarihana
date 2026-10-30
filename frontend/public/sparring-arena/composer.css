@@ -3,6 +3,7 @@
 .composer :is(.composer-field,[type=submit],.reply-target,#composer-note){pointer-events:auto}
 .composer{position:relative;z-index:6;width:calc(100% - var(--composer-gutter,144px) * 2);max-width:none;margin:auto;padding:6px 0;background:none;border:0;scroll-margin-bottom:20px}
 .composer-devices{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;min-height:178px}
+@media(min-width:701px){.composer-devices{--stage-composer-height:178px;min-height:224px}}
 .composer-device{--inlet-color:#2ac1bc;--inlet-dark:#087f7b;--inlet-soft:#def6f3;--inlet-glass:#8bdfda;--pipe-diameter:40px;position:relative;flex:none;width:104px;min-width:0;min-height:160px;padding-top:44px;border:0;background:none;box-shadow:none;transition:width .38s cubic-bezier(.22,1,.36,1)}
 .composer-device[data-composer-side=b]{--inlet-color:#ed6a5a;--inlet-dark:#b85348;--inlet-soft:#fde5df;--inlet-glass:#f3b2a6}
 .composer-device[data-expanded=true]{width:min(460px,58%)}

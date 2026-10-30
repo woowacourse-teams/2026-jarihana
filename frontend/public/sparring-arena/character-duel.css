@@ -94,7 +94,8 @@
   .duel-speech, .duel-contender[data-speaking="true"] .duel-speech { transform: translate(-50%, -100%); }
 }
 @media (min-width: 1001px) {
-  .stage #scene { top:calc(var(--scene-top, 128px) + 40px); bottom:-40px; }
+  .page { position:relative; top:-32px; margin-bottom:-32px; }
+  .stage #scene { top:var(--scene-top, 128px); bottom:0; }
   footer { margin-top: 32px; }
   .composer-dock { padding-bottom: 0; }
   .composer { padding-block: 4px; }
