@@ -28,13 +28,26 @@ describe('스파링 화면 높이 배분', () => {
     expect(parseFloat(stage.style.height)).toBeGreaterThanOrEqual(380);
   });
 
-  it('받아칠 의견으로 입력창이 길어지면 경기장을 줄여 화면 안에 유지한다', () => {
+  it('받아칠 의견으로 입력창이 길어져도 경기장 크기를 유지하고 화면 크기는 반영한다', () => {
+    form.innerHTML = '<div class="composer-devices" style="min-height: 224px; --stage-composer-height: 154px"></div>';
     document.documentElement.style.setProperty('--arena-available-height', '900px');
     fitArenaViewport(form);
     const before = parseFloat(stage.style.height);
     Object.defineProperty(dock, 'offsetHeight', { value: 194 });
     fitArenaViewport(form);
-    expect(parseFloat(stage.style.height)).toBe(before - 40);
+    expect(parseFloat(stage.style.height)).toBe(before);
+    document.documentElement.style.setProperty('--arena-available-height', '960px');
+    fitArenaViewport(form);
+    expect(parseFloat(stage.style.height)).toBe(before + 60);
+  });
+
+  it('데스크톱 상단 여백을 줄여도 경기장 크기는 늘리지 않는다', () => {
+    stage.getBoundingClientRect = () => ({ top: 0 });
+    fitArenaViewport(form);
+    const height = stage.style.height;
+    stage.getBoundingClientRect = () => ({ top: -32 });
+    fitArenaViewport(form);
+    expect(stage.style.height).toBe(height);
   });
 
   it('부모 화면 높이를 받기 전에는 기본 레이아웃을 유지한다', () => {
@@ -75,15 +88,36 @@ describe('스파링 화면 높이 배분', () => {
   });
 });
 
-it('입력창이 이미 화면 안에 있으면 받아치기를 선택해도 스크롤하지 않는다', () => {
+it('모바일에서 입력창이 화면 밖에 있을 때만 스크롤한다', () => {
   const form = document.createElement('form');
-  form.getBoundingClientRect = () => ({ top: 400, bottom: innerHeight - 8 });
+  const viewport = Object.getOwnPropertyDescriptor(window, 'innerWidth');
+  Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true });
+  try {
+    form.getBoundingClientRect = () => ({ top: 400, bottom: innerHeight - 8 });
+    form.scrollIntoView = jest.fn();
+    revealComposer(form);
+    expect(form.scrollIntoView).not.toHaveBeenCalled();
+    form.getBoundingClientRect = () => ({ top: innerHeight - 80, bottom: innerHeight + 60 });
+    revealComposer(form);
+    expect(form.scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', behavior: 'smooth' });
+  } finally { Object.defineProperty(window, 'innerWidth', viewport); }
+});
+
+it('데스크톱에서는 입력란이 화면 밖이어도 받아치기로 경기장을 이동시키지 않는다', () => {
+  const form = document.createElement('form');
+  form.innerHTML = '<div class="composer-device" data-expanded="true"><textarea></textarea></div>';
+  const input = form.querySelector('textarea');
+  input.scrollIntoView = jest.fn();
   form.scrollIntoView = jest.fn();
+  form.getBoundingClientRect = () => ({ top: innerHeight - 194, bottom: innerHeight + 30 });
+  input.getBoundingClientRect = () => ({ top: innerHeight - 79, bottom: innerHeight + 13, height: 92 });
   revealComposer(form);
+  expect(input.scrollIntoView).not.toHaveBeenCalled();
   expect(form.scrollIntoView).not.toHaveBeenCalled();
-  form.getBoundingClientRect = () => ({ top: innerHeight - 80, bottom: innerHeight + 60 });
+  input.getBoundingClientRect = () => ({ top: innerHeight + 10, bottom: innerHeight + 102, height: 92 });
   revealComposer(form);
-  expect(form.scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', behavior: 'smooth' });
+  expect(input.scrollIntoView).not.toHaveBeenCalled();
+  expect(form.scrollIntoView).not.toHaveBeenCalled();
 });
 
 it('입력 중 다른 편 캐릭터를 누를 때 입력창 포커스를 빼앗지 않는다', () => {
