@@ -25,7 +25,8 @@ function composerError(text = '') { notice = text; renderComposerNotice(); }
 function renderComposerNotice() {
   const note = $('#composer-note');
   note.replaceChildren();
-  if (notice) note.append(document.createTextNode(notice));
+  const message = notice || (!mySide() && replyToId ? '받아치려면 아래 캐릭터를 눌러 내 편을 골라주세요.' : '');
+  if (message) note.append(document.createTextNode(message));
   for (const shipment of failedShipments.values()) {
     const row = document.createElement('span'), text = document.createElement('span'), retry = document.createElement('button');
     row.className = 'composer-failed-message';
@@ -95,11 +96,15 @@ $('#scene').addEventListener('sceneerror', fallback);
 const isClosed = () => !!state.topic.closesAt && Date.now() >= new Date(state.topic.closesAt).getTime();
 function renderInput() {
   const side = mySide(), draft = $('#message').value;
+  const replyTarget = $('#reply-target');
+  if (side) $(`[data-composer-side="${side}"] .composer-field`).prepend(replyTarget);
+  replyTarget.hidden = !side || !replyToId;
   for (const choice of ['a', 'b']) {
     const device = $(`[data-composer-side="${choice}"]`);
     const input = device.querySelector('textarea'), send = device.querySelector('[type=submit]');
     const chosen = side === choice;
     const expanded = chosen && expandedSide === choice;
+    device.querySelector('.composer-field').dataset.reply = String(chosen && !!replyToId);
     device.dataset.expanded = String(expanded);
     device.dataset.memberType = state.actorMemberType ?? state.posts.find(own)?.memberType ?? 'CREW';
     const panel = device.querySelector('.composer-drawer');
@@ -194,16 +199,20 @@ function renderHistory() {
   $('#more-history').hidden = posts.length <= historyLimit && !state.more[filter === 'mine' ? 'mine' : 'all'];
 }
 function sync() { state = store.snapshot(roomId); renderCounts(); renderHistory(); flowLabel(); }
+function setComposerExpanded(side) {
+  const previous = expandedSide;
+  expandedSide = side;
+  if (!side && previous) $(`.composer-avatar[data-side="${previous}"]`).focus({ preventScroll: true });
+  renderInput();
+  if (side) $(`[data-input-side="${side}"]`).focus({ preventScroll: true });
+}
 document.querySelectorAll('.vote-option[data-side]').forEach(button => button.addEventListener('click', async () => {
   const side = button.dataset.side;
   const avatar = button.classList.contains('composer-avatar');
   if (isClosed() || voting) return;
   if (mySide() === side) {
     if (!avatar) return;
-    expandedSide = expandedSide === side ? null : side;
-    if (!expandedSide) button.focus({ preventScroll: true });
-    renderInput();
-    if (expandedSide) $(`[data-input-side="${side}"]`).focus({ preventScroll: true });
+    setComposerExpanded(expandedSide === side ? null : side);
     return;
   }
   if (pendingShipments.size > 0) return;
@@ -239,22 +248,17 @@ function startReply(id) {
   const target = findPost(id);
   if (!target) return;
   selectPost(target.id, true);
-  if (!mySide()) {
-    $('#seat-instruction').textContent = '받아치려면 먼저 내 편을 골라주세요';
-    revealComposer($('#composer'));
-    return;
-  }
   replyToId = target.id; selectedUntil = Infinity; draftVersion++;
   expandedSide = mySide();
   document.querySelectorAll('.history-conversation-speech, .duel-speech, .capsule-note, .capsule-flight-tag').forEach(bubble => {
     bubble.dataset.replySelected = String(bubble.dataset.postId === String(target.id));
   });
   $('#reply-target-text').textContent = target.text;
-  $('#reply-target').hidden = false;
+  $('#reply-target-author').textContent = displayName(target) + '에게 받아치기';
   announce('받아칠 의견을 선택했어요. ' + target.text);
   renderInput();
   revealComposer($('#composer'));
-  $(`[data-input-side="${mySide()}"]`).focus({ preventScroll: true });
+  if (mySide()) $(`[data-input-side="${mySide()}"]`).focus({ preventScroll: true });
 }
 $('#reply-selected').addEventListener('click', () => startReply(selectedId));
 $('#cancel-reply').addEventListener('click', () => {
@@ -262,6 +266,7 @@ $('#cancel-reply').addEventListener('click', () => {
   replyToId = null; selectedUntil = 0; $('#reply-target').hidden = true;
   document.querySelectorAll('[data-reply-selected]').forEach(bubble => delete bubble.dataset.replySelected);
   renderInput();
+  if (mySide() && expandedSide === mySide()) $(`[data-input-side="${mySide()}"]`).focus({ preventScroll: true });
 });
 document.querySelectorAll('[data-input-side]').forEach(input => input.addEventListener('keydown', event => {
   const send = $(`[data-send-side="${input.dataset.inputSide}"]`);
@@ -296,7 +301,10 @@ async function submitShipment(shipment) {
       replyToId = shipment.replyToId;
       const target = findPost(replyToId);
       $('#reply-target').hidden = !target;
-      if (target) $('#reply-target-text').textContent = target.text;
+      if (target) {
+        $('#reply-target-text').textContent = target.text;
+        $('#reply-target-author').textContent = displayName(target) + '에게 받아치기';
+      }
     }
     composerError(error.message);
   } finally { pendingShipments.delete(shipment.id); sync(); }

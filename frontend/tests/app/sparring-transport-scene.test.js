@@ -1,4 +1,6 @@
 import { createTransportScene } from '../../public/sparring-arena/src/transport-scene.js';
+import { addPipeRings } from '../../public/sparring-arena/src/pipe-surfaces.js';
+import * as THREE from 'three';
 
 jest.mock('../../public/sparring-arena/src/characters.js', () => ({ createCharacters: jest.fn() }));
 
@@ -26,6 +28,26 @@ const geometries = scene => {
   scene.traverse(object => { if (object.geometry && !object.isInstancedMesh) found.push(object.geometry); });
   return found;
 };
+
+it.each([240, 275])('앞뒤 호스 경계 %ipx에서도 노즐 링까지 같은 간격을 유지한다', seam => {
+  const front = new THREE.Group(), back = new THREE.Group();
+  const material = new THREE.MeshBasicMaterial();
+  const curve = (from, to) => new THREE.LineCurve3(new THREE.Vector3(from, 0, 0), new THREE.Vector3(to, 0, 0));
+  addPipeRings(front, curve(0, seam), 40, material, { spacing: 120, end: 600 });
+  addPipeRings(back, curve(seam, 640), 40, material, { offset: seam, spacing: 120, end: 600 });
+  const positions = [0];
+  for (const group of [front, back]) for (const mesh of group.children) {
+    const matrix = new THREE.Matrix4();
+    for (let index = 0; index < mesh.count; index++) {
+      mesh.getMatrixAt(index, matrix);
+      positions.push(new THREE.Vector3().setFromMatrixPosition(matrix).x);
+    }
+    mesh.geometry.dispose(); mesh.dispose();
+  }
+  positions.push(600);
+  expect(positions).toEqual([0, 120, 240, 360, 480, 600]);
+  material.dispose();
+});
 
 it('호스는 원통 노즐 뒤에서 같은 지름으로 이어지고 경로를 다시 읽어도 메시를 재사용한다', () => {
   const transport = createTransportScene(null);

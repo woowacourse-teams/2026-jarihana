@@ -1,4 +1,5 @@
 import { characterVariant } from './character-motion.js';
+import { placeSpeechBubbles } from './speech-layout.js';
 
 const ENTRY_SECONDS = 0.95;
 const DISPLAY_SECONDS = 6.4;
@@ -126,6 +127,7 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
     if (ready) status.textContent = active.fresh ? active.post.replyTo ? '방금 받아친 말' : '방금 나온 한마디' : active.post.replyTo ? '지난 받아치기' : '지난 대화';
     else if (slots.some(item => item.arrival)) status.textContent = '캡슐에서 나오는 중';
     versus.hidden = !ready || !slots.every(item => item.post);
+    const visibleBubbles = [];
     slots.forEach((item, index) => {
       if (!item.arrival) return;
       const p = clamp(item.arrival.elapsed / ENTRY_SECONDS);
@@ -147,18 +149,26 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
       item.figure.style.transform = `translate(${direction * push}px, ${bounce}px) rotate(${direction * tilt}deg) scale(${mix(0.18, 1, ease(p))})`;
       item.ground.style.opacity = String(ease((p - 0.65) / 0.35));
       item.bubble.hidden = p < 1;
-      if (stageWidth > 0) {
-        const width = Math.min(240, Math.max(0, stageWidth / 2 - 24));
-        const headX = x + direction * push;
-        const center = Math.max(width / 2 + 8, Math.min(stageWidth - width / 2 - 8, headX));
-        item.bubble.style.width = width + 'px';
-        item.bubble.style.left = center - x + 'px';
-        item.bubble.style.setProperty('--duel-tail-x', Math.max(12, Math.min(width - 12, headX - center + width / 2)) + 'px');
+      if (stageWidth > 0 && !item.bubble.hidden) {
+        item.bubble.style.maxWidth = Math.max(0, Math.min(280, stageWidth - 16)) + 'px';
+        visibleBubbles.push({ item, x, headX: x + direction * push,
+          headY: parseFloat(item.slot.style.top), direction: index ? 1 : -1 });
       }
       if (index === active.speaker && p >= 1 && !active.revealed) {
         active.revealed = true;
         onReveal(active.post, active.fresh);
       }
+    });
+    const measurements = visibleBubbles.map(({ item, headX, headY, direction }) => ({
+      headX, headY: headY - item.figure.offsetHeight * 0.9 - 12,
+      width: item.bubble.offsetWidth || Math.min(240, Math.max(0, stageWidth / 2 - 24)),
+      height: item.bubble.offsetHeight || 64, direction,
+    }));
+    const positions = placeSpeechBubbles(measurements, stageWidth);
+    visibleBubbles.forEach(({ item, x }, index) => {
+      item.bubble.style.left = positions[index].center - x + 'px';
+      item.bubble.style.setProperty('--duel-bubble-width', measurements[index].width + 'px');
+      item.bubble.style.setProperty('--duel-tail-x', positions[index].tail + 'px');
     });
   }
 
