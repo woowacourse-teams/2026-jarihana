@@ -121,7 +121,8 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
     const measurements = visibleBubbles.map(item => ({
       headX: item.character.speechAnchor.x, headY: item.character.speechAnchor.y - 12,
       width: item.bubble.offsetWidth || Math.min(240, Math.max(0, layout.width / 2 - 16)),
-      height: item.bubble.offsetHeight || 64, direction: item.side === 'a' ? -1 : 1,
+      height: item.bubble.offsetHeight || 64,
+      direction: (item.side === 'a' ? -1 : 1) * (item.character.index === 0 ? -1 : 1),
     }));
     const positions = placeSpeechBubbles(measurements, layout.width);
     visibleBubbles.forEach((item, index) => {
