@@ -98,10 +98,10 @@ frontend-only에서 Nginx reload ticket이 없으면 연결 정리 값은 -1이�
 복구 후 NEEDS_ATTENTION도 같은 ticket을 유지한다. 롤백 ticket이 없거나 잘못됐으면 -1이며,
 최초 전환의 `drain_ticket`으로 대신 성공을 표시하지 않는다. 일반 전환은 기존 ticket을 사용한다.
 
-운영 서버의 설치본에는 아직 이 두 수정이 반영되지 않았다. 설치본은 frontend-only 저널을 거부하고
-롤백 중에도 최초 전환 ticket을 관측한다. 원본 병합과 서버 적용을 구분하며, 수정본을 설치한 뒤에야
-위 동작으로 바뀐다. 적용 전에는 실제 API 경로와 프론트 상태를
-[상태 확인](../../blue-green-deploy/controller/status.md)에서 별도로 대조한다.
+운영 설치본에도 위 두 관측 수정이 반영되어 있다. 원본 병합과 서버 적용은 별도 절차이므로,
+갱신할 때 설치 파일의 해시와 실제 textfile, Prometheus 수신을 함께 확인한다.
+실제 API 경로와 프론트 상태는 [상태 확인](../../blue-green-deploy/controller/status.md)에서 별도로 대조한다.
+격리된 저널 검증은 실제 서비스의 프론트 배포나 롤백 실행 검증과 구분한다.
 
 ## 읽기 전용 확인
 
