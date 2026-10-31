@@ -16,7 +16,12 @@ observe_journal() {
       .schema_version==2 and .environment==$env and .topology_digest==$digest and .control_sha==$control and
       (.revision|integer) and (.run_id|integer and .>0) and .attempt==1 and
       (.sha|type=="string" and test("^[a-f0-9]{40}$")) and (.mode|IN("deploy","bootstrap")) and
-      (.old|IN("A","B")) and (.target|IN("A","B")) and .old!=.target and
+      (.old|IN("A","B")) and (.target|IN("A","B")) and
+      ((has("frontend_only")|not) or (.frontend_only|type=="boolean")) and
+      ((has("backend_only")|not) or (.backend_only|type=="boolean")) and
+      (if .frontend_only==true then
+        .environment=="prod" and .mode=="deploy" and .backend_only!=true and .old==.target
+       else .old!=.target end) and
       (.created_at|integer) and (.heartbeat|integer) and (.expires_at|integer) and
       .heartbeat>=.created_at and .expires_at>.created_at and
       (.phase|IN("PREPARING","HANDOFF","SWITCHING","OBSERVING","SEALED","COMPLETE","ROLLING_BACK","ROLLED_BACK","NEEDS_ATTENTION")) and

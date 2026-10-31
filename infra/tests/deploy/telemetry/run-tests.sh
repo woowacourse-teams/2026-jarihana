@@ -43,4 +43,10 @@ if [[ "${1:-}" == --alloy-smoke ]]; then
   exit 0
 fi
 for file in "$ROOT"/infra/monitoring/deployment/*.sh "$DIRECTORY"/test-*.sh; do bash -n "$file"; done
-for file in "$DIRECTORY"/test-*.sh; do bash "$file"; done
+for file in "$DIRECTORY"/test-*.sh; do
+  if [[ $file == "$DIRECTORY/test-collector.sh" ]]; then
+    for environment in dev prod; do COLLECTOR_TEST_ENVIRONMENT=$environment bash "$file"; done
+  else
+    bash "$file"
+  fi
+done

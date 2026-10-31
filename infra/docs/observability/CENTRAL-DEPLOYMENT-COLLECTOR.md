@@ -89,12 +89,19 @@ EC2 DescribeInstances, 사설 monitoring gateway 접근이 필요하다.
 config, journal, nginx, ec2_A/B, nginx_drain과 traffic은 독립된 source다.
 한 source의 성공을 전체 수집 성공으로 해석하지 않는다.
 
-설치된 `journal.sh`는 old와 target이 서로 다른 A/B인 저널을 검증한다.
-프론트엔드 단독 배포의 `old==target` 저널은 phase와 lease가 unknown이 될 수 있다.
-이 경우 실제 API 경로와 프론트 상태를 [상태 확인](../../blue-green-deploy/controller/status.md)에서 별도로 대조한다.
-운영 수집기는 롤백 중에도 최초 전환의 `drain_ticket`만 관측하므로,
-이 지표만으로 롤백 대상 worker의 정리 완료를 판단하지 않는다. 배포 제어기는 별도의
-`rollback_drain_ticket`을 확인한다. 이 원본 보존은 두 관측 제약을 수정하지 않는다.
+저장소의 수정된 수집기는 prod의 `mode=deploy`, `frontend_only=true`, `old==target` 저널을 허용한다.
+backend-only와 공동 배포는 기존처럼 서로 다른 A/B를 요구한다. 두 only 플래그가 동시에 true이거나
+boolean이 아니면 거부하며, 기존 환경, topology, control SHA와 lease 검증을 유지한다.
+frontend-only에서 Nginx reload ticket이 없으면 연결 정리 값은 -1이다.
+
+롤백 중이거나 완료된 상태, 또는 `http_recovered=true`인 상태는 `rollback_drain_ticket`을 관측한다.
+복구 후 NEEDS_ATTENTION도 같은 ticket을 유지한다. 롤백 ticket이 없거나 잘못됐으면 -1이며,
+최초 전환의 `drain_ticket`으로 대신 성공을 표시하지 않는다. 일반 전환은 기존 ticket을 사용한다.
+
+운영 설치본에도 위 두 관측 수정이 반영되어 있다. 원본 병합과 서버 적용은 별도 절차이므로,
+갱신할 때 설치 파일의 해시와 실제 textfile, Prometheus 수신을 함께 확인한다.
+실제 API 경로와 프론트 상태는 [상태 확인](../../blue-green-deploy/controller/status.md)에서 별도로 대조한다.
+격리된 저널 검증은 실제 서비스의 프론트 배포나 롤백 실행 검증과 구분한다.
 
 ## 읽기 전용 확인
 
