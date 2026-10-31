@@ -31,6 +31,7 @@ Nginx EC2의 systemd timer
 | 출력 | `/var/lib/jarihana-observability/prod/textfile/deployment.prom` |
 | Alloy 설정과 Compose | 수집기 설치 디렉터리의 `config.alloy`, `docker-compose.yml`, `prod.env` |
 | Alloy 컨테이너 | `jarihana-observability-prod-alloy-1`, `grafana/alloy:v1.20.1`, `restart: unless-stopped` |
+| 리소스 한도 | 메모리 128 MiB, CPU 0.5 |
 | 관리 주소 | 호스트 loopback `127.0.0.1:12347`에서 컨테이너의 12345로 연결 |
 | WAL | `jarihana-observability-prod_alloy-data` named volume을 `/var/lib/alloy/data`에 mount |
 
@@ -88,10 +89,19 @@ EC2 DescribeInstances, 사설 monitoring gateway 접근이 필요하다.
 config, journal, nginx, ec2_A/B, nginx_drain과 traffic은 독립된 source다.
 한 source의 성공을 전체 수집 성공으로 해석하지 않는다.
 
-설치된 `journal.sh`는 old와 target이 서로 다른 A/B인 저널을 검증한다.
-프론트엔드 단독 배포의 `old==target` 저널은 phase와 lease가 unknown이 될 수 있다.
-이 경우 실제 API 경로와 프론트 상태를 [상태 확인](../../blue-green-deploy/controller/status.md)에서 별도로 대조한다.
-이 문서 변경은 수집기의 저널 검증 동작을 바꾸지 않는다.
+저장소의 수정된 수집기는 prod의 `mode=deploy`, `frontend_only=true`, `old==target` 저널을 허용한다.
+backend-only와 공동 배포는 기존처럼 서로 다른 A/B를 요구한다. 두 only 플래그가 동시에 true이거나
+boolean이 아니면 거부하며, 기존 환경, topology, control SHA와 lease 검증을 유지한다.
+frontend-only에서 Nginx reload ticket이 없으면 연결 정리 값은 -1이다.
+
+롤백 중이거나 완료된 상태, 또는 `http_recovered=true`인 상태는 `rollback_drain_ticket`을 관측한다.
+복구 후 NEEDS_ATTENTION도 같은 ticket을 유지한다. 롤백 ticket이 없거나 잘못됐으면 -1이며,
+최초 전환의 `drain_ticket`으로 대신 성공을 표시하지 않는다. 일반 전환은 기존 ticket을 사용한다.
+
+운영 설치본에도 위 두 관측 수정이 반영되어 있다. 원본 병합과 서버 적용은 별도 절차이므로,
+갱신할 때 설치 파일의 해시와 실제 textfile, Prometheus 수신을 함께 확인한다.
+실제 API 경로와 프론트 상태는 [상태 확인](../../blue-green-deploy/controller/status.md)에서 별도로 대조한다.
+격리된 저널 검증은 실제 서비스의 프론트 배포나 롤백 실행 검증과 구분한다.
 
 ## 읽기 전용 확인
 
@@ -125,7 +135,30 @@ time() - jarihana_deployment_source_observed_timestamp_seconds{environment="prod
 위 실행 주기와 소비자의 유효 시간은 서로 다른 설정이다.
 수신된 job/instance 라벨은 실제 series로 확인하며 scrape 설정의 job_name만으로 단정하지 않는다.
 
-## 재구성과 갱신의 경계
+## 관리 원본과 재구성
+
+[수집기 원본](../../monitoring/deployment/README.md)은 운영 설치본의 파일을 보존한다.
+저장소의 `infra/` 경로를 설치 경로 `/opt/jarihana-observability/` 아래에 그대로 유지한다.
+수집기는 `infra/scripts/deploy/actions/`의 helper 복사본을 참조한다.
+이 복사본은 수집기 설치 버전에 속하며, `infra/blue-green-deploy/scripts/actions/`의 현재 배포 제어기와
+섞어 교체하지 않는다. 수집기가 호출하는 helper는 설정 검증, 경로와 EC2 상태, Nginx worker 조회다.
+
+systemd 원본은 `infra/monitoring/deployment/systemd/`에서 `/etc/systemd/system/`으로 대응한다.
+기본 timer와 prod drop-in을 함께 준비해야 30초 대기를 재현할 수 있다.
+`prod.env`의 값은 보호된 운영 설정에서 관리하며 저장소에 올리지 않는다.
+이 원본에는 설치기가 없으므로 아래는 관리자 재구성 절차이며 이번 PR에서 실행한 작업은 아니다.
+
+1. 기존 파일, 수집기 상태와 WAL을 보존하고 timer/service의 진행 중 실행 여부를 확인한다.
+2. 위 매핑에 따라 수집 스크립트 3개, helper 3개, Alloy/Compose와 systemd 파일을 준비한다.
+   설치 디렉터리는 root 소유 0755, 수집 스크립트는 0755, helper와 비밀값 없는 설정은 0644로 유지한다.
+3. 기존 실행 계정과 coordinator 읽기 권한을 확인하고, 위 표의 상태 디렉터리 권한과 root 소유 0600의
+   `prod.env`를 복원한다. 이 파일에는 `DEPLOYMENT_ENVIRONMENT=prod`, 기존 private remote write 주소와
+   `ALLOY_ADMIN_PORT=12347`을 지정한다. 새 계정이나 IAM 권한을 임의로 부여하지 않는다.
+4. 전용 Compose의 Alloy validate를 수행하고, 기존 named volume을 유지한 채 수집기 unit과
+   prod timer, 전용 Alloy만 관리한다. 앱과 배포 제어기를 재시작하지 않는다.
+5. 위 읽기 전용 명령과 실제 Prometheus 관측 시각으로 수집 결과를 확인한다.
+
+## 갱신의 경계
 
 중앙 수집기는 앱 Alloy Compose나 Monitoring Deploy만으로 복원되지 않는다.
 재구성하려면 수집 스크립트, 실제 참조 경로의 helper, 전용 Compose/Alloy와 env,
