@@ -160,6 +160,9 @@ Prometheus 9090은 loopback으로 두고 coordinator는 private gateway 8080의
 확인하며 query_range, 관리 API나 다른 경로를 열지 않는다. coordinator 교체 시 allowlist도 갱신한다.
 조회 URL 형식은 `http://<monitoring-private-IP>:8080/prometheus`다.
 
+Nginx 서버의 중앙 수집기는 별도 설치 단위다. 실행 계정, timer와 prod drop-in,
+전용 Alloy 및 WAL은 [중앙 배포 수집기 운영](../../docs/observability/CENTRAL-DEPLOYMENT-COLLECTOR.md)을 따른다.
+
 ## 재구성 절차
 
 1. 새 배포를 막고 대기 실행을 정리한 뒤 진행 중인 배포, guardian과 watchdog oneshot이 없는지 확인한다.
