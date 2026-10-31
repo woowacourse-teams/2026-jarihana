@@ -1,10 +1,10 @@
 # ADR 0006. 프론트엔드 원본을 S3에 보관하고 백엔드와 함께 복구한다
 
-- 상태: 채택, 저장소 구현과 로컬 검증 완료. 운영 미적용
+- 상태: 채택
 - 날짜: 2026-10-29
 - 범위: prod 프론트엔드 보관, 게시와 백엔드 Blue-Green 복구의 연결
 - 관련 결정: [인프라 ADR 0005](0005-nginx-ec2-blue-green-deployment.md), [백엔드 ADR 0016](../../../backend/docs/adr/0016-github-hosted-build-and-ghcr.md)
-- 운영 구조와 적용 절차: [프론트엔드 릴리스 보관과 복구](../../blue-green-deploy/docs/frontend-release-rollback.md)
+- 운영 구조와 적용 절차: [프론트엔드 릴리스 보관과 복구](../../blue-green-deploy/controller/architecture.md#프론트엔드-릴리스)
 
 ## 배경
 
@@ -28,27 +28,9 @@
 따로 검증해야 한다. 이에 대한 판단은 공통 DB 변경 규칙과 릴리스 준비에서 수행하며,
 배포 제어 코드에 특정 회원 유형의 검사나 가입 제어를 추가하지 않는다.
 
-```text
-s3://techcourse-project-2026/jarihana/
-├── frontend/                       # CloudFront가 읽는 현재 공개 파일
-└── frontend-releases/
-    ├── baseline-<run-id>/
-    │   ├── files/                  # 최초 도입 시 실제 공개 파일을 복사한 원본
-    │   └── release.json
-    ├── <source-sha>-<run-id>/
-    │   ├── files/                  # 해당 커밋을 운영 설정으로 빌드한 원본
-    │   └── release.json
-    └── state.json                  # current, previous, pending 릴리스 쌍
-```
-
-`release.json`은 소스 SHA, 연결된 백엔드 이미지 digest, 파일별 해시를 기록한다. 최초 baseline의
-소스는 검증 가능한 경우에만 기록하고, 확인하지 못한 과거 커밋을 추정하지 않는다. 환경 변수와
-Secrets 원문은 manifest에 넣지 않는다. 각 릴리스 원본은 덮어쓰지 않으며 전역 `state.json` 갱신은
-이전에 읽은 버전과 일치할 때만 허용해 늦게 도착한 실행이 최신 상태를 덮어쓰지 못하게 한다.
-
-현재 manifest와 공개 파일의 무결성이 맞으면 다음 배포마다 baseline 전체를 중복 저장할 필요는
-없다. 일치하지 않는 drift는 배포 중단 사유다. 실제 변경을 확인하지 않은 채 현재 상태를 정상으로
-간주하거나, 불일치 파일을 새 정상 baseline으로 자동 승인하지 않는다.
+릴리스 경로, manifest와 current/previous/pending의 데이터 형식 및 조건부 갱신 계약은
+[프론트엔드 릴리스](../../blue-green-deploy/controller/architecture.md#프론트엔드-릴리스)에 둔다.
+복구 원본은 실제 게시한 바이트이며, 불일치 파일을 새 정상 원본으로 자동 승인하지 않는다.
 
 ### S3를 선택한 이유
 
@@ -65,46 +47,26 @@ S3 저장 자체가 불변성을 보장하는 것은 아니다. 릴리스 경로
 설정했다고 가정하지 않는다. 보관 수명 정책은 별도 합의 전까지 추가하지 않으며, 이전 원본을
 자동 삭제하지 않는다. 현재와 이전 릴리스, 미완료 복구가 참조하는 원본은 항상 보존한다.
 
-### 배포와 복구 순서
+### 배포와 복구 경계
 
-1. 기존 운영 GitHub Variables/Secrets를 사용해 릴리스와 같은 소스 커밋의 프론트엔드를
-   hosted runner에서 빌드한다. 기존 EC2 IAM으로 파일을 보관하고 해시를 검증한다.
-2. 백엔드 전환 직후 같은 릴리스의 프론트엔드를 게시한다. 지원 파일과 해시가 포함된 정적 자산을
-   먼저 올리고 `index.html`을 마지막에 올린다. 변경 가능한 진입 파일은 재검증하도록 캐시를 설정한다.
-3. 공개 경로에서 실제 받은 바이트의 해시를 확인한 뒤 백엔드의 최소 300초 관찰을 시작한다.
-   관찰 중 핵심 진입 파일은 30초 간격 기준으로 검사하고 배포 확정 직전에 전체 파일을 다시 검사한다.
-   프론트엔드 업로드 또는 공개 바이트 검사 실패도 배포 확정 전 실패로 처리한다.
-4. 배포 확정 전 실패 시 이전 API 복구를 먼저 시도하고, 이전 프론트엔드 원본도 복구한다.
-   후보 worker 종료를 입증하지 못하면 이전 worker 재개는 보류하되 프론트엔드 복구 시도는
-   독립적으로 진행한다. 복구된 공개 파일의 해시까지 확인해야 복구 완료로 기록한다.
-5. 관찰과 프론트엔드 상태 확정이 끝나기 전에는 이전 EC2를 정리하지 않는다. 프론트엔드
-   복구가 실패하면 새 배포와 정리를 차단하고 원본 및 관련 EC2를 보존한다.
-
-프론트엔드만 변경된 main 배포는 실제 활성 백엔드 digest를 유지한 새 릴리스 쌍을 기록한다.
-프론트엔드 변경 때문에 대기 EC2를 시작하거나 API와 worker를 불필요하게 교대하지 않는다.
-취소나 외부 요청의 응답 유실은 자동 재실행으로 해결하지 않는다. `NEEDS_ATTENTION`과 pending을
-보존하고 실제 S3 파일, 공개 응답, Nginx 경로 및 worker 상태를 대조해 수동 조정한다.
-복구도 유효한 허가 기한 안에서만 시도한다. API 복구가 불확실한 상태에서 worker 허가를
-자동 연장하거나 만료된 실행을 재개하지 않으며, 프론트엔드 복구 성공을 항상 보장하지 않는다.
+백엔드와 프론트엔드를 같은 릴리스로 연결하되 복구 범위는 이번에 변경한 구성요소로 한정한다.
+worker 종료가 불확실하면 이전 worker를 재개하지 않는다. 프론트 복구도 유효한 허가 안에서
+검증하며 실패 결과를 숨기지 않는다. 실행 순서는 [배포 실행](../../blue-green-deploy/controller/deployment.md),
+복구 순서와 수동 조정은 [장애 복구](../../blue-green-deploy/controller/recovery.md)를 따른다.
 
 ### 현재 인프라와 권한 경계
 
-2026-10-29 운영 조회 기록에서 CloudFront `E1YDHL1SDC4C1C`의 기본 origin은
-`techcourse-project-2026` S3의 `/jarihana/frontend`이며 `Managed-CachingDisabled`
-정책(`4135ea2d-6df8-44a3-9df3-4b5a84be39ad`)의 최소, 기본, 최대 TTL은 모두 0이었다.
-이 조건을 적용 전에 다시 확인한다. 이 조건이 유지되는 동안 배포를 위한 CloudFront 설정 변경이나
-invalidation을 추가하지 않는다. 정책을 변경하면 게시 및 복구 검증 계약도 재검토한다.
-`/api/*`의 Nginx origin과 `/images/*`의 별도 `/jarihana` origin은 이번 결정으로 변경하지 않는다.
+CloudFront의 설정 전파와 추가 쓰기 권한에 의존하지 않고 기존 공개 경로를 유지한다.
+이 방식이 성립하는 origin, 캐시와 함수 조건은 [프론트 사전 준비](../../blue-green-deploy/controller/environment.md#프론트엔드-사전-준비)에 둔다.
+이 조건이 바뀌면 게시와 복구 계약을 다시 검토한다. API와 이미지 경로는 보존한다.
 
 새 장기 AWS 키, OIDC 또는 모니터링 EC2 배포 의존성을 추가하지 않는다. 기존 EC2 역할에는
 공개 prefix와 릴리스 prefix에 필요한 최소 권한만 부여한다. 현재 control tag를 이동하지 않고
 새 코드를 포함하는 immutable tag와 SHA를 보호된 서버 설정 및 GitHub 변수에 함께 고정한다.
 옛 control release에 새 기능이 없으면 공개 파일이나 서버를 변경하기 전에 실패해야 한다.
 
-`BLUE_GREEN_PROD_ENABLED=false` 또는 미설정은 새 배포 중단을 의미하며 현재 서비스를
-유지한다. push와 수동 `deploy`를 서버/S3 변경 전에 실패시키고 legacy 배포나 기존 백엔드
-재시작으로 전환하지 않는다. 최초 제어 권한을 등록하는 명시적 `bootstrap`은 별도 준비 작업으로
-허용하며 프론트엔드를 게시하지 않는다. 새 control pin을 설치한 뒤에만 연결 배포를 활성화한다.
+비활성화된 배포가 다른 게시 방식으로 우회되지 않게 한다. 활성화 조건과 최초 권한 등록은
+[배포 실행](../../blue-green-deploy/controller/deployment.md#배포-실행)을 따른다.
 
 ## 감수하는 한계
 
@@ -120,8 +82,8 @@ S3 객체 복사는 여러 파일에 걸친 트랜잭션이 아니다. `index.ht
 
 ## 검증과 도입
 
-2026-10-29 격리 계약 테스트 186개와 ShellCheck를 통과했다. 실제 빌드 파일 79개도 manifest
-검증을 통과했다. AWS와 GitHub는 대역이며 당시 900초 관찰은 제어된 시계로 검증한 결과다.
 이 문서는 운영 기능이 이미 적용됐다는 기록이 아니다. 로컬 계약 테스트와 실제 AWS, IAM,
-GitHub runner, 실제 운영 관찰 및 실패 복구 검증은 구분한다. 구체적인 설치, 최초 baseline,
-관찰 및 수동 조정 절차는 [운영 문서](../../blue-green-deploy/docs/frontend-release-rollback.md)를 따른다.
+GitHub runner, 전체 300초 관찰 및 실패 복구 검증은 구분한다. 구체적인 설치, 최초 baseline,
+관찰 및 수동 조정 절차는 [배포 환경 구성](../../blue-green-deploy/controller/environment.md#프론트엔드-사전-준비),
+[관찰 기준](../../blue-green-deploy/controller/status.md#관찰-기준)과
+[복구 절차](../../blue-green-deploy/controller/recovery.md#수동-조사)를 따른다.
