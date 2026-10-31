@@ -67,7 +67,9 @@ collect() {
     metric jarihana_ec2_state "$value" "$labels"; source_result "ec2_$slot" "$ok"
   done
   ok=0
-  ticket=$(jq -c '.drain_ticket // null' <<< "$JOURNAL")
+  # Recovery keeps its own worker generation, including NEEDS_ATTENTION afterward.
+  ticket=$(jq -c 'if .http_recovered==true or .phase=="ROLLING_BACK" or .phase=="ROLLED_BACK"
+    then .rollback_drain_ticket else .drain_ticket end // null' <<< "$JOURNAL")
   if jq -e 'type=="object" and (.container_id|type=="string") and (.generation|type=="string") and (.workers|type=="array" and length>0 and all(.[];type=="string" and test("^[0-9]+:[0-9]+$")))' <<< "$ticket" >/dev/null 2>&1 && current=$(bg_capture 2>/dev/null); then
     if jq -e --argjson old "$ticket" '.container_id==$old.container_id and .generation==$old.generation' <<< "$current" >/dev/null; then
       ok=1; drain=0
