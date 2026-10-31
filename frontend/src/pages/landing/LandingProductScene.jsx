@@ -15,6 +15,7 @@ import {
   UsersRound,
   X
 } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 import { Avatar, GroupImage, StatusBadge } from "../../shared/ui";
 import { DiscoveryGroupCard } from "../groups/home/DiscoveryGroupCard";
@@ -25,7 +26,11 @@ import "../proposals/proposals.css";
 import { ProposalCategoryIcon } from "../proposals/ProposalCategoryIcon";
 import recruitmentImage from "../../shared/assets/illustrations/group-recruitment-open.webp";
 import studyImage from "../../shared/assets/landing/default-group-study.webp";
+import sparringArenaVideo from "../../shared/assets/landing/sparring-arena-demo.mp4";
+import sparringArenaStart from "../../shared/assets/landing/sparring-arena-demo-start.webp";
+import sparringArenaEnd from "../../shared/assets/landing/sparring-arena-demo-end.webp";
 import { LandingActivityScene } from "./LandingActivityScene";
+import { useLandingDemoPlayback } from "./landingDemoPlayback";
 import "./landing-product-scene.css";
 import "./landing-guide-motion.css";
 
@@ -608,6 +613,44 @@ function InviteScene() {
   );
 }
 
+// 토론해요는 3D 경기장이라 DOM으로 옮기지 않고, 실제 경기장을 예시 데이터로 녹화한 영상을 데모 재생 상태에 맞춰 튼다.
+function SparringScene() {
+  const { paused, reducedMotion, state } = useLandingDemoPlayback();
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (state === "idle") {
+      video.pause();
+      video.currentTime = 0;
+    } else if (paused) {
+      video.pause();
+    } else if (state === "running") {
+      video.muted = true;
+      video.play()?.catch?.(() => {});
+    }
+  }, [paused, state]);
+
+  if (reducedMotion) {
+    return <img alt="" className="lps-sparring-video" height="1090" src={sparringArenaEnd} width="1146" />;
+  }
+
+  return (
+    <video
+      className="lps-sparring-video"
+      height="1090"
+      muted
+      playsInline
+      poster={sparringArenaStart}
+      preload="metadata"
+      ref={videoRef}
+      src={sparringArenaVideo}
+      width="1146"
+    />
+  );
+}
+
 const scenes = {
   browse: BrowseScene,
   detail: DetailScene,
@@ -617,7 +660,8 @@ const scenes = {
   invite: InviteScene,
   chat: ChatScene,
   calendar: CalendarScene,
-  activity: LandingActivityScene
+  activity: LandingActivityScene,
+  sparring: SparringScene
 };
 
 export function LandingProductScene({ screen }) {

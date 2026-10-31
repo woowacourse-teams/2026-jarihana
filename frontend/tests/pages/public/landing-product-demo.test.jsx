@@ -1,6 +1,13 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 
 import { LandingProductDemo } from "../../../src/pages/landing/LandingProductDemo";
+import { LandingProductScene } from "../../../src/pages/landing/LandingProductScene";
+
+jest.mock("react-router", () => ({
+  Link: ({ children, to, ...props }) => (
+    <a href={to} {...props}>{children}</a>
+  )
+}));
 
 let intersect;
 let originalObserver;
@@ -90,7 +97,7 @@ test("completion holds the final scene and replay remounts the whole sequence", 
   expect(screen.getByRole("img")).not.toBe(oldScene);
 });
 
-test.each(["browse", "detail", "continue", "proposal", "manage", "invite", "chat", "calendar", "activity"])("%s controls retain fixed analytics actions", (kind) => {
+test.each(["browse", "detail", "continue", "proposal", "manage", "invite", "chat", "calendar", "activity", "sparring"])("%s controls retain fixed analytics actions", (kind) => {
   render(<Demo kind={kind} />);
   expect(screen.getByRole("button", { name: "다시보기" })).toHaveAttribute(
     "data-ph-capture-attribute-action", `landing_${kind}_demo_replay`
@@ -98,6 +105,52 @@ test.each(["browse", "detail", "continue", "proposal", "manage", "invite", "chat
   expect(screen.getByRole("button", { name: "일시정지" })).toHaveAttribute(
     "data-ph-capture-attribute-action", `landing_${kind}_demo_pause_toggle`
   );
+});
+
+function SparringDemo({ active = true }) {
+  return <LandingProductDemo screen="sparring" label="토론해요 이용 예시" isActive={active}>
+    <LandingProductScene screen="sparring" />
+  </LandingProductDemo>;
+}
+
+test("the sparring recording follows demo start, pause, completion and reset", () => {
+  const { play, pause } = window.HTMLMediaElement.prototype;
+  play.mockClear();
+  const { container } = render(<SparringDemo />);
+  const video = () => container.querySelector("video");
+  expect(play).not.toHaveBeenCalled();
+
+  enter();
+  expect(play).toHaveBeenCalledTimes(1);
+  pause.mockClear();
+  fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
+  expect(pause).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole("button", { name: "재생" }));
+  expect(play).toHaveBeenCalledTimes(2);
+
+  fireEvent.animationEnd(container.querySelector(".landing-product-demo__timeline"));
+  expect(container.querySelector(".landing-product-demo")).toHaveAttribute("data-state", "complete");
+  expect(play).toHaveBeenCalledTimes(2);
+
+  video().currentTime = 9;
+  exit();
+  expect(video().currentTime).toBe(0);
+  enter();
+  expect(play).toHaveBeenCalledTimes(3);
+
+  const previous = video();
+  fireEvent.click(screen.getByRole("button", { name: "다시보기" }));
+  expect(video()).not.toBe(previous);
+  expect(play).toHaveBeenCalledTimes(4);
+});
+
+test("reduced motion shows the final arena still instead of the sparring recording", () => {
+  Object.defineProperty(window, "matchMedia", { configurable: true, value: () => ({
+    matches: true, addEventListener() {}, removeEventListener() {}
+  }) });
+  const { container } = render(<SparringDemo />);
+  expect(container.querySelector("video")).toBeNull();
+  expect(container.querySelector("img.lps-sparring-video")).toHaveAttribute("alt", "");
 });
 
 test("reduced motion renders a completed scene with playback disabled", () => {

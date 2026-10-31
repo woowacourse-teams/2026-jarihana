@@ -14,8 +14,8 @@
 ### 호스트와 네트워크
 
 설치 전에 실제 instance ID, private IP, AWS 계정, VPC, 보안 그룹과 runner 라벨을 확인한다.
-[coordinator 예시](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/blue-green-deploy/controller/full-coordinator.example.json), [앱 A 예시](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/blue-green-deploy/controller/full-app-A.example.json),
-[앱 B 예시](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/blue-green-deploy/controller/full-app-B.example.json)의 주소와 ID, SHA는 placeholder다.
+[coordinator 예시](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/controller/full-coordinator.example.json), [앱 A 예시](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/controller/full-app-A.example.json),
+[앱 B 예시](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/controller/full-app-B.example.json)의 주소와 ID, SHA는 placeholder다.
 A/B는 논리 슬롯이며 runner 표시 이름의 A/B와 같다고 가정하지 않는다.
 
 | 위치 | 필요한 준비 |
@@ -44,7 +44,7 @@ prod는 아래 경로의 환경 부분을 prod로 사용하고 dev 설정을 복
 | --- | --- |
 | `/etc/jarihana-deploy/<env>/coordinator.json` | root 소유, 실제 topology, Nginx와 telemetry 설정 |
 | 각 앱의 같은 경로 아래 `app-A.json` 또는 `app-B.json` | 해당 호스트의 local_slot, 포트와 파일 경로 |
-| `app-compose.yml` | 고정 control tag의 [앱 템플릿](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/blue-green-deploy/controller/app-compose.yml)과 byte 단위 일치 |
+| `app-compose.yml` | 고정 control tag의 [앱 템플릿](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/controller/app-compose.yml)과 byte 단위 일치 |
 | `worker-token`, `grant-key`, `known-hosts` | 관리자 소유 비밀 파일과 검증한 Nginx host key |
 | `/var/lib/jarihana-deploy/<env>/state.json` | coordinator 소유 0700 디렉터리, 저널 0600 |
 | 각 앱의 `/var/lib/jarihana-deploy/<env>/app-A` 또는 `app-B` | 해당 runner 소유 0700, worker/stop intent와 잠금, 실행 기록 |
@@ -57,7 +57,7 @@ Docker 접근 권한으로 컨테이너 환경을 읽을 수 있으므로 전용
 
 앱에서 coordinator로 연결하는 SSH는 `jarihana-grant` 계정의 한 환경 저널 읽기만 허용한다.
 앱 private IP로 출발지를 제한하고 `restrict,command=...`로 고정한다.
-root 소유 [허가 조회 helper](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/blue-green-deploy/controller/read-deployment-grant.sh)의 환경을 literal 값으로 고정하고,
+root 소유 [허가 조회 helper](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/controller/read-deployment-grant.sh)의 환경을 literal 값으로 고정하고,
 coordinator 사용자로 인자 없이 실행하는 최소 sudoers만 둔다. shell, 임의 sudo와 Docker 권한은 주지 않는다.
 helper와 앱의 저널 읽기 한도는 4 MiB로 맞춘다.
 
@@ -88,7 +88,7 @@ control tag와 설치본을 맞추는 순서는 [재구성 절차](#재구성-�
 ### Nginx와 CloudFront
 
 `current.conf`는 확인된 활성 앱의 실제 upstream을 가리켜야 한다.
-[Nginx Compose](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/blue-green-deploy/nginx/docker-compose.yml)로 시작한다. 설정 디렉터리는 read-only로 mount하고
+[Nginx Compose](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/nginx/docker-compose.yml)로 시작한다. 설정 디렉터리는 read-only로 mount하고
 container 이름과 probe port를 coordinator 설정에 맞춘다. probe는 실제 앱 API를 경유한다.
 
 CloudFront API behavior의 origin은 Nginx의 현재 public DNS와 host 공개 listener 포트다.
@@ -123,15 +123,15 @@ current manifest와 live가 일치하는지 확인한다. 미완료 pending이�
 | 다른 경로 | API Nginx origin과 별도 이미지 origin 및 behavior 유지 |
 
 기본 behavior의 viewer-request 함수는 없거나, 제어 코드가 승인한 `jarihana-group-share-preview`
-하나여야 한다. LIVE 코드 해시는 [프론트 제어 코드](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/blue-green-deploy/scripts/actions/frontend.sh)의 preflight와
+하나여야 한다. LIVE 코드 해시는 [프론트 제어 코드](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/scripts/actions/frontend.sh)의 preflight와
 대조한다. Lambda@Edge, 다른 함수나 코드 변경, 읽기 실패는 게시 전 차단한다.
 함수를 변경하면 동작 검토와 승인 해시, 제어 릴리스를 함께 갱신한다.
 캐시 조건이 달라지면 변경이나 invalidation으로 우회하지 않고 게시 및 복구 계약을 재검토한다.
 
 ## 앱 Alloy와 조회 경로
 
-[독립 Alloy Compose](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/blue-green-deploy/controller/observability-compose.yml)에서 공통 [config.alloy](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/monitoring/alloy/config.alloy)와
-[postgres-queries.yaml](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/monitoring/alloy/postgres-queries.yaml)을 사용한다.
+[독립 Alloy Compose](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/controller/observability-compose.yml)에서 공통 [config.alloy](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/monitoring/alloy/config.alloy)와
+[postgres-queries.yaml](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/monitoring/alloy/postgres-queries.yaml)을 사용한다.
 HOST_ID는 앱 host_id와 일치해야 하고 APP_METRICS_TARGET은 실제 loopback 관리 포트다.
 앱 호스트 기동 시 Alloy도 자동 시작돼야 한다. 앱 scrape만 있는 임시 설정으로 대체하지 않는다.
 

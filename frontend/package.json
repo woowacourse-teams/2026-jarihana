@@ -98,7 +98,7 @@
     },
     "moduleNameMapper": {
       "\\.(css|less|scss)$": "identity-obj-proxy",
-      "\\.(avif|gif|jpe?g|png|svg|webp)$": "<rootDir>/scripts/styleMock.js"
+      "\\.(avif|gif|jpe?g|mp4|png|svg|webp)$": "<rootDir>/scripts/styleMock.js"
     },
     "transformIgnorePatterns": [
       "/node_modules/(?!(ky|react-router|cookie-es|react-markdown|remark-[^/]+|rehype-[^/]+|unified|vfile[^/]*|micromark[^/]*|mdast-[^/]+|hast-[^/]+|hastscript|html-void-elements|parse5|entities|unist-[^/]+|bail|ccount|character-[^/]+|comma-separated-tokens|decode-[^/]+|dequal|devlop|escape-string-regexp|estree-util-[^/]+|extend|html-url-attributes|inline-style-parser|is-[^/]+|longest-streak|markdown-table|parse-entities|property-information|space-separated-tokens|stringify-entities|style-[^/]+|trim-lines|trough|web-namespaces|zwitch)/)"

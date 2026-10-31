@@ -46,6 +46,9 @@ public class ImageUpload extends BaseEntity {
     @Column(name = "attached_group_id")
     private Long attachedGroupId;
 
+    @Column(name = "attached_sparring_id")
+    private Long attachedSparringId;
+
     @Column(name = "source_image_key", length = 255)
     private String sourceImageKey;
 
@@ -139,6 +142,10 @@ public class ImageUpload extends BaseEntity {
         return attachedGroupId;
     }
 
+    public Long getAttachedSparringId() {
+        return attachedSparringId;
+    }
+
     public String getSourceImageKey() {
         return sourceImageKey;
     }
@@ -167,6 +174,9 @@ public class ImageUpload extends BaseEntity {
     }
 
     public boolean canAttachTo(Long memberId, long groupId, LocalDateTime now) {
+        if (attachedSparringId != null) {
+            return false;
+        }
         if (uploaderId != null && !uploaderId.equals(memberId)) {
             return false;
         }
@@ -184,7 +194,7 @@ public class ImageUpload extends BaseEntity {
     }
 
     public void startPromotion(long groupId, String targetImageKey) {
-        if (attachedGroupId != null && !attachedGroupId.equals(groupId)) {
+        if (attachedSparringId != null || (attachedGroupId != null && !attachedGroupId.equals(groupId))) {
             throw new IllegalStateException("이미 다른 그룹에 연결된 이미지입니다.");
         }
         if (sourceImageKey == null) {
@@ -192,6 +202,28 @@ public class ImageUpload extends BaseEntity {
         }
         imageKey = targetImageKey;
         attachedGroupId = groupId;
+        status = ImageUploadStatus.PROMOTING;
+    }
+
+    public boolean canAttachToSparring(long memberId, long topicId, LocalDateTime now) {
+        if (uploaderId == null || uploaderId != memberId || attachedGroupId != null) {
+            return false;
+        }
+        if (attachedSparringId != null) {
+            return attachedSparringId == topicId && status == ImageUploadStatus.ATTACHED;
+        }
+        return status == ImageUploadStatus.TEMPORARY && !isExpiredAt(now);
+    }
+
+    public void startSparringPromotion(long topicId, String targetImageKey) {
+        if (attachedGroupId != null || (attachedSparringId != null && attachedSparringId != topicId)) {
+            throw new IllegalStateException("이미 다른 대상에 연결된 이미지입니다.");
+        }
+        if (sourceImageKey == null) {
+            sourceImageKey = imageKey;
+        }
+        imageKey = targetImageKey;
+        attachedSparringId = topicId;
         status = ImageUploadStatus.PROMOTING;
     }
 

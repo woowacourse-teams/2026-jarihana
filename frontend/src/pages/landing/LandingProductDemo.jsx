@@ -1,3 +1,4 @@
+import { LandingDemoPlaybackContext } from "./landingDemoPlayback";
 import { useLandingDemo } from "./useLandingDemo";
 import { useLandingDemoViewport } from "./useLandingDemoViewport";
 import "./landing-product-demo.css";
@@ -11,7 +12,9 @@ const demoDurations = {
   invite: "6.5s",
   chat: "7.5s",
   calendar: "6s",
-  activity: "12s"
+  activity: "12s",
+  // 녹화 영상 길이 16.43초에 데모 재생 속도 1.5를 곱한 값이라 진행 막대가 영상과 함께 끝난다.
+  sparring: "24.65s"
 };
 
 const demoLabels = {
@@ -23,7 +26,8 @@ const demoLabels = {
   invite: "초대하기 화면 데모 제어",
   chat: "채팅 화면 데모 제어",
   calendar: "모임 캘린더 화면 데모 제어",
-  activity: "활동 피드 화면 데모 제어"
+  activity: "활동 피드 화면 데모 제어",
+  sparring: "토론해요 화면 데모 제어"
 };
 
 const analyticsActions = {
@@ -62,6 +66,10 @@ const analyticsActions = {
   activity: {
     pause: "landing_activity_demo_pause_toggle",
     replay: "landing_activity_demo_replay"
+  },
+  sparring: {
+    pause: "landing_sparring_demo_pause_toggle",
+    replay: "landing_sparring_demo_replay"
   }
 };
 
@@ -98,7 +106,9 @@ export function LandingProductDemo({ children, isActive = true, label, screen })
         aria-label={label}
       >
         <div className="landing-product-demo__timeline" onAnimationEnd={finish} />
-        {children}
+        <LandingDemoPlaybackContext.Provider value={{ paused, reducedMotion, state }}>
+          {children}
+        </LandingDemoPlaybackContext.Provider>
       </div>
 
       <div

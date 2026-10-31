@@ -134,3 +134,8 @@
 | 자유게시판 | [proposals.md](proposals.md) | 모임 제안 조회, 작성, 숨김과 함께하고 싶어요 응답, 코멘트 |
 | 공유 미리보기 | [share-preview.md](share-preview.md) | 그룹 공유 미리보기 HTML 엔드포인트 |
 | 알림함·웹푸시 | [notifications.md](notifications.md) | 알림함·구독·푸시 내용 조회·로그아웃 호환 확장 |
+
+## 스파링
+
+[스파링 API](sparrings.md): 공개 주제/의견 조회, 회원 주제 등록·편 선택·의견 전송,
+SSE revision 알림. [OpenAPI](../../../openapi/sparring.yaml)

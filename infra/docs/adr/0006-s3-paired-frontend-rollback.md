@@ -83,7 +83,7 @@ S3 객체 복사는 여러 파일에 걸친 트랜잭션이 아니다. `index.ht
 ## 검증과 도입
 
 이 문서는 운영 기능이 이미 적용됐다는 기록이 아니다. 로컬 계약 테스트와 실제 AWS, IAM,
-GitHub runner, 전체 900초 관찰 및 실패 복구 검증은 구분한다. 구체적인 설치, 최초 baseline,
+GitHub runner, 전체 300초 관찰 및 실패 복구 검증은 구분한다. 구체적인 설치, 최초 baseline,
 관찰 및 수동 조정 절차는 [배포 환경 구성](../../blue-green-deploy/controller/environment.md#프론트엔드-사전-준비),
 [관찰 기준](../../blue-green-deploy/controller/status.md#관찰-기준)과
 [복구 절차](../../blue-green-deploy/controller/recovery.md#수동-조사)를 따른다.

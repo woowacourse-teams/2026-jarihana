@@ -327,3 +327,12 @@ PostHog 청크는 수집이 활성화되고 인증 확인이 끝난 후 동적�
 데이터가 쌓인 뒤 PostHog에서 방문·재방문, 탐색→신청 전환, API 실패율 등의
 Insight와 Dashboard를 구성한다. 이 대시보드는 자리하나의 새 서비스 페이지가 아니다.
 나중에 정의한 분석은 당시 수집한 필드에 한해서만 과거 데이터에 적용할 수 있다.
+
+## 스파링
+
+SSE/물리 렌더러는 같은 출처 iframe이므로 내부 고정 action을 부모로 전달한다.
+부모는 source/origin/고정 allowlist를 검증한 뒤 `sparring_interaction`에 action만 기록한다.
+사용자 글·주제·이름·진영은 전달하지 않는다. 기존 마스킹/개인정보 허용 목록은 유지한다.
+`sparring_created`, `sparring_vote_saved`, `sparring_post_saved`는 HTTP 저장 성공 이후 기록한다.
+재전송으로 같은 ID를 확인한 요청도 저장 성공이므로 마지막 이벤트는 고유 의견 수가 아닌
+저장 요청 성공 횟수로 해석한다. API/SSE 주기 조회 역시 사용자 행동 횟수가 아니다.

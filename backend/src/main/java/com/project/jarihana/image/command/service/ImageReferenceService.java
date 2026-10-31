@@ -50,6 +50,12 @@ public class ImageReferenceService {
     }
 
     @Transactional
+    public void attachSparringRepresentative(long topicId, PromotedImage image, LocalDateTime now) {
+        referenceRepository.save(ImageReference.create(
+                image.uploadId(), ImageReferenceType.SPARRING_REPRESENTATIVE, topicId, null, now));
+    }
+
+    @Transactional
     public void replaceGroup(
             long groupId,
             Collection<PromotedImage> representativeImages,

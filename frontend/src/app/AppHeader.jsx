@@ -52,11 +52,20 @@ const BOARD_LINK = {
   to: "/board"
 };
 
+const SPARRING_LINK = {
+  action: "sparring_view",
+  isActive: (pathname) => pathname === "/sparring" || pathname.startsWith("/sparring/"),
+  label: "토론해요",
+  requiresAuth: false,
+  to: "/sparring"
+};
+
 const MEMBER_LINKS = [
   HOME_LINK,
   EXPLORE_LINK,
   ACTIVITY_LINK,
   BOARD_LINK,
+  SPARRING_LINK,
   {
     action: "group_create",
     isActive: (pathname) => pathname === "/groups/new",
@@ -66,7 +75,7 @@ const MEMBER_LINKS = [
   }
 ];
 
-const DESKTOP_MEMBER_LINKS = [HOME_LINK, EXPLORE_LINK, ACTIVITY_LINK, BOARD_LINK];
+const DESKTOP_MEMBER_LINKS = [HOME_LINK, EXPLORE_LINK, ACTIVITY_LINK, BOARD_LINK, SPARRING_LINK];
 
 function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, status }) {
   const { pathname } = useLocation();
@@ -301,7 +310,10 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
             aria-label="주요 메뉴"
             className="app-header__primary-nav"
             data-active={activeMenuIndex >= 0}
-            style={{ "--header-active-index": Math.max(0, activeMenuIndex) }}
+            style={{
+              "--header-active-index": Math.max(0, activeMenuIndex),
+              "--header-nav-item-count": DESKTOP_MEMBER_LINKS.length + 1
+            }}
           >
             <HeaderLinks
               links={DESKTOP_MEMBER_LINKS}

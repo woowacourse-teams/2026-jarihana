@@ -34,7 +34,10 @@ export function DateRangeCalendar({
   onSelect,
   startDate,
   startValue,
-  visibleMonth
+  visibleMonth,
+  minimumDate = "",
+  label,
+  todayDate
 }) {
   const dayReferences = useRef(new Map());
   const pendingFocusReference = useRef("");
@@ -51,9 +54,10 @@ export function DateRangeCalendar({
   const renderedMonthDays = monthPanels.flatMap(({ days }) => days.filter(Boolean));
   const [today] = useState(() => toDateValue(new Date(Date.now())));
   const selectedDate = activeEndpoint === "start" ? startDate : endDate;
-  const endpointLabel = activeEndpoint === "start" ? "모집 시작일" : "모집 마감일";
+  const endpointLabel = label || (activeEndpoint === "start" ? "모집 시작일" : "모집 마감일");
 
   function isDisabled(dateValue) {
+    if (minimumDate && dateValue < minimumDate) return true;
     if (activeEndpoint !== "end" || !startDate) return false;
     if (dateValue < startDate) return true;
     return dateValue === startDate && minimumEndTime(startValue, dateValue) === null;
@@ -170,7 +174,7 @@ export function DateRangeCalendar({
                 const selected = dateValue === startDate || dateValue === endDate;
                 return (
                   <button
-                    aria-current={dateValue === today ? "date" : undefined}
+                    aria-current={dateValue === (todayDate || today) ? "date" : undefined}
                     aria-label={formatDateLabel(dateValue)}
                     aria-pressed={selected}
                     className={classes(

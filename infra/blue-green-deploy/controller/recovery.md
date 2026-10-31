@@ -26,7 +26,7 @@
 ## 복구 허가와 기한
 
 API 복구는 S3 접근과 임시 CLI 준비에 의존하지 않는다. 복구 허가는
-[coordinator의 복구 경로](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/blue-green-deploy/scripts/actions/coordinator.sh)에서 다음과 같이 발급한다.
+[coordinator의 복구 경로](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/scripts/actions/coordinator.sh)에서 다음과 같이 발급한다.
 
 | 복구 작업 | 허가 조건과 기한 |
 | --- | --- |

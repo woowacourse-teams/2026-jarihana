@@ -9,16 +9,16 @@
 
 ## 적용 버전
 
-이 문서는 로컬 `origin/main`의 [c1520946 코드](https://github.com/woowacourse-teams/2026-jarihana/tree/c1520946143c049cdcce57734c85daf1f540f26d)를 기준으로 한다.
+이 문서는 로컬 `origin/main`의 [2f2cc2cc 코드](https://github.com/woowacourse-teams/2026-jarihana/tree/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd)를 기준으로 한다.
 workflow, 스크립트와 설정의 코드 링크도 이 커밋에 고정한다. 명령은 이 기준과 일치하는
 checkout에서 실행하고, 서버의 보호된 control ref/SHA와 설치본도 별도로 대조한다.
 문서나 Git 병합만으로 서버 설정과 설치 코드가 갱신되었다고 판단하지 않는다.
 
 ## 배포 실행
 
-운영 진입점은 [Production Release](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/.github/workflows/backend-prod-deploy.yml)다.
+운영 진입점은 [Production Release](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/.github/workflows/backend-prod-deploy.yml)다.
 배포 대상 경로가 변경된 main push 또는 main의 수동 실행으로
-[공통 배포 workflow](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/.github/workflows/backend-bluegreen-deploy.yml)를 호출한다.
+[공통 배포 workflow](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/.github/workflows/backend-bluegreen-deploy.yml)를 호출한다.
 `BLUE_GREEN_PROD_ENABLED=true`여야 새 운영 배포를 진행한다. false 또는 미설정이면
 현재 서비스를 유지한 채 새 deploy를 차단한다. 기존 Recreate 배포로 자동 전환하지 않는다.
 명시적인 최초 `bootstrap`만 비활성 상태에서 허용한다. 준비 조건은 [최초 worker 등록](environment.md#최초-worker-등록)을 따른다.
@@ -34,7 +34,7 @@ checkout에서 실행하고, 서버의 보호된 control ref/SHA와 설치본도
 두 only 입력은 동시에 지정하지 않는다. main push에서는 backend 변경만 있으면 backend-only,
 frontend 변경만 있으면 frontend-only를 선택한다. infra 또는 공동 배포 workflow 변경은 양쪽 배포다.
 독립적인 프론트엔드 운영 게시 workflow는 없으며
-[프론트 빌드 workflow](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/.github/workflows/frontend-prod-deploy.yml)는 호출형 빌드 전용이다.
+[프론트 빌드 workflow](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/.github/workflows/frontend-prod-deploy.yml)는 호출형 빌드 전용이다.
 
 백엔드 이미지는 develop의 GitHub-hosted ARM runner가 빌드해 GHCR에 올린 것을 사용한다.
 운영에서는 `tree-<backend 트리 해시>` 또는 지정 SHA를 실제 `sha256` digest로 해석해 고정한다.

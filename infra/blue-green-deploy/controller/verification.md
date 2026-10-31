@@ -31,7 +31,7 @@ actionlint .github/workflows/backend-bluegreen-deploy.yml \
   .github/workflows/backend-prod-deploy.yml .github/workflows/frontend-prod-deploy.yml
 ```
 
-시험별 실행 조건과 대역 범위는 [각 하네스](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/blue-green-deploy/tests/actions/run-tests.sh)에서 확인한다.
+시험별 실행 조건과 대역 범위는 [각 하네스](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/tests/actions/run-tests.sh)에서 확인한다.
 
 ## 백엔드 계측
 
@@ -56,13 +56,13 @@ node infra/monitoring/grafana/deployment/test-provisioning.mjs
 
 관제 구조 검사는 Node.js를 사용한다. PromQL 검사는 Docker의 Prometheus 이미지,
 파일 프로비저닝 검사는 Docker의 Grafana 이미지가 필요하다. 이미지와 준비 절차는
-[모니터링 workflow](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/.github/workflows/monitoring-deploy.yml)를 따른다.
+[모니터링 workflow](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/.github/workflows/monitoring-deploy.yml)를 따른다.
 
 ## 검증 범위와 한계
 
 로컬 계약 시험은 허가, S3 조건부 쓰기, 해시 불일치와 복구 순서를 검증한다. 통합 시험은
 실제 JVM, PostgreSQL, Nginx와 Prometheus를 쓰더라도 GitHub, AWS, SSH와 호스트 신원은 대역일 수 있다.
 Compose 시험은 격리된 데몬과 registry pull, TLS DB, 승인 이미지와 PAUSED, 포트, 정상 종료를 확인한다.
-가상 시계나 과거 실행 결과는 실제 900초 관찰, IAM, 보안 그룹, CloudFront, runner 및 장애 복구를
+가상 시계나 과거 실행 결과는 실제 300초 관찰, IAM, 보안 그룹, CloudFront, runner 및 장애 복구를
 증명하지 않는다. 운영에서는 공동/단독 배포, 양방향 교대, 업로드와 해시 실패, worker 미확정,
 복구 실패와 취소를 각각 확인한다. 검증 결과와 적용 기록은 당시 환경과 범위를 구분해 보존한다.

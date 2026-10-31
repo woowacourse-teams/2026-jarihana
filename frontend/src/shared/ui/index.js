@@ -5,7 +5,6 @@ export { Avatar, Card, GroupCard, GroupImage, RecruitmentCard, StatusBadge } fro
 export { Checkbox, FilterBar, Radio, SearchField, Select, Textarea, TextField } from "./Fields.jsx";
 export { DateRangePicker, toLocalDateTimeValue } from "./DateRangePicker.jsx";
 export { PageContainer, PageHeader, SectionHeader } from "./Layout.jsx";
-export { MarkdownContent } from "./MarkdownContent.jsx";
 export { ConfirmDialog, Drawer, Modal } from "./Overlay.jsx";
 export {
   CursorList,

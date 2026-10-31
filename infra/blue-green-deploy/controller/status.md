@@ -27,7 +27,7 @@ phase, run_id, deployment_id, old/target, image, pending, sealed와 cleanup_defe
 
 ## 관찰 기준
 
-각 관찰은 최소 900초이고 검사 사이 5초를 기다린다. 연속 3회 unhealthy이면 실패다.
+각 관찰은 최소 300초(5분)이고 검사 사이 5초를 기다린다. 연속 3회 unhealthy이면 실패다.
 조회와 API 처리 시간이 더해지므로 정확한 5초 주기나 15초 내 장애 감지를 보장하지 않는다.
 worker 관찰은 boot와 DB 권한이 유지되고 unresolved=0인지 확인한다.
 HTTP 관찰은 실제 후보 경로와 호스트별 fresh up, 최근 2분 요청 수, 5xx 비율과 평균 시간을 본다.
@@ -50,13 +50,13 @@ Nginx는 `nginx -t` 뒤 설정을 원자적으로 교체하고 reload하며 실�
 
 | 사용 위치 | 기준 | 코드 근거 |
 | --- | --- | --- |
-| 배포 제어기의 앱 up | 보호된 telemetry의 max_age_seconds, 예시는 최대 45초 | [설정 예시](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/blue-green-deploy/controller/full-coordinator.example.json), [제어기](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/blue-green-deploy/scripts/actions/coordinator.sh) |
-| 배포 관제 화면의 앱/DB와 DEV metric sample | 45초 이하 | [관제 쿼리](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/monitoring/grafana/deployment/source/queries.json) |
-| 배포 관제 화면의 PROD 수집기/route sample과 실제 관측 | 90초 미만 | [관제 쿼리](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/monitoring/grafana/deployment/source/queries.json) |
-| 배포 관제 화면의 DEV Actions 실제 관측 | 360초 미만, 수집 성공도 필요 | [관제 쿼리](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/monitoring/grafana/deployment/source/queries.json) |
-| Slack health 알림의 앱 probe | 150초 미만 | [알림 규칙](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/monitoring/grafana/provisioning/alerting/rules.yaml) |
-| Slack prod 알림의 중앙 수집기와 Nginx 관측 | 90초 미만, 활성 host_id 하나와 source 성공 필요 | [알림 규칙](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/monitoring/grafana/provisioning/alerting/rules.yaml) |
-| 배포 관제 화면 갱신 | 5초 | [화면 원본](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/monitoring/grafana/deployment/source/dashboard.json) |
+| 배포 제어기의 앱 up | 보호된 telemetry의 max_age_seconds, 예시는 최대 45초 | [설정 예시](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/controller/full-coordinator.example.json), [제어기](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/scripts/actions/coordinator.sh) |
+| 배포 관제 화면의 앱/DB와 DEV metric sample | 45초 이하 | [관제 쿼리](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/monitoring/grafana/deployment/source/queries.json) |
+| 배포 관제 화면의 PROD 수집기/route sample과 실제 관측 | 90초 미만 | [관제 쿼리](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/monitoring/grafana/deployment/source/queries.json) |
+| 배포 관제 화면의 DEV Actions 실제 관측 | 360초 미만, 수집 성공도 필요 | [관제 쿼리](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/monitoring/grafana/deployment/source/queries.json) |
+| Slack health 알림의 앱 probe | 150초 미만 | [알림 규칙](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/monitoring/grafana/provisioning/alerting/rules.yaml) |
+| Slack prod 알림의 중앙 수집기와 Nginx 관측 | 90초 미만, 활성 host_id 하나와 source 성공 필요 | [알림 규칙](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/monitoring/grafana/provisioning/alerting/rules.yaml) |
+| 배포 관제 화면 갱신 | 5초 | [화면 원본](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/monitoring/grafana/deployment/source/dashboard.json) |
 
 원본의 전체 PromQL은 표의 코드 링크를 따른다.
 
@@ -66,6 +66,6 @@ Nginx는 `nginx -t` 뒤 설정을 원자적으로 교체하고 reload하며 실�
 30초 간격 기준으로 재검사하고, 배포 확정 직전에는 manifest에 선언한 모든 파일을 검사한다.
 검사와 전송 시간이 더해지므로 정확한 고정 주기를 보장하지 않는다. 백엔드 전용 배포는
 공개 파일을 다시 게시하지 않으며 현재 릴리스 조합의 상태를 확인한다.
-검사 경계는 [제어기](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/blue-green-deploy/scripts/actions/coordinator.sh)와 [프론트 제어 코드](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/blue-green-deploy/scripts/actions/frontend.sh)를 따른다.
+검사 경계는 [제어기](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/scripts/actions/coordinator.sh)와 [프론트 제어 코드](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/scripts/actions/frontend.sh)를 따른다.
 
 관찰 실패나 종료 보류가 발생하면 [장애 복구](recovery.md)를 따른다. 다음 정상 배포는 [배포 실행](deployment.md)에서 확인한다.
