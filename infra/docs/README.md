@@ -17,6 +17,7 @@
 | [Tempo 트레이스 선택 구성](observability/TRACING.md) | 필요할 때 켜는 Java Agent·Alloy·Tempo 연결, 보관·샘플링과 실제 요청 검증 |
 | [Grafana Canvas](observability/CANVAS.md) | 앱·DB health와 최근 2분 평균 요청 흐름을 보여주는 시스템 흐름 화면 |
 | [배포 관제 대시보드](observability/DEPLOYMENT.md) | 화면 사용과 상태 해석 |
+| [중앙 배포 수집기](observability/CENTRAL-DEPLOYMENT-COLLECTOR.md) | Nginx 서버의 수집 경로, timer와 prod drop-in, 전용 Alloy와 상태 확인 |
 | [Grafana Slack 장애 알림](observability/SLACK.md) | health·HTTP 500·CPU·메모리·디스크·inode 알림, Webhook과 파일 provisioning |
 | [모니터링 학습 노트](learning/observability.md) | 대화에서 나온 질문, 용어와 계산 예시 |
 

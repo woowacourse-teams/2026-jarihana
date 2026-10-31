@@ -34,5 +34,6 @@ GitHub Actions가 순서를 연결하고, 각 서버의 전용 runner가 자기 
 - [상태 확인](controller/status.md): 실행과 저널, 관찰 기준과 지표 최신성.
 - [장애 복구](controller/recovery.md): 실패 시 처리, 복구 기한과 수동 조사.
 - [검증](controller/verification.md): 배포 스크립트, 계측과 관제 변경의 검증 명령.
+- [중앙 배포 수집기](../docs/observability/CENTRAL-DEPLOYMENT-COLLECTOR.md): Nginx 서버의 수집 경로, timer와 전용 Alloy 점검.
 - [인프라 ADR 0005](../docs/adr/0005-nginx-ec2-blue-green-deployment.md): Nginx와 앱 EC2 두 대를 선택한 이유.
 - [인프라 ADR 0006](../docs/adr/0006-s3-paired-frontend-rollback.md): 프론트엔드 보관과 동반 복구를 선택한 이유.

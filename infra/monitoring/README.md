@@ -5,7 +5,7 @@
 - [Tempo 트레이스 선택 구성](../docs/observability/TRACING.md): trace가 필요할 때 Java Agent → 앱 Alloy → Nginx → Tempo, 7일 보관과 검증
 - [legacy prod 앱 Compose](../docker-compose.yml), [기본 dev 앱 Compose](../docker-compose.dev.yml): 앱과 Alloy를 함께 정의
 - [Blue-Green 독립 앱 Alloy Compose](../blue-green-deploy/controller/observability-compose.yml): 앱 A/B에서 공통 설정을 사용하고 앱 배포와 수명을 분리
-- [중앙 배포 수집기](../docs/observability/CENTRAL-DEPLOYMENT-COLLECTOR.md): 배포 Nginx EC2의 systemd/textfile 전용 Alloy, 서버 설치본과 재설치 의존성
+- [중앙 배포 수집기](../docs/observability/CENTRAL-DEPLOYMENT-COLLECTOR.md): Nginx EC2의 수집 경로, timer와 prod drop-in, 전용 Alloy와 WAL 점검
 - [Slack 장애 알림](../docs/observability/SLACK.md): Grafana 파일 provisioning, health·HTTP 500·호스트 자원 알림 정의 12개와 전달 정책
 - [배포 관제 대시보드](../docs/observability/DEPLOYMENT.md): 배포 단계와 실제 요청 경로 해석
 - [Grafana 운영 대시보드](../docs/observability/DASHBOARD.md): `Jarihana` 폴더의 `jarihana-overview` 대시보드와 필터·패널 해석
@@ -71,8 +71,9 @@ Compose는 Alloy를 포함한 모니터링 서비스에 컨테이너별 메모�
 prod 헬스 알림은 기존 중앙 배포 수집기의 `jarihana_nginx_route`와 Nginx source 성공·관측 시각을
 사용해 유효한 활성 호스트가 정확히 하나이고 해당 앱 Alloy 헬스 결과가 정상인지 평가한다.
 drain 중 두 앱이 모두 정상인 것은 허용하지만 활성 route 두 개를 허용하지는 않는다.
-수집기/Nginx 관측 정보는 45초,
-앱 헬스 결과는 150초 이내여야 하며 활성 경로 또는 해당 결과가 없으면 장애로 알린다.
+수집기/Nginx 관측과 앱 헬스 결과의 판정값은
+[관측 최신성](../blue-green-deploy/controller/status.md#관측-최신성)을 따른다.
+유효한 활성 경로 또는 해당 결과가 없으면 장애로 알린다.
 대기 호스트 중지는 알리지 않는다. 수집기가 없거나 오래된 textfile만 반복 수집되는 경우에도
 알림이 발생하므로 중앙 배포 수집기와 앱 Alloy 양쪽을 확인한다.
 로컬 검증은 Docker가 실행 중일 때 `node grafana/test-health-alerts.mjs`로 수행한다
