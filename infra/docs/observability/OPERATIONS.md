@@ -15,7 +15,7 @@ Nginx, Prometheus, Loki, Grafana와 호스트 수집 Alloy는
 | [docker-compose.yml](../../monitoring/docker-compose.yml) | 모니터링 EC2: Nginx·Prometheus·Loki·Grafana·호스트 수집 Alloy. Tempo는 선택 구성 |
 | [legacy prod 앱 Compose](../../docker-compose.yml), [기본 dev 앱 Compose](../../docker-compose.dev.yml) | 각 EC2: 앱과 Alloy, `alloy-data`를 함께 정의 |
 | [Blue-Green 독립 앱 Alloy Compose](../../blue-green-deploy/controller/observability-compose.yml) | 앱 A/B: 공통 앱 설정 사용, 앱 교체/drain/stop과 수명 분리 |
-| [중앙 배포 수집기 운영 설치본](CENTRAL-DEPLOYMENT-COLLECTOR.md) | 배포 Nginx EC2: systemd 수집 스크립트와 textfile 전용 Alloy. 설치 소스는 저장소에 없음 |
+| [중앙 배포 수집기 운영](CENTRAL-DEPLOYMENT-COLLECTOR.md) | 배포 Nginx EC2: 실제 unit과 prod drop-in, textfile 전용 Alloy와 WAL 점검 |
 | [앱 환경변수 예시](../../.env.example) | 각 앱 EC2: 앱·Alloy 공통 입력 |
 | [alloy/config.alloy](../../monitoring/alloy/config.alloy) | HTTP·호스트 메트릭 수집, health 확인, Docker 로그 전송 |
 | [alloy/monitoring.alloy](../../monitoring/alloy/monitoring.alloy) | 모니터링 EC2: 호스트·Alloy 자체 메트릭 수집 |
@@ -277,8 +277,8 @@ RDS 파라미터 그룹에는 `pg_stat_statements`가 미리 로드되고 `compu
 Blue-Green 앱 A/B의 독립 Alloy Compose, 필수 입력과 WAL 보존은
 [배포 환경 구성](../../blue-green-deploy/controller/environment.md#앱-alloy와-조회-경로)을 따른다.
 
-배포 Nginx의 중앙 수집기는 이 앱 Compose로 설치하지 않는다. 실행 상태, 실제 경로 확인 방법,
-45초 관측 최신성, 저장소에 없는 재설치 원본은 [중앙 배포 수집기](CENTRAL-DEPLOYMENT-COLLECTOR.md)를 따른다.
+배포 Nginx의 중앙 수집기는 이 앱 Compose와 별도다. 실행 계정과 경로, timer override,
+전용 Alloy 및 관측 확인은 [중앙 배포 수집기 운영](CENTRAL-DEPLOYMENT-COLLECTOR.md)을 따른다.
 
 ### 기본 dev/legacy prod: 앱과 Alloy 함께 실행
 
@@ -540,8 +540,8 @@ Prometheus remote write 샘플 `42`를 확인했다. 다른 Host와 조회 경�
 이 쿼리 검증은 직접 전송한 테스트 데이터이며 위 Alloy 로그 전송 검증과 구분한다.
 
 실제 Spring 연결, dev·prod RDS TLS, 호스트 지표와 DB 계정 권한을 이 테스트로 검증한 것은 아니다.
-현재 prod 운영 설치본과 중앙 route의 읽기 전용 확인은
-[중앙 수집기 기록](CENTRAL-DEPLOYMENT-COLLECTOR.md)에 구분해 적었다. 이 로컬 시험으로는
+prod 수집기의 운영 구성과 중앙 route의 읽기 전용 확인 방법은
+[중앙 수집기 운영](CENTRAL-DEPLOYMENT-COLLECTOR.md)에 둔다. 이 로컬 시험으로는
 실제 EC2 호스트 지표, RDS 스키마/권한, 백업/복원, 운영 부하, 장기 보관 삭제, Slack 전달을
 증명하지 않는다. 기존 Agent와 외부 AWS 자원 정리도 별도 운영 범위다.
 
