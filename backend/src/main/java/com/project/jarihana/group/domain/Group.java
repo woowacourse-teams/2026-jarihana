@@ -14,6 +14,7 @@ import java.util.Objects;
 @Entity
 @Table(
         name = "groups",
+        indexes = @Index(name = "idx_groups_status_created_id", columnList = "status, created_at DESC, id DESC"),
         uniqueConstraints = @UniqueConstraint(name = "uk_groups_name", columnNames = "name")
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

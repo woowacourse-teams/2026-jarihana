@@ -12,7 +12,10 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Entity
-@Table(name = "group_recruitment")
+@Table(
+        name = "group_recruitment",
+        indexes = @Index(name = "idx_group_recruitment_group_id", columnList = "group_id")
+)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class GroupRecruitment extends BaseEntity {
 
