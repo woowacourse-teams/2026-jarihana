@@ -7,11 +7,11 @@ import { characterPose, characterVariant } from './character-motion.js';
 import { createWalkingCharacters } from './walking-characters.js';
 
 const VISIBLE_LIMIT = 4;
-const SHELL_LIFETIME = 2.5, SHELL_FADE = 0.35;
+const SHELL_LIFETIME = 1.2, SHELL_FADE = 0.25;
 const PAIR_SLIDE_SECONDS = 1.4;
 const OPEN_SHELL_POSE = { stage: 'empty-shell', scale: 1, shrink: 1, closing: 0 };
 
-export function createDispenser(scene, onReveal, { onOpened = () => {} } = {}) {
+export function createDispenser(scene, onReveal, { onOpened = () => {}, trayWidth = TRAY.frontWidth, edgeScale = 1 } = {}) {
   const cream = studioMaterial({ color: 0xf8fafb, roughness: 0.65, side: THREE.DoubleSide });
   const rim = studioMaterial({ color: 0xe4e9ec, roughness: 0.5 });
   function box(size, position, material) {
@@ -30,21 +30,41 @@ export function createDispenser(scene, onReveal, { onOpened = () => {} } = {}) {
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
     geometry.setIndex(indices); geometry.computeVertexNormals();
     const mesh = new THREE.Mesh(geometry, cream); mesh.receiveShadow = true; scene.add(mesh);
+    return mesh;
   }
   floor(SLIDE.points);
-  floor([[TRAY.back, TRAY.y + 0.12, TRAY.backWidth], [TRAY.front, TRAY.frontY + 0.12, TRAY.frontWidth]]);
-  for (const side of [-1, 1]) {
+  const trayFloor = floor([[TRAY.back, TRAY.y + 0.12, TRAY.backWidth], [TRAY.front, TRAY.frontY + 0.12, trayWidth]]);
+  function railGeometry(side, width) {
     const points = SLIDE.points.map(([z, y, width]) => new THREE.Vector3(side * width / 2, y + 0.12, z));
-    points.push(new THREE.Vector3(side * TRAY.backWidth / 2, TRAY.y + 0.24, TRAY.back));
-    points.push(new THREE.Vector3(side * TRAY.frontWidth / 2, TRAY.frontY + 0.24, TRAY.front));
-    const rail = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 56, 0.09, 8, false), rim);
-    rail.castShadow = true; scene.add(rail);
+    points.push(new THREE.Vector3(side * TRAY.backWidth / 2, TRAY.y + 0.12 + 0.12 * edgeScale, TRAY.back));
+    points.push(new THREE.Vector3(side * width / 2, TRAY.frontY + 0.12 + 0.12 * edgeScale, TRAY.front));
+    return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 56, 0.09 * edgeScale, 8, false);
   }
-  box([TRAY.frontWidth, 0.32, 0.16], [0, TRAY.frontY + 0.16, TRAY.front], rim);
-  const batch = createCapsuleBatch(scene, OUTPUT_CAPACITY, createWalkingCharacters), physics = createDispenserPhysics();
+  const rails = [-1, 1].map(side => {
+    const rail = new THREE.Mesh(railGeometry(side, trayWidth), rim);
+    rail.castShadow = true; scene.add(rail);
+    return rail;
+  });
+  const bumper = box([trayWidth, 0.32, 0.16], [0, TRAY.frontY + 0.16, TRAY.front], rim);
+  const batch = createCapsuleBatch(scene, OUTPUT_CAPACITY, createWalkingCharacters), physics = createDispenserPhysics({ trayWidth });
+  bumper.scale.y = bumper.scale.z = edgeScale;
+  bumper.position.y = TRAY.frontY + 0.16 * edgeScale;
+  function setTrayWidth(width, nextEdgeScale = edgeScale) {
+    edgeScale = nextEdgeScale;
+    const positions = trayFloor.geometry.attributes.position;
+    positions.setX(2, -width / 2); positions.setX(3, width / 2); positions.needsUpdate = true;
+    trayFloor.geometry.computeVertexNormals(); trayFloor.geometry.computeBoundingSphere();
+    rails.forEach((rail, index) => {
+      rail.geometry.dispose(); rail.geometry = railGeometry(index === 0 ? -1 : 1, width);
+    });
+    bumper.scale.x = width / trayWidth;
+    bumper.scale.y = bumper.scale.z = edgeScale;
+    bumper.position.y = TRAY.frontY + 0.16 * edgeScale;
+    physics.setTrayWidth(width);
+  }
   const slots = Array(OUTPUT_CAPACITY).fill(null);
   for (let i = 0; i < OUTPUT_CAPACITY; i++) batch.hide(i);
-  let opened = 0, serial = 0, latest = null, pair = null;
+  let opened = 0, serial = 0, latest = null, pair = null, cameraPair = null;
   const busy = () => slots.some(entry => entry && (entry.phase !== 'open' || entry.elapsed < 1.8));
   function available(priority = false) {
     if (slots.filter(Boolean).length < VISIBLE_LIMIT) return slots.findIndex(entry => entry === null);
@@ -60,7 +80,7 @@ export function createDispenser(scene, onReveal, { onOpened = () => {} } = {}) {
     if (entry === latest) latest = null;
     slots[index] = null; physics.release(index); batch.hide(index);
   }
-  function clearAll() { pair = null; for (let index = 0; index < slots.length; index++) clear(index); }
+  function clearAll() { pair = cameraPair = null; for (let index = 0; index < slots.length; index++) clear(index); }
   function reveal(entry) {
     if (entry.revealed) return;
     entry.revealed = true; entry.openedAt = 0; opened++;
@@ -87,6 +107,8 @@ export function createDispenser(scene, onReveal, { onOpened = () => {} } = {}) {
       indexes.push(slots.findIndex(entry => entry?.born === serial));
     }
     pair = { indexes, elapsed: 0 };
+    const reply = indexes.at(-1);
+    cameraPair = slots[reply].post.replyTo ? { index: reply, elapsed: 0 } : null;
     physics.positionPair(indexes, 0);
     indexes.forEach(index => batch.draw(index, slots[index], RADIUS / 0.48));
     return true;
@@ -105,6 +127,7 @@ export function createDispenser(scene, onReveal, { onOpened = () => {} } = {}) {
   }
   function step(delta, reduced = false) {
     if (slots.every(entry => !entry)) return;
+    if (cameraPair) cameraPair.elapsed += delta;
     if (pair) {
       pair.elapsed += delta;
       const progress = Math.min(1, pair.elapsed / PAIR_SLIDE_SECONDS);
@@ -145,5 +168,12 @@ export function createDispenser(scene, onReveal, { onOpened = () => {} } = {}) {
       outputCapsules: active.length, outputContacts: physics.capsuleContacts(), outputRolling: active.filter(entry => entry.phase === 'rolling').length, outputCapacity: OUTPUT_CAPACITY, outputLimit: VISIBLE_LIMIT,
       characters: active.map(entry => ({ postId: entry.post.id, variant: characterVariant(entry.post), fresh: entry.fresh, stage: entry.characterPose?.stage ?? 'bracing', elapsed: entry.elapsed, scale: entry.characterPose?.scale ?? 0.31 })) };
   }
-  return { start, startPair, step, busy, pick, clearAll, outputs: () => slots.filter(Boolean), readyForNext: (priority, reduced = false) => available(priority) >= 0 && (reduced || (!slots.some(entry => entry?.phase === 'rolling') && physics.inletClear())), entries: () => slots.filter(entry => entry?.revealed).sort((a, b) => Number(b.fresh && b.elapsed < 5) - Number(a.fresh && a.elapsed < 5) || b.born - a.born).slice(0, 4), stats };
+  function presentation() {
+    const entry = cameraPair && slots[cameraPair.index];
+    if (!entry || entry.reduced) return null;
+    return { id: entry.post.id, mine: entry.post.mine === true, fresh: entry.fresh, phase: 'slide',
+      elapsed: cameraPair.elapsed, releaseAt: PAIR_SLIDE_SECONDS + 0.4,
+      follow: new THREE.Vector3().copy(entry.body.position) };
+  }
+  return { start, startPair, step, busy, pick, clearAll, setTrayWidth, presentation, outputs: () => slots.filter(Boolean), readyForNext: (priority, reduced = false) => available(priority) >= 0 && (reduced || (!slots.some(entry => entry?.phase === 'rolling') && physics.inletClear())), entries: () => slots.filter(entry => entry?.revealed).sort((a, b) => Number(b.fresh && b.elapsed < 5) - Number(a.fresh && a.elapsed < 5) || b.born - a.born).slice(0, 4), stats };
 }

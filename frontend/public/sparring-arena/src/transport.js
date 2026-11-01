@@ -25,7 +25,8 @@ export function updateTransport(form) {
     const end = { x: stage.x + anchor.x, y: stage.y + anchor.y };
     const overlap = anchor.width * 0.18;
     const join = { x: end.x + direction.x * overlap, y: end.y + direction.y * overlap };
-    const inset = width / 2 + 3;
+    // Keep the outer ring, not just the hose wall, inside the viewport.
+    const inset = width * (0.51 + 0.095 / 1.6) + 3;
     const rail = side === 'a' ? inset : document.documentElement.clientWidth - inset;
     const neckLength = width * 0.12;
     const neck = { x: end.x - direction.x * neckLength, y: end.y - direction.y * neckLength };
@@ -53,9 +54,9 @@ export function updateTransport(form) {
       for (const path of joint.querySelectorAll('path')) path.setAttribute('d', `M ${curveX} ${neck.y} ${connector}`);
     }
     const avatar = device?.querySelector('.composer-avatar')?.getBoundingClientRect();
-    layout.push({ side, diameter: width, inlet: start,
+    layout.push({ side, diameter: width, inlet: start, outlet: anchor.outlet, capsuleDiameter: anchor.capsuleDiameter,
       avatar: avatar ? { x: avatar.x, y: avatar.y, width: avatar.width, height: avatar.height } : null,
-      active: device?.dataset.expanded === 'true', memberType: device?.dataset.memberType ?? 'CREW',
+      active: innerWidth <= 700 ? form.dataset.side === side : device?.dataset.expanded === 'true', memberType: device?.dataset.memberType ?? 'CREW',
       frontPath: route.querySelector('.transport-route'),
       backPath: joint?.querySelector('.transport-route') ?? null });
   }

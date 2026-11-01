@@ -19,7 +19,7 @@ jest.mock('three', () => {
   return { Vector3, Quaternion, Euler };
 }, { virtual: true });
 jest.mock('../../public/sparring-arena/src/capsule-batch.js', () => ({ createCapsuleBatch: jest.fn() }));
-jest.mock('../../public/sparring-arena/src/physics.js', () => ({ nozzlePose: side => ({ mouth: [side === 'a' ? -8 : 8, 3, 0] }) }));
+jest.mock('../../public/sparring-arena/src/physics.js', () => ({ RADIUS: 0.5, nozzlePose: side => ({ mouth: [side === 'a' ? -8 : 8, 3, 0] }) }));
 jest.mock('../../public/sparring-arena/src/character-motion.js', () => ({ characterPose: () => ({ shrink: 1 }) }));
 
 const original = { id: '1', side: 'a', name: '크루', text: '기다릴래요' };
@@ -39,6 +39,22 @@ describe('받아치기 발사와 충돌', () => {
     clash = createClash({}, scene, { position: { x: 0, y: 0, z: 28 } }, onReveal);
   });
   afterEach(() => { clash.dispose(); stage.remove(); });
+
+  it('발사 직전에만 양쪽 노즐 효과를 한 번 호출하고 모션 줄이기에서는 생략한다', () => {
+    const onLaunch = jest.fn();
+    clash.dispose();
+    clash = createClash({}, scene, { position: { x: 0, y: 0, z: 28 } }, onReveal,
+      { onLaunch, onImpactComplete: jest.fn() });
+    clash.start(reply, true);
+    expect(onLaunch).toHaveBeenCalledWith(['a', 'b']);
+    clash.step(0); clash.step(0.1);
+    expect(onLaunch).toHaveBeenCalledTimes(1);
+    clash.dispose();
+    clash = createClash({}, scene, { position: { x: 0, y: 0, z: 28 } }, onReveal,
+      { onLaunch, onImpactComplete: jest.fn() });
+    clash.start(reply, true, true); clash.step(0);
+    expect(onLaunch).toHaveBeenCalledTimes(1);
+  });
 
   it('원문과 답장 캡슐이 날아간 뒤 실제 두 의견을 한 번 표시한다', () => {
     clash.start(reply, true);
@@ -63,6 +79,25 @@ describe('받아치기 발사와 충돌', () => {
     clash.step(0.05);
     expect(positions.at(-2).x).toBeGreaterThan(-8);
     expect(positions.at(-1).x).toBeLessThan(8);
+    expect(batch.draw.mock.lastCall[2] * 0.48).toBeCloseTo(0.5);
+  });
+
+  it('출구에서 빠르게 직진하고 0.4초 안에 한 번 충돌한다', () => {
+    const impact = jest.fn(), positions = [];
+    clash.dispose();
+    clash = createClash({}, scene, { position: { x: 0, y: 0, z: 28 } }, onReveal,
+      { onImpact: impact, onImpactComplete: jest.fn() });
+    batch.draw.mockImplementation((index, entry) => positions.push({ index, ...entry.body.position }));
+    clash.start(reply, true); clash.step(0.1);
+    expect(positions.at(-2).x).toBeGreaterThan(-6);
+    expect(positions.at(-1).x).toBeLessThan(6);
+    expect(scene.querySelector('.clash-flight').style.opacity).toBe('1');
+    expect(impact).not.toHaveBeenCalled();
+    clash.step(0.3);
+    expect(impact).toHaveBeenCalledTimes(1);
+    expect(scene.dataset.clashState).toBe('pressing');
+    clash.step(0.1);
+    expect(impact).toHaveBeenCalledTimes(1);
   });
 
   it('의견에 포커스가 있으면 유지하고 닫으면 다음 연출을 허용한다', () => {
@@ -76,6 +111,20 @@ describe('받아치기 발사와 충돌', () => {
     clash.step(0.5);
     expect(clash.busy()).toBe(false);
     expect(scene.dataset.clashState).toBe('idle');
+  });
+
+  it('실시간 받아치기는 출구 높이에서 직선으로 날아가고 충돌 전에는 아래로 처지지 않는다', () => {
+    clash.dispose();
+    clash = createClash({}, scene, { position: { x: 0, y: 0, z: 28 } }, onReveal, { onImpactComplete: jest.fn() });
+    const positions = [];
+    batch.draw.mockImplementation((index, entry) => { if (index === 1) positions.push({ ...entry.body.position }); });
+    clash.start(reply, true); clash.step(0);
+    clash.step(0.09); clash.step(0.09); clash.step(0.09);
+    for (const axis of ['x', 'y', 'z']) {
+      expect(positions[1][axis] - positions[0][axis]).toBeCloseTo(positions[3][axis] - positions[2][axis]);
+    }
+    expect(positions.every(position => position.y >= 2.65)).toBe(true);
+    expect(positions[3].x).toBeLessThan(positions[0].x);
   });
 
   it('모션 감소에서는 이동 없이 실제 원문과 답장을 바로 보여준다', () => {
@@ -97,7 +146,7 @@ describe('받아치기 발사와 충돌', () => {
     clash.step(0.8);
     expect(scene.dataset.clashState).toBe('pressing');
     expect(impact).toHaveBeenCalledTimes(1);
-    expect(impact).toHaveBeenCalledWith({ post: reply, fresh: true, point: { x: 0, y: -0.2, z: 0.3 } });
+    expect(impact).toHaveBeenCalledWith({ post: reply, fresh: true, point: { x: 0, y: 2.65, z: 0.3 } });
     expect(batch.draw.mock.calls.slice(-2).map(call => call[1].phase)).toEqual(['rolling', 'rolling']);
     expect(scene.querySelector('.clash-voices')).not.toBeVisible();
     expect(complete).not.toHaveBeenCalled();

@@ -80,7 +80,7 @@
 @media (max-width: 700px) {
   :root { --duel-figure-size: 132px; }
   .stage { height: 520px; }
-  .composer-dock { margin-top: 0; }
+  .composer-dock { margin-top:-24px; }
   .pipe-station .vote-flag { top:calc(var(--scene-top, 240px) - var(--station-y, 300px) - 80px); bottom:auto; min-height:76px; }
   .duel-speech { padding: 9px 11px; border-radius: 20px; }
   .duel-speech-text { font-size: 14px; -webkit-line-clamp: 2; }
@@ -116,3 +116,21 @@
   .pipe-station.a .vote-flag { left:24px; }
   .pipe-station.b .vote-flag { right:24px; }
 }
+
+@media (max-width:700px) {
+  .stage { --mobile-heading-space:16px; margin-top:var(--mobile-heading-space); }
+  .stage:has(#scene[data-view-mode="original"]) { --mobile-heading-space:36px; }
+  .stage .topic { position:absolute; z-index:5; top:calc(-1 * var(--mobile-heading-space)); left:44px; width:calc(100% - 88px); margin:0; padding:12px 0 4px; gap:2px; pointer-events:none; background:transparent; }
+  .stage .topic h1 { font-size:15px; line-height:1.4; }
+  .stage .topic .intro { display:none; }
+  .stage #topic-deadline { font-size:9px; }
+  .pipe-station .vote-flag { top:auto; bottom:var(--pipe-label-bottom, 20px); min-height:44px; width:calc((var(--stage-width, 358px) - 48px)/2); padding:4px 8px 12px; gap:2px; background:transparent; border-radius:12px; }
+  .pipe-station.a .vote-flag { left:calc(8px - var(--station-x, 0px)); }
+  .pipe-station.b .vote-flag { right:auto; left:calc(var(--stage-width, 358px)/2 + 8px - var(--station-x, 0px)); }
+  .pipe-station .vote-flag strong { font-size:13px; line-height:1.5; }
+  .pipe-station .claim-check { display:none; }
+  .pipe-station .seat-state { display:none; }
+  .pipe-station .vote-flag { justify-content:flex-end; }
+}
+
+.character-duel[data-compact="true"] .duel-ground { width:var(--duel-figure-size); left:calc(var(--duel-figure-size) / -2); height:8px; }

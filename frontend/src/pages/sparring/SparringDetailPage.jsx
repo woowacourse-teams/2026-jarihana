@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "../../features/auth";
@@ -13,9 +13,33 @@ const statuses = {
   reconnecting: "다시 연결하는 중",
   offline: "오프라인 · 작성한 내용은 그대로 있어요"
 };
+const clashCameraPreference = "jarihana.sparring.clash-camera";
 function Room({ topicId, member, login, retry, onRetry }) {
   const { frame, error, status, title, loaded, sceneReady, sceneError } = useArenaBridge({ topicId, member, login, retry });
   const visible = loaded && sceneReady;
+  const [arenaView, setArenaView] = useState("compact");
+  const [clashCamera, setClashCamera] = useState(() => {
+    try { return localStorage.getItem(clashCameraPreference) === "on"; }
+    catch { return false; }
+  });
+  useEffect(() => {
+    if (visible) frame.current?.contentWindow?.postMessage(
+      { channel: "jarihana-sparring", kind: "view", value: arenaView },
+      window.location.origin
+    );
+  }, [arenaView, visible, frame]);
+  useEffect(() => {
+    if (visible) frame.current?.contentWindow?.postMessage(
+      { channel: "jarihana-sparring", kind: "clash-camera", value: clashCamera },
+      window.location.origin
+    );
+  }, [clashCamera, visible, frame]);
+  function toggleClashCamera() {
+    const next = !clashCamera;
+    setClashCamera(next);
+    try { localStorage.setItem(clashCameraPreference, next ? "on" : "off"); }
+    catch { /* The switch still works when preference storage is unavailable. */ }
+  }
   return (
     <div className="sparring-detail">
       <div className="sparring-detail__rail">
@@ -23,6 +47,31 @@ function Room({ topicId, member, login, retry, onRetry }) {
           <Link className="sparring-detail__back" to="/sparring" aria-label="토론 목록으로" title="토론 목록으로" data-ph-capture-attribute-action="sparring_back">
             <ArrowLeft size={22} aria-hidden="true" />
           </Link>
+          <div className="sparring-detail__view-controls">
+            <div className="sparring-view-switch" role="group" aria-label="경기장 구도">
+              {[["original", "기존 구도"], ["reference", "참고 구도"], ["compact", "아담한 구도"]].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={arenaView === value}
+                  disabled={!visible}
+                  onClick={() => setArenaView(value)}
+                  data-ph-capture-attribute-action="sparring_view_change"
+                >{label}</button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="sparring-camera-switch"
+              role="switch"
+              aria-label="충돌 카메라"
+              aria-checked={clashCamera}
+              disabled={!visible}
+              title="내 받아치기 캡슐을 따라가는 연출 · 동작 줄이기 설정에서는 생략"
+              onClick={toggleClashCamera}
+              data-ph-capture-attribute-action="sparring_clash_camera_toggle"
+            >충돌 카메라<span aria-hidden="true" /></button>
+          </div>
         </nav>
         <span role="status" className="sparring-connection" data-connection={status}>
           {statuses[status]}

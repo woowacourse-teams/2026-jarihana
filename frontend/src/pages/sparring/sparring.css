@@ -338,7 +338,22 @@
 .sparring-detail { position: relative; width: 100%; }
 .sparring-detail__rail, .sparring-detail__error { width: calc(100% - var(--page-gutter) * 2); margin-inline: auto; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); }
 .sparring-detail__rail { position: absolute; top: var(--space-4); inset-inline: 0; z-index: 2; pointer-events: none; }
-.sparring-detail__navigation { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
+.sparring-detail__view-controls { display: contents; }
+.sparring-detail__navigation { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.sparring-camera-switch { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 8px; border: 0; border-radius: var(--radius-pill); background: var(--color-surface); color: var(--color-text-muted); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; pointer-events: auto; white-space: nowrap; }
+.sparring-camera-switch span { position: relative; width: 26px; height: 16px; border-radius: var(--radius-pill); background: var(--color-line); transition: background .16s; }
+.sparring-camera-switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 10px; height: 10px; border-radius: 50%; background: var(--color-surface); transition: transform .16s; }
+.sparring-camera-switch[aria-checked="true"] { color: var(--color-text-brand); }
+.sparring-camera-switch[aria-checked="true"] span { background: var(--color-brand); }
+.sparring-camera-switch[aria-checked="true"] span::after { transform: translateX(10px); }
+.sparring-camera-switch:focus-visible { outline: 2px solid var(--color-text-brand); outline-offset: 2px; }
+.sparring-camera-switch:disabled { opacity: .5; cursor: wait; }
+@media (prefers-reduced-motion: reduce) { .sparring-camera-switch span, .sparring-camera-switch span::after { transition: none; } }
+.sparring-view-switch { display: flex; align-items: center; padding: 3px; border: 1px solid var(--color-line); border-radius: var(--radius-pill); background: var(--color-surface); pointer-events: auto; }
+.sparring-view-switch button { min-height: 36px; padding: 0 12px; border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--color-text-muted); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.sparring-view-switch button[aria-pressed="true"] { background: var(--color-surface-sunken); color: var(--color-ink); }
+.sparring-view-switch button:focus-visible { outline: 2px solid var(--color-text-brand); outline-offset: 2px; }
+.sparring-view-switch button:disabled { cursor: wait; opacity: .5; }
 .sparring-detail__back { display: inline-flex; width: var(--touch-target); min-height: var(--touch-target); align-items: center; justify-content: center; border-radius: var(--radius-pill); color: var(--color-ink); text-decoration: none; pointer-events: auto; }
 .sparring-detail__back:hover { color: var(--color-text-brand); background: var(--color-surface-sunken); }
 .sparring-connection { color: var(--color-muted-ink); font-size: var(--text-caption); display: inline-flex; gap: var(--space-2); align-items: center; max-width: 40%; }
@@ -358,7 +373,12 @@
 @media (prefers-reduced-motion: reduce) { .sparring-arena-frame { transition: none; } .sparring-preview__capsule { animation: none; } }
 .sparring-detail__error { background: var(--color-danger-soft); color: var(--color-danger); padding: var(--space-4); }
 .sparring-detail__error { padding-top: 72px; }
-@media (max-width: 640px) { .sparring-detail__rail { gap: var(--space-2); } }
+@media (max-width: 640px) {
+  .sparring-detail__rail { gap: var(--space-2); flex-wrap: nowrap; }
+  .sparring-detail__navigation { gap: var(--space-1); flex-wrap: nowrap; }
+  .sparring-camera-switch { padding-inline: 4px; }
+  .sparring-connection { font-size: 0; gap: 0; max-width: none; flex-shrink: 0; }
+}
 
 /* 토론을 이미지로 소개하고 아래에서 전체 목록을 빠르게 살펴본다. */
 .sparring-featured {
@@ -568,3 +588,13 @@
 
 .sparring-list-empty { color: var(--color-muted-ink); font-size: var(--text-label); margin: var(--space-5) 0; }
 .sparring-featured > .ui-button, .sparring-topics > .ui-button { margin-top: var(--space-5); }
+
+@media (max-width:700px) {
+  .sparring-detail[data-keyboard-open="true"] .sparring-detail__view-controls { display:none; }
+  .sparring-detail__rail { top:0; width:calc(100% - 16px); gap:4px; }
+  .sparring-detail__navigation { flex:1; flex-wrap:nowrap; justify-content:space-between; gap:4px; }
+  .sparring-detail__view-controls { position:fixed; z-index:10; bottom:calc(env(safe-area-inset-bottom, 0px) + 12px); left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:6px; padding:3px 8px; border:1px solid var(--color-line); border-radius:var(--radius-pill); background:var(--color-surface); box-shadow:var(--shadow-float); pointer-events:auto; }
+  .sparring-detail .sparring-view-switch { margin:0; padding:0; background:transparent; border:0; gap:0; }
+  .sparring-detail .sparring-view-switch button { padding:0 8px; min-height:44px; font-size:10px; }
+  .sparring-detail .sparring-camera-switch { background:transparent; padding:0 4px; font-size:10px; }
+}

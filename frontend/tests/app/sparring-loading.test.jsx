@@ -15,10 +15,32 @@ jest.mock("../../src/features/sparring/api", () => ({
 const topic = { id: 1, title: "점심 토론", a: "기다려", b: "다른 곳", votesA: 1, votesB: 0, postCount: 0, revision: 1 };
 beforeEach(() => {
   jest.clearAllMocks();
+  localStorage.clear();
   global.EventSource = class { addEventListener() {} close() {} };
   useAuth.mockReturnValue({ status: "anonymous", member: null, login: jest.fn() });
   getSparring.mockResolvedValue(topic);
   getSparringPosts.mockResolvedValue({ items: [], nextCursor: null, hasNext: false });
+});
+it("persists the camera switch and sends it without replacing the room or refetching messages", async () => {
+  const { container, unmount } = render(<SparringDetailPage />);
+  const frame = container.querySelector("iframe");
+  const send = jest.spyOn(frame.contentWindow, "postMessage");
+  const toggle = screen.getByRole("switch", { name: "충돌 카메라" });
+  expect(toggle).toHaveAttribute("aria-checked", "false");
+  expect(toggle).toBeDisabled();
+  receive(frame, { kind: "ready" });
+  await waitFor(() => expect(frame).toHaveAttribute("title", "점심 토론 캡슐 경기장"));
+  receive(frame, { kind: "scene", status: "ready" });
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute("aria-checked", "true");
+  expect(toggle).toHaveAttribute("data-ph-capture-attribute-action", "sparring_clash_camera_toggle");
+  expect(send).toHaveBeenLastCalledWith({ channel: "jarihana-sparring", kind: "clash-camera", value: true }, window.location.origin);
+  expect(container.querySelector("iframe")).toBe(frame);
+  expect(getSparring).toHaveBeenCalledTimes(1);
+  expect(getSparringPosts).toHaveBeenCalledTimes(1);
+  unmount(); render(<SparringDetailPage />);
+  expect(screen.getByRole("switch", { name: "충돌 카메라" })).toHaveAttribute("aria-checked", "true");
+  await act(async () => {});
 });
 function receive(frame, message) {
   act(() => window.dispatchEvent(new MessageEvent("message", {
@@ -26,6 +48,27 @@ function receive(frame, message) {
     data: { channel: "jarihana-sparring", ...message }
   })));
 }
+it("switches only the view without remounting the iframe or refetching the discussion", async () => {
+  const { container } = render(<SparringDetailPage />);
+  const frame = container.querySelector("iframe");
+  const send = jest.spyOn(frame.contentWindow, "postMessage");
+  expect(screen.getByRole("button", { name: "기존 구도" })).toBeDisabled();
+  receive(frame, { kind: "ready" });
+  await waitFor(() => expect(frame).toHaveAttribute("title", "점심 토론 캡슐 경기장"));
+  receive(frame, { kind: "scene", status: "ready" });
+  expect(screen.getByRole("button", { name: "아담한 구도" })).toHaveAttribute("aria-pressed", "true");
+  expect(send).toHaveBeenCalledWith({ channel: "jarihana-sparring", kind: "view", value: "compact" }, window.location.origin);
+  for (const [value, label] of [["original", "기존 구도"], ["reference", "참고 구도"], ["compact", "아담한 구도"]]) {
+    const button = screen.getByRole("button", { name: label });
+    fireEvent.click(button);
+    expect(button).toHaveAttribute("aria-pressed", "true");
+    expect(button).toHaveAttribute("data-ph-capture-attribute-action", "sparring_view_change");
+    expect(send).toHaveBeenLastCalledWith({ channel: "jarihana-sparring", kind: "view", value }, window.location.origin);
+    expect(container.querySelector("iframe")).toBe(frame);
+  }
+  expect(getSparring).toHaveBeenCalledTimes(1);
+  expect(getSparringPosts).toHaveBeenCalledTimes(1);
+});
 it("shows a preview during authentication without loading a room for the wrong actor", () => {
   useAuth.mockReturnValue({ status: "loading" });
   const { container } = render(<SparringDetailPage />);

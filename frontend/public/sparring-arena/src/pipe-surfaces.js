@@ -14,10 +14,10 @@ export function createPipeSurfaces(color) {
 }
 
 // Continue one spacing between the nozzle rims, including across the render-layer seam.
-export function addPipeRings(group, curve, diameter, material, { offset = 0, spacing, end }) {
+export function addPipeRings(group, curve, diameter, material, { offset = 0, spacing, end, start = 0 }) {
   const curveLength = curve.getLength(), length = Math.min(curveLength, end - offset);
   if (length <= 0 || spacing <= 0) return;
-  const first = Math.max(1, Math.ceil(offset / spacing - 1e-6)) * spacing - offset;
+  const first = Math.max(1, Math.ceil((offset + start) / spacing - 1e-6)) * spacing - offset;
   const count = Math.max(0, Math.ceil((length - first) / spacing - 1e-6));
   if (!count) return;
   const geometry = new THREE.TorusGeometry(diameter * 0.51, diameter * (0.095 / 1.6), 8, 32);

@@ -107,3 +107,22 @@ it('소매와 바지 겉면이 바깥을 향해 닫힌 옷으로 렌더링된다
     expect(outward / samples).toBeGreaterThan(0.8);
   }
 });
+
+it('캡슐 안의 자세는 중심을 기준으로 함께 회전하고 밖에서는 다시 똑바로 선다', () => {
+  const models = createWalkingCharacters(new THREE.Scene(), 2);
+  const pose = { stage: 'packed', scale: 0.31, lift: -0.34, shrink: 1 };
+  models.draw(0, crew, new THREE.Vector3(), 1, pose);
+  const packed = snapshot(models, 0);
+  const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.7, 0.3, 1.2));
+  models.draw(0, crew, new THREE.Vector3(), 1, pose, 0, rotation);
+  const rotated = snapshot(models, 0);
+  const turn = new THREE.Matrix4().makeRotationFromQuaternion(rotation);
+  for (let part = 0; part < packed.length; part++) {
+    for (let offset = 0; offset < packed[part].length; offset += 16) {
+      const expected = new THREE.Matrix4().fromArray(packed[part], offset).premultiply(turn).elements;
+      expected.forEach((value, index) => expect(rotated[part][offset + index]).toBeCloseTo(value, 5));
+    }
+  }
+  models.draw(0, crew, new THREE.Vector3(), 1, pose);
+  expect(snapshot(models, 0)).toEqual(packed);
+});
