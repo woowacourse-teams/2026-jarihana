@@ -1,6 +1,8 @@
 package com.project.jarihana.common.config;
 
 import io.micrometer.common.KeyValues;
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.binder.MeterBinder;
 import io.micrometer.core.instrument.config.MeterFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.context.annotation.Bean;
@@ -27,6 +29,14 @@ public class HttpRequestMetricsConfig {
                 return super.getLowCardinalityKeyValues(context).and(PROBE_TAG, Boolean.toString(probe));
             }
         };
+    }
+
+    @Bean
+    public MeterBinder idleHttpRequestMetrics() {
+        return registry -> Timer.builder("http.server.requests")
+                .tags("method", "GET", "uri", "/groups", "status", "200", "outcome", "SUCCESS",
+                        "exception", "none", "error", "none", PROBE_TAG, "false")
+                .register(registry);
     }
 
     @Bean

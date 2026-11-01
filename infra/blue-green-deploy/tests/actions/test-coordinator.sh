@@ -82,9 +82,38 @@ cloud_unknown() { export MUTATION_FAIL=true; rejects bg_ec2_change start B; [[ $
 cloud_stop_unsealed() { rejects bg_ec2_change stop B; [[ $(wc -l <"$EVENTS") -eq 1 ]]; }
 nginx_failed_test() { export NGINX_TEST_FAIL=true; rejects bg_switch_http B; [[ ! -e "$RELOADED" ]]; jq -e '.switched==false' "$STATE_FILE" >/dev/null; }
 nginx_switch() { bg_switch_http B; jq -e '.switched==true and .drain_ticket.workers==["42:100"]' "$STATE_FILE" >/dev/null; [[ -e "$RELOADED" ]]; }
+nginx_switch_fast_confirmation() {
+  echo 0 > "$TEST_DIR/probe-count"
+  bg_route() {
+    local count
+    count=$(( $(cat "$TEST_DIR/probe-count") + 1 ))
+    echo "$count" > "$TEST_DIR/probe-count"
+    case "$count" in 1|3) echo A;; *) echo B;; esac
+  }
+  sleep() { [[ $1 == 0.1 ]]; echo wait >> "$TEST_DIR/probe-waits"; }
+  bg_await_route B
+  [[ $(cat "$TEST_DIR/probe-count") == 6 ]]
+  [[ $(wc -l < "$TEST_DIR/probe-waits") -eq 5 ]]
+}
 nginx_unknown_reload() { export RELOAD_FAIL=true; rejects bg_switch_http B; jq -e '.switched==true and .drain_ticket!=null' "$STATE_FILE" >/dev/null; }
 nginx_drain() { local ticket; ticket=$(bg_capture); rejects bg_drained "$ticket"; export WORKERS=42:101; bg_drained "$ticket"; export GENERATION=restarted/1; rejects bg_drained "$ticket"; }
 nginx_bad_current() { chmod 666 "$TEST_DIR/state/nginx/current.conf"; rejects bg_switch_http B; [[ ! -e "$RELOADED" ]]; }
+zero_http_traffic() {
+  bg_scalar() { case "$1" in up*|'time() - timestamp(up'*) echo 1;; *) echo 0;; esac; }
+  bg_metrics A
+}
+missing_http_metrics_are_unknown() {
+  local status=0
+  bg_scalar() { case "$1" in up*|'time() - timestamp(up'*) echo 1;; *) return 1;; esac; }
+  bg_metrics A || status=$?
+  [[ $status == 2 ]]
+}
+stale_up_with_zero_traffic_is_unknown() {
+  local status=0
+  bg_scalar() { case "$1" in up*) echo 1;; 'time() - timestamp(up'*) echo 121;; *) echo 0;; esac; }
+  bg_metrics A || status=$?
+  [[ $status == 2 ]]
+}
 scalar_nan() { echo '{"status":"success","data":{"resultType":"vector","result":[{"value":[1000,"NaN"]}]}}' >"$PROM_FIXTURE"; rejects bg_scalar up; }
 scalar_multiple() { echo '{"status":"success","data":{"resultType":"vector","result":[{"value":[1000,"1"]},{"value":[1000,"1"]}]}}' >"$PROM_FIXTURE"; rejects bg_scalar up; }
 observation_minimum() {
@@ -351,4 +380,4 @@ api_recovery_independent_of_s3() {
   jq -e '.http_recovered==true and .pending.operation=="rollback" and .pending.slot=="B" and .pending.deadline==3400' "$STATE_FILE" >/dev/null
   [[ $(cat "$EVENTS") == recovered ]]
 }
-for test in waiting_poll_budget valid_receipt wrong_grant fractional_activity wrong_boot private_state symlink_state writable_dir cancel_guard active_lease expired_lease watchdog_active watchdog_expired cloud_start cloud_mismatch cloud_unknown cloud_stop_unsealed cloud_stop_sealed nginx_failed_test nginx_switch nginx_unknown_reload nginx_drain nginx_bad_current scalar_nan scalar_multiple observation_minimum observation_clock_jump stop_requires_evidence unknown_blocks_plan rollback_unhealthy_released rollback_unknown rollback_malformed rollback_owned stop_valid_receipt stop_wrong_target_boot stop_wrong_grant topology_load topology_load_mismatch topology_guard_mismatch topology_completed_mismatch topology_missing_completed topology_plan readonly_guard_cache cloud_mutation_uncached nginx_reload_uncached observation_job_cadence rollback_http_unknown_preserves_grant seal_undrained_keeps_target seal_drained_completes_normally seal_requires_full_http_window seal_unhealthy_still_allows_rollback seal_unknown_target_not_deferred combined_switch_orders_frontend combined_switch_rejects_changed_image combined_seal_requires_frontend combined_seal_requires_full_worker_window combined_seal_finalizes_before_cleanup combined_frontend_finalization_failure api_recovery_independent_of_s3; do run "$test" "$test"; done
+for test in waiting_poll_budget valid_receipt wrong_grant fractional_activity wrong_boot private_state symlink_state writable_dir cancel_guard active_lease expired_lease watchdog_active watchdog_expired cloud_start cloud_mismatch cloud_unknown cloud_stop_unsealed cloud_stop_sealed nginx_failed_test nginx_switch nginx_switch_fast_confirmation nginx_unknown_reload nginx_drain nginx_bad_current zero_http_traffic missing_http_metrics_are_unknown stale_up_with_zero_traffic_is_unknown scalar_nan scalar_multiple observation_minimum observation_clock_jump stop_requires_evidence unknown_blocks_plan rollback_unhealthy_released rollback_unknown rollback_malformed rollback_owned stop_valid_receipt stop_wrong_target_boot stop_wrong_grant topology_load topology_load_mismatch topology_guard_mismatch topology_completed_mismatch topology_missing_completed topology_plan readonly_guard_cache cloud_mutation_uncached nginx_reload_uncached observation_job_cadence rollback_http_unknown_preserves_grant seal_undrained_keeps_target seal_drained_completes_normally seal_requires_full_http_window seal_unhealthy_still_allows_rollback seal_unknown_target_not_deferred combined_switch_orders_frontend combined_switch_rejects_changed_image combined_seal_requires_frontend combined_seal_requires_full_worker_window combined_seal_finalizes_before_cleanup combined_frontend_finalization_failure api_recovery_independent_of_s3; do run "$test" "$test"; done
