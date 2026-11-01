@@ -1,8 +1,8 @@
 # 중앙 배포 수집기 운영
 
 배포 Nginx EC2의 중앙 수집기는 배포 저널, 실제 요청 경로, EC2와 완료 요청 수를 관측한다.
-배포 단계 실행과 Nginx 전환, worker 제어는 [배포 제어기](../../blue-green-deploy/controller/architecture.md)가 담당한다.
-앱 A/B의 Alloy 구성은 [배포 환경 구성](../../blue-green-deploy/controller/environment.md#앱-alloy와-조회-경로)을 따른다.
+배포 단계 실행과 Nginx 전환, worker 제어는 [배포 제어기](../../blue-green-deploy/docs/architecture.md)가 담당한다.
+앱 A/B의 Alloy 구성은 [서버 구성](../../blue-green-deploy/docs/server-setup/README.md#앱-alloy와-조회-경로)을 따른다.
 
 ## 수집 경로와 구성
 
@@ -100,7 +100,7 @@ frontend-only에서 Nginx reload ticket이 없으면 연결 정리 값은 -1이�
 
 운영 설치본에도 위 두 관측 수정이 반영되어 있다. 원본 병합과 서버 적용은 별도 절차이므로,
 갱신할 때 설치 파일의 해시와 실제 textfile, Prometheus 수신을 함께 확인한다.
-실제 API 경로와 프론트 상태는 [상태 확인](../../blue-green-deploy/controller/status.md)에서 별도로 대조한다.
+실제 API 경로와 프론트 상태는 [상태 확인](../../blue-green-deploy/docs/status.md)에서 별도로 대조한다.
 격리된 저널 검증은 실제 서비스의 프론트 배포나 롤백 실행 검증과 구분한다.
 
 ## 읽기 전용 확인
@@ -131,11 +131,16 @@ jarihana_deployment_source_success{environment="prod",source="nginx"}
 time() - jarihana_deployment_source_observed_timestamp_seconds{environment="prod",source="nginx"}
 ```
 
-화면과 알림의 유효 시간은 [관측 최신성](../../blue-green-deploy/controller/status.md#관측-최신성)을 따른다.
+화면과 알림의 유효 시간은 [관측 최신성](../../blue-green-deploy/docs/status.md#관측-최신성)을 따른다.
 위 실행 주기와 소비자의 유효 시간은 서로 다른 설정이다.
 수신된 job/instance 라벨은 실제 series로 확인하며 scrape 설정의 job_name만으로 단정하지 않는다.
 
 ## 관리 원본과 재구성
+
+호스트 계정, 보호된 coordinator 설정과 Docker 권한은
+[Nginx 호스트 구성](../../blue-green-deploy/docs/server-setup/coordinator.md)에서 먼저 준비한다.
+아래 배치 명령은 새 서버의 관리자 Bash용이며, 빈 서버 전체 실행은 미검증이다.
+기존 설치본을 갱신할 때는 [갱신의 경계](#갱신의-경계)와 백업/복원 계획을 먼저 확인한다.
 
 [수집기 원본](../../monitoring/deployment/README.md)은 운영 설치본의 파일을 보존한다.
 저장소의 `infra/` 경로를 설치 경로 `/opt/jarihana-observability/` 아래에 그대로 유지한다.
@@ -158,6 +163,93 @@ systemd 원본은 `infra/monitoring/deployment/systemd/`에서 `/etc/systemd/sys
    prod timer, 전용 Alloy만 관리한다. 앱과 배포 제어기를 재시작하지 않는다.
 5. 위 읽기 전용 명령과 실제 Prometheus 관측 시각으로 수집 결과를 확인한다.
 
+### 새 서버의 원본 배치
+
+배포 제어기의 control tag에는 중앙 수집기 원본이 없을 수 있다. 중앙 수집기와 helper를 포함하는
+별도의 승인 commit을 선택한다. 저장소에 형상 관리한 코드를 쓰며 feature 브랜치의 설치기나
+현재 배포 제어기 helper를 임의로 섞지 않는다.
+
+```bash
+set -euo pipefail
+test "$(id -u)" -eq 0
+umask 077
+INPUT_DIR=/root/jarihana-reconstruction
+install -d -o root -g root -m 0700 "$INPUT_DIR"
+read -r -p '중앙 수집기 원본을 포함하는 승인 commit SHA: ' COLLECTOR_SHA
+[[ $COLLECTOR_SHA =~ ^[a-f0-9]{40}$ ]]
+COLLECTOR_SOURCE="$INPUT_DIR/collector-$COLLECTOR_SHA"
+test ! -e "$COLLECTOR_SOURCE"
+git init "$COLLECTOR_SOURCE"
+git -C "$COLLECTOR_SOURCE" remote add origin https://github.com/woowacourse-teams/2026-jarihana.git
+git -C "$COLLECTOR_SOURCE" fetch --depth=1 origin "$COLLECTOR_SHA"
+git -C "$COLLECTOR_SOURCE" checkout --detach "$COLLECTOR_SHA"
+test "$(git -C "$COLLECTOR_SOURCE" rev-parse HEAD)" = "$COLLECTOR_SHA"
+test -f "$COLLECTOR_SOURCE/infra/monitoring/deployment/collect.sh"
+DEST=/opt/jarihana-observability
+test ! -e "$DEST/infra/monitoring/deployment/collect.sh"
+install -d -o root -g root -m 0755 "$DEST/infra/monitoring/deployment" "$DEST/infra/scripts/deploy/actions"
+for file in collect.sh journal.sh traffic.sh; do
+  install -o root -g root -m 0755 "$COLLECTOR_SOURCE/infra/monitoring/deployment/$file" "$DEST/infra/monitoring/deployment/$file"
+done
+for file in common.sh cloud.sh nginx.sh; do
+  install -o root -g root -m 0644 "$COLLECTOR_SOURCE/infra/scripts/deploy/actions/$file" "$DEST/infra/scripts/deploy/actions/$file"
+done
+for file in config.alloy docker-compose.yml; do
+  install -o root -g root -m 0644 "$COLLECTOR_SOURCE/infra/monitoring/deployment/$file" "$DEST/infra/monitoring/deployment/$file"
+done
+install -d -o root -g root -m 0755 /var/lib/jarihana-observability
+install -d -o jarihana-coordinator -g jarihana-coordinator -m 0750 /var/lib/jarihana-observability/prod
+install -d -o jarihana-coordinator -g jarihana-coordinator -m 0755 /var/lib/jarihana-observability/prod/textfile
+for unit in jarihana-observability@.service jarihana-observability@.timer; do
+  install -o root -g root -m 0644 "$COLLECTOR_SOURCE/infra/monitoring/deployment/systemd/$unit" "/etc/systemd/system/$unit"
+done
+install -d -o root -g root -m 0755 /etc/systemd/system/jarihana-observability@prod.timer.d
+install -o root -g root -m 0644 \
+  "$COLLECTOR_SOURCE/infra/monitoring/deployment/systemd/jarihana-observability@prod.timer.d/30-second-interval.conf" \
+  /etc/systemd/system/jarihana-observability@prod.timer.d/30-second-interval.conf
+```
+
+관리자가 `INPUT_DIR/collector-prod.env`에 다음 키와 실제 값을 준비한다. 기존 환경이면 보호 원본을 복원한다.
+remote write의 실제 값이나 비밀 정보를 터미널에 표시하지 않는다.
+
+```dotenv
+DEPLOYMENT_ENVIRONMENT=prod
+ALLOY_ADMIN_PORT=12347
+PROMETHEUS_REMOTE_WRITE_URL=REPLACE_ME
+```
+
+앱의 WAL은 이 volume과 별개다. 여기의 volume 이름은 Compose 프로젝트로 결정되며,
+복원할 때는 같은 이름과 실제 데이터, UID/GID를 준비한다. 가동 중 WAL을 단순 복사해 복원으로 간주하지 않는다.
+
+```bash
+test -f "$INPUT_DIR/collector-prod.env"
+if grep -q REPLACE_ME "$INPUT_DIR/collector-prod.env"; then exit 1; fi
+install -o root -g root -m 0600 "$INPUT_DIR/collector-prod.env" "$DEST/infra/monitoring/deployment/prod.env"
+CENTRAL_WAL=jarihana-observability-prod_alloy-data
+read -r -p '새 환경의 빈 WAL이면 new, 기존 WAL 복원이면 restore: ' WAL_MODE
+case "$WAL_MODE" in
+  new) if docker volume inspect "$CENTRAL_WAL" >/dev/null 2>&1; then exit 1; fi ;;
+  restore) docker volume inspect "$CENTRAL_WAL" >/dev/null ;;
+  *) exit 1 ;;
+esac
+collector_compose=(docker compose --env-file "$DEST/infra/monitoring/deployment/prod.env" \
+  -p jarihana-observability-prod -f "$DEST/infra/monitoring/deployment/docker-compose.yml")
+"${collector_compose[@]}" config --quiet
+# new이면 다음 run에서 Compose가 named volume을 만든다. restore는 실제 데이터 복원 후에만 진행한다.
+"${collector_compose[@]}" run --rm --no-deps alloy validate /etc/alloy/config.alloy
+"${collector_compose[@]}" up -d alloy
+systemctl daemon-reload
+systemctl start jarihana-observability@prod.service
+systemctl enable --now jarihana-observability@prod.timer
+systemctl show --no-pager jarihana-observability@prod.service -p User -p ExecStart -p ExecMainStatus
+systemctl show --no-pager jarihana-observability@prod.timer -p ActiveState -p TimersMonotonic -p DropInPaths
+```
+
+복원 시 수집기 전용 상태와 traffic cursor도 일관된 백업에서 복원한다. 다른 Nginx 컨테이너나
+topology의 cursor를 그대로 정상 데이터로 취급하지 않는다. textfile 복원은 새 관측이 아니다.
+마지막으로 [읽기 전용 확인](#읽기-전용-확인)에서 실제 source별 성공과 최신성을 확인한다.
+bootstrap 전이나 reload ticket이 없는 상태의 unknown을 service exit 0만 보고 성공으로 바꾸지 않는다.
+
 ## 갱신의 경계
 
 중앙 수집기는 앱 Alloy Compose나 Monitoring Deploy만으로 복원되지 않는다.
@@ -170,4 +262,4 @@ systemd 원본은 `infra/monitoring/deployment/systemd/`에서 `/etc/systemd/sys
 부팅 시 시작 설정과 WAL mount를 확인한다. timer 기본값과 prod override를 함께 복원하고,
 활성 WAL을 새 빈 볼륨으로 바꾸거나 다른 호스트의 textfile을 읽게 만들지 않는다.
 원본과 배포 저널, 수집기 전용 상태 및 WAL을 보존한 뒤 수집기만의 갱신 범위를 검토한다.
-상태가 불확실하면 [수동 조사](../../blue-green-deploy/controller/recovery.md#수동-조사)를 따른다.
+상태가 불확실하면 [수동 조사](../../blue-green-deploy/docs/recovery.md#수동-조사)를 따른다.

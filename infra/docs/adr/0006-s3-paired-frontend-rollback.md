@@ -4,7 +4,7 @@
 - 날짜: 2026-10-29
 - 범위: prod 프론트엔드 보관, 게시와 백엔드 Blue-Green 복구의 연결
 - 관련 결정: [인프라 ADR 0005](0005-nginx-ec2-blue-green-deployment.md), [백엔드 ADR 0016](../../../backend/docs/adr/0016-github-hosted-build-and-ghcr.md)
-- 운영 구조와 적용 절차: [프론트엔드 릴리스 보관과 복구](../../blue-green-deploy/controller/architecture.md#프론트엔드-릴리스)
+- 운영 구조와 적용 절차: [프론트엔드 릴리스 보관과 복구](../../blue-green-deploy/docs/architecture.md#프론트엔드-릴리스)
 
 ## 배경
 
@@ -29,7 +29,7 @@
 배포 제어 코드에 특정 회원 유형의 검사나 가입 제어를 추가하지 않는다.
 
 릴리스 경로, manifest와 current/previous/pending의 데이터 형식 및 조건부 갱신 계약은
-[프론트엔드 릴리스](../../blue-green-deploy/controller/architecture.md#프론트엔드-릴리스)에 둔다.
+[프론트엔드 릴리스](../../blue-green-deploy/docs/architecture.md#프론트엔드-릴리스)에 둔다.
 복구 원본은 실제 게시한 바이트이며, 불일치 파일을 새 정상 원본으로 자동 승인하지 않는다.
 
 ### S3를 선택한 이유
@@ -51,13 +51,13 @@ S3 저장 자체가 불변성을 보장하는 것은 아니다. 릴리스 경로
 
 백엔드와 프론트엔드를 같은 릴리스로 연결하되 복구 범위는 이번에 변경한 구성요소로 한정한다.
 worker 종료가 불확실하면 이전 worker를 재개하지 않는다. 프론트 복구도 유효한 허가 안에서
-검증하며 실패 결과를 숨기지 않는다. 실행 순서는 [배포 실행](../../blue-green-deploy/controller/deployment.md),
-복구 순서와 수동 조정은 [장애 복구](../../blue-green-deploy/controller/recovery.md)를 따른다.
+검증하며 실패 결과를 숨기지 않는다. 실행 순서는 [배포 실행](../../blue-green-deploy/docs/deployment.md),
+복구 순서와 수동 조정은 [장애 복구](../../blue-green-deploy/docs/recovery.md)를 따른다.
 
 ### 현재 인프라와 권한 경계
 
 CloudFront의 설정 전파와 추가 쓰기 권한에 의존하지 않고 기존 공개 경로를 유지한다.
-이 방식이 성립하는 origin, 캐시와 함수 조건은 [프론트 사전 준비](../../blue-green-deploy/controller/environment.md#프론트엔드-사전-준비)에 둔다.
+이 방식이 성립하는 origin, 캐시와 함수 조건은 [프론트 사전 준비](../../blue-green-deploy/docs/server-setup/README.md#프론트엔드-사전-준비)에 둔다.
 이 조건이 바뀌면 게시와 복구 계약을 다시 검토한다. API와 이미지 경로는 보존한다.
 
 새 장기 AWS 키, OIDC 또는 모니터링 EC2 배포 의존성을 추가하지 않는다. 기존 EC2 역할에는
@@ -66,7 +66,7 @@ CloudFront의 설정 전파와 추가 쓰기 권한에 의존하지 않고 기�
 옛 control release에 새 기능이 없으면 공개 파일이나 서버를 변경하기 전에 실패해야 한다.
 
 비활성화된 배포가 다른 게시 방식으로 우회되지 않게 한다. 활성화 조건과 최초 권한 등록은
-[배포 실행](../../blue-green-deploy/controller/deployment.md#배포-실행)을 따른다.
+[배포 실행](../../blue-green-deploy/docs/deployment.md#배포-실행)을 따른다.
 
 ## 감수하는 한계
 
@@ -84,6 +84,6 @@ S3 객체 복사는 여러 파일에 걸친 트랜잭션이 아니다. `index.ht
 
 이 문서는 운영 기능이 이미 적용됐다는 기록이 아니다. 로컬 계약 테스트와 실제 AWS, IAM,
 GitHub runner, 전체 300초 관찰 및 실패 복구 검증은 구분한다. 구체적인 설치, 최초 baseline,
-관찰 및 수동 조정 절차는 [배포 환경 구성](../../blue-green-deploy/controller/environment.md#프론트엔드-사전-준비),
-[관찰 기준](../../blue-green-deploy/controller/status.md#관찰-기준)과
-[복구 절차](../../blue-green-deploy/controller/recovery.md#수동-조사)를 따른다.
+관찰 및 수동 조정 절차는 [서버 구성](../../blue-green-deploy/docs/server-setup/README.md#프론트엔드-사전-준비),
+[관찰 기준](../../blue-green-deploy/docs/status.md#관찰-기준)과
+[복구 절차](../../blue-green-deploy/docs/recovery.md#수동-조사)를 따른다.
