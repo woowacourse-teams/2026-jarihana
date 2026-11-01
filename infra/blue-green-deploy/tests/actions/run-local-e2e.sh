@@ -4,6 +4,10 @@ set -Eeuo pipefail
 ROOT=$(cd "$(dirname "$0")/../../../.." && pwd)
 JAVA_IMAGE=sha256:e64879618e035e98f435ae1dd0eae3b72baf917b45326083a519221293d6d8c0
 TOOLS_IMAGE=jarihana-actions-test:local
+BG_E2E_USER_TRAFFIC=${BG_E2E_USER_TRAFFIC:-true}
+BG_E2E_VIRTUAL_OBSERVATION=${BG_E2E_VIRTUAL_OBSERVATION:-true}
+[[ $BG_E2E_VIRTUAL_OBSERVATION == true || $BG_E2E_VIRTUAL_OBSERVATION == false ]] || exit 2
+[[ $BG_E2E_USER_TRAFFIC == true || $BG_E2E_USER_TRAFFIC == false ]] || exit 2
 if [[ ${BG_E2E_INNER:-false} != true ]]; then
   [[ -f $ROOT/backend/build/libs/jarihana-0.0.1-SNAPSHOT.jar ]] || { printf 'Build the backend JAR first.\n' >&2; exit 2; }
   for image in "$JAVA_IMAGE" "$TOOLS_IMAGE" postgres:17 nginx:1.30.5-alpine prom/prometheus:v3.15.0 grafana/alloy:v1.20.1; do docker image inspect "$image" >/dev/null; done
@@ -13,10 +17,10 @@ if [[ ${BG_E2E_INNER:-false} != true ]]; then
   mkdir -p "$evidence"
   trap 'cp -R "$BG_E2E_DIR/." "$evidence/"; printf "Saved integration evidence: %s\n" "$evidence"' EXIT
   printf 'Local integration artifacts: %s\n' "$BG_E2E_DIR"
-  printf 'Starts two isolated real JVMs, Postgres, Nginx, Alloy and Prometheus; observation duration is virtual.\n'
+  printf 'Starts real JVMs, Postgres, Nginx, Alloy and Prometheus; virtual observation=%s.\n' "$BG_E2E_VIRTUAL_OBSERVATION"
   docker run --rm --name "$BG_E2E_PREFIX-runner" \
     -v "$ROOT:/repo:ro" -v "$BG_E2E_DIR:$BG_E2E_DIR" -v /var/run/docker.sock:/var/run/docker.sock \
-    -e BG_E2E_INNER=true -e BG_E2E_DIR="$BG_E2E_DIR" -e BG_E2E_PREFIX="$BG_E2E_PREFIX" -e BG_E2E_HOST_ROOT="$ROOT" \
+    -e BG_E2E_USER_TRAFFIC="$BG_E2E_USER_TRAFFIC" -e BG_E2E_VIRTUAL_OBSERVATION="$BG_E2E_VIRTUAL_OBSERVATION" -e BG_E2E_INNER=true -e BG_E2E_DIR="$BG_E2E_DIR" -e BG_E2E_PREFIX="$BG_E2E_PREFIX" -e BG_E2E_HOST_ROOT="$ROOT" \
     "$TOOLS_IMAGE" bash /repo/infra/blue-green-deploy/tests/actions/run-local-e2e.sh 2>&1 | tee "$evidence/run.log"
   exit
 fi
@@ -193,7 +197,7 @@ slot() { jq -r ".$1" "$DIR/state/state.json"; }
 record() { cp "$DIR/state/state.json" "$DIR/receipts/$1-state.json"; printf 'PASS %s\n' "$1"; }
 
 for ((attempt=0;attempt<60;attempt++)); do
-  if curl -fsS --max-time 2 "http://$NGINX_IP:8080/api/groups?size=1" | jq -e '.success' >/dev/null; then break; fi
+  if curl -fsS --max-time 2 "http://$NGINX_IP:8082/__deployment" | jq -e '.success' >/dev/null; then break; fi
   sleep 0.2
 done
 sample() {
@@ -207,12 +211,38 @@ sample() {
     sleep 0.1
   done
 }
-sample & SAMPLER=$!
+if [[ $BG_E2E_USER_TRAFFIC == true ]]; then
+  sample & SAMPLER=$!
+else
+  : > "$DIR/http-samples.log"
+fi
+idle_metrics() {
+  [[ $BG_E2E_USER_TRAFFIC == false ]] || return 0
+  local name=$1 attempt ready=false
+  # Wait for the real scrape/remote-write pipeline, independently of HTTP series.
+  for ((attempt=0;attempt<30;attempt++)); do
+    curl -fsS --max-time 3 --get --data-urlencode 'query=count(up{environment="dev",job="jarihana-backend"} == 1)' \
+      "http://$PROM_IP:9090/api/v1/query" > "$DIR/receipts/$name-up.json"
+    if jq -e '.data.result|length==1 and (.[0].value[1]|tonumber)>0' \
+      "$DIR/receipts/$name-up.json" >/dev/null; then ready=true; break; fi
+    sleep 1
+  done
+  [[ $ready == true ]]
+  sleep 6
+  curl -fsS --max-time 3 --get --data-urlencode 'query=sum(http_server_requests_seconds_count{environment="dev",uri="/groups"}) or vector(0)' \
+    "http://$PROM_IP:9090/api/v1/query" > "$DIR/receipts/$name-user-metrics.json"
+  jq -e '.status=="success" and (.data.result|length)==1 and .data.result[0].value[1]=="0"' \
+    "$DIR/receipts/$name-user-metrics.json" >/dev/null
+  curl -fsS --max-time 3 --get --data-urlencode 'query=count(http_server_requests_seconds_count{environment="dev"})' \
+    "http://$PROM_IP:9090/api/v1/query" > "$DIR/receipts/$name-http-metrics.json"
+  jq -e '.status=="success" and (.data.result|length)==1 and (.data.result[0].value[1]|tonumber)>0' \
+    "$DIR/receipts/$name-http-metrics.json" >/dev/null
+}
 printf 'bootstrap\n' > "$DIR/scenario"
 coor plan bootstrap-plan
 app bootstrap A bootstrap-app
 APP_RESULT=$(receipt bootstrap-app); coor finish-bootstrap bootstrap-finish
-phase COMPLETE; record bootstrap
+phase COMPLETE; idle_metrics bootstrap; record bootstrap
 
 prepare_switch() {
   local name=$1 old target actual_ip expected_ip
@@ -230,6 +260,7 @@ prepare_switch() {
   [[ $actual_ip == "$expected_ip" ]] || { printf 'Fixture address changed: %s != %s\n' "$actual_ip" "$expected_ip" >&2; return 1; }
   app prepare "$target" "$name-prepare"
   APP_RESULT=$(receipt "$name-prepare"); coor grant-handoff "$name-grant-handoff"
+  idle_metrics "$name-candidate"
   app handoff "$old" "$name-handoff"
   APP_RESULT=$(receipt "$name-handoff"); coor switch "$name-switch"
   app activate "$target" "$name-activate"
@@ -238,8 +269,8 @@ prepare_switch() {
 finish_deploy() {
   local name=$1 old target app_pid coor_pid
   old=$(slot old); target=$(slot target)
-  VIRTUAL=true app observe "$target" "$name-observe-app" & app_pid=$!
-  VIRTUAL=true coor observe "$name-observe-http" & coor_pid=$!
+  VIRTUAL=$BG_E2E_VIRTUAL_OBSERVATION app observe "$target" "$name-observe-app" & app_pid=$!
+  VIRTUAL=$BG_E2E_VIRTUAL_OBSERVATION coor observe "$name-observe-http" & coor_pid=$!
   wait "$app_pid"; wait "$coor_pid"
   TARGET_RESULT=$(receipt "$name-observe-app"); coor seal "$name-seal"; TARGET_RESULT=
   app complete "$target" "$name-complete"
@@ -249,6 +280,7 @@ finish_deploy() {
   phase COMPLETE
   [[ $(cat "$DIR/ec2-$old") == stopped && $(cat "$DIR/ec2-$target") == running ]]
   jq -e '.normal_exit and .shutdown_evidence.signal=="SIGTERM" and .shutdown_evidence.oom_killed==false' "$DIR/receipts/$name-stop-app.json" >/dev/null
+  idle_metrics "$name-complete"
   record "$name"
 }
 DIGEST=$IMAGE_B; prepare_switch A-to-B; finish_deploy A-to-B
@@ -280,9 +312,9 @@ jq -e '.http_recovered and (.worker_recovered|not) and .pending.operation=="roll
 [[ $(docker inspect --format '{{.State.Running}}' "$PREFIX-A") == true ]]
 [[ $(docker inspect --format '{{.State.Running}}' "$PREFIX-B") == false ]]
 record killed-target-http-only-attention
-kill "$SAMPLER"; wait "$SAMPLER" 2>/dev/null || true; SAMPLER=
+if [[ -n $SAMPLER ]]; then kill "$SAMPLER"; wait "$SAMPLER" 2>/dev/null || true; SAMPLER=; fi
 awk '$2!="kill-window" && $4!="true" {bad++} END {exit bad>0}' "$DIR/http-samples.log"
 samples=$(wc -l < "$DIR/http-samples.log")
-(( samples>=20 ))
-jq -cn --argjson samples "$samples" '{success:true,scenarios:["bootstrap","A-to-B","B-to-A","normal-rollback","killed-target-http-only-attention"],http_samples:$samples,observation_duration:"virtual 300 seconds per observer",actual_components:["two Spring JVMs","Postgres","Nginx","Prometheus"],fixture_boundaries:["GitHub run API","EC2 API","host identity/bootstrap","readonly SSH transport","manual local JAR candidate preparation"],coverage_gap:"Does not verify immutable Compose pull/profile or a real 5-minute soak; production worker CAS, normal SIGTERM stop, journal/grants, Nginx generation switch/drain and Prometheus queries execute unchanged."}' > "$DIR/summary.json"
+if [[ $BG_E2E_USER_TRAFFIC == true ]]; then (( samples>=20 )); else (( samples==0 )); fi
+jq -cn --argjson samples "$samples" --argjson user_traffic "$BG_E2E_USER_TRAFFIC" --argjson virtual "$BG_E2E_VIRTUAL_OBSERVATION" '{success:true,scenarios:["bootstrap","A-to-B","B-to-A","normal-rollback","killed-target-http-only-attention"],http_samples:$samples,user_traffic:$user_traffic,observation_duration:(if $virtual then "virtual 300 seconds per observer" else "real 300 seconds per observer" end),actual_components:["two Spring JVMs","Postgres","Nginx","Prometheus"],fixture_boundaries:["GitHub run API","EC2 API","host identity/bootstrap","readonly SSH transport","manual local JAR candidate preparation"],coverage_gap:"Does not verify immutable Compose pull/profile or real AWS networking; production worker CAS, normal SIGTERM stop, journal/grants, Nginx generation switch/drain and Prometheus queries execute unchanged."}' > "$DIR/summary.json"
 cat "$DIR/summary.json"

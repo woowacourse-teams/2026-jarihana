@@ -11,6 +11,7 @@ import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.prometheusmetrics.PrometheusConfig;
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -32,6 +33,26 @@ class HttpRequestMetricsConfigTest {
             .withBean(PrometheusMeterRegistry.class, () -> new PrometheusMeterRegistry(PrometheusConfig.DEFAULT))
             .withPropertyValues("management.metrics.use-global-registry=false",
                     "management.metrics.distribution.percentiles-histogram.http.server.requests=true");
+
+    @Test
+    @DisplayName("사용자 요청 전에도 HTTP 요청 수와 누적 시간이 0으로 노출된다")
+    void exposesZeroHttpMetricsBeforeAnyUserRequest() {
+        contextRunner.run(context -> {
+            // Given
+            var registry = context.getBean(PrometheusMeterRegistry.class);
+
+            // When
+            Timer timer = registry.find("http.server.requests").tag("uri", "/groups")
+                    .tag("deployment.probe", "false").timer();
+
+            // Then
+            assertThat(timer).isNotNull();
+            assertThat(timer.count()).isZero();
+            assertThat(timer.totalTime(TimeUnit.SECONDS)).isZero();
+            assertThat(registry.scrape()).contains("http_server_requests_seconds_count")
+                    .contains("http_server_requests_seconds_sum");
+        });
+    }
 
     @Test
     @DisplayName("그룹 한 건을 조회하는 사용자와 부하테스트 요청은 성공과 실패 모두 HTTP 지표에 포함한다")
