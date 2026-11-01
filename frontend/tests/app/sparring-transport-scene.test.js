@@ -6,22 +6,13 @@ jest.mock('../../public/sparring-arena/src/characters.js', () => ({ createCharac
 
 jest.mock('three', () => jest.requireActual('../../public/sparring-arena/vendor/three.module.js'), { virtual: true });
 
-function path(start, end) {
-  const length = Math.hypot(end.x - start.x, end.y - start.y);
-  return {
-    getAttribute: () => `${start.x},${start.y}:${end.x},${end.y}`,
-    getTotalLength: () => length,
-    getPointAtLength: distance => ({
-      x: start.x + (end.x - start.x) * distance / length,
-      y: start.y + (end.y - start.y) * distance / length,
-    }),
-  };
-}
-
+const arenaCamera = new THREE.PerspectiveCamera(48, 1000 / 700, 0.1, 100);
+arenaCamera.position.set(0, -5.5, 19); arenaCamera.lookAt(0, -1.5, 0);
+arenaCamera.updateMatrixWorld();
+const view = { camera: arenaCamera, bounds: { left: 0, top: 0, width: 1000, height: 700 } };
 const entry = side => ({
-  side, diameter: 40, inlet: { x: side === 'a' ? 250 : 750, y: 500 },
-  frontPath: path({ x: side === 'a' ? 250 : 750, y: 500 }, { x: side === 'a' ? 20 : 980, y: 500 }),
-  backPath: path({ x: side === 'a' ? 20 : 980, y: 100 }, { x: side === 'a' ? 150 : 850, y: 100 }),
+  side, diameter: 40, inlet: { x: side === 'a' ? 250 : 750, y: 600 },
+  outlet: { rear: [side === 'a' ? -10 : 10, 3, -1], mouth: [side === 'a' ? -8 : 8, 3.2, 0], direction: [side === 'a' ? 0.92 : -0.92, 0.08, 0.384] },
 });
 const geometries = scene => {
   const found = [];
@@ -49,38 +40,36 @@ it.each([240, 275])('앞뒤 호스 경계 %ipx에서도 노즐 링까지 같은 
   material.dispose();
 });
 
-it('호스는 원통 노즐 뒤에서 같은 지름으로 이어지고 경로를 다시 읽어도 메시를 재사용한다', () => {
+it('입구부터 호스까지 하나의 관으로 이어지고 경로를 다시 읽어도 메시를 재사용한다', () => {
   const transport = createTransportScene(null);
   const layout = [entry('a'), entry('b')];
-  transport.update(layout, 1000, 700);
-  const before = geometries(transport.front);
+  transport.update(layout, 1000, 700, view);
+  const before = geometries(transport.world);
   expect(before.filter(geometry => geometry.type === 'TubeGeometry')).toHaveLength(4);
-  for (const group of transport.front.children.filter(object => object.isGroup && object.children.some(child => !child.isInstancedMesh && child.geometry?.type === 'TubeGeometry'))) {
+  for (const group of transport.world.children.filter(object => object.isGroup && object.children.some(child => !child.isInstancedMesh && child.geometry?.type === 'TubeGeometry'))) {
     const barrel = group.children.find(object => object.isGroup);
     const tube = group.children.find(object => !object.isInstancedMesh && object.geometry?.type === 'TubeGeometry');
-    const cylinder = barrel.children[0].geometry;
-    expect(tube.geometry.parameters.radius).toBe(cylinder.parameters.radiusTop);
-    const hoseStart = tube.geometry.parameters.path.getPoint(0);
-    const rear = barrel.position.clone().add(
-      barrel.position.clone().set(0, 0, -cylinder.parameters.height / 2).applyQuaternion(barrel.quaternion),
-    );
-    expect(hoseStart.distanceTo(rear)).toBeLessThan(0.001);
+    const tubeStart = tube.geometry.parameters.path.getPoint(0);
+    const vertex = new THREE.Vector3().fromBufferAttribute(tube.geometry.attributes.position, 0);
+    expect(vertex.distanceTo(tubeStart)).toBeCloseTo(0.8, 5);
+    const lip = barrel.children[0];
+    const mouth = barrel.position.clone().add(lip.position.clone().applyQuaternion(barrel.quaternion));
+    expect(tubeStart.distanceTo(mouth)).toBeLessThan(0.001);
   }
-  transport.update(layout, 1000, 700);
-  expect(geometries(transport.front)).toEqual(before);
+  transport.update(layout, 1000, 700, view);
+  expect(geometries(transport.world)).toEqual(before);
   transport.dispose();
 });
 
 it('화면 크기와 연결부가 바뀌면 이전 메시를 해제하고, 제거 시 앞뒤 호스를 함께 비운다', () => {
   const transport = createTransportScene(null);
-  transport.update([entry('a')], 1000, 700);
-  const old = [...geometries(transport.front), ...geometries(transport.back)];
+  transport.update([entry('a')], 1000, 700, view);
+  const old = geometries(transport.world);
   const dispose = old.map(geometry => jest.spyOn(geometry, 'dispose'));
-  transport.update([entry('a')], 390, 844);
+  transport.update([entry('a')], 390, 844, { ...view, bounds: { ...view.bounds, width: 390, height: 844 } });
   dispose.forEach(spy => expect(spy).toHaveBeenCalledTimes(1));
   expect(transport.camera.left).toBe(-195);
-  transport.update([], 390, 844);
-  expect(geometries(transport.front)).toHaveLength(0);
-  expect(geometries(transport.back)).toHaveLength(0);
+  transport.update([], 390, 844, { ...view, bounds: { ...view.bounds, width: 390, height: 844 } });
+  expect(geometries(transport.world)).toHaveLength(0);
   transport.dispose();
 });

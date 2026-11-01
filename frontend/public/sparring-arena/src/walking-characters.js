@@ -205,20 +205,25 @@ export function createWalkingCharacters(scene, capacity) {
     }
   }
 
-  function draw(index, post, position, size, pose, yaw = 0) {
+  const capsuleOffset = new THREE.Vector3();
+  function draw(index, post, position, size, pose, yaw = 0, capsuleRotation = null) {
     active[index] = true;
     visibleSlots = Math.max(visibleSlots, index + 1);
     const variant = characterVariant(post);
     const rig = rigs[variant];
     const scale = size * (pose.scale ?? 1) * (pose.shrink ?? 1);
     const stride = clamp(pose.stride ?? 0, -1, 1);
-    const crouch = clamp(pose.crouch ?? (pose.stage === 'packed' || pose.stage === 'bracing' ? 0.45 : 0), 0, 1);
+    const crouch = clamp(pose.crouch ?? (pose.stage === 'packed' || pose.stage === 'bracing' ? 0.9 : 0), 0, 1);
     const time = pose.time ?? 0;
     const talk = pose.speaking ? Math.sin(time * 7) : 0;
     const gaitSettle = Math.abs(stride) * 0.04;
-    rig.root.position.copy(position);
-    rig.root.position.y += (pose.lift ?? 0) * size;
+    capsuleOffset.set(0, (pose.lift ?? 0) * size, 0);
     rig.root.rotation.set(0, yaw, 0);
+    if (capsuleRotation) {
+      capsuleOffset.applyQuaternion(capsuleRotation);
+      rig.root.quaternion.premultiply(capsuleRotation);
+    }
+    rig.root.position.copy(position).add(capsuleOffset);
     rig.root.scale.setScalar(scale);
     rig.torso.position.y = 0.78 - crouch * 0.14 - gaitSettle;
     rig.torso.rotation.set(crouch * 0.15, stride * 0.04, pose.lean ?? 0);

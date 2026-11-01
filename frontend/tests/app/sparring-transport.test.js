@@ -59,7 +59,7 @@ describe('스파링 파이프 연결', () => {
     form.dataset.side = 'a';
     const route = updateTransport(form);
     expect(route.getAttribute('d')).toMatch(/L 106 150$/);
-    expect(form.querySelector('[data-composer-side=a]').dataset.capsuleDiameter).toBe('16');
+    expect(Number(form.querySelector('[data-composer-side=a]').dataset.capsuleDiameter)).toBeCloseTo(16);
     expect(network.querySelector('[data-route=a] .transport-route').getAttribute('d')).not.toMatch(/L 106 150$/);
   });
 
@@ -79,6 +79,26 @@ describe('스파링 파이프 연결', () => {
     expect(network.querySelector('[data-route=a] .transport-route').getAttribute('d')).toMatch(/^M 30 500 H /);
     expect(network.querySelector('[data-route=b] .transport-route').getAttribute('d')).toMatch(/^M 360 500 H /);
     expect(selected).toBe(network.querySelector('[data-route=b] .transport-route'));
+  });
+
+  it('큰 호스의 바깥 링도 화면 양쪽에서 잘리지 않게 배치한다', () => {
+    Object.defineProperty(document.documentElement, 'clientWidth', { value: 1440, configurable: true });
+    const scene = document.querySelector('#scene');
+    const anchors = JSON.parse(scene.dataset.pipeAnchors);
+    anchors.a.width = 80; anchors.a.x = 180;
+    anchors.b.width = 80; anchors.b.x = 1220;
+    scene.dataset.pipeAnchors = JSON.stringify(anchors);
+    form.innerHTML = '<div data-composer-side="a"><span class="inlet-mouth"></span></div><div data-composer-side="b"><span class="inlet-mouth"></span></div>';
+    form.querySelector('[data-composer-side=a] .inlet-mouth').getBoundingClientRect = () => ({ x: 240, y: 650, width: 80, height: 80 });
+    form.querySelector('[data-composer-side=b] .inlet-mouth').getBoundingClientRect = () => ({ x: 1120, y: 650, width: 80, height: 80 });
+    updateTransport(form);
+    const outerRadius = 80 * (0.51 + 0.095 / 1.6);
+    for (const side of ['a', 'b']) {
+      const path = network.querySelector(`[data-route=${side}] .transport-route`).getAttribute('d');
+      const rail = Number(path.match(/ Q ([\d.]+) /)[1]);
+      expect(rail - outerRadius).toBeGreaterThanOrEqual(3);
+      expect(rail + outerRadius).toBeLessThanOrEqual(1437);
+    }
   });
 
   it('바닥 앞 호스와 노즐 뒤 연결부를 이어 붙이면서 캡슐의 이동 경로는 하나로 유지한다', () => {

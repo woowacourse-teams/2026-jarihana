@@ -1,3 +1,4 @@
+import { createRequestId } from './request-id.js';
 const CHANNEL = 'jarihana-sparring';
 
 export async function connectRoom() {
@@ -38,7 +39,7 @@ export async function connectRoom() {
   });
   function command(action, payload) {
     return new Promise((resolve, reject) => {
-      const requestId = crypto.randomUUID();
+      const requestId = createRequestId();
       const timer = setTimeout(() => { requests.delete(requestId); reject(new Error('응답이 늦어지고 있어요. 입력한 내용으로 다시 시도해 주세요.')); }, 20000);
       requests.set(requestId, { resolve, reject, timer }); send({ kind: 'command', requestId, action, payload });
     });

@@ -5,7 +5,7 @@ const smooth = value => { const t = clamp(value); return t * t * (3 - 2 * t); };
 const mix = (from, to, amount) => from + (to - from) * amount;
 
 // Feet stay on the tray while the head, arms and legs articulate above them.
-export function historyWalkPose({ origin, destination, elapsed, side, speaking = false, time = 0, reduced = false, departure = 0 }) {
+export function historyWalkPose({ origin, destination, elapsed, side, speaking = false, time = 0, reduced = false, departure = 0, standingScale = 0.65 }) {
   const progress = elapsed * (2.4 / WALKOUT_SECONDS);
   const stand = reduced ? 1 : smooth(progress / 0.5);
   const walk = reduced ? 1 : clamp((progress - 0.5) / 1.65);
@@ -24,7 +24,7 @@ export function historyWalkPose({ origin, destination, elapsed, side, speaking =
     yaw: mix(mix(0, travelYaw, smooth(walk / 0.15)), direction * 0.85, turn),
     phase: stand < 1 ? 'standing' : walk < 1 ? 'walking' : turn < 1 ? 'turning' : 'talking',
     pose: {
-      scale: mix(PACKED_SCALE, 0.65, stand), shrink: 1 - exit,
+      scale: mix(PACKED_SCALE, standingScale, stand), shrink: 1 - exit,
       lift: 0, crouch: (1 - stand) * 0.45,
       stride: gait, stepLift: Math.abs(gait) * 0.08,
       lean: moving ? -0.045 : 0,

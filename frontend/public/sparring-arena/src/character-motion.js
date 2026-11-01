@@ -12,7 +12,7 @@ export function characterVariant(post = {}) {
 export function characterPose({ phase, elapsed = 0, fresh = false, mine = false, reduced = false } = {}) {
   if (phase !== 'open') {
     const rolling = phase === 'rolling' && !reduced;
-    return { stage: rolling ? 'bracing' : 'packed', scale: 0.31, lift: -0.34, lean: rolling ? Math.sin(elapsed * 22) * 0.16 : 0,
+    return { stage: rolling ? 'bracing' : 'packed', crouch: 0.9, scale: 0.31, lift: -0.34, lean: rolling ? Math.sin(elapsed * 22) * 0.16 : 0,
       head: rolling ? -0.16 : 0.04, leftArm: -0.95, rightArm: -0.95, wave: 0, closing: 0, shrink: 1, speaking: false };
   }
   const duration = fresh ? 9 : 5;

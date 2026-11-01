@@ -25,7 +25,7 @@
 .composer-device[data-composer-side=b] .composer-field::before{left:auto;right:-8px;transform:rotate(225deg)}
 .composer-field:focus-within{box-shadow:0 0 0 2px color-mix(in srgb,var(--inlet-color) 30%,transparent)}
 .composer .input-row textarea{position:relative;display:block;width:100%;resize:none;height:108px;min-height:108px;max-height:140px;padding:12px 14px 54px;border:0;border-radius:20px;background:transparent;color:var(--ink);font-size:14px;line-height:22px;box-shadow:none}
-.composer .input-row textarea::placeholder{color:color-mix(in srgb,var(--inlet-dark) 65%,#888)}
+.composer .input-row textarea::placeholder{font-size:14px;font-weight:400;line-height:22px;opacity:1;color:color-mix(in srgb,var(--inlet-dark) 65%,#888)}
 .composer .input-row textarea:focus-visible{outline:none}
 .composer .char-count{position:absolute;left:14px;bottom:12px;color:var(--inlet-dark);opacity:.7;font-size:10px;line-height:14px;pointer-events:none}
 /* Same circular cross-section and cylinder/lip proportions as the tank nozzle. */
@@ -39,7 +39,7 @@
 .composer-device[data-composer-side=b] .input-row button[type=submit]{right:100px}
 .composer .input-row button[type=submit]:disabled{background:var(--inlet-color);opacity:.35;color:white}
 .composer .input-row button[type=submit]:active:not(:disabled){transform:scale(.96)}
-.composer .input-row .send-label{position:relative;font-size:12px;font-weight:750;white-space:nowrap}
+.composer .input-row .send-label{position:relative;font-size:13px;font-weight:750;white-space:nowrap}
 .composer .input-row .send-capsule{display:none}
 .send-capsule{position:absolute;display:block;inset:0;overflow:hidden;border-radius:50%;background:linear-gradient(to bottom,#ffffffb3 0%,color-mix(in srgb,var(--inlet-color) 15%,transparent) 49%,var(--inlet-color) 51%,var(--inlet-glass) 100%);border:1px solid color-mix(in srgb,var(--inlet-color) 45%,white);box-shadow:inset 3px 3px 5px #fff9,inset -3px -4px 5px #173b361a,0 3px 5px #173b3614}
 .send-capsule::before{content:"";position:absolute;top:7px;left:9px;width:16px;height:8px;border-radius:50%;background:#fff9;transform:rotate(-32deg)}
@@ -71,28 +71,53 @@
 .slide-controls .replay-control{position:static;display:flex;flex-wrap:wrap}
 .slide-controls{flex-wrap:wrap;margin-top:8px}
 .slide-controls #slide-status{margin-left:auto}
+@media(min-width:701px){
+  .composer-device,.composer-device[data-expanded=true]{width:104px;transition:none}
+  .composer-drawer{position:absolute;left:0;bottom:calc(100% - 40px);width:clamp(220px,22vw,320px)}
+  .composer-device[data-composer-side=b] .composer-drawer{left:auto;right:0}
+  .composer .input-row,.composer-device[data-composer-side=b] .input-row{padding:4px 4px 12px;transform:translateY(16px)}
+  .composer-device[data-expanded=true] .input-row{transform:translateY(0)}
+  .composer-field::before,.composer-device[data-composer-side=b] .composer-field::before{top:auto;bottom:-8px;left:30px;right:auto;transform:rotate(-45deg)}
+  .composer-device[data-composer-side=b] .composer-field::before{left:auto;right:30px}
+  .composer .input-row button[type=submit],.composer-device[data-composer-side=b] .input-row button[type=submit]{right:14px}
+  .composer .reply-target p{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;white-space:normal;overflow-wrap:anywhere;max-height:34px}
+}
 @media(max-width:700px){
-  .composer-dock{margin-top:-28px;padding:0 8px 16px}
-  .composer{width:calc(100% - var(--composer-gutter,36px) * 2)}
-  .composer-devices{flex-direction:column;gap:8px;min-height:250px;justify-content:flex-start}
-  .composer-device{width:76px;min-height:128px}
-  .composer-device[data-composer-side=b]{align-self:flex-end}
-  .composer-device[data-expanded=true]{width:calc(100% + var(--composer-gutter,36px) - 12px)}
-  .inlet-mouth{top:calc(86px - var(--pipe-diameter) / 2)}
-  .composer .composer-avatar{top:48px;width:48px;height:76px;left:0}
-  .composer-device[data-composer-side=b] .composer-avatar{right:0}
-  .composer .input-row{padding:8px 2px 8px 60px}
-  .composer-device[data-composer-side=b] .input-row{padding:8px 60px 8px 2px}
-  .composer .input-row textarea{font-size:16px;height:108px;min-height:108px;padding-inline:10px}
+  .composer-dock{margin-top:-24px;padding:0 16px 8px}
+  .composer{width:100%;padding:0}
+  .composer-devices{display:grid;grid-template-columns:1fr;min-height:156px;--stage-composer-height:156px;gap:0}
+  .composer-device,.composer-device[data-expanded=true]{grid-area:1/1;width:100%;min-height:156px;padding-top:0;transition:none;pointer-events:none}
+  .composer .composer-avatar{top:20px;left:12px;width:44px;height:52px;border-radius:12px}
+  .composer-device[data-composer-side=b] .composer-avatar{left:auto;right:12px}
+  .composer .composer-avatar[aria-pressed=true]::before{content:"";position:absolute;inset:-6px -3px;border:1px solid var(--inlet-color);border-radius:14px;background:color-mix(in srgb,var(--inlet-color) 8%,transparent);pointer-events:none}
+  .composer .composer-hint{bottom:-18px;padding:0;border:0;background:transparent;box-shadow:none;font-size:10px;opacity:1}
+  .composer .inlet-mouth{left:calc(25% - var(--pipe-diameter) * .275);top:calc(104px - var(--pipe-diameter) / 2)}
+  .composer-device[data-composer-side=b] .inlet-mouth{left:auto;right:calc(25% - var(--pipe-diameter) * .275)}
+  .composer .composer-drawer{transition:none}
+  .composer-device[data-composer-side=b] .composer-drawer{display:none}
+  .composer .input-row,.composer-device[data-composer-side=b] .input-row{padding:0;transform:none;transition:none}
+  .composer-device[data-expanded=true] .input-row{transform:none}
+  .composer-field{border-radius:16px;background:transparent;box-shadow:none}
+  .composer-field::before{display:none}
+  .composer[data-side=""] .input-row{--inlet-soft:#f5f5f7;--inlet-color:#8b9395;--inlet-dark:#5e6568}
+  .composer[data-side=b] [data-composer-side=a] .input-row{--inlet-color:#ed6a5a;--inlet-dark:#b85348;--inlet-soft:#fde5df}
+  .composer .input-row textarea{font-size:16px;height:140px;min-height:140px;padding:12px 64px 54px;border-radius:16px}
+  .composer .reply-target{margin-inline:64px}
+  .composer .reply-target strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .composer .composer-field[data-reply=true] textarea{height:92px;min-height:92px}
-  .composer .input-row button[type=submit]{right:10px;bottom:14px;width:54px;height:44px;min-height:44px}
-  .composer-device[data-composer-side=b] .input-row button[type=submit]{right:68px}
-  .composer.keyboard-docked{position:fixed;z-index:30;left:24px;right:24px;width:auto;max-width:none;margin:0;padding:8px 0;background:transparent}
+  .composer .input-row button[type=submit]{right:12px;bottom:10px;width:64px;height:44px;min-height:44px}
+  .composer.keyboard-docked{position:fixed;z-index:30;left:16px;right:16px;width:auto;max-width:none;margin:0;padding:0;background:transparent}
+  .composer.keyboard-docked .composer-devices,.composer.keyboard-docked .composer-device{min-height:122px}
+  .composer.keyboard-docked .input-row textarea{height:120px;min-height:120px}
+  .composer.keyboard-docked .composer-field[data-reply=true] textarea{height:76px;min-height:76px}
+  .composer.keyboard-docked .composer-avatar{top:12px;height:44px}
+  .composer.keyboard-docked .composer-hint,.composer.keyboard-docked #composer-note{display:none}
 }
 @media(prefers-reduced-motion:reduce){.composer-device,.composer-drawer,.composer .input-row,.composer-hint,.capsule-paper{transition:none}.composer .input-row button[type=submit]:active:not(:disabled){transform:none}}
 
 /* The shared WebGL renderer draws both the arena and real tube/nozzle meshes. */
 .stage #scene .arena-renderer{position:fixed;inset:0;width:100%;height:100%}
+.stage[data-cinematic=true]>.topic,.stage[data-cinematic=true]>.vote-section,.stage[data-cinematic=true]>.character-duel{visibility:hidden;pointer-events:none}
 .transport-webgl-ready .transport-pipes{visibility:hidden}
 .transport-webgl-ready .inlet-mouth::before,.transport-webgl-ready .inlet-mouth::after,.transport-webgl-ready .inlet-mouth b,.transport-webgl-ready .inlet-mouth i{visibility:hidden}
 

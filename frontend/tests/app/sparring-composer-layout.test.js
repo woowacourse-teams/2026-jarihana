@@ -79,8 +79,8 @@ describe('스파링 화면 높이 배분', () => {
     try {
       fitArenaViewport(form);
       const sceneTop = parseFloat(stage.style.getPropertyValue('--scene-top'));
-      expect(sceneTop).toBeGreaterThan(topic.offsetHeight);
-      expect(parseFloat(stage.style.height) - sceneTop).toBeLessThan(stage.clientWidth);
+      expect(sceneTop).toBe(0);
+      expect(parseFloat(stage.style.height)).toBe(320);
       expect(74 + parseFloat(stage.style.height) + dock.offsetHeight).toBeLessThanOrEqual(900);
     } finally {
       Object.defineProperty(window, 'innerWidth', viewport);
@@ -88,7 +88,7 @@ describe('스파링 화면 높이 배분', () => {
   });
 });
 
-it('모바일에서 입력창이 화면 밖에 있을 때만 스크롤한다', () => {
+it('모바일에서 입력창이 화면 밖이어도 포커스 도킹에 맡기고 스크롤하지 않는다', () => {
   const form = document.createElement('form');
   const viewport = Object.getOwnPropertyDescriptor(window, 'innerWidth');
   Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true });
@@ -99,7 +99,7 @@ it('모바일에서 입력창이 화면 밖에 있을 때만 스크롤한다', (
     expect(form.scrollIntoView).not.toHaveBeenCalled();
     form.getBoundingClientRect = () => ({ top: innerHeight - 80, bottom: innerHeight + 60 });
     revealComposer(form);
-    expect(form.scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', behavior: 'smooth' });
+    expect(form.scrollIntoView).not.toHaveBeenCalled();
   } finally { Object.defineProperty(window, 'innerWidth', viewport); }
 });
 
@@ -118,6 +118,48 @@ it('데스크톱에서는 입력란이 화면 밖이어도 받아치기로 경�
   revealComposer(form);
   expect(input.scrollIntoView).not.toHaveBeenCalled();
   expect(form.scrollIntoView).not.toHaveBeenCalled();
+});
+
+it('iframe의 모바일 입력창을 부모 visual viewport의 키보드 위에 붙이고 닫으면 복원한다', () => {
+  document.body.innerHTML = '<header class="app-header"></header><div class="sparring-detail"><iframe></iframe></div><div class="stage"><div class="topic"></div><div id="scene"></div></div><div><form><textarea></textarea></form></div>';
+  const saved = Object.fromEntries(['innerWidth', 'innerHeight', 'frameElement', 'visualViewport'].map(key => [key, Object.getOwnPropertyDescriptor(window, key)]));
+  const observer = global.ResizeObserver, raf = window.requestAnimationFrame;
+  const viewport = Object.assign(new EventTarget(), { height: 844, offsetTop: 0, scale: 1 });
+  const host = document.querySelector('iframe'), form = document.querySelector('form');
+  host.getBoundingClientRect = () => ({ top: 48 });
+  document.querySelector('.app-header').getBoundingClientRect = () => ({ height: 48 });
+  document.querySelector('.stage').getBoundingClientRect = () => ({ top: 16 });
+  Object.defineProperty(form, 'offsetHeight', { value: 122 });
+  for (const [key, value] of Object.entries({ innerWidth: 390, innerHeight: 844, frameElement: host, visualViewport: viewport })) Object.defineProperty(window, key, { configurable: true, value });
+  global.ResizeObserver = class { observe() {} };
+  let callback;
+  window.requestAnimationFrame = fn => { callback = fn; return 1; };
+  try {
+    setupComposer(form); callback();
+    form.querySelector('textarea').focus(); callback();
+    expect(form).not.toHaveClass('keyboard-docked');
+    viewport.height = 500; viewport.dispatchEvent(new Event('resize')); callback();
+    expect(form).toHaveClass('keyboard-docked');
+    expect(form.style.top).toBe('322px');
+    expect(document.querySelector('.stage').style.getPropertyValue('--keyboard-stage-height')).toBe('306px');
+    expect(document.querySelector('.sparring-detail')).toHaveAttribute('data-keyboard-open', 'true');
+    expect(form.querySelector('textarea')).toHaveFocus();
+    document.documentElement.style.setProperty('--arena-available-height', '796px');
+    viewport.height = 420; viewport.dispatchEvent(new Event('resize')); callback();
+    expect(form.style.top).toBe('242px');
+    expect(document.querySelector('.stage').style.getPropertyValue('--scene-top')).toBe('52px');
+    viewport.height = 844; viewport.dispatchEvent(new Event('resize')); callback();
+    expect(form).not.toHaveClass('keyboard-docked');
+    expect(form.style.top).toBe('');
+    expect(document.querySelector('.stage').style.getPropertyValue('--keyboard-stage-height')).toBe('');
+  } finally {
+    window.dispatchEvent(new Event('pagehide'));
+    for (const [key, descriptor] of Object.entries(saved)) {
+      if (descriptor) Object.defineProperty(window, key, descriptor); else delete window[key];
+    }
+    global.ResizeObserver = observer; window.requestAnimationFrame = raf; document.body.innerHTML = '';
+    document.documentElement.style.removeProperty('--arena-available-height');
+  }
 });
 
 it('입력 중 다른 편 캐릭터를 누를 때 입력창 포커스를 빼앗지 않는다', () => {
@@ -160,6 +202,28 @@ it('입력 중 다른 편 캐릭터를 누를 때 입력창 포커스를 빼앗�
     transition('transitioncancel');
     callbacks.shift()();
     expect(callbacks).toHaveLength(0);
+  } finally {
+    global.ResizeObserver = observer; window.requestAnimationFrame = raf; document.body.innerHTML = '';
+  }
+});
+
+it('움직이는 받아치기 말풍선의 포인터 포커스만 막고 클릭과 키보드 접근은 유지한다', () => {
+  document.body.innerHTML = '<div class="topic"></div><div class="stage"><div id="scene"></div><button class="history-conversation-speech"><span>의견</span></button><button class="vote-option">투표</button></div><div><form><textarea></textarea></form></div>';
+  const observer = global.ResizeObserver, raf = window.requestAnimationFrame;
+  global.ResizeObserver = class { observe() {} };
+  window.requestAnimationFrame = () => 1;
+  try {
+    setupComposer(document.querySelector('form'));
+    const bubble = document.querySelector('.history-conversation-speech');
+    const clicked = jest.fn(); bubble.addEventListener('click', clicked);
+    const pointer = new MouseEvent('pointerdown', { button: 0, bubbles: true, cancelable: true });
+    bubble.firstChild.dispatchEvent(pointer);
+    expect(pointer.defaultPrevented).toBe(true);
+    bubble.click(); expect(clicked).toHaveBeenCalledTimes(1);
+    bubble.focus(); expect(bubble).toHaveFocus();
+    const votePointer = new MouseEvent('pointerdown', { button: 0, bubbles: true, cancelable: true });
+    document.querySelector('.vote-option').dispatchEvent(votePointer);
+    expect(votePointer.defaultPrevented).toBe(false);
   } finally {
     global.ResizeObserver = observer; window.requestAnimationFrame = raf; document.body.innerHTML = '';
   }

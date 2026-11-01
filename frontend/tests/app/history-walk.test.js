@@ -32,3 +32,15 @@ it('도착한 뒤 상대편으로 돌아서고 모션 감소는 걸음과 몸짓
   expect(reduced.position).toEqual(destination);
   expect(reduced.pose).toMatchObject({ stride: 0, stepLift: 0, head: 0, speaking: false });
 });
+
+
+it('아담한 모드에서는 캡슐 속 크기 그대로 몸을 펴고 걷되 기본 모드에는 영향을 주지 않는다', () => {
+  for (const elapsed of [0, 0.2, 0.5, 1, WALKOUT_SECONDS]) {
+    const compact = frame(elapsed, { standingScale: PACKED_SCALE });
+    expect(compact.pose.scale).toBe(PACKED_SCALE);
+    expect(compact.position).toEqual(frame(elapsed).position);
+    expect(compact.pose.stride).toEqual(frame(elapsed).pose.stride);
+  }
+  expect(frame(WALKOUT_SECONDS, { standingScale: PACKED_SCALE }).pose.crouch).toBe(0);
+  expect(frame(WALKOUT_SECONDS).pose.scale).toBe(0.65);
+});
