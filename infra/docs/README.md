@@ -6,12 +6,12 @@
 | --- | --- |
 | [인프라 ADR 목록](adr/README.md) | 기술 선택의 배경, 대안과 감수하는 비용 |
 | [블루그린 배포 개요](../blue-green-deploy/README.md) | 구조와 배포 흐름 요약 |
-| [블루그린 동작 구조](../blue-green-deploy/controller/architecture.md) | 구성요소, worker 인계, 프론트 릴리스와 실행 보호 |
-| [블루그린 배포 환경 구성](../blue-green-deploy/controller/environment.md) | 필수 호스트, 권한과 관측 설정, 환경 재구성과 최초 worker 등록 |
-| [블루그린 배포 실행](../blue-green-deploy/controller/deployment.md) | 적용 버전, workflow 입력과 정상 배포 순서 |
-| [블루그린 상태 확인](../blue-green-deploy/controller/status.md) | 실행과 저널, 관찰 기준과 지표 최신성 |
-| [블루그린 장애 복구](../blue-green-deploy/controller/recovery.md) | 실패 시 처리, 복구 기한과 수동 조사 |
-| [블루그린 검증](../blue-green-deploy/controller/verification.md) | 배포 스크립트, 계측과 관제 변경 검증 |
+| [블루그린 동작 구조](../blue-green-deploy/docs/architecture.md) | 구성요소, worker 인계, 프론트 릴리스와 실행 보호 |
+| [블루그린 서버 구성](../blue-green-deploy/docs/server-setup/README.md) | 필수 호스트, 권한과 관측 설정, 환경 재구성과 최초 worker 등록 |
+| [블루그린 배포 실행](../blue-green-deploy/docs/deployment.md) | 적용 버전, workflow 입력과 정상 배포 순서 |
+| [블루그린 상태 확인](../blue-green-deploy/docs/status.md) | 실행과 저널, 관찰 기준과 지표 최신성 |
+| [블루그린 장애 복구](../blue-green-deploy/docs/recovery.md) | 실패 시 처리, 복구 기한과 수동 조사 |
+| [블루그린 검증](../blue-green-deploy/docs/verification.md) | 배포 스크립트, 계측과 관제 변경 검증 |
 | [모니터링·로그 아키텍처](observability/ARCHITECTURE.md) | 수집 경로, 서버 배치, 장애·전환 기준 |
 | [모니터링 실행 가이드](observability/OPERATIONS.md) | Docker Compose 실행, 환경변수, 마운트와 수집 확인 |
 | [Tempo 트레이스 선택 구성](observability/TRACING.md) | 필요할 때 켜는 Java Agent·Alloy·Tempo 연결, 보관·샘플링과 실제 요청 검증 |

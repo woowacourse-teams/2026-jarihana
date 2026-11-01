@@ -24,16 +24,16 @@ GitHub Actions가 순서를 연결하고, 각 서버의 전용 runner가 자기 
 
 ## 배포 실행
 
-적용 버전과 정상 실행 순서는 [배포 실행](controller/deployment.md)을 따른다.
+적용 버전과 정상 실행 순서는 [배포 실행](docs/deployment.md)을 따른다.
 
 ## 문서
 
-- [동작 구조](controller/architecture.md): 구성요소, worker 인계, 프론트 릴리스와 실행 보호 규칙.
-- [배포 환경 구성](controller/environment.md): 필수 호스트, 권한과 관측 설정, 환경 재구성과 최초 worker 등록.
-- [배포 실행](controller/deployment.md): 적용 버전, workflow 입력과 정상 배포 순서.
-- [상태 확인](controller/status.md): 실행과 저널, 관찰 기준과 지표 최신성.
-- [장애 복구](controller/recovery.md): 실패 시 처리, 복구 기한과 수동 조사.
-- [검증](controller/verification.md): 배포 스크립트, 계측과 관제 변경의 검증 명령.
+- [동작 구조](docs/architecture.md): 구성요소, worker 인계, 프론트 릴리스와 실행 보호 규칙.
+- [서버 구성](docs/server-setup/README.md): 새 Nginx/앱 서버 구성, 필수 입력과 복원 원본, 재구성 순서와 완료 판정.
+- [배포 실행](docs/deployment.md): 적용 버전, workflow 입력과 정상 배포 순서.
+- [상태 확인](docs/status.md): 실행과 저널, 관찰 기준과 지표 최신성.
+- [장애 복구](docs/recovery.md): 실패 시 처리, 복구 기한과 수동 조사.
+- [검증](docs/verification.md): 배포 스크립트, 계측과 관제 변경의 검증 명령.
 - [중앙 배포 수집기](../docs/observability/CENTRAL-DEPLOYMENT-COLLECTOR.md): Nginx 서버의 수집 경로, timer와 전용 Alloy 점검.
 - [인프라 ADR 0005](../docs/adr/0005-nginx-ec2-blue-green-deployment.md): Nginx와 앱 EC2 두 대를 선택한 이유.
 - [인프라 ADR 0006](../docs/adr/0006-s3-paired-frontend-rollback.md): 프론트엔드 보관과 동반 복구를 선택한 이유.

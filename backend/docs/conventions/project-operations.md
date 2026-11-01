@@ -43,7 +43,7 @@ ADR 우선 대상:
 - 공유 개발 환경은 dev 설정과 runner를 운영 배포와 구분하고, Compose project, DB, 포트, 인증값과 S3 경로를 분리한다.
 - 로컬 개발은 `local`, 공유 개발은 `dev`, 운영 배포는 `prod` 프로필을 사용한다. 개발 환경에서도 schema validation과 secure cookie를 유지한다.
 - 개발은 `develop`에서 개별 workflow를 실행한다. 운영 `main`의 실행 입력과 프론트/백엔드 연결 순서는
-  [블루그린 배포 실행](../../../infra/blue-green-deploy/controller/deployment.md)을 따른다.
+  [블루그린 배포 실행](../../../infra/blue-green-deploy/docs/deployment.md)을 따른다.
 - 개발 DB 스키마 준비와 배포 설정은 [백엔드 README](../../README.md#공유-개발-환경)를 따른다. 공유 개발 설정은 `application-dev.yaml`에서 관리한다.
 
 ### 실제 저장소에서 확인할 정보

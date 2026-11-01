@@ -275,7 +275,7 @@ RDS 파라미터 그룹에는 `pg_stat_statements`가 미리 로드되고 `compu
 ## 2. 앱 Alloy 배포 경로 선택
 
 Blue-Green 앱 A/B의 독립 Alloy Compose, 필수 입력과 WAL 보존은
-[배포 환경 구성](../../blue-green-deploy/controller/environment.md#앱-alloy와-조회-경로)을 따른다.
+[서버 구성](../../blue-green-deploy/docs/server-setup/README.md#앱-alloy와-조회-경로)을 따른다.
 
 배포 Nginx의 중앙 수집기는 이 앱 Compose와 별도다. 실행 계정과 경로, timer override,
 전용 Alloy 및 관측 확인은 [중앙 배포 수집기 운영](CENTRAL-DEPLOYMENT-COLLECTOR.md)을 따른다.

@@ -96,9 +96,9 @@ Nginx에서 앱으로 향하는 HTTP 통신은 별도로 허용되어야 한다.
 향하는 SSH는 최신 배포 허가를 읽는 전용 경로로만 사용하고 원격 명령 실행 권한을 주지 않는다.
 runner 대기, 취소, 응답 유실에 대비한 영속 기록과 종료 증거는 언어를 바꿔도 유지한다.
 
-실행 입력과 정상 순서는 [배포 실행](../../blue-green-deploy/controller/deployment.md),
-통과 조건은 [상태 확인](../../blue-green-deploy/controller/status.md),
-실패와 종료 보류는 [장애 복구](../../blue-green-deploy/controller/recovery.md)를 따른다.
+실행 입력과 정상 순서는 [배포 실행](../../blue-green-deploy/docs/deployment.md),
+통과 조건은 [상태 확인](../../blue-green-deploy/docs/status.md),
+실패와 종료 보류는 [장애 복구](../../blue-green-deploy/docs/recovery.md)를 따른다.
 HTTP와 worker 인계는 각각 검증하고, 새 서비스와 이전 작업의 안전이 확인된 뒤에만
 배포를 확정하고 이전 EC2를 중지한다. 앱 롤백은 DB 데이터를 되돌리지 않는다.
 
@@ -107,7 +107,7 @@ HTTP와 worker 인계는 각각 검증하고, 새 서비스와 이전 작업의 
 2026-10-30 합의로 최소 관찰 시간을 기존 15분에서 5분으로 단축한다. 검사 주기와 실패 기준,
 강제 종료 금지 원칙은 유지한다. 배포 확정과 이전 EC2 종료를 더 일찍 진행할 수 있지만,
 자동 롤백을 제공하는 관찰 구간도 10분 짧아지는 비용을 감수한다. 실행 기준은
-[관찰 기준](../../blue-green-deploy/controller/status.md#관찰-기준)에 둔다.
+[관찰 기준](../../blue-green-deploy/docs/status.md#관찰-기준)에 둔다.
 
 ## DB 변경과 기존 컬럼 삭제
 
@@ -144,7 +144,7 @@ A/B가 같은 DB를 사용하므로 구버전과 신버전 모두 동작할 수 
   외부 발송 성공 직후 DB 기록 전 장애가 나면 재시도로 중복 발송될 수 있다. 앱 롤백으로
   이미 발송한 알림을 회수할 수는 없다.
 - 인계 제어가 없는 기존 앱을 처음 교체할 때는 최초 등록과 반복 배포를 구분한다.
-  사용자 영향과 기존 작업 종료는 [최초 worker 등록](../../blue-green-deploy/controller/environment.md#최초-worker-등록)에서 확인한다.
+  사용자 영향과 기존 작업 종료는 [최초 worker 등록](../../blue-green-deploy/docs/server-setup/README.md#최초-worker-등록)에서 확인한다.
 
 ## 참고
 

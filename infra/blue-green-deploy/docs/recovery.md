@@ -39,6 +39,10 @@ job timeout만으로 복구 성공을 보장하지 않는다.
 
 ## 수동 조사
 
+서버 분실이나 교체는 [서버 구성](server-setup/README.md#재구성-절차)의 복원 원본과 중단 조건을
+먼저 확인한다. 새 instance ID나 control pin을 기존 저널에 대입하는 자동 이관 명령은 없다.
+새 호스트 준비와 운영 상태의 이관을 별개로 다루며, bootstrap으로 기존 owner를 덮어쓰지 않는다.
+
 1. 새 배포와 종료 작업을 중단하고 run/deployment ID, 저널, intent, S3 state와 ETag,
    current/previous/pending manifest를 보호된 기록에 보관한다.
 2. 실제 Nginx 경로, 양쪽 EC2와 컨테이너, 이미지, 현재 boot와 worker owner, 진행 작업을 대조한다.

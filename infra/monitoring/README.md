@@ -21,7 +21,7 @@
 
 기본 dev/legacy prod의 환경변수 예시는 [infra/.env.example](../.env.example)에 있다. 이 경로는
 앱 Compose의 `up -d --no-build backend`로 Alloy도 함께 시작한다. Blue-Green 앱 호스트는
-[배포 환경 구성](../blue-green-deploy/controller/environment.md#앱-alloy와-조회-경로)의 보호된 env와 독립 Alloy Compose를 사용한다.
+[서버 구성](../blue-green-deploy/docs/server-setup/README.md#앱-alloy와-조회-경로)의 보호된 env와 독립 Alloy Compose를 사용한다.
 이하 backend/Alloy 동시 재생성 설명은 기본 dev/legacy prod 배포 경로다.
 dev·prod DB는 모두 RDS PostgreSQL이다. backend 로그는 기본 `local` driver와 허용 라벨로 수집한다.
 배포 실행은 `--force-recreate backend alloy`로 체크아웃된 설정을 적용한다.
@@ -72,7 +72,7 @@ prod 헬스 알림은 기존 중앙 배포 수집기의 `jarihana_nginx_route`�
 사용해 유효한 활성 호스트가 정확히 하나이고 해당 앱 Alloy 헬스 결과가 정상인지 평가한다.
 drain 중 두 앱이 모두 정상인 것은 허용하지만 활성 route 두 개를 허용하지는 않는다.
 수집기/Nginx 관측과 앱 헬스 결과의 판정값은
-[관측 최신성](../blue-green-deploy/controller/status.md#관측-최신성)을 따른다.
+[관측 최신성](../blue-green-deploy/docs/status.md#관측-최신성)을 따른다.
 유효한 활성 경로 또는 해당 결과가 없으면 장애로 알린다.
 대기 호스트 중지는 알리지 않는다. 수집기가 없거나 오래된 textfile만 반복 수집되는 경우에도
 알림이 발생하므로 중앙 배포 수집기와 앱 Alloy 양쪽을 확인한다.

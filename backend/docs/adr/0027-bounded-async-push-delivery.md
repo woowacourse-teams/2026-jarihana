@@ -60,7 +60,7 @@ Blue-Green 인계에서는 배치 선점 전부터 각 작업의 처리 허가�
 빈 슬롯을 다시 채우지 않는다. 선점·준비·결과 저장 실패로 처리 결과가 불명확하면
 `BLOCKED` 상태로 신규 선점과 인계를 차단한다. lease 만료만으로 다른 서버에 권한을 넘기지 않는다.
 외부 전송 실패를 기존 정책대로 `RETRY`·`FAILED`로 저장한 경우는 정상적으로 처리를 마친 것이다.
-상세 상태와 복구 경계는 [worker 제어 API](../../../infra/blue-green-deploy/controller/architecture.md#worker-제어-api)와
+상세 상태와 복구 경계는 [worker 제어 API](../../../infra/blue-green-deploy/docs/architecture.md#worker-제어-api)와
 [인프라 ADR 0005](../../../infra/docs/adr/0005-nginx-ec2-blue-green-deployment.md)를 따른다.
 
 동시 요청은 같은 구독으로도 시작할 수 있다. 삭제·로그아웃·410 응답 이전에 이미 시작한 HTTP를 회수한다고 보장하지 않는다.

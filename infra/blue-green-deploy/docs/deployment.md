@@ -1,7 +1,7 @@
 # Blue-Green 배포 실행
 
 배포 대상을 고르고 Production Release를 실행할 때 읽는다.
-환경 준비와 최초 worker 등록은 [배포 환경 구성](environment.md), 구성요소와 인계 규칙은 [동작 구조](architecture.md)를 따른다.
+환경 준비와 최초 worker 등록은 [서버 구성](server-setup/README.md), 구성요소와 인계 규칙은 [동작 구조](architecture.md)를 따른다.
 실행 뒤에는 [상태 확인](status.md), 실패하거나 상태가 불확실하면 [장애 복구](recovery.md)를 확인한다.
 
 - [적용 버전](#적용-버전)
@@ -21,7 +21,7 @@ checkout에서 실행하고, 서버의 보호된 control ref/SHA와 설치본도
 [공통 배포 workflow](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/.github/workflows/backend-bluegreen-deploy.yml)를 호출한다.
 `BLUE_GREEN_PROD_ENABLED=true`여야 새 운영 배포를 진행한다. false 또는 미설정이면
 현재 서비스를 유지한 채 새 deploy를 차단한다. 기존 Recreate 배포로 자동 전환하지 않는다.
-명시적인 최초 `bootstrap`만 비활성 상태에서 허용한다. 준비 조건은 [최초 worker 등록](environment.md#최초-worker-등록)을 따른다.
+명시적인 최초 `bootstrap`만 비활성 상태에서 허용한다. 준비 조건은 [최초 worker 등록](server-setup/README.md#최초-worker-등록)을 따른다.
 
 | 수동 입력 | 사용 방법 |
 | --- | --- |
