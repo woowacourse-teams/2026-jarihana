@@ -126,6 +126,21 @@ awk 'BEGIN {for(i=0;i<4194305;i++) printf "x"}' > "$TMP/logs"
 poll; assert_failure
 printf 'PASS byte limit fails without cursor advance\n'
 
+# Nginx logs the decoded $uri; spaces are valid inside this field.
+BG_OBSERVABILITY_NOW=1735689642
+log_line '39.000000000' '/api/a b' 10.0.0.3:8080 > "$TMP/logs"
+poll; assert_success; assert_counter A 1; assert_counter B 0
+poll; assert_success; assert_counter A 1; assert_counter B 0
+! grep -q '/api/a b' "$TMP/state/nginx-traffic.json" "$TMP/metrics"
+printf 'PASS decoded URI spaces count once and do not poison later polls or persist paths\n'
+BG_OBSERVABILITY_NOW=1735689644
+{
+  log_line '40.000000000' '/api/a  b 200 upstream=forged' 10.0.0.2:8080
+  log_line '41.000000000' '/__deployment space' 10.0.0.3:8080
+} > "$TMP/logs"
+poll; assert_success; assert_counter A 1; assert_counter B 1
+printf 'PASS spaced paths use the anchored real status/upstream suffix and retain probe exclusion\n'
+
 ! grep -Ev '^(inspect --format \{\{\.Id\}\} edge-test|logs --timestamps --since [0-9]+ --until [0-9]+ edge-test)$' "$TMP/commands"
 [[ -z ${TRAFFIC_TEST_ARTIFACT_DIR:-} ]] || cp "$TMP/commands" "$TRAFFIC_TEST_ARTIFACT_DIR/docker-commands.txt"
 printf 'PASS Docker invocations are inspect/logs only; no reload, restart or mutation\n'

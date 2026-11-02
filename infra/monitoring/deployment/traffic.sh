@@ -55,12 +55,13 @@ collect_nginx_traffic() (
 
   # Docker emits UTC RFC3339 timestamps. Comparing whole seconds gives [since,until)
   # even when Docker replays the inclusive boundary or multiple requests share it.
+  # $uri is decoded and may contain spaces; anchor its end to the status/upstream suffix.
   increments=$(jq -Rnce --argjson mapping "$mapping" --argjson since "$since" --argjson until "$until" '
     ($since | todateiso8601 | .[0:19]) as $low |
     ($until | todateiso8601 | .[0:19]) as $high |
     reduce inputs as $line ({A:0,B:0};
       if ($line | test("^[^ ]+ [0-9]{4}-[0-9]{2}-[0-9]{2}T")) then
-        ($line | capture("^(?<timestamp>[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?Z) [^ ]+ [A-Z]+ (?<path>[^ ]+) (?<status>[1-5][0-9]{2}) upstream=(?<upstream>[^ ]+) upstream_status=[^ ]+ request_time=[0-9.]+ upstream_time=[^ ]+$") // error("invalid access log")) as $entry |
+        ($line | capture("^(?<timestamp>[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?Z) [^ ]+ [A-Z]+ (?<path>.+) (?<status>[1-5][0-9]{2}) upstream=(?<upstream>[^ ]+) upstream_status=[^ ]+ request_time=[0-9.]+ upstream_time=[^ ]+$") // error("invalid access log")) as $entry |
         if $entry.timestamp[0:19] >= $low and $entry.timestamp[0:19] < $high and
            ($entry.path | startswith("/__deployment") | not) then
           if $entry.upstream == $mapping[0].upstream then .A += 1
