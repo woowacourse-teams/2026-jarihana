@@ -112,7 +112,7 @@ export function createComposerCharacters(scene, pixel) {
       const progress = Math.pow((elapsed - packSeconds) / suctionSeconds, 2);
       x = lerp(center.x, route.points[0].x, progress);
       y = lerp(center.y, route.points[0].y, progress);
-      y -= Math.sin(progress * Math.PI) * diameter * 0.12;
+      y -= Math.sin(progress * Math.PI) * shipment.suctionArc;
       z = lerp(30, shipment.nozzleLength * NOZZLE_DEPTH, progress);
     } else {
       const progress = Math.min(1, (elapsed - packSeconds - suctionSeconds) / shipment.travelSeconds);
@@ -162,6 +162,8 @@ export function createComposerCharacters(scene, pixel) {
       if (slot < 0 || disposed) { if (!disposed) onArrive?.(); return () => {}; }
     }
     const side = post?.side === 'b' ? 'b' : 'a';
+    const distance = Math.hypot(snapshot.points[0].x - (origin.x + origin.width / 2),
+      snapshot.points[0].y - (origin.y + origin.height / 2));
     const shipment = {
       slot, sequence: sequence++, elapsed: 0, diameter, worldDiameter, onArrive, route: snapshot,
       nozzleLength: (layout.find(entry => entry.side === side)?.diameter ?? diameter) * NOZZLE_LENGTH_RATIO,
@@ -169,7 +171,9 @@ export function createComposerCharacters(scene, pixel) {
       post: { ...post, side, memberType: post?.memberType ?? layout.find(entry => entry.side === side)?.memberType ?? 'CREW' },
       body: { position: new THREE.Vector3(), quaternion: new THREE.Quaternion() },
       packSeconds: post?.replyTo ? 0.65 : PACK_SECONDS,
-      suctionSeconds: post?.replyTo ? 0.48 : SUCTION_SECONDS,
+      // Longer gaps need enough time for the capsule to visibly travel to the fixed inlet.
+      suctionSeconds: Math.max(post?.replyTo ? 0.48 : SUCTION_SECONDS, Math.min(0.9, distance / 500)),
+      suctionArc: Math.min(32, Math.max(diameter * 0.12, distance * 0.08)),
       travelSeconds: post?.replyTo
         ? Math.max(1.25, Math.min(1.65, snapshot.length / 650))
         : Math.max(0.7, Math.min(1, snapshot.length / 1000)),

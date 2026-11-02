@@ -106,6 +106,17 @@ it('발송 시 경로와 원점을 복사해 편 변경이나 레이아웃 변�
   expect(frame[2] * 0.96).toBeCloseTo(24);
 });
 
+it('먼 입구까지 캡슐이 충분한 시간 동안 이동한 뒤 파이프에 들어간다', () => {
+  const path = { getTotalLength: () => 600, getPointAtLength: distance => ({ x: 80 + distance, y: -180 }) };
+  ship({ route: path });
+  models.step(0.35 + 0.3);
+  const halfway = capsules.draw.mock.lastCall[1].body.position;
+  expect(halfway.y).toBeGreaterThan(-140);
+  expect(halfway.y).toBeLessThan(180);
+  models.step(0.35);
+  expect(capsules.draw.mock.lastCall[1].body.position.x).toBeGreaterThanOrEqual(80);
+});
+
 it('받아치기는 먼저 캡슐을 닫고 힘을 모아 떨린 뒤 원래 크기로 흡입된다', () => {
   ship({ post: { ...post, replyTo: { id: 'parent' } } });
   models.step(0.48);

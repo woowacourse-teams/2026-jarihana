@@ -20,7 +20,10 @@ export function updateTransport(form) {
     if (device) device.dataset.capsuleDiameter = String(anchor.capsuleDiameter ?? width * 0.8);
     const sideMouth = device?.querySelector('.inlet-mouth');
     const mouth = (sideMouth ?? form.querySelector('.inlet-mouth')).getBoundingClientRect();
-    const start = { x: mouth.x + mouth.width / 2, y: mouth.y + mouth.height / 2 };
+    // On mobile the composer sits at the bottom of the screen, independently of the arena.
+    // Keep the pipe in its original position relative to the stage, not the composer.
+    const start = { x: mouth.x + mouth.width / 2,
+      y: innerWidth <= 700 ? stage.bottom + 80 : mouth.y + mouth.height / 2 };
     const direction = anchor.direction;
     const end = { x: stage.x + anchor.x, y: stage.y + anchor.y };
     const overlap = anchor.width * 0.18;

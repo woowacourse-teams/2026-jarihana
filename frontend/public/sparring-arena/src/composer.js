@@ -196,11 +196,11 @@ export function animateCapsuleSend(form, post, launch) {
     }
   }
   const button = device.querySelector('[type=submit]') ?? device.querySelector('#send'), rect = button.getBoundingClientRect();
-  const mouth = device.querySelector('.inlet-mouth').getBoundingClientRect();
   const token = document.createElement('span'), capsule = device.querySelector('.send-capsule').cloneNode(true);
   const direction = post.side === 'b' ? 1 : -1;
   const startX = rect.x + rect.width / 2, startY = rect.y + rect.height / 2;
-  const inletX = mouth.x + mouth.width / 2 - startX, inletY = mouth.y + mouth.height / 2 - startY;
+  const inlet = route.getPointAtLength(0);
+  const inletX = inlet.x - startX, inletY = inlet.y - startY;
   token.className = 'inlet-token'; token.setAttribute('aria-hidden', 'true');
   const colors = getComputedStyle(device);
   for (const name of ['--inlet-color', '--inlet-glass', '--inlet-dark']) {
@@ -215,7 +215,8 @@ export function animateCapsuleSend(form, post, launch) {
     { opacity: 1, transform: 'translate(0,0) rotate(0)' },
   ], { duration: 140, easing: 'ease-in', fill: 'both' });
   const pose = (x, y, scale, angle) => `translate(${x}px,${y}px) scale(${scale}) rotate(${angle}deg)`;
-  const scale = (diameter || mouth.height * 0.8) / rect.width;
+  const mouthHeight = device.querySelector('.inlet-mouth').getBoundingClientRect().height;
+  const scale = (diameter || mouthHeight * 0.8) / rect.width;
   const frames = [
     { opacity: 1, transform: pose(0, 0, 1, 0) },
     { opacity: 1, transform: pose(0, 2, 0.92, -direction * 8), offset: 0.15 },
