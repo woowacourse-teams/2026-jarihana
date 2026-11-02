@@ -19,12 +19,12 @@ export async function connectRoom() {
     }
     if (message.kind === 'snapshot') {
       state = message.state; resolveInitial();
-      for (const listener of listeners) listener(message.fresh ?? []);
+      for (const listener of listeners) listener(message.fresh ?? [], message.livePosts ?? []);
     }
     if (message.kind === 'connection') {
       document.body.dataset.connection = message.value;
       const label = document.querySelector('#storage-note');
-      if (label) label.textContent = message.value === 'live' ? '대화는 서버에 저장돼요. 흘러간 말은 기록에서 다시 볼 수 있어요.' : message.value === 'offline' ? '오프라인이에요. 작성 중인 글은 그대로 두고 다시 연결할게요.' : '다시 연결하는 중이에요. 입력한 내용은 그대로 있어요.';
+      if (label) label.textContent = message.value === 'live' ? '대화는 서버에 저장돼요. 최근 대화는 다시 재생돼요.' : message.value === 'offline' ? '오프라인이에요. 작성 중인 글은 그대로 두고 다시 연결할게요.' : '다시 연결하는 중이에요. 입력한 내용은 그대로 있어요.';
     }
     if (message.kind === 'failure') {
       const status = document.querySelector('#composer-note');
@@ -54,7 +54,6 @@ export async function connectRoom() {
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     vote: (_id, _authorId, _name, side) => command('vote', { side }),
     post: (_id, post) => command('post', { text: post.text, replyToId: post.replyToId, postId: post.postId }),
-    loadHistory: (mine, reset = false) => command('history', { mine, reset }),
     reveal() { send({ kind: 'reveal' }); },
     reportHeight(height) { send({ kind: 'height', height }); },
     reportScene(status) { send({ kind: 'scene', status }); }

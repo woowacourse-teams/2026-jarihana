@@ -13,8 +13,9 @@ export function createCapsules(scene, onSelect, onReady) {
   let postsBySide = { a: [], b: [] };
   const rendered = Array.from({ length: CAPACITY }, () => ({ visible: null }));
   const liveReplays = new Map();
+  const pendingLaunches = [];
   function queueReplay(post, readyAt = performance.now() + 4500) {
-    if (!liveReplays.has(post.id)) liveReplays.set(post.id, { post, readyAt });
+    if (posts.some(item => item.id === post.id) && !liveReplays.has(post.id)) liveReplays.set(post.id, { post, readyAt });
   }
   function historical() {
     const ready = [...liveReplays.values()].find(item => item.readyAt <= performance.now());
@@ -66,6 +67,8 @@ export function createCapsules(scene, onSelect, onReady) {
     posts = nextPosts; ratio = votes.ratio; populated = votes.total > 0;
     postsBySide = { a: [], b: [] };
     for (const post of posts) if (postsBySide[post.side]) postsBySide[post.side].push(post);
+    const replayIds = new Set(posts.map(post => post.id));
+    for (const id of liveReplays.keys()) if (!replayIds.has(id)) liveReplays.delete(id);
     if (seedTank) {
       const colors = voteColors(CAPACITY, votes);
       physics.entries.forEach((entry, i) => {
@@ -78,11 +81,22 @@ export function createCapsules(scene, onSelect, onReady) {
     initialized = true; draw();
   }
   function launch(post, { reduced = false } = {}) {
-    const entry = physics.launch(post, { mode, fresh: true, speed: speedFor(post.side) });
-    entry.flightUntil = performance.now() + 4500;
-    queueReplay(post, entry.flightUntil);
-    if (reduced || paused) physics.settle(1);
+    pendingLaunches.push({ post, reduced });
+    flushLaunches();
     draw();
+  }
+  function flushLaunches(reduceMotion = false) {
+    while (pendingLaunches.length) {
+      const ownIndex = pendingLaunches.findIndex(item => item.post.mine);
+      const index = ownIndex < 0 ? 0 : ownIndex;
+      const { post, reduced } = pendingLaunches[index];
+      const entry = physics.launch(post, { mode, fresh: true, skipProtected: !(reduced || reduceMotion || paused), speed: speedFor(post.side) });
+      if (!entry) return;
+      pendingLaunches.splice(index, 1);
+      entry.flightUntil = performance.now() + 4500;
+      queueReplay(post, entry.flightUntil);
+      if (reduced || reduceMotion || paused) physics.settle(1);
+    }
   }
   function speedFor(side) { return 9 + 6 * (side === 'a' ? ratio : 1 - ratio); }
   function replayPipe() {
@@ -102,6 +116,7 @@ export function createCapsules(scene, onSelect, onReady) {
   }
   function step(delta, reduced = false) {
     if (!paused && !reduced) physics.step(delta);
+    flushLaunches(reduced);
     for (const entry of physics.entries) {
       if (entry.fresh && !entry.revealed && entry.landedAt !== null) {
         entry.revealed = true;
@@ -130,14 +145,14 @@ export function createCapsules(scene, onSelect, onReady) {
     const entry = physics.entries.find(entry => entry.post?.id === id);
     if (entry) { entry.body.wakeUp(); entry.body.velocity.y += 1; }
   }
-  function presentation() { return { tracking: physics.entries.filter(entry => entry.fresh && performance.now() < entry.flightUntil).sort((a, b) => b.flightUntil - a.flightUntil).slice(0, 4) }; }
+  function presentation() { return { tracking: physics.entries.filter(entry => entry.fresh && performance.now() < entry.flightUntil).sort((a, b) => b.flightUntil - a.flightUntil) }; }
   function controlState() { return { drawReady: initialized, queuedId: selectedForDraw?.id ?? null }; }
   function stats() {
     return { ...physics.stats(), capsules: CAPACITY, visibleCapsules: populated ? CAPACITY : 0,
       mintCapsules: populated ? physics.entries.filter(entry => entry.visualSide === 'a').length : 0,
       coralCapsules: populated ? physics.entries.filter(entry => entry.visualSide === 'b').length : 0,
       historyExchanges, pipeReplays, pipeReplaysA: replayCounts.a, pipeReplaysB: replayCounts.b, speedA: speedFor('a'), speedB: speedFor('b'), drawReady: initialized,
-      queuedId: selectedForDraw?.id ?? null, pendingReplays: liveReplays.size, mintShare: ratio, mode, paused };
+      queuedId: selectedForDraw?.id ?? null, pendingReplays: liveReplays.size, pendingLaunches: pendingLaunches.length, mintShare: ratio, mode, paused };
   }
   return { updateState, launch, queueReplay, replayPipe, step, pick, nudge, presentation, controlState, stats, takeForDraw, takeHistorical, takeCollision: physics.takeCollision,
     shockwave(point) { return populated && !paused ? physics.shockwave(point) : 0; },
