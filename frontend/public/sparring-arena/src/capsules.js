@@ -10,6 +10,8 @@ export function createCapsules(scene, onSelect, onReady) {
   let pipeCredit = 0.5;
   const replayCounts = { a: 0, b: 0 };
   const pipeCursors = { a: 0, b: 0 };
+  let postsBySide = { a: [], b: [] };
+  const rendered = Array.from({ length: CAPACITY }, () => ({ visible: null }));
   const liveReplays = new Map();
   function queueReplay(post, readyAt = performance.now() + 4500) {
     if (!liveReplays.has(post.id)) liveReplays.set(post.id, { post, readyAt });
@@ -32,18 +34,43 @@ export function createCapsules(scene, onSelect, onReady) {
   }
   function draw() {
     physics.entries.forEach((entry, index) => {
-      if (!populated) batch.hide(index);
-      else batch.draw(index, entry, RADIUS / 0.48 * (entry.fresh && !entry.revealed ? FRESH_CAPSULE_SCALE : 1));
+      const last = rendered[index];
+      if (!populated) {
+        if (last.visible !== false) batch.hide(index);
+        last.visible = false;
+        return;
+      }
+      const { post, body } = entry, { position: p, quaternion: q } = body;
+      const size = RADIUS / 0.48 * (entry.fresh && !entry.revealed ? FRESH_CAPSULE_SCALE : 1);
+      // Only the tank's packed pose is static; animated/open capsules must keep updating.
+      const cacheable = entry.phase === undefined && entry.characterPose === undefined && !entry.parts;
+      if (cacheable && last.cacheable && last.visible && last.post === post &&
+          last.id === post?.id && last.name === post?.name && last.authorId === post?.authorId &&
+          last.memberType === post?.memberType && last.postSide === post?.side && last.side === entry.visualSide &&
+          last.fresh === entry.fresh && last.revealed === entry.revealed && last.size === size &&
+          last.shellScale === entry.shellScale && last.yaw === entry.characterYaw &&
+          last.x === p.x && last.y === p.y && last.z === p.z &&
+          last.qx === q.x && last.qy === q.y && last.qz === q.z && last.qw === q.w) return;
+      batch.draw(index, entry, size);
+      last.visible = true; last.cacheable = cacheable;
+      last.post = post; last.id = post?.id; last.name = post?.name; last.authorId = post?.authorId;
+      last.memberType = post?.memberType; last.postSide = post?.side; last.side = entry.visualSide;
+      last.fresh = entry.fresh; last.revealed = entry.revealed; last.size = size;
+      last.shellScale = entry.shellScale; last.yaw = entry.characterYaw;
+      last.x = p.x; last.y = p.y; last.z = p.z;
+      last.qx = q.x; last.qy = q.y; last.qz = q.z; last.qw = q.w;
     });
   }
   function updateState(nextPosts, votes) {
     const seedTank = !populated && votes.total > 0;
     posts = nextPosts; ratio = votes.ratio; populated = votes.total > 0;
+    postsBySide = { a: [], b: [] };
+    for (const post of posts) if (postsBySide[post.side]) postsBySide[post.side].push(post);
     if (seedTank) {
       const colors = voteColors(CAPACITY, votes);
       physics.entries.forEach((entry, i) => {
         entry.visualSide = colors[i];
-        const matching = posts.filter(post => post.side === entry.visualSide);
+        const matching = postsBySide[entry.visualSide];
         entry.post = matching[i % matching.length] ?? { id: 'vote-' + i, side: entry.visualSide, name: '', text: '' };
       });
       pipeCredit = 0.5;
@@ -62,7 +89,7 @@ export function createCapsules(scene, onSelect, onReady) {
     if (!populated) return null;
     const nextCredit = pipeCredit + ratio;
     const side = nextCredit >= 1 ? 'a' : 'b';
-    const matching = posts.filter(post => post.side === side);
+    const matching = postsBySide[side];
     // Votes keep the pipe flowing even before anyone on that side writes a message.
     const post = matching.length ? matching[pipeCursors[side] % matching.length]
       : { id: 'vote-' + side, side, name: '', text: '' };
@@ -104,6 +131,7 @@ export function createCapsules(scene, onSelect, onReady) {
     if (entry) { entry.body.wakeUp(); entry.body.velocity.y += 1; }
   }
   function presentation() { return { tracking: physics.entries.filter(entry => entry.fresh && performance.now() < entry.flightUntil).sort((a, b) => b.flightUntil - a.flightUntil).slice(0, 4) }; }
+  function controlState() { return { drawReady: initialized, queuedId: selectedForDraw?.id ?? null }; }
   function stats() {
     return { ...physics.stats(), capsules: CAPACITY, visibleCapsules: populated ? CAPACITY : 0,
       mintCapsules: populated ? physics.entries.filter(entry => entry.visualSide === 'a').length : 0,
@@ -111,7 +139,7 @@ export function createCapsules(scene, onSelect, onReady) {
       historyExchanges, pipeReplays, pipeReplaysA: replayCounts.a, pipeReplaysB: replayCounts.b, speedA: speedFor('a'), speedB: speedFor('b'), drawReady: initialized,
       queuedId: selectedForDraw?.id ?? null, pendingReplays: liveReplays.size, mintShare: ratio, mode, paused };
   }
-  return { updateState, launch, queueReplay, replayPipe, step, pick, nudge, presentation, stats, takeForDraw, takeHistorical, takeCollision: physics.takeCollision,
+  return { updateState, launch, queueReplay, replayPipe, step, pick, nudge, presentation, controlState, stats, takeForDraw, takeHistorical, takeCollision: physics.takeCollision,
     shockwave(point) { return populated && !paused ? physics.shockwave(point) : 0; },
     setMode(next) { mode = next; }, setPaused(value) { paused = value; } };
 }

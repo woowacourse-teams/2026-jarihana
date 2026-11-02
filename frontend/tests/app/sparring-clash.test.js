@@ -4,7 +4,7 @@ import { createCapsuleBatch } from '../../public/sparring-arena/src/capsule-batc
 
 jest.mock('three', () => jest.requireActual('../../public/sparring-arena/vendor/three.module.js'), { virtual: true });
 jest.mock('../../public/sparring-arena/src/capsule-batch.js', () => ({ createCapsuleBatch: jest.fn() }));
-jest.mock('../../public/sparring-arena/src/physics.js', () => ({ RADIUS: 0.5, nozzlePose: side => ({ mouth: [side === 'a' ? -8 : 8, 3, 0] }) }));
+jest.mock('../../public/sparring-arena/src/physics.js', () => ({ RADIUS: 0.5, SHOCKWAVE_RADIUS: 8.5, SHOCKWAVE_SPEED: 30, nozzlePose: side => ({ mouth: [side === 'a' ? -8 : 8, 3, 0] }) }));
 jest.mock('../../public/sparring-arena/src/character-motion.js', () => ({ characterPose: () => ({ shrink: 1 }) }));
 
 function createTestCamera() {
@@ -89,6 +89,28 @@ describe('받아치기 발사와 충돌', () => {
     expect(scene.dataset.clashState).toBe('pressing');
     clash.step(0.1);
     expect(impact).toHaveBeenCalledTimes(1);
+  });
+
+  it('퐁 효과는 발사 중에는 숨고 충돌 순간에 나타나 카메라의 충돌 지점을 따른다', () => {
+    const camera = createTestCamera(), onImpact = jest.fn();
+    clash.dispose();
+    clash = createClash({}, scene, camera, onReveal, { onImpact, onImpactComplete: jest.fn() });
+    const effect = scene.querySelector('.clash-impact');
+    clash.start(reply, true); clash.step(0.35);
+    expect(effect).not.toBeVisible();
+    expect(onImpact).not.toHaveBeenCalled();
+    clash.step(0.02);
+    expect(onImpact).toHaveBeenCalledTimes(1);
+    expect(effect).toBeVisible();
+    expect(effect.querySelector('.clash-flash')).toHaveTextContent('퐁!');
+    camera.position.x = 2; camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
+    clash.projectEffects(camera);
+    const collision = new THREE.Vector3(0, 2.65, 0.3).project(camera);
+    expect(parseFloat(effect.style.left)).toBeCloseTo((collision.x + 1) * 400);
+    expect(parseFloat(effect.style.top)).toBeCloseTo((1 - collision.y) * 250);
+    clash.step(1.1);
+    expect(scene.dataset.clashState).toBe('burst');
+    expect(parseFloat(effect.style.top)).toBeCloseTo((1 - collision.y) * 250);
   });
 
   it('강조 테두리는 카메라가 확대돼도 캡슐 중심과 크기를 따라가고 충돌 시 사라진다', () => {

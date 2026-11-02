@@ -30,6 +30,26 @@ beforeEach(() => {
 
 afterEach(() => models.dispose());
 
+it('추적 카메라가 정해진 뒤 한 번만 그려도 기존 위치와 자세, 도착 시점을 유지한다', () => {
+  const arrived = jest.fn();
+  ship({ onArrive: arrived });
+  capsules.draw.mockClear();
+  models.step(0.35, true);
+  expect(capsules.draw).not.toHaveBeenCalled();
+  models.setProjection(null);
+  expect(capsules.draw).toHaveBeenCalledTimes(1);
+  expect(capsules.draw.mock.lastCall[1].body.position).toEqual(pixel(70, 140, 30));
+  expect(capsules.draw.mock.lastCall[2] * 0.96).toBeCloseTo(24);
+  models.step(0.18, true);
+  models.setProjection(null);
+  expect(capsules.draw).toHaveBeenCalledTimes(2);
+  expect(capsules.draw.mock.lastCall[1].body.position.x).toBeCloseTo(80);
+  models.step(0.71, true);
+  models.setProjection(null);
+  expect(arrived).toHaveBeenCalledTimes(1);
+  expect(models.needsFrame()).toBe(false);
+});
+
 function ship(overrides = {}) {
   return models.ship({ post, route: route(), origin: avatar, diameter: 24, ...overrides });
 }
@@ -154,6 +174,27 @@ it('내 받아치기의 물리 경로를 추적하고 카메라 변경은 도착
   expect(onArrive).toHaveBeenCalledTimes(1);
   expect(anotherArrive).toHaveBeenCalledTimes(1);
   expect(models.presentation()).toBeNull();
+});
+
+it('추적 중 입력 캐릭터만 숨기고 배송·레이아웃 갱신 뒤에도 숨김을 유지하다 복원한다', () => {
+  const onArrive = jest.fn();
+  ship({ post: { ...post, mine: true, replyTo: { id: 'parent' } }, onArrive });
+  models.setStandingVisible(false);
+  expect(standing.hide).toHaveBeenCalledWith(0);
+  expect(standing.hide).toHaveBeenCalledWith(1);
+  standing.draw.mockClear(); capsules.draw.mockClear();
+  models.step(1.3);
+  expect(standing.draw).not.toHaveBeenCalled();
+  expect(capsules.draw).toHaveBeenCalled();
+  expect(scene.getObjectByName('composer-shipments').visible).toBe(true);
+  models.update([{ side: 'b', avatar: { ...avatar, x: 900 }, memberType: 'COACH', active: true }]);
+  expect(standing.draw).not.toHaveBeenCalled();
+  models.step(2);
+  expect(onArrive).toHaveBeenCalledTimes(1);
+  expect(standing.draw).not.toHaveBeenCalled();
+  models.setStandingVisible(true);
+  expect(standing.draw).toHaveBeenCalledTimes(1);
+  expect(standing.draw.mock.lastCall.slice(0, 3)).toEqual([1, { side: 'b', memberType: 'COACH' }, pixel(930, 180, 30)]);
 });
 
 

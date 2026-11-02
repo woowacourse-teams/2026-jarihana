@@ -5,6 +5,44 @@ import { createDispenser } from '../../public/sparring-arena/src/dispenser.js';
 jest.mock('three', () => jest.requireActual('../../public/sparring-arena/vendor/three.module.js'), { virtual: true });
 jest.mock('../../public/sparring-arena/src/capsule-batch.js', () => ({ createCapsuleBatch: () => ({ draw() {}, hide() {} }) }));
 
+it('굴러가는 잔상과 먼지, 곡선 반짝임을 표시하고 정리한다', () => {
+  const scene = new THREE.Scene(), opened = jest.fn();
+  const dispenser = createDispenser(scene, () => {}, { onOpened: opened });
+  const effects = scene.getObjectByName('slide-effects');
+  dispenser.startPair([{ post: { id: 'one', side: 'a' }, fresh: true }, { post: { id: 'two', side: 'b' }, fresh: true }]);
+  dispenser.step(0.025);
+  expect(effects.children.some(child => child.isMesh && child.visible)).toBe(true);
+  const firstDust = effects.children.find(child => child.name === 'slide-rolling-dust' && child.visible).position.clone();
+  for (let i = 0; i < 28; i++) dispenser.step(0.025);
+  expect(effects.children.some(child => child.name === 'slide-rolling-dust' && child.visible && child.position.z > firstDust.z + 0.15)).toBe(true);
+  let sawCurveSparkles = false;
+  for (let i = 0; i < 500 && dispenser.outputs().every(entry => entry.landingElapsed === undefined); i++) {
+    dispenser.step(0.025);
+    sawCurveSparkles ||= effects.children.some(child => child.name === 'slide-curve-sparkles' && child.visible);
+  }
+  expect(sawCurveSparkles).toBe(true);
+  expect(dispenser.outputs().some(entry => entry.landingElapsed === 0)).toBe(true);
+  expect(opened).not.toHaveBeenCalled();
+  for (let i = 0; i < 10; i++) dispenser.step(0.025);
+  expect(opened).toHaveBeenCalled();
+  expect(effects.children.some(child => child.name.startsWith('slide-opening-'))).toBe(false);
+  dispenser.clearAll();
+  expect(effects.children.every(child => !child.visible)).toBe(true);
+});
+
+it('일반 대화와 모션 감소 설정에서는 미끄럼틀 효과를 표시하지 않는다', () => {
+  const scene = new THREE.Scene(), opened = jest.fn();
+  const dispenser = createDispenser(scene, () => {}, { onOpened: opened });
+  dispenser.start({ post: { id: 'normal', side: 'b' }, kind: 'history', fresh: false });
+  for (let i = 0; i < 400 && !opened.mock.calls.length; i++) dispenser.step(0.025);
+  expect(opened).toHaveBeenCalledTimes(1);
+  expect(scene.getObjectByName('slide-effects').children.every(child => !child.visible)).toBe(true);
+  dispenser.clearAll();
+  dispenser.start({ post: { id: 'one', side: 'a' }, kind: 'history', fresh: false }, true);
+  expect(opened).toHaveBeenCalledTimes(2);
+  expect(scene.getObjectByName('slide-effects').children.every(child => !child.visible)).toBe(true);
+});
+
 it('받아치기 캡슐의 미끄럼틀 위치를 추적하고 열릴 때도 복귀 시간이 초기화되지 않는다', () => {
   const dispenser = createDispenser(new THREE.Scene(), () => {});
   const original = { id: 'original', side: 'b', replyTo: { id: 'older' } };

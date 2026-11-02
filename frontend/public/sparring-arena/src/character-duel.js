@@ -1,5 +1,6 @@
 import { characterVariant } from './character-motion.js';
 import { placeSpeechBubbles } from './speech-layout.js';
+import { createSpeechCue } from './speech-cue.js';
 
 const ENTRY_SECONDS = 0.95;
 const DISPLAY_SECONDS = 6.4;
@@ -17,9 +18,6 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
   versus.textContent = 'VS';
   versus.hidden = true;
   versus.setAttribute('aria-hidden', 'true');
-  const status = document.createElement('span');
-  status.className = 'duel-status';
-  status.textContent = '첫 한마디를 기다려요';
   const slots = ['left', 'right'].map((position, index) => {
     const slot = document.createElement('div');
     slot.className = `duel-contender ${position}`;
@@ -34,7 +32,7 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
     const context = document.createElement('span');
     const action = document.createElement('span');
     action.className = 'speech-reply-action';
-    action.textContent = '↩ 받아치기';
+    const cue = createSpeechCue(bubble, action);
     byline.append(author, context, action);
     const text = document.createElement('span');
     text.className = 'duel-speech-text';
@@ -60,9 +58,9 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
     ground.setAttribute('aria-hidden', 'true');
     ground.hidden = true;
     slot.append(bubble, ground, figure); field.append(slot);
-    return { slot, bubble, author, context, text, sprite, figure, ground, post: null, arrival: null };
+    return { slot, bubble, author, context, text, cue, sprite, figure, ground, post: null, arrival: null };
   });
-  field.append(versus, status); stage.append(field);
+  field.append(versus); stage.append(field);
   let posts = [], active = null, paused = false, disposed = false;
   let destinations = [{ x: 0, y: 0 }, { x: 0, y: 0 }];
   let stageWidth = stage.clientWidth;
@@ -70,7 +68,7 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
   const pinned = () => field.contains(document.activeElement);
   const landed = () => !!active && slots.every(item => !item.post || item.arrival?.elapsed >= ENTRY_SECONDS);
 
-  for (const item of slots) item.bubble.addEventListener('click', () => { if (item.post) onSelect(item.post.id); });
+  for (const item of slots) item.bubble.addEventListener('click', () => { if (item.post) { item.cue.dismiss(); onSelect(item.post.id); } });
   field.addEventListener('focusout', () => queueMicrotask(() => { if (!disposed) wake(); }));
   field.addEventListener('keydown', event => {
     if (event.key !== 'Escape') return;
@@ -92,6 +90,7 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
     item.context.textContent = caption;
     item.text.textContent = post.text;
     item.bubble.dataset.postId = post.id;
+    item.cue.present(post.id);
     item.bubble.setAttribute('aria-label', `${post.name}, ${caption}: ${post.text}. 눌러서 받아치기`);
     item.bubble.dataset.phCaptureAttributeAction = 'sparring_reply_start';
   }
@@ -104,7 +103,6 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
     field.dataset.fresh = String(fresh);
     field.dataset.reduced = String(reduced);
     field.dataset.phase = 'rolling';
-    status.textContent = reduced ? '캡슐을 여는 중' : '캡슐이 내려오는 중';
     versus.hidden = true;
     present(slots[speaker], post, post.replyTo ? '받아친 말' : fresh ? '방금' : '지난 대화');
     present(slots[1 - speaker], other, post.replyTo ? '먼저 한 말' : '반대편 의견');
@@ -124,8 +122,6 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
     const envelope = ease(motionTime / 0.18) * (1 - ease((motionTime - 0.95) / 0.45));
     field.dataset.turn = turn === 0 ? 'left' : 'right';
     field.dataset.phase = !ready ? slots.some(item => item.arrival) ? 'emerging' : 'rolling' : time >= 3.5 ? 'settled' : time < 1.4 ? 'argue' : 'reply';
-    if (ready) status.textContent = active.fresh ? active.post.replyTo ? '방금 받아친 말' : '방금 나온 한마디' : active.post.replyTo ? '지난 받아치기' : '지난 대화';
-    else if (slots.some(item => item.arrival)) status.textContent = '캡슐에서 나오는 중';
     versus.hidden = !ready || !slots.every(item => item.post);
     const visibleBubbles = [];
     slots.forEach((item, index) => {
@@ -140,17 +136,18 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
       const origin = item.arrival.origin();
       const end = destinations[index];
       const walk = ease((p - 0.18) / 0.82);
+      const glance = active.reduced ? 0 : Math.sin(Math.min(1, p / 0.18) * Math.PI * 2) * Math.sin(Math.min(1, p / 0.18) * Math.PI) * 5;
       const x = mix(origin.x, end.x, walk);
       item.slot.style.left = x + 'px';
       item.slot.style.top = (mix(origin.y, end.y, ease(p)) - Math.sin(p * Math.PI) * 56) + 'px';
       item.slot.dataset.speaking = String(speaking);
       item.sprite.dataset.pose = speaking ? 'protest' : 'listen';
       item.figure.style.opacity = String(ease(p / 0.12));
-      item.figure.style.transform = `translate(${direction * push}px, ${bounce}px) rotate(${direction * tilt}deg) scale(${mix(0.18, 1, ease(p))})`;
+      item.figure.style.transform = `translate(${direction * push}px, ${bounce}px) rotate(${direction * (tilt + glance)}deg) scale(${mix(0.18, 1, ease(p))})`;
       item.ground.style.opacity = String(ease((p - 0.65) / 0.35));
       item.bubble.hidden = p < 1;
       if (stageWidth > 0 && !item.bubble.hidden) {
-        item.bubble.style.maxWidth = Math.max(0, Math.min(280, stageWidth - 16)) + 'px';
+        item.bubble.style.maxWidth = Math.max(0, Math.min(280, (stageWidth - 26) / 2)) + 'px';
         visibleBubbles.push({ item, x, headX: x + direction * push,
           headY: parseFloat(item.slot.style.top), direction: index ? 1 : -1 });
       }
@@ -167,8 +164,11 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
     const positions = placeSpeechBubbles(measurements, stageWidth);
     visibleBubbles.forEach(({ item, x }, index) => {
       item.bubble.style.left = positions[index].center - x + 'px';
+      item.bubble.style.top = positions[index].bottom - parseFloat(item.slot.style.top) + 'px';
+      item.bubble.style.setProperty('--speech-depth', String(2 + positions.filter(position => position.bottom < positions[index].bottom).length));
       item.bubble.style.setProperty('--duel-bubble-width', measurements[index].width + 'px');
       item.bubble.style.setProperty('--duel-tail-x', positions[index].tail + 'px');
+      item.cue.layout(measurements[index].width, measurements[index].height, positions[index].tail, positions[index].tailTip, positions[index].tailHeight);
     });
   }
 
@@ -179,7 +179,6 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
       for (const item of slots) present(item, null, '');
       versus.hidden = true;
       field.dataset.phase = 'waiting';
-      status.textContent = '첫 한마디를 기다려요';
     },
     prepare,
     emerge(role, origin, reduced = false) {

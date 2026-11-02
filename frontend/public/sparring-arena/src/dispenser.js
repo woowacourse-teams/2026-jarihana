@@ -5,6 +5,7 @@ import { TANK, RADIUS } from './physics.js';
 import { studioMaterial } from './studio-materials.js';
 import { characterPose, characterVariant } from './character-motion.js';
 import { createWalkingCharacters } from './walking-characters.js';
+import { createSlideEffects } from './slide-effects.js';
 
 const VISIBLE_LIMIT = 4;
 const SHELL_LIFETIME = 1.2, SHELL_FADE = 0.25;
@@ -64,6 +65,7 @@ export function createDispenser(scene, onReveal, { onOpened = () => {}, trayWidt
   }
   positionCorners(trayWidth, edgeScale);
   const batch = createCapsuleBatch(scene, OUTPUT_CAPACITY, createWalkingCharacters), physics = createDispenserPhysics({ trayWidth });
+  const effects = createSlideEffects(scene);
   function setTrayWidth(width, nextEdgeScale = edgeScale) {
     edgeScale = nextEdgeScale;
     const geometries = surfaceGeometries(width, edgeScale);
@@ -87,9 +89,9 @@ export function createDispenser(scene, onReveal, { onOpened = () => {}, trayWidt
   function clear(index) {
     const entry = slots[index];
     if (entry === latest) latest = null;
-    slots[index] = null; physics.release(index); batch.hide(index);
+    slots[index] = null; physics.release(index); batch.hide(index); effects.forget(index);
   }
-  function clearAll() { pair = cameraPair = null; for (let index = 0; index < slots.length; index++) clear(index); }
+  function clearAll() { pair = cameraPair = null; for (let index = 0; index < slots.length; index++) clear(index); effects.clear(); }
   function reveal(entry) {
     if (entry.revealed) return;
     entry.revealed = true; entry.openedAt = 0; opened++;
@@ -100,7 +102,7 @@ export function createDispenser(scene, onReveal, { onOpened = () => {}, trayWidt
     const index = available(selection?.fresh);
     if (index < 0 || !selection || (!paired && !reduced && !selection.fresh && !physics.inletClear())) return false;
     if (slots[index]) clear(index);
-    const entry = { ...selection, body: physics.reset(index, selection.kind === 'history' ? 5.2 : undefined), born: ++serial, openedAt: null, dispensed: true, phase: 'rolling', elapsed: 0, revealed: false, reduced };
+    const entry = { ...selection, paired, body: physics.reset(index, selection.kind === 'history' ? 5.2 : undefined), born: ++serial, openedAt: null, dispensed: true, phase: 'rolling', elapsed: 0, revealed: false, reduced };
     slots[index] = entry;
     if (reduced) {
       for (let i = 0; i < 900 && !physics.ready(index); i++) physics.step(1 / 120);
@@ -135,6 +137,7 @@ export function createDispenser(scene, onReveal, { onOpened = () => {}, trayWidt
     if (reduced) reveal(entry);
   }
   function step(delta, reduced = false) {
+    effects.step(delta, reduced);
     if (slots.every(entry => !entry)) return;
     if (cameraPair) cameraPair.elapsed += delta;
     if (pair) {
@@ -152,12 +155,30 @@ export function createDispenser(scene, onReveal, { onOpened = () => {}, trayWidt
       if (!entry) continue;
       entry.elapsed += delta;
       entry.reduced = reduced;
-      if (entry.phase === 'rolling' && !pair?.indexes.includes(index) && (reduced || physics.ready(index))) open(index, entry, reduced);
+      if (entry.phase === 'rolling' && !pair?.indexes.includes(index) && (reduced || physics.ready(index))) {
+        if (reduced || !entry.paired) open(index, entry, reduced);
+        else if (entry.landingElapsed === undefined) {
+          entry.landingElapsed = 0;
+          entry.body.velocity.y = Math.max(entry.body.velocity.y, 1.8);
+        } else {
+          entry.landingElapsed += delta;
+          if (entry.landingElapsed >= 0.2) open(index, entry, false);
+        }
+      }
       else if (entry.phase === 'open' && entry.elapsed >= SHELL_LIFETIME) { clear(index); continue; }
       if (entry.phase === 'open') {
         entry.shellScale = reduced ? 1 : Math.max(0, Math.min(1, (SHELL_LIFETIME - entry.elapsed) / SHELL_FADE));
         if (reduced || entry.elapsed >= 0.42) reveal(entry);
-      } else entry.characterPose = characterPose({ ...entry, mine: entry.post.name === '나' });
+      } else {
+        if (!reduced && entry.paired && entry.landingElapsed === undefined) {
+          effects.trail(index, entry.body.position, entry.post.side);
+          if (!entry.sparkledOnCurve && entry.body.position.z >= 3.4) {
+            entry.sparkledOnCurve = true;
+            effects.bend(entry.body.position, entry.post.side);
+          }
+        }
+        entry.characterPose = characterPose({ ...entry, mine: entry.post.name === '나' });
+      }
       batch.draw(index, entry, RADIUS / 0.48);
     }
   }

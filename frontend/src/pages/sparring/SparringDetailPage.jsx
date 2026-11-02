@@ -19,8 +19,8 @@ function Room({ topicId, member, login, retry, onRetry }) {
   const visible = loaded && sceneReady;
   const [arenaView, setArenaView] = useState("compact");
   const [clashCamera, setClashCamera] = useState(() => {
-    try { return localStorage.getItem(clashCameraPreference) === "on"; }
-    catch { return false; }
+    try { return localStorage.getItem(clashCameraPreference) !== "off"; }
+    catch { return true; }
   });
   useEffect(() => {
     if (visible) frame.current?.contentWindow?.postMessage(
@@ -64,13 +64,13 @@ function Room({ topicId, member, login, retry, onRetry }) {
               type="button"
               className="sparring-camera-switch"
               role="switch"
-              aria-label="충돌 카메라"
+              aria-label="받아치기 따라보기"
               aria-checked={clashCamera}
               disabled={!visible}
-              title="내 받아치기 캡슐을 따라가는 연출 · 동작 줄이기 설정에서는 생략"
+              title="내가 보낸 받아치기 캡슐을 카메라가 따라가요 · 동작 줄이기 설정에서는 생략"
               onClick={toggleClashCamera}
               data-ph-capture-attribute-action="sparring_clash_camera_toggle"
-            >충돌 카메라<span aria-hidden="true" /></button>
+            >받아치기 따라보기<span aria-hidden="true" /></button>
           </div>
         </nav>
         <span role="status" className="sparring-connection" data-connection={status}>

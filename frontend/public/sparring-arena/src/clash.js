@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createCapsuleBatch } from './capsule-batch.js';
-import { RADIUS, nozzlePose } from './physics.js';
+import { RADIUS, SHOCKWAVE_RADIUS, SHOCKWAVE_SPEED, nozzlePose } from './physics.js';
 import { characterPose } from './character-motion.js';
 
 // Linked opinions share one collision; the representative vote capsules stay intact.
@@ -145,12 +145,13 @@ export function createClash(scene, container, camera, onReveal = () => {}, { onI
     const afterImpact = active.elapsed - collisionAt;
     if (onImpactComplete && !active.reduced && !active.contacted && active.elapsed >= flightDuration) {
       active.contacted = true;
+      showImpact();
       container.dataset.clashState = 'pressing';
       reposition(); shock.hidden = false;
       onImpact?.({ post: active.post, fresh: active.fresh, point: { x: impactPoint.x, y: impactPoint.y, z: impactPoint.z } });
     }
     if (active.contacted) {
-      const waveProgress = Math.min(1, Math.max(0, (active.elapsed - flightDuration) / 0.85));
+      const waveProgress = Math.min(1, Math.max(0, (active.elapsed - flightDuration) / (SHOCKWAVE_RADIUS / SHOCKWAVE_SPEED)));
       shock.style.setProperty('--wave-progress', String(waveProgress));
       shock.style.opacity = String(1 - waveProgress);
     }
@@ -180,10 +181,7 @@ export function createClash(scene, container, camera, onReveal = () => {}, { onI
         return;
       }
       const burstTime = afterImpact - rubDuration;
-      showImpact();
       container.dataset.clashState = 'burst';
-      const burstPoint = point(new THREE.Vector3(impactPoint.x, -3.6, impactPoint.z));
-      impact.style.left = `${burstPoint.x}px`; impact.style.top = `${burstPoint.y}px`;
       if (!active.transferred) {
         active.transferred = true;
         batch.hide(0); batch.hide(1);
@@ -260,7 +258,10 @@ export function createClash(scene, container, camera, onReveal = () => {}, { onI
     };
     const center = screen(impactPoint);
     shock.style.left = `${center.x}px`; shock.style.top = `${center.y}px`;
-    const edge = screen(new THREE.Vector3(impactPoint.x + 8.5, impactPoint.y, impactPoint.z));
+    if (onImpactComplete && active.contacted) {
+      impact.style.left = `${center.x}px`; impact.style.top = `${center.y}px`;
+    }
+    const edge = screen(new THREE.Vector3(impactPoint.x + SHOCKWAVE_RADIUS, impactPoint.y, impactPoint.z));
     shock.style.setProperty('--shock-size', `${Math.abs(edge.x - center.x) * 2}px`);
     cameraRight.setFromMatrixColumn(view.matrixWorld, 0);
     const squeeze = active.elapsed < flightDuration ? 0 : Math.sin(Math.min(1, (active.elapsed - flightDuration) / squeezeDuration) * Math.PI);

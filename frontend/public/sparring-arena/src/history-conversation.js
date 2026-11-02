@@ -1,5 +1,6 @@
 import { historyWalkPose, historyExitPose, WALKOUT_SECONDS, EXIT_SECONDS } from './history-walk.js';
 import { placeSpeechBubbles } from './speech-layout.js';
+import { createSpeechCue } from './speech-cue.js';
 
 const ENTRY_SECONDS = WALKOUT_SECONDS;
 export const HISTORY_MODEL_CAPACITY = 8;
@@ -18,7 +19,7 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
     slot.setAttribute('aria-hidden', 'true');
     field.append(slot);
     return { side, index: index % 2, slot, post: null,
-      order: 0, elapsed: 0, origin: null, revealed: false, frame: null };
+      order: 0, elapsed: 0, origin: null, revealed: false, frame: null, departure: null };
   });
 
   const departures = Array(HISTORY_MODEL_CAPACITY - slots.length).fill(null);
@@ -38,24 +39,30 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
     const context = document.createElement('span');
     const action = document.createElement('span');
     action.className = 'speech-reply-action';
-    action.textContent = '↩ 받아치기';
+    const cue = createSpeechCue(bubble, action);
     byline.append(author, context, action);
     const text = document.createElement('span');
     text.className = 'history-conversation-text';
     bubble.append(byline, text); field.append(bubble);
-    const item = { side, character, bubble, author, context, text, post: null };
-    bubble.addEventListener('click', () => { if (item.post) onSelect(item.post.id); });
+    const item = { side, character, bubble, author, context, text, cue, post: null };
+    bubble.addEventListener('click', () => { if (item.post) { cue.dismiss(); onSelect(item.post.id); } });
     return item;
   });
   stage.append(field);
 
   let layout = { left: { x: 0, y: 0 }, right: { x: 0, y: 0 }, worldLeft: { x: 0, y: 0, z: 0 }, worldRight: { x: 0, y: 0, z: 0 }, width: 0 };
   let sequence = 0, turnElapsed = 0, speakingSide = 'a';
-  let paused = false, visible = true, reduced = false, disposed = false;
+  let paused = false, visible = true, speechVisible = true, reduced = false, disposed = false;
   const pinned = () => field.contains(document.activeElement);
   const wake = () => { if (!disposed) stage.dispatchEvent(new Event('historywake')); };
-  const latest = side => slots.filter(item => item.side === side && item.post && item.elapsed >= ENTRY_SECONDS)
+  const latest = side => slots.filter(item => item.side === side && item.post && !item.departure && item.elapsed >= ENTRY_SECONDS)
     .sort((a, b) => b.order - a.order)[0];
+  const leaving = () => [...departures.filter(Boolean), ...slots.filter(item => item.departure)];
+  function exitDestination(side) {
+    const center = side === 'a' ? layout.worldLeft : layout.worldRight;
+    return layout[side === 'a' ? 'exitLeft' : 'exitRight']
+      ?? { ...center, x: center.x + (side === 'a' ? -12 : 12) };
+  }
 
   field.addEventListener('focusout', () => queueMicrotask(wake));
   field.addEventListener('keydown', event => {
@@ -76,8 +83,8 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
     while (arrivals.length) {
       const entry = arrivals[0];
       // A replay of someone still walking out waits until their departure finishes.
-      if (!reduced && departures.some(item => item?.post.id === entry.post.id)) break;
-      const candidates = slots.filter(item => item.side === (entry.post.side === 'b' ? 'b' : 'a')
+      if (leaving().some(item => item.post.id === entry.post.id)) break;
+      const candidates = slots.filter(item => !item.departure && item.side === (entry.post.side === 'b' ? 'b' : 'a')
         && (!item.post || reduced || item.elapsed >= ENTRY_SECONDS));
       const item = candidates.find(candidate => !candidate.post)
         ?? [...candidates].sort((a, b) => a.order - b.order)[0];
@@ -95,7 +102,7 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
 
   function paint() {
     for (const item of [...slots].sort((a, b) => a.order - b.order)) {
-      if (!item.post || item.elapsed < ENTRY_SECONDS || item.revealed) continue;
+      if (!item.post || item.departure || item.elapsed < ENTRY_SECONDS || item.revealed) continue;
       item.revealed = true;
       speakingSide = item.side;
       turnElapsed = 0;
@@ -111,7 +118,9 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
       const center = item.side === 'a' ? layout.worldLeft : layout.worldRight;
       const direction = item.side === 'a' ? 1 : -1;
       const destination = { ...center, x: center.x + direction * (item.index === 0 ? 1 : -1) * (layout.characterGap ?? 0.9) };
-      const frame = historyWalkPose({ origin: item.origin, destination, elapsed: item.elapsed,
+      const frame = item.departure
+        ? historyExitPose({ ...item.departure, destination: exitDestination(item.side), reduced })
+        : historyWalkPose({ origin: item.origin, destination, elapsed: item.elapsed,
         side: item.side, speaking: item === speaker, time: turnElapsed, reduced, standingScale: layout.characterScale });
       item.frame = frame;
       if (!visible) { visuals.hide(index); continue; }
@@ -127,44 +136,49 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
     for (const [offset, item] of departures.entries()) {
       const index = slots.length + offset;
       if (!item || !visible) { visuals.hide(index); continue; }
-      const direction = item.side === 'a' ? -1 : 1;
-      const center = item.side === 'a' ? layout.worldLeft : layout.worldRight;
-      const destination = layout[item.side === 'a' ? 'exitLeft' : 'exitRight']
-        ?? { ...center, x: center.x + direction * 12 };
-      const frame = historyExitPose({ origin: item.origin, destination, elapsed: item.elapsed, reduced });
+      const frame = historyExitPose({ origin: item.origin, destination: exitDestination(item.side), elapsed: item.elapsed, reduced });
       visuals.draw(index, item.post, frame.position, 1, frame.pose, frame.yaw);
     }
 
     const visibleBubbles = [];
     for (const item of bubbles) {
       const character = item.character;
-      item.post = character.post && character.elapsed >= ENTRY_SECONDS ? character.post : null;
-      item.bubble.hidden = !item.post || !visible;
+      item.post = character.post && !character.departure && character.elapsed >= ENTRY_SECONDS ? character.post : null;
+      item.bubble.hidden = !item.post || !visible || !speechVisible;
       if (item.bubble.hidden) continue;
       if (item.bubble.dataset.postId !== String(item.post.id)) delete item.bubble.dataset.replySelected;
       item.bubble.dataset.postId = String(item.post.id);
+      item.cue.present(item.post.id);
       item.bubble.dataset.speaking = String(character === speaker);
       if (item.author.textContent !== item.post.name) item.author.textContent = item.post.name;
       const caption = item.post.replyTo ? '지난 받아치기' : '지난 한마디';
       if (item.context.textContent !== caption) item.context.textContent = caption;
       if (item.text.textContent !== item.post.text) item.text.textContent = item.post.text;
       item.bubble.setAttribute('aria-label', `${item.post.name}, ${item.context.textContent}: ${item.post.text}. 눌러서 받아치기`);
-      item.bubble.style.maxWidth = Math.max(0, Math.min(280, layout.width - 16)) + 'px';
+      item.bubble.style.maxWidth = Math.max(0, Math.min(280, (layout.width - 26) / 2)) + 'px';
       visibleBubbles.push(item);
     }
+    field.dataset.bubbleCount = String(visibleBubbles.length);
     const measurements = visibleBubbles.map(item => ({
       headX: item.character.speechAnchor.x, headY: item.character.speechAnchor.y - 12,
       width: item.bubble.offsetWidth || Math.min(240, Math.max(0, layout.width / 2 - 16)),
       height: item.bubble.offsetHeight || 64,
       direction: (item.side === 'a' ? -1 : 1) * (item.character.index === 0 ? -1 : 1),
     }));
-    const positions = placeSpeechBubbles(measurements, layout.width);
+    const stageBounds = stage.getBoundingClientRect();
+    const obstacles = [...(stage.parentElement?.querySelectorAll('.composer-avatar[aria-expanded="false"] .composer-hint, .composer-device[data-expanded="true"] .composer-field') ?? [])]
+      .map(element => element.getBoundingClientRect()).filter(rect => rect.width > 0 && rect.height > 0)
+      .map(rect => ({ left: rect.left - stageBounds.left, right: rect.right - stageBounds.left,
+        top: rect.top - stageBounds.top, bottom: rect.bottom - stageBounds.top }));
+    const positions = placeSpeechBubbles(measurements, layout.width, obstacles);
     visibleBubbles.forEach((item, index) => {
       const width = measurements[index].width;
       item.bubble.style.left = positions[index].center + 'px';
-      item.bubble.style.top = item.character.speechAnchor.y - 12 + 'px';
+      item.bubble.style.top = positions[index].bottom + 'px';
+      item.bubble.style.setProperty('--speech-depth', String(2 + positions.filter(position => position.bottom < positions[index].bottom).length));
       item.bubble.style.setProperty('--history-bubble-width', width + 'px');
       item.bubble.style.setProperty('--history-tail-x', positions[index].tail + 'px');
+      item.cue.layout(width, measurements[index].height, positions[index].tail, positions[index].tailTip, positions[index].tailHeight);
     });
   }
 
@@ -172,7 +186,7 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
     emerge(post, origin, nextReduced = false) {
       if (disposed || !post || pinned()) return false;
       reduced = nextReduced;
-      const existing = slots.find(item => item.post?.id === post.id);
+      const existing = slots.find(item => !item.departure && item.post?.id === post.id);
       if (existing) {
         existing.post = post; existing.order = ++sequence; speakingSide = existing.side; turnElapsed = 0;
         if (existing.elapsed >= ENTRY_SECONDS) onReveal(post, false);
@@ -186,6 +200,20 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
       wake();
       return true;
     },
+    leaveAll(nextReduced = false) {
+      if (disposed) return;
+      reduced = nextReduced;
+      arrivals.length = 0;
+      if (pinned()) document.activeElement?.blur();
+      if (reduced) departures.fill(null);
+      for (const item of slots) {
+        if (!item.post) continue;
+        if (reduced) { item.post = null; item.departure = null; item.slot.hidden = true; }
+        else item.departure ??= { origin: item.frame, elapsed: 0 };
+      }
+      paint();
+      wake();
+    },
     step(delta, nextReduced = false) {
       if (disposed || paused || !visible || pinned()) return;
       reduced = nextReduced;
@@ -198,6 +226,13 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
         }
       }
       for (const item of slots) {
+        if (item.departure) {
+          item.departure.elapsed += delta;
+          if (reduced || item.departure.elapsed >= EXIT_SECONDS) {
+            item.post = null; item.departure = null; item.slot.hidden = true;
+          }
+          continue;
+        }
         if (item.post) item.elapsed = reduced ? ENTRY_SECONDS : Math.min(ENTRY_SECONDS, item.elapsed + delta);
       }
       if (arrivals.length) { paint(); admit(); }
@@ -213,22 +248,24 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
     },
     setLayout(next) { layout = next; paint(); },
     setPaused(value) { paused = value; field.dataset.paused = String(value); },
-    setVisible(value) {
+    setVisible(value, { speech = value } = {}) {
+      if (visible === value && speechVisible === speech) return;
       visible = value;
-      if (!value && pinned()) document.activeElement?.blur();
+      speechVisible = speech;
+      if ((!value || !speech) && pinned()) document.activeElement?.blur();
       field.hidden = !value;
       paint();
     },
     pinned,
-    canAccept: () => !arrivals.length && departures.includes(null),
+    canAccept: () => !arrivals.length && !slots.some(item => item.departure) && departures.includes(null),
     needsFrame: () => !disposed && !paused && visible && !pinned()
       && (arrivals.length > 0 || departures.some(Boolean) || slots.some(item => item.post && (item.elapsed < ENTRY_SECONDS || !reduced))),
-    stats: () => ({ historyCharacters: slots.filter(item => item.post).length,
-      historyPostIds: slots.filter(item => item.post).map(item => item.post.id),
+    stats: () => ({ historyCharacters: slots.filter(item => item.post && !item.departure).length,
+      historyPostIds: slots.filter(item => item.post && !item.departure).map(item => item.post.id),
       historySpeakingId: (latest(speakingSide) ?? latest('a') ?? latest('b'))?.post.id ?? null,
-      historyLeaving: departures.filter(Boolean).length,
-      historyLeavingPostIds: departures.filter(Boolean).map(item => item.post.id),
-      historyArriving: arrivals.length + departures.filter(Boolean).length + slots.filter(item => item.post && item.elapsed < ENTRY_SECONDS).length }),
+      historyLeaving: leaving().length,
+      historyLeavingPostIds: leaving().map(item => item.post.id),
+      historyArriving: arrivals.length + leaving().length + slots.filter(item => item.post && !item.departure && item.elapsed < ENTRY_SECONDS).length }),
     dispose() { disposed = true; arrivals.length = 0; departures.fill(null);
       for (let index = 0; index < HISTORY_MODEL_CAPACITY; index++) visuals.hide(index);
       field.remove(); },
