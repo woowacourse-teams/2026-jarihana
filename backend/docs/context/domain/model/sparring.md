@@ -23,4 +23,4 @@ SSE는 커밋된 revision·표수·의견을 동일한 DB 스냅샷에서 관찰
 이번 범위에는 주제 수정/삭제, 의견 수정/삭제, 별도 인기 점수·승패·타이머가 없다.
 차후 정책 추가 시 원문/답글 관계와 회원 탈퇴 정책을 함께 검토한다.
 
-[API](../../api/endpoints/sparrings.md) · [제품 맥락 및 통합 결정](../../../../../docs/sparring/INTEGRATION.md)
+[API](../../api/endpoints/sparrings.md)
