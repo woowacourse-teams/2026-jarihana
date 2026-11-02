@@ -388,7 +388,14 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
   }
   const sizeObserver = new ResizeObserver(resize);
   sizeObserver.observe(container);
-  function suspend() { if (frame) cancelAnimationFrame(frame); frame = 0; clashCamera.reset(); syncMotionPause(); container.dataset.flowState = 'hidden'; }
+  function suspend() {
+    if (frame) cancelAnimationFrame(frame);
+    frame = 0;
+    // Stored posts remain available to history; missed live effects need not play on return.
+    for (const selection of replyQueue) selection.settle?.();
+    replyQueue.length = 0;
+    clashCamera.reset(); syncMotionPause(); container.dataset.flowState = 'hidden';
+  }
   const visibilityObserver = new IntersectionObserver(entries => { isVisible = entries[0].isIntersecting; if (isVisible) wake(); else suspend(); });
   visibilityObserver.observe(stage);
   const visibilityChanged = () => { if (document.hidden) suspend(); else wake(); };
@@ -475,7 +482,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
       allowPausedRelease = paused; wake();
     },
     launch(post, transport) {
-      if (disposed || launchedIds.has(String(post.id))) return;
+      if (disposed || document.hidden || !isVisible || launchedIds.has(String(post.id))) return;
       launchedIds.add(String(post.id));
       if (launchedIds.size > 256) launchedIds.delete(launchedIds.values().next().value);
       let settle;

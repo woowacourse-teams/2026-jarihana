@@ -63,6 +63,47 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     arena = createArena(container, noop, noop);
   });
   afterEach(() => { arena?.dispose(); stage.remove(); jest.restoreAllMocks(); });
+  it('숨겨진 화면에 도착한 일반 채팅과 받아치기를 복귀 시 한꺼번에 발사하지 않는다', async () => {
+    const hidden = jest.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+    document.dispatchEvent(new Event('visibilitychange'));
+    clash.busy = () => true;
+    const transport = jest.fn();
+    for (let i = 0; i < 120; i++) {
+      arena.launch({ ...original, id: 'chat-' + i });
+      arena.launch({ ...reply, id: 'reply-' + i });
+    }
+    const delivered = arena.launch({ ...reply, id: 'own-background' }, transport);
+    expect(capsules.launch).not.toHaveBeenCalled();
+    expect(clash.start).not.toHaveBeenCalled();
+    expect(transport).not.toHaveBeenCalled();
+    await delivered;
+    hidden.mockReturnValue(false);
+    document.dispatchEvent(new Event('visibilitychange'));
+    clash.busy = () => false;
+    advance(.5);
+    expect(clash.start).not.toHaveBeenCalled();
+    expect(capsules.replayPipe).toHaveBeenCalled();
+    expect(JSON.parse(container.dataset.renderStats).replyQueued).toBe(0);
+    expect(nextFrame).toEqual(expect.any(Function));
+    arena.launch({ ...reply, id: 'after-return' });
+    expect(clash.start).toHaveBeenCalledTimes(1);
+  });
+  it('화면을 떠나기 전에 밀린 받아치기도 복귀 후 연속 재생하지 않는다', () => {
+    clash.busy = () => true;
+    for (let i = 0; i < 20; i++) arena.launch({ ...reply, id: 'queued-' + i });
+    advance(.1);
+    expect(JSON.parse(container.dataset.renderStats).replyQueued).toBe(20);
+    const hidden = jest.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+    document.dispatchEvent(new Event('visibilitychange'));
+    now += 600000;
+    hidden.mockReturnValue(false);
+    document.dispatchEvent(new Event('visibilitychange'));
+    clash.busy = () => false;
+    advance(.1);
+    expect(clash.start).not.toHaveBeenCalled();
+    expect(JSON.parse(container.dataset.renderStats).replyQueued).toBe(0);
+    expect(nextFrame).toEqual(expect.any(Function));
+  });
   it('세 구도 전환은 살아 있는 대화와 캡슐을 비우지 않고 작은 모드의 크기만 적용하고 복원한다', () => {
     expect(container.dataset.viewMode).toBe('compact');
     expect(createDispenser.mock.calls[0][2].trayWidth).toBe(4.4);
