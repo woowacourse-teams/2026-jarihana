@@ -4,8 +4,8 @@
 .composer{position:relative;z-index:6;width:calc(100% - var(--composer-gutter,144px) * 2);max-width:none;margin:auto;padding:6px 0;background:none;border:0;scroll-margin-bottom:20px}
 .composer-devices{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;min-height:178px}
 @media(min-width:701px){.composer-devices{--stage-composer-height:178px;min-height:224px}}
-.composer-device{--inlet-color:#2ac1bc;--inlet-dark:#087f7b;--composer-ink:#163e38;--inlet-soft:#def6f3;--inlet-glass:#8bdfda;--pipe-diameter:40px;position:relative;flex:none;width:104px;min-width:0;min-height:160px;padding-top:44px;border:0;background:none;box-shadow:none;transition:width .38s cubic-bezier(.22,1,.36,1)}
-.composer-device[data-composer-side=b]{--inlet-color:#ed6a5a;--inlet-dark:#b85348;--composer-ink:#9d4036;--inlet-soft:var(--coral-soft);--inlet-glass:#f3b2a6}
+.composer-device{--inlet-color:#2ac1bc;--inlet-dark:#087f7b;--composer-ink:#163e38;--composer-shadow:var(--deep);--inlet-soft:#def6f3;--inlet-glass:#8bdfda;--pipe-diameter:40px;position:relative;flex:none;width:104px;min-width:0;min-height:160px;padding-top:44px;border:0;background:none;box-shadow:none;transition:width .38s cubic-bezier(.22,1,.36,1)}
+.composer-device[data-composer-side=b]{--inlet-color:#ed6a5a;--inlet-dark:#b85348;--composer-ink:#9d4036;--composer-shadow:var(--composer-ink);--inlet-soft:var(--coral-soft);--inlet-glass:#f3b2a6}
 .composer-device[data-expanded=true]{width:min(460px,58%)}
 .composer .composer-avatar{position:absolute;z-index:2;left:8px;top:52px;width:68px;height:104px;min-width:44px;min-height:44px;padding:0;border:0;border-radius:18px;background:transparent;color:var(--inlet-dark);box-shadow:none;pointer-events:auto;touch-action:manipulation}
 .composer .composer-avatar:active:not(:disabled){transform:none}
@@ -20,10 +20,10 @@
 .composer .input-row{display:block;position:relative;margin:0;padding:10px 4px 12px 90px;opacity:0;transform:translateX(-30px);transition:opacity .2s,transform .38s cubic-bezier(.22,1,.36,1)}
 .composer-device[data-composer-side=b] .input-row{padding:10px 90px 12px 4px;transform:translateX(30px)}
 .composer-device[data-expanded=true] .input-row{opacity:1;transform:translateX(0)}
-.composer-field{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:4px 10px;min-width:0;padding:12px 14px 8px;border:2px solid var(--composer-ink);border-radius:18px;background:var(--inlet-soft);box-shadow:3px 4px 0 var(--composer-ink)}
+.composer-field{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:4px 10px;min-width:0;padding:12px 14px 8px;border:2px solid var(--composer-ink);border-radius:18px;background:var(--inlet-soft);box-shadow:3px 4px 0 var(--composer-shadow)}
 .composer-field::before{content:"";position:absolute;left:-8px;top:36px;width:14px;height:14px;transform:rotate(45deg);background:var(--inlet-soft);border-left:2px solid var(--composer-ink);border-bottom:2px solid var(--composer-ink)}
 .composer-device[data-composer-side=b] .composer-field::before{left:auto;right:-8px;transform:rotate(225deg)}
-.composer-field:has(textarea:focus-visible){box-shadow:5px 6px 0 var(--composer-ink)}
+.composer-field:has(textarea:focus-visible){box-shadow:5px 6px 0 var(--composer-shadow)}
 .composer .input-row textarea{grid-column:1;position:relative;display:block;width:100%;min-width:0;resize:none;height:auto;min-height:44px;max-height:132px;padding:9px 0;border:0;border-radius:0;background:transparent;color:var(--ink);font-size:14px;line-height:22px;overflow-y:auto;box-shadow:none}
 .composer .input-row textarea::placeholder{font-size:14px;font-weight:400;line-height:22px;opacity:1;color:color-mix(in srgb,var(--inlet-dark) 65%,#888)}
 .composer .input-row textarea:focus-visible{outline:none}
@@ -70,7 +70,7 @@
 .slide-controls{flex-wrap:wrap;margin-top:8px}
 .slide-controls #slide-status{margin-left:auto}
 @media(min-width:701px){
-  .composer .composer-hint{bottom:calc(100% + 10px);width:164px;box-sizing:border-box;padding:10px 40px 10px 12px;border:2px solid var(--composer-ink);border-radius:14px;background:var(--inlet-soft);color:color-mix(in srgb,var(--inlet-dark) 65%,#888);font-size:12px;font-weight:400;line-height:20px;text-align:left;box-shadow:3px 4px 0 var(--composer-ink);cursor:pointer}
+  .composer .composer-hint{bottom:calc(100% + 10px);width:164px;box-sizing:border-box;padding:10px 40px 10px 12px;border:2px solid var(--composer-ink);border-radius:14px;background:var(--inlet-soft);color:color-mix(in srgb,var(--inlet-dark) 65%,#888);font-size:12px;font-weight:400;line-height:20px;text-align:left;box-shadow:3px 4px 0 var(--composer-shadow);cursor:pointer}
   .composer .composer-hint::before{content:"";position:absolute;bottom:-7px;left:calc(50% - 6px);width:10px;height:10px;transform:rotate(-45deg);background:var(--inlet-soft);border-left:2px solid var(--composer-ink);border-bottom:2px solid var(--composer-ink)}
   .composer .composer-hint::after{content:"↑";position:absolute;right:8px;top:50%;display:grid;place-items:center;width:26px;height:26px;transform:translateY(-50%);border-radius:50%;background:var(--inlet-color);color:white;font-size:15px;font-weight:700;opacity:.65}
   .composer-avatar[aria-expanded=true] .composer-hint,.composer-avatar[aria-expanded=true]:is(:hover,:focus-visible) .composer-hint{opacity:0;pointer-events:none}
@@ -102,8 +102,8 @@
   .composer-field:not([data-reply=true]){padding-top:76px}
   .composer .reply-target{min-height:56px;margin:0 48px 8px}
   .composer-field::before{display:none}
-  .composer[data-side=""] .input-row{--inlet-soft:#f5f5f7;--inlet-color:#8b9395;--inlet-dark:#5e6568;--composer-ink:#5e6568}
-  .composer[data-side=b] [data-composer-side=a] .input-row{--inlet-color:#ed6a5a;--inlet-dark:#b85348;--composer-ink:#9d4036;--inlet-soft:var(--coral-soft)}
+  .composer[data-side=""] .input-row{--inlet-soft:#f5f5f7;--inlet-color:#8b9395;--inlet-dark:#5e6568;--composer-ink:#5e6568;--composer-shadow:var(--composer-ink)}
+  .composer[data-side=b] [data-composer-side=a] .input-row{--inlet-color:#ed6a5a;--inlet-dark:#b85348;--composer-ink:#9d4036;--composer-shadow:var(--composer-ink);--inlet-soft:var(--coral-soft)}
   .composer .input-row textarea{font-size:16px;min-height:44px;padding:9px 0;border-radius:0}
   .composer .reply-target strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .composer.keyboard-docked{position:fixed;z-index:30;left:16px;right:16px;width:auto;max-width:none;margin:0;padding:0;background:transparent}
