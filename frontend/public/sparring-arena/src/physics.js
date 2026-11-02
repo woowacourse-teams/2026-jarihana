@@ -2,17 +2,18 @@ import * as CANNON from '../vendor/cannon-es.js';
 
 export const CAPACITY = 240;
 export const RADIUS = 0.5;
-export const FRESH_CAPSULE_SCALE = 1.28;
+export const FRESH_CAPSULE_SCALE = 1;
 export const TANK = Object.freeze({ width: 18, depth: 4.4, bottom: -4.4, rim: 4.4 });
 
-// The 5:24 front-view elevation keeps this nozzle axis horizontal on screen.
-// The mouth is shared; the capsule retains its downward discharge velocity.
-export function nozzlePose(side) {
+// Keep the original front-view adjustment only for the orthographic composition.
+// The reference composition uses the prototype's downward nozzle/launch axis.
+export function nozzlePose(side, view = 'original') {
   const sign = side === 'a' ? -1 : 1;
+  const launchDirection = [-sign * 0.965, -0.15, 0.215];
   return {
     mouth: [sign * (TANK.width / 2 - 0.7), 3.2, 0.12],
-    direction: [-sign * 0.92, 0.08, 0.384],
-    launchDirection: [-sign * 0.965, -0.15, 0.215],
+    direction: (view === 'reference' || view === 'compact') ? launchDirection : [-sign * 0.92, 0.08, 0.384],
+    launchDirection,
   };
 }
 

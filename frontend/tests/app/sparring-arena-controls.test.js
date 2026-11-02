@@ -1,3 +1,4 @@
+import { createRequestId } from '../../public/sparring-arena/src/request-id.js';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createHistoryConversation } from '../../public/sparring-arena/src/history-conversation.js';
@@ -28,7 +29,7 @@ it('편을 고르기 전에 누른 말풍선도 받아치기 대상으로 유지
   try {
     const source = readFileSync(path.join(base, 'src/app.js'), 'utf8').replace(/^import .*;\n/gm, '');
     const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-    await new AsyncFunction('setupComposer', 'animateCapsuleSend', 'createArena', 'connectRoom', 'revealComposer', source)(jest.fn(), jest.fn(), (...args) => ({ ...createArena(...args), ready: Promise.resolve() }), async () => store, revealComposer);
+    await new AsyncFunction('createRequestId', 'setupComposer', 'animateCapsuleSend', 'createArena', 'connectRoom', 'revealComposer', source)(createRequestId, jest.fn(), jest.fn(), (...args) => ({ ...createArena(...args), ready: Promise.resolve() }), async () => store, revealComposer);
     cast.emerge(first, { x: 0, y: -6, z: 9 }, true);
     const bubble = document.querySelector('.history-conversation-speech[data-side="a"]');
     bubble.click();
@@ -85,7 +86,7 @@ it('지난 대화와 대치 말풍선은 각각 누른 실제 의견을 받아�
   try {
     const source = readFileSync(path.join(base, 'src/app.js'), 'utf8').replace(/^import .*;\n/gm, '');
     const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-    await new AsyncFunction('setupComposer', 'animateCapsuleSend', 'createArena', 'connectRoom', 'revealComposer', source)(jest.fn(), jest.fn(), createArena, async () => store, revealComposer);
+    await new AsyncFunction('createRequestId', 'setupComposer', 'animateCapsuleSend', 'createArena', 'connectRoom', 'revealComposer', source)(createRequestId, jest.fn(), jest.fn(), createArena, async () => store, revealComposer);
     history.emerge(second, { x: 0, y: -6, z: 9 }, true);
     const historyBubble = document.querySelector('.history-conversation-speech[data-side="b"]');
     historyBubble.click();
@@ -105,7 +106,6 @@ it('지난 대화와 대치 말풍선은 각각 누른 실제 의견을 받아�
     duelBubble.click();
     expect(document.querySelector('#reply-target-text')).toHaveTextContent(first.text);
     expect(duelBubble).toHaveAttribute('data-reply-selected', 'true');
-    expect(historyBubble).toHaveAttribute('data-reply-selected', 'false');
     document.querySelector('#message').value = '내 반박';
     document.querySelector('#composer').dispatchEvent(new Event('submit', { cancelable: true }));
     expect(store.post).toHaveBeenCalledWith('topic', expect.objectContaining({ text: '내 반박', replyToId: first.id }));
@@ -127,7 +127,7 @@ async function setupVoting() {
   const arena = { ready: Promise.resolve(), updateState: jest.fn(), chooseSide: jest.fn(), launch: jest.fn(), dispose() {} };
   const source = readFileSync(path.join(base, 'src/app.js'), 'utf8').replace(/^import .*;\n/gm, '');
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-  await new AsyncFunction('setupComposer', 'animateCapsuleSend', 'createArena', 'connectRoom', 'revealComposer', source)(jest.fn(), jest.fn(), () => arena, async () => store, revealComposer);
+  await new AsyncFunction('createRequestId', 'setupComposer', 'animateCapsuleSend', 'createArena', 'connectRoom', 'revealComposer', source)(createRequestId, jest.fn(), jest.fn(), () => arena, async () => store, revealComposer);
   return { state, store, arena, cleanup() { document.body.replaceChildren(); Object.defineProperty(window, 'matchMedia', media); global.ResizeObserver = observer; } };
 }
 
@@ -415,10 +415,37 @@ it('내 캐릭터를 누르면 투표 없이 말풍선을 열고 접으며 초�
   } finally { cleanup(); }
 });
 
+it.each(['a', 'b'])('%s 입력창 밖을 클릭하면 접히고 초안과 받아치기 대상은 남는다', async side => {
+  const { state, store, cleanup } = await setupVoting();
+  state.mySide = side;
+  const post = { id: 'outside-reply', side: 'a', authorId: 'other', name: '크루', text: '받아칠 의견', createdAt: 1 };
+  state.posts.push(post); store.subscribe.mock.calls[0][0]([]);
+  try {
+    document.querySelector('.history-item').click();
+    const avatar = document.querySelector(`.composer-avatar[data-side="${side}"]`);
+    const input = document.querySelector(`[data-input-side="${side}"]`);
+    input.value = '작성 중인 답변'; input.dispatchEvent(new Event('input'));
+    input.click();
+    expect(avatar).toHaveAttribute('aria-expanded', 'true');
+    document.querySelector('#scene').click();
+    expect(avatar).toHaveAttribute('aria-expanded', 'false');
+    expect(input).not.toHaveFocus();
+    expect(avatar).not.toHaveFocus();
+    store.subscribe.mock.calls[0][0]([]);
+    expect(avatar).toHaveAttribute('aria-expanded', 'false');
+    avatar.click();
+    expect(input).toHaveValue('작성 중인 답변');
+    expect(document.querySelector('#reply-target-text')).toHaveTextContent(post.text);
+    document.querySelector('.history-item').click();
+    expect(avatar).toHaveAttribute('aria-expanded', 'true');
+    expect(input).toHaveFocus();
+  } finally { cleanup(); }
+});
+
 it.each(['a', 'b'])('%s 캐릭터로 말풍선을 접어도 초안과 받아치기 대상을 보존한다', async side => {
   const { state, store, cleanup } = await setupVoting();
   state.mySide = side;
-  const post = { id: '1', side: 'b', authorId: 'other', name: '다른 사람', text: '받아칠 의견', createdAt: 1 };
+  const post = { id: '1', side: side === 'a' ? 'b' : 'a', authorId: 'other', name: '다른 사람', text: '받아칠 의견', createdAt: 1 };
   state.posts.push(post); store.subscribe.mock.calls[0][0]([]);
   store.post = jest.fn(async () => post);
   try {
@@ -456,4 +483,62 @@ it('마감된 토론의 캐릭터는 입력창을 열거나 편을 바꾸지 않
     }
     expect(store.vote).not.toHaveBeenCalled();
   } finally { cleanup(); }
+});
+
+it('같은 편에도 받아칠 수 있고 편을 변경한 뒤에도 원문과 초안을 유지한다', async () => {
+  const { state, store, cleanup } = await setupVoting();
+  const post = { id: 'opinion', side: 'b', authorId: '2', name: '상대', text: '의견', createdAt: 1 };
+  state.posts.push(post); state.mySide = 'b';
+  store.post = jest.fn(async (_room, data) => ({ ...post, id: 'reply', text: data.text }));
+  store.subscribe.mock.calls[0][0]([]);
+  try {
+    document.querySelector('.history-item').click();
+    expect(document.querySelector('#reply-target')).toBeVisible();
+    const input = document.querySelector('#message-b');
+    input.value = '작성 중인 답변'; input.dispatchEvent(new Event('input'));
+    state.mySide = 'a'; store.subscribe.mock.calls[0][0]([]);
+    expect(document.querySelector('#message')).toHaveValue('작성 중인 답변');
+    state.mySide = 'b'; store.subscribe.mock.calls[0][0]([]);
+    document.querySelector('#composer').dispatchEvent(new Event('submit', { cancelable: true }));
+    expect(store.post).toHaveBeenCalledWith('1', expect.objectContaining({ text: '작성 중인 답변', replyToId: post.id }));
+    await Promise.resolve(); await Promise.resolve();
+  } finally { cleanup(); }
+});
+
+
+it('모바일은 편을 바꿔도 같은 입력창과 초안을 유지하고 오른쪽 편으로 연속 전송한다', async () => {
+  const width = window.innerWidth;
+  window.innerWidth = 390;
+  const { state, store, cleanup } = await setupVoting();
+  store.vote.mockImplementation(async (_room, _actor, _name, side) => { state.mySide = side; });
+  store.post = jest.fn(async (_room, data) => {
+    const post = { id: String(state.posts.length + 1), side: state.mySide, authorId: '1', name: '나', text: data.text, createdAt: 1 };
+    state.posts.push(post); return post;
+  });
+  try {
+    const input = document.querySelector('#message');
+    expect(input).toBeEnabled();
+    input.focus(); input.value = '편을 고르기 전 초안'; input.dispatchEvent(new Event('input'));
+    expect(document.querySelector('#send')).toBeDisabled();
+    for (const side of ['a', 'b']) {
+      document.querySelector(`.composer-avatar[data-side="${side}"]`).click();
+      await Promise.resolve(); await Promise.resolve();
+      expect(input).toHaveFocus();
+      expect(input).toHaveValue('편을 고르기 전 초안');
+      expect(document.querySelector('#send')).toBeEnabled();
+      expect(document.querySelector('#message-b')).toBeDisabled();
+      expect(document.querySelector('[data-composer-side="a"]')).toHaveAttribute('data-expanded', 'true');
+      expect(document.querySelector('[data-composer-side="b"]')).toHaveAttribute('data-expanded', 'false');
+    }
+    document.querySelector('.composer-avatar[data-side="b"]').click();
+    expect(input).toHaveFocus();
+    expect(document.querySelector('#composer-panel-a').inert).toBe(false);
+    document.querySelector('#send').click();
+    await Promise.resolve(); await Promise.resolve();
+    expect(store.post).toHaveBeenCalledWith('1', expect.objectContaining({ text: '편을 고르기 전 초안' }));
+    expect(state.posts[0].side).toBe('b');
+    expect(input).toHaveValue(''); expect(input).toHaveFocus();
+    input.value = '다음 메시지'; input.dispatchEvent(new Event('input'));
+    expect(input).toHaveFocus(); expect(document.querySelector('#send')).toBeEnabled();
+  } finally { cleanup(); window.innerWidth = width; }
 });

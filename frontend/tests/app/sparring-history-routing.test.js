@@ -6,16 +6,17 @@ import { createCapsuleReveals } from '../../public/sparring-arena/src/capsule-re
 import { createClash } from '../../public/sparring-arena/src/clash.js';
 import { createDispenser } from '../../public/sparring-arena/src/dispenser.js';
 import { whenCharacterAssetsReady } from '../../public/sparring-arena/src/characters.js';
+import { WebGLRenderer } from 'three';
 
 jest.mock('../../public/sparring-arena/src/characters.js', () => ({ whenCharacterAssetsReady: jest.fn(() => Promise.resolve()) }));
 
-jest.mock('../../public/sparring-arena/src/composer-characters.js', () => ({ createComposerCharacters: () => ({ update() {}, step() {}, ship() {}, dispose() {} }) }));
+jest.mock('../../public/sparring-arena/src/composer-characters.js', () => ({ createComposerCharacters: () => ({ update() {}, step() {}, ship() {}, dispose() {}, presentation: () => null, setProjection() {} }) }));
 
 jest.mock('three', () => {
   const actual = jest.requireActual('../../public/sparring-arena/vendor/three.module.js');
   class WebGLRenderer {
     constructor() { this.domElement = global.document.createElement('canvas'); this.shadowMap = {}; this.info = { reset() {}, render: { calls: 0 }, memory: { geometries: 0 } }; }
-    clear() {} clearDepth() {} setViewport() {}
+    clear() {} clearDepth() {} setViewport() {} setScissor() {} setScissorTest() {}
     setPixelRatio() {} setClearColor() {} setSize() {} render() {} dispose() {} forceContextLoss() {}
   }
   return { ...actual, WebGLRenderer };
@@ -50,18 +51,61 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     global.IntersectionObserver = class { observe() {} disconnect() {} };
     stage = document.createElement('div'); container = document.createElement('div'); stage.append(container); document.body.append(stage);
     Object.defineProperties(container, { clientWidth: { value: 900 }, clientHeight: { value: 500 } });
-    capsules = { step: noop, replayPipe: jest.fn(() => null), stats: () => ({ queuedId: null, drawReady: true }), takeHistorical: jest.fn(() => ({ post: reply, fresh: false })), takeForDraw: jest.fn(), presentation: () => ({ tracking: ['flight'] }), launch: jest.fn(), queueReplay: jest.fn(), shockwave: jest.fn(), updateState: noop, setPaused: noop };
-    duel = { updateState: noop, prepare: jest.fn(() => [{ role: 0, post: original }, { role: 1, post: reply }]), emerge: jest.fn(), clear: jest.fn(), setLayout: noop, setPaused: noop, pinned: () => false, canReplace: () => true, step: noop, busy: () => false, needsFrame: () => false, stats: () => ({}), dispose: noop };
-    history = { emerge: jest.fn(), setLayout: noop, setPaused: noop, setVisible: jest.fn(), pinned: () => false, step: noop, needsFrame: () => false, stats: () => ({ historyArriving: 0 }), dispose: noop };
-    clash = { start: jest.fn(), busy: () => false, reposition: noop, step: jest.fn(), needsFrame: () => false, stats: () => ({}), dispose: noop };
-    dispenser = { start: jest.fn(() => true), startPair: jest.fn(() => true), clearAll: jest.fn(), readyForNext: () => true, step: noop, outputs: () => [], stats: () => ({}) };
-    reveals = { update: jest.fn(), dispose: noop };
+    capsules = { step: noop, takeCollision: () => null, replayPipe: jest.fn(() => null), stats: () => ({ queuedId: null, drawReady: true }), takeHistorical: jest.fn(() => ({ post: reply, fresh: false })), takeForDraw: jest.fn(), presentation: () => ({ tracking: ['flight'] }), launch: jest.fn(), queueReplay: jest.fn(), shockwave: jest.fn(), updateState: noop, setPaused: noop };
+    duel = { updateState: noop, prepare: jest.fn(() => [{ role: 0, post: original }, { role: 1, post: reply }]), emerge: jest.fn(), clear: jest.fn(), setLayout: jest.fn(), setPaused: noop, pinned: () => false, canReplace: () => true, step: noop, busy: () => false, needsFrame: () => false, stats: () => ({}), dispose: noop };
+    history = { emerge: jest.fn(), setLayout: jest.fn(), setPaused: noop, setVisible: jest.fn(), pinned: () => false, step: noop, needsFrame: () => false, stats: () => ({ historyArriving: 0 }), dispose: noop };
+    clash = { start: jest.fn(), busy: () => false, setCamera: jest.fn(), reposition: noop, step: jest.fn(), presentation: () => null, projectEffects: noop, needsFrame: () => false, stats: () => ({}), dispose: noop };
+    dispenser = { setTrayWidth: jest.fn(), start: jest.fn(() => true), startPair: jest.fn(() => true), clearAll: jest.fn(), readyForNext: () => true, step: noop, presentation: () => null, outputs: () => [], stats: () => ({}) };
+    reveals = { update: jest.fn(), spark: jest.fn(), dispose: noop };
     createCapsules.mockReturnValue(capsules);
     createCharacterDuel.mockImplementation(() => { const field = document.createElement('section'); field.className = 'character-duel'; stage.append(field); return duel; });
     createHistoryConversation.mockReturnValue(history); createClash.mockReturnValue(clash); createDispenser.mockReturnValue(dispenser); createCapsuleReveals.mockReturnValue(reveals);
     arena = createArena(container, noop, noop);
   });
   afterEach(() => { arena?.dispose(); stage.remove(); jest.restoreAllMocks(); });
+  it('세 구도 전환은 살아 있는 대화와 캡슐을 비우지 않고 작은 모드의 크기만 적용하고 복원한다', () => {
+    expect(container.dataset.viewMode).toBe('compact');
+    expect(createDispenser.mock.calls[0][2].trayWidth).toBe(4.4);
+    for (const [view, width, compact] of [['original', 10, false], ['reference', 14, false], ['compact', 4.4, true]]) {
+      arena.setView(view);
+      expect(container.dataset.viewMode).toBe(view);
+      expect(dispenser.setTrayWidth).toHaveBeenLastCalledWith(width, compact ? 0.45 : 1);
+      const field = stage.querySelector('.character-duel');
+      expect(field.dataset.compact).toBe(String(compact));
+      const size = field.style.getPropertyValue('--duel-figure-size');
+      if (compact) expect(parseFloat(size)).toBeGreaterThan(0);
+      else expect(size).toBe('');
+      const layout = history.setLayout.mock.lastCall[0];
+      expect(layout.characterScale).toBeCloseTo(compact ? 0.31 * 0.5 / 0.48 : 0.65);
+      expect(dispenser.clearAll).not.toHaveBeenCalled();
+      expect(duel.clear).not.toHaveBeenCalled();
+    }
+  });
+  it.each([390, 1024])('%ipx에서 모바일 입력창만 호스를 가리고 캐릭터는 그 위에 그린다', width => {
+    arena.dispose(); stage.replaceChildren(container);
+    const form = document.createElement('form');
+    form.id = 'composer'; form.innerHTML = '<div class="composer-field"></div>'; stage.append(form);
+    form.firstChild.getBoundingClientRect = () => ({ left: 16, bottom: 540, width: 358, height: 140 });
+    const descriptor = Object.getOwnPropertyDescriptor(document.documentElement, 'clientWidth');
+    Object.defineProperty(document.documentElement, 'clientWidth', { configurable: true, value: width });
+    const render = jest.spyOn(WebGLRenderer.prototype, 'render');
+    try {
+      arena = createArena(container, noop, noop); advance(.1);
+      const front = render.mock.lastCall[0];
+      const backdrop = front.getObjectByName('composer-backdrop');
+      expect(backdrop.visible).toBe(width <= 700);
+      if (width <= 700) {
+        const bounds = backdrop.geometry;
+        bounds.computeBoundingBox();
+        expect(bounds.boundingBox.max.x).toBe(358);
+        expect(bounds.boundingBox.max.y).toBe(140);
+        expect(backdrop.position.z).toBeLessThan(30);
+      }
+    } finally {
+      if (descriptor) Object.defineProperty(document.documentElement, 'clientWidth', descriptor);
+      else delete document.documentElement.clientWidth;
+    }
+  });
   it('캐릭터 이미지와 호스 배치가 끝난 첫 렌더 뒤에만 준비 완료를 알린다', async () => {
     arena.dispose(); stage.replaceChildren(container);
     let finishAssets;
@@ -112,23 +156,27 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     createDispenser.mock.calls[0][2].onOpened({ ...dispenser.startPair.mock.calls[0][0][1], body: { position: { x: 0, y: 0, z: 0 } } });
     expect(duel.emerge).toHaveBeenCalledWith(1, expect.any(Function), false); expect(history.emerge).not.toHaveBeenCalled();
   });
-  it('이전 미끄럼틀을 마친 뒤 전송하며 파이프 도착 즉시 한 번만 받아치기를 발사한다', () => {
-    let slideReady = false, arrive;
-    dispenser.readyForNext = () => slideReady;
+  it('미끄럼틀과 대화가 진행 중이어도 즉시 전송하며 파이프 도착 시 한 번만 받아치기를 발사한다', () => {
+    let arrive;
+    dispenser.readyForNext = () => false;
+    duel.canReplace = () => false;
+    history.pinned = () => true;
     const transport = jest.fn(done => { arrive = done; });
     arena.updateState([], {});
     arena.launch(reply, transport);
     arena.launch(reply);
     advance(0.5);
-    expect(transport).not.toHaveBeenCalled();
-    expect(capsules.replayPipe).not.toHaveBeenCalled();
-    slideReady = true; advance(0.1);
     expect(transport).toHaveBeenCalledTimes(1);
+    expect(capsules.replayPipe).toHaveBeenCalled();
     advance(1);
     expect(clash.start).not.toHaveBeenCalled();
     expect(capsules.launch).not.toHaveBeenCalled();
-    expect(capsules.replayPipe).not.toHaveBeenCalled();
+    expect(capsules.replayPipe).toHaveBeenCalled();
+    const feedBeforeClash = capsules.replayPipe.mock.calls.length;
     arrive(); arrive();
+    clash.busy = () => true;
+    advance(0.5);
+    expect(capsules.replayPipe.mock.calls.length).toBeGreaterThan(feedBeforeClash);
     expect(clash.start).toHaveBeenCalledTimes(1);
     expect(clash.start).toHaveBeenCalledWith(reply, true, false);
     expect(clash.step).toHaveBeenCalledWith(0);
@@ -140,6 +188,7 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     arena.updateState([original], {});
     arena.launch(original, done => { arrive = done; });
     advance(0.5);
+    expect(capsules.replayPipe).toHaveBeenCalled();
     expect(capsules.launch).not.toHaveBeenCalled();
     arrive();
     arena.launch(original);
@@ -181,14 +230,35 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     expect(clash.start).not.toHaveBeenCalled();
     await expect(delivered).resolves.toBeUndefined();
   });
-  it('아직 시작하지 못한 전달도 종료 시 대기를 해제한다', async () => {
+  it('미끄럼틀과 무관하게 시작한 전달도 종료 시 대기를 해제한다', async () => {
     dispenser.readyForNext = () => false;
     const transport = jest.fn();
     const delivered = arena.launch(reply, transport);
     advance(0.1);
     arena.dispose(); arena = null;
-    expect(transport).not.toHaveBeenCalled();
+    expect(transport).toHaveBeenCalledTimes(1);
     await expect(delivered).resolves.toBeUndefined();
+  });
+  it('연속 받아치기는 호스 이동을 즉시 시작하고 이전 충돌만 끝나면 발사한다', () => {
+    let busy = true;
+    clash.busy = () => busy;
+    duel.canReplace = () => false;
+    dispenser.readyForNext = () => false;
+    const arrivals = [];
+    const transport = jest.fn(done => { arrivals.push(done); });
+    arena.launch(reply, transport);
+    const next = { ...reply, id: 'next-reply' };
+    arena.launch(next, transport);
+    expect(transport).toHaveBeenCalledTimes(2);
+    arrivals[0](); arrivals[1]();
+    expect(clash.start).not.toHaveBeenCalled();
+    clash.start.mockImplementation(() => { busy = true; });
+    busy = false; advance(0.1);
+    expect(clash.start).toHaveBeenCalledTimes(1);
+    expect(clash.start).toHaveBeenLastCalledWith(reply, true, false);
+    busy = false; advance(0.1);
+    expect(clash.start).toHaveBeenCalledTimes(2);
+    expect(clash.start).toHaveBeenLastCalledWith(next, true, false);
   });
   it('전달 효과 생성 실패는 즉시 발사로 이어지고 대기를 남기지 않는다', async () => {
     const delivered = arena.launch(original, () => { throw new Error('animation unavailable'); });

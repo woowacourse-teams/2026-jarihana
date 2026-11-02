@@ -41,16 +41,22 @@ export function createCharacters(scene, capacity) {
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.frustumCulled = false;
     scene.add(mesh); return mesh;
   });
+  const capsuleUp = new THREE.Vector3(), offset = new THREE.Vector3(), rollAxis = new THREE.Vector3(0, 0, 1);
   const transform = new THREE.Object3D(), zero = new THREE.Matrix4().makeScale(0, 0, 0);
   function hideMesh(mesh, index) {
     mesh.setMatrixAt(index, zero); mesh.instanceMatrix.needsUpdate = true; mesh.boundingSphere = null;
   }
   function hide(index) { for (const mesh of meshes) hideMesh(mesh, index); }
-  function draw(index, post, position, size, pose, yaw = 0) {
+  function draw(index, post, position, size, pose, yaw = 0, capsuleRotation = null) {
     const variant = post?.memberType === 'CREW' ? 0 : post?.memberType === 'COACH' ? 1 : characterVariant(post);
     const scale = size * pose.scale * pose.shrink;
-    transform.position.copy(position); transform.position.y += pose.lift * size + 1.05 * scale;
-    transform.rotation.set(0.17, yaw * 0.18, pose.lean + pose.wave * 0.07);
+    // Keep the atlas face visible while its body rolls with the capsule in the screen plane.
+    capsuleUp.set(0, 1, 0);
+    if (capsuleRotation) capsuleUp.applyQuaternion(capsuleRotation);
+    const roll = Math.atan2(-capsuleUp.x, capsuleUp.y);
+    offset.set(0, pose.lift * size + 1.05 * scale, 0).applyAxisAngle(rollAxis, roll);
+    transform.position.copy(position).add(offset);
+    transform.rotation.set(0.17, yaw * 0.18, roll + pose.lean + pose.wave * 0.07);
     transform.scale.setScalar(scale); transform.updateMatrix();
     meshes[variant].setMatrixAt(index, transform.matrix);
     meshes[variant].instanceMatrix.needsUpdate = true; meshes[variant].boundingSphere = null;
