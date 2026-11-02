@@ -312,10 +312,21 @@ frontend_only_full_observation() {
   STATE=$(cat "$STATE_FILE")
   main observe
   STATE=$(cat "$STATE_FILE")
-  jq -e '.http_observed_started_at>=.frontend.published_at and .http_observed_finished_at-.http_observed_started_at==900' "$STATE_FILE" >/dev/null
+  jq -e '.http_observed_started_at>=.frontend.published_at and .http_observed_finished_at-.http_observed_started_at==300' "$STATE_FILE" >/dev/null
   main frontend-seal
   jq -e '.phase=="COMPLETE" and .frontend.finalized==true and .old_status.slot=="A"' "$STATE_FILE" >/dev/null
   jq -e --arg release "$GITHUB_SHA-$RUN_ID" '.current==$release and .previous=="baseline-123" and .pending==null' "$CASE_DIR/s3/$FE_ARCHIVE/state.json" >/dev/null
+}
+frontend_only_short_observation_rejected() {
+  fe_stage; fe_publish
+  STATE=$(jq '.frontend_only=true | .target=.old | .phase="OBSERVING" |
+    .http_observed_started_at=.frontend.published_at |
+    .http_observed_finished_at=(.frontend.published_at+299)' <<<"$STATE")
+  bg_atomic "$STATE_FILE" "$STATE"
+  echo 1300 >"$CASE_DIR/clock"
+  rejects main frontend-seal
+  jq -e '.sealed==false and .frontend.finalized==false' "$STATE_FILE" >/dev/null
+  jq -e '.pending!=null' "$CASE_DIR/s3/$FE_ARCHIVE/state.json" >/dev/null
 }
 observation_before_publish_rejected() {
   fe_stage
@@ -396,11 +407,11 @@ backend_only_observation_and_seal() {
   bg_atomic "$STATE_FILE" "$STATE"
   bg_github() { echo '{"jobs":[{"name":"candidate-worker-observation","conclusion":null}]}'; }
   bg_observe
-  TARGET_RESULT='{"observed_started_at":1000,"observed_finished_at":1900}'
+  TARGET_RESULT='{"observed_started_at":1000,"observed_finished_at":1300}'
   bg_accept() { bg_save "$(jq -c --argjson status "$1" '.target_status=$status' <<<"$STATE")"; }
   bg_owner() { :; }; bg_drained() { return 0; }
   bg_seal
-  jq -e '.sealed==true and .frontend.published==false and .frontend.finalized==true and .http_observed_finished_at-.http_observed_started_at==900' "$STATE_FILE" >/dev/null
+  jq -e '.sealed==true and .frontend.published==false and .frontend.finalized==true and .http_observed_finished_at-.http_observed_started_at==300' "$STATE_FILE" >/dev/null
   ! grep -qvFx "$FE_ARCHIVE/state.json" "$CASE_DIR/writes"
 }
 frontend_after_backend_only_uses_actual_pair() {
@@ -414,7 +425,7 @@ frontend_after_backend_only_uses_actual_pair() {
   jq -e --arg image "$BG_IMAGE_DIGEST" '.current=="baseline-123" and .backend_image==$image and .pending==null' "$CASE_DIR/s3/$FE_ARCHIVE/state.json" >/dev/null
 }
 if [[ ${1:-} == --fixtures-only ]]; then return 0; fi
-for test in approved_edge_function unapproved_edge_function file_operations_bound_remote_reads archive_operations_bound_remote_reads cancellation_stops_next_file cancellation_after_last_public_file cancellation_prevents_release_commit local_lease_checked_after_file local_state_change_preserved_after_file backend_only_observation_and_seal backend_only_keeps_frontend_files backend_only_rollback_keeps_frontend_files frontend_after_backend_only_uses_actual_pair full_round_trip partial_publish public_fallback_detected missing_baseline pointer_permission_not_absent cache_preflight symlink_artifact traversal_manifest archive_checksum_mismatch wrong_manifest_release stale_recovery cas_conflict recovery_failure_preserves_intent revocation_no_replay independent_worker_recovery frontend_only_full_observation observation_before_publish_rejected archive_immutable zero_length_file_rejected missing_referenced_asset public_failure_during_observation final_check_before_pointer_commit frontend_only_recovery_refreshes_lease; do
+for test in approved_edge_function unapproved_edge_function file_operations_bound_remote_reads archive_operations_bound_remote_reads cancellation_stops_next_file cancellation_after_last_public_file cancellation_prevents_release_commit local_lease_checked_after_file local_state_change_preserved_after_file backend_only_observation_and_seal backend_only_keeps_frontend_files backend_only_rollback_keeps_frontend_files frontend_after_backend_only_uses_actual_pair full_round_trip partial_publish public_fallback_detected missing_baseline pointer_permission_not_absent cache_preflight symlink_artifact traversal_manifest archive_checksum_mismatch wrong_manifest_release stale_recovery cas_conflict recovery_failure_preserves_intent revocation_no_replay independent_worker_recovery frontend_only_full_observation frontend_only_short_observation_rejected observation_before_publish_rejected archive_immutable zero_length_file_rejected missing_referenced_asset public_failure_during_observation final_check_before_pointer_commit frontend_only_recovery_refreshes_lease; do
   ( setup "$test"; "$test" )
   printf 'PASS frontend %s\n' "$test"
 done

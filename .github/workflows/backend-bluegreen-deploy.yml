@@ -261,7 +261,7 @@ jobs:
   prepare:
     name: prepare
     needs: [resolve, plan]
-    if: inputs.mode == 'deploy' && needs.resolve.outputs.frontend_only != 'true'
+    if: always() && !cancelled() && needs.resolve.result == 'success' && needs.plan.result == 'success' && inputs.mode == 'deploy' && needs.resolve.outputs.frontend_only != 'true'
     uses: ./.github/workflows/backend-app-operation.yml
     secrets: inherit
     with:
@@ -273,6 +273,7 @@ jobs:
   grant-handoff:
     name: grant-handoff
     needs: [resolve, plan, prepare]
+    if: always() && !cancelled() && needs.resolve.result == 'success' && needs.plan.result == 'success' && needs.prepare.result == 'success'
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
@@ -284,6 +285,7 @@ jobs:
   handoff:
     name: handoff
     needs: [resolve, plan, grant-handoff]
+    if: always() && !cancelled() && needs.resolve.result == 'success' && needs.plan.result == 'success' && needs.grant-handoff.result == 'success'
     uses: ./.github/workflows/backend-app-operation.yml
     secrets: inherit
     with:
@@ -295,6 +297,7 @@ jobs:
   switch:
     name: switch
     needs: [resolve, plan, handoff]
+    if: always() && !cancelled() && needs.resolve.result == 'success' && needs.plan.result == 'success' && needs.handoff.result == 'success'
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
@@ -306,6 +309,7 @@ jobs:
   activate:
     name: activate
     needs: [resolve, plan, switch]
+    if: always() && !cancelled() && needs.resolve.result == 'success' && needs.plan.result == 'success' && needs.switch.result == 'success'
     uses: ./.github/workflows/backend-app-operation.yml
     secrets: inherit
     with:
@@ -317,6 +321,7 @@ jobs:
   grant-observe:
     name: grant-observe
     needs: [resolve, plan, activate]
+    if: always() && !cancelled() && needs.resolve.result == 'success' && needs.plan.result == 'success' && needs.activate.result == 'success'
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
@@ -328,6 +333,7 @@ jobs:
   observe-app:
     name: candidate-worker-observation
     needs: [resolve, plan, grant-observe]
+    if: always() && !cancelled() && needs.resolve.result == 'success' && needs.plan.result == 'success' && needs.grant-observe.result == 'success'
     uses: ./.github/workflows/backend-app-operation.yml
     secrets: inherit
     with:
@@ -339,6 +345,7 @@ jobs:
   observe-http:
     name: api-metrics-observation
     needs: [resolve, plan, grant-observe]
+    if: always() && !cancelled() && needs.resolve.result == 'success' && needs.plan.result == 'success' && needs.grant-observe.result == 'success'
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
@@ -349,6 +356,7 @@ jobs:
   seal:
     name: seal
     needs: [resolve, plan, observe-app, observe-http]
+    if: always() && !cancelled() && needs.resolve.result == 'success' && needs.plan.result == 'success' && needs.observe-app.result == 'success' && needs.observe-http.result == 'success'
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
@@ -360,7 +368,7 @@ jobs:
   complete-target:
     name: complete-target
     needs: [resolve, plan, seal]
-    if: needs.seal.outputs.cleanup_deferred == 'false'
+    if: always() && !cancelled() && needs.resolve.result == 'success' && needs.plan.result == 'success' && needs.seal.result == 'success' && needs.seal.outputs.cleanup_deferred == 'false'
     uses: ./.github/workflows/backend-app-operation.yml
     secrets: inherit
     with:
@@ -372,6 +380,7 @@ jobs:
   grant-stop:
     name: grant-stop
     needs: [resolve, plan, complete-target]
+    if: always() && !cancelled() && needs.resolve.result == 'success' && needs.plan.result == 'success' && needs.complete-target.result == 'success'
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
@@ -383,6 +392,7 @@ jobs:
   stop-old:
     name: stop-old
     needs: [resolve, plan, grant-stop]
+    if: always() && !cancelled() && needs.resolve.result == 'success' && needs.plan.result == 'success' && needs.grant-stop.result == 'success'
     uses: ./.github/workflows/backend-app-operation.yml
     secrets: inherit
     with:
@@ -394,6 +404,7 @@ jobs:
   stop-ec2:
     name: stop-ec2
     needs: [resolve, plan, stop-old]
+    if: always() && !cancelled() && needs.resolve.result == 'success' && needs.plan.result == 'success' && needs.stop-old.result == 'success'
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:

@@ -179,14 +179,17 @@ case_rollback_already_released() {
 }
 case_observation() {
   change '.authority.phase="OBSERVE"'; app_read
-  # Advance both real-time sources in the test double; the implementation must poll for >=900s.
+  # Check both clocks just before and at the 300-second boundary.
   sleep() {
-    printf '%s\n' "$(( $(cat "$APP_DIR/clock")+300 ))" > "$APP_DIR/clock"
-    printf '%s\n' "$(( $(cat "$APP_DIR/monotonic")+300 ))" > "$APP_DIR/monotonic"
+    local elapsed=$(( $(bg_now)-1000 )) advance=1
+    (( elapsed<300 )) || return 1
+    (( elapsed!=0 )) || advance=299
+    printf '%s\n' "$(( $(bg_now)+advance ))" > "$APP_DIR/clock"
+    printf '%s\n' "$(( $(cat "$APP_DIR/monotonic")+advance ))" > "$APP_DIR/monotonic"
   }
   app_observe
-  (( OBSERVED_FINISHED_AT-OBSERVED_STARTED_AT>=900 ))
-  (( $(cat "$APP_DIR/live")>=6 ))
+  (( OBSERVED_FINISHED_AT-OBSERVED_STARTED_AT==300 ))
+  (( $(cat "$APP_DIR/live")>=4 ))
 }
 case_observation_clock_jump() {
   change '.authority.phase="OBSERVE"'; app_read
@@ -330,14 +333,14 @@ case_prepare_invalid_rds() {
   done
 }
 case_receipt() {
-  STOPPED=false OPERATION=observe OBSERVED_STARTED_AT=1000 OBSERVED_FINISHED_AT=1900
+  STOPPED=false OPERATION=observe OBSERVED_STARTED_AT=1000 OBSERVED_FINISHED_AT=1300
   bg_output() { [[ $1 == result ]]; printf '%s\n' "$2" > "$APP_DIR/receipt"; }
   app_result
   jq -e --arg boot "$BOOT_ID" --arg grant "$GRANT_ID" --arg digest "$BG_IMAGE_DIGEST" '
     .operation=="observe" and .instance_id=="i-aaaaaaaaaaaaaaaaa" and .run_id==123 and .slot=="A"
     and .grant_id==$grant and .pending_id==$grant and .image==$digest and .identity.bootId==$boot
     and .running and .healthy and (.normal_exit|not) and .shutdown_evidence==null
-    and (.observed_finished_at-.observed_started_at)>=900 and .authority.revision==10' "$APP_DIR/receipt" >/dev/null
+    and (.observed_finished_at-.observed_started_at)==300 and .authority.revision==10' "$APP_DIR/receipt" >/dev/null
 }
 
 docker_fixture() {

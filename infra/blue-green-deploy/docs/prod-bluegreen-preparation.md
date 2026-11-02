@@ -73,7 +73,7 @@ ARM64가 아니면서 CLI가 없는 호스트는 공통 라벨을 활성화하�
    한다. 최초 bootstrap은 승인한 시간에 한 번 수행한다. 실제 인증·쓰기·이미지·푸시와
    CloudFront Deployed를 확인한 뒤 prod 자동화 flag를 켠다. 수동 실행에는 `deploy`를 명시한다.
    첫 교대와 역방향 교대, 관찰·정상 종료·EC2 중지를 실제 확인하기 전에는 검증 완료로
-   기록하지 않는다. [관찰과 복구 계약](../controller/full-deployment.md#관찰과-복구)의 최소 900초 관찰·
+   기록하지 않는다. [관찰과 복구 계약](../controller/full-deployment.md#관찰과-복구)의 최소 300초 관찰,
    연속 실패/UNKNOWN 판정과 배포 확정 전 자동 롤백을 유지한다. 배포 확정 후 장애는 별도 복구 대상이며
    `cleanup_deferred`나 미확정 상태이면 양쪽 호스트를 보존한다.
 
