@@ -83,7 +83,7 @@ S3 객체 복사는 여러 파일에 걸친 트랜잭션이 아니다. `index.ht
 ## 검증과 도입
 
 "채택"은 이 설계를 사용한다는 결정이다. 운영 적용 여부와 미검증 범위는
-[배포 실행의 운영 적용 상태](../../blue-green-deploy/controller/deployment.md#운영-적용-상태)에서 관리한다. 로컬 계약 테스트와 실제 AWS, IAM,
+[배포 실행의 운영 적용 상태](../../blue-green-deploy/docs/deployment.md#운영-적용-상태)에서 관리한다. 로컬 계약 테스트와 실제 AWS, IAM,
 GitHub runner, 전체 300초 관찰 및 실패 복구 검증은 구분한다. 구체적인 설치, 최초 baseline,
 관찰 및 수동 조정 절차는 [서버 구성](../../blue-green-deploy/docs/server-setup/README.md#프론트엔드-사전-준비),
 [관찰 기준](../../blue-green-deploy/docs/status.md#관찰-기준)과
