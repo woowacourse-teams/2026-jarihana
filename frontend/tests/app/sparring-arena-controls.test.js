@@ -9,7 +9,7 @@ it('편을 고르기 전에 누른 말풍선도 받아치기 대상으로 유지
   const first = { id: '1', side: 'a', authorId: 'crew', name: '크루', text: '기다리면 금방이야', createdAt: 1 };
   const second = { id: '2', side: 'b', authorId: 'coach', name: '코치', text: '점심시간이 더 소중해', createdAt: 2 };
   const state = { actorId: null, mySide: null, topic: { id: 'topic', title: '점심', a: '맛', b: '시간' },
-    posts: [first, second], postCount: 2, connection: 'connected', balance: { total: 2, a: 1, b: 1, ratio: 0.5 }, more: { all: false, mine: false } };
+    posts: [first, second], postCount: 2, connection: 'connected', balance: { total: 2, a: 1, b: 1, ratio: 0.5 } };
   const store = { snapshot: () => state, subscribe: jest.fn(), reportHeight: jest.fn(), vote: jest.fn(async (_room, _actor, _name, side) => { state.mySide = side; }), post: jest.fn(async () => second) };
   const base = path.join(__dirname, '../../public/sparring-arena');
   const html = readFileSync(path.join(base, 'index.html'), 'utf8');
@@ -68,7 +68,7 @@ it('지난 대화와 대치 말풍선은 각각 누른 실제 의견을 받아�
   const first = { id: '1', side: 'a', authorId: 'crew', name: '가온', text: '먼저 한 의견', createdAt: 1 };
   const second = { id: '2', side: 'b', authorId: 'coach', name: '하나', text: '반대편 의견', createdAt: 2, replyToId: '1', replyTo: first };
   const state = { actorId: 'me', mySide: 'a', topic: { id: 'topic', title: '점심', a: '맛', b: '시간' },
-    posts: [second], postCount: 1, connection: 'live', balance: { total: 1, a: 1, b: 0, ratio: 1 }, more: { all: false, mine: false } };
+    posts: [second], postCount: 1, connection: 'live', balance: { total: 1, a: 1, b: 0, ratio: 1 } };
   const store = { snapshot: () => state, subscribe: jest.fn(), reportHeight: jest.fn(), reportScene: jest.fn(), reveal: jest.fn(), post: jest.fn(async () => second) };
   const base = path.join(__dirname, '../../public/sparring-arena');
   document.body.innerHTML = readFileSync(path.join(base, 'index.html'), 'utf8').match(/<body>([\s\S]*)<\/body>/)[1];
@@ -117,7 +117,7 @@ it('지난 대화와 대치 말풍선은 각각 누른 실제 의견을 받아�
 
 async function setupVoting() {
   const state = { actorId: '1', mySide: null, topic: { id: '1', title: '점심', a: '맛', b: '시간' }, posts: [], postCount: 0,
-    connection: 'live', balance: { total: 0, a: 0, b: 0, ratio: 0.5 }, more: { all: false, mine: false } };
+    connection: 'live', balance: { total: 0, a: 0, b: 0, ratio: 0.5 } };
   const store = { snapshot: () => state, subscribe: jest.fn(), reportHeight: jest.fn(), reportScene: jest.fn(), vote: jest.fn() };
   const base = path.join(__dirname, '../../public/sparring-arena');
   document.body.innerHTML = readFileSync(path.join(base, 'index.html'), 'utf8').match(/<body>([\s\S]*)<\/body>/)[1];
@@ -127,8 +127,9 @@ async function setupVoting() {
   const arena = { ready: Promise.resolve(), updateState: jest.fn(), chooseSide: jest.fn(), launch: jest.fn(), dispose() {} };
   const source = readFileSync(path.join(base, 'src/app.js'), 'utf8').replace(/^import .*;\n/gm, '');
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-  await new AsyncFunction('createRequestId', 'setupComposer', 'animateCapsuleSend', 'createArena', 'connectRoom', 'revealComposer', source)(createRequestId, jest.fn(), jest.fn(), () => arena, async () => store, revealComposer);
-  return { state, store, arena, cleanup() { document.body.replaceChildren(); Object.defineProperty(window, 'matchMedia', media); global.ResizeObserver = observer; } };
+  const createArena = jest.fn(() => arena);
+  await new AsyncFunction('createRequestId', 'setupComposer', 'animateCapsuleSend', 'createArena', 'connectRoom', 'revealComposer', source)(createRequestId, jest.fn(), jest.fn(), createArena, async () => store, revealComposer);
+  return { state, store, arena, reply: id => createArena.mock.calls[0][3](id), cleanup() { document.body.replaceChildren(); Object.defineProperty(window, 'matchMedia', media); global.ResizeObserver = observer; } };
 }
 
 it.each(['vote-flag', 'pipe-meter', 'composer-avatar'])('%s에서 첫 편을 선택하면 저장 후 입력창과 파이프가 활성화된다', async (target) => {
@@ -358,14 +359,14 @@ it('늦게 실패한 글은 새 초안을 덮지 않고 동일한 요청 ID로 �
 
 
 it('연속 전송 각각의 받아칠 대상을 보존하고 저장 대기 중에는 편 변경만 막는다', async () => {
-  const { state, store, cleanup } = await setupVoting();
+  const { state, store, reply, cleanup } = await setupVoting();
   const parent = { id: 'parent', side: 'b', authorId: '2', name: '상대', text: '먼저 한마디', createdAt: 1 };
   state.posts.push(parent); state.mySide = 'a';
   const requests = [];
   store.post = jest.fn((_room, payload) => new Promise(resolve => requests.push({ payload, resolve })));
   store.subscribe.mock.calls[0][0]([]);
   try {
-    document.querySelector('.history-item').click();
+    reply(parent.id);
     const input = document.querySelector('#message'), form = document.querySelector('#composer');
     input.value = '답장'; input.dispatchEvent(new Event('input'));
     form.dispatchEvent(new Event('submit', { cancelable: true }));
@@ -416,12 +417,12 @@ it('내 캐릭터를 누르면 투표 없이 말풍선을 열고 접으며 초�
 });
 
 it.each(['a', 'b'])('%s 입력창 밖을 클릭하면 접히고 초안과 받아치기 대상은 남는다', async side => {
-  const { state, store, cleanup } = await setupVoting();
+  const { state, store, reply, cleanup } = await setupVoting();
   state.mySide = side;
   const post = { id: 'outside-reply', side: 'a', authorId: 'other', name: '크루', text: '받아칠 의견', createdAt: 1 };
   state.posts.push(post); store.subscribe.mock.calls[0][0]([]);
   try {
-    document.querySelector('.history-item').click();
+    reply(post.id);
     const avatar = document.querySelector(`.composer-avatar[data-side="${side}"]`);
     const input = document.querySelector(`[data-input-side="${side}"]`);
     input.value = '작성 중인 답변'; input.dispatchEvent(new Event('input'));
@@ -436,20 +437,20 @@ it.each(['a', 'b'])('%s 입력창 밖을 클릭하면 접히고 초안과 받아
     avatar.click();
     expect(input).toHaveValue('작성 중인 답변');
     expect(document.querySelector('#reply-target-text')).toHaveTextContent(post.text);
-    document.querySelector('.history-item').click();
+    reply(post.id);
     expect(avatar).toHaveAttribute('aria-expanded', 'true');
     expect(input).toHaveFocus();
   } finally { cleanup(); }
 });
 
 it.each(['a', 'b'])('%s 캐릭터로 말풍선을 접어도 초안과 받아치기 대상을 보존한다', async side => {
-  const { state, store, cleanup } = await setupVoting();
+  const { state, store, reply, cleanup } = await setupVoting();
   state.mySide = side;
   const post = { id: '1', side: side === 'a' ? 'b' : 'a', authorId: 'other', name: '다른 사람', text: '받아칠 의견', createdAt: 1 };
   state.posts.push(post); store.subscribe.mock.calls[0][0]([]);
   store.post = jest.fn(async () => post);
   try {
-    document.querySelector('.history-item').click();
+    reply(post.id);
     const device = document.querySelector(`[data-composer-side="${side}"]`);
     const avatar = device.querySelector('.composer-avatar'), input = device.querySelector('textarea');
     input.value = '접었다 이어서 쓸 답변'; input.dispatchEvent(new Event('input'));
@@ -486,13 +487,13 @@ it('마감된 토론의 캐릭터는 입력창을 열거나 편을 바꾸지 않
 });
 
 it('같은 편에도 받아칠 수 있고 편을 변경한 뒤에도 원문과 초안을 유지한다', async () => {
-  const { state, store, cleanup } = await setupVoting();
+  const { state, store, reply, cleanup } = await setupVoting();
   const post = { id: 'opinion', side: 'b', authorId: '2', name: '상대', text: '의견', createdAt: 1 };
   state.posts.push(post); state.mySide = 'b';
   store.post = jest.fn(async (_room, data) => ({ ...post, id: 'reply', text: data.text }));
   store.subscribe.mock.calls[0][0]([]);
   try {
-    document.querySelector('.history-item').click();
+    reply(post.id);
     expect(document.querySelector('#reply-target')).toBeVisible();
     const input = document.querySelector('#message-b');
     input.value = '작성 중인 답변'; input.dispatchEvent(new Event('input'));
@@ -541,4 +542,59 @@ it('모바일은 편을 바꿔도 같은 입력창과 초안을 유지하고 오
     input.value = '다음 메시지'; input.dispatchEvent(new Event('input'));
     expect(input).toHaveFocus(); expect(document.querySelector('#send')).toBeEnabled();
   } finally { cleanup(); window.innerWidth = width; }
+});
+
+
+it('리플레이 최근 30개에서 제외된 메시지도 받은 발사 데이터로 모두 발사한다', async () => {
+  const { state, store, arena, cleanup } = await setupVoting();
+  try {
+    const livePosts = Array.from({ length: 1000 }, (_, index) => ({
+      id: String(index + 1), side: 'a', authorId: '2', name: '상대', text: `메시지 ${index + 1}`, createdAt: index + 1
+    }));
+    state.posts = livePosts.slice(-30);
+    state.postCount = 1000;
+    store.subscribe.mock.calls[0][0](livePosts.map(post => post.id), livePosts);
+    expect(arena.launch.mock.calls.map(([post]) => post.id)).toEqual(livePosts.map(post => post.id));
+    expect(arena.updateState.mock.calls.at(-1)[0]).toHaveLength(30);
+  } finally { cleanup(); }
+});
+
+it('1000건이 수신되어도 내 메시지의 받아치기 대상을 도착 후 8초까지 유지한다', async () => {
+  jest.useFakeTimers();
+  const { state, store, arena, reply, cleanup } = await setupVoting();
+  try {
+    const post = { id: 'mine', authorId: '1', name: '나', side: 'a', text: '내가 보낸 말', createdAt: 1 };
+    state.mySide = 'a';
+    store.post = jest.fn().mockResolvedValue(post);
+    arena.launch.mockResolvedValue();
+    const receive = store.subscribe.mock.calls[0][0];
+    receive([]);
+    document.querySelector('#message').value = post.text;
+    document.querySelector('#composer').dispatchEvent(new Event('submit', { cancelable: true }));
+    await Promise.resolve(); await Promise.resolve();
+    expect(store.post).toHaveBeenCalled();
+    const incoming = Array.from({ length: 1000 }, (_, i) => ({
+      id: String(i + 2), authorId: '2', name: '다른 사람', side: 'b', text: '새 말 ' + i, createdAt: i + 2
+    }));
+    state.posts = incoming.slice(-30);
+    receive(incoming.map(item => item.id), incoming);
+    jest.advanceTimersByTime(20000);
+    expect(arena.updateState.mock.calls.at(-1)[0]).toHaveLength(30);
+    reply(post.id);
+    expect(document.querySelector('#reply-target')).not.toHaveAttribute('hidden');
+    expect(document.querySelector('#reply-target-text')).toHaveTextContent(post.text);
+    document.querySelector('#cancel-reply').click();
+    document.querySelector('#scene').dispatchEvent(new CustomEvent('capsuleready', { detail: { id: 'mine' } }));
+    jest.advanceTimersByTime(7999);
+    reply(post.id);
+    expect(document.querySelector('#reply-target')).not.toHaveAttribute('hidden');
+    document.querySelector('#cancel-reply').click();
+    jest.advanceTimersByTime(1);
+    reply(post.id);
+    expect(document.querySelector('#reply-target')).toHaveAttribute('hidden');
+  } finally {
+    window.dispatchEvent(new Event('pagehide'));
+    cleanup();
+    jest.useRealTimers();
+  }
 });
