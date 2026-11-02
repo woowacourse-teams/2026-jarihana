@@ -24,9 +24,9 @@
   transform: translate(-50%, -100%);
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 10px 14px;
-  min-height: 64px;
+  gap: 2px;
+  padding: 7px 14px;
+  min-height: 54px;
   border: 0;
   border-radius: 14px;
   background: var(--history-wash);
@@ -90,7 +90,7 @@
   font-weight: 650;
 }
 @media (max-width: 700px) {
-  .history-conversation-speech { padding: 9px 11px; min-height: 64px; border-radius: 18px; }
+  .history-conversation-speech { padding: 7px 11px; min-height: 54px; border-radius: 18px; }
   .history-conversation-text { font-size: 13px; }
   .history-conversation:is([data-bubble-count="3"], [data-bubble-count="4"]) .history-conversation-speech { min-height: 48px; padding: 6px 9px; gap: 2px; }
   .history-conversation:is([data-bubble-count="3"], [data-bubble-count="4"]) .history-conversation-byline { font-size: 10px; line-height: 1.2; }

@@ -24,12 +24,12 @@
   max-width: 280px;
   transform: translate(-50%, -100%);
   pointer-events: auto;
-  min-height: 64px;
+  min-height: 54px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   text-align: start;
-  padding: 10px 14px;
+  padding: 7px 14px;
   color: var(--ink);
   background: var(--duel-wash);
   border: 0;
@@ -79,7 +79,7 @@
   .stage { height: 520px; }
   .composer-dock { margin-top:-24px; }
   .pipe-station .vote-flag { top:calc(var(--scene-top, 240px) - var(--station-y, 300px) - 80px); bottom:auto; min-height:76px; }
-  .duel-speech { padding: 9px 11px; border-radius: 20px; }
+  .duel-speech { padding: 7px 11px; border-radius: 20px; }
   .duel-speech-text { font-size: 14px; -webkit-line-clamp: 2; }
   .duel-byline { gap: 4px; font-size: 11px; }
   .duel-versus { font-size: 26px; }
