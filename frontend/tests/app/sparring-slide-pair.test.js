@@ -1,4 +1,4 @@
-import { createDispenserPhysics, SLIDE } from '../../public/sparring-arena/src/dispenser-physics.js';
+import { createDispenserPhysics, SLIDE, TRAY } from '../../public/sparring-arena/src/dispenser-physics.js';
 import * as THREE from 'three';
 import { createDispenser } from '../../public/sparring-arena/src/dispenser.js';
 
@@ -53,19 +53,38 @@ it('지난 대화 캡슐은 천천히 굴러도 실제 착지 충돌 후에 열�
 });
 
 
-it('아담한 구도의 얇은 앞턱과 난간은 다른 구도로 전환하면 기존 두께로 복원된다', () => {
+it('구도를 바꿔도 미끄럼틀과 마당 테두리는 바닥에 붙고 같은 두께로 이어진다', () => {
   const scene = new THREE.Scene();
   const dispenser = createDispenser(scene, () => {}, { trayWidth: 4.4, edgeScale: 0.45 });
-  const edge = scene.children.find(mesh => mesh.geometry?.parameters?.height === 0.32);
   const rails = scene.children.filter(mesh => mesh.geometry?.type === 'TubeGeometry');
-  const floor = scene.children.find(mesh => mesh.geometry?.attributes.position.count === 4);
+  const floor = scene.children.find(mesh => mesh.geometry?.type === 'BufferGeometry');
   const floorBefore = [...floor.geometry.attributes.position.array];
-  expect(edge.scale.y).toBe(0.45);
+  const meshCount = scene.children.length;
+  expect(rails).toHaveLength(3);
   for (const [width, scale] of [[10, 1], [14, 1], [4.4, 0.45]]) {
+    const disposed = jest.fn();
+    floor.geometry.addEventListener('dispose', disposed);
     dispenser.setTrayWidth(width, scale);
-    expect(edge.scale.y).toBe(scale);
-    expect(edge.scale.z).toBe(scale);
-    for (const rail of rails) expect(rail.geometry.parameters.radius).toBeCloseTo(0.09 * scale);
+    expect(disposed).toHaveBeenCalledTimes(1);
+    expect(scene.children).toHaveLength(meshCount);
+    for (const rail of rails) expect(rail.geometry.parameters.radius).toBeCloseTo(0.1 * scale);
+    const positions = floor.geometry.attributes.position;
+    const segments = positions.count / 2 - 1;
+    for (let i = 0; i <= segments; i++) {
+      for (let side = 0; side < 2; side++) {
+        const edge = rails[side].geometry.parameters.path.getPoint(i / segments);
+        expect(edge.x).toBeCloseTo(positions.getX(i * 2 + side));
+        expect(edge.z).toBeCloseTo(positions.getZ(i * 2 + side));
+        expect(edge.y - positions.getY(i * 2 + side)).toBeCloseTo(0.07 * scale);
+        expect(edge.y - rails[side].geometry.parameters.radius).toBeLessThan(positions.getY(i * 2 + side));
+      }
+      if (i > 0) expect(positions.getZ(i * 2)).toBeGreaterThan(positions.getZ((i - 1) * 2));
+    }
+    expect(positions.getX(positions.count - 1)).toBeCloseTo(width / 2);
+    expect(positions.getZ(positions.count - 1)).toBeCloseTo(TRAY.front);
+    const front = rails[2].geometry.parameters.path;
+    expect(front.v1.distanceTo(rails[0].geometry.parameters.path.getPoint(1))).toBeCloseTo(0);
+    expect(front.v2.distanceTo(rails[1].geometry.parameters.path.getPoint(1))).toBeCloseTo(0);
   }
   expect([...floor.geometry.attributes.position.array]).toEqual(floorBefore);
 });

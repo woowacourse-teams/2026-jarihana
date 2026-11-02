@@ -20,46 +20,55 @@ export function createDispenser(scene, onReveal, { onOpened = () => {}, trayWidt
     return mesh;
   }
   box([TANK.width + 0.3, 0.15, TANK.depth + 0.2], [0, TANK.bottom - 0.08, 0], rim);
-  function floor(points) {
+  const rimRadius = 0.1, rimLift = 0.07, segments = 96;
+  function surfaceGeometries(width, scale) {
+    // Share one forward-only outline so the floor stays attached to the rounded rim.
+    const points = SLIDE.points.filter(([z]) => z < TRAY.back)
+      .map(([z, y, width]) => new THREE.Vector3(width / 2, y, z));
+    points.push(new THREE.Vector3(TRAY.backWidth / 2, TRAY.y + 0.12, TRAY.back));
+    points.push(new THREE.Vector3(width / 2, TRAY.frontY + 0.12, TRAY.front));
+    const outline = new THREE.CatmullRomCurve3(points).getPoints(segments);
     const vertices = [], indices = [];
-    for (const [z, y, width] of points) vertices.push(-width / 2, y, z, width / 2, y, z);
-    for (let i = 0; i < points.length - 1; i++) {
+    for (const { x, y, z } of outline) vertices.push(-x, y, z, x, y, z);
+    for (let i = 0; i < segments; i++) {
       const n = i * 2; indices.push(n, n + 2, n + 1, n + 1, n + 2, n + 3);
     }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-    geometry.setIndex(indices); geometry.computeVertexNormals();
-    const mesh = new THREE.Mesh(geometry, cream); mesh.receiveShadow = true; scene.add(mesh);
+    const floor = new THREE.BufferGeometry();
+    floor.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    floor.setIndex(indices); floor.computeVertexNormals();
+    const rails = [-1, 1].map(side => {
+      const edge = points.map(({ x, y, z }) => new THREE.Vector3(side * x, y + rimLift * scale, z));
+      return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(edge), segments, rimRadius * scale, 12, false);
+    });
+    const left = new THREE.Vector3(-width / 2, TRAY.frontY + 0.12 + rimLift * scale, TRAY.front);
+    const right = left.clone(); right.x *= -1;
+    const front = new THREE.TubeGeometry(new THREE.LineCurve3(left, right), 1, rimRadius * scale, 12, false);
+    return [floor, ...rails, front];
+  }
+  const surfaces = surfaceGeometries(trayWidth, edgeScale).map((geometry, index) => {
+    const mesh = new THREE.Mesh(geometry, index === 0 ? cream : rim);
+    mesh.castShadow = index > 0; mesh.receiveShadow = true; scene.add(mesh);
     return mesh;
-  }
-  floor(SLIDE.points);
-  const trayFloor = floor([[TRAY.back, TRAY.y + 0.12, TRAY.backWidth], [TRAY.front, TRAY.frontY + 0.12, trayWidth]]);
-  function railGeometry(side, width) {
-    const points = SLIDE.points.map(([z, y, width]) => new THREE.Vector3(side * width / 2, y + 0.12, z));
-    points.push(new THREE.Vector3(side * TRAY.backWidth / 2, TRAY.y + 0.12 + 0.12 * edgeScale, TRAY.back));
-    points.push(new THREE.Vector3(side * width / 2, TRAY.frontY + 0.12 + 0.12 * edgeScale, TRAY.front));
-    return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 56, 0.09 * edgeScale, 8, false);
-  }
-  const rails = [-1, 1].map(side => {
-    const rail = new THREE.Mesh(railGeometry(side, trayWidth), rim);
-    rail.castShadow = true; scene.add(rail);
-    return rail;
   });
-  const bumper = box([trayWidth, 0.32, 0.16], [0, TRAY.frontY + 0.16, TRAY.front], rim);
+  const cornerGeometry = new THREE.SphereGeometry(rimRadius, 12, 8);
+  const corners = [-1, 1].map(() => {
+    const corner = new THREE.Mesh(cornerGeometry, rim);
+    corner.castShadow = corner.receiveShadow = true; scene.add(corner);
+    return corner;
+  });
+  function positionCorners(width, scale) {
+    corners.forEach((corner, index) => {
+      corner.position.set((index === 0 ? -1 : 1) * width / 2, TRAY.frontY + 0.12 + rimLift * scale, TRAY.front);
+      corner.scale.setScalar(scale);
+    });
+  }
+  positionCorners(trayWidth, edgeScale);
   const batch = createCapsuleBatch(scene, OUTPUT_CAPACITY, createWalkingCharacters), physics = createDispenserPhysics({ trayWidth });
-  bumper.scale.y = bumper.scale.z = edgeScale;
-  bumper.position.y = TRAY.frontY + 0.16 * edgeScale;
   function setTrayWidth(width, nextEdgeScale = edgeScale) {
     edgeScale = nextEdgeScale;
-    const positions = trayFloor.geometry.attributes.position;
-    positions.setX(2, -width / 2); positions.setX(3, width / 2); positions.needsUpdate = true;
-    trayFloor.geometry.computeVertexNormals(); trayFloor.geometry.computeBoundingSphere();
-    rails.forEach((rail, index) => {
-      rail.geometry.dispose(); rail.geometry = railGeometry(index === 0 ? -1 : 1, width);
-    });
-    bumper.scale.x = width / trayWidth;
-    bumper.scale.y = bumper.scale.z = edgeScale;
-    bumper.position.y = TRAY.frontY + 0.16 * edgeScale;
+    const geometries = surfaceGeometries(width, edgeScale);
+    surfaces.forEach((mesh, index) => { mesh.geometry.dispose(); mesh.geometry = geometries[index]; });
+    positionCorners(width, edgeScale);
     physics.setTrayWidth(width);
   }
   const slots = Array(OUTPUT_CAPACITY).fill(null);
