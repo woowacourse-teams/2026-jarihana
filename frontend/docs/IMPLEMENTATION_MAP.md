@@ -469,7 +469,8 @@ replace 이동한다. 헤더의 홈과 브랜드 링크는 `/home`, 탐색 링�
 - `/sparring`: 공개 서버 목록/검색/필터/이전 페이지, 로그인 후 주제 등록 모달
 - `/sparring/:topicId`: 공개 투표 현황·캡슐 경기장·영구 의견. 회원 편 선택 후 POST 의견/받아치기
 - `src/features/sparring/api.js`: 공통 API client + Zod 응답 검증
-- `useArenaBridge.js`: 인증/HTTP/SSE, 재접속 catch-up, ID 중복 제거, 출처/스키마 검증
+- `useArenaBridge.js`: 인증/HTTP/SSE, 최초·재연결 시 최근 30개 리플레이 초기화, 추가 메시지 전체 수신, ID 중복 제거, 출처/스키마 검증
+- 숨겨져 있던 전체·내 대화 목록과 이전 대화 더 보기 UI 및 전용 조회 명령은 제거했다. 최근 대화 재생과 선택한 메시지 받아치기는 유지한다.
 - `public/sparring-arena`: 기존 물리 연출을 보존한 같은 출처 iframe. 인증 토큰을 전달하지 않는다
 - iframe 내부 스크롤/키보드 고정 작성을 쓰지 않고 부모 문서의 일반 스크롤을 사용한다
 - 원래 예시 목록·localStorage 데모는 서비스 데이터를 대신하지 않는다

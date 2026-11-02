@@ -33,9 +33,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
     let lastStreamPostId = 0;
     let mutationQueue = Promise.resolve();
     const posts = new Map(),
-      seen = new Set(),
-      cursors = { all: null, mine: null },
-      more = { all: false, mine: false };
+      seen = new Set();
     const send = (message) => {
       if (!disposed)
         frame.current?.contentWindow?.postMessage(
@@ -68,7 +66,6 @@ export function useArenaBridge({ topicId, member, login, retry }) {
           actorMemberType: member?.memberType ?? "CREW",
           postCount: topic.postCount,
           posts: [...posts.values()].sort((a, b) => Number(a.id) - Number(b.id)),
-          more,
           connection
         },
         fresh,
@@ -180,7 +177,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
         send({ kind: "result", requestId: message.requestId, result, error });
       let countedPost = false;
       try {
-        if (message.action === "login" || (!member && message.action !== "history")) {
+        if (message.action === "login" || !member) {
           storeReturnTarget(`/sparring/${topicId}`);
           login();
           respond(null, "로그인 후 참여할 수 있어요.");
@@ -189,26 +186,6 @@ export function useArenaBridge({ topicId, member, login, retry }) {
         if (message.action === "vote") {
           await voteSparring(topicId, message.payload.side === "a" ? "MINT" : "CORAL");
           acceptTopic(await getSparring(topicId));
-          snapshot();
-          respond(true);
-          return;
-        }
-        if (message.action === "history") {
-          const key = message.payload.mine ? "mine" : "all";
-          const cursor = message.payload.reset ? null : cursors[key];
-          const page = await getSparringPosts(topicId, {
-            size: 30,
-            mine: message.payload.mine,
-            ...(cursor ? { cursor } : {})
-          });
-          for (const raw of page.items) {
-            const post = arenaPost(raw);
-            posts.set(post.id, post);
-            seen.add(post.id);
-          }
-          trimReplay();
-          cursors[key] = page.nextCursor;
-          more[key] = page.hasNext;
           snapshot();
           respond(true);
           return;

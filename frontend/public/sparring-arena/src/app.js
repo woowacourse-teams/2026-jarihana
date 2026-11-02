@@ -13,7 +13,7 @@ const pendingShipments = new Map(), failedShipments = new Map();
 const protectedOwnPosts = new Map();
 let pendingSide = null, voteError = '', expandedSide = null;
 let selectedId = state.posts.at(-1)?.id ?? null;
-let selectedUntil = 0, filter = 'all', historyLimit = 20, flowPaused = false, replyToId = null, arena;
+let selectedUntil = 0, flowPaused = false, replyToId = null, arena;
 const own = post => String(post.authorId) === state.actorId;
 const displayName = post => own(post) ? '나' : post.name;
 const mySide = () => state.mySide;
@@ -57,7 +57,7 @@ function formatTime(timestamp) {
 function storageStatus() {
   $('#storage-note').textContent = state.connection === 'offline'
     ? '오프라인이에요. 작성 중인 글은 그대로 두고 다시 연결할게요.'
-    : '대화는 서버에 저장돼요. 흘러간 말은 기록에서 다시 볼 수 있어요.';
+    : '대화는 서버에 저장돼요. 최근 대화는 다시 재생돼요.';
 }
 function fallback() {
   if ($('#scene .fallback')) return;
@@ -80,7 +80,6 @@ function selectPost(id, manual = false) {
   $('#post-avatar').className = 'post-avatar ' + post.side;
   $('#post-meta').textContent = displayName(post) + ' · ' + sideNames[post.side] + ' · ' + formatTime(post.createdAt);
   $('#post-text').textContent = post.text;
-  document.querySelectorAll('.history-item').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.postId === id)));
 }
 function confirmOwnPost(id) {
   const entry = protectedOwnPosts.get(id);
@@ -88,7 +87,6 @@ function confirmOwnPost(id) {
   if (selectedId === id) selectedUntil = Date.now() + 8000;
   entry.timer = setTimeout(() => {
     protectedOwnPosts.delete(id);
-    renderHistory();
   }, 8000);
 }
 function showReveal(post, fresh) {
@@ -199,50 +197,13 @@ function renderCounts() {
     if (seat) seat.textContent = label;
     button.setAttribute('aria-label', state.topic[button.dataset.side] + ' · ' + sideNames[button.dataset.side] + (button.classList.contains('pipe-meter') ? ' 파이프' : '') + ' · ' + label);
   });
-  $('#total-count').textContent = state.postCount;
   $('#empty-stage').hidden = !!state.posts.length;
   $('#spill').disabled = !state.posts.length;
   $('#current-post').hidden = !selectedId;
   arena?.updateState(scenePosts(), result);
   renderInput(); storageStatus();
 }
-function renderHistory() {
-  const list = $('#history-list');
-  list.replaceChildren();
-  const protectedPosts = [...protectedOwnPosts.values()].map(entry => entry.post).reverse();
-  const posts = [...protectedPosts, ...state.posts.slice().reverse().filter(post => !protectedOwnPosts.has(post.id))]
-    .filter(post => filter === 'all' || own(post));
-  for (const post of posts.slice(0, historyLimit)) {
-    const button = document.createElement('button');
-    button.type = 'button'; button.className = 'history-item'; button.dataset.postId = post.id; button.dataset.side = post.side;
-    button.dataset.phCaptureAttributeAction = 'sparring_history_select';
-    button.setAttribute('aria-pressed', String(post.id === selectedId));
-    const avatar = document.createElement('span');
-    avatar.className = 'post-avatar ' + post.side; avatar.textContent = displayName(post).slice(0, 2);
-    const copy = document.createElement('span'); copy.className = 'post-copy';
-    const meta = document.createElement('span');
-    const dot = document.createElement('i'); dot.className = 'dot ' + (post.side === 'a' ? 'mint' : 'coral');
-    const time = document.createElement('time'); time.dateTime = new Date(post.createdAt).toISOString(); time.textContent = formatTime(post.createdAt);
-    meta.append(dot, document.createTextNode(displayName(post) + ' · ' + state.topic[post.side]), time);
-    const text = document.createElement('p'); text.textContent = post.text;
-    if (post.replyToId) {
-      const parent = state.posts.find(item => item.id === post.replyToId) ?? post.replyTo;
-      const context = document.createElement('span'); context.className = 'history-reply';
-      context.textContent = parent ? '↩ ' + displayName(parent) + '의 의견에 받아치기: ' + parent.text : '↩ 이전 의견에 받아치기';
-      copy.append(context);
-    }
-    copy.append(meta, text); button.append(avatar, copy);
-    button.addEventListener('click', () => startReply(post.id));
-    list.append(button);
-  }
-  if (!posts.length) {
-    const empty = document.createElement('p'); empty.className = 'history-empty';
-    empty.textContent = filter === 'mine' ? '아직 내 대화가 없어요. 먼저 한마디 건네보세요.' : '아직 대화가 없어요. 먼저 한마디 건네보세요.';
-    list.append(empty);
-  }
-  $('#more-history').hidden = posts.length <= historyLimit && !state.more[filter === 'mine' ? 'mine' : 'all'];
-}
-function sync() { state = store.snapshot(roomId); renderCounts(); renderHistory(); flowLabel(); }
+function sync() { state = store.snapshot(roomId); renderCounts(); flowLabel(); }
 function setComposerExpanded(side, restoreFocus = true) {
   const previous = expandedSide;
   expandedSide = side;
@@ -399,21 +360,6 @@ $('#replay-reply').addEventListener('click', () => {
   arena?.replayReply(scenePost(post));
   $('.stage').scrollIntoView({ block: 'start', behavior: 'smooth' });
 });
-document.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', async () => {
-  filter = button.dataset.filter; historyLimit = 20;
-  document.querySelectorAll('[data-filter]').forEach(other => other.setAttribute('aria-pressed', String(other === button)));
-  renderHistory();
-  try { await store.loadHistory(filter === 'mine', true); sync(); } catch (error) { announce(error.message); }
-}));
-$('#more-history').addEventListener('click', async () => {
-  $('#more-history').disabled = true;
-  try {
-    const loaded = state.posts.filter(post => filter !== 'mine' || own(post)).length;
-    if (loaded <= historyLimit && state.more[filter === 'mine' ? 'mine' : 'all']) await store.loadHistory(filter === 'mine');
-    historyLimit += 20; sync();
-  } catch (error) { announce(error.message); }
-  finally { $('#more-history').disabled = false; }
-});
 store.subscribe((fresh, livePosts = []) => {
   sync();
   const incoming = new Map([...state.posts, ...livePosts].map(post => [post.id, post]));
@@ -427,13 +373,12 @@ const actions = {
   composer: 'sparring_post_submit', message: 'sparring_message_edit', send: 'sparring_post_submit',
   'cancel-reply': 'sparring_reply_cancel', 'reply-selected': 'sparring_reply_start',
   'replay-reply': 'sparring_clash_replay', 'flow-toggle': 'sparring_flow_toggle',
-  spill: 'sparring_capsule_release', 'more-history': 'sparring_history_more'
+  spill: 'sparring_capsule_release'
 };
 for (const [id, action] of Object.entries(actions)) $('#' + id).dataset.phCaptureAttributeAction = action;
 for (const input of document.querySelectorAll('[data-input-side]')) input.dataset.phCaptureAttributeAction = 'sparring_message_edit';
 for (const button of document.querySelectorAll('[data-send-side]')) button.dataset.phCaptureAttributeAction = 'sparring_post_submit';
 for (const button of document.querySelectorAll('.vote-option[data-side]')) button.dataset.phCaptureAttributeAction = 'sparring_vote';
-for (const button of document.querySelectorAll('[data-filter]')) button.dataset.phCaptureAttributeAction = 'sparring_history_filter';
 let height = 0;
 new ResizeObserver(() => {
   const next = Math.ceil($('.page').getBoundingClientRect().height) + 4;

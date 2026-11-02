@@ -87,6 +87,20 @@ const streamData = (posts = [], revision = 1, counts = {}) => ({
 });
 const snapshots = target => target.postMessage.mock.calls.map(([message]) => message).filter(message => message.kind === "snapshot");
 
+it.each([false, true])("ignores the removed history command (mine=%s) without reading or writing posts", async mine => {
+  const { receive, target, result } = setup();
+  receive({ kind: "ready" });
+  await waitFor(() => expect(result.current.loaded).toBe(true));
+  getSparring.mockClear(); getSparringPosts.mockClear(); target.postMessage.mockClear();
+  receive({ kind: "command", action: "history", requestId: "old-history", payload: { mine, reset: true } });
+  await act(async () => {});
+  expect(getSparring).not.toHaveBeenCalled();
+  expect(getSparringPosts).not.toHaveBeenCalled();
+  expect(postSparring).not.toHaveBeenCalled();
+  expect(voteSparring).not.toHaveBeenCalled();
+  expect(target.postMessage).not.toHaveBeenCalled();
+});
+
 describe("SSE message delivery", () => {
   let hidden;
   function visibility(value) {
