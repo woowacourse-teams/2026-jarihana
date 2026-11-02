@@ -83,6 +83,16 @@
   .composer-device[data-composer-side=b] .composer-field::before{left:auto;right:30px}
   .composer .reply-target p{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;white-space:normal;overflow-wrap:anywhere;max-height:34px}
 }
+@media(min-width:1001px){
+  .composer .composer-hint{transform:translateX(calc(-50% - 24px))}
+  .composer-device[data-composer-side=b] .composer-hint{transform:translateX(calc(-50% + 24px))}
+  .composer .composer-hint::before{left:calc(50% + 18px)}
+  .composer-device[data-composer-side=b] .composer-hint::before{left:calc(50% - 30px)}
+  .composer-drawer{left:-24px}
+  .composer-device[data-composer-side=b] .composer-drawer{right:-24px}
+  .composer-field::before{left:54px}
+  .composer-device[data-composer-side=b] .composer-field::before{right:54px}
+}
 @media(max-width:700px){
   .arena{display:flex;flex-direction:column;min-height:var(--arena-available-height, 0px)}
   .stage{flex:none}
