@@ -13,10 +13,15 @@ jest.mock("../../src/features/sparring/api", () => ({
   getSparring: jest.fn(), getSparringPosts: jest.fn()
 }));
 const topic = { id: 1, title: "점심 토론", a: "기다려", b: "다른 곳", votesA: 1, votesB: 0, postCount: 0, revision: 1 };
+let stream;
 beforeEach(() => {
   jest.clearAllMocks();
   localStorage.clear();
-  global.EventSource = class { addEventListener() {} close() {} };
+  global.EventSource = class {
+    constructor() { this.listeners = {}; stream = this; }
+    addEventListener(kind, listener) { this.listeners[kind] = listener; }
+    close() {}
+  };
   useAuth.mockReturnValue({ status: "anonymous", member: null, login: jest.fn() });
   getSparring.mockResolvedValue(topic);
   getSparringPosts.mockResolvedValue({ items: [], nextCursor: null, hasNext: false });
@@ -29,6 +34,7 @@ it("persists the camera switch and sends it without replacing the room or refetc
   expect(toggle).toHaveAttribute("aria-checked", "false");
   expect(toggle).toBeDisabled();
   receive(frame, { kind: "ready" });
+  receiveSnapshot();
   await waitFor(() => expect(frame).toHaveAttribute("title", "점심 토론 캡슐 경기장"));
   receive(frame, { kind: "scene", status: "ready" });
   fireEvent.click(toggle);
@@ -37,11 +43,20 @@ it("persists the camera switch and sends it without replacing the room or refetc
   expect(send).toHaveBeenLastCalledWith({ channel: "jarihana-sparring", kind: "clash-camera", value: true }, window.location.origin);
   expect(container.querySelector("iframe")).toBe(frame);
   expect(getSparring).toHaveBeenCalledTimes(1);
-  expect(getSparringPosts).toHaveBeenCalledTimes(1);
+  expect(getSparringPosts).not.toHaveBeenCalled();
   unmount(); render(<SparringDetailPage />);
   expect(screen.getByRole("switch", { name: "충돌 카메라" })).toHaveAttribute("aria-checked", "true");
   await act(async () => {});
 });
+function receiveSnapshot() {
+  act(() => {
+    stream.onopen?.();
+    stream.listeners.snapshot({ data: JSON.stringify({
+      revision: topic.revision, votesA: topic.votesA, votesB: topic.votesB,
+      postCount: topic.postCount, posts: []
+    }) });
+  });
+}
 function receive(frame, message) {
   act(() => window.dispatchEvent(new MessageEvent("message", {
     source: frame.contentWindow, origin: window.location.origin,
@@ -54,6 +69,7 @@ it("switches only the view without remounting the iframe or refetching the discu
   const send = jest.spyOn(frame.contentWindow, "postMessage");
   expect(screen.getByRole("button", { name: "기존 구도" })).toBeDisabled();
   receive(frame, { kind: "ready" });
+  receiveSnapshot();
   await waitFor(() => expect(frame).toHaveAttribute("title", "점심 토론 캡슐 경기장"));
   receive(frame, { kind: "scene", status: "ready" });
   expect(screen.getByRole("button", { name: "아담한 구도" })).toHaveAttribute("aria-pressed", "true");
@@ -67,7 +83,7 @@ it("switches only the view without remounting the iframe or refetching the discu
     expect(container.querySelector("iframe")).toBe(frame);
   }
   expect(getSparring).toHaveBeenCalledTimes(1);
-  expect(getSparringPosts).toHaveBeenCalledTimes(1);
+  expect(getSparringPosts).not.toHaveBeenCalled();
 });
 it("shows a preview during authentication without loading a room for the wrong actor", () => {
   useAuth.mockReturnValue({ status: "loading" });
@@ -84,6 +100,7 @@ it("keeps text and inputs covered after data and iframe load until the first 3D 
   expect(frame).toHaveAttribute("aria-hidden", "true");
   fireEvent.load(frame);
   receive(frame, { kind: "ready" });
+  receiveSnapshot();
   await waitFor(() => expect(frame).toHaveAttribute("title", "점심 토론 캡슐 경기장"));
   expect(screen.getByText("토론을 준비하고 있어요")).toBeInTheDocument();
   expect(container.querySelector(".sparring-detail__viewport")).toHaveAttribute("data-ready", "false");
@@ -97,6 +114,7 @@ it("offers a retry after a texture or renderer failure and keeps the replacement
   const { container } = render(<SparringDetailPage />);
   const first = container.querySelector("iframe");
   receive(first, { kind: "ready" });
+  receiveSnapshot();
   await waitFor(() => expect(first).toHaveAttribute("title", "점심 토론 캡슐 경기장"));
   receive(first, { kind: "scene", status: "error" });
   expect(screen.getByRole("alert")).toHaveTextContent("3D 화면을 불러오지 못했어요");
@@ -104,7 +122,14 @@ it("offers a retry after a texture or renderer failure and keeps the replacement
   expect(container.querySelector("iframe")).not.toBe(first);
   expect(container.querySelector("iframe")).toHaveAttribute("inert");
   expect(screen.getByText("토론을 준비하고 있어요")).toBeInTheDocument();
-  await act(async () => {});
+  const replacement = container.querySelector("iframe");
+  receive(replacement, { kind: "ready" });
+  receiveSnapshot();
+  await waitFor(() => expect(replacement).toHaveAttribute("title", "점심 토론 캡슐 경기장"));
+  expect(replacement).toHaveAttribute("inert");
+  receive(replacement, { kind: "scene", status: "ready" });
+  expect(replacement).not.toHaveAttribute("inert");
+  expect(getSparringPosts).not.toHaveBeenCalled();
 });
 it("shows a recoverable data error instead of exposing the incomplete arena", async () => {
   getSparring.mockRejectedValue(new Error("토론을 불러오지 못했어요"));
@@ -112,4 +137,22 @@ it("shows a recoverable data error instead of exposing the incomplete arena", as
   expect(await screen.findByRole("alert")).toHaveTextContent("토론을 불러오지 못했어요");
   expect(container.querySelector("iframe")).toHaveAttribute("inert");
   expect(screen.getByRole("button", { name: "다시 불러오기" })).toBeEnabled();
+});
+
+it("waits for the SSE snapshot after topic metadata arrives without fetching posts", async () => {
+  const { container } = render(<SparringDetailPage />);
+  const frame = container.querySelector("iframe");
+  const send = jest.spyOn(frame.contentWindow, "postMessage");
+  receive(frame, { kind: "ready" });
+  await act(async () => {});
+  expect(getSparring).toHaveBeenCalledTimes(1);
+  expect(getSparringPosts).not.toHaveBeenCalled();
+  expect(frame).toHaveAttribute("inert");
+  expect(send.mock.calls.some(([message]) => message.kind === "snapshot")).toBe(false);
+  receiveSnapshot();
+  await waitFor(() => expect(frame).toHaveAttribute("title", "점심 토론 캡슐 경기장"));
+  expect(send.mock.calls.some(([message]) => message.kind === "snapshot")).toBe(true);
+  expect(frame).toHaveAttribute("inert");
+  receive(frame, { kind: "scene", status: "ready" });
+  expect(frame).not.toHaveAttribute("inert");
 });
