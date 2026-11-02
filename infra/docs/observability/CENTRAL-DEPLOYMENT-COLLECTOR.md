@@ -135,6 +135,26 @@ time() - jarihana_deployment_source_observed_timestamp_seconds{environment="prod
 위 실행 주기와 소비자의 유효 시간은 서로 다른 설정이다.
 수신된 job/instance 라벨은 실제 series로 확인하며 scrape 설정의 job_name만으로 단정하지 않는다.
 
+## 요청 수 수집 실패와 복구
+
+`source="traffic"`가 0이면 요청 수를 0으로 해석하지 않는다. 처리 상한은 한 번에 4 MiB,
+20,000줄이며 Docker 조회 실패, access log 파싱 실패나 상한 초과 때는 cursor와 누적값을
+그대로 보존한다. 같은 구간을 재시도하므로 원인이 남아 있으면 자동으로 복구되지 않을 수 있다.
+공백이 들어간 디코딩 URI는 정상 경로로 처리하며, 형식이 깨진 access log는 조용히 버리지 않는다.
+
+1. timer를 멈추고 진행 중인 service가 끝났는지 확인한다. 수집기 전용
+   `/var/lib/jarihana-observability/prod/collector.lock`을 잡아 수동 실행과도 경합하지 않게 한다.
+2. 해당 컨테이너의 로그 형식, 조회 오류와 처리량을 조사한다. 잘못된 파서나 처리 상한의
+   조정이 필요하면 검토한 수정본을 먼저 설치한다. 최근 30초 구간도 상한을 넘는다면
+   상태 초기화만으로 해결되지 않는다. 배포 저널과 Nginx 설정은 수정하지 않는다.
+3. 원인 해결 후 재시도한다. 누적 구간을 포기해야 한다면 운영자가 누락을 인지한 뒤
+   잠금을 유지한 상태에서 `nginx-traffic.json`을 보호된 백업 디렉터리로 옮긴다.
+   다음 수집은 현재 시각에서 2초를 뺀 시점 직전 30초만 새로 집계한다.
+   기존 누적 counter는 초기화되며 버린 구간은 복원되지 않는다. 자동 초기화는 하지 않는다.
+4. 잠금을 해제하고 수집기만 재실행한 뒤 timer를 다시 시작한다.
+   `source="traffic"` 성공, 관측 시각과 A/B counter의 새 값 및 Prometheus 수신을 확인한다.
+   복구 전후의 `rate`/`increase`는 누락된 구간의 전체 요청 수를 보장하지 않는다.
+
 ## 관리 원본과 재구성
 
 호스트 계정, 보호된 coordinator 설정과 Docker 권한은

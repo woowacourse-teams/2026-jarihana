@@ -15,11 +15,10 @@
 | 0005 | [별도 Nginx와 고정된 운영 EC2 두 대로 Blue-Green 배포한다](0005-nginx-ec2-blue-green-deployment.md) | 채택 | 2026-10-21 | A/B 교대, 5분 관찰, 롤백, worker 인계와 호환 DB 변경. 기존 이미지 공급 방식은 유지 |
 | 0006 | [프론트엔드 원본을 S3에 보관하고 백엔드와 함께 복구한다](0006-s3-paired-frontend-rollback.md) | 채택 | 2026-10-29 | ADR 0005의 prod 배포와 복구를 프론트엔드 릴리스 쌍으로 확장 |
 
-## 병합 대기 중인 ADR
+## 배포 ADR의 운영 적용 상태
 
-인프라 ADR 0004는 [PR #398](https://github.com/woowacourse-teams/2026-jarihana/pull/398)에서
-Tempo 기본 비활성화와 대시보드 유지 결정을 기록한다. ADR 0001, 0002, 0003은 이 PR의 기준 브랜치에 이미 포함되어 있다.
-병합할 때 번호 충돌 여부를 다시 확인한다.
+ADR 0005/0006의 "채택"은 설계 결정을 뜻하며, 모든 운영 검증의 완료를 뜻하지 않는다.
+실제 적용 버전, 확인 근거와 미검증 범위는 [배포 실행의 운영 적용 상태](../../blue-green-deploy/controller/deployment.md#운영-적용-상태)에서 관리한다.
 
 ## 문서 이동 이력
 
