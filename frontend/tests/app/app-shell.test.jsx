@@ -140,20 +140,15 @@ it("starts GitHub login from the mobile account area and closes the drawer", () 
   expect(screen.queryByRole("dialog", { name: "전체 메뉴" })).not.toBeInTheDocument();
 });
 
-it.each(["floating button", "footer"])(
-  "shows the login-required dialog from the feedback %s without redirecting",
-  (surface) => {
+it(
+  "shows the login-required dialog from the feedback floating button without redirecting",
+  () => {
     // Given
     const login = jest.fn();
     renderShell({ login, logout: jest.fn(), status: "anonymous" });
 
     // When
-    const feedbackButton = surface === "footer"
-      ? within(screen.getByRole("region", { name: "Contact us" })).getByRole(
-        "button", { name: "피드백 남기기" }
-      )
-      : screen.getAllByRole("button", { name: "피드백 남기기" })
-        .find((button) => button.classList.contains("app-feedback-button"));
+    const feedbackButton = screen.getByRole("button", { name: "피드백 남기기" });
     fireEvent.click(feedbackButton);
 
     // Then
@@ -169,9 +164,9 @@ it.each(["floating button", "footer"])(
   }
 );
 
-it.each(["floating button", "footer"])(
-  "stores a feedback return target and starts login from the %s prompt",
-  (surface) => {
+it(
+  "stores a feedback return target and starts login from the floating button prompt",
+  () => {
     // Given
     const login = jest.fn();
     mockSearch = "?tab=mine";
@@ -179,12 +174,7 @@ it.each(["floating button", "footer"])(
     renderShell({ login, logout: jest.fn(), status: "anonymous" });
 
     // When
-    const feedbackButton = surface === "footer"
-      ? within(screen.getByRole("region", { name: "Contact us" })).getByRole(
-        "button", { name: "피드백 남기기" }
-      )
-      : screen.getAllByRole("button", { name: "피드백 남기기" })
-        .find((button) => button.classList.contains("app-feedback-button"));
+    const feedbackButton = screen.getByRole("button", { name: "피드백 남기기" });
     fireEvent.click(feedbackButton);
     fireEvent.click(screen.getByRole("button", { name: "로그인하러 가기" }));
 
@@ -196,19 +186,14 @@ it.each(["floating button", "footer"])(
   }
 );
 
-it.each(["floating button", "footer"])(
-  "opens the feedback form directly for authenticated users from the %s",
-  (surface) => {
+it(
+  "opens the feedback form directly for authenticated users from the floating button",
+  () => {
     // Given
     renderShell({ login: jest.fn(), logout: jest.fn(), status: "authenticated" });
 
     // When
-    const feedbackButton = surface === "footer"
-      ? within(screen.getByRole("region", { name: "Contact us" })).getByRole(
-        "button", { name: "피드백 남기기" }
-      )
-      : screen.getAllByRole("button", { name: "피드백 남기기" })
-        .find((button) => button.classList.contains("app-feedback-button"));
+    const feedbackButton = screen.getByRole("button", { name: "피드백 남기기" });
     fireEvent.click(feedbackButton);
 
     // Then
@@ -235,20 +220,15 @@ it("opens the feedback form after login returns and clears the marker when dismi
   );
 });
 
-it.each(["floating button", "footer"])(
-  "does not start feedback login while authentication loads from the %s",
-  (surface) => {
+it(
+  "does not start feedback login while authentication loads from the floating button",
+  () => {
     // Given
     const login = jest.fn();
     renderShell({ login, logout: jest.fn(), status: "loading" });
 
     // When
-    const feedbackButton = surface === "footer"
-      ? within(screen.getByRole("region", { name: "Contact us" })).getByRole(
-        "button", { name: "피드백 남기기" }
-      )
-      : screen.getAllByRole("button", { name: "피드백 남기기" })
-        .find((button) => button.classList.contains("app-feedback-button"));
+    const feedbackButton = screen.getByRole("button", { name: "피드백 남기기" });
     fireEvent.click(feedbackButton);
 
     // Then
@@ -447,6 +427,9 @@ it("places feedback outside desktop and mobile navigation", () => {
   expect(feedbackButton).toHaveClass("app-feedback-button");
   expect(feedbackButton).toHaveAttribute("data-ph-capture-attribute-action", "feedback_start");
   expect(desktopNavigation).not.toContainElement(feedbackButton);
+  expect(within(screen.getByRole("region", { name: "Contact us" }))
+    .queryByRole("button", { name: "피드백 남기기" })).not.toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: "피드백 남기기" })).toHaveLength(1);
 
   // And
   fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));

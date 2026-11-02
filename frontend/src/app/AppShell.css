@@ -751,10 +751,6 @@
     white-space: nowrap;
 }
 
-.app-footer__feedback-button {
-    margin-top: var(--space-3);
-}
-
 .app-footer__social-links {
     display: flex;
     flex: none;

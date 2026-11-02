@@ -7,21 +7,14 @@ const loginPrompt = "로그인이 필요한 서비스예요";
 
 for (const { surface, width } of [
   { surface: "desktop floating button", width: 1280 },
-  { surface: "mobile floating button", width: 390 },
-  { surface: "footer", width: 1280 }
+  { surface: "mobile floating button", width: 390 }
 ]) {
   test(`shows a login-required dialog without redirecting from the ${surface}`, async ({ page }) => {
     const state = await installApiFixture(page, { auth: "anonymous" });
     await page.setViewportSize({ height: 900, width });
     await page.goto("/groups");
 
-    if (surface === "footer") {
-      const contact = page.getByRole("region", { name: "Contact us" });
-      await contact.scrollIntoViewIfNeeded();
-      await contact.getByRole("button", { name: "피드백 남기기" }).click();
-    } else {
-      await page.locator(".app-feedback-button").click();
-    }
+    await page.locator(".app-feedback-button").click();
 
     await expect(page.getByRole("dialog", { name: loginPrompt })).toBeVisible();
     await expect(page.getByText("피드백을 남기려면 로그인해 주세요.")).toBeVisible();
@@ -120,6 +113,9 @@ for (const width of [390, 768, 1440]) {
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     const scrollTop = page.getByRole("button", { name: "맨 위로 이동" });
     await expect(scrollTop).toBeVisible();
+    await expect(page.getByRole("region", { name: "Contact us" })
+      .getByRole("button", { name: "피드백 남기기" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "피드백 남기기", exact: true })).toHaveCount(1);
     const scrolledBox = await button.boundingBox();
     const scrollTopBox = await scrollTop.boundingBox();
     expect(scrolledBox.y).toBeCloseTo(initialBox.y, 0);
