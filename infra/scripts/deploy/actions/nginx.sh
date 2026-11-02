@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Collector helper snapshot; deployment source: infra/blue-green-deploy/scripts/actions/nginx.sh.
 bg_nginx_container() { jq -r '.nginx.container' <<<"$CONFIG"; }
 bg_capture() {
   local container identity generation workers
@@ -52,6 +53,8 @@ bg_publish_config() {
   mv -f "$temporary" "$directory/current.conf" && sync -f "$directory"
 }
 bg_reload() { bg_live; timeout 10 docker exec "$(bg_nginx_container)" nginx -s reload -c /etc/nginx/deploy/current.conf; }
+# Legacy mutation helpers below are retained from the installed snapshot, not called by collect.sh.
+# The old infra/deploy/nginx template path in bg_switch_http is not a collector install dependency.
 bg_switch_http() {
   local slot=$1 rescue=${2:-false} directory generation content previous previous_slot ticket old_ticket
   directory=$(jq -r '.nginx.directory' <<<"$CONFIG")

@@ -43,9 +43,25 @@ MOCK
 chmod 755 "$T/bin/"*
 export PATH="$T/bin:$PATH"
 echo running > "$T/ec2-state"; echo 0 > "$T/ec2-bad"; echo A > "$T/route"; echo 0 > "$T/route-bad"; echo '20:200' > "$T/workers"
-source "$ROOT/infra/scripts/deploy/actions/common.sh"
-CONFIG=$(cat "$TEST_CONFIG"); now=$(date +%s)
-journal=$(jq -cn --arg digest "$(bg_topology_digest)" --arg control "$(jq -r '.topology.control.sha' <<< "$CONFIG")" --argjson now "$now" --arg env "$ENVIRONMENT" '{schema_version:2,revision:1,environment:$env,run_id:123,attempt:1,sha:("a"*40),control_sha:$control,topology_digest:$digest,mode:"deploy",old:"A",target:"B",phase:"PREPARING",created_at:($now-100),heartbeat:$now,expires_at:($now+7200),pending:null,drain_ticket:{container_id:"container1",generation:"generation/0",workers:["10:100"]}}')
+# Build the fixture with the real producer, not the collector's copied helper.
+# Only external checks/side effects are stubbed; bg_plan/bg_issue create the journal.
+journal=$(
+  source "$ROOT/infra/blue-green-deploy/scripts/actions/coordinator.sh"
+  bg_config "$TEST_CONFIG"
+  STATE_FILE="$T/producer-state.json"
+  BG_MODE=bootstrap; RUN_ID=123
+  BG_FRONTEND_ONLY=false; BG_BACKEND_ONLY=false
+  GITHUB_SHA=$(printf 'a%.0s' {1..40})
+  CONTROL_SHA=$(jq -r '.topology.control.sha' <<< "$CONFIG")
+  BG_IMAGE_DIGEST="sha256:$(printf 'b%.0s' {1..64})"
+  bg_route() { echo A; }
+  bg_ec2_state() { if [[ $1 == A ]]; then echo running; else echo stopped; fi; }
+  bg_guard() { :; }
+  bg_output() { :; }
+  bg_plan
+  cat "$STATE_FILE"
+)
+
 file="$T/deploy/$ENVIRONMENT/state.json"; prom="$T/observability/$ENVIRONMENT/textfile/deployment.prom"
 iteration=0; assertions=0
 run() {
@@ -62,6 +78,10 @@ run() {
 }
 expect() { assertions=$((assertions+1)); grep -Eq "$1" "$prom" || { cat "$prom"; exit 1; }; printf 'PASS %s\n' "$2"; }
 save() { jq "$1" <<< "$journal" > "$file"; }
+save '.'; run
+expect '^jarihana_deployment_source_success\{.*source="journal".*\} 1$' 'real coordinator bootstrap journal accepted by collector'
+# Subsequent cases mutate that producer journal to exercise observational states.
+journal=$(jq '.mode="deploy"|.created_at-=100|.pending=null|.drain_ticket={container_id:"container1",generation:"generation/0",workers:["10:100"]}' <<< "$journal")
 save '.'; before=$(sha256sum "$file"); run
 expect '^jarihana_deployment_phase\{.*\} 1$' 'fresh active journal'
 expect '^jarihana_nginx_active_slot\{.*\} 1$' 'actual probe A'

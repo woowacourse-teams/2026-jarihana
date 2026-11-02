@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Shared boundaries for the native Actions jobs. No deployment sequence lives here.
+# Collector helper snapshot; deployment source: infra/blue-green-deploy/scripts/actions/common.sh.
+# Keep this installed snapshot separate; telemetry tests check producer journal compatibility.
 set -euo pipefail
 set +x
 
