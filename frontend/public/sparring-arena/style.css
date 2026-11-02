@@ -151,7 +151,7 @@ footer { max-width: 960px; margin-inline: auto; }
 .slide-controls, .current-post { display:none !important; }
 
 /* Service viewport: keep the composer close to the tank and use brand typography. */
-:root { --mint-soft: #dff8f3; --deep: #08736f; --line: #e0e0e0; }
+:root { --mint-soft: #dff8f3; --deep: #08736f; --line: #e0e0e0; --mint-outline: #163e38; --coral-outline: #512d28; }
 @media (min-width: 1001px) { .stage { height: 760px; } #scene { inset: 64px 0 100px; } }
 h1, .vote-flag strong { word-break: keep-all; overflow-wrap: anywhere; }
 .post-copy p { font-size: 16px; }

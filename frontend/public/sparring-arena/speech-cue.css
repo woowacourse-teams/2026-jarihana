@@ -4,7 +4,8 @@
 .history-conversation-speech::before, .duel-speech::after { display: none; }
 .speech-cue-outline { position: absolute; inset: -2px; width: calc(100% + 4px); height: calc(100% + 4px); overflow: visible; pointer-events: none; z-index: -1; }
 .speech-cue-body, .speech-cue-shadow { stroke: var(--speech-cue-color); stroke-width: 2; stroke-linejoin: miter; stroke-miterlimit: 8; vector-effect: non-scaling-stroke; }
-.speech-cue-body { fill: var(--history-wash, var(--duel-wash)); stroke: #163e38; }
+.speech-cue-body { fill: var(--history-wash, var(--duel-wash)); stroke: var(--speech-outline, var(--mint-outline)); }
+.history-conversation-speech[data-side="b"], .duel-contender[data-side="b"] { --speech-outline: var(--coral-outline); }
 .speech-cue-shadow { fill: var(--speech-cue-color); }
 .speech-cue-wave { fill: none; stroke: var(--speech-cue-color); stroke-width: 2.5; vector-effect: non-scaling-stroke; transform-box: view-box; transform-origin: center; opacity: 0; }
 .speech-cue-label { position: absolute; z-index: 5; left: 50%; top: -27px; transform: translateX(-50%); white-space: nowrap; pointer-events: none; opacity: 0; color: var(--speech-cue-color); font-size: 24px; font-weight: 950; line-height: 1.1; letter-spacing: -1px; text-shadow: 3px 3px #fff, -2px -2px #fff; }
@@ -67,8 +68,8 @@
   font-size: 13px;
   line-height: 1.5;
 }
-.pipe-station { --label-ink: #163e38; --label-shadow: var(--deep); }
-.pipe-station.b { --label-ink: #9d4036; --label-shadow: #9d4036; }
+.pipe-station { --label-ink: #163e38; --label-shadow: var(--deep); --label-outline: var(--mint-outline); }
+.pipe-station.b { --label-ink: #9d4036; --label-shadow: #9d4036; --label-outline: var(--coral-outline); }
 .pipe-station .vote-flag {
   padding: 8px 0;
   gap: 8px;
@@ -77,7 +78,7 @@
 .pipe-station .vote-flag strong {
   max-width: 100%;
   padding: 8px 12px;
-  border: 2px solid var(--label-ink);
+  border: 2px solid var(--label-outline);
   border-radius: 14px;
   background: var(--station-soft);
   box-shadow: 3px 4px 0 var(--label-shadow);
