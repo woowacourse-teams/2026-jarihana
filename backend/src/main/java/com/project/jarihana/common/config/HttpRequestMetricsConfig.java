@@ -5,6 +5,7 @@ import io.micrometer.core.instrument.config.MeterFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
 import org.springframework.http.server.observation.DefaultServerRequestObservationConvention;
 import org.springframework.http.server.observation.ServerRequestObservationContext;
 import org.springframework.http.server.observation.ServerRequestObservationConvention;
@@ -24,7 +25,12 @@ public class HttpRequestMetricsConfig {
                         && "GET".equals(request.getMethod())
                         && (request.getContextPath() + "/groups").equals(request.getRequestURI())
                         && "1".equals(request.getParameter("size"));
-                return super.getLowCardinalityKeyValues(context).and(PROBE_TAG, Boolean.toString(probe));
+                String contentType = context.getResponse() == null ? null : context.getResponse().getContentType();
+                boolean sse = contentType != null
+                        && MediaType.TEXT_EVENT_STREAM_VALUE.equalsIgnoreCase(contentType.split(";", 2)[0].trim());
+                return super.getLowCardinalityKeyValues(context)
+                        .and(PROBE_TAG, Boolean.toString(probe))
+                        .and("response.type", sse ? "sse" : "http");
             }
         };
     }
