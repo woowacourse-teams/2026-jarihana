@@ -20,7 +20,7 @@
   --history-wash: var(--mint-soft);
   position: absolute;
   width: max-content;
-  max-width: 280px;
+  max-width: min(280px, var(--history-available-width, 280px));
   transform: translate(-50%, -100%);
   display: flex;
   flex-direction: column;
@@ -90,10 +90,10 @@
   font-weight: 650;
 }
 @media (max-width: 700px) {
-  .history-conversation-speech { padding: 7px 11px; min-height: 54px; border-radius: 18px; }
-  .history-conversation-text { font-size: 13px; }
-  .history-conversation:is([data-bubble-count="3"], [data-bubble-count="4"]) .history-conversation-speech { min-height: 48px; padding: 6px 9px; gap: 2px; }
-  .history-conversation:is([data-bubble-count="3"], [data-bubble-count="4"]) .history-conversation-byline { font-size: 10px; line-height: 1.2; }
+  .history-conversation-speech { max-width: min(150px, var(--history-available-width, 150px)); padding: 5px 8px; min-height: 44px; border-radius: 14px; }
+  .history-conversation-byline { gap: 4px; font-size: 10px; line-height: 1.2; }
+  .history-conversation-text { font-size: 12px; line-height: 1.3; }
+  .history-conversation .speech-cue-hand { width: 12px; height: 12px; }
   .history-conversation:is([data-bubble-count="3"], [data-bubble-count="4"]) .history-conversation-text { font-size: 12px; line-height: 1.3; -webkit-line-clamp: 1; }
   .history-conversation:is([data-bubble-count="3"], [data-bubble-count="4"]) .speech-cue-label { display: none; }
 }

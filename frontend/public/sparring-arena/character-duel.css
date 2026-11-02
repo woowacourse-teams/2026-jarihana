@@ -21,7 +21,7 @@
   top: calc(var(--duel-figure-size) * -.9 - 12px);
   left: 0;
   width: max-content;
-  max-width: 280px;
+  max-width: min(280px, var(--duel-available-width, 280px));
   transform: translate(-50%, -100%);
   pointer-events: auto;
   min-height: 54px;
@@ -79,9 +79,10 @@
   .stage { height: 520px; }
   .composer-dock { margin-top:-24px; }
   .pipe-station .vote-flag { top:calc(var(--scene-top, 240px) - var(--station-y, 300px) - 80px); bottom:auto; min-height:76px; }
-  .duel-speech { padding: 7px 11px; border-radius: 20px; }
-  .duel-speech-text { font-size: 14px; -webkit-line-clamp: 2; }
-  .duel-byline { gap: 4px; font-size: 11px; }
+  .duel-speech { max-width: min(150px, var(--duel-available-width, 150px)); min-height: 44px; padding: 5px 8px; border-radius: 14px; }
+  .duel-speech-text { font-size: 12px; line-height: 1.3; -webkit-line-clamp: 2; }
+  .duel-byline { gap: 4px; font-size: 10px; line-height: 1.2; }
+  .character-duel .speech-cue-hand { width: 12px; height: 12px; }
   .duel-versus { font-size: 26px; }
   .duel-ground { width: 100px; left: -50px; }
 }
@@ -114,9 +115,9 @@
 }
 
 @media (max-width:700px) {
-  .stage { --mobile-heading-space:16px; margin-top:var(--mobile-heading-space); }
-  .stage:has(#scene[data-view-mode="original"]) { --mobile-heading-space:36px; }
-  .stage .topic { position:absolute; z-index:5; top:calc(-1 * var(--mobile-heading-space)); left:44px; width:calc(100% - 88px); margin:0; padding:12px 0 4px; gap:2px; pointer-events:none; background:transparent; }
+  .stage { --mobile-heading-space:max(26px, var(--mobile-topic-space, 0px)); margin-top:var(--mobile-heading-space); }
+  .stage:has(#scene[data-view-mode="original"]) { --mobile-heading-space:max(46px, var(--mobile-topic-space, 0px)); }
+  .stage .topic { position:absolute; z-index:5; top:calc(10px - var(--mobile-heading-space)); left:50%; width:max-content; max-width:calc(100% - 88px); transform:translateX(-50%); margin:0; padding:12px 0 4px; gap:2px; pointer-events:none; background:transparent; }
   .stage .topic h1 { font-size:15px; line-height:1.4; }
   .stage .topic .intro { display:none; }
   .stage #topic-deadline { font-size:9px; }

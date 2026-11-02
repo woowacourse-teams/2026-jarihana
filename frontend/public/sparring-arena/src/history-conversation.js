@@ -155,7 +155,7 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
       if (item.context.textContent !== caption) item.context.textContent = caption;
       if (item.text.textContent !== item.post.text) item.text.textContent = item.post.text;
       item.bubble.setAttribute('aria-label', `${item.post.name}, ${item.context.textContent}: ${item.post.text}. 눌러서 받아치기`);
-      item.bubble.style.maxWidth = Math.max(0, Math.min(280, (layout.width - 26) / 2)) + 'px';
+      item.bubble.style.setProperty('--history-available-width', Math.max(0, (layout.width - 26) / 2) + 'px');
       visibleBubbles.push(item);
     }
     field.dataset.bubbleCount = String(visibleBubbles.length);

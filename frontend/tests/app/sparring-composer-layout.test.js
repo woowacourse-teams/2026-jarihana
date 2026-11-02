@@ -86,6 +86,26 @@ describe('스파링 화면 높이 배분', () => {
       Object.defineProperty(window, 'innerWidth', viewport);
     }
   });
+
+  it('모바일에서 제목과 편 이름이 길어지면 서로 겹치지 않도록 상단 공간을 늘린다', () => {
+    const viewport = Object.getOwnPropertyDescriptor(window, 'innerWidth');
+    Object.defineProperty(window, 'innerWidth', { value: 320, configurable: true });
+    stage.innerHTML = '<header class="topic"></header><button class="vote-flag"></button><button class="vote-flag"></button>';
+    const topic = stage.querySelector('.topic');
+    Object.defineProperty(topic, 'offsetHeight', { value: 53, configurable: true });
+    const [left, right] = stage.querySelectorAll('.vote-flag');
+    left.getBoundingClientRect = () => ({ top: 94 });
+    right.getBoundingClientRect = () => ({ top: 80 });
+    try {
+      fitArenaViewport(form);
+      expect(stage.style.getPropertyValue('--mobile-topic-space')).toBe('61px');
+      Object.defineProperty(topic, 'offsetHeight', { value: 34 });
+      fitArenaViewport(form);
+      expect(stage.style.getPropertyValue('--mobile-topic-space')).toBe('42px');
+    } finally {
+      Object.defineProperty(window, 'innerWidth', viewport);
+    }
+  });
 });
 
 it('모바일에서 입력창이 화면 밖이어도 포커스 도킹에 맡기고 스크롤하지 않는다', () => {

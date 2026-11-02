@@ -147,7 +147,7 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
       item.ground.style.opacity = String(ease((p - 0.65) / 0.35));
       item.bubble.hidden = p < 1;
       if (stageWidth > 0 && !item.bubble.hidden) {
-        item.bubble.style.maxWidth = Math.max(0, Math.min(280, (stageWidth - 26) / 2)) + 'px';
+        item.bubble.style.setProperty('--duel-available-width', Math.max(0, (stageWidth - 26) / 2) + 'px');
         visibleBubbles.push({ item, x, headX: x + direction * push,
           headY: parseFloat(item.slot.style.top), direction: index ? 1 : -1 });
       }

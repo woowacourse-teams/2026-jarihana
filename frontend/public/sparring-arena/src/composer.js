@@ -6,6 +6,14 @@ export function fitArenaViewport(form) {
   if (!stage || !Number.isFinite(available) || available <= 0) return;
   const topic = stage.querySelector('.topic');
   const mobile = innerWidth <= 700;
+  if (mobile && topic) {
+    const flags = [...stage.querySelectorAll('.vote-flag')];
+    if (flags.length) {
+      const stageTop = stage.getBoundingClientRect().top;
+      const flagTop = Math.min(...flags.map(flag => flag.getBoundingClientRect().top - stageTop));
+      stage.style.setProperty('--mobile-topic-space', `${Math.max(0, Math.ceil(topic.offsetHeight + 14 - flagTop))}px`);
+    }
+  }
   const keyboardHeight = parseFloat(stage.style.getPropertyValue('--keyboard-stage-height'));
   const sceneTop = mobile && Number.isFinite(keyboardHeight) ? Math.max(0, Math.ceil((300 - keyboardHeight) * 0.7)) : 0;
   stage.style.setProperty('--scene-top', `${sceneTop}px`);
