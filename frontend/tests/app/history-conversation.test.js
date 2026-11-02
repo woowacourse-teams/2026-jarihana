@@ -1,4 +1,4 @@
-import { PACKED_SCALE } from '../../public/sparring-arena/src/history-walk.js';
+import { PACKED_SCALE, EXIT_SECONDS, WALKOUT_SECONDS } from '../../public/sparring-arena/src/history-walk.js';
 import { createHistoryConversation } from '../../public/sparring-arena/src/history-conversation.js';
 const post = (id, side = 'a') => ({ id, side, name: '크루 ' + id, text: '의견 ' + id, memberType: 'CREW' });
 describe('지난 메시지 캐릭터 모임', () => {
@@ -132,4 +132,119 @@ describe('지난 메시지 캐릭터 모임', () => {
     expect(visuals.draw.mock.lastCall[5]).toBeCloseTo(-0.85);
 
   });
+  const lastDraw = id => visuals.draw.mock.calls.filter(call => call[1].id === id).at(-1);
+  it('새 인물은 바로 개봉 위치에서 나타나고 기존 인물은 크기를 유지하며 동시에 걸어나간다', () => {
+    add('a1'); add('a2');
+    const before = lastDraw('a1');
+    visuals.draw.mockClear();
+    history.emerge(post('a3'), { x: 0, y: -6, z: 9 });
+    expect(lastDraw('a1')[2]).toEqual(before[2]);
+    expect(lastDraw('a1')[4].scale).toBe(before[4].scale);
+    expect(lastDraw('a3')[2]).toEqual({ x: 0, y: -6, z: 9 });
+    expect(history.stats().historyLeavingPostIds).toEqual(['a1']);
+    history.step(0.7);
+    expect(lastDraw('a1')[2].x).toBeLessThan(before[2].x);
+    expect(lastDraw('a1')[4].shrink).toBe(1);
+    expect(lastDraw('a3')[2].x).toBeLessThan(0);
+    expect(history.stats().historyLeaving).toBe(1);
+    history.step(EXIT_SECONDS - 0.7);
+    expect(history.stats().historyLeaving).toBe(0);
+    expect(visuals.hide).toHaveBeenCalledWith(4);
+    history.step(WALKOUT_SECONDS);
+    expect(stage.querySelector('.history-conversation-speech[data-post-id="a3"]')).toBeVisible();
+  });
+
+  it('양쪽 퇴장은 각각 바깥쪽으로 걷고 대화 자리는 편당 두 개를 유지한다', () => {
+    add('a1'); add('a2'); add('b1', 'b'); add('b2', 'b');
+    const left = lastDraw('a1')[2].x, right = lastDraw('b1')[2].x;
+    history.emerge(post('a3'), { x: 0, y: -6, z: 9 });
+    history.emerge(post('b3', 'b'), { x: 0, y: -6, z: 9 });
+    history.step(0.8);
+    expect(lastDraw('a1')[2].x).toBeLessThan(left);
+    expect(lastDraw('b1')[2].x).toBeGreaterThan(right);
+    expect(history.stats().historyCharacters).toBe(4);
+    expect(history.stats().historyLeaving).toBe(2);
+  });
+
+  it('연속 입장은 입장 중인 인물을 지우지 않고 모든 의견을 차례로 보여준다', () => {
+    add('a1'); add('a2'); add('b1', 'b'); add('b2', 'b');
+    for (let id = 3; id <= 7; id++) {
+      history.emerge(post('a' + id), { x: 0, y: -6, z: 9 });
+      history.emerge(post('b' + id, 'b'), { x: 0, y: -6, z: 9 });
+    }
+    expect(history.canAccept()).toBe(false);
+    for (let tick = 0; tick < 120; tick++) {
+      history.step(0.1);
+      expect(history.stats().historyCharacters + history.stats().historyLeaving).toBeLessThanOrEqual(8);
+    }
+    const ids = reveal.mock.calls.map(([entry]) => entry.id);
+    expect(new Set(ids).size).toBe(14);
+    expect(ids).toHaveLength(14);
+    expect(history.canAccept()).toBe(true);
+    expect(history.stats().historyLeaving).toBe(0);
+    expect(history.stats().historyPostIds).toEqual(expect.arrayContaining(['a6', 'a7', 'b6', 'b7']));
+  });
+
+  it.each(['pause', 'hidden', 'focus'])('%s 동안 입장과 퇴장 시계가 함께 멈추고 재개된다', control => {
+    add('a1'); add('a2');
+    history.emerge(post('a3'), { x: 0, y: -6, z: 9 }); history.step(0.5);
+    const before = lastDraw('a1')[2];
+    if (control === 'pause') history.setPaused(true);
+    if (control === 'hidden') history.setVisible(false);
+    if (control === 'focus') stage.querySelector('.history-conversation-speech[data-post-id="a2"]').focus();
+    history.step(5);
+    expect(history.stats().historyLeaving).toBe(1);
+    expect(history.needsFrame()).toBe(false);
+    if (control === 'pause') history.setPaused(false);
+    if (control === 'hidden') history.setVisible(true);
+    if (control === 'focus') document.activeElement.blur();
+    expect(lastDraw('a1')[2]).toEqual(before);
+    history.step(0.2);
+    expect(lastDraw('a1')[2].x).toBeLessThan(before.x);
+  });
+
+  it('퇴장 도중 같은 인물을 재생하면 중복 생성하지 않고 퇴장 뒤 다시 입장한다', () => {
+    add('a1'); add('a2');
+    history.emerge(post('a3'), { x: 0, y: -6, z: 9 });
+    history.emerge(post('a1'), { x: 0, y: -6, z: 9 });
+    expect(history.stats().historyPostIds).not.toContain('a1');
+    history.step(EXIT_SECONDS);
+    expect(history.stats().historyLeavingPostIds).not.toContain('a1');
+    expect(history.stats().historyPostIds).toContain('a1');
+  });
+
+  it('모션 감소로 전환하면 퇴장을 정리하고 대기 의견을 이동 없이 표시한다', () => {
+    add('a1'); add('a2');
+    for (let id = 3; id <= 9; id++) history.emerge(post('a' + id), { x: 0, y: -6, z: 9 });
+    history.step(0, true);
+    expect(history.stats().historyLeaving).toBe(0);
+    expect(history.stats().historyArriving).toBe(0);
+    expect(history.needsFrame()).toBe(false);
+    expect(history.stats().historyPostIds).toEqual(expect.arrayContaining(['a8', 'a9']));
+    expect(stage.querySelector('.history-conversation-speech[data-post-id="a9"]')).toBeVisible();
+    expect(new Set(reveal.mock.calls.map(([entry]) => entry.id)).size).toBe(9);
+  });
+
+  it('dispose는 입장과 퇴장의 모든 렌더 슬롯을 정리한다', () => {
+    add('a1'); add('a2');
+    history.emerge(post('a3'), { x: 0, y: -6, z: 9 });
+    visuals.hide.mockClear();
+    history.dispose();
+    expect(visuals.hide.mock.calls.map(([index]) => index)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    expect(history.needsFrame()).toBe(false);
+    expect(history.emerge(post('a4'), { x: 0, y: -6, z: 9 })).toBe(false);
+  });
+
+  it('숨긴 상태에서 모션 감소로 채운 자리도 다시 보일 때 올바른 자세에서 퇴장한다', () => {
+    history.setVisible(false);
+    history.emerge(post('a1'), { x: 0, y: -6, z: 9 }, true);
+    history.emerge(post('a2'), { x: 0, y: -6, z: 9 }, true);
+    history.emerge(post('a3'), { x: 0, y: -6, z: 9 });
+    history.setVisible(true);
+    expect(lastDraw('a1')[2].x).toBeCloseTo(-3.5);
+    expect(lastDraw('a1')[2].y).toBeCloseTo(-6.3);
+    history.step(EXIT_SECONDS);
+    expect(history.stats().historyLeaving).toBe(0);
+  });
+
 });

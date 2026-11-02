@@ -1,4 +1,4 @@
-import { historyWalkPose, PACKED_SCALE, WALKOUT_SECONDS } from '../../public/sparring-arena/src/history-walk.js';
+import { historyWalkPose, historyExitPose, EXIT_SECONDS, PACKED_SCALE, WALKOUT_SECONDS } from '../../public/sparring-arena/src/history-walk.js';
 
 const origin = { x: 0.4, y: -6.1, z: 8.4, floorY: -6.3 };
 const destination = { x: -3.5, y: -6.5, z: 10.1 };
@@ -43,4 +43,28 @@ it('아담한 모드에서는 캡슐 속 크기 그대로 몸을 펴고 걷되 �
   }
   expect(frame(WALKOUT_SECONDS, { standingScale: PACKED_SCALE }).pose.crouch).toBe(0);
   expect(frame(WALKOUT_SECONDS).pose.scale).toBe(0.65);
+});
+
+it.each(['a', 'b'])('퇴장 시작은 %s편의 보이던 위치와 크기를 유지하고 바깥쪽을 향해 돈다', side => {
+  const origin = frame(WALKOUT_SECONDS, { side });
+  const direction = side === 'a' ? -1 : 1;
+  const destination = { ...origin.position, x: origin.position.x + direction * 12 };
+  const start = historyExitPose({ origin, destination, elapsed: 0 });
+  const turned = historyExitPose({ origin, destination, elapsed: 0.2 });
+  expect(start.position).toEqual(origin.position);
+  expect(start.yaw).toBe(origin.yaw);
+  expect(start.pose.scale).toBe(origin.pose.scale);
+  expect(turned.position).toEqual(origin.position);
+  expect(Math.sin(turned.yaw)).toBeCloseTo(direction);
+});
+
+it('퇴장 보행은 다리를 번갈아 움직이며 축소하지 않고 화면 밖 목적지까지 이어진다', () => {
+  const origin = frame(WALKOUT_SECONDS);
+  const destination = { ...origin.position, x: -20 };
+  const poses = Array.from({ length: 29 }, (_, index) => historyExitPose({ origin, destination, elapsed: index * 0.05 }));
+  expect(poses.every(pose => pose.pose.scale === origin.pose.scale && pose.pose.shrink === 1)).toBe(true);
+  expect(poses.some(pose => pose.pose.stride > 0.8)).toBe(true);
+  expect(poses.some(pose => pose.pose.stride < -0.8)).toBe(true);
+  expect(poses.every(pose => pose.position.y === origin.position.y && pose.position.z === origin.position.z)).toBe(true);
+  expect(historyExitPose({ origin, destination, elapsed: EXIT_SECONDS }).position).toEqual(destination);
 });

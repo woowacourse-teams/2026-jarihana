@@ -26,7 +26,7 @@ jest.mock('../../public/sparring-arena/src/capsules.js', () => ({ createCapsules
 jest.mock('../../public/sparring-arena/src/capsule-batch.js', () => ({ createCapsuleBatch: () => ({ draw() {}, hide() {} }) }));
 jest.mock('../../public/sparring-arena/src/character-duel.js', () => ({ createCharacterDuel: jest.fn() }));
 jest.mock('../../public/sparring-arena/src/walking-characters.js', () => ({ createWalkingCharacters: () => ({ draw() {}, hide() {} }) }));
-jest.mock('../../public/sparring-arena/src/history-conversation.js', () => ({ createHistoryConversation: jest.fn() }));
+jest.mock('../../public/sparring-arena/src/history-conversation.js', () => ({ createHistoryConversation: jest.fn(), HISTORY_MODEL_CAPACITY: 8 }));
 jest.mock('../../public/sparring-arena/src/capsule-reveals.js', () => ({ createCapsuleReveals: jest.fn() }));
 jest.mock('../../public/sparring-arena/src/clash.js', () => ({ createClash: jest.fn() }));
 jest.mock('../../public/sparring-arena/src/dispenser.js', () => ({ createDispenser: jest.fn() }));
@@ -53,7 +53,7 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     Object.defineProperties(container, { clientWidth: { value: 900 }, clientHeight: { value: 500 } });
     capsules = { step: noop, takeCollision: () => null, replayPipe: jest.fn(() => null), stats: () => ({ queuedId: null, drawReady: true }), takeHistorical: jest.fn(() => ({ post: reply, fresh: false })), takeForDraw: jest.fn(), presentation: () => ({ tracking: ['flight'] }), launch: jest.fn(), queueReplay: jest.fn(), shockwave: jest.fn(), updateState: noop, setPaused: noop };
     duel = { updateState: noop, prepare: jest.fn(() => [{ role: 0, post: original }, { role: 1, post: reply }]), emerge: jest.fn(), clear: jest.fn(), setLayout: jest.fn(), setPaused: noop, pinned: () => false, canReplace: () => true, step: noop, busy: () => false, needsFrame: () => false, stats: () => ({}), dispose: noop };
-    history = { emerge: jest.fn(), setLayout: jest.fn(), setPaused: noop, setVisible: jest.fn(), pinned: () => false, step: noop, needsFrame: () => false, stats: () => ({ historyArriving: 0 }), dispose: noop };
+    history = { canAccept: jest.fn(() => true), emerge: jest.fn(), setLayout: jest.fn(), setPaused: noop, setVisible: jest.fn(), pinned: () => false, step: noop, needsFrame: () => false, stats: () => ({ historyArriving: 0 }), dispose: noop };
     clash = { start: jest.fn(), busy: () => false, setCamera: jest.fn(), reposition: noop, step: jest.fn(), presentation: () => null, projectEffects: noop, needsFrame: () => false, stats: () => ({}), dispose: noop };
     dispenser = { setTrayWidth: jest.fn(), start: jest.fn(() => true), startPair: jest.fn(() => true), clearAll: jest.fn(), readyForNext: () => true, step: noop, presentation: () => null, outputs: () => [], stats: () => ({}) };
     reveals = { update: jest.fn(), spark: jest.fn(), dispose: noop };
@@ -321,4 +321,15 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     expect(dispenser.start).toHaveBeenCalledTimes(2);
     expect(dispenser.start).toHaveBeenLastCalledWith(expect.objectContaining({ kind: 'history' }), true);
   });
+  it('퇴장 슬롯이 찼으면 지난 대화를 더 꺼내지 않고 자리가 생긴 뒤 배출한다', () => {
+    history.canAccept.mockReturnValue(false);
+    advance(3);
+    expect(capsules.takeHistorical).not.toHaveBeenCalled();
+    expect(dispenser.start).not.toHaveBeenCalled();
+    history.canAccept.mockReturnValue(true);
+    advance(0.1);
+    expect(capsules.takeHistorical).toHaveBeenCalledTimes(1);
+    expect(dispenser.start).toHaveBeenCalledTimes(1);
+  });
+
 });

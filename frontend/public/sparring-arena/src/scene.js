@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { createCapsules } from './capsules.js';
 import { whenCharacterAssetsReady } from './characters.js';
 import { createCharacterDuel } from './character-duel.js';
-import { createHistoryConversation } from './history-conversation.js';
+import { createHistoryConversation, HISTORY_MODEL_CAPACITY } from './history-conversation.js';
 import { createWalkingCharacters } from './walking-characters.js';
 import { createCapsuleReveals } from './capsule-reveals.js';
 import { createClash } from './clash.js';
@@ -138,7 +138,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
   const duel = createCharacterDuel(stage, onReply, onReveal);
   const duelField = stage.querySelector('.character-duel');
   duelField.hidden = true;
-  const historyModels = createWalkingCharacters(scene, 4);
+  const historyModels = createWalkingCharacters(scene, HISTORY_MODEL_CAPACITY);
   const history = createHistoryConversation(stage, onReply, onReveal, {
     ...historyModels,
     project: point => project([point.x, point.y, point.z]),
@@ -265,7 +265,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     const userSpill = spillQueue > 0;
     const due = !!replyQueue[0]?.transport || reduced.matches || releaseClock >= (priority ? 0.55 : userSpill ? 0.1 : 1.8);
     const canMove = (!paused || allowPausedRelease) && !duel.pinned() && !history.pinned();
-    const replaceReady = duel.canReplace(false) && !outputQueue.length &&
+    const replaceReady = duel.canReplace(false) && history.canAccept() && !outputQueue.length &&
       dispenser.readyForNext(true, reduced.matches);
     if (canMove && !clash.busy() && !transports.size && replaceReady && due && (priority || userSpill || (!paused && !reduced.matches))) {
       const selection = replyQueue.length ? replyQueue.shift() : waiting.queuedId !== null ? (waiting.drawReady ? capsules.takeForDraw() : null) : capsules.takeHistorical();
@@ -277,7 +277,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     if (canMove) {
       outputClock += delta;
       if (outputQueue.length && (reduced.matches || outputClock >= 0.45) && dispenser.readyForNext(true, reduced.matches)) {
-        if (dispenser.start(outputQueue[0], reduced.matches)) { outputQueue.shift(); outputClock = 0; }
+        if ((outputQueue[0].kind !== 'history' || history.canAccept()) && dispenser.start(outputQueue[0], reduced.matches)) { outputQueue.shift(); outputClock = 0; }
       }
       dispenser.step(delta, reduced.matches);
       duel.step(delta, reduced.matches);
@@ -380,7 +380,13 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     const historySpread = ARENA_VIEWS[viewMode].trayWidth * 0.22;
     const historyWorld = [-historySpread, historySpread].map(x => ({ x, y: historyY, z: historyZ }));
     const historyPoints = historyWorld.map(point => project([point.x, point.y, point.z]));
-    history.setLayout({ left: historyPoints[0], right: historyPoints[1], worldLeft: historyWorld[0], worldRight: historyWorld[1], width,
+    const floorCenter = project([0, historyY, historyZ]);
+    const pixelsPerUnit = project([1, historyY, historyZ]).x - floorCenter.x;
+    const bounds = container.getBoundingClientRect();
+    const margin = 2.1 * (compact ? PACKED_SCALE : 0.65) * pixelsPerUnit + 16;
+    const exitWorld = [-bounds.left - margin, document.documentElement.clientWidth - bounds.left + margin]
+      .map(x => ({ x: (x - floorCenter.x) / pixelsPerUnit, y: historyY, z: historyZ }));
+    history.setLayout({ exitLeft: exitWorld[0], exitRight: exitWorld[1], left: historyPoints[0], right: historyPoints[1], worldLeft: historyWorld[0], worldRight: historyWorld[1], width,
       characterScale: compact ? PACKED_SCALE : 0.65, characterGap: compact ? 0.55 : 0.9 });
     clash.reposition();
     if (clash.busy()) clash.step(0);
