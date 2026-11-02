@@ -138,4 +138,4 @@
 ## 스파링
 
 [스파링 API](sparrings.md): 공개 주제/의견 조회, 회원 주제 등록·편 선택·의견 전송,
-SSE revision 알림. [OpenAPI](../../../openapi/sparring.yaml)
+SSE 메시지 스냅샷·추가분과 투표 집계. [OpenAPI](../../../openapi/sparring.yaml)
