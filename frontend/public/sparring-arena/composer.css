@@ -84,31 +84,34 @@
   .composer .reply-target p{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;white-space:normal;overflow-wrap:anywhere;max-height:34px}
 }
 @media(max-width:700px){
-  .composer-dock{margin-top:-24px;padding:0 16px 8px}
+  .arena{display:flex;flex-direction:column;min-height:var(--arena-available-height, 0px)}
+  .stage{flex:none}
+  .arena .composer-dock{margin-top:auto;padding:12px 16px max(12px, env(safe-area-inset-bottom))}
   .composer{width:100%;padding:0}
-  .composer-devices{display:grid;grid-template-columns:1fr;min-height:156px;--stage-composer-height:156px;gap:0}
+  .composer-devices{display:grid;grid-template-columns:1fr;align-items:stretch;min-height:156px;--stage-composer-height:156px;gap:0}
   .composer-device,.composer-device[data-expanded=true]{grid-area:1/1;width:100%;min-height:156px;padding-top:0;transition:none;pointer-events:none}
-  .composer .composer-avatar{top:20px;left:12px;width:44px;height:52px;border-radius:12px}
+  .composer .composer-avatar{top:auto;bottom:2px;left:12px;width:44px;height:52px;border-radius:12px}
   .composer-device[data-composer-side=b] .composer-avatar{left:auto;right:12px}
   .composer .composer-avatar[aria-pressed=true]::before{content:"";position:absolute;inset:-6px -3px;border:1px solid var(--inlet-color);border-radius:14px;background:color-mix(in srgb,var(--inlet-color) 8%,transparent);pointer-events:none}
-  .composer .composer-hint{bottom:-18px;padding:0;border:0;background:transparent;box-shadow:none;font-size:10px;opacity:1}
+  .composer .composer-hint{bottom:0;left:calc(100% + 6px);transform:none;padding:0;border:0;background:transparent;box-shadow:none;font-size:10px;opacity:1}
+  .composer-device[data-composer-side=b] .composer-hint{left:auto;right:calc(100% + 6px)}
   .composer .inlet-mouth{left:calc(25% - var(--pipe-diameter) * .275);top:calc(104px - var(--pipe-diameter) / 2)}
   .composer-device[data-composer-side=b] .inlet-mouth{left:auto;right:calc(25% - var(--pipe-diameter) * .275)}
   .composer .composer-drawer{transition:none}
   .composer-device[data-composer-side=b] .composer-drawer{display:none}
   .composer .input-row,.composer-device[data-composer-side=b] .input-row{padding:0;transform:none;transition:none}
   .composer-device[data-expanded=true] .input-row{transform:none}
-  .composer-field{min-height:112px;padding:12px 14px 8px;border-radius:18px;background:transparent}
-  .composer-field:not([data-reply=true]){padding-top:76px}
-  .composer .reply-target{min-height:56px;margin:0 48px 8px}
-  .composer-field::before{display:none}
+  .composer-field{min-height:82px;margin-bottom:62px;padding:10px 12px 6px;border-radius:18px;background:transparent}
+  .composer .reply-target{min-height:44px;margin:0 0 4px}
+  .composer-field::before{top:auto;bottom:-8px;left:26px;right:auto;transform:rotate(-45deg)}
+  .composer[data-side=b] .composer-field::before{left:auto;right:26px}
   .composer[data-side=""] .input-row{--inlet-soft:#f5f5f7;--inlet-color:#8b9395;--inlet-dark:#5e6568;--composer-ink:#5e6568;--composer-border:#5e6568;--composer-shadow:var(--composer-ink)}
   .composer[data-side=b] [data-composer-side=a] .input-row{--inlet-color:#ed6a5a;--inlet-dark:#b85348;--composer-ink:#9d4036;--composer-shadow:var(--composer-ink);--inlet-soft:var(--coral-soft)}
   .composer .input-row textarea{font-size:16px;min-height:44px;padding:9px 0;border-radius:0}
   .composer .reply-target strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .composer.keyboard-docked{position:fixed;z-index:30;left:16px;right:16px;width:auto;max-width:none;margin:0;padding:0;background:transparent}
-  .composer.keyboard-docked .composer-devices,.composer.keyboard-docked .composer-device{min-height:122px}
-  .composer.keyboard-docked .composer-avatar{top:12px;height:44px}
+  .composer.keyboard-docked .composer-devices,.composer.keyboard-docked .composer-device{min-height:142px}
+  .composer.keyboard-docked .composer-avatar{top:auto;bottom:2px;height:44px}
   .composer.keyboard-docked .composer-hint,.composer.keyboard-docked #composer-note{display:none}
 }
 @media(prefers-reduced-motion:reduce){.composer-device,.composer-drawer,.composer .input-row,.composer-hint,.capsule-paper{transition:none}.composer .input-row button[type=submit]:active:not(:disabled){transform:none}}

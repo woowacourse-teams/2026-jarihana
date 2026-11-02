@@ -137,6 +137,8 @@ it('iframe의 모바일 입력창을 부모 visual viewport의 키보드 위에 
   try {
     setupComposer(form); callback();
     form.querySelector('textarea').focus(); callback();
+    expect(document.querySelector('.sparring-detail')).toHaveAttribute('data-composer-editing', 'true');
+    expect(document.querySelector('.sparring-detail').style.getPropertyValue('--mobile-composer-height')).toBe('122px');
     expect(form).not.toHaveClass('keyboard-docked');
     viewport.height = 500; viewport.dispatchEvent(new Event('resize')); callback();
     expect(form).toHaveClass('keyboard-docked');
@@ -152,6 +154,8 @@ it('iframe의 모바일 입력창을 부모 visual viewport의 키보드 위에 
     expect(form).not.toHaveClass('keyboard-docked');
     expect(form.style.top).toBe('');
     expect(document.querySelector('.stage').style.getPropertyValue('--keyboard-stage-height')).toBe('');
+    form.querySelector('textarea').blur(); callback();
+    expect(document.querySelector('.sparring-detail')).toHaveAttribute('data-composer-editing', 'false');
   } finally {
     window.dispatchEvent(new Event('pagehide'));
     for (const [key, descriptor] of Object.entries(saved)) {

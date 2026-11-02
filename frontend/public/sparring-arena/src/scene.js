@@ -66,10 +66,12 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     renderer.setViewport(0, 0, width, height);
     if (composer?.dataset.side !== backdropSide) {
       backdropSide = composer?.dataset.side;
-      const coral = getComputedStyle(document.documentElement).getPropertyValue('--coral-soft').trim();
-      composerBackdrop.setColor(backdropSide === 'b' ? coral || '#fff0ed' : '#ffffff');
+      const color = getComputedStyle(composerField).getPropertyValue('--inlet-soft').trim();
+      composerBackdrop.setColor(color || '#def6f3');
     }
-    composerBackdrop.update(!clashCamera.intensity() && width <= 700 && composerField ? composerField.getBoundingClientRect() : null, { width, height });
+    const fieldRect = !clashCamera.intensity() && width <= 700 && composerField ? composerField.getBoundingClientRect() : null;
+    const backdropRect = fieldRect && { left: fieldRect.left + 2, bottom: fieldRect.bottom - 2, width: fieldRect.width - 4, height: fieldRect.height - 4 };
+    composerBackdrop.update(backdropRect, { width, height });
     renderer.render(transportScene.front, transportScene.camera);
     if (!presented && assetsLoaded && layoutReady) {
       presented = true;

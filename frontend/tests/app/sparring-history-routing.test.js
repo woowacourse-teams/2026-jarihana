@@ -173,13 +173,15 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
       if (width <= 700) {
         const bounds = backdrop.geometry;
         bounds.computeBoundingBox();
-        expect(bounds.boundingBox.max.x).toBe(358);
-        expect(bounds.boundingBox.max.y).toBe(140);
+        expect(bounds.boundingBox.max.x).toBe(354);
+        expect(bounds.boundingBox.max.y).toBe(136);
         expect(backdrop.position.z).toBeLessThan(30);
+        form.firstChild.style.setProperty('--inlet-soft', '#fff0ed');
         form.dataset.side = 'b'; advance(.1);
         expect(backdrop.material.color.getHex()).toBe(0xfff0ed);
+        form.firstChild.style.setProperty('--inlet-soft', '#def6f3');
         form.dataset.side = 'a'; advance(.1);
-        expect(backdrop.material.color.getHex()).toBe(0xffffff);
+        expect(backdrop.material.color.getHex()).toBe(0xdef6f3);
       }
     } finally {
       if (descriptor) Object.defineProperty(document.documentElement, 'clientWidth', descriptor);

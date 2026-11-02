@@ -82,7 +82,12 @@ export function setupComposer(form) {
       form.classList.remove('keyboard-docked'); form.style.top = ''; dock.style.minHeight = '';
       stage?.style.removeProperty('--keyboard-stage-height');
     }
-    if (detail) detail.dataset.keyboardOpen = String(Boolean(keyboardOpen));
+    if (detail) {
+      detail.dataset.keyboardOpen = String(Boolean(keyboardOpen));
+      detail.dataset.composerEditing = String(Boolean(editing));
+      if (innerWidth <= 700) detail.style.setProperty('--mobile-composer-height', `${form.offsetHeight}px`);
+      else detail.style.removeProperty('--mobile-composer-height');
+    }
     fitArenaViewport(form);
     alignTopicRow();
     updateTransport(form);
@@ -121,7 +126,7 @@ export function setupComposer(form) {
     viewport?.removeEventListener('resize', schedule);
     viewport?.removeEventListener('scroll', schedule);
     if (host) viewportWindow.removeEventListener('scroll', schedule);
-    if (detail) delete detail.dataset.keyboardOpen;
+    if (detail) { delete detail.dataset.keyboardOpen; delete detail.dataset.composerEditing; detail.style.removeProperty('--mobile-composer-height'); }
   }, { once: true });
   const layoutObserver = new ResizeObserver(schedule);
   [form, document.querySelector('.topic'), ...document.querySelectorAll('.vote-flag strong')].forEach(element => layoutObserver.observe(element));
