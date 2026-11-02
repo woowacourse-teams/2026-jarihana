@@ -224,7 +224,8 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
   }
   function releaseFreshReply() {
     if (clash.busy()) return;
-    const index = replyQueue.findIndex(selection => selection.fresh);
+    const ownIndex = replyQueue.findIndex(selection => selection.fresh && selection.post.mine);
+    const index = ownIndex < 0 ? replyQueue.findIndex(selection => selection.fresh) : ownIndex;
     if (index >= 0) startSelection(replyQueue.splice(index, 1)[0]);
   }
   let releaseClock = 0, pipeClock = 0, allowPausedRelease = false, spillQueue = 0;

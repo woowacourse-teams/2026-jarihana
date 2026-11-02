@@ -542,3 +542,53 @@ it('모바일은 편을 바꿔도 같은 입력창과 초안을 유지하고 오
     expect(input).toHaveFocus(); expect(document.querySelector('#send')).toBeEnabled();
   } finally { cleanup(); window.innerWidth = width; }
 });
+
+
+it('리플레이 최근 30개에서 제외된 메시지도 받은 발사 데이터로 모두 발사한다', async () => {
+  const { state, store, arena, cleanup } = await setupVoting();
+  try {
+    const livePosts = Array.from({ length: 1000 }, (_, index) => ({
+      id: String(index + 1), side: 'a', authorId: '2', name: '상대', text: `메시지 ${index + 1}`, createdAt: index + 1
+    }));
+    state.posts = livePosts.slice(-30);
+    state.postCount = 1000;
+    store.subscribe.mock.calls[0][0](livePosts.map(post => post.id), livePosts);
+    expect(arena.launch.mock.calls.map(([post]) => post.id)).toEqual(livePosts.map(post => post.id));
+    expect(arena.updateState.mock.calls.at(-1)[0]).toHaveLength(30);
+  } finally { cleanup(); }
+});
+
+it('1000건이 수신되어도 내 발사 대기 메시지는 목록에 남고 도착 확인 후 해제한다', async () => {
+  jest.useFakeTimers();
+  const { state, store, arena, cleanup } = await setupVoting();
+  try {
+    const post = { id: 'mine', authorId: '1', name: '나', side: 'a', text: '내가 보낸 말', createdAt: 1 };
+    state.mySide = 'a';
+    store.post = jest.fn().mockResolvedValue(post);
+    arena.launch.mockResolvedValue();
+    const receive = store.subscribe.mock.calls[0][0];
+    receive([]);
+    document.querySelector('#message').value = post.text;
+    document.querySelector('#composer').dispatchEvent(new Event('submit', { cancelable: true }));
+    await Promise.resolve(); await Promise.resolve();
+    expect(store.post).toHaveBeenCalled();
+    const incoming = Array.from({ length: 1000 }, (_, i) => ({
+      id: String(i + 2), authorId: '2', name: '다른 사람', side: 'b', text: '새 말 ' + i, createdAt: i + 2
+    }));
+    state.posts = incoming.slice(-30);
+    receive(incoming.map(item => item.id), incoming);
+    jest.advanceTimersByTime(20000);
+    expect(document.querySelector('#history-list').firstElementChild.dataset.postId).toBe('mine');
+    expect(document.querySelector('#post-text')).toHaveTextContent(post.text);
+    expect(arena.updateState.mock.calls.at(-1)[0]).toHaveLength(30);
+    document.querySelector('#scene').dispatchEvent(new CustomEvent('capsuleready', { detail: { id: 'mine' } }));
+    jest.advanceTimersByTime(7999);
+    expect(document.querySelector('[data-post-id="mine"]')).not.toBeNull();
+    jest.advanceTimersByTime(1);
+    expect(document.querySelector('[data-post-id="mine"]')).toBeNull();
+  } finally {
+    window.dispatchEvent(new Event('pagehide'));
+    cleanup();
+    jest.useRealTimers();
+  }
+});

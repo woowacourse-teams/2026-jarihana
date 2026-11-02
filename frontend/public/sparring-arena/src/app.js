@@ -10,6 +10,7 @@ const roomId = store.snapshot().topic.id;
 let state = store.snapshot();
 let voting = false, draftVersion = 0, notice = '';
 const pendingShipments = new Map(), failedShipments = new Map();
+const protectedOwnPosts = new Map();
 let pendingSide = null, voteError = '', expandedSide = null;
 let selectedId = state.posts.at(-1)?.id ?? null;
 let selectedUntil = 0, filter = 'all', historyLimit = 20, flowPaused = false, replyToId = null, arena;
@@ -66,7 +67,7 @@ function fallback() {
   $('#scene').append(message);
 }
 function findPost(id) {
-  return state.posts.find(post => post.id === id) ?? state.posts.find(post => post.replyTo?.id === id)?.replyTo;
+  return protectedOwnPosts.get(id)?.post ?? state.posts.find(post => post.id === id) ?? state.posts.find(post => post.replyTo?.id === id)?.replyTo;
 }
 function selectPost(id, manual = false) {
   const post = findPost(id);
@@ -81,7 +82,17 @@ function selectPost(id, manual = false) {
   $('#post-text').textContent = post.text;
   document.querySelectorAll('.history-item').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.postId === id)));
 }
+function confirmOwnPost(id) {
+  const entry = protectedOwnPosts.get(id);
+  if (!entry || entry.timer) return;
+  if (selectedId === id) selectedUntil = Date.now() + 8000;
+  entry.timer = setTimeout(() => {
+    protectedOwnPosts.delete(id);
+    renderHistory();
+  }, 8000);
+}
 function showReveal(post, fresh) {
+  if (fresh && own(post)) confirmOwnPost(post.id);
   $('#slide-status').textContent = fresh ? displayName(post) + '의 새 한마디' : '지난 대화 리플레이';
   if (replyToId) return;
   if (fresh && own(post)) {
@@ -101,7 +112,15 @@ function changeView(event) {
 }
 window.addEventListener('message', changeView);
 window.addEventListener('pagehide', () => window.removeEventListener('message', changeView));
-$('#scene').addEventListener('sceneerror', fallback);
+$('#scene').addEventListener('sceneerror', () => {
+  fallback();
+  for (const id of protectedOwnPosts.keys()) confirmOwnPost(id);
+});
+$('#scene').addEventListener('capsuleready', event => confirmOwnPost(event.detail.id));
+window.addEventListener('pagehide', () => {
+  for (const entry of protectedOwnPosts.values()) clearTimeout(entry.timer);
+  protectedOwnPosts.clear();
+});
 
 const isClosed = () => !!state.topic.closesAt && Date.now() >= new Date(state.topic.closesAt).getTime();
 function renderInput() {
@@ -190,7 +209,9 @@ function renderCounts() {
 function renderHistory() {
   const list = $('#history-list');
   list.replaceChildren();
-  const posts = state.posts.filter(post => filter === 'all' || own(post)).slice().reverse();
+  const protectedPosts = [...protectedOwnPosts.values()].map(entry => entry.post).reverse();
+  const posts = [...protectedPosts, ...state.posts.slice().reverse().filter(post => !protectedOwnPosts.has(post.id))]
+    .filter(post => filter === 'all' || own(post));
   for (const post of posts.slice(0, historyLimit)) {
     const button = document.createElement('button');
     button.type = 'button'; button.className = 'history-item'; button.dataset.postId = post.id; button.dataset.side = post.side;
@@ -324,13 +345,15 @@ async function submitShipment(shipment) {
   composerError(); renderCounts();
   try {
     const post = await store.post(roomId, { text: shipment.text, replyToId: shipment.replyToId, postId: shipment.id });
+    protectedOwnPosts.set(post.id, { post, timer: null });
     sync();
-    selectedUntil = Date.now() + 8000; selectPost(post.id);
+    selectedUntil = Infinity; selectPost(post.id);
     try {
       const visualPost = scenePost(post);
       const delivered = arena?.launch(visualPost, arrive => animateCapsuleSend($('#composer'), visualPost, arrive));
-      Promise.resolve(delivered).catch(error => { console.error(error); fallback(); });
-    } catch (error) { console.error(error); fallback(); }
+      if (!delivered) confirmOwnPost(post.id);
+      Promise.resolve(delivered).catch(error => { console.error(error); fallback(); confirmOwnPost(post.id); });
+    } catch (error) { console.error(error); fallback(); confirmOwnPost(post.id); }
     announce('한마디를 보냈어요. ' + post.text);
   } catch (error) {
     failedShipments.set(shipment.id, shipment);
@@ -371,7 +394,7 @@ $('#flow-toggle').addEventListener('click', () => { flowPaused = !flowPaused; ar
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', flowLabel);
 $('#spill').addEventListener('click', () => arena?.spill());
 $('#replay-reply').addEventListener('click', () => {
-  const post = state.posts.find(item => item.id === selectedId);
+  const post = findPost(selectedId);
   if (!post) return;
   arena?.replayReply(scenePost(post));
   $('.stage').scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -391,10 +414,11 @@ $('#more-history').addEventListener('click', async () => {
   } catch (error) { announce(error.message); }
   finally { $('#more-history').disabled = false; }
 });
-store.subscribe(fresh => {
+store.subscribe((fresh, livePosts = []) => {
   sync();
+  const incoming = new Map([...state.posts, ...livePosts].map(post => [post.id, post]));
   for (const id of fresh) {
-    const post = state.posts.find(post => post.id === id);
+    const post = incoming.get(id);
     if (!post) continue;
     arena?.launch(scenePost(post));
   }

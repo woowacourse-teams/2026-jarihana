@@ -19,7 +19,7 @@ export async function connectRoom() {
     }
     if (message.kind === 'snapshot') {
       state = message.state; resolveInitial();
-      for (const listener of listeners) listener(message.fresh ?? []);
+      for (const listener of listeners) listener(message.fresh ?? [], message.livePosts ?? []);
     }
     if (message.kind === 'connection') {
       document.body.dataset.connection = message.value;
