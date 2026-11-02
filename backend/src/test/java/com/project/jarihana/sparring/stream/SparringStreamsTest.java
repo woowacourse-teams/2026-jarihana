@@ -51,6 +51,19 @@ class SparringStreamsTest {
     }
 
     @Test
+    @DisplayName("기존 500개 상한을 넘어도 새 SSE 구독을 허용한다")
+    void acceptsSubscriptionsBeyondPreviousLimit() {
+        // Given
+        for (int i = 0; i < 500; i++) streams.subscribe(1L);
+        // When
+        SseEmitter emitter = streams.subscribe(1L);
+        // Then
+        assertEquals(120_000L, emitter.getTimeout());
+        Set<?> clients = (Set<?>) ReflectionTestUtils.getField(streams, "clients");
+        assertEquals(501, clients.size());
+    }
+
+    @Test
     @DisplayName("느린 연결이 전송 중이어도 뒤따른 추가 메시지 이벤트를 순서대로 모두 보낸다")
     void preservesUpdatesWhilePreviousSendIsBlocked() throws Exception {
         // Given

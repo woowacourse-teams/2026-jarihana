@@ -47,10 +47,6 @@ public class SparringStreams {
     }
 
     public synchronized SseEmitter subscribe(long topicId) {
-        if (clients.size() >= 500) {
-            throw new BusinessException(
-                    ErrorCode.SPARRING_STREAM_BUSY, "실시간 연결이 많아요. 잠시 후 다시 연결할게요.");
-        }
         repository
                 .revision(topicId)
                 .orElseThrow(
