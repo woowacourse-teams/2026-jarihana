@@ -4,6 +4,8 @@ import { storeReturnTarget } from "../auth";
 import { arenaMessageSchema, arenaPost } from "./arenaBridge";
 import { getSparring, getSparringPosts, postSparring, revisionSchema, voteSparring } from "./api";
 
+const MAX_LIVE_EFFECTS = 4;
+
 export function useArenaBridge({ topicId, member, login, retry }) {
   const frame = useRef(null);
   const [view, setView] = useState({
@@ -21,6 +23,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       refreshing = false,
       refreshAgain = false,
       sceneReady = false;
+    let recoveringVisibility = document.hidden;
     setView({ error: null, status: "connecting", title: "토론해요", loaded: false, sceneReady: false, sceneError: null });
     const loadingTimeout = setTimeout(() => {
       if (!disposed && !sceneReady) setView(current => ({ ...current, sceneError: "화면 준비가 늦어지고 있어요. 다시 불러와 주세요." }));
@@ -46,7 +49,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       if (!topic || updated.revision >= topic.revision) topic = updated;
     }
     function snapshot(fresh = []) {
-      if (!ready || !initialized || !topic) return;
+      if (!ready || !initialized || !topic || document.hidden) return;
       const total = topic.votesA + topic.votesB;
       send({
         kind: "snapshot",
@@ -66,7 +69,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
           more,
           connection
         },
-        fresh
+        fresh: recoveringVisibility ? [] : fresh.slice(-MAX_LIVE_EFFECTS)
       });
     }
     function merge(items, fresh) {
@@ -81,7 +84,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       }
     }
     async function refresh() {
-      if (disposed) return;
+      if (disposed || document.hidden) return;
       if (refreshing) {
         refreshAgain = true;
         return;
@@ -98,17 +101,17 @@ export function useArenaBridge({ topicId, member, login, retry }) {
               getSparring(topicId),
               getSparringPosts(topicId, { size: 30 })
             ]);
-            if (disposed) return;
+            if (disposed || document.hidden) return;
             merge(history.items, fresh);
             cursors.all = history.nextCursor;
             more.all = history.hasNext;
           } else {
             updated = await getSparring(topicId);
-            if (disposed) return;
+            if (disposed || document.hidden) return;
             let page;
             do {
               page = await getSparringPosts(topicId, { size: 100, afterId: lastPostId });
-              if (disposed) return;
+              if (disposed || document.hidden) return;
               merge(page.items, fresh);
             } while (page.hasNext);
           }
@@ -117,7 +120,8 @@ export function useArenaBridge({ topicId, member, login, retry }) {
           initialized = true;
           setView(current => ({ ...current, error: null, status: connection, title: topic.title, loaded: true }));
           snapshot(fresh);
-        } while (refreshAgain && !disposed);
+          recoveringVisibility = false;
+        } while (refreshAgain && !disposed && !document.hidden);
       } catch (error) {
         if (!disposed) {
           setView((current) => ({
@@ -281,6 +285,11 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       source?.close();
       setConnection("offline");
     };
+    const visibilityChanged = () => {
+      if (document.hidden) recoveringVisibility = true;
+      else void refresh();
+    };
+    document.addEventListener("visibilitychange", visibilityChanged);
     window.addEventListener("message", receive);
     window.addEventListener("online", online);
     window.addEventListener("offline", offline);
@@ -291,6 +300,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       disposed = true;
       clearTimeout(loadingTimeout);
       source?.close();
+      document.removeEventListener("visibilitychange", visibilityChanged);
       window.removeEventListener("message", receive);
       window.removeEventListener("online", online);
       window.removeEventListener("offline", offline);
