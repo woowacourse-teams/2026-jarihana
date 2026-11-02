@@ -61,7 +61,7 @@ export function createComposerCharacters(scene, pixel) {
       }
       const avatar = entry.avatar;
       const position = pixel(avatar.x + avatar.width / 2, avatar.y + avatar.height, 30);
-      const size = avatar.height / CHARACTER_HEIGHT, memberType = entry.memberType ?? 'CREW', active = Boolean(entry.active);
+      const size = avatar.height / CHARACTER_HEIGHT, memberType = side === 'b' ? 'COACH' : entry.memberType ?? 'CREW', active = Boolean(entry.active);
       const previous = standingStates[index];
       if (previous?.position.equals(position) && previous.size === size && previous.memberType === memberType && previous.active === active) continue;
       standing.draw(index, { side, memberType }, position, size,

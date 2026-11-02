@@ -60,7 +60,7 @@ it('새 인스턴스는 숨기고 양쪽 입력 슬롯에 실제 사용자 외�
   const left = standing.draw.mock.calls.find(call => call[0] === 0);
   const right = standing.draw.mock.calls.find(call => call[0] === 1);
   expect(left[1]).toEqual({ side: 'a', memberType: 'COACH' });
-  expect(right[1]).toEqual({ side: 'b', memberType: 'CREW' });
+  expect(right[1]).toEqual({ side: 'b', memberType: 'COACH' });
   expect(left[2]).toEqual(pixel(70, 180, 30));
   expect(left[3]).toBeCloseTo(80 / 2.1);
 });
