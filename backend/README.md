@@ -215,7 +215,7 @@ dev, prod 모두 RDS 접속값을 사용한다. OAuth 설정은
 ## 배포 worker 제어 API
 
 Blue-Green 배포가 worker를 pause·drain·activate·release하는 내부 API 계약은
-[worker 제어 API 운영 문서](docs/operations/worker-control-api.md)를 확인한다. 현재 구현은
-Compose와 GitHub Actions에 아직 연결되지 않았으므로 운영 배포 자동화가 이를 호출하지 않는다.
+[worker 제어 API 운영 문서](../infra/blue-green-deploy/controller/architecture.md#worker-제어-api)를 확인한다.
+운영 배포의 앱 전용 runner가 해당 호스트의 loopback 관리 API를 호출한다.
 
 dev/prod GitHub Environment의 Variables에 `INVITATION_TOKEN_ACTIVE_KEY_ID`(기본 primary), Secrets에 `INVITATION_TOKEN_KEY_PRIMARY`와 필요한 `INVITATION_TOKEN_KEY_PREVIOUS`를 설정하면 backend 배포 workflow와 Compose가 서버로 전달한다. 키는 32바이트를 Base64로 인코딩한 값이며 환경마다 분리한다. 실제 Secrets 등록, DB 적용, 배포는 코드 변경과 별도로 수행한다.
