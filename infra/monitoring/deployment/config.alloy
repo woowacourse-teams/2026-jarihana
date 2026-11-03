@@ -1,0 +1,18 @@
+prometheus.exporter.unix "deployment" {
+  set_collectors = ["textfile"]
+  textfile {
+    directory = "/var/lib/jarihana-observability/textfile"
+  }
+}
+prometheus.scrape "deployment" {
+  job_name = "jarihana-deployment"
+  targets = prometheus.exporter.unix.deployment.targets
+  scrape_interval = "5s"
+  scrape_timeout = "4s"
+  forward_to = [prometheus.remote_write.monitoring.receiver]
+}
+prometheus.remote_write "monitoring" {
+  endpoint {
+    url = sys.env("PROMETHEUS_REMOTE_WRITE_URL")
+  }
+}
