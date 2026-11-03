@@ -1046,9 +1046,6 @@
     0 5px 0 var(--color-brand-soft);
   line-height: 1;
 }
-.gomoku-arena--waiting .gomoku-players {
-  background: color-mix(in srgb, var(--color-brand-soft) 55%, var(--color-surface));
-}
 .gomoku-players li {
   display: flex;
   align-items: center;
