@@ -61,6 +61,8 @@ class HttpRequestMetricsConfigTest {
             // Given
             var registry = context.getBean(PrometheusMeterRegistry.class);
             MockMvc mvc = mvc(registry, context.getBean(ServerRequestObservationConvention.class));
+            Timer initialTimer = registry.get("http.server.requests").tag("uri", "/groups")
+                    .tag("status", "200").timer();
 
             // When
             mvc.perform(get("/groups").param("size", "1")).andExpect(status().isOk());
@@ -68,7 +70,9 @@ class HttpRequestMetricsConfigTest {
                     .header("User-Agent", "k6/1.0")).andExpect(status().isInternalServerError());
 
             // Then
-            assertThat(registry.get("http.server.requests").tag("status", "200").timer().count()).isEqualTo(1);
+            assertThat(registry.find("http.server.requests").tag("uri", "/groups").tag("status", "200").timers())
+                    .singleElement().isSameAs(initialTimer);
+            assertThat(initialTimer.count()).isEqualTo(1);
             assertThat(registry.get("http.server.requests").tag("status", "500").timer().count()).isEqualTo(1);
         });
     }

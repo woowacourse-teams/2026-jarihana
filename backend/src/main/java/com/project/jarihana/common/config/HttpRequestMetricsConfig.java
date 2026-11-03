@@ -14,6 +14,7 @@ import org.springframework.http.server.observation.ServerRequestObservationConve
 @Configuration(proxyBeanMethods = false)
 public class HttpRequestMetricsConfig {
     private static final String PROBE_TAG = "deployment.probe";
+    private static final String GROUPS_PATH = "/groups";
 
     @Bean
     public ServerRequestObservationConvention deploymentProbeObservationConvention() {
@@ -24,7 +25,7 @@ public class HttpRequestMetricsConfig {
                 boolean probe = request != null
                         && "true".equals(request.getHeader("X-Jarihana-Deployment-Probe"))
                         && "GET".equals(request.getMethod())
-                        && (request.getContextPath() + "/groups").equals(request.getRequestURI())
+                        && (request.getContextPath() + GROUPS_PATH).equals(request.getRequestURI())
                         && "1".equals(request.getParameter("size"));
                 return super.getLowCardinalityKeyValues(context).and(PROBE_TAG, Boolean.toString(probe));
             }
@@ -34,7 +35,7 @@ public class HttpRequestMetricsConfig {
     @Bean
     public MeterBinder idleHttpRequestMetrics() {
         return registry -> Timer.builder("http.server.requests")
-                .tags("method", "GET", "uri", "/groups", "status", "200", "outcome", "SUCCESS",
+                .tags("method", "GET", "uri", GROUPS_PATH, "status", "200", "outcome", "SUCCESS",
                         "exception", "none", "error", "none", PROBE_TAG, "false")
                 .register(registry);
     }
