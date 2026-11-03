@@ -42,6 +42,7 @@ describe('파이프 전달과 경기장 발사 동기화', () => {
       expect(token.style.getPropertyValue(name)).toBe(form.style.getPropertyValue(name));
     }
     expect(launch).not.toHaveBeenCalled();
+    expect(frames[2].transform).toContain('translate(-230px,0px)');
     expect(frames.at(-1)).toMatchObject({ offset: 1 });
     expect(frames.at(-1).transform).toContain('translate(-30px,-500px)');
     finish(); await flush();

@@ -1,26 +1,17 @@
+import * as THREE from 'three';
 import { createClash } from '../../public/sparring-arena/src/clash.js';
 import { createCapsuleBatch } from '../../public/sparring-arena/src/capsule-batch.js';
 
-jest.mock('three', () => {
-  class Vector3 {
-    constructor(x = 0, y = 0, z = 0) { this.set(x, y, z); }
-    set(x, y, z) { Object.assign(this, { x, y, z }); return this; }
-    copy(v) { return this.set(v.x, v.y, v.z); }
-    clone() { return new Vector3(this.x, this.y, this.z); }
-    project() { return this; }
-    unproject() { return this; }
-    sub(v) { this.x -= v.x; this.y -= v.y; this.z -= v.z; return this; }
-    normalize() { return this; }
-    addScaledVector(v, n) { this.x += v.x * n; this.y += v.y * n; this.z += v.z * n; return this; }
-    lerp(v, n) { this.x += (v.x - this.x) * n; this.y += (v.y - this.y) * n; this.z += (v.z - this.z) * n; return this; }
-  }
-  class Quaternion { setFromEuler() { return this; } identity() { return this; } }
-  class Euler { set() { return this; } }
-  return { Vector3, Quaternion, Euler };
-}, { virtual: true });
+jest.mock('three', () => jest.requireActual('../../public/sparring-arena/vendor/three.module.js'), { virtual: true });
 jest.mock('../../public/sparring-arena/src/capsule-batch.js', () => ({ createCapsuleBatch: jest.fn() }));
-jest.mock('../../public/sparring-arena/src/physics.js', () => ({ RADIUS: 0.5, nozzlePose: side => ({ mouth: [side === 'a' ? -8 : 8, 3, 0] }) }));
+jest.mock('../../public/sparring-arena/src/physics.js', () => ({ RADIUS: 0.5, SHOCKWAVE_RADIUS: 8.5, SHOCKWAVE_SPEED: 30, nozzlePose: side => ({ mouth: [side === 'a' ? -8 : 8, 3, 0] }) }));
 jest.mock('../../public/sparring-arena/src/character-motion.js', () => ({ characterPose: () => ({ shrink: 1 }) }));
+
+function createTestCamera() {
+  const camera = new THREE.PerspectiveCamera(48, 1.6, 0.1, 100);
+  camera.position.set(0, 0, 28); camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
+  return camera;
+}
 
 const original = { id: '1', side: 'a', name: '크루', text: '기다릴래요' };
 const reply = { id: '2', side: 'b', name: '코치', text: '시간이 아까워요', replyTo: original };
@@ -36,21 +27,21 @@ describe('받아치기 발사와 충돌', () => {
     batch = { draw: jest.fn(), hide: jest.fn() };
     createCapsuleBatch.mockReturnValue(batch);
     onReveal = jest.fn();
-    clash = createClash({}, scene, { position: { x: 0, y: 0, z: 28 } }, onReveal);
+    clash = createClash({}, scene, createTestCamera(), onReveal);
   });
   afterEach(() => { clash.dispose(); stage.remove(); });
 
   it('발사 직전에만 양쪽 노즐 효과를 한 번 호출하고 모션 줄이기에서는 생략한다', () => {
     const onLaunch = jest.fn();
     clash.dispose();
-    clash = createClash({}, scene, { position: { x: 0, y: 0, z: 28 } }, onReveal,
+    clash = createClash({}, scene, createTestCamera(), onReveal,
       { onLaunch, onImpactComplete: jest.fn() });
     clash.start(reply, true);
     expect(onLaunch).toHaveBeenCalledWith(['a', 'b']);
     clash.step(0); clash.step(0.1);
     expect(onLaunch).toHaveBeenCalledTimes(1);
     clash.dispose();
-    clash = createClash({}, scene, { position: { x: 0, y: 0, z: 28 } }, onReveal,
+    clash = createClash({}, scene, createTestCamera(), onReveal,
       { onLaunch, onImpactComplete: jest.fn() });
     clash.start(reply, true, true); clash.step(0);
     expect(onLaunch).toHaveBeenCalledTimes(1);
@@ -85,7 +76,7 @@ describe('받아치기 발사와 충돌', () => {
   it('출구에서 빠르게 직진하고 0.4초 안에 한 번 충돌한다', () => {
     const impact = jest.fn(), positions = [];
     clash.dispose();
-    clash = createClash({}, scene, { position: { x: 0, y: 0, z: 28 } }, onReveal,
+    clash = createClash({}, scene, createTestCamera(), onReveal,
       { onImpact: impact, onImpactComplete: jest.fn() });
     batch.draw.mockImplementation((index, entry) => positions.push({ index, ...entry.body.position }));
     clash.start(reply, true); clash.step(0.1);
@@ -98,6 +89,51 @@ describe('받아치기 발사와 충돌', () => {
     expect(scene.dataset.clashState).toBe('pressing');
     clash.step(0.1);
     expect(impact).toHaveBeenCalledTimes(1);
+  });
+
+  it('퐁 효과는 발사 중에는 숨고 충돌 순간에 나타나 카메라의 충돌 지점을 따른다', () => {
+    const camera = createTestCamera(), onImpact = jest.fn();
+    clash.dispose();
+    clash = createClash({}, scene, camera, onReveal, { onImpact, onImpactComplete: jest.fn() });
+    const effect = scene.querySelector('.clash-impact');
+    clash.start(reply, true); clash.step(0.35);
+    expect(effect).not.toBeVisible();
+    expect(onImpact).not.toHaveBeenCalled();
+    clash.step(0.02);
+    expect(onImpact).toHaveBeenCalledTimes(1);
+    expect(effect).toBeVisible();
+    expect(effect.querySelector('.clash-flash')).toHaveTextContent('퐁!');
+    camera.position.x = 2; camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
+    clash.projectEffects(camera);
+    const collision = new THREE.Vector3(0, 2.65, 0.3).project(camera);
+    expect(parseFloat(effect.style.left)).toBeCloseTo((collision.x + 1) * 400);
+    expect(parseFloat(effect.style.top)).toBeCloseTo((1 - collision.y) * 250);
+    clash.step(1.1);
+    expect(scene.dataset.clashState).toBe('burst');
+    expect(parseFloat(effect.style.top)).toBeCloseTo((1 - collision.y) * 250);
+  });
+
+  it('강조 테두리는 카메라가 확대돼도 캡슐 중심과 크기를 따라가고 충돌 시 사라진다', () => {
+    const camera = createTestCamera();
+    clash.start(reply, true); clash.step(0.1);
+    clash.projectEffects(camera);
+    const markers = [...scene.querySelectorAll('.clash-flight')];
+    const widths = markers.map(marker => parseFloat(marker.style.getPropertyValue('--flight-size')));
+    camera.zoom = 2; camera.updateProjectionMatrix();
+    clash.projectEffects(camera);
+    markers.forEach((marker, index) => {
+      const position = batch.draw.mock.calls[index][1].body.position.clone().project(camera);
+      expect(parseFloat(marker.style.left)).toBeCloseTo((position.x + 1) * 400);
+      expect(parseFloat(marker.style.top)).toBeCloseTo((1 - position.y) * 250);
+      expect(parseFloat(marker.style.getPropertyValue('--flight-size')) - 8).toBeCloseTo((widths[index] - 8) * 2);
+      expect(marker).toHaveAttribute('aria-hidden', 'true');
+      expect(marker.hidden).toBe(false);
+    });
+    clash.step(0.3);
+    expect(Number(markers[0].style.opacity)).toBeGreaterThan(0);
+    expect(Number(markers[0].style.opacity)).toBeLessThan(1);
+    clash.step(0.1);
+    expect(markers.every(marker => marker.hidden)).toBe(true);
   });
 
   it('의견에 포커스가 있으면 유지하고 닫으면 다음 연출을 허용한다', () => {
@@ -115,7 +151,7 @@ describe('받아치기 발사와 충돌', () => {
 
   it('실시간 받아치기는 출구 높이에서 직선으로 날아가고 충돌 전에는 아래로 처지지 않는다', () => {
     clash.dispose();
-    clash = createClash({}, scene, { position: { x: 0, y: 0, z: 28 } }, onReveal, { onImpactComplete: jest.fn() });
+    clash = createClash({}, scene, createTestCamera(), onReveal, { onImpactComplete: jest.fn() });
     const positions = [];
     batch.draw.mockImplementation((index, entry) => { if (index === 1) positions.push({ ...entry.body.position }); });
     clash.start(reply, true); clash.step(0);
@@ -132,13 +168,14 @@ describe('받아치기 발사와 충돌', () => {
     expect(scene.dataset.clashState).toBe('pair');
     expect(scene.querySelector('.clash-impact')).toHaveClass('reduced');
     expect(onReveal).toHaveBeenCalledWith(reply, false);
+    expect([...scene.querySelectorAll('.clash-flight')].every(marker => marker.hidden)).toBe(true);
   });
 
   it('발사와 충돌 효과가 끝나면 같은 받아치기를 캐릭터 연출에 한 번 전달한다', () => {
     const complete = jest.fn();
     const impact = jest.fn();
     clash.dispose();
-    clash = createClash({}, scene, { position: { x: 0, y: 0, z: 28 } }, onReveal, { onImpact: impact, onImpactComplete: complete });
+    clash = createClash({}, scene, createTestCamera(), onReveal, { onImpact: impact, onImpactComplete: complete });
     clash.start(reply, true);
     clash.step(0.2);
     expect(scene.dataset.clashState).toBe('flying');
@@ -165,7 +202,7 @@ describe('받아치기 발사와 충돌', () => {
     const complete = jest.fn();
     const impact = jest.fn();
     clash.dispose();
-    clash = createClash({}, scene, { position: { x: 0, y: 0, z: 28 } }, onReveal, { onImpact: impact, onImpactComplete: complete });
+    clash = createClash({}, scene, createTestCamera(), onReveal, { onImpact: impact, onImpactComplete: complete });
     clash.start(reply, false, true);
     clash.step(0);
     expect(complete).toHaveBeenCalledWith({ post: reply, fresh: false });

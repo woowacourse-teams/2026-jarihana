@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { ARENA_VIEWS, createArenaCamera, fitArenaCamera, extendArenaViewport } from '../../public/sparring-arena/src/arena-framing.js';
 import { TANK, nozzlePose } from '../../public/sparring-arena/src/physics.js';
 import { createDispenserPhysics } from '../../public/sparring-arena/src/dispenser-physics.js';
+import { createPlanetPlayground } from '../../public/sparring-arena/src/planet-playground.js';
 
 jest.mock('three', () => jest.requireActual('../../public/sparring-arena/vendor/three.module.js'), { virtual: true });
 
@@ -103,13 +104,19 @@ it('바닥 폭을 반복 전환해도 진행 중인 캡슐, 속도, 충돌 기�
 });
 
 
-it.each([[1440, 700], [390, 270]])('아담한 구도는 통 크기와 카메라, 발사 방향을 참고 구도와 동일하게 유지한다 (%i × %i)', (width, height) => {
+it.each([[1440, 700], [900, 380], [390, 270]])('아담한 구도는 데스크톱 마당 여백을 확보하며 시점과 발사 방향을 유지한다 (%i × %i)', (width, height) => {
   const reference = createArenaCamera('reference'), compact = createArenaCamera('compact');
   fitArenaCamera(reference, 'reference', width, height, TANK);
   fitArenaCamera(compact, 'compact', width, height, TANK);
   expect(compact.position).toEqual(reference.position);
   expect(compact.quaternion.toArray()).toEqual(reference.quaternion.toArray());
-  expect(compact.projectionMatrix).toEqual(reference.projectionMatrix);
+  const scale = width > 700 ? 0.9 : 1;
+  expect(compact.zoom / reference.zoom).toBeCloseTo(scale, 10);
+  expect(bounds(compact).width / bounds(reference).width).toBeCloseTo(scale, 10);
+  expect((bounds(compact).minY + bounds(compact).maxY) / 2).toBeCloseTo(0.18, 10);
+  const groundBottom = new THREE.Vector3(0, -9.2, 0);
+  expect(groundBottom.clone().project(compact).y).toBeGreaterThanOrEqual(groundBottom.clone().project(reference).y);
+  if (width <= 700) expect(compact.projectionMatrix).toEqual(reference.projectionMatrix);
   expect(ARENA_VIEWS.compact.trayWidth).toBeLessThan(ARENA_VIEWS.original.trayWidth);
   expect(ARENA_VIEWS.compact.trayWidth).toBeLessThan(ARENA_VIEWS.reference.trayWidth);
   for (const side of ['a', 'b']) expect(nozzlePose(side, 'compact')).toEqual(nozzlePose(side, 'reference'));
@@ -128,4 +135,21 @@ it.each([[1440, 700], [900, 550], [390, 270]])('아담한 마당은 원근 확�
   const ratio = projectedTrayWidth('compact') / projectedTrayWidth('original');
   expect(ratio).toBeGreaterThan(0.85);
   expect(ratio).toBeLessThan(1.2);
+});
+
+it('높이가 낮은 데스크톱에서도 마당의 곡면 하단에 24px 이상 여백을 둔다', () => {
+  const scene = new THREE.Scene(), playground = createPlanetPlayground(scene);
+  const ground = scene.getObjectByName('playground-planet');
+  ground.updateWorldMatrix(true, false);
+  const stage = { left: 24, top: -32, width: 1217, height: 514 }, width = 1265, height = 568;
+  const camera = createArenaCamera('compact'), render = camera.clone();
+  fitArenaCamera(camera, 'compact', stage.width, stage.height, TANK);
+  const viewport = extendArenaViewport(camera, render, stage, width, height);
+  const point = new THREE.Vector3(), positions = ground.geometry.attributes.position;
+  for (let i = 0; i < positions.count; i++) {
+    point.fromBufferAttribute(positions, i).applyMatrix4(ground.matrixWorld).project(render);
+    const screenY = height - viewport.y - (point.y + 1) * viewport.height / 2;
+    expect(screenY).toBeLessThanOrEqual(height - 24);
+  }
+  playground.dispose();
 });
