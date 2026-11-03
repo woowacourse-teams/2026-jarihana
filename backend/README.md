@@ -111,9 +111,8 @@ set +a
 `Started JarihanaApplication`이 출력되면 정상적으로 요청을 받을 준비가 된 것이다.
 `DB_URL`과 OAuth 값이 현재 셸에 없으면 기동에 실패할 수 있다.
 
-로컬 PostgreSQL의 데이터베이스 이름은 `jarihana_local`, 사용자와 비밀번호는
-`jarihana`이며 호스트 포트는 `5432`다. 상태 확인 명령은 컨테이너의 `POSTGRES_DB`와
-`POSTGRES_USER`를 참조한다.
+로컬 PostgreSQL의 데이터베이스, 사용자, 비밀번호는 `jarihana`로 고정되어 있고
+호스트 포트는 `5432`다.
 운영 배포 환경 변수는 GitHub Actions Secrets와 Variables에서 `infra/docker-compose.yml`로 주입한다.
 
 PostgreSQL 컨테이너 상태는 다음 명령으로 확인할 수 있다.
@@ -124,54 +123,6 @@ docker compose -f docker-compose-local.yaml ps
 
 컨테이너를 종료해도 데이터는 named volume에 유지된다. 데이터까지 초기화할 때만
 `docker compose -f docker-compose-local.yaml down -v`를 사용한다.
-
-### 기존 로컬 DB를 jarihana_local로 전환
-
-`POSTGRES_DB`는 새 데이터 볼륨을 처음 초기화할 때만 DB를 만든다. 기존
-`jarihana-postgres-data` 볼륨에는 설정을 바꿔도 `jarihana_local`이 자동 생성되지 않는다.
-기존 데이터를 유지하려면 다음 순서로 전환한다. dev/prod DB에는 적용하지 않는다.
-
-1. 로컬 백엔드와 DB 도구의 `jarihana` 연결을 모두 종료한다.
-2. `backend/`에서 컨테이너 설정을 갱신하고 현재 DB 이름을 확인한다. 볼륨은 유지한다.
-
-   ```bash
-   docker compose -f docker-compose-local.yaml up -d --force-recreate postgres
-   docker compose -f docker-compose-local.yaml exec -T postgres \
-     psql -U jarihana -d postgres -v ON_ERROR_STOP=1 \
-     -c "SELECT datname FROM pg_database WHERE datname IN ('jarihana', 'jarihana_local');"
-   ```
-
-3. `jarihana`만 있다면 이름을 변경한다. 테이블, 데이터와 Flyway 이력은 유지된다.
-   이미 `jarihana_local`이 있다면 아래 명령을 실행하지 않는다. 두 DB가 모두 있다면
-   사용할 데이터가 어느 DB에 있는지 먼저 확인하고 어느 쪽도 덮어쓰거나 삭제하지 않는다.
-
-   ```bash
-   docker compose -f docker-compose-local.yaml exec -T postgres \
-     psql -U jarihana -d postgres -v ON_ERROR_STOP=1 \
-     -c 'ALTER DATABASE jarihana RENAME TO jarihana_local;'
-   ```
-
-   기존 DB를 보관하고 빈 DB에서 시작하려면 이름 변경 대신 다음 명령을 사용한다.
-   이 방법은 기존 데이터를 복사하지 않으며 새 DB 스키마는 앱 시작 시 Flyway가 생성한다.
-
-   ```bash
-   docker compose -f docker-compose-local.yaml exec -T postgres \
-     createdb -U jarihana -O jarihana jarihana_local
-   ```
-
-4. 개인 `.env`의 `DB_URL`을 `jdbc:postgresql://localhost:5432/jarihana_local`로 수정하고
-   현재 셸에 다시 반영한다. 기존 OAuth 등의 개인 설정은 유지한다.
-5. 연결과 컨테이너 상태를 확인한 뒤 백엔드를 시작한다.
-
-   ```bash
-   docker compose -f docker-compose-local.yaml exec -T postgres \
-     psql -U jarihana -d jarihana_local -v ON_ERROR_STOP=1 -c 'SELECT current_database();'
-   docker compose -f docker-compose-local.yaml ps
-   ```
-
-전환을 되돌려야 하고 `jarihana` 이름의 DB가 없다면 모든 연결을 종료한 뒤
-`postgres` DB에서 `ALTER DATABASE jarihana_local RENAME TO jarihana;`를 실행하고
-개인 `.env`의 DB 이름도 맞춘다. 전환 과정에서 `down -v`로 기존 볼륨을 삭제하지 않는다.
 
 ### Flyway 스키마 관리
 
