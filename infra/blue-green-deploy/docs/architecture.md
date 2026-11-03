@@ -1,7 +1,7 @@
 # Blue-Green 동작 구조
 
 구성요소, worker 인계, 프론트엔드 상태 저장과 실행 보호 규칙을 설명한다.
-전체 그림은 [README](../README.md), 환경 설정은 [배포 환경 구성](environment.md), 실행은 [배포 실행](deployment.md), 복구는 [장애 복구](recovery.md)를 따른다.
+전체 그림은 [README](../README.md), 환경 설정은 [서버 구성](server-setup/README.md), 실행은 [배포 실행](deployment.md), 복구는 [장애 복구](recovery.md)를 따른다.
 프론트 연계 동작은 배포 실행의 [적용 버전](deployment.md#적용-버전)을 전제로 한다.
 선택 이유와 대안은 [인프라 ADR 0005](../../docs/adr/0005-nginx-ec2-blue-green-deployment.md)와
 [인프라 ADR 0006](../../docs/adr/0006-s3-paired-frontend-rollback.md)을 따른다.
@@ -29,7 +29,7 @@ A/B는 고정된 논리 슬롯이며 실제 호스트는 보호된 topology 설�
 | Alloy와 Prometheus | 앱, 호스트와 배포 상태 수집 및 배포 관찰에 필요한 지표 조회 |
 
 정상 배포 순서는 [배포 실행](deployment.md#정상-배포-순서),
-호스트별 통신과 권한은 [배포 환경 구성](environment.md#호스트와-네트워크)을 따른다.
+호스트별 통신과 권한은 [서버 구성](server-setup/README.md#호스트와-네트워크)을 따른다.
 
 ## worker 인계와 정상 종료
 
@@ -82,7 +82,7 @@ deadline은 시간대 오프셋 없는 LocalDateTime이며 호스트의 시간�
 
 ## 프론트엔드 릴리스
 
-최초 baseline과 CloudFront 조건은 [프론트엔드 사전 준비](environment.md#프론트엔드-사전-준비)를 따른다.
+최초 baseline과 CloudFront 조건은 [프론트엔드 사전 준비](server-setup/README.md#프론트엔드-사전-준비)를 따른다.
 
 ### 원본과 상태 저장
 
@@ -119,7 +119,7 @@ GitHub 전달 artifact의 7일 보존은 S3 복구 원본의 보관 기간이 �
 
 ## 내부 점검과 관측
 
-앱 A/B의 Alloy와 Prometheus 조회 경로는 [배포 환경 구성](environment.md#앱-alloy와-조회-경로)을 따른다.
+앱 A/B의 Alloy와 Prometheus 조회 경로는 [서버 구성](server-setup/README.md#앱-alloy와-조회-경로)을 따른다.
 Nginx 서버의 중앙 수집기는 기존 [중앙 수집기 운영 문서](../../docs/observability/CENTRAL-DEPLOYMENT-COLLECTOR.md)를 참조한다.
 
 ### 점검 표시와 최신성

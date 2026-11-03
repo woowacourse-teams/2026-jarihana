@@ -2,7 +2,7 @@
 
 이 문서는 배포 관제의 원본 파일과 화면 표현의 책임을 정한다.
 사용과 해석은 [관제 가이드](../../../docs/observability/DEPLOYMENT.md),
-판정값은 [관측 최신성](../../../blue-green-deploy/controller/status.md#관측-최신성)을 따른다.
+판정값은 [관측 최신성](../../../blue-green-deploy/docs/status.md#관측-최신성)을 따른다.
 
 ## 원본과 생성물
 
@@ -15,8 +15,8 @@
 | [queries.mjs](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/monitoring/grafana/deployment/queries.mjs) | 패널과 PromQL 시험이 공유하는 쿼리 연결 |
 | [생성 JSON](https://github.com/woowacourse-teams/2026-jarihana/blob/c1520946143c049cdcce57734c85daf1f540f26d/infra/monitoring/grafana/provisioning/dashboards/json/jarihana-deployment.json) | Grafana 파일 프로비저닝 결과 |
 
-생성물을 직접 수정하지 않는다. 코드 링크는 [문서 기준 버전](../../../blue-green-deploy/controller/deployment.md#적용-버전)에 고정한다.
-생성과 검증 명령은 [검증 가이드](../../../blue-green-deploy/controller/verification.md#배포-관제-원본)에 둔다.
+생성물을 직접 수정하지 않는다. 코드 링크는 [문서 기준 버전](../../../blue-green-deploy/docs/deployment.md#적용-버전)에 고정한다.
+생성과 검증 명령은 [검증 가이드](../../../blue-green-deploy/docs/verification.md#배포-관제-원본)에 둔다.
 
 ## 화면 구조
 
