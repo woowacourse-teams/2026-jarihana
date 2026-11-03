@@ -127,7 +127,7 @@
   display: grid;
   font-variant-numeric: tabular-nums;
   gap: var(--space-3);
-  grid-template-columns: 2.5rem minmax(0, 1fr) auto auto;
+  grid-template-columns: 2.5rem minmax(0, 1fr) auto 3.25rem;
   padding-block: var(--space-2);
 }
 
@@ -153,6 +153,7 @@
 .pepero-day__duration {
   color: var(--color-text-muted);
   font-size: var(--text-caption);
+  text-align: end;
 }
 
 .pepero-day__ranking-list .pepero-day__ranking-gap {
