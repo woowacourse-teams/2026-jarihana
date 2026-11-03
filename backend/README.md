@@ -111,8 +111,9 @@ set +a
 `Started JarihanaApplication`이 출력되면 정상적으로 요청을 받을 준비가 된 것이다.
 `DB_URL`과 OAuth 값이 현재 셸에 없으면 기동에 실패할 수 있다.
 
-로컬 PostgreSQL의 데이터베이스, 사용자, 비밀번호는 `jarihana`로 고정되어 있고
-호스트 포트는 `5432`다.
+로컬 PostgreSQL의 데이터베이스 이름은 `jarihana_local`, 사용자와 비밀번호는
+`jarihana`이며 호스트 포트는 `5432`다. 상태 확인 명령은 컨테이너의 `POSTGRES_DB`와
+`POSTGRES_USER`를 참조한다.
 운영 배포 환경 변수는 GitHub Actions Secrets와 Variables에서 `infra/docker-compose.yml`로 주입한다.
 
 PostgreSQL 컨테이너 상태는 다음 명령으로 확인할 수 있다.
