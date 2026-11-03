@@ -3,6 +3,10 @@ package com.project.jarihana.common.exception;
 import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
+    GOMOKU_NOT_FOUND(HttpStatus.NOT_FOUND),
+    GOMOKU_CONFLICT(HttpStatus.CONFLICT),
+    GOMOKU_FORBIDDEN_MOVE(HttpStatus.UNPROCESSABLE_CONTENT),
+    GOMOKU_STREAM_BUSY(HttpStatus.SERVICE_UNAVAILABLE),
     SPARRING_STREAM_BUSY(HttpStatus.SERVICE_UNAVAILABLE),
     SPARRING_CLOSED(HttpStatus.CONFLICT),
     SPARRING_NOT_FOUND(HttpStatus.NOT_FOUND),
