@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - infra/blue-green-deploy/**
+      - infra/monitoring/deployment/**
+      - infra/scripts/deploy/actions/**
+      - infra/tests/deploy/telemetry/**
       - .github/workflows/backend-bluegreen-*.yml
       - .github/workflows/backend-app-operation.yml
       - .github/workflows/backend-dev-deploy.yml
@@ -64,3 +67,23 @@ jobs:
         env:
           RESULT: ${{ needs.api-budget-shard.result }}
         run: test "$RESULT" = success
+  collector:
+    name: Central deployment collector
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: 수집기 구문과 읽기 전용 계약 검사
+        run: |
+          if ! command -v shellcheck >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install --yes shellcheck
+          fi
+          for file in infra/monitoring/deployment/*.sh infra/scripts/deploy/actions/*.sh infra/tests/deploy/telemetry/*.sh; do
+            bash -n "$file"
+          done
+          shellcheck --severity=error --external-sources --source-path=SCRIPTDIR \
+            infra/monitoring/deployment/*.sh infra/scripts/deploy/actions/*.sh
+          sudo bash infra/tests/deploy/telemetry/run-tests.sh
