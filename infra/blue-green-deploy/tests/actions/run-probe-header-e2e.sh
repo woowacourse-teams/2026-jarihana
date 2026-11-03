@@ -33,7 +33,7 @@ http.createServer((request, response) => {
 JS
 docker network create "$prefix" >/dev/null
 docker run --detach --pull=never --name "$backend" --network "$prefix" \
-  -v "$temporary/backend.mjs:/backend.mjs:ro" node:24-alpine node /backend.mjs >/dev/null
+  -v "$temporary/backend.mjs:/backend.mjs:ro" node@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 node /backend.mjs >/dev/null
 upstream=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$backend"):8080
 sed -e "s/@UPSTREAM@/$upstream/g" -e 's/@SLOT@/A/g' \
   "$ROOT/infra/blue-green-deploy/nginx/nginx.conf.template" > "$temporary/nginx.conf"
