@@ -13,8 +13,8 @@ const PAIR_SLIDE_SECONDS = 1.4;
 const OPEN_SHELL_POSE = { stage: 'empty-shell', scale: 1, shrink: 1, closing: 0 };
 
 export function createDispenser(scene, onReveal, { onOpened = () => {}, trayWidth = TRAY.frontWidth, edgeScale = 1 } = {}) {
-  const cream = studioMaterial({ color: 0xf8fafb, roughness: 0.65, side: THREE.DoubleSide });
-  const rim = studioMaterial({ color: 0xe4e9ec, roughness: 0.5 });
+  const slide = studioMaterial({ color: 0x91a8bf, roughness: 0.86, clearcoat: 0.02, envMapIntensity: 0.1, side: THREE.DoubleSide });
+  const rim = studioMaterial({ color: 0x34445c, roughness: 0.82, clearcoat: 0.02, envMapIntensity: 0.1 });
   function box(size, position, material) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
     mesh.position.set(...position); mesh.receiveShadow = true; scene.add(mesh);
@@ -47,7 +47,7 @@ export function createDispenser(scene, onReveal, { onOpened = () => {}, trayWidt
     return [floor, ...rails, front];
   }
   const surfaces = surfaceGeometries(trayWidth, edgeScale).map((geometry, index) => {
-    const mesh = new THREE.Mesh(geometry, index === 0 ? cream : rim);
+    const mesh = new THREE.Mesh(geometry, index === 0 ? slide : rim);
     mesh.castShadow = index > 0; mesh.receiveShadow = true; scene.add(mesh);
     return mesh;
   });

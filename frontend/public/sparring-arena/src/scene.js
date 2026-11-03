@@ -92,8 +92,8 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
   const height = TANK.rim - TANK.bottom;
   const halfWidth = TANK.width / 2, halfDepth = TANK.depth / 2;
   const glass = studioMaterial({ color: 0x9eb3bf, transparent: true, opacity: 0.025, roughness: 0.2, envMapIntensity: 0.08, side: THREE.DoubleSide, depthWrite: false });
-  const rimMaterial = studioMaterial({ color: 0x718993, roughness: 0.78, clearcoat: 0.02, envMapIntensity: 0.1 });
-  const edgeMaterial = studioMaterial({ color: 0x647e89, roughness: 0.78, clearcoat: 0.02, envMapIntensity: 0.1 });
+  const rimMaterial = studioMaterial({ color: 0x34445c, roughness: 0.78, clearcoat: 0.02, envMapIntensity: 0.1 });
+  const edgeMaterial = studioMaterial({ color: 0x34445c, roughness: 0.78, clearcoat: 0.02, envMapIntensity: 0.1 });
   function box(size, position, material) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
     mesh.position.set(...position); scene.add(mesh);

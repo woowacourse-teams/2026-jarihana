@@ -44,6 +44,8 @@ export function fitArenaCamera(camera, view, width, height, tank) {
   const projectedWidth = (Math.max(...xs) - Math.min(...xs)) * width / 2;
   const projectedHeight = (maxY - minY) * height / 2;
   camera.zoom = Math.min(width * (width <= 700 ? 0.9 : 0.8) / projectedWidth, height * profile.heightRatio / projectedHeight);
+  // Leave room below the tank for the playground's curved underside.
+  if (view === 'compact' && width > 700) camera.zoom *= 0.9;
   const centerY = (minY + maxY) * camera.zoom / 2;
   const desktopOffset = view === 'original' && width > 1000 ? 36 : 0;
   camera.setViewOffset(width, height, 0, (profile.centerY - centerY) * height / 2 - desktopOffset, width, height);

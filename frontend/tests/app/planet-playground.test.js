@@ -25,7 +25,7 @@ it('놀이터는 기존 조명을 유지하며 공유 자원을 한 번만 정�
   disposals.forEach(dispose => expect(dispose).toHaveBeenCalledTimes(1));
 });
 
-it('놀이터 마당은 매끄러운 민트 바닥과 간결한 소품만 두고 중앙 동선을 비워 둔다', () => {
+it('미니 경기장 마당은 기존 곡면과 소품을 유지하고 선 하나의 메시만 추가한다', () => {
   const scene = new THREE.Scene(), playground = createPlanetPlayground(scene);
   const group = scene.getObjectByName('planet-playground'), ground = group.getObjectByName('playground-planet');
   expect(ground.position.toArray()).toEqual([0, -8, 0]);
@@ -55,7 +55,7 @@ it('놀이터 마당은 매끄러운 민트 바닥과 간결한 소품만 두고
   for (const name of ['playground-ringed-planet', 'playground-moon', 'playground-orbit-ring', 'playground-flag', 'playground-puffy-stars', 'playground-mint-satellite']) {
     expect(group.getObjectByName(name)).toBeUndefined();
   }
-  expect(batches).toBeLessThanOrEqual(15);
+  expect(batches).toBeLessThanOrEqual(16);
   playground.dispose();
 });
 
@@ -92,4 +92,28 @@ it('시간대 콜백은 고정 낮 팔레트와 기존 기하 및 색 버퍼를 
   expect(Array.from(geometry.attributes.normal.array)).toEqual(normals);
   playground.dispose();
   expect(() => playground.setPeriod('night')).not.toThrow();
+});
+
+
+it('경기장 선은 한 메시로 곡면을 따라 붙고 위에서 보이는 면을 유지한다', () => {
+  const scene = new THREE.Scene(), playground = createPlanetPlayground(scene);
+  const markings = scene.getObjectByName('playground-court-markings');
+  const positions = markings.geometry.attributes.position;
+  const normals = markings.geometry.attributes.normal;
+  expect(markings.isMesh).toBe(true);
+  expect(positions.count).toBeGreaterThan(0);
+  expect(positions.count % 3).toBe(0);
+  for (let i = 0; i < positions.count; i++) {
+    const x = positions.getX(i), y = positions.getY(i), z = positions.getZ(i);
+    const radius = (x / 9.3) ** 2 + (z / 6.5) ** 2;
+    expect(Number.isFinite(x + y + z)).toBe(true);
+    expect(radius).toBeLessThan(1);
+    const floor = -8 + 1.2 * Math.sqrt(1 - radius);
+    expect(y - floor).toBeGreaterThan(0);
+    expect(y - floor).toBeLessThan(0.02);
+    expect(normals.getY(i)).toBeGreaterThan(0);
+  }
+  expect(markings.material.map).toBeNull();
+  expect(markings.castShadow).toBe(false);
+  playground.dispose();
 });
