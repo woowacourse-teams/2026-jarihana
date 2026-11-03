@@ -11,10 +11,10 @@ export function createTransportScene(environment) {
   camera.position.z = 1000;
   for (const scene of [world, front]) {
     scene.environment = environment;
-    scene.add(new THREE.HemisphereLight(0xffffff, 0xe5e7eb, 0.35));
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xe5e7eb, 0.25));
     const sun = new THREE.DirectionalLight(0xffffff, 2.3);
     sun.position.set(-4, 10, 7); scene.add(sun);
-    const fill = new THREE.DirectionalLight(0xe9faff, 0.5);
+    const fill = new THREE.DirectionalLight(0xe9faff, 0.35);
     fill.position.set(5, 4, -5); scene.add(fill);
   }
   const materials = Object.fromEntries(Object.entries(COLORS).map(([side, color]) => [side, createPipeSurfaces(color)]));
@@ -22,6 +22,16 @@ export function createTransportScene(environment) {
   let viewportWidth = 0, viewportHeight = 0;
   const pixel = (x, y, z = 0) => new THREE.Vector3(x - viewportWidth / 2, viewportHeight / 2 - y, z);
   const characters = createComposerCharacters(front, pixel);
+  const projected = new THREE.Vector3(), projectionEdge = new THREE.Vector3(), projectionRight = new THREE.Vector3();
+  let presentationView, presentationBounds;
+  function projectShipment(position, diameter) {
+    projected.copy(position).project(presentationView);
+    projectionRight.set(diameter / 2, 0, 0).applyQuaternion(presentationView.quaternion);
+    projectionEdge.copy(position).add(projectionRight).project(presentationView);
+    return { x: presentationBounds.left + (projected.x + 1) * presentationBounds.width / 2,
+      y: presentationBounds.top + (1 - projected.y) * presentationBounds.height / 2,
+      diameter: Math.abs(projectionEdge.x - projected.x) * presentationBounds.width };
+  }
 
   function clear(group) {
     group.traverse(object => {
@@ -77,15 +87,12 @@ export function createTransportScene(environment) {
     world, front, camera, update,
     presentation: characters.presentation,
     setPresentation(view, bounds, active) {
-      characters.setProjection(active ? (position, diameter) => {
-        const p = position.clone().project(view);
-        const right = new THREE.Vector3(diameter / 2, 0, 0).applyQuaternion(view.quaternion);
-        const edge = position.clone().add(right).project(view);
-        return { x: bounds.left + (p.x + 1) * bounds.width / 2,
-          y: bounds.top + (1 - p.y) * bounds.height / 2, diameter: Math.abs(edge.x - p.x) * bounds.width };
-      } : null);
+      characters.setStandingVisible(!active);
+      presentationView = view; presentationBounds = bounds;
+      characters.setProjection(active ? projectShipment : null);
     },
-    step: characters.step,
+    // Advance first; paint once after the follow camera has reached this frame's pose.
+    step: delta => characters.step(delta, true),
     ship(request) {
       const item = groups.get(request.post.side);
       return characters.ship(item ? { ...request, route: item.shape.route,

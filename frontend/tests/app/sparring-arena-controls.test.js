@@ -169,8 +169,8 @@ it('입력창에서 편을 바꿔도 작성 중인 글과 기존 메시지의 �
     const input = document.querySelector('#message');
     const mint = document.querySelector('.composer-avatar[data-side="a"]');
     const coral = document.querySelector('.composer-avatar[data-side="b"]');
-    expect(mint).toHaveAccessibleName('맛 · 캐릭터를 눌러 한마디 쓰기');
-    expect(coral).toHaveAccessibleName('시간 · 캐릭터를 눌러 한마디 쓰기');
+    expect(mint).toHaveAccessibleName('맛 · 입력창 열기');
+    expect(coral).toHaveAccessibleName('시간 · 입력창 열기');
     mint.click();
     expect(mint).toHaveAttribute('aria-pressed', 'true');
     expect(coral).toHaveAttribute('data-ph-capture-attribute-action', 'sparring_vote');
@@ -395,10 +395,10 @@ it('내 캐릭터를 누르면 투표 없이 말풍선을 열고 접으며 초�
     const avatar = document.querySelector('.composer-avatar[data-side="b"]');
     const drawer = document.querySelector('#composer-panel-b'), input = document.querySelector('#message-b');
     expect(document.querySelector('.composer-choice')).not.toBeInTheDocument();
-    expect(avatar).toHaveTextContent('눌러서 한마디');
+    expect(avatar).toHaveTextContent('내 생각은…');
     expect(avatar).toHaveAttribute('aria-expanded', 'false');
     expect(drawer.inert).toBe(true);
-    avatar.click();
+    avatar.querySelector('.composer-hint').click();
     expect(avatar).toHaveAttribute('aria-expanded', 'true');
     expect(avatar).toHaveAttribute('data-ph-capture-attribute-action', 'sparring_composer_toggle');
     expect(drawer.inert).toBe(false);
@@ -544,6 +544,21 @@ it('모바일은 편을 바꿔도 같은 입력창과 초안을 유지하고 오
   } finally { cleanup(); window.innerWidth = width; }
 });
 
+it('모바일에서 받아치기를 선택하면 입력창 이름과 안내가 받아치기로 바뀐다', async () => {
+  const width = window.innerWidth;
+  window.innerWidth = 390;
+  const { state, store, reply, cleanup } = await setupVoting();
+  try {
+    state.mySide = 'b';
+    state.posts.push({ id: 'reply-target', side: 'a', authorId: '2', name: '크루', text: '받아칠 말', createdAt: 1 });
+    store.subscribe.mock.calls[0][0]([]);
+    reply('reply-target');
+    expect(document.querySelector('#composer-label')).toHaveTextContent('시간 · 받아치기');
+    expect(document.querySelector('#message')).toHaveAttribute('placeholder', '이 의견에 한마디 받아쳐볼까요?');
+    document.querySelector('#cancel-reply').click();
+    expect(document.querySelector('#composer-label')).toHaveTextContent('시간 · 한마디');
+  } finally { cleanup(); window.innerWidth = width; }
+});
 
 it('리플레이 최근 30개에서 제외된 메시지도 받은 발사 데이터로 모두 발사한다', async () => {
   const { state, store, arena, cleanup } = await setupVoting();

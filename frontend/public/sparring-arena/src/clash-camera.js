@@ -7,7 +7,7 @@ const smooth = (from, to, value) => {
 
 // Layout and delivery keep their base camera; only the rendered world follows a reply.
 export function createClashCamera() {
-  let enabled = false, activeId = null, seenId = null, cooldown = 0, fromPipe = false;
+  let enabled = true, activeId = null, seenId = null, cooldown = 0, fromPipe = false;
   let shot = null, handoff = null, phase = null, intensity = 0, slideIntensity = 0;
   const target = new THREE.Vector3(), position = new THREE.Vector3(), endPosition = new THREE.Vector3();
   const slideOrigin = new THREE.Vector3();

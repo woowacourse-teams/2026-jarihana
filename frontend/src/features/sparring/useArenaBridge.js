@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { captureEvent } from "../../shared/analytics";
 import { storeReturnTarget } from "../auth";
 import { arenaMessageSchema, arenaPost } from "./arenaBridge";
@@ -8,10 +8,13 @@ const REPLAY_SIZE = 30;
 
 export function useArenaBridge({ topicId, member, login, retry }) {
   const frame = useRef(null);
+  const entryVote = useRef(null);
+  const selectSide = useCallback(side => entryVote.current?.(side) ?? Promise.resolve(false), []);
   const [view, setView] = useState({
     error: null,
     status: "connecting",
     title: "토론해요",
+    topic: null,
     loaded: false,
     sceneReady: false,
     sceneError: null
@@ -22,7 +25,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       initialized = false,
       sceneReady = false;
     let streamState = null, awaitingSnapshot = true;
-    setView({ error: null, status: "connecting", title: "토론해요", loaded: false, sceneReady: false, sceneError: null });
+    setView({ error: null, status: "connecting", title: "토론해요", topic: null, loaded: false, sceneReady: false, sceneError: null });
     const loadingTimeout = setTimeout(() => {
       if (!disposed && !sceneReady) setView(current => ({ ...current, sceneError: "화면 준비가 늦어지고 있어요. 다시 불러와 주세요." }));
     }, 30000);
@@ -47,6 +50,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       if (streamState && streamState.revision >= topic.revision) {
         topic = { ...topic, ...streamState };
       }
+      if (!disposed) setView(current => ({ ...current, topic, title: topic.title }));
     }
     function snapshot(fresh = [], livePosts = []) {
       if (!ready || !initialized || !topic || document.hidden) return;
@@ -172,6 +176,32 @@ export function useArenaBridge({ topicId, member, login, retry }) {
         ...(Number.isFinite(contentWidth) && contentWidth > 0 ? { contentWidth } : {})
       });
     }
+    async function saveVote(side) {
+      if (side !== "MINT" && side !== "CORAL") throw new Error("참여할 편을 골라주세요.");
+      if (!member) {
+        storeReturnTarget(`/sparring/${topicId}`);
+        login();
+        return false;
+      }
+      if (!topic) throw new Error("토론을 불러온 뒤 다시 시도해 주세요.");
+      if (topic.closesAt && Date.parse(topic.closesAt) <= Date.now()) {
+        throw new Error("마감된 토론이에요. 결과를 구경할 수 있어요.");
+      }
+      if (topic.mySide === side) return true;
+      await voteSparring(topicId, side);
+      if (disposed) return false;
+      const updated = await getSparring(topicId);
+      if (disposed) return false;
+      acceptTopic(updated);
+      snapshot();
+      return true;
+    }
+    entryVote.current = side => {
+      // Entry votes and arena writes share one queue so a vote cannot overtake a post.
+      const operation = mutationQueue.then(() => disposed ? false : saveVote(side));
+      mutationQueue = operation.catch(() => {});
+      return operation;
+    };
     async function command(message) {
       const respond = (result, error) =>
         send({ kind: "result", requestId: message.requestId, result, error });
@@ -184,10 +214,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
           return;
         }
         if (message.action === "vote") {
-          await voteSparring(topicId, message.payload.side === "a" ? "MINT" : "CORAL");
-          acceptTopic(await getSparring(topicId));
-          snapshot();
-          respond(true);
+          respond(await saveVote(message.payload.side === "a" ? "MINT" : "CORAL"));
           return;
         }
         posting++;
@@ -276,6 +303,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
     send({ kind: "hello" });
     return () => {
       disposed = true;
+      entryVote.current = null;
       clearTimeout(loadingTimeout);
       source?.close();
       document.removeEventListener("visibilitychange", visibilityChanged);
@@ -285,5 +313,5 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       window.removeEventListener("resize", updateViewport);
     };
   }, [topicId, member, login, retry]);
-  return { frame, ...view };
+  return { frame, selectSide, ...view };
 }
