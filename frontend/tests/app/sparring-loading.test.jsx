@@ -34,14 +34,15 @@ it("enables follow camera by default and persists opting out without replacing t
   const { container, unmount } = render(<SparringDetailPage />);
   const frame = container.querySelector("iframe");
   const send = jest.spyOn(frame.contentWindow, "postMessage");
-  const toggle = screen.getByRole("switch", { name: "받아치기 연출" });
+  const toggle = container.querySelector(".sparring-camera-switch");
   expect(toggle).toHaveAttribute("aria-checked", "true");
   expect(toggle).toBeDisabled();
   receive(frame, { kind: "ready" });
   receiveSnapshot();
   await waitFor(() => expect(frame).toHaveAttribute("title", "점심 토론 캡슐 경기장"));
   receive(frame, { kind: "scene", status: "ready" });
-  expect(send).toHaveBeenLastCalledWith({ channel: "jarihana-sparring", kind: "clash-camera", value: true }, window.location.origin);
+  await enter(frame);
+  expect(send).toHaveBeenCalledWith({ channel: "jarihana-sparring", kind: "clash-camera", value: true }, window.location.origin);
   fireEvent.click(toggle);
   expect(toggle).toHaveAttribute("aria-checked", "false");
   expect(toggle).toHaveAttribute("data-ph-capture-attribute-action", "sparring_clash_camera_toggle");
@@ -50,9 +51,15 @@ it("enables follow camera by default and persists opting out without replacing t
   expect(getSparring).toHaveBeenCalledTimes(1);
   expect(getSparringPosts).not.toHaveBeenCalled();
   unmount(); render(<SparringDetailPage />);
-  expect(screen.getByRole("switch", { name: "받아치기 연출" })).toHaveAttribute("aria-checked", "false");
+  expect(document.querySelector(".sparring-camera-switch")).toHaveAttribute("aria-checked", "false");
   await act(async () => {});
 });
+async function enter(frame) {
+  frame.scrollIntoView = jest.fn();
+  expect(frame).toHaveAttribute("inert");
+  fireEvent.click(screen.getByRole("button", { name: "먼저 구경하기" }));
+  await waitFor(() => expect(frame).not.toHaveAttribute("inert"), { timeout: 2000 });
+}
 function receiveSnapshot() {
   act(() => {
     stream.onopen?.();
@@ -72,11 +79,12 @@ it("switches only the view without remounting the iframe or refetching the discu
   const { container } = render(<SparringDetailPage />);
   const frame = container.querySelector("iframe");
   const send = jest.spyOn(frame.contentWindow, "postMessage");
-  expect(screen.getByRole("button", { name: "기존 구도" })).toBeDisabled();
+  expect(container.querySelector(".sparring-view-switch button")).toBeDisabled();
   receive(frame, { kind: "ready" });
   receiveSnapshot();
   await waitFor(() => expect(frame).toHaveAttribute("title", "점심 토론 캡슐 경기장"));
   receive(frame, { kind: "scene", status: "ready" });
+  await enter(frame);
   expect(screen.getByRole("button", { name: "아담한 구도" })).toHaveAttribute("aria-pressed", "true");
   expect(send).toHaveBeenCalledWith({ channel: "jarihana-sparring", kind: "view", value: "compact" }, window.location.origin);
   expect(screen.queryByRole("button", { name: "참고 구도" })).not.toBeInTheDocument();
@@ -94,8 +102,8 @@ it("switches only the view without remounting the iframe or refetching the discu
 it("shows a preview during authentication without loading a room for the wrong actor", () => {
   useAuth.mockReturnValue({ status: "loading" });
   const { container } = render(<SparringDetailPage />);
-  expect(screen.getByRole("status")).toHaveTextContent("토론을 준비하고 있어요");
-  expect(container.querySelector("picture img")).toHaveAttribute("src", "/sparring-arena/assets/arena-preview-planet-day-desktop.webp");
+  expect(screen.getByText("토론을 불러오고 있어요")).toBeInTheDocument();
+  expect(container.querySelector(".sparring-entry")).toBeInTheDocument();
   expect(container.querySelector("iframe")).toBeNull();
   expect(getSparring).not.toHaveBeenCalled();
 });
@@ -119,12 +127,13 @@ it("keeps text and inputs covered after data and iframe load until the first 3D 
   receive(frame, { kind: "ready" });
   receiveSnapshot();
   await waitFor(() => expect(frame).toHaveAttribute("title", "점심 토론 캡슐 경기장"));
-  expect(screen.getByText("토론을 준비하고 있어요")).toBeInTheDocument();
+  expect(container.querySelector(".sparring-entry")).toBeInTheDocument();
   expect(container.querySelector(".sparring-detail__viewport")).toHaveAttribute("data-ready", "false");
   receive(frame, { kind: "scene", status: "ready" });
+  await enter(frame);
   expect(frame).not.toHaveAttribute("inert");
   expect(frame).toHaveAttribute("aria-hidden", "false");
-  expect(screen.queryByText("토론을 준비하고 있어요")).not.toBeInTheDocument();
+  expect(container.querySelector(".sparring-entry")).toBeNull();
   expect(container.querySelector(".sparring-detail__viewport")).toHaveAttribute("data-ready", "true");
 });
 it("offers a retry after a texture or renderer failure and keeps the replacement iframe covered", async () => {
@@ -138,13 +147,14 @@ it("offers a retry after a texture or renderer failure and keeps the replacement
   fireEvent.click(screen.getByRole("button", { name: "다시 불러오기" }));
   expect(container.querySelector("iframe")).not.toBe(first);
   expect(container.querySelector("iframe")).toHaveAttribute("inert");
-  expect(screen.getByText("토론을 준비하고 있어요")).toBeInTheDocument();
+  expect(container.querySelector(".sparring-entry")).toBeInTheDocument();
   const replacement = container.querySelector("iframe");
   receive(replacement, { kind: "ready" });
   receiveSnapshot();
   await waitFor(() => expect(replacement).toHaveAttribute("title", "점심 토론 캡슐 경기장"));
   expect(replacement).toHaveAttribute("inert");
   receive(replacement, { kind: "scene", status: "ready" });
+  await enter(replacement);
   expect(replacement).not.toHaveAttribute("inert");
   expect(getSparringPosts).not.toHaveBeenCalled();
 });
@@ -171,5 +181,6 @@ it("waits for the SSE snapshot after topic metadata arrives without fetching pos
   expect(send.mock.calls.some(([message]) => message.kind === "snapshot")).toBe(true);
   expect(frame).toHaveAttribute("inert");
   receive(frame, { kind: "scene", status: "ready" });
+  await enter(frame);
   expect(frame).not.toHaveAttribute("inert");
 });

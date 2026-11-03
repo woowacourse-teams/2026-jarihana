@@ -360,7 +360,10 @@
 .sparring-connection::before { content: ""; width: var(--space-2); height: var(--space-2); border-radius: var(--radius-pill); background: var(--color-muted); }
 .sparring-connection[data-connection="live"]::before { background: var(--color-success); }
 .sparring-detail__viewport { position: relative; }
-.sparring-arena-frame { display: block; width: 100%; height: calc(100svh - var(--header-height)); border: 0; background: var(--color-surface); transition: opacity 240ms ease; }
+.sparring-detail__entry { position: relative; z-index: 3; }
+.sparring-detail[data-entry-open="true"] .sparring-detail__rail { visibility: hidden; }
+.sparring-detail[data-entry-open="true"] .sparring-arena-frame { position: absolute; inset: 0; }
+.sparring-arena-frame { display: block; width: 100%; height: calc(100svh - var(--header-height)); scroll-margin-top: var(--header-height); border: 0; background: var(--color-surface); transition: opacity 240ms ease; }
 .sparring-detail__viewport[data-ready="false"] .sparring-arena-frame { opacity: 0; pointer-events: none; }
 .sparring-detail__auth-loading { height: calc(100svh - var(--header-height)); }
 .sparring-preview { position: absolute; inset: 0; z-index: 1; overflow: hidden; background: var(--color-surface); }
