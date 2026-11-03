@@ -364,7 +364,7 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   guard 확인 중에는 footer를 노출하지 않아 loading surface가 콘텐츠보다 먼저 보이지 않게 한다.
 - Header composition: desktop은 `1fr / auto / 1fr` grid로 가운데 메뉴를 유지하고,
   tablet에서는 `auto / minmax(0, 1fr) / auto`와 16px gap으로 로고·메뉴·우측 버튼이 겹치지 않게 한다.
-  주요 메뉴는 홈·탐색·활동·게시판·스파링·피드백을 한 줄로 배치한다. 실제 메뉴 수를
+  주요 메뉴는 홈, 탐색, 활동, 게시판, 토론해요를 한 줄로 배치한다. 실제 메뉴 수를
   `--header-nav-item-count`로 전달해 열 수·전체 폭·활성 밑줄 폭을 함께 계산하고 각 문구는 줄바꿈하지 않는다.
   로그인/프로필 왼쪽에는 민트색 `자리 만들기` 링크(`/groups/new`, action `group_create`)를 둔다.
   히어로와 같은 의자 이미지와 문구를 사용하며, 헤더의 의자 크기는 1.5rem으로 맞춘다.
@@ -729,7 +729,7 @@ default/hover/active/focus/selected 상태를 제공한다.
   동작 줄이기에서는 이동을 생략하며 미지원 브라우저는 일반 링크 탐색을 유지한다.
 
 - Fast `120ms`, base `180ms`, deliberate `240ms`, smooth `420ms`; easing `cubic-bezier(.2,.8,.2,1)`.
-- Header 주요 메뉴는 글자 수와 관계없이 홈, 탐색, 활동, 게시판, 스파링, 피드백을 각각 `--header-nav-item-width`(4.25rem) 폭으로 맞춘다.
+- Header 주요 메뉴는 글자 수와 관계없이 홈, 탐색, 활동, 게시판, 토론해요를 각각 `--header-nav-item-width`(4.25rem) 폭으로 맞춘다.
   열 수와 선택 밑줄 폭은 실제 메뉴 수를 따라 계산한다.
   주요 메뉴 글자는 `--text-body`(0.9375rem)를 사용한다. 헤더 의자 로고는 태블릿·데스크톱에서
   2.125rem, 모바일에서 2rem 크기를 사용한다.
@@ -835,7 +835,7 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
   Keep background changes immediate. The hero fills the page width with square corners;
   the existing main frame supplies its outer top rounding on tablet and desktop.
   A decorative pseudo-element fills the hero bounds without clipping action focus outlines.
-  Use `홈`, `탐색`, `활동`, and `피드백` labels in desktop and mobile navigation.
+  Use `홈`, `탐색`, `활동`, `게시판`, and `토론해요` labels in desktop and mobile navigation.
   `홈` opens `/home` and is active only on `/home`; `탐색` opens `/groups`
   and is active only on that route. Reuse the existing header link and active styles.
   Both links close the mobile drawer without triggering login; browse opens unfiltered.
@@ -1334,3 +1334,10 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
 - 3D 캔버스의 픽셀 비율은 기기 비율을 따르되 2배로 제한한다. 캡슐 바닥의 민트·코랄은 UI 원색(`#2ac1bc`, `#ed6a5a`)과 맞춘다. 호스 외벽·내벽 불투명도는 각각 0.38·0.14로 두어 투명함과 편 색을 함께 유지한다. 기본 환경 반사는 0.22, 반구광은 0.25, 보조광은 0.35로 맞추고 경기장과 입력 장치에 동일하게 적용한다. 주광·노출·Neutral 톤매핑은 유지한다.
 - 미끄럼틀과 마당 바닥·테두리는 같은 곡선 윤곽을 공유한다. 연결부에서 뒤로 꺾이던 구간과 겹친 면을 없애고, 양옆·앞쪽·모서리를 같은 둥근 두께와 중립색 재질로 잇는다. 테두리는 바닥에 살짝 묻혀 틈이 생기지 않게 한다. 구도별 마당 폭과 얇은 테두리 비율을 함께 전환하며 캡슐의 물리 이동은 유지한다.
 - 받아치기 발사 캡슐은 각 의견의 민트·코랄 빛 테두리와 짧은 잔상을 두른다. 발사 동안 바깥 링이 한 번 퍼지고 충돌 압축 구간에서 사라진다. 크기와 위치는 실제 표시 중인 카메라에 투영하므로 추적 확대에도 캡슐을 따라간다. 같은 편의 답장은 원래 색을 유지하고, 일시정지 시 효과도 멈추며 모션 감소에서는 표시하지 않는다.
+
+## 피드백 플로팅 버튼
+
+- 헤더와 모바일 메뉴의 피드백 진입점을 화면 우측 하단의 헤드셋 아이콘 버튼으로 옮긴다. 푸터의 중복 피드백 버튼은 제거하며 로그인 안내와 로그인 후 자동 열기 동작을 유지한다.
+- 공통 touch-target-lg, surface/brand-ink, radius-pill, shadow-float 토큰으로 흰색 배경과 브랜드 색상 아이콘을 사용하고 모바일 safe area를 확보한다. 맨 위로 이동 버튼은 피드백 버튼 위에 space-3 간격으로 배치한다.
+- 호버와 키보드 focus-visible에서 왼쪽의 "피드백 남기기" 문구가 duration-deliberate(240ms), ease-standard에 따라 translateX/opacity로 나타난다. 모션 감소 설정에서는 이동 없이 duration-fast의 페이드만 사용한다. 터치에서는 한 번 누르면 기존 모달을 연다.
+- 접근성 이름은 "피드백 남기기", 분석 action은 기존 feedback_start를 유지한다. 공통 모달의 포커스 복귀를 재사용한다. beui.dev feedback-widget 참조는 DNS 연결 실패로 확인하지 못해 기존 공통 모션 토큰을 따른다.
