@@ -1,13 +1,15 @@
 import { characterVariant } from './character-motion.js';
 import { placeSpeechBubbles } from './speech-layout.js';
+import { createSpeechCue } from './speech-cue.js';
+import { chairBattlePose, CHAIR_BATTLE_SECONDS } from './chair-battle-motion.js';
 
 const ENTRY_SECONDS = 0.95;
-const DISPLAY_SECONDS = 6.4;
+const DISPLAY_SECONDS = CHAIR_BATTLE_SECONDS;
 const clamp = value => Math.max(0, Math.min(1, value));
 const ease = value => { const t = clamp(value); return t * t * (3 - 2 * t); };
 const mix = (a, b, t) => a + (b - a) * t;
 
-export function createCharacterDuel(stage, onSelect, onReveal) {
+export function createCharacterDuel(stage, onSelect, onReveal, visuals) {
   const field = document.createElement('section');
   field.className = 'character-duel';
   field.setAttribute('aria-label', '캡슐에서 나온 두 의견');
@@ -17,9 +19,6 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
   versus.textContent = 'VS';
   versus.hidden = true;
   versus.setAttribute('aria-hidden', 'true');
-  const status = document.createElement('span');
-  status.className = 'duel-status';
-  status.textContent = '첫 한마디를 기다려요';
   const slots = ['left', 'right'].map((position, index) => {
     const slot = document.createElement('div');
     slot.className = `duel-contender ${position}`;
@@ -34,7 +33,7 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
     const context = document.createElement('span');
     const action = document.createElement('span');
     action.className = 'speech-reply-action';
-    action.textContent = '↩ 받아치기';
+    const cue = createSpeechCue(bubble, action);
     byline.append(author, context, action);
     const text = document.createElement('span');
     text.className = 'duel-speech-text';
@@ -43,26 +42,14 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
     figure.className = 'duel-figure';
     figure.setAttribute('aria-hidden', 'true');
     figure.hidden = true;
-    const facing = document.createElement('div');
-    facing.className = 'duel-facing';
-    const sprite = document.createElement('div');
-    sprite.className = 'duel-sprite';
-    sprite.dataset.variant = String(index);
-    sprite.dataset.pose = 'listen';
-    for (const pose of ['listen', 'protest']) {
-      const layer = document.createElement('span');
-      layer.className = `duel-pose ${pose}`;
-      sprite.append(layer);
-    }
-    facing.append(sprite); figure.append(facing);
     const ground = document.createElement('span');
     ground.className = 'duel-ground';
     ground.setAttribute('aria-hidden', 'true');
     ground.hidden = true;
     slot.append(bubble, ground, figure); field.append(slot);
-    return { slot, bubble, author, context, text, sprite, figure, ground, post: null, arrival: null };
+    return { slot, bubble, author, context, text, cue, figure, ground, post: null, arrival: null };
   });
-  field.append(versus, status); stage.append(field);
+  field.append(versus); stage.append(field);
   let posts = [], active = null, paused = false, disposed = false;
   let destinations = [{ x: 0, y: 0 }, { x: 0, y: 0 }];
   let stageWidth = stage.clientWidth;
@@ -70,7 +57,7 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
   const pinned = () => field.contains(document.activeElement);
   const landed = () => !!active && slots.every(item => !item.post || item.arrival?.elapsed >= ENTRY_SECONDS);
 
-  for (const item of slots) item.bubble.addEventListener('click', () => { if (item.post) onSelect(item.post.id); });
+  for (const item of slots) item.bubble.addEventListener('click', () => { if (item.post) { item.cue.dismiss(); onSelect(item.post.id); } });
   field.addEventListener('focusout', () => queueMicrotask(() => { if (!disposed) wake(); }));
   field.addEventListener('keydown', event => {
     if (event.key !== 'Escape') return;
@@ -84,14 +71,16 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
     delete item.bubble.dataset.replySelected;
     item.arrival = null;
     item.bubble.hidden = item.figure.hidden = item.ground.hidden = true;
+    visuals?.hide(slots.indexOf(item));
     item.slot.dataset.speaking = 'false';
     if (!post) return;
     item.slot.dataset.side = post.side;
-    item.sprite.dataset.variant = String(characterVariant(post));
+    item.figure.dataset.variant = String(characterVariant(post));
     item.author.textContent = post.name;
     item.context.textContent = caption;
     item.text.textContent = post.text;
     item.bubble.dataset.postId = post.id;
+    item.cue.present(post.id);
     item.bubble.setAttribute('aria-label', `${post.name}, ${caption}: ${post.text}. 눌러서 받아치기`);
     item.bubble.dataset.phCaptureAttributeAction = 'sparring_reply_start';
   }
@@ -104,7 +93,6 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
     field.dataset.fresh = String(fresh);
     field.dataset.reduced = String(reduced);
     field.dataset.phase = 'rolling';
-    status.textContent = reduced ? '캡슐을 여는 중' : '캡슐이 내려오는 중';
     versus.hidden = true;
     present(slots[speaker], post, post.replyTo ? '받아친 말' : fresh ? '방금' : '지난 대화');
     present(slots[1 - speaker], other, post.replyTo ? '먼저 한 말' : '반대편 의견');
@@ -118,41 +106,40 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
     const ready = landed();
     const time = active.elapsed;
     const first = active.post.replyTo ? 1 - active.speaker : active.speaker;
-    const second = 1 - first;
-    const turn = active.reduced ? active.speaker : time < 1.4 ? first : time < 2.8 && slots[second].post ? second : active.speaker;
-    const motionTime = time < 1.4 ? time : time - 1.4;
-    const envelope = ease(motionTime / 0.18) * (1 - ease((motionTime - 0.95) / 0.45));
+    const opposed = slots.every(item => item.post) && slots[0].post.side !== slots[1].post.side;
+    const size = parseFloat(getComputedStyle(field).getPropertyValue('--duel-figure-size')) || 180;
+    const distance = Math.abs(destinations[1].x - destinations[0].x);
+    const motions = slots.map((_, index) => chairBattlePose({ time, index, speaker: active.speaker, opposed, reduced: active.reduced, size, distance }));
+    const turn = motions[0].attacker ?? (time < 1.4 ? first : active.speaker);
     field.dataset.turn = turn === 0 ? 'left' : 'right';
-    field.dataset.phase = !ready ? slots.some(item => item.arrival) ? 'emerging' : 'rolling' : time >= 3.5 ? 'settled' : time < 1.4 ? 'argue' : 'reply';
-    if (ready) status.textContent = active.fresh ? active.post.replyTo ? '방금 받아친 말' : '방금 나온 한마디' : active.post.replyTo ? '지난 받아치기' : '지난 대화';
-    else if (slots.some(item => item.arrival)) status.textContent = '캡슐에서 나오는 중';
-    versus.hidden = !ready || !slots.every(item => item.post);
-    const visibleBubbles = [];
+    field.dataset.phase = !ready ? slots.some(item => item.arrival) ? 'emerging' : 'rolling' : motions[0].phase === 'settled' ? 'settled' : turn === first ? 'argue' : 'reply';
+    field.dataset.chairPhase = ready ? motions[0].phase : 'arriving';
+    versus.hidden = !ready || !slots.every(item => item.post) || ['thrust', 'slam', 'throw', 'recover'].includes(motions[0].phase);
+    const visibleBubbles = [], chairBounds = [];
     slots.forEach((item, index) => {
       if (!item.arrival) return;
       const p = clamp(item.arrival.elapsed / ENTRY_SECONDS);
-      const direction = index ? -1 : 1;
       const speaking = ready && index === turn;
-      const moving = ready && !active.reduced && time < 2.8;
-      const push = moving ? envelope * (speaking ? 18 : -8) : 0;
-      const bounce = moving && speaking ? -Math.abs(Math.sin(motionTime * 13)) * envelope * 5 : 0;
-      const tilt = moving ? envelope * (speaking ? -4 : Math.sin(motionTime * 17) * 3) : 0;
+      const motion = ready ? motions[index] : chairBattlePose({ index, opposed: false });
       const origin = item.arrival.origin();
       const end = destinations[index];
       const walk = ease((p - 0.18) / 0.82);
-      const x = mix(origin.x, end.x, walk);
+      const x = mix(origin.x, end.x, walk) + motion.x;
       item.slot.style.left = x + 'px';
-      item.slot.style.top = (mix(origin.y, end.y, ease(p)) - Math.sin(p * Math.PI) * 56) + 'px';
+      item.slot.style.top = (mix(origin.y, end.y, ease(p)) - Math.sin(p * Math.PI) * 56 + motion.y) + 'px';
       item.slot.dataset.speaking = String(speaking);
-      item.sprite.dataset.pose = speaking ? 'protest' : 'listen';
+      item.figure.dataset.pose = motion.phase;
       item.figure.style.opacity = String(ease(p / 0.12));
-      item.figure.style.transform = `translate(${direction * push}px, ${bounce}px) rotate(${direction * tilt}deg) scale(${mix(0.18, 1, ease(p))})`;
+      const scale = mix(0.18, 1, ease(p));
+      item.figure.style.transform = `scale(${scale})`;
+      const chair = visuals?.draw(index, item.post, { x, y: parseFloat(item.slot.style.top), size, scale, motion });
+      if (chair) chairBounds.push(chair);
       item.ground.style.opacity = String(ease((p - 0.65) / 0.35));
       item.bubble.hidden = p < 1;
       if (stageWidth > 0 && !item.bubble.hidden) {
-        item.bubble.style.maxWidth = Math.max(0, Math.min(280, stageWidth - 16)) + 'px';
-        visibleBubbles.push({ item, x, headX: x + direction * push,
-          headY: parseFloat(item.slot.style.top), direction: index ? 1 : -1 });
+        item.bubble.style.setProperty('--duel-available-width', Math.max(0, (stageWidth - 26) / 2) + 'px');
+        visibleBubbles.push({ item, x, headX: x,
+          headY: parseFloat(item.slot.style.top) + size * 0.1 * motion.seated, direction: index ? 1 : -1 });
       }
       if (index === active.speaker && p >= 1 && !active.revealed) {
         active.revealed = true;
@@ -164,11 +151,14 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
       width: item.bubble.offsetWidth || Math.min(240, Math.max(0, stageWidth / 2 - 24)),
       height: item.bubble.offsetHeight || 64, direction,
     }));
-    const positions = placeSpeechBubbles(measurements, stageWidth);
+    const positions = placeSpeechBubbles(measurements, stageWidth, chairBounds);
     visibleBubbles.forEach(({ item, x }, index) => {
       item.bubble.style.left = positions[index].center - x + 'px';
+      item.bubble.style.top = positions[index].bottom - parseFloat(item.slot.style.top) + 'px';
+      item.bubble.style.setProperty('--speech-depth', String(2 + positions.filter(position => position.bottom < positions[index].bottom).length));
       item.bubble.style.setProperty('--duel-bubble-width', measurements[index].width + 'px');
       item.bubble.style.setProperty('--duel-tail-x', positions[index].tail + 'px');
+      item.cue.layout(measurements[index].width, measurements[index].height, positions[index].tail, positions[index].tailTip, positions[index].tailHeight);
     });
   }
 
@@ -178,8 +168,7 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
       active = null;
       for (const item of slots) present(item, null, '');
       versus.hidden = true;
-      field.dataset.phase = 'waiting';
-      status.textContent = '첫 한마디를 기다려요';
+      field.dataset.phase = field.dataset.chairPhase = 'waiting';
     },
     prepare,
     emerge(role, origin, reduced = false) {
@@ -214,8 +203,8 @@ export function createCharacterDuel(stage, onSelect, onReveal) {
     canReplace(priority = false) { return !pinned() && (!active || landed() && active.elapsed >= DISPLAY_SECONDS || priority && !active.fresh); },
     busy: () => pinned() || !!active && (!landed() || active.elapsed < DISPLAY_SECONDS),
     needsFrame: () => !paused && !pinned() && !!active && (!landed() || active.elapsed < DISPLAY_SECONDS),
-    stats: () => ({ duelCharacters: slots.filter(item => item.arrival).length, duelPhase: field.dataset.phase ?? 'waiting', duelPostId: active?.post.id ?? null }),
+    stats: () => ({ duelCharacters: slots.filter(item => item.arrival).length, duelPhase: field.dataset.phase ?? 'waiting', chairPhase: field.dataset.chairPhase ?? 'waiting', duelPostId: active?.post.id ?? null }),
     setPaused(value) { paused = value; field.dataset.paused = String(value); },
-    dispose() { disposed = true; field.remove(); },
+    dispose() { disposed = true; visuals?.dispose(); field.remove(); },
   };
 }

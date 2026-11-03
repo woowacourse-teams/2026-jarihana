@@ -28,7 +28,7 @@ bg_route() {
 }
 bg_direct() {
   local raw
-  raw=$(timeout 10 docker exec "$(bg_nginx_container)" curl --noproxy '*' --fail --silent --show-error --max-time 3 --max-filesize 65536 -H 'Connection: close' "http://$(bg_host "$1" | jq -r '.upstream')/api/groups?size=1") || return 1
+  raw=$(timeout 10 docker exec "$(bg_nginx_container)" curl --noproxy '*' --fail --silent --show-error --max-time 3 --max-filesize 65536 -H 'Connection: close' -H 'X-Jarihana-Deployment-Probe: true' "http://$(bg_host "$1" | jq -r '.upstream')/api/groups?size=1") || return 1
   jq -e '.success==true' <<<"$raw" >/dev/null
 }
 bg_await_route() {

@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#ffffff"><title>토론해요 · 자리하나</title>
-<link rel="icon" href="data:,"><link rel="stylesheet" href="./style.css"><link rel="stylesheet" href="./composer.css"><link rel="stylesheet" href="./character-duel.css"><link rel="stylesheet" href="./history-conversation.css">
+<link rel="icon" href="data:,"><link rel="stylesheet" href="./style.css"><link rel="stylesheet" href="./composer.css"><link rel="stylesheet" href="./character-duel.css"><link rel="stylesheet" href="./history-conversation.css"><link rel="stylesheet" href="./speech-cue.css">
 <script type="importmap">{"imports":{"three":"./vendor/three.module.js","three/examples/jsm/":"./vendor/addons/","cannon-es":"./vendor/cannon-es.js"}}</script>
+<link rel="stylesheet" href="./playground.css">
 <script type="module" src="./src/app.js"></script>
 </head>
 <body>
@@ -44,11 +45,11 @@
 <div class="composer-devices" role="group" aria-label="각 편의 의견 입력">
 <div class="composer-device" data-composer-side="a">
 <label id="composer-label" class="sr-only" for="message">왼쪽 편에 한마디</label>
-<span class="inlet-mouth" aria-hidden="true"><b></b><i></i></span><button class="composer-avatar vote-option" data-side="a" type="button" aria-pressed="false" aria-expanded="false"><span class="composer-hint" aria-hidden="true">눌러서 한마디</span></button><div class="composer-drawer" inert><div class="drawer-clip"><div class="input-row"><div class="composer-field"><div id="reply-target" class="reply-target" hidden><div><strong id="reply-target-author">받아치기</strong><p id="reply-target-text"></p></div><button type="button" id="cancel-reply" class="quiet-button" aria-label="받아치기 취소">×</button></div><textarea id="message" data-input-side="a" rows="2" maxlength="160" placeholder="내 생각은…"></textarea><span class="char-count" id="char-count">0 / 160</span></div><button type="submit" id="send" data-send-side="a" disabled><span class="send-capsule" aria-hidden="true"><span class="capsule-paper"></span></span><span class="send-label" id="send-label">보내기</span></button></div></div></div>
+<span class="inlet-mouth" aria-hidden="true"><b></b><i></i></span><button class="composer-avatar vote-option" data-side="a" type="button" aria-pressed="false" aria-expanded="false"><span class="composer-hint" aria-hidden="true">내 생각은…</span></button><div class="composer-drawer" inert><div class="drawer-clip"><div class="input-row"><div class="composer-field"><div id="reply-target" class="reply-target" hidden><div><strong id="reply-target-author">받아치기</strong><p id="reply-target-text"></p></div><button type="button" id="cancel-reply" class="quiet-button" aria-label="받아치기 취소">×</button></div><textarea id="message" data-input-side="a" rows="1" maxlength="160" placeholder="내 생각은…"></textarea><button type="submit" id="send" data-send-side="a" disabled><span class="send-capsule" aria-hidden="true"><span class="capsule-paper"></span></span><span class="send-label" id="send-label">보내기</span></button><span class="char-count" id="char-count">0 / 160</span></div></div></div></div>
 </div>
 <div class="composer-device" data-composer-side="b">
 <label id="composer-label-b" class="sr-only" for="message-b">오른쪽 편에 한마디</label>
-<span class="inlet-mouth" aria-hidden="true"><b></b><i></i></span><button class="composer-avatar vote-option" data-side="b" type="button" aria-pressed="false" aria-expanded="false"><span class="composer-hint" aria-hidden="true">눌러서 한마디</span></button><div class="composer-drawer" inert><div class="drawer-clip"><div class="input-row"><div class="composer-field"><textarea id="message-b" data-input-side="b" rows="2" maxlength="160" placeholder="내 생각은…"></textarea><span class="char-count" id="char-count-b">0 / 160</span></div><button type="submit" id="send-b" data-send-side="b" disabled><span class="send-capsule" aria-hidden="true"><span class="capsule-paper"></span></span><span class="send-label" id="send-label-b">보내기</span></button></div></div></div>
+<span class="inlet-mouth" aria-hidden="true"><b></b><i></i></span><button class="composer-avatar vote-option" data-side="b" type="button" aria-pressed="false" aria-expanded="false"><span class="composer-hint" aria-hidden="true">내 생각은…</span></button><div class="composer-drawer" inert><div class="drawer-clip"><div class="input-row"><div class="composer-field"><textarea id="message-b" data-input-side="b" rows="1" maxlength="160" placeholder="내 생각은…"></textarea><button type="submit" id="send-b" data-send-side="b" disabled><span class="send-capsule" aria-hidden="true"><span class="capsule-paper"></span></span><span class="send-label" id="send-label-b">보내기</span></button><span class="char-count" id="char-count-b">0 / 160</span></div></div></div></div>
 </div></div>
 <p id="composer-note" role="status" hidden></p>
 </form></div>

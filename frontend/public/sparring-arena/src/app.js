@@ -11,6 +11,7 @@ let state = store.snapshot();
 let voting = false, draftVersion = 0, notice = '';
 const pendingShipments = new Map(), failedShipments = new Map();
 const protectedOwnPosts = new Map();
+const revealedPosts = new Map();
 let pendingSide = null, voteError = '', expandedSide = null;
 let selectedId = state.posts.at(-1)?.id ?? null;
 let selectedUntil = 0, flowPaused = false, replyToId = null, arena;
@@ -57,7 +58,7 @@ function formatTime(timestamp) {
 function storageStatus() {
   $('#storage-note').textContent = state.connection === 'offline'
     ? '오프라인이에요. 작성 중인 글은 그대로 두고 다시 연결할게요.'
-    : '대화는 서버에 저장돼요. 최근 대화는 다시 재생돼요.';
+    : '대화는 서버에 저장돼요. 최근 대화와 지난 대화를 이어서 보여드려요.';
 }
 function fallback() {
   if ($('#scene .fallback')) return;
@@ -67,7 +68,8 @@ function fallback() {
   $('#scene').append(message);
 }
 function findPost(id) {
-  return protectedOwnPosts.get(id)?.post ?? state.posts.find(post => post.id === id) ?? state.posts.find(post => post.replyTo?.id === id)?.replyTo;
+  return protectedOwnPosts.get(id)?.post ?? state.posts.find(post => post.id === id) ?? revealedPosts.get(id)
+    ?? state.posts.find(post => post.replyTo?.id === id)?.replyTo;
 }
 function selectPost(id, manual = false) {
   const post = findPost(id);
@@ -90,6 +92,12 @@ function confirmOwnPost(id) {
   }, 8000);
 }
 function showReveal(post, fresh) {
+  revealedPosts.delete(post.id);
+  revealedPosts.set(post.id, post);
+  if (revealedPosts.size > 64) {
+    const oldest = [...revealedPosts.keys()].find(id => id !== selectedId && id !== replyToId);
+    revealedPosts.delete(oldest);
+  }
   if (fresh && own(post)) confirmOwnPost(post.id);
   $('#slide-status').textContent = fresh ? displayName(post) + '의 새 한마디' : '지난 대화 리플레이';
   if (replyToId) return;
@@ -99,7 +107,7 @@ function showReveal(post, fresh) {
   } else if (!replyToId && Date.now() > selectedUntil && !document.activeElement?.matches('[data-input-side]')) selectPost(post.id);
 }
 try {
-  arena = createArena($('#scene'), id => selectPost(id, true), showReveal, startReply);
+  arena = createArena($('#scene'), id => selectPost(id, true), showReveal, startReply, page => store.requestHistory(page));
   arena.ready.then(() => store.reportScene('ready'), () => { fallback(); store.reportScene('error'); });
 }
 catch (error) { console.error(error); fallback(); store.reportScene('error'); }
@@ -140,15 +148,17 @@ function renderInput() {
     const toggle = device.querySelector('.composer-avatar');
     if (mobile) toggle.removeAttribute('aria-expanded');
     else toggle.setAttribute('aria-expanded', String(expanded));
-    toggle.setAttribute('aria-label', `${state.topic[choice]} · ${mobile ? (chosen ? '선택한 편' : '이 편으로 보내기') : expanded ? '말풍선 접기' : '캐릭터를 눌러 한마디 쓰기'}`);
+    toggle.setAttribute('aria-label', `${state.topic[choice]} · ${mobile ? (chosen ? '선택한 편' : '이 편으로 보내기') : expanded ? '입력창 접기' : '입력창 열기'}`);
     toggle.dataset.phCaptureAttributeAction = mobile ? 'sparring_vote' : chosen ? 'sparring_composer_toggle' : 'sparring_vote';
-    toggle.querySelector('.composer-hint').textContent = isClosed() ? '마감된 토론' : voting && pendingSide === choice ? '선택 중…' : mobile ? (chosen ? '선택됨' : '선택') : expanded ? '말풍선 접기' : '눌러서 한마디';
+    toggle.querySelector('.composer-hint').textContent = isClosed() ? '마감된 토론' : voting && pendingSide === choice ? '선택 중…' : mobile ? (chosen ? '선택됨' : '선택') : '내 생각은…';
     toggle.setAttribute('aria-controls', mobile ? 'composer-panel-a' : panel.id);
     input.disabled = isClosed() || (mobile ? choice === 'b' : !chosen);
     input.readOnly = false;
     input.placeholder = isClosed() ? '마감된 토론이에요' : chosen ? (replyToId ? '이 의견에 한마디 받아쳐볼까요?' : '내 생각은…') : '캐릭터를 눌러 한마디 남겨보세요';
     device.querySelector('label').textContent = state.topic[choice] + (replyToId && chosen ? ' · 받아치기' : ' · 한마디');
     device.querySelector('.char-count').textContent = draft.length + ' / 160';
+    input.style.height = 'auto';
+    if (input.scrollHeight) input.style.height = `${input.scrollHeight}px`;
     send.disabled = isClosed() || voting || !chosen || !draft.trim();
     send.setAttribute('aria-busy', 'false');
     device.dataset.hasDraft = String(!!draft.trim());
@@ -160,8 +170,8 @@ function renderInput() {
     const input = $('#message'), send = $('#send');
     device.querySelector('.composer-field').dataset.reply = String(!!side && !!replyToId);
     input.disabled = isClosed();
-    input.placeholder = isClosed() ? '마감된 토론이에요' : side ? '내 생각은…' : '생각을 적고 캐릭터로 편을 골라요';
-    $('#composer-label').textContent = side ? `${state.topic[side]} · 한마디` : '토론에 한마디';
+    input.placeholder = isClosed() ? '마감된 토론이에요' : side ? (replyToId ? '이 의견에 한마디 받아쳐볼까요?' : '내 생각은…') : '생각을 적고 캐릭터로 편을 골라요';
+    $('#composer-label').textContent = side ? `${state.topic[side]} · ${replyToId ? '받아치기' : '한마디'}` : '토론에 한마디';
     send.disabled = isClosed() || voting || !side || !draft.trim();
     $('#send-label').textContent = replyToId ? '받아치기' : '보내기';
     $('#message-b').disabled = true;
@@ -200,7 +210,7 @@ function renderCounts() {
   $('#empty-stage').hidden = !!state.posts.length;
   $('#spill').disabled = !state.posts.length;
   $('#current-post').hidden = !selectedId;
-  arena?.updateState(scenePosts(), result);
+  arena?.updateState(scenePosts(), result, state.history && { ...state.history, posts: state.history.posts.map(scenePost) });
   renderInput(); storageStatus();
 }
 function sync() { state = store.snapshot(roomId); renderCounts(); flowLabel(); }

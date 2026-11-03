@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createCapsuleBatch } from './capsule-batch.js';
 import { createWalkingCharacters } from './walking-characters.js';
+import { createSeatedCapsuleCharacters } from './chair-characters.js';
 import { NOZZLE_LENGTH_RATIO, NOZZLE_DEPTH, NOZZLE_HORIZONTAL } from './pipe-surfaces.js';
 
 const CAPACITY = 24;
@@ -37,16 +38,16 @@ export function createComposerCharacters(scene, pixel) {
   scene.add(group);
   const standing = createWalkingCharacters(group, 2);
   const firstFlightMesh = group.children.length;
-  const capsules = createCapsuleBatch(group, CAPACITY, createWalkingCharacters);
+  const capsules = createCapsuleBatch(group, CAPACITY, createSeatedCapsuleCharacters);
   const flightGroup = new THREE.Group();
   flightGroup.name = 'composer-shipments';
   for (const mesh of group.children.slice(firstFlightMesh)) flightGroup.add(mesh);
   flightGroup.visible = false;
   group.add(flightGroup);
   const shipments = Array(CAPACITY).fill(null);
-  const rotation = new THREE.Euler();
+  const rotation = new THREE.Euler(), routePosition = new THREE.Vector3();
   const standingStates = [null, null];
-  let layout = [], disposed = false, sequence = 0, activeShipments = 0, projectWorld = null;
+  let layout = [], disposed = false, sequence = 0, activeShipments = 0, projectWorld = null, standingVisible = true;
   for (let index = 0; index < CAPACITY; index++) capsules.hide(index);
   for (let index = 0; index < 2; index++) standing.hide(index);
 
@@ -55,13 +56,13 @@ export function createComposerCharacters(scene, pixel) {
     for (let index = 0; index < sides.length; index++) {
       const side = sides[index], entry = layout.find(item => item.side === side);
       const packing = shipments.some(item => item?.post.side === side && item.elapsed < item.packSeconds);
-      if (!entry || packing) {
+      if (!standingVisible || !entry || packing) {
         if (standingStates[index]) { standing.hide(index); standingStates[index] = null; }
         continue;
       }
       const avatar = entry.avatar;
       const position = pixel(avatar.x + avatar.width / 2, avatar.y + avatar.height, 30);
-      const size = avatar.height / CHARACTER_HEIGHT, memberType = entry.memberType ?? 'CREW', active = Boolean(entry.active);
+      const size = avatar.height / CHARACTER_HEIGHT, memberType = side === 'b' ? 'COACH' : entry.memberType ?? 'CREW', active = Boolean(entry.active);
       const previous = standingStates[index];
       if (previous?.position.equals(position) && previous.size === size && previous.memberType === memberType && previous.active === active) continue;
       standing.draw(index, { side, memberType }, position, size,
@@ -112,7 +113,7 @@ export function createComposerCharacters(scene, pixel) {
       const progress = Math.pow((elapsed - packSeconds) / suctionSeconds, 2);
       x = lerp(center.x, route.points[0].x, progress);
       y = lerp(center.y, route.points[0].y, progress);
-      y -= Math.sin(progress * Math.PI) * diameter * 0.12;
+      y -= Math.sin(progress * Math.PI) * shipment.suctionArc;
       z = lerp(30, shipment.nozzleLength * NOZZLE_DEPTH, progress);
     } else {
       const progress = Math.min(1, (elapsed - packSeconds - suctionSeconds) / shipment.travelSeconds);
@@ -129,7 +130,7 @@ export function createComposerCharacters(scene, pixel) {
       z = shipment.nozzleLength * NOZZLE_DEPTH * (1 - throughNozzle);
       size *= lerp(from.scale, to.scale, position - index);
       if (projectWorld && from.world && to.world) {
-        const projected = projectWorld(from.world.clone().lerp(to.world, position - index), shipment.worldDiameter);
+        const projected = projectWorld(routePosition.copy(from.world).lerp(to.world, position - index), shipment.worldDiameter);
         x = projected.x; y = projected.y; size = projected.diameter / CAPSULE_DIAMETER;
       }
     }
@@ -162,6 +163,8 @@ export function createComposerCharacters(scene, pixel) {
       if (slot < 0 || disposed) { if (!disposed) onArrive?.(); return () => {}; }
     }
     const side = post?.side === 'b' ? 'b' : 'a';
+    const distance = Math.hypot(snapshot.points[0].x - (origin.x + origin.width / 2),
+      snapshot.points[0].y - (origin.y + origin.height / 2));
     const shipment = {
       slot, sequence: sequence++, elapsed: 0, diameter, worldDiameter, onArrive, route: snapshot,
       nozzleLength: (layout.find(entry => entry.side === side)?.diameter ?? diameter) * NOZZLE_LENGTH_RATIO,
@@ -169,7 +172,9 @@ export function createComposerCharacters(scene, pixel) {
       post: { ...post, side, memberType: post?.memberType ?? layout.find(entry => entry.side === side)?.memberType ?? 'CREW' },
       body: { position: new THREE.Vector3(), quaternion: new THREE.Quaternion() },
       packSeconds: post?.replyTo ? 0.65 : PACK_SECONDS,
-      suctionSeconds: post?.replyTo ? 0.48 : SUCTION_SECONDS,
+      // Longer gaps need enough time for the capsule to visibly travel to the fixed inlet.
+      suctionSeconds: Math.max(post?.replyTo ? 0.48 : SUCTION_SECONDS, Math.min(0.9, distance / 500)),
+      suctionArc: Math.min(32, Math.max(diameter * 0.12, distance * 0.08)),
       travelSeconds: post?.replyTo
         ? Math.max(1.25, Math.min(1.65, snapshot.length / 650))
         : Math.max(0.7, Math.min(1, snapshot.length / 1000)),
@@ -181,7 +186,7 @@ export function createComposerCharacters(scene, pixel) {
     return () => { if (!disposed) { clear(shipment, false); drawStanding(); } };
   }
 
-  function step(delta) {
+  function step(delta, deferDraw = false) {
     if (disposed || activeShipments === 0) return;
     const seconds = Number.isFinite(delta) ? Math.max(0, delta) : 0;
     let packingChanged = false;
@@ -191,7 +196,7 @@ export function createComposerCharacters(scene, pixel) {
       shipment.elapsed += seconds;
       if (wasPacking && shipment.elapsed >= shipment.packSeconds) packingChanged = true;
       if (shipment.elapsed >= shipment.packSeconds + shipment.suctionSeconds + shipment.travelSeconds) clear(shipment, true);
-      else drawShipment(shipment);
+      else if (!deferDraw) drawShipment(shipment);
     }
     if (packingChanged) drawStanding();
   }
@@ -230,8 +235,12 @@ export function createComposerCharacters(scene, pixel) {
       elapsed, progress, follow: from.world.clone().lerp(to.world, index - lower) };
   }
   return { update, step, ship, finishAll, dispose, presentation,
+    setStandingVisible(visible) {
+      if (standingVisible === visible) return;
+      standingVisible = visible;
+      drawStanding();
+    },
     setProjection(project) {
-      if (!project && !projectWorld) return;
       projectWorld = project;
       for (const shipment of shipments) if (shipment) drawShipment(shipment);
     },

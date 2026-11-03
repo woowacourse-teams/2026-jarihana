@@ -1,13 +1,16 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { SparringDetailPage } from "../../src/pages/sparring/SparringDetailPage";
+import { ArenaPreview } from "../../src/pages/sparring/ArenaPreview";
 import { useAuth } from "../../src/features/auth";
 import { getSparring, getSparringPosts } from "../../src/features/sparring/api";
+import { playgroundPeriod } from "../../public/sparring-arena/src/playground-sky.js";
 
 jest.mock("react-router", () => ({
   useParams: () => ({ topicId: "1" }),
   Link: ({ to, children, ...props }) => <a href={to} {...props}>{children}</a>
 }));
 jest.mock("../../src/features/auth", () => ({ useAuth: jest.fn(), storeReturnTarget: jest.fn() }));
+jest.mock("../../public/sparring-arena/src/playground-sky.js", () => ({ playgroundPeriod: jest.fn() }));
 jest.mock("../../src/features/sparring/api", () => ({
   ...jest.requireActual("../../src/features/sparring/api"),
   getSparring: jest.fn(), getSparringPosts: jest.fn()
@@ -16,6 +19,7 @@ const topic = { id: 1, title: "점심 토론", a: "기다려", b: "다른 곳", 
 let stream;
 beforeEach(() => {
   jest.clearAllMocks();
+  playgroundPeriod.mockReturnValue("day");
   localStorage.clear();
   global.EventSource = class {
     constructor() { this.listeners = {}; stream = this; }
@@ -26,28 +30,36 @@ beforeEach(() => {
   getSparring.mockResolvedValue(topic);
   getSparringPosts.mockResolvedValue({ items: [], nextCursor: null, hasNext: false });
 });
-it("persists the camera switch and sends it without replacing the room or refetching messages", async () => {
+it("enables follow camera by default and persists opting out without replacing the room or refetching messages", async () => {
   const { container, unmount } = render(<SparringDetailPage />);
   const frame = container.querySelector("iframe");
   const send = jest.spyOn(frame.contentWindow, "postMessage");
-  const toggle = screen.getByRole("switch", { name: "충돌 카메라" });
-  expect(toggle).toHaveAttribute("aria-checked", "false");
+  const toggle = container.querySelector(".sparring-camera-switch");
+  expect(toggle).toHaveAttribute("aria-checked", "true");
   expect(toggle).toBeDisabled();
   receive(frame, { kind: "ready" });
   receiveSnapshot();
   await waitFor(() => expect(frame).toHaveAttribute("title", "점심 토론 캡슐 경기장"));
   receive(frame, { kind: "scene", status: "ready" });
+  await enter(frame);
+  expect(send).toHaveBeenCalledWith({ channel: "jarihana-sparring", kind: "clash-camera", value: true }, window.location.origin);
   fireEvent.click(toggle);
-  expect(toggle).toHaveAttribute("aria-checked", "true");
+  expect(toggle).toHaveAttribute("aria-checked", "false");
   expect(toggle).toHaveAttribute("data-ph-capture-attribute-action", "sparring_clash_camera_toggle");
-  expect(send).toHaveBeenLastCalledWith({ channel: "jarihana-sparring", kind: "clash-camera", value: true }, window.location.origin);
+  expect(send).toHaveBeenLastCalledWith({ channel: "jarihana-sparring", kind: "clash-camera", value: false }, window.location.origin);
   expect(container.querySelector("iframe")).toBe(frame);
   expect(getSparring).toHaveBeenCalledTimes(1);
   expect(getSparringPosts).not.toHaveBeenCalled();
   unmount(); render(<SparringDetailPage />);
-  expect(screen.getByRole("switch", { name: "충돌 카메라" })).toHaveAttribute("aria-checked", "true");
+  expect(document.querySelector(".sparring-camera-switch")).toHaveAttribute("aria-checked", "false");
   await act(async () => {});
 });
+async function enter(frame) {
+  frame.scrollIntoView = jest.fn();
+  expect(frame).toHaveAttribute("inert");
+  fireEvent.click(screen.getByRole("button", { name: "먼저 구경하기" }));
+  await waitFor(() => expect(frame).not.toHaveAttribute("inert"), { timeout: 2000 });
+}
 function receiveSnapshot() {
   act(() => {
     stream.onopen?.();
@@ -67,14 +79,16 @@ it("switches only the view without remounting the iframe or refetching the discu
   const { container } = render(<SparringDetailPage />);
   const frame = container.querySelector("iframe");
   const send = jest.spyOn(frame.contentWindow, "postMessage");
-  expect(screen.getByRole("button", { name: "기존 구도" })).toBeDisabled();
+  expect(container.querySelector(".sparring-view-switch button")).toBeDisabled();
   receive(frame, { kind: "ready" });
   receiveSnapshot();
   await waitFor(() => expect(frame).toHaveAttribute("title", "점심 토론 캡슐 경기장"));
   receive(frame, { kind: "scene", status: "ready" });
+  await enter(frame);
   expect(screen.getByRole("button", { name: "아담한 구도" })).toHaveAttribute("aria-pressed", "true");
   expect(send).toHaveBeenCalledWith({ channel: "jarihana-sparring", kind: "view", value: "compact" }, window.location.origin);
-  for (const [value, label] of [["original", "기존 구도"], ["reference", "참고 구도"], ["compact", "아담한 구도"]]) {
+  expect(screen.queryByRole("button", { name: "참고 구도" })).not.toBeInTheDocument();
+  for (const [value, label] of [["original", "기존 구도"], ["compact", "아담한 구도"]]) {
     const button = screen.getByRole("button", { name: label });
     fireEvent.click(button);
     expect(button).toHaveAttribute("aria-pressed", "true");
@@ -88,10 +102,21 @@ it("switches only the view without remounting the iframe or refetching the discu
 it("shows a preview during authentication without loading a room for the wrong actor", () => {
   useAuth.mockReturnValue({ status: "loading" });
   const { container } = render(<SparringDetailPage />);
-  expect(screen.getByRole("status")).toHaveTextContent("토론을 준비하고 있어요");
-  expect(container.querySelector("picture img")).toHaveAttribute("src", "/sparring-arena/assets/arena-preview-desktop.webp");
+  expect(screen.getByText("토론을 불러오고 있어요")).toBeInTheDocument();
+  expect(container.querySelector(".sparring-entry")).toBeInTheDocument();
   expect(container.querySelector("iframe")).toBeNull();
   expect(getSparring).not.toHaveBeenCalled();
+});
+it.each(["day", "sunset", "night"])("shows the matching desktop and mobile previews when the playground period is %s", period => {
+  playgroundPeriod.mockReturnValue(period);
+
+  const { container } = render(<ArenaPreview />);
+
+  const mobile = container.querySelector("picture source");
+  const desktop = container.querySelector("picture img");
+  expect(mobile).toHaveAttribute("media", "(max-width: 700px)");
+  expect(mobile).toHaveAttribute("srcset", `/sparring-arena/assets/arena-preview-planet-${period}-mobile.webp`);
+  expect(desktop).toHaveAttribute("src", `/sparring-arena/assets/arena-preview-planet-${period}-desktop.webp`);
 });
 it("keeps text and inputs covered after data and iframe load until the first 3D frame is ready", async () => {
   const { container } = render(<SparringDetailPage />);
@@ -102,12 +127,13 @@ it("keeps text and inputs covered after data and iframe load until the first 3D 
   receive(frame, { kind: "ready" });
   receiveSnapshot();
   await waitFor(() => expect(frame).toHaveAttribute("title", "점심 토론 캡슐 경기장"));
-  expect(screen.getByText("토론을 준비하고 있어요")).toBeInTheDocument();
+  expect(container.querySelector(".sparring-entry")).toBeInTheDocument();
   expect(container.querySelector(".sparring-detail__viewport")).toHaveAttribute("data-ready", "false");
   receive(frame, { kind: "scene", status: "ready" });
+  await enter(frame);
   expect(frame).not.toHaveAttribute("inert");
   expect(frame).toHaveAttribute("aria-hidden", "false");
-  expect(screen.queryByText("토론을 준비하고 있어요")).not.toBeInTheDocument();
+  expect(container.querySelector(".sparring-entry")).toBeNull();
   expect(container.querySelector(".sparring-detail__viewport")).toHaveAttribute("data-ready", "true");
 });
 it("offers a retry after a texture or renderer failure and keeps the replacement iframe covered", async () => {
@@ -121,13 +147,14 @@ it("offers a retry after a texture or renderer failure and keeps the replacement
   fireEvent.click(screen.getByRole("button", { name: "다시 불러오기" }));
   expect(container.querySelector("iframe")).not.toBe(first);
   expect(container.querySelector("iframe")).toHaveAttribute("inert");
-  expect(screen.getByText("토론을 준비하고 있어요")).toBeInTheDocument();
+  expect(container.querySelector(".sparring-entry")).toBeInTheDocument();
   const replacement = container.querySelector("iframe");
   receive(replacement, { kind: "ready" });
   receiveSnapshot();
   await waitFor(() => expect(replacement).toHaveAttribute("title", "점심 토론 캡슐 경기장"));
   expect(replacement).toHaveAttribute("inert");
   receive(replacement, { kind: "scene", status: "ready" });
+  await enter(replacement);
   expect(replacement).not.toHaveAttribute("inert");
   expect(getSparringPosts).not.toHaveBeenCalled();
 });
@@ -154,5 +181,6 @@ it("waits for the SSE snapshot after topic metadata arrives without fetching pos
   expect(send.mock.calls.some(([message]) => message.kind === "snapshot")).toBe(true);
   expect(frame).toHaveAttribute("inert");
   receive(frame, { kind: "scene", status: "ready" });
+  await enter(frame);
   expect(frame).not.toHaveAttribute("inert");
 });
