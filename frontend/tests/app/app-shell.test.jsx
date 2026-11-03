@@ -498,7 +498,7 @@ it("places feedback after discovery links in desktop and mobile navigation", () 
   expect(mobileLinks).not.toBeNull();
   expect(
     Array.from(mobileLinks.querySelectorAll("a, button"))
-      .slice(0, 7)
+      .slice(0, expectedMobileOrder.length)
       .map((item) => item.textContent.trim())
   ).toEqual(expectedMobileOrder);
 });
