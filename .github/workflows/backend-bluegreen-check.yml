@@ -43,6 +43,11 @@ jobs:
       - name: 격리된 로컬 계약 테스트
         # Protected-file tests create root-owned temporary fixtures, without business secrets.
         run: sudo bash infra/blue-green-deploy/tests/actions/run-tests.sh
+      - name: 실제 Nginx 점검 표시와 외부 헤더 제거 검증
+        run: |
+          docker pull node@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53
+          docker pull nginx:1.30.5-alpine
+          bash infra/blue-green-deploy/tests/actions/run-probe-header-e2e.sh
   api-budget-shard:
     name: api-budget shard ${{ matrix.shard }}
     runs-on: ubuntu-latest
