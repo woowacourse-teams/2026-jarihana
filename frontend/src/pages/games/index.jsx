@@ -1,3 +1,4 @@
+import { moveRequestId } from "../../features/gomoku/moveRequestId";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import {
@@ -563,7 +564,7 @@ function GomokuRoom({ roomId }) {
     const payload = { gameNumber: room.gameNumber, expectedPly: room.ply, ...selected };
     const signature = JSON.stringify(payload);
     if (moveAttempt.current?.signature !== signature)
-      moveAttempt.current = { signature, requestId: crypto.randomUUID() };
+      moveAttempt.current = { signature, requestId: moveRequestId() };
     if (
       await act(() =>
         gomokuApi.move(room.id, { ...payload, requestId: moveAttempt.current.requestId })

@@ -101,8 +101,8 @@ test("room actions freeze disconnected and pending, then refresh snapshot after 
   });
   expect(result.current.pending).toBe(false);
   expect(gomokuApi.room).toHaveBeenCalledTimes(2);
-  act(() => streams[0].onerror());
-  expect(result.current.connected).toBe(false);
+  await act(async () => streams[0].onerror());
+  expect(result.current.connected).toBe(true);
   expect(streams[0].close).toHaveBeenCalled();
 });
 
@@ -133,65 +133,51 @@ test("forbidden moves explain Renju restrictions and preserve the board", async 
 });
 
 
-test("transient disconnects stay quiet and a successful snapshot resets failures", async () => {
+test("three failed recovery attempts show a notice until an SSE snapshot arrives", async () => {
   jest.useFakeTimers();
-  const { result, unmount } = renderHook(() => useGomokuRoom("1"));
+  jest.spyOn(Math, "random").mockReturnValue(1);
+  const { result } = renderHook(() => useGomokuRoom("1"));
   await act(async () => {});
   send(room);
-  const oldSource = streams[0];
-  act(() => oldSource.onerror());
+  await act(async () => streams[0].onerror());
+  for (const [index, delay] of [[1, 1000], [2, 2000], [3, 4000]]) {
+    act(() => streams[index].onerror());
+    if (index < 3) expect(result.current.error).toBeNull();
+    await act(async () => jest.advanceTimersByTimeAsync(delay));
+  }
+  expect(result.current.error).toContain("연결을 복구하지 못하고 있어요");
   expect(result.current.connected).toBe(false);
+  act(() => streams[4].listeners.snapshot({ data: JSON.stringify(room) }));
   expect(result.current.error).toBeNull();
-  await act(async () => jest.advanceTimersByTimeAsync(2000));
-  expect(streams).toHaveLength(2);
-  act(() => streams[1].onerror());
-  expect(result.current.error).toBeNull();
-  await act(async () => jest.advanceTimersByTimeAsync(2000));
-  act(() => streams[2].listeners.snapshot({ data: JSON.stringify(room) }));
   expect(result.current.connected).toBe(true);
-  act(() => oldSource.onerror());
-  expect(result.current.connected).toBe(true);
-  act(() => streams[2].onerror());
-  expect(result.current.error).toBeNull();
-  unmount();
-  await act(async () => jest.advanceTimersByTimeAsync(10000));
-  expect(streams).toHaveLength(3);
+  jest.restoreAllMocks();
 });
 
-test("three consecutive failures show a notice until an SSE snapshot restores the connection", async () => {
+test("HTTP recovery failure locks actions and forbidden access stops retries", async () => {
   jest.useFakeTimers();
   const { result } = renderHook(() => useGomokuRoom("1"));
   await act(async () => {});
   send(room);
-  act(() => streams[0].onerror());
-  await act(async () => jest.advanceTimersByTimeAsync(2000));
-  act(() => streams[1].onerror());
-  await act(async () => jest.advanceTimersByTimeAsync(2000));
-  act(() => streams[2].onerror());
-  expect(result.current.error).toContain("연결을 복구하지 못하고 있어요");
-  await act(async () => jest.advanceTimersByTimeAsync(2000));
-  expect(result.current.error).toContain("연결을 복구하지 못하고 있어요");
+  gomokuApi.room.mockRejectedValueOnce({ status: 503 });
+  await act(async () => streams[0].onerror());
   expect(result.current.connected).toBe(false);
-  act(() => streams[3].listeners.snapshot({ data: JSON.stringify(room) }));
   expect(result.current.error).toBeNull();
-  expect(result.current.connected).toBe(true);
-});
-
-test("HTTP reconnect failures count toward the notice and forbidden access reports immediately", async () => {
-  jest.useFakeTimers();
-  const { result } = renderHook(() => useGomokuRoom("1"));
-  await act(async () => {});
-  send(room);
-  gomokuApi.room.mockRejectedValueOnce({ status: 503 }).mockRejectedValueOnce({ status: 503 });
-  act(() => streams[0].onerror());
-  await act(async () => jest.advanceTimersByTimeAsync(2000));
-  expect(result.current.error).toBeNull();
-  await act(async () => jest.advanceTimersByTimeAsync(3000));
-  expect(result.current.error).toContain("방에 계속 연결하지 못하고 있어요");
   gomokuApi.room.mockRejectedValueOnce({ status: 403 });
-  await act(async () => jest.advanceTimersByTimeAsync(3000));
+  await act(async () => jest.advanceTimersByTimeAsync(1000));
   expect(result.current.error).toContain("참여 중인 방이 아니거나 종료된 방");
   const count = gomokuApi.room.mock.calls.length;
-  await act(async () => jest.advanceTimersByTimeAsync(10000));
+  await act(async () => jest.advanceTimersByTimeAsync(60000));
   expect(gomokuApi.room).toHaveBeenCalledTimes(count);
+});
+
+test("a replacement stream must send a snapshot before the ten-second handshake deadline", async () => {
+  jest.useFakeTimers();
+  const { result } = renderHook(() => useGomokuRoom("1"));
+  await act(async () => {});
+  send(room);
+  await act(async () => streams[0].onerror());
+  expect(result.current.connected).toBe(true);
+  await act(async () => jest.advanceTimersByTimeAsync(10000));
+  expect(result.current.connected).toBe(false);
+  expect(streams[1].close).toHaveBeenCalled();
 });
