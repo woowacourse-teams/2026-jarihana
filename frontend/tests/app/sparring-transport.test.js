@@ -81,6 +81,28 @@ describe('스파링 파이프 연결', () => {
     expect(selected).toBe(network.querySelector('[data-route=b] .transport-route'));
   });
 
+  it('모바일에서는 입력창이 이동해도 파이프 입구는 경기장 기준으로 고정된다', () => {
+    const viewport = Object.getOwnPropertyDescriptor(window, 'innerWidth');
+    Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true });
+    const stage = document.querySelector('#stage');
+    stage.getBoundingClientRect = () => ({ x: 16, y: 30, bottom: 350 });
+    form.innerHTML = '<div data-composer-side="a"><span class="inlet-mouth"></span></div><div data-composer-side="b"><span class="inlet-mouth"></span></div>';
+    let y = 480;
+    for (const [side, x] of [['a', 20], ['b', 350]]) {
+      form.querySelector(`[data-composer-side=${side}] .inlet-mouth`).getBoundingClientRect = () => ({ x, y, width: 20, height: 40 });
+    }
+    const layouts = jest.fn();
+    document.querySelector('#scene').addEventListener('transportlayout', layouts);
+    try {
+      updateTransport(form);
+      const first = layouts.mock.lastCall[0].detail.map(entry => entry.inlet);
+      y = 730;
+      updateTransport(form);
+      expect(layouts.mock.lastCall[0].detail.map(entry => entry.inlet)).toEqual(first);
+      expect(first).toEqual([{ x: 30, y: 430 }, { x: 360, y: 430 }]);
+    } finally { Object.defineProperty(window, 'innerWidth', viewport); }
+  });
+
   it('큰 호스의 바깥 링도 화면 양쪽에서 잘리지 않게 배치한다', () => {
     Object.defineProperty(document.documentElement, 'clientWidth', { value: 1440, configurable: true });
     const scene = document.querySelector('#scene');

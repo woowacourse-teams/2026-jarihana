@@ -23,5 +23,5 @@ export function createComposerBackdrop(scene) {
     }
     mesh.position.set(rect.left - viewport.width / 2, viewport.height / 2 - rect.bottom, 20);
   }
-  return { update, dispose() { mesh.removeFromParent(); mesh.geometry.dispose(); material.dispose(); } };
+  return { update, setColor(color) { material.color.set(color); }, dispose() { mesh.removeFromParent(); mesh.geometry.dispose(); material.dispose(); } };
 }

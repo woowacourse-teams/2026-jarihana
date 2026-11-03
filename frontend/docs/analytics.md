@@ -334,6 +334,9 @@ SSE/물리 렌더러는 같은 출처 iframe이므로 내부 고정 action을 �
 부모는 source/origin/고정 allowlist를 검증한 뒤 `sparring_interaction`에 action만 기록한다.
 사용자 글·주제·이름·진영은 전달하지 않는다. 기존 마스킹/개인정보 허용 목록은 유지한다.
 `sparring_created`, `sparring_vote_saved`, `sparring_post_saved`는 HTTP 저장 성공 이후 기록한다.
+VS 입장 화면의 `sparring_entry_side_select`는 임시 편 선택, `sparring_entry_start`는 선택한 편으로 저장·입장 시도,
+`sparring_entry_watch`는 투표 없는 구경하기를 뜻한다. 저장 성공은 기존 `sparring_vote_saved`로 구분하며
+이미 저장한 편으로 입장할 때는 투표 요청·성공 이벤트를 다시 만들지 않는다.
 재전송으로 같은 ID를 확인한 요청도 저장 성공이므로 마지막 이벤트는 고유 의견 수가 아닌
 저장 요청 성공 횟수로 해석한다. API/SSE 주기 조회 역시 사용자 행동 횟수가 아니다.
 

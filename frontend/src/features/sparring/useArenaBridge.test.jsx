@@ -87,6 +87,47 @@ const streamData = (posts = [], revision = 1, counts = {}) => ({
 });
 const snapshots = target => target.postMessage.mock.calls.map(([message]) => message).filter(message => message.kind === "snapshot");
 
+it("exposes entry metadata before the SSE snapshot or renderer is ready", async () => {
+  Stream.autoSnapshot = false;
+  const { result } = setup();
+  await waitFor(() => expect(result.current.topic).toEqual(topic));
+  expect(result.current.loaded).toBe(false);
+  expect(result.current.sceneReady).toBe(false);
+});
+
+it("serializes entry votes with an unfinished post and avoids repeating the saved side", async () => {
+  const { receive, result } = setup();
+  await waitFor(() => expect(result.current.loaded).toBe(true));
+  let finishPost;
+  postSparring.mockImplementationOnce(() => new Promise(resolve => { finishPost = resolve; }));
+  receive({
+    kind: "command", action: "post", requestId: "before-entry",
+    payload: { text: post.text, replyToId: null, postId: "bc2eb62e-b004-4b9c-8bde-dcd9fd86be72" }
+  });
+  await waitFor(() => expect(finishPost).toBeDefined());
+  const first = result.current.selectSide("CORAL");
+  const second = result.current.selectSide("CORAL");
+  await act(async () => {});
+  expect(voteSparring).not.toHaveBeenCalled();
+  getSparringPosts.mockResolvedValue({ items: [post], nextCursor: null, hasNext: false });
+  getSparring.mockResolvedValue({ ...topic, mySide: "CORAL", revision: 2 });
+  await act(async () => { finishPost({ id: 1 }); await Promise.all([first, second]); });
+  expect(voteSparring).toHaveBeenCalledTimes(1);
+  expect(voteSparring).toHaveBeenCalledWith("1", "CORAL");
+  expect(result.current.topic.mySide).toBe("CORAL");
+});
+
+it("rejects entry votes after the deadline and discards calls after unmount", async () => {
+  getSparring.mockResolvedValue({ ...topic, closesAt: "2020-01-01T00:00:00Z" });
+  const { result, unmount } = setup();
+  await waitFor(() => expect(result.current.topic).not.toBeNull());
+  await expect(result.current.selectSide("CORAL")).rejects.toThrow("마감된 토론");
+  const selectSide = result.current.selectSide;
+  unmount();
+  await expect(selectSide("CORAL")).resolves.toBe(false);
+  expect(voteSparring).not.toHaveBeenCalled();
+});
+
 it.each([false, true])("ignores the removed history command (mine=%s) without reading or writing posts", async mine => {
   const { receive, target, result } = setup();
   receive({ kind: "ready" });

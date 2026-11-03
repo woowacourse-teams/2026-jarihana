@@ -4,7 +4,8 @@ import { createDispenserPhysics, OUTPUT_CAPACITY, SLIDE, TRAY } from './dispense
 import { TANK, RADIUS } from './physics.js';
 import { studioMaterial } from './studio-materials.js';
 import { characterPose, characterVariant } from './character-motion.js';
-import { createWalkingCharacters } from './walking-characters.js';
+import { createSeatedCapsuleCharacters } from './chair-characters.js';
+import { createSlideEffects } from './slide-effects.js';
 
 const VISIBLE_LIMIT = 4;
 const SHELL_LIFETIME = 1.2, SHELL_FADE = 0.25;
@@ -12,54 +13,64 @@ const PAIR_SLIDE_SECONDS = 1.4;
 const OPEN_SHELL_POSE = { stage: 'empty-shell', scale: 1, shrink: 1, closing: 0 };
 
 export function createDispenser(scene, onReveal, { onOpened = () => {}, trayWidth = TRAY.frontWidth, edgeScale = 1 } = {}) {
-  const cream = studioMaterial({ color: 0xf8fafb, roughness: 0.65, side: THREE.DoubleSide });
-  const rim = studioMaterial({ color: 0xe4e9ec, roughness: 0.5 });
+  const slide = studioMaterial({ color: 0x91a8bf, roughness: 0.86, clearcoat: 0.02, envMapIntensity: 0.1, side: THREE.DoubleSide });
+  const rim = studioMaterial({ color: 0x34445c, roughness: 0.82, clearcoat: 0.02, envMapIntensity: 0.1 });
   function box(size, position, material) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
     mesh.position.set(...position); mesh.receiveShadow = true; scene.add(mesh);
     return mesh;
   }
   box([TANK.width + 0.3, 0.15, TANK.depth + 0.2], [0, TANK.bottom - 0.08, 0], rim);
-  function floor(points) {
+  const rimRadius = 0.1, rimLift = 0.07, segments = 96;
+  function surfaceGeometries(width, scale) {
+    // Share one forward-only outline so the floor stays attached to the rounded rim.
+    const points = SLIDE.points.filter(([z]) => z < TRAY.back)
+      .map(([z, y, width]) => new THREE.Vector3(width / 2, y, z));
+    points.push(new THREE.Vector3(TRAY.backWidth / 2, TRAY.y + 0.12, TRAY.back));
+    points.push(new THREE.Vector3(width / 2, TRAY.frontY + 0.12, TRAY.front));
+    const outline = new THREE.CatmullRomCurve3(points).getPoints(segments);
     const vertices = [], indices = [];
-    for (const [z, y, width] of points) vertices.push(-width / 2, y, z, width / 2, y, z);
-    for (let i = 0; i < points.length - 1; i++) {
+    for (const { x, y, z } of outline) vertices.push(-x, y, z, x, y, z);
+    for (let i = 0; i < segments; i++) {
       const n = i * 2; indices.push(n, n + 2, n + 1, n + 1, n + 2, n + 3);
     }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-    geometry.setIndex(indices); geometry.computeVertexNormals();
-    const mesh = new THREE.Mesh(geometry, cream); mesh.receiveShadow = true; scene.add(mesh);
+    const floor = new THREE.BufferGeometry();
+    floor.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    floor.setIndex(indices); floor.computeVertexNormals();
+    const rails = [-1, 1].map(side => {
+      const edge = points.map(({ x, y, z }) => new THREE.Vector3(side * x, y + rimLift * scale, z));
+      return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(edge), segments, rimRadius * scale, 12, false);
+    });
+    const left = new THREE.Vector3(-width / 2, TRAY.frontY + 0.12 + rimLift * scale, TRAY.front);
+    const right = left.clone(); right.x *= -1;
+    const front = new THREE.TubeGeometry(new THREE.LineCurve3(left, right), 1, rimRadius * scale, 12, false);
+    return [floor, ...rails, front];
+  }
+  const surfaces = surfaceGeometries(trayWidth, edgeScale).map((geometry, index) => {
+    const mesh = new THREE.Mesh(geometry, index === 0 ? slide : rim);
+    mesh.castShadow = index > 0; mesh.receiveShadow = true; scene.add(mesh);
     return mesh;
-  }
-  floor(SLIDE.points);
-  const trayFloor = floor([[TRAY.back, TRAY.y + 0.12, TRAY.backWidth], [TRAY.front, TRAY.frontY + 0.12, trayWidth]]);
-  function railGeometry(side, width) {
-    const points = SLIDE.points.map(([z, y, width]) => new THREE.Vector3(side * width / 2, y + 0.12, z));
-    points.push(new THREE.Vector3(side * TRAY.backWidth / 2, TRAY.y + 0.12 + 0.12 * edgeScale, TRAY.back));
-    points.push(new THREE.Vector3(side * width / 2, TRAY.frontY + 0.12 + 0.12 * edgeScale, TRAY.front));
-    return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 56, 0.09 * edgeScale, 8, false);
-  }
-  const rails = [-1, 1].map(side => {
-    const rail = new THREE.Mesh(railGeometry(side, trayWidth), rim);
-    rail.castShadow = true; scene.add(rail);
-    return rail;
   });
-  const bumper = box([trayWidth, 0.32, 0.16], [0, TRAY.frontY + 0.16, TRAY.front], rim);
-  const batch = createCapsuleBatch(scene, OUTPUT_CAPACITY, createWalkingCharacters), physics = createDispenserPhysics({ trayWidth });
-  bumper.scale.y = bumper.scale.z = edgeScale;
-  bumper.position.y = TRAY.frontY + 0.16 * edgeScale;
+  const cornerGeometry = new THREE.SphereGeometry(rimRadius, 12, 8);
+  const corners = [-1, 1].map(() => {
+    const corner = new THREE.Mesh(cornerGeometry, rim);
+    corner.castShadow = corner.receiveShadow = true; scene.add(corner);
+    return corner;
+  });
+  function positionCorners(width, scale) {
+    corners.forEach((corner, index) => {
+      corner.position.set((index === 0 ? -1 : 1) * width / 2, TRAY.frontY + 0.12 + rimLift * scale, TRAY.front);
+      corner.scale.setScalar(scale);
+    });
+  }
+  positionCorners(trayWidth, edgeScale);
+  const batch = createCapsuleBatch(scene, OUTPUT_CAPACITY, createSeatedCapsuleCharacters), physics = createDispenserPhysics({ trayWidth });
+  const effects = createSlideEffects(scene);
   function setTrayWidth(width, nextEdgeScale = edgeScale) {
     edgeScale = nextEdgeScale;
-    const positions = trayFloor.geometry.attributes.position;
-    positions.setX(2, -width / 2); positions.setX(3, width / 2); positions.needsUpdate = true;
-    trayFloor.geometry.computeVertexNormals(); trayFloor.geometry.computeBoundingSphere();
-    rails.forEach((rail, index) => {
-      rail.geometry.dispose(); rail.geometry = railGeometry(index === 0 ? -1 : 1, width);
-    });
-    bumper.scale.x = width / trayWidth;
-    bumper.scale.y = bumper.scale.z = edgeScale;
-    bumper.position.y = TRAY.frontY + 0.16 * edgeScale;
+    const geometries = surfaceGeometries(width, edgeScale);
+    surfaces.forEach((mesh, index) => { mesh.geometry.dispose(); mesh.geometry = geometries[index]; });
+    positionCorners(width, edgeScale);
     physics.setTrayWidth(width);
   }
   const slots = Array(OUTPUT_CAPACITY).fill(null);
@@ -78,9 +89,9 @@ export function createDispenser(scene, onReveal, { onOpened = () => {}, trayWidt
   function clear(index) {
     const entry = slots[index];
     if (entry === latest) latest = null;
-    slots[index] = null; physics.release(index); batch.hide(index);
+    slots[index] = null; physics.release(index); batch.hide(index); effects.forget(index);
   }
-  function clearAll() { pair = cameraPair = null; for (let index = 0; index < slots.length; index++) clear(index); }
+  function clearAll() { pair = cameraPair = null; for (let index = 0; index < slots.length; index++) clear(index); effects.clear(); }
   function reveal(entry) {
     if (entry.revealed) return;
     entry.revealed = true; entry.openedAt = 0; opened++;
@@ -91,7 +102,7 @@ export function createDispenser(scene, onReveal, { onOpened = () => {}, trayWidt
     const index = available(selection?.fresh);
     if (index < 0 || !selection || (!paired && !reduced && !selection.fresh && !physics.inletClear())) return false;
     if (slots[index]) clear(index);
-    const entry = { ...selection, body: physics.reset(index, selection.kind === 'history' ? 5.2 : undefined), born: ++serial, openedAt: null, dispensed: true, phase: 'rolling', elapsed: 0, revealed: false, reduced };
+    const entry = { ...selection, paired, body: physics.reset(index, selection.kind === 'history' ? 5.2 : undefined), born: ++serial, openedAt: null, dispensed: true, phase: 'rolling', elapsed: 0, revealed: false, reduced };
     slots[index] = entry;
     if (reduced) {
       for (let i = 0; i < 900 && !physics.ready(index); i++) physics.step(1 / 120);
@@ -126,6 +137,7 @@ export function createDispenser(scene, onReveal, { onOpened = () => {}, trayWidt
     if (reduced) reveal(entry);
   }
   function step(delta, reduced = false) {
+    effects.step(delta, reduced);
     if (slots.every(entry => !entry)) return;
     if (cameraPair) cameraPair.elapsed += delta;
     if (pair) {
@@ -143,12 +155,30 @@ export function createDispenser(scene, onReveal, { onOpened = () => {}, trayWidt
       if (!entry) continue;
       entry.elapsed += delta;
       entry.reduced = reduced;
-      if (entry.phase === 'rolling' && !pair?.indexes.includes(index) && (reduced || physics.ready(index))) open(index, entry, reduced);
+      if (entry.phase === 'rolling' && !pair?.indexes.includes(index) && (reduced || physics.ready(index))) {
+        if (reduced || !entry.paired) open(index, entry, reduced);
+        else if (entry.landingElapsed === undefined) {
+          entry.landingElapsed = 0;
+          entry.body.velocity.y = Math.max(entry.body.velocity.y, 1.8);
+        } else {
+          entry.landingElapsed += delta;
+          if (entry.landingElapsed >= 0.2) open(index, entry, false);
+        }
+      }
       else if (entry.phase === 'open' && entry.elapsed >= SHELL_LIFETIME) { clear(index); continue; }
       if (entry.phase === 'open') {
         entry.shellScale = reduced ? 1 : Math.max(0, Math.min(1, (SHELL_LIFETIME - entry.elapsed) / SHELL_FADE));
         if (reduced || entry.elapsed >= 0.42) reveal(entry);
-      } else entry.characterPose = characterPose({ ...entry, mine: entry.post.name === '나' });
+      } else {
+        if (!reduced && entry.paired && entry.landingElapsed === undefined) {
+          effects.trail(index, entry.body.position, entry.post.side);
+          if (!entry.sparkledOnCurve && entry.body.position.z >= 3.4) {
+            entry.sparkledOnCurve = true;
+            effects.bend(entry.body.position, entry.post.side);
+          }
+        }
+        entry.characterPose = characterPose({ ...entry, mine: entry.post.name === '나' });
+      }
       batch.draw(index, entry, RADIUS / 0.48);
     }
   }

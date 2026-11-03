@@ -4,7 +4,7 @@ import * as THREE from 'three';
 export function studioMaterial(parameters = {}) {
   return new THREE.MeshPhysicalMaterial({
     roughness: 0.5, metalness: 0, clearcoat: 0.1, clearcoatRoughness: 0.45,
-    envMapIntensity: 0.3, ...parameters,
+    envMapIntensity: 0.22, ...parameters,
   });
 }
 
