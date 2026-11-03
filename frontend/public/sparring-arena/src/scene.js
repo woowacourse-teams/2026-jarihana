@@ -4,7 +4,8 @@ import { createCapsules } from './capsules.js';
 import { whenCharacterAssetsReady } from './characters.js';
 import { createCharacterDuel } from './character-duel.js';
 import { createHistoryConversation, HISTORY_MODEL_CAPACITY } from './history-conversation.js';
-import { createWalkingCharacters } from './walking-characters.js';
+import { createChairCharacters } from './chair-characters.js';
+import { createChairDuelVisuals } from './chair-duel-visuals.js';
 import { createCapsuleReveals } from './capsule-reveals.js';
 import { createClash } from './clash.js';
 import { createMuzzleBurst } from './muzzle-burst.js';
@@ -18,6 +19,8 @@ import { createTransportScene } from './transport-scene.js';
 import { createPipeSurfaces } from './pipe-surfaces.js';
 import { ARENA_VIEWS, createArenaCamera, fitArenaCamera, extendArenaViewport } from './arena-framing.js';
 import { createFrameClock } from './frame-clock.js';
+import { createPlanetPlayground } from './planet-playground.js';
+import { watchPlaygroundSky } from './playground-sky.js';
 
 const PIPE_LENGTH = 2.35;
 
@@ -84,12 +87,13 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
   Object.assign(sun.shadow.camera, { left: -13, right: 13, top: 10, bottom: -13, near: 0.5, far: 35 });
   sun.shadow.normalBias = 0.03; sun.shadow.bias = -0.0001; scene.add(sun);
   const light = new THREE.DirectionalLight(0xe9faff, 0.35); light.position.set(5, 4, -5); scene.add(light);
+  const playground = createPlanetPlayground(scene);
 
   const height = TANK.rim - TANK.bottom;
   const halfWidth = TANK.width / 2, halfDepth = TANK.depth / 2;
-  const glass = studioMaterial({ color: 0xffffff, transparent: true, opacity: 0.015, roughness: 0.08, envMapIntensity: 0.15, side: THREE.DoubleSide, depthWrite: false });
-  const rimMaterial = studioMaterial({ color: 0xf1f3f5, roughness: 0.45 });
-  const edgeMaterial = studioMaterial({ color: 0xd9dfe3, roughness: 0.45 });
+  const glass = studioMaterial({ color: 0x9eb3bf, transparent: true, opacity: 0.025, roughness: 0.2, envMapIntensity: 0.08, side: THREE.DoubleSide, depthWrite: false });
+  const rimMaterial = studioMaterial({ color: 0x718993, roughness: 0.78, clearcoat: 0.02, envMapIntensity: 0.1 });
+  const edgeMaterial = studioMaterial({ color: 0x647e89, roughness: 0.78, clearcoat: 0.02, envMapIntensity: 0.1 });
   function box(size, position, material) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
     mesh.position.set(...position); scene.add(mesh);
@@ -106,7 +110,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
       box([0.04, height, 0.04], [sign * halfWidth, (TANK.rim + TANK.bottom) / 2, z], edgeMaterial);
     }
   }
-  const shine = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false });
+  const shine = new THREE.MeshBasicMaterial({ color: 0xadc6d0, transparent: true, opacity: 0.12, depthWrite: false });
   for (const x of [-halfWidth + 0.12, halfWidth - 0.12]) {
     const strip = new THREE.Mesh(new THREE.PlaneGeometry(0.045, height - 0.3), shine);
     strip.position.set(x, (TANK.rim + TANK.bottom) / 2, halfDepth + 0.03); scene.add(strip);
@@ -143,10 +147,10 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     return firstFrame;
   });
   const stage = container.parentElement;
-  const duel = createCharacterDuel(stage, onReply, onReveal);
+  const duel = createCharacterDuel(stage, onReply, onReveal, createChairDuelVisuals(transportScene.front, stage));
   const duelField = stage.querySelector('.character-duel');
   duelField.hidden = true;
-  const historyModels = createWalkingCharacters(scene, HISTORY_MODEL_CAPACITY);
+  const historyModels = createChairCharacters(scene, HISTORY_MODEL_CAPACITY);
   const history = createHistoryConversation(stage, onReply, onReveal, {
     ...historyModels,
     project: point => project([point.x, point.y, point.z]),
@@ -443,6 +447,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
   };
   container.addEventListener('capsuleship', shipCapsule);
   renderer.domElement.addEventListener('webglcontextlost', event => { event.preventDefault(); document.documentElement.classList.remove('transport-webgl-ready'); container.dispatchEvent(new CustomEvent('sceneerror')); });
+  const stopSky = watchPlaygroundSky(period => { playground.setPeriod(period); wake(); });
   resize();
   return {
     ready,
@@ -459,6 +464,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     },
     dispose() {
       disposed = true; suspend();
+      stopSky(); playground.dispose();
       stage.dataset.cinematic = 'false';
       composer?.removeAttribute('inert');
       sizeObserver.disconnect(); visibilityObserver.disconnect();

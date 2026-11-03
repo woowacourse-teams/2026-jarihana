@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createCapsuleBatch } from './capsule-batch.js';
 import { createWalkingCharacters } from './walking-characters.js';
+import { createSeatedCapsuleCharacters } from './chair-characters.js';
 import { NOZZLE_LENGTH_RATIO, NOZZLE_DEPTH, NOZZLE_HORIZONTAL } from './pipe-surfaces.js';
 
 const CAPACITY = 24;
@@ -37,7 +38,7 @@ export function createComposerCharacters(scene, pixel) {
   scene.add(group);
   const standing = createWalkingCharacters(group, 2);
   const firstFlightMesh = group.children.length;
-  const capsules = createCapsuleBatch(group, CAPACITY, createWalkingCharacters);
+  const capsules = createCapsuleBatch(group, CAPACITY, createSeatedCapsuleCharacters);
   const flightGroup = new THREE.Group();
   flightGroup.name = 'composer-shipments';
   for (const mesh of group.children.slice(firstFlightMesh)) flightGroup.add(mesh);

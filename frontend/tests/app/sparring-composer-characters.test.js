@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createCapsuleBatch } from '../../public/sparring-arena/src/capsule-batch.js';
 import { createWalkingCharacters } from '../../public/sparring-arena/src/walking-characters.js';
+import { createSeatedCapsuleCharacters } from '../../public/sparring-arena/src/chair-characters.js';
 import { createComposerCharacters } from '../../public/sparring-arena/src/composer-characters.js';
 
 jest.mock('three', () => jest.requireActual('../../public/sparring-arena/vendor/three.module.js'), { virtual: true });
@@ -54,9 +55,10 @@ function ship(overrides = {}) {
   return models.ship({ post, route: route(), origin: avatar, diameter: 24, ...overrides });
 }
 
-it('새 인스턴스는 숨기고 양쪽 입력 슬롯에 실제 사용자 외형으로 선다', () => {
+it('캡슐은 의자에 앉는 캐릭터로 준비하고 입력 슬롯은 실제 사용자 외형으로 선다', () => {
   expect(capsules.hide).toHaveBeenCalledTimes(24);
-  expect(createCapsuleBatch).toHaveBeenCalledWith(scene.children[0], 24, createWalkingCharacters);
+  expect(createCapsuleBatch).toHaveBeenCalledWith(scene.children[0], 24, createSeatedCapsuleCharacters);
+  expect(createWalkingCharacters).toHaveBeenCalledWith(scene.children[0], 2);
   const left = standing.draw.mock.calls.find(call => call[0] === 0);
   const right = standing.draw.mock.calls.find(call => call[0] === 1);
   expect(left[1]).toEqual({ side: 'a', memberType: 'COACH' });

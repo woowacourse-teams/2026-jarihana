@@ -1,5 +1,24 @@
 import { updateTransport } from './transport.js';
 
+const labelMeasurements = new WeakMap();
+
+export function fitVoteLabels() {
+  document.querySelectorAll('.vote-flag strong').forEach(label => {
+    const style = getComputedStyle(label), parentStyle = getComputedStyle(label.parentElement);
+    const available = label.parentElement.clientWidth - (parseFloat(parentStyle.paddingLeft) || 0) - (parseFloat(parentStyle.paddingRight) || 0);
+    const key = [label.textContent, available, style.font, style.letterSpacing].join('|');
+    if (available <= 0 || labelMeasurements.get(label) === key) return;
+    label.style.width = '';
+    const range = document.createRange();
+    range.selectNodeContents(label);
+    const lineWidth = Math.max(0, ...Array.from(range.getClientRects(), rect => rect.width));
+    const edges = ['paddingLeft', 'paddingRight', 'borderLeftWidth', 'borderRightWidth']
+      .reduce((sum, property) => sum + (parseFloat(style[property]) || 0), 0);
+    if (lineWidth) label.style.width = `${Math.min(available, Math.ceil(lineWidth + edges + 1))}px`;
+    labelMeasurements.set(label, key);
+  });
+}
+
 export function fitArenaViewport(form) {
   const available = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--arena-available-height'));
   const stage = document.querySelector('.stage'), dock = form.parentElement;
@@ -96,6 +115,7 @@ export function setupComposer(form) {
       if (innerWidth <= 700) detail.style.setProperty('--mobile-composer-height', `${form.offsetHeight}px`);
       else detail.style.removeProperty('--mobile-composer-height');
     }
+    fitVoteLabels();
     fitArenaViewport(form);
     alignTopicRow();
     updateTransport(form);
@@ -138,6 +158,9 @@ export function setupComposer(form) {
   }, { once: true });
   const layoutObserver = new ResizeObserver(schedule);
   [form, document.querySelector('.topic'), ...document.querySelectorAll('.vote-flag strong')].forEach(element => layoutObserver.observe(element));
+  const labelObserver = new MutationObserver(schedule);
+  document.querySelectorAll('.vote-flag strong').forEach(label => labelObserver.observe(label, { childList: true, characterData: true, subtree: true }));
+  document.fonts?.ready.then(schedule);
   new MutationObserver(schedule).observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
   new MutationObserver(schedule).observe(form, { attributes: true, attributeFilter: ['data-side'] });
   new MutationObserver(schedule).observe(document.querySelector('#scene'), { attributes: true, attributeFilter: ['data-pipe-anchors'] });

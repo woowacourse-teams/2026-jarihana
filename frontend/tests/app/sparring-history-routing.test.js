@@ -1,6 +1,8 @@
 import { createArena } from '../../public/sparring-arena/src/scene.js';
 import { createCapsules } from '../../public/sparring-arena/src/capsules.js';
 import { createCharacterDuel } from '../../public/sparring-arena/src/character-duel.js';
+import { createChairDuelVisuals } from '../../public/sparring-arena/src/chair-duel-visuals.js';
+import { createChairCharacters } from '../../public/sparring-arena/src/chair-characters.js';
 import { createHistoryConversation } from '../../public/sparring-arena/src/history-conversation.js';
 import { createCapsuleReveals } from '../../public/sparring-arena/src/capsule-reveals.js';
 import { createClash } from '../../public/sparring-arena/src/clash.js';
@@ -22,11 +24,15 @@ jest.mock('three', () => {
   }
   return { ...actual, WebGLRenderer };
 }, { virtual: true });
-jest.mock('../../public/sparring-arena/src/studio-materials.js', () => ({ studioMaterial: () => ({ dispose() {} }), createStudioEnvironment: () => null }));
+jest.mock('../../public/sparring-arena/src/studio-materials.js', () => {
+  const { MeshPhysicalMaterial } = jest.requireActual('../../public/sparring-arena/vendor/three.module.js');
+  return { studioMaterial: options => new MeshPhysicalMaterial(options), createStudioEnvironment: () => null };
+});
 jest.mock('../../public/sparring-arena/src/capsules.js', () => ({ createCapsules: jest.fn() }));
 jest.mock('../../public/sparring-arena/src/capsule-batch.js', () => ({ createCapsuleBatch: () => ({ draw() {}, hide() {} }) }));
 jest.mock('../../public/sparring-arena/src/character-duel.js', () => ({ createCharacterDuel: jest.fn() }));
-jest.mock('../../public/sparring-arena/src/walking-characters.js', () => ({ createWalkingCharacters: () => ({ draw() {}, hide() {} }) }));
+jest.mock('../../public/sparring-arena/src/chair-duel-visuals.js', () => ({ createChairDuelVisuals: jest.fn(() => ({ draw: jest.fn(), hide: jest.fn(), dispose: jest.fn() })) }));
+jest.mock('../../public/sparring-arena/src/chair-characters.js', () => ({ createChairCharacters: jest.fn(() => ({ draw: jest.fn(), hide: jest.fn(), pickMeshes: [] })) }));
 jest.mock('../../public/sparring-arena/src/history-conversation.js', () => ({ createHistoryConversation: jest.fn(), HISTORY_MODEL_CAPACITY: 8 }));
 jest.mock('../../public/sparring-arena/src/capsule-reveals.js', () => ({ createCapsuleReveals: jest.fn() }));
 jest.mock('../../public/sparring-arena/src/clash.js', () => ({ createClash: jest.fn() }));
@@ -64,6 +70,20 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     arena = createArena(container, noop, noop);
   });
   afterEach(() => { arena?.dispose(); stage.remove(); jest.restoreAllMocks(); });
+  it('받아치기와 지난 대화 모두 의자 캐릭터를 각 장면의 좌표에 연결한다', () => {
+    const [front, visualStage] = createChairDuelVisuals.mock.lastCall;
+    const [world, capacity] = createChairCharacters.mock.lastCall;
+    expect(visualStage).toBe(stage);
+    expect(front.isScene).toBe(true);
+    expect(world.isScene).toBe(true);
+    expect(front).not.toBe(world);
+    expect(capacity).toBe(8);
+    expect(createCharacterDuel.mock.lastCall[3]).toBe(createChairDuelVisuals.mock.results.at(-1).value);
+    expect(createHistoryConversation.mock.lastCall[3]).toMatchObject({
+      ...createChairCharacters.mock.results.at(-1).value,
+      project: expect.any(Function),
+    });
+  });
   it('캐릭터 등장 중 다시 깨워도 프레임 예약은 하나만 유지하고 화면을 숨기면 모두 취소한다', () => {
     arena.dispose(); stage.replaceChildren(container);
     const pending = new Map();

@@ -1,13 +1,16 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { SparringDetailPage } from "../../src/pages/sparring/SparringDetailPage";
+import { ArenaPreview } from "../../src/pages/sparring/ArenaPreview";
 import { useAuth } from "../../src/features/auth";
 import { getSparring, getSparringPosts } from "../../src/features/sparring/api";
+import { playgroundPeriod } from "../../public/sparring-arena/src/playground-sky.js";
 
 jest.mock("react-router", () => ({
   useParams: () => ({ topicId: "1" }),
   Link: ({ to, children, ...props }) => <a href={to} {...props}>{children}</a>
 }));
 jest.mock("../../src/features/auth", () => ({ useAuth: jest.fn(), storeReturnTarget: jest.fn() }));
+jest.mock("../../public/sparring-arena/src/playground-sky.js", () => ({ playgroundPeriod: jest.fn() }));
 jest.mock("../../src/features/sparring/api", () => ({
   ...jest.requireActual("../../src/features/sparring/api"),
   getSparring: jest.fn(), getSparringPosts: jest.fn()
@@ -16,6 +19,7 @@ const topic = { id: 1, title: "점심 토론", a: "기다려", b: "다른 곳", 
 let stream;
 beforeEach(() => {
   jest.clearAllMocks();
+  playgroundPeriod.mockReturnValue("day");
   localStorage.clear();
   global.EventSource = class {
     constructor() { this.listeners = {}; stream = this; }
@@ -30,7 +34,7 @@ it("enables follow camera by default and persists opting out without replacing t
   const { container, unmount } = render(<SparringDetailPage />);
   const frame = container.querySelector("iframe");
   const send = jest.spyOn(frame.contentWindow, "postMessage");
-  const toggle = screen.getByRole("switch", { name: "받아치기 따라보기" });
+  const toggle = screen.getByRole("switch", { name: "받아치기 연출" });
   expect(toggle).toHaveAttribute("aria-checked", "true");
   expect(toggle).toBeDisabled();
   receive(frame, { kind: "ready" });
@@ -46,7 +50,7 @@ it("enables follow camera by default and persists opting out without replacing t
   expect(getSparring).toHaveBeenCalledTimes(1);
   expect(getSparringPosts).not.toHaveBeenCalled();
   unmount(); render(<SparringDetailPage />);
-  expect(screen.getByRole("switch", { name: "받아치기 따라보기" })).toHaveAttribute("aria-checked", "false");
+  expect(screen.getByRole("switch", { name: "받아치기 연출" })).toHaveAttribute("aria-checked", "false");
   await act(async () => {});
 });
 function receiveSnapshot() {
@@ -75,7 +79,8 @@ it("switches only the view without remounting the iframe or refetching the discu
   receive(frame, { kind: "scene", status: "ready" });
   expect(screen.getByRole("button", { name: "아담한 구도" })).toHaveAttribute("aria-pressed", "true");
   expect(send).toHaveBeenCalledWith({ channel: "jarihana-sparring", kind: "view", value: "compact" }, window.location.origin);
-  for (const [value, label] of [["original", "기존 구도"], ["reference", "참고 구도"], ["compact", "아담한 구도"]]) {
+  expect(screen.queryByRole("button", { name: "참고 구도" })).not.toBeInTheDocument();
+  for (const [value, label] of [["original", "기존 구도"], ["compact", "아담한 구도"]]) {
     const button = screen.getByRole("button", { name: label });
     fireEvent.click(button);
     expect(button).toHaveAttribute("aria-pressed", "true");
@@ -90,9 +95,20 @@ it("shows a preview during authentication without loading a room for the wrong a
   useAuth.mockReturnValue({ status: "loading" });
   const { container } = render(<SparringDetailPage />);
   expect(screen.getByRole("status")).toHaveTextContent("토론을 준비하고 있어요");
-  expect(container.querySelector("picture img")).toHaveAttribute("src", "/sparring-arena/assets/arena-preview-desktop.webp");
+  expect(container.querySelector("picture img")).toHaveAttribute("src", "/sparring-arena/assets/arena-preview-planet-day-desktop.webp");
   expect(container.querySelector("iframe")).toBeNull();
   expect(getSparring).not.toHaveBeenCalled();
+});
+it.each(["day", "sunset", "night"])("shows the matching desktop and mobile previews when the playground period is %s", period => {
+  playgroundPeriod.mockReturnValue(period);
+
+  const { container } = render(<ArenaPreview />);
+
+  const mobile = container.querySelector("picture source");
+  const desktop = container.querySelector("picture img");
+  expect(mobile).toHaveAttribute("media", "(max-width: 700px)");
+  expect(mobile).toHaveAttribute("srcset", `/sparring-arena/assets/arena-preview-planet-${period}-mobile.webp`);
+  expect(desktop).toHaveAttribute("src", `/sparring-arena/assets/arena-preview-planet-${period}-desktop.webp`);
 });
 it("keeps text and inputs covered after data and iframe load until the first 3D frame is ready", async () => {
   const { container } = render(<SparringDetailPage />);

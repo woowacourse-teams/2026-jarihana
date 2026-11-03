@@ -68,3 +68,16 @@ it('퇴장 보행은 다리를 번갈아 움직이며 축소하지 않고 화면
   expect(poses.every(pose => pose.position.y === origin.position.y && pose.position.z === origin.position.z)).toBe(true);
   expect(historyExitPose({ origin, destination, elapsed: EXIT_SECONDS }).position).toEqual(destination);
 });
+
+it('의자를 들고 걸어 나온 뒤 돌아서는 동안 앉고, 퇴장할 때 다시 일어난다', () => {
+  expect(atPhase(1).pose).toMatchObject({ seated: 0, chairCarry: true });
+  const sitting = atPhase(2.225);
+  expect(sitting.pose.seated).toBeCloseTo(0.5);
+  const seated = frame(WALKOUT_SECONDS);
+  expect(seated.pose).toMatchObject({ seated: 1, chairCarry: true });
+  const exit = elapsed => historyExitPose({ origin: seated, destination, elapsed });
+  expect(exit(0).pose.seated).toBe(1);
+  expect(exit(0.1).pose.seated).toBeCloseTo(0.5);
+  expect(exit(0.2).pose).toMatchObject({ seated: 0, chairCarry: true });
+  expect(frame(0, { reduced: true }).pose).toMatchObject({ seated: 1, chairCarry: true });
+});

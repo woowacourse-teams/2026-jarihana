@@ -118,7 +118,7 @@ describe('지난 메시지 캐릭터 모임', () => {
       const width = Number.parseFloat(speech.style.getPropertyValue('--history-bubble-width'));
       const tail = Number.parseFloat(speech.style.getPropertyValue('--history-tail-x'));
       expect(center - width / 2 + tail).toBeCloseTo(Number.parseFloat(character.style.left));
-      expect(Number.parseFloat(speech.style.top)).toBeCloseTo(300 - 2.1 * 0.65 * 40 - 12);
+      expect(Number.parseFloat(speech.style.top)).toBeCloseTo(300 - 1.9 * 0.65 * 40 - 12);
     }
     const previousLeft = Number.parseFloat(bubble('a').style.left);
     add('a2');

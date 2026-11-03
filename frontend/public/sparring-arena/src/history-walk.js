@@ -26,6 +26,7 @@ export function historyWalkPose({ origin, destination, elapsed, side, speaking =
     pose: {
       scale: mix(PACKED_SCALE, standingScale, stand), shrink: 1,
       lift: 0, crouch: (1 - stand) * 0.45,
+      seated: turn, chairCarry: true,
       stride: gait, stepLift: Math.abs(gait) * 0.08,
       lean: moving ? -0.045 : 0,
       leftArm: -0.95 * (1 - stand), rightArm: -0.95 * (1 - stand), wave: 0,
@@ -52,6 +53,7 @@ export function historyExitPose({ origin, destination, elapsed, reduced = false 
     phase: 'leaving',
     pose: {
       ...origin.pose, shrink: 1,
+      seated: mix(origin.pose.seated ?? 0, 0, turn), chairCarry: true,
       crouch: mix(origin.pose.crouch, 0, turn),
       stride: mix(origin.pose.stride, gait, turn), stepLift: Math.abs(gait) * 0.08,
       lean: mix(origin.pose.lean, walk > 0 && walk < 1 ? -0.045 : 0, turn),

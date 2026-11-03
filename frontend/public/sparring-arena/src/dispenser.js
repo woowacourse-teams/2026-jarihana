@@ -4,7 +4,7 @@ import { createDispenserPhysics, OUTPUT_CAPACITY, SLIDE, TRAY } from './dispense
 import { TANK, RADIUS } from './physics.js';
 import { studioMaterial } from './studio-materials.js';
 import { characterPose, characterVariant } from './character-motion.js';
-import { createWalkingCharacters } from './walking-characters.js';
+import { createSeatedCapsuleCharacters } from './chair-characters.js';
 import { createSlideEffects } from './slide-effects.js';
 
 const VISIBLE_LIMIT = 4;
@@ -64,7 +64,7 @@ export function createDispenser(scene, onReveal, { onOpened = () => {}, trayWidt
     });
   }
   positionCorners(trayWidth, edgeScale);
-  const batch = createCapsuleBatch(scene, OUTPUT_CAPACITY, createWalkingCharacters), physics = createDispenserPhysics({ trayWidth });
+  const batch = createCapsuleBatch(scene, OUTPUT_CAPACITY, createSeatedCapsuleCharacters), physics = createDispenserPhysics({ trayWidth });
   const effects = createSlideEffects(scene);
   function setTrayWidth(width, nextEdgeScale = edgeScale) {
     edgeScale = nextEdgeScale;

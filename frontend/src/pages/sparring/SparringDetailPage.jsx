@@ -49,7 +49,7 @@ function Room({ topicId, member, login, retry, onRetry }) {
           </Link>
           <div className="sparring-detail__view-controls">
             <div className="sparring-view-switch" role="group" aria-label="경기장 구도">
-              {[["original", "기존 구도"], ["reference", "참고 구도"], ["compact", "아담한 구도"]].map(([value, label]) => (
+              {[["original", "기존 구도"], ["compact", "아담한 구도"]].map(([value, label]) => (
                 <button
                   key={value}
                   type="button"
@@ -64,13 +64,13 @@ function Room({ topicId, member, login, retry, onRetry }) {
               type="button"
               className="sparring-camera-switch"
               role="switch"
-              aria-label="받아치기 따라보기"
+              aria-label="받아치기 연출"
               aria-checked={clashCamera}
               disabled={!visible}
               title="내가 보낸 받아치기 캡슐을 카메라가 따라가요 · 동작 줄이기 설정에서는 생략"
               onClick={toggleClashCamera}
               data-ph-capture-attribute-action="sparring_clash_camera_toggle"
-            >받아치기 따라보기<span aria-hidden="true" /></button>
+            >받아치기 연출<span aria-hidden="true" /></button>
           </div>
         </nav>
         <span role="status" className="sparring-connection" data-connection={status}>

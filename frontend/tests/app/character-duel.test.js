@@ -4,9 +4,10 @@ const original = { id: '1', side: 'a', memberType: 'CREW', name: '크루', text:
 const reply = { id: '2', side: 'b', memberType: 'COACH', name: '코치', text: '점심시간이 더 아까워요', replyTo: original };
 
 describe('미끄럼틀에서 나온 캐릭터 대치', () => {
-  let stage, duel, onSelect, onReveal;
+  let stage, duel, onSelect, onReveal, visuals;
   const field = () => stage.querySelector('.character-duel');
   const bubble = side => stage.querySelector(`.${side} .duel-speech`);
+  const frame = index => visuals.draw.mock.calls.filter(call => call[0] === index).at(-1)?.[2];
   function land(post = reply, fresh = false, reduced = false) {
     duel.updateState([original, post]);
     const participants = duel.prepare(post, fresh, reduced);
@@ -19,7 +20,8 @@ describe('미끄럼틀에서 나온 캐릭터 대치', () => {
     stage = document.createElement('div');
     document.body.append(stage);
     onSelect = jest.fn(); onReveal = jest.fn();
-    duel = createCharacterDuel(stage, onSelect, onReveal);
+    visuals = { draw: jest.fn(), hide: jest.fn(), dispose: jest.fn() };
+    duel = createCharacterDuel(stage, onSelect, onReveal, visuals);
     duel.setLayout([{ x: 100, y: 350 }, { x: 300, y: 350 }]);
   });
   afterEach(() => { duel.dispose(); stage.remove(); });
@@ -32,6 +34,7 @@ describe('미끄럼틀에서 나온 캐릭터 대치', () => {
     expect(bubble('left')).not.toBeVisible();
     expect(bubble('right')).not.toBeVisible();
     expect(onReveal).not.toHaveBeenCalled();
+    expect(visuals.draw).not.toHaveBeenCalled();
   });
 
   it('개봉한 위치에서 작게 나온 뒤 양옆에 도착해야 대치를 시작한다', () => {
@@ -52,15 +55,31 @@ describe('미끄럼틀에서 나온 캐릭터 대치', () => {
     expect(onReveal).toHaveBeenCalledWith(reply, true);
   });
 
-  it('실제 원문부터 말하고 답장 캐릭터가 받아친다', () => {
+  it('반대편 원문 캐릭터가 먼저 찌르고 답장 캐릭터가 내리친 뒤 서로 의자를 던진다', () => {
     land();
     expect(bubble('left')).toHaveTextContent(original.text);
     expect(bubble('right')).toHaveTextContent(reply.text);
     expect(field()).toHaveAttribute('data-turn', 'left');
-    duel.step(1.5);
+    expect(frame(0).motion).toMatchObject({ seated: 1, chair: { mode: 'seat' } });
+    expect(frame(1).motion).toMatchObject({ seated: 1, chair: { mode: 'seat' } });
+    duel.step(1.65);
+    expect(field()).toHaveAttribute('data-turn', 'left');
+    expect(field()).toHaveAttribute('data-chair-phase', 'thrust');
+    expect(frame(0).motion.x).toBeGreaterThan(0);
+    expect(frame(0).motion.chair.mode).toBe('held');
+    expect(frame(1).motion.impact).toBeGreaterThan(0);
+    expect(stage.querySelector('.duel-versus')).not.toBeVisible();
+    duel.step(0.9);
     expect(field()).toHaveAttribute('data-turn', 'right');
-    expect(stage.querySelector('.right .duel-sprite')).toHaveAttribute('data-pose', 'protest');
-    expect(stage.querySelector('.left .duel-sprite')).toHaveAttribute('data-pose', 'listen');
+    expect(field()).toHaveAttribute('data-chair-phase', 'slam');
+    expect(frame(1).motion.x).toBeLessThan(0);
+    expect(frame(1).motion.leftArm).toBeLessThan(-2);
+    expect(frame(0).motion.impact).toBe(0);
+    duel.step(1.65);
+    expect(field()).toHaveAttribute('data-chair-phase', 'throw');
+    expect(frame(0).motion.chair.mode).toBe('flight');
+    expect(frame(1).motion.chair.mode).toBe('flight');
+    expect(onReveal).toHaveBeenCalledTimes(1);
   });
 
   it('모바일 가장자리의 캐릭터 말풍선은 화면 안에 두고 꼬리는 캐릭터를 가리킨다', () => {
@@ -77,14 +96,22 @@ describe('미끄럼틀에서 나온 캐릭터 대치', () => {
     }
   });
 
-  it('같은 편의 받아치기도 서로 다른 캡슐 역할과 원래 색을 유지한다', () => {
+  it('같은 편의 받아치기는 원래 역할과 색을 유지하며 의자에 앉아 대화한다', () => {
     const participants = land({ ...reply, side: 'a' });
     expect(participants.map(item => item.role)).toEqual([1, 0]);
     expect(stage.querySelector('.left')).toHaveAttribute('data-side', 'a');
     expect(stage.querySelector('.right')).toHaveAttribute('data-side', 'a');
-    expect(stage.querySelector('.left .duel-sprite')).toHaveAttribute('data-variant', '1');
-    expect(stage.querySelector('.right .duel-sprite')).toHaveAttribute('data-variant', '0');
+    expect(stage.querySelector('.left .duel-figure')).toHaveAttribute('data-variant', '1');
+    expect(stage.querySelector('.right .duel-figure')).toHaveAttribute('data-variant', '0');
     expect(bubble('right')).toHaveTextContent(original.text);
+    for (const delta of [1.65, 0.9, 1.65]) {
+      duel.step(delta);
+      for (const index of [0, 1]) {
+        expect(frame(index).motion).toMatchObject({
+          phase: 'settled', seated: 1, x: 0, y: 0, impact: 0, chair: { mode: 'seat' },
+        });
+      }
+    }
   });
 
   it('상대 글이 없으면 캡슐 하나만 내려보내고 가짜 상대는 만들지 않는다', () => {
@@ -94,6 +121,7 @@ describe('미끄럼틀에서 나온 캐릭터 대치', () => {
     expect(bubble('right')).not.toBeVisible();
     expect(stage.querySelector('.right .duel-figure')).not.toBeVisible();
     expect(stage.querySelector('.duel-versus')).not.toBeVisible();
+    expect(visuals.draw.mock.calls.every(([index, post]) => index === 0 && post.id === original.id)).toBe(true);
   });
 
   it('빈 판의 첫 새 글은 실제 개봉 후 새 한마디로 알린다', () => {
@@ -112,10 +140,16 @@ describe('미끄럼틀에서 나온 캐릭터 대치', () => {
   it('모션 감소에서는 확대나 이동 없이 실제 의견을 바로 표시한다', () => {
     land(reply, true, true);
     for (const figure of stage.querySelectorAll('.duel-figure')) {
-      expect(figure.style.transform).toBe('translate(0px, 0px) rotate(0deg) scale(1)');
+      expect(figure.style.transform).toBe('scale(1)');
+    }
+    for (const index of [0, 1]) {
+      expect(frame(index).motion).toMatchObject({
+        phase: 'settled', seated: 1, x: 0, y: 0, lean: 0, impact: 0, chair: { mode: 'seat' },
+      });
     }
     expect(bubble('right')).toHaveTextContent(reply.text);
     expect(duel.needsFrame()).toBe(false);
+    expect(duel.canReplace()).toBe(true);
   });
 
   it('등장 중 일시정지하면 위치를 고정하고 재생하면 이어간다', () => {
@@ -127,6 +161,41 @@ describe('미끄럼틀에서 나온 캐릭터 대치', () => {
     expect(stage.querySelector('.left').style.left).toBe(left);
     duel.setPaused(false); duel.step(1);
     expect(stage.querySelector('.left').style.left).toBe('100px');
+  });
+
+  it('공격 중 일시정지하면 의자와 캐릭터를 함께 멈추고 같은 시점부터 이어간다', () => {
+    land(reply, true);
+    duel.step(1.7);
+    const left = stage.querySelector('.left').style.left;
+    visuals.draw.mockClear();
+    duel.setPaused(true); duel.step(10);
+    expect(visuals.draw).not.toHaveBeenCalled();
+    expect(stage.querySelector('.left').style.left).toBe(left);
+    expect(field()).toHaveAttribute('data-chair-phase', 'thrust');
+    expect(duel.needsFrame()).toBe(false);
+    expect(duel.canReplace(true)).toBe(false);
+    duel.setPaused(false); duel.step(0.6);
+    expect(field()).toHaveAttribute('data-chair-phase', 'slam');
+    expect(frame(1).motion.attacker).toBe(1);
+    expect(onReveal).toHaveBeenCalledTimes(1);
+  });
+
+  it('장면을 비우면 두 3D 인물과 의자를 숨기고 이전 공격을 다시 그리지 않는다', () => {
+    land(reply, true);
+    duel.step(1.65);
+    visuals.draw.mockClear(); visuals.hide.mockClear();
+    duel.clear(); duel.step(10);
+    expect(visuals.hide.mock.calls).toEqual([[0], [1]]);
+    expect(visuals.draw).not.toHaveBeenCalled();
+    expect([...stage.querySelectorAll('.duel-figure')].every(item => item.hidden)).toBe(true);
+    expect(bubble('left')).not.toBeVisible();
+    expect(bubble('right')).not.toBeVisible();
+    expect(stage.querySelector('.duel-versus')).not.toBeVisible();
+    expect(duel.stats()).toMatchObject({ duelCharacters: 0, duelPhase: 'waiting', chairPhase: 'waiting', duelPostId: null });
+    expect(duel.busy()).toBe(false);
+    expect(duel.needsFrame()).toBe(false);
+    expect(duel.canReplace()).toBe(true);
+    expect(onReveal).toHaveBeenCalledTimes(1);
   });
 
   it('말풍선 포커스 중 새 장면을 보류하고 Escape 뒤 교체를 허용한다', () => {
@@ -150,6 +219,12 @@ describe('미끄럼틀에서 나온 캐릭터 대치', () => {
     land(reply, true);
     expect(duel.canReplace(true)).toBe(false);
     duel.step(6.5);
+    expect(duel.canReplace(true)).toBe(false);
+    duel.step(1);
     expect(duel.canReplace(true)).toBe(true);
+    expect(duel.needsFrame()).toBe(false);
+    for (const index of [0, 1]) {
+      expect(frame(index).motion).toMatchObject({ seated: 1, x: 0, y: 0, chair: { mode: 'seat' } });
+    }
   });
 });

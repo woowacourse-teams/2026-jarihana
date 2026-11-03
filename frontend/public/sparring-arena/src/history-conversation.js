@@ -126,7 +126,7 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
       if (!visible) { visuals.hide(index); continue; }
       visuals.draw(index, item.post, frame.position, 1, frame.pose, frame.yaw);
       const point = visuals.project(frame.position);
-      item.speechAnchor = visuals.project({ ...frame.position, y: frame.position.y + 2.1 * frame.pose.scale });
+      item.speechAnchor = visuals.project({ ...frame.position, y: frame.position.y + (2.1 - 0.2 * (frame.pose.seated ?? 0)) * frame.pose.scale });
       item.slot.style.left = point.x + 'px';
       item.slot.style.top = point.y + 'px';
       item.slot.dataset.speaking = String(item === speaker);
