@@ -51,7 +51,7 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
   stage.append(field);
 
   let layout = { left: { x: 0, y: 0 }, right: { x: 0, y: 0 }, worldLeft: { x: 0, y: 0, z: 0 }, worldRight: { x: 0, y: 0, z: 0 }, width: 0 };
-  let sequence = 0, turnElapsed = 0, speakingSide = 'a';
+  let sequence = 0, turnElapsed = 0, readingElapsed = 0, speakingSide = 'a';
   let paused = false, visible = true, speechVisible = true, reduced = false, disposed = false;
   const pinned = () => field.contains(document.activeElement);
   const wake = () => { if (!disposed) stage.dispatchEvent(new Event('historywake')); };
@@ -106,6 +106,7 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
       item.revealed = true;
       speakingSide = item.side;
       turnElapsed = 0;
+      readingElapsed = 0;
       onReveal(item.post, false);
     }
     const shown = { a: latest('a'), b: latest('b') };
@@ -189,7 +190,7 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
       const existing = slots.find(item => !item.departure && item.post?.id === post.id);
       if (existing) {
         existing.post = post; existing.order = ++sequence; speakingSide = existing.side; turnElapsed = 0;
-        if (existing.elapsed >= ENTRY_SECONDS) onReveal(post, false);
+        if (existing.elapsed >= ENTRY_SECONDS) { readingElapsed = 0; onReveal(post, false); }
         paint();
         return true;
       }
@@ -217,6 +218,7 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
     step(delta, nextReduced = false) {
       if (disposed || paused || !visible || pinned()) return;
       reduced = nextReduced;
+      if (speechVisible) readingElapsed += delta;
       for (const [index, item] of departures.entries()) {
         if (!item) continue;
         item.elapsed += delta;
@@ -257,6 +259,8 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
       paint();
     },
     pinned,
+    canReplace: () => !pinned() && (reduced || !slots.some(item => item.post) ||
+      !arrivals.length && !slots.some(item => item.post && !item.departure && item.elapsed < ENTRY_SECONDS) && readingElapsed >= TURN_SECONDS),
     canAccept: () => !arrivals.length && !slots.some(item => item.departure) && departures.includes(null),
     needsFrame: () => !disposed && !paused && visible && !pinned()
       && (arrivals.length > 0 || departures.some(Boolean) || slots.some(item => item.post && (item.elapsed < ENTRY_SECONDS || !reduced))),

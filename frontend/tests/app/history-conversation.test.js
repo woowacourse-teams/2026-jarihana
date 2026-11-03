@@ -13,6 +13,20 @@ describe('지난 메시지 캐릭터 모임', () => {
     history.setLayout({ left: { x: 180, y: 300 }, right: { x: 620, y: 300 }, worldLeft: { x: -4.4, y: -6.3, z: 10.1 }, worldRight: { x: 4.4, y: -6.3, z: 10.1 }, width: 800 });
   });
   afterEach(() => { history.dispose(); stage.remove(); });
+  it('말풍선을 읽는 동안 받아치기로 교체하지 않고 숨김·정지·포커스 시간은 제외한다', () => {
+    expect(history.canReplace()).toBe(true);
+    history.emerge(post('reading'), { x: 0, y: -6, z: 9 });
+    expect(history.canReplace()).toBe(false);
+    history.step(WALKOUT_SECONDS);
+    expect(history.canReplace()).toBe(false);
+    history.setVisible(true, { speech: false }); history.step(10);
+    history.setVisible(true); history.setPaused(true); history.step(10);
+    history.setPaused(false); bubble('a').focus(); history.step(10);
+    bubble('a').blur(); history.step(3.19);
+    expect(history.canReplace()).toBe(false);
+    history.step(.02);
+    expect(history.canReplace()).toBe(true);
+  });
   it('같은 표시 상태를 다시 받아도 캐릭터와 말풍선을 중복 갱신하지 않고 실제 전환만 반영한다', () => {
     add('a1');
     visuals.draw.mockClear(); visuals.hide.mockClear(); reveal.mockClear();
