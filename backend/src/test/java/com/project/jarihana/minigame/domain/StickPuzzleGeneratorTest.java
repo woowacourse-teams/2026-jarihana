@@ -37,6 +37,23 @@ class StickPuzzleGeneratorTest {
         }
     }
 
+    @DisplayName("정답은 화면의 칼 격자(1/48cm) 위에 있어서, 정확히 계산하면 1000점을 받을 수 있다.")
+    @Test
+    void everyAnswerLiesOnKnifeGrid() {
+        for (long seed = 1; seed <= 300; seed++) {
+            for (int round = 1; round <= StickPuzzleGenerator.ROUNDS; round++) {
+                // When
+                StickPuzzle puzzle = StickPuzzleGenerator.generate(seed * 104_729, round);
+                double steps = puzzle.answerPosition() * 48;
+                double gridAnswer = Math.round(steps) / 48.0;
+
+                // Then
+                assertThat(Math.abs(steps - Math.round(steps))).isLessThan(1e-9);
+                assertThat(puzzle.judge(gridAnswer).score()).isEqualTo(1000);
+            }
+        }
+    }
+
     @DisplayName("아몬드는 4번 막대부터 나오고 초코가 발린 칸에만 붙는다.")
     @Test
     void almondsAppearFromToppingRoundOnChocolate() {

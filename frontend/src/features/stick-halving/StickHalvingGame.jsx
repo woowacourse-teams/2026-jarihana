@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, ErrorState, Skeleton } from "../../shared/ui";
 import { CutResult, formatPercent } from "./CutResult";
 import { ROUNDS, ROUND_COUNT, ROUND_TIME_LIMIT_SECONDS, STICK_LENGTH_CM, errorRateAt, scoreOf } from "./puzzle";
-import { NUDGE_CM, StickBoard, clampPosition } from "./StickBoard";
+import { KnifeLoupe, NUDGE_CM, StickBoard, clampPosition } from "./StickBoard";
 import { WeightTable } from "./WeightTable";
 import "./stick-halving.css";
 
@@ -57,7 +57,7 @@ export function StickHalvingGame({ adapter, errorMessage, finalActions, onFinish
   const begin = useCallback((nextRound, nextStick) => {
     setRound(nextRound);
     setStick(nextStick);
-    setPosition(nextStick.startPosition);
+    setPosition(clampPosition(nextStick.startPosition));
     setOutcome(null);
     setDeadline(Date.now() + timeLimitSeconds * 1000);
     setNow(Date.now());
@@ -198,6 +198,13 @@ export function StickHalvingGame({ adapter, errorMessage, finalActions, onFinish
         position={showingResult ? outcome.position : position}
         stick={stick}
       />
+      <KnifeLoupe
+        answerPosition={showingResult ? outcome.answerPosition : null}
+        locked={phase !== "play"}
+        onPositionChange={setPosition}
+        position={showingResult ? outcome.position : position}
+        stick={stick}
+      />
       {showingResult ? (
         <>
           <CutResult
@@ -238,7 +245,7 @@ export function StickHalvingGame({ adapter, errorMessage, finalActions, onFinish
           >
             ›
           </button>
-          <span className="stick-game__nudge-label">미세 조정</span>
+          <span className="stick-game__nudge-label">한 칸씩 (0.5cm의 1/24)</span>
           <Button
             className="stick-game__cut"
             data-ph-capture-attribute-action="stick_cut_submit"

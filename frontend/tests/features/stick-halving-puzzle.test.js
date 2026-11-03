@@ -1,4 +1,7 @@
+import { clampPosition } from "../../src/features/stick-halving/StickBoard";
 import {
+  KNIFE_STEP_CM,
+  KNIFE_STEPS_PER_CM,
   ROUND_COUNT,
   STICK_LENGTH_CM,
   answerPosition,
@@ -50,6 +53,25 @@ describe("반 나누기 막대", () => {
         for (const almond of stick.almonds) expect(stick.cells[almond.cell]).not.toBe("NONE");
       }
     }
+  });
+
+  it("puts every answer on the knife grid so a perfect cut is reachable", () => {
+    for (let seed = 1; seed <= 300; seed += 1) {
+      for (let round = 1; round <= ROUND_COUNT; round += 1) {
+        const stick = generatePracticeStick(seed * 104729, round);
+        const steps = answerPosition(stick) * KNIFE_STEPS_PER_CM;
+
+        expect(Math.abs(steps - Math.round(steps))).toBeLessThan(1e-9);
+        expect(scoreOf(errorRateAt(stick, clampPosition(answerPosition(stick))))).toBe(1000);
+      }
+    }
+  });
+
+  it("keeps the knife on the grid inside the stick", () => {
+    expect(clampPosition(5.2601)).toBeCloseTo(252 / KNIFE_STEPS_PER_CM, 12);
+    expect(clampPosition(0)).toBeCloseTo(5 / KNIFE_STEPS_PER_CM, 12);
+    expect(clampPosition(12)).toBeCloseTo(571 / KNIFE_STEPS_PER_CM, 12);
+    expect(clampPosition(6 + KNIFE_STEP_CM * 0.4)).toBe(6);
   });
 
   it("repeats the same stick for the same seed and round", () => {

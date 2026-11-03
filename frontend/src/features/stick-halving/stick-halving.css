@@ -365,6 +365,71 @@
   transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+/* 칼 확대 창 */
+.stick-loupe {
+  background: var(--color-surface-sunken);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-md, 0.875rem);
+  cursor: ew-resize;
+  overflow: hidden;
+  padding: var(--space-1) 0 var(--space-2);
+  touch-action: none;
+  user-select: none;
+}
+
+.stick-loupe--locked {
+  cursor: default;
+}
+
+.stick-loupe__labels {
+  block-size: 1rem;
+  color: var(--color-text-muted);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  position: relative;
+}
+
+.stick-loupe__labels span {
+  line-height: 1rem;
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+}
+
+.stick-loupe svg {
+  display: block;
+  inline-size: 100%;
+}
+
+.stick-loupe__ticks {
+  block-size: 0.75rem;
+}
+
+.stick-loupe__ticks line {
+  stroke: var(--color-muted);
+  stroke-width: 1;
+}
+
+.stick-loupe__ticks .stick-loupe__tick--cell {
+  stroke: var(--color-ink);
+  stroke-width: 2;
+}
+
+.stick-loupe__stick {
+  block-size: 3.5rem;
+}
+
+.stick-loupe__knife {
+  stroke: var(--color-ink);
+  stroke-width: 2;
+}
+
+.stick-loupe__answer {
+  stroke: var(--color-brand-ink);
+  stroke-dasharray: 6 4;
+  stroke-width: 3;
+}
+
 .stick-board__pieces .stick-board__piece--left {
   transform: translateX(-14px);
 }

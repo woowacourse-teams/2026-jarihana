@@ -1,13 +1,16 @@
 import { useId, useRef } from "react";
 
-import { STICK_CELLS, STICK_LENGTH_CM } from "./puzzle";
-import { STICK_WIDTH, STICK_X0, StickArt, toStickX } from "./StickArt";
+import { KNIFE_STEP_CM, KNIFE_STEPS_PER_CM, STICK_CELLS, STICK_LENGTH_CM, snapToKnifeStep } from "./puzzle";
+import { STICK_CY, STICK_HALF, STICK_WIDTH, STICK_X0, StickArt, toStickX } from "./StickArt";
 
-const NUDGE_CM = 0.025;
-const MIN_POSITION = 0.1;
-const MAX_POSITION = STICK_LENGTH_CM - 0.1;
+const NUDGE_CM = KNIFE_STEP_CM;
+const COARSE_NUDGE_STEPS = 12;
+const MIN_POSITION = Math.ceil(0.1 * KNIFE_STEPS_PER_CM) / KNIFE_STEPS_PER_CM;
+const MAX_POSITION = Math.floor((STICK_LENGTH_CM - 0.1) * KNIFE_STEPS_PER_CM) / KNIFE_STEPS_PER_CM;
 
-export const clampPosition = (position) => Math.min(MAX_POSITION, Math.max(MIN_POSITION, position));
+// 칼 위치를 막대 안쪽의 칼 격자로 맞춘다.
+export const clampPosition = (position) =>
+  Math.min(MAX_POSITION, Math.max(MIN_POSITION, snapToKnifeStep(position)));
 
 function Ruler() {
   return (
@@ -89,7 +92,7 @@ export function StickBoard({
       data-ph-capture-attribute-action="stick_knife_move"
       onKeyDown={(event) => {
         if (locked) return;
-        const step = event.shiftKey ? NUDGE_CM * 4 : NUDGE_CM;
+        const step = event.shiftKey ? NUDGE_CM * COARSE_NUDGE_STEPS : NUDGE_CM;
         if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
           event.preventDefault();
           move(position - step);
@@ -159,6 +162,94 @@ export function StickBoard({
           <line className="stick-board__grip" x1="0" x2="0" y1="141" y2="155" />
           <line className="stick-board__grip" x1="8" x2="8" y1="141" y2="155" />
         </g>
+      </svg>
+    </div>
+  );
+}
+
+const LOUPE_HALF_CM = 1;
+const LOUPE_TOP = STICK_CY - 2 * STICK_HALF;
+const LOUPE_HEIGHT = 4 * STICK_HALF;
+
+// 칼 주변 2cm를 가로로 크게 늘려 보여 주는 확대 창이다. 눈금 한 칸이 칼이 움직이는 가장 작은 칸이고,
+// 여기서 끌면 본 막대보다 훨씬 천천히 움직여 칸을 세며 맞출 수 있다.
+export function KnifeLoupe({ answerPosition = null, locked = false, onPositionChange, position, stick }) {
+  const dragReference = useRef(null);
+  const from = position - LOUPE_HALF_CM;
+  const to = position + LOUPE_HALF_CM;
+  const x = toStickX(from);
+  const width = toStickX(to) - x;
+  const ticks = [];
+  for (let step = Math.ceil(from * KNIFE_STEPS_PER_CM); step <= Math.floor(to * KNIFE_STEPS_PER_CM); step += 1) {
+    if (step < 0 || step > STICK_LENGTH_CM * KNIFE_STEPS_PER_CM) continue;
+    const cell = step % (KNIFE_STEPS_PER_CM / 2) === 0;
+    const eighth = step % (KNIFE_STEPS_PER_CM / 8) === 0;
+    ticks.push({ cell, centimeter: step / KNIFE_STEPS_PER_CM, length: cell ? 1 : eighth ? 0.6 : 0.3, step });
+  }
+  const percent = (centimeter) => `${((toStickX(centimeter) - x) / width) * 100}%`;
+
+  return (
+    <div
+      aria-hidden="true"
+      className={`stick-loupe${locked ? " stick-loupe--locked" : ""}`}
+      data-ph-capture-attribute-action="stick_knife_fine_move"
+      onPointerCancel={() => {
+        dragReference.current = null;
+      }}
+      onPointerDown={(event) => {
+        if (locked) return;
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        const rect = event.currentTarget.getBoundingClientRect();
+        dragReference.current = { position, startX: event.clientX, width: rect.width };
+      }}
+      onPointerMove={(event) => {
+        const drag = dragReference.current;
+        if (locked || !drag) return;
+        const moved = ((event.clientX - drag.startX) / drag.width) * (2 * LOUPE_HALF_CM);
+        onPositionChange(clampPosition(drag.position + moved));
+      }}
+      onPointerUp={() => {
+        dragReference.current = null;
+      }}
+    >
+      <div className="stick-loupe__labels">
+        {ticks.filter((tick) => tick.cell).map((tick) => (
+          <span key={tick.step} style={{ left: percent(tick.centimeter) }}>{tick.centimeter.toFixed(1)}</span>
+        ))}
+      </div>
+      <svg className="stick-loupe__ticks" preserveAspectRatio="none" viewBox={`${x} 0 ${width} 10`}>
+        {ticks.map((tick) => (
+          <line
+            className={tick.cell ? "stick-loupe__tick--cell" : undefined}
+            key={tick.step}
+            vectorEffect="non-scaling-stroke"
+            x1={toStickX(tick.centimeter)}
+            x2={toStickX(tick.centimeter)}
+            y1={10 - tick.length * 10}
+            y2="10"
+          />
+        ))}
+      </svg>
+      <svg className="stick-loupe__stick" preserveAspectRatio="none" viewBox={`${x} ${LOUPE_TOP} ${width} ${LOUPE_HEIGHT}`}>
+        <StickArt stick={stick} />
+        {answerPosition === null ? null : (
+          <line
+            className="stick-loupe__answer"
+            vectorEffect="non-scaling-stroke"
+            x1={toStickX(answerPosition)}
+            x2={toStickX(answerPosition)}
+            y1={LOUPE_TOP}
+            y2={LOUPE_TOP + LOUPE_HEIGHT}
+          />
+        )}
+        <line
+          className="stick-loupe__knife"
+          vectorEffect="non-scaling-stroke"
+          x1={toStickX(position)}
+          x2={toStickX(position)}
+          y1={LOUPE_TOP}
+          y2={LOUPE_TOP + LOUPE_HEIGHT}
+        />
       </svg>
     </div>
   );

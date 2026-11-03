@@ -9,6 +9,12 @@ export const ROUND_TIME_LIMIT_SECONDS = 30;
 export const MAX_SCORE = 1000;
 export const ZERO_SCORE_ERROR_RATE = 0.1;
 
+// 칼이 설 수 있는 간격이다. 칸 무게(100, 150, 200mg)와 아몬드 무게(50, 100mg)로는 정답이
+// 늘 1/48cm의 정수배가 되므로, 칼을 이 격자에만 세우면 정확히 계산한 사람은 정답에 칼을 댈 수 있다.
+export const KNIFE_STEPS_PER_CM = 48;
+export const KNIFE_STEP_CM = 1 / KNIFE_STEPS_PER_CM;
+export const snapToKnifeStep = (position) => Math.round(position * KNIFE_STEPS_PER_CM) / KNIFE_STEPS_PER_CM;
+
 // 0.5cm 칸 하나의 무게(mg). 초코 칸에는 속의 과자 무게도 들어 있다.
 export const CELL_MILLIGRAMS = Object.freeze({ NONE: 100, THIN: 150, THICK: 200 });
 export const ALMOND_MILLIGRAMS = Object.freeze({ SMALL: 50, LARGE: 100 });
