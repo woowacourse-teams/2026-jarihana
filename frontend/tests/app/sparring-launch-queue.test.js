@@ -32,7 +32,7 @@ it('캡슐 자리가 부족하면 추가분을 버리지 않고 자리가 생길
   }
   expect(launched).toEqual(posts.map(post => post.id));
   expect(capsules.stats().pendingLaunches).toBe(0);
-  expect(capsules.stats().pendingReplays).toBe(30);
+  expect(capsules.stats().pendingReplays).toBe(1000);
 });
 
 

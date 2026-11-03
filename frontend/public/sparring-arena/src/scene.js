@@ -24,7 +24,7 @@ import { watchPlaygroundSky } from './playground-sky.js';
 
 const PIPE_LENGTH = 2.35;
 
-export function createArena(container, onSelect, onReveal, onReply = onSelect) {
+export function createArena(container, onSelect, onReveal, onReply = onSelect, requestHistory) {
   let assetsLoaded = false, layoutReady = false, presented = false, resolveReady;
   const firstFrame = new Promise(resolve => { resolveReady = resolve; });
   const scene = new THREE.Scene();
@@ -140,7 +140,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     return { group, material, until: 0, muzzle: createMuzzleBurst(group, barrel, length, side === 'a' ? 0x8ef5e8 : 0xffc49f) };
   }
   const pipes = { a: pipe('a', 0x2ac1bc), b: pipe('b', 0xed6a5a) };
-  const capsules = createCapsules(scene, onSelect, post => container.dispatchEvent(new CustomEvent('capsuleready', { detail: { id: post.id } })));
+  const capsules = createCapsules(scene, onSelect, post => container.dispatchEvent(new CustomEvent('capsuleready', { detail: { id: post.id } })), requestHistory);
   const ready = whenCharacterAssetsReady().then(() => {
     assetsLoaded = true;
     wake();
@@ -185,7 +185,6 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     const participants = duel.prepare(selection.post, selection.fresh, reduced.matches);
     if (!participants.length) return;
     history.leaveAll(reduced.matches);
-    if (selection.fresh) capsules.queueReplay(selection.post);
     duelField.hidden = false;
     dispenser.clearAll();
     groupId++;
@@ -235,12 +234,6 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     try { delivery.cancel = transport(complete); }
     catch { complete(); }
   }
-  function releaseFreshReply() {
-    if (clash.busy()) return;
-    const ownIndex = replyQueue.findIndex(selection => selection.fresh && selection.post.mine);
-    const index = ownIndex < 0 ? replyQueue.findIndex(selection => selection.fresh) : ownIndex;
-    if (index >= 0) startSelection(replyQueue.splice(index, 1)[0]);
-  }
   let releaseClock = 0, pipeClock = 0, allowPausedRelease = false, spillQueue = 0;
   let disposed = false, controlKey = '', frame = 0, awakeUntil = 0, isVisible = true, paused = false, statsAt = 0;
   const frameClock = createFrameClock();
@@ -273,17 +266,16 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
         if (side) pipes[side].until = Math.max(pipes[side].until, now + 220);
       }
     }
-    releaseFreshReply();
     releaseClock += delta;
     const waiting = capsules.controlState();
-    const priority = waiting.queuedId !== null || replyQueue.length > 0;
+    const priority = waiting.queuedId !== null || replyQueue.length > 0 || waiting.freshReady;
     const userSpill = spillQueue > 0;
     const due = !!replyQueue[0]?.transport || reduced.matches || releaseClock >= (priority ? 0.55 : userSpill ? 0.1 : 1.8);
     const canMove = (!paused || allowPausedRelease) && !duel.pinned() && !history.pinned();
     const replaceReady = duel.canReplace(false) && history.canAccept() && !outputQueue.length &&
-      dispenser.readyForNext(true, reduced.matches);
-    if (canMove && !clash.busy() && !transports.size && replaceReady && due && (priority || userSpill || (!paused && !reduced.matches))) {
-      const selection = replyQueue.length ? replyQueue.shift() : waiting.queuedId !== null ? (waiting.drawReady ? capsules.takeForDraw() : null) : capsules.takeHistorical();
+      dispenser.readyForNext(true, reduced.matches) && (!waiting.freshReady || history.canReplace());
+    if (canMove && !clash.busy() && replaceReady && due && (priority || userSpill || (!paused && !reduced.matches))) {
+      const selection = replyQueue.length ? replyQueue.shift() : waiting.queuedId !== null ? (waiting.drawReady ? capsules.takeForDraw() : null) : capsules.takeHistorical(!userSpill && (paused || reduced.matches));
       if (selection) {
         if (userSpill && !priority) spillQueue--;
         startSelection(selection);
@@ -312,7 +304,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     clash.projectEffects(presentationCamera);
     reveals.update([], capsules.presentation().tracking, presentationCamera);
     const outputActive = outputQueue.length > 0 || dispenser.outputs().length > 0;
-    if (paused && !replyQueue.length && !transports.size && !spillQueue && !outputActive && !duel.needsFrame() && !history.stats().historyArriving && !clash.busy()) {
+    if (paused && !replyQueue.length && !waiting.freshReady && !transports.size && !spillQueue && !outputActive && !duel.needsFrame() && !history.stats().historyArriving && !clash.busy()) {
       allowPausedRelease = false;
       syncMotionPause();
     }
@@ -329,13 +321,13 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
       container.dataset.renderStats = JSON.stringify({ ...capsules.stats(), ...dispenser.stats(), ...duel.stats(), ...history.stats(), ...clash.stats(), cameraShot: cameraIntensity > 0, outputQueued: outputQueue.length, replyQueued: replyQueue.length, spillQueue, draws: renderer.info.render.calls, geometries: renderer.info.memory.geometries });
       container.dataset.flowState = reduced.matches ? 'reduced' : paused ? 'paused' : 'running';
     }
-    const pendingRelease = (waiting.queuedId !== null || replyQueue.length || spillQueue) && !clash.busy() && duel.canReplace(false);
+    const pendingRelease = (waiting.queuedId !== null || replyQueue.length || waiting.freshReady || spillQueue) && !clash.busy() && duel.canReplace(false);
     frame = 0;
     if (!disposed && isVisible && !document.hidden && ((!paused && !reduced.matches) || ((allowPausedRelease || (!paused && reduced.matches)) && (pendingRelease || outputActive || duel.needsFrame() || history.needsFrame() || clash.needsFrame())) || now < awakeUntil)) frame = requestAnimationFrame(tick);
   }
   function syncControls() {
     const stats = capsules.controlState(), busy = duel.busy() || clash.busy();
-    const detail = { phase: dispenser.stats().outputRolling ? 'rolling' : busy ? 'open' : 'idle', ready: stats.drawReady && !busy, pending: replyQueue.length > 0 };
+    const detail = { phase: dispenser.stats().outputRolling ? 'rolling' : busy ? 'open' : 'idle', ready: stats.drawReady && !busy, pending: replyQueue.length > 0 || stats.freshReady };
     const key = JSON.stringify(detail);
     if (key !== controlKey) { controlKey = key; container.dispatchEvent(new CustomEvent('slidestate', { detail })); }
   }
@@ -413,6 +405,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     // Stored posts remain available to history; missed live effects need not play on return.
     for (const selection of replyQueue) selection.settle?.();
     replyQueue.length = 0;
+    capsules.settleReplays();
     clashCamera.reset(); syncMotionPause(); container.dataset.flowState = 'hidden';
   }
   const visibilityObserver = new IntersectionObserver(entries => { isVisible = entries[0].isIntersecting; if (isVisible) wake(); else suspend(); });
@@ -511,10 +504,10 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
       let settle;
       const delivered = transport ? new Promise(resolve => { settle = resolve; }) : undefined;
       allowPausedRelease = paused;
+      capsules.queueReplay(post, Infinity);
       if (post.replyTo) {
         const arrive = () => {
-          replyQueue.push({ post, fresh: true });
-          releaseFreshReply();
+          capsules.queueReplay(post, 0, isVisible && !document.hidden);
         };
         if (transport) startTransport(transport, arrive, settle);
         else arrive();
@@ -532,8 +525,8 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
       return delivered;
     },
     celebrate(id) { if (!reduced.matches) capsules.nudge(id); wake(); },
-    updateState(posts, balance) {
-      capsules.updateState(posts, balance); duel.updateState(posts);
+    updateState(posts, balance, historyPage) {
+      capsules.updateState(posts, balance, historyPage); duel.updateState(posts);
       if (!seeded) {
         seeded = true;
         if (posts.length) startSelection(capsules.takeHistorical());

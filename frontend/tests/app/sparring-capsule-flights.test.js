@@ -22,17 +22,18 @@ it.each(['나', '다른 참여자'])('지난 대화가 많아도 %s의 새 한�
     const old = Array.from({ length: 100 }, (_, i) => ({ ...post, id: 'old-' + i }));
     const live = { ...post, id: 'live', name };
     const balance = { a: 1, b: 1, total: 2, ratio: 0.5 };
-    capsules.updateState(old, balance);
+    capsules.updateState([], balance, { page: 1, posts: old });
     expect(capsules.takeHistorical().post).toEqual(old[0]);
-    capsules.updateState([...old, live], balance);
+    capsules.updateState([live], balance);
     capsules.launch(live);
     expect(capsules.takeHistorical().post).toEqual(old[1]);
     clock.mockReturnValue(4501);
     expect(capsules.takeHistorical()).toEqual({ post: live, fresh: false });
-    capsules.updateState([...old, live], balance);
+    capsules.updateState([live], balance);
     expect(capsules.takeHistorical().post).toEqual(old[2]);
-    const remaining = Array.from({ length: 98 }, () => capsules.takeHistorical().post.id);
-    expect(remaining.filter(id => id === live.id)).toHaveLength(1);
+    const remaining = Array.from({ length: 97 }, () => capsules.takeHistorical().post.id);
+    expect(remaining).not.toContain(live.id);
+    expect(capsules.takeHistorical()).toBeNull();
   } finally { clock.mockRestore(); }
 });
 

@@ -34,6 +34,11 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       posting = 0,
       source;
     let lastStreamPostId = 0;
+    let history = { page: 0, posts: [] }, historyBoundary;
+    let historyCursor, historyExhausted = false, historyEmptyAt = null;
+    let historyDemand = false, historyRequest = false, historyBlocked = false;
+    let historyTimer = null, historyRetryDelay = 1000;
+    const historyCursors = new Set();
     let mutationQueue = Promise.resolve();
     const posts = new Map(),
       seen = new Set();
@@ -70,6 +75,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
           actorMemberType: member?.memberType ?? "CREW",
           postCount: topic.postCount,
           posts: [...posts.values()].sort((a, b) => Number(a.id) - Number(b.id)),
+          history,
           connection
         },
         fresh,
@@ -81,16 +87,77 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       for (const id of ids.slice(REPLAY_SIZE)) posts.delete(id);
       for (const id of seen) if (!posts.has(id)) seen.delete(id);
     }
+    function scheduleHistory(delay = 0) {
+      if (disposed || !ready || !initialized || document.hidden || !historyDemand ||
+          historyRequest || historyTimer !== null || historyBlocked ||
+          !topic?.postCount || historyEmptyAt === topic.postCount) return;
+      historyTimer = setTimeout(() => {
+        historyTimer = null;
+        void loadHistory();
+      }, delay);
+    }
+    function restartHistory() {
+      historyCursor = undefined;
+      historyBoundary = null;
+      historyExhausted = false;
+      historyCursors.clear();
+    }
+    async function loadHistory() {
+      historyRequest = true;
+      let delay = 0, restarted = false;
+      try {
+        if (historyExhausted) { restartHistory(); restarted = true; }
+        while (!disposed && !document.hidden && historyDemand) {
+          const page = await getSparringPosts(topicId, {
+            size: REPLAY_SIZE,
+            ...(historyCursor ? { cursor: historyCursor } : {})
+          });
+          if (disposed) return;
+          if (page.hasNext && (!page.nextCursor || page.nextCursor === historyCursor || historyCursors.has(page.nextCursor))) {
+            historyBlocked = true;
+            send({ kind: "failure", message: "이전 대화의 목록 위치를 확인하지 못했어요. 다시 연결해 주세요." });
+            return;
+          }
+          historyCursor = page.hasNext ? page.nextCursor : undefined;
+          historyExhausted = !page.hasNext;
+          if (historyCursor) historyCursors.add(historyCursor);
+          const items = page.items.filter(post => historyBoundary == null || post.id < historyBoundary);
+          if (items.length) {
+            history = { page: history.page + 1, posts: items.sort((a, b) => a.id - b.id).map(arenaPost) };
+            historyDemand = false;
+            historyRetryDelay = 1000;
+            historyEmptyAt = null;
+            snapshot();
+            return;
+          }
+          if (page.hasNext) continue;
+          if (!restarted && page.items.length) {
+            restartHistory(); restarted = true;
+          } else {
+            historyEmptyAt = topic.postCount;
+            return;
+          }
+        }
+      } catch {
+        delay = historyRetryDelay;
+        historyRetryDelay = Math.min(historyRetryDelay * 2, 30000);
+      } finally {
+        historyRequest = false;
+        scheduleHistory(delay);
+      }
+    }
     function publish(fresh = [], livePosts = []) {
       if (!topic || !streamState) return;
       initialized = true;
       setView(current => ({ ...current, error: null, status: connection, title: topic.title, loaded: true }));
       snapshot(fresh, livePosts);
+      scheduleHistory();
     }
     function acceptStream(data, reset) {
       if (streamState && data.revision < streamState.revision) return;
       if (!reset && (awaitingSnapshot || data.revision === streamState?.revision)) return;
       const fresh = [], livePosts = [];
+      if (historyBoundary === undefined) historyBoundary = data.posts.length ? Math.min(...data.posts.map(post => post.id)) : null;
       if (reset) {
         posts.clear();
         seen.clear();
@@ -164,6 +231,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       if (ready) return;
       ready = true;
       snapshot();
+      scheduleHistory();
     }
     function updateViewport() {
       if (!frame.current) return;
@@ -247,6 +315,10 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       if (!parsed.success) return;
       const message = parsed.data;
       if (message.kind === "ready") start();
+      else if (message.kind === "history" && message.page === history.page) {
+        historyDemand = true;
+        scheduleHistory();
+      }
       else if (message.kind === "scene" && ready && initialized) {
         if (message.status === "ready") {
           sceneReady = true;
@@ -291,7 +363,13 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       setConnection("offline");
     };
     const visibilityChanged = () => {
-      if (!document.hidden) snapshot();
+      if (document.hidden) {
+        clearTimeout(historyTimer);
+        historyTimer = null;
+      } else {
+        snapshot();
+        scheduleHistory();
+      }
     };
     document.addEventListener("visibilitychange", visibilityChanged);
     window.addEventListener("message", receive);
@@ -305,6 +383,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       disposed = true;
       entryVote.current = null;
       clearTimeout(loadingTimeout);
+      clearTimeout(historyTimer);
       source?.close();
       document.removeEventListener("visibilitychange", visibilityChanged);
       window.removeEventListener("message", receive);
