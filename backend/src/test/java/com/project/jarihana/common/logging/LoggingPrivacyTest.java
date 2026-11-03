@@ -9,7 +9,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.project.jarihana.group.query.controller.dto.GroupListRequest;
 import com.project.jarihana.image.client.S3ImageStorage;
-import com.project.jarihana.image.config.ImageProperties;
+import com.project.jarihana.image.client.ImageStorageScope;
 import java.util.List;
 import org.aopalliance.intercept.MethodInvocation;
 import org.junit.jupiter.api.DisplayName;
@@ -70,9 +70,10 @@ class LoggingPrivacyTest {
         // Given
         S3Client client = mock(S3Client.class);
         when(client.headObject(any(HeadObjectRequest.class))).thenThrow(S3Exception.builder().statusCode(404).message("secret-key").build());
-        ImageProperties properties = mock(ImageProperties.class);
-        when(properties.bucket()).thenReturn("secret-bucket");
-        ProxyFactory proxy = new ProxyFactory(new S3ImageStorage(mock(S3Presigner.class), client, properties));
+        ImageStorageScope scope = mock(ImageStorageScope.class);
+        when(scope.bucket()).thenReturn("secret-bucket");
+        when(scope.objectKey("secret-key")).thenReturn("secret-key");
+        ProxyFactory proxy = new ProxyFactory(new S3ImageStorage(mock(S3Presigner.class), client, scope));
         proxy.setProxyTargetClass(true);
         proxy.addAdvice(new ExternalAdapterLoggingInterceptor());
         ListAppender<ILoggingEvent> events = new ListAppender<>(); events.start();

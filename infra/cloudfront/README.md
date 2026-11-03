@@ -19,6 +19,14 @@ IMAGE_CLOUDFRONT_PRIVATE_KEY=<PKCS#8 RSA private key PEM>
 IMAGE_CLEANUP_ENABLED=false
 ```
 
+이미지 저장소 설정은 단일 배포 프로필에 맞아야 한다. `prod`는 버킷 `techcourse-project-2026`의
+`jarihana/images`, `dev`는 같은 버킷의 `jarihana-dev/images`만 허용한다. 리전은 `ap-northeast-2`다.
+누락·공백·잘못된 bucket/prefix·프로필 혼재는 시작 시 거부하고, S3 요청 직전에도 검증한다.
+`local`과 테스트 및 미지정 프로필은 실제 공유 S3 호출을 하지 않는다.
+자세한 결정은 [백엔드 ADR 0026](../../backend/docs/adr/0026-image-lifecycle-and-access.md)의
+공유 S3 삭제 경계 보완을 따른다. IAM의 삭제 리소스 범위 제한은 별도 운영 작업이며 정리 기본값은
+계속 `false`다. 블루그린 배포는 이 변경을 포함한 control release로 갱신한 뒤 설정을 전달해야 한다.
+
 CloudFront에서 다음을 설정한다.
 
 1. 공개 키와 trusted key group을 만들고 애플리케이션이 대응하는 PKCS#8 개인 키를 GitHub Environment
