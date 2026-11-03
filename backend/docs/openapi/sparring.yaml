@@ -134,19 +134,18 @@ paths:
     parameters: [{$ref: '#/components/parameters/TopicId'}]
     get:
       operationId: streamSparring
-      description: Current and changed DB revision; 1s polling shared per active topic, 15s heartbeat, 120s connection rotation. Reconnect then fetch summary and posts after last known ID.
+      description: Initial/reconnect snapshot contains latest30 posts and public totals. Updates contain all added posts without a count cap and current totals; vote-only updates have empty posts. Both use revision, votesA, votesB, postCount, posts (Post schema). One consistent DB snapshot per active topic poll, 1s polling, 15s heartbeat, 120s rotation. No application-level subscription count cap. Legacy revision events remain; deploy backend before frontend.
       responses:
         '200':
-          description: SSE revision events; no JSON response envelope
+          description: SSE snapshot and update events, followed by legacy revision events; no JSON response envelope
           headers:
             Cache-Control: {schema: {type: string, const: 'no-cache, no-transform'}}
             X-Accel-Buffering: {schema: {type: string, const: 'no'}}
           content:
             text/event-stream:
               schema: {type: string}
-              example: "id:2\nevent:revision\nretry:2000\ndata:{\"revision\":2}\n\n"
+              example: "id:2\nevent:snapshot\nretry:2000\ndata:{\"revision\":2,\"votesA\":1,\"votesB\":0,\"postCount\":0,\"posts\":[]}\n\n"
         '404': {$ref: '#/components/responses/NotFound'}
-        '503': {description: SPARRING_STREAM_BUSY; process has 500 active streams, content: {application/json: {schema: {$ref: '#/components/schemas/Envelope'}}}}
 components:
   securitySchemes:
     accessCookie: {type: apiKey, in: cookie, name: accessToken}

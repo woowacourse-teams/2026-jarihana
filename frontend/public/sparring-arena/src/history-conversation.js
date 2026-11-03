@@ -88,9 +88,9 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
       if (!item.post || !visible) { visuals.hide(index); continue; }
       const center = item.side === 'a' ? layout.worldLeft : layout.worldRight;
       const direction = item.side === 'a' ? 1 : -1;
-      const destination = { ...center, x: center.x + direction * (item.index === 0 ? 0.9 : -0.9) };
+      const destination = { ...center, x: center.x + direction * (item.index === 0 ? 1 : -1) * (layout.characterGap ?? 0.9) };
       const frame = historyWalkPose({ origin: item.origin, destination, elapsed: item.elapsed,
-        side: item.side, speaking: item === speaker, time: turnElapsed, reduced,
+        side: item.side, speaking: item === speaker, time: turnElapsed, reduced, standingScale: layout.characterScale,
         departure: item.departure === null ? 0 : item.departure / EXIT_SECONDS });
       visuals.draw(index, item.post, frame.position, 1, frame.pose, frame.yaw);
       const point = visuals.project(frame.position);

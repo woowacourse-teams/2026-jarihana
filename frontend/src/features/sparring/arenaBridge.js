@@ -7,12 +7,8 @@ export const arenaActions = [
   "sparring_message_edit",
   "sparring_reply_cancel",
   "sparring_reply_start",
-  "sparring_history_locate",
   "sparring_flow_toggle",
   "sparring_capsule_release",
-  "sparring_history_more",
-  "sparring_history_filter",
-  "sparring_history_select",
   "sparring_capsule_select",
   "sparring_clash_expand",
   "sparring_clash_replay",
@@ -35,11 +31,6 @@ export const arenaMessageSchema = z.union([
       replyToId: z.string().nullable(),
       postId: z.string().uuid()
     })
-  }),
-  z.object({
-    ...rpc,
-    action: z.literal("history"),
-    payload: z.object({ mine: z.boolean(), reset: z.boolean() })
   }),
   z.object({ ...rpc, action: z.literal("login"), payload: z.object({}) })
 ]);

@@ -87,7 +87,7 @@ Alloy 자체 메트릭만 수집한다. Nginx EC2의 중앙 Alloy는 배포 text
 | 모니터링 EC2 | [모니터링 Compose](../../monitoring/docker-compose.yml)의 수신 Nginx, Prometheus, Loki, Grafana, 호스트 Alloy. Tempo는 선택 구성 |
 
 Compose가 서비스들을 다른 EC2로 자동 배치하지는 않는다. Blue-Green 앱 Alloy 설치와 외부 WAL
-볼륨 재사용은 [전체 배포 절차](../../blue-green-deploy/controller/full-deployment.md)를 따른다.
+볼륨 재사용은 [배포 환경 구성](../../blue-green-deploy/controller/environment.md#앱-alloy와-조회-경로)를 따른다.
 기본 dev/legacy prod Compose에서는 수집 규칙 `./monitoring/alloy/config.alloy`를 공통으로
 마운트하고 Alloy 서비스 선언은 각 파일에 직접 둔다. 아래 앱 동시 실행/재생성 설명은
 이 기본 Compose 경로에 해당하며, Blue-Green 앱 배포가 독립 Alloy를 갱신한다는 뜻은 아니다.

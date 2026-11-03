@@ -9,13 +9,17 @@ export function createCapsuleReveals(container, onSelect) {
   lines.classList.add('capsule-connectors');
   layer.append(lines);
   container.append(layer);
-  const notes = new Map(), flights = new Map(), projected = new THREE.Vector3();
+  const notes = new Map(), flights = new Map(), sparks = new Map(), projected = new THREE.Vector3();
   function project(body, camera, width, height) {
     projected.copy(body.position).project(camera);
     return { x: (projected.x + 1) * width / 2, y: (1 - projected.y) * height / 2 };
   }
   function update(entries, tracking, camera) {
     const width = container.clientWidth, height = container.clientHeight;
+    for (const [burst, position] of sparks) {
+      const point = project({ position }, camera, width, height);
+      burst.style.left = point.x + 'px'; burst.style.top = point.y + 'px';
+    }
     const mobile = matchMedia('(max-width: 700px)').matches;
     const visible = mobile ? entries.slice(-2) : entries;
     const keys = new Set(visible.map(entry => `${entry.body.id}:${entry.born}`));
@@ -95,9 +99,11 @@ export function createCapsuleReveals(container, onSelect) {
   function spark(position, camera) {
     const point = project({ position: new THREE.Vector3(position.x, position.y, position.z) }, camera, container.clientWidth, container.clientHeight);
     const burst = document.createElement('span'); burst.className = 'pipe-spark'; burst.textContent = '✦';
+    burst.setAttribute('aria-hidden', 'true');
     burst.style.left = point.x + 'px'; burst.style.top = point.y + 'px';
-    burst.addEventListener('animationend', () => burst.remove(), { once: true });
+    sparks.set(burst, new THREE.Vector3(position.x, position.y, position.z));
+    burst.addEventListener('animationend', () => { sparks.delete(burst); burst.remove(); }, { once: true });
     layer.append(burst);
   }
-  return { update, spark, dispose() { layer.remove(); notes.clear(); flights.clear(); } };
+  return { update, spark, dispose() { layer.remove(); notes.clear(); flights.clear(); sparks.clear(); } };
 }
