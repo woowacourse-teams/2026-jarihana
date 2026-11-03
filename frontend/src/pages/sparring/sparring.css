@@ -340,7 +340,7 @@
 .sparring-detail__rail { position: absolute; top: var(--space-4); inset-inline: 0; z-index: 2; pointer-events: none; }
 .sparring-detail__view-controls { display: contents; }
 .sparring-detail__navigation { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
-.sparring-camera-switch { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 8px; border: 0; border-radius: var(--radius-pill); background: var(--color-surface); color: var(--color-text-muted); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; pointer-events: auto; white-space: nowrap; }
+.sparring-camera-switch { position: absolute; top: 0; right: 0; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; border: 1px solid var(--color-line); border-radius: var(--radius-pill); background: var(--color-surface); color: var(--color-text-muted); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; pointer-events: auto; white-space: nowrap; }
 .sparring-camera-switch span { position: relative; width: 26px; height: 16px; border-radius: var(--radius-pill); background: var(--color-line); transition: background .16s; }
 .sparring-camera-switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 10px; height: 10px; border-radius: 50%; background: var(--color-surface); transition: transform .16s; }
 .sparring-camera-switch[aria-checked="true"] { color: var(--color-text-brand); }
@@ -356,16 +356,19 @@
 .sparring-view-switch button:disabled { cursor: wait; opacity: .5; }
 .sparring-detail__back { display: inline-flex; width: var(--touch-target); min-height: var(--touch-target); align-items: center; justify-content: center; border-radius: var(--radius-pill); color: var(--color-ink); text-decoration: none; pointer-events: auto; }
 .sparring-detail__back:hover { color: var(--color-text-brand); background: var(--color-surface-sunken); }
-.sparring-connection { color: var(--color-muted-ink); font-size: var(--text-caption); display: inline-flex; gap: var(--space-2); align-items: center; max-width: 40%; }
+.sparring-connection { position: absolute; top: 52px; right: 0; color: var(--color-muted-ink); font-size: var(--text-caption); display: inline-flex; gap: var(--space-2); align-items: center; max-width: 40%; }
 .sparring-connection::before { content: ""; width: var(--space-2); height: var(--space-2); border-radius: var(--radius-pill); background: var(--color-muted); }
 .sparring-connection[data-connection="live"]::before { background: var(--color-success); }
 .sparring-detail__viewport { position: relative; }
-.sparring-arena-frame { display: block; width: 100%; height: calc(100svh - var(--header-height)); border: 0; background: var(--color-surface); transition: opacity 240ms ease; }
+.sparring-detail__entry { position: relative; z-index: 3; }
+.sparring-detail[data-entry-open="true"] .sparring-detail__rail { visibility: hidden; }
+.sparring-detail[data-entry-open="true"] .sparring-arena-frame { position: absolute; inset: 0; }
+.sparring-arena-frame { display: block; width: 100%; height: calc(100svh - var(--header-height)); scroll-margin-top: var(--header-height); border: 0; background: var(--color-surface); transition: opacity 240ms ease; }
 .sparring-detail__viewport[data-ready="false"] .sparring-arena-frame { opacity: 0; pointer-events: none; }
 .sparring-detail__auth-loading { height: calc(100svh - var(--header-height)); }
 .sparring-preview { position: absolute; inset: 0; z-index: 1; overflow: hidden; background: var(--color-surface); }
-.sparring-preview picture { display: block; opacity: .38; }
-.sparring-preview img { display: block; width: 100%; height: auto; }
+.sparring-preview picture { display: block; height: 100%; opacity: .38; }
+.sparring-preview img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center bottom; }
 .sparring-preview__status { position: absolute; top: min(34%, 260px); inset-inline: var(--page-gutter); display: flex; flex-direction: column; align-items: center; gap: var(--space-3); text-align: center; color: var(--color-muted-ink); font-size: var(--text-label); }
 .sparring-preview__status p { margin: 0; }
 .sparring-preview__capsule { width: 28px; height: 28px; border: 1px solid var(--color-brand); border-radius: 50%; background: linear-gradient(to bottom, var(--color-surface) 49%, var(--color-brand) 50%); animation: sparring-preview-roll 1.6s ease-in-out infinite; }
@@ -590,11 +593,12 @@
 .sparring-featured > .ui-button, .sparring-topics > .ui-button { margin-top: var(--space-5); }
 
 @media (max-width:700px) {
-  .sparring-detail[data-keyboard-open="true"] .sparring-detail__view-controls { display:none; }
+  .sparring-detail:is([data-keyboard-open="true"], [data-composer-editing="true"]) .sparring-detail__view-controls { display:none; }
   .sparring-detail__rail { top:0; width:calc(100% - 16px); gap:4px; }
   .sparring-detail__navigation { flex:1; flex-wrap:nowrap; justify-content:space-between; gap:4px; }
-  .sparring-detail__view-controls { position:fixed; z-index:10; bottom:calc(env(safe-area-inset-bottom, 0px) + 12px); left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:6px; padding:3px 8px; border:1px solid var(--color-line); border-radius:var(--radius-pill); background:var(--color-surface); box-shadow:var(--shadow-float); pointer-events:auto; }
+  .sparring-detail__view-controls { position:fixed; z-index:10; bottom:calc(env(safe-area-inset-bottom, 0px) + var(--mobile-composer-height, 156px) + 24px); left:50%; transform:translateX(-50%); display:flex; align-items:center; justify-content:center; flex-wrap:wrap; width:max-content; max-width:calc(100% - 24px); gap:6px; padding:3px 8px; border:1px solid var(--color-line); border-radius:var(--radius-pill); background:var(--color-surface); box-shadow:var(--shadow-float); pointer-events:auto; }
   .sparring-detail .sparring-view-switch { margin:0; padding:0; background:transparent; border:0; gap:0; }
   .sparring-detail .sparring-view-switch button { padding:0 8px; min-height:44px; font-size:10px; }
-  .sparring-detail .sparring-camera-switch { background:transparent; padding:0 4px; font-size:10px; }
+  .sparring-detail .sparring-camera-switch { position:static; background:transparent; border:0; padding:0 4px; font-size:11px; }
+  .sparring-connection { position:static; }
 }

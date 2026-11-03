@@ -94,16 +94,14 @@ it.each([{ mine: false }, { fresh: false }])('다른 사람이나 지난 대화�
   expect(cut.update(camera, frame(0.5, overrides), 0.5)).toBe(camera);
 });
 
-it('기본은 꺼짐이며 중간에 끄거나 모션 감소가 켜지면 즉시 원래 구도로 돌아온다', () => {
+it('기본은 켜짐이며 중간에 끄거나 모션 감소가 켜지면 즉시 원래 구도로 돌아온다', () => {
   const camera = base('reference'), cut = createClashCamera();
   expect(cut.update(camera, frame(), 0)).toBe(camera);
-  cut.setEnabled(true);
-  cut.update(camera, frame(0, { id: 'second' }), 0);
-  expect(cut.update(camera, frame(0.3, { id: 'second' }), 0.3)).not.toBe(camera);
+  expect(cut.update(camera, frame(0.3), 0.3)).not.toBe(camera);
   cut.setEnabled(false);
-  expect(cut.update(camera, frame(0.4, { id: 'second' }), 0.1)).toBe(camera);
+  expect(cut.update(camera, frame(0.4), 0.1)).toBe(camera);
   cut.setEnabled(true);
-  expect(cut.update(camera, frame(0.5, { id: 'second' }), 0.1)).toBe(camera);
+  expect(cut.update(camera, frame(0.5), 0.1)).toBe(camera);
   cut.update(camera, frame(0, { id: 'third' }), 0);
   expect(cut.update(camera, frame(0.3, { id: 'third' }), 0.3)).not.toBe(camera);
   expect(cut.update(camera, frame(0.4, { id: 'third' }), 0.1, true)).toBe(camera);

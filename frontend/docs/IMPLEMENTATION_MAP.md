@@ -470,6 +470,7 @@ replace 이동한다. 헤더의 홈과 브랜드 링크는 `/home`, 탐색 링�
 - `/sparring/:topicId`: 공개 투표 현황·캡슐 경기장·영구 의견. 회원 편 선택 후 POST 의견/받아치기
 - `src/features/sparring/api.js`: 공통 API client + Zod 응답 검증
 - `useArenaBridge.js`: 인증/HTTP/SSE, 최초·재연결 시 최근 30개 리플레이 초기화, 추가 메시지 전체 수신, ID 중복 제거, 출처/스키마 검증
+- `SparringEntry.jsx`: HTTP 주제 응답부터 VS 입장 화면에 실제 편명을 표시한다. 임시 편 선택 → 시작 시 저장 → SSE/첫 3D 프레임 준비 → 패널 열림 순서다. 기존 편 복원·재투표 생략, 비로그인 복귀, 마감 결과 보기와 투표 없는 구경하기를 지원한다. 입장 투표는 `useArenaBridge.selectSide`를 통해 iframe 투표·의견과 같은 저장 큐를 사용한다.
 - 숨겨져 있던 전체·내 대화 목록과 이전 대화 더 보기 UI 및 전용 조회 명령은 제거했다. 최근 대화 재생과 선택한 메시지 받아치기는 유지한다.
 - `public/sparring-arena`: 기존 물리 연출을 보존한 같은 출처 iframe. 인증 토큰을 전달하지 않는다
 - iframe 내부 스크롤/키보드 고정 작성을 쓰지 않고 부모 문서의 일반 스크롤을 사용한다

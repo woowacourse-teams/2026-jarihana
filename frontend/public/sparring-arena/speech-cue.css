@@ -1,0 +1,116 @@
+.history-conversation-speech, .duel-speech { --speech-cue-color: var(--history-color, var(--duel-color, var(--deep))); isolation: isolate; border: 2px solid transparent; border-radius: 18px; background: transparent; box-shadow: none; }
+.history-conversation-speech[data-speaking="true"] { box-shadow: none; }
+.history-conversation-speech[data-reply-selected="true"], .duel-speech[data-reply-selected="true"] { outline-color: var(--speech-cue-color); }
+.history-conversation-speech::before, .duel-speech::after { display: none; }
+.speech-cue-outline { position: absolute; inset: -2px; width: calc(100% + 4px); height: calc(100% + 4px); overflow: visible; pointer-events: none; z-index: -1; }
+.speech-cue-body, .speech-cue-shadow { stroke: var(--speech-cue-color); stroke-width: 2; stroke-linejoin: miter; stroke-miterlimit: 8; vector-effect: non-scaling-stroke; }
+.speech-cue-body { fill: var(--history-wash, var(--duel-wash)); stroke: var(--speech-outline, var(--mint-outline)); }
+.history-conversation-speech[data-side="b"], .duel-contender[data-side="b"] { --speech-outline: var(--coral-outline); }
+.speech-cue-shadow { fill: var(--speech-cue-color); }
+.speech-cue-wave { fill: none; stroke: var(--speech-cue-color); stroke-width: 2.5; vector-effect: non-scaling-stroke; transform-box: view-box; transform-origin: center; opacity: 0; }
+.speech-cue-label { position: absolute; z-index: 5; left: 50%; top: -27px; transform: translateX(-50%); white-space: nowrap; pointer-events: none; opacity: 0; color: var(--speech-cue-color); font-size: 24px; font-weight: 950; line-height: 1.1; letter-spacing: -1px; text-shadow: 3px 3px #fff, -2px -2px #fff; }
+.speech-reply-action { display: inline-flex; align-items: center; gap: 3px; }
+.speech-cue-hand { width: 15px; height: 15px; overflow: visible; flex: none; color: var(--speech-cue-color); transform-origin: 50% 85%; }
+[data-reply-selected="true"] .speech-cue-hand { display: none; }
+[data-cue-active="true"] { animation: speech-cue-shake 5.2s ease-out infinite; }
+[data-cue-active="true"] .speech-cue-hand { animation: speech-cue-tap 5.2s ease-out infinite; }
+[data-cue-active="true"] .speech-cue-label { animation: speech-cue-pop 5.2s ease-out infinite; }
+[data-cue-active="true"] .speech-cue-wave { animation: speech-cue-wave 5.2s ease-out infinite; }
+[data-paused="true"] [data-cue-active="true"], [data-paused="true"] [data-cue-active="true"] .speech-cue-hand, [data-paused="true"] [data-cue-active="true"] .speech-cue-label, [data-paused="true"] [data-cue-active="true"] .speech-cue-wave { animation-play-state: paused; }
+@keyframes speech-cue-shake {
+  0%, 10.6%, 32.7%, 43.3%, 100% { translate: 0; }
+  1.9%, 34.6% { translate: -4px; }
+  3.8%, 36.5% { translate: 4px; }
+  5.7%, 38.4% { translate: -3px; }
+  7.6%, 40.3% { translate: 2px; }
+}
+@keyframes speech-cue-tap {
+  0%, 9.6%, 32.7%, 42.3%, 100% { transform: none; }
+  2.9%, 35.6% { transform: translateY(2px) scale(.88); }
+}
+@keyframes speech-cue-pop {
+  0%, 32.7% { opacity: 0; transform: translateX(-50%) scale(.4) rotate(-15deg); }
+  6.25%, 38.95% { opacity: 1; transform: translateX(-50%) scale(1.2) rotate(6deg); }
+  13.75%, 46.45% { opacity: 1; transform: translateX(-50%) scale(1) rotate(-4deg); }
+  25%, 57.7%, 100% { opacity: 0; transform: translateX(-50%) translateY(-12px) scale(1.12); }
+}
+@keyframes speech-cue-wave {
+  0%, 32.7% { opacity: 0; transform: scale(1); }
+  4%, 36.7% { opacity: .6; transform: scale(1.035, 1.08); }
+  25%, 57.7%, 100% { opacity: 0; transform: scale(1.24, 1.6); }
+}
+[data-reduced="true"] [data-cue-active="true"], [data-reduced="true"] [data-cue-active="true"] .speech-cue-hand, [data-reduced="true"] [data-cue-active="true"] .speech-cue-label, [data-reduced="true"] [data-cue-active="true"] .speech-cue-wave { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  [data-cue-active="true"], [data-cue-active="true"] .speech-cue-hand, [data-cue-active="true"] .speech-cue-label, [data-cue-active="true"] .speech-cue-wave { animation: none; }
+}
+
+/* Match the topic and side labels to the conversation bubbles. */
+.stage .topic {
+  gap: 5px;
+  padding: 10px 14px;
+  border: 2px solid #163e38;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 3px 4px 0 var(--deep);
+}
+.stage .topic h1 {
+  justify-self: center;
+  max-width: 100%;
+  padding: 0;
+  color: #163e38;
+  font-size: clamp(20px, 1.7vw, 26px);
+  font-weight: 850;
+  line-height: 1.35;
+  text-shadow: none;
+}
+.stage .topic .intro {
+  color: #526f69;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.pipe-station { --label-ink: #163e38; --label-shadow: var(--deep); --label-outline: var(--mint-outline); }
+.pipe-station.b { --label-ink: #9d4036; --label-shadow: #9d4036; --label-outline: var(--coral-outline); }
+.pipe-station .vote-flag {
+  padding: 8px 0;
+  gap: 8px;
+  color: var(--label-ink);
+}
+.pipe-station .vote-flag strong {
+  max-width: 100%;
+  padding: 8px 12px;
+  border: 2px solid var(--label-outline);
+  border-radius: 14px;
+  background: var(--station-soft);
+  box-shadow: 3px 4px 0 var(--label-shadow);
+  font-size: clamp(16px, 1.2vw, 20px);
+  text-decoration: none;
+}
+.pipe-station.chosen .vote-flag strong { background: color-mix(in srgb, var(--station-color) 25%, white); }
+.pipe-station .claim-check { display: none; }
+.pipe-station .seat-state { padding-inline: 12px; color: var(--label-ink); }
+.pipe-station.chosen .seat-state::before { content: '✓ '; }
+.pipe-station .pipe-meter.vote-option {
+  color: var(--label-ink);
+  font-variant-numeric: tabular-nums;
+  text-shadow: -1px -1px #fff, 1px -1px #fff, -1px 1px #fff, 1px 1px #fff;
+}
+.pipe-station .pipe-meter span { color: var(--label-ink); }
+.clash-flash {
+  left: -45px;
+  top: -29px;
+  width: 90px;
+  height: 58px;
+  border: 2px solid #163e38;
+  border-radius: 18px;
+  background: #fff6d8;
+  color: #163e38;
+  box-shadow: 3px 4px 0 #163e38;
+  text-shadow: none;
+}
+@media (max-width: 700px) {
+  .stage .topic { padding: 3px 10px; border-radius: 14px; }
+  .stage .topic h1 { font-size: 14px; padding: 0; }
+  .pipe-station .vote-flag { padding: 4px 0; gap: 4px; }
+  .pipe-station .vote-flag strong { padding: 6px 8px; font-size: 13px; }
+  .pipe-station .seat-state { display: block; padding-inline: 8px; font-size: 9px; line-height: 12px; }
+}
