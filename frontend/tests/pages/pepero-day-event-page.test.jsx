@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { storeReturnTarget, useAuth } from "../../src/features/auth";
@@ -81,6 +81,24 @@ it("plays a practice stick in the browser and reveals the answer after cutting",
     "data-ph-capture-attribute-action",
     "stick_next_round"
   );
+});
+
+it("opens the ranking dialog after five practice sticks and points to the ranked mode", async () => {
+  getPeperoDayStatus.mockResolvedValue(status());
+  mount();
+
+  fireEvent.click(await screen.findByRole("button", { name: "연습 시작" }));
+  for (let round = 1; round <= 5; round += 1) {
+    fireEvent.click(await screen.findByRole("button", { name: "자르기" }));
+    fireEvent.click(await screen.findByRole("button", { name: round === 5 ? "최종 결과 보기" : "다음 막대" }));
+  }
+
+  const dialog = await screen.findByRole("dialog", { name: "연습 결과" });
+  expect(dialog).toHaveTextContent(/연습 점수는 순위에 들어가지 않아요\. 이 점수였다면 \d+위예요\./);
+  expect(within(dialog).getByText("모카")).toBeInTheDocument();
+  fireEvent.click(within(dialog).getByRole("button", { name: "순위 도전하러 가기" }));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "GitHub로 로그인하고 도전하기" })).toBeInTheDocument();
 });
 
 it("shows remaining attempts and blocks ranked runs when none are left", async () => {

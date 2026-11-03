@@ -12,8 +12,22 @@ import {
   usePeperoDayStatus
 } from "../../features/pepero-day";
 import { ROUNDS, StickHalvingGame, createPracticeAdapter, formatPercent } from "../../features/stick-halving";
-import { Button, EmptyState, ErrorState, PageContainer, PageHeader, SectionHeader, Skeleton, useToast } from "../../shared/ui";
+import {
+  Button,
+  EmptyState,
+  ErrorState,
+  Modal,
+  PageContainer,
+  PageHeader,
+  SectionHeader,
+  Skeleton,
+  useToast
+} from "../../shared/ui";
 import "./pepero-day.css";
+
+// 서버가 순위를 한 번에 내려주는 인원과, 끝난 뒤 창에 보여 줄 인원이다.
+const RANKING_PAGE = 50;
+const DIALOG_RANKING_LIMIT = 10;
 
 const RANKED_ERRORS = {
   MINIGAME_ATTEMPT_LIMIT_EXCEEDED: "오늘 순위 도전을 모두 했어요. 내일 다시 도전해 주세요.",
@@ -72,6 +86,34 @@ function Countdown({ event }) {
   );
 }
 
+function RankingRow({ item, me }) {
+  return (
+    <li className={me && item.rank === me.rank ? "pepero-day__ranking-item--me" : undefined}>
+      <span className="pepero-day__rank">{item.rank}</span>
+      <span className="pepero-day__nickname">{item.nickname}</span>
+      <span className="pepero-day__score">{item.totalScore.toLocaleString("ko-KR")}점</span>
+      <span className="pepero-day__duration">{formatDuration(item.totalDurationMillis)}</span>
+    </li>
+  );
+}
+
+// 순위 목록이다. limit이 있으면 위에서부터 그만큼만 보여 주고, 내가 그 밖에 있으면 내 줄을 따로 붙인다.
+function RankingList({ items, limit, me }) {
+  const shown = limit ? items.slice(0, limit) : items;
+  const meOutside = me && !shown.some((item) => item.rank === me.rank);
+  return (
+    <ol className="pepero-day__ranking-list">
+      {shown.map((item) => <RankingRow item={item} key={item.rank} me={me} />)}
+      {meOutside ? (
+        <>
+          <li aria-hidden="true" className="pepero-day__ranking-gap">⋮</li>
+          <RankingRow item={me} me={me} />
+        </>
+      ) : null}
+    </ol>
+  );
+}
+
 function Ranking() {
   const rankings = usePeperoDayRankings();
 
@@ -94,20 +136,88 @@ function Ranking() {
         </p>
       ) : null}
       {items.length ? (
-        <ol className="pepero-day__ranking-list">
-          {items.map((item) => (
-            <li className={me && item.rank === me.rank ? "pepero-day__ranking-item--me" : undefined} key={item.rank}>
-              <span className="pepero-day__rank">{item.rank}</span>
-              <span className="pepero-day__nickname">{item.nickname}</span>
-              <span className="pepero-day__score">{item.totalScore.toLocaleString("ko-KR")}점</span>
-              <span className="pepero-day__duration">{formatDuration(item.totalDurationMillis)}</span>
-            </li>
-          ))}
-        </ol>
+        <RankingList items={items} me={me} />
       ) : (
         <EmptyState description="순위 도전을 끝내면 여기에 이름이 올라가요." title="아직 순위에 오른 기록이 없어요" />
       )}
     </section>
+  );
+}
+
+// 연습 점수가 순위표의 어디쯤인지 센다. 점수가 같으면 걸린 시간을 알 수 없어 같은 점수의 맨 앞에 둔다.
+function practiceRank(items, totalScore) {
+  return items.filter((item) => item.totalScore > totalScore).length + 1;
+}
+
+// 5판을 끝내면 띄우는 순위 창이다. 순위 도전은 방금 끝낸 판이 들어간 순위를 다시 받아 보여 주고,
+// 연습은 순위에 들어가지 않으므로 이 점수였다면 몇 위인지 알려 준다.
+function RankingDialog({ onChallenge, onClose, result }) {
+  const rankings = usePeperoDayRankings();
+  const ranked = result.mode === "ranked";
+  const refreshing = ranked && rankings.isFetching;
+  const data = rankings.data;
+
+  let body;
+  if (rankings.isPending || refreshing) {
+    body = <Skeleton aria-label="순위를 불러오는 중" className="pepero-day__dialog-loading" />;
+  } else if (rankings.isError) {
+    body = (
+      <ErrorState
+        action={<Button onClick={() => rankings.refetch()} variant="secondary">다시 불러오기</Button>}
+        title="순위를 불러오지 못했어요"
+      />
+    );
+  } else {
+    const position = ranked ? data.me?.rank : practiceRank(data.items, result.totalScore);
+    const fullList = data.items.length >= RANKING_PAGE && position > data.items.length;
+    body = (
+      <>
+        <p className="pepero-day__dialog-standing">
+          {ranked && data.me ? (
+            <>
+              내 순위 <strong>{data.me.rank}위</strong>
+              {data.me.totalScore > result.totalScore ? `, 최고 기록 ${data.me.totalScore.toLocaleString("ko-KR")}점` : null}
+            </>
+          ) : null}
+          {ranked ? null : (
+            <>
+              연습 점수는 순위에 들어가지 않아요. 이 점수였다면{" "}
+              <strong>{fullList ? `${RANKING_PAGE}위 밖` : `${position}위`}</strong>예요.
+            </>
+          )}
+        </p>
+        {data.items.length ? (
+          <RankingList items={data.items} limit={DIALOG_RANKING_LIMIT} me={data.me} />
+        ) : (
+          <EmptyState description="순위 도전을 끝내면 여기에 이름이 올라가요." title="아직 순위에 오른 기록이 없어요" />
+        )}
+      </>
+    );
+  }
+
+  return (
+    <Modal
+      closeAction="pepero_ranking_dismiss"
+      description={`이번 판 ${result.totalScore.toLocaleString("ko-KR")}점`}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      open
+      panelClassName="pepero-day__dialog"
+      title={ranked ? "순위 도전 결과" : "연습 결과"}
+    >
+      {body}
+      <div className="ui-dialog__actions">
+        {onChallenge ? (
+          <Button data-ph-capture-attribute-action="pepero_ranking_challenge" onClick={onChallenge}>
+            순위 도전하러 가기
+          </Button>
+        ) : null}
+        <Button data-ph-capture-attribute-action="pepero_ranking_close" onClick={onClose} variant="secondary">
+          닫기
+        </Button>
+      </div>
+    </Modal>
   );
 }
 
@@ -173,6 +283,7 @@ function ModeChooser({ event, onStart }) {
 function OpenEvent({ closed, event, game, setGame }) {
   const queryClient = useQueryClient();
   const { danger, success } = useToast();
+  const [finished, setFinished] = useState(null);
 
   // 새 판을 시작할 때마다 새 연결부를 만든다. 순위 도전은 시작하면 남은 횟수가 바뀌므로 상태를 다시 받는다.
   function start(mode) {
@@ -218,10 +329,21 @@ function OpenEvent({ closed, event, game, setGame }) {
           </>
         )}
         key={game.key}
-        onFinish={() => {
+        onFinish={(summary) => {
           if (ranked) void queryClient.invalidateQueries({ queryKey: peperoDayKeys.all });
+          setFinished({ key: game.key, mode: game.mode, totalScore: summary.totalScore });
         }}
       />
+      {finished?.key === game.key ? (
+        <RankingDialog
+          onChallenge={ranked || closed ? null : () => {
+            setFinished(null);
+            setGame(null);
+          }}
+          onClose={() => setFinished(null)}
+          result={finished}
+        />
+      ) : null}
     </section>
   );
 }

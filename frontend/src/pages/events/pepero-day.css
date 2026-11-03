@@ -155,6 +155,33 @@
   font-size: var(--text-caption);
 }
 
+.pepero-day__ranking-list .pepero-day__ranking-gap {
+  border-block-end: 0;
+  color: var(--color-text-muted);
+  display: block;
+  padding-block: 0;
+  text-align: center;
+}
+
+.pepero-day__dialog .ui-dialog__content {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.pepero-day__dialog-loading {
+  block-size: 16rem;
+}
+
+.pepero-day__dialog-standing {
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.pepero-day__dialog-standing strong {
+  color: var(--color-text-brand);
+  font-size: var(--text-h3);
+}
+
 @media (max-width: 480px) {
   .pepero-day__card {
     padding: var(--space-4);
