@@ -13,7 +13,7 @@ Git 병합만으로 설치된 제어 릴리스나 활성 Nginx 설정이 바뀌�
 ## 운영 반영 확인
 
 - 보호된 제어 태그는 이동하지 않는다. 검토한 새 불변 릴리스를 배포하고 coordinator/A/B의
-  ref/SHA 및 설치 경로를 일치시킨다. 구성 절차는 [배포 환경 구성](../../blue-green-deploy/controller/environment.md)을 따른다.
+  ref/SHA 및 설치 경로를 일치시킨다. 구성 절차는 [배포 환경 구성](../../blue-green-deploy/docs/server-setup/README.md)을 따른다.
 - 활성 Nginx에서 공개 `/api/`는 `X-Jarihana-Deployment-Probe`를 제거하고,
   내부 `/__deployment`는 `true`를 주입하는지 확인한다. 직접 후보 검사에도 같은 표시가 필요하다.
   활성 설정만 수동 수정하면 다음 트래픽 전환에서 기존 템플릿으로 덮어쓸 수 있다.

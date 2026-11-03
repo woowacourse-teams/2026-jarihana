@@ -97,7 +97,7 @@ lease 만료·교체 등으로 결과 저장을 확인하지 못하면 차단한
 로컬 BLOCKED·작업 개수는 메모리에만 있다. 재시작을 불명확한 결과의 해결로 취급하지 않는다.
 제어 모드의 DB owner는 이전 boot ID를 유지하므로 새 프로세스가 대신 인계할 수 없다.
 worker의 drain만으로 HTTP 요청까지 종료되었거나 EC2를 중지해도 된다는 뜻은 아니다.
-A/B 처리 권한 제어는 아래 내부 서비스와 [관리 포트의 worker 제어 API](../../../infra/blue-green-deploy/controller/architecture.md#worker-제어-api)를 사용한다.
+A/B 처리 권한 제어는 아래 내부 서비스와 [관리 포트의 worker 제어 API](../../../infra/blue-green-deploy/docs/architecture.md#worker-제어-api)를 사용한다.
 Actions·Compose 연동과 운영 적용 전 검증은 [인프라 ADR 0005](../../../infra/docs/adr/0005-nginx-ec2-blue-green-deployment.md)를 따른다.
 기존 환경의 초기 기본 동작은 `false`로 유지한다.
 
@@ -116,7 +116,7 @@ Flyway `V7__worker_authority.sql`의 `worker_authority`는 환경당 한 행을 
 배포 명령과 선점을 같은 행 잠금으로 직렬화한다. epoch와 authority revision은 별개다.
 새 배포 시작·명령 deadline 만료가 정상 운영 중인 worker의 권한을 만료시키지는 않는다.
 
-내부 `WorkerAuthorityService`의 정상 인계 순서는 다음과 같다. 자동화의 호출 계약은 [worker 제어 API](../../../infra/blue-green-deploy/controller/architecture.md#worker-제어-api)를 따른다.
+내부 `WorkerAuthorityService`의 정상 인계 순서는 다음과 같다. 자동화의 호출 계약은 [worker 제어 API](../../../infra/blue-green-deploy/docs/architecture.md#worker-제어-api)를 따른다.
 
 ```text
 begin: 새 배포 PREPARE (기존 worker 권한 유지)
