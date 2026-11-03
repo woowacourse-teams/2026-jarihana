@@ -250,7 +250,7 @@ export function SignupPage() {
       return;
     }
     const returnTarget = consumeReturnTarget("/my");
-    const invitationReturn = returnTarget.startsWith("/invitations/") || returnTarget.startsWith("/notifications/open/");
+    const invitationReturn = returnTarget.startsWith("/invitations/") || returnTarget.startsWith("/notifications/open/") || returnTarget.startsWith("/games/");
     window.location.replace(invitationReturn ? returnTarget : "/my");
   }
 

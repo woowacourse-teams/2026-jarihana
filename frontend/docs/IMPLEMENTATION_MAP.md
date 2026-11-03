@@ -477,3 +477,18 @@ replace 이동한다. 헤더의 홈과 브랜드 링크는 `/home`, 탐색 링�
 
 [API 계약](../../backend/docs/context/api/endpoints/sparrings.md),
 [전체 기획/복원/검증 맥락](../../docs/sparring/INTEGRATION.md)
+
+## 게임방과 오목
+
+- `/games`: 공개 카탈로그. 카드 상단 보조 문구는 표시하지 않는다. 오목은 게임패드 아이콘과 "게임 시작" 링크 버튼으로 `/games/gomoku`에 진입하며 리듬게임은 준비 중이다.
+- `/games/gomoku`: 공개 대기방 목록과 생성 모달. 생성 모달은 공개 범위/대국 규칙별 네모 체크 표시 단일 선택을 제공하며 기본값은 PUBLIC/RENJU다. 페이지의 단일 제목은 "대기실"이며 검색창과 생성 버튼은 같은 행에 표시한다. 이름 검색은 입력 즉시 서버 keyword 검색과 커서 페이지를 함께 적용한다. 한글 조합 완료 시 요청하며 입력 삭제 시 전체 목록으로 돌아간다. Enter/돋보기 제출도 지원한다. 검색 변경 시 첫 페이지로 초기화하며 빈 검색 결과에는 전체 보기 버튼을 표시한다. 목록은 활성 창에서 5초마다 갱신한다. 본인의 방은 `/rooms/me`로 확인하고 참여하기 전에 최신 참여 여부를 다시 조회한다. 선택한 방이 현재 참여 중인 방이면 참여 요청 없이 바로 이동하며, 다른 방에 참여 중일 때만 안내한다. 참여 요청 충돌 후 같은 방에 참여한 것으로 확인되면 그 방으로 이동한다. 생성/참여/초대 참여/퇴장 성공 시 참여 방 캐시를 직접 갱신하고 목록을 무효화한다. 갱신 전 진행 중인 참여 방 조회를 취소해 오래된 응답이 덮어쓰지 못하게 한다.
+- `/games/gomoku/rooms/:roomId`: 회원 참여자 전용이다. 서버가 참여 권한을 판단한다. 준비, 두 사람 준비 후 방장의 명시적 시작, 선택/확정 착수, 60초 타이머, 기권/퇴장 확인, 재대결을 지원한다. "대기실" 링크는 퇴장 요청이나 참여 캐시 삭제 없이 목록으로 이동하며 돌아가기 링크로 같은 방에 재진입한다. 별도의 빨간색 "나가기" 버튼이 확인창을 열고 확인 후 퇴장과 캐시 갱신을 마친 뒤 이동한다. 종료된 방에는 나가기 버튼을 표시하지 않는다. 단일 대국 카드에 참가자, 상태/타이머, 판, 현재 상태의 주요 버튼을 표시하며 상세 규칙은 공통 Modal에서 연다. FINISHED에서는 흐린 판 중앙에 WIN/LOSE/DRAW 결과와 재대결 준비 버튼을 표시하며 CLOSED에서는 CLOSED 안내와 대기실 이동 버튼을 표시한다. PLAYING으로 바뀌면 종료 결과를 제거한다. WAITING에서도 흐린 판 중앙에 준비 버튼을 표시한다. 준비 전은 빨간색, 준비 완료는 초록색이며 두 사람 모두 준비하면 방장에게 시작 버튼을 표시한다. 재대결도 준비 후 방장이 시작한다. ready 계약과 고정 action을 유지하고 시작은 별도 POST start 명령이다.
+- `/games/gomoku/invite/:token`: 공개 제한 미리보기, 명시적 회원 참여. 로그인과 신규 가입 후 같은 경로로 돌아오며 자동 참여하지 않는다.
+- `features/gomoku/api.js`: `/api/games/gomoku` 도메인 client와 Zod 응답 계약. 준비와 시작 요청은 현재 `gameNumber+1`, 착수는 `gameNumber`, `expectedPly`, 좌표와 UUID를 전송한다. 동일 수 재시도는 같은 UUID를 사용한다.
+- `useGomokuRoom.js`: `getMe`로 쿠키 인증 갱신 경로를 거친 후 최신 REST snapshot과 SSE를 연결한다. `snapshot` 이벤트의 revision이 증가할 때만 적용한다. 연결 오류는 EventSource를 닫고 인증 확인부터 조용히 재연결한다. SSE/일시적 HTTP 실패가 3회 연속 누적되면 안내하고 유효한 SSE snapshot 수신 시 안내와 횟수를 초기화한다. REST 조회 성공만으로 실패 횟수를 초기화하지 않는다. 403/404는 즉시 안내하고 재시도하지 않는다. unmount와 인증 변경은 연결/타이머를 정리한다.
+- disconnected/pending 동안 준비, 착수, 기권과 초대 발급을 잠근다. 퇴장은 pending 동안 잠그며 SSE 연결이 끊겨도 HTTP 요청으로 시도할 수 있다. 성공 후 최신 snapshot을 조회하고 실패 시 선택한 좌표를 보존한다. 서버 타이머를 클라이언트 시각에 보정해 표시하며 승패는 서버만 결정한다.
+- 참가자 이미지는 snapshot의 `hostAvatarUrl`, `guestAvatarUrl`을 공통 Avatar로 표시한다. URL 누락/오류는 이름 첫 글자로 대체하며 빈 자리 아이콘은 유지한다. 시작 후 프로필 우측 하단에 흑백 돌 배지를 표시한다.
+- `Stone.jsx`: BLACK/WHITE와 외형 registry를 분리하며 unknown 외형은 classic으로 대체한다. 외형은 내부 렌더러로만 확장해 흑백 바깥 고리를 보존한다. 캐릭터 선택과 소유 API는 포함하지 않는다.
+- 방 종료 snapshot은 SSE를 닫고 자동 재연결을 중단한다. 상대가 들어오기 전에는 준비 버튼을 비활성화한다. 렌주 금수 거절은 쌍3, 쌍4, 장목 안내와 함께 선택 좌표를 보존한다.
+
+- `features/gomoku/RulesContent.jsx`는 승리 조건/흑돌 제한/진행 방법으로 규칙을 배치한다. `features/gomoku/RuleExampleTooltip.jsx`: 규칙 모달의 3-3/4-4 그림 툴팁. 예시는 실제 서버의 쌍3/쌍4 테스트와 같은 배치이며 이미지 파일은 저장소에 두지 않는다. `ruleExampleImages.js`는 `APP_DEPLOY_ENV=production`일 때 `jarihana/images/gomoku-rules`, 나머지는 `jarihana-dev/images/gomoku-rules`의 공개 S3 PNG 주소를 사용한다.

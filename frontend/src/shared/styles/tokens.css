@@ -21,6 +21,10 @@
   --color-section-soft: #fcfcfc;
   --color-canvas: #ffffff;
   --color-nav: #000000;
+  --color-gomoku-board: #dfb879;
+  --color-gomoku-board-light: #edcd95;
+  --color-gomoku-board-edge: #b88345;
+  --color-gomoku-grain: #976431;
   --color-header-muted: #b8b8b8;
   --color-header-line: #2f2f2f;
   --color-danger: #c7352a;

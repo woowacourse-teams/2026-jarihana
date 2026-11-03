@@ -352,7 +352,7 @@ it("reveals logout only after opening the profile menu", () => {
     within(screen.getByRole("navigation", { name: "주요 메뉴" }))
       .getAllByRole("link")
       .map((link) => link.getAttribute("href"))
-  ).toEqual(["/home", "/groups", "/activities", "/board", "/sparring"]);
+  ).toEqual(["/home", "/groups", "/activities", "/board", "/sparring", "/games"]);
   expect(logout).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("navigation", { name: "계정 메뉴" })).not.toBeInTheDocument();
 });
@@ -482,7 +482,7 @@ it("places feedback after discovery links in desktop and mobile navigation", () 
   renderShell({ login: jest.fn(), logout: jest.fn(), status: "authenticated" });
 
   // Then
-  const expectedOrder = ["홈", "탐색", "활동", "게시판", "토론해요", "피드백"];
+  const expectedOrder = ["홈", "탐색", "활동", "게시판", "토론해요", "게임방", "피드백"];
   const desktopNavigation = screen.getByRole("navigation", { name: "주요 메뉴" });
   expect(
     Array.from(desktopNavigation.querySelectorAll("a, button")).map((item) =>
@@ -494,7 +494,7 @@ it("places feedback after discovery links in desktop and mobile navigation", () 
   fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
   const mobileNavigation = screen.getByRole("navigation", { name: "모바일 메뉴" });
   const mobileLinks = mobileNavigation.querySelector(".app-header__mobile-links");
-  const expectedMobileOrder = ["홈", "탐색", "활동", "게시판", "토론해요", "모임 만들기", "피드백"];
+  const expectedMobileOrder = ["홈", "탐색", "활동", "게시판", "토론해요", "게임방", "모임 만들기", "피드백"];
   expect(mobileLinks).not.toBeNull();
   expect(
     Array.from(mobileLinks.querySelectorAll("a, button"))
@@ -509,6 +509,8 @@ it.each([
   ["/activities", "활동"],
   ["/board", "게시판"],
   ["/board/42", "게시판"],
+  ["/games", "게임방"],
+  ["/games/gomoku/rooms/1", "게임방"],
   ["/groups/41", null]
 ])("exposes public navigation on %s with matching active state", (pathname, activeName) => {
   mockPathname = pathname;
