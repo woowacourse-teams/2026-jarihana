@@ -12,6 +12,8 @@ import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
+import com.project.jarihana.gomoku.query.service.GomokuQueryService;
+import com.project.jarihana.gomoku.stream.GomokuStreams;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.support.IntegrationTestSupport;
 
@@ -20,6 +22,7 @@ import io.restassured.path.json.JsonPath;
 import io.restassured.specification.RequestSpecification;
 
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -36,6 +39,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -49,6 +53,35 @@ class GomokuRealtimeIntegrationTest extends IntegrationTestSupport {
     @Autowired AccessTokenProvider tokens;
     @Autowired AuthCookieProperties cookies;
     @Autowired JdbcTemplate jdbc;
+    @Autowired GomokuQueryService queries;
+    @Autowired GomokuStreams streams;
+
+    @AfterEach
+    void closeServerStreamsBeforeDatabaseReset() {
+        streams.stop();
+        streams.start();
+    }
+
+    @Test
+    @DisplayName("활성 방들의 변경 번호를 묶어서 조회하고 변경된 방만 새 버전을 반환한다")
+    void batchesRevisionsForRequestedRooms() {
+        // Given
+        String host = member("가을", "revision-host");
+        String otherHost = member("하늘", "revision-other");
+        String guest = member("겨울", "revision-guest");
+        long roomId = create(host);
+        long otherId = create(otherHost);
+        Map<Long, Long> before = queries.findRevisions(Set.of(roomId, otherId));
+        assertEquals(Set.of(roomId, otherId), before.keySet());
+        // When
+        request(guest).body(Map.of()).post(ROOT + "/" + roomId + "/join").then().statusCode(200);
+        Map<Long, Long> after = queries.findRevisions(Set.of(roomId, otherId));
+        // Then
+        assertTrue(after.get(roomId) > before.get(roomId));
+        assertEquals(before.get(otherId), after.get(otherId));
+        assertEquals(Map.of(), queries.findRevisions(Set.of()));
+        assertEquals(Map.of(), queries.findRevisions(Set.of(Long.MAX_VALUE)));
+    }
 
     @Test
     @DisplayName("참가자는 최초 상태와 변경 이벤트를 받고 재연결 시 최신 상태를 받는다")

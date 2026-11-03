@@ -15,13 +15,17 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.time.Clock;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Component
 public class GomokuStreams implements AutoCloseable, SmartLifecycle {
@@ -33,6 +37,7 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
     private final ScheduledExecutorService ticker =
             Executors.newSingleThreadScheduledExecutor(
                     Thread.ofPlatform().daemon().name("gomoku-stream").factory());
+    private final Semaphore snapshotQueries = new Semaphore(4);
     private final ExecutorService deliveries = Executors.newVirtualThreadPerTaskExecutor();
 
     public GomokuStreams(GomokuQueryService queries, Clock clock) {
@@ -58,6 +63,7 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
                 roomId,
                 (id, previous) -> {
                     RoomClients room = previous == null ? new RoomClients() : previous;
+                    room.remember(initial);
                     room.clients.add(client);
                     return room;
                 });
@@ -69,24 +75,45 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
     }
 
     private void tick() {
-        if (!running) return;
-        rooms.forEach(
-                (id, room) -> {
-                    if (!room.polling.compareAndSet(false, true)) return;
-                    deliveries.submit(
-                            () -> {
-                                try {
-                                    GomokuRoomResult snapshot = queries.loadSnapshot(id);
-                                    for (Client client : room.clients) client.offer(snapshot);
-                                } catch (RuntimeException exception) {
-                                    // Reconnect obtains a fresh snapshot after a transient query
-                                    // failure.
-                                    room.clients.forEach(Client::close);
-                                } finally {
-                                    room.polling.set(false);
-                                }
-                            });
+        if (!running || rooms.isEmpty()) return;
+        Map<Long, RoomClients> pollingRooms = Map.copyOf(rooms);
+        Map<Long, Long> revisions;
+        try {
+            revisions = queries.findRevisions(pollingRooms.keySet());
+        } catch (RuntimeException exception) {
+            clients.forEach(Client::close);
+            return;
+        }
+        pollingRooms.forEach((id, room) -> {
+            Long revision = revisions.get(id);
+            if (revision == null) {
+                room.clients.forEach(Client::close);
+                return;
+            }
+            GomokuRoomResult cached = room.snapshot.get();
+            for (Client client : room.clients) client.offer(cached);
+            if (revision <= cached.revision() || !snapshotQueries.tryAcquire()) return;
+            if (!room.polling.compareAndSet(false, true)) {
+                snapshotQueries.release();
+                return;
+            }
+            try {
+                deliveries.submit(() -> {
+                    try {
+                        GomokuRoomResult snapshot = room.remember(queries.loadSnapshot(id));
+                        for (Client client : room.clients) client.offer(snapshot);
+                    } catch (RuntimeException exception) {
+                        room.clients.forEach(Client::close);
+                    } finally {
+                        room.polling.set(false);
+                        snapshotQueries.release();
+                    }
                 });
+            } catch (RejectedExecutionException exception) {
+                room.polling.set(false);
+                snapshotQueries.release();
+            }
+        });
     }
 
     @Override
@@ -121,6 +148,19 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
     private static final class RoomClients {
         private final Set<Client> clients = ConcurrentHashMap.newKeySet();
         private final AtomicBoolean polling = new AtomicBoolean();
+        private final AtomicReference<GomokuRoomResult> snapshot = new AtomicReference<>();
+
+        private GomokuRoomResult remember(GomokuRoomResult next) {
+            return snapshot.accumulateAndGet(
+                    next,
+                    (previous, current) ->
+                            previous == null
+                                            || current.revision() > previous.revision()
+                                            || (current.revision() == previous.revision()
+                                                    && current.serverNow() > previous.serverNow())
+                                    ? current
+                                    : previous);
+        }
     }
 
     private final class Client {

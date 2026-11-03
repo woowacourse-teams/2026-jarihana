@@ -1,6 +1,7 @@
 package com.project.jarihana.gomoku.query.repository;
 
 import com.project.jarihana.gomoku.domain.GomokuRoom;
+import com.project.jarihana.gomoku.query.repository.dto.GomokuRevisionProjection;
 import com.project.jarihana.gomoku.query.repository.dto.GomokuRoomProjection;
 
 import org.springframework.data.domain.Pageable;
@@ -10,6 +11,7 @@ import org.springframework.data.repository.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface GomokuQueryRepository extends Repository<GomokuRoom, Long> {
     String SNAPSHOT_QUERY = """
@@ -41,6 +43,9 @@ public interface GomokuQueryRepository extends Repository<GomokuRoom, Long> {
             left join Member host on host.id = r.hostMemberId
             left join Member guest on guest.id = r.guestMemberId
             """;
+
+    @Query("select r.id as id, r.revision as revision from GomokuRoom r where r.id in :ids")
+    List<GomokuRevisionProjection> findRevisions(Set<Long> ids);
 
     @Query(SNAPSHOT_QUERY + " where r.id = :id")
     Optional<GomokuRoomProjection> findProjectedById(long id);

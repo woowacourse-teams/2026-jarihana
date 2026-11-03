@@ -4,6 +4,7 @@ import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.gomoku.command.service.GomokuTokens;
 import com.project.jarihana.gomoku.query.repository.GomokuQueryRepository;
+import com.project.jarihana.gomoku.query.repository.dto.GomokuRevisionProjection;
 import com.project.jarihana.gomoku.query.repository.dto.GomokuRoomProjection;
 import com.project.jarihana.gomoku.query.service.dto.GomokuPageResult;
 import com.project.jarihana.gomoku.query.service.dto.GomokuRoomResult;
@@ -17,6 +18,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +28,15 @@ public class GomokuQueryService {
     private final GomokuQueryRepository repository;
     private final GomokuTokens tokens;
     private final Clock clock;
+
+    public Map<Long, Long> findRevisions(Set<Long> roomIds) {
+        if (roomIds.isEmpty()) return Map.of();
+        return repository.findRevisions(roomIds).stream()
+                .collect(
+                        Collectors.toUnmodifiableMap(
+                                GomokuRevisionProjection::getId,
+                                GomokuRevisionProjection::getRevision));
+    }
 
     public GomokuRoomResult loadSnapshot(long id) {
         return GomokuRoomResult.from(
