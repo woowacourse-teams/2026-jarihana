@@ -1,0 +1,11 @@
+[Unit]
+Description=Poll Jarihana deployment observations (%i)
+
+[Timer]
+OnBootSec=5s
+OnUnitInactiveSec=5s
+AccuracySec=1s
+Unit=jarihana-observability@%i.service
+
+[Install]
+WantedBy=timers.target

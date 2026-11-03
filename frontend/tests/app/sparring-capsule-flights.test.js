@@ -22,17 +22,18 @@ it.each(['나', '다른 참여자'])('지난 대화가 많아도 %s의 새 한�
     const old = Array.from({ length: 100 }, (_, i) => ({ ...post, id: 'old-' + i }));
     const live = { ...post, id: 'live', name };
     const balance = { a: 1, b: 1, total: 2, ratio: 0.5 };
-    capsules.updateState(old, balance);
+    capsules.updateState([], balance, { page: 1, posts: old });
     expect(capsules.takeHistorical().post).toEqual(old[0]);
-    capsules.updateState([...old, live], balance);
+    capsules.updateState([live], balance);
     capsules.launch(live);
     expect(capsules.takeHistorical().post).toEqual(old[1]);
     clock.mockReturnValue(4501);
     expect(capsules.takeHistorical()).toEqual({ post: live, fresh: false });
-    capsules.updateState([...old, live], balance);
+    capsules.updateState([live], balance);
     expect(capsules.takeHistorical().post).toEqual(old[2]);
-    const remaining = Array.from({ length: 98 }, () => capsules.takeHistorical().post.id);
-    expect(remaining.filter(id => id === live.id)).toHaveLength(1);
+    const remaining = Array.from({ length: 97 }, () => capsules.takeHistorical().post.id);
+    expect(remaining).not.toContain(live.id);
+    expect(capsules.takeHistorical()).toBeNull();
   } finally { clock.mockRestore(); }
 });
 
@@ -95,4 +96,13 @@ it('투표가 없으면 발사하지 않고 첫 투표가 도착하면 대화 �
   expect(capsules.stats().visibleCapsules).toBeGreaterThan(0);
   capsules.updateState([post], { a: 0, b: 0, total: 0, ratio: 0.5 });
   expect(capsules.replayPipe()).toBeNull();
+});
+
+
+it('새 메시지 8개의 파이프 말풍선을 4개로 자르지 않고 모두 추적한다', () => {
+  const capsules = createCapsules({}, jest.fn(), jest.fn());
+  const items = Array.from({ length: 8 }, (_, i) => ({ ...post, id: String(i + 1) }));
+  capsules.updateState(items, { a: 1, b: 1, total: 2, ratio: 0.5 });
+  for (const item of items) capsules.launch(item);
+  expect(capsules.presentation().tracking.map(entry => entry.post.id).sort()).toEqual(items.map(item => item.id));
 });

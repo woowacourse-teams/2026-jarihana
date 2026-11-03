@@ -97,7 +97,7 @@ header 구현으로 확대하지 않았다.
 | `/board/new` | 회원 | `POST /api/proposals` | ProposalCreatePage, 분야 칩, TextField, Textarea, 분위기 선택지 0~3개를 칩으로 입력(Enter나 쉼표 뒤 띄어쓰기로 더하기, 빈 입력에서 Backspace로 마지막 칩 지우기, 한글 조합 중 Enter는 조합이 끝난 뒤 더하기) | 필드 검증과 첫 오류 포커스, 서버 오류, 작성 중, 성공 시 상세로 replace 이동 |
 | `/board/:proposalId` | 공개 (응답과 코멘트는 회원) | 제안 상세, 응답 저장과 취소, 코멘트 조회, 작성, 숨김과 제안 숨김 | 새 페이지 상세, 조건 칩 응답 패널(1024px 이상 sticky 오른쪽 rail, 미만은 본문 바로 아래), 모인 조건 요약 칩(가장 많이 고른 선택지, 마우스를 올리거나 누르면 선택지별 인원 드롭다운), 코멘트 | loading, 404(지운 제안), error, 비로그인 안내, 마음만 보낸 응답의 조건 더하기, 응답 고치기와 취소, 목록에서 왔으면 뒤로 가기로 분야와 스크롤 복원 |
 | `/sparring` | 공개 (주제 생성은 회원) | 토론 목록·검색, 마감일과 대표 이미지가 있는 주제 생성 | 소개 히어로, 진행 토론 가로 목록, 마감 토론 결과, 단계별 생성 모달 | loading, empty, error, 로그인 안내, 이미지 업로드 실패 |
-| `/sparring/:topicId` | 공개 (투표와 의견은 회원) | 토론 상세, 투표, 의견, SSE 리비전과 재연결 보충 조회 | 3D 캡슐 경기장, 캐릭터 말풍선 입력과 지난 대화 재생 | loading, 연결 상태, 인증 안내, 저장 실패, 마감 |
+| `/sparring/:topicId` | 공개 (투표와 의견은 회원) | 토론 상세, 투표, 의견, SSE 최신 30개 초기화·추가 글 본문 수신 | 3D 캡슐 경기장, 캐릭터 말풍선 입력과 지난 대화 재생 | loading, 연결 상태, 인증 안내, 저장 실패, 마감 |
 | `/groups/:groupId/recruitments/:recruitmentId`                      | 조회 공개, 신청은 회원 | 모집 상세, 신청 생성/철회                | DetailLayout, RecruitmentPanel, Modal, Toast                         | closed/ended, validation, 401, 403, 404, 409, mutation pending/success/failure   |
 | `/oauth/callback`                                                   | 공개                   | `GET /api/members/me`                    | CenteredStateLayout                                                  | callback loading, invalid callback, signup required, authenticated, 401, network |
 | `/invitations/:invitationId` | 상세는 지정 대상 또는 발급자 회원 | 초대 ID 상세·수락 | PageContainer·Card·상태 컴포넌트 | 로그인/가입 필요, 대상 불일치, 만료/취소/종료, 수락 중/결과/재시도 |
@@ -274,7 +274,7 @@ header 구현으로 확대하지 않았다.
 
 ### 현재 구현된 API 계약
 
-- 피드백 모달은 가입을 완료한 로그인 회원만 제출할 수 있다. 비로그인 사용자가 헤더나 푸터에서 피드백을 선택하면 로그인 안내 모달에서 `로그인하러 가기` 또는 `취소`를 선택한다. 로그인을 진행하면 현재 경로를 복귀 대상으로 저장하고, 인증 완료 후 피드백 모달을 자동으로 연다. `POST /api/feedbacks`에는 `content`만 보내며, 서버는 인증 회원 ID를 `member_id`로 저장한다.
+- 피드백 모달은 가입을 완료한 로그인 회원만 제출할 수 있다. 비로그인 사용자가 우측 하단 헤드셋 버튼으로 피드백을 선택하면 로그인 안내 모달에서 `로그인하러 가기` 또는 `취소`를 선택한다. 로그인을 진행하면 현재 경로를 복귀 대상으로 저장하고, 인증 완료 후 피드백 모달을 자동으로 연다. `POST /api/feedbacks`에는 `content`만 보내며, 서버는 인증 회원 ID를 `member_id`로 저장한다.
 
 - API base path는 `/api`이고 모든 요청은 cookie credentials를 포함한다.
 - JSON 응답은 `{ success, data, error }` envelope다. `204`는 본문을 읽지 않는다.
@@ -469,11 +469,14 @@ replace 이동한다. 헤더의 홈과 브랜드 링크는 `/home`, 탐색 링�
 - `/sparring`: 공개 서버 목록/검색/필터/이전 페이지, 로그인 후 주제 등록 모달
 - `/sparring/:topicId`: 공개 투표 현황·캡슐 경기장·영구 의견. 회원 편 선택 후 POST 의견/받아치기
 - `src/features/sparring/api.js`: 공통 API client + Zod 응답 검증
-- `useArenaBridge.js`: 인증/HTTP/SSE, 재접속 catch-up, ID 중복 제거, 출처/스키마 검증
+- `useArenaBridge.js`: 인증/HTTP/SSE, 최초·재연결 시 최근 30개 캐시 갱신, 추가 메시지 전체 수신, ID 중복 제거, 출처/스키마 검증. 과거 재생 페이지와 커서는 최근 캐시와 별도로 보존한다.
+- iframe의 검증된 `history` 메시지는 마지막으로 받은 페이지 번호를 확인한 뒤 다음 30개를 조회한다. 최초 최근 목록과의 중복은 건너뛰고 서버 cursor로 과거까지 진행한다. 전체 순회 뒤에만 처음으로 돌아간다. 요청 중복을 막고 숨긴 탭에서는 다음 조회를 멈추며, 실패는 1~30초 간격으로 재시도한다. 잘못된 cursor는 조회를 중단한다.
+- `replay-queue.js`는 최근 2:과거 1로 재생하고 최근 대기열이 비면 모든 차례를 과거에 준다. 과거 버퍼가 2개 남으면 다음 묶음을 미리 받으며, 최근 글·SSE 재연결은 재생 위치를 바꾸지 않는다. 일반 글과 받아치기가 같은 최근 차례를 사용한다. 현재·선택한 과거 말풍선은 최근 30개 캐시에서 빠져도 조회·받아치기할 수 있다.
+- `SparringEntry.jsx`: HTTP 주제 응답부터 VS 입장 화면에 실제 편명을 표시한다. 임시 편 선택 → 시작 시 저장 → SSE/첫 3D 프레임 준비 → 패널 열림 순서다. 기존 편 복원·재투표 생략, 비로그인 복귀, 마감 결과 보기와 투표 없는 구경하기를 지원한다. 입장 투표는 `useArenaBridge.selectSide`를 통해 iframe 투표·의견과 같은 저장 큐를 사용한다.
+- 숨겨져 있던 전체·내 대화 목록과 이전 대화 더 보기 UI 및 전용 조회 명령은 제거했다. 최근 대화 재생과 선택한 메시지 받아치기는 유지한다.
 - `public/sparring-arena`: 기존 물리 연출을 보존한 같은 출처 iframe. 인증 토큰을 전달하지 않는다
 - iframe 내부 스크롤/키보드 고정 작성을 쓰지 않고 부모 문서의 일반 스크롤을 사용한다
 - 원래 예시 목록·localStorage 데모는 서비스 데이터를 대신하지 않는다
 - 주제 생성·투표·의견 저장은 실제 서버 응답 이후 표시하고 실패 시 입력을 보존한다
 
-[API 계약](../../backend/docs/context/api/endpoints/sparrings.md),
-[전체 기획/복원/검증 맥락](../../docs/sparring/INTEGRATION.md)
+[API 계약](../../backend/docs/context/api/endpoints/sparrings.md)

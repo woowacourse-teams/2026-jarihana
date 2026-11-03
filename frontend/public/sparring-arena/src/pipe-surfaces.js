@@ -7,17 +7,17 @@ export const NOZZLE_HORIZONTAL = Math.sqrt(1 - NOZZLE_DEPTH ** 2);
 
 export function createPipeSurfaces(color) {
   return {
-    wall: studioMaterial({ color, roughness: 0.18, clearcoat: 0.7, clearcoatRoughness: 0.12, transparent: true, opacity: 0.27, depthWrite: false }),
+    wall: studioMaterial({ color, roughness: 0.18, clearcoat: 0.7, clearcoatRoughness: 0.12, transparent: true, opacity: 0.38, depthWrite: false }),
     solid: studioMaterial({ color, roughness: 0.36, clearcoat: 0.35, emissive: color, emissiveIntensity: 0 }),
-    inner: studioMaterial({ color, roughness: 0.24, transparent: true, opacity: 0.11, side: THREE.BackSide, depthWrite: false }),
+    inner: studioMaterial({ color, roughness: 0.24, transparent: true, opacity: 0.14, side: THREE.BackSide, depthWrite: false }),
   };
 }
 
 // Continue one spacing between the nozzle rims, including across the render-layer seam.
-export function addPipeRings(group, curve, diameter, material, { offset = 0, spacing, end }) {
+export function addPipeRings(group, curve, diameter, material, { offset = 0, spacing, end, start = 0 }) {
   const curveLength = curve.getLength(), length = Math.min(curveLength, end - offset);
   if (length <= 0 || spacing <= 0) return;
-  const first = Math.max(1, Math.ceil(offset / spacing - 1e-6)) * spacing - offset;
+  const first = Math.max(1, Math.ceil((offset + start) / spacing - 1e-6)) * spacing - offset;
   const count = Math.max(0, Math.ceil((length - first) / spacing - 1e-6));
   if (!count) return;
   const geometry = new THREE.TorusGeometry(diameter * 0.51, diameter * (0.095 / 1.6), 8, 32);

@@ -1,3 +1,4 @@
+import { createRequestId } from './request-id.js';
 import { setupComposer, animateCapsuleSend, revealComposer } from './composer.js';
 import { createArena } from './scene.js';
 import { connectRoom } from './remote-room.js';
@@ -9,15 +10,19 @@ const roomId = store.snapshot().topic.id;
 let state = store.snapshot();
 let voting = false, draftVersion = 0, notice = '';
 const pendingShipments = new Map(), failedShipments = new Map();
+const protectedOwnPosts = new Map();
+const revealedPosts = new Map();
 let pendingSide = null, voteError = '', expandedSide = null;
 let selectedId = state.posts.at(-1)?.id ?? null;
-let selectedUntil = 0, filter = 'all', historyLimit = 20, flowPaused = false, replyToId = null, arena;
+let selectedUntil = 0, flowPaused = false, replyToId = null, arena;
 const own = post => String(post.authorId) === state.actorId;
 const displayName = post => own(post) ? '나' : post.name;
 const mySide = () => state.mySide;
+const mobileComposer = () => innerWidth <= 700;
+const composerInput = side => mobileComposer() ? $('#message') : $(`[data-input-side="${side}"]`);
 function scenePost(post) {
   const parent = state.posts.find(item => item.id === post.replyToId) ?? post.replyTo;
-  return { ...post, name: displayName(post), replyTo: parent ? { ...parent, name: displayName(parent) } : null };
+  return { ...post, mine: own(post), name: displayName(post), replyTo: parent ? { ...parent, name: displayName(parent) } : null };
 }
 const scenePosts = () => state.posts.map(scenePost);
 function announce(text) { $('#stage-status').textContent = text; }
@@ -37,7 +42,7 @@ function renderComposerNotice() {
     retry.dataset.phCaptureAttributeAction = 'sparring_post_submit';
     retry.addEventListener('click', () => {
       if (retry.disabled) return;
-      const input = $(`[data-input-side="${mySide()}"]`);
+      const input = composerInput(mySide());
       if (input.value.trim() === shipment.text && replyToId === shipment.replyToId) resetDraft();
       expandedSide = mySide(); renderInput();
       input.focus({ preventScroll: true });
@@ -53,7 +58,7 @@ function formatTime(timestamp) {
 function storageStatus() {
   $('#storage-note').textContent = state.connection === 'offline'
     ? '오프라인이에요. 작성 중인 글은 그대로 두고 다시 연결할게요.'
-    : '대화는 서버에 저장돼요. 흘러간 말은 기록에서 다시 볼 수 있어요.';
+    : '대화는 서버에 저장돼요. 최근 대화와 지난 대화를 이어서 보여드려요.';
 }
 function fallback() {
   if ($('#scene .fallback')) return;
@@ -63,7 +68,8 @@ function fallback() {
   $('#scene').append(message);
 }
 function findPost(id) {
-  return state.posts.find(post => post.id === id) ?? state.posts.find(post => post.replyTo?.id === id)?.replyTo;
+  return protectedOwnPosts.get(id)?.post ?? state.posts.find(post => post.id === id) ?? revealedPosts.get(id)
+    ?? state.posts.find(post => post.replyTo?.id === id)?.replyTo;
 }
 function selectPost(id, manual = false) {
   const post = findPost(id);
@@ -76,9 +82,23 @@ function selectPost(id, manual = false) {
   $('#post-avatar').className = 'post-avatar ' + post.side;
   $('#post-meta').textContent = displayName(post) + ' · ' + sideNames[post.side] + ' · ' + formatTime(post.createdAt);
   $('#post-text').textContent = post.text;
-  document.querySelectorAll('.history-item').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.postId === id)));
+}
+function confirmOwnPost(id) {
+  const entry = protectedOwnPosts.get(id);
+  if (!entry || entry.timer) return;
+  if (selectedId === id) selectedUntil = Date.now() + 8000;
+  entry.timer = setTimeout(() => {
+    protectedOwnPosts.delete(id);
+  }, 8000);
 }
 function showReveal(post, fresh) {
+  revealedPosts.delete(post.id);
+  revealedPosts.set(post.id, post);
+  if (revealedPosts.size > 64) {
+    const oldest = [...revealedPosts.keys()].find(id => id !== selectedId && id !== replyToId);
+    revealedPosts.delete(oldest);
+  }
+  if (fresh && own(post)) confirmOwnPost(post.id);
   $('#slide-status').textContent = fresh ? displayName(post) + '의 새 한마디' : '지난 대화 리플레이';
   if (replyToId) return;
   if (fresh && own(post)) {
@@ -87,23 +107,38 @@ function showReveal(post, fresh) {
   } else if (!replyToId && Date.now() > selectedUntil && !document.activeElement?.matches('[data-input-side]')) selectPost(post.id);
 }
 try {
-  arena = createArena($('#scene'), id => selectPost(id, true), showReveal, startReply);
+  arena = createArena($('#scene'), id => selectPost(id, true), showReveal, startReply, page => store.requestHistory(page));
   arena.ready.then(() => store.reportScene('ready'), () => { fallback(); store.reportScene('error'); });
 }
 catch (error) { console.error(error); fallback(); store.reportScene('error'); }
-$('#scene').addEventListener('sceneerror', fallback);
+function changeView(event) {
+  if (event.source !== window.parent || event.origin !== location.origin) return;
+  if (event.data?.channel === 'jarihana-sparring' && event.data.kind === 'view') arena?.setView(event.data.value);
+  if (event.data?.channel === 'jarihana-sparring' && event.data.kind === 'clash-camera' && typeof event.data.value === 'boolean') arena?.setClashCamera(event.data.value);
+}
+window.addEventListener('message', changeView);
+window.addEventListener('pagehide', () => window.removeEventListener('message', changeView));
+$('#scene').addEventListener('sceneerror', () => {
+  fallback();
+  for (const id of protectedOwnPosts.keys()) confirmOwnPost(id);
+});
+$('#scene').addEventListener('capsuleready', event => confirmOwnPost(event.detail.id));
+window.addEventListener('pagehide', () => {
+  for (const entry of protectedOwnPosts.values()) clearTimeout(entry.timer);
+  protectedOwnPosts.clear();
+});
 
 const isClosed = () => !!state.topic.closesAt && Date.now() >= new Date(state.topic.closesAt).getTime();
 function renderInput() {
-  const side = mySide(), draft = $('#message').value;
+  const side = mySide(), draft = $('#message').value, mobile = mobileComposer();
   const replyTarget = $('#reply-target');
-  if (side) $(`[data-composer-side="${side}"] .composer-field`).prepend(replyTarget);
+  if (side) $(`[data-composer-side="${mobile ? 'a' : side}"] .composer-field`).prepend(replyTarget);
   replyTarget.hidden = !side || !replyToId;
   for (const choice of ['a', 'b']) {
     const device = $(`[data-composer-side="${choice}"]`);
     const input = device.querySelector('textarea'), send = device.querySelector('[type=submit]');
     const chosen = side === choice;
-    const expanded = chosen && expandedSide === choice;
+    const expanded = mobile ? choice === 'a' : chosen && expandedSide === choice;
     device.querySelector('.composer-field').dataset.reply = String(chosen && !!replyToId);
     device.dataset.expanded = String(expanded);
     device.dataset.memberType = state.actorMemberType ?? state.posts.find(own)?.memberType ?? 'CREW';
@@ -111,21 +146,36 @@ function renderInput() {
     panel.id = `composer-panel-${choice}`;
     panel.inert = !expanded;
     const toggle = device.querySelector('.composer-avatar');
-    toggle.setAttribute('aria-expanded', String(expanded));
-    toggle.setAttribute('aria-label', `${state.topic[choice]} · ${expanded ? '말풍선 접기' : '캐릭터를 눌러 한마디 쓰기'}`);
-    toggle.dataset.phCaptureAttributeAction = chosen ? 'sparring_composer_toggle' : 'sparring_vote';
-    toggle.querySelector('.composer-hint').textContent = isClosed() ? '마감된 토론' : voting && pendingSide === choice ? '선택 중…' : expanded ? '말풍선 접기' : '눌러서 한마디';
-    toggle.setAttribute('aria-controls', panel.id);
-    input.disabled = !chosen || isClosed();
+    if (mobile) toggle.removeAttribute('aria-expanded');
+    else toggle.setAttribute('aria-expanded', String(expanded));
+    toggle.setAttribute('aria-label', `${state.topic[choice]} · ${mobile ? (chosen ? '선택한 편' : '이 편으로 보내기') : expanded ? '입력창 접기' : '입력창 열기'}`);
+    toggle.dataset.phCaptureAttributeAction = mobile ? 'sparring_vote' : chosen ? 'sparring_composer_toggle' : 'sparring_vote';
+    toggle.querySelector('.composer-hint').textContent = isClosed() ? '마감된 토론' : voting && pendingSide === choice ? '선택 중…' : mobile ? (chosen ? '선택됨' : '선택') : '내 생각은…';
+    toggle.setAttribute('aria-controls', mobile ? 'composer-panel-a' : panel.id);
+    input.disabled = isClosed() || (mobile ? choice === 'b' : !chosen);
     input.readOnly = false;
     input.placeholder = isClosed() ? '마감된 토론이에요' : chosen ? (replyToId ? '이 의견에 한마디 받아쳐볼까요?' : '내 생각은…') : '캐릭터를 눌러 한마디 남겨보세요';
     device.querySelector('label').textContent = state.topic[choice] + (replyToId && chosen ? ' · 받아치기' : ' · 한마디');
     device.querySelector('.char-count').textContent = draft.length + ' / 160';
+    input.style.height = 'auto';
+    if (input.scrollHeight) input.style.height = `${input.scrollHeight}px`;
     send.disabled = isClosed() || voting || !chosen || !draft.trim();
     send.setAttribute('aria-busy', 'false');
     device.dataset.hasDraft = String(!!draft.trim());
     device.querySelector('.capsule-paper').textContent = draft.trim().slice(0, 12);
     device.querySelector('.send-label').textContent = replyToId && chosen ? '받아치기' : '보내기';
+  }
+  if (mobile) {
+    const device = $('[data-composer-side="a"]');
+    const input = $('#message'), send = $('#send');
+    device.querySelector('.composer-field').dataset.reply = String(!!side && !!replyToId);
+    input.disabled = isClosed();
+    input.placeholder = isClosed() ? '마감된 토론이에요' : side ? (replyToId ? '이 의견에 한마디 받아쳐볼까요?' : '내 생각은…') : '생각을 적고 캐릭터로 편을 골라요';
+    $('#composer-label').textContent = side ? `${state.topic[side]} · ${replyToId ? '받아치기' : '한마디'}` : '토론에 한마디';
+    send.disabled = isClosed() || voting || !side || !draft.trim();
+    $('#send-label').textContent = replyToId ? '받아치기' : '보내기';
+    $('#message-b').disabled = true;
+    $('#send-b').disabled = true;
   }
   $('#composer').dataset.side = side ?? '';
   $('#composer').dataset.memberType = state.actorMemberType ?? 'CREW';
@@ -145,7 +195,7 @@ function renderCounts() {
   $('#count-b').textContent = result.b + '표';
   $('#percent-a').textContent = (result.total ? percent : 0) + '%';
   $('#percent-b').textContent = (result.total ? 100 - percent : 0) + '%';
-  $('#seat-instruction').textContent = voteError || (voting ? sideNames[pendingSide] + ' 선택을 저장하고 있어요…' : side ? '' : '어느 쪽 생각에 가까워요?');
+  $('#seat-instruction').textContent = voteError || (voting ? sideNames[pendingSide] + ' 선택을 저장하고 있어요…' : '');
   for (const choice of ['a', 'b']) $('#station-' + choice).classList.toggle('chosen', choice === side);
   document.querySelectorAll('.vote-option[data-side]').forEach(button => {
     const chosen = button.dataset.side === side;
@@ -157,62 +207,40 @@ function renderCounts() {
     if (seat) seat.textContent = label;
     button.setAttribute('aria-label', state.topic[button.dataset.side] + ' · ' + sideNames[button.dataset.side] + (button.classList.contains('pipe-meter') ? ' 파이프' : '') + ' · ' + label);
   });
-  $('#total-count').textContent = state.postCount;
   $('#empty-stage').hidden = !!state.posts.length;
   $('#spill').disabled = !state.posts.length;
   $('#current-post').hidden = !selectedId;
-  arena?.updateState(scenePosts(), result);
+  arena?.updateState(scenePosts(), result, state.history && { ...state.history, posts: state.history.posts.map(scenePost) });
   renderInput(); storageStatus();
 }
-function renderHistory() {
-  const list = $('#history-list');
-  list.replaceChildren();
-  const posts = state.posts.filter(post => filter === 'all' || own(post)).slice().reverse();
-  for (const post of posts.slice(0, historyLimit)) {
-    const button = document.createElement('button');
-    button.type = 'button'; button.className = 'history-item'; button.dataset.postId = post.id; button.dataset.side = post.side;
-    button.dataset.phCaptureAttributeAction = 'sparring_history_select';
-    button.setAttribute('aria-pressed', String(post.id === selectedId));
-    const avatar = document.createElement('span');
-    avatar.className = 'post-avatar ' + post.side; avatar.textContent = displayName(post).slice(0, 2);
-    const copy = document.createElement('span'); copy.className = 'post-copy';
-    const meta = document.createElement('span');
-    const dot = document.createElement('i'); dot.className = 'dot ' + (post.side === 'a' ? 'mint' : 'coral');
-    const time = document.createElement('time'); time.dateTime = new Date(post.createdAt).toISOString(); time.textContent = formatTime(post.createdAt);
-    meta.append(dot, document.createTextNode(displayName(post) + ' · ' + state.topic[post.side]), time);
-    const text = document.createElement('p'); text.textContent = post.text;
-    if (post.replyToId) {
-      const parent = state.posts.find(item => item.id === post.replyToId) ?? post.replyTo;
-      const context = document.createElement('span'); context.className = 'history-reply';
-      context.textContent = parent ? '↩ ' + displayName(parent) + '의 의견에 받아치기: ' + parent.text : '↩ 이전 의견에 받아치기';
-      copy.append(context);
-    }
-    copy.append(meta, text); button.append(avatar, copy);
-    button.addEventListener('click', () => startReply(post.id));
-    list.append(button);
-  }
-  if (!posts.length) {
-    const empty = document.createElement('p'); empty.className = 'history-empty';
-    empty.textContent = filter === 'mine' ? '아직 내 대화가 없어요. 먼저 한마디 건네보세요.' : '아직 대화가 없어요. 먼저 한마디 건네보세요.';
-    list.append(empty);
-  }
-  $('#more-history').hidden = posts.length <= historyLimit && !state.more[filter === 'mine' ? 'mine' : 'all'];
-}
-function sync() { state = store.snapshot(roomId); renderCounts(); renderHistory(); flowLabel(); }
-function setComposerExpanded(side) {
+function sync() { state = store.snapshot(roomId); renderCounts(); flowLabel(); }
+function setComposerExpanded(side, restoreFocus = true) {
   const previous = expandedSide;
   expandedSide = side;
-  if (!side && previous) $(`.composer-avatar[data-side="${previous}"]`).focus({ preventScroll: true });
+  if (!side && previous && restoreFocus) $(`.composer-avatar[data-side="${previous}"]`).focus({ preventScroll: true });
   renderInput();
-  if (side) $(`[data-input-side="${side}"]`).focus({ preventScroll: true });
+  if (side) composerInput(side).focus({ preventScroll: true });
 }
+const composerForm = $('#composer');
+const parentDocument = window.frameElement?.ownerDocument;
+function dismissComposer(event) {
+  if (!composerForm.isConnected || mobileComposer() || !expandedSide || composerForm.contains(event.target)) return;
+  if (composerForm.contains(document.activeElement)) document.activeElement.blur();
+  setComposerExpanded(null, false);
+}
+document.addEventListener('click', dismissComposer, true);
+parentDocument?.addEventListener('click', dismissComposer, true);
+window.addEventListener('pagehide', () => {
+  document.removeEventListener('click', dismissComposer, true);
+  parentDocument?.removeEventListener('click', dismissComposer, true);
+}, { once: true });
 document.querySelectorAll('.vote-option[data-side]').forEach(button => button.addEventListener('click', async () => {
   const side = button.dataset.side;
   const avatar = button.classList.contains('composer-avatar');
   if (isClosed() || voting) return;
   if (mySide() === side) {
     if (!avatar) return;
-    setComposerExpanded(expandedSide === side ? null : side);
+    setComposerExpanded(mobileComposer() ? side : expandedSide === side ? null : side);
     return;
   }
   if (pendingShipments.size > 0) return;
@@ -223,7 +251,7 @@ document.querySelectorAll('.vote-option[data-side]').forEach(button => button.ad
     arena?.chooseSide(side);
     if (mySide() === side) {
       expandedSide = side; renderInput();
-      if (avatar) $(`[data-input-side="${side}"]`).focus({ preventScroll: true });
+      if (avatar) composerInput(side).focus({ preventScroll: true });
     }
     if (mySide() === side && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
       for (const element of [$(`[data-composer-side="${side}"] .inlet-mouth`), $(`[data-composer-side="${side}"] .send-capsule`), $(`.transport-pipes [data-route="${side}"] .transport-route`)]) {
@@ -239,6 +267,7 @@ document.querySelectorAll('.vote-option[data-side]').forEach(button => button.ad
   finally { voting = false; pendingSide = null; sync(); }
 }));
 setupComposer($('#composer'));
+matchMedia('(max-width: 700px)').addEventListener('change', renderInput);
 document.querySelectorAll('[data-input-side]').forEach(input => input.addEventListener('input', () => {
   draftVersion++;
   document.querySelectorAll('[data-input-side]').forEach(other => { if (other !== input) other.value = input.value; });
@@ -247,6 +276,7 @@ document.querySelectorAll('[data-input-side]').forEach(input => input.addEventLi
 function startReply(id) {
   const target = findPost(id);
   if (!target) return;
+  composerError();
   selectPost(target.id, true);
   replyToId = target.id; selectedUntil = Infinity; draftVersion++;
   expandedSide = mySide();
@@ -258,7 +288,7 @@ function startReply(id) {
   announce('받아칠 의견을 선택했어요. ' + target.text);
   renderInput();
   revealComposer($('#composer'));
-  if (mySide()) $(`[data-input-side="${mySide()}"]`).focus({ preventScroll: true });
+  if (mySide()) composerInput(mySide()).focus({ preventScroll: true });
 }
 $('#reply-selected').addEventListener('click', () => startReply(selectedId));
 $('#cancel-reply').addEventListener('click', () => {
@@ -266,7 +296,7 @@ $('#cancel-reply').addEventListener('click', () => {
   replyToId = null; selectedUntil = 0; $('#reply-target').hidden = true;
   document.querySelectorAll('[data-reply-selected]').forEach(bubble => delete bubble.dataset.replySelected);
   renderInput();
-  if (mySide() && expandedSide === mySide()) $(`[data-input-side="${mySide()}"]`).focus({ preventScroll: true });
+  if (mySide() && expandedSide === mySide()) composerInput(mySide()).focus({ preventScroll: true });
 });
 document.querySelectorAll('[data-input-side]').forEach(input => input.addEventListener('keydown', event => {
   const send = $(`[data-send-side="${input.dataset.inputSide}"]`);
@@ -286,12 +316,15 @@ async function submitShipment(shipment) {
   composerError(); renderCounts();
   try {
     const post = await store.post(roomId, { text: shipment.text, replyToId: shipment.replyToId, postId: shipment.id });
+    protectedOwnPosts.set(post.id, { post, timer: null });
     sync();
-    selectedUntil = Date.now() + 8000; selectPost(post.id);
+    selectedUntil = Infinity; selectPost(post.id);
     try {
-      const delivered = arena?.launch(scenePost(post), arrive => animateCapsuleSend($('#composer'), post, arrive));
-      Promise.resolve(delivered).catch(error => { console.error(error); fallback(); });
-    } catch (error) { console.error(error); fallback(); }
+      const visualPost = scenePost(post);
+      const delivered = arena?.launch(visualPost, arrive => animateCapsuleSend($('#composer'), visualPost, arrive));
+      if (!delivered) confirmOwnPost(post.id);
+      Promise.resolve(delivered).catch(error => { console.error(error); fallback(); confirmOwnPost(post.id); });
+    } catch (error) { console.error(error); fallback(); confirmOwnPost(post.id); }
     announce('한마디를 보냈어요. ' + post.text);
   } catch (error) {
     failedShipments.set(shipment.id, shipment);
@@ -312,11 +345,11 @@ async function submitShipment(shipment) {
 $('#composer').addEventListener('submit', event => {
   event.preventDefault();
   const side = mySide();
-  if (isClosed() || voting || !side || (event.submitter && event.submitter.dataset.sendSide !== side)) return;
-  const input = $(`[data-input-side="${side}"]`), text = input.value.trim();
+  if (isClosed() || voting || !side || (event.submitter && !(mobileComposer() && event.submitter.id === 'send') && event.submitter.dataset.sendSide !== side)) return;
+  const input = composerInput(side), text = input.value.trim();
   if (!text) return;
   const failed = [...failedShipments.values()].find(item => item.text === text && item.replyToId === replyToId && item.side === side);
-  const shipment = { text, replyToId, side, id: failed?.id ?? crypto.randomUUID() };
+  const shipment = { text, replyToId, side, id: failed?.id ?? createRequestId() };
   resetDraft(); renderInput();
   input.focus({ preventScroll: true });
   void submitShipment({ ...shipment, restoreVersion: draftVersion });
@@ -332,30 +365,16 @@ $('#flow-toggle').addEventListener('click', () => { flowPaused = !flowPaused; ar
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', flowLabel);
 $('#spill').addEventListener('click', () => arena?.spill());
 $('#replay-reply').addEventListener('click', () => {
-  const post = state.posts.find(item => item.id === selectedId);
+  const post = findPost(selectedId);
   if (!post) return;
   arena?.replayReply(scenePost(post));
   $('.stage').scrollIntoView({ block: 'start', behavior: 'smooth' });
 });
-document.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', async () => {
-  filter = button.dataset.filter; historyLimit = 20;
-  document.querySelectorAll('[data-filter]').forEach(other => other.setAttribute('aria-pressed', String(other === button)));
-  renderHistory();
-  try { await store.loadHistory(filter === 'mine', true); sync(); } catch (error) { announce(error.message); }
-}));
-$('#more-history').addEventListener('click', async () => {
-  $('#more-history').disabled = true;
-  try {
-    const loaded = state.posts.filter(post => filter !== 'mine' || own(post)).length;
-    if (loaded <= historyLimit && state.more[filter === 'mine' ? 'mine' : 'all']) await store.loadHistory(filter === 'mine');
-    historyLimit += 20; sync();
-  } catch (error) { announce(error.message); }
-  finally { $('#more-history').disabled = false; }
-});
-store.subscribe(fresh => {
+store.subscribe((fresh, livePosts = []) => {
   sync();
+  const incoming = new Map([...state.posts, ...livePosts].map(post => [post.id, post]));
   for (const id of fresh) {
-    const post = state.posts.find(post => post.id === id);
+    const post = incoming.get(id);
     if (!post) continue;
     arena?.launch(scenePost(post));
   }
@@ -364,13 +383,12 @@ const actions = {
   composer: 'sparring_post_submit', message: 'sparring_message_edit', send: 'sparring_post_submit',
   'cancel-reply': 'sparring_reply_cancel', 'reply-selected': 'sparring_reply_start',
   'replay-reply': 'sparring_clash_replay', 'flow-toggle': 'sparring_flow_toggle',
-  spill: 'sparring_capsule_release', 'more-history': 'sparring_history_more'
+  spill: 'sparring_capsule_release'
 };
 for (const [id, action] of Object.entries(actions)) $('#' + id).dataset.phCaptureAttributeAction = action;
 for (const input of document.querySelectorAll('[data-input-side]')) input.dataset.phCaptureAttributeAction = 'sparring_message_edit';
 for (const button of document.querySelectorAll('[data-send-side]')) button.dataset.phCaptureAttributeAction = 'sparring_post_submit';
 for (const button of document.querySelectorAll('.vote-option[data-side]')) button.dataset.phCaptureAttributeAction = 'sparring_vote';
-for (const button of document.querySelectorAll('[data-filter]')) button.dataset.phCaptureAttributeAction = 'sparring_history_filter';
 let height = 0;
 new ResizeObserver(() => {
   const next = Math.ceil($('.page').getBoundingClientRect().height) + 4;

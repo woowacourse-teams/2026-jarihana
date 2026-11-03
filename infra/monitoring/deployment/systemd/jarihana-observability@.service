@@ -1,0 +1,17 @@
+[Unit]
+Description=Read-only Jarihana deployment observations (%i)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=jarihana-coordinator
+Group=jarihana-coordinator
+ExecStart=/opt/jarihana-observability/infra/monitoring/deployment/collect.sh %i
+TimeoutStartSec=110
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/jarihana-observability/%i
+PrivateTmp=true

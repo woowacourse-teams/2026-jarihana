@@ -1,0 +1,18 @@
+services:
+  alloy:
+    image: grafana/alloy:v1.20.1
+    command: [run, /etc/alloy/config.alloy, --storage.path=/var/lib/alloy/data, --server.http.listen-addr=0.0.0.0:12345]
+    restart: unless-stopped
+    mem_limit: 128m
+    cpus: 0.5
+    ports:
+      - "127.0.0.1:${ALLOY_ADMIN_PORT:-12346}:12345"
+    environment:
+      GOMEMLIMIT: 96MiB
+      PROMETHEUS_REMOTE_WRITE_URL: ${PROMETHEUS_REMOTE_WRITE_URL:?required}
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy:ro
+      - /var/lib/jarihana-observability/${DEPLOYMENT_ENVIRONMENT:?required}/textfile:/var/lib/jarihana-observability/textfile:ro
+      - alloy-data:/var/lib/alloy/data
+volumes:
+  alloy-data:

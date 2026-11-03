@@ -163,6 +163,7 @@ export function createWalkingCharacters(scene, capacity) {
 
   const zero = new THREE.Matrix4().makeScale(0, 0, 0);
   const active = Array(capacity).fill(false);
+  const hands = Array.from({ length: capacity }, () => ({ leftHand: new THREE.Vector3(), rightHand: new THREE.Vector3() }));
   let visibleSlots = 0;
   const meshes = [];
   for (const bucket of buckets.values()) {
@@ -205,22 +206,28 @@ export function createWalkingCharacters(scene, capacity) {
     }
   }
 
-  function draw(index, post, position, size, pose, yaw = 0) {
+  const capsuleOffset = new THREE.Vector3();
+  function draw(index, post, position, size, pose, yaw = 0, capsuleRotation = null) {
     active[index] = true;
     visibleSlots = Math.max(visibleSlots, index + 1);
     const variant = characterVariant(post);
     const rig = rigs[variant];
     const scale = size * (pose.scale ?? 1) * (pose.shrink ?? 1);
-    const stride = clamp(pose.stride ?? 0, -1, 1);
-    const crouch = clamp(pose.crouch ?? (pose.stage === 'packed' || pose.stage === 'bracing' ? 0.45 : 0), 0, 1);
+    const seated = clamp(pose.seated ?? 0, 0, 1);
+    const stride = clamp(pose.stride ?? 0, -1, 1) * (1 - seated);
+    const crouch = clamp(pose.crouch ?? (pose.stage === 'packed' || pose.stage === 'bracing' ? 0.9 : 0), 0, 1) * (1 - seated);
     const time = pose.time ?? 0;
     const talk = pose.speaking ? Math.sin(time * 7) : 0;
     const gaitSettle = Math.abs(stride) * 0.04;
-    rig.root.position.copy(position);
-    rig.root.position.y += (pose.lift ?? 0) * size;
+    capsuleOffset.set(0, (pose.lift ?? 0) * size, 0);
     rig.root.rotation.set(0, yaw, 0);
+    if (capsuleRotation) {
+      capsuleOffset.applyQuaternion(capsuleRotation);
+      rig.root.quaternion.premultiply(capsuleRotation);
+    }
+    rig.root.position.copy(position).add(capsuleOffset);
     rig.root.scale.setScalar(scale);
-    rig.torso.position.y = 0.78 - crouch * 0.14 - gaitSettle;
+    rig.torso.position.y = 0.78 - crouch * 0.14 - gaitSettle - seated * 0.20;
     rig.torso.rotation.set(crouch * 0.15, stride * 0.04, pose.lean ?? 0);
     rig.head.rotation.set((pose.head ?? 0) + talk * 0.035, talk * 0.04, -stride * 0.025);
 
@@ -234,16 +241,30 @@ export function createWalkingCharacters(scene, capacity) {
       hip.position.y = 0.74 - crouch * 0.14 - gaitSettle;
       hip.rotation.x = -Math.atan2(forward, down) - hipBend;
       knee.rotation.x = Math.PI - Math.acos(clamp((THIGH * THIGH + SHIN * SHIN - reach * reach) / (2 * THIGH * SHIN), -1, 1));
+      if (seated > 0) {
+        const footHeight = hip.position.y - THIGH * Math.cos(hip.rotation.x) - SHIN * Math.cos(hip.rotation.x + knee.rotation.x);
+        hip.rotation.x = THREE.MathUtils.lerp(hip.rotation.x, -1.35, seated);
+        knee.rotation.x = THREE.MathUtils.lerp(knee.rotation.x, 1.35, seated);
+        hip.position.y = THIGH * Math.cos(hip.rotation.x) + SHIN * Math.cos(hip.rotation.x + knee.rotation.x)
+          + THREE.MathUtils.lerp(footHeight, 0.11, seated);
+      }
       ankle.rotation.x = -hip.rotation.x - knee.rotation.x;
     }
     for (const { sign, shoulder, elbow } of rig.arms) {
-      const base = sign < 0 ? (pose.leftArm ?? 0) : (pose.rightArm ?? 0);
-      const gesture = pose.speaking && sign > 0 ? 1 : 0;
-      shoulder.rotation.set(base + stride * sign * 0.48 - gesture * (0.6 + talk * 0.12), 0,
-        sign * (0.10 + gesture * 0.16 + crouch * 0.04));
-      elbow.rotation.x = -0.12 - crouch * 0.42 - gesture * (0.45 + talk * 0.16) - Math.abs(pose.wave ?? 0);
+      const arm = sign < 0 ? pose.leftArm : pose.rightArm;
+      const bend = sign < 0 ? pose.leftElbow : pose.rightElbow;
+      const spread = sign < 0 ? pose.leftSpread : pose.rightSpread;
+      const gesture = pose.speaking && sign > 0 && arm === undefined ? 1 : 0;
+      shoulder.rotation.set(arm ?? (stride * sign * 0.48 - gesture * (0.6 + talk * 0.12)), 0,
+        spread ?? (sign * (0.10 + gesture * 0.16 + crouch * 0.04)));
+      elbow.rotation.x = bend ?? (-0.12 - crouch * 0.42 - gesture * (0.45 + talk * 0.16) - Math.abs(pose.wave ?? 0));
     }
     rig.root.updateMatrixWorld(true);
+    scene.updateWorldMatrix(true, false);
+    for (const { sign, elbow } of rig.arms) {
+      hands[index][sign < 0 ? 'leftHand' : 'rightHand'].set(0, -0.31, 0.02)
+        .applyMatrix4(elbow.matrixWorld).applyMatrix4(scene.matrixWorld);
+    }
     for (const { mesh, parts, bends, stride: count } of buckets.values()) {
       const selected = parts[variant];
       for (let partIndex = 0; partIndex < count; partIndex++) {
@@ -255,6 +276,7 @@ export function createWalkingCharacters(scene, capacity) {
       mesh.instanceMatrix.needsUpdate = true;
       mesh.boundingSphere = null;
     }
+    return hands[index];
   }
 
   return { draw, hide, pickMeshes: meshes };

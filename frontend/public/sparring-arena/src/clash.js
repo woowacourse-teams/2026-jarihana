@@ -1,17 +1,19 @@
 import * as THREE from 'three';
 import { createCapsuleBatch } from './capsule-batch.js';
-import { nozzlePose } from './physics.js';
+import { RADIUS, SHOCKWAVE_RADIUS, SHOCKWAVE_SPEED, nozzlePose } from './physics.js';
 import { characterPose } from './character-motion.js';
 
 // Linked opinions share one collision; the representative vote capsules stay intact.
-export function createClash(scene, container, camera, onReveal = () => {}, { onImpact = null, onImpactComplete = null } = {}) {
+export function createClash(scene, container, camera, onReveal = () => {}, { onImpact = null, onImpactComplete = null, onLaunch = null } = {}) {
   const batch = createCapsuleBatch(scene, 2);
   const bodies = [0, 1].map(() => ({ position: new THREE.Vector3(), quaternion: new THREE.Quaternion() }));
   const impactPoint = new THREE.Vector3(0, -0.2, 0.3), projected = new THREE.Vector3(), rotation = new THREE.Euler();
-  const flightDuration = 0.78, squeezeDuration = 0.12, rubDuration = 0.9, burstDuration = 0.7, fadeDuration = 0.48;
+  const capsuleEdge = new THREE.Vector3(), cameraRight = new THREE.Vector3();
+  const flightDuration = 0.36, squeezeDuration = 0.12, rubDuration = 0.9, burstDuration = 0.7, fadeDuration = 0.48;
+  const capsuleSize = RADIUS / 0.48;
   batch.hide(0); batch.hide(1);
   const layer = document.createElement('div'); layer.className = 'clash-field';
-  const flights = [0, 1].map(() => { const marker = document.createElement('span'); marker.className = 'clash-flight'; marker.hidden = true; layer.append(marker); return marker; });
+  const flights = [0, 1].map(() => { const marker = document.createElement('span'); marker.className = 'clash-flight'; marker.setAttribute('aria-hidden', 'true'); marker.hidden = true; layer.append(marker); return marker; });
   const shock = document.createElement('div'); shock.className = 'clash-shock'; shock.hidden = true; shock.setAttribute('aria-hidden', 'true'); layer.append(shock);
   const impact = document.createElement('div'); impact.className = 'clash-impact'; impact.hidden = true;
   impact.setAttribute('role', 'region'); impact.setAttribute('aria-label', '맞붙은 두 의견');
@@ -40,8 +42,10 @@ export function createClash(scene, container, camera, onReveal = () => {}, { onI
     return { x: (projected.x + 1) * container.clientWidth / 2, y: (1 - projected.y) * container.clientHeight / 2 };
   }
   function reposition() {
-    impactPoint.set(0, -0.2, 0.3);
-    if (!matchMedia('(max-width: 700px)').matches) {
+    // The live clash has no overlaid dialogue cards to make room for: fire across the tank.
+    const outletHeight = (nozzlePose('a').mouth[1] + nozzlePose('b').mouth[1]) / 2;
+    impactPoint.set(0, onImpactComplete ? outletHeight - 0.35 : -0.2, 0.3);
+    if (!onImpactComplete && !matchMedia('(max-width: 700px)').matches) {
       const sceneTop = container.getBoundingClientRect().top;
       const controls = container.parentElement.querySelectorAll('.vote-option,.pipe-meter');
       const bottom = Math.max(...[...controls].map(node => node.getBoundingClientRect().bottom - sceneTop));
@@ -129,7 +133,9 @@ export function createClash(scene, container, camera, onReveal = () => {}, { onI
     const item = queue.shift();
     if (!item) return;
     active = { ...item, elapsed: 0, shown: false, contacted: false, transferred: false, exitElapsed: null };
+    reposition();
     container.dataset.clashState = 'flying';
+    if (!item.reduced) onLaunch?.([pipeSide(item.post.replyTo, 0), pipeSide(item.post, 1)]);
     if (item.reduced && !onImpactComplete) showPair();
   }
   function step(delta) {
@@ -139,12 +145,13 @@ export function createClash(scene, container, camera, onReveal = () => {}, { onI
     const afterImpact = active.elapsed - collisionAt;
     if (onImpactComplete && !active.reduced && !active.contacted && active.elapsed >= flightDuration) {
       active.contacted = true;
+      showImpact();
       container.dataset.clashState = 'pressing';
       reposition(); shock.hidden = false;
       onImpact?.({ post: active.post, fresh: active.fresh, point: { x: impactPoint.x, y: impactPoint.y, z: impactPoint.z } });
     }
     if (active.contacted) {
-      const waveProgress = Math.min(1, Math.max(0, (active.elapsed - flightDuration) / 0.85));
+      const waveProgress = Math.min(1, Math.max(0, (active.elapsed - flightDuration) / (SHOCKWAVE_RADIUS / SHOCKWAVE_SPEED)));
       shock.style.setProperty('--wave-progress', String(waveProgress));
       shock.style.opacity = String(1 - waveProgress);
     }
@@ -159,25 +166,22 @@ export function createClash(scene, container, camera, onReveal = () => {}, { onI
       flights.forEach(marker => { marker.hidden = true; });
       if (afterImpact < rubDuration) {
         const strength = Math.min(1, afterImpact / 0.12);
-        const fall = 3.4 * Math.pow(afterImpact / rubDuration, 2);
+        const fall = (impactPoint.y + 3.6) * Math.pow(afterImpact / rubDuration, 2);
         const push = Math.sin(afterImpact * 9) * 0.09 * strength;
         const shudder = Math.sin(afterImpact * 31) * strength;
         [active.post.replyTo, active.post].forEach((post, index) => {
           const sign = pipeSide(post, index) === 'a' ? -1 : 1;
           bodies[index].position.copy(impactPoint);
-          bodies[index].position.x += sign * (0.58 + push);
+          bodies[index].position.x += sign * (RADIUS * 0.94 + push);
           bodies[index].position.y += sign * shudder * 0.12 - fall;
           rotation.set(5 + shudder * 0.12, 2, sign * (5 + shudder * 0.25));
           bodies[index].quaternion.setFromEuler(rotation);
-          batch.draw(index, { body: bodies[index], post, phase: 'rolling', elapsed: active.elapsed }, 1.72 + Math.abs(shudder) * 0.08);
+          batch.draw(index, { body: bodies[index], post, phase: 'rolling', elapsed: active.elapsed }, capsuleSize * (0.96 + Math.abs(shudder) * 0.04));
         });
         return;
       }
       const burstTime = afterImpact - rubDuration;
-      showImpact();
       container.dataset.clashState = 'burst';
-      const burstPoint = point(new THREE.Vector3().copy(impactPoint).addScaledVector(new THREE.Vector3(0, -1, 0), 3.4));
-      impact.style.left = `${burstPoint.x}px`; impact.style.top = `${burstPoint.y}px`;
       if (!active.transferred) {
         active.transferred = true;
         batch.hide(0); batch.hide(1);
@@ -194,16 +198,18 @@ export function createClash(scene, container, camera, onReveal = () => {}, { onI
         const side = pipeSide(post, index), sign = side === 'a' ? -1 : 1;
         const mouth = new THREE.Vector3(...nozzlePose(side).mouth);
         bodies[index].position.copy(mouth).lerp(impactPoint, progress);
-        bodies[index].position.x += sign * 0.58 * Math.max(0, progress);
+        bodies[index].position.x += sign * RADIUS * 0.94 * Math.max(0, progress);
         rotation.set(progress * 5, progress * 2, progress * sign * 5);
         bodies[index].quaternion.setFromEuler(rotation);
-        batch.draw(index, { body: bodies[index], post, phase: 'rolling', elapsed: active.elapsed }, 1.8 - squeeze * 0.2);
-        const p = point(bodies[index].position), marker = flights[index];
+        batch.draw(index, { body: bodies[index], post, phase: 'rolling', elapsed: active.elapsed }, capsuleSize * (1 - squeeze * 0.08));
+        const marker = flights[index], launch = Math.min(1, active.elapsed / flightDuration);
         marker.className = `clash-flight side-${post.side} pipe-${side}`;
-        marker.style.transform = `translate(${p.x}px, ${p.y}px) translate(-50%, -50%) scale(${1 - squeeze * 0.3}, ${1 + squeeze * 0.2})`;
-        marker.style.opacity = Math.min(1, time * 6);
-        marker.hidden = afterImpact >= 0;
+        marker.style.setProperty('--launch-scale', 1 + launch * 0.65);
+        marker.style.setProperty('--launch-opacity', 1 - launch);
+        marker.style.opacity = Math.min(1, time * 12) * Math.min(1, -afterImpact / squeezeDuration);
+        marker.hidden = false;
       });
+      projectEffects(camera);
     } else {
       flights.forEach(marker => { marker.hidden = true; }); showPair();
       const opening = active.reduced ? 1 : Math.min(1, afterImpact / 0.42);
@@ -236,5 +242,41 @@ export function createClash(scene, container, camera, onReveal = () => {}, { onI
       if (active.exitElapsed >= fadeDuration) { clear(); next(); }
     }
   }
-  return { start, step, reposition, busy: () => !!active || queue.length > 0, needsFrame: () => !!active && (!pinned || active.exitElapsed !== null), stats: () => ({ clashCharacters: active?.shown && !onImpactComplete ? 2 : 0 }), dispose() { queue.length = 0; clear(); layer.remove(); } };
+  function presentation() {
+    if (!active || active.reduced || active.transferred) return null;
+    return {
+      id: active.post.id, fresh: active.fresh, mine: active.post.mine === true, side: active.post.side,
+      elapsed: active.elapsed, contactAt: flightDuration, releaseAt: flightDuration + squeezeDuration + rubDuration,
+      follow: bodies[1].position, opponent: bodies[0].position, impact: impactPoint,
+    };
+  }
+  function projectEffects(view) {
+    if (!active) return;
+    const screen = position => {
+      projected.copy(position).project(view);
+      return { x: (projected.x + 1) * container.clientWidth / 2, y: (1 - projected.y) * container.clientHeight / 2 };
+    };
+    const center = screen(impactPoint);
+    shock.style.left = `${center.x}px`; shock.style.top = `${center.y}px`;
+    if (onImpactComplete && active.contacted) {
+      impact.style.left = `${center.x}px`; impact.style.top = `${center.y}px`;
+    }
+    const edge = screen(new THREE.Vector3(impactPoint.x + SHOCKWAVE_RADIUS, impactPoint.y, impactPoint.z));
+    shock.style.setProperty('--shock-size', `${Math.abs(edge.x - center.x) * 2}px`);
+    cameraRight.setFromMatrixColumn(view.matrixWorld, 0);
+    const squeeze = active.elapsed < flightDuration ? 0 : Math.sin(Math.min(1, (active.elapsed - flightDuration) / squeezeDuration) * Math.PI);
+    flights.forEach((marker, index) => {
+      if (marker.hidden) return;
+      const p = screen(bodies[index].position);
+      capsuleEdge.copy(bodies[index].position).addScaledVector(cameraRight, RADIUS * (1 - squeeze * 0.08));
+      const edge = screen(capsuleEdge);
+      const post = index === 0 ? active.post.replyTo : active.post;
+      const from = screen(new THREE.Vector3(...nozzlePose(pipeSide(post, index)).mouth));
+      const angle = Math.atan2(center.y - from.y, center.x - from.x);
+      marker.style.setProperty('--flight-size', `${Math.hypot(edge.x - p.x, edge.y - p.y) * 2 + 8}px`);
+      marker.style.left = `${p.x}px`; marker.style.top = `${p.y}px`;
+      marker.style.transform = `translate(-50%, -50%) rotate(${angle}rad) scale(${1 - squeeze * 0.3}, ${1 + squeeze * 0.2})`;
+    });
+  }
+  return { start, step, reposition, presentation, projectEffects, setCamera(next) { camera = next; }, busy: () => !!active || queue.length > 0, needsFrame: () => !!active && (!pinned || active.exitElapsed !== null), stats: () => ({ clashCharacters: active?.shown && !onImpactComplete ? 2 : 0 }), dispose() { queue.length = 0; clear(); layer.remove(); } };
 }

@@ -34,10 +34,18 @@ const post = {
 };
 class Stream {
   static instances = [];
+  static autoSnapshot = true;
   constructor() {
     this.listeners = {};
     this.close = jest.fn();
     Stream.instances.push(this);
+    if (Stream.autoSnapshot) queueMicrotask(() => {
+      this.onopen?.();
+      this.emit("snapshot", streamData());
+    });
+  }
+  emit(kind, data) {
+    this.listeners[kind]?.({ data: JSON.stringify(data) });
   }
   addEventListener(kind, listener) {
     this.listeners[kind] = listener;
@@ -48,12 +56,13 @@ const member = { id: 1 },
 beforeEach(() => {
   jest.clearAllMocks();
   Stream.instances = [];
+  Stream.autoSnapshot = true;
   global.EventSource = Stream;
   getSparring.mockResolvedValue(topic);
   getSparringPosts.mockResolvedValue({ items: [], nextCursor: null, hasNext: false });
 });
-function setup() {
-  const hook = renderHook(() => useArenaBridge({ topicId: "1", member, login, retry: 0 }));
+function setup(actor = member) {
+  const hook = renderHook(() => useArenaBridge({ topicId: "1", member: actor, login, retry: 0 }));
   const target = { postMessage: jest.fn() };
   hook.result.current.frame.current = {
     contentWindow: target,
@@ -72,6 +81,162 @@ function setup() {
     );
   return { ...hook, target, receive };
 }
+
+const streamData = (posts = [], revision = 1, counts = {}) => ({
+  revision, votesA: 1, votesB: 0, postCount: posts.length, posts, ...counts
+});
+const snapshots = target => target.postMessage.mock.calls.map(([message]) => message).filter(message => message.kind === "snapshot");
+
+it("exposes entry metadata before the SSE snapshot or renderer is ready", async () => {
+  Stream.autoSnapshot = false;
+  const { result } = setup();
+  await waitFor(() => expect(result.current.topic).toEqual(topic));
+  expect(result.current.loaded).toBe(false);
+  expect(result.current.sceneReady).toBe(false);
+});
+
+it("serializes entry votes with an unfinished post and avoids repeating the saved side", async () => {
+  const { receive, result } = setup();
+  await waitFor(() => expect(result.current.loaded).toBe(true));
+  let finishPost;
+  postSparring.mockImplementationOnce(() => new Promise(resolve => { finishPost = resolve; }));
+  receive({
+    kind: "command", action: "post", requestId: "before-entry",
+    payload: { text: post.text, replyToId: null, postId: "bc2eb62e-b004-4b9c-8bde-dcd9fd86be72" }
+  });
+  await waitFor(() => expect(finishPost).toBeDefined());
+  const first = result.current.selectSide("CORAL");
+  const second = result.current.selectSide("CORAL");
+  await act(async () => {});
+  expect(voteSparring).not.toHaveBeenCalled();
+  getSparringPosts.mockResolvedValue({ items: [post], nextCursor: null, hasNext: false });
+  getSparring.mockResolvedValue({ ...topic, mySide: "CORAL", revision: 2 });
+  await act(async () => { finishPost({ id: 1 }); await Promise.all([first, second]); });
+  expect(voteSparring).toHaveBeenCalledTimes(1);
+  expect(voteSparring).toHaveBeenCalledWith("1", "CORAL");
+  expect(result.current.topic.mySide).toBe("CORAL");
+});
+
+it("rejects entry votes after the deadline and discards calls after unmount", async () => {
+  getSparring.mockResolvedValue({ ...topic, closesAt: "2020-01-01T00:00:00Z" });
+  const { result, unmount } = setup();
+  await waitFor(() => expect(result.current.topic).not.toBeNull());
+  await expect(result.current.selectSide("CORAL")).rejects.toThrow("마감된 토론");
+  const selectSide = result.current.selectSide;
+  unmount();
+  await expect(selectSide("CORAL")).resolves.toBe(false);
+  expect(voteSparring).not.toHaveBeenCalled();
+});
+
+it.each([false, true])("ignores the removed history command (mine=%s) without reading or writing posts", async mine => {
+  const { receive, target, result } = setup();
+  receive({ kind: "ready" });
+  await waitFor(() => expect(result.current.loaded).toBe(true));
+  getSparring.mockClear(); getSparringPosts.mockClear(); target.postMessage.mockClear();
+  receive({ kind: "command", action: "history", requestId: "old-history", payload: { mine, reset: true } });
+  await act(async () => {});
+  expect(getSparring).not.toHaveBeenCalled();
+  expect(getSparringPosts).not.toHaveBeenCalled();
+  expect(postSparring).not.toHaveBeenCalled();
+  expect(voteSparring).not.toHaveBeenCalled();
+  expect(target.postMessage).not.toHaveBeenCalled();
+});
+
+describe("SSE message delivery", () => {
+  let hidden;
+  function visibility(value) {
+    hidden = value;
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+  }
+  beforeEach(() => {
+    hidden = false;
+    jest.spyOn(document, "hidden", "get").mockImplementation(() => hidden);
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it("accepts all 1000 streamed posts, keeps the latest 30 and forwards every new post for launch without HTTP reads", async () => {
+    const { receive, target, result } = setup();
+    receive({ kind: "ready" });
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    getSparring.mockClear(); getSparringPosts.mockClear();
+    const items = Array.from({ length: 1000 }, (_, i) => ({ ...post, id: i + 1, authorId: 2 }));
+    act(() => Stream.instances.at(-1).emit("update", streamData(items, 1001)));
+    const latest = snapshots(target).at(-1);
+    expect(latest.state.posts.map(item => item.id)).toEqual(items.slice(-30).map(item => String(item.id)));
+    expect(latest.fresh).toEqual(items.map(item => String(item.id)));
+    expect(latest.livePosts.map(item => item.id)).toEqual(items.map(item => String(item.id)));
+    expect(latest.state.postCount).toBe(1000);
+    expect(getSparring).not.toHaveBeenCalled();
+    expect(getSparringPosts).not.toHaveBeenCalled();
+    act(() => Stream.instances.at(-1).emit("update", streamData([{ ...post, id: 1001, authorId: 2 }], 1002)));
+    expect(snapshots(target).at(-1).fresh).toEqual(["1001"]);
+    expect(snapshots(target).at(-1).state.posts).toHaveLength(30);
+  });
+
+  it("replaces replay on reconnect without replaying missed launches or calling REST", async () => {
+    const { receive, target, result } = setup();
+    receive({ kind: "ready" });
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    const stream = Stream.instances.at(-1);
+    act(() => stream.emit("update", streamData([post], 2)));
+    getSparring.mockClear(); getSparringPosts.mockClear();
+    act(() => { stream.onerror(); stream.onopen(); });
+    const recent = Array.from({ length: 30 }, (_, i) => ({ ...post, id: i + 971 }));
+    act(() => stream.emit("snapshot", streamData(recent, 1001)));
+    expect(snapshots(target).at(-1).state.posts.map(item => item.id)).toEqual(recent.map(item => String(item.id)));
+    expect(snapshots(target).at(-1).fresh).toEqual([]);
+    expect(getSparring).not.toHaveBeenCalled();
+    expect(getSparringPosts).not.toHaveBeenCalled();
+  });
+
+  it("updates replay while hidden and resumes without missed effects or catch-up requests", async () => {
+    const { receive, target, result } = setup();
+    receive({ kind: "ready" });
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    target.postMessage.mockClear(); getSparring.mockClear();
+    visibility(true);
+    act(() => Stream.instances.at(-1).emit("update", streamData([{ ...post, authorId: 2 }], 2)));
+    expect(snapshots(target)).toHaveLength(0);
+    visibility(false);
+    expect(snapshots(target).at(-1).state.posts).toHaveLength(1);
+    expect(snapshots(target).at(-1).fresh).toEqual([]);
+    act(() => Stream.instances.at(-1).emit("update", streamData([{ ...post, id: 2, authorId: 2 }], 3)));
+    expect(snapshots(target).at(-1).fresh).toEqual(["2"]);
+    expect(getSparring).not.toHaveBeenCalled();
+    expect(getSparringPosts).not.toHaveBeenCalled();
+  });
+
+  it("applies vote-only counts without losing personal state or replaying duplicate/stale updates", async () => {
+    const { receive, target, result } = setup();
+    receive({ kind: "ready" });
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    const stream = Stream.instances.at(-1);
+    act(() => stream.emit("update", streamData([post], 2)));
+    act(() => stream.emit("update", streamData([], 3, { votesA: 2, postCount: 1 })));
+    expect(snapshots(target).at(-1)).toMatchObject({ fresh: [], state: { mySide: "a", balance: { a: 2 }, posts: [{ id: "1" }] } });
+    const count = snapshots(target).length;
+    act(() => stream.emit("update", streamData([post], 2)));
+    act(() => stream.emit("update", streamData([], 3)));
+    expect(snapshots(target)).toHaveLength(count);
+  });
+
+  it("reconnects on invalid event data and ignores old-stream callbacks and post-unmount events", async () => {
+    const { receive, target, result, unmount } = setup();
+    receive({ kind: "ready" });
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    const old = Stream.instances.at(-1);
+    await act(async () => old.emit("update", { revision: 2, posts: [{ id: 2 }] }));
+    expect(old.close).toHaveBeenCalled();
+    expect(Stream.instances).toHaveLength(2);
+    target.postMessage.mockClear();
+    act(() => old.emit("update", streamData([post], 3)));
+    expect(target.postMessage).not.toHaveBeenCalled();
+    const current = Stream.instances.at(-1);
+    unmount();
+    act(() => current.emit("update", streamData([post], 4)));
+    expect(target.postMessage).not.toHaveBeenCalled();
+  });
+});
 it("sends the available height and remeasures the shared content width on resize", () => {
   const { receive, target, result, unmount } = setup();
   let contentWidth = 1358;
@@ -121,7 +286,7 @@ it("remeasures space after the arena reports its height", async () => {
 it("rejects foreign origins, validates payloads and closes the stream on unmount", async () => {
   const { receive, target, unmount } = setup();
   receive({ kind: "ready" }, "https://untrusted.example");
-  expect(Stream.instances).toHaveLength(0);
+  expect(Stream.instances).toHaveLength(1);
   expect(target.postMessage).not.toHaveBeenCalled();
   receive({ kind: "ready" });
   await waitFor(() =>
@@ -137,39 +302,33 @@ it("rejects foreign origins, validates payloads and closes the stream on unmount
   expect(stream.close).toHaveBeenCalled();
 });
 
-it("starts both initial requests before iframe readiness and delivers buffered data on handshake", async () => {
-  let finishTopic, finishPosts;
+it("buffers an SSE snapshot and newer counts while the initial personal summary is still loading", async () => {
+  let finishTopic;
   getSparring.mockImplementationOnce(() => new Promise(resolve => { finishTopic = resolve; }));
-  getSparringPosts.mockImplementationOnce(() => new Promise(resolve => { finishPosts = resolve; }));
   const { result, target, receive } = setup();
-  expect(getSparring).toHaveBeenCalledWith("1");
-  expect(getSparringPosts).toHaveBeenCalledWith("1", { size: 30 });
-  await act(async () => finishPosts({ items: [post], nextCursor: "older", hasNext: true }));
+  await act(async () => {});
+  act(() => Stream.instances.at(-1).emit("update", streamData([post], 3, { votesA: 3 })));
   expect(result.current.loaded).toBe(false);
   await act(async () => finishTopic(topic));
   expect(result.current.loaded).toBe(true);
-  expect(result.current.sceneReady).toBe(false);
-  expect(target.postMessage).not.toHaveBeenCalled();
+  expect(getSparringPosts).not.toHaveBeenCalled();
+  expect(snapshots(target)).toHaveLength(0);
   receive({ kind: "ready" });
-  expect(target.postMessage).toHaveBeenCalledWith(expect.objectContaining({
-    kind: "snapshot",
-    state: expect.objectContaining({ posts: [expect.objectContaining({ id: "1" })], more: { all: true, mine: false } })
-  }), window.location.origin);
+  expect(snapshots(target).at(-1)).toMatchObject({ fresh: [], state: { posts: [{ id: "1" }], balance: { a: 3 }, mySide: "a" } });
   receive({ kind: "scene", status: "ready" }, "https://untrusted.example");
   expect(result.current.sceneReady).toBe(false);
   receive({ kind: "scene", status: "ready" });
   expect(result.current.sceneReady).toBe(true);
 });
 
-it("keeps the preview pending until both initial responses and the first rendered scene arrive", async () => {
-  let finishPosts;
-  getSparringPosts.mockImplementationOnce(() => new Promise(resolve => { finishPosts = resolve; }));
+it("waits for the initial stream snapshot as well as the summary and first rendered scene", async () => {
+  Stream.autoSnapshot = false;
   const { result, target, receive } = setup();
   receive({ kind: "ready" });
   await act(async () => {});
   expect(result.current.loaded).toBe(false);
-  expect(target.postMessage.mock.calls.some(([message]) => message.kind === "snapshot")).toBe(false);
-  await act(async () => finishPosts({ items: [], nextCursor: null, hasNext: false }));
+  expect(snapshots(target)).toHaveLength(0);
+  act(() => Stream.instances.at(-1).emit("snapshot", streamData()));
   expect(result.current.loaded).toBe(true);
   expect(result.current.sceneReady).toBe(false);
   receive({ kind: "scene", status: "error" });
@@ -212,10 +371,10 @@ it("catches up an initially empty room and never re-emits an acknowledged own po
       )
     ).toBe(true)
   );
-  expect(getSparringPosts).toHaveBeenCalledWith("1", { size: 100, afterId: 0 });
+  expect(getSparringPosts).toHaveBeenCalledWith("1", { size: 1, afterId: 0 });
   getSparring.mockResolvedValue({ ...topic, revision: 2 });
-  act(() => Stream.instances.at(-1).listeners.revision({ data: '{"revision":2}' }));
-  await waitFor(() => expect(getSparringPosts.mock.calls.length).toBeGreaterThan(2));
+  act(() => Stream.instances.at(-1).emit("update", streamData([post], 2)));
+  expect(getSparringPosts).toHaveBeenCalledTimes(1);
   const snapshots = target.postMessage.mock.calls
     .map(([message]) => message)
     .filter((message) => message.kind === "snapshot");
@@ -256,7 +415,7 @@ it("queues rapid submissions in order while suppressing their own SSE launches",
   target.postMessage.mockClear();
   getSparring.mockResolvedValue({ ...topic, revision: 2 });
   getSparringPosts.mockResolvedValue({ items: [second], nextCursor: null, hasNext: false });
-  act(() => Stream.instances.at(-1).listeners.revision({ data: '{"revision":2}' }));
+  act(() => Stream.instances.at(-1).emit("update", streamData([second], 2)));
   await waitFor(() => expect(target.postMessage).toHaveBeenCalledWith(
     expect.objectContaining({
       kind: "snapshot",
@@ -274,46 +433,18 @@ it("queues rapid submissions in order while suppressing their own SSE launches",
   ));
 });
 
-it("keeps a newer vote when an older refresh finishes later", async () => {
-  const { receive, target } = setup();
+it("keeps newer streamed totals but accepts personal vote state from a slower HTTP response", async () => {
+  const { receive, target, result } = setup();
   receive({ kind: "ready" });
-  await waitFor(() =>
-    expect(target.postMessage.mock.calls.some(([message]) => message.kind === "snapshot")).toBe(
-      true
-    )
-  );
-  let finishRefresh;
-  getSparring.mockImplementationOnce(
-    () =>
-      new Promise((resolve) => {
-        finishRefresh = resolve;
-      })
-  );
-  act(() => Stream.instances.at(-1).listeners.revision({ data: '{"revision":2}' }));
-  await waitFor(() => expect(finishRefresh).toBeDefined());
-  getSparring.mockResolvedValue({ ...topic, votesA: 2, revision: 3 });
-  receive({ kind: "command", action: "vote", requestId: "vote1", payload: { side: "a" } });
-  await waitFor(() =>
-    expect(
-      target.postMessage.mock.calls.some(
-        ([message]) => message.kind === "result" && message.requestId === "vote1"
-      )
-    ).toBe(true)
-  );
-  const afterVote = target.postMessage.mock.calls.length;
-  await act(async () => finishRefresh({ ...topic, revision: 2 }));
-  const snapshots = target.postMessage.mock.calls
-    .slice(afterVote)
-    .map(([message]) => message)
-    .filter((message) => message.kind === "snapshot");
-  expect(snapshots.length).toBeGreaterThan(0);
-  expect(
-    snapshots.every(
-      (message) => message.state.topic.revision === 3 && message.state.balance.a === 2
-    )
-  ).toBe(true);
+  await waitFor(() => expect(result.current.loaded).toBe(true));
+  let finishVote;
+  getSparring.mockImplementationOnce(() => new Promise(resolve => { finishVote = resolve; }));
+  receive({ kind: "command", action: "vote", requestId: "vote1", payload: { side: "b" } });
+  await waitFor(() => expect(finishVote).toBeDefined());
+  act(() => Stream.instances.at(-1).emit("update", streamData([], 4, { votesA: 2, votesB: 3 })));
+  await act(async () => finishVote({ ...topic, revision: 3, votesA: 0, votesB: 1, mySide: "CORAL" }));
+  expect(snapshots(target).at(-1)).toMatchObject({ state: { mySide: "b", topic: { revision: 4 }, balance: { a: 2, b: 3 } } });
 });
-
 
 it("does not let a later vote overtake an unfinished post even after the iframe stops waiting", async () => {
   const { receive, target, result } = setup();
@@ -357,4 +488,219 @@ it("continues the write queue after a failed request but discards queued writes 
   getSparringPosts.mockResolvedValue({ items: [post], nextCursor: null, hasNext: false });
   await act(async () => finishSecond({ id: 1 }));
   expect(postSparring).toHaveBeenCalledTimes(2);
+});
+
+describe("demand-driven replay history", () => {
+  const items = (first, last) => Array.from({ length: last - first + 1 }, (_, index) => ({ ...post, id: first + index }));
+  const page = (first, last, nextCursor = null) => ({ items: items(first, last).reverse(), nextCursor, hasNext: nextCursor !== null });
+  const advance = milliseconds => act(async () => { await jest.advanceTimersByTimeAsync(milliseconds); });
+  const currentHistory = target => snapshots(target).at(-1).state.history;
+  let hidden;
+  const visibility = value => {
+    hidden = value;
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+  };
+  async function start(initial = items(61, 90), actor = member) {
+    Stream.autoSnapshot = false;
+    const hook = setup(actor);
+    await act(async () => {
+      Stream.instances.at(-1).onopen();
+      Stream.instances.at(-1).emit("snapshot", streamData(initial, 1, { postCount: initial.at(-1)?.id ?? 0 }));
+    });
+    hook.receive({ kind: "ready" });
+    return hook;
+  }
+  beforeEach(() => {
+    jest.useFakeTimers();
+    hidden = false;
+    jest.spyOn(document, "hidden", "get").mockImplementation(() => hidden);
+  });
+  afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks(); });
+
+  it("loads older pages only on demand, skips the initial recent batch and restarts only after the final page", async () => {
+    getSparringPosts.mockResolvedValueOnce(page(61, 90, "before-61"))
+      .mockResolvedValueOnce(page(31, 60, "before-31"))
+      .mockResolvedValueOnce(page(1, 30))
+      .mockResolvedValueOnce(page(61, 90, "before-61"));
+    const { receive, target } = await start();
+    expect(currentHistory(target)).toEqual({ page: 0, posts: [] });
+    await advance(1000);
+    expect(getSparringPosts).not.toHaveBeenCalled();
+    receive({ kind: "history", page: 0 });
+    await advance(0);
+    expect(getSparringPosts.mock.calls).toEqual([
+      ["1", { size: 30 }], ["1", { size: 30, cursor: "before-61" }]
+    ]);
+    expect(currentHistory(target).posts.map(post => post.id)).toEqual(items(31, 60).map(post => String(post.id)));
+    expect(currentHistory(target).page).toBe(1);
+    expect(snapshots(target).at(-1).state.posts.map(post => post.id)).toEqual(items(61, 90).map(post => String(post.id)));
+    expect(snapshots(target).at(-1).fresh).toEqual([]);
+    expect(snapshots(target).at(-1).livePosts).toEqual([]);
+    await advance(1000);
+    expect(getSparringPosts).toHaveBeenCalledTimes(2);
+    receive({ kind: "history", page: 1 });
+    await advance(0);
+    expect(getSparringPosts).toHaveBeenLastCalledWith("1", { size: 30, cursor: "before-31" });
+    expect(currentHistory(target).posts.map(post => post.id)).toEqual(items(1, 30).map(post => String(post.id)));
+    receive({ kind: "history", page: 2 });
+    await advance(0);
+    expect(getSparringPosts).toHaveBeenLastCalledWith("1", { size: 30 });
+    expect(currentHistory(target).page).toBe(3);
+    expect(currentHistory(target).posts.map(post => post.id)).toEqual(items(61, 90).map(post => String(post.id)));
+  });
+
+  it("keeps history progress and suppresses old launches while SSE reconnects during a history request", async () => {
+    let finishHistory;
+    getSparringPosts.mockResolvedValueOnce(page(61, 90, "before-61"))
+      .mockImplementationOnce(() => new Promise(resolve => { finishHistory = resolve; }))
+      .mockResolvedValueOnce(page(1, 30));
+    const { receive, target } = await start();
+    receive({ kind: "history", page: 0 });
+    await advance(0);
+    const stream = Stream.instances.at(-1);
+    act(() => stream.emit("update", streamData([{ ...post, id: 91, authorId: 2 }], 2, { postCount: 91 })));
+    expect(snapshots(target).at(-1).fresh).toEqual(["91"]);
+    act(() => {
+      stream.onerror(); stream.onopen();
+      stream.emit("snapshot", streamData(items(101, 130), 3, { postCount: 130 }));
+    });
+    await act(async () => finishHistory(page(31, 60, "before-31")));
+    expect(currentHistory(target).posts.map(post => post.id)).toEqual(items(31, 60).map(post => String(post.id)));
+    expect(snapshots(target).at(-1).state.posts[0].id).toBe("101");
+    expect(snapshots(target).at(-1).fresh).toEqual([]);
+    receive({ kind: "history", page: 1 });
+    await advance(0);
+    expect(getSparringPosts).toHaveBeenLastCalledWith("1", { size: 30, cursor: "before-31" });
+    act(() => stream.emit("update", streamData([{ ...post, id: 131, authorId: 2 }], 4, { postCount: 131 })));
+    expect(snapshots(target).at(-1).fresh).toEqual(["131"]);
+    expect(currentHistory(target).page).toBe(2);
+  });
+
+  it("shares in-flight requests and rejects stale, future and untrusted acknowledgements", async () => {
+    let finishHistory;
+    getSparringPosts.mockImplementationOnce(() => new Promise(resolve => { finishHistory = resolve; }));
+    const { receive, target } = await start();
+    receive({ kind: "history", page: 0 }, "https://untrusted.example");
+    for (const value of [-1, 0.5, 1, "0"]) receive({ kind: "history", page: value });
+    await advance(0);
+    expect(getSparringPosts).not.toHaveBeenCalled();
+    receive({ kind: "history", page: 0 }); receive({ kind: "history", page: 0 });
+    await advance(0);
+    receive({ kind: "history", page: 0 });
+    expect(getSparringPosts).toHaveBeenCalledTimes(1);
+    await act(async () => finishHistory(page(31, 60, "before-31")));
+    expect(currentHistory(target).page).toBe(1);
+    receive({ kind: "history", page: 0 }); receive({ kind: "history", page: 2 });
+    await advance(0);
+    expect(getSparringPosts).toHaveBeenCalledTimes(1);
+  });
+
+  it("pauses pending history while hidden and publishes an in-flight result on return", async () => {
+    let finishHistory;
+    getSparringPosts.mockImplementationOnce(() => new Promise(resolve => { finishHistory = resolve; }));
+    const { receive, target } = await start();
+    receive({ kind: "history", page: 0 }); visibility(true);
+    await advance(1000);
+    expect(getSparringPosts).not.toHaveBeenCalled();
+    visibility(false); await advance(0);
+    expect(getSparringPosts).toHaveBeenCalledTimes(1);
+    visibility(true); target.postMessage.mockClear();
+    await act(async () => finishHistory(page(31, 60, "before-31")));
+    expect(snapshots(target)).toEqual([]);
+    visibility(false);
+    expect(currentHistory(target).page).toBe(1);
+    await advance(1000);
+    expect(getSparringPosts).toHaveBeenCalledTimes(1);
+  });
+
+  it("discards late results after unmount and clears scheduled work", async () => {
+    let finishHistory;
+    getSparringPosts.mockImplementationOnce(() => new Promise(resolve => { finishHistory = resolve; }));
+    const { receive, target, unmount } = await start();
+    receive({ kind: "history", page: 0 }); await advance(0);
+    unmount(); target.postMessage.mockClear();
+    await act(async () => finishHistory(page(31, 60, "before-31")));
+    await advance(10000);
+    expect(target.postMessage).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it("retries the same cursor with backoff and retains demand across tab hiding", async () => {
+    getSparringPosts.mockResolvedValueOnce(page(61, 90, "before-61"))
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(page(31, 60, "before-31"));
+    const { receive, target } = await start();
+    receive({ kind: "history", page: 0 }); await advance(0);
+    expect(getSparringPosts).toHaveBeenCalledTimes(2);
+    await advance(999);
+    expect(getSparringPosts).toHaveBeenCalledTimes(2);
+    await advance(1);
+    expect(getSparringPosts).toHaveBeenCalledTimes(3);
+    await advance(1999);
+    expect(getSparringPosts).toHaveBeenCalledTimes(3);
+    visibility(true); await advance(5000);
+    expect(getSparringPosts).toHaveBeenCalledTimes(3);
+    visibility(false); await advance(0);
+    expect(getSparringPosts).toHaveBeenCalledTimes(4);
+    expect(getSparringPosts.mock.calls.slice(1).map(([, query]) => query.cursor)).toEqual(Array(3).fill("before-61"));
+    expect(currentHistory(target).page).toBe(1);
+  });
+
+  it.each([null, "before-61"])("stops on missing or repeated history cursors (%s)", async cursor => {
+    getSparringPosts.mockResolvedValueOnce(page(61, 90, "before-61"))
+      .mockResolvedValueOnce({ items: items(31, 60), hasNext: true, nextCursor: cursor });
+    const { receive, target } = await start();
+    receive({ kind: "history", page: 0 }); await advance(0);
+    receive({ kind: "history", page: 0 }); await advance(60000);
+    expect(getSparringPosts).toHaveBeenCalledTimes(2);
+    expect(currentHistory(target)).toEqual({ page: 0, posts: [] });
+    expect(target.postMessage).toHaveBeenCalledWith(expect.objectContaining({ kind: "failure" }), window.location.origin);
+  });
+
+  it("does not spin on empty history and resumes existing demand when the post count changes", async () => {
+    const { receive, target } = await start([]);
+    receive({ kind: "history", page: 0 }); await advance(10000);
+    expect(getSparringPosts).not.toHaveBeenCalled();
+    act(() => Stream.instances.at(-1).emit("update", streamData([post], 2, { postCount: 1 })));
+    await advance(0);
+    expect(getSparringPosts).toHaveBeenCalledTimes(1);
+    receive({ kind: "history", page: 0 }); await advance(10000);
+    expect(getSparringPosts).toHaveBeenCalledTimes(1);
+    getSparringPosts.mockResolvedValueOnce(page(1, 2));
+    act(() => Stream.instances.at(-1).emit("update", streamData([{ ...post, id: 2 }], 3, { postCount: 2 })));
+    await advance(0);
+    expect(currentHistory(target).page).toBe(1);
+    expect(currentHistory(target).posts.map(post => post.id)).toEqual(["1", "2"]);
+  });
+
+  it("lets guests read history and skips new posts added before the first HTTP page", async () => {
+    getSparringPosts.mockResolvedValueOnce(page(81, 110, "before-81"))
+      .mockResolvedValueOnce(page(51, 80, "before-51"));
+    const { receive, target } = await start(items(61, 90), null);
+    receive({ kind: "history", page: 0 }); await advance(0);
+    expect(currentHistory(target).posts.map(post => post.id)).toEqual(items(51, 60).map(post => String(post.id)));
+    expect(login).not.toHaveBeenCalled();
+    expect(snapshots(target).at(-1).state.actorId).toBe("guest");
+  });
+
+  it("starts at most one new cycle when all stored posts belong to the initial recent batch", async () => {
+    getSparringPosts.mockResolvedValue(page(1, 3));
+    const { receive, target } = await start(items(1, 3));
+    receive({ kind: "history", page: 0 }); await advance(0);
+    expect(getSparringPosts).toHaveBeenCalledTimes(2);
+    expect(currentHistory(target).posts.map(post => post.id)).toEqual(["1", "2", "3"]);
+    await advance(10000);
+    expect(getSparringPosts).toHaveBeenCalledTimes(2);
+  });
+
+  it("cancels a scheduled retry when the room unmounts", async () => {
+    getSparringPosts.mockRejectedValue(new Error("offline"));
+    const { receive, unmount } = await start();
+    receive({ kind: "history", page: 0 }); await advance(0);
+    expect(getSparringPosts).toHaveBeenCalledTimes(1);
+    unmount(); await advance(60000);
+    expect(getSparringPosts).toHaveBeenCalledTimes(1);
+    expect(jest.getTimerCount()).toBe(0);
+  });
 });

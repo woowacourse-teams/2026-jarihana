@@ -1,4 +1,4 @@
-import { postSchema } from "./api.js";
+import { postSchema, streamSchema } from "./api.js";
 import { arenaMessageSchema } from "./arenaBridge.js";
 
 const post = {
@@ -17,4 +17,11 @@ it.each(["sparring_composer_toggle", "sparring_clash_replay"])("forwards %s as a
   expect(arenaMessageSchema.safeParse({
     channel: "jarihana-sparring", kind: "interaction", action
   }).success).toBe(true);
+});
+
+
+it("accepts unbounded SSE message batches with the same post contract as HTTP", () => {
+  const posts = Array.from({ length: 1000 }, (_, index) => ({ ...post, id: index + 1 }));
+  expect(streamSchema.parse({ revision: 1001, votesA: 1, votesB: 0, postCount: 1000, posts }).posts).toHaveLength(1000);
+  expect(streamSchema.safeParse({ revision: 2, votesA: 1, votesB: 0, postCount: 1, posts: [{ ...post, authorId: null }] }).success).toBe(false);
 });
