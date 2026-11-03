@@ -46,6 +46,9 @@ export function Board({ room, selected, onSelect, disabled, appearanceByColor = 
               if (!disabled && value === "0") onSelect({ x, y });
             }}
           >
+            {((x === 7 && y === 7) || ([3, 11].includes(x) && [3, 11].includes(y))) && (
+              <span className="gomoku-star" aria-hidden="true" />
+            )}
             {value !== "0" && (
               <Stone
                 color={value === "1" ? "BLACK" : "WHITE"}

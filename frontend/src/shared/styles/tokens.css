@@ -112,6 +112,7 @@
   --signup-type-image-base-size: 7.5rem;
   --showcase-skeleton-height: 14rem;
   --shadow-card: 0 0.125rem 0.75rem var(--color-shadow);
+  --shadow-gomoku-board: inset 0 0.125rem 0 color-mix(in srgb, var(--color-surface) 55%, transparent), inset 0 -0.1875rem 0 color-mix(in srgb, var(--color-gomoku-board-edge) 45%, transparent), 0 0.25rem 0.5rem var(--color-shadow);
   --shadow-float-size: 0 0.75rem 2.125rem;
   --shadow-float: var(--shadow-float-size) var(--color-shadow);
   --duration-fast: 120ms;

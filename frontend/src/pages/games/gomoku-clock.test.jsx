@@ -63,11 +63,11 @@ test("a newly received server clock offset cannot display more than sixty second
   }
 });
 
-test("room keeps instructions in an accessible rules dialog and restores focus on close", () => {
+test("room keeps the selected rule badge without a separate rules button or dialog", () => {
   render(<GomokuRoomPage />);
   expect(screen.queryByRole("dialog", { name: "오목 규칙" })).not.toBeInTheDocument();
   const settings = screen.getByRole("list", { name: "방 설정" });
-  expect(within(settings).getByText("규칙: 기본 규칙", { exact: true })).toBeVisible();
+  expect(within(settings).getByText("기본 규칙", { exact: true })).toBeVisible();
   expect(within(settings).getByText("공개방", { exact: true })).toBeVisible();
   expect(screen.getByRole("link", { name: "대기실", exact: true })).toHaveAttribute("href", "/games/gomoku");
   expect(screen.getByRole("button", { name: "나가기", exact: true })).toHaveAttribute(
@@ -76,30 +76,7 @@ test("room keeps instructions in an accessible rules dialog and restores focus o
   );
   expect(screen.queryByRole("heading", { name: "오목", exact: true })).not.toBeInTheDocument();
   expect(screen.queryByText(/한 줄로 6개 이상/)).not.toBeInTheDocument();
-  const rules = screen.getByRole("button", { name: "규칙", exact: true });
-  rules.focus();
-  fireEvent.click(rules);
-  expect(screen.getByRole("dialog", { name: "오목 규칙" })).toBeInTheDocument();
-  expect(screen.getByText(/키보드는 화살표/)).toBeVisible();
-  expect(
-    within(screen.getByRole("dialog", { name: "오목 규칙" })).getByText("기본 규칙", {
-      exact: true
-    })
-  ).toBeVisible();
-  expect(screen.queryByText(/한 줄로 6개 이상/)).not.toBeInTheDocument();
-  expect(screen.getByText("3-3", { exact: true })).toBeVisible();
-  expect(screen.getByText("4-4", { exact: true })).toBeVisible();
-  const example = screen.getByRole("button", { name: "3-3 예시 보기" });
-  fireEvent.click(example);
-  expect(screen.getByRole("tooltip")).toBeInTheDocument();
-  fireEvent.keyDown(example, { key: "Escape" });
-  expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
-  expect(screen.getByRole("dialog", { name: "오목 규칙" })).toBeInTheDocument();
-  const close = document.querySelector('[data-ph-capture-attribute-action="gomoku_rules_dismiss"]');
-  expect(close).toBeInTheDocument();
-  fireEvent.click(close);
-  expect(screen.queryByRole("dialog", { name: "오목 규칙" })).not.toBeInTheDocument();
-  expect(rules).toHaveFocus();
+  expect(screen.queryByRole("button", { name: "규칙", exact: true })).not.toBeInTheDocument();
 });
 
 test("compact move control enables confirmation only after selecting an empty cell", () => {
@@ -239,9 +216,7 @@ test("room tools use outlined buttons and result omits the resignation explanati
     room: { ...state.room, status: "FINISHED", winnerMemberId: 2, endReason: "RESIGN" }
   });
   render(<GomokuRoomPage />);
-  expect(screen.getByRole("button", { name: "규칙", exact: true })).toHaveClass(
-    "ui-button--secondary"
-  );
+  expect(screen.queryByRole("button", { name: "규칙", exact: true })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "나가기", exact: true })).toHaveClass("ui-button--danger");
   expect(screen.getByRole("link", { name: "대기실", exact: true })).toHaveClass("games-back");
   expect(screen.getByRole("heading", { name: "LOSE", exact: true })).toBeVisible();

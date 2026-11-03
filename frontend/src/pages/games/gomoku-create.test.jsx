@@ -92,6 +92,42 @@ test("creation submits selected visibility and rule and freezes choices while pe
   }
 });
 
+test("one info beside the rule heading shows both rules without changing the selection", () => {
+  const dialog = openCreation();
+  const info = within(dialog).getByRole("button", { name: "대국 규칙 안내" });
+  expect(info.closest("legend")).toHaveTextContent("대국 규칙");
+  expect(within(dialog).getAllByRole("button", { name: /규칙 안내|제한 없음 안내/ })).toHaveLength(1);
+  const standard = within(dialog).getByRole("radio", { name: "기본 규칙", exact: true });
+  fireEvent.pointerEnter(info);
+  const tooltip = screen.getByRole("tooltip");
+  expect(within(tooltip).getByRole("region", { name: "기본 규칙" })).toHaveTextContent("흑돌은 정확히 5개");
+  expect(within(tooltip).getByRole("region", { name: "제한 없음" })).toHaveTextContent("흑돌과 백돌 모두 5개 이상");
+  expect(tooltip).toHaveTextContent("흑돌은 3-3, 4-4와 6개 이상 잇기가 제한돼요.");
+  expect(tooltip).toHaveTextContent("3-3, 4-4, 6개 이상 잇기 제한이 없어요.");
+  expect(info).toHaveAttribute("aria-describedby", tooltip.id);
+  expect(info).toHaveAttribute("data-ph-capture-attribute-action");
+  expect(standard).toBeChecked();
+  fireEvent.keyDown(info, { key: "Escape" });
+  expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  expect(dialog).toBeVisible();
+});
+
+test("rule info supports keyboard and touch without selecting or submitting the rule", () => {
+  mockNavigate.mockClear();
+  const dialog = openCreation();
+  const info = within(dialog).getByRole("button", { name: "대국 규칙 안내" });
+  fireEvent.focus(info);
+  expect(screen.getByRole("tooltip")).toHaveTextContent("제한 없음");
+  fireEvent.keyDown(info, { key: "Escape" });
+  fireEvent.click(info);
+  expect(screen.getByRole("tooltip")).toHaveTextContent("제한 없음");
+  expect(within(dialog).getByRole("radio", { name: "기본 규칙", exact: true })).toBeChecked();
+  expect(mockNavigate).not.toHaveBeenCalled();
+  fireEvent.pointerDown(document.body);
+  expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  expect(dialog).toBeVisible();
+});
+
 test("lobby uses seat wording and a separate return action without the deleted descriptions", () => {
   const originalQuery = useQuery.getMockImplementation();
   useQuery.mockImplementation(({ queryKey }) => ({
@@ -118,6 +154,29 @@ test("lobby uses seat wording and a separate return action without the deleted d
     const back = within(current).getByRole("link", { name: "돌아가기", exact: true });
     expect(back).toHaveAttribute("href", "/games/gomoku/rooms/7");
     expect(back).toHaveAttribute("data-ph-capture-attribute-action", "gomoku_my_room_open");
+  } finally {
+    useQuery.mockImplementation(originalQuery);
+  }
+});
+
+test("room rows show the GitHub profile and fall back to the host initial when it cannot load", () => {
+  const originalQuery = useQuery.getMockImplementation();
+  useQuery.mockImplementation(({ queryKey }) => ({
+    data: queryKey[1] === "mine" ? { roomId: null } : {
+      items: [{ id: 8, hostName: "크루", rule: "RENJU", hostAvatarUrl: "https://avatars.githubusercontent.com/u/1" }],
+      hasNext: false
+    },
+    isPending: false,
+    isError: false
+  }));
+  try {
+    render(<GomokuLobbyPage />);
+    const avatar = screen.getByRole("img", { name: "크루 프로필" });
+    expect(avatar).toHaveAttribute("src", "https://avatars.githubusercontent.com/u/1");
+    fireEvent.error(avatar);
+    expect(screen.queryByRole("img", { name: "크루 프로필" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("크루 프로필")).toHaveTextContent("크");
+    expect(screen.getByRole("button", { name: "참여하기" })).toBeEnabled();
   } finally {
     useQuery.mockImplementation(originalQuery);
   }

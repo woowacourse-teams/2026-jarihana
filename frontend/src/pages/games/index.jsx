@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import {
   Gamepad2,
-  Music2,
+  Clock3,
+  BookOpen,
   ArrowLeft,
   Copy,
   Users,
@@ -19,7 +20,8 @@ import { useGomokuRoom } from "../../features/gomoku/useGomokuRoom";
 import { Board } from "../../features/gomoku/Board";
 import { Stone } from "../../features/gomoku/Stone";
 import { ReadinessControls } from "../../features/gomoku/ReadinessControls";
-import { RulesContent } from "../../features/gomoku/RulesContent";
+import { RuleInfoTooltip } from "../../features/gomoku/RuleInfoTooltip";
+import { GameArtwork } from "./GameArtwork";
 import { Avatar, Button, ConfirmDialog, Modal, PageContainer, StatusBadge } from "../../shared/ui";
 import "./games.css";
 
@@ -54,18 +56,12 @@ function useMemberAction() {
 export function GamesPage() {
   return (
     <PageContainer>
-      <div className="games-page">
-        <GameHeading title="게임방">함께 즐길 게임을 골라보세요.</GameHeading>
+      <div className="games-page games-page--catalog">
+        <GameHeading title="게임방">잠깐 쉬었다, 한 판 어때요?</GameHeading>
         <div className="games-catalog">
           <article className="games-card games-card--playable">
-            <div className="games-card__visual" aria-hidden="true">
-              <div className="games-mini-board">
-                <Stone color="BLACK" />
-                <Stone color="WHITE" />
-                <Stone color="BLACK" />
-              </div>
-            </div>
-            <div>
+            <GameArtwork game="gomoku" priority className="games-card__visual" />
+            <div className="games-card__body">
               <h2>오목</h2>
               <p>친구와 함께하는 1:1 오목</p>
               <Link
@@ -78,14 +74,13 @@ export function GamesPage() {
             </div>
           </article>
           <article className="games-card games-card--soon" aria-label="리듬게임, 준비 중">
-            <div className="games-card__visual" aria-hidden="true">
-              <Music2 size={64} />
-            </div>
-            <div>
+            <GameArtwork game="rhythm" className="games-card__visual" />
+            <div className="games-card__body">
               <h2>리듬게임</h2>
               <p>새로운 게임을 준비하고 있어요.</p>
               <Button
                 className="games-card__cta"
+                block
                 disabled
                 data-ph-capture-attribute-action="rhythm_game_open"
               >
@@ -194,10 +189,13 @@ export function GomokuLobbyPage() {
   return (
     <PageContainer>
       <div className="games-page games-page--lobby">
-        <BackLink />
-        <div className="games-toolbar">
-          <h1>대기실</h1>
-        </div>
+        <header className="games-lobby-heading">
+          <div>
+            <BackLink />
+            <h1>대기실</h1>
+          </div>
+          <GameArtwork game="gomoku" priority className="games-lobby-heading__art" />
+        </header>
         <div className="games-lobby-controls">
           <form
             className="games-search"
@@ -300,8 +298,14 @@ export function GomokuLobbyPage() {
           <ul className="games-room-list">
             {rooms.data.items.map((room) => (
               <li key={room.id}>
+                <Avatar
+                  alt={`${room.hostName} 프로필`}
+                  className="games-room-avatar"
+                  fallback={room.hostName?.slice(0, 1) || "?"}
+                  size="md"
+                  src={room.hostAvatarUrl}
+                />
                 <div className="games-room-copy">
-                  <span className="games-eyebrow">{ruleName(room.rule)} / 공개</span>
                   <div className="games-room-title">
                     <h3>{room.hostName}님과의 자리</h3>
                     <StatusBadge tone="brand">상대 대기 중</StatusBadge>
@@ -311,10 +315,13 @@ export function GomokuLobbyPage() {
                     <span>
                       <span className="ui-sr-only">참가 인원 </span>1 / 2
                     </span>
+                    <span className="games-room-rule">{ruleName(room.rule)}</span>
                   </p>
                 </div>
                 <Button
                   variant="secondary"
+                  className="games-room-join"
+                  data-other-room={(mine.data?.roomId != null && mine.data.roomId !== room.id) || undefined}
                   pending={pending}
                   data-ph-capture-attribute-action="gomoku_room_join"
                   onClick={() => memberAction("/games/gomoku", () => join(room.id))}
@@ -361,8 +368,8 @@ export function GomokuLobbyPage() {
             <fieldset className="games-choice-group" disabled={pending}>
               <legend>공개 범위</legend>
               {[
-                { value: "PUBLIC", title: "공개", description: "누구나 참여" },
-                { value: "PRIVATE", title: "비공개", description: "링크로만 참여" }
+                { value: "PUBLIC", title: "공개", description: "누구나 참여 가능" },
+                { value: "PRIVATE", title: "비공개", description: "링크로만 참여 가능" }
               ].map((option) => (
                 <label key={option.value} className="games-choice games-choice--visibility">
                   {option.value === "PUBLIC" ? (
@@ -385,8 +392,13 @@ export function GomokuLobbyPage() {
                 </label>
               ))}
             </fieldset>
-            <fieldset className="games-choice-group" disabled={pending}>
-              <legend>대국 규칙</legend>
+            <fieldset className="games-choice-group" disabled={pending} aria-labelledby="gomoku-rule-label">
+              <legend>
+                <span className="games-rule-heading">
+                  <span id="gomoku-rule-label">대국 규칙</span>
+                  <RuleInfoTooltip />
+                </span>
+              </legend>
               {[
                 { value: "RENJU", title: "기본 규칙" },
                 { value: "FREESTYLE", title: "제한 없음" }
@@ -505,7 +517,6 @@ function GomokuRoom({ roomId }) {
   const [confirmation, setConfirmation] = useState(null);
   const [notice, setNotice] = useState("");
   const [inviteUrl, setInviteUrl] = useState("");
-  const [rulesOpen, setRulesOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const moveAttempt = useRef(null);
   useEffect(() => {
@@ -599,7 +610,11 @@ function GomokuRoom({ roomId }) {
           <div className="gomoku-room-toolbar">
             <ul className="gomoku-room-meta" aria-label="방 설정">
               <li>
-                <StatusBadge tone="brand">규칙: {ruleName(room.rule)}</StatusBadge>
+                <StatusBadge tone="brand">
+                  <BookOpen aria-hidden="true" />
+                  <span className="ui-sr-only">규칙: </span>
+                  {ruleName(room.rule)}
+                </StatusBadge>
               </li>
               <li>
                 <StatusBadge>
@@ -613,13 +628,6 @@ function GomokuRoom({ roomId }) {
               </li>
             </ul>
             <div className="gomoku-tools">
-              <Button
-                variant="secondary"
-                data-ph-capture-attribute-action="gomoku_rules_toggle"
-                onClick={() => setRulesOpen(true)}
-              >
-                규칙
-              </Button>
               {room.status === "WAITING" && (
                 <Button
                   variant="secondary"
@@ -659,7 +667,7 @@ function GomokuRoom({ roomId }) {
           </p>
         )}
         <InvitationLink notice={notice} url={inviteUrl} />
-        <section className="gomoku-arena" aria-label="오목 대국">
+        <section className={`gomoku-arena${waiting ? " gomoku-arena--waiting" : ""}`} aria-label="오목 대국">
           <ul className="gomoku-players">
             {[
               {
@@ -748,100 +756,85 @@ function GomokuRoom({ roomId }) {
                   className={`gomoku-clock${seconds <= 10 ? " gomoku-clock--urgent" : ""}`}
                   aria-label={`남은 시간 ${seconds}초`}
                 >
+                  <Clock3 size={16} aria-hidden="true" />
                   <strong>{seconds}</strong>
                   <span>초</span>
                 </div>
               )}
             </div>
           )}
-          <div className={`gomoku-table${covered ? " gomoku-table--covered" : ""}`}>
-            <div className="gomoku-board-surface" inert={covered || undefined}>
-              <Board
-                room={room}
-                selected={selectedEmpty ? selected : null}
-                onSelect={(position) => setSelected({ ...position, gameNumber: room.gameNumber })}
-                disabled={!canMove}
-              />
-            </div>
-            {covered && (
-              <div className="gomoku-result">
-                <div className="gomoku-result__content">
-                  {waiting ? (
-                    <h2 className="gomoku-preparation-title">대국 준비</h2>
-                  ) : (
-                    <div role="status">
-                      <h3
-                        className={`gomoku-result__title gomoku-result__title--${result.toLowerCase()}`}
-                        lang="en"
-                        aria-label={closed ? "종료된 방" : result}
-                      >
-                        {result.split("").map((letter, index) => (
-                          <span
-                            key={index}
-                            aria-hidden="true"
-                            className="gomoku-result__letter"
-                            style={{ "--letter-index": index }}
-                          >
-                            {letter}
-                          </span>
-                        ))}
-                      </h3>
-                    </div>
-                  )}
-                  {closed ? (
-                    <Button
-                      block
-                      data-ph-capture-attribute-action="gomoku_closed_lobby_open"
-                      onClick={() => navigate("/games/gomoku")}
-                    >
-                      대기실로
-                    </Button>
-                  ) : (
-                    <ReadinessControls
-                      room={room}
-                      isHost={isHost}
-                      myReady={myReady}
-                      locked={locked}
-                      pending={pending}
-                      onReady={toggleReady}
-                      onStart={startGame}
-                    />
-                  )}
-                </div>
+          <div className="gomoku-board-slot">
+            <div className={`gomoku-table${covered ? " gomoku-table--covered" : ""}`}>
+              <div className="gomoku-board-surface" inert={covered || undefined}>
+                <Board
+                  room={room}
+                  selected={selectedEmpty ? selected : null}
+                  onSelect={(position) => setSelected({ ...position, gameNumber: room.gameNumber })}
+                  disabled={!canMove}
+                />
               </div>
-            )}
+              {covered && (
+                <div className="gomoku-result">
+                  <div className="gomoku-result__content">
+                    {waiting ? (
+                      <h2 className="gomoku-preparation-title">대국 준비</h2>
+                    ) : (
+                      <div role="status">
+                        <h3
+                          className={`gomoku-result__title gomoku-result__title--${result.toLowerCase()}`}
+                          lang="en"
+                          aria-label={closed ? "종료된 방" : result}
+                        >
+                          {result.split("").map((letter, index) => (
+                            <span
+                              key={index}
+                              aria-hidden="true"
+                              className="gomoku-result__letter"
+                              style={{ "--letter-index": index }}
+                            >
+                              {letter}
+                            </span>
+                          ))}
+                        </h3>
+                      </div>
+                    )}
+                    {closed ? (
+                      <Button
+                        block
+                        data-ph-capture-attribute-action="gomoku_closed_lobby_open"
+                        onClick={() => navigate("/games/gomoku")}
+                      >
+                        대기실로
+                      </Button>
+                    ) : (
+                      <ReadinessControls
+                        room={room}
+                        isHost={isHost}
+                        myReady={myReady}
+                        locked={locked}
+                        pending={pending}
+                        onReady={toggleReady}
+                        onStart={startGame}
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           {room.status === "PLAYING" && (
             <footer className="gomoku-controls">
-              <>
-                <p>
-                  {myTurn
-                    ? selectedEmpty
-                      ? "선택한 자리에 돌을 놓을까요?"
-                      : "놓을 자리를 선택하세요"
-                    : "상대의 수를 기다려 주세요"}
-                </p>
-                <Button
-                  disabled={!canMove || !selectedEmpty}
-                  pending={pending}
-                  data-ph-capture-attribute-action="gomoku_move_confirm"
-                  onClick={() => void place()}
-                >
-                  자리하기
-                </Button>
-              </>
+              <Button
+                disabled={!canMove || !selectedEmpty}
+                pending={pending}
+                data-ph-capture-attribute-action="gomoku_move_confirm"
+                onClick={() => void place()}
+              >
+                자리하기
+              </Button>
             </footer>
           )}
         </section>
-        <Modal
-          open={rulesOpen}
-          onOpenChange={setRulesOpen}
-          title="오목 규칙"
-          panelClassName="gomoku-rules-dialog"
-          closeAction="gomoku_rules_dismiss"
-        >
-          <RulesContent rule={room.rule} />
-        </Modal>
         <ConfirmDialog
           open={Boolean(confirmation)}
           pending={pending}
