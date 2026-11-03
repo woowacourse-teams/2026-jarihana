@@ -42,12 +42,12 @@ const reply = { id: 'two', side: 'b', name: '코치', text: '시간이 아까워
 const noop = () => {};
 
 describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
-  let stage, container, arena, capsules, history, duel, clash, dispenser, reveals, now, nextFrame, media;
+  let stage, container, arena, capsules, history, duel, clash, dispenser, reveals, now, nextFrame, media, freshReplies;
   function advance(seconds) {
     for (let i = 0; i < seconds * 20; i++) { now += 50; const callback = nextFrame; nextFrame = null; callback?.(now); }
   }
   beforeEach(() => {
-    jest.clearAllMocks(); now = 0; nextFrame = null;
+    jest.clearAllMocks(); now = 0; nextFrame = null; freshReplies = new Map();
     whenCharacterAssetsReady.mockResolvedValue();
     jest.spyOn(performance, 'now').mockImplementation(() => now);
     jest.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => { nextFrame = callback; return 1; });
@@ -58,9 +58,9 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     global.IntersectionObserver = class { observe() {} disconnect() {} };
     stage = document.createElement('div'); container = document.createElement('div'); stage.append(container); document.body.append(stage);
     Object.defineProperties(container, { clientWidth: { value: 900 }, clientHeight: { value: 500 } });
-    capsules = { step: noop, takeCollision: () => null, replayPipe: jest.fn(() => null), controlState: () => ({ queuedId: null, drawReady: true }), stats: jest.fn(() => ({ queuedId: null, drawReady: true })), takeHistorical: jest.fn(() => ({ post: reply, fresh: false })), takeForDraw: jest.fn(), presentation: () => ({ tracking: ['flight'] }), launch: jest.fn(), queueReplay: jest.fn(), shockwave: jest.fn(), updateState: noop, setPaused: noop };
+    capsules = { step: noop, takeCollision: () => null, replayPipe: jest.fn(() => null), controlState: () => ({ queuedId: null, drawReady: true, freshReady: freshReplies.size > 0 }), stats: jest.fn(() => ({ queuedId: null, drawReady: true })), takeHistorical: jest.fn(() => { const next = freshReplies.values().next().value; if (next) { freshReplies.delete(next.id); return { post: next, fresh: true }; } return { post: reply, fresh: false }; }), takeForDraw: jest.fn(), presentation: () => ({ tracking: ['flight'] }), launch: jest.fn(), queueReplay: jest.fn((post, readyAt, fresh) => { if (fresh && readyAt === 0) freshReplies.set(post.id, post); }), settleReplays: jest.fn(() => freshReplies.clear()), shockwave: jest.fn(), updateState: noop, setPaused: noop };
     duel = { updateState: noop, prepare: jest.fn(() => [{ role: 0, post: original }, { role: 1, post: reply }]), emerge: jest.fn(), clear: jest.fn(), setLayout: jest.fn(), setPaused: noop, pinned: () => false, canReplace: () => true, step: noop, busy: () => false, needsFrame: () => false, stats: () => ({}), dispose: noop };
-    history = { canAccept: jest.fn(() => true), emerge: jest.fn(), leaveAll: jest.fn(), setLayout: jest.fn(), setPaused: noop, setVisible: jest.fn(), pinned: () => false, step: noop, needsFrame: () => false, stats: () => ({ historyArriving: 0 }), dispose: noop };
+    history = { canAccept: jest.fn(() => true), canReplace: jest.fn(() => true), emerge: jest.fn(), leaveAll: jest.fn(), setLayout: jest.fn(), setPaused: noop, setVisible: jest.fn(), pinned: () => false, step: noop, needsFrame: () => false, stats: () => ({ historyArriving: 0 }), dispose: noop };
     clash = { start: jest.fn(), busy: () => false, setCamera: jest.fn(), reposition: noop, step: jest.fn(), presentation: () => null, projectEffects: noop, needsFrame: () => false, stats: () => ({}), dispose: noop };
     dispenser = { setTrayWidth: jest.fn(), start: jest.fn(() => true), startPair: jest.fn(() => true), clearAll: jest.fn(), readyForNext: () => true, step: noop, presentation: () => null, outputs: () => [], stats: () => ({}) };
     reveals = { update: jest.fn(), spark: jest.fn(), dispose: noop };
@@ -140,14 +140,14 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     expect(capsules.replayPipe).toHaveBeenCalled();
     expect(JSON.parse(container.dataset.renderStats).replyQueued).toBe(0);
     expect(nextFrame).toEqual(expect.any(Function));
-    arena.launch({ ...reply, id: 'after-return' });
+    arena.launch({ ...reply, id: 'after-return' }); advance(.8);
     expect(clash.start).toHaveBeenCalledTimes(1);
   });
   it('화면을 떠나기 전에 밀린 받아치기도 복귀 후 연속 재생하지 않는다', () => {
     clash.busy = () => true;
     for (let i = 0; i < 20; i++) arena.launch({ ...reply, id: 'queued-' + i });
     advance(.1);
-    expect(JSON.parse(container.dataset.renderStats).replyQueued).toBe(20);
+    expect(freshReplies.size).toBe(20);
     const hidden = jest.spyOn(document, 'hidden', 'get').mockReturnValue(true);
     document.dispatchEvent(new Event('visibilitychange'));
     now += 600000;
@@ -300,14 +300,14 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     createClash.mock.calls[0][4].onImpactComplete({ post: reply, fresh: true });
     expect(history.leaveAll).toHaveBeenCalledTimes(1);
     expect(history.leaveAll).toHaveBeenCalledWith(false);
-    expect(capsules.queueReplay).toHaveBeenCalledTimes(1);
-    expect(capsules.queueReplay).toHaveBeenCalledWith(reply);
+    expect(capsules.queueReplay).toHaveBeenCalledTimes(2);
+    expect(capsules.queueReplay).toHaveBeenLastCalledWith(reply, 0, true);
     expect(duel.prepare).toHaveBeenCalledWith(reply, true, false);
     expect(dispenser.startPair).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ post: original, role: 0 }), expect.objectContaining({ post: reply, role: 1 })]), false);
     createDispenser.mock.calls[0][2].onOpened({ ...dispenser.startPair.mock.calls[0][0][1], body: { position: { x: 0, y: 0, z: 0 } } });
     expect(duel.emerge).toHaveBeenCalledWith(1, expect.any(Function), false); expect(history.emerge).not.toHaveBeenCalled();
   });
-  it('미끄럼틀과 대화가 진행 중이어도 즉시 전송하며 파이프 도착 시 한 번만 받아치기를 발사한다', () => {
+  it('즉시 전송하되 미끄럼틀과 읽기가 끝나야 받아치기를 한 번 재생한다', () => {
     let arrive;
     dispenser.readyForNext = () => false;
     duel.canReplace = () => false;
@@ -324,9 +324,13 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     expect(capsules.launch).not.toHaveBeenCalled();
     expect(capsules.replayPipe).toHaveBeenCalled();
     const feedBeforeClash = capsules.replayPipe.mock.calls.length;
-    arrive(); arrive();
-    clash.busy = () => true;
-    advance(0.5);
+    arrive(); arrive(); advance(.5);
+    expect(clash.start).not.toHaveBeenCalled();
+    dispenser.readyForNext = () => true; duel.canReplace = () => true; history.pinned = () => false;
+    history.canReplace.mockReturnValue(false); advance(.5);
+    expect(clash.start).not.toHaveBeenCalled();
+    history.canReplace.mockReturnValue(true); advance(.1);
+    clash.busy = () => true; advance(.5);
     expect(capsules.replayPipe.mock.calls.length).toBeGreaterThan(feedBeforeClash);
     expect(clash.start).toHaveBeenCalledTimes(1);
     expect(clash.start).toHaveBeenCalledWith(reply, true, false);
@@ -352,8 +356,8 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     arena = createArena(container, noop, noop);
     const old = Array.from({ length: 100 }, (_, i) => ({ ...original, id: 'old-' + i }));
     const balance = { a: 1, b: 1, total: 2, ratio: 0.5 };
-    arena.updateState(old, balance); advance(0.1);
-    arena.updateState([...old, original], balance);
+    arena.updateState([], balance, { page: 1, posts: old }); advance(0.1);
+    arena.updateState([original], balance);
     let arrive;
     arena.launch(original, done => { arrive = done; });
     const liveOutputs = () => dispenser.start.mock.calls.filter(([entry]) => entry.post.id === original.id);
@@ -390,7 +394,7 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     expect(transport).toHaveBeenCalledTimes(1);
     await expect(delivered).resolves.toBeUndefined();
   });
-  it('연속 받아치기는 호스 이동을 즉시 시작하고 이전 충돌만 끝나면 발사한다', () => {
+  it('연속 받아치기의 호스 이동은 즉시 시작하고 이전 대화가 끝난 뒤 순서대로 재생한다', () => {
     let busy = true;
     clash.busy = () => busy;
     duel.canReplace = () => false;
@@ -404,10 +408,12 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     arrivals[0](); arrivals[1]();
     expect(clash.start).not.toHaveBeenCalled();
     clash.start.mockImplementation(() => { busy = true; });
-    busy = false; advance(0.1);
+    busy = false; advance(.8);
+    expect(clash.start).not.toHaveBeenCalled();
+    duel.canReplace = () => true; dispenser.readyForNext = () => true; advance(.1);
     expect(clash.start).toHaveBeenCalledTimes(1);
     expect(clash.start).toHaveBeenLastCalledWith(reply, true, false);
-    busy = false; advance(0.1);
+    busy = false; advance(.8);
     expect(clash.start).toHaveBeenCalledTimes(2);
     expect(clash.start).toHaveBeenLastCalledWith(next, true, false);
   });
@@ -440,6 +446,23 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     advance(0.1);
     expect(capsules.takeHistorical).toHaveBeenCalledTimes(1);
     expect(dispenser.start).toHaveBeenCalledTimes(1);
+  });
+
+  it('실제 재생 큐에서 연속 받아치기 두 번마다 과거 한 번을 넣고 새 글이 끝나면 과거를 이어간다', () => {
+    arena.dispose(); stage.replaceChildren(container);
+    createCapsules.mockImplementation(jest.requireActual('../../public/sparring-arena/src/capsules.js').createCapsules);
+    arena = createArena(container, noop, noop);
+    const order = [];
+    dispenser.start.mockImplementation(entry => { order.push(entry.post.id); return true; });
+    clash.start.mockImplementation(post => { order.push(post.id); });
+    const older = Array.from({ length: 6 }, (_, i) => ({ ...original, id: String(i + 1) }));
+    arena.updateState([], { a: 1, b: 1, total: 2, ratio: .5 }, { page: 1, posts: older });
+    advance(2);
+    for (const id of ['101', '102', '103']) arena.launch({ ...reply, id });
+    advance(2.4);
+    expect(order.slice(0, 5)).toEqual(['1', '101', '102', '2', '103']);
+    advance(4);
+    expect(order.slice(5)).toEqual(['3', '4']);
   });
 
 });
