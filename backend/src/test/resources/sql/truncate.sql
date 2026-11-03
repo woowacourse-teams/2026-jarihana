@@ -1,4 +1,6 @@
 TRUNCATE TABLE
+    minigame_cut,
+    minigame_run,
     worker_authority,
     invitation_acceptance,
     invitation,

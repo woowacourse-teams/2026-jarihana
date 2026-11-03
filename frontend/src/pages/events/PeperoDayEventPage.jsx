@@ -1,0 +1,284 @@
+import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router";
+
+import { storeReturnTarget, useAuth } from "../../features/auth";
+import {
+  PEPERO_DAY_PATH,
+  createRankedAdapter,
+  parseServiceTime,
+  peperoDayKeys,
+  usePeperoDayRankings,
+  usePeperoDayStatus
+} from "../../features/pepero-day";
+import { ROUNDS, StickHalvingGame, createPracticeAdapter, formatPercent } from "../../features/stick-halving";
+import { Button, EmptyState, ErrorState, PageContainer, PageHeader, SectionHeader, Skeleton, useToast } from "../../shared/ui";
+import "./pepero-day.css";
+
+const RANKED_ERRORS = {
+  MINIGAME_ATTEMPT_LIMIT_EXCEEDED: "오늘 순위 도전을 모두 했어요. 내일 다시 도전해 주세요.",
+  MINIGAME_EVENT_NOT_OPEN: "지금은 이벤트 기간이 아니에요.",
+  MINIGAME_ROUND_CONFLICT: "이미 자른 막대예요. 새로 시작해 주세요.",
+  MINIGAME_RUN_NOT_FOUND: "도전 기록을 찾을 수 없어요. 새로 시작해 주세요.",
+  UNAUTHENTICATED: "로그인이 풀렸어요. 다시 로그인한 뒤 도전해 주세요."
+};
+
+function formatServiceDateTime(value) {
+  const [date, time] = value.split("T");
+  const [, month, day] = date.split("-").map(Number);
+  return `${month}월 ${day}일 ${time.slice(0, 5)}`;
+}
+
+function formatRemaining(milliseconds) {
+  const total = Math.max(0, Math.floor(milliseconds / 1000));
+  const days = Math.floor(total / 86_400);
+  const hours = String(Math.floor((total % 86_400) / 3600)).padStart(2, "0");
+  const minutes = String(Math.floor((total % 3600) / 60)).padStart(2, "0");
+  const seconds = String(total % 60).padStart(2, "0");
+  return `${days ? `${days}일 ` : ""}${hours}:${minutes}:${seconds}`;
+}
+
+function formatDuration(milliseconds) {
+  return `${(milliseconds / 1000).toFixed(1)}초`;
+}
+
+function resultText(summary) {
+  return [`공평하게 반띵 ${summary.totalScore.toLocaleString("ko-KR")}점 (5,000점 만점)`]
+    .concat(summary.rows.map((row) => `${row.name}: 오차 ${formatPercent(row.errorRate)}, ${row.score.toLocaleString("ko-KR")}점`))
+    .join("\n");
+}
+
+function Countdown({ event }) {
+  const queryClient = useQueryClient();
+  const [offset] = useState(() => parseServiceTime(event.serverTime) - Date.now());
+  const [now, setNow] = useState(() => Date.now() + offset);
+  const opensAt = parseServiceTime(event.opensAt);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now() + offset), 1000);
+    return () => clearInterval(timer);
+  }, [offset]);
+
+  useEffect(() => {
+    if (now < opensAt) return;
+    void queryClient.invalidateQueries({ queryKey: peperoDayKeys.all });
+  }, [now, opensAt, queryClient]);
+
+  return (
+    <section className="pepero-day__card pepero-day__countdown" aria-live="polite">
+      <p className="pepero-day__countdown-label">{formatServiceDateTime(event.opensAt)}에 열려요</p>
+      <p className="pepero-day__countdown-time">{formatRemaining(opensAt - now)}</p>
+    </section>
+  );
+}
+
+function Ranking() {
+  const rankings = usePeperoDayRankings();
+
+  if (rankings.isPending) return <Skeleton aria-label="순위를 불러오는 중" className="pepero-day__ranking-loading" />;
+  if (rankings.isError) {
+    return (
+      <ErrorState
+        action={<Button onClick={() => rankings.refetch()} variant="secondary">다시 불러오기</Button>}
+        title="순위를 불러오지 못했어요"
+      />
+    );
+  }
+  const { items, me } = rankings.data;
+  return (
+    <section aria-label="순위" className="pepero-day__card pepero-day__ranking">
+      <SectionHeader description="회원마다 가장 좋은 판 하나로 매겨요. 점수가 같으면 더 빨리 자른 기록이 위예요." title="순위" />
+      {me ? (
+        <p className="pepero-day__me">
+          내 순위 <strong>{me.rank}위</strong>, {me.totalScore.toLocaleString("ko-KR")}점
+        </p>
+      ) : null}
+      {items.length ? (
+        <ol className="pepero-day__ranking-list">
+          {items.map((item) => (
+            <li className={me && item.rank === me.rank ? "pepero-day__ranking-item--me" : undefined} key={item.rank}>
+              <span className="pepero-day__rank">{item.rank}</span>
+              <span className="pepero-day__nickname">{item.nickname}</span>
+              <span className="pepero-day__score">{item.totalScore.toLocaleString("ko-KR")}점</span>
+              <span className="pepero-day__duration">{formatDuration(item.totalDurationMillis)}</span>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <EmptyState description="순위 도전을 끝내면 여기에 이름이 올라가요." title="아직 순위에 오른 기록이 없어요" />
+      )}
+    </section>
+  );
+}
+
+function ModeChooser({ event, onStart }) {
+  const auth = useAuth();
+  const remaining = event.remainingAttempts;
+
+  let rankedAction;
+  if (auth.status === "authenticated") {
+    rankedAction = (
+      <Button
+        data-ph-capture-attribute-action="pepero_ranked_start"
+        disabled={remaining === 0}
+        onClick={() => onStart("ranked")}
+      >
+        순위 도전 시작
+      </Button>
+    );
+  } else if (auth.status === "signup-required") {
+    rankedAction = (
+      <Link className="ui-button ui-button--primary ui-button--md" data-ph-capture-attribute-action="signup_continue" to="/signup">
+        가입 계속하기
+      </Link>
+    );
+  } else {
+    rankedAction = (
+      <Button
+        data-ph-capture-attribute-action="pepero_ranked_login"
+        disabled={auth.status === "loading"}
+        onClick={() => {
+          storeReturnTarget(PEPERO_DAY_PATH);
+          auth.login();
+        }}
+      >
+        GitHub로 로그인하고 도전하기
+      </Button>
+    );
+  }
+
+  return (
+    <div className="pepero-day__modes">
+      <section className="pepero-day__card pepero-day__mode">
+        <h2>연습하기</h2>
+        <p>로그인 없이 몇 번이든 할 수 있어요. 기록은 순위에 오르지 않아요.</p>
+        <Button data-ph-capture-attribute-action="pepero_practice_start" onClick={() => onStart("practice")} variant="secondary">
+          연습 시작
+        </Button>
+      </section>
+      <section className="pepero-day__card pepero-day__mode pepero-day__mode--ranked">
+        <h2>순위 도전</h2>
+        <p>
+          하루 {event.dailyAttemptLimit}번까지 도전할 수 있고, 가장 좋은 기록으로 순위를 매겨요. 시작하면 도전 횟수가 1번 줄어요.
+        </p>
+        {remaining === null ? null : (
+          <p className="pepero-day__remaining">오늘 남은 도전 <strong>{remaining}번</strong></p>
+        )}
+        {rankedAction}
+      </section>
+    </div>
+  );
+}
+
+function OpenEvent({ closed, event, game, setGame }) {
+  const queryClient = useQueryClient();
+  const { danger, success } = useToast();
+
+  // 새 판을 시작할 때마다 새 연결부를 만든다. 순위 도전은 시작하면 남은 횟수가 바뀌므로 상태를 다시 받는다.
+  function start(mode) {
+    const adapter = mode === "ranked"
+      ? createRankedAdapter({ onStarted: () => void queryClient.invalidateQueries({ queryKey: peperoDayKeys.all }) })
+      : createPracticeAdapter();
+    setGame((previous) => ({ adapter, key: (previous?.key ?? 0) + 1, mode }));
+  }
+
+  async function copy(summary) {
+    try {
+      await navigator.clipboard.writeText(resultText(summary));
+      success({ title: "결과를 복사했어요." });
+    } catch {
+      danger({ title: "복사하지 못했어요. 결과 표를 직접 옮겨 주세요." });
+    }
+  }
+
+  if (!game) return closed ? null : <ModeChooser event={event} onStart={start} />;
+
+  const ranked = game.mode === "ranked";
+  return (
+    <section className="pepero-day__card pepero-day__game">
+      <p className="pepero-day__game-mode">{ranked ? "순위 도전" : "연습"}</p>
+      <StickHalvingGame
+        adapter={game.adapter}
+        errorMessage={(error) => (ranked ? RANKED_ERRORS[error?.code] : null) ?? "잠시 뒤 다시 시도해 주세요."}
+        finalActions={(summary) => (
+          <>
+            <Button data-ph-capture-attribute-action="pepero_mode_choose" onClick={() => setGame(null)} variant="secondary">
+              {closed ? "닫기" : "모드 고르기"}
+            </Button>
+            {summary.rows.length === ROUNDS.length ? (
+              <Button data-ph-capture-attribute-action="pepero_result_copy" onClick={() => copy(summary)} variant="secondary">
+                결과 복사
+              </Button>
+            ) : null}
+            {ranked || closed ? null : (
+              <Button data-ph-capture-attribute-action="pepero_practice_start" onClick={() => start("practice")}>
+                새 막대로 다시 하기
+              </Button>
+            )}
+          </>
+        )}
+        key={game.key}
+        onFinish={() => {
+          if (ranked) void queryClient.invalidateQueries({ queryKey: peperoDayKeys.all });
+        }}
+      />
+    </section>
+  );
+}
+
+// 빼빼로데이 반 나누기 이벤트 화면이다. 서버가 알려 주는 진행 상태에 따라 여는 시각 전에는
+// 남은 시간을, 진행 중에는 게임을, 끝난 뒤에는 최종 순위를 보여 준다.
+export function PeperoDayEventPage() {
+  const status = usePeperoDayStatus();
+  // 하던 판은 페이지가 들고 있어서, 이벤트가 닫혀도 화면에서 사라지지 않고 끝까지 할 수 있다.
+  const [game, setGame] = useState(null);
+
+  if (status.isPending) {
+    return (
+      <PageContainer className="pepero-day">
+        <Skeleton aria-label="이벤트를 불러오는 중" className="pepero-day__loading" />
+      </PageContainer>
+    );
+  }
+
+  if (status.isError) {
+    return (
+      <PageContainer className="pepero-day">
+        <ErrorState
+          action={<Button onClick={() => status.refetch()} variant="secondary">다시 불러오기</Button>}
+          title="이벤트를 불러오지 못했어요"
+        />
+      </PageContainer>
+    );
+  }
+
+  const event = status.data;
+  const closed = event.status === "CLOSED";
+  return (
+    <PageContainer className="pepero-day">
+      <PageHeader
+        description="무게표와 눈금을 보고 막대과자를 정확히 같은 무게로 잘라 보세요. 초코와 아몬드가 붙은 곳이 더 무거워서, 정답은 막대의 가운데가 아니에요."
+        eyebrow="11월 11일 막대과자 데이 이벤트"
+        title="공평하게 반띵"
+      />
+      <p className="pepero-day__period">
+        {formatServiceDateTime(event.opensAt)} ~ {formatServiceDateTime(event.closesAt)}. 기간 중 순위 도전 고득점자에게 빼빼로 세트를 드려요.
+      </p>
+      {event.status === "UPCOMING" ? <Countdown event={event} /> : null}
+      {closed ? (
+        <section className="pepero-day__card pepero-day__closed">
+          <h2>이벤트가 끝났어요</h2>
+          <p>
+            {game
+              ? "하던 판은 끝까지 할 수 있어요. 순위 도전 판은 끝내면 순위에 들어가요."
+              : "참여해 주셔서 고마워요. 이 게임은 곧 게임방에서 다시 할 수 있어요."}
+          </p>
+        </section>
+      ) : null}
+      {event.status === "OPEN" || (closed && game) ? (
+        <OpenEvent closed={closed} event={event} game={game} setGame={setGame} />
+      ) : null}
+      {event.status === "UPCOMING" ? null : <Ranking />}
+    </PageContainer>
+  );
+}

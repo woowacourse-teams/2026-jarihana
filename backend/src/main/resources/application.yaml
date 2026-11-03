@@ -48,6 +48,12 @@ sentry:
   enable-tracing: false
 
 jarihana:
+  minigame:
+    pepero-day:
+      opens-at: 2026-11-11T00:00:00
+      closes-at: 2026-11-12T10:00:00
+      always-open: false
+      daily-attempt-limit: 3
   invitation:
     token:
       active-key-id: ${INVITATION_TOKEN_ACTIVE_KEY_ID:primary}

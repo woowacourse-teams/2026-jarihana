@@ -7,6 +7,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { MessageCircle, UserRound } from "lucide-react";
 
 import { storeReturnTarget, useAuth } from "../features/auth";
+import { PEPERO_DAY_PATH, usePeperoDayStatus } from "../features/pepero-day";
 import {
   FeedbackForm,
   FeedbackLoginPrompt,
@@ -60,6 +61,15 @@ const SPARRING_LINK = {
   to: "/sparring"
 };
 
+// 빼빼로데이 이벤트 진입점이다. 서버가 이벤트를 진행 중(OPEN)이라고 할 때만 보인다.
+const PEPERO_DAY_LINK = {
+  action: "pepero_day_view",
+  isActive: (pathname) => pathname === PEPERO_DAY_PATH,
+  label: "반띵 게임",
+  requiresAuth: false,
+  to: PEPERO_DAY_PATH
+};
+
 const MEMBER_LINKS = [
   HOME_LINK,
   EXPLORE_LINK,
@@ -76,6 +86,13 @@ const MEMBER_LINKS = [
 ];
 
 const DESKTOP_MEMBER_LINKS = [HOME_LINK, EXPLORE_LINK, ACTIVITY_LINK, BOARD_LINK, SPARRING_LINK];
+
+function withEventLink(links, eventOpen) {
+  if (!eventOpen) return links;
+  const createIndex = links.findIndex((link) => link.requiresAuth);
+  if (createIndex < 0) return [...links, PEPERO_DAY_LINK];
+  return [...links.slice(0, createIndex), PEPERO_DAY_LINK, ...links.slice(createIndex)];
+}
 
 function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, status }) {
   const { pathname } = useLocation();
@@ -213,7 +230,10 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
     ?? `${generationLabel(member?.generation)}${member?.course ? ` / ${COURSE_LABELS[member.course]}` : ""}`;
   const { hash, pathname, search } = useLocation();
   const chatUnread = useChatUnreadCount();
-  const activeMenuIndex = DESKTOP_MEMBER_LINKS.findIndex((link) => link.isActive(pathname));
+  const eventOpen = usePeperoDayStatus().data?.status === "OPEN";
+  const desktopLinks = withEventLink(DESKTOP_MEMBER_LINKS, eventOpen);
+  const mobileLinks = withEventLink(MEMBER_LINKS, eventOpen);
+  const activeMenuIndex = desktopLinks.findIndex((link) => link.isActive(pathname));
   const navigate = useNavigate();
   const { success } = useToast();
   const [isMenuOpen, setMenuOpen] = useState(false);
@@ -312,11 +332,11 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
             data-active={activeMenuIndex >= 0}
             style={{
               "--header-active-index": Math.max(0, activeMenuIndex),
-              "--header-nav-item-count": DESKTOP_MEMBER_LINKS.length + 1
+              "--header-nav-item-count": desktopLinks.length + 1
             }}
           >
             <HeaderLinks
-              links={DESKTOP_MEMBER_LINKS}
+              links={desktopLinks}
               onNavigate={() => {}}
               onProtectedNavigate={redirectToLogin}
               status={status}
@@ -456,6 +476,7 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
           <div className="app-header__mobile-links">
             <h3 className="app-header__mobile-section-title">메뉴</h3>
             <HeaderLinks
+              links={mobileLinks}
               onNavigate={closeMenu}
               onProtectedNavigate={redirectToLogin}
               status={status}

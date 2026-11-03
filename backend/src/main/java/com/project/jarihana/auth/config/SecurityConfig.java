@@ -42,6 +42,8 @@ public class SecurityConfig {
             "/proposals",
             "/proposals/*",
             "/proposals/*/comments",
+            "/events/pepero-day",
+            "/events/pepero-day/rankings",
             "/images/**",
             "/share/groups/*",
             "/invitations/links/*",
