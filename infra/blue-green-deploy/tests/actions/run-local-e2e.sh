@@ -38,6 +38,8 @@ RUN=100 MODE=bootstrap DIGEST=$IMAGE_A SAMPLER=
 mkdir -p "$DIR"/{state,nginx/generations,etc,bin,app-A,app-B,receipts,logs}
 chmod 700 "$DIR" "$DIR"/{state,nginx,nginx/generations,etc,bin,app-A,app-B,receipts,logs}
 printf '0\n' > "$DIR/clock"; printf '%s\n' "$TOKEN" > "$DIR/etc/worker-token"
+read -r fixture_uptime_anchor _ < /proc/uptime
+printf '%s %s\n' "$(date +%s)" "${fixture_uptime_anchor%%.*}" > "$DIR/clock-anchor"
 printf 'fixture\n' > "$DIR/etc/grant-key"; printf 'fixture\n' > "$DIR/etc/known-hosts"
 chmod 600 "$DIR/etc/"*
 printf 'setup\n' > "$DIR/scenario"
@@ -211,11 +213,7 @@ sample() {
     sleep 0.1
   done
 }
-if [[ $BG_E2E_USER_TRAFFIC == true ]]; then
-  sample & SAMPLER=$!
-else
-  : > "$DIR/http-samples.log"
-fi
+: > "$DIR/http-samples.log"
 idle_metrics() {
   [[ $BG_E2E_USER_TRAFFIC == false ]] || return 0
   local name=$1 attempt ready=false
@@ -243,6 +241,10 @@ coor plan bootstrap-plan
 app bootstrap A bootstrap-app
 APP_RESULT=$(receipt bootstrap-app); coor finish-bootstrap bootstrap-finish
 phase COMPLETE; idle_metrics bootstrap; record bootstrap
+# Bootstrap requires no active HTTP work; begin user traffic after fixture registration.
+if [[ $BG_E2E_USER_TRAFFIC == true ]]; then
+  sample & SAMPLER=$!
+fi
 
 prepare_switch() {
   local name=$1 old target actual_ip expected_ip
