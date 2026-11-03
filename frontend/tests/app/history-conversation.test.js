@@ -1,3 +1,4 @@
+import { PACKED_SCALE } from '../../public/sparring-arena/src/history-walk.js';
 import { createHistoryConversation } from '../../public/sparring-arena/src/history-conversation.js';
 const post = (id, side = 'a') => ({ id, side, name: '크루 ' + id, text: '의견 ' + id, memberType: 'CREW' });
 describe('지난 메시지 캐릭터 모임', () => {
@@ -12,6 +13,21 @@ describe('지난 메시지 캐릭터 모임', () => {
     history.setLayout({ left: { x: 180, y: 300 }, right: { x: 620, y: 300 }, worldLeft: { x: -4.4, y: -6.3, z: 10.1 }, worldRight: { x: 4.4, y: -6.3, z: 10.1 }, width: 800 });
   });
   afterEach(() => { history.dispose(); stage.remove(); });
+  it('크기 전환은 보이던 대화와 발 위치를 유지하고 말풍선을 머리 높이에 맞춘 뒤 원복한다', () => {
+    add('a1');
+    const speech = bubble('a'), beforeTop = speech.style.top, ids = history.stats().historyPostIds;
+    const layout = { left: { x: 180, y: 300 }, right: { x: 620, y: 300 }, worldLeft: { x: -4.4, y: -6.3, z: 10.1 }, worldRight: { x: 4.4, y: -6.3, z: 10.1 }, width: 800 };
+    const feet = { ...visuals.draw.mock.lastCall[2] };
+    history.setLayout({ ...layout, characterScale: PACKED_SCALE });
+    expect(visuals.draw.mock.lastCall[4].scale).toBe(PACKED_SCALE);
+    expect(visuals.draw.mock.lastCall[2]).toEqual(feet);
+    expect(parseFloat(speech.style.top)).toBeGreaterThan(parseFloat(beforeTop));
+    expect(history.stats().historyPostIds).toEqual(ids);
+    history.setLayout(layout);
+    expect(visuals.draw.mock.lastCall[4].scale).toBe(0.65);
+    expect(speech.style.top).toBe(beforeTop);
+    speech.click(); expect(select).toHaveBeenCalledWith('a1');
+  });
   it('개봉 위치에서 출발하고 자기 편에 도착한 뒤 말풍선을 보여준다', () => {
     history.emerge(post('1'), { x: 0, y: -6, z: 9 });
     const figure = stage.querySelector('.history-character[data-post-id="1"]');

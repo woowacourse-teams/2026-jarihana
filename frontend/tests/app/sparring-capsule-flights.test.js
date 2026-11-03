@@ -96,3 +96,12 @@ it('투표가 없으면 발사하지 않고 첫 투표가 도착하면 대화 �
   capsules.updateState([post], { a: 0, b: 0, total: 0, ratio: 0.5 });
   expect(capsules.replayPipe()).toBeNull();
 });
+
+
+it('새 메시지 8개의 파이프 말풍선을 4개로 자르지 않고 모두 추적한다', () => {
+  const capsules = createCapsules({}, jest.fn(), jest.fn());
+  const items = Array.from({ length: 8 }, (_, i) => ({ ...post, id: String(i + 1) }));
+  capsules.updateState(items, { a: 1, b: 1, total: 2, ratio: 0.5 });
+  for (const item of items) capsules.launch(item);
+  expect(capsules.presentation().tracking.map(entry => entry.post.id).sort()).toEqual(items.map(item => item.id));
+});

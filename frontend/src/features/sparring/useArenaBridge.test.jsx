@@ -34,10 +34,18 @@ const post = {
 };
 class Stream {
   static instances = [];
+  static autoSnapshot = true;
   constructor() {
     this.listeners = {};
     this.close = jest.fn();
     Stream.instances.push(this);
+    if (Stream.autoSnapshot) queueMicrotask(() => {
+      this.onopen?.();
+      this.emit("snapshot", streamData());
+    });
+  }
+  emit(kind, data) {
+    this.listeners[kind]?.({ data: JSON.stringify(data) });
   }
   addEventListener(kind, listener) {
     this.listeners[kind] = listener;
@@ -48,6 +56,7 @@ const member = { id: 1 },
 beforeEach(() => {
   jest.clearAllMocks();
   Stream.instances = [];
+  Stream.autoSnapshot = true;
   global.EventSource = Stream;
   getSparring.mockResolvedValue(topic);
   getSparringPosts.mockResolvedValue({ items: [], nextCursor: null, hasNext: false });
@@ -72,6 +81,121 @@ function setup() {
     );
   return { ...hook, target, receive };
 }
+
+const streamData = (posts = [], revision = 1, counts = {}) => ({
+  revision, votesA: 1, votesB: 0, postCount: posts.length, posts, ...counts
+});
+const snapshots = target => target.postMessage.mock.calls.map(([message]) => message).filter(message => message.kind === "snapshot");
+
+it.each([false, true])("ignores the removed history command (mine=%s) without reading or writing posts", async mine => {
+  const { receive, target, result } = setup();
+  receive({ kind: "ready" });
+  await waitFor(() => expect(result.current.loaded).toBe(true));
+  getSparring.mockClear(); getSparringPosts.mockClear(); target.postMessage.mockClear();
+  receive({ kind: "command", action: "history", requestId: "old-history", payload: { mine, reset: true } });
+  await act(async () => {});
+  expect(getSparring).not.toHaveBeenCalled();
+  expect(getSparringPosts).not.toHaveBeenCalled();
+  expect(postSparring).not.toHaveBeenCalled();
+  expect(voteSparring).not.toHaveBeenCalled();
+  expect(target.postMessage).not.toHaveBeenCalled();
+});
+
+describe("SSE message delivery", () => {
+  let hidden;
+  function visibility(value) {
+    hidden = value;
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+  }
+  beforeEach(() => {
+    hidden = false;
+    jest.spyOn(document, "hidden", "get").mockImplementation(() => hidden);
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it("accepts all 1000 streamed posts, keeps the latest 30 and forwards every new post for launch without HTTP reads", async () => {
+    const { receive, target, result } = setup();
+    receive({ kind: "ready" });
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    getSparring.mockClear(); getSparringPosts.mockClear();
+    const items = Array.from({ length: 1000 }, (_, i) => ({ ...post, id: i + 1, authorId: 2 }));
+    act(() => Stream.instances.at(-1).emit("update", streamData(items, 1001)));
+    const latest = snapshots(target).at(-1);
+    expect(latest.state.posts.map(item => item.id)).toEqual(items.slice(-30).map(item => String(item.id)));
+    expect(latest.fresh).toEqual(items.map(item => String(item.id)));
+    expect(latest.livePosts.map(item => item.id)).toEqual(items.map(item => String(item.id)));
+    expect(latest.state.postCount).toBe(1000);
+    expect(getSparring).not.toHaveBeenCalled();
+    expect(getSparringPosts).not.toHaveBeenCalled();
+    act(() => Stream.instances.at(-1).emit("update", streamData([{ ...post, id: 1001, authorId: 2 }], 1002)));
+    expect(snapshots(target).at(-1).fresh).toEqual(["1001"]);
+    expect(snapshots(target).at(-1).state.posts).toHaveLength(30);
+  });
+
+  it("replaces replay on reconnect without replaying missed launches or calling REST", async () => {
+    const { receive, target, result } = setup();
+    receive({ kind: "ready" });
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    const stream = Stream.instances.at(-1);
+    act(() => stream.emit("update", streamData([post], 2)));
+    getSparring.mockClear(); getSparringPosts.mockClear();
+    act(() => { stream.onerror(); stream.onopen(); });
+    const recent = Array.from({ length: 30 }, (_, i) => ({ ...post, id: i + 971 }));
+    act(() => stream.emit("snapshot", streamData(recent, 1001)));
+    expect(snapshots(target).at(-1).state.posts.map(item => item.id)).toEqual(recent.map(item => String(item.id)));
+    expect(snapshots(target).at(-1).fresh).toEqual([]);
+    expect(getSparring).not.toHaveBeenCalled();
+    expect(getSparringPosts).not.toHaveBeenCalled();
+  });
+
+  it("updates replay while hidden and resumes without missed effects or catch-up requests", async () => {
+    const { receive, target, result } = setup();
+    receive({ kind: "ready" });
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    target.postMessage.mockClear(); getSparring.mockClear();
+    visibility(true);
+    act(() => Stream.instances.at(-1).emit("update", streamData([{ ...post, authorId: 2 }], 2)));
+    expect(snapshots(target)).toHaveLength(0);
+    visibility(false);
+    expect(snapshots(target).at(-1).state.posts).toHaveLength(1);
+    expect(snapshots(target).at(-1).fresh).toEqual([]);
+    act(() => Stream.instances.at(-1).emit("update", streamData([{ ...post, id: 2, authorId: 2 }], 3)));
+    expect(snapshots(target).at(-1).fresh).toEqual(["2"]);
+    expect(getSparring).not.toHaveBeenCalled();
+    expect(getSparringPosts).not.toHaveBeenCalled();
+  });
+
+  it("applies vote-only counts without losing personal state or replaying duplicate/stale updates", async () => {
+    const { receive, target, result } = setup();
+    receive({ kind: "ready" });
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    const stream = Stream.instances.at(-1);
+    act(() => stream.emit("update", streamData([post], 2)));
+    act(() => stream.emit("update", streamData([], 3, { votesA: 2, postCount: 1 })));
+    expect(snapshots(target).at(-1)).toMatchObject({ fresh: [], state: { mySide: "a", balance: { a: 2 }, posts: [{ id: "1" }] } });
+    const count = snapshots(target).length;
+    act(() => stream.emit("update", streamData([post], 2)));
+    act(() => stream.emit("update", streamData([], 3)));
+    expect(snapshots(target)).toHaveLength(count);
+  });
+
+  it("reconnects on invalid event data and ignores old-stream callbacks and post-unmount events", async () => {
+    const { receive, target, result, unmount } = setup();
+    receive({ kind: "ready" });
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    const old = Stream.instances.at(-1);
+    await act(async () => old.emit("update", { revision: 2, posts: [{ id: 2 }] }));
+    expect(old.close).toHaveBeenCalled();
+    expect(Stream.instances).toHaveLength(2);
+    target.postMessage.mockClear();
+    act(() => old.emit("update", streamData([post], 3)));
+    expect(target.postMessage).not.toHaveBeenCalled();
+    const current = Stream.instances.at(-1);
+    unmount();
+    act(() => current.emit("update", streamData([post], 4)));
+    expect(target.postMessage).not.toHaveBeenCalled();
+  });
+});
 it("sends the available height and remeasures the shared content width on resize", () => {
   const { receive, target, result, unmount } = setup();
   let contentWidth = 1358;
@@ -121,7 +245,7 @@ it("remeasures space after the arena reports its height", async () => {
 it("rejects foreign origins, validates payloads and closes the stream on unmount", async () => {
   const { receive, target, unmount } = setup();
   receive({ kind: "ready" }, "https://untrusted.example");
-  expect(Stream.instances).toHaveLength(0);
+  expect(Stream.instances).toHaveLength(1);
   expect(target.postMessage).not.toHaveBeenCalled();
   receive({ kind: "ready" });
   await waitFor(() =>
@@ -137,39 +261,33 @@ it("rejects foreign origins, validates payloads and closes the stream on unmount
   expect(stream.close).toHaveBeenCalled();
 });
 
-it("starts both initial requests before iframe readiness and delivers buffered data on handshake", async () => {
-  let finishTopic, finishPosts;
+it("buffers an SSE snapshot and newer counts while the initial personal summary is still loading", async () => {
+  let finishTopic;
   getSparring.mockImplementationOnce(() => new Promise(resolve => { finishTopic = resolve; }));
-  getSparringPosts.mockImplementationOnce(() => new Promise(resolve => { finishPosts = resolve; }));
   const { result, target, receive } = setup();
-  expect(getSparring).toHaveBeenCalledWith("1");
-  expect(getSparringPosts).toHaveBeenCalledWith("1", { size: 30 });
-  await act(async () => finishPosts({ items: [post], nextCursor: "older", hasNext: true }));
+  await act(async () => {});
+  act(() => Stream.instances.at(-1).emit("update", streamData([post], 3, { votesA: 3 })));
   expect(result.current.loaded).toBe(false);
   await act(async () => finishTopic(topic));
   expect(result.current.loaded).toBe(true);
-  expect(result.current.sceneReady).toBe(false);
-  expect(target.postMessage).not.toHaveBeenCalled();
+  expect(getSparringPosts).not.toHaveBeenCalled();
+  expect(snapshots(target)).toHaveLength(0);
   receive({ kind: "ready" });
-  expect(target.postMessage).toHaveBeenCalledWith(expect.objectContaining({
-    kind: "snapshot",
-    state: expect.objectContaining({ posts: [expect.objectContaining({ id: "1" })], more: { all: true, mine: false } })
-  }), window.location.origin);
+  expect(snapshots(target).at(-1)).toMatchObject({ fresh: [], state: { posts: [{ id: "1" }], balance: { a: 3 }, mySide: "a" } });
   receive({ kind: "scene", status: "ready" }, "https://untrusted.example");
   expect(result.current.sceneReady).toBe(false);
   receive({ kind: "scene", status: "ready" });
   expect(result.current.sceneReady).toBe(true);
 });
 
-it("keeps the preview pending until both initial responses and the first rendered scene arrive", async () => {
-  let finishPosts;
-  getSparringPosts.mockImplementationOnce(() => new Promise(resolve => { finishPosts = resolve; }));
+it("waits for the initial stream snapshot as well as the summary and first rendered scene", async () => {
+  Stream.autoSnapshot = false;
   const { result, target, receive } = setup();
   receive({ kind: "ready" });
   await act(async () => {});
   expect(result.current.loaded).toBe(false);
-  expect(target.postMessage.mock.calls.some(([message]) => message.kind === "snapshot")).toBe(false);
-  await act(async () => finishPosts({ items: [], nextCursor: null, hasNext: false }));
+  expect(snapshots(target)).toHaveLength(0);
+  act(() => Stream.instances.at(-1).emit("snapshot", streamData()));
   expect(result.current.loaded).toBe(true);
   expect(result.current.sceneReady).toBe(false);
   receive({ kind: "scene", status: "error" });
@@ -212,10 +330,10 @@ it("catches up an initially empty room and never re-emits an acknowledged own po
       )
     ).toBe(true)
   );
-  expect(getSparringPosts).toHaveBeenCalledWith("1", { size: 100, afterId: 0 });
+  expect(getSparringPosts).toHaveBeenCalledWith("1", { size: 1, afterId: 0 });
   getSparring.mockResolvedValue({ ...topic, revision: 2 });
-  act(() => Stream.instances.at(-1).listeners.revision({ data: '{"revision":2}' }));
-  await waitFor(() => expect(getSparringPosts.mock.calls.length).toBeGreaterThan(2));
+  act(() => Stream.instances.at(-1).emit("update", streamData([post], 2)));
+  expect(getSparringPosts).toHaveBeenCalledTimes(1);
   const snapshots = target.postMessage.mock.calls
     .map(([message]) => message)
     .filter((message) => message.kind === "snapshot");
@@ -256,7 +374,7 @@ it("queues rapid submissions in order while suppressing their own SSE launches",
   target.postMessage.mockClear();
   getSparring.mockResolvedValue({ ...topic, revision: 2 });
   getSparringPosts.mockResolvedValue({ items: [second], nextCursor: null, hasNext: false });
-  act(() => Stream.instances.at(-1).listeners.revision({ data: '{"revision":2}' }));
+  act(() => Stream.instances.at(-1).emit("update", streamData([second], 2)));
   await waitFor(() => expect(target.postMessage).toHaveBeenCalledWith(
     expect.objectContaining({
       kind: "snapshot",
@@ -274,46 +392,18 @@ it("queues rapid submissions in order while suppressing their own SSE launches",
   ));
 });
 
-it("keeps a newer vote when an older refresh finishes later", async () => {
-  const { receive, target } = setup();
+it("keeps newer streamed totals but accepts personal vote state from a slower HTTP response", async () => {
+  const { receive, target, result } = setup();
   receive({ kind: "ready" });
-  await waitFor(() =>
-    expect(target.postMessage.mock.calls.some(([message]) => message.kind === "snapshot")).toBe(
-      true
-    )
-  );
-  let finishRefresh;
-  getSparring.mockImplementationOnce(
-    () =>
-      new Promise((resolve) => {
-        finishRefresh = resolve;
-      })
-  );
-  act(() => Stream.instances.at(-1).listeners.revision({ data: '{"revision":2}' }));
-  await waitFor(() => expect(finishRefresh).toBeDefined());
-  getSparring.mockResolvedValue({ ...topic, votesA: 2, revision: 3 });
-  receive({ kind: "command", action: "vote", requestId: "vote1", payload: { side: "a" } });
-  await waitFor(() =>
-    expect(
-      target.postMessage.mock.calls.some(
-        ([message]) => message.kind === "result" && message.requestId === "vote1"
-      )
-    ).toBe(true)
-  );
-  const afterVote = target.postMessage.mock.calls.length;
-  await act(async () => finishRefresh({ ...topic, revision: 2 }));
-  const snapshots = target.postMessage.mock.calls
-    .slice(afterVote)
-    .map(([message]) => message)
-    .filter((message) => message.kind === "snapshot");
-  expect(snapshots.length).toBeGreaterThan(0);
-  expect(
-    snapshots.every(
-      (message) => message.state.topic.revision === 3 && message.state.balance.a === 2
-    )
-  ).toBe(true);
+  await waitFor(() => expect(result.current.loaded).toBe(true));
+  let finishVote;
+  getSparring.mockImplementationOnce(() => new Promise(resolve => { finishVote = resolve; }));
+  receive({ kind: "command", action: "vote", requestId: "vote1", payload: { side: "b" } });
+  await waitFor(() => expect(finishVote).toBeDefined());
+  act(() => Stream.instances.at(-1).emit("update", streamData([], 4, { votesA: 2, votesB: 3 })));
+  await act(async () => finishVote({ ...topic, revision: 3, votesA: 0, votesB: 1, mySide: "CORAL" }));
+  expect(snapshots(target).at(-1)).toMatchObject({ state: { mySide: "b", topic: { revision: 4 }, balance: { a: 2, b: 3 } } });
 });
-
 
 it("does not let a later vote overtake an unfinished post even after the iframe stops waiting", async () => {
   const { receive, target, result } = setup();
