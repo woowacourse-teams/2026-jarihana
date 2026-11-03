@@ -112,16 +112,28 @@
 | 웹푸시 | `POST` | `/api/push-subscriptions` | `MEMBER` | 현재 브라우저 구독 등록·갱신 |
 | 웹푸시 | `DELETE` | `/api/push-subscriptions/{id}` | `MEMBER` | 구독 해제와 과거 연결의 미완료 전송 취소 |
 | 웹푸시 | `GET` | `/api/notifications/{id}/push-content` | `MEMBER` | 본인 알림·활성 구독·현재 연결 버전 검증 후 내용 조회 |
+| 오목 | `GET` | `/api/games/gomoku/rooms` | `PUBLIC` | 공개 대기방 목록과 방장 이름 검색 |
+| 오목 | `GET` | `/api/games/gomoku/rooms/me` | `MEMBER` | 현재 참여 방 조회 |
+| 오목 | `POST` | `/api/games/gomoku/rooms` | `MEMBER` | 방 생성과 방장 자리 확보 |
+| 오목 | `POST` | `/api/games/gomoku/rooms/{id}/join` | `MEMBER + 공개 범위/토큰 검증` | 빈 손님 자리 참여 |
+| 오목 | `GET` | `/api/games/gomoku/rooms/{id}` | `MEMBER + 참가자` | 현재 방/판 스냅샷 조회 |
+| 오목 | `PUT` | `/api/games/gomoku/rooms/{id}/ready` | `MEMBER + 참가자` | 다음 판 준비/취소 |
+| 오목 | `POST` | `/api/games/gomoku/rooms/{id}/start` | `MEMBER + 방장` | 두 사람 준비 후 대국 시작 |
+| 오목 | `POST` | `/api/games/gomoku/rooms/{id}/moves` | `MEMBER + 참가자/현재 차례` | 멱등 착수 |
+| 오목 | `POST` | `/api/games/gomoku/rooms/{id}/resign` | `MEMBER + 참가자` | 현재 판 기권 |
+| 오목 | `POST` | `/api/games/gomoku/rooms/{id}/leave` | `MEMBER + 참가자` | 실제 퇴장과 좌석 해제 |
+| 오목 | `POST` | `/api/games/gomoku/rooms/{id}/invite` | `MEMBER + 대기방 참가자` | 초대 토큰 발급/회전 |
+| 오목 | `GET` | `/api/games/gomoku/invitations/{token}` | `PUBLIC` | 초대 링크의 제한된 미리보기 |
+| 오목 | `GET` | `/api/games/gomoku/rooms/{id}/events` | `MEMBER + 참가자` | SSE 전체 스냅샷 구독 |
 
 ## 상세 문서
-
-오목 게임방의 공개 목록, 참가자 API, 초대와 SSE 계약은 [gomoku.md](gomoku.md)를 따른다.
 
 ### 활성 API 상세
 
 | 분류 | 문서 | 내용 |
 | --- | --- | --- |
 | 공지 | [announcements.md](announcements.md) | 공개 범위, 공지 등록·목록·상세 조회와 알림 |
+| 오목 | [gomoku.md](gomoku.md) | 공개 목록/검색, 방 생성/참가/대국, 초대와 SSE 스냅샷 |
 | 채팅 | [chats.md](chats.md) | 영속 메시지·읽음·복구·개인 WebSocket 경로 |
 | 초대 | [invitations.md](invitations.md) | 발급·회원 후보·수신/발급 목록·상세·공개 미리보기·취소·거절·수락·대기 신청 승인 |
 | 피드백 | [feedbacks.md](feedbacks.md) | 피드백 작성 |
