@@ -1,6 +1,9 @@
 TRUNCATE TABLE
     minigame_cut,
     minigame_run,
+    gomoku_move,
+    gomoku_seat,
+    gomoku_room,
     worker_authority,
     invitation_acceptance,
     invitation,

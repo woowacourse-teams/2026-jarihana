@@ -70,12 +70,21 @@ const PEPERO_DAY_LINK = {
   to: PEPERO_DAY_PATH
 };
 
+const GAMES_LINK = {
+  action: "games_open",
+  isActive: (pathname) => pathname === "/games" || pathname.startsWith("/games/"),
+  label: "게임방",
+  requiresAuth: false,
+  to: "/games"
+};
+
 const MEMBER_LINKS = [
   HOME_LINK,
   EXPLORE_LINK,
   ACTIVITY_LINK,
   BOARD_LINK,
   SPARRING_LINK,
+  GAMES_LINK,
   {
     action: "group_create",
     isActive: (pathname) => pathname === "/groups/new",
@@ -85,7 +94,7 @@ const MEMBER_LINKS = [
   }
 ];
 
-const DESKTOP_MEMBER_LINKS = [HOME_LINK, EXPLORE_LINK, ACTIVITY_LINK, BOARD_LINK, SPARRING_LINK];
+const DESKTOP_MEMBER_LINKS = [HOME_LINK, EXPLORE_LINK, ACTIVITY_LINK, BOARD_LINK, SPARRING_LINK, GAMES_LINK];
 
 function withEventLink(links, eventOpen) {
   if (!eventOpen) return links;

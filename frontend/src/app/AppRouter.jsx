@@ -37,6 +37,10 @@ const loadProposalPages = () => import("../pages/proposals/index.js");
 
 const loadNotificationPages = () => import("../pages/notifications/index.jsx");
 export const lazyPageRegistry = Object.freeze({
+  GamesPage: lazyNamed(() => import("../pages/games/index.jsx"), "GamesPage"),
+  GomokuLobbyPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuLobbyPage"),
+  GomokuRoomPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuRoomPage"),
+  GomokuInvitationPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuInvitationPage"),
   ChatPage: lazyNamed(() => import("../pages/chat/ChatPage.jsx"), "ChatPage"),
   InvitationPage: lazyNamed(() => import("../pages/invitations/index.jsx"), "InvitationPage"),
   NotificationOpenPage: lazyNamed(loadNotificationPages, "NotificationOpenPage"),

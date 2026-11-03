@@ -339,3 +339,29 @@ VS 입장 화면의 `sparring_entry_side_select`는 임시 편 선택, `sparring
 이미 저장한 편으로 입장할 때는 투표 요청·성공 이벤트를 다시 만들지 않는다.
 재전송으로 같은 ID를 확인한 요청도 저장 성공이므로 마지막 이벤트는 고유 의견 수가 아닌
 저장 요청 성공 횟수로 해석한다. API/SSE 주기 조회 역시 사용자 행동 횟수가 아니다.
+
+## 게임방
+
+게임방 탐색은 `games_open`, `gomoku_lobby_open`, `games_back`으로 구분한다. 대기실은
+`gomoku_room_create_open`, `gomoku_visibility_select`, `gomoku_rule_select`,
+`gomoku_room_create_submit`, `gomoku_create_dismiss`, `gomoku_my_room_open`,
+`gomoku_lobby_retry`, `gomoku_room_join`, `gomoku_rooms_first`, `gomoku_rooms_next`,
+`gomoku_rooms_search_form`, `gomoku_rooms_search_input`, `gomoku_rooms_search_submit`,
+`gomoku_rooms_search_reset`을 사용한다. 검색어와 크루 이름은 action 값에 포함하지 않는다.
+방 안 조작은 `gomoku_position_select`, `gomoku_move_confirm`, `gomoku_ready_toggle`, `gomoku_game_start`,
+`gomoku_invitation_copy`, `gomoku_invitation_link_select`, `gomoku_resign_open`,
+`gomoku_resign_confirm`, `gomoku_leave_open`, `gomoku_leave_confirm`,
+`gomoku_confirmation_cancel`, `gomoku_confirmation_dismiss`다. 방 상단의 "대기실" 링크는 참여를 유지하며 `games_back`을 사용하고, 별도 "나가기" 버튼은 `gomoku_leave_open`으로 확인창을 연다. 초대 참여는
+`gomoku_invitation_join`, 준비 중 리듬게임은 `rhythm_game_open`이다.
+
+좌표, 회원 이름, 방 ID와 초대 토큰을 action에 포함하지 않는다. 초대 토큰을 담은
+`/games/gomoku/invite/*`와 `/api/games/gomoku/invitations/*`는 분석과 녹화를 중단하는
+private route다. 경로 정규화에서도 토큰은 `:redacted`로 치환한다. 복사 주소는
+`ph-no-capture ph-no-record` 영역에 둔다. 클릭은 처리 성공을 의미하지 않으며 별도 게임 성공
+이벤트는 이번 범위에 추가하지 않는다.
+
+오목 규칙 모달 열기/닫기는 `gomoku_rules_toggle`, `gomoku_rules_dismiss` 고정 action을 사용한다.
+
+규칙 예시 버튼은 `gomoku_double_three_example_open`, `gomoku_double_four_example_open` 고정 action을 사용한다.
+
+종료된 오목방 중앙의 대기실 이동 버튼은 `gomoku_closed_lobby_open`을 사용한다.

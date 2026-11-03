@@ -4,6 +4,7 @@ import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.auth.web.AccessDeniedResponder;
 import com.project.jarihana.auth.web.JwtCookieAuthenticationFilter;
 import com.project.jarihana.auth.web.UnauthenticatedEntryPoint;
+import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -21,6 +22,8 @@ public class SecurityConfig {
 
     private static final String[] PUBLIC_PATHS = {"/oauth/**"};
     private static final String[] PUBLIC_GET_PATHS = {
+            "/games/gomoku/rooms",
+            "/games/gomoku/invitations/*",
             "/home",
             "/sparrings",
             "/sparrings/*",
@@ -90,6 +93,11 @@ public class SecurityConfig {
                 .formLogin(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(requests -> requests
+                        // Initial SSE requests authenticate and authorize normally. Completion dispatches
+                        // only resume the existing response after its request-thread context is gone.
+                        .requestMatchers(request -> request.getDispatcherType() == DispatcherType.ASYNC
+                                && request.getRequestURI().substring(request.getContextPath().length())
+                                        .matches("/games/gomoku/rooms/[0-9]+/events")).permitAll()
                         .requestMatchers(PUBLIC_PATHS).permitAll()
                         .requestMatchers(HttpMethod.GET, PUBLIC_GET_PATHS).permitAll()
                         .requestMatchers(HttpMethod.POST, PUBLIC_POST_PATHS).permitAll()
