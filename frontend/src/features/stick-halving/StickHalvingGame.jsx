@@ -112,22 +112,29 @@ export function StickHalvingGame({ adapter, errorMessage, finalActions, onFinish
     return () => clearInterval(timer);
   }, [deadline, phase, submit]);
 
-  // 막대에 포커스가 없어도 좌우 방향키로 칼을 옮긴다. 막대가 이미 처리한 키, 입력 칸에서 누른 키,
-  // 단축키 조합은 건드리지 않는다.
+  // 막대에 포커스가 없어도 좌우 방향키로 칼을 옮기고 Enter로 자른다. 막대가 이미 처리한 키, 입력 칸에서 누른 키,
+  // 단축키 조합은 건드리지 않는다. Enter는 다른 버튼이나 링크를 누르는 키이기도 해서, 그런 곳에 포커스가 있으면 자르지 않는다.
   useEffect(() => {
     if (phase !== "play") return undefined;
     function handleKeyDown(event) {
-      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      const arrow = event.key === "ArrowLeft" || event.key === "ArrowRight";
+      if (!arrow && event.key !== "Enter") return;
       if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
       const target = event.target;
       if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
+      if (!arrow) {
+        if (event.repeat || (target instanceof HTMLElement && target.closest("button, a, [role='button']"))) return;
+        event.preventDefault();
+        submit(false);
+        return;
+      }
       event.preventDefault();
       const step = event.shiftKey ? NUDGE_CM * COARSE_NUDGE_STEPS : NUDGE_CM;
       setPosition((current) => clampPosition(current + (event.key === "ArrowLeft" ? -step : step)));
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [phase]);
+  }, [phase, submit]);
 
   function next() {
     if (!outcome) return;
@@ -262,7 +269,7 @@ export function StickHalvingGame({ adapter, errorMessage, finalActions, onFinish
           >
             ›
           </button>
-          <span className="stick-game__nudge-label">한 칸씩 (0.5cm의 1/24). 키보드 ← →도 돼요</span>
+          <span className="stick-game__nudge-label">한 칸씩 (0.5cm의 1/24). 키보드 ← →로 옮기고 Enter로 잘라요</span>
           <Button
             className="stick-game__cut"
             data-ph-capture-attribute-action="stick_cut_submit"

@@ -127,6 +127,25 @@ it("moves the knife with the arrow keys even when the stick is not focused, one 
   expect(knifeX() - focused).toBeCloseTo(stepUnits, 6);
 });
 
+it("cuts with Enter without focusing the stick, but not while another button has focus", async () => {
+  getPeperoDayStatus.mockResolvedValue(status());
+  mount();
+
+  fireEvent.click(await screen.findByRole("button", { name: "연습 시작" }));
+  await screen.findByRole("slider", { name: "칼 위치, 막대 왼쪽 끝부터 cm" });
+
+  const nudge = screen.getByRole("button", { name: "칼을 오른쪽으로 조금 옮기기" });
+  fireEvent.keyDown(nudge, { key: "Enter" });
+  expect(screen.queryByText(/왼쪽 끝부터 정답/)).not.toBeInTheDocument();
+
+  fireEvent.keyDown(document.body, { key: "Enter", repeat: true });
+  expect(screen.queryByText(/왼쪽 끝부터 정답/)).not.toBeInTheDocument();
+
+  fireEvent.keyDown(document.body, { key: "Enter" });
+  expect(await screen.findByText(/왼쪽 끝부터 정답/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "다음 막대" })).toBeInTheDocument();
+});
+
 it("shows remaining attempts and blocks ranked runs when none are left", async () => {
   useAuth.mockReturnValue({ login, member: { id: 7 }, status: "authenticated" });
   getPeperoDayStatus.mockResolvedValue(status({ remainingAttempts: 0 }));
