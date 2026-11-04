@@ -376,3 +376,28 @@ private route다. 경로 정규화에서도 토큰은 `:redacted`로 치환한�
 규칙 예시 버튼은 `gomoku_double_three_example_open`, `gomoku_double_four_example_open` 고정 action을 사용한다.
 
 종료된 오목방 중앙의 대기실 이동 버튼은 `gomoku_closed_lobby_open`을 사용한다.
+
+## 아바타 시제품
+
+독립 시제품의 홈 이동, 스타일 선택, 동작 선택, 회전, 얼굴 이미지 받기, 받아치기 체험은 각각
+`avatar_lab_home`, `avatar_lab_preset_select`, `avatar_lab_pose_change`, `avatar_lab_rotate`,
+`avatar_lab_portrait_download`, `avatar_lab_clash`로 식별한다. 시제품은 분석 SDK를 초기화하지 않으며
+체험 메시지·외형 선택값을 분석으로 보내지 않는다. 기존 토론 iframe의 interaction 메시지도 시제품 호스트에서 수집하지 않는다.
+
+파츠 편집의 카테고리 이동은 `avatar_lab_category_change`, 추천 스타일 펼치기는 `avatar_lab_presets_toggle`,
+되돌리기·다시 하기는 `avatar_lab_undo`, `avatar_lab_redo`, 초기화는 `avatar_lab_reset`이다.
+파츠 선택은 `avatar_lab_face_change`, `avatar_lab_skin_change`, `avatar_lab_hair_change`,
+`avatar_lab_hair_color_change`, `avatar_lab_eyes_change`, `avatar_lab_eyebrows_change`,
+`avatar_lab_nose_change`, `avatar_lab_mouth_change`, `avatar_lab_glasses_change`, `avatar_lab_outfit_change`다.
+색상·파츠 값과 외형 데이터를 action에 넣지 않으며 기존 시제품의 미수집 정책을 유지한다.
+
+## 회원 아바타 관리
+
+마이페이지 진입은 `my_avatar_edit_open`, 재조회는 `avatar_load_retry`, 마이페이지 복귀는
+`avatar_back_to_my`, 서버 저장은 `avatar_save`다. 삭제 열기·닫기·취소·확인은
+`avatar_delete_open`, `avatar_delete_close`, `avatar_delete_cancel`, `avatar_delete_confirm`이다.
+미저장 이탈 확인은 `avatar_leave_close`, `avatar_leave_cancel`, `avatar_leave_confirm`을 사용한다.
+같은 파츠 편집기를 재사용하므로 내부의 기존 `avatar_lab_*` 식별자는 유지한다.
+회원용 추천 조합은 항상 펼쳐 보여 주므로 `avatar_lab_presets_toggle`은 체험판에만 남는다.
+편집 iframe은 분석 SDK를 초기화하지 않으며 외형·선택값을 분석 메시지로 전달하지 않는다.
+부모 미리보기는 `data-ph-private`로 가린다. 인증·CSRF와 API 통계는 기존 공통 client를 사용한다.

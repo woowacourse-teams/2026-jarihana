@@ -1,5 +1,24 @@
 # 자리하나 프론트엔드 구현 매핑
 
+## 회원 아바타 관리
+
+- `/my`의 프로필 아래 `MyAvatarCard`에서 내 저장 캐릭터와 만들기·수정 진입점을 제공한다.
+- `/my/avatar`는 회원 전용 `AvatarPage`다. `features/avatar/api.js`에서 공통 API client와
+  Zod 검증으로 `GET/PUT/DELETE /api/members/me/avatar`를 호출한다.
+- 계정·세션별 query key를 사용한다. 저장은 명시적인 버튼으로 실행하고 실패 시 초안을 보존한다.
+  저장·삭제 성공 시 같은 계정의 진행 중인 이전 조회를 취소한 뒤 캐시를 갱신해 늦은 응답이 외형을 되돌리지 못하게 한다.
+  저장 성공 후 마이페이지로 이동해 저장한 아바타를 표시한다. 저장 요청 중 추가 편집이 생긴 경우에는
+  새 초안을 잃지 않도록 편집 화면에 남긴다. 저장에 성공한 이동에는 미저장 이탈 확인을 띄우지 않는다.
+  삭제 확인 후 서버 조합을 지우고 기본형으로 바꾼다. 미저장 이탈 확인과 새로고침 경고를 제공한다.
+- `public/sparring-arena/avatar-studio`는 기존 시안의 파츠 편집기·입체 모델을 재사용한다.
+  회원용 스타일은 시제품 CSS 대신 앱의 공통 `tokens.css`를 `/assets/jarihana-tokens.css`로
+  제공받아 사용한다. 추천 조합은 접지 않고 항상 표시한다.
+  iframe에는 인증 정보를 전달하지 않으며 메시지 출처와 창, 외형 값을 양쪽에서 검증한다.
+  브라우저의 뒤로가기 캐시에 보관될 때는 편집 상태와 WebGL 자원을 유지하고, 실제 이탈 시 해제한다.
+- `avatar-lab`은 저장하지 않는 별도 체험판으로 유지한다. 토론 연결과 프로필 사진 교체는 범위 밖이다.
+- [회원 아바타 API 계약](../../backend/docs/context/api/endpoints/member-avatar.md)
+- 검증: `avatar-frame.test.jsx`, `api/avatar.test.js`, `e2e/avatar.spec.js`.
+
 ## 모임 채팅 구현
 
 - 헤더 채팅 아이콘은 모든 방의 `unreadCount` 합계를 표시하며 100개 이상은 `99+`로 줄인다. `ChatSessionProvider`가 로그인 세션당 웹소켓 하나를 유지하며 헤더와 모달은 같은 방 캐시를 사용한다. 인증 상태 변경 시 라우터와 페이지는 유지하고 채팅 세션만 교체한다. 모달이 닫혀 있어도 메시지·읽음 이벤트를 즉시 반영하고, 방 열기·이동·닫기는 연결을 다시 만들지 않는다. 30초 동기화와 재연결·화면 복귀 동기화는 누락 복구용이다. 현재 최신 대화를 보고 있는 방은 읽음 응답 대기 중에도 합계에서 제외한다. 로그아웃·계정 전환 시 연결과 세션 캐시를 정리한다.
@@ -373,7 +392,8 @@ header 구현으로 확대하지 않았다.
 | ------------------------------------- | --------------------------------------------- | -------------------------------------------------------------------------------- |
 | 대표 이미지 업로드                    | presigned URL 발급 후 스토리지 직접 업로드      | `POST /api/image-uploads` → presigned `PUT` → `representativeImageKey` 연결       |
 | 참여자 “내보내기”                     | 참여자 제거 endpoint 없음                   | 액션 제거. 리더 위임만 제공                                                    |
-| 프로필/아바타 수정                    | member update endpoint 없음                   | 정보 조회만 제공                                                                 |
+| 프로필 정보·사진 수정                 | member update endpoint 없음                   | 정보 조회만 제공                                                                 |
+| 캐릭터 아바타 수정                    | `GET/PUT/DELETE /api/members/me/avatar`         | `/my/avatar`에서 생성·수정·저장·기본형 초기화 제공                                 |
 | 그룹 즉시 가입                        | 직접 가입 endpoint 없음                       | recruitment registration 흐름으로만 가입                                         |
 | 신청 결정 `APPROVE/REJECT` 표기       | 실제 request enum은 `APPROVED/REJECTED`       | 표시 문구는 승인/미승인, payload는 실제 enum 사용                                  |
 | 생성/세부 관리의 최종2 frame 부재     | API에는 기능 존재                             | 보조 frame의 흐름을 최종2 token/AppShell로 재설계                                |
@@ -500,3 +520,10 @@ replace 이동한다. 헤더의 홈과 브랜드 링크는 `/home`, 탐색 링�
 - 방 만들기의 `RuleInfoTooltip.jsx`는 "대국 규칙" 제목 옆 Info 버튼 하나에서 기본 규칙/제한 없음의 승리 조건과 금수 유무를 함께 안내한다. `GomokuTooltip.jsx`의 위치 보정, hover/focus/터치와 Escape 닫기를 재사용한다. 정보 버튼은 radio label 밖에 있어 설명을 확인해도 선택이나 생성 요청을 바꾸지 않는다. 대국 화면의 별도 규칙 버튼과 모달은 제거했으며 선택한 규칙 배지만 유지한다.
 
 - `features/gomoku/RulesContent.jsx`와 `RuleExampleTooltip.jsx`는 기존 규칙 설명/3-3/4-4 그림 툴팁 컴포넌트로 유지하지만 현재 화면에서는 사용하지 않는다. 예시는 실제 서버의 쌍3/쌍4 테스트와 같은 배치이며 이미지 파일은 저장소에 두지 않는다. `ruleExampleImages.js`는 `APP_DEPLOY_ENV=production`일 때 `jarihana/images/gomoku-rules`, 나머지는 `jarihana-dev/images/gomoku-rules`의 공개 S3 PNG 주소를 사용한다.
+
+## 공통 아바타 시제품
+
+- `/sparring-arena/avatar-lab/index.html`은 백엔드 없이 얼굴형·피부색·머리·머리색·눈·눈썹·코·입·안경·옷 색을 독립 편집하고 동작·회전·얼굴 PNG와 실제 토론 연출을 확인하는 시제품이다. 여섯 프리셋은 시작용이며 임의 조합을 제한하지 않는다.
+- 버전 1 외형을 공통 입체 캐릭터에 적용한다. 외형 정보가 없는 기존 회원·글은 기존 크루/코치 표시 규칙을 따른다.
+- 체험 선택과 메시지는 저장하지 않으며 실제 회원·토론 API에는 연결하지 않는다.
+- 데이터 경계, 파일 역할과 후속 검증 범위는 [공통 아바타 시제품](avatar-prototype.md)을 따른다.

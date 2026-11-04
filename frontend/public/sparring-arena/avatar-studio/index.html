@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>내 아바타 편집기 · 자리하나</title>
+  <link rel="stylesheet" href="/assets/jarihana-tokens.css"><link rel="stylesheet" href="./style.css">
+  <script type="importmap">{"imports":{"three":"../vendor/three.module.js","three/examples/jsm/":"../vendor/addons/"}}</script>
+  <script type="module" src="./studio.js"></script>
+</head>
+<body>
+  <main hidden>
+    <section class="studio" aria-label="내 캐릭터 꾸미기">
+      <div class="stage-panel">
+        <div class="stage-heading"><h2>미리보기</h2></div>
+        <div id="preview" role="img" aria-label="내 캐릭터의 입체 모습"></div>
+        <div class="stage-controls">
+          <div class="motions" role="group" aria-label="캐릭터 동작">
+            <button type="button" data-pose="idle" aria-pressed="true" data-ph-capture-attribute-action="avatar_lab_pose_change">서 있기</button>
+            <button type="button" data-pose="walk" aria-pressed="false" data-ph-capture-attribute-action="avatar_lab_pose_change">걷기</button>
+            <button type="button" data-pose="talk" aria-pressed="false" data-ph-capture-attribute-action="avatar_lab_pose_change">말하기</button>
+          </div>
+          <label class="rotation">돌려 보기<input id="rotation" type="range" min="-180" max="180" value="0" step="1" data-ph-capture-attribute-action="avatar_lab_rotate"><span id="rotation-value">정면</span></label>
+        </div>
+      </div>
+      <div class="selection-panel">
+        <h2>파츠 선택</h2>
+        <div id="part-editor"></div>
+        <section class="preset-start" aria-labelledby="presets-heading"><h3 id="presets-heading">추천 조합</h3><div id="presets" class="presets" role="group" aria-label="추천 조합"></div></section>
+      </div>
+    </section>
+  </main>
+  <p id="error" role="alert" hidden></p>
+</body>
+</html>

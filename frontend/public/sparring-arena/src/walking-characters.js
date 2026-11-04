@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { characterVariant } from './character-motion.js';
 import { studioMaterial } from './studio-materials.js';
+import { AVATAR_OPTIONS, AVATAR_PALETTE, readAvatarAppearance } from './avatar-appearance.js';
 import { createCharacterSculpt, bendLimbMaterial, sculptSurface } from './character-sculpt.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -42,6 +43,11 @@ export function createWalkingCharacters(scene, capacity) {
     return new THREE.Vector3(x, y, z);
   });
   const smile = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(mouthPoints), 20, 0.0065, 8, false);
+  const flatMouth = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(mouthPoints.map(point => {
+    const y = -0.105;
+    const z = 0.292 * (1 - Math.abs(point.x / 0.33) ** (2 / 0.87) - Math.abs(y / 0.32) ** (2 / 0.88)) ** 0.44 + 0.009;
+    return new THREE.Vector3(point.x, y, z);
+  })), 20, 0.0065, 8, false);
   const eyebrow = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
     new THREE.Vector3(-0.043, 0, 0), new THREE.Vector3(0, 0.012, 0.003), new THREE.Vector3(0.043, 0, 0),
   ]), 12, 0.009, 8, false);
@@ -73,6 +79,21 @@ export function createWalkingCharacters(scene, capacity) {
   materials.complexion = materials.skin.clone();
   materials.complexion.vertexColors = true;
   sculptSurface(materials.complexion, 'skin');
+  // Material color is white; each instance carries its own original or custom color.
+  // This avoids one member's skin/clothes leaking into another slot.
+  for (const material of Object.values(materials)) material.color.set(0xffffff);
+  const roundGlasses = new THREE.TorusGeometry(0.077, 0.010, 8, 32);
+  const squareGlasses = new THREE.TorusGeometry(0.077, 0.010, 8, 32);
+  const squarePositions = squareGlasses.attributes.position;
+  for (let i = 0; i < squarePositions.count; i++) {
+    const angle = squareGlasses.attributes.uv.getX(i) * Math.PI * 2;
+    const radius = 0.077 / Math.max(Math.abs(Math.cos(angle)), Math.abs(Math.sin(angle)));
+    const ring = (squareGlasses.attributes.uv.getY(i) * Math.PI * 2);
+    squarePositions.setXYZ(i, (radius + Math.cos(ring) * 0.010) * Math.cos(angle),
+      (radius + Math.cos(ring) * 0.010) * Math.sin(angle), Math.sin(ring) * 0.010);
+  }
+  squareGlasses.computeVertexNormals();
+  const rigCount = 2 + AVATAR_OPTIONS.hair.length;
   const buckets = new Map();
 
   function joint(parent, position) {
@@ -87,17 +108,19 @@ export function createWalkingCharacters(scene, capacity) {
     node.scale.set(...scale);
     node.rotation.set(...rotation);
     const key = `${material}:${shape}`;
-    if (!buckets.has(key)) buckets.set(key, { geometry: { sphere, rounded, soft, collar, smile, eyebrow, strap, ...sculpt }[shape], shape, material: materials[material], parts: [[], []] });
+    if (!buckets.has(key)) buckets.set(key, { geometry: { sphere, rounded, soft, collar, smile, flatMouth, eyebrow, strap, roundGlasses, squareGlasses, ...sculpt }[shape], shape, material: materials[material], materialName: material, parts: Array.from({ length: rigCount }, () => []) });
     buckets.get(key).parts[variant].push(node);
     return node;
   }
 
-  const rigs = [0, 1].map(variant => {
+  const rigs = Array.from({ length: rigCount }, (_, variant) => {
+    const custom = variant >= 2;
+    const hair = AVATAR_OPTIONS.hair[variant - 2];
     const root = new THREE.Object3D();
     const torso = joint(root, [0, 0.78, 0]);
     torso.scale.x = 0.94;
     const clothes = variant === 0 ? 'sweater' : 'black';
-    const trousers = variant === 0 ? 'blue' : 'black';
+    const trousers = custom ? 'navy' : variant === 0 ? 'blue' : 'black';
     const rib = variant === 0 ? 'knit' : 'charcoal';
     part(torso, variant, trousers, [0, -0.015, -0.005], [0.29, 0.065, 0.17], [0, 0, 0], 'soft');
     part(torso, variant, clothes, [0, 0.32, 0], [0.345, 0.33, 0.235], [0, 0, 0], 'sweater');
@@ -107,24 +130,38 @@ export function createWalkingCharacters(scene, capacity) {
 
     const head = joint(torso, [0, 0.95, 0]);
     head.scale.set(0.87, 0.86, 0.97);
-    part(head, variant, 'complexion', [0, 0, 0], [0.33, 0.32, 0.292], [0, 0, 0], 'face');
+    const face = part(head, variant, 'complexion', [0, 0, 0], [0.33, 0.32, 0.292], [0, 0, 0], 'face');
+    const eyes = [], eyebrows = [];
     for (const sign of [-1, 1]) {
       part(head, variant, 'skin', [sign * 0.327, -0.034, 0.015], [0.067, 0.081, 0.063]);
       part(head, variant, 'ear', [sign * 0.346, -0.032, 0.062], [0.031, 0.045, 0.011]);
-      part(head, variant, 'face', [sign * 0.111, 0.018, 0.284], [0.026, 0.041, 0.019]);
-      part(head, variant, 'face', [sign * 0.112, 0.126, 0.265], [1, 1, 1], [0, 0, sign * -0.08], 'eyebrow');
+      eyes.push(part(head, variant, 'face', [sign * 0.111, 0.018, 0.284], [0.026, 0.041, 0.019]));
+      eyebrows.push(part(head, variant, 'face', [sign * 0.112, 0.126, 0.265], [1, 1, 1], [0, 0, sign * -0.08], 'eyebrow'));
     }
-    part(head, variant, 'skin', [0, -0.049, 0.296], [0.039, 0.042, 0.052]);
-    part(head, variant, 'face', [0, 0, 0], [1, 1, 1], [0, 0, 0], 'smile');
-    part(head, variant, 'hair', [0, 0, 0], [1, 1, 1], [0, 0, 0], variant === 0 ? 'crewHair' : 'coachHair');
-    if (variant === 0) {
+    const nose = part(head, variant, 'skin', [0, -0.049, 0.296], [0.039, 0.042, 0.052]);
+    const mouths = { smile: part(head, variant, 'face', [0, 0, 0], [1, 1, 1], [0, 0, 0], 'smile') };
+    if (custom) {
+      mouths.flat = part(head, variant, 'face', [0, 0, 0], [1, 1, 1], [0, 0, 0], 'flatMouth');
+      mouths.open = part(head, variant, 'face', [0, -0.105, 0.287], [0.026, 0.036, 0.012]);
+    }
+    const hairShape = custom ? { curly: 'crewHair', parted: 'coachHair', bob: 'bobHair', long: 'longHair', flowing: 'flowingHair' }[hair] : variant === 0 ? 'crewHair' : 'coachHair';
+    if (hairShape) part(head, variant, 'hair', [0, 0, 0], [1, 1, 1], [0, 0, 0], hairShape);
+    const glasses = { round: [], square: [] };
+    if (custom) for (const kind of Object.keys(glasses)) {
+      for (const sign of [-1, 1]) {
+        glasses[kind].push(part(head, variant, 'face', [sign * 0.111, 0.021, 0.324], [1, 0.88, 1], [0, 0, 0], `${kind}Glasses`));
+        glasses[kind].push(part(head, variant, 'face', [sign * 0.202, 0.025, 0.19], [0.008, 0.008, 0.14], [0, sign * -0.10, 0], 'rounded'));
+      }
+      glasses[kind].push(part(head, variant, 'face', [0, 0.026, 0.33], [0.037, 0.007, 0.008], [0, 0, 0], 'rounded'));
+    }
+    if (!custom && variant === 0) {
       part(torso, variant, 'navy', [0, 0.29, -0.245], [0.29, 0.30, 0.145], [0, 0, 0], 'soft');
       part(torso, variant, 'navy', [0, 0.15, -0.385], [0.23, 0.14, 0.04], [0, 0, 0], 'soft');
       for (const sign of [-1, 1]) {
         part(torso, variant, 'navy', [sign * 0.228, 0, 0], [1, 1, 1], [0, 0, 0], 'strap');
         part(torso, variant, 'charcoal', [sign * 0.228 - 0.02, 0.225, 0.26], [0.037, 0.026, 0.012], [0, 0, 0], 'rounded');
       }
-    } else {
+    } else if (!custom) {
       part(torso, variant, 'mint', [0, 0.02, 0], [1, 1, 1], [0, 0, 0], 'lanyard');
       part(torso, variant, 'mint', [0, 0.238, 0.246], [0.021, 0.035, 0.015], [0, 0, 0], 'rounded');
       part(torso, variant, 'mint', [0, 0.145, 0.255], [0.077, 0.101, 0.018], [0, 0, 0], 'rounded');
@@ -158,7 +195,7 @@ export function createWalkingCharacters(scene, capacity) {
       }
       return { sign, hip, knee, ankle };
     });
-    return { root, torso, head, arms, legs };
+    return { root, torso, head, face, eyes, eyebrows, nose, mouths, glasses, arms, legs };
   });
 
   const zero = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -180,6 +217,7 @@ export function createWalkingCharacters(scene, capacity) {
       mesh.customDepthMaterial = bendLimbMaterial(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }), pivot);
       mesh.customDistanceMaterial = bendLimbMaterial(new THREE.MeshDistanceMaterial(), pivot);
     }
+    mesh.userData.avatarMaterial = bucket.materialName;
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.frustumCulled = false;
     mesh.castShadow = true;
@@ -207,11 +245,41 @@ export function createWalkingCharacters(scene, capacity) {
   }
 
   const capsuleOffset = new THREE.Vector3();
+  const color = new THREE.Color();
+  const slotAppearances = Array(capacity).fill(undefined);
+  function appearanceColors(appearance) {
+    if (!appearance) return { ...colors, complexion: colors.skin };
+    const skin = AVATAR_PALETTE.skin[appearance.skin], clothes = AVATAR_PALETTE.outfit[appearance.outfit];
+    return { ...colors, skin, complexion: skin, ear: new THREE.Color(skin).multiplyScalar(0.82),
+      hair: AVATAR_PALETTE.hairColor[appearance.hairColor], black: clothes, sweater: clothes,
+      charcoal: new THREE.Color(clothes).multiplyScalar(0.86), knit: new THREE.Color(clothes).multiplyScalar(0.86) };
+  }
   function draw(index, post, position, size, pose, yaw = 0, capsuleRotation = null) {
     active[index] = true;
     visibleSlots = Math.max(visibleSlots, index + 1);
-    const variant = characterVariant(post);
+    const appearance = readAvatarAppearance(post?.appearance);
+    const appearanceKey = appearance ? JSON.stringify(appearance) : '';
+    const variant = appearance ? 2 + AVATAR_OPTIONS.hair.indexOf(appearance.hair) : characterVariant(post);
     const rig = rigs[variant];
+    if (appearance) {
+      const dimensions = { round: [0.87, 0.86, 0.97], oval: [0.80, 0.94, 0.97], wide: [0.96, 0.82, 0.97] }[appearance.face];
+      rig.head.scale.set(...dimensions);
+      for (const eye of rig.eyes) eye.scale.set(...{ round: [0.026, 0.041, 0.019], slim: [0.033, 0.018, 0.019], dot: [0.023, 0.023, 0.019] }[appearance.eyes]);
+      for (const brow of rig.eyebrows) brow.scale.set(...{ arched: [1, 1, 1], straight: [1, 0.13, 1], bold: [1.14, 1.5, 1.4] }[appearance.eyebrows]);
+      rig.nose.scale.set(...{ round: [0.039, 0.042, 0.052], small: [0.026, 0.029, 0.03], wide: [0.055, 0.034, 0.04] }[appearance.nose]);
+      for (const [kind, mouth] of Object.entries(rig.mouths)) {
+        if (!mouth.userData.originalScale) mouth.userData.originalScale = mouth.scale.clone();
+        mouth.scale.copy(mouth.userData.originalScale).multiplyScalar(appearance.mouth === kind ? 1 : 0);
+      }
+      for (const [kind, nodes] of Object.entries(rig.glasses)) {
+        for (const node of nodes) {
+          if (!node.userData.originalScale) node.userData.originalScale = node.scale.clone();
+          node.scale.copy(node.userData.originalScale).multiplyScalar(appearance.glasses === kind ? 1 : 0);
+        }
+      }
+    }
+    const recolor = slotAppearances[index] !== appearanceKey;
+    const palette = recolor ? appearanceColors(appearance) : null;
     const scale = size * (pose.scale ?? 1) * (pose.shrink ?? 1);
     const seated = clamp(pose.seated ?? 0, 0, 1);
     const stride = clamp(pose.stride ?? 0, -1, 1) * (1 - seated);
@@ -265,19 +333,32 @@ export function createWalkingCharacters(scene, capacity) {
       hands[index][sign < 0 ? 'leftHand' : 'rightHand'].set(0, -0.31, 0.02)
         .applyMatrix4(elbow.matrixWorld).applyMatrix4(scene.matrixWorld);
     }
-    for (const { mesh, parts, bends, stride: count } of buckets.values()) {
+    for (const { mesh, parts, bends, materialName, stride: count } of buckets.values()) {
       const selected = parts[variant];
       for (let partIndex = 0; partIndex < count; partIndex++) {
         mesh.setMatrixAt(index * count + partIndex, selected[partIndex]?.matrixWorld ?? zero);
+        if (recolor) mesh.setColorAt(index * count + partIndex, color.set(palette[materialName]));
         bends?.setX(index * count + partIndex, selected[partIndex]?.userData.bendJoint?.rotation.x ?? 0);
       }
+      if (recolor) mesh.instanceColor.needsUpdate = true;
       if (bends) bends.needsUpdate = true;
       mesh.count = visibleSlots * count;
       mesh.instanceMatrix.needsUpdate = true;
       mesh.boundingSphere = null;
     }
+    slotAppearances[index] = appearanceKey;
     return hands[index];
   }
 
-  return { draw, hide, pickMeshes: meshes };
+  function dispose() {
+    const geometries = new Set([sphere, rounded, soft, collar, smile, flatMouth, eyebrow, strap, roundGlasses, squareGlasses, ...Object.values(sculpt)]);
+    const ownedMaterials = new Set(Object.values(materials));
+    for (const mesh of meshes) {
+      geometries.add(mesh.geometry);
+      for (const material of [mesh.material, mesh.customDepthMaterial, mesh.customDistanceMaterial].filter(Boolean)) ownedMaterials.add(material);
+      mesh.removeFromParent(); mesh.dispose();
+    }
+    geometries.forEach(geometry => geometry.dispose()); ownedMaterials.forEach(material => material.dispose());
+  }
+  return { draw, hide, pickMeshes: meshes, dispose };
 }

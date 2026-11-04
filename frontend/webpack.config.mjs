@@ -101,6 +101,10 @@ export default (_, arguments_) => {
       }),
       new CopyWebpackPlugin({
         patterns: [
+          {
+            from: path.resolve(directory, "src/shared/styles/tokens.css"),
+            to: "assets/jarihana-tokens.css"
+          },
           { from: path.resolve(directory, "public/sw.js"), to: "sw.js" },
           { from: path.resolve(directory, "public/icons"), to: "icons" },
           {

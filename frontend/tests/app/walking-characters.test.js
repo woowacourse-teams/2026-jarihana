@@ -173,3 +173,69 @@ it('의자를 잡는 명시적인 어깨·팔꿈치 자세는 말하기 동작�
   models.draw(0, crew, new THREE.Vector3(), 1, {});
   expect(second.rightHand.distanceTo(hands.rightHand)).toBeGreaterThan(0.2);
 });
+
+// These cases exercise instance isolation and geometry through the same renderer used by the arena.
+const { AVATAR_PRESETS } = require('../../public/sparring-arena/src/avatar-appearance.js');
+function colorSnapshot(models, slot) {
+  return models.pickMeshes.map(mesh => {
+    const count = mesh.instanceMatrix.count / 2;
+    return Array.from(mesh.instanceColor.array.slice(slot * count * 3, (slot + 1) * count * 3));
+  });
+}
+it('커스텀 외형을 바꾸거나 기본 외형으로 돌아가도 다른 인물의 파츠·색은 유지된다', () => {
+  const models = createWalkingCharacters(new THREE.Scene(), 2);
+  models.draw(0, { appearance: AVATAR_PRESETS[0].appearance }, new THREE.Vector3(), 1, {});
+  models.draw(1, { appearance: AVATAR_PRESETS[3].appearance }, new THREE.Vector3(2, 0, 0), 1, {});
+  const otherMatrices = snapshot(models, 1), otherColors = colorSnapshot(models, 1);
+  const firstColors = colorSnapshot(models, 0);
+  for (const preset of AVATAR_PRESETS.slice(1)) {
+    models.draw(0, { appearance: preset.appearance }, new THREE.Vector3(), 1, { stride: 0.8, speaking: true, time: 1 });
+    expect(colorSnapshot(models, 0)).not.toEqual(firstColors);
+    expect(snapshot(models, 1)).toEqual(otherMatrices);
+    expect(colorSnapshot(models, 1)).toEqual(otherColors);
+  }
+  models.draw(0, crew, new THREE.Vector3(), 1, {});
+  expect(snapshot(models, 1)).toEqual(otherMatrices);
+  expect(colorSnapshot(models, 1)).toEqual(otherColors);
+});
+
+it.each(AVATAR_PRESETS)('$name: 보행·캡슐 회전 중 좌표가 유효하고 지지발이 바닥에 남는다', preset => {
+  const models = createWalkingCharacters(new THREE.Scene(), 2), post = { appearance: preset.appearance };
+  for (const stride of [-1, 0, 1]) {
+    models.draw(0, post, new THREE.Vector3(), 1, { stride, stepLift: 0.08 });
+    const box = bounds(models, 0);
+    expect(box.min.y).toBeGreaterThanOrEqual(-0.005);
+    expect(box.min.y).toBeLessThan(0.02);
+    expect(snapshot(models, 0).flat().every(Number.isFinite)).toBe(true);
+  }
+  models.draw(0, post, new THREE.Vector3(), 1, { stage: 'packed', scale: 0.31, lift: -0.34 }, 0,
+    new THREE.Quaternion().setFromEuler(new THREE.Euler(0.7, 0.3, 1.2)));
+  expect(snapshot(models, 0).flat().every(Number.isFinite)).toBe(true);
+});
+
+it('잘못된 커스텀 설정은 기존 회원 유형의 외형과 같은 파츠·색으로 돌아간다', () => {
+  const models = createWalkingCharacters(new THREE.Scene(), 2);
+  models.draw(0, coach, new THREE.Vector3(), 1, {});
+  const original = snapshot(models, 0), originalColors = colorSnapshot(models, 0);
+  models.draw(0, { ...coach, appearance: { ...AVATAR_PRESETS[0].appearance, version: 999 } }, new THREE.Vector3(), 1, {});
+  expect(snapshot(models, 0)).toEqual(original);
+  expect(colorSnapshot(models, 0)).toEqual(originalColors);
+});
+
+it.each([
+  ['eyebrows', 'straight'], ['eyebrows', 'bold'], ['nose', 'small'], ['nose', 'wide'],
+  ['mouth', 'flat'], ['mouth', 'open'], ['eyes', 'dot'],
+])('%s=%s를 같은 머리 모델에서 바꿔도 다른 슬롯의 얼굴은 유지된다', (part, value) => {
+  const models = createWalkingCharacters(new THREE.Scene(), 2), appearance = AVATAR_PRESETS[0].appearance;
+  try {
+    models.draw(0, { appearance }, new THREE.Vector3(), 1, {});
+    models.draw(1, { appearance }, new THREE.Vector3(2, 0, 0), 1, {});
+    const before = snapshot(models, 0), other = snapshot(models, 1);
+    models.draw(0, { appearance: { ...appearance, [part]: value } }, new THREE.Vector3(), 1, {});
+    expect(snapshot(models, 0)).not.toEqual(before);
+    expect(snapshot(models, 0).flat().every(Number.isFinite)).toBe(true);
+    expect(snapshot(models, 1)).toEqual(other);
+    models.draw(0, { appearance }, new THREE.Vector3(), 1, {});
+    expect(snapshot(models, 0)).toEqual(before);
+  } finally { models.dispose(); }
+});

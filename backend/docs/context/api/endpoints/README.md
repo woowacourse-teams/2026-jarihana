@@ -12,6 +12,9 @@
 
 | 분류 | Method | Endpoint | 권한 | 설명 |
 | --- | --- | --- | --- | --- |
+| 회원 아바타 | `GET` | `/api/members/me/avatar` | `MEMBER` | [내 저장 외형 또는 기본형 조회](member-avatar.md) |
+| 회원 아바타 | `PUT` | `/api/members/me/avatar` | `MEMBER` | 내 외형 전체 생성·교체 |
+| 회원 아바타 | `DELETE` | `/api/members/me/avatar` | `MEMBER` | 저장 조합 삭제, 기본형 복귀 |
 | 공지 | `GET` | `/api/groups/{groupId}/announcements` | `PUBLIC + 공개 범위` | 모임 구성원 공개와 전체 공개 공지를 최신순으로 조회 |
 | 공지 | `POST` | `/api/groups/{groupId}/announcements` | `LEADER` | 활동 중인 모임에 공개 범위를 지정해 공지 등록 |
 | 공지 | `GET` | `/api/groups/{groupId}/announcements/{announcementId}` | `PUBLIC + 공개 범위` | 공개 범위를 확인해 공지 상세 조회 |

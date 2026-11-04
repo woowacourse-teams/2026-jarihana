@@ -15,6 +15,7 @@ jest.mock("react-router", () => ({
   )
 }));
 jest.mock("../../../src/features/auth/index.js", () => ({ useAuth: jest.fn() }));
+jest.mock("../../../src/features/avatar/MyAvatarCard.jsx", () => ({ MyAvatarCard: () => <section aria-label="내 아바타" /> }));
 jest.mock("../../../src/features/group/index.js", () => ({ useInfiniteGroups: jest.fn() }));
 jest.mock("../../../src/features/registration/index.js", () => ({
   useInfiniteMyRegistrations: jest.fn()
