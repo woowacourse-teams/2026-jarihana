@@ -1,12 +1,9 @@
 import * as THREE from 'three';
 import { TANK } from './physics.js';
+import { COURT_COLORS, FRAME_COLOR, studioMaterial, teamMaterial } from './studio-materials.js';
+import { PLANET_COLORS } from './background-planets.js';
 
-const PLANET = Object.freeze({ x: 9.3, y: 1.2, z: 6.5, centerY: -8, centerZ: 0 });
-const PALETTE = Object.freeze({
-  grass: 0xc99458, underside: 0x344962, leaves: 0x78cbb2,
-  frame: 0x82c7c4, structure: 0xe6eff2, coral: 0xed958b,
-  marking: 0xffffff, trunk: 0x986744,
-});
+const FLOOR = Object.freeze({ width: 80, depth: 60, y: -7.4, centerZ: 20 });
 
 export function createPlanetPlayground(scene) {
   const group = new THREE.Group();
@@ -19,13 +16,14 @@ export function createPlanetPlayground(scene) {
     materials.add(value);
     return value;
   };
-  const sphere = geometry(new THREE.SphereGeometry(1, 20, 12));
   const cylinder = geometry(new THREE.CylinderGeometry(1, 1, 1, 10));
   const box = geometry(new THREE.BoxGeometry(1, 1, 1));
-  const grass = material(0xffffff), leaves = material(PALETTE.leaves);
-  grass.roughness = 0.94; grass.envMapIntensity = 0.04;
-  const frame = material(PALETTE.frame), structure = material(PALETTE.structure);
-  const coral = material(PALETTE.coral), trunk = material(PALETTE.trunk);
+  const grass = teamMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.65, side: THREE.DoubleSide });
+  materials.add(grass);
+  const ivory = material(PLANET_COLORS.ivory);
+  const mint = material(COURT_COLORS.mint), coral = material(COURT_COLORS.coral);
+  const support = studioMaterial({ color: FRAME_COLOR, roughness: 0.5 });
+  materials.add(support);
   const mesh = (shape, paint, position, scale = [1, 1, 1], parent = group) => {
     const object = new THREE.Mesh(shape, paint);
     object.position.set(...position);
@@ -33,15 +31,13 @@ export function createPlanetPlayground(scene) {
     parent.add(object);
     return object;
   };
-  const ground = (x, z) => PLANET.centerY + PLANET.y * Math.sqrt(Math.max(0,
-    1 - (x / PLANET.x) ** 2 - ((z - PLANET.centerZ) / PLANET.z) ** 2));
+  const ground = () => FLOOR.y;
 
-  // The top stays below every tray profile; the foreground curve carries the scenery.
-  const globeGeometry = geometry(new THREE.SphereGeometry(1, 64, 24));
-  const colors = new THREE.Float32BufferAttribute(new Float32Array(globeGeometry.attributes.position.count * 3), 3);
-  globeGeometry.setAttribute('color', colors);
-  grass.vertexColors = true;
-  mesh(globeGeometry, grass, [0, PLANET.centerY, PLANET.centerZ], [PLANET.x, PLANET.y, PLANET.z]).name = 'playground-planet';
+  // Extend past the camera edges so the court reads as a floor, not a raised platform.
+  const floorGeometry = geometry(new THREE.PlaneGeometry(FLOOR.width, FLOOR.depth, 2, 1).rotateX(-Math.PI / 2).toNonIndexed());
+  const colors = new THREE.Float32BufferAttribute(new Float32Array(floorGeometry.attributes.position.count * 3), 3);
+  floorGeometry.setAttribute('color', colors);
+  mesh(floorGeometry, grass, [0, FLOOR.y, FLOOR.centerZ]).name = 'playground-floor';
 
   const markingVertices = [];
   function ribbon(points, width, closed = false) {
@@ -64,43 +60,43 @@ export function createPlanetPlayground(scene) {
     const angle = index * Math.PI * 2 / 96;
     return [Math.cos(angle) * rx, centerZ + Math.sin(angle) * rz];
   });
-  ribbon(ellipse(8.3, 5.5), 0.085, true);
+  ribbon([[-8.3, -5.5], [8.3, -5.5], [8.3, 5.5], [-8.3, 5.5]], 0.085, true);
   ribbon(Array.from({ length: 49 }, (_, index) => [0, -5.5 + index * 11 / 48]), 0.07);
   ribbon(ellipse(2.5, 2.5, 1.3), 0.07, true);
   const markingGeometry = geometry(new THREE.BufferGeometry());
   markingGeometry.setAttribute('position', new THREE.Float32BufferAttribute(markingVertices, 3));
   markingGeometry.computeVertexNormals();
-  const marking = material(PALETTE.marking);
+  const marking = material(COURT_COLORS.line);
   marking.roughness = 0.94; marking.envMapIntensity = 0.04;
   marking.polygonOffset = true; marking.polygonOffsetFactor = -1; marking.polygonOffsetUnits = -1;
   mesh(markingGeometry, marking, [0, 0, 0]).name = 'playground-court-markings';
 
   for (const x of [-7.4, 7.4]) {
     const floor = ground(x, 0), top = TANK.bottom - 0.12;
-    mesh(cylinder, structure, [x, (floor + top) / 2, 0], [0.18, top - floor, 0.18]).name = 'playground-support';
+    mesh(cylinder, support, [x, (floor + top) / 2, 0], [0.18, top - floor, 0.18]).name = 'playground-support';
   }
 
-  for (const [x, z, size] of [[-7, 3.1, 0.9], [7, 3.8, 1.1]]) {
-    const base = ground(x, z);
-    mesh(cylinder, trunk, [x, base + 0.55 * size, z], [0.12 * size, 1.1 * size, 0.12 * size]).name = 'playground-tree-trunk';
-    mesh(sphere, leaves, [x, base + 1.55 * size, z], [0.66 * size, 0.98 * size, 0.66 * size]).name = 'playground-tree-canopy';
+  const seat = geometry(new THREE.CapsuleGeometry(0.17, 1.9, 4, 16).rotateZ(Math.PI / 2));
+  for (const x of [-6.2, 6.2]) {
+    const bench = new THREE.Group();
+    bench.name = 'playground-bench';
+    bench.position.set(x, FLOOR.y, 2.9);
+    bench.rotation.y = x < 0 ? -0.12 : 0.12;
+    group.add(bench);
+    mesh(seat, ivory, [0, 0.65, 0], [1, 1, 2.2], bench);
+    for (const side of [-1, 1]) {
+      mesh(box, support, [side * 0.72, 0.25, 0], [0.18, 0.5, 0.55], bench);
+    }
   }
 
-  const seesaw = new THREE.Group();
-  seesaw.name = 'playground-seesaw';
-  seesaw.position.set(-5.6, ground(-5.6, 4.1), 4.1);
-  seesaw.rotation.y = -0.24;
-  group.add(seesaw);
-  mesh(geometry(new THREE.CylinderGeometry(0, 0.5, 0.72, 3)), frame, [0, 0.36, 0], [1, 1, 1], seesaw);
-  const beam = new THREE.Group(); beam.position.y = 0.74; beam.rotation.z = -0.13; seesaw.add(beam);
-  mesh(box, structure, [0, 0, 0], [2.6, 0.14, 0.42], beam);
-  for (const side of [-1, 1]) {
-    mesh(sphere, side < 0 ? frame : coral, [side * 1.03, 0.1, 0], [0.4, 0.1, 0.32], beam);
-    mesh(cylinder, side < 0 ? frame : coral, [side * 0.72, 0.32, 0], [0.045, 0.48, 0.045], beam);
-  }
-
-  for (const [x, z, size] of [[5.5, 4.2, 0.36], [6.2, 3.5, 0.22]]) {
-    mesh(sphere, structure, [x, ground(x, z) + size * 0.35, z], [size, size * 0.55, size * 0.8]).name = 'playground-pebble';
+  const cone = geometry(new THREE.CylinderGeometry(0.06, 0.24, 0.42, 16));
+  for (const [x, z] of [[-5.1, 5.1], [5.2, 4.8], [5.9, 5.3]]) {
+    const marker = new THREE.Group();
+    marker.name = 'playground-court-marker';
+    marker.position.set(x, FLOOR.y, z);
+    group.add(marker);
+    mesh(cylinder, ivory, [0, 0.04, 0], [0.32, 0.08, 0.32], marker);
+    mesh(cone, x < 0 ? mint : coral, [0, 0.29, 0], [1, 1, 1], marker);
   }
 
   let paletteApplied = false, disposed = false;
@@ -108,15 +104,15 @@ export function createPlanetPlayground(scene) {
     // Keep one playground palette while retaining the sky callback contract.
     if (disposed || paletteApplied) return;
     paletteApplied = true;
-    const top = new THREE.Color(PALETTE.grass), bottom = new THREE.Color(PALETTE.underside);
-    const tint = new THREE.Color(), positions = globeGeometry.attributes.position;
-    for (let i = 0; i < positions.count; i++) {
-      const blend = THREE.MathUtils.smoothstep(positions.getY(i), -0.25, 0.9);
-      tint.copy(bottom).lerp(top, blend);
-      colors.setXYZ(i, tint.r, tint.g, tint.b);
+    const mint = new THREE.Color(COURT_COLORS.mint), coral = new THREE.Color(COURT_COLORS.coral);
+    const positions = floorGeometry.attributes.position;
+    for (let face = 0; face < positions.count; face += 3) {
+      const top = positions.getX(face) + positions.getX(face + 1) + positions.getX(face + 2) < 0 ? coral : mint;
+      for (let i = face; i < face + 3; i++) {
+        colors.setXYZ(i, top.r, top.g, top.b);
+      }
     }
     colors.needsUpdate = true;
-    leaves.color.set(PALETTE.leaves); frame.color.set(PALETTE.frame);
   }
   setPeriod();
   return {

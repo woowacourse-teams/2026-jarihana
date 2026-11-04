@@ -343,19 +343,19 @@
 .sparring-camera-switch { position: absolute; top: 0; right: 0; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; border: 1px solid var(--color-line); border-radius: var(--radius-pill); background: var(--color-surface); color: var(--color-text-muted); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; pointer-events: auto; white-space: nowrap; }
 .sparring-camera-switch span { position: relative; width: 26px; height: 16px; border-radius: var(--radius-pill); background: var(--color-line); transition: background .16s; }
 .sparring-camera-switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 10px; height: 10px; border-radius: 50%; background: var(--color-surface); transition: transform .16s; }
-.sparring-camera-switch[aria-checked="true"] { color: var(--color-text-brand); }
-.sparring-camera-switch[aria-checked="true"] span { background: var(--color-brand); }
+.sparring-camera-switch[aria-checked="true"] { color: var(--color-ink); }
+.sparring-camera-switch[aria-checked="true"] span { background: var(--color-ink); }
 .sparring-camera-switch[aria-checked="true"] span::after { transform: translateX(10px); }
-.sparring-camera-switch:focus-visible { outline: 2px solid var(--color-text-brand); outline-offset: 2px; }
+.sparring-camera-switch:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
 .sparring-camera-switch:disabled { opacity: .5; cursor: wait; }
 @media (prefers-reduced-motion: reduce) { .sparring-camera-switch span, .sparring-camera-switch span::after { transition: none; } }
 .sparring-view-switch { display: flex; align-items: center; padding: 3px; border: 1px solid var(--color-line); border-radius: var(--radius-pill); background: var(--color-surface); pointer-events: auto; }
 .sparring-view-switch button { min-height: 36px; padding: 0 12px; border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--color-text-muted); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .sparring-view-switch button[aria-pressed="true"] { background: var(--color-surface-sunken); color: var(--color-ink); }
-.sparring-view-switch button:focus-visible { outline: 2px solid var(--color-text-brand); outline-offset: 2px; }
+.sparring-view-switch button:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
 .sparring-view-switch button:disabled { cursor: wait; opacity: .5; }
 .sparring-detail__back { display: inline-flex; width: var(--touch-target); min-height: var(--touch-target); align-items: center; justify-content: center; border-radius: var(--radius-pill); color: var(--color-ink); text-decoration: none; pointer-events: auto; }
-.sparring-detail__back:hover { color: var(--color-text-brand); background: var(--color-surface-sunken); }
+.sparring-detail__back:hover { color: var(--color-ink); background: var(--color-surface-sunken); }
 .sparring-connection { position: absolute; top: 52px; right: 0; color: var(--color-muted-ink); font-size: var(--text-caption); display: inline-flex; gap: var(--space-2); align-items: center; max-width: 40%; }
 .sparring-connection::before { content: ""; width: var(--space-2); height: var(--space-2); border-radius: var(--radius-pill); background: var(--color-muted); }
 .sparring-connection[data-connection="live"]::before { background: var(--color-success); }

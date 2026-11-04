@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createWalkingCharacters } from '../../public/sparring-arena/src/walking-characters.js';
 import { createChairDuelVisuals } from '../../public/sparring-arena/src/chair-duel-visuals.js';
+import { chairBattlePose } from '../../public/sparring-arena/src/chair-battle-motion.js';
 
 jest.mock('three', () => jest.requireActual('../../public/sparring-arena/vendor/three.module.js'), { virtual: true });
 jest.mock('../../public/sparring-arena/src/walking-characters.js', () => {
@@ -104,6 +105,15 @@ it('던진 의자는 손에서 떨어져 발 기준 화면 좌표와 배율로 �
   const chair = group.getObjectByName('sparring-chairs');
   const grip = new THREE.Vector3(0, 1.05, -0.3).applyMatrix4(matrixAt(chair, 1));
   expectPoint(grip, feet(value).add(new THREE.Vector3(72, 45, 0)));
+});
+
+it('대결이 끝난 옆으로 누운 의자는 캐릭터 발 높이에 내려앉는다', () => {
+  for (const size of [132, 180, 210]) for (const index of [0, 1]) {
+    const value = frame({ size, scale: 1, motion: chairBattlePose({ time: 8, index, size }) });
+    const bounds = visuals.draw(index, post, value);
+    expect(Math.abs(bounds.bottom - value.y)).toBeLessThan(size * 0.02);
+    expect(actors.draw.mock.lastCall[4]).toMatchObject({ seated: 0, phase: 'settled' });
+  }
 });
 
 it('한쪽을 숨겨도 다른 인물과 의자를 유지하고 모두 숨기면 대치 그룹을 감춘다', () => {
