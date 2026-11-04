@@ -33,6 +33,16 @@ phase, run_id, deployment_id, old/target, image, pending, sealed와 cleanup_defe
 worker 관찰은 boot와 DB 권한이 유지되고 unresolved=0인지 확인한다.
 HTTP 관찰은 실제 후보 경로와 호스트별 fresh up, 최근 2분 요청 수, 5xx 비율과 평균 시간을 본다.
 
+요청 수, 5xx 수와 누적 응답 시간은 같은 HTTP 집합으로 계산한다. `response_type="http"`인
+메트릭은 포함하고 `response_type="sse"`인 연결 유지 시간은 제외한다. 라벨이 없는 구버전
+메트릭은 `/sparrings/{topicId}/events`를 제외한다. 새 라벨이 있는 이 경로의 JSON 오류 응답은
+HTTP로 유지한다. 구버전은 같은 경로의 JSON 오류와 SSE를 구분하지 못하므로 함께 제외된다.
+up, 실제 요청 경로와 별도 worker 검사는 유지한다.
+
+이 변경은 저장소 코드의 기준이다. 운영 적용에는 수정한 코드로 고정 제어 릴리스를 만들고
+coordinator와 A/B의 보호된 control ref/SHA, GitHub의 `BLUE_GREEN_CONTROL_REF`를 일치시켜야 한다.
+Git 병합이나 백엔드 이미지 배포만으로 기존 제어 릴리스의 쿼리가 바뀌지는 않는다.
+
 telemetry 예시의 실패 임계값은 5xx 1%, 평균 응답 1초다. 실제 보호된 설정을
 확인하며 이 응답 시간은 p95가 아니다. up 최신성은 [관측 최신성](#관측-최신성)을 따른다. 총 요청 수가 0인 값과 지표 누락을 구분한다.
 누락, NaN, 경고, 다중 series와 관측 불확실성은 UNKNOWN으로 실패한다.
