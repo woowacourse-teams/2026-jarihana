@@ -2,6 +2,7 @@ package com.project.jarihana.common.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -11,6 +12,7 @@ import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.prometheusmetrics.PrometheusConfig;
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 import java.time.Duration;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -47,6 +49,7 @@ class HttpRequestMetricsConfigTest {
 
             // Then
             assertThat(timer).isNotNull();
+            assertThat(timer.getId().getTag("response.type")).isEqualTo("http");
             assertThat(timer.count()).isZero();
             assertThat(timer.totalTime(TimeUnit.SECONDS)).isZero();
             assertThat(registry.scrape()).contains("http_server_requests_seconds_count")
@@ -125,6 +128,28 @@ class HttpRequestMetricsConfigTest {
         });
     }
 
+    @Test
+    @DisplayName("경로와 무관하게 완료된 비동기 SSE 응답을 구분하고 일반 응답은 유지한다")
+    void classifiesCompletedSseByResponseContentType() {
+        contextRunner.run(context -> {
+            // Given
+            var registry = context.getBean(PrometheusMeterRegistry.class);
+            MockMvc mvc = mvc(registry, context.getBean(ServerRequestObservationConvention.class));
+            // When
+            var result = mvc.perform(get("/notifications/live")).andReturn();
+            result.getAsyncResult(5000);
+            mvc.perform(asyncDispatch(result)).andExpect(status().isOk());
+            mvc.perform(get("/groups")).andExpect(status().isOk());
+            mvc.perform(get("/notifications/rejected").accept("text/event-stream"))
+                    .andExpect(status().isServiceUnavailable());
+            mvc.perform(get("/other")).andExpect(status().isNotFound());
+            // Then
+            assertThat(registry.get("http.server.requests").tag("response.type", "sse").timer().count()).isEqualTo(1);
+            assertThat(registry.find("http.server.requests").tag("response.type", "http").timers()
+                    .stream().mapToLong(Timer::count).sum()).isEqualTo(3);
+        });
+    }
+
     private MockMvc mvc(PrometheusMeterRegistry registry, ServerRequestObservationConvention convention) {
         var observations = ObservationRegistry.create();
         observations.observationConfig().observationHandler(new DefaultMeterObservationHandler(registry));
@@ -138,6 +163,17 @@ class HttpRequestMetricsConfigTest {
 
         GroupProbeController(PrometheusMeterRegistry registry) {
             this.registry = registry;
+        }
+
+        @GetMapping("/notifications/rejected")
+        ResponseEntity<String> rejectedStream() {
+            return ResponseEntity.status(503).header("Content-Type", "application/json").body("{}");
+        }
+
+        @GetMapping("/notifications/live")
+        Callable<ResponseEntity<String>> stream() {
+            return () -> ResponseEntity.ok().header("Content-Type", "text/event-stream;charset=UTF-8")
+                    .body("data: hello\n\n");
         }
 
         @GetMapping("/groups")
