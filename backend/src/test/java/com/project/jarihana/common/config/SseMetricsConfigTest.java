@@ -6,10 +6,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.prometheusmetrics.PrometheusConfig;
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 import jakarta.servlet.AsyncEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
+import org.springframework.context.annotation.Bean;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockAsyncContext;
@@ -18,6 +23,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 class SseMetricsConfigTest {
@@ -48,7 +54,8 @@ class SseMetricsConfigTest {
         controller.latest.complete();
         mvc.perform(asyncDispatch(second));
         assertThat(active("/rooms/{id}/events")).isZero();
-        assertThat(metrics.find("jarihana.sse.connections.rejected").counters()).isEmpty();
+        assertThat(metrics.find("jarihana.sse.connections.rejected").counters())
+                .isNotEmpty().allSatisfy(counter -> assertThat(counter.count()).isZero());
     }
 
     @Test
@@ -90,7 +97,53 @@ class SseMetricsConfigTest {
         // Then
         assertThat(active("/notifications")).isZero();
         assertThat(attempts("/notifications")).isEqualTo(1);
-        assertThat(metrics.find("jarihana.sse.connections.rejected").counters()).isEmpty();
+        assertThat(metrics.find("jarihana.sse.connections.rejected").counters())
+                .isNotEmpty().allSatisfy(counter -> assertThat(counter.count()).isZero());
+    }
+
+    @Test
+    @DisplayName("요청 전부터 SSE 경로별 0을 수집하고 최초 503과 429 거부를 각각 한 번 센다")
+    void exposesZeroBeforeFirstRequestAndCountsFirstRejectionPerStatus() {
+        new WebApplicationContextRunner()
+                .withUserConfiguration(SseMetricsConfig.class, MvcConfiguration.class)
+                .withBean(PrometheusMeterRegistry.class, () -> new PrometheusMeterRegistry(PrometheusConfig.DEFAULT))
+                .run(context -> {
+                    // Given
+                    var registry = context.getBean(PrometheusMeterRegistry.class);
+                    var configuredMvc = MockMvcBuilders.webAppContextSetup(context).build();
+                    String baseline = registry.scrape();
+                    assertThat(baseline).contains(
+                            "jarihana_sse_connections_attempts_total{uri=\"/rooms/{id}/events\"} 0.0",
+                            "jarihana_sse_connections_active{uri=\"/rooms/{id}/events\"} 0.0",
+                            "jarihana_sse_connections_rejected_total{status=\"503\",uri=\"/rooms/{id}/events\"} 0.0",
+                            "jarihana_sse_connections_rejected_total{status=\"429\",uri=\"/rooms/{id}/events\"} 0.0",
+                            "jarihana_sse_connections_rejected_total{status=\"503\",uri=\"/notifications\"} 0.0");
+                    assertThat(baseline).doesNotContain("uri=\"/normal\"");
+
+                    // When
+                    configuredMvc.perform(get("/rooms/1/events").param("reject", "true"))
+                            .andExpect(status().isServiceUnavailable());
+                    configuredMvc.perform(get("/rooms/2/events").param("reject", "true").param("rejectStatus", "429"))
+                            .andExpect(status().isTooManyRequests());
+
+                    // Then
+                    String afterRejections = registry.scrape();
+                    assertThat(afterRejections).contains(
+                            "jarihana_sse_connections_attempts_total{uri=\"/rooms/{id}/events\"} 2.0",
+                            "jarihana_sse_connections_active{uri=\"/rooms/{id}/events\"} 0.0",
+                            "jarihana_sse_connections_rejected_total{status=\"503\",uri=\"/rooms/{id}/events\"} 1.0",
+                            "jarihana_sse_connections_rejected_total{status=\"429\",uri=\"/rooms/{id}/events\"} 1.0");
+                    assertThat(registry.scrape()).isEqualTo(afterRejections);
+                });
+    }
+
+    @TestConfiguration(proxyBeanMethods = false)
+    @EnableWebMvc
+    static class MvcConfiguration {
+        @Bean
+        Streams streams() {
+            return new Streams();
+        }
     }
 
     private double active(String uri) {
@@ -106,8 +159,9 @@ class SseMetricsConfigTest {
         SseEmitter latest;
 
         @GetMapping(value = "/rooms/{id}/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-        ResponseEntity<?> room(@RequestParam(defaultValue = "false") boolean reject) {
-            if (reject) return ResponseEntity.status(503).contentType(MediaType.APPLICATION_JSON).body("{}");
+        ResponseEntity<?> room(@RequestParam(defaultValue = "false") boolean reject,
+                               @RequestParam(defaultValue = "503") int rejectStatus) {
+            if (reject) return ResponseEntity.status(rejectStatus).contentType(MediaType.APPLICATION_JSON).body("{}");
             latest = new SseEmitter(120_000L);
             return ResponseEntity.ok(latest);
         }

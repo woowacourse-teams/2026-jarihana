@@ -4,10 +4,11 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.util.Set;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.context.request.async.DeferredResult;
@@ -26,14 +27,26 @@ final class SseMetricsInterceptor implements AsyncHandlerInterceptor {
         this.metrics = metrics;
     }
 
+    AtomicInteger initializeMetrics(String uri) {
+        return active.computeIfAbsent(uri, key -> {
+            metrics.counter("jarihana.sse.connections.attempts", "uri", key);
+            for (HttpStatus status : HttpStatus.values()) {
+                if (status.isError()) {
+                    metrics.counter("jarihana.sse.connections.rejected", "uri", key,
+                            "status", Integer.toString(status.value()));
+                }
+            }
+            return metrics.gauge("jarihana.sse.connections.active", List.of(Tag.of("uri", key)), new AtomicInteger());
+        });
+    }
+
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
         if (request.getAttribute(STATE) != null || !isSse(request)) return true;
         Object pattern = request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
         if (pattern == null) return true;
         String uri = pattern.toString();
-        AtomicInteger count = active.computeIfAbsent(uri, key -> metrics.gauge(
-                "jarihana.sse.connections.active", List.of(Tag.of("uri", key)), new AtomicInteger()));
+        AtomicInteger count = initializeMetrics(uri);
         var connection = new Connection(uri, count);
         request.setAttribute(STATE, connection);
         metrics.counter("jarihana.sse.connections.attempts", "uri", uri).increment();

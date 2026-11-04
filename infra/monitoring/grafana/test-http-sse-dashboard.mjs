@@ -117,6 +117,38 @@ for (const [name, attemptValues, rejectedValues, expected] of [
       exp_samples: expected === null ? [] : [{ labels, value: expected }] }],
   });
 }
+for (const [name, rejectedValues, expectedCount, expectedRate] of [
+  ['missing then one then one loses the first rejection', `${Array(25).fill('_').join(' ')} 1+0x5`, 0, 0],
+  ['zero baseline preserves a single rejection with no further rejections', '0+0x24 1+0x5', 1, 50],
+]) {
+  tests.push({
+    name, interval: '10s',
+    input_series: [
+      connectionSeries('jarihana_sse_connections_attempts_total', '0+0x24 2+0x5'),
+      connectionSeries('jarihana_sse_connections_rejected_total', rejectedValues, { status: '503' }),
+    ],
+    promql_expr_test: [
+      { expr: expand(connectionPanels[1]), eval_time: '5m', exp_samples: [
+        { labels: '{instance="a",uri="/sparrings/{topicId}/events",status="503"}', value: expectedCount },
+      ] },
+      { expr: expand(connectionPanels[2]), eval_time: '5m', exp_samples: [{ labels, value: expectedRate }] },
+    ],
+  });
+}
+tests.push({
+  name: 'initialized idle counters show zero rejections and no rejection rate',
+  interval: '10s',
+  input_series: [
+    connectionSeries('jarihana_sse_connections_attempts_total', '0+0x30'),
+    connectionSeries('jarihana_sse_connections_rejected_total', '0+0x30', { status: '503' }),
+  ],
+  promql_expr_test: [
+    { expr: expand(connectionPanels[1]), eval_time: '5m', exp_samples: [
+      { labels: '{instance="a",uri="/sparrings/{topicId}/events",status="503"}', value: 0 },
+    ] },
+    { expr: expand(connectionPanels[2]), eval_time: '5m', exp_samples: [] },
+  ],
+});
 tests.push({
   name: 'rejected requests keep HTTP status and selected environment',
   interval: '10s',
