@@ -477,6 +477,7 @@
   flex-direction: column;
 }
 .gomoku-heading {
+  position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
@@ -518,6 +519,57 @@
 }
 .gomoku-tools .ui-button--danger:hover {
   background: var(--color-danger-soft);
+}
+.gomoku-invitation {
+  display: flex;
+}
+.gomoku-invitation-chevron {
+  transform: translateY(calc(var(--space-1) / 2));
+}
+.gomoku-invitation-panel {
+  position: absolute;
+  inset: calc(100% + var(--space-2)) 0 auto;
+  z-index: var(--z-overlay);
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-thin) solid var(--color-line-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-float);
+}
+.gomoku-invitation-panel .games-help {
+  margin: 0;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.gomoku-invitation-panel__actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.gomoku-invitation-field {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding-right: var(--space-1);
+  border: var(--border-thin) solid var(--color-line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+.gomoku-invitation-field input {
+  flex: 1;
+  min-width: 0;
+  min-height: calc(var(--touch-target) + var(--space-2));
+  border: 0;
+  background: transparent;
+}
+.gomoku-invitation-copy.ui-icon-button {
+  flex-shrink: 0;
+}
+.gomoku-invitation-copy .ui-spinner {
+  display: block;
 }
 .gomoku-arena {
   display: flex;

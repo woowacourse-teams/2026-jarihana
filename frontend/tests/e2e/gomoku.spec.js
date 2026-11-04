@@ -10,6 +10,15 @@ for (const width of [390, 1200]) {
     // Playwright fulfill closes SSE responses, so keep the UI fixture connection open.
     // Production EventSource lifecycle is exercised separately by the hook tests.
     await page.addInitScript(() => {
+      window.__gomokuCopiedLinks = [];
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (value) => {
+            window.__gomokuCopiedLinks.push(value);
+          }
+        }
+      });
       window.EventSource = class {
         constructor(url) {
           this.url = url;
@@ -55,6 +64,7 @@ for (const width of [390, 1200]) {
     let ready;
     let move;
     let resign;
+    let invitationCount = 0;
     const reply = (route, data) => route.fulfill({ json: { success: true, data, error: null } });
     await page.route("**/api/games/gomoku/**", async (route) => {
       const path = new URL(route.request().url()).pathname;
@@ -81,6 +91,10 @@ for (const width of [390, 1200]) {
         return reply(route, { roomId: 1 });
       }
       if (path.endsWith("/me")) return reply(route, { roomId: null });
+      if (path.endsWith("/invite")) {
+        invitationCount += 1;
+        return reply(route, { token: `layout-test-token-${invitationCount}` });
+      }
       if (path.endsWith("/ready")) {
         ready = route.request().postDataJSON();
         room.hostReady = ready.ready;
@@ -111,6 +125,53 @@ for (const width of [390, 1200]) {
     await expect(
       page.locator('[data-ph-capture-attribute-action="gomoku_move_confirm"]')
     ).toHaveCount(0);
+    const board = page.locator(".gomoku-table");
+    const boardGeometry = () =>
+      board.evaluate((element) => {
+        const { x, y, width, height } = element.getBoundingClientRect();
+        return { x: x + window.scrollX, y: y + window.scrollY, width, height };
+      });
+    const originalBoard = await boardGeometry();
+    await page.getByRole("button", { name: "초대링크", exact: true }).click();
+    const invitation = page.getByRole("region", { name: "초대 링크", exact: true });
+    await expect(invitation).toBeVisible();
+    const invitationInput = invitation.getByRole("textbox", { name: "초대 링크" });
+    await expect(invitationInput).toHaveValue(/layout-test-token-1$/);
+    const copyIcon = invitation.getByRole("button", { name: "복사", exact: true });
+    await expect(copyIcon).toHaveText("");
+    const inputBox = await invitationInput.boundingBox();
+    const copyBox = await copyIcon.boundingBox();
+    const fieldBox = await invitation.locator(".gomoku-invitation-field").boundingBox();
+    expect(copyBox.x).toBeGreaterThanOrEqual(inputBox.x + inputBox.width);
+    expect(copyBox.x + copyBox.width).toBeLessThanOrEqual(fieldBox.x + fieldBox.width);
+    expect(await page.evaluate(() => window.__gomokuCopiedLinks)).toEqual([]);
+    expect(await boardGeometry()).toEqual(originalBoard);
+    await page.screenshot({ path: `test-results/gomoku-invitation-open-${width}.png` });
+    await page.getByRole("button", { name: "초대링크", exact: true }).click();
+    await expect(invitation).toHaveCount(0);
+    expect(await boardGeometry()).toEqual(originalBoard);
+    const invitationToggle = page.getByRole("button", { name: "초대링크", exact: true });
+    await expect(invitationToggle).toBeFocused();
+    await invitationToggle.click();
+    await expect(invitationInput).toHaveValue(/layout-test-token-1$/);
+    expect(invitationCount).toBe(1);
+    await invitationInput.focus();
+    await page.keyboard.press("Escape");
+    await expect(invitationToggle).toBeFocused();
+    await expect(invitation).toHaveCount(0);
+    await invitationToggle.click();
+    await invitation.getByRole("button", { name: "새 링크 만들기" }).click();
+    await expect(invitationInput).toHaveValue(/layout-test-token-2$/);
+    expect(await boardGeometry()).toEqual(originalBoard);
+    expect(await page.evaluate(() => window.__gomokuCopiedLinks)).toEqual([]);
+    await invitation.getByRole("button", { name: "복사", exact: true }).click();
+    await expect(invitation).toHaveCount(0);
+    expect(await page.evaluate(() => window.__gomokuCopiedLinks)).toEqual([
+      "http://127.0.0.1:4174/games/gomoku/invite/layout-test-token-2"
+    ]);
+    await expect(invitationToggle).toBeFocused();
+    expect(await boardGeometry()).toEqual(originalBoard);
+    await page.screenshot({ path: `test-results/gomoku-invitation-copied-${width}.png` });
     await page.getByRole("button", { name: "준비하기", exact: true }).click();
     await expect.poll(() => ready).toEqual({ ready: true, gameNumber: 1 });
     await page.evaluate(() => {
