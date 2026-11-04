@@ -126,15 +126,21 @@ bg_scalar() {
   raw=$(curl --noproxy '*' --fail --silent --show-error --max-time 3 --max-filesize 65536 --get --data-urlencode "query=$1" --data-urlencode timeout=2s "$(jq -r '.telemetry.url' <<<"$CONFIG")/api/v1/query") || return 1
   jq -er '. | select(.status=="success" and ((.warnings // [])|length)==0 and .data.resultType=="vector" and (.data.result|length)==1) | .data.result[0].value[1] | select(type=="string" and test("^[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$")) | tonumber | select(isfinite and .>=0)' <<<"$raw"
 }
+bg_http_increase() {
+  local metric=$1 labels=$2
+  # Legacy metrics have no response_type; their known SSE routes are excluded.
+  printf 'sum(increase(%s{%s,response_type="http"}[2m]) or increase(%s{%s,response_type="",uri!="/sparrings/{topicId}/events",uri!="/games/gomoku/rooms/{id}/events"}[2m]))' \
+    "$metric" "$labels" "$metric" "$labels"
+}
 bg_metrics() {
   local labels selector up age requests errors duration
   labels="job=\"jarihana-backend\",environment=\"$ENVIRONMENT\",host_id=\"$(bg_host "$1" | jq -r '.host_id')\""; selector="{$labels}"
   up=$(bg_scalar "up$selector") && age=$(bg_scalar "time() - timestamp(up$selector)") || return 2
   jq -en --argjson age "$age" --argjson cfg "$CONFIG" '$age<=$cfg.telemetry.max_age_seconds' >/dev/null || return 2
   [[ $up == 1 ]] || return 1
-  requests=$(bg_scalar "sum(increase(http_server_requests_seconds_count${selector}[2m]))") || return 2
-  errors=$(bg_scalar "sum(increase(http_server_requests_seconds_count{$labels,status=~\"5..\"}[2m])) or vector(0)") || return 2
-  duration=$(bg_scalar "sum(increase(http_server_requests_seconds_sum${selector}[2m]))") || return 2
+  requests=$(bg_scalar "$(bg_http_increase http_server_requests_seconds_count "$labels")") || return 2
+  errors=$(bg_scalar "$(bg_http_increase http_server_requests_seconds_count "$labels,status=~\"5..\"") or vector(0)") || return 2
+  duration=$(bg_scalar "$(bg_http_increase http_server_requests_seconds_sum "$labels")") || return 2
   jq -en --argjson r "$requests" --argjson e "$errors" --argjson d "$duration" '$e<=$r and ($r>0 or $d==0)' >/dev/null || return 2
   jq -en --argjson r "$requests" --argjson e "$errors" --argjson d "$duration" --argjson cfg "$CONFIG" '$r==0 or ($e/$r<=$cfg.telemetry.max_error_ratio and $d/$r<=$cfg.telemetry.max_mean_seconds)' >/dev/null
 }
