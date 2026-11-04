@@ -40,7 +40,9 @@ job timeout만으로 복구 성공을 보장하지 않는다.
 ## 수동 조사
 
 서버 분실이나 교체는 [서버 구성](server-setup/README.md#재구성-절차)의 복원 원본과 중단 조건을
-먼저 확인한다. 새 instance ID나 control pin을 기존 저널에 대입하는 자동 이관 명령은 없다.
+먼저 확인한다. 새 instance ID나 control pin을 기존 저널에 대입하지 않는다.
+동일 서버 구성에서 control pin만 바꾸고 실제 서비스와 완료 기록이 일치하면
+[고정 제어 버전 교체](control-upgrade.md)의 명시적 이관 허가를 사용할 수 있다.
 새 호스트 준비와 운영 상태의 이관을 별개로 다루며, bootstrap으로 기존 owner를 덮어쓰지 않는다.
 
 1. 새 배포와 종료 작업을 중단하고 run/deployment ID, 저널, intent, S3 state와 ETag,
