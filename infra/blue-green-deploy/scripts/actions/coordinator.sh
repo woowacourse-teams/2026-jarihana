@@ -126,26 +126,72 @@ bg_scalar() {
   raw=$(curl --noproxy '*' --fail --silent --show-error --max-time 3 --max-filesize 65536 --get --data-urlencode "query=$1" --data-urlencode timeout=2s "$(jq -r '.telemetry.url' <<<"$CONFIG")/api/v1/query") || return 1
   jq -er '. | select(.status=="success" and ((.warnings // [])|length)==0 and .data.resultType=="vector" and (.data.result|length)==1) | .data.result[0].value[1] | select(type=="string" and test("^[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$")) | tonumber | select(isfinite and .>=0)' <<<"$raw"
 }
+bg_http_increase() {
+  local metric=$1 labels=$2
+  # Legacy metrics have no response_type; their known SSE routes are excluded.
+  printf 'sum(increase(%s{%s,response_type="http"}[2m]) or increase(%s{%s,response_type="",uri!="/sparrings/{topicId}/events",uri!="/games/gomoku/rooms/{id}/events"}[2m]))' \
+    "$metric" "$labels" "$metric" "$labels"
+}
 bg_metrics() {
   local labels selector up age requests errors duration
   labels="job=\"jarihana-backend\",environment=\"$ENVIRONMENT\",host_id=\"$(bg_host "$1" | jq -r '.host_id')\""; selector="{$labels}"
   up=$(bg_scalar "up$selector") && age=$(bg_scalar "time() - timestamp(up$selector)") || return 2
   jq -en --argjson age "$age" --argjson cfg "$CONFIG" '$age<=$cfg.telemetry.max_age_seconds' >/dev/null || return 2
   [[ $up == 1 ]] || return 1
-  requests=$(bg_scalar "sum(increase(http_server_requests_seconds_count${selector}[2m]))") || return 2
-  errors=$(bg_scalar "sum(increase(http_server_requests_seconds_count{$labels,status=~\"5..\"}[2m])) or vector(0)") || return 2
-  duration=$(bg_scalar "sum(increase(http_server_requests_seconds_sum${selector}[2m]))") || return 2
+  requests=$(bg_scalar "$(bg_http_increase http_server_requests_seconds_count "$labels")") || return 2
+  errors=$(bg_scalar "$(bg_http_increase http_server_requests_seconds_count "$labels,status=~\"5..\"") or vector(0)") || return 2
+  duration=$(bg_scalar "$(bg_http_increase http_server_requests_seconds_sum "$labels")") || return 2
   jq -en --argjson r "$requests" --argjson e "$errors" --argjson d "$duration" '$e<=$r and ($r>0 or $d==0)' >/dev/null || return 2
   jq -en --argjson r "$requests" --argjson e "$errors" --argjson d "$duration" --argjson cfg "$CONFIG" '$r==0 or ($e/$r<=$cfg.telemetry.max_error_ratio and $d/$r<=$cfg.telemetry.max_mean_seconds)' >/dev/null
 }
 bg_target_ready() { [[ $(bg_route) == "$(jq -r '.target' <<<"$STATE")" ]] && bg_metrics "$(jq -r '.target' <<<"$STATE")"; }
+bg_previous_journal() {
+  local previous transition topology hash active
+  BG_CONTROL_TRANSITION_SLOT=""
+  bg_state_file
+  previous=$(cat "$STATE_FILE")
+  if jq -e --arg env "$ENVIRONMENT" --arg control "$CONTROL_SHA" --arg topology "$(bg_topology_digest)" \
+    '.schema_version==2 and .environment==$env and .control_sha==$control and .topology_digest==$topology and (.phase=="COMPLETE" or .phase=="ROLLED_BACK")' <<<"$previous" >/dev/null; then
+    return 0
+  fi
+  jq -e --arg sha "$CONTROL_SHA" --arg env "$ENVIRONMENT" '.topology.control.sha==$sha and .topology.environment==$env' <<<"$CONFIG" >/dev/null || bg_die 'Control transition configuration context differs'
+  [[ ${BG_MODE:-deploy} == deploy ]] || bg_die 'Control transition requires a normal deployment, not bootstrap'
+  transition=$(jq -ce --argjson cfg "$CONFIG" --argjson now "$(bg_now)" '
+    .control_transition | select(.schema_version==1 and .target_control==$cfg.topology.control and
+      (.journal_sha256|type=="string" and test("^[a-f0-9]{64}$")) and
+      (.active_slot=="A" or .active_slot=="B") and
+      (.issued_at|type=="number" and floor==. and .>=0) and (.expires_at|type=="number" and floor==.) and
+      .issued_at<=($now+5) and .expires_at>$now and .expires_at>.issued_at and (.expires_at-.issued_at)<=3600 and
+      (.previous_topology.control.ref|type=="string" and test("^refs/tags/deployment-control-[A-Za-z0-9._-]+$")) and
+      (.previous_topology.control.sha|type=="string" and test("^[a-f0-9]{40}$")) and
+      .previous_topology.control.ref!=$cfg.topology.control.ref and
+      .previous_topology.control.sha!=$cfg.topology.control.sha and
+      (.previous_topology|del(.control))==($cfg.topology|del(.control)))' <<<"$CONFIG") || bg_die 'Previous deployment requires an explicit control transition; preserve the journal'
+  topology=$(jq -Sc '.previous_topology' <<<"$transition" | sha256sum | cut -d ' ' -f 1)
+  hash=$(sha256sum "$STATE_FILE" | cut -d ' ' -f 1)
+  bg_owned_file "$STATE_FILE.control-$hash"
+  cmp -s "$STATE_FILE" "$STATE_FILE.control-$hash" || bg_die 'Control transition journal backup differs'
+  jq -e --argjson permit "$transition" --arg env "$ENVIRONMENT" --arg topology "$topology" --arg hash "$hash" --argjson cfg "$CONFIG" '
+    .schema_version==2 and .environment==$env and .control_sha==$permit.previous_topology.control.sha and
+    .topology_digest==$topology and $hash==$permit.journal_sha256 and .pending==null and .cleanup_deferred!=true and
+    (if .phase=="ROLLED_BACK" then .http_recovered==true and .worker_recovered==true and
+       (.frontend==null or .frontend.changed!=true or .frontend.recovered==true)
+     elif .phase=="COMPLETE" then .sealed==true or .mode=="bootstrap" else false end) and
+    ([.old_status,.target_status] | map(select(.slot==$permit.active_slot and .healthy==true and .running==true and
+      .identity.hostId==$cfg.topology[($permit.active_slot|ascii_downcase)].host_id and
+      .authority.owner==.identity and .authority.status=="ACTIVE" and .authority.phase=="COMPLETE" and
+      .worker.state=="ACTIVE" and .worker.unresolved==0)) | length==1)' <<<"$previous" >/dev/null || bg_die 'Control transition does not match a safely completed journal'
+  active=$(jq -r '.active_slot' <<<"$transition")
+  [[ $(bg_route) == "$active" ]] || bg_die 'Control transition active HTTP slot differs'
+  BG_CONTROL_TRANSITION_SLOT=$active
+}
 bg_plan() {
   local old target now previous_status=null previous_image=""
+  BG_CONTROL_TRANSITION_SLOT=""
   [[ ${BG_FRONTEND_ONLY:-false} != true || ${BG_BACKEND_ONLY:-false} != true ]] || bg_die 'A release cannot be frontend-only and backend-only'
   [[ ${BG_BACKEND_ONLY:-false} != true || ( $ENVIRONMENT == prod && $BG_MODE == deploy ) ]] || bg_die 'Backend-only scope is production deploy only'
   if [[ -e $STATE_FILE ]]; then
-    bg_state_file
-    jq -e --arg env "$ENVIRONMENT" --arg control "$CONTROL_SHA" --arg topology "$(bg_topology_digest)" '.schema_version==2 and .environment==$env and .control_sha==$control and .topology_digest==$topology and (.phase=="COMPLETE" or .phase=="ROLLED_BACK")' "$STATE_FILE" >/dev/null || bg_die 'Previous deployment requires reconciliation'
+    bg_previous_journal
   fi
   if fe_enabled; then
     [[ -f $STATE_FILE ]] || bg_die 'Production frontend release requires a completed backend bootstrap journal'
@@ -153,6 +199,7 @@ bg_plan() {
     rm -rf -- "$FE_TEMP"
   fi
   old=$(bg_route) || bg_die 'Cannot establish current HTTP slot'
+  [[ -z ${BG_CONTROL_TRANSITION_SLOT:-} || $old == "$BG_CONTROL_TRANSITION_SLOT" ]] || bg_die 'Active HTTP slot changed during control transition'
   if fe_enabled; then
     previous_status=$(jq -c --arg old "$old" '[.target_status,.old_status] | map(select(.slot==$old and .running==true and .healthy==true and .authority.status=="ACTIVE" and .authority.phase=="COMPLETE" and .authority.owner==.identity)) | if length==1 then .[0] else error("Current backend receipt is ambiguous") end' "$STATE_FILE")
     previous_image=$(jq -er '.image|select(test("^sha256:[a-f0-9]{64}$"))' <<<"$previous_status")
@@ -162,6 +209,10 @@ bg_plan() {
   [[ ${BG_FRONTEND_ONLY:-false} != true ]] || target=$old
   if [[ ${BG_FRONTEND_ONLY:-false} != true ]]; then
     [[ $(bg_ec2_state "$old") == running ]] || bg_die 'Current EC2 is not running'
+  fi
+  if [[ -n $BG_CONTROL_TRANSITION_SLOT ]]; then
+    bg_previous_journal
+    [[ $old == "$BG_CONTROL_TRANSITION_SLOT" ]] || bg_die 'Active HTTP slot changed before the new control plan'
   fi
   now=$(bg_now)
   STATE=$(jq -cn --arg env "$ENVIRONMENT" --arg dep "$(bg_uuid)" --argjson run "$RUN_ID" --arg sha "$GITHUB_SHA" --arg control "$CONTROL_SHA" --arg topology "$(bg_topology_digest)" --arg mode "$BG_MODE" --arg old "$old" --arg target "$target" --arg image "$BG_IMAGE_DIGEST" --argjson now "$now" '{schema_version:2,revision:0,environment:$env,deployment_id:$dep,run_id:$run,attempt:1,sha:$sha,control_sha:$control,topology_digest:$topology,mode:$mode,phase:"PREPARING",old:$old,target:$target,image:$image,created_at:$now,heartbeat:$now,expires_at:($now+7200),pending:null,old_status:null,target_status:null,drain_ticket:null,switched:false,sealed:false,http_recovered:false,worker_recovered:false,observation_failed:false,reason:null}')
