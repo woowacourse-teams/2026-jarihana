@@ -118,10 +118,14 @@ public class ImageCleanupService {
         try {
             claimed = transactions.execute(ignored -> claim(taskId, now));
         } catch (ImageStorageBoundaryException exception) {
+            String error = exception.getClass().getSimpleName();
+            transactions.executeWithoutResult(ignored -> taskRepository.findWithLockById(taskId)
+                    .filter(task -> task.canClaim(now))
+                    .ifPresent(task -> task.reschedule(now.plus(properties.cleanupGracePeriod()), error)));
             log.atError()
                     .addKeyValue("event.action", "image.cleanup.rejected")
                     .addKeyValue("image.task_id", taskId)
-                    .addKeyValue("error.type", exception.getClass().getSimpleName())
+                    .addKeyValue("error.type", error)
                     .log("Invalid image deletion task retained without deleting an object");
             return;
         }

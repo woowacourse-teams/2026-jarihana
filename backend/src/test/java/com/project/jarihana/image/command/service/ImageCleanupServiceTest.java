@@ -75,7 +75,8 @@ class ImageCleanupServiceTest {
         verifyNoInteractions(storage);
         verify(deletions, never()).delete(any(ImageDeletionTask.class));
         verify(uploads, never()).delete(any(ImageUpload.class));
-        assertThat(task.canClaim(NOW)).isTrue();
+        assertThat(task.canClaim(NOW)).isFalse();
+        assertThat(task.getExecuteAfter()).isEqualTo(NOW.plusDays(7));
     }
 
     @DisplayName("연결된 업로드가 없는 삭제 작업은 완료 처리하지 않는다.")
@@ -90,7 +91,8 @@ class ImageCleanupServiceTest {
         // Then
         verifyNoInteractions(storage);
         verify(deletions, never()).delete(any(ImageDeletionTask.class));
-        assertThat(task.canClaim(NOW)).isTrue();
+        assertThat(task.canClaim(NOW)).isFalse();
+        assertThat(task.getExecuteAfter()).isEqualTo(NOW.plusDays(7));
     }
 
     @DisplayName("업로드 ID 없는 정상 객체 정리 작업은 처리한다.")
