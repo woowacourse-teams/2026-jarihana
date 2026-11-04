@@ -2,14 +2,14 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useAuth } from "../auth";
-import { getPeperoDayRankings, getPeperoDayStatus, parseServiceTime } from "./api";
+import { getPeperoDayRankings, getPeperoDayStatus, getStickHalvingRoomRankings, parseServiceTime } from "./api";
 
 const DAY_MILLIS = 24 * 60 * 60 * 1000;
 const BOUNDARY_JITTER_MILLIS = 3000;
 
 export const peperoDayKeys = Object.freeze({
   all: ["pepero-day"],
-  rankings: (viewer) => ["pepero-day", "rankings", viewer],
+  rankings: (viewer, board = "event") => ["pepero-day", "rankings", board, viewer],
   status: (viewer) => ["pepero-day", "status", viewer]
 });
 
@@ -57,12 +57,13 @@ export function usePeperoDayStatus({ enabled = true } = {}) {
   return query;
 }
 
-export function usePeperoDayRankings({ enabled = true } = {}) {
+// board는 "event"(이벤트 최종 순위) 또는 "room"(게임방 순위)이다.
+export function usePeperoDayRankings({ board = "event", enabled = true } = {}) {
   const viewer = useViewerKey();
   return useQuery({
     enabled: enabled && viewer !== "loading",
-    queryFn: getPeperoDayRankings,
-    queryKey: peperoDayKeys.rankings(viewer),
+    queryFn: board === "room" ? getStickHalvingRoomRankings : getPeperoDayRankings,
+    queryKey: peperoDayKeys.rankings(viewer, board),
     staleTime: 30_000
   });
 }

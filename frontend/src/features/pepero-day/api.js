@@ -27,9 +27,10 @@ export const eventStatusSchema = z.object({
   status: z.enum(["UPCOMING", "OPEN", "CLOSED"])
 });
 
+// 게임방 판은 횟수 제한이 없어서 남은 횟수와 충전 시각이 null이다.
 const startRunSchema = z.object({
-  attemptsRefillAt: serviceDateTime,
-  remainingAttempts: count,
+  attemptsRefillAt: serviceDateTime.nullable(),
+  remainingAttempts: count.nullable(),
   round: z.number().int().positive(),
   runId: z.number().int().positive(),
   stick: stickSchema,
@@ -56,13 +57,16 @@ const rankingItemSchema = z.object({
 
 const rankingSchema = z.object({ items: z.array(rankingItemSchema), me: rankingItemSchema.nullable() });
 
+// 순위표마다 순위 도전 경로가 다르다. 이벤트 기간의 순위와 게임방으로 옮긴 뒤의 순위는 따로 매긴다.
+const BOARD_PATHS = Object.freeze({ event: "events/pepero-day", room: "games/stick-halving" });
+
 export const getPeperoDayStatus = () => apiClient.request("events/pepero-day", { schema: eventStatusSchema });
 
-export const startPeperoDayRun = () =>
-  apiClient.request("events/pepero-day/runs", { method: "POST", schema: startRunSchema });
+export const startRankedRun = (board = "event") =>
+  apiClient.request(`${BOARD_PATHS[board]}/runs`, { method: "POST", schema: startRunSchema });
 
-export const cutPeperoDayStick = (runId, round, position) =>
-  apiClient.request(`events/pepero-day/runs/${runId}/cuts`, {
+export const cutRankedStick = (board, runId, round, position) =>
+  apiClient.request(`${BOARD_PATHS[board]}/runs/${runId}/cuts`, {
     json: { position, round },
     method: "POST",
     schema: cutSchema
@@ -71,18 +75,21 @@ export const cutPeperoDayStick = (runId, round, position) =>
 export const getPeperoDayRankings = () =>
   apiClient.request("events/pepero-day/rankings", { schema: rankingSchema });
 
+export const getStickHalvingRoomRankings = () =>
+  apiClient.request("games/stick-halving/rankings", { schema: rankingSchema });
+
 // 기기 시간대와 관계없이 서버 시각을 한국 시간으로 읽는다.
 export const parseServiceTime = (value) => Date.parse(`${value}+09:00`);
 
 // 순위 도전 판을 게임 화면의 연결부로 바꾼다. 막대 생성과 판정은 모두 서버가 한다.
-export function createRankedAdapter({ onStarted } = {}) {
+export function createRankedAdapter({ board = "event", onStarted } = {}) {
   let runId = null;
   return {
     async cut(round, position) {
-      return cutPeperoDayStick(runId, round, position);
+      return cutRankedStick(board, runId, round, position);
     },
     async start() {
-      const started = await startPeperoDayRun();
+      const started = await startRankedRun(board);
       runId = started.runId;
       onStarted?.(started);
       return { round: started.round, stick: started.stick };

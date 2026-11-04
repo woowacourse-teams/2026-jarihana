@@ -6,6 +6,7 @@ import com.project.jarihana.minigame.command.controller.dto.CutRequest;
 import com.project.jarihana.minigame.command.controller.dto.CutResponse;
 import com.project.jarihana.minigame.command.controller.dto.StartRunResponse;
 import com.project.jarihana.minigame.command.service.PeperoDayRunCommandService;
+import com.project.jarihana.minigame.domain.MinigameEvent;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -33,7 +34,9 @@ public class PeperoDayRunCommandController {
             @PathVariable long runId,
             @Valid @RequestBody CutRequest request
     ) {
-        CutResponse response = CutResponse.from(peperoDayRunCommandService.cut(request.toCommand(memberId, runId)));
+        CutResponse response = CutResponse.from(
+                peperoDayRunCommandService.cut(request.toCommand(MinigameEvent.PEPERO_DAY_2026, memberId, runId))
+        );
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

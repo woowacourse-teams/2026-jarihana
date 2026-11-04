@@ -63,12 +63,29 @@ public class PeperoDayRunCommandService {
     }
 
     /**
+     * 이벤트가 끝나고 게임방으로 옮긴 뒤의 순위 도전이다. 횟수 제한이 없고, 이벤트 순위와 따로 순위를 매긴다.
+     */
+    @Transactional
+    public StartRunResult startInGameRoom(long memberId) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        if (!peperoDayEventProperties.schedule().inGameRoomAt(now)) {
+            throw new BusinessException(ErrorCode.MINIGAME_GAME_ROOM_NOT_OPEN, "아직 게임방에서 할 수 없습니다.");
+        }
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, "회원 정보를 찾을 수 없습니다."));
+        MinigameRun run = minigameRunCommandRepository.save(
+                MinigameRun.start(MinigameEvent.STICK_HALVING_ROOM, member, SEEDS.nextLong(), now));
+        return new StartRunResult(run.getId(), run.currentRound(), run.currentPuzzle(), null, null);
+    }
+
+    /**
      * 같은 막대를 두 번 보내도 한 번만 기록되도록 판 행을 잠근 뒤 차례를 확인한다.
-     * 다른 회원의 판은 없는 판과 같은 응답을 준다.
+     * 다른 회원의 판이나 다른 순위표의 판은 없는 판과 같은 응답을 준다.
      */
     @Transactional
     public CutResult cut(CutCommand command) {
-        MinigameRun run = minigameRunCommandRepository.findWithLockByIdAndMemberId(command.runId(), command.memberId())
+        MinigameRun run = minigameRunCommandRepository
+                .findWithLockByIdAndMemberIdAndEvent(command.runId(), command.memberId(), command.event())
                 .orElseThrow(() -> new BusinessException(ErrorCode.MINIGAME_RUN_NOT_FOUND, "도전 기록을 찾을 수 없습니다."));
         LocalDateTime now = LocalDateTime.now(clock);
         RoundCut cut = run.cut(command.round(), command.position(), now);

@@ -49,12 +49,15 @@ public class PeperoDayEventQueryService {
         );
     }
 
-    public RankingResult findRankings(Long memberId) {
-        List<RankingResult.Entry> items = minigameRunQueryRepository.findTopRankings(EVENT.name(), RANKING_SIZE).stream()
+    /**
+     * 이벤트 순위와 게임방 순위는 같은 규칙으로 매기고, 판이 속한 순위표로만 나눈다.
+     */
+    public RankingResult findRankings(MinigameEvent board, Long memberId) {
+        List<RankingResult.Entry> items = minigameRunQueryRepository.findTopRankings(board.name(), RANKING_SIZE).stream()
                 .map(PeperoDayEventQueryService::toEntry)
                 .toList();
         RankingResult.Entry me = memberId == null ? null : minigameRunQueryRepository
-                .findMemberRanking(EVENT.name(), memberId)
+                .findMemberRanking(board.name(), memberId)
                 .map(PeperoDayEventQueryService::toEntry)
                 .orElse(null);
         return new RankingResult(items, me);

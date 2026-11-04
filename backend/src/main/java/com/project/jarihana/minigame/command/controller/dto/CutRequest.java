@@ -1,6 +1,7 @@
 package com.project.jarihana.minigame.command.controller.dto;
 
 import com.project.jarihana.minigame.command.service.dto.CutCommand;
+import com.project.jarihana.minigame.domain.MinigameEvent;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
@@ -19,7 +20,7 @@ public record CutRequest(
         Double position
 ) {
 
-    public CutCommand toCommand(long memberId, long runId) {
-        return new CutCommand(memberId, runId, round, position);
+    public CutCommand toCommand(MinigameEvent event, long memberId, long runId) {
+        return new CutCommand(event, memberId, runId, round, position);
     }
 }

@@ -13,5 +13,5 @@ public interface MinigameRunCommandRepository extends JpaRepository<MinigameRun,
     long countByEventAndMemberIdAndCreatedAtGreaterThanEqual(MinigameEvent event, long memberId, LocalDateTime from);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    Optional<MinigameRun> findWithLockByIdAndMemberId(long id, long memberId);
+    Optional<MinigameRun> findWithLockByIdAndMemberIdAndEvent(long id, long memberId, MinigameEvent event);
 }

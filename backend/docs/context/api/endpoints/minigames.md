@@ -8,6 +8,9 @@
 | POST | `/events/pepero-day/runs` | MEMBER + CSRF | 201 판 ID와 1번 막대 |
 | POST | `/events/pepero-day/runs/{runId}/cuts` | MEMBER + CSRF + 본인 판 | 200 판정 결과와 다음 막대 |
 | GET | `/events/pepero-day/rankings` | PUBLIC (로그인하면 내 순위 포함) | 상위 50명과 내 순위 |
+| POST | `/games/stick-halving/runs` | MEMBER + CSRF | 201 게임방 판 ID와 1번 막대 (횟수 제한 없음) |
+| POST | `/games/stick-halving/runs/{runId}/cuts` | MEMBER + CSRF + 본인 게임방 판 | 200 판정 결과와 다음 막대 |
+| GET | `/games/stick-halving/rankings` | PUBLIC (로그인하면 내 순위 포함) | 게임방 상위 50명과 내 순위 |
 
 ## 기간과 진행 상태
 
@@ -76,4 +79,9 @@
 ## 게임방 이관
 
 막대 생성과 판정은 `minigame.domain`의 `StickPuzzle`, `StickPuzzleGenerator`가 이벤트와 무관하게 맡는다.
-판 기록은 `MinigameEvent` 값으로 나뉘므로, 게임방으로 옮길 때는 새 값을 더해 이벤트 순위와 섞지 않는다.
+판 기록은 `MinigameEvent` 값(`PEPERO_DAY_2026`, `STICK_HALVING_ROOM`)으로 나뉘어 이벤트 순위와 게임방 순위가 섞이지 않는다.
+
+- `gameRoomOpen`이 `true`가 된 뒤(운영 2026-11-12 13:00, local과 dev는 항상)에만 `/games/stick-halving/runs`로 시작할 수 있다. 그 전이면 `MINIGAME_GAME_ROOM_NOT_OPEN`(409)이다.
+- 게임방 판은 횟수 제한이 없어 시작 응답의 `remainingAttempts`, `attemptsRefillAt`이 `null`이다. 판정, 제한 시간, 기록은 이벤트 판과 같다.
+- 자르기는 판이 속한 순위표의 경로로만 한다. 게임방 판을 이벤트 경로로 자르거나 그 반대면 없는 판과 같은 `MINIGAME_RUN_NOT_FOUND`(404)다.
+- `/games/stick-halving/rankings`는 게임방 판만으로 이벤트 순위와 같은 규칙에 따라 매긴다. 이벤트 순위(`/events/pepero-day/rankings`)는 이벤트 기간의 판만 남는다.

@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS minigame_run (
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
     updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
     CONSTRAINT fk_minigame_run_member FOREIGN KEY (member_id) REFERENCES member (id),
-    CONSTRAINT ck_minigame_run_event CHECK (event IN ('PEPERO_DAY_2026')),
+    CONSTRAINT ck_minigame_run_event CHECK (event IN ('PEPERO_DAY_2026', 'STICK_HALVING_ROOM')),
     CONSTRAINT ck_minigame_run_cut_rounds CHECK (cut_rounds BETWEEN 0 AND 5),
     CONSTRAINT ck_minigame_run_total_score CHECK (total_score >= 0),
     CONSTRAINT ck_minigame_run_total_duration CHECK (total_duration_millis >= 0)

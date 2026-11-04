@@ -127,11 +127,12 @@ function RankingList({ items, limit, me }) {
 }
 
 export function Ranking({
+  board = "event",
   description = "회원마다 가장 좋은 판 하나로 매겨요. 점수가 같으면 더 빨리 자른 기록이 위예요.",
   emptyDescription = "순위 도전을 끝내면 여기에 이름이 올라가요.",
   title = "순위"
 }) {
-  const rankings = usePeperoDayRankings();
+  const rankings = usePeperoDayRankings({ board });
 
   if (rankings.isPending) return <Skeleton aria-label="순위를 불러오는 중" className="pepero-day__ranking-loading" />;
   if (rankings.isError) {
@@ -144,7 +145,7 @@ export function Ranking({
   }
   const { items, me } = rankings.data;
   return (
-    <section aria-label="순위" className="pepero-day__card pepero-day__ranking">
+    <section aria-label={title} className="pepero-day__card pepero-day__ranking">
       <SectionHeader description={description} title={title} />
       {me ? (
         <p className="pepero-day__me">
@@ -167,8 +168,8 @@ function practiceRank(items, totalScore) {
 
 // 5판을 끝내면 띄우는 순위 창이다. 순위 도전은 방금 끝낸 판이 들어간 순위를 다시 받아 보여 주고,
 // 연습은 순위에 들어가지 않으므로 이 점수였다면 몇 위인지 알려 준다.
-export function RankingDialog({ onChallenge, onClose, result }) {
-  const rankings = usePeperoDayRankings();
+export function RankingDialog({ board = "event", onChallenge, onClose, result }) {
+  const rankings = usePeperoDayRankings({ board });
   const ranked = result.mode === "ranked";
   const refreshing = ranked && rankings.isFetching;
   const data = rankings.data;

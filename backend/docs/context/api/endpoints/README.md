@@ -56,6 +56,9 @@
 | 미니게임 | `POST` | `/api/events/pepero-day/runs` | `MEMBER` | 진행 중인 이벤트의 순위 도전 판 시작, 1시간에 10번(매시 정각 충전) |
 | 미니게임 | `POST` | `/api/events/pepero-day/runs/{runId}/cuts` | `MEMBER + 본인 판` | 지금 차례 막대를 자르고 서버가 판정 |
 | 미니게임 | `GET` | `/api/events/pepero-day/rankings` | `PUBLIC` | 회원별 가장 좋은 끝난 판으로 매긴 상위 50명과 내 순위 |
+| 미니게임 | `POST` | `/api/games/stick-halving/runs` | `MEMBER` | 게임방으로 옮긴 반띵의 순위 도전 판 시작, 횟수 제한 없음 |
+| 미니게임 | `POST` | `/api/games/stick-halving/runs/{runId}/cuts` | `MEMBER` | 게임방 판의 막대 자르기와 판정 |
+| 미니게임 | `GET` | `/api/games/stick-halving/rankings` | `PUBLIC` | 게임방 판만으로 매긴 상위 50명과 내 순위 |
 | 피드백 | `POST` | `/api/feedbacks` | `MEMBER` | 피드백 작성 |
 | 가입 신청 | `GET` | `/api/groups/{groupId}/registrations/summary` | `LEADER` | 그룹의 미확인·처리 대기 신청 요약 조회 |
 | 가입 신청 | `PATCH` | `/api/recruitments/{recruitmentId}/registrations/read` | `LEADER` | 확인한 마지막 신청까지 읽음 처리 |

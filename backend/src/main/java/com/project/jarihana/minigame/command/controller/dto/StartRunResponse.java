@@ -8,7 +8,7 @@ public record StartRunResponse(
         long runId,
         int round,
         int timeLimitSeconds,
-        int remainingAttempts,
+        Integer remainingAttempts,
         LocalDateTime attemptsRefillAt,
         StickResponse stick
 ) {

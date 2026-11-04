@@ -2,6 +2,7 @@ package com.project.jarihana.minigame.query.controller;
 
 import com.project.jarihana.common.auth.LoginMemberReader;
 import com.project.jarihana.common.response.ApiResponse;
+import com.project.jarihana.minigame.domain.MinigameEvent;
 import com.project.jarihana.minigame.query.controller.dto.EventStatusResponse;
 import com.project.jarihana.minigame.query.controller.dto.RankingResponse;
 import com.project.jarihana.minigame.query.service.PeperoDayEventQueryService;
@@ -28,7 +29,8 @@ public class PeperoDayEventQueryController {
     @GetMapping("/events/pepero-day/rankings")
     public ResponseEntity<ApiResponse<RankingResponse>> findRankings() {
         RankingResponse response = RankingResponse.from(
-                peperoDayEventQueryService.findRankings(loginMemberReader.currentMemberId().orElse(null))
+                peperoDayEventQueryService.findRankings(
+                        MinigameEvent.PEPERO_DAY_2026, loginMemberReader.currentMemberId().orElse(null))
         );
         return ResponseEntity.ok(ApiResponse.success(response));
     }

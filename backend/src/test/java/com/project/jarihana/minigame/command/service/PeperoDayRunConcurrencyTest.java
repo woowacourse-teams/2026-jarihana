@@ -10,6 +10,7 @@ import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.minigame.command.repository.MinigameCutCommandRepository;
 import com.project.jarihana.minigame.command.repository.MinigameRunCommandRepository;
 import com.project.jarihana.minigame.command.service.dto.CutCommand;
+import com.project.jarihana.minigame.domain.MinigameEvent;
 import com.project.jarihana.support.IntegrationTestSupport;
 import java.util.ArrayList;
 import java.util.List;
@@ -71,7 +72,7 @@ class PeperoDayRunConcurrencyTest extends IntegrationTestSupport {
 
         // When
         List<Attempt> attempts = runTogether(() -> {
-            peperoDayRunCommandService.cut(new CutCommand(member.getId(), runId, 1, 6));
+            peperoDayRunCommandService.cut(new CutCommand(MinigameEvent.PEPERO_DAY_2026, member.getId(), runId, 1, 6));
             return Attempt.succeeded();
         });
 

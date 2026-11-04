@@ -47,6 +47,7 @@ public class SecurityConfig {
             "/proposals/*/comments",
             "/events/pepero-day",
             "/events/pepero-day/rankings",
+            "/games/stick-halving/rankings",
             "/images/**",
             "/share/groups/*",
             "/invitations/links/*",
