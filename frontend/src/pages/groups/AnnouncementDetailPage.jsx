@@ -1,14 +1,19 @@
-import { Link, useParams } from "react-router";
+import { useState } from "react";
+import { Link, useNavigate, useParams } from "react-router";
 
+import { AnnouncementFormDialog } from "../../features/announcement/AnnouncementFormDialog.jsx";
 import { useAuth } from "../../features/auth/index.js";
-import { useAnnouncementDetail } from "../../features/announcement/hooks.js";
+import { useAnnouncementDetail, useDeleteAnnouncement } from "../../features/announcement/hooks.js";
 import { useGroup } from "../../features/group/index.js";
+import { toUserMessage } from "../../shared/api/index.js";
 import {
   Button,
+  ConfirmDialog,
   ErrorState,
   NotFoundState,
   PageContainer,
-  Skeleton
+  Skeleton,
+  useToast
 } from "../../shared/ui/index.js";
 import { formatCompactLocalDateTime } from "./pageUtils.js";
 import "./announcements.css";
@@ -20,8 +25,12 @@ const SCOPE_LABELS = {
 
 export function AnnouncementDetailPage() {
   const { groupId, announcementId } = useParams();
+  const navigate = useNavigate();
   const auth = useAuth();
   const group = useGroup(groupId);
+  const toast = useToast();
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const validAnnouncementId = /^[1-9]\d*$/.test(announcementId)
     && Number.isSafeInteger(Number(announcementId));
   const announcement = useAnnouncementDetail(
@@ -31,7 +40,14 @@ export function AnnouncementDetailPage() {
     auth.sessionVersion,
     auth.status !== "loading"
   );
+  const deletion = useDeleteAnnouncement(groupId, validAnnouncementId ? announcementId : null);
   const listPath = `/groups/${groupId}?tab=announcements`;
+
+  async function deleteNotice() {
+    await deletion.mutateAsync();
+    toast.success({ title: "공지를 삭제했어요" });
+    navigate(listPath, { replace: true });
+  }
 
   if (auth.status === "loading" || announcement.isLoading) {
     return (
@@ -80,6 +96,7 @@ export function AnnouncementDetailPage() {
   }
 
   const item = announcement.data;
+  const canManage = item.canManage && group.data?.status === "ACTIVE";
   return (
     <PageContainer className="group-announcement-detail">
       <Link
@@ -89,6 +106,24 @@ export function AnnouncementDetailPage() {
       >
         ← 공지 목록으로
       </Link>
+      {canManage ? (
+        <div className="group-announcement-detail__actions">
+          <Button
+            data-ph-capture-attribute-action="group_announcement_edit_open"
+            onClick={() => setEditOpen(true)}
+            variant="secondary"
+          >
+            수정
+          </Button>
+          <Button
+            data-ph-capture-attribute-action="group_announcement_delete_open"
+            onClick={() => setDeleteOpen(true)}
+            variant="danger"
+          >
+            삭제
+          </Button>
+        </div>
+      ) : null}
       <article className="group-announcement-article" data-ph-private>
         <p className="group-announcement-article__group">
           <Link
@@ -107,6 +142,30 @@ export function AnnouncementDetailPage() {
         </p>
         <div className="group-announcement-article__content">{item.content}</div>
       </article>
+      {canManage && editOpen ? (
+        <AnnouncementFormDialog
+          announcement={item}
+          groupId={groupId}
+          onOpenChange={setEditOpen}
+          open
+        />
+      ) : null}
+      {canManage ? (
+        <ConfirmDialog
+          closeAction="group_announcement_delete_dismiss"
+          cancelAction="group_announcement_delete_cancel"
+          confirmAction="group_announcement_delete_confirm"
+          confirmLabel="공지 삭제"
+          danger
+          description="공지 목록과 상세 페이지에서 숨겨집니다. 공지 알림 기록은 유지됩니다."
+          onClose={() => setDeleteOpen(false)}
+          onConfirm={deleteNotice}
+          onConfirmError={(error) => toast.danger({ title: toUserMessage(error?.code) })}
+          open={deleteOpen}
+          pending={deletion.isPending}
+          title="이 공지를 삭제할까요?"
+        />
+      ) : null}
     </PageContainer>
   );
 }

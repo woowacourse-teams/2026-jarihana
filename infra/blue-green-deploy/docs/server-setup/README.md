@@ -23,7 +23,9 @@
 | 기존 운영의 EC2 교체, 주소/instance ID/control pin 변경 | 새 호스트 준비까지 진행. 기존 저널과 DB 권한 이관은 [수동 조사](../recovery.md#수동-조사)에서 별도 판단 |
 
 `coordinator.sh`의 plan은 기존 저널의 topology digest와 control SHA가 다르면 거부한다.
-이 경우 저널 삭제, digest 수정이나 bootstrap 재실행으로 통과시키는 절차는 제공하지 않는다.
+이 경우 저널 삭제, digest 수정이나 bootstrap 재실행으로 통과시키지 않는다.
+서버 구성은 같고 control 버전만 교체한다면 [고정 제어 버전 교체](../control-upgrade.md)의
+명시적 이관 허가와 원본 백업을 준비한다. 서버/주소 변경과 미해결 상태에는 적용하지 않는다.
 
 ## 필수 설정
 
@@ -313,8 +315,9 @@ Nginx 서버의 중앙 수집기는 별도 설치 단위다. 실행 계정, time
 새 구성을 자동 채택하지 않는다. 미해결 intent, ATTENTION, cleanup_deferred 또는 실제 상태와의
 불일치가 있으면 [수동 조사](../recovery.md#수동-조사)를 먼저 수행한다.
 저널의 control SHA와 topology를 직접 바꾸거나 SQL로 처리 권한을 초기화하지 않는다.
-기존 owner가 남았거나 새 instance ID로 topology가 달라진 경우는 여기서 멈춘다.
-저장소에는 이를 새 topology로 자동 이관하는 명령이 없다. 보존 원본과 실제 boot/owner를
+신규 서버로 옮기는 상황에서 기존 owner가 남았거나 새 instance ID로 topology가 달라진 경우는 여기서 멈춘다.
+서버 구성이 바뀐 topology를 자동 이관하는 명령은 없다. control만 바뀌는 경우는
+[고정 제어 버전 교체](../control-upgrade.md)를 따르고, 나머지는 보존 원본과 실제 boot/owner를
 근거로 [수동 조사](../recovery.md#수동-조사)에서 이관안을 별도로 판단해야 한다.
 
 ### 최초 worker 등록
