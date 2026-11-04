@@ -137,19 +137,18 @@ it.each([[1440, 700], [900, 550], [390, 270]])('아담한 마당은 원근 확�
   expect(ratio).toBeLessThan(1.2);
 });
 
-it('높이가 낮은 데스크톱에서도 마당의 곡면 하단에 24px 이상 여백을 둔다', () => {
+it('높이가 낮은 데스크톱에서도 넓은 마당이 화면 하단 양끝까지 이어진다', () => {
   const scene = new THREE.Scene(), playground = createPlanetPlayground(scene);
-  const ground = scene.getObjectByName('playground-planet');
+  const ground = scene.getObjectByName('playground-floor');
   ground.updateWorldMatrix(true, false);
   const stage = { left: 24, top: -32, width: 1217, height: 514 }, width = 1265, height = 568;
   const camera = createArenaCamera('compact'), render = camera.clone();
   fitArenaCamera(camera, 'compact', stage.width, stage.height, TANK);
-  const viewport = extendArenaViewport(camera, render, stage, width, height);
-  const point = new THREE.Vector3(), positions = ground.geometry.attributes.position;
-  for (let i = 0; i < positions.count; i++) {
-    point.fromBufferAttribute(positions, i).applyMatrix4(ground.matrixWorld).project(render);
-    const screenY = height - viewport.y - (point.y + 1) * viewport.height / 2;
-    expect(screenY).toBeLessThanOrEqual(height - 24);
+  extendArenaViewport(camera, render, stage, width, height);
+  const raycaster = new THREE.Raycaster();
+  for (const x of [-0.98, 0, 0.98]) {
+    raycaster.setFromCamera(new THREE.Vector2(x, -0.98), render);
+    expect(raycaster.intersectObject(ground)).not.toHaveLength(0);
   }
   playground.dispose();
 });

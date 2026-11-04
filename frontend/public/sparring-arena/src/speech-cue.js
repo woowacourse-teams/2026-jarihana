@@ -1,7 +1,6 @@
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 export function createSpeechCue(button, action) {
-  const dismissed = new Set();
   const svg = document.createElementNS(SVG_NS, 'svg');
   svg.classList.add('speech-cue-outline');
   svg.setAttribute('aria-hidden', 'true');
@@ -43,12 +42,12 @@ export function createSpeechCue(button, action) {
         void button.offsetWidth;
       }
       current = id;
-      button.dataset.cueActive = String(!dismissed.has(id));
+      delete button.dataset.replySelected;
+      button.dataset.cueActive = 'true';
     },
     dismiss() {
       if (current === undefined) return;
-      dismissed.add(current);
-      button.dataset.cueActive = 'false';
+      button.dataset.replySelected = 'true';
     },
     layout(width, height, tail, tip = tail, tailHeight = 10) {
       if (!(width > 0 && height > 0)) return;

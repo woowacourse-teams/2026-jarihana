@@ -13,7 +13,7 @@ import { Vector3, WebGLRenderer } from 'three';
 
 jest.mock('../../public/sparring-arena/src/characters.js', () => ({ whenCharacterAssetsReady: jest.fn(() => Promise.resolve()) }));
 
-jest.mock('../../public/sparring-arena/src/composer-characters.js', () => ({ createComposerCharacters: jest.fn(() => ({ update() {}, step() {}, ship() {}, dispose() {}, presentation: () => null, setProjection() {}, setStandingVisible: jest.fn() })) }));
+jest.mock('../../public/sparring-arena/src/composer-characters.js', () => ({ createComposerCharacters: jest.fn(() => ({ update() {}, step() {}, ship() {}, dispose() {}, presentation: jest.fn(() => null), setProjection() {}, setStandingVisible: jest.fn() })) }));
 
 jest.mock('three', () => {
   const actual = jest.requireActual('../../public/sparring-arena/vendor/three.module.js');
@@ -25,8 +25,9 @@ jest.mock('three', () => {
   return { ...actual, WebGLRenderer };
 }, { virtual: true });
 jest.mock('../../public/sparring-arena/src/studio-materials.js', () => {
+  const actual = jest.requireActual('../../public/sparring-arena/src/studio-materials.js');
   const { MeshPhysicalMaterial } = jest.requireActual('../../public/sparring-arena/vendor/three.module.js');
-  return { studioMaterial: options => new MeshPhysicalMaterial(options), createStudioEnvironment: () => null };
+  return { ...actual, studioMaterial: options => new MeshPhysicalMaterial(options), createStudioEnvironment: () => null };
 });
 jest.mock('../../public/sparring-arena/src/capsules.js', () => ({ createCapsules: jest.fn() }));
 jest.mock('../../public/sparring-arena/src/capsule-batch.js', () => ({ createCapsuleBatch: () => ({ draw() {}, hide() {} }) }));
@@ -268,6 +269,87 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     advance(.1);
     await arena.ready;
     expect(ready).toHaveBeenCalledTimes(1);
+  });
+  it('내 받아치기가 호스 도착 뒤 이전 대화를 기다려도 추적을 유지하고 충돌로 이어간다', () => {
+    const render = jest.spyOn(WebGLRenderer.prototype, 'render');
+    const world = createChairCharacters.mock.calls.at(-1)[0];
+    const currentCamera = () => render.mock.calls.filter(([scene]) => scene === world).at(-1)[1];
+    const mine = { ...reply, mine: true };
+    let arrive;
+    duel.canReplace = () => false;
+    arena.launch(mine, done => { arrive = done; });
+    const characters = createComposerCharacters.mock.results.at(-1).value;
+    let transport = { id: mine.id, mine: true, fresh: true, phase: 'transport', elapsed: 0,
+      follow: new Vector3(-8, 3, 0.3) };
+    characters.presentation.mockImplementation(() => transport);
+    advance(.05);
+    transport.elapsed = 1.2; advance(.05);
+    const last = currentCamera().position.clone();
+    expect(stage.dataset.cinematic).toBe('true');
+    arrive(); transport = null;
+    advance(4);
+    expect(clash.start).not.toHaveBeenCalled();
+    expect(stage.dataset.cinematic).toBe('true');
+    expect(currentCamera().position.distanceTo(last)).toBeLessThan(1e-8);
+    clash.start.mockImplementation(() => {
+      clash.busy = () => true;
+      clash.presentation = () => ({ id: mine.id, mine: true, fresh: true, elapsed: 0,
+        contactAt: .36, releaseAt: 1.38, follow: new Vector3(-8, 3, .3), opponent: new Vector3(8, 3, .3) });
+    });
+    duel.canReplace = () => true; advance(.05);
+    expect(clash.start).toHaveBeenCalledWith(mine, true, false);
+    expect(stage.dataset.cinematic).toBe('true');
+    expect(currentCamera().position.distanceTo(last)).toBeLessThan(1e-8);
+    clash.presentation = () => null; advance(.05);
+    expect(stage.dataset.cinematic).toBe('false');
+  });
+  it('실제 지난 대화 읽기 타이머가 멈춰도 추적 중인 내 글만 먼저 재생하고 입력을 복원한다', () => {
+    arena.dispose(); stage.replaceChildren(container);
+    const form = document.createElement('form'); form.id = 'composer'; stage.append(form);
+    createHistoryConversation.mockImplementation(jest.requireActual('../../public/sparring-arena/src/history-conversation.js').createHistoryConversation);
+    createCapsules.mockImplementation(jest.requireActual('../../public/sparring-arena/src/capsules.js').createCapsules);
+    arena = createArena(container, noop, noop);
+    history = createHistoryConversation.mock.results.at(-1).value;
+    arena.updateState([], { total: 0, ratio: .5 });
+    history.emerge(original, { x: 0, y: -6, z: 10, floorY: -6 });
+    advance(1.55);
+    expect(history.canAccept()).toBe(true);
+    expect(history.canReplace()).toBe(false);
+    const mine = { ...reply, id: 'my-tracked-reply', mine: true };
+    let arrive;
+    arena.launch(mine, done => { arrive = done; });
+    const characters = createComposerCharacters.mock.results.at(-1).value;
+    let transport = { id: mine.id, mine: true, fresh: true, phase: 'transport', elapsed: 0,
+      follow: new Vector3(-8, 3, .3) };
+    characters.presentation.mockImplementation(() => transport);
+    advance(.05); transport.elapsed = .5; advance(.05);
+    expect(stage.dataset.cinematic).toBe('true');
+    const other = { ...reply, id: 'other-reply', mine: false };
+    arena.launch(other); advance(.1);
+    expect(clash.start).not.toHaveBeenCalled();
+    let collision;
+    clash.start.mockImplementation(post => {
+      collision = { id: post.id, mine: post.mine, fresh: true, elapsed: 0, contactAt: .36, releaseAt: 1.38,
+        follow: new Vector3(-8, 3, .3), opponent: new Vector3(8, 3, .3) };
+      clash.presentation = () => collision;
+      clash.busy = () => true;
+    });
+    arrive(); transport = null; advance(.1);
+    expect(history.canReplace()).toBe(false);
+    expect(clash.start).toHaveBeenCalledTimes(1);
+    expect(clash.start).toHaveBeenLastCalledWith(mine, true, false);
+    expect(stage.dataset.cinematic).toBe('true');
+    expect(form.hasAttribute('inert')).toBe(true);
+    collision.elapsed = 1.38; advance(.05);
+    clash.presentation = () => null; clash.busy = () => false;
+    advance(1);
+    expect(stage.dataset.cinematic).toBe('false');
+    expect(form.hasAttribute('inert')).toBe(false);
+    expect(clash.start).toHaveBeenCalledTimes(1);
+    advance(2.5);
+    expect(history.canReplace()).toBe(true);
+    expect(clash.start).toHaveBeenCalledTimes(2);
+    expect(clash.start).toHaveBeenLastCalledWith(other, true, false);
   });
   it('낙하감을 조정해도 파이프의 빠른 연속 발사 간격은 유지한다', () => {
     arena.updateState([original, reply], {}); advance(6);
