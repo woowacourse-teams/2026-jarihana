@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import {
   announcementCreatedSchema,
   announcementDetailSchema,
@@ -25,5 +27,19 @@ export function createAnnouncement(groupId, values) {
     method: "post",
     json: values,
     schema: announcementCreatedSchema
+  });
+}
+
+export function modifyAnnouncement(groupId, announcementId, values) {
+  return apiRequest(`groups/${groupId}/announcements/${announcementId}`, {
+    method: "put",
+    json: values,
+    schema: z.null()
+  });
+}
+
+export function deleteAnnouncement(groupId, announcementId) {
+  return apiRequest(`groups/${groupId}/announcements/${announcementId}`, {
+    method: "delete"
   });
 }

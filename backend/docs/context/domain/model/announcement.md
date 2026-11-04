@@ -12,14 +12,16 @@
 | `scope` | enum | NOT NULL, `MEMBERS` 또는 `PUBLIC` | 조회할 수 있는 사용자 범위 |
 | `createdAt` | LocalDateTime | NOT NULL | 등록 시각이며 목록 정렬에 사용한다 |
 | `updatedAt` | LocalDateTime | NOT NULL | 공통 감사 필드 |
+| `deletedAt` | LocalDateTime | NULL | 숨긴 시각. 목록·상세 조회에서는 제외한다 |
 
 ## 권한과 생명주기
 
 - 현재 `GroupMember.role = LEADER`인 회원만 `ACTIVE` 모임에 등록할 수 있다. 모임 종료와 등록이 겹치지 않도록 모임 행 잠금 안에서 상태를 확인한다.
-- `MEMBERS` 공지는 현재 `GroupMember`에게만 노출한다. 탈퇴한 회원은 구성원 범위 공지를 더 이상 읽을 수 없다.
+- 현재 모임장 또는 해당 공지 작성자는 `ACTIVE` 모임에서 공지를 수정하거나 숨길 수 있다. 관리 권한 확인과 변경도 모임 행 잠금 안에서 처리한다.
+- `MEMBERS` 공지는 현재 `GroupMember`와 해당 공지의 작성자에게 노출한다. 작성자는 탈퇴 후에도 본인이 작성한 공지를 확인해 관리할 수 있다.
 - `PUBLIC` 공지는 비로그인 방문자를 포함해 누구나 읽을 수 있다.
-- 모임 종료 후 기존 공지는 읽을 수 있고 추가 등록은 거부한다.
-- 첫 범위는 등록·목록·상세 조회다. 공지 수정·삭제는 제공하지 않는다.
+- 모임 종료 후 기존 공지는 읽을 수 있고 등록·수정·삭제는 거부한다.
+- 공지 삭제는 소프트 삭제다. 알림함과 푸시 전송 이력은 유지하고, 공지 목록·상세에서는 숨긴다.
 - 모임 hard delete 때 공지도 FK cascade로 물리 삭제한다.
 
 ## 조회
@@ -36,5 +38,6 @@
 ## 스키마 적용
 
 공지는 회원 소속 V11과 구독 지원 V12 이후의 `V13__group_announcements.sql`로 추가한다.
+소프트 삭제 필드는 `V18__announcement_soft_delete.sql`로 추가하며 기존 앱의 INSERT가 계속 동작하도록 nullable로 둔다.
 기존 촬영용 공지 V9 적용 DB의 데이터 보존과 이력 정정은
 [모임 공지 마이그레이션 적용](../../../operations/announcement-migration-rollout.md)을 따른다.

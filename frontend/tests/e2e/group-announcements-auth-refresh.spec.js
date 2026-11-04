@@ -9,6 +9,7 @@ test("refreshes an expired member session before loading group announcements", a
     authorNickname: "자리",
     content: "토큰을 갱신한 모임원도 공지를 확인할 수 있어요.",
     createdAt: "2026-10-29T12:00:00",
+    canManage: false,
     id: 101,
     scope: "MEMBERS",
     title: "모임원 공개 공지"

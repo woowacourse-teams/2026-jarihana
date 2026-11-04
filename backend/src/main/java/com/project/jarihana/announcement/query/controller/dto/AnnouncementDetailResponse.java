@@ -5,10 +5,10 @@ import com.project.jarihana.announcement.query.service.dto.AnnouncementDetailRes
 import java.time.LocalDateTime;
 
 public record AnnouncementDetailResponse(long id, String title, String content, String scope,
-                                         String authorNickname, LocalDateTime createdAt) {
+                                         String authorNickname, LocalDateTime createdAt, boolean canManage) {
 
     public static AnnouncementDetailResponse from(AnnouncementDetailResult result) {
         return new AnnouncementDetailResponse(result.id(), result.title(), result.content(), result.scope().name(),
-                result.authorNickname(), result.createdAt());
+                result.authorNickname(), result.createdAt(), result.canManage());
     }
 }

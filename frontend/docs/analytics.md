@@ -18,6 +18,8 @@ DB 테이블·스키마는 추가하지 않는다.
 | --- | --- |
 | 공지 탭 열기·목록에서 공지 열기·상세에서 모임 열기 | `group_announcement_tab_open`, `group_announcement_open`, `group_announcement_group_open` |
 | 공지 작성 모달 열기·닫기·취소 | `group_announcement_create_open`, `group_announcement_create_dismiss`, `group_announcement_create_cancel` |
+| 공지 수정 모달 열기·닫기·취소·저장 | `group_announcement_edit_open`, `group_announcement_edit_dismiss`, `group_announcement_edit_cancel`, `group_announcement_edit_submit` |
+| 공지 숨김 확인 열기·닫기·취소·확정 | `group_announcement_delete_open`, `group_announcement_delete_dismiss`, `group_announcement_delete_cancel`, `group_announcement_delete_confirm` |
 | 제목·본문 입력과 공개 범위 변경 | `group_announcement_title_change`, `group_announcement_content_change`, `group_announcement_scope_change` |
 | 공지 등록·목록 다시 시도·더 보기·상세 다시 시도·목록 복귀 | `group_announcement_create_submit`, `group_announcement_list_retry`, `group_announcement_load_more`, `group_announcement_detail_retry`, `group_announcement_list_return` |
 

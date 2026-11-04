@@ -81,6 +81,7 @@ class AnnouncementAcceptanceTest extends IntegrationTestSupport {
         assertThat(visitorPublicDetail.statusCode()).isEqualTo(200);
         assertThat(visitorPublicDetail.header("Cache-Control")).contains("no-store");
         assertThat(visitorPublicDetail.jsonPath().getString("data.content")).isEqualTo("공개 본문");
+        assertThat(visitorPublicDetail.jsonPath().getBoolean("data.canManage")).isFalse();
     }
 
     @Test
@@ -182,6 +183,88 @@ class AnnouncementAcceptanceTest extends IntegrationTestSupport {
         assertThat(nonLeader.jsonPath().getString("error.code")).isEqualTo("GROUP_ACCESS_DENIED");
         assertThat(ended.statusCode()).isEqualTo(409);
         assertThat(ended.jsonPath().getString("error.code")).isEqualTo("GROUP_ENDED");
+    }
+
+    @Test
+    @DisplayName("모임장은 공지를 수정하고 숨길 수 있으며 수정·삭제는 기존 알림 기록을 바꾸지 않는다.")
+    void modifiesAndSoftDeletesAnnouncementWithoutChangingNotificationHistory() {
+        Group group = saveGroup("공지 관리 모임");
+        Member leader = saveMember("관리방장", "announcement-management-leader");
+        Member member = saveMember("관리회원", "announcement-management-member");
+        saveLeader(group, leader);
+        saveMemberOf(group, member);
+        String csrf = csrfToken();
+
+        Response created = mutation(leader, csrf).contentType("application/json").body("""
+                {"title":"기존 제목","content":"기존 내용","scope":"MEMBERS"}
+                """).post("/groups/{groupId}/announcements", group.getId());
+        long announcementId = created.jsonPath().getLong("data.id");
+        Long notificationsAfterCreate = jdbc.queryForObject("select count(*) from notifications", Long.class);
+
+        Response modified = mutation(leader, csrf).contentType("application/json").body("""
+                {"title":"수정된 제목","content":"수정된 내용","scope":"PUBLIC"}
+                """).put("/groups/{groupId}/announcements/{announcementId}", group.getId(), announcementId);
+        Response publicDetail = RestAssured.get("/groups/{groupId}/announcements/{announcementId}",
+                group.getId(), announcementId);
+        Response deleted = mutation(leader, csrf)
+                .delete("/groups/{groupId}/announcements/{announcementId}", group.getId(), announcementId);
+        Response listAfterDelete = authenticated(member).get("/groups/{groupId}/announcements", group.getId());
+        Response detailAfterDelete = authenticated(member).get("/groups/{groupId}/announcements/{announcementId}",
+                group.getId(), announcementId);
+        Boolean hidden = jdbc.queryForObject("select deleted_at is not null from announcements where id = ?",
+                Boolean.class, announcementId);
+
+        assertThat(created.statusCode()).isEqualTo(201);
+        assertThat(modified.statusCode()).isEqualTo(200);
+        assertThat(publicDetail.statusCode()).isEqualTo(200);
+        assertThat(publicDetail.jsonPath().getString("data.title")).isEqualTo("수정된 제목");
+        assertThat(publicDetail.jsonPath().getString("data.content")).isEqualTo("수정된 내용");
+        assertThat(publicDetail.jsonPath().getString("data.scope")).isEqualTo("PUBLIC");
+        assertThat(deleted.statusCode()).isEqualTo(204);
+        assertThat(hidden).isTrue();
+        assertThat(listAfterDelete.jsonPath().getList("data.items")).isEmpty();
+        assertThat(detailAfterDelete.statusCode()).isEqualTo(404);
+        assertThat(jdbc.queryForObject("select count(*) from notifications", Long.class))
+                .isEqualTo(notificationsAfterCreate);
+    }
+
+    @Test
+    @DisplayName("공지 작성자는 관리 권한을 갖고 다른 구성원은 수정·삭제할 수 없다.")
+    void allowsAnnouncementAuthorAndRejectsOtherMembers() {
+        Group group = saveGroup("작성자 공지 권한 모임");
+        Member leader = saveMember("새방장", "announcement-author-leader");
+        Member author = saveMember("작성자", "announcement-author-member");
+        Member other = saveMember("다른회원", "announcement-other-member");
+        saveLeader(group, leader);
+        saveMemberOf(group, other);
+        Announcement announcement = announcements.save(Announcement.create(group, author, "작성자 제목", "작성자 본문",
+                AnnouncementScope.MEMBERS, TestSupportConfig.FIXED_NOW));
+        String csrf = csrfToken();
+        String updateBody = """
+                {"title":"작성자 수정","content":"수정된 본문","scope":"MEMBERS"}
+                """;
+
+        Response deniedModify = mutation(other, csrf).contentType("application/json").body(updateBody)
+                .put("/groups/{groupId}/announcements/{announcementId}", group.getId(), announcement.getId());
+        Response deniedDelete = mutation(other, csrf)
+                .delete("/groups/{groupId}/announcements/{announcementId}", group.getId(), announcement.getId());
+        Response authorList = authenticated(author).get("/groups/{groupId}/announcements", group.getId());
+        Response authorDetail = authenticated(author).get("/groups/{groupId}/announcements/{announcementId}",
+                group.getId(), announcement.getId());
+        Response authorModify = mutation(author, csrf).contentType("application/json").body(updateBody)
+                .put("/groups/{groupId}/announcements/{announcementId}", group.getId(), announcement.getId());
+        Response authorDelete = mutation(author, csrf)
+                .delete("/groups/{groupId}/announcements/{announcementId}", group.getId(), announcement.getId());
+
+        assertThat(deniedModify.statusCode()).isEqualTo(403);
+        assertThat(deniedModify.jsonPath().getString("error.code")).isEqualTo("GROUP_ACCESS_DENIED");
+        assertThat(deniedDelete.statusCode()).isEqualTo(403);
+        assertThat(deniedDelete.jsonPath().getString("error.code")).isEqualTo("GROUP_ACCESS_DENIED");
+        assertThat(authorList.jsonPath().getList("data.items.title", String.class)).containsExactly("작성자 제목");
+        assertThat(authorDetail.statusCode()).isEqualTo(200);
+        assertThat(authorDetail.jsonPath().getBoolean("data.canManage")).isTrue();
+        assertThat(authorModify.statusCode()).isEqualTo(200);
+        assertThat(authorDelete.statusCode()).isEqualTo(204);
     }
 
     private Group saveGroup(String name) {

@@ -9,7 +9,8 @@ export const announcementListItemSchema = z.object({
   title: z.string(),
   scope: announcementScopeSchema,
   authorNickname: z.string(),
-  createdAt: localDateTimeSchema
+  createdAt: localDateTimeSchema,
+  canManage: z.boolean()
 }).strict();
 
 export const announcementListPageSchema = cursorPageSchema(announcementListItemSchema)
