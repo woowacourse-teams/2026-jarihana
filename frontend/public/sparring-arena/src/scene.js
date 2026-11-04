@@ -14,9 +14,9 @@ import { createDispenser } from './dispenser.js';
 import { TRAY } from './dispenser-physics.js';
 import { PACKED_SCALE } from './history-walk.js';
 import { TANK, RADIUS, FRESH_CAPSULE_SCALE, nozzlePose } from './physics.js';
-import { COURT_COLORS, FRAME_COLOR, studioMaterial, createStudioEnvironment } from './studio-materials.js';
+import { FRAME_COLOR, studioMaterial, createStudioEnvironment } from './studio-materials.js';
 import { createTransportScene } from './transport-scene.js';
-import { createPipeSurfaces } from './pipe-surfaces.js';
+import { PIPE_COLORS, createPipeSurfaces } from './pipe-surfaces.js';
 import { ARENA_VIEWS, createArenaCamera, fitArenaCamera, extendArenaViewport } from './arena-framing.js';
 import { createFrameClock } from './frame-clock.js';
 import { createPlanetPlayground } from './planet-playground.js';
@@ -132,7 +132,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
     const surfaces = createPipeSurfaces(color), material = surfaces.solid;
     const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, length, 36, 1, true), material);
     tube.rotation.x = Math.PI / 2; tube.castShadow = true; barrel.add(tube);
-    const dark = studioMaterial({ color: side === 'a' ? 0x235f53 : 0x905143, roughness: 0.65, side: THREE.DoubleSide });
+    const dark = studioMaterial({ color: side === 'a' ? 0x235f53 : 0x905143, roughness: 0.65, envMapIntensity: 0.22, side: THREE.DoubleSide });
     const inside = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, length, 36, 1, true), dark);
     inside.rotation.x = Math.PI / 2; barrel.add(inside);
     for (const z of [-length / 2, length / 2]) {
@@ -141,7 +141,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
     scene.add(group);
     return { group, material, until: 0, muzzle: createMuzzleBurst(group, barrel, length, side === 'a' ? 0x8ef5e8 : 0xffc49f) };
   }
-  const pipes = { a: pipe('a', COURT_COLORS.mint), b: pipe('b', COURT_COLORS.coral) };
+  const pipes = { a: pipe('a', PIPE_COLORS.a), b: pipe('b', PIPE_COLORS.b) };
   const capsules = createCapsules(scene, onSelect, post => container.dispatchEvent(new CustomEvent('capsuleready', { detail: { id: post.id } })), requestHistory);
   const ready = whenCharacterAssetsReady().then(() => {
     assetsLoaded = true;

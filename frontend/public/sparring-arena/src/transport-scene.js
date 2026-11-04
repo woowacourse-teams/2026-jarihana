@@ -1,10 +1,7 @@
 import * as THREE from 'three';
-import { COURT_COLORS } from './studio-materials.js';
 import { createComposerCharacters } from './composer-characters.js';
-import { addPipeRings, createPipeSurfaces } from './pipe-surfaces.js';
+import { PIPE_COLORS, addPipeRings, createPipeSurfaces } from './pipe-surfaces.js';
 import { createTransportGeometry, HOSE_RADIUS } from './transport-geometry.js';
-
-const COLORS = { a: COURT_COLORS.mint, b: COURT_COLORS.coral };
 
 export function createTransportScene(environment) {
   const world = new THREE.Scene(), front = new THREE.Scene();
@@ -18,7 +15,7 @@ export function createTransportScene(environment) {
     const fill = new THREE.DirectionalLight(0xe9faff, 0.5);
     fill.position.set(5, 4, -5); scene.add(fill);
   }
-  const materials = Object.fromEntries(Object.entries(COLORS).map(([side, color]) => [side, createPipeSurfaces(color)]));
+  const materials = Object.fromEntries(Object.entries(PIPE_COLORS).map(([side, color]) => [side, createPipeSurfaces(color)]));
   const groups = new Map();
   let viewportWidth = 0, viewportHeight = 0;
   const pixel = (x, y, z = 0) => new THREE.Vector3(x - viewportWidth / 2, viewportHeight / 2 - y, z);
