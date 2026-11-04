@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 
 import java.io.BufferedReader;
@@ -35,6 +36,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Map;
@@ -221,20 +224,40 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
 
     @Test
     @DisplayName("기존 스파링 테이블이 있어도 Flyway 스키마 적용은 기존 주제를 보존한다")
-    void migrationPreservesExistingSparringData() {
-        // Given
-        String token = member("가온", "sparring-migration");
-        long id = createTopic(token);
+    void migrationPreservesExistingSparringData() throws SQLException {
+        // Given: DDL은 다른 테스트의 SSE/비동기 조회가 사용하는 공유 스키마와 격리한다.
+        String schema = "sparring_reapply_" + UUID.randomUUID().toString().replace("-", "");
+        JdbcTemplate administrative = new JdbcTemplate(dataSource);
+        administrative.execute("create schema " + schema);
+        try (Connection connection = dataSource.getConnection()) {
+            String originalSchema = connection.getSchema();
+            try {
+                connection.setSchema(schema);
+                SingleConnectionDataSource isolated = new SingleConnectionDataSource(connection, true);
+                JdbcTemplate jdbc = new JdbcTemplate(isolated);
+                jdbc.execute("create table member (id bigint primary key)");
+                jdbc.update("insert into member (id) values (1)");
+                ResourceDatabasePopulator migration = new ResourceDatabasePopulator(
+                        new ClassPathResource("db/migration/V14__sparring.sql"));
+                migration.execute(isolated);
+                jdbc.update("""
+                        insert into sparring_topic (created_at, updated_at, title, claim_a, claim_b,
+                            description, revision, creator_id)
+                        values (localtimestamp, localtimestamp, '점심 20분 기다릴까?', '찬성', '반대', '', 1, 1)
+                        """);
+                var before = jdbc.queryForList("select * from sparring_topic");
 
-        // When
-        new ResourceDatabasePopulator(new ClassPathResource("db/migration/V14__sparring.sql"))
-                .execute(dataSource);
+                // When
+                migration.execute(isolated);
 
-        // Then
-        given().get("/sparrings/" + id)
-                .then()
-                .statusCode(200)
-                .body("data.title", equalTo("점심 20분 기다릴까?"));
+                // Then
+                Assertions.assertEquals(before, jdbc.queryForList("select * from sparring_topic"));
+            } finally {
+                connection.setSchema(originalSchema);
+            }
+        } finally {
+            administrative.execute("drop schema " + schema + " cascade");
+        }
     }
 
     @Test

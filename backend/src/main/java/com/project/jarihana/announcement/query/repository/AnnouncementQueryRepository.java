@@ -20,7 +20,9 @@ public interface AnnouncementQueryRepository extends Repository<Announcement, Lo
             from Announcement announcement
             join announcement.author author
             where announcement.group.id = :groupId
-              and (:groupMember = true or announcement.scope = com.project.jarihana.announcement.domain.AnnouncementScope.PUBLIC)
+              and announcement.deletedAt is null
+              and (:groupMember = true or announcement.scope = com.project.jarihana.announcement.domain.AnnouncementScope.PUBLIC
+                   or announcement.author.id = :memberId)
               and (
                   cast(:cursorCreatedAt as LocalDateTime) is null
                   or announcement.createdAt < :cursorCreatedAt
@@ -31,6 +33,7 @@ public interface AnnouncementQueryRepository extends Repository<Announcement, Lo
     List<AnnouncementSummaryProjection> findPage(
             @Param("groupId") long groupId,
             @Param("groupMember") boolean groupMember,
+            @Param("memberId") Long memberId,
             @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
             @Param("cursorId") Long cursorId,
             Pageable pageable
@@ -39,16 +42,19 @@ public interface AnnouncementQueryRepository extends Repository<Announcement, Lo
     @Query("""
             select new com.project.jarihana.announcement.query.repository.dto.AnnouncementDetailProjection(
                 announcement.id, announcement.title, announcement.content, announcement.scope,
-                author.crewName, announcement.createdAt)
+                author.crewName, author.id, announcement.createdAt)
             from Announcement announcement
             join announcement.author author
             where announcement.id = :announcementId
               and announcement.group.id = :groupId
-              and (:groupMember = true or announcement.scope = com.project.jarihana.announcement.domain.AnnouncementScope.PUBLIC)
+              and announcement.deletedAt is null
+              and (:groupMember = true or announcement.scope = com.project.jarihana.announcement.domain.AnnouncementScope.PUBLIC
+                   or announcement.author.id = :memberId)
             """)
     Optional<AnnouncementDetailProjection> findVisibleByIdAndGroupId(
             @Param("announcementId") long announcementId,
             @Param("groupId") long groupId,
-            @Param("groupMember") boolean groupMember
+            @Param("groupMember") boolean groupMember,
+            @Param("memberId") Long memberId
     );
 }

@@ -15,6 +15,8 @@
 | 공지 | `GET` | `/api/groups/{groupId}/announcements` | `PUBLIC + 공개 범위` | 모임 구성원 공개와 전체 공개 공지를 최신순으로 조회 |
 | 공지 | `POST` | `/api/groups/{groupId}/announcements` | `LEADER` | 활동 중인 모임에 공개 범위를 지정해 공지 등록 |
 | 공지 | `GET` | `/api/groups/{groupId}/announcements/{announcementId}` | `PUBLIC + 공개 범위` | 공개 범위를 확인해 공지 상세 조회 |
+| 공지 | `PUT` | `/api/groups/{groupId}/announcements/{announcementId}` | `LEADER 또는 작성자` | 활동 중인 모임의 공지 수정 |
+| 공지 | `DELETE` | `/api/groups/{groupId}/announcements/{announcementId}` | `LEADER 또는 작성자` | 알림 이력을 유지하고 공지를 숨김 |
 | 채팅 | `GET` | `/api/chats` | `MEMBER` | 현재 소속 모임의 채팅 요약 |
 | 채팅 | `GET` | `/api/groups/{groupId}/chat/messages` | `MEMBER + 현재 소속` | 과거 이력·이후 복구 |
 | 채팅 | `POST` | `/api/groups/{groupId}/chat/messages` | `MEMBER + 현재 소속` | 멱등 메시지 저장 |

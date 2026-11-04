@@ -2,11 +2,18 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 
 import { getSafeNextCursor } from "../../entities/cursor/index.js";
 import { getMe } from "../auth/api.js";
-import { createAnnouncement, fetchAnnouncement, fetchAnnouncements } from "./api.js";
+import {
+  createAnnouncement,
+  deleteAnnouncement,
+  fetchAnnouncement,
+  fetchAnnouncements,
+  modifyAnnouncement
+} from "./api.js";
 
 export const announcementKeys = {
   all: ["group-announcements"],
   lists: (groupId) => ["group-announcements", groupId, "list"],
+  details: (groupId) => ["group-announcements", groupId, "detail"],
   list: (groupId, memberId, sessionVersion) => [
     "group-announcements", groupId, "list", memberId ?? null, sessionVersion ?? 0
   ],
@@ -54,5 +61,31 @@ export function useCreateAnnouncement(groupId) {
     onSuccess: () => queryClient.invalidateQueries({
       queryKey: announcementKeys.lists(groupId)
     })
+  });
+}
+
+export function useModifyAnnouncement(groupId, announcementId) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (values) => modifyAnnouncement(groupId, announcementId, values),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: announcementKeys.lists(groupId) }),
+        queryClient.invalidateQueries({ queryKey: announcementKeys.details(groupId) })
+      ]);
+    }
+  });
+}
+
+export function useDeleteAnnouncement(groupId, announcementId) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => deleteAnnouncement(groupId, announcementId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: announcementKeys.lists(groupId) }),
+        queryClient.invalidateQueries({ queryKey: announcementKeys.details(groupId) })
+      ]);
+    }
   });
 }
