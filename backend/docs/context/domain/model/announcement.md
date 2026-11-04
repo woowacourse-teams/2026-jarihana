@@ -38,6 +38,6 @@
 ## 스키마 적용
 
 공지는 회원 소속 V11과 구독 지원 V12 이후의 `V13__group_announcements.sql`로 추가한다.
-소프트 삭제 필드는 `V18__announcement_soft_delete.sql`로 추가하며 기존 앱의 INSERT가 계속 동작하도록 nullable로 둔다.
+소프트 삭제 필드는 `V18__announcement_soft_delete.sql`로 추가하며 기존 앱의 INSERT가 계속 동작하도록 nullable로 둔다. 이전 버전은 필드를 필터링하지 않아 숨긴 데이터 생성 후 구버전으로 롤백하면 공지가 다시 보일 수 있다.
 기존 촬영용 공지 V9 적용 DB의 데이터 보존과 이력 정정은
 [모임 공지 마이그레이션 적용](../../../operations/announcement-migration-rollout.md)을 따른다.
