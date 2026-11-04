@@ -1,3 +1,4 @@
+-- SSE polls read the topic revision before votes/posts; acquire cleanup locks in the same order.
 TRUNCATE TABLE
     gomoku_move,
     gomoku_seat,
@@ -8,9 +9,9 @@ TRUNCATE TABLE
     notification_deliveries,
     push_subscriptions,
     notifications,
+    sparring_topic,
     sparring_post,
     sparring_vote,
-    sparring_topic,
     refresh_token,
     proposal_comment,
     proposal_interest,
