@@ -19,7 +19,11 @@ for file in infra/blue-green-deploy/scripts/actions/*.sh \
 done
 # Linux root 소유 보호파일 fixture를 포함한 계약 시험
 sudo bash infra/blue-green-deploy/tests/actions/run-tests.sh
+# 전체 계약 시험에 포함: control 이관 허가, 원본/백업 해시, 만료와 경로 불일치 차단
+sudo bash infra/blue-green-deploy/tests/actions/test-control-transition.sh
 bash infra/blue-green-deploy/tests/actions/run-api-budget.sh
+# Docker의 Prometheus promtool로 실제 배포 쿼리의 HTTP/SSE 분리 회귀 검사
+node infra/blue-green-deploy/tests/actions/test-http-metrics.mjs
 # Docker, Java 21, backend bootJar와 필요한 이미지를 준비한 통합 시험
 bash infra/blue-green-deploy/tests/actions/run-local-e2e.sh
 BG_COMPOSE_IMAGE=<로컬에서-빌드한-백엔드-이미지> \
