@@ -2,7 +2,7 @@ import { expect, test } from "playwright/test";
 
 import { group, installApiFixture } from "./api-fixture.js";
 
-test("refreshes an expired member session before loading group announcements", async ({ page }) => {
+test("@core refreshes an expired member session before loading group announcements", async ({ page }) => {
   const state = await installApiFixture(page, { expireMemberProfileAfterBootstrap: true });
   const announcementRequests = [];
   const announcement = {

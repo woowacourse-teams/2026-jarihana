@@ -15,6 +15,7 @@ export function AnnouncementFormDialog({ announcement, groupId, onOpenChange, op
   const [scope, setScope] = useState(announcement?.scope ?? "MEMBERS");
   const [formError, setFormError] = useState("");
   const actionPrefix = isEditing ? "group_announcement_edit" : "group_announcement_create";
+  const fieldActionPrefix = isEditing ? "group_announcement_edit" : "group_announcement";
 
   async function submit(event) {
     event.preventDefault();
@@ -53,7 +54,7 @@ export function AnnouncementFormDialog({ announcement, groupId, onOpenChange, op
     >
       <form className="group-announcement-form" data-ph-private noValidate onSubmit={submit}>
         <TextField
-          data-ph-capture-attribute-action={`${actionPrefix}_title_change`}
+          data-ph-capture-attribute-action={`${fieldActionPrefix}_title_change`}
           label="공지 제목"
           maxLength={100}
           onChange={(event) => setTitle(event.currentTarget.value)}
@@ -61,7 +62,7 @@ export function AnnouncementFormDialog({ announcement, groupId, onOpenChange, op
           value={title}
         />
         <Textarea
-          data-ph-capture-attribute-action={`${actionPrefix}_content_change`}
+          data-ph-capture-attribute-action={`${fieldActionPrefix}_content_change`}
           description="마크다운 없이 일반 텍스트로 입력해 주세요."
           label="공지 내용"
           maxLength={10000}
@@ -77,8 +78,8 @@ export function AnnouncementFormDialog({ announcement, groupId, onOpenChange, op
           <legend>공개 범위</legend>
           <Radio
             checked={scope === "MEMBERS"}
-            data-ph-capture-attribute-action={`${actionPrefix}_scope_change`}
-            description="현재 모임원만 볼 수 있어요."
+            data-ph-capture-attribute-action={`${fieldActionPrefix}_scope_change`}
+            description="현재 모임원과 작성자가 볼 수 있어요."
             label="모임원 공개"
             name="announcement-scope"
             onChange={() => setScope("MEMBERS")}
@@ -86,7 +87,7 @@ export function AnnouncementFormDialog({ announcement, groupId, onOpenChange, op
           />
           <Radio
             checked={scope === "PUBLIC"}
-            data-ph-capture-attribute-action={`${actionPrefix}_scope_change`}
+            data-ph-capture-attribute-action={`${fieldActionPrefix}_scope_change`}
             description="로그인하지 않은 방문자도 볼 수 있어요."
             label="전체 공개"
             name="announcement-scope"

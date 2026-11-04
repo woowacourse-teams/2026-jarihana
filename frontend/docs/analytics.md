@@ -21,6 +21,7 @@ DB 테이블·스키마는 추가하지 않는다.
 | 공지 수정 모달 열기·닫기·취소·저장 | `group_announcement_edit_open`, `group_announcement_edit_dismiss`, `group_announcement_edit_cancel`, `group_announcement_edit_submit` |
 | 공지 숨김 확인 열기·닫기·취소·확정 | `group_announcement_delete_open`, `group_announcement_delete_dismiss`, `group_announcement_delete_cancel`, `group_announcement_delete_confirm` |
 | 제목·본문 입력과 공개 범위 변경 | `group_announcement_title_change`, `group_announcement_content_change`, `group_announcement_scope_change` |
+| 수정 중 제목·본문 입력과 공개 범위 변경 | `group_announcement_edit_title_change`, `group_announcement_edit_content_change`, `group_announcement_edit_scope_change` |
 | 공지 등록·목록 다시 시도·더 보기·상세 다시 시도·목록 복귀 | `group_announcement_create_submit`, `group_announcement_list_retry`, `group_announcement_load_more`, `group_announcement_detail_retry`, `group_announcement_list_return` |
 
 입력 폼과 공지 본문은 `data-ph-private`로 가리고, action 식별자에는 제목·본문·모임원 이름·공지 ID를 넣지 않는다. 공지 작성 성공 전용 PostHog 이벤트는 정의하지 않았으며, 자동 수집으로 API 성공을 추정하지 않는다.

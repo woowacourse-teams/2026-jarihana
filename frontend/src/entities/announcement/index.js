@@ -9,8 +9,7 @@ export const announcementListItemSchema = z.object({
   title: z.string(),
   scope: announcementScopeSchema,
   authorNickname: z.string(),
-  createdAt: localDateTimeSchema,
-  canManage: z.boolean()
+  createdAt: localDateTimeSchema
 }).strict();
 
 export const announcementListPageSchema = cursorPageSchema(announcementListItemSchema)
@@ -22,7 +21,8 @@ export const announcementDetailSchema = z.object({
   content: z.string(),
   scope: announcementScopeSchema,
   authorNickname: z.string(),
-  createdAt: localDateTimeSchema
+  createdAt: localDateTimeSchema,
+  canManage: z.boolean().default(false)
 }).strict();
 
 export const announcementCreatedSchema = z.object({ id: entityIdSchema }).strict();

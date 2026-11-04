@@ -93,7 +93,7 @@
 
 - 권한: `PUBLIC`, 공개 범위에 따라 결과를 필터링한다.
 - 설명: 제목, 본문, 공개 범위, 작성자와 등록 시각을 조회한다.
-- 응답: `200 OK`, `{id, title, content, scope, authorNickname, createdAt, canManage}`. `canManage`은 현재 모임장 또는 작성자에게만 `true`다.
+- 응답: `200 OK`, `{id, title, content, scope, authorNickname, createdAt}`. `includeManagement=true`를 지정하면 현재 모임장 또는 작성자에게만 `true`인 `canManage`를 추가한다. 기본 응답은 기존 프론트의 엄격한 스키마와 호환되도록 추가 필드를 생략한다.
 
 ## 오류
 

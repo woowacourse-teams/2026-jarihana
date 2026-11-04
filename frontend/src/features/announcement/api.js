@@ -17,6 +17,7 @@ export function fetchAnnouncements(groupId, cursor, signal) {
 
 export function fetchAnnouncement(groupId, announcementId, signal) {
   return apiRequest(`groups/${groupId}/announcements/${announcementId}`, {
+    searchParams: { includeManagement: true },
     schema: announcementDetailSchema,
     signal
   });

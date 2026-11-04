@@ -69,6 +69,8 @@ class AnnouncementAcceptanceTest extends IntegrationTestSupport {
                 group.getId(), membersOnly.getId());
         Response visitorPublicDetail = RestAssured.get("/groups/{groupId}/announcements/{announcementId}",
                 group.getId(), publicNotice.getId());
+        Response visitorManagementDetail = RestAssured.given().queryParam("includeManagement", true)
+                .get("/groups/{groupId}/announcements/{announcementId}", group.getId(), publicNotice.getId());
 
         assertThat(visitorList.statusCode()).isEqualTo(200);
         assertThat(visitorList.header("Cache-Control")).contains("no-store");
@@ -81,7 +83,10 @@ class AnnouncementAcceptanceTest extends IntegrationTestSupport {
         assertThat(visitorPublicDetail.statusCode()).isEqualTo(200);
         assertThat(visitorPublicDetail.header("Cache-Control")).contains("no-store");
         assertThat(visitorPublicDetail.jsonPath().getString("data.content")).isEqualTo("공개 본문");
-        assertThat(visitorPublicDetail.jsonPath().getBoolean("data.canManage")).isFalse();
+        assertThat(visitorPublicDetail.jsonPath().getMap("data")).containsOnlyKeys(
+                "id", "title", "content", "scope", "authorNickname", "createdAt");
+        assertThat(visitorManagementDetail.statusCode()).isEqualTo(200);
+        assertThat(visitorManagementDetail.jsonPath().getBoolean("data.canManage")).isFalse();
     }
 
     @Test
@@ -249,7 +254,8 @@ class AnnouncementAcceptanceTest extends IntegrationTestSupport {
         Response deniedDelete = mutation(other, csrf)
                 .delete("/groups/{groupId}/announcements/{announcementId}", group.getId(), announcement.getId());
         Response authorList = authenticated(author).get("/groups/{groupId}/announcements", group.getId());
-        Response authorDetail = authenticated(author).get("/groups/{groupId}/announcements/{announcementId}",
+        Response authorDetail = authenticated(author).queryParam("includeManagement", true)
+                .get("/groups/{groupId}/announcements/{announcementId}",
                 group.getId(), announcement.getId());
         Response authorModify = mutation(author, csrf).contentType("application/json").body(updateBody)
                 .put("/groups/{groupId}/announcements/{announcementId}", group.getId(), announcement.getId());

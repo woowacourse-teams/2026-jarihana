@@ -183,7 +183,7 @@ header 구현으로 확대하지 않았다.
 | `/notifications/open/:id` | 본인 알림의 회원 | 본인 알림·초대/공지 대상 조회·읽음 | 로그인 복귀·잘못된 계정·없는 대상·현재 상태 안내 |
 | 모임 공지 작성 | 현재 모임장, ACTIVE 모임 | `POST /api/groups/{groupId}/announcements` | 제목·일반 텍스트 본문·MEMBERS/PUBLIC 범위, pending·validation·409·403 |
 | 모임 공지 수정·숨김 | 현재 모임장 또는 해당 공지 작성자, ACTIVE 모임 | `PUT`/`DELETE /api/groups/{groupId}/announcements/{announcementId}` | 수정 성공 후 재조회, 삭제 확인·목록 복귀, 403·404·409 |
-| 모임 공지 목록 | 공개; 비회원·비구성원은 PUBLIC만 | `GET /api/groups/{groupId}/announcements?size=20&cursor=` | 최신순 목록, cursor, 로딩·빈 결과·재시도 |
+| 모임 공지 목록 | 공개; 비구성원은 PUBLIC 및 본인 작성 MEMBERS 공지 | `GET /api/groups/{groupId}/announcements?size=20&cursor=` | 최신순 목록, cursor, 로딩·빈 결과·재시도 |
 
 - MEMBER는 서비스 가입 완료 권한이다. 생성·공유 링크 조회·재복사는 현재 모임 소속을 따로 검사한다. 신청 승인 등 모임장 전용 관리 route는 일반 모임원에게 열지 않는다.
 - `내가 보낸 초대`는 각 DIRECT의 targetMember.crewName을 수신자로 표시한다. 발신자는 표시하지 않는다. 백엔드가 아직 수신자 필드를 제공하지 않으면 목록을 유지하고 `수신자 정보 없음`으로 안내한다. LINK의 targetMember는 null이며 기존 발급자 안내를 유지한다.
