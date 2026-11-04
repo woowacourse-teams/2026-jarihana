@@ -30,18 +30,19 @@ export function createReplayQueue(requestHistory = () => {}) {
     prefetch();
   }
 
-  function take(freshOnly = false) {
-    const next = [...recent.values()].find(item => (!freshOnly || item.fresh) && item.readyAt <= performance.now());
+  function take(freshOnly = false, id = null) {
+    const next = [...recent.values()].find(item => (id === null || item.post.id === id)
+      && (!freshOnly || item.fresh) && item.readyAt <= performance.now());
     // A new archive cycle may overlap the recent queue; finish those first plays before repeating them.
     const historyReady = history.length && !history.some(post => recent.has(post.id));
     let selection = null;
-    if (next && (freshOnly || recentTurns < 2 || !historyReady)) {
+    if (next && (id !== null || freshOnly || recentTurns < 2 || !historyReady)) {
       recent.delete(next.post.id);
       completed.add(next.post.id);
       if (completed.size > 256) completed.delete(completed.values().next().value);
       recentTurns = Math.min(2, recentTurns + 1);
       selection = { post: next.post, fresh: next.fresh };
-    } else if (!freshOnly && historyReady) {
+    } else if (id === null && !freshOnly && historyReady) {
       recentTurns = 0;
       selection = { post: history.shift(), fresh: false };
     }

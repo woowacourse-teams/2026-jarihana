@@ -6,6 +6,16 @@ const ENTRY_SECONDS = WALKOUT_SECONDS;
 export const HISTORY_MODEL_CAPACITY = 8;
 const TURN_SECONDS = 3.2;
 
+function postAge(createdAt, now) {
+  if (!Number.isFinite(createdAt)) return '';
+  const minutes = Math.max(0, Math.floor((now - createdAt) / 60_000));
+  if (minutes < 1) return '방금 전';
+  if (minutes < 60) return `${minutes}분 전`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}시간 전`;
+  return `${Math.floor(hours / 24)}일 전`;
+}
+
 export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
   const field = document.createElement('section');
   field.className = 'history-conversation';
@@ -37,6 +47,7 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
     byline.className = 'history-conversation-byline';
     const author = document.createElement('strong');
     const context = document.createElement('span');
+    context.className = 'history-conversation-time';
     const action = document.createElement('span');
     action.className = 'speech-reply-action';
     const cue = createSpeechCue(bubble, action);
@@ -141,7 +152,7 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
       visuals.draw(index, item.post, frame.position, 1, frame.pose, frame.yaw);
     }
 
-    const visibleBubbles = [];
+    const visibleBubbles = [], now = Date.now();
     for (const item of bubbles) {
       const character = item.character;
       item.post = character.post && !character.departure && character.elapsed >= ENTRY_SECONDS ? character.post : null;
@@ -152,10 +163,11 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
       item.cue.present(item.post.id);
       item.bubble.dataset.speaking = String(character === speaker);
       if (item.author.textContent !== item.post.name) item.author.textContent = item.post.name;
-      const caption = item.post.replyTo ? '지난 받아치기' : '지난 한마디';
+      const caption = postAge(item.post.createdAt, now);
       if (item.context.textContent !== caption) item.context.textContent = caption;
+      item.context.hidden = !caption;
       if (item.text.textContent !== item.post.text) item.text.textContent = item.post.text;
-      item.bubble.setAttribute('aria-label', `${item.post.name}, ${item.context.textContent}: ${item.post.text}. 눌러서 받아치기`);
+      item.bubble.setAttribute('aria-label', `${item.post.name}${caption ? `, ${caption}` : ''}: ${item.post.text}. 눌러서 받아치기`);
       item.bubble.style.setProperty('--history-available-width', Math.max(0, (layout.width - 26) / 2) + 'px');
       visibleBubbles.push(item);
     }
@@ -164,7 +176,9 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
       headX: item.character.speechAnchor.x, headY: item.character.speechAnchor.y - 12,
       width: item.bubble.offsetWidth || Math.min(240, Math.max(0, layout.width / 2 - 16)),
       height: item.bubble.offsetHeight || 64,
-      direction: (item.side === 'a' ? -1 : 1) * (item.character.index === 0 ? -1 : 1),
+      direction: item.side === 'a' ? -1 : 1,
+      region: item.side === 'a' ? { left: 8, right: layout.width / 2 - 5 }
+        : { left: layout.width / 2 + 5, right: layout.width - 8 },
     }));
     const stageBounds = stage.getBoundingClientRect();
     const obstacles = [...(stage.parentElement?.querySelectorAll('.composer-avatar[aria-expanded="false"] .composer-hint, .composer-device[data-expanded="true"] .composer-field') ?? [])]

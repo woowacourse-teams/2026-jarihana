@@ -8,8 +8,7 @@ const pulse = (time, contact, duration = 0.2) => time < contact ? 0 : 1 - ease((
 const envelope = (time, start, peak, release, end) => ease((time - start) / (peak - start)) * (1 - ease((time - release) / (end - release)));
 const THRUST_CONTACT = 1.65;
 const THROW_START = 3.5, THROW_FLIGHT = 0.75;
-const RECOVER_START = 5.3, RECOVER_END = 6.4;
-const SEAT_GRIP_X = 0.3 * Math.sin(0.65) / 2.1;
+const SETTLE_AT = 5.3;
 
 /** Offsets use screen pixels from the actor's feet; flight offsets locate the chair's grip. */
 export function chairBattlePose({ time = 0, index = 0, speaker = 1, opposed = true, reduced = false, distance = 200, size = 180 } = {}) {
@@ -26,7 +25,7 @@ export function chairBattlePose({ time = 0, index = 0, speaker = 1, opposed = tr
     leftArm: -0.25, rightArm: -0.25, leftElbow: -0.85, rightElbow: -0.85,
     chair: { mode: 'seat', pitch: 0, roll: 0, x: 0, y: 0, scale: 1 }, impact: 0,
   };
-  if (reduced || !opposed || elapsed >= RECOVER_END) {
+  if (reduced || !opposed) {
     pose.phase = 'settled';
     return pose;
   }
@@ -91,8 +90,8 @@ export function chairBattlePose({ time = 0, index = 0, speaker = 1, opposed = tr
   const contact = release + THROW_FLIGHT;
   const incomingContact = THROW_START + 0.25 + (actor === first ? 0.25 : 0) + THROW_FLIGHT;
   const incoming = pulse(elapsed, incomingContact, 0.3);
-  pose.phase = elapsed < RECOVER_START ? 'throw' : 'recover';
-  pose.attacker = elapsed < RECOVER_START ? (elapsed < THROW_START + 0.5 ? first : reply) : null;
+  pose.phase = elapsed < SETTLE_AT ? 'throw' : 'settled';
+  pose.attacker = elapsed < SETTLE_AT ? (elapsed < THROW_START + 0.5 ? first : reply) : null;
   pose.impact = incoming;
   pose.x = -direction * recoil * incoming;
   pose.lean = direction * 0.16 * incoming;
@@ -111,25 +110,18 @@ export function chairBattlePose({ time = 0, index = 0, speaker = 1, opposed = tr
   const targetX = direction * Math.max(height * 0.22, gap - height * 0.13);
   const targetY = -height * 0.54;
   const restingX = targetX + direction * height * 0.15;
-  const restingY = -height * 0.32;
+  const restingY = -height * 0.2;
   if (elapsed < contact) {
     const flight = clamp((elapsed - release) / THROW_FLIGHT);
     pose.chair.x = mix(startX, targetX, flight);
     pose.chair.y = mix(startY, targetY, flight) - Math.sin(flight * Math.PI) * height * 0.6;
     pose.chair.pitch = mix(-Math.PI * 0.8, 0, ease(flight));
     pose.chair.roll = direction * Math.PI * 2 * flight;
-  } else if (elapsed < RECOVER_START) {
-    const bounce = clamp((elapsed - contact) / (RECOVER_START - contact));
+  } else {
+    const bounce = clamp((elapsed - contact) / (SETTLE_AT - contact));
     pose.chair.x = mix(targetX, restingX, ease(bounce));
     pose.chair.y = mix(targetY, restingY, ease(bounce)) - Math.sin(bounce * Math.PI) * height * 0.2;
     pose.chair.roll = direction * (Math.PI * 2 + Math.PI / 2 * ease(bounce));
-  } else {
-    const recovery = ease((elapsed - RECOVER_START) / (RECOVER_END - RECOVER_START));
-    pose.chair.x = mix(restingX, -direction * height * SEAT_GRIP_X, recovery);
-    pose.chair.y = mix(restingY, -height * 0.5, recovery) - Math.sin(recovery * Math.PI) * height * 0.25;
-    pose.chair.roll = direction * mix(Math.PI / 2, 0, recovery);
-    pose.seated = ease((elapsed - 5.85) / 0.55);
-    pose.leftElbow = pose.rightElbow = mix(-0.2, -0.85, pose.seated);
   }
   // Keep the projectile on its world path while its owner recoils from the other chair.
   pose.chair.x -= pose.x;

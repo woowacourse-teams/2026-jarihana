@@ -21,6 +21,7 @@ function Room({ topicId, member, login, retry, onRetry }) {
   const [saving, setSaving] = useState(false);
   const [entryError, setEntryError] = useState(null);
   const savingRef = useRef(false);
+  const entrySideRef = useRef(null);
   const entered = entry === "entered";
   const leaving = entry === "waiting" && visible && !error && !sceneError;
   const [arenaView, setArenaView] = useState("compact");
@@ -41,6 +42,10 @@ function Room({ topicId, member, login, retry, onRetry }) {
     if (!entered) return;
     frame.current?.scrollIntoView({ block: "start", behavior: "instant" });
     frame.current?.focus({ preventScroll: true });
+    if (entrySideRef.current) frame.current?.contentWindow?.postMessage(
+      { channel: "jarihana-sparring", kind: "composer-open", side: entrySideRef.current === "MINT" ? "a" : "b" },
+      window.location.origin
+    );
     window.dispatchEvent(new Event("resize"));
   }, [entered, frame]);
   async function start(side) {
@@ -49,7 +54,10 @@ function Room({ topicId, member, login, retry, onRetry }) {
     setSaving(true);
     setEntryError(null);
     try {
-      if (await selectSide(side)) setEntry("waiting");
+      if (await selectSide(side)) {
+        entrySideRef.current = side;
+        setEntry("waiting");
+      }
     } catch (failure) {
       setEntryError(failure instanceof Error ? failure.message : "편을 저장하지 못했어요. 다시 시도해 주세요.");
     } finally {
