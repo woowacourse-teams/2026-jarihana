@@ -54,6 +54,9 @@ public class Announcement extends BaseEntity {
     @Column(nullable = false, length = 20)
     private AnnouncementScope scope;
 
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     private Announcement(Group group, Member author, String title, String content, AnnouncementScope scope,
                          LocalDateTime createdAt) {
         super(Objects.requireNonNull(createdAt));
@@ -67,9 +70,35 @@ public class Announcement extends BaseEntity {
         this.scope = Objects.requireNonNull(scope);
     }
 
+    private Announcement(Long id, Group group, Member author, String title, String content, AnnouncementScope scope,
+                         LocalDateTime createdAt, LocalDateTime deletedAt) {
+        super(Objects.requireNonNull(createdAt));
+        this.id = id;
+        this.group = Objects.requireNonNull(group);
+        this.author = Objects.requireNonNull(author);
+        this.title = requiredText(title, TITLE_MAX_LENGTH, "제목");
+        this.content = requiredText(content, CONTENT_MAX_LENGTH, "본문");
+        this.scope = Objects.requireNonNull(scope);
+        this.deletedAt = deletedAt;
+    }
+
     public static Announcement create(Group group, Member author, String title, String content,
                                       AnnouncementScope scope, LocalDateTime createdAt) {
         return new Announcement(group, author, title, content, scope, createdAt);
+    }
+
+    public Announcement modify(String title, String content, AnnouncementScope scope) {
+        if (deletedAt != null) {
+            throw new BusinessException(ErrorCode.ANNOUNCEMENT_NOT_FOUND, "공지를 찾을 수 없습니다.");
+        }
+        return new Announcement(id, group, author, title, content, scope, getCreatedAt(), null);
+    }
+
+    public Announcement deleteAt(LocalDateTime now) {
+        if (deletedAt != null) {
+            throw new BusinessException(ErrorCode.ANNOUNCEMENT_NOT_FOUND, "공지를 찾을 수 없습니다.");
+        }
+        return new Announcement(id, group, author, title, content, scope, getCreatedAt(), Objects.requireNonNull(now));
     }
 
     private static String requiredText(String value, int maxLength, String field) {

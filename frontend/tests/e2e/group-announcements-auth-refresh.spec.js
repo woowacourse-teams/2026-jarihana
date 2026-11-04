@@ -2,13 +2,14 @@ import { expect, test } from "playwright/test";
 
 import { group, installApiFixture } from "./api-fixture.js";
 
-test("refreshes an expired member session before loading group announcements", async ({ page }) => {
+test("@core refreshes an expired member session before loading group announcements", async ({ page }) => {
   const state = await installApiFixture(page, { expireMemberProfileAfterBootstrap: true });
   const announcementRequests = [];
   const announcement = {
     authorNickname: "자리",
     content: "토큰을 갱신한 모임원도 공지를 확인할 수 있어요.",
     createdAt: "2026-10-29T12:00:00",
+    canManage: false,
     id: 101,
     scope: "MEMBERS",
     title: "모임원 공개 공지"

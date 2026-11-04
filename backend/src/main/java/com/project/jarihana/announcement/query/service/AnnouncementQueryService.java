@@ -9,6 +9,7 @@ import com.project.jarihana.announcement.query.service.dto.AnnouncementListResul
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
+import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.groupmember.query.repository.GroupMemberAccessRepository;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -50,6 +51,7 @@ public class AnnouncementQueryService {
         List<AnnouncementSummaryProjection> candidates = announcements.findPage(
                 groupId,
                 groupMember,
+                memberId,
                 cursor == null ? null : cursor.createdAt(),
                 cursor == null ? null : cursor.id(),
                 Pageable.ofSize(query.size() + 1)
@@ -72,12 +74,15 @@ public class AnnouncementQueryService {
         }
         boolean groupMember = memberId != null && groupMembers.existsByGroupIdAndMemberId(groupId, memberId);
         AnnouncementDetailProjection item = announcements.findVisibleByIdAndGroupId(
-                announcementId, groupId, groupMember
+                announcementId, groupId, groupMember, memberId
         ).orElseThrow(() -> new BusinessException(
                 ErrorCode.ANNOUNCEMENT_NOT_FOUND, ANNOUNCEMENT_NOT_FOUND_MESSAGE
         ));
+        boolean canManage = memberId != null && (memberId.equals(item.authorMemberId())
+                || groupMembers.findRoleByGroupIdAndMemberId(groupId, memberId)
+                .filter(role -> role == GroupMemberRole.LEADER).isPresent());
         return new AnnouncementDetailResult(item.id(), item.title(), item.content(), item.scope(),
-                item.authorNickname(), item.createdAt());
+                item.authorNickname(), item.createdAt(), canManage);
     }
 
     private static AnnouncementListResult.Item toItem(AnnouncementSummaryProjection projection) {
