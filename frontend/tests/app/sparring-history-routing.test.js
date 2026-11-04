@@ -25,8 +25,9 @@ jest.mock('three', () => {
   return { ...actual, WebGLRenderer };
 }, { virtual: true });
 jest.mock('../../public/sparring-arena/src/studio-materials.js', () => {
+  const actual = jest.requireActual('../../public/sparring-arena/src/studio-materials.js');
   const { MeshPhysicalMaterial } = jest.requireActual('../../public/sparring-arena/vendor/three.module.js');
-  return { studioMaterial: options => new MeshPhysicalMaterial(options), createStudioEnvironment: () => null };
+  return { ...actual, studioMaterial: options => new MeshPhysicalMaterial(options), createStudioEnvironment: () => null };
 });
 jest.mock('../../public/sparring-arena/src/capsules.js', () => ({ createCapsules: jest.fn() }));
 jest.mock('../../public/sparring-arena/src/capsule-batch.js', () => ({ createCapsuleBatch: () => ({ draw() {}, hide() {} }) }));
