@@ -35,8 +35,10 @@ HTTP 관찰은 실제 후보 경로와 호스트별 fresh up, 최근 2분 요청
 
 요청 수, 5xx 수와 누적 응답 시간은 같은 HTTP 집합으로 계산한다. `response_type="http"`인
 메트릭은 포함하고 `response_type="sse"`인 연결 유지 시간은 제외한다. 라벨이 없는 구버전
-메트릭은 `/sparrings/{topicId}/events`를 제외한다. 새 라벨이 있는 이 경로의 JSON 오류 응답은
-HTTP로 유지한다. 구버전은 같은 경로의 JSON 오류와 SSE를 구분하지 못하므로 함께 제외된다.
+메트릭은 `/sparrings/{topicId}/events`와 `/games/gomoku/rooms/{id}/events`를 제외한다.
+#555의 오목 도입 후 #552의 라벨 도입 전 버전도 이 호환 범위에 포함한다. 새 라벨이 있는
+두 경로의 JSON 오류 응답은 HTTP로 유지한다. 구버전은 같은 경로의 JSON 오류와 SSE를
+구분하지 못하므로 함께 제외된다.
 up, 실제 요청 경로와 별도 worker 검사는 유지한다.
 
 이 변경은 저장소 코드의 기준이다. 운영 적용에는 수정한 코드로 고정 제어 릴리스를 만들고

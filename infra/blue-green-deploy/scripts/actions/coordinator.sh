@@ -128,8 +128,8 @@ bg_scalar() {
 }
 bg_http_increase() {
   local metric=$1 labels=$2
-  # Legacy metrics have no response_type; only their known SSE route is excluded.
-  printf 'sum(increase(%s{%s,response_type="http"}[2m]) or increase(%s{%s,response_type="",uri!="/sparrings/{topicId}/events"}[2m]))' \
+  # Legacy metrics have no response_type; their known SSE routes are excluded.
+  printf 'sum(increase(%s{%s,response_type="http"}[2m]) or increase(%s{%s,response_type="",uri!="/sparrings/{topicId}/events",uri!="/games/gomoku/rooms/{id}/events"}[2m]))' \
     "$metric" "$labels" "$metric" "$labels"
 }
 bg_metrics() {

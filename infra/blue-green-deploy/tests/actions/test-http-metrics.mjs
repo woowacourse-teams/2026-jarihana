@@ -38,18 +38,25 @@ const traffic = (countStep, timeStep, tags = {}) => [
 ];
 const legacyHttp = traffic(10, 1);
 const legacySse = traffic(1, 120, { uri: '/sparrings/{topicId}/events' });
+const legacyGomokuSse = traffic(1, 120, { uri: '/games/gomoku/rooms/{id}/events' });
 const labelledHttp = traffic(10, 1, { response_type: 'http' });
 const labelledSse = traffic(1, 120, { uri: '/notifications/live', response_type: 'sse' });
 const cases = [
   ['legacy 120-second SSE does not raise HTTP latency', [...legacyHttp, ...legacySse], [120, 0, 12]],
+  ['legacy 120-second gomoku SSE does not raise HTTP latency', [...legacyHttp, ...legacyGomokuSse], [120, 0, 12]],
+  ['both legacy SSE routes are excluded together', [...legacyHttp, ...legacySse, ...legacyGomokuSse], [120, 0, 12]],
   ['labelled SSE on any route is excluded', [...labelledHttp, ...labelledSse], [120, 0, 12]],
   ['mixed old and new metrics are counted once', [
-    ...legacyHttp, ...legacySse,
+    ...legacyHttp, ...legacySse, ...legacyGomokuSse,
     ...traffic(10, 1, { response_type: 'http', instance: 'new' }), ...labelledSse,
   ], [240, 0, 24]],
   ['JSON rejection on an SSE route remains an HTTP error', [
     ...labelledHttp,
     ...traffic(1, 1, { uri: '/sparrings/{topicId}/events', response_type: 'http', status: '503' }),
+  ], [132, 12, 24]],
+  ['JSON rejection on a labelled gomoku SSE route remains an HTTP error', [
+    ...labelledHttp,
+    ...traffic(1, 1, { uri: '/games/gomoku/rooms/{id}/events', response_type: 'http', status: '503' }),
   ], [132, 12, 24]],
   ['slow HTTP requests remain in the deployment check', traffic(10, 20, { response_type: 'http' }), [120, 0, 240]],
   ['HTTP failures remain in numerator and denominator', [
@@ -59,7 +66,7 @@ const cases = [
     ...legacyHttp, ...traffic(1, 120, { response_type: 'sse' }),
   ], [120, 0, 12]],
   ['SSE-only traffic preserves initialized idle HTTP metrics', [
-    ...traffic(0, 0, { response_type: 'http' }), ...labelledSse, ...legacySse,
+    ...traffic(0, 0, { response_type: 'http' }), ...labelledSse, ...legacySse, ...legacyGomokuSse,
   ], [0, 0, 0]],
   ['missing HTTP metrics remain unknown', [...labelledSse], [null, 0, null]],
   ['other environments and hosts cannot affect the candidate', [
