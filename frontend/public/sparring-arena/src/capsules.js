@@ -1,38 +1,21 @@
 import { createCapsuleBatch } from './capsule-batch.js';
 import { createCapsulePhysics, CAPACITY, RADIUS, FRESH_CAPSULE_SCALE } from './physics.js';
 import { voteColors } from './vote-colors.js';
+import { createReplayQueue } from './replay-queue.js';
 
-export function createCapsules(scene, onSelect, onReady) {
+export function createCapsules(scene, onSelect, onReady, requestHistory) {
   const batch = createCapsuleBatch(scene, CAPACITY), physics = createCapsulePhysics();
   physics.settle();
   let posts = [], ratio = 0.5, mode = 'pressure', paused = false, initialized = false, populated = false;
-  let cursor = 0, historyExchanges = 0, pipeReplays = 0, selectedForDraw = null;
+  let historyExchanges = 0, pipeReplays = 0, selectedForDraw = null;
   let pipeCredit = 0.5;
   const replayCounts = { a: 0, b: 0 };
   const pipeCursors = { a: 0, b: 0 };
   let postsBySide = { a: [], b: [] };
   const rendered = Array.from({ length: CAPACITY }, () => ({ visible: null }));
-  const liveReplays = new Map();
+  const replay = createReplayQueue(requestHistory);
   const pendingLaunches = [];
-  function queueReplay(post, readyAt = performance.now() + 4500) {
-    if (posts.some(item => item.id === post.id) && !liveReplays.has(post.id)) liveReplays.set(post.id, { post, readyAt });
-  }
-  function historical() {
-    const ready = [...liveReplays.values()].find(item => item.readyAt <= performance.now());
-    if (ready) {
-      liveReplays.delete(ready.post.id);
-      historyExchanges++;
-      return ready.post;
-    }
-    for (let i = 0; i < posts.length; i++) {
-      const post = posts[cursor++ % posts.length];
-      // Keep the pipe speech visible before this same message leaves via the slide.
-      if (liveReplays.has(post.id)) continue;
-      historyExchanges++;
-      return post;
-    }
-    return null;
-  }
+  const queueReplay = (post, readyAt = performance.now() + 4500, fresh = false) => replay.enqueue(post, readyAt, fresh);
   function draw() {
     physics.entries.forEach((entry, index) => {
       const last = rendered[index];
@@ -62,13 +45,12 @@ export function createCapsules(scene, onSelect, onReady) {
       last.qx = q.x; last.qy = q.y; last.qz = q.z; last.qw = q.w;
     });
   }
-  function updateState(nextPosts, votes) {
+  function updateState(nextPosts, votes, history) {
     const seedTank = !populated && votes.total > 0;
     posts = nextPosts; ratio = votes.ratio; populated = votes.total > 0;
     postsBySide = { a: [], b: [] };
     for (const post of posts) if (postsBySide[post.side]) postsBySide[post.side].push(post);
-    const replayIds = new Set(posts.map(post => post.id));
-    for (const id of liveReplays.keys()) if (!replayIds.has(id)) liveReplays.delete(id);
+    replay.update(posts, history);
     if (seedTank) {
       const colors = voteColors(CAPACITY, votes);
       physics.entries.forEach((entry, i) => {
@@ -81,6 +63,7 @@ export function createCapsules(scene, onSelect, onReady) {
     initialized = true; draw();
   }
   function launch(post, { reduced = false } = {}) {
+    queueReplay(post, Infinity);
     pendingLaunches.push({ post, reduced });
     flushLaunches();
     draw();
@@ -135,26 +118,31 @@ export function createCapsules(scene, onSelect, onReady) {
   function takeForDraw() {
     if (selectedForDraw) {
       const post = selectedForDraw; selectedForDraw = null;
-      liveReplays.delete(post.id);
+      replay.remove(post.id);
       return { post, fresh: false };
     }
     return takeHistorical();
   }
-  function takeHistorical() { const post = historical(); return post ? { post, fresh: false } : null; }
+  function takeHistorical(freshOnly = false, id = null) {
+    const selection = replay.take(freshOnly, id);
+    if (selection) historyExchanges++;
+    return selection;
+  }
   function nudge(id) {
     const entry = physics.entries.find(entry => entry.post?.id === id);
     if (entry) { entry.body.wakeUp(); entry.body.velocity.y += 1; }
   }
   function presentation() { return { tracking: physics.entries.filter(entry => entry.fresh && performance.now() < entry.flightUntil).sort((a, b) => b.flightUntil - a.flightUntil) }; }
-  function controlState() { return { drawReady: initialized, queuedId: selectedForDraw?.id ?? null }; }
+  function controlState() { return { drawReady: initialized, queuedId: selectedForDraw?.id ?? null, freshReady: replay.freshReady() }; }
   function stats() {
-    return { ...physics.stats(), capsules: CAPACITY, visibleCapsules: populated ? CAPACITY : 0,
+    return { ...physics.stats(), ...replay.stats(), capsules: CAPACITY, visibleCapsules: populated ? CAPACITY : 0,
       mintCapsules: populated ? physics.entries.filter(entry => entry.visualSide === 'a').length : 0,
       coralCapsules: populated ? physics.entries.filter(entry => entry.visualSide === 'b').length : 0,
       historyExchanges, pipeReplays, pipeReplaysA: replayCounts.a, pipeReplaysB: replayCounts.b, speedA: speedFor('a'), speedB: speedFor('b'), drawReady: initialized,
-      queuedId: selectedForDraw?.id ?? null, pendingReplays: liveReplays.size, pendingLaunches: pendingLaunches.length, mintShare: ratio, mode, paused };
+      queuedId: selectedForDraw?.id ?? null, pendingReplays: replay.stats().recentPending, pendingLaunches: pendingLaunches.length, mintShare: ratio, mode, paused };
   }
   return { updateState, launch, queueReplay, replayPipe, step, pick, nudge, presentation, controlState, stats, takeForDraw, takeHistorical, takeCollision: physics.takeCollision,
+    settleReplays: replay.settle,
     shockwave(point) { return populated && !paused ? physics.shockwave(point) : 0; },
     setMode(next) { mode = next; }, setPaused(value) { paused = value; } };
 }

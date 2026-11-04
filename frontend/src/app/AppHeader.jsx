@@ -4,7 +4,7 @@ import { useChatUnreadCount } from "../features/chat/useChatUnreadCount";
 import { useId, useRef, useState } from "react";
 import { useUnreadCount } from "../features/notifications/hooks";
 import { Link, useLocation, useNavigate } from "react-router";
-import { MessageCircle, UserRound } from "lucide-react";
+import { Headset, MessageCircle, UserRound } from "lucide-react";
 
 import { storeReturnTarget, useAuth } from "../features/auth";
 import {
@@ -60,12 +60,21 @@ const SPARRING_LINK = {
   to: "/sparring"
 };
 
+const GAMES_LINK = {
+  action: "games_open",
+  isActive: (pathname) => pathname === "/games" || pathname.startsWith("/games/"),
+  label: "게임방",
+  requiresAuth: false,
+  to: "/games"
+};
+
 const MEMBER_LINKS = [
   HOME_LINK,
   EXPLORE_LINK,
   ACTIVITY_LINK,
   BOARD_LINK,
   SPARRING_LINK,
+  GAMES_LINK,
   {
     action: "group_create",
     isActive: (pathname) => pathname === "/groups/new",
@@ -75,7 +84,7 @@ const MEMBER_LINKS = [
   }
 ];
 
-const DESKTOP_MEMBER_LINKS = [HOME_LINK, EXPLORE_LINK, ACTIVITY_LINK, BOARD_LINK, SPARRING_LINK];
+const DESKTOP_MEMBER_LINKS = [HOME_LINK, EXPLORE_LINK, ACTIVITY_LINK, BOARD_LINK, SPARRING_LINK, GAMES_LINK];
 
 function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, status }) {
   const { pathname } = useLocation();
@@ -121,21 +130,20 @@ function MyPageLink({ onNavigate }) {
   );
 }
 
-function FeedbackLink({ onClick, onNavigate, open, status }) {
+function FeedbackButton({ onClick, open, status }) {
   return (
     <button
       aria-expanded={open}
       aria-haspopup="dialog"
-      className="app-header__link app-header__feedback-link"
+      aria-label="피드백 남기기"
+      className="app-feedback-button"
       data-ph-capture-attribute-action="feedback_start"
       disabled={status === "loading"}
-      onClick={() => {
-        onNavigate?.();
-        onClick(Boolean(onNavigate));
-      }}
+      onClick={onClick}
       type="button"
     >
-      피드백
+      <Headset aria-hidden="true" />
+      <span aria-hidden="true" className="app-feedback-button__label">피드백 남기기</span>
     </button>
   );
 }
@@ -221,7 +229,6 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
   const [feedbackManuallyOpen, setFeedbackManuallyOpen] = useState(false);
   const [loginRequiredOpen, setLoginRequiredOpen] = useState(false);
   const menuButtonReference = useRef(null);
-  const focusMenuAfterFeedbackReference = useRef(false);
   const hasFeedbackReturnIntent = new URLSearchParams(search).get("feedback") === "open";
   const feedbackOpen =
     feedbackManuallyOpen || (status === "authenticated" && hasFeedbackReturnIntent);
@@ -233,20 +240,15 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
 
   function handleLoginRequiredClose() {
     setLoginRequiredOpen(false);
-    if (focusMenuAfterFeedbackReference.current) {
-      focusMenuAfterFeedbackReference.current = false;
-      requestAnimationFrame(() => menuButtonReference.current?.focus());
-    }
   }
 
   function handleFeedbackLogin() {
-    focusMenuAfterFeedbackReference.current = false;
     storeReturnTarget(getFeedbackReturnTarget({ hash, pathname, search }));
     setLoginRequiredOpen(false);
     login();
   }
 
-  function handleFeedbackTrigger(fromMobileMenu) {
+  function handleFeedbackTrigger() {
     if (status === "loading") return;
 
     if (status !== "authenticated") {
@@ -254,11 +256,9 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
         navigate("/signup");
         return;
       }
-      focusMenuAfterFeedbackReference.current = fromMobileMenu;
       setLoginRequiredOpen(true);
       return;
     }
-    focusMenuAfterFeedbackReference.current = fromMobileMenu;
     setFeedbackManuallyOpen(true);
   }
 
@@ -272,10 +272,6 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
         { hash, pathname, search: remainingSearch ? `?${remainingSearch}` : "" },
         { replace: true }
       );
-    }
-    if (!open && focusMenuAfterFeedbackReference.current) {
-      focusMenuAfterFeedbackReference.current = false;
-      requestAnimationFrame(() => menuButtonReference.current?.focus());
     }
   }
 
@@ -312,18 +308,13 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
             data-active={activeMenuIndex >= 0}
             style={{
               "--header-active-index": Math.max(0, activeMenuIndex),
-              "--header-nav-item-count": DESKTOP_MEMBER_LINKS.length + 1
+              "--header-nav-item-count": DESKTOP_MEMBER_LINKS.length
             }}
           >
             <HeaderLinks
               links={DESKTOP_MEMBER_LINKS}
               onNavigate={() => {}}
               onProtectedNavigate={redirectToLogin}
-              status={status}
-            />
-            <FeedbackLink
-              onClick={handleFeedbackTrigger}
-              open={feedbackOpen || loginRequiredOpen}
               status={status}
             />
           </nav>
@@ -379,6 +370,12 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
           </button>
         </div>
       </header>
+
+      <FeedbackButton
+        onClick={handleFeedbackTrigger}
+        open={feedbackOpen || loginRequiredOpen}
+        status={status}
+      />
 
       {logoutError ? <div className="notification-logout-error" role="alert"><p>{logoutError}</p>
         <button data-ph-capture-attribute-action={status === "authenticated" ? "logout_retry" : "login_retry"} disabled={logoutPending}
@@ -458,12 +455,6 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
             <HeaderLinks
               onNavigate={closeMenu}
               onProtectedNavigate={redirectToLogin}
-              status={status}
-            />
-            <FeedbackLink
-              onClick={handleFeedbackTrigger}
-              onNavigate={closeMenu}
-              open={feedbackOpen || loginRequiredOpen}
               status={status}
             />
             {status === "authenticated" ? <MyPageLink onNavigate={closeMenu} /> : null}

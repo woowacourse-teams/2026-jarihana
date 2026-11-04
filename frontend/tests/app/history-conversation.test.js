@@ -13,6 +13,20 @@ describe('지난 메시지 캐릭터 모임', () => {
     history.setLayout({ left: { x: 180, y: 300 }, right: { x: 620, y: 300 }, worldLeft: { x: -4.4, y: -6.3, z: 10.1 }, worldRight: { x: 4.4, y: -6.3, z: 10.1 }, width: 800 });
   });
   afterEach(() => { history.dispose(); stage.remove(); });
+  it('말풍선을 읽는 동안 받아치기로 교체하지 않고 숨김·정지·포커스 시간은 제외한다', () => {
+    expect(history.canReplace()).toBe(true);
+    history.emerge(post('reading'), { x: 0, y: -6, z: 9 });
+    expect(history.canReplace()).toBe(false);
+    history.step(WALKOUT_SECONDS);
+    expect(history.canReplace()).toBe(false);
+    history.setVisible(true, { speech: false }); history.step(10);
+    history.setVisible(true); history.setPaused(true); history.step(10);
+    history.setPaused(false); bubble('a').focus(); history.step(10);
+    bubble('a').blur(); history.step(3.19);
+    expect(history.canReplace()).toBe(false);
+    history.step(.02);
+    expect(history.canReplace()).toBe(true);
+  });
   it('같은 표시 상태를 다시 받아도 캐릭터와 말풍선을 중복 갱신하지 않고 실제 전환만 반영한다', () => {
     add('a1');
     visuals.draw.mockClear(); visuals.hide.mockClear(); reveal.mockClear();
@@ -60,9 +74,9 @@ describe('지난 메시지 캐릭터 모임', () => {
     expect(speech).toHaveAttribute('data-cue-active', 'true');
     expect(speech.querySelector('.speech-cue-label')).toHaveAttribute('aria-hidden', 'true');
     speech.click(); expect(select).toHaveBeenCalledWith('a1');
-    expect(speech).toHaveAttribute('data-cue-active', 'false');
+    expect(speech).toHaveAttribute('data-reply-selected', 'true');
     history.step(0.1);
-    expect(speech).toHaveAttribute('data-cue-active', 'false');
+    expect(speech).toHaveAttribute('data-reply-selected', 'true');
   });
   it('개봉 위치에서 출발하고 자기 편에 도착한 뒤 말풍선을 보여준다', () => {
     history.emerge(post('1'), { x: 0, y: -6, z: 9 });
@@ -72,14 +86,14 @@ describe('지난 메시지 캐릭터 모임', () => {
     expect(Number.parseFloat(figure.style.left)).toBeCloseTo(225); expect(bubble('a')).toBeVisible(); expect(bubble('b')).not.toBeVisible();
     expect(reveal).toHaveBeenCalledWith(post('1'), false);
   });
-  it('가운데 두 캐릭터는 말풍선을 각자의 안쪽 방향으로 우선 배치한다', () => {
+  it('가운데 두 캐릭터도 말풍선을 자기 편의 바깥쪽으로 배치한다', () => {
     visuals.project = point => ({ x: point.x * 100 + 600, y: 300 - (point.y + 6.3) * 40 });
     history.setLayout({ left: { x: 160, y: 300 }, right: { x: 1040, y: 300 }, worldLeft: { x: -4.4, y: -6.3, z: 10.1 }, worldRight: { x: 4.4, y: -6.3, z: 10.1 }, width: 1200 });
     add('a1'); add('b1', 'b');
     for (const [side, sign] of [['a', 1], ['b', -1]]) {
       const speech = bubble(side);
       const character = stage.querySelector(`.history-character[data-post-id="${side}1"]`);
-      expect((parseFloat(speech.style.left) - parseFloat(character.style.left)) * sign).toBeGreaterThan(0);
+      expect((parseFloat(speech.style.left) - parseFloat(character.style.left)) * sign).toBeLessThan(0);
     }
   });
   it('편당 2명을 유지하고 새 글은 같은 편의 가장 오래된 자리를 교체한다', () => {
@@ -101,12 +115,44 @@ describe('지난 메시지 캐릭터 모임', () => {
     expect(reveal).toHaveBeenCalledTimes(4);
   });
   it('실제 답장이 없는 의견에는 상대나 받아치기 관계를 만들지 않는다', () => {
-    add('a1'); add('b1', 'b');
-    expect(bubble('a')).toHaveTextContent('지난 한마디'); expect(bubble('b')).toHaveTextContent('지난 한마디');
+    const createdAt = Date.now() - 5 * 60_000;
+    history.emerge({ ...post('a1'), createdAt }, { x: 0, y: -6, z: 9 }, true);
+    history.emerge({ ...post('b1', 'b'), createdAt }, { x: 0, y: -6, z: 9 }, true);
+    expect(bubble('a')).toHaveTextContent('5분 전'); expect(bubble('b')).toHaveTextContent('5분 전');
     expect(stage.textContent).not.toContain('VS');
-    history.emerge({ ...post('a2'), replyTo: post('b1', 'b') }, { x: 0, y: -6, z: 9 }, true);
-    expect(stage.querySelector('.history-conversation-speech[data-post-id="a2"]')).toHaveTextContent('지난 받아치기');
-    expect(bubble('a')).toHaveTextContent('지난 한마디');
+    history.emerge({ ...post('a2'), createdAt, replyTo: post('b1', 'b') }, { x: 0, y: -6, z: 9 }, true);
+    expect(stage.querySelector('.history-conversation-speech[data-post-id="a2"]')).toHaveTextContent('5분 전');
+    expect(stage.textContent).not.toContain('지난 받아치기');
+    expect(stage.textContent).not.toContain('지난 한마디');
+  });
+  it.each([
+    [-1, '방금 전'], [0, '방금 전'], [59_999, '방금 전'],
+    [60_000, '1분 전'], [59 * 60_000, '59분 전'],
+    [60 * 60_000, '1시간 전'], [23 * 60 * 60_000, '23시간 전'],
+    [24 * 60 * 60_000, '1일 전'], [3 * 24 * 60 * 60_000, '3일 전'],
+  ])('작성 후 %ims가 지난 의견에 %s를 표시한다', (age, caption) => {
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(1_800_000_000_000);
+    try {
+      history.emerge({ ...post('time'), createdAt: Date.now() - age }, { x: 0, y: -6, z: 9 }, true);
+      expect(bubble('a').querySelector('.history-conversation-time')).toHaveTextContent(caption);
+      expect(bubble('a')).toHaveAccessibleName(`크루 time, ${caption}: 의견 time. 눌러서 받아치기`);
+    } finally { clock.mockRestore(); }
+  });
+  it('화면이 다시 그려질 때 같은 의견의 경과 시간도 갱신한다', () => {
+    const now = 1_800_000_000_000;
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
+    try {
+      history.emerge({ ...post('time'), createdAt: now - 60_000 }, { x: 0, y: -6, z: 9 }, true);
+      expect(bubble('a').querySelector('.history-conversation-time')).toHaveTextContent('1분 전');
+      clock.mockReturnValue(now + 60_000);
+      history.step(0, true);
+      expect(bubble('a').querySelector('.history-conversation-time')).toHaveTextContent('2분 전');
+    } finally { clock.mockRestore(); }
+  });
+  it('작성 시간이 없으면 잘못된 상대 시간을 만들지 않는다', () => {
+    add('unknown');
+    expect(bubble('a').querySelector('.history-conversation-time')).not.toBeVisible();
+    expect(bubble('a')).toHaveAccessibleName('크루 unknown: 의견 unknown. 눌러서 받아치기');
   });
   it('말풍선이 실제 캐릭터 머리 바로 위에 붙고 꼬리가 해당 인물을 가리킨다', () => {
     Object.defineProperty(stage, 'clientHeight', { value: 400, configurable: true });
@@ -136,6 +182,24 @@ describe('지난 메시지 캐릭터 모임', () => {
       expect(center - width / 2).toBeGreaterThanOrEqual(8);
       expect(center + width / 2).toBeLessThanOrEqual(382);
     }
+  });
+  it('좁은 화면의 네 말풍선은 두 줄 안에서 서로 피한다', () => {
+    visuals.project = point => ({ x: 179 + point.x * 20, y: 280 - (point.y + 6.3) * 20 });
+    history.setLayout({ worldLeft: { x: -1.6, y: -6.3, z: 8.5 }, worldRight: { x: 1.6, y: -6.3, z: 8.5 }, width: 358 });
+    add('a1'); add('a2'); add('b1', 'b'); add('b2', 'b');
+    const boxes = [...stage.querySelectorAll('.history-conversation-speech')].map(speech => {
+      const center = Number.parseFloat(speech.style.left), bottom = Number.parseFloat(speech.style.top);
+      const width = Number.parseFloat(speech.style.getPropertyValue('--history-bubble-width'));
+      const box = { left: center - width / 2, right: center + width / 2, top: bottom - 64, bottom };
+      expect(speech.hidden).toBe(false);
+      if (speech.dataset.side === 'a') expect(box.right).toBeLessThanOrEqual(174);
+      else expect(box.left).toBeGreaterThanOrEqual(184);
+      return box;
+    });
+    expect(Math.max(...boxes.map(box => box.bottom)) - Math.min(...boxes.map(box => box.bottom))).toBeLessThanOrEqual(74);
+    boxes.forEach((box, i) => boxes.slice(0, i).forEach(other => {
+      expect(box.left >= other.right || box.right <= other.left || box.bottom <= other.top || box.top >= other.bottom).toBe(true);
+    }));
   });
   it('말풍선 선택은 전문 선택 콜백을 보내고 포커스 동안 발언 교체를 멈춘다', () => {
     add('a1'); add('b1', 'b'); bubble('a').focus(); bubble('a').click();

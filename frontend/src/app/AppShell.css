@@ -41,8 +41,8 @@
 .app-scroll-top {
     position: fixed;
     z-index: var(--z-overlay);
-    right: var(--space-5);
-    bottom: var(--space-5);
+    right: max(var(--space-5), env(safe-area-inset-right, 0px));
+    bottom: calc(var(--space-5) + env(safe-area-inset-bottom, 0px) + var(--touch-target-lg) + var(--space-3));
     display: inline-grid;
     width: var(--touch-target-lg);
     height: var(--touch-target-lg);
@@ -203,15 +203,72 @@
     text-decoration: none;
 }
 
-.app-header__feedback-link {
-    appearance: none;
-    min-width: var(--touch-target);
+.app-feedback-button {
+    position: fixed;
+    z-index: var(--z-header);
+    right: max(var(--space-5), env(safe-area-inset-right, 0px));
+    bottom: calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
+    display: grid;
+    width: var(--touch-target-lg);
+    height: var(--touch-target-lg);
     padding: 0;
-    border: 0;
-    background: none;
+    place-items: center;
+    border: var(--border-thin) solid var(--color-line);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-brand-ink);
+    box-shadow: var(--shadow-float);
     cursor: pointer;
-    font-family: inherit;
+    font: inherit;
+}
+
+.app-feedback-button > svg {
+    width: var(--space-6);
+    height: var(--space-6);
+}
+
+.app-feedback-button:disabled {
+    cursor: wait;
+    opacity: 0.5;
+}
+
+.app-feedback-button__label {
+    position: absolute;
+    right: calc(100% + var(--space-2));
+    padding: var(--space-2) var(--space-4);
+    border: var(--border-thin) solid var(--color-line);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    box-shadow: var(--shadow-card);
+    font-size: var(--text-label);
+    font-weight: var(--font-weight-semibold);
     white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(var(--space-3));
+    transition: opacity var(--duration-deliberate) var(--ease-standard),
+        transform var(--duration-deliberate) var(--ease-standard);
+}
+
+.app-feedback-button:focus-visible .app-feedback-button__label {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+@media (hover: hover) {
+    .app-feedback-button:not(:disabled):hover .app-feedback-button__label {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app-feedback-button__label,
+    .app-feedback-button:is(:hover, :focus-visible) .app-feedback-button__label {
+        transform: none;
+        transition: opacity var(--duration-fast) var(--ease-standard);
+    }
 }
 
 .app-header__link:hover,
@@ -692,10 +749,6 @@
 .app-footer__contact-message {
     margin-top: var(--space-1);
     white-space: nowrap;
-}
-
-.app-footer__feedback-button {
-    margin-top: var(--space-3);
 }
 
 .app-footer__social-links {

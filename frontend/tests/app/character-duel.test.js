@@ -96,6 +96,26 @@ describe('미끄럼틀에서 나온 캐릭터 대치', () => {
     }
   });
 
+  it('의자를 던진 뒤 선 자세를 유지하고 기존 시간이 지나면 다음 대화로 넘어갈 수 있다', () => {
+    land(reply, true);
+    duel.step(5.3);
+    const ending = [frame(0).motion, frame(1).motion];
+    for (const motion of ending) expect(motion).toMatchObject({
+      phase: 'settled', seated: 0, chair: { mode: 'flight' },
+    });
+    expect(duel.canReplace()).toBe(false);
+    duel.step(2.21);
+    expect(duel.canReplace()).toBe(true);
+    expect(duel.needsFrame()).toBe(false);
+    for (const index of [0, 1]) expect(frame(index).motion).toEqual(ending[index]);
+    expect(bubble('left')).toBeVisible();
+    expect(bubble('right')).toBeVisible();
+    duel.clear();
+    expect(field()).toHaveAttribute('data-chair-phase', 'waiting');
+    expect(bubble('left')).not.toBeVisible();
+    expect(bubble('right')).not.toBeVisible();
+  });
+
   it('같은 편의 받아치기는 원래 역할과 색을 유지하며 의자에 앉아 대화한다', () => {
     const participants = land({ ...reply, side: 'a' });
     expect(participants.map(item => item.role)).toEqual([1, 0]);
@@ -224,7 +244,8 @@ describe('미끄럼틀에서 나온 캐릭터 대치', () => {
     expect(duel.canReplace(true)).toBe(true);
     expect(duel.needsFrame()).toBe(false);
     for (const index of [0, 1]) {
-      expect(frame(index).motion).toMatchObject({ seated: 1, x: 0, y: 0, chair: { mode: 'seat' } });
+      expect(frame(index).motion).toMatchObject({ seated: 0, y: 0, chair: { mode: 'flight' } });
+      expect(frame(index).motion.x).toBeCloseTo(0);
     }
   });
 });

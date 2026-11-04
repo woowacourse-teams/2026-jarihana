@@ -14,17 +14,18 @@ import { createDispenser } from './dispenser.js';
 import { TRAY } from './dispenser-physics.js';
 import { PACKED_SCALE } from './history-walk.js';
 import { TANK, RADIUS, FRESH_CAPSULE_SCALE, nozzlePose } from './physics.js';
-import { studioMaterial, createStudioEnvironment } from './studio-materials.js';
+import { FRAME_COLOR, studioMaterial, createStudioEnvironment } from './studio-materials.js';
 import { createTransportScene } from './transport-scene.js';
-import { createPipeSurfaces } from './pipe-surfaces.js';
+import { PIPE_COLORS, createPipeSurfaces } from './pipe-surfaces.js';
 import { ARENA_VIEWS, createArenaCamera, fitArenaCamera, extendArenaViewport } from './arena-framing.js';
 import { createFrameClock } from './frame-clock.js';
 import { createPlanetPlayground } from './planet-playground.js';
+import { createBackgroundPlanets } from './background-planets.js';
 import { watchPlaygroundSky } from './playground-sky.js';
 
 const PIPE_LENGTH = 2.35;
 
-export function createArena(container, onSelect, onReveal, onReply = onSelect) {
+export function createArena(container, onSelect, onReveal, onReply = onSelect, requestHistory) {
   let assetsLoaded = false, layoutReady = false, presented = false, resolveReady;
   const firstFrame = new Promise(resolve => { resolveReady = resolve; });
   const scene = new THREE.Scene();
@@ -81,19 +82,20 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
       resolveReady();
     }
   }
-  scene.add(new THREE.HemisphereLight(0xffffff, 0xe5e7eb, 0.25));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xe5e7eb, 0.35));
   const sun = new THREE.DirectionalLight(0xffffff, 2.3);
   sun.position.set(-4, 10, 7); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
   Object.assign(sun.shadow.camera, { left: -13, right: 13, top: 10, bottom: -13, near: 0.5, far: 35 });
   sun.shadow.normalBias = 0.03; sun.shadow.bias = -0.0001; scene.add(sun);
-  const light = new THREE.DirectionalLight(0xe9faff, 0.35); light.position.set(5, 4, -5); scene.add(light);
+  const light = new THREE.DirectionalLight(0xe9faff, 0.5); light.position.set(5, 4, -5); scene.add(light);
   const playground = createPlanetPlayground(scene);
+  createBackgroundPlanets(scene);
 
   const height = TANK.rim - TANK.bottom;
   const halfWidth = TANK.width / 2, halfDepth = TANK.depth / 2;
-  const glass = studioMaterial({ color: 0x9eb3bf, transparent: true, opacity: 0.025, roughness: 0.2, envMapIntensity: 0.08, side: THREE.DoubleSide, depthWrite: false });
-  const rimMaterial = studioMaterial({ color: 0x34445c, roughness: 0.78, clearcoat: 0.02, envMapIntensity: 0.1 });
-  const edgeMaterial = studioMaterial({ color: 0x34445c, roughness: 0.78, clearcoat: 0.02, envMapIntensity: 0.1 });
+  const glass = studioMaterial({ color: 0xffffff, transparent: true, opacity: 0.015, roughness: 0.08, envMapIntensity: 0.15, side: THREE.DoubleSide, depthWrite: false });
+  const rimMaterial = studioMaterial({ color: FRAME_COLOR, roughness: 0.45 });
+  const edgeMaterial = studioMaterial({ color: FRAME_COLOR, roughness: 0.45 });
   function box(size, position, material) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
     mesh.position.set(...position); scene.add(mesh);
@@ -110,7 +112,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
       box([0.04, height, 0.04], [sign * halfWidth, (TANK.rim + TANK.bottom) / 2, z], edgeMaterial);
     }
   }
-  const shine = new THREE.MeshBasicMaterial({ color: 0xadc6d0, transparent: true, opacity: 0.12, depthWrite: false });
+  const shine = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false });
   for (const x of [-halfWidth + 0.12, halfWidth - 0.12]) {
     const strip = new THREE.Mesh(new THREE.PlaneGeometry(0.045, height - 0.3), shine);
     strip.position.set(x, (TANK.rim + TANK.bottom) / 2, halfDepth + 0.03); scene.add(strip);
@@ -130,7 +132,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     const surfaces = createPipeSurfaces(color), material = surfaces.solid;
     const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, length, 36, 1, true), material);
     tube.rotation.x = Math.PI / 2; tube.castShadow = true; barrel.add(tube);
-    const dark = studioMaterial({ color: side === 'a' ? 0x235f53 : 0x905143, roughness: 0.65, side: THREE.DoubleSide });
+    const dark = studioMaterial({ color: side === 'a' ? 0x235f53 : 0x905143, roughness: 0.65, envMapIntensity: 0.22, side: THREE.DoubleSide });
     const inside = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, length, 36, 1, true), dark);
     inside.rotation.x = Math.PI / 2; barrel.add(inside);
     for (const z of [-length / 2, length / 2]) {
@@ -139,8 +141,8 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     scene.add(group);
     return { group, material, until: 0, muzzle: createMuzzleBurst(group, barrel, length, side === 'a' ? 0x8ef5e8 : 0xffc49f) };
   }
-  const pipes = { a: pipe('a', 0x2ac1bc), b: pipe('b', 0xed6a5a) };
-  const capsules = createCapsules(scene, onSelect, post => container.dispatchEvent(new CustomEvent('capsuleready', { detail: { id: post.id } })));
+  const pipes = { a: pipe('a', PIPE_COLORS.a), b: pipe('b', PIPE_COLORS.b) };
+  const capsules = createCapsules(scene, onSelect, post => container.dispatchEvent(new CustomEvent('capsuleready', { detail: { id: post.id } })), requestHistory);
   const ready = whenCharacterAssetsReady().then(() => {
     assetsLoaded = true;
     wake();
@@ -166,7 +168,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   let groupId = 0, outputQueue = [], outputClock = 0, seeded = false;
   const replyQueue = [];
-  const launchedIds = new Set(), transports = new Set();
+  const launchedIds = new Set(), transports = new Set(), pendingReplies = new Set();
   const dispenser = createDispenser(scene, () => {}, {
     onOpened(entry) {
       if (entry.groupId !== groupId) return;
@@ -185,7 +187,6 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     const participants = duel.prepare(selection.post, selection.fresh, reduced.matches);
     if (!participants.length) return;
     history.leaveAll(reduced.matches);
-    if (selection.fresh) capsules.queueReplay(selection.post);
     duelField.hidden = false;
     dispenser.clearAll();
     groupId++;
@@ -199,6 +200,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
       startTransport(selection.transport, () => startSelection({ ...selection, transport: null }), selection.settle);
       return;
     }
+    pendingReplies.delete(selection.post.id);
     if (!selection.post.replyTo || !selection.fresh && !selection.replayClash) {
       duel.clear();
       duelField.hidden = true;
@@ -235,12 +237,6 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     try { delivery.cancel = transport(complete); }
     catch { complete(); }
   }
-  function releaseFreshReply() {
-    if (clash.busy()) return;
-    const ownIndex = replyQueue.findIndex(selection => selection.fresh && selection.post.mine);
-    const index = ownIndex < 0 ? replyQueue.findIndex(selection => selection.fresh) : ownIndex;
-    if (index >= 0) startSelection(replyQueue.splice(index, 1)[0]);
-  }
   let releaseClock = 0, pipeClock = 0, allowPausedRelease = false, spillQueue = 0;
   let disposed = false, controlKey = '', frame = 0, awakeUntil = 0, isVisible = true, paused = false, statsAt = 0;
   const frameClock = createFrameClock();
@@ -273,17 +269,20 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
         if (side) pipes[side].until = Math.max(pipes[side].until, now + 220);
       }
     }
-    releaseFreshReply();
     releaseClock += delta;
     const waiting = capsules.controlState();
-    const priority = waiting.queuedId !== null || replyQueue.length > 0;
+    const trackedReplyId = clashCamera.activePostId();
+    const followingPendingReply = pendingReplies.has(trackedReplyId);
+    const priority = waiting.queuedId !== null || replyQueue.length > 0 || waiting.freshReady;
     const userSpill = spillQueue > 0;
     const due = !!replyQueue[0]?.transport || reduced.matches || releaseClock >= (priority ? 0.55 : userSpill ? 0.1 : 1.8);
     const canMove = (!paused || allowPausedRelease) && !duel.pinned() && !history.pinned();
     const replaceReady = duel.canReplace(false) && history.canAccept() && !outputQueue.length &&
-      dispenser.readyForNext(true, reduced.matches);
-    if (canMove && !clash.busy() && !transports.size && replaceReady && due && (priority || userSpill || (!paused && !reduced.matches))) {
-      const selection = replyQueue.length ? replyQueue.shift() : waiting.queuedId !== null ? (waiting.drawReady ? capsules.takeForDraw() : null) : capsules.takeHistorical();
+      dispenser.readyForNext(true, reduced.matches) && (!waiting.freshReady || followingPendingReply || history.canReplace());
+    if (canMove && !clash.busy() && replaceReady && due && (priority || userSpill || (!paused && !reduced.matches))) {
+      // The tracked reply hides history speech, so its reading timer cannot unblock it.
+      const selection = followingPendingReply ? capsules.takeHistorical(true, trackedReplyId)
+        : replyQueue.length ? replyQueue.shift() : waiting.queuedId !== null ? (waiting.drawReady ? capsules.takeForDraw() : null) : capsules.takeHistorical(!userSpill && (paused || reduced.matches));
       if (selection) {
         if (userSpill && !priority) spillQueue--;
         startSelection(selection);
@@ -302,7 +301,9 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     if (!reduced.matches && !duelField.hidden && duel.canReplace(false) && !clash.busy()) {
       duel.clear(); duelField.hidden = true; history.setVisible(true);
     }
-    presentationCamera = clashCamera.update(camera, clash.presentation() ?? transportScene.presentation() ?? dispenser.presentation(), delta, reduced.matches || !canMove);
+    presentationCamera = clashCamera.update(camera,
+      [clash.presentation(), transportScene.presentation(), dispenser.presentation()],
+      delta, reduced.matches || !canMove, pendingReplies);
     const cameraIntensity = clashCamera.intensity();
     stage.dataset.cinematic = String(cameraIntensity > 0);
     if (composer && composer.hasAttribute('inert') !== (cameraIntensity > 0)) composer.toggleAttribute('inert', cameraIntensity > 0);
@@ -312,7 +313,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     clash.projectEffects(presentationCamera);
     reveals.update([], capsules.presentation().tracking, presentationCamera);
     const outputActive = outputQueue.length > 0 || dispenser.outputs().length > 0;
-    if (paused && !replyQueue.length && !transports.size && !spillQueue && !outputActive && !duel.needsFrame() && !history.stats().historyArriving && !clash.busy()) {
+    if (paused && !replyQueue.length && !waiting.freshReady && !transports.size && !spillQueue && !outputActive && !duel.needsFrame() && !history.stats().historyArriving && !clash.busy()) {
       allowPausedRelease = false;
       syncMotionPause();
     }
@@ -329,13 +330,13 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
       container.dataset.renderStats = JSON.stringify({ ...capsules.stats(), ...dispenser.stats(), ...duel.stats(), ...history.stats(), ...clash.stats(), cameraShot: cameraIntensity > 0, outputQueued: outputQueue.length, replyQueued: replyQueue.length, spillQueue, draws: renderer.info.render.calls, geometries: renderer.info.memory.geometries });
       container.dataset.flowState = reduced.matches ? 'reduced' : paused ? 'paused' : 'running';
     }
-    const pendingRelease = (waiting.queuedId !== null || replyQueue.length || spillQueue) && !clash.busy() && duel.canReplace(false);
+    const pendingRelease = (waiting.queuedId !== null || replyQueue.length || waiting.freshReady || spillQueue) && !clash.busy() && duel.canReplace(false);
     frame = 0;
     if (!disposed && isVisible && !document.hidden && ((!paused && !reduced.matches) || ((allowPausedRelease || (!paused && reduced.matches)) && (pendingRelease || outputActive || duel.needsFrame() || history.needsFrame() || clash.needsFrame())) || now < awakeUntil)) frame = requestAnimationFrame(tick);
   }
   function syncControls() {
     const stats = capsules.controlState(), busy = duel.busy() || clash.busy();
-    const detail = { phase: dispenser.stats().outputRolling ? 'rolling' : busy ? 'open' : 'idle', ready: stats.drawReady && !busy, pending: replyQueue.length > 0 };
+    const detail = { phase: dispenser.stats().outputRolling ? 'rolling' : busy ? 'open' : 'idle', ready: stats.drawReady && !busy, pending: replyQueue.length > 0 || stats.freshReady };
     const key = JSON.stringify(detail);
     if (key !== controlKey) { controlKey = key; container.dispatchEvent(new CustomEvent('slidestate', { detail })); }
   }
@@ -413,6 +414,8 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     // Stored posts remain available to history; missed live effects need not play on return.
     for (const selection of replyQueue) selection.settle?.();
     replyQueue.length = 0;
+    pendingReplies.clear();
+    capsules.settleReplays();
     clashCamera.reset(); syncMotionPause(); container.dataset.flowState = 'hidden';
   }
   const visibilityObserver = new IntersectionObserver(entries => { isVisible = entries[0].isIntersecting; if (isVisible) wake(); else suspend(); });
@@ -511,10 +514,11 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
       let settle;
       const delivered = transport ? new Promise(resolve => { settle = resolve; }) : undefined;
       allowPausedRelease = paused;
+      capsules.queueReplay(post, Infinity);
       if (post.replyTo) {
+        pendingReplies.add(post.id);
         const arrive = () => {
-          replyQueue.push({ post, fresh: true });
-          releaseFreshReply();
+          capsules.queueReplay(post, 0, isVisible && !document.hidden);
         };
         if (transport) startTransport(transport, arrive, settle);
         else arrive();
@@ -532,8 +536,8 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
       return delivered;
     },
     celebrate(id) { if (!reduced.matches) capsules.nudge(id); wake(); },
-    updateState(posts, balance) {
-      capsules.updateState(posts, balance); duel.updateState(posts);
+    updateState(posts, balance, historyPage) {
+      capsules.updateState(posts, balance, historyPage); duel.updateState(posts);
       if (!seeded) {
         seeded = true;
         if (posts.length) startSelection(capsules.takeHistorical());

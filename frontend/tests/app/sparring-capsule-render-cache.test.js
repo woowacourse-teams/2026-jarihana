@@ -118,14 +118,14 @@ it('빈 통은 한 번만 숨기고 투표가 생기면 전체 인스턴스를 �
 
 it('선택·꺼내기 제어 상태는 물리 진단 집계 없이 읽는다', () => {
   const capsules = createCapsules({}, jest.fn(), jest.fn());
-  expect(capsules.controlState()).toEqual({ drawReady: false, queuedId: null });
+  expect(capsules.controlState()).toEqual({ drawReady: false, queuedId: null, freshReady: false });
   capsules.updateState(posts, votes);
-  expect(capsules.controlState()).toEqual({ drawReady: true, queuedId: null });
+  expect(capsules.controlState()).toEqual({ drawReady: true, queuedId: null, freshReady: false });
   expect(capsules.pick({}, {}, {})).toBe(true);
   const chosen = mockPhysics.entries[0].post;
-  expect(capsules.controlState()).toEqual({ drawReady: true, queuedId: chosen.id });
+  expect(capsules.controlState()).toEqual({ drawReady: true, queuedId: chosen.id, freshReady: false });
   expect(capsules.takeForDraw()).toEqual({ post: chosen, fresh: false });
-  expect(capsules.controlState()).toEqual({ drawReady: true, queuedId: null });
+  expect(capsules.controlState()).toEqual({ drawReady: true, queuedId: null, freshReady: false });
   expect(mockPhysics.stats).not.toHaveBeenCalled();
 });
 

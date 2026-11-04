@@ -7,6 +7,7 @@ import io.micrometer.core.instrument.config.MeterFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
 import org.springframework.http.server.observation.DefaultServerRequestObservationConvention;
 import org.springframework.http.server.observation.ServerRequestObservationContext;
 import org.springframework.http.server.observation.ServerRequestObservationConvention;
@@ -27,7 +28,12 @@ public class HttpRequestMetricsConfig {
                         && "GET".equals(request.getMethod())
                         && (request.getContextPath() + GROUPS_PATH).equals(request.getRequestURI())
                         && "1".equals(request.getParameter("size"));
-                return super.getLowCardinalityKeyValues(context).and(PROBE_TAG, Boolean.toString(probe));
+                String contentType = context.getResponse() == null ? null : context.getResponse().getContentType();
+                boolean sse = contentType != null
+                        && MediaType.TEXT_EVENT_STREAM_VALUE.equalsIgnoreCase(contentType.split(";", 2)[0].trim());
+                return super.getLowCardinalityKeyValues(context)
+                        .and(PROBE_TAG, Boolean.toString(probe))
+                        .and("response.type", sse ? "sse" : "http");
             }
         };
     }
@@ -36,7 +42,7 @@ public class HttpRequestMetricsConfig {
     public MeterBinder idleHttpRequestMetrics() {
         return registry -> Timer.builder("http.server.requests")
                 .tags("method", "GET", "uri", GROUPS_PATH, "status", "200", "outcome", "SUCCESS",
-                        "exception", "none", "error", "none", PROBE_TAG, "false")
+                        "exception", "none", "error", "none", PROBE_TAG, "false", "response.type", "http")
                 .register(registry);
     }
 
