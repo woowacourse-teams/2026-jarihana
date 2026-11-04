@@ -155,15 +155,29 @@ export function StickBoard({
             y2="122"
           />
         )}
-        <g className="stick-board__knife" transform={`translate(${cutX} 0)`}>
-          <line x1="0" x2="0" y1="0" y2="128" />
-          <rect height="32" rx="16" width="64" x="-32" y="132" />
-          <line className="stick-board__grip" x1="-8" x2="-8" y1="141" y2="155" />
-          <line className="stick-board__grip" x1="0" x2="0" y1="141" y2="155" />
-          <line className="stick-board__grip" x1="8" x2="8" y1="141" y2="155" />
-        </g>
+        <Knife x={cutX} />
       </svg>
     </div>
+  );
+}
+
+// 막대를 자르는 칼이다. 손잡이를 아래에 두고 얇은 칼날을 세워, 칼날 가운데(x)가 자르는 자리에 오게 그린다.
+export function Knife({ x }) {
+  const steelId = `${useId().replace(/:/g, "")}-steel`;
+  return (
+    <g className="stick-board__knife" transform={`translate(${x} 0)`}>
+      <defs>
+        <linearGradient id={steelId} x1="0" x2="1" y1="0" y2="0">
+          <stop className="stick-knife__steel-light" offset="0" />
+          <stop className="stick-knife__steel-dark" offset="1" />
+        </linearGradient>
+      </defs>
+      <path className="stick-knife__blade" d="M-2.5 124 V13 L0 2 L2.5 13 V124 Z" fill={`url(#${steelId})`} />
+      <rect className="stick-knife__bolster" height="7" rx="2" width="16" x="-8" y="122" />
+      <rect className="stick-knife__handle" height="38" rx="8" width="22" x="-11" y="128" />
+      <circle className="stick-knife__rivet" cx="0" cy="139" r="2.4" />
+      <circle className="stick-knife__rivet" cx="0" cy="155" r="2.4" />
+    </g>
   );
 }
 

@@ -55,6 +55,13 @@
   --color-game-choco-highlight: #a8714f;
   --color-game-almond: #e0ae78;
   --color-game-almond-edge: #7d4e24;
+  /* 막대를 자르는 칼. 칼날은 밝은 강철, 손잡이는 짙은 나무색이다. */
+  --color-game-knife-steel: #eef1f4;
+  --color-game-knife-steel-shade: #b4bcc4;
+  --color-game-knife-edge: #5b6470;
+  --color-game-knife-bolster: #8a939c;
+  --color-game-knife-handle: #3a271c;
+  --color-game-knife-rivet: #d4d9de;
   --color-overlay: rgb(0 0 0 / 58%);
   --color-shadow: rgb(29 29 31 / 10%);
   --color-text-brand: var(--color-brand-ink);

@@ -340,19 +340,30 @@
   stroke-width: 4;
 }
 
-.stick-board__knife line {
-  stroke: var(--color-ink);
-  stroke-width: 4;
+.stick-knife__steel-light {
+  stop-color: var(--color-game-knife-steel);
 }
 
-.stick-board__knife rect {
-  fill: var(--color-ink);
+.stick-knife__steel-dark {
+  stop-color: var(--color-game-knife-steel-shade);
 }
 
-.stick-board__knife .stick-board__grip {
-  stroke: var(--color-surface);
-  stroke-linecap: round;
-  stroke-width: 3;
+.stick-knife__blade {
+  stroke: var(--color-game-knife-edge);
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.stick-knife__bolster {
+  fill: var(--color-game-knife-bolster);
+}
+
+.stick-knife__handle {
+  fill: var(--color-game-knife-handle);
+}
+
+.stick-knife__rivet {
+  fill: var(--color-game-knife-rivet);
 }
 
 .stick-board__answer {
