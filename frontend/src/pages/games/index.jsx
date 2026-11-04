@@ -16,6 +16,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { storeReturnTarget, useAuth } from "../../features/auth";
 import { gomokuApi, turnMemberId } from "../../features/gomoku/api";
+import { STICK_HALVING_ROOM_PATH, usePeperoDayStatus } from "../../features/pepero-day";
 import { syncGomokuMembership } from "../../features/gomoku/membership";
 import { useGomokuRoom } from "../../features/gomoku/useGomokuRoom";
 import { Board } from "../../features/gomoku/Board";
@@ -54,6 +55,28 @@ function useMemberAction() {
     else if (status === "anonymous") login();
   };
 }
+// 빼빼로데이 이벤트가 끝나고 게임방으로 옮기는 시각이 지나면 서버가 알려 준 대로 반띵 카드를 보여 준다.
+function StickHalvingCard() {
+  const status = usePeperoDayStatus();
+  if (!status.data?.gameRoomOpen) return null;
+  return (
+    <article className="games-card games-card--playable">
+      <GameArtwork game="stick-halving" className="games-card__visual games-card__visual--stick" />
+      <div className="games-card__body">
+        <h2>공평하게 반띵</h2>
+        <p>막대과자를 정확히 같은 무게로 자르는 퍼즐</p>
+        <Link
+          className="ui-button ui-button--primary ui-button--md ui-button--block games-card__cta"
+          data-ph-capture-attribute-action="stick_halving_room_open"
+          to={STICK_HALVING_ROOM_PATH}
+        >
+          <Gamepad2 size={20} aria-hidden="true" /> 게임 시작
+        </Link>
+      </div>
+    </article>
+  );
+}
+
 export function GamesPage() {
   return (
     <PageContainer>
@@ -74,6 +97,7 @@ export function GamesPage() {
               </Link>
             </div>
           </article>
+          <StickHalvingCard />
           <article className="games-card games-card--soon" aria-label="리듬게임, 준비 중">
             <GameArtwork game="rhythm" className="games-card__visual" />
             <div className="games-card__body">

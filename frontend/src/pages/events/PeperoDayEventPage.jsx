@@ -5,6 +5,7 @@ import { Link } from "react-router";
 import { storeReturnTarget, useAuth } from "../../features/auth";
 import {
   PEPERO_DAY_PATH,
+  STICK_HALVING_ROOM_PATH,
   createRankedAdapter,
   parseServiceTime,
   peperoDayKeys,
@@ -37,7 +38,7 @@ const RANKED_ERRORS = {
   UNAUTHENTICATED: "로그인이 풀렸어요. 다시 로그인한 뒤 도전해 주세요."
 };
 
-function formatServiceDateTime(value) {
+export function formatServiceDateTime(value) {
   const [date, time] = value.split("T");
   const [, month, day] = date.split("-").map(Number);
   return `${month}월 ${day}일 ${time.slice(0, 5)}`;
@@ -60,6 +61,13 @@ function resultText(summary) {
   return [`공평하게 반띵 ${summary.totalScore.toLocaleString("ko-KR")}점 (5,000점 만점)`]
     .concat(summary.rows.map((row) => `${row.name}: 오차 ${formatPercent(row.errorRate)}, ${row.score.toLocaleString("ko-KR")}점`))
     .join("\n");
+}
+
+// 끝난 이벤트 안내다. 하던 판이 있으면 마저 하게 하고, 아니면 게임방으로 옮겨 가는 때를 알려 준다.
+function closedMessage(event, game) {
+  if (game) return "하던 판은 끝까지 할 수 있어요. 순위 도전 판은 끝내면 순위에 들어가요.";
+  if (event.gameRoomOpen) return "참여해 주셔서 고마워요. 이제 게임방에서 연습으로 계속 할 수 있어요.";
+  return `참여해 주셔서 고마워요. ${formatServiceDateTime(event.gameRoomOpensAt)}부터 게임방에서 다시 할 수 있어요.`;
 }
 
 function Countdown({ event }) {
@@ -114,7 +122,11 @@ function RankingList({ items, limit, me }) {
   );
 }
 
-function Ranking() {
+export function Ranking({
+  description = "회원마다 가장 좋은 판 하나로 매겨요. 점수가 같으면 더 빨리 자른 기록이 위예요.",
+  emptyDescription = "순위 도전을 끝내면 여기에 이름이 올라가요.",
+  title = "순위"
+}) {
   const rankings = usePeperoDayRankings();
 
   if (rankings.isPending) return <Skeleton aria-label="순위를 불러오는 중" className="pepero-day__ranking-loading" />;
@@ -129,7 +141,7 @@ function Ranking() {
   const { items, me } = rankings.data;
   return (
     <section aria-label="순위" className="pepero-day__card pepero-day__ranking">
-      <SectionHeader description="회원마다 가장 좋은 판 하나로 매겨요. 점수가 같으면 더 빨리 자른 기록이 위예요." title="순위" />
+      <SectionHeader description={description} title={title} />
       {me ? (
         <p className="pepero-day__me">
           내 순위 <strong>{me.rank}위</strong>, {me.totalScore.toLocaleString("ko-KR")}점
@@ -138,7 +150,7 @@ function Ranking() {
       {items.length ? (
         <RankingList items={items} me={me} />
       ) : (
-        <EmptyState description="순위 도전을 끝내면 여기에 이름이 올라가요." title="아직 순위에 오른 기록이 없어요" />
+        <EmptyState description={emptyDescription} title="아직 순위에 오른 기록이 없어요" />
       )}
     </section>
   );
@@ -151,7 +163,7 @@ function practiceRank(items, totalScore) {
 
 // 5판을 끝내면 띄우는 순위 창이다. 순위 도전은 방금 끝낸 판이 들어간 순위를 다시 받아 보여 주고,
 // 연습은 순위에 들어가지 않으므로 이 점수였다면 몇 위인지 알려 준다.
-function RankingDialog({ onChallenge, onClose, result }) {
+export function RankingDialog({ onChallenge, onClose, result }) {
   const rankings = usePeperoDayRankings();
   const ranked = result.mode === "ranked";
   const refreshing = ranked && rankings.isFetching;
@@ -390,11 +402,16 @@ export function PeperoDayEventPage() {
       {closed ? (
         <section className="pepero-day__card pepero-day__closed">
           <h2>이벤트가 끝났어요</h2>
-          <p>
-            {game
-              ? "하던 판은 끝까지 할 수 있어요. 순위 도전 판은 끝내면 순위에 들어가요."
-              : "참여해 주셔서 고마워요. 이 게임은 곧 게임방에서 다시 할 수 있어요."}
-          </p>
+          <p>{closedMessage(event, game)}</p>
+          {event.gameRoomOpen && !game ? (
+            <Link
+              className="ui-button ui-button--primary ui-button--md"
+              data-ph-capture-attribute-action="stick_halving_room_open"
+              to={STICK_HALVING_ROOM_PATH}
+            >
+              게임방에서 하기
+            </Link>
+          ) : null}
         </section>
       ) : null}
       {event.status === "OPEN" || (closed && game) ? (

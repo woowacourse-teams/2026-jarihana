@@ -34,6 +34,7 @@ jarihana:
     pepero-day:
       opens-at: 2026-08-19T00:00:00
       closes-at: 2026-08-20T10:00:00
+      game-room-opens-at: 2026-08-20T13:00:00
       always-open: false
       daily-attempt-limit: 3
   image:

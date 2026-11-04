@@ -24,6 +24,8 @@ const login = jest.fn();
 const status = (overrides) => ({
   closesAt: "2026-11-12T10:00:00",
   dailyAttemptLimit: 3,
+  gameRoomOpen: false,
+  gameRoomOpensAt: "2026-11-12T13:00:00",
   opensAt: "2026-11-11T00:00:00",
   remainingAttempts: null,
   serverTime: "2026-11-11T12:00:00",
@@ -133,6 +135,22 @@ it("lets a game in progress finish when the event closes mid-play", async () => 
   expect(await screen.findByText("하던 판은 끝까지 할 수 있어요. 순위 도전 판은 끝내면 순위에 들어가요.")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "자르기" }));
   expect(await screen.findByRole("button", { name: "다음 막대" })).toBeInTheDocument();
+});
+
+it("tells when the game moves to the game room, then links there once it has", async () => {
+  getPeperoDayStatus.mockResolvedValue(status({ serverTime: "2026-11-12T11:00:00", status: "CLOSED" }));
+  const { unmount } = mount();
+
+  expect(await screen.findByText("참여해 주셔서 고마워요. 11월 12일 13:00부터 게임방에서 다시 할 수 있어요.")).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "게임방에서 하기" })).not.toBeInTheDocument();
+  unmount();
+
+  getPeperoDayStatus.mockResolvedValue(status({ gameRoomOpen: true, serverTime: "2026-11-12T13:00:00", status: "CLOSED" }));
+  mount();
+
+  const link = await screen.findByRole("link", { name: "게임방에서 하기" });
+  expect(link).toHaveAttribute("href", "/games/stick-halving");
+  expect(link).toHaveAttribute("data-ph-capture-attribute-action", "stick_halving_room_open");
 });
 
 it("keeps the final ranking after the event closes", async () => {

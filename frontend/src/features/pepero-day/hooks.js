@@ -19,8 +19,8 @@ function useViewerKey() {
   return status === "loading" ? "loading" : "anonymous";
 }
 
-// 이벤트 진행 상태다. 여는 시각이나 닫는 시각이 하루 안에 오면 그 순간에 맞춰 다시 받아
-// 헤더 진입점과 게임 화면이 새로고침 없이 열리고 닫히게 한다. 정각에 요청이 몰리지 않도록
+// 이벤트 진행 상태다. 여는 시각, 닫는 시각, 게임방으로 옮기는 시각이 하루 안에 오면 그 순간에 맞춰
+// 다시 받아 헤더 진입점, 게임 화면, 게임방 카드가 새로고침 없이 바뀌게 한다. 정각에 요청이 몰리지 않도록
 // 0~3초 사이에서 흩어 보낸다.
 export function usePeperoDayStatus({ enabled = true } = {}) {
   const queryClient = useQueryClient();
@@ -36,7 +36,10 @@ export function usePeperoDayStatus({ enabled = true } = {}) {
   const data = query.data;
   useEffect(() => {
     if (!data) return undefined;
-    const boundary = data.status === "UPCOMING" ? data.opensAt : data.status === "OPEN" ? data.closesAt : null;
+    let boundary = null;
+    if (data.status === "UPCOMING") boundary = data.opensAt;
+    else if (data.status === "OPEN") boundary = data.closesAt;
+    else if (!data.gameRoomOpen) boundary = data.gameRoomOpensAt;
     if (!boundary) return undefined;
     const offset = parseServiceTime(data.serverTime) - Date.now();
     const wait = parseServiceTime(boundary) - (Date.now() + offset);

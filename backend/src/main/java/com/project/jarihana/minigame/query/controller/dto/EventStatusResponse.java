@@ -7,6 +7,8 @@ public record EventStatusResponse(
         String status,
         LocalDateTime opensAt,
         LocalDateTime closesAt,
+        LocalDateTime gameRoomOpensAt,
+        boolean gameRoomOpen,
         LocalDateTime serverTime,
         int dailyAttemptLimit,
         Integer remainingAttempts
@@ -17,6 +19,8 @@ public record EventStatusResponse(
                 result.status().name(),
                 result.opensAt(),
                 result.closesAt(),
+                result.gameRoomOpensAt(),
+                result.gameRoomOpen(),
                 result.serverTime(),
                 result.dailyAttemptLimit(),
                 result.remainingAttempts()

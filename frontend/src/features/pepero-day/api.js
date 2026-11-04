@@ -18,6 +18,8 @@ export const stickSchema = z.object({
 export const eventStatusSchema = z.object({
   closesAt: serviceDateTime,
   dailyAttemptLimit: z.number().int().positive(),
+  gameRoomOpen: z.boolean(),
+  gameRoomOpensAt: serviceDateTime,
   opensAt: serviceDateTime,
   remainingAttempts: count.nullable(),
   serverTime: serviceDateTime,

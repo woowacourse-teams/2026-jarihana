@@ -1353,3 +1353,20 @@
   border-bottom: var(--border-thin) solid currentColor;
   pointer-events: none;
 }
+
+/* 공평하게 반띵: 카드 그림과 게임방 안 화면 */
+.games-card__visual--stick .stick-artwork {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.stick-room {
+  display: grid;
+  gap: var(--space-5);
+}
+.stick-room .games-heading {
+  margin-block-end: 0;
+}
+.stick-room__loading {
+  block-size: 24rem;
+}

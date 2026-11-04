@@ -4,7 +4,7 @@
 
 | 메서드 | 경로 | 권한 | 결과 |
 | --- | --- | --- | --- |
-| GET | `/events/pepero-day` | PUBLIC (로그인하면 남은 횟수 포함) | 진행 상태, 기간, 서버 시각, 하루 도전 횟수 |
+| GET | `/events/pepero-day` | PUBLIC (로그인하면 남은 횟수 포함) | 진행 상태, 기간, 게임방으로 옮기는 시각, 서버 시각, 하루 도전 횟수 |
 | POST | `/events/pepero-day/runs` | MEMBER + CSRF | 201 판 ID와 1번 막대 |
 | POST | `/events/pepero-day/runs/{runId}/cuts` | MEMBER + CSRF + 본인 판 | 200 판정 결과와 다음 막대 |
 | GET | `/events/pepero-day/rankings` | PUBLIC (로그인하면 내 순위 포함) | 상위 50명과 내 순위 |
@@ -13,7 +13,8 @@
 
 - `status`는 `UPCOMING`, `OPEN`, `CLOSED` 중 하나다. 서버 `Clock`(Asia/Seoul) 기준으로 `opensAt <= now < closesAt`이면 `OPEN`이다.
 - 운영 기간은 `jarihana.minigame.pepero-day.opens-at`, `closes-at`으로 정하며 기본값은 2026-11-11T00:00:00부터 2026-11-12T10:00:00까지다.
-- local과 dev 프로필은 `always-open: true`라 기간과 관계없이 `OPEN`이다.
+- 이벤트가 끝난 뒤 `game-room-opens-at`(기본 2026-11-12T13:00:00)부터 `gameRoomOpen`이 `true`가 되고, 게임방(`/games`)에 반띵 카드가 나타나 연습으로 계속 할 수 있다. 이 시각은 `closes-at`보다 이를 수 없다. 이벤트 상태는 그 뒤에도 `CLOSED`이고, 순위 조회는 이벤트 최종 순위로 남는다.
+- local과 dev 프로필은 `always-open: true`라 기간과 관계없이 `OPEN`이고, `gameRoomOpen`도 `true`다.
 - `serverTime`은 초 단위로 자른 서버 시각이다. 화면은 기기 시계 대신 이 값과의 차이로 남은 시간을 센다.
 - `remainingAttempts`는 로그인 회원의 오늘(서비스 시간대 날짜) 남은 순위 도전 횟수이고, 비로그인이면 `null`이다.
 
@@ -22,6 +23,8 @@
   "status": "OPEN",
   "opensAt": "2026-11-11T00:00:00",
   "closesAt": "2026-11-12T10:00:00",
+  "gameRoomOpensAt": "2026-11-12T13:00:00",
+  "gameRoomOpen": false,
   "serverTime": "2026-11-11T12:30:00",
   "dailyAttemptLimit": 3,
   "remainingAttempts": 2

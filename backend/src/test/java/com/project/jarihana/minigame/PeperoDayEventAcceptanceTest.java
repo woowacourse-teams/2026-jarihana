@@ -53,6 +53,8 @@ class PeperoDayEventAcceptanceTest extends IntegrationTestSupport {
                 .body("data.status", equalTo("OPEN"))
                 .body("data.opensAt", equalTo("2026-08-19T00:00:00"))
                 .body("data.closesAt", equalTo("2026-08-20T10:00:00"))
+                .body("data.gameRoomOpensAt", equalTo("2026-08-20T13:00:00"))
+                .body("data.gameRoomOpen", equalTo(false))
                 .body("data.serverTime", equalTo("2026-08-19T10:00:00"))
                 .body("data.dailyAttemptLimit", equalTo(3))
                 .body("data.remainingAttempts", nullValue());

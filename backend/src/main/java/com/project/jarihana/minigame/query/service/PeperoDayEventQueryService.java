@@ -37,6 +37,8 @@ public class PeperoDayEventQueryService {
                 schedule.statusAt(now),
                 schedule.opensAt(),
                 schedule.closesAt(),
+                schedule.gameRoomOpensAt(),
+                schedule.inGameRoomAt(now),
                 now,
                 limit,
                 remaining

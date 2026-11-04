@@ -367,6 +367,8 @@ export async function installApiFixture(pageInstance, options = {}) {
       return json(route, success({
         closesAt: "2026-11-12T10:00:00",
         dailyAttemptLimit: 3,
+        gameRoomOpen: false,
+        gameRoomOpensAt: "2026-11-12T13:00:00",
         opensAt: "2026-11-11T00:00:00",
         remainingAttempts: null,
         serverTime: "2026-11-12T11:00:00",

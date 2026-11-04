@@ -52,6 +52,8 @@ jarihana:
     pepero-day:
       opens-at: 2026-11-11T00:00:00
       closes-at: 2026-11-12T10:00:00
+      # 이벤트가 끝나고 결과를 정리한 뒤 게임방에서 연습으로 할 수 있게 한다.
+      game-room-opens-at: 2026-11-12T13:00:00
       always-open: false
       daily-attempt-limit: 3
   invitation:
