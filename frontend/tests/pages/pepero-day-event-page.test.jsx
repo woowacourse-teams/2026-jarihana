@@ -103,6 +103,30 @@ it("opens the ranking dialog after five practice sticks and points to the ranked
   expect(screen.getByRole("button", { name: "GitHub로 로그인하고 도전하기" })).toBeInTheDocument();
 });
 
+it("moves the knife with the arrow keys even when the stick is not focused, one step per press", async () => {
+  getPeperoDayStatus.mockResolvedValue(status());
+  const { container } = mount();
+
+  fireEvent.click(await screen.findByRole("button", { name: "연습 시작" }));
+  const slider = await screen.findByRole("slider", { name: "칼 위치, 막대 왼쪽 끝부터 cm" });
+  const knifeX = () => Number(container.querySelector(".stick-board__knife").getAttribute("transform").match(/[\d.]+/)[0]);
+  const stepUnits = 952 / 12 / 48;
+
+  const start = knifeX();
+  fireEvent.keyDown(document.body, { key: "ArrowRight" });
+  expect(knifeX() - start).toBeCloseTo(stepUnits, 6);
+  fireEvent.keyDown(document.body, { key: "ArrowLeft", shiftKey: true });
+  expect(knifeX() - start).toBeCloseTo(-11 * stepUnits, 6);
+
+  slider.focus();
+  const focused = knifeX();
+  fireEvent.keyDown(slider, { key: "ArrowRight" });
+  expect(knifeX() - focused).toBeCloseTo(stepUnits, 6);
+
+  fireEvent.keyDown(document.body, { ctrlKey: true, key: "ArrowRight" });
+  expect(knifeX() - focused).toBeCloseTo(stepUnits, 6);
+});
+
 it("shows remaining attempts and blocks ranked runs when none are left", async () => {
   useAuth.mockReturnValue({ login, member: { id: 7 }, status: "authenticated" });
   getPeperoDayStatus.mockResolvedValue(status({ remainingAttempts: 0 }));

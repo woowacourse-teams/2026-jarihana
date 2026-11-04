@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, ErrorState, Skeleton } from "../../shared/ui";
 import { CutResult, formatPercent } from "./CutResult";
 import { ROUNDS, ROUND_COUNT, ROUND_TIME_LIMIT_SECONDS, STICK_LENGTH_CM, errorRateAt, scoreOf } from "./puzzle";
-import { KnifeLoupe, NUDGE_CM, StickBoard, clampPosition } from "./StickBoard";
+import { COARSE_NUDGE_STEPS, KnifeLoupe, NUDGE_CM, StickBoard, clampPosition } from "./StickBoard";
 import { WeightTable } from "./WeightTable";
 import "./stick-halving.css";
 
@@ -111,6 +111,23 @@ export function StickHalvingGame({ adapter, errorMessage, finalActions, onFinish
     }, 250);
     return () => clearInterval(timer);
   }, [deadline, phase, submit]);
+
+  // 막대에 포커스가 없어도 좌우 방향키로 칼을 옮긴다. 막대가 이미 처리한 키, 입력 칸에서 누른 키,
+  // 단축키 조합은 건드리지 않는다.
+  useEffect(() => {
+    if (phase !== "play") return undefined;
+    function handleKeyDown(event) {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
+      event.preventDefault();
+      const step = event.shiftKey ? NUDGE_CM * COARSE_NUDGE_STEPS : NUDGE_CM;
+      setPosition((current) => clampPosition(current + (event.key === "ArrowLeft" ? -step : step)));
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [phase]);
 
   function next() {
     if (!outcome) return;
@@ -245,7 +262,7 @@ export function StickHalvingGame({ adapter, errorMessage, finalActions, onFinish
           >
             ›
           </button>
-          <span className="stick-game__nudge-label">한 칸씩 (0.5cm의 1/24)</span>
+          <span className="stick-game__nudge-label">한 칸씩 (0.5cm의 1/24). 키보드 ← →도 돼요</span>
           <Button
             className="stick-game__cut"
             data-ph-capture-attribute-action="stick_cut_submit"

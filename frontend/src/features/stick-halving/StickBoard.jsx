@@ -255,4 +255,4 @@ export function KnifeLoupe({ answerPosition = null, locked = false, onPositionCh
   );
 }
 
-export { NUDGE_CM };
+export { COARSE_NUDGE_STEPS, NUDGE_CM };
