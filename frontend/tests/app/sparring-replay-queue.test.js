@@ -3,6 +3,20 @@ import { createReplayQueue } from '../../public/sparring-arena/src/replay-queue.
 const posts = (start, length) => Array.from({ length }, (_, index) => ({ id: String(start + index), text: `글 ${start + index}` }));
 const ids = (queue, count) => Array.from({ length: count }, () => queue.take()?.post.id);
 
+it('지정한 새 글만 먼저 꺼내고 아직 도착하지 않았거나 없는 ID는 다른 순서를 소비하지 않는다', () => {
+  const queue = createReplayQueue();
+  const [first, mine, last] = posts(101, 3);
+  queue.update([], { page: 1, posts: posts(1, 3) });
+  queue.enqueue(first, 0, true); queue.enqueue(mine, Infinity, true); queue.enqueue(last, 0, true);
+  expect(queue.take(true, mine.id)).toBeNull();
+  expect(queue.take(false, 'missing')).toBeNull();
+  queue.enqueue(mine, 0, true);
+  expect(queue.take(true, mine.id)).toEqual({ post: mine, fresh: true });
+  queue.enqueue(mine, 0, true);
+  expect(queue.take(true, mine.id)).toBeNull();
+  expect(ids(queue, 5)).toEqual([first.id, '1', last.id, '2', '3']);
+});
+
 it('최근 글 두 개와 과거 글 한 개를 섞고 최근 글이 없으면 남은 과거를 이어간다', () => {
   const queue = createReplayQueue();
   queue.update(posts(101, 4), { page: 1, posts: posts(1, 5) });

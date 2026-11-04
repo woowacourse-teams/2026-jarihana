@@ -1,6 +1,27 @@
 import { placeSpeechBubbles } from '../../public/sparring-arena/src/speech-layout.js';
 
 describe('캐릭터 말풍선 배치', () => {
+  it('가까운 네 인물의 말풍선이 반대편을 차지해 세 층으로 밀려나지 않는다', () => {
+    const bubbles = [165.207, 128.911, 192.793, 229.089].map((headX, index) => ({
+      headX, headY: 214, width: 150, height: 47, direction: index < 2 ? -1 : 1,
+      region: index < 2 ? { left: 8, right: 174 } : { left: 184, right: 350 },
+    }));
+    const positions = placeSpeechBubbles(bubbles, 358);
+    positions.forEach((position, i) => {
+      expect(position.center - 75).toBeGreaterThanOrEqual(bubbles[i].region.left);
+      expect(position.center + 75).toBeLessThanOrEqual(bubbles[i].region.right);
+      expect(position.bottom).toBeGreaterThanOrEqual(214 - 47 - 10);
+      positions.slice(0, i).forEach(other => {
+        expect(Math.abs(position.center - other.center) >= 150 || Math.abs(position.bottom - other.bottom) >= 47).toBe(true);
+      });
+    });
+  });
+  it('장애물을 피해도 말풍선을 화면 위로 밀어내지 않는다', () => {
+    const [position] = placeSpeechBubbles([
+      { headX: 180, headY: 100, width: 150, height: 60, direction: -1 },
+    ], 358, [{ left: 0, right: 358, top: 40, bottom: 120 }]);
+    expect(position.bottom - 60).toBeGreaterThanOrEqual(8);
+  });
   it('겹치는 말풍선은 다른 방향에 공간이 있으면 그쪽에 배치한다', () => {
     const bubbles = [
       { headX: 200, headY: 100, width: 120, height: 60, direction: -1 },

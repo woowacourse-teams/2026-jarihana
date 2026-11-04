@@ -62,21 +62,27 @@ it("allows draft selection before SSE/3D loads without writing a vote", async ()
 it("preselects the existing side and waits for the scene without writing it again", async () => {
   getSparring.mockResolvedValue({ ...topic, mySide: "MINT" });
   const frame = await mount();
+  const send = jest.spyOn(frame.contentWindow, "postMessage");
   expect(screen.getByRole("button", { name: "기다려 편 선택" })).toHaveAttribute("aria-pressed", "true");
   fireEvent.click(screen.getByRole("button", { name: "이 편으로 시작" }));
   await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("경기장이 준비되면"));
   expect(frame).toHaveAttribute("inert");
   expect(voteSparring).not.toHaveBeenCalled();
+  expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ kind: "composer-open" }), expect.anything());
   ready(frame);
   await waitFor(() => expect(frame).not.toHaveAttribute("inert"), { timeout: 2000 });
   expect(frame.scrollIntoView).toHaveBeenCalledWith({ block: "start", behavior: "instant" });
   expect(getSparring).toHaveBeenCalledTimes(1);
+  expect(send.mock.calls.filter(([message]) => message.kind === "composer-open")).toEqual([
+    [{ channel: "jarihana-sparring", kind: "composer-open", side: "a" }, window.location.origin]
+  ]);
 });
 
 it("submits once, waits for confirmation and leaves only after the saved side is received", async () => {
   let finish;
   voteSparring.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   const frame = await mount(); ready(frame);
+  const send = jest.spyOn(frame.contentWindow, "postMessage");
   fireEvent.click(screen.getByRole("button", { name: "다른 곳 편 선택" }));
   const start = screen.getByRole("button", { name: "이 편으로 시작" });
   fireEvent.click(start); fireEvent.click(start);
@@ -84,10 +90,26 @@ it("submits once, waits for confirmation and leaves only after the saved side is
   expect(voteSparring).toHaveBeenCalledTimes(1);
   expect(frame).toHaveAttribute("inert");
   expect(screen.getByRole("button", { name: "먼저 구경하기" })).toBeDisabled();
+  expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ kind: "composer-open" }), expect.anything());
   getSparring.mockResolvedValue({ ...topic, mySide: "CORAL", revision: 2 });
   await act(async () => finish());
   await waitFor(() => expect(frame).not.toHaveAttribute("inert"), { timeout: 2000 });
   expect(getSparring).toHaveBeenCalledTimes(2);
+  expect(send.mock.calls.filter(([message]) => message.kind === "composer-open")).toEqual([
+    [{ channel: "jarihana-sparring", kind: "composer-open", side: "b" }, window.location.origin]
+  ]);
+});
+
+it("does not open the saved side's input when entering through watch", async () => {
+  getSparring.mockResolvedValue({ ...topic, mySide: "MINT" });
+  const frame = await mount();
+  const send = jest.spyOn(frame.contentWindow, "postMessage");
+  ready(frame);
+  jest.useFakeTimers();
+  fireEvent.click(screen.getByRole("button", { name: "먼저 구경하기" }));
+  act(() => jest.advanceTimersByTime(ENTRY_REVEAL_DURATION));
+  expect(frame).not.toHaveAttribute("inert");
+  expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ kind: "composer-open" }), expect.anything());
 });
 
 it("preserves a failed draft choice and can retry saving it", async () => {
