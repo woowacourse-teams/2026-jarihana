@@ -52,7 +52,7 @@ class GroupQueryIndexMigrationTest extends IntegrationTestSupport {
                 buildSchema(isolated, jpaSchema);
                 connection.setSchema(flywaySchema);
                 Flyway.configure().dataSource(isolated).schemas(flywaySchema)
-                        .locations("classpath:db/migration").target("17").load().migrate();
+                        .locations("classpath:db/migration").target("18").load().migrate();
 
                 // Then
                 assertGroupQueryIndexes(jdbc, jpaSchema);
@@ -69,8 +69,8 @@ class GroupQueryIndexMigrationTest extends IntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("V17은 V16의 데이터, 인덱스, 제약과 이력을 보존하고 구버전 INSERT와 재실행을 허용한다.")
-    void upgradeAfterV16PreservesExistingSchemaAndOldInserts() throws SQLException {
+    @DisplayName("V18은 V17의 데이터, 인덱스, 제약과 이력을 보존하고 구버전 INSERT와 재실행을 허용한다.")
+    void upgradeAfterV17PreservesExistingSchemaAndOldInserts() throws SQLException {
         // Given
         String schema = "group_index_upgrade_" + UUID.randomUUID().toString().replace("-", "");
         JdbcTemplate administrative = new JdbcTemplate(dataSource);
@@ -81,7 +81,7 @@ class GroupQueryIndexMigrationTest extends IntegrationTestSupport {
                 connection.setSchema(schema);
                 SingleConnectionDataSource isolated = new SingleConnectionDataSource(connection, true);
                 Flyway.configure().dataSource(isolated).schemas(schema)
-                        .locations("classpath:db/migration").target("16").load().migrate();
+                        .locations("classpath:db/migration").target("17").load().migrate();
                 JdbcTemplate jdbc = new JdbcTemplate(isolated);
                 insertOldRows(jdbc, 1);
                 Map<String, List<Map<String, Object>>> oldRows = new LinkedHashMap<>();
@@ -95,7 +95,7 @@ class GroupQueryIndexMigrationTest extends IntegrationTestSupport {
                 var oldConstraints = constraints(jdbc, schema);
                 var history = jdbc.queryForList("select * from flyway_schema_history order by installed_rank");
                 Flyway upgraded = Flyway.configure().dataSource(isolated).schemas(schema)
-                        .locations("classpath:db/migration").target("17").load();
+                        .locations("classpath:db/migration").target("18").load();
 
                 // When
                 int applied = upgraded.migrate().migrationsExecuted;
@@ -113,10 +113,10 @@ class GroupQueryIndexMigrationTest extends IntegrationTestSupport {
                         """, schema)).hasSize(oldIndexes.size() + 3).containsAll(oldIndexes);
                 assertThat(constraints(jdbc, schema)).isEqualTo(oldConstraints);
                 assertThat(jdbc.queryForList("""
-                        select * from flyway_schema_history where version <> '17' order by installed_rank
+                        select * from flyway_schema_history where version <> '18' order by installed_rank
                         """)).isEqualTo(history);
                 assertThat(jdbc.queryForObject("""
-                        select count(*) from flyway_schema_history where version = '17' and success
+                        select count(*) from flyway_schema_history where version = '18' and success
                         """, Integer.class)).isEqualTo(1);
 
                 insertOldRows(jdbc, 2);
