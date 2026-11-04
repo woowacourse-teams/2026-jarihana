@@ -330,6 +330,14 @@ Insight와 Dashboard를 구성한다. 이 대시보드는 자리하나의 새 �
 
 ## 스파링
 
+토론 생성은 한 화면에서 제출한다. 필수 입력의 `sparring_topic_edit`, 설명의
+`sparring_description_edit`, 사진의 `sparring_image_choose/upload/remove/retry`, 마감의
+`sparring_deadline_preset/open`, 제출·닫기의 `sparring_create_submit/dismiss`는 유지한다
+(슬래시는 각 접미사를 가진 기존 식별자를 묶어 표기한 것이다). 설명·사진 영역을 펼치거나
+접는 동작에는 `sparring_create_options_toggle`을 사용한다. 이전/다음 단계가 없어져
+`sparring_create_previous/next`는 더 이상 발생하지 않는다. 입력 폼은 `data-ph-private`로
+가리고, 선택 항목을 접거나 제출을 클릭한 사실을 생성 성공으로 해석하지 않는다.
+
 SSE/물리 렌더러는 같은 출처 iframe이므로 내부 고정 action을 부모로 전달한다.
 부모는 source/origin/고정 allowlist를 검증한 뒤 `sparring_interaction`에 action만 기록한다.
 사용자 글·주제·이름·진영은 전달하지 않는다. 기존 마스킹/개인정보 허용 목록은 유지한다.

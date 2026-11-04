@@ -14,12 +14,13 @@ import { createDispenser } from './dispenser.js';
 import { TRAY } from './dispenser-physics.js';
 import { PACKED_SCALE } from './history-walk.js';
 import { TANK, RADIUS, FRESH_CAPSULE_SCALE, nozzlePose } from './physics.js';
-import { studioMaterial, createStudioEnvironment } from './studio-materials.js';
+import { COURT_COLORS, FRAME_COLOR, studioMaterial, createStudioEnvironment } from './studio-materials.js';
 import { createTransportScene } from './transport-scene.js';
 import { createPipeSurfaces } from './pipe-surfaces.js';
 import { ARENA_VIEWS, createArenaCamera, fitArenaCamera, extendArenaViewport } from './arena-framing.js';
 import { createFrameClock } from './frame-clock.js';
 import { createPlanetPlayground } from './planet-playground.js';
+import { createBackgroundPlanets } from './background-planets.js';
 import { watchPlaygroundSky } from './playground-sky.js';
 
 const PIPE_LENGTH = 2.35;
@@ -81,19 +82,20 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
       resolveReady();
     }
   }
-  scene.add(new THREE.HemisphereLight(0xffffff, 0xe5e7eb, 0.25));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xe5e7eb, 0.35));
   const sun = new THREE.DirectionalLight(0xffffff, 2.3);
   sun.position.set(-4, 10, 7); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
   Object.assign(sun.shadow.camera, { left: -13, right: 13, top: 10, bottom: -13, near: 0.5, far: 35 });
   sun.shadow.normalBias = 0.03; sun.shadow.bias = -0.0001; scene.add(sun);
-  const light = new THREE.DirectionalLight(0xe9faff, 0.35); light.position.set(5, 4, -5); scene.add(light);
+  const light = new THREE.DirectionalLight(0xe9faff, 0.5); light.position.set(5, 4, -5); scene.add(light);
   const playground = createPlanetPlayground(scene);
+  createBackgroundPlanets(scene);
 
   const height = TANK.rim - TANK.bottom;
   const halfWidth = TANK.width / 2, halfDepth = TANK.depth / 2;
-  const glass = studioMaterial({ color: 0x9eb3bf, transparent: true, opacity: 0.025, roughness: 0.2, envMapIntensity: 0.08, side: THREE.DoubleSide, depthWrite: false });
-  const rimMaterial = studioMaterial({ color: 0x34445c, roughness: 0.78, clearcoat: 0.02, envMapIntensity: 0.1 });
-  const edgeMaterial = studioMaterial({ color: 0x34445c, roughness: 0.78, clearcoat: 0.02, envMapIntensity: 0.1 });
+  const glass = studioMaterial({ color: 0xffffff, transparent: true, opacity: 0.015, roughness: 0.08, envMapIntensity: 0.15, side: THREE.DoubleSide, depthWrite: false });
+  const rimMaterial = studioMaterial({ color: FRAME_COLOR, roughness: 0.45 });
+  const edgeMaterial = studioMaterial({ color: FRAME_COLOR, roughness: 0.45 });
   function box(size, position, material) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
     mesh.position.set(...position); scene.add(mesh);
@@ -110,7 +112,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
       box([0.04, height, 0.04], [sign * halfWidth, (TANK.rim + TANK.bottom) / 2, z], edgeMaterial);
     }
   }
-  const shine = new THREE.MeshBasicMaterial({ color: 0xadc6d0, transparent: true, opacity: 0.12, depthWrite: false });
+  const shine = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false });
   for (const x of [-halfWidth + 0.12, halfWidth - 0.12]) {
     const strip = new THREE.Mesh(new THREE.PlaneGeometry(0.045, height - 0.3), shine);
     strip.position.set(x, (TANK.rim + TANK.bottom) / 2, halfDepth + 0.03); scene.add(strip);
@@ -139,7 +141,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
     scene.add(group);
     return { group, material, until: 0, muzzle: createMuzzleBurst(group, barrel, length, side === 'a' ? 0x8ef5e8 : 0xffc49f) };
   }
-  const pipes = { a: pipe('a', 0x2ac1bc), b: pipe('b', 0xed6a5a) };
+  const pipes = { a: pipe('a', COURT_COLORS.mint), b: pipe('b', COURT_COLORS.coral) };
   const capsules = createCapsules(scene, onSelect, post => container.dispatchEvent(new CustomEvent('capsuleready', { detail: { id: post.id } })), requestHistory);
   const ready = whenCharacterAssetsReady().then(() => {
     assetsLoaded = true;
@@ -166,7 +168,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   let groupId = 0, outputQueue = [], outputClock = 0, seeded = false;
   const replyQueue = [];
-  const launchedIds = new Set(), transports = new Set();
+  const launchedIds = new Set(), transports = new Set(), pendingReplies = new Set();
   const dispenser = createDispenser(scene, () => {}, {
     onOpened(entry) {
       if (entry.groupId !== groupId) return;
@@ -198,6 +200,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
       startTransport(selection.transport, () => startSelection({ ...selection, transport: null }), selection.settle);
       return;
     }
+    pendingReplies.delete(selection.post.id);
     if (!selection.post.replyTo || !selection.fresh && !selection.replayClash) {
       duel.clear();
       duelField.hidden = true;
@@ -268,14 +271,18 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
     }
     releaseClock += delta;
     const waiting = capsules.controlState();
+    const trackedReplyId = clashCamera.activePostId();
+    const followingPendingReply = pendingReplies.has(trackedReplyId);
     const priority = waiting.queuedId !== null || replyQueue.length > 0 || waiting.freshReady;
     const userSpill = spillQueue > 0;
     const due = !!replyQueue[0]?.transport || reduced.matches || releaseClock >= (priority ? 0.55 : userSpill ? 0.1 : 1.8);
     const canMove = (!paused || allowPausedRelease) && !duel.pinned() && !history.pinned();
     const replaceReady = duel.canReplace(false) && history.canAccept() && !outputQueue.length &&
-      dispenser.readyForNext(true, reduced.matches) && (!waiting.freshReady || history.canReplace());
+      dispenser.readyForNext(true, reduced.matches) && (!waiting.freshReady || followingPendingReply || history.canReplace());
     if (canMove && !clash.busy() && replaceReady && due && (priority || userSpill || (!paused && !reduced.matches))) {
-      const selection = replyQueue.length ? replyQueue.shift() : waiting.queuedId !== null ? (waiting.drawReady ? capsules.takeForDraw() : null) : capsules.takeHistorical(!userSpill && (paused || reduced.matches));
+      // The tracked reply hides history speech, so its reading timer cannot unblock it.
+      const selection = followingPendingReply ? capsules.takeHistorical(true, trackedReplyId)
+        : replyQueue.length ? replyQueue.shift() : waiting.queuedId !== null ? (waiting.drawReady ? capsules.takeForDraw() : null) : capsules.takeHistorical(!userSpill && (paused || reduced.matches));
       if (selection) {
         if (userSpill && !priority) spillQueue--;
         startSelection(selection);
@@ -294,7 +301,9 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
     if (!reduced.matches && !duelField.hidden && duel.canReplace(false) && !clash.busy()) {
       duel.clear(); duelField.hidden = true; history.setVisible(true);
     }
-    presentationCamera = clashCamera.update(camera, clash.presentation() ?? transportScene.presentation() ?? dispenser.presentation(), delta, reduced.matches || !canMove);
+    presentationCamera = clashCamera.update(camera,
+      [clash.presentation(), transportScene.presentation(), dispenser.presentation()],
+      delta, reduced.matches || !canMove, pendingReplies);
     const cameraIntensity = clashCamera.intensity();
     stage.dataset.cinematic = String(cameraIntensity > 0);
     if (composer && composer.hasAttribute('inert') !== (cameraIntensity > 0)) composer.toggleAttribute('inert', cameraIntensity > 0);
@@ -405,6 +414,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
     // Stored posts remain available to history; missed live effects need not play on return.
     for (const selection of replyQueue) selection.settle?.();
     replyQueue.length = 0;
+    pendingReplies.clear();
     capsules.settleReplays();
     clashCamera.reset(); syncMotionPause(); container.dataset.flowState = 'hidden';
   }
@@ -506,6 +516,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
       allowPausedRelease = paused;
       capsules.queueReplay(post, Infinity);
       if (post.replyTo) {
+        pendingReplies.add(post.id);
         const arrive = () => {
           capsules.queueReplay(post, 0, isVisible && !document.hidden);
         };

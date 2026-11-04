@@ -1,6 +1,6 @@
 import { updateTransport } from '../../public/sparring-arena/src/transport.js';
 jest.mock('../../public/sparring-arena/src/transport.js', () => ({ updateTransport: jest.fn() }));
-import { fitArenaViewport, revealComposer, setupComposer } from '../../public/sparring-arena/src/composer.js';
+import { fitArenaViewport, fitVoteLabels, revealComposer, setupComposer } from '../../public/sparring-arena/src/composer.js';
 
 describe('스파링 화면 높이 배분', () => {
   let form, stage, dock;
@@ -140,40 +140,58 @@ it('데스크톱에서는 입력란이 화면 밖이어도 받아치기로 경�
   expect(form.scrollIntoView).not.toHaveBeenCalled();
 });
 
-it('iframe의 모바일 입력창을 부모 visual viewport의 키보드 위에 붙이고 닫으면 복원한다', () => {
+it.each([390, 1440])('%ipx에서 키보드 크기 변화는 모바일 입력창만 도킹하고 경기장 크기를 유지한다', width => {
   document.body.innerHTML = '<header class="app-header"></header><div class="sparring-detail"><iframe></iframe></div><div class="stage"><div class="topic"></div><div id="scene"></div></div><div><form><textarea></textarea></form></div>';
   const saved = Object.fromEntries(['innerWidth', 'innerHeight', 'frameElement', 'visualViewport'].map(key => [key, Object.getOwnPropertyDescriptor(window, key)]));
   const observer = global.ResizeObserver, raf = window.requestAnimationFrame;
   const viewport = Object.assign(new EventTarget(), { height: 844, offsetTop: 0, scale: 1 });
-  const host = document.querySelector('iframe'), form = document.querySelector('form');
+  const host = document.querySelector('iframe'), form = document.querySelector('form'), stage = document.querySelector('.stage');
   host.getBoundingClientRect = () => ({ top: 48 });
   document.querySelector('.app-header').getBoundingClientRect = () => ({ height: 48 });
   document.querySelector('.stage').getBoundingClientRect = () => ({ top: 16 });
-  Object.defineProperty(form, 'offsetHeight', { value: 122 });
-  for (const [key, value] of Object.entries({ innerWidth: 390, innerHeight: 844, frameElement: host, visualViewport: viewport })) Object.defineProperty(window, key, { configurable: true, value });
+  Object.defineProperty(form, 'offsetHeight', { value: 122, configurable: true });
+  Object.defineProperty(stage, 'clientWidth', { value: width - 32 });
+  document.documentElement.style.setProperty('--arena-available-height', '796px');
+  for (const [key, value] of Object.entries({ innerWidth: width, innerHeight: 844, frameElement: host, visualViewport: viewport })) Object.defineProperty(window, key, { configurable: true, value });
   global.ResizeObserver = class { observe() {} };
   let callback;
   window.requestAnimationFrame = fn => { callback = fn; return 1; };
   try {
     setupComposer(form); callback();
+    const initialHeight = stage.style.height;
     form.querySelector('textarea').focus(); callback();
+    if (width > 700) {
+      viewport.height = 420; viewport.dispatchEvent(new Event('resize')); callback();
+      expect(form).not.toHaveClass('keyboard-docked');
+      expect(form.style.top).toBe('');
+      expect(stage.style.height).toBe(initialHeight);
+      expect(stage.style.getPropertyValue('--scene-top')).toBe('0px');
+      expect(document.querySelector('.sparring-detail')).toHaveAttribute('data-keyboard-open', 'false');
+      return;
+    }
     expect(document.querySelector('.sparring-detail')).toHaveAttribute('data-composer-editing', 'true');
     expect(document.querySelector('.sparring-detail').style.getPropertyValue('--mobile-composer-height')).toBe('122px');
     expect(form).not.toHaveClass('keyboard-docked');
     viewport.height = 500; viewport.dispatchEvent(new Event('resize')); callback();
     expect(form).toHaveClass('keyboard-docked');
     expect(form.style.top).toBe('322px');
-    expect(document.querySelector('.stage').style.getPropertyValue('--keyboard-stage-height')).toBe('306px');
+    expect(stage.style.height).toBe(initialHeight);
+    expect(stage.style.getPropertyValue('--scene-top')).toBe('0px');
     expect(document.querySelector('.sparring-detail')).toHaveAttribute('data-keyboard-open', 'true');
     expect(form.querySelector('textarea')).toHaveFocus();
-    document.documentElement.style.setProperty('--arena-available-height', '796px');
     viewport.height = 420; viewport.dispatchEvent(new Event('resize')); callback();
     expect(form.style.top).toBe('242px');
-    expect(document.querySelector('.stage').style.getPropertyValue('--scene-top')).toBe('52px');
+    expect(stage.style.height).toBe(initialHeight);
+    expect(stage.style.getPropertyValue('--scene-top')).toBe('0px');
+    Object.defineProperty(form, 'offsetHeight', { value: 170 });
+    viewport.offsetTop = 20; viewport.dispatchEvent(new Event('scroll')); callback();
+    expect(form.style.top).toBe('214px');
+    expect(stage.style.height).toBe(initialHeight);
+    expect(stage.style.getPropertyValue('--scene-top')).toBe('0px');
     viewport.height = 844; viewport.dispatchEvent(new Event('resize')); callback();
     expect(form).not.toHaveClass('keyboard-docked');
     expect(form.style.top).toBe('');
-    expect(document.querySelector('.stage').style.getPropertyValue('--keyboard-stage-height')).toBe('');
+    expect(stage.style.height).toBe(initialHeight);
     form.querySelector('textarea').blur(); callback();
     expect(document.querySelector('.sparring-detail')).toHaveAttribute('data-composer-editing', 'false');
   } finally {
@@ -229,6 +247,86 @@ it('입력 중 다른 편 캐릭터를 누를 때 입력창 포커스를 빼앗�
   } finally {
     global.ResizeObserver = observer; window.requestAnimationFrame = raf; document.body.innerHTML = '';
   }
+});
+
+it('편명 버튼의 호버·눌림 중 재배치해도 제목 위치와 폭을 유지한다', () => {
+  document.body.innerHTML = '<div class="stage"><div class="topic"><h1>토론</h1></div><div id="scene"></div><button class="vote-flag"><strong>민트</strong></button><button class="vote-flag"><strong>코랄</strong></button></div><div><form></form></div>';
+  const viewport = Object.getOwnPropertyDescriptor(window, 'innerWidth');
+  const observer = global.ResizeObserver, raf = window.requestAnimationFrame;
+  Object.defineProperty(window, 'innerWidth', { value: 1200, configurable: true });
+  global.ResizeObserver = class { observe() {} };
+  let callback;
+  window.requestAnimationFrame = fn => { callback = fn; return 1; };
+  const topic = document.querySelector('.topic');
+  const labels = [...document.querySelectorAll('.vote-flag strong')];
+  document.querySelector('.stage').getBoundingClientRect = () => ({ x: 0, y: 0, width: 1000 });
+  Object.defineProperty(topic, 'offsetHeight', { value: 30 });
+  let shift = [0, 0];
+  labels.forEach((label, index) => {
+    const left = index ? 720 : 200;
+    label.getBoundingClientRect = () => ({ left: left + shift[0], right: left + 80 + shift[0], y: 80 + shift[1], height: 40 });
+  });
+  try {
+    setupComposer(document.querySelector('form'));
+    for (shift of [[0, 0], [-1, -2], [3, 4], [0, 0]]) {
+      labels.forEach(label => { label.style.translate = `${shift[0]}px ${shift[1]}px`; });
+      callback();
+      expect(topic.style.getPropertyValue('--topic-row-top')).toBe('85px');
+      expect(topic.style.getPropertyValue('--topic-row-width')).toBe('392px');
+      labels.forEach(label => expect(label.parentElement.style.getPropertyValue('--claim-row-shift')).toBe('0px'));
+    }
+  } finally {
+    Object.defineProperty(window, 'innerWidth', viewport);
+    global.ResizeObserver = observer; window.requestAnimationFrame = raf; document.body.innerHTML = '';
+  }
+});
+
+it('선택 띠가 있어도 양쪽 주장 본문 중심에 제목 카드 전체를 정렬한다', () => {
+  document.body.innerHTML = '<div class="stage"><div class="topic"><h1>짧은 제목</h1></div><div id="scene"></div><button class="vote-flag"><strong style="padding-top:8px;padding-bottom:8px">민트</strong></button><button class="vote-flag"><strong style="padding-top:34px;padding-bottom:8px">코랄</strong></button></div><div><form></form></div>';
+  const viewport = Object.getOwnPropertyDescriptor(window, 'innerWidth');
+  const observer = global.ResizeObserver, raf = window.requestAnimationFrame;
+  Object.defineProperty(window, 'innerWidth', { value: 1200, configurable: true });
+  global.ResizeObserver = class { observe() {} };
+  let callback;
+  window.requestAnimationFrame = fn => { callback = fn; return 1; };
+  const topic = document.querySelector('.topic');
+  let stageY = 0;
+  document.querySelector('.stage').getBoundingClientRect = () => ({ x: 0, y: stageY, width: 1000 });
+  Object.defineProperty(topic, 'offsetHeight', { value: 54, configurable: true });
+  document.querySelectorAll('.vote-flag strong').forEach((label, index) => {
+    label.getBoundingClientRect = () => ({ left: index ? 700 : 180, right: index ? 820 : 300, y: 80, height: index ? 70 : 44 });
+  });
+  try {
+    setupComposer(document.querySelector('form')); callback();
+    expect(topic.style.getPropertyValue('--topic-row-top')).toBe('88px');
+    expect(topic.style.getPropertyValue('--topic-row-width')).toBe('352px');
+    expect([...document.querySelectorAll('.vote-flag')].map(label => label.style.getPropertyValue('--claim-row-shift'))).toEqual(['13px', '-13px']);
+    Object.defineProperty(topic, 'offsetHeight', { value: 300 });
+    callback();
+    expect(topic.style.getPropertyValue('--topic-row-top')).toBe('0px');
+    stageY = -32;
+    callback();
+    expect(topic.style.getPropertyValue('--topic-row-top')).toBe('32px');
+  } finally {
+    Object.defineProperty(window, 'innerWidth', viewport);
+    global.ResizeObserver = observer; window.requestAnimationFrame = raf; document.body.innerHTML = '';
+  }
+});
+
+it('양쪽 주장 폭을 맞추되 선택하지 않은 카드의 높이를 늘리지 않는다', () => {
+  document.body.innerHTML = '<button class="vote-flag"><strong>짧은 주장</strong></button><button class="vote-flag"><strong>여러 줄이 되는 긴 주장</strong></button>';
+  const rangeRects = Range.prototype.getClientRects;
+  Range.prototype.getClientRects = function () { return [{ width: this.toString().includes('긴') ? 119 : 70 }]; };
+  const labels = [...document.querySelectorAll('strong')];
+  labels.forEach((label, index) => {
+    Object.defineProperty(label.parentElement, 'clientWidth', { value: 200 });
+    Object.defineProperty(label, 'offsetHeight', { value: index ? 80 : 60 });
+  });
+  try {
+    fitVoteLabels();
+    expect(labels.map(label => label.style.width)).toEqual(['120px', '120px']);
+    expect(labels.map(label => label.style.height)).toEqual(['', '']);
+  } finally { Range.prototype.getClientRects = rangeRects; document.body.innerHTML = ''; }
 });
 
 it('움직이는 받아치기 말풍선의 포인터 포커스만 막고 클릭과 키보드 접근은 유지한다', () => {

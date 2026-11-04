@@ -25,62 +25,53 @@ it('놀이터는 기존 조명을 유지하며 공유 자원을 한 번만 정�
   disposals.forEach(dispose => expect(dispose).toHaveBeenCalledTimes(1));
 });
 
-it('미니 경기장 마당은 기존 곡면과 소품을 유지하고 선 하나의 메시만 추가한다', () => {
+it('넓은 평면 마당은 중앙을 비워두고 낮은 코트 소품만 양옆에 둔다', () => {
   const scene = new THREE.Scene(), playground = createPlanetPlayground(scene);
-  const group = scene.getObjectByName('planet-playground'), ground = group.getObjectByName('playground-planet');
-  expect(ground.position.toArray()).toEqual([0, -8, 0]);
-  expect(ground.scale.toArray()).toEqual([9.3, 1.2, 6.5]);
+  const group = scene.getObjectByName('planet-playground'), ground = group.getObjectByName('playground-floor');
   const bounds = new THREE.Box3().setFromObject(ground), size = bounds.getSize(new THREE.Vector3());
-  expect(bounds.max.y).toBeCloseTo(-6.8);
-  expect(size.y / size.x).toBeCloseTo(1.2 / 9.3);
-  expect(size.z / size.x).toBeCloseTo(6.5 / 9.3);
-  expect(ground.material.roughness).toBe(0.94);
-  expect(ground.material.envMapIntensity).toBe(0.04);
+  expect(bounds.min.y).toBeCloseTo(-7.4);
+  expect(bounds.max.y).toBeCloseTo(-7.4);
+  expect(size.x).toBeGreaterThan(40);
+  expect(size.z).toBeGreaterThan(30);
+  expect(bounds.min.z).toBeLessThan(-5.5);
+  expect(bounds.max.z).toBeGreaterThan(10);
+  expect(ground.material.isMeshPhysicalMaterial).toBe(true);
+  expect(ground.material.roughness).toBe(0.65);
   expect(ground.geometry.attributes.surfaceShade).toBeUndefined();
-  const point = new THREE.Vector3(), positions = ground.geometry.attributes.position;
-  const radii = Array.from({ length: positions.count }, (_, index) => point.fromBufferAttribute(positions, index).length());
-  expect(Math.min(...radii)).toBeGreaterThan(0.999999);
-  expect(Math.max(...radii)).toBeLessThan(1.000001);
-  const trees = [], pebbles = [];
-  let batches = 0;
-  group.traverse(object => {
-    if (object.name === 'playground-tree-canopy') trees.push(object);
-    if (object.name === 'playground-pebble') pebbles.push(object);
-    if (object.isMesh) batches++;
-  });
-  expect(trees.map(tree => [tree.position.x, tree.position.z])).toEqual([[-7, 3.1], [7, 3.8]]);
-  expect(pebbles).toHaveLength(2);
-  const seesaw = group.getObjectByName('playground-seesaw');
-  expect([seesaw.position.x, seesaw.position.z]).toEqual([-5.6, 4.1]);
-  for (const name of ['playground-ringed-planet', 'playground-moon', 'playground-orbit-ring', 'playground-flag', 'playground-puffy-stars', 'playground-mint-satellite']) {
+  const normals = ground.geometry.attributes.normal;
+  for (let i = 0; i < normals.count; i++) expect(normals.getY(i)).toBeCloseTo(1);
+  const props = group.children.filter(object => ['playground-bench', 'playground-court-marker'].includes(object.name));
+  expect(props.filter(object => object.name === 'playground-bench')).toHaveLength(2);
+  expect(props.filter(object => object.name === 'playground-court-marker')).toHaveLength(3);
+  for (const prop of props) {
+    const bounds = new THREE.Box3().setFromObject(prop);
+    expect(bounds.max.y - bounds.min.y).toBeLessThan(0.9);
+    expect(bounds.max.x < -4 || bounds.min.x > 4).toBe(true);
+  }
+  for (const name of ['playground-tree-trunk', 'playground-tree-canopy', 'playground-planet-sculpture-ring', 'playground-seesaw', 'playground-pebble']) {
     expect(group.getObjectByName(name)).toBeUndefined();
   }
-  expect(batches).toBeLessThanOrEqual(16);
+  let batches = 0;
+  group.traverse(object => { if (object.isMesh) batches++; });
+  expect(batches).toBeLessThanOrEqual(18);
   playground.dispose();
 });
 
-it('마당 위 지지대와 놀이터 소품은 기존 접지 높이를 유지한다', () => {
+it('통 다리와 코트 소품은 평평한 바닥에 접지한다', () => {
   const scene = new THREE.Scene(), playground = createPlanetPlayground(scene);
   const group = scene.getObjectByName('planet-playground');
-  const floor = (x, z) => -8 + 1.2 * Math.sqrt(Math.max(0, 1 - (x / 9.3) ** 2 - (z / 6.5) ** 2));
-  group.traverse(object => {
-    const { x, y, z } = object.position;
-    if (object.name === 'playground-support' || object.name === 'playground-tree-trunk') {
-      expect(y - object.scale.y / 2).toBeCloseTo(floor(x, z));
-    }
-    if (object.name === 'playground-pebble') {
-      expect(y - object.scale.y).toBeLessThan(floor(x, z));
-      expect(y + object.scale.y).toBeGreaterThan(floor(x, z));
-    }
-  });
-  const seesaw = group.getObjectByName('playground-seesaw');
-  expect(seesaw.position.y).toBeCloseTo(floor(seesaw.position.x, seesaw.position.z));
+  const grounded = group.children.filter(object => ['playground-support', 'playground-bench', 'playground-court-marker'].includes(object.name));
+  expect(grounded).toHaveLength(7);
+  for (const object of grounded) {
+    const bounds = new THREE.Box3().setFromObject(object);
+    expect(bounds.min.y).toBeCloseTo(-7.4);
+  }
   playground.dispose();
 });
 
 it('시간대 콜백은 고정 낮 팔레트와 기존 기하 및 색 버퍼를 재사용한다', () => {
   const scene = new THREE.Scene(), playground = createPlanetPlayground(scene);
-  const ground = scene.getObjectByName('playground-planet'), geometry = ground.geometry;
+  const ground = scene.getObjectByName('playground-floor'), geometry = ground.geometry;
   const colors = geometry.attributes.color, dayColors = Array.from(colors.array), version = colors.version;
   const positions = Array.from(geometry.attributes.position.array), normals = Array.from(geometry.attributes.normal.array);
   for (const period of ['night', 'sunset', 'unknown', 'day']) playground.setPeriod(period);
@@ -94,8 +85,28 @@ it('시간대 콜백은 고정 낮 팔레트와 기존 기하 및 색 버퍼를 
   expect(() => playground.setPeriod('night')).not.toThrow();
 });
 
+it('마당 코트의 왼쪽은 코랄, 오른쪽은 민트이며 중앙을 가로질러 색이 섞이지 않는다', () => {
+  const scene = new THREE.Scene(), playground = createPlanetPlayground(scene);
+  const { position, color } = scene.getObjectByName('playground-floor').geometry.attributes;
+  const samples = [0, 0];
+  for (let i = 0; i < position.count; i += 3) {
+    const xs = [position.getX(i), position.getX(i + 1), position.getX(i + 2)];
+    expect(Math.min(...xs) >= -1e-6 || Math.max(...xs) <= 1e-6).toBe(true);
+    for (let vertex = i; vertex < i + 3; vertex++) {
+      if (Math.abs(position.getX(vertex)) < 0.1) continue;
+      if (position.getX(vertex) < 0) {
+        expect(color.getX(vertex)).toBeGreaterThan(color.getY(vertex)); samples[0]++;
+      } else {
+        expect(color.getY(vertex)).toBeGreaterThan(color.getX(vertex)); samples[1]++;
+      }
+    }
+  }
+  expect(samples[0]).toBeGreaterThan(0); expect(samples[1]).toBeGreaterThan(0);
+  playground.dispose();
+});
 
-it('경기장 선은 한 메시로 곡면을 따라 붙고 위에서 보이는 면을 유지한다', () => {
+
+it('경기장 선은 한 메시로 평평한 바닥에 붙고 위에서 보이는 면을 유지한다', () => {
   const scene = new THREE.Scene(), playground = createPlanetPlayground(scene);
   const markings = scene.getObjectByName('playground-court-markings');
   const positions = markings.geometry.attributes.position;
@@ -105,10 +116,10 @@ it('경기장 선은 한 메시로 곡면을 따라 붙고 위에서 보이는 �
   expect(positions.count % 3).toBe(0);
   for (let i = 0; i < positions.count; i++) {
     const x = positions.getX(i), y = positions.getY(i), z = positions.getZ(i);
-    const radius = (x / 9.3) ** 2 + (z / 6.5) ** 2;
     expect(Number.isFinite(x + y + z)).toBe(true);
-    expect(radius).toBeLessThan(1);
-    const floor = -8 + 1.2 * Math.sqrt(1 - radius);
+    expect(Math.abs(x)).toBeLessThan(8.4);
+    expect(Math.abs(z)).toBeLessThan(5.6);
+    const floor = -7.4;
     expect(y - floor).toBeGreaterThan(0);
     expect(y - floor).toBeLessThan(0.02);
     expect(normals.getY(i)).toBeGreaterThan(0);

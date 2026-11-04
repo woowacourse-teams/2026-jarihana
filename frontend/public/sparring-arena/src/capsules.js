@@ -123,8 +123,8 @@ export function createCapsules(scene, onSelect, onReady, requestHistory) {
     }
     return takeHistorical();
   }
-  function takeHistorical(freshOnly = false) {
-    const selection = replay.take(freshOnly);
+  function takeHistorical(freshOnly = false, id = null) {
+    const selection = replay.take(freshOnly, id);
     if (selection) historyExchanges++;
     return selection;
   }
