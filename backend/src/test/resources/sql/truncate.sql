@@ -1,4 +1,9 @@
+-- 비동기 조회와 잠금 순서가 뒤집히지 않도록 참조 테이블을 CASCADE에 맡기지 않는다.
 TRUNCATE TABLE
+    chat_read_state,
+    chat_message,
+    chat_room,
+    announcements,
     gomoku_move,
     gomoku_seat,
     gomoku_room,
