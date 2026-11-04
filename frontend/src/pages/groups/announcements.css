@@ -124,13 +124,13 @@
   gap: var(--space-4);
 }
 
-.ui-dialog--group-announcement-create {
+.ui-dialog--group-announcement-form {
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-.ui-dialog--group-announcement-create > .ui-dialog__content {
+.ui-dialog--group-announcement-form > .ui-dialog__content {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -172,6 +172,13 @@
 
 .group-announcement-detail {
   max-width: 920px;
+}
+
+.group-announcement-detail__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
 }
 
 .group-announcement-back {
