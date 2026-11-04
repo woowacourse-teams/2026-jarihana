@@ -25,9 +25,11 @@ bg_github() {
   jq -cn --argjson run "$BG_E2E_RUN" '{id:$run,run_attempt:1,head_sha:"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",head_branch:"develop",workflow_id:9,path:".github/workflows/backend-dev-deploy.yml",event:"workflow_dispatch",repository:{id:1321030074,full_name:"woowacourse-teams/2026-jarihana"},head_repository:{id:1321030074,full_name:"woowacourse-teams/2026-jarihana"},status:"in_progress",conclusion:null}'
 }
 
-# Virtual duration is explicit: actual JVM/API/Nginx evidence is real; this is not a 5-minute soak.
+# All commands share one epoch/uptime anchor; re-anchoring can put a grant heartbeat in the future.
+# Virtual observation is optional; false uses real elapsed seconds without changing production clock guards.
+read -r fixture_wall_anchor fixture_uptime_anchor < "$BG_E2E_DIR/clock-anchor"
 fixture_offset() { (flock -s 8; cat "$BG_E2E_DIR/clock") 8>"$BG_E2E_DIR/clock.lock"; }
-bg_now() { printf '%s\n' "$(( $(date +%s)+$(fixture_offset) ))"; }
+bg_now() { printf '%s\n' "$(( fixture_wall_anchor+$(fixture_uptime)-fixture_uptime_anchor ))"; }
 fixture_uptime() { local value rest; read -r value rest < /proc/uptime; printf '%s\n' "$(( ${value%%.*}+$(fixture_offset) ))"; }
 app_uptime() { fixture_uptime; }
 bg_uptime() { fixture_uptime; }

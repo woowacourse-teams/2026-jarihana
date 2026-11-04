@@ -13,8 +13,12 @@ import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.support.IntegrationTestSupport;
 
+import io.restassured.RestAssured;
+import io.restassured.path.json.JsonPath;
+import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,8 +26,21 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 
+import java.io.BufferedReader;
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.stream.IntStream;
 
 import javax.sql.DataSource;
 
@@ -69,7 +86,7 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
         new JdbcTemplate(dataSource)
                 .update(
                         "update sparring_topic set closes_at = timestamp '2000-01-01 00:00:00'"
-                            + " where id = ?",
+                                + " where id = ?",
                         id);
         // Then
         request(token)
@@ -94,27 +111,58 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
         long closed = createTopic(token);
         long closedActive = createTopic(token);
         for (long id : new long[] {openActive, closedActive}) {
-            request(token).body(Map.of("side", "MINT"))
-                    .post("/sparrings/" + id + "/votes").then().statusCode(204);
+            request(token)
+                    .body(Map.of("side", "MINT"))
+                    .post("/sparrings/" + id + "/votes")
+                    .then()
+                    .statusCode(204);
             post(token, id, "의견", null, UUID.randomUUID()).then().statusCode(201);
         }
-        new JdbcTemplate(dataSource).update(
-                "update sparring_topic set closes_at = timestamp '2000-01-01 00:00:00' where id in (?, ?)", closed, closedActive);
-        given().queryParam("keyword", "점심").queryParam("filter", "open")
-                .get("/sparrings").then().statusCode(200).body("data.items", hasSize(2));
-        given().queryParam("keyword", "점심").queryParam("filter", "open_active")
-                .get("/sparrings").then().statusCode(200).body("data.items", hasSize(1))
+        new JdbcTemplate(dataSource)
+                .update(
+                        "update sparring_topic set closes_at = timestamp '2000-01-01 00:00:00'"
+                            + " where id in (?, ?)",
+                        closed,
+                        closedActive);
+        given().queryParam("keyword", "점심")
+                .queryParam("filter", "open")
+                .get("/sparrings")
+                .then()
+                .statusCode(200)
+                .body("data.items", hasSize(2));
+        given().queryParam("keyword", "점심")
+                .queryParam("filter", "open_active")
+                .get("/sparrings")
+                .then()
+                .statusCode(200)
+                .body("data.items", hasSize(1))
                 .body("data.items[0].id", equalTo((int) openActive));
-        given().queryParam("keyword", "점심").queryParam("filter", "closed_active")
-                .get("/sparrings").then().statusCode(200).body("data.items", hasSize(1))
+        given().queryParam("keyword", "점심")
+                .queryParam("filter", "closed_active")
+                .get("/sparrings")
+                .then()
+                .statusCode(200)
+                .body("data.items", hasSize(1))
                 .body("data.items[0].id", equalTo((int) closedActive));
-        String cursor = given().queryParam("keyword", "점심").queryParam("filter", "closed")
-                .queryParam("size", 1).get("/sparrings").then().statusCode(200)
-                .body("data.items[0].id", equalTo((int) closedActive))
-                .body("data.hasNext", equalTo(true)).extract().path("data.nextCursor");
-        given().queryParam("keyword", "점심").queryParam("filter", "closed")
-                .queryParam("size", 1).queryParam("cursor", cursor).get("/sparrings")
-                .then().statusCode(200).body("data.items[0].id", equalTo((int) closed))
+        String cursor =
+                given().queryParam("keyword", "점심")
+                        .queryParam("filter", "closed")
+                        .queryParam("size", 1)
+                        .get("/sparrings")
+                        .then()
+                        .statusCode(200)
+                        .body("data.items[0].id", equalTo((int) closedActive))
+                        .body("data.hasNext", equalTo(true))
+                        .extract()
+                        .path("data.nextCursor");
+        given().queryParam("keyword", "점심")
+                .queryParam("filter", "closed")
+                .queryParam("size", 1)
+                .queryParam("cursor", cursor)
+                .get("/sparrings")
+                .then()
+                .statusCode(200)
+                .body("data.items[0].id", equalTo((int) closed))
                 .body("data.hasNext", equalTo(false));
     }
 
@@ -141,10 +189,7 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
         long id = createTopic(token);
         new JdbcTemplate(dataSource)
                 .update("update sparring_topic set closes_at = null where id = ?", id);
-        given().get("/sparrings/" + id)
-                .then()
-                .statusCode(200)
-                .body("data.closesAt", nullValue());
+        given().get("/sparrings/" + id).then().statusCode(200).body("data.closesAt", nullValue());
         request(token)
                 .body(Map.of("side", "MINT"))
                 .post("/sparrings/" + id + "/votes")
@@ -338,9 +383,8 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
                 .statusCode(200)
                 .body("data.items", hasSize(0));
         String invalid =
-                java.util.Base64.getUrlEncoder()
-                        .encodeToString(
-                                "bad-date~1".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                Base64.getUrlEncoder()
+                        .encodeToString("bad-date~1".getBytes(StandardCharsets.UTF_8));
         given().queryParam("cursor", invalid).get("/sparrings").then().statusCode(400);
         given().queryParam("size", 101).get("/sparrings").then().statusCode(400);
         given().queryParam("filter", "mine").get("/sparrings").then().statusCode(401);
@@ -357,49 +401,133 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
     void streamsCommittedRevisions() throws Exception {
         String token = member("새봄", "sparring-sse");
         long id = createTopic(token);
-        java.net.URI uri =
-                java.net.URI.create(
+        URI uri =
+                URI.create(
                         "http://localhost:"
-                                + io.restassured.RestAssured.port
+                                + RestAssured.port
                                 + "/api/sparrings/"
                                 + id
                                 + "/events");
-        try (var http = java.net.http.HttpClient.newHttpClient()) {
+        try (var http = HttpClient.newHttpClient()) {
             var request =
-                    java.net.http.HttpRequest.newBuilder(uri)
-                            .header("Accept", "text/event-stream")
-                            .GET()
-                            .build();
-            var response =
-                    http.send(request, java.net.http.HttpResponse.BodyHandlers.ofInputStream());
-            org.junit.jupiter.api.Assertions.assertEquals(200, response.statusCode());
-            try (var reader =
-                    new java.io.BufferedReader(new java.io.InputStreamReader(response.body()))) {
-                org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
-                        java.time.Duration.ofSeconds(8),
+                    HttpRequest.newBuilder(uri).header("Accept", "text/event-stream").GET().build();
+            var response = http.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            Assertions.assertEquals(200, response.statusCode());
+            try (var reader = new BufferedReader(new InputStreamReader(response.body()))) {
+                Assertions.assertTimeoutPreemptively(
+                        Duration.ofSeconds(8),
                         () -> {
-                            org.junit.jupiter.api.Assertions.assertEquals(
-                                    "data:{\"revision\":1}", readData(reader));
+                            Assertions.assertEquals("data:{\"revision\":1}", readData(reader));
                             request(token)
                                     .body(Map.of("side", "MINT"))
                                     .post("/sparrings/" + id + "/votes")
                                     .then()
                                     .statusCode(204);
-                            org.junit.jupiter.api.Assertions.assertEquals(
-                                    "data:{\"revision\":2}", readData(reader));
+                            Assertions.assertEquals("data:{\"revision\":2}", readData(reader));
                         });
             }
-            var reconnected =
-                    http.send(request, java.net.http.HttpResponse.BodyHandlers.ofInputStream());
-            try (var reader =
-                    new java.io.BufferedReader(new java.io.InputStreamReader(reconnected.body()))) {
-                org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
-                        java.time.Duration.ofSeconds(5),
-                        () ->
-                                org.junit.jupiter.api.Assertions.assertEquals(
-                                        "data:{\"revision\":2}", readData(reader)));
+            var reconnected = http.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            try (var reader = new BufferedReader(new InputStreamReader(reconnected.body()))) {
+                Assertions.assertTimeoutPreemptively(
+                        Duration.ofSeconds(5),
+                        () -> Assertions.assertEquals("data:{\"revision\":2}", readData(reader)));
             }
         }
+    }
+
+    @Test
+    @DisplayName("SSE는 최초 30개와 제한 없는 추가 의견 및 투표수를 전달한다")
+    void streamsSnapshotAndAllNewPosts() throws Exception {
+        // Given
+        String token = member("전달", "sparring-sse-posts");
+        long id = createTopic(token);
+        request(token)
+                .body(Map.of("side", "MINT"))
+                .post("/sparrings/" + id + "/votes")
+                .then()
+                .statusCode(204);
+        insertPosts(id, 40);
+        var uri =
+                URI.create(
+                        "http://localhost:"
+                                + RestAssured.port
+                                + "/api/sparrings/"
+                                + id
+                                + "/events");
+        try (var http = HttpClient.newHttpClient()) {
+            var request = HttpRequest.newBuilder(uri).GET().build();
+            var response = http.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            try (var reader = new BufferedReader(new InputStreamReader(response.body()))) {
+                Assertions.assertTimeoutPreemptively(
+                        Duration.ofSeconds(12),
+                        () -> {
+                            var snapshot = readEvent(reader, "snapshot");
+                            Assertions.assertEquals(30, snapshot.getList("posts").size());
+                            Assertions.assertEquals(40, snapshot.getInt("postCount"));
+                            long lastId = snapshot.getLong("posts[29].id");
+                            // When: all writes are committed together, as changes made by another
+                            // server.
+                            insertPosts(id, 1000);
+                            var update = readEvent(reader, "update");
+                            // Then: HTTP page size and replay retention do not truncate stream
+                            // delivery.
+                            Assertions.assertEquals(1000, update.getList("posts").size());
+                            Assertions.assertEquals(1040, update.getInt("postCount"));
+                            Assertions.assertEquals(lastId + 1, update.getLong("posts[0].id"));
+                            Assertions.assertEquals(lastId + 1000, update.getLong("posts[999].id"));
+                            Assertions.assertFalse(update.getMap("").containsKey("mySide"));
+                            request(token)
+                                    .body(Map.of("side", "CORAL"))
+                                    .post("/sparrings/" + id + "/votes")
+                                    .then()
+                                    .statusCode(204);
+                            var votes = readEvent(reader, "update");
+                            Assertions.assertTrue(votes.getList("posts").isEmpty());
+                            Assertions.assertEquals(0, votes.getInt("votesA"));
+                            Assertions.assertEquals(1, votes.getInt("votesB"));
+                        });
+            }
+            // When / Then: reconnect initializes latest30 even with an old Last-Event-ID.
+            var reconnect = HttpRequest.newBuilder(uri).header("Last-Event-ID", "1").GET().build();
+            var response2 = http.send(reconnect, HttpResponse.BodyHandlers.ofInputStream());
+            try (var reader = new BufferedReader(new InputStreamReader(response2.body()))) {
+                Assertions.assertTimeoutPreemptively(
+                        Duration.ofSeconds(5),
+                        () -> {
+                            var snapshot = readEvent(reader, "snapshot");
+                            Assertions.assertEquals(30, snapshot.getList("posts").size());
+                            Assertions.assertEquals(1040, snapshot.getInt("postCount"));
+                            Assertions.assertEquals(1, snapshot.getInt("votesB"));
+                        });
+            }
+        }
+    }
+
+    private void insertPosts(long topicId, int count) {
+        new JdbcTemplate(dataSource)
+                .update(
+                        """
+                        with inserted as (
+                            insert into sparring_post (created_at, updated_at, topic_id, member_id, side, text, request_id)
+                            select now(), now(), t.id, t.creator_id, 'MINT', 'stream ' || n, gen_random_uuid()
+                            from sparring_topic t cross join generate_series(1, ?) n where t.id = ?
+                            returning id
+                        ) update sparring_topic set revision = revision + (select count(*) from inserted) where id = ?
+                        """,
+                        count,
+                        topicId,
+                        topicId);
+    }
+
+    private JsonPath readEvent(BufferedReader reader, String name) throws IOException {
+        String event = "";
+        String line;
+        while ((line = reader.readLine()) != null) {
+            if (line.startsWith("event:")) event = line.substring(6);
+            if (line.startsWith("data:") && event.equals(name))
+                return new JsonPath(line.substring(5));
+        }
+        throw new EOFException("SSE closed before " + name);
     }
 
     @Test
@@ -408,9 +536,9 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
         String token = member("푸름", "sparring-concurrent");
         long id = createTopic(token);
         UUID requestId = UUID.randomUUID();
-        try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             var votes =
-                    java.util.stream.IntStream.range(0, 6)
+                    IntStream.range(0, 6)
                             .mapToObj(
                                     index ->
                                             executor.submit(
@@ -431,7 +559,7 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
                             .toList();
             for (var vote : votes) vote.get();
             var submissions =
-                    java.util.stream.IntStream.range(0, 6)
+                    IntStream.range(0, 6)
                             .mapToObj(
                                     index ->
                                             executor.submit(
@@ -449,16 +577,19 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
         }
         var result =
                 request(token).get("/sparrings/" + id).then().statusCode(200).extract().jsonPath();
-        org.junit.jupiter.api.Assertions.assertEquals(
-                1, result.getInt("data.votesA") + result.getInt("data.votesB"));
-        org.junit.jupiter.api.Assertions.assertEquals(1, result.getInt("data.postCount"));
+        Assertions.assertEquals(1, result.getInt("data.votesA") + result.getInt("data.votesB"));
+        Assertions.assertEquals(1, result.getInt("data.postCount"));
         post(token, id, "같은 번호 다른 내용", null, requestId).then().statusCode(400);
     }
 
-    private String readData(java.io.BufferedReader reader) throws java.io.IOException {
+    private String readData(BufferedReader reader) throws IOException {
         String line;
-        while ((line = reader.readLine()) != null) if (line.startsWith("data:")) return line;
-        throw new java.io.EOFException("SSE closed before its revision event");
+        String event = "";
+        while ((line = reader.readLine()) != null) {
+            if (line.startsWith("event:")) event = line.substring(6);
+            if (line.startsWith("data:") && event.equals("revision")) return line;
+        }
+        throw new EOFException("SSE closed before its revision event");
     }
 
     private String member(String name, String github) {
@@ -500,8 +631,7 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
         return token == null ? request : request.cookie(cookies.accessTokenName(), token);
     }
 
-    private io.restassured.response.Response post(
-            String token, long id, String text, Long replyTo, UUID requestId) {
+    private Response post(String token, long id, String text, Long replyTo, UUID requestId) {
         return request(token)
                 .body(new PostBody(text, replyTo, requestId))
                 .post("/sparrings/" + id + "/posts");

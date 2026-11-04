@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>앉은 캡슐 캐릭터 아틀라스</title>
+    <script type="importmap">
+      { "imports": { "three": "../public/sparring-arena/vendor/three.module.js" } }
+    </script>
+    <style>
+      body { margin: 24px; color: #1f343b; background: #edf5f8; font-family: system-ui, sans-serif; }
+      h1 { font-size: 22px; }
+      p { max-width: 760px; line-height: 1.6; }
+      canvas { display: block; width: min(100%, 1024px); height: auto; margin: 24px 0; background: #fff; }
+      button { padding: 10px 16px; font: inherit; cursor: pointer; }
+      output { display: block; margin-top: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>앉은 캡슐 캐릭터 아틀라스</h1>
+    <p>현재 3D 캐릭터와 두 편의 의자를 투명한 1024 × 1024 이미지로 렌더링합니다.
+      다운로드한 파일을 <code>public/sparring-arena/assets/seated-characters.webp</code>에 저장하세요.</p>
+    <div id="preview"></div>
+    <button id="download" type="button" disabled>WebP 다운로드</button>
+    <output id="status" role="status">캐릭터를 준비하고 있습니다.</output>
+    <script type="module">
+      import * as THREE from 'three';
+      import { createChairCharacters } from '../public/sparring-arena/src/chair-characters.js';
+
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        preserveDrawingBuffer: true,
+      });
+      renderer.setPixelRatio(1);
+      renderer.setSize(1024, 1024, false);
+      renderer.toneMapping = THREE.NeutralToneMapping;
+      renderer.toneMappingExposure = 0.9;
+      document.querySelector('#preview').append(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      scene.add(new THREE.HemisphereLight(0xffffff, 0xe5e7eb, 1));
+      const sun = new THREE.DirectionalLight(0xffffff, 3);
+      sun.position.set(-4, 10, 7);
+      scene.add(sun);
+      const fill = new THREE.DirectionalLight(0xe9faff, 0.5);
+      fill.position.set(5, 4, -5);
+      scene.add(fill);
+
+      const actors = createChairCharacters(scene, 1);
+      const camera = new THREE.OrthographicCamera(-1.1, 1.1, 1.1, -1.1, 0.1, 100);
+      camera.position.set(0, 1.9, 15);
+      camera.lookAt(0, 1, 0);
+      function renderAtlas() {
+        renderer.setScissorTest(true);
+        for (const [row, side] of ['a', 'b'].entries()) {
+          for (const [column, memberType] of ['CREW', 'COACH'].entries()) {
+            actors.draw(0, { side, memberType }, new THREE.Vector3(), 1, { seated: 1 }, side === 'a' ? 0.35 : -0.35);
+            renderer.setViewport(column * 512, (1 - row) * 512, 512, 512);
+            renderer.setScissor(column * 512, (1 - row) * 512, 512, 512);
+            renderer.render(scene, camera);
+          }
+        }
+        renderer.setScissorTest(false);
+      }
+      renderAtlas();
+
+      const download = document.querySelector('#download');
+      const status = document.querySelector('#status');
+      download.disabled = false;
+      status.textContent = '왼쪽: 크루 · 오른쪽: 코치 / 위: 민트 · 아래: 코랄 · Neutral 톤 매핑 / 노출 0.9';
+      download.addEventListener('click', () => {
+        renderAtlas();
+        renderer.domElement.toBlob((blob) => {
+          if (!blob || blob.type !== 'image/webp') {
+            status.textContent = '이 브라우저에서 WebP를 저장할 수 없습니다.';
+            return;
+          }
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = 'seated-characters.webp';
+          link.click();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          status.textContent = 'seated-characters.webp 다운로드를 시작했습니다.';
+        }, 'image/webp', 0.96);
+      });
+    </script>
+  </body>
+</html>

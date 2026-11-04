@@ -1,26 +1,36 @@
+import { createComposerBackdrop } from './composer-backdrop.js';
 import * as THREE from 'three';
 import { createCapsules } from './capsules.js';
 import { whenCharacterAssetsReady } from './characters.js';
 import { createCharacterDuel } from './character-duel.js';
-import { createHistoryConversation } from './history-conversation.js';
-import { createWalkingCharacters } from './walking-characters.js';
+import { createHistoryConversation, HISTORY_MODEL_CAPACITY } from './history-conversation.js';
+import { createChairCharacters } from './chair-characters.js';
+import { createChairDuelVisuals } from './chair-duel-visuals.js';
 import { createCapsuleReveals } from './capsule-reveals.js';
 import { createClash } from './clash.js';
+import { createMuzzleBurst } from './muzzle-burst.js';
+import { createClashCamera } from './clash-camera.js';
 import { createDispenser } from './dispenser.js';
 import { TRAY } from './dispenser-physics.js';
+import { PACKED_SCALE } from './history-walk.js';
 import { TANK, RADIUS, FRESH_CAPSULE_SCALE, nozzlePose } from './physics.js';
-import { studioMaterial, createStudioEnvironment } from './studio-materials.js';
+import { FRAME_COLOR, studioMaterial, createStudioEnvironment } from './studio-materials.js';
 import { createTransportScene } from './transport-scene.js';
-import { createPipeSurfaces } from './pipe-surfaces.js';
+import { PIPE_COLORS, createPipeSurfaces } from './pipe-surfaces.js';
+import { ARENA_VIEWS, createArenaCamera, fitArenaCamera, extendArenaViewport } from './arena-framing.js';
+import { createFrameClock } from './frame-clock.js';
+import { createPlanetPlayground } from './planet-playground.js';
+import { createBackgroundPlanets } from './background-planets.js';
+import { watchPlaygroundSky } from './playground-sky.js';
 
 const PIPE_LENGTH = 2.35;
 
-export function createArena(container, onSelect, onReveal, onReply = onSelect) {
+export function createArena(container, onSelect, onReveal, onReply = onSelect, requestHistory) {
   let assetsLoaded = false, layoutReady = false, presented = false, resolveReady;
   const firstFrame = new Promise(resolve => { resolveReady = resolve; });
   const scene = new THREE.Scene();
   const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true, powerPreference: 'low-power' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.7));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.setClearColor(0xffffff, 0);
@@ -28,37 +38,44 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
   renderer.toneMappingExposure = 0.9;
   scene.environment = createStudioEnvironment(renderer);
   container.append(renderer.domElement);
-  const camera = new THREE.OrthographicCamera(-16, 16, 10, -10, 0.1, 100);
-  camera.position.set(0, 5, 24);
-  camera.lookAt(0, 0, 0);
-  const renderCamera = camera.clone();
+  let viewMode = 'compact';
+  let camera = createArenaCamera(viewMode), renderCamera = camera.clone();
+  let presentationCamera = camera;
+  const clashCamera = createClashCamera();
+  container.dataset.viewMode = viewMode;
   const transportScene = createTransportScene(scene.environment);
+  const composer = document.querySelector('#composer');
+  const composerField = composer?.querySelector('.composer-field');
+  const composerBackdrop = createComposerBackdrop(transportScene.front);
   renderer.autoClear = false;
   renderer.info.autoReset = false;
   renderer.domElement.classList.add('arena-renderer');
-  let renderWidth = 0, renderHeight = 0;
-  function renderFrame() {
+  let renderWidth = 0, renderHeight = 0, backdropSide;
+  function renderFrame(bounds) {
     renderer.info.reset();
     const width = document.documentElement.clientWidth, height = innerHeight;
     if (renderWidth !== width || renderHeight !== height) {
       renderWidth = width; renderHeight = height;
       renderer.setSize(width, height, false);
     }
-    const bounds = container.getBoundingClientRect();
     renderer.setViewport(0, 0, width, height);
     renderer.clear();
-    renderer.render(transportScene.back, transportScene.camera);
-    renderer.clearDepth();
-    // Extend the lower clipping edge without changing the framing used by UI anchors.
-    const viewportHeight = Math.max(bounds.height, height - bounds.top);
-    const view = camera.view;
-    renderCamera.copy(camera);
-    renderCamera.setViewOffset(view.fullWidth, view.fullHeight, view.offsetX, view.offsetY,
-      view.width, view.height * viewportHeight / bounds.height);
-    renderer.setViewport(bounds.x, height - bounds.top - viewportHeight, bounds.width, viewportHeight);
+    const viewport = extendArenaViewport(presentationCamera, renderCamera, bounds, width, height, presentationCamera !== camera);
+    renderer.setViewport(viewport.x, viewport.y, viewport.width, viewport.height);
     renderer.render(scene, renderCamera);
+    // The intake runs over the tray edge; keep the same camera without letting the tray mask it.
+    renderer.clearDepth();
+    renderer.render(transportScene.world, renderCamera);
     renderer.clearDepth();
     renderer.setViewport(0, 0, width, height);
+    if (composer?.dataset.side !== backdropSide) {
+      backdropSide = composer?.dataset.side;
+      const color = getComputedStyle(composerField).getPropertyValue('--inlet-soft').trim();
+      composerBackdrop.setColor(color || '#def6f3');
+    }
+    const fieldRect = !clashCamera.intensity() && width <= 700 && composerField ? composerField.getBoundingClientRect() : null;
+    const backdropRect = fieldRect && { left: fieldRect.left + 2, bottom: fieldRect.bottom - 2, width: fieldRect.width - 4, height: fieldRect.height - 4 };
+    composerBackdrop.update(backdropRect, { width, height });
     renderer.render(transportScene.front, transportScene.camera);
     if (!presented && assetsLoaded && layoutReady) {
       presented = true;
@@ -71,12 +88,14 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
   Object.assign(sun.shadow.camera, { left: -13, right: 13, top: 10, bottom: -13, near: 0.5, far: 35 });
   sun.shadow.normalBias = 0.03; sun.shadow.bias = -0.0001; scene.add(sun);
   const light = new THREE.DirectionalLight(0xe9faff, 0.5); light.position.set(5, 4, -5); scene.add(light);
+  const playground = createPlanetPlayground(scene);
+  createBackgroundPlanets(scene);
 
   const height = TANK.rim - TANK.bottom;
   const halfWidth = TANK.width / 2, halfDepth = TANK.depth / 2;
   const glass = studioMaterial({ color: 0xffffff, transparent: true, opacity: 0.015, roughness: 0.08, envMapIntensity: 0.15, side: THREE.DoubleSide, depthWrite: false });
-  const rimMaterial = studioMaterial({ color: 0xf1f3f5, roughness: 0.45 });
-  const edgeMaterial = studioMaterial({ color: 0xd9dfe3, roughness: 0.45 });
+  const rimMaterial = studioMaterial({ color: FRAME_COLOR, roughness: 0.45 });
+  const edgeMaterial = studioMaterial({ color: FRAME_COLOR, roughness: 0.45 });
   function box(size, position, material) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
     mesh.position.set(...position); scene.add(mesh);
@@ -99,55 +118,66 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     strip.position.set(x, (TANK.rim + TANK.bottom) / 2, halfDepth + 0.03); scene.add(strip);
   }
 
+  function positionPipe(group, side) {
+    const pose = nozzlePose(side, viewMode), direction = new THREE.Vector3(...pose.direction).normalize();
+    group.position.copy(new THREE.Vector3(...pose.mouth).addScaledVector(direction, -PIPE_LENGTH / 2));
+    group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), direction);
+    return { pose, direction };
+  }
   function pipe(side, color) {
-    const pose = nozzlePose(side), direction = new THREE.Vector3(...pose.direction).normalize();
     const length = PIPE_LENGTH;
     const group = new THREE.Group();
-    group.position.copy(new THREE.Vector3(...pose.mouth).addScaledVector(direction, -length / 2));
-    group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), direction);
+    positionPipe(group, side);
+    const barrel = new THREE.Group(); group.add(barrel);
     const surfaces = createPipeSurfaces(color), material = surfaces.solid;
-    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, length, 36, 1, true), surfaces.wall);
-    tube.rotation.x = Math.PI / 2; tube.castShadow = true; group.add(tube);
-    const inside = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, length, 36, 1, true), surfaces.inner);
-    inside.rotation.x = Math.PI / 2; group.add(inside);
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, length, 36, 1, true), material);
+    tube.rotation.x = Math.PI / 2; tube.castShadow = true; barrel.add(tube);
+    const dark = studioMaterial({ color: side === 'a' ? 0x235f53 : 0x905143, roughness: 0.65, envMapIntensity: 0.22, side: THREE.DoubleSide });
+    const inside = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, length, 36, 1, true), dark);
+    inside.rotation.x = Math.PI / 2; barrel.add(inside);
     for (const z of [-length / 2, length / 2]) {
-      const lip = new THREE.Mesh(new THREE.TorusGeometry(0.73, 0.095, 10, 36), material); lip.position.z = z; group.add(lip);
+      const lip = new THREE.Mesh(new THREE.TorusGeometry(0.73, 0.095, 10, 36), material); lip.position.z = z; barrel.add(lip);
     }
     scene.add(group);
-    return { group, material, until: 0 };
+    return { group, material, until: 0, muzzle: createMuzzleBurst(group, barrel, length, side === 'a' ? 0x8ef5e8 : 0xffc49f) };
   }
-  const pipes = { a: pipe('a', 0x2ac1bc), b: pipe('b', 0xed6a5a) };
-  const capsules = createCapsules(scene, onSelect, post => container.dispatchEvent(new CustomEvent('capsuleready', { detail: { id: post.id } })));
+  const pipes = { a: pipe('a', PIPE_COLORS.a), b: pipe('b', PIPE_COLORS.b) };
+  const capsules = createCapsules(scene, onSelect, post => container.dispatchEvent(new CustomEvent('capsuleready', { detail: { id: post.id } })), requestHistory);
   const ready = whenCharacterAssetsReady().then(() => {
     assetsLoaded = true;
     wake();
     return firstFrame;
   });
   const stage = container.parentElement;
-  const duel = createCharacterDuel(stage, onReply, onReveal);
+  const duel = createCharacterDuel(stage, onReply, onReveal, createChairDuelVisuals(transportScene.front, stage));
   const duelField = stage.querySelector('.character-duel');
   duelField.hidden = true;
-  const historyModels = createWalkingCharacters(scene, 4);
+  const historyModels = createChairCharacters(scene, HISTORY_MODEL_CAPACITY);
   const history = createHistoryConversation(stage, onReply, onReveal, {
     ...historyModels,
     project: point => project([point.x, point.y, point.z]),
   });
   const reveals = createCapsuleReveals(container, onReply);
   const clash = createClash(scene, container, camera, () => {}, {
-    onImpact: ({ point }) => { if (!reduced.matches) capsules.shockwave(point); },
+    onLaunch: sides => { for (const side of sides) pipes[side].muzzle.fire(); },
+    onImpact: ({ point }) => {
+      if (!reduced.matches) { capsules.shockwave(point); reveals.spark(point, camera); }
+    },
     onImpactComplete: startGroup
   });
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   let groupId = 0, outputQueue = [], outputClock = 0, seeded = false;
   const replyQueue = [];
-  const launchedIds = new Set(), transports = new Set();
+  const launchedIds = new Set(), transports = new Set(), pendingReplies = new Set();
   const dispenser = createDispenser(scene, () => {}, {
     onOpened(entry) {
       if (entry.groupId !== groupId) return;
       const origin = () => project([entry.body.position.x, entry.body.position.y + 0.25, entry.body.position.z]);
       if (entry.kind === 'history') history.emerge(entry.post, entry.characterOrigin, reduced.matches);
       else duel.emerge(entry.role, origin, reduced.matches);
-    }
+    },
+    trayWidth: ARENA_VIEWS[viewMode].trayWidth,
+    edgeScale: ARENA_VIEWS[viewMode].edgeScale,
   });
   function project(position) {
     const p = new THREE.Vector3(...position).project(camera);
@@ -156,7 +186,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
   function startGroup(selection) {
     const participants = duel.prepare(selection.post, selection.fresh, reduced.matches);
     if (!participants.length) return;
-    if (selection.fresh) capsules.queueReplay(selection.post);
+    history.leaveAll(reduced.matches);
     duelField.hidden = false;
     dispenser.clearAll();
     groupId++;
@@ -170,6 +200,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
       startTransport(selection.transport, () => startSelection({ ...selection, transport: null }), selection.settle);
       return;
     }
+    pendingReplies.delete(selection.post.id);
     if (!selection.post.replyTo || !selection.fresh && !selection.replayClash) {
       duel.clear();
       duelField.hidden = true;
@@ -185,7 +216,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     dispenser.clearAll();
     duel.clear();
     duelField.hidden = true;
-    history.setVisible(false);
+    history.setVisible(true, { speech: false });
     clash.reposition();
     clash.start(selection.post, selection.fresh, reduced.matches);
     clash.step(0);
@@ -207,7 +238,8 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     catch { complete(); }
   }
   let releaseClock = 0, pipeClock = 0, allowPausedRelease = false, spillQueue = 0;
-  let disposed = false, controlKey = '', frame = 0, awakeUntil = 0, last = performance.now(), isVisible = true, paused = false, statsAt = 0;
+  let disposed = false, controlKey = '', frame = 0, awakeUntil = 0, isVisible = true, paused = false, statsAt = 0;
+  const frameClock = createFrameClock();
   function syncMotionPause() {
     const stopped = (paused && !allowPausedRelease) || !isVisible || document.hidden;
     duel.setPaused(stopped);
@@ -218,16 +250,18 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     syncMotionPause();
     awakeUntil = performance.now() + (reduced.matches ? 80 : 5000); statsAt = -Infinity;
     container.dataset.flowState = reduced.matches ? 'reduced' : paused ? 'paused' : 'running';
-    if (!frame && isVisible && !document.hidden) { last = performance.now() - 34; frame = requestAnimationFrame(tick); }
+    if (!frame && isVisible && !document.hidden) { frameClock.reset(performance.now()); frame = requestAnimationFrame(tick); }
   }
   function tick(now) {
-    frame = 0;
-    if (disposed || !isVisible || document.hidden) return;
-    if (now - last < 1000 / 30) { frame = requestAnimationFrame(tick); return; }
-    const delta = Math.min((now - last) / 1000, 0.05); last = now;
+    // Keep the handle during callbacks so wake() cannot start a second loop mid-frame.
+    if (disposed || !isVisible || document.hidden) { frame = 0; return; }
+    const delta = frameClock.take(now);
+    if (!delta) { frame = requestAnimationFrame(tick); return; }
     capsules.step(delta, reduced.matches);
+    const collision = capsules.takeCollision();
+    if (collision && !paused && !reduced.matches) reveals.spark(collision, camera);
     transportScene.step(delta);
-    if (!paused && !reduced.matches && !clash.busy() && !replyQueue.length && !transports.size) {
+    if (!paused && !reduced.matches) {
       pipeClock += delta;
       if (pipeClock >= 0.10) {
         pipeClock = 0;
@@ -236,15 +270,19 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
       }
     }
     releaseClock += delta;
-    const waiting = capsules.stats();
-    const priority = waiting.queuedId !== null || replyQueue.length > 0;
+    const waiting = capsules.controlState();
+    const trackedReplyId = clashCamera.activePostId();
+    const followingPendingReply = pendingReplies.has(trackedReplyId);
+    const priority = waiting.queuedId !== null || replyQueue.length > 0 || waiting.freshReady;
     const userSpill = spillQueue > 0;
     const due = !!replyQueue[0]?.transport || reduced.matches || releaseClock >= (priority ? 0.55 : userSpill ? 0.1 : 1.8);
     const canMove = (!paused || allowPausedRelease) && !duel.pinned() && !history.pinned();
-    const replaceReady = duel.canReplace(false) && !outputQueue.length &&
-      dispenser.readyForNext(true, reduced.matches);
-    if (canMove && !clash.busy() && !transports.size && replaceReady && due && (priority || userSpill || (!paused && !reduced.matches))) {
-      const selection = replyQueue.length ? replyQueue.shift() : waiting.queuedId !== null ? (waiting.drawReady ? capsules.takeForDraw() : null) : capsules.takeHistorical();
+    const replaceReady = duel.canReplace(false) && history.canAccept() && !outputQueue.length &&
+      dispenser.readyForNext(true, reduced.matches) && (!waiting.freshReady || followingPendingReply || history.canReplace());
+    if (canMove && !clash.busy() && replaceReady && due && (priority || userSpill || (!paused && !reduced.matches))) {
+      // The tracked reply hides history speech, so its reading timer cannot unblock it.
+      const selection = followingPendingReply ? capsules.takeHistorical(true, trackedReplyId)
+        : replyQueue.length ? replyQueue.shift() : waiting.queuedId !== null ? (waiting.drawReady ? capsules.takeForDraw() : null) : capsules.takeHistorical(!userSpill && (paused || reduced.matches));
       if (selection) {
         if (userSpill && !priority) spillQueue--;
         startSelection(selection);
@@ -253,65 +291,64 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
     if (canMove) {
       outputClock += delta;
       if (outputQueue.length && (reduced.matches || outputClock >= 0.45) && dispenser.readyForNext(true, reduced.matches)) {
-        if (dispenser.start(outputQueue[0], reduced.matches)) { outputQueue.shift(); outputClock = 0; }
+        if ((outputQueue[0].kind !== 'history' || history.canAccept()) && dispenser.start(outputQueue[0], reduced.matches)) { outputQueue.shift(); outputClock = 0; }
       }
       dispenser.step(delta, reduced.matches);
       duel.step(delta, reduced.matches);
       history.step(delta, reduced.matches);
-      clash.step(delta);
+      clash.step(delta * clashCamera.timeScale(clash.presentation()));
     }
     if (!reduced.matches && !duelField.hidden && duel.canReplace(false) && !clash.busy()) {
       duel.clear(); duelField.hidden = true; history.setVisible(true);
     }
-    reveals.update([], capsules.presentation().tracking, camera);
+    presentationCamera = clashCamera.update(camera,
+      [clash.presentation(), transportScene.presentation(), dispenser.presentation()],
+      delta, reduced.matches || !canMove, pendingReplies);
+    const cameraIntensity = clashCamera.intensity();
+    stage.dataset.cinematic = String(cameraIntensity > 0);
+    if (composer && composer.hasAttribute('inert') !== (cameraIntensity > 0)) composer.toggleAttribute('inert', cameraIntensity > 0);
+    history.setVisible(true, { speech: cameraIntensity === 0 && !clash.busy() && duelField.hidden });
+    const bounds = container.getBoundingClientRect();
+    transportScene.setPresentation(presentationCamera, bounds, cameraIntensity > 0);
+    clash.projectEffects(presentationCamera);
+    reveals.update([], capsules.presentation().tracking, presentationCamera);
     const outputActive = outputQueue.length > 0 || dispenser.outputs().length > 0;
-    if (paused && !replyQueue.length && !transports.size && !spillQueue && !outputActive && !duel.needsFrame() && !history.stats().historyArriving && !clash.busy()) {
+    if (paused && !replyQueue.length && !waiting.freshReady && !transports.size && !spillQueue && !outputActive && !duel.needsFrame() && !history.stats().historyArriving && !clash.busy()) {
       allowPausedRelease = false;
       syncMotionPause();
     }
     for (const item of Object.values(pipes)) {
+      item.muzzle.step(delta, reduced.matches);
       const pulse = reduced.matches ? 0 : Math.min(1, Math.max(0, (item.until - now) / 600));
       item.material.emissiveIntensity = pulse * 0.5;
       item.group.scale.set(1 + pulse * 0.13, 1 + pulse * 0.13, 1);
     }
-    renderFrame();
+    renderFrame(bounds);
     syncControls();
     if (now - statsAt > 250) {
       statsAt = now;
-      container.dataset.renderStats = JSON.stringify({ ...capsules.stats(), ...dispenser.stats(), ...duel.stats(), ...history.stats(), ...clash.stats(), outputQueued: outputQueue.length, replyQueued: replyQueue.length, spillQueue, draws: renderer.info.render.calls, geometries: renderer.info.memory.geometries });
+      container.dataset.renderStats = JSON.stringify({ ...capsules.stats(), ...dispenser.stats(), ...duel.stats(), ...history.stats(), ...clash.stats(), cameraShot: cameraIntensity > 0, outputQueued: outputQueue.length, replyQueued: replyQueue.length, spillQueue, draws: renderer.info.render.calls, geometries: renderer.info.memory.geometries });
       container.dataset.flowState = reduced.matches ? 'reduced' : paused ? 'paused' : 'running';
     }
-    const pendingRelease = (waiting.queuedId !== null || replyQueue.length || spillQueue) && !clash.busy() && duel.canReplace(false);
-    if ((!paused && !reduced.matches) || ((allowPausedRelease || (!paused && reduced.matches)) && (pendingRelease || outputActive || duel.needsFrame() || history.needsFrame() || clash.needsFrame())) || now < awakeUntil) frame = requestAnimationFrame(tick);
+    const pendingRelease = (waiting.queuedId !== null || replyQueue.length || waiting.freshReady || spillQueue) && !clash.busy() && duel.canReplace(false);
+    frame = 0;
+    if (!disposed && isVisible && !document.hidden && ((!paused && !reduced.matches) || ((allowPausedRelease || (!paused && reduced.matches)) && (pendingRelease || outputActive || duel.needsFrame() || history.needsFrame() || clash.needsFrame())) || now < awakeUntil)) frame = requestAnimationFrame(tick);
   }
   function syncControls() {
-    const stats = capsules.stats(), busy = duel.busy() || clash.busy();
-    const detail = { phase: dispenser.stats().outputRolling ? 'rolling' : busy ? 'open' : 'idle', ready: stats.drawReady && !busy, pending: replyQueue.length > 0 };
+    const stats = capsules.controlState(), busy = duel.busy() || clash.busy();
+    const detail = { phase: dispenser.stats().outputRolling ? 'rolling' : busy ? 'open' : 'idle', ready: stats.drawReady && !busy, pending: replyQueue.length > 0 || stats.freshReady };
     const key = JSON.stringify(detail);
     if (key !== controlKey) { controlKey = key; container.dispatchEvent(new CustomEvent('slidestate', { detail })); }
   }
   function resize() {
     const width = container.clientWidth, height = container.clientHeight;
-    const aspect = width / height;
-    camera.left = -10 * aspect; camera.right = 10 * aspect;
-    camera.top = 10; camera.bottom = -10; camera.zoom = 1; camera.clearViewOffset();
-    camera.updateProjectionMatrix(); camera.updateMatrixWorld();
-    const corners = [];
-    for (const x of [-halfWidth, halfWidth]) for (const y of [TANK.bottom, TANK.rim]) for (const z of [-halfDepth, halfDepth]) {
-      corners.push(new THREE.Vector3(x, y, z).project(camera));
-    }
-    const xs = corners.map(p => p.x);
-    const ys = corners.map(p => p.y);
-    const minY = Math.min(...ys), maxY = Math.max(...ys);
-    const projectedWidth = (Math.max(...xs) - Math.min(...xs)) * width / 2;
-    const projectedHeight = (maxY - minY) * height / 2;
-    camera.zoom = Math.min(width * 0.8 / projectedWidth, height * 0.66 / projectedHeight);
-    const centerY = (minY + maxY) * camera.zoom / 2;
-    const desktopOffset = width > 1000 ? 36 : 0;
-    camera.setViewOffset(width, height, 0, (0.24 - centerY) * height / 2 - desktopOffset, width, height);
+    if (!width || !height) return;
+    fitArenaCamera(camera, viewMode, width, height, TANK);
+    const tankTop = project([0, TANK.rim, TANK.depth / 2]);
+    stage.style.setProperty('--tank-top', `${tankTop.y}px`);
     const anchors = {};
     for (const side of ['a', 'b']) {
-      const pose = nozzlePose(side), direction = new THREE.Vector3(...pose.direction).normalize();
+      const { pose, direction } = positionPipe(pipes[side].group, side);
       const rear = new THREE.Vector3(...pose.mouth).addScaledVector(direction, -PIPE_LENGTH);
       const rearPoint = project(rear.toArray()), mouthPoint = project(pose.mouth);
       const axisX = mouthPoint.x - rearPoint.x, axisY = mouthPoint.y - rearPoint.y;
@@ -323,6 +360,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
         ...rearPoint, mouth: mouthPoint,
         capsuleDiameter: Math.abs(project([RADIUS * FRESH_CAPSULE_SCALE * 2, 0, 0]).x - project([0, 0, 0]).x),
         direction: { x: axisX / axisLength, y: axisY / axisLength },
+        outlet: { rear: rear.toArray(), mouth: pose.mouth, direction: direction.toArray() },
         width: Math.hypot(rimA.x - rimB.x, rimA.y - rimB.y)
       };
       const station = stage.querySelector('#station-' + side), p = project(nozzlePose(side).mouth);
@@ -331,6 +369,11 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
         station.style.setProperty('--station-x', p.x + 'px');
         station.style.setProperty('--station-y', p.y + 'px');
         station.style.setProperty('--stage-width', width + 'px');
+        const mouth = new THREE.Vector3(...pose.mouth);
+        const pipeTop = Math.min(rimA.y, rimB.y,
+          project(mouth.clone().add(crossSection).toArray()).y,
+          project(mouth.clone().sub(crossSection).toArray()).y);
+        station.style.setProperty('--pipe-label-bottom', `${p.y - pipeTop + 4}px`);
         const body = pipes[side].group.position;
         const stamp = project([body.x, body.y - 0.25, body.z + 0.8]);
         const meter = station.querySelector('.pipe-meter');
@@ -338,24 +381,43 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
       }
     }
     container.dataset.pipeAnchors = JSON.stringify(anchors);
-    const landingZ = 10.1;
+    const compact = viewMode === 'compact';
+    const landingZ = compact ? 9.6 : 10.1;
     const landingY = TRAY.y + (TRAY.frontY - TRAY.y) * (landingZ - TRAY.back) / (TRAY.front - TRAY.back) + 0.12;
-    const worldDestinations = [-4.4, 4.4].map(x => ({ x, y: landingY, z: landingZ }));
+    const duelSpread = 1.8;
+    const worldDestinations = [-duelSpread, duelSpread].map(x => ({ x, y: landingY, z: landingZ }));
     const destinations = worldDestinations.map(point => project([point.x, point.y, point.z]));
+    duelField.dataset.compact = String(compact);
     duel.setLayout(destinations);
     const historyZ = landingZ;
     const historyY = TRAY.y + (TRAY.frontY - TRAY.y) * (historyZ - TRAY.back) / (TRAY.front - TRAY.back) + 0.12;
-    const historySpread = TRAY.frontWidth * 0.22;
+    const historySpread = ARENA_VIEWS[viewMode].trayWidth * 0.22;
     const historyWorld = [-historySpread, historySpread].map(x => ({ x, y: historyY, z: historyZ }));
     const historyPoints = historyWorld.map(point => project([point.x, point.y, point.z]));
-    history.setLayout({ left: historyPoints[0], right: historyPoints[1], worldLeft: historyWorld[0], worldRight: historyWorld[1], width });
+    const floorCenter = project([0, historyY, historyZ]);
+    const pixelsPerUnit = project([1, historyY, historyZ]).x - floorCenter.x;
+    const bounds = container.getBoundingClientRect();
+    const margin = 2.1 * (compact ? PACKED_SCALE : 0.65) * pixelsPerUnit + 16;
+    const exitWorld = [-bounds.left - margin, document.documentElement.clientWidth - bounds.left + margin]
+      .map(x => ({ x: (x - floorCenter.x) / pixelsPerUnit, y: historyY, z: historyZ }));
+    history.setLayout({ exitLeft: exitWorld[0], exitRight: exitWorld[1], left: historyPoints[0], right: historyPoints[1], worldLeft: historyWorld[0], worldRight: historyWorld[1], width,
+      characterScale: compact ? PACKED_SCALE : 0.65, characterGap: compact ? 0.55 : 0.9 });
     clash.reposition();
     if (clash.busy()) clash.step(0);
     wake();
   }
   const sizeObserver = new ResizeObserver(resize);
   sizeObserver.observe(container);
-  function suspend() { if (frame) cancelAnimationFrame(frame); frame = 0; syncMotionPause(); container.dataset.flowState = 'hidden'; }
+  function suspend() {
+    if (frame) cancelAnimationFrame(frame);
+    frame = 0;
+    // Stored posts remain available to history; missed live effects need not play on return.
+    for (const selection of replyQueue) selection.settle?.();
+    replyQueue.length = 0;
+    pendingReplies.clear();
+    capsules.settleReplays();
+    clashCamera.reset(); syncMotionPause(); container.dataset.flowState = 'hidden';
+  }
   const visibilityObserver = new IntersectionObserver(entries => { isVisible = entries[0].isIntersecting; if (isVisible) wake(); else suspend(); });
   visibilityObserver.observe(stage);
   const visibilityChanged = () => { if (document.hidden) suspend(); else wake(); };
@@ -368,10 +430,13 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
   const clashWake = () => { allowPausedRelease = paused; wake(); };
   container.addEventListener('clashwake', clashWake);
   renderer.domElement.addEventListener('click', event => {
-    if (capsules.pick(event, container, camera)) { allowPausedRelease = paused; wake(); }
+    if (capsules.pick(event, container, presentationCamera)) { allowPausedRelease = paused; wake(); }
   });
   const updateHoses = event => {
-    transportScene.update(event.detail, document.documentElement.clientWidth, innerHeight);
+    const rect = container.getBoundingClientRect();
+    transportScene.update(event.detail, document.documentElement.clientWidth, innerHeight, {
+      camera, bounds: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
+    });
     layoutReady = true;
     document.documentElement.classList.add('transport-webgl-ready');
     wake();
@@ -385,15 +450,30 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
   };
   container.addEventListener('capsuleship', shipCapsule);
   renderer.domElement.addEventListener('webglcontextlost', event => { event.preventDefault(); document.documentElement.classList.remove('transport-webgl-ready'); container.dispatchEvent(new CustomEvent('sceneerror')); });
+  const stopSky = watchPlaygroundSky(period => { playground.setPeriod(period); wake(); });
   resize();
   return {
     ready,
+    setClashCamera(value) { clashCamera.setEnabled(value); wake(); },
+    setView(next) {
+      if (!Object.hasOwn(ARENA_VIEWS, next) || next === viewMode || disposed) return;
+      viewMode = next;
+      camera = createArenaCamera(next); renderCamera = camera.clone();
+      presentationCamera = camera; clashCamera.reset();
+      clash.setCamera(camera);
+      dispenser.setTrayWidth(ARENA_VIEWS[next].trayWidth, ARENA_VIEWS[next].edgeScale);
+      container.dataset.viewMode = next;
+      resize();
+    },
     dispose() {
       disposed = true; suspend();
+      stopSky(); playground.dispose();
+      stage.dataset.cinematic = 'false';
+      composer?.removeAttribute('inert');
       sizeObserver.disconnect(); visibilityObserver.disconnect();
       container.removeEventListener('transportlayout', updateHoses);
       container.removeEventListener('capsuleship', shipCapsule);
-      transportScene.dispose();
+      composerBackdrop.dispose(); transportScene.dispose();
       document.documentElement.classList.remove('transport-webgl-ready');
       reduced.removeEventListener('change', wake);
       document.removeEventListener('visibilitychange', visibilityChanged);
@@ -428,13 +508,21 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
       allowPausedRelease = paused; wake();
     },
     launch(post, transport) {
-      if (disposed || launchedIds.has(String(post.id))) return;
+      if (disposed || document.hidden || !isVisible || launchedIds.has(String(post.id))) return;
       launchedIds.add(String(post.id));
       if (launchedIds.size > 256) launchedIds.delete(launchedIds.values().next().value);
       let settle;
       const delivered = transport ? new Promise(resolve => { settle = resolve; }) : undefined;
       allowPausedRelease = paused;
-      if (post.replyTo) replyQueue.push({ post, fresh: true, transport, settle });
+      capsules.queueReplay(post, Infinity);
+      if (post.replyTo) {
+        pendingReplies.add(post.id);
+        const arrive = () => {
+          capsules.queueReplay(post, 0, isVisible && !document.hidden);
+        };
+        if (transport) startTransport(transport, arrive, settle);
+        else arrive();
+      }
       else {
         const arrive = () => {
           capsules.launch(post, { reduced: reduced.matches });
@@ -448,8 +536,8 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect) {
       return delivered;
     },
     celebrate(id) { if (!reduced.matches) capsules.nudge(id); wake(); },
-    updateState(posts, balance) {
-      capsules.updateState(posts, balance); duel.updateState(posts);
+    updateState(posts, balance, historyPage) {
+      capsules.updateState(posts, balance, historyPage); duel.updateState(posts);
       if (!seeded) {
         seeded = true;
         if (posts.length) startSelection(capsules.takeHistorical());

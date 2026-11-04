@@ -7,12 +7,8 @@ export const arenaActions = [
   "sparring_message_edit",
   "sparring_reply_cancel",
   "sparring_reply_start",
-  "sparring_history_locate",
   "sparring_flow_toggle",
   "sparring_capsule_release",
-  "sparring_history_more",
-  "sparring_history_filter",
-  "sparring_history_select",
   "sparring_capsule_select",
   "sparring_clash_expand",
   "sparring_clash_replay",
@@ -22,6 +18,7 @@ const base = { channel: z.literal("jarihana-sparring") };
 const rpc = { ...base, kind: z.literal("command"), requestId: z.string().max(80) };
 export const arenaMessageSchema = z.union([
   z.object({ ...base, kind: z.literal("ready") }),
+  z.object({ ...base, kind: z.literal("history"), page: z.number().int().nonnegative() }),
   z.object({ ...base, kind: z.literal("scene"), status: z.enum(["ready", "error"]) }),
   z.object({ ...base, kind: z.literal("reveal") }),
   z.object({ ...base, kind: z.literal("interaction"), action: z.enum(arenaActions) }),
@@ -35,11 +32,6 @@ export const arenaMessageSchema = z.union([
       replyToId: z.string().nullable(),
       postId: z.string().uuid()
     })
-  }),
-  z.object({
-    ...rpc,
-    action: z.literal("history"),
-    payload: z.object({ mine: z.boolean(), reset: z.boolean() })
   }),
   z.object({ ...rpc, action: z.literal("login"), payload: z.object({}) })
 ]);

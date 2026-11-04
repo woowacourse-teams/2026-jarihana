@@ -107,3 +107,69 @@ it('소매와 바지 겉면이 바깥을 향해 닫힌 옷으로 렌더링된다
     expect(outward / samples).toBeGreaterThan(0.8);
   }
 });
+
+it('캡슐 안의 자세는 중심을 기준으로 함께 회전하고 밖에서는 다시 똑바로 선다', () => {
+  const models = createWalkingCharacters(new THREE.Scene(), 2);
+  const pose = { stage: 'packed', scale: 0.31, lift: -0.34, shrink: 1 };
+  models.draw(0, crew, new THREE.Vector3(), 1, pose);
+  const packed = snapshot(models, 0);
+  const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.7, 0.3, 1.2));
+  models.draw(0, crew, new THREE.Vector3(), 1, pose, 0, rotation);
+  const rotated = snapshot(models, 0);
+  const turn = new THREE.Matrix4().makeRotationFromQuaternion(rotation);
+  for (let part = 0; part < packed.length; part++) {
+    for (let offset = 0; offset < packed[part].length; offset += 16) {
+      const expected = new THREE.Matrix4().fromArray(packed[part], offset).premultiply(turn).elements;
+      expected.forEach((value, index) => expect(rotated[part][offset + index]).toBeCloseTo(value, 5));
+    }
+  }
+  models.draw(0, crew, new THREE.Vector3(), 1, pose);
+  expect(snapshot(models, 0)).toEqual(packed);
+});
+
+it.each([crew, coach])('의자에 앉고 일어나는 동안 발은 바닥을 유지하고 원래 자세로 돌아온다: %j', post => {
+  const models = createWalkingCharacters(new THREE.Scene(), 2);
+  models.draw(0, post, new THREE.Vector3(), 1, {});
+  const standing = snapshot(models, 0), standingHeight = bounds(models, 0).max.y;
+  for (const seated of [0.25, 0.5, 0.75, 1]) {
+    models.draw(0, post, new THREE.Vector3(), 1, { seated });
+    expect(snapshot(models, 0).flat().every(Number.isFinite)).toBe(true);
+    const box = bounds(models, 0);
+    expect(box.min.y).toBeGreaterThanOrEqual(-0.005);
+    expect(box.min.y).toBeLessThan(0.02);
+  }
+  expect(bounds(models, 0).max.y).toBeCloseTo(standingHeight - 0.20, 4);
+  models.draw(0, post, new THREE.Vector3(), 1, {});
+  expect(snapshot(models, 0)).toEqual(standing);
+});
+
+it('손 위치는 몸의 이동·회전·크기를 따르며 다른 슬롯의 자세에 영향받지 않는다', () => {
+  const models = createWalkingCharacters(new THREE.Scene(), 2);
+  const pose = { seated: 1, leftArm: -1.3, rightArm: -1.3, leftElbow: -0.5, rightElbow: -0.5,
+    leftSpread: -0.2, rightSpread: 0.2 };
+  const first = models.draw(0, crew, new THREE.Vector3(), 1, pose);
+  const original = { leftHand: first.leftHand.clone(), rightHand: first.rightHand.clone() };
+  const position = new THREE.Vector3(3, 2, -1), yaw = Math.PI / 2, scale = 0.7;
+  const second = models.draw(1, crew, position, scale, pose, yaw);
+  for (const name of ['leftHand', 'rightHand']) {
+    const expected = original[name].clone().multiplyScalar(scale).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw).add(position);
+    expect(second[name].distanceTo(expected)).toBeLessThan(1e-6);
+    expect(first[name].toArray()).toEqual(original[name].toArray());
+    expect(second[name]).not.toBe(first[name]);
+  }
+  const other = snapshot(models, 1);
+  models.draw(0, coach, new THREE.Vector3(-3, 0, 0), 1, { seated: 0.5 });
+  expect(snapshot(models, 1)).toEqual(other);
+});
+
+it('의자를 잡는 명시적인 어깨·팔꿈치 자세는 말하기 동작보다 우선한다', () => {
+  const models = createWalkingCharacters(new THREE.Scene(), 2);
+  const pose = { leftArm: -1.1, rightArm: -1.2, leftElbow: -0.3, rightElbow: -0.4,
+    leftSpread: -0.25, rightSpread: 0.3, speaking: true };
+  const first = models.draw(0, crew, new THREE.Vector3(), 1, { ...pose, time: 0 });
+  const hands = { leftHand: first.leftHand.clone(), rightHand: first.rightHand.clone() };
+  const second = models.draw(0, crew, new THREE.Vector3(), 1, { ...pose, time: 1 });
+  for (const name of ['leftHand', 'rightHand']) expect(second[name].toArray()).toEqual(hands[name].toArray());
+  models.draw(0, crew, new THREE.Vector3(), 1, {});
+  expect(second.rightHand.distanceTo(hands.rightHand)).toBeGreaterThan(0.2);
+});

@@ -68,4 +68,10 @@ export async function postSparring(topicId, json) {
   captureEvent("sparring_post_saved");
   return result;
 }
-export const revisionSchema = z.object({ revision: id });
+export const streamSchema = z.object({
+  revision: id,
+  votesA: z.number().int().nonnegative(),
+  votesB: z.number().int().nonnegative(),
+  postCount: z.number().int().nonnegative(),
+  posts: z.array(postSchema)
+});

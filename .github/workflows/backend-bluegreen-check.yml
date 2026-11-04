@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - infra/blue-green-deploy/**
+      - infra/monitoring/deployment/**
+      - infra/scripts/deploy/actions/**
+      - infra/tests/deploy/telemetry/**
       - .github/workflows/backend-bluegreen-*.yml
       - .github/workflows/backend-app-operation.yml
       - .github/workflows/backend-dev-deploy.yml
@@ -40,6 +43,11 @@ jobs:
       - name: 격리된 로컬 계약 테스트
         # Protected-file tests create root-owned temporary fixtures, without business secrets.
         run: sudo bash infra/blue-green-deploy/tests/actions/run-tests.sh
+      - name: 실제 Nginx 점검 표시와 외부 헤더 제거 검증
+        run: |
+          docker pull node@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53
+          docker pull nginx:1.30.5-alpine
+          bash infra/blue-green-deploy/tests/actions/run-probe-header-e2e.sh
   api-budget-shard:
     name: api-budget shard ${{ matrix.shard }}
     runs-on: ubuntu-latest
@@ -64,3 +72,23 @@ jobs:
         env:
           RESULT: ${{ needs.api-budget-shard.result }}
         run: test "$RESULT" = success
+  collector:
+    name: Central deployment collector
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: 수집기 구문과 읽기 전용 계약 검사
+        run: |
+          if ! command -v shellcheck >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install --yes shellcheck
+          fi
+          for file in infra/monitoring/deployment/*.sh infra/scripts/deploy/actions/*.sh infra/tests/deploy/telemetry/*.sh; do
+            bash -n "$file"
+          done
+          shellcheck --severity=error --external-sources --source-path=SCRIPTDIR \
+            infra/monitoring/deployment/*.sh infra/scripts/deploy/actions/*.sh
+          sudo bash infra/tests/deploy/telemetry/run-tests.sh

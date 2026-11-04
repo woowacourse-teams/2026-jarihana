@@ -2,17 +2,19 @@ import * as CANNON from '../vendor/cannon-es.js';
 
 export const CAPACITY = 240;
 export const RADIUS = 0.5;
-export const FRESH_CAPSULE_SCALE = 1.28;
+export const FRESH_CAPSULE_SCALE = 1;
 export const TANK = Object.freeze({ width: 18, depth: 4.4, bottom: -4.4, rim: 4.4 });
+export const SHOCKWAVE_RADIUS = 8.5, SHOCKWAVE_SPEED = 30;
 
-// The 5:24 front-view elevation keeps this nozzle axis horizontal on screen.
-// The mouth is shared; the capsule retains its downward discharge velocity.
-export function nozzlePose(side) {
+// Keep the original front-view adjustment only for the orthographic composition.
+// The reference composition uses the prototype's downward nozzle/launch axis.
+export function nozzlePose(side, view = 'original') {
   const sign = side === 'a' ? -1 : 1;
+  const launchDirection = [-sign * 0.965, -0.15, 0.215];
   return {
     mouth: [sign * (TANK.width / 2 - 0.7), 3.2, 0.12],
-    direction: [-sign * 0.92, 0.08, 0.384],
-    launchDirection: [-sign * 0.965, -0.15, 0.215],
+    direction: (view === 'reference' || view === 'compact') ? launchDirection : [-sign * 0.92, 0.08, 0.384],
+    launchDirection,
   };
 }
 
@@ -67,44 +69,44 @@ export function createCapsulePhysics({ capacity = CAPACITY, seed = 19 } = {}) {
   });
   let exchanges = 0, shockwaves = 0;
   const waves = [];
+  const waveRadius = SHOCKWAVE_RADIUS, waveSpeed = SHOCKWAVE_SPEED;
   function step(delta) {
     const elapsed = Math.min(delta, 0.05);
     for (let i = waves.length - 1; i >= 0; i--) {
       const wave = waves[i];
       wave.elapsed += elapsed;
-      while (wave.next < wave.targets.length && wave.targets[wave.next].distance <= wave.elapsed * 10) {
-        const { entry, born, post, distance, dx, dz, index } = wave.targets[wave.next++];
-        if (entry.born !== born || entry.post !== post) continue;
+      for (let j = wave.targets.length - 1; j >= 0; j--) {
+        const { entry, born, post, index } = wave.targets[j];
+        if (entry.born !== born || entry.post !== post) { wave.targets.splice(j, 1); continue; }
         const { body } = entry;
-        if (!Number.isFinite(body.position.y) || body.position.y >= TANK.rim - 1.3) continue;
-        const strength = 1 - distance / 8.5;
-        const direction = distance > 0.01 ? dx / distance : (index % 2 ? 0.15 : -0.15);
+        const dx = body.position.x - wave.x, dy = body.position.y - wave.y, dz = body.position.z - wave.z;
+        const distance = Math.hypot(dx, dy, dz);
+        if (!Number.isFinite(distance) || distance >= waveRadius || distance > wave.elapsed * waveSpeed) continue;
+        wave.targets.splice(j, 1);
+        const strength = 1 - distance / waveRadius;
+        const horizontalDistance = Math.hypot(dx, dz);
+        const nx = horizontalDistance > 0.01 ? dx / horizontalDistance : (index % 2 ? 1 : -1);
+        const nz = horizontalDistance > 0.01 ? dz / horizontalDistance : 0;
+        // Lift the packed pile as it spreads; a downward impulse is absorbed by the floor.
+        const outwardSpeed = body.velocity.x * nx + body.velocity.z * nz;
+        const kick = Math.max(0, (0.35 + 0.65 * strength) * 15 - outwardSpeed);
         body.wakeUp();
-        body.velocity.x += direction * strength * 3.2;
-        body.velocity.y = Math.max(body.velocity.y, 0.9 + strength * 6.2);
-        body.velocity.z += dz / Math.max(distance, 0.5) * strength * 1.2;
-        body.angularVelocity.z += direction * strength * 1.2;
+        body.velocity.x += nx * kick;
+        body.velocity.y = Math.max(body.velocity.y, strength * 10);
+        body.velocity.z += nz * kick;
+        body.angularVelocity.z += nx * strength * 2;
       }
-      if (wave.next === wave.targets.length) waves.splice(i, 1);
+      if (!wave.targets.length || wave.elapsed >= waveRadius / waveSpeed) waves.splice(i, 1);
     }
     world.step(1 / 120, elapsed, 6);
   }
   function settle(seconds = 2.4) { for (let i = 0; i < seconds * 120; i++) world.step(1 / 120); }
-  function shockwave({ x = 0, z = 0.3 } = {}) {
-    if (!Number.isFinite(x) || !Number.isFinite(z)) return 0;
-    const targets = [];
-    for (const [index, entry] of entries.entries()) {
-      const { body } = entry;
-      const dx = body.position.x - x, dz = body.position.z - z;
-      const distance = Math.hypot(dx, dz);
-      if (!Number.isFinite(distance) || !Number.isFinite(body.position.y) || distance >= 8.5 || body.position.y >= TANK.rim - 1.3 ||
-          (entry.landedAt === null && world.time - entry.born < 2)) continue;
-      targets.push({ entry, born: entry.born, post: entry.post, distance, dx, dz, index });
-    }
+  function shockwave({ x = 0, y = 0, z = 0.3 } = {}) {
+    if (![x, y, z].every(Number.isFinite)) return 0;
+    const targets = entries.map((entry, index) => ({ entry, born: entry.born, post: entry.post, index }));
     if (!targets.length) return 0;
-    targets.sort((a, b) => a.distance - b.distance);
     if (waves.length >= 3) waves.shift();
-    waves.push({ targets, elapsed: 0, next: 0 });
+    waves.push({ targets, x, y, z, elapsed: 0 });
     shockwaves++;
     return targets.length;
   }

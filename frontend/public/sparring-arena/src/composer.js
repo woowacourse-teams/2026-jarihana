@@ -1,13 +1,48 @@
 import { updateTransport } from './transport.js';
 
+const labelMeasurements = new WeakMap();
+
+export function fitVoteLabels() {
+  const labels = [...document.querySelectorAll('.vote-flag strong')];
+  const measurements = labels.map(label => {
+    const style = getComputedStyle(label), parentStyle = getComputedStyle(label.parentElement);
+    const available = label.parentElement.clientWidth - (parseFloat(parentStyle.paddingLeft) || 0) - (parseFloat(parentStyle.paddingRight) || 0);
+    const key = [label.textContent, available, style.font, style.letterSpacing, style.paddingTop, style.paddingBottom].join('|');
+    return { label, style, available, key };
+  });
+  if (!measurements.length || measurements.some(({ available }) => available <= 0)
+    || measurements.every(({ label, key }) => labelMeasurements.get(label) === key)) return;
+  for (const { label } of measurements) label.style.width = '';
+  const widths = measurements.map(({ label, style, available }) => {
+    const range = document.createRange();
+    range.selectNodeContents(label);
+    const lineWidth = Math.max(0, ...Array.from(range.getClientRects(), rect => rect.width));
+    const edges = ['paddingLeft', 'paddingRight', 'borderLeftWidth', 'borderRightWidth']
+      .reduce((sum, property) => sum + (parseFloat(style[property]) || 0), 0);
+    return Math.min(available, Math.ceil(lineWidth + edges + 1));
+  });
+  const width = Math.min(...measurements.map(({ available }) => available), Math.max(64, ...widths));
+  for (const { label } of measurements) label.style.width = `${width}px`;
+  for (const { label, key } of measurements) {
+    labelMeasurements.set(label, key);
+  }
+}
+
 export function fitArenaViewport(form) {
   const available = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--arena-available-height'));
   const stage = document.querySelector('.stage'), dock = form.parentElement;
   if (!stage || !Number.isFinite(available) || available <= 0) return;
   const topic = stage.querySelector('.topic');
   const mobile = innerWidth <= 700;
-  const sceneTop = mobile && topic ? topic.offsetHeight + 48 : 0;
-  stage.style.setProperty('--scene-top', `${sceneTop}px`);
+  if (mobile && topic) {
+    const flags = [...stage.querySelectorAll('.vote-flag')];
+    if (flags.length) {
+      const stageTop = stage.getBoundingClientRect().top;
+      const flagTop = Math.min(...flags.map(flag => flag.getBoundingClientRect().top - stageTop));
+      stage.style.setProperty('--mobile-topic-space', `${Math.max(0, Math.ceil(topic.offsetHeight + 14 - flagTop))}px`);
+    }
+  }
+  stage.style.setProperty('--scene-top', '0px');
   // Moving the desktop page up must not enlarge the 3D scene to fill the saved space.
   const top = Math.max(0, stage.getBoundingClientRect().top + window.scrollY);
   const dockStyle = getComputedStyle(dock), formStyle = getComputedStyle(form);
@@ -23,8 +58,9 @@ export function fitArenaViewport(form) {
     : dock.offsetHeight;
   // A short viewport can scroll rather than hiding the stage or the composer.
   const minimum = mobile
-    ? sceneTop + Math.max(240, Math.ceil(stage.clientWidth * 0.62 + 16))
+    ? Math.max(320, Math.ceil(stage.clientWidth * 0.8))
     : 380 + Math.max(0, (topic?.offsetHeight || 0) - 100);
+  // Keyboard docking overlays the mobile stage without refitting its 3D camera or pipes.
   const height = mobile ? minimum : Math.max(
     minimum, Math.floor(available - top - dockHeight - dockMargin - 8),
   );
@@ -33,15 +69,7 @@ export function fitArenaViewport(form) {
 
 export function revealComposer(form) {
   fitArenaViewport(form);
-  // Desktop keeps the arena still; the composer opens in place.
-  if (innerWidth > 700) return;
-  const rect = form.getBoundingClientRect();
-  const host = window.frameElement;
-  const offset = host?.getBoundingClientRect().top ?? 0;
-  const viewportHeight = host ? window.parent.innerHeight : innerHeight;
-  if (rect.top + offset < 0 || rect.bottom + offset > viewportHeight) {
-    form.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }
+  // Focus docks the mobile composer; scrolling to it would move the topic out of view.
 }
 
 function alignTopicRow() {
@@ -50,33 +78,57 @@ function alignTopicRow() {
   const labels = [...document.querySelectorAll('.vote-flag strong')];
   if (!title || labels.length !== 2) return;
   const stage = topic.parentElement.getBoundingClientRect();
-  const bounds = labels.map(label => label.getBoundingClientRect());
+  const bounds = labels.map(label => {
+    const rect = label.getBoundingClientRect();
+    const style = getComputedStyle(label);
+    const [x = 0, y = 0] = (style.translate || '').split(/\s+/).map(value => parseFloat(value) || 0);
+    const contentShift = ((parseFloat(style.paddingTop) || 0) - (parseFloat(style.paddingBottom) || 0)) / 2;
+    // Press feedback must not move the topic's alignment anchors.
+    return { left: rect.left - x, right: rect.right - x, y: rect.y - y + contentShift, height: rect.height };
+  });
   const centers = bounds.map((rect, index) => rect.y + rect.height / 2
     - (parseFloat(labels[index].parentElement.style.getPropertyValue('--claim-row-shift')) || 0));
-  const row = (centers[0] + centers[1]) / 2;
   const centerX = stage.x + stage.width / 2;
   const width = Math.max(160, Math.min(640, 2 * (Math.min(centerX - bounds[0].right, bounds[1].left - centerX) - 24)));
   topic.style.setProperty('--topic-row-width', `${width}px`);
-  topic.style.setProperty('--topic-row-top', `${row - stage.y - title.offsetHeight / 2}px`);
+  const row = Math.max((centers[0] + centers[1]) / 2, Math.max(0, stage.y) + topic.offsetHeight / 2);
+  topic.style.setProperty('--topic-row-top', `${row - stage.y - topic.offsetHeight / 2}px`);
   labels.forEach((label, index) => label.parentElement.style.setProperty('--claim-row-shift', `${row - centers[index]}px`));
 }
 
 export function setupComposer(form) {
   const dock = form.parentElement;
+  const host = window.frameElement, viewportWindow = host ? window.parent : window;
+  const viewport = viewportWindow.visualViewport;
+  const stage = document.querySelector('.stage');
+  const detail = host?.closest('.sparring-detail');
+  let fullHeight = viewportWindow.innerHeight, pinnedScroll = null;
   let frame = 0;
   const transitions = new Map();
   function position() {
     frame = 0;
-    const editing = window.parent === window && innerWidth <= 700 && document.activeElement?.matches('textarea');
-    if (editing) {
+    const editing = innerWidth <= 700 && form.contains(document.activeElement) && document.activeElement?.matches('textarea');
+    if (!editing) { fullHeight = viewportWindow.innerHeight; pinnedScroll = null; }
+    const keyboardOpen = editing && fullHeight - (viewport?.height ?? viewportWindow.innerHeight) > 100 && (viewport?.scale ?? 1) <= 1.05;
+    if (keyboardOpen) {
+      if (pinnedScroll !== null && Math.abs(viewportWindow.scrollY - pinnedScroll) > 1) viewportWindow.scrollTo({ top: pinnedScroll, behavior: 'instant' });
+      if (window.scrollY) window.scrollTo({ top: 0, behavior: 'instant' });
       if (!form.classList.contains('keyboard-docked')) dock.style.minHeight = `${dock.offsetHeight}px`;
       form.classList.add('keyboard-docked');
-      const viewport = window.visualViewport;
-      const bottom = viewport ? viewport.offsetTop + viewport.height : innerHeight;
-      form.style.top = `${Math.max(viewport?.offsetTop ?? 0, bottom - form.offsetHeight - 8)}px`;
+      const hostTop = host?.getBoundingClientRect().top ?? 0;
+      const bottom = (viewport ? viewport.offsetTop + viewport.height : viewportWindow.innerHeight) - hostTop;
+      const top = Math.max(0, bottom - form.offsetHeight - 8);
+      form.style.top = `${top}px`;
     } else {
       form.classList.remove('keyboard-docked'); form.style.top = ''; dock.style.minHeight = '';
     }
+    if (detail) {
+      detail.dataset.keyboardOpen = String(Boolean(keyboardOpen));
+      detail.dataset.composerEditing = String(Boolean(editing));
+      if (innerWidth <= 700) detail.style.setProperty('--mobile-composer-height', `${form.offsetHeight}px`);
+      else detail.style.removeProperty('--mobile-composer-height');
+    }
+    fitVoteLabels();
     fitArenaViewport(form);
     alignTopicRow();
     updateTransport(form);
@@ -98,14 +150,30 @@ export function setupComposer(form) {
   }
   form.addEventListener('transitionend', endTransition);
   form.addEventListener('transitioncancel', endTransition);
-  form.addEventListener('focusin', schedule);
+  form.addEventListener('focusin', () => {
+    if (innerWidth <= 700 && pinnedScroll === null) {
+      const header = host?.ownerDocument.querySelector('.app-header');
+      pinnedScroll = host ? Math.max(0, host.getBoundingClientRect().top + viewportWindow.scrollY - (header?.getBoundingClientRect().height ?? 0)) : window.scrollY;
+    }
+    schedule();
+  });
   form.addEventListener('focusout', schedule);
   window.addEventListener('resize', schedule);
   window.addEventListener('scroll', schedule, { passive: true });
-  window.visualViewport?.addEventListener('resize', schedule);
-  window.visualViewport?.addEventListener('scroll', schedule);
+  viewport?.addEventListener('resize', schedule);
+  viewport?.addEventListener('scroll', schedule);
+  if (host) viewportWindow.addEventListener('scroll', schedule, { passive: true });
+  window.addEventListener('pagehide', () => {
+    viewport?.removeEventListener('resize', schedule);
+    viewport?.removeEventListener('scroll', schedule);
+    if (host) viewportWindow.removeEventListener('scroll', schedule);
+    if (detail) { delete detail.dataset.keyboardOpen; delete detail.dataset.composerEditing; detail.style.removeProperty('--mobile-composer-height'); }
+  }, { once: true });
   const layoutObserver = new ResizeObserver(schedule);
   [form, document.querySelector('.topic'), ...document.querySelectorAll('.vote-flag strong')].forEach(element => layoutObserver.observe(element));
+  const labelObserver = new MutationObserver(schedule);
+  document.querySelectorAll('.vote-flag strong').forEach(label => labelObserver.observe(label, { childList: true, characterData: true, subtree: true }));
+  document.fonts?.ready.then(schedule);
   new MutationObserver(schedule).observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
   new MutationObserver(schedule).observe(form, { attributes: true, attributeFilter: ['data-side'] });
   new MutationObserver(schedule).observe(document.querySelector('#scene'), { attributes: true, attributeFilter: ['data-pipe-anchors'] });
@@ -115,6 +183,10 @@ export function setupComposer(form) {
   form.querySelectorAll('.composer-avatar').forEach(button => button.addEventListener('pointerdown', event => {
     if (document.activeElement?.matches('textarea')) event.preventDefault();
   }));
+  // Pointer focus on a moving bubble can scroll the iframe before the click handler focuses the input.
+  stage?.addEventListener('pointerdown', event => {
+    if (event.button === 0 && event.target.closest('.history-conversation-speech, .duel-speech, .capsule-note, .capsule-flight-tag')) event.preventDefault();
+  });
   schedule();
 }
 
@@ -152,7 +224,7 @@ export function animateCapsuleSend(form, post, launch) {
       cancelShip = detail.cancel;
       if (finished) return;
       motion.addEventListener('change', reduce);
-      const field = device.querySelector('.composer-field').getBoundingClientRect();
+      const field = (innerWidth <= 700 ? form.querySelector('.composer-field') : device.querySelector('.composer-field')).getBoundingClientRect();
       speech = document.createElement('span');
       speech.className = 'sent-speech'; speech.setAttribute('aria-hidden', 'true'); speech.textContent = post.text;
       const colors = getComputedStyle(device);
@@ -168,11 +240,11 @@ export function animateCapsuleSend(form, post, launch) {
     }
   }
   const button = device.querySelector('[type=submit]') ?? device.querySelector('#send'), rect = button.getBoundingClientRect();
-  const mouth = device.querySelector('.inlet-mouth').getBoundingClientRect();
   const token = document.createElement('span'), capsule = device.querySelector('.send-capsule').cloneNode(true);
   const direction = post.side === 'b' ? 1 : -1;
   const startX = rect.x + rect.width / 2, startY = rect.y + rect.height / 2;
-  const inletX = mouth.x + mouth.width / 2 - startX, inletY = mouth.y + mouth.height / 2 - startY;
+  const inlet = route.getPointAtLength(0);
+  const inletX = inlet.x - startX, inletY = inlet.y - startY;
   token.className = 'inlet-token'; token.setAttribute('aria-hidden', 'true');
   const colors = getComputedStyle(device);
   for (const name of ['--inlet-color', '--inlet-glass', '--inlet-dark']) {
@@ -187,7 +259,8 @@ export function animateCapsuleSend(form, post, launch) {
     { opacity: 1, transform: 'translate(0,0) rotate(0)' },
   ], { duration: 140, easing: 'ease-in', fill: 'both' });
   const pose = (x, y, scale, angle) => `translate(${x}px,${y}px) scale(${scale}) rotate(${angle}deg)`;
-  const scale = (diameter || mouth.height * 0.8) / rect.width;
+  const mouthHeight = device.querySelector('.inlet-mouth').getBoundingClientRect().height;
+  const scale = (diameter || mouthHeight * 0.8) / rect.width;
   const frames = [
     { opacity: 1, transform: pose(0, 0, 1, 0) },
     { opacity: 1, transform: pose(0, 2, 0.92, -direction * 8), offset: 0.15 },

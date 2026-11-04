@@ -10,7 +10,8 @@ export const SLIDE = Object.freeze({ points: [
 ].map(([z, y, width]) => [z, TANK.bottom + y, width]) });
 export const TRAY = Object.freeze({ y: TANK.bottom - 1.47, frontY: TANK.bottom - 2.12, back: 5.1, front: 10.8, backWidth: 2.8, frontWidth: 10.0 });
 
-export function createDispenserPhysics({ seed = 73 } = {}) {
+export function createDispenserPhysics({ seed = 73, trayWidth = TRAY.frontWidth } = {}) {
+  const trayBarrierGroup = 1 << (OUTPUT_CAPACITY + 1);
   let state = seed >>> 0;
   const random = () => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state / 4294967296; };
   const between = (min, max) => min + random() * (max - min);
@@ -31,14 +32,36 @@ export function createDispenserPhysics({ seed = 73 } = {}) {
   }
   const depth = TRAY.front - TRAY.back, flare = (TRAY.frontWidth - TRAY.backWidth) / 2;
   const slope = Math.atan2(TRAY.y - TRAY.frontY, depth);
-  surface([TRAY.frontWidth, 0.24, Math.hypot(depth, TRAY.y - TRAY.frontY)], [0, (TRAY.y + TRAY.frontY) / 2, (TRAY.back + TRAY.front) / 2], [slope, 0, 0]);
+  const trayFloor = surface([TRAY.frontWidth, 0.24, Math.hypot(depth, TRAY.y - TRAY.frontY)], [0, (TRAY.y + TRAY.frontY) / 2, (TRAY.back + TRAY.front) / 2], [slope, 0, 0]);
   const bumper = surface([TRAY.frontWidth, 3, 0.16], [0, TRAY.frontY + 1.1, TRAY.front]);
   surface([2.3, 3, 0.16], [0, OUTLET.y, OUTLET.z - 0.62]);
+  const trayRails = [];
   for (const sign of [-1, 1]) {
     const angle = sign * Math.atan2(flare, depth);
-    surface([0.16, 3, Math.hypot(depth, flare) + 0.12], [sign * (TRAY.frontWidth + TRAY.backWidth) / 4, (TRAY.y + TRAY.frontY) / 2 + 1.1, (TRAY.front + TRAY.back) / 2], [0, angle, 0]);
+    trayRails.push(surface([0.16, 3, Math.hypot(depth, flare) + 0.12], [sign * (TRAY.frontWidth + TRAY.backWidth) / 4, (TRAY.y + TRAY.frontY) / 2 + 1.1, (TRAY.front + TRAY.back) / 2], [0, angle, 0]));
     surface([0.15, 5, 3.1], [sign * 1.17, TANK.bottom - 0.1, 3.65]);
   }
+  // Keep rolling capsules contained, but let opened shells clear the low visible rim.
+  for (const barrier of [bumper, ...trayRails]) barrier.collisionFilterGroup = trayBarrierGroup;
+  function resizeBox(body, x, y, z) {
+    body.removeShape(body.shapes[0]);
+    body.addShape(new CANNON.Box(new CANNON.Vec3(x / 2, y / 2, z / 2)));
+    body.aabbNeedsUpdate = true;
+  }
+  function setTrayWidth(width) {
+    trayWidth = width;
+    const flare = (width - TRAY.backWidth) / 2;
+    resizeBox(trayFloor, width, 0.24, Math.hypot(depth, TRAY.y - TRAY.frontY));
+    resizeBox(bumper, width, 3, 0.16);
+    trayRails.forEach((rail, index) => {
+      const sign = index === 0 ? -1 : 1;
+      rail.position.x = sign * (width + TRAY.backWidth) / 4;
+      rail.quaternion.setFromEuler(0, sign * Math.atan2(flare, depth), 0);
+      resizeBox(rail, 0.16, 3, Math.hypot(depth, flare) + 0.12);
+    });
+    world.broadphase.dirty = true;
+  }
+  if (trayWidth !== TRAY.frontWidth) setTrayWidth(trayWidth);
   const bodies = Array.from({ length: OUTPUT_CAPACITY }, () => new CANNON.Body({ mass: 0.7, shape: new CANNON.Sphere(RADIUS), linearDamping: 0.035, angularDamping: 0.06 }));
   const active = Array(OUTPUT_CAPACITY).fill(false), contacts = Array(OUTPUT_CAPACITY).fill(0), age = Array(OUTPUT_CAPACITY).fill(0);
   const impacts = Array(OUTPUT_CAPACITY).fill(null);
@@ -112,11 +135,19 @@ export function createDispenserPhysics({ seed = 73 } = {}) {
     for (const name of ['top', 'bottom']) {
       const lid = name === 'top', sign = index % 2 ? -1 : 1;
       const group = 1 << (index + 1);
-      const part = new CANNON.Body({ mass: lid ? 0.15 : 0.5, shape: new CANNON.Box(new CANNON.Vec3(0.44, 0.24, 0.44)), linearDamping: lid ? 0.3 : 0.7, angularDamping: 0.4, fixedRotation: !lid, sleepSpeedLimit: 0.2, sleepTimeLimit: 0.7, collisionFilterGroup: group, collisionFilterMask: ~group });
-      // The two empty shell pieces separate as the occupant emerges.
-      part.position.set(source.position.x + (lid ? sign * 0.12 : 0), source.position.y + (lid ? 0.3 : -0.2), source.position.z);
-      part.velocity.set(source.velocity.x * 0.2 + (lid ? sign * 2.2 : 0), lid ? 3 : 0.5, source.velocity.z * 0.2);
-      if (lid) part.angularVelocity.set(between(-5, 5), between(-4, 4), sign * 5);
+      const part = new CANNON.Body({ mass: lid ? 0.15 : 0.5, shape: new CANNON.Box(new CANNON.Vec3(0.44, 0.24, 0.44)), linearDamping: 0.12, angularDamping: 0.4, fixedRotation: false, sleepSpeedLimit: 0.2, sleepTimeLimit: 0.7, collisionFilterGroup: group, collisionFilterMask: ~(group | trayBarrierGroup) });
+      // Fragment centres match the rotated hemisphere offsets used by the renderer.
+      part.quaternion.copy(source.quaternion);
+      const axis = source.quaternion.vmult(new CANNON.Vec3(0, lid ? 1 : -1, 0));
+      source.position.vadd(axis.scale(0.24), part.position);
+      part.velocity.copy(source.velocity.scale(0.2));
+      part.velocity.vadd(axis.scale(lid ? 2.2 : 1.1), part.velocity);
+      const topAxis = source.quaternion.vmult(new CANNON.Vec3(0, 1, 0));
+      const outward = (Math.abs(topAxis.x) > 0.15 ? Math.sign(topAxis.x) : sign) * (lid ? 1 : -1);
+      part.velocity.x = outward * Math.max(7, (trayWidth / 2 + RADIUS * 2 - outward * part.position.x) / 0.4);
+      part.velocity.y = Math.max(3, part.velocity.y);
+      part.angularVelocity.copy(source.angularVelocity.scale(0.35));
+      if (lid) part.angularVelocity.vadd(new CANNON.Vec3(between(-2, 2), between(-2, 2), sign * 2), part.angularVelocity);
       if (reduced) { if (lid) part.position.x += sign * 0.9; part.velocity.setZero(); part.angularVelocity.setZero(); }
       else { part.addEventListener('collide', event => { if (event.body.mass > 0) capsuleContacts++; }); world.addBody(part); }
       parts[name] = part;
@@ -149,5 +180,5 @@ export function createDispenserPhysics({ seed = 73 } = {}) {
     const body = fragments[index]?.bottom ?? bodies[index];
     return body ? { elapsed: age[index], contacts: contacts[index], x: body.position.x, y: body.position.y, z: body.position.z, speed: body.velocity.length(), impact: impacts[index], fragments: fragments[index] ? 2 : 0 } : null;
   }
-  return { world, bodies, reset, release, positionPair, releasePair, breakApart, step, ready, inletClear, stats, capsuleContacts: () => capsuleContacts };
+  return { world, bodies, reset, release, positionPair, releasePair, breakApart, step, ready, inletClear, stats, setTrayWidth, capsuleContacts: () => capsuleContacts };
 }
