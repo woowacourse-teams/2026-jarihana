@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { characterPose } from './character-motion.js';
 import { createCharacters } from './characters.js';
-import { studioMaterial } from './studio-materials.js';
+import { COURT_COLORS, studioMaterial, teamMaterial } from './studio-materials.js';
 
 export function createCapsuleBatch(scene, capacity, characterFactory = createCharacters) {
   const pieces = [
     [new THREE.SphereGeometry(0.48, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2), studioMaterial({ color: 0xf4fff9, transparent: true, opacity: 0.18, roughness: 0.24, clearcoat: 0.5, side: THREE.DoubleSide, depthWrite: false })],
-    [new THREE.SphereGeometry(0.48, 24, 14, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), studioMaterial({ roughness: 0.48, side: THREE.DoubleSide })],
+    [new THREE.SphereGeometry(0.48, 24, 14, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), teamMaterial({ colorIntensity: 1, roughness: 0.48, side: THREE.DoubleSide })],
   ];
   const meshes = pieces.map(([geometry, material]) => {
     const mesh = new THREE.InstancedMesh(geometry, material, capacity);
@@ -20,7 +20,7 @@ export function createCapsuleBatch(scene, capacity, characterFactory = createCha
   const transform = new THREE.Object3D();
   const identity = new THREE.Quaternion(), characterRotation = new THREE.Quaternion();
   const offset = new THREE.Vector3(), origin = new THREE.Vector3(), closedLid = new THREE.Vector3();
-  const shellColors = { a: new THREE.Color(0x4ac5b8), b: new THREE.Color(0xf2907f) };
+  const shellColors = { a: new THREE.Color(COURT_COLORS.mint), b: new THREE.Color(COURT_COLORS.coral) };
   const postIds = Array(capacity).fill(null), sides = Array(capacity).fill(null);
   function draw(index, entry, size, opening = 0, burst = false) {
     const { post, body } = entry;

@@ -7,7 +7,7 @@ const smooth = (from, to, value) => {
 
 // Layout and delivery keep their base camera; only the rendered world follows a reply.
 export function createClashCamera() {
-  let enabled = false, activeId = null, seenId = null, cooldown = 0, fromPipe = false;
+  let enabled = true, activeId = null, seenId = null, cooldown = 0, fromPipe = false;
   let shot = null, handoff = null, phase = null, intensity = 0, slideIntensity = 0;
   const target = new THREE.Vector3(), position = new THREE.Vector3(), endPosition = new THREE.Vector3();
   const slideOrigin = new THREE.Vector3();
@@ -16,15 +16,22 @@ export function createClashCamera() {
     setEnabled(value) { enabled = value === true; if (!enabled) reset(); },
     reset,
     intensity: () => intensity,
+    activePostId: () => activeId,
     timeScale(frame) {
       return activeId === frame?.id && frame.elapsed >= frame.contactAt * 0.88 && frame.elapsed < frame.contactAt ? 0.65 : 1;
     },
-    update(base, frame, delta, reduced = false) {
+    update(base, frames, delta, reduced = false, pendingReplies) {
       cooldown = Math.max(0, cooldown - delta);
+      const candidates = Array.isArray(frames) ? frames : [frames];
+      const waiting = activeId !== null && pendingReplies?.has(activeId);
+      const frame = candidates.find(item => item && item.id === activeId)
+        ?? (waiting ? null : candidates.find(Boolean));
       if (frame && frame.id !== seenId) {
         seenId = frame.id;
         if (enabled && !reduced && !cooldown && frame.phase !== 'slide' && frame.fresh && frame.mine && frame.elapsed < 0.12) activeId = frame.id;
       }
+      // Delivery can finish while the previous conversation still owns the tray.
+      if (enabled && !reduced && !frame && waiting && shot) return shot;
       if (!enabled || reduced || !frame || frame.id !== activeId) { reset(); return base; }
       const transport = frame.phase === 'transport', slide = frame.phase === 'slide';
       const end = frame.releaseAt;

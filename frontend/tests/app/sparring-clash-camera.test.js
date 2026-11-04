@@ -69,6 +69,45 @@ it('같은 메시지를 호스에서 추적하다 발사와 충돌로 끊김 없
   expect(snapshot(camera)).toBe(before);
 });
 
+it('호스 도착 뒤 재생 대기 중인 같은 글은 카메라를 유지하고 충돌로 이어간다', () => {
+  const camera = base('reference'), cut = createClashCamera();
+  const waiting = new Set(['my-reply']);
+  cut.update(camera, frame(0, { phase: 'transport' }), 0, false, waiting);
+  const pipe = cut.update(camera, frame(1.2, { phase: 'transport' }), 1.2, false, waiting).clone();
+  for (let i = 0; i < 80; i++) {
+    const held = cut.update(camera, null, 0.05, false, waiting);
+    expect(held).not.toBe(camera);
+    expect(held.position.distanceTo(pipe.position)).toBeLessThan(1e-8);
+    expect(cut.intensity()).toBe(1);
+  }
+  waiting.clear();
+  const launch = cut.update(camera, frame(0), 0.05, false, waiting);
+  expect(launch.position.distanceTo(pipe.position)).toBeLessThan(1e-8);
+  expect(cut.update(camera, frame(0.5), 0.5)).not.toBe(camera);
+});
+
+it('다른 글의 운송보다 현재 글의 충돌과 미끄럼틀 추적을 유지한다', () => {
+  const camera = base('reference'), cut = createClashCamera();
+  cut.update(camera, frame(0), 0);
+  const last = cut.update(camera, frame(1.75), 1.75).clone();
+  const other = frame(0.3, { id: 'another-reply', phase: 'transport' });
+  const slide = frame(0, { phase: 'slide' });
+  const shot = cut.update(camera, [other, slide], 0.05);
+  expect(shot.position.distanceTo(last.position)).toBeLessThan(1e-8);
+  expect(cut.intensity()).toBeGreaterThan(0);
+  expect(cut.update(camera, [other, { ...slide, elapsed: 1.8 }], 1.8)).toBe(camera);
+});
+
+it.each(['removed', 'disabled', 'reduced'])('대기 중인 추적도 %s이면 원래 카메라로 돌아온다', ending => {
+  const camera = base('reference'), cut = createClashCamera(), waiting = new Set(['my-reply']);
+  cut.update(camera, frame(0, { phase: 'transport' }), 0, false, waiting);
+  cut.update(camera, frame(0.5, { phase: 'transport' }), 0.5, false, waiting);
+  if (ending === 'removed') waiting.clear();
+  if (ending === 'disabled') cut.setEnabled(false);
+  expect(cut.update(camera, null, 0.05, ending === 'reduced', waiting)).toBe(camera);
+  expect(cut.intensity()).toBe(0);
+});
+
 it.each(['original', 'reference'])('%s 구도를 수정하지 않고 캡슐을 추적한 후 동일한 카메라로 복귀한다', view => {
   const camera = base(view), before = snapshot(camera), cut = createClashCamera();
   cut.setEnabled(true); cut.update(camera, frame(), 0);
@@ -94,16 +133,14 @@ it.each([{ mine: false }, { fresh: false }])('다른 사람이나 지난 대화�
   expect(cut.update(camera, frame(0.5, overrides), 0.5)).toBe(camera);
 });
 
-it('기본은 꺼짐이며 중간에 끄거나 모션 감소가 켜지면 즉시 원래 구도로 돌아온다', () => {
+it('기본은 켜짐이며 중간에 끄거나 모션 감소가 켜지면 즉시 원래 구도로 돌아온다', () => {
   const camera = base('reference'), cut = createClashCamera();
   expect(cut.update(camera, frame(), 0)).toBe(camera);
-  cut.setEnabled(true);
-  cut.update(camera, frame(0, { id: 'second' }), 0);
-  expect(cut.update(camera, frame(0.3, { id: 'second' }), 0.3)).not.toBe(camera);
+  expect(cut.update(camera, frame(0.3), 0.3)).not.toBe(camera);
   cut.setEnabled(false);
-  expect(cut.update(camera, frame(0.4, { id: 'second' }), 0.1)).toBe(camera);
+  expect(cut.update(camera, frame(0.4), 0.1)).toBe(camera);
   cut.setEnabled(true);
-  expect(cut.update(camera, frame(0.5, { id: 'second' }), 0.1)).toBe(camera);
+  expect(cut.update(camera, frame(0.5), 0.1)).toBe(camera);
   cut.update(camera, frame(0, { id: 'third' }), 0);
   expect(cut.update(camera, frame(0.3, { id: 'third' }), 0.3)).not.toBe(camera);
   expect(cut.update(camera, frame(0.4, { id: 'third' }), 0.1, true)).toBe(camera);

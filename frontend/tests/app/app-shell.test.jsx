@@ -140,32 +140,15 @@ it("starts GitHub login from the mobile account area and closes the drawer", () 
   expect(screen.queryByRole("dialog", { name: "전체 메뉴" })).not.toBeInTheDocument();
 });
 
-it.each(["header", "mobile menu", "footer"])(
-  "shows the login-required dialog from the feedback %s without redirecting",
-  (surface) => {
+it(
+  "shows the login-required dialog from the feedback floating button without redirecting",
+  () => {
     // Given
     const login = jest.fn();
     renderShell({ login, logout: jest.fn(), status: "anonymous" });
 
     // When
-    let feedbackButton;
-    if (surface === "mobile menu") {
-      fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
-      feedbackButton = within(screen.getByRole("navigation", { name: "모바일 메뉴" })).getByRole(
-        "button",
-        { name: "피드백" }
-      );
-    } else if (surface === "footer") {
-      feedbackButton = within(screen.getByRole("region", { name: "Contact us" })).getByRole(
-        "button",
-        { name: "피드백 남기기" }
-      );
-    } else {
-      feedbackButton = within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole(
-        "button",
-        { name: "피드백" }
-      );
-    }
+    const feedbackButton = screen.getByRole("button", { name: "피드백 남기기" });
     fireEvent.click(feedbackButton);
 
     // Then
@@ -181,9 +164,9 @@ it.each(["header", "mobile menu", "footer"])(
   }
 );
 
-it.each(["header", "mobile menu", "footer"])(
-  "stores a feedback return target and starts login from the %s prompt",
-  (surface) => {
+it(
+  "stores a feedback return target and starts login from the floating button prompt",
+  () => {
     // Given
     const login = jest.fn();
     mockSearch = "?tab=mine";
@@ -191,24 +174,7 @@ it.each(["header", "mobile menu", "footer"])(
     renderShell({ login, logout: jest.fn(), status: "anonymous" });
 
     // When
-    let feedbackButton;
-    if (surface === "mobile menu") {
-      fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
-      feedbackButton = within(screen.getByRole("navigation", { name: "모바일 메뉴" })).getByRole(
-        "button",
-        { name: "피드백" }
-      );
-    } else if (surface === "footer") {
-      feedbackButton = within(screen.getByRole("region", { name: "Contact us" })).getByRole(
-        "button",
-        { name: "피드백 남기기" }
-      );
-    } else {
-      feedbackButton = within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole(
-        "button",
-        { name: "피드백" }
-      );
-    }
+    const feedbackButton = screen.getByRole("button", { name: "피드백 남기기" });
     fireEvent.click(feedbackButton);
     fireEvent.click(screen.getByRole("button", { name: "로그인하러 가기" }));
 
@@ -220,31 +186,14 @@ it.each(["header", "mobile menu", "footer"])(
   }
 );
 
-it.each(["header", "mobile menu", "footer"])(
-  "opens the feedback form directly for authenticated users from the %s",
-  (surface) => {
+it(
+  "opens the feedback form directly for authenticated users from the floating button",
+  () => {
     // Given
     renderShell({ login: jest.fn(), logout: jest.fn(), status: "authenticated" });
 
     // When
-    let feedbackButton;
-    if (surface === "mobile menu") {
-      fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
-      feedbackButton = within(screen.getByRole("navigation", { name: "모바일 메뉴" })).getByRole(
-        "button",
-        { name: "피드백" }
-      );
-    } else if (surface === "footer") {
-      feedbackButton = within(screen.getByRole("region", { name: "Contact us" })).getByRole(
-        "button",
-        { name: "피드백 남기기" }
-      );
-    } else {
-      feedbackButton = within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole(
-        "button",
-        { name: "피드백" }
-      );
-    }
+    const feedbackButton = screen.getByRole("button", { name: "피드백 남기기" });
     fireEvent.click(feedbackButton);
 
     // Then
@@ -271,32 +220,15 @@ it("opens the feedback form after login returns and clears the marker when dismi
   );
 });
 
-it.each(["header", "mobile menu", "footer"])(
-  "does not start feedback login while authentication loads from the %s",
-  (surface) => {
+it(
+  "does not start feedback login while authentication loads from the floating button",
+  () => {
     // Given
     const login = jest.fn();
     renderShell({ login, logout: jest.fn(), status: "loading" });
 
     // When
-    let feedbackButton;
-    if (surface === "mobile menu") {
-      fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
-      feedbackButton = within(screen.getByRole("navigation", { name: "모바일 메뉴" })).getByRole(
-        "button",
-        { name: "피드백" }
-      );
-    } else if (surface === "footer") {
-      feedbackButton = within(screen.getByRole("region", { name: "Contact us" })).getByRole(
-        "button",
-        { name: "피드백 남기기" }
-      );
-    } else {
-      feedbackButton = within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole(
-        "button",
-        { name: "피드백" }
-      );
-    }
+    const feedbackButton = screen.getByRole("button", { name: "피드백 남기기" });
     fireEvent.click(feedbackButton);
 
     // Then
@@ -352,7 +284,7 @@ it("reveals logout only after opening the profile menu", () => {
     within(screen.getByRole("navigation", { name: "주요 메뉴" }))
       .getAllByRole("link")
       .map((link) => link.getAttribute("href"))
-  ).toEqual(["/home", "/groups", "/activities", "/board", "/sparring"]);
+  ).toEqual(["/home", "/groups", "/activities", "/board", "/sparring", "/games"]);
   expect(logout).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("navigation", { name: "계정 메뉴" })).not.toBeInTheDocument();
 });
@@ -477,12 +409,12 @@ it("logs out from the mobile account row and closes the drawer", () => {
   expect(screen.queryByRole("dialog", { name: "전체 메뉴" })).not.toBeInTheDocument();
 });
 
-it("places feedback after discovery links in desktop and mobile navigation", () => {
+it("places feedback outside desktop and mobile navigation", () => {
   // Given
   renderShell({ login: jest.fn(), logout: jest.fn(), status: "authenticated" });
 
   // Then
-  const expectedOrder = ["홈", "탐색", "활동", "게시판", "토론해요", "피드백"];
+  const expectedOrder = ["홈", "탐색", "활동", "게시판", "토론해요", "게임방"];
   const desktopNavigation = screen.getByRole("navigation", { name: "주요 메뉴" });
   expect(
     Array.from(desktopNavigation.querySelectorAll("a, button")).map((item) =>
@@ -490,15 +422,24 @@ it("places feedback after discovery links in desktop and mobile navigation", () 
     )
   ).toEqual(expectedOrder);
 
+  const feedbackButton = screen.getAllByRole("button", { name: "피드백 남기기" })
+    .find((button) => button.classList.contains("app-feedback-button"));
+  expect(feedbackButton).toHaveClass("app-feedback-button");
+  expect(feedbackButton).toHaveAttribute("data-ph-capture-attribute-action", "feedback_start");
+  expect(desktopNavigation).not.toContainElement(feedbackButton);
+  expect(within(screen.getByRole("region", { name: "Contact us" }))
+    .queryByRole("button", { name: "피드백 남기기" })).not.toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: "피드백 남기기" })).toHaveLength(1);
+
   // And
   fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
   const mobileNavigation = screen.getByRole("navigation", { name: "모바일 메뉴" });
   const mobileLinks = mobileNavigation.querySelector(".app-header__mobile-links");
-  const expectedMobileOrder = ["홈", "탐색", "활동", "게시판", "토론해요", "모임 만들기", "피드백"];
+  const expectedMobileOrder = ["홈", "탐색", "활동", "게시판", "토론해요", "게임방", "모임 만들기"];
   expect(mobileLinks).not.toBeNull();
   expect(
     Array.from(mobileLinks.querySelectorAll("a, button"))
-      .slice(0, 7)
+      .slice(0, expectedMobileOrder.length)
       .map((item) => item.textContent.trim())
   ).toEqual(expectedMobileOrder);
 });
@@ -509,6 +450,8 @@ it.each([
   ["/activities", "활동"],
   ["/board", "게시판"],
   ["/board/42", "게시판"],
+  ["/games", "게임방"],
+  ["/games/gomoku/rooms/1", "게임방"],
   ["/groups/41", null]
 ])("exposes public navigation on %s with matching active state", (pathname, activeName) => {
   mockPathname = pathname;

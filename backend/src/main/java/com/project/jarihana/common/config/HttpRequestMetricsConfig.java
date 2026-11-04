@@ -1,6 +1,8 @@
 package com.project.jarihana.common.config;
 
 import io.micrometer.common.KeyValues;
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.binder.MeterBinder;
 import io.micrometer.core.instrument.config.MeterFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.context.annotation.Bean;
@@ -13,6 +15,7 @@ import org.springframework.http.server.observation.ServerRequestObservationConve
 @Configuration(proxyBeanMethods = false)
 public class HttpRequestMetricsConfig {
     private static final String PROBE_TAG = "deployment.probe";
+    private static final String GROUPS_PATH = "/groups";
 
     @Bean
     public ServerRequestObservationConvention deploymentProbeObservationConvention() {
@@ -23,7 +26,7 @@ public class HttpRequestMetricsConfig {
                 boolean probe = request != null
                         && "true".equals(request.getHeader("X-Jarihana-Deployment-Probe"))
                         && "GET".equals(request.getMethod())
-                        && (request.getContextPath() + "/groups").equals(request.getRequestURI())
+                        && (request.getContextPath() + GROUPS_PATH).equals(request.getRequestURI())
                         && "1".equals(request.getParameter("size"));
                 String contentType = context.getResponse() == null ? null : context.getResponse().getContentType();
                 boolean sse = contentType != null
@@ -33,6 +36,14 @@ public class HttpRequestMetricsConfig {
                         .and("response.type", sse ? "sse" : "http");
             }
         };
+    }
+
+    @Bean
+    public MeterBinder idleHttpRequestMetrics() {
+        return registry -> Timer.builder("http.server.requests")
+                .tags("method", "GET", "uri", GROUPS_PATH, "status", "200", "outcome", "SUCCESS",
+                        "exception", "none", "error", "none", PROBE_TAG, "false", "response.type", "http")
+                .register(registry);
     }
 
     @Bean

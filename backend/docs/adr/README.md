@@ -45,6 +45,10 @@ ADR 0006과 0007에 이르기까지의 기록이다.
 | 0027 | [푸시 전송을 제한된 동시성으로 비동기 처리한다](0027-bounded-async-push-delivery.md) | 제안, 구현·로컬 검증 완료 / PR 검토·배포 후 성능 측정 예정 | 2026-10-21 | `feat/push-async-delivery` |
 | 0028 | [모임 채팅은 DB 순번과 개인 경로로 복구한다](0028-durable-group-chat-and-postgres-notify.md) | 채택, 로컬 구현 / 운영 적용 대기 | 2026-10-25 (보완 10-26) | `docs/chat-architecture-decisions` |
 
+## 오목 실시간 통신
+
+- [백엔드 ADR 0029: 오목 명령은 HTTP, 판 상태 알림은 SSE를 사용한다](0029-gomoku-http-and-sse.md), 채택, 2026-11-02.
+
 ## 번호를 다시 매긴 이력
 
 2026-10-19에 최신 `develop`의 Push claim ADR이 0025를 사용하고 있어 이미지 수명주기 ADR을
