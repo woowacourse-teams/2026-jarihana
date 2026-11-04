@@ -10,9 +10,7 @@ import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.minigame.command.repository.MinigameCutCommandRepository;
 import com.project.jarihana.minigame.command.repository.MinigameRunCommandRepository;
 import com.project.jarihana.minigame.command.service.dto.CutCommand;
-import com.project.jarihana.minigame.domain.MinigameEvent;
 import com.project.jarihana.support.IntegrationTestSupport;
-import com.project.jarihana.support.TestSupportConfig;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -41,13 +39,16 @@ class PeperoDayRunConcurrencyTest extends IntegrationTestSupport {
     @Autowired
     private MemberRepository memberRepository;
 
-    @DisplayName("같은 회원이 순위 도전을 동시에 여러 번 시작해도 하루 3번까지만 시작된다.")
+    @DisplayName("같은 회원이 순위 도전을 동시에 여러 번 시작해도 한 시간에 10번까지만 시작된다.")
     @Test
     void limitsConcurrentRunStarts() throws Exception {
         // Given
         Member member = memberRepository.save(Member.create("모카", 8, "pepero-concurrent-start", Course.BACKEND));
+        for (int started = 0; started < 7; started++) {
+            peperoDayRunCommandService.start(member.getId());
+        }
 
-        // When
+        // When: 남은 3번을 놓고 6개 요청이 동시에 시작한다.
         List<Attempt> attempts = runTogether(() -> {
             peperoDayRunCommandService.start(member.getId());
             return Attempt.succeeded();
@@ -58,11 +59,7 @@ class PeperoDayRunConcurrencyTest extends IntegrationTestSupport {
         assertThat(attempts)
                 .filteredOn(attempt -> attempt.errorCode() == ErrorCode.MINIGAME_ATTEMPT_LIMIT_EXCEEDED)
                 .hasSize(THREADS - 3);
-        assertThat(minigameRunCommandRepository.countByEventAndMemberIdAndPlayedOn(
-                MinigameEvent.PEPERO_DAY_2026,
-                member.getId(),
-                TestSupportConfig.FIXED_NOW.toLocalDate()
-        )).isEqualTo(3);
+        assertThat(minigameRunCommandRepository.count()).isEqualTo(10);
     }
 
     @DisplayName("같은 막대를 동시에 여러 번 잘라도 한 번만 기록되고 나머지는 차례 충돌로 거절된다.")

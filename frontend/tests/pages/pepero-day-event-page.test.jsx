@@ -22,10 +22,11 @@ jest.mock("../../src/features/pepero-day/api", () => ({
 
 const login = jest.fn();
 const status = (overrides) => ({
+  attemptsRefillAt: "2026-11-11T13:00:00",
   closesAt: "2026-11-12T10:00:00",
-  dailyAttemptLimit: 3,
   gameRoomOpen: false,
   gameRoomOpensAt: "2026-11-12T13:00:00",
+  hourlyAttemptLimit: 10,
   opensAt: "2026-11-11T00:00:00",
   remainingAttempts: null,
   serverTime: "2026-11-11T12:00:00",
@@ -146,14 +147,24 @@ it("cuts with Enter without focusing the stick, but not while another button has
   expect(screen.getByRole("button", { name: "다음 막대" })).toBeInTheDocument();
 });
 
-it("shows remaining attempts and blocks ranked runs when none are left", async () => {
+it("blocks ranked runs when this hour is used up and refills them on the hour without a reload", async () => {
+  jest.spyOn(Math, "random").mockReturnValue(0);
   useAuth.mockReturnValue({ login, member: { id: 7 }, status: "authenticated" });
-  getPeperoDayStatus.mockResolvedValue(status({ remainingAttempts: 0 }));
+  getPeperoDayStatus.mockResolvedValueOnce(status({ remainingAttempts: 0, serverTime: "2026-11-11T12:59:59" }));
+  getPeperoDayStatus.mockResolvedValue(
+    status({ attemptsRefillAt: "2026-11-11T14:00:00", remainingAttempts: 10, serverTime: "2026-11-11T13:00:00" })
+  );
   mount();
 
   expect(await screen.findByText("0번")).toBeInTheDocument();
+  expect(screen.getByText(/13:00에 다시 10번 채워져요/)).toBeInTheDocument();
+  expect(screen.getByText(/1시간에 10번까지 도전할 수 있고 매시 정각에 다시 채워져요/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "순위 도전 시작" })).toBeDisabled();
-});
+
+  expect(await screen.findByText("10번", {}, { timeout: 5000 })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "순위 도전 시작" })).toBeEnabled();
+  jest.restoreAllMocks();
+}, 10_000);
 
 it("shows only a countdown before the event opens", async () => {
   getPeperoDayStatus.mockResolvedValue(status({ serverTime: "2026-11-10T23:00:00", status: "UPCOMING" }));

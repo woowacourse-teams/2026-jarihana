@@ -31,12 +31,16 @@ const RANKING_PAGE = 50;
 const DIALOG_RANKING_LIMIT = 10;
 
 const RANKED_ERRORS = {
-  MINIGAME_ATTEMPT_LIMIT_EXCEEDED: "오늘 순위 도전을 모두 했어요. 내일 다시 도전해 주세요.",
+  MINIGAME_ATTEMPT_LIMIT_EXCEEDED: "이번 시간 순위 도전을 모두 했어요. 다음 정각에 다시 채워져요.",
   MINIGAME_EVENT_NOT_OPEN: "지금은 이벤트 기간이 아니에요.",
   MINIGAME_ROUND_CONFLICT: "이미 자른 막대예요. 새로 시작해 주세요.",
   MINIGAME_RUN_NOT_FOUND: "도전 기록을 찾을 수 없어요. 새로 시작해 주세요.",
   UNAUTHENTICATED: "로그인이 풀렸어요. 다시 로그인한 뒤 도전해 주세요."
 };
+
+function formatServiceClock(value) {
+  return value.split("T")[1].slice(0, 5);
+}
 
 export function formatServiceDateTime(value) {
   const [date, time] = value.split("T");
@@ -281,10 +285,13 @@ function ModeChooser({ event, onStart }) {
       <section className="pepero-day__card pepero-day__mode pepero-day__mode--ranked">
         <h2>순위 도전</h2>
         <p>
-          하루 {event.dailyAttemptLimit}번까지 도전할 수 있고, 가장 좋은 기록으로 순위를 매겨요. 시작하면 도전 횟수가 1번 줄어요.
+          1시간에 {event.hourlyAttemptLimit}번까지 도전할 수 있고 매시 정각에 다시 채워져요. 가장 좋은 기록으로 순위를 매기고, 시작하면 도전 횟수가 1번 줄어요.
         </p>
         {remaining === null ? null : (
-          <p className="pepero-day__remaining">오늘 남은 도전 <strong>{remaining}번</strong></p>
+          <p className="pepero-day__remaining">
+            이번 시간 남은 도전 <strong>{remaining}번</strong>
+            {remaining === 0 ? `. ${formatServiceClock(event.attemptsRefillAt)}에 다시 ${event.hourlyAttemptLimit}번 채워져요` : null}
+          </p>
         )}
         {rankedAction}
       </section>

@@ -16,10 +16,11 @@ export const stickSchema = z.object({
 });
 
 export const eventStatusSchema = z.object({
+  attemptsRefillAt: serviceDateTime,
   closesAt: serviceDateTime,
-  dailyAttemptLimit: z.number().int().positive(),
   gameRoomOpen: z.boolean(),
   gameRoomOpensAt: serviceDateTime,
+  hourlyAttemptLimit: z.number().int().positive(),
   opensAt: serviceDateTime,
   remainingAttempts: count.nullable(),
   serverTime: serviceDateTime,
@@ -27,6 +28,7 @@ export const eventStatusSchema = z.object({
 });
 
 const startRunSchema = z.object({
+  attemptsRefillAt: serviceDateTime,
   remainingAttempts: count,
   round: z.number().int().positive(),
   runId: z.number().int().positive(),

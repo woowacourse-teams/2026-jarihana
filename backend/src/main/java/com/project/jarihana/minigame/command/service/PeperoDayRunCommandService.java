@@ -11,6 +11,7 @@ import com.project.jarihana.minigame.command.service.dto.CutResult;
 import com.project.jarihana.minigame.command.service.dto.StartRunResult;
 import com.project.jarihana.minigame.config.PeperoDayEventProperties;
 import com.project.jarihana.minigame.domain.EventStatus;
+import com.project.jarihana.minigame.domain.HourlyAttempts;
 import com.project.jarihana.minigame.domain.MinigameCut;
 import com.project.jarihana.minigame.domain.MinigameEvent;
 import com.project.jarihana.minigame.domain.MinigameRun;
@@ -39,8 +40,8 @@ public class PeperoDayRunCommandService {
     private final Clock clock;
 
     /**
-     * 같은 회원이 동시에 여러 판을 시작해도 하루 도전 횟수를 넘지 않도록 회원 행을 잠근 뒤 오늘 판 수를 센다.
-     * 시작한 판은 끝내지 않아도 횟수에 들어간다.
+     * 같은 회원이 동시에 여러 판을 시작해도 한 시간 도전 횟수를 넘지 않도록 회원 행을 잠근 뒤 이번 시간에 시작한 판을 센다.
+     * 횟수는 매시 정각에 다시 채워진다.
      */
     @Transactional
     public StartRunResult start(long memberId) {
@@ -50,13 +51,15 @@ public class PeperoDayRunCommandService {
         }
         Member member = memberRepository.findWithLockById(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, "회원 정보를 찾을 수 없습니다."));
-        long used = minigameRunCommandRepository.countByEventAndMemberIdAndPlayedOn(EVENT, memberId, now.toLocalDate());
-        int limit = peperoDayEventProperties.dailyAttemptLimit();
-        if (used >= limit) {
-            throw new BusinessException(ErrorCode.MINIGAME_ATTEMPT_LIMIT_EXCEEDED, "오늘 순위 도전을 모두 했어요.");
+        HourlyAttempts attempts = peperoDayEventProperties.attempts();
+        long used = minigameRunCommandRepository.countByEventAndMemberIdAndCreatedAtGreaterThanEqual(
+                EVENT, memberId, attempts.windowStart(now));
+        if (attempts.exhausted(used)) {
+            throw new BusinessException(ErrorCode.MINIGAME_ATTEMPT_LIMIT_EXCEEDED, "이번 시간 순위 도전을 모두 했어요.");
         }
         MinigameRun run = minigameRunCommandRepository.save(MinigameRun.start(EVENT, member, SEEDS.nextLong(), now));
-        return new StartRunResult(run.getId(), run.currentRound(), run.currentPuzzle(), (int) (limit - used - 1));
+        return new StartRunResult(run.getId(), run.currentRound(), run.currentPuzzle(),
+                attempts.remaining(used + 1), attempts.nextRefillAt(now));
     }
 
     /**

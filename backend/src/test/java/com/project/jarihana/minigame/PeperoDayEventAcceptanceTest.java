@@ -21,8 +21,10 @@ import com.project.jarihana.support.IntegrationTestSupport;
 import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,7 +40,7 @@ class PeperoDayEventAcceptanceTest extends IntegrationTestSupport {
     @Autowired
     private AuthCookieProperties authCookieProperties;
 
-    @DisplayName("누구나 이벤트 기간과 진행 상태를 보고, 로그인 회원은 오늘 남은 도전 횟수도 본다.")
+    @DisplayName("누구나 이벤트 기간, 진행 상태, 게임방으로 옮기는 시각, 다음 충전 시각을 보고 로그인 회원은 이번 시간 남은 도전 횟수도 본다.")
     @Test
     void showsEventStatus() {
         // Given
@@ -56,14 +58,15 @@ class PeperoDayEventAcceptanceTest extends IntegrationTestSupport {
                 .body("data.gameRoomOpensAt", equalTo("2026-08-20T13:00:00"))
                 .body("data.gameRoomOpen", equalTo(false))
                 .body("data.serverTime", equalTo("2026-08-19T10:00:00"))
-                .body("data.dailyAttemptLimit", equalTo(3))
+                .body("data.hourlyAttemptLimit", equalTo(10))
+                .body("data.attemptsRefillAt", equalTo("2026-08-19T11:00:00"))
                 .body("data.remainingAttempts", nullValue());
         withToken(member)
                 .when()
                 .get("/events/pepero-day")
                 .then()
                 .statusCode(200)
-                .body("data.remainingAttempts", equalTo(3));
+                .body("data.remainingAttempts", equalTo(10));
     }
 
     @DisplayName("순위 도전은 막대 5개를 차례로 자르면 끝나고, 끝난 판은 순위에 오른다.")
@@ -78,7 +81,8 @@ class PeperoDayEventAcceptanceTest extends IntegrationTestSupport {
                 .statusCode(201)
                 .body("data.round", equalTo(1))
                 .body("data.timeLimitSeconds", equalTo(30))
-                .body("data.remainingAttempts", equalTo(2))
+                .body("data.remainingAttempts", equalTo(9))
+                .body("data.attemptsRefillAt", equalTo("2026-08-19T11:00:00"))
                 .body("data.stick.lengthCm", equalTo(12.0f))
                 .body("data.stick.cells", hasSize(24))
                 .body("data.stick.startPosition", notNullValue())
@@ -154,11 +158,11 @@ class PeperoDayEventAcceptanceTest extends IntegrationTestSupport {
                 .body("data.me", nullValue());
     }
 
-    @DisplayName("순위 도전은 로그인해야 시작할 수 있고, 하루 3번까지만 시작할 수 있다.")
+    @DisplayName("순위 도전은 로그인해야 시작할 수 있고, 한 시간에 10번까지 새 판으로 시작할 수 있다.")
     @Test
-    void limitsRankedRunsPerDay() {
+    void limitsRankedRunsPerHour() {
         // Given
-        Member member = saveMember("모카", "pepero-limit-member");
+        Member member = saveMember("모카", "pepero-hourly-member");
         String csrfToken = csrfToken();
 
         // When & Then
@@ -169,9 +173,13 @@ class PeperoDayEventAcceptanceTest extends IntegrationTestSupport {
                 .post("/events/pepero-day/runs")
                 .then()
                 .statusCode(401);
-        startRun(member).then().statusCode(201).body("data.remainingAttempts", equalTo(2));
-        startRun(member).then().statusCode(201).body("data.remainingAttempts", equalTo(1));
-        startRun(member).then().statusCode(201).body("data.remainingAttempts", equalTo(0));
+        Set<Long> runIds = new HashSet<>();
+        for (int attempt = 1; attempt <= 10; attempt++) {
+            JsonPath started = startRun(member).then().statusCode(201).extract().jsonPath();
+            runIds.add(started.getLong("data.runId"));
+            assertThat(started.getInt("data.remainingAttempts")).isEqualTo(10 - attempt);
+        }
+        assertThat(runIds).hasSize(10);
         startRun(member)
                 .then()
                 .statusCode(409)

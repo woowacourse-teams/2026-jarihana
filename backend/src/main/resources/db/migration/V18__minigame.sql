@@ -20,9 +20,9 @@ CREATE TABLE IF NOT EXISTS minigame_run (
     CONSTRAINT ck_minigame_run_total_duration CHECK (total_duration_millis >= 0)
 );
 
--- 하루 도전 횟수를 셀 때 쓴다.
-CREATE INDEX IF NOT EXISTS idx_minigame_run_event_member_day
-    ON minigame_run (event, member_id, played_on);
+-- 한 시간 도전 횟수를 셀 때 이번 시간에 시작한 판을 찾는다.
+CREATE INDEX IF NOT EXISTS idx_minigame_run_event_member_started
+    ON minigame_run (event, member_id, created_at);
 
 -- 순위는 끝난 판만 점수, 걸린 시간, 끝낸 시각 순으로 본다.
 CREATE INDEX IF NOT EXISTS idx_minigame_run_event_ranking

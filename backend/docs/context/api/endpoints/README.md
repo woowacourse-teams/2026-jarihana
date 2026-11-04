@@ -52,8 +52,8 @@
 | 자유게시판 | `GET` | `/api/proposals/{proposalId}/comments` | `PUBLIC` | 모임 제안 코멘트를 작성 순서대로 조회 |
 | 자유게시판 | `POST` | `/api/proposals/{proposalId}/comments` | `MEMBER` | 모임 제안 코멘트 작성 |
 | 자유게시판 | `DELETE` | `/api/proposal-comments/{commentId}` | `MEMBER` | 코멘트 작성자 또는 제안한 회원이 코멘트 숨김 |
-| 미니게임 | `GET` | `/api/events/pepero-day` | `PUBLIC` | 빼빼로데이 반 나누기 이벤트 진행 상태, 기간, 서버 시각과 로그인 회원의 오늘 남은 도전 횟수 |
-| 미니게임 | `POST` | `/api/events/pepero-day/runs` | `MEMBER` | 진행 중인 이벤트의 순위 도전 판 시작, 하루 3번 |
+| 미니게임 | `GET` | `/api/events/pepero-day` | `PUBLIC` | 빼빼로데이 반 나누기 이벤트 진행 상태, 기간, 게임방으로 옮기는 시각, 서버 시각과 로그인 회원의 이번 시간 남은 도전 횟수 |
+| 미니게임 | `POST` | `/api/events/pepero-day/runs` | `MEMBER` | 진행 중인 이벤트의 순위 도전 판 시작, 1시간에 10번(매시 정각 충전) |
 | 미니게임 | `POST` | `/api/events/pepero-day/runs/{runId}/cuts` | `MEMBER + 본인 판` | 지금 차례 막대를 자르고 서버가 판정 |
 | 미니게임 | `GET` | `/api/events/pepero-day/rankings` | `PUBLIC` | 회원별 가장 좋은 끝난 판으로 매긴 상위 50명과 내 순위 |
 | 피드백 | `POST` | `/api/feedbacks` | `MEMBER` | 피드백 작성 |

@@ -3,7 +3,7 @@ package com.project.jarihana.minigame.query.repository;
 import com.project.jarihana.minigame.domain.MinigameEvent;
 import com.project.jarihana.minigame.domain.MinigameRun;
 import com.project.jarihana.minigame.query.repository.dto.RankingProjection;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.Query;
@@ -39,7 +39,7 @@ public interface MinigameRunQueryRepository extends Repository<MinigameRun, Long
             JOIN member m ON m.id = ranked.member_id
             """;
 
-    long countByEventAndMemberIdAndPlayedOn(MinigameEvent event, long memberId, LocalDate playedOn);
+    long countByEventAndMemberIdAndCreatedAtGreaterThanEqual(MinigameEvent event, long memberId, LocalDateTime from);
 
     @Query(value = RANKED_RUNS + " ORDER BY ranked.ranking LIMIT :size", nativeQuery = true)
     List<RankingProjection> findTopRankings(@Param("event") String event, @Param("size") int size);

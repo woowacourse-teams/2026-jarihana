@@ -2,6 +2,7 @@ package com.project.jarihana.minigame.query.service;
 
 import com.project.jarihana.minigame.config.PeperoDayEventProperties;
 import com.project.jarihana.minigame.domain.EventSchedule;
+import com.project.jarihana.minigame.domain.HourlyAttempts;
 import com.project.jarihana.minigame.domain.MinigameEvent;
 import com.project.jarihana.minigame.query.repository.MinigameRunQueryRepository;
 import com.project.jarihana.minigame.query.repository.dto.RankingProjection;
@@ -31,8 +32,10 @@ public class PeperoDayEventQueryService {
     public EventStatusResult findStatus(Long memberId) {
         LocalDateTime now = LocalDateTime.now(clock).truncatedTo(ChronoUnit.SECONDS);
         EventSchedule schedule = peperoDayEventProperties.schedule();
-        int limit = peperoDayEventProperties.dailyAttemptLimit();
-        Integer remaining = memberId == null ? null : remainingAttempts(memberId, now, limit);
+        HourlyAttempts attempts = peperoDayEventProperties.attempts();
+        Integer remaining = memberId == null ? null : attempts.remaining(
+                minigameRunQueryRepository.countByEventAndMemberIdAndCreatedAtGreaterThanEqual(
+                        EVENT, memberId, attempts.windowStart(now)));
         return new EventStatusResult(
                 schedule.statusAt(now),
                 schedule.opensAt(),
@@ -40,8 +43,9 @@ public class PeperoDayEventQueryService {
                 schedule.gameRoomOpensAt(),
                 schedule.inGameRoomAt(now),
                 now,
-                limit,
-                remaining
+                attempts.limit(),
+                remaining,
+                attempts.nextRefillAt(now)
         );
     }
 
@@ -54,11 +58,6 @@ public class PeperoDayEventQueryService {
                 .map(PeperoDayEventQueryService::toEntry)
                 .orElse(null);
         return new RankingResult(items, me);
-    }
-
-    private int remainingAttempts(long memberId, LocalDateTime now, int limit) {
-        long used = minigameRunQueryRepository.countByEventAndMemberIdAndPlayedOn(EVENT, memberId, now.toLocalDate());
-        return (int) Math.max(0, limit - used);
     }
 
     private static RankingResult.Entry toEntry(RankingProjection projection) {
