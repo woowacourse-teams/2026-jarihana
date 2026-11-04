@@ -76,9 +76,11 @@ public class GomokuQueryService {
                 throw new BusinessException(ErrorCode.INVALID_PARAMETER, "목록 위치가 올바르지 않아요.");
             }
         }
+        LocalDateTime now = LocalDateTime.now(clock);
         var rows =
                 repository.lobby(
-                        LocalDateTime.now(clock).minusMinutes(30),
+                        now,
+                        now.minusMinutes(30),
                         before,
                         beforeId,
                         keyword == null ? "" : keyword.strip(),

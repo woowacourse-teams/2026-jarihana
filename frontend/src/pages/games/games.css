@@ -461,6 +461,32 @@
   background: var(--color-danger-soft);
   color: var(--color-danger);
 }
+.games-notice {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+.games-notice__content {
+  min-height: 0;
+  overflow: hidden;
+}
+.games-notice--transient {
+  animation: gomoku-notice-fade-out var(--duration-deliberate) var(--ease-standard) 3s forwards;
+}
+@keyframes gomoku-notice-fade-out {
+  from {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+  to {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .games-notice--transient {
+    animation-duration: 0.01ms;
+  }
+}
 .games-connection {
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-sm);

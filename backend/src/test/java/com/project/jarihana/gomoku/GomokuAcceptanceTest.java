@@ -4,6 +4,8 @@ import static io.restassured.RestAssured.given;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -30,6 +32,52 @@ class GomokuAcceptanceTest extends IntegrationTestSupport {
     @Autowired AuthCookieProperties cookies;
     @Autowired JdbcTemplate jdbc;
     private static final String ROOT = "/games/gomoku/rooms";
+
+    @Test
+    @DisplayName("공개 대기방과 진행 중인 방을 검색과 커서에 함께 포함하고 참가 권한을 유지한다")
+    void listsWaitingAndPlayingPublicRooms() {
+        // Given
+        long waitingId = create(member("가을", "lobby-waiting"), "PUBLIC", "RENJU");
+        String host = member("가람", "lobby-playing-host");
+        String guest = member("겨울", "lobby-playing-guest");
+        long playingId = create(host, "PUBLIC", "RENJU");
+        request(guest).body(Map.of()).post(ROOT + "/" + playingId + "/join").then().statusCode(200);
+        ready(host, playingId, 1);
+        ready(guest, playingId, 1);
+        start(host, playingId, 1);
+        jdbc.update("update gomoku_room set touched_at=timestamp '2000-01-01 00:00:00' where id=?", playingId);
+        long privateId = create(member("가나", "lobby-private"), "PRIVATE", "RENJU");
+        jdbc.update("update gomoku_room set status='PLAYING', turn_deadline=timestamp '2099-01-01 00:00:00' where id=?", privateId);
+        long finishedId = create(member("가다", "lobby-finished"), "PUBLIC", "RENJU");
+        jdbc.update("update gomoku_room set status='FINISHED' where id=?", finishedId);
+        long closedId = create(member("가라", "lobby-closed"), "PUBLIC", "RENJU");
+        jdbc.update("update gomoku_room set status='CLOSED' where id=?", closedId);
+        long timedOutId = create(member("가바", "lobby-timeout"), "PUBLIC", "RENJU");
+        jdbc.update("update gomoku_room set status='PLAYING', turn_deadline=timestamp '2000-01-01 00:00:00' where id=?", timedOutId);
+
+        // When
+        var page = request(null).queryParam("keyword", "가").queryParam("size", 1).get(ROOT)
+                .then().statusCode(200)
+                .body("data.items", hasSize(1))
+                .body("data.items[0].id", equalTo((int) playingId))
+                .body("data.items[0].status", equalTo("PLAYING"))
+                .body("data.items[0]", not(hasKey("board")))
+                .body("data.items[0]", not(hasKey("turnDeadline")))
+                .body("data.hasNext", equalTo(true))
+                .extract().jsonPath();
+
+        // Then
+        request(null).queryParam("keyword", "가").queryParam("size", 1)
+                .queryParam("cursor", page.getString("data.nextCursor")).get(ROOT)
+                .then().statusCode(200)
+                .body("data.items", hasSize(1))
+                .body("data.items[0].id", equalTo((int) waitingId))
+                .body("data.items[0].status", equalTo("WAITING"))
+                .body("data.hasNext", equalTo(false));
+        String outsider = member("봄날", "lobby-outsider");
+        request(outsider).get(ROOT + "/" + playingId).then().statusCode(403);
+        request(outsider).body(Map.of()).post(ROOT + "/" + playingId + "/join").then().statusCode(409);
+    }
 
     @Test
     @DisplayName("크루 이름 검색을 커서와 함께 적용하고 비공개, 만석, 만료 방을 제외한다")
