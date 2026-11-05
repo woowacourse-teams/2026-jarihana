@@ -112,7 +112,8 @@ done
 install -o root -g root -m 0644 "$authorized_tmp" /var/lib/jarihana-grant/.ssh/authorized_keys
 rm -- "$authorized_tmp"
 sshd -t
-systemctl enable --now ssh
+# Amazon Linux 2023의 OpenSSH 서비스 이름은 sshd다.
+systemctl enable --now sshd
 ```
 
 `jarihana-grant`는 Docker 그룹이나 coordinator 그룹에 넣지 않는다. 로그인 shell은 강제 명령의

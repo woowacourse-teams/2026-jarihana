@@ -74,6 +74,25 @@ test("board selection never sends a move, occupied/disconnected cells stay inert
   fireEvent.click(screen.getByRole("button", { name: "A1, 흑돌" }));
   expect(onSelect).not.toHaveBeenCalled();
 });
+test("double-click confirms only an available empty cell and single click only selects", () => {
+  const onSelect = jest.fn();
+  const onConfirm = jest.fn();
+  const properties = { room: snapshot, selected: null, onSelect, onConfirm };
+  const { rerender } = render(<Board {...properties} disabled={false} />);
+  const center = screen.getByRole("button", { name: "H8, 빈 자리" });
+  fireEvent.click(center);
+  expect(onConfirm).not.toHaveBeenCalled();
+  fireEvent.doubleClick(center);
+  expect(onConfirm).toHaveBeenCalledTimes(1);
+  expect(onConfirm).toHaveBeenCalledWith({ x: 7, y: 7 });
+  expect(center).toHaveAttribute("data-ph-capture-attribute-action", "gomoku_position_select");
+  onConfirm.mockClear();
+  rerender(<Board {...properties} disabled />);
+  fireEvent.doubleClick(center);
+  rerender(<Board {...properties} room={{ ...snapshot, board: "1" + "0".repeat(224) }} />);
+  fireEvent.doubleClick(screen.getByRole("button", { name: "A1, 흑돌" }));
+  expect(onConfirm).not.toHaveBeenCalled();
+});
 test("invitation tokens are excluded from analytics and network recording", () => {
   expect(isPrivateRoute("/games/gomoku/invite/secret-token")).toBe(true);
   expect(isPrivateRoute("/api/games/gomoku/invitations/secret-token")).toBe(true);

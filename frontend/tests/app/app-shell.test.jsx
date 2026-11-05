@@ -90,14 +90,14 @@ it("exposes the public sparring menu in the header and mobile drawer", () => {
   renderShell({ login: jest.fn(), logout: jest.fn(), status: "anonymous" });
 
   const desktopMenu = screen.getByRole("navigation", { name: "주요 메뉴" });
-  const desktopLink = within(desktopMenu).getByRole("link", { name: "토론해요" });
+  const desktopLink = within(desktopMenu).getByRole("link", { name: "토론하나?" });
   expect(desktopLink).toHaveAttribute("href", "/sparring");
   expect(desktopLink).toHaveAttribute("aria-current", "page");
   expect(desktopLink).toHaveAttribute("data-ph-capture-attribute-action", "sparring_view");
 
   fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
   const mobileMenu = screen.getByRole("navigation", { name: "모바일 메뉴" });
-  expect(within(mobileMenu).getByRole("link", { name: "토론해요" })).toHaveAttribute("href", "/sparring");
+  expect(within(mobileMenu).getByRole("link", { name: "토론하나?" })).toHaveAttribute("href", "/sparring");
 });
 
 it("starts GitHub login from the anonymous header action", () => {
@@ -238,7 +238,7 @@ it(
   }
 );
 
-it.each([["모임 만들기", "/groups/new"]])(
+it.each([["자리 만들기", "/groups/new"]])(
   "stores %s as the login return target and starts GitHub login",
   (label, target) => {
     // Given
@@ -284,7 +284,7 @@ it("reveals logout only after opening the profile menu", () => {
     within(screen.getByRole("navigation", { name: "주요 메뉴" }))
       .getAllByRole("link")
       .map((link) => link.getAttribute("href"))
-  ).toEqual(["/home", "/groups", "/activities", "/board", "/sparring", "/games"]);
+  ).toEqual(["/sparring", "/games"]);
   expect(logout).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("navigation", { name: "계정 메뉴" })).not.toBeInTheDocument();
 });
@@ -375,7 +375,7 @@ it("closes the mobile drawer when selecting my page", () => {
   expect(profile.querySelector("img")).toBeNull();
   expect(profile).toHaveClass("app-header__link");
   expect(menu.querySelector("img")).toHaveAttribute("src", avatarUrl);
-  expect(within(menu).getByText("자리")).toBeInTheDocument();
+  expect(within(menu).getByText("자리", { selector: "strong" })).toBeInTheDocument();
   expect(within(menu).getByText("나의 프로필")).toBeInTheDocument();
   expect(within(menu).getByText("8기 / 프론트엔드")).toBeInTheDocument();
   expect(profile).toHaveAttribute("data-ph-capture-attribute-action", "my_page_view");
@@ -414,13 +414,12 @@ it("places feedback outside desktop and mobile navigation", () => {
   renderShell({ login: jest.fn(), logout: jest.fn(), status: "authenticated" });
 
   // Then
-  const expectedOrder = ["홈", "탐색", "활동", "게시판", "토론해요", "게임방"];
   const desktopNavigation = screen.getByRole("navigation", { name: "주요 메뉴" });
   expect(
-    Array.from(desktopNavigation.querySelectorAll("a, button")).map((item) =>
-      item.textContent.trim()
-    )
-  ).toEqual(expectedOrder);
+    within(desktopNavigation).getAllByRole("link").map((item) => item.textContent.trim())
+  ).toEqual(["토론하나?", "게임하나?"]);
+  expect(within(desktopNavigation).getByRole("button", { name: "자리" })).toHaveAttribute("aria-expanded", "false");
+  expect(desktopNavigation.style.getPropertyValue("--header-nav-item-count")).toBe("3");
 
   const feedbackButton = screen.getAllByRole("button", { name: "피드백 남기기" })
     .find((button) => button.classList.contains("app-feedback-button"));
@@ -434,35 +433,36 @@ it("places feedback outside desktop and mobile navigation", () => {
   // And
   fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
   const mobileNavigation = screen.getByRole("navigation", { name: "모바일 메뉴" });
-  const mobileLinks = mobileNavigation.querySelector(".app-header__mobile-links");
-  const expectedMobileOrder = ["홈", "탐색", "활동", "게시판", "토론해요", "게임방", "모임 만들기"];
-  expect(mobileLinks).not.toBeNull();
   expect(
-    Array.from(mobileLinks.querySelectorAll("a, button"))
-      .slice(0, expectedMobileOrder.length)
-      .map((item) => item.textContent.trim())
-  ).toEqual(expectedMobileOrder);
+    within(mobileNavigation).getAllByRole("link").map((item) => item.textContent.trim())
+  ).toEqual(["토론하나?", "게임하나?", "자리 만들기", "마이페이지", "채팅"]);
+  expect(within(mobileNavigation).getByRole("button", { name: "자리" })).toHaveAttribute("aria-expanded", "false");
 });
 
 it.each([
-  ["/home", "홈"],
-  ["/groups", "탐색"],
-  ["/activities", "활동"],
-  ["/board", "게시판"],
-  ["/board/42", "게시판"],
-  ["/games", "게임방"],
-  ["/games/gomoku/rooms/1", "게임방"],
+  ["/home", null],
+  ["/groups", "뭐있나?"],
+  ["/activities", "뭐했나?"],
+  ["/board", "뭐할래?"],
+  ["/board/42", "뭐할래?"],
+  ["/games", "게임하나?"],
+  ["/games/gomoku/rooms/1", "게임하나?"],
+  ["/groups/new", null],
   ["/groups/41", null]
 ])("exposes public navigation on %s with matching active state", (pathname, activeName) => {
   mockPathname = pathname;
   renderShell({ login: jest.fn(), logout: jest.fn(), status: "anonymous" });
   expect(screen.getByRole("link", { name: "자리하나 홈" })).toHaveAttribute("href", "/home");
   const navigation = within(screen.getByRole("navigation", { name: "주요 메뉴" }));
+  const trigger = navigation.getByRole("button", { name: "자리" });
+  expect(trigger).toHaveAttribute("data-ph-capture-attribute-action", "group_navigation_toggle");
+  fireEvent.click(trigger);
   for (const [name, href, action] of [
-    ["홈", "/home", "group_home"],
-    ["탐색", "/groups", "group_browse"],
-    ["활동", "/activities", "browse_activity_posts"],
-    ["게시판", "/board", "browse_proposals"]
+    ["뭐있나?", "/groups", "group_browse"],
+    ["뭐했나?", "/activities", "browse_activity_posts"],
+    ["뭐할래?", "/board", "browse_proposals"],
+    ["토론하나?", "/sparring", "sparring_view"],
+    ["게임하나?", "/games", "games_open"]
   ]) {
     const link = navigation.getByRole("link", { name, exact: true });
     expect(link).toHaveAttribute("href", href);
@@ -473,15 +473,16 @@ it.each([
 });
 
 it.each([
-  ["홈", "/home"],
-  ["탐색", "/groups"],
-  ["활동", "/activities"],
-  ["게시판", "/board"]
+  ["뭐있나?", "/groups"],
+  ["뭐했나?", "/activities"],
+  ["뭐할래?", "/board"]
 ])("closes the mobile menu and opens %s without requiring login", (name, href) => {
   const login = jest.fn();
   renderShell({ login, logout: jest.fn(), status: "anonymous" });
   fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
-  const link = within(screen.getByRole("navigation", { name: "모바일 메뉴" })).getByRole("link", {
+  const navigation = within(screen.getByRole("navigation", { name: "모바일 메뉴" }));
+  fireEvent.click(navigation.getByRole("button", { name: "자리" }));
+  const link = navigation.getByRole("link", {
     name,
     exact: true
   });
@@ -490,6 +491,43 @@ it.each([
   expect(navigationContinues).toBe(true);
   expect(screen.queryByRole("dialog", { name: "전체 메뉴" })).not.toBeInTheDocument();
   expect(login).not.toHaveBeenCalled();
+});
+
+it("describes the three 자리 destinations and dismisses the disclosure without navigating", () => {
+  renderShell({ status: "anonymous" });
+  const navigation = within(screen.getByRole("navigation", { name: "주요 메뉴" }));
+  const trigger = navigation.getByRole("button", { name: "자리" });
+  expect(navigation.queryByRole("link", { name: "뭐있나?" })).not.toBeInTheDocument();
+  fireEvent.click(trigger);
+  for (const [label, description] of [
+    ["뭐있나?", "함께할 자리 둘러보기"],
+    ["뭐했나?", "사진으로 보는 자리 이야기"],
+    ["뭐할래?", "하고 싶은 자리 제안하기"]
+  ]) expect(navigation.getByRole("link", { name: label })).toHaveAccessibleDescription(description);
+  navigation.getByRole("link", { name: "뭐했나?" }).focus();
+  fireEvent.keyDown(document.activeElement, { key: "Escape" });
+  expect(trigger).toHaveFocus();
+  expect(trigger).toHaveAttribute("aria-expanded", "false");
+  expect(mockNavigate).not.toHaveBeenCalled();
+  fireEvent.click(trigger);
+  fireEvent.pointerDown(screen.getByRole("heading", { name: "현재 화면" }));
+  expect(trigger).toHaveAttribute("aria-expanded", "false");
+  fireEvent.click(trigger);
+  fireEvent.blur(trigger, { relatedTarget: navigation.getByRole("link", { name: "게임하나?" }) });
+  expect(trigger).toHaveAttribute("aria-expanded", "false");
+});
+
+it("closes only the 자리 disclosure on Escape inside the mobile drawer", () => {
+  renderShell({ status: "anonymous" });
+  fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
+  const navigation = within(screen.getByRole("navigation", { name: "모바일 메뉴" }));
+  const trigger = navigation.getByRole("button", { name: "자리" });
+  fireEvent.click(trigger);
+  navigation.getByRole("link", { name: "뭐있나?" }).focus();
+  fireEvent.keyDown(document.activeElement, { key: "Escape" });
+  expect(trigger).toHaveFocus();
+  expect(trigger).toHaveAttribute("aria-expanded", "false");
+  expect(screen.getByRole("dialog", { name: "전체 메뉴" })).toBeInTheDocument();
 });
 
 
