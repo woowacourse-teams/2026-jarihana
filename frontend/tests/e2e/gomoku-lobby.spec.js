@@ -44,7 +44,7 @@ for (const width of [390, 1440]) {
       await expect(waitingRow).toContainText("1 / 2");
       await expect(waitingRow.getByRole("button", { name: "참여하기" })).toBeEnabled();
       await expect(playingRow).toContainText("2 / 2");
-      await expect(playingRow.getByRole("button", { name: "게임 중" })).toBeDisabled();
+      await expect(playingRow.getByRole("button", { name: "관전하기" })).toBeEnabled();
       expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
       expect((await new AxeBuilder({ page }).include(".games-page--lobby").analyze()).violations).toEqual([]);
       await page.screenshot({ path: `test-results/gomoku-lobby-${width}-${colorScheme}.png`, fullPage: true });

@@ -392,3 +392,7 @@ private route다. 경로 정규화에서도 토큰은 `:redacted`로 치환한�
 ## 오목 게임방 채팅
 
 채팅 패널과 입력은 data-ph-private로 마스킹한다. 메시지 원문, 이름과 UUID를 분석 이벤트에 보내지 않는다. 고정 action은 gomoku_chat_open, gomoku_chat_dismiss, gomoku_chat_history_load, gomoku_chat_scroll_latest, gomoku_chat_refresh, gomoku_chat_message_input, gomoku_chat_message_submit, gomoku_chat_message_send, gomoku_chat_message_retry다.
+
+## 오목 관전
+
+고정 action은 gomoku_observation_open, gomoku_observation_retry, gomoku_observation_leave, gomoku_observation_lobby_open이다. 관전 식별자와 메시지 내용은 분석에 보내지 않으며 기존 채팅 마스킹을 유지한다.

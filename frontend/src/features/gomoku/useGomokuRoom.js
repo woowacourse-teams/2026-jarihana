@@ -9,7 +9,7 @@ function retryDelay(failures) {
   return ceiling * (0.5 + Math.random() * 0.5);
 }
 
-export function useGomokuRoom(roomId) {
+export function useGomokuRoom(roomId, participationId = null) {
   const { member, status, sessionVersion } = useAuth();
   const [snapshot, setSnapshot] = useState(null);
   const [connected, setConnected] = useState(false);
@@ -61,7 +61,7 @@ export function useGomokuRoom(roomId) {
       try {
         await getMe(undefined, { signal: controller.signal });
         if (!active()) return;
-        const current = await gomokuApi.room(roomId, controller.signal);
+        const current = await gomokuApi.room(roomId, controller.signal, participationId);
         if (!active()) return;
         accept(current);
         if (current.status === "CLOSED") {
@@ -70,7 +70,8 @@ export function useGomokuRoom(roomId) {
           terminal = true;
           return;
         }
-        stream = new EventSource(`/api/games/gomoku/rooms/${roomId}/events`, {
+        const query = participationId ? `?${new URLSearchParams({ participationId })}` : "";
+        stream = new EventSource(`/api/games/gomoku/rooms/${roomId}/events${query}`, {
           withCredentials: true
         });
         const source = stream;
@@ -123,7 +124,7 @@ export function useGomokuRoom(roomId) {
         if ([403, 404].includes(failure.status)) {
           terminal = true;
           setConnected(false);
-          setError("참여 중인 방이 아니거나 종료된 방이에요.");
+          setError(participationId ? "관전할 수 없는 방이거나 관전이 종료됐어요." : "참여 중인 방이 아니거나 종료된 방이에요.");
         } else {
           retry("방에 계속 연결하지 못하고 있어요. 자동으로 다시 시도해요.");
         }
@@ -140,9 +141,9 @@ export function useGomokuRoom(roomId) {
       clearTimeout(snapshotTimer);
       clearTimeout(refreshTimer.current);
     };
-  }, [roomId, member?.id, status, sessionVersion, accept]);
+  }, [roomId, member?.id, status, sessionVersion, participationId, accept]);
   async function act(operation) {
-    if (actionLock.current || !connected) return false;
+    if (participationId || actionLock.current || !connected) return false;
     const version = generation.current;
     actionLock.current = true;
     setPending(true);

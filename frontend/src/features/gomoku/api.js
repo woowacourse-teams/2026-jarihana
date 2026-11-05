@@ -27,19 +27,20 @@ export const roomSchema = z.object({
   turnDeadline: z.number().nullable()
 });
 const roomIdSchema = z.object({ roomId: z.number().int() });
-export const lobbyRoomSchema = roomSchema.pick({
-  id: true,
-  hostMemberId: true,
-  hostName: true,
-  hostAvatarUrl: true,
-  guestMemberId: true,
-  guestName: true,
-  guestAvatarUrl: true,
-  visibility: true,
-  rule: true,
-  status: true
-});
-
+export const lobbyRoomSchema = roomSchema
+  .pick({
+    id: true,
+    hostMemberId: true,
+    hostName: true,
+    hostAvatarUrl: true,
+    guestMemberId: true,
+    guestName: true,
+    guestAvatarUrl: true,
+    visibility: true,
+    rule: true,
+    status: true
+  })
+  .extend({ spectatorCount: z.number().int().nonnegative().default(0) });
 export const statisticsSchema = z.object({
   total: z.number().int().nonnegative(),
   wins: z.number().int().nonnegative(),
@@ -97,7 +98,24 @@ export const gomokuApi = {
     }),
   mine: (signal) => request("rooms/me", { schema: z.object({ roomId: nullableId }), signal }),
   create: (body) => request("rooms", { method: "POST", json: body, schema: roomIdSchema }),
-  room: (id, signal) => request(`rooms/${id}`, { schema: roomSchema, signal }),
+  room: (id, signal, participationId) =>
+    request(`rooms/${id}`, {
+      schema: roomSchema,
+      signal,
+      ...(participationId ? { searchParams: { participationId } } : {})
+    }),
+  observe: (id, requestId, signal) =>
+    request(`rooms/${id}/observations`, {
+      method: "POST",
+      json: { requestId },
+      signal,
+      schema: z.object({
+        participationId: z.string().uuid(),
+        chatStartSequence: z.string().regex(/^\d+$/)
+      })
+    }),
+  leaveObservation: (id, participationId) =>
+    request(`rooms/${id}/observations/${participationId}`, { method: "DELETE" }),
   join: (id, token) =>
     request(`rooms/${id}/join`, {
       method: "POST",

@@ -122,7 +122,7 @@ function Conversation({
             <div className="gomoku-chat__empty">
               <MessageCircle aria-hidden="true" />
               <p>가벼운 인사를 건네보세요.</p>
-              <span>현재 참가자끼리만 볼 수 있어요.</span>
+              <span>입장 이후의 대화만 표시돼요.</span>
             </div>
           )}
           <div
@@ -144,7 +144,9 @@ function Conversation({
                 >
                   {!mine && !continuesPrevious && (
                     <span className="gomoku-chat__author">
-                      {message.author}
+                      {message.senderRole === "SPECTATOR"
+                        ? `[관전자] ${message.author}`
+                        : message.author}
                     </span>
                   )}
                   <p className="gomoku-chat__bubble">{message.content}</p>

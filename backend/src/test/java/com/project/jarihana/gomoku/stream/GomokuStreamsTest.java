@@ -1,6 +1,7 @@
 package com.project.jarihana.gomoku.stream;
 
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.after;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -15,6 +16,7 @@ import static org.mockito.Mockito.when;
 import com.project.jarihana.gomoku.domain.RoomStatus;
 import com.project.jarihana.gomoku.query.service.GomokuQueryService;
 import com.project.jarihana.gomoku.query.service.GomokuChatQueryService;
+import com.project.jarihana.gomoku.command.service.GomokuObservationService;
 import com.project.jarihana.gomoku.query.service.dto.GomokuRoomResult;
 
 import org.junit.jupiter.api.AfterEach;
@@ -45,10 +47,10 @@ class GomokuStreamsTest {
         when(initial.revision()).thenReturn(1L);
         when(initial.contains(anyLong())).thenReturn(true);
         when(initial.status()).thenReturn(RoomStatus.WAITING);
-        when(queries.getRoom(anyLong(), anyLong())).thenReturn(initial);
+        when(queries.getRoom(anyLong(), anyLong(), isNull())).thenReturn(initial);
         when(queries.loadSnapshot(anyLong())).thenReturn(initial);
         when(queries.findRevisions(any())).thenReturn(Map.of(1L, 1L));
-        streams = new GomokuStreams(queries, mock(GomokuChatQueryService.class), Clock.fixed(Instant.ofEpochMilli(1000), ZoneOffset.UTC));
+        streams = new GomokuStreams(queries, mock(GomokuChatQueryService.class), mock(GomokuObservationService.class), Clock.fixed(Instant.ofEpochMilli(1000), ZoneOffset.UTC));
         ((ScheduledExecutorService) ReflectionTestUtils.getField(streams, "ticker")).shutdownNow();
         streams.start();
     }
