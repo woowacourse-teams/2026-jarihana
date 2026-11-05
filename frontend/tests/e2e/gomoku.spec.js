@@ -208,7 +208,7 @@ for (const { width, confirmation, theme } of [390, 1200].flatMap((width) =>
     await invitation.getByRole("button", { name: "복사", exact: true }).click();
     await expect(invitation).toHaveCount(0);
     expect(await page.evaluate(() => window.__gomokuCopiedLinks)).toEqual([
-      "http://127.0.0.1:4174/games/gomoku/invite/layout-test-token-2"
+      new URL("/games/gomoku/invite/layout-test-token-2", page.url()).href
     ]);
     await expect(invitationToggle).toBeFocused();
     expect(await boardGeometry()).toEqual(originalBoard);
