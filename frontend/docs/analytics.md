@@ -1,5 +1,12 @@
 # PostHog 행동 분석
 
+## 헤더 자리 메뉴
+
+상위 `자리` disclosure 버튼은 `group_navigation_toggle`을 사용한다. 하위 `뭐있나?`, `뭐했나?`,
+`뭐할래?` 링크는 각각 기존 `group_browse`, `browse_activity_posts`, `browse_proposals`를 유지한다.
+데스크톱과 모바일은 같은 식별자를 공유한다. 로고의 홈 이동은 `group_home`, 자리 만들기는 `group_create`다.
+hover 개폐는 별도 성공 이벤트로 수집하지 않는다.
+
 ## 채팅 동작
 
 채팅 영역 전체를 `data-ph-private`로 마스킹한다. 메시지 본문·작성자 이름·인증 쿠키·헤더는 분석에 보내지 않는다.
