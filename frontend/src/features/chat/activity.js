@@ -60,7 +60,8 @@ export function createChatActivityReporter({ isConnected, report }) {
   function pageHide() { pageHidden = true; screenChanged(); }
   function pageShow() { pageHidden = false; screenChanged(); }
 
-  const activityEvents = ["mousemove", "click", "keydown", "scroll", "touchstart", "touchmove"];
+  // Scroll position changes also come from incoming messages and layout updates.
+  const activityEvents = ["mousemove", "click", "keydown", "wheel", "touchstart", "touchmove"];
   activityEvents.forEach((event) => window.addEventListener(event, activity, { capture: true, passive: true }));
   window.addEventListener("focus", screenChanged);
   window.addEventListener("blur", screenChanged);

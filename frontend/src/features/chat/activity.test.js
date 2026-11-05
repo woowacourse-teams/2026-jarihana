@@ -86,7 +86,7 @@ test("every report rechecks visibility and focus even without a transition event
   expect(report).toHaveBeenCalledTimes(2);
 });
 
-test.each(["mousemove", "click", "keydown", "scroll", "touchstart", "touchmove"])("five-minute idle expires at the boundary and %s resumes immediately", (event) => {
+test.each(["mousemove", "click", "keydown", "wheel", "touchstart", "touchmove"])("five-minute idle expires at the boundary and %s resumes immediately", (event) => {
   const { report } = setup();
   jest.advanceTimersByTime(299999);
   expect(report).toHaveBeenCalledTimes(30);
@@ -95,6 +95,19 @@ test.each(["mousemove", "click", "keydown", "scroll", "touchstart", "touchmove"]
   jest.advanceTimersByTime(10000);
   expect(report).toHaveBeenCalledTimes(30);
   dispatch(event);
+  expect(report).toHaveBeenCalledTimes(31);
+});
+
+test("a scroll position change at 299 seconds cannot extend the five-minute idle deadline", () => {
+  const { report } = setup();
+  jest.advanceTimersByTime(299000);
+  dispatch("scroll");
+  jest.advanceTimersByTime(1000);
+  expect(report).toHaveBeenCalledTimes(30);
+  dispatch("scroll");
+  jest.advanceTimersByTime(10000);
+  expect(report).toHaveBeenCalledTimes(30);
+  dispatch("wheel");
   expect(report).toHaveBeenCalledTimes(31);
 });
 
