@@ -193,6 +193,8 @@ runuser -u jarihana-runner -- bash
 ```bash
 set -euo pipefail
 set +x
+# 관리자 셸의 현재 디렉터리를 이 계정이 읽지 못하면 docker compose가 "stat .: permission denied"로 멈춘다.
+cd "$HOME"
 c=/etc/jarihana-deploy/prod/app-A.json
 env_file=/etc/jarihana-deploy/prod/bootstrap.env
 if grep -q REPLACE_ME "$env_file"; then exit 1; fi
