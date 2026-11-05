@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { GomokuRoomPage } from "./index";
 import { useGomokuRoom } from "../../features/gomoku/useGomokuRoom";
 import { gomokuApi } from "../../features/gomoku/api";
@@ -380,3 +380,97 @@ test.each([null, 1])(
     expect(navigate).toHaveBeenCalledWith("/games/gomoku");
   }
 );
+
+test("double-click sends the clicked position and a failed move keeps it for button retry", async () => {
+  const state = useGomokuRoom();
+  const originalHook = useGomokuRoom.getMockImplementation();
+  const move = jest.spyOn(gomokuApi, "move").mockResolvedValue({});
+  const act = jest.fn(async (operation) => {
+    await operation();
+    return false;
+  });
+  useGomokuRoom.mockReturnValue({
+    ...state, act, room: { ...state.room, turnDeadline: Date.now() + 60000 }
+  });
+  try {
+    render(<GomokuRoomPage />);
+    fireEvent.click(screen.getByRole("button", { name: "A1, 빈 자리" }));
+    expect(move).not.toHaveBeenCalled();
+    fireEvent.doubleClick(screen.getByRole("button", { name: "H8, 빈 자리" }));
+    await waitFor(() => expect(move).toHaveBeenCalledTimes(1));
+    const payload = move.mock.calls[0][1];
+    expect(payload).toMatchObject({ x: 7, y: 7, gameNumber: 1, expectedPly: 0 });
+    expect(payload.requestId).toMatch(/^[a-f0-9-]{36}$/);
+    expect(screen.getByRole("button", { name: "H8, 빈 자리" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "자리하기", exact: true }));
+    await waitFor(() => expect(move).toHaveBeenCalledTimes(2));
+    expect(move.mock.calls[1][1]).toEqual(payload);
+  } finally {
+    move.mockRestore();
+    useGomokuRoom.mockImplementation(originalHook);
+  }
+});
+
+test.each([
+  { connected: false },
+  { pending: true },
+  { room: { ply: 1 } },
+  { room: { turnDeadline: 0 } },
+  { room: { status: "WAITING" } },
+  { room: { status: "FINISHED" } },
+  { room: { status: "CLOSED" } }
+])("double-click cannot submit when the room disallows moves: %o", (override) => {
+  const state = useGomokuRoom();
+  const originalHook = useGomokuRoom.getMockImplementation();
+  const act = jest.fn();
+  useGomokuRoom.mockReturnValue({
+    ...state, ...override, act,
+    room: { ...state.room, turnDeadline: Date.now() + 60000, ...override.room }
+  });
+  try {
+    const { container } = render(<GomokuRoomPage />);
+    fireEvent.doubleClick(container.querySelectorAll(".gomoku-cell")[112]);
+    expect(act).not.toHaveBeenCalled();
+  } finally {
+    useGomokuRoom.mockImplementation(originalHook);
+  }
+});
+
+test.each([0, 1])("only the current player's profile is highlighted at ply %i", (ply) => {
+  const state = useGomokuRoom();
+  useGomokuRoom.mockReturnValueOnce({ ...state, room: { ...state.room, ply } });
+  const { container } = render(<GomokuRoomPage />);
+  const active = container.querySelectorAll(".gomoku-player--active");
+  expect(active).toHaveLength(1);
+  expect(active[0]).toHaveTextContent(ply === 0 ? "내 차례" : "상대 차례");
+  expect(screen.queryByText(/^(내|상대) 차례예요$/)).not.toBeInTheDocument();
+  expect(within(active[0]).getByText(ply === 0 ? "흑 (나)" : "백", { selector: "strong" })).toBeVisible();
+  expect(container.querySelectorAll(".gomoku-player:not(.gomoku-player--active)")).toHaveLength(1);
+  expect(within(container.querySelector(".gomoku-player:not(.gomoku-player--active)")).queryByText("대기")).not.toBeInTheDocument();
+});
+
+test("room error can be dismissed without clearing selection and a repeated error is announced again", () => {
+  const state = useGomokuRoom();
+  const originalHook = useGomokuRoom.getMockImplementation();
+  const error = "흑은 쌍3, 쌍4, 장목 자리에 놓을 수 없어요. 다른 자리를 선택해 주세요.";
+  useGomokuRoom.mockReturnValue({ ...state, error, room: { ...state.room, turnDeadline: Date.now() + 60000 } });
+  try {
+    const { rerender } = render(<GomokuRoomPage />);
+    fireEvent.click(screen.getByRole("button", { name: "H8, 빈 자리" }));
+    expect(screen.getByRole("alert")).toHaveTextContent(error);
+    screen.getByRole("button", { name: "H8, 빈 자리" }).focus();
+    const dismiss = screen.getByRole("button", { name: "오류 알림 닫기" });
+    expect(dismiss).toHaveAttribute("data-ph-capture-attribute-action", "gomoku_error_dismiss");
+    fireEvent.click(dismiss);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "H8, 빈 자리" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "H8, 빈 자리" })).toHaveAttribute("aria-pressed", "true");
+    useGomokuRoom.mockReturnValue({ ...state, error: null });
+    rerender(<GomokuRoomPage />);
+    useGomokuRoom.mockReturnValue({ ...state, error });
+    rerender(<GomokuRoomPage />);
+    expect(screen.getByRole("alert")).toHaveTextContent(error);
+  } finally {
+    useGomokuRoom.mockImplementation(originalHook);
+  }
+});
