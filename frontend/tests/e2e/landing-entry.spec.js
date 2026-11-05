@@ -19,12 +19,7 @@ for (const width of [390, 1440]) {
     await page.goto("/groups");
     await expect(page.locator(".app-shell")).toBeVisible();
     await expect(page.locator(".landing-page")).toHaveCount(0);
-    if (width < 768) {
-      await page.getByRole("button", { name: "메뉴 열기" }).click();
-      await page.getByRole("navigation", { name: "모바일 메뉴" }).getByRole("link", { name: "홈", exact: true }).click();
-    } else {
-      await page.getByRole("navigation", { name: "주요 메뉴" }).getByRole("link", { name: "홈", exact: true }).click();
-    }
+    await page.getByRole("link", { name: "자리하나 홈" }).click();
     await expect(page).toHaveURL(/\/home$/);
     await expect(page.locator(".groups-page--home")).toBeVisible();
     await expect(page.locator(".landing-page")).toHaveCount(0);
