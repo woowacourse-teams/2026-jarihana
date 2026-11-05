@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Board } from "./Board";
 import { Stone } from "./Stone";
-import { newerSnapshot, roomSchema, turnMemberId } from "./api";
+import { lobbyRoomSchema, newerSnapshot, roomSchema, turnMemberId } from "./api";
 import { isPrivateRoute, normalizePath, maskNetworkRequest } from "../../shared/analytics/privacy";
 
 export const snapshot = {
@@ -27,6 +27,20 @@ export const snapshot = {
   serverNow: 1000,
   turnDeadline: 61000
 };
+test("lobby accepts public room summaries without participant-only game state", () => {
+  const summary = {
+    id: 1,
+    hostMemberId: 10,
+    hostName: "호스트",
+    guestMemberId: 20,
+    guestName: "친구",
+    visibility: "PUBLIC",
+    rule: "RENJU",
+    status: "PLAYING"
+  };
+  expect(lobbyRoomSchema.safeParse(summary).success).toBe(true);
+  expect(roomSchema.safeParse(summary).success).toBe(false);
+});
 test("older, duplicate and wrong room snapshots cannot replace current board", () => {
   expect(newerSnapshot(snapshot, { ...snapshot, revision: 1 })).toBe(snapshot);
   expect(newerSnapshot(snapshot, { ...snapshot })).toBe(snapshot);
