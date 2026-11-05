@@ -51,7 +51,7 @@
 ## 스파링 목록
 
 - 목록의 주 동작은 소개 히어로의 ‘토론 만들기’다. 우선순위는 토론 제목, 사용자가 작성한 양쪽 생각, 실제 남은 시간과 투표 결과다. 검색창만 두고 목록 필터는 표시하지 않는다.
-- 사용자에게 표시하는 기능 이름은 ‘토론해요’다. 메뉴와 목록 제목은 이 이름을 쓰고 안내 문장은 ‘토론’으로 표현한다. 기존 `/sparring` 경로와 API·분석 식별자는 유지한다.
+- 헤더 메뉴 이름은 "토론하나?"이며 목록 화면의 기능 이름은 "토론해요"다. 안내 문장은 "토론"으로 표현한다. 기존 `/sparring` 경로와 API/분석 식별자는 유지한다.
 - 소개 히어로는 사용자가 선택한 반투명 캡슐 볼풀 이미지를 전체 폭으로 유지한다. 데스크톱 최소 높이는 기존 300px, 제목은 clamp(1.8rem, 3vw, 2.5rem), 버튼은 공통 크기를 사용한다. 문구 뒤 surface 그라데이션으로 가독성을 확보하고 600px 이하에서는 문구와 이미지를 세로로 쌓는다.
 - Layout: 토론 목록 -> reel + stack; scroll owner: document, 진행 중인 카드만 가로 스크롤. 기존 밑줄 검색창과 4열 이미지 카드를 사용하며 태블릿에서는 3열, 작은 화면에서는 2열, 450px 이하에서는 다음 카드 일부가 보이는 85% 폭으로 줄인다. 카드 위에 제목·마감, 하단에 투표 결과·집계를 표시한다.
 - 진행·마감 카드 모두 업로드한 대표사진을 우선 사용하고 기본 이미지는 기존 의자 캐릭터를 사용한다. 어두운 그라데이션 위에 흰색 텍스트를 배치한다. 마감된 토론은 넓은 이미지 행에 제목·집계와 최종 결과를 함께 표시한다.
@@ -366,13 +366,13 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   guard 확인 중에는 footer를 노출하지 않아 loading surface가 콘텐츠보다 먼저 보이지 않게 한다.
 - Header composition: desktop은 `1fr / auto / 1fr` grid로 가운데 메뉴를 유지하고,
   tablet에서는 `auto / minmax(0, 1fr) / auto`와 16px gap으로 로고·메뉴·우측 버튼이 겹치지 않게 한다.
-  주요 메뉴는 홈, 탐색, 활동, 게시판, 토론해요, 게임방을 한 줄로 배치한다. 실제 메뉴 수를
+  주요 메뉴는 자리, 토론하나?, 게임하나?를 한 줄로 배치한다. 홈은 로고(`/home`)로 이동한다. 실제 메뉴 수를
   `--header-nav-item-count`로 전달해 열 수·전체 폭·활성 밑줄 폭을 함께 계산하고 각 문구는 줄바꿈하지 않는다.
   로그인/프로필 왼쪽에는 민트색 `자리 만들기` 링크(`/groups/new`, action `group_create`)를 둔다.
   히어로와 같은 의자 이미지와 문구를 사용하며, 헤더의 의자 크기는 1.5rem으로 맞춘다.
   로그인 버튼과 같은 small 높이를 사용하며 익명 클릭은 생성 경로를 저장하고 기존 로그인으로 연결한다.
   wordmark와 우측 auth action을 고정하고,
-  member tabs는 노출하지 않는다. 모바일 drawer에서는 탐색·모임 만들기 진입점을 유지하고, guard가
+  member tabs는 노출하지 않는다. 모바일 drawer에서는 자리 하위 메뉴와 자리 만들기 진입점을 유지하고, guard가
   인증이 필요한 destination을 처리한다. anonymous가 보호 메뉴를 누르면 해당 경로를 로그인 후
   복귀 대상으로 저장하고 GitHub 로그인으로 이동한다. authenticated 상태에만
   desktop에서 프로필 사진을 계정 메뉴 버튼으로 표시하고, 마이페이지와 로그아웃은 드롭다운 안에 둔다.
@@ -418,8 +418,27 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   카드 높이는 내용에 맞추며 기본 이름·기수 두 줄과 게스트 이름 한 줄에서는 로그인 전후 사진·버튼 위치를 유지한다.
   긴 이름은 줄바꿈하고, 높이가 짧은 화면에서는 기존 drawer가 세로 스크롤을 담당한다.
   마이페이지 선택·로그인·로그아웃 시 사이드바를 닫는다.
-- Header active state는 모바일 drawer의 pathname 목적지에만 연결한다. `/groups/new`에서 상위
-  `/groups` 탐색 링크를 동시에 활성화하거나, `/my/groups`에서 `/my`를 동시에 활성화하지 않는다.
+- Header 자리 메뉴는 사용자가 승인한 세로 목록형을 기준으로 한다.
+  이름은 `뭐있나?`(`/groups`), `뭐했나?`(`/activities`), `뭐할래?`(`/board`)이며 설명은 각각
+  `함께할 자리 둘러보기`, `사진으로 보는 자리 이야기`, `하고 싶은 자리 제안하기`다.
+  아이콘은 승인된 입체 의자 캐릭터형을 사용한다. 민트색 의자에 돋보기, 사진, 말풍선을 조합한
+  투명 PNG를 `src/shared/assets/brand/header-chairs/`에서 가져온다. 원본은 144px 정사각형이며
+  표시 크기는 새 토큰 `--header-group-icon-size: 36px`로 데스크톱과 모바일에 동일하게 적용한다.
+  회색 타일 배경은 두지 않으며 장식 이미지는 빈 alt/aria-hidden으로 접근성 이름에서 제외한다.
+  패널 폭은 새 토큰 `--header-group-menu-width: 19.5rem`, 모서리는 radius-lg, border-thin/line 테두리,
+  shadow-float, 안쪽 여백 space-2를 사용한다. 행 높이는 `calc(--touch-target + --space-8)`, padding/gap은
+  space-3이며 이름 text-h3/semibold, 설명 text-label/muted-ink다. 선택/hover/focus는 sunken 바탕으로 표시한다.
+  오른쪽 ArrowUpRight는 hover/focus 때만 나타나며 이름과 설명은 접근성 이름/설명으로 연결한다.
+  패널은 버튼 왼쪽 기준 space-3만큼 왼쪽, 아래 space-2에 두고 사이의 빈틈도 hover 영역에 포함한다.
+  마우스 hover, 클릭, Enter/Space로 열며 Tab으로 링크를 탐색한다. hover로 열면 마우스 이탈 시 닫고,
+  클릭으로 고정하거나 내부에 포커스가 있으면 유지한다. 다시 클릭, 바깥 클릭, 포커스 이탈, Escape,
+  항목 선택과 URL 변경으로 닫는다. Escape는 내부 포커스를 버튼으로 돌린다. hover는 마우스에만 적용한다.
+  모바일 drawer에서는 같은 버튼을 눌러 문서 흐름 안에 목록을 펼친다. Escape는 자리 목록만 먼저 닫는다.
+  버튼 꺾쇠는 space-3이며 duration-fast/ease-standard로 회전하고 동작 줄이기에서는 회전 전환을 생략한다.
+  패널은 같은 duration/ease의 opacity 전환을 사용하며 닫힌 패널은 inert/aria-hidden으로 탐색에서 제외한다.
+- Header active state: `/groups`, `/activities`, `/board`와 각 하위 경로는 상위 `자리`를 선택 상태로 표시한다.
+  하위 링크의 aria-current는 기존 pathname 목적지 규칙을 유지하며 `/groups/new`에서 `/groups` 탐색 링크를
+  동시에 활성화하거나, `/my/groups`에서 `/my`를 동시에 활성화하지 않는다.
 - `PageContainer`: 모든 route의 좌우 gutter와 최대 폭을 통일한다.
 - 공개 활동 목록은 탐색 목록과 같은 `--space-12` 상단 여백, `--text-h1` 제목과
   제목 아래 `--space-6` 간격을 사용한다. 영어 eyebrow와 중복 소개 문구는 두지 않는다.
@@ -731,7 +750,7 @@ default/hover/active/focus/selected 상태를 제공한다.
   동작 줄이기에서는 이동을 생략하며 미지원 브라우저는 일반 링크 탐색을 유지한다.
 
 - Fast `120ms`, base `180ms`, deliberate `240ms`, smooth `420ms`; easing `cubic-bezier(.2,.8,.2,1)`.
-- Header 주요 메뉴는 글자 수와 관계없이 홈, 탐색, 활동, 게시판, 토론해요, 게임방을 각각 `--header-nav-item-width`(4.25rem) 폭으로 맞춘다.
+- Header 주요 메뉴는 글자 수와 관계없이 자리, 토론하나?, 게임하나?를 각각 `--header-nav-item-width`(5.25rem) 폭으로 맞춘다. 물음표까지 포함한 메뉴 사이의 여백을 확보한다.
   열 수와 선택 밑줄 폭은 실제 메뉴 수를 따라 계산한다.
   주요 메뉴 글자는 `--text-body`(0.9375rem)를 사용한다. 헤더 의자 로고는 태블릿·데스크톱에서
   2.125rem, 모바일에서 2rem 크기를 사용한다.
@@ -837,10 +856,10 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
   Keep background changes immediate. The hero fills the page width with square corners;
   the existing main frame supplies its outer top rounding on tablet and desktop.
   A decorative pseudo-element fills the hero bounds without clipping action focus outlines.
-  Use `홈`, `탐색`, `활동`, `게시판`, `토론해요`, and `게임방` labels in desktop and mobile navigation.
-  `홈` opens `/home` and is active only on `/home`; `탐색` opens `/groups`
-  and is active only on that route. Reuse the existing header link and active styles.
-  Both links close the mobile drawer without triggering login; browse opens unfiltered.
+  Use `자리`, `토론하나?`, and `게임하나?` labels in desktop and mobile navigation.
+  The logo opens `/home`; `뭐있나?` opens `/groups` and is active only on that route.
+  Reuse the existing header link and active styles. Public destination links close
+  the mobile drawer without triggering login; browse opens unfiltered.
   Put two semantic CTA links beneath the hero copy, led by `자리찾기` opening
   unfiltered `/groups`. Both actions inherit the shared --radius-pill capsule shape and use ui-button--lg
   --button-height-lg minimum height and --text-body semibold label.

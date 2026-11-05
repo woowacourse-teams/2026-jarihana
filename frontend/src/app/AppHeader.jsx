@@ -19,43 +19,12 @@ import githubMark from "../shared/assets/brand/github-mark.svg";
 import logoMark from "../shared/assets/brand/jarihana-favicon.png";
 import createChairImage from "../shared/assets/brand/jarihana-chair-create.png";
 import { ProfileMenu } from "./ProfileMenu";
-
-const HOME_LINK = {
-  action: "group_home",
-  isActive: (pathname) => pathname === "/home",
-  label: "홈",
-  requiresAuth: false,
-  to: "/home"
-};
-
-const EXPLORE_LINK = {
-  action: "group_browse",
-  isActive: (pathname) => pathname === "/groups",
-  label: "탐색",
-  requiresAuth: false,
-  to: "/groups"
-};
-
-const ACTIVITY_LINK = {
-  action: "browse_activity_posts",
-  isActive: (pathname) => pathname === "/activities",
-  label: "활동",
-  requiresAuth: false,
-  to: "/activities"
-};
-
-const BOARD_LINK = {
-  action: "browse_proposals",
-  isActive: (pathname) => pathname === "/board" || pathname.startsWith("/board/"),
-  label: "게시판",
-  requiresAuth: false,
-  to: "/board"
-};
+import { GroupNavigation, isGroupNavigationActive } from "./GroupNavigation";
 
 const SPARRING_LINK = {
   action: "sparring_view",
   isActive: (pathname) => pathname === "/sparring" || pathname.startsWith("/sparring/"),
-  label: "토론해요",
+  label: "토론하나?",
   requiresAuth: false,
   to: "/sparring"
 };
@@ -63,28 +32,24 @@ const SPARRING_LINK = {
 const GAMES_LINK = {
   action: "games_open",
   isActive: (pathname) => pathname === "/games" || pathname.startsWith("/games/"),
-  label: "게임방",
+  label: "게임하나?",
   requiresAuth: false,
   to: "/games"
 };
 
 const MEMBER_LINKS = [
-  HOME_LINK,
-  EXPLORE_LINK,
-  ACTIVITY_LINK,
-  BOARD_LINK,
   SPARRING_LINK,
   GAMES_LINK,
   {
     action: "group_create",
     isActive: (pathname) => pathname === "/groups/new",
-    label: "모임 만들기",
+    label: "자리 만들기",
     requiresAuth: true,
     to: "/groups/new"
   }
 ];
 
-const DESKTOP_MEMBER_LINKS = [HOME_LINK, EXPLORE_LINK, ACTIVITY_LINK, BOARD_LINK, SPARRING_LINK, GAMES_LINK];
+const DESKTOP_MEMBER_LINKS = [SPARRING_LINK, GAMES_LINK];
 
 function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, status }) {
   const { pathname } = useLocation();
@@ -221,7 +186,9 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
     ?? `${generationLabel(member?.generation)}${member?.course ? ` / ${COURSE_LABELS[member.course]}` : ""}`;
   const { hash, pathname, search } = useLocation();
   const chatUnread = useChatUnreadCount();
-  const activeMenuIndex = DESKTOP_MEMBER_LINKS.findIndex((link) => link.isActive(pathname));
+  const activeLinkIndex = DESKTOP_MEMBER_LINKS.findIndex((link) => link.isActive(pathname));
+  const activeMenuIndex = isGroupNavigationActive(pathname) ? 0 : activeLinkIndex >= 0 ? activeLinkIndex + 1 : -1;
+  const navigationKey = `${pathname}${search}${hash}`;
   const navigate = useNavigate();
   const { success } = useToast();
   const [isMenuOpen, setMenuOpen] = useState(false);
@@ -308,9 +275,10 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
             data-active={activeMenuIndex >= 0}
             style={{
               "--header-active-index": Math.max(0, activeMenuIndex),
-              "--header-nav-item-count": DESKTOP_MEMBER_LINKS.length
+              "--header-nav-item-count": DESKTOP_MEMBER_LINKS.length + 1
             }}
           >
+            <GroupNavigation key={navigationKey} />
             <HeaderLinks
               links={DESKTOP_MEMBER_LINKS}
               onNavigate={() => {}}
@@ -452,6 +420,7 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
           </div>
           <div className="app-header__mobile-links">
             <h3 className="app-header__mobile-section-title">메뉴</h3>
+            <GroupNavigation key={navigationKey} mobile onNavigate={closeMenu} />
             <HeaderLinks
               onNavigate={closeMenu}
               onProtectedNavigate={redirectToLogin}
