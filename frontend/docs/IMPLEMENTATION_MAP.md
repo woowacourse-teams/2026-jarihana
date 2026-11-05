@@ -500,3 +500,12 @@ replace 이동한다. 헤더의 홈과 브랜드 링크는 `/home`, 탐색 링�
 - 방 만들기의 `RuleInfoTooltip.jsx`는 "대국 규칙" 제목 옆 Info 버튼 하나에서 기본 규칙/제한 없음의 승리 조건과 금수 유무를 함께 안내한다. `GomokuTooltip.jsx`의 위치 보정, hover/focus/터치와 Escape 닫기를 재사용한다. 정보 버튼은 radio label 밖에 있어 설명을 확인해도 선택이나 생성 요청을 바꾸지 않는다. 대국 화면의 별도 규칙 버튼과 모달은 제거했으며 선택한 규칙 배지만 유지한다.
 
 - `features/gomoku/RulesContent.jsx`와 `RuleExampleTooltip.jsx`는 기존 규칙 설명/3-3/4-4 그림 툴팁 컴포넌트로 유지하지만 현재 화면에서는 사용하지 않는다. 예시는 실제 서버의 쌍3/쌍4 테스트와 같은 배치이며 이미지 파일은 저장소에 두지 않는다. `ruleExampleImages.js`는 `APP_DEPLOY_ENV=production`일 때 `jarihana/images/gomoku-rules`, 나머지는 `jarihana-dev/images/gomoku-rules`의 공개 S3 PNG 주소를 사용한다.
+
+### 오목 전적과 랭킹
+
+- 대기실의 기존 GameArtwork 이미지를 유지한다. `?tab=history|ranking`과 기본 대기방을 공통 Tabs로 전환하고 다른 검색 파라미터/뒤로가기를 보존한다. "친구와 함께하는 오목" 문구는 추가하지 않는다.
+- `GomokuHistory.jsx`는 본인 요약과 완료 대국의 무한 커서 조회를 연결한다. 승률은 서버 집계값을 소수 첫째 자리로 표시하며 0판이면 "-"다. 최신순 목록과 더 보기, 다음 페이지 실패 재시도를 제공한다.
+- `GomokuRanking.jsx`는 회원 전용 누적 승수 랭킹과 내 순위를 조회한다. 1등의 실제 GitHub 프로필을 기존 의자 asset 위에 배치하고 2/3등을 양옆에 표시한다. 없는 순위는 가짜 회원으로 채우지 않는다. 본인의 개별 전적만 조회할 수 있다.
+- `useGomokuStatistics.js`는 회원 ID/세션별 캐시, 비활성 패널 unmount, gcTime 0, 요청 AbortSignal을 사용한다. 재진입/창 복귀 때 첫 페이지부터 갱신하며 대국 종료 snapshot을 확인하면 통계 캐시를 무효화한다. 비로그인 상태에서는 통계 API를 호출하지 않고 현재 탭을 로그인 복귀 대상으로 저장한다.
+- 대기방의 검색/생성/현재 방 조회, 준비와 착수 흐름은 유지한다. 통계 화면은 loading, empty, initial error/retry, next-page error/retry와 프로필 이미지 실패 대체 표시를 지원한다.
+- API 계약은 백엔드 [오목 대전기록 계약](../../backend/docs/context/api/endpoints/gomoku.md#대전기록-승률과-랭킹)을 따른다. Playwright는 API fixture 기반 화면/접근성 확인이며 실서버 두 계정 OAuth/운영 프록시 검증과 구분한다.

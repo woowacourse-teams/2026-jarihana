@@ -376,3 +376,7 @@ private route다. 경로 정규화에서도 토큰은 `:redacted`로 치환한�
 규칙 예시 버튼은 `gomoku_double_three_example_open`, `gomoku_double_four_example_open` 고정 action을 사용한다.
 
 종료된 오목방 중앙의 대기실 이동 버튼은 `gomoku_closed_lobby_open`을 사용한다.
+
+### 오목 통계 화면
+
+대기실 탭은 `gomoku_lobby_tab_rooms`, `gomoku_lobby_tab_history`, `gomoku_lobby_tab_ranking`으로 구분한다. 통계 로그인은 `gomoku_statistics_login`, 빈 전적에서 대기방 이동은 `gomoku_history_browse`다. 조회 재시도는 `gomoku_history_retry`, `gomoku_ranking_retry`, 추가 페이지는 `gomoku_history_more`, `gomoku_ranking_more`, 추가 페이지 재시도는 `gomoku_history_more_retry`, `gomoku_ranking_more_retry`다. 회원 이름/ID, 순위/승률, 상대 정보나 검색어를 action 값에 넣지 않으며 기존 텍스트/응답 마스킹을 유지한다.

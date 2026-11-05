@@ -11,7 +11,8 @@ jest.mock("react-router", () => ({
       {children}
     </a>
   ),
-  useNavigate: () => mockNavigate
+  useNavigate: () => mockNavigate,
+  useSearchParams: () => [new URLSearchParams(), jest.fn()]
 }));
 jest.mock("../../features/auth", () => ({
   useAuth: () => ({ status: "authenticated", member: { id: 1 } })
