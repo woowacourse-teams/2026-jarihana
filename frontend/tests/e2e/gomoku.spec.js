@@ -1,11 +1,42 @@
 import { test, expect } from "playwright/test";
 import { installApiFixture } from "./api-fixture.js";
 
-for (const width of [390, 1200]) {
-  test(`gomoku catalog, waiting room creation and board selection at ${width}px`, async ({
+async function assertTurnLabelCrossesBorder(page) {
+  const geometry = await page.locator(".gomoku-player--active").evaluate((card) => {
+    const label = card.querySelector(":scope > span").getBoundingClientRect();
+    const box = card.getBoundingClientRect();
+    return { labelTop: label.top, labelBottom: label.bottom, center: label.top + label.height / 2, border: box.bottom };
+  });
+  expect(geometry.labelTop).toBeLessThan(geometry.border);
+  expect(geometry.labelBottom).toBeGreaterThan(geometry.border);
+  expect(Math.abs(geometry.center - geometry.border)).toBeLessThan(2);
+}
+
+async function assertPlayerIdentityLayout(page) {
+  const identities = await page.locator(".gomoku-player-identity").evaluateAll((rows) => rows.map((row) => {
+    const avatar = row.querySelector(".gomoku-player-avatar").getBoundingClientRect();
+    const name = row.querySelector("strong").getBoundingClientRect();
+    const box = row.getBoundingClientRect();
+    return { avatarCenter: avatar.top + avatar.height / 2, nameCenter: name.top + name.height / 2,
+      groupCenter: (avatar.left + name.right) / 2, boxCenter: box.left + box.width / 2 };
+  }));
+  for (const identity of identities) {
+    expect(Math.abs(identity.avatarCenter - identity.nameCenter)).toBeLessThan(1);
+    expect(Math.abs(identity.groupCenter - identity.boxCenter)).toBeLessThan(1);
+  }
+  await expect(page.locator(".gomoku-player:not(.gomoku-player--active) > span")).toHaveText("");
+}
+
+for (const { width, confirmation, theme } of [390, 1200].flatMap((width) =>
+  ["light", "dark"].flatMap((theme) =>
+    ["button", "double-click"].map((confirmation) => ({ width, confirmation, theme }))
+  )
+)) {
+  test(`gomoku catalog, waiting room creation and ${confirmation} move at ${width}px ${theme}`, async ({
     page
   }) => {
     await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ colorScheme: theme });
     await installApiFixture(page);
     // Playwright fulfill closes SSE responses, so keep the UI fixture connection open.
     // Production EventSource lifecycle is exercised separately by the hook tests.
@@ -63,6 +94,8 @@ for (const width of [390, 1200]) {
     let created;
     let ready;
     let move;
+    let moveCount = 0;
+    let rejectMove = true;
     let resign;
     let invitationCount = 0;
     const reply = (route, data) => route.fulfill({ json: { success: true, data, error: null } });
@@ -74,6 +107,14 @@ for (const width of [390, 1200]) {
           body: `event: snapshot\nid: ${room.revision}\ndata: ${JSON.stringify(room)}\n\n`
         });
       if (path.endsWith("/moves")) {
+        if (rejectMove) {
+          rejectMove = false;
+          return route.fulfill({
+            status: 422,
+            json: { success: false, data: null, error: { code: "GOMOKU_FORBIDDEN_MOVE", message: "금수입니다." } }
+          });
+        }
+        moveCount += 1;
         move = route.request().postDataJSON();
         room.board = "0".repeat(112) + "1" + "0".repeat(112);
         room.ply = 1;
@@ -167,7 +208,7 @@ for (const width of [390, 1200]) {
     await invitation.getByRole("button", { name: "복사", exact: true }).click();
     await expect(invitation).toHaveCount(0);
     expect(await page.evaluate(() => window.__gomokuCopiedLinks)).toEqual([
-      "http://127.0.0.1:4174/games/gomoku/invite/layout-test-token-2"
+      new URL("/games/gomoku/invite/layout-test-token-2", page.url()).href
     ]);
     await expect(invitationToggle).toBeFocused();
     expect(await boardGeometry()).toEqual(originalBoard);
@@ -178,7 +219,7 @@ for (const width of [390, 1200]) {
       document.activeElement?.blur();
       window.scrollTo(0, 0);
     });
-    await page.screenshot({ path: `test-results/gomoku-room-${width}.png`, fullPage: true });
+    await page.screenshot({ path: `test-results/gomoku-room-${confirmation}-${width}-${theme}.png`, fullPage: true });
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
     ).toBe(false);
@@ -195,23 +236,75 @@ for (const width of [390, 1200]) {
       serverNow: Date.now()
     });
     await page.reload();
-    await expect(page.getByRole("heading", { name: "내 차례예요" })).toBeVisible();
+    await expect(page.locator(".gomoku-clock")).toBeVisible();
+    await expect(page.getByRole("heading", { name: /차례예요/ })).toHaveCount(0);
+    const clockCenter = await page.locator(".gomoku-status-row").evaluate((row) => {
+      const clock = row.querySelector(".gomoku-clock").getBoundingClientRect();
+      const box = row.getBoundingClientRect();
+      return { clock: clock.left + clock.width / 2, row: box.left + box.width / 2 };
+    });
+    expect(Math.abs(clockCenter.clock - clockCenter.row)).toBeLessThan(1);
+    const boardFit = await page.locator(".gomoku-table").evaluate((board) => {
+      const box = board.getBoundingClientRect();
+      const controls = document.querySelector(".gomoku-controls").getBoundingClientRect();
+      return { width: box.width, height: box.height, right: box.right,
+        controlsBottom: controls.bottom, viewportWidth: innerWidth, viewportHeight: innerHeight,
+        previousMaximum: 30 * parseFloat(getComputedStyle(document.documentElement).fontSize) };
+    });
+    expect(boardFit.width).toBeCloseTo(boardFit.height, 1);
+    expect(boardFit.right).toBeLessThanOrEqual(boardFit.viewportWidth);
+    expect(boardFit.controlsBottom).toBeLessThanOrEqual(boardFit.viewportHeight);
+    if (width === 1200) expect(boardFit.width).toBeGreaterThan(boardFit.previousMaximum);
+    await expect(page.locator(".gomoku-player--active")).toHaveCount(1);
+    await expect(page.locator(".gomoku-player--active")).toContainText("테스트 크루");
+    await expect(page.locator(".gomoku-player--active")).toContainText("내 차례");
+    await assertTurnLabelCrossesBorder(page);
+    await assertPlayerIdentityLayout(page);
+    await expect(page.locator(".gomoku-player--active")).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(page.locator(".gomoku-player:not(.gomoku-player--active)")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(page.locator(".gomoku-status-row")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await expect
       .poll(async () => Number(await page.locator(".gomoku-clock strong").textContent()))
       .toBeLessThanOrEqual(60);
     await page.getByRole("button", { name: "H8, 빈 자리" }).click();
     expect(move).toBeUndefined();
+    const beforeError = await page.locator(".gomoku-table").boundingBox();
+    await page.screenshot({ path: `test-results/gomoku-before-error-${confirmation}-${width}-${theme}.png`, fullPage: true });
     await page.getByRole("button", { name: "자리하기", exact: true }).click();
+    await expect(page.getByRole("alert")).toContainText("쌍3, 쌍4, 장목");
+    const afterError = await page.locator(".gomoku-table").boundingBox();
+    expect(afterError).toEqual(beforeError);
+    await expect(page.getByRole("button", { name: "H8, 빈 자리" })).toHaveAttribute("aria-pressed", "true");
+    await page.screenshot({ path: `test-results/gomoku-error-${confirmation}-${width}-${theme}.png`, fullPage: true });
+    await page.getByRole("button", { name: "오류 알림 닫기" }).click();
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    expect(await page.locator(".gomoku-table").boundingBox()).toEqual(beforeError);
+    if (confirmation === "double-click") {
+      await page.getByRole("button", { name: "A1, 빈 자리" }).click();
+      await page.getByRole("button", { name: "H8, 빈 자리" }).dblclick();
+    } else {
+      await page.getByRole("button", { name: "자리하기", exact: true }).click();
+    }
     await expect.poll(() => move?.expectedPly).toBe(0);
     expect(move).toMatchObject({ x: 7, y: 7, gameNumber: 1 });
     expect(move.requestId).toMatch(/^[a-f0-9-]{36}$/);
     await expect(page.getByRole("button", { name: "H8, 흑돌, 마지막 수" })).toBeVisible();
+    await expect(page.locator(".gomoku-player--active")).toContainText("상대 차례");
+    await assertTurnLabelCrossesBorder(page);
+    await assertPlayerIdentityLayout(page);
+    await expect(page.locator(".gomoku-player--active")).not.toContainText("테스트 크루");
+    await expect(page.locator(".gomoku-player:not(.gomoku-player--active)")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(page.getByRole("button", { name: "I8, 빈 자리" })).toBeDisabled();
+    await page.getByRole("button", { name: "I8, 빈 자리" }).dblclick({ force: true });
+    expect(moveCount).toBe(1);
+    await page.screenshot({ path: `test-results/gomoku-move-${confirmation}-${width}-${theme}.png`, fullPage: true });
     await page.getByRole("button", { name: "기권하기", exact: true }).click();
     const resignDialog = page.getByRole("dialog", { name: "기권할까요?" });
     expect(resign).toBeUndefined();
     await resignDialog.getByRole("button", { name: "기권하기", exact: true }).click();
     await expect.poll(() => resign).toEqual({ gameNumber: 1 });
     await expect(page.getByRole("heading", { name: "LOSE" })).toBeVisible();
+    await expect(page.locator(".gomoku-player--active")).toHaveCount(0);
     await page.getByRole("button", { name: "다시 대결", exact: true }).click();
     await expect.poll(() => ready).toEqual({ ready: true, gameNumber: 2 });
   });
