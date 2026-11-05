@@ -1,14 +1,14 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { GomokuChat } from "./GomokuChat";
 
 function message(id, senderId = "1", createdAt = "2026-11-05T20:50:05") {
   return { id, senderId, createdAt, author: "상대", content: `메시지 ${id}` };
 }
 
-function conversation(messages) {
+function conversation(messages, options = {}) {
   return (
     <GomokuChat
-      chat={{ messages, pending: [] }}
+      chat={{ messages, pending: [], ...options }}
       memberId="1"
       connected
       closed={false}
@@ -64,3 +64,37 @@ test("keeps timestamps on messages separated by another sender", () => {
   render(conversation([message("1"), message("2", "2"), message("3")]));
   expect(screen.getAllByText("20:50", { selector: "time" })).toHaveLength(3);
 });
+
+test.each(["latest", "send"])(
+  "keeps the latest position after %s while history is still loading",
+  (action) => {
+    const messages = [message("50", "2")];
+    const chat = { hasHistory: true, loadHistory: jest.fn(), send: jest.fn(() => true) };
+    const { rerender } = render(conversation(messages, chat));
+    const scroller = screen.getByRole("region", { name: "대화 스크롤 영역" });
+    let height = 1000;
+    Object.defineProperties(scroller, {
+      scrollHeight: { get: () => height },
+      clientHeight: { value: 200 }
+    });
+    scroller.scrollTop = 0;
+    fireEvent.scroll(scroller);
+    fireEvent.click(screen.getByRole("button", { name: "이전 대화 보기" }));
+    expect(chat.loadHistory).toHaveBeenCalledTimes(1);
+    rerender(conversation(messages, { ...chat, historyLoading: true }));
+
+    if (action === "latest") {
+      fireEvent.click(screen.getByRole("button", { name: "최근 메시지" }));
+    } else {
+      const input = screen.getByRole("textbox", { name: "게임방 메시지" });
+      fireEvent.change(input, { target: { value: "새 대화" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+      expect(chat.send).toHaveBeenCalledWith("새 대화");
+    }
+    expect(scroller.scrollTop).toBe(1000);
+
+    height = 1400;
+    rerender(conversation([message("1", "2"), ...messages], { ...chat, hasHistory: false }));
+    expect(scroller.scrollTop).toBe(1400);
+  }
+);
