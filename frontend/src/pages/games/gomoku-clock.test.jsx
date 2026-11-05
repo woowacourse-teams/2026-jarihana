@@ -435,3 +435,40 @@ test.each([
     useGomokuRoom.mockImplementation(originalHook);
   }
 });
+
+test.each([0, 1])("only the current player's profile is highlighted at ply %i", (ply) => {
+  const state = useGomokuRoom();
+  useGomokuRoom.mockReturnValueOnce({ ...state, room: { ...state.room, ply } });
+  const { container } = render(<GomokuRoomPage />);
+  const active = container.querySelectorAll(".gomoku-player--active");
+  expect(active).toHaveLength(1);
+  expect(active[0]).toHaveTextContent(ply === 0 ? "내 차례" : "상대 차례");
+  expect(within(active[0]).getByText(ply === 0 ? "흑 (나)" : "백", { selector: "strong" })).toBeVisible();
+  expect(container.querySelectorAll(".gomoku-player:not(.gomoku-player--active)")).toHaveLength(1);
+});
+
+test("room error can be dismissed without clearing selection and a repeated error is announced again", () => {
+  const state = useGomokuRoom();
+  const originalHook = useGomokuRoom.getMockImplementation();
+  const error = "흑은 쌍3, 쌍4, 장목 자리에 놓을 수 없어요. 다른 자리를 선택해 주세요.";
+  useGomokuRoom.mockReturnValue({ ...state, error, room: { ...state.room, turnDeadline: Date.now() + 60000 } });
+  try {
+    const { rerender } = render(<GomokuRoomPage />);
+    fireEvent.click(screen.getByRole("button", { name: "H8, 빈 자리" }));
+    expect(screen.getByRole("alert")).toHaveTextContent(error);
+    screen.getByRole("button", { name: "H8, 빈 자리" }).focus();
+    const dismiss = screen.getByRole("button", { name: "오류 알림 닫기" });
+    expect(dismiss).toHaveAttribute("data-ph-capture-attribute-action", "gomoku_error_dismiss");
+    fireEvent.click(dismiss);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "H8, 빈 자리" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "H8, 빈 자리" })).toHaveAttribute("aria-pressed", "true");
+    useGomokuRoom.mockReturnValue({ ...state, error: null });
+    rerender(<GomokuRoomPage />);
+    useGomokuRoom.mockReturnValue({ ...state, error });
+    rerender(<GomokuRoomPage />);
+    expect(screen.getByRole("alert")).toHaveTextContent(error);
+  } finally {
+    useGomokuRoom.mockImplementation(originalHook);
+  }
+});
