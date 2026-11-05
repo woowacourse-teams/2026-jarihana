@@ -16,6 +16,7 @@ import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.support.IntegrationTestSupport;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import io.restassured.specification.RequestSpecification;
 
 import org.junit.jupiter.api.DisplayName;
@@ -24,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 class GomokuAcceptanceTest extends IntegrationTestSupport {
@@ -31,7 +33,42 @@ class GomokuAcceptanceTest extends IntegrationTestSupport {
     @Autowired AccessTokenProvider tokens;
     @Autowired AuthCookieProperties cookies;
     @Autowired JdbcTemplate jdbc;
+    @Autowired MeterRegistry metrics;
     private static final String ROOT = "/games/gomoku/rooms";
+
+    @Test
+    @DisplayName("기존 목록은 비어 있지 않아도 기존 스냅샷 계약과 대기방 전용 범위를 유지한다")
+    void keepsLegacySnapshotContractAndWaitingOnlyScope() {
+        // Given
+        String waitingHost = member("가을", "legacy-waiting");
+        long waitingId = create(waitingHost, "PUBLIC", "RENJU");
+        String playingHost = member("가람", "legacy-playing-host");
+        String guest = member("겨울", "legacy-playing-guest");
+        long playingId = create(playingHost, "PUBLIC", "RENJU");
+        request(guest).body(Map.of()).post(ROOT + "/" + playingId + "/join").then().statusCode(200);
+        ready(playingHost, playingId, 1);
+        ready(guest, playingId, 1);
+        start(playingHost, playingId, 1);
+        Map<String, Object> snapshot = request(waitingHost).get(ROOT + "/" + waitingId)
+                .then().statusCode(200).extract().path("data");
+        assertEquals(Set.of(
+                "id", "hostMemberId", "hostName", "hostAvatarUrl", "guestMemberId", "guestName",
+                "guestAvatarUrl", "visibility", "rule", "status", "hostReady", "guestReady",
+                "gameNumber", "blackMemberId", "board", "ply", "lastX", "lastY", "winnerMemberId",
+                "endReason", "revision", "serverNow", "turnDeadline"), snapshot.keySet());
+
+        // When
+        var page = request(null).queryParam("keyword", "가").queryParam("size", 1).get(ROOT)
+                .then().statusCode(200)
+                .body("data.items", hasSize(1))
+                .body("data.items[0].id", equalTo((int) waitingId))
+                .body("data.hasNext", equalTo(false))
+                .body("data.nextCursor", nullValue())
+                .extract().jsonPath();
+
+        // Then
+        assertEquals(snapshot, page.getMap("data.items[0]"));
+    }
 
     @Test
     @DisplayName("공개 대기방과 진행 중인 방을 검색과 커서에 함께 포함하고 참가 권한을 유지한다")
@@ -56,18 +93,21 @@ class GomokuAcceptanceTest extends IntegrationTestSupport {
         jdbc.update("update gomoku_room set status='PLAYING', turn_deadline=timestamp '2000-01-01 00:00:00' where id=?", timedOutId);
 
         // When
-        var page = request(null).queryParam("keyword", "가").queryParam("size", 1).get(ROOT)
+        var page = request(null).queryParam("view", "summary").queryParam("keyword", "가").queryParam("size", 1).get(ROOT)
                 .then().statusCode(200)
                 .body("data.items", hasSize(1))
                 .body("data.items[0].id", equalTo((int) playingId))
                 .body("data.items[0].status", equalTo("PLAYING"))
                 .body("data.items[0]", not(hasKey("board")))
                 .body("data.items[0]", not(hasKey("turnDeadline")))
+                .body("data.items[0]", not(hasKey("serverNow")))
+                .body("data.items[0]", not(hasKey("hostReady")))
+                .body("data.items[0]", not(hasKey("revision")))
                 .body("data.hasNext", equalTo(true))
                 .extract().jsonPath();
 
         // Then
-        request(null).queryParam("keyword", "가").queryParam("size", 1)
+        request(null).queryParam("view", "summary").queryParam("keyword", "가").queryParam("size", 1)
                 .queryParam("cursor", page.getString("data.nextCursor")).get(ROOT)
                 .then().statusCode(200)
                 .body("data.items", hasSize(1))
@@ -77,6 +117,44 @@ class GomokuAcceptanceTest extends IntegrationTestSupport {
         String outsider = member("봄날", "lobby-outsider");
         request(outsider).get(ROOT + "/" + playingId).then().statusCode(403);
         request(outsider).body(Map.of()).post(ROOT + "/" + playingId + "/join").then().statusCode(409);
+    }
+
+    @Test
+    @DisplayName("기존 요청과 요약 요청을 구분해 전환 기간의 사용량을 집계한다")
+    void countsLegacyAndSummaryRequestsSeparately() {
+        // Given
+        var legacy = metrics.counter("gomoku.lobby.requests", "view", "legacy");
+        var summary = metrics.counter("gomoku.lobby.requests", "view", "summary");
+        double previousLegacy = legacy.count();
+        double previousSummary = summary.count();
+
+        // When
+        request(null).get(ROOT).then().statusCode(200);
+
+        // Then
+        assertEquals(previousLegacy + 1, legacy.count());
+        assertEquals(previousSummary, summary.count());
+
+        // When
+        request(null).queryParam("view", "summary").get(ROOT).then().statusCode(200);
+
+        // Then
+        assertEquals(previousLegacy + 1, legacy.count());
+        assertEquals(previousSummary + 1, summary.count());
+    }
+
+    @Test
+    @DisplayName("요약 목록도 검색과 커서를 검증하고 지원하지 않는 목록 형식을 거부한다")
+    void validatesSummaryListAndRejectsUnknownView() {
+        // Given / When / Then
+        request(null).queryParam("view", "summary").queryParam("keyword", "가".repeat(51))
+                .get(ROOT).then().statusCode(400).body("error.code", equalTo("INVALID_PARAMETER"));
+        request(null).queryParam("view", "summary").queryParam("cursor", "invalid")
+                .get(ROOT).then().statusCode(400).body("error.code", equalTo("INVALID_PARAMETER"));
+        request(null).queryParam("view", "summary").queryParam("size", 0)
+                .get(ROOT).then().statusCode(400).body("error.code", equalTo("INVALID_PARAMETER"));
+        request(null).queryParam("view", "unknown")
+                .get(ROOT).then().statusCode(400).body("error.code", equalTo("INVALID_PARAMETER"));
     }
 
     @Test

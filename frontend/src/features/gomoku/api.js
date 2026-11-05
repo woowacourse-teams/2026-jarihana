@@ -51,6 +51,7 @@ export const gomokuApi = {
       }),
       signal,
       searchParams: {
+        view: "summary",
         size: 20,
         ...(cursor == null ? {} : { cursor }),
         ...(keyword ? { keyword } : {})
