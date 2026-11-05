@@ -18,3 +18,11 @@ it("응답과 저장에서 지원하지 않는 버전·파츠를 거부한다", 
   expect(avatarSchema.safeParse({ customized: true, appearance: { ...AVATAR_BASIC_APPEARANCE, hair: "unknown" } }).success).toBe(false);
   expect(() => saveMyAvatar({ ...AVATAR_BASIC_APPEARANCE, version: 2 })).toThrow();
 });
+
+it("신발·모자 필드가 없던 서버 응답도 기존 기본값으로 읽으며 알 수 없는 값은 거부한다", () => {
+  const legacy = { ...AVATAR_BASIC_APPEARANCE };
+  for (const field of ["shoes", "shoeColor", "hat", "hatColor", "bag", "bagColor", "handheld"]) delete legacy[field];
+  expect(avatarSchema.parse({ customized: true, appearance: legacy }))
+    .toEqual({ customized: true, appearance: AVATAR_BASIC_APPEARANCE });
+  expect(avatarSchema.safeParse({ customized: true, appearance: { ...legacy, hat: "unknown" } }).success).toBe(false);
+});

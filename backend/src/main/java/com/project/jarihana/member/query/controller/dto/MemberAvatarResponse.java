@@ -12,9 +12,9 @@ public record MemberAvatarResponse(boolean customized, AppearanceResponse appear
         return new MemberAvatarResponse(customized, AppearanceResponse.from(appearance));
     }
 
-    public record AppearanceResponse(int version, String hair, String skin, String hairColor, String face, String eyes, String eyebrows, String nose, String mouth, String glasses, String outfit) {
+    public record AppearanceResponse(int version, String hair, String skin, String hairColor, String face, String eyes, String eyebrows, String nose, String mouth, String glasses, String outfit, String shoes, String shoeColor, String hat, String hatColor, String bag, String bagColor, String handheld) {
         public static AppearanceResponse from(AvatarAppearance appearance) {
-            return new AppearanceResponse(appearance.getVersion(), appearance.getHair(), appearance.getSkin(), appearance.getHairColor(), appearance.getFace(), appearance.getEyes(), appearance.getEyebrows(), appearance.getNose(), appearance.getMouth(), appearance.getGlasses(), appearance.getOutfit());
+            return new AppearanceResponse(appearance.getVersion(), appearance.getHair(), appearance.getSkin(), appearance.getHairColor(), appearance.getFace(), appearance.getEyes(), appearance.getEyebrows(), appearance.getNose(), appearance.getMouth(), appearance.getGlasses(), appearance.getOutfit(), appearance.getShoes(), appearance.getShoeColor(), appearance.getHat(), appearance.getHatColor(), appearance.getBag(), appearance.getBagColor(), appearance.getHandheld());
         }
     }
 }

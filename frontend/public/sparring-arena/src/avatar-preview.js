@@ -29,11 +29,14 @@ export function createAvatarPreview(container, { platformColor = 0xf7f8ed, light
   camera.position.set(0, 1.75, 8); camera.lookAt(0, 1, 0);
   const portraitCamera = new THREE.OrthographicCamera(-0.75, 0.75, 0.75, -0.75, 0.1, 15);
   portraitCamera.position.set(0, 1.72, 6); portraitCamera.lookAt(0, 1.72, 0);
+  const feetCamera = new THREE.OrthographicCamera(-0.5, 0.5, 0.25, -0.25, 0.1, 15);
+  feetCamera.position.set(0.7, 1.8, 2.5); feetCamera.lookAt(0, 0.1, 0.07);
+  const detailCamera = new THREE.OrthographicCamera(-0.60, 0.60, 0.60, -0.60, 0.1, 15);
   // The small, idle MyPage card uses the same geometry with inexpensive lighting.
   const models = createWalkingCharacters(scene, 1, { lightweight }), origin = new THREE.Vector3();
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   let appearance = null, pose = 'idle', yaw = 0, frame = 0, disposed = false, visible = true;
-  let width = 1, height = 1;
+  let width = 1, height = 1, view = 'body';
   function draw(time = 0) {
     if (disposed) return;
     const moving = !reduced.matches;
@@ -48,14 +51,18 @@ export function createAvatarPreview(container, { platformColor = 0xf7f8ed, light
     frame = 0; draw(now / 1000);
     if (!disposed && visible && !document.hidden && !reduced.matches && (pose === 'walk' || pose === 'talk')) frame = requestAnimationFrame(animate);
   }
-  function refresh() {
+  function refresh(force = false) {
     if (frame) cancelAnimationFrame(frame);
     frame = 0;
-    if (!disposed && visible && !document.hidden) animate(performance.now());
+    // Explicit edits must reach the canvas even if an observer still reports it offscreen.
+    // Continuous animation remains paused while hidden or outside the viewport.
+    if (!disposed && (force === true || (visible && !document.hidden))) animate(performance.now());
   }
   function resize() {
     width = Math.max(1, container.clientWidth); height = Math.max(1, container.clientHeight);
-    const span = 1.5;
+    const span = view === 'face' ? 0.8 : 1.5;
+    camera.position.set(0, view === 'face' ? 1.72 : 1.75, 8);
+    camera.lookAt(0, view === 'face' ? 1.72 : 1, 0);
     camera.left = -span * width / height; camera.right = span * width / height;
     camera.top = span; camera.bottom = -span; camera.updateProjectionMatrix();
     renderer.setSize(width, height, false); refresh();
@@ -67,19 +74,37 @@ export function createAvatarPreview(container, { platformColor = 0xf7f8ed, light
   renderer.domElement.addEventListener('webglcontextlost', contextLost);
   resize();
   return {
-    setAppearance(value) { appearance = readAvatarAppearance(value); refresh(); },
-    setPose(value) { if (['idle', 'walk', 'talk', 'packed'].includes(value)) { pose = value; refresh(); } },
-    setRotation(degrees) { yaw = THREE.MathUtils.degToRad(degrees); refresh(); },
-    portrait(value, size = 256) {
+    setAppearance(value) { appearance = readAvatarAppearance(value); refresh(true); },
+    setPose(value) { if (['idle', 'walk', 'talk', 'packed'].includes(value)) { pose = value; refresh(true); } },
+    setRotation(degrees) { yaw = THREE.MathUtils.degToRad(degrees); refresh(true); },
+    setView(value) { if (['body', 'face'].includes(value)) { view = value; resize(); refresh(true); } },
+    portrait(value, size = 256, framing = 'face') {
       const normalized = readAvatarAppearance(value);
       if (!normalized) throw new Error('캐릭터 외형을 확인해 주세요.');
       const ratio = renderer.getPixelRatio();
+      const visibility = models.pickMeshes.map(mesh => mesh.visible);
       try {
-        renderer.setPixelRatio(1); renderer.setSize(size, size, false); platform.visible = false;
+        const feet = framing === 'feet';
+        renderer.setPixelRatio(1); renderer.setSize(feet ? size * 2 : size, size, false); platform.visible = false;
+        if (feet) for (const mesh of models.pickMeshes) mesh.visible = ['footwear', 'sole'].includes(mesh.userData.avatarMaterial);
+        if (framing === 'bag') {
+          for (const mesh of models.pickMeshes) mesh.visible = mesh.userData.avatarMaterial.startsWith('bag');
+          const angle = normalized.bag === 'backpack' ? [1.2, 1.4, -3.5] : normalized.bag === 'shoulder' ? [2.7, 1.3, -1.8] : [0.9, 1.35, 3.4];
+          detailCamera.left = -0.60; detailCamera.right = 0.60; detailCamera.top = 0.60; detailCamera.bottom = -0.60;
+          detailCamera.position.set(...angle); detailCamera.lookAt(0.12, 1.04, 0); detailCamera.updateProjectionMatrix();
+        }
+        if (framing === 'handheld') {
+          for (const mesh of models.pickMeshes) mesh.visible = mesh.userData.avatarMaterial.startsWith('item');
+          const laptop = normalized.handheld === 'laptop', span = laptop ? 0.42 : 0.27;
+          detailCamera.left = -span; detailCamera.right = span; detailCamera.top = span; detailCamera.bottom = -span;
+          detailCamera.position.set(laptop ? 0.9 : 0.85, 1.65, 3.4);
+          detailCamera.lookAt(laptop ? 0.41 : 0.24, laptop ? 1.24 : 1.06, 0.4); detailCamera.updateProjectionMatrix();
+        }
         models.draw(0, { appearance: normalized }, origin, 1, {}, 0);
-        renderer.render(scene, portraitCamera);
+        renderer.render(scene, feet ? feetCamera : ['bag', 'handheld'].includes(framing) ? detailCamera : portraitCamera);
         return renderer.domElement.toDataURL('image/png');
       } finally {
+        models.pickMeshes.forEach((mesh, index) => { mesh.visible = visibility[index]; });
         platform.visible = true; renderer.setPixelRatio(ratio); renderer.setSize(width, height, false); draw();
       }
     },

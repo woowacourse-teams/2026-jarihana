@@ -176,12 +176,125 @@ it('의자를 잡는 명시적인 어깨·팔꿈치 자세는 말하기 동작�
 
 // These cases exercise instance isolation and geometry through the same renderer used by the arena.
 const { AVATAR_PRESETS } = require('../../public/sparring-arena/src/avatar-appearance.js');
+it('노트북은 덮개 뒷면이 바깥을 향하고 수평 바닥은 한 손 위를 따르며 반대 손을 움직이지 않는다', () => {
+  const models = createWalkingCharacters(new THREE.Scene(), 2), original = AVATAR_PRESETS[0].appearance;
+  const itemMatrix = (material, predicate = () => true) => {
+    for (const mesh of models.pickMeshes.filter(mesh => mesh.userData.avatarMaterial === material)) {
+      for (let index = 0; index < mesh.instanceMatrix.count / 2; index++) {
+        const matrix = new THREE.Matrix4(); mesh.getMatrixAt(index, matrix);
+        if (Math.abs(matrix.determinant()) > 1e-8 && predicate(matrix)) return matrix;
+      }
+    }
+    throw new Error(`Visible ${material} part is missing`);
+  };
+  try {
+    for (const pose of [{}, { stride: 0.8 }, { seated: 1 }, { speaking: true, time: 1 },
+      { rightArm: -0.6, rightElbow: -0.8, rightSpread: 0.2 }]) {
+      const freeLeft = models.draw(0, { appearance: original }, new THREE.Vector3(), 1, pose).leftHand.clone();
+      const hands = models.draw(0, { appearance: { ...original, handheld: 'laptop' } }, new THREE.Vector3(), 1, pose);
+      expect(hands.leftHand.toArray()).toEqual(freeLeft.toArray());
+      const base = itemMatrix('itemMetal', matrix => new THREE.Vector3().setFromMatrixScale(matrix).y < 0.02);
+      const center = new THREE.Vector3().setFromMatrixPosition(base);
+      expect(center.distanceTo(hands.rightHand)).toBeLessThan(0.15);
+      expect(center.y).toBeGreaterThan(hands.rightHand.y);
+      expect(new THREE.Vector3(0, 1, 0).transformDirection(base).y).toBeCloseTo(1, 5);
+      const screen = itemMatrix('itemScreen');
+      expect(new THREE.Vector3(0, 0, -1).transformDirection(screen).z).toBeLessThan(-0.9);
+      expect(new THREE.Vector3().setFromMatrixPosition(screen).z).toBeGreaterThan(center.z + 0.1);
+    }
+  } finally { models.dispose(); }
+});
+it('가방·소지품 조합은 걷기·앉기에서도 유효하고 다른 슬롯에 번지지 않으며 벗으면 원래 모습으로 돌아온다', () => {
+  const models = createWalkingCharacters(new THREE.Scene(), 2), original = AVATAR_PRESETS[0].appearance;
+  try {
+    models.draw(0, { appearance: original }, new THREE.Vector3(), 1, {});
+    models.draw(1, { appearance: original }, new THREE.Vector3(2, 0, 0), 1, {});
+    const before = snapshot(models, 0), other = snapshot(models, 1), otherColors = colorSnapshot(models, 1);
+    for (const bag of ['backpack', 'crossbody', 'shoulder']) for (const handheld of ['hotCoffee', 'icedCoffee', 'book', 'laptop', 'phone']) {
+      for (const pose of [{ stride: 0.8 }, { seated: 1 }, { speaking: true, time: 1 }]) {
+        models.draw(0, { appearance: { ...original, bag, bagColor: 'coral', handheld } }, new THREE.Vector3(), 1, pose);
+        expect(snapshot(models, 0).flat().every(Number.isFinite)).toBe(true);
+      }
+      expect(snapshot(models, 1)).toEqual(other);
+      expect(colorSnapshot(models, 1)).toEqual(otherColors);
+    }
+    const grip = { rightArm: -0.7, rightElbow: -0.4, rightSpread: 0.2 };
+    const emptyHand = models.draw(0, { appearance: original }, new THREE.Vector3(), 1, grip).rightHand.clone();
+    const carrying = models.draw(0, { appearance: { ...original, handheld: 'phone' } }, new THREE.Vector3(), 1, grip);
+    expect(carrying.rightHand.toArray()).toEqual(emptyHand.toArray());
+    models.draw(0, { appearance: original }, new THREE.Vector3(), 1, {});
+    expect(snapshot(models, 0)).toEqual(before);
+  } finally { models.dispose(); }
+});
+it('모자·선글라스를 모든 머리와 섞어도 다른 슬롯에 번지지 않고 벗으면 원래 외형으로 돌아온다', () => {
+  const models = createWalkingCharacters(new THREE.Scene(), 2), original = AVATAR_PRESETS[0].appearance;
+  try {
+    models.draw(0, { appearance: original }, new THREE.Vector3(), 1, {});
+    models.draw(1, { appearance: original }, new THREE.Vector3(2, 0, 0), 1, {});
+    const before = snapshot(models, 0), beforeColors = colorSnapshot(models, 0);
+    const other = snapshot(models, 1), otherColors = colorSnapshot(models, 1);
+    const accessoryVisible = () => models.pickMeshes.filter(mesh => ['hat', 'hatTrim', 'lenses'].includes(mesh.userData.avatarMaterial))
+      .some(mesh => {
+        const matrix = new THREE.Matrix4();
+        for (let i = 0; i < mesh.instanceMatrix.count / 2; i++) {
+          mesh.getMatrixAt(i, matrix); if (Math.abs(matrix.determinant()) > 1e-8) return true;
+        }
+        return false;
+      });
+    expect(accessoryVisible()).toBe(false);
+    for (const hair of ['curly', 'parted', 'bob', 'long', 'flowing', 'bald']) {
+      for (const hat of ['cap', 'bucket', 'beanie', 'beret']) {
+        models.draw(0, { appearance: { ...original, hair, hat, hatColor: 'mint', glasses: 'sunglasses' } },
+          new THREE.Vector3(), 1, { stride: 0.8, speaking: true, time: 1 });
+        expect(accessoryVisible()).toBe(true);
+        expect(snapshot(models, 0).flat().every(Number.isFinite)).toBe(true);
+        expect(snapshot(models, 1)).toEqual(other);
+        expect(colorSnapshot(models, 1)).toEqual(otherColors);
+      }
+    }
+    models.draw(0, { appearance: original }, new THREE.Vector3(), 1, {});
+    expect(accessoryVisible()).toBe(false);
+    expect(snapshot(models, 0)).toEqual(before);
+    expect(colorSnapshot(models, 0)).toEqual(beforeColors);
+  } finally { models.dispose(); }
+});
+it('신발 교체는 다른 파츠와 다른 사람의 외형을 유지하며 보행 중 바닥을 뚫지 않는다', () => {
+  const models = createWalkingCharacters(new THREE.Scene(), 2);
+  const original = AVATAR_PRESETS[0].appearance;
+  try {
+    models.draw(0, { appearance: original }, new THREE.Vector3(), 1, {});
+    models.draw(1, { appearance: original }, new THREE.Vector3(2, 0, 0), 1, {});
+    const other = snapshot(models, 1), otherColors = colorSnapshot(models, 1);
+    const body = () => snapshot(models, 0).filter((_, i) => !['footwear', 'sole'].includes(models.pickMeshes[i].userData.avatarMaterial));
+    const before = body(), originalShoes = snapshot(models, 0);
+    for (const shoes of ['slipOn', 'highTop', 'sneakers']) {
+      models.draw(0, { appearance: { ...original, shoes, shoeColor: 'ink' } }, new THREE.Vector3(), 1, {});
+      expect(body()).toEqual(before);
+      if (shoes !== 'sneakers') expect(snapshot(models, 0)).not.toEqual(originalShoes);
+      for (const stride of [-1, 0, 1]) {
+        models.draw(0, { appearance: { ...original, shoes, shoeColor: 'ink' } }, new THREE.Vector3(), 1, { stride });
+        expect(bounds(models, 0).min.y).toBeGreaterThanOrEqual(-0.005);
+        expect(snapshot(models, 0).flat().every(Number.isFinite)).toBe(true);
+      }
+    }
+    expect(snapshot(models, 1)).toEqual(other);
+    expect(colorSnapshot(models, 1)).toEqual(otherColors);
+    const legacy = { ...original }; delete legacy.shoes; delete legacy.shoeColor;
+    models.draw(0, { appearance: legacy }, new THREE.Vector3(), 1, {});
+    expect(snapshot(models, 0)).toEqual(originalShoes);
+  } finally { models.dispose(); }
+});
 it('카드용 경량 조명에서도 선택한 파츠·색·관절 위치는 편집 미리보기와 같다', () => {
   const detailed = createWalkingCharacters(new THREE.Scene(), 2);
   const card = createWalkingCharacters(new THREE.Scene(), 2, { lightweight: true });
   try {
-    for (const preset of AVATAR_PRESETS) {
-      const post = { appearance: preset.appearance };
+    const appearances = [...AVATAR_PRESETS.map(preset => preset.appearance),
+      ...['sneakers', 'slipOn', 'highTop'].map(shoes => ({ ...AVATAR_PRESETS[0].appearance, shoes, shoeColor: 'coral' })),
+      ...['cap', 'bucket', 'beanie', 'beret'].map(hat => ({ ...AVATAR_PRESETS[0].appearance, hat, hatColor: 'cream', glasses: 'sunglasses' })),
+      ...['backpack', 'crossbody', 'shoulder'].map(bag => ({ ...AVATAR_PRESETS[0].appearance, bag, bagColor: 'navy' })),
+      ...['hotCoffee', 'icedCoffee', 'book', 'laptop', 'phone'].map(handheld => ({ ...AVATAR_PRESETS[0].appearance, handheld }))];
+    for (const appearance of appearances) {
+      const post = { appearance };
       detailed.draw(0, post, new THREE.Vector3(), 1, { stride: 0.5 });
       card.draw(0, post, new THREE.Vector3(), 1, { stride: 0.5 });
       expect(snapshot(card, 0)).toEqual(snapshot(detailed, 0));

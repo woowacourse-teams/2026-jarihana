@@ -14,10 +14,10 @@ function showError() {
 try {
   preview = createAvatarPreview(container);
   const portraits = new Map();
-  function portrait(appearance, size = 256) {
-    const key = `${size}:${avatarAppearanceKey(appearance)}`;
+  function portrait(appearance, size = 256, framing = 'face') {
+    const key = `${framing}:${size}:${avatarAppearanceKey(appearance)}`;
     if (!portraits.has(key)) {
-      portraits.set(key, preview.portrait(appearance, size));
+      portraits.set(key, preview.portrait(appearance, size, framing));
       if (portraits.size > 100) portraits.delete(portraits.keys().next().value);
     }
     return portraits.get(key);

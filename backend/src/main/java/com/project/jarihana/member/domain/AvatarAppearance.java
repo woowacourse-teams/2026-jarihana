@@ -35,8 +35,22 @@ public class AvatarAppearance {
     private String glasses;
     @Column(name = "outfit", nullable = false, length = 16)
     private String outfit;
+    @Column(name = "shoes", nullable = false, length = 16)
+    private String shoes;
+    @Column(name = "shoe_color", nullable = false, length = 16)
+    private String shoeColor;
+    @Column(name = "hat", nullable = false, length = 16)
+    private String hat;
+    @Column(name = "hat_color", nullable = false, length = 16)
+    private String hatColor;
+    @Column(name = "bag", nullable = false, length = 16)
+    private String bag;
+    @Column(name = "bag_color", nullable = false, length = 16)
+    private String bagColor;
+    @Column(name = "handheld", nullable = false, length = 16)
+    private String handheld;
 
-    private AvatarAppearance(int version, String hair, String skin, String hairColor, String face, String eyes, String eyebrows, String nose, String mouth, String glasses, String outfit) {
+    private AvatarAppearance(int version, String hair, String skin, String hairColor, String face, String eyes, String eyebrows, String nose, String mouth, String glasses, String outfit, String shoes, String shoeColor, String hat, String hatColor, String bag, String bagColor, String handheld) {
         if (version != 1) {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "지원하지 않는 아바타 버전입니다.");
         }
@@ -49,16 +63,23 @@ public class AvatarAppearance {
         this.eyebrows = requireChoice(eyebrows, Set.of("arched", "straight", "bold"));
         this.nose = requireChoice(nose, Set.of("round", "small", "wide"));
         this.mouth = requireChoice(mouth, Set.of("smile", "flat", "open"));
-        this.glasses = requireChoice(glasses, Set.of("none", "round", "square"));
+        this.glasses = requireChoice(glasses, Set.of("none", "round", "square", "sunglasses"));
         this.outfit = requireChoice(outfit, Set.of("mint", "coral", "cream", "navy", "lilac", "ochre"));
+        this.shoes = requireChoice(shoes, Set.of("sneakers", "slipOn", "highTop"));
+        this.shoeColor = requireChoice(shoeColor, Set.of("white", "ink", "mint", "coral"));
+        this.hat = requireChoice(hat, Set.of("none", "cap", "bucket", "beanie", "beret"));
+        this.hatColor = requireChoice(hatColor, Set.of("ink", "cream", "mint", "coral", "navy"));
+        this.bag = requireChoice(bag, Set.of("none", "backpack", "crossbody", "shoulder"));
+        this.bagColor = requireChoice(bagColor, Set.of("ink", "cream", "mint", "coral", "navy"));
+        this.handheld = requireChoice(handheld, Set.of("none", "hotCoffee", "icedCoffee", "book", "laptop", "phone"));
     }
 
-    public static AvatarAppearance of(int version, String hair, String skin, String hairColor, String face, String eyes, String eyebrows, String nose, String mouth, String glasses, String outfit) {
-        return new AvatarAppearance(version, hair, skin, hairColor, face, eyes, eyebrows, nose, mouth, glasses, outfit);
+    public static AvatarAppearance of(int version, String hair, String skin, String hairColor, String face, String eyes, String eyebrows, String nose, String mouth, String glasses, String outfit, String shoes, String shoeColor, String hat, String hatColor, String bag, String bagColor, String handheld) {
+        return new AvatarAppearance(version, hair, skin, hairColor, face, eyes, eyebrows, nose, mouth, glasses, outfit, shoes, shoeColor, hat, hatColor, bag, bagColor, handheld);
     }
 
     public static AvatarAppearance basic() {
-        return of(1, "bald", "warm", "ink", "round", "dot", "straight", "small", "flat", "none", "cream");
+        return of(1, "bald", "warm", "ink", "round", "dot", "straight", "small", "flat", "none", "cream", "sneakers", "white", "none", "ink", "none", "ink", "none");
     }
 
     private static String requireChoice(String value, Set<String> choices) {

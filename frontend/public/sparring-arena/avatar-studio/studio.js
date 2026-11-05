@@ -27,10 +27,10 @@ function initialize(event) {
     container.addEventListener('avatarerror', fail);
     if (!previewOnly) {
       const portraits = new Map();
-      const portrait = (value, size = 128) => {
-        const key = `${size}:${avatarAppearanceKey(value)}`;
+      const portrait = (value, size = 128, framing = 'face') => {
+        const key = `${framing}:${size}:${avatarAppearanceKey(value)}`;
         if (!portraits.has(key)) {
-          portraits.set(key, preview.portrait(value, size));
+          portraits.set(key, preview.portrait(value, size, framing));
           if (portraits.size > 100) portraits.delete(portraits.keys().next().value);
         }
         return portraits.get(key);
@@ -49,6 +49,10 @@ function initialize(event) {
       document.querySelectorAll('[data-pose]').forEach(button => button.addEventListener('click', () => {
         preview.setPose(button.dataset.pose);
         document.querySelectorAll('[data-pose]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+      }));
+      document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => {
+        preview.setView(button.dataset.view);
+        document.querySelectorAll('[data-view]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
       }));
       document.querySelector('#rotation').addEventListener('input', event => {
         const degrees = Number(event.target.value); preview.setRotation(degrees);

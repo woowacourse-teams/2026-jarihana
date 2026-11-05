@@ -19,6 +19,12 @@ class AvatarAppearanceTest {
         assertThat(appearance.getGlasses()).isEqualTo("none");
         assertThat(appearance.getEyes()).isEqualTo("dot");
         assertThat(appearance.getNose()).isEqualTo("small");
+        assertThat(appearance.getShoes()).isEqualTo("sneakers");
+        assertThat(appearance.getShoeColor()).isEqualTo("white");
+        assertThat(appearance.getHat()).isEqualTo("none");
+        assertThat(appearance.getHatColor()).isEqualTo("ink");
+        assertThat(appearance.getBag()).isEqualTo("none");
+        assertThat(appearance.getHandheld()).isEqualTo("none");
     }
 
     @Test
@@ -26,13 +32,19 @@ class AvatarAppearanceTest {
     void rejectsUnknownPartsAndVersion() {
         // Given / When / Then
         assertThatThrownBy(() -> AvatarAppearance.of(2, "bald", "warm", "ink", "round", "dot",
-                "straight", "small", "flat", "none", "cream"))
+                "straight", "small", "flat", "none", "cream", "sneakers", "white", "none", "ink", "none", "ink", "none"))
                 .isInstanceOf(BusinessException.class);
         assertThatThrownBy(() -> AvatarAppearance.of(1, "unknown", "warm", "ink", "round", "dot",
-                "straight", "small", "flat", "none", "cream"))
+                "straight", "small", "flat", "none", "cream", "sneakers", "white", "none", "ink", "none", "ink", "none"))
                 .isInstanceOf(BusinessException.class);
         assertThatThrownBy(() -> AvatarAppearance.of(1, "bald", null, "ink", "round", "dot",
-                "straight", "small", "flat", "none", "cream"))
+                "straight", "small", "flat", "none", "cream", "sneakers", "white", "none", "ink", "none", "ink", "none"))
+                .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> AvatarAppearance.of(1, "bald", "warm", "ink", "round", "dot",
+                "straight", "small", "flat", "none", "cream", "unknown", "white", "none", "ink", "none", "ink", "none"))
+                .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> AvatarAppearance.of(1, "bald", "warm", "ink", "round", "dot",
+                "straight", "small", "flat", "none", "cream", "sneakers", "unknown", "none", "ink", "none", "ink", "none"))
                 .isInstanceOf(BusinessException.class);
     }
 }

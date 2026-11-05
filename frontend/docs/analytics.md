@@ -388,7 +388,9 @@ private route다. 경로 정규화에서도 토큰은 `:redacted`로 치환한�
 되돌리기·다시 하기는 `avatar_lab_undo`, `avatar_lab_redo`, 초기화는 `avatar_lab_reset`이다.
 파츠 선택은 `avatar_lab_face_change`, `avatar_lab_skin_change`, `avatar_lab_hair_change`,
 `avatar_lab_hair_color_change`, `avatar_lab_eyes_change`, `avatar_lab_eyebrows_change`,
-`avatar_lab_nose_change`, `avatar_lab_mouth_change`, `avatar_lab_glasses_change`, `avatar_lab_outfit_change`다.
+`avatar_lab_nose_change`, `avatar_lab_mouth_change`, `avatar_lab_glasses_change`, `avatar_lab_outfit_change`,
+`avatar_lab_shoes_change`, `avatar_lab_shoe_color_change`, `avatar_lab_hat_change`, `avatar_lab_hat_color_change`,
+`avatar_lab_bag_change`, `avatar_lab_bag_color_change`, `avatar_lab_handheld_change`다.
 색상·파츠 값과 외형 데이터를 action에 넣지 않으며 기존 시제품의 미수집 정책을 유지한다.
 
 ## 회원 아바타 관리
@@ -399,5 +401,6 @@ private route다. 경로 정규화에서도 토큰은 `:redacted`로 치환한�
 미저장 이탈 확인은 `avatar_leave_close`, `avatar_leave_cancel`, `avatar_leave_confirm`을 사용한다.
 같은 파츠 편집기를 재사용하므로 내부의 기존 `avatar_lab_*` 식별자는 유지한다.
 회원용 추천 조합은 항상 펼쳐 보여 주므로 `avatar_lab_presets_toggle`은 체험판에만 남는다.
+회원 편집기의 전체 보기·얼굴 확대는 `avatar_lab_view_change`로 구분하며 파츠 값은 포함하지 않는다.
 편집 iframe은 분석 SDK를 초기화하지 않으며 외형·선택값을 분석 메시지로 전달하지 않는다.
 부모 미리보기는 `data-ph-private`로 가린다. 인증·CSRF와 API 통계는 기존 공통 client를 사용한다.

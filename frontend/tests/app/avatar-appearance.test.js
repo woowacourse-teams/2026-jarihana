@@ -20,3 +20,21 @@ it('초기 버전 1 외형에 눈썹·코·입이 없으면 기존 모양을 기
   expect(readAvatarAppearance(legacy)).toEqual(AVATAR_PRESETS[0].appearance);
   expect(readAvatarAppearance({ ...legacy, mouth: 'unsupported' })).toBeNull();
 });
+
+it('기존 저장 외형은 흰 운동화를 유지하고 잘못된 신발 선택은 거부한다', () => {
+  const current = AVATAR_PRESETS[0].appearance;
+  const legacy = Object.fromEntries(Object.entries(current).filter(([key]) => !['shoes', 'shoeColor'].includes(key)));
+  expect(readAvatarAppearance(legacy)).toEqual(current);
+  expect(readAvatarAppearance({ ...current, shoes: 'unknown' })).toBeNull();
+  expect(readAvatarAppearance({ ...current, shoeColor: 'unknown' })).toBeNull();
+});
+
+it('모자 없는 이전 저장값을 보존하고 모자·선글라스를 독립적으로 조합한다', () => {
+  const current = AVATAR_PRESETS[0].appearance;
+  const legacy = { ...current }; delete legacy.hat; delete legacy.hatColor;
+  expect(readAvatarAppearance(legacy)).toEqual(current);
+  expect(readAvatarAppearance({ ...current, hat: 'cap', hatColor: 'navy', glasses: 'sunglasses' }))
+    .toEqual({ ...current, hat: 'cap', hatColor: 'navy', glasses: 'sunglasses' });
+  expect(readAvatarAppearance({ ...current, hat: 'unknown' })).toBeNull();
+  expect(readAvatarAppearance({ ...current, hatColor: 'unknown' })).toBeNull();
+});

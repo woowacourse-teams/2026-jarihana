@@ -1,5 +1,6 @@
 import { AVATAR_OPTIONS, AVATAR_PALETTE } from '../src/avatar-appearance.js';
 import { createAvatarDraft } from './avatar-draft.js';
+import { createEditorIcon } from './avatar-editor-icons.js';
 
 const FIELDS = {
   face: { label: '얼굴형', action: 'avatar_lab_face_change', names: ['동그란 얼굴', '타원형 얼굴', '넓은 얼굴'] },
@@ -10,15 +11,29 @@ const FIELDS = {
   eyebrows: { label: '눈썹', action: 'avatar_lab_eyebrows_change', names: ['아치형 눈썹', '일자 눈썹', '짙은 눈썹'] },
   nose: { label: '코', action: 'avatar_lab_nose_change', names: ['둥근 코', '작은 코', '넓은 코'] },
   mouth: { label: '입', action: 'avatar_lab_mouth_change', names: ['미소', '일자 입', '동그란 입'] },
-  glasses: { label: '안경', action: 'avatar_lab_glasses_change', names: ['안경 없음', '둥근 안경', '네모 안경'] },
+  glasses: { label: '안경', action: 'avatar_lab_glasses_change', names: ['안경 없음', '둥근 안경', '네모 안경', '선글라스'] },
   outfit: { label: '옷 색', action: 'avatar_lab_outfit_change', names: ['민트', '코랄', '크림', '네이비', '라일락', '머스터드'] },
+  shoes: { label: '신발 모양', action: 'avatar_lab_shoes_change', names: ['운동화', '슬립온', '하이탑'] },
+  shoeColor: { label: '신발 색', action: 'avatar_lab_shoe_color_change', names: ['흰색', '검정', '민트', '코랄'] },
+  hat: { label: '모자 모양', action: 'avatar_lab_hat_change', names: ['모자 없음', '캡', '버킷햇', '비니', '베레모'] },
+  hatColor: { label: '모자 색', action: 'avatar_lab_hat_color_change', names: ['검정', '크림', '민트', '코랄', '네이비'] },
+  bag: { label: '가방 모양', action: 'avatar_lab_bag_change', names: ['가방 없음', '백팩', '크로스백', '숄더백'] },
+  bagColor: { label: '가방 색', action: 'avatar_lab_bag_color_change', names: ['검정', '크림', '민트', '코랄', '네이비'] },
+  handheld: { label: '손에 드는 물건', action: 'avatar_lab_handheld_change', names: ['빈손', '따뜻한 커피', '차가운 커피', '책', '노트북', '휴대폰'] },
 };
 const CATEGORIES = [
   { id: 'face', name: '얼굴', fields: ['face', 'skin'] },
   { id: 'hair', name: '머리', fields: ['hair', 'hairColor'] },
-  { id: 'eyes', name: '눈·눈썹', fields: ['eyes', 'eyebrows'] },
-  { id: 'mouth', name: '코·입', fields: ['nose', 'mouth'] },
-  { id: 'style', name: '안경·옷', fields: ['glasses', 'outfit'] },
+  { id: 'eyebrows', name: '눈썹', fields: ['eyebrows'] },
+  { id: 'eyes', name: '눈', fields: ['eyes'] },
+  { id: 'nose', name: '코', fields: ['nose'] },
+  { id: 'mouth', name: '입', fields: ['mouth'] },
+  { id: 'glasses', name: '안경', fields: ['glasses'] },
+  { id: 'outfit', name: '옷', fields: ['outfit'] },
+  { id: 'shoes', name: '신발', fields: ['shoes', 'shoeColor'] },
+  { id: 'hat', name: '모자', fields: ['hat', 'hatColor'] },
+  { id: 'bag', name: '가방', fields: ['bag', 'bagColor'] },
+  { id: 'handheld', name: '소지품', fields: ['handheld'] },
 ];
 
 export function createAvatarEditor(root, { portrait, onChange, initial }) {
@@ -34,7 +49,12 @@ export function createAvatarEditor(root, { portrait, onChange, initial }) {
       const appearance = draft.get();
       for (const field of CATEGORIES.find(category => category.id === active).fields) {
         if (AVATAR_PALETTE[field]) continue;
-        for (const [value, button] of buttons.get(field)) button.querySelector('img').src = portrait({ ...appearance, [field]: value }, 128);
+        for (const [value, button] of buttons.get(field)) {
+          const valueAppearance = { ...appearance, [field]: value };
+          if (field === 'hair') valueAppearance.hat = 'none';
+          const framing = { shoes: 'feet', bag: 'bag', handheld: 'handheld' }[field];
+          button.querySelector('img').src = framing ? portrait(valueAppearance, 128, framing) : portrait(valueAppearance, 128);
+        }
       }
     });
   }
@@ -57,7 +77,9 @@ export function createAvatarEditor(root, { portrait, onChange, initial }) {
   for (const category of CATEGORIES) {
     const tab = document.createElement('button'); tab.type = 'button'; tab.id = `avatar-tab-${category.id}`;
     tab.setAttribute('role', 'tab'); tab.setAttribute('aria-controls', `avatar-panel-${category.id}`);
-    tab.dataset.phCaptureAttributeAction = 'avatar_lab_category_change'; tab.textContent = category.name;
+    tab.dataset.phCaptureAttributeAction = 'avatar_lab_category_change';
+    const label = document.createElement('span'); label.textContent = category.name;
+    tab.append(createEditorIcon(category.id), label);
     tab.addEventListener('click', () => selectCategory(category.id));
     tab.addEventListener('keydown', event => {
       if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
@@ -68,6 +90,8 @@ export function createAvatarEditor(root, { portrait, onChange, initial }) {
     });
     tabs.push(tab); tablist.append(tab);
     const panel = document.createElement('div'); panel.className = 'part-panel'; panel.id = `avatar-panel-${category.id}`;
+    panel.classList.toggle('part-panel--mixed', category.fields.length > 1);
+    panel.classList.toggle('part-panel--colors', Boolean(AVATAR_PALETTE[category.fields[0]]));
     panel.setAttribute('role', 'tabpanel'); panel.setAttribute('aria-labelledby', tab.id);
     for (const field of category.fields) {
       const group = document.createElement('fieldset'), legend = document.createElement('legend');

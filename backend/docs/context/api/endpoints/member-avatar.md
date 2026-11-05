@@ -14,7 +14,9 @@
   "appearance": {
     "version": 1, "hair": "bald", "skin": "warm", "hairColor": "ink",
     "face": "round", "eyes": "dot", "eyebrows": "straight", "nose": "small",
-    "mouth": "flat", "glasses": "none", "outfit": "cream"
+    "mouth": "flat", "glasses": "none", "outfit": "cream",
+    "shoes": "sneakers", "shoeColor": "white", "hat": "none", "hatColor": "ink",
+    "bag": "none", "bagColor": "ink", "handheld": "none"
   }
 }
 ```
@@ -25,7 +27,7 @@
 ## PUT `/api/members/me/avatar`
 
 인증 및 CSRF 검증 후 생성·전체 교체한다. 요청은 `{ "appearance": { ... } }`이고
-위 예시의 11개 필드를 모두 보낸다. 성공은 본문 없는 `204`이며 재조회로 저장값을 확인한다.
+위 예시의 18개 필드를 보낸다. 성공은 본문 없는 `204`이며 재조회로 저장값을 확인한다.
 동일한 요청을 반복해도 회원당 한 행만 유지한다. 일부만 보내는 PATCH는 제공하지 않는다.
 
 | 필드 | 허용 값 |
@@ -39,10 +41,21 @@
 | eyebrows | arched, straight, bold |
 | nose | round, small, wide |
 | mouth | smile, flat, open |
-| glasses | none, round, square |
+| glasses | none, round, square, sunglasses |
 | outfit | mint, coral, cream, navy, lilac, ochre |
+| shoes | sneakers, slipOn, highTop |
+| shoeColor | white, ink, mint, coral |
+| hat | none, cap, bucket, beanie, beret |
+| hatColor | ink, cream, mint, coral, navy |
+| bag | none, backpack, crossbody, shoulder |
+| bagColor | ink, cream, mint, coral, navy |
+| handheld | none, hotCoffee, icedCoffee, book, laptop, phone |
 
-필드 누락·null·허용하지 않은 값·버전은 `400 INVALID_PARAMETER`로 거부한다.
+신발 필드가 없던 버전 1 요청과의 호환성을 위해 `shoes` 생략·null은 `sneakers`,
+`shoeColor` 생략·null은 `white`로 저장한다.
+`hat` 생략·null은 `none`, `hatColor` 생략·null은 `ink`로 저장한다. 모자와 안경은 독립적으로 선택한다.
+`bag` 생략·null은 `none`, `bagColor` 생략·null은 `ink`, `handheld` 생략·null은 `none`으로 저장한다.
+확장 필드의 허용하지 않은 값과 기존 필드의 누락·null·허용하지 않은 값·버전은 `400 INVALID_PARAMETER`로 거부한다.
 임의 자산 URL, 위치·크기·자세, 회원 ID는 외형 계약에 없다. 대상 회원은 인증 정보로만 정한다.
 
 ## DELETE `/api/members/me/avatar`
@@ -60,9 +73,30 @@
 앱 롤백 후 테이블과 조합은 남고 이전 앱은 사용하지 않는다. 기존 앱 이미지의 공존 실행 검증은 별도다.
 현재는 파츠 조합 이력을 보관하지 않는다. Flyway 이력은 적용 후 수정·삭제하지 않는다.
 
+`V21__member_avatar_shoes.sql`은 신발 두 컬럼을 기본값·허용 값 제약과 함께 추가한다.
+기존 외형과 구버전 INSERT는 흰 운동화를 유지하며, 구버전 UPDATE는 신발 컬럼을 수정하지 않는다.
+신규 신발을 저장한 뒤 앱만 롤백하면 구버전 화면에서는 원래 흰 운동화로 보이고 신규 선택값은 DB에 남는다.
+구버전 요청이 신버전 서버에 도달해 전체 교체되면 생략한 신발은 기본값으로 돌아간다.
+
+`V22__member_avatar_accessories.sql`은 모자 두 컬럼을 기본값·허용 값 제약과 함께 추가하고
+안경의 허용 값을 선글라스까지 확장한다. 기존 외형·신발·이력은 보존하며 이전 INSERT는 모자 없음으로 기록한다.
+새 서버에 모자 없는 이전 요청으로 전체 교체하면 모자는 기본값으로 돌아간다.
+새 `sunglasses` 값을 모르는 구버전 클라이언트의 표시 호환성은 보장하지 않는다. SQL 호환성 검증과
+구버전 앱 이미지의 표시·롤백 검증은 별도이며 실제 구버전 앱 공존 실행은 미검증이다.
+
+`V23__member_avatar_bags_and_items.sql`은 가방 종류·색과 소지품 컬럼을 기본값·제약과 함께 추가한다.
+기존 모자·안경·신발·외형과 이력을 보존하며 이전 INSERT는 가방 없음·빈손이 된다.
+이전 SQL이 기존 컬럼만 갱신하면 새 선택은 보존한다. 새 서버에 이전 형식으로 전체 교체하면 생략한 설정은 기본값으로 돌아간다.
+
 검증: `MemberAvatarAcceptanceTest`가 실제 PostgreSQL에서 최초 조회, 생성, 교체, 재조회,
 회원별 분리, 잘못된 요청 후 보존, 반복 삭제, 미인증 및 CSRF 차단을 확인한다.
 
-`FlywayBaselineTest.addAvatarAfterV19PreservesOldMemberOperations`는 V19 DB에서 V20으로
+`FlywayBaselineTest.addAvatarAfterV19PreservesOldMemberOperations`는 V19 DB에서 V23까지
 올린 뒤 기존 회원·컬럼·이력 보존, 구버전 형태의 회원 INSERT/SELECT/UPDATE/DELETE,
 새 아바타 행의 회원 삭제 연쇄 정리를 확인한다. 실제 구버전 앱 이미지 동시 실행은 포함하지 않는다.
+`FlywayBaselineTest.addShoesAfterV20PreservesSavedAvatarsAndOldWrites`는 V20→V21에서
+기존 파츠·이력, 흰 운동화 기본값, 구버전 INSERT/UPDATE와 신발 값의 DB 제약을 확인한다.
+`FlywayBaselineTest.addAccessoriesAfterV21PreservesAvatarsAndOldWrites`는 V21→V22에서
+기존 조합과 이력을 보존하고 모자 기본값·선글라스·구버전 SQL 및 새 값의 DB 제약을 확인한다.
+`FlywayBaselineTest.addBagsAndItemsAfterV22PreservesSavedAvatarsAndOldWrites`는 V22→V23에서
+기존 장신구·이력을 보존하고 가방·소지품 기본값, 이전 SQL과 새 값의 DB 제약을 확인한다.

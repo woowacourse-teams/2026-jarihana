@@ -12,8 +12,15 @@
   <header class="studio-title"><h1>캐릭터 아바타</h1></header>
   <main hidden>
     <section class="studio" aria-label="내 캐릭터 꾸미기">
+      <div class="studio-workbench">
       <div class="stage-panel">
-        <div class="stage-heading"><h2>미리보기</h2></div>
+        <div class="stage-heading">
+          <h2>미리보기</h2>
+          <div class="view-controls" role="group" aria-label="미리보기 확대">
+            <button type="button" data-view="body" aria-label="전체 보기" aria-pressed="true" data-ph-capture-attribute-action="avatar_lab_view_change">전체</button>
+            <button type="button" data-view="face" aria-label="얼굴 확대" aria-pressed="false" data-ph-capture-attribute-action="avatar_lab_view_change">얼굴</button>
+          </div>
+        </div>
         <div id="preview" role="img" aria-label="내 캐릭터의 입체 모습"></div>
         <div class="stage-controls">
           <div class="motions" role="group" aria-label="캐릭터 동작">
@@ -24,10 +31,8 @@
           <label class="rotation">돌려 보기<input id="rotation" type="range" min="-180" max="180" value="-15" step="1" data-ph-capture-attribute-action="avatar_lab_rotate"><span id="rotation-value">-15°</span></label>
         </div>
       </div>
-      <div class="selection-panel">
-        <h2>파츠 선택</h2>
-        <div id="part-editor"></div>
-        <section class="preset-start" aria-labelledby="presets-heading"><h3 id="presets-heading">추천 조합</h3><div id="presets" class="presets" role="group" aria-label="추천 조합"></div></section>
+      <div id="part-editor"></div>
+      <section class="preset-start" aria-labelledby="presets-heading"><h3 id="presets-heading">추천 조합</h3><div id="presets" class="presets" role="group" aria-label="추천 조합"></div></section>
       </div>
     </section>
   </main>

@@ -9,18 +9,31 @@ export const AVATAR_OPTIONS = Object.freeze({
   eyebrows: Object.freeze(['arched', 'straight', 'bold']),
   nose: Object.freeze(['round', 'small', 'wide']),
   mouth: Object.freeze(['smile', 'flat', 'open']),
-  glasses: Object.freeze(['none', 'round', 'square']),
+  glasses: Object.freeze(['none', 'round', 'square', 'sunglasses']),
   outfit: Object.freeze(['mint', 'coral', 'cream', 'navy', 'lilac', 'ochre']),
+  shoes: Object.freeze(['sneakers', 'slipOn', 'highTop']),
+  shoeColor: Object.freeze(['white', 'ink', 'mint', 'coral']),
+  hat: Object.freeze(['none', 'cap', 'bucket', 'beanie', 'beret']),
+  hatColor: Object.freeze(['ink', 'cream', 'mint', 'coral', 'navy']),
+  bag: Object.freeze(['none', 'backpack', 'crossbody', 'shoulder']),
+  bagColor: Object.freeze(['ink', 'cream', 'mint', 'coral', 'navy']),
+  handheld: Object.freeze(['none', 'hotCoffee', 'icedCoffee', 'book', 'laptop', 'phone']),
 });
 export const AVATAR_PALETTE = Object.freeze({
   skin: Object.freeze({ pearl: '#ffe0bf', warm: '#e9b383', tan: '#b97850', deep: '#75472f' }),
   hairColor: Object.freeze({ ink: '#292726', chestnut: '#61412f', copper: '#a45732', silver: '#c3c6cd' }),
   outfit: Object.freeze({ mint: '#52bca7', coral: '#e68c7e', cream: '#e8e5df', navy: '#3b526d', lilac: '#a69ac5', ochre: '#c49a45' }),
+  shoeColor: Object.freeze({ white: '#f6f5f1', ink: '#292726', mint: '#52bca7', coral: '#e68c7e' }),
+  hatColor: Object.freeze({ ink: '#292726', cream: '#e8e5df', mint: '#52bca7', coral: '#e68c7e', navy: '#3b526d' }),
+  bagColor: Object.freeze({ ink: '#292726', cream: '#e8e5df', mint: '#52bca7', coral: '#e68c7e', navy: '#3b526d' }),
 });
-export const AVATAR_DEFAULT_PARTS = Object.freeze({ eyebrows: 'arched', nose: 'round', mouth: 'smile' });
+export const AVATAR_DEFAULT_PARTS = Object.freeze({ eyebrows: 'arched', nose: 'round', mouth: 'smile', shoes: 'sneakers', shoeColor: 'white', hat: 'none', hatColor: 'ink', bag: 'none', bagColor: 'ink', handheld: 'none' });
 export const AVATAR_BASIC_APPEARANCE = Object.freeze({
   version: 1, hair: 'bald', skin: 'warm', hairColor: 'ink', face: 'round',
   eyes: 'dot', eyebrows: 'straight', nose: 'small', mouth: 'flat', glasses: 'none', outfit: 'cream',
+  shoes: 'sneakers', shoeColor: 'white', hat: 'none', hatColor: 'ink',
+  bag: 'none', bagColor: 'ink',
+  handheld: 'none',
 });
 const make = (hair, skin, hairColor, face, eyes, glasses, outfit) => Object.freeze({
   version: 1, hair, skin, hairColor, face, eyes, glasses, outfit, ...AVATAR_DEFAULT_PARTS,

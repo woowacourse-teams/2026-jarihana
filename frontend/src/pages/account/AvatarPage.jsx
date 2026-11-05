@@ -65,14 +65,14 @@ function AvatarWorkspace({ initial, queryKey }) {
   }
   return (
     <>
+      {error && !deleteOpen ? <p role="alert" className="avatar-error">{error}</p> : null}
+      <div aria-busy={pending}>
+        <AvatarFrame key={generation} appearance={saved.appearance} onChange={value => { setDraft(value); setNotice(""); }} onReady={() => setReady(true)} onError={() => setReady(false)} />
+      </div>
       <div className="avatar-workspace-bar">
         <Link to="/my" data-ph-capture-attribute-action="avatar_back_to_my">← 마이페이지</Link>
         <span role="status">{pending ? "처리하고 있어요…" : dirty ? "아직 저장하지 않은 모습이에요." : notice || (saved.customized ? "저장된 아바타" : "기본 아바타")}</span>
         <Button data-ph-capture-attribute-action="avatar_save" disabled={!ready || (saved.customized && !dirty)} pending={pending} onClick={save}>저장하기</Button>
-      </div>
-      {error && !deleteOpen ? <p role="alert" className="avatar-error">{error}</p> : null}
-      <div aria-busy={pending}>
-        <AvatarFrame key={generation} appearance={saved.appearance} onChange={value => { setDraft(value); setNotice(""); }} onReady={() => setReady(true)} onError={() => setReady(false)} />
       </div>
       <div className="avatar-delete-area">
         <p>삭제하면 머리와 안경이 없는 기본 모습으로 돌아가요.</p>
@@ -101,10 +101,12 @@ export function AvatarPage() {
   // Refetches must not replace an in-progress draft; remount only on account/session changes.
   useEffect(() => { document.title = "내 아바타 · 자리하나"; }, []);
   return (
+    <div className="avatar-editor-page">
     <AccountLayout title="내 아바타">
       {query.isPending ? <p role="status">아바타를 불러오고 있어요.</p> : null}
       {query.isError && !query.data ? <><p role="alert">저장된 아바타를 불러오지 못했어요.</p><Button data-ph-capture-attribute-action="avatar_load_retry" onClick={() => query.refetch()}>다시 불러오기</Button></> : null}
       {query.data ? <AvatarWorkspace key={`${member.id}:${sessionVersion}`} initial={query.data} queryKey={["member-avatar", member.id, sessionVersion]} /> : null}
     </AccountLayout>
+    </div>
   );
 }
