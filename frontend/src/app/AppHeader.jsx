@@ -150,6 +150,14 @@ function FeedbackButton({ onClick, open, status }) {
 
 function AuthAction({ onNavigate, status }) {
   const { login, logout, logoutPending } = useAuth();
+  const { pathname, search, hash } = useLocation();
+
+  function rememberLocation() {
+    if (pathname !== "/signup" && pathname !== "/oauth/callback") {
+      storeReturnTarget(`${pathname}${search}${hash}`);
+    }
+    onNavigate();
+  }
 
   if (status === "authenticated") {
     return (
@@ -179,7 +187,7 @@ function AuthAction({ onNavigate, status }) {
       <Link
         className="app-header__auth"
         data-ph-capture-attribute-action="signup_continue"
-        onClick={onNavigate}
+        onClick={rememberLocation}
         to="/signup"
       >
         가입 계속하기
@@ -192,7 +200,7 @@ function AuthAction({ onNavigate, status }) {
       className="app-header__auth app-header__auth--github"
       data-ph-capture-attribute-action="login"
       onClick={() => {
-        onNavigate();
+        rememberLocation();
         login();
       }}
       type="button"

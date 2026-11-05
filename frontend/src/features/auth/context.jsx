@@ -76,6 +76,14 @@ export const AuthProvider = ({ children }) => {
   }, [reload]);
 
   useEffect(() => {
+    const restoreSession = (event) => {
+      if (event.persisted) void reload().catch(() => undefined);
+    };
+    window.addEventListener("pageshow", restoreSession);
+    return () => window.removeEventListener("pageshow", restoreSession);
+  }, [reload]);
+
+  useEffect(() => {
     function changedSession(event) {
       if (event.key !== "jarihana:auth:session" || !event.newValue) return;
       let message;

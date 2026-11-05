@@ -171,12 +171,12 @@ function Room({ topicId, member, login, retry, onRetry }) {
 export function SparringDetailPage() {
   const [retry, setRetry] = useState(0);
   const { topicId } = useParams();
-  const { status, member, login } = useAuth();
+  const { status, member, login, sessionVersion } = useAuth();
   if (!/^[1-9]\d*$/.test(topicId)) return <p role="alert">토론 주소가 올바르지 않아요.</p>;
   if (status === "loading") return <SparringEntry />;
   return (
     <Room
-      key={`${topicId}:${member?.id ?? "guest"}:${retry}`}
+      key={`${topicId}:${member?.id ?? "guest"}:${sessionVersion}:${retry}`}
       topicId={topicId}
       member={member}
       login={login}
