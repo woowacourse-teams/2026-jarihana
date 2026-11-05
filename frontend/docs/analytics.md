@@ -359,6 +359,7 @@ VS 입장 화면의 `sparring_entry_side_select`는 임시 편 선택, `sparring
 `gomoku_lobby_retry`, `gomoku_room_join`, `gomoku_rooms_first`, `gomoku_rooms_next`,
 `gomoku_rooms_search_form`, `gomoku_rooms_search_input`, `gomoku_rooms_search_submit`,
 `gomoku_rooms_search_reset`을 사용한다. 검색어와 크루 이름은 action 값에 포함하지 않는다.
+대국 오류 알림 닫기는 `gomoku_error_dismiss`를 사용한다. 알림 닫기는 선택 좌표나 착수 상태를 변경하지 않는다.
 방 안 조작은 `gomoku_position_select`, `gomoku_move_confirm`, `gomoku_ready_toggle`, `gomoku_game_start`,
 `gomoku_invitation_copy`, `gomoku_invitation_link_select`, `gomoku_resign_open`,
 `gomoku_resign_confirm`, `gomoku_leave_open`, `gomoku_leave_confirm`,

@@ -11,7 +11,8 @@ import {
   Globe,
   Lock,
   ArrowRight,
-  Search
+  Search,
+  X
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { storeReturnTarget, useAuth } from "../../features/auth";
@@ -23,7 +24,7 @@ import { Stone } from "../../features/gomoku/Stone";
 import { ReadinessControls } from "../../features/gomoku/ReadinessControls";
 import { RuleInfoTooltip } from "../../features/gomoku/RuleInfoTooltip";
 import { GameArtwork } from "./GameArtwork";
-import { Avatar, Button, ConfirmDialog, Modal, PageContainer, StatusBadge } from "../../shared/ui";
+import { Avatar, Button, ConfirmDialog, IconButton, Modal, PageContainer, StatusBadge } from "../../shared/ui";
 import "./games.css";
 
 const ruleName = (rule) => (rule === "RENJU" ? "기본 규칙" : "제한 없음");
@@ -509,6 +510,26 @@ export function GomokuRoomPage() {
   const { member, sessionVersion } = useAuth();
   return <GomokuRoom key={`${roomId}:${member?.id}:${sessionVersion}`} roomId={roomId} />;
 }
+function GomokuRoomError({ message, onDismiss }) {
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed) return null;
+  return (
+    <div role="alert" className="games-error gomoku-room-error">
+      <p>{message}</p>
+      <IconButton
+        label="오류 알림 닫기"
+        variant="tertiary"
+        data-ph-capture-attribute-action="gomoku_error_dismiss"
+        onClick={() => {
+          setDismissed(true);
+          onDismiss();
+        }}
+      >
+        <X size={20} />
+      </IconButton>
+    </div>
+  );
+}
 function GomokuRoom({ roomId }) {
   const queryClient = useQueryClient();
   const { member } = useAuth();
@@ -520,6 +541,7 @@ function GomokuRoom({ roomId }) {
   const [inviteUrl, setInviteUrl] = useState("");
   const [now, setNow] = useState(() => Date.now());
   const moveAttempt = useRef(null);
+  const roomFocus = useRef(null);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(timer);
@@ -608,7 +630,12 @@ function GomokuRoom({ roomId }) {
   // Keep invitation text out of automatic capture and recording.
   return (
     <PageContainer>
-      <div className="games-page games-page--room">
+      <div
+        className="games-page games-page--room"
+        onFocusCapture={(event) => {
+          if (!event.target.closest(".gomoku-room-error")) roomFocus.current = event.target;
+        }}
+      >
         <header className="gomoku-heading">
           <h1 className="ui-sr-only">오목 대국</h1>
           <div className="gomoku-room-navigation">
@@ -669,9 +696,7 @@ function GomokuRoom({ roomId }) {
           </div>
         </header>
         {error && (
-          <p role="alert" className="games-error">
-            {error}
-          </p>
+          <GomokuRoomError key={error} message={error} onDismiss={() => roomFocus.current?.focus()} />
         )}
         <InvitationLink notice={notice} url={inviteUrl} />
         <section className={`gomoku-arena${waiting ? " gomoku-arena--waiting" : ""}`} aria-label="오목 대국">
@@ -694,62 +719,64 @@ function GomokuRoom({ roomId }) {
                 key={index}
                 className={
                   room.status === "PLAYING" && currentTurn === player.id
-                    ? "gomoku-player--active"
-                    : undefined
+                    ? "gomoku-player gomoku-player--active"
+                    : "gomoku-player"
                 }
               >
-                <span className="gomoku-player-avatar">
-                  {player.id ? (
-                    <>
-                      <Avatar
-                        alt={`${player.name} 프로필`}
-                        fallback={player.name?.slice(0, 1) || "?"}
-                        size="sm"
-                        src={player.avatarUrl}
-                      />
-                      {room.gameNumber > 0 && (
-                        <span
-                          className="gomoku-player-color"
-                          role="img"
-                          aria-label={colorOf(player.id) === "BLACK" ? "흑돌" : "백돌"}
-                        >
-                          <Stone color={colorOf(player.id)} />
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    <Users aria-hidden="true" size={20} />
-                  )}
-                </span>
-                <div>
+                <div className="gomoku-player-identity">
+                  <span className="gomoku-player-avatar">
+                    {player.id ? (
+                      <>
+                        <Avatar
+                          alt={`${player.name} 프로필`}
+                          fallback={player.name?.slice(0, 1) || "?"}
+                          size="sm"
+                          src={player.avatarUrl}
+                        />
+                        {room.gameNumber > 0 && (
+                          <span
+                            className="gomoku-player-color"
+                            role="img"
+                            aria-label={colorOf(player.id) === "BLACK" ? "흑돌" : "백돌"}
+                          >
+                            <Stone color={colorOf(player.id)} />
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <Users aria-hidden="true" size={20} />
+                    )}
+                  </span>
                   <strong>
                     {player.name || "빈 자리"}
                     {player.id === member?.id ? " (나)" : ""}
                   </strong>
-                  <span
-                    className={
-                      (waiting || finished) && player.id
-                        ? `gomoku-readiness--${player.ready ? "ready" : "unready"}`
-                        : undefined
-                    }
-                  >
-                    {room.status === "PLAYING"
-                      ? currentTurn === player.id
-                        ? "두는 중"
-                        : "대기"
-                      : room.status === "CLOSED"
-                        ? player.id && room.gameNumber > 0
-                          ? colorOf(player.id) === "BLACK"
-                            ? "흑돌"
-                            : "백돌"
-                          : "대기"
-                        : player.id
-                          ? player.ready
-                            ? "준비 완료"
-                            : "준비 전"
-                          : "참여 대기"}
-                  </span>
                 </div>
+                <span
+                  className={
+                    (waiting || finished) && player.id
+                      ? `gomoku-readiness--${player.ready ? "ready" : "unready"}`
+                      : undefined
+                  }
+                >
+                  {room.status === "PLAYING"
+                    ? currentTurn === player.id
+                      ? player.id === member?.id
+                        ? "내 차례"
+                        : "상대 차례"
+                      : "대기"
+                    : room.status === "CLOSED"
+                      ? player.id && room.gameNumber > 0
+                        ? colorOf(player.id) === "BLACK"
+                          ? "흑돌"
+                          : "백돌"
+                        : "대기"
+                      : player.id
+                        ? player.ready
+                          ? "준비 완료"
+                          : "준비 전"
+                        : "참여 대기"}
+                </span>
               </li>
             ))}
           </ul>

@@ -1,13 +1,16 @@
 import { test, expect } from "playwright/test";
 import { installApiFixture } from "./api-fixture.js";
 
-for (const { width, confirmation } of [390, 1200].flatMap((width) =>
-  ["button", "double-click"].map((confirmation) => ({ width, confirmation }))
+for (const { width, confirmation, theme } of [390, 1200].flatMap((width) =>
+  ["light", "dark"].flatMap((theme) =>
+    ["button", "double-click"].map((confirmation) => ({ width, confirmation, theme }))
+  )
 )) {
-  test(`gomoku catalog, waiting room creation and ${confirmation} move at ${width}px`, async ({
+  test(`gomoku catalog, waiting room creation and ${confirmation} move at ${width}px ${theme}`, async ({
     page
   }) => {
     await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ colorScheme: theme });
     await installApiFixture(page);
     // Playwright fulfill closes SSE responses, so keep the UI fixture connection open.
     // Production EventSource lifecycle is exercised separately by the hook tests.
@@ -57,6 +60,7 @@ for (const { width, confirmation } of [390, 1200].flatMap((width) =>
     let ready;
     let move;
     let moveCount = 0;
+    let rejectMove = true;
     let resign;
     const reply = (route, data) => route.fulfill({ json: { success: true, data, error: null } });
     await page.route("**/api/games/gomoku/**", async (route) => {
@@ -67,6 +71,13 @@ for (const { width, confirmation } of [390, 1200].flatMap((width) =>
           body: `event: snapshot\nid: ${room.revision}\ndata: ${JSON.stringify(room)}\n\n`
         });
       if (path.endsWith("/moves")) {
+        if (rejectMove) {
+          rejectMove = false;
+          return route.fulfill({
+            status: 422,
+            json: { success: false, data: null, error: { code: "GOMOKU_FORBIDDEN_MOVE", message: "금수입니다." } }
+          });
+        }
         moveCount += 1;
         move = route.request().postDataJSON();
         room.board = "0".repeat(112) + "1" + "0".repeat(112);
@@ -121,7 +132,7 @@ for (const { width, confirmation } of [390, 1200].flatMap((width) =>
       document.activeElement?.blur();
       window.scrollTo(0, 0);
     });
-    await page.screenshot({ path: `test-results/gomoku-room-${confirmation}-${width}.png`, fullPage: true });
+    await page.screenshot({ path: `test-results/gomoku-room-${confirmation}-${width}-${theme}.png`, fullPage: true });
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
     ).toBe(false);
@@ -139,11 +150,28 @@ for (const { width, confirmation } of [390, 1200].flatMap((width) =>
     });
     await page.reload();
     await expect(page.getByRole("heading", { name: "내 차례예요" })).toBeVisible();
+    await expect(page.locator(".gomoku-player--active")).toHaveCount(1);
+    await expect(page.locator(".gomoku-player--active")).toContainText("테스트 크루");
+    await expect(page.locator(".gomoku-player--active")).toContainText("내 차례");
+    await expect(page.locator(".gomoku-player--active")).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(page.locator(".gomoku-player:not(.gomoku-player--active)")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(page.locator(".gomoku-status-row")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await expect
       .poll(async () => Number(await page.locator(".gomoku-clock strong").textContent()))
       .toBeLessThanOrEqual(60);
     await page.getByRole("button", { name: "H8, 빈 자리" }).click();
     expect(move).toBeUndefined();
+    const beforeError = await page.locator(".gomoku-table").boundingBox();
+    await page.screenshot({ path: `test-results/gomoku-before-error-${confirmation}-${width}-${theme}.png`, fullPage: true });
+    await page.getByRole("button", { name: "자리하기", exact: true }).click();
+    await expect(page.getByRole("alert")).toContainText("쌍3, 쌍4, 장목");
+    const afterError = await page.locator(".gomoku-table").boundingBox();
+    expect(afterError).toEqual(beforeError);
+    await expect(page.getByRole("button", { name: "H8, 빈 자리" })).toHaveAttribute("aria-pressed", "true");
+    await page.screenshot({ path: `test-results/gomoku-error-${confirmation}-${width}-${theme}.png`, fullPage: true });
+    await page.getByRole("button", { name: "오류 알림 닫기" }).click();
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    expect(await page.locator(".gomoku-table").boundingBox()).toEqual(beforeError);
     if (confirmation === "double-click") {
       await page.getByRole("button", { name: "A1, 빈 자리" }).click();
       await page.getByRole("button", { name: "H8, 빈 자리" }).dblclick();
@@ -154,16 +182,20 @@ for (const { width, confirmation } of [390, 1200].flatMap((width) =>
     expect(move).toMatchObject({ x: 7, y: 7, gameNumber: 1 });
     expect(move.requestId).toMatch(/^[a-f0-9-]{36}$/);
     await expect(page.getByRole("button", { name: "H8, 흑돌, 마지막 수" })).toBeVisible();
+    await expect(page.locator(".gomoku-player--active")).toContainText("상대 차례");
+    await expect(page.locator(".gomoku-player--active")).not.toContainText("테스트 크루");
+    await expect(page.locator(".gomoku-player:not(.gomoku-player--active)")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await expect(page.getByRole("button", { name: "I8, 빈 자리" })).toBeDisabled();
     await page.getByRole("button", { name: "I8, 빈 자리" }).dblclick({ force: true });
     expect(moveCount).toBe(1);
-    await page.screenshot({ path: `test-results/gomoku-move-${confirmation}-${width}.png`, fullPage: true });
+    await page.screenshot({ path: `test-results/gomoku-move-${confirmation}-${width}-${theme}.png`, fullPage: true });
     await page.getByRole("button", { name: "기권하기", exact: true }).click();
     const resignDialog = page.getByRole("dialog", { name: "기권할까요?" });
     expect(resign).toBeUndefined();
     await resignDialog.getByRole("button", { name: "기권하기", exact: true }).click();
     await expect.poll(() => resign).toEqual({ gameNumber: 1 });
     await expect(page.getByRole("heading", { name: "LOSE" })).toBeVisible();
+    await expect(page.locator(".gomoku-player--active")).toHaveCount(0);
     await page.getByRole("button", { name: "다시 대결", exact: true }).click();
     await expect.poll(() => ready).toEqual({ ready: true, gameNumber: 2 });
   });
