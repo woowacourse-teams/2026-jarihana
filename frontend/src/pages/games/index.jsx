@@ -6,7 +6,6 @@ import {
   Clock3,
   BookOpen,
   ArrowLeft,
-  Copy,
   Users,
   Globe,
   Lock,
@@ -23,6 +22,7 @@ import { Stone } from "../../features/gomoku/Stone";
 import { ReadinessControls } from "../../features/gomoku/ReadinessControls";
 import { RuleInfoTooltip } from "../../features/gomoku/RuleInfoTooltip";
 import { GameArtwork } from "./GameArtwork";
+import { InvitationLink } from "./InvitationLink";
 import { Avatar, Button, ConfirmDialog, Modal, PageContainer, StatusBadge } from "../../shared/ui";
 import "./games.css";
 
@@ -516,7 +516,6 @@ function GomokuRoom({ roomId }) {
   const { room, connected, pending, error, act, offset } = useGomokuRoom(roomId);
   const [selected, setSelected] = useState(null);
   const [confirmation, setConfirmation] = useState(null);
-  const [notice, setNotice] = useState("");
   const [inviteUrl, setInviteUrl] = useState("");
   const [now, setNow] = useState(() => Date.now());
   const moveAttempt = useRef(null);
@@ -582,22 +581,14 @@ function GomokuRoom({ roomId }) {
   function startGame() {
     return act(() => gomokuApi.start(room.id, room.gameNumber + 1));
   }
-  async function copyInvitation() {
-    setNotice("");
+  async function createInvitation() {
     let url;
     const ok = await act(async () => {
       const invite = await gomokuApi.invite(room.id);
       url = `${window.location.origin}/games/gomoku/invite/${invite.token}`;
     });
-    if (ok) {
-      try {
-        await navigator.clipboard.writeText(url);
-        setNotice("초대 링크를 복사했어요. 새 링크를 만들면 이전 링크는 만료돼요.");
-      } catch {
-        setNotice("클립보드에 접근할 수 없어요. 아래 링크를 직접 복사해 주세요.");
-      }
-      setInviteUrl(url);
-    }
+    if (ok) setInviteUrl(url);
+    return ok;
   }
   // Keep invitation text out of automatic capture and recording.
   return (
@@ -629,15 +620,13 @@ function GomokuRoom({ roomId }) {
               </li>
             </ul>
             <div className="gomoku-tools">
-              {room.status === "WAITING" && (
-                <Button
-                  variant="secondary"
-                  disabled={locked}
-                  data-ph-capture-attribute-action="gomoku_invitation_copy"
-                  onClick={() => void copyInvitation()}
-                >
-                  <Copy size={16} aria-hidden="true" /> 초대하기
-                </Button>
+              {(waiting || inviteUrl) && (
+                <InvitationLink
+                  url={inviteUrl}
+                  locked={locked}
+                  canCreate={waiting}
+                  onCreate={createInvitation}
+                />
               )}
               {room.status === "PLAYING" && (
                 <Button
@@ -667,7 +656,6 @@ function GomokuRoom({ roomId }) {
             {error}
           </p>
         )}
-        <InvitationLink notice={notice} url={inviteUrl} />
         <section className={`gomoku-arena${waiting ? " gomoku-arena--waiting" : ""}`} aria-label="오목 대국">
           <ul className="gomoku-players">
             {[
@@ -869,27 +857,5 @@ function GomokuRoom({ roomId }) {
         />
       </div>
     </PageContainer>
-  );
-}
-function InvitationLink({ notice, url }) {
-  return (
-    <div className="ph-no-capture ph-no-record">
-      {notice && (
-        <p role="status" className="games-help">
-          {notice}
-        </p>
-      )}
-      {url && (
-        <label className="games-invite-link">
-          초대 링크
-          <input
-            readOnly
-            value={url}
-            data-ph-capture-attribute-action="gomoku_invitation_link_select"
-            onFocus={(event) => event.target.select()}
-          />
-        </label>
-      )}
-    </div>
   );
 }
