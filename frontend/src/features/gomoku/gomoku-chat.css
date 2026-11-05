@@ -58,7 +58,6 @@
 .gomoku-chat__messages {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
 }
 .gomoku-chat__scroll:focus-visible {
   outline: var(--border-strong) solid var(--color-brand-ink);
@@ -74,6 +73,12 @@
 .gomoku-chat__message--mine {
   align-self: flex-end;
   align-items: flex-end;
+}
+.gomoku-chat__message + .gomoku-chat__message {
+  margin-block-start: var(--space-4);
+}
+.gomoku-chat__message + .gomoku-chat__message--continuation {
+  margin-block-start: var(--space-2);
 }
 .gomoku-chat__author,
 .gomoku-chat__message time,

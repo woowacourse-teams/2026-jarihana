@@ -3,7 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { installApiFixture, prepareVisualCapture } from "./api-fixture.js";
 
 const participationId = "11111111-1111-4111-8111-111111111111";
-for (const width of [390, 768, 1280, 1440]) {
+for (const width of [390, 768, 1280, 1440, 1920]) {
   for (const theme of ["light", "dark"]) {
     test(`game-room text chat, recovery, keyboard and layout at ${width}px ${theme}`, async ({
       page
@@ -60,6 +60,11 @@ for (const width of [390, 768, 1280, 1440]) {
       const messages = [];
       const bodies = [];
       let failNext = true;
+      let holdHistory = false;
+      let releaseHistory;
+      const delayedHistory = new Promise((resolve) => {
+        releaseHistory = resolve;
+      });
       let releaseInitial;
       const initialHistory = new Promise((resolve) => {
         releaseInitial = resolve;
@@ -101,6 +106,7 @@ for (const width of [390, 768, 1280, 1440]) {
           await initialHistory;
           const before = url.searchParams.get("beforeSequence");
           const after = url.searchParams.get("afterSequence");
+          if (before && holdHistory) await delayedHistory;
           const size = Number(url.searchParams.get("size") || 50);
           const filtered = messages.filter((item) =>
             before
@@ -174,6 +180,10 @@ for (const width of [390, 768, 1280, 1440]) {
       expect(messages[0].content).toBe("  안녕하세요!\n좋은 대국 해요.  ");
       await expect(page.locator(".gomoku-chat__message--mine .gomoku-chat__author")).toHaveCount(0);
       expect(room.revision).toBe(1);
+      await input.fill("다음에도 좋은 대국 해요.");
+      await input.press("Enter");
+      await expect.poll(() => messages.length).toBe(2);
+      await expect(page.getByText("보내는 중...", { exact: true })).toHaveCount(0);
 
       messages.push(message("<script>대화는 텍스트예요</script>"));
       await signal();
@@ -182,6 +192,29 @@ for (const width of [390, 768, 1280, 1440]) {
       ).toBeVisible();
       await expect(page.locator(".gomoku-chat script")).toHaveCount(0);
       await expect(page.locator(".gomoku-chat__author")).toHaveText(["하나"]);
+      messages.push(message("같은 분에 이어 보낸 대화"));
+      await signal();
+      await expect(page.getByRole("log").getByText("같은 분에 이어 보낸 대화")).toBeVisible();
+      await expect(page.locator(".gomoku-chat__author")).toHaveText(["하나"]);
+      const received = page.locator(".gomoku-chat__message:not(.gomoku-chat__message--mine)");
+      await expect(received.first().locator(".gomoku-chat__author")).toBeVisible();
+      await expect(received.last().locator(".gomoku-chat__author")).toHaveCount(0);
+      await expect(received.first().locator("time")).toHaveCount(0);
+      await expect(received.last().locator("time")).toBeVisible();
+      const mine = page.locator(".gomoku-chat__message--mine");
+      const firstMine = await mine.first().boundingBox();
+      const lastMine = await mine.last().boundingBox();
+      const firstReceived = await received.first().boundingBox();
+      const lastReceived = await received.last().boundingBox();
+      const betweenGroups = firstReceived.y - lastMine.y - lastMine.height;
+      const withinMine = lastMine.y - firstMine.y - firstMine.height;
+      const withinReceived = lastReceived.y - firstReceived.y - firstReceived.height;
+      expect(withinMine).toBeGreaterThan(0);
+      expect(withinMine).toBeLessThan(betweenGroups);
+      expect(withinReceived).toBeCloseTo(withinMine, 1);
+      await page.screenshot({
+        path: `../.omo/evidence/gomoku-chat/group-authors-${width}-${theme}.png`
+      });
       if (compact) {
         await expect(page.getByRole("timer")).toBeVisible();
         await page.keyboard.press("Escape");
@@ -227,9 +260,43 @@ for (const width of [390, 768, 1280, 1440]) {
       expect(accessibility.violations).toEqual([]);
 
       await page.reload();
-      if (compact) await page.getByRole("button", { name: /채팅/ }).click();
+      if (compact) {
+        await page.getByRole("button", { name: /채팅/ }).click();
+        await page.getByRole("dialog", { name: "게임방 대화" }).evaluate(async (element) => {
+          await Promise.all(element.getAnimations().map((animation) => animation.finished));
+        });
+      }
       await expect(page.getByText("과거를 읽어도 화면을 옮기지 않아요.")).toBeVisible();
+      await scroller.evaluate((element) => {
+        element.scrollTop = 0;
+        element.dispatchEvent(new Event("scroll"));
+      });
+      const anchorText = await page.locator(".gomoku-chat__bubble").first().innerText();
+      const anchor = page.getByRole("log").getByText(anchorText, { exact: true });
+      const anchorPosition = () =>
+        anchor.evaluate(
+          (element) =>
+            element.getBoundingClientRect().top -
+            element.closest(".gomoku-chat__scroll").getBoundingClientRect().top
+        );
+      const originalPosition = await anchorPosition();
+      holdHistory = true;
       await page.getByRole("button", { name: "이전 대화 보기" }).click();
+      await expect(page.getByRole("button", { name: "불러오는 중..." })).toBeDisabled();
+      const incomingContent = "이전 대화를 불러오는 동안 도착한 새 메시지예요.\n".repeat(12);
+      messages.push(message(incomingContent));
+      await signal();
+      await expect(
+        page.getByRole("log").getByText(incomingContent, { exact: true })
+      ).toBeAttached();
+      await expect
+        .poll(async () => Math.abs((await anchorPosition()) - originalPosition))
+        .toBeLessThan(1);
+      releaseHistory();
+      await expect(page.getByRole("button", { name: "불러오는 중..." })).toHaveCount(0);
+      await expect
+        .poll(async () => Math.abs((await anchorPosition()) - originalPosition))
+        .toBeLessThan(1);
       await expect(
         page.getByRole("log").getByText("<script>대화는 텍스트예요</script>")
       ).toBeAttached();

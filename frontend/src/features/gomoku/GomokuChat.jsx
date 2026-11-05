@@ -41,13 +41,19 @@ function Conversation({
     if (historyAnchor.current) {
       if (!chat.historyLoading) {
         const anchor = historyAnchor.current;
-        element.scrollTop = anchor.top + element.scrollHeight - anchor.height;
+        if (anchor.element.isConnected) {
+          element.scrollTop +=
+            anchor.element.getBoundingClientRect().top -
+            element.getBoundingClientRect().top -
+            anchor.offset;
+        }
         historyAnchor.current = null;
       }
     } else if (atBottom.current) element.scrollTop = element.scrollHeight;
   }, [chat.messages, chat.pending, chat.historyLoading]);
 
   function latest() {
+    historyAnchor.current = null;
     atBottom.current = true;
     setAway(false);
     if (scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight;
@@ -98,10 +104,15 @@ function Conversation({
               disabled={chat.historyLoading}
               data-ph-capture-attribute-action="gomoku_chat_history_load"
               onClick={() => {
-                historyAnchor.current = {
-                  height: scroll.current.scrollHeight,
-                  top: scroll.current.scrollTop
-                };
+                const element = scroll.current;
+                const anchor = element.querySelector(".gomoku-chat__bubble");
+                historyAnchor.current = anchor
+                  ? {
+                      element: anchor,
+                      offset:
+                        anchor.getBoundingClientRect().top - element.getBoundingClientRect().top
+                    }
+                  : null;
                 void chat.loadHistory();
               }}
             >
@@ -140,7 +151,11 @@ function Conversation({
               return (
                 <article
                   key={message.id || message.clientMessageId}
-                  className={`gomoku-chat__message${mine ? " gomoku-chat__message--mine" : ""}`}
+                  className={[
+                    "gomoku-chat__message",
+                    mine ? " gomoku-chat__message--mine" : "",
+                    continuesPrevious ? " gomoku-chat__message--continuation" : ""
+                  ].join("")}
                 >
                   {!mine && !continuesPrevious && (
                     <span className="gomoku-chat__author">
