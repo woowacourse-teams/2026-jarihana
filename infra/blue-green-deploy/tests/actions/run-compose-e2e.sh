@@ -124,7 +124,8 @@ export DIR BG_ENVIRONMENT=dev BG_MODE=deploy BG_SLOT=B
 export RDS_URL=$PREFIX-db BLUE_GREEN_RDS_URL=$PREFIX-db DB_USERNAME=fixture DB_PASSWORD=fixture
 export INVITATION_TOKEN_KEY_PRIMARY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY= ACCESS_TOKEN_SECRET=local-fixture-jwt-secret-0123456789abcdef
 export FRONTEND_ORIGIN=http://localhost GITHUB_OAUTH_CLIENT_ID=fixture GITHUB_OAUTH_CLIENT_SECRET=fixture GITHUB_OAUTH_REDIRECT_URI=http://localhost/oauth
-export IMAGE_S3_BUCKET=fixture IMAGE_S3_REGION=ap-northeast-2 IMAGE_S3_KEY_PREFIX=fixture IMAGE_S3_PUBLIC_BASE_URL=http://localhost/fixture
+export IMAGE_S3_BUCKET=techcourse-project-2026 IMAGE_S3_REGION=ap-northeast-2 IMAGE_S3_KEY_PREFIX=jarihana-dev/images IMAGE_S3_PUBLIC_BASE_URL=http://localhost/fixture
+export IMAGE_CLEANUP_ENABLED=false
 export IMAGE_CDN_DELIVERY_BASE_URL=https://fixture.example.test/images IMAGE_CLOUDFRONT_KEY_PAIR_ID=local-fixture-key-id
 export IMAGE_CLOUDFRONT_PRIVATE_KEY=$'-----BEGIN PRIVATE KEY-----\nlocal-compose-fixture\n-----END PRIVATE KEY-----'
 write_grant() {

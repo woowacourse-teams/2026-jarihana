@@ -95,9 +95,9 @@ jarihana:
     token: ${WORKER_CONTROL_TOKEN:}
     version: ${APP_VERSION:unknown}
   image:
-    bucket: ${IMAGE_S3_BUCKET:techcourse-project-2026}
+    bucket: ${IMAGE_S3_BUCKET:}
     region: ${IMAGE_S3_REGION:ap-northeast-2}
-    key-prefix: ${IMAGE_S3_KEY_PREFIX:jarihana/images}
+    key-prefix: ${IMAGE_S3_KEY_PREFIX:}
     public-base-url: ${IMAGE_S3_PUBLIC_BASE_URL:}
     delivery-base-url: ${IMAGE_CDN_DELIVERY_BASE_URL:}
     cloud-front-key-pair-id: ${IMAGE_CLOUDFRONT_KEY_PAIR_ID:}
