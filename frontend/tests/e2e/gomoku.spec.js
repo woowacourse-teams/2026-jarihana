@@ -1,8 +1,10 @@
 import { test, expect } from "playwright/test";
 import { installApiFixture } from "./api-fixture.js";
 
-for (const width of [390, 1200]) {
-  test(`gomoku catalog, waiting room creation and board selection at ${width}px`, async ({
+for (const { width, confirmation } of [390, 1200].flatMap((width) =>
+  ["button", "double-click"].map((confirmation) => ({ width, confirmation }))
+)) {
+  test(`gomoku catalog, waiting room creation and ${confirmation} move at ${width}px`, async ({
     page
   }) => {
     await page.setViewportSize({ width, height: 900 });
@@ -63,6 +65,7 @@ for (const width of [390, 1200]) {
     let created;
     let ready;
     let move;
+    let moveCount = 0;
     let resign;
     let invitationCount = 0;
     const reply = (route, data) => route.fulfill({ json: { success: true, data, error: null } });
@@ -74,6 +77,7 @@ for (const width of [390, 1200]) {
           body: `event: snapshot\nid: ${room.revision}\ndata: ${JSON.stringify(room)}\n\n`
         });
       if (path.endsWith("/moves")) {
+        moveCount += 1;
         move = route.request().postDataJSON();
         room.board = "0".repeat(112) + "1" + "0".repeat(112);
         room.ply = 1;
@@ -178,7 +182,7 @@ for (const width of [390, 1200]) {
       document.activeElement?.blur();
       window.scrollTo(0, 0);
     });
-    await page.screenshot({ path: `test-results/gomoku-room-${width}.png`, fullPage: true });
+    await page.screenshot({ path: `test-results/gomoku-room-${confirmation}-${width}.png`, fullPage: true });
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
     ).toBe(false);
@@ -201,11 +205,20 @@ for (const width of [390, 1200]) {
       .toBeLessThanOrEqual(60);
     await page.getByRole("button", { name: "H8, 빈 자리" }).click();
     expect(move).toBeUndefined();
-    await page.getByRole("button", { name: "자리하기", exact: true }).click();
+    if (confirmation === "double-click") {
+      await page.getByRole("button", { name: "A1, 빈 자리" }).click();
+      await page.getByRole("button", { name: "H8, 빈 자리" }).dblclick();
+    } else {
+      await page.getByRole("button", { name: "자리하기", exact: true }).click();
+    }
     await expect.poll(() => move?.expectedPly).toBe(0);
     expect(move).toMatchObject({ x: 7, y: 7, gameNumber: 1 });
     expect(move.requestId).toMatch(/^[a-f0-9-]{36}$/);
     await expect(page.getByRole("button", { name: "H8, 흑돌, 마지막 수" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "I8, 빈 자리" })).toBeDisabled();
+    await page.getByRole("button", { name: "I8, 빈 자리" }).dblclick({ force: true });
+    expect(moveCount).toBe(1);
+    await page.screenshot({ path: `test-results/gomoku-move-${confirmation}-${width}.png`, fullPage: true });
     await page.getByRole("button", { name: "기권하기", exact: true }).click();
     const resignDialog = page.getByRole("dialog", { name: "기권할까요?" });
     expect(resign).toBeUndefined();
