@@ -559,9 +559,15 @@ function GomokuRoom({ roomId }) {
     selected.gameNumber === room.gameNumber &&
     room.board[selected.y * 15 + selected.x] === "0";
   const colorOf = (id) => (room.blackMemberId === id ? "BLACK" : "WHITE");
-  async function place() {
-    if (!canMove || !selectedEmpty) return;
-    const payload = { gameNumber: room.gameNumber, expectedPly: room.ply, ...selected };
+  async function place(position = selected) {
+    if (
+      !canMove ||
+      !position ||
+      position.gameNumber !== room.gameNumber ||
+      room.board[position.y * 15 + position.x] !== "0"
+    )
+      return;
+    const payload = { gameNumber: room.gameNumber, expectedPly: room.ply, ...position };
     const signature = JSON.stringify(payload);
     if (moveAttempt.current?.signature !== signature)
       moveAttempt.current = { signature, requestId: moveRequestId() };
@@ -771,6 +777,11 @@ function GomokuRoom({ roomId }) {
                   room={room}
                   selected={selectedEmpty ? selected : null}
                   onSelect={(position) => setSelected({ ...position, gameNumber: room.gameNumber })}
+                  onConfirm={(position) => {
+                    const move = { ...position, gameNumber: room.gameNumber };
+                    setSelected(move);
+                    void place(move);
+                  }}
                   disabled={!canMove}
                 />
               </div>

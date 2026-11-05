@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { GomokuRoomPage } from "./index";
 import { useGomokuRoom } from "../../features/gomoku/useGomokuRoom";
 import { gomokuApi } from "../../features/gomoku/api";
@@ -380,3 +380,58 @@ test.each([null, 1])(
     expect(navigate).toHaveBeenCalledWith("/games/gomoku");
   }
 );
+
+test("double-click sends the clicked position and a failed move keeps it for button retry", async () => {
+  const state = useGomokuRoom();
+  const originalHook = useGomokuRoom.getMockImplementation();
+  const move = jest.spyOn(gomokuApi, "move").mockResolvedValue({});
+  const act = jest.fn(async (operation) => {
+    await operation();
+    return false;
+  });
+  useGomokuRoom.mockReturnValue({
+    ...state, act, room: { ...state.room, turnDeadline: Date.now() + 60000 }
+  });
+  try {
+    render(<GomokuRoomPage />);
+    fireEvent.click(screen.getByRole("button", { name: "A1, 빈 자리" }));
+    expect(move).not.toHaveBeenCalled();
+    fireEvent.doubleClick(screen.getByRole("button", { name: "H8, 빈 자리" }));
+    await waitFor(() => expect(move).toHaveBeenCalledTimes(1));
+    const payload = move.mock.calls[0][1];
+    expect(payload).toMatchObject({ x: 7, y: 7, gameNumber: 1, expectedPly: 0 });
+    expect(payload.requestId).toMatch(/^[a-f0-9-]{36}$/);
+    expect(screen.getByRole("button", { name: "H8, 빈 자리" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "자리하기", exact: true }));
+    await waitFor(() => expect(move).toHaveBeenCalledTimes(2));
+    expect(move.mock.calls[1][1]).toEqual(payload);
+  } finally {
+    move.mockRestore();
+    useGomokuRoom.mockImplementation(originalHook);
+  }
+});
+
+test.each([
+  { connected: false },
+  { pending: true },
+  { room: { ply: 1 } },
+  { room: { turnDeadline: 0 } },
+  { room: { status: "WAITING" } },
+  { room: { status: "FINISHED" } },
+  { room: { status: "CLOSED" } }
+])("double-click cannot submit when the room disallows moves: %o", (override) => {
+  const state = useGomokuRoom();
+  const originalHook = useGomokuRoom.getMockImplementation();
+  const act = jest.fn();
+  useGomokuRoom.mockReturnValue({
+    ...state, ...override, act,
+    room: { ...state.room, turnDeadline: Date.now() + 60000, ...override.room }
+  });
+  try {
+    const { container } = render(<GomokuRoomPage />);
+    fireEvent.doubleClick(container.querySelectorAll(".gomoku-cell")[112]);
+    expect(act).not.toHaveBeenCalled();
+  } finally {
+    useGomokuRoom.mockImplementation(originalHook);
+  }
+});
