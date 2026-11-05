@@ -34,6 +34,7 @@ public class GomokuCommandService {
     private final MemberRepository members;
     private final GomokuTokens tokens;
     private final GomokuHistoryRecorder history;
+    private final GomokuChatLifecycle chat;
     private final Clock clock;
 
     public long create(long memberId, RoomVisibility visibility, GomokuRule rule) {
@@ -42,6 +43,7 @@ public class GomokuCommandService {
         GomokuRoom saved =
                 rooms.saveAndFlush(
                         GomokuRoom.create(memberId, host.getCrewName(), visibility, rule, now()));
+        chat.create(saved.getId());
         seats.saveAndFlush(GomokuSeat.claim(memberId, saved.getId()));
         return saved.getId();
     }
@@ -56,7 +58,7 @@ public class GomokuCommandService {
             throw new BusinessException(ErrorCode.ACCESS_DENIED, "초대 링크로 참가해 주세요.");
         }
         rooms.save(room.join(memberId, member.getCrewName(), now()));
-        seats.saveAndFlush(GomokuSeat.claim(memberId, id));
+        seats.saveAndFlush(GomokuSeat.claim(memberId, id, chat.latestSequence(id)));
         return id;
     }
 
@@ -99,7 +101,7 @@ public class GomokuCommandService {
             if (expired != room) {
                 history.finish(room, expired, now());
                 rooms.saveAndFlush(expired);
-                if (expired.getStatus() == RoomStatus.CLOSED) seats.releaseRoom(id);
+                if (expired.getStatus() == RoomStatus.CLOSED) releaseRoom(id);
             }
             return id;
         }
@@ -143,7 +145,7 @@ public class GomokuCommandService {
         GomokuRoom next = room.expire(now()).leave(memberId, now());
         history.finish(room, next, now());
         rooms.saveAndFlush(next);
-        if (next.getStatus() == RoomStatus.CLOSED) seats.releaseRoom(id);
+        if (next.getStatus() == RoomStatus.CLOSED) releaseRoom(id);
         else seats.deleteById(memberId);
         return id;
     }
@@ -163,7 +165,7 @@ public class GomokuCommandService {
                             if (next != room) {
                                 history.finish(room, next, now());
                                 rooms.saveAndFlush(next);
-                                if (next.getStatus() == RoomStatus.CLOSED) seats.releaseRoom(id);
+                                if (next.getStatus() == RoomStatus.CLOSED) releaseRoom(id);
                             }
                         });
     }
@@ -180,7 +182,7 @@ public class GomokuCommandService {
         if (next != room) {
             history.finish(room, next, now());
             rooms.saveAndFlush(next);
-            if (next.getStatus() == RoomStatus.CLOSED) seats.releaseRoom(room.getId());
+            if (next.getStatus() == RoomStatus.CLOSED) releaseRoom(room.getId());
             // Expiration is committed even though the rejected action receives a conflict response.
             throw new GomokuRoomExpiredException();
         }
@@ -190,6 +192,11 @@ public class GomokuCommandService {
         return members.findWithLockById(id)
                 .orElseThrow(
                         () -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, "회원 정보를 확인해 주세요."));
+    }
+
+    private void releaseRoom(long id) {
+        seats.releaseRoom(id);
+        chat.close(id);
     }
 
     private void requireFree(long id) {

@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import com.project.jarihana.gomoku.domain.RoomStatus;
 import com.project.jarihana.gomoku.query.service.GomokuQueryService;
+import com.project.jarihana.gomoku.query.service.GomokuChatQueryService;
 import com.project.jarihana.gomoku.query.service.dto.GomokuRoomResult;
 
 import org.junit.jupiter.api.AfterEach;
@@ -47,7 +48,7 @@ class GomokuStreamsTest {
         when(queries.getRoom(anyLong(), anyLong())).thenReturn(initial);
         when(queries.loadSnapshot(anyLong())).thenReturn(initial);
         when(queries.findRevisions(any())).thenReturn(Map.of(1L, 1L));
-        streams = new GomokuStreams(queries, Clock.fixed(Instant.ofEpochMilli(1000), ZoneOffset.UTC));
+        streams = new GomokuStreams(queries, mock(GomokuChatQueryService.class), Clock.fixed(Instant.ofEpochMilli(1000), ZoneOffset.UTC));
         ((ScheduledExecutorService) ReflectionTestUtils.getField(streams, "ticker")).shutdownNow();
         streams.start();
     }

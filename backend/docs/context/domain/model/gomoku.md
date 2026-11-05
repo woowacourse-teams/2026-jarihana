@@ -31,3 +31,7 @@
 API: [오목 계약](../../api/endpoints/gomoku.md).
 규칙 근거: [RIF 국제 규칙](https://www.renju.net/rifrules/). 금수에서 패배시키는 대신 착수를
 차단하는 점과 대회 오프닝을 생략하는 점은 서비스용 변경이다.
+
+## 게임방 채팅
+
+좌석의 participationId와 chatStartSequence가 참가 회차와 대화 조회 하한을 결정한다. 메시지는 방별 증가 순번과 회차별 clientMessageId로 중복 전송을 막으며 방 종료 시 본문을 삭제한다. 참가자의 새 채팅만 방 활동 시각을 갱신하고 판 revision과 착수 기한은 유지한다.

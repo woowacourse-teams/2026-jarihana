@@ -5,6 +5,8 @@ TRUNCATE TABLE
     chat_message,
     chat_room,
     announcements,
+    gomoku_chat_message,
+    gomoku_chat_room,
     gomoku_game,
     gomoku_move,
     gomoku_seat,

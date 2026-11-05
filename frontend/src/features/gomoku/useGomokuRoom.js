@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../auth";
 import { getMe } from "../auth/api";
 import { gomokuApi, newerSnapshot, roomSchema } from "./api";
+import { chatSignalSchema } from "./chatApi";
 
 function retryDelay(failures) {
   const ceiling = Math.min(30_000, 1000 * 2 ** Math.min(failures - 1, 5));
@@ -14,6 +15,7 @@ export function useGomokuRoom(roomId) {
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState(null);
   const [pending, setPending] = useState(false);
+  const [chatSignal, setChatSignal] = useState(null);
   const actionLock = useRef(false);
   const generation = useRef(0);
   const refreshTimer = useRef(null);
@@ -84,6 +86,15 @@ export function useGomokuRoom(roomId) {
         snapshotTimer = setTimeout(() => disconnect(
           "게임 정보를 계속 확인하지 못하고 있어요. 자동으로 다시 시도해요.", false
         ), 10_000);
+        source.addEventListener("chat_changed", (event) => {
+          if (cancelled || generation.current !== version || stream !== source) return;
+          try {
+            const signal = chatSignalSchema.safeParse(JSON.parse(event.data));
+            if (signal.success) setChatSignal(signal.data);
+          } catch {
+            // Chat recovery also runs on reconnect and visibility changes.
+          }
+        });
         source.addEventListener("snapshot", (event) => {
           if (!active() || stream !== source) return;
           try {
@@ -184,6 +195,7 @@ export function useGomokuRoom(roomId) {
     connected,
     pending,
     error,
+    chatSignal,
     act,
     offset
   };
