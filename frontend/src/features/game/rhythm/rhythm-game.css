@@ -1,0 +1,600 @@
+.rhythm-game {
+  font-family: "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
+  color: #e5eeed;
+  background: #101b22;
+  font-synthesis: none;
+  --mint: #c5f6ac;
+  --muted: #91a5aa;
+  --line: #30424a;
+}
+.rhythm-game * {
+  box-sizing: border-box;
+}
+.rhythm-game {
+  margin: 0;
+  background: radial-gradient(ellipse at 20% 15%, #1b3038 0, transparent 55%);
+  background-color: #101b22;
+}
+.rhythm-game button,
+.rhythm-game select,
+.rhythm-game input {
+  font: inherit;
+}
+.rhythm-game button {
+  cursor: pointer;
+}
+.rhythm-game button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.rhythm-game button:focus-visible,
+.rhythm-game select:focus-visible,
+.rhythm-game input:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 3px;
+}
+.rhythm-game .rhythm-game__body {
+  width: min(1350px, 100%);
+  margin: auto;
+  padding: 22px 34px 20px;
+}
+.rhythm-game .masthead {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+.rhythm-game .brand {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+.rhythm-game .brand strong {
+  font-size: 1.22rem;
+  letter-spacing: -0.05em;
+}
+.rhythm-game .brand-mark {
+  display: grid;
+  place-items: center;
+  color: var(--mint);
+  font-size: 2.8rem;
+  width: 44px;
+}
+.rhythm-game .track {
+  margin-left: 0;
+  margin-right: auto;
+  display: grid;
+  gap: 2px;
+  text-align: right;
+}
+.rhythm-game .track small {
+  color: var(--muted);
+}
+.rhythm-game .eyebrow {
+  display: block;
+  font-size: 0.63rem;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+  font-weight: 650;
+}
+.rhythm-game .game-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 270px;
+  gap: 26px;
+  align-items: start;
+}
+.rhythm-game .arena-shell {
+  position: relative;
+  background: #eaf1e8;
+  border-radius: 18px;
+  overflow: hidden;
+  color: #1a3339;
+  border: 1px solid #769386;
+}
+@media (min-width: 701px) {
+  .rhythm-game .arena-shell {
+    width: min(100%, calc(100dvh - 185px));
+    justify-self: center;
+  }
+  .rhythm-game .controls {
+    max-height: calc(100dvh - 145px);
+    overflow-y: auto;
+    padding-right: 8px;
+  }
+}
+.rhythm-game #arena {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  touch-action: none;
+}
+.rhythm-game .hud {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  position: absolute;
+  top: 20px;
+  left: 22px;
+  right: 22px;
+  z-index: 1;
+  pointer-events: none;
+}
+.rhythm-game .hud .eyebrow {
+  color: #567266;
+  font-size: 0.63rem;
+}
+.rhythm-game .hud strong {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: clamp(1.15rem, 2.7vw, 2rem);
+  font-weight: 650;
+  display: block;
+}
+.rhythm-game .combo-stat {
+  text-align: center;
+}
+.rhythm-game .life-stat {
+  text-align: right;
+}
+.rhythm-game #lives {
+  display: flex;
+  justify-content: flex-end;
+  gap: 3px;
+  padding-top: 5px;
+  min-height: 23px;
+  font-size: 1.2rem;
+  color: #e24b66;
+}
+.rhythm-game #lives:has(> span:nth-child(6)) {
+  display: grid;
+  grid-template-columns: repeat(5, max-content);
+  row-gap: 0;
+  line-height: 1;
+}
+.rhythm-game .life-off {
+  opacity: 0.2;
+}
+.rhythm-game .stage-strip {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid #c4d5c6;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.78rem;
+  background: #e3ece1;
+}
+.rhythm-game .overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #eaf1e8c9;
+  backdrop-filter: blur(4px);
+  padding: 20px;
+  z-index: 2;
+}
+.rhythm-game .overlay[hidden] {
+  display: none;
+}
+.rhythm-game .overlay-card {
+  text-align: center;
+  padding: clamp(18px, 3vw, 36px);
+  width: min(440px, 100%);
+}
+.rhythm-game .overlay-card h2 {
+  font-size: clamp(1.7rem, 3.3vw, 2.5rem);
+  letter-spacing: -0.06em;
+  line-height: 1.2;
+  margin: 12px 0 15px;
+}
+.rhythm-game .overlay-card p {
+  line-height: 1.65;
+  margin: 0 0 16px;
+}
+.rhythm-game .overlay-card .eyebrow,
+.rhythm-game .overlay-card .muted {
+  color: #527067;
+}
+.rhythm-game .key-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 22px 0;
+}
+.rhythm-game kbd {
+  display: grid;
+  place-items: center;
+  border: 1px solid #a8beb0;
+  border-bottom: 3px solid #93aa9a;
+  background: #f6f9f1;
+  border-radius: 8px;
+  width: 42px;
+  height: 42px;
+  font-size: 1.2rem;
+}
+.rhythm-game .button {
+  border: 1px solid var(--line);
+  color: #e5eeed;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: #20333c;
+}
+.rhythm-game .button:hover:not(:disabled) {
+  border-color: #8baa8c;
+}
+.rhythm-game .button.primary {
+  background: #233b31;
+  border-color: #233b31;
+  color: #deffce;
+  font-weight: 700;
+  min-width: 185px;
+  padding: 13px 24px;
+}
+.rhythm-game .overlay-card .small {
+  margin-top: 14px;
+  margin-bottom: 0;
+}
+.rhythm-game .controls {
+  display: grid;
+  gap: 18px;
+}
+.rhythm-game .control-section {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 17px;
+  border-bottom: 1px solid var(--line);
+}
+.rhythm-game .control-section p {
+  margin: 0;
+}
+.rhythm-game .difficulty {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.rhythm-game .difficulty button {
+  border: 1px solid #40545e;
+  color: #d3e0df;
+  background: transparent;
+  padding: 10px;
+  border-radius: 6px;
+  text-align: left;
+}
+.rhythm-game .difficulty button small {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.rhythm-game .difficulty button[aria-pressed="true"] {
+  color: var(--mint);
+  border-color: var(--mint);
+  background: #263e34;
+}
+.rhythm-game .difficulty button[aria-pressed="true"] small {
+  color: #afcaa2;
+}
+.rhythm-game .small {
+  font-size: 0.76rem;
+  line-height: 1.6;
+}
+.rhythm-game .muted {
+  color: var(--muted);
+}
+.rhythm-game .note-legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  font-size: 0.76rem;
+}
+.rhythm-game .note-legend span {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+.rhythm-game .dot {
+  width: 10px;
+  height: 10px;
+  display: inline-block;
+  border-radius: 50%;
+}
+.rhythm-game .red {
+  background: #ff4149;
+}
+.rhythm-game .blue {
+  background: #4088ff;
+}
+.rhythm-game .yellow {
+  background: #ffe234;
+}
+.rhythm-game .green {
+  background: #40d748;
+}
+.rhythm-game .judgment > div {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 0.71rem;
+}
+.rhythm-game .judgment b {
+  font-size: 0.69rem;
+  letter-spacing: 0.08em;
+}
+.rhythm-game .judgment em {
+  font-style: normal;
+  display: inline-block;
+  text-align: right;
+  min-width: 50px;
+  color: #b9dba9;
+}
+.rhythm-game details > summary {
+  cursor: pointer;
+  font-size: 0.79rem;
+}
+.rhythm-game details[open] > summary {
+  margin-bottom: 12px;
+}
+.rhythm-game .control-section label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.73rem;
+}
+.rhythm-game details label {
+  margin-bottom: 11px;
+}
+.rhythm-game select {
+  width: 100%;
+  background: #1b2e37;
+  border: 1px solid #40545e;
+  border-radius: 5px;
+  color: #e5eeed;
+  padding: 8px;
+}
+.rhythm-game label.check {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.rhythm-game input[type="checkbox"] {
+  accent-color: #a6d992;
+}
+.rhythm-game .audio-controls label {
+  display: flex;
+  justify-content: space-between;
+}
+.rhythm-game input[type="range"] {
+  width: 100%;
+  accent-color: #b5e89d;
+  margin: 1px 0 4px;
+}
+.rhythm-game footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 17px;
+  color: var(--muted);
+  font-size: 0.69rem;
+}
+.rhythm-game .touch-controls {
+  display: none;
+}
+.rhythm-game .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.rhythm-game .sync-dialog {
+  width: min(540px, calc(100% - 28px));
+  max-height: calc(100dvh - 28px);
+  overflow: auto;
+  border: 1px solid #587066;
+  border-radius: 16px;
+  padding: 24px;
+  color: #e5eeed;
+  background: #152a31;
+}
+.rhythm-game .sync-dialog::backdrop {
+  background: #071316c9;
+}
+.rhythm-game .sync-dialog[open] {
+  display: grid;
+  gap: 15px;
+}
+.rhythm-game .sync-dialog h2 {
+  margin: 5px 0 0;
+  font-size: 1.3rem;
+}
+.rhythm-game .sync-dialog p {
+  margin: 0;
+  line-height: 1.55;
+}
+.rhythm-game .sync-dialog .muted {
+  color: #b6c8c8;
+}
+.rhythm-game .sync-volume label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+}
+.rhythm-game .sync-current {
+  font-size: 0.85rem;
+  color: #b6c8c8;
+}
+.rhythm-game .sync-current strong {
+  margin-left: 10px;
+  color: #e5eeed;
+  font-variant-numeric: tabular-nums;
+}
+.rhythm-game .sync-status {
+  min-height: 3.1em;
+  color: #d5f7c6;
+  font-size: 0.92rem;
+}
+.rhythm-game .sync-tap {
+  min-height: 100px;
+  padding: 16px;
+  border: 2px solid #a7d992;
+  border-radius: 12px;
+  background: #243f36;
+  color: #e4ffd9;
+  font-weight: 700;
+  touch-action: manipulation;
+}
+.rhythm-game .sync-tap small {
+  display: block;
+  margin-top: 8px;
+  color: #c4dbbd;
+  font-size: 0.78rem;
+  font-weight: 400;
+}
+.rhythm-game .sync-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.rhythm-game .sync-progress progress {
+  width: 100%;
+  height: 9px;
+  accent-color: #c5f6ac;
+}
+.rhythm-game .sync-progress output {
+  flex: none;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+.rhythm-game .sync-result dl {
+  margin: 0 0 12px;
+  display: grid;
+  gap: 9px;
+}
+.rhythm-game .sync-result dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+}
+.rhythm-game .sync-result dt {
+  color: #b6c8c8;
+}
+.rhythm-game .sync-result dd {
+  margin: 0;
+  color: #e1ffce;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.rhythm-game .sync-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.rhythm-game .sync-actions .button {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+@media (min-width: 1500px) {
+  .rhythm-game .rhythm-game__body {
+    width: 1300px;
+  }
+}
+@media (max-width: 900px) {
+  .rhythm-game .rhythm-game__body {
+    padding: 14px;
+  }
+  .rhythm-game .game-layout {
+    grid-template-columns: minmax(0, 1fr) 230px;
+    gap: 16px;
+  }
+  .rhythm-game .controls {
+    gap: 13px;
+  }
+}
+@media (max-width: 700px) {
+  .rhythm-game .game-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rhythm-game .controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+  .rhythm-game .track {
+    display: none;
+  }
+  .rhythm-game .masthead .button {
+    margin-left: auto;
+  }
+  .rhythm-game .hud {
+    top: 13px;
+    left: 14px;
+    right: 14px;
+  }
+  .rhythm-game .touch-controls {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    position: sticky;
+    bottom: 5px;
+    background: #101b22ef;
+    padding: 10px 0;
+  }
+  .rhythm-game .touch-controls button {
+    color: var(--mint);
+    background: #243c36;
+    border: 1px solid #5b7c68;
+    padding: 12px;
+    border-radius: 7px;
+    font-size: 1.5rem;
+    touch-action: none;
+  }
+  .rhythm-game .touch-controls button:active {
+    background: #486f43;
+  }
+  .rhythm-game footer {
+    margin-bottom: 6px;
+  }
+  .rhythm-game .stage-strip {
+    font-size: 0.67rem;
+    padding: 10px 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rhythm-game .overlay {
+    backdrop-filter: none;
+  }
+}
+
+.rhythm-game .practice-notice {
+  margin: 0 0 16px;
+  color: #c5f6ac;
+  font-size: 0.85rem;
+}
+.rhythm-game .rhythm-game-error {
+  padding: 20px;
+  color: #ffd0c7;
+}
+.rhythm-game #arena {
+  scroll-margin-block-start: calc(var(--header-height) + 5rem);
+}
+
+@media (min-width: 701px) {
+  .rhythm-game .arena-shell {
+    width: min(100%, calc(100dvh - var(--header-height) - 18rem));
+    min-width: 20rem;
+  }
+  .rhythm-game .controls {
+    max-height: calc(100dvh - var(--header-height) - 15rem);
+  }
+}

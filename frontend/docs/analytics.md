@@ -363,7 +363,14 @@ VS 입장 화면의 `sparring_entry_side_select`는 임시 편 선택, `sparring
 `gomoku_invitation_copy`, `gomoku_invitation_link_select`, `gomoku_resign_open`,
 `gomoku_resign_confirm`, `gomoku_leave_open`, `gomoku_leave_confirm`,
 `gomoku_confirmation_cancel`, `gomoku_confirmation_dismiss`다. 방 상단의 "대기실" 링크는 참여를 유지하며 `games_back`을 사용하고, 별도 "나가기" 버튼은 `gomoku_leave_open`으로 확인창을 연다. 초대 참여는
-`gomoku_invitation_join`, 준비 중 리듬게임은 `rhythm_game_open`이다.
+`gomoku_invitation_join`, 게임판의 리듬게임 시작은 `rhythm_game_open`이다.
+
+리듬게임 화면의 게임판 복귀는 `games_back`, 다시 불러오기는 `rhythm_harpoon_reload`를 사용한다.
+게임 안의 조작은 `rhythm_` 접두사의 고정 action을 각 버튼과 입력에 지정한다.
+게임은 같은 React 문서의 기존 자동 수집을 사용하며 별도 SDK를 추가하지 않는다.
+키 입력, 보정 측정값과 점수에 대한 별도 분석 이벤트는 전송하지 않는다.
+터치 방향 버튼은 `rhythm_input_left`, `rhythm_input_down`, `rhythm_input_up`, `rhythm_input_right`로
+구분하며, 누를 때마다 click 자동 수집 이벤트가 하나씩 생긴다.
 
 좌표, 회원 이름, 방 ID와 초대 토큰을 action에 포함하지 않는다. 초대 토큰을 담은
 `/games/gomoku/invite/*`와 `/api/games/gomoku/invitations/*`는 분석과 녹화를 중단하는

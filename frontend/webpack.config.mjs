@@ -103,6 +103,7 @@ export default (_, arguments_) => {
         patterns: [
           { from: path.resolve(directory, "public/sw.js"), to: "sw.js" },
           { from: path.resolve(directory, "public/icons"), to: "icons" },
+          { from: path.resolve(directory, "public/game-assets"), to: "game-assets" },
           {
             from: path.resolve(directory, "public/images"),
             noErrorOnMissing: true,

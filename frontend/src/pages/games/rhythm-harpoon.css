@@ -1,0 +1,38 @@
+.game-player {
+  max-inline-size: var(--container-shell);
+  margin-inline: auto;
+}
+.game-player__toolbar {
+  position: sticky;
+  z-index: calc(var(--z-header) - 1);
+  top: var(--header-height);
+  display: flex;
+  flex-wrap: wrap;
+  min-block-size: var(--space-16);
+  align-items: center;
+  gap: var(--space-3) var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+}
+.game-player__toolbar h1 {
+  flex: 1;
+  margin: 0;
+  font-size: var(--text-h3);
+}
+.game-player__back {
+  display: inline-flex;
+  min-block-size: var(--touch-target);
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+@media (max-width: 767px) {
+  .game-player__toolbar {
+    gap: var(--space-2);
+  }
+  .game-player__toolbar h1 {
+    flex-basis: 55%;
+  }
+}
