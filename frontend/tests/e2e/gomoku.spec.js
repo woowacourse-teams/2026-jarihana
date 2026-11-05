@@ -1,6 +1,32 @@
 import { test, expect } from "playwright/test";
 import { installApiFixture } from "./api-fixture.js";
 
+async function assertTurnLabelCrossesBorder(page) {
+  const geometry = await page.locator(".gomoku-player--active").evaluate((card) => {
+    const label = card.querySelector(":scope > span").getBoundingClientRect();
+    const box = card.getBoundingClientRect();
+    return { labelTop: label.top, labelBottom: label.bottom, center: label.top + label.height / 2, border: box.bottom };
+  });
+  expect(geometry.labelTop).toBeLessThan(geometry.border);
+  expect(geometry.labelBottom).toBeGreaterThan(geometry.border);
+  expect(Math.abs(geometry.center - geometry.border)).toBeLessThan(2);
+}
+
+async function assertPlayerIdentityLayout(page) {
+  const identities = await page.locator(".gomoku-player-identity").evaluateAll((rows) => rows.map((row) => {
+    const avatar = row.querySelector(".gomoku-player-avatar").getBoundingClientRect();
+    const name = row.querySelector("strong").getBoundingClientRect();
+    const box = row.getBoundingClientRect();
+    return { avatarCenter: avatar.top + avatar.height / 2, nameCenter: name.top + name.height / 2,
+      groupCenter: (avatar.left + name.right) / 2, boxCenter: box.left + box.width / 2 };
+  }));
+  for (const identity of identities) {
+    expect(Math.abs(identity.avatarCenter - identity.nameCenter)).toBeLessThan(1);
+    expect(Math.abs(identity.groupCenter - identity.boxCenter)).toBeLessThan(1);
+  }
+  await expect(page.locator(".gomoku-player:not(.gomoku-player--active) > span")).toHaveText("");
+}
+
 for (const { width, confirmation, theme } of [390, 1200].flatMap((width) =>
   ["light", "dark"].flatMap((theme) =>
     ["button", "double-click"].map((confirmation) => ({ width, confirmation, theme }))
@@ -210,10 +236,30 @@ for (const { width, confirmation, theme } of [390, 1200].flatMap((width) =>
       serverNow: Date.now()
     });
     await page.reload();
-    await expect(page.getByRole("heading", { name: "내 차례예요" })).toBeVisible();
+    await expect(page.locator(".gomoku-clock")).toBeVisible();
+    await expect(page.getByRole("heading", { name: /차례예요/ })).toHaveCount(0);
+    const clockCenter = await page.locator(".gomoku-status-row").evaluate((row) => {
+      const clock = row.querySelector(".gomoku-clock").getBoundingClientRect();
+      const box = row.getBoundingClientRect();
+      return { clock: clock.left + clock.width / 2, row: box.left + box.width / 2 };
+    });
+    expect(Math.abs(clockCenter.clock - clockCenter.row)).toBeLessThan(1);
+    const boardFit = await page.locator(".gomoku-table").evaluate((board) => {
+      const box = board.getBoundingClientRect();
+      const controls = document.querySelector(".gomoku-controls").getBoundingClientRect();
+      return { width: box.width, height: box.height, right: box.right,
+        controlsBottom: controls.bottom, viewportWidth: innerWidth, viewportHeight: innerHeight,
+        previousMaximum: 30 * parseFloat(getComputedStyle(document.documentElement).fontSize) };
+    });
+    expect(boardFit.width).toBeCloseTo(boardFit.height, 1);
+    expect(boardFit.right).toBeLessThanOrEqual(boardFit.viewportWidth);
+    expect(boardFit.controlsBottom).toBeLessThanOrEqual(boardFit.viewportHeight);
+    if (width === 1200) expect(boardFit.width).toBeGreaterThan(boardFit.previousMaximum);
     await expect(page.locator(".gomoku-player--active")).toHaveCount(1);
     await expect(page.locator(".gomoku-player--active")).toContainText("테스트 크루");
     await expect(page.locator(".gomoku-player--active")).toContainText("내 차례");
+    await assertTurnLabelCrossesBorder(page);
+    await assertPlayerIdentityLayout(page);
     await expect(page.locator(".gomoku-player--active")).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await expect(page.locator(".gomoku-player:not(.gomoku-player--active)")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await expect(page.locator(".gomoku-status-row")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
@@ -244,6 +290,8 @@ for (const { width, confirmation, theme } of [390, 1200].flatMap((width) =>
     expect(move.requestId).toMatch(/^[a-f0-9-]{36}$/);
     await expect(page.getByRole("button", { name: "H8, 흑돌, 마지막 수" })).toBeVisible();
     await expect(page.locator(".gomoku-player--active")).toContainText("상대 차례");
+    await assertTurnLabelCrossesBorder(page);
+    await assertPlayerIdentityLayout(page);
     await expect(page.locator(".gomoku-player--active")).not.toContainText("테스트 크루");
     await expect(page.locator(".gomoku-player:not(.gomoku-player--active)")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await expect(page.getByRole("button", { name: "I8, 빈 자리" })).toBeDisabled();
