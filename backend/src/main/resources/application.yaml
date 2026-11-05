@@ -55,8 +55,6 @@ jarihana:
       # 이벤트가 끝나고 결과를 정리한 뒤 게임방에서 연습으로 할 수 있게 한다.
       game-room-opens-at: 2026-11-12T13:00:00
       always-open: false
-      # 순위 도전은 매시 정각에 이 횟수로 다시 채운다.
-      hourly-attempt-limit: 10
   invitation:
     token:
       active-key-id: ${INVITATION_TOKEN_ACTIVE_KEY_ID:primary}

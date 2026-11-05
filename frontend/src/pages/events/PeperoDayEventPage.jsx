@@ -31,16 +31,11 @@ const RANKING_PAGE = 50;
 const DIALOG_RANKING_LIMIT = 10;
 
 const RANKED_ERRORS = {
-  MINIGAME_ATTEMPT_LIMIT_EXCEEDED: "이번 시간 순위 도전을 모두 했어요. 다음 정각에 다시 채워져요.",
   MINIGAME_EVENT_NOT_OPEN: "지금은 이벤트 기간이 아니에요.",
   MINIGAME_ROUND_CONFLICT: "이미 자른 막대예요. 새로 시작해 주세요.",
   MINIGAME_RUN_NOT_FOUND: "도전 기록을 찾을 수 없어요. 새로 시작해 주세요.",
   UNAUTHENTICATED: "로그인이 풀렸어요. 다시 로그인한 뒤 도전해 주세요."
 };
-
-function formatServiceClock(value) {
-  return value.split("T")[1].slice(0, 5);
-}
 
 export function formatServiceDateTime(value) {
   const [date, time] = value.split("T");
@@ -238,16 +233,14 @@ export function RankingDialog({ board = "event", onChallenge, onClose, result })
   );
 }
 
-function ModeChooser({ event, onStart }) {
+function ModeChooser({ onStart }) {
   const auth = useAuth();
-  const remaining = event.remainingAttempts;
 
   let rankedAction;
   if (auth.status === "authenticated") {
     rankedAction = (
       <Button
         data-ph-capture-attribute-action="pepero_ranked_start"
-        disabled={remaining === 0}
         onClick={() => onStart("ranked")}
       >
         순위 도전 시작
@@ -285,22 +278,14 @@ function ModeChooser({ event, onStart }) {
       </section>
       <section className="pepero-day__card pepero-day__mode pepero-day__mode--ranked">
         <h2>순위 도전</h2>
-        <p>
-          1시간에 {event.hourlyAttemptLimit}번까지 도전할 수 있고 매시 정각에 다시 채워져요. 가장 좋은 기록으로 순위를 매기고, 시작하면 도전 횟수가 1번 줄어요.
-        </p>
-        {remaining === null ? null : (
-          <p className="pepero-day__remaining">
-            이번 시간 남은 도전 <strong>{remaining}번</strong>
-            {remaining === 0 ? `. ${formatServiceClock(event.attemptsRefillAt)}에 다시 ${event.hourlyAttemptLimit}번 채워져요` : null}
-          </p>
-        )}
+        <p>횟수 제한 없이 몇 번이든 도전할 수 있고, 가장 좋은 기록으로 순위를 매겨요.</p>
         {rankedAction}
       </section>
     </div>
   );
 }
 
-function OpenEvent({ closed, event, game, setGame }) {
+function OpenEvent({ closed, game, setGame }) {
   const queryClient = useQueryClient();
   const { danger, success } = useToast();
   const [finished, setFinished] = useState(null);
@@ -322,7 +307,7 @@ function OpenEvent({ closed, event, game, setGame }) {
     }
   }
 
-  if (!game) return closed ? null : <ModeChooser event={event} onStart={start} />;
+  if (!game) return closed ? null : <ModeChooser onStart={start} />;
 
   const ranked = game.mode === "ranked";
   return (
@@ -423,7 +408,7 @@ export function PeperoDayEventPage() {
         </section>
       ) : null}
       {event.status === "OPEN" || (closed && game) ? (
-        <OpenEvent closed={closed} event={event} game={game} setGame={setGame} />
+        <OpenEvent closed={closed} game={game} setGame={setGame} />
       ) : null}
       {event.status === "UPCOMING" ? null : <Ranking />}
     </PageContainer>

@@ -9,10 +9,7 @@ public record EventStatusResponse(
         LocalDateTime closesAt,
         LocalDateTime gameRoomOpensAt,
         boolean gameRoomOpen,
-        LocalDateTime serverTime,
-        int hourlyAttemptLimit,
-        Integer remainingAttempts,
-        LocalDateTime attemptsRefillAt
+        LocalDateTime serverTime
 ) {
 
     public static EventStatusResponse from(EventStatusResult result) {
@@ -22,10 +19,7 @@ public record EventStatusResponse(
                 result.closesAt(),
                 result.gameRoomOpensAt(),
                 result.gameRoomOpen(),
-                result.serverTime(),
-                result.hourlyAttemptLimit(),
-                result.remainingAttempts(),
-                result.attemptsRefillAt()
+                result.serverTime()
         );
     }
 }

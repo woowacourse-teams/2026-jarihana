@@ -38,11 +38,7 @@ export function usePeperoDayStatus({ enabled = true } = {}) {
     if (!data) return undefined;
     let boundary = null;
     if (data.status === "UPCOMING") boundary = data.opensAt;
-    else if (data.status === "OPEN") {
-      // 로그인 회원은 매시 정각에 도전 횟수가 다시 채워지므로, 닫는 시각보다 먼저 오면 그때도 다시 받는다.
-      const refill = data.remainingAttempts === null ? null : data.attemptsRefillAt;
-      boundary = refill && parseServiceTime(refill) < parseServiceTime(data.closesAt) ? refill : data.closesAt;
-    }
+    else if (data.status === "OPEN") boundary = data.closesAt;
     else if (!data.gameRoomOpen) boundary = data.gameRoomOpensAt;
     if (!boundary) return undefined;
     const offset = parseServiceTime(data.serverTime) - Date.now();

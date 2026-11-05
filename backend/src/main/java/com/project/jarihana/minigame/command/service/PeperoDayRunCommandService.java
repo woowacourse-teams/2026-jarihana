@@ -11,7 +11,6 @@ import com.project.jarihana.minigame.command.service.dto.CutResult;
 import com.project.jarihana.minigame.command.service.dto.StartRunResult;
 import com.project.jarihana.minigame.config.PeperoDayEventProperties;
 import com.project.jarihana.minigame.domain.EventStatus;
-import com.project.jarihana.minigame.domain.HourlyAttempts;
 import com.project.jarihana.minigame.domain.MinigameCut;
 import com.project.jarihana.minigame.domain.MinigameEvent;
 import com.project.jarihana.minigame.domain.MinigameRun;
@@ -40,8 +39,7 @@ public class PeperoDayRunCommandService {
     private final Clock clock;
 
     /**
-     * 같은 회원이 동시에 여러 판을 시작해도 한 시간 도전 횟수를 넘지 않도록 회원 행을 잠근 뒤 이번 시간에 시작한 판을 센다.
-     * 횟수는 매시 정각에 다시 채워진다.
+     * 이벤트 기간의 순위 도전이다. 횟수 제한이 없고, 회원마다 가장 좋은 끝난 판 하나만 순위에 쓴다.
      */
     @Transactional
     public StartRunResult start(long memberId) {
@@ -49,17 +47,7 @@ public class PeperoDayRunCommandService {
         if (peperoDayEventProperties.schedule().statusAt(now) != EventStatus.OPEN) {
             throw new BusinessException(ErrorCode.MINIGAME_EVENT_NOT_OPEN, "지금은 이벤트 기간이 아닙니다.");
         }
-        Member member = memberRepository.findWithLockById(memberId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, "회원 정보를 찾을 수 없습니다."));
-        HourlyAttempts attempts = peperoDayEventProperties.attempts();
-        long used = minigameRunCommandRepository.countByEventAndMemberIdAndCreatedAtGreaterThanEqual(
-                EVENT, memberId, attempts.windowStart(now));
-        if (attempts.exhausted(used)) {
-            throw new BusinessException(ErrorCode.MINIGAME_ATTEMPT_LIMIT_EXCEEDED, "이번 시간 순위 도전을 모두 했어요.");
-        }
-        MinigameRun run = minigameRunCommandRepository.save(MinigameRun.start(EVENT, member, SEEDS.nextLong(), now));
-        return new StartRunResult(run.getId(), run.currentRound(), run.currentPuzzle(),
-                attempts.remaining(used + 1), attempts.nextRefillAt(now));
+        return startRun(EVENT, memberId, now);
     }
 
     /**
@@ -71,11 +59,14 @@ public class PeperoDayRunCommandService {
         if (!peperoDayEventProperties.schedule().inGameRoomAt(now)) {
             throw new BusinessException(ErrorCode.MINIGAME_GAME_ROOM_NOT_OPEN, "아직 게임방에서 할 수 없습니다.");
         }
+        return startRun(MinigameEvent.STICK_HALVING_ROOM, memberId, now);
+    }
+
+    private StartRunResult startRun(MinigameEvent board, long memberId, LocalDateTime now) {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, "회원 정보를 찾을 수 없습니다."));
-        MinigameRun run = minigameRunCommandRepository.save(
-                MinigameRun.start(MinigameEvent.STICK_HALVING_ROOM, member, SEEDS.nextLong(), now));
-        return new StartRunResult(run.getId(), run.currentRound(), run.currentPuzzle(), null, null);
+        MinigameRun run = minigameRunCommandRepository.save(MinigameRun.start(board, member, SEEDS.nextLong(), now));
+        return new StartRunResult(run.getId(), run.currentRound(), run.currentPuzzle());
     }
 
     /**

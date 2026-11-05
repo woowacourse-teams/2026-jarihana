@@ -22,13 +22,10 @@ jest.mock("../../src/features/pepero-day/api", () => ({
 
 const login = jest.fn();
 const status = (overrides) => ({
-  attemptsRefillAt: "2026-11-11T13:00:00",
   closesAt: "2026-11-12T10:00:00",
   gameRoomOpen: false,
   gameRoomOpensAt: "2026-11-12T13:00:00",
-  hourlyAttemptLimit: 10,
   opensAt: "2026-11-11T00:00:00",
-  remainingAttempts: null,
   serverTime: "2026-11-11T12:00:00",
   status: "OPEN",
   ...overrides
@@ -147,24 +144,15 @@ it("cuts with Enter without focusing the stick, but not while another button has
   expect(screen.getByRole("button", { name: "다음 막대" })).toBeInTheDocument();
 });
 
-it("blocks ranked runs when this hour is used up and refills them on the hour without a reload", async () => {
-  jest.spyOn(Math, "random").mockReturnValue(0);
+it("lets members start ranked runs without an attempt limit", async () => {
   useAuth.mockReturnValue({ login, member: { id: 7 }, status: "authenticated" });
-  getPeperoDayStatus.mockResolvedValueOnce(status({ remainingAttempts: 0, serverTime: "2026-11-11T12:59:59" }));
-  getPeperoDayStatus.mockResolvedValue(
-    status({ attemptsRefillAt: "2026-11-11T14:00:00", remainingAttempts: 10, serverTime: "2026-11-11T13:00:00" })
-  );
+  getPeperoDayStatus.mockResolvedValue(status());
   mount();
 
-  expect(await screen.findByText("0번")).toBeInTheDocument();
-  expect(screen.getByText(/13:00에 다시 10번 채워져요/)).toBeInTheDocument();
-  expect(screen.getByText(/1시간에 10번까지 도전할 수 있고 매시 정각에 다시 채워져요/)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "순위 도전 시작" })).toBeDisabled();
-
-  expect(await screen.findByText("10번", {}, { timeout: 5000 })).toBeInTheDocument();
+  expect(await screen.findByText("횟수 제한 없이 몇 번이든 도전할 수 있고, 가장 좋은 기록으로 순위를 매겨요.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "순위 도전 시작" })).toBeEnabled();
-  jest.restoreAllMocks();
-}, 10_000);
+  expect(screen.queryByText(/남은 도전/)).not.toBeInTheDocument();
+});
 
 it("shows only a countdown before the event opens", async () => {
   getPeperoDayStatus.mockResolvedValue(status({ serverTime: "2026-11-10T23:00:00", status: "UPCOMING" }));

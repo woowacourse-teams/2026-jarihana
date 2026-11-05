@@ -36,7 +36,6 @@ jarihana:
       closes-at: 2026-08-20T10:00:00
       game-room-opens-at: 2026-08-20T13:00:00
       always-open: false
-      hourly-attempt-limit: 10
   image:
     public-base-url: https://service.example.test/api/images
     delivery-base-url: https://service.example.test/images

@@ -77,14 +77,6 @@
   border-color: transparent;
 }
 
-.pepero-day__remaining {
-  font-variant-numeric: tabular-nums;
-}
-
-.pepero-day__remaining strong {
-  color: var(--color-ink);
-}
-
 .pepero-day__game {
   display: grid;
   gap: var(--space-3);

@@ -40,27 +40,21 @@ class PeperoDayRunConcurrencyTest extends IntegrationTestSupport {
     @Autowired
     private MemberRepository memberRepository;
 
-    @DisplayName("같은 회원이 순위 도전을 동시에 여러 번 시작해도 한 시간에 10번까지만 시작된다.")
+    @DisplayName("같은 회원이 순위 도전을 동시에 여러 번 시작해도 모두 각자의 판으로 시작된다.")
     @Test
-    void limitsConcurrentRunStarts() throws Exception {
+    void startsConcurrentRunsSeparately() throws Exception {
         // Given
         Member member = memberRepository.save(Member.create("모카", 8, "pepero-concurrent-start", Course.BACKEND));
-        for (int started = 0; started < 7; started++) {
-            peperoDayRunCommandService.start(member.getId());
-        }
 
-        // When: 남은 3번을 놓고 6개 요청이 동시에 시작한다.
+        // When
         List<Attempt> attempts = runTogether(() -> {
             peperoDayRunCommandService.start(member.getId());
             return Attempt.succeeded();
         });
 
         // Then
-        assertThat(attempts).filteredOn(Attempt::succeededAttempt).hasSize(3);
-        assertThat(attempts)
-                .filteredOn(attempt -> attempt.errorCode() == ErrorCode.MINIGAME_ATTEMPT_LIMIT_EXCEEDED)
-                .hasSize(THREADS - 3);
-        assertThat(minigameRunCommandRepository.count()).isEqualTo(10);
+        assertThat(attempts).allMatch(Attempt::succeededAttempt);
+        assertThat(minigameRunCommandRepository.count()).isEqualTo(THREADS);
     }
 
     @DisplayName("같은 막대를 동시에 여러 번 잘라도 한 번만 기록되고 나머지는 차례 충돌로 거절된다.")

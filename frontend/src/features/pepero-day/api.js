@@ -16,21 +16,15 @@ export const stickSchema = z.object({
 });
 
 export const eventStatusSchema = z.object({
-  attemptsRefillAt: serviceDateTime,
   closesAt: serviceDateTime,
   gameRoomOpen: z.boolean(),
   gameRoomOpensAt: serviceDateTime,
-  hourlyAttemptLimit: z.number().int().positive(),
   opensAt: serviceDateTime,
-  remainingAttempts: count.nullable(),
   serverTime: serviceDateTime,
   status: z.enum(["UPCOMING", "OPEN", "CLOSED"])
 });
 
-// 게임방 판은 횟수 제한이 없어서 남은 횟수와 충전 시각이 null이다.
 const startRunSchema = z.object({
-  attemptsRefillAt: serviceDateTime.nullable(),
-  remainingAttempts: count.nullable(),
   round: z.number().int().positive(),
   runId: z.number().int().positive(),
   stick: stickSchema,

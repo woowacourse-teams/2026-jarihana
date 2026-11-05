@@ -4,7 +4,7 @@
 
 | 메서드 | 경로 | 권한 | 결과 |
 | --- | --- | --- | --- |
-| GET | `/events/pepero-day` | PUBLIC (로그인하면 남은 횟수 포함) | 진행 상태, 기간, 게임방으로 옮기는 시각, 서버 시각, 한 시간 도전 횟수와 다음 충전 시각 |
+| GET | `/events/pepero-day` | PUBLIC | 진행 상태, 기간, 게임방으로 옮기는 시각, 서버 시각 |
 | POST | `/events/pepero-day/runs` | MEMBER + CSRF | 201 판 ID와 1번 막대 |
 | POST | `/events/pepero-day/runs/{runId}/cuts` | MEMBER + CSRF + 본인 판 | 200 판정 결과와 다음 막대 |
 | GET | `/events/pepero-day/rankings` | PUBLIC (로그인하면 내 순위 포함) | 상위 50명과 내 순위 |
@@ -19,8 +19,7 @@
 - 이벤트가 끝난 뒤 `game-room-opens-at`(기본 2026-11-12T13:00:00)부터 `gameRoomOpen`이 `true`가 되고, 게임방(`/games`)에 반띵 카드가 나타나 연습으로 계속 할 수 있다. 이 시각은 `closes-at`보다 이를 수 없다. 이벤트 상태는 그 뒤에도 `CLOSED`이고, 순위 조회는 이벤트 최종 순위로 남는다.
 - local과 dev 프로필은 `always-open: true`라 기간과 관계없이 `OPEN`이고, `gameRoomOpen`도 `true`다.
 - `serverTime`은 초 단위로 자른 서버 시각이다. 화면은 기기 시계 대신 이 값과의 차이로 남은 시간을 센다.
-- 순위 도전은 1시간에 `hourlyAttemptLimit`번(`hourly-attempt-limit`, 기본 10)까지 할 수 있고, 매시 정각(서비스 시간대)에 다시 채워진다. 남은 횟수는 다음 시간으로 넘어가지 않는다.
-- `remainingAttempts`는 로그인 회원의 이번 시간 남은 순위 도전 횟수이고, 비로그인이면 `null`이다. `attemptsRefillAt`은 다음 정각이다.
+- 순위 도전 횟수에는 제한이 없다. 이벤트 기간에도, 게임방으로 옮긴 뒤에도 회원마다 가장 좋은 끝난 판 하나만 순위에 쓴다.
 
 ```json
 {
@@ -30,9 +29,6 @@
   "gameRoomOpensAt": "2026-11-12T13:00:00",
   "gameRoomOpen": false,
   "serverTime": "2026-11-11T12:30:00",
-  "hourlyAttemptLimit": 10,
-  "remainingAttempts": 8,
-  "attemptsRefillAt": "2026-11-11T13:00:00"
 }
 ```
 
@@ -57,8 +53,8 @@
 ## 순위 도전 시작
 
 - 이벤트가 `OPEN`이 아니면 `MINIGAME_EVENT_NOT_OPEN`(409)이다.
-- 회원마다 1시간에 10번까지 시작할 수 있다. 이번 시간 칸(정각부터)에 시작한 판을 세며, 끝내지 않은 판도 횟수에 들어간다. 넘으면 `MINIGAME_ATTEMPT_LIMIT_EXCEEDED`(409)다. 같은 회원의 동시 시작은 회원 행 잠금으로 줄을 세운다.
-- 응답은 `{runId, round: 1, timeLimitSeconds: 30, remainingAttempts, attemptsRefillAt, stick}`이다.
+- 회원은 횟수 제한 없이 몇 번이든 시작할 수 있다.
+- 응답은 `{runId, round: 1, timeLimitSeconds: 30, stick}`이다.
 
 ## 막대 자르기
 
@@ -82,6 +78,6 @@
 판 기록은 `MinigameEvent` 값(`PEPERO_DAY_2026`, `STICK_HALVING_ROOM`)으로 나뉘어 이벤트 순위와 게임방 순위가 섞이지 않는다.
 
 - `gameRoomOpen`이 `true`가 된 뒤(운영 2026-11-12 13:00, local과 dev는 항상)에만 `/games/stick-halving/runs`로 시작할 수 있다. 그 전이면 `MINIGAME_GAME_ROOM_NOT_OPEN`(409)이다.
-- 게임방 판은 횟수 제한이 없어 시작 응답의 `remainingAttempts`, `attemptsRefillAt`이 `null`이다. 판정, 제한 시간, 기록은 이벤트 판과 같다.
+- 게임방 판도 횟수 제한이 없다. 판정, 제한 시간, 기록은 이벤트 판과 같다.
 - 자르기는 판이 속한 순위표의 경로로만 한다. 게임방 판을 이벤트 경로로 자르거나 그 반대면 없는 판과 같은 `MINIGAME_RUN_NOT_FOUND`(404)다.
 - `/games/stick-halving/rankings`는 게임방 판만으로 이벤트 순위와 같은 규칙에 따라 매긴다. 이벤트 순위(`/events/pepero-day/rankings`)는 이벤트 기간의 판만 남는다.
