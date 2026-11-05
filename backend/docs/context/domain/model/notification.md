@@ -26,7 +26,7 @@
 `groupId`·`announcementId` payload의 읽기를 지원한다. 선행 호환 PR #490 자체는 공지 알림을
 생성하지 않는다. V12는 기존 구독을 1로 보존하는 `push_subscriptions.client_version` 컬럼을 추가한다.
 공지 사건 생성은 이 선행 배포 이후 #459의 V13 기능 배포에서 시작한다. 기존 클라이언트에는 신규 사건을 제외하고,
-`clientVersion=2`를 요청한 클라이언트에만 공지 target을 반환한다.
+`clientVersion` 2 이상을 요청한 클라이언트에 공지 target을 반환한다.
 배포와 롤백 기준은 [공지 알림 호환성 전환](../../../operations/announcement-notification-compatibility-rollout.md)을 따른다.
 
 회원이 알림함에서 확인하는 사건 기록이다. 신청·참여 사건은 푸시 허용 여부와 무관하게 저장한다.
@@ -49,7 +49,7 @@
 
 타입: GROUP_CREATED, REGISTRATION_SUBMITTED, PARTICIPANT_JOINED, REGISTRATION_APPROVED,
 REGISTRATION_REJECTED, REGISTRATION_SYSTEM_REJECTED, INVITATION_RECEIVED, ACTIVITY_POST_COMMENTED,
-ACTIVITY_POST_REACTED, GROUP_ANNOUNCEMENT_CREATED. DB의 `ck_notifications_event_type`은 `V13__group_announcements.sql`이 같은 값으로 맞춘다.
+ACTIVITY_POST_REACTED, GROUP_ANNOUNCEMENT_CREATED, CHAT_MESSAGE_RECEIVED. DB의 `ck_notifications_event_type`은 `V20__chat_message_notifications.sql`이 같은 값으로 맞춘다.
 시스템 미승인 원인: RERECRUITMENT 또는 GROUP_ENDED. 사유 본문·신청 내용·토큰은 payload에 넣지 않는다.
 
 payloadVersion은 기존 사건과 초대 사건 모두 1이다. eventType이 데이터 의미를 구분하므로 초대 추가만으로 버전을 나누지 않는다.
@@ -88,6 +88,13 @@ payloadVersion은 기존 사건과 초대 사건 모두 1이다. eventType이 �
 회원의 `crewName`을 목록 단위로 일괄 조회한다. 같은 기록의 이전 좋아요 알림도 현재 인원으로 보인다.
 활동 기록 댓글과 좋아요 알림을 누르면 내가 쓴 기록 피드에서 해당 기록 상세를 연다.
 공지 알림을 누르면 모임 공지 상세로 이동한다.
+채팅 알림(`CHAT_MESSAGE_RECEIVED`)은 새로 저장한 메시지마다 보낸 사람과 탈퇴 회원을 제외한
+현재 모임원에게 저장한다. `chat-message:{messageId}:created` 의미키와 `groupId` payload를
+사용하며, 메시지와 알림 및 구독별 전송 작업은 같은 트랜잭션에서 저장·롤백된다.
+같은 요청 ID의 전송 재시도는 알림을 추가하지 않는다. 알림함 기록은 화면 상태·푸시 허용 여부와 무관하게 남긴다.
+수신 회원이 어느 기기에서든 서비스를 활성 상태로 사용하면 모든 구독·모임의 채팅 푸시를 선점·전송 준비 시 보류한다. 비활성 전환 후 원본 메시지의 미읽음 여부를 다시 판단한다. OS 푸시에는 채팅 본문 없이 새 메시지 안내만 표시한다.
+계약 3 클라이언트만 채팅 알림을 읽고, 활성 계약 3 구독만 푸시 대상으로 삼는다.
+알림의 읽음과 채팅의 읽음 순번은 별개이며, 알림을 누르면 현재 소속을 확인하고 해당 채팅방을 연다.
 클릭 목적지는 사건별로 신청 관리·참여자 관리·마이페이지의 해당 참여 모임·미승인 신청·지정 초대장으로 나뉜다. 구체적인 경로는 알림 API 계약을 따른다. 관리 화면의 접근 확인이나 지정 초대 조회가 실패하면 읽음 처리 없이 복귀를 안내한다. 승인·미승인은 모임 개별 조회 없이 마이페이지의 본인 목록에서 해당 모임·신청을 찾아 강조한다.
 
 ## PushSubscription (`push_subscriptions`)
@@ -184,3 +191,26 @@ status·attemptCount·lease 필드 일관성을 DB check 제약과 도메인 테
   이전 객체 전체를 저장하지 않으므로 읽음·삭제 경합에서도 삭제 상태를 되돌리지 않는다.
   알림 삭제와 미완료 전송 취소는 같은 TX에서 처리한다.
 - 시각은 주입 Clock과 LocalDateTime, DB는 TIMESTAMP WITHOUT TIME ZONE을 사용한다.
+
+## MemberActivity (`member_activity`)
+
+| 컬럼 | 제약 | 의미 |
+| --- | --- | --- |
+| `member_id` | PK, member FK, ON DELETE CASCADE | 계정당 하나의 상태 |
+| `last_active_at` | timestamp(6) without time zone, NOT NULL | 서버가 기록한 마지막 활성 보고 시각 |
+
+여러 기기·탭이 같은 행을 갱신하며 `GREATEST`로 시각의 역전을 막는다.
+동일·과거 시각의 보고는 UPDATE를 생략한다. 새로운 시각의 보고는 DB 쓰기가 발생하므로
+활성 화면 N개가 정상 주기로 보고하면 약 N/10회/초의 요청이 들어온다. 여러 기기를 하나의 행에 저장해도 요청 횟수 자체가 줄지는 않는다.
+방 ID·화면 ID·클라이언트 시각은 저장하지 않는다. 한 화면이 종료되어도 행을 삭제하지 않으므로
+다른 화면의 보고가 계속되면 계정 활성 상태가 유지된다. 새로고침마다 행이 늘어나지 않는다.
+
+로그인·표시·포커스·최근 5분 이내 활동을 모두 만족하는 화면만 기존 WebSocket으로 10초마다 보고한다.
+서버는 마지막 보고 이후 15초 미만을 활성으로 판정한다. 별도 만료 삭제 작업 없이 시각 비교로 만료한다.
+여러 서버의 주입 Clock은 같은 시간대를 사용하며 실제 서버 시계 동기화가 필요하다.
+계정 활성 상태는 모든 방의 채팅 푸시만 보류하며 알림함·배지·읽음 순번·다른 알림에는 영향을 주지 않는다.
+
+보류 중에는 기존 `chat-message:{id}:created` 사건 키로 원본 메시지를 찾고 채팅 읽음 순번과 비교한다.
+읽었으면 취소하고, 비활성·미읽음이면 다시 전송 판단한다. 같은 계정·구독·방은 최신 메시지로 묶되
+알림함의 메시지별 기록은 유지한다. 보류는 시도 횟수를 소진하지 않으며 기존 전송 유효기간을 유지한다.
+자세한 계약과 전송 경계는 [알림 API](../../api/endpoints/notifications.md#계정-활성-보고)를 따른다.

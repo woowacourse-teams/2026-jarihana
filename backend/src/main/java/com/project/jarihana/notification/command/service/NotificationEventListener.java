@@ -4,6 +4,7 @@ import com.project.jarihana.activitypost.domain.ReactionEmoji;
 import com.project.jarihana.activitypost.domain.event.ActivityPostCommentedEvent;
 import com.project.jarihana.activitypost.domain.event.ActivityPostReactedEvent;
 import com.project.jarihana.announcement.domain.event.AnnouncementCreatedEvent;
+import com.project.jarihana.chat.domain.ChatMessageCreatedEvent;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.group.domain.event.GroupCreatedEvent;
 import com.project.jarihana.groupmember.query.repository.GroupMemberAccessRepository;
@@ -75,6 +76,22 @@ public class NotificationEventListener {
     }
 
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT, fallbackExecution = false)
+    public void onChatMessageCreated(ChatMessageCreatedEvent event) {
+        List<Member> recipients = groupMembers.findNotificationRecipients(event.groupId(), event.senderMemberId());
+        if (recipients.isEmpty()) {
+            return;
+        }
+        Map<Long, List<PushSubscription>> activeByMember = new LinkedHashMap<>();
+        recipients.forEach(member -> activeByMember.put(member.getId(), new ArrayList<>()));
+        List<Long> recipientIds = recipients.stream().map(Member::getId).toList();
+        subscriptions.findChatCapableByMemberIds(recipientIds).forEach(subscription ->
+                activeByMember.get(subscription.getMember().getId()).add(subscription));
+        recordAll(recipients, "chat-message:" + event.messageId() + ":created",
+                NotificationEventType.CHAT_MESSAGE_RECEIVED, NotificationPayload.forGroup(event.groupId()),
+                event.occurredAt(), activeByMember);
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT, fallbackExecution = false)
     public void onSubmitted(RegistrationSubmittedEvent event) {
         NotificationEventType type = event.automaticallyApproved()
                 ? NotificationEventType.PARTICIPANT_JOINED : NotificationEventType.REGISTRATION_SUBMITTED;
@@ -110,8 +127,8 @@ public class NotificationEventListener {
             case INVITATION_RECEIVED -> throw new IllegalStateException("초대 사건은 신청 사건과 구분해야 합니다.");
             case ACTIVITY_POST_COMMENTED, ACTIVITY_POST_REACTED ->
                     throw new IllegalStateException("활동 기록 사건은 신청 사건과 구분해야 합니다.");
-            case GROUP_ANNOUNCEMENT_CREATED ->
-                    throw new IllegalStateException("공지 사건은 신청 사건과 구분해야 합니다.");
+            case GROUP_ANNOUNCEMENT_CREATED, CHAT_MESSAGE_RECEIVED ->
+                    throw new IllegalStateException("공지와 채팅 사건은 신청 사건과 구분해야 합니다.");
         };
         String key = "registration:" + registrationId + ":" + suffix;
         record(member, key, type, payload, now, subscriptions.findActiveByMemberId(memberId));

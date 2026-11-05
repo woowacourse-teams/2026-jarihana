@@ -234,11 +234,11 @@ class AnnouncementReadCompatibilityAcceptanceTest extends NotificationIntegratio
         var subscription = subscription(owner, "invalid-contract");
 
         // When
-        Response list = authenticated(owner).queryParam("clientVersion", 3).get("/notifications");
-        Response detail = authenticated(owner).queryParam("clientVersion", 3).get("/notifications/" + id);
-        Response count = authenticated(owner).queryParam("clientVersion", 3).get("/notifications/unread-count");
+        Response list = authenticated(owner).queryParam("clientVersion", 4).get("/notifications");
+        Response detail = authenticated(owner).queryParam("clientVersion", 4).get("/notifications/" + id);
+        Response count = authenticated(owner).queryParam("clientVersion", 4).get("/notifications/unread-count");
         Response push = authenticated(owner).queryParam("subscriptionId", subscription.getId())
-                .queryParam("generation", 1).queryParam("clientVersion", 3)
+                .queryParam("generation", 1).queryParam("clientVersion", 4)
                 .get("/notifications/" + id + "/push-content");
 
         // Then
