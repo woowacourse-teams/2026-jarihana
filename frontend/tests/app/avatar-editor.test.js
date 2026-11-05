@@ -59,7 +59,7 @@ describe('파츠 편집 화면', () => {
   });
 
   it('편집 초기화와 추천 스타일은 실제 선택·버튼 상태를 일치시킨다', () => {
-    click('머리 모양: 긴 머리'); click('처음 모습으로');
+    click('머리 모양: 긴 생머리'); click('처음 모습으로');
     expect(getByRole(root, 'button', { name: '머리 모양: 곱슬머리' })).toHaveAttribute('aria-pressed', 'true');
     expect(getByRole(root, 'button', { name: '처음 모습으로' })).toBeDisabled();
     editor.replace(AVATAR_PRESETS[1].appearance);

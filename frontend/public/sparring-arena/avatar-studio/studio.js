@@ -23,6 +23,7 @@ function initialize(event) {
     const container = document.querySelector('#preview');
     const platformColor = getComputedStyle(document.documentElement).getPropertyValue('--color-surface').trim();
     preview = createAvatarPreview(container, { platformColor }); preview.setAppearance(appearance);
+    preview.setRotation(previewOnly ? -15 : Number(document.querySelector('#rotation').value));
     container.addEventListener('avatarerror', fail);
     if (!previewOnly) {
       const portraits = new Map();

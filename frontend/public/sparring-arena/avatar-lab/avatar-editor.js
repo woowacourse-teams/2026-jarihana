@@ -4,7 +4,7 @@ import { createAvatarDraft } from './avatar-draft.js';
 const FIELDS = {
   face: { label: '얼굴형', action: 'avatar_lab_face_change', names: ['동그란 얼굴', '타원형 얼굴', '넓은 얼굴'] },
   skin: { label: '피부색', action: 'avatar_lab_skin_change', names: ['밝은 피부', '따뜻한 피부', '갈색 피부', '짙은 피부'] },
-  hair: { label: '머리 모양', action: 'avatar_lab_hair_change', names: ['곱슬머리', '가르마', '단발머리', '긴 머리', '긴 생머리', '민머리'] },
+  hair: { label: '머리 모양', action: 'avatar_lab_hair_change', names: ['곱슬머리', '가르마', '단발머리', '긴 생머리', '긴 웨이브', '민머리'] },
   hairColor: { label: '머리색', action: 'avatar_lab_hair_color_change', names: ['검정', '밤색', '구릿빛', '은빛'] },
   eyes: { label: '눈', action: 'avatar_lab_eyes_change', names: ['동그란 눈', '가는 눈', '작은 눈'] },
   eyebrows: { label: '눈썹', action: 'avatar_lab_eyebrows_change', names: ['아치형 눈썹', '일자 눈썹', '짙은 눈썹'] },

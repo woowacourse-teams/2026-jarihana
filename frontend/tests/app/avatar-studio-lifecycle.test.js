@@ -8,7 +8,7 @@ jest.mock('../../public/sparring-arena/avatar-lab/avatar-editor.js', () => ({ cr
 let preview, editor;
 beforeEach(() => {
   document.body.innerHTML = '<main hidden><div id="preview"></div><div id="part-editor"></div><div id="presets"></div><input id="rotation"><span id="rotation-value"></span></main><p id="error" hidden></p>';
-  preview = { setAppearance: jest.fn(), portrait: jest.fn(() => 'data:image/png;base64,preview'), dispose: jest.fn() };
+  preview = { setAppearance: jest.fn(), setRotation: jest.fn(), portrait: jest.fn(() => 'data:image/png;base64,preview'), dispose: jest.fn() };
   editor = { dispose: jest.fn() };
   createAvatarPreview.mockReturnValue(preview); createAvatarEditor.mockReturnValue(editor);
   jest.isolateModules(() => require('../../public/sparring-arena/avatar-studio/studio.js'));

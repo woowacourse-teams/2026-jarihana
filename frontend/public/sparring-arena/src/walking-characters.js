@@ -3,6 +3,7 @@ import { characterVariant } from './character-motion.js';
 import { studioMaterial } from './studio-materials.js';
 import { AVATAR_OPTIONS, AVATAR_PALETTE, readAvatarAppearance } from './avatar-appearance.js';
 import { createCharacterSculpt, bendLimbMaterial, sculptSurface } from './character-sculpt.js';
+import { createAvatarBrandSculpt } from './avatar-brand-sculpt.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const THIGH = 0.31, SHIN = 0.32;
@@ -37,6 +38,7 @@ export function createWalkingCharacters(scene, capacity) {
   }
   collar.computeVertexNormals();
   const sculpt = createCharacterSculpt();
+  const avatarSculpt = createAvatarBrandSculpt();
   const mouthPoints = Array.from({ length: 9 }, (_, i) => {
     const x = (i / 8 - 0.5) * 0.15, y = -0.116 + 0.026 * (x / 0.075) ** 2;
     const z = 0.292 * (1 - Math.abs(x / 0.33) ** (2 / 0.87) - Math.abs(y / 0.32) ** (2 / 0.88)) ** 0.44 + 0.009;
@@ -66,6 +68,7 @@ export function createWalkingCharacters(scene, capacity) {
     skin: 0xffc894, ear: 0xe9a774, hair: 0x353330, face: 0x24201e,
     sweater: 0xbdbbb9, knit: 0xb0aeac, blue: 0x406387, navy: 0x26394e,
     black: 0x2c2d2f, charcoal: 0x27282a, mint: 0x24b6b0, white: 0xf6f5f1, sole: 0xdeddd9,
+    pants: 0x302e2c,
   };
   const materials = Object.fromEntries(Object.entries(colors).map(([name, color]) => [name,
     studioMaterial({ color, roughness: name === 'face' ? 0.4 : name === 'hair' ? 0.85 : 0.93,
@@ -108,7 +111,7 @@ export function createWalkingCharacters(scene, capacity) {
     node.scale.set(...scale);
     node.rotation.set(...rotation);
     const key = `${material}:${shape}`;
-    if (!buckets.has(key)) buckets.set(key, { geometry: { sphere, rounded, soft, collar, smile, flatMouth, eyebrow, strap, roundGlasses, squareGlasses, ...sculpt }[shape], shape, material: materials[material], materialName: material, parts: Array.from({ length: rigCount }, () => []) });
+    if (!buckets.has(key)) buckets.set(key, { geometry: { sphere, rounded, soft, collar, smile, flatMouth, eyebrow, strap, roundGlasses, squareGlasses, ...sculpt, ...avatarSculpt, avatarSweater: sculpt.sweater }[shape], shape, material: materials[material], materialName: material, parts: Array.from({ length: rigCount }, () => []) });
     buckets.get(key).parts[variant].push(node);
     return node;
   }
@@ -120,31 +123,31 @@ export function createWalkingCharacters(scene, capacity) {
     const torso = joint(root, [0, 0.78, 0]);
     torso.scale.x = 0.94;
     const clothes = variant === 0 ? 'sweater' : 'black';
-    const trousers = custom ? 'navy' : variant === 0 ? 'blue' : 'black';
+    const trousers = custom ? 'pants' : variant === 0 ? 'blue' : 'black';
     const rib = variant === 0 ? 'knit' : 'charcoal';
     part(torso, variant, trousers, [0, -0.015, -0.005], [0.29, 0.065, 0.17], [0, 0, 0], 'soft');
-    part(torso, variant, clothes, [0, 0.32, 0], [0.345, 0.33, 0.235], [0, 0, 0], 'sweater');
+    part(torso, variant, clothes, [0, 0.32, 0], custom ? [0.35, 0.31, 0.245] : [0.345, 0.33, 0.235], [0, 0, 0], custom ? 'avatarSweater' : 'sweater');
     part(torso, variant, rib, [0, 0.012, 0], [0.312, 0.036, 0.206], [0, 0, 0], 'soft');
     part(torso, variant, 'skin', [0, 0.652, 0], [0.117, 0.095, 0.108]);
     part(torso, variant, rib, [0, 0.638, 0], [0.147, 0.13, 0.175], [Math.PI / 2, 0, 0], 'collar');
 
-    const head = joint(torso, [0, 0.95, 0]);
+    const head = joint(torso, [0, custom ? 0.91 : 0.95, 0]);
     head.scale.set(0.87, 0.86, 0.97);
-    const face = part(head, variant, 'complexion', [0, 0, 0], [0.33, 0.32, 0.292], [0, 0, 0], 'face');
+    const face = part(head, variant, 'complexion', [0, 0, 0], [0.33, 0.32, 0.292], [0, 0, 0], custom ? 'avatarFace' : 'face');
     const eyes = [], eyebrows = [];
     for (const sign of [-1, 1]) {
-      part(head, variant, 'skin', [sign * 0.327, -0.034, 0.015], [0.067, 0.081, 0.063]);
+      part(head, variant, 'skin', [sign * 0.327, -0.034, 0.015], custom ? [0.075, 0.087, 0.063] : [0.067, 0.081, 0.063]);
       part(head, variant, 'ear', [sign * 0.346, -0.032, 0.062], [0.031, 0.045, 0.011]);
-      eyes.push(part(head, variant, 'face', [sign * 0.111, 0.018, 0.284], [0.026, 0.041, 0.019]));
+      eyes.push(part(head, variant, 'face', [sign * 0.111, custom ? 0.025 : 0.018, custom ? 0.287 : 0.284], [0.026, 0.041, 0.019]));
       eyebrows.push(part(head, variant, 'face', [sign * 0.112, 0.126, 0.265], [1, 1, 1], [0, 0, sign * -0.08], 'eyebrow'));
     }
     const nose = part(head, variant, 'skin', [0, -0.049, 0.296], [0.039, 0.042, 0.052]);
-    const mouths = { smile: part(head, variant, 'face', [0, 0, 0], [1, 1, 1], [0, 0, 0], 'smile') };
+    const mouths = { smile: part(head, variant, 'face', [0, 0, 0], [1, 1, 1], [0, 0, 0], custom ? 'avatarSmile' : 'smile') };
     if (custom) {
       mouths.flat = part(head, variant, 'face', [0, 0, 0], [1, 1, 1], [0, 0, 0], 'flatMouth');
-      mouths.open = part(head, variant, 'face', [0, -0.105, 0.287], [0.026, 0.036, 0.012]);
+      mouths.open = part(head, variant, 'face', [0, -0.105, 0.287], [0.037, 0.045, 0.016]);
     }
-    const hairShape = custom ? { curly: 'crewHair', parted: 'coachHair', bob: 'bobHair', long: 'longHair', flowing: 'flowingHair' }[hair] : variant === 0 ? 'crewHair' : 'coachHair';
+    const hairShape = custom ? { curly: 'avatarCurly', parted: 'avatarParted', bob: 'avatarBob', long: 'avatarLong', flowing: 'avatarFlowing' }[hair] : variant === 0 ? 'crewHair' : 'coachHair';
     if (hairShape) part(head, variant, 'hair', [0, 0, 0], [1, 1, 1], [0, 0, 0], hairShape);
     const glasses = { round: [], square: [] };
     if (custom) for (const kind of Object.keys(glasses)) {
@@ -174,9 +177,9 @@ export function createWalkingCharacters(scene, capacity) {
       const elbow = joint(shoulder, [0, -0.24, 0]);
       fabric.userData.bendJoint = elbow;
       part(elbow, variant, rib, [0, -0.20, 0], [0.108, 0.034, 0.109], [0, 0, 0], 'soft');
-      part(elbow, variant, 'skin', [0, -0.283, 0.009], [0.082, 0.103, 0.056]);
+      part(elbow, variant, 'skin', [0, -0.283, 0.009], custom ? [0.096, 0.108, 0.070] : [0.082, 0.103, 0.056]);
       for (const offset of [-0.048, -0.016, 0.016, 0.048]) {
-        part(elbow, variant, 'skin', [offset, -0.357 + Math.abs(offset) * 0.32, 0.029], [0.020, 0.046, 0.025]);
+        part(elbow, variant, 'skin', [offset, -0.357 + Math.abs(offset) * 0.32, 0.029], custom ? [0.024, 0.046, 0.031] : [0.020, 0.046, 0.025]);
       }
       part(elbow, variant, 'skin', [-sign * 0.068, -0.282, 0.042], [0.029, 0.057, 0.030], [0, 0, -sign * 0.4]);
       return { sign, shoulder, elbow };
@@ -188,7 +191,7 @@ export function createWalkingCharacters(scene, capacity) {
       fabric.userData.bendJoint = knee;
       const ankle = joint(knee, [0, -SHIN, 0]);
       part(ankle, variant, 'sole', [0, -0.075, 0.065], [0.158, 0.03, 0.23], [0, 0, 0], 'rounded');
-      part(ankle, variant, 'white', [0, -0.012, 0.064], [0.156, 0.076, 0.222]);
+      part(ankle, variant, 'white', [0, custom ? -0.001 : -0.012, 0.064], custom ? [0.167, 0.087, 0.235] : [0.156, 0.076, 0.222]);
       part(ankle, variant, 'white', [0, 0.042, 0.01], [0.085, 0.042, 0.095]);
       for (const z of [0.015, 0.052, 0.089]) {
         part(ankle, variant, 'sole', [0, 0.065 - z * 0.13, z], [0.07, 0.009, 0.011]);
@@ -221,6 +224,7 @@ export function createWalkingCharacters(scene, capacity) {
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.frustumCulled = false;
     mesh.castShadow = true;
+    mesh.receiveShadow = bucket.shape.startsWith('avatar');
     mesh.receiveShadow = ['sweater', 'sleeve', 'trouser', 'strap'].includes(bucket.shape);
     for (let index = 0; index < mesh.count; index++) mesh.setMatrixAt(index, zero);
     mesh.count = 0;
@@ -262,11 +266,11 @@ export function createWalkingCharacters(scene, capacity) {
     const variant = appearance ? 2 + AVATAR_OPTIONS.hair.indexOf(appearance.hair) : characterVariant(post);
     const rig = rigs[variant];
     if (appearance) {
-      const dimensions = { round: [0.87, 0.86, 0.97], oval: [0.80, 0.94, 0.97], wide: [0.96, 0.82, 0.97] }[appearance.face];
+      const dimensions = { round: [1.16, 1.13, 1.10], oval: [1.07, 1.22, 1.10], wide: [1.27, 1.08, 1.10] }[appearance.face];
       rig.head.scale.set(...dimensions);
-      for (const eye of rig.eyes) eye.scale.set(...{ round: [0.026, 0.041, 0.019], slim: [0.033, 0.018, 0.019], dot: [0.023, 0.023, 0.019] }[appearance.eyes]);
+      for (const eye of rig.eyes) eye.scale.set(...{ round: [0.033, 0.052, 0.024], slim: [0.039, 0.025, 0.023], dot: [0.028, 0.033, 0.023] }[appearance.eyes]);
       for (const brow of rig.eyebrows) brow.scale.set(...{ arched: [1, 1, 1], straight: [1, 0.13, 1], bold: [1.14, 1.5, 1.4] }[appearance.eyebrows]);
-      rig.nose.scale.set(...{ round: [0.039, 0.042, 0.052], small: [0.026, 0.029, 0.03], wide: [0.055, 0.034, 0.04] }[appearance.nose]);
+      rig.nose.scale.set(...{ round: [0.047, 0.047, 0.058], small: [0.033, 0.034, 0.041], wide: [0.060, 0.039, 0.048] }[appearance.nose]);
       for (const [kind, mouth] of Object.entries(rig.mouths)) {
         if (!mouth.userData.originalScale) mouth.userData.originalScale = mouth.scale.clone();
         mouth.scale.copy(mouth.userData.originalScale).multiplyScalar(appearance.mouth === kind ? 1 : 0);
@@ -351,7 +355,7 @@ export function createWalkingCharacters(scene, capacity) {
   }
 
   function dispose() {
-    const geometries = new Set([sphere, rounded, soft, collar, smile, flatMouth, eyebrow, strap, roundGlasses, squareGlasses, ...Object.values(sculpt)]);
+    const geometries = new Set([sphere, rounded, soft, collar, smile, flatMouth, eyebrow, strap, roundGlasses, squareGlasses, ...Object.values(sculpt), ...Object.values(avatarSculpt)]);
     const ownedMaterials = new Set(Object.values(materials));
     for (const mesh of meshes) {
       geometries.add(mesh.geometry);

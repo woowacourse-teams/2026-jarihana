@@ -14,8 +14,8 @@ export const AVATAR_OPTIONS = Object.freeze({
 });
 export const AVATAR_PALETTE = Object.freeze({
   skin: Object.freeze({ pearl: '#ffe0bf', warm: '#e9b383', tan: '#b97850', deep: '#75472f' }),
-  hairColor: Object.freeze({ ink: '#292b31', chestnut: '#61412f', copper: '#a45732', silver: '#c3c6cd' }),
-  outfit: Object.freeze({ mint: '#52bca7', coral: '#e68c7e', cream: '#e6d8bb', navy: '#3b526d', lilac: '#a69ac5', ochre: '#c49a45' }),
+  hairColor: Object.freeze({ ink: '#292726', chestnut: '#61412f', copper: '#a45732', silver: '#c3c6cd' }),
+  outfit: Object.freeze({ mint: '#52bca7', coral: '#e68c7e', cream: '#e8e5df', navy: '#3b526d', lilac: '#a69ac5', ochre: '#c49a45' }),
 });
 export const AVATAR_DEFAULT_PARTS = Object.freeze({ eyebrows: 'arched', nose: 'round', mouth: 'smile' });
 export const AVATAR_BASIC_APPEARANCE = Object.freeze({
@@ -28,9 +28,9 @@ const make = (hair, skin, hairColor, face, eyes, glasses, outfit) => Object.free
 export const AVATAR_PRESETS = Object.freeze([
   Object.freeze({ id: 'mint', name: '곱슬머리와 민트', description: '동그란 얼굴 · 검정 곱슬머리', appearance: make('curly', 'warm', 'ink', 'round', 'round', 'none', 'mint') }),
   Object.freeze({ id: 'coral', name: '단발머리와 코랄', description: '타원형 얼굴 · 밤색 단발머리', appearance: make('bob', 'pearl', 'chestnut', 'oval', 'round', 'none', 'coral') }),
-  Object.freeze({ id: 'cream', name: '긴 생머리와 크림', description: '넓은 얼굴 · 어깨 아래로 푼 은빛 긴 생머리', appearance: make('flowing', 'tan', 'silver', 'wide', 'slim', 'round', 'cream') }),
+  Object.freeze({ id: 'cream', name: '긴 웨이브와 크림', description: '넓은 얼굴 · 어깨 아래로 푼 은빛 긴 웨이브', appearance: make('flowing', 'tan', 'silver', 'wide', 'slim', 'round', 'cream') }),
   Object.freeze({ id: 'navy', name: '가르마와 네이비', description: '타원형 얼굴 · 검정 가르마', appearance: make('parted', 'deep', 'ink', 'oval', 'round', 'square', 'navy') }),
-  Object.freeze({ id: 'lilac', name: '긴 머리와 라일락', description: '동그란 얼굴 · 구릿빛 긴 머리', appearance: make('long', 'warm', 'copper', 'round', 'slim', 'round', 'lilac') }),
+  Object.freeze({ id: 'lilac', name: '긴 생머리와 라일락', description: '동그란 얼굴 · 구릿빛 긴 생머리', appearance: make('long', 'warm', 'copper', 'round', 'slim', 'round', 'lilac') }),
   Object.freeze({ id: 'ochre', name: '민머리와 머스터드', description: '넓은 얼굴 · 안경 없는 민머리', appearance: make('bald', 'deep', 'ink', 'wide', 'round', 'none', 'ochre') }),
 ]);
 

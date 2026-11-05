@@ -29,7 +29,7 @@ test("내 아바타를 생성·저장·재편집하고 삭제하면 기본형으
   await page.getByRole("link", { name: "아바타 만들기" }).click();
   await expect(editor(page).getByRole("group", { name: "추천 조합", exact: true }).getByRole("button")).toHaveCount(6);
   await expect(editor(page).getByRole("button", { name: "곱슬머리와 민트", exact: true })).toBeVisible();
-  await editor(page).getByRole("button", { name: "머리 모양: 긴 생머리", exact: true }).click();
+  await editor(page).getByRole("button", { name: "머리 모양: 긴 웨이브", exact: true }).click();
   await expect(status(page)).toContainText("아직 저장하지 않은");
   await page.getByRole("button", { name: "저장하기", exact: true }).click();
   await expect(page).toHaveURL(/\/my$/);
@@ -37,7 +37,7 @@ test("내 아바타를 생성·저장·재편집하고 삭제하면 기본형으
   expect(state.avatar.appearance.hair).toBe("flowing");
   await page.reload();
   await page.getByRole("link", { name: "아바타 수정하기", exact: true }).click();
-  await expect(editor(page).getByRole("button", { name: "머리 모양: 긴 생머리", exact: true })).toHaveAttribute("aria-pressed", "true", { timeout: 20000 });
+  await expect(editor(page).getByRole("button", { name: "머리 모양: 긴 웨이브", exact: true })).toHaveAttribute("aria-pressed", "true", { timeout: 20000 });
   await editor(page).getByRole("button", { name: "머리 모양: 단발머리", exact: true }).click();
   await page.getByRole("link", { name: "← 마이페이지" }).click();
   await expect(page.getByRole("dialog", { name: "편집을 마치고 나갈까요?" })).toBeVisible();
