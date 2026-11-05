@@ -5,11 +5,22 @@
 후속 색상 편집에서는 기존 `jarihana-favicon.png`를 색상 참고 이미지로 사용해
 연두빛을 제거하고 브랜드의 선명한 민트/청록색(`#2ac1bc`)으로 의자만 조정했다.
 
-| 파일 | 용도 | 소품 |
+| S3 객체 파일명 | 용도 | 소품 |
 | --- | --- | --- |
-| `browse.png` | 뭐있나? | 돋보기 |
-| `memories.png` | 뭐했나? | 사진 |
-| `proposal.png` | 뭐할래? | 말풍선 |
+| `browse-4f688d968a42.png` | 뭐있나? | 돋보기 |
+| `memories-a90bf2e651a0.png` | 뭐했나? | 사진 |
+| `proposal-bbe9cc84d137.png` | 뭐할래? | 말풍선 |
+
+이미지 파일은 저장소와 프론트엔드 번들에 포함하지 않는다. 같은 파일을 다음 두 S3 경로에
+저장하고 `src/app/headerChairAssets.js`에서 공개 객체 URL을 직접 참조한다.
+
+- dev: `s3://techcourse-project-2026/jarihana-dev/images/header-chairs/`
+- prod: `s3://techcourse-project-2026/jarihana/images/header-chairs/`
+- 공개 URL: `https://techcourse-project-2026.s3.ap-northeast-2.amazonaws.com/{prefix}/images/header-chairs/{파일명}`
+
+기존 게임 이미지와 같이 `APP_DEPLOY_ENV=production`일 때 prod, 로컬과 나머지 환경은 dev를 사용한다.
+객체의 Content-Type은 `image/png`, Cache-Control은 `public, max-age=31536000, immutable`이다.
+파일명에 SHA-256 앞 12자리를 붙여 변경 시 새 객체로 게시한다. 기존 객체를 덮어쓰지 않는다.
 
 생성 프롬프트의 공통 요구:
 

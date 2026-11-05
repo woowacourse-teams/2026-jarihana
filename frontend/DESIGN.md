@@ -422,7 +422,9 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   이름은 `뭐있나?`(`/groups`), `뭐했나?`(`/activities`), `뭐할래?`(`/board`)이며 설명은 각각
   `함께할 자리 둘러보기`, `사진으로 보는 자리 이야기`, `하고 싶은 자리 제안하기`다.
   아이콘은 승인된 입체 의자 캐릭터형을 사용한다. 민트색 의자에 돋보기, 사진, 말풍선을 조합한
-  투명 PNG를 `src/shared/assets/brand/header-chairs/`에서 가져온다. 원본은 144px 정사각형이며
+  투명 PNG를 `app/headerChairAssets.js`의 dev/prod 공개 S3 URL에서 직접 가져온다.
+  `APP_DEPLOY_ENV=production`이면 `jarihana/images/header-chairs`, 나머지는
+  `jarihana-dev/images/header-chairs`를 사용하며 이미지 파일은 저장소에 두지 않는다. 원본은 144px 정사각형이며
   표시 크기는 새 토큰 `--header-group-icon-size: 36px`로 데스크톱과 모바일에 동일하게 적용한다.
   회색 타일 배경은 두지 않으며 장식 이미지는 빈 alt/aria-hidden으로 접근성 이름에서 제외한다.
   패널 폭은 새 토큰 `--header-group-menu-width: 19.5rem`, 모서리는 radius-lg, border-thin/line 테두리,

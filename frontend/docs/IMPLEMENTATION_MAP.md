@@ -67,7 +67,7 @@ frontend/
 ### Common shell reconciliation
 
 - 공통 헤더의 주요 메뉴는 `자리`, `토론하나?`, `게임하나?`다. 홈은 로고로 이동한다. `자리`는 hover/click/키보드로 열리는 세로 disclosure이며 `뭐있나?`는 `/groups`, `뭐했나?`는 `/activities`, `뭐할래?`는 `/board`로 이동한다. 모바일 drawer에서는 같은 목록을 클릭으로 펼친다. 설명에도 `자리` 용어를 사용하며 기존 라우트, 권한과 링크 action 식별자는 유지한다.
-- 자리 하위 항목의 장식은 돋보기/사진/말풍선이 있는 입체 의자 이미지다. `brand/header-chairs/`의 투명 PNG를 36px로 표시하며 이름과 설명, 링크 동작은 유지한다.
+- 자리 하위 항목의 장식은 돋보기/사진/말풍선이 있는 입체 의자 이미지다. `app/headerChairAssets.js`에서 `APP_DEPLOY_ENV=production`이면 prod, 나머지는 dev S3의 `images/header-chairs/` URL을 직접 참조한다. 이미지 파일은 저장소에 두지 않으며 투명 PNG를 36px로 표시하고 이름과 설명, 링크 동작은 유지한다.
 
 `최종 디자인 2`의 header reference는 단일 규칙이 아니다. 일부 frame은 viewport 상단을 가득 채운
 검은 bar를, 일부 frame은 white canvas 안에 inset된 검은 frame을 보여 준다. 이 차이는 route별

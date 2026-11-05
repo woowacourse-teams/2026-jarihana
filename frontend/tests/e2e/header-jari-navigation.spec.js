@@ -11,6 +11,10 @@ const destinations = [
 
 async function installNavigationFixture(page) {
   const state = await installApiFixture(page, { auth: "anonymous" });
+  await page.route(
+    "https://techcourse-project-2026.s3.ap-northeast-2.amazonaws.com/*/images/header-chairs/*.png",
+    route => route.continue()
+  );
   for (const path of ["activity-posts", "proposals"]) {
     await page.route(`**/api/${path}**`, route => route.fulfill({
       json: { success: true, data: { items: [], nextCursor: null, hasNext: false }, error: null }

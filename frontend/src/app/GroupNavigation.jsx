@@ -2,15 +2,13 @@ import { useEffect, useId, useRef, useState } from "react";
 import { ArrowUpRight, ChevronDown } from "lucide-react";
 import { Link, useLocation } from "react-router";
 
-import browseChair from "../shared/assets/brand/header-chairs/browse.png";
-import memoriesChair from "../shared/assets/brand/header-chairs/memories.png";
-import proposalChair from "../shared/assets/brand/header-chairs/proposal.png";
+import { headerChairAssets } from "./headerChairAssets.js";
 
 const GROUP_LINKS = [
   {
     action: "group_browse",
     description: "함께할 자리 둘러보기",
-    icon: browseChair,
+    icon: headerChairAssets.browse,
     isActive: (pathname) => pathname === "/groups",
     label: "뭐있나?",
     to: "/groups"
@@ -18,7 +16,7 @@ const GROUP_LINKS = [
   {
     action: "browse_activity_posts",
     description: "사진으로 보는 자리 이야기",
-    icon: memoriesChair,
+    icon: headerChairAssets.memories,
     isActive: (pathname) => pathname === "/activities",
     label: "뭐했나?",
     to: "/activities"
@@ -26,7 +24,7 @@ const GROUP_LINKS = [
   {
     action: "browse_proposals",
     description: "하고 싶은 자리 제안하기",
-    icon: proposalChair,
+    icon: headerChairAssets.proposal,
     isActive: (pathname) => pathname === "/board" || pathname.startsWith("/board/"),
     label: "뭐할래?",
     to: "/board"
