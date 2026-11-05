@@ -16,7 +16,6 @@ import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.support.IntegrationTestSupport;
 
-import io.micrometer.core.instrument.MeterRegistry;
 import io.restassured.specification.RequestSpecification;
 
 import org.junit.jupiter.api.DisplayName;
@@ -33,7 +32,6 @@ class GomokuAcceptanceTest extends IntegrationTestSupport {
     @Autowired AccessTokenProvider tokens;
     @Autowired AuthCookieProperties cookies;
     @Autowired JdbcTemplate jdbc;
-    @Autowired MeterRegistry metrics;
     private static final String ROOT = "/games/gomoku/rooms";
 
     @Test
@@ -117,30 +115,6 @@ class GomokuAcceptanceTest extends IntegrationTestSupport {
         String outsider = member("봄날", "lobby-outsider");
         request(outsider).get(ROOT + "/" + playingId).then().statusCode(403);
         request(outsider).body(Map.of()).post(ROOT + "/" + playingId + "/join").then().statusCode(409);
-    }
-
-    @Test
-    @DisplayName("기존 요청과 요약 요청을 구분해 전환 기간의 사용량을 집계한다")
-    void countsLegacyAndSummaryRequestsSeparately() {
-        // Given
-        var legacy = metrics.counter("gomoku.lobby.requests", "view", "legacy");
-        var summary = metrics.counter("gomoku.lobby.requests", "view", "summary");
-        double previousLegacy = legacy.count();
-        double previousSummary = summary.count();
-
-        // When
-        request(null).get(ROOT).then().statusCode(200);
-
-        // Then
-        assertEquals(previousLegacy + 1, legacy.count());
-        assertEquals(previousSummary, summary.count());
-
-        // When
-        request(null).queryParam("view", "summary").get(ROOT).then().statusCode(200);
-
-        // Then
-        assertEquals(previousLegacy + 1, legacy.count());
-        assertEquals(previousSummary + 1, summary.count());
     }
 
     @Test

@@ -10,8 +10,6 @@ import com.project.jarihana.gomoku.query.controller.dto.GomokuPreviewResponse;
 import com.project.jarihana.gomoku.query.controller.dto.GomokuRoomResponse;
 import com.project.jarihana.gomoku.query.service.GomokuQueryService;
 
-import io.micrometer.core.instrument.MeterRegistry;
-
 import jakarta.validation.Valid;
 
 import lombok.RequiredArgsConstructor;
@@ -28,12 +26,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class GomokuQueryController {
     private final GomokuQueryService queries;
-    private final MeterRegistry metrics;
 
     @GetMapping(value = "/rooms", params = "view!=summary")
     public ResponseEntity<ApiResponse<GomokuPageResponse>> findRooms(
             @Valid @ModelAttribute GomokuListRequest request) {
-        metrics.counter("gomoku.lobby.requests", "view", "legacy").increment();
         return ResponseEntity.ok(
                 ApiResponse.success(
                         GomokuPageResponse.from(
@@ -43,7 +39,6 @@ public class GomokuQueryController {
     @GetMapping(value = "/rooms", params = "view=summary")
     public ResponseEntity<ApiResponse<GomokuLobbyPageResponse>> findRoomSummaries(
             @Valid @ModelAttribute GomokuListRequest request) {
-        metrics.counter("gomoku.lobby.requests", "view", "summary").increment();
         return ResponseEntity.ok(
                 ApiResponse.success(
                         GomokuLobbyPageResponse.from(
