@@ -93,13 +93,13 @@ class PushWorkerDrainTest extends PushIntegrationTestSupport {
 
                 // When
                 admission.pause();
+                assertThat(running.get(5, TimeUnit.SECONDS)).isEqualTo(1);
 
                 // Then
                 assertThat(transport.requests()).hasSize(1);
                 assertThat(admission.state()).isEqualTo(WorkerAdmissionController.State.DRAINING);
                 assertThat(admission.drainStatus().inFlight()).isEqualTo(1);
                 assertThat(admission.drainStatus().isDrained()).isFalse();
-                assertThat(running.get(5, TimeUnit.SECONDS)).isEqualTo(1);
                 assertThat(deliveries.findById(pending.getId()).orElseThrow().getStatus()).isEqualTo(DeliveryStatus.IN_FLIGHT);
                 assertThatIllegalStateException().isThrownBy(admission::resume);
             } finally {
