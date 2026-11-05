@@ -443,8 +443,10 @@ test.each([0, 1])("only the current player's profile is highlighted at ply %i", 
   const active = container.querySelectorAll(".gomoku-player--active");
   expect(active).toHaveLength(1);
   expect(active[0]).toHaveTextContent(ply === 0 ? "내 차례" : "상대 차례");
+  expect(screen.queryByText(/^(내|상대) 차례예요$/)).not.toBeInTheDocument();
   expect(within(active[0]).getByText(ply === 0 ? "흑 (나)" : "백", { selector: "strong" })).toBeVisible();
   expect(container.querySelectorAll(".gomoku-player:not(.gomoku-player--active)")).toHaveLength(1);
+  expect(within(container.querySelector(".gomoku-player:not(.gomoku-player--active)")).queryByText("대기")).not.toBeInTheDocument();
 });
 
 test("room error can be dismissed without clearing selection and a repeated error is announced again", () => {

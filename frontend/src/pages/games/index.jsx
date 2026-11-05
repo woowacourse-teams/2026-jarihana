@@ -753,6 +753,7 @@ function GomokuRoom({ roomId }) {
                   </strong>
                 </div>
                 <span
+                  aria-live={room.status === "PLAYING" ? "polite" : undefined}
                   className={
                     (waiting || finished) && player.id
                       ? `gomoku-readiness--${player.ready ? "ready" : "unready"}`
@@ -764,7 +765,7 @@ function GomokuRoom({ roomId }) {
                       ? player.id === member?.id
                         ? "내 차례"
                         : "상대 차례"
-                      : "대기"
+                      : null
                     : room.status === "CLOSED"
                       ? player.id && room.gameNumber > 0
                         ? colorOf(player.id) === "BLACK"
@@ -782,9 +783,6 @@ function GomokuRoom({ roomId }) {
           </ul>
           {room.status === "PLAYING" && (
             <div className="gomoku-status-row">
-              <h2 className="gomoku-state" aria-live="polite">
-                {myTurn ? "내 차례예요" : "상대 차례예요"}
-              </h2>
               {room.status === "PLAYING" && (
                 <div
                   className={`gomoku-clock${seconds <= 10 ? " gomoku-clock--urgent" : ""}`}
