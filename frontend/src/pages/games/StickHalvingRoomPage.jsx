@@ -19,6 +19,7 @@ import "./games.css";
 const RANKED_ERRORS = {
   MINIGAME_GAME_ROOM_NOT_OPEN: "아직 게임방에서 할 수 없어요.",
   MINIGAME_ROUND_CONFLICT: "이미 자른 막대예요. 새로 시작해 주세요.",
+  MINIGAME_RUN_EXPIRED: "시작하고 10분이 지나 끝난 판이에요. 새로 시작해 주세요.",
   MINIGAME_RUN_NOT_FOUND: "도전 기록을 찾을 수 없어요. 새로 시작해 주세요.",
   UNAUTHENTICATED: "로그인이 풀렸어요. 다시 로그인한 뒤 도전해 주세요."
 };

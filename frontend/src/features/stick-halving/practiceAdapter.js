@@ -17,11 +17,13 @@ export function createPracticeAdapter(seed = randomSeed()) {
       return {
         ...result,
         finished,
-        nextStick: finished ? null : stickFor(round + 1),
         round,
         timedOut: false,
         totalScore
       };
+    },
+    next(round) {
+      return { round, stick: stickFor(round) };
     },
     seed,
     start() {

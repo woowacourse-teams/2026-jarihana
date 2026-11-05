@@ -77,9 +77,12 @@ class StickHalvingRoomAcceptanceTest extends IntegrationTestSupport {
 
         // When
         for (int round = 1; round <= 5; round++) {
-            stick = roomCut(member, runId, round, puzzleFrom(stick).answerPosition())
-                    .then().statusCode(200).body("data.score", equalTo(1000))
-                    .extract().jsonPath().getMap("data.nextStick");
+            roomCut(member, runId, round, puzzleFrom(stick).answerPosition())
+                    .then().statusCode(200).body("data.score", equalTo(1000));
+            if (round < 5) {
+                stick = roomIssueRound(member, runId, round + 1).then().statusCode(200)
+                        .extract().jsonPath().getMap("data.stick");
+            }
         }
 
         // Then
@@ -130,6 +133,14 @@ class StickHalvingRoomAcceptanceTest extends IntegrationTestSupport {
 
     private Response startRoomRun(Member member) {
         return authorized(member).when().post("/games/stick-halving/runs");
+    }
+
+    private Response roomIssueRound(Member member, long runId, int round) {
+        return authorized(member)
+                .contentType("application/json")
+                .body(Map.of("round", round))
+                .when()
+                .post("/games/stick-halving/runs/{runId}/rounds", runId);
     }
 
     private Response roomCut(Member member, long runId, int round, double position) {

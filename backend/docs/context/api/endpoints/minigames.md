@@ -6,10 +6,12 @@
 | --- | --- | --- | --- |
 | GET | `/events/pepero-day` | PUBLIC | 진행 상태, 기간, 게임방으로 옮기는 시각, 서버 시각 |
 | POST | `/events/pepero-day/runs` | MEMBER + CSRF | 201 판 ID와 1번 막대 |
-| POST | `/events/pepero-day/runs/{runId}/cuts` | MEMBER + CSRF + 본인 판 | 200 판정 결과와 다음 막대 |
+| POST | `/events/pepero-day/runs/{runId}/rounds` | MEMBER + CSRF + 본인 판 | 200 다음 막대와 남은 제한 시간 |
+| POST | `/events/pepero-day/runs/{runId}/cuts` | MEMBER + CSRF + 본인 판 | 200 판정 결과 |
 | GET | `/events/pepero-day/rankings` | PUBLIC (로그인하면 내 순위 포함) | 상위 50명과 내 순위 |
 | POST | `/games/stick-halving/runs` | MEMBER + CSRF | 201 게임방 판 ID와 1번 막대 (횟수 제한 없음) |
-| POST | `/games/stick-halving/runs/{runId}/cuts` | MEMBER + CSRF + 본인 게임방 판 | 200 판정 결과와 다음 막대 |
+| POST | `/games/stick-halving/runs/{runId}/rounds` | MEMBER + CSRF + 본인 게임방 판 | 200 다음 막대와 남은 제한 시간 |
+| POST | `/games/stick-halving/runs/{runId}/cuts` | MEMBER + CSRF + 본인 게임방 판 | 200 판정 결과 |
 | GET | `/games/stick-halving/rankings` | PUBLIC (로그인하면 내 순위 포함) | 게임방 상위 50명과 내 순위 |
 
 ## 기간과 진행 상태
@@ -54,17 +56,28 @@
 
 - 이벤트가 `OPEN`이 아니면 `MINIGAME_EVENT_NOT_OPEN`(409)이다.
 - 회원은 횟수 제한 없이 몇 번이든 시작할 수 있다.
-- 응답은 `{runId, round: 1, timeLimitSeconds: 30, stick}`이다.
+- 응답은 `{runId, round: 1, timeLimitSeconds: 30, remainingMillis, stick}`이다. 1번 막대는 시작할 때 내려주고, 제한 시간도 이때부터 잰다.
+- `remainingMillis`는 서버가 정한 그 막대의 마감(내려준 시각 + 30초)까지 남은 시간이다. 화면은 응답을 받은 때부터 이 값으로 남은 시간을 센다.
+
+## 다음 막대 받기
+
+- 요청 `{round}`. 막대를 자르고 결과를 본 회원이 다음 막대를 받을 때 보낸다. 제한 시간은 이 요청을 처리한 시각부터 잰다. 결과 화면에서 기다린 시간은 걸린 시간에 들어가지 않는다.
+- 응답은 판 시작과 같은 `{runId, round, timeLimitSeconds, remainingMillis, stick}`이다.
+- 이미 받은 막대를 다시 요청하면 같은 막대와 처음 받은 시각 기준의 `remainingMillis`를 준다. 다시 받아도 제한 시간은 늘어나지 않는다.
+- 지금 차례가 아닌 막대나 끝난 판은 `MINIGAME_ROUND_CONFLICT`(409), 다른 회원의 판이나 다른 순위표의 판은 `MINIGAME_RUN_NOT_FOUND`(404)다.
+- 판을 시작하고 10분이 지나면 다음 막대를 받을 수 없고 `MINIGAME_RUN_EXPIRED`(409)다.
 
 ## 막대 자르기
 
 - 요청 `{round, position}`. `round`는 1부터, `position`은 0 이상 12 이하 cm다. 범위 밖이면 `INVALID_PARAMETER`(400)다.
-- 다른 회원의 판이나 없는 판은 `MINIGAME_RUN_NOT_FOUND`(404)다. 지금 차례가 아닌 막대, 이미 자른 막대, 끝난 판은 `MINIGAME_ROUND_CONFLICT`(409)다.
+- 다른 회원의 판이나 없는 판은 `MINIGAME_RUN_NOT_FOUND`(404)다. 지금 차례가 아닌 막대, 아직 받지 않은 막대, 이미 자른 막대, 끝난 판은 `MINIGAME_ROUND_CONFLICT`(409)다.
 - 오차는 `|왼쪽 무게 - 오른쪽 무게| / 전체 무게`이고, 점수는 `round(1000 * max(0, 1 - 오차 / 0.1))`다.
 - 걸린 시간은 서버가 막대를 내려준 시각부터 잰다. 제한 시간 30초에 여유 3초를 더한 33초를 넘기면 `timedOut: true`, 0점이다.
-- 응답은 `{round, score, errorRate, answerPosition, timedOut, totalScore, finished, nextStick}`이다. 5번 막대를 자르면 `finished: true`, `nextStick: null`이다.
+- 응답은 `{round, score, errorRate, answerPosition, timedOut, totalScore, finished}`이다. 다음 막대는 응답에 담지 않고 회원이 결과를 본 뒤 따로 받는다. 5번 막대를 자르면 `finished: true`다.
 - 막대마다 자른 위치, 오차, 점수, 걸린 시간, 시간 초과 여부를 `minigame_cut`에 남겨 수상자 확인에 쓴다.
-- 자르기는 이벤트 기간을 확인하지 않는다. 닫히기 전에 시작한 판은 닫힌 뒤에도 끝까지 자를 수 있고, 막대마다 제한 시간이 있어 늦어도 시작 후 약 3분 안에 끝난다.
+- 자르기는 이벤트 기간을 확인하지 않는다. 닫히기 전에 시작한 판은 닫힌 뒤에도 끝까지 자를 수 있다.
+- 대신 판마다 기한이 있다. 다음 막대는 시작 후 10분 안에만 받을 수 있고, 받은 막대는 판의 기한과 그 막대의 마감 + 여유 3초 중 늦은 때까지만 자를 수 있다. 그 뒤로 자르면 `MINIGAME_RUN_EXPIRED`(409)이고 기록하지 않는다.
+- 따라서 끝난 판은 늦어도 시작 후 10분 33초 안에 끝나고, 이벤트 순위는 `closes-at` 뒤 10분 33초 안에 확정된다. 기한이 지나도록 끝내지 못한 판은 끝나지 않은 판으로 남아 순위에 들지 않는다.
 
 ## 순위
 

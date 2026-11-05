@@ -71,6 +71,7 @@ class PeperoDayEventAcceptanceTest extends IntegrationTestSupport {
                 .statusCode(201)
                 .body("data.round", equalTo(1))
                 .body("data.timeLimitSeconds", equalTo(30))
+                .body("data.remainingMillis", equalTo(30000))
                 .body("data.stick.lengthCm", equalTo(12.0f))
                 .body("data.stick.cells", hasSize(24))
                 .body("data.stick.startPosition", notNullValue())
@@ -89,19 +90,30 @@ class PeperoDayEventAcceptanceTest extends IntegrationTestSupport {
                     .body("data.score", equalTo(1000))
                     .body("data.timedOut", equalTo(false))
                     .body("data.finished", equalTo(round == 5))
+                    .body("data.nextStick", nullValue())
                     .extract()
                     .jsonPath();
             expectedTotal += 1000;
             assertThat(cut.getInt("data.totalScore")).isEqualTo(expectedTotal);
             assertThat(cut.getDouble("data.answerPosition")).isCloseTo(answer, within(1e-6));
-            stick = cut.getMap("data.nextStick");
             if (round < 5) {
-                assertThat(stick).isNotNull();
+                stick = issueRound(member, runId, round + 1)
+                        .then()
+                        .statusCode(200)
+                        .body("data.runId", equalTo((int) runId))
+                        .body("data.round", equalTo(round + 1))
+                        .body("data.remainingMillis", equalTo(30000))
+                        .extract()
+                        .jsonPath()
+                        .getMap("data.stick");
             }
         }
 
         // Then
-        assertThat(stick).isNull();
+        issueRound(member, runId, 6)
+                .then()
+                .statusCode(409)
+                .body("error.code", equalTo("MINIGAME_ROUND_CONFLICT"));
         withToken(member)
                 .when()
                 .get("/events/pepero-day/rankings")
@@ -170,6 +182,37 @@ class PeperoDayEventAcceptanceTest extends IntegrationTestSupport {
         assertThat(runIds).hasSize(12);
     }
 
+    @DisplayName("다음 막대는 받기 전에 자를 수 없고, 다시 받으면 같은 막대를 준다.")
+    @Test
+    void issuesNextStickOnlyOnce() {
+        // Given
+        Member owner = saveMember("모카", "pepero-issue-owner");
+        Member other = saveMember("하루", "pepero-issue-other");
+        long runId = startRun(owner).then().statusCode(201).extract().jsonPath().getLong("data.runId");
+        cut(owner, runId, 1, 6).then().statusCode(200);
+
+        // When & Then
+        cut(owner, runId, 2, 6)
+                .then()
+                .statusCode(409)
+                .body("error.code", equalTo("MINIGAME_ROUND_CONFLICT"));
+        issueRound(owner, runId, 3)
+                .then()
+                .statusCode(409)
+                .body("error.code", equalTo("MINIGAME_ROUND_CONFLICT"));
+        issueRound(other, runId, 2)
+                .then()
+                .statusCode(404)
+                .body("error.code", equalTo("MINIGAME_RUN_NOT_FOUND"));
+        Map<String, Object> first = issueRound(owner, runId, 2).then().statusCode(200)
+                .extract().jsonPath().getMap("data.stick");
+        Map<String, Object> again = issueRound(owner, runId, 2).then().statusCode(200)
+                .body("data.remainingMillis", equalTo(30000))
+                .extract().jsonPath().getMap("data.stick");
+        assertThat(again).isEqualTo(first);
+        cut(owner, runId, 2, 6).then().statusCode(200).body("data.round", equalTo(2));
+    }
+
     @DisplayName("차례가 아닌 막대, 다른 회원의 판, 막대 밖 위치는 자를 수 없다.")
     @Test
     void rejectsInvalidCuts() {
@@ -204,8 +247,11 @@ class PeperoDayEventAcceptanceTest extends IntegrationTestSupport {
         Map<String, Object> stick = started.getMap("data.stick");
         for (int round = 1; round <= 5; round++) {
             double position = perfect ? puzzleFrom(stick).answerPosition() : 0.1;
-            stick = cut(member, runId, round, position).then().statusCode(200).extract().jsonPath()
-                    .getMap("data.nextStick");
+            cut(member, runId, round, position).then().statusCode(200);
+            if (round < 5) {
+                stick = issueRound(member, runId, round + 1).then().statusCode(200).extract().jsonPath()
+                        .getMap("data.stick");
+            }
         }
     }
 
@@ -224,6 +270,14 @@ class PeperoDayEventAcceptanceTest extends IntegrationTestSupport {
         return authorized(member)
                 .when()
                 .post("/events/pepero-day/runs");
+    }
+
+    private Response issueRound(Member member, long runId, int round) {
+        return authorized(member)
+                .contentType("application/json")
+                .body(Map.of("round", round))
+                .when()
+                .post("/events/pepero-day/runs/{runId}/rounds", runId);
     }
 
     private Response cut(Member member, long runId, int round, double position) {

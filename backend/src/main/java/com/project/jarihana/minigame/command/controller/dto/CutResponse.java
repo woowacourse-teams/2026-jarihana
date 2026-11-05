@@ -9,8 +9,7 @@ public record CutResponse(
         double answerPosition,
         boolean timedOut,
         int totalScore,
-        boolean finished,
-        StickResponse nextStick
+        boolean finished
 ) {
 
     public static CutResponse from(CutResult result) {
@@ -21,8 +20,7 @@ public record CutResponse(
                 result.cut().judgement().answerPosition(),
                 result.cut().timedOut(),
                 result.totalScore(),
-                result.finished(),
-                StickResponse.from(result.nextStick())
+                result.finished()
         );
     }
 }

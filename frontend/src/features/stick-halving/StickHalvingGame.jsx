@@ -30,7 +30,8 @@ function Timer({ deadline, now, limitSeconds }) {
 }
 
 // 막대 5개를 차례로 자르는 한 판이다. 막대를 받아오고 판정하는 방법은 adapter가 정한다.
-// 연습은 브라우저에서, 순위 도전은 서버에서 막대를 만들고 판정한다.
+// 연습은 브라우저에서, 순위 도전은 서버에서 막대를 만들고 판정한다. 다음 막대는 결과를 본 회원이
+// "다음 막대"를 눌렀을 때 받고, adapter가 remainingMillis를 주면 서버 마감 기준으로 남은 시간을 센다.
 export function StickHalvingGame({ adapter, errorMessage, finalActions, onFinish, timeLimitSeconds = ROUND_TIME_LIMIT_SECONDS }) {
   const [phase, setPhase] = useState("starting");
   const [round, setRound] = useState(1);
@@ -54,12 +55,12 @@ export function StickHalvingGame({ adapter, errorMessage, finalActions, onFinish
     phaseReference.current = phase;
   }, [phase]);
 
-  const begin = useCallback((nextRound, nextStick) => {
+  const begin = useCallback(({ remainingMillis, round: nextRound, stick: nextStick }) => {
     setRound(nextRound);
     setStick(nextStick);
     setPosition(clampPosition(nextStick.startPosition));
     setOutcome(null);
-    setDeadline(Date.now() + timeLimitSeconds * 1000);
+    setDeadline(Date.now() + (remainingMillis ?? timeLimitSeconds * 1000));
     setNow(Date.now());
     setPhase("play");
   }, [timeLimitSeconds]);
@@ -68,7 +69,7 @@ export function StickHalvingGame({ adapter, errorMessage, finalActions, onFinish
     if (startedReference.current) return;
     startedReference.current = true;
     Promise.resolve(adapter.start())
-      .then((started) => begin(started.round, started.stick))
+      .then(begin)
       .catch((startError) => {
         setError(startError);
         setPhase("error");
@@ -137,13 +138,20 @@ export function StickHalvingGame({ adapter, errorMessage, finalActions, onFinish
   }, [phase, submit]);
 
   function next() {
-    if (!outcome) return;
-    if (outcome.finished || !outcome.nextStick) {
+    if (!outcome || phaseReference.current !== "result") return;
+    if (outcome.finished) {
       setPhase("final");
       onFinish?.({ rows, totalScore });
       return;
     }
-    begin(round + 1, outcome.nextStick);
+    phaseReference.current = "issuing";
+    setPhase("issuing");
+    Promise.resolve(adapter.next(round + 1))
+      .then(begin)
+      .catch((nextError) => {
+        setError(nextError);
+        setPhase("error");
+      });
   }
 
   if (phase === "error") {
@@ -199,7 +207,7 @@ export function StickHalvingGame({ adapter, errorMessage, finalActions, onFinish
   }
 
   const info = ROUNDS[round - 1];
-  const showingResult = phase === "result" && outcome;
+  const showingResult = (phase === "result" || phase === "issuing") && outcome;
 
   return (
     <section aria-label="게임" className="stick-game">
@@ -241,6 +249,7 @@ export function StickHalvingGame({ adapter, errorMessage, finalActions, onFinish
             <Button
               data-ph-capture-attribute-action="stick_next_round"
               onClick={next}
+              pending={phase === "issuing"}
               size="lg"
             >
               {outcome.finished ? "최종 결과 보기" : "다음 막대"}

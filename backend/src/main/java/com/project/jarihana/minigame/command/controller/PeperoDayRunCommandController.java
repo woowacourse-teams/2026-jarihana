@@ -4,6 +4,7 @@ import com.project.jarihana.common.auth.LoginMember;
 import com.project.jarihana.common.response.ApiResponse;
 import com.project.jarihana.minigame.command.controller.dto.CutRequest;
 import com.project.jarihana.minigame.command.controller.dto.CutResponse;
+import com.project.jarihana.minigame.command.controller.dto.IssueRoundRequest;
 import com.project.jarihana.minigame.command.controller.dto.StartRunResponse;
 import com.project.jarihana.minigame.command.service.PeperoDayRunCommandService;
 import com.project.jarihana.minigame.domain.MinigameEvent;
@@ -26,6 +27,18 @@ public class PeperoDayRunCommandController {
     public ResponseEntity<ApiResponse<StartRunResponse>> startRun(@LoginMember long memberId) {
         StartRunResponse response = StartRunResponse.from(peperoDayRunCommandService.start(memberId));
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
+    }
+
+    @PostMapping("/events/pepero-day/runs/{runId}/rounds")
+    public ResponseEntity<ApiResponse<StartRunResponse>> issueRound(
+            @LoginMember long memberId,
+            @PathVariable long runId,
+            @Valid @RequestBody IssueRoundRequest request
+    ) {
+        StartRunResponse response = StartRunResponse.from(
+                peperoDayRunCommandService.issueRound(request.toCommand(MinigameEvent.PEPERO_DAY_2026, memberId, runId))
+        );
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @PostMapping("/events/pepero-day/runs/{runId}/cuts")

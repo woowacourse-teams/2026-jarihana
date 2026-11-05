@@ -99,11 +99,10 @@ describe("연습 판 연결부", () => {
       result = await adapter.cut(round, answerPosition(stick));
       expect(result.score).toBe(1000);
       expect(result.finished).toBe(expected === ROUND_COUNT);
-      round += 1;
-      stick = result.nextStick;
+      if (expected < ROUND_COUNT) ({ round, stick } = await adapter.next(round + 1));
     }
 
     expect(result.totalScore).toBe(5000);
-    expect(result.nextStick).toBeNull();
+    expect(result).not.toHaveProperty("nextStick");
   });
 });

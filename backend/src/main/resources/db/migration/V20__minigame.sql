@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS minigame_run (
     cut_rounds INTEGER NOT NULL,
     total_score INTEGER NOT NULL,
     total_duration_millis BIGINT NOT NULL,
-    round_issued_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    round_issued_at TIMESTAMP WITHOUT TIME ZONE,
     finished_at TIMESTAMP WITHOUT TIME ZONE,
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
     updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,

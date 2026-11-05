@@ -6,6 +6,7 @@ import { MemoryRouter, useNavigate } from "react-router";
 import { consumeReturnTarget, useAuth } from "../../../src/features/auth/index.js";
 import { useSignupMember } from "../../../src/features/member/index.js";
 import { OAuthCallbackPage, SignupPage } from "../../../src/pages/account/index.js";
+import { signupReturnPath } from "../../../src/pages/account/SignupPage.jsx";
 import {
   beginLoginAttempt,
   consumeLoginCompletion
@@ -369,5 +370,25 @@ describe("SignupPage", () => {
     expect(login).toHaveBeenCalledTimes(1);
     expect(mutateAsync).not.toHaveBeenCalled();
     expect(consumeReturnTarget).not.toHaveBeenCalled();
+  });
+});
+
+describe("signupReturnPath", () => {
+  it("Given an event page was stored before login, When signup completes, Then it returns to the same event", () => {
+    // When & Then
+    expect(signupReturnPath("/events/pepero-day")).toBe("/events/pepero-day");
+  });
+
+  it("Given invitation, notification and game room targets, When signup completes, Then it keeps returning to them", () => {
+    // When & Then
+    expect(signupReturnPath("/invitations/abc")).toBe("/invitations/abc");
+    expect(signupReturnPath("/notifications/open/7")).toBe("/notifications/open/7");
+    expect(signupReturnPath("/games/stick-halving")).toBe("/games/stick-halving");
+  });
+
+  it("Given any other target, When signup completes, Then it enters My", () => {
+    // When & Then
+    expect(signupReturnPath("/groups/31")).toBe("/my");
+    expect(signupReturnPath("/my")).toBe("/my");
   });
 });
