@@ -61,6 +61,19 @@ class GomokuStreamsTest {
     }
 
     @Test
+    @DisplayName("활성 게임방이 없어도 만료된 관전 연결을 정리한다")
+    void cleansObserverLeasesWithoutActiveRooms() {
+        // Given
+        var observations = (GomokuObservationService) ReflectionTestUtils.getField(streams, "observations");
+        ReflectionTestUtils.setField(streams, "lastCleanup", -15_000L);
+        // When
+        ReflectionTestUtils.invokeMethod(streams, "tick");
+        // Then
+        verify(observations, timeout(1000)).removeExpiredConnections();
+        verify(queries, after(100).never()).findRevisions(any());
+    }
+
+    @Test
     @DisplayName("변경 없는 방은 전체 판과 회원 정보를 다시 조회하지 않는다")
     void skipsFullSnapshotForUnchangedRoom() {
         // Given

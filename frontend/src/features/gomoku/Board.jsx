@@ -51,7 +51,7 @@ export function Board({
             className={`gomoku-cell${chosen ? " gomoku-cell--selected" : ""}`}
             data-ph-capture-attribute-action="gomoku_position_select"
             aria-pressed={chosen}
-            aria-disabled={disabled || value !== "0"}
+            aria-disabled={readOnly || disabled || value !== "0"}
             aria-label={`${String.fromCharCode(65 + x)}${y + 1}, ${value === "1" ? "흑돌" : value === "2" ? "백돌" : "빈 자리"}${room.lastX === x && room.lastY === y ? ", 마지막 수" : ""}`}
             onFocus={() => setFocusIndex(index)}
             onKeyDown={(event) => moveFocus(event, index)}
