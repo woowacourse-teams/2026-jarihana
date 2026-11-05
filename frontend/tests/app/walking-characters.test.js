@@ -176,6 +176,20 @@ it('의자를 잡는 명시적인 어깨·팔꿈치 자세는 말하기 동작�
 
 // These cases exercise instance isolation and geometry through the same renderer used by the arena.
 const { AVATAR_PRESETS } = require('../../public/sparring-arena/src/avatar-appearance.js');
+it('카드용 경량 조명에서도 선택한 파츠·색·관절 위치는 편집 미리보기와 같다', () => {
+  const detailed = createWalkingCharacters(new THREE.Scene(), 2);
+  const card = createWalkingCharacters(new THREE.Scene(), 2, { lightweight: true });
+  try {
+    for (const preset of AVATAR_PRESETS) {
+      const post = { appearance: preset.appearance };
+      detailed.draw(0, post, new THREE.Vector3(), 1, { stride: 0.5 });
+      card.draw(0, post, new THREE.Vector3(), 1, { stride: 0.5 });
+      expect(snapshot(card, 0)).toEqual(snapshot(detailed, 0));
+      expect(colorSnapshot(card, 0)).toEqual(colorSnapshot(detailed, 0));
+    }
+    expect(card.pickMeshes.every(mesh => mesh.material.isMeshLambertMaterial)).toBe(true);
+  } finally { detailed.dispose(); card.dispose(); }
+});
 function colorSnapshot(models, slot) {
   return models.pickMeshes.map(mesh => {
     const count = mesh.instanceMatrix.count / 2;

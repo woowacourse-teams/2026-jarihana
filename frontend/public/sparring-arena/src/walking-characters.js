@@ -8,7 +8,7 @@ import { createAvatarBrandSculpt } from './avatar-brand-sculpt.js';
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const THIGH = 0.31, SHIN = 0.32;
 
-export function createWalkingCharacters(scene, capacity) {
+export function createWalkingCharacters(scene, capacity, { lightweight = false } = {}) {
   const sphere = new THREE.SphereGeometry(1, 24, 18);
   const rounded = new THREE.BoxGeometry(2, 2, 2, 8, 8, 8);
   const corner = new THREE.Vector3(), normal = new THREE.Vector3();
@@ -71,17 +71,17 @@ export function createWalkingCharacters(scene, capacity) {
     pants: 0x302e2c,
   };
   const materials = Object.fromEntries(Object.entries(colors).map(([name, color]) => [name,
-    studioMaterial({ color, roughness: name === 'face' ? 0.4 : name === 'hair' ? 0.85 : 0.93,
+    lightweight ? new THREE.MeshLambertMaterial({ color }) : studioMaterial({ color, roughness: name === 'face' ? 0.4 : name === 'hair' ? 0.85 : 0.93,
       clearcoat: 0, envMapIntensity: name === 'hair' ? 0.35 : 0.22 }),
   ]));
   for (const [name, material] of Object.entries(materials)) {
     if (['face', 'mint', 'white', 'sole', 'ear'].includes(name)) continue;
     material.userData.surface = name === 'skin' || name === 'hair' ? name : ['knit', 'charcoal'].includes(name) ? 'rib' : 'fabric';
-    sculptSurface(material, material.userData.surface);
+    if (!lightweight) sculptSurface(material, material.userData.surface);
   }
   materials.complexion = materials.skin.clone();
   materials.complexion.vertexColors = true;
-  sculptSurface(materials.complexion, 'skin');
+  if (!lightweight) sculptSurface(materials.complexion, 'skin');
   // Material color is white; each instance carries its own original or custom color.
   // This avoids one member's skin/clothes leaking into another slot.
   for (const material of Object.values(materials)) material.color.set(0xffffff);
@@ -212,7 +212,7 @@ export function createWalkingCharacters(scene, capacity) {
     const pivot = bucket.shape === 'sleeve' ? -0.24 : bucket.shape === 'trouser' ? -THIGH : null;
     const geometry = pivot === null ? bucket.geometry : bucket.geometry.clone();
     const material = pivot === null ? bucket.material
-      : bendLimbMaterial(sculptSurface(bucket.material.clone(), bucket.material.userData.surface), pivot);
+      : bendLimbMaterial(lightweight ? bucket.material.clone() : sculptSurface(bucket.material.clone(), bucket.material.userData.surface), pivot);
     const mesh = new THREE.InstancedMesh(geometry, material, count);
     if (pivot !== null) {
       bucket.bends = new THREE.InstancedBufferAttribute(new Float32Array(count), 1).setUsage(THREE.DynamicDrawUsage);
@@ -224,8 +224,7 @@ export function createWalkingCharacters(scene, capacity) {
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.frustumCulled = false;
     mesh.castShadow = true;
-    mesh.receiveShadow = bucket.shape.startsWith('avatar');
-    mesh.receiveShadow = ['sweater', 'sleeve', 'trouser', 'strap'].includes(bucket.shape);
+    mesh.receiveShadow = !lightweight && ['sweater', 'sleeve', 'trouser', 'strap'].includes(bucket.shape);
     for (let index = 0; index < mesh.count; index++) mesh.setMatrixAt(index, zero);
     mesh.count = 0;
     mesh.instanceMatrix.needsUpdate = true;
