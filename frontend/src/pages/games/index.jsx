@@ -1,6 +1,6 @@
 import { moveRequestId } from "../../features/gomoku/moveRequestId";
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
   Gamepad2,
   Clock3,
@@ -11,7 +11,9 @@ import {
   Lock,
   ArrowRight,
   Search,
-  X
+  X,
+  History,
+  Trophy
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { storeReturnTarget, useAuth } from "../../features/auth";
@@ -24,8 +26,11 @@ import { ReadinessControls } from "../../features/gomoku/ReadinessControls";
 import { RuleInfoTooltip } from "../../features/gomoku/RuleInfoTooltip";
 import { GameArtwork } from "./GameArtwork";
 import { InvitationLink } from "./InvitationLink";
-import { Avatar, Button, ConfirmDialog, IconButton, Modal, PageContainer, StatusBadge } from "../../shared/ui";
+import { GomokuHistory } from "./GomokuHistory";
+import { GomokuRanking } from "./GomokuRanking";
+import { Avatar, Button, ConfirmDialog, IconButton, Modal, PageContainer, StatusBadge, Tabs } from "../../shared/ui";
 import "./games.css";
+import "./gomoku-history.css";
 
 const ruleName = (rule) => (rule === "RENJU" ? "기본 규칙" : "제한 없음");
 function GameHeading({ title, children }) {
@@ -98,6 +103,21 @@ export function GamesPage() {
 export function GomokuLobbyPage() {
   const queryClient = useQueryClient();
   const { status } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = ["history", "ranking"].includes(searchParams.get("tab"))
+    ? searchParams.get("tab")
+    : "rooms";
+  function selectTab(value) {
+    setSearchParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        if (value === "rooms") next.delete("tab");
+        else next.set("tab", value);
+        return next;
+      },
+      { preventScrollReset: true }
+    );
+  }
   const navigate = useNavigate();
   const memberAction = useMemberAction();
   const [createOpen, setCreateOpen] = useState(false);
@@ -114,7 +134,8 @@ export function GomokuLobbyPage() {
   const rooms = useQuery({
     queryKey: ["gomoku", "rooms", keyword, cursor],
     queryFn: ({ signal }) => gomokuApi.list(cursor, keyword, signal),
-    refetchInterval: 5000
+    refetchInterval: 5000,
+    enabled: tab === "rooms"
   });
   const mine = useQuery({
     queryKey: ["gomoku", "mine"],
@@ -206,185 +227,244 @@ export function GomokuLobbyPage() {
           </div>
           <GameArtwork game="gomoku" priority className="games-lobby-heading__art" />
         </header>
-        <h2 className="ui-sr-only">공개 오목방</h2>
-        <div className="games-lobby-controls">
-          <form
-            className="games-search"
-            role="search"
-            aria-label="대기실 검색"
-            onSubmit={search}
-            data-ph-capture-attribute-action="gomoku_rooms_search_form"
-          >
-            <label className="ui-sr-only" htmlFor="gomoku-room-search">
-              이름 검색
-            </label>
-            <div className="games-search__control">
-              <input
-                id="gomoku-room-search"
-                type="search"
-                value={searchDraft}
-                maxLength={50}
-                onChange={(event) => {
-                  setSearchDraft(event.target.value);
-                  if (!composingSearch.current && !event.nativeEvent.isComposing)
-                    applySearch(event.target.value);
-                }}
-                onCompositionStart={() => {
-                  composingSearch.current = true;
-                }}
-                onCompositionEnd={(event) => {
-                  composingSearch.current = false;
-                  setSearchDraft(event.currentTarget.value);
-                  applySearch(event.currentTarget.value);
-                }}
-                placeholder="이름으로 검색하기"
-                data-ph-capture-attribute-action="gomoku_rooms_search_input"
-              />
-              <button
-                type="submit"
-                aria-label="검색"
-                data-ph-capture-attribute-action="gomoku_rooms_search_submit"
-              >
-                <Search size={20} aria-hidden="true" />
-              </button>
-            </div>
-          </form>
-          {!emptyRooms && createButton}
-        </div>
-        {status === "authenticated" && mine.data?.roomId && (
-          <aside className="games-own-room" aria-label="참여 중인 자리">
-            <span className="games-own-room__icon" aria-hidden="true">
-              <Gamepad2 size={22} />
-            </span>
-            <strong>이미 참여 중인 자리가 있어요.</strong>
-            <Link
-              className="ui-button ui-button--secondary ui-button--sm games-own-room__link"
-              data-ph-capture-attribute-action="gomoku_my_room_open"
-              to={`/games/gomoku/rooms/${mine.data.roomId}`}
-            >
-              돌아가기 <ArrowRight size={16} aria-hidden="true" />
-            </Link>
-          </aside>
-        )}
-        <div
-          key={error ? "error" : joinNotice?.id ?? "empty-notice"}
-          role={error || joinNotice ? "alert" : undefined}
-          className={`games-notice${!error && joinNotice ? " games-notice--transient" : ""}`}
-          onAnimationEnd={(event) => {
-            if (!error && event.target === event.currentTarget) setJoinNotice(null);
-          }}
-        >
-          {(error || joinNotice) && (
-            <div className="games-notice__content">
-              <p className="games-error">{error || joinNotice?.message}</p>
-            </div>
-          )}
-        </div>
-        {rooms.isPending ? (
-          <p role="status">대기실을 불러오고 있어요.</p>
-        ) : rooms.isError ? (
-          <div role="alert">
-            <p>대기실을 불러오지 못했어요.</p>
-            <Button
-              variant="secondary"
-              data-ph-capture-attribute-action="gomoku_lobby_retry"
-              onClick={() => void rooms.refetch()}
-            >
-              다시 시도
-            </Button>
-          </div>
-        ) : rooms.data.items.length === 0 ? (
-          <div className="games-empty">
-            <Users size={36} aria-hidden="true" />
-            <h3>{keyword ? "검색 결과가 없어요" : "아직 열린 방이 없어요"}</h3>
-            {keyword ? (
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setSearchDraft("");
-                  setKeyword("");
-                  setCursor(null);
-                  setError("");
-                  setJoinNotice(null);
-                }}
-                data-ph-capture-attribute-action="gomoku_rooms_search_reset"
-              >
-                전체 보기
-              </Button>
-            ) : (
-              createButton
-            )}
-          </div>
-        ) : (
-          <ul className="games-room-list">
-            {rooms.data.items.map((room) => (
-              <li key={room.id}>
-                <Avatar
-                  alt={`${room.hostName} 프로필`}
-                  className="games-room-avatar"
-                  fallback={room.hostName?.slice(0, 1) || "?"}
-                  size="md"
-                  src={room.hostAvatarUrl}
-                />
-                <div className="games-room-copy">
-                  <div className="games-room-title">
-                    <h3>{room.hostName}님과의 자리</h3>
-                    <StatusBadge tone={room.status === "PLAYING" ? "neutral" : "brand"}>
-                      {room.status === "PLAYING" ? "게임 중" : "상대 대기 중"}
-                    </StatusBadge>
-                  </div>
-                  <p className="games-room-capacity">
-                    <Users size={16} aria-hidden="true" />
-                    <span>
-                      <span className="ui-sr-only">참가 인원 </span>
-                      {room.guestMemberId != null ? 2 : 1} / 2
-                    </span>
-                    <span className="games-room-rule">{ruleName(room.rule)}</span>
-                  </p>
-                </div>
-                <Button
-                  variant="secondary"
-                  className="games-room-join"
-                  data-other-room={
-                    (mine.data?.roomId != null && mine.data.roomId !== room.id) ||
-                    undefined
-                  }
-                  pending={pending}
-                  disabled={room.status === "PLAYING" && mine.data?.roomId !== room.id}
-                  data-ph-capture-attribute-action={
-                    room.status === "PLAYING" && mine.data?.roomId === room.id
-                      ? "gomoku_my_room_open"
-                      : "gomoku_room_join"
-                  }
-                  onClick={() => memberAction("/games/gomoku", () => join(room.id))}
-                >
-                  {room.status === "PLAYING"
-                    ? mine.data?.roomId === room.id ? "돌아가기" : "게임 중"
-                    : "참여하기"}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-        <div className="games-actions">
-          {cursor != null && (
-            <Button
-              variant="secondary"
-              data-ph-capture-attribute-action="gomoku_rooms_first"
-              onClick={() => setCursor(null)}
-            >
-              처음으로
-            </Button>
-          )}
-          {rooms.data?.hasNext && (
-            <Button
-              variant="secondary"
-              data-ph-capture-attribute-action="gomoku_rooms_next"
-              onClick={() => setCursor(rooms.data.nextCursor)}
-            >
-              다음 방 보기
-            </Button>
-          )}
+        <div className="gomoku-lobby-tabs">
+          <Tabs
+            value={tab}
+            onValueChange={selectTab}
+            items={[
+              {
+                value: "rooms",
+                label: (
+                  <>
+                    <Gamepad2 size={18} aria-hidden="true" /> 대기방
+                  </>
+                ),
+                dataAction: "gomoku_lobby_tab_rooms",
+                content: (
+                  <>
+                    <h2 className="ui-sr-only">공개 오목방</h2>
+                    <div className="games-lobby-controls">
+                      <form
+                        className="games-search"
+                        role="search"
+                        aria-label="대기실 검색"
+                        onSubmit={search}
+                        data-ph-capture-attribute-action="gomoku_rooms_search_form"
+                      >
+                        <label className="ui-sr-only" htmlFor="gomoku-room-search">
+                          이름 검색
+                        </label>
+                        <div className="games-search__control">
+                          <input
+                            id="gomoku-room-search"
+                            type="search"
+                            value={searchDraft}
+                            maxLength={50}
+                            onChange={(event) => {
+                              setSearchDraft(event.target.value);
+                              if (!composingSearch.current && !event.nativeEvent.isComposing)
+                                applySearch(event.target.value);
+                            }}
+                            onCompositionStart={() => {
+                              composingSearch.current = true;
+                            }}
+                            onCompositionEnd={(event) => {
+                              composingSearch.current = false;
+                              setSearchDraft(event.currentTarget.value);
+                              applySearch(event.currentTarget.value);
+                            }}
+                            placeholder="이름으로 검색하기"
+                            data-ph-capture-attribute-action="gomoku_rooms_search_input"
+                          />
+                          <button
+                            type="submit"
+                            aria-label="검색"
+                            data-ph-capture-attribute-action="gomoku_rooms_search_submit"
+                          >
+                            <Search size={20} aria-hidden="true" />
+                          </button>
+                        </div>
+                      </form>
+                      {!emptyRooms && createButton}
+                    </div>
+                    {status === "authenticated" && mine.data?.roomId && (
+                      <aside className="games-own-room" aria-label="참여 중인 자리">
+                        <span className="games-own-room__icon" aria-hidden="true">
+                          <Gamepad2 size={22} />
+                        </span>
+                        <strong>이미 참여 중인 자리가 있어요.</strong>
+                        <Link
+                          className="ui-button ui-button--secondary ui-button--sm games-own-room__link"
+                          data-ph-capture-attribute-action="gomoku_my_room_open"
+                          to={`/games/gomoku/rooms/${mine.data.roomId}`}
+                        >
+                          돌아가기 <ArrowRight size={16} aria-hidden="true" />
+                        </Link>
+                      </aside>
+                    )}
+                    <div
+                      key={error ? "error" : joinNotice?.id ?? "empty-notice"}
+                      role={error || joinNotice ? "alert" : undefined}
+                      className={`games-notice${!error && joinNotice ? " games-notice--transient" : ""}`}
+                      onAnimationEnd={(event) => {
+                        if (!error && event.target === event.currentTarget) setJoinNotice(null);
+                      }}
+                    >
+                      {(error || joinNotice) && (
+                        <div className="games-notice__content">
+                          <p className="games-error">{error || joinNotice?.message}</p>
+                        </div>
+                      )}
+                    </div>
+                    {rooms.isPending ? (
+                      <p role="status">대기실을 불러오고 있어요.</p>
+                    ) : rooms.isError ? (
+                      <div role="alert">
+                        <p>대기실을 불러오지 못했어요.</p>
+                        <Button
+                          variant="secondary"
+                          data-ph-capture-attribute-action="gomoku_lobby_retry"
+                          onClick={() => void rooms.refetch()}
+                        >
+                          다시 시도
+                        </Button>
+                      </div>
+                    ) : rooms.data.items.length === 0 ? (
+                      <div className="games-empty">
+                        <Users size={36} aria-hidden="true" />
+                        <h3>{keyword ? "검색 결과가 없어요" : "아직 열린 방이 없어요"}</h3>
+                        {keyword ? (
+                          <Button
+                            variant="secondary"
+                            onClick={() => {
+                              setSearchDraft("");
+                              setKeyword("");
+                              setCursor(null);
+                              setError("");
+                              setJoinNotice(null);
+                            }}
+                            data-ph-capture-attribute-action="gomoku_rooms_search_reset"
+                          >
+                            전체 보기
+                          </Button>
+                        ) : (
+                          createButton
+                        )}
+                      </div>
+                    ) : (
+                      <ul className="games-room-list">
+                        {rooms.data.items.map((room) => (
+                          <li key={room.id}>
+                            <Avatar
+                              alt={`${room.hostName} 프로필`}
+                              className="games-room-avatar"
+                              fallback={room.hostName?.slice(0, 1) || "?"}
+                              size="md"
+                              src={room.hostAvatarUrl}
+                            />
+                            <div className="games-room-copy">
+                              <div className="games-room-title">
+                                <h3>{room.hostName}님과의 자리</h3>
+                                <StatusBadge tone={room.status === "PLAYING" ? "neutral" : "brand"}>
+                                  {room.status === "PLAYING" ? "게임 중" : "상대 대기 중"}
+                                </StatusBadge>
+                              </div>
+                              <p className="games-room-capacity">
+                                <Users size={16} aria-hidden="true" />
+                                <span>
+                                  <span className="ui-sr-only">참가 인원 </span>
+                                  {room.guestMemberId != null ? 2 : 1} / 2
+                                </span>
+                                <span className="games-room-rule">{ruleName(room.rule)}</span>
+                              </p>
+                            </div>
+                            <Button
+                              variant="secondary"
+                              className="games-room-join"
+                              data-other-room={
+                                (mine.data?.roomId != null && mine.data.roomId !== room.id) ||
+                                undefined
+                              }
+                              pending={pending}
+                              disabled={room.status === "PLAYING" && mine.data?.roomId !== room.id}
+                              data-ph-capture-attribute-action={
+                                room.status === "PLAYING" && mine.data?.roomId === room.id
+                                  ? "gomoku_my_room_open"
+                                  : "gomoku_room_join"
+                              }
+                              onClick={() => memberAction("/games/gomoku", () => join(room.id))}
+                            >
+                              {room.status === "PLAYING"
+                                ? mine.data?.roomId === room.id ? "돌아가기" : "게임 중"
+                                : "참여하기"}
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="games-actions">
+                      {cursor != null && (
+                        <Button
+                          variant="secondary"
+                          data-ph-capture-attribute-action="gomoku_rooms_first"
+                          onClick={() => setCursor(null)}
+                        >
+                          처음으로
+                        </Button>
+                      )}
+                      {rooms.data?.hasNext && (
+                        <Button
+                          variant="secondary"
+                          data-ph-capture-attribute-action="gomoku_rooms_next"
+                          onClick={() => setCursor(rooms.data.nextCursor)}
+                        >
+                          다음 방 보기
+                        </Button>
+                      )}
+                    </div>
+                  </>
+                )
+              },
+              {
+                value: "history",
+                label: (
+                  <>
+                    <History size={18} aria-hidden="true" /> 내 전적
+                  </>
+                ),
+                dataAction: "gomoku_lobby_tab_history",
+                content:
+                  tab === "history" &&
+                  (status === "authenticated" ? (
+                    <GomokuHistory onBrowse={() => selectTab("rooms")} />
+                  ) : (
+                    <GomokuStatisticsLogin
+                      status={status}
+                      onLogin={() => memberAction("/games/gomoku?tab=history", () => {})}
+                    />
+                  ))
+              },
+              {
+                value: "ranking",
+                label: (
+                  <>
+                    <Trophy size={18} aria-hidden="true" /> 랭킹
+                  </>
+                ),
+                dataAction: "gomoku_lobby_tab_ranking",
+                content:
+                  tab === "ranking" &&
+                  (status === "authenticated" ? (
+                    <GomokuRanking />
+                  ) : (
+                    <GomokuStatisticsLogin
+                      status={status}
+                      onLogin={() => memberAction("/games/gomoku?tab=ranking", () => {})}
+                    />
+                  ))
+              }
+            ]}
+          />
         </div>
         <Modal
           open={createOpen}
@@ -470,6 +550,23 @@ export function GomokuLobbyPage() {
         </Modal>
       </div>
     </PageContainer>
+  );
+}
+function GomokuStatisticsLogin({ status, onLogin }) {
+  if (status === "loading") return <p role="status">로그인 상태를 확인하고 있어요.</p>;
+  return (
+    <div className="gomoku-statistics-empty">
+      <History size={36} aria-hidden="true" />
+      <h3>로그인하고 기록을 확인해 보세요</h3>
+      <p>내 전적과 크루들의 랭킹을 볼 수 있어요.</p>
+      <Button
+        disabled={status === "unavailable"}
+        onClick={onLogin}
+        data-ph-capture-attribute-action="gomoku_statistics_login"
+      >
+        {status === "signup-required" ? "가입 완료하기" : "로그인하기"}
+      </Button>
+    </div>
   );
 }
 export function GomokuInvitationPage() {
@@ -571,6 +668,11 @@ function GomokuRoom({ roomId }) {
   const { member } = useAuth();
   const navigate = useNavigate();
   const { room, connected, pending, error, act, offset } = useGomokuRoom(roomId);
+  useEffect(() => {
+    if (room?.endReason && ["FINISHED", "CLOSED"].includes(room.status)) {
+      void queryClient.invalidateQueries({ queryKey: ["gomoku", "statistics"] });
+    }
+  }, [queryClient, room?.gameNumber, room?.status, room?.endReason]);
   const [selected, setSelected] = useState(null);
   const [confirmation, setConfirmation] = useState(null);
   const [inviteUrl, setInviteUrl] = useState("");
