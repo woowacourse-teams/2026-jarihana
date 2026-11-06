@@ -5,6 +5,10 @@ server:
 gomoku:
   chat:
     enabled: ${GOMOKU_CHAT_ENABLED:false}
+  posthog:
+    enabled: ${GOMOKU_POSTHOG_ENABLED:false}
+    project-token: ${POSTHOG_PROJECT_TOKEN:}
+    host: ${POSTHOG_HOST:}
 
 chat:
   allowed-origins: ${CHAT_ALLOWED_ORIGINS:${FRONTEND_ORIGIN:http://localhost:5173}}
