@@ -142,6 +142,28 @@ class GroupMemberQueryControllerTest extends IntegrationTestSupport {
                 .body("data.items[1].generation", nullValue());
     }
 
+    @DisplayName("기본 멤버 구성원도 회원 유형과 함께 조회하고 기수와 과정은 비워 둔다.")
+    @Test
+    void findsBasicMembers() {
+        // Given
+        Member leader = saveMember("가온", Course.BACKEND, "github-1");
+        Member basicMember = memberRepository.save(Member.createBasic("도담", "github-2"));
+        groupMemberRepository.save(GroupMember.createLeader(group, leader, JOINED_AT));
+        groupMemberRepository.save(GroupMember.createMember(group, basicMember, JOINED_AT.plusHours(1)));
+
+        // When & Then
+        given()
+                .when()
+                .get("/groups/{groupId}/members", group.getId())
+                .then()
+                .statusCode(200)
+                .body("data.items.size()", equalTo(2))
+                .body("data.items[0].crewName", equalTo("도담"))
+                .body("data.items[0].memberType", equalTo("MEMBER"))
+                .body("data.items[0].generation", nullValue())
+                .body("data.items[0].course", nullValue());
+    }
+
     private Member saveMember(String crewName, Course course, String githubId) {
         return memberRepository.save(Member.create(crewName, 8, githubId, course));
     }
