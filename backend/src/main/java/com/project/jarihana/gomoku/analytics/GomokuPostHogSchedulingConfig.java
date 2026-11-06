@@ -10,6 +10,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.net.http.HttpClient;
 import java.time.Clock;
@@ -48,7 +49,13 @@ class GomokuPostHogSchedulingConfig {
         try {
             dispatcher.deliverPending();
         } catch (RuntimeException exception) {
-            log.warn("Gomoku PostHog delivery failed and will be retried ({})", exception.getClass().getSimpleName());
+            var failure = log.atError()
+                    .addKeyValue("event.action", "gomoku.posthog.delivery.failed")
+                    .addKeyValue("error.type", exception.getClass().getName());
+            if (exception instanceof RestClientResponseException response) {
+                failure.addKeyValue("http.response.status_code", response.getStatusCode().value());
+            }
+            failure.log("Gomoku PostHog delivery failed and will be retried");
         }
     }
 }

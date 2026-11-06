@@ -1,7 +1,9 @@
 package com.project.jarihana.gomoku.analytics;
 
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.time.ZoneId;
 import java.util.HashMap;
@@ -25,8 +27,9 @@ class GomokuPostHogClient {
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("api_key", projectToken, "batch", events.stream().map(this::payload).toList()))
                 .retrieve()
-                .onStatus(status -> status.is3xxRedirection(), (request, response) -> {
-                    throw new IllegalStateException("PostHog 수집 주소가 리다이렉트를 반환했습니다.");
+                .onStatus(HttpStatusCode::is3xxRedirection, (request, response) -> {
+                    throw new RestClientResponseException("PostHog 수집 주소가 리다이렉트를 반환했습니다.",
+                            response.getStatusCode(), response.getStatusText(), null, null, null);
                 })
                 .toBodilessEntity();
     }
