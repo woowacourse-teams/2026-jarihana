@@ -83,6 +83,8 @@ for (const width of [390, 768, 1440, 1920]) {
             createdAt: "2026-11-05T12:00:00"
           }
         ];
+        const verifyTabLifecycle = width === 1440 && colorScheme === "light";
+        let loseAdmissionResponse = verifyTabLifecycle;
         let failLeave = true;
         const reply = (route, data, status = 200) =>
           route.fulfill({ status, json: { success: true, data, error: null } });
@@ -102,6 +104,10 @@ for (const width of [390, 768, 1440, 1920]) {
                 left: false
               };
               visits.set(body.requestId, visit);
+            }
+            if (loseAdmissionResponse) {
+              loseAdmissionResponse = false;
+              return route.abort("failed");
             }
             return reply(route, visit, created ? 201 : 200);
           }
@@ -190,7 +196,22 @@ for (const width of [390, 768, 1440, 1920]) {
         await capture("lobby");
         await page.getByRole("button", { name: "관전하기" }).click();
         await expect(page).toHaveURL(/\/rooms\/7\/watch$/);
+        if (verifyTabLifecycle) {
+          await expect(page.getByRole("alert")).toContainText("관전을 시작하지 못했어요");
+          expect(admissions).toHaveLength(1);
+          expect(
+            await page.evaluate(() => JSON.parse(sessionStorage.getItem("gomoku-observation:1:7")))
+          ).toEqual({ requestId: admissions[0].requestId });
+          await page.getByRole("button", { name: "다시 시도" }).click();
+        }
         await expect(page.getByText("관전 중", { exact: true })).toBeVisible();
+        if (verifyTabLifecycle) {
+          expect(admissions.map(({ requestId }) => requestId)).toEqual([
+            admissions[0].requestId,
+            admissions[0].requestId
+          ]);
+          expect(visits.size).toBe(1);
+        }
         await expect(page.getByText("흑돌 차례예요")).toBeVisible();
         await expect(
           page.getByRole("button", { name: /자리하기|기권하기|초대링크|준비하기/ })
@@ -212,8 +233,7 @@ for (const width of [390, 768, 1440, 1920]) {
         await capture("chat");
         await closeChat();
         const requestId = admissions[0].requestId;
-        const duplicate =
-          width === 1440 && colorScheme === "light" ? await page.context().newPage() : null;
+        const duplicate = verifyTabLifecycle ? await page.context().newPage() : null;
         let duplicateRequestId;
         if (duplicate) {
           await installApiFixture(duplicate);
