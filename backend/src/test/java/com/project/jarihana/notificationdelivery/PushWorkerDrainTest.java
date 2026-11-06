@@ -90,6 +90,8 @@ class PushWorkerDrainTest extends PushIntegrationTestSupport {
             var running = executor.submit(worker::processDue);
             try {
                 assertThat(committing.await(10, TimeUnit.SECONDS)).isTrue();
+                // 커밋을 막아 둔 채 발송 루프가 미사용 허가를 반환할 때까지 기다린다.
+                assertThat(running.get(5, TimeUnit.SECONDS)).isEqualTo(1);
 
                 // When
                 admission.pause();
@@ -99,13 +101,11 @@ class PushWorkerDrainTest extends PushIntegrationTestSupport {
                 assertThat(admission.state()).isEqualTo(WorkerAdmissionController.State.DRAINING);
                 assertThat(admission.drainStatus().inFlight()).isEqualTo(1);
                 assertThat(admission.drainStatus().isDrained()).isFalse();
-                assertThat(running.get(5, TimeUnit.SECONDS)).isEqualTo(1);
                 assertThat(deliveries.findById(pending.getId()).orElseThrow().getStatus()).isEqualTo(DeliveryStatus.IN_FLIGHT);
                 assertThatIllegalStateException().isThrownBy(admission::resume);
             } finally {
                 release.countDown();
             }
-            assertThat(running.get(10, TimeUnit.SECONDS)).isEqualTo(1);
         }
         awaitSettled();
         assertThat(admission.state()).isEqualTo(WorkerAdmissionController.State.PAUSED);

@@ -84,7 +84,7 @@ afterEach(() => jest.restoreAllMocks());
 
 test("keeps the original artwork and fetches private records only when its URL tab is selected", async () => {
   const { container } = setup();
-  await screen.findByText("아직 기다리는 방이 없어요");
+  await screen.findByText("아직 열린 방이 없어요");
   expect(container.querySelector(".games-lobby-heading__art img")).toHaveAttribute(
     "src",
     expect.stringContaining("gomoku-lounge-v1.webp")

@@ -52,6 +52,18 @@ const rankingItemSchema = statisticsSchema.extend({
 const pageSchema = (item) =>
   z.object({ items: z.array(item), nextCursor: z.string().nullable(), hasNext: z.boolean() });
 const pageParams = (cursor) => ({ size: 20, ...(cursor ? { cursor } : {}) });
+export const lobbyRoomSchema = roomSchema.pick({
+  id: true,
+  hostMemberId: true,
+  hostName: true,
+  hostAvatarUrl: true,
+  guestMemberId: true,
+  guestName: true,
+  guestAvatarUrl: true,
+  visibility: true,
+  rule: true,
+  status: true
+});
 const root = "games/gomoku";
 const request = (path, options) => apiClient.request(`${root}/${path}`, options);
 export const gomokuApi = {
@@ -71,12 +83,13 @@ export const gomokuApi = {
   list: (cursor, keyword = "", signal) =>
     request("rooms", {
       schema: z.object({
-        items: z.array(roomSchema),
+        items: z.array(lobbyRoomSchema),
         nextCursor: z.union([z.string(), z.number()]).nullable(),
         hasNext: z.boolean()
       }),
       signal,
       searchParams: {
+        view: "summary",
         size: 20,
         ...(cursor == null ? {} : { cursor }),
         ...(keyword ? { keyword } : {})

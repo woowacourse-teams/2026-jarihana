@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { GomokuLobbyPage } from "./index";
 import { gomokuApi } from "../../features/gomoku/api";
 import { useQuery } from "@tanstack/react-query";
@@ -43,6 +43,50 @@ function openCreation() {
   fireEvent.click(button);
   return screen.getByRole("dialog", { name: "방 만들기" });
 }
+
+test.each([null, 8])("lobby shows waiting and playing rooms with membership %s", async (roomId) => {
+  const originalQuery = useQuery.getMockImplementation();
+  const refetch = jest.fn().mockResolvedValue({ data: { roomId } });
+  const join = jest.spyOn(gomokuApi, "join");
+  mockNavigate.mockClear();
+  useQuery.mockImplementation(({ queryKey }) => ({
+    data: queryKey[1] === "mine" ? { roomId } : {
+      items: [
+        { id: 7, hostName: "가을", rule: "RENJU", status: "WAITING", guestMemberId: null },
+        { id: 8, hostName: "겨울", rule: "RENJU", status: "PLAYING", guestMemberId: 3 }
+      ],
+      hasNext: false
+    },
+    refetch,
+    isPending: false,
+    isError: false
+  }));
+  try {
+    render(<GomokuLobbyPage />);
+    const waiting = screen.getByRole("heading", { name: "가을님과의 자리" }).closest("li");
+    const playing = screen.getByRole("heading", { name: "겨울님과의 자리" }).closest("li");
+    expect(waiting).toHaveTextContent("상대 대기 중");
+    expect(waiting).toHaveTextContent("1 / 2");
+    expect(within(waiting).getByRole("button", { name: "참여하기" })).toBeEnabled();
+    expect(playing).toHaveTextContent("게임 중");
+    expect(playing).toHaveTextContent("2 / 2");
+    const button = within(playing).getByRole("button", { name: roomId ? "돌아가기" : "게임 중" });
+    if (roomId) {
+      expect(button).toBeEnabled();
+      expect(button).toHaveAttribute("data-ph-capture-attribute-action", "gomoku_my_room_open");
+      fireEvent.click(button);
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith("/games/gomoku/rooms/8"));
+    } else {
+      expect(button).toBeDisabled();
+      fireEvent.click(button);
+      expect(mockNavigate).not.toHaveBeenCalled();
+    }
+    expect(join).not.toHaveBeenCalled();
+  } finally {
+    join.mockRestore();
+    useQuery.mockImplementation(originalQuery);
+  }
+});
 
 test("each choice group always has exactly one checked option and selections remain independent", () => {
   const dialog = openCreation();
@@ -152,6 +196,7 @@ test("lobby uses seat wording and a separate return action without the deleted d
     ).not.toBeInTheDocument();
     expect(screen.queryByText("공개된 방만 표시돼요.")).not.toBeInTheDocument();
     const current = screen.getByRole("complementary", { name: "참여 중인 자리" });
+    expect(screen.getByRole("search", { name: "대기실 검색" }).closest(".games-lobby-controls").nextElementSibling).toBe(current);
     const back = within(current).getByRole("link", { name: "돌아가기", exact: true });
     expect(back).toHaveAttribute("href", "/games/gomoku/rooms/7");
     expect(back).toHaveAttribute("data-ph-capture-attribute-action", "gomoku_my_room_open");
@@ -279,10 +324,13 @@ test.each(["clear", "form", "button"])(
   }
 );
 
-test("joining checks the latest membership and explains an existing room without joining another", async () => {
+test.each(["existing membership", "concurrent membership"])("join notice waits for fade-out completion and restarts on retry with %s", async (scenario) => {
   const originalQuery = useQuery.getMockImplementation();
   const refetch = jest.fn().mockResolvedValue({ data: { roomId: 7 } });
-  const join = jest.spyOn(gomokuApi, "join").mockResolvedValue({ roomId: 8 });
+  if (scenario === "concurrent membership") {
+    refetch.mockResolvedValueOnce({ data: { roomId: null } });
+  }
+  const join = jest.spyOn(gomokuApi, "join").mockRejectedValue({ status: 409 });
   useQuery.mockImplementation(({ queryKey }) => ({
     data:
       queryKey[1] === "mine"
@@ -294,12 +342,23 @@ test("joining checks the latest membership and explains an existing room without
   }));
   try {
     render(<GomokuLobbyPage />);
-    fireEvent.click(screen.getByRole("button", { name: "참여하기", exact: true }));
-    await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent("이미 참여 중인 방이 있어요.")
-    );
+    const button = screen.getByRole("button", { name: "참여하기", exact: true });
+    await act(async () => fireEvent.click(button));
+    expect(screen.getByRole("alert")).toHaveTextContent("이미 참여 중인 방이 있어요.");
     expect(refetch).toHaveBeenCalledWith({ throwOnError: true });
-    expect(join).not.toHaveBeenCalled();
+    if (scenario === "existing membership") expect(join).not.toHaveBeenCalled();
+    else expect(join).toHaveBeenCalledWith(8);
+    const firstNotice = screen.getByRole("alert");
+    expect(firstNotice).toHaveClass("games-notice--transient");
+    fireEvent.animationEnd(firstNotice.querySelector(".games-error"));
+    expect(firstNotice).toBeVisible();
+    await act(async () => fireEvent.click(button));
+    const nextNotice = screen.getByRole("alert");
+    expect(nextNotice).not.toBe(firstNotice);
+    fireEvent.animationEnd(firstNotice);
+    expect(nextNotice).toBeVisible();
+    fireEvent.animationEnd(nextNotice);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   } finally {
     join.mockRestore();
     useQuery.mockImplementation(originalQuery);

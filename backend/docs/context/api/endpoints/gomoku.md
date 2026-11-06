@@ -19,7 +19,8 @@
 
 | Method | 경로 | 권한 | 성공 |
 | --- | --- | --- | --- |
-| `GET` | `/api/games/gomoku/rooms` | `PUBLIC` | `200 OK`, 공개 대기방 커서 목록 |
+| `GET` | `/api/games/gomoku/rooms` | `PUBLIC` | `200 OK`, 기존 상세 형식의 공개 대기방 커서 목록 |
+| `GET` | `/api/games/gomoku/rooms?view=summary` | `PUBLIC` | `200 OK`, 공개 대기방과 게임 중인 방의 요약 커서 목록 |
 | `GET` | `/api/games/gomoku/rooms/me` | `MEMBER` | `200 OK`, 현재 참여 방 |
 | `POST` | `/api/games/gomoku/rooms` | `MEMBER` | `201 Created`, 방 식별자 |
 | `POST` | `/api/games/gomoku/rooms/{id}/join` | `MEMBER + 공개 범위/토큰 검증` | `200 OK`, 방 식별자 |
@@ -40,7 +41,7 @@
 
 ### `GET /api/games/gomoku/rooms`
 
-- 설명: 참여 가능한 공개 대기방을 방장 이름으로 검색한다.
+- 설명: 방장 이름으로 공개 방을 검색한다. `view` 생략은 구버전 화면 호환용 대기방 목록이며, 새 화면은 `view=summary`를 명시한다.
 - 권한: `PUBLIC`
 
 #### Query Parameters
@@ -50,13 +51,46 @@
 | `cursor` | X | String | 첫 요청은 생략. 다음 페이지는 응답의 `nextCursor` 사용, 최대 256자 |
 | `size` | X | Integer | 기본 20, 1~100 |
 | `keyword` | X | String | 방장 크루 이름 부분 검색, 최대 50자 |
+| `view` | X | String | 생략 시 기존 계약, `summary` 지정 시 새 요약 계약. 다른 값은 400 |
 
-Request Body는 없다. `PUBLIC`, `WAITING`, 빈 손님 자리, 마지막 활동 후 30분 미경과 조건을 모두 만족하는 방만 반환한다.
-정렬은 `createdAt DESC, id DESC`다. 검색과 공개/빈자리/미만료 조건을 DB limit 전에 적용한다.
+Request Body는 없다. `view`를 생략하면 `PUBLIC`, `WAITING`, 빈 손님 자리, 마지막 활동 후 30분 미경과 조건을 모두 만족하는 방만 기존 스냅샷 형식으로 반환한다. 진행 중인 방은 기존 목록에 절대 포함하지 않는다.
+
+`view=summary`는 `PUBLIC` 방 중 `WAITING`이며 손님 자리가 비어 있고 마지막 활동 후 30분이 지나지 않은 방, 또는 `PLAYING`이며 현재 차례 기한이 지나지 않은 방을 반환한다. 진행 중인 방에는 대기 상태의 30분 만료 조건을 적용하지 않는다.
+비공개 방, 만석 대기방, `FINISHED`/`CLOSED` 방은 제외한다. 목록에 표시되어도 참가자 전용 상세 조회와 게임 중 신규 참가 제한은 유지한다.
+정렬은 `createdAt DESC, id DESC`다. 검색과 공개/상태/미만료 조건을 DB limit 전에 적용한다.
 `keyword`는 앞뒤 공백을 제거하고 대소문자를 구분하지 않는다. 빈 문자열은 전체 목록이며 `%`, `_`는 와일드카드가 아니다.
 검색어 변경 시 `cursor`를 생략하고, 같은 검색어로 다음 페이지를 요청한다.
 
-#### 응답 200
+#### 응답 200 (`view=summary`)
+
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": 1,
+        "hostMemberId": 10,
+        "hostName": "가온",
+        "hostAvatarUrl": "https://avatars.githubusercontent.com/u/123",
+        "guestMemberId": null,
+        "guestName": null,
+        "guestAvatarUrl": null,
+        "visibility": "PUBLIC",
+        "rule": "RENJU",
+        "status": "WAITING"
+      }
+    ],
+    "nextCursor": null,
+    "hasNext": false
+  },
+  "error": null
+}
+```
+
+`items`는 위 예시의 방/참가자 요약 필드만 포함한다. 대국판, 수순, 돌 색, 착수 위치, 준비 상태와 타이머는 공개 목록에 포함하지 않는다. 결과가 없으면 빈 배열이다.
+
+#### 응답 200 (`view` 생략, 전환 기간에 유지)
 
 ```json
 {
@@ -96,13 +130,20 @@ Request Body는 없다. `PUBLIC`, `WAITING`, 빈 손님 자리, 마지막 활동
 }
 ```
 
-`items`의 원소는 [방 스냅샷](#방-스냅샷)과 같다. 결과가 없으면 `items`는 빈 배열이다.
+`items`는 [방 스냅샷](#방-스냅샷)의 전체 필드를 유지한다. 구버전 `roomSchema`가 요구하는 `board`, `hostReady`, `revision`, `serverNow` 등의 필드를 삭제하지 않는다. 대기방만 반환하므로 진행 중인 대국판을 노출하지 않는다.
+
+#### 배포와 기존 계약 제거
+
+1. 두 요청 방식을 지원하는 백엔드를 먼저 배포한다. 이미 열린 구버전 탭은 `view` 없는 요청으로 계속 동작한다.
+2. 새 프론트엔드는 첫 페이지, 검색, 다음 페이지와 자동 갱신 모두 `view=summary`를 요청한다.
+3. 기존 요청이 충분히 줄었는지 확인한 뒤, **별도 후속 PR로 기존 요청 처리와 응답 DTO를 제거한다.** 배포 성공만으로 기존 탭의 종료를 가정하거나 이번 PR에서 제거하지 않는다.
+4. 제거 시점과 판단 근거, 남아 있는 구버전 탭에 미치는 영향, 롤백 방법은 제거 PR에서 명시한다. 종료 후 `view` 없는 요청을 어떻게 처리할지도 해당 PR에서 정한다.
 
 #### 예외
 
 | 상황 | 코드 | HTTP |
 | --- | --- | --- |
-| size 범위, keyword/cursor 길이 또는 cursor 형식 오류 | `INVALID_PARAMETER` | 400 |
+| size 범위, keyword/cursor 길이, cursor 형식 또는 지원하지 않는 view 오류 | `INVALID_PARAMETER` | 400 |
 
 ### `GET /api/games/gomoku/rooms/me`
 
@@ -635,7 +676,7 @@ data: {"id":1,"hostMemberId":10,"hostName":"가온","hostAvatarUrl":"https://ava
 
 ## 방 스냅샷
 
-목록의 `items` 원소, 방 상세의 `data`, SSE의 `data`는 `GomokuRoomResponse` 필드를 공유한다.
+`view=summary` 공개 목록은 `GomokuLobbyRoomResponse` 요약을 사용한다. 전환 기간의 `view` 없는 대기방 목록, 방 상세와 SSE는 `GomokuRoomResponse`를 사용한다.
 HTTP 목록/상세에는 공통 응답 봉투가 있고 SSE에는 없다.
 
 | 필드 | 타입 | 설명 |
