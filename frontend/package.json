@@ -94,7 +94,7 @@
       "<rootDir>/tests/**/*.test.jsx"
     ],
     "transform": {
-      "^.+\\.[jt]sx?$": "babel-jest"
+      "^.+\\.(m?js|jsx|tsx?)$": "babel-jest"
     },
     "moduleNameMapper": {
       "\\.(css|less|scss)$": "identity-obj-proxy",
