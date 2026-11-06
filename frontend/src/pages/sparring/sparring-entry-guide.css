@@ -54,7 +54,10 @@
   border-radius: 13px 13px 2px 13px;
   animation: entry-guide-answer 2.6s ease-in-out infinite;
 }
-.sparring-entry-guide__pointer { position: absolute; left: 52%; top: 56px; animation: entry-guide-point 2.6s ease-in-out infinite; }
+.sparring-entry-guide__press { position: absolute; left: 70%; top: calc(100% - 8px); width: 0; height: 0; pointer-events: none; z-index: 1; }
+.sparring-entry-guide__pointer { position: absolute; left: -5px; top: -5px; transform-origin: 5px 5px; animation: entry-guide-point 2.6s ease-in-out infinite; }
+.sparring-entry-guide__touch { display: none; position: absolute; left: -11px; top: -3px; transform-origin: 11px 3px; animation: entry-guide-tap 2.6s ease-in-out infinite; }
+.sparring-entry-guide__touch-ring { display: none; position: absolute; left: -10px; top: -10px; width: 20px; height: 20px; box-sizing: border-box; border: 2px solid #171717; border-radius: 50%; opacity: 0; animation: entry-guide-touch-ring 2.6s ease-out infinite; }
 .sparring-entry-guide__lift { position: absolute; left: calc(50% - 42px); top: 15px; width: 84px; height: 130px; animation: entry-guide-lift 2.6s ease-in-out infinite; }
 .sparring-entry-guide__claw { position: absolute; top: 0; left: 24px; width: 36px; height: 36px; background-position: center; background-size: contain; background-repeat: no-repeat; z-index: 1; }
 .sparring-entry-guide__character { position: absolute; top: 24px; left: 0; width: 84px; height: 112px; background-position: left top; background-size: 200% 100%; background-repeat: no-repeat; }
@@ -62,8 +65,18 @@
 .sparring-entry-guide__waiting { margin: 26px 0 0; font-size: 13px; color: #666; }
 @keyframes entry-guide-point {
   0%, 100% { transform: translate(8px, 12px); }
-  25%, 45% { transform: translate(-6px, -8px) scale(.9); }
+  25%, 45% { transform: translate(0, 0) scale(.9); }
   65% { transform: translate(10px, 20px); }
+}
+@keyframes entry-guide-tap {
+  0%, 65%, 100% { transform: translate(10px, 14px); }
+  25%, 45% { transform: translate(0, 0); }
+  35% { transform: translate(0, 0) scale(.9); }
+}
+@keyframes entry-guide-touch-ring {
+  0%, 25%, 65%, 100% { opacity: 0; transform: scale(.6); }
+  35% { opacity: .8; transform: scale(1); }
+  55% { opacity: 0; transform: scale(1.8); }
 }
 @keyframes entry-guide-answer {
   0%, 25%, 100% { opacity: .25; transform: translateY(6px); }
@@ -85,4 +98,10 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .sparring-entry-guide *, .sparring-entry-guide *::before { animation: none !important; }
+}
+@media (hover: none) and (pointer: coarse) {
+  .sparring-entry-guide__tips { grid-template-columns: 1fr; }
+  .sparring-entry-guide__tip--grab { display: none; }
+  .sparring-entry-guide__pointer { display: none; }
+  .sparring-entry-guide__touch, .sparring-entry-guide__touch-ring { display: block; }
 }

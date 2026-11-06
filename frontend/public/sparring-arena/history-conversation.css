@@ -19,11 +19,14 @@
   --character-accent: var(--mint);
   position: absolute; transform: translate(-50%, -100%);
   padding: 0; border: 0; border-radius: 45%; background: transparent;
-  pointer-events: auto; touch-action: none; user-select: none;
+  pointer-events: auto; touch-action: pan-y pinch-zoom; user-select: none;
   cursor: url("./assets/character-claw-open.svg") 20 40, grab; z-index: 1;
 }
 .history-character[data-side="b"] { --character-accent: var(--coral); }
 .history-character:disabled { pointer-events: none; }
+@media (hover: none) and (pointer: coarse) {
+  .history-character { pointer-events: none; }
+}
 .history-character:active:not(:disabled) { transform: translate(-50%, -100%); }
 .history-character:focus-visible { outline: none; }
 .history-character[data-focused="true"] { z-index: 52; }
@@ -89,7 +92,7 @@ body:has(.history-conversation[data-grabbing="true"]) * { cursor: none; }
   box-shadow: 0 3px 12px #1d1d1f0d;
   cursor: pointer;
   pointer-events: auto;
-  touch-action: none;
+  touch-action: pan-y pinch-zoom;
   user-select: none;
   transition: transform 140ms ease-out, box-shadow 140ms ease-out;
   z-index: calc(30 + var(--speech-depth, 2));

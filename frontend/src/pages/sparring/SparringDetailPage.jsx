@@ -20,6 +20,7 @@ const arenaViewPreference = "jarihana.sparring.arena-view";
 const brawlPreference = "jarihana.sparring.brawl";
 const speechOverlapPreference = "jarihana.sparring.speech-overlap";
 const characterLimitsPreference = "jarihana.sparring.character-limits";
+const entryGuidePreference = "jarihana.sparring.entry-guide-seen";
 const validCharacterLimit = value => Number.isInteger(value) && value >= 1 && value <= 8;
 function Room({ topicId, member, login, retry, onRetry }) {
   const { frame, error, status, title, topic, loaded, sceneReady, sceneError, selectSide } = useArenaBridge({ topicId, member, login, retry });
@@ -70,6 +71,10 @@ function Room({ topicId, member, login, retry, onRetry }) {
   }, [leaving]);
   useEffect(() => {
     if (!entered) return;
+    if (guide === "ready") {
+      try { localStorage.setItem(entryGuidePreference, "true"); }
+      catch { /* Entry still works when preference storage is unavailable. */ }
+    }
     frame.current?.scrollIntoView({ block: "start", behavior: "instant" });
     frame.current?.focus({ preventScroll: true });
     if (entrySideRef.current) frame.current?.contentWindow?.postMessage(
@@ -77,13 +82,16 @@ function Room({ topicId, member, login, retry, onRetry }) {
       window.location.origin
     );
     window.dispatchEvent(new Event("resize"));
-  }, [entered, frame]);
+  }, [entered, frame, guide]);
   async function start(side) {
     if (savingRef.current || entry !== "select") return;
     savingRef.current = true;
     setSaving(true);
     setEntryError(null);
-    setGuide("reading");
+    let showGuide = true;
+    try { showGuide = localStorage.getItem(entryGuidePreference) !== "true"; }
+    catch { /* Show the guide when its completion cannot be read. */ }
+    setGuide(showGuide ? "reading" : null);
     try {
       if (await selectSide(side)) {
         entrySideRef.current = side;

@@ -19,6 +19,7 @@ const matchMediaDescriptor = Object.getOwnPropertyDescriptor(window, "matchMedia
 let stream;
 beforeEach(() => {
   jest.clearAllMocks();
+  localStorage.removeItem("jarihana.sparring.entry-guide-seen");
   global.EventSource = class {
     constructor() { this.listeners = {}; stream = this; }
     addEventListener(kind, listener) { this.listeners[kind] = listener; }
@@ -140,6 +141,7 @@ it("preserves a failed draft choice and can retry saving it", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent("투표 저장 실패");
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   const retryStart = screen.getByRole("button", { name: "이 편으로 시작" });
+  expect(localStorage.getItem("jarihana.sparring.entry-guide-seen")).toBeNull();
   expect(retryStart).toBeEnabled();
   expect(retryStart).not.toHaveAttribute("aria-busy");
   expect(retryStart.querySelector(".ui-spinner")).not.toBeInTheDocument();
@@ -271,6 +273,7 @@ it("shows the guide immediately for three seconds even when the arena and vote a
   expect(guide.querySelector(".sparring-entry-guide__tips")).toHaveFocus();
   expect(voteSparring).not.toHaveBeenCalled();
   act(() => jest.advanceTimersByTime(ENTRY_GUIDE_DURATION - 1));
+  expect(localStorage.getItem("jarihana.sparring.entry-guide-seen")).toBeNull();
   expect(guide).toBeInTheDocument();
   expect(document.querySelector(".sparring-entry")).toHaveAttribute("data-leaving", "false");
   expect(frame).toHaveAttribute("inert");
@@ -279,6 +282,7 @@ it("shows the guide immediately for three seconds even when the arena and vote a
   expect(document.querySelector(".sparring-entry")).toHaveAttribute("data-leaving", "true");
   act(() => jest.advanceTimersByTime(ENTRY_REVEAL_DURATION));
   expect(frame).not.toHaveAttribute("inert");
+  expect(localStorage.getItem("jarihana.sparring.entry-guide-seen")).toBe("true");
 });
 
 it("cleans up the guide timer and body scroll lock when leaving the page", async () => {
@@ -294,4 +298,41 @@ it("cleans up the guide timer and body scroll lock when leaving the page", async
   view.unmount();
   expect(jest.getTimerCount()).toBe(0);
   expect(document.body.style.overflow).not.toBe("hidden");
+  expect(localStorage.getItem("jarihana.sparring.entry-guide-seen")).toBeNull();
+});
+
+it.each([true, false])("skips a completed guide but still waits for the scene (already ready: %s)", async sceneReady => {
+  localStorage.setItem("jarihana.sparring.entry-guide-seen", "true");
+  getSparring.mockResolvedValue({ ...topic, mySide: "MINT" });
+  const frame = await mount();
+  if (sceneReady) ready(frame);
+  jest.useFakeTimers();
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "이 편으로 시작" })));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  if (!sceneReady) {
+    act(() => jest.advanceTimersByTime(ENTRY_REVEAL_DURATION));
+    expect(frame).toHaveAttribute("inert");
+    ready(frame);
+  }
+  act(() => jest.advanceTimersByTime(ENTRY_REVEAL_DURATION));
+  expect(frame).not.toHaveAttribute("inert");
+  expect(voteSparring).not.toHaveBeenCalled();
+});
+
+it("still waits for vote confirmation when the guide was already completed", async () => {
+  localStorage.setItem("jarihana.sparring.entry-guide-seen", "true");
+  let finish;
+  voteSparring.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const frame = await mount(); ready(frame);
+  jest.useFakeTimers();
+  fireEvent.click(screen.getByRole("button", { name: "다른 곳 편 선택" }));
+  fireEvent.click(screen.getByRole("button", { name: "이 편으로 시작" }));
+  await waitFor(() => expect(voteSparring).toHaveBeenCalledTimes(1));
+  act(() => jest.advanceTimersByTime(ENTRY_GUIDE_DURATION));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(frame).toHaveAttribute("inert");
+  getSparring.mockResolvedValue({ ...topic, mySide: "CORAL", revision: 2 });
+  await act(async () => finish());
+  act(() => jest.advanceTimersByTime(ENTRY_REVEAL_DURATION));
+  expect(frame).not.toHaveAttribute("inert");
 });

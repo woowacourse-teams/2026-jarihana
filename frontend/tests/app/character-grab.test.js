@@ -26,6 +26,16 @@ describe('character grab controller', () => {
   });
   afterEach(() => { grab.dispose(); document.body.replaceChildren(); });
 
+  it('leaves touch swipes on characters to the browser without grabbing or capturing', () => {
+    expect(pointer(button, 'pointerdown', { pointerType: 'touch' }).defaultPrevented).toBe(false);
+    expect(pointer(window, 'pointermove', { pointerType: 'touch', clientY: 180 }).defaultPrevented).toBe(false);
+    pointer(window, 'pointerup', { pointerType: 'touch', clientY: 180 });
+    expect(callbacks.start).not.toHaveBeenCalled();
+    expect(callbacks.move).not.toHaveBeenCalled();
+    expect(button.setPointerCapture).not.toHaveBeenCalled();
+    expect(grab.active()).toBeNull();
+  });
+
   describe('speech bubble drag', () => {
     let speech, reply;
     beforeEach(() => {
@@ -47,6 +57,18 @@ describe('character grab controller', () => {
       expect(callbacks.end).not.toHaveBeenCalled();
       expect(speech.releasePointerCapture).toHaveBeenCalledWith(1);
       expect(speech).not.toHaveAttribute('aria-pressed');
+    });
+
+    it('allows touch scrolling and reply taps without starting a bubble drag', () => {
+      expect(pointer(speech, 'pointerdown', { pointerType: 'touch' }).defaultPrevented).toBe(false);
+      expect(pointer(window, 'pointermove', { pointerType: 'touch', clientY: 180 }).defaultPrevented).toBe(false);
+      pointer(window, 'pointercancel', { pointerType: 'touch' });
+      pointer(speech, 'pointerdown', { pointerType: 'touch' });
+      pointer(window, 'pointerup', { pointerType: 'touch' });
+      speech.click();
+      expect(reply).toHaveBeenCalledTimes(1);
+      expect(callbacks.start).not.toHaveBeenCalled();
+      expect(speech.setPointerCapture).not.toHaveBeenCalled();
     });
 
     it('starts at the dragged pointer and suppresses the release click before existing reply listeners', () => {

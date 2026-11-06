@@ -110,6 +110,7 @@ export function createCharacterGrab(field, { start, move, end, wake }) {
     function pointerDown(event) {
       if (held || pending || button.disabled || event.button !== 0 || event.isPrimary === false) return;
       suppressClick = false;
+      if (event.pointerType === 'touch') return;
       if (!dragOnly) { begin(event); return; }
       pending = { button, pointerId: event.pointerId, x: event.clientX, y: event.clientY, begin };
       // Keep pointer focus from pausing the replay while deciding between tap and drag.

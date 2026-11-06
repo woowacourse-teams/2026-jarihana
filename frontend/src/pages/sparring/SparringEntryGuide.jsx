@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { MousePointer2, MoveUpRight } from "lucide-react";
+import { MousePointer2, MoveUpRight, Pointer } from "lucide-react";
 import { Modal } from "../../shared/ui";
 import "./sparring-entry-guide.css";
 
@@ -16,14 +16,20 @@ export function SparringEntryGuide() {
       <div className="sparring-entry-guide__tips" ref={guideRef} tabIndex={-1}>
         <article className="sparring-entry-guide__tip">
           <div className="sparring-entry-guide__demo sparring-entry-guide__demo--reply" aria-hidden="true">
-            <span className="sparring-entry-guide__bubble">난 이렇게 생각해!</span>
+            <span className="sparring-entry-guide__bubble">
+              난 이렇게 생각해!
+              <span className="sparring-entry-guide__press">
+                <span className="sparring-entry-guide__touch-ring" />
+                <MousePointer2 className="sparring-entry-guide__pointer" size={30} fill="white" />
+                <Pointer className="sparring-entry-guide__touch" size={32} fill="white" />
+              </span>
+            </span>
             <span className="sparring-entry-guide__bubble sparring-entry-guide__bubble--answer">내 생각은…</span>
-            <MousePointer2 className="sparring-entry-guide__pointer" size={30} fill="white" />
           </div>
           <h3>받아치기</h3>
           <p>말풍선을 누르고<br />내 생각을 보내세요.</p>
         </article>
-        <article className="sparring-entry-guide__tip">
+        <article className="sparring-entry-guide__tip sparring-entry-guide__tip--grab">
           <div className="sparring-entry-guide__demo sparring-entry-guide__demo--grab" aria-hidden="true">
             <span className="sparring-entry-guide__lift">
               <span className="sparring-entry-guide__claw" style={{ backgroundImage: "url(/sparring-arena/assets/character-claw-closed.svg)" }} />
