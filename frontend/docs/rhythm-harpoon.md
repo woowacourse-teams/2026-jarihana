@@ -4,7 +4,7 @@
 
 - 헤더의 게임방 메뉴로 `/games` 게임판에 들어간 뒤 리듬게임 카드의 게임 시작으로
   `/games/rhythm-harpoon` 첫 화면에 진입한다. 로그인 없이 쓸 수 있다.
-- 첫 화면은 싱글 플레이와 온라인 매칭 두 패널 중 하나를 고른다. 싱글은 판 하나, 온라인은 판 두 개 그림이다.
+- 첫 화면은 게임방 목록(`/games`)과 같은 카드 모양(그림, 제목, 설명, 버튼)으로 싱글 플레이와 온라인 매칭 중 하나를 고른다. 싱글은 판 하나, 온라인은 판 두 개 그림이며 온라인 카드는 준비 중 비활성 버튼이다.
   온라인 매칭은 아직 비활성 버튼과 준비 중 표시만 둔다. 붙일 때는 오목 대기실처럼 방 목록, 방 만들기,
   초대 링크, 준비, 방장 시작으로 이어 가고 1:1이라 인원 수는 표시하지 않는다.
 - `/games/rhythm-harpoon/single`은 소리 이름(빨강 쿵, 파랑 착, 노랑 치)으로 박자를 익히는 싱글 플레이 화면이다.
@@ -58,7 +58,7 @@
 | `lesson-audio.mjs` | 따라 하기 드럼 비트 렌더링과 소리 버튼 미리 듣기 |
 | `mount-lesson-game.mjs` | 따라 하기의 판, 입력, 음악 시계 실행 수명 |
 | `notation.mjs`, `RhythmScore.jsx` | 한 마디 리듬 악보 배치와 그리기 |
-| `RhythmBoardArt.jsx` | 첫 화면 패널의 판 그림 |
+| `RhythmBoardArt.jsx` | 첫 화면 카드의 판 그림 |
 | `pages/games/RhythmHarpoonEntryPage.jsx`, `RhythmHarpoonSinglePage.jsx`, `RhythmHarpoonLessonPage.jsx` | 첫 화면, 싱글 플레이, 따라 하기 |
 
 따라 하기는 본편 엔진과 렌더러, 음악 시계를 그대로 쓴다. 엔진에 미리 만든 채보(`events`)를 넘겨

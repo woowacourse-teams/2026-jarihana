@@ -58,17 +58,24 @@ it("opens the rhythm game from the game catalog without loading it in the catalo
   expect(mountPracticeGame).not.toHaveBeenCalled();
 });
 
-it("starts from two panels and only opens single play until online matching exists", () => {
+it("starts from two game room cards and only opens single play until online matching exists", () => {
   render(<RhythmHarpoonEntryPage />);
   const back = screen.getByRole("link", { name: "게임방" });
   expect(back).toHaveAttribute("href", "/games");
   expect(back).toHaveAttribute("data-ph-capture-attribute-action", "games_back");
-  const single = screen.getByRole("link", { name: /싱글 플레이/ });
+  expect(screen.getByRole("heading", { level: 1, name: "행성이의 리듬 작살" })).toBeInTheDocument();
+  const [singleCard, onlineCard] = screen.getAllByRole("article");
+  expect(singleCard).toHaveClass("games-card", "games-card--playable");
+  expect(singleCard).toHaveAccessibleName("싱글 플레이");
+  const single = screen.getByRole("link", { name: "싱글 플레이 시작" });
+  expect(singleCard).toContainElement(single);
   expect(single).toHaveAttribute("href", "/games/rhythm-harpoon/single");
   expect(single).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_single_open");
-  const online = screen.getByRole("button", { name: /온라인 매칭/ });
+  expect(onlineCard).toHaveClass("games-card", "games-card--soon");
+  expect(onlineCard).toHaveAccessibleName("온라인 매칭, 준비 중");
+  const online = screen.getByRole("button", { name: "준비 중" });
+  expect(onlineCard).toContainElement(online);
   expect(online).toBeDisabled();
-  expect(online).toHaveTextContent("준비 중");
   expect(online).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_online_open");
 });
 

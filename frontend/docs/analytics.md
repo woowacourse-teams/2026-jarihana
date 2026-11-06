@@ -373,8 +373,8 @@ VS 입장 화면의 `sparring_entry_side_select`는 임시 편 선택, `sparring
 `gomoku_confirmation_cancel`, `gomoku_confirmation_dismiss`다. 방 상단의 "대기실" 링크는 참여를 유지하며 `games_back`을 사용하고, 별도 "나가기" 버튼은 `gomoku_leave_open`으로 확인창을 연다. 초대 참여는
 `gomoku_invitation_join`, 게임판의 리듬게임 시작은 `rhythm_game_open`이다.
 
-리듬게임 첫 화면의 게임판 복귀는 `games_back`, 싱글 플레이 패널은 `rhythm_single_open`,
-준비 중인 온라인 매칭 패널은 `rhythm_online_open`이다. 싱글 플레이 화면의 첫 화면 복귀는 `rhythm_entry_back`,
+리듬게임 첫 화면의 게임판 복귀는 `games_back`, 싱글 플레이 카드의 시작 버튼은 `rhythm_single_open`,
+준비 중인 온라인 매칭 카드의 버튼은 `rhythm_online_open`이다. 싱글 플레이 화면의 첫 화면 복귀는 `rhythm_entry_back`,
 소리 미리 듣기는 `rhythm_sound_demo_kung`, `rhythm_sound_demo_chak`, `rhythm_sound_demo_chi`,
 접힌 튜토리얼 펼치기는 `rhythm_tutorial_toggle`, 따라 하기 진입은 `rhythm_lesson_open`,
 혼자 연습은 `rhythm_practice_open`, 준비 중인 공식 도전은 `rhythm_ranked_open`이다.

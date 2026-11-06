@@ -1,12 +1,9 @@
-/* 리듬 작살 첫 화면, 싱글 플레이, 따라 하기. 색과 글꼴은 rhythm-game.css의 어두운 게임 화면을 따른다. */
+/* 리듬 작살 싱글 플레이와 따라 하기. 색과 글꼴은 rhythm-game.css의 어두운 게임 화면을 따른다.
+   첫 화면은 게임방 카드(games.css)를 쓰고, 여기서는 카드 그림 크기만 맞춘다. */
 .rhythm-game .rhythm-hub,
 .rhythm-game .rhythm-lesson {
   display: grid;
   gap: 18px;
-}
-.rhythm-game .rhythm-hub__lead {
-  margin: 0;
-  color: var(--muted);
 }
 .rhythm-game .rhythm-hub__badge {
   justify-self: start;
@@ -45,42 +42,25 @@
   text-decoration: none;
 }
 
-/* 첫 화면 두 패널 */
-.rhythm-game .rhythm-entry {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
+/* 첫 화면 카드 그림: 게임방 카드의 그림 칸 안에 판을 맞춘다. */
+.rhythm-entry__visual {
+  position: relative;
 }
-.rhythm-game .rhythm-entry__panel {
-  display: grid;
-  gap: 12px;
-  justify-items: center;
-  align-content: space-between;
-  min-block-size: 380px;
-  padding: 22px 18px;
-  border: 2px solid var(--line);
-  border-radius: 18px;
-  background: #16252d;
-  color: inherit;
-  font: inherit;
-  text-align: center;
-  text-decoration: none;
+.rhythm-entry__visual .rhythm-board-art {
+  position: absolute;
+  inset: 0;
+  padding: var(--space-4);
+  box-sizing: border-box;
 }
-.rhythm-game a.rhythm-entry__panel:hover,
-.rhythm-game a.rhythm-entry__panel:focus-visible {
-  border-color: var(--mint);
+.rhythm-entry__visual .rhythm-board-art__board {
+  inline-size: auto;
+  block-size: 100%;
+  max-inline-size: 100%;
+  max-block-size: 250px;
 }
-.rhythm-game .rhythm-entry__name {
-  font-size: 1.7rem;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-}
-.rhythm-game .rhythm-entry__copy {
-  color: var(--muted);
-  font-size: 0.85rem;
-}
-.rhythm-game .rhythm-entry__panel .rhythm-hub__badge {
-  justify-self: center;
+.rhythm-entry__visual .rhythm-board-art--duo .rhythm-board-art__board {
+  max-inline-size: calc(50% - 5px);
+  max-block-size: 190px;
 }
 
 .rhythm-board-art {
@@ -400,15 +380,11 @@
 }
 
 @media (max-width: 700px) {
-  .rhythm-game .rhythm-entry,
   .rhythm-game .rhythm-sounds,
   .rhythm-game .rhythm-scores,
   .rhythm-game .rhythm-modes,
   .rhythm-game .rhythm-lesson__side {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .rhythm-game .rhythm-entry__panel {
-    min-block-size: 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {
