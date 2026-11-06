@@ -107,7 +107,9 @@
   --date-calendar-grid-width: 19.25rem;
   --header-auth-placeholder-width: 6.75rem;
   --header-active-line-width: 0.1875rem;
-  --header-nav-item-width: 4.25rem;
+  --header-nav-item-width: 5.25rem;
+  --header-group-menu-width: 19.5rem;
+  --header-group-icon-size: 36px;
   --signup-type-image-size: 15rem;
   --signup-type-image-base-size: 7.5rem;
   --showcase-skeleton-height: 14rem;
