@@ -237,6 +237,9 @@ class AnnouncementReadCompatibilityAcceptanceTest extends NotificationIntegratio
         Response list = authenticated(owner).queryParam("clientVersion", 4).get("/notifications");
         Response detail = authenticated(owner).queryParam("clientVersion", 4).get("/notifications/" + id);
         Response count = authenticated(owner).queryParam("clientVersion", 4).get("/notifications/unread-count");
+        String csrf = RestAssured.get("/groups").cookie("XSRF-TOKEN");
+        Response readAll = authenticated(owner).cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .queryParam("clientVersion", 4).patch("/notifications/read-all");
         Response push = authenticated(owner).queryParam("subscriptionId", subscription.getId())
                 .queryParam("generation", 1).queryParam("clientVersion", 4)
                 .get("/notifications/" + id + "/push-content");
@@ -245,6 +248,7 @@ class AnnouncementReadCompatibilityAcceptanceTest extends NotificationIntegratio
         assertThat(list.statusCode()).isEqualTo(400);
         assertThat(detail.statusCode()).isEqualTo(400);
         assertThat(count.statusCode()).isEqualTo(400);
+        assertThat(readAll.statusCode()).isEqualTo(400);
         assertThat(push.statusCode()).isEqualTo(400);
     }
 

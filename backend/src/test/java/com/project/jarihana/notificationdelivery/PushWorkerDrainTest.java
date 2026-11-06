@@ -90,6 +90,8 @@ class PushWorkerDrainTest extends PushIntegrationTestSupport {
             var running = executor.submit(worker::processDue);
             try {
                 assertThat(committing.await(10, TimeUnit.SECONDS)).isTrue();
+                // 커밋을 막아 둔 채 발송 루프가 미사용 허가를 반환할 때까지 기다린다.
+                assertThat(running.get(5, TimeUnit.SECONDS)).isEqualTo(1);
 
                 // When
                 admission.pause();
@@ -105,7 +107,6 @@ class PushWorkerDrainTest extends PushIntegrationTestSupport {
             } finally {
                 release.countDown();
             }
-            assertThat(running.get(10, TimeUnit.SECONDS)).isEqualTo(1);
         }
         awaitSettled();
         assertThat(admission.state()).isEqualTo(WorkerAdmissionController.State.PAUSED);

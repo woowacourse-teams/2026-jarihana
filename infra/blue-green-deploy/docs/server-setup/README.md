@@ -333,7 +333,9 @@ Nginx 서버의 중앙 수집기는 별도 설치 단위다. 실행 계정, time
 
 1. 기존 worker의 신규 선점을 막고 진행 발송과 DB commit을 마친 뒤 정상 종료한다.
    관리 API의 부재나 응답 거부를 작업 종료의 증거로 삼지 않는다. 기존 앱 교체 시 중단 가능성을 확인한다.
-2. 승인 digest의 앱 A가 READY/PAUSED, inFlight/unresolved 0, HTTP/background drained인지 확인한다.
+2. 승인 digest의 앱 A가 READY/PAUSED, inFlight/unresolved 0, background drained인지 확인한다.
+   bootstrap은 A를 멈추지 않고 worker 권한만 등록하므로 A가 이미 공개 요청을 처리하는 중이어도 된다.
+   채팅 WebSocket 같은 긴 연결이 있으면 HTTP 진행 수는 0이 되지 않으며, bootstrap은 이 값을 요구하지 않는다.
    DB 권한은 null 또는 owner 없는 UNASSIGNED, Nginx 대상은 A, B EC2는 stopped여야 한다.
    정상 종료 증거가 없는 기존 컨테이너는 별도 확인하고 정리한다.
 3. main의 Production Release에서 `blue_green_mode=bootstrap`과 현재 A 이미지의 40자리 SHA를 지정한다.

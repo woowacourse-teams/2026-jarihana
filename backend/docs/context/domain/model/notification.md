@@ -53,7 +53,7 @@ ACTIVITY_POST_REACTED, GROUP_ANNOUNCEMENT_CREATED, CHAT_MESSAGE_RECEIVED. DB의 
 시스템 미승인 원인: RERECRUITMENT 또는 GROUP_ENDED. 사유 본문·신청 내용·토큰은 payload에 넣지 않는다.
 
 payloadVersion은 기존 사건과 초대 사건 모두 1이다. eventType이 데이터 의미를 구분하므로 초대 추가만으로 버전을 나누지 않는다.
-새 모임 알림에는 groupId만, 신청 알림에는 모집·신청 ID가, 초대 알림에는 invitationId가, 공지 알림에는 announcementId가 필요하다. 서로 다른 형태를 섞거나 필수 식별자를 누락하면 거절하며, 알림 생성 시 사건 종류와 payload 형태가 일치하는지 확인한다.
+새 모임·채팅 알림에는 groupId만, 신청 알림에는 모집·신청 ID가, 초대 알림에는 invitationId가, 공지 알림에는 announcementId가 필요하다. 서로 다른 형태를 섞거나 필수 식별자를 누락하면 거절하며, 알림 생성 시 사건 종류와 payload 형태가 일치하는지 확인한다.
 초대 payload·target은 모집·신청 ID를 생략하고 기존 사건에는 invitationId를 추가하지 않아 기존 응답 형태를 유지한다.
 지정 초대는 `invitation:{id}:received` 의미키를 사용한다. 초대·알림·활성 구독별 전송 대기는 같은 트랜잭션에 저장한다.
 공유 링크 발급은 수신 알림을 만들지 않는다.
@@ -97,9 +97,17 @@ payloadVersion은 기존 사건과 초대 사건 모두 1이다. eventType이 �
 알림의 읽음과 채팅의 읽음 순번은 별개이며, 알림을 누르면 현재 소속을 확인하고 해당 채팅방을 연다.
 클릭 목적지는 사건별로 신청 관리·참여자 관리·마이페이지의 해당 참여 모임·미승인 신청·지정 초대장으로 나뉜다. 구체적인 경로는 알림 API 계약을 따른다. 관리 화면의 접근 확인이나 지정 초대 조회가 실패하면 읽음 처리 없이 복귀를 안내한다. 승인·미승인은 모임 개별 조회 없이 마이페이지의 본인 목록에서 해당 모임·신청을 찾아 강조한다.
 
+채팅 알림은 `payloadVersion=1`, `payload={groupId}`로 읽는다. 계약 1·2에서는 목록·상세·미읽음 수·푸시 내용에서
+제외하고, 전체 읽음도 적용하지 않는다. 계약 3에서는 `GROUP_CHAT` 목적지를 반환한다.
+선행 읽기 호환 버전(#586)으로 롤백하면 해당 워커는 채팅 작업을 LIMIT 이전에 제외하여 일반 알림 처리가 막히지 않게 한다.
+채팅 대기·재시도·만료 lease는 그대로 남기며 시도 횟수와 원래 발송 기한을 바꾸지 않는다.
+후속 기능으로 복귀하면 남은 작업을 해당 기능의 정책과 원래 기한에 따라 재판정한다.
+[채팅 알림 호환성 전환](../../../operations/chat-notification-compatibility-rollout.md)을 따른다.
+
 ## PushSubscription (`push_subscriptions`)
 
-물리적 기기 대신 실제 브라우저의 PushSubscription을 저장한다.
+물리적 기기 대신 실제 브라우저의 PushSubscription을 저장한다. `clientVersion`은 1~3을 허용하며,
+V20이 구독 버전 3을 허용한다. 기존 기본값 1과 generation 규칙은 유지한다.
 
 | 필드 | 타입/DB | 규칙 | 왜 필요한가 · 예시 |
 | --- | --- | --- | --- |

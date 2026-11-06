@@ -38,13 +38,14 @@ RestAssured 인수 테스트로 계약을 검증한다. 알림함 API는 Control
 `400 INVALID_PARAMETER`로 거부한다. 저장된 `payloadVersion`은 계속 1이며
 클라이언트의 이해 범위를 고르는 이 파라미터와 별개다.
 
-- 기존 계약에서는 `GROUP_ANNOUNCEMENT_CREATED`를 DB 쿼리에서 제외한 뒤 커서와
-  안 읽은 수를 계산한다. 이 종류의 상세·푸시 내용을 직접 요청하면 404다.
+- 계약 1에서는 공지와 채팅을, 계약 2에서는 `CHAT_MESSAGE_RECEIVED`를 DB 쿼리에서 제외한 뒤
+  커서와 안 읽은 수를 계산한다. 지원하지 않는 종류의 상세·푸시 내용을 직접 요청하면 404다.
 - 계약 2의 공지 알림은 제목 `새 공지`, 모임 이름이 들어간 안내와
   `target: {kind: GROUP_ANNOUNCEMENT, groupId, announcementId}`를 반환한다.
   푸시 payload에는 `groupId`, `announcementId`만 넣는다. 공지 제목·본문은 넣지 않는다.
 - 모든 계약은 기존 인증·본인 알림·활성 구독·generation 검증을 유지한다.
-  구버전에 표시하지 않는 공지 알림을 삭제하거나 읽음 처리하지 않는다.
+  전체 읽음은 해당 계약에 표시하지 않는 공지·채팅 알림을 처리하지 않는다.
+  개별 읽음·삭제는 계약 버전과 무관하게 본인 알림의 식별자로 처리한다.
 - 프론트 API와 새 Service Worker는 `clientVersion=3`을 보낸다. 호환 선배포 단계의
   공지 알림 클릭은 모임 상세로 이동한다. 공지 기능 배포 후에는 별도 공지 권한 확인과
   상세 URL 이동으로 전환한다.
@@ -60,6 +61,16 @@ RestAssured 인수 테스트로 계약을 검증한다. 알림함 API는 Control
   이전 버전으로 바뀐 구독의 미완료 채팅 전송은 취소한다.
 
 배포·롤백 순서는 [공지 알림 호환성 전환](../../../operations/announcement-notification-compatibility-rollout.md)을 따른다.
+
+### 채팅 알림 읽기 선행 배포
+
+- `CHAT_MESSAGE_RECEIVED`와 `payload: {groupId}`를 읽을 수 있다. 계약 3은 제목 `새 메시지`,
+  본문 `‘모임 이름’ 모임에 새 채팅 메시지가 도착했습니다.`, `target: {kind: GROUP_CHAT, groupId}`를 반환한다.
+- V20은 event type과 구독 버전 3의 DB 허용 범위만 넓힌다. 선행 PR #586은 채팅 메시지로 알림을 생성하지 않는다. 현재 기능 PR #579부터 생성한다.
+- 선행 PR #586의 워커는 채팅 전송 작업을 선점하지 않고 일반 알림만 처리한다.
+  현재 기능 PR #579의 워커는 활성 상태·읽음·묶음 처리 정책으로 채팅 전송을 판단한다.
+- 백엔드 HTTP 읽기 호환 범위와 배포·롤백 하한은
+  [채팅 알림 호환성 전환](../../../operations/chat-notification-compatibility-rollout.md)을 따른다.
 
 ### `GET /api/notifications`
 
@@ -530,7 +541,7 @@ Request Body는 없다.
 
 - 기존 `accessToken` 쿠키로 인증한다.
 - 본인의 미삭제 알림, 본인의 활성 구독, 현재 `generation`을 모두 검증한다.
-- payload 버전 1에서 `GROUP_CREATED`는 `groupId`만, `GROUP_ANNOUNCEMENT_CREATED`는 `groupId`, `announcementId`를 포함한다. 기존 신청·참여 사건은 `groupId`, `recruitmentId`, `registrationId`를 포함하고 시스템 미승인에는 `reasonCode`를 추가한다.
+- payload 버전 1에서 `GROUP_CREATED`와 `CHAT_MESSAGE_RECEIVED`는 `groupId`만, `GROUP_ANNOUNCEMENT_CREATED`는 `groupId`, `announcementId`를 포함한다. 기존 신청·참여 사건은 `groupId`, `recruitmentId`, `registrationId`를 포함하고 시스템 미승인에는 `reasonCode`를 추가한다.
 - 새 모임 등록 푸시는 제목 `자리하나?`, 본문 `새로운 모임이 등록되었어요.`로 표시한다. 알림함과 푸시 클릭은 동일한 본인 알림 확인 경로를 거쳐 새 모임 상세로 이동한다.
 - `reasonCode`는 `RERECRUITMENT` 또는 `GROUP_ENDED`다. 신청 본문·미승인 사유 문장·회원명은 포함하지 않는다.
 - 예외로 좋아요 알림(`ACTIVITY_POST_REACTED`)은 OS 알림 문구를 위해 `reactionSummary`에 가장 최근에 누른 회원의 `crewName`을 담는다. 자세한 형식은 아래 [활동 기록 알림 응답 확장 계약](#활동-기록-알림-응답-확장-계약)을 따른다.
@@ -737,7 +748,8 @@ JSON `null`, 잘못된 JSON, 필수 값 누락·0·음수는 `400`이다.
 `V20__chat_message_notifications.sql`은 새 사건과 구독 계약 3을 허용한다.
 브라우저 계약 1·2 호환 처리와 별개로, 이전 백엔드는 새 사건 enum과 구독 계약 3을
 해석하지 못한다. 신규 사건을 기록하기 전 모든 요청·푸시 처리 서버가 이를 읽을 수 있어야 한다.
-신·구 백엔드를 함께 운영하려면 읽기 호환 버전을 먼저 배포해야 하며, 신규 행이 생긴 뒤
+선행 읽기 호환 PR #586은 병합되어 이 브랜치에 반영했다. 환경별 실제 배포 성공은
+[채팅 알림 호환성 전환](../../../operations/chat-notification-compatibility-rollout.md)에 따라 별도로 확인해야 한다. 신규 행이 생긴 뒤
 이를 지원하지 않는 백엔드로 바로 롤백하지 않는다. 운영 배포와 실제 기기의 푸시 수신은
 로컬 통합 테스트의 검증 범위에 포함되지 않는다.
 
