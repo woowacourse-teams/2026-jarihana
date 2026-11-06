@@ -20,6 +20,8 @@ import { storeReturnTarget, useAuth } from "../../features/auth";
 import { gomokuApi, turnMemberId } from "../../features/gomoku/api";
 import { syncGomokuMembership } from "../../features/gomoku/membership";
 import { useGomokuRoom } from "../../features/gomoku/useGomokuRoom";
+import { useGomokuChat } from "../../features/gomoku/useGomokuChat";
+import { GomokuChat } from "../../features/gomoku/GomokuChat";
 import { Board } from "../../features/gomoku/Board";
 import { Stone } from "../../features/gomoku/Stone";
 import { ReadinessControls } from "../../features/gomoku/ReadinessControls";
@@ -667,7 +669,8 @@ function GomokuRoom({ roomId }) {
   const queryClient = useQueryClient();
   const { member } = useAuth();
   const navigate = useNavigate();
-  const { room, connected, pending, error, act, offset } = useGomokuRoom(roomId);
+  const { room, connected, pending, error, act, offset, chatSignal } = useGomokuRoom(roomId);
+  const chat = useGomokuChat(roomId, { connected, closed: room?.status === "CLOSED", chatSignal });
   useEffect(() => {
     if (room?.endReason && ["FINISHED", "CLOSED"].includes(room.status)) {
       void queryClient.invalidateQueries({ queryKey: ["gomoku", "statistics"] });
@@ -825,6 +828,7 @@ function GomokuRoom({ roomId }) {
         {error && (
           <GomokuRoomError key={error} message={error} onDismiss={() => roomFocus.current?.focus()} />
         )}
+        <div className={`gomoku-room-layout${chat.enabled ? " gomoku-room-layout--chat" : ""}`}>
         <section className={`gomoku-arena${waiting ? " gomoku-arena--waiting" : ""}`} aria-label="오목 대국">
           <ul className="gomoku-players">
             {[
@@ -998,6 +1002,8 @@ function GomokuRoom({ roomId }) {
             </footer>
           )}
         </section>
+        {chat.enabled && <GomokuChat chat={chat} memberId={member.id} closed={closed || chat.ended} connected={connected} seconds={seconds} playing={room.status === "PLAYING"} />}
+        </div>
         <ConfirmDialog
           open={Boolean(confirmation)}
           pending={pending}

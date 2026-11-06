@@ -388,3 +388,7 @@ private route다. 경로 정규화에서도 토큰은 `:redacted`로 치환한�
 ### 오목 통계 화면
 
 대기실 탭은 `gomoku_lobby_tab_rooms`, `gomoku_lobby_tab_history`, `gomoku_lobby_tab_ranking`으로 구분한다. 통계 로그인은 `gomoku_statistics_login`, 빈 전적에서 대기방 이동은 `gomoku_history_browse`다. 조회 재시도는 `gomoku_history_retry`, `gomoku_ranking_retry`, 추가 페이지는 `gomoku_history_more`, `gomoku_ranking_more`, 추가 페이지 재시도는 `gomoku_history_more_retry`, `gomoku_ranking_more_retry`다. 회원 이름/ID, 순위/승률, 상대 정보나 검색어를 action 값에 넣지 않으며 기존 텍스트/응답 마스킹을 유지한다.
+
+## 오목 게임방 채팅
+
+채팅 패널과 입력은 data-ph-private로 마스킹한다. 메시지 원문, 이름과 UUID를 분석 이벤트에 보내지 않는다. 고정 action은 gomoku_chat_open, gomoku_chat_dismiss, gomoku_chat_history_load, gomoku_chat_scroll_latest, gomoku_chat_refresh, gomoku_chat_message_input, gomoku_chat_message_submit, gomoku_chat_message_send, gomoku_chat_message_retry다.

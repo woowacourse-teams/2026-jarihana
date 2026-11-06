@@ -6,6 +6,10 @@ import { gomokuApi } from "../../features/gomoku/api";
 import { useGomokuRoom } from "../../features/gomoku/useGomokuRoom";
 import { syncGomokuMembership } from "../../features/gomoku/membership";
 
+jest.mock("../../features/gomoku/useGomokuChat", () => ({
+  useGomokuChat: () => ({ enabled: false })
+}));
+
 jest.mock("react-router", () => {
   const { dirname, join } = require("node:path");
   const packageRoot = dirname(require.resolve("react-router/package.json"));

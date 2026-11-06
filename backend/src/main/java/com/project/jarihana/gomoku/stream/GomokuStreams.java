@@ -5,6 +5,8 @@ import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.gomoku.domain.RoomStatus;
 import com.project.jarihana.gomoku.query.controller.dto.GomokuRoomResponse;
 import com.project.jarihana.gomoku.query.service.GomokuQueryService;
+import com.project.jarihana.gomoku.query.service.GomokuChatQueryService;
+import com.project.jarihana.gomoku.query.service.dto.GomokuChatSignalResult;
 import com.project.jarihana.gomoku.query.service.dto.GomokuRoomResult;
 
 import jakarta.annotation.PreDestroy;
@@ -17,6 +19,8 @@ import java.io.IOException;
 import java.time.Clock;
 import java.util.Map;
 import java.util.Set;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -30,6 +34,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @Component
 public class GomokuStreams implements AutoCloseable, SmartLifecycle {
     private final GomokuQueryService queries;
+    private final GomokuChatQueryService chatQueries;
     private final Clock clock;
     private volatile boolean running;
     private final ConcurrentHashMap<Long, RoomClients> rooms = new ConcurrentHashMap<>();
@@ -37,11 +42,12 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
     private final ScheduledExecutorService ticker =
             Executors.newSingleThreadScheduledExecutor(
                     Thread.ofPlatform().daemon().name("gomoku-stream").factory());
-    private final Semaphore snapshotQueries = new Semaphore(4);
+    private final Semaphore snapshotQueries = new Semaphore(10);
     private final ExecutorService deliveries = Executors.newVirtualThreadPerTaskExecutor();
 
-    public GomokuStreams(GomokuQueryService queries, Clock clock) {
+    public GomokuStreams(GomokuQueryService queries, GomokuChatQueryService chatQueries, Clock clock) {
         this.queries = queries;
+        this.chatQueries = chatQueries;
         this.clock = clock;
         ticker.scheduleWithFixedDelay(this::tick, 500, 500, TimeUnit.MILLISECONDS);
     }
@@ -57,7 +63,10 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
         }
         long lifetime = Math.min(120_000L, expiresAt - clock.millis());
         if (lifetime <= 0) throw new BusinessException(ErrorCode.UNAUTHENTICATED, "다시 로그인해 주세요.");
-        Client client = new Client(roomId, memberId, expiresAt, new SseEmitter(lifetime));
+        List<GomokuChatSignalResult> signals = chatQueries.signals(roomId);
+        UUID participation = signals.stream().filter(signal -> signal.memberId() == memberId)
+                .map(GomokuChatSignalResult::participationId).findFirst().orElse(null);
+        Client client = new Client(roomId, memberId, expiresAt, participation, new SseEmitter(lifetime));
         clients.add(client);
         rooms.compute(
                 roomId,
@@ -70,7 +79,7 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
         client.emitter.onCompletion(client::remove);
         client.emitter.onTimeout(client::close);
         client.emitter.onError(error -> client.remove());
-        client.offer(initial);
+        client.offer(initial, signals);
         return client.emitter;
     }
 
@@ -90,9 +99,7 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
                 room.clients.forEach(Client::close);
                 return;
             }
-            GomokuRoomResult cached = room.snapshot.get();
-            for (Client client : room.clients) client.offer(cached);
-            if (revision <= cached.revision() || !snapshotQueries.tryAcquire()) return;
+            if (!snapshotQueries.tryAcquire()) return;
             if (!room.polling.compareAndSet(false, true)) {
                 snapshotQueries.release();
                 return;
@@ -100,8 +107,16 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
             try {
                 deliveries.submit(() -> {
                     try {
-                        GomokuRoomResult snapshot = room.remember(queries.loadSnapshot(id));
-                        for (Client client : room.clients) client.offer(snapshot);
+                        GomokuRoomResult cached = room.snapshot.get();
+                        GomokuRoomResult snapshot = revision > cached.revision()
+                                ? room.remember(queries.loadSnapshot(id)) : cached;
+                        List<GomokuChatSignalResult> signals;
+                        try {
+                            signals = chatQueries.signals(id);
+                        } catch (RuntimeException exception) {
+                            signals = null;
+                        }
+                        for (Client client : room.clients) client.offer(snapshot, signals);
                     } catch (RuntimeException exception) {
                         room.clients.forEach(Client::close);
                     } finally {
@@ -167,25 +182,35 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
         private final long roomId;
         private final long memberId;
         private final long expiresAt;
+        private final UUID participationId;
         private final SseEmitter emitter;
         private final AtomicBoolean writing = new AtomicBoolean();
         private final AtomicBoolean closed = new AtomicBoolean();
         private long sent = -1;
+        private long chatSent = -1;
         private long lastSentAt;
 
-        private Client(long roomId, long memberId, long expiresAt, SseEmitter emitter) {
+        private Client(long roomId, long memberId, long expiresAt, UUID participationId, SseEmitter emitter) {
             this.roomId = roomId;
             this.memberId = memberId;
             this.expiresAt = expiresAt;
+            this.participationId = participationId;
             this.emitter = emitter;
         }
 
-        private void offer(GomokuRoomResult snapshot) {
+        private void offer(GomokuRoomResult snapshot, List<GomokuChatSignalResult> signals) {
             if (!running || closed.get() || !writing.compareAndSet(false, true)) return;
             deliveries.submit(
                     () -> {
                         try {
                             if (clock.millis() >= expiresAt || !snapshot.contains(memberId)) {
+                                close();
+                                return;
+                            }
+                            GomokuChatSignalResult chat = signals == null ? null : signals.stream()
+                                    .filter(signal -> signal.memberId() == memberId).findFirst().orElse(null);
+                            if (snapshot.status() != RoomStatus.CLOSED && signals != null && participationId != null
+                                    && (chat == null || !participationId.equals(chat.participationId()))) {
                                 close();
                                 return;
                             }
@@ -203,6 +228,11 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
                                 lastSentAt = clock.millis();
                             }
                             if (snapshot.status() == RoomStatus.CLOSED) close();
+                            else if (chat != null && chat.latestSequence() > chatSent) {
+                                emitter.send(SseEmitter.event().name("chat_changed").data(GomokuChatChanged.from(chat)));
+                                chatSent = chat.latestSequence();
+                                lastSentAt = clock.millis();
+                            }
                         } catch (IOException exception) {
                             remove();
                         } catch (IllegalStateException exception) {

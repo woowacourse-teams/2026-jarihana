@@ -780,3 +780,7 @@ HTTP 목록/상세에는 공통 응답 봉투가 있고 SSE에는 없다.
 - `GomokuHistoryAcceptanceTest`가 제거된 설정에 false가 남아 있어도 수집하는지와 재대결, 퇴장, 기권, 시간패, 무승부, 정상 승리/중복 요청, 동시 만료, 기록 실패 롤백, 인증, 커서와 집계를 검증한다. 서로 다른 앱 버전이 동시에 동작하는 배포 검증은 포함하지 않는다.
 - `./gradlew gomokuCutoverTest`는 독립된 두 애플리케이션 JVM과 하나의 격리된 PostgreSQL 17을 실행한다. 실제 HTTP 요청 대상을 이전 서버에서 새 서버로 바꾸어 승리/재대결/재요청을 검증하고, 이전 JVM의 SIGTERM 종료 후 새 서버의 착수/시간패 기록을 검증한다. 양쪽 `GomokuExpiry`를 활성화한 상태에서 같은 방 잠금에 두 작업이 실제로 대기하는 것을 DB에서 확인한 뒤, 기록 한 건과 revision 한 번 증가를 검증한다. 별도 JVM/컨테이너 실행이 필요한 이 검사는 기본 `test`와 분리한다.
 - 위 태스크의 Nginx 시나리오는 운영 [Nginx 템플릿](../../../../../infra/blue-green-deploy/nginx/nginx.conf.template)을 그대로 렌더링하고, 실제 upstream을 관측하는 테스트 전용 응답 헤더만 추가한다. digest로 고정한 Nginx 1.30.5 컨테이너에서 `nginx -t`, 설정 교체, reload, 3회 연속 upstream probe 확인을 수행한다. 같은 master PID를 유지하며 실제 게임 요청의 upstream 헤더와 접근 로그가 이전/새 JVM 포트로 전환되는지 검증한다. 이전 worker에 열린 SSE가 새 JVM의 승리 결과를 받는 경우와 worker 배출 뒤 이전 JVM을 종료하고 시간패/재대결 기록을 저장하는 경우를 포함한다. Nginx 시나리오만 실행하려면 `./gradlew gomokuCutoverTest --tests '*Nginx*'`를 사용한다. 두 JVM은 같은 기록 지원 빌드이며 운영 EC2/CloudFront 배포 파이프라인이나 서로 다른 릴리스 간 호환성은 검증하지 않는다.
+
+## 게임방 채팅
+
+참가자 채팅은 [별도 계약](gomoku-chat.md)과 [운영 가이드](../../../operations/gomoku-chat.md)를 따른다. 모임 채팅과 별개이며 기본 비활성이다.

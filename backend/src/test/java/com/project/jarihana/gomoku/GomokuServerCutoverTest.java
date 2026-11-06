@@ -398,6 +398,50 @@ class GomokuServerCutoverTest {
 
     private record Player(long id, String token) {}
 
+    @Test
+    @DisplayName("두 서버와 Nginx 전환에서도 채팅 알림, 재접속과 중복 요청을 복구하고 종료 시 삭제한다")
+    void recoversChatAcrossServersAndProxyReload() throws Exception {
+        // Given
+        Player host = member("가온", "chat-cutover-host"), guest = member("해솔", "chat-cutover-guest");
+        try (Nginx proxy = Nginx.start(oldServer, newServer, logs)) {
+            long room = startRoom(proxy, host, guest);
+            String path = ROOT + "/rooms/" + room + "/chat/messages";
+            String participation = oldServer.request(host).get(path).then().statusCode(200)
+                    .extract().jsonPath().getString("data.participationId");
+            String receiver = newServer.request(guest).get(path).then().statusCode(200)
+                    .extract().jsonPath().getString("data.participationId");
+            var body = Map.of("participationId", participation, "clientMessageId", UUID.randomUUID(), "content", "서버 간 대화");
+            long revision = snapshot(proxy, host, room).getLong("data.revision");
+            try (SnapshotStream stream = new SnapshotStream(proxy, guest, room, oldServer.port)) {
+                stream.awaitPly(0);
+
+                // When
+                newServer.request(host).body(body).post(path).then().statusCode(201);
+                oldServer.request(host).body(body).post(path).then().statusCode(200);
+
+                // Then
+                var event = stream.awaitChat("1");
+                assertEquals(receiver, event.getString("participationId"));
+                assertFalse(event.getMap("").containsKey("content"));
+                assertEquals(revision, snapshot(oldServer, host, room).getLong("data.revision"));
+                proxy.switchTo(newServer, "new");
+                proxy.request(guest).queryParam("afterSequence", "0").get(path).then().statusCode(200)
+                        .body("data.items", hasSize(1)).body("data.items[0].content", equalTo("서버 간 대화"));
+                oldServer.request(host).body(Map.of("participationId", participation,
+                        "clientMessageId", UUID.randomUUID(), "content", "전환 중 대화"))
+                        .post(path).then().statusCode(201);
+                stream.awaitChat("2");
+            }
+            try (SnapshotStream reconnected = new SnapshotStream(proxy, guest, room, newServer.port)) {
+                assertEquals(receiver, reconnected.awaitChat("2").getString("participationId"));
+                proxy.request(guest).queryParam("afterSequence", "1").get(path).then().statusCode(200)
+                        .body("data.items", hasSize(1)).body("data.items[0].sequence", equalTo("2"));
+            }
+            proxy.request(host).post(ROOT + "/rooms/" + room + "/leave").then().statusCode(200);
+            assertEquals(0, jdbc.queryForObject("select count(*) from gomoku_chat_message where room_id=?", Integer.class, room));
+        }
+    }
+
     private interface Endpoint {
         RequestSpecification request(Player player);
     }
@@ -419,7 +463,8 @@ class GomokuServerCutoverTest {
                     "--spring.datasource.username=" + DATABASE.getUsername(),
                     "--spring.datasource.password=" + DATABASE.getPassword(),
                     "--spring.datasource.hikari.data-source-properties.ApplicationName=" + name,
-                    "--gomoku.expiry.enabled=true", "--chat.listener.enabled=false", "--jarihana.push.enabled=false")
+                    "--gomoku.expiry.enabled=true", "--gomoku.chat.enabled=true",
+                    "--chat.listener.enabled=false", "--jarihana.push.enabled=false")
                     .redirectErrorStream(true).redirectOutput(log.toFile()).start();
             try {
                 Pattern started = Pattern.compile("Tomcat started on port (\\d+)");
@@ -606,6 +651,7 @@ class GomokuServerCutoverTest {
         private final InputStream input;
         private final Thread reader;
         private final BlockingQueue<JsonPath> snapshots = new LinkedBlockingQueue<>();
+        private final BlockingQueue<JsonPath> chatChanges = new LinkedBlockingQueue<>();
         private volatile IOException readFailure;
 
         private SnapshotStream(Nginx proxy, Player player, long room, int expectedUpstream) throws Exception {
@@ -620,8 +666,14 @@ class GomokuServerCutoverTest {
             reader = Thread.ofVirtual().start(() -> {
                 try (var lines = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
                     String line;
+                    String event = "";
                     while ((line = lines.readLine()) != null) {
-                        if (line.startsWith("data:")) snapshots.add(new JsonPath(line.substring(5).stripLeading()));
+                        if (line.startsWith("event:")) event = line.substring(6).strip();
+                        else if (line.startsWith("data:")) {
+                            var data = new JsonPath(line.substring(5).stripLeading());
+                            if (event.equals("snapshot")) snapshots.add(data);
+                            else if (event.equals("chat_changed")) chatChanges.add(data);
+                        } else if (line.isEmpty()) event = "";
                     }
                 } catch (IOException exception) {
                     readFailure = exception;
@@ -636,6 +688,15 @@ class GomokuServerCutoverTest {
                 if (snapshot != null && snapshot.getInt("ply") == ply) return snapshot;
             }
             throw new AssertionError("The original proxied SSE connection did not receive ply " + ply, readFailure);
+        }
+
+        private JsonPath awaitChat(String sequence) throws InterruptedException {
+            long limit = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+            while (System.nanoTime() < limit) {
+                JsonPath event = chatChanges.poll(100, TimeUnit.MILLISECONDS);
+                if (event != null && event.getString("latestSequence").equals(sequence)) return event;
+            }
+            throw new AssertionError("The proxied SSE did not receive chat sequence " + sequence, readFailure);
         }
 
         @Override
