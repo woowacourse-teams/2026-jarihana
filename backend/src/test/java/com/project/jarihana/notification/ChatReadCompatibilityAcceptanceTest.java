@@ -25,8 +25,9 @@ import org.springframework.boot.flyway.autoconfigure.FlywayMigrationStrategy;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
 
@@ -34,6 +35,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @Import(ChatReadCompatibilityAcceptanceTest.FutureSchema.class)
 class ChatReadCompatibilityAcceptanceTest extends NotificationIntegrationTestSupport {
+
+    private static final String MEMBER_ACTIVITY_UNLOGGED_SCRIPT = "__member_activity_unlogged.sql";
 
     @Autowired private AccessTokenProvider tokens;
     @Autowired private AuthCookieProperties cookies;
@@ -45,9 +48,11 @@ class ChatReadCompatibilityAcceptanceTest extends NotificationIntegrationTestSup
     @TestConfiguration(proxyBeanMethods = false)
     static class FutureSchema {
         @Bean
-        FlywayMigrationStrategy migrateFutureSchemaBeforeCompatibilityApp() {
+        FlywayMigrationStrategy migrateFutureSchemaBeforeCompatibilityApp() throws IOException {
+            boolean hasFutureSchema = new PathMatchingResourcePatternResolver()
+                    .getResources("classpath*:db/migration/V*" + MEMBER_ACTIVITY_UNLOGGED_SCRIPT).length > 0;
             return original -> {
-                String[] locations = new ClassPathResource("db/migration/V21__chat_views.sql").exists()
+                String[] locations = hasFutureSchema
                         ? new String[]{"classpath:db/migration"}
                         : new String[]{"classpath:db/migration", "classpath:db/chat-compatibility"};
                 Flyway.configure().configuration(original.getConfiguration()).locations(locations).load().migrate();
@@ -57,7 +62,7 @@ class ChatReadCompatibilityAcceptanceTest extends NotificationIntegrationTestSup
     }
 
     @Test
-    @DisplayName("호환 앱은 후속 V23 UNLOGGED 스키마와 채팅 알림을 보존한 채 기본 Flyway 검증을 통과한다.")
+    @DisplayName("호환 앱은 후속 UNLOGGED 스키마와 채팅 알림을 보존한 채 기본 Flyway 검증을 통과한다.")
     void compatibilityAppAcceptsFutureChatSchemaWithoutRewritingHistoryOrNotifications() {
         // Given
         long id = futureChat(member("101"));
@@ -73,8 +78,10 @@ class ChatReadCompatibilityAcceptanceTest extends NotificationIntegrationTestSup
         assertThat(applied).isZero();
         assertThat(jdbc.queryForList("select * from flyway_schema_history order by installed_rank")).isEqualTo(history);
         assertThat(jdbc.queryForMap("select * from notifications where id = ?", id)).isEqualTo(notification);
-        assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '23'", String.class))
-                .isEqualTo("V23__member_activity_unlogged.sql");
+        assertThat(jdbc.queryForObject(
+                "select script from flyway_schema_history where description = ? and success",
+                String.class, "member activity unlogged"))
+                .endsWith(MEMBER_ACTIVITY_UNLOGGED_SCRIPT);
         assertThat(jdbc.queryForObject("select relpersistence from pg_class where oid = 'member_activity'::regclass", String.class))
                 .isEqualTo("u");
     }

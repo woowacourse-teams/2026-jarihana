@@ -16,8 +16,9 @@ public record GomokuLobbyRoomResponse(
         String guestAvatarUrl,
         RoomVisibility visibility,
         GomokuRule rule,
-        RoomStatus status) {
-    public static GomokuLobbyRoomResponse from(GomokuRoomResult value) {
+        RoomStatus status,
+        long spectatorCount) {
+    public static GomokuLobbyRoomResponse from(GomokuRoomResult value, long spectatorCount) {
         return new GomokuLobbyRoomResponse(
                 value.id(),
                 value.hostMemberId(),
@@ -28,6 +29,7 @@ public record GomokuLobbyRoomResponse(
                 value.guestGithubId() == null ? null : GithubAvatarUrl.from(value.guestGithubId()),
                 value.visibility(),
                 value.rule(),
-                value.status());
+                value.status(),
+                spectatorCount);
     }
 }

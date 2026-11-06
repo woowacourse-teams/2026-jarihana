@@ -131,3 +131,17 @@ test("board forwards appearance registry while keeping rule color", () => {
     "gomoku-stone--black"
   );
 });
+
+test("read-only board preserves arrow navigation and blocks selection and double-click moves", () => {
+  const onSelect = jest.fn();
+  const onConfirm = jest.fn();
+  render(<Board room={snapshot} readOnly onSelect={onSelect} onConfirm={onConfirm} />);
+  const center = screen.getByRole("button", { name: "H8, 빈 자리" });
+  expect(center).toHaveAttribute("aria-disabled", "true");
+  fireEvent.click(center);
+  fireEvent.doubleClick(center);
+  expect(onSelect).not.toHaveBeenCalled();
+  expect(onConfirm).not.toHaveBeenCalled();
+  fireEvent.keyDown(center, { key: "ArrowRight" });
+  expect(screen.getByRole("button", { name: "I8, 빈 자리" })).toHaveFocus();
+});

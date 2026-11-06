@@ -1,6 +1,7 @@
 package com.project.jarihana.gomoku.stream;
 
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.after;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -14,6 +15,8 @@ import static org.mockito.Mockito.when;
 
 import com.project.jarihana.gomoku.domain.RoomStatus;
 import com.project.jarihana.gomoku.query.service.GomokuQueryService;
+import com.project.jarihana.gomoku.query.service.GomokuChatQueryService;
+import com.project.jarihana.gomoku.command.service.GomokuObservationService;
 import com.project.jarihana.gomoku.query.service.dto.GomokuRoomResult;
 
 import org.junit.jupiter.api.AfterEach;
@@ -25,10 +28,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -44,10 +48,10 @@ class GomokuStreamsTest {
         when(initial.revision()).thenReturn(1L);
         when(initial.contains(anyLong())).thenReturn(true);
         when(initial.status()).thenReturn(RoomStatus.WAITING);
-        when(queries.getRoom(anyLong(), anyLong())).thenReturn(initial);
+        when(queries.getRoom(anyLong(), anyLong(), isNull())).thenReturn(initial);
         when(queries.loadSnapshot(anyLong())).thenReturn(initial);
         when(queries.findRevisions(any())).thenReturn(Map.of(1L, 1L));
-        streams = new GomokuStreams(queries, Clock.fixed(Instant.ofEpochMilli(1000), ZoneOffset.UTC));
+        streams = new GomokuStreams(queries, mock(GomokuChatQueryService.class), mock(GomokuObservationService.class), Clock.fixed(Instant.ofEpochMilli(1000), ZoneOffset.UTC));
         ((ScheduledExecutorService) ReflectionTestUtils.getField(streams, "ticker")).shutdownNow();
         streams.start();
     }
@@ -55,6 +59,19 @@ class GomokuStreamsTest {
     @AfterEach
     void tearDown() {
         streams.close();
+    }
+
+    @Test
+    @DisplayName("활성 게임방이 없어도 만료된 관전 연결을 정리한다")
+    void cleansObserverLeasesWithoutActiveRooms() {
+        // Given
+        var observations = (GomokuObservationService) ReflectionTestUtils.getField(streams, "observations");
+        ReflectionTestUtils.setField(streams, "lastCleanup", -15_000L);
+        // When
+        ReflectionTestUtils.invokeMethod(streams, "tick");
+        // Then
+        verify(observations, timeout(1000)).removeExpiredConnections();
+        verify(queries, after(100).never()).findRevisions(any());
     }
 
     @Test
@@ -88,13 +105,16 @@ class GomokuStreamsTest {
     }
 
     @Test
-    @DisplayName("DB가 느려도 상세 조회는 최대 네 개이며 같은 방의 조회가 겹치지 않는다")
+    @DisplayName("DB가 느려도 상세 조회는 최대 열 개이며 같은 방의 조회가 겹치지 않는다")
     void boundsSlowQueriesWithoutOverlappingRoomPolls() throws Exception {
         // Given
-        for (long id = 1; id <= 6; id++) streams.subscribe(id, id, 120000L);
-        when(queries.findRevisions(any())).thenReturn(Map.of(1L, 2L, 2L, 2L, 3L, 2L,
-                4L, 2L, 5L, 2L, 6L, 2L));
-        CountDownLatch entered = new CountDownLatch(4);
+        Map<Long, Long> revisions = new HashMap<>();
+        for (long id = 1; id <= 11; id++) {
+            streams.subscribe(id, id, 120000L);
+            revisions.put(id, 2L);
+        }
+        when(queries.findRevisions(any())).thenReturn(revisions);
+        CountDownLatch entered = new CountDownLatch(10);
         CountDownLatch release = new CountDownLatch(1);
         AtomicInteger active = new AtomicInteger();
         AtomicInteger maximum = new AtomicInteger();
@@ -112,8 +132,8 @@ class GomokuStreamsTest {
             assertTrue(entered.await(2, TimeUnit.SECONDS));
             for (int index = 0; index < 5; index++) ReflectionTestUtils.invokeMethod(streams, "tick");
             // Then
-            assertEquals(4, maximum.get());
-            verify(queries, times(4)).loadSnapshot(anyLong());
+            verify(queries, after(100).times(10)).loadSnapshot(anyLong());
+            assertEquals(10, maximum.get());
         } finally { release.countDown(); }
     }
 

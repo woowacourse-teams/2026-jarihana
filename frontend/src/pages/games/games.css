@@ -189,6 +189,12 @@
   font-size: var(--text-caption);
   margin-left: var(--space-1);
 }
+.games-room-spectators {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
 .games-room-join[data-other-room] {
   background: var(--color-surface-sunken);
   border-color: transparent;

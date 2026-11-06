@@ -2,6 +2,10 @@ server:
   servlet:
     context-path: /api
 
+gomoku:
+  chat:
+    enabled: ${GOMOKU_CHAT_ENABLED:false}
+
 chat:
   allowed-origins: ${CHAT_ALLOWED_ORIGINS:${FRONTEND_ORIGIN:http://localhost:5173}}
   listener:
