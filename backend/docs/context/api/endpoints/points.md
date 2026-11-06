@@ -2,11 +2,6 @@
 
 가입을 마친 회원이 본인의 잔액, 한도, 적립 내역을 조회하고 기존 소속 보상을 요청한다. 모든 요청은 [API 공통 설계](../common-contract.md)를 따른다.
 
-- [포인트 도메인 모델](../../domain/model/points.md)
-- [적립 조건과 지급액](../../domain/business-policies.md#포인트-적립)
-- [새 기능에 적립 연결](../../../point-reward-integration.md)
-- [배포와 장애 복구](../../../operations/points.md)
-
 ## 잔액과 이번 주 한도
 
 `GET /api/members/me/points`
