@@ -56,12 +56,16 @@ public interface GomokuQueryRepository extends Repository<GomokuRoom, Long> {
     @Query(
             SNAPSHOT_QUERY
                 + " where r.visibility=com.project.jarihana.gomoku.domain.RoomVisibility.PUBLIC and"
-                + " r.status=com.project.jarihana.gomoku.domain.RoomStatus.WAITING and"
-                + " r.guestMemberId is null and r.touchedAt>:idle"
+                + " ((r.status=com.project.jarihana.gomoku.domain.RoomStatus.WAITING and"
+                + " r.guestMemberId is null and r.touchedAt>:idle) or"
+                + " (:includePlaying=true and r.status=com.project.jarihana.gomoku.domain.RoomStatus.PLAYING and"
+                + " r.turnDeadline>:now))"
                 + " and (:keyword='' or locate(lower(:keyword),lower(r.hostName))>0)"
                 + " and (r.createdAt<:before or"
                 + " (r.createdAt=:before and r.id<:beforeId)) order by r.createdAt desc,r.id desc")
     List<GomokuRoomProjection> lobby(
+            boolean includePlaying,
+            LocalDateTime now,
             LocalDateTime idle,
             LocalDateTime before,
             long beforeId,
