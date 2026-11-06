@@ -50,6 +50,10 @@ class MemberActivityPersistenceTest extends NotificationIntegrationTestSupport {
         assertThat(jdbc.queryForObject("select count(*) from member_activity", Long.class))
                 .isEqualTo(1);
         assertThat(lastActiveAt(owner)).isEqualTo(NOW.plusSeconds(19));
+        assertThat(jdbc.queryForObject(
+                        "select relpersistence::text from pg_class where oid = 'member_activity'::regclass",
+                        String.class))
+                .isEqualTo("u");
         commands.reportActive(owner.getId());
         assertThat(lastActiveAt(owner)).isEqualTo(NOW.plusSeconds(19));
     }

@@ -1,6 +1,6 @@
 # 알림함·웹푸시
 
-> 상태: 알림함 API 6개, 구독·공개 설정·푸시 내용 조회 API 5개, 채팅 화면 상태 API 1개와 로그아웃 확장을 구현했다.
+> 상태: 알림함 API 6개, 구독·공개 설정·푸시 내용 조회 API 5개, 기존 채팅 STOMP의 계정 활성 보고와 로그아웃 확장을 구현했다.
 > 알림함 화면·Service Worker 연결을 구현했다. 환경별 검증 상태는 [웹푸시 운영 가이드](../../../operations/web-push.md#구현과-검증-상태)를 따른다.
 
 [API 공통 설계](../common-contract.md)를 따른다. 구현 시 Controller·요청/응답 DTO·ErrorCode와
@@ -743,6 +743,9 @@ JSON `null`, 잘못된 JSON, 필수 값 누락·0·음수는 `400`이다.
 
 ### 계정 활성 보고
 
+정책과 저장소 선택, 작성자가 수용한 장애 영향은
+[백엔드 ADR 0030](../../../adr/0030-account-activity-and-unlogged-chat-push.md)을 따른다.
+
 기존 채팅 STOMP 연결의 `SEND /app/presence/active`만 활성 보고에 사용한다. 본문은 비운다.
 서버는 인증된 소켓의 회원과 주입 Clock의 시각만 사용하고, 클라이언트 회원 ID·시각은 사용하지 않는다.
 기존 handshake 인증·Origin·CONNECT CSRF 검증과 개인 구독 제한을 유지한다.
@@ -788,6 +791,9 @@ WebSocket을 재사용해도 DB 갱신 비용은 남는다.
 
 로컬 DB에 이미 적용된 `V20__chat_message_notifications.sql`, `V21__chat_views.sql`은 수정하지 않는다.
 `V22__member_activity_and_deferred_chat_push.sql`에서 `member_activity`와 묶음 조회 인덱스를 만들고 사용하지 않는 `chat_views`를 제거한다.
+`V23__member_activity_unlogged.sql`은 적용된 V22를 수정하지 않고 `member_activity`와 그 인덱스를 UNLOGGED로 전환한다.
+로컬 Flyway 적용과 `relpersistence=u`를 확인했다. 회원·메시지·읽음·알림·전송 대기는 LOGGED를 유지하며 운영 배포는 별도다.
+전환은 테이블 재작성·ACCESS EXCLUSIVE 잠금을 수반한다. PostgreSQL 비정상 종료 뒤 재보고 전까지 일시적인 추가 푸시가 갈 수 있다는 영향은 ADR 결정자가 수용했다.
 기존 `chat_views`를 조회하는 구버전 워커와 새 스키마를 동시에 운영할 수 없으므로,
 전환 시 이전 워커를 먼저 중단하고 새 서버·프론트를 함께 적용해야 한다.
 운영 배포 및 실제 기기의 외부 푸시 수신은 로컬 검증과 구분한다.

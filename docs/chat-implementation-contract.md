@@ -4,6 +4,11 @@
 모임 종료 즉시 새 메시지는 금지하고 이력 조회와 읽음 갱신은 허용한다.
 새 참여자는 이전 이력을 볼 수 있으며 가입 전 메시지는 미확인 수에서 제외한다.
 
+계정 활성 기준의 채팅 푸시 보류와 상태 저장소 선택은
+[백엔드 ADR 0030](../backend/docs/adr/0030-account-activity-and-unlogged-chat-push.md)에 기록한다.
+V23에서 `member_activity`만 UNLOGGED로 전환한다. 로컬 적용을 확인했으며 운영 배포는 별도다.
+PostgreSQL 비정상 종료 후 재보고 전까지 잠깐 추가 푸시가 갈 수 있다는 영향은 결정자가 수용했다.
+
 ## HTTP
 
 기존 `{success,data,error}` envelope를 사용한다. 아래는 data 필드다.
