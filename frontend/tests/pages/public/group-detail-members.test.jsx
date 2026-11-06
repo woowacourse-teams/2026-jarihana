@@ -127,13 +127,14 @@ it("keeps a coach leader's profile information", () => {
   expect(memberNames()[0]).toBe("써니");
 });
 
-it("labels bootcamp and professional members by type and groups them in the cohort chart", () => {
+it("labels bootcamp, professional and basic members by type and groups them in the cohort chart", () => {
   mockMemberQuery.data = {
     pages: [{
       items: [
         leaderMember,
         { groupMemberId: 4, memberId: 21, crewName: "도담", memberType: "BOOTCAMP", generation: null, role: "MEMBER" },
-        { groupMemberId: 5, memberId: 22, crewName: "하나", memberType: "PROFESSIONAL", generation: null, role: "MEMBER" }
+        { groupMemberId: 5, memberId: 22, crewName: "하나", memberType: "PROFESSIONAL", generation: null, role: "MEMBER" },
+        { groupMemberId: 6, memberId: 23, crewName: "바다", memberType: "MEMBER", generation: null, role: "MEMBER" }
       ]
     }]
   };
@@ -144,8 +145,10 @@ it("labels bootcamp and professional members by type and groups them in the coho
   const cardOf = (name) => cards.find((card) => card.textContent.includes(name));
   expect(within(cardOf("도담")).getByText("부트캠프")).toBeVisible();
   expect(within(cardOf("하나")).getByText("현직자")).toBeVisible();
+  expect(within(cardOf("바다")).getByText("멤버")).toBeVisible();
   expect(screen.getByLabelText(/^부트캠프\s\S\s1명$/)).toBeInTheDocument();
   expect(screen.getByLabelText(/^현직자\s\S\s1명$/)).toBeInTheDocument();
+  expect(screen.getByLabelText(/^멤버\s\S\s1명$/)).toBeInTheDocument();
   expect(screen.queryByLabelText(/기수 미정/)).not.toBeInTheDocument();
 });
 
