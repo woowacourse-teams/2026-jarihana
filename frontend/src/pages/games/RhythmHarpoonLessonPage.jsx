@@ -5,7 +5,6 @@ import { ArrowLeft, SlidersHorizontal } from "lucide-react";
 import { Button } from "../../shared/ui";
 import { RhythmScore } from "../../features/game/rhythm/RhythmScore.jsx";
 import {
-  DEFAULT_LESSON_SETTINGS,
   LESSON_SPEEDS,
   LESSON_STEPS,
   LESSON_TEMPOS,
@@ -13,8 +12,10 @@ import {
   browserStorage,
   markLessonStep,
   readLessonProgress,
+  readLessonSettings,
   skipLesson,
-  writeLessonProgress
+  writeLessonProgress,
+  writeLessonSettings
 } from "../../features/game/rhythm/lesson.mjs";
 import { mountLessonGame } from "../../features/game/rhythm/mount-lesson-game.mjs";
 import "../../features/game/rhythm/rhythm-game.css";
@@ -126,8 +127,10 @@ export function RhythmHarpoonLessonPage() {
   const rootReference = useRef(null);
   const playerReference = useRef(null);
   const [stepIndex, setStepIndex] = useState(0);
-  const [bpm, setBpm] = useState(DEFAULT_LESSON_SETTINGS.bpm);
-  const [scrollSpeed, setScrollSpeed] = useState(DEFAULT_LESSON_SETTINGS.scrollSpeed);
+  // 빠르기와 배속은 지난번 값을 되살리고 바꿀 때마다 저장한다.
+  const [savedSettings] = useState(() => readLessonSettings(browserStorage()));
+  const [bpm, setBpm] = useState(savedSettings.bpm);
+  const [scrollSpeed, setScrollSpeed] = useState(savedSettings.scrollSpeed);
   const [progress, setProgress] = useState(() => readLessonProgress(browserStorage()));
   const [phase, setPhase] = useState("loading");
   const [result, setResult] = useState(null);
@@ -238,7 +241,7 @@ export function RhythmHarpoonLessonPage() {
                   width="900"
                   height="900"
                   tabIndex="0"
-                  aria-label="따라 하기 판. 세균 중심이 굵은 판정선에 닿을 때 화살표 또는 WASD로 같은 방향을 눌러요"
+                  aria-label="따라 하기 판. 세균 중심이 굵은 판정선에 닿을 때 화살표 또는 설정한 키로 같은 방향을 눌러요"
                 >
                   브라우저의 Canvas 지원이 필요해요.
                 </canvas>
@@ -309,7 +312,12 @@ export function RhythmHarpoonLessonPage() {
                       key={tempo.bpm}
                       aria-pressed={tempo.bpm === bpm}
                       data-ph-capture-attribute-action={tempo.action}
-                      onClick={() => reset(() => setBpm(tempo.bpm))}
+                      onClick={() =>
+                        reset(() => {
+                          setBpm(tempo.bpm);
+                          writeLessonSettings(browserStorage(), { bpm: tempo.bpm, scrollSpeed });
+                        })
+                      }
                       type="button"
                     >
                       {tempo.label}
@@ -327,7 +335,12 @@ export function RhythmHarpoonLessonPage() {
                       key={speed}
                       aria-pressed={speed === scrollSpeed}
                       data-ph-capture-attribute-action="rhythm_lesson_speed_change"
-                      onClick={() => reset(() => setScrollSpeed(speed))}
+                      onClick={() =>
+                        reset(() => {
+                          setScrollSpeed(speed);
+                          writeLessonSettings(browserStorage(), { bpm, scrollSpeed: speed });
+                        })
+                      }
                       type="button"
                     >
                       ×{speed.toFixed(1)}

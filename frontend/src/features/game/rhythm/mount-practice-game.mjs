@@ -5,8 +5,15 @@ import { Renderer } from "./render.mjs";
 import { SyncCalibrationUI } from "./sync-ui.mjs";
 import { readOffset, writeOffset } from "./calibration.mjs";
 import { NOTE_SYLLABLES } from "./lesson.mjs";
+import {
+  DEFAULT_KEYMAP,
+  isRetryKey,
+  laneForKey,
+  readPracticeSettings,
+  writePracticeSettings
+} from "./preferences.mjs";
 
-export function mountPracticeGame({ root, onReady, onError, onPlayingChange }) {
+export function mountPracticeGame({ root, onReady, onError, onPlayingChange, keyBindings }) {
   const document = root.ownerDocument;
   const lifetime = new AbortController();
   const listen = (target, type, handler, options = {}) =>
@@ -46,6 +53,32 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange }) {
   }
   $("offset").value = String(readOffset(offsetStorage));
   updateOffsetLabel();
+  // 지난번 연습 설정(난이도, 배속, 음량, 표시 옵션)을 되살린다. 저장된 값이 없으면 화면의 기본값을 쓴다.
+  const saved = readPracticeSettings(offsetStorage);
+  if (saved) {
+    level = saved.level;
+    choices.forEach((choice) =>
+      choice.setAttribute("aria-pressed", String(choice.dataset.level === level))
+    );
+    $("difficulty-copy").textContent = LEVELS[level].description;
+    $("rate").value = String(saved.rate);
+    $("volume").value = String(saved.volume);
+    $("volume-value").textContent = saved.volume + "%";
+    $("timing-feedback").checked = saved.timingFeedback;
+    $("note-labels").checked = saved.labels;
+  }
+
+  function saveSettings() {
+    writePracticeSettings(offsetStorage, {
+      level,
+      rate: Number($("rate").value),
+      volume: Number($("volume").value),
+      timingFeedback: $("timing-feedback").checked,
+      labels: $("note-labels").checked
+    });
+  }
+
+  const keymap = () => keyBindings?.get?.() ?? DEFAULT_KEYMAP;
 
   function updateOffsetLabel() {
     const value = Number($("offset").value);
@@ -303,6 +336,7 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange }) {
       choices.forEach((choice) => choice.setAttribute("aria-pressed", String(choice === button)));
       $("difficulty-copy").textContent = LEVELS[level].description;
       setLife(LEVELS[level].lives, LEVELS[level].lives);
+      saveSettings();
       restartFromSettings();
     })
   );
@@ -317,21 +351,21 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange }) {
         return;
       }
       if (event.target?.tagName === "SELECT") return;
-      const keys = {
-        ArrowLeft: "left",
-        ArrowDown: "down",
-        ArrowRight: "right",
-        ArrowUp: "up",
-        KeyA: "left",
-        KeyS: "down",
-        KeyD: "right",
-        KeyW: "up",
-        a: "left",
-        s: "down",
-        d: "right",
-        w: "up"
-      };
-      const lane = keys[event.code] || keys[event.key] || keys[event.key?.toLowerCase()];
+      // 키 배치를 바꾸는 중에는 누른 키를 게임 조작으로 쓰지 않는다.
+      if (keyBindings?.capturing?.()) return;
+      const bindings = keymap();
+      const typing = ["INPUT", "TEXTAREA"].includes(event.target?.tagName);
+      if (
+        !typing &&
+        isRetryKey(bindings, event) &&
+        (state === "running" || state === "paused" || state === "over")
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!event.repeat && !event.isComposing) void begin(true);
+        return;
+      }
+      const lane = laneForKey(bindings, event);
       const gameOverInput = state === "over" && event.target === canvas;
       if (lane && (state === "running" || gameOverInput)) {
         event.preventDefault();
@@ -352,7 +386,10 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange }) {
   );
 
   listen(canvas, "pointerdown", () => focusGame());
-  listen($("rate"), "change", restartFromSettings);
+  listen($("rate"), "change", () => {
+    saveSettings();
+    restartFromSettings();
+  });
 
   for (const button of root.querySelectorAll("[data-lane]")) {
     listen(button, "pointerdown", (event) => {
@@ -371,15 +408,18 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange }) {
   listen($("volume"), "input", () => {
     $("volume-value").textContent = $("volume").value + "%";
     if (transport) transport.gain.gain.value = Number($("volume").value) / 100;
+    saveSettings();
   });
   listen($("offset"), "input", () => {
     applyOffset(Number($("offset").value));
   });
   listen($("timing-feedback"), "change", () => {
     if (renderer) renderer.showTiming = $("timing-feedback").checked;
+    saveSettings();
   });
   listen($("note-labels"), "change", () => {
     if (renderer) renderer.labels = $("note-labels").checked ? NOTE_SYLLABLES : null;
+    saveSettings();
   });
 
   async function load() {
@@ -414,6 +454,7 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange }) {
       if (Math.abs(buffer.duration - chart.durationSeconds) > 0.005)
         throw new Error("음악과 채보 길이가 맞지 않아요.");
       transport = new MusicTransport(context, buffer);
+      transport.gain.gain.value = Number($("volume").value) / 100;
       renderer = new Renderer(canvas, sprites);
       renderer.showTiming = $("timing-feedback").checked;
       renderer.labels = $("note-labels").checked ? NOTE_SYLLABLES : null;

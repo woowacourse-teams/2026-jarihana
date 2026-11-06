@@ -10,17 +10,8 @@ import {
   summarizeLesson
 } from "./lesson.mjs";
 import { renderLessonTrack } from "./lesson-audio.mjs";
+import { laneForKey, readKeymap } from "./preferences.mjs";
 
-const KEYS = {
-  ArrowLeft: "left",
-  ArrowDown: "down",
-  ArrowRight: "right",
-  ArrowUp: "up",
-  KeyA: "left",
-  KeyS: "down",
-  KeyD: "right",
-  KeyW: "up"
-};
 const SPRITE_URL = "/game-assets/rhythm-harpoon/assets/sprites.png";
 
 // 따라 하기 실행 수명: 판 그리기, 드럼 비트, 입력과 판정을 묶고 화면을 떠나면 모두 정리한다.
@@ -44,8 +35,11 @@ export function mountLessonGame({ root, onReady, onError, onFinish, onUpcoming }
   let upcomingKey = "";
   let litStep = -1;
   let offset = 0;
+  let keymap = readKeymap(null);
   try {
     offset = readOffset(view.localStorage) / 1000;
+    // 연습 화면에서 바꾼 키 배치를 따라 하기에도 그대로 쓴다.
+    keymap = readKeymap(view.localStorage);
   } catch {
     offset = 0;
   }
@@ -194,7 +188,7 @@ export function mountLessonGame({ root, onReady, onError, onFinish, onUpcoming }
     "keydown",
     (event) => {
       if (!root.contains(event.target)) return;
-      const lane = KEYS[event.code];
+      const lane = laneForKey(keymap, event);
       if (!lane || state !== "running") return;
       event.preventDefault();
       event.stopPropagation();

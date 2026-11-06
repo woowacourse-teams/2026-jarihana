@@ -13,6 +13,14 @@ import {
   writeOffset,
   SYNC_CONFIG
 } from "../../../src/features/game/rhythm/calibration.mjs";
+import { NOTE_SYLLABLES } from "../../../src/features/game/rhythm/lesson.mjs";
+import {
+  DEFAULT_KEYMAP,
+  isRetryKey,
+  laneForKey,
+  readPracticeSettings,
+  writePracticeSettings
+} from "../../../src/features/game/rhythm/preferences.mjs";
 
 const source = readFileSync(
   new URL("../../../src/features/game/rhythm/mount-practice-game.mjs", import.meta.url),
@@ -30,7 +38,14 @@ const chart = JSON.parse(
 );
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
-async function application({ storedOffset = 0, fetchReady, decodeReady, loading = false } = {}) {
+async function application({
+  storedOffset = 0,
+  storedSettings,
+  keyBindings,
+  fetchReady,
+  decodeReady,
+  loading = false
+} = {}) {
   const app = {
     frame: null,
     stamp: 0,
@@ -38,7 +53,8 @@ async function application({ storedOffset = 0, fetchReady, decodeReady, loading 
     cancelled: [],
     ready: false,
     requests: [],
-    signals: new Set()
+    signals: new Set(),
+    keyBindings
   };
   const register = (map, type, handler, options = {}) => {
     if (options.signal) app.signals.add(options.signal);
@@ -54,6 +70,7 @@ async function application({ storedOffset = 0, fetchReady, decodeReady, loading 
     setItem: (key, value) => stored.set(key, value)
   };
   writeOffset(storage, storedOffset);
+  if (storedSettings) writePracticeSettings(storage, storedSettings);
   class Element {
     constructor(tagName = "DIV") {
       this.tagName = tagName;
@@ -118,6 +135,7 @@ async function application({ storedOffset = 0, fetchReady, decodeReady, loading 
       app.transport = this;
       this.time = 0;
       this.starts = 0;
+      this.gain = { gain: { value: 0.65 } };
     }
     async start() {
       this.starts++;
@@ -191,7 +209,7 @@ async function application({ storedOffset = 0, fetchReady, decodeReady, loading 
     source
       .replace(/^import[\s\S]*?;\r?$/gm, "")
       .replace("export function mountPracticeGame", "function mountPracticeGame") +
-      "\nmountPracticeGame({root:serviceRoot,onReady:()=>{app.ready=true;},onError:()=>{app.error=true;}});",
+      "\nmountPracticeGame({root:serviceRoot,onReady:()=>{app.ready=true;},onError:()=>{app.error=true;},keyBindings:app.keyBindings});",
     {
       app,
       serviceRoot,
@@ -212,6 +230,12 @@ async function application({ storedOffset = 0, fetchReady, decodeReady, loading 
       SyncCalibrationUI: TestSyncUI,
       readOffset,
       writeOffset,
+      NOTE_SYLLABLES,
+      DEFAULT_KEYMAP,
+      isRetryKey,
+      laneForKey,
+      readPracticeSettings,
+      writePracticeSettings,
       Image,
       AudioContext,
       AbortController,
@@ -323,6 +347,80 @@ test("Enter retries from game focus while held Enter does not restart", async ()
   assert.notEqual(app.engine, previous);
   assert.equal(app.document.activeElement, app.get("arena"));
   assert.equal(app.get("overlay").hidden, true);
+});
+
+test("R retries during play, while paused and after game over, but a held R does not repeat", async () => {
+  const app = await application();
+  app.key("KeyR", { repeat: true });
+  await settle();
+  assert.equal(app.transport.starts, 1);
+  assert.equal(app.key("KeyR").defaultPrevented, true);
+  await settle();
+  assert.equal(app.transport.starts, 2);
+  app.key("Escape");
+  await settle();
+  app.key("KeyR");
+  await settle();
+  assert.equal(app.transport.starts, 3);
+  app.gameOver();
+  const previous = app.engine;
+  app.key("KeyR");
+  await settle();
+  assert.equal(app.transport.starts, 4);
+  assert.notEqual(app.engine, previous);
+  app.get("offset").focus();
+  app.key("KeyR");
+  await settle();
+  assert.equal(app.transport.starts, 4);
+});
+
+test("a custom key layout drives lanes and retry, and keys are ignored while one is being rebound", async () => {
+  let capturing = false;
+  const custom = { left: "KeyJ", down: "KeyK", up: "KeyI", right: "KeyL", retry: "KeyP" };
+  const app = await application({ keyBindings: { get: () => custom, capturing: () => capturing } });
+  const note = app.engine.notes[0];
+  app.transport.time = note.at;
+  const defaults = { left: "KeyA", down: "KeyS", right: "KeyD", up: "KeyW" };
+  const keys = { left: "KeyJ", down: "KeyK", right: "KeyL", up: "KeyI" };
+  assert.notEqual(app.key(defaults[note.lane]).defaultPrevented, true);
+  assert.equal(note.state, "waiting");
+  assert.equal(app.key(keys[note.lane]).defaultPrevented, true);
+  assert.equal(note.state, "caught");
+  app.key("KeyR");
+  await settle();
+  assert.equal(app.transport.starts, 1);
+  capturing = true;
+  assert.notEqual(app.key("KeyP").defaultPrevented, true);
+  await settle();
+  assert.equal(app.transport.starts, 1);
+  capturing = false;
+  app.key("KeyP");
+  await settle();
+  assert.equal(app.transport.starts, 2);
+});
+
+test("saved practice settings are restored on load and saved again when changed", async () => {
+  const app = await application({
+    storedSettings: { level: "hard", rate: 2, volume: 30, timingFeedback: false, labels: false }
+  });
+  assert.equal(app.engine.level, "hard");
+  assert.equal(app.engine.scrollSpeed, 2);
+  assert.equal(app.get("volume").value, "30");
+  assert.equal(app.get("volume-value").textContent, "30%");
+  assert.equal(app.get("timing-feedback").checked, false);
+  assert.equal(app.get("note-labels").checked, false);
+  assert.equal(app.transport.gain.gain.value, 0.3);
+  app.get("volume").value = "80";
+  app.get("volume").listeners.get("input")();
+  app.get("note-labels").checked = true;
+  app.get("note-labels").listeners.get("change")();
+  assert.deepEqual(readPracticeSettings(app.storage), {
+    level: "hard",
+    rate: 2,
+    volume: 80,
+    timingFeedback: false,
+    labels: true
+  });
 });
 
 test("game over does not steal settings focus or block their arrow controls", async () => {

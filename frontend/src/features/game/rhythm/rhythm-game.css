@@ -728,6 +728,42 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+/* 키 배치 */
+.rhythm-game .key-bindings__list {
+  display: grid;
+  gap: 6px;
+}
+.rhythm-game .key-binding {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 2.25rem 5.5rem;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.8rem;
+}
+.rhythm-game .key-binding kbd {
+  width: 2.25rem;
+  height: 2rem;
+  font-size: 0.95rem;
+}
+.rhythm-game .key-binding__button {
+  min-height: 2rem;
+  padding: 4px 8px;
+  border: 1px solid #40545e;
+  border-radius: 6px;
+  background: #1b2e37;
+  color: #e5eeed;
+  font-family: ui-monospace, Consolas, monospace;
+  font-weight: 700;
+}
+.rhythm-game .key-binding__button[aria-pressed="true"] {
+  border-color: var(--mint);
+  color: var(--mint);
+  font-family: inherit;
+  font-size: 0.72rem;
+}
+.rhythm-game .key-bindings [role="status"]:empty {
+  display: none;
+}
 @media (prefers-reduced-motion: reduce) {
   .rhythm-game .controls.rhythm-drawer,
   .rhythm-game .controls.rhythm-drawer.is-open {

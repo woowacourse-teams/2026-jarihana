@@ -125,6 +125,33 @@ export function browserStorage() {
   }
 }
 
+const SETTINGS_KEY = "haengseong-lesson-settings-v1";
+
+// 따라 하기의 빠르기와 배속은 다시 접속해도 유지한다. 목록에 없는 값은 기본값으로 돌린다.
+export function readLessonSettings(storage) {
+  try {
+    const parsed = JSON.parse(storage?.getItem(SETTINGS_KEY) ?? "null");
+    return {
+      bpm: LESSON_TEMPOS.some((tempo) => tempo.bpm === parsed?.bpm) ? parsed.bpm : DEFAULT_LESSON_SETTINGS.bpm,
+      scrollSpeed: LESSON_SPEEDS.includes(parsed?.scrollSpeed)
+        ? parsed.scrollSpeed
+        : DEFAULT_LESSON_SETTINGS.scrollSpeed
+    };
+  } catch {
+    return { ...DEFAULT_LESSON_SETTINGS };
+  }
+}
+
+export function writeLessonSettings(storage, settings) {
+  try {
+    if (!storage) return false;
+    storage.setItem(SETTINGS_KEY, JSON.stringify({ bpm: settings.bpm, scrollSpeed: settings.scrollSpeed }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const PROGRESS_KEY = "haengseong-lesson-v1";
 const emptyProgress = () => ({ done: LESSON_STEPS.map(() => false), skipped: false, completed: false });
 

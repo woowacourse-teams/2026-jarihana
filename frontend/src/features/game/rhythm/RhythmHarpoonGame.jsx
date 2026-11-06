@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { HeartIcon } from "./HeartIcon.jsx";
+import { KeyBindings } from "./KeyBindings.jsx";
+import { browserStorage } from "./lesson.mjs";
 import { mountPracticeGame } from "./mount-practice-game.mjs";
+import { keyLabel, readKeymap, writeKeymap } from "./preferences.mjs";
 import "./rhythm-game.css";
 
 export const RHYTHM_SETTINGS_ID = "rhythm-settings";
@@ -9,17 +12,42 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
   const rootReference = useRef(null);
   const playingReference = useRef(onPlayingChange);
   const [status, setStatus] = useState("loading");
+  const [keymap, setKeymap] = useState(() => readKeymap(browserStorage()));
+  const keymapReference = useRef(keymap);
+  const capturingReference = useRef(false);
   useEffect(() => {
     playingReference.current = onPlayingChange;
   }, [onPlayingChange]);
+  useEffect(() => {
+    keymapReference.current = keymap;
+  }, [keymap]);
   useEffect(() => {
     return mountPracticeGame({
       root: rootReference.current,
       onReady: () => setStatus("ready"),
       onError: () => setStatus("error"),
-      onPlayingChange: (playing) => playingReference.current?.(playing)
+      onPlayingChange: (playing) => playingReference.current?.(playing),
+      keyBindings: {
+        get: () => keymapReference.current,
+        capturing: () => capturingReference.current
+      }
     });
   }, []);
+
+  function changeKeymap(next) {
+    setKeymap(next);
+    writeKeymap(browserStorage(), next);
+  }
+
+  const keyHint = [
+    [keymap.left, "왼쪽"],
+    [keymap.down, "아래"],
+    [keymap.up, "위"],
+    [keymap.right, "오른쪽"],
+    [keymap.retry, "다시 하기"]
+  ]
+    .map(([code, label]) => keyLabel(code) + " " + label)
+    .join(" / ");
   return (
     <div
       className="rhythm-game"
@@ -102,7 +130,7 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
                 width="900"
                 height="900"
                 tabIndex="0"
-                aria-label="리듬게임. 세균 중심이 굵은 판정선에 닿을 때 화살표 또는 WASD로 포획, Esc로 일시정지"
+                aria-label={`리듬게임. 세균 중심이 굵은 판정선에 닿을 때 화살표 또는 설정한 키로 포획, Esc로 일시정지, ${keyLabel(keymap.retry)}로 처음부터 다시`}
               >
                 브라우저의 Canvas 지원이 필요해요.
               </canvas>
@@ -161,7 +189,7 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
                   <kbd>↑</kbd>
                   <kbd>→</kbd>
                 </div>
-                <p className="small muted">A 왼쪽 / S 아래 / W 위 / D 오른쪽</p>
+                <p className="small muted">{keyHint}</p>
                 <button
                   id="start"
                   data-ph-capture-attribute-action="rhythm_start"
@@ -352,6 +380,13 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
                 싱크 진단 / 보정
               </button>
             </section>
+            <KeyBindings
+              keymap={keymap}
+              onCapturingChange={(capturing) => {
+                capturingReference.current = capturing;
+              }}
+              onChange={changeKeymap}
+            />
             <button
               id="restart"
               data-ph-capture-attribute-action="rhythm_restart"
@@ -359,7 +394,7 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
               type="button"
               disabled
             >
-              같은 설정으로 다시
+              같은 설정으로 다시 ({keyLabel(keymap.retry)})
             </button>
           </aside>
         </div>

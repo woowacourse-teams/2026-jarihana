@@ -385,6 +385,8 @@ VS 입장 화면의 `sparring_entry_side_select`는 임시 편 선택, `sparring
 다음 단계와 마치기는 `rhythm_lesson_next`, `rhythm_lesson_finish`, 건너뛰기는 `rhythm_lesson_skip`이다.
 연습 화면의 세균 위 소리 글자 표시는 `rhythm_labels_toggle`, 다시 불러오기는 `rhythm_harpoon_reload`를 사용한다.
 연습과 따라 하기 도구 막대의 설정 서랍 열기와 닫기는 `rhythm_settings_toggle`이다.
+키 배치 바꾸기는 `rhythm_key_bind_left`, `rhythm_key_bind_down`, `rhythm_key_bind_up`, `rhythm_key_bind_right`,
+`rhythm_key_bind_retry`, 기본 키로 되돌리기는 `rhythm_key_reset`이다. 어떤 키를 골랐는지는 수집하지 않는다.
 게임 안의 조작은 `rhythm_` 접두사의 고정 action을 각 버튼과 입력에 지정한다.
 게임은 같은 React 문서의 기존 자동 수집을 사용하며 별도 SDK를 추가하지 않는다.
 키 입력, 보정 측정값과 점수에 대한 별도 분석 이벤트는 전송하지 않는다.

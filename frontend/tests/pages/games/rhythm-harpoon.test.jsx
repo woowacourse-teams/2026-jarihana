@@ -151,6 +151,49 @@ it("keeps difficulty above the board and hides the other practice settings while
   expect(drawer).not.toHaveClass("is-open");
 });
 
+it("rebinds practice keys, swaps conflicts and keeps the layout for the next visit", () => {
+  const first = render(<RhythmHarpoonPage />);
+  const settings = mountPracticeGame.mock.calls[0][0];
+  const left = screen.getByRole("button", { name: "왼쪽 키 바꾸기, 지금 A" });
+  expect(left).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_key_bind_left");
+  fireEvent.click(left);
+  expect(left).toHaveTextContent("키를 누르세요");
+  expect(settings.keyBindings.capturing()).toBe(true);
+  fireEvent.keyDown(left, { code: "Space", key: " " });
+  expect(screen.getByText("글자, 숫자, 기호 키만 쓸 수 있어요. 다른 키를 눌러 주세요.")).toBeInTheDocument();
+  fireEvent.keyDown(left, { code: "KeyJ", key: "j" });
+  expect(settings.keyBindings.capturing()).toBe(false);
+  expect(settings.keyBindings.get().left).toBe("KeyJ");
+  expect(screen.getByText("왼쪽을 J 키로 바꿨어요.")).toBeInTheDocument();
+  const retry = screen.getByRole("button", { name: "다시 하기 키 바꾸기, 지금 R" });
+  fireEvent.click(retry);
+  fireEvent.keyDown(retry, { code: "KeyW", key: "w" });
+  expect(settings.keyBindings.get()).toMatchObject({ retry: "KeyW", up: "KeyR" });
+  expect(screen.getByText("W 키를 다시 하기에 두고, 위는 R 키로 바꿨어요.")).toBeInTheDocument();
+  expect(screen.getByText("J 왼쪽 / S 아래 / R 위 / D 오른쪽 / W 다시 하기")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "같은 설정으로 다시 (W)" })).toBeInTheDocument();
+  first.unmount();
+
+  render(<RhythmHarpoonPage />);
+  expect(screen.getByRole("button", { name: "왼쪽 키 바꾸기, 지금 J" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "기본 키로 되돌리기" }));
+  expect(screen.getByRole("button", { name: "왼쪽 키 바꾸기, 지금 A" })).toBeInTheDocument();
+  expect(JSON.parse(localStorage.getItem("haengseong-keymap-v1"))).toMatchObject({ left: "KeyA", retry: "KeyR" });
+});
+
+it("remembers the lesson tempo and scroll speed", () => {
+  localStorage.setItem("haengseong-lesson-settings-v1", JSON.stringify({ bpm: 72, scrollSpeed: 2 }));
+  mountLessonGame.mockReturnValue({ play: jest.fn(), stop: jest.fn(), dispose: jest.fn() });
+  render(<RhythmHarpoonLessonPage />);
+  expect(screen.getByRole("button", { name: "느리게 72" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "×2.0" })).toHaveAttribute("aria-pressed", "true");
+  fireEvent.click(screen.getByRole("button", { name: "원곡 128" }));
+  expect(JSON.parse(localStorage.getItem("haengseong-lesson-settings-v1"))).toEqual({
+    bpm: 128,
+    scrollSpeed: 2
+  });
+});
+
 it("returns from practice to single play", () => {
   render(<RhythmHarpoonPage />);
   const back = screen.getByRole("link", { name: "싱글 플레이" });
@@ -173,7 +216,13 @@ it("renders a React-owned game and excludes prototype shortcuts from the service
   expect(screen.queryByLabelText("시작 구간")).not.toBeInTheDocument();
   expect(screen.queryByLabelText("시작 루프")).not.toBeInTheDocument();
   const settings = mountPracticeGame.mock.calls[0][0];
-  expect(Object.keys(settings).sort()).toEqual(["onError", "onPlayingChange", "onReady", "root"]);
+  expect(Object.keys(settings).sort()).toEqual([
+    "keyBindings",
+    "onError",
+    "onPlayingChange",
+    "onReady",
+    "root"
+  ]);
   expect(settings.root).toContainElement(screen.getByRole("application"));
   act(() => settings.onReady());
   expect(settings.root).toHaveAttribute("aria-busy", "false");
