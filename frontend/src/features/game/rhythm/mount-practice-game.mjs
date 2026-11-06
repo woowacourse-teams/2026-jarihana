@@ -157,11 +157,16 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange, key
   }
 
   function showOverlay(title, copy, action, kicker) {
+    overlay.dataset.mode = "instructions";
+    $("run-result").hidden = true;
+    $("game-instructions").hidden = false;
+    $("load-status").hidden = false;
     $("overlay-title").textContent = title;
     $("overlay-copy").textContent = copy;
     $("overlay-kicker").textContent = kicker;
     startButton.textContent = action;
     overlay.hidden = false;
+    overlay.scrollTop = 0;
   }
 
   async function begin(restart = false) {
@@ -254,20 +259,25 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange, key
     updateHud(engine.elapsed, true);
     const loop = engine.currentLoop(engine.elapsed);
     const result = summarizePracticeRun(practiceRun);
-    const copy =
-      loop.number +
-      "루프 / 최고 콤보 " +
-      engine.bestCombo +
-      " / Perfect " +
-      engine.stats.perfect +
-      " / 헛공격 " +
-      engine.stats.poor;
     showOverlay(
       "게임 오버",
-      copy + " / 연습 점수 " + result.score.toLocaleString("ko-KR"),
+      "연습 플레이 / 점수는 저장되지 않아요.",
       "다시 도전",
-      "PRACTICE COMPLETE"
+      "PRACTICE RESULT"
     );
+    const records = {
+      score: result.score,
+      loop: loop.number,
+      combo: result.bestCombo,
+      ...engine.stats
+    };
+    for (const [key, value] of Object.entries(records)) {
+      $("result-" + key).textContent = value.toLocaleString("ko-KR");
+    }
+    overlay.dataset.mode = "result";
+    $("run-result").hidden = false;
+    $("game-instructions").hidden = true;
+    $("load-status").hidden = true;
     $("announcer").textContent = "게임 오버. 점수 " + engine.score + "점.";
   }
 

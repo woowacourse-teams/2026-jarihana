@@ -312,6 +312,31 @@ test("game over preserves game focus instead of moving it to the retry button", 
   assert.equal(app.get("overlay").hidden, false);
 });
 
+test("results show the finished run and stay hidden when the next run is paused", async () => {
+  const app = await application();
+  app.engine.score = 12345;
+  app.engine.bestCombo = 12;
+  Object.assign(app.engine.stats, { perfect: 5, hit: 4, enough: 3, uhoh: 2, poor: 1 });
+  app.get("overlay").scrollTop = 120;
+  app.gameOver();
+  assert.equal(app.get("overlay").scrollTop, 0);
+  assert.equal(app.get("run-result").hidden, false);
+  assert.equal(app.get("game-instructions").hidden, true);
+  assert.equal(app.get("load-status").hidden, true);
+  assert.equal(app.get("result-score").textContent, "12,345");
+  assert.equal(app.get("result-combo").textContent, "12");
+  assert.equal(app.get("result-loop").textContent, "1");
+  for (const [kind, count] of Object.entries(app.engine.stats)) {
+    assert.equal(app.get("result-" + kind).textContent, count.toLocaleString("ko-KR"));
+  }
+  await app.start();
+  await app.get("pause").listeners.get("click")();
+  assert.equal(app.get("overlay-title").textContent, "잠깐 쉬어가기");
+  assert.equal(app.get("run-result").hidden, true);
+  assert.equal(app.get("game-instructions").hidden, false);
+  assert.equal(app.get("load-status").hidden, false);
+});
+
 test("arrows and WASD after game over cannot scroll or change the finished run", async () => {
   const app = await application();
   app.gameOver();

@@ -259,7 +259,7 @@ it("renders a React-owned game and excludes prototype shortcuts from the service
   expect(screen.getByRole("application")).toBeInTheDocument();
   expect(document.querySelector("iframe")).not.toBeInTheDocument();
   expect(screen.getByRole("note")).toHaveTextContent("연습 플레이");
-  expect(screen.getByText("연습 점수")).toBeInTheDocument();
+  expect(screen.getByText("연습 점수", { selector: "span" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Easy 라이프 10" })).toHaveAttribute(
     "aria-pressed",
     "true"

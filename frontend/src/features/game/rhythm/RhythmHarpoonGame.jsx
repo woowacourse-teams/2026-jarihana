@@ -183,13 +183,90 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
                   세균의 중심이 굵은 판정선에 닿을 때<br />
                   화살표 또는 WASD로 같은 방향을 눌러요.
                 </p>
-                <div className="key-row" aria-hidden="true">
-                  <kbd>←</kbd>
-                  <kbd>↓</kbd>
-                  <kbd>↑</kbd>
-                  <kbd>→</kbd>
+                <div id="game-instructions">
+                  <div className="key-row" aria-hidden="true">
+                    <kbd>←</kbd>
+                    <kbd>↓</kbd>
+                    <kbd>↑</kbd>
+                    <kbd>→</kbd>
+                  </div>
+                  <p className="small muted">{keyHint}</p>
                 </div>
-                <p className="small muted">{keyHint}</p>
+                <div id="run-result" hidden>
+                  <p className="result-score">
+                    <svg
+                      className="result-mascot"
+                      viewBox="953 68 255 256"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <image
+                        href="/game-assets/rhythm-harpoon/assets/sprites.png"
+                        width="1280"
+                        height="1280"
+                      />
+                    </svg>
+                    <small>연습 점수</small>
+                    <strong id="result-score">0</strong>
+                  </p>
+                  <table className="result-table">
+                    <caption className="sr-only">연습 플레이 결과</caption>
+                    <thead>
+                      <tr>
+                        <th scope="row">
+                          MAX COMBO<span className="sr-only">최고 콤보</span>
+                        </th>
+                        <td id="result-combo">0</td>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="result-judgment result-judgment--perfect">
+                        <th scope="row">
+                          <span>PERFECT</span>
+                        </th>
+                        <td id="result-perfect">0</td>
+                      </tr>
+                      <tr className="result-judgment result-judgment--hit">
+                        <th scope="row">
+                          <span>HIT</span>
+                        </th>
+                        <td id="result-hit">0</td>
+                      </tr>
+                      <tr className="result-judgment result-judgment--enough">
+                        <th scope="row">
+                          <span>ENOUGH</span>
+                        </th>
+                        <td id="result-enough">0</td>
+                      </tr>
+                      <tr className="result-judgment result-judgment--uhoh">
+                        <th scope="row">
+                          <span>Uh oh</span>
+                        </th>
+                        <td id="result-uhoh">0</td>
+                      </tr>
+                      <tr>
+                        <th scope="row">
+                          <span>놓친 세균</span>
+                        </th>
+                        <td id="result-miss">0</td>
+                      </tr>
+                      <tr>
+                        <th scope="row">
+                          <span>헛공격</span>
+                        </th>
+                        <td id="result-poor">0</td>
+                      </tr>
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <th scope="row">
+                          LOOP<span className="sr-only">도달 루프</span>
+                        </th>
+                        <td id="result-loop">0</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
                 <button
                   id="start"
                   data-ph-capture-attribute-action="rhythm_start"

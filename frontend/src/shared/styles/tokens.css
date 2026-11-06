@@ -33,6 +33,16 @@
   --color-success-soft: #eaf8ef;
   --color-warning: #8a5b00;
   --color-warning-soft: #fff6df;
+  --color-rhythm-perfect: #fff2aa;
+  --color-rhythm-hit: #69d8ff;
+  --color-rhythm-enough: #a0f56a;
+  --color-rhythm-uhoh: #ff747f;
+  --color-rhythm-result: #091c23;
+  --color-rhythm-result-soft: #18353b;
+  --color-rhythm-result-accent: var(--color-brand);
+  --color-rhythm-result-accent-dark: var(--color-brand-strong);
+  --color-rhythm-result-muted: #b4cfcb;
+  --color-rhythm-result-line: #42635f;
   --color-activity-study-ink: #24457f;
   --color-activity-study-soft: #e7eefc;
   --color-activity-club-ink: #453a95;

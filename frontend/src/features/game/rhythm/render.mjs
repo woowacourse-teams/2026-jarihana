@@ -183,6 +183,21 @@ export class Renderer {
     ctx.restore();
   }
 
+  countdown(value) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.font = '700 220px "Comic Sans MS", "Chalkboard SE", cursive';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 7;
+    ctx.strokeStyle = "#18251f";
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeText(value, CENTER, CENTER);
+    ctx.fillText(value, CENTER, CENTER);
+    ctx.restore();
+  }
+
   field(time, engine) {
     const ctx = this.ctx;
     ctx.fillStyle = "#eaf1e8";
@@ -516,11 +531,11 @@ export class Renderer {
     if (engine && time < engine.loops[0].start) {
       const remaining = engine.loops[0].start - time;
       const interval = 60 / engine.chart.bpm / engine.loops[0].rate;
-      const label =
-        time < engine.countInStart
-          ? "준비"
-          : String(Math.min(4, Math.max(1, Math.ceil(remaining / interval))));
-      this.text(label, 450, 280, 42, "#345342");
+      if (time < engine.countInStart) {
+        this.text("준비", CENTER, 280, 42, "#345342");
+      } else {
+        this.countdown(String(Math.min(4, Math.max(1, Math.ceil(remaining / interval)))));
+      }
     }
     if (engine?.autoplay) this.text("AUTO", 450, 104, 15, "#547c5e");
   }
