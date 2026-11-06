@@ -30,7 +30,7 @@ export class CalibrationMetronome {
       oscillator.type = "triangle";
       oscillator.frequency.value = index === warmup ? 1320 : index % 4 === 0 ? 990 : 660;
       envelope.gain.setValueAtTime(0, at);
-      envelope.gain.linearRampToValueAtTime(0.5, at + 0.003);
+      envelope.gain.linearRampToValueAtTime(0.8, at + 0.003);
       envelope.gain.exponentialRampToValueAtTime(0.0001, at + 0.065);
       oscillator.connect(envelope);
       envelope.connect(this.master);
