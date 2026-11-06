@@ -1,0 +1,155 @@
+{
+  "base": "0517df4b8d126915786ecf55b5de22b263730796",
+  "head": "31007ce9ea88911974770361993316843f0a28a6",
+  "browser": "156.0.8078.81",
+  "api": "anonymous 401 fixture",
+  "artwork": "Original S3 game artwork downloaded unchanged and fulfilled locally because the capture browser cannot access external networks.",
+  "audio": "muted",
+  "captures": [
+    {
+      "name": "games-before-desktop",
+      "url": "http://127.0.0.1:5711/games",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "overflow": false
+    },
+    {
+      "name": "games-after-desktop",
+      "url": "http://127.0.0.1:5712/games",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "overflow": false
+    },
+    {
+      "name": "entry-desktop",
+      "url": "http://127.0.0.1:5712/games/rhythm-harpoon",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "overflow": false
+    },
+    {
+      "name": "single-desktop",
+      "url": "http://127.0.0.1:5712/games/rhythm-harpoon/single",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "overflow": false
+    },
+    {
+      "name": "lesson-ready-desktop",
+      "url": "http://127.0.0.1:5712/games/rhythm-harpoon/learn",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "overflow": false
+    },
+    {
+      "name": "lesson-playing-desktop",
+      "url": "http://127.0.0.1:5712/games/rhythm-harpoon/learn",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "overflow": false
+    },
+    {
+      "name": "practice-ready-desktop",
+      "url": "http://127.0.0.1:5712/games/rhythm-harpoon/practice",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "overflow": false
+    },
+    {
+      "name": "practice-playing-desktop",
+      "url": "http://127.0.0.1:5712/games/rhythm-harpoon/practice",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "overflow": false
+    },
+    {
+      "name": "sync-desktop",
+      "url": "http://127.0.0.1:5712/games/rhythm-harpoon/practice",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "overflow": false
+    },
+    {
+      "name": "games-before-mobile",
+      "url": "http://127.0.0.1:5711/games",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "games-after-mobile",
+      "url": "http://127.0.0.1:5712/games",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "entry-mobile",
+      "url": "http://127.0.0.1:5712/games/rhythm-harpoon",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "single-mobile",
+      "url": "http://127.0.0.1:5712/games/rhythm-harpoon/single",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "lesson-mobile",
+      "url": "http://127.0.0.1:5712/games/rhythm-harpoon/learn",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "single-folded-desktop",
+      "url": "http://127.0.0.1:5712/games/rhythm-harpoon/single",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "overflow": false
+    },
+    {
+      "name": "practice-mobile",
+      "url": "http://127.0.0.1:5712/games/rhythm-harpoon/practice",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    }
+  ],
+  "pageErrors": []
+}
