@@ -34,7 +34,7 @@
 
 ## 관전자 수
 
-공개 목록 항목에 0 이상의 정수 `spectatorCount`를 추가한다. 목록의 상태/검색/정렬/커서 정책은 유지한다.
+`view=summary` 공개 목록 항목에 0 이상의 정수 `spectatorCount`를 추가한다. 목록의 상태/검색/정렬/커서 정책은 유지한다.
 
 - 입장 이력은 `gomoku_observation`, SSE 연결은 `gomoku_observer_connection`에 저장한다. 여러 서버의 연결을 같은 DB에서 합산한다.
 - 연결마다 별도 UUID와 45초 lease를 발급하고 유효한 연결은 15초마다 갱신한다. 정상 정리는 해당 연결만 삭제하므로 재연결된 새 연결을 지우지 않는다.

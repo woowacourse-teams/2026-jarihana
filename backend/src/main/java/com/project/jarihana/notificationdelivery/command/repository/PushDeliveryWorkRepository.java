@@ -35,17 +35,22 @@ public interface PushDeliveryWorkRepository extends Repository<NotificationDeliv
                 .toList();
     }
 
+    // 읽기 호환 버전은 후속 채팅 정책 없이 발송하지 않는다. LIMIT 전에 제외해 일반 작업을 계속 처리한다.
     @Query(value = """
             with due_candidate as materialized (
                 select d.id, d.next_attempt_at
                 from notification_deliveries d
                 where d.status in ('PENDING', 'RETRY') and d.next_attempt_at <= :now
+                  and not exists (select 1 from notifications n
+                                  where n.id = d.notification_id and n.event_type = 'CHAT_MESSAGE_RECEIVED')
                 order by d.next_attempt_at, d.id
                 for update of d skip locked limit :limit
             ), expired_candidate as materialized (
                 select d.id, d.next_attempt_at
                 from notification_deliveries d
                 where d.status = 'IN_FLIGHT' and d.locked_until <= :now
+                  and not exists (select 1 from notifications n
+                                  where n.id = d.notification_id and n.event_type = 'CHAT_MESSAGE_RECEIVED')
                 order by d.next_attempt_at, d.id
                 for update of d skip locked limit :limit
             ), selected_candidate as materialized (
@@ -114,6 +119,7 @@ public interface PushDeliveryWorkRepository extends Repository<NotificationDeliv
                 and d.expires_at > :now and n.deleted_at is null and s.enabled
                 and d.subscription_generation = s.generation and n.member_id = s.member_id
                 and (n.event_type <> 'GROUP_ANNOUNCEMENT_CREATED' or s.client_version >= 2)
+                and n.event_type <> 'CHAT_MESSAGE_RECEIVED'
             """, nativeQuery = true)
     List<SendableProjection> findSendableRows(@Param("claims") String claims, @Param("now") LocalDateTime now);
 

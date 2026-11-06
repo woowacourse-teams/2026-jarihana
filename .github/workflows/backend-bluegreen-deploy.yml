@@ -209,7 +209,8 @@ jobs:
   bootstrap:
     name: bootstrap
     needs: [resolve, plan]
-    if: inputs.mode == 'bootstrap'
+    # plan depends on frontend-build, which bootstrap intentionally skips.
+    if: always() && !cancelled() && inputs.mode == 'bootstrap' && needs.resolve.result == 'success' && needs.plan.result == 'success'
     uses: ./.github/workflows/backend-app-operation.yml
     secrets: inherit
     with:
@@ -221,7 +222,7 @@ jobs:
   finish-bootstrap:
     name: finish-bootstrap
     needs: [resolve, plan, bootstrap]
-    if: inputs.mode == 'bootstrap'
+    if: always() && !cancelled() && inputs.mode == 'bootstrap' && needs.resolve.result == 'success' && needs.plan.result == 'success' && needs.bootstrap.result == 'success'
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:

@@ -50,7 +50,7 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
     private final ScheduledExecutorService ticker =
             Executors.newSingleThreadScheduledExecutor(
                     Thread.ofPlatform().daemon().name("gomoku-stream").factory());
-    private final Semaphore snapshotQueries = new Semaphore(4);
+    private final Semaphore snapshotQueries = new Semaphore(10);
     private final ExecutorService deliveries = Executors.newVirtualThreadPerTaskExecutor();
 
     public GomokuStreams(GomokuQueryService queries, GomokuChatQueryService chatQueries, GomokuObservationService observations, Clock clock) {
