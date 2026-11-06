@@ -30,7 +30,9 @@ for (const width of [390, 1440]) {
       let mine = null;
       const joins = [];
       await page.route("**/api/games/gomoku/rooms**", (route) => {
-        const path = new URL(route.request().url()).pathname;
+        const url = new URL(route.request().url());
+        const path = url.pathname;
+        if (path.endsWith("/rooms")) expect(url.searchParams.get("view")).toBe("summary");
         if (path.endsWith("/join")) joins.push(path);
         const data = path.endsWith("/me")
           ? { roomId: mine }

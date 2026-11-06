@@ -137,16 +137,16 @@ GitHub Secrets는 조회해서 평문을 복원하는 저장소가 아니다. �
 ### OS와 실행 도구
 
 아래와 호스트 문서의 명령은 Linux/systemd와 Bash를 전제로 한다. 관리자 Bash에서 실행한다.
-패키지 설치와 신규 OS 전체 동작은 미검증이며, 실제 OS/ARM64 지원을 확인한다.
-먼저 기본 패키지를 준비한다.
+운영 서버는 공유 AMI `ami-0e576970884d94ada`(Amazon Linux 2023, arm64)로 만들고 관리 계정은 `ec2-user`다.
+이 AMI에는 Docker Engine, jq, AWS CLI v2, tzdata와 OpenSSH가 들어 있고 시간대는 Asia/Seoul이다.
+2026-11-05 Nginx와 앱 A/B 재구성에서 아래 명령을 실행해 확인했다. 다른 AMI나 OS는 별도로 확인한다.
+먼저 빠진 기본 패키지를 준비한다.
 
 ```bash
-# 새 Ubuntu 계열 서버의 기본 도구 예시. 기존 운영 호스트에 일괄 적용하지 않는다.
+# Amazon Linux 2023 기본 도구. 기존 운영 호스트에 일괄 적용하지 않는다.
 set -euo pipefail
 test "$(id -u)" -eq 0
-apt-get update
-apt-get install --yes bash jq curl git openssh-client openssh-server \
-  ca-certificates openssl tzdata util-linux coreutils sudo
+dnf install -y git tar jq libicu
 bash --version
 jq --version
 flock --version
@@ -154,13 +154,22 @@ test -f /usr/share/zoneinfo/Asia/Seoul
 timedatectl show -p NTPSynchronized -p Timezone
 ```
 
-이어서 [공식 Ubuntu 설치 절차](https://docs.docker.com/engine/install/ubuntu/)에 따라 Docker Engine과
-Compose plugin을 설치한다. distro 패키지와 공식 패키지를 섞지 않는다. Nginx에는 상시 수집기가
-사용할 AWS CLI v2도 [공식 설치/서명 검증 절차](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)로
-준비하고 coordinator 계정의 PATH에서도 읽히게 한다. 앱에는 AWS CLI가 필수인 것은 아니다.
+AMI의 Docker Engine 위에 Compose plugin만 공식 릴리스 파일로 설치한다. 체크섬 파일이
+원본 파일 이름을 가리키므로 같은 이름으로 내려받아 검사한다. runner의 `libicu`는 위에서 설치했다.
+Nginx의 상시 수집기는 AMI의 AWS CLI v2(`/usr/bin/aws`)를 사용하며 coordinator 계정의 PATH에서도 읽힌다.
+앱에는 AWS CLI가 필수인 것은 아니다.
 
 ```bash
 systemctl enable --now docker
+COMPOSE_VERSION=v5.6.1
+tmp=$(mktemp -d)
+curl -fsSLo "$tmp/docker-compose-linux-aarch64" \
+  "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-aarch64"
+curl -fsSLo "$tmp/docker-compose.sha256" \
+  "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-aarch64.sha256"
+(cd "$tmp" && sha256sum -c docker-compose.sha256)
+install -D -m 0755 "$tmp/docker-compose-linux-aarch64" /usr/local/lib/docker/cli-plugins/docker-compose
+rm -rf "$tmp"
 docker version
 docker compose version
 # Nginx에서만 실행한다. workflow가 임시 준비하는 CLI 버전과 호스트 기본 CLI는 별개다.
@@ -324,7 +333,9 @@ Nginx 서버의 중앙 수집기는 별도 설치 단위다. 실행 계정, time
 
 1. 기존 worker의 신규 선점을 막고 진행 발송과 DB commit을 마친 뒤 정상 종료한다.
    관리 API의 부재나 응답 거부를 작업 종료의 증거로 삼지 않는다. 기존 앱 교체 시 중단 가능성을 확인한다.
-2. 승인 digest의 앱 A가 READY/PAUSED, inFlight/unresolved 0, HTTP/background drained인지 확인한다.
+2. 승인 digest의 앱 A가 READY/PAUSED, inFlight/unresolved 0, background drained인지 확인한다.
+   bootstrap은 A를 멈추지 않고 worker 권한만 등록하므로 A가 이미 공개 요청을 처리하는 중이어도 된다.
+   채팅 WebSocket 같은 긴 연결이 있으면 HTTP 진행 수는 0이 되지 않으며, bootstrap은 이 값을 요구하지 않는다.
    DB 권한은 null 또는 owner 없는 UNASSIGNED, Nginx 대상은 A, B EC2는 stopped여야 한다.
    정상 종료 증거가 없는 기존 컨테이너는 별도 확인하고 정리한다.
 3. main의 Production Release에서 `blue_green_mode=bootstrap`과 현재 A 이미지의 40자리 SHA를 지정한다.

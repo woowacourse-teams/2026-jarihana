@@ -11,9 +11,9 @@ import {
   Lock,
   ArrowRight,
   Search,
-  X,
   History,
-  Trophy
+  Trophy,
+  X
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { storeReturnTarget, useAuth } from "../../features/auth";
@@ -27,9 +27,9 @@ import { Stone } from "../../features/gomoku/Stone";
 import { ReadinessControls } from "../../features/gomoku/ReadinessControls";
 import { RuleInfoTooltip } from "../../features/gomoku/RuleInfoTooltip";
 import { GameArtwork } from "./GameArtwork";
-import { InvitationLink } from "./InvitationLink";
 import { GomokuHistory } from "./GomokuHistory";
 import { GomokuRanking } from "./GomokuRanking";
+import { InvitationLink } from "./InvitationLink";
 import { Avatar, Button, ConfirmDialog, IconButton, Modal, PageContainer, StatusBadge, Tabs } from "../../shared/ui";
 import "./games.css";
 import "./gomoku-history.css";

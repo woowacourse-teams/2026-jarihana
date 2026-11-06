@@ -27,19 +27,6 @@ export const roomSchema = z.object({
   turnDeadline: z.number().nullable()
 });
 const roomIdSchema = z.object({ roomId: z.number().int() });
-export const lobbyRoomSchema = roomSchema.pick({
-  id: true,
-  hostMemberId: true,
-  hostName: true,
-  hostAvatarUrl: true,
-  guestMemberId: true,
-  guestName: true,
-  guestAvatarUrl: true,
-  visibility: true,
-  rule: true,
-  status: true
-});
-
 export const statisticsSchema = z.object({
   total: z.number().int().nonnegative(),
   wins: z.number().int().nonnegative(),
@@ -65,6 +52,18 @@ const rankingItemSchema = statisticsSchema.extend({
 const pageSchema = (item) =>
   z.object({ items: z.array(item), nextCursor: z.string().nullable(), hasNext: z.boolean() });
 const pageParams = (cursor) => ({ size: 20, ...(cursor ? { cursor } : {}) });
+export const lobbyRoomSchema = roomSchema.pick({
+  id: true,
+  hostMemberId: true,
+  hostName: true,
+  hostAvatarUrl: true,
+  guestMemberId: true,
+  guestName: true,
+  guestAvatarUrl: true,
+  visibility: true,
+  rule: true,
+  status: true
+});
 const root = "games/gomoku";
 const request = (path, options) => apiClient.request(`${root}/${path}`, options);
 export const gomokuApi = {
@@ -90,6 +89,7 @@ export const gomokuApi = {
       }),
       signal,
       searchParams: {
+        view: "summary",
         size: 20,
         ...(cursor == null ? {} : { cursor }),
         ...(keyword ? { keyword } : {})
