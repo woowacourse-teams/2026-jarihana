@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, SlidersHorizontal } from "lucide-react";
 
+import { Button } from "../../shared/ui";
 import { RhythmScore } from "../../features/game/rhythm/RhythmScore.jsx";
 import {
   DEFAULT_LESSON_SETTINGS,
@@ -131,6 +132,8 @@ export function RhythmHarpoonLessonPage() {
   const [phase, setPhase] = useState("loading");
   const [result, setResult] = useState(null);
   const [upcoming, setUpcoming] = useState([]);
+  // 듣기나 해보기가 시작되면 설명과 설정 서랍을 닫고, 끝나거나 멈추면 다시 연다.
+  const [settingsOpen, setSettingsOpen] = useState(true);
 
   useEffect(() => {
     const player = mountLessonGame({
@@ -141,6 +144,7 @@ export function RhythmHarpoonLessonPage() {
       onFinish: (outcome) => {
         setUpcoming([]);
         setResult(outcome);
+        setSettingsOpen(true);
         if (outcome.error) setPhase("failed");
         else if (outcome.interrupted) setPhase("interrupted");
         else if (outcome.auto) setPhase("listened");
@@ -165,9 +169,11 @@ export function RhythmHarpoonLessonPage() {
   const step = LESSON_STEPS[stepIndex];
   const running = phase === "listening" || phase === "playing";
   const settled = phase !== "loading" && phase !== "error";
+  const openBeforePress = useRef(null);
 
   function start(auto) {
     setResult(null);
+    setSettingsOpen(false);
     setPhase(auto ? "listening" : "playing");
     void playerReference.current?.play({ stepIndex, bpm, scrollSpeed, auto });
   }
@@ -192,6 +198,25 @@ export function RhythmHarpoonLessonPage() {
           싱글 플레이
         </Link>
         <h1 id="rhythm-lesson-title">따라 하기</h1>
+        <Button
+          aria-controls="rhythm-lesson-settings"
+          aria-expanded={settingsOpen}
+          className="game-player__settings"
+          data-ph-capture-attribute-action="rhythm_settings_toggle"
+          onClick={() => {
+            const before = openBeforePress.current ?? settingsOpen;
+            openBeforePress.current = null;
+            setSettingsOpen(!before);
+          }}
+          onPointerDown={() => {
+            openBeforePress.current = settingsOpen;
+          }}
+          size="sm"
+          variant="secondary"
+        >
+          <SlidersHorizontal aria-hidden="true" size={16} />
+          설정
+        </Button>
         <Link
           className="game-player__skip"
           data-ph-capture-attribute-action="rhythm_lesson_skip"
@@ -218,6 +243,14 @@ export function RhythmHarpoonLessonPage() {
                   브라우저의 Canvas 지원이 필요해요.
                 </canvas>
               </div>
+              <div className="rhythm-upcoming" aria-hidden="true">
+                <span className="eyebrow">다음 소리</span>
+                {upcoming.map((color, index) => (
+                  <span key={index} className={`rhythm-upcoming__chip rhythm-upcoming__chip--${color}`}>
+                    {NOTE_SYLLABLES[color]}
+                  </span>
+                ))}
+              </div>
               <div className="overlay" hidden={running}>
                 <div className="overlay-card" aria-live="polite">
                   <OverlayCard
@@ -232,7 +265,15 @@ export function RhythmHarpoonLessonPage() {
                 </div>
               </div>
             </section>
-            <aside className="controls rhythm-lesson__side">
+            <aside
+              className={
+                settingsOpen
+                  ? "controls rhythm-lesson__side rhythm-drawer is-open"
+                  : "controls rhythm-lesson__side rhythm-drawer"
+              }
+              id="rhythm-lesson-settings"
+              aria-label="따라 하기 설명과 설정"
+            >
               <nav className="rhythm-lesson__steps" aria-label="따라 하기 단계">
                 {LESSON_STEPS.map((item, index) => (
                   <button
@@ -258,14 +299,6 @@ export function RhythmHarpoonLessonPage() {
                 columns={step.pattern}
                 label={step.syllable + " 패턴 악보"}
               />
-              <div className="rhythm-upcoming" aria-hidden="true">
-                <span className="eyebrow">다음 소리</span>
-                {upcoming.map((color, index) => (
-                  <span key={index} className={`rhythm-upcoming__chip rhythm-upcoming__chip--${color}`}>
-                    {NOTE_SYLLABLES[color]}
-                  </span>
-                ))}
-              </div>
               <div className="rhythm-lesson__control">
                 <span className="eyebrow" id="lesson-tempo-label">
                   빠르기

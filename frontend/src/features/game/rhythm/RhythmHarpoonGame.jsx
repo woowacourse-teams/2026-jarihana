@@ -1,21 +1,85 @@
 import { useEffect, useRef, useState } from "react";
+import { HeartIcon } from "./HeartIcon.jsx";
 import { mountPracticeGame } from "./mount-practice-game.mjs";
 import "./rhythm-game.css";
 
-export function RhythmHarpoonGame() {
+export const RHYTHM_SETTINGS_ID = "rhythm-settings";
+
+export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
   const rootReference = useRef(null);
+  const playingReference = useRef(onPlayingChange);
   const [status, setStatus] = useState("loading");
+  useEffect(() => {
+    playingReference.current = onPlayingChange;
+  }, [onPlayingChange]);
   useEffect(() => {
     return mountPracticeGame({
       root: rootReference.current,
       onReady: () => setStatus("ready"),
-      onError: () => setStatus("error")
+      onError: () => setStatus("error"),
+      onPlayingChange: (playing) => playingReference.current?.(playing)
     });
   }, []);
   return (
-    <div className="rhythm-game" ref={rootReference} aria-busy={status === "loading"}>
+    <div
+      className="rhythm-game"
+      ref={rootReference}
+      aria-busy={status === "loading"}
+    >
       <div className="rhythm-game__body">
-        <div className="game-layout">
+        <div className="game-layout game-layout--levels">
+          <div className="rhythm-levels">
+            <span className="eyebrow">DIFFICULTY</span>
+            <div id="difficulty" className="difficulty" role="group" aria-label="난이도">
+              <button
+                type="button"
+                data-level="easy"
+                data-ph-capture-attribute-action="rhythm_difficulty_easy"
+                aria-pressed="true"
+              >
+                Easy<small className="life-badge">
+                  <HeartIcon />
+                  <span className="sr-only">라이프</span>10
+                </small>
+              </button>
+              <button
+                type="button"
+                data-level="medium"
+                data-ph-capture-attribute-action="rhythm_difficulty_medium"
+                aria-pressed="false"
+              >
+                Medium<small className="life-badge">
+                  <HeartIcon />
+                  <span className="sr-only">라이프</span>8
+                </small>
+              </button>
+              <button
+                type="button"
+                data-level="hard"
+                data-ph-capture-attribute-action="rhythm_difficulty_hard"
+                aria-pressed="false"
+              >
+                Hard<small className="life-badge">
+                  <HeartIcon />
+                  <span className="sr-only">라이프</span>8
+                </small>
+              </button>
+              <button
+                type="button"
+                data-level="hardest"
+                data-ph-capture-attribute-action="rhythm_difficulty_hardest"
+                aria-pressed="false"
+              >
+                Hardest<small className="life-badge">
+                  <HeartIcon />
+                  <span className="sr-only">라이프</span>10
+                </small>
+              </button>
+            </div>
+            <p id="difficulty-copy" className="small muted">
+              정박 위주의 단타로 리듬을 익혀요.
+            </p>
+          </div>
           <section className="arena-shell" aria-label="플레이 화면">
             <div className="hud">
               <div>
@@ -115,7 +179,11 @@ export function RhythmHarpoonGame() {
             <p id="announcer" className="sr-only" aria-live="polite"></p>
           </section>
 
-          <aside className="controls">
+          <aside
+            className={settingsOpen ? "controls rhythm-drawer is-open" : "controls rhythm-drawer"}
+            id={RHYTHM_SETTINGS_ID}
+            aria-label="연습 설정"
+          >
             <p className="practice-notice" role="note">
               연습 플레이예요. 점수는 저장되거나 랭킹에 반영되지 않아요.
             </p>
@@ -135,49 +203,9 @@ export function RhythmHarpoonGame() {
                 일시정지
               </button>
             </header>
-            <section className="control-section">
-              <span className="eyebrow">DIFFICULTY</span>
-              <div id="difficulty" className="difficulty" role="group" aria-label="난이도">
-                <button
-                  type="button"
-                  data-level="easy"
-                  data-ph-capture-attribute-action="rhythm_difficulty_easy"
-                  aria-pressed="true"
-                >
-                  Easy<small>라이프 10</small>
-                </button>
-                <button
-                  type="button"
-                  data-level="medium"
-                  data-ph-capture-attribute-action="rhythm_difficulty_medium"
-                  aria-pressed="false"
-                >
-                  Medium<small>라이프 8</small>
-                </button>
-                <button
-                  type="button"
-                  data-level="hard"
-                  data-ph-capture-attribute-action="rhythm_difficulty_hard"
-                  aria-pressed="false"
-                >
-                  Hard<small>라이프 8</small>
-                </button>
-                <button
-                  type="button"
-                  data-level="hardest"
-                  data-ph-capture-attribute-action="rhythm_difficulty_hardest"
-                  aria-pressed="false"
-                >
-                  Hardest<small>라이프 10</small>
-                </button>
-              </div>
-              <p id="difficulty-copy" className="small muted">
-                정박 위주의 단타로 리듬을 익혀요.
-              </p>
-              <p className="small muted">
-                플레이 중에도 난이도와 설정을 바꿀 수 있어요. 변경하면 곡의 처음부터 새로 시작해요.
-              </p>
-            </section>
+            <p className="small muted">
+              플레이 중에도 난이도와 설정을 바꿀 수 있어요. 변경하면 곡의 처음부터 새로 시작해요.
+            </p>
 
             <section className="control-section audio-controls">
               <label htmlFor="rate">세균 이동 배속</label>

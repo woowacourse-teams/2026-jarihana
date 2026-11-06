@@ -1,13 +1,21 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Link } from "react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, SlidersHorizontal } from "lucide-react";
 
 import { Button } from "../../shared/ui";
-import { RhythmHarpoonGame } from "../../features/game/rhythm/RhythmHarpoonGame.jsx";
+import {
+  RHYTHM_SETTINGS_ID,
+  RhythmHarpoonGame
+} from "../../features/game/rhythm/RhythmHarpoonGame.jsx";
 import "./rhythm-harpoon.css";
 
 export function RhythmHarpoonPage() {
   const [attempt, setAttempt] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(true);
+  // 플레이가 시작되면 설정 서랍을 닫고, 멈추거나 끝나면 다시 연다.
+  const handlePlayingChange = useCallback((playing) => setSettingsOpen(!playing), []);
+  // 플레이 중 버튼을 누르면 포커스가 판을 떠나 먼저 일시정지(서랍 열림)가 된다. 누르기 직전 상태로 토글한다.
+  const openBeforePress = useRef(null);
   return (
     <section className="game-player" aria-labelledby="rhythm-harpoon-title">
       <header className="game-player__toolbar">
@@ -21,15 +29,41 @@ export function RhythmHarpoonPage() {
         </Link>
         <h1 id="rhythm-harpoon-title">혼자 연습</h1>
         <Button
+          aria-controls={RHYTHM_SETTINGS_ID}
+          aria-expanded={settingsOpen}
+          className="game-player__settings"
+          data-ph-capture-attribute-action="rhythm_settings_toggle"
+          onClick={() => {
+            const before = openBeforePress.current ?? settingsOpen;
+            openBeforePress.current = null;
+            setSettingsOpen(!before);
+          }}
+          onPointerDown={() => {
+            openBeforePress.current = settingsOpen;
+          }}
+          size="sm"
+          variant="secondary"
+        >
+          <SlidersHorizontal aria-hidden="true" size={16} />
+          설정
+        </Button>
+        <Button
           data-ph-capture-attribute-action="rhythm_harpoon_reload"
-          onClick={() => setAttempt((value) => value + 1)}
+          onClick={() => {
+            setSettingsOpen(true);
+            setAttempt((value) => value + 1);
+          }}
           size="sm"
           variant="secondary"
         >
           다시 불러오기
         </Button>
       </header>
-      <RhythmHarpoonGame key={attempt} />
+      <RhythmHarpoonGame
+        key={attempt}
+        onPlayingChange={handlePlayingChange}
+        settingsOpen={settingsOpen}
+      />
     </section>
   );
 }

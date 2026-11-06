@@ -11,9 +11,13 @@
   box-sizing: border-box;
 }
 .rhythm-game {
+  --rhythm-bg: #101b22;
+  --rhythm-glow: #1b3038;
+  position: relative;
+  overflow-x: clip;
   margin: 0;
-  background: radial-gradient(ellipse at 20% 15%, #1b3038 0, transparent 55%);
-  background-color: #101b22;
+  background: radial-gradient(ellipse at 20% 15%, var(--rhythm-glow) 0, transparent 55%);
+  background-color: var(--rhythm-bg);
 }
 .rhythm-game button,
 .rhythm-game select,
@@ -591,7 +595,9 @@
 
 /* 앱 헤더와 게임 도구 막대를 뺀 높이를 판에 모두 쓴다. 안내와 설정은 오른쪽 패널에서 따로 스크롤한다. */
 .rhythm-game {
-  --rhythm-board-space: calc(100dvh - var(--header-height) - var(--space-16) - 1.5rem);
+  --rhythm-board-space: calc(
+    100dvh - var(--header-height) - var(--game-toolbar-height, var(--space-16)) - 1.5rem
+  );
 }
 @media (min-width: 701px) {
   .rhythm-game .rhythm-game__body {
@@ -599,17 +605,133 @@
     padding-block: 0.75rem;
   }
   .rhythm-game .game-layout {
-    /* 연습 판 아래의 진행 정보 줄 높이만큼 뺀다. */
+    /* 판 아래의 진행 정보 줄 높이만큼 뺀다. */
     --rhythm-board-size: calc(var(--rhythm-board-space) - 2.75rem);
-    grid-template-columns: minmax(0, var(--rhythm-board-size)) minmax(230px, 300px);
+    grid-template-columns: minmax(0, var(--rhythm-board-size));
     justify-content: center;
+  }
+  /* 연습은 판 왼쪽에 폭이 고정된 난이도 열을 둔다. */
+  .rhythm-game .game-layout--levels {
+    grid-template-columns: 11.5rem minmax(0, var(--rhythm-board-size));
+    gap: 20px;
   }
   .rhythm-game .arena-shell {
     width: 100%;
     min-width: 0;
   }
-  .rhythm-game .controls {
-    max-height: var(--rhythm-board-space);
+  /* 설정과 안내는 게임 영역 오른쪽에서 밀려 나오는 서랍이다. 플레이 중에는 닫혀 판만 보인다. */
+  .rhythm-game .controls.rhythm-drawer {
+    position: absolute;
+    z-index: 5;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(320px, 85%);
+    max-height: none;
+    align-content: start;
+    padding: 16px 18px 24px;
+    overflow-y: auto;
+    border-left: 1px solid var(--line);
+    background: color-mix(in srgb, var(--rhythm-bg) 96%, transparent);
+    box-shadow: -16px 0 32px rgb(0 0 0 / 35%);
+    transform: translateX(100%);
+    visibility: hidden;
+    transition:
+      transform 0.2s ease,
+      visibility 0s linear 0.2s;
+  }
+  .rhythm-game .controls.rhythm-drawer.is-open {
+    transform: none;
+    visibility: visible;
+    transition: transform 0.2s ease;
+  }
+}
+.game-player__settings > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+@media (max-width: 700px) {
+  .game-player__settings {
+    display: none;
+  }
+}
+/* 난이도는 서랍에 숨기지 않고 판 왼쪽 열에 둔다. 설명은 열 안에서 줄을 바꿔 판 위치가 흔들리지 않는다. */
+.rhythm-game .rhythm-levels {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-width: 0;
+}
+.rhythm-game .rhythm-levels .difficulty {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+.rhythm-game .rhythm-levels .difficulty button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+}
+/* 난이도 버튼은 각자 색을 갖고, 고른 버튼은 그 색으로 채운다. */
+.rhythm-game .difficulty button[data-level="easy"] {
+  --level: #5fd38c;
+}
+.rhythm-game .difficulty button[data-level="medium"] {
+  --level: #5ea6ff;
+}
+.rhythm-game .difficulty button[data-level="hard"] {
+  --level: #b892ff;
+}
+.rhythm-game .difficulty button[data-level="hardest"] {
+  --level: #ff6b6b;
+}
+.rhythm-game .difficulty button[data-level] {
+  border-color: color-mix(in srgb, var(--level) 55%, transparent);
+  background: color-mix(in srgb, var(--level) 12%, transparent);
+  color: var(--level);
+  font-weight: 700;
+}
+.rhythm-game .difficulty button[data-level][aria-pressed="true"] {
+  border-color: var(--level);
+  background: var(--level);
+  color: #0f1a14;
+}
+.rhythm-game .rhythm-levels .difficulty .life-badge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  margin: 0;
+  padding: 1px 7px 1px 5px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 28%);
+  color: #f3f6f4;
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+}
+.rhythm-game .difficulty button[aria-pressed="true"] .life-badge {
+  color: #f3f6f4;
+}
+.rhythm-game .difficulty .life-badge svg {
+  flex: none;
+}
+.rhythm-game .rhythm-levels #difficulty-copy {
+  margin: 0;
+  line-height: 1.6;
+}
+@media (max-width: 700px) {
+  .rhythm-game .rhythm-levels .difficulty {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rhythm-game .controls.rhythm-drawer,
+  .rhythm-game .controls.rhythm-drawer.is-open {
+    transition: none;
   }
 }
 .rhythm-game .controls .masthead {

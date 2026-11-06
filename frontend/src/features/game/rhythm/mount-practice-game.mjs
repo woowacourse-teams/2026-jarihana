@@ -6,7 +6,7 @@ import { SyncCalibrationUI } from "./sync-ui.mjs";
 import { readOffset, writeOffset } from "./calibration.mjs";
 import { NOTE_SYLLABLES } from "./lesson.mjs";
 
-export function mountPracticeGame({ root, onReady, onError }) {
+export function mountPracticeGame({ root, onReady, onError, onPlayingChange }) {
   const document = root.ownerDocument;
   const lifetime = new AbortController();
   const listen = (target, type, handler, options = {}) =>
@@ -159,6 +159,7 @@ export function mountPracticeGame({ root, onReady, onError }) {
       renderer.lastHit = null;
       renderer.hurtUntil = -1;
       state = "running";
+      onPlayingChange?.(true);
       lastHud = -Infinity;
       overlay.hidden = true;
       $("load-status").textContent = "";
@@ -172,6 +173,7 @@ export function mountPracticeGame({ root, onReady, onError }) {
       if (disposed) return;
       transport.stop();
       state = "ready";
+      onPlayingChange?.(false);
       $("load-status").textContent = "시작하지 못했어요. " + error.message;
       showOverlay("시작하지 못했어요", error.message, "다시 시도", "RETRY");
     } finally {
@@ -184,6 +186,7 @@ export function mountPracticeGame({ root, onReady, onError }) {
     if (state !== "running" || actionPending) return;
     actionPending = true;
     state = "paused";
+    onPlayingChange?.(false);
     pauseButton.textContent = "계속하기";
     showOverlay("잠깐 쉬어가기", "준비되면 음악과 함께 이어가요.", "계속하기", "PAUSED");
     if (moveFocus) startButton.focus({ preventScroll: true });
@@ -201,6 +204,7 @@ export function mountPracticeGame({ root, onReady, onError }) {
       await transport.resume();
       if (disposed) return;
       state = "running";
+      onPlayingChange?.(true);
       overlay.hidden = true;
       pauseButton.textContent = "일시정지";
       focusGame(true);
@@ -211,6 +215,7 @@ export function mountPracticeGame({ root, onReady, onError }) {
 
   function endRun() {
     state = "over";
+    onPlayingChange?.(false);
     transport.stop();
     pauseButton.disabled = true;
     updateHud(engine.elapsed, true);

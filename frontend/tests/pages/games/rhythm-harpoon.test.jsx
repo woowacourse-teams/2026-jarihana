@@ -113,12 +113,16 @@ it("runs the lesson with a slower default tempo and records passed steps", () =>
   fireEvent.click(screen.getByRole("button", { name: "느리게 72" }));
   expect(player.stop).toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "×1.5" }));
+  const drawer = screen.getByRole("complementary", { name: "따라 하기 설명과 설정" });
+  expect(drawer).toHaveClass("is-open");
   fireEvent.click(screen.getByRole("button", { name: "해보기" }));
   expect(player.play).toHaveBeenLastCalledWith({ stepIndex: 0, bpm: 72, scrollSpeed: 1.5, auto: false });
+  expect(drawer).not.toHaveClass("is-open");
   act(() =>
     settings.onFinish({ stepIndex: 0, auto: false, total: 16, caught: 15, missed: 1, poor: 0, passed: true })
   );
   expect(screen.getByText(/16개 중 15개를 잡았어요/)).toBeInTheDocument();
+  expect(drawer).toHaveClass("is-open");
   expect(JSON.parse(localStorage.getItem("haengseong-lesson-v1")).done).toEqual([true, false, false]);
   fireEvent.click(screen.getByRole("button", { name: "다음 소리: 착" }));
   expect(screen.getByRole("heading", { name: "착 = 파랑, 쿵과 쿵 사이" })).toBeInTheDocument();
@@ -126,6 +130,25 @@ it("runs the lesson with a slower default tempo and records passed steps", () =>
   expect(JSON.parse(localStorage.getItem("haengseong-lesson-v1")).skipped).toBe(true);
   view.unmount();
   expect(player.dispose).toHaveBeenCalledTimes(1);
+});
+
+it("keeps difficulty above the board and hides the other practice settings while playing", () => {
+  render(<RhythmHarpoonPage />);
+  const settings = mountPracticeGame.mock.calls[0][0];
+  const drawer = screen.getByRole("complementary", { name: "연습 설정" });
+  const toggle = screen.getByRole("button", { name: "설정" });
+  expect(drawer).not.toContainElement(screen.getByRole("group", { name: "난이도" }));  expect(toggle).toHaveAttribute("aria-expanded", "true");
+  expect(toggle).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_settings_toggle");
+  expect(drawer).toHaveClass("is-open");
+  act(() => settings.onPlayingChange(true));
+  expect(drawer).not.toHaveClass("is-open");
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  fireEvent.pointerDown(toggle);
+  act(() => settings.onPlayingChange(false));
+  fireEvent.click(toggle);
+  expect(drawer).toHaveClass("is-open");
+  fireEvent.click(toggle);
+  expect(drawer).not.toHaveClass("is-open");
 });
 
 it("returns from practice to single play", () => {
@@ -150,7 +173,7 @@ it("renders a React-owned game and excludes prototype shortcuts from the service
   expect(screen.queryByLabelText("시작 구간")).not.toBeInTheDocument();
   expect(screen.queryByLabelText("시작 루프")).not.toBeInTheDocument();
   const settings = mountPracticeGame.mock.calls[0][0];
-  expect(Object.keys(settings).sort()).toEqual(["onError", "onReady", "root"]);
+  expect(Object.keys(settings).sort()).toEqual(["onError", "onPlayingChange", "onReady", "root"]);
   expect(settings.root).toContainElement(screen.getByRole("application"));
   act(() => settings.onReady());
   expect(settings.root).toHaveAttribute("aria-busy", "false");

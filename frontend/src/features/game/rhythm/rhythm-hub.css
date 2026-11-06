@@ -357,16 +357,23 @@
     --rhythm-board-size: var(--rhythm-board-space);
   }
 }
+/* 다음 소리는 판 위 왼쪽 위에 겹쳐 플레이 중에도 보인다. */
 .rhythm-game .rhythm-upcoming {
+  position: absolute;
+  z-index: 1;
+  top: 14px;
+  left: 16px;
+  right: 16px;
   display: flex;
   gap: 6px;
   align-items: center;
-  inline-size: 100%;
   min-block-size: 44px;
   overflow: hidden;
+  pointer-events: none;
 }
 .rhythm-game .rhythm-upcoming .eyebrow {
   margin-right: 4px;
+  color: #567266;
   white-space: nowrap;
 }
 .rhythm-game .rhythm-upcoming__chip {
@@ -379,7 +386,7 @@
 .rhythm-game .rhythm-upcoming__chip:nth-of-type(2) {
   padding: 6px 14px;
   font-size: 1.25rem;
-  box-shadow: 0 0 0 2px #e5eeed;
+  box-shadow: 0 0 0 2px #1d2b2c;
 }
 .rhythm-game .rhythm-upcoming__chip--0 {
   background: #d93a33;
