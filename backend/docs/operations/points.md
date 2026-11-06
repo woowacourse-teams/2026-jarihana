@@ -1,0 +1,21 @@
+# 포인트 운영
+
+## 배포와 활성화
+
+신버전 전환이 끝난 뒤 `JARIHANA_POINTS_STARTS_AT`에 모든 인스턴스가 공유하는 한국 시간 시작 시각을 `YYYY-MM-DDTHH:mm:ss` 형식으로 설정한다. GitHub Actions 배포는 배포 대상 Environment의 변수에서, 직접 실행하는 Compose는 실행 환경에서 이 값을 가져온다. 값이 비어 있으면 적립을 비활성화한다. 활성화 이후 이벤트에 보상 정책 버전과 금액을 기록한다. 오목 전적의 대국 기록 저장이 먼저 배포되어야 한다.
+
+`develop`의 오목 마이그레이션 이후 `V24`에서 포인트 테이블을 추가하고, `V25`에서 적립 사유를 새 코드로 확장할 수 있게 한다. `V26`은 공지 등록 요청 ID를 추가한다. 구버전 공지 작성자는 요청 ID 없이도 등록할 수 있다.
+
+## 처리와 복구
+
+활동과 지급 예정 작업을 함께 저장한다. 워커는 원장, 잔액, 지급 완료를 별도 트랜잭션에서 함께 커밋한다. 일시 오류의 재시도 간격은 5초부터 최대 5분까지 늘어난다. 운영 확인이 필요한 경우 `points.reward.failed` 로그의 지급 작업 ID로 원인을 찾는다. 원인을 해소한 다음 아래 작업으로 재개한다. `next_attempt_at`에는 한국 시간을 사용한다.
+
+```sql
+UPDATE point_reward
+SET status = 'PENDING', next_attempt_at = CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul'
+WHERE id = :reward_id AND status = 'NEEDS_REVIEW';
+```
+
+재개는 동일한 작업의 예약, 금액, 원본 식별자를 유지한다. 운영에서 `point_reward`의 상태별 건수, 가장 오래된 대기 시각, `point_ledger`의 발행량을 확인한다.
+
+[포인트 도메인 모델](../context/domain/model/points.md) / [포인트 API](../context/api/endpoints/points.md) / [새 기능에 적립 연결](../point-reward-integration.md)
