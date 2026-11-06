@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Positive;
 public record PushContentRequest(@Positive long subscriptionId, @Positive long generation,
-                                 @Min(1) @Max(2) Integer clientVersion) {
+                                 @Min(1) @Max(3) Integer clientVersion) {
     public PushContentRequest {
         clientVersion = clientVersion == null ? 1 : clientVersion;
     }

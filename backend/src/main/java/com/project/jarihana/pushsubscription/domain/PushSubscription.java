@@ -87,7 +87,7 @@ public class PushSubscription extends BaseEntity {
         this.auth = validateKey(auth, 16);
         this.enabled = enabled;
         this.generation = generation;
-        if (clientVersion < 1 || clientVersion > 2) {
+        if (clientVersion < 1 || clientVersion > 3) {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "지원하지 않는 푸시 클라이언트 버전입니다.");
         }
         this.clientVersion = clientVersion;
