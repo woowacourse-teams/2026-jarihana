@@ -58,6 +58,10 @@ dependencies {
 	testAnnotationProcessor 'org.projectlombok:lombok'
 }
 
+tasks.withType(Test).configureEach {
+	environment 'GOMOKU_POSTHOG_ENABLED', 'false'
+}
+
 tasks.named('test') {
 	useJUnitPlatform {
 		excludeTags 'gomoku-cutover'

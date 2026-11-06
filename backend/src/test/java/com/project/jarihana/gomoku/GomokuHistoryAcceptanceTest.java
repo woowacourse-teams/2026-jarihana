@@ -1,6 +1,8 @@
 package com.project.jarihana.gomoku;
 
 import static io.restassured.RestAssured.given;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
@@ -19,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -26,7 +29,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 // A leftover value from the removed switch must not disable history collection.
-@TestPropertySource(properties = "gomoku.history.enabled=false")
+@TestPropertySource(properties = {
+        "gomoku.history.enabled=false",
+        "gomoku.posthog.enabled=true",
+        "gomoku.posthog.project-token=phc_test",
+        "gomoku.posthog.host=https://posthog.example.test",
+        "gomoku.posthog.poll-delay=1h"
+})
 class GomokuHistoryAcceptanceTest extends IntegrationTestSupport {
     private static final String ROOT = "/games/gomoku";
     @Autowired MemberRepository members;
@@ -84,6 +93,7 @@ class GomokuHistoryAcceptanceTest extends IntegrationTestSupport {
         // Given
         Player host = member("가온", "10001"), guest = member("해솔", "10002");
         long room = startRoom(host, guest);
+        jdbc.update("update gomoku_game set created_at=timestamp '2026-08-19 09:58:00' where room_id=?", room);
         jdbc.update("update gomoku_room set turn_deadline=timestamp '2026-08-19 09:59:00' where id=?", room);
         // When
         try (var executor = Executors.newFixedThreadPool(2)) {
@@ -99,6 +109,10 @@ class GomokuHistoryAcceptanceTest extends IntegrationTestSupport {
         summary(host).body("data.total", equalTo(1));
         request(host).get(ROOT + "/history/me").then().statusCode(200)
                 .body("data.items[0].endReason", equalTo("TIMEOUT"));
+        assertThat(events(room))
+                .filteredOn(row -> row.get("event_name").equals("gomoku_game_finished"))
+                .extracting(row -> tuple(row.get("end_reason"), row.get("duration_ms"), row.get("move_count")))
+                .containsExactly(tuple("TIMEOUT", 60_000L, 0));
     }
 
     @Test
@@ -116,6 +130,8 @@ class GomokuHistoryAcceptanceTest extends IntegrationTestSupport {
             request(host).get(ROOT + "/rooms/" + room).then().statusCode(200)
                     .body("data.status", equalTo("PLAYING")).body("data.endReason", nullValue());
             summary(host).body("data.total", equalTo(0));
+            assertThat(events(room)).extracting(row -> row.get("event_name"))
+                    .containsExactly("gomoku_game_started");
         } finally {
             jdbc.execute("alter table gomoku_game drop constraint history_failure_test");
         }
@@ -227,6 +243,45 @@ class GomokuHistoryAcceptanceTest extends IntegrationTestSupport {
         request(host).queryParam("cursor", "bad").get(ROOT + "/history/me").then().statusCode(400);
         request(host).queryParam("cursor", "bad").get(ROOT + "/ranking").then().statusCode(400);
         request(host).queryParam("size", 101).get(ROOT + "/ranking").then().statusCode(400);
+    }
+
+    @Test
+    @DisplayName("오목 분석은 재대결을 분리하고 대국당 시작과 종료만 한 번씩 기록한다")
+    void enqueuesOneStartAndFinishPerGame() {
+        // Given
+        Player host = member("가온", "10001"), guest = member("해솔", "10002");
+        long room = startRoom(host, guest);
+        request(host).body(Map.of("gameNumber", 1)).post(ROOT + "/rooms/" + room + "/start")
+                .then().statusCode(409);
+        long black = request(host).get(ROOT + "/rooms/" + room).jsonPath().getLong("data.blackMemberId");
+        Player actor = black == host.id() ? host : guest;
+
+        // When
+        request(actor).body(Map.of("gameNumber", 1, "expectedPly", 0, "x", 0, "y", 0, "requestId", UUID.randomUUID()))
+                .post(ROOT + "/rooms/" + room + "/moves").then().statusCode(200);
+        assertThat(events(room)).hasSize(1);
+        resign(host, room, 1);
+        start(host, guest, room, 2);
+        resign(guest, room, 2);
+        request(host).post(ROOT + "/rooms/" + room + "/leave").then().statusCode(200);
+
+        // Then
+        assertThat(events(room))
+                .extracting(row -> tuple(row.get("game_number"), row.get("event_name"),
+                        row.get("end_reason"), row.get("duration_ms"), row.get("move_count")))
+                .containsExactlyInAnyOrder(
+                        tuple(1, "gomoku_game_started", null, null, null),
+                        tuple(1, "gomoku_game_finished", "RESIGN", 0L, 1),
+                        tuple(2, "gomoku_game_started", null, null, null),
+                        tuple(2, "gomoku_game_finished", "RESIGN", 0L, 0));
+    }
+
+    private List<Map<String, Object>> events(long room) {
+        return jdbc.queryForList("""
+                select game.game_number, event.event_name, event.end_reason, event.duration_ms, event.move_count
+                from gomoku_posthog_outbox event join gomoku_game game on event.game_id = game.id
+                where game.room_id = ?
+                """, room);
     }
 
     private io.restassured.response.ValidatableResponse summary(Player player) {

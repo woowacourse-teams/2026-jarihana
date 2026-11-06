@@ -9,6 +9,7 @@ TRUNCATE TABLE
     gomoku_observation,
     gomoku_chat_message,
     gomoku_chat_room,
+    gomoku_posthog_outbox,
     gomoku_game,
     gomoku_move,
     gomoku_seat,
