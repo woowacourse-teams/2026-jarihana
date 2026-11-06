@@ -2,6 +2,7 @@ import { LEVELS } from "./engine.mjs";
 import { createPracticeRun, summarizePracticeRun } from "./practice-session.mjs";
 import { MusicTransport } from "./audio.mjs";
 import { Renderer } from "./render.mjs";
+import { SPRITE_ATLAS } from "./sprite-atlas.mjs";
 import { SyncCalibrationUI } from "./sync-ui.mjs";
 import { readOffset, writeOffset } from "./calibration.mjs";
 import { NOTE_SYLLABLES } from "./lesson.mjs";
@@ -438,10 +439,10 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange, key
         const image = new Image();
         image.onload = () => resolve(image);
         image.onerror = () => reject(new Error("스프라이트를 불러올 수 없어요."));
-        image.src = "/game-assets/rhythm-harpoon/assets/sprites.png";
+        image.src = SPRITE_ATLAS.url;
       });
       const [loadedChart, bytes, sprites] = await Promise.all([
-        fetch("/game-assets/rhythm-harpoon/assets/chart.json?v=climax-order-4", {
+        fetch("/game-assets/rhythm-harpoon/assets/chart.json?v=bars-13-16-1", {
           signal: lifetime.signal
         }).then((response) => {
           if (!response.ok) throw new Error("채보를 불러올 수 없어요.");

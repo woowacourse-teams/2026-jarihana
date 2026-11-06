@@ -45,6 +45,41 @@ test("manual timing feedback distinguishes early, late and centered inputs", () 
   }
 });
 
+test("clay shading leaves all four judgment lines sharp and fixed throughout a beat", () => {
+  const chart = JSON.parse(readFileSync(new URL("./fixtures/pre-climax-chart.json", import.meta.url)));
+  const engine = new GameEngine(chart);
+  const beat = 60 / chart.bpm;
+  for (const reducedMotion of [false, true]) {
+    for (const time of [engine.countInStart, engine.loops[0].start, engine.loops[0].start + beat * 0.2, engine.loops[0].start + beat * 0.6]) {
+      const strokes = [], stack = [];
+      let path;
+      const ctx = {
+        shadowBlur: 0, shadowColor: "transparent", shadowOffsetY: 0,
+        angle: 0, strokeStyle: "", lineWidth: 1,
+        save() { stack.push({ shadowBlur: this.shadowBlur, shadowColor: this.shadowColor, shadowOffsetY: this.shadowOffsetY, angle: this.angle, strokeStyle: this.strokeStyle, lineWidth: this.lineWidth }); },
+        restore() { Object.assign(this, stack.pop()); },
+        translate() {}, rotate(angle) { this.angle = angle; },
+        fillRect() {}, fill() {}, roundRect() {}, arc() {}, closePath() {},
+        createLinearGradient() { return { addColorStop() {} }; },
+        beginPath() { path = []; },
+        moveTo(x, y) { path.push([x, y]); },
+        lineTo(x, y) { path.push([x, y]); },
+        stroke() {
+          if (this.strokeStyle === "#264f53" && this.lineWidth === 7)
+            strokes.push({ path, angle: this.angle, blur: this.shadowBlur });
+        }
+      };
+      const renderer = Object.assign(Object.create(Renderer.prototype), { ctx, reducedMotion, text() {} });
+      renderer.field(time, engine);
+      assert.deepEqual(strokes.map(stroke => stroke.angle), [Math.PI, Math.PI / 2, 0, -Math.PI / 2]);
+      for (const stroke of strokes) {
+        assert.deepEqual(stroke.path, [[242, -49], [242, 49]]);
+        assert.equal(stroke.blur, 0);
+      }
+    }
+  }
+});
+
 function chordFrame(lanes, states = []) {
   const segments = [];
   const arcs = [];

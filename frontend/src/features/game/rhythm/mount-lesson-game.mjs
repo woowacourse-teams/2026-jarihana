@@ -1,6 +1,7 @@
 import { GameEngine } from "./engine.mjs";
 import { MusicTransport } from "./audio.mjs";
 import { Renderer } from "./render.mjs";
+import { SPRITE_ATLAS } from "./sprite-atlas.mjs";
 import { readOffset } from "./calibration.mjs";
 import {
   LESSON_BARS,
@@ -12,7 +13,7 @@ import {
 import { renderLessonTrack } from "./lesson-audio.mjs";
 import { laneForKey, readKeymap } from "./preferences.mjs";
 
-const SPRITE_URL = "/game-assets/rhythm-harpoon/assets/sprites.png";
+const SPRITE_URL = SPRITE_ATLAS.url;
 
 // 따라 하기 실행 수명: 판 그리기, 드럼 비트, 입력과 판정을 묶고 화면을 떠나면 모두 정리한다.
 export function mountLessonGame({ root, onReady, onError, onFinish, onUpcoming }) {
@@ -104,6 +105,7 @@ export function mountLessonGame({ root, onReady, onError, onFinish, onUpcoming }
       renderer.effects = [];
       renderer.lastHit = null;
       renderer.hurtUntil = -1;
+      renderer.lastHeal = null;
       upcomingKey = "";
       state = "running";
       canvas.focus({ preventScroll: true });

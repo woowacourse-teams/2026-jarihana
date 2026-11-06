@@ -147,6 +147,41 @@ python scripts/arrange-double-taps.py --input-wav <원본 WAV 절대 경로> --c
 샘플 위치, 음량, 피크, 변경하지 않은 PCM 구간과 배포 음원 해시는
 [편곡 측정 보고서](rhythm-double-tap-mix.json)에서 확인한다.
 
+## Hardest 13~16마디
+
+`playbackOverrides.hardest`는 난이도 단순화와 재생 순서 변환을 마친 뒤 지정한 재생 마디만 교체한다.
+각 마디의 `column`은 0부터 시작하는 16분음표 위치다. 다른 난이도와 음원은 유지한다.
+
+- 13~14마디: 왼쪽 8분 연타에 오른쪽, 아래, 위 동시타를 더한 24노트.
+- 15~16마디: 8분 교대에서 엇박과 끝의 16분 교대로 이어지는 17노트.
+
+이 수정의 채보 버전은 `bars-13-16-1`이며 기본 편곡 버전과 음원 버전은 위와 같다.
+
+## 클레이 스프라이트
+
+방향 패널은 Canvas의 둥근 면과 부드러운 음영으로 클레이 두께를 표현한다.
+캐릭터 쪽에서 패널 길이의 약 3분의 1 안에 밝은 크림색으로 바뀌며, 나머지는 밝게 유지한다.
+판정선은 그림자 없이 진한 청록색 7px 선과 흰색 14px 테두리로 마지막에 그리며,
+판정 위치는 중심에서 242px인 기존 좌표와 같다. 연습과 따라 하기가 같은 렌더러를 쓴다.
+
+`assets/sprites-clay-v1.png`는 승인한 클레이 시안의 배경을 제거한 1254×1254 RGBA 이미지다.
+`sprite-atlas.mjs`의 URL, 시트 크기와 프레임 좌표를 연습, 따라 하기, 메뉴의 판 그림과 결과 화면이 공유한다.
+행성이 표정 4개, 세균의 기본/포획 상태 4색, 작살, 포획 효과와 하트를 기존 인덱스 순서로 유지한다.
+초록색은 기타 박자를 위한 예비 프레임이며 현재 채보에 새 노트를 추가하지 않는다.
+원본 `sprites.png`는 보존한다.
+
+내장 `image_gen`으로 승인 시안에 아래 프롬프트를 적용했다.
+
+```text
+Use case: background-extraction.
+Edit this approved clay sprite sheet into a production game texture atlas.
+Preserve the 15 approved clay sculptures, expressions, material, colors and scale. Preserve the exact 4-column by 4-row arrangement and the empty bottom-right cell. Do not redesign or add objects.
+
+Remove the ivory studio background AND ALL shadows beneath the objects. Deliver truly transparent alpha outside the actual solid sculptures, including every gap between sprites. No ivory patches, no color spill, no colored halos, no dust, flecks or remaining background noise. Silhouettes must have clean anti-aliased cutout edges. The result must composite cleanly on BOTH a pale mint game board and a very dark scoreboard.
+Keep all four white mascot faces complete, including the separate yellow emphasis marks of the hurt expression, all eight colored germ shapes, arrow, impact star and heart. No text, labels, grids, frames or new elements.
+This is precise background removal of the existing approved image, not a new style variation.
+```
+
 ## 검증
 
 `npm run lint`, 관련 Jest 테스트, `npm run build`를 사용한다.

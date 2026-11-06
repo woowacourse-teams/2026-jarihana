@@ -17,7 +17,9 @@ test("trill then spiral precedes the two-bar double-tap climax at every difficul
         : level === "hard" && [671, 704].includes(step) ? ["up"] : event.keys;
       return {step, sample: step * 5625, keys};
     }).sort((a,b) => a.step - b.step);
-    assert.deepEqual(simplifyChart(chart, level), expected);
+    // Hardest 13~16마디의 사용자 지정 패턴은 별도 테스트에서 확인한다.
+    const unchanged = event => level !== "hardest" || event.step < 192 || event.step >= 256;
+    assert.deepEqual(simplifyChart(chart, level).filter(unchanged), expected.filter(unchanged));
   }
 });
 

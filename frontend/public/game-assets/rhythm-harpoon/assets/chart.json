@@ -12,7 +12,7 @@
   "firstBeatOffsetSamples": 0,
   "loopStartSample": 0,
   "loopEndSampleExclusive": 4320000,
-  "durationSeconds": 90.0,
+  "durationSeconds": 90,
   "stepIndexBase": 0,
   "barIndexBase": 1,
   "sections": [
@@ -3039,5 +3039,236 @@
     46,
     47,
     48
-  ]
+  ],
+  "chartVersion": "bars-13-16-1",
+  "playbackOverrides": {
+    "hardest": [
+      {
+        "bar": 13,
+        "events": [
+          {
+            "column": 0,
+            "keys": [
+              "left"
+            ]
+          },
+          {
+            "column": 2,
+            "keys": [
+              "left",
+              "right"
+            ]
+          },
+          {
+            "column": 4,
+            "keys": [
+              "left"
+            ]
+          },
+          {
+            "column": 6,
+            "keys": [
+              "left",
+              "right"
+            ]
+          },
+          {
+            "column": 8,
+            "keys": [
+              "left"
+            ]
+          },
+          {
+            "column": 10,
+            "keys": [
+              "left",
+              "right"
+            ]
+          },
+          {
+            "column": 12,
+            "keys": [
+              "left"
+            ]
+          },
+          {
+            "column": 14,
+            "keys": [
+              "left",
+              "right"
+            ]
+          }
+        ]
+      },
+      {
+        "bar": 14,
+        "events": [
+          {
+            "column": 0,
+            "keys": [
+              "left"
+            ]
+          },
+          {
+            "column": 2,
+            "keys": [
+              "left",
+              "down"
+            ]
+          },
+          {
+            "column": 4,
+            "keys": [
+              "left"
+            ]
+          },
+          {
+            "column": 6,
+            "keys": [
+              "left",
+              "up"
+            ]
+          },
+          {
+            "column": 8,
+            "keys": [
+              "left"
+            ]
+          },
+          {
+            "column": 10,
+            "keys": [
+              "left",
+              "up"
+            ]
+          },
+          {
+            "column": 12,
+            "keys": [
+              "left"
+            ]
+          },
+          {
+            "column": 14,
+            "keys": [
+              "left",
+              "down"
+            ]
+          }
+        ]
+      },
+      {
+        "bar": 15,
+        "events": [
+          {
+            "column": 0,
+            "keys": [
+              "right"
+            ]
+          },
+          {
+            "column": 2,
+            "keys": [
+              "left"
+            ]
+          },
+          {
+            "column": 4,
+            "keys": [
+              "down"
+            ]
+          },
+          {
+            "column": 6,
+            "keys": [
+              "up"
+            ]
+          },
+          {
+            "column": 8,
+            "keys": [
+              "right"
+            ]
+          },
+          {
+            "column": 10,
+            "keys": [
+              "up"
+            ]
+          },
+          {
+            "column": 12,
+            "keys": [
+              "down"
+            ]
+          },
+          {
+            "column": 14,
+            "keys": [
+              "left"
+            ]
+          }
+        ]
+      },
+      {
+        "bar": 16,
+        "events": [
+          {
+            "column": 0,
+            "keys": [
+              "right"
+            ]
+          },
+          {
+            "column": 3,
+            "keys": [
+              "left"
+            ]
+          },
+          {
+            "column": 4,
+            "keys": [
+              "down"
+            ]
+          },
+          {
+            "column": 7,
+            "keys": [
+              "up"
+            ]
+          },
+          {
+            "column": 8,
+            "keys": [
+              "down"
+            ]
+          },
+          {
+            "column": 12,
+            "keys": [
+              "up"
+            ]
+          },
+          {
+            "column": 13,
+            "keys": [
+              "right"
+            ]
+          },
+          {
+            "column": 14,
+            "keys": [
+              "up"
+            ]
+          },
+          {
+            "column": 15,
+            "keys": [
+              "right"
+            ]
+          }
+        ]
+      }
+    ]
+  }
 }

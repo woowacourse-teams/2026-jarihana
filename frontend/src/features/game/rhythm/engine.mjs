@@ -325,13 +325,24 @@ export function playbackSections(chart) {
 
 export function simplifyChart(chart, level) {
   const events = simplifySourceChart(chart, level);
-  if (!chart.playbackBarOrder) return events;
-  return events.map((event) => {
+  const playbackEvents = !chart.playbackBarOrder ? events : events.map((event) => {
     const step = playbackStep(chart, event.step);
     const keys = ["hard", "hardest"].includes(level) && step === 640 ? ["up"]
       : level === "hard" && [671, 704].includes(step) ? ["up"] : event.keys.slice();
     return { ...event, step, sample: step * chart.samplesPerSixteenth, keys };
   }).sort((a, b) => a.step - b.step);
+  const overrides = chart.playbackOverrides?.[level];
+  if (!overrides?.length) return playbackEvents;
+  const replacedBars = new Set(overrides.map(({ bar }) => bar));
+  return playbackEvents
+    .filter((event) => !replacedBars.has(Math.floor(event.step / 16) + 1))
+    .concat(overrides.flatMap(({ bar, events: replacements }) =>
+      replacements.map(({ column, keys }) => {
+        const step = (bar - 1) * 16 + column;
+        return { step, sample: step * chart.samplesPerSixteenth, keys: keys.slice() };
+      })
+    ))
+    .sort((a, b) => a.step - b.step);
 }
 
 export class GameEngine {
@@ -346,6 +357,7 @@ export class GameEngine {
       : simplifyChart(chart, this.level);
     this.maxLives = LEVELS[this.level].lives;
     this.lives = this.maxLives;
+    this.loopHeal = LEVELS[this.level].loopHeal;
     this.score = 0;
     this.combo = 0;
     this.bestCombo = 0;

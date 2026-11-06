@@ -1,23 +1,7 @@
 import { LANES, CAPTURE_WINDOW, ATTACK_DURATION, JUDGMENTS, POOR_PENALTY } from "./engine.mjs";
+import { SPRITE_ATLAS } from "./sprite-atlas.mjs";
 
-const ATLAS = [
-  [53, 70, 252, 251],
-  [357, 70, 248, 251],
-  [656, 70, 251, 251],
-  [953, 68, 255, 256],
-  [41, 368, 271, 257],
-  [343, 369, 276, 256],
-  [647, 369, 276, 255],
-  [953, 368, 279, 255],
-  [113, 666, 148, 261],
-  [423, 670, 146, 260],
-  [726, 666, 149, 264],
-  [1027, 667, 151, 262],
-  [37, 1025, 296, 119],
-  [365, 975, 233, 222],
-  [654, 982, 255, 217],
-  [964, 984, 257, 215]
-];
+const ATLAS = SPRITE_ATLAS.frames;
 const ANGLES = { left: Math.PI, down: Math.PI / 2, right: 0, up: -Math.PI / 2 };
 const VECTOR = { left: [-1, 0], down: [0, 1], right: [1, 0], up: [0, -1] };
 const CENTER = 450;
@@ -198,6 +182,44 @@ export class Renderer {
     ctx.restore();
   }
 
+  clayPanel() {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.shadowColor = "rgba(56,76,58,0.18)";
+    ctx.shadowBlur = 9;
+    ctx.shadowOffsetY = 5;
+    ctx.fillStyle = "#b9c5af";
+    ctx.beginPath();
+    ctx.roundRect(55, -37, 219, 86, 18);
+    ctx.fill();
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+    const surface = ctx.createLinearGradient(55, 0, 153, 0);
+    surface.addColorStop(0, "#525b4c");
+    surface.addColorStop(0.25, "#949c85");
+    surface.addColorStop(0.55, "#d7dcc8");
+    surface.addColorStop(0.75, "#fffdf4");
+    surface.addColorStop(1, "#fffdf4");
+    ctx.fillStyle = surface;
+    ctx.beginPath();
+    ctx.roundRect(55, -43, 219, 86, 18);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,247,0.7)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(58, -40, 213, 80, 15);
+    ctx.stroke();
+    const target = ctx.createLinearGradient(213, 0, 271, 0);
+    target.addColorStop(0, "#edf3e4");
+    target.addColorStop(1, "#fffdf4");
+    ctx.fillStyle = target;
+    ctx.beginPath();
+    ctx.roundRect(213, -38, 58, 76, 14);
+    ctx.fill();
+    ctx.restore();
+  }
+
   field(time, engine) {
     const ctx = this.ctx;
     ctx.fillStyle = "#eaf1e8";
@@ -215,16 +237,7 @@ export class Renderer {
       ctx.save();
       ctx.translate(CENTER, CENTER);
       ctx.rotate(ANGLES[lane]);
-      ctx.fillStyle = "#f7f9f1";
-      ctx.strokeStyle = "#5e786b";
-      ctx.lineWidth = 2;
-      ctx.fillRect(55, -43, 155, 86);
-      ctx.strokeRect(55, -43, 155, 86);
-      ctx.fillStyle = "#e0ecda";
-      ctx.fillRect(210, -43, 64, 86);
-      ctx.setLineDash([7, 6]);
-      ctx.strokeRect(210, -43, 64, 86);
-      ctx.setLineDash([]);
+      this.clayPanel();
       if (strength > 0) {
         ctx.strokeStyle = "rgba(48,129,125," + strength * 0.65 + ")";
         ctx.lineWidth = this.reducedMotion ? 4 : 3 + strength * 2;
@@ -236,17 +249,17 @@ export class Renderer {
       }
       ctx.lineCap = "round";
       ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 11;
+      ctx.lineWidth = 14;
       ctx.beginPath();
       ctx.moveTo(TARGET, -49);
       ctx.lineTo(TARGET, 49);
       ctx.stroke();
       ctx.strokeStyle = "#264f53";
-      ctx.lineWidth = 5;
+      ctx.lineWidth = 7;
       ctx.stroke();
       ctx.beginPath();
       ctx.arc(TARGET, 0, 24, 0, Math.PI * 2);
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 3.5;
       ctx.stroke();
       ctx.fillStyle = "#264f53";
       for (const side of [-1, 1]) {

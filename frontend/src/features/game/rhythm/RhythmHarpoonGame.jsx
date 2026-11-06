@@ -3,6 +3,7 @@ import { HeartIcon } from "./HeartIcon.jsx";
 import { KeyBindings } from "./KeyBindings.jsx";
 import { browserStorage } from "./lesson.mjs";
 import { mountPracticeGame } from "./mount-practice-game.mjs";
+import { SPRITE_ATLAS } from "./sprite-atlas.mjs";
 import { keyLabel, readKeymap, writeKeymap } from "./preferences.mjs";
 import "./rhythm-game.css";
 
@@ -196,14 +197,14 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
                   <p className="result-score">
                     <svg
                       className="result-mascot"
-                      viewBox="953 68 255 256"
+                      viewBox={SPRITE_ATLAS.frames[3].join(" ")}
                       aria-hidden="true"
                       focusable="false"
                     >
                       <image
-                        href="/game-assets/rhythm-harpoon/assets/sprites.png"
-                        width="1280"
-                        height="1280"
+                        href={SPRITE_ATLAS.url}
+                        width={SPRITE_ATLAS.width}
+                        height={SPRITE_ATLAS.height}
                       />
                     </svg>
                     <small>연습 점수</small>

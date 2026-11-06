@@ -1,11 +1,11 @@
-const SPRITE_URL = "/game-assets/rhythm-harpoon/assets/sprites.png";
-const SHEET = { width: 1265, height: 1243 };
+import { SPRITE_ATLAS } from "./sprite-atlas.mjs";
+
 const FRAMES = {
-  calm: [53, 70, 252, 251],
-  fierce: [357, 70, 248, 251],
-  red: [41, 368, 271, 257],
-  blue: [343, 369, 276, 256],
-  yellow: [647, 369, 276, 255]
+  calm: SPRITE_ATLAS.frames[0],
+  fierce: SPRITE_ATLAS.frames[1],
+  red: SPRITE_ATLAS.frames[4],
+  blue: SPRITE_ATLAS.frames[5],
+  yellow: SPRITE_ATLAS.frames[6]
 };
 const ARMS = [
   { x: 0, y: 128, width: 300, height: 44 },
@@ -22,7 +22,7 @@ function Sprite({ frame, x, y, size }) {
   const [sx, sy, sw, sh] = FRAMES[frame];
   return (
     <svg x={x - size / 2} y={y - size / 2} width={size} height={size} viewBox={`${sx} ${sy} ${sw} ${sh}`}>
-      <image href={SPRITE_URL} width={SHEET.width} height={SHEET.height} />
+      <image href={SPRITE_ATLAS.url} width={SPRITE_ATLAS.width} height={SPRITE_ATLAS.height} />
     </svg>
   );
 }
