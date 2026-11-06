@@ -1,6 +1,8 @@
 import { useRef, useState } from "react";
 import { Stone } from "./Stone";
-export function Board({ room, selected, onSelect, disabled, appearanceByColor = {}, renderers }) {
+export function Board({
+  room, selected, onSelect, onConfirm, disabled, appearanceByColor = {}, renderers
+}) {
   const [focusIndex, setFocusIndex] = useState(112);
   const cells = useRef([]);
   function moveFocus(event, index) {
@@ -20,7 +22,7 @@ export function Board({ room, selected, onSelect, disabled, appearanceByColor = 
   return (
     <div
       className="gomoku-board"
-      aria-label="15줄 오목판. 화살표로 이동하고 Enter로 자리를 선택하세요."
+      aria-label="15줄 오목판. 화살표로 이동하고 Enter로 자리를 선택하세요. 더블클릭하면 바로 자리합니다."
     >
       {Array.from({ length: 225 }, (_, index) => {
         const x = index % 15;
@@ -44,6 +46,9 @@ export function Board({ room, selected, onSelect, disabled, appearanceByColor = 
             onKeyDown={(event) => moveFocus(event, index)}
             onClick={() => {
               if (!disabled && value === "0") onSelect({ x, y });
+            }}
+            onDoubleClick={() => {
+              if (!disabled && value === "0") onConfirm?.({ x, y });
             }}
           >
             {((x === 7 && y === 7) || ([3, 11].includes(x) && [3, 11].includes(y))) && (
