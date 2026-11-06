@@ -187,6 +187,13 @@ export function mountLessonGame({ root, onReady, onError, onFinish, onUpcoming }
     view,
     "keydown",
     (event) => {
+      // 진행 중에 Esc를 누르면 화면을 떠나기 전에 먼저 멈춘다. 멈춘 뒤의 Esc는 화면이 이전 단계로 돌아가는 데 쓴다.
+      if (event.key === "Escape" && (state === "running" || state === "starting")) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!event.repeat) interrupt();
+        return;
+      }
       if (!root.contains(event.target)) return;
       const lane = laneForKey(keymap, event);
       if (!lane || state !== "running") return;

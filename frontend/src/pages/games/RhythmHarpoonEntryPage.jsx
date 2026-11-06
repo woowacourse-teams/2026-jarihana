@@ -3,15 +3,22 @@ import { ArrowLeft, Music2 } from "lucide-react";
 
 import { RhythmBoardArt } from "../../features/game/rhythm/RhythmBoardArt.jsx";
 import { Button, PageContainer } from "../../shared/ui";
+import { useEscapeBack } from "../../features/game/rhythm/useEscapeBack.js";
 import "../../features/game/rhythm/rhythm-hub.css";
 import "./games.css";
 
 // 게임방 목록과 같은 카드 모양으로 싱글 플레이와 온라인 매칭 중 하나를 고른다.
 export function RhythmHarpoonEntryPage() {
+  useEscapeBack("/games");
   return (
     <PageContainer>
       <div className="games-page games-page--catalog">
-        <Link className="games-back" data-ph-capture-attribute-action="games_back" to="/games">
+        <Link
+          aria-keyshortcuts="Escape"
+          className="games-back"
+          data-ph-capture-attribute-action="games_back"
+          to="/games"
+        >
           <span>
             <ArrowLeft size={16} aria-hidden="true" /> 게임방
           </span>
@@ -21,8 +28,14 @@ export function RhythmHarpoonEntryPage() {
           <p>혼자 할지, 함께 할지 골라요.</p>
         </header>
         <div className="games-catalog">
-          <article className="games-card games-card--playable" aria-labelledby="rhythm-entry-single">
-            <div className="games-artwork games-card__visual rhythm-entry__visual" aria-hidden="true">
+          <article
+            className="games-card games-card--playable"
+            aria-labelledby="rhythm-entry-single"
+          >
+            <div
+              className="games-artwork games-card__visual rhythm-entry__visual"
+              aria-hidden="true"
+            >
               <RhythmBoardArt />
             </div>
             <div className="games-card__body">
@@ -38,7 +51,10 @@ export function RhythmHarpoonEntryPage() {
             </div>
           </article>
           <article className="games-card games-card--soon" aria-label="온라인 매칭, 준비 중">
-            <div className="games-artwork games-card__visual rhythm-entry__visual" aria-hidden="true">
+            <div
+              className="games-artwork games-card__visual rhythm-entry__visual"
+              aria-hidden="true"
+            >
               <RhythmBoardArt variant="duo" />
             </div>
             <div className="games-card__body">

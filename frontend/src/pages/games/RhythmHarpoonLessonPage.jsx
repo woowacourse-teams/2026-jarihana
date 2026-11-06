@@ -18,6 +18,7 @@ import {
   writeLessonSettings
 } from "../../features/game/rhythm/lesson.mjs";
 import { mountLessonGame } from "../../features/game/rhythm/mount-lesson-game.mjs";
+import { useEscapeBack } from "../../features/game/rhythm/useEscapeBack.js";
 import "../../features/game/rhythm/rhythm-game.css";
 import "../../features/game/rhythm/rhythm-hub.css";
 import "./rhythm-harpoon.css";
@@ -79,7 +80,7 @@ function OverlayCard({ phase, step, result, progress, onListen, onTry, onNext })
         <p>
           {phase === "failed"
             ? result?.error
-            : "다른 창이나 탭으로 이동하면 따라 하기가 멈춰요."}
+            : "Esc를 누르거나 다른 창이나 탭으로 이동하면 따라 하기가 멈춰요. 한 번 더 Esc를 누르면 싱글 플레이로 돌아가요."}
         </p>
         {tryButtons(true)}
       </>
@@ -124,6 +125,7 @@ function OverlayCard({ phase, step, result, progress, onListen, onTry, onNext })
 }
 
 export function RhythmHarpoonLessonPage() {
+  useEscapeBack("/games/rhythm-harpoon/single");
   const rootReference = useRef(null);
   const playerReference = useRef(null);
   const [stepIndex, setStepIndex] = useState(0);
@@ -193,6 +195,7 @@ export function RhythmHarpoonLessonPage() {
     <section className="game-player" aria-labelledby="rhythm-lesson-title">
       <header className="game-player__toolbar">
         <Link
+          aria-keyshortcuts="Escape"
           className="game-player__back"
           data-ph-capture-attribute-action="rhythm_single_back"
           to="/games/rhythm-harpoon/single"

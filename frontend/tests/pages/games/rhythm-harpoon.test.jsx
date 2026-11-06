@@ -10,13 +10,14 @@ import { mountPracticeGame } from "../../../src/features/game/rhythm/mount-pract
 import { mountLessonGame } from "../../../src/features/game/rhythm/mount-lesson-game.mjs";
 import { playLessonPreview } from "../../../src/features/game/rhythm/lesson-audio.mjs";
 
+const mockNavigate = jest.fn();
 jest.mock("react-router", () => ({
   Link: ({ children, to, ...properties }) => (
     <a href={to} {...properties}>
       {children}
     </a>
   ),
-  useNavigate: () => jest.fn(),
+  useNavigate: () => mockNavigate,
   useParams: () => ({})
 }));
 jest.mock("../../../src/features/auth", () => ({
@@ -38,6 +39,7 @@ jest.mock("../../../src/features/game/rhythm/lesson-audio.mjs", () => ({
 }));
 
 beforeEach(() => {
+  mockNavigate.mockClear();
   mountPracticeGame.mockReset();
   mountLessonGame.mockReset();
   playLessonPreview.mockClear();
@@ -207,6 +209,49 @@ it("returns from practice to single play", () => {
   expect(back).toHaveAttribute("href", "/games/rhythm-harpoon/single");
   expect(back).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_single_back");
   expect(screen.getByLabelText("세균 위 소리 글자 표시")).toBeChecked();
+});
+
+it.each([
+  ["entry", RhythmHarpoonEntryPage, "/games"],
+  ["single play", RhythmHarpoonSinglePage, "/games/rhythm-harpoon"],
+  ["lesson", RhythmHarpoonLessonPage, "/games/rhythm-harpoon/single"],
+  ["practice", RhythmHarpoonPage, "/games/rhythm-harpoon/single"]
+])("goes back one step from the %s screen with Esc", (_name, Page, previous) => {
+  mountLessonGame.mockReturnValue({ play: jest.fn(), dispose: jest.fn() });
+  const view = render(<Page />);
+  expect(document.querySelector("[aria-keyshortcuts='Escape']")).toHaveAttribute("href", previous);
+  fireEvent.keyDown(document.body, { key: "Escape", repeat: true });
+  expect(mockNavigate).not.toHaveBeenCalled();
+  fireEvent.keyDown(document.body, { key: "Escape" });
+  expect(mockNavigate).toHaveBeenCalledTimes(1);
+  expect(mockNavigate).toHaveBeenCalledWith(previous);
+  view.unmount();
+  fireEvent.keyDown(document.body, { key: "Escape" });
+  expect(mockNavigate).toHaveBeenCalledTimes(1);
+});
+
+it("leaves Esc to the game, open dialogs and text fields before going back", () => {
+  render(<RhythmHarpoonEntryPage />);
+  const pauseFirst = (event) => event.preventDefault();
+  window.addEventListener("keydown", pauseFirst, { capture: true });
+  fireEvent.keyDown(document.body, { key: "Escape" });
+  window.removeEventListener("keydown", pauseFirst, { capture: true });
+
+  const dialog = document.createElement("dialog");
+  dialog.setAttribute("open", "");
+  document.body.append(dialog);
+  fireEvent.keyDown(document.body, { key: "Escape" });
+  dialog.remove();
+
+  const field = document.createElement("input");
+  document.body.append(field);
+  fireEvent.keyDown(field, { key: "Escape" });
+  field.remove();
+
+  fireEvent.keyDown(document.body, { key: "Enter" });
+  expect(mockNavigate).not.toHaveBeenCalled();
+  fireEvent.keyDown(document.body, { key: "Escape" });
+  expect(mockNavigate).toHaveBeenCalledWith("/games");
 });
 
 it("renders a React-owned game and excludes prototype shortcuts from the service", () => {

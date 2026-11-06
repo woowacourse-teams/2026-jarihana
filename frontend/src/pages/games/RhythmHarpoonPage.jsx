@@ -7,9 +7,11 @@ import {
   RHYTHM_SETTINGS_ID,
   RhythmHarpoonGame
 } from "../../features/game/rhythm/RhythmHarpoonGame.jsx";
+import { useEscapeBack } from "../../features/game/rhythm/useEscapeBack.js";
 import "./rhythm-harpoon.css";
 
 export function RhythmHarpoonPage() {
+  useEscapeBack("/games/rhythm-harpoon/single");
   const [attempt, setAttempt] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(true);
   // 플레이가 시작되면 설정 서랍을 닫고, 멈추거나 끝나면 다시 연다.
@@ -20,6 +22,7 @@ export function RhythmHarpoonPage() {
     <section className="game-player" aria-labelledby="rhythm-harpoon-title">
       <header className="game-player__toolbar">
         <Link
+          aria-keyshortcuts="Escape"
           className="game-player__back"
           data-ph-capture-attribute-action="rhythm_single_back"
           to="/games/rhythm-harpoon/single"

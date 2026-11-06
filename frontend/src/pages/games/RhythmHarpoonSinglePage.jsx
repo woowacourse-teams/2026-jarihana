@@ -9,6 +9,7 @@ import {
   readLessonProgress
 } from "../../features/game/rhythm/lesson.mjs";
 import { playLessonPreview } from "../../features/game/rhythm/lesson-audio.mjs";
+import { useEscapeBack } from "../../features/game/rhythm/useEscapeBack.js";
 import "../../features/game/rhythm/rhythm-game.css";
 import "../../features/game/rhythm/rhythm-hub.css";
 import "./rhythm-harpoon.css";
@@ -59,6 +60,7 @@ function SoundTutorial({ completed, onPreview }) {
 }
 
 export function RhythmHarpoonSinglePage() {
+  useEscapeBack("/games/rhythm-harpoon");
   const [progress] = useState(() => readLessonProgress(browserStorage()));
   const preview = useRef(null);
 
@@ -90,6 +92,7 @@ export function RhythmHarpoonSinglePage() {
     <section className="game-player" aria-labelledby="rhythm-single-title">
       <header className="game-player__toolbar">
         <Link
+          aria-keyshortcuts="Escape"
           className="game-player__back"
           data-ph-capture-attribute-action="rhythm_entry_back"
           to="/games/rhythm-harpoon"

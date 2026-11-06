@@ -35,6 +35,9 @@
   소리 글자)은 `haengseong-practice-settings-v1`, 키 배치는 `haengseong-keymap-v1`, 따라 하기의 빠르기와 배속은
   `haengseong-lesson-settings-v1`, 입력 지연 보정은 기존 키에 둔다. 읽을 때 값을 검증하고 맞지 않으면 기본값을 쓴다.
 - 첫 화면의 게임방 링크는 오목 화면과 같은 `games_back`으로 게임판에 돌아간다.
+- Esc는 바로 전 단계 화면으로 돌아간다(첫 화면은 게임방, 싱글 플레이는 첫 화면, 따라 하기와 연습은 싱글 플레이). 각 화면의 뒤로 가기 링크에 `aria-keyshortcuts="Escape"`를 붙였다.
+  게임이 먼저 Esc를 쓰면 화면은 움직이지 않는다. 연습은 플레이 중 Esc가 일시정지, 일시정지 중 Esc가 다시 시작이고, 따라 하기는 진행 중 Esc가 멈춤이다.
+  키 바꾸기 중의 취소, 열린 싱크 진단 창, 글자 입력 칸에서도 화면을 떠나지 않는다(`useEscapeBack.js`).
 - `src/features/game/rhythm/RhythmHarpoonGame.jsx`가 연습 React 화면을 소유한다.
   독립 HTML과 iframe은 사용하지 않는다. 정적 경로에는 음악, 채보, 스프라이트만 둔다.
 - `mount-practice-game.mjs`가 DOM 이벤트, 음악 시계, Canvas와 싱크 진단의 실행 수명을 관리한다.
