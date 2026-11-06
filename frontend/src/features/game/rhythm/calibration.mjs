@@ -1,8 +1,9 @@
+// window는 박 간격(60 / bpm)의 절반보다 작아야 한 입력이 한 박에만 대응한다.
 export const SYNC_CONFIG = Object.freeze({
-  bpm: 90,
+  bpm: 120,
   warmup: 4,
   beats: 20,
-  window: 0.3,
+  window: 0.24,
   minSamples: 14,
   maxOffset: 150
 });

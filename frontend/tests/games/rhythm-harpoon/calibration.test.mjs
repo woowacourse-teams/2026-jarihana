@@ -26,12 +26,12 @@ test("positive and negative offsets retain their sign, exclude warmup and use ro
     assert.equal(result.used, 20);
     assert.equal(result.spread, 0);
   }
-  const run = measured([...Array(16).fill(72), -250, 240, -230, 270]);
+  const run = measured([...Array(16).fill(72), -220, 210, -200, 230]);
   assert.equal(run.result().offset, 72);
   assert.equal(run.result().excluded, 4);
   assert.equal(run.result().used, 16);
   assert.equal(run.result().reliable, true);
-  for (const offset of [220, -220, 300, -300]) {
+  for (const offset of [160, -160, 220, -220]) {
     const result = measured(Array(20).fill(offset)).result();
     assert.equal(result.reliable, false);
     assert.equal(result.reason, "range");
@@ -134,7 +134,7 @@ test("metronome schedules all beats on the audio clock and disposes every click 
   assert.equal(ctx.sources.length, 24);
   assert.equal(ctx.sources[4].frequency.value, 1320);
   for (const [index, source] of ctx.sources.entries())
-    assert(Math.abs(source.at - (10.25 + (index * 60) / 90)) < 1e-8);
+    assert(Math.abs(source.at - (10.25 + (index * 60) / SYNC_CONFIG.bpm)) < 1e-8);
   audio.stop();
   audio.stop();
   assert.equal(ctx.closed, 1);

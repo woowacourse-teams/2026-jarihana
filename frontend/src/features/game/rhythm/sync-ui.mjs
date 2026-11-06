@@ -65,7 +65,8 @@ export class SyncCalibrationUI {
     this.$("sync-progress").value = 0;
     this.$("sync-count").textContent = "0 / 20";
     this.$("sync-current").textContent = signed(this.getOffset());
-    this.$("sync-status").textContent = "90 BPM 클릭음을 4박 들은 뒤, 20박에 맞춰 눌러요.";
+    this.$("sync-status").textContent =
+      `${SYNC_CONFIG.bpm} BPM 클릭음을 ${SYNC_CONFIG.warmup}박 들은 뒤, ${SYNC_CONFIG.beats}박에 맞춰 눌러요.`;
     this.dialog.showModal();
     this.$("sync-start").focus();
   }

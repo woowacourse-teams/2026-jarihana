@@ -371,7 +371,7 @@ export function RhythmHarpoonGame() {
           현재 보정 <strong id="sync-current">0ms</strong>
         </p>
         <p id="sync-status" className="sync-status" role="status">
-          측정 시작을 누르면 90 BPM 클릭음이 나와요.
+          측정 시작을 누르면 클릭음이 나와요.
         </p>
         <button
           id="sync-tap"
