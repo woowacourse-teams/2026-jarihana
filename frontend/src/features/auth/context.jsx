@@ -39,17 +39,27 @@ export const AuthProvider = ({ children }) => {
   const [logoutPending, setLogoutPending] = useState(false);
   const [state, setState] = useState({ avatarUrl: null, error: null, member: null, status: "loading" });
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async ({ restoreMemberId = null } = {}) => {
     if (logoutStarted.current) return;
     const version = ++requestVersion.current;
-    setSessionVersion((current) => current + 1);
+    const restoring = restoreMemberId !== null;
+    if (!restoring) setSessionVersion((current) => current + 1);
     await Promise.resolve();
-    setState((current) => ({ ...current, error: null, status: "loading" }));
+    if (version !== requestVersion.current) return;
+    setState((current) => restoring
+      ? { ...current, restoring: true }
+      : { ...current, error: null, restoring: false, status: "loading" });
     try {
       const profile = await bootstrapAuth();
-      if (version === requestVersion.current) setState(stateFromProfile(profile));
+      if (version !== requestVersion.current) return;
+      const next = stateFromProfile(profile);
+      if (restoring && next.member?.id !== restoreMemberId) {
+        setSessionVersion((current) => current + 1);
+      }
+      setState(next);
     } catch (error) {
       if (version !== requestVersion.current) return;
+      if (restoring) setSessionVersion((current) => current + 1);
       if (error instanceof ApiError && error.status === 401) {
         setState({ avatarUrl: null, error: null, member: null, status: "anonymous" });
         return;
@@ -75,13 +85,14 @@ export const AuthProvider = ({ children }) => {
     });
   }, [reload]);
 
+  const restoreMemberId = state.status === "authenticated" ? state.member.id : null;
   useEffect(() => {
     const restoreSession = (event) => {
-      if (event.persisted) void reload().catch(() => undefined);
+      if (event.persisted) void reload({ restoreMemberId }).catch(() => undefined);
     };
     window.addEventListener("pageshow", restoreSession);
     return () => window.removeEventListener("pageshow", restoreSession);
-  }, [reload]);
+  }, [reload, restoreMemberId]);
 
   useEffect(() => {
     function changedSession(event) {
@@ -131,12 +142,16 @@ export const AuthProvider = ({ children }) => {
       await removeBrowserSubscription().catch(() => undefined);
     } catch (error) {
       setLogoutError("로그아웃하지 못했어요. 연결 상태를 확인하고 다시 시도해 주세요.");
+      if (state.restoring) {
+        logoutStarted.current = false;
+        void reload({ restoreMemberId: state.member.id }).catch(() => undefined);
+      }
       throw error;
     } finally {
       logoutStarted.current = false;
       setLogoutPending(false);
     }
-  }, [state.member]);
+  }, [reload, state.member, state.restoring]);
 
   const value = useMemo(
     () => ({

@@ -6,7 +6,7 @@ import { useUnreadCount } from "../features/notifications/hooks";
 import { Link, useLocation, useNavigate } from "react-router";
 import { Headset, MessageCircle, UserRound } from "lucide-react";
 
-import { storeReturnTarget, useAuth } from "../features/auth";
+import { peekReturnTarget, storeReturnTarget, useAuth } from "../features/auth";
 import {
   FeedbackForm,
   FeedbackLoginPrompt,
@@ -150,10 +150,11 @@ function FeedbackButton({ onClick, open, status }) {
 
 function AuthAction({ onNavigate, status }) {
   const { login, logout, logoutPending } = useAuth();
-  const { pathname, search, hash } = useLocation();
+  const { pathname, search, hash, state } = useLocation();
 
   function rememberLocation() {
-    if (pathname !== "/signup" && pathname !== "/oauth/callback") {
+    const hasGuardReturnTarget = state?.loginRequired && peekReturnTarget();
+    if (!hasGuardReturnTarget && pathname !== "/signup" && pathname !== "/oauth/callback") {
       storeReturnTarget(`${pathname}${search}${hash}`);
     }
     onNavigate();
