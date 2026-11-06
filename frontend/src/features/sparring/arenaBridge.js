@@ -10,6 +10,7 @@ export const arenaActions = [
   "sparring_flow_toggle",
   "sparring_capsule_release",
   "sparring_capsule_select",
+  "sparring_character_grab",
   "sparring_clash_expand",
   "sparring_clash_replay",
   "sparring_clash_close"

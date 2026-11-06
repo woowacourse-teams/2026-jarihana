@@ -491,10 +491,18 @@ it("continues the write queue after a failed request but discards queued writes 
 });
 
 describe("demand-driven replay history", () => {
-  const items = (first, last) => Array.from({ length: last - first + 1 }, (_, index) => ({ ...post, id: first + index }));
-  const page = (first, last, nextCursor = null) => ({ items: items(first, last).reverse(), nextCursor, hasNext: nextCursor !== null });
+  const items = (first, last, side = "MINT") => Array.from({ length: last - first + 1 }, (_, index) => ({ ...post, id: first + index, side }));
   const advance = milliseconds => act(async () => { await jest.advanceTimersByTimeAsync(milliseconds); });
   const currentHistory = target => snapshots(target).at(-1).state.history;
+  const historyIds = target => currentHistory(target).posts.map(item => Number(item.id));
+  const pageFor = (all, query) => {
+    const beforeId = query.cursor ? Number(query.cursor.replace("before-", "")) : Infinity;
+    const remaining = all.filter(item => item.side === query.side && item.id <= query.throughId && item.id < beforeId)
+      .sort((a, b) => b.id - a.id);
+    const batch = remaining.slice(0, query.size), hasNext = remaining.length > query.size;
+    return { items: batch, nextCursor: hasNext ? `before-${batch.at(-1).id}` : null, hasNext };
+  };
+  const store = all => getSparringPosts.mockImplementation((_id, query) => Promise.resolve(pageFor(all, query)));
   let hidden;
   const visibility = value => {
     hidden = value;
@@ -517,100 +525,148 @@ describe("demand-driven replay history", () => {
   });
   afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks(); });
 
-  it("loads older pages only on demand, skips the initial recent batch and restarts only after the final page", async () => {
-    getSparringPosts.mockResolvedValueOnce(page(61, 90, "before-61"))
-      .mockResolvedValueOnce(page(31, 60, "before-31"))
-      .mockResolvedValueOnce(page(1, 30))
-      .mockResolvedValueOnce(page(61, 90, "before-61"));
-    const { receive, target } = await start();
-    expect(currentHistory(target)).toEqual({ page: 0, posts: [] });
-    await advance(1000);
-    expect(getSparringPosts).not.toHaveBeenCalled();
-    receive({ kind: "history", page: 0 });
-    await advance(0);
+  it("starts both sides latest first when the latest 60 of 89 posts are all mint", async () => {
+    const all = [...items(1, 11, "CORAL"), ...items(12, 89)];
+    store(all);
+    const { receive, target } = await start(all.slice(-30));
+    receive({ kind: "history", page: 0 }); await advance(0);
+    expect(historyIds(target).slice(0, 6)).toEqual([89, 11, 88, 10, 87, 9]);
+    expect(currentHistory(target).posts.filter(item => item.side === "b").map(item => Number(item.id)))
+      .toEqual(items(1, 11).map(item => item.id).reverse());
     expect(getSparringPosts.mock.calls).toEqual([
-      ["1", { size: 30 }], ["1", { size: 30, cursor: "before-61" }]
+      ["1", { size: 30, side: "MINT", throughId: 89 }],
+      ["1", { size: 30, side: "CORAL", throughId: 89 }]
     ]);
-    expect(currentHistory(target).posts.map(post => post.id)).toEqual(items(31, 60).map(post => String(post.id)));
-    expect(currentHistory(target).page).toBe(1);
-    expect(snapshots(target).at(-1).state.posts.map(post => post.id)).toEqual(items(61, 90).map(post => String(post.id)));
     expect(snapshots(target).at(-1).fresh).toEqual([]);
-    expect(snapshots(target).at(-1).livePosts).toEqual([]);
-    await advance(1000);
-    expect(getSparringPosts).toHaveBeenCalledTimes(2);
-    receive({ kind: "history", page: 1 });
-    await advance(0);
-    expect(getSparringPosts).toHaveBeenLastCalledWith("1", { size: 30, cursor: "before-31" });
-    expect(currentHistory(target).posts.map(post => post.id)).toEqual(items(1, 30).map(post => String(post.id)));
-    receive({ kind: "history", page: 2 });
-    await advance(0);
-    expect(getSparringPosts).toHaveBeenLastCalledWith("1", { size: 30 });
-    expect(currentHistory(target).page).toBe(3);
-    expect(currentHistory(target).posts.map(post => post.id)).toEqual(items(61, 90).map(post => String(post.id)));
   });
 
-  it("keeps history progress and suppresses old launches while SSE reconnects during a history request", async () => {
-    let finishHistory;
-    getSparringPosts.mockResolvedValueOnce(page(61, 90, "before-61"))
-      .mockImplementationOnce(() => new Promise(resolve => { finishHistory = resolve; }))
-      .mockResolvedValueOnce(page(1, 30));
+  it("finishes both independent cursors without repeats before starting the next cycle", async () => {
+    const all = [...items(1, 44, "CORAL"), ...items(45, 119)];
+    store(all);
+    const { receive, target } = await start(all.slice(-30));
+    await advance(1000);
+    expect(getSparringPosts).not.toHaveBeenCalled();
+    const played = [];
+    for (let page = 0; page < 4; page++) {
+      receive({ kind: "history", page }); await advance(0);
+      played.push(...currentHistory(target).posts);
+    }
+    expect(played).toHaveLength(119);
+    expect(new Set(played.map(item => item.id)).size).toBe(119);
+    for (const [side, expected] of [["a", items(45, 119)], ["b", items(1, 44)]]) {
+      expect(played.filter(item => item.side === side).map(item => Number(item.id)))
+        .toEqual(expected.map(item => item.id).reverse());
+    }
+    expect(played.slice(28, 34).map(item => item.side)).toEqual(["a", "b", "a", "b", "a", "b"]);
+    expect(getSparringPosts.mock.calls.some(([, query]) => query.side === "MINT" && query.cursor === "before-90")).toBe(true);
+    expect(getSparringPosts.mock.calls.some(([, query]) => query.side === "CORAL" && query.cursor === "before-15")).toBe(true);
+    receive({ kind: "history", page: 4 }); await advance(0);
+    expect(historyIds(target).slice(0, 4)).toEqual([119, 44, 118, 43]);
+  });
+
+  it("keeps the cycle boundary and cursor during live posts and SSE reconnection", async () => {
+    const all = items(1, 90);
+    store(all);
     const { receive, target } = await start();
-    receive({ kind: "history", page: 0 });
-    await advance(0);
+    receive({ kind: "history", page: 0 }); await advance(0);
     const stream = Stream.instances.at(-1);
+    all.push(...items(91, 130));
     act(() => stream.emit("update", streamData([{ ...post, id: 91, authorId: 2 }], 2, { postCount: 91 })));
     expect(snapshots(target).at(-1).fresh).toEqual(["91"]);
     act(() => {
       stream.onerror(); stream.onopen();
       stream.emit("snapshot", streamData(items(101, 130), 3, { postCount: 130 }));
     });
-    await act(async () => finishHistory(page(31, 60, "before-31")));
-    expect(currentHistory(target).posts.map(post => post.id)).toEqual(items(31, 60).map(post => String(post.id)));
-    expect(snapshots(target).at(-1).state.posts[0].id).toBe("101");
     expect(snapshots(target).at(-1).fresh).toEqual([]);
-    receive({ kind: "history", page: 1 });
-    await advance(0);
-    expect(getSparringPosts).toHaveBeenLastCalledWith("1", { size: 30, cursor: "before-31" });
-    act(() => stream.emit("update", streamData([{ ...post, id: 131, authorId: 2 }], 4, { postCount: 131 })));
-    expect(snapshots(target).at(-1).fresh).toEqual(["131"]);
-    expect(currentHistory(target).page).toBe(2);
+    receive({ kind: "history", page: 1 }); await advance(0);
+    expect(historyIds(target)).toEqual(items(31, 60).map(item => item.id).reverse());
+    expect(getSparringPosts).toHaveBeenLastCalledWith("1", { size: 30, side: "MINT", throughId: 90, cursor: "before-61" });
+    receive({ kind: "history", page: 2 }); await advance(0);
+    expect(historyIds(target)).toEqual(items(1, 30).map(item => item.id).reverse());
+    receive({ kind: "history", page: 3 }); await advance(0);
+    expect(historyIds(target)).toEqual(items(101, 130).map(item => item.id).reverse());
+    expect(getSparringPosts.mock.calls.at(-2)[1]).toEqual({ size: 30, side: "MINT", throughId: 130 });
   });
 
-  it("shares in-flight requests and rejects stale, future and untrusted acknowledgements", async () => {
+  it("preserves a partial batch when the other side fails and retries only that request", async () => {
+    const all = [...items(1, 40, "CORAL"), ...items(41, 80)];
+    let coralFailures = 2;
+    getSparringPosts.mockImplementation((_id, query) => query.side === "CORAL" && coralFailures-- > 0
+      ? Promise.reject(new Error("offline")) : Promise.resolve(pageFor(all, query)));
+    const { receive, target } = await start(all.slice(-30));
+    receive({ kind: "history", page: 0 }); await advance(0);
+    expect(currentHistory(target).page).toBe(0);
+    expect(getSparringPosts).toHaveBeenCalledTimes(2);
+    await advance(999); expect(getSparringPosts).toHaveBeenCalledTimes(2);
+    await advance(1); expect(getSparringPosts).toHaveBeenCalledTimes(3);
+    visibility(true); await advance(5000);
+    expect(getSparringPosts).toHaveBeenCalledTimes(3);
+    visibility(false); await advance(0);
+    expect(getSparringPosts).toHaveBeenCalledTimes(4);
+    expect(getSparringPosts.mock.calls.slice(1).map(([, query]) => query)).toEqual(Array(3).fill({ size: 30, side: "CORAL", throughId: 80 }));
+    expect(historyIds(target).slice(0, 6)).toEqual([80, 40, 79, 39, 78, 38]);
+    expect(new Set(historyIds(target)).size).toBe(30);
+  });
+
+  it("includes a confirmed own post in the next cycle even before its SSE update", async () => {
+    const all = items(1, 3);
+    getSparringPosts.mockImplementation((_id, query) => Promise.resolve(query.afterId == null
+      ? pageFor(all, query)
+      : { items: all.filter(item => item.id > query.afterId).slice(0, query.size), hasNext: false, nextCursor: null }));
+    const { receive, target } = await start(all);
+    receive({ kind: "history", page: 0 }); await advance(0);
+    expect(historyIds(target)).toEqual([3, 2, 1]);
+    all.push({ ...post, id: 4 });
+    postSparring.mockResolvedValueOnce({ id: 4 });
+    receive({
+      kind: "command", action: "post", requestId: "own-before-stream",
+      payload: { text: post.text, replyToId: null, postId: "bc2eb62e-b004-4b9c-8bde-dcd9fd86be72" }
+    });
+    await advance(0);
+    expect(target.postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      kind: "result", requestId: "own-before-stream", result: expect.objectContaining({ id: "4" })
+    }), window.location.origin);
+    receive({ kind: "history", page: 1 }); await advance(0);
+    expect(historyIds(target)).toEqual([4, 3, 2, 1]);
+    expect(getSparringPosts.mock.calls.at(-2)[1]).toEqual({ size: 30, side: "MINT", throughId: 4 });
+  });
+
+  it("shares in-flight work and rejects stale, future and untrusted acknowledgements", async () => {
+    const all = items(1, 90);
     let finishHistory;
-    getSparringPosts.mockImplementationOnce(() => new Promise(resolve => { finishHistory = resolve; }));
+    store(all);
+    getSparringPosts.mockImplementationOnce((_id, query) => new Promise(resolve => { finishHistory = () => resolve(pageFor(all, query)); }));
     const { receive, target } = await start();
     receive({ kind: "history", page: 0 }, "https://untrusted.example");
     for (const value of [-1, 0.5, 1, "0"]) receive({ kind: "history", page: value });
     await advance(0);
     expect(getSparringPosts).not.toHaveBeenCalled();
-    receive({ kind: "history", page: 0 }); receive({ kind: "history", page: 0 });
-    await advance(0);
+    receive({ kind: "history", page: 0 }); receive({ kind: "history", page: 0 }); await advance(0);
     receive({ kind: "history", page: 0 });
     expect(getSparringPosts).toHaveBeenCalledTimes(1);
-    await act(async () => finishHistory(page(31, 60, "before-31")));
+    await act(async () => finishHistory());
     expect(currentHistory(target).page).toBe(1);
-    receive({ kind: "history", page: 0 }); receive({ kind: "history", page: 2 });
-    await advance(0);
-    expect(getSparringPosts).toHaveBeenCalledTimes(1);
+    expect(getSparringPosts).toHaveBeenCalledTimes(2);
+    receive({ kind: "history", page: 0 }); receive({ kind: "history", page: 2 }); await advance(0);
+    expect(getSparringPosts).toHaveBeenCalledTimes(2);
   });
 
-  it("pauses pending history while hidden and publishes an in-flight result on return", async () => {
+  it("pauses history while hidden and resumes an in-flight page without losing its cursor", async () => {
+    const all = items(1, 90);
     let finishHistory;
-    getSparringPosts.mockImplementationOnce(() => new Promise(resolve => { finishHistory = resolve; }));
+    store(all);
+    getSparringPosts.mockImplementationOnce((_id, query) => new Promise(resolve => { finishHistory = () => resolve(pageFor(all, query)); }));
     const { receive, target } = await start();
-    receive({ kind: "history", page: 0 }); visibility(true);
-    await advance(1000);
+    receive({ kind: "history", page: 0 }); visibility(true); await advance(1000);
     expect(getSparringPosts).not.toHaveBeenCalled();
     visibility(false); await advance(0);
     expect(getSparringPosts).toHaveBeenCalledTimes(1);
     visibility(true); target.postMessage.mockClear();
-    await act(async () => finishHistory(page(31, 60, "before-31")));
+    await act(async () => finishHistory());
     expect(snapshots(target)).toEqual([]);
-    visibility(false);
-    expect(currentHistory(target).page).toBe(1);
-    await advance(1000);
-    expect(getSparringPosts).toHaveBeenCalledTimes(1);
+    visibility(false); await advance(0);
+    expect(historyIds(target)).toEqual(items(61, 90).map(item => item.id).reverse());
+    expect(getSparringPosts).toHaveBeenCalledTimes(2);
   });
 
   it("discards late results after unmount and clears scheduled work", async () => {
@@ -619,79 +675,77 @@ describe("demand-driven replay history", () => {
     const { receive, target, unmount } = await start();
     receive({ kind: "history", page: 0 }); await advance(0);
     unmount(); target.postMessage.mockClear();
-    await act(async () => finishHistory(page(31, 60, "before-31")));
+    await act(async () => finishHistory(pageFor(items(1, 90), { size: 30, side: "MINT", throughId: 90 })));
     await advance(10000);
     expect(target.postMessage).not.toHaveBeenCalled();
+    expect(getSparringPosts).toHaveBeenCalledTimes(1);
     expect(jest.getTimerCount()).toBe(0);
   });
 
-  it("retries the same cursor with backoff and retains demand across tab hiding", async () => {
-    getSparringPosts.mockResolvedValueOnce(page(61, 90, "before-61"))
-      .mockRejectedValueOnce(new Error("offline"))
-      .mockRejectedValueOnce(new Error("offline"))
-      .mockResolvedValueOnce(page(31, 60, "before-31"));
+  it.each([null, "before-61"])("stops on a missing or repeated cursor (%s)", async cursor => {
+    const all = items(1, 90);
+    store(all);
     const { receive, target } = await start();
     receive({ kind: "history", page: 0 }); await advance(0);
-    expect(getSparringPosts).toHaveBeenCalledTimes(2);
-    await advance(999);
-    expect(getSparringPosts).toHaveBeenCalledTimes(2);
-    await advance(1);
-    expect(getSparringPosts).toHaveBeenCalledTimes(3);
-    await advance(1999);
-    expect(getSparringPosts).toHaveBeenCalledTimes(3);
-    visibility(true); await advance(5000);
-    expect(getSparringPosts).toHaveBeenCalledTimes(3);
-    visibility(false); await advance(0);
-    expect(getSparringPosts).toHaveBeenCalledTimes(4);
-    expect(getSparringPosts.mock.calls.slice(1).map(([, query]) => query.cursor)).toEqual(Array(3).fill("before-61"));
+    getSparringPosts.mockResolvedValueOnce({ items: items(31, 60).reverse(), hasNext: true, nextCursor: cursor });
+    receive({ kind: "history", page: 1 }); await advance(0);
+    const calls = getSparringPosts.mock.calls.length;
+    receive({ kind: "history", page: 1 }); await advance(60000);
+    expect(getSparringPosts).toHaveBeenCalledTimes(calls);
     expect(currentHistory(target).page).toBe(1);
-  });
-
-  it.each([null, "before-61"])("stops on missing or repeated history cursors (%s)", async cursor => {
-    getSparringPosts.mockResolvedValueOnce(page(61, 90, "before-61"))
-      .mockResolvedValueOnce({ items: items(31, 60), hasNext: true, nextCursor: cursor });
-    const { receive, target } = await start();
-    receive({ kind: "history", page: 0 }); await advance(0);
-    receive({ kind: "history", page: 0 }); await advance(60000);
-    expect(getSparringPosts).toHaveBeenCalledTimes(2);
-    expect(currentHistory(target)).toEqual({ page: 0, posts: [] });
     expect(target.postMessage).toHaveBeenCalledWith(expect.objectContaining({ kind: "failure" }), window.location.origin);
   });
 
-  it("does not spin on empty history and resumes existing demand when the post count changes", async () => {
+  it.each([
+    [{ ...post, id: 91 }],
+    [{ ...post, side: "CORAL" }],
+    items(1, 2),
+    []
+  ].map(invalid => [invalid]))("stops when a history page violates its side, boundary or descending progress (%j)", async invalid => {
+    getSparringPosts.mockResolvedValueOnce({ items: invalid, hasNext: true, nextCursor: "next" });
+    const { receive, target } = await start();
+    receive({ kind: "history", page: 0 }); await advance(60000);
+    expect(getSparringPosts).toHaveBeenCalledTimes(1);
+    expect(currentHistory(target).page).toBe(0);
+    expect(target.postMessage).toHaveBeenCalledWith(expect.objectContaining({ kind: "failure" }), window.location.origin);
+  });
+
+  it("does not spin on empty history and resumes demand when posts arrive", async () => {
     const { receive, target } = await start([]);
     receive({ kind: "history", page: 0 }); await advance(10000);
     expect(getSparringPosts).not.toHaveBeenCalled();
     act(() => Stream.instances.at(-1).emit("update", streamData([post], 2, { postCount: 1 })));
     await advance(0);
-    expect(getSparringPosts).toHaveBeenCalledTimes(1);
+    const calls = getSparringPosts.mock.calls.length;
     receive({ kind: "history", page: 0 }); await advance(10000);
-    expect(getSparringPosts).toHaveBeenCalledTimes(1);
-    getSparringPosts.mockResolvedValueOnce(page(1, 2));
+    expect(getSparringPosts).toHaveBeenCalledTimes(calls);
+    store(items(1, 2));
     act(() => Stream.instances.at(-1).emit("update", streamData([{ ...post, id: 2 }], 3, { postCount: 2 })));
     await advance(0);
-    expect(currentHistory(target).page).toBe(1);
-    expect(currentHistory(target).posts.map(post => post.id)).toEqual(["1", "2"]);
+    expect(historyIds(target)).toEqual([2, 1]);
   });
 
-  it("lets guests read history and skips new posts added before the first HTTP page", async () => {
-    getSparringPosts.mockResolvedValueOnce(page(81, 110, "before-81"))
-      .mockResolvedValueOnce(page(51, 80, "before-51"));
+  it("lets guests read history without including posts newer than the entry snapshot", async () => {
+    store(items(1, 110));
     const { receive, target } = await start(items(61, 90), null);
     receive({ kind: "history", page: 0 }); await advance(0);
-    expect(currentHistory(target).posts.map(post => post.id)).toEqual(items(51, 60).map(post => String(post.id)));
+    expect(historyIds(target)).toEqual(items(61, 90).map(item => item.id).reverse());
     expect(login).not.toHaveBeenCalled();
     expect(snapshots(target).at(-1).state.actorId).toBe("guest");
   });
 
-  it("starts at most one new cycle when all stored posts belong to the initial recent batch", async () => {
-    getSparringPosts.mockResolvedValue(page(1, 3));
-    const { receive, target } = await start(items(1, 3));
+  it.each(["MINT", "CORAL"])("plays a short %s-only discussion once per complete cycle", async side => {
+    const all = items(1, 3, side);
+    store(all);
+    const { receive, target } = await start(all);
     receive({ kind: "history", page: 0 }); await advance(0);
+    expect(historyIds(target)).toEqual([3, 2, 1]);
     expect(getSparringPosts).toHaveBeenCalledTimes(2);
-    expect(currentHistory(target).posts.map(post => post.id)).toEqual(["1", "2", "3"]);
     await advance(10000);
     expect(getSparringPosts).toHaveBeenCalledTimes(2);
+    receive({ kind: "history", page: 1 }); await advance(0);
+    expect(historyIds(target)).toEqual([3, 2, 1]);
+    expect(getSparringPosts).toHaveBeenCalledTimes(4);
   });
 
   it("cancels a scheduled retry when the room unmounts", async () => {
