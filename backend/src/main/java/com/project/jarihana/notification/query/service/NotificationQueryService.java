@@ -41,7 +41,7 @@ public class NotificationQueryService {
         Cursor cursor = decode(query.cursor());
         Slice<NotificationProjection> page = notifications.findPage(memberId,
                 cursor == null ? null : cursor.createdAt(), cursor == null ? null : cursor.id(),
-                query.clientVersion().includesAnnouncements(),
+                query.clientVersion().includesAnnouncements(), query.clientVersion().includesChat(),
                 PageRequest.of(0, query.size()));
         List<NotificationProjection> items = page.getContent();
         String next = page.hasNext() ? encode(items.getLast()) : null;
@@ -58,7 +58,7 @@ public class NotificationQueryService {
         if (id <= 0) {
             throw invalidParameter();
         }
-        NotificationProjection item = notifications.findActiveByIdAndMemberId(id, memberId, clientVersion.includesAnnouncements())
+        NotificationProjection item = notifications.findActiveByIdAndMemberId(id, memberId, clientVersion.includesAnnouncements(), clientVersion.includesChat())
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOTIFICATION_NOT_FOUND, "알림을 찾을 수 없습니다."));
         Map<Long, String> groupNames = findGroupNames(List.of(item));
         Map<Long, ActivityPostReactionSummaryProjection> reactions = findReactionSummaries(List.of(item));
@@ -98,7 +98,7 @@ public class NotificationQueryService {
 
     public long countUnreadNotifications(long memberId, NotificationClientVersion clientVersion) {
         requireMember(memberId);
-        return notifications.countUnread(memberId, clientVersion.includesAnnouncements());
+        return notifications.countUnread(memberId, clientVersion.includesAnnouncements(), clientVersion.includesChat());
     }
 
     private void requireMember(long memberId) {
