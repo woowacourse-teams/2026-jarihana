@@ -27,18 +27,69 @@ export const roomSchema = z.object({
   turnDeadline: z.number().nullable()
 });
 const roomIdSchema = z.object({ roomId: z.number().int() });
+export const statisticsSchema = z.object({
+  total: z.number().int().nonnegative(),
+  wins: z.number().int().nonnegative(),
+  losses: z.number().int().nonnegative(),
+  draws: z.number().int().nonnegative(),
+  winRate: z.number().min(0).max(100).nullable()
+});
+const historyItemSchema = z.object({
+  id: z.number().int(),
+  opponentName: z.string(),
+  opponentAvatarUrl: z.string().url().nullable(),
+  result: z.enum(["WIN", "LOSE", "DRAW"]),
+  rule: z.enum(["RENJU", "FREESTYLE"]),
+  endReason: z.enum(["FIVE", "DRAW", "RESIGN", "TIMEOUT"]),
+  endedAt: z.string().datetime({ local: true })
+});
+const rankingItemSchema = statisticsSchema.extend({
+  memberId: z.number().int(),
+  rank: z.number().int().positive(),
+  name: z.string(),
+  avatarUrl: z.string().url().nullable()
+});
+const pageSchema = (item) =>
+  z.object({ items: z.array(item), nextCursor: z.string().nullable(), hasNext: z.boolean() });
+const pageParams = (cursor) => ({ size: 20, ...(cursor ? { cursor } : {}) });
+export const lobbyRoomSchema = roomSchema.pick({
+  id: true,
+  hostMemberId: true,
+  hostName: true,
+  hostAvatarUrl: true,
+  guestMemberId: true,
+  guestName: true,
+  guestAvatarUrl: true,
+  visibility: true,
+  rule: true,
+  status: true
+}).extend({ spectatorCount: z.number().int().nonnegative().default(0) });
 const root = "games/gomoku";
 const request = (path, options) => apiClient.request(`${root}/${path}`, options);
 export const gomokuApi = {
+  statistics: (signal) => request("history/me/summary", { schema: statisticsSchema, signal }),
+  history: (cursor, signal) =>
+    request("history/me", {
+      schema: pageSchema(historyItemSchema),
+      searchParams: pageParams(cursor),
+      signal
+    }),
+  ranking: (cursor, signal) =>
+    request("ranking", {
+      schema: pageSchema(rankingItemSchema).extend({ me: rankingItemSchema.nullable() }),
+      searchParams: pageParams(cursor),
+      signal
+    }),
   list: (cursor, keyword = "", signal) =>
     request("rooms", {
       schema: z.object({
-        items: z.array(roomSchema),
+        items: z.array(lobbyRoomSchema),
         nextCursor: z.union([z.string(), z.number()]).nullable(),
         hasNext: z.boolean()
       }),
       signal,
       searchParams: {
+        view: "summary",
         size: 20,
         ...(cursor == null ? {} : { cursor }),
         ...(keyword ? { keyword } : {})
@@ -46,7 +97,24 @@ export const gomokuApi = {
     }),
   mine: (signal) => request("rooms/me", { schema: z.object({ roomId: nullableId }), signal }),
   create: (body) => request("rooms", { method: "POST", json: body, schema: roomIdSchema }),
-  room: (id, signal) => request(`rooms/${id}`, { schema: roomSchema, signal }),
+  room: (id, signal, participationId) =>
+    request(`rooms/${id}`, {
+      schema: roomSchema,
+      signal,
+      ...(participationId ? { searchParams: { participationId } } : {})
+    }),
+  observe: (id, requestId, signal) =>
+    request(`rooms/${id}/observations`, {
+      method: "POST",
+      json: { requestId },
+      signal,
+      schema: z.object({
+        participationId: z.string().uuid(),
+        chatStartSequence: z.string().regex(/^\d+$/)
+      })
+    }),
+  leaveObservation: (id, participationId) =>
+    request(`rooms/${id}/observations/${participationId}`, { method: "DELETE" }),
   join: (id, token) =>
     request(`rooms/${id}/join`, {
       method: "POST",

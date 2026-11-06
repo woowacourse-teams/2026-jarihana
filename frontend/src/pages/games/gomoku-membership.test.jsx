@@ -6,6 +6,10 @@ import { gomokuApi } from "../../features/gomoku/api";
 import { useGomokuRoom } from "../../features/gomoku/useGomokuRoom";
 import { syncGomokuMembership } from "../../features/gomoku/membership";
 
+jest.mock("../../features/gomoku/useGomokuChat", () => ({
+  useGomokuChat: () => ({ enabled: false })
+}));
+
 jest.mock("react-router", () => {
   const { dirname, join } = require("node:path");
   const packageRoot = dirname(require.resolve("react-router/package.json"));
@@ -13,6 +17,12 @@ jest.mock("react-router", () => {
   return {
     ...jest.requireActual(join(packageRoot, "dist/production/lib/components.js")),
     ...hooks,
+    useSearchParams: () => {
+      const location = hooks.useLocation();
+      const navigate = hooks.useNavigate();
+      const params = new URLSearchParams(location.search);
+      return [params, (next) => navigate({ search: `?${typeof next === "function" ? next(params) : new URLSearchParams(next)}` })];
+    },
     Link: function TestLink({ children, to, ...properties }) {
       const navigate = hooks.useNavigate();
       return (

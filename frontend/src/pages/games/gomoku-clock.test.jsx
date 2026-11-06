@@ -4,6 +4,10 @@ import { useGomokuRoom } from "../../features/gomoku/useGomokuRoom";
 import { gomokuApi } from "../../features/gomoku/api";
 import { useNavigate } from "react-router";
 
+jest.mock("../../features/gomoku/useGomokuChat", () => ({
+  useGomokuChat: () => ({ enabled: false })
+}));
+
 jest.mock("react-router", () => ({
   Link: ({ children, to, ...properties }) => (
     <a href={to} {...properties}>

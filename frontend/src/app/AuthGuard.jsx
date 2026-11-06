@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { Activity, useCallback, useRef, useState } from "react";
 import { Navigate, useLocation } from "react-router";
 
 import { storeReturnTarget, useAuth } from "../features/auth";
@@ -32,18 +32,10 @@ function PersistedRedirect({ currentPath, state, to }) {
 }
 
 export function AuthGuard({ children }) {
-  const { retry, status } = useAuth();
+  const { member, restoring, retry, status } = useAuth();
   const location = useLocation();
   const currentPath = `${location.pathname}${location.search}${location.hash}`;
   const decision = resolveAuthenticatedAccess(status, currentPath);
-
-  if (decision.kind === "loading") {
-    return (
-      <div className="route-loading">
-        <Skeleton aria-label="로그인 상태 확인 중" />
-      </div>
-    );
-  }
 
   if (decision.kind === "unavailable") {
     return (
@@ -64,5 +56,18 @@ export function AuthGuard({ children }) {
     return <Navigate replace state={decision.state} to={decision.to} />;
   }
 
-  return children;
+  return (
+    <>
+      {decision.kind === "loading" || restoring ? (
+        <div className="route-loading">
+          <Skeleton aria-label="로그인 상태 확인 중" />
+        </div>
+      ) : null}
+      {decision.kind === "allow" ? (
+        <Activity key={member?.id} mode={restoring ? "hidden" : "visible"}>
+          {children}
+        </Activity>
+      ) : null}
+    </>
+  );
 }

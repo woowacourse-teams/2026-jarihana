@@ -112,6 +112,21 @@ it("starts GitHub login from the anonymous header action", () => {
   expect(login).toHaveBeenCalledTimes(1);
 });
 
+it.each(["desktop", "mobile"])("preserves the shared discussion before %s header login", (layout) => {
+  mockPathname = "/sparring/91";
+  mockSearch = "?view=compact";
+  mockHash = "#discussion";
+  const login = jest.fn();
+  renderShell({ login, status: "anonymous" });
+  if (layout === "mobile") fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
+  const area = layout === "mobile"
+    ? screen.getByRole("navigation", { name: "모바일 메뉴" })
+    : screen.getByRole("banner");
+  fireEvent.click(within(area).getByRole("button", { name: "GitHub로 로그인" }));
+  expect(sessionStorage.getItem("jarihana:auth:return-target")).toBe("/sparring/91?view=compact#discussion");
+  expect(login).toHaveBeenCalledTimes(1);
+});
+
 it("returns to group creation after login from the desktop create action", () => {
   const login = jest.fn();
   renderShell({ login, status: "anonymous" });
@@ -267,6 +282,14 @@ it("keeps an incomplete signup session on the signup flow", () => {
 
   // Then
   expect(screen.getByRole("link", { name: "가입 계속하기" })).toHaveAttribute("href", "/signup");
+});
+
+it.each(["/sparring/91", "/signup"])("keeps the discussion return target when continuing signup from %s", (pathname) => {
+  mockPathname = pathname;
+  sessionStorage.setItem("jarihana:auth:return-target", "/sparring/91");
+  renderShell({ status: "signup-required" });
+  fireEvent.click(screen.getByRole("link", { name: "가입 계속하기" }));
+  expect(sessionStorage.getItem("jarihana:auth:return-target")).toBe("/sparring/91");
 });
 
 it("reveals logout only after opening the profile menu", () => {

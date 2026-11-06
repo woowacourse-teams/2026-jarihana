@@ -2,6 +2,7 @@ export const routeRegistry = Object.freeze([
   { access: "public", page: "GamesPage", path: "/games" },
   { access: "public", page: "GomokuLobbyPage", path: "/games/gomoku" },
   { access: "member", page: "GomokuRoomPage", path: "/games/gomoku/rooms/:roomId" },
+  { access: "member", page: "GomokuObservationPage", path: "/games/gomoku/rooms/:roomId/watch" },
   { access: "public", page: "GomokuInvitationPage", path: "/games/gomoku/invite/:token" },
   { access: "public", page: "StickHalvingRoomPage", path: "/games/stick-halving" },
   { access: "member", page: "ChatPage", path: "/chat" },

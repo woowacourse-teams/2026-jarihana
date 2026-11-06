@@ -25,6 +25,10 @@
   --color-gomoku-board-light: #edcd95;
   --color-gomoku-board-edge: #b88345;
   --color-gomoku-grain: #976431;
+  --gomoku-ranking-chair-size: 13.5rem;
+  --gomoku-ranking-scene-height: 15.75rem;
+  --gomoku-ranking-profile-size: 5.625rem;
+  --gomoku-ranking-profile-bottom: 5.5625rem;
   --color-header-muted: #b8b8b8;
   --color-header-line: #2f2f2f;
   --color-danger: #c7352a;

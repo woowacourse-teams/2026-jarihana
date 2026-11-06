@@ -379,11 +379,12 @@ describe("signupReturnPath", () => {
     expect(signupReturnPath("/events/pepero-day")).toBe("/events/pepero-day");
   });
 
-  it("Given invitation, notification and game room targets, When signup completes, Then it keeps returning to them", () => {
+  it("Given invitation, notification, game room and sparring targets, When signup completes, Then it keeps returning to them", () => {
     // When & Then
     expect(signupReturnPath("/invitations/abc")).toBe("/invitations/abc");
     expect(signupReturnPath("/notifications/open/7")).toBe("/notifications/open/7");
     expect(signupReturnPath("/games/stick-halving")).toBe("/games/stick-halving");
+    expect(signupReturnPath("/sparring/12")).toBe("/sparring/12");
   });
 
   it("Given any other target, When signup completes, Then it enters My", () => {

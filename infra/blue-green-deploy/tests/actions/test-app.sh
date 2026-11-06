@@ -128,6 +128,18 @@ case_initial_idle_snapshot() {
   OPERATION=bootstrap; app_run
   jq -e '.authority.phase=="COMPLETE" and .authority.status=="ACTIVE" and .authority.owner==.identity' "$APP_DIR/api" >/dev/null
 }
+case_bootstrap_with_live_http() {
+  change '.authority.deploymentId=null|.authority.phase="IDLE"|.authority.status="UNASSIGNED"|.authority.owner=null|.worker.state="PAUSED"|.activity.httpInFlight=2'
+  app_read
+  OPERATION=bootstrap; app_run
+  jq -e '.authority.phase=="COMPLETE" and .authority.status=="ACTIVE" and .authority.owner==.identity' "$APP_DIR/api" >/dev/null
+}
+case_bootstrap_rejects_background_work() {
+  change '.authority.deploymentId=null|.authority.phase="IDLE"|.authority.status="UNASSIGNED"|.authority.owner=null|.worker.state="PAUSED"|.activity.backgroundInFlight=1|.activity.backgroundDrained=false'
+  app_read
+  OPERATION=bootstrap; reject app_run
+  jq -e '.authority.status=="UNASSIGNED" and .authority.owner==null' "$APP_DIR/api" >/dev/null
+}
 case_bad_counter() { change '.worker.inFlight=-1'; reject app_read; }
 case_wrong_environment() { change '.environment="prod"'; reject app_read; }
 case_no_release_with_work() {
@@ -395,7 +407,7 @@ case_shutdown_generation_change() {
 
 if [[ ${1:-} == --case ]]; then fixture; "case_$2"; exit; fi
 passed=0
-for scenario in command_rechecks_cached_parent shutdown_rechecks_cached_parent handoff activation_and_completion response_loss cas_race_before cas_race_after grant_and_deadline boot_change initial_idle_snapshot bad_counter wrong_environment no_release_with_work no_activation_with_owner rollback_target rollback_unhealthy_target rollback_wrong_owner handoff_unhealthy activation_unhealthy rollback_old rollback_already_released observation observation_clock_jump observation_readiness status_requires_grant mutation_grant_mismatch profile profile_public_management profile_dev_scheduler profile_live_dev profile_live_dev_starts_paused profile_live_dev_mismatched_push push_settings_rehearsal push_settings_live push_settings_invalid push_settings_prod_unchanged live_push_handoff live_push_cannot_take_owned_authority profile_wrong_db profile_wrong_token prepare_single_rds prepare_ignores_legacy_rds prepare_invalid_rds receipt shutdown shutdown_abnormal shutdown_http_work shutdown_generation_change; do
+for scenario in command_rechecks_cached_parent shutdown_rechecks_cached_parent handoff activation_and_completion response_loss cas_race_before cas_race_after grant_and_deadline boot_change initial_idle_snapshot bootstrap_with_live_http bootstrap_rejects_background_work bad_counter wrong_environment no_release_with_work no_activation_with_owner rollback_target rollback_unhealthy_target rollback_wrong_owner handoff_unhealthy activation_unhealthy rollback_old rollback_already_released observation observation_clock_jump observation_readiness status_requires_grant mutation_grant_mismatch profile profile_public_management profile_dev_scheduler profile_live_dev profile_live_dev_starts_paused profile_live_dev_mismatched_push push_settings_rehearsal push_settings_live push_settings_invalid push_settings_prod_unchanged live_push_handoff live_push_cannot_take_owned_authority profile_wrong_db profile_wrong_token prepare_single_rds prepare_ignores_legacy_rds prepare_invalid_rds receipt shutdown shutdown_abnormal shutdown_http_work shutdown_generation_change; do
   bash "$0" --case "$scenario"
   printf 'PASS %s\n' "$scenario"
   passed=$((passed+1))

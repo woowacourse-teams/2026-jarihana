@@ -189,6 +189,12 @@
   font-size: var(--text-caption);
   margin-left: var(--space-1);
 }
+.games-room-spectators {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
 .games-room-join[data-other-room] {
   background: var(--color-surface-sunken);
   border-color: transparent;
@@ -461,6 +467,32 @@
   border-radius: var(--radius-md);
   background: var(--color-danger-soft);
   color: var(--color-danger);
+}
+.games-notice {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+.games-notice__content {
+  min-height: 0;
+  overflow: hidden;
+}
+.games-notice--transient {
+  animation: gomoku-notice-fade-out var(--duration-deliberate) var(--ease-standard) 3s forwards;
+}
+@keyframes gomoku-notice-fade-out {
+  from {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+  to {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .games-notice--transient {
+    animation-duration: 0.01ms;
+  }
 }
 .gomoku-room-error {
   position: fixed;

@@ -32,7 +32,7 @@ public class NotificationCommandController {
     public ResponseEntity<ApiResponse<NotificationReadAllResponse>> readAllNotifications(
             @LoginMember long memberId, @Validated @ModelAttribute NotificationReadAllRequest request) {
         return ResponseEntity.ok(ApiResponse.success(NotificationReadAllResponse.from(
-                notifications.readAllNotifications(memberId, request.includesAnnouncements()))));
+                notifications.readAllNotifications(memberId, request.includesAnnouncements(), request.includesChat()))));
     }
 
     @DeleteMapping("/{id}")

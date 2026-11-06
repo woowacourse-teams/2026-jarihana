@@ -3,6 +3,9 @@ package com.project.jarihana.common.exception;
 import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
+    GOMOKU_CHAT_DISABLED(HttpStatus.NOT_FOUND),
+    GOMOKU_CHAT_PARTICIPATION_CHANGED(HttpStatus.CONFLICT),
+    GOMOKU_CHAT_CLOSED(HttpStatus.CONFLICT),
     GOMOKU_NOT_FOUND(HttpStatus.NOT_FOUND),
     GOMOKU_CONFLICT(HttpStatus.CONFLICT),
     GOMOKU_FORBIDDEN_MOVE(HttpStatus.UNPROCESSABLE_CONTENT),

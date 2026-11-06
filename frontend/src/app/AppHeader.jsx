@@ -6,7 +6,7 @@ import { useUnreadCount } from "../features/notifications/hooks";
 import { Link, useLocation, useNavigate } from "react-router";
 import { Headset, MessageCircle, UserRound } from "lucide-react";
 
-import { storeReturnTarget, useAuth } from "../features/auth";
+import { peekReturnTarget, storeReturnTarget, useAuth } from "../features/auth";
 import { PEPERO_DAY_PATH, usePeperoDayStatus } from "../features/pepero-day";
 import {
   FeedbackForm,
@@ -132,6 +132,15 @@ function FeedbackButton({ onClick, open, status }) {
 
 function AuthAction({ onNavigate, status }) {
   const { login, logout, logoutPending } = useAuth();
+  const { pathname, search, hash, state } = useLocation();
+
+  function rememberLocation() {
+    const hasGuardReturnTarget = state?.loginRequired && peekReturnTarget();
+    if (!hasGuardReturnTarget && pathname !== "/signup" && pathname !== "/oauth/callback") {
+      storeReturnTarget(`${pathname}${search}${hash}`);
+    }
+    onNavigate();
+  }
 
   if (status === "authenticated") {
     return (
@@ -161,7 +170,7 @@ function AuthAction({ onNavigate, status }) {
       <Link
         className="app-header__auth"
         data-ph-capture-attribute-action="signup_continue"
-        onClick={onNavigate}
+        onClick={rememberLocation}
         to="/signup"
       >
         가입 계속하기
@@ -174,7 +183,7 @@ function AuthAction({ onNavigate, status }) {
       className="app-header__auth app-header__auth--github"
       data-ph-capture-attribute-action="login"
       onClick={() => {
-        onNavigate();
+        rememberLocation();
         login();
       }}
       type="button"
