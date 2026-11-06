@@ -392,7 +392,7 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
               <div>
                 <b>Uh oh</b>
                 <span>
-                  ±150ms <em>+100</em>
+                  ±150ms <em>놓침</em>
                 </span>
               </div>
               <div>
@@ -402,10 +402,12 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
                 </span>
               </div>
               <p className="small muted">
-                세균이 판정선에 왔을 때 해당 방향을 눌러요. 헛공격하면 1,000점이 깎여요.
+                세균이 판정선에 왔을 때 해당 방향을 눌러요. 헛공격하면 1,000점이 깎이고 콤보가
+                끊겨요.
               </p>
               <p className="small muted">
-                ±150ms까지 포획돼요. 150ms 초과~180ms 미만은 입력만 무시해요.
+                ±100ms까지 포획돼요. 100ms 초과~150ms는 Uh oh로 세균을 놓치고 콤보가 끊겨요.
+                150ms 초과~180ms 미만은 입력만 무시해요.
                 <br />
                 포획 시기를 놓치면 세균이 돌진해요.
               </p>

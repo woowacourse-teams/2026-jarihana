@@ -59,8 +59,7 @@ test("every successful judgment catches the germ, continues the combo and awards
   for (const [delta, kind, points] of [
     [0.025, "perfect", 1000],
     [0.05, "hit", 600],
-    [0.08, "enough", 300],
-    [0.125, "uhoh", 100]
+    [0.08, "enough", 300]
   ]) {
     const run = engine();
     const note = run.notes[0];
@@ -93,20 +92,62 @@ test("150-180ms does not catch or penalize; 180ms and empty lanes are Poor", () 
   assert.equal(empty.input("left", -10).kind, "poor");
 });
 
-test("formerly ignored 100-150ms inputs catch before a miss can start", () => {
+test("100-150ms inputs are Uh oh: the germ escapes, the combo breaks and its attack costs a life", () => {
   for (const loop of [1, 6, 10]) {
     for (const delta of [-0.15, -0.149, -0.125, 0.11, 0.125, 0.149, 0.15]) {
       const run = engine({ startLoop: loop });
       const note = run.notes[0];
+      run.combo = 5;
       run.tick(note.at + delta);
       assert.equal(note.state, "waiting");
       assert.equal(run.input(note.lane, note.at + delta).kind, "uhoh");
+      assert.equal(run.combo, 0);
+      assert.equal(run.score, 0);
+      assert.equal(run.stats.uhoh, 1);
+      assert.equal(run.input(note.lane, note.at + delta).kind, "ignored", "a missed germ cannot be caught again");
       run.tick(note.at + CAPTURE_WINDOW + ATTACK_DURATION + 0.001);
-      assert.equal(note.state, "caught");
-      assert.equal(run.stats.miss, 0);
-      assert.equal(run.lives, 10);
+      assert.equal(note.state, "gone");
+      assert.equal(run.stats.miss, 0, "Uh oh is not counted twice as a miss");
+      assert.equal(run.lives, 9);
     }
   }
+});
+
+test("Uh oh on one chord note still lets the rest be caught and costs one life", () => {
+  const run = engine({ startAt: 86.25 });
+  const group = run.groups[0];
+  const [first, ...rest] = group.notes;
+  assert.equal(run.input(first.lane, group.at - 0.12).kind, "uhoh");
+  for (const note of rest) assert.equal(run.input(note.lane, group.at).kind, "perfect");
+  assert.equal(run.combo, rest.length);
+  run.tick(group.at + CAPTURE_WINDOW + ATTACK_DURATION + 0.001);
+  assert.equal(run.lives, 9);
+  assert.equal(run.combo, 0);
+});
+
+test("trilling two keys together on eighth notes loses the off-beat germs", () => {
+  const fixture = {
+    ...chart,
+    sections: [{ startBar: 1, bars: 1, pattern: "basic" }],
+    events: [0, 1, 2, 3, 4, 5, 6, 7].map((step) => ({
+      step,
+      sample: step * chart.samplesPerSixteenth,
+      keys: [step % 2 ? "right" : "left"]
+    }))
+  };
+  const run = new GameEngine(fixture, { random: () => 0.5 });
+  const firstLoop = run.notes.filter((note) => note.loop === run.loops[0].number);
+  const lefts = firstLoop.filter((note) => note.lane === "left");
+  const rights = firstLoop.filter((note) => note.lane === "right");
+  for (const note of lefts) {
+    run.tick(note.at);
+    run.input("left", note.at);
+    run.input(rights.find((right) => right.at > note.at).lane, note.at);
+  }
+  assert(lefts.every((note) => note.state === "caught"));
+  assert(rights.every((note) => note.whiffed));
+  assert.equal(run.stats.uhoh, rights.length);
+  assert.equal(run.bestCombo, 1);
 });
 
 test("overlapping same-lane windows retain the nearest-note matching rule", () => {
@@ -169,10 +210,12 @@ test("invalid scroll speeds are rejected before scheduling audio", () => {
   }
 });
 
-test("early or empty inputs deduct only score and preserve the approaching note", () => {
+test("early or empty inputs deduct score, break the combo and preserve the approaching note", () => {
   const run = engine();
   const note = run.notes[0];
+  run.combo = 5;
   assert.equal(run.input(note.lane, note.at - 0.201).kind, "poor");
+  assert.equal(run.combo, 0);
   assert.equal(run.score, -POOR_PENALTY);
   assert.equal(note.state, "waiting");
   assert.equal(run.lives, 10);

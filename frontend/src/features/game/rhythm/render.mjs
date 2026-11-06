@@ -504,6 +504,11 @@ export class Renderer {
       const age = time - effect.at;
       if (effect.kind === "poor") this.harpoon(effect.lane, age, false);
       if (!effect.note) continue;
+      // Uh oh는 작살이 빗나가고 세균이 그대로 다가오므로 포획 효과를 그리지 않는다.
+      if (effect.note.whiffed) {
+        this.harpoon(effect.note.lane, age, false);
+        continue;
+      }
       this.harpoon(effect.note.lane, age, true);
       if (age >= 0 && age < 0.27) {
         const vector = VECTOR[effect.note.lane];
@@ -524,7 +529,12 @@ export class Renderer {
     }
     let expression = 0;
     if (time < this.hurtUntil) expression = 3;
-    else if (this.lastHit && time - this.lastHit.at < 0.23 && this.lastHit.kind !== "poor")
+    else if (
+      this.lastHit &&
+      time - this.lastHit.at < 0.23 &&
+      this.lastHit.kind !== "poor" &&
+      !this.lastHit.note?.whiffed
+    )
       expression = 2;
     const shake = expression === 3 && !this.reducedMotion ? Math.sin(time * 90) * 3 : 0;
     this.sprite(expression, CENTER + shake, CENTER, 132, 132);

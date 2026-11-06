@@ -8,7 +8,8 @@ export const JUDGMENTS = [
   { kind: "perfect", label: "PERFECT", window: PERFECT_WINDOW, score: 1000, color: "#416d36" },
   { kind: "hit", label: "HIT", window: HIT_WINDOW, score: 600, color: "#41687c" },
   { kind: "enough", label: "ENOUGH", window: 0.1, score: 300, color: "#87702e" },
-  { kind: "uhoh", label: "Uh oh", window: CAPTURE_WINDOW, score: 100, color: "#8a5d45" }
+  // 100ms를 넘겨 누르면 세균을 놓친다. 판정은 받지만 점수 없이 콤보가 끊기고 세균이 돌진한다.
+  { kind: "uhoh", label: "Uh oh", window: CAPTURE_WINDOW, score: 0, color: "#8a5d45", whiff: true }
 ];
 export const ATTACK_DURATION = 0.18;
 export const APPROACH_SECONDS = 1.25;
@@ -447,6 +448,7 @@ export class GameEngine {
   hit(note, at) {
     const delta = at - note.at;
     const judgment = JUDGMENTS.find((item) => Math.abs(delta) <= item.window + 0.0000001);
+    if (judgment.whiff) return this.whiff(note, at, delta, judgment);
     note.state = "caught";
     note.judgedAt = at;
     note.delta = delta;
@@ -454,6 +456,17 @@ export class GameEngine {
     this.stats[judgment.kind]++;
     this.combo++;
     this.bestCombo = Math.max(this.bestCombo, this.combo);
+    this.effects.push({ kind: judgment.kind, note, at, delta });
+    return { kind: judgment.kind, note, delta };
+  }
+
+  // 놓친 세균은 판정선을 지나면 그대로 돌진해 다른 미스와 같이 라이프를 깎는다.
+  whiff(note, at, delta, judgment) {
+    note.whiffed = true;
+    note.judgedAt = at;
+    note.delta = delta;
+    this.stats[judgment.kind]++;
+    this.combo = 0;
     this.effects.push({ kind: judgment.kind, note, at, delta });
     return { kind: judgment.kind, note, delta };
   }
@@ -468,6 +481,7 @@ export class GameEngine {
       const error = Math.abs(at - note.at);
       if ((note.state !== "waiting" && note.state !== "attack") || note.group.damaged) continue;
       nearestDistance = Math.min(nearestDistance, error);
+      if (note.whiffed) continue;
       if (error <= CAPTURE_WINDOW + 0.0000001 && error < distance) {
         closest = note;
         distance = error;
@@ -477,6 +491,7 @@ export class GameEngine {
     if (nearestDistance + 0.0000001 < POOR_WINDOW) return { kind: "ignored", lane, at };
     this.score -= POOR_PENALTY;
     this.stats.poor++;
+    this.combo = 0;
     const result = { kind: "poor", lane, at };
     this.effects.push(result);
     return result;
@@ -489,7 +504,7 @@ export class GameEngine {
     if (last.end - time < 4) this.appendNextLoop();
     if (this.autoplay) {
       for (const note of this.notes) {
-        if (note.state === "waiting" && note.at <= time) this.hit(note, note.at);
+        if (note.state === "waiting" && !note.whiffed && note.at <= time) this.hit(note, note.at);
       }
     }
     for (const note of this.notes) {
@@ -503,7 +518,8 @@ export class GameEngine {
       if (!missed.length) continue;
       group.damaged = true;
       for (const note of missed) note.state = "gone";
-      this.stats.miss += missed.length;
+      // Uh oh로 이미 센 세균은 미스에 다시 세지 않는다.
+      this.stats.miss += missed.filter((note) => !note.whiffed).length;
       this.lives--;
       this.combo = 0;
       this.effects.push({

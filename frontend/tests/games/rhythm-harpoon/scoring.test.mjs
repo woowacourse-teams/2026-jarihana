@@ -67,6 +67,8 @@ test("four-key repeated input has negative whole-loop scores across 1280 cadence
           }
           run.tick(end);
           assert(run.score < 0, JSON.stringify({ level, startLoop, hz, phase, score: run.score }));
+          // 헛공격과 Uh oh가 콤보를 끊으므로 뭉개기로는 콤보를 길게 이어갈 수 없다.
+          assert(run.bestCombo < 40, JSON.stringify({ level, startLoop, hz, phase, combo: run.bestCombo }));
           assert(
             (scoreAtLifeLimit ?? run.score) < 0,
             JSON.stringify({ level, startLoop, hz, phase, scoreAtLifeLimit })
