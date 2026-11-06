@@ -23,4 +23,4 @@
 | `SKIPPED` | 자격 또는 한도 조건에 맞지 않아 사유를 남겼다. |
 | `NEEDS_REVIEW` | 자동 재시도 한도에 도달해 운영 확인을 기다린다. 기존 적립 한도 예약을 유지한다. |
 
-[포인트 불변식](../invariants.md#포인트) / [포인트 API](../../api/endpoints/points.md) / [새 기능에 적립 연결](../../../point-reward-integration.md) / [포인트 운영](../../../operations/points.md) / [향후 상점 계약 초안](../../../proposals/points-shop.md)
+[포인트 불변식](../invariants.md#포인트) / [포인트 API](../../api/endpoints/points.md) / [새 기능에 적립 연결](../../../point-reward-integration.md) / [포인트 운영](../../../operations/points.md)

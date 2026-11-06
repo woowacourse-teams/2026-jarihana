@@ -6,7 +6,6 @@
 - [적립 조건과 지급액](../../domain/business-policies.md#포인트-적립)
 - [새 기능에 적립 연결](../../../point-reward-integration.md)
 - [배포와 장애 복구](../../../operations/points.md)
-- [향후 상점 계약 초안](../../../proposals/points-shop.md)
 
 ## 잔액과 이번 주 한도
 
