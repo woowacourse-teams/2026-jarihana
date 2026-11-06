@@ -788,3 +788,16 @@
 .rhythm-game .controls .masthead {
   grid-column: 1 / -1;
 }
+/* 입력 지연 보정 안내의 + / - 표시 */
+.rhythm-game .offset-sign {
+  display: inline-block;
+  min-inline-size: 1.4em;
+  padding: 0 4px;
+  border: 1px solid #40545e;
+  border-radius: 4px;
+  background: #1b2e37;
+  color: #e5eeed;
+  font-family: ui-monospace, Consolas, monospace;
+  font-weight: 700;
+  text-align: center;
+}

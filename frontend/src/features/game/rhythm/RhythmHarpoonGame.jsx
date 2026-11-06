@@ -368,7 +368,8 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
                 defaultValue="0"
               />
               <p className="small muted" id="offset-hint">
-                SLOW가 많이 나면 +로, FAST가 많이 나면 -로 옮겨요. 보정값은 이 브라우저에 저장돼요.
+                SLOW가 많이 나면 <code className="offset-sign">+</code>로, FAST가 많이 나면{" "}
+                <code className="offset-sign">-</code>로 옮겨요. 보정값은 이 브라우저에 저장돼요.
               </p>
               <button
                 id="sync-open"
