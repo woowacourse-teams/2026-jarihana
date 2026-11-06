@@ -589,12 +589,42 @@
   scroll-margin-block-start: calc(var(--header-height) + 5rem);
 }
 
+/* 앱 헤더와 게임 도구 막대를 뺀 높이를 판에 모두 쓴다. 안내와 설정은 오른쪽 패널에서 따로 스크롤한다. */
+.rhythm-game {
+  --rhythm-board-space: calc(100dvh - var(--header-height) - var(--space-16) - 1.5rem);
+}
 @media (min-width: 701px) {
+  .rhythm-game .rhythm-game__body {
+    width: min(1680px, 100%);
+    padding-block: 0.75rem;
+  }
+  .rhythm-game .game-layout {
+    /* 연습 판 아래의 진행 정보 줄 높이만큼 뺀다. */
+    --rhythm-board-size: calc(var(--rhythm-board-space) - 2.75rem);
+    grid-template-columns: minmax(0, var(--rhythm-board-size)) minmax(230px, 300px);
+    justify-content: center;
+  }
   .rhythm-game .arena-shell {
-    width: min(100%, calc(100dvh - var(--header-height) - 18rem));
-    min-width: 20rem;
+    width: 100%;
+    min-width: 0;
   }
   .rhythm-game .controls {
-    max-height: calc(100dvh - var(--header-height) - 15rem);
+    max-height: var(--rhythm-board-space);
   }
+}
+.rhythm-game .controls .masthead {
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+}
+.rhythm-game .controls .track {
+  margin: 0;
+  text-align: left;
+}
+.rhythm-game .controls .practice-notice {
+  margin: 0;
+}
+.rhythm-game .controls .practice-notice,
+.rhythm-game .controls .masthead {
+  grid-column: 1 / -1;
 }

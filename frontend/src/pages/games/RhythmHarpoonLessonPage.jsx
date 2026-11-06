@@ -203,106 +203,106 @@ export function RhythmHarpoonLessonPage() {
       </header>
       <div className="rhythm-game" ref={rootReference}>
         <div className="rhythm-game__body rhythm-lesson">
-          <nav className="rhythm-lesson__steps" aria-label="따라 하기 단계">
-            {LESSON_STEPS.map((item, index) => (
-              <button
-                key={item.key}
-                aria-current={index === stepIndex ? "step" : undefined}
-                className={progress.done[index] ? "is-done" : undefined}
-                data-ph-capture-attribute-action={`rhythm_lesson_step_${item.key}`}
-                onClick={() => reset(() => setStepIndex(index))}
-                type="button"
-              >
-                <i className={`dot ${["red", "blue", "yellow"][index]}`} aria-hidden="true" />
-                {index + 1}. {item.syllable}
-              </button>
-            ))}
-          </nav>
-          <div className="rhythm-lesson__head">
-            <div>
-              <h2>{step.title}</h2>
-              <p>{step.body}</p>
-              <p className="muted">두 방향만 번갈아 나와요. 방향보다 소리에 맞추는 데 집중해요.</p>
-            </div>
-            <RhythmScore
-              caption="악보로 보면, 지금 울리는 음표가 굵어져요"
-              columns={step.pattern}
-              label={step.syllable + " 패턴 악보"}
-            />
-          </div>
-          <div className="rhythm-lesson__controls">
-            <div className="rhythm-lesson__control">
-              <span className="eyebrow" id="lesson-tempo-label">
-                빠르기
-              </span>
-              <div className="rhythm-lesson__choices" role="group" aria-labelledby="lesson-tempo-label">
-                {LESSON_TEMPOS.map((tempo) => (
+          <div className="game-layout">
+            <section className="arena-shell" aria-label="따라 하기 판">
+              <div role="application" aria-label="따라 하기 입력">
+                <canvas
+                  id="arena"
+                  data-lesson-arena
+                  data-ph-capture-attribute-action="rhythm_arena_focus"
+                  width="900"
+                  height="900"
+                  tabIndex="0"
+                  aria-label="따라 하기 판. 세균 중심이 굵은 판정선에 닿을 때 화살표 또는 WASD로 같은 방향을 눌러요"
+                >
+                  브라우저의 Canvas 지원이 필요해요.
+                </canvas>
+              </div>
+              <div className="overlay" hidden={running}>
+                <div className="overlay-card" aria-live="polite">
+                  <OverlayCard
+                    phase={phase}
+                    progress={progress}
+                    result={result}
+                    step={step}
+                    onListen={() => start(true)}
+                    onNext={(index) => reset(() => setStepIndex(index))}
+                    onTry={() => start(false)}
+                  />
+                </div>
+              </div>
+            </section>
+            <aside className="controls rhythm-lesson__side">
+              <nav className="rhythm-lesson__steps" aria-label="따라 하기 단계">
+                {LESSON_STEPS.map((item, index) => (
                   <button
-                    key={tempo.bpm}
-                    aria-pressed={tempo.bpm === bpm}
-                    data-ph-capture-attribute-action={tempo.action}
-                    onClick={() => reset(() => setBpm(tempo.bpm))}
+                    key={item.key}
+                    aria-current={index === stepIndex ? "step" : undefined}
+                    className={progress.done[index] ? "is-done" : undefined}
+                    data-ph-capture-attribute-action={`rhythm_lesson_step_${item.key}`}
+                    onClick={() => reset(() => setStepIndex(index))}
                     type="button"
                   >
-                    {tempo.label}
+                    <i className={`dot ${["red", "blue", "yellow"][index]}`} aria-hidden="true" />
+                    {index + 1}. {item.syllable}
                   </button>
                 ))}
+              </nav>
+              <div className="rhythm-lesson__head">
+                <h2>{step.title}</h2>
+                <p>{step.body}</p>
+                <p className="muted">두 방향만 번갈아 나와요. 방향보다 소리에 맞추는 데 집중해요.</p>
               </div>
-            </div>
-            <div className="rhythm-lesson__control">
-              <span className="eyebrow" id="lesson-speed-label">
-                세균 이동 배속
-              </span>
-              <div className="rhythm-lesson__choices" role="group" aria-labelledby="lesson-speed-label">
-                {LESSON_SPEEDS.map((speed) => (
-                  <button
-                    key={speed}
-                    aria-pressed={speed === scrollSpeed}
-                    data-ph-capture-attribute-action="rhythm_lesson_speed_change"
-                    onClick={() => reset(() => setScrollSpeed(speed))}
-                    type="button"
-                  >
-                    ×{speed.toFixed(1)}
-                  </button>
+              <RhythmScore
+                caption="악보로 보면, 지금 울리는 음표가 굵어져요"
+                columns={step.pattern}
+                label={step.syllable + " 패턴 악보"}
+              />
+              <div className="rhythm-upcoming" aria-hidden="true">
+                <span className="eyebrow">다음 소리</span>
+                {upcoming.map((color, index) => (
+                  <span key={index} className={`rhythm-upcoming__chip rhythm-upcoming__chip--${color}`}>
+                    {NOTE_SYLLABLES[color]}
+                  </span>
                 ))}
               </div>
-            </div>
-          </div>
-          <section className="arena-shell rhythm-lesson__arena" aria-label="따라 하기 판">
-            <div role="application" aria-label="따라 하기 입력">
-              <canvas
-                id="arena"
-                data-lesson-arena
-                data-ph-capture-attribute-action="rhythm_arena_focus"
-                width="900"
-                height="900"
-                tabIndex="0"
-                aria-label="따라 하기 판. 세균 중심이 굵은 판정선에 닿을 때 화살표 또는 WASD로 같은 방향을 눌러요"
-              >
-                브라우저의 Canvas 지원이 필요해요.
-              </canvas>
-            </div>
-            <div className="overlay" hidden={running}>
-              <div className="overlay-card" aria-live="polite">
-                <OverlayCard
-                  phase={phase}
-                  progress={progress}
-                  result={result}
-                  step={step}
-                  onListen={() => start(true)}
-                  onNext={(index) => reset(() => setStepIndex(index))}
-                  onTry={() => start(false)}
-                />
+              <div className="rhythm-lesson__control">
+                <span className="eyebrow" id="lesson-tempo-label">
+                  빠르기
+                </span>
+                <div className="rhythm-lesson__choices" role="group" aria-labelledby="lesson-tempo-label">
+                  {LESSON_TEMPOS.map((tempo) => (
+                    <button
+                      key={tempo.bpm}
+                      aria-pressed={tempo.bpm === bpm}
+                      data-ph-capture-attribute-action={tempo.action}
+                      onClick={() => reset(() => setBpm(tempo.bpm))}
+                      type="button"
+                    >
+                      {tempo.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          </section>
-          <div className="rhythm-upcoming" aria-hidden="true">
-            <span className="eyebrow">다음 소리</span>
-            {upcoming.map((color, index) => (
-              <span key={index} className={`rhythm-upcoming__chip rhythm-upcoming__chip--${color}`}>
-                {NOTE_SYLLABLES[color]}
-              </span>
-            ))}
+              <div className="rhythm-lesson__control">
+                <span className="eyebrow" id="lesson-speed-label">
+                  세균 이동 배속
+                </span>
+                <div className="rhythm-lesson__choices" role="group" aria-labelledby="lesson-speed-label">
+                  {LESSON_SPEEDS.map((speed) => (
+                    <button
+                      key={speed}
+                      aria-pressed={speed === scrollSpeed}
+                      data-ph-capture-attribute-action="rhythm_lesson_speed_change"
+                      onClick={() => reset(() => setScrollSpeed(speed))}
+                      type="button"
+                    >
+                      ×{speed.toFixed(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </aside>
           </div>
           <div className="touch-controls" aria-label="터치 방향키">
             {TOUCH_LANES.map(([lane, label, arrow]) => (

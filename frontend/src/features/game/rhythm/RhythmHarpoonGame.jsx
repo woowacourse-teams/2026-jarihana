@@ -15,26 +15,6 @@ export function RhythmHarpoonGame() {
   return (
     <div className="rhythm-game" ref={rootReference} aria-busy={status === "loading"}>
       <div className="rhythm-game__body">
-        <p className="practice-notice" role="note">
-          연습 플레이예요. 점수는 저장되거나 랭킹에 반영되지 않아요.
-        </p>
-        <header className="masthead">
-          <div className="track">
-            <span className="eyebrow">NOW PLAYING</span>
-            <span>Pixel Circuit</span>
-            <small>128 BPM / 90초 루프</small>
-          </div>
-          <button
-            id="pause"
-            data-ph-capture-attribute-action="rhythm_pause"
-            className="button subtle"
-            type="button"
-            disabled
-          >
-            일시정지
-          </button>
-        </header>
-
         <div className="game-layout">
           <section className="arena-shell" aria-label="플레이 화면">
             <div className="hud">
@@ -136,6 +116,25 @@ export function RhythmHarpoonGame() {
           </section>
 
           <aside className="controls">
+            <p className="practice-notice" role="note">
+              연습 플레이예요. 점수는 저장되거나 랭킹에 반영되지 않아요.
+            </p>
+            <header className="masthead">
+              <div className="track">
+                <span className="eyebrow">NOW PLAYING</span>
+                <span>Pixel Circuit</span>
+                <small>128 BPM / 90초 루프</small>
+              </div>
+              <button
+                id="pause"
+                data-ph-capture-attribute-action="rhythm_pause"
+                className="button subtle"
+                type="button"
+                disabled
+              >
+                일시정지
+              </button>
+            </header>
             <section className="control-section">
               <span className="eyebrow">DIFFICULTY</span>
               <div id="difficulty" className="difficulty" role="group" aria-label="난이도">
