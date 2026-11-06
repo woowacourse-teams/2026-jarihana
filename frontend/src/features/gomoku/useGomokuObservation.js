@@ -2,21 +2,28 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../auth";
 import { gomokuApi } from "./api";
 
-function claimTabRequest(storageKey, requestId, signal) {
+function claimTabRequest(storageKey, requestId, signal, lockReleased) {
   if (!navigator.locks) return Promise.resolve(requestId);
   return new Promise((resolve, reject) => {
-    void navigator.locks
-      .request(`${storageKey}:${requestId}`, { ifAvailable: true }, async (lock) => {
+    const requestLock = (key) =>
+      navigator.locks.request(`${storageKey}:${key}`, { ifAvailable: true }, (lock) => {
         if (signal.aborted) {
           resolve(null);
           return;
         }
-        if (!lock) {
-          resolve(await claimTabRequest(storageKey, crypto.randomUUID(), signal));
+        if (!lock) return requestLock(crypto.randomUUID());
+        resolve(key);
+        return new Promise((release) => signal.addEventListener("abort", release, { once: true }));
+      });
+
+    // A retry can start before the browser releases this tab's previous lock.
+    lockReleased.current = Promise.resolve(lockReleased.current)
+      .then(() => {
+        if (signal.aborted) {
+          resolve(null);
           return;
         }
-        resolve(requestId);
-        await new Promise((release) => signal.addEventListener("abort", release, { once: true }));
+        return requestLock(requestId);
       })
       .catch(reject);
   });
@@ -29,6 +36,7 @@ export function useGomokuObservation(roomId) {
   const [state, setState] = useState({ owner, participationId: null, error: null, leaving: false });
   const [attempt, setAttempt] = useState(0);
   const generation = useRef(0);
+  const lockReleased = useRef(null);
   const admission = useRef(null);
   const leaving = useRef(false);
   const current =
@@ -52,7 +60,7 @@ export function useGomokuObservation(roomId) {
     requestId ||=
       admission.current?.owner === owner ? admission.current.requestId : crypto.randomUUID();
     admission.current = { owner, requestId, participationId: null };
-    void claimTabRequest(storageKey, requestId, controller.signal)
+    void claimTabRequest(storageKey, requestId, controller.signal, lockReleased)
       .then(async (ownedRequest) => {
         if (controller.signal.aborted || generation.current !== version) return null;
         setState({ owner, participationId: null, error: null, leaving: false });

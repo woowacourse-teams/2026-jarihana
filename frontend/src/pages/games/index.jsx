@@ -1,5 +1,5 @@
 import { moveRequestId } from "../../features/gomoku/moveRequestId";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
   Gamepad2,
@@ -722,9 +722,30 @@ function GomokuRoom({ roomId, observation = null }) {
     chatSignal,
     participationId: observation?.participationId
   });
-  async function leaveObservation() {
-    if (await observation.leave()) navigate("/games/gomoku", { replace: true });
-  }
+  const leave = observation?.leave;
+  const memberId = member?.id;
+  const observationChannel = useRef(null);
+  const leaveObservation = useCallback(
+    async (notifyOtherTabs = false) => {
+      if (!(await leave?.())) return;
+      if (notifyOtherTabs) observationChannel.current?.postMessage("leave");
+      navigate("/games/gomoku", { replace: true });
+    },
+    [leave, navigate]
+  );
+  useEffect(() => {
+    if (!leave || memberId == null || typeof BroadcastChannel !== "function") return undefined;
+
+    const channel = new BroadcastChannel(`gomoku-observation:${memberId}:${roomId}`);
+    observationChannel.current = channel;
+    channel.onmessage = ({ data }) => {
+      if (data === "leave") void leaveObservation();
+    };
+    return () => {
+      observationChannel.current = null;
+      channel.close();
+    };
+  }, [leave, leaveObservation, memberId, roomId]);
   const observationBack = spectator ? (
     <Button
       className="games-back"
@@ -883,9 +904,14 @@ function GomokuRoom({ roomId, observation = null }) {
                 </Button>
               )}
               {spectator && !closed && (
-                <Button variant="secondary" disabled={observation.leaving}
+                <Button
+                  variant="secondary"
+                  disabled={observation.leaving}
                   data-ph-capture-attribute-action="gomoku_observation_leave"
-                  onClick={() => void leaveObservation()}>관전 나가기</Button>
+                  onClick={() => void leaveObservation(true)}
+                >
+                  관전 나가기
+                </Button>
               )}
               {!spectator && !closed && (
                 <Button
