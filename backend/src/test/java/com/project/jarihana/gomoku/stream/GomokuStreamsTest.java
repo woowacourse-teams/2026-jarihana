@@ -26,10 +26,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -89,13 +90,16 @@ class GomokuStreamsTest {
     }
 
     @Test
-    @DisplayName("DB가 느려도 상세 조회는 최대 네 개이며 같은 방의 조회가 겹치지 않는다")
+    @DisplayName("DB가 느려도 상세 조회는 최대 열 개이며 같은 방의 조회가 겹치지 않는다")
     void boundsSlowQueriesWithoutOverlappingRoomPolls() throws Exception {
         // Given
-        for (long id = 1; id <= 6; id++) streams.subscribe(id, id, 120000L);
-        when(queries.findRevisions(any())).thenReturn(Map.of(1L, 2L, 2L, 2L, 3L, 2L,
-                4L, 2L, 5L, 2L, 6L, 2L));
-        CountDownLatch entered = new CountDownLatch(4);
+        Map<Long, Long> revisions = new HashMap<>();
+        for (long id = 1; id <= 11; id++) {
+            streams.subscribe(id, id, 120000L);
+            revisions.put(id, 2L);
+        }
+        when(queries.findRevisions(any())).thenReturn(revisions);
+        CountDownLatch entered = new CountDownLatch(10);
         CountDownLatch release = new CountDownLatch(1);
         AtomicInteger active = new AtomicInteger();
         AtomicInteger maximum = new AtomicInteger();
@@ -113,8 +117,8 @@ class GomokuStreamsTest {
             assertTrue(entered.await(2, TimeUnit.SECONDS));
             for (int index = 0; index < 5; index++) ReflectionTestUtils.invokeMethod(streams, "tick");
             // Then
-            assertEquals(4, maximum.get());
-            verify(queries, times(4)).loadSnapshot(anyLong());
+            verify(queries, after(100).times(10)).loadSnapshot(anyLong());
+            assertEquals(10, maximum.get());
         } finally { release.countDown(); }
     }
 
