@@ -26,10 +26,11 @@ export class CalibrationMetronome {
       const at = this.baseTime + (index * 60) / bpm;
       const oscillator = this.context.createOscillator();
       const envelope = this.context.createGain();
-      oscillator.type = "sine";
+      // 노트북 스피커에서도 또렷하도록 배음이 있는 삼각파로 크게 친다. 시작 3ms는 그대로라 박자 기준은 같다.
+      oscillator.type = "triangle";
       oscillator.frequency.value = index === warmup ? 1320 : index % 4 === 0 ? 990 : 660;
       envelope.gain.setValueAtTime(0, at);
-      envelope.gain.linearRampToValueAtTime(0.07, at + 0.003);
+      envelope.gain.linearRampToValueAtTime(0.5, at + 0.003);
       envelope.gain.exponentialRampToValueAtTime(0.0001, at + 0.065);
       oscillator.connect(envelope);
       envelope.connect(this.master);
