@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { SparringDetailPage } from "../../src/pages/sparring/SparringDetailPage";
+import { ENTRY_GUIDE_DURATION } from "../../src/pages/sparring/SparringEntryGuide";
 import { SparringEntry, ENTRY_REVEAL_DURATION } from "../../src/pages/sparring/SparringEntry";
 import { useAuth, storeReturnTarget } from "../../src/features/auth";
 import { getSparring, voteSparring } from "../../src/features/sparring/api";
@@ -63,14 +64,23 @@ it("preselects the existing side and waits for the scene without writing it agai
   getSparring.mockResolvedValue({ ...topic, mySide: "MINT" });
   const frame = await mount();
   const send = jest.spyOn(frame.contentWindow, "postMessage");
+  jest.useFakeTimers();
   expect(screen.getByRole("button", { name: "기다려 편 선택" })).toHaveAttribute("aria-pressed", "true");
   fireEvent.click(screen.getByRole("button", { name: "이 편으로 시작" }));
-  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("경기장이 준비되면"));
+  await waitFor(() => expect(screen.getByText("경기장이 준비되면 바로 입장해요.")).toBeInTheDocument());
+  const pending = screen.getByRole("button", { name: "입장 중…" });
+  expect(pending).toBeDisabled();
+  expect(pending).toHaveAttribute("aria-busy", "true");
+  expect(pending.querySelector(".ui-spinner")).toBeInTheDocument();
   expect(frame).toHaveAttribute("inert");
   expect(voteSparring).not.toHaveBeenCalled();
   expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ kind: "composer-open" }), expect.anything());
+  act(() => jest.advanceTimersByTime(ENTRY_GUIDE_DURATION + 1000));
+  expect(screen.getByRole("dialog", { name: "입장 중…" })).toBeInTheDocument();
+  expect(frame).toHaveAttribute("inert");
   ready(frame);
-  await waitFor(() => expect(frame).not.toHaveAttribute("inert"), { timeout: 2000 });
+  act(() => jest.advanceTimersByTime(ENTRY_REVEAL_DURATION));
+  expect(frame).not.toHaveAttribute("inert");
   expect(frame.scrollIntoView).toHaveBeenCalledWith({ block: "start", behavior: "instant" });
   expect(getSparring).toHaveBeenCalledTimes(1);
   expect(send.mock.calls.filter(([message]) => message.kind === "composer-open")).toEqual([
@@ -82,10 +92,17 @@ it("submits once, waits for confirmation and leaves only after the saved side is
   let finish;
   voteSparring.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   const frame = await mount(); ready(frame);
+  jest.useFakeTimers();
   const send = jest.spyOn(frame.contentWindow, "postMessage");
   fireEvent.click(screen.getByRole("button", { name: "다른 곳 편 선택" }));
   const start = screen.getByRole("button", { name: "이 편으로 시작" });
   fireEvent.click(start); fireEvent.click(start);
+  expect(screen.getByRole("dialog", { name: "입장 중…" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "받아치기" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "끌어치기" })).toBeInTheDocument();
+  expect(start).toHaveTextContent("입장 중…");
+  expect(start).toHaveAttribute("aria-busy", "true");
+  expect(start.querySelector(".ui-spinner")).toBeInTheDocument();
   await waitFor(() => expect(voteSparring).toHaveBeenCalledWith("1", "CORAL"));
   expect(voteSparring).toHaveBeenCalledTimes(1);
   expect(frame).toHaveAttribute("inert");
@@ -93,7 +110,9 @@ it("submits once, waits for confirmation and leaves only after the saved side is
   expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ kind: "composer-open" }), expect.anything());
   getSparring.mockResolvedValue({ ...topic, mySide: "CORAL", revision: 2 });
   await act(async () => finish());
-  await waitFor(() => expect(frame).not.toHaveAttribute("inert"), { timeout: 2000 });
+  act(() => jest.advanceTimersByTime(ENTRY_GUIDE_DURATION));
+  act(() => jest.advanceTimersByTime(ENTRY_REVEAL_DURATION));
+  expect(frame).not.toHaveAttribute("inert");
   expect(getSparring).toHaveBeenCalledTimes(2);
   expect(send.mock.calls.filter(([message]) => message.kind === "composer-open")).toEqual([
     [{ channel: "jarihana-sparring", kind: "composer-open", side: "b" }, window.location.origin]
@@ -115,14 +134,22 @@ it("does not open the saved side's input when entering through watch", async () 
 it("preserves a failed draft choice and can retry saving it", async () => {
   voteSparring.mockRejectedValueOnce(new Error("투표 저장 실패"));
   const frame = await mount(); ready(frame);
+  jest.useFakeTimers();
   fireEvent.click(screen.getByRole("button", { name: "기다려 편 선택" }));
   fireEvent.click(screen.getByRole("button", { name: "이 편으로 시작" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("투표 저장 실패");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  const retryStart = screen.getByRole("button", { name: "이 편으로 시작" });
+  expect(retryStart).toBeEnabled();
+  expect(retryStart).not.toHaveAttribute("aria-busy");
+  expect(retryStart.querySelector(".ui-spinner")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "기다려 편 선택" })).toHaveAttribute("aria-pressed", "true");
   expect(frame).toHaveAttribute("inert");
   getSparring.mockResolvedValue({ ...topic, mySide: "MINT", revision: 2 });
-  fireEvent.click(screen.getByRole("button", { name: "이 편으로 시작" }));
-  await waitFor(() => expect(frame).not.toHaveAttribute("inert"), { timeout: 2000 });
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "이 편으로 시작" })));
+  act(() => jest.advanceTimersByTime(ENTRY_GUIDE_DURATION));
+  act(() => jest.advanceTimersByTime(ENTRY_REVEAL_DURATION));
+  expect(frame).not.toHaveAttribute("inert");
 });
 
 it("uses the guest login flow without voting and keeps a public watch path", async () => {
@@ -132,6 +159,7 @@ it("uses the guest login flow without voting and keeps a public watch path", asy
   fireEvent.click(screen.getByRole("button", { name: "기다려 편 선택" }));
   fireEvent.click(screen.getByRole("button", { name: "이 편으로 시작" }));
   await waitFor(() => expect(login).toHaveBeenCalledTimes(1));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(storeReturnTarget).toHaveBeenCalledWith("/sparring/1");
   expect(voteSparring).not.toHaveBeenCalled();
   expect(frame).toHaveAttribute("inert");
@@ -230,4 +258,40 @@ it("fits the whole composition after viewport and content changes, and cleans up
   } finally {
     global.ResizeObserver = originalObserver;
   }
+});
+
+
+it("shows the guide immediately for three seconds even when the arena and vote are ready", async () => {
+  getSparring.mockResolvedValue({ ...topic, mySide: "MINT" });
+  const frame = await mount(); ready(frame);
+  jest.useFakeTimers();
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "이 편으로 시작" })));
+  const guide = screen.getByRole("dialog", { name: "입장 중…" });
+  expect(guide).toHaveAttribute("aria-modal", "true");
+  expect(guide.querySelector(".sparring-entry-guide__tips")).toHaveFocus();
+  expect(voteSparring).not.toHaveBeenCalled();
+  act(() => jest.advanceTimersByTime(ENTRY_GUIDE_DURATION - 1));
+  expect(guide).toBeInTheDocument();
+  expect(document.querySelector(".sparring-entry")).toHaveAttribute("data-leaving", "false");
+  expect(frame).toHaveAttribute("inert");
+  act(() => jest.advanceTimersByTime(1));
+  expect(guide).not.toBeInTheDocument();
+  expect(document.querySelector(".sparring-entry")).toHaveAttribute("data-leaving", "true");
+  act(() => jest.advanceTimersByTime(ENTRY_REVEAL_DURATION));
+  expect(frame).not.toHaveAttribute("inert");
+});
+
+it("cleans up the guide timer and body scroll lock when leaving the page", async () => {
+  getSparring.mockResolvedValue({ ...topic, mySide: "MINT" });
+  const view = render(<SparringDetailPage />);
+  await screen.findByRole("heading", { name: topic.title });
+  jest.useFakeTimers();
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "이 편으로 시작" })));
+  expect(screen.getByRole("dialog", { name: "입장 중…" })).toBeInTheDocument();
+  act(() => jest.advanceTimersByTime(0));
+  expect(jest.getTimerCount()).toBe(1);
+  expect(document.body.style.overflow).toBe("hidden");
+  view.unmount();
+  expect(jest.getTimerCount()).toBe(0);
+  expect(document.body.style.overflow).not.toBe("hidden");
 });

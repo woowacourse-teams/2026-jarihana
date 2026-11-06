@@ -4,7 +4,9 @@ import { ArrowLeft } from "lucide-react";
 import { useAuth } from "../../features/auth";
 import { useArenaBridge } from "../../features/sparring/useArenaBridge";
 import { Button } from "../../shared/ui";
+import { ArenaSettings } from "./ArenaSettings";
 import { ENTRY_REVEAL_DURATION, SparringEntry } from "./SparringEntry";
+import { ENTRY_GUIDE_DURATION } from "./SparringEntryGuide";
 import "./sparring.css";
 
 const statuses = {
@@ -14,17 +16,40 @@ const statuses = {
   offline: "오프라인 · 작성한 내용은 그대로 있어요"
 };
 const clashCameraPreference = "jarihana.sparring.clash-camera";
+const arenaViewPreference = "jarihana.sparring.arena-view";
+const brawlPreference = "jarihana.sparring.brawl";
+const speechOverlapPreference = "jarihana.sparring.speech-overlap";
+const characterLimitsPreference = "jarihana.sparring.character-limits";
+const validCharacterLimit = value => Number.isInteger(value) && value >= 1 && value <= 8;
 function Room({ topicId, member, login, retry, onRetry }) {
   const { frame, error, status, title, topic, loaded, sceneReady, sceneError, selectSide } = useArenaBridge({ topicId, member, login, retry });
   const visible = loaded && sceneReady;
   const [entry, setEntry] = useState("select");
   const [saving, setSaving] = useState(false);
   const [entryError, setEntryError] = useState(null);
+  const [guide, setGuide] = useState(null);
   const savingRef = useRef(false);
   const entrySideRef = useRef(null);
   const entered = entry === "entered";
-  const leaving = entry === "waiting" && visible && !error && !sceneError;
-  const [arenaView, setArenaView] = useState("compact");
+  const leaving = entry === "waiting" && guide !== "reading" && visible && !error && !sceneError;
+  const [arenaView, setArenaView] = useState(() => {
+    try { return localStorage.getItem(arenaViewPreference) === "original" ? "original" : "compact"; }
+    catch { return "compact"; }
+  });
+  const [brawl, setBrawl] = useState(() => {
+    try { return localStorage.getItem(brawlPreference) !== "off"; }
+    catch { return true; }
+  });
+  const [speechOverlap, setSpeechOverlap] = useState(() => {
+    try { return localStorage.getItem(speechOverlapPreference) !== "off"; }
+    catch { return true; }
+  });
+  const [characterLimits, setCharacterLimits] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(characterLimitsPreference));
+      return { a: validCharacterLimit(saved?.a) ? saved.a : 5, b: validCharacterLimit(saved?.b) ? saved.b : 5 };
+    } catch { return { a: 5, b: 5 }; }
+  });
   const [clashCamera, setClashCamera] = useState(() => {
     try { return localStorage.getItem(clashCameraPreference) !== "off"; }
     catch { return true; }
@@ -32,6 +57,11 @@ function Room({ topicId, member, login, retry, onRetry }) {
   useLayoutEffect(() => {
     if (leaving) frame.current?.scrollIntoView({ block: "start", behavior: "instant" });
   }, [leaving, frame]);
+  useEffect(() => {
+    if (guide !== "reading") return;
+    const timer = setTimeout(() => setGuide("ready"), ENTRY_GUIDE_DURATION);
+    return () => clearTimeout(timer);
+  }, [guide]);
   useEffect(() => {
     if (!leaving) return;
     const delay = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : ENTRY_REVEAL_DURATION;
@@ -53,12 +83,14 @@ function Room({ topicId, member, login, retry, onRetry }) {
     savingRef.current = true;
     setSaving(true);
     setEntryError(null);
+    setGuide("reading");
     try {
       if (await selectSide(side)) {
         entrySideRef.current = side;
         setEntry("waiting");
-      }
+      } else setGuide(null);
     } catch (failure) {
+      setGuide(null);
       setEntryError(failure instanceof Error ? failure.message : "편을 저장하지 못했어요. 다시 시도해 주세요.");
     } finally {
       savingRef.current = false;
@@ -88,6 +120,47 @@ function Room({ topicId, member, login, retry, onRetry }) {
     try { localStorage.setItem(clashCameraPreference, next ? "on" : "off"); }
     catch { /* The switch still works when preference storage is unavailable. */ }
   }
+  useEffect(() => {
+    if (visible) frame.current?.contentWindow?.postMessage(
+      { channel: "jarihana-sparring", kind: "brawl", value: brawl },
+      window.location.origin
+    );
+  }, [brawl, visible, frame]);
+  useEffect(() => {
+    if (visible) frame.current?.contentWindow?.postMessage(
+      { channel: "jarihana-sparring", kind: "speech-overlap", value: speechOverlap },
+      window.location.origin
+    );
+  }, [speechOverlap, visible, frame]);
+  useEffect(() => {
+    if (visible) frame.current?.contentWindow?.postMessage(
+      { channel: "jarihana-sparring", kind: "character-limits", value: characterLimits },
+      window.location.origin
+    );
+  }, [characterLimits, visible, frame]);
+  function changeCharacterLimit(side, value) {
+    const next = { ...characterLimits, [side]: Number(value) };
+    setCharacterLimits(next);
+    try { localStorage.setItem(characterLimitsPreference, JSON.stringify(next)); }
+    catch { /* The limit still changes when preference storage is unavailable. */ }
+  }
+  function changeArenaView(value) {
+    setArenaView(value);
+    try { localStorage.setItem(arenaViewPreference, value); }
+    catch { /* The view still changes when preference storage is unavailable. */ }
+  }
+  function toggleBrawl() {
+    const next = !brawl;
+    setBrawl(next);
+    try { localStorage.setItem(brawlPreference, next ? "on" : "off"); }
+    catch { /* The switch still works when preference storage is unavailable. */ }
+  }
+  function toggleSpeechOverlap() {
+    const next = !speechOverlap;
+    setSpeechOverlap(next);
+    try { localStorage.setItem(speechOverlapPreference, next ? "on" : "off"); }
+    catch { /* The switch still works when preference storage is unavailable. */ }
+  }
   return (
     <div className="sparring-detail" data-entry-open={!entered}>
       <div className="sparring-detail__rail" inert={!entered} aria-hidden={!entered}>
@@ -95,35 +168,16 @@ function Room({ topicId, member, login, retry, onRetry }) {
           <Link className="sparring-detail__back" to="/sparring" aria-label="토론 목록으로" title="토론 목록으로" data-ph-capture-attribute-action="sparring_back">
             <ArrowLeft size={22} aria-hidden="true" />
           </Link>
-          <div className="sparring-detail__view-controls">
-            <div className="sparring-view-switch" role="group" aria-label="경기장 구도">
-              {[["original", "기존 구도"], ["compact", "아담한 구도"]].map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={arenaView === value}
-                  disabled={!visible}
-                  onClick={() => setArenaView(value)}
-                  data-ph-capture-attribute-action="sparring_view_change"
-                >{label}</button>
-              ))}
-            </div>
-            <button
-              type="button"
-              className="sparring-camera-switch"
-              role="switch"
-              aria-label="받아치기 연출"
-              aria-checked={clashCamera}
-              disabled={!visible}
-              title="내가 보낸 받아치기 캡슐을 카메라가 따라가요 · 동작 줄이기 설정에서는 생략"
-              onClick={toggleClashCamera}
-              data-ph-capture-attribute-action="sparring_clash_camera_toggle"
-            >받아치기 연출<span aria-hidden="true" /></button>
-          </div>
         </nav>
-        <span role="status" className="sparring-connection" data-connection={status}>
-          {statuses[status]}
-        </span>
+        <div className="sparring-detail__tools">
+          <span role="status" className="sparring-connection" data-connection={status}>
+            {statuses[status]}
+          </span>
+          <ArenaSettings ready={visible} arenaView={arenaView} changeArenaView={changeArenaView}
+            brawl={brawl} toggleBrawl={toggleBrawl} clashCamera={clashCamera} toggleClashCamera={toggleClashCamera}
+            characterLimits={characterLimits} changeCharacterLimit={changeCharacterLimit}
+            speechOverlap={speechOverlap} toggleSpeechOverlap={toggleSpeechOverlap} />
+        </div>
       </div>
       {entered && visible && error && (
         <div className="sparring-detail__error" role="alert">
@@ -143,6 +197,7 @@ function Room({ topicId, member, login, retry, onRetry }) {
             busy={saving}
             waiting={entry === "waiting"}
             leaving={leaving}
+            showGuide={Boolean(guide) && !leaving && !entryError && !error && !sceneError}
             error={entryError || error || sceneError}
             onStart={start}
             onWatch={watch}

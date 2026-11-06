@@ -58,7 +58,7 @@ it('받아치기 캡슐의 미끄럼틀 위치를 추적하고 열릴 때도 복
   expect(dispenser.presentation()).toBeNull();
 });
 
-it.each([10, 4.4])('폭 %s의 마당에서도 두 캡슐이 함께 내려온 뒤 착지한다', trayWidth => {
+it.each([5, 3.2])('폭 %s의 짧은 미끄럼틀에서도 두 캡슐이 함께 내려온 뒤 착지한다', trayWidth => {
   const physics = createDispenserPhysics({ trayWidth });
   const left = physics.reset(0), right = physics.reset(1);
   physics.positionPair([0, 1], 0);
