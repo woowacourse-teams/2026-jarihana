@@ -65,13 +65,13 @@ public class AvatarAppearance {
         this.mouth = requireChoice(mouth, Set.of("smile", "flat", "open"));
         this.glasses = requireChoice(glasses, Set.of("none", "round", "square", "sunglasses"));
         this.outfit = requireChoice(outfit, Set.of("mint", "coral", "cream", "navy", "lilac", "ochre"));
-        this.shoes = requireChoice(shoes, Set.of("sneakers", "slipOn", "highTop"));
-        this.shoeColor = requireChoice(shoeColor, Set.of("white", "ink", "mint", "coral"));
-        this.hat = requireChoice(hat, Set.of("none", "cap", "bucket", "beanie", "beret"));
-        this.hatColor = requireChoice(hatColor, Set.of("ink", "cream", "mint", "coral", "navy"));
-        this.bag = requireChoice(bag, Set.of("none", "backpack", "crossbody", "shoulder"));
-        this.bagColor = requireChoice(bagColor, Set.of("ink", "cream", "mint", "coral", "navy"));
-        this.handheld = requireChoice(handheld, Set.of("none", "hotCoffee", "icedCoffee", "book", "laptop", "phone"));
+        this.shoes = requireChoice(shoes == null ? "sneakers" : shoes, Set.of("sneakers", "slipOn", "highTop"));
+        this.shoeColor = requireChoice(shoeColor == null ? "white" : shoeColor, Set.of("white", "ink", "mint", "coral"));
+        this.hat = requireChoice(hat == null ? "none" : hat, Set.of("none", "cap", "bucket", "beanie", "beret"));
+        this.hatColor = requireChoice(hatColor == null ? "ink" : hatColor, Set.of("ink", "cream", "mint", "coral", "navy"));
+        this.bag = requireChoice(bag == null ? "none" : bag, Set.of("none", "backpack", "crossbody", "shoulder"));
+        this.bagColor = requireChoice(bagColor == null ? "ink" : bagColor, Set.of("ink", "cream", "mint", "coral", "navy"));
+        this.handheld = requireChoice(handheld == null ? "none" : handheld, Set.of("none", "hotCoffee", "icedCoffee", "book", "laptop", "phone"));
     }
 
     public static AvatarAppearance of(int version, String hair, String skin, String hairColor, String face, String eyes, String eyebrows, String nose, String mouth, String glasses, String outfit, String shoes, String shoeColor, String hat, String hatColor, String bag, String bagColor, String handheld) {
@@ -79,7 +79,7 @@ public class AvatarAppearance {
     }
 
     public static AvatarAppearance basic() {
-        return of(1, "bald", "warm", "ink", "round", "dot", "straight", "small", "flat", "none", "cream", "sneakers", "white", "none", "ink", "none", "ink", "none");
+        return of(1, "bald", "warm", "ink", "round", "dot", "straight", "small", "flat", "none", "cream", null, null, null, null, null, null, null);
     }
 
     private static String requireChoice(String value, Set<String> choices) {

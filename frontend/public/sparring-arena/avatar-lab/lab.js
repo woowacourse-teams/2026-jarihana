@@ -1,7 +1,7 @@
 import { AVATAR_PRESETS, avatarAppearanceKey } from '../src/avatar-appearance.js';
 import { createAvatarPreview } from '../src/avatar-preview.js';
 import { createDemoRoom } from './demo-room.js';
-import { createAvatarEditor } from './avatar-editor.js';
+import { createAvatarEditor } from '../avatar-studio/avatar-editor.js';
 
 const room = createDemoRoom(document.querySelector('#arena'));
 const container = document.querySelector('#preview');

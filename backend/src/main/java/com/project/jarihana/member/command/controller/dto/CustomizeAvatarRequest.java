@@ -8,10 +8,7 @@ public record CustomizeAvatarRequest(@NotNull @Valid AppearanceRequest appearanc
     public record AppearanceRequest(int version, String hair, String skin, String hairColor, String face, String eyes, String eyebrows, String nose, String mouth, String glasses, String outfit, String shoes, String shoeColor, String hat, String hatColor, String bag, String bagColor, String handheld) {
         public AvatarAppearance toAppearance() {
             return AvatarAppearance.of(version, hair, skin, hairColor, face, eyes, eyebrows, nose, mouth, glasses, outfit,
-                    shoes == null ? "sneakers" : shoes, shoeColor == null ? "white" : shoeColor,
-                    hat == null ? "none" : hat, hatColor == null ? "ink" : hatColor,
-                    bag == null ? "none" : bag, bagColor == null ? "ink" : bagColor,
-                    handheld == null ? "none" : handheld);
+                    shoes, shoeColor, hat, hatColor, bag, bagColor, handheld);
         }
     }
 }

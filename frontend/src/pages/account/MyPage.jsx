@@ -232,7 +232,7 @@ export function MyPage() {
             <h2>{member.crewName}</h2>
             <p>{memberMetaLabel(member)}</p>
           </Card>
-          <MyAvatarCard />
+          <MyAvatarCard previewPaused={focusStatus === "loading"} />
         </aside>
         <div className="activity-column">
           {focusStatus === "loading" ? <p role="status">알림에 해당하는 항목을 찾고 있어요…</p> : null}

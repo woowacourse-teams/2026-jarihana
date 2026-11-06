@@ -1,4 +1,4 @@
-import { AVATAR_PRESETS, avatarAppearanceKey, readAvatarAppearance } from '../src/avatar-appearance.js';
+import { AVATAR_OPTIONS, AVATAR_PRESETS, avatarAppearanceKey, readAvatarAppearance } from '../src/avatar-appearance.js';
 
 // Keep history as immutable normalized snapshots, including preset replacements.
 export function createAvatarDraft(initial = AVATAR_PRESETS[0].appearance) {
@@ -15,7 +15,7 @@ export function createAvatarDraft(initial = AVATAR_PRESETS[0].appearance) {
     get: copy,
     replace,
     setPart(key, value) {
-      if (!Object.hasOwn(current, key) || key === 'version') return false;
+      if (!Object.hasOwn(current, key) || !AVATAR_OPTIONS[key]?.includes(value)) return false;
       return replace({ ...current, [key]: value });
     },
     undo() { if (!past.length) return false; future.push(current); current = past.pop(); return true; },

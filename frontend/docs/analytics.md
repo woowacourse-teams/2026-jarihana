@@ -1,5 +1,12 @@
 # PostHog 행동 분석
 
+## 헤더 자리 메뉴
+
+상위 `자리` disclosure 버튼은 `group_navigation_toggle`을 사용한다. 하위 `뭐있나?`, `뭐했나?`,
+`뭐할래?` 링크는 각각 기존 `group_browse`, `browse_activity_posts`, `browse_proposals`를 유지한다.
+데스크톱과 모바일은 같은 식별자를 공유한다. 로고의 홈 이동은 `group_home`, 자리 만들기는 `group_create`다.
+hover 개폐는 별도 성공 이벤트로 수집하지 않는다.
+
 ## 채팅 동작
 
 채팅 영역 전체를 `data-ph-private`로 마스킹한다. 메시지 본문·작성자 이름·인증 쿠키·헤더는 분석에 보내지 않는다.
@@ -359,8 +366,9 @@ VS 입장 화면의 `sparring_entry_side_select`는 임시 편 선택, `sparring
 `gomoku_lobby_retry`, `gomoku_room_join`, `gomoku_rooms_first`, `gomoku_rooms_next`,
 `gomoku_rooms_search_form`, `gomoku_rooms_search_input`, `gomoku_rooms_search_submit`,
 `gomoku_rooms_search_reset`을 사용한다. 검색어와 크루 이름은 action 값에 포함하지 않는다.
+대국 오류 알림 닫기는 `gomoku_error_dismiss`를 사용한다. 알림 닫기는 선택 좌표나 착수 상태를 변경하지 않는다.
 방 안 조작은 `gomoku_position_select`, `gomoku_move_confirm`, `gomoku_ready_toggle`, `gomoku_game_start`,
-`gomoku_invitation_copy`, `gomoku_invitation_link_select`, `gomoku_resign_open`,
+`gomoku_invitation_copy`, `gomoku_invitation_toggle`, `gomoku_invitation_create`, `gomoku_invitation_link_select`, `gomoku_resign_open`,
 `gomoku_resign_confirm`, `gomoku_leave_open`, `gomoku_leave_confirm`,
 `gomoku_confirmation_cancel`, `gomoku_confirmation_dismiss`다. 방 상단의 "대기실" 링크는 참여를 유지하며 `games_back`을 사용하고, 별도 "나가기" 버튼은 `gomoku_leave_open`으로 확인창을 연다. 초대 참여는
 `gomoku_invitation_join`, 준비 중 리듬게임은 `rhythm_game_open`이다.
@@ -392,6 +400,11 @@ private route다. 경로 정규화에서도 토큰은 `:redacted`로 치환한�
 `avatar_lab_shoes_change`, `avatar_lab_shoe_color_change`, `avatar_lab_hat_change`, `avatar_lab_hat_color_change`,
 `avatar_lab_bag_change`, `avatar_lab_bag_color_change`, `avatar_lab_handheld_change`다.
 색상·파츠 값과 외형 데이터를 action에 넣지 않으며 기존 시제품의 미수집 정책을 유지한다.
+
+회원 편집기의 iframe도 분석 SDK를 초기화하지 않는다. 따라서 iframe 내부의 파츠 선택·추천 조합·동작·회전 등
+`avatar_lab_*` 속성은 현재 실제로 수집되지 않는다. 부모로 action이나 외형 값을 중계하지 않으며,
+식별자는 향후 계측을 위한 고정 이름으로만 유지한다. 아래 회원 관리 action 중 부모 문서의 진입·저장·삭제 등만
+기존 앱 분석 설정에 따라 수집한다.
 
 ## 회원 아바타 관리
 

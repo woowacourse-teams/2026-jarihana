@@ -1,9 +1,9 @@
 import { AVATAR_BASIC_APPEARANCE } from '../../public/sparring-arena/src/avatar-appearance.js';
 import { createAvatarPreview } from '../../public/sparring-arena/src/avatar-preview.js';
-import { createAvatarEditor } from '../../public/sparring-arena/avatar-lab/avatar-editor.js';
+import { createAvatarEditor } from '../../public/sparring-arena/avatar-studio/avatar-editor.js';
 
 jest.mock('../../public/sparring-arena/src/avatar-preview.js', () => ({ createAvatarPreview: jest.fn() }));
-jest.mock('../../public/sparring-arena/avatar-lab/avatar-editor.js', () => ({ createAvatarEditor: jest.fn() }));
+jest.mock('../../public/sparring-arena/avatar-studio/avatar-editor.js', () => ({ createAvatarEditor: jest.fn() }));
 
 let preview, editor;
 beforeEach(() => {

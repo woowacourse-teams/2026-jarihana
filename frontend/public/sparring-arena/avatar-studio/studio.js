@@ -1,6 +1,6 @@
 import { AVATAR_PRESETS, avatarAppearanceKey, readAvatarAppearance } from '../src/avatar-appearance.js';
 import { createAvatarPreview } from '../src/avatar-preview.js';
-import { createAvatarEditor } from '../avatar-lab/avatar-editor.js';
+import { createAvatarEditor } from './avatar-editor.js';
 
 const CHANNEL = 'jarihana-avatar-studio';
 const previewOnly = new URLSearchParams(location.search).get('mode') === 'preview';

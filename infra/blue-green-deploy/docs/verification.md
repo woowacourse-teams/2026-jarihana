@@ -36,6 +36,9 @@ actionlint .github/workflows/backend-bluegreen-deploy.yml \
 ```
 
 시험별 실행 조건과 대역 범위는 [각 하네스](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/tests/actions/run-tests.sh)에서 확인한다.
+`run-local-e2e.sh`의 기본 Java 이미지 ID가 로컬에 없다면 검증할 Java 21 이미지를 준비하고
+`BG_E2E_JAVA_IMAGE=<준비한 이미지 ID 또는 digest>`로 지정한다. 두 통합 시험은 dev의 S3 경계 설정을
+명시하되 `IMAGE_CLEANUP_ENABLED=false`로 실행하며 실제 공유 S3 삭제를 시험하지 않는다.
 
 ## 백엔드 계측
 

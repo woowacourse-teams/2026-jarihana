@@ -44,3 +44,12 @@ it("렌더링 실패를 알리고 언마운트 후 메시지를 받지 않는다
   message(frame, "change", { appearance: AVATAR_BASIC_APPEARANCE });
   expect(onChange).not.toHaveBeenCalled();
 });
+
+
+it("같은 출처에서 받은 미래 파츠는 해당 파츠만 대체하고 나머지 외형을 유지한다", () => {
+  const onChange = jest.fn();
+  render(<AvatarFrame appearance={AVATAR_BASIC_APPEARANCE} onChange={onChange} />);
+  const frame = screen.getByTitle("아바타 파츠 편집기");
+  message(frame, "change", { appearance: { ...AVATAR_BASIC_APPEARANCE, hair: "flowing", hat: "futureHat" } });
+  expect(onChange).toHaveBeenCalledWith({ ...AVATAR_BASIC_APPEARANCE, hair: "flowing" });
+});

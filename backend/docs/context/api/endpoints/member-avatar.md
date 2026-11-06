@@ -68,35 +68,27 @@
 
 ## 저장과 배포
 
-`V20__member_avatar.sql`은 회원당 하나의 선택 설정 테이블만 추가한다. 기존 `member` 컬럼과
-프로필 응답은 유지한다. 구버전 앱은 새 테이블을 사용하지 않고 회원을 생성할 수 있으며 신규 회원도 기본형으로 읽는다.
-앱 롤백 후 테이블과 조합은 남고 이전 앱은 사용하지 않는다. 기존 앱 이미지의 공존 실행 검증은 별도다.
-현재는 파츠 조합 이력을 보관하지 않는다. Flyway 이력은 적용 후 수정·삭제하지 않는다.
+`V21__member_avatar.sql` 한 파일의 `CREATE TABLE`로 모든 최종 파츠 컬럼을 만든다.
+기존 `member` 컬럼과 프로필 응답은 유지하고 회원당 하나의 PK/FK·삭제 연쇄 정리를 둔다.
+파츠 컬럼에는 NOT NULL·VARCHAR(16)만 두고 허용 값과 누락 확장 파츠의 기본값은 `AvatarAppearance`에서 관리한다.
+향후 파츠 값이 늘어날 때 DB CHECK를 변경하거나 기존 행을 전수 검사하지 않기 위한 선택이다.
+JSONB 전환은 이번 변경에 포함하지 않는다. 도메인 검증을 우회한 직접 SQL은 허용 값 검증을 받지 않는다.
 
-`V21__member_avatar_shoes.sql`은 신발 두 컬럼을 기본값·허용 값 제약과 함께 추가한다.
-기존 외형과 구버전 INSERT는 흰 운동화를 유지하며, 구버전 UPDATE는 신발 컬럼을 수정하지 않는다.
-신규 신발을 저장한 뒤 앱만 롤백하면 구버전 화면에서는 원래 흰 운동화로 보이고 신규 선택값은 DB에 남는다.
-구버전 요청이 신버전 서버에 도달해 전체 교체되면 생략한 신발은 기본값으로 돌아간다.
+이 PR의 이전 V20~V23 아바타 파일은 공유 환경 미배포 상태에서 통합했다.
+현재 develop의 V20은 채팅 알림 마이그레이션이므로 아바타는 다음 번호 V21을 사용한다.
+실제 적용된 공유 환경의 Flyway 파일을 바꾸는 절차가 아니다.
+예전 PR 스키마를 적용했던 개인 로컬 DB에는 checksum repair·이력 삭제를 하지 말고 새 별도 DB를 사용한다.
+기존 개인 DB와 저장 조합은 보존한다. 공유 환경에 적용된 후에는 후속 마이그레이션으로만 변경한다.
 
-`V22__member_avatar_accessories.sql`은 모자 두 컬럼을 기본값·허용 값 제약과 함께 추가하고
-안경의 허용 값을 선글라스까지 확장한다. 기존 외형·신발·이력은 보존하며 이전 INSERT는 모자 없음으로 기록한다.
-새 서버에 모자 없는 이전 요청으로 전체 교체하면 모자는 기본값으로 돌아간다.
-새 `sunglasses` 값을 모르는 구버전 클라이언트의 표시 호환성은 보장하지 않는다. SQL 호환성 검증과
-구버전 앱 이미지의 표시·롤백 검증은 별도이며 실제 구버전 앱 공존 실행은 미검증이다.
+아바타 도입 전 앱은 새 테이블을 사용하지 않고 회원을 조회·생성·수정·삭제할 수 있다.
+앱만 롤백하면 새 테이블과 조합은 남는다. 이미 배포된 이전 번들의 처리까지 소급 변경할 수는 없다.
+이번 클라이언트부터 응답·렌더링의 모르는 파츠만 기본값으로 표시하며 다른 파츠는 보존하고,
+추가 응답 필드는 버린다. 저장 요청의 지원 버전·파츠 허용 값 검증은 엄격하게 유지한다.
+읽기 정규화 자체는 저장하지 않는다. 수정 후 전체 교체하면 표시된 조합으로 저장된다.
+지원하지 않는 외형 버전은 오류로 처리한다.
 
-`V23__member_avatar_bags_and_items.sql`은 가방 종류·색과 소지품 컬럼을 기본값·제약과 함께 추가한다.
-기존 모자·안경·신발·외형과 이력을 보존하며 이전 INSERT는 가방 없음·빈손이 된다.
-이전 SQL이 기존 컬럼만 갱신하면 새 선택은 보존한다. 새 서버에 이전 형식으로 전체 교체하면 생략한 설정은 기본값으로 돌아간다.
-
-검증: `MemberAvatarAcceptanceTest`가 실제 PostgreSQL에서 최초 조회, 생성, 교체, 재조회,
-회원별 분리, 잘못된 요청 후 보존, 반복 삭제, 미인증 및 CSRF 차단을 확인한다.
-
-`FlywayBaselineTest.addAvatarAfterV19PreservesOldMemberOperations`는 V19 DB에서 V23까지
-올린 뒤 기존 회원·컬럼·이력 보존, 구버전 형태의 회원 INSERT/SELECT/UPDATE/DELETE,
-새 아바타 행의 회원 삭제 연쇄 정리를 확인한다. 실제 구버전 앱 이미지 동시 실행은 포함하지 않는다.
-`FlywayBaselineTest.addShoesAfterV20PreservesSavedAvatarsAndOldWrites`는 V20→V21에서
-기존 파츠·이력, 흰 운동화 기본값, 구버전 INSERT/UPDATE와 신발 값의 DB 제약을 확인한다.
-`FlywayBaselineTest.addAccessoriesAfterV21PreservesAvatarsAndOldWrites`는 V21→V22에서
-기존 조합과 이력을 보존하고 모자 기본값·선글라스·구버전 SQL 및 새 값의 DB 제약을 확인한다.
-`FlywayBaselineTest.addBagsAndItemsAfterV22PreservesSavedAvatarsAndOldWrites`는 V22→V23에서
-기존 장신구·이력을 보존하고 가방·소지품 기본값, 이전 SQL과 새 값의 DB 제약을 확인한다.
+검증: `MemberAvatarAcceptanceTest`는 최초 조회·생성·교체·재조회·회원 분리·잘못된 요청 보존·삭제·인증·CSRF를 확인한다.
+`AvatarAppearanceTest.defaultsMissingExtensionPartsInDomain`은 누락 확장 파츠의 도메인 기본값을 검증한다.
+`FlywayBaselineTest.addAvatarAfterV20PreservesOldMemberOperations`는 채팅 V20까지 적용된 DB에서 V21로 올린 뒤
+회원·컬럼·이력 보존, 기존 회원 SQL, 최종 파츠 컬럼, NOT NULL, 회원 삭제 연쇄 정리를 확인한다.
+실제 구버전 앱 이미지 동시 실행과 운영 규모의 FK 생성 잠금 시간은 미검증이다.

@@ -51,10 +51,10 @@ export function readAvatarAppearance(value) {
   if (!value || typeof value !== 'object' || value.version !== 1) return null;
   const result = { version: 1 };
   for (const [key, options] of Object.entries(AVATAR_OPTIONS)) {
-    const choice = key === 'hair' && value[key] === 'crop' ? 'flowing'
-      : value[key] === undefined ? AVATAR_DEFAULT_PARTS[key] : value[key];
-    if (!options.includes(choice)) return null;
-    result[key] = choice;
+    const choice = value[key];
+    result[key] = options.includes(choice) ? choice
+      : choice === undefined ? AVATAR_DEFAULT_PARTS[key] ?? AVATAR_BASIC_APPEARANCE[key]
+        : AVATAR_BASIC_APPEARANCE[key];
   }
   return result;
 }

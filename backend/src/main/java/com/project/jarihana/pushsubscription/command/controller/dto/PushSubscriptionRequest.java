@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Max;
 public record PushSubscriptionRequest(@NotBlank String endpoint, @NotNull @Valid Keys keys,
-                                      @Min(1) @Max(2) Integer clientVersion) {
+                                      @Min(1) @Max(3) Integer clientVersion) {
     public PushSubscriptionRequest {
         clientVersion = clientVersion == null ? 1 : clientVersion;
     }

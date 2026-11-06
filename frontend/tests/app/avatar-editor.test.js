@@ -1,6 +1,6 @@
 import { fireEvent, getByRole, within } from '@testing-library/dom';
-import { createAvatarEditor } from '../../public/sparring-arena/avatar-lab/avatar-editor.js';
-import { createAvatarDraft } from '../../public/sparring-arena/avatar-lab/avatar-draft.js';
+import { createAvatarEditor } from '../../public/sparring-arena/avatar-studio/avatar-editor.js';
+import { createAvatarDraft } from '../../public/sparring-arena/avatar-studio/avatar-draft.js';
 import { AVATAR_PRESETS } from '../../public/sparring-arena/src/avatar-appearance.js';
 
 it('파츠 변경은 다른 파츠를 보존하며 반환값이나 나중 편집이 이전 snapshot을 바꾸지 않는다', () => {

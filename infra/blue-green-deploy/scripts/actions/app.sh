@@ -65,6 +65,8 @@ app_snapshot() {
 app_read() { app_snapshot || bg_die 'Application snapshot unavailable or invalid; no mutation authorized'; }
 app_drained() { app_assert '.worker.state=="PAUSED" and .worker.inFlight==0 and .worker.unresolved==0'; }
 app_all_drained() { app_drained; app_assert '.activity.httpInFlight==0 and .activity.backgroundInFlight==0 and .activity.backgroundDrained'; }
+# Bootstrap only registers the worker owner on the app that already serves HTTP; it never stops that app.
+app_background_drained() { app_drained; app_assert '.activity.backgroundInFlight==0 and .activity.backgroundDrained'; }
 app_current_owner() { app_assert '.authority.owner==.identity and .authority.status=="ACTIVE" and .worker.state=="ACTIVE"'; }
 app_owner() { app_current_owner; app_assert '.healthy'; }
 app_unassigned() { app_drained; app_assert '.authority.owner==null and .authority.status=="UNASSIGNED"'; }
@@ -306,7 +308,7 @@ app_run() {
     activate) app_command activate; app_command phase OBSERVE;;
     observe) app_observe;;
     complete) app_command phase COMPLETE;;
-    bootstrap) app_all_drained; app_assert '.healthy and (.authority==null or (.authority.owner==null and .authority.status=="UNASSIGNED" and (.authority.phase=="IDLE" or .authority.phase=="COMPLETE")))'
+    bootstrap) app_background_drained; app_assert '.healthy and (.authority==null or (.authority.owner==null and .authority.status=="UNASSIGNED" and (.authority.phase=="IDLE" or .authority.phase=="COMPLETE")))'
       [[ $(jq -r '.version' <<<"$SNAPSHOT") == "$BG_IMAGE_DIGEST" ]] || bg_die 'Bootstrap image differs'
       app_command begin; app_command phase HANDOFF; app_command activate; app_command phase OBSERVE; app_command phase COMPLETE;;
     rollback)

@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { AVATAR_BASIC_APPEARANCE } from "../../public/sparring-arena/src/avatar-appearance.js";
 import { expect as baseExpect, test } from "playwright/test";
 import { installApiFixture, assertSurface } from "./api-fixture.js";
 
@@ -186,5 +188,28 @@ test("가방과 소지품을 회전해 살펴보고 저장·재편집하며 삭�
   await page.getByRole('button', { name: '삭제하고 기본형으로', exact: true }).click();
   await expect(status(page)).toContainText('기본 모습으로 돌아왔어요');
   expect(state.avatar.appearance).toMatchObject({ hat: 'none', bag: 'none', handheld: 'none' });
+  await assertSurface(page, state, { axe: true });
+});
+
+
+test("미래 파츠가 섞여도 카드와 편집기를 표시하고 운영 빌드에서 체험판을 제외한다", async ({ page }) => {
+  const state = await installApiFixture(page);
+  state.avatar = { customized: true, appearance: { ...AVATAR_BASIC_APPEARANCE, hair: "flowing", hat: "futureHat", handheld: "futureItem", newPart: "new" } };
+  expect(existsSync("dist/sparring-arena/avatar-lab/index.html")).toBe(false);
+  expect(existsSync("dist/sparring-arena/avatar-studio/avatar-editor.js")).toBe(true);
+  await page.goto("/my");
+  await page.locator(".my-avatar-card").scrollIntoViewIfNeeded();
+  await expect(page.frameLocator('iframe[title="저장된 내 아바타"]').locator("#preview canvas")).toBeVisible();
+  await page.getByRole("link", { name: "아바타 수정하기", exact: true }).click();
+  await expect(editor(page).getByRole("button", { name: "머리 모양: 긴 웨이브", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await editor(page).getByRole("tab", { name: "모자", exact: true }).click();
+  await expect(editor(page).getByRole("button", { name: "모자 모양: 모자 없음", exact: true })).toHaveAttribute("aria-pressed", "true");
+  expect(state.avatar.appearance.hat).toBe("futureHat");
+  await editor(page).getByRole("tab", { name: "소지품", exact: true }).click();
+  await expect(editor(page).getByRole("button", { name: "손에 드는 물건: 빈손", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await editor(page).getByRole("button", { name: "손에 드는 물건: 휴대폰", exact: true }).click();
+  await page.getByRole("button", { name: "저장하기", exact: true }).click();
+  await expect(page).toHaveURL(/\/my$/);
+  expect(state.avatar.appearance).toEqual({ ...AVATAR_BASIC_APPEARANCE, hair: "flowing", handheld: "phone" });
   await assertSurface(page, state, { axe: true });
 });

@@ -47,4 +47,14 @@ class AvatarAppearanceTest {
                 "straight", "small", "flat", "none", "cream", "sneakers", "unknown", "none", "ink", "none", "ink", "none"))
                 .isInstanceOf(BusinessException.class);
     }
+    @Test
+    @DisplayName("누락된 확장 파츠는 도메인에서 기본값을 채운다.")
+    void defaultsMissingExtensionPartsInDomain() {
+        // Given / When
+        AvatarAppearance appearance = AvatarAppearance.of(1, "bald", "warm", "ink", "round", "dot",
+                "straight", "small", "flat", "none", "cream", null, null, null, null, null, null, null);
+        // Then
+        assertThat(appearance).usingRecursiveComparison().isEqualTo(AvatarAppearance.basic());
+    }
+
 }
