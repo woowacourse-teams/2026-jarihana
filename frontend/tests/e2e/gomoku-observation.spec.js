@@ -212,8 +212,10 @@ for (const width of [390, 768, 1440, 1920]) {
         await capture("chat");
         await closeChat();
         const requestId = admissions[0].requestId;
-        if (width === 1440 && colorScheme === "light") {
-          const duplicate = await page.context().newPage();
+        const duplicate =
+          width === 1440 && colorScheme === "light" ? await page.context().newPage() : null;
+        let duplicateRequestId;
+        if (duplicate) {
           await installApiFixture(duplicate);
           await duplicate.addInitScript(installStreams);
           const saved = await page.evaluate(() => sessionStorage.getItem("gomoku-observation:1:7"));
@@ -226,11 +228,14 @@ for (const width of [390, 768, 1440, 1920]) {
           await expect(duplicate.getByText("관전 중", { exact: true })).toBeVisible();
           expect(admissions.at(-1).requestId).not.toBe(requestId);
           failLeave = false;
-          await duplicate.getByRole("button", { name: "관전 나가기" }).click();
+          await duplicate.getByRole("button", { name: "대기실", exact: true }).click();
           await expect(duplicate).toHaveURL(/\/games\/gomoku$/);
           expect(visits.get(requestId).left).toBe(false);
           await expect(page.getByText("관전 중", { exact: true })).toBeVisible();
-          await duplicate.close();
+          await duplicate.getByRole("button", { name: "관전하기" }).click();
+          await expect(duplicate.getByText("관전 중", { exact: true })).toBeVisible();
+          duplicateRequestId = admissions.at(-1).requestId;
+          expect(duplicateRequestId).not.toBe(requestId);
           failLeave = true;
         }
         await page.reload();
@@ -267,8 +272,21 @@ for (const width of [390, 768, 1440, 1920]) {
         await page.getByRole("button", { name: "관전 나가기" }).click();
         await expect(page.getByRole("alert")).toContainText("관전을 종료하지 못했어요");
         await expect(page).toHaveURL(/\/watch$/);
-        await page.getByRole("button", { name: "대기실", exact: true }).click();
+        if (duplicate) {
+          await expect(duplicate).toHaveURL(/\/watch$/);
+          expect(visits.get(duplicateRequestId).left).toBe(false);
+          await page.getByRole("button", { name: "관전 나가기" }).click();
+          await expect(duplicate).toHaveURL(/\/games\/gomoku$/);
+          expect(visits.get(duplicateRequestId).left).toBe(true);
+          expect(
+            await duplicate.evaluate(() => sessionStorage.getItem("gomoku-observation:1:7"))
+          ).toBeNull();
+          await duplicate.close();
+        } else {
+          await page.getByRole("button", { name: "대기실", exact: true }).click();
+        }
         await expect(page).toHaveURL(/\/games\/gomoku$/);
+        expect(visits.get(requestId).left).toBe(true);
         await page.getByRole("button", { name: "관전하기" }).click();
         await expect(page.getByText("관전 중", { exact: true })).toBeVisible();
         expect(admissions.at(-1).requestId).not.toBe(requestId);
