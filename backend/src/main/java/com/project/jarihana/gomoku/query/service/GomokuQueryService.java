@@ -60,7 +60,15 @@ public class GomokuQueryService {
         return repository.currentRoom(memberId).orElse(null);
     }
 
+    public GomokuPageResult waitingRooms(String cursor, int size, String keyword) {
+        return findLobby(cursor, size, keyword, false);
+    }
+
     public GomokuPageResult lobby(String cursor, int size, String keyword) {
+        return findLobby(cursor, size, keyword, true);
+    }
+
+    private GomokuPageResult findLobby(String cursor, int size, String keyword, boolean includePlaying) {
         LocalDateTime before = LocalDateTime.of(9999, 12, 31, 23, 59, 59);
         long beforeId = Long.MAX_VALUE;
         if (cursor != null) {
@@ -76,9 +84,12 @@ public class GomokuQueryService {
                 throw new BusinessException(ErrorCode.INVALID_PARAMETER, "목록 위치가 올바르지 않아요.");
             }
         }
+        LocalDateTime now = LocalDateTime.now(clock);
         var rows =
                 repository.lobby(
-                        LocalDateTime.now(clock).minusMinutes(30),
+                        includePlaying,
+                        now,
+                        now.minusMinutes(30),
                         before,
                         beforeId,
                         keyword == null ? "" : keyword.strip(),

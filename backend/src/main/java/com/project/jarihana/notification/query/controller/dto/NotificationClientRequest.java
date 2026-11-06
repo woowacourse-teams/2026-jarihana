@@ -4,7 +4,7 @@ import com.project.jarihana.notification.query.service.dto.NotificationClientVer
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 
-public record NotificationClientRequest(@Min(1) @Max(2) Integer clientVersion) {
+public record NotificationClientRequest(@Min(1) @Max(3) Integer clientVersion) {
 
     public NotificationClientRequest {
         clientVersion = clientVersion == null ? 1 : clientVersion;
