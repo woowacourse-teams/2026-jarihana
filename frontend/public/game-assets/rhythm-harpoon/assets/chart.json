@@ -1,5 +1,5 @@
 {
-  "title": "Pixel Circuit (Breath Mix)",
+  "title": "Pixel Circuit (Double Tap Mix)",
   "status": "draft",
   "bpm": 128,
   "timeSignature": [
@@ -89,7 +89,35 @@
     {
       "startBar": 29,
       "bars": 1,
-      "pattern": "triad"
+      "pattern": "doubleTap",
+      "variant": "intro",
+      "hardTrillPairs": [
+        [
+          "left",
+          "right"
+        ]
+      ],
+      "musicBars": [
+        {
+          "bassMidi": 40,
+          "leadMidi": {
+            "up": 76,
+            "down": 79,
+            "left": 83,
+            "right": 88
+          }
+        }
+      ],
+      "mediumPairs": [
+        [
+          "up",
+          "down"
+        ],
+        [
+          "left",
+          "right"
+        ]
+      ]
     },
     {
       "startBar": 30,
@@ -119,7 +147,56 @@
     {
       "startBar": 37,
       "bars": 2,
-      "pattern": "triad"
+      "pattern": "doubleTap",
+      "variant": "travel",
+      "hardTrillPairs": [
+        [
+          "left",
+          "up"
+        ],
+        [
+          "left",
+          "down"
+        ]
+      ],
+      "musicBars": [
+        {
+          "bassMidi": 45,
+          "leadMidi": {
+            "left": 69,
+            "down": 72,
+            "right": 76,
+            "up": 81
+          }
+        },
+        {
+          "bassMidi": 36,
+          "leadMidi": {
+            "left": 72,
+            "down": 76,
+            "right": 79,
+            "up": 84
+          }
+        }
+      ],
+      "mediumPairs": [
+        [
+          "left",
+          "down"
+        ],
+        [
+          "right",
+          "up"
+        ],
+        [
+          "right",
+          "down"
+        ],
+        [
+          "up",
+          "left"
+        ]
+      ]
     },
     {
       "startBar": 39,
@@ -134,7 +211,8 @@
     {
       "startBar": 41,
       "bars": 2,
-      "pattern": "offbeat"
+      "pattern": "offbeat",
+      "role": "alternatingTrill"
     },
     {
       "startBar": 43,
@@ -1278,48 +1356,135 @@
       "step": 448,
       "sample": 2520000,
       "keys": [
-        "left",
-        "right",
         "up"
       ],
-      "cue": "triad"
+      "cue": "doubleTap"
+    },
+    {
+      "step": 449,
+      "sample": 2525625,
+      "keys": [
+        "up"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 450,
+      "sample": 2531250,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 451,
+      "sample": 2536875,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
     },
     {
       "step": 452,
       "sample": 2542500,
       "keys": [
-        "left",
-        "down",
-        "right"
+        "up"
       ],
-      "cue": "triad"
+      "cue": "doubleTap"
+    },
+    {
+      "step": 453,
+      "sample": 2548125,
+      "keys": [
+        "up"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 454,
+      "sample": 2553750,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 455,
+      "sample": 2559375,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
     },
     {
       "step": 456,
       "sample": 2565000,
       "keys": [
-        "down",
-        "right",
-        "up"
+        "left"
       ],
-      "cue": "triad"
+      "cue": "doubleTap"
+    },
+    {
+      "step": 457,
+      "sample": 2570625,
+      "keys": [
+        "left"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 458,
+      "sample": 2576250,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 459,
+      "sample": 2581875,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
     },
     {
       "step": 460,
       "sample": 2587500,
       "keys": [
-        "left",
-        "down",
-        "up"
+        "left"
       ],
-      "cue": "triad"
+      "cue": "doubleTap"
+    },
+    {
+      "step": 461,
+      "sample": 2593125,
+      "keys": [
+        "left"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 462,
+      "sample": 2598750,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 463,
+      "sample": 2604375,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
     },
     {
       "step": 464,
       "sample": 2610000,
       "keys": [
-        "down",
-        "right"
+        "down"
       ],
       "cue": "beat"
     },
@@ -1842,81 +2007,257 @@
       "step": 576,
       "sample": 3240000,
       "keys": [
-        "left",
-        "down",
-        "up"
+        "left"
       ],
-      "cue": "triad"
+      "cue": "doubleTap"
+    },
+    {
+      "step": 577,
+      "sample": 3245625,
+      "keys": [
+        "left"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 578,
+      "sample": 3251250,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 579,
+      "sample": 3256875,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
     },
     {
       "step": 580,
       "sample": 3262500,
       "keys": [
-        "down",
-        "right",
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 581,
+      "sample": 3268125,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 582,
+      "sample": 3273750,
+      "keys": [
         "up"
       ],
-      "cue": "triad"
+      "cue": "doubleTap"
+    },
+    {
+      "step": 583,
+      "sample": 3279375,
+      "keys": [
+        "up"
+      ],
+      "cue": "doubleTap"
     },
     {
       "step": 584,
       "sample": 3285000,
       "keys": [
-        "left",
-        "right",
-        "up"
+        "left"
       ],
-      "cue": "triad"
+      "cue": "doubleTap"
+    },
+    {
+      "step": 585,
+      "sample": 3290625,
+      "keys": [
+        "left"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 586,
+      "sample": 3296250,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 587,
+      "sample": 3301875,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
     },
     {
       "step": 588,
       "sample": 3307500,
       "keys": [
-        "left",
-        "down",
         "right"
       ],
-      "cue": "triad"
+      "cue": "doubleTap"
+    },
+    {
+      "step": 589,
+      "sample": 3313125,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 590,
+      "sample": 3318750,
+      "keys": [
+        "up"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 591,
+      "sample": 3324375,
+      "keys": [
+        "up"
+      ],
+      "cue": "doubleTap"
     },
     {
       "step": 592,
       "sample": 3330000,
       "keys": [
-        "left",
-        "down",
-        "up"
+        "right"
       ],
-      "cue": "triad"
+      "cue": "doubleTap"
+    },
+    {
+      "step": 593,
+      "sample": 3335625,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 594,
+      "sample": 3341250,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 595,
+      "sample": 3346875,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
     },
     {
       "step": 596,
       "sample": 3352500,
       "keys": [
-        "left",
-        "right",
-        "up"
+        "left"
       ],
-      "cue": "triad"
+      "cue": "doubleTap"
+    },
+    {
+      "step": 597,
+      "sample": 3358125,
+      "keys": [
+        "left"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 598,
+      "sample": 3363750,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 599,
+      "sample": 3369375,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
     },
     {
       "step": 600,
       "sample": 3375000,
       "keys": [
-        "down",
-        "right",
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 601,
+      "sample": 3380625,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 602,
+      "sample": 3386250,
+      "keys": [
         "up"
       ],
-      "cue": "triad"
+      "cue": "doubleTap"
+    },
+    {
+      "step": 603,
+      "sample": 3391875,
+      "keys": [
+        "up"
+      ],
+      "cue": "doubleTap"
     },
     {
       "step": 604,
       "sample": 3397500,
       "keys": [
-        "left",
-        "down",
         "right"
       ],
-      "cue": "triad"
+      "cue": "doubleTap"
+    },
+    {
+      "step": 605,
+      "sample": 3403125,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 606,
+      "sample": 3408750,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 607,
+      "sample": 3414375,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
     },
     {
       "step": 608,
@@ -2647,5 +2988,56 @@
       16
     ],
     "delaySamples": 864
-  }
+  },
+  "arrangementVersion": "climax-order-4",
+  "playbackBarOrder": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    41,
+    42,
+    43,
+    44,
+    39,
+    40,
+    37,
+    38,
+    45,
+    46,
+    47,
+    48
+  ]
 }

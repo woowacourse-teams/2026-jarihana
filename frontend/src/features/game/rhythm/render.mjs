@@ -452,9 +452,9 @@ export class Renderer {
       ctx.restore();
     }
     if (x < -45 || x > 945 || y < -45 || y > 945) return;
-    this.sprite(4 + note.color, x, y, 38, 38);
+    this.sprite(4 + note.color, x, y, 48, 48);
     const label = this.labels?.[note.color];
-    if (label) this.text(label, x, y - 34, 21, "#1d2b2c", "center", true);
+    if (label) this.text(label, x, y - 40, 21, "#1d2b2c", "center", true);
   }
 
   draw(time, engine) {
@@ -489,7 +489,7 @@ export class Renderer {
               : effect.note.lane === "up"
                 ? Math.PI / 2
                 : -Math.PI / 2;
-        this.sprite(8 + effect.note.color, x, y, 40, 51, angle, 1 - age / 0.27);
+        this.sprite(8 + effect.note.color, x, y, 50, 64, angle, 1 - age / 0.27);
         if (age < 0.14)
           this.sprite(13, x - vector[0] * 20, y - vector[1] * 20, 28, 28, age * 2, 1 - age / 0.14);
       }

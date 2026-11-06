@@ -141,7 +141,7 @@ test("chord links exclude caught, attacking and unrelated notes", () => {
 test("target pulses follow four audible beats through count-in, practice offsets and accelerated loops", () => {
   const chart = JSON.parse(
     readFileSync(
-      new URL("../../../public/game-assets/rhythm-harpoon/assets/chart.json", import.meta.url),
+      new URL("./fixtures/pre-climax-chart.json", import.meta.url),
       "utf8"
     )
   );
@@ -165,7 +165,7 @@ test("target pulses follow four audible beats through count-in, practice offsets
 test("spiral cues announce two beats early and follow actual randomized lanes and reversals", () => {
   const chart = JSON.parse(
     readFileSync(
-      new URL("../../../public/game-assets/rhythm-harpoon/assets/chart.json", import.meta.url),
+      new URL("./fixtures/pre-climax-chart.json", import.meta.url),
       "utf8"
     )
   );
@@ -216,7 +216,7 @@ test("the curve starts on the indicated lane and turns three quarters in the act
 test("reversal previews start two musical beats early without replacing the current direction", () => {
   const chart = JSON.parse(
     readFileSync(
-      new URL("../../../public/game-assets/rhythm-harpoon/assets/chart.json", import.meta.url),
+      new URL("./fixtures/pre-climax-chart.json", import.meta.url),
       "utf8"
     )
   );
@@ -248,7 +248,7 @@ test("reversal previews start two musical beats early without replacing the curr
 test("reversal rendering shows a separate next start note and a countdown label", () => {
   const chart = JSON.parse(
     readFileSync(
-      new URL("../../../public/game-assets/rhythm-harpoon/assets/chart.json", import.meta.url),
+      new URL("./fixtures/pre-climax-chart.json", import.meta.url),
       "utf8"
     )
   );
@@ -301,7 +301,7 @@ test("reversal rendering shows a separate next start note and a countdown label"
 test("the start note and curved arrow stay fixed while the pattern plays", () => {
   const chart = JSON.parse(
     readFileSync(
-      new URL("../../../public/game-assets/rhythm-harpoon/assets/chart.json", import.meta.url),
+      new URL("./fixtures/pre-climax-chart.json", import.meta.url),
       "utf8"
     )
   );
@@ -345,7 +345,7 @@ test("the start note and curved arrow stay fixed while the pattern plays", () =>
 test("the indicator draws one start note and one arrowhead without a text panel", () => {
   const chart = JSON.parse(
     readFileSync(
-      new URL("../../../public/game-assets/rhythm-harpoon/assets/chart.json", import.meta.url),
+      new URL("./fixtures/pre-climax-chart.json", import.meta.url),
       "utf8"
     )
   );

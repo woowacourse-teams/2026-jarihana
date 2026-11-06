@@ -88,12 +88,52 @@
 
 ## 유지한 게임 동작
 
-원본은 Sites 버전 23의 커밋 `2c8f38377dc1ae588091099c7738c605166d1adf`다.
-128 BPM, 90초 루프의 음악과 채보, 기존 스프라이트를 유지한다.
+이관 기준 원본은 Sites 버전 23의 커밋 `2c8f38377dc1ae588091099c7738c605166d1adf`다.
+128 BPM, 90초 루프와 기존 스프라이트를 유지한다. 음악과 채보의 추가 편곡은 아래 2연타 구간을 따른다.
 Easy 10, Medium 8, Hard 8, Hardest 10 라이프, 화살표와 WASD 및 터치,
 이동 배속 1.0~3.0(0.25 단위), 판정, 헛공격 -1,000점, 패스트/슬로우와 싱크 진단을 유지한다.
 계단 진행 방향과 반전 예고, 루프 랜덤과 템포 상승도 유지한다.
 기존 Sites 출처의 보정값은 자동 이전되지 않으므로 자리하나에서 다시 맞춘다.
+
+## 2연타 구간 편곡
+
+90초 루프와 29마디의 짧은 2연타 소개를 유지한다. 본격적인 2연타 난사는 트릴과 회오리 뒤로 옮긴다.
+
+| 재생 위치 | 패턴 |
+| --- | --- |
+| 37~38마디 | 16분 교대 트릴 |
+| 39~40마디 | 두 번째 회오리, 반전 예고 유지 |
+| 41~42마디 | 기존 39~40마디의 완충 패턴 |
+| 43~44마디 | 사방으로 이동하는 16분 2연타 난사 |
+
+다른 난이도도 같은 음악 구간을 함께 이동한다. 2연타 구간의 Easy는 4분 단노트 4개,
+Medium은 8분 교대 8개, Hard는 8분 진행과 마지막 박의 짧은 트릴 10개,
+Hardest는 16분 2연타 16개를 한 마디에 배치한다.
+회오리 직후 단노트와 난사 전후의 방향을 조정해 경계에서 의도하지 않은 연타가 생기지 않게 한다.
+
+채보의 `events`와 `sections`는 작곡 원본의 마디 좌표를 보존한다. `playbackBarOrder`는 재생 마디마다
+원본의 어느 마디를 사용할지 지정하는 48개 정수의 순열이다. `simplifyChart`가 난이도별 단순화 후
+노트의 마디와 샘플 위치를 변환하고, `playbackSections`가 회오리 신호와 랜덤 회전에 사용할 구간을 변환한다.
+따라서 원본 JSON의 마디 번호를 곧바로 화면이나 서버 검증에 사용하지 않는다.
+원본 좌표의 회귀 검증은 `tests/games/rhythm-harpoon/fixtures/pre-climax-chart.json`,
+현재 재생 순서는 `climax-order.test.mjs`에서 별도로 검사한다.
+
+음악도 같은 순열로 마디 블록을 옮기며 새 접합부에 3ms 페이드를 적용한다. 39~48마디에는 낮은
+16분 아르페지오를 계속 깐다. 새 화성 진행은 G, D, Em, B, G, D, Em, C, G, B다.
+43~44마디는 39~40마디 회오리 프레이즈를 같은 선율과 반주 흐름으로 재사용한다. 난사 구간이 커지지 않도록 기존 음량에 맞추며 채보는 유지한다.
+기존 반주에는 필터와 덕킹을 추가하지 않는다. 채보 버전은 `climax-order-4`, 음원 버전은 `spiral-melody-5`다.
+
+`scripts/arrange-double-taps.py`가 원본 48kHz 스테레오 16비트 WAV와 현재 채보로 음악을 생성한다.
+NumPy와 libvorbis를 지원하는 ffmpeg가 필요하며 프론트엔드 빌드 의존성은 아니다.
+원본은 `pixel-circuit-128-axis-trill.wav`이고 SHA-256은 아래 측정 보고서에 기록한다.
+이미 편곡한 출력을 다시 입력하지 않는다.
+
+```text
+python scripts/arrange-double-taps.py --input-wav <원본 WAV 절대 경로> --chart public/game-assets/rhythm-harpoon/assets/chart.json --output-wav <출력 WAV 절대 경로> --output-ogg public/game-assets/rhythm-harpoon/assets/pixel-circuit.ogg --report docs/rhythm-double-tap-mix.json
+```
+
+샘플 위치, 음량, 피크, 변경하지 않은 PCM 구간과 배포 음원 해시는
+[편곡 측정 보고서](rhythm-double-tap-mix.json)에서 확인한다.
 
 ## 검증
 

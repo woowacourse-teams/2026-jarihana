@@ -14,7 +14,7 @@ import {
 
 const chart = JSON.parse(
   readFileSync(
-    new URL("../../../public/game-assets/rhythm-harpoon/assets/chart.json", import.meta.url),
+    new URL("./fixtures/pre-climax-chart.json", import.meta.url),
     "utf8"
   )
 );
@@ -26,6 +26,12 @@ const seed = () => {
   };
 };
 const engine = (options) => new GameEngine(chart, { random: seed(), ...options });
+const inHardTrill = (step) =>
+  (step >= 640 && step < 672) ||
+  chart.sections.some((section) => {
+    const start = (section.startBar - 1) * 16;
+    return section.pattern === "doubleTap" && step >= start && step < start + section.bars * 16 && step % 16 >= 12;
+  });
 
 test("inclusive 32/64/100/150ms boundaries stay fixed at normal and accelerated rates", () => {
   for (const loop of [1, 6, 10]) {
@@ -231,7 +237,8 @@ test("difficulty charts use source timings, correct lives and progressively more
       const bar = Math.floor(event.step / 16) + 1;
       const replaced =
         (["hard", "hardest"].includes(level) && [41, 42].includes(bar)) ||
-        (level === "hardest" && [32, 45].includes(bar));
+        (level === "hardest" && [32, 45].includes(bar)) ||
+        [29, 37, 38].includes(bar);
       if (!replaced) assert(keysByStep.has(event.step));
       assert(
         event.keys.every((key) =>
@@ -253,13 +260,12 @@ test("difficulty charts use source timings, correct lives and progressively more
   );
 });
 
-test("Medium and Hard keep quarter-note gaps except the dedicated Hard trill", () => {
+test("Medium keeps quarter-note gaps and Hard permits shorter gaps only in its trills", () => {
   for (const level of ["medium", "hard"]) {
     const last = new Map();
     for (const event of simplifyChart(chart, level)) {
       for (const key of event.keys) {
-        const inTrill = (step) => step >= 640 && step < 672;
-        const gap = level === "hard" && (inTrill(event.step) || inTrill(last.get(key))) ? 2 : 4;
+        const gap = level === "hard" && (inHardTrill(event.step) || inHardTrill(last.get(key))) ? 2 : 4;
         if (last.has(key))
           assert(event.step - last.get(key) >= gap, level + " repeats " + key + " too soon");
         last.set(key, event.step);
@@ -270,7 +276,7 @@ test("Medium and Hard keep quarter-note gaps except the dedicated Hard trill", (
 
 test("Medium keeps the beat while removing eighth-note axes across bar boundaries", () => {
   const selected = simplifyChart(chart, "medium");
-  assert.equal(selected.length, 199);
+  assert.equal(selected.length, 211);
   assert.deepEqual(
     selected.filter((event) => event.step >= 128 && event.step < 160).map((event) => event.step),
     [128, 132, 136, 140, 144, 148, 152, 156]
@@ -329,16 +335,16 @@ test("Hard keeps its offbeat rhythms while easing opening chords", () => {
     "1212",
     "111111",
     "111111",
-    "2222",
-    "21211",
+    "1111111111",
+    "11211",
     "11111111",
     "11111111",
     "111111",
     "111111",
     "211",
     "211",
-    "2222",
-    "2222",
+    "1111111111",
+    "1111111111",
     "2121",
     "21211",
     "1111111111111111",
@@ -350,14 +356,14 @@ test("Hard keeps its offbeat rhythms while easing opening chords", () => {
     "211111",
     ""
   ]);
-  assert.equal(selected.length, 240);
+  assert.equal(selected.length, 258);
   assert.equal(
     selected.reduce((sum, event) => sum + event.keys.length, 0),
-    268
+    273
   );
-  assert.equal(selected.filter((event) => event.keys.length === 2).length, 28);
-  assert.equal(selected.filter((event) => event.step % 4 !== 0).length, 119);
-  assert.equal(selected.filter((event) => event.step % 2 !== 0).length, 37);
+  assert.equal(selected.filter((event) => event.keys.length === 2).length, 15);
+  assert.equal(selected.filter((event) => event.step % 4 !== 0).length, 137);
+  assert.equal(selected.filter((event) => event.step % 2 !== 0).length, 43);
   assert.deepEqual(
     selected.filter((event) => Math.floor(event.step / 16) === 23).map((event) => event.step % 16),
     [2, 6, 7, 9, 10, 14]
@@ -593,8 +599,7 @@ test("all 24 random maps preserve staircase direction and avoid boundary jacks",
         const last = new Map();
         for (const note of notes) {
           const previous = last.get(note.lane) ?? -Infinity;
-          const inTrill = (step) => step >= 640 && step < 672;
-          assert(note.step - previous >= (inTrill(note.step) || inTrill(previous) ? 2 : 4));
+          assert(note.step - previous >= (inHardTrill(note.step) || inHardTrill(previous) ? 2 : 4));
           last.set(note.lane, note.step);
         }
       }

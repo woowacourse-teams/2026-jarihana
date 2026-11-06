@@ -73,7 +73,10 @@ function staircaseRotations(chart, events, level, map) {
             neighbors.every(
               (neighbor) =>
                 Math.abs(neighbor.step - event.step) >=
-                  (level === "hard" && neighbor.step >= 640 && neighbor.step < 672 ? 2 : gap) ||
+                  (level === "hard" && chart.sections.some((item) =>
+                    (item.role === "alternatingTrill" || (!chart.playbackBarOrder && item.startBar === 41 && item.pattern === "offbeat")) &&
+                    neighbor.step >= (item.startBar - 1) * 16 && neighbor.step < (item.startBar - 1 + item.bars) * 16
+                  ) ? 2 : gap) ||
                 !neighbor.keys
                   .map((key) => map[LANES.indexOf(key)])
                   .includes(LANES[(LANES.indexOf(key) + rotation) % 4])
@@ -215,7 +218,38 @@ function trillChart(events, chart, level) {
     .sort((a, b) => a.step - b.step);
 }
 
-export function simplifyChart(chart, level) {
+function doubleTapChart(events, chart, level) {
+  if (level === "hardest") return events;
+  let result = events;
+  for (const section of chart.sections.filter((item) => item.pattern === "doubleTap")) {
+    const start = (section.startBar - 1) * 16;
+    const end = start + section.bars * 16;
+    const source = new Map(chart.events.map((event) => [event.step, event]));
+    const columns =
+      level === "easy"
+        ? [0, 4, 8, 12]
+        : level === "medium"
+          ? [0, 2, 4, 6, 8, 10, 12, 14]
+          : [0, 2, 4, 6, 8, 10, 12, 13, 14, 15];
+    const phrase = [];
+    for (let bar = 0; bar < section.bars; bar++) {
+      for (const column of columns) {
+        const step = start + bar * 16 + column;
+        const keys =
+          level === "hard" && column >= 12
+            ? [section.hardTrillPairs[bar][(column - 12) % 2]]
+            : level === "medium"
+              ? [section.mediumPairs[bar * 2 + Math.floor(column / 8)][(column / 2) % 2]]
+              : source.get(step).keys.slice();
+        phrase.push({ step, sample: step * chart.samplesPerSixteenth, keys });
+      }
+    }
+    result = result.filter((event) => event.step < start || event.step >= end).concat(phrase);
+  }
+  return result.sort((a, b) => a.step - b.step);
+}
+
+function simplifySourceChart(chart, level) {
   if (!LEVELS[level]) throw new Error("Unknown difficulty");
   const patterns = new Map();
   for (const section of chart.sections) {
@@ -258,23 +292,51 @@ export function simplifyChart(chart, level) {
     }
   }
   selected.sort((a, b) => a.step - b.step);
-  if (level === "medium") return thinMediumRepeats(selected);
+  if (level === "medium") return doubleTapChart(thinMediumRepeats(selected), chart, level);
   if (level === "hard")
-    return trillChart(
-      easeHardOpeningChords(
-        straightStaircases(syncopateHardChart(selected, chart, patterns), chart, level)
+    return doubleTapChart(
+      trillChart(
+        easeHardOpeningChords(
+          straightStaircases(syncopateHardChart(selected, chart, patterns), chart, level)
+        ),
+        chart,
+        level
       ),
       chart,
       level
     );
   if (level === "hardest")
     return trillChart(straightStaircases(selected, chart, level), chart, level);
-  return selected;
+  return doubleTapChart(selected, chart, level);
+}
+
+export function playbackStep(chart, step) {
+  if (!chart.playbackBarOrder) return step;
+  return chart.playbackBarOrder.indexOf(Math.floor(step / 16) + 1) * 16 + step % 16;
+}
+
+export function playbackSections(chart) {
+  if (!chart.playbackBarOrder) return chart.sections;
+  return chart.sections.map((section) => ({
+    ...section,
+    startBar: chart.playbackBarOrder.indexOf(section.startBar) + 1
+  })).sort((a, b) => a.startBar - b.startBar);
+}
+
+export function simplifyChart(chart, level) {
+  const events = simplifySourceChart(chart, level);
+  if (!chart.playbackBarOrder) return events;
+  return events.map((event) => {
+    const step = playbackStep(chart, event.step);
+    const keys = ["hard", "hardest"].includes(level) && step === 640 ? ["up"]
+      : level === "hard" && [671, 704].includes(step) ? ["up"] : event.keys.slice();
+    return { ...event, step, sample: step * chart.samplesPerSixteenth, keys };
+  }).sort((a, b) => a.step - b.step);
 }
 
 export class GameEngine {
   constructor(chart, options = {}) {
-    this.chart = chart;
+    this.chart = { ...chart, sections: playbackSections(chart) };
     this.level = options.level || "hardest";
     this.random = options.random || Math.random;
     this.autoplay = Boolean(options.autoplay);

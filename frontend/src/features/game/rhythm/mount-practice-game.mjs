@@ -391,13 +391,13 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange }) {
         image.src = "/game-assets/rhythm-harpoon/assets/sprites.png";
       });
       const [loadedChart, bytes, sprites] = await Promise.all([
-        fetch("/game-assets/rhythm-harpoon/assets/chart.json?v=bridge-16-1", {
+        fetch("/game-assets/rhythm-harpoon/assets/chart.json?v=climax-order-4", {
           signal: lifetime.signal
         }).then((response) => {
           if (!response.ok) throw new Error("채보를 불러올 수 없어요.");
           return response.json();
         }),
-        fetch("/game-assets/rhythm-harpoon/assets/pixel-circuit.ogg?v=trill-under-drums-3", {
+        fetch("/game-assets/rhythm-harpoon/assets/pixel-circuit.ogg?v=spiral-melody-5", {
           signal: lifetime.signal
         }).then((response) => {
           if (!response.ok) throw new Error("음악을 불러올 수 없어요.");
