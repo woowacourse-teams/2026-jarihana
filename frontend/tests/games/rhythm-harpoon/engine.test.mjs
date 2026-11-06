@@ -74,15 +74,15 @@ test("every successful judgment catches the germ, continues the combo and awards
   }
 });
 
-test("150-200ms does not catch or penalize; 200ms and empty lanes are Poor", () => {
-  for (const delta of [-0.199, -0.151, 0.151, 0.199]) {
+test("150-180ms does not catch or penalize; 180ms and empty lanes are Poor", () => {
+  for (const delta of [-0.179, -0.151, 0.151, 0.179]) {
     const run = engine();
     const note = run.notes[0];
     assert.equal(run.input(note.lane, note.at + delta).kind, "ignored");
     assert.equal(note.state, "waiting");
     assert.equal(run.score, 0);
   }
-  for (const delta of [-0.2, 0.2]) {
+  for (const delta of [-0.18, 0.18]) {
     const run = engine();
     const note = run.notes[0];
     assert.equal(run.input(note.lane, note.at + delta).kind, "poor");

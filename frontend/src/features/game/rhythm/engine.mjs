@@ -2,7 +2,7 @@ export const LANES = ["left", "down", "right", "up"];
 export const PERFECT_WINDOW = 0.032;
 export const HIT_WINDOW = 0.064;
 export const CAPTURE_WINDOW = 0.15;
-export const POOR_WINDOW = 0.2;
+export const POOR_WINDOW = 0.18;
 export const POOR_PENALTY = 1000;
 export const JUDGMENTS = [
   { kind: "perfect", label: "PERFECT", window: PERFECT_WINDOW, score: 1000, color: "#416d36" },
