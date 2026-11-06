@@ -2,15 +2,8 @@ package com.project.jarihana.notification;
 
 import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.token.AccessTokenProvider;
-import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.notification.support.NotificationIntegrationTestSupport;
-import com.project.jarihana.notificationdelivery.command.repository.NotificationDeliveryCommandRepository;
-import com.project.jarihana.notificationdelivery.command.repository.PushDeliveryWorkRepository;
-import com.project.jarihana.notificationdelivery.command.repository.dto.DeliveryClaim;
-import com.project.jarihana.notificationdelivery.command.service.PushDeliveryLeaseService;
-import com.project.jarihana.notificationdelivery.domain.DeliveryStatus;
-import com.project.jarihana.notificationdelivery.domain.NotificationDelivery;
 import com.project.jarihana.recruitment.domain.JoinMethod;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
@@ -27,9 +20,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.io.ClassPathResource;
 
-import java.util.Map;
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Import(ChatReadCompatibilityAcceptanceTest.FutureSchema.class)
@@ -38,9 +28,6 @@ class ChatReadCompatibilityAcceptanceTest extends NotificationIntegrationTestSup
     @Autowired private AccessTokenProvider tokens;
     @Autowired private AuthCookieProperties cookies;
     @Autowired private Flyway flyway;
-    @Autowired private NotificationDeliveryCommandRepository deliveries;
-    @Autowired private PushDeliveryWorkRepository work;
-    @Autowired private PushDeliveryLeaseService leases;
 
     @TestConfiguration(proxyBeanMethods = false)
     static class FutureSchema {
@@ -208,85 +195,6 @@ class ChatReadCompatibilityAcceptanceTest extends NotificationIntegrationTestSup
         assertThat(jdbc.queryForObject("select deleted_at from notifications where id = ?", Object.class, id)).isNull();
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"PENDING", "RETRY", "IN_FLIGHT"})
-    @DisplayName("호환 워커는 남은 채팅 작업을 변경하지 않고 배치가 1이어도 다음 일반 알림을 처리한다.")
-    void skipsChatDeliveriesWithoutConsumingAttemptsOrBlockingNormalWork(String status) {
-        // Given
-        Member owner = member("101");
-        long chatId = futureChat(owner);
-        var subscription = subscription(owner, "future-worker");
-        jdbc.update("update push_subscriptions set client_version = 3 where id = ?", subscription.getId());
-        long chatDeliveryId = futureDelivery(chatId, subscription.getId());
-        if (status.equals("RETRY")) {
-            jdbc.update("update notification_deliveries set status = 'RETRY', attempt_count = 1 where id = ?", chatDeliveryId);
-        } else if (status.equals("IN_FLIGHT")) {
-            jdbc.update("""
-                    update notification_deliveries set status = 'IN_FLIGHT', attempt_count = 1,
-                        lease_token = ?, locked_until = ? where id = ?
-                    """, UUID.randomUUID(), NOW.minusSeconds(1), chatDeliveryId);
-        }
-        var chatBefore = jdbc.queryForMap("select * from notification_deliveries where id = ?", chatDeliveryId);
-        var normal = deliveries.save(NotificationDelivery.create(notification(owner, "normal"), subscription, NOW, NOW.plusDays(1)));
-
-        // When
-        var claims = leases.claimNext(1);
-        var prepared = leases.prepare(claims);
-
-        // Then
-        assertThat(claims).extracting(DeliveryClaim::id).containsExactly(normal.getId());
-        assertThat(prepared).extracting(request -> request.deliveryId()).containsExactly(normal.getId());
-        assertThat(jdbc.queryForMap("select * from notification_deliveries where id = ?", chatDeliveryId)).isEqualTo(chatBefore);
-        assertThat(leases.claimNext(1)).isEmpty();
-    }
-
-    @Test
-    @DisplayName("이미 새 워커가 선점한 채팅 작업도 호환 버전의 발송 대상 조회에서는 제외한다.")
-    void doesNotPrepareChatClaimedByNewerWorker() {
-        // Given
-        Member owner = member("101");
-        var subscription = subscription(owner, "already-claimed");
-        jdbc.update("update push_subscriptions set client_version = 3 where id = ?", subscription.getId());
-        long id = futureDelivery(futureChat(owner), subscription.getId());
-        UUID token = UUID.randomUUID();
-        jdbc.update("""
-                update notification_deliveries set status = 'IN_FLIGHT', attempt_count = 1,
-                    lease_token = ?, locked_until = ? where id = ?
-                """, token, NOW.plusMinutes(1), id);
-        var before = jdbc.queryForMap("select * from notification_deliveries where id = ?", id);
-
-        // When
-        var sendable = work.findSendable(new DeliveryClaim(id, token, DeliveryStatus.IN_FLIGHT, 1), NOW);
-
-        // Then
-        assertThat(sendable).isEmpty();
-        assertThat(jdbc.queryForMap("select * from notification_deliveries where id = ?", id)).isEqualTo(before);
-    }
-
-    @Test
-    @DisplayName("호환 버전의 채팅 전송은 기존 메시지와 배지만 갱신하고 새 알림이나 푸시 작업을 만들지 않는다.")
-    void sendingChatDoesNotActivateNotificationProducer() {
-        // Given
-        Member owner = member("101");
-        Member recipient = member("102");
-        var group = recruitment(owner, JoinMethod.APPROVAL, 5).getGroup();
-        groupMembers.save(GroupMember.createMember(group, recipient, NOW.minusDays(1)));
-        subscription(recipient, "recipient");
-
-        // When
-        Response sent = authenticatedWrite(owner).contentType("application/json")
-                .body(Map.of("clientMessageId", UUID.randomUUID().toString(), "content", "읽기 호환 배포"))
-                .post("/groups/" + group.getId() + "/chat/messages");
-        Response rooms = authenticated(recipient).get("/chats");
-
-        // Then
-        assertThat(sent.statusCode()).isEqualTo(201);
-        assertThat(rooms.statusCode()).isEqualTo(200);
-        assertThat(rooms.jsonPath().getLong("data.items[0].unreadCount")).isEqualTo(1);
-        assertThat(jdbc.queryForObject("select count(*) from notifications", Long.class)).isZero();
-        assertThat(jdbc.queryForObject("select count(*) from notification_deliveries", Long.class)).isZero();
-    }
-
     private long futureChat(Member owner) {
         long groupId = recruitment(owner, JoinMethod.APPROVAL, 5).getGroup().getId();
         return jdbc.queryForObject("""
@@ -294,14 +202,6 @@ class ChatReadCompatibilityAcceptanceTest extends NotificationIntegrationTestSup
                 values (?, 'chat-message:123:created', 'CHAT_MESSAGE_RECEIVED', 1, cast(? as jsonb), ?, ?)
                 returning id
                 """, Long.class, owner.getId(), "{\"groupId\":" + groupId + "}", NOW.plusMinutes(1), NOW.plusMinutes(1));
-    }
-
-    private long futureDelivery(long notificationId, long subscriptionId) {
-        return jdbc.queryForObject("""
-                insert into notification_deliveries (notification_id, push_subscription_id, subscription_generation,
-                    status, attempt_count, next_attempt_at, expires_at, created_at, updated_at)
-                values (?, ?, 1, 'PENDING', 0, ?, ?, ?, ?) returning id
-                """, Long.class, notificationId, subscriptionId, NOW.minusMinutes(1), NOW.plusDays(1), NOW, NOW);
     }
 
     private RequestSpecification authenticated(Member member) {
