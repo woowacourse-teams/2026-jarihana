@@ -102,6 +102,28 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
     .sort((a, b) => b.order - a.order)[0];
   const leaving = () => [...departures.filter(Boolean), ...slots.filter(item => item.departure)];
   const authorSlot = post => slots.find(item => !item.departure && sameAuthor(item.post, post));
+  const invalidateMeasurements = () => { for (const item of bubbles) item.measurement = null; };
+  const refreshMeasurements = () => {
+    if (disposed) return;
+    invalidateMeasurements(); paint(); wake();
+  };
+  const measurementObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(entries => {
+    if (disposed) return;
+    for (const entry of entries) {
+      if (entry.target === stage) invalidateMeasurements();
+      else {
+        const item = bubbles.find(candidate => candidate.bubble === entry.target);
+        if (item) item.measurement = null;
+      }
+    }
+    paint(); wake();
+  });
+  measurementObserver?.observe(stage);
+  for (const item of bubbles) measurementObserver?.observe(item.bubble);
+  window.addEventListener('resize', refreshMeasurements);
+  const fonts = stage.ownerDocument.fonts;
+  fonts?.addEventListener('loadingdone', refreshMeasurements);
+  fonts?.ready.then(refreshMeasurements);
   function exitDestination(side) {
     const center = side === 'a' ? layout.worldLeft : layout.worldRight;
     return layout[side === 'a' ? 'exitLeft' : 'exitRight']
@@ -152,7 +174,7 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
     };
   }
 
-  function paintDust(item, progress) {
+  function paintDust(item, progress, bounds) {
     if (!item.dust) {
       item.dust = document.createElement('div');
       item.dust.className = 'history-landing-dust';
@@ -161,7 +183,6 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
       stage.ownerDocument.body.append(item.dust);
     }
     const point = visuals.project(item.grab.landing);
-    const bounds = stage.getBoundingClientRect();
     const head = visuals.project({ ...item.grab.landing, y: item.grab.landing.y + 2.08 * item.grab.originalScale });
     const size = Math.max(.7, Math.min(1.6, Math.abs(point.y - head.y) / 44));
     item.dust.hidden = false;
@@ -373,6 +394,13 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
   }
 
   function paint() {
+    // Read surrounding geometry before moving characters/bubbles. In overlap mode
+    // only the held claw blocks speech, so static obstacle measurements are unused.
+    const stageBounds = stage.getBoundingClientRect();
+    const obstacles = speechOverlap ? [] : [...(stage.parentElement?.querySelectorAll('.topic, .pipe-meter, .vote-flag, .composer-avatar[aria-expanded="false"] .composer-hint, .composer-device[data-expanded="true"] .composer-field') ?? [])]
+      .map(element => element.getBoundingClientRect()).filter(rect => rect.width > 0 && rect.height > 0)
+      .map(rect => ({ left: rect.left - stageBounds.left, right: rect.right - stageBounds.left,
+        top: rect.top - stageBounds.top, bottom: rect.bottom - stageBounds.top }));
     for (const item of [...slots].sort((a, b) => a.order - b.order)) {
       if (!item.post || item.departure || item.elapsed < ENTRY_SECONDS || item.revealed) continue;
       item.revealed = true;
@@ -457,7 +485,7 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
       item.frame = frame;
       if (!visible) { visuals.hide(index); continue; }
       visuals.draw(index, item.post, frame.position, 1, { ...frame.pose, focused: item === focused }, frame.yaw);
-      if (!reduced && frame.pose.landingDust !== undefined) paintDust(item, frame.pose.landingDust);
+      if (!reduced && frame.pose.landingDust !== undefined) paintDust(item, frame.pose.landingDust, stageBounds);
       const point = visuals.project(frame.position);
       item.speechAnchor = visuals.project({ ...frame.position, y: frame.position.y + (2.1 - 0.2 * (frame.pose.seated ?? 0)) * frame.pose.scale });
       const bodyHeight = Math.max(24, Math.abs(point.y - item.speechAnchor.y));
@@ -492,7 +520,7 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
       item.bubble.hidden = !item.post || !visible || !speechVisible || cheering || cheerAmount > 0;
       item.bubble.dataset.grabbed = String(grab.active() === character);
       item.bubble.dataset.focused = String(character === focused && !item.bubble.hidden);
-      if (item.bubble.hidden) continue;
+      if (item.bubble.hidden) { item.measurement = null; continue; }
       if (item.bubble.dataset.postId !== String(item.post.id)) delete item.bubble.dataset.replySelected;
       item.bubble.dataset.postId = String(item.post.id);
       item.cue.present(item.post.id);
@@ -510,20 +538,27 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
     field.dataset.crowded = String(visibleBubbles.length > 8);
     const columns = visibleBubbles.length > 8 && layout.width >= 600 ? 4 : 2;
     const availableWidth = Math.max(0, (layout.width - 16 - (columns - 1) * 10) / columns);
-    for (const item of visibleBubbles) item.bubble.style.setProperty('--history-available-width', availableWidth + 'px');
-    const measurements = visibleBubbles.map(item => ({
-      headX: item.character.speechAnchor.x, headY: item.character.speechAnchor.y - 12,
-      width: item.bubble.offsetWidth || Math.min(layout.width <= 700 ? 150 : 240, availableWidth),
-      height: item.bubble.offsetHeight || (layout.width <= 700 || visibleBubbles.length > 8 ? 44 : 64),
-      direction: item.side === 'a' ? -1 : 1,
-      region: speechOverlap ? undefined : item.side === 'a' ? { left: 8, right: layout.width / 2 - 5 }
-        : { left: layout.width / 2 + 5, right: layout.width - 8 },
-    }));
-    const stageBounds = stage.getBoundingClientRect();
-    const obstacles = [...(stage.parentElement?.querySelectorAll('.topic, .pipe-meter, .vote-flag, .composer-avatar[aria-expanded="false"] .composer-hint, .composer-device[data-expanded="true"] .composer-field') ?? [])]
-      .map(element => element.getBoundingClientRect()).filter(rect => rect.width > 0 && rect.height > 0)
-      .map(rect => ({ left: rect.left - stageBounds.left, right: rect.right - stageBounds.left,
-        top: rect.top - stageBounds.top, bottom: rect.bottom - stageBounds.top }));
+    for (const item of visibleBubbles) {
+      const width = availableWidth + 'px';
+      if (item.bubble.style.getPropertyValue('--history-available-width') !== width)
+        item.bubble.style.setProperty('--history-available-width', width);
+    }
+    const measurements = visibleBubbles.map(item => {
+      const key = JSON.stringify([layout.width, availableWidth, visibleBubbles.length,
+        item.author.textContent, item.text.textContent, item.context.textContent, item.bubble.dataset.replySelected]);
+      if (item.measurement?.key !== key) item.measurement = {
+        key,
+        width: item.bubble.offsetWidth || Math.min(layout.width <= 700 ? 150 : 240, availableWidth),
+        height: item.bubble.offsetHeight || (layout.width <= 700 || visibleBubbles.length > 8 ? 44 : 64),
+      };
+      return {
+        headX: item.character.speechAnchor.x, headY: item.character.speechAnchor.y - 12,
+        width: item.measurement.width, height: item.measurement.height,
+        direction: item.side === 'a' ? -1 : 1,
+        region: speechOverlap ? undefined : item.side === 'a' ? { left: 8, right: layout.width / 2 - 5 }
+          : { left: layout.width / 2 + 5, right: layout.width - 8 },
+      };
+    });
     const held = grab.active();
     hand.hidden = !held;
     if (held) {
@@ -712,7 +747,7 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
       }
       paint();
     },
-    setLayout(next) { grab.cancel(); clearHover(); layout = next; paint(); },
+    setLayout(next) { grab.cancel(); clearHover(); layout = next; invalidateMeasurements(); paint(); },
     setPaused(value) { if (value) { grab.cancel(); clearHover(); } paused = value; field.dataset.paused = String(value); paint(); },
     setVisible(value, { speech = value } = {}) {
       if (visible === value && speechVisible === speech) return;
@@ -742,6 +777,8 @@ export function createHistoryConversation(stage, onSelect, onReveal, visuals) {
       historyLeavingPostIds: leaving().map(item => item.post.id),
       historyArriving: arrivals.length + leaving().length + slots.filter(item => item.post && !item.departure && item.elapsed < ENTRY_SECONDS).length }),
     dispose() { grab.dispose(); clearHover(); hoverListeners.forEach(remove => remove());
+      measurementObserver?.disconnect(); window.removeEventListener('resize', refreshMeasurements);
+      fonts?.removeEventListener('loadingdone', refreshMeasurements);
       window.removeEventListener('pointermove', moveHover);
       window.removeEventListener('blur', blurHover); document.removeEventListener('visibilitychange', hideHover);
       field.removeEventListener('focusin', focusChanged); field.removeEventListener('focusout', focusLeft);
