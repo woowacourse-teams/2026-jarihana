@@ -11,11 +11,15 @@ export function RhythmHarpoonPage() {
   return (
     <section className="game-player" aria-labelledby="rhythm-harpoon-title">
       <header className="game-player__toolbar">
-        <Link className="game-player__back" data-ph-capture-attribute-action="games_back" to="/games">
+        <Link
+          className="game-player__back"
+          data-ph-capture-attribute-action="rhythm_single_back"
+          to="/games/rhythm-harpoon/single"
+        >
           <ArrowLeft aria-hidden="true" size={18} />
-          게임방
+          싱글 플레이
         </Link>
-        <h1 id="rhythm-harpoon-title">행성이의 리듬 작살</h1>
+        <h1 id="rhythm-harpoon-title">혼자 연습</h1>
         <Button
           data-ph-capture-attribute-action="rhythm_harpoon_reload"
           onClick={() => setAttempt((value) => value + 1)}

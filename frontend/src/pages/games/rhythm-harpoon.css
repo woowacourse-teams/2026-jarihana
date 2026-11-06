@@ -19,6 +19,12 @@
   margin: 0;
   font-size: var(--text-h3);
 }
+.game-player__skip {
+  display: inline-flex;
+  min-block-size: var(--touch-target);
+  align-items: center;
+  color: var(--color-text-muted);
+}
 .game-player__back {
   display: inline-flex;
   min-block-size: var(--touch-target);

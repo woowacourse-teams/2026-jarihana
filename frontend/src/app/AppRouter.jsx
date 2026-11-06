@@ -41,6 +41,18 @@ export const lazyPageRegistry = Object.freeze({
   GomokuLobbyPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuLobbyPage"),
   GomokuRoomPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuRoomPage"),
   GomokuInvitationPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuInvitationPage"),
+  RhythmHarpoonEntryPage: lazyNamed(
+    () => import("../pages/games/RhythmHarpoonEntryPage.jsx"),
+    "RhythmHarpoonEntryPage"
+  ),
+  RhythmHarpoonSinglePage: lazyNamed(
+    () => import("../pages/games/RhythmHarpoonSinglePage.jsx"),
+    "RhythmHarpoonSinglePage"
+  ),
+  RhythmHarpoonLessonPage: lazyNamed(
+    () => import("../pages/games/RhythmHarpoonLessonPage.jsx"),
+    "RhythmHarpoonLessonPage"
+  ),
   RhythmHarpoonPage: lazyNamed(() => import("../pages/games/RhythmHarpoonPage.jsx"), "RhythmHarpoonPage"),
   ChatPage: lazyNamed(() => import("../pages/chat/ChatPage.jsx"), "ChatPage"),
   InvitationPage: lazyNamed(() => import("../pages/invitations/index.jsx"), "InvitationPage"),

@@ -4,6 +4,7 @@ import { MusicTransport } from "./audio.mjs";
 import { Renderer } from "./render.mjs";
 import { SyncCalibrationUI } from "./sync-ui.mjs";
 import { readOffset, writeOffset } from "./calibration.mjs";
+import { NOTE_SYLLABLES } from "./lesson.mjs";
 
 export function mountPracticeGame({ root, onReady, onError }) {
   const document = root.ownerDocument;
@@ -372,6 +373,9 @@ export function mountPracticeGame({ root, onReady, onError }) {
   listen($("timing-feedback"), "change", () => {
     if (renderer) renderer.showTiming = $("timing-feedback").checked;
   });
+  listen($("note-labels"), "change", () => {
+    if (renderer) renderer.labels = $("note-labels").checked ? NOTE_SYLLABLES : null;
+  });
 
   async function load() {
     try {
@@ -407,6 +411,7 @@ export function mountPracticeGame({ root, onReady, onError }) {
       transport = new MusicTransport(context, buffer);
       renderer = new Renderer(canvas, sprites);
       renderer.showTiming = $("timing-feedback").checked;
+      renderer.labels = $("note-labels").checked ? NOTE_SYLLABLES : null;
       syncCalibration = new SyncCalibrationUI({
         document: { getElementById: $ },
         signal: lifetime.signal,

@@ -278,7 +278,10 @@ export class GameEngine {
     this.level = options.level || "hardest";
     this.random = options.random || Math.random;
     this.autoplay = Boolean(options.autoplay);
-    this.sourceEvents = simplifyChart(chart, this.level);
+    // 따라 하기처럼 미리 만든 채보는 난이도별 단순화를 거치지 않고 그대로 쓴다.
+    this.sourceEvents = options.events
+      ? options.events.map((event) => ({ ...event, keys: event.keys.slice() }))
+      : simplifyChart(chart, this.level);
     this.maxLives = LEVELS[this.level].lives;
     this.lives = this.maxLives;
     this.score = 0;

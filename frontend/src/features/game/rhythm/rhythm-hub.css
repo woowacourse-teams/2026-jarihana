@@ -1,0 +1,426 @@
+/* 리듬 작살 첫 화면, 싱글 플레이, 따라 하기. 색과 글꼴은 rhythm-game.css의 어두운 게임 화면을 따른다. */
+.rhythm-game .rhythm-hub,
+.rhythm-game .rhythm-lesson {
+  display: grid;
+  gap: 18px;
+}
+.rhythm-game .rhythm-hub__lead {
+  margin: 0;
+  color: var(--muted);
+}
+.rhythm-game .rhythm-hub__badge {
+  justify-self: start;
+  display: inline-block;
+  border: 1px solid #5b5236;
+  border-radius: 999px;
+  padding: 2px 10px;
+  color: #ffd27a;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.rhythm-game .rhythm-hub__panel {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #16252d;
+}
+.rhythm-game .rhythm-hub__title {
+  margin: 0;
+  font-size: 1.45rem;
+  letter-spacing: -0.04em;
+}
+.rhythm-game .rhythm-hub__copy {
+  margin: 0;
+  color: var(--muted);
+}
+.rhythm-game .rhythm-hub__field {
+  display: grid;
+  gap: 8px;
+}
+.rhythm-game .rhythm-hub__panel > .button {
+  justify-self: start;
+  text-decoration: none;
+}
+
+/* 첫 화면 두 패널 */
+.rhythm-game .rhythm-entry {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.rhythm-game .rhythm-entry__panel {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  align-content: space-between;
+  min-block-size: 380px;
+  padding: 22px 18px;
+  border: 2px solid var(--line);
+  border-radius: 18px;
+  background: #16252d;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  text-decoration: none;
+}
+.rhythm-game a.rhythm-entry__panel:hover,
+.rhythm-game a.rhythm-entry__panel:focus-visible {
+  border-color: var(--mint);
+}
+.rhythm-game .rhythm-entry__name {
+  font-size: 1.7rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+.rhythm-game .rhythm-entry__copy {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.rhythm-game .rhythm-entry__panel .rhythm-hub__badge {
+  justify-self: center;
+}
+
+.rhythm-board-art {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  inline-size: 100%;
+}
+.rhythm-board-art__board {
+  inline-size: 100%;
+  max-inline-size: 250px;
+  aspect-ratio: 1;
+}
+.rhythm-board-art--duo .rhythm-board-art__board {
+  max-inline-size: 160px;
+}
+.rhythm-board-art__field {
+  fill: #eaf1e8;
+}
+.rhythm-board-art__arm {
+  fill: #f7f9f1;
+  stroke: #5e786b;
+  stroke-width: 1.5;
+}
+.rhythm-board-art__ring {
+  fill: none;
+  stroke: rgb(38 94 98 / 40%);
+  stroke-width: 1.6;
+}
+.rhythm-board-art__judge {
+  stroke: #264f53;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+/* 싱글 플레이: 소리 버튼, 악보, 모드 */
+.rhythm-game .rhythm-sounds,
+.rhythm-game .rhythm-scores {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.rhythm-game .rhythm-sound {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 12px;
+  color: #ffffff;
+  text-align: left;
+}
+.rhythm-game .rhythm-sound strong {
+  font-size: 1.7rem;
+  font-weight: 900;
+  line-height: 1.1;
+}
+.rhythm-game .rhythm-sound span {
+  font-size: 0.78rem;
+}
+.rhythm-game .rhythm-sound--kung {
+  background: #d93a33;
+}
+.rhythm-game .rhythm-sound--chak {
+  background: #2f6fe0;
+}
+.rhythm-game .rhythm-sound--chi {
+  background: #ffd21f;
+  color: #3a2c00;
+}
+.rhythm-game .rhythm-modes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.rhythm-game .rhythm-mode {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #16252d;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+}
+.rhythm-game a.rhythm-mode:hover,
+.rhythm-game a.rhythm-mode:focus-visible {
+  border-color: var(--mint);
+}
+.rhythm-game .rhythm-mode strong {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 1.1rem;
+}
+.rhythm-game .rhythm-mode > span:last-child {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+.rhythm-game .rhythm-mode .eyebrow {
+  color: var(--mint);
+}
+.rhythm-game .rhythm-mode--record .eyebrow {
+  color: #ffd27a;
+}
+
+/* 따라 하기를 마친 뒤 접히는 튜토리얼 */
+.rhythm-game .rhythm-fold {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #16252d;
+}
+.rhythm-game .rhythm-fold > summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 18px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  list-style: none;
+}
+.rhythm-game .rhythm-fold > summary::-webkit-details-marker {
+  display: none;
+}
+.rhythm-game .rhythm-fold__action {
+  color: var(--mint);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.rhythm-game .rhythm-fold__open,
+.rhythm-game .rhythm-fold[open] .rhythm-fold__closed {
+  display: none;
+}
+.rhythm-game .rhythm-fold[open] .rhythm-fold__open {
+  display: inline;
+}
+.rhythm-game .rhythm-fold > .rhythm-hub__panel {
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 16px 16px;
+}
+
+/* 한 마디 악보 */
+.rhythm-game .rhythm-score {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  min-inline-size: 0;
+  margin: 0;
+}
+.rhythm-game .rhythm-score svg {
+  display: block;
+  inline-size: 100%;
+  max-inline-size: 320px;
+  block-size: auto;
+  border-radius: 10px;
+  background: #eaf1e8;
+}
+.rhythm-game .rhythm-score figcaption {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-align: center;
+}
+.rhythm-score__ink {
+  fill: #264f53;
+}
+.rhythm-score__line,
+.rhythm-score__stroke {
+  stroke: #264f53;
+}
+.rhythm-score__time {
+  font: 900 17px Georgia, "Times New Roman", serif;
+}
+.rhythm-score__head {
+  stroke: #264f53;
+  stroke-width: 1;
+  transition: stroke-width 80ms;
+}
+.rhythm-score__head.is-on {
+  stroke-width: 3.4;
+}
+.rhythm-score__label {
+  font: 800 11px "Segoe UI", "Malgun Gothic", sans-serif;
+}
+.rhythm-score__c0 {
+  fill: #ff4149;
+}
+.rhythm-score__c1 {
+  fill: #4088ff;
+}
+.rhythm-score__c2 {
+  fill: #ffd21f;
+}
+.rhythm-score__label.rhythm-score__c0 {
+  fill: #c62f28;
+}
+.rhythm-score__label.rhythm-score__c1 {
+  fill: #2459c4;
+}
+.rhythm-score__label.rhythm-score__c2 {
+  fill: #8f6b00;
+}
+
+/* 따라 하기 */
+.rhythm-game .rhythm-lesson__steps,
+.rhythm-game .rhythm-lesson__choices,
+.rhythm-game .rhythm-lesson__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.rhythm-game .rhythm-lesson__actions {
+  justify-content: center;
+}
+.rhythm-game .rhythm-lesson__steps button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #16252d;
+  color: inherit;
+  font-weight: 700;
+}
+.rhythm-game .rhythm-lesson__steps button[aria-current="step"] {
+  border-color: var(--mint);
+  color: var(--mint);
+}
+.rhythm-game .rhythm-lesson__steps button.is-done::after {
+  content: "✓";
+  color: #9be38a;
+}
+.rhythm-game .rhythm-lesson__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+  gap: 16px;
+  align-items: center;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #16252d;
+}
+.rhythm-game .rhythm-lesson__head h2 {
+  margin: 0 0 6px;
+  font-size: 1.2rem;
+}
+.rhythm-game .rhythm-lesson__head p {
+  margin: 0 0 4px;
+  line-height: 1.6;
+}
+.rhythm-game .rhythm-lesson__controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.rhythm-game .rhythm-lesson__control {
+  display: grid;
+  gap: 8px;
+}
+.rhythm-game .rhythm-lesson__choices button {
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #101b22;
+  color: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.rhythm-game .rhythm-lesson__choices button[aria-pressed="true"] {
+  border-color: var(--mint);
+  background: var(--mint);
+  color: #173a12;
+}
+.rhythm-game .rhythm-lesson__arena {
+  justify-self: center;
+  inline-size: min(100%, 560px);
+}
+@media (min-width: 701px) {
+  .rhythm-game .rhythm-lesson__arena {
+    inline-size: min(100%, 560px, calc(100dvh - 185px));
+  }
+}
+.rhythm-game .rhythm-upcoming {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-self: center;
+  inline-size: min(100%, 560px);
+  min-block-size: 44px;
+  overflow: hidden;
+}
+.rhythm-game .rhythm-upcoming .eyebrow {
+  margin-right: 4px;
+  white-space: nowrap;
+}
+.rhythm-game .rhythm-upcoming__chip {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: 10px;
+  color: #ffffff;
+  font-weight: 900;
+}
+.rhythm-game .rhythm-upcoming__chip:nth-of-type(2) {
+  padding: 6px 14px;
+  font-size: 1.25rem;
+  box-shadow: 0 0 0 2px #e5eeed;
+}
+.rhythm-game .rhythm-upcoming__chip--0 {
+  background: #d93a33;
+}
+.rhythm-game .rhythm-upcoming__chip--1 {
+  background: #2f6fe0;
+}
+.rhythm-game .rhythm-upcoming__chip--2 {
+  background: #ffd21f;
+  color: #3a2c00;
+}
+
+@media (max-width: 700px) {
+  .rhythm-game .rhythm-entry,
+  .rhythm-game .rhythm-sounds,
+  .rhythm-game .rhythm-scores,
+  .rhythm-game .rhythm-modes,
+  .rhythm-game .rhythm-lesson__head,
+  .rhythm-game .rhythm-lesson__controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rhythm-game .rhythm-entry__panel {
+    min-block-size: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rhythm-score__head {
+    transition: none;
+  }
+}

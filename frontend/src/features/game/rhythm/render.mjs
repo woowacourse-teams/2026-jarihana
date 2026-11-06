@@ -125,6 +125,7 @@ export class Renderer {
     this.effects = [];
     this.lastHit = null;
     this.showTiming = true;
+    this.labels = null;
     this.chordArcSides = new WeakMap();
     this.nextChordArcSide = { horizontal: 1, vertical: -1 };
     this.hurtUntil = -1;
@@ -452,6 +453,8 @@ export class Renderer {
     }
     if (x < -45 || x > 945 || y < -45 || y > 945) return;
     this.sprite(4 + note.color, x, y, 38, 38);
+    const label = this.labels?.[note.color];
+    if (label) this.text(label, x, y - 34, 21, "#1d2b2c", "center", true);
   }
 
   draw(time, engine) {

@@ -3,9 +3,23 @@
 ## 진입과 실행
 
 - 헤더의 게임방 메뉴로 `/games` 게임판에 들어간 뒤 리듬게임 카드의 게임 시작으로
-  `/games/rhythm-harpoon`에 진입한다. 로그인 없이 연습할 수 있다.
-- 상단의 게임방 링크는 오목 화면과 같은 `games_back`으로 게임판에 돌아간다.
-- `src/features/game/rhythm/RhythmHarpoonGame.jsx`가 React 화면을 소유한다.
+  `/games/rhythm-harpoon` 첫 화면에 진입한다. 로그인 없이 쓸 수 있다.
+- 첫 화면은 싱글 플레이와 온라인 매칭 두 패널 중 하나를 고른다. 싱글은 판 하나, 온라인은 판 두 개 그림이다.
+  온라인 매칭은 아직 비활성 버튼과 준비 중 표시만 둔다. 붙일 때는 오목 대기실처럼 방 목록, 방 만들기,
+  초대 링크, 준비, 방장 시작으로 이어 가고 1:1이라 인원 수는 표시하지 않는다.
+- `/games/rhythm-harpoon/single`은 소리 이름(빨강 쿵, 파랑 착, 노랑 치)으로 박자를 익히는 싱글 플레이 화면이다.
+  소리 버튼(한 마디 미리 듣기), 패턴별 한 마디 악보, 따라 하기 진입을 보여 준다. 따라 하기를 마치거나 건너뛰면
+  이 부분을 "조작법을 다시 보고 싶다면? 펼치기 ▼" 드롭다운으로 접고 혼자 연습과 공식 도전이 먼저 보이게 한다.
+  공식 도전은 아래 기록 기능이 생길 때까지 비활성이다.
+- `/games/rhythm-harpoon/learn`은 따라 하기다. 쿵, 착, 치 세 단계마다 2마디 듣기와 4마디 해보기를 하고,
+  놓친 세균과 헛공격이 전체의 30% 이하면 통과한다. 빠르기는 72, 96, 128 BPM(기본 96), 세균 이동 배속은
+  ×1.0~×2.5에서 고르고, 패턴은 두 마디마다 좌우와 상하를 바꾸는 두 방향 트릴이다. 배경음은 녹음된 곡 없이
+  Web Audio로 만든 드럼 비트이며 본편보다 1.5배 크게 섞는다. 단계 완료와 건너뛰기 여부는 이 브라우저의
+  `haengseong-lesson-v1`에만 저장한다.
+- `/games/rhythm-harpoon/practice`는 Pixel Circuit 원곡 연습 플레이다. 상단 링크는 싱글 플레이로 돌아가고,
+  색 범례를 소리 이름과 함께 보여 주며 세균 위 소리 글자 표시를 켜고 끌 수 있다(기본 켬).
+- 첫 화면의 게임방 링크는 오목 화면과 같은 `games_back`으로 게임판에 돌아간다.
+- `src/features/game/rhythm/RhythmHarpoonGame.jsx`가 연습 React 화면을 소유한다.
   독립 HTML과 iframe은 사용하지 않는다. 정적 경로에는 음악, 채보, 스프라이트만 둔다.
 - `mount-practice-game.mjs`가 DOM 이벤트, 음악 시계, Canvas와 싱크 진단의 실행 수명을 관리한다.
   컴포넌트 정리 시 fetch와 이벤트를 취소하고, 애니메이션과 모든 AudioContext를 종료한다.
@@ -23,7 +37,18 @@
 | `calibration.mjs`, `sync-ui.mjs` | 기기 입력 지연 보정과 진단 |
 | `practice-session.mjs` | 로컬 연습 세션과 미검증 결과 구분 |
 | `mount-practice-game.mjs` | React 영역에서 모듈 연결과 실행 수명 관리 |
-| `RhythmHarpoonGame.jsx`, `pages/games/RhythmHarpoonPage.jsx` | 서비스용 화면과 게임판 복귀 |
+| `RhythmHarpoonGame.jsx`, `pages/games/RhythmHarpoonPage.jsx` | 연습 화면과 싱글 플레이 복귀 |
+| `lesson.mjs` | 따라 하기 단계, 트릴 채보, 통과 판정, 진행 저장, 드럼 배치 |
+| `lesson-audio.mjs` | 따라 하기 드럼 비트 렌더링과 소리 버튼 미리 듣기 |
+| `mount-lesson-game.mjs` | 따라 하기의 판, 입력, 음악 시계 실행 수명 |
+| `notation.mjs`, `RhythmScore.jsx` | 한 마디 리듬 악보 배치와 그리기 |
+| `RhythmBoardArt.jsx` | 첫 화면 패널의 판 그림 |
+| `pages/games/RhythmHarpoonEntryPage.jsx`, `RhythmHarpoonSinglePage.jsx`, `RhythmHarpoonLessonPage.jsx` | 첫 화면, 싱글 플레이, 따라 하기 |
+
+따라 하기는 본편 엔진과 렌더러, 음악 시계를 그대로 쓴다. 엔진에 미리 만든 채보(`events`)를 넘겨
+난이도별 단순화를 건너뛰고, 다음 루프의 세균이 보이기 전에 끝나도록 채보 끝에 빈 두 마디를 둔다.
+들어보기는 엔진의 autoplay로 두 마디를 보여 주는 시연이며 통과나 점수로 인정하지 않는다.
+따라 하기 결과도 서버로 보내지 않는다.
 
 서비스 세션 팩터리는 난이도와 이동 배속만 받는다. 매번 1마디, 1루프부터 수동으로 시작한다.
 오토 감상, 구간 이동, 시작 루프, 임의 랜덤 함수와 클라이언트의 랭킹 자격 지정은 서비스 설정이 아니다.
@@ -67,5 +92,7 @@ Easy 10, Medium 8, Hard 8, Hardest 10 라이프, 화살표와 WASD 및 터치,
 
 `npm run lint`, 관련 Jest 테스트, `npm run build`를 사용한다.
 Jest의 `tests/games/rhythm-runtime.test.js`가 `tests/games/rhythm-harpoon/`의 Node 회귀 테스트를 실행한다.
+`lesson.test.mjs`는 트릴 채보, 빈 마디, 통과 판정, 진행 저장, 드럼 배치와 악보 배치를 확인한다.
+페이지 테스트는 `.mjs` 런타임 모듈을 함께 읽으므로 Jest가 `.mjs`도 babel로 변환한다.
 엔진 테스트는 실제 서비스가 번들링하는 소스 모듈을 읽는다.
 브라우저에서는 진입, 플레이, 입력과 포커스, 난이도와 배속, 싱크 진단, 재로딩과 게임방 복귀를 확인한다.

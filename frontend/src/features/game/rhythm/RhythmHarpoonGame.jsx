@@ -206,18 +206,24 @@ export function RhythmHarpoonGame() {
               <span className="eyebrow">NOTE COLORS</span>
               <div className="note-legend">
                 <span>
-                  <i className="dot red"></i>정박
+                  <i className="dot red"></i>쿵 / 정박
                 </span>
                 <span>
-                  <i className="dot blue"></i>8분 엇박
+                  <i className="dot blue"></i>착 / 8분 엇박
                 </span>
                 <span>
-                  <i className="dot yellow"></i>16분
-                </span>
-                <span>
-                  <i className="dot green"></i>기타
+                  <i className="dot yellow"></i>치 / 16분
                 </span>
               </div>
+              <label className="check">
+                <input
+                  id="note-labels"
+                  data-ph-capture-attribute-action="rhythm_labels_toggle"
+                  type="checkbox"
+                  defaultChecked
+                />
+                세균 위 소리 글자 표시
+              </label>
               <p className="small muted">
                 같은 색은 같은 박 위치예요.
                 <br />
