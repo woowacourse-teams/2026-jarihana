@@ -13,6 +13,12 @@ jest.mock("react-router", () => {
   return {
     ...jest.requireActual(join(packageRoot, "dist/production/lib/components.js")),
     ...hooks,
+    useSearchParams: () => {
+      const location = hooks.useLocation();
+      const navigate = hooks.useNavigate();
+      const params = new URLSearchParams(location.search);
+      return [params, (next) => navigate({ search: `?${typeof next === "function" ? next(params) : new URLSearchParams(next)}` })];
+    },
     Link: function TestLink({ children, to, ...properties }) {
       const navigate = hooks.useNavigate();
       return (

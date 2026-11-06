@@ -89,6 +89,6 @@ JSONB 전환은 이번 변경에 포함하지 않는다. 도메인 검증을 우
 
 검증: `MemberAvatarAcceptanceTest`는 최초 조회·생성·교체·재조회·회원 분리·잘못된 요청 보존·삭제·인증·CSRF를 확인한다.
 `AvatarAppearanceTest.defaultsMissingExtensionPartsInDomain`은 누락 확장 파츠의 도메인 기본값을 검증한다.
-`FlywayBaselineTest.addAvatarAfterV20PreservesOldMemberOperations`는 채팅 V20까지 적용된 DB에서 V21로 올린 뒤
+`FlywayBaselineTest.addAvatarAfterGomokuHistoryPreservesOldMemberOperations`는 채팅 V20·오목 V20.1까지 적용된 DB에서 V21로 올린 뒤
 회원·컬럼·이력 보존, 기존 회원 SQL, 최종 파츠 컬럼, NOT NULL, 회원 삭제 연쇄 정리를 확인한다.
 실제 구버전 앱 이미지 동시 실행과 운영 규모의 FK 생성 잠금 시간은 미검증이다.
