@@ -7,6 +7,7 @@ FE_LIVE=jarihana/frontend
 FE_ARCHIVE=jarihana/frontend-releases
 FE_PUBLIC=https://jarihana.com
 FE_DISTRIBUTION=E1YDHL1SDC4C1C
+source "$(dirname "${BASH_SOURCE[0]}")/frontend-transfer.sh"
 
 fe_aws() { AWS_MAX_ATTEMPTS=1 aws --region ap-northeast-2 --cli-connect-timeout 3 --cli-read-timeout 30 --no-cli-pager "$@"; }
 fe_enabled() { [[ ${ENVIRONMENT:-} == prod && ${BG_MODE:-} == deploy ]]; }
@@ -143,45 +144,28 @@ fe_verify_files() {
   done < <(jq -r '.files[]|[.path,.sha256,.size]|@tsv' "$manifest")
 }
 fe_public_check() {
-  local manifest=$1 path expected
-  while IFS=$'\t' read -r path expected; do
-    bg_file_guard
-    curl -q --fail --silent --show-error --proto '=https' --max-redirs 0 --connect-timeout 3 --max-time 30 --max-filesize 67108864 \
-      --header 'Accept-Encoding: identity' --header 'Cache-Control: no-cache' \
-      "$FE_PUBLIC/$path" --output "$FE_TEMP/public-file" || bg_die 'Frontend public HTTP check failed'
-    [[ $(sha256sum "$FE_TEMP/public-file" | cut -d ' ' -f1) == "$expected" ]] || bg_die 'Frontend public content differs'
-    bg_touch_local
-  done < <(jq -r '.files[]|[.path,.sha256]|@tsv' "$manifest")
-  bg_guard
+  fe_transfer public "$1"
 }
 fe_archive() {
-  local directory=$1 manifest=$2 release path
+  local directory=$1 manifest=$2 release
   release=$(jq -r .release_id "$manifest"); fe_id "$release"
   fe_verify_files "$manifest" "$directory"
-  while IFS= read -r path; do
-    bg_file_guard
-    fe_aws s3api put-object --bucket "$FE_BUCKET" --key "$FE_ARCHIVE/$release/files/$path" --body "$directory/$path" --if-none-match '*' >/dev/null || bg_die 'Immutable frontend file upload failed or uncertain'
-    fe_get "$FE_ARCHIVE/$release/files/$path" "$FE_TEMP/verify-file" >/dev/null || bg_die 'Frontend archive readback failed'
-    cmp -s "$directory/$path" "$FE_TEMP/verify-file" || bg_die 'Frontend archive readback differs'
-    bg_touch_local
-  done < <(jq -r '.files[].path' "$manifest")
-  bg_guard
+  fe_transfer archive "$manifest" "$directory"
   fe_aws s3api put-object --bucket "$FE_BUCKET" --key "$FE_ARCHIVE/$release/release.json" --body "$manifest" --content-type application/json --if-none-match '*' >/dev/null || bg_die 'Frontend completion manifest upload uncertain'
   bg_touch
 }
-fe_download_release() {
-  local release=$1 directory=$2 path
-  fe_id "$release"; mkdir -p "$directory"
+fe_read_release_manifest() {
+  local release=$1
+  fe_id "$release"
   fe_get "$FE_ARCHIVE/$release/release.json" "$FE_TEMP/download-manifest.json" >/dev/null || bg_die 'Completed frontend archive missing'
   fe_validate_manifest "$FE_TEMP/download-manifest.json"
   [[ $(jq -r .release_id "$FE_TEMP/download-manifest.json") == "$release" ]] || bg_die 'Archive identity differs'
-  while IFS= read -r path; do
-    bg_file_guard
-    mkdir -p "$(dirname "$directory/$path")"
-    fe_get "$FE_ARCHIVE/$release/files/$path" "$directory/$path" >/dev/null || bg_die 'Archived frontend file missing'
-    bg_touch_local
-  done < <(jq -r '.files[].path' "$FE_TEMP/download-manifest.json")
-  fe_verify_files "$FE_TEMP/download-manifest.json" "$directory"
+}
+fe_download_release() {
+  local release=$1 directory=$2
+  mkdir -p "$directory"
+  fe_read_release_manifest "$release"
+  fe_transfer download "$FE_TEMP/download-manifest.json" "$directory"
   bg_guard
 }
 fe_capture_baseline() {
@@ -237,17 +221,9 @@ fe_owned_pointer() {
   [[ $FE_ETAG == "$(jq -r .frontend.etag <<<"$STATE")" ]] || bg_die 'Frontend pointer ETag changed'
 }
 fe_publish_files() {
-  local directory=$1 manifest=$2 path type
+  local directory=$1 manifest=$2
   # Keep all previous hashed assets. index.html is the last object overwritten.
-  while IFS= read -r path; do
-    type=application/octet-stream
-    case $path in *.html) type='text/html; charset=utf-8';; *.js) type='text/javascript; charset=utf-8';; *.css) type='text/css; charset=utf-8';; *.json) type=application/json;; *.webmanifest) type=application/manifest+json;; *.png) type=image/png;; *.svg) type=image/svg+xml;; *.ico) type=image/x-icon;; *.jpg|*.jpeg) type=image/jpeg;; *.webp) type=image/webp;; *.woff2) type=font/woff2;; *.txt) type='text/plain; charset=utf-8';; esac
-    bg_file_guard; fe_owned_pointer
-    fe_aws s3api put-object --bucket "$FE_BUCKET" --key "$FE_LIVE/$path" --body "$directory/$path" --content-type "$type" --cache-control 'no-cache, max-age=0, must-revalidate' >/dev/null || bg_die 'Frontend publication failed or uncertain'
-    fe_get "$FE_LIVE/$path" "$FE_TEMP/verify-file" >/dev/null || bg_die 'Frontend live readback failed'
-    cmp -s "$directory/$path" "$FE_TEMP/verify-file" || bg_die 'Frontend live readback differs'
-    bg_touch_local
-  done < <(jq -r '.files[].path|select(.!="index.html")' "$manifest"; printf '%s\n' index.html)
+  fe_transfer publish "$manifest" "$directory"
   fe_public_check "$manifest"
 }
 fe_publish() {
@@ -282,7 +258,10 @@ fe_finalize() {
   fe_temp; fe_owned_pointer
   jq -e '(.frontend.published==true or (.frontend.changed==false and .frontend.pair_ready==true)) and .frontend.recovered==false' <<<"$STATE" >/dev/null || bg_die 'Frontend or backend pair was not verified'
   if fe_changed; then
-    fe_download_release "$(jq -r .frontend.release_id <<<"$STATE")" "$FE_TEMP/final"
+    # S3 verified each archived upload's SHA-256; downloaded bytes were checked before publication.
+    # Finalization compares every public byte with that manifest without downloading the archive again.
+    fe_read_release_manifest "$(jq -r .frontend.release_id <<<"$STATE")"
+    jq -e --argjson state "$STATE" '.backend_image==$state.image and .source_commit==$state.sha and .run_id==$state.run_id and .deployment_id==$state.deployment_id and .control_sha==$state.control_sha' "$FE_TEMP/download-manifest.json" >/dev/null || bg_die 'Final frontend manifest context differs'
     fe_public_check "$FE_TEMP/download-manifest.json"
   fi
   fe_pointer_write "$(jq -c 'if .pending.frontend_changed then .previous=.current | .current=.pending.release_id else . end | .backend_image=.pending.backend_image | .pending=null' <<<"$FE_POINTER")"
