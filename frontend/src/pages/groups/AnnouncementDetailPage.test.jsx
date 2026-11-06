@@ -61,6 +61,7 @@ test("방장은 제목·본문·공개 범위를 입력해 공지를 등록할 �
 
   expect(mockCreate).toHaveBeenCalledWith({
     content: "새 공지 내용",
+    requestId: expect.stringMatching(/^[0-9a-f-]{36}$/),
     scope: "PUBLIC",
     title: "새 공지 제목"
   });

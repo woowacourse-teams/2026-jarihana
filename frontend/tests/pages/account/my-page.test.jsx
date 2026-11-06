@@ -15,6 +15,9 @@ jest.mock("react-router", () => ({
   )
 }));
 jest.mock("../../../src/features/auth/index.js", () => ({ useAuth: jest.fn() }));
+jest.mock("../../../src/features/points/hooks", () => ({
+  usePointSummary: () => ({ data: { enabled: false } })
+}));
 jest.mock("../../../src/features/group/index.js", () => ({ useInfiniteGroups: jest.fn() }));
 jest.mock("../../../src/features/registration/index.js", () => ({
   useInfiniteMyRegistrations: jest.fn()

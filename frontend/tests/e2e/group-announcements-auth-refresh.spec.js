@@ -2,6 +2,49 @@ import { expect, test } from "playwright/test";
 
 import { group, installApiFixture } from "./api-fixture.js";
 
+test("@core reuses the announcement request ID on retry and replaces it for a new submission", async ({ page }) => {
+  const state = await installApiFixture(page);
+  const submissions = [];
+  await page.route("**/api/groups/10/announcements**", async (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({ json: { data: { items: [], hasNext: false, nextCursor: null }, error: null, success: true } });
+    }
+    submissions.push(route.request().postDataJSON());
+    if (submissions.length === 1) {
+      return route.fulfill({
+        status: 503,
+        json: { data: null, error: { code: "TEMPORARILY_UNAVAILABLE", message: "Retry fixture" }, success: false }
+      });
+    }
+    return route.fulfill({ status: 201, json: { data: { id: 101 }, error: null, success: true } });
+  });
+
+  await page.goto(`/groups/${group.id}?tab=announcements`);
+  const open = page.locator(".group-announcement-tab__header").getByRole("button", { name: "공지 추가", exact: true });
+  const form = page.getByRole("dialog", { name: "공지 등록" });
+  const submit = form.getByRole("button", { name: "공지 등록", exact: true });
+  const fill = async () => {
+    await form.getByLabel("공지 제목").fill("모임 공지");
+    await form.getByLabel("공지 내용").fill("다음 일정 안내");
+  };
+
+  await open.click();
+  await fill();
+  await submit.click();
+  await expect(form.getByRole("alert")).toBeVisible();
+  await submit.click();
+  await expect(form).toBeHidden();
+  expect(submissions[0].requestId).toMatch(/^[0-9a-f-]{36}$/);
+  expect(submissions[1]).toEqual(submissions[0]);
+
+  await open.click();
+  await fill();
+  await submit.click();
+  await expect(form).toBeHidden();
+  expect(submissions[2].requestId).not.toEqual(submissions[0].requestId);
+  expect(state.unexpectedResponses).toEqual(["503 /api/groups/10/announcements"]);
+});
+
 test("@core refreshes an expired member session before loading group announcements", async ({ page }) => {
   const state = await installApiFixture(page, { expireMemberProfileAfterBootstrap: true });
   const announcementRequests = [];

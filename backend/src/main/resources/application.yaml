@@ -56,6 +56,8 @@ sentry:
   enable-tracing: false
 
 jarihana:
+  points:
+    starts-at: ${JARIHANA_POINTS_STARTS_AT:}
   invitation:
     token:
       active-key-id: ${INVITATION_TOKEN_ACTIVE_KEY_ID:primary}
