@@ -242,7 +242,7 @@ it('잡힌 달리기는 무릎을 번갈아 접고 양발을 앞뒤로 움직이
     const matrix = new THREE.Matrix4(); soles.getMatrixAt(index, matrix);
     return new THREE.Vector3().setFromMatrixPosition(matrix);
   });
-  const pose = heldReactionPose(frame, Math.PI / 20).pose;
+  const pose = heldReactionPose(frame, Math.PI / 40).pose;
   models.draw(0, crew, frame.position, 1, { ...pose, lean: 0, hangAngle: 0 });
   const bends = Array.from(legs.geometry.getAttribute('limbBend').array).slice(0, 2);
   const first = feet();
