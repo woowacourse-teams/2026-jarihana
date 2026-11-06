@@ -127,6 +127,9 @@
 | 오목 | `POST` | `/api/games/gomoku/rooms/{id}/invite` | `MEMBER + 대기방 참가자` | 초대 토큰 발급/회전 |
 | 오목 | `GET` | `/api/games/gomoku/invitations/{token}` | `PUBLIC` | 초대 링크의 제한된 미리보기 |
 | 오목 | `GET` | `/api/games/gomoku/rooms/{id}/events` | `MEMBER + 참가자` | SSE 전체 스냅샷 구독 |
+| 오목 | `GET` | `/api/games/gomoku/history/me/summary` | `MEMBER` | 본인 총 대국, 승/패/무와 승률 |
+| 오목 | `GET` | `/api/games/gomoku/history/me` | `MEMBER` | 본인 완료 대전기록 커서 조회 |
+| 오목 | `GET` | `/api/games/gomoku/ranking` | `MEMBER` | 누적 승수 랭킹과 내 순위 |
 
 ## 상세 문서
 

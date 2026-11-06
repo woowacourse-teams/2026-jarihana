@@ -27,6 +27,31 @@ export const roomSchema = z.object({
   turnDeadline: z.number().nullable()
 });
 const roomIdSchema = z.object({ roomId: z.number().int() });
+export const statisticsSchema = z.object({
+  total: z.number().int().nonnegative(),
+  wins: z.number().int().nonnegative(),
+  losses: z.number().int().nonnegative(),
+  draws: z.number().int().nonnegative(),
+  winRate: z.number().min(0).max(100).nullable()
+});
+const historyItemSchema = z.object({
+  id: z.number().int(),
+  opponentName: z.string(),
+  opponentAvatarUrl: z.string().url().nullable(),
+  result: z.enum(["WIN", "LOSE", "DRAW"]),
+  rule: z.enum(["RENJU", "FREESTYLE"]),
+  endReason: z.enum(["FIVE", "DRAW", "RESIGN", "TIMEOUT"]),
+  endedAt: z.string().datetime({ local: true })
+});
+const rankingItemSchema = statisticsSchema.extend({
+  memberId: z.number().int(),
+  rank: z.number().int().positive(),
+  name: z.string(),
+  avatarUrl: z.string().url().nullable()
+});
+const pageSchema = (item) =>
+  z.object({ items: z.array(item), nextCursor: z.string().nullable(), hasNext: z.boolean() });
+const pageParams = (cursor) => ({ size: 20, ...(cursor ? { cursor } : {}) });
 export const lobbyRoomSchema = roomSchema.pick({
   id: true,
   hostMemberId: true,
@@ -42,6 +67,19 @@ export const lobbyRoomSchema = roomSchema.pick({
 const root = "games/gomoku";
 const request = (path, options) => apiClient.request(`${root}/${path}`, options);
 export const gomokuApi = {
+  statistics: (signal) => request("history/me/summary", { schema: statisticsSchema, signal }),
+  history: (cursor, signal) =>
+    request("history/me", {
+      schema: pageSchema(historyItemSchema),
+      searchParams: pageParams(cursor),
+      signal
+    }),
+  ranking: (cursor, signal) =>
+    request("ranking", {
+      schema: pageSchema(rankingItemSchema).extend({ me: rankingItemSchema.nullable() }),
+      searchParams: pageParams(cursor),
+      signal
+    }),
   list: (cursor, keyword = "", signal) =>
     request("rooms", {
       schema: z.object({

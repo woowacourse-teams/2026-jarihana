@@ -737,3 +737,46 @@ HTTP 목록/상세에는 공통 응답 봉투가 있고 SSE에는 없다.
 - `GomokuStreamSecurityTest`: 인증된 최초 SSE 요청과 내부 ASYNC 완료 디스패치 구분.
 
 위 테스트 범위는 실제 두 서버 배포, 운영 프록시와 부하 환경의 SSE 검증과 구분한다.
+
+## 대전기록, 승률과 랭킹
+
+다음 세 GET은 가입 완료 회원 전용이다. 인증은 공통 쿠키 계약을 따르며 다른 회원 ID로 조회할 수 없다. 성공 HTTP 200은 공통 `ApiResponse` 봉투를 사용한다. 비로그인/가입 미완료는 401 `UNAUTHENTICATED`, 잘못된 커서와 size는 400 `INVALID_PARAMETER`다.
+
+### `GET /api/games/gomoku/history/me/summary`
+
+`data`는 `total`, `wins`, `losses`, `draws`(완료 판 집계 정수)와 `winRate`(0~100, 소수 첫째 자리 반올림, 0판이면 null)다. 승률의 분모에 무승부를 포함한다. 예: 24판, 15승, 7패, 2무이면 `winRate: 62.5`다. 진행 중인 판은 집계하지 않는다.
+
+### `GET /api/games/gomoku/history/me`
+
+쿼리는 `cursor`(최초 생략, 최대 256자), `size`(기본 20, 1~100)다. 완료 시각 DESC, ID DESC로 조회하며 같은 시각의 판도 ID로 구분한다.
+
+`data`는 `items`, `nextCursor`, `hasNext`다. 각 항목은 다음 필드를 가진다.
+
+| 필드 | 의미 |
+| --- | --- |
+| `id` | 판별 기록 ID |
+| `opponentName`, `opponentAvatarUrl` | 시작 당시 상대 이름과 현재 GitHub 프로필 URL |
+| `result` | 본인 기준 `WIN`, `LOSE`, `DRAW` |
+| `rule` | `RENJU`, `FREESTYLE` |
+| `endReason` | `FIVE`, `DRAW`, `RESIGN`, `TIMEOUT` |
+| `endedAt` | 서울 기준 `YYYY-MM-DDTHH:mm:ss` 날짜/시간, 소수 초가 있을 수 있음 |
+
+시간패의 종료 시각은 판정 명령 수신 시각이 아닌 해당 차례 마감 시각이다. 기권과 진행 중 퇴장도 결과를 남긴다. 종료 후 재요청이나 방 닫힘은 기록을 추가하지 않는다. 최종 페이지는 `nextCursor: null`, `hasNext: false`다.
+
+### `GET /api/games/gomoku/ranking`
+
+쿼리와 페이지 봉투는 기록 목록과 같다. 각 항목은 `memberId`, `rank`(1부터 시작하는 순번), 현재 `name`, `avatarUrl`과 요약의 `total`, `wins`, `losses`, `draws`, `winRate`를 제공한다. 완료 대국이 있는 비탈퇴 회원만 대상이며 0승 회원도 포함한다.
+
+정렬은 승수 DESC, 총 판수 ASC, 회원 ID ASC다. 같은 승수에서는 표시 반올림 전의 정확한 승률을 우선한다. 0승에서도 총 판수/회원 ID 순으로 구분한다. 페이지 크기와 관계없이 전체 집계의 순번을 반환한다. `data.me`에는 페이지에 포함되지 않아도 본인의 동일한 순위 항목을 반환하며, 완료 대국이 없으면 null이다. 목록과 `me`는 현재 조회 시점의 집계이고 랭킹 페이지 사이에 새 대국이 끝나면 순번이 바뀔 수 있다.
+
+### 저장과 배포
+
+- V20.1은 기존 테이블/컬럼을 유지하고 `gomoku_game`만 추가한다. 구버전의 방/착수 INSERT에 새 필드가 필요하지 않다. 채팅 알림 호환 V20 다음에 적용하며, [#579](https://github.com/woowacourse-teams/2026-jarihana/pull/579)의 V21~V23보다 먼저 배포한다.
+- 기록 기능이 있는 버전은 모든 대국 시작 시 기록을 생성한다. 수집을 끄는 설정이나 환경 변수는 없다.
+- 기능 적용 이전 판을 복원하지 않는다. 방은 유지되며 기록 기능이 있는 버전에서 시작한 재대결부터 기록된다. 앱 롤백은 V20.1 스키마/기록을 지우지 않지만 기록 기능이 없는 구버전은 결과를 저장하지 못한다.
+- 결과 확정과 방 변경은 기존 방 잠금/트랜잭션 안에서 처리한다. 만료 뒤 명령이 409여도 시간패 기록은 함께 커밋하며, 기록 저장 실패는 방 상태까지 롤백한다.
+- 현재 Blue-Green 배포는 접속 전환 후 관찰과 연결 배출을 거쳐 이전 앱을 종료한다([배포 절차](../../../../../infra/blue-green-deploy/controller/deployment.md)). `GomokuExpiry`는 앱마다 만료 방을 조회하고 앱 종료 때 중단되며, 푸시 작업의 PAUSED/권한 인계에 참여하지 않는다. 따라서 기록 기능이 없는 이전 앱이 새 앱에서 시작한 판을 시간패로 종료하면 기록이 미완료로 남을 수 있다. 설정 제거만으로 최초 배포의 무누락을 보장하지 않는다.
+- 최초 기능 도입 중의 기록 누락은 허용하며, 임시 DB 트리거나 기존 진행 판의 시작 기록 보완은 추가하지 않는다. 이후 배포와 롤백에서는 결과를 변경하는 모든 앱 버전이 기록 저장을 지원해야 한다.
+- `GomokuHistoryAcceptanceTest`가 제거된 설정에 false가 남아 있어도 수집하는지와 재대결, 퇴장, 기권, 시간패, 무승부, 정상 승리/중복 요청, 동시 만료, 기록 실패 롤백, 인증, 커서와 집계를 검증한다. 서로 다른 앱 버전이 동시에 동작하는 배포 검증은 포함하지 않는다.
+- `./gradlew gomokuCutoverTest`는 독립된 두 애플리케이션 JVM과 하나의 격리된 PostgreSQL 17을 실행한다. 실제 HTTP 요청 대상을 이전 서버에서 새 서버로 바꾸어 승리/재대결/재요청을 검증하고, 이전 JVM의 SIGTERM 종료 후 새 서버의 착수/시간패 기록을 검증한다. 양쪽 `GomokuExpiry`를 활성화한 상태에서 같은 방 잠금에 두 작업이 실제로 대기하는 것을 DB에서 확인한 뒤, 기록 한 건과 revision 한 번 증가를 검증한다. 별도 JVM/컨테이너 실행이 필요한 이 검사는 기본 `test`와 분리한다.
+- 위 태스크의 Nginx 시나리오는 운영 [Nginx 템플릿](../../../../../infra/blue-green-deploy/nginx/nginx.conf.template)을 그대로 렌더링하고, 실제 upstream을 관측하는 테스트 전용 응답 헤더만 추가한다. digest로 고정한 Nginx 1.30.5 컨테이너에서 `nginx -t`, 설정 교체, reload, 3회 연속 upstream probe 확인을 수행한다. 같은 master PID를 유지하며 실제 게임 요청의 upstream 헤더와 접근 로그가 이전/새 JVM 포트로 전환되는지 검증한다. 이전 worker에 열린 SSE가 새 JVM의 승리 결과를 받는 경우와 worker 배출 뒤 이전 JVM을 종료하고 시간패/재대결 기록을 저장하는 경우를 포함한다. Nginx 시나리오만 실행하려면 `./gradlew gomokuCutoverTest --tests '*Nginx*'`를 사용한다. 두 JVM은 같은 기록 지원 빌드이며 운영 EC2/CloudFront 배포 파이프라인이나 서로 다른 릴리스 간 호환성은 검증하지 않는다.
