@@ -60,9 +60,21 @@ public class AnnouncementCommandService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, MEMBER_NOT_FOUND_MESSAGE));
 
         LocalDateTime now = LocalDateTime.now(clock);
-        Announcement announcement = announcements.save(Announcement.create(
-                group, author, command.title(), command.content(), command.scope(), now
-        ));
+        Announcement candidate = Announcement.create(
+                group, author, command.title(), command.content(), command.scope(), command.requestId(), now
+        );
+        if (command.requestId() != null) {
+            var existing = announcements.findByGroupIdAndAuthorIdAndRequestId(groupId, memberId, command.requestId());
+            if (existing.isPresent()) {
+                Announcement original = existing.get();
+                if (!original.hasSameContent(candidate)) {
+                    throw new BusinessException(ErrorCode.ANNOUNCEMENT_REQUEST_CONFLICT,
+                            "같은 공지 등록 요청 식별자에 다른 내용을 사용할 수 없습니다.");
+                }
+                return new CreateAnnouncementResult(original.getId());
+            }
+        }
+        Announcement announcement = announcements.save(candidate);
         events.publishEvent(new AnnouncementCreatedEvent(announcement.getId(), groupId, memberId, now));
         return new CreateAnnouncementResult(announcement.getId());
     }
