@@ -473,7 +473,8 @@ class GomokuServerCutoverTest {
 
             // When / Then
             for (Server server : new Server[] {oldServer, newServer})
-                server.anonymous().get(ROOT + "/rooms").then().body("data.items[0].spectatorCount", equalTo(2));
+                server.anonymous().queryParam("view", "summary").get(ROOT + "/rooms")
+                        .then().statusCode(200).body("data.items[0].spectatorCount", equalTo(2));
             newServer.request(observer).body(Map.of("requestId", firstRequest)).post(path + "/observations")
                     .then().statusCode(200).body("data.participationId", equalTo(first));
             newServer.request(observer).queryParam("participationId", first).queryParam("afterSequence", "0")
@@ -488,7 +489,8 @@ class GomokuServerCutoverTest {
             newServer.request(observer).body(message).post(chatPath).then().statusCode(200);
             thirdStream.awaitChat("3");
             newServer.request(observer).delete(path + "/observations/" + first).then().statusCode(204);
-            newServer.anonymous().get(ROOT + "/rooms").then().body("data.items[0].spectatorCount", equalTo(2));
+            newServer.anonymous().queryParam("view", "summary").get(ROOT + "/rooms")
+                    .then().statusCode(200).body("data.items[0].spectatorCount", equalTo(2));
             LocalDateTime initialLease = jdbc.queryForObject("""
                     select max(c.expires_at) from gomoku_observer_connection c
                     join gomoku_observation o on o.id=c.observation_id where o.participation_id=?
@@ -501,18 +503,21 @@ class GomokuServerCutoverTest {
 
             // When: the old JVM cannot clean up its leases; move its deadline past the expiry boundary.
             oldServer.process.destroyForcibly().waitFor(10, TimeUnit.SECONDS);
-            newServer.anonymous().get(ROOT + "/rooms").then().body("data.items[0].spectatorCount", equalTo(2));
+            newServer.anonymous().queryParam("view", "summary").get(ROOT + "/rooms")
+                    .then().statusCode(200).body("data.items[0].spectatorCount", equalTo(2));
             jdbc.update("""
                     update gomoku_observer_connection set expires_at=? where observation_id in
                     (select id from gomoku_observation where participation_id=?)
                     """, LocalDateTime.now(ZONE).minusSeconds(1), UUID.fromString(third));
 
             // Then
-            newServer.anonymous().get(ROOT + "/rooms").then().body("data.items[0].spectatorCount", equalTo(1));
+            newServer.anonymous().queryParam("view", "summary").get(ROOT + "/rooms")
+                    .then().statusCode(200).body("data.items[0].spectatorCount", equalTo(1));
             newServer.request(observer).queryParam("participationId", second).queryParam("afterSequence", "0")
                     .get(chatPath).then().statusCode(200).body("data.items", hasSize(2));
             newServer.request(observer).delete(path + "/observations/" + second).then().statusCode(204);
-            newServer.anonymous().get(ROOT + "/rooms").then().body("data.items[0].spectatorCount", equalTo(0));
+            newServer.anonymous().queryParam("view", "summary").get(ROOT + "/rooms")
+                    .then().statusCode(200).body("data.items[0].spectatorCount", equalTo(0));
         }
     }
 

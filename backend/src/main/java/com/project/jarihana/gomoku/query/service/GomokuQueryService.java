@@ -76,7 +76,15 @@ public class GomokuQueryService {
         return repository.currentRoom(memberId).orElse(null);
     }
 
+    public GomokuPageResult waitingRooms(String cursor, int size, String keyword) {
+        return findLobby(cursor, size, keyword, false);
+    }
+
     public GomokuPageResult lobby(String cursor, int size, String keyword) {
+        return findLobby(cursor, size, keyword, true);
+    }
+
+    private GomokuPageResult findLobby(String cursor, int size, String keyword, boolean includePlaying) {
         LocalDateTime before = LocalDateTime.of(9999, 12, 31, 23, 59, 59);
         long beforeId = Long.MAX_VALUE;
         if (cursor != null) {
@@ -95,6 +103,7 @@ public class GomokuQueryService {
         LocalDateTime now = LocalDateTime.now(clock);
         var rows =
                 repository.lobby(
+                        includePlaying,
                         now,
                         now.minusMinutes(30),
                         before,
@@ -113,7 +122,7 @@ public class GomokuQueryService {
                                     (last.getCreatedAt() + "|" + last.getId())
                                             .getBytes(StandardCharsets.UTF_8));
         }
-        Map<Long, Long> counts = page.isEmpty() ? Map.of() : observations.countSpectators(
+        Map<Long, Long> counts = !includePlaying || page.isEmpty() ? Map.of() : observations.countSpectators(
                 page.stream().map(GomokuRoomProjection::getId).toList(), now).stream()
                 .collect(Collectors.toMap(row -> row.getRoomId(), row -> row.getSpectatorCount()));
         return new GomokuPageResult(

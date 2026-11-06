@@ -175,17 +175,17 @@ class GomokuObservationAcceptanceTest extends IntegrationTestSupport {
         observations.connect(room, otherId, UUID.fromString(third));
 
         // When / Then
-        given().get(ROOT).then().statusCode(200).body("data.items[0].spectatorCount", equalTo(2));
+        given().queryParam("view", "summary").get(ROOT).then().statusCode(200).body("data.items[0].spectatorCount", equalTo(2));
         observations.disconnect(oldConnection);
         assertEquals(1, jdbc.queryForObject("select count(*) from gomoku_observer_connection where connection_id=?", Integer.class, replacement));
         leave(spectator, room, first);
-        given().get(ROOT).then().body("data.items[0].spectatorCount", equalTo(2));
+        given().queryParam("view", "summary").get(ROOT).then().body("data.items[0].spectatorCount", equalTo(2));
         jdbc.update("update gomoku_observer_connection set expires_at=timestamp '2000-01-01 00:00:00' where connection_id=?", secondTab);
-        given().get(ROOT).then().body("data.items[0].spectatorCount", equalTo(1));
+        given().queryParam("view", "summary").get(ROOT).then().body("data.items[0].spectatorCount", equalTo(1));
         observations.removeExpiredConnections();
         assertEquals(0, jdbc.queryForObject("select count(*) from gomoku_observer_connection where connection_id=?", Integer.class, secondTab));
         leave(other, room, third);
-        given().get(ROOT).then().body("data.items[0].spectatorCount", equalTo(0));
+        given().queryParam("view", "summary").get(ROOT).then().body("data.items[0].spectatorCount", equalTo(0));
     }
 
     private long create(String token, String visibility) {

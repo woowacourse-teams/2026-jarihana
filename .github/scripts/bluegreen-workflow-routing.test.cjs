@@ -102,6 +102,21 @@ test("frontend-only never prepares or stops a backend instance", () => {
   assert.equal(result.interrupt.result, "skipped");
 });
 
+test("bootstrap skips the frontend build but still registers the worker owner", () => {
+  const result = route({ inputs: { mode: "bootstrap" }, backendOnly: false });
+  assert.equal(result["frontend-build"].result, "skipped");
+  assert.equal(result.plan.result, "success");
+  expectResults(result, ["bootstrap", "finish-bootstrap"], "success");
+  expectResults(result, [...backendPath, ...frontendPath], "skipped");
+  assert.equal(result.interrupt.result, "skipped");
+});
+
+test("failed bootstrap operation leaves the journal for interrupt handling", () => {
+  const result = route({ inputs: { mode: "bootstrap" }, backendOnly: false, fail: "bootstrap" });
+  assert.equal(result["finish-bootstrap"].result, "skipped");
+  assert.equal(result.interrupt.result, "success");
+});
+
 test("failed plan cannot start backend mutation or recovery", () => {
   const result = route({ fail: "plan" });
   expectResults(result, backendPath, "skipped");
