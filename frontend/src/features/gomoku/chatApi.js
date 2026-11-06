@@ -12,6 +12,7 @@ export const chatMessageSchema = z.object({
   senderId: sequence,
   clientMessageId: z.string().uuid(),
   author: z.string(),
+  senderRole: z.enum(["PARTICIPANT", "SPECTATOR"]).default("PARTICIPANT"),
   content: z.string(),
   createdAt: z.string().datetime({ local: true })
 });

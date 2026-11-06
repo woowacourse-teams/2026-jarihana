@@ -3,6 +3,10 @@ package com.project.jarihana.gomoku.stream;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.gomoku.domain.RoomStatus;
+import com.project.jarihana.gomoku.domain.RoomVisibility;
+import com.project.jarihana.gomoku.command.service.GomokuObservationService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.project.jarihana.gomoku.query.controller.dto.GomokuRoomResponse;
 import com.project.jarihana.gomoku.query.service.GomokuQueryService;
 import com.project.jarihana.gomoku.query.service.GomokuChatQueryService;
@@ -21,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -33,6 +38,9 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Component
 public class GomokuStreams implements AutoCloseable, SmartLifecycle {
+    private static final Logger log = LoggerFactory.getLogger(GomokuStreams.class);
+    private final GomokuObservationService observations;
+    private long lastCleanup;
     private final GomokuQueryService queries;
     private final GomokuChatQueryService chatQueries;
     private final Clock clock;
@@ -45,17 +53,23 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
     private final Semaphore snapshotQueries = new Semaphore(10);
     private final ExecutorService deliveries = Executors.newVirtualThreadPerTaskExecutor();
 
-    public GomokuStreams(GomokuQueryService queries, GomokuChatQueryService chatQueries, Clock clock) {
+    public GomokuStreams(GomokuQueryService queries, GomokuChatQueryService chatQueries, GomokuObservationService observations, Clock clock) {
         this.queries = queries;
         this.chatQueries = chatQueries;
         this.clock = clock;
+        this.observations = observations;
+        this.lastCleanup = clock.millis();
         ticker.scheduleWithFixedDelay(this::tick, 500, 500, TimeUnit.MILLISECONDS);
     }
 
-    public synchronized SseEmitter subscribe(long roomId, long memberId, long expiresAt) {
+    public SseEmitter subscribe(long roomId, long memberId, long expiresAt) {
+        return subscribe(roomId, memberId, expiresAt, null);
+    }
+
+    public synchronized SseEmitter subscribe(long roomId, long memberId, long expiresAt, UUID observationId) {
         if (!running)
             throw new BusinessException(ErrorCode.GOMOKU_STREAM_BUSY, "실시간 연결을 다시 시도해 주세요.");
-        GomokuRoomResult initial = queries.getRoom(roomId, memberId);
+        GomokuRoomResult initial = queries.getRoom(roomId, memberId, observationId);
         if (clients.size() >= 500
                 || clients.stream().filter(client -> client.memberId == memberId).count() >= 6) {
             throw new BusinessException(
@@ -64,9 +78,10 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
         long lifetime = Math.min(120_000L, expiresAt - clock.millis());
         if (lifetime <= 0) throw new BusinessException(ErrorCode.UNAUTHENTICATED, "다시 로그인해 주세요.");
         List<GomokuChatSignalResult> signals = chatQueries.signals(roomId);
-        UUID participation = signals.stream().filter(signal -> signal.memberId() == memberId)
+        UUID participation = observationId != null ? observationId : signals.stream().filter(signal -> signal.memberId() == memberId)
                 .map(GomokuChatSignalResult::participationId).findFirst().orElse(null);
-        Client client = new Client(roomId, memberId, expiresAt, participation, new SseEmitter(lifetime));
+        UUID connectionId = observationId == null ? null : observations.connect(roomId, memberId, observationId);
+        Client client = new Client(roomId, memberId, expiresAt, participation, connectionId, new SseEmitter(lifetime));
         clients.add(client);
         rooms.compute(
                 roomId,
@@ -79,12 +94,23 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
         client.emitter.onCompletion(client::remove);
         client.emitter.onTimeout(client::close);
         client.emitter.onError(error -> client.remove());
-        client.offer(initial, signals);
+        client.offer(initial, signals, observationId == null ? Set.of() : Set.of(observationId));
         return client.emitter;
     }
 
     private void tick() {
-        if (!running || rooms.isEmpty()) return;
+        if (!running) return;
+        if (clock.millis() - lastCleanup >= 15_000L) {
+            lastCleanup = clock.millis();
+            deliveries.submit(() -> {
+                try {
+                    observations.removeExpiredConnections();
+                } catch (RuntimeException exception) {
+                    log.warn("Gomoku observer lease cleanup deferred after a database failure");
+                }
+            });
+        }
+        if (rooms.isEmpty()) return;
         Map<Long, RoomClients> pollingRooms = Map.copyOf(rooms);
         Map<Long, Long> revisions;
         try {
@@ -116,7 +142,10 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
                         } catch (RuntimeException exception) {
                             signals = null;
                         }
-                        for (Client client : room.clients) client.offer(snapshot, signals);
+                        Set<UUID> candidates = room.clients.stream().filter(client -> client.connectionId != null)
+                                .map(client -> client.participationId).collect(Collectors.toSet());
+                        Set<UUID> activeObservations = queries.activeObservations(id, candidates);
+                        for (Client client : room.clients) client.offer(snapshot, signals, activeObservations);
                     } catch (RuntimeException exception) {
                         room.clients.forEach(Client::close);
                     } finally {
@@ -183,6 +212,9 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
         private final long memberId;
         private final long expiresAt;
         private final UUID participationId;
+        private final UUID connectionId;
+        private final AtomicBoolean leaseRemoved = new AtomicBoolean();
+        private long lastRenewedAt;
         private final SseEmitter emitter;
         private final AtomicBoolean writing = new AtomicBoolean();
         private final AtomicBoolean closed = new AtomicBoolean();
@@ -190,29 +222,39 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
         private long chatSent = -1;
         private long lastSentAt;
 
-        private Client(long roomId, long memberId, long expiresAt, UUID participationId, SseEmitter emitter) {
+        private Client(long roomId, long memberId, long expiresAt, UUID participationId, UUID connectionId, SseEmitter emitter) {
             this.roomId = roomId;
             this.memberId = memberId;
             this.expiresAt = expiresAt;
             this.participationId = participationId;
+            this.connectionId = connectionId;
+            this.lastRenewedAt = clock.millis();
             this.emitter = emitter;
         }
 
-        private void offer(GomokuRoomResult snapshot, List<GomokuChatSignalResult> signals) {
+        private void offer(GomokuRoomResult snapshot, List<GomokuChatSignalResult> signals, Set<UUID> activeObservations) {
             if (!running || closed.get() || !writing.compareAndSet(false, true)) return;
             deliveries.submit(
                     () -> {
                         try {
-                            if (clock.millis() >= expiresAt || !snapshot.contains(memberId)) {
+                            boolean permitted = connectionId == null ? snapshot.contains(memberId)
+                                    : snapshot.visibility() == RoomVisibility.PUBLIC && activeObservations.contains(participationId);
+                            if (clock.millis() >= expiresAt || !permitted) {
                                 close();
                                 return;
                             }
                             GomokuChatSignalResult chat = signals == null ? null : signals.stream()
-                                    .filter(signal -> signal.memberId() == memberId).findFirst().orElse(null);
-                            if (snapshot.status() != RoomStatus.CLOSED && signals != null && participationId != null
+                                    .filter(signal -> signal.memberId() == memberId
+                                            && (participationId == null || participationId.equals(signal.participationId())))
+                                    .findFirst().orElse(null);
+                            if (connectionId == null && snapshot.status() != RoomStatus.CLOSED && signals != null && participationId != null
                                     && (chat == null || !participationId.equals(chat.participationId()))) {
                                 close();
                                 return;
+                            }
+                            if (connectionId != null && clock.millis() - lastRenewedAt >= 15_000L) {
+                                observations.renew(connectionId);
+                                lastRenewedAt = clock.millis();
                             }
                             if (snapshot.revision() > sent) {
                                 emitter.send(
@@ -235,8 +277,8 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
                             }
                         } catch (IOException exception) {
                             remove();
-                        } catch (IllegalStateException exception) {
-                            remove();
+                        } catch (RuntimeException exception) {
+                            close();
                         } finally {
                             writing.set(false);
                         }
@@ -246,6 +288,13 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
         private void remove() {
             closed.set(true);
             clients.remove(this);
+            if (connectionId != null && leaseRemoved.compareAndSet(false, true)) {
+                try {
+                    observations.disconnect(connectionId);
+                } catch (RuntimeException exception) {
+                    log.warn("Gomoku observer disconnect cleanup deferred to lease expiration");
+                }
+            }
             rooms.computeIfPresent(
                     roomId,
                     (id, room) -> {

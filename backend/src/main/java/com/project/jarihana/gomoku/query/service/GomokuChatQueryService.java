@@ -5,6 +5,7 @@ import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.gomoku.config.GomokuChatSettings;
 import com.project.jarihana.gomoku.domain.RoomStatus;
 import com.project.jarihana.gomoku.query.repository.GomokuChatQueryRepository;
+import com.project.jarihana.gomoku.query.repository.dto.GomokuChatAccessProjection;
 import com.project.jarihana.gomoku.query.service.dto.GomokuChatHistoryResult;
 import com.project.jarihana.gomoku.query.service.dto.GomokuChatMessageResult;
 import com.project.jarihana.gomoku.query.service.dto.GomokuChatSignalResult;
@@ -32,8 +33,7 @@ public class GomokuChatQueryService {
     public GomokuChatHistoryResult history(long roomId, long memberId, UUID participationId,
             Long before, Long after, int size) {
         settings.requireEnabled();
-        var access = repository.findAccess(roomId, memberId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ACCESS_DENIED, "현재 방 참가자만 대화할 수 있어요."));
+        var access = findAccess(roomId, memberId, participationId);
         if (access.getStatus() == RoomStatus.CLOSED)
             throw new BusinessException(ErrorCode.ACCESS_DENIED, "종료된 방의 대화는 볼 수 없어요.");
         if (access.getStatus() != RoomStatus.PLAYING
@@ -54,8 +54,18 @@ public class GomokuChatQueryService {
 
     public List<GomokuChatSignalResult> signals(long roomId) {
         if (!settings.enabled()) return List.of();
-        return repository.findSignals(roomId).stream()
+        return repository.findSignals(roomId, LocalDateTime.now(clock)).stream()
                 .map(row -> new GomokuChatSignalResult(row.getMemberId(), row.getParticipationId(), row.getLatestSequence()))
                 .toList();
+    }
+    private GomokuChatAccessProjection findAccess(long roomId, long memberId, UUID participationId) {
+        var participant = repository.findAccess(roomId, memberId);
+        if (participationId == null || participant.filter(value -> participationId.equals(value.getParticipationId())).isPresent())
+            return participant.orElseThrow(() -> new BusinessException(ErrorCode.ACCESS_DENIED, "입장한 회원만 대화할 수 있어요."));
+        var observer = repository.findObserverAccess(roomId, memberId, participationId);
+        if (observer.isPresent()) return observer.get();
+        if (participant.isPresent())
+            throw new BusinessException(ErrorCode.GOMOKU_CHAT_PARTICIPATION_CHANGED, "참가 상태가 바뀌었어요. 다시 입장해 주세요.");
+        throw new BusinessException(ErrorCode.ACCESS_DENIED, "입장한 회원만 대화할 수 있어요.");
     }
 }

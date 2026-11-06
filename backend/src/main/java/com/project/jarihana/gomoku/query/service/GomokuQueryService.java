@@ -5,6 +5,8 @@ import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.gomoku.command.service.GomokuTokens;
 import com.project.jarihana.gomoku.query.repository.GomokuQueryRepository;
 import com.project.jarihana.gomoku.query.repository.dto.GomokuRevisionProjection;
+import com.project.jarihana.gomoku.query.repository.GomokuObservationQueryRepository;
+import com.project.jarihana.gomoku.domain.RoomVisibility;
 import com.project.jarihana.gomoku.query.repository.dto.GomokuRoomProjection;
 import com.project.jarihana.gomoku.query.service.dto.GomokuPageResult;
 import com.project.jarihana.gomoku.query.service.dto.GomokuRoomResult;
@@ -20,6 +22,7 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,6 +31,7 @@ public class GomokuQueryService {
     private final GomokuQueryRepository repository;
     private final GomokuTokens tokens;
     private final Clock clock;
+    private final GomokuObservationQueryRepository observations;
 
     public Map<Long, Long> findRevisions(Set<Long> roomIds) {
         if (roomIds.isEmpty()) return Map.of();
@@ -44,10 +48,22 @@ public class GomokuQueryService {
     }
 
     public GomokuRoomResult getRoom(long id, long memberId) {
+        return getRoom(id, memberId, null);
+    }
+
+    public GomokuRoomResult getRoom(long id, long memberId, UUID participationId) {
         GomokuRoomResult room = loadSnapshot(id);
-        if (!room.contains(memberId))
+        if (participationId != null) {
+            if (room.visibility() != RoomVisibility.PUBLIC
+                    || !observations.existsByRoomIdAndMemberIdAndParticipationIdAndLeftAtIsNull(id, memberId, participationId))
+                throw new BusinessException(ErrorCode.ACCESS_DENIED, "관전 권한이 없어요.");
+        } else if (!room.contains(memberId))
             throw new BusinessException(ErrorCode.ACCESS_DENIED, "방에 참가한 회원만 볼 수 있어요.");
         return room;
+    }
+
+    public Set<UUID> activeObservations(long id, Set<UUID> candidates) {
+        return candidates.isEmpty() ? Set.of() : observations.findActiveParticipations(id, candidates);
     }
 
     public GomokuRoomResult preview(String token) {
@@ -106,8 +122,11 @@ public class GomokuQueryService {
                                     (last.getCreatedAt() + "|" + last.getId())
                                             .getBytes(StandardCharsets.UTF_8));
         }
+        Map<Long, Long> counts = !includePlaying || page.isEmpty() ? Map.of() : observations.countSpectators(
+                page.stream().map(GomokuRoomProjection::getId).toList(), now).stream()
+                .collect(Collectors.toMap(row -> row.getRoomId(), row -> row.getSpectatorCount()));
         return new GomokuPageResult(
-                page.stream().map(row -> GomokuRoomResult.from(row, clock)).toList(), next, more);
+                page.stream().map(row -> GomokuRoomResult.from(row, clock)).toList(), next, more, counts);
     }
 
     private BusinessException missing() {

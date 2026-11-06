@@ -78,7 +78,8 @@ Request Body는 없다. `view`를 생략하면 `PUBLIC`, `WAITING`, 빈 손님 �
         "guestAvatarUrl": null,
         "visibility": "PUBLIC",
         "rule": "RENJU",
-        "status": "WAITING"
+        "status": "WAITING",
+        "spectatorCount": 0
       }
     ],
     "nextCursor": null,
@@ -784,3 +785,7 @@ HTTP 목록/상세에는 공통 응답 봉투가 있고 SSE에는 없다.
 ## 게임방 채팅
 
 참가자 채팅은 [별도 계약](gomoku-chat.md)과 [운영 가이드](../../../operations/gomoku-chat.md)를 따른다. 모임 채팅과 별개이며 기본 비활성이다.
+
+## 공개 대국 관전
+
+공개 대국 관전의 입장, 종료, participationId 조회/SSE와 spectatorCount 계약은 [관전 API](gomoku-observation.md)를 따른다.

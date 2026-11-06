@@ -6,6 +6,10 @@ import com.project.jarihana.gomoku.command.repository.GomokuChatMessageRepositor
 import com.project.jarihana.gomoku.command.repository.GomokuChatRoomRepository;
 import com.project.jarihana.gomoku.command.repository.GomokuRoomRepository;
 import com.project.jarihana.gomoku.command.repository.GomokuSeatRepository;
+import com.project.jarihana.gomoku.command.repository.GomokuObservationRepository;
+import com.project.jarihana.gomoku.domain.RoomVisibility;
+import com.project.jarihana.gomoku.domain.GomokuSenderRole;
+import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.gomoku.command.service.dto.SendGomokuChatResult;
 import com.project.jarihana.gomoku.config.GomokuChatSettings;
 import com.project.jarihana.gomoku.domain.GomokuChatMessage;
@@ -30,6 +34,8 @@ public class GomokuChatCommandService {
     private final GomokuChatLifecycle lifecycle;
     private final GomokuHistoryRecorder history;
     private final Clock clock;
+    private final GomokuObservationRepository observations;
+    private final MemberRepository members;
 
     @Transactional(noRollbackFor = GomokuRoomExpiredException.class)
     public SendGomokuChatResult send(long roomId, long memberId, UUID participationId,
@@ -37,11 +43,23 @@ public class GomokuChatCommandService {
         settings.requireEnabled();
         var room = rooms.lockById(roomId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.GOMOKU_NOT_FOUND, "오목방을 찾을 수 없어요."));
-        var seat = seats.findById(memberId).filter(value -> value.getRoomId() == roomId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ACCESS_DENIED, "현재 방 참가자만 대화할 수 있어요."));
-        room.requireParticipant(memberId);
-        if (!seat.getParticipationId().equals(participationId))
-            throw new BusinessException(ErrorCode.GOMOKU_CHAT_PARTICIPATION_CHANGED, "참가 상태가 바뀌었어요. 다시 입장해 주세요.");
+        var seat = seats.findById(memberId).filter(value -> value.getRoomId() == roomId && room.contains(memberId));
+        GomokuSenderRole role;
+        String author;
+        if (seat.isPresent()) {
+            if (!seat.get().getParticipationId().equals(participationId))
+                throw new BusinessException(ErrorCode.GOMOKU_CHAT_PARTICIPATION_CHANGED, "참가 상태가 바뀌었어요. 다시 입장해 주세요.");
+            role = GomokuSenderRole.PARTICIPANT;
+            author = memberId == room.getHostMemberId() ? room.getHostName() : room.getGuestName();
+        } else {
+            observations.findByRoomIdAndMemberIdAndParticipationId(roomId, memberId, participationId)
+                    .filter(value -> value.getLeftAt() == null && room.getVisibility() == RoomVisibility.PUBLIC)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.ACCESS_DENIED, "입장한 회원만 대화할 수 있어요."));
+            role = GomokuSenderRole.SPECTATOR;
+            author = members.findById(memberId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, "회원 정보를 확인해 주세요."))
+                    .getCrewName();
+        }
         LocalDateTime now = LocalDateTime.now(clock);
         var expired = room.expire(now);
         if (expired != room) {
@@ -66,8 +84,8 @@ public class GomokuChatCommandService {
         var chat = chatRooms.findById(roomId).orElseGet(() -> GomokuChatRoom.create(roomId)).nextMessage();
         chatRooms.saveAndFlush(chat);
         var message = messages.saveAndFlush(GomokuChatMessage.create(roomId, chat.getLastSequence(), memberId,
-                participationId, clientMessageId, memberId == room.getHostMemberId() ? room.getHostName() : room.getGuestName(), content, now));
-        rooms.save(room.chatActivity(now));
+                participationId, clientMessageId, author, content, role, now));
+        if (role == GomokuSenderRole.PARTICIPANT) rooms.save(room.chatActivity(now));
         return new SendGomokuChatResult(message, true);
     }
 }

@@ -8,6 +8,7 @@ import com.project.jarihana.gomoku.query.controller.dto.GomokuLobbyPageResponse;
 import com.project.jarihana.gomoku.query.controller.dto.GomokuPageResponse;
 import com.project.jarihana.gomoku.query.controller.dto.GomokuPreviewResponse;
 import com.project.jarihana.gomoku.query.controller.dto.GomokuRoomResponse;
+import com.project.jarihana.gomoku.query.controller.dto.GomokuRoomRequest;
 import com.project.jarihana.gomoku.query.service.GomokuQueryService;
 
 import jakarta.validation.Valid;
@@ -54,9 +55,9 @@ public class GomokuQueryController {
 
     @GetMapping("/rooms/{id}")
     public ResponseEntity<ApiResponse<GomokuRoomResponse>> findRoom(
-            @PathVariable long id, @LoginMember long memberId) {
+            @PathVariable long id, @LoginMember long memberId, @ModelAttribute GomokuRoomRequest request) {
         return ResponseEntity.ok(
-                ApiResponse.success(GomokuRoomResponse.from(queries.getRoom(id, memberId))));
+                ApiResponse.success(GomokuRoomResponse.from(queries.getRoom(id, memberId, request.participationId()))));
     }
 
     @GetMapping("/invitations/{token}")

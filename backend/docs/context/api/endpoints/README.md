@@ -160,3 +160,5 @@
 SSE 메시지 스냅샷·추가분과 투표 집계. [OpenAPI](../../../openapi/sparring.yaml)
 
 - [오목 게임방 채팅](gomoku-chat.md): 입장 회차와 메시지 순번, REST 복구, SSE 알림 계약
+
+- [오목 관전](gomoku-observation.md): 관전 입장/종료, 조회 권한과 접속 인원수

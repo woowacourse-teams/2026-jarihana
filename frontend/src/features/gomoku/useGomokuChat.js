@@ -13,9 +13,9 @@ const emptyState = () => ({
   hasHistory: false
 });
 
-export function useGomokuChat(roomId, { connected, closed, chatSignal }) {
+export function useGomokuChat(roomId, { connected, closed, chatSignal, participationId = null }) {
   const { member, status, sessionVersion } = useAuth();
-  const owner = `${roomId}:${member?.id}:${status}:${sessionVersion}`;
+  const owner = `${roomId}:${member?.id}:${status}:${sessionVersion}:${participationId || "participant"}`;
   const [state, setState] = useState(() => ({ ...emptyState(), owner }));
   const runtime = useRef(null);
   if (state.owner !== owner) setState({ ...emptyState(), owner });
@@ -101,10 +101,11 @@ export function useGomokuChat(roomId, { connected, closed, chatSignal }) {
           if (!live.participationId) {
             const page = await gomokuChatApi.history(
               roomId,
-              { size: 50 },
+              { size: 50, ...(participationId ? { participationId } : {}) },
               controller.signal
             );
             if (!active()) return;
+            if (participationId && page.participationId !== participationId) throw { status: 409 };
             live.participationId = page.participationId;
             live.cursor = page.latestSequence;
             live.historyCursor = page.nextCursor;
@@ -217,7 +218,8 @@ export function useGomokuChat(roomId, { connected, closed, chatSignal }) {
       const message = {
         clientMessageId: crypto.randomUUID(),
         senderId: String(member.id),
-        author: "나",
+        author: member.crewName || member.name || "나",
+        senderRole: participationId ? "SPECTATOR" : "PARTICIPANT",
         content,
         failed: false
       };
@@ -250,9 +252,12 @@ export function useGomokuChat(roomId, { connected, closed, chatSignal }) {
   }, [
     roomId,
     member?.id,
+    member?.crewName,
+    member?.name,
     status,
     sessionVersion,
-    owner
+    owner,
+    participationId
   ]);
 
   useEffect(() => {

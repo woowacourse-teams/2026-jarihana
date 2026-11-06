@@ -43,7 +43,7 @@ test.each([
   }
 });
 
-test.each(["PARTICIPANT"])(
+test.each(["PARTICIPANT", "SPECTATOR"])(
   "shows the %s author only above the first consecutive message",
   (senderRole) => {
     const messages = [message("1", "2"), message("2", "2", "2026-11-05T20:50:59")].map(
@@ -52,7 +52,7 @@ test.each(["PARTICIPANT"])(
     render(conversation(messages));
     const bubbles = screen.getAllByRole("article");
     expect(bubbles[0].querySelector(".gomoku-chat__author")).toHaveTextContent(
-      "상대"
+      senderRole === "SPECTATOR" ? "[관전자] 상대" : "상대"
     );
     expect(bubbles[1].querySelector(".gomoku-chat__author")).toBeNull();
     expect(bubbles[0].querySelector("time")).toBeNull();
