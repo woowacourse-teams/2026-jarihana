@@ -149,202 +149,95 @@ describe("SignupPage", () => {
     });
   });
 
-  async function startBootcamp(user) {
-    renderRoute("/signup", <SignupPage />);
-    await user.click(screen.getByRole("radio", { name: /부트캠프/ }));
-  }
-
-  async function startCrew(user) {
-    await startBootcamp(user);
-    await user.click(screen.getByRole("radio", { name: "우아한테크코스" }));
-    await user.click(screen.getByRole("button", { name: "우테코 크루 인증" }));
-  }
-
   async function submitAndConfirm(user) {
     await user.click(screen.getByRole("button", { name: "가입 완료하기" }));
     await user.click(screen.getByRole("button", { name: "확인" }));
   }
 
-  it("Given the first screen, When it renders, Then it offers bootcamp and company without crew or coach cards", () => {
+  it("Given the signup screen, When it renders, Then it asks only for a nickname without member type choices", () => {
     // When
     renderRoute("/signup", <SignupPage />);
 
     // Then
-    expect(screen.getAllByRole("radio")).toHaveLength(2);
-    expect(screen.getByRole("radio", { name: /부트캠프/ })).toHaveAttribute(
+    expect(screen.getByRole("heading", { name: "프로필 입력" })).toHaveClass("account-heading__title");
+    expect(screen.getByRole("heading", { name: "자리하나에서 쓸 닉네임을 알려주세요" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "닉네임" })).toHaveAttribute(
       "data-ph-capture-attribute-action",
-      "signup_member_type_select"
+      "signup_name_input"
     );
-    expect(screen.getByRole("radio", { name: /회사/ })).toBeInTheDocument();
-    expect(screen.queryByRole("radio", { name: /코치/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("radio", { name: /^크루$/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "닉네임" })).toHaveAccessibleDescription(
+      expect.stringMatching(/우아한테크코스 크루는 GitHub 계정으로 기수와 과정을 자동으로 확인해요/)
+    );
+    expect(screen.queryAllByRole("radio")).toHaveLength(0);
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "이전" })).not.toBeInTheDocument();
   });
 
-  it("Given the bootcamp path, When every question is answered, Then it submits the bootcamp profile", async () => {
+  it("Given a valid nickname, When signup is confirmed, Then it submits only the nickname and uses the saved return target", async () => {
     // Given
-    const mutateAsync = jest.fn().mockResolvedValue({ id: 12 });
+    const mutateAsync = jest.fn().mockResolvedValue({ id: 12, crewName: "도담", memberType: "MEMBER" });
     useSignupMember.mockReturnValue({ mutateAsync, isPending: false });
     const user = userEvent.setup();
-    await startBootcamp(user);
+    renderRoute("/signup", <SignupPage />);
 
     // When
-    expect(screen.getByRole("heading", { name: "어느 부트캠프인가요?" })).toBeInTheDocument();
-    await user.click(screen.getByRole("radio", { name: "SSAFY" }));
-    await user.type(screen.getByRole("textbox", { name: /기수/ }), "12기");
-    await user.click(screen.getByRole("button", { name: "다음" }));
-    await user.click(screen.getByRole("radio", { name: /수강 중/ }));
-    await user.click(screen.getByRole("radio", { name: "백엔드" }));
-    expect(screen.getByRole("list", { name: "지금까지 고른 답" })).toHaveTextContent("SSAFY 12기");
-    await user.type(screen.getByRole("textbox", { name: "닉네임" }), "도담");
+    await user.type(screen.getByRole("textbox", { name: "닉네임" }), " 도담 ");
     await submitAndConfirm(user);
 
     // Then
-    expect(mutateAsync).toHaveBeenCalledWith({
-      crewName: "도담",
-      memberType: "BOOTCAMP",
-      bootcamp: { name: "SSAFY", status: "IN_PROGRESS", cohort: "12기" },
-      field: "BACKEND"
-    });
+    expect(mutateAsync).toHaveBeenCalledWith({ crewName: "도담" });
+    expect(consumeReturnTarget).toHaveBeenCalledWith("/my");
   });
 
-  it("Given no bootcamp is chosen, When continuing, Then it asks for a bootcamp first", async () => {
+  it("Given an invalid nickname, When submitted, Then the field explains the rule without opening confirmation", async () => {
     // Given
     const user = userEvent.setup();
-    await startBootcamp(user);
+    renderRoute("/signup", <SignupPage />);
 
     // When
-    await user.click(screen.getByRole("button", { name: "다음" }));
-
-    // Then
-    expect(screen.getByText("부트캠프를 선택해 주세요.")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "어느 부트캠프인가요?" })).toBeInTheDocument();
-  });
-
-  it("Given Woowahan Tech Course is chosen, When the crew verification button appears, Then it leads to the crew profile", async () => {
-    // Given
-    const user = userEvent.setup();
-    await startBootcamp(user);
-
-    // When
-    await user.click(screen.getByRole("radio", { name: "우아한테크코스" }));
-
-    // Then
-    const verify = screen.getByRole("button", { name: "우테코 크루 인증" });
-    expect(verify).toHaveAttribute("data-ph-capture-attribute-action", "signup_crew_verification_start");
-    expect(screen.queryByRole("button", { name: "다음" })).not.toBeInTheDocument();
-    await user.click(verify);
-    expect(screen.getByRole("heading", { name: "안녕하세요 크루님 프로필을 작성해주세요" })).toHaveFocus();
-    expect(screen.getByRole("combobox", { name: "과정" })).toBeInTheDocument();
-  });
-
-  it("Given invalid crew fields, When submitted, Then every invalid field is identified inline", async () => {
-    // Given
-    const user = userEvent.setup();
-    await startCrew(user);
-
-    expect(
-      screen.getByRole("heading", { name: "프로필 입력" })
-    ).toHaveClass("account-heading__title");
-
-    // When
-    await user.type(screen.getByRole("textbox", { name: "크루 이름" }), "a자");
+    await user.type(screen.getByRole("textbox", { name: "닉네임" }), "a자");
     await user.click(screen.getByRole("button", { name: "가입 완료하기" }));
 
     // Then
-    expect(await screen.findByRole("textbox", { name: "크루 이름" })).toHaveAccessibleDescription(
-      expect.stringMatching(/크루 이름은 한글 2~4자/)
+    expect(await screen.findByRole("textbox", { name: "닉네임" })).toHaveAccessibleDescription(
+      expect.stringMatching(/닉네임은 한글 2~4자로 입력해 주세요/)
     );
-    expect(screen.getByRole("combobox", { name: "기수" })).toHaveAccessibleDescription(
-      expect.stringMatching(/기수를 선택해 주세요/)
-    );
+    expect(screen.queryByRole("button", { name: "확인" })).not.toBeInTheDocument();
     expect(useSignupMember().mutateAsync).not.toHaveBeenCalled();
   });
 
-  it("Given valid crew fields after verification, When signup succeeds, Then it submits the same crew profile data as before", async () => {
-    // Given
-    const mutateAsync = jest.fn().mockResolvedValue({
-      id: 11,
-      crewName: "자리",
-      generation: 3,
-      course: "FRONTEND",
-      joinedAt: "2026-08-21T10:30:00"
-    });
-    useSignupMember.mockReturnValue({ mutateAsync, isPending: false });
-    const user = userEvent.setup();
-    await startCrew(user);
-
-    // When
-    await user.type(screen.getByRole("textbox", { name: "크루 이름" }), "자리");
-    await user.selectOptions(screen.getByRole("combobox", { name: "과정" }), "FRONTEND");
-    await user.selectOptions(screen.getByRole("combobox", { name: "기수" }), "3");
-    await submitAndConfirm(user);
-
-    // Then
-    expect(mutateAsync).toHaveBeenCalledWith({
-      crewName: "자리",
-      generation: 3,
-      course: "FRONTEND",
-      memberType: "CREW"
-    });
-  });
-
-  it("Given the crew profile, When going back, Then the bootcamp step asks for crew verification again", async () => {
+  it("Given the confirmation dialog, When it is canceled, Then nothing is submitted and the nickname stays", async () => {
     // Given
     const user = userEvent.setup();
-    await startCrew(user);
+    renderRoute("/signup", <SignupPage />);
+    await user.type(screen.getByRole("textbox", { name: "닉네임" }), "도담");
+    await user.click(screen.getByRole("button", { name: "가입 완료하기" }));
 
     // When
-    await user.click(screen.getByRole("button", { name: "이전" }));
+    await user.click(screen.getByRole("button", { name: "취소" }));
 
     // Then
-    expect(screen.getByRole("heading", { name: "어느 부트캠프인가요?" })).toHaveFocus();
-    expect(screen.getByRole("radio", { name: "우아한테크코스" })).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByRole("button", { name: "우테코 크루 인증" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "확인" })).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "닉네임" })).toHaveValue("도담");
+    expect(useSignupMember().mutateAsync).not.toHaveBeenCalled();
   });
 
-  it("Given the company path, When the optional company is shared, Then it submits the professional profile", async () => {
+  it("Given a duplicate nickname conflict, When signup fails, Then a safe recovery message is announced", async () => {
     // Given
-    const mutateAsync = jest.fn().mockResolvedValue({ id: 13 });
+    const mutateAsync = jest
+      .fn()
+      .mockRejectedValue({ status: 409, userMessage: "이미 사용 중인 크루명입니다." });
     useSignupMember.mockReturnValue({ mutateAsync, isPending: false });
     const user = userEvent.setup();
     renderRoute("/signup", <SignupPage />);
 
     // When
-    await user.click(screen.getByRole("radio", { name: /회사/ }));
-    await user.click(screen.getByRole("radio", { name: "프론트엔드" }));
-    await user.click(screen.getByRole("radio", { name: "1~3년차" }));
-    await user.type(screen.getByRole("textbox", { name: "닉네임" }), "하나");
-    await user.type(screen.getByRole("textbox", { name: /회사명/ }), "자리하나");
-    await user.click(screen.getByRole("checkbox", { name: "참여자 목록에 회사명 보이기" }));
+    await user.type(screen.getByRole("textbox", { name: "닉네임" }), "자리");
     await submitAndConfirm(user);
 
     // Then
-    expect(mutateAsync).toHaveBeenCalledWith({
-      crewName: "하나",
-      memberType: "PROFESSIONAL",
-      field: "FRONTEND",
-      career: "YEARS_1_3",
-      company: { name: "자리하나", visible: true }
-    });
-  });
-
-  it("Given a duplicate member conflict, When signup fails, Then a safe recovery message is announced", async () => {
-    // Given
-    const mutateAsync = jest
-      .fn()
-      .mockRejectedValue({ status: 409, userMessage: "이미 사용 중인 크루 정보예요." });
-    useSignupMember.mockReturnValue({ mutateAsync, isPending: false });
-    const user = userEvent.setup();
-    await startCrew(user);
-
-    // When
-    await user.type(screen.getByRole("textbox", { name: "크루 이름" }), "자리");
-    await user.selectOptions(screen.getByRole("combobox", { name: "과정" }), "FRONTEND");
-    await user.selectOptions(screen.getByRole("combobox", { name: "기수" }), "3");
-    await submitAndConfirm(user);
-
-    // Then
-    expect(await screen.findByRole("alert")).toHaveTextContent("이미 사용 중인 크루 정보예요.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("이미 사용 중인 크루명입니다.");
+    expect(consumeReturnTarget).not.toHaveBeenCalled();
   });
 
   it("Given no signup session, When signup renders, Then it offers safe login recovery without posting member data", async () => {
