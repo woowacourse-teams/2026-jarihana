@@ -378,14 +378,39 @@ VS 입장 화면의 `sparring_entry_side_select`는 임시 편 선택, `sparring
 좌표, 회원 이름, 방 ID와 초대 토큰을 action에 포함하지 않는다. 초대 토큰을 담은
 `/games/gomoku/invite/*`와 `/api/games/gomoku/invitations/*`는 분석과 녹화를 중단하는
 private route다. 경로 정규화에서도 토큰은 `:redacted`로 치환한다. 복사 주소는
-`ph-no-capture ph-no-record` 영역에 둔다. 클릭은 처리 성공을 의미하지 않으며 별도 게임 성공
-이벤트는 이번 범위에 추가하지 않는다.
+`ph-no-capture ph-no-record` 영역에 둔다. 버튼 클릭은 시도로 수집하며, 실제 대국 시작 건수는
+서버가 시작을 확정한 `gomoku_game_started`로 집계한다.
 
 오목 규칙 모달 열기/닫기는 `gomoku_rules_toggle`, `gomoku_rules_dismiss` 고정 action을 사용한다.
 
 규칙 예시 버튼은 `gomoku_double_three_example_open`, `gomoku_double_four_example_open` 고정 action을 사용한다.
 
 종료된 오목방 중앙의 대기실 이동 버튼은 `gomoku_closed_lobby_open`을 사용한다.
+
+### 서버 대국 이벤트
+
+서버가 대국 시작과 종료를 확정할 때 각각 `gomoku_game_started`와 `gomoku_game_finished`를
+기록한다. 시작 건수는 `gomoku_game_started`가 있는 고유 `game_id` 수다. 두 이벤트는
+같은 `game_id`를 사용하며, 재대결에는 새 ID를 사용한다.
+종료 속성은 `end_reason`(FIVE, DRAW, RESIGN, TIMEOUT), `duration_ms`(밀리초),
+`move_count`(총 착수 수)다. `RESIGN`에는 기권 버튼과 대국 중 방 나가기가 함께 포함된다.
+시간 초과는 해당 턴의 마감 시각을 종료 시각으로 사용한다.
+서버 이벤트는 대국 ID를 분석 식별자로 사용하고 회원 프로필을 만들지 않는다.
+
+운영 백엔드는 `application-prod.yaml`의 공개 PostHog 프로젝트 토큰과 수집 주소를 사용한다.
+운영 앱을 배포하면 수집이 시작된다. 수집을 끄거나 프로젝트를 바꾸려면 운영 앱 설정을
+수정해 재배포한다. 운영 프로젝트 토큰이나 주소를 교체할 때는 프론트엔드 배포 변수도
+함께 맞춘다.
+대국 기록과 같은 트랜잭션에 저장된 이벤트는 커밋 이후 백그라운드에서 전송한다.
+재시도는 이벤트 UUID와 발생 시각을 유지하며 PostHog가 중복을 제거한다.
+활성화 전 시작 이벤트는 소급 전송하지 않는다. 시작 기록이 남아 있는 진행 중 대국은
+활성화 후 종료 이벤트만 수집될 수 있으므로, 완주율은 시작 이벤트가 있는 `game_id`를
+기준으로 집계한다.
+
+활성화 배포 중 이전 슬롯과 새 슬롯의 시간 초과 작업이 함께 실행된다. 수집이 꺼진 이전
+슬롯이 먼저 종료한 대국은 DB에 결과가 저장되고 PostHog의 `TIMEOUT` 종료 이벤트는 빠질 수
+있다. 운영 기록에 수집을 켠 배포의 트래픽 전환 시각과 이전 슬롯 정지 시각을 남겨 초기
+지표를 해석할 때 참고한다.
 
 ### 오목 통계 화면
 
