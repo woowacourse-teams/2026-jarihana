@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { ArrowLeft } from "lucide-react";
 
+import { storeReturnTarget, useAuth } from "../../features/auth";
 import { RhythmScore } from "../../features/game/rhythm/RhythmScore.jsx";
 import {
   LESSON_STEPS,
@@ -59,8 +60,21 @@ function SoundTutorial({ completed, onPreview }) {
   );
 }
 
+const CHALLENGE_PATH = "/games/rhythm-harpoon/challenge";
+
 export function RhythmHarpoonSinglePage() {
   useEscapeBack("/games/rhythm-harpoon");
+  const { login, status } = useAuth();
+  const navigate = useNavigate();
+  // 공식 도전은 회원 전용이다. 로그인 전이면 회원 전용 가드가 자리 둘러보기로 보내기 전에
+  // 로그인(또는 가입)으로 보내고, 마치면 공식 도전으로 돌아오게 한다.
+  function openChallenge(event) {
+    if (status === "authenticated") return;
+    event.preventDefault();
+    storeReturnTarget(CHALLENGE_PATH);
+    if (status === "signup-required") navigate("/signup");
+    else if (status === "anonymous") login();
+  }
   const [progress] = useState(() => readLessonProgress(browserStorage()));
   const preview = useRef(null);
 
@@ -137,7 +151,8 @@ export function RhythmHarpoonSinglePage() {
             <Link
               className="rhythm-mode rhythm-mode--record"
               data-ph-capture-attribute-action="rhythm_ranked_open"
-              to="/games/rhythm-harpoon/challenge"
+              onClick={openChallenge}
+              to={CHALLENGE_PATH}
             >
               <span className="eyebrow">RECORD</span>
               <strong>공식 도전</strong>
