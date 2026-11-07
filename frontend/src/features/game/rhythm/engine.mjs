@@ -3,6 +3,9 @@ export const PERFECT_WINDOW = 0.032;
 export const HIT_WINDOW = 0.064;
 export const CAPTURE_WINDOW = 0.15;
 export const POOR_WINDOW = 0.18;
+// 일찍 누른 입력은 200ms까지 판정(Uh oh 포함)을 받고, 그 뒤 30ms는 무시하며 230ms부터 헛공격이다.
+export const EARLY_CAPTURE_WINDOW = 0.2;
+export const EARLY_POOR_WINDOW = 0.23;
 export const POOR_PENALTY = 1000;
 export const JUDGMENTS = [
   { kind: "perfect", label: "PERFECT", window: PERFECT_WINDOW, score: 1000, color: "#416d36" },
@@ -10,7 +13,15 @@ export const JUDGMENTS = [
   // 일찍 누른 입력은 120ms까지 잡는다. 늦게 누른 입력은 100ms를 넘기면 놓친다.
   { kind: "enough", label: "ENOUGH", window: 0.1, earlyWindow: 0.12, score: 300, color: "#87702e" },
   // ENOUGH 범위를 벗어나 누르면 세균을 놓친다. 판정은 받지만 점수 없이 콤보가 끊기고 세균이 돌진한다.
-  { kind: "uhoh", label: "Uh oh", window: CAPTURE_WINDOW, score: 0, color: "#8a5d45", whiff: true }
+  {
+    kind: "uhoh",
+    label: "Uh oh",
+    window: CAPTURE_WINDOW,
+    earlyWindow: EARLY_CAPTURE_WINDOW,
+    score: 0,
+    color: "#8a5d45",
+    whiff: true
+  }
 ];
 export const ATTACK_DURATION = 0.18;
 export const APPROACH_SECONDS = 1.25;
@@ -479,20 +490,25 @@ export class GameEngine {
     if (this.dead || !LANES.includes(lane)) return null;
     let closest = null;
     let distance = Infinity;
-    let nearestDistance = Infinity;
+    let nearby = false;
     for (const note of this.notes) {
       if (note.lane !== lane) continue;
       const error = Math.abs(at - note.at);
       if ((note.state !== "waiting" && note.state !== "attack") || note.group.damaged) continue;
-      nearestDistance = Math.min(nearestDistance, error);
+      // 노트보다 일찍 누른 입력은 더 넓은 범위로 판정하고 무시한다.
+      const early = at < note.at;
+      if (error + 0.0000001 < (early ? EARLY_POOR_WINDOW : POOR_WINDOW)) nearby = true;
       if (note.whiffed) continue;
-      if (error <= CAPTURE_WINDOW + 0.0000001 && error < distance) {
+      if (
+        error <= (early ? EARLY_CAPTURE_WINDOW : CAPTURE_WINDOW) + 0.0000001 &&
+        error < distance
+      ) {
         closest = note;
         distance = error;
       }
     }
     if (closest) return this.hit(closest, at);
-    if (nearestDistance + 0.0000001 < POOR_WINDOW) return { kind: "ignored", lane, at };
+    if (nearby) return { kind: "ignored", lane, at };
     this.score -= POOR_PENALTY;
     this.stats.poor++;
     this.combo = 0;

@@ -79,15 +79,20 @@ test("every successful judgment catches the germ, continues the combo and awards
   }
 });
 
-test("150-180ms does not catch or penalize; 180ms and empty lanes are Poor", () => {
-  for (const delta of [-0.179, -0.151, 0.151, 0.179]) {
+test("late 150-180ms and early 200-230ms are ignored; beyond them and empty lanes are Poor", () => {
+  for (const delta of [-0.229, -0.201, 0.151, 0.179]) {
     const run = engine();
     const note = run.notes[0];
-    assert.equal(run.input(note.lane, note.at + delta).kind, "ignored");
+    assert.equal(run.input(note.lane, note.at + delta).kind, "ignored", String(delta));
     assert.equal(note.state, "waiting");
     assert.equal(run.score, 0);
   }
-  for (const delta of [-0.18, 0.18]) {
+  for (const delta of [-0.2, -0.151]) {
+    const run = engine();
+    const note = run.notes[0];
+    assert.equal(run.input(note.lane, note.at + delta).kind, "uhoh", String(delta));
+  }
+  for (const delta of [-0.23, 0.18]) {
     const run = engine();
     const note = run.notes[0];
     assert.equal(run.input(note.lane, note.at + delta).kind, "poor");
@@ -230,7 +235,7 @@ test("early or empty inputs deduct score, break the combo and preserve the appro
   const run = engine();
   const note = run.notes[0];
   run.combo = 5;
-  assert.equal(run.input(note.lane, note.at - 0.201).kind, "poor");
+  assert.equal(run.input(note.lane, note.at - 0.231).kind, "poor");
   assert.equal(run.combo, 0);
   assert.equal(run.score, -POOR_PENALTY);
   assert.equal(note.state, "waiting");
