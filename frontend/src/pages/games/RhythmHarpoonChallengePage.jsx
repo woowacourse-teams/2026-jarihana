@@ -14,6 +14,7 @@ import {
 import { rhythmRankedApi } from "../../features/game/rhythm/rankedApi.js";
 import { RhythmRankedBoard } from "../../features/game/rhythm/RhythmRankedBoard.jsx";
 import { RhythmRanking } from "../../features/game/rhythm/RhythmRanking.jsx";
+import { RhythmOffsetSettings } from "../../features/game/rhythm/RhythmOffsetSettings.jsx";
 import { useEscapeBack } from "../../features/game/rhythm/useEscapeBack.js";
 import { toUserMessage } from "../../shared/api";
 import "../../features/game/rhythm/rhythm-challenge.css";
@@ -44,8 +45,13 @@ function readRunSettings() {
 }
 
 function initialOptions() {
-  const practice = readPracticeSettings(browserStorage());
-  return { level: practice?.level ?? "easy", scrollSpeed: practice?.rate ?? 1 };
+  const storage = browserStorage();
+  const practice = readPracticeSettings(storage);
+  return {
+    level: practice?.level ?? "easy",
+    scrollSpeed: practice?.rate ?? 1,
+    offset: readOffset(storage)
+  };
 }
 
 export function RhythmHarpoonChallengePage() {
@@ -58,8 +64,10 @@ export function RhythmHarpoonChallengePage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState(null);
   const [settings, setSettings] = useState(readRunSettings);
+  // 입력 지연 보정은 옵션 단계에서 고른 값을 판에 그대로 쓴다.
+  const [boardSettings, setBoardSettings] = useState(null);
 
-  // 확인 단계에 들어올 때마다 연습에서 바꾼 키 배치와 보정값을 다시 읽는다.
+  // 확인 단계에 들어올 때마다 연습에서 바꾼 키 배치와 표시 설정을 다시 읽는다.
   const confirm = () => {
     setSettings(readRunSettings());
     setStep("confirm");
@@ -79,7 +87,11 @@ export function RhythmHarpoonChallengePage() {
     setCreating(true);
     setCreateError(null);
     try {
-      const created = await rhythmRankedApi.create(options);
+      const created = await rhythmRankedApi.create({
+        level: options.level,
+        scrollSpeed: options.scrollSpeed
+      });
+      setBoardSettings({ ...settings, offset: options.offset });
       setSession({
         challengeId: created.challengeId,
         seed: created.seed,
@@ -150,7 +162,7 @@ export function RhythmHarpoonChallengePage() {
           onFinished={handleFinished}
           onInvalid={handleInvalid}
           session={session}
-          settings={settings}
+          settings={boardSettings}
         />
       ) : (
         <div className="rhythm-game">
@@ -197,7 +209,7 @@ function OptionsStep({ options, onChange, onNext }) {
       <h2 id="rhythm-challenge-options">옵션 설정</h2>
       <p className="small muted">
         난이도마다 랭킹이 따로 있어요. 세균 이동 배속은 보이는 속도만 바꾸고 판정과 점수에는 영향이
-        없어요.
+        없어요. 입력 지연 보정은 판정 시각을 옮기므로 시작 전에 꼭 맞춰 주세요.
       </p>
       <div className="control-section">
         <span className="eyebrow">DIFFICULTY</span>
@@ -237,6 +249,10 @@ function OptionsStep({ options, onChange, onNext }) {
           ))}
         </select>
       </div>
+      <RhythmOffsetSettings
+        offset={options.offset}
+        onChange={(offset) => onChange((current) => ({ ...current, offset }))}
+      />
       <div className="rhythm-challenge__actions">
         <button
           className="button primary"
@@ -273,7 +289,7 @@ function ConfirmStep({ options, settings, creating, error, onBack, onStart }) {
         </div>
         <div>
           <dt>입력 지연 보정</dt>
-          <dd>{(settings.offset > 0 ? "+" : "") + settings.offset}ms</dd>
+          <dd>{(options.offset > 0 ? "+" : "") + options.offset}ms</dd>
         </div>
         <div>
           <dt>조작 키</dt>
@@ -286,7 +302,7 @@ function ConfirmStep({ options, settings, creating, error, onBack, onStart }) {
         <li>점수는 서버가 입력을 받아 다시 계산하고, 난이도별 최고 기록으로 랭킹에 올라가요.</li>
       </ul>
       <p className="small muted">
-        입력 지연 보정과 키 배치는{" "}
+        키 배치는{" "}
         <Link data-ph-capture-attribute-action="rhythm_practice_open" to="/games/rhythm-harpoon/practice">
           혼자 연습
         </Link>

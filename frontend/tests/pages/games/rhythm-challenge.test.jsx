@@ -121,6 +121,24 @@ it("walks from options to a confirmed challenge with the server seed", async () 
   expect(screen.getByRole("listitem", { current: "step" })).toHaveTextContent("도전");
 });
 
+it("sets the input offset on the options step, saves it and plays with it", async () => {
+  localStorage.setItem("haengseong-input-offset-v1", "12");
+  rhythmRankedApi.create.mockResolvedValue(created);
+  render(<RhythmHarpoonChallengePage />);
+  const slider = screen.getByRole("slider", { name: /입력 지연 보정/ });
+  expect(slider).toHaveValue("12");
+  fireEvent.change(slider, { target: { value: "-24" } });
+  expect(screen.getByText("-24ms")).toBeInTheDocument();
+  expect(slider).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_challenge_offset_change");
+  expect(screen.getByRole("button", { name: "싱크 진단 / 보정" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "다음" }));
+  expect(screen.getByText("-24ms")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "도전 시작" }));
+  await screen.findByTestId("ranked-board");
+  expect(mockBoard.mock.calls.at(-1)[0].settings.offset).toBe(-24);
+  expect(localStorage.getItem("haengseong-input-offset-v1")).toBe("-24");
+});
+
 it("summarizes the options and the no-pause rules before starting", () => {
   render(<RhythmHarpoonChallengePage />);
   for (const button of screen.getAllByRole("button", { pressed: false })) {
