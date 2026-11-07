@@ -22,6 +22,18 @@ export function createCapsulePhysics({ capacity = CAPACITY, seed = 19 } = {}) {
   let state = seed >>> 0;
   const random = () => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state / 4294967296; };
   const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -22, 0), allowSleep: true });
+  const sphereBox = world.narrowphase.sphereBox;
+  world.narrowphase.sphereBox = function (sphere, box, spherePosition, boxPosition, sphereRotation, boxRotation, sphereBody, boxBody, shapeA, shapeB, justTest) {
+    // Thin tank walls have large bounding spheres. Reject only impossible contacts;
+    // keep Cannon's contact generation and solver order for everything else.
+    if (boxRotation.x === 0 && boxRotation.y === 0 && boxRotation.z === 0 && Math.abs(boxRotation.w) === 1) {
+      const radius = sphere.radius + 1e-7;
+      if (Math.abs(spherePosition.x - boxPosition.x) > box.halfExtents.x + radius
+        || Math.abs(spherePosition.y - boxPosition.y) > box.halfExtents.y + radius
+        || Math.abs(spherePosition.z - boxPosition.z) > box.halfExtents.z + radius) return false;
+    }
+    return sphereBox.call(this, sphere, box, spherePosition, boxPosition, sphereRotation, boxRotation, sphereBody, boxBody, shapeA, shapeB, justTest);
+  };
   world.broadphase = new CANNON.SAPBroadphase(world);
   world.solver.iterations = 8;
   world.defaultContactMaterial.friction = 0.48;
