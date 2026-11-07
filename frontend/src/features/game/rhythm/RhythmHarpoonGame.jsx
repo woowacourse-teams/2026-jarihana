@@ -387,7 +387,7 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
               <div>
                 <b>ENOUGH</b>
                 <span>
-                  ±100ms <em>+300</em>
+                  빠름 120ms, 늦음 100ms <em>+300</em>
                 </span>
               </div>
               <div>
@@ -407,7 +407,8 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
                 끊겨요.
               </p>
               <p className="small muted">
-                ±100ms까지 포획돼요. 100ms 초과~150ms는 Uh oh로 세균을 놓치고 콤보가 끊겨요.
+                빠르게 누르면 120ms, 늦게 누르면 100ms까지 포획돼요. 그보다 벗어나 150ms까지는 Uh oh로
+                세균을 놓치고 콤보가 끊겨요.
                 150ms 초과~180ms 미만은 입력만 무시해요.
                 <br />
                 포획 시기를 놓치면 세균이 돌진해요.

@@ -7,8 +7,9 @@ export const POOR_PENALTY = 1000;
 export const JUDGMENTS = [
   { kind: "perfect", label: "PERFECT", window: PERFECT_WINDOW, score: 1000, color: "#416d36" },
   { kind: "hit", label: "HIT", window: HIT_WINDOW, score: 600, color: "#41687c" },
-  { kind: "enough", label: "ENOUGH", window: 0.1, score: 300, color: "#87702e" },
-  // 100ms를 넘겨 누르면 세균을 놓친다. 판정은 받지만 점수 없이 콤보가 끊기고 세균이 돌진한다.
+  // 일찍 누른 입력은 120ms까지 잡는다. 늦게 누른 입력은 100ms를 넘기면 놓친다.
+  { kind: "enough", label: "ENOUGH", window: 0.1, earlyWindow: 0.12, score: 300, color: "#87702e" },
+  // ENOUGH 범위를 벗어나 누르면 세균을 놓친다. 판정은 받지만 점수 없이 콤보가 끊기고 세균이 돌진한다.
   { kind: "uhoh", label: "Uh oh", window: CAPTURE_WINDOW, score: 0, color: "#8a5d45", whiff: true }
 ];
 export const ATTACK_DURATION = 0.18;
@@ -447,7 +448,10 @@ export class GameEngine {
 
   hit(note, at) {
     const delta = at - note.at;
-    const judgment = JUDGMENTS.find((item) => Math.abs(delta) <= item.window + 0.0000001);
+    const judgment = JUDGMENTS.find(
+      (item) =>
+        Math.abs(delta) <= (delta < 0 ? (item.earlyWindow ?? item.window) : item.window) + 0.0000001
+    );
     if (judgment.whiff) return this.whiff(note, at, delta, judgment);
     note.state = "caught";
     note.judgedAt = at;

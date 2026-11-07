@@ -33,24 +33,30 @@ const inHardTrill = (step) =>
     return section.pattern === "doubleTap" && step >= start && step < start + section.bars * 16 && step % 16 >= 12;
   });
 
-test("inclusive 32/64/100/150ms boundaries stay fixed at normal and accelerated rates", () => {
+test("inclusive 32/64/150ms boundaries with ENOUGH to 120ms early and 100ms late stay fixed at normal and accelerated rates", () => {
   for (const loop of [1, 6, 10]) {
     for (const [milliseconds, kind] of [
       [0, "perfect"],
       [32, "perfect"],
+      [-32, "perfect"],
       [32.001, "hit"],
+      [-32.001, "hit"],
       [64, "hit"],
+      [-64, "hit"],
       [64.001, "enough"],
+      [-64.001, "enough"],
       [100, "enough"],
       [100.001, "uhoh"],
-      [150, "uhoh"]
+      [-100.001, "enough"],
+      [-120, "enough"],
+      [-120.001, "uhoh"],
+      [150, "uhoh"],
+      [-150, "uhoh"]
     ]) {
-      for (const sign of [-1, 1]) {
-        const run = engine({ startLoop: loop });
-        const note = run.notes[0];
-        assert.equal(run.input(note.lane, note.at + (sign * milliseconds) / 1000).kind, kind);
-        assert.equal(run.lives, 10);
-      }
+      const run = engine({ startLoop: loop });
+      const note = run.notes[0];
+      assert.equal(run.input(note.lane, note.at + milliseconds / 1000).kind, kind, String(milliseconds));
+      assert.equal(run.lives, 10);
     }
   }
 });
@@ -117,7 +123,7 @@ test("Uh oh on one chord note still lets the rest be caught and costs one life",
   const run = engine({ startAt: 86.25 });
   const group = run.groups[0];
   const [first, ...rest] = group.notes;
-  assert.equal(run.input(first.lane, group.at - 0.12).kind, "uhoh");
+  assert.equal(run.input(first.lane, group.at - 0.13).kind, "uhoh");
   for (const note of rest) assert.equal(run.input(note.lane, group.at).kind, "perfect");
   assert.equal(run.combo, rest.length);
   run.tick(group.at + CAPTURE_WINDOW + ATTACK_DURATION + 0.001);
@@ -125,7 +131,9 @@ test("Uh oh on one chord note still lets the rest be caught and costs one life",
   assert.equal(run.combo, 0);
 });
 
-test("trilling two keys together on eighth notes loses the off-beat germs", () => {
+// 일찍 누른 쪽은 120ms까지 잡으므로 앞 노트에 맞춰 두 키를 누르면 뒤 노트(117ms 뒤)는 ENOUGH로 잡힌다.
+// 늦게 누른 쪽은 100ms 기준을 유지해, 뒤 노트에 맞춰 두 키를 누르면 앞 노트를 놓친다.
+test("trilling two keys together catches the next germ early as ENOUGH but loses the previous one late", () => {
   const fixture = {
     ...chart,
     sections: [{ startBar: 1, bars: 1, pattern: "basic" }],
@@ -135,19 +143,27 @@ test("trilling two keys together on eighth notes loses the off-beat germs", () =
       keys: [step % 2 ? "right" : "left"]
     }))
   };
-  const run = new GameEngine(fixture, { random: () => 0.5 });
-  const firstLoop = run.notes.filter((note) => note.loop === run.loops[0].number);
-  const lefts = firstLoop.filter((note) => note.lane === "left");
-  const rights = firstLoop.filter((note) => note.lane === "right");
-  for (const note of lefts) {
-    run.tick(note.at);
-    run.input("left", note.at);
-    run.input(rights.find((right) => right.at > note.at).lane, note.at);
+  const early = new GameEngine(fixture, { random: () => 0.5 });
+  const earlyNotes = early.notes.filter((note) => note.loop === early.loops[0].number);
+  for (const note of earlyNotes.filter((item) => item.lane === "left")) {
+    early.tick(note.at);
+    early.input("left", note.at);
+    early.input("right", note.at);
   }
-  assert(lefts.every((note) => note.state === "caught"));
-  assert(rights.every((note) => note.whiffed));
-  assert.equal(run.stats.uhoh, rights.length);
-  assert.equal(run.bestCombo, 1);
+  assert.equal(early.stats.perfect, 4);
+  assert.equal(early.stats.enough, 4);
+  assert.equal(early.stats.uhoh, 0);
+
+  const late = new GameEngine(fixture, { random: () => 0.5 });
+  const lateNotes = late.notes.filter((note) => note.loop === late.loops[0].number);
+  for (const note of lateNotes.filter((item) => item.lane === "right")) {
+    late.tick(note.at);
+    late.input("left", note.at);
+    late.input("right", note.at);
+  }
+  assert.equal(late.stats.perfect, 4);
+  assert.equal(late.stats.uhoh, 4);
+  assert(late.bestCombo <= 1);
 });
 
 test("overlapping same-lane windows retain the nearest-note matching rule", () => {

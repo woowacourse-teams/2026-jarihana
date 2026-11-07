@@ -17,6 +17,8 @@ public final class RhythmEngine {
     static final double PERFECT_WINDOW = 0.032;
     static final double HIT_WINDOW = 0.064;
     static final double ENOUGH_WINDOW = 0.1;
+    // 일찍 누른 입력은 ENOUGH를 120ms까지 준다. 늦게 누른 입력은 100ms를 넘기면 놓친다.
+    static final double ENOUGH_EARLY_WINDOW = 0.12;
     static final double CAPTURE_WINDOW = 0.15;
     static final double POOR_WINDOW = 0.18;
     static final double ATTACK_DURATION = 0.18;
@@ -212,14 +214,16 @@ public final class RhythmEngine {
     }
 
     private void hit(Note note, double at) {
-        double delta = Math.abs(at - note.at);
+        double signed = at - note.at;
+        double delta = Math.abs(signed);
+        double enoughWindow = signed < 0 ? ENOUGH_EARLY_WINDOW : ENOUGH_WINDOW;
         if (delta <= PERFECT_WINDOW + EPSILON) {
             catchNote(note, 1000);
             perfect++;
         } else if (delta <= HIT_WINDOW + EPSILON) {
             catchNote(note, 600);
             hit++;
-        } else if (delta <= ENOUGH_WINDOW + EPSILON) {
+        } else if (delta <= enoughWindow + EPSILON) {
             catchNote(note, 300);
             enough++;
         } else {
