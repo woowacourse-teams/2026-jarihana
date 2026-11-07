@@ -95,7 +95,9 @@ it("shows the sound tutorial open until it is finished, then folds it away", () 
     "href",
     "/games/rhythm-harpoon/practice"
   );
-  expect(screen.getByRole("button", { name: /공식 도전/ })).toBeDisabled();
+  const challenge = screen.getByRole("link", { name: /공식 도전/ });
+  expect(challenge).toHaveAttribute("href", "/games/rhythm-harpoon/challenge");
+  expect(challenge).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_ranked_open");
   first.unmount();
 
   localStorage.setItem("haengseong-lesson-v1", JSON.stringify({ done: [true, true, true] }));

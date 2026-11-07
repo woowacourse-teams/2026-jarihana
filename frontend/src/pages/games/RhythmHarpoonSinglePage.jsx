@@ -134,21 +134,18 @@ export function RhythmHarpoonSinglePage() {
                 않아요.
               </span>
             </Link>
-            <button
+            <Link
               className="rhythm-mode rhythm-mode--record"
               data-ph-capture-attribute-action="rhythm_ranked_open"
-              disabled
-              type="button"
+              to="/games/rhythm-harpoon/challenge"
             >
               <span className="eyebrow">RECORD</span>
-              <strong>
-                공식 도전 <span className="rhythm-hub__badge">준비 중</span>
-              </strong>
+              <strong>공식 도전</strong>
               <span>
-                점수를 서버가 다시 계산하는 기록 기능을 만든 뒤 열어요. 시작하면 설정이 잠기고 멈출
-                수 없어요.
+                점수를 서버가 다시 계산해 난이도별 랭킹에 올려요. 로그인이 필요하고, 시작하면 멈출 수
+                없어요.
               </span>
-            </button>
+            </Link>
           </div>
         </div>
       </div>
