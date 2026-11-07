@@ -101,6 +101,10 @@ export default (_, arguments_) => {
       }),
       new CopyWebpackPlugin({
         patterns: [
+          {
+            from: path.resolve(directory, "src/shared/styles/tokens.css"),
+            to: "assets/jarihana-tokens.css"
+          },
           { from: path.resolve(directory, "public/sw.js"), to: "sw.js" },
           { from: path.resolve(directory, "public/icons"), to: "icons" },
           {
@@ -116,6 +120,7 @@ export default (_, arguments_) => {
           {
             from: path.resolve(directory, "public/sparring-arena"),
             to: "sparring-arena",
+            globOptions: { ignore: isProduction ? ["**/avatar-lab/**"] : [] },
             // The standalone renderer uses native modules, including top-level await.
             info: ({ absoluteFilename }) =>
               absoluteFilename.endsWith(".js") ? { javascriptModule: true } : {}

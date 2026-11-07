@@ -20,6 +20,11 @@
 - `generation`은 사용자가 수정할 수 없다. 일반 회원은 양수 기수가 필수이고, `COACH` 회원은 기수를 저장하지 않는다.
 - 별도 `OauthAccount` 엔티티를 두지 않는다. GitHub 인증 정보 중 사용자 식별에 필요한 `githubId`를 `Member`가 직접 보유한다.
 - GitHub 프로필 이미지는 저장하지 않고 `githubId`로 아바타 URL을 구성한다.
+- 입체 캐릭터는 별도 `member_avatar` 테이블에 회원당 하나의 버전 1 파츠 조합을 저장한다.
+  파츠 허용 값·누락된 확장 파츠 기본값은 `AvatarAppearance`에서 관리하고 DB에는 파츠 CHECK를 중복하지 않는다.
+  프로필 이미지와 별도이며 회원 생성 시 조합을 강제로 만들지 않는다. 저장 전·삭제 후에는
+  머리와 안경이 없는 기본형을 조회 시 제공한다. 삭제는 교체 가능한 설정 행을 물리적으로 제거하며
+  회원 정보·프로필 사진에는 영향을 주지 않는다. [API 계약](../../api/endpoints/member-avatar.md)을 따른다.
 - `memberType = CREW`이면 `course`와 양수 `generation`을 저장하고, `memberType = COACH`이면 둘 다 저장하지 않는다.
 - `BOOTCAMP`는 부트캠프 정보와 분야를, `PROFESSIONAL`은 직무와 연차를 저장하고 회사 정보는 선택이다. 두 유형 모두 `course`와 `generation`을 저장하지 않는다.
 - 크루와 코치는 부트캠프, 분야, 연차, 회사 정보를 저장하지 않는다. DB의 `ck_member_profile_fields`가 유형별 조합을 함께 강제한다.

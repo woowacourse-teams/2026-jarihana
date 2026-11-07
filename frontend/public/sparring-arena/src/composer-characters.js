@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createCapsuleBatch } from './capsule-batch.js';
+import { avatarAppearanceKey } from './avatar-appearance.js';
 import { createWalkingCharacters } from './walking-characters.js';
 import { createSeatedCapsuleCharacters } from './chair-characters.js';
 import { NOZZLE_LENGTH_RATIO, NOZZLE_DEPTH, NOZZLE_HORIZONTAL } from './pipe-surfaces.js';
@@ -63,12 +64,13 @@ export function createComposerCharacters(scene, pixel) {
       const avatar = entry.avatar;
       const position = pixel(avatar.x + avatar.width / 2, avatar.y + avatar.height, 30);
       const size = avatar.height / CHARACTER_HEIGHT, memberType = side === 'b' ? 'COACH' : entry.memberType ?? 'CREW', active = Boolean(entry.active);
+      const appearanceKey = avatarAppearanceKey(entry.appearance);
       const previous = standingStates[index];
-      if (previous?.position.equals(position) && previous.size === size && previous.memberType === memberType && previous.active === active) continue;
-      standing.draw(index, { side, memberType }, position, size,
+      if (previous?.position.equals(position) && previous.size === size && previous.memberType === memberType && previous.active === active && previous.appearanceKey === appearanceKey) continue;
+      standing.draw(index, { side, memberType, ...(appearanceKey ? { appearance: entry.appearance } : {}) }, position, size,
         { scale: 1, shrink: 1, stride: 0, crouch: 0, rightArm: active ? -0.3 : 0, lean: 0 },
         side === 'a' ? 0.15 : -0.15);
-      standingStates[index] = { position, size, memberType, active };
+      standingStates[index] = { position, size, memberType, active, appearanceKey };
     }
   }
 
