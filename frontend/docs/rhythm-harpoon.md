@@ -1,0 +1,209 @@
+# 행성이의 리듬 작살
+
+## 진입과 실행
+
+- 헤더의 게임방 메뉴로 `/games` 게임판에 들어간 뒤 리듬게임 카드의 게임 시작으로
+  `/games/rhythm-harpoon` 첫 화면에 진입한다. 로그인 없이 쓸 수 있다.
+- 첫 화면은 게임방 목록(`/games`)과 같은 카드 모양(그림, 제목, 설명, 버튼)으로 싱글 플레이와 온라인 매칭 중 하나를 고른다. 싱글은 판 하나, 온라인은 판 두 개 그림이며 온라인 카드는 준비 중 비활성 버튼이다.
+  온라인 매칭은 아직 비활성 버튼과 준비 중 표시만 둔다. 붙일 때는 오목 대기실처럼 방 목록, 방 만들기,
+  초대 링크, 준비, 방장 시작으로 이어 가고 1:1이라 인원 수는 표시하지 않는다.
+- `/games/rhythm-harpoon/single`은 소리 이름(빨강 쿵, 파랑 착, 노랑 치)으로 박자를 익히는 싱글 플레이 화면이다.
+  소리 버튼(한 마디 미리 듣기), 패턴별 한 마디 악보, 따라 하기 진입을 보여 준다. 따라 하기를 마치거나 건너뛰면
+  이 부분을 "조작법을 다시 보고 싶다면? 펼치기 ▼" 드롭다운으로 접고 혼자 연습과 공식 도전이 먼저 보이게 한다.
+  공식 도전은 아래 기록 기능이 생길 때까지 비활성이다.
+- `/games/rhythm-harpoon/learn`은 따라 하기다. 쿵, 착, 치 세 단계마다 2마디 듣기와 4마디 해보기를 하고,
+  놓친 세균과 헛공격이 전체의 30% 이하면 통과한다. 빠르기는 72, 96, 128 BPM(기본 96), 세균 이동 배속은
+  ×1.0~×2.5에서 고르고, 패턴은 두 마디마다 좌우와 상하를 바꾸는 두 방향 트릴이다. 배경음은 녹음된 곡 없이
+  Web Audio로 만든 드럼 비트이며 본편보다 1.5배 크게 섞는다. 단계 완료와 건너뛰기 여부는 이 브라우저의
+  `haengseong-lesson-v1`에만 저장한다.
+- `/games/rhythm-harpoon/practice`는 Pixel Circuit 원곡 연습 플레이다. 상단 링크는 싱글 플레이로 돌아가고,
+  색 범례를 소리 이름과 함께 보여 주며 세균 위 소리 글자 표시를 켜고 끌 수 있다(기본 켬).
+- 연습과 따라 하기의 판은 데스크톱에서 앱 헤더와 도구 막대를 뺀 화면 높이를 모두 쓴다. 연습 판 왼쪽에는 폭이 고정된
+  난이도 열을 두어 난이도 설명 길이와 관계없이 판 위치가 바뀌지 않게 한다. 난이도 버튼은 Easy 초록, Medium 파랑,
+  Hard 보라, Hardest 빨강으로 구분하고 라이프는 SVG 하트와 숫자 배지로 표시한다. 나머지 설정과 안내(따라 하기는
+  단계, 설명, 악보, 빠르기와 배속)는 게임 영역 오른쪽에서 밀려 나오는 서랍에 둔다.
+  서랍은 플레이가 시작되면 닫히고 멈추거나 끝나면 다시 열리며, 도구 막대의 설정 버튼으로 언제든 열고 닫는다.
+  플레이 중 설정 버튼을 누르면 포커스가 판을 떠나므로 연습은 일시정지하고 따라 하기는 이번 시도를 멈춘다.
+  따라 하기의 다음 소리 줄은 판 위에 겹쳐 플레이 중에도 보인다. 휴대폰에서는 서랍 대신 판 아래에 한 열로 쌓는다.
+- 연습에서는 R(다시 하기 키)로 플레이 중, 일시정지 중, 게임 오버 뒤에 같은 설정으로 처음부터 다시 시작한다.
+  눌러 둔 키의 반복 입력과 입력창에 포커스가 있을 때는 무시한다.
+- 설정 서랍의 키 배치에서 왼쪽, 아래, 위, 오른쪽(기본 W, A, S, D)과 다시 하기(기본 R) 키를 바꾼다.
+  방향키는 항상 쓸 수 있다. 글자, 숫자, 기호 키만 배정하고 Esc, Enter, Space, Tab, 수정 키와 방향키는 받지 않는다.
+  다른 동작이 쓰던 키를 고르면 두 동작의 키를 맞바꾼다. 바꾸는 동안 누른 키는 게임 조작으로 쓰지 않는다.
+  따라 하기도 같은 방향 키 배치를 쓴다.
+- 다시 접속해도 유지되도록 이 브라우저의 localStorage에 저장한다. 연습 설정(난이도, 배속, 음량, FAST/SLOW,
+  소리 글자)은 `haengseong-practice-settings-v1`, 키 배치는 `haengseong-keymap-v1`, 따라 하기의 빠르기와 배속은
+  `haengseong-lesson-settings-v1`, 입력 지연 보정은 기존 키에 둔다. 읽을 때 값을 검증하고 맞지 않으면 기본값을 쓴다.
+- 첫 화면의 게임방 링크는 오목 화면과 같은 `games_back`으로 게임판에 돌아간다.
+- Esc는 바로 전 단계 화면으로 돌아간다(첫 화면은 게임방, 싱글 플레이는 첫 화면, 따라 하기와 연습은 싱글 플레이). 각 화면의 뒤로 가기 링크에 `aria-keyshortcuts="Escape"`를 붙였다.
+  게임이 먼저 Esc를 쓰면 화면은 움직이지 않는다. 연습은 플레이 중 Esc가 일시정지, 일시정지 중 Esc가 다시 시작이고, 따라 하기는 진행 중 Esc가 멈춤이다.
+  키 바꾸기 중의 취소, 열린 싱크 진단 창, 글자 입력 칸에서도 화면을 떠나지 않는다(`useEscapeBack.js`).
+- `src/features/game/rhythm/RhythmHarpoonGame.jsx`가 연습 React 화면을 소유한다.
+  독립 HTML과 iframe은 사용하지 않는다. 정적 경로에는 음악, 채보, 스프라이트만 둔다.
+- `mount-practice-game.mjs`가 DOM 이벤트, 음악 시계, Canvas와 싱크 진단의 실행 수명을 관리한다.
+  컴포넌트 정리 시 fetch와 이벤트를 취소하고, 애니메이션과 모든 AudioContext를 종료한다.
+  자산 로딩이나 음악 활성화 중 이탈해도 이전 실행이 뒤늦게 시작되지 않는다.
+- 키 입력은 게임 영역에 포커스가 있을 때만 처리한다. 바깥 메뉴와 폼의 입력을 가로채지 않는다.
+  포커스가 바깥으로 이동하면 게임을 멈추고 바깥 포커스를 유지한다.
+- 오류 안내와 다시 불러오기를 제공한다. 재로딩은 이전 런타임을 정리한 뒤 새로 시작한다.
+
+## 게임과 서비스의 경계
+
+| 모듈 | 책임 |
+| --- | --- |
+| `engine.mjs` | 채보 단순화, 랜덤 배치, 판정과 클라이언트 표시용 점수 |
+| `render.mjs`, `audio.mjs` | Canvas와 실제 오디오 출력 시계 |
+| `calibration.mjs`, `sync-ui.mjs` | 기기 입력 지연 보정과 진단 |
+| `practice-session.mjs` | 로컬 연습 세션과 미검증 결과 구분 |
+| `mount-practice-game.mjs` | React 영역에서 모듈 연결과 실행 수명 관리 |
+| `RhythmHarpoonGame.jsx`, `pages/games/RhythmHarpoonPage.jsx` | 연습 화면과 싱글 플레이 복귀 |
+| `lesson.mjs` | 따라 하기 단계, 트릴 채보, 통과 판정, 진행 저장, 드럼 배치 |
+| `lesson-audio.mjs` | 따라 하기 드럼 비트 렌더링과 소리 버튼 미리 듣기 |
+| `mount-lesson-game.mjs` | 따라 하기의 판, 입력, 음악 시계 실행 수명 |
+| `notation.mjs`, `RhythmScore.jsx` | 한 마디 리듬 악보 배치와 그리기 |
+| `RhythmBoardArt.jsx` | 첫 화면 카드의 판 그림 |
+| `pages/games/RhythmHarpoonEntryPage.jsx`, `RhythmHarpoonSinglePage.jsx`, `RhythmHarpoonLessonPage.jsx` | 첫 화면, 싱글 플레이, 따라 하기 |
+
+따라 하기는 본편 엔진과 렌더러, 음악 시계를 그대로 쓴다. 엔진에 미리 만든 채보(`events`)를 넘겨
+난이도별 단순화를 건너뛰고, 다음 루프의 세균이 보이기 전에 끝나도록 채보 끝에 빈 두 마디를 둔다.
+들어보기는 엔진의 autoplay로 두 마디를 보여 주는 시연이며 통과나 점수로 인정하지 않는다.
+따라 하기 결과도 서버로 보내지 않는다.
+
+서비스 세션 팩터리는 난이도와 이동 배속만 받는다. 매번 1마디, 1루프부터 수동으로 시작한다.
+오토 감상, 구간 이동, 시작 루프, 임의 랜덤 함수와 클라이언트의 랭킹 자격 지정은 서비스 설정이 아니다.
+엔진의 해당 옵션은 회귀 테스트와 개발용 시뮬레이션에서 사용할 수 있다.
+기본 난이도는 Easy다. 난이도와 이동 배속 변경은 처음부터 다시 시작한다.
+
+현재 세션과 결과는 모두 `mode: practice`, `verification: unverified`다.
+화면도 연습 점수와 기록 미저장 여부를 표시한다. 저장 API, 랭킹, 점수 업로드와 로컬 점수 기록은 없다.
+로컬 저장소는 입력 지연 보정에만 사용한다.
+
+## 다음 기록 기능의 신뢰 경계
+
+이 분리는 유지보수와 잘못된 연결을 막기 위한 구조이며 보안 검증이 아니다.
+브라우저 코드, 점수, 입력 시각과 `verification` 같은 클라이언트 필드는 사용자가 바꿀 수 있다.
+이 결과를 그대로 회원 기록에 저장하는 API를 추가하면 안 된다.
+화면에서 옵션을 없앤 것도 랭킹의 서버 검증을 대신하지 않는다.
+
+다음 작업의 기록 도전은 연습 세션과 별도로 구현한다.
+
+1. 서버가 인증된 회원과 세션을 연결하고 채보 및 규칙 버전, 난이도와 랜덤 배치를 정한다.
+2. 클라이언트는 서버 세션의 순서 있는 입력과 진행 정보를 보낸다. 결과 점수와 회원 ID를 정답으로 제출하지 않는다.
+3. 서버는 수신 시각과 진행 시간, 입력 순서, 소유권과 중복 요청을 검사하고 점수 및 생존 상태를 계산한다.
+4. 검증된 종료 결과만 저장한다. 난이도와 규칙 버전을 구분해 랭킹과 개인 기록을 조회한다.
+5. 연습, 구간 이동, 오토 감상과 검증이 중단된 실행을 기록 저장 경로로 승격하지 않는다.
+
+입력 묶음 크기와 간격, 재시도, 일시정지, 중도 이탈, 통신 단절과 버전 교체 정책도 서버 구현 때 확정해야 한다.
+사후 리플레이와 경과 시간만 검사하면 입력 자체를 조작할 수 있다. 실시간 진행 검증을 포함해도
+자동 입력 봇을 완전히 차단한다고 보장할 수는 없다. 난독화나 숨긴 버튼을 보안 근거로 삼지 않는다.
+이번 작업에는 DB, 인증 변경, 기록 API와 랭킹 구현을 포함하지 않는다.
+
+## 유지한 게임 동작
+
+이관 기준 원본은 Sites 버전 23의 커밋 `2c8f38377dc1ae588091099c7738c605166d1adf`다.
+128 BPM, 90초 루프와 기존 스프라이트를 유지한다. 음악과 채보의 추가 편곡은 아래 2연타 구간을 따른다.
+Easy 10, Medium 8, Hard 8, Hardest 10 라이프, 화살표와 WASD 및 터치,
+이동 배속 1.0~3.0(0.25 단위), 판정, 헛공격 -1,000점, 패스트/슬로우와 싱크 진단을 유지한다.
+계단 진행 방향과 반전 예고, 루프 랜덤과 템포 상승도 유지한다.
+기존 Sites 출처의 보정값은 자동 이전되지 않으므로 자리하나에서 다시 맞춘다.
+
+## 2연타 구간 편곡
+
+90초 루프와 29마디의 짧은 2연타 소개를 유지한다. 본격적인 2연타 난사는 트릴과 회오리 뒤로 옮긴다.
+
+| 재생 위치 | 패턴 |
+| --- | --- |
+| 37~38마디 | 16분 교대 트릴 |
+| 39~40마디 | 두 번째 회오리, 반전 예고 유지 |
+| 41~42마디 | 기존 39~40마디의 완충 패턴 |
+| 43~44마디 | 사방으로 이동하는 16분 2연타 난사 |
+
+다른 난이도도 같은 음악 구간을 함께 이동한다. 2연타 구간의 Easy는 4분 단노트 4개,
+Medium은 8분 교대 8개, Hard는 8분 진행과 마지막 박의 짧은 트릴 10개,
+Hardest는 16분 2연타 16개를 한 마디에 배치한다.
+회오리 직후 단노트와 난사 전후의 방향을 조정해 경계에서 의도하지 않은 연타가 생기지 않게 한다.
+
+채보의 `events`와 `sections`는 작곡 원본의 마디 좌표를 보존한다. `playbackBarOrder`는 재생 마디마다
+원본의 어느 마디를 사용할지 지정하는 48개 정수의 순열이다. `simplifyChart`가 난이도별 단순화 후
+노트의 마디와 샘플 위치를 변환하고, `playbackSections`가 회오리 신호와 랜덤 회전에 사용할 구간을 변환한다.
+따라서 원본 JSON의 마디 번호를 곧바로 화면이나 서버 검증에 사용하지 않는다.
+원본 좌표의 회귀 검증은 `tests/games/rhythm-harpoon/fixtures/pre-climax-chart.json`,
+현재 재생 순서는 `climax-order.test.mjs`에서 별도로 검사한다.
+
+음악도 같은 순열로 마디 블록을 옮기며 새 접합부에 3ms 페이드를 적용한다. 39~48마디에는 낮은
+16분 아르페지오를 계속 깐다. 새 화성 진행은 G, D, Em, B, G, D, Em, C, G, B다.
+43~44마디는 39~40마디 회오리 프레이즈를 같은 선율과 반주 흐름으로 재사용한다. 난사 구간이 커지지 않도록 기존 음량에 맞추며 채보는 유지한다.
+기존 반주에는 필터와 덕킹을 추가하지 않는다. 채보 버전은 `climax-order-4`, 음원 버전은 `spiral-melody-5`다.
+
+`scripts/arrange-double-taps.py`가 원본 48kHz 스테레오 16비트 WAV와 현재 채보로 음악을 생성한다.
+NumPy와 libvorbis를 지원하는 ffmpeg가 필요하며 프론트엔드 빌드 의존성은 아니다.
+원본은 `pixel-circuit-128-axis-trill.wav`이고 SHA-256은 아래 측정 보고서에 기록한다.
+이미 편곡한 출력을 다시 입력하지 않는다.
+
+```text
+python scripts/arrange-double-taps.py --input-wav <원본 WAV 절대 경로> --chart public/game-assets/rhythm-harpoon/assets/chart.json --output-wav <출력 WAV 절대 경로> --output-ogg public/game-assets/rhythm-harpoon/assets/pixel-circuit.ogg --report docs/rhythm-double-tap-mix.json
+```
+
+샘플 위치, 음량, 피크, 변경하지 않은 PCM 구간과 배포 음원 해시는
+[편곡 측정 보고서](rhythm-double-tap-mix.json)에서 확인한다.
+
+## Hardest 13~16마디
+
+`playbackOverrides.hardest`는 난이도 단순화와 재생 순서 변환을 마친 뒤 지정한 재생 마디만 교체한다.
+각 마디의 `column`은 0부터 시작하는 16분음표 위치다. 다른 난이도와 음원은 유지한다.
+
+- 13~14마디: 왼쪽 8분 연타에 오른쪽, 아래, 위 동시타를 더한 24노트.
+- 15~16마디: 8분 교대에서 엇박과 끝의 16분 교대로 이어지는 17노트.
+
+이 수정의 채보 버전은 `bars-13-16-1`이며 기본 편곡 버전과 음원 버전은 위와 같다.
+
+13~14마디는 왼쪽 8분 연타에 동시타가 겹쳐 40루프(2.75배속)에서 4키를 초당 2번 누르기만 해도 점수가 +1100이 됐다.
+채보는 그대로 두고 빈 입력을 무시하는 범위를 150ms 초과~200ms 미만에서 150ms 초과~180ms 미만으로 줄였다.
+이 값만 바꿨을 때 `scoring.test.mjs`의 1280개 연타 경우 중 가장 높은 점수는 -8100이었다.
+
+## 조기 미스와 콤보
+
+점수가 마이너스여도 판정이 너그러우면 뭉개서 친 입력도 콤보와 라이프가 이어졌다.
+16분 트릴을 8분마다 두 키 동시에 누르면 늦은 쪽 노트가 Uh oh(+100)로 잡혀 벌점과 콤보 끊김이 없었고,
+4키 연타도 헛공격 벌점만 받고 풀콤보를 유지했다. 판정 폭을 ±21ms 수준으로 줄인 시뮬레이션에서도 같은 결과였다.
+
+- ±100ms 안의 입력만 세균을 잡는다. 100ms 초과~150ms 입력은 Uh oh 판정으로 세균을 놓친다.
+  점수는 0점이고 콤보가 바로 끊기며, 놓친 세균은 판정선을 지나 돌진해 다른 미스처럼 그 묶음에서 라이프 1개를 깎는다.
+  놓친 세균은 다시 잡을 수 없고 미스 수에 두 번 세지 않는다.
+- 헛공격은 1,000점 감점과 함께 콤보를 끊는다.
+- 변경 뒤 1280개 연타 경우의 최고 점수는 -10700, 최고 콤보는 26이다.
+  입력 오차가 표준편차 25ms인 사람을 가정한 시뮬레이션은 Hard와 Hardest에서 Uh oh 없이 풀콤보를 유지했다.
+
+## 클레이 스프라이트
+
+방향 패널은 Canvas의 둥근 면과 부드러운 음영으로 클레이 두께를 표현한다.
+캐릭터 쪽에서 패널 길이의 약 3분의 1 안에 밝은 크림색으로 바뀌며, 나머지는 밝게 유지한다.
+판정선은 그림자 없이 진한 청록색 7px 선과 흰색 14px 테두리로 마지막에 그리며,
+판정 위치는 중심에서 242px인 기존 좌표와 같다. 연습과 따라 하기가 같은 렌더러를 쓴다.
+
+`assets/sprites-clay-v1.png`는 승인한 클레이 시안의 배경을 제거한 1254×1254 RGBA 이미지다.
+`sprite-atlas.mjs`의 URL, 시트 크기와 프레임 좌표를 연습, 따라 하기, 메뉴의 판 그림과 결과 화면이 공유한다.
+행성이 표정 4개, 세균의 기본/포획 상태 4색, 작살, 포획 효과와 하트를 기존 인덱스 순서로 유지한다.
+초록색은 기타 박자를 위한 예비 프레임이며 현재 채보에 새 노트를 추가하지 않는다.
+원본 `sprites.png`는 보존한다.
+
+내장 `image_gen`으로 승인 시안에 아래 프롬프트를 적용했다.
+
+```text
+Use case: background-extraction.
+Edit this approved clay sprite sheet into a production game texture atlas.
+Preserve the 15 approved clay sculptures, expressions, material, colors and scale. Preserve the exact 4-column by 4-row arrangement and the empty bottom-right cell. Do not redesign or add objects.
+
+Remove the ivory studio background AND ALL shadows beneath the objects. Deliver truly transparent alpha outside the actual solid sculptures, including every gap between sprites. No ivory patches, no color spill, no colored halos, no dust, flecks or remaining background noise. Silhouettes must have clean anti-aliased cutout edges. The result must composite cleanly on BOTH a pale mint game board and a very dark scoreboard.
+Keep all four white mascot faces complete, including the separate yellow emphasis marks of the hurt expression, all eight colored germ shapes, arrow, impact star and heart. No text, labels, grids, frames or new elements.
+This is precise background removal of the existing approved image, not a new style variation.
+```
+
+## 검증
+
+`npm run lint`, 관련 Jest 테스트, `npm run build`를 사용한다.
+Jest의 `tests/games/rhythm-runtime.test.js`가 `tests/games/rhythm-harpoon/`의 Node 회귀 테스트를 실행한다.
+`lesson.test.mjs`는 트릴 채보, 빈 마디, 통과 판정, 진행 저장, 드럼 배치와 악보 배치를 확인한다.
+페이지 테스트는 `.mjs` 런타임 모듈을 함께 읽으므로 Jest가 `.mjs`도 babel로 변환한다.
+엔진 테스트는 실제 서비스가 번들링하는 소스 모듈을 읽는다.
+브라우저에서는 진입, 플레이, 입력과 포커스, 난이도와 배속, 싱크 진단, 재로딩과 게임방 복귀를 확인한다.

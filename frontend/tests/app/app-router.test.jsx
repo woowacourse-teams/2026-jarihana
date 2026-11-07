@@ -52,6 +52,11 @@ it.each([
   ["/land/", "LandingPage"],
   ["/groups", "GroupBrowsePage"],
   ["/activities", "ActivityPostsPage"],
+  ["/games", "GamesPage"],
+  ["/games/rhythm-harpoon", "RhythmHarpoonEntryPage"],
+  ["/games/rhythm-harpoon/single", "RhythmHarpoonSinglePage"],
+  ["/games/rhythm-harpoon/learn", "RhythmHarpoonLessonPage"],
+  ["/games/rhythm-harpoon/practice", "RhythmHarpoonPage"],
   ["/invitations/501", "InvitationPage"],
   ["/invitations/link/token", "InvitationPage"],
   ["/groups/42", "GroupDetailPage"]
