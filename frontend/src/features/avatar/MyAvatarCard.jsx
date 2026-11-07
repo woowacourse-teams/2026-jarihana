@@ -42,6 +42,7 @@ export function MyAvatarCard({ previewPaused = false }) {
         {previewReady ? <AvatarFrame key={JSON.stringify(query.data.appearance)} appearance={query.data.appearance} mode="preview" /> : <div className="avatar-preview-placeholder" aria-hidden="true" style={{ height: 280 }} />}
         <Link className="ui-button ui-button--primary" data-ph-capture-attribute-action="my_avatar_edit_open" to="/my/avatar">{query.data.customized ? "아바타 수정하기" : "아바타 만들기"}</Link>
       </> : null}
+      <Link className="ui-button ui-button--secondary" data-ph-capture-attribute-action="shop_open" to="/shop">상점 미리보기</Link>
     </Card>
   );
 }

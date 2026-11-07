@@ -14,7 +14,13 @@ function fail() {
 const resize = new ResizeObserver(() => send('resize', { height: Math.ceil(document.body.getBoundingClientRect().height) }));
 resize.observe(document.body);
 function initialize(event) {
-  if (event.origin !== location.origin || event.source !== window.parent || event.data?.channel !== CHANNEL || event.data.type !== 'initialize' || initialized) return;
+  if (event.origin !== location.origin || event.source !== window.parent || event.data?.channel !== CHANNEL) return;
+  if (previewOnly && initialized && event.data.type === 'preview-appearance') {
+    const next = readAvatarAppearance(event.data.appearance);
+    if (next) preview?.setAppearance(next);
+    return;
+  }
+  if (event.data.type !== 'initialize' || initialized) return;
   const appearance = readAvatarAppearance(event.data.appearance);
   if (!appearance) { fail(); return; }
   initialized = true;
