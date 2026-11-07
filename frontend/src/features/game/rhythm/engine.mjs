@@ -26,18 +26,20 @@ export const JUDGMENTS = [
 export const ATTACK_DURATION = 0.18;
 export const APPROACH_SECONDS = 1.25;
 export const LEVELS = {
-  easy: { name: "Easy", lives: 10, description: "정박 위주의 단타로 리듬을 익혀요." },
+  easy: { name: "Easy", lives: 10, loopHeal: 3, description: "정박 위주의 단타로 리듬을 익혀요." },
   medium: {
     name: "Medium",
     lives: 8,
+    loopHeal: 3,
     description: "한 박 간격의 축연타와 8분 엇박 단타가 나와요."
   },
   hard: {
     name: "Hard",
     lives: 8,
+    loopHeal: 3,
     description: "2키 동시타와 16분 엇박, 박을 넘나드는 리듬에 도전해요."
   },
-  hardest: { name: "Hardest", lives: 10, description: "라이프 10개, 자신 있게 드립니다!" }
+  hardest: { name: "Hardest", lives: 10, loopHeal: 5, description: "라이프 10개, 자신 있게 드립니다!" }
 };
 
 export function rateForLoop(loopNumber) {
@@ -371,6 +373,7 @@ export class GameEngine {
     this.maxLives = LEVELS[this.level].lives;
     this.lives = this.maxLives;
     this.loopHeal = LEVELS[this.level].loopHeal;
+    this.nextLoopToHeal = 0;
     this.score = 0;
     this.combo = 0;
     this.bestCombo = 0;
@@ -457,6 +460,13 @@ export class GameEngine {
     return this.loops.find((loop) => time < loop.end) || this.loops[this.loops.length - 1];
   }
 
+  healCompletedLoops(time) {
+    while (this.nextLoopToHeal < this.loops.length && this.loops[this.nextLoopToHeal].end <= time) {
+      this.lives = Math.min(this.maxLives, this.lives + this.loopHeal);
+      this.nextLoopToHeal++;
+    }
+  }
+
   hit(note, at) {
     const delta = at - note.at;
     const judgment = JUDGMENTS.find(
@@ -520,8 +530,7 @@ export class GameEngine {
   tick(time) {
     if (this.dead) return;
     this.elapsed = time;
-    const last = this.loops[this.loops.length - 1];
-    if (last.end - time < 4) this.appendNextLoop();
+    while (this.loops[this.loops.length - 1].end - time < 4) this.appendNextLoop();
     if (this.autoplay) {
       for (const note of this.notes) {
         if (note.state === "waiting" && !note.whiffed && note.at <= time) this.hit(note, note.at);
@@ -536,6 +545,8 @@ export class GameEngine {
       if (group.damaged || time < group.at + CAPTURE_WINDOW + ATTACK_DURATION) continue;
       const missed = group.notes.filter((note) => note.state === "attack");
       if (!missed.length) continue;
+      // 프레임이 늦어져도 완주 보상과 피해를 실제 발생 시각 순서로 처리한다.
+      this.healCompletedLoops(group.at + CAPTURE_WINDOW + ATTACK_DURATION);
       group.damaged = true;
       for (const note of missed) note.state = "gone";
       // Uh oh로 이미 센 세균은 미스에 다시 세지 않는다.
@@ -552,6 +563,7 @@ export class GameEngine {
         break;
       }
     }
+    if (!this.dead) this.healCompletedLoops(time);
   }
 
   drainEffects() {

@@ -6,6 +6,9 @@ import {
   RankedBatchSender,
   RankedInputLog,
   applyRankedBatch,
+  assertRankedVersions,
+  RANKED_RULES_VERSION,
+  RANKED_CHART_VERSION,
   createRankedEngine,
   createSeededRandom,
   summarizeRankedEngine
@@ -22,6 +25,18 @@ import {
 const chart = readChart();
 // Windows 체크아웃은 줄바꿈을 CRLF로 바꿀 수 있어 LF로 맞춰 비교한다.
 const readText = (file) => readFileSync(file, "utf8").replace(/\r\n/g, "\n");
+
+test("ranked play rejects stale rules even when the chart version still matches", () => {
+  const current = { rulesVersion: RANKED_RULES_VERSION, chartVersion: RANKED_CHART_VERSION };
+  assert.doesNotThrow(() => assertRankedVersions(current));
+  for (const session of [
+    { ...current, rulesVersion: "rhythm-harpoon-ranked-1" },
+    { ...current, rulesVersion: undefined },
+    { ...current, chartVersion: "old-chart" }
+  ]) {
+    assert.throws(() => assertRankedVersions(session), /새로고침/);
+  }
+});
 
 test("the seeded random matches the 32-bit LCG the server reimplements", () => {
   const random = createSeededRandom(1);
@@ -132,4 +147,15 @@ test("the server chart and the JS/Java golden replays are regenerated from the c
     serialize(buildGoldenReplays(chart)),
     "node scripts/export-rhythm-ranked-fixtures.mjs로 대조 데이터를 다시 만들어요."
   );
+});
+
+test("golden replays exercise two loop rewards on every level with real missed groups", () => {
+  const golden = JSON.parse(readText(GOLDEN_REPLAYS_PATH));
+  for (const [level, lives] of [["easy", 6], ["medium", 4], ["hard", 4], ["hardest", 8]]) {
+    const scenario = golden.scenarios.find((item) => item.name === level + "-loop-recharge");
+    assert.equal(scenario.expected.lives, lives);
+    assert.equal(scenario.expected.loop, 3);
+    assert.equal(scenario.expected.dead, false);
+    assert(scenario.expected.miss > 0);
+  }
 });

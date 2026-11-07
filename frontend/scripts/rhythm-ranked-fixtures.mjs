@@ -51,6 +51,7 @@ export function buildRankedChart(chart) {
   for (const level of Object.keys(LEVELS)) {
     levels[level] = {
       lives: LEVELS[level].lives,
+      loopHeal: LEVELS[level].loopHeal,
       events: simplifyChart(chart, level).map(({ step, sample, keys }) => [step, sample, keys]),
       staircases: staircaseTable(chart, level)
     };
@@ -121,6 +122,20 @@ const masher = (hz) => (engine, from, until) => {
   return presses;
 };
 
+// 각 루프 초반에만 일부러 놓치고 나머지는 정확히 눌러 두 번의 완주 충전을 대조한다.
+const loopRechargePlayer = (engine, from, until) => {
+  const skipped = new Set();
+  const count = engine.level === "hardest" ? 6 : 5;
+  for (const loop of engine.loops) {
+    for (const group of engine.groups.filter((group) => group.notes[0].loop === loop.number).slice(0, count)) {
+      skipped.add(group);
+    }
+  }
+  return engine.notes
+    .filter((note) => note.at >= from && note.at < until && !skipped.has(note.group))
+    .map((note) => [LANES.indexOf(note.lane), note.at]);
+};
+
 export function buildGoldenReplays(chart) {
   const scenarios = [];
   for (const level of Object.keys(LEVELS)) {
@@ -136,6 +151,11 @@ export function buildGoldenReplays(chart) {
         chart,
         { name: level + "-four-key-masher", level, seed: 7, scrollSpeed: 1, startLoop: 1, seconds: 40 },
         masher(7)
+      ),
+      replay(
+        chart,
+        { name: level + "-loop-recharge", level, seed: 20261108, scrollSpeed: 1, startLoop: 1, seconds: 182 },
+        loopRechargePlayer
       )
     );
   }

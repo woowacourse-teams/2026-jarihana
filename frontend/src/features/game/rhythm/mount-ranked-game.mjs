@@ -10,6 +10,7 @@ import {
   RankedBatchSender,
   RankedInputLog,
   applyRankedInput,
+  assertRankedVersions,
   createRankedEngine
 } from "./ranked-run.mjs";
 
@@ -252,9 +253,7 @@ export function mountRankedGame({
 
   async function load() {
     try {
-      if (session.chartVersion !== RANKED_CHART_VERSION) {
-        throw new Error("게임이 새로 바뀌었어요. 새로고침한 뒤 다시 도전해 주세요.");
-      }
+      assertRankedVersions(session);
       const spritePromise = new Promise((resolve, reject) => {
         const image = new Image();
         image.onload = () => resolve(image);

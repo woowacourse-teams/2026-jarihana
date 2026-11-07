@@ -54,6 +54,6 @@ public final class RhythmChartReader {
             }
             staircases.put(entry.getKey(), rotations);
         }
-        return new RhythmChart.Level(node.required("lives").asInt(), events, staircases);
+        return new RhythmChart.Level(node.required("lives").asInt(), node.required("loopHeal").asInt(), events, staircases);
     }
 }

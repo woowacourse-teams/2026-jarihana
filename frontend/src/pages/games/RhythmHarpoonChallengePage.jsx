@@ -97,7 +97,8 @@ export function RhythmHarpoonChallengePage() {
         seed: created.seed,
         level: options.level,
         scrollSpeed: created.scrollSpeed,
-        chartVersion: created.chartVersion
+        chartVersion: created.chartVersion,
+        rulesVersion: created.rulesVersion
       });
       setResult(null);
       setInvalid(null);

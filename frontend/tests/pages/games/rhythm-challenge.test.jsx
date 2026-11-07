@@ -58,7 +58,7 @@ const created = {
   level: "HARDEST",
   scrollSpeed: 2,
   seed: 987654,
-  rulesVersion: "rhythm-harpoon-ranked-1",
+  rulesVersion: "rhythm-harpoon-ranked-2",
   chartVersion: "bars-13-16-1",
   status: "CREATED"
 };
@@ -116,7 +116,8 @@ it("walks from options to a confirmed challenge with the server seed", async () 
     seed: 987654,
     level: "hardest",
     scrollSpeed: 2,
-    chartVersion: "bars-13-16-1"
+    chartVersion: "bars-13-16-1",
+    rulesVersion: "rhythm-harpoon-ranked-2"
   });
   expect(screen.getByRole("listitem", { current: "step" })).toHaveTextContent("도전");
 });

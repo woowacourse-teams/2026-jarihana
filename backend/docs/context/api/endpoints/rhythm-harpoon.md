@@ -31,7 +31,7 @@
 | --- | --- |
 | `challengeId`, `level`, `scrollSpeed` | 도전 식별자, 난이도, 세균 이동 배속 |
 | `seed` | 서버가 정한 방향 섞기 시드. 클라이언트는 같은 시드로 판을 그린다. |
-| `rulesVersion`, `chartVersion` | 서버 재계산 규칙과 채보 판본. 클라이언트의 채보 판본과 다르면 시작하지 않는다. |
+| `rulesVersion`, `chartVersion` | 서버 재계산 규칙과 채보 판본. 클라이언트의 규칙 또는 채보 판본과 다르면 시작하지 않는다. |
 | `status` | `CREATED`, `PLAYING`, `FINISHED`, `INVALID` |
 | `sequence` | 마지막으로 계산한 묶음 순번 |
 | `score`, `lives`, `bestCombo`, `loopReached` | 서버가 다시 계산한 점수, 남은 라이프, 최고 콤보, 도달 루프 |

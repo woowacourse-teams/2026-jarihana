@@ -43,6 +43,7 @@ public final class RhythmEngine {
     private final Map<RhythmLane, List<Note>> laneNotes = new EnumMap<>(RhythmLane.class);
     private int notePointer;
     private int groupPointer;
+    private int nextLoopToHeal;
     private int lives;
     private long score;
     private int combo;
@@ -253,7 +254,7 @@ public final class RhythmEngine {
             return;
         }
         elapsed = time;
-        if (loops.getLast().end - time < APPEND_AHEAD_SECONDS) {
+        while (loops.getLast().end - time < APPEND_AHEAD_SECONDS) {
             appendNextLoop();
         }
         while (notePointer < notes.size() && time > notes.get(notePointer).at + CAPTURE_WINDOW) {
@@ -265,10 +266,19 @@ public final class RhythmEngine {
         while (groupPointer < groups.size()
                 && !(time < groups.get(groupPointer).at + CAPTURE_WINDOW + ATTACK_DURATION)) {
             Group group = groups.get(groupPointer++);
+            healCompletedLoops(group.at + CAPTURE_WINDOW + ATTACK_DURATION);
             damage(group);
             if (dead) {
                 return;
             }
+        }
+        healCompletedLoops(time);
+    }
+
+    private void healCompletedLoops(double time) {
+        while (nextLoopToHeal < loops.size() && loops.get(nextLoopToHeal).end <= time) {
+            lives = Math.min(levelChart.lives(), lives + levelChart.loopHeal());
+            nextLoopToHeal++;
         }
     }
 

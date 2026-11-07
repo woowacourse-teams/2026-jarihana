@@ -1,9 +1,15 @@
 import { GameEngine, LANES, LEVELS } from "./engine.mjs";
 
 // 서버 재계산 규칙과 채보 판본이다. 판정, 라이프, 채보를 바꾸면 서버 채보와 대조 데이터를 다시 만들고 판본을 올린다.
-export const RANKED_RULES_VERSION = "rhythm-harpoon-ranked-1";
+export const RANKED_RULES_VERSION = "rhythm-harpoon-ranked-2";
 export const RANKED_CHART_VERSION = "bars-13-16-1";
 export const RANKED_BATCH_SECONDS = 2;
+
+export function assertRankedVersions({ rulesVersion, chartVersion }) {
+  if (rulesVersion !== RANKED_RULES_VERSION || chartVersion !== RANKED_CHART_VERSION) {
+    throw new Error("게임이 새로 바뀌었어요. 새로고침한 뒤 다시 도전해 주세요.");
+  }
+}
 
 // 서버의 Java 엔진과 같은 32비트 LCG다. 같은 시드면 루프마다 같은 방향 배치가 나온다.
 export function createSeededRandom(seed) {

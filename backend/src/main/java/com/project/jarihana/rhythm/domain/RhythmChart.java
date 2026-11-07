@@ -84,10 +84,13 @@ public final class RhythmChart {
     /**
      * {@code staircases}의 키는 루프 방향 배치를 left, down, right, up 순서의 이름으로 이은 문자열이다.
      */
-    public record Level(int lives, List<Event> events, Map<String, List<Staircase>> staircases) {
+    public record Level(int lives, int loopHeal, List<Event> events, Map<String, List<Staircase>> staircases) {
         public Level {
             if (lives <= 0) {
                 throw new IllegalArgumentException("라이프는 1개 이상이어야 합니다.");
+            }
+            if (loopHeal < 0 || loopHeal > lives) {
+                throw new IllegalArgumentException("완주 충전량은 0 이상 최대 라이프 이하여야 합니다.");
             }
             events = List.copyOf(events);
             staircases = Map.copyOf(staircases);
