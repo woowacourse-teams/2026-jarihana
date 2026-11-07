@@ -12,6 +12,11 @@ export function AvatarFrame({ appearance, mode = "editor", onChange, onReady, on
   const [failed, setFailed] = useState(false);
   useEffect(() => { callbacks.current = { onChange, onReady, onError }; });
   useLayoutEffect(() => {
+    if (mode !== "preview") return;
+    initial.current = appearance;
+    frame.current?.contentWindow?.postMessage({ channel: CHANNEL, type: "preview-appearance", appearance }, window.location.origin);
+  }, [appearance, mode]);
+  useLayoutEffect(() => {
     let timer;
     const fail = () => { setFailed(true); callbacks.current.onError?.(); };
     const start = () => {

@@ -53,3 +53,15 @@ it("같은 출처에서 받은 미래 파츠는 해당 파츠만 대체하고 �
   message(frame, "change", { appearance: { ...AVATAR_BASIC_APPEARANCE, hair: "flowing", hat: "futureHat" } });
   expect(onChange).toHaveBeenCalledWith({ ...AVATAR_BASIC_APPEARANCE, hair: "flowing" });
 });
+
+it("미리보기 외형 변경을 같은 iframe으로 보내고 초기 연결에도 최신 외형을 사용한다", () => {
+  const { rerender } = render(<AvatarFrame appearance={AVATAR_BASIC_APPEARANCE} mode="preview" />);
+  const frame = screen.getByTitle("저장된 내 아바타");
+  const post = jest.spyOn(frame.contentWindow, "postMessage").mockImplementation(() => {});
+  const next = { ...AVATAR_BASIC_APPEARANCE, hat: "beret", hatColor: "mint" };
+  rerender(<AvatarFrame appearance={next} mode="preview" />);
+  expect(screen.getByTitle("저장된 내 아바타")).toBe(frame);
+  expect(post).toHaveBeenCalledWith({ channel: "jarihana-avatar-studio", type: "preview-appearance", appearance: next }, location.origin);
+  message(frame, "ready");
+  expect(post).toHaveBeenLastCalledWith({ channel: "jarihana-avatar-studio", type: "initialize", appearance: next }, location.origin);
+});

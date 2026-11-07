@@ -46,6 +46,7 @@ function renderRoutes(initialEntries) {
 }
 
 it.each([
+  ["/shop", "ShopPage"],
   ["/", "HomePage"],
   ["/home", "GroupsPage"],
   ["/land", "LandingPage"],
