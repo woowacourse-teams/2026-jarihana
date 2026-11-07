@@ -14,11 +14,11 @@ describe.each(["spa-fallback.js", "group-share-preview.js"])("CloudFront %s", (f
     const result = context.handler({ request: { uri, method: "GET", querystring: {} } });
     expect(result.uri).toBe(uri);
   });
-  test.each(["/sw.js", "/manifest.webmanifest", "/icons/pwa-192.png", "/icons/pwa-512.png", "/api/notifications/1/push-content"])("%s is not replaced by SPA HTML", (uri) => {
+  test.each(["/sw.js", "/manifest.webmanifest", "/icons/pwa-192.png", "/icons/pwa-512.png", "/api/notifications/1/push-content", "/game-assets/rhythm-harpoon/assets/pixel-circuit.ogg", "/game-assets/rhythm-harpoon/assets/chart.json", "/game-assets/rhythm-harpoon/assets/sprites.png"])("%s is not replaced by SPA HTML", (uri) => {
     const result = context.handler({ request: { uri, method: "GET", querystring: {} } });
     expect(result.uri).toBe(uri);
   });
-  test.each(["/", "/home", "/land", "/notifications/open/12"])("%s opens the SPA for authentication and internal navigation", (uri) => {
+  test.each(["/", "/home", "/land", "/notifications/open/12", "/games", "/games/rhythm-harpoon", "/games/rhythm-harpoon/single", "/games/rhythm-harpoon/learn", "/games/rhythm-harpoon/practice"])("%s opens the SPA for authentication and internal navigation", (uri) => {
     const result = context.handler({ request: { uri, method: "GET", querystring: {} } });
     expect(result.uri).toBe("/index.html");
   });

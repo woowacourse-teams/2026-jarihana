@@ -74,7 +74,7 @@ it("shows the stick halving card in the game room only after the move time, with
   expect(await screen.findByRole("heading", { name: "공평하게 반띵" }, { timeout: 5000 })).toBeInTheDocument();
   expect(getPeperoDayStatus).toHaveBeenCalledTimes(2);
   const links = screen.getAllByRole("link", { name: "게임 시작" });
-  expect(links.map((link) => link.getAttribute("href"))).toEqual(["/games/gomoku", "/games/stick-halving"]);
+  expect(links.map((link) => link.getAttribute("href"))).toEqual(["/games/gomoku", "/games/stick-halving", "/games/rhythm-harpoon"]);
   expect(links[1]).toHaveAttribute("data-ph-capture-attribute-action", "stick_halving_room_open");
 }, 10_000);
 
