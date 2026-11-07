@@ -1,0 +1,122 @@
+{
+  "browser": "ChatGPT in-app browser",
+  "desktopViewport": [
+    1440,
+    900
+  ],
+  "mobileViewport": [
+    390,
+    844
+  ],
+  "backend": "not connected",
+  "files": [
+    {
+      "file": "entry-desktop.jpg",
+      "size": [
+        1425,
+        891
+      ],
+      "sha256": "d98f4c87e761f4f7a7e5a3c66c2bd3b910fdba599f554eca365ec1af5f024919",
+      "sourceCommit": "25ef995343b94916770a2c94df21ffd3de4230d9"
+    },
+    {
+      "file": "entry-mobile.jpg",
+      "size": [
+        375,
+        1760
+      ],
+      "sha256": "386b18f953c0a1e50a657fad29053831378fb232b255bad5d1b8199081bfd1f2",
+      "sourceCommit": "25ef995343b94916770a2c94df21ffd3de4230d9"
+    },
+    {
+      "file": "lesson-mobile.jpg",
+      "size": [
+        375,
+        1859
+      ],
+      "sha256": "01063374e989d968ceab419916e60e8ddf1de971d8e9b7546ccf6f15b6d470a4",
+      "sourceCommit": "25ef995343b94916770a2c94df21ffd3de4230d9"
+    },
+    {
+      "file": "lesson-playing-desktop.jpg",
+      "size": [
+        1425,
+        891
+      ],
+      "sha256": "674e8d83f3b85442cc22257c810c72ce33ea2cad8a0288dd557a2df1f5589ef0",
+      "sourceCommit": "25ef995343b94916770a2c94df21ffd3de4230d9"
+    },
+    {
+      "file": "lesson-ready-desktop.jpg",
+      "size": [
+        1425,
+        891
+      ],
+      "sha256": "9545f4b1d212b954f4592126adb9667b011c8edb14ced103f9c3473df4f6531d",
+      "sourceCommit": "25ef995343b94916770a2c94df21ffd3de4230d9"
+    },
+    {
+      "file": "practice-mobile.jpg",
+      "size": [
+        375,
+        2912
+      ],
+      "sha256": "5e93632374367c7f06e9b2111068ec65c74c4b43f2fdf7c875dddf104f93a1a1",
+      "sourceCommit": "5d0c992ea1a18871f80373830f6eb192c9286f0b"
+    },
+    {
+      "file": "practice-playing-desktop.jpg",
+      "size": [
+        1425,
+        891
+      ],
+      "sha256": "1dc7571f5d196ab344046958c1ef10de9783f201c1a9a2a422134173049abdba",
+      "sourceCommit": "5d0c992ea1a18871f80373830f6eb192c9286f0b"
+    },
+    {
+      "file": "practice-ready-desktop.jpg",
+      "size": [
+        1425,
+        802
+      ],
+      "sha256": "70981a07930f3e73d7558358051e3589127b09bd20b514abb35447197f0bab3f",
+      "sourceCommit": "5d0c992ea1a18871f80373830f6eb192c9286f0b"
+    },
+    {
+      "file": "result-desktop.jpg",
+      "size": [
+        1425,
+        891
+      ],
+      "sha256": "d24b009287dc1e0503bb69f1c18917c3946d10d70b8e80a96d30b7c9e426a30d",
+      "sourceCommit": "5d0c992ea1a18871f80373830f6eb192c9286f0b"
+    },
+    {
+      "file": "result-mobile.jpg",
+      "size": [
+        375,
+        2912
+      ],
+      "sha256": "87e1716f7f451abade91c88057e1f2c9fbcc0e4ba0a32388580758e3ec12b7c3",
+      "sourceCommit": "5d0c992ea1a18871f80373830f6eb192c9286f0b"
+    },
+    {
+      "file": "single-desktop.jpg",
+      "size": [
+        1425,
+        891
+      ],
+      "sha256": "adccd6e03794a6ff9127f708c46826b8306443af58e18ffb75b31dbaa9393023",
+      "sourceCommit": "25ef995343b94916770a2c94df21ffd3de4230d9"
+    },
+    {
+      "file": "single-mobile.jpg",
+      "size": [
+        375,
+        2057
+      ],
+      "sha256": "3f9acdd6fa5a5530dda2c5a50e3340c117b8fc636aa57b4ed37238bb28be16a4",
+      "sourceCommit": "25ef995343b94916770a2c94df21ffd3de4230d9"
+    }
+  ]
+}
