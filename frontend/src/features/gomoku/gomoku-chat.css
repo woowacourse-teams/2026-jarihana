@@ -1,0 +1,214 @@
+.gomoku-room-layout {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+}
+.gomoku-chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  border: var(--border-thin) solid var(--color-line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+.gomoku-chat__header {
+  display: grid;
+  flex-shrink: 0;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border-bottom: var(--border-thin) solid var(--color-line);
+}
+.gomoku-chat__header h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-body);
+}
+.gomoku-chat svg {
+  width: var(--space-5);
+  height: var(--space-5);
+  flex-shrink: 0;
+}
+.gomoku-chat__composer > p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+}
+.gomoku-chat__body {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.gomoku-chat__scroll {
+  width: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  overflow-anchor: none;
+  padding: var(--space-4) var(--space-3);
+}
+.gomoku-chat__messages {
+  display: flex;
+  flex-direction: column;
+}
+.gomoku-chat__scroll:focus-visible {
+  outline: var(--border-strong) solid var(--color-brand-ink);
+  outline-offset: calc(-1 * var(--space-1));
+}
+.gomoku-chat__message {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: 90%;
+}
+.gomoku-chat__message--mine {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+.gomoku-chat__message + .gomoku-chat__message {
+  margin-block-start: var(--space-4);
+}
+.gomoku-chat__message + .gomoku-chat__message--continuation {
+  margin-block-start: var(--space-2);
+}
+.gomoku-chat__author,
+.gomoku-chat__message time,
+.gomoku-chat__delivery {
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+}
+.gomoku-chat__bubble {
+  max-width: 100%;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  color: var(--color-ink);
+  font-size: var(--text-body);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.gomoku-chat__message--mine .gomoku-chat__bubble {
+  background: var(--color-brand-soft);
+}
+.gomoku-chat__empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-2);
+  color: var(--color-text-muted);
+  text-align: center;
+  word-break: keep-all;
+}
+.gomoku-chat__empty p {
+  margin: 0;
+}
+.gomoku-chat__empty span {
+  font-size: var(--text-caption);
+}
+.gomoku-chat__composer {
+  display: grid;
+  flex-shrink: 0;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-top: var(--border-thin) solid var(--color-line);
+}
+.gomoku-chat__input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+.gomoku-chat__input-row > .ui-button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.gomoku-chat__input-row textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--touch-target);
+  max-height: 9rem;
+  resize: vertical;
+  padding: var(--space-2);
+  border: var(--border-thin) solid var(--color-line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  color: var(--color-ink);
+  font: inherit;
+}
+.gomoku-chat__input-row textarea:focus-visible {
+  outline: var(--border-strong) solid var(--color-brand-ink);
+  outline-offset: var(--space-1);
+}
+.gomoku-chat__error {
+  color: var(--color-danger);
+  font-size: var(--text-caption);
+  padding-inline: var(--space-2);
+  overflow-wrap: anywhere;
+}
+.gomoku-chat__delivery button {
+  min-height: var(--touch-target);
+  margin-left: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  color: var(--color-danger);
+  font: inherit;
+  text-decoration: underline;
+}
+.gomoku-chat__latest {
+  position: absolute;
+  bottom: var(--space-3);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.gomoku-chat__readonly {
+  margin: 0;
+  padding: var(--space-4);
+  border-top: var(--border-thin) solid var(--color-line);
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+}
+.gomoku-chat-mobile {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: center;
+}
+.gomoku-chat__new {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-size: var(--text-caption);
+}
+.gomoku-chat-modal {
+  width: min(100%, 40rem);
+  max-height: calc(100dvh - var(--space-8));
+}
+.gomoku-chat-modal .gomoku-chat {
+  height: min(65dvh, 38rem);
+  box-shadow: none;
+}
+.gomoku-chat__clock {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--color-brand-ink);
+}
+@media (min-width: 80rem) {
+  .gomoku-room-layout--chat > .gomoku-chat {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: calc(50% + 20rem + var(--space-3));
+    width: 20rem;
+  }
+}

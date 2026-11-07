@@ -250,8 +250,8 @@ export function SignupPage() {
       return;
     }
     const returnTarget = consumeReturnTarget("/my");
-    const invitationReturn = returnTarget.startsWith("/invitations/") || returnTarget.startsWith("/notifications/open/") || returnTarget.startsWith("/games/");
-    window.location.replace(invitationReturn ? returnTarget : "/my");
+    const shouldReturn = returnTarget.startsWith("/invitations/") || returnTarget.startsWith("/notifications/open/") || returnTarget.startsWith("/games/") || returnTarget.startsWith("/sparring/");
+    window.location.replace(shouldReturn ? returnTarget : "/my");
   }
 
   if (status === "loading") {

@@ -40,6 +40,7 @@ export const lazyPageRegistry = Object.freeze({
   GamesPage: lazyNamed(() => import("../pages/games/index.jsx"), "GamesPage"),
   GomokuLobbyPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuLobbyPage"),
   GomokuRoomPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuRoomPage"),
+  GomokuObservationPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuObservationPage"),
   GomokuInvitationPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuInvitationPage"),
 
   AvatarPage: lazyNamed(loadAccountPages, "AvatarPage"),

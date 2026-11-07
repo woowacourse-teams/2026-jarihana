@@ -398,6 +398,129 @@ class GomokuServerCutoverTest {
 
     private record Player(long id, String token) {}
 
+    @Test
+    @DisplayName("두 서버와 Nginx 전환에서도 채팅 알림, 재접속과 중복 요청을 복구하고 종료 시 삭제한다")
+    void recoversChatAcrossServersAndProxyReload() throws Exception {
+        // Given
+        Player host = member("가온", "chat-cutover-host"), guest = member("해솔", "chat-cutover-guest");
+        try (Nginx proxy = Nginx.start(oldServer, newServer, logs)) {
+            long room = startRoom(proxy, host, guest);
+            String path = ROOT + "/rooms/" + room + "/chat/messages";
+            String participation = oldServer.request(host).get(path).then().statusCode(200)
+                    .extract().jsonPath().getString("data.participationId");
+            String receiver = newServer.request(guest).get(path).then().statusCode(200)
+                    .extract().jsonPath().getString("data.participationId");
+            var body = Map.of("participationId", participation, "clientMessageId", UUID.randomUUID(), "content", "서버 간 대화");
+            long revision = snapshot(proxy, host, room).getLong("data.revision");
+            try (SnapshotStream stream = new SnapshotStream(proxy, guest, room, oldServer.port)) {
+                stream.awaitPly(0);
+
+                // When
+                newServer.request(host).body(body).post(path).then().statusCode(201);
+                oldServer.request(host).body(body).post(path).then().statusCode(200);
+
+                // Then
+                var event = stream.awaitChat("1");
+                assertEquals(receiver, event.getString("participationId"));
+                assertFalse(event.getMap("").containsKey("content"));
+                assertEquals(revision, snapshot(oldServer, host, room).getLong("data.revision"));
+                proxy.switchTo(newServer, "new");
+                proxy.request(guest).queryParam("afterSequence", "0").get(path).then().statusCode(200)
+                        .body("data.items", hasSize(1)).body("data.items[0].content", equalTo("서버 간 대화"));
+                oldServer.request(host).body(Map.of("participationId", participation,
+                        "clientMessageId", UUID.randomUUID(), "content", "전환 중 대화"))
+                        .post(path).then().statusCode(201);
+                stream.awaitChat("2");
+            }
+            try (SnapshotStream reconnected = new SnapshotStream(proxy, guest, room, newServer.port)) {
+                assertEquals(receiver, reconnected.awaitChat("2").getString("participationId"));
+                proxy.request(guest).queryParam("afterSequence", "1").get(path).then().statusCode(200)
+                        .body("data.items", hasSize(1)).body("data.items[0].sequence", equalTo("2"));
+            }
+            proxy.request(host).post(ROOT + "/rooms/" + room + "/leave").then().statusCode(200);
+            assertEquals(0, jdbc.queryForObject("select count(*) from gomoku_chat_message where room_id=?", Integer.class, room));
+        }
+    }
+
+    @Test
+    @DisplayName("두 JVM의 관전자를 회원별로 집계하고 서버 종료와 lease 만료 후에도 채팅을 복구한다")
+    void countsObserversAndRecoversChatAcrossTwoServers() throws Exception {
+        // Given
+        Player host = member("가온", "observe-host"), guest = member("해솔", "observe-guest");
+        Player observer = member("관객", "observe-first"), other = member("구경", "observe-other");
+        long room = startRoom(oldServer, host, guest);
+        jdbc.update("update gomoku_room set turn_deadline=? where id=?", LocalDateTime.now(ZONE).plusMinutes(5), room);
+        String path = ROOT + "/rooms/" + room;
+        String chatPath = path + "/chat/messages";
+        String hostParticipation = oldServer.request(host).get(chatPath).then().statusCode(200)
+                .extract().jsonPath().getString("data.participationId");
+        oldServer.request(host).body(Map.of("participationId", hostParticipation,
+                "clientMessageId", UUID.randomUUID(), "content", "입장 전"))
+                .post(chatPath).then().statusCode(201);
+        UUID firstRequest = UUID.randomUUID();
+        String first = oldServer.request(observer).body(Map.of("requestId", firstRequest))
+                .post(path + "/observations").then().statusCode(201).extract().jsonPath().getString("data.participationId");
+        String second = newServer.request(observer).body(Map.of("requestId", UUID.randomUUID()))
+                .post(path + "/observations").then().statusCode(201).extract().jsonPath().getString("data.participationId");
+        String third = oldServer.request(other).body(Map.of("requestId", UUID.randomUUID()))
+                .post(path + "/observations").then().statusCode(201).extract().jsonPath().getString("data.participationId");
+        try (SnapshotStream firstStream = new SnapshotStream(oldServer, observer, room, first);
+                SnapshotStream secondStream = new SnapshotStream(newServer, observer, room, second);
+                SnapshotStream thirdStream = new SnapshotStream(oldServer, other, room, third)) {
+            firstStream.awaitPly(0);
+            secondStream.awaitPly(0);
+            thirdStream.awaitPly(0);
+
+            // When / Then
+            for (Server server : new Server[] {oldServer, newServer})
+                server.anonymous().queryParam("view", "summary").get(ROOT + "/rooms")
+                        .then().statusCode(200).body("data.items[0].spectatorCount", equalTo(2));
+            newServer.request(observer).body(Map.of("requestId", firstRequest)).post(path + "/observations")
+                    .then().statusCode(200).body("data.participationId", equalTo(first));
+            newServer.request(observer).queryParam("participationId", first).queryParam("afterSequence", "0")
+                    .get(chatPath).then().body("data.items", hasSize(0));
+            newServer.request(host).body(Map.of("participationId", hostParticipation,
+                    "clientMessageId", UUID.randomUUID(), "content", "입장 후"))
+                    .post(chatPath).then().statusCode(201);
+            assertEquals(second, secondStream.awaitChat("2").getString("participationId"));
+            var message = Map.of("participationId", second, "clientMessageId", UUID.randomUUID(), "content", "함께 봐요");
+            oldServer.request(observer).body(message).post(chatPath).then().statusCode(201)
+                    .body("data.senderRole", equalTo("SPECTATOR"));
+            newServer.request(observer).body(message).post(chatPath).then().statusCode(200);
+            thirdStream.awaitChat("3");
+            newServer.request(observer).delete(path + "/observations/" + first).then().statusCode(204);
+            newServer.anonymous().queryParam("view", "summary").get(ROOT + "/rooms")
+                    .then().statusCode(200).body("data.items[0].spectatorCount", equalTo(2));
+            LocalDateTime initialLease = jdbc.queryForObject("""
+                    select max(c.expires_at) from gomoku_observer_connection c
+                    join gomoku_observation o on o.id=c.observation_id where o.participation_id=?
+                    """, LocalDateTime.class, UUID.fromString(second));
+            await(() -> jdbc.queryForObject("""
+                    select max(c.expires_at) from gomoku_observer_connection c
+                    join gomoku_observation o on o.id=c.observation_id where o.participation_id=?
+                    """, LocalDateTime.class, UUID.fromString(second)).isAfter(initialLease),
+                    "An active observer connection must renew its lease", Duration.ofSeconds(20));
+
+            // When: the old JVM cannot clean up its leases; move its deadline past the expiry boundary.
+            oldServer.process.destroyForcibly().waitFor(10, TimeUnit.SECONDS);
+            newServer.anonymous().queryParam("view", "summary").get(ROOT + "/rooms")
+                    .then().statusCode(200).body("data.items[0].spectatorCount", equalTo(2));
+            jdbc.update("""
+                    update gomoku_observer_connection set expires_at=? where observation_id in
+                    (select id from gomoku_observation where participation_id=?)
+                    """, LocalDateTime.now(ZONE).minusSeconds(1), UUID.fromString(third));
+
+            // Then
+            newServer.anonymous().queryParam("view", "summary").get(ROOT + "/rooms")
+                    .then().statusCode(200).body("data.items[0].spectatorCount", equalTo(1));
+            newServer.request(observer).queryParam("participationId", second).queryParam("afterSequence", "0")
+                    .get(chatPath).then().statusCode(200).body("data.items", hasSize(2));
+            newServer.request(observer).delete(path + "/observations/" + second).then().statusCode(204);
+            newServer.anonymous().queryParam("view", "summary").get(ROOT + "/rooms")
+                    .then().statusCode(200).body("data.items[0].spectatorCount", equalTo(0));
+        }
+    }
+
     private interface Endpoint {
         RequestSpecification request(Player player);
     }
@@ -419,7 +542,8 @@ class GomokuServerCutoverTest {
                     "--spring.datasource.username=" + DATABASE.getUsername(),
                     "--spring.datasource.password=" + DATABASE.getPassword(),
                     "--spring.datasource.hikari.data-source-properties.ApplicationName=" + name,
-                    "--gomoku.expiry.enabled=true", "--chat.listener.enabled=false", "--jarihana.push.enabled=false")
+                    "--gomoku.expiry.enabled=true", "--gomoku.chat.enabled=true",
+                    "--chat.listener.enabled=false", "--jarihana.push.enabled=false")
                     .redirectErrorStream(true).redirectOutput(log.toFile()).start();
             try {
                 Pattern started = Pattern.compile("Tomcat started on port (\\d+)");
@@ -606,22 +730,38 @@ class GomokuServerCutoverTest {
         private final InputStream input;
         private final Thread reader;
         private final BlockingQueue<JsonPath> snapshots = new LinkedBlockingQueue<>();
+        private final BlockingQueue<JsonPath> chatChanges = new LinkedBlockingQueue<>();
         private volatile IOException readFailure;
 
         private SnapshotStream(Nginx proxy, Player player, long room, int expectedUpstream) throws Exception {
-            HttpRequest request = HttpRequest.newBuilder().uri(URI.create("http://" + proxy.container.getHost()
-                    + ":" + proxy.container.getMappedPort(8080) + "/api" + ROOT + "/rooms/" + room + "/events"))
+            this(URI.create("http://" + proxy.container.getHost() + ":" + proxy.container.getMappedPort(8080)
+                    + "/api" + ROOT + "/rooms/" + room + "/events"), player, expectedUpstream);
+        }
+
+        private SnapshotStream(Server server, Player player, long room, String participationId) throws Exception {
+            this(URI.create("http://127.0.0.1:" + server.port + "/api" + ROOT + "/rooms/" + room
+                    + "/events?participationId=" + participationId), player, null);
+        }
+
+        private SnapshotStream(URI uri, Player player, Integer expectedUpstream) throws Exception {
+            HttpRequest request = HttpRequest.newBuilder().uri(uri)
                     .header("Accept", "text/event-stream").header("Cookie", "accessToken=" + player.token()).build();
             HttpResponse<InputStream> response = client.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
                     .get(10, TimeUnit.SECONDS);
             assertEquals(200, response.statusCode());
-            assertTrue(response.headers().firstValue("X-Gomoku-Test-Upstream").orElseThrow().endsWith(":" + expectedUpstream));
+            if (expectedUpstream != null) assertTrue(response.headers().firstValue("X-Gomoku-Test-Upstream").orElseThrow().endsWith(":" + expectedUpstream));
             input = response.body();
             reader = Thread.ofVirtual().start(() -> {
                 try (var lines = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
                     String line;
+                    String event = "";
                     while ((line = lines.readLine()) != null) {
-                        if (line.startsWith("data:")) snapshots.add(new JsonPath(line.substring(5).stripLeading()));
+                        if (line.startsWith("event:")) event = line.substring(6).strip();
+                        else if (line.startsWith("data:")) {
+                            var data = new JsonPath(line.substring(5).stripLeading());
+                            if (event.equals("snapshot")) snapshots.add(data);
+                            else if (event.equals("chat_changed")) chatChanges.add(data);
+                        } else if (line.isEmpty()) event = "";
                     }
                 } catch (IOException exception) {
                     readFailure = exception;
@@ -636,6 +776,15 @@ class GomokuServerCutoverTest {
                 if (snapshot != null && snapshot.getInt("ply") == ply) return snapshot;
             }
             throw new AssertionError("The original proxied SSE connection did not receive ply " + ply, readFailure);
+        }
+
+        private JsonPath awaitChat(String sequence) throws InterruptedException {
+            long limit = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+            while (System.nanoTime() < limit) {
+                JsonPath event = chatChanges.poll(100, TimeUnit.MILLISECONDS);
+                if (event != null && event.getString("latestSequence").equals(sequence)) return event;
+            }
+            throw new AssertionError("The proxied SSE did not receive chat sequence " + sequence, readFailure);
         }
 
         @Override

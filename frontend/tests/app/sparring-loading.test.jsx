@@ -118,6 +118,41 @@ it.each(["day", "sunset", "night"])("shows the matching desktop and mobile previ
   expect(mobile).toHaveAttribute("srcset", `/sparring-arena/assets/arena-preview-planet-${period}-mobile.webp`);
   expect(desktop).toHaveAttribute("src", `/sparring-arena/assets/arena-preview-planet-${period}-desktop.webp`);
 });
+it("recreates the disposed arena after session restoration even for the same member", async () => {
+  const member = { id: 12 };
+  const login = jest.fn();
+  useAuth.mockReturnValue({ status: "authenticated", member, login, sessionVersion: 1 });
+  const { container, rerender } = render(<SparringDetailPage />);
+  const first = container.querySelector("iframe");
+  receive(first, { kind: "ready" });
+  receiveSnapshot();
+  await waitFor(() => expect(first).toHaveAttribute("title", "점심 토론 캡슐 경기장"));
+  receive(first, { kind: "scene", status: "ready" });
+  await enter(first);
+  expect(first).not.toHaveAttribute("inert");
+  const oldSource = first.contentWindow;
+  const oldStream = stream;
+  const close = jest.spyOn(oldStream, "close");
+
+  useAuth.mockReturnValue({ status: "authenticated", member, login, sessionVersion: 2 });
+  rerender(<SparringDetailPage />);
+  const replacement = container.querySelector("iframe");
+  expect(replacement).not.toBe(first);
+  expect(close).toHaveBeenCalledTimes(1);
+  expect(replacement).toHaveAttribute("inert");
+  act(() => window.dispatchEvent(new MessageEvent("message", {
+    source: oldSource, origin: window.location.origin,
+    data: { channel: "jarihana-sparring", kind: "scene", status: "ready" }
+  })));
+  expect(replacement).toHaveAttribute("inert");
+  receive(replacement, { kind: "ready" });
+  receiveSnapshot();
+  await waitFor(() => expect(replacement).toHaveAttribute("title", "점심 토론 캡슐 경기장"));
+  receive(replacement, { kind: "scene", status: "ready" });
+  await enter(replacement);
+  expect(replacement).not.toHaveAttribute("inert");
+  expect(getSparring).toHaveBeenCalledTimes(2);
+});
 it("keeps text and inputs covered after data and iframe load until the first 3D frame is ready", async () => {
   const { container } = render(<SparringDetailPage />);
   const frame = container.querySelector("iframe");

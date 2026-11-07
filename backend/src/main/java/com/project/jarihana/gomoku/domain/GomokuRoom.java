@@ -299,6 +299,12 @@ public class GomokuRoom extends BaseEntity {
         return next;
     }
 
+    public GomokuRoom chatActivity(LocalDateTime now) {
+        GomokuRoom next = new GomokuRoom(this, now);
+        next.revision = revision;
+        return next;
+    }
+
     private static void require(boolean valid, String message) {
         if (!valid) throw new BusinessException(ErrorCode.GOMOKU_CONFLICT, message);
     }
