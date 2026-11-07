@@ -373,7 +373,27 @@ VS 입장 화면의 `sparring_entry_side_select`는 임시 편 선택, `sparring
 `gomoku_invitation_copy`, `gomoku_invitation_toggle`, `gomoku_invitation_create`, `gomoku_invitation_link_select`, `gomoku_resign_open`,
 `gomoku_resign_confirm`, `gomoku_leave_open`, `gomoku_leave_confirm`,
 `gomoku_confirmation_cancel`, `gomoku_confirmation_dismiss`다. 방 상단의 "대기실" 링크는 참여를 유지하며 `games_back`을 사용하고, 별도 "나가기" 버튼은 `gomoku_leave_open`으로 확인창을 연다. 초대 참여는
-`gomoku_invitation_join`, 준비 중 리듬게임은 `rhythm_game_open`이다.
+`gomoku_invitation_join`, 게임판의 리듬게임 시작은 `rhythm_game_open`이다.
+
+리듬게임 첫 화면의 게임판 복귀는 `games_back`, 싱글 플레이 카드의 시작 버튼은 `rhythm_single_open`,
+준비 중인 온라인 매칭 카드의 버튼은 `rhythm_online_open`이다. 싱글 플레이 화면의 첫 화면 복귀는 `rhythm_entry_back`,
+소리 미리 듣기는 `rhythm_sound_demo_kung`, `rhythm_sound_demo_chak`, `rhythm_sound_demo_chi`,
+접힌 튜토리얼 펼치기는 `rhythm_tutorial_toggle`, 따라 하기 진입은 `rhythm_lesson_open`,
+혼자 연습은 `rhythm_practice_open`, 준비 중인 공식 도전은 `rhythm_ranked_open`이다.
+따라 하기와 연습 화면의 싱글 플레이 복귀는 `rhythm_single_back`이다. 따라 하기의 단계 선택은
+`rhythm_lesson_step_kung`, `rhythm_lesson_step_chak`, `rhythm_lesson_step_chi`, 빠르기는
+`rhythm_lesson_tempo_slow`, `rhythm_lesson_tempo_normal`, `rhythm_lesson_tempo_original`,
+배속은 `rhythm_lesson_speed_change`, 듣기와 해보기는 `rhythm_lesson_listen`, `rhythm_lesson_try`,
+다음 단계와 마치기는 `rhythm_lesson_next`, `rhythm_lesson_finish`, 건너뛰기는 `rhythm_lesson_skip`이다.
+연습 화면의 세균 위 소리 글자 표시는 `rhythm_labels_toggle`, 다시 불러오기는 `rhythm_harpoon_reload`를 사용한다.
+연습과 따라 하기 도구 막대의 설정 서랍 열기와 닫기는 `rhythm_settings_toggle`이다.
+키 배치 바꾸기는 `rhythm_key_bind_left`, `rhythm_key_bind_down`, `rhythm_key_bind_up`, `rhythm_key_bind_right`,
+`rhythm_key_bind_retry`, 기본 키로 되돌리기는 `rhythm_key_reset`이다. 어떤 키를 골랐는지는 수집하지 않는다.
+게임 안의 조작은 `rhythm_` 접두사의 고정 action을 각 버튼과 입력에 지정한다.
+게임은 같은 React 문서의 기존 자동 수집을 사용하며 별도 SDK를 추가하지 않는다.
+키 입력, 보정 측정값과 점수에 대한 별도 분석 이벤트는 전송하지 않는다.
+터치 방향 버튼은 `rhythm_input_left`, `rhythm_input_down`, `rhythm_input_up`, `rhythm_input_right`로
+구분하며, 누를 때마다 click 자동 수집 이벤트가 하나씩 생긴다.
 
 좌표, 회원 이름, 방 ID와 초대 토큰을 action에 포함하지 않는다. 초대 토큰을 담은
 `/games/gomoku/invite/*`와 `/api/games/gomoku/invitations/*`는 분석과 녹화를 중단하는

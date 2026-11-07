@@ -1,0 +1,3274 @@
+{
+  "title": "Pixel Circuit (Double Tap Mix)",
+  "status": "draft",
+  "bpm": 128,
+  "timeSignature": [
+    4,
+    4
+  ],
+  "bars": 48,
+  "sampleRateHz": 48000,
+  "samplesPerSixteenth": 5625,
+  "firstBeatOffsetSamples": 0,
+  "loopStartSample": 0,
+  "loopEndSampleExclusive": 4320000,
+  "durationSeconds": 90,
+  "stepIndexBase": 0,
+  "barIndexBase": 1,
+  "sections": [
+    {
+      "startBar": 1,
+      "bars": 8,
+      "pattern": "intro"
+    },
+    {
+      "startBar": 9,
+      "bars": 2,
+      "pattern": "basic"
+    },
+    {
+      "startBar": 11,
+      "bars": 2,
+      "pattern": "mixed"
+    },
+    {
+      "startBar": 13,
+      "bars": 2,
+      "pattern": "offbeat"
+    },
+    {
+      "startBar": 15,
+      "bars": 1,
+      "pattern": "breath"
+    },
+    {
+      "startBar": 16,
+      "bars": 1,
+      "pattern": "bridge"
+    },
+    {
+      "startBar": 17,
+      "bars": 2,
+      "pattern": "breath"
+    },
+    {
+      "startBar": 19,
+      "bars": 2,
+      "pattern": "breathSyncopation"
+    },
+    {
+      "startBar": 21,
+      "bars": 2,
+      "pattern": "breath"
+    },
+    {
+      "startBar": 23,
+      "bars": 1,
+      "pattern": "syncopatedA"
+    },
+    {
+      "startBar": 24,
+      "bars": 1,
+      "pattern": "syncopatedB"
+    },
+    {
+      "startBar": 25,
+      "bars": 2,
+      "pattern": "quarterOffbeat"
+    },
+    {
+      "startBar": 27,
+      "bars": 1,
+      "pattern": "syncopatedA"
+    },
+    {
+      "startBar": 28,
+      "bars": 1,
+      "pattern": "syncopatedB"
+    },
+    {
+      "startBar": 29,
+      "bars": 1,
+      "pattern": "doubleTap",
+      "variant": "intro",
+      "hardTrillPairs": [
+        [
+          "left",
+          "right"
+        ]
+      ],
+      "musicBars": [
+        {
+          "bassMidi": 40,
+          "leadMidi": {
+            "up": 76,
+            "down": 79,
+            "left": 83,
+            "right": 88
+          }
+        }
+      ],
+      "mediumPairs": [
+        [
+          "up",
+          "down"
+        ],
+        [
+          "left",
+          "right"
+        ]
+      ]
+    },
+    {
+      "startBar": 30,
+      "bars": 1,
+      "pattern": "trill"
+    },
+    {
+      "startBar": 31,
+      "bars": 2,
+      "pattern": "roll"
+    },
+    {
+      "startBar": 33,
+      "bars": 1,
+      "pattern": "syncopatedA"
+    },
+    {
+      "startBar": 34,
+      "bars": 1,
+      "pattern": "syncopatedB"
+    },
+    {
+      "startBar": 35,
+      "bars": 2,
+      "pattern": "pulse332"
+    },
+    {
+      "startBar": 37,
+      "bars": 2,
+      "pattern": "doubleTap",
+      "variant": "travel",
+      "hardTrillPairs": [
+        [
+          "left",
+          "up"
+        ],
+        [
+          "left",
+          "down"
+        ]
+      ],
+      "musicBars": [
+        {
+          "bassMidi": 45,
+          "leadMidi": {
+            "left": 69,
+            "down": 72,
+            "right": 76,
+            "up": 81
+          }
+        },
+        {
+          "bassMidi": 36,
+          "leadMidi": {
+            "left": 72,
+            "down": 76,
+            "right": 79,
+            "up": 84
+          }
+        }
+      ],
+      "mediumPairs": [
+        [
+          "left",
+          "down"
+        ],
+        [
+          "right",
+          "up"
+        ],
+        [
+          "right",
+          "down"
+        ],
+        [
+          "up",
+          "left"
+        ]
+      ]
+    },
+    {
+      "startBar": 39,
+      "bars": 1,
+      "pattern": "basic"
+    },
+    {
+      "startBar": 40,
+      "bars": 1,
+      "pattern": "trill"
+    },
+    {
+      "startBar": 41,
+      "bars": 2,
+      "pattern": "offbeat",
+      "role": "alternatingTrill"
+    },
+    {
+      "startBar": 43,
+      "bars": 2,
+      "pattern": "roll"
+    },
+    {
+      "startBar": 45,
+      "bars": 1,
+      "pattern": "triad"
+    },
+    {
+      "startBar": 46,
+      "bars": 1,
+      "pattern": "trill"
+    },
+    {
+      "startBar": 47,
+      "bars": 2,
+      "pattern": "finale"
+    }
+  ],
+  "events": [
+    {
+      "step": 0,
+      "sample": 0,
+      "keys": [
+        "left"
+      ]
+    },
+    {
+      "step": 4,
+      "sample": 22500,
+      "keys": [
+        "down"
+      ]
+    },
+    {
+      "step": 8,
+      "sample": 45000,
+      "keys": [
+        "right"
+      ]
+    },
+    {
+      "step": 12,
+      "sample": 67500,
+      "keys": [
+        "up"
+      ]
+    },
+    {
+      "step": 16,
+      "sample": 90000,
+      "keys": [
+        "right"
+      ]
+    },
+    {
+      "step": 24,
+      "sample": 135000,
+      "keys": [
+        "right"
+      ]
+    },
+    {
+      "step": 32,
+      "sample": 180000,
+      "keys": [
+        "down"
+      ]
+    },
+    {
+      "step": 36,
+      "sample": 202500,
+      "keys": [
+        "left"
+      ]
+    },
+    {
+      "step": 40,
+      "sample": 225000,
+      "keys": [
+        "up"
+      ]
+    },
+    {
+      "step": 44,
+      "sample": 247500,
+      "keys": [
+        "right"
+      ]
+    },
+    {
+      "step": 48,
+      "sample": 270000,
+      "keys": [
+        "up"
+      ]
+    },
+    {
+      "step": 52,
+      "sample": 292500,
+      "keys": [
+        "right"
+      ]
+    },
+    {
+      "step": 56,
+      "sample": 315000,
+      "keys": [
+        "down"
+      ]
+    },
+    {
+      "step": 60,
+      "sample": 337500,
+      "keys": [
+        "left"
+      ]
+    },
+    {
+      "step": 64,
+      "sample": 360000,
+      "keys": [
+        "down"
+      ]
+    },
+    {
+      "step": 72,
+      "sample": 405000,
+      "keys": [
+        "down"
+      ]
+    },
+    {
+      "step": 80,
+      "sample": 450000,
+      "keys": [
+        "right"
+      ]
+    },
+    {
+      "step": 84,
+      "sample": 472500,
+      "keys": [
+        "up"
+      ]
+    },
+    {
+      "step": 88,
+      "sample": 495000,
+      "keys": [
+        "left"
+      ]
+    },
+    {
+      "step": 92,
+      "sample": 517500,
+      "keys": [
+        "down"
+      ]
+    },
+    {
+      "step": 96,
+      "sample": 540000,
+      "keys": [
+        "left"
+      ]
+    },
+    {
+      "step": 100,
+      "sample": 562500,
+      "keys": [
+        "right"
+      ]
+    },
+    {
+      "step": 104,
+      "sample": 585000,
+      "keys": [
+        "down"
+      ]
+    },
+    {
+      "step": 108,
+      "sample": 607500,
+      "keys": [
+        "up"
+      ]
+    },
+    {
+      "step": 112,
+      "sample": 630000,
+      "keys": [
+        "left"
+      ]
+    },
+    {
+      "step": 120,
+      "sample": 675000,
+      "keys": [
+        "left"
+      ]
+    },
+    {
+      "step": 128,
+      "sample": 720000,
+      "keys": [
+        "down",
+        "right"
+      ],
+      "cue": "beat"
+    },
+    {
+      "step": 130,
+      "sample": 731250,
+      "keys": [
+        "down"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 132,
+      "sample": 742500,
+      "keys": [
+        "down"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 134,
+      "sample": 753750,
+      "keys": [
+        "down"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 136,
+      "sample": 765000,
+      "keys": [
+        "left",
+        "down"
+      ],
+      "cue": "beat"
+    },
+    {
+      "step": 138,
+      "sample": 776250,
+      "keys": [
+        "down"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 140,
+      "sample": 787500,
+      "keys": [
+        "down"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 142,
+      "sample": 798750,
+      "keys": [
+        "down"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 144,
+      "sample": 810000,
+      "keys": [
+        "down",
+        "right"
+      ],
+      "cue": "beat"
+    },
+    {
+      "step": 146,
+      "sample": 821250,
+      "keys": [
+        "down"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 148,
+      "sample": 832500,
+      "keys": [
+        "down"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 150,
+      "sample": 843750,
+      "keys": [
+        "down"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 152,
+      "sample": 855000,
+      "keys": [
+        "left",
+        "down"
+      ],
+      "cue": "beat"
+    },
+    {
+      "step": 154,
+      "sample": 866250,
+      "keys": [
+        "down"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 156,
+      "sample": 877500,
+      "keys": [
+        "down"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 158,
+      "sample": 888750,
+      "keys": [
+        "down"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 160,
+      "sample": 900000,
+      "keys": [
+        "down",
+        "right"
+      ],
+      "cue": "beat"
+    },
+    {
+      "step": 162,
+      "sample": 911250,
+      "keys": [
+        "right"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 164,
+      "sample": 922500,
+      "keys": [
+        "right",
+        "up"
+      ],
+      "cue": "snareAccent"
+    },
+    {
+      "step": 166,
+      "sample": 933750,
+      "keys": [
+        "left",
+        "right"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 168,
+      "sample": 945000,
+      "keys": [
+        "down",
+        "right"
+      ],
+      "cue": "beat"
+    },
+    {
+      "step": 170,
+      "sample": 956250,
+      "keys": [
+        "right"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 172,
+      "sample": 967500,
+      "keys": [
+        "down",
+        "right"
+      ],
+      "cue": "snareAccent"
+    },
+    {
+      "step": 174,
+      "sample": 978750,
+      "keys": [
+        "left",
+        "right"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 176,
+      "sample": 990000,
+      "keys": [
+        "right",
+        "up"
+      ],
+      "cue": "beat"
+    },
+    {
+      "step": 178,
+      "sample": 1001250,
+      "keys": [
+        "right"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 180,
+      "sample": 1012500,
+      "keys": [
+        "down",
+        "right"
+      ],
+      "cue": "snareAccent"
+    },
+    {
+      "step": 182,
+      "sample": 1023750,
+      "keys": [
+        "right"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 184,
+      "sample": 1035000,
+      "keys": [
+        "right",
+        "up"
+      ],
+      "cue": "beat"
+    },
+    {
+      "step": 186,
+      "sample": 1046250,
+      "keys": [
+        "right"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 188,
+      "sample": 1057500,
+      "keys": [
+        "down",
+        "right"
+      ],
+      "cue": "snareAccent"
+    },
+    {
+      "step": 190,
+      "sample": 1068750,
+      "keys": [
+        "right"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 192,
+      "sample": 1080000,
+      "keys": [
+        "up"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 194,
+      "sample": 1091250,
+      "keys": [
+        "down",
+        "up"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 196,
+      "sample": 1102500,
+      "keys": [
+        "up"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 198,
+      "sample": 1113750,
+      "keys": [
+        "down",
+        "up"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 200,
+      "sample": 1125000,
+      "keys": [
+        "up"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 202,
+      "sample": 1136250,
+      "keys": [
+        "down",
+        "up"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 204,
+      "sample": 1147500,
+      "keys": [
+        "up"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 206,
+      "sample": 1158750,
+      "keys": [
+        "down",
+        "up"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 208,
+      "sample": 1170000,
+      "keys": [
+        "up"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 210,
+      "sample": 1181250,
+      "keys": [
+        "down",
+        "up"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 212,
+      "sample": 1192500,
+      "keys": [
+        "up"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 214,
+      "sample": 1203750,
+      "keys": [
+        "down",
+        "up"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 216,
+      "sample": 1215000,
+      "keys": [
+        "up"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 218,
+      "sample": 1226250,
+      "keys": [
+        "down",
+        "up"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 220,
+      "sample": 1237500,
+      "keys": [
+        "up"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 222,
+      "sample": 1248750,
+      "keys": [
+        "down",
+        "up"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 224,
+      "sample": 1260000,
+      "keys": [
+        "right"
+      ]
+    },
+    {
+      "step": 232,
+      "sample": 1305000,
+      "keys": [
+        "right"
+      ]
+    },
+    {
+      "step": 240,
+      "sample": 1350000,
+      "keys": [
+        "left"
+      ]
+    },
+    {
+      "step": 243,
+      "sample": 1366875,
+      "keys": [
+        "down"
+      ]
+    },
+    {
+      "step": 244,
+      "sample": 1372500,
+      "keys": [
+        "right"
+      ]
+    },
+    {
+      "step": 247,
+      "sample": 1389375,
+      "keys": [
+        "up"
+      ]
+    },
+    {
+      "step": 248,
+      "sample": 1395000,
+      "keys": [
+        "down"
+      ]
+    },
+    {
+      "step": 252,
+      "sample": 1417500,
+      "keys": [
+        "up"
+      ]
+    },
+    {
+      "step": 254,
+      "sample": 1428750,
+      "keys": [
+        "right"
+      ]
+    },
+    {
+      "step": 256,
+      "sample": 1440000,
+      "keys": [
+        "up"
+      ]
+    },
+    {
+      "step": 264,
+      "sample": 1485000,
+      "keys": [
+        "up"
+      ]
+    },
+    {
+      "step": 272,
+      "sample": 1530000,
+      "keys": [
+        "right"
+      ]
+    },
+    {
+      "step": 280,
+      "sample": 1575000,
+      "keys": [
+        "left"
+      ]
+    },
+    {
+      "step": 284,
+      "sample": 1597500,
+      "keys": [
+        "down"
+      ]
+    },
+    {
+      "step": 288,
+      "sample": 1620000,
+      "keys": [
+        "left"
+      ],
+      "cue": "breathSyncopation"
+    },
+    {
+      "step": 292,
+      "sample": 1642500,
+      "keys": [
+        "down"
+      ],
+      "cue": "breathSyncopation"
+    },
+    {
+      "step": 298,
+      "sample": 1676250,
+      "keys": [
+        "right"
+      ],
+      "cue": "breathSyncopation"
+    },
+    {
+      "step": 301,
+      "sample": 1693125,
+      "keys": [
+        "up"
+      ],
+      "cue": "breathSyncopation"
+    },
+    {
+      "step": 304,
+      "sample": 1710000,
+      "keys": [
+        "up"
+      ],
+      "cue": "breathSyncopation"
+    },
+    {
+      "step": 308,
+      "sample": 1732500,
+      "keys": [
+        "right"
+      ],
+      "cue": "breathSyncopation"
+    },
+    {
+      "step": 314,
+      "sample": 1766250,
+      "keys": [
+        "down"
+      ],
+      "cue": "breathSyncopation"
+    },
+    {
+      "step": 317,
+      "sample": 1783125,
+      "keys": [
+        "left"
+      ],
+      "cue": "breathSyncopation"
+    },
+    {
+      "step": 320,
+      "sample": 1800000,
+      "keys": [
+        "right"
+      ]
+    },
+    {
+      "step": 328,
+      "sample": 1845000,
+      "keys": [
+        "down"
+      ]
+    },
+    {
+      "step": 336,
+      "sample": 1890000,
+      "keys": [
+        "up"
+      ]
+    },
+    {
+      "step": 344,
+      "sample": 1935000,
+      "keys": [
+        "up"
+      ]
+    },
+    {
+      "step": 352,
+      "sample": 1980000,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 354,
+      "sample": 1991250,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 356,
+      "sample": 2002500,
+      "keys": [
+        "right"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 358,
+      "sample": 2013750,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 359,
+      "sample": 2019375,
+      "keys": [
+        "down"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 360,
+      "sample": 2025000,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 362,
+      "sample": 2036250,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 364,
+      "sample": 2047500,
+      "keys": [
+        "right"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 368,
+      "sample": 2070000,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 370,
+      "sample": 2081250,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 372,
+      "sample": 2092500,
+      "keys": [
+        "right"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 374,
+      "sample": 2103750,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 375,
+      "sample": 2109375,
+      "keys": [
+        "down"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 377,
+      "sample": 2120625,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 378,
+      "sample": 2126250,
+      "keys": [
+        "down"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 380,
+      "sample": 2137500,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 382,
+      "sample": 2148750,
+      "keys": [
+        "right"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 386,
+      "sample": 2171250,
+      "keys": [
+        "right"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 390,
+      "sample": 2193750,
+      "keys": [
+        "right"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 394,
+      "sample": 2216250,
+      "keys": [
+        "right"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 398,
+      "sample": 2238750,
+      "keys": [
+        "right"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 402,
+      "sample": 2261250,
+      "keys": [
+        "right"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 406,
+      "sample": 2283750,
+      "keys": [
+        "left",
+        "right"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 410,
+      "sample": 2306250,
+      "keys": [
+        "right"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 414,
+      "sample": 2328750,
+      "keys": [
+        "left",
+        "right"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 416,
+      "sample": 2340000,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 418,
+      "sample": 2351250,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 420,
+      "sample": 2362500,
+      "keys": [
+        "right"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 422,
+      "sample": 2373750,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 423,
+      "sample": 2379375,
+      "keys": [
+        "down"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 424,
+      "sample": 2385000,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 426,
+      "sample": 2396250,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 428,
+      "sample": 2407500,
+      "keys": [
+        "right"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 432,
+      "sample": 2430000,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 434,
+      "sample": 2441250,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 436,
+      "sample": 2452500,
+      "keys": [
+        "right"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 438,
+      "sample": 2463750,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 439,
+      "sample": 2469375,
+      "keys": [
+        "down"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 441,
+      "sample": 2480625,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 442,
+      "sample": 2486250,
+      "keys": [
+        "down"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 444,
+      "sample": 2497500,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 446,
+      "sample": 2508750,
+      "keys": [
+        "right"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 448,
+      "sample": 2520000,
+      "keys": [
+        "up"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 449,
+      "sample": 2525625,
+      "keys": [
+        "up"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 450,
+      "sample": 2531250,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 451,
+      "sample": 2536875,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 452,
+      "sample": 2542500,
+      "keys": [
+        "up"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 453,
+      "sample": 2548125,
+      "keys": [
+        "up"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 454,
+      "sample": 2553750,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 455,
+      "sample": 2559375,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 456,
+      "sample": 2565000,
+      "keys": [
+        "left"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 457,
+      "sample": 2570625,
+      "keys": [
+        "left"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 458,
+      "sample": 2576250,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 459,
+      "sample": 2581875,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 460,
+      "sample": 2587500,
+      "keys": [
+        "left"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 461,
+      "sample": 2593125,
+      "keys": [
+        "left"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 462,
+      "sample": 2598750,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 463,
+      "sample": 2604375,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 464,
+      "sample": 2610000,
+      "keys": [
+        "down"
+      ],
+      "cue": "beat"
+    },
+    {
+      "step": 466,
+      "sample": 2621250,
+      "keys": [
+        "down"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 468,
+      "sample": 2632500,
+      "keys": [
+        "down"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 470,
+      "sample": 2643750,
+      "keys": [
+        "down"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 472,
+      "sample": 2655000,
+      "keys": [
+        "left",
+        "down"
+      ],
+      "cue": "beat"
+    },
+    {
+      "step": 474,
+      "sample": 2666250,
+      "keys": [
+        "down"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 476,
+      "sample": 2677500,
+      "keys": [
+        "down"
+      ],
+      "cue": "trill"
+    },
+    {
+      "step": 477,
+      "sample": 2683125,
+      "keys": [
+        "up"
+      ],
+      "cue": "trill"
+    },
+    {
+      "step": 478,
+      "sample": 2688750,
+      "keys": [
+        "down"
+      ],
+      "cue": "trill"
+    },
+    {
+      "step": 479,
+      "sample": 2694375,
+      "keys": [
+        "up"
+      ],
+      "cue": "trill"
+    },
+    {
+      "step": 480,
+      "sample": 2700000,
+      "keys": [
+        "right"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 481,
+      "sample": 2705625,
+      "keys": [
+        "up"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 482,
+      "sample": 2711250,
+      "keys": [
+        "left"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 483,
+      "sample": 2716875,
+      "keys": [
+        "down"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 484,
+      "sample": 2722500,
+      "keys": [
+        "right"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 485,
+      "sample": 2728125,
+      "keys": [
+        "up"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 486,
+      "sample": 2733750,
+      "keys": [
+        "left"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 487,
+      "sample": 2739375,
+      "keys": [
+        "down"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 488,
+      "sample": 2745000,
+      "keys": [
+        "right"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 489,
+      "sample": 2750625,
+      "keys": [
+        "up"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 490,
+      "sample": 2756250,
+      "keys": [
+        "left"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 491,
+      "sample": 2761875,
+      "keys": [
+        "down"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 492,
+      "sample": 2767500,
+      "keys": [
+        "right"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 493,
+      "sample": 2773125,
+      "keys": [
+        "up"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 494,
+      "sample": 2778750,
+      "keys": [
+        "left"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 495,
+      "sample": 2784375,
+      "keys": [
+        "down"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 496,
+      "sample": 2790000,
+      "keys": [
+        "down"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 497,
+      "sample": 2795625,
+      "keys": [
+        "left"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 498,
+      "sample": 2801250,
+      "keys": [
+        "up"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 499,
+      "sample": 2806875,
+      "keys": [
+        "right"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 500,
+      "sample": 2812500,
+      "keys": [
+        "down"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 501,
+      "sample": 2818125,
+      "keys": [
+        "left"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 502,
+      "sample": 2823750,
+      "keys": [
+        "up"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 503,
+      "sample": 2829375,
+      "keys": [
+        "right"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 504,
+      "sample": 2835000,
+      "keys": [
+        "down"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 505,
+      "sample": 2840625,
+      "keys": [
+        "left"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 506,
+      "sample": 2846250,
+      "keys": [
+        "up"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 507,
+      "sample": 2851875,
+      "keys": [
+        "right"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 508,
+      "sample": 2857500,
+      "keys": [
+        "down"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 509,
+      "sample": 2863125,
+      "keys": [
+        "left"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 510,
+      "sample": 2868750,
+      "keys": [
+        "up"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 511,
+      "sample": 2874375,
+      "keys": [
+        "right"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 512,
+      "sample": 2880000,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 514,
+      "sample": 2891250,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 516,
+      "sample": 2902500,
+      "keys": [
+        "right"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 518,
+      "sample": 2913750,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 519,
+      "sample": 2919375,
+      "keys": [
+        "down"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 520,
+      "sample": 2925000,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 522,
+      "sample": 2936250,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 524,
+      "sample": 2947500,
+      "keys": [
+        "right"
+      ],
+      "cue": "syncopatedA"
+    },
+    {
+      "step": 528,
+      "sample": 2970000,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 530,
+      "sample": 2981250,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 532,
+      "sample": 2992500,
+      "keys": [
+        "right"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 534,
+      "sample": 3003750,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 535,
+      "sample": 3009375,
+      "keys": [
+        "down"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 537,
+      "sample": 3020625,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 538,
+      "sample": 3026250,
+      "keys": [
+        "down"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 540,
+      "sample": 3037500,
+      "keys": [
+        "left"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 542,
+      "sample": 3048750,
+      "keys": [
+        "right"
+      ],
+      "cue": "syncopatedB"
+    },
+    {
+      "step": 544,
+      "sample": 3060000,
+      "keys": [
+        "left",
+        "down"
+      ],
+      "cue": "pulse332"
+    },
+    {
+      "step": 550,
+      "sample": 3093750,
+      "keys": [
+        "right"
+      ],
+      "cue": "pulse332"
+    },
+    {
+      "step": 556,
+      "sample": 3127500,
+      "keys": [
+        "up"
+      ],
+      "cue": "pulse332"
+    },
+    {
+      "step": 560,
+      "sample": 3150000,
+      "keys": [
+        "right",
+        "up"
+      ],
+      "cue": "pulse332"
+    },
+    {
+      "step": 566,
+      "sample": 3183750,
+      "keys": [
+        "down"
+      ],
+      "cue": "pulse332"
+    },
+    {
+      "step": 572,
+      "sample": 3217500,
+      "keys": [
+        "left"
+      ],
+      "cue": "pulse332"
+    },
+    {
+      "step": 576,
+      "sample": 3240000,
+      "keys": [
+        "left"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 577,
+      "sample": 3245625,
+      "keys": [
+        "left"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 578,
+      "sample": 3251250,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 579,
+      "sample": 3256875,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 580,
+      "sample": 3262500,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 581,
+      "sample": 3268125,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 582,
+      "sample": 3273750,
+      "keys": [
+        "up"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 583,
+      "sample": 3279375,
+      "keys": [
+        "up"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 584,
+      "sample": 3285000,
+      "keys": [
+        "left"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 585,
+      "sample": 3290625,
+      "keys": [
+        "left"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 586,
+      "sample": 3296250,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 587,
+      "sample": 3301875,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 588,
+      "sample": 3307500,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 589,
+      "sample": 3313125,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 590,
+      "sample": 3318750,
+      "keys": [
+        "up"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 591,
+      "sample": 3324375,
+      "keys": [
+        "up"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 592,
+      "sample": 3330000,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 593,
+      "sample": 3335625,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 594,
+      "sample": 3341250,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 595,
+      "sample": 3346875,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 596,
+      "sample": 3352500,
+      "keys": [
+        "left"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 597,
+      "sample": 3358125,
+      "keys": [
+        "left"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 598,
+      "sample": 3363750,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 599,
+      "sample": 3369375,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 600,
+      "sample": 3375000,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 601,
+      "sample": 3380625,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 602,
+      "sample": 3386250,
+      "keys": [
+        "up"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 603,
+      "sample": 3391875,
+      "keys": [
+        "up"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 604,
+      "sample": 3397500,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 605,
+      "sample": 3403125,
+      "keys": [
+        "right"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 606,
+      "sample": 3408750,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 607,
+      "sample": 3414375,
+      "keys": [
+        "down"
+      ],
+      "cue": "doubleTap"
+    },
+    {
+      "step": 608,
+      "sample": 3420000,
+      "keys": [
+        "right",
+        "up"
+      ],
+      "cue": "beat"
+    },
+    {
+      "step": 610,
+      "sample": 3431250,
+      "keys": [
+        "right"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 612,
+      "sample": 3442500,
+      "keys": [
+        "right"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 614,
+      "sample": 3453750,
+      "keys": [
+        "right"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 616,
+      "sample": 3465000,
+      "keys": [
+        "down",
+        "right"
+      ],
+      "cue": "beat"
+    },
+    {
+      "step": 618,
+      "sample": 3476250,
+      "keys": [
+        "right"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 620,
+      "sample": 3487500,
+      "keys": [
+        "right"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 622,
+      "sample": 3498750,
+      "keys": [
+        "right"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 624,
+      "sample": 3510000,
+      "keys": [
+        "left",
+        "up"
+      ],
+      "cue": "beat"
+    },
+    {
+      "step": 626,
+      "sample": 3521250,
+      "keys": [
+        "up"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 628,
+      "sample": 3532500,
+      "keys": [
+        "up"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 630,
+      "sample": 3543750,
+      "keys": [
+        "up"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 632,
+      "sample": 3555000,
+      "keys": [
+        "right",
+        "up"
+      ],
+      "cue": "beat"
+    },
+    {
+      "step": 634,
+      "sample": 3566250,
+      "keys": [
+        "up"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 636,
+      "sample": 3577500,
+      "keys": [
+        "up"
+      ],
+      "cue": "trill"
+    },
+    {
+      "step": 637,
+      "sample": 3583125,
+      "keys": [
+        "down"
+      ],
+      "cue": "trill"
+    },
+    {
+      "step": 638,
+      "sample": 3588750,
+      "keys": [
+        "up"
+      ],
+      "cue": "trill"
+    },
+    {
+      "step": 639,
+      "sample": 3594375,
+      "keys": [
+        "down"
+      ],
+      "cue": "trill"
+    },
+    {
+      "step": 640,
+      "sample": 3600000,
+      "keys": [
+        "left"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 642,
+      "sample": 3611250,
+      "keys": [
+        "left",
+        "right"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 644,
+      "sample": 3622500,
+      "keys": [
+        "left"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 646,
+      "sample": 3633750,
+      "keys": [
+        "left",
+        "right"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 648,
+      "sample": 3645000,
+      "keys": [
+        "left"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 650,
+      "sample": 3656250,
+      "keys": [
+        "left",
+        "right"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 652,
+      "sample": 3667500,
+      "keys": [
+        "left"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 654,
+      "sample": 3678750,
+      "keys": [
+        "left",
+        "right"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 656,
+      "sample": 3690000,
+      "keys": [
+        "left"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 658,
+      "sample": 3701250,
+      "keys": [
+        "left",
+        "right"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 660,
+      "sample": 3712500,
+      "keys": [
+        "left"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 662,
+      "sample": 3723750,
+      "keys": [
+        "left",
+        "right"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 664,
+      "sample": 3735000,
+      "keys": [
+        "left"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 666,
+      "sample": 3746250,
+      "keys": [
+        "left",
+        "right"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 668,
+      "sample": 3757500,
+      "keys": [
+        "left"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 670,
+      "sample": 3768750,
+      "keys": [
+        "left",
+        "right"
+      ],
+      "cue": "offbeat"
+    },
+    {
+      "step": 672,
+      "sample": 3780000,
+      "keys": [
+        "down"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 673,
+      "sample": 3785625,
+      "keys": [
+        "right"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 674,
+      "sample": 3791250,
+      "keys": [
+        "up"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 675,
+      "sample": 3796875,
+      "keys": [
+        "left"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 676,
+      "sample": 3802500,
+      "keys": [
+        "down"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 677,
+      "sample": 3808125,
+      "keys": [
+        "right"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 678,
+      "sample": 3813750,
+      "keys": [
+        "up"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 679,
+      "sample": 3819375,
+      "keys": [
+        "left"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 680,
+      "sample": 3825000,
+      "keys": [
+        "down"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 681,
+      "sample": 3830625,
+      "keys": [
+        "right"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 682,
+      "sample": 3836250,
+      "keys": [
+        "up"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 683,
+      "sample": 3841875,
+      "keys": [
+        "left"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 684,
+      "sample": 3847500,
+      "keys": [
+        "down"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 685,
+      "sample": 3853125,
+      "keys": [
+        "right"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 686,
+      "sample": 3858750,
+      "keys": [
+        "up"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 687,
+      "sample": 3864375,
+      "keys": [
+        "left"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 688,
+      "sample": 3870000,
+      "keys": [
+        "left"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 689,
+      "sample": 3875625,
+      "keys": [
+        "up"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 690,
+      "sample": 3881250,
+      "keys": [
+        "right"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 691,
+      "sample": 3886875,
+      "keys": [
+        "down"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 692,
+      "sample": 3892500,
+      "keys": [
+        "left"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 693,
+      "sample": 3898125,
+      "keys": [
+        "up"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 694,
+      "sample": 3903750,
+      "keys": [
+        "right"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 695,
+      "sample": 3909375,
+      "keys": [
+        "down"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 696,
+      "sample": 3915000,
+      "keys": [
+        "left"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 697,
+      "sample": 3920625,
+      "keys": [
+        "up"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 698,
+      "sample": 3926250,
+      "keys": [
+        "right"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 699,
+      "sample": 3931875,
+      "keys": [
+        "down"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 700,
+      "sample": 3937500,
+      "keys": [
+        "left"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 701,
+      "sample": 3943125,
+      "keys": [
+        "up"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 702,
+      "sample": 3948750,
+      "keys": [
+        "right"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 703,
+      "sample": 3954375,
+      "keys": [
+        "down"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 704,
+      "sample": 3960000,
+      "keys": [
+        "left",
+        "down",
+        "right"
+      ],
+      "cue": "triad"
+    },
+    {
+      "step": 708,
+      "sample": 3982500,
+      "keys": [
+        "left",
+        "right",
+        "up"
+      ],
+      "cue": "triad"
+    },
+    {
+      "step": 712,
+      "sample": 4005000,
+      "keys": [
+        "left",
+        "down",
+        "up"
+      ],
+      "cue": "triad"
+    },
+    {
+      "step": 716,
+      "sample": 4027500,
+      "keys": [
+        "down",
+        "right",
+        "up"
+      ],
+      "cue": "triad"
+    },
+    {
+      "step": 720,
+      "sample": 4050000,
+      "keys": [
+        "left",
+        "up"
+      ],
+      "cue": "beat"
+    },
+    {
+      "step": 722,
+      "sample": 4061250,
+      "keys": [
+        "up"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 724,
+      "sample": 4072500,
+      "keys": [
+        "up"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 726,
+      "sample": 4083750,
+      "keys": [
+        "up"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 728,
+      "sample": 4095000,
+      "keys": [
+        "right",
+        "up"
+      ],
+      "cue": "beat"
+    },
+    {
+      "step": 730,
+      "sample": 4106250,
+      "keys": [
+        "up"
+      ],
+      "cue": "tap"
+    },
+    {
+      "step": 732,
+      "sample": 4117500,
+      "keys": [
+        "up"
+      ],
+      "cue": "trill"
+    },
+    {
+      "step": 733,
+      "sample": 4123125,
+      "keys": [
+        "down"
+      ],
+      "cue": "trill"
+    },
+    {
+      "step": 734,
+      "sample": 4128750,
+      "keys": [
+        "up"
+      ],
+      "cue": "trill"
+    },
+    {
+      "step": 735,
+      "sample": 4134375,
+      "keys": [
+        "down"
+      ],
+      "cue": "trill"
+    },
+    {
+      "step": 736,
+      "sample": 4140000,
+      "keys": [
+        "left",
+        "down",
+        "right",
+        "up"
+      ],
+      "cue": "impact"
+    },
+    {
+      "step": 744,
+      "sample": 4185000,
+      "keys": [
+        "left"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 745,
+      "sample": 4190625,
+      "keys": [
+        "down"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 746,
+      "sample": 4196250,
+      "keys": [
+        "right"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 747,
+      "sample": 4201875,
+      "keys": [
+        "up"
+      ],
+      "cue": "run"
+    },
+    {
+      "step": 748,
+      "sample": 4207500,
+      "keys": [
+        "left"
+      ],
+      "cue": "landing"
+    }
+  ],
+  "percussionSwing": {
+    "bars": [
+      23,
+      24,
+      27,
+      28,
+      33,
+      34
+    ],
+    "hatColumnsOneBased": [
+      4,
+      12,
+      16
+    ],
+    "delaySamples": 864
+  },
+  "arrangementVersion": "climax-order-4",
+  "playbackBarOrder": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    41,
+    42,
+    43,
+    44,
+    39,
+    40,
+    37,
+    38,
+    45,
+    46,
+    47,
+    48
+  ],
+  "chartVersion": "bars-13-16-1",
+  "playbackOverrides": {
+    "hardest": [
+      {
+        "bar": 13,
+        "events": [
+          {
+            "column": 0,
+            "keys": [
+              "left"
+            ]
+          },
+          {
+            "column": 2,
+            "keys": [
+              "left",
+              "right"
+            ]
+          },
+          {
+            "column": 4,
+            "keys": [
+              "left"
+            ]
+          },
+          {
+            "column": 6,
+            "keys": [
+              "left",
+              "right"
+            ]
+          },
+          {
+            "column": 8,
+            "keys": [
+              "left"
+            ]
+          },
+          {
+            "column": 10,
+            "keys": [
+              "left",
+              "right"
+            ]
+          },
+          {
+            "column": 12,
+            "keys": [
+              "left"
+            ]
+          },
+          {
+            "column": 14,
+            "keys": [
+              "left",
+              "right"
+            ]
+          }
+        ]
+      },
+      {
+        "bar": 14,
+        "events": [
+          {
+            "column": 0,
+            "keys": [
+              "left"
+            ]
+          },
+          {
+            "column": 2,
+            "keys": [
+              "left",
+              "down"
+            ]
+          },
+          {
+            "column": 4,
+            "keys": [
+              "left"
+            ]
+          },
+          {
+            "column": 6,
+            "keys": [
+              "left",
+              "up"
+            ]
+          },
+          {
+            "column": 8,
+            "keys": [
+              "left"
+            ]
+          },
+          {
+            "column": 10,
+            "keys": [
+              "left",
+              "up"
+            ]
+          },
+          {
+            "column": 12,
+            "keys": [
+              "left"
+            ]
+          },
+          {
+            "column": 14,
+            "keys": [
+              "left",
+              "down"
+            ]
+          }
+        ]
+      },
+      {
+        "bar": 15,
+        "events": [
+          {
+            "column": 0,
+            "keys": [
+              "right"
+            ]
+          },
+          {
+            "column": 2,
+            "keys": [
+              "left"
+            ]
+          },
+          {
+            "column": 4,
+            "keys": [
+              "down"
+            ]
+          },
+          {
+            "column": 6,
+            "keys": [
+              "up"
+            ]
+          },
+          {
+            "column": 8,
+            "keys": [
+              "right"
+            ]
+          },
+          {
+            "column": 10,
+            "keys": [
+              "up"
+            ]
+          },
+          {
+            "column": 12,
+            "keys": [
+              "down"
+            ]
+          },
+          {
+            "column": 14,
+            "keys": [
+              "left"
+            ]
+          }
+        ]
+      },
+      {
+        "bar": 16,
+        "events": [
+          {
+            "column": 0,
+            "keys": [
+              "right"
+            ]
+          },
+          {
+            "column": 3,
+            "keys": [
+              "left"
+            ]
+          },
+          {
+            "column": 4,
+            "keys": [
+              "down"
+            ]
+          },
+          {
+            "column": 7,
+            "keys": [
+              "up"
+            ]
+          },
+          {
+            "column": 8,
+            "keys": [
+              "down"
+            ]
+          },
+          {
+            "column": 12,
+            "keys": [
+              "up"
+            ]
+          },
+          {
+            "column": 13,
+            "keys": [
+              "right"
+            ]
+          },
+          {
+            "column": 14,
+            "keys": [
+              "up"
+            ]
+          },
+          {
+            "column": 15,
+            "keys": [
+              "right"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

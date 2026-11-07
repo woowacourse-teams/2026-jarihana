@@ -10,6 +10,7 @@ import {
   Globe,
   Lock,
   ArrowRight,
+  Music2,
   Search,
   History,
   Trophy,
@@ -84,19 +85,18 @@ export function GamesPage() {
               </Link>
             </div>
           </article>
-          <article className="games-card games-card--soon" aria-label="리듬게임, 준비 중">
+          <article className="games-card games-card--playable">
             <GameArtwork game="rhythm" className="games-card__visual" />
             <div className="games-card__body">
-              <h2>리듬게임</h2>
-              <p>새로운 게임을 준비하고 있어요.</p>
-              <Button
-                className="games-card__cta"
-                block
-                disabled
+              <h2>행성이의 리듬 작살</h2>
+              <p>비트에 맞춰 세균을 잡는 1인 리듬게임</p>
+              <Link
+                className="ui-button ui-button--primary ui-button--md ui-button--block games-card__cta"
                 data-ph-capture-attribute-action="rhythm_game_open"
+                to="/games/rhythm-harpoon"
               >
-                준비 중
-              </Button>
+                <Music2 size={20} aria-hidden="true" /> 게임 시작
+              </Link>
             </div>
           </article>
         </div>
