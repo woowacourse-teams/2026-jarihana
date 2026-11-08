@@ -44,7 +44,7 @@ public class SparringStreamQueryService {
         List<SparringPostResult> latest =
                 snapshotRequired
                         ? repository
-                                .posts(topicId, null, false, null, PageRequest.ofSize(30))
+                                .posts(topicId, null, false, null, null, null, PageRequest.ofSize(30))
                                 .stream()
                                 .map(SparringPostResult::from)
                                 .sorted(Comparator.comparingLong(SparringPostResult::id))

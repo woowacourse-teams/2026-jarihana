@@ -29,8 +29,8 @@ it('넓은 평면 마당은 중앙을 비워두고 낮은 코트 소품만 양�
   const scene = new THREE.Scene(), playground = createPlanetPlayground(scene);
   const group = scene.getObjectByName('planet-playground'), ground = group.getObjectByName('playground-floor');
   const bounds = new THREE.Box3().setFromObject(ground), size = bounds.getSize(new THREE.Vector3());
-  expect(bounds.min.y).toBeCloseTo(-7.4);
-  expect(bounds.max.y).toBeCloseTo(-7.4);
+  expect(bounds.min.y).toBeCloseTo(-6.4);
+  expect(bounds.max.y).toBeCloseTo(-6.4);
   expect(size.x).toBeGreaterThan(40);
   expect(size.z).toBeGreaterThan(30);
   expect(bounds.min.z).toBeLessThan(-5.5);
@@ -64,7 +64,7 @@ it('통 다리와 코트 소품은 평평한 바닥에 접지한다', () => {
   expect(grounded).toHaveLength(7);
   for (const object of grounded) {
     const bounds = new THREE.Box3().setFromObject(object);
-    expect(bounds.min.y).toBeCloseTo(-7.4);
+    expect(bounds.min.y).toBeCloseTo(-6.4);
   }
   playground.dispose();
 });
@@ -119,7 +119,7 @@ it('경기장 선은 한 메시로 평평한 바닥에 붙고 위에서 보이�
     expect(Number.isFinite(x + y + z)).toBe(true);
     expect(Math.abs(x)).toBeLessThan(8.4);
     expect(Math.abs(z)).toBeLessThan(5.6);
-    const floor = -7.4;
+    const floor = -6.4;
     expect(y - floor).toBeGreaterThan(0);
     expect(y - floor).toBeLessThan(0.02);
     expect(normals.getY(i)).toBeGreaterThan(0);

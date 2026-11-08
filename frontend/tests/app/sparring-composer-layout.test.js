@@ -313,6 +313,43 @@ it('선택 띠가 있어도 양쪽 주장 본문 중심에 제목 카드 전체�
   }
 });
 
+it.each([820, 1200])('%ipx에서 긴 제목은 넓게 줄바꿈하고 편명을 제목 아래로 내린다', width => {
+  document.body.innerHTML = '<div class="stage"><div class="topic"><h1 style="line-height:28px">여러 줄에 걸쳐 표시되는 긴 토론 제목</h1></div><div id="scene"></div><button class="vote-flag"><strong>민트</strong></button><button class="vote-flag"><strong>코랄</strong></button></div><div><form></form></div>';
+  const viewport = Object.getOwnPropertyDescriptor(window, 'innerWidth');
+  const observer = global.ResizeObserver, raf = window.requestAnimationFrame;
+  Object.defineProperty(window, 'innerWidth', { value: width, configurable: true });
+  global.ResizeObserver = class { observe() {} };
+  let callback, longTitle = true;
+  window.requestAnimationFrame = fn => { callback = fn; return 1; };
+  const topic = document.querySelector('.topic'), title = topic.querySelector('h1');
+  const labels = [...document.querySelectorAll('.vote-flag strong')];
+  document.querySelector('.stage').getBoundingClientRect = () => ({ x: 0, y: -32, width: 1000 });
+  Object.defineProperty(title, 'offsetHeight', { get: () => longTitle ? 140 : 28 });
+  Object.defineProperty(topic, 'offsetHeight', { get: () => longTitle ? (topic.style.getPropertyValue('--topic-row-width') === '640px' ? 120 : 180) : 54 });
+  labels.forEach((label, index) => {
+    label.getBoundingClientRect = () => ({ left: index ? 700 : 180, right: index ? 820 : 300,
+      y: 80 + (parseFloat(label.parentElement.style.getPropertyValue('--claim-row-shift')) || 0), height: 44 });
+  });
+  try {
+    setupComposer(document.querySelector('form'));
+    for (let pass = 0; pass < 2; pass++) {
+      callback();
+      expect(topic.style.getPropertyValue('--topic-row-width')).toBe('640px');
+      expect(topic.style.getPropertyValue('--topic-row-top')).toBe('32px');
+      const titleBottom = -32 + parseFloat(topic.style.getPropertyValue('--topic-row-top')) + topic.offsetHeight;
+      labels.forEach(label => expect(label.getBoundingClientRect().y - titleBottom).toBeGreaterThanOrEqual(16));
+    }
+    longTitle = false;
+    Object.defineProperty(window, 'innerWidth', { value: 1200 });
+    callback();
+    expect(topic.style.getPropertyValue('--topic-row-width')).toBe('352px');
+    labels.forEach(label => expect(label.parentElement.style.getPropertyValue('--claim-row-shift')).toBe('0px'));
+  } finally {
+    Object.defineProperty(window, 'innerWidth', viewport);
+    global.ResizeObserver = observer; window.requestAnimationFrame = raf; document.body.innerHTML = '';
+  }
+});
+
 it('양쪽 주장 폭을 맞추되 선택하지 않은 카드의 높이를 늘리지 않는다', () => {
   document.body.innerHTML = '<button class="vote-flag"><strong>짧은 주장</strong></button><button class="vote-flag"><strong>여러 줄이 되는 긴 주장</strong></button>';
   const rangeRects = Range.prototype.getClientRects;

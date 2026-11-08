@@ -348,6 +348,8 @@ Insight와 Dashboard를 구성한다. 이 대시보드는 자리하나의 새 �
 `sparring_create_previous/next`는 더 이상 발생하지 않는다. 입력 폼은 `data-ph-private`로
 가리고, 선택 항목을 접거나 제출을 클릭한 사실을 생성 성공으로 해석하지 않는다.
 
+마당 설정 톱니바퀴는 기존 `sparring_experiment_menu`를 재사용하고 모달 닫기는 `sparring_settings_dismiss`로 구분한다. 구도·패싸움·받아치기 연출·팀별 인원·말풍선 겹침 변경은 기존 `sparring_view_change`, `sparring_brawl_toggle`, `sparring_clash_camera_toggle`, `sparring_character_limit_change`, `sparring_speech_overlap_toggle`을 유지한다. 별도 아담한 구도 복원 버튼을 없애 `sparring_compact_restore`는 더 이상 발생하지 않는다.
+
 SSE/물리 렌더러는 같은 출처 iframe이므로 내부 고정 action을 부모로 전달한다.
 부모는 source/origin/고정 allowlist를 검증한 뒤 `sparring_interaction`에 action만 기록한다.
 사용자 글·주제·이름·진영은 전달하지 않는다. 기존 마스킹/개인정보 허용 목록은 유지한다.
