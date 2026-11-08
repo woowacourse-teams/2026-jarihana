@@ -73,7 +73,7 @@ export function revealComposer(form) {
 }
 
 function alignTopicRow() {
-  if (innerWidth <= 1000) return;
+  if (innerWidth <= 700) return;
   const topic = document.querySelector('.topic'), title = topic?.querySelector('h1');
   const labels = [...document.querySelectorAll('.vote-flag strong')];
   if (!title || labels.length !== 2) return;
@@ -84,13 +84,23 @@ function alignTopicRow() {
     const [x = 0, y = 0] = (style.translate || '').split(/\s+/).map(value => parseFloat(value) || 0);
     const contentShift = ((parseFloat(style.paddingTop) || 0) - (parseFloat(style.paddingBottom) || 0)) / 2;
     // Press feedback must not move the topic's alignment anchors.
-    return { left: rect.left - x, right: rect.right - x, y: rect.y - y + contentShift, height: rect.height };
+    return { left: rect.left - x, right: rect.right - x, y: rect.y - y + contentShift, height: rect.height, contentShift };
   });
   const centers = bounds.map((rect, index) => rect.y + rect.height / 2
     - (parseFloat(labels[index].parentElement.style.getPropertyValue('--claim-row-shift')) || 0));
   const centerX = stage.x + stage.width / 2;
   const width = Math.max(160, Math.min(640, 2 * (Math.min(centerX - bounds[0].right, bounds[1].left - centerX) - 24)));
   topic.style.setProperty('--topic-row-width', `${width}px`);
+  const lineHeight = parseFloat(getComputedStyle(title).lineHeight) || 28;
+  if (innerWidth <= 1000 || title.offsetHeight > lineHeight * 3 + 1) {
+    topic.style.setProperty('--topic-row-width', `${Math.min(640, stage.width - 48)}px`);
+    const top = Math.max(20, -stage.y);
+    topic.style.setProperty('--topic-row-top', `${top}px`);
+    const row = Math.max((centers[0] + centers[1]) / 2,
+      stage.y + top + topic.offsetHeight + 16 + Math.max(...bounds.map(rect => rect.height / 2 + rect.contentShift)));
+    labels.forEach((label, index) => label.parentElement.style.setProperty('--claim-row-shift', `${row - centers[index]}px`));
+    return;
+  }
   const row = Math.max((centers[0] + centers[1]) / 2, Math.max(0, stage.y) + topic.offsetHeight / 2);
   topic.style.setProperty('--topic-row-top', `${row - stage.y - topic.offsetHeight / 2}px`);
   labels.forEach((label, index) => label.parentElement.style.setProperty('--claim-row-shift', `${row - centers[index]}px`));

@@ -124,7 +124,7 @@ async function setupVoting(initialSide = null) {
   const media = Object.getOwnPropertyDescriptor(window, 'matchMedia'), observer = global.ResizeObserver;
   Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: true, addEventListener() {} }) });
   global.ResizeObserver = class { observe() {} disconnect() {} };
-  const arena = { ready: Promise.resolve(), updateState: jest.fn(), chooseSide: jest.fn(), launch: jest.fn(), dispose() {} };
+  const arena = { ready: Promise.resolve(), updateState: jest.fn(), chooseSide: jest.fn(), launch: jest.fn(), setBrawl: jest.fn(), setSpeechOverlap: jest.fn(), setCharacterLimits: jest.fn(), dispose() {} };
   const source = readFileSync(path.join(base, 'src/app.js'), 'utf8').replace(/^import .*;\n/gm, '');
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
   const createArena = jest.fn(() => arena);
@@ -134,6 +134,37 @@ async function setupVoting(initialSide = null) {
   listen.mockRestore();
   return { state, store, arena, receive, reply: id => createArena.mock.calls[0][3](id), cleanup() { document.body.replaceChildren(); Object.defineProperty(window, 'matchMedia', media); global.ResizeObserver = observer; } };
 }
+
+it.each([['brawl', 'setBrawl'], ['speech-overlap', 'setSpeechOverlap']])('%s 임시 모드는 같은 출처 부모의 boolean 메시지만 받아 전환한다', async (kind, setter) => {
+  const { arena, receive, cleanup } = await setupVoting();
+  try {
+    for (const value of [true, false]) receive(new MessageEvent('message', { source: window.parent, origin: location.origin,
+      data: { channel: 'jarihana-sparring', kind, value } }));
+    expect(arena[setter].mock.calls).toEqual([[true], [false]]);
+    for (const invalid of [{ value: 'true' }, { origin: 'https://example.com', value: true }, { source: null, value: true }]) {
+      receive(new MessageEvent('message', { source: window.parent, origin: location.origin, ...invalid,
+        data: { channel: 'jarihana-sparring', kind, value: invalid.value } }));
+    }
+    expect(arena[setter]).toHaveBeenCalledTimes(2);
+  } finally { cleanup(); }
+});
+
+it('팀별 인원은 같은 출처 부모의 1~8 정수 또는 기본값만 전달한다', async () => {
+  const { arena, receive, cleanup } = await setupVoting();
+  const send = (value, overrides = {}) => receive(new MessageEvent('message', {
+    source: window.parent, origin: location.origin,
+    data: { channel: 'jarihana-sparring', kind: 'character-limits', value }, ...overrides,
+  }));
+  try {
+    for (const value of [{ a: 1, b: 8 }, { a: null, b: 3 }, { a: null, b: null }]) send(value);
+    expect(arena.setCharacterLimits).toHaveBeenCalledTimes(3);
+    for (const value of [null, {}, { a: 2 }, { a: 0, b: 3 }, { a: 9, b: 3 }, { a: '2', b: 3 }, { a: 1.5, b: 3 }]) send(value);
+    send({ a: 2, b: 3 }, { origin: 'https://example.com' });
+    send({ a: 2, b: 3 }, { source: null });
+    send({ a: 2, b: 3 }, { data: { channel: 'other', kind: 'character-limits', value: { a: 2, b: 3 } } });
+    expect(arena.setCharacterLimits).toHaveBeenCalledTimes(3);
+  } finally { cleanup(); }
+});
 
 it.each([['a', true], ['b', true], ['a', false], ['b', false]])('입장 시 %s 편 입력창을 열고 이후 수동 접기를 유지한다 (초기 선택: %s)', async (side, initial) => {
   const { state, store, receive, cleanup } = await setupVoting(initial ? side : null);

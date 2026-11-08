@@ -29,7 +29,10 @@ import java.util.UUID;
 @Entity
 @Table(
         name = "sparring_post",
-        indexes = @Index(name = "idx_sparring_post_topic_id", columnList = "topic_id,id"),
+        indexes = {
+            @Index(name = "idx_sparring_post_topic_id", columnList = "topic_id,id"),
+            @Index(name = "idx_sparring_post_topic_side_id", columnList = "topic_id,side,id")
+        },
         uniqueConstraints =
                 @UniqueConstraint(
                         name = "uk_sparring_post_request",

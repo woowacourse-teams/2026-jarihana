@@ -73,7 +73,7 @@ it('대화가 없어도 투표한 양쪽 파이프에서 캡슐을 발사하고 
 
 it('한쪽에만 대화가 있어도 양쪽 투표 캡슐을 발사하고 실제 대화만 재생한다', () => {
   const capsules = createCapsules({}, jest.fn(), jest.fn());
-  capsules.updateState([post], { a: 4, b: 5, total: 9, ratio: 4 / 9 });
+  capsules.updateState([post], { a: 4, b: 5, total: 9, ratio: 4 / 9 }, { page: 1, posts: [post] });
   const sides = Array.from({ length: 12 }, () => capsules.replayPipe());
   expect(sides).toContain('a');
   expect(sides).toContain('b');
