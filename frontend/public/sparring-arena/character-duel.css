@@ -96,17 +96,16 @@
   .composer #composer-note { margin-top: 4px; }
 }
 @media (min-width: 701px) {
-  .stage .topic { position:absolute; top:0; left:50%; transform:translateX(-50%); padding-top:20px; pointer-events:none; }
+  .stage .topic { position:absolute; top:var(--topic-row-top, 20px); left:50%; width:var(--topic-row-width, 70%); transform:translateX(-50%); padding-top:0; pointer-events:none; }
   .composer-dock { margin-top:-140px; }
-  .pipe-station .vote-flag { top:auto; bottom:-12px; min-height:76px; padding-block:4px; }
+  .pipe-station .vote-flag { top:auto; bottom:-12px; min-height:76px; padding-block:4px; transform:translateY(var(--claim-row-shift, 0px)); }
   .pipe-station.a .vote-flag { left:64px; right:auto; }
   .pipe-station.b .vote-flag { left:auto; right:64px; }
   .vote-flag strong { font-size:clamp(18px, 1.5vw, 24px); }
 }
 @media (min-width: 1001px) {
-  .stage .topic { top:var(--topic-row-top, 20px); width:var(--topic-row-width, 32%); padding-top:0; }
   .topic h1 { font-size:clamp(22px, 1.8vw, 28px); }
-  .pipe-station .vote-flag { width:min(220px, 18vw); transform:translateY(var(--claim-row-shift, 0px)); }
+  .pipe-station .vote-flag { width:min(220px, 18vw); }
   .pipe-station.a .vote-flag { left:24px; }
   .pipe-station.b .vote-flag { right:24px; }
 }

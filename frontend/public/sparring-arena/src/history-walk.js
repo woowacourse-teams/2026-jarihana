@@ -5,7 +5,7 @@ const clamp = value => Math.max(0, Math.min(1, value));
 const smooth = value => { const t = clamp(value); return t * t * (3 - 2 * t); };
 const mix = (from, to, amount) => from + (to - from) * amount;
 
-// Feet stay on the tray while the head, arms and legs articulate above them.
+// Walk from the outlet onto the yard, then face the opposite row.
 export function historyWalkPose({ origin, destination, elapsed, side, speaking = false, time = 0, reduced = false, standingScale = 0.65 }) {
   const progress = elapsed * (2.4 / WALKOUT_SECONDS);
   const stand = reduced ? 1 : smooth(progress / 0.5);
