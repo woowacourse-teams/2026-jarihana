@@ -9,10 +9,10 @@ import { createClash } from '../../public/sparring-arena/src/clash.js';
 import { createDispenser } from '../../public/sparring-arena/src/dispenser.js';
 import { createComposerCharacters } from '../../public/sparring-arena/src/composer-characters.js';
 import { whenCharacterAssetsReady } from '../../public/sparring-arena/src/characters.js';
+import { createStudioEnvironment } from '../../public/sparring-arena/src/studio-materials.js';
 import { Vector3, WebGLRenderer } from 'three';
 
 jest.mock('../../public/sparring-arena/src/characters.js', () => ({ whenCharacterAssetsReady: jest.fn(() => Promise.resolve()) }));
-
 jest.mock('../../public/sparring-arena/src/composer-characters.js', () => ({ createComposerCharacters: jest.fn(() => ({ update() {}, step() {}, ship() {}, dispose() {}, presentation: jest.fn(() => null), setProjection() {}, setStandingVisible: jest.fn() })) }));
 
 jest.mock('three', () => {
@@ -27,14 +27,16 @@ jest.mock('three', () => {
 jest.mock('../../public/sparring-arena/src/studio-materials.js', () => {
   const actual = jest.requireActual('../../public/sparring-arena/src/studio-materials.js');
   const { MeshPhysicalMaterial } = jest.requireActual('../../public/sparring-arena/vendor/three.module.js');
-  return { ...actual, studioMaterial: options => new MeshPhysicalMaterial(options), createStudioEnvironment: () => null };
+  return { ...actual, studioMaterial: options => new MeshPhysicalMaterial(options), createStudioEnvironment: jest.fn(() => null) };
 });
 jest.mock('../../public/sparring-arena/src/capsules.js', () => ({ createCapsules: jest.fn() }));
 jest.mock('../../public/sparring-arena/src/capsule-batch.js', () => ({ createCapsuleBatch: () => ({ draw() {}, hide() {} }) }));
 jest.mock('../../public/sparring-arena/src/character-duel.js', () => ({ createCharacterDuel: jest.fn() }));
 jest.mock('../../public/sparring-arena/src/chair-duel-visuals.js', () => ({ createChairDuelVisuals: jest.fn(() => ({ draw: jest.fn(), hide: jest.fn(), dispose: jest.fn() })) }));
 jest.mock('../../public/sparring-arena/src/chair-characters.js', () => ({ createChairCharacters: jest.fn(() => ({ draw: jest.fn(), hide: jest.fn(), pickMeshes: [] })) }));
-jest.mock('../../public/sparring-arena/src/history-conversation.js', () => ({ createHistoryConversation: jest.fn(), HISTORY_MODEL_CAPACITY: 8 }));
+jest.mock('../../public/sparring-arena/src/history-conversation.js', () => ({
+  ...jest.requireActual('../../public/sparring-arena/src/history-conversation.js'), createHistoryConversation: jest.fn(),
+}));
 jest.mock('../../public/sparring-arena/src/capsule-reveals.js', () => ({ createCapsuleReveals: jest.fn() }));
 jest.mock('../../public/sparring-arena/src/clash.js', () => ({ createClash: jest.fn() }));
 jest.mock('../../public/sparring-arena/src/dispenser.js', () => ({ createDispenser: jest.fn() }));
@@ -43,7 +45,7 @@ const reply = { id: 'two', side: 'b', name: '코치', text: '시간이 아까워
 const noop = () => {};
 
 describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
-  let stage, container, arena, capsules, history, duel, clash, dispenser, reveals, now, nextFrame, media, freshReplies;
+  let stage, container, arena, capsules, history, duel, clash, dispenser, reveals, now, nextFrame, media, freshReplies, resizeCallbacks;
   function advance(seconds) {
     for (let i = 0; i < seconds * 20; i++) { now += 50; const callback = nextFrame; nextFrame = null; callback?.(now); }
   }
@@ -55,13 +57,15 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     jest.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => { nextFrame = null; });
     media = { matches: false, addEventListener: noop, removeEventListener: noop };
     Object.defineProperty(window, 'matchMedia', { configurable: true, value: jest.fn(() => media) });
-    global.ResizeObserver = class { observe() {} disconnect() {} };
+    resizeCallbacks = [];
+    global.ResizeObserver = class { constructor(callback) { resizeCallbacks.push(callback); } observe() {} disconnect() {} };
     global.IntersectionObserver = class { observe() {} disconnect() {} };
     stage = document.createElement('div'); container = document.createElement('div'); stage.append(container); document.body.append(stage);
-    Object.defineProperties(container, { clientWidth: { value: 900 }, clientHeight: { value: 500 } });
+    Object.defineProperty(stage, 'clientWidth', { value: 900 });
+    Object.defineProperties(container, { clientWidth: { configurable: true, value: 900 }, clientHeight: { configurable: true, value: 500 } });
     capsules = { step: noop, takeCollision: () => null, replayPipe: jest.fn(() => null), controlState: () => ({ queuedId: null, drawReady: true, freshReady: freshReplies.size > 0 }), stats: jest.fn(() => ({ queuedId: null, drawReady: true })), takeHistorical: jest.fn(() => { const next = freshReplies.values().next().value; if (next) { freshReplies.delete(next.id); return { post: next, fresh: true }; } return { post: reply, fresh: false }; }), takeForDraw: jest.fn(), presentation: () => ({ tracking: ['flight'] }), launch: jest.fn(), queueReplay: jest.fn((post, readyAt, fresh) => { if (fresh && readyAt === 0) freshReplies.set(post.id, post); }), settleReplays: jest.fn(() => freshReplies.clear()), shockwave: jest.fn(), updateState: noop, setPaused: noop };
     duel = { updateState: noop, prepare: jest.fn(() => [{ role: 0, post: original }, { role: 1, post: reply }]), emerge: jest.fn(), clear: jest.fn(), setLayout: jest.fn(), setPaused: noop, pinned: () => false, canReplace: () => true, step: noop, busy: () => false, needsFrame: () => false, stats: () => ({}), dispose: noop };
-    history = { canAccept: jest.fn(() => true), canReplace: jest.fn(() => true), emerge: jest.fn(), leaveAll: jest.fn(), setLayout: jest.fn(), setPaused: noop, setVisible: jest.fn(), pinned: () => false, step: noop, needsFrame: () => false, stats: () => ({ historyArriving: 0 }), dispose: noop };
+    history = { setBrawl: jest.fn(), setCharacterLimits: jest.fn(), hasAuthor: jest.fn(() => false), canAccept: jest.fn(() => true), canReplace: jest.fn(() => true), emerge: jest.fn(), leaveAll: jest.fn(), setCheering: jest.fn(), setLayout: jest.fn(), setPaused: noop, setVisible: jest.fn(), pinned: () => false, step: noop, needsFrame: () => false, stats: () => ({ historyArriving: 0 }), dispose: noop };
     clash = { start: jest.fn(), busy: () => false, setCamera: jest.fn(), reposition: noop, step: jest.fn(), presentation: () => null, projectEffects: noop, needsFrame: () => false, stats: () => ({}), dispose: noop };
     dispenser = { setTrayWidth: jest.fn(), start: jest.fn(() => true), startPair: jest.fn(() => true), clearAll: jest.fn(), readyForNext: () => true, step: noop, presentation: () => null, outputs: () => [], stats: () => ({}) };
     reveals = { update: jest.fn(), spark: jest.fn(), dispose: noop };
@@ -71,19 +75,323 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     arena = createArena(container, noop, noop);
   });
   afterEach(() => { arena?.dispose(); stage.remove(); jest.restoreAllMocks(); });
+  it.each(['compact', 'original'])('%s 구도에서 집기 좌표를 마당 평면으로 역투영한다', view => {
+    arena.setView(view);
+    const { project, unproject, unprojectHold } = createHistoryConversation.mock.lastCall[3];
+    for (const point of [{ x: -2, y: -6.4, z: 9 }, { x: 3, y: -6.4, z: 14 }]) {
+      const result = unproject(project(point), point.y);
+      expect(result.x).toBeCloseTo(point.x, 5);
+      expect(result.y).toBe(point.y);
+      expect(result.z).toBeCloseTo(point.z, 5);
+      const screen = project(point), target = { x: screen.x + 80, y: screen.y - 120 };
+      const held = unprojectHold(target, point);
+      expect(project(held).x).toBeCloseTo(target.x, 5);
+      expect(project(held).y).toBeCloseTo(target.y, 5);
+      const groundAgain = unproject(project(point), point.y);
+      expect(groundAgain.y).toBe(point.y);
+    }
+  });
+  it('16명 좌표를 매 프레임 투영할 때 DOM 크기를 반복 측정하지 않고 리사이즈와 위치 이동을 반영한다', () => {
+    let width = 900, height = 500, top = 20;
+    const reads = { clientWidth: jest.fn(() => width), clientHeight: jest.fn(() => height), offsetTop: jest.fn(() => top) };
+    for (const [name, get] of Object.entries(reads)) Object.defineProperty(container, name, { configurable: true, get });
+    resizeCallbacks.at(-1)();
+    const project = createHistoryConversation.mock.lastCall[3].project;
+    const camera = createClash.mock.calls[0][2];
+    const point = { x: 1, y: -4, z: 9 };
+    const expected = () => {
+      const p = new Vector3(point.x, point.y, point.z).project(camera);
+      return { x: (p.x + 1) * width / 2, y: top + (1 - p.y) * height / 2 };
+    };
+    for (const read of Object.values(reads)) read.mockClear();
+    for (let frame = 0; frame < 120; frame++) {
+      for (let index = 0; index < 16 * 2; index++) expect(project(point)).toEqual(expected());
+    }
+    for (const read of Object.values(reads)) expect(read).not.toHaveBeenCalled();
+    const before = project(point);
+    width = 600; height = 400; top = 40;
+    resizeCallbacks.at(-1)();
+    expect(project(point)).toEqual(expected());
+    expect(project(point)).not.toEqual(before);
+    top = 55; advance(.05);
+    expect(project(point)).toEqual(expected());
+  });
+  it.each(['compact', 'original'])('%s 구도는 패싸움 전환과 다른 구도 왕복 후에도 각도·확대율·투영 위치가 같다', view => {
+    arena.setView(view);
+    const currentCamera = () => clash.setCamera.mock.lastCall?.[0] ?? createClash.mock.calls[0][2];
+    const snapshot = () => {
+      const camera = currentCamera();
+      return { position: camera.position.toArray(), rotation: camera.quaternion.toArray(), zoom: camera.zoom,
+        projection: [...camera.projectionMatrix.elements], anchors: container.dataset.pipeAnchors };
+    };
+    const before = snapshot();
+    arena.setBrawl(true);
+    expect(snapshot()).toEqual(before);
+    arena.setView(view === 'compact' ? 'original' : 'compact'); arena.setView(view);
+    expect(snapshot()).toEqual(before);
+    arena.setBrawl(false);
+    expect(snapshot()).toEqual(before);
+  });
+  it('패싸움 전환은 기존 인물과 큐를 유지하며 새 인물도 미끄럼틀 개봉 뒤 입장한다', () => {
+    history.step = jest.fn();
+    capsules.takeHistorical.mockReturnValueOnce({ post: original, fresh: false }).mockReturnValue(null);
+    arena.updateState([original], { total: 1 });
+    const before = capsules.takeHistorical.mock.calls.length;
+    arena.setBrawl(true);
+    expect(history.setBrawl).toHaveBeenCalledWith(true, false);
+    expect(capsules.takeHistorical).toHaveBeenCalledTimes(before);
+    advance(1);
+    expect(stage.dataset.brawl).toBe('true');
+    expect(history.step).toHaveBeenCalled();
+    expect(history.leaveAll).not.toHaveBeenCalled();
+    expect(history.setVisible).toHaveBeenLastCalledWith(true, { speech: true });
+    expect(dispenser.start).toHaveBeenCalledWith(expect.objectContaining({ post: original, kind: 'history' }), false);
+    expect(history.emerge).not.toHaveBeenCalled();
+    const origin = { x: 1, y: -6, z: 9 };
+    createDispenser.mock.calls[0][2].onOpened({ groupId: 0, kind: 'history', post: original, characterOrigin: origin, body: { position: origin } });
+    expect(history.emerge).toHaveBeenCalledWith(original, origin, false);
+    expect(createDispenser.mock.calls[0][0].visible).toBe(true);
+    arena.setBrawl(false); arena.setBrawl(false);
+    expect(history.setBrawl.mock.calls).toEqual([[true, false], [false, false]]);
+  });
+  it('팀별 인원 변경은 재생 큐나 카메라를 다시 만들지 않고 마당에 전달한다', () => {
+    media.matches = true;
+    const starts = dispenser.start.mock.calls.length;
+    const cameras = clash.setCamera.mock.calls.length;
+    arena.setCharacterLimits({ a: 3, b: 5 });
+    expect(history.setCharacterLimits).toHaveBeenCalledWith({ a: 3, b: 5 }, true);
+    expect(history.leaveAll).not.toHaveBeenCalled();
+    expect(dispenser.start).toHaveBeenCalledTimes(starts);
+    expect(clash.setCamera).toHaveBeenCalledTimes(cameras);
+  });
+  it('패싸움 중 새 받아치기도 기존 충돌과 미끄럼틀 연출을 거친다', () => {
+    arena.updateState([], {}); arena.setBrawl(true); arena.launch(reply); advance(1);
+    expect(clash.start).toHaveBeenCalledWith(reply, true, false);
+    expect(freshReplies.size).toBe(0);
+    expect(history.setCheering).toHaveBeenCalledWith(true, false);
+    expect(createDispenser.mock.calls[0][0].visible).toBe(true);
+    createClash.mock.calls[0][4].onImpactComplete({ post: reply, fresh: true });
+    expect(dispenser.startPair).toHaveBeenCalledWith(expect.any(Array), false);
+  });
+  it('패싸움에도 기존 일시정지와 모션 감소 재생 규칙을 적용한다', () => {
+    history.step = jest.fn(); media.matches = true;
+    arena.setBrawl(true); expect(history.setBrawl).toHaveBeenCalledWith(true, true);
+    arena.setPaused(true); advance(1); expect(history.step).not.toHaveBeenCalled();
+    arena.setPaused(false); advance(.1); expect(history.step).toHaveBeenCalledWith(expect.any(Number), true);
+    expect(capsules.takeHistorical).not.toHaveBeenCalled();
+    arena.launch(reply); advance(1);
+    expect(clash.start).toHaveBeenCalledWith(reply, true, true);
+  });
+  it('마당에 있는 작성자의 다음 글은 캡슐을 다시 열지 않고 같은 인물에게 전달한다', () => {
+    history.hasAuthor.mockReturnValue(true);
+    capsules.takeHistorical.mockReturnValue({ post: original, fresh: false });
+    arena.updateState([original], { a: 1, b: 0, total: 1, ratio: 1 });
+    expect(history.emerge).toHaveBeenCalledWith(original, null, false);
+    expect(dispenser.start).not.toHaveBeenCalled();
+    expect(history.leaveAll).not.toHaveBeenCalled();
+  });
+  it('최초 과거 페이지를 기다리는 동안 빈 재생 선택을 열지 않고 응답 후 재생한다', () => {
+    capsules.takeHistorical.mockReturnValue(null);
+    expect(() => arena.updateState([original], { a: 1, b: 0, total: 1, ratio: 1 }, { page: 0, posts: [] })).not.toThrow();
+    advance(2);
+    expect(dispenser.start).not.toHaveBeenCalled();
+    capsules.takeHistorical.mockReturnValue({ post: original, fresh: false });
+    arena.updateState([original], { a: 1, b: 0, total: 1, ratio: 1 }, { page: 1, posts: [original] });
+    advance(2);
+    expect(dispenser.start).toHaveBeenCalled();
+  });
   it('받아치기와 지난 대화 모두 의자 캐릭터를 각 장면의 좌표에 연결한다', () => {
     const [front, visualStage] = createChairDuelVisuals.mock.lastCall;
     const [world, capacity] = createChairCharacters.mock.lastCall;
     expect(visualStage).toBe(stage);
-    expect(front.isScene).toBe(true);
+    expect(front.isGroup).toBe(true);
+    expect(front.parent.isScene).toBe(true);
     expect(world.isScene).toBe(true);
     expect(front).not.toBe(world);
-    expect(capacity).toBe(8);
+    expect(capacity).toBe(32);
     expect(createCharacterDuel.mock.lastCall[3]).toBe(createChairDuelVisuals.mock.results.at(-1).value);
     expect(createHistoryConversation.mock.lastCall[3]).toMatchObject({
-      ...createChairCharacters.mock.results.at(-1).value,
+      draw: expect.any(Function),
+      hide: expect.any(Function),
       project: expect.any(Function),
     });
+  });
+  it('집은 인물만 앞쪽 장면에서 그리고 놓으면 원래 마당 모델로 복귀한다', () => {
+    const visuals = createHistoryConversation.mock.lastCall[3];
+    const worldModels = createChairCharacters.mock.results.at(-1).value;
+    const position = { x: 0, y: -4, z: 10 };
+    visuals.draw(3, original, position, 1, { hanging: true }, 0);
+    const [heldWorld, capacity] = createChairCharacters.mock.lastCall;
+    const heldModels = createChairCharacters.mock.results.at(-1).value;
+    expect(capacity).toBe(1);
+    expect(heldWorld).not.toBe(createChairCharacters.mock.calls[0][0]);
+    expect(worldModels.hide).toHaveBeenCalledWith(3);
+    expect(heldModels.draw).toHaveBeenCalledWith(0, original, position, 1, { hanging: true }, 0);
+    visuals.draw(3, original, position, 1, { hanging: false }, 0.6);
+    expect(heldModels.hide).toHaveBeenCalledWith(0);
+    expect(worldModels.draw).toHaveBeenCalledWith(3, original, position, 1, { hanging: false }, 0.6);
+  });
+  it.each(['compact', 'original'])('%s 구도에서 잡힌 인물의 의자 던지기는 현재 카메라를 목표로 전달한다', view => {
+    arena.setView(view);
+    const visuals = createHistoryConversation.mock.lastCall[3];
+    const pose = { hanging: true, chairFlight: { target: 'camera', progress: .2 } };
+    visuals.draw(3, original, { x: 0, y: -4, z: 10 }, 1, pose, 0);
+    const rendered = createChairCharacters.mock.results.at(-1).value.draw.mock.lastCall[4];
+    expect(rendered.chairFlight.camera).toBe(clash.setCamera.mock.lastCall?.[0] ?? createClash.mock.calls[0][2]);
+    expect(rendered.chairFlight).toMatchObject({ target: 'camera', progress: .2 });
+    expect(pose.chairFlight.camera).toBeUndefined();
+  });
+  it.each([[7, 2], [2, 7]])('포커스가 %i번에서 %i번으로 바뀌어도 새 인물을 전경에 유지하고 이전 인물은 마당으로 복귀한다', (previous, next) => {
+    const visuals = createHistoryConversation.mock.lastCall[3];
+    const worldModels = createChairCharacters.mock.results.at(-1).value;
+    const position = { x: 0, y: -6.3, z: 10 };
+    visuals.draw(previous, original, position, 1, { focused: true }, 0);
+    const foreground = createChairCharacters.mock.results.at(-1).value;
+    const canvas = document.querySelector('.arena-held-renderer');
+    advance(.1);
+    expect(canvas.hidden).toBe(false);
+    expect(canvas.dataset.held).toBe('false');
+    expect(worldModels.hide).toHaveBeenCalledWith(previous);
+    expect(foreground.draw).toHaveBeenLastCalledWith(0, original, position, 1, { focused: true }, 0);
+    foreground.hide.mockClear();
+    const drawPrevious = () => visuals.draw(previous, original, position, 1, { focused: false }, .6);
+    const drawNext = () => visuals.draw(next, reply, position, 1, { focused: true }, .2);
+    if (previous < next) { drawPrevious(); drawNext(); }
+    else { drawNext(); drawPrevious(); }
+    advance(.1);
+    expect(canvas.hidden).toBe(false);
+    expect(worldModels.draw).toHaveBeenCalledWith(previous, original, position, 1, { focused: false }, .6);
+    expect(worldModels.hide).toHaveBeenCalledWith(next);
+    expect(foreground.draw).toHaveBeenLastCalledWith(0, reply, position, 1, { focused: true }, .2);
+    if (previous > next) expect(foreground.hide).not.toHaveBeenCalled();
+    visuals.hide(previous);
+    expect(canvas.hidden).toBe(false);
+    visuals.hide(next);
+    expect(canvas.hidden).toBe(true);
+    expect(foreground.hide).toHaveBeenCalledWith(0);
+  });
+  it('첫 포커스에만 전경 캔버스를 만들고 집기와 일반 포커스 전환에 같은 모델과 렌더러를 재사용한다', () => {
+    const field = document.createElement('section');
+    field.className = 'history-conversation';
+    stage.append(field);
+    const visuals = createHistoryConversation.mock.lastCall[3];
+    const worldModels = createChairCharacters.mock.results.at(-1).value;
+    const position = { x: 0, y: -6.3, z: 10 };
+    visuals.draw(1, original, position, 1, {}, 0);
+    expect(document.querySelector('.arena-held-renderer')).toBeNull();
+    visuals.draw(1, original, position, 1, { focused: true }, 0);
+    const canvas = document.querySelector('.arena-held-renderer');
+    const foreground = createChairCharacters.mock.results.at(-1).value;
+    expect(createChairCharacters.mock.lastCall[1]).toBe(1);
+    expect(canvas.dataset.held).toBe('false');
+    expect(canvas.parentElement).toBe(field);
+    visuals.draw(1, original, position, 1, { focused: true, hanging: true }, 0);
+    expect(canvas.dataset.held).toBe('true');
+    expect(canvas.parentElement).toBe(document.body);
+    visuals.draw(1, original, position, 1, { released: true, hanging: false }, 0);
+    expect(canvas.dataset.held).toBe('true');
+    expect(canvas.parentElement).toBe(document.body);
+    visuals.draw(1, original, position, 1, { focused: true, hanging: false }, 0);
+    expect(canvas.dataset.held).toBe('false');
+    expect(canvas.parentElement).toBe(field);
+    expect(createChairCharacters).toHaveBeenCalledTimes(2);
+    expect(createStudioEnvironment).toHaveBeenCalledTimes(2);
+    expect(document.querySelectorAll('.arena-held-renderer')).toHaveLength(1);
+    visuals.draw(1, original, position, 1, { focused: false }, .6);
+    expect(canvas.hidden).toBe(true);
+    expect(foreground.hide).toHaveBeenCalledWith(0);
+    expect(worldModels.draw).toHaveBeenLastCalledWith(1, original, position, 1, { focused: false }, .6);
+  });
+  it.each(['compact', 'original'])('%s 구도에서 의자 충격은 렌더 화면만 픽셀 단위로 흔들고 집기 좌표와 기본 카메라를 유지한다', view => {
+    jest.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(900);
+    jest.spyOn(container, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, right: 900, bottom: 500, width: 900, height: 500 });
+    arena.setView(view);
+    const visuals = createHistoryConversation.mock.lastCall[3];
+    const world = createChairCharacters.mock.lastCall[0];
+    const position = { x: 1, y: -4, z: 10 }, projected = visuals.project(position);
+    const base = clash.setCamera.mock.lastCall?.[0] ?? createClash.mock.calls[0][2];
+    const baseProjection = base.projectionMatrix.clone(), baseView = { ...base.view };
+    const renders = [];
+    jest.spyOn(WebGLRenderer.prototype, 'render').mockImplementation((scene, camera) => {
+      renders.push({ scene, point: new Vector3(position.x, position.y, position.z).project(camera), view: { ...camera.view } });
+    });
+    visuals.draw(3, original, position, 1, { hanging: true }, 0);
+    const foreground = createChairCharacters.mock.lastCall[0];
+    advance(.1);
+    const before = renders.filter(call => call.scene === world).at(-1);
+    visuals.draw(3, original, position, 1, { hanging: true, cameraShake: { x: 4, y: -2 } }, 0);
+    advance(.1);
+    const hit = renders.filter(call => call.scene === world).at(-1);
+    expect((hit.point.x - before.point.x) * 900 / 2).toBeCloseTo(-4);
+    expect((hit.point.y - before.point.y) * innerHeight / 2).toBeCloseTo(-2);
+    expect(renders.filter(call => call.scene === foreground).at(-1).view).toEqual(hit.view);
+    expect(visuals.project(position)).toEqual(projected);
+    expect(base.projectionMatrix).toEqual(baseProjection);
+    expect(base.view).toEqual(baseView);
+    visuals.draw(3, original, position, 1, { hanging: true }, 0);
+    advance(.1);
+    expect(renders.filter(call => call.scene === world).at(-1).view).toEqual(before.view);
+    visuals.draw(3, original, position, 1, { hanging: true, cameraShake: { x: 4, y: -2 } }, 0);
+    visuals.hide(3); advance(.1);
+    expect(renders.filter(call => call.scene === world).at(-1).view).toEqual(before.view);
+    visuals.draw(3, original, position, 1, { hanging: true, cameraShake: { x: 4, y: -2 } }, 0);
+    media.matches = true; advance(.1);
+    expect(renders.filter(call => call.scene === world).at(-1).view).toEqual(before.view);
+    media.matches = false; arena.setPaused(true); advance(.1);
+    expect(renders.filter(call => call.scene === world).at(-1).view).toEqual(before.view);
+  });
+  it('집을 때만 별도 투명 캔버스를 만들어 같은 구도로 그리고 숨김과 해제 때 자원을 정리한다', () => {
+    const width = jest.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(900);
+    jest.replaceProperty(window, 'devicePixelRatio', 2);
+    const render = jest.spyOn(WebGLRenderer.prototype, 'render');
+    const setSize = jest.spyOn(WebGLRenderer.prototype, 'setSize');
+    const setViewport = jest.spyOn(WebGLRenderer.prototype, 'setViewport');
+    const setPixelRatio = jest.spyOn(WebGLRenderer.prototype, 'setPixelRatio');
+    const dispose = jest.spyOn(WebGLRenderer.prototype, 'dispose');
+    const forceContextLoss = jest.spyOn(WebGLRenderer.prototype, 'forceContextLoss');
+    const environment = { dispose: jest.fn() };
+    createStudioEnvironment.mockReturnValueOnce(environment);
+    const visuals = createHistoryConversation.mock.lastCall[3];
+    const position = { x: 0, y: -4, z: 10 };
+    expect(document.querySelector('.arena-held-renderer')).toBeNull();
+    visuals.draw(3, original, position, 1, { hanging: true }, 0);
+    const canvas = document.querySelector('.arena-held-renderer');
+    const heldRenderer = createStudioEnvironment.mock.lastCall[0];
+    const heldWorld = createChairCharacters.mock.lastCall[0];
+    expect(canvas.parentElement).toBe(document.body);
+    expect(canvas).toHaveAttribute('aria-hidden', 'true');
+    expect(setPixelRatio).toHaveBeenCalledWith(1.5);
+    expect(heldWorld.environment).toBe(environment);
+    advance(.1);
+    const heldDraw = render.mock.calls.findIndex(([world]) => world === heldWorld);
+    expect(heldDraw).toBeGreaterThanOrEqual(0);
+    expect(render.mock.contexts[heldDraw]).toBe(heldRenderer);
+    expect(render.mock.calls[heldDraw][1]).toBe(render.mock.calls[heldDraw - 1][1]);
+    expect(canvas.hidden).toBe(false);
+    const viewportFor = target => setViewport.mock.calls.filter((_, index) => setViewport.mock.contexts[index] === target);
+    const mainRenderer = createStudioEnvironment.mock.calls[0][0];
+    expect(viewportFor(mainRenderer)).toContainEqual(viewportFor(heldRenderer).at(-1));
+    const heldSizes = () => setSize.mock.calls.filter((_, index) => setSize.mock.contexts[index] === heldRenderer);
+    expect(heldSizes()).toHaveLength(1);
+    width.mockReturnValue(1000);
+    advance(.1);
+    expect(heldSizes()).toHaveLength(2);
+    expect(heldSizes().at(-1)).toEqual([1000, innerHeight, false]);
+    visuals.hide(3);
+    expect(canvas.hidden).toBe(true);
+    render.mockClear();
+    advance(.1);
+    expect(render.mock.calls.some(([world]) => world === heldWorld)).toBe(false);
+    visuals.draw(4, original, position, 1, { hanging: true }, 0);
+    expect(document.querySelectorAll('.arena-held-renderer')).toHaveLength(1);
+    expect(createStudioEnvironment).toHaveBeenCalledTimes(2);
+    visuals.draw(4, original, position, 1, { hanging: false }, 0);
+    expect(canvas.hidden).toBe(true);
+    arena.dispose(); arena = null;
+    expect(environment.dispose).toHaveBeenCalledTimes(1);
+    expect(dispose.mock.contexts).toContain(heldRenderer);
+    expect(forceContextLoss.mock.contexts).toContain(heldRenderer);
+    expect(canvas.isConnected).toBe(false);
   });
   it('캐릭터 등장 중 다시 깨워도 프레임 예약은 하나만 유지하고 화면을 숨기면 모두 취소한다', () => {
     arena.dispose(); stage.replaceChildren(container);
@@ -162,8 +470,8 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
   });
   it('세 구도 전환은 살아 있는 대화와 캡슐을 비우지 않고 작은 모드의 크기만 적용하고 복원한다', () => {
     expect(container.dataset.viewMode).toBe('compact');
-    expect(createDispenser.mock.calls[0][2].trayWidth).toBe(4.4);
-    for (const [view, width, compact] of [['original', 10, false], ['reference', 14, false], ['compact', 4.4, true]]) {
+    expect(createDispenser.mock.calls[0][2].trayWidth).toBe(3.2);
+    for (const [view, width, compact] of [['original', 5, false], ['reference', 5, false], ['compact', 3.2, true]]) {
       arena.setView(view);
       expect(container.dataset.viewMode).toBe(view);
       expect(dispenser.setTrayWidth).toHaveBeenLastCalledWith(width, compact ? 0.45 : 1);
@@ -174,6 +482,10 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
       expect(destinations[1].x - destinations[0].x).toBeGreaterThan(0);
       const layout = history.setLayout.mock.lastCall[0];
       expect(layout.characterScale).toBeCloseTo(compact ? 0.31 * 0.5 / 0.48 : 0.65);
+      expect(layout.worldRight.x - layout.worldLeft.x).toBeCloseTo(compact ? 2.5 : 4.0);
+      expect(layout.worldLeft.y).toBe(-6.4);
+      expect(layout.worldRight.y).toBe(-6.4);
+      expect(layout.worldLeft.z).toBe(compact ? 9.6 : 10.1);
       expect(dispenser.clearAll).not.toHaveBeenCalled();
       expect(duel.clear).not.toHaveBeenCalled();
     }
@@ -342,7 +654,8 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     expect(form.hasAttribute('inert')).toBe(true);
     collision.elapsed = 1.38; advance(.05);
     clash.presentation = () => null; clash.busy = () => false;
-    advance(1);
+    createClash.mock.calls.at(-1)[4].onImpactComplete({ post: mine, fresh: true });
+    advance(1.2);
     expect(stage.dataset.cinematic).toBe('false');
     expect(form.hasAttribute('inert')).toBe(false);
     expect(clash.start).toHaveBeenCalledTimes(1);
@@ -364,6 +677,7 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     expect(history.emerge).toHaveBeenCalledWith(reply, { x: 1, y: -6, z: 9 }, false); expect(duel.emerge).not.toHaveBeenCalled();
   });
   it('새 일반 채팅은 파이프 말풍선으로 연결하고 대치 큐에 넣지 않는다', () => {
+    capsules.takeHistorical.mockReturnValue(null);
     arena.updateState([], {}); arena.launch(original); advance(0.8);
     expect(capsules.launch).toHaveBeenCalledWith(original, { reduced: false });
     expect(reveals.update).toHaveBeenCalledWith([], ['flight'], expect.anything());
@@ -380,8 +694,8 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     expect(history.setVisible).toHaveBeenLastCalledWith(true, { speech: false });
     expect(history.leaveAll).not.toHaveBeenCalled();
     createClash.mock.calls[0][4].onImpactComplete({ post: reply, fresh: true });
-    expect(history.leaveAll).toHaveBeenCalledTimes(1);
-    expect(history.leaveAll).toHaveBeenCalledWith(false);
+    expect(history.leaveAll).not.toHaveBeenCalled();
+    expect(history.setCheering).toHaveBeenLastCalledWith(true, false);
     expect(capsules.queueReplay).toHaveBeenCalledTimes(2);
     expect(capsules.queueReplay).toHaveBeenLastCalledWith(reply, 0, true);
     expect(duel.prepare).toHaveBeenCalledWith(reply, true, false);
@@ -539,12 +853,12 @@ describe('지난 대화, 새 한마디, 받아치기 연출 분리', () => {
     clash.start.mockImplementation(post => { order.push(post.id); });
     const older = Array.from({ length: 6 }, (_, i) => ({ ...original, id: String(i + 1) }));
     arena.updateState([], { a: 1, b: 1, total: 2, ratio: .5 }, { page: 1, posts: older });
-    advance(2);
+    advance(0.7);
     for (const id of ['101', '102', '103']) arena.launch({ ...reply, id });
     advance(2.4);
     expect(order.slice(0, 5)).toEqual(['1', '101', '102', '2', '103']);
     advance(4);
-    expect(order.slice(5)).toEqual(['3', '4']);
+    expect(order.slice(5)).toEqual(['3', '4', '5', '6']);
   });
 
 });

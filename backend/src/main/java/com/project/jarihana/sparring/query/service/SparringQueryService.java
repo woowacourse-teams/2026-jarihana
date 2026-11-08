@@ -66,7 +66,11 @@ public class SparringQueryService {
             long topicId, Long memberId, SparringPostsQuery query) {
         if (query.mine() && memberId == null)
             throw new BusinessException(ErrorCode.UNAUTHENTICATED, "내 대화는 로그인 후 볼 수 있어요.");
-        if (query.afterId() != null && (query.cursor() != null || query.mine())) {
+        if (query.afterId() != null
+                && (query.cursor() != null
+                        || query.mine()
+                        || query.side() != null
+                        || query.throughId() != null)) {
             throw new BusinessException(
                     ErrorCode.INVALID_PARAMETER, "새 글 조회와 이전 대화 조회는 함께 사용할 수 없어요.");
         }
@@ -79,6 +83,8 @@ public class SparringQueryService {
                                         memberId,
                                         query.mine(),
                                         cursor.at() == null ? null : cursor.id(),
+                                        query.side() == null ? null : query.side().name(),
+                                        query.throughId(),
                                         PageRequest.ofSize(query.size() + 1))
                                 : repository.postsAfter(
                                         topicId,
