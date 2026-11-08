@@ -92,7 +92,9 @@ paths:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Size'
         - {name: mine, in: query, schema: {type: boolean, default: false}, description: true requires member authentication}
-        - {name: afterId, in: query, schema: {type: integer, format: int64, minimum: 0}, description: Ascending catch-up; cannot combine with cursor or mine=true}
+        - {name: side, in: query, schema: {type: string, enum: [MINT, CORAL]}, description: Filter by the side saved on each post before pagination; retain this side with its nextCursor}
+        - {name: throughId, in: query, schema: {type: integer, format: int64, minimum: 0}, description: Inclusive upper post ID for a fixed replay cycle; zero returns an empty page}
+        - {name: afterId, in: query, schema: {type: integer, format: int64, minimum: 0}, description: Ascending catch-up; cannot combine with cursor or mine=true or side or throughId}
       responses:
         '200':
           description: Descending history or ascending catch-up

@@ -1,0 +1,49 @@
+.sparring-detail__tools { display: flex; align-items: center; gap: var(--space-3); margin-left: auto; }
+.sparring-detail__tools .sparring-connection { position: static; max-width: none; }
+.sparring-settings-trigger {
+  display: grid; place-items: center; flex: none; width: 48px; height: 48px;
+  border: 3px solid #163e38; border-radius: var(--radius-lg);
+  background: #27bdb6; color: #163e38; box-shadow: 3px 4px 0 #163e38;
+  cursor: pointer; pointer-events: auto; transition: transform 150ms, box-shadow 150ms;
+}
+.sparring-settings-trigger svg { fill: #dff8f3; transition: transform 150ms; }
+.sparring-settings-trigger:active { transform: translate(2px, 3px); box-shadow: 1px 1px 0 #163e38; }
+.sparring-settings-trigger:focus-visible { outline: 3px solid #163e38; outline-offset: 4px; }
+@media (hover: hover) {
+  .sparring-settings-trigger:hover svg { transform: rotate(25deg); }
+}
+.sparring-create-dialog.sparring-settings-dialog.ui-dialog { max-width: 32rem; }
+.sparring-settings-dialog::before, .sparring-settings-dialog::after { display: none; }
+.arena-settings { display: grid; gap: var(--space-4); }
+.arena-settings fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.arena-settings legend { margin-bottom: var(--space-2); color: var(--create-ink); font-size: var(--text-label); font-weight: var(--font-weight-extrabold); }
+.arena-settings-view > div { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+.arena-settings-view button, .arena-settings-toggle, .arena-settings-limits select {
+  min-height: var(--touch-target); border: 2px solid var(--create-ink); border-radius: var(--radius-md);
+  background: var(--color-surface); color: var(--create-ink); font: inherit;
+}
+.arena-settings-view button { padding: var(--space-2); cursor: pointer; font-size: var(--text-label); font-weight: var(--font-weight-bold); }
+.arena-settings-view button[aria-pressed="true"] { background: var(--create-fill); box-shadow: 2px 3px 0 var(--create-ink); }
+.arena-settings-toggle { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); width: 100%; padding: var(--space-3); background: var(--create-fill); box-shadow: 2px 3px 0 var(--create-ink); text-align: left; cursor: pointer; }
+.arena-settings-toggle__copy { display: grid; gap: var(--space-1); }
+.arena-settings-toggle__copy strong { font-size: var(--text-label); font-weight: var(--font-weight-extrabold); }
+.arena-settings-toggle__copy > span { font-size: var(--text-caption); line-height: 1.5; }
+.arena-settings-toggle__track { position: relative; flex: none; width: 42px; height: 26px; border: 2px solid var(--create-ink); border-radius: var(--radius-pill); background: var(--color-surface); }
+.arena-settings-toggle__track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border: 2px solid var(--create-ink); border-radius: 50%; background: var(--color-surface); transition: transform 150ms; }
+.arena-settings-toggle[aria-checked="true"] .arena-settings-toggle__track { background: var(--create-mint); }
+.arena-settings-toggle[aria-checked="true"] .arena-settings-toggle__track::after { transform: translateX(16px); }
+.arena-settings-limits > p, .arena-settings__hint { margin: 0; color: var(--create-ink); font-size: var(--text-caption); line-height: 1.5; }
+.arena-settings-limits > div { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: var(--space-2); }
+.arena-settings-limits label { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: 2px solid var(--create-ink); border-radius: var(--radius-md); background: var(--create-fill); color: var(--create-ink); font-size: var(--text-label); font-weight: var(--font-weight-bold); }
+.arena-settings-limits label[data-side="b"] { background: #fff0ed; }
+.arena-settings-limits select { flex: 1; min-width: 0; padding-inline: var(--space-2); font-size: var(--text-label); cursor: pointer; }
+.arena-settings select:focus-visible { outline: 2px solid var(--create-ink); outline-offset: 3px; }
+.arena-settings__hint { text-align: center; }
+.arena-settings button:disabled, .arena-settings fieldset:disabled { cursor: wait; opacity: .55; }
+@media (max-width: 600px) {
+  .arena-settings-limits label { padding-inline: var(--space-2); }
+  .sparring-detail__tools { gap: var(--space-2); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sparring-settings-trigger, .sparring-settings-trigger svg, .arena-settings-toggle__track::after { transition: none; }
+}

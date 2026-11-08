@@ -40,6 +40,8 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -378,6 +380,150 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
                 .statusCode(200)
                 .body("data.items", hasSize(1))
                 .body("data.items[0].side", equalTo("CORAL"));
+    }
+
+    @Test
+    @DisplayName("최신 60개가 민트여도 코랄의 최신 글부터 별도 페이지로 조회한다")
+    void paginatesOlderCoralPostsWithoutScanningMintPages() {
+        // Given
+        String token = member("편별조회", "sparring-side-history");
+        long id = createTopic(token);
+        insertPosts(id, 89);
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        jdbc.update(
+                """
+                update sparring_post set side = 'CORAL'
+                where id in (select id from sparring_post where topic_id = ? order by id limit 11)
+                """,
+                id);
+        List<Long> coralIds =
+                jdbc.queryForList(
+                        "select id from sparring_post where topic_id = ? and side = 'CORAL' order by id desc",
+                        Long.class,
+                        id);
+
+        // When
+        JsonPath first =
+                given().queryParam("side", "CORAL")
+                        .queryParam("size", 6)
+                        .get("/sparrings/" + id + "/posts")
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .jsonPath();
+        JsonPath second =
+                given().queryParam("side", "CORAL")
+                        .queryParam("size", 6)
+                        .queryParam("cursor", first.getString("data.nextCursor"))
+                        .get("/sparrings/" + id + "/posts")
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .jsonPath();
+
+        // Then
+        Assertions.assertEquals(coralIds.subList(0, 6), first.getList("data.items.id", Long.class));
+        Assertions.assertEquals(coralIds.subList(6, 11), second.getList("data.items.id", Long.class));
+        Assertions.assertFalse(second.getBoolean("data.hasNext"));
+        Assertions.assertNull(second.getString("data.nextCursor"));
+        given().queryParam("size", 60)
+                .get("/sparrings/" + id + "/posts")
+                .then()
+                .statusCode(200)
+                .body("data.items.side", equalTo(Collections.nCopies(60, "MINT")));
+    }
+
+    @Test
+    @DisplayName("편별 커서는 순회 시작 ID까지만 조회하고 이후 글은 다음 순회에서 조회한다")
+    void keepsIndependentSideCursorsWithinReplayBoundary() {
+        // Given
+        String token = member("순회경계", "sparring-cycle-boundary");
+        long id = createTopic(token);
+        insertPosts(id, 8);
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        List<Long> ids =
+                jdbc.queryForList(
+                        "select id from sparring_post where topic_id = ? order by id", Long.class, id);
+        for (int index = 0; index < ids.size(); index += 2) {
+            jdbc.update("update sparring_post set side = 'CORAL' where id = ?", ids.get(index));
+        }
+        long boundary = ids.getLast();
+        insertPosts(id, 2);
+        jdbc.update(
+                "update sparring_post set side = 'CORAL' where id = (select max(id) from sparring_post where topic_id = ?)",
+                id);
+
+        // When
+        for (String side : List.of("MINT", "CORAL")) {
+            JsonPath first =
+                    given().queryParam("side", side)
+                            .queryParam("throughId", boundary)
+                            .queryParam("size", 2)
+                            .get("/sparrings/" + id + "/posts")
+                            .then()
+                            .statusCode(200)
+                            .extract()
+                            .jsonPath();
+            JsonPath second =
+                    given().queryParam("side", side)
+                            .queryParam("throughId", boundary)
+                            .queryParam("size", 2)
+                            .queryParam("cursor", first.getString("data.nextCursor"))
+                            .get("/sparrings/" + id + "/posts")
+                            .then()
+                            .statusCode(200)
+                            .extract()
+                            .jsonPath();
+
+            // Then
+            int offset = side.equals("MINT") ? 1 : 0;
+            Assertions.assertEquals(
+                    List.of(ids.get(6 + offset), ids.get(4 + offset)),
+                    first.getList("data.items.id", Long.class));
+            Assertions.assertEquals(
+                    List.of(ids.get(2 + offset), ids.get(offset)),
+                    second.getList("data.items.id", Long.class));
+            Assertions.assertFalse(second.getBoolean("data.hasNext"));
+            given().queryParam("side", side)
+                    .get("/sparrings/" + id + "/posts")
+                    .then()
+                    .statusCode(200)
+                    .body("data.items", hasSize(5));
+        }
+    }
+
+    @Test
+    @DisplayName("편과 순회 경계는 선택이며 잘못된 값과 복구 조회의 혼용은 거절한다")
+    void validatesReplaySideAndBoundary() {
+        // Given
+        String token = member("경계검증", "sparring-boundary-validation");
+        long id = createTopic(token);
+        insertPosts(id, 1);
+
+        // When / Then
+        given().queryParam("throughId", 0)
+                .get("/sparrings/" + id + "/posts")
+                .then()
+                .statusCode(200)
+                .body("data.items", hasSize(0))
+                .body("data.hasNext", equalTo(false));
+        for (Map<String, Object> invalid :
+                List.<Map<String, Object>>of(
+                        Map.of("side", "BLUE"),
+                        Map.of("throughId", -1),
+                        Map.of("afterId", 0, "throughId", 0),
+                        Map.of("afterId", 0, "side", "MINT"))) {
+            given().queryParams(invalid)
+                    .get("/sparrings/" + id + "/posts")
+                    .then()
+                    .statusCode(400)
+                    .body("error.code", equalTo("INVALID_PARAMETER"));
+        }
+        given().queryParam("mine", true)
+                .queryParam("side", "MINT")
+                .get("/sparrings/" + id + "/posts")
+                .then()
+                .statusCode(401);
     }
 
     @Test
