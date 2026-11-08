@@ -22,7 +22,7 @@ export function RhythmHarpoonPage() {
   // 플레이 중 버튼을 누르면 포커스가 판을 떠나 먼저 일시정지(서랍 열림)가 된다. 누르기 직전 상태로 토글한다.
   const openBeforePress = useRef(null);
   return (
-    <section className="game-player" aria-labelledby="rhythm-harpoon-title">
+    <section className="game-player game-player--rhythm" aria-labelledby="rhythm-harpoon-title">
       <header className="game-player__toolbar">
         <Link
           aria-keyshortcuts="Escape"
