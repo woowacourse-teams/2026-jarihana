@@ -4,8 +4,20 @@ import { AVATAR_OPTIONS } from "../../../public/sparring-arena/src/avatar-appear
 const points = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const previewSchema = z.object({
   type: z.enum(["avatar", "profile"]),
-  art: z.enum(["beret", "cap", "bag", "coffee", "book", "glasses", "frame", "title"]),
-  tone: z.enum(["mint", "coral", "cream", "lilac"]),
+  art: z.enum([
+    "beret",
+    "cap",
+    "beanie",
+    "bucket",
+    "bag",
+    "coffee",
+    "book",
+    "glasses",
+    "frame",
+    "bearFrame",
+    "title"
+  ]),
+  tone: z.enum(["mint", "coral", "cream", "lilac", "rose", "butter", "cocoa"]),
   appearance: z
     .object(
       Object.fromEntries(
@@ -54,6 +66,7 @@ export const shopPurchaseResultSchema = z.object({
 });
 
 export const SHOP_ERROR_MESSAGES = Object.freeze({
+  SHOP_UNAVAILABLE: "지금은 구매할 수 없어요. 잠시 후 다시 확인해 주세요.",
   INSUFFICIENT_POINTS: "포인트가 부족해요. 잔액을 다시 확인해 주세요.",
   ALREADY_OWNED: "이미 보유한 아이템이에요.",
   PRODUCT_UNAVAILABLE: "판매가 종료된 상품이에요.",

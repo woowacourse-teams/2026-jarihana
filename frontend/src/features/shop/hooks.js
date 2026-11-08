@@ -10,11 +10,12 @@ import {
 export function useShop(client) {
   const scope = useId();
   const queryClient = useQueryClient();
-  // Demo data is scoped to this mounted screen, never shared across accounts or visits.
+  // Scope both live and demo state to this mounted account session.
   const queryKey = ["shop-preview", scope];
   const query = useQuery({
     queryKey,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
+      if (client.getSnapshot) return client.getSnapshot(signal);
       const [catalog, wallet, inventory] = await Promise.all([
         client.getShopProducts(),
         client.getPointBalance(),
@@ -26,7 +27,8 @@ export function useShop(client) {
         inventory: ownedItemsSchema.parse(inventory)
       };
     },
-    staleTime: Infinity,
+    staleTime: client.isLive ? 0 : Infinity,
+    refetchOnWindowFocus: Boolean(client.isLive),
     gcTime: 0,
     retry: false
   });
@@ -40,6 +42,7 @@ export function useShop(client) {
         queryKey,
         (current) => current && { ...current, wallet: result.wallet, inventory: result.inventory }
       );
+      if (client.isLive) void queryClient.invalidateQueries({ queryKey: ["points"] });
     }
   });
   const equipment = useMutation({

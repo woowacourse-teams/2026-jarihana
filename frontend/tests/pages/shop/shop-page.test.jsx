@@ -29,7 +29,7 @@ async function setup(client = createDemoShopClient()) {
       <ShopPreview client={client} />
     </QueryClientProvider>
   );
-  await screen.findByRole("heading", { name: "뭐든상회" });
+  await screen.findByRole("heading", { name: "득템하나?" });
   return { client, user: userEvent.setup() };
 }
 
@@ -92,13 +92,13 @@ it("포인트 부족과 판매 종료를 구분하고 카테고리로 상품을 
   expect(details()).toHaveTextContent("600 P 더 필요해요");
   await user.click(screen.getByRole("button", { name: "여름의 선글라스 상세 보기" }));
   expect(within(details()).getByRole("button", { name: "판매 종료" })).toBeDisabled();
-  await user.click(screen.getByRole("button", { name: "프로필 꾸미기 2" }));
-  expect(screen.getAllByRole("button", { name: /상세 보기/ })).toHaveLength(2);
-  await user.click(screen.getByRole("button", { name: "아바타 꾸미기 6" }));
+  await user.click(screen.getByRole("button", { name: "프로필 꾸미기 3" }));
+  expect(screen.getAllByRole("button", { name: /상세 보기/ })).toHaveLength(3);
+  await user.click(screen.getByRole("button", { name: "아바타 꾸미기 9" }));
   expect(screen.getByRole("button", { name: "시원한 커피 한 잔 상세 보기" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /나의 소지품/ })).not.toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "전체 상품 8" }));
-  expect(screen.getAllByRole("button", { name: /상세 보기/ })).toHaveLength(8);
+  await user.click(screen.getByRole("button", { name: "전체 상품 12" }));
+  expect(screen.getAllByRole("button", { name: /상세 보기/ })).toHaveLength(12);
 });
 
 it("가격 변경은 창 안에 안내하고 변경된 조건을 새로 확인하게 한다", async () => {
@@ -166,7 +166,7 @@ it("조회 실패를 안내하고 재시도로 상점을 연다", async () => {
   );
   expect(await screen.findByRole("alert")).toHaveTextContent("상점을 불러오지 못했어요");
   await userEvent.setup().click(screen.getByRole("button", { name: "다시 불러오기" }));
-  expect(await screen.findByRole("heading", { name: "뭐든상회" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "득템하나?" })).toBeInTheDocument();
 });
 
 it("모바일에서 상품을 미리 본 뒤 선택했던 상품으로 돌아간다", async () => {
@@ -185,10 +185,40 @@ it("모바일에서 상품을 미리 본 뒤 선택했던 상품으로 돌아간
     ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "상품 목록" }));
     expect(coffee).toHaveFocus();
-    await user.click(screen.getByRole("button", { name: "프로필 꾸미기 2" }));
+    await user.click(screen.getByRole("button", { name: "프로필 꾸미기 3" }));
     await user.click(screen.getByRole("button", { name: "상품 목록" }));
-    expect(screen.getByRole("button", { name: "반짝이는 내 자리 상세 보기" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "꾸벅 곰돌이 프레임 상세 보기" })).toHaveFocus();
   } finally {
     Object.defineProperty(window, "matchMedia", descriptor);
   }
+});
+
+it("실제 구매에서는 내 포인트 차감을 안내하고 서버 보유 상태를 표시한다", async () => {
+  const client = { ...createDemoShopClient(), isLive: true };
+  const { user } = await setup(client);
+  expect(screen.getByLabelText("내 포인트 1,200 P")).toBeInTheDocument();
+  expect(screen.queryByText("체험 상점")).not.toBeInTheDocument();
+  await user.click(within(details()).getByRole("button", { name: "구매하기" }));
+  expect(dialog()).toHaveTextContent("내 포인트가 차감되고");
+  await user.click(within(dialog()).getByRole("button", { name: "300 P 구매 확정" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(screen.getByLabelText("내 포인트 900 P")).toBeInTheDocument();
+  expect(details()).toHaveTextContent("구매 완료 · 보유 중");
+  expect(
+    within(details()).queryByRole("button", { name: "체험 캐릭터에 착용" })
+  ).not.toBeInTheDocument();
+});
+
+it("새 비니와 버킷햇을 입어보면 지원하는 모자와 색 조합을 전달한다", async () => {
+  const { user } = await setup();
+  await user.click(screen.getByRole("button", { name: "딸기우유 비니 상세 보기" }));
+  expect(JSON.parse(screen.getByTestId("avatar-preview").textContent)).toMatchObject({
+    hat: "beanie",
+    hatColor: "coral"
+  });
+  await user.click(screen.getByRole("button", { name: "버터 버킷햇 상세 보기" }));
+  expect(JSON.parse(screen.getByTestId("avatar-preview").textContent)).toMatchObject({
+    hat: "bucket",
+    hatColor: "cream"
+  });
 });

@@ -26,6 +26,98 @@ export function ProductArt({ art, tone = "mint" }) {
         </linearGradient>
       </defs>
       <ellipse cx="120" cy="154" rx="59" ry="8" fill="var(--color-ink)" opacity=".07" />
+      {art === "beanie" && (
+        <g transform="rotate(-7 120 95)">
+          <path d="M64 119V96c0-38 20-65 56-65s56 27 56 65v23Z" fill={paint} />
+          <path
+            d="M87 104c-2-31 3-52 15-64m7 64c-1-34 0-57 5-70m17 70c2-31-1-56-7-70m28 70c1-31-6-52-17-64"
+            stroke="var(--art-dark)"
+            strokeWidth="3"
+            strokeLinecap="round"
+            opacity=".2"
+          />
+          <rect x="58" y="105" width="124" height="38" rx="14" fill="var(--art-color)" />
+          <path
+            d="M68 115h104"
+            stroke="var(--art-light)"
+            strokeWidth="3"
+            strokeLinecap="round"
+            opacity=".8"
+          />
+          <path
+            d="M73 121v12m13-12v12m13-12v12m13-12v12m13-12v12m13-12v12m13-12v12m13-12v12"
+            stroke="var(--art-dark)"
+            strokeWidth="3"
+            strokeLinecap="round"
+            opacity=".28"
+          />
+          <path
+            d="M73 141h94"
+            stroke="var(--art-dark)"
+            strokeWidth="3"
+            strokeLinecap="round"
+            opacity=".18"
+          />
+        </g>
+      )}
+      {art === "bucket" && (
+        <g transform="rotate(8 120 95)">
+          <path d="M79 53c17-12 65-12 82 0l14 63H65Z" fill={paint} />
+          <ellipse cx="120" cy="54" rx="41" ry="11" fill="var(--art-color)" />
+          <path d="M68 106c27 13 77 13 104 0l26 29c-29 23-128 23-156 0Z" fill={paint} />
+          <path
+            d="M51 135c28 17 110 17 138 0"
+            stroke="var(--art-dark)"
+            strokeWidth="3"
+            opacity=".4"
+          />
+          <path
+            d="M73 105c25 10 69 10 94 0"
+            stroke="var(--art-dark)"
+            strokeWidth="2"
+            strokeDasharray="3 4"
+            opacity=".45"
+          />
+          <path
+            d="M88 67c-3 10-5 18-6 26"
+            stroke="var(--art-light)"
+            strokeWidth="5"
+            strokeLinecap="round"
+            opacity=".8"
+          />
+        </g>
+      )}
+      {art === "bearFrame" && (
+        <g transform="rotate(-5 120 95)">
+          <circle cx="76" cy="47" r="23" fill="var(--art-dark)" />
+          <circle cx="164" cy="47" r="23" fill="var(--art-dark)" />
+          <circle cx="76" cy="46" r="20" fill={paint} />
+          <circle cx="164" cy="46" r="20" fill={paint} />
+          <circle cx="76" cy="46" r="11" fill="var(--art-light)" />
+          <circle cx="164" cy="46" r="11" fill="var(--art-light)" />
+          <rect x="56" y="42" width="128" height="111" rx="39" fill="var(--art-dark)" />
+          <rect x="56" y="39" width="128" height="111" rx="39" fill={paint} />
+          <rect x="74" y="53" width="92" height="67" rx="26" fill="var(--color-surface)" />
+          <circle cx="120" cy="77" r="13" fill="var(--color-brand-soft)" />
+          <path d="M94 110c0-24 52-24 52 0" fill="var(--color-brand-soft)" />
+          <ellipse cx="120" cy="134" rx="19" ry="12" fill="var(--art-light)" />
+          <path
+            d="M80 126q6 6 12 0m56 0q6 6 12 0"
+            stroke="var(--art-dark)"
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
+          <ellipse cx="81" cy="136" rx="7" ry="4" fill="var(--color-cohort-2)" opacity=".4" />
+          <ellipse cx="159" cy="136" rx="7" ry="4" fill="var(--color-cohort-2)" opacity=".4" />
+          <path d="M115 129q5-3 10 0l-5 5Z" fill="var(--art-dark)" />
+          <path
+            d="M120 133v5m-6-1q6 6 12 0"
+            stroke="var(--art-dark)"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </g>
+      )}
       {art === "beret" && (
         <g transform="rotate(-12 120 95)">
           <path

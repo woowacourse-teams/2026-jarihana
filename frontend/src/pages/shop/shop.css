@@ -268,6 +268,21 @@
   --art-light: var(--color-activity-club-soft);
   --art-dark: var(--color-activity-club-ink);
 }
+.shop-art--rose {
+  --art-color: color-mix(in srgb, var(--color-cohort-2) 65%, var(--color-danger-soft));
+  --art-light: var(--color-danger-soft);
+  --art-dark: color-mix(in srgb, var(--color-danger) 58%, var(--color-danger-soft));
+}
+.shop-art--butter {
+  --art-color: color-mix(in srgb, var(--color-warning-soft) 70%, var(--color-line));
+  --art-light: var(--color-surface);
+  --art-dark: color-mix(in srgb, var(--color-warning) 30%, var(--color-line));
+}
+.shop-art--cocoa {
+  --art-color: color-mix(in srgb, var(--color-warning) 45%, var(--color-warning-soft));
+  --art-light: var(--color-warning-soft);
+  --art-dark: color-mix(in srgb, var(--color-warning) 70%, var(--color-ink));
+}
 .shop-detail-anchor {
   min-width: 0;
   align-self: stretch;
@@ -617,5 +632,31 @@
   .shop-demo-notice > span {
     display: block;
     margin-bottom: var(--space-1);
+  }
+}
+
+.shop-real-balance {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-muted-ink);
+}
+.shop-real-balance button {
+  color: var(--color-brand-ink);
+  text-decoration: underline;
+}
+.shop-owned-confirmation {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 14px;
+  font-weight: 700;
+  color: var(--color-brand-ink);
+}
+@media (max-width: 767px) {
+  .shop-real-balance {
+    margin-left: 0;
   }
 }

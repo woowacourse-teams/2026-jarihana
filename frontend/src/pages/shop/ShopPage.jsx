@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import {
   ArrowLeft,
@@ -17,6 +18,8 @@ import {
   SHOP_ERROR_MESSAGES
 } from "../../entities/shop/index.js";
 import { createDemoShopClient } from "../../features/shop/demoClient.js";
+import { createShopClient, shopApi } from "../../features/shop/api.js";
+import { usePointSummary } from "../../features/points/hooks.js";
 import { useShop } from "../../features/shop/hooks.js";
 import { useAuth } from "../../features/auth/index.js";
 import { AvatarFrame } from "../../features/avatar/AvatarFrame.jsx";
@@ -70,7 +73,17 @@ function ProductCard({ product, selected, owned, equipped, onSelect, buttonRef }
   );
 }
 
-function ProductDetail({ product, wallet, inventory, catalog, onBuy, onEquip, onBack, pending }) {
+function ProductDetail({
+  product,
+  wallet,
+  inventory,
+  catalog,
+  onBuy,
+  onEquip,
+  onBack,
+  pending,
+  live
+}) {
   const reason = purchaseBlockReason(product, wallet, inventory);
   const owned = reason === "ALREADY_OWNED";
   const equipped = inventory.equipped[product.grant.slot] === product.grant.itemId;
@@ -126,7 +139,11 @@ function ProductDetail({ product, wallet, inventory, catalog, onBuy, onEquip, on
             )}
           </strong>
         </div>
-        {owned ? (
+        {owned && live ? (
+          <p className="shop-owned-confirmation">
+            <Check size={18} /> 구매 완료 · 보유 중
+          </p>
+        ) : owned ? (
           <Button
             block
             data-ph-capture-attribute-action="shop_equipment_toggle"
@@ -149,7 +166,9 @@ function ProductDetail({ product, wallet, inventory, catalog, onBuy, onEquip, on
           {reason === "INSUFFICIENT_POINTS"
             ? `${formatPoints(product.price - wallet.balance)} 더 필요해요.`
             : owned
-              ? "언제든 다시 착용할 수 있어요."
+              ? live
+                ? "구매한 아이템은 계정에 저장돼요."
+                : "언제든 다시 착용할 수 있어요."
               : "구매 후에도 계속 사용할 수 있어요."}
         </p>
       </div>
@@ -157,7 +176,8 @@ function ProductDetail({ product, wallet, inventory, catalog, onBuy, onEquip, on
   );
 }
 
-export function ShopPreview({ client }) {
+export function ShopPreview({ client, pointsSummary }) {
+  const live = Boolean(client.isLive);
   const { query, purchase, equipment } = useShop(client);
   const [category, setCategory] = useState("all");
   const [selection, setSelection] = useState(null);
@@ -242,7 +262,7 @@ export function ShopPreview({ client }) {
           <span className="shop-heading__sign" aria-hidden="true">
             <Store size={26} strokeWidth={1.6} />
           </span>
-          <h1>뭐든상회</h1>
+          <h1>득템하나?</h1>
         </div>
         <div className="shop-heading__tools">
           <Link to="/my/avatar" data-ph-capture-attribute-action="shop_avatar_open">
@@ -250,17 +270,44 @@ export function ShopPreview({ client }) {
           </Link>
           <div className="shop-wallet" data-ph-private>
             <Coins size={19} aria-hidden="true" />
-            <span>체험 포인트</span>
-            <strong aria-label={`체험 포인트 ${formatPoints(wallet.balance)}`}>
+            <span>{live ? "내 포인트" : "체험 포인트"}</span>
+            <strong
+              aria-label={`${live ? "내 포인트" : "체험 포인트"} ${formatPoints(wallet.balance)}`}
+            >
               {formatPoints(wallet.balance)}
             </strong>
           </div>
         </div>
       </header>
-      <div className="shop-demo-notice">
-        <span>체험 상점</span>
-        <p>실제 포인트·아바타에는 반영되지 않으며, 새로고침하면 초기화돼요.</p>
-      </div>
+      {!live && (
+        <div className="shop-demo-notice">
+          <span>체험 상점</span>
+          <p>실제 포인트·아바타에는 반영되지 않으며, 새로고침하면 초기화돼요.</p>
+          {pointsSummary && (
+            <div className="shop-real-balance" data-ph-private>
+              {pointsSummary.isPending ? (
+                "내 포인트 확인 중…"
+              ) : pointsSummary.isError ? (
+                <>
+                  내 포인트를 불러오지 못했어요.
+                  <button
+                    type="button"
+                    data-ph-capture-attribute-action="shop_points_retry"
+                    onClick={() => pointsSummary.refetch()}
+                  >
+                    다시 확인
+                  </button>
+                </>
+              ) : (
+                <>
+                  내 포인트 <strong>{formatPoints(pointsSummary.data.balance)}</strong>
+                  {pointsSummary.data.processing && " · 적립 처리 중"}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       <div className="shop-feedback" role="status">
         {message}
       </div>
@@ -348,6 +395,7 @@ export function ShopPreview({ client }) {
               onEquip={equip}
               onBack={() => selectedCardRef.current?.focus()}
               pending={pending}
+              live={live}
             />
           ) : null}
         </div>
@@ -355,7 +403,11 @@ export function ShopPreview({ client }) {
       <Modal
         open={Boolean(confirmation)}
         title="이 아이템을 구매할까요?"
-        description="체험 포인트로 구매하며, 실제 포인트는 사용되지 않아요."
+        description={
+          live
+            ? "내 포인트가 차감되고, 아이템이 계정에 저장돼요."
+            : "체험 포인트로 구매하며, 실제 포인트는 사용되지 않아요."
+        }
         closeAction="shop_purchase_dismiss"
         dismissible={!purchase.isPending}
         onClose={() => setConfirmation(null)}
@@ -413,12 +465,55 @@ export function ShopPreview({ client }) {
   );
 }
 
-function DemoShopSession() {
+function DemoShopSession({ pointsSummary }) {
   const [client] = useState(() => createDemoShopClient());
+  return <ShopPreview client={client} pointsSummary={pointsSummary} />;
+}
+
+function LiveShopSession() {
+  const [client] = useState(createShopClient);
   return <ShopPreview client={client} />;
 }
 
+function ShopSession({ authenticated }) {
+  const points = usePointSummary();
+  const catalog = useQuery({
+    queryKey: ["shop-availability"],
+    queryFn: ({ signal }) => shopApi.catalog(signal),
+    enabled: authenticated,
+    retry: false,
+    staleTime: 0
+  });
+  if (!authenticated) return <DemoShopSession />;
+  if (catalog.isPending)
+    return (
+      <div className="shop-page shop-loading" role="status">
+        상점 문을 열고 있어요…
+      </div>
+    );
+  // An older server has no shop route. Other failures must never turn a real purchase into a demo.
+  if (catalog.isError && catalog.error.status !== 404)
+    return (
+      <div className="shop-page shop-loading">
+        <p role="alert">상점을 불러오지 못했어요.</p>
+        <Button
+          data-ph-capture-attribute-action="shop_load_retry"
+          onClick={() => catalog.refetch()}
+        >
+          다시 불러오기
+        </Button>
+      </div>
+    );
+  if (catalog.data?.purchasingEnabled) return <LiveShopSession />;
+  return <DemoShopSession pointsSummary={points} />;
+}
+
 export function ShopPage() {
-  const { member, sessionVersion } = useAuth();
-  return <DemoShopSession key={`${member?.id || "guest"}:${sessionVersion}`} />;
+  const { member, sessionVersion, status, logoutPending } = useAuth();
+  return (
+    <ShopSession
+      key={`${member?.id || "guest"}:${sessionVersion}:${Boolean(logoutPending)}`}
+      authenticated={Boolean(member?.id) && status === "authenticated" && !logoutPending}
+    />
+  );
 }

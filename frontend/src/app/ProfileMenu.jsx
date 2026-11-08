@@ -90,7 +90,7 @@ export function ProfileMenu() {
             onClick={() => setOpen(false)}
             to="/shop"
           >
-            상점 미리보기
+            득템하나?
           </Link>
           <button
             className="app-header__profile-option"

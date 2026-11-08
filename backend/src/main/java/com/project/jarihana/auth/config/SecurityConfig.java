@@ -22,6 +22,7 @@ public class SecurityConfig {
 
     private static final String[] PUBLIC_PATHS = {"/oauth/**"};
     private static final String[] PUBLIC_GET_PATHS = {
+            "/shop/products",
             "/games/gomoku/rooms",
             "/games/gomoku/invitations/*",
             "/home",

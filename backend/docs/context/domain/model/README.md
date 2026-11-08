@@ -154,3 +154,5 @@ erDiagram
 ## 스파링
 
 [Sparring](sparring.md): 공개 주제와 두 주장, 회원당 한 표, 여러 영구 의견과 받아치기 관계.
+
+- [Shop](shop.md): 상품 정의, 구매 차감과 영구 보유.

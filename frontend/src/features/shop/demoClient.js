@@ -55,6 +55,49 @@ const DEMO_CATALOG = shopCatalogSchema.parse({
       { badge: "추천" }
     ),
     product(
+      "strawberry-beanie",
+      "딸기우유 비니",
+      "두툼하게 접어 쓴 딸기우유색 비니. 귀까지 포근해요.",
+      "wear",
+      260,
+      "beanie",
+      "rose",
+      "hat",
+      { hat: "beanie", hatColor: "coral" }
+    ),
+    product(
+      "butter-bucket",
+      "버터 버킷햇",
+      "버터 한 조각 같은 크림색 모자. 동그란 챙이 햇빛을 가려줘요.",
+      "wear",
+      320,
+      "bucket",
+      "butter",
+      "hat",
+      { hat: "bucket", hatColor: "cream" }
+    ),
+    product(
+      "cream-picnic-bag",
+      "크림 소풍 가방",
+      "간식 하나 챙겨 나가고 싶은, 작고 말랑한 크림색 가방.",
+      "wear",
+      420,
+      "bag",
+      "butter",
+      "bag",
+      { bag: "crossbody", bagColor: "cream" }
+    ),
+    product(
+      "sleepy-bear-frame",
+      "꾸벅 곰돌이 프레임",
+      "동그란 귀에 졸린 눈. 곰돌이가 프로필을 꼭 안아줘요.",
+      "profile",
+      600,
+      "bearFrame",
+      "cocoa",
+      "frame"
+    ),
+    product(
       "bag",
       "코랄 크로스백",
       "어깨에 가볍게 걸치는 코랄색 가방.",
