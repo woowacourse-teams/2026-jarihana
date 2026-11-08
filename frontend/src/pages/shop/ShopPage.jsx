@@ -1,13 +1,14 @@
 import { useRef, useState } from "react";
 import { Link } from "react-router";
 import {
-  ArrowRight,
+  ArrowLeft,
+  ArrowUpRight,
   Check,
   Coins,
   Grid2X2,
   Package,
   Shirt,
-  Sparkles,
+  Store,
   UserRound
 } from "lucide-react";
 import {
@@ -33,26 +34,18 @@ const buttonLabels = {
   INSUFFICIENT_POINTS: "포인트 부족"
 };
 
-function ProductCard({ product, selected, owned, equipped, onSelect }) {
+function ProductCard({ product, selected, owned, equipped, onSelect, buttonRef }) {
   return (
     <button
       type="button"
+      ref={buttonRef}
       className={`shop-product${selected ? " shop-product--selected" : ""}`}
       aria-label={`${product.name} 상세 보기`}
       aria-pressed={selected}
       data-ph-capture-attribute-action="shop_product_select"
       onClick={onSelect}
     >
-      <span className={`shop-product__image shop-tone--${product.preview.tone}`}>
-        <span className="shop-product__badge">
-          {equipped
-            ? "착용 중"
-            : owned
-              ? "보유 중"
-              : product.status === "ENDED"
-                ? "판매 종료"
-                : product.badge}
-        </span>
+      <span className="shop-product__image">
         <ProductArt {...product.preview} />
         {selected && (
           <span className="shop-product__check">
@@ -61,16 +54,23 @@ function ProductCard({ product, selected, owned, equipped, onSelect }) {
         )}
       </span>
       <span className="shop-product__name">{product.name}</span>
-      {!owned && (
-        <span className="shop-product__price">
-          <Coins size={15} /> {formatPoints(product.price)}
-        </span>
-      )}
+      <span className={`shop-product__price${owned ? " shop-product__price--owned" : ""}`}>
+        {owned ? (
+          <>
+            <Check size={13} /> {equipped ? "착용 중" : "보유 중"}
+          </>
+        ) : (
+          formatPoints(product.price)
+        )}
+        {!owned && product.status === "ENDED" && (
+          <span className="shop-product__ended">판매 종료</span>
+        )}
+      </span>
     </button>
   );
 }
 
-function ProductDetail({ product, wallet, inventory, catalog, onBuy, onEquip, pending }) {
+function ProductDetail({ product, wallet, inventory, catalog, onBuy, onEquip, onBack, pending }) {
   const reason = purchaseBlockReason(product, wallet, inventory);
   const owned = reason === "ALREADY_OWNED";
   const equipped = inventory.equipped[product.grant.slot] === product.grant.itemId;
@@ -85,22 +85,25 @@ function ProductDetail({ product, wallet, inventory, catalog, onBuy, onEquip, pe
   return (
     <section className="shop-detail" aria-label="선택한 상품">
       <div className="shop-detail__heading">
-        <span>
-          <Sparkles size={16} /> 미리보기
+        <span>{product.preview.type === "avatar" ? "입어보기" : "미리보기"}</span>
+        <span className="shop-detail__sample">
+          {product.preview.type === "avatar" ? "예시 캐릭터" : "예시 아이템"}
         </span>
-        <span>{product.preview.type === "avatar" ? "예시 캐릭터" : "예시 아이템"}</span>
+        <button
+          type="button"
+          className="shop-detail__back"
+          data-ph-capture-attribute-action="shop_product_list_return"
+          onClick={onBack}
+        >
+          <ArrowLeft size={14} /> 상품 목록
+        </button>
       </div>
-      <div className={`shop-detail__stage shop-tone--${product.preview.tone}`}>
+      <div className="shop-detail__stage">
         {product.preview.type === "avatar" ? (
           <AvatarFrame appearance={appearance} mode="preview" />
         ) : (
           <ProductArt {...product.preview} />
         )}
-        <span className="shop-detail__stage-label">
-          {product.preview.type === "avatar"
-            ? "선택 상품을 미리 착용한 모습"
-            : "프로필 아이템 미리보기"}
-        </span>
       </div>
       <div className="shop-detail__body">
         <p className="shop-detail__category">
@@ -146,8 +149,8 @@ function ProductDetail({ product, wallet, inventory, catalog, onBuy, onEquip, pe
           {reason === "INSUFFICIENT_POINTS"
             ? `${formatPoints(product.price - wallet.balance)} 더 필요해요.`
             : owned
-              ? "보유 아이템은 언제든 다시 착용할 수 있어요."
-              : "한 번 구매하면 계속 사용할 수 있어요."}
+              ? "언제든 다시 착용할 수 있어요."
+              : "구매 후에도 계속 사용할 수 있어요."}
         </p>
       </div>
     </section>
@@ -162,6 +165,7 @@ export function ShopPreview({ client }) {
   const [message, setMessage] = useState("");
   const mutationLock = useRef(false);
   const detailsRef = useRef(null);
+  const selectedCardRef = useRef(null);
   const { data } = query;
 
   function openPurchase(product) {
@@ -233,22 +237,19 @@ export function ShopPreview({ client }) {
 
   return (
     <div className="shop-page">
-      <div className="shop-demo-notice">
-        <span>미리보기</span> 예시 상품과 체험 포인트예요. 실제 포인트·아바타에는 반영되지 않으며
-        새로고침하면 초기화돼요.
-      </div>
       <header className="shop-heading">
-        <div>
-          <h1>
-            뭐든상회<span aria-hidden="true">.</span>
-          </h1>
-          <p>작은 아이템으로, 조금 더 나다운 한 자리.</p>
-        </div>
-        <div className="shop-wallet" data-ph-private>
-          <span className="shop-wallet__coin">
-            <Coins size={24} />
+        <div className="shop-heading__name">
+          <span className="shop-heading__sign" aria-hidden="true">
+            <Store size={26} strokeWidth={1.6} />
           </span>
-          <div>
+          <h1>뭐든상회</h1>
+        </div>
+        <div className="shop-heading__tools">
+          <Link to="/my/avatar" data-ph-capture-attribute-action="shop_avatar_open">
+            내 아바타 <ArrowUpRight size={16} />
+          </Link>
+          <div className="shop-wallet" data-ph-private>
+            <Coins size={19} aria-hidden="true" />
             <span>체험 포인트</span>
             <strong aria-label={`체험 포인트 ${formatPoints(wallet.balance)}`}>
               {formatPoints(wallet.balance)}
@@ -256,10 +257,9 @@ export function ShopPreview({ client }) {
           </div>
         </div>
       </header>
-      <div className="shop-toolbar">
-        <Link to="/my/avatar" data-ph-capture-attribute-action="shop_avatar_open">
-          내 아바타 <ArrowRight size={15} />
-        </Link>
+      <div className="shop-demo-notice">
+        <span>체험 상점</span>
+        <p>실제 포인트·아바타에는 반영되지 않으며, 새로고침하면 초기화돼요.</p>
       </div>
       <div className="shop-feedback" role="status">
         {message}
@@ -270,8 +270,7 @@ export function ShopPreview({ client }) {
         </p>
       )}
       <div className="shop-workspace">
-        <aside className="shop-sidebar">
-          <p className="shop-sidebar__label">카테고리</p>
+        <div className="shop-toolbar">
           <nav aria-label="상품 카테고리">
             {categories.map((item) => {
               const Icon = CATEGORY_ICONS[item.id] || Package;
@@ -299,19 +298,14 @@ export function ShopPreview({ client }) {
               );
             })}
           </nav>
-          <div className="shop-sidebar__tip">
-            <Sparkles size={20} />
-            <strong>취향대로 골라보세요</strong>
-            <p>상품을 고르면 구매 전에 미리 볼 수 있어요.</p>
-          </div>
-        </aside>
+        </div>
         <section className="shop-catalog" aria-label="상점 상품">
           <div className="shop-catalog__heading">
             <h2>
               {categories.find((item) => item.id === category)?.label}{" "}
               <span>{products.length}</span>
             </h2>
-            <span>마음에 드는 아이템을 만나보세요</span>
+            <span>상품을 누르면 미리 볼 수 있어요</span>
           </div>
           {products.length ? (
             <div className="shop-product-grid">
@@ -320,6 +314,7 @@ export function ShopPreview({ client }) {
                   key={product.id}
                   product={product}
                   selected={selected?.id === product.id}
+                  buttonRef={selected?.id === product.id ? selectedCardRef : null}
                   owned={inventory.items.some((item) => item.itemId === product.grant.itemId)}
                   equipped={inventory.equipped[product.grant.slot] === product.grant.itemId}
                   onSelect={() => {
@@ -351,6 +346,7 @@ export function ShopPreview({ client }) {
               inventory={inventory}
               onBuy={openPurchase}
               onEquip={equip}
+              onBack={() => selectedCardRef.current?.focus()}
               pending={pending}
             />
           ) : null}

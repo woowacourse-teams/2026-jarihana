@@ -6,6 +6,7 @@
 `shop_avatar_open`이다. 구매창 열기·닫기·취소·확정은 `shop_purchase_open`,
 `shop_purchase_dismiss`, `shop_purchase_cancel`, `shop_purchase_confirm`을 사용한다.
 착용/해제는 `shop_equipment_toggle`, 조회 재시도는 `shop_load_retry`다.
+모바일 미리보기에서 선택했던 상품으로 돌아가기는 `shop_product_list_return`을 사용한다.
 상품·외형·잔액·요청 키를 action에 포함하지 않는다.
 잔액과 외형 미리보기는 `data-ph-private`로 가린다. 체험 구매에 실제 구매 성공 이벤트를
 발행하지 않으며 분석 전송 허용 목록을 확장하지 않는다.

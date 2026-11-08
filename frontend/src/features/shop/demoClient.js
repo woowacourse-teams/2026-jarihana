@@ -45,7 +45,7 @@ const DEMO_CATALOG = shopCatalogSchema.parse({
     product(
       "beret",
       "민트 베레모",
-      "가벼운 산책에도, 새로운 모임에도. 민트 한 스푼으로 오늘의 나를 꾸며보세요.",
+      "살짝 기울여 쓰는 둥근 민트색 모자.",
       "wear",
       300,
       "beret",
@@ -57,7 +57,7 @@ const DEMO_CATALOG = shopCatalogSchema.parse({
     product(
       "bag",
       "코랄 크로스백",
-      "좋아하는 것들을 챙겨서 어디든 함께 가요. 작은 가방에 담은 나만의 취향.",
+      "어깨에 가볍게 걸치는 코랄색 가방.",
       "wear",
       450,
       "bag",
@@ -68,7 +68,7 @@ const DEMO_CATALOG = shopCatalogSchema.parse({
     product(
       "coffee",
       "시원한 커피 한 잔",
-      "열심히 달린 하루에 잠깐의 여유. 손에 쥐고 다니는 아바타 소품이에요.",
+      "얼음 가득, 한 손에 쏙. 들고 다니는 아이스 커피.",
       "wear",
       150,
       "coffee",
@@ -79,7 +79,7 @@ const DEMO_CATALOG = shopCatalogSchema.parse({
     product(
       "book",
       "늘 함께하는 책",
-      "어디서든 한 페이지씩. 책을 좋아하는 나를 표현해 보세요.",
+      "읽던 곳에 책갈피를 끼워둔 보라색 책.",
       "wear",
       200,
       "book",
@@ -90,7 +90,7 @@ const DEMO_CATALOG = shopCatalogSchema.parse({
     product(
       "cap",
       "처음의 민트 캡",
-      "처음부터 가지고 있는 체험용 모자예요. 베레모와 번갈아 착용해 보세요.",
+      "처음부터 가지고 있는 기본 모자. 편하게 써보세요.",
       "wear",
       250,
       "cap",
@@ -101,7 +101,7 @@ const DEMO_CATALOG = shopCatalogSchema.parse({
     product(
       "frame",
       "반짝이는 내 자리",
-      "프로필을 감싸는 작은 반짝임. 아바타 이외의 상품을 위한 예시예요.",
+      "프로필 테두리에 별을 더하는 장식 프레임.",
       "profile",
       1800,
       "frame",
@@ -111,7 +111,7 @@ const DEMO_CATALOG = shopCatalogSchema.parse({
     product(
       "title",
       "함께하는 즐거움",
-      "이름 옆에 취향을 더하는 칭호예요. 프로필 꾸미기 상품의 예시입니다.",
+      "이름 옆에 달 수 있는 작은 메달 모양 칭호.",
       "profile",
       400,
       "title",
@@ -121,7 +121,7 @@ const DEMO_CATALOG = shopCatalogSchema.parse({
     product(
       "glasses",
       "여름의 선글라스",
-      "햇살 좋은 날의 작은 포인트. 판매가 끝나도 보유한 아이템은 사용할 수 있어요.",
+      "햇빛을 가려주는 둥근 검정 선글라스.",
       "wear",
       350,
       "glasses",

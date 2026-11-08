@@ -168,3 +168,27 @@ it("조회 실패를 안내하고 재시도로 상점을 연다", async () => {
   await userEvent.setup().click(screen.getByRole("button", { name: "다시 불러오기" }));
   expect(await screen.findByRole("heading", { name: "뭐든상회" })).toBeInTheDocument();
 });
+
+it("모바일에서 상품을 미리 본 뒤 선택했던 상품으로 돌아간다", async () => {
+  const descriptor = Object.getOwnPropertyDescriptor(window, "matchMedia");
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: () => ({ matches: true })
+  });
+  try {
+    const { user } = await setup();
+    const coffee = screen.getByRole("button", { name: "시원한 커피 한 잔 상세 보기" });
+    await user.click(coffee);
+    expect(screen.getByLabelText("상품 미리보기")).toHaveFocus();
+    expect(
+      within(details()).getByRole("heading", { name: "시원한 커피 한 잔" })
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "상품 목록" }));
+    expect(coffee).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "프로필 꾸미기 2" }));
+    await user.click(screen.getByRole("button", { name: "상품 목록" }));
+    expect(screen.getByRole("button", { name: "반짝이는 내 자리 상세 보기" })).toHaveFocus();
+  } finally {
+    Object.defineProperty(window, "matchMedia", descriptor);
+  }
+});
