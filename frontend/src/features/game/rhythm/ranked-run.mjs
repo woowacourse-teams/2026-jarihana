@@ -52,8 +52,9 @@ export class RankedInputLog {
     this.sequence = 0;
   }
 
+  // 서버는 앞선 묶음의 진행 시각보다 이른 입력을 받지 않는다. 묶음을 보낸 직후 처리한 키 입력도 그 시각 이후로 맞춘다.
   clamp(at) {
-    return Math.max(at, this.lastAt);
+    return Math.max(at, this.lastAt, this.lastUntil);
   }
 
   record(lane, at) {

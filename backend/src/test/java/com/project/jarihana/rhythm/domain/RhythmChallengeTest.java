@@ -80,6 +80,24 @@ class RhythmChallengeTest {
     }
 
     @Test
+    @DisplayName("서버가 이미 계산한 진행 시각보다 이른 입력은 받지 않는다")
+    void rejectsInputsBeforeTheProcessedTime() {
+        // Given
+        RhythmChallenge playing = RhythmChallenge.create(1, RhythmLevel.EASY, 1, 7, chart, NOW).start(NOW);
+        LocalDateTime later = NOW.plusSeconds(4);
+        RhythmEngine engine = playing.newEngine(chart);
+        RhythmInput first = RhythmInput.of(0, 1.0);
+        engine.play(List.of(first), 3);
+        RhythmChallenge recorded = playing.record(1, 3, List.of(first), engine, later);
+
+        // When & Then
+        assertThat(playing.checkBatch(1, 3, List.of(RhythmInput.of(0, -0.05)), later)).isNull();
+        assertThatThrownBy(() -> recorded.checkBatch(2, 5, List.of(RhythmInput.of(1, 2.5)), later))
+                .isInstanceOf(BusinessException.class);
+        assertThat(recorded.checkBatch(2, 5, List.of(RhythmInput.of(1, 3)), later)).isNull();
+    }
+
+    @Test
     @DisplayName("시작하지 않은 판은 5분, 진행 중 묶음이 끊긴 판은 30초 뒤 무효가 되고 끝난 판은 바뀌지 않는다")
     void expiresIdleChallenges() {
         // Given

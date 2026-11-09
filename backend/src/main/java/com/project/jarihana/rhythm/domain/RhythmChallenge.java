@@ -203,7 +203,11 @@ public class RhythmChallenge extends BaseEntity {
         if (inputs.size() > MAX_INPUTS_PER_BATCH) {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "한 번에 보낼 수 있는 입력이 너무 많아요.");
         }
+        // 서버가 이미 계산한 구간에 뒤늦게 입력을 넣으면 돌진 중인 세균을 다시 잡을 수 있으므로 앞선 묶음의 진행 시각 이후만 받는다.
         double previous = lastInputAt == null ? Double.NEGATIVE_INFINITY : lastInputAt;
+        if (lastSequence > 0) {
+            previous = Math.max(previous, playedUntil);
+        }
         for (RhythmInput input : inputs) {
             if (input.at() < previous || input.at() > batchPlayedUntil) {
                 throw new BusinessException(ErrorCode.INVALID_PARAMETER, "입력 시각의 순서가 올바르지 않아요.");
