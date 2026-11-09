@@ -19,9 +19,13 @@ export function createAvatarPreview(container, { platformColor = 0xf7f8ed, light
   scene.add(new THREE.HemisphereLight(0xffffff, 0xe5e7eb, lightweight ? 2.2 : 0.7));
   const sun = new THREE.DirectionalLight(0xfff5e9, 2.6);
   sun.position.set(-4, 10, 7); sun.castShadow = true;
-  Object.assign(sun.shadow.camera, { left: -2, right: 2, top: 3, bottom: -2, near: 0.5, far: 25 });
-  sun.shadow.mapSize.set(1024, 1024); sun.shadow.normalBias = 0.006; scene.add(sun);
+  Object.assign(sun.shadow.camera, { left: -1.5, right: 1.5, top: 2.5, bottom: -1, near: 0.5, far: 25 });
+  sun.shadow.mapSize.set(1024, 1024); sun.shadow.normalBias = 0.012; sun.shadow.bias = -0.0002; scene.add(sun);
   const fill = new THREE.DirectionalLight(0xe9faff, 0.5); fill.position.set(5, 4, -5); scene.add(fill);
+  if (!lightweight) {
+    const bounce = new THREE.DirectionalLight(0xf1f5ff, 0.65);
+    bounce.position.set(4, 3, 5); scene.add(bounce);
+  }
   const platform = new THREE.Mesh(new THREE.CylinderGeometry(0.91, 1, 0.12, 64), lightweight
     ? new THREE.MeshLambertMaterial({ color: platformColor }) : new THREE.MeshStandardMaterial({ color: platformColor, roughness: 0.9 }));
   platform.position.y = -0.06; platform.receiveShadow = true; scene.add(platform);
