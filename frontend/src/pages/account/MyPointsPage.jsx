@@ -64,7 +64,7 @@ export function PointBalanceCard() {
       to="/my/points"
     >
       <div className="points-wallet-link__value">
-        <h2>포인트</h2>
+        <h2><Coins size={19} aria-hidden="true" />포인트</h2>
         <PointAmount value={summary.data.balance} />
       </div>
       <span className="points-wallet-link__action">
