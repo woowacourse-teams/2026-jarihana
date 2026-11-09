@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { SparringEntryGuide } from "./SparringEntryGuide";
 import "./sparring-entry.css";
 
 const sides = ["MINT", "CORAL"];
@@ -12,6 +13,7 @@ export function SparringEntry({
   waiting = false,
   error = null,
   leaving = false,
+  showGuide = false,
   onStart,
   onWatch,
   onRetry
@@ -24,6 +26,7 @@ export function SparringEntry({
   const deadline = topic?.closesAt ? Date.parse(topic.closesAt) : null;
   const closed = deadline !== null && deadline <= now;
   const locked = busy || waiting || leaving;
+  const loading = locked && !error;
 
   useEffect(() => {
     if (deadline === null || !Number.isFinite(deadline) || closed) return undefined;
@@ -53,13 +56,7 @@ export function SparringEntry({
     };
   }, []);
 
-  const startLabel = busy
-    ? "내 편을 정하고 있어요"
-    : waiting
-      ? "경기장을 준비하고 있어요"
-      : selected
-        ? "이 편으로 시작"
-        : "내 편을 골라주세요";
+  const startLabel = loading ? "입장 중…" : selected ? "이 편으로 시작" : "내 편을 골라주세요";
 
   return (
     <section
@@ -140,10 +137,12 @@ export function SparringEntry({
                 type="button"
                 className="sparring-entry__button sparring-entry__start"
                 disabled={!topic || !selected || locked}
+                aria-busy={loading || undefined}
                 onClick={() => onStart(selected)}
                 data-ph-capture-attribute-action="sparring_entry_start"
               >
-                {startLabel}<ArrowRight size={19} aria-hidden="true" />
+                {startLabel}
+                {loading ? <span className="ui-spinner" aria-hidden="true" /> : <ArrowRight size={19} aria-hidden="true" />}
               </button>
             )}
             <button
@@ -159,6 +158,7 @@ export function SparringEntry({
           </div>
         </div>
       </div>
+      {showGuide && <SparringEntryGuide />}
     </section>
   );
 }

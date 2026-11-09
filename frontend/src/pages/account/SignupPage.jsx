@@ -20,6 +20,14 @@ import signupCompany from "../../shared/assets/illustrations/signup-expansion/si
 import { Button, Checkbox, ErrorState, Modal, Select, Skeleton, TextField } from "../../shared/ui/index.js";
 import { AccountLayout } from "./AccountLayout.jsx";
 
+// 가입을 마친 뒤 돌아갈 수 있는 곳이다. 초대, 알림, 게임방, 토론, 이벤트처럼 가입하러 오기 전에 보던 화면만 돌려보내고
+// 나머지는 마이페이지로 보낸다.
+const SIGNUP_RETURN_PREFIXES = Object.freeze(["/invitations/", "/notifications/open/", "/games/", "/sparring/", "/events/"]);
+
+export function signupReturnPath(returnTarget) {
+  return SIGNUP_RETURN_PREFIXES.some((prefix) => returnTarget.startsWith(prefix)) ? returnTarget : "/my";
+}
+
 const FIRST_COHORT_YEAR = 2018;
 const currentGeneration = Math.max(new Date().getFullYear() - FIRST_COHORT_YEAR, 1);
 const generationOptions = Array.from({ length: currentGeneration }, (_, index) => index + 1);
@@ -249,9 +257,7 @@ export function SignupPage() {
       closeConfirmation(true);
       return;
     }
-    const returnTarget = consumeReturnTarget("/my");
-    const invitationReturn = returnTarget.startsWith("/invitations/") || returnTarget.startsWith("/notifications/open/") || returnTarget.startsWith("/games/");
-    window.location.replace(invitationReturn ? returnTarget : "/my");
+    window.location.replace(signupReturnPath(consumeReturnTarget("/my")));
   }
 
   if (status === "loading") {

@@ -54,6 +54,13 @@
 | 자유게시판 | `GET` | `/api/proposals/{proposalId}/comments` | `PUBLIC` | 모임 제안 코멘트를 작성 순서대로 조회 |
 | 자유게시판 | `POST` | `/api/proposals/{proposalId}/comments` | `MEMBER` | 모임 제안 코멘트 작성 |
 | 자유게시판 | `DELETE` | `/api/proposal-comments/{commentId}` | `MEMBER` | 코멘트 작성자 또는 제안한 회원이 코멘트 숨김 |
+| 미니게임 | `GET` | `/api/events/pepero-day` | `PUBLIC` | 빼빼로데이 반 나누기 이벤트 진행 상태, 기간, 게임방으로 옮기는 시각, 서버 시각 |
+| 미니게임 | `POST` | `/api/events/pepero-day/runs` | `MEMBER` | 진행 중인 이벤트의 순위 도전 판 시작, 횟수 제한 없음 |
+| 미니게임 | `POST` | `/api/events/pepero-day/runs/{runId}/cuts` | `MEMBER + 본인 판` | 지금 차례 막대를 자르고 서버가 판정 |
+| 미니게임 | `GET` | `/api/events/pepero-day/rankings` | `PUBLIC` | 회원별 가장 좋은 끝난 판으로 매긴 상위 50명과 내 순위 |
+| 미니게임 | `POST` | `/api/games/stick-halving/runs` | `MEMBER` | 게임방으로 옮긴 반띵의 순위 도전 판 시작, 횟수 제한 없음 |
+| 미니게임 | `POST` | `/api/games/stick-halving/runs/{runId}/cuts` | `MEMBER` | 게임방 판의 막대 자르기와 판정 |
+| 미니게임 | `GET` | `/api/games/stick-halving/rankings` | `PUBLIC` | 게임방 판만으로 매긴 상위 50명과 내 순위 |
 | 피드백 | `POST` | `/api/feedbacks` | `MEMBER` | 피드백 작성 |
 | 가입 신청 | `GET` | `/api/groups/{groupId}/registrations/summary` | `LEADER` | 그룹의 미확인·처리 대기 신청 요약 조회 |
 | 가입 신청 | `PATCH` | `/api/recruitments/{recruitmentId}/registrations/read` | `LEADER` | 확인한 마지막 신청까지 읽음 처리 |
@@ -127,6 +134,14 @@
 | 오목 | `POST` | `/api/games/gomoku/rooms/{id}/invite` | `MEMBER + 대기방 참가자` | 초대 토큰 발급/회전 |
 | 오목 | `GET` | `/api/games/gomoku/invitations/{token}` | `PUBLIC` | 초대 링크의 제한된 미리보기 |
 | 오목 | `GET` | `/api/games/gomoku/rooms/{id}/events` | `MEMBER + 참가자` | SSE 전체 스냅샷 구독 |
+| 오목 | `GET` | `/api/games/gomoku/history/me/summary` | `MEMBER` | 본인 총 대국, 승/패/무와 승률 |
+| 오목 | `GET` | `/api/games/gomoku/history/me` | `MEMBER` | 본인 완료 대전기록 커서 조회 |
+| 오목 | `GET` | `/api/games/gomoku/ranking` | `MEMBER` | 누적 승수 랭킹과 내 순위 |
+| 리듬 작살 | `POST` | `/api/games/rhythm-harpoon/challenges` | `MEMBER` | 공식 도전 생성과 시드 발급 |
+| 리듬 작살 | `POST` | `/api/games/rhythm-harpoon/challenges/{id}/start` | `MEMBER + 본인` | 실제 경과 시간 기준 시각 기록 |
+| 리듬 작살 | `POST` | `/api/games/rhythm-harpoon/challenges/{id}/batches` | `MEMBER + 본인` | 입력 묶음으로 점수 재계산, 실시간 진행 검사 |
+| 리듬 작살 | `POST` | `/api/games/rhythm-harpoon/challenges/{id}/abandon` | `MEMBER + 본인` | 이탈한 도전 무효 처리 |
+| 리듬 작살 | `GET` | `/api/games/rhythm-harpoon/rankings` | `MEMBER` | 난이도별 회원 최고 기록 랭킹과 내 순위 |
 
 ## 상세 문서
 
@@ -136,6 +151,7 @@
 | --- | --- | --- |
 | 공지 | [announcements.md](announcements.md) | 공개 범위, 공지 등록·목록·상세 조회와 알림 |
 | 오목 | [gomoku.md](gomoku.md) | 공개 목록/검색, 방 생성/참가/대국, 초대와 SSE 스냅샷 |
+| 리듬 작살 | [rhythm-harpoon.md](rhythm-harpoon.md) | 공식 도전 생성/시작/입력 묶음/이탈, 서버 재계산과 난이도별 랭킹 |
 | 채팅 | [chats.md](chats.md) | 영속 메시지·읽음·복구·개인 WebSocket 경로 |
 | 초대 | [invitations.md](invitations.md) | 발급·회원 후보·수신/발급 목록·상세·공개 미리보기·취소·거절·수락·대기 신청 승인 |
 | 피드백 | [feedbacks.md](feedbacks.md) | 피드백 작성 |
@@ -148,6 +164,7 @@
 | 이미지 | [images.md](images.md) | 이미지 업로드·접근 엔드포인트 |
 | 활동 기록 | [activity-posts.md](activity-posts.md) | 사진 활동 기록 조회, 작성, 수정, 숨김과 댓글, 하트 반응 |
 | 자유게시판 | [proposals.md](proposals.md) | 모임 제안 조회, 작성, 숨김과 함께하고 싶어요 응답, 코멘트 |
+| 미니게임 | [minigames.md](minigames.md) | 빼빼로데이 반 나누기 이벤트 상태, 순위 도전 판 시작과 막대 판정, 순위 |
 | 공유 미리보기 | [share-preview.md](share-preview.md) | 그룹 공유 미리보기 HTML 엔드포인트 |
 | 알림함·웹푸시 | [notifications.md](notifications.md) | 알림함·구독·푸시 내용 조회·로그아웃 호환 확장 |
 
@@ -155,3 +172,7 @@
 
 [스파링 API](sparrings.md): 공개 주제/의견 조회, 회원 주제 등록·편 선택·의견 전송,
 SSE 메시지 스냅샷·추가분과 투표 집계. [OpenAPI](../../../openapi/sparring.yaml)
+
+- [오목 게임방 채팅](gomoku-chat.md): 입장 회차와 메시지 순번, REST 복구, SSE 알림 계약
+
+- [오목 관전](gomoku-observation.md): 관전 입장/종료, 조회 권한과 접속 인원수

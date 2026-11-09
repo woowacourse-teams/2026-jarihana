@@ -1,10 +1,28 @@
 import * as THREE from 'three';
 import { ARENA_VIEWS, createArenaCamera, fitArenaCamera, extendArenaViewport } from '../../public/sparring-arena/src/arena-framing.js';
 import { TANK, nozzlePose } from '../../public/sparring-arena/src/physics.js';
-import { createDispenserPhysics } from '../../public/sparring-arena/src/dispenser-physics.js';
+import { createDispenserPhysics, TRAY } from '../../public/sparring-arena/src/dispenser-physics.js';
 import { createPlanetPlayground } from '../../public/sparring-arena/src/planet-playground.js';
+import { brawlDepthScale } from '../../public/sparring-arena/src/history-brawl.js';
 
 jest.mock('three', () => jest.requireActual('../../public/sparring-arena/vendor/three.module.js'), { virtual: true });
+
+it.each([[1440, 700], [390, 270]])('패싸움 앞뒤 이동은 아담한 카메라를 유지하면서 화면 안의 같은 크기로 보인다 (%i × %i)', (width, height) => {
+  const camera = createArenaCamera('compact');
+  fitArenaCamera(camera, 'compact', width, height, TANK);
+  const heights = [];
+  for (const z of [6.8, 9.6, 12, 15.4]) {
+    const scale = brawlDepthScale(z, { cameraZ: camera.position.z, referenceZ: 9.6 });
+    for (const x of [-4.8, 4.8]) {
+      const foot = new THREE.Vector3(x * scale, -6.4, z).project(camera);
+      const head = new THREE.Vector3(x * scale, -6.4 + scale * 1.3, z).project(camera);
+      expect(Math.abs(foot.x)).toBeLessThan(1);
+      heights.push(Math.abs(head.y - foot.y));
+    }
+  }
+  expect(Math.max(...heights) / Math.min(...heights)).toBeLessThan(1.2);
+  expect(camera.position.toArray()).toEqual([0, -5.5, 19]);
+});
 
 function bounds(camera) {
   const points = [];
@@ -27,7 +45,7 @@ it.each([[1440, 700], [900, 550], [390, 270]])('참고 구도는 원본의 원�
   const front = new THREE.Vector3(1, -6.4, 10.8).project(camera);
   const back = new THREE.Vector3(1, -6.4, 5.1).project(camera);
   expect(front.x).toBeGreaterThan(back.x);
-  expect(ARENA_VIEWS.reference.trayWidth).toBe(14);
+  expect(ARENA_VIEWS.reference.trayWidth).toBe(5);
 });
 
 it('기존 구도로 돌아오면 직교 투영과 데스크톱의 36px 위치 보정을 복원한다', () => {
@@ -38,7 +56,7 @@ it('기존 구도로 돌아오면 직교 투영과 데스크톱의 36px 위치 �
   const box = bounds(camera);
   expect((box.minY + box.maxY) / 2).toBeCloseTo(0.24 - 72 / 700, 10);
   expect(Math.max(box.width / 1.6, (box.maxY - box.minY) / 1.32)).toBeCloseTo(1, 10);
-  expect(ARENA_VIEWS.original.trayWidth).toBe(10);
+  expect(ARENA_VIEWS.original.trayWidth).toBe(5);
 });
 
 it.each(['original', 'reference', 'compact'])('%s 구도는 좌우 여백까지 그려도 통 크기와 UI 좌표를 바꾸지 않는다', view => {
@@ -89,7 +107,7 @@ it('바닥 폭을 반복 전환해도 진행 중인 캡슐, 속도, 충돌 기�
   for (let i = 0; i < 20; i++) physics.step(1 / 120);
   const position = capsule.position.clone(), velocity = capsule.velocity.clone();
   const stats = physics.stats(0), count = physics.world.bodies.length;
-  const bumper = physics.world.bodies.find(body => body.mass === 0 && body.position.z === 10.8);
+  const bumper = physics.world.bodies.find(body => body.mass === 0 && body.position.z === TRAY.front);
   for (const width of [14, 4.4, 10, 4.4, 14, 10]) {
     physics.setTrayWidth(width);
     expect(physics.bodies[0]).toBe(capsule);
@@ -123,13 +141,13 @@ it.each([[1440, 700], [900, 380], [390, 270]])('아담한 구도는 데스크톱
 });
 
 
-it.each([[1440, 700], [900, 550], [390, 270]])('아담한 마당은 원근 확대를 보정해 기존 구도의 화면 폭에 가깝게 보인다 (%i × %i)', (width, height) => {
+it.each([[1440, 700], [900, 550], [390, 270]])('짧은 미끄럼틀은 구도별 원근을 보정해 비슷한 폭으로 보인다 (%i × %i)', (width, height) => {
   function projectedTrayWidth(view) {
     const camera = createArenaCamera(view);
     fitArenaCamera(camera, view, width, height, TANK);
     const half = ARENA_VIEWS[view].trayWidth / 2;
-    const left = new THREE.Vector3(-half, -6.52, 10.8).project(camera);
-    const right = new THREE.Vector3(half, -6.52, 10.8).project(camera);
+    const left = new THREE.Vector3(-half, TRAY.frontY, TRAY.front).project(camera);
+    const right = new THREE.Vector3(half, TRAY.frontY, TRAY.front).project(camera);
     return right.x - left.x;
   }
   const ratio = projectedTrayWidth('compact') / projectedTrayWidth('original');

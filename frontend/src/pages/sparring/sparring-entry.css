@@ -380,6 +380,18 @@
   color: #525252;
   cursor: default;
 }
+.sparring-entry__start[aria-busy="true"] {
+  border-color: var(--entry-ink);
+  background: var(--entry-fill);
+  box-shadow: 3px 4px 0 var(--entry-shadow);
+  color: var(--entry-ink);
+  cursor: progress;
+}
+.sparring-entry__start .ui-spinner {
+  flex: 0 0 19px;
+  width: 19px;
+  height: 19px;
+}
 .sparring-entry :is(button, a):focus-visible {
   outline: 3px solid #fff;
   outline-offset: 6px;

@@ -26,10 +26,13 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
             where notification.id = :id and notification.member.id = :memberId and notification.deletedAt is null
               and (:includeAnnouncements = true or notification.eventType <>
                    com.project.jarihana.notification.domain.NotificationEventType.GROUP_ANNOUNCEMENT_CREATED)
+              and (:includeChat = true or notification.eventType <>
+                   com.project.jarihana.notification.domain.NotificationEventType.CHAT_MESSAGE_RECEIVED)
             """)
     Optional<NotificationProjection> findActiveByIdAndMemberId(
             @Param("id") long id, @Param("memberId") long memberId,
-            @Param("includeAnnouncements") boolean includeAnnouncements);
+            @Param("includeAnnouncements") boolean includeAnnouncements,
+            @Param("includeChat") boolean includeChat);
 
     @Query("""
             select new com.project.jarihana.notification.query.repository.dto.NotificationProjection(
@@ -40,6 +43,8 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
               and notification.deletedAt is null
               and (:includeAnnouncements = true or notification.eventType <>
                    com.project.jarihana.notification.domain.NotificationEventType.GROUP_ANNOUNCEMENT_CREATED)
+              and (:includeChat = true or notification.eventType <>
+                   com.project.jarihana.notification.domain.NotificationEventType.CHAT_MESSAGE_RECEIVED)
               and (
                   cast(:cursorCreatedAt as LocalDateTime) is null
                   or notification.createdAt < :cursorCreatedAt
@@ -52,6 +57,7 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
             @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
             @Param("cursorId") Long cursorId,
             @Param("includeAnnouncements") boolean includeAnnouncements,
+            @Param("includeChat") boolean includeChat,
             Pageable pageable
     );
 
@@ -88,7 +94,10 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
               and notification.readAt is null
               and (:includeAnnouncements = true or notification.eventType <>
                    com.project.jarihana.notification.domain.NotificationEventType.GROUP_ANNOUNCEMENT_CREATED)
+              and (:includeChat = true or notification.eventType <>
+                   com.project.jarihana.notification.domain.NotificationEventType.CHAT_MESSAGE_RECEIVED)
             """)
     long countUnread(@Param("memberId") long memberId,
-                     @Param("includeAnnouncements") boolean includeAnnouncements);
+                     @Param("includeAnnouncements") boolean includeAnnouncements,
+                     @Param("includeChat") boolean includeChat);
 }

@@ -6,7 +6,8 @@ import { useUnreadCount } from "../features/notifications/hooks";
 import { Link, useLocation, useNavigate } from "react-router";
 import { Headset, MessageCircle, UserRound } from "lucide-react";
 
-import { storeReturnTarget, useAuth } from "../features/auth";
+import { peekReturnTarget, storeReturnTarget, useAuth } from "../features/auth";
+import { PEPERO_DAY_PATH, usePeperoDayStatus } from "../features/pepero-day";
 import {
   FeedbackForm,
   FeedbackLoginPrompt,
@@ -27,6 +28,15 @@ const SPARRING_LINK = {
   label: "토론하나?",
   requiresAuth: false,
   to: "/sparring"
+};
+
+// 빼빼로데이 이벤트 진입점이다. 서버가 이벤트를 진행 중(OPEN)이라고 할 때만 보인다.
+const PEPERO_DAY_LINK = {
+  action: "pepero_day_view",
+  isActive: (pathname) => pathname === PEPERO_DAY_PATH,
+  label: "반띵 게임",
+  requiresAuth: false,
+  to: PEPERO_DAY_PATH
 };
 
 const GAMES_LINK = {
@@ -50,6 +60,13 @@ const MEMBER_LINKS = [
 ];
 
 const DESKTOP_MEMBER_LINKS = [SPARRING_LINK, GAMES_LINK];
+
+function withEventLink(links, eventOpen) {
+  if (!eventOpen) return links;
+  const createIndex = links.findIndex((link) => link.requiresAuth);
+  if (createIndex < 0) return [...links, PEPERO_DAY_LINK];
+  return [...links.slice(0, createIndex), PEPERO_DAY_LINK, ...links.slice(createIndex)];
+}
 
 function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, status }) {
   const { pathname } = useLocation();
@@ -115,6 +132,15 @@ function FeedbackButton({ onClick, open, status }) {
 
 function AuthAction({ onNavigate, status }) {
   const { login, logout, logoutPending } = useAuth();
+  const { pathname, search, hash, state } = useLocation();
+
+  function rememberLocation() {
+    const hasGuardReturnTarget = state?.loginRequired && peekReturnTarget();
+    if (!hasGuardReturnTarget && pathname !== "/signup" && pathname !== "/oauth/callback") {
+      storeReturnTarget(`${pathname}${search}${hash}`);
+    }
+    onNavigate();
+  }
 
   if (status === "authenticated") {
     return (
@@ -144,7 +170,7 @@ function AuthAction({ onNavigate, status }) {
       <Link
         className="app-header__auth"
         data-ph-capture-attribute-action="signup_continue"
-        onClick={onNavigate}
+        onClick={rememberLocation}
         to="/signup"
       >
         가입 계속하기
@@ -157,7 +183,7 @@ function AuthAction({ onNavigate, status }) {
       className="app-header__auth app-header__auth--github"
       data-ph-capture-attribute-action="login"
       onClick={() => {
-        onNavigate();
+        rememberLocation();
         login();
       }}
       type="button"
@@ -186,7 +212,10 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
     ?? `${generationLabel(member?.generation)}${member?.course ? ` / ${COURSE_LABELS[member.course]}` : ""}`;
   const { hash, pathname, search } = useLocation();
   const chatUnread = useChatUnreadCount();
-  const activeLinkIndex = DESKTOP_MEMBER_LINKS.findIndex((link) => link.isActive(pathname));
+  const eventOpen = usePeperoDayStatus().data?.status === "OPEN";
+  const desktopLinks = withEventLink(DESKTOP_MEMBER_LINKS, eventOpen);
+  const mobileLinks = withEventLink(MEMBER_LINKS, eventOpen);
+  const activeLinkIndex = desktopLinks.findIndex((link) => link.isActive(pathname));
   const activeMenuIndex = isGroupNavigationActive(pathname) ? 0 : activeLinkIndex >= 0 ? activeLinkIndex + 1 : -1;
   const navigationKey = `${pathname}${search}${hash}`;
   const navigate = useNavigate();
@@ -275,12 +304,12 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
             data-active={activeMenuIndex >= 0}
             style={{
               "--header-active-index": Math.max(0, activeMenuIndex),
-              "--header-nav-item-count": DESKTOP_MEMBER_LINKS.length + 1
+              "--header-nav-item-count": desktopLinks.length + 1
             }}
           >
             <GroupNavigation key={navigationKey} />
             <HeaderLinks
-              links={DESKTOP_MEMBER_LINKS}
+              links={desktopLinks}
               onNavigate={() => {}}
               onProtectedNavigate={redirectToLogin}
               status={status}
@@ -422,6 +451,7 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
             <h3 className="app-header__mobile-section-title">메뉴</h3>
             <GroupNavigation key={navigationKey} mobile onNavigate={closeMenu} />
             <HeaderLinks
+              links={mobileLinks}
               onNavigate={closeMenu}
               onProtectedNavigate={redirectToLogin}
               status={status}

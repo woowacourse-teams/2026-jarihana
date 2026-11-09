@@ -19,7 +19,8 @@
 
 | Method | 경로 | 권한 | 성공 |
 | --- | --- | --- | --- |
-| `GET` | `/api/games/gomoku/rooms` | `PUBLIC` | `200 OK`, 공개 대기방 커서 목록 |
+| `GET` | `/api/games/gomoku/rooms` | `PUBLIC` | `200 OK`, 기존 상세 형식의 공개 대기방 커서 목록 |
+| `GET` | `/api/games/gomoku/rooms?view=summary` | `PUBLIC` | `200 OK`, 공개 대기방과 게임 중인 방의 요약 커서 목록 |
 | `GET` | `/api/games/gomoku/rooms/me` | `MEMBER` | `200 OK`, 현재 참여 방 |
 | `POST` | `/api/games/gomoku/rooms` | `MEMBER` | `201 Created`, 방 식별자 |
 | `POST` | `/api/games/gomoku/rooms/{id}/join` | `MEMBER + 공개 범위/토큰 검증` | `200 OK`, 방 식별자 |
@@ -40,7 +41,7 @@
 
 ### `GET /api/games/gomoku/rooms`
 
-- 설명: 참여 가능한 공개 대기방을 방장 이름으로 검색한다.
+- 설명: 방장 이름으로 공개 방을 검색한다. `view` 생략은 구버전 화면 호환용 대기방 목록이며, 새 화면은 `view=summary`를 명시한다.
 - 권한: `PUBLIC`
 
 #### Query Parameters
@@ -50,13 +51,47 @@
 | `cursor` | X | String | 첫 요청은 생략. 다음 페이지는 응답의 `nextCursor` 사용, 최대 256자 |
 | `size` | X | Integer | 기본 20, 1~100 |
 | `keyword` | X | String | 방장 크루 이름 부분 검색, 최대 50자 |
+| `view` | X | String | 생략 시 기존 계약, `summary` 지정 시 새 요약 계약. 다른 값은 400 |
 
-Request Body는 없다. `PUBLIC`, `WAITING`, 빈 손님 자리, 마지막 활동 후 30분 미경과 조건을 모두 만족하는 방만 반환한다.
-정렬은 `createdAt DESC, id DESC`다. 검색과 공개/빈자리/미만료 조건을 DB limit 전에 적용한다.
+Request Body는 없다. `view`를 생략하면 `PUBLIC`, `WAITING`, 빈 손님 자리, 마지막 활동 후 30분 미경과 조건을 모두 만족하는 방만 기존 스냅샷 형식으로 반환한다. 진행 중인 방은 기존 목록에 절대 포함하지 않는다.
+
+`view=summary`는 `PUBLIC` 방 중 `WAITING`이며 손님 자리가 비어 있고 마지막 활동 후 30분이 지나지 않은 방, 또는 `PLAYING`이며 현재 차례 기한이 지나지 않은 방을 반환한다. 진행 중인 방에는 대기 상태의 30분 만료 조건을 적용하지 않는다.
+비공개 방, 만석 대기방, `FINISHED`/`CLOSED` 방은 제외한다. 목록에 표시되어도 참가자 전용 상세 조회와 게임 중 신규 참가 제한은 유지한다.
+정렬은 `createdAt DESC, id DESC`다. 검색과 공개/상태/미만료 조건을 DB limit 전에 적용한다.
 `keyword`는 앞뒤 공백을 제거하고 대소문자를 구분하지 않는다. 빈 문자열은 전체 목록이며 `%`, `_`는 와일드카드가 아니다.
 검색어 변경 시 `cursor`를 생략하고, 같은 검색어로 다음 페이지를 요청한다.
 
-#### 응답 200
+#### 응답 200 (`view=summary`)
+
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": 1,
+        "hostMemberId": 10,
+        "hostName": "가온",
+        "hostAvatarUrl": "https://avatars.githubusercontent.com/u/123",
+        "guestMemberId": null,
+        "guestName": null,
+        "guestAvatarUrl": null,
+        "visibility": "PUBLIC",
+        "rule": "RENJU",
+        "status": "WAITING",
+        "spectatorCount": 0
+      }
+    ],
+    "nextCursor": null,
+    "hasNext": false
+  },
+  "error": null
+}
+```
+
+`items`는 위 예시의 방/참가자 요약 필드만 포함한다. 대국판, 수순, 돌 색, 착수 위치, 준비 상태와 타이머는 공개 목록에 포함하지 않는다. 결과가 없으면 빈 배열이다.
+
+#### 응답 200 (`view` 생략, 전환 기간에 유지)
 
 ```json
 {
@@ -96,13 +131,20 @@ Request Body는 없다. `PUBLIC`, `WAITING`, 빈 손님 자리, 마지막 활동
 }
 ```
 
-`items`의 원소는 [방 스냅샷](#방-스냅샷)과 같다. 결과가 없으면 `items`는 빈 배열이다.
+`items`는 [방 스냅샷](#방-스냅샷)의 전체 필드를 유지한다. 구버전 `roomSchema`가 요구하는 `board`, `hostReady`, `revision`, `serverNow` 등의 필드를 삭제하지 않는다. 대기방만 반환하므로 진행 중인 대국판을 노출하지 않는다.
+
+#### 배포와 기존 계약 제거
+
+1. 두 요청 방식을 지원하는 백엔드를 먼저 배포한다. 이미 열린 구버전 탭은 `view` 없는 요청으로 계속 동작한다.
+2. 새 프론트엔드는 첫 페이지, 검색, 다음 페이지와 자동 갱신 모두 `view=summary`를 요청한다.
+3. 기존 요청이 충분히 줄었는지 확인한 뒤, **별도 후속 PR로 기존 요청 처리와 응답 DTO를 제거한다.** 배포 성공만으로 기존 탭의 종료를 가정하거나 이번 PR에서 제거하지 않는다.
+4. 제거 시점과 판단 근거, 남아 있는 구버전 탭에 미치는 영향, 롤백 방법은 제거 PR에서 명시한다. 종료 후 `view` 없는 요청을 어떻게 처리할지도 해당 PR에서 정한다.
 
 #### 예외
 
 | 상황 | 코드 | HTTP |
 | --- | --- | --- |
-| size 범위, keyword/cursor 길이 또는 cursor 형식 오류 | `INVALID_PARAMETER` | 400 |
+| size 범위, keyword/cursor 길이, cursor 형식 또는 지원하지 않는 view 오류 | `INVALID_PARAMETER` | 400 |
 
 ### `GET /api/games/gomoku/rooms/me`
 
@@ -635,7 +677,7 @@ data: {"id":1,"hostMemberId":10,"hostName":"가온","hostAvatarUrl":"https://ava
 
 ## 방 스냅샷
 
-목록의 `items` 원소, 방 상세의 `data`, SSE의 `data`는 `GomokuRoomResponse` 필드를 공유한다.
+`view=summary` 공개 목록은 `GomokuLobbyRoomResponse` 요약을 사용한다. 전환 기간의 `view` 없는 대기방 목록, 방 상세와 SSE는 `GomokuRoomResponse`를 사용한다.
 HTTP 목록/상세에는 공통 응답 봉투가 있고 SSE에는 없다.
 
 | 필드 | 타입 | 설명 |
@@ -696,3 +738,54 @@ HTTP 목록/상세에는 공통 응답 봉투가 있고 SSE에는 없다.
 - `GomokuStreamSecurityTest`: 인증된 최초 SSE 요청과 내부 ASYNC 완료 디스패치 구분.
 
 위 테스트 범위는 실제 두 서버 배포, 운영 프록시와 부하 환경의 SSE 검증과 구분한다.
+
+## 대전기록, 승률과 랭킹
+
+다음 세 GET은 가입 완료 회원 전용이다. 인증은 공통 쿠키 계약을 따르며 다른 회원 ID로 조회할 수 없다. 성공 HTTP 200은 공통 `ApiResponse` 봉투를 사용한다. 비로그인/가입 미완료는 401 `UNAUTHENTICATED`, 잘못된 커서와 size는 400 `INVALID_PARAMETER`다.
+
+### `GET /api/games/gomoku/history/me/summary`
+
+`data`는 `total`, `wins`, `losses`, `draws`(완료 판 집계 정수)와 `winRate`(0~100, 소수 첫째 자리 반올림, 0판이면 null)다. 승률의 분모에 무승부를 포함한다. 예: 24판, 15승, 7패, 2무이면 `winRate: 62.5`다. 진행 중인 판은 집계하지 않는다.
+
+### `GET /api/games/gomoku/history/me`
+
+쿼리는 `cursor`(최초 생략, 최대 256자), `size`(기본 20, 1~100)다. 완료 시각 DESC, ID DESC로 조회하며 같은 시각의 판도 ID로 구분한다.
+
+`data`는 `items`, `nextCursor`, `hasNext`다. 각 항목은 다음 필드를 가진다.
+
+| 필드 | 의미 |
+| --- | --- |
+| `id` | 판별 기록 ID |
+| `opponentName`, `opponentAvatarUrl` | 시작 당시 상대 이름과 현재 GitHub 프로필 URL |
+| `result` | 본인 기준 `WIN`, `LOSE`, `DRAW` |
+| `rule` | `RENJU`, `FREESTYLE` |
+| `endReason` | `FIVE`, `DRAW`, `RESIGN`, `TIMEOUT` |
+| `endedAt` | 서울 기준 `YYYY-MM-DDTHH:mm:ss` 날짜/시간, 소수 초가 있을 수 있음 |
+
+시간패의 종료 시각은 판정 명령 수신 시각이 아닌 해당 차례 마감 시각이다. 기권과 진행 중 퇴장도 결과를 남긴다. 종료 후 재요청이나 방 닫힘은 기록을 추가하지 않는다. 최종 페이지는 `nextCursor: null`, `hasNext: false`다.
+
+### `GET /api/games/gomoku/ranking`
+
+쿼리와 페이지 봉투는 기록 목록과 같다. 각 항목은 `memberId`, `rank`(1부터 시작하는 순번), 현재 `name`, `avatarUrl`과 요약의 `total`, `wins`, `losses`, `draws`, `winRate`를 제공한다. 완료 대국이 있는 비탈퇴 회원만 대상이며 0승 회원도 포함한다.
+
+정렬은 승수 DESC, 총 판수 ASC, 회원 ID ASC다. 같은 승수에서는 표시 반올림 전의 정확한 승률을 우선한다. 0승에서도 총 판수/회원 ID 순으로 구분한다. 페이지 크기와 관계없이 전체 집계의 순번을 반환한다. `data.me`에는 페이지에 포함되지 않아도 본인의 동일한 순위 항목을 반환하며, 완료 대국이 없으면 null이다. 목록과 `me`는 현재 조회 시점의 집계이고 랭킹 페이지 사이에 새 대국이 끝나면 순번이 바뀔 수 있다.
+
+### 저장과 배포
+
+- V20.1은 기존 테이블/컬럼을 유지하고 `gomoku_game`만 추가한다. 구버전의 방/착수 INSERT에 새 필드가 필요하지 않다. 채팅 알림 호환 V20 다음에 적용하며, [#579](https://github.com/woowacourse-teams/2026-jarihana/pull/579)의 V21~V23보다 먼저 배포한다.
+- 기록 기능이 있는 버전은 모든 대국 시작 시 기록을 생성한다. 수집을 끄는 설정이나 환경 변수는 없다.
+- 기능 적용 이전 판을 복원하지 않는다. 방은 유지되며 기록 기능이 있는 버전에서 시작한 재대결부터 기록된다. 앱 롤백은 V20.1 스키마/기록을 지우지 않지만 기록 기능이 없는 구버전은 결과를 저장하지 못한다.
+- 결과 확정과 방 변경은 기존 방 잠금/트랜잭션 안에서 처리한다. 만료 뒤 명령이 409여도 시간패 기록은 함께 커밋하며, 기록 저장 실패는 방 상태까지 롤백한다.
+- 현재 Blue-Green 배포는 접속 전환 후 관찰과 연결 배출을 거쳐 이전 앱을 종료한다([배포 절차](../../../../../infra/blue-green-deploy/controller/deployment.md)). `GomokuExpiry`는 앱마다 만료 방을 조회하고 앱 종료 때 중단되며, 푸시 작업의 PAUSED/권한 인계에 참여하지 않는다. 따라서 기록 기능이 없는 이전 앱이 새 앱에서 시작한 판을 시간패로 종료하면 기록이 미완료로 남을 수 있다. 설정 제거만으로 최초 배포의 무누락을 보장하지 않는다.
+- 최초 기능 도입 중의 기록 누락은 허용하며, 임시 DB 트리거나 기존 진행 판의 시작 기록 보완은 추가하지 않는다. 이후 배포와 롤백에서는 결과를 변경하는 모든 앱 버전이 기록 저장을 지원해야 한다.
+- `GomokuHistoryAcceptanceTest`가 제거된 설정에 false가 남아 있어도 수집하는지와 재대결, 퇴장, 기권, 시간패, 무승부, 정상 승리/중복 요청, 동시 만료, 기록 실패 롤백, 인증, 커서와 집계를 검증한다. 서로 다른 앱 버전이 동시에 동작하는 배포 검증은 포함하지 않는다.
+- `./gradlew gomokuCutoverTest`는 독립된 두 애플리케이션 JVM과 하나의 격리된 PostgreSQL 17을 실행한다. 실제 HTTP 요청 대상을 이전 서버에서 새 서버로 바꾸어 승리/재대결/재요청을 검증하고, 이전 JVM의 SIGTERM 종료 후 새 서버의 착수/시간패 기록을 검증한다. 양쪽 `GomokuExpiry`를 활성화한 상태에서 같은 방 잠금에 두 작업이 실제로 대기하는 것을 DB에서 확인한 뒤, 기록 한 건과 revision 한 번 증가를 검증한다. 별도 JVM/컨테이너 실행이 필요한 이 검사는 기본 `test`와 분리한다.
+- 위 태스크의 Nginx 시나리오는 운영 [Nginx 템플릿](../../../../../infra/blue-green-deploy/nginx/nginx.conf.template)을 그대로 렌더링하고, 실제 upstream을 관측하는 테스트 전용 응답 헤더만 추가한다. digest로 고정한 Nginx 1.30.5 컨테이너에서 `nginx -t`, 설정 교체, reload, 3회 연속 upstream probe 확인을 수행한다. 같은 master PID를 유지하며 실제 게임 요청의 upstream 헤더와 접근 로그가 이전/새 JVM 포트로 전환되는지 검증한다. 이전 worker에 열린 SSE가 새 JVM의 승리 결과를 받는 경우와 worker 배출 뒤 이전 JVM을 종료하고 시간패/재대결 기록을 저장하는 경우를 포함한다. Nginx 시나리오만 실행하려면 `./gradlew gomokuCutoverTest --tests '*Nginx*'`를 사용한다. 두 JVM은 같은 기록 지원 빌드이며 운영 EC2/CloudFront 배포 파이프라인이나 서로 다른 릴리스 간 호환성은 검증하지 않는다.
+
+## 게임방 채팅
+
+참가자 채팅은 [별도 계약](gomoku-chat.md)과 [운영 가이드](../../../operations/gomoku-chat.md)를 따른다. 모임 채팅과 별개이며 기본 비활성이다.
+
+## 공개 대국 관전
+
+공개 대국 관전의 입장, 종료, participationId 조회/SSE와 spectatorCount 계약은 [관전 API](gomoku-observation.md)를 따른다.

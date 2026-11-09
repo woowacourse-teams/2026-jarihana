@@ -10,7 +10,8 @@ public enum NotificationEventType {
     INVITATION_RECEIVED,
     ACTIVITY_POST_COMMENTED,
     ACTIVITY_POST_REACTED,
-    GROUP_ANNOUNCEMENT_CREATED;
+    GROUP_ANNOUNCEMENT_CREATED,
+    CHAT_MESSAGE_RECEIVED;
 
     public boolean isActivityPostEvent() {
         return this == ACTIVITY_POST_COMMENTED || this == ACTIVITY_POST_REACTED;

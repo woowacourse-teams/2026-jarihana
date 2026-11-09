@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.util.Objects;
+import java.util.UUID;
 
 @Getter
 @Entity
@@ -22,13 +23,24 @@ public class GomokuSeat {
 
     private long roomId;
 
-    private GomokuSeat(long memberId, long roomId) {
+    private long chatStartSequence;
+
+    @Column(nullable = false)
+    private UUID participationId;
+
+    private GomokuSeat(long memberId, long roomId, long chatStartSequence) {
         this.id = memberId;
         this.roomId = roomId;
+        this.chatStartSequence = chatStartSequence;
+        participationId = UUID.randomUUID();
     }
 
     public static GomokuSeat claim(long memberId, long roomId) {
-        return new GomokuSeat(memberId, roomId);
+        return claim(memberId, roomId, 0);
+    }
+
+    public static GomokuSeat claim(long memberId, long roomId, long chatStartSequence) {
+        return new GomokuSeat(memberId, roomId, chatStartSequence);
     }
 
     @Override
